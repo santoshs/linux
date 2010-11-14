@@ -34,7 +34,7 @@ enum shdma_desc_status {
 	DESC_WAITING,	/* callback called, waiting for ack / re-submit */
 };
 
-#define NR_DESCS_PER_CHANNEL 32
+#define NR_DESCS_PER_CHANNEL 128
 
 #define to_shdma_chan(c) container_of(c, struct shdma_chan, dma_chan)
 #define to_shdma_dev(d) container_of(d, struct shdma_dev, dma_dev)
