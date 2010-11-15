@@ -322,4 +322,8 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	help
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
+
+config BATTERY_DUMMY
+	bool "Dummy battery driver"
+
 endif # POWER_SUPPLY
