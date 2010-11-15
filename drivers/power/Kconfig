@@ -235,4 +235,7 @@ config CHARGER_GPIO
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
 
+config BATTERY_DUMMY
+	bool "Dummy battery driver"
+
 endif # POWER_SUPPLY
