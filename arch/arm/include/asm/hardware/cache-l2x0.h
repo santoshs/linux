@@ -102,6 +102,11 @@
 
 #define L2X0_ADDR_FILTER_EN		1
 
+#define L2X0_PREFETCH_CTRL_PREFETCH_DROP_SHIFT	24
+#define L2X0_PREFETCH_CTRL_DATA_PREFETCH_SHIFT	28
+#define L2X0_PREFETCH_CTRL_INSTR_PREFETCH_SHIFT	29
+#define L2X0_PREFETCH_CTRL_DOUBLE_LINEFILL_SHIFT 30
+
 #ifndef __ASSEMBLY__
 extern void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask);
 #if defined(CONFIG_CACHE_L2X0) && defined(CONFIG_OF)
