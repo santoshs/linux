@@ -323,6 +323,7 @@ static void l2x0_disable(void)
 void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
+	__u32 prefetch;
 	__u32 way_size = 0;
 	const char *type;
 
@@ -330,6 +331,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 
 	l2x0_cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
 	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
+	prefetch = readl_relaxed(l2x0_base + L2X0_PREFETCH_CTRL);
 
 	aux &= aux_mask;
 	aux |= aux_val;
@@ -364,6 +366,41 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	l2x0_size = l2x0_ways * way_size;
 	l2x0_sets = way_size / CACHE_LINE_SIZE;
 
+	/* Performance improvements, power saving settings, etc. */
+	switch (l2x0_cache_id & L2X0_CACHE_ID_PART_MASK) {
+	case L2X0_CACHE_ID_PART_L310:
+		/*
+		 * Enable internal instruction and data prefetching engine
+		 * if configured.
+		 */
+#ifdef CONFIG_CACHE_PL310_INSN_PREFETCH
+		aux |= 1 << 29;
+		prefetch |= 1 << 29;
+#endif
+#ifdef CONFIG_CACHE_PL310_DATA_PREFETCH
+		aux |= 1 << 28;
+		prefetch |= 1 << 28;
+#endif
+		/*
+		 * Enable prefetch-related features that can improve system
+		 * performance.  All bits in the prefetch control register
+		 * are set to zero by default, and we assume here that no
+		 * preceding softwares such as bootloaders set up these bits.
+		 */
+#ifdef CONFIG_CACHE_PL310_PREFETCH_DOUBLE_LINEFILL
+		/* safely available in r3p2 or later */
+		if ((l2x0_cache_id & 0x3f) > 0x6)
+			prefetch |= 1 << 30;
+			/* bit 27 and 23 are left unused for now */
+#endif
+#ifdef CONFIG_CACHE_PL310_PREFETCH_DROP
+		/* safely available in r3p1 or later */
+		if ((l2x0_cache_id & 0x3f) > 0x5)
+			prefetch |= 1 << 24;
+#endif
+		break;
+	}
+
 	/*
 	 * Check if l2x0 controller is already enabled.
 	 * If you are booting from non-secure mode
@@ -373,6 +410,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 
 		/* l2x0 controller is disabled */
 		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
+		writel_relaxed(prefetch, l2x0_base + L2X0_PREFETCH_CTRL);
 
 		l2x0_inv_all();
 
@@ -392,4 +430,6 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			l2x0_ways, l2x0_cache_id, aux, l2x0_size);
+	printk(KERN_INFO "l2x0: PREFETCH_CTRL 0x%08x\n",
+			prefetch);
 }
