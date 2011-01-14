@@ -324,6 +324,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
 	__u32 prefetch;
+	__u32 power;
 	__u32 way_size = 0;
 	const char *type;
 
@@ -332,6 +333,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	l2x0_cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
 	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	prefetch = readl_relaxed(l2x0_base + L2X0_PREFETCH_CTRL);
+	power = readl_relaxed(l2x0_base + L2X0_POWER_CTRL);
 
 	aux &= aux_mask;
 	aux |= aux_val;
@@ -398,6 +400,9 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 		if ((l2x0_cache_id & 0x3f) > 0x5)
 			prefetch |= 1 << 24;
 #endif
+#ifdef CONFIG_CACHE_PL310_DYNAMIC_CLOCK_GATING
+		power |= L2X0_DYNAMIC_CLK_GATING_EN;
+#endif
 		break;
 	}
 
@@ -411,6 +416,7 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 		/* l2x0 controller is disabled */
 		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
 		writel_relaxed(prefetch, l2x0_base + L2X0_PREFETCH_CTRL);
+		writel_relaxed(power, l2x0_base + L2X0_POWER_CTRL);
 
 		l2x0_inv_all();
 
@@ -430,6 +436,6 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			l2x0_ways, l2x0_cache_id, aux, l2x0_size);
-	printk(KERN_INFO "l2x0: PREFETCH_CTRL 0x%08x\n",
-			prefetch);
+	printk(KERN_INFO "l2x0: PREFETCH_CTRL 0x%08x POWER_CTRL 0x%08x\n",
+			prefetch, power);
 }
