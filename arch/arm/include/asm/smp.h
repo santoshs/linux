@@ -66,6 +66,13 @@ extern void platform_secondary_init(unsigned int cpu);
 extern void platform_smp_prepare_cpus(unsigned int);
 
 /*
+ * Skip the secondary calibration on architectures sharing clock
+ * with primary cpu. Needs to be called for archs inside
+ * platform_secondary_init()
+ */
+extern void secondary_skip_calibrate(void);
+
+/*
  * Initial data for bringing up a secondary CPU.
  */
 struct secondary_data {
