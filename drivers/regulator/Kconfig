@@ -74,6 +74,14 @@ config REGULATOR_GPIO
 	  and the platform has to provide a mapping of GPIO-states
 	  to target volts/amps.
 
+config REGULATOR_GPIO_SWITCH
+	bool "GPIO based enable/disable of power rails."
+	default n
+	help
+	  This driver supports gpio based switch control of the power rails.
+	  Say Yes if the given platform have the rail enable through the
+	  gpios.
+
 config REGULATOR_AD5398
 	tristate "Analog Devices AD5398/AD5821 regulators"
 	depends on I2C
