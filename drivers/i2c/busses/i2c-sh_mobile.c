@@ -206,7 +206,11 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 	 * We also round off the result.
 	 */
 	num = i2c_clk * 5;
+#ifdef CONFIG_ARCH_SH73A0
+	denom = pd->bus_speed * 9 * 2;
+#else
 	denom = pd->bus_speed * 9;
+#endif
 	tmp = num * 10 / denom;
 	if (tmp % 10 >= 5)
 		pd->iccl = (u_int8_t)((num/denom) + 1);
