@@ -43,6 +43,7 @@
 
 #define R8A66597_BASE_BUFNUM	6
 #define R8A66597_MAX_BUFNUM	0x4F
+#define R8A66597_MAX_DMA_CHANNELS	2
 
 #define is_bulk_pipe(pipenum)	\
 	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
@@ -72,6 +73,7 @@ struct r8a66597_request {
 struct r8a66597_ep {
 	struct usb_ep		ep;
 	struct r8a66597		*r8a66597;
+	struct r8a66597_dma	*dma;
 
 	struct list_head	queue;
 	unsigned		busy:1;
@@ -93,6 +95,27 @@ struct r8a66597_ep {
 	unsigned char		pipetrn;
 };
 
+/*
+ * Use CH0 and CH1 with their transfer direction fixed.  Please refer
+ * to [Restrictions] 4) IN/OUT switching after NULLL packet reception,
+ * at the end of "DMA Transfer Function, (3) DMA transfer flow" in the
+ * datasheet.
+ */
+#define USBHS_DMAC_OUT_CHANNEL	0
+#define USBHS_DMAC_IN_CHANNEL	1
+
+struct r8a66597_dma {
+	struct r8a66597_ep	*ep;
+	unsigned long		expect_dmicr;
+	unsigned long		chcr_ts;
+	int			channel;
+	int			tx_size;
+
+	unsigned		initialized:1;
+	unsigned		used:1;
+	unsigned		dir:1;	/* 1 = IN(write), 0 = OUT(read) */
+};
+
 struct r8a66597 {
 	spinlock_t		lock;
 	void __iomem		*reg;
@@ -109,6 +132,7 @@ struct r8a66597 {
 	struct r8a66597_ep	ep[R8A66597_MAX_NUM_PIPE];
 	struct r8a66597_ep	*pipenum2ep[R8A66597_MAX_NUM_PIPE];
 	struct r8a66597_ep	*epaddr2ep[16];
+	struct r8a66597_dma	dma[R8A66597_MAX_DMA_CHANNELS];
 
 	struct timer_list	timer;
 	struct usb_request	*ep0_req;	/* for internal request */

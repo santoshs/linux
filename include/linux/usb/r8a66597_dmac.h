@@ -45,6 +45,14 @@
 #define TEND_1		0x58
 #define DMAOR		0x60
 
+#define USBHS_DMAC_SAR(channel)		((channel) ? SAR_1 : SAR_0)
+#define USBHS_DMAC_DAR(channel)		((channel) ? DAR_1 : DAR_0)
+#define USBHS_DMAC_TCR(channel)		((channel) ? TCR_1 : TCR_0)
+#define USBHS_DMAC_TOCNTR(channel)	((channel) ? TOCNTR_1 : TOCNTR_0)
+#define USBHS_DMAC_TOCSTR(channel)	((channel) ? TOCSTR_1 : TOCSTR_0)
+#define USBHS_DMAC_CHCR(channel)	((channel) ? CHCR_1 : CHCR_0)
+#define USBHS_DMAC_TEND(channel)	((channel) ? TEND_1 : TEND_0)
+
 /* VCR Register */
 #define ERR_SNT		(1 << 1)	/* Send Error Response */
 #define ERR_RCV		(1 << 0)	/* Receive Error Response */
@@ -71,6 +79,8 @@
 #define SP0	(1 << 1)	/* CH0 Short Packet Rx Int Src */
 #define TE0	(1 << 0)	/* Ch0 Tx End Int Src */
 
+#define USBHS_DMAC_DMICR_SP(channel)	((channel) ? SP1 : SP0)
+#define USBHS_DMAC_DMICR_TE(channel)	((channel) ? TE1 : TE0)
 
 /* CHCR Register */
 #define FTE	(1 << 24)	/* Forced TE Set Register */
