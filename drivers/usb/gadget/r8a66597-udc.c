@@ -264,6 +264,50 @@ static inline void control_reg_sqclr(struct r8a66597 *r8a66597, u16 pipenum)
 		printk(KERN_ERR "unexpect pipe num(%d)\n", pipenum);
 }
 
+static inline void control_reg_sqset(struct r8a66597 *r8a66597, u16 pipenum)
+{
+	unsigned long offset;
+
+	pipe_stop(r8a66597, pipenum);
+
+	if (pipenum == 0)
+		r8a66597_bset(r8a66597, SQSET, DCPCTR);
+	else if (pipenum < R8A66597_MAX_NUM_PIPE) {
+		offset = get_pipectr_addr(pipenum);
+		r8a66597_bset(r8a66597, SQSET, offset);
+	} else
+		printk(KERN_ERR "unexpect pipe num(%d)\n", pipenum);
+}
+
+static inline u16 control_reg_sqmon(struct r8a66597 *r8a66597, u16 pipenum)
+{
+	unsigned long offset;
+
+	if (pipenum == 0)
+		return r8a66597_read(r8a66597, DCPCTR) & SQMON;
+	else if (pipenum < R8A66597_MAX_NUM_PIPE) {
+		offset = get_pipectr_addr(pipenum);
+		return r8a66597_read(r8a66597, offset) & SQMON;
+	} else
+		printk(KERN_ERR "unexpect pipe num(%d)\n", pipenum);
+
+	return 0;
+}
+
+static u16 save_usb_toggle(struct r8a66597 *r8a66597, u16 pipenum)
+{
+	return control_reg_sqmon(r8a66597, pipenum);
+}
+
+static void restore_usb_toggle(struct r8a66597 *r8a66597, u16 pipenum,
+			       u16 toggle)
+{
+	if (toggle)
+		control_reg_sqset(r8a66597, pipenum);
+	else
+		control_reg_sqclr(r8a66597, pipenum);
+}
+
 static inline int get_buffer_size(struct r8a66597 *r8a66597, u16 pipenum)
 {
 	u16 tmp;
@@ -415,6 +459,49 @@ static void pipe_initialize(struct r8a66597_ep *ep)
 
 		r8a66597_bset(r8a66597, mbw_value(r8a66597), ep->fifosel);
 	}
+}
+
+static void disable_fifosel(struct r8a66597 *r8a66597, u16 pipenum,
+			    u16 fifosel)
+{
+	u16 tmp;
+
+	tmp = r8a66597_read(r8a66597, fifosel) & CURPIPE;
+	if (tmp == pipenum)
+		r8a66597_bclr(r8a66597, CURPIPE, fifosel);
+}
+
+static void change_bfre_mode(struct r8a66597 *r8a66597, u16 pipenum,
+			     int enable)
+{
+	struct r8a66597_ep *ep = r8a66597->pipenum2ep[pipenum];
+	u16 tmp, toggle;
+
+	/* check current BFRE bit */
+	r8a66597_write(r8a66597, pipenum, PIPESEL);
+	tmp = r8a66597_read(r8a66597, PIPECFG) & R8A66597_BFRE;
+	if ((enable && tmp) || (!enable && !tmp))
+		return;
+
+	/* change BFRE bit */
+	pipe_stop(r8a66597, pipenum);
+	disable_fifosel(r8a66597, pipenum, CFIFOSEL);
+	disable_fifosel(r8a66597, pipenum, D0FIFOSEL);
+	disable_fifosel(r8a66597, pipenum, D1FIFOSEL);
+
+	toggle = save_usb_toggle(r8a66597, pipenum);
+
+	r8a66597_write(r8a66597, pipenum, PIPESEL);
+	if (enable)
+		r8a66597_bset(r8a66597, R8A66597_BFRE, PIPECFG);
+	else
+		r8a66597_bclr(r8a66597, R8A66597_BFRE, PIPECFG);
+
+	/* initialize for internal BFRE flag */
+	r8a66597_bset(r8a66597, ACLRM, ep->pipectr);
+	r8a66597_bclr(r8a66597, ACLRM, ep->pipectr);
+
+	restore_usb_toggle(r8a66597, pipenum, toggle);
 }
 
 static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
@@ -592,6 +679,7 @@ static void start_packet_write(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
+	u16 tmp;
 	u16 pipenum = ep->pipenum;
 
 	if (!req->req.buf)
@@ -601,13 +689,23 @@ static void start_packet_write(struct r8a66597_ep *ep,
 	if (req->req.length == 0) {
 		transfer_complete(ep, req, 0);
 	} else {
-		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0)
-			printk(KERN_WARNING "%s: cannot get dma!\n", __func__);
-		pipe_change(r8a66597, pipenum);
-		disable_irq_nrdy(r8a66597, pipenum);
-		pipe_start(r8a66597, ep->pipenum);
-		enable_irq_nrdy(r8a66597, pipenum);
-		start_dma(r8a66597, ep, req);
+		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
+			/* PIO mode */
+			pipe_change(r8a66597, ep->pipenum);
+			disable_irq_empty(r8a66597, ep->pipenum);
+			pipe_start(r8a66597, ep->pipenum);
+			tmp = r8a66597_read(r8a66597, ep->fifoctr);
+			if (unlikely((tmp & FRDY) == 0))
+				pipe_irq_enable(r8a66597, ep->pipenum);
+			else
+				irq_packet_write(ep, req);
+		} else {
+			pipe_change(r8a66597, pipenum);
+			disable_irq_nrdy(r8a66597, pipenum);
+			pipe_start(r8a66597, ep->pipenum);
+			enable_irq_nrdy(r8a66597, pipenum);
+			start_dma(r8a66597, ep, req);
+		}
 	}
 }
 
@@ -633,11 +731,16 @@ static void start_packet_read(struct r8a66597_ep *ep,
 			r8a66597_bset(r8a66597, TRENB, ep->pipetre);
 		}
 
-		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0)
-			printk(KERN_WARNING "%s: cannot get dma!\n", __func__);
-		pipe_change(r8a66597, pipenum);
-		start_dma(r8a66597, ep, req);
-		pipe_start(r8a66597, pipenum);	/* trigger once */
+		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
+			/* PIO mode */
+			change_bfre_mode(r8a66597, ep->pipenum, 0);
+			pipe_start(r8a66597, pipenum);	/* trigger once */
+			pipe_irq_enable(r8a66597, pipenum);
+		} else {
+			pipe_change(r8a66597, pipenum);
+			start_dma(r8a66597, ep, req);
+			pipe_start(r8a66597, pipenum);	/* trigger once */
+		}
 	}
 }
 
@@ -933,12 +1036,13 @@ static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
 	struct r8a66597_dma *dma = NULL;
 	int ch;
 
+	/* Check transfer type */
+	if (!is_bulk_pipe(ep->pipenum))
+		return -EIO;
+
 	/* Check buffer alignment */
-	if (!usb_dma_check_alignment(req->req.buf, 8)) {
-		printk(KERN_ERR "%s: unsupported aligment %p\n",
-			__func__, req->req.buf);
+	if (!usb_dma_check_alignment(req->req.buf, 8))
 		return -EINVAL;
-	}
 
 	/* Find available DMA channels */
 	if (ep->desc->bEndpointAddress & USB_DIR_IN)
@@ -973,6 +1077,7 @@ static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
 		dma->dir = 0;
 		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
 				    USBHS_DMAC_DMICR_SP(ch);
+		change_bfre_mode(r8a66597, ep->pipenum, 1);
 	}
 
 	ep->use_dma = 1;
