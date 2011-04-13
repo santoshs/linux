@@ -112,6 +112,22 @@ struct r8a66597_platdata {
 #define	PIPE4TRN	0x9E
 #define	PIPE5TRE	0xA0
 #define	PIPE5TRN	0xA2
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+#define	PIPEBTRE	0xA4
+#define	PIPEBTRN	0xA6
+#define	PIPECTRE	0xA8
+#define	PIPECTRN	0xAA
+#define	PIPEDTRE	0xAC
+#define	PIPEDTRN	0xAE
+#define	PIPEETRE	0xB0
+#define	PIPEETRN	0xB2
+#define	PIPEFTRE	0xB4
+#define	PIPEFTRN	0xB6
+#define	PIPE9TRE	0xB8
+#define	PIPE9TRN	0xBA
+#define	PIPEATRE	0xBC
+#define	PIPEATRN	0xBE
+#endif
 #define DEVADD0		0xD0
 #define DEVADD1		0xD2
 #define DEVADD2		0xD4

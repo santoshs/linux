@@ -27,13 +27,26 @@
 #include <linux/clk.h>
 #endif
 
+#if defined(CONFIG_ARCH_SH73A0)
+#define USBHS_TYPE_BULK_PIPES_12
+#endif
+
 #include <linux/usb/r8a66597.h>
 #include <linux/usb/r8a66597_dmac.h>
 
 #define R8A66597_MAX_SAMPLING	10
 
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+#define R8A66597_MAX_NUM_PIPE		16
+#define R8A66597_MAX_NUM_BULK		12
+#define R8A66597_MAX_NUM_BULK_1ST	5	/* pipe 1 to 5 */
+#define R8A66597_MAX_NUM_BULK_2ND	6	/* pipe 9 to F */
+#define R8A66597_BASE_PIPENUM_BULK_2ND	9
+#define R8A66597_END_OF_PIPENUM_BULK	0x0F
+#else
 #define R8A66597_MAX_NUM_PIPE	8
 #define R8A66597_MAX_NUM_BULK	3
+#endif
 #define R8A66597_MAX_NUM_ISOC	2
 #define R8A66597_MAX_NUM_INT	2
 
@@ -42,18 +55,35 @@
 #define R8A66597_BASE_PIPENUM_INT	6
 
 #define R8A66597_BASE_BUFNUM	6
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+#define R8A66597_MAX_BUFNUM	0x87
+#else
 #define R8A66597_MAX_BUFNUM	0x4F
+#endif
 #define R8A66597_MAX_DMA_CHANNELS	2
 
-#define is_bulk_pipe(pipenum)	\
-	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
-	 (pipenum < (R8A66597_BASE_PIPENUM_BULK + R8A66597_MAX_NUM_BULK)))
 #define is_interrupt_pipe(pipenum)	\
 	((pipenum >= R8A66597_BASE_PIPENUM_INT) && \
 	 (pipenum < (R8A66597_BASE_PIPENUM_INT + R8A66597_MAX_NUM_INT)))
 #define is_isoc_pipe(pipenum)	\
 	((pipenum >= R8A66597_BASE_PIPENUM_ISOC) && \
 	 (pipenum < (R8A66597_BASE_PIPENUM_ISOC + R8A66597_MAX_NUM_ISOC)))
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline int is_bulk_pipe(u16 pipenum)
+{
+	if (is_interrupt_pipe(pipenum))
+		return 0;
+	if (pipenum >= R8A66597_BASE_PIPENUM_BULK &&
+	    pipenum <= R8A66597_END_OF_PIPENUM_BULK)
+		return 1;
+	else
+		return 0;
+}
+#else
+#define is_bulk_pipe(pipenum)	\
+	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
+	 (pipenum < (R8A66597_BASE_PIPENUM_BULK + R8A66597_MAX_NUM_BULK)))
+#endif
 
 struct r8a66597_pipe_info {
 	u16	pipe;
@@ -314,10 +344,57 @@ static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
 			r8a66597_dma_mdfy(r8a66597, val, 0, offset)
 
 #define get_pipectr_addr(pipenum)	(PIPE1CTR + (pipenum - 1) * 2)
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline unsigned long get_pipetre_addr(u16 pipenum)
+{
+	const unsigned long offset[] = {
+		0,		PIPE1TRE,	PIPE2TRE,	PIPE3TRE,
+		PIPE4TRE,	PIPE5TRE,	0,		0,
+		0,		PIPE9TRE,	PIPEATRE,	PIPEBTRE,
+		PIPECTRE,	PIPEDTRE,	PIPEETRE,	PIPEFTRE,
+	};
+
+	if (offset[pipenum] == 0) {
+		printk(KERN_ERR "no PIPEnTRE (%d)\n", pipenum);
+		return 0;
+	}
+
+	return offset[pipenum];
+}
+
+static inline unsigned long get_pipetrn_addr(u16 pipenum)
+{
+	const unsigned long offset[] = {
+		0,		PIPE1TRN,	PIPE2TRN,	PIPE3TRN,
+		PIPE4TRN,	PIPE5TRN,	0,		0,
+		0,		PIPE9TRN,	PIPEATRN,	PIPEBTRN,
+		PIPECTRN,	PIPEDTRN,	PIPEETRN,	PIPEFTRN,
+	};
+
+	if (offset[pipenum] == 0) {
+		printk(KERN_ERR "no PIPEnTRN (%d)\n", pipenum);
+		return 0;
+	}
+
+	return offset[pipenum];
+}
+
+#else
 #define get_pipetre_addr(pipenum) (PIPE1TRE + (pipenum - 1) * 4)
 #define get_pipetrn_addr(pipenum) (PIPE1TRN + (pipenum - 1) * 4)
+#endif
 
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline int check_bulk_or_isoc(u16 pipenum)
+{
+	if (is_bulk_pipe(pipenum) || is_isoc_pipe(pipenum))
+		return 1;
+	else
+		return 0;
+}
+#else
 #define check_bulk_or_isoc(pipenum) ((pipenum >= 1 && pipenum <= 5))
+#endif
 #define check_interrupt(pipenum)  ((pipenum >= 6 && pipenum <= 9))
 
 #define enable_irq_ready(r8a66597, pipenum)	\
