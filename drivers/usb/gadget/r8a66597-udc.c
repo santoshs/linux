@@ -120,6 +120,14 @@ static void disable_pipe_irq(struct r8a66597 *r8a66597, u16 pipenum,
 #define USBCR2_INIT		(USBCR2_USB_START | USBCR2_USB_COR | \
 				USBCR2_USB_CNT)
 
+#define USBPHYINT		0xe60781e0
+#define USBPHYINT_INT_EN	(1 << 4)
+#define USBPHYINT_ON_EN		(1 << 3)
+#define USBPHYINT_OFF_EN	(1 << 2)
+#define USBPHYINT_ENABLE	(USBPHYINT_ON_EN | USBPHYINT_OFF_EN)
+#define USBPHYINT_ON		(1 << 1)
+#define USBPHYINT_OFF		(1 << 0)
+
 static void usb_module_reset(struct r8a66597 *r8a66597)
 {
 	__raw_writel((1 << 14), __io(SRCR2)); /* Reset USBDMAC */
@@ -148,6 +156,81 @@ static int initialize_usb_phy(struct r8a66597 *r8a66597, int init)
 	}
 	return 0;
 }
+
+static int usbphy_is_vbus(void)
+{
+	if (__raw_readw(__io(USBCR2)) & USBCR2_USB_OFF)
+		return 0;
+	else
+		return 1;
+}
+
+static void usbphy_init_interrupt(void)
+{
+	__raw_writew(USBPHYINT_INT_EN, __io(USBPHYINT));
+}
+
+static void usbphy_enable_interrupt(void)
+{
+	__raw_writew(__raw_readw(__io(USBPHYINT)) | USBPHYINT_ENABLE,
+			__io(USBPHYINT));
+}
+
+static void usbphy_disable_interrupt(void)
+{
+	__raw_writew(__raw_readw(__io(USBPHYINT)) & ~USBPHYINT_ENABLE,
+			__io(USBPHYINT));
+}
+
+static void usbphy_clear_interrupt_flag(void)
+{
+	/* clear interrupt flag and enable USB_PHY interrupt */
+	__raw_writew(__raw_readw(__io(USBPHYINT)) |
+			USBPHYINT_ON | USBPHYINT_OFF, __io(USBPHYINT));
+}
+
+static void usbphy_reset(void)
+{
+	__raw_writew(USBCR2_INIT, __io(USBCR2));
+}
+
+static void r8a66597_usb_connect(struct r8a66597 *r8a66597);
+static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
+static irqreturn_t r8a66597_phy_irq(int irq, void *_r8a66597)
+{
+	struct r8a66597 *r8a66597 = _r8a66597;
+
+	if (usbphy_is_vbus()) {
+		/* start clock */
+		r8a66597_write(r8a66597, 0x07, SYSCFG1);	/* BUSWAIT */
+		r8a66597_bset(r8a66597, HSE, SYSCFG0);
+		r8a66597_bset(r8a66597, USBE, SYSCFG0);
+		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+
+		r8a66597_usb_connect(r8a66597);
+	} else {
+		spin_lock(&r8a66597->lock);
+		r8a66597_usb_disconnect(r8a66597);
+		spin_unlock(&r8a66597->lock);
+
+		/* stop clock */
+		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
+		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
+		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
+
+		usbphy_reset();		/* for next connection. */
+	}
+
+	usbphy_clear_interrupt_flag();
+
+	return IRQ_HANDLED;
+}
+#else
+#define usbphy_is_vbus			do { } while (0)
+#define usbphy_enable_interrupt		do { } while (0)
+#define usbphy_disable_interrupt	do { } while (0)
+#define usbphy_clear_interrupt_flag	do { } while (0)
+#define usbphy_reset()			do { } while (0)
 #endif
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
@@ -164,7 +247,8 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 {
-	initialize_usb_phy(r8a66597, 1);
+	if (!r8a66597->pdata->phy_irq)
+		initialize_usb_phy(r8a66597, 1);
 
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
@@ -190,9 +274,13 @@ __acquires(r8a66597->lock)
 	r8a66597_dma_reset(r8a66597);
 
 	disable_controller(r8a66597);
-	init_controller(r8a66597);
-	r8a66597_bset(r8a66597, VBSE, INTENB0);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
+
+	if (!r8a66597->pdata->phy_irq) {
+		/* These are for next connection */
+		init_controller(r8a66597);
+		r8a66597_bset(r8a66597, VBSE, INTENB0);
+	}
 }
 
 static inline u16 control_reg_get_pid(struct r8a66597 *r8a66597, u16 pipenum)
@@ -816,6 +904,10 @@ static void init_controller(struct r8a66597 *r8a66597)
 	u16 irq_sense = r8a66597->irq_sense_low ? INTL : 0;
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
 
+	/* No initialize when an interrupt of USB PHY is used. */
+	if (r8a66597->pdata->phy_irq)
+		return;
+
 	if (r8a66597->pdata->on_chip) {
 		int ret;
 #if defined(CONFIG_MACH_AG5EVM)
@@ -840,7 +932,6 @@ static void init_controller(struct r8a66597 *r8a66597)
 			udelay(10);
 		}
 #endif
-
 	} else {
 		r8a66597_bset(r8a66597, vif | endian, PINCFG);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);		/* High spd */
@@ -2053,13 +2144,27 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		goto error;
 	}
 
-	r8a66597_bset(r8a66597, VBSE, INTENB0);
-	if (r8a66597_read(r8a66597, INTSTS0) & VBSTS) {
-		r8a66597_start_xclock(r8a66597);
-		/* start vbus sampling */
-		r8a66597->old_vbus = VBSTS;
-		r8a66597->scount = R8A66597_MAX_SAMPLING;
-		mod_timer(&r8a66597->timer, jiffies + msecs_to_jiffies(50));
+	if (r8a66597->pdata->phy_irq) {
+		int ret;
+		ret = request_irq(r8a66597->pdata->phy_irq, r8a66597_phy_irq,
+				IRQF_DISABLED, "usbphy", r8a66597);
+		if (ret < 0) {
+			printk(KERN_ERR "request_irq error (%d, %d)\n",
+					r8a66597->pdata->phy_irq, ret);
+			return -EINVAL;
+		}
+		usbphy_enable_interrupt();
+		usbphy_reset();
+	} else {
+		r8a66597_bset(r8a66597, VBSE, INTENB0);
+		if (r8a66597_read(r8a66597, INTSTS0) & VBSTS) {
+			r8a66597_start_xclock(r8a66597);
+			/* start vbus sampling */
+			r8a66597->old_vbus = VBSTS;
+			r8a66597->scount = R8A66597_MAX_SAMPLING;
+			mod_timer(&r8a66597->timer, jiffies +
+							msecs_to_jiffies(50));
+		}
 	}
 
 	return 0;
@@ -2080,7 +2185,13 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (driver != r8a66597->driver || !driver->unbind)
 		return -EINVAL;
 
+	if (r8a66597->pdata->phy_irq) {
+		usbphy_disable_interrupt();
+		free_irq(r8a66597->pdata->phy_irq, r8a66597);
+	}
+
 	spin_lock_irqsave(&r8a66597->lock, flags);
+
 	if (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)
 		r8a66597_usb_disconnect(r8a66597);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
@@ -2235,6 +2346,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		clk_enable(r8a66597->clk);
 	}
 #endif
+	if (r8a66597->pdata->phy_irq)
+		usbphy_init_interrupt();
 
 	disable_controller(r8a66597); /* make sure controller is disabled */
 

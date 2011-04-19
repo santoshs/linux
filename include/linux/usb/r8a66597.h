@@ -31,6 +31,9 @@ struct r8a66597_platdata {
 	/* This callback can control port power instead of DVSTCTR register. */
 	void (*port_power)(int port, int power);
 
+	/* interrupt number for USB PHY (If zero, phy is not used) */
+	int		phy_irq;
+
 	/* set one = on chip controller, set zero = external controller */
 	unsigned	on_chip:1;
 
