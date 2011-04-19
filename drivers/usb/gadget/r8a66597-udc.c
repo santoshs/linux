@@ -107,6 +107,57 @@ static void disable_pipe_irq(struct r8a66597 *r8a66597, u16 pipenum,
 	r8a66597_write(r8a66597, tmp, INTENB0);
 }
 
+#ifdef CONFIG_HAVE_CLK
+static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
+{
+	clk_enable(r8a66597->clk_dmac);
+	clk_enable(r8a66597->clk);
+	r8a66597->clk_enabled = 1;
+}
+
+static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
+{
+	if (r8a66597->clk_enabled) {
+		clk_disable(r8a66597->clk);
+		clk_disable(r8a66597->clk_dmac);
+		r8a66597->clk_enabled = 0;
+	}
+}
+
+static int r8a66597_clk_get(struct r8a66597 *r8a66597,
+			    struct platform_device *pdev)
+{
+	char clk_name[16];
+
+	snprintf(clk_name, sizeof(clk_name), "usb%d", pdev->id);
+	r8a66597->clk = clk_get(&pdev->dev, clk_name);
+	if (IS_ERR(r8a66597->clk)) {
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n", clk_name);
+		return PTR_ERR(r8a66597->clk);
+	}
+
+	snprintf(clk_name, sizeof(clk_name), "usb%d_dmac", pdev->id);
+	/* We don't have any device resource defined for USBHS-DMAC */
+	r8a66597->clk_dmac = clk_get(NULL, clk_name);
+	if (IS_ERR(r8a66597->clk_dmac)) {
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n", clk_name);
+		clk_put(r8a66597->clk);
+		return PTR_ERR(r8a66597->clk_dmac);
+	}
+
+	if (!r8a66597->pdata->phy_irq)
+		r8a66597_clk_enable(r8a66597);
+
+	return 0;
+}
+
+static void r8a66597_clk_put(struct r8a66597 *r8a66597)
+{
+	clk_put(r8a66597->clk_dmac);
+	clk_put(r8a66597->clk);
+}
+#endif
+
 #if defined(CONFIG_ARCH_SH73A0)
 
 #define SRCR2			0xe61580b0
@@ -201,6 +252,8 @@ static irqreturn_t r8a66597_phy_irq(int irq, void *_r8a66597)
 	struct r8a66597 *r8a66597 = _r8a66597;
 
 	if (usbphy_is_vbus()) {
+		r8a66597_clk_enable(r8a66597);
+
 		/* start clock */
 		r8a66597_write(r8a66597, 0x07, SYSCFG1);	/* BUSWAIT */
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);
@@ -218,6 +271,7 @@ static irqreturn_t r8a66597_phy_irq(int irq, void *_r8a66597)
 		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
 		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
 
+		r8a66597_clk_disable(r8a66597);
 		usbphy_reset();		/* for next connection. */
 	}
 
@@ -2203,6 +2257,11 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	init_controller(r8a66597);
 	disable_controller(r8a66597);
 
+#ifdef CONFIG_HAVE_CLK
+	if (r8a66597->pdata->phy_irq)
+		r8a66597_clk_disable(r8a66597);
+#endif
+
 	device_del(&r8a66597->gadget.dev);
 	r8a66597->driver = NULL;
 	return 0;
@@ -2232,8 +2291,8 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		clk_disable(r8a66597->clk);
-		clk_put(r8a66597->clk);
+		r8a66597_clk_disable(r8a66597);
+		r8a66597_clk_put(r8a66597);
 	}
 #endif
 	kfree(r8a66597);
@@ -2246,9 +2305,6 @@ static void nop_completion(struct usb_ep *ep, struct usb_request *r)
 
 static int __init r8a66597_probe(struct platform_device *pdev)
 {
-#ifdef CONFIG_HAVE_CLK
-	char clk_name[8];
-#endif
 	struct resource *res, *ires, *res1, *ires1;
 	int irq, irq1;
 	void __iomem *reg = NULL;
@@ -2335,15 +2391,9 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		snprintf(clk_name, sizeof(clk_name), "usb%d", pdev->id);
-		r8a66597->clk = clk_get(&pdev->dev, clk_name);
-		if (IS_ERR(r8a66597->clk)) {
-			dev_err(&pdev->dev, "cannot get clock \"%s\"\n",
-				clk_name);
-			ret = PTR_ERR(r8a66597->clk);
+		ret = r8a66597_clk_get(r8a66597, pdev);
+		if (ret < 0)
 			goto clean_up;
-		}
-		clk_enable(r8a66597->clk);
 	}
 #endif
 	if (r8a66597->pdata->phy_irq)
@@ -2410,8 +2460,8 @@ clean_up3:
 clean_up2:
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		clk_disable(r8a66597->clk);
-		clk_put(r8a66597->clk);
+		r8a66597_clk_disable(r8a66597);
+		r8a66597_clk_put(r8a66597);
 	}
 #endif
 clean_up:
