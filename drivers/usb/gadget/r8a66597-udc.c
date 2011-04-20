@@ -1111,7 +1111,8 @@ static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
 	} else {
 		dma->dir = 0;
 		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
-				    USBHS_DMAC_DMICR_SP(ch);
+				    USBHS_DMAC_DMICR_SP(ch) |
+				    USBHS_DMAC_DMICR_NULL(ch);
 		change_bfre_mode(r8a66597, ep->pipenum, 1);
 	}
 
@@ -1710,8 +1711,6 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	int ch = dma->channel;
 	unsigned short tmp, size;
 
-	r8a66597_dma_bclr(r8a66597, IE | SP | DE, USBHS_DMAC_CHCR(ch));
-
 	tmp = r8a66597_read(r8a66597, ep->fifoctr);
 	size = tmp & DTLN;
 	r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
@@ -1722,6 +1721,25 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	else
 		req->req.actual += usb_dma_calc_received_size(r8a66597, dma,
 							      size);
+
+	if (r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(ch)) & NULLF) {
+		/*
+		 * When a NULL packet is received during a DMA transfer,
+		 * the DMA transfer can be suspended and resumed on each
+		 * channel independently in the following sequence.
+		 */
+		u32 chcr;
+
+		r8a66597_bclr(r8a66597, DREQE, ep->fifosel);
+		/* wait for the internal bus to be stabilized (20clk@ZS) */
+		udelay(1);
+		chcr = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(ch));
+		chcr = (chcr & ~(NULLF | DE)) | FTE;
+		r8a66597_dma_write(r8a66597, chcr, USBHS_DMAC_CHCR(ch));
+		r8a66597_dma_bclr(r8a66597, IE | SP, USBHS_DMAC_CHCR(ch));
+	} else {
+		r8a66597_dma_bclr(r8a66597, IE | SP | DE, USBHS_DMAC_CHCR(ch));
+	}
 
 	r8a66597_dma_bclr(r8a66597, TE, USBHS_DMAC_CHCR(ch));
 	pipe_stop(r8a66597, ep->pipenum);
@@ -1736,6 +1754,8 @@ static int usb_dma_is_received_short_packet(struct r8a66597 *r8a66597, int ch,
 	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_TE(ch))
 		return 0;
 	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_SP(ch))
+		return 1;
+	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_NULL(ch))
 		return 1;
 	return 0;
 }
