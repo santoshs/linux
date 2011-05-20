@@ -17,6 +17,8 @@ static int sh_clk_mstp32_enable(struct clk *clk)
 {
 	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
 		     clk->enable_reg);
+	while (__raw_readl(clk->status_reg) & (1 << clk->enable_bit))
+		cpu_relax();
 	return 0;
 }
 
@@ -24,6 +26,7 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 {
 	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
 		     clk->enable_reg);
+	/* Unlike enabling case, we don't have to confirm the bit set */
 }
 
 static struct sh_clk_ops sh_clk_mstp32_clk_ops = {
