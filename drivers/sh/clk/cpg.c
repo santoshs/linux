@@ -137,7 +137,7 @@ static int sh_clk_div6_enable(struct clk *clk)
 	ret = sh_clk_div6_set_rate(clk, clk->rate);
 	if (ret == 0) {
 		value = __raw_readl(clk->enable_reg);
-		value &= ~0x100; /* clear stop bit to enable clock */
+		value &= ~(1 << clk->enable_bit); /* clear stop bit */
 		__raw_writel(value, clk->enable_reg);
 	}
 	return ret;
@@ -148,7 +148,7 @@ static void sh_clk_div6_disable(struct clk *clk)
 	unsigned long value;
 
 	value = __raw_readl(clk->enable_reg);
-	value |= 0x100; /* stop clock */
+	value |= (1 << clk->enable_bit); /* stop clock */
 	value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
 	__raw_writel(value, clk->enable_reg);
 }
