@@ -149,7 +149,8 @@ static void sh_clk_div6_disable(struct clk *clk)
 
 	value = __raw_readl(clk->enable_reg);
 	value |= (1 << clk->enable_bit); /* stop clock */
-	value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
+	if ((clk->flags & CLK_DIV_SHARED) == 0)
+		value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
 	__raw_writel(value, clk->enable_reg);
 }
 

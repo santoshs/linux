@@ -61,6 +61,7 @@ struct clk {
 };
 
 #define CLK_ENABLE_ON_INIT	(1 << 0)
+#define CLK_DIV_SHARED		(1 << 1)
 
 /* drivers/sh/clk.c */
 unsigned long followparent_recalc(struct clk *);
