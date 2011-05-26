@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
@@ -116,6 +117,8 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 #ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
+	pm_runtime_get_sync(r8a66597->gadget.dev.parent);
+
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 	r8a66597->clk_enabled = 1;
@@ -127,6 +130,8 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 		clk_disable(r8a66597->clk);
 		clk_disable(r8a66597->clk_dmac);
 		r8a66597->clk_enabled = 0;
+
+		pm_runtime_put(r8a66597->gadget.dev.parent);
 	}
 }
 
@@ -161,6 +166,8 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 {
 	clk_put(r8a66597->clk_dmac);
 	clk_put(r8a66597->clk);
+
+	pm_runtime_disable(r8a66597->gadget.dev.parent);
 }
 #endif
 
@@ -2431,6 +2438,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
+		pm_runtime_enable(&pdev->dev);
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
