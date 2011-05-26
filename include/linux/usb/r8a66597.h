@@ -31,6 +31,9 @@ struct r8a66597_platdata {
 	/* This callback can control port power instead of DVSTCTR register. */
 	void (*port_power)(int port, int power);
 
+	/* For gadget: This callback can get the configured power */
+	void (*vbus_power)(int ma);
+
 	/* interrupt number for USB PHY (If zero, phy is not used) */
 	int		phy_irq;
 

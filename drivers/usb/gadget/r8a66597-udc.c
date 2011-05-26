@@ -107,6 +107,12 @@ static void disable_pipe_irq(struct r8a66597 *r8a66597, u16 pipenum,
 	r8a66597_write(r8a66597, tmp, INTENB0);
 }
 
+static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
+{
+	if (r8a66597->pdata->vbus_power)
+		r8a66597->pdata->vbus_power(ma);
+}
+
 #ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
@@ -306,10 +312,12 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-	r8a66597_bset(r8a66597, RESM, INTENB0);
+	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
 
 	r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
 	r8a66597_dma_reset(r8a66597);
+
+	r8a66597_inform_vbus_power(r8a66597, 100);
 }
 
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597)
@@ -325,6 +333,7 @@ __acquires(r8a66597->lock)
 	spin_unlock(&r8a66597->lock);
 	r8a66597->driver->disconnect(&r8a66597->gadget);
 	spin_lock(&r8a66597->lock);
+	r8a66597_inform_vbus_power(r8a66597, 0);
 	r8a66597_dma_reset(r8a66597);
 
 	disable_controller(r8a66597);
@@ -1698,12 +1707,15 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		r8a66597->driver->disconnect(&r8a66597->gadget);
 		spin_lock(&r8a66597->lock);
 		r8a66597_update_usb_speed(r8a66597);
+		r8a66597_inform_vbus_power(r8a66597, 100);
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
 		r8a66597_update_usb_speed(r8a66597);
 	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)
 			&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
 		r8a66597_update_usb_speed(r8a66597);
+	if (dvsq & DS_SUSP)
+		r8a66597_inform_vbus_power(r8a66597, 2);
 
 	r8a66597->old_dvsq = dvsq;
 }
@@ -2276,8 +2288,18 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
 }
 
+static int r8a66597_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
+{
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(_gadget);
+
+	r8a66597_inform_vbus_power(r8a66597, mA);
+
+	return 0;
+}
+
 static struct usb_gadget_ops r8a66597_gadget_ops = {
 	.get_frame		= r8a66597_get_frame,
+	.vbus_draw		= r8a66597_vbus_draw,
 };
 
 static int __exit r8a66597_remove(struct platform_device *pdev)
