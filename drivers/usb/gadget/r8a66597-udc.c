@@ -896,6 +896,7 @@ static void start_packet_write(struct r8a66597_ep *ep,
 	if (req->req.length == 0) {
 		transfer_complete(ep, req, 0);
 	} else {
+		r8a66597_write(r8a66597, ~(1 << pipenum), BRDYSTS);
 		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
 			/* PIO mode */
 			pipe_change(r8a66597, ep->pipenum);
@@ -1212,6 +1213,7 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 
 	/* write fifo */
 	if (req->req.buf) {
+		r8a66597_write(r8a66597, ~(1 << pipenum), BEMPSTS);
 		r8a66597_write_fifo(r8a66597, ep->fifoaddr, buf, size);
 		if ((size == 0)
 				|| ((size % ep->ep.maxpacket) != 0)
