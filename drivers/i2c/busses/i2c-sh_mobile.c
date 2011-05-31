@@ -128,7 +128,10 @@ struct sh_mobile_i2c_data {
 
 	spinlock_t lock;
 	wait_queue_head_t wait;
+	struct i2c_msg *msgs;
 	struct i2c_msg *msg;
+	int msgs_num;
+	int curr_msg;
 	int pos;
 	int sr;
 };
@@ -386,9 +389,10 @@ static int sh_mobile_i2c_isr_tx(struct sh_mobile_i2c_data *pd)
 
 	sh_mobile_i2c_get_data(pd, &data);
 
-	if (sh_mobile_i2c_is_last_byte(pd))
+	if ((sh_mobile_i2c_is_last_byte(pd)) &&
+	    (pd->curr_msg == pd->msgs_num - 1)) { /* last message? */
 		i2c_op(pd, OP_TX_STOP, data);
-	else if (sh_mobile_i2c_is_first_byte(pd))
+	} else if (sh_mobile_i2c_is_first_byte(pd))
 		i2c_op(pd, OP_TX_FIRST, data);
 	else
 		i2c_op(pd, OP_TX, data);
@@ -420,7 +424,8 @@ static int sh_mobile_i2c_isr_rx(struct sh_mobile_i2c_data *pd)
 
 		real_pos = pd->pos - 2;
 
-		if (pd->pos == pd->msg->len) {
+		if ((pd->pos == pd->msg->len) &&
+		    (pd->curr_msg == pd->msgs_num - 1)) { /* last message? */
 			if (real_pos < 0) {
 				i2c_op(pd, OP_RX_STOP, 0);
 				break;
@@ -444,6 +449,8 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 	unsigned char sr;
 	int wakeup;
 
+	pd->msg = &pd->msgs[pd->curr_msg]; /* load current pd->msg */
+
 	sr = iic_rd(pd, ICSR);
 	pd->sr |= sr; /* remember state */
 
@@ -464,6 +471,19 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 		iic_wr(pd, ICSR, sr & ~ICSR_WAIT);
 
 	if (wakeup) {
+
+		pd->curr_msg++;
+		pd->pos = -1;
+		iic_wr(pd, ICIC, ICIC_DTEE | ICIC_WAITE | ICIC_ALE | ICIC_TACKE);
+
+		if (pd->curr_msg < pd->msgs_num) {
+			i2c_op(pd, OP_START, 0);
+			wakeup = 0;
+		} else
+			wakeup = 1;
+	}
+
+	if (wakeup) {
 		pd->sr |= SW_DONE;
 		wake_up(&pd->wait);
 	}
@@ -474,13 +494,15 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int start_ch(struct sh_mobile_i2c_data *pd, struct i2c_msg *usr_msg)
+static int
+start_ch(struct sh_mobile_i2c_data *pd, struct i2c_msg *usr_msg, int num)
 {
 	if (usr_msg->len == 0 && (usr_msg->flags & I2C_M_RD)) {
 		dev_err(pd->dev, "Unsupported zero length i2c read\n");
 		return -EIO;
 	}
 
+#if 0
 	/* Initialize channel registers */
 	iic_set_clr(pd, ICCR, 0, ICCR_ICE);
 
@@ -490,8 +512,12 @@ static int start_ch(struct sh_mobile_i2c_data *pd, struct i2c_msg *usr_msg)
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
 	iic_wr(pd, ICCH, pd->icch & 0xff);
+#endif
 
-	pd->msg = usr_msg;
+	pd->msg = NULL;
+	pd->msgs = usr_msg;
+	pd->msgs_num = num;
+	pd->curr_msg = 0;
 	pd->pos = -1;
 	pd->sr = 0;
 
@@ -505,57 +531,51 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 			      int num)
 {
 	struct sh_mobile_i2c_data *pd = i2c_get_adapdata(adapter);
-	struct i2c_msg	*msg;
 	int err = 0;
 	u_int8_t val;
-	int i, k, retry_count;
+	int k, retry_count;
 
 	activate_ch(pd);
 
-	/* Process all messages */
-	for (i = 0; i < num; i++) {
-		msg = &msgs[i];
+	err = start_ch(pd, msgs, num);
+	if (err)
+		goto quit;
 
-		err = start_ch(pd, msg);
-		if (err)
-			break;
+	i2c_op(pd, OP_START, 0);
 
-		i2c_op(pd, OP_START, 0);
+	/* The interrupt handler takes care of the rest... */
+	k = wait_event_timeout(pd->wait,
+			       pd->sr & (ICSR_TACK | SW_DONE),
+			       5 * HZ);
+	if (!k)
+		dev_err(pd->dev, "Transfer request timed out\n");
 
-		/* The interrupt handler takes care of the rest... */
-		k = wait_event_timeout(pd->wait,
-				       pd->sr & (ICSR_TACK | SW_DONE),
-				       5 * HZ);
-		if (!k)
-			dev_err(pd->dev, "Transfer request timed out\n");
-
-		retry_count = 1000;
+	retry_count = 1000;
 again:
-		val = iic_rd(pd, ICSR);
+	val = iic_rd(pd, ICSR);
 
-		dev_dbg(pd->dev, "val 0x%02x pd->sr 0x%02x\n", val, pd->sr);
+	dev_dbg(pd->dev, "val 0x%02x pd->sr 0x%02x\n", val, pd->sr);
 
-		/* the interrupt handler may wake us up before the
-		 * transfer is finished, so poll the hardware
-		 * until we're done.
-		 */
-		if (val & ICSR_BUSY) {
-			udelay(10);
-			if (retry_count--)
-				goto again;
+	/* the interrupt handler may wake us up before the
+	 * transfer is finished, so poll the hardware
+	 * until we're done.
+	 */
+	if (val & ICSR_BUSY) {
+		udelay(10);
+		if (retry_count--)
+			goto again;
 
-			err = -EIO;
-			dev_err(pd->dev, "Polling timed out\n");
-			break;
-		}
-
-		/* handle missing acknowledge and arbitration lost */
-		if ((val | pd->sr) & (ICSR_TACK | ICSR_AL)) {
-			err = -EIO;
-			break;
-		}
+		err = -EIO;
+		dev_err(pd->dev, "Polling timed out\n");
+		goto quit;
 	}
 
+	/* handle missing acknowledge and arbitration lost */
+	if ((val | pd->sr) & (ICSR_TACK | ICSR_AL)) {
+		err = -EIO;
+	}
+
+ quit:
 	deactivate_ch(pd);
 
 	if (!err)
