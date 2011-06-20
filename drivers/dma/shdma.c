@@ -1141,6 +1141,13 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, shdev);
 
+	shdev->clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(shdev->clk)) {
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n", dev_name(&pdev->dev));
+		err = PTR_ERR(shdev->clk);
+		goto clk_err;
+	}
+
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -1272,7 +1279,9 @@ rst_err:
 
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	clk_put(shdev->clk);
 
+clk_err:
 	if (dmars)
 		iounmap(shdev->dmars);
 
@@ -1310,6 +1319,7 @@ static int __exit sh_dmae_remove(struct platform_device *pdev)
 	sh_dmae_chan_remove(shdev);
 
 	pm_runtime_disable(&pdev->dev);
+	clk_put(shdev->clk);
 
 	if (shdev->dmars)
 		iounmap(shdev->dmars);
@@ -1338,6 +1348,9 @@ static void sh_dmae_shutdown(struct platform_device *pdev)
 
 static int sh_dmae_runtime_suspend(struct device *dev)
 {
+	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
+
+	clk_disable(shdev->clk);
 	return 0;
 }
 
@@ -1345,6 +1358,7 @@ static int sh_dmae_runtime_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
 
+	clk_enable(shdev->clk);
 	return sh_dmae_rst(shdev);
 }
 

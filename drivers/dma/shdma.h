@@ -13,6 +13,7 @@
 #ifndef __DMA_SHDMA_H
 #define __DMA_SHDMA_H
 
+#include <linux/clk.h>
 #include <linux/dmaengine.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
@@ -47,6 +48,8 @@ struct sh_dmae_device {
 	struct list_head node;
 	u32 __iomem *chan_reg;
 	u16 __iomem *dmars;
+
+	struct clk *clk;
 };
 
 #define to_sh_chan(chan) container_of(chan, struct sh_dmae_chan, common)
