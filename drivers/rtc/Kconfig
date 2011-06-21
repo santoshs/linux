@@ -304,6 +304,16 @@ config RTC_DRV_DM355EVM
 	help
 	  Supports the RTC firmware in the MSP430 on the DM355 EVM.
 
+config RTC_DRV_TPS80031
+	tristate "TI TPS80031"
+	depends on MFD_TPS80031
+	default n
+	help
+	  If you say yes here you get support for the TPS80031 RTC module.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called rtc-tps6591x.
+
 config RTC_DRV_TWL92330
 	boolean "TI TWL92330/Menelaus"
 	depends on MENELAUS
