@@ -2321,9 +2321,25 @@ static int r8a66597_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 	return 0;
 }
 
+static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
+{
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
+	unsigned long flags;
+
+	spin_lock_irqsave(&r8a66597->lock, flags);
+	if (is_on)
+		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+	else
+		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+	spin_unlock_irqrestore(&r8a66597->lock, flags);
+
+	return 0;
+}
+
 static struct usb_gadget_ops r8a66597_gadget_ops = {
 	.get_frame		= r8a66597_get_frame,
 	.vbus_draw		= r8a66597_vbus_draw,
+	.pullup			= r8a66597_pullup,
 };
 
 static int __exit r8a66597_remove(struct platform_device *pdev)
