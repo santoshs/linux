@@ -60,14 +60,17 @@ struct pinmux_cfg_reg {
 	.enum_ids = (pinmux_enum_t [])
 
 struct pinmux_data_reg {
-	unsigned long reg, reg_width, reg_shadow;
+	unsigned long reg, set_reg, clr_reg, reg_width, reg_shadow;
 	pinmux_enum_t *enum_ids;
-	void __iomem *mapped_reg;
+	void __iomem *mapped_reg, *mapped_set_reg, *mapped_clr_reg;
 };
 
-#define PINMUX_DATA_REG(name, r, r_width) \
-	.reg = r, .reg_width = r_width,	\
+#define PINMUX_DATA_REG_EXT(name, r, sr, cr, r_width) \
+	.reg = r, .set_reg = sr, .clr_reg = cr, .reg_width = r_width,	\
 	.enum_ids = (pinmux_enum_t [r_width]) \
+
+#define PINMUX_DATA_REG(name, r, r_width) \
+	PINMUX_DATA_REG_EXT(name, r, 0, 0, r_width)
 
 struct pinmux_irq {
 	int irq;
