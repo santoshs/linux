@@ -151,7 +151,8 @@ static int gpio_read_bit(struct pinmux_data_reg *dr,
 static void gpio_write_bit(struct pinmux_data_reg *dr,
 			   unsigned long in_pos, unsigned long value)
 {
-	unsigned long pos;
+	unsigned long pos, data;
+	void __iomem *mapped_reg;
 
 	pos = dr->reg_width - (in_pos + 1);
 
@@ -159,12 +160,21 @@ static void gpio_write_bit(struct pinmux_data_reg *dr,
 		 "r_width = %ld\n",
 		 dr->reg, !!value, pos, dr->reg_width);
 
-	if (value)
-		set_bit(pos, &dr->reg_shadow);
-	else
-		clear_bit(pos, &dr->reg_shadow);
-
-	gpio_write_raw_reg(dr->mapped_reg, dr->reg_width, dr->reg_shadow);
+	if (dr->set_reg && dr->clr_reg) {
+		if (value)
+			mapped_reg = dr->mapped_set_reg;
+		else
+			mapped_reg = dr->mapped_clr_reg;
+		data = 1 << pos;
+	} else {
+		if (value)
+			set_bit(pos, &dr->reg_shadow);
+		else
+			clear_bit(pos, &dr->reg_shadow);
+		mapped_reg = dr->mapped_reg;
+		data = dr->reg_shadow;
+	}
+	gpio_write_raw_reg(mapped_reg, dr->reg_width, data);
 }
 
 static void config_reg_helper(struct pinmux_info *gpioc,
@@ -249,6 +259,10 @@ static int setup_data_reg(struct pinmux_info *gpioc, unsigned gpio)
 			break;
 
 		data_reg->mapped_reg = pfc_phys_to_virt(gpioc, data_reg->reg);
+		if ((data_reg->set_reg) && (data_reg->clr_reg)) {
+			data_reg->mapped_set_reg = pfc_phys_to_virt(gpioc, data_reg->set_reg);
+			data_reg->mapped_clr_reg = pfc_phys_to_virt(gpioc, data_reg->clr_reg);
+		}
 
 		for (n = 0; n < data_reg->reg_width; n++) {
 			if (data_reg->enum_ids[n] == gpiop->enum_id) {
@@ -280,8 +294,9 @@ static void setup_data_regs(struct pinmux_info *gpioc)
 		if (!drp->reg_width)
 			break;
 
-		drp->reg_shadow = gpio_read_raw_reg(drp->mapped_reg,
-						    drp->reg_width);
+		if (!drp->set_reg || !drp->clr_reg)
+			drp->reg_shadow = gpio_read_raw_reg(drp->mapped_reg,
+							    drp->reg_width);
 		k++;
 	}
 }
