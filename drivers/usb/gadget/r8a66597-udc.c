@@ -2238,7 +2238,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	if (r8a66597->pdata->phy_irq) {
 		int ret;
 		ret = request_irq(r8a66597->pdata->phy_irq, r8a66597_phy_irq,
-				IRQF_DISABLED, "usbphy", r8a66597);
+				  0 , "usbphy", r8a66597);
 		if (ret < 0) {
 			printk(KERN_ERR "request_irq error (%d, %d)\n",
 					r8a66597->pdata->phy_irq, ret);
@@ -2465,15 +2465,13 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 	disable_controller(r8a66597); /* make sure controller is disabled */
 
-	ret = request_irq(irq, r8a66597_irq, IRQF_DISABLED | IRQF_SHARED,
-			udc_name, r8a66597);
+	ret = request_irq(irq, r8a66597_irq, 0, udc_name, r8a66597);
 	if (ret < 0) {
 		printk(KERN_ERR "request_irq error (%d)\n", ret);
 		goto clean_up2;
 	}
 
-	ret = request_irq(irq1, r8a66597_dma_irq, IRQF_DISABLED | IRQF_SHARED,
-			usbhs_dma_name, r8a66597);
+	ret = request_irq(irq1, r8a66597_dma_irq, 0, usbhs_dma_name, r8a66597);
 	if (ret < 0) {
 		printk(KERN_ERR "request_irq error (%d)\n", ret);
 		goto clean_up2;
