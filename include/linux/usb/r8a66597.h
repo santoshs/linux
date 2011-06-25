@@ -34,6 +34,9 @@ struct r8a66597_platdata {
 	/* For gadget: This callback can get the configured power */
 	void (*vbus_power)(int ma);
 
+	/* the number of access waits from CPU to this module */
+	u16		buswait;
+
 	/* interrupt number for VBUS change IRQ (or zero, if it's not used) */
 	int		vbus_irq;
 

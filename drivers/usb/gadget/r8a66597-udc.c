@@ -263,13 +263,14 @@ static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
 static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 = container_of(work, struct r8a66597, work);
+	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 	unsigned long flags;
 
 	if (usbphy_is_vbus()) {
 		r8a66597_clk_enable(r8a66597);
 
 		/* start clock */
-		r8a66597_write(r8a66597, 0x07, SYSCFG1);	/* BUSWAIT */
+		r8a66597_write(r8a66597, bwait, SYSCFG1);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);
 		r8a66597_bset(r8a66597, USBE, SYSCFG0);
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
@@ -999,6 +1000,7 @@ static void start_ep0(struct r8a66597_ep *ep, struct r8a66597_request *req)
 
 static void init_controller(struct r8a66597 *r8a66597)
 {
+	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 	u16 vif = r8a66597->pdata->vif ? LDRV : 0;
 	u16 irq_sense = r8a66597->irq_sense_low ? INTL : 0;
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
@@ -1009,11 +1011,8 @@ static void init_controller(struct r8a66597 *r8a66597)
 
 	if (r8a66597->pdata->on_chip) {
 		int ret;
-#if defined(CONFIG_MACH_AG5EVM)
-		r8a66597_write(r8a66597, 0x07, SYSCFG1);
-#else
-		r8a66597_write(r8a66597, 0x04, SYSCFG1);
-#endif
+
+		r8a66597_write(r8a66597, bwait, SYSCFG1);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);
 		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
 		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
