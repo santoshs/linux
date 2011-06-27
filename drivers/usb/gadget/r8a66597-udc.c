@@ -260,9 +260,10 @@ static void usbphy_reset(void)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597);
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
-static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
+static void r8a66597_vbus_work(struct work_struct *work)
 {
-	struct r8a66597 *r8a66597 = _r8a66597;
+	struct r8a66597 *r8a66597 = container_of(work, struct r8a66597, work);
+	unsigned long flags;
 
 	if (usbphy_is_vbus()) {
 		r8a66597_clk_enable(r8a66597);
@@ -275,9 +276,9 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 
 		r8a66597_usb_connect(r8a66597);
 	} else {
-		spin_lock(&r8a66597->lock);
+		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
-		spin_unlock(&r8a66597->lock);
+		spin_unlock_irqrestore(&r8a66597->lock, flags);
 
 		/* stop clock */
 		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
@@ -287,8 +288,14 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 		r8a66597_clk_disable(r8a66597);
 		usbphy_reset();		/* for next connection. */
 	}
+}
+
+static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
+{
+	struct r8a66597 *r8a66597 = _r8a66597;
 
 	usbphy_clear_interrupt_flag();
+	schedule_work(&r8a66597->work);
 
 	return IRQ_HANDLED;
 }
@@ -2446,6 +2453,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->gadget.dev.release = pdev->dev.release;
 	r8a66597->gadget.name = udc_name;
 
+	INIT_WORK(&r8a66597->work, r8a66597_vbus_work);
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
 	r8a66597->timer.data = (unsigned long)r8a66597;
