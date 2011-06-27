@@ -34,8 +34,8 @@ struct r8a66597_platdata {
 	/* For gadget: This callback can get the configured power */
 	void (*vbus_power)(int ma);
 
-	/* interrupt number for USB PHY (If zero, phy is not used) */
-	int		phy_irq;
+	/* interrupt number for VBUS change IRQ (or zero, if it's not used) */
+	int		vbus_irq;
 
 	/* set one = on chip controller, set zero = external controller */
 	unsigned	on_chip:1;

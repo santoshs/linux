@@ -156,7 +156,7 @@ static int r8a66597_clk_get(struct r8a66597 *r8a66597,
 		return PTR_ERR(r8a66597->clk_dmac);
 	}
 
-	if (!r8a66597->pdata->phy_irq)
+	if (!r8a66597->pdata->vbus_irq)
 		r8a66597_clk_enable(r8a66597);
 
 	return 0;
@@ -260,7 +260,7 @@ static void usbphy_reset(void)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597);
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
-static irqreturn_t r8a66597_phy_irq(int irq, void *_r8a66597)
+static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 
@@ -314,7 +314,7 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 {
-	if (!r8a66597->pdata->phy_irq)
+	if (!r8a66597->pdata->vbus_irq)
 		initialize_usb_phy(r8a66597, 1);
 
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
@@ -346,7 +346,7 @@ __acquires(r8a66597->lock)
 	disable_controller(r8a66597);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 
-	if (!r8a66597->pdata->phy_irq) {
+	if (!r8a66597->pdata->vbus_irq) {
 		/* These are for next connection */
 		init_controller(r8a66597);
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
@@ -996,8 +996,8 @@ static void init_controller(struct r8a66597 *r8a66597)
 	u16 irq_sense = r8a66597->irq_sense_low ? INTL : 0;
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
 
-	/* No initialize when an interrupt of USB PHY is used. */
-	if (r8a66597->pdata->phy_irq)
+	/* No initialize when an interrupt of VBUS IRQ is used. */
+	if (r8a66597->pdata->vbus_irq)
 		return;
 
 	if (r8a66597->pdata->on_chip) {
@@ -2235,13 +2235,13 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		goto error;
 	}
 
-	if (r8a66597->pdata->phy_irq) {
+	if (r8a66597->pdata->vbus_irq) {
 		int ret;
-		ret = request_irq(r8a66597->pdata->phy_irq, r8a66597_phy_irq,
-				  0 , "usbphy", r8a66597);
+		ret = request_irq(r8a66597->pdata->vbus_irq, r8a66597_vbus_irq,
+				  0 , "vbus_detect", r8a66597);
 		if (ret < 0) {
 			printk(KERN_ERR "request_irq error (%d, %d)\n",
-					r8a66597->pdata->phy_irq, ret);
+					r8a66597->pdata->vbus_irq, ret);
 			return -EINVAL;
 		}
 		usbphy_enable_interrupt();
@@ -2276,9 +2276,9 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (driver != r8a66597->driver || !driver->unbind)
 		return -EINVAL;
 
-	if (r8a66597->pdata->phy_irq) {
+	if (r8a66597->pdata->vbus_irq) {
 		usbphy_disable_interrupt();
-		free_irq(r8a66597->pdata->phy_irq, r8a66597);
+		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
 	}
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
@@ -2295,7 +2295,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	disable_controller(r8a66597);
 
 #ifdef CONFIG_HAVE_CLK
-	if (r8a66597->pdata->phy_irq)
+	if (r8a66597->pdata->vbus_irq)
 		r8a66597_clk_disable(r8a66597);
 #endif
 
@@ -2460,7 +2460,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 			goto clean_up;
 	}
 #endif
-	if (r8a66597->pdata->phy_irq)
+	if (r8a66597->pdata->vbus_irq)
 		usbphy_init_interrupt();
 
 	disable_controller(r8a66597); /* make sure controller is disabled */
