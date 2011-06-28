@@ -2481,7 +2481,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	ret = request_irq(irq1, r8a66597_dma_irq, 0, usbhs_dma_name, r8a66597);
 	if (ret < 0) {
 		printk(KERN_ERR "request_irq error (%d)\n", ret);
-		goto clean_up2;
+		goto clean_up3;
 	}
 
 	INIT_LIST_HEAD(&r8a66597->gadget.ep_list);
@@ -2516,7 +2516,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->ep0_req = r8a66597_alloc_request(&r8a66597->ep[0].ep,
 							GFP_KERNEL);
 	if (r8a66597->ep0_req == NULL)
-		goto clean_up3;
+		goto clean_up4;
 	r8a66597->ep0_req->complete = nop_completion;
 
 	init_controller(r8a66597);
@@ -2524,6 +2524,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
 	return 0;
 
+clean_up4:
+	free_irq(irq1, r8a66597);
 clean_up3:
 	free_irq(irq, r8a66597);
 clean_up2:
