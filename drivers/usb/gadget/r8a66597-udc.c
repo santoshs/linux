@@ -245,9 +245,7 @@ static void usbphy_disable_interrupt(void)
 
 static void usbphy_clear_interrupt_flag(void)
 {
-	/* clear interrupt flag and enable USB_PHY interrupt */
-	__raw_writew(__raw_readw(__io(USBPHYINT)) |
-			USBPHYINT_ON | USBPHYINT_OFF, __io(USBPHYINT));
+	__raw_writew(__raw_readw(__io(USBPHYINT)), __io(USBPHYINT));
 }
 
 static void usbphy_reset(void)
