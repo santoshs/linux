@@ -156,9 +156,6 @@ static int r8a66597_clk_get(struct r8a66597 *r8a66597,
 		return PTR_ERR(r8a66597->clk_dmac);
 	}
 
-	if (!r8a66597->pdata->vbus_irq)
-		r8a66597_clk_enable(r8a66597);
-
 	return 0;
 }
 
@@ -2466,6 +2463,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
+		if (!r8a66597->pdata->vbus_irq)
+			r8a66597_clk_enable(r8a66597);
 	}
 #endif
 	if (r8a66597->pdata->vbus_irq)
