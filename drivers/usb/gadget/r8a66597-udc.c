@@ -2364,6 +2364,7 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 		r8a66597_clk_put(r8a66597);
 	}
 #endif
+	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(r8a66597);
 	return 0;
 }
@@ -2536,6 +2537,7 @@ clean_up2:
 	}
 #endif
 clean_up:
+	dev_set_drvdata(&pdev->dev, NULL);
 	if (r8a66597) {
 		if (r8a66597->ep0_req)
 			r8a66597_free_request(&r8a66597->ep[0].ep,
