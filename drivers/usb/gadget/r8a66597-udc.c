@@ -2357,7 +2357,8 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		r8a66597_clk_disable(r8a66597);
+		if (!r8a66597->pdata->vbus_irq)
+			r8a66597_clk_disable(r8a66597);
 		r8a66597_clk_put(r8a66597);
 	}
 #endif
