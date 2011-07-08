@@ -2230,7 +2230,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		goto error;
 	}
 
-	init_controller(r8a66597);
 	retval = bind(&r8a66597->gadget);
 	if (retval) {
 		printk(KERN_ERR "bind to driver error (%d)\n", retval);
@@ -2238,6 +2237,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		goto error;
 	}
 
+	init_controller(r8a66597);
 	if (r8a66597->pdata->vbus_irq) {
 		int ret;
 		ret = request_irq(r8a66597->pdata->vbus_irq, r8a66597_vbus_irq,
@@ -2288,14 +2288,11 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	if (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)
 		r8a66597_usb_disconnect(r8a66597);
+	r8a66597_bclr(r8a66597, VBSE, INTENB0);
+	disable_controller(r8a66597);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
 
-	r8a66597_bclr(r8a66597, VBSE, INTENB0);
-
 	driver->unbind(&r8a66597->gadget);
-
-	init_controller(r8a66597);
-	disable_controller(r8a66597);
 
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->vbus_irq)
@@ -2519,8 +2516,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	if (r8a66597->ep0_req == NULL)
 		goto clean_up4;
 	r8a66597->ep0_req->complete = nop_completion;
-
-	init_controller(r8a66597);
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
 	return 0;
