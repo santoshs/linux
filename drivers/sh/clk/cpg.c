@@ -179,7 +179,7 @@ static int __init sh_clk_div6_register_ops(struct clk *clks, int nr,
 	int nr_divs = sh_clk_div6_table.nr_divisors;
 	int freq_table_size = sizeof(struct cpufreq_frequency_table);
 	int ret = 0;
-	int k;
+	int j, k;
 
 	freq_table_size *= (nr_divs + 1);
 	freq_table = kzalloc(freq_table_size * nr, GFP_KERNEL);
@@ -190,6 +190,17 @@ static int __init sh_clk_div6_register_ops(struct clk *clks, int nr,
 
 	for (k = 0; !ret && (k < nr); k++) {
 		clkp = clks + k;
+
+		/*
+		 * In case clock parent is not set up for a reparent clock,
+		 * try to detect from the register status
+		 */
+		if (!clkp->parent && clkp->parent_num && clkp->parent_table) {
+			j = (__raw_readl(clkp->enable_reg) >> clkp->src_shift) &
+			    ((1 << clkp->src_width) - 1);
+			if ((j < clkp->parent_num) && clkp->parent_table[j])
+				clkp->parent = clkp->parent_table[j];
+		}
 
 		clkp->ops = ops;
 		clkp->freq_table = freq_table + (k * freq_table_size);
