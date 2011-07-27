@@ -60,6 +60,7 @@ struct clk {
 
 #define CLK_ENABLE_ON_INIT	(1 << 0)
 #define CLK_DIV_SHARED		(1 << 1)
+#define CLK_CKSEL_CKSTP		(1 << 2)
 
 /* drivers/sh/clk.c */
 unsigned long followparent_recalc(struct clk *);
@@ -160,5 +161,20 @@ int sh_clk_div6_reparent_register(struct clk *clks, int nr);
 #define CLKDEV_CON_ID(_id, _clk) { .con_id = _id, .clk = _clk }
 #define CLKDEV_DEV_ID(_id, _clk) { .dev_id = _id, .clk = _clk }
 #define CLKDEV_ICK_ID(_cid, _did, _clk) { .con_id = _cid, .dev_id = _did, .clk = _clk }
+
+#define SH_CLK_CKSEL(_parent, _reg, _bit, _flags, _parents,	\
+		     _num_parents, _src_shift, _src_width)	\
+{								\
+	.parent = _parent,					\
+	.enable_reg = (void __iomem *)_reg,			\
+	.enable_bit = _bit,					\
+	.flags = _flags,					\
+	.parent_table = _parents,				\
+	.parent_num = _num_parents,				\
+	.src_shift = _src_shift,				\
+	.src_width = _src_width,				\
+}
+
+int sh_clk_cksel_register(struct clk *clks, int nr);
 
 #endif /* __SH_CLOCK_H */
