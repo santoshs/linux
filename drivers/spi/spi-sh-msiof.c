@@ -399,6 +399,10 @@ static void sh_msiof_spi_chipselect(struct spi_device *spi, int is_on)
 {
 	struct sh_msiof_spi_priv *p = spi_master_get_devdata(spi->master);
 	int value;
+	struct sh_msiof_spi_cs_info *cs_info = NULL;
+
+	if (spi->controller_data)
+		cs_info = spi->controller_data;
 
 	/* chip select is active low unless SPI_CS_HIGH is set */
 	if (spi->mode & SPI_CS_HIGH)
@@ -420,7 +424,8 @@ static void sh_msiof_spi_chipselect(struct spi_device *spi, int is_on)
 	}
 
 	/* use spi->controller data for CS (same strategy as spi_gpio) */
-	gpio_set_value((unsigned)spi->controller_data, value);
+	if (cs_info && cs_info->cs_port != -1)
+		gpio_set_value(cs_info->cs_port, value);
 
 	if (is_on == BITBANG_CS_INACTIVE) {
 		if (test_and_clear_bit(0, &p->flags)) {
