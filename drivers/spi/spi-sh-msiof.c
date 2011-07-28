@@ -168,7 +168,7 @@ static void sh_msiof_spi_set_clk_regs(struct sh_msiof_spi_priv *p,
 
 static void sh_msiof_spi_set_pin_regs(struct sh_msiof_spi_priv *p,
 				      u32 cpol, u32 cpha,
-				      u32 tx_hi_z, u32 lsb_first)
+				      u32 tx_hi_z, u32 lsb_first, u32 cs_delay)
 {
 	u32 tmp;
 	int edge;
@@ -181,8 +181,8 @@ static void sh_msiof_spi_set_pin_regs(struct sh_msiof_spi_priv *p,
 	 *    1    1         11     11    1    1
 	 */
 	sh_msiof_write(p, FCTR, 0);
-	sh_msiof_write(p, TMDR1, 0xe2000005 | (lsb_first << 24));
-	sh_msiof_write(p, RMDR1, 0x22000005 | (lsb_first << 24));
+	sh_msiof_write(p, TMDR1, 0xe2000005 | (lsb_first << 24) | cs_delay);
+	sh_msiof_write(p, RMDR1, 0x22000005 | (lsb_first << 24) | cs_delay);
 
 	tmp = 0xa0000000;
 	tmp |= cpol << 30; /* TSCKIZ */
@@ -400,9 +400,12 @@ static void sh_msiof_spi_chipselect(struct spi_device *spi, int is_on)
 	struct sh_msiof_spi_priv *p = spi_master_get_devdata(spi->master);
 	int value;
 	struct sh_msiof_spi_cs_info *cs_info = NULL;
+	u32 cs_delay = 0;
 
-	if (spi->controller_data)
+	if (spi->controller_data) {
 		cs_info = spi->controller_data;
+		cs_delay = cs_info->cs_delay;
+	}
 
 	/* chip select is active low unless SPI_CS_HIGH is set */
 	if (spi->mode & SPI_CS_HIGH)
@@ -420,7 +423,8 @@ static void sh_msiof_spi_chipselect(struct spi_device *spi, int is_on)
 		sh_msiof_spi_set_pin_regs(p, !!(spi->mode & SPI_CPOL),
 					  !!(spi->mode & SPI_CPHA),
 					  !!(spi->mode & SPI_3WIRE),
-					  !!(spi->mode & SPI_LSB_FIRST));
+					  !!(spi->mode & SPI_LSB_FIRST),
+					  cs_delay);
 	}
 
 	/* use spi->controller data for CS (same strategy as spi_gpio) */
