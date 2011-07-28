@@ -2339,6 +2339,9 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
 
+	if (!is_on && r8a66597->driver)
+		r8a66597->driver->disconnect(&r8a66597->gadget);
+
 	return 0;
 }
 
