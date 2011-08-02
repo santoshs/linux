@@ -181,14 +181,6 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 #define USBCR2_INIT		(USBCR2_USB_START | USBCR2_USB_COR | \
 				USBCR2_USB_CNT)
 
-#define USBPHYINT		0xe60781e0
-#define USBPHYINT_INT_EN	(1 << 4)
-#define USBPHYINT_ON_EN		(1 << 3)
-#define USBPHYINT_OFF_EN	(1 << 2)
-#define USBPHYINT_ENABLE	(USBPHYINT_ON_EN | USBPHYINT_OFF_EN)
-#define USBPHYINT_ON		(1 << 1)
-#define USBPHYINT_OFF		(1 << 0)
-
 static void usb_module_reset(struct r8a66597 *r8a66597)
 {
 	__raw_writel((1 << 14), __io(SRCR2)); /* Reset USBDMAC */
@@ -224,28 +216,6 @@ static int usbphy_is_vbus(void)
 		return 0;
 	else
 		return 1;
-}
-
-static void usbphy_init_interrupt(void)
-{
-	__raw_writew(USBPHYINT_INT_EN, __io(USBPHYINT));
-}
-
-static void usbphy_enable_interrupt(void)
-{
-	__raw_writew(__raw_readw(__io(USBPHYINT)) | USBPHYINT_ENABLE,
-			__io(USBPHYINT));
-}
-
-static void usbphy_disable_interrupt(void)
-{
-	__raw_writew(__raw_readw(__io(USBPHYINT)) & ~USBPHYINT_ENABLE,
-			__io(USBPHYINT));
-}
-
-static void usbphy_clear_interrupt_flag(void)
-{
-	__raw_writew(__raw_readw(__io(USBPHYINT)), __io(USBPHYINT));
 }
 
 static void usbphy_reset(void)
@@ -290,16 +260,11 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 
-	usbphy_clear_interrupt_flag();
 	schedule_work(&r8a66597->work);
-
 	return IRQ_HANDLED;
 }
 #else
 #define usbphy_is_vbus			do { } while (0)
-#define usbphy_enable_interrupt		do { } while (0)
-#define usbphy_disable_interrupt	do { } while (0)
-#define usbphy_clear_interrupt_flag	do { } while (0)
 #define usbphy_reset()			do { } while (0)
 #endif
 
@@ -2268,7 +2233,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 					r8a66597->pdata->vbus_irq, ret);
 			return -EINVAL;
 		}
-		usbphy_enable_interrupt();
 		usbphy_reset();
 	} else {
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
@@ -2300,10 +2264,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (driver != r8a66597->driver || !driver->unbind)
 		return -EINVAL;
 
-	if (r8a66597->pdata->vbus_irq) {
-		usbphy_disable_interrupt();
+	if (r8a66597->pdata->vbus_irq)
 		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
-	}
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
 
@@ -2489,8 +2451,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 			r8a66597_clk_enable(r8a66597);
 	}
 #endif
-	if (r8a66597->pdata->vbus_irq)
-		usbphy_init_interrupt();
 
 	disable_controller(r8a66597); /* make sure controller is disabled */
 
