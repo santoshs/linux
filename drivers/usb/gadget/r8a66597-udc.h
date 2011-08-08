@@ -33,6 +33,7 @@
 
 #include <linux/usb/r8a66597.h>
 #include <linux/usb/r8a66597_dmac.h>
+#include <linux/wakelock.h>
 
 #define R8A66597_MAX_SAMPLING	10
 
@@ -182,6 +183,7 @@ struct r8a66597 {
 	unsigned irq_sense_low:1;
 
 	struct work_struct	work;
+	struct wake_lock	wake_lock;
 };
 
 #define gadget_to_r8a66597(_gadget)	\

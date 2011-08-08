@@ -253,6 +253,8 @@ static void r8a66597_vbus_work(struct work_struct *work)
 
 		r8a66597_clk_disable(r8a66597);
 		usbphy_reset();		/* for next connection. */
+
+		wake_unlock(&r8a66597->wake_lock);
 	}
 }
 
@@ -260,6 +262,7 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 
+	wake_lock(&r8a66597->wake_lock);
 	schedule_work(&r8a66597->work);
 	return IRQ_HANDLED;
 }
@@ -2223,6 +2226,8 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		goto error;
 	}
 
+	wake_lock_init(&r8a66597->wake_lock, WAKE_LOCK_SUSPEND, udc_name);
+
 	init_controller(r8a66597);
 	if (r8a66597->pdata->vbus_irq) {
 		int ret;
@@ -2274,6 +2279,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	r8a66597_bclr(r8a66597, VBSE, INTENB0);
 	disable_controller(r8a66597);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
+
+	wake_lock_destroy(&r8a66597->wake_lock);
 
 	driver->unbind(&r8a66597->gadget);
 
