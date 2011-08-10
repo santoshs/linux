@@ -57,7 +57,6 @@ static const char *r8a66597_ep_name[] = {
 };
 #endif
 
-static void init_controller(struct r8a66597 *r8a66597);
 static void disable_controller(struct r8a66597 *r8a66597);
 static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req);
 static void irq_packet_write(struct r8a66597_ep *ep,
@@ -278,13 +277,6 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 {
-	if (!r8a66597->pdata->vbus_irq) {
-		initialize_usb_phy(r8a66597);
-		if (r8a66597->pdata->module_start)
-			r8a66597->pdata->module_start();
-		init_controller(r8a66597);
-	}
-
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
 	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
@@ -313,14 +305,6 @@ __acquires(r8a66597->lock)
 
 	disable_controller(r8a66597);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
-
-	if (!r8a66597->pdata->vbus_irq) {
-		/* These are for next connection */
-		if (r8a66597->pdata->module_stop)
-			r8a66597->pdata->module_stop();
-		init_controller(r8a66597);
-		r8a66597_bset(r8a66597, VBSE, INTENB0);
-	}
 }
 
 static inline u16 control_reg_get_pid(struct r8a66597 *r8a66597, u16 pipenum)
@@ -998,10 +982,6 @@ static void init_controller(struct r8a66597 *r8a66597)
 	u16 vif = r8a66597->pdata->vif ? LDRV : 0;
 	u16 irq_sense = r8a66597->irq_sense_low ? INTL : 0;
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
-
-	/* No initialize when an interrupt of VBUS IRQ is used. */
-	if (r8a66597->pdata->vbus_irq)
-		return;
 
 	if (r8a66597->pdata->on_chip) {
 		int ret;
@@ -2010,10 +1990,23 @@ static void r8a66597_timer(unsigned long _r8a66597)
 		if (tmp == r8a66597->old_vbus) {
 			r8a66597->scount--;
 			if (r8a66597->scount == 0) {
-				if (tmp == VBSTS)
+				if (tmp == VBSTS) {
+					initialize_usb_phy(r8a66597);
+					if (r8a66597->pdata->module_start)
+						r8a66597->pdata->module_start();
+
+					init_controller(r8a66597);
 					r8a66597_usb_connect(r8a66597);
-				else
+				} else {
 					r8a66597_usb_disconnect(r8a66597);
+
+					if (r8a66597->pdata->module_stop)
+						r8a66597->pdata->module_stop();
+
+					/* for subsequent VBINT detection */
+					init_controller(r8a66597);
+					r8a66597_bset(r8a66597, VBSE, INTENB0);
+				}
 			} else {
 				mod_timer(&r8a66597->timer,
 					jiffies + msecs_to_jiffies(50));
@@ -2262,7 +2255,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 
 	wake_lock_init(&r8a66597->wake_lock, WAKE_LOCK_SUSPEND, udc_name);
 
-	init_controller(r8a66597);
 	if (r8a66597->pdata->vbus_irq) {
 		int ret;
 		ret = request_irq(r8a66597->pdata->vbus_irq, r8a66597_vbus_irq,
@@ -2274,6 +2266,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		}
 		usbphy_reset();
 	} else {
+		init_controller(r8a66597);
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
 		if (r8a66597_read(r8a66597, INTSTS0) & VBSTS) {
 			r8a66597_start_xclock(r8a66597);
