@@ -833,6 +833,13 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	switch (mrq->cmd->opcode) {
 	/* MMCIF does not support SD/SDIO command */
 	case SD_IO_SEND_OP_COND:
+		/*
+		 * MMC_SLEEP_AWAKE happens to be given an idential number
+		 * with SD_IO_SEND_OP_COND, but we need to send it out here
+		 * to put MMC to sleep.
+		 */
+		if ((mrq->cmd->flags & MMC_CMD_MASK) == MMC_CMD_AC)
+			break;
 	case MMC_APP_CMD:
 		host->state = STATE_IDLE;
 		mrq->cmd->error = -ETIMEDOUT;
