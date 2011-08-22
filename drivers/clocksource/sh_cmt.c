@@ -467,6 +467,8 @@ static void sh_cmt_clocksource_resume(struct clocksource *cs)
 	sh_cmt_start(cs_to_sh_cmt(cs), FLAG_CLOCKSOURCE);
 }
 
+static struct clocksource *clocksource_sh_cmt;
+
 static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
 				       char *name, unsigned long rating)
 {
@@ -482,11 +484,23 @@ static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
 	cs->mask = CLOCKSOURCE_MASK(sizeof(unsigned long) * 8);
 	cs->flags = CLOCK_SOURCE_IS_CONTINUOUS;
 
+	clocksource_sh_cmt = cs;
+
 	dev_info(&p->pdev->dev, "used as clock source\n");
 
 	/* Register with dummy 1 Hz value, gets updated in ->enable() */
 	clocksource_register_hz(cs, 1);
 	return 0;
+}
+
+unsigned long long notrace sched_clock(void)
+{
+	if (!clocksource_sh_cmt)
+		return 0;
+
+	return clocksource_cyc2ns(clocksource_sh_cmt->read(clocksource_sh_cmt),
+				  clocksource_sh_cmt->mult,
+				  clocksource_sh_cmt->shift);
 }
 
 static struct sh_cmt_priv *ced_to_sh_cmt(struct clock_event_device *ced)
