@@ -2272,6 +2272,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (r8a66597->pdata->vbus_irq)
 		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
 
+	cancel_work_sync(&r8a66597->work);
+
 	spin_lock_irqsave(&r8a66597->lock, flags);
 
 	if (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)
