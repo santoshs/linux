@@ -37,6 +37,7 @@
 struct sh_cmt_priv {
 	void __iomem *mapbase;
 	struct clk *clk;
+	struct clk *count_clk;
 	unsigned long width; /* 16 or 32 bit version of hardware block */
 	unsigned long overflow_bit;
 	unsigned long clear_bits;
@@ -153,6 +154,7 @@ static void sh_cmt_start_stop_ch(struct sh_cmt_priv *p, int start)
 
 static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 {
+	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
 	int k, ret;
 
 	/* enable clock */
@@ -161,18 +163,22 @@ static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 		dev_err(&p->pdev->dev, "cannot enable clock\n");
 		goto err0;
 	}
+	ret = clk_enable(p->count_clk);
+	if (ret) {
+		dev_err(&p->pdev->dev, "cannot enable counting clock\n");
+		clk_disable(p->clk);
+		goto err0;
+	}
 
 	/* make sure channel is disabled */
 	sh_cmt_start_stop_ch(p, 0);
 
 	/* configure channel, periodic mode and maximum timeout */
-	if (p->width == 16) {
-		*rate = clk_get_rate(p->clk) / 512;
-		sh_cmt_write(p, CMCSR, 0x43);
-	} else {
-		*rate = clk_get_rate(p->clk) / 8;
-		sh_cmt_write(p, CMCSR, 0x01a4);
-	}
+	*rate = clk_get_rate(p->count_clk) / cfg->cks_table[cfg->cks].divisor;
+	if (p->width == 16)
+		sh_cmt_write(p, CMCSR, 0x40 | cfg->cks); /* CMIE + CKS[1:0] */
+	else
+		sh_cmt_write(p, CMCSR, 0x01a0 | cfg->cks);
 
 	sh_cmt_write(p, CMCOR, 0xffffffff);
 	sh_cmt_write(p, CMCNT, 0);
@@ -205,6 +211,7 @@ static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 	return 0;
  err1:
 	/* stop clock */
+	clk_disable(p->count_clk);
 	clk_disable(p->clk);
 
  err0:
@@ -220,6 +227,7 @@ static void sh_cmt_disable(struct sh_cmt_priv *p)
 	sh_cmt_write(p, CMCSR, 0);
 
 	/* stop clock */
+	clk_disable(p->count_clk);
 	clk_disable(p->clk);
 }
 
@@ -616,6 +624,14 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		dev_err(&p->pdev->dev, "missing platform data\n");
 		goto err0;
 	}
+	if (!cfg->cks_table || !cfg->cks_num) {
+		dev_err(&p->pdev->dev, "missing clock selection table\n");
+		goto err0;
+	}
+	if ((cfg->cks >= cfg->cks_num) || !(cfg->cks_table[cfg->cks].name)) {
+		dev_err(&p->pdev->dev, "invalid clock selected\n");
+		goto err0;
+	}
 
 	platform_set_drvdata(pdev, p);
 
@@ -650,6 +666,13 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 	if (IS_ERR(p->clk)) {
 		dev_err(&p->pdev->dev, "cannot get clock\n");
 		ret = PTR_ERR(p->clk);
+		goto err1;
+	}
+	p->count_clk = clk_get(NULL, cfg->cks_table[cfg->cks].name);
+	if (IS_ERR(p->count_clk)) {
+		dev_err(&p->pdev->dev, "cannot get counting clock\n");
+		clk_put(p->clk);
+		ret = PTR_ERR(p->count_clk);
 		goto err1;
 	}
 
