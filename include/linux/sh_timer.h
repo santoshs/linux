@@ -16,6 +16,7 @@ struct sh_timer_config {
 	struct sh_timer_clock *cks_table;
 	unsigned short cks_num;
 	unsigned short cks;
+	unsigned long cmcsr_init;
 };
 
 #endif /* __SH_TIMER_H__ */
