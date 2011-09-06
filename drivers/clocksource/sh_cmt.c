@@ -175,10 +175,7 @@ static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 
 	/* configure channel, periodic mode and maximum timeout */
 	*rate = clk_get_rate(p->count_clk) / cfg->cks_table[cfg->cks].divisor;
-	if (p->width == 16)
-		sh_cmt_write(p, CMCSR, 0x40 | cfg->cks); /* CMIE + CKS[1:0] */
-	else
-		sh_cmt_write(p, CMCSR, 0x01a0 | cfg->cks);
+	sh_cmt_write(p, CMCSR, cfg->cmcsr_init | cfg->cks);
 
 	sh_cmt_write(p, CMCOR, 0xffffffff);
 	sh_cmt_write(p, CMCNT, 0);
