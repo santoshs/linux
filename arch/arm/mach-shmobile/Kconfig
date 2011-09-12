@@ -132,6 +132,11 @@ config SH_TIMER_CMT
 	help
 	  This enables build of the CMT timer driver.
 
+config SH_TIMER_CMT_ARM
+	bool "CMT timer driver dedicated for ARM CPU timer"
+	help
+	  This enables build of the CMT timer driver.
+
 config SH_TIMER_TMU
 	bool "TMU timer driver"
 	default y
