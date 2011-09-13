@@ -51,6 +51,10 @@ struct sh_cmt_priv {
 	unsigned clk_enabled:1;
 };
 
+static struct clocksource shmobile_cs;
+static struct clock_event_device shmobile_ced;
+static struct platform_device *sh_cmt_devices[1 + NR_CPUS];
+
 static DEFINE_SPINLOCK(sh_cmt_lock);
 
 #ifdef CONFIG_ARCH_R8A73734
@@ -352,6 +356,7 @@ static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
 
 unsigned long long notrace sched_clock(void)
 {
+	/* TODO: sched_clock is not available before earlytimer starts */
 	if (!clocksource_sh_cmt)
 		return 0;
 
@@ -594,3 +599,43 @@ module_exit(sh_cmt_exit);
 MODULE_AUTHOR("Magnus Damm");
 MODULE_DESCRIPTION("SuperH CMT Timer Driver");
 MODULE_LICENSE("GPL v2");
+
+void sh_cmt_register_devices(struct platform_device **devs, int num)
+{
+	int i;
+
+	if (num > NR_CPUS + 1)
+		return;
+
+	for (i = 0; i < num; i++)
+		sh_cmt_devices[i] = devs[i];
+}
+
+void shmobile_clocksource_init(void)
+{
+	struct platform_device *pdev;
+	struct sh_cmt_priv *p;
+	struct sh_timer_config *cfg;
+
+	/* Assume that the first CMT device is meant for clocksource */
+	pdev = sh_cmt_devices[0];
+	p = platform_get_drvdata(pdev);
+	cfg = pdev->dev.platform_data;
+
+	sh_cmt_register_clocksource(p, dev_name(&pdev->dev),
+				    cfg->clocksource_rating, &shmobile_cs);
+}
+
+void shmobile_clockevent_init(void)
+{
+	struct platform_device *pdev;
+	struct sh_cmt_priv *p;
+	struct sh_timer_config *cfg;
+
+	pdev = sh_cmt_devices[1];
+	p = platform_get_drvdata(pdev);
+	cfg = pdev->dev.platform_data;
+
+	sh_cmt_register_clockevent(p, dev_name(&pdev->dev),
+				   cfg->clockevent_rating, &shmobile_ced);
+}

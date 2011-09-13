@@ -128,12 +128,12 @@ config SHMOBILE_TIMER_HZ
 
 config SH_TIMER_CMT
 	bool "CMT timer driver"
-	default y
 	help
 	  This enables build of the CMT timer driver.
 
 config SH_TIMER_CMT_ARM
 	bool "CMT timer driver dedicated for ARM CPU timer"
+	default y
 	help
 	  This enables build of the CMT timer driver.
 
