@@ -639,3 +639,48 @@ void shmobile_clockevent_init(void)
 	sh_cmt_register_clockevent(p, dev_name(&pdev->dev),
 				   cfg->clockevent_rating, &shmobile_ced);
 }
+
+#ifdef CONFIG_SMP
+
+int __cpuinit cmt_timer_setup(struct clock_event_device *clk)
+{
+	struct platform_device *pdev;
+	struct sh_cmt_priv *p;
+	unsigned int cpu = smp_processor_id();
+	int ret;
+
+	if (cpu < 1)
+		return 0;
+
+	pdev = sh_cmt_devices[1 + cpu];
+	p = platform_get_drvdata(pdev);
+
+	clk->name = dev_name(&p->pdev->dev);
+	clk->priv = p;
+	clk->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
+	clk->rating = 350;
+	clk->irq = p->irq;
+	clk->set_next_event = sh_cmt_clock_event_next;
+	clk->set_mode = sh_cmt_clock_event_mode;
+
+	p->ced = clk;
+
+	/* request irq using setup_irq() (too early for request_irq()) */
+	p->irqaction.name = dev_name(&p->pdev->dev);
+	p->irqaction.handler = sh_cmt_interrupt;
+	p->irqaction.dev_id = p;
+	p->irqaction.flags = IRQF_TIMER | IRQF_NOBALANCING;
+
+	ret = setup_irq(p->irq, &p->irqaction);
+	if (ret) {
+		dev_err(&p->pdev->dev, "failed to request irq %d\n", p->irq);
+		return ret;
+	}
+	irq_set_affinity(p->irq, cpumask_of(cpu));
+
+	dev_info(&p->pdev->dev, "used for clock events\n");
+	clockevents_register_device(clk);
+	return 0;
+}
+
+#endif /* CONFIG_SMP */

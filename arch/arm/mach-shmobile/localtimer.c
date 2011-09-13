@@ -12,15 +12,30 @@
 #include <linux/init.h>
 #include <linux/smp.h>
 #include <linux/clockchips.h>
-#include <asm/smp_twd.h>
 #include <asm/localtimer.h>
 
 /*
  * Setup the local clock events for a CPU.
  */
+#ifdef CONFIG_HAVE_ARM_TWD
 int __cpuinit local_timer_setup(struct clock_event_device *evt)
 {
 	evt->irq = 29;
 	twd_timer_setup(evt);
 	return 0;
 }
+#else /* CONFIG_HAVE_ARM_TWD */
+
+extern int cmt_timer_setup(struct clock_event_device *clk);
+
+int local_timer_ack(void)
+{
+	return 1;
+}
+
+int __cpuinit local_timer_setup(struct clock_event_device *evt)
+{
+	return cmt_timer_setup(evt);
+}
+
+#endif /* CONFIG_HAVE_ARM_TWD */
