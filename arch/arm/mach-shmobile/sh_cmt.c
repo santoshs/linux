@@ -40,6 +40,7 @@ struct sh_cmt_priv {
 	unsigned long overflow_bit;
 	unsigned long clear_bits;
 	struct irqaction irqaction;
+	unsigned int irq;
 	struct platform_device *pdev;
 
 	unsigned long flags;
@@ -631,6 +632,7 @@ static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
 				       const char *name, unsigned long rating)
 {
 	struct clock_event_device *ced = &p->ced;
+	int ret;
 
 	memset(ced, 0, sizeof(*ced));
 
@@ -638,9 +640,22 @@ static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
 	ced->features = CLOCK_EVT_FEAT_PERIODIC;
 	ced->features |= CLOCK_EVT_FEAT_ONESHOT;
 	ced->rating = rating;
+	ced->irq = p->irq;
 	ced->cpumask = cpumask_of(0);
 	ced->set_next_event = sh_cmt_clock_event_next;
 	ced->set_mode = sh_cmt_clock_event_mode;
+
+	/* request irq using setup_irq() (too early for request_irq()) */
+	p->irqaction.name = name;
+	p->irqaction.handler = sh_cmt_interrupt;
+	p->irqaction.dev_id = p;
+	p->irqaction.flags = IRQF_TIMER | IRQF_NOBALANCING;
+
+	ret = setup_irq(p->irq, &p->irqaction);
+	if (ret) {
+		dev_err(&p->pdev->dev, "failed to request irq %d\n", p->irq);
+		return;
+	}
 
 	dev_info(&p->pdev->dev, "used for clock events\n");
 	clockevents_register_device(ced);
@@ -650,7 +665,7 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 {
 	struct sh_timer_config *cfg = pdev->dev.platform_data;
 	struct resource *res;
-	int irq, ret;
+	int ret;
 	ret = -ENXIO;
 
 	memset(p, 0, sizeof(*p));
@@ -675,8 +690,8 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		goto err0;
 	}
 
-	irq = platform_get_irq(p->pdev, 0);
-	if (irq < 0) {
+	p->irq = platform_get_irq(p->pdev, 0);
+	if (p->irq < 0) {
 		dev_err(&p->pdev->dev, "failed to get irq\n");
 		goto err0;
 	}
@@ -690,13 +705,6 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		dev_err(&p->pdev->dev, "failed to remap I/O memory\n");
 		goto err0;
 	}
-
-	/* request irq using setup_irq() (too early for request_irq()) */
-	p->irqaction.name = dev_name(&p->pdev->dev);
-	p->irqaction.handler = sh_cmt_interrupt;
-	p->irqaction.dev_id = p;
-	p->irqaction.flags = IRQF_DISABLED | IRQF_TIMER | \
-			     IRQF_IRQPOLL  | IRQF_NOBALANCING;
 
 	/* get hold of clock */
 	p->clk = clk_get(&p->pdev->dev, "cmt_fck");
@@ -720,18 +728,10 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 	p->match_value = p->max_match_value;
 	spin_lock_init(&p->lock);
 
-	ret = setup_irq(irq, &p->irqaction);
-	if (ret) {
-		dev_err(&p->pdev->dev, "failed to request irq %d\n", irq);
-		goto err2;
-	}
-
 	platform_set_drvdata(pdev, p);
 
 	return 0;
 
-err2:
-	clk_put(p->clk);
 err1:
 	iounmap(p->mapbase);
 err0:
