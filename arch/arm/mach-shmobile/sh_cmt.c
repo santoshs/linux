@@ -477,7 +477,7 @@ static void sh_cmt_stop(struct sh_cmt_priv *p, unsigned long flag)
 
 static struct sh_cmt_priv *cs_to_sh_cmt(struct clocksource *cs)
 {
-	return container_of(cs, struct sh_cmt_priv, cs);
+	return (struct sh_cmt_priv *)cs->priv;
 }
 
 static cycle_t sh_cmt_clocksource_read(struct clocksource *cs)
@@ -528,6 +528,7 @@ static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
 {
 	struct clocksource *cs = &p->cs;
 
+	cs->priv = p;
 	cs->name = name;
 	cs->rating = rating;
 	cs->read = sh_cmt_clocksource_read;
@@ -559,7 +560,7 @@ unsigned long long notrace sched_clock(void)
 
 static struct sh_cmt_priv *ced_to_sh_cmt(struct clock_event_device *ced)
 {
-	return container_of(ced, struct sh_cmt_priv, ced);
+	return (struct sh_cmt_priv *)ced->priv;
 }
 
 static void sh_cmt_clock_event_start(struct sh_cmt_priv *p, int periodic)
@@ -637,6 +638,7 @@ static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
 	memset(ced, 0, sizeof(*ced));
 
 	ced->name = name;
+	ced->priv = p;
 	ced->features = CLOCK_EVT_FEAT_PERIODIC;
 	ced->features |= CLOCK_EVT_FEAT_ONESHOT;
 	ced->rating = rating;
