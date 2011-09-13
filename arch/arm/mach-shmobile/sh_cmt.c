@@ -523,7 +523,7 @@ static void sh_cmt_clocksource_resume(struct clocksource *cs)
 static struct clocksource *clocksource_sh_cmt;
 
 static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
-				       char *name, unsigned long rating)
+				       const char *name, unsigned long rating)
 {
 	struct clocksource *cs = &p->cs;
 
@@ -628,7 +628,7 @@ static int sh_cmt_clock_event_next(unsigned long delta,
 }
 
 static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
-				       char *name, unsigned long rating)
+				       const char *name, unsigned long rating)
 {
 	struct clock_event_device *ced = &p->ced;
 
