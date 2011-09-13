@@ -646,19 +646,6 @@ static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
 	clockevents_register_device(ced);
 }
 
-static int sh_cmt_register(struct sh_cmt_priv *p, char *name,
-			   unsigned long clockevent_rating,
-			   unsigned long clocksource_rating)
-{
-	if (clockevent_rating)
-		sh_cmt_register_clockevent(p, name, clockevent_rating);
-
-	if (clocksource_rating)
-		sh_cmt_register_clocksource(p, name, clocksource_rating);
-
-	return 0;
-}
-
 static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 {
 	struct sh_timer_config *cfg = pdev->dev.platform_data;
@@ -732,14 +719,6 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 
 	p->match_value = p->max_match_value;
 	spin_lock_init(&p->lock);
-
-	ret = sh_cmt_register(p, (char *)dev_name(&p->pdev->dev),
-			      cfg->clockevent_rating,
-			      cfg->clocksource_rating);
-	if (ret) {
-		dev_err(&p->pdev->dev, "registration failed\n");
-		goto err2;
-	}
 
 	ret = setup_irq(irq, &p->irqaction);
 	if (ret) {
