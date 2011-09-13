@@ -49,7 +49,7 @@ struct sh_cmt_priv {
 	unsigned long max_match_value;
 	unsigned long rate;
 	spinlock_t lock;
-	struct clock_event_device ced;
+	struct clock_event_device *ced;
 	struct clocksource cs;
 	unsigned long total_cycles;
 
@@ -565,7 +565,7 @@ static struct sh_cmt_priv *ced_to_sh_cmt(struct clock_event_device *ced)
 
 static void sh_cmt_clock_event_start(struct sh_cmt_priv *p, int periodic)
 {
-	struct clock_event_device *ced = &p->ced;
+	struct clock_event_device *ced = p->ced;
 
 	sh_cmt_start(p, FLAG_CLOCKEVENT);
 
@@ -630,12 +630,10 @@ static int sh_cmt_clock_event_next(unsigned long delta,
 }
 
 static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
-				       const char *name, unsigned long rating)
+				       const char *name, unsigned long rating,
+				       struct clock_event_device *ced)
 {
-	struct clock_event_device *ced = &p->ced;
 	int ret;
-
-	memset(ced, 0, sizeof(*ced));
 
 	ced->name = name;
 	ced->priv = p;
@@ -646,6 +644,8 @@ static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
 	ced->cpumask = cpumask_of(0);
 	ced->set_next_event = sh_cmt_clock_event_next;
 	ced->set_mode = sh_cmt_clock_event_mode;
+
+	p->ced = ced;
 
 	/* request irq using setup_irq() (too early for request_irq()) */
 	p->irqaction.name = name;
