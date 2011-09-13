@@ -51,6 +51,8 @@ struct sh_cmt_priv {
 	struct clock_event_device ced;
 	struct clocksource cs;
 	unsigned long total_cycles;
+
+	unsigned clk_enabled:1;
 };
 
 static DEFINE_SPINLOCK(sh_cmt_lock);
@@ -131,6 +133,37 @@ static unsigned long sh_cmt_get_counter(struct sh_cmt_priv *p,
 	return v2;
 }
 
+static int sh_cmt_clk_enable(struct sh_cmt_priv *p)
+{
+	int ret;
+
+	if (p->clk_enabled)
+		return 0;
+
+	ret = clk_enable(p->clk);
+	if (ret) {
+		dev_err(&p->pdev->dev, "cannot enable clock\n");
+		return ret;
+	}
+	ret = clk_enable(p->count_clk);
+	if (ret) {
+		dev_err(&p->pdev->dev, "cannot enable counting clock\n");
+		clk_disable(p->clk);
+		return ret;
+	}
+	p->clk_enabled = 1;
+	return 0;
+}
+
+static void sh_cmt_clk_disable(struct sh_cmt_priv *p)
+{
+	if (!p->clk_enabled)
+		return;
+
+	clk_disable(p->count_clk);
+	clk_disable(p->clk);
+	p->clk_enabled = 0;
+}
 
 static void sh_cmt_start_stop_ch(struct sh_cmt_priv *p, int start)
 {
@@ -156,17 +189,9 @@ static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 	int k, ret;
 
 	/* enable clock */
-	ret = clk_enable(p->clk);
-	if (ret) {
-		dev_err(&p->pdev->dev, "cannot enable clock\n");
+	ret = sh_cmt_clk_enable(p);
+	if (ret)
 		goto err0;
-	}
-	ret = clk_enable(p->count_clk);
-	if (ret) {
-		dev_err(&p->pdev->dev, "cannot enable counting clock\n");
-		clk_disable(p->clk);
-		goto err0;
-	}
 
 	/* make sure channel is disabled */
 	sh_cmt_start_stop_ch(p, 0);
@@ -206,8 +231,7 @@ static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 	return 0;
  err1:
 	/* stop clock */
-	clk_disable(p->count_clk);
-	clk_disable(p->clk);
+	sh_cmt_clk_disable(p);
 
  err0:
 	return ret;
@@ -222,8 +246,7 @@ static void sh_cmt_disable(struct sh_cmt_priv *p)
 	sh_cmt_write(p, CMCSR, 0);
 
 	/* stop clock */
-	clk_disable(p->count_clk);
-	clk_disable(p->clk);
+	sh_cmt_clk_disable(p);
 }
 
 /* private flags */
