@@ -267,10 +267,16 @@ static irqreturn_t sh_cmt_interrupt(int irq, void *dev_id)
 	struct sh_cmt_priv *p = dev_id;
 	struct clock_event_device *ced = p->ced;
 
-	ced->event_handler(ced);
-
 	/* clear flags */
 	sh_cmt_write(p, CMCSR, sh_cmt_read(p, CMCSR) & p->clear_bits);
+
+	/*
+	 * TODO: We have to clear CMF bit and resume CMCNT operation first,
+	 * otherwise there is a possibility that CMCNT operation will stop
+	 * Clockevent operates with CMT one-shot operating mode, though.
+	 */
+
+	ced->event_handler(ced);
 
 	return IRQ_HANDLED;
 }
