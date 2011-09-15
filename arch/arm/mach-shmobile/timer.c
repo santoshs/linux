@@ -53,7 +53,7 @@ static void __init shmobile_late_time_init(void)
 	 */
 	clkp = clk_get(NULL, "z_clk");
 	if (!IS_ERR(clkp)) {
-		lpj = clk_get_rate(clkp);
+		lpj = clk_get_rate(clkp) + HZ/2;
 		do_div(lpj, HZ);
 		lpj_fine = lpj;
 		clk_put(clkp);
