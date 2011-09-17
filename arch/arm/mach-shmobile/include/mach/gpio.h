@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/sh_pfc.h>
+#include <linux/io.h>
 
 #ifdef CONFIG_GPIOLIB
 
@@ -26,5 +27,37 @@ static inline int irq_to_gpio(unsigned int irq)
 #define __ARM_GPIOLIB_COMPLEX
 
 #endif /* CONFIG_GPIOLIB */
+
+/*
+ * GPIO API supplement
+ *
+ * Generic GPIO library lacks of some functions; it doesn't provide any
+ * APIs to specify pull-up or pull-down of the port, nor an API to disable
+ * both the input and the output of the port.  These supplementary APIs
+ * are to fill in the missing piece of generic GPIO APIs.
+ *
+ * Note that these APIs are supposed to be used _after_ primary port
+ * configuration of each port has been done using generic GPIO APIs.
+ */
+
+static inline void gpio_direction_none(unsigned long reg)
+{
+	__raw_writeb(0, reg);
+}
+
+static inline void gpio_pull_off(unsigned long reg)
+{
+	__raw_writeb(__raw_readb(reg) & 0x3f, reg);
+}
+
+static inline void gpio_pull_up(unsigned long reg)
+{
+	__raw_writeb((__raw_readb(reg) & 0xf) | 0xe0, reg);
+}
+
+static inline void gpio_pull_down(unsigned long reg)
+{
+	__raw_writeb((__raw_readb(reg) & 0xf) | 0xa0, reg);
+}
 
 #endif /* __ASM_ARCH_GPIO_H */
