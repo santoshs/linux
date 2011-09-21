@@ -315,7 +315,7 @@ int pm_suspend(suspend_state_t state)
 	int ret;
 #endif
 
-	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
+	if (state > PM_SUSPEND_ON && state < PM_SUSPEND_MAX)
 #ifndef CONFIG_PM_DEBUG
 		return enter_state(state);
 #else	/* CONFIG_PM_DEBUG is defined */
