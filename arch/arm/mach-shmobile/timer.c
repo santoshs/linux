@@ -42,6 +42,9 @@ static void __init shmobile_late_time_init(void)
 	early_platform_driver_register_all("earlytimer");
 	early_platform_driver_probe("earlytimer", 2, 0);
 
+	if (lpj_fine)
+		return; /* seems to be set up for the current timer */
+
 	/*
 	 * Calculate loops_per_jiffy using System-CPU frequency if it's
 	 * available, to avoid time-consuming boot-time auto-calibration.
