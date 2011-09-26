@@ -47,6 +47,9 @@ static void __init shmobile_late_time_init(void)
 	shmobile_clockevent_init();
 #endif
 
+	if (lpj_fine)
+		return; /* seems to be set up for the current timer */
+
 	/*
 	 * Calculate loops_per_jiffy using System-CPU frequency if it's
 	 * available, to avoid time-consuming boot-time auto-calibration.
