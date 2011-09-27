@@ -647,7 +647,6 @@ int __cpuinit cmt_timer_setup(struct clock_event_device *clk)
 	struct platform_device *pdev;
 	struct sh_cmt_priv *p;
 	unsigned int cpu = smp_processor_id();
-	int ret;
 
 	if (cpu < 1)
 		return 0;
@@ -671,11 +670,7 @@ int __cpuinit cmt_timer_setup(struct clock_event_device *clk)
 	p->irqaction.dev_id = p;
 	p->irqaction.flags = IRQF_TIMER | IRQF_NOBALANCING;
 
-	ret = setup_irq(p->irq, &p->irqaction);
-	if (ret) {
-		dev_err(&p->pdev->dev, "failed to request irq %d\n", p->irq);
-		return ret;
-	}
+	setup_irq(p->irq, &p->irqaction);
 	irq_set_affinity(p->irq, cpumask_of(cpu));
 
 	dev_info(&p->pdev->dev, "used for clock events\n");
