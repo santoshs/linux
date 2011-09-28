@@ -1547,6 +1547,26 @@ config SCHED_SMT
 	  MultiThreading at a cost of slightly increased overhead in some
 	  places. If unsure say N here.
 
+config SCU_STANDBY
+	bool "SCU: SCU standby enable"
+	select HAVE_ARM_SCU
+	help
+	  When set, SCU CLK is turned off when all processors are in WFI
+	  mode, there is no pending request on ACP (if implemented), and
+	  there is no remaining activity in the SCU.
+
+	  When SCU CLK is off, ARREADYS, AWREADYS and DWREADYS on the ACP
+	  are forced HIGH.  The clock is turned on when any processor
+	  leaves WFI mode, or if there is a new request on ACP.
+
+config SCU_IC_STANDBY
+	bool "SCU: IC standby enable"
+	select HAVE_ARM_SCU
+	help
+	  When set, this stops the Interrupt Controller clock when no
+	  interrupts are pending, and no CPU is performing a read/write
+	  request.
+
 config HAVE_ARM_SCU
 	bool
 	help
