@@ -936,6 +936,23 @@ config CACHE_PL310_PREFETCH_DROP
 	  prefetch accesses return from L3, they are discarded, and not
 	  allocated into the L2 cache.
 
+config CACHE_PL310_STANDBY_MODE
+	bool "PL310: Standby mode"
+	depends on CACHE_PL310
+	help
+	  When a processor is in the Wait For Interrupt mode, the usual
+	  protocol is to set an output HIGH.  For example, the Cortex-A9
+	  MPCore processor sets its SCUIDLE output HIGH to indicate that
+	  it is in Wait For Interrupt mode.  To make use of this feature
+	  you must connect SCUIDLE to the STOPCLK input of the L2C-310.
+
+	  When STOPCLK is HIGH, and the standby mode feature is enabled,
+	  the L2C-310 does the following:
+	  1. Waits for the IDLE state.
+	  2. Drives the READY outputs of its slave interfaces LOW.
+	  3. Asserts the CLKSTOPPED output HIGH.
+	  4. Stops its clock.
+
 config CACHE_PL310_DYNAMIC_CLOCK_GATING
 	bool "PL310: Dynamic clock gating"
 	depends on CACHE_PL310

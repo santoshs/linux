@@ -395,6 +395,9 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 #ifdef CONFIG_CACHE_PL310_DYNAMIC_CLOCK_GATING
 		power |= L2X0_DYNAMIC_CLK_GATING_EN;
 #endif
+#ifdef CONFIG_CACHE_PL310_STANDBY_MODE
+		power |= L2X0_STNDBY_MODE_EN;
+#endif
 		break;
 	}
 
