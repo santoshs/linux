@@ -247,6 +247,49 @@ static inline void r8a66597_write(struct r8a66597 *r8a66597, u16 val,
 	iowrite16(val, r8a66597->reg + offset);
 }
 
+static inline void r8a66597_mdfy(struct r8a66597 *r8a66597,
+				 u16 val, u16 pat, unsigned long offset)
+{
+	u16 tmp;
+	tmp = r8a66597_read(r8a66597, offset);
+	tmp = tmp & (~pat);
+	tmp = tmp | val;
+	r8a66597_write(r8a66597, tmp, offset);
+}
+
+/* USBHS-DMA Read/Write */
+static inline u32 r8a66597_dma_read(struct r8a66597 *r8a66597,
+				unsigned long offset)
+{
+	return inl(r8a66597->dma_reg + offset);
+}
+
+static inline void r8a66597_dma_write(struct r8a66597 *r8a66597, u32 val,
+				unsigned long offset)
+{
+	outl(val, r8a66597->dma_reg + offset);
+}
+
+static inline void r8a66597_dma_mdfy(struct r8a66597 *r8a66597,
+				 u32 val, u32 pat, unsigned long offset)
+{
+	u32 tmp;
+	tmp = r8a66597_dma_read(r8a66597, offset);
+	tmp = tmp & (~pat);
+	tmp = tmp | val;
+	r8a66597_dma_write(r8a66597, tmp, offset);
+}
+
+#define r8a66597_bclr(r8a66597, val, offset)	\
+			r8a66597_mdfy(r8a66597, 0, val, offset)
+#define r8a66597_bset(r8a66597, val, offset)	\
+			r8a66597_mdfy(r8a66597, val, 0, offset)
+
+#define r8a66597_dma_bclr(r8a66597, val, offset)	\
+			r8a66597_dma_mdfy(r8a66597, 0, val, offset)
+#define r8a66597_dma_bset(r8a66597, val, offset)	\
+			r8a66597_dma_mdfy(r8a66597, val, 0, offset)
+
 static inline void r8a66597_write_fifo(struct r8a66597 *r8a66597,
 				       struct r8a66597_ep *ep,
 				       unsigned char *buf,
@@ -280,41 +323,12 @@ static inline void r8a66597_write_fifo(struct r8a66597 *r8a66597,
 			adj = 0x01; /* 16-bit wide */
 	}
 
+	if (r8a66597->pdata->wr0_shorted_to_wr1)
+		r8a66597_bclr(r8a66597, MBW_16, ep->fifosel);
 	for (i = 0; i < len; i++)
 		iowrite8(buf[i], fifoaddr + adj - (i & adj));
-}
-
-/* USBHS-DMA Read/Write */
-static inline u32 r8a66597_dma_read(struct r8a66597 *r8a66597,
-				unsigned long offset)
-{
-	return inl(r8a66597->dma_reg + offset);
-}
-
-static inline void r8a66597_dma_write(struct r8a66597 *r8a66597, u32 val,
-				unsigned long offset)
-{
-	outl(val, r8a66597->dma_reg + offset);
-}
-
-static inline void r8a66597_mdfy(struct r8a66597 *r8a66597,
-				 u16 val, u16 pat, unsigned long offset)
-{
-	u16 tmp;
-	tmp = r8a66597_read(r8a66597, offset);
-	tmp = tmp & (~pat);
-	tmp = tmp | val;
-	r8a66597_write(r8a66597, tmp, offset);
-}
-
-static inline void r8a66597_dma_mdfy(struct r8a66597 *r8a66597,
-				 u32 val, u32 pat, unsigned long offset)
-{
-	u32 tmp;
-	tmp = r8a66597_dma_read(r8a66597, offset);
-	tmp = tmp & (~pat);
-	tmp = tmp | val;
-	r8a66597_dma_write(r8a66597, tmp, offset);
+	if (r8a66597->pdata->wr0_shorted_to_wr1)
+		r8a66597_bclr(r8a66597, MBW_16, ep->fifosel);
 }
 
 static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
@@ -338,16 +352,6 @@ static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
 
 	return clock;
 }
-
-#define r8a66597_bclr(r8a66597, val, offset)	\
-			r8a66597_mdfy(r8a66597, 0, val, offset)
-#define r8a66597_bset(r8a66597, val, offset)	\
-			r8a66597_mdfy(r8a66597, val, 0, offset)
-
-#define r8a66597_dma_bclr(r8a66597, val, offset)	\
-			r8a66597_dma_mdfy(r8a66597, 0, val, offset)
-#define r8a66597_dma_bset(r8a66597, val, offset)	\
-			r8a66597_dma_mdfy(r8a66597, val, 0, offset)
 
 #define get_pipectr_addr(pipenum)	(PIPE1CTR + (pipenum - 1) * 2)
 #if defined(USBHS_TYPE_BULK_PIPES_12)
