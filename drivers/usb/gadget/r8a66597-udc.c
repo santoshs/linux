@@ -172,9 +172,6 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 
 #if defined(CONFIG_ARCH_SH73A0)
 
-#define SRCR2			0xe61580b0
-#define SRCR3			0xe61580b8
-
 #define USBCR2			0xe605810c
 #define USBCR2_USB_START	0x8000
 #define USBCR2_USB_COR		0x0a00	/* default value */
@@ -183,16 +180,7 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 #define USBCR2_INIT		(USBCR2_USB_START | USBCR2_USB_COR | \
 				USBCR2_USB_CNT)
 
-static void usb_module_reset(struct r8a66597 *r8a66597)
-{
-	__raw_writel((1 << 14), __io(SRCR2)); /* Reset USBDMAC */
-	__raw_writel((1 << 22), __io(SRCR3)); /* Reset USBHS */
-	udelay(10);
-	__raw_writel(0, __io(SRCR2));
-	__raw_writel(0, __io(SRCR3));
-}
-
-static int initialize_usb_phy(struct r8a66597 *r8a66597, int init)
+static int initialize_usb_phy(struct r8a66597 *r8a66597)
 {
 	int i = 0;
 
@@ -205,9 +193,6 @@ static int initialize_usb_phy(struct r8a66597 *r8a66597, int init)
 			}
 			udelay(10);
 		}
-		usb_module_reset(r8a66597);
-		if (init)
-			init_controller(r8a66597);
 	}
 	return 0;
 }
@@ -236,6 +221,9 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	if (usbphy_is_vbus()) {
 		r8a66597_clk_enable(r8a66597);
 
+		if (r8a66597->pdata->module_start)
+			r8a66597->pdata->module_start();
+
 		/* start clock */
 		r8a66597_write(r8a66597, bwait, SYSCFG1);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);
@@ -252,6 +240,9 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
 		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
+
+		if (r8a66597->pdata->module_stop)
+			r8a66597->pdata->module_stop();
 
 		r8a66597_clk_disable(r8a66597);
 		usbphy_reset();		/* for next connection. */
@@ -287,8 +278,12 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 {
-	if (!r8a66597->pdata->vbus_irq)
-		initialize_usb_phy(r8a66597, 1);
+	if (!r8a66597->pdata->vbus_irq) {
+		initialize_usb_phy(r8a66597);
+		if (r8a66597->pdata->module_start)
+			r8a66597->pdata->module_start();
+		init_controller(r8a66597);
+	}
 
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
@@ -321,6 +316,8 @@ __acquires(r8a66597->lock)
 
 	if (!r8a66597->pdata->vbus_irq) {
 		/* These are for next connection */
+		if (r8a66597->pdata->module_stop)
+			r8a66597->pdata->module_stop();
 		init_controller(r8a66597);
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
 	}
