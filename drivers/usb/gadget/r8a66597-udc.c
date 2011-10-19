@@ -169,38 +169,6 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 }
 #endif
 
-#if defined(CONFIG_ARCH_SH73A0)
-
-#define USBCR2			0xe605810c
-#define USBCR2_USB_START	0x8000
-#define USBCR2_USB_COR		0x0a00	/* default value */
-#define USBCR2_USB_OFF		0x0080
-#define USBCR2_USB_CNT		0x000a	/* default value */
-#define USBCR2_INIT		(USBCR2_USB_START | USBCR2_USB_COR | \
-				USBCR2_USB_CNT)
-
-static int initialize_usb_phy(struct r8a66597 *r8a66597)
-{
-	int i = 0;
-
-	if (__raw_readw(__io(USBCR2)) & USBCR2_USB_OFF) {
-		__raw_writew(USBCR2_INIT, __io(USBCR2));
-		while (__raw_readw(__io(USBCR2)) & USBCR2_USB_OFF) {
-			if (i++ > 100000) {
-				printk(KERN_ERR "%s: timeout\n", __func__);
-				return -ENXIO;
-			}
-			udelay(10);
-		}
-	}
-	return 0;
-}
-
-static void usbphy_reset(void)
-{
-	__raw_writew(USBCR2_INIT, __io(USBCR2));
-}
-
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597);
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
 static void r8a66597_vbus_work(struct work_struct *work)
@@ -236,7 +204,6 @@ static void r8a66597_vbus_work(struct work_struct *work)
 			r8a66597->pdata->module_stop();
 
 		r8a66597_clk_disable(r8a66597);
-		usbphy_reset();		/* for next connection. */
 
 		wake_unlock(&r8a66597->wake_lock);
 	}
@@ -250,9 +217,6 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 	schedule_work(&r8a66597->work);
 	return IRQ_HANDLED;
 }
-#else
-#define usbphy_reset()			do { } while (0)
-#endif
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 {
@@ -975,8 +939,6 @@ static void init_controller(struct r8a66597 *r8a66597)
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
 
 	if (r8a66597->pdata->on_chip) {
-		int ret;
-
 		r8a66597_write(r8a66597, bwait, SYSCFG1);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);
 		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
@@ -986,15 +948,6 @@ static void init_controller(struct r8a66597 *r8a66597)
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
 
 		r8a66597_bset(r8a66597, irq_sense, INTENB1);
-#if defined(CONFIG_ARCH_SH73A0)
-		__raw_writew(USBCR2_INIT, __io(USBCR2));
-		ret = 0;
-		while (__raw_readw(__io(USBCR2)) & USBCR2_USB_OFF) {
-			if (ret++ > 10000)
-				return;
-			udelay(10);
-		}
-#endif
 	} else {
 		r8a66597_bset(r8a66597, vif | endian, PINCFG);
 		r8a66597_bset(r8a66597, HSE, SYSCFG0);		/* High spd */
@@ -1982,7 +1935,6 @@ static void r8a66597_timer(unsigned long _r8a66597)
 			r8a66597->scount--;
 			if (r8a66597->scount == 0) {
 				if (tmp == VBSTS) {
-					initialize_usb_phy(r8a66597);
 					if (r8a66597->pdata->module_start)
 						r8a66597->pdata->module_start();
 
@@ -2255,7 +2207,10 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 					r8a66597->pdata->vbus_irq, ret);
 			return -EINVAL;
 		}
-		usbphy_reset();
+		if (r8a66597->pdata->is_vbus_powered()) {
+			wake_lock(&r8a66597->wake_lock);
+			schedule_work(&r8a66597->work);
+		}
 	} else {
 		init_controller(r8a66597);
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
