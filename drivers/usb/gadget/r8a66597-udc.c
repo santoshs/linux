@@ -117,11 +117,13 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 #ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
-	pm_runtime_get_sync(r8a66597->gadget.dev.parent);
+	if (r8a66597->clk_enabled == 0) {
+		pm_runtime_get_sync(r8a66597->gadget.dev.parent);
 
-	clk_enable(r8a66597->clk_dmac);
-	clk_enable(r8a66597->clk);
-	r8a66597->clk_enabled = 1;
+		clk_enable(r8a66597->clk_dmac);
+		clk_enable(r8a66597->clk);
+		r8a66597->clk_enabled = 1;
+	}
 }
 
 static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
