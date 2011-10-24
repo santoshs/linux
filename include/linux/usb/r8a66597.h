@@ -34,6 +34,9 @@ struct r8a66597_platdata {
 	/* For gadget: This callback can get the configured power */
 	void (*vbus_power)(int ma);
 
+	/* used to check VBUS power supply (at r8a66597 controller end) */
+	int (*is_vbus_powered)(void);
+
 	/* platform-specific module start/stop operations */
 	void (*module_start)(void);
 	void (*module_stop)(void);

@@ -196,14 +196,6 @@ static int initialize_usb_phy(struct r8a66597 *r8a66597)
 	return 0;
 }
 
-static int usbphy_is_vbus(void)
-{
-	if (__raw_readw(__io(USBCR2)) & USBCR2_USB_OFF)
-		return 0;
-	else
-		return 1;
-}
-
 static void usbphy_reset(void)
 {
 	__raw_writew(USBCR2_INIT, __io(USBCR2));
@@ -217,7 +209,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 	unsigned long flags;
 
-	if (usbphy_is_vbus()) {
+	if (r8a66597->pdata->is_vbus_powered()) {
 		r8a66597_clk_enable(r8a66597);
 
 		if (r8a66597->pdata->module_start)
@@ -259,7 +251,6 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 	return IRQ_HANDLED;
 }
 #else
-#define usbphy_is_vbus			do { } while (0)
 #define usbphy_reset()			do { } while (0)
 #endif
 
