@@ -32,6 +32,7 @@ struct sh_dmae_chan {
 	struct dma_chan common;		/* DMA common channel */
 	struct device *dev;		/* Channel device */
 	struct tasklet_struct tasklet;	/* Tasklet */
+	int addr_error;			/* Adress error interrupt has been raised */
 	int descs_allocated;		/* desc count */
 	int xmit_shift;			/* log_2(bytes_per_xfer) */
 	int irq;
