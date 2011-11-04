@@ -116,30 +116,24 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 #ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
-	if (r8a66597->clk_enabled == 0) {
-		if (r8a66597->pdata->clk_enable)
-			r8a66597->pdata->clk_enable(1);
+	if (r8a66597->pdata->clk_enable)
+		r8a66597->pdata->clk_enable(1);
 
-		pm_runtime_get_sync(r8a66597->gadget.dev.parent);
+	pm_runtime_get_sync(r8a66597->gadget.dev.parent);
 
-		clk_enable(r8a66597->clk_dmac);
-		clk_enable(r8a66597->clk);
-		r8a66597->clk_enabled = 1;
-	}
+	clk_enable(r8a66597->clk_dmac);
+	clk_enable(r8a66597->clk);
 }
 
 static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
-	if (r8a66597->clk_enabled) {
-		clk_disable(r8a66597->clk);
-		clk_disable(r8a66597->clk_dmac);
-		r8a66597->clk_enabled = 0;
+	clk_disable(r8a66597->clk);
+	clk_disable(r8a66597->clk_dmac);
 
-		pm_runtime_put(r8a66597->gadget.dev.parent);
+	pm_runtime_put(r8a66597->gadget.dev.parent);
 
-		if (r8a66597->pdata->clk_enable)
-			r8a66597->pdata->clk_enable(0);
-	}
+	if (r8a66597->pdata->clk_enable)
+		r8a66597->pdata->clk_enable(0);
 }
 
 static int r8a66597_clk_get(struct r8a66597 *r8a66597,
@@ -181,9 +175,18 @@ static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 = container_of(work, struct r8a66597, work);
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
+	int is_vbus_powered;
 	unsigned long flags;
 
-	if (r8a66597->pdata->is_vbus_powered()) {
+	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
+	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
+		if (!is_vbus_powered)
+			wake_unlock(&r8a66597->wake_lock);
+		return;
+	}
+	r8a66597->old_vbus = is_vbus_powered;
+
+	if (is_vbus_powered) {
 		r8a66597_clk_enable(r8a66597);
 
 		if (r8a66597->pdata->module_start)
@@ -2213,6 +2216,8 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 					r8a66597->pdata->vbus_irq, ret);
 			return -EINVAL;
 		}
+
+		r8a66597->old_vbus = 0; /* start with disconnected */
 		if (r8a66597->pdata->is_vbus_powered()) {
 			wake_lock(&r8a66597->wake_lock);
 			schedule_work(&r8a66597->work);

@@ -156,7 +156,6 @@ struct r8a66597 {
 #ifdef CONFIG_HAVE_CLK
 	struct clk *clk;
 	struct clk *clk_dmac;
-	int clk_enabled;
 #endif
 	struct r8a66597_platdata	*pdata;
 
