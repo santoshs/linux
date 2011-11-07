@@ -181,8 +181,10 @@ struct r8a66597 {
 	unsigned char num_dma;
 
 	unsigned irq_sense_low:1;
+	unsigned charger_detected:1;
 
 	struct delayed_work	vbus_work;
+	struct delayed_work	charger_work;
 	struct wake_lock	wake_lock;
 };
 

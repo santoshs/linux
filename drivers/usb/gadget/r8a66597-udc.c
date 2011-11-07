@@ -190,7 +190,7 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 	r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
 	r8a66597_dma_reset(r8a66597);
 
-	r8a66597_inform_vbus_power(r8a66597, 100);
+	r8a66597_inform_vbus_power(r8a66597, 2);
 }
 
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597)
@@ -213,6 +213,23 @@ __acquires(r8a66597->lock)
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
 
+static void r8a66597_charger_work(struct work_struct *work)
+{
+	struct r8a66597 *r8a66597 =
+			container_of(work, struct r8a66597, charger_work.work);
+	u16 syssts0;
+
+	syssts0 = r8a66597_read(r8a66597, SYSSTS0);
+	dev_info(r8a66597_to_dev(r8a66597),
+		 "Charging port detected (%04x)\n", syssts0);
+
+	r8a66597_inform_vbus_power(r8a66597, 1500);
+	r8a66597->charger_detected = 1;
+	schedule_delayed_work(&r8a66597->vbus_work, 0);
+}
+
+#define CHARGER_DETECT_TIMEOUT	(10 * 1000) /* 10s */
+
 static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
@@ -223,6 +240,10 @@ static void r8a66597_vbus_work(struct work_struct *work)
 
 	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
 	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
+		if (is_vbus_powered && r8a66597->charger_detected) {
+			r8a66597->old_vbus = 0;
+			goto vbus_disconnect;
+		}
 		if (!is_vbus_powered)
 			wake_unlock(&r8a66597->wake_lock);
 		return;
@@ -242,7 +263,16 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
 
 		r8a66597_usb_connect(r8a66597);
+
+		r8a66597->charger_detected = 0;
+		schedule_delayed_work(&r8a66597->charger_work,
+				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
 	} else {
+vbus_disconnect:
+		if (delayed_work_pending(&r8a66597->charger_work))
+			cancel_delayed_work_sync(&r8a66597->charger_work);
+		r8a66597->charger_detected = 0;
+
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
@@ -1695,6 +1725,13 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		r8a66597_inform_vbus_power(r8a66597, 2);
 
 	r8a66597->old_dvsq = dvsq;
+
+	/* Cancel a pending charger work only if configured properly */
+	if ((delayed_work_pending(&r8a66597->charger_work)) &&
+	    (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)) {
+		cancel_delayed_work(&r8a66597->charger_work);
+		r8a66597->charger_detected = 0;
+	}
 }
 
 static void irq_control_stage(struct r8a66597 *r8a66597)
@@ -2224,6 +2261,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		}
 
 		r8a66597->old_vbus = 0; /* start with disconnected */
+		r8a66597->charger_detected = 0;
 		if (r8a66597->pdata->is_vbus_powered()) {
 			wake_lock(&r8a66597->wake_lock);
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
@@ -2262,6 +2300,8 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (r8a66597->pdata->vbus_irq)
 		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
 
+	cancel_delayed_work_sync(&r8a66597->charger_work);
+	r8a66597->charger_detected = 0;
 	cancel_delayed_work_sync(&r8a66597->vbus_work);
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
@@ -2431,6 +2471,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->gadget.name = udc_name;
 
 	INIT_DELAYED_WORK(&r8a66597->vbus_work, r8a66597_vbus_work);
+	INIT_DELAYED_WORK(&r8a66597->charger_work, r8a66597_charger_work);
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
 	r8a66597->timer.data = (unsigned long)r8a66597;
