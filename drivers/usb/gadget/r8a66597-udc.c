@@ -119,7 +119,7 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
 
-	pm_runtime_get_sync(r8a66597->gadget.dev.parent);
+	pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
@@ -130,7 +130,7 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
 
-	pm_runtime_put(r8a66597->gadget.dev.parent);
+	pm_runtime_put(r8a66597_to_dev(r8a66597));
 
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(0);
@@ -165,7 +165,7 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 	clk_put(r8a66597->clk_dmac);
 	clk_put(r8a66597->clk);
 
-	pm_runtime_disable(r8a66597->gadget.dev.parent);
+	pm_runtime_disable(r8a66597_to_dev(r8a66597));
 }
 #endif
 
