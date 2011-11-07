@@ -365,7 +365,8 @@ static inline void control_reg_sqset(struct r8a66597 *r8a66597, u16 pipenum)
 		offset = get_pipectr_addr(pipenum);
 		r8a66597_bset(r8a66597, SQSET, offset);
 	} else
-		printk(KERN_ERR "unexpect pipe num(%d)\n", pipenum);
+		dev_err(r8a66597_to_dev(r8a66597), "unexpect pipe num(%d)\n",
+			pipenum);
 }
 
 static inline u16 control_reg_sqmon(struct r8a66597 *r8a66597, u16 pipenum)
@@ -378,7 +379,8 @@ static inline u16 control_reg_sqmon(struct r8a66597 *r8a66597, u16 pipenum)
 		offset = get_pipectr_addr(pipenum);
 		return r8a66597_read(r8a66597, offset) & SQMON;
 	} else
-		printk(KERN_ERR "unexpect pipe num(%d)\n", pipenum);
+		dev_err(r8a66597_to_dev(r8a66597), "unexpect pipe num(%d)\n",
+			pipenum);
 
 	return 0;
 }
@@ -451,8 +453,9 @@ static void r8a66597_change_curpipe(struct r8a66597 *r8a66597, u16 pipenum,
 	do {
 		tmp = r8a66597_read(r8a66597, fifosel);
 		if (i++ > 1000000) {
-			printk(KERN_ERR "r8a66597: register%x, loop %x "
-			       "is timeout\n", fifosel, loop);
+			dev_err(r8a66597_to_dev(r8a66597),
+				"r8a66597: register%x, loop %x is timeout\n",
+				fifosel, loop);
 			break;
 		}
 		ndelay(1);
@@ -692,7 +695,8 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 	case USB_ENDPOINT_XFER_BULK:
 #if defined(USBHS_TYPE_BULK_PIPES_12)
 		if (r8a66597->bulk >= R8A66597_MAX_NUM_BULK) {
-			printk(KERN_ERR "bulk pipe is insufficient\n");
+			dev_err(r8a66597_to_dev(r8a66597),
+				"bulk pipe is insufficient\n");
 			ret = -ENODEV;
 			goto out;
 		} else if (r8a66597->bulk >= R8A66597_MAX_NUM_BULK_1ST) {
@@ -735,7 +739,8 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 #if defined(USBHS_TYPE_BULK_PIPES_12)
-		printk(KERN_ERR "isochronous pipe is not supported now\n");
+		dev_err(r8a66597_to_dev(r8a66597),
+			"isochronous pipe is not supported now\n");
 		ret = -ENODEV;
 		goto out;
 #else
@@ -844,7 +849,8 @@ static void start_packet_write(struct r8a66597_ep *ep,
 	u16 pipenum = ep->pipenum;
 
 	if (!req->req.buf)
-		printk(KERN_WARNING "%s: buffer pointer is NULL\n", __func__);
+		dev_warn(r8a66597_to_dev(r8a66597),
+			 "%s: buffer pointer is NULL\n", __func__);
 
 	/* prepare parameters */
 	if (req->req.length == 0) {
@@ -2210,8 +2216,9 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		ret = request_irq(r8a66597->pdata->vbus_irq, r8a66597_vbus_irq,
 				  0 , "vbus_detect", r8a66597);
 		if (ret < 0) {
-			printk(KERN_ERR "request_irq error (%d, %d)\n",
-					r8a66597->pdata->vbus_irq, ret);
+			dev_err(r8a66597_to_dev(r8a66597),
+				"request_irq error (%d, %d)\n",
+				r8a66597->pdata->vbus_irq, ret);
 			return -EINVAL;
 		}
 
@@ -2363,7 +2370,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	res1 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res1) {
 		ret = -ENODEV;
-		printk(KERN_ERR "platform_get_resource error.\n");
+		dev_err(&pdev->dev, "platform_get_resource error.\n");
 		goto clean_up;
 	}
 
@@ -2382,7 +2389,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 	if (irq1 < 0) {
 		ret = -ENODEV;
-		printk(KERN_ERR "platform_get_irq error.\n");
+		dev_err(&pdev->dev, "platform_get_irq error.\n");
 		goto clean_up;
 	}
 
@@ -2396,7 +2403,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	dma_reg = ioremap(res1->start, resource_size(res1));
 	if (dma_reg == NULL) {
 		ret = -ENOMEM;
-		printk(KERN_ERR "ioremap error.\n");
+		dev_err(&pdev->dev, "ioremap error.\n");
 		goto clean_up;
 	}
 
@@ -2450,7 +2457,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 	ret = request_irq(irq1, r8a66597_dma_irq, 0, usbhs_dma_name, r8a66597);
 	if (ret < 0) {
-		printk(KERN_ERR "request_irq error (%d)\n", ret);
+		dev_err(&pdev->dev, "request_irq error (%d)\n", ret);
 		goto clean_up3;
 	}
 
