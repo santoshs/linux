@@ -169,8 +169,50 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 }
 #endif
 
-static void r8a66597_usb_connect(struct r8a66597 *r8a66597);
-static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597);
+static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
+{
+	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
+	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(1));
+	r8a66597_dma_bclr(r8a66597, DME, DMAOR);
+	r8a66597_bset(r8a66597, BCLR, D0FIFOCTR);
+	r8a66597_bset(r8a66597, BCLR, D1FIFOCTR);
+	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
+	udelay(100);
+	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
+}
+
+static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
+{
+	r8a66597_bset(r8a66597, CTRE, INTENB0);
+	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
+	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
+
+	r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+	r8a66597_dma_reset(r8a66597);
+
+	r8a66597_inform_vbus_power(r8a66597, 100);
+}
+
+static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597)
+__releases(r8a66597->lock)
+__acquires(r8a66597->lock)
+{
+	r8a66597_bclr(r8a66597, CTRE, INTENB0);
+	r8a66597_bclr(r8a66597, BEMPE | BRDYE, INTENB0);
+	r8a66597_bclr(r8a66597, RESM, INTENB0);
+	r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+
+	r8a66597->gadget.speed = USB_SPEED_UNKNOWN;
+	spin_unlock(&r8a66597->lock);
+	r8a66597->driver->disconnect(&r8a66597->gadget);
+	spin_lock(&r8a66597->lock);
+	r8a66597_inform_vbus_power(r8a66597, 0);
+	r8a66597_dma_reset(r8a66597);
+
+	disable_controller(r8a66597);
+	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
+}
+
 static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 = container_of(work, struct r8a66597, work);
@@ -225,50 +267,6 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 	wake_lock(&r8a66597->wake_lock);
 	schedule_work(&r8a66597->work);
 	return IRQ_HANDLED;
-}
-
-static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
-{
-	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
-	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(1));
-	r8a66597_dma_bclr(r8a66597, DME, DMAOR);
-	r8a66597_bset(r8a66597, BCLR, D0FIFOCTR);
-	r8a66597_bset(r8a66597, BCLR, D1FIFOCTR);
-	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
-	udelay(100);
-	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
-}
-
-static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
-{
-	r8a66597_bset(r8a66597, CTRE, INTENB0);
-	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-
-	r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
-	r8a66597_dma_reset(r8a66597);
-
-	r8a66597_inform_vbus_power(r8a66597, 100);
-}
-
-static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597)
-__releases(r8a66597->lock)
-__acquires(r8a66597->lock)
-{
-	r8a66597_bclr(r8a66597, CTRE, INTENB0);
-	r8a66597_bclr(r8a66597, BEMPE | BRDYE, INTENB0);
-	r8a66597_bclr(r8a66597, RESM, INTENB0);
-	r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
-
-	r8a66597->gadget.speed = USB_SPEED_UNKNOWN;
-	spin_unlock(&r8a66597->lock);
-	r8a66597->driver->disconnect(&r8a66597->gadget);
-	spin_lock(&r8a66597->lock);
-	r8a66597_inform_vbus_power(r8a66597, 0);
-	r8a66597_dma_reset(r8a66597);
-
-	disable_controller(r8a66597);
-	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
 
 static inline u16 control_reg_get_pid(struct r8a66597 *r8a66597, u16 pipenum)
