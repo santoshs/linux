@@ -182,7 +182,7 @@ struct r8a66597 {
 
 	unsigned irq_sense_low:1;
 
-	struct work_struct	work;
+	struct delayed_work	vbus_work;
 	struct wake_lock	wake_lock;
 };
 

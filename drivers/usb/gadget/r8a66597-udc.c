@@ -215,7 +215,8 @@ __acquires(r8a66597->lock)
 
 static void r8a66597_vbus_work(struct work_struct *work)
 {
-	struct r8a66597 *r8a66597 = container_of(work, struct r8a66597, work);
+	struct r8a66597 *r8a66597 =
+			container_of(work, struct r8a66597, vbus_work.work);
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 	int is_vbus_powered;
 	unsigned long flags;
@@ -265,7 +266,7 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 	struct r8a66597 *r8a66597 = _r8a66597;
 
 	wake_lock(&r8a66597->wake_lock);
-	schedule_work(&r8a66597->work);
+	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
 	return IRQ_HANDLED;
 }
 
@@ -2225,7 +2226,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		r8a66597->old_vbus = 0; /* start with disconnected */
 		if (r8a66597->pdata->is_vbus_powered()) {
 			wake_lock(&r8a66597->wake_lock);
-			schedule_work(&r8a66597->work);
+			schedule_delayed_work(&r8a66597->vbus_work, 0);
 		}
 	} else {
 		init_controller(r8a66597);
@@ -2261,7 +2262,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	if (r8a66597->pdata->vbus_irq)
 		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
 
-	cancel_work_sync(&r8a66597->work);
+	cancel_delayed_work_sync(&r8a66597->vbus_work);
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
 
@@ -2429,7 +2430,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->gadget.dev.release = pdev->dev.release;
 	r8a66597->gadget.name = udc_name;
 
-	INIT_WORK(&r8a66597->work, r8a66597_vbus_work);
+	INIT_DELAYED_WORK(&r8a66597->vbus_work, r8a66597_vbus_work);
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
 	r8a66597->timer.data = (unsigned long)r8a66597;
