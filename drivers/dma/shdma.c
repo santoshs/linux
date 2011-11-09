@@ -1099,7 +1099,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 	struct sh_dmae_pdata *pdata = pdev->dev.platform_data;
 	unsigned long irqflags = IRQF_DISABLED,
 		chan_flag[SH_DMAC_MAX_CHANNELS] = {};
-	int errirq, chan_irq[SH_DMAC_MAX_CHANNELS];
+	int chan_irq[SH_DMAC_MAX_CHANNELS];
 	int err, i, irq_cnt = 0, irqres = 0, irq_cap = 0;
 	struct sh_dmae_device *shdev;
 	struct resource *chan, *dmars, *errirq_res, *chanirq_res;
@@ -1215,15 +1215,13 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 	    (errirq_res->flags & IORESOURCE_BITS) == IORESOURCE_IRQ_SHAREABLE)
 		irqflags = IRQF_SHARED;
 
-	errirq = errirq_res->start;
-
 #ifdef CONFIG_CPU_SH4
-	err = request_irq(errirq, sh_dmae_err, irqflags,
+	err = request_irq(errirq_res->start, sh_dmae_err, irqflags,
 			  "DMAC Address Error", shdev);
 	if (err) {
 		dev_err(&pdev->dev,
 			"DMA failed requesting irq #%d, error %d\n",
-			errirq, err);
+			errirq_res->start, err);
 		goto eirq_err;
 	}
 #else
@@ -1295,7 +1293,7 @@ chan_probe_err:
 	sh_dmae_chan_remove(shdev);
 
 #if defined(CONFIG_CPU_SH4)
-	free_irq(errirq, shdev);
+	free_irq(errirq_res->start, shdev);
 eirq_err:
 #endif
 rst_err:
@@ -1330,12 +1328,12 @@ static int __exit sh_dmae_remove(struct platform_device *pdev)
 {
 	struct sh_dmae_device *shdev = platform_get_drvdata(pdev);
 	struct resource *res;
-	int errirq = platform_get_irq(pdev, 0);
 
 	dma_async_device_unregister(&shdev->common);
 
-	if (errirq > 0)
-		free_irq(errirq, shdev);
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (res)
+		free_irq(res->start, shdev);
 
 	spin_lock_irq(&sh_dmae_lock);
 	list_del_rcu(&shdev->node);
