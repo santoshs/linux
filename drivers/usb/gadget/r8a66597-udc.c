@@ -2317,7 +2317,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	driver->unbind(&r8a66597->gadget);
 
 #ifdef CONFIG_HAVE_CLK
-	if (r8a66597->pdata->vbus_irq)
+	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus)
 		r8a66597_clk_disable(r8a66597);
 #endif
 
