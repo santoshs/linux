@@ -118,9 +118,6 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
-
-	pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 }
@@ -129,9 +126,6 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
-
-	pm_runtime_put(r8a66597_to_dev(r8a66597));
-
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(0);
 }
@@ -164,8 +158,6 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 {
 	clk_put(r8a66597->clk_dmac);
 	clk_put(r8a66597->clk);
-
-	pm_runtime_disable(r8a66597_to_dev(r8a66597));
 }
 #endif
 
@@ -251,6 +243,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	r8a66597->old_vbus = is_vbus_powered;
 
 	if (is_vbus_powered) {
+		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
 
 		if (r8a66597->pdata->module_start)
@@ -286,6 +279,7 @@ vbus_disconnect:
 			r8a66597->pdata->module_stop();
 
 		r8a66597_clk_disable(r8a66597);
+		pm_runtime_put(r8a66597_to_dev(r8a66597));
 
 		wake_unlock(&r8a66597->wake_lock);
 	}
@@ -2317,8 +2311,10 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	driver->unbind(&r8a66597->gadget);
 
 #ifdef CONFIG_HAVE_CLK
-	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus)
+	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus) {
 		r8a66597_clk_disable(r8a66597);
+		pm_runtime_put(r8a66597_to_dev(r8a66597));
+	}
 #endif
 
 	device_del(&r8a66597->gadget.dev);
@@ -2376,9 +2372,12 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		if (!r8a66597->pdata->vbus_irq)
+		if (!r8a66597->pdata->vbus_irq) {
 			r8a66597_clk_disable(r8a66597);
+			pm_runtime_put(r8a66597_to_dev(r8a66597));
+		}
 		r8a66597_clk_put(r8a66597);
+		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
 #endif
 	dev_set_drvdata(&pdev->dev, NULL);
@@ -2484,8 +2483,10 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
-		if (!r8a66597->pdata->vbus_irq)
+		if (!r8a66597->pdata->vbus_irq) {
+			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
+		}
 	}
 #endif
 
@@ -2548,9 +2549,12 @@ clean_up3:
 clean_up2:
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		if (!r8a66597->pdata->vbus_irq)
+		if (!r8a66597->pdata->vbus_irq) {
 			r8a66597_clk_disable(r8a66597);
+			pm_runtime_put(r8a66597_to_dev(r8a66597));
+		}
 		r8a66597_clk_put(r8a66597);
+		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
 #endif
 clean_up:
