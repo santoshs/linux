@@ -1331,9 +1331,11 @@ static int __exit sh_dmae_remove(struct platform_device *pdev)
 
 	dma_async_device_unregister(&shdev->common);
 
+#ifdef CONFIG_CPU_SH4
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res)
 		free_irq(res->start, shdev);
+#endif
 
 	spin_lock_irq(&sh_dmae_lock);
 	list_del_rcu(&shdev->node);
