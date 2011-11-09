@@ -2548,7 +2548,8 @@ clean_up3:
 clean_up2:
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		r8a66597_clk_disable(r8a66597);
+		if (!r8a66597->pdata->vbus_irq)
+			r8a66597_clk_disable(r8a66597);
 		r8a66597_clk_put(r8a66597);
 	}
 #endif
