@@ -257,14 +257,12 @@ static void r8a66597_vbus_work(struct work_struct *work)
 
 		r8a66597_usb_connect(r8a66597);
 
-		r8a66597->charger_detected = 0;
 		schedule_delayed_work(&r8a66597->charger_work,
 				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
 	} else {
 vbus_disconnect:
 		if (delayed_work_pending(&r8a66597->charger_work))
 			cancel_delayed_work_sync(&r8a66597->charger_work);
-		r8a66597->charger_detected = 0;
 
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
@@ -290,6 +288,7 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 	struct r8a66597 *r8a66597 = _r8a66597;
 
 	wake_lock(&r8a66597->wake_lock);
+	r8a66597->charger_detected = 0;
 	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
 	return IRQ_HANDLED;
 }
