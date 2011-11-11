@@ -57,11 +57,7 @@
 #define R8A66597_BASE_PIPENUM_INT	6
 
 #define R8A66597_BASE_BUFNUM	6
-#if defined(USBHS_TYPE_BULK_PIPES_12)
-#define R8A66597_MAX_BUFNUM	0x87
-#else
 #define R8A66597_MAX_BUFNUM	0x4F
-#endif
 #define R8A66597_MAX_DMA_CHANNELS	2
 
 #define is_interrupt_pipe(pipenum)	\

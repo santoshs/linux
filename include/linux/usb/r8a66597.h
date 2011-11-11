@@ -47,6 +47,9 @@ struct r8a66597_platdata {
 	/* the number of access waits from CPU to this module */
 	u16		buswait;
 
+	/* the maximum number of the FIFO buffer allowed */
+	u16		max_bufnum;
+
 	/* interrupt number for VBUS change IRQ (or zero, if it's not used) */
 	int		vbus_irq;
 
