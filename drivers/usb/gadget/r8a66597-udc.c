@@ -926,6 +926,7 @@ static void start_packet_read(struct r8a66597_ep *ep,
 			r8a66597_bset(r8a66597, TRENB, ep->pipetre);
 		}
 
+		r8a66597_write(r8a66597, ~(1 << pipenum), BRDYSTS);
 		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
 			/* PIO mode */
 			change_bfre_mode(r8a66597, ep->pipenum, 0);
