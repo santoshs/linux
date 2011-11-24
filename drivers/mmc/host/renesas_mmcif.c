@@ -859,6 +859,9 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	default:
 		break;
 	}
+
+	clk_enable(host->hclk);
+
 	host->data = mrq->data;
 	if (mrq->data) {
 		if (mrq->data->flags & MMC_DATA_READ) {
@@ -874,6 +877,9 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	if (!mrq->cmd->error && mrq->stop)
 		sh_mmcif_stop_cmd(host, mrq);
+
+	clk_disable(host->hclk);
+
 	host->state = STATE_IDLE;
 	mmc_request_done(mmc, mrq);
 }
@@ -903,6 +909,7 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 	} else if (ios->power_mode == MMC_POWER_OFF || !ios->clock) {
 		/* clock stop */
+		clk_enable(host->hclk);
 		sh_mmcif_clock_control(host, 0);
 		if (ios->power_mode == MMC_POWER_OFF) {
 			if (host->card_present) {
@@ -912,6 +919,7 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 					p->down_pwr(host->pd);
 			}
 		}
+		clk_disable(host->hclk);
 		if (host->power) {
 			pm_runtime_put(&host->pd->dev);
 			host->power = false;
@@ -921,12 +929,14 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	}
 
 	if (ios->clock) {
+		clk_enable(host->hclk);
 		if (!host->power) {
 			pm_runtime_get_sync(&host->pd->dev);
 			host->power = true;
 			sh_mmcif_sync_reset(host);
 		}
 		sh_mmcif_clock_control(host, ios->clock);
+		clk_disable(host->hclk);
 	}
 
 	host->bus_width = ios->bus_width;
@@ -1102,6 +1112,8 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 		goto clean_up4;
 	}
 
+	clk_disable(host->hclk);
+
 	ret = mmc_add_host(mmc);
 	if (ret < 0)
 		goto clean_up5;
@@ -1134,6 +1146,7 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 	int irq[2];
 
 	pm_runtime_get_sync(&pdev->dev);
+	clk_enable(host->hclk);
 
 	mmc_remove_host(host->mmc);
 	sh_mmcif_writel(host->addr, MMCIF_CE_INT_MASK, MASK_ALL);
@@ -1162,22 +1175,14 @@ static int sh_mmcif_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-	int ret = mmc_suspend_host(host->mmc);
 
-	if (!ret) {
-		sh_mmcif_writel(host->addr, MMCIF_CE_INT_MASK, MASK_ALL);
-		clk_disable(host->hclk);
-	}
-
-	return ret;
+	return mmc_suspend_host(host->mmc);
 }
 
 static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-
-	clk_enable(host->hclk);
 
 	return mmc_resume_host(host->mmc);
 }
