@@ -856,6 +856,7 @@ static irqreturn_t sh_dmae_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 		tasklet_schedule(&sh_chan->tasklet);
 	}
+#ifdef CONFIG_ARCH_SHMOBILE
 	if (chcr & CHCR_CAE) {
 		/* DMA stop */
 		dmae_halt(sh_chan);
@@ -866,6 +867,7 @@ static irqreturn_t sh_dmae_interrupt(int irq, void *data)
 		sh_chan->addr_error = 1;
 		tasklet_schedule(&sh_chan->tasklet);
 	}
+#endif
 
 	spin_unlock(&sh_chan->desc_lock);
 
@@ -919,7 +921,7 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 	return !!handled;
 }
 
-#if !defined(CONFIG_ARCH_SHMOBILE)
+#ifdef CONFIG_CPU_SH4
 static irqreturn_t sh_dmae_err(int irq, void *data)
 {
 	struct sh_dmae_device *shdev = data;
