@@ -285,7 +285,8 @@ static int get_data_reg(struct pinmux_info *gpioc, unsigned gpio,
 }
 
 static int get_config_reg(struct pinmux_info *gpioc, pinmux_enum_t enum_id,
-			  struct pinmux_cfg_reg **crp, int *indexp,
+			  struct pinmux_cfg_reg **crp,
+			  int *fieldp, int *valuep,
 			  unsigned long **cntp)
 {
 	struct pinmux_cfg_reg *config_reg;
@@ -304,7 +305,8 @@ static int get_config_reg(struct pinmux_info *gpioc, pinmux_enum_t enum_id,
 		for (n = 0; n < (r_width / f_width) * (1 << f_width); n++) {
 			if (config_reg->enum_ids[n] == enum_id) {
 				*crp = config_reg;
-				*indexp = n;
+				*fieldp = n / (1 << f_width);
+				*valuep = n % (1 << f_width);
 				*cntp = &config_reg->cnt[n / (1 << f_width)];
 				return 0;
 			}
@@ -347,36 +349,22 @@ static int get_gpio_enum_id(struct pinmux_info *gpioc, unsigned gpio,
 
 static void write_config_reg(struct pinmux_info *gpioc,
 			     struct pinmux_cfg_reg *crp,
-			     int index)
+			     int field, int value)
 {
-	unsigned long ncomb, pos, value;
-	void __iomem *mapped_reg;
-
-	ncomb = 1 << crp->field_width;
-	pos = index / ncomb;
-	value = index % ncomb;
-
-	mapped_reg = pfc_phys_to_virt(gpioc, crp->reg);
+	void __iomem *mapped_reg = pfc_phys_to_virt(gpioc, crp->reg);
 
 	gpio_write_reg(mapped_reg, crp->reg_width, crp->field_width,
-		       pos, value, crp->reg);
+		       field, value, crp->reg);
 }
 
 static int check_config_reg(struct pinmux_info *gpioc,
 			    struct pinmux_cfg_reg *crp,
-			    int index)
+			    int field, int value)
 {
-	unsigned long ncomb, pos, value;
-	void __iomem *mapped_reg;
-
-	ncomb = 1 << crp->field_width;
-	pos = index / ncomb;
-	value = index % ncomb;
-
-	mapped_reg = pfc_phys_to_virt(gpioc, crp->reg);
+	void __iomem *mapped_reg = pfc_phys_to_virt(gpioc, crp->reg);
 
 	if (gpio_read_reg(mapped_reg, crp->reg_width,
-			  crp->field_width, pos, crp->reg) == value)
+			  crp->field_width, field, crp->reg) == value)
 		return 0;
 
 	return -1;
@@ -390,7 +378,7 @@ static int pinmux_config_gpio(struct pinmux_info *gpioc, unsigned gpio,
 	struct pinmux_cfg_reg *cr = NULL;
 	pinmux_enum_t enum_id;
 	struct pinmux_range *range;
-	int in_range, pos, index;
+	int in_range, pos, field, value;
 	unsigned long *cntp;
 
 	switch (pinmux_type) {
@@ -421,7 +409,8 @@ static int pinmux_config_gpio(struct pinmux_info *gpioc, unsigned gpio,
 
 	pos = 0;
 	enum_id = 0;
-	index = 0;
+	field = 0;
+	value = 0;
 	while (1) {
 		pos = get_gpio_enum_id(gpioc, gpio, pos, &enum_id);
 		if (pos <= 0)
@@ -468,17 +457,19 @@ static int pinmux_config_gpio(struct pinmux_info *gpioc, unsigned gpio,
 		if (!in_range)
 			continue;
 
-		if (get_config_reg(gpioc, enum_id, &cr, &index, &cntp) != 0)
+		if (get_config_reg(gpioc, enum_id, &cr,
+				   &field, &value, &cntp) != 0)
 			goto out_err;
 
 		switch (cfg_mode) {
 		case GPIO_CFG_DRYRUN:
-			if (!*cntp || !check_config_reg(gpioc, cr, index))
+			if (!*cntp || !check_config_reg(gpioc, cr,
+							field, value))
 				continue;
 			break;
 
 		case GPIO_CFG_REQ:
-			write_config_reg(gpioc, cr, index);
+			write_config_reg(gpioc, cr, field, value);
 			*cntp = *cntp + 1;
 			break;
 
