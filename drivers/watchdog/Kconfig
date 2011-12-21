@@ -349,6 +349,13 @@ config IMX2_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx2_wdt.
 
+config SH_MOBILE_WATCHDOG
+	tristate "SH-Mobile watchdog"
+	depends on ARCH_SHMOBILE
+	help
+	  Say Y here to include support for the watchdog timer
+	  in the Renesas SH-Mobile processors.
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT
