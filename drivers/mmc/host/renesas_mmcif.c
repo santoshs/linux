@@ -274,6 +274,19 @@ static void sh_mmcif_start_dma_rx(struct sh_mmcif_host *host)
 		desc, cookie, host->data->sg_len);
 }
 
+static void sh_mmcif_dma_terminate(struct sh_mmcif_host *host)
+{
+	if (!host->data)
+		return;
+
+	if (host->data->flags & MMC_DATA_READ)
+		dmaengine_terminate_all(host->chan_rx);
+	else
+		dmaengine_terminate_all(host->chan_tx);
+
+	host->dma_active = false;
+}
+
 static void sh_mmcif_start_dma_tx(struct sh_mmcif_host *host)
 {
 	struct scatterlist *sg = host->data->sg;
@@ -758,6 +771,8 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 			cmd->error = sh_mmcif_error_manage(host);
 			break;
 		}
+		if (host->dma_active)
+			sh_mmcif_dma_terminate(host);
 		host->sd_error = false;
 		return;
 	}
@@ -777,8 +792,13 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 				ret = -ETIMEDOUT;
 			else if (time < 0)
 				ret = time;
+
 			sh_mmcif_bitclr(host, MMCIF_CE_BUF_ACC,
 					BUF_ACC_DMAREN | BUF_ACC_DMAWEN);
+
+			if (host->sd_error || time <= 0)
+				sh_mmcif_dma_terminate(host);
+
 			host->dma_active = false;
 		}
 		if (ret < 0)
