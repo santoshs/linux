@@ -27,6 +27,13 @@ config ARCH_SH73A0
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	select ARM_GIC
 
+config ARCH_R8A73734
+	bool "R-Mobile U2 (R8A7373A)"
+	select CPU_V7
+	select SH_CLK_CPG
+	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select ARM_GIC
+
 comment "SH-Mobile Board Type"
 
 config MACH_G3EVM

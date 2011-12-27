@@ -48,6 +48,12 @@ extern void sh73a0_pinmux_init(void);
 extern struct clk sh73a0_extal1_clk;
 extern struct clk sh73a0_extal2_clk;
 
+extern void r8a73734_init_irq(void);
+extern void r8a73734_add_early_devices(void);
+extern void r8a73734_add_standard_devices(void);
+extern void r8a73734_clock_init(void);
+extern void r8a73734_pinmux_init(void);
+
 extern unsigned int sh73a0_get_core_count(void);
 extern void sh73a0_secondary_init(unsigned int cpu);
 extern int sh73a0_boot_secondary(unsigned int cpu);

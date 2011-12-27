@@ -1,0 +1,5 @@
+#define sh73a0_get_core_count r8a73734_get_core_count
+#define sh73a0_secondary_init r8a73734_secondary_init
+#define sh73a0_boot_secondary r8a73734_boot_secondary
+#define sh73a0_smp_prepare_cpus r8a73734_smp_prepare_cpus
+#include "smp-sh73a0.c"
