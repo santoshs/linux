@@ -1096,7 +1096,10 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 
 	mmc->ops = &sh_mmcif_ops;
-	mmc->f_max = host->clk / 2;
+	if (pd->max_clk)
+		mmc->f_max = pd->max_clk;
+	else
+		mmc->f_max = host->clk / 2;
 	mmc->f_min = host->clk / 512;
 	if (pd->ocr)
 		mmc->ocr_avail = pd->ocr;
