@@ -193,6 +193,8 @@ struct sh_mmcif_host {
 	struct dma_chan		*chan_tx;
 	struct completion	dma_complete;
 	bool			dma_active;
+
+	u32 buf_acc;
 };
 
 static inline void sh_mmcif_bitset(struct sh_mmcif_host *host,
@@ -436,8 +438,7 @@ static void sh_mmcif_sync_reset(struct sh_mmcif_host *host)
 	sh_mmcif_writel(host->addr, MMCIF_CE_VERSION, SOFT_RST_OFF);
 	sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL, tmp |
 		SRSPTO_256 | SRBSYTO_29 | SRWDTO_29 | SCCSTO_29);
-	/* byte swap on */
-	sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_ATYP);
+	sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, host->buf_acc);
 }
 
 static int sh_mmcif_error_manage(struct sh_mmcif_host *host)
@@ -1120,6 +1121,11 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	mmc->max_req_size = PAGE_CACHE_SIZE * mmc->max_segs;
 	mmc->max_blk_count = mmc->max_req_size / mmc->max_blk_size;
 	mmc->max_seg_size = mmc->max_req_size;
+
+	if (pd->buf_acc)
+		host->buf_acc = pd->buf_acc;
+	else
+		host->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
 
 	sh_mmcif_sync_reset(host);
 	platform_set_drvdata(pdev, host);

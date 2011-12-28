@@ -48,6 +48,7 @@ struct sh_mmcif_plat_data {
 	unsigned long		caps;
 	u32			ocr;
 	u32			max_clk;
+	u32			buf_acc;
 };
 
 #define MMCIF_CE_CMD_SET	0x00000000
