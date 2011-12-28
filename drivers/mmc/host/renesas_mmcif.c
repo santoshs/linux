@@ -848,6 +848,7 @@ static void sh_mmcif_stop_cmd(struct sh_mmcif_host *host,
 static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sh_mmcif_host *host = mmc_priv(mmc);
+	struct sh_mmcif_plat_data *pdata;
 	unsigned long flags;
 
 	spin_lock_irqsave(&host->lock, flags);
@@ -893,7 +894,10 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->data = mrq->data;
 	if (mrq->data) {
-		if (mrq->data->flags & MMC_DATA_READ) {
+		pdata = host->pd->dev.platform_data;
+		if (mrq->data->sg->length < pdata->dma_min_size)
+			host->dma_active = false;
+		else if (mrq->data->flags & MMC_DATA_READ) {
 			if (host->chan_rx)
 				sh_mmcif_start_dma_rx(host);
 		} else {

@@ -49,6 +49,7 @@ struct sh_mmcif_plat_data {
 	u32			ocr;
 	u32			max_clk;
 	u32			buf_acc;
+	u32			dma_min_size;
 };
 
 #define MMCIF_CE_CMD_SET	0x00000000
