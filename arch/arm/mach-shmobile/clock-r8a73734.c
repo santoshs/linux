@@ -80,6 +80,34 @@
 #define	SPCMMR	0xE61501ACUL
 #define	SPCDMR	0xE61501B0UL
 
+#define EXSTMON2	0xe6180088UL
+
+static int extal2_clk_enable(struct clk *clk)
+{
+	__raw_writel(__raw_readl(PLL2CR) & ~1, PLL2CR);
+	while (__raw_readl(EXSTMON2) & (1 << 16)) /* EX2MSK */
+		cpu_relax();
+	return 0;
+}
+
+static void extal2_clk_disable(struct clk *clk)
+{
+	__raw_writel(__raw_readl(PLL2CR) | 1, PLL2CR); /* XOE */
+	/*
+	 * Make sure that EX2MSK bit gets set here in response to XOE bit
+	 * set to '1' (Stop XTAL2 oscillation) above.   This is needed for
+	 * safety in case that EXTAL2 clock gets enabled right after it's
+	 * disabled.
+	 */
+	while (!(__raw_readl(EXSTMON2) & (1 << 16))) /* EX2MSK */
+		cpu_relax();
+}
+
+static struct clk_ops extal2_clk_ops = {
+	.enable		= extal2_clk_enable,
+	.disable	= extal2_clk_disable,
+};
+
 /* Externals */
 static struct clk extal1_clk = {
 	.rate	= 26*1000*1000,
@@ -87,6 +115,7 @@ static struct clk extal1_clk = {
 
 static struct clk extal2_clk = {
 	.rate	= 48*1000*1000,
+	.ops	= &extal2_clk_ops,
 };
 
 static struct clk extalr_clk = {
