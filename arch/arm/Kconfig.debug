@@ -294,6 +294,13 @@ choice
 		  The uncompressor code port configuration is now handled
 		  by CONFIG_S3C_LOWLEVEL_UART_PORT.
 
+	config DEBUG_SH_SCI
+		depends on ARCH_SHMOBILE
+		bool "SH-/R-Mobile SuperH SCI(F)"
+		help
+		  Say Y here if your want the debug print routines to direct
+		  their output to the serial port on SH-/R-Mobile platforms.
+
 	config DEBUG_LL_UART_NONE
 		bool "No low-level debugging UART"
 		help

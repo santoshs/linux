@@ -166,4 +166,13 @@ config SH_CLK_CPG
 
 source "drivers/sh/Kconfig"
 
+menu "Kernel low-level debugging via SuperH SCI(F) port"
+
+config DEBUG_LL_SH_SCI_BASE
+	depends on DEBUG_SH_SCI
+	hex "Physical base address"
+	default "0x00000000"
+
+endmenu
+
 endif
