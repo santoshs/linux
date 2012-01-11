@@ -24,7 +24,7 @@ static struct sh_timer_clock cmt1_cks_table[] = {
 
 static struct sh_timer_config cmt10_platform_data = {
 	.name			= "CMT10",
-	.clk_enable_offset	= 0x1000 - 0,
+	.channel_offset_p	= 0x1000 - 0,
 	.timer_bit		= 0,
 	.clocksource_rating	= 125,
 	.cks_table	= cmt1_cks_table,
@@ -57,7 +57,7 @@ static struct platform_device cmt10_device = {
 
 static struct sh_timer_config cmt11_platform_data = {
 	.name			= "CMT11",
-	.clk_enable_offset	= 0x1000 - 0x100,
+	.channel_offset_p	= 0x1000 - 0x100,
 	.timer_bit		= 1,
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
