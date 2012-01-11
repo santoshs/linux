@@ -36,7 +36,6 @@ struct sh_cmt_priv {
 	void __iomem *mapbase;
 	struct clk *clk;
 	struct clk *count_clk;
-	unsigned long width; /* 16 or 32 bit version of hardware block */
 	unsigned long overflow_bit;
 	unsigned long clear_bits;
 	struct irqaction irqaction;
@@ -74,15 +73,8 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 	} else
 		offs = reg_nr;
 
-	if (p->width == 16)
-		offs <<= 1;
-	else {
-		offs <<= 2;
-		if ((reg_nr == CMCNT) || (reg_nr == CMCOR))
-			return ioread32(base + offs);
-	}
-
-	return ioread16(base + offs);
+	offs <<= 2;
+	return ioread32(base + offs);
 }
 
 static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
@@ -98,17 +90,9 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 	} else
 		offs = reg_nr;
 
-	if (p->width == 16)
-		offs <<= 1;
-	else {
-		offs <<= 2;
-		if ((reg_nr == CMCNT) || (reg_nr == CMCOR)) {
-			iowrite32(value, base + offs);
-			return;
-		}
-	}
-
-	iowrite16(value, base + offs);
+	offs <<= 2;
+	iowrite32(value, base + offs);
+	return;
 }
 
 static unsigned long sh_cmt_get_counter(struct sh_cmt_priv *p,
@@ -698,20 +682,9 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		goto err1;
 	}
 
-	if (resource_size(res) == 6) {
-		p->width = 16;
-		p->overflow_bit = 0x80;
-		p->clear_bits = ~0x80;
-	} else {
-		p->width = 32;
-		p->overflow_bit = 0x8000;
-		p->clear_bits = ~0xc000;
-	}
-
-	if (p->width == (sizeof(p->max_match_value) * 8))
-		p->max_match_value = ~0;
-	else
-		p->max_match_value = (1 << p->width) - 1;
+	p->overflow_bit = 0x8000;
+	p->clear_bits = ~0xc000;
+	p->max_match_value = ~0;
 
 	p->match_value = p->max_match_value;
 	spin_lock_init(&p->lock);
