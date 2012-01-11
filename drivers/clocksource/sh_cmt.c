@@ -127,7 +127,7 @@ static unsigned long sh_cmt_get_counter(struct sh_cmt_priv *p,
 static int sh_cmt_clk_enable(struct sh_cmt_priv *p)
 {
 	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
-	unsigned long flags, value;
+	unsigned long flags;
 	int ret;
 
 	if (p->clk_enabled)
@@ -156,7 +156,7 @@ static int sh_cmt_clk_enable(struct sh_cmt_priv *p)
 static void sh_cmt_clk_disable(struct sh_cmt_priv *p)
 {
 	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
-	unsigned long flags, value;
+	unsigned long flags;
 
 	if (!p->clk_enabled)
 		return;
