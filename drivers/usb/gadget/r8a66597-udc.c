@@ -1726,7 +1726,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 	/* Cancel a pending charger work only if configured properly */
 	if ((delayed_work_pending(&r8a66597->charger_work)) &&
 	    (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)) {
-		cancel_delayed_work(&r8a66597->charger_work);
+		__cancel_delayed_work(&r8a66597->charger_work);
 		r8a66597->charger_detected = 0;
 	}
 }
