@@ -28,7 +28,7 @@ config ARCH_SH73A0
 	select ARM_GIC
 
 config ARCH_R8A73734
-	bool "R-Mobile U2 (R8A7373A)"
+	bool "R-Mobile U2 (R8A73734)"
 	select CPU_V7
 	select SH_CLK_CPG
 	select ARCH_WANT_OPTIONAL_GPIOLIB
