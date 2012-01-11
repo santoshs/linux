@@ -8,11 +8,29 @@
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
 
+#define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
+
+static struct sh_timer_clock cmt1_cks_table[] = {
+	[0] = CKS("cp_clk", 8),
+	[1] = CKS("cp_clk", 32),
+	[2] = CKS("cp_clk", 128),
+	[3] = CKS("cp_clk", 1),
+	[4] = CKS("rclk_clk", 8),
+	[5] = CKS("rclk_clk", 32),
+	[6] = CKS("rclk_clk", 128),
+	[7] = CKS("rclk_clk", 1),
+	/* Pseudo 32KHz/1 is omitted */
+};
+
 static struct sh_timer_config cmt10_platform_data = {
 	.name			= "CMT10",
+	.clk_enable_offset	= 0x1000 - 0,
 	.timer_bit		= 0,
-	.clockevent_rating	= 125,
 	.clocksource_rating	= 125,
+	.cks_table	= cmt1_cks_table,
+	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
+	.cks		= 7, /* initial value */
+	.cmcsr_init	= 0x108, /* Free-running, debug */
 };
 
 static struct resource cmt10_resources[] = {
@@ -28,7 +46,7 @@ static struct resource cmt10_resources[] = {
 };
 
 static struct platform_device cmt10_device = {
-	.name		= "sh_cmt1",
+	.name		= "sh_cmt",
 	.id		= 0,
 	.dev		= {
 			.platform_data	= &cmt10_platform_data,
@@ -39,9 +57,13 @@ static struct platform_device cmt10_device = {
 
 static struct sh_timer_config cmt11_platform_data = {
 	.name			= "CMT11",
+	.clk_enable_offset	= 0x1000 - 0x100,
 	.timer_bit		= 1,
 	.clockevent_rating	= 125,
-	.clocksource_rating	= 125,
+	.cks_table	= cmt1_cks_table,
+	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
+	.cks		= 7, /* initial value */
+	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 };
 
 static struct resource cmt11_resources[] = {
@@ -57,7 +79,7 @@ static struct resource cmt11_resources[] = {
 };
 
 static struct platform_device cmt11_device = {
-	.name		= "sh_cmt1",
+	.name		= "sh_cmt",
 	.id		= 1,
 	.dev		= {
 			.platform_data	= &cmt11_platform_data,
