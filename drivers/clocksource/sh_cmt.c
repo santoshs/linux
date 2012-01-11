@@ -56,6 +56,7 @@ struct sh_cmt_priv {
 
 static DEFINE_SPINLOCK(sh_cmt_lock);
 
+#define CMCLKE -2 /* shared register */
 #define CMSTR -1 /* shared register */
 #define CMCSR 0 /* channel register */
 #define CMCNT 1 /* channel register */
@@ -70,6 +71,9 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 	if (reg_nr == CMSTR) {
 		offs = 0;
 		base -= cfg->channel_offset;
+	} else if (reg_nr == CMCLKE) {
+		offs = 0;
+		base += cfg->channel_offset_p;
 	} else
 		offs = reg_nr;
 
@@ -87,6 +91,9 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 	if (reg_nr == CMSTR) {
 		offs = 0;
 		base -= cfg->channel_offset;
+	} else if (reg_nr == CMCLKE) {
+		offs = 0;
+		base += cfg->channel_offset_p;
 	} else
 		offs = reg_nr;
 
@@ -119,6 +126,8 @@ static unsigned long sh_cmt_get_counter(struct sh_cmt_priv *p,
 
 static int sh_cmt_clk_enable(struct sh_cmt_priv *p)
 {
+	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
+	unsigned long flags, value;
 	int ret;
 
 	if (p->clk_enabled)
@@ -135,20 +144,42 @@ static int sh_cmt_clk_enable(struct sh_cmt_priv *p)
 		clk_disable(p->clk);
 		return ret;
 	}
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	sh_cmt_write(p, CMCLKE, sh_cmt_read(p, CMCLKE) | (1 << cfg->timer_bit));
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+
 	p->clk_enabled = 1;
 	return 0;
 }
 
 static void sh_cmt_clk_disable(struct sh_cmt_priv *p)
 {
+	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
+	unsigned long flags, value;
+
 	if (!p->clk_enabled)
 		return;
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	sh_cmt_write(p, CMCLKE, sh_cmt_read(p, CMCLKE) & ~(1 << cfg->timer_bit));
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 
 	clk_disable(p->count_clk);
 	clk_disable(p->clk);
 	p->clk_enabled = 0;
 }
 
+#ifdef CONFIG_ARCH_R8A73734
+/*
+ * In R-Mobile U2 CMT hardware,
+ * 1. CMSTR is not a shared register any more
+ * 2. No need to shift the start bit (cfg->timer_bit), always use bit[0]
+ *
+ * That is, sh_cmt_start_stop_ch() could be replaced by sh_cmt_write()
+ */
+#define sh_cmt_start_stop_ch(p, start)	sh_cmt_write(p, CMSTR, start)
+#else
 static void sh_cmt_start_stop_ch(struct sh_cmt_priv *p, int start)
 {
 	struct sh_timer_config *cfg = p->pdev->dev.platform_data;
@@ -166,6 +197,7 @@ static void sh_cmt_start_stop_ch(struct sh_cmt_priv *p, int start)
 	sh_cmt_write(p, CMSTR, value);
 	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 }
+#endif
 
 static int sh_cmt_enable(struct sh_cmt_priv *p, unsigned long *rate)
 {
