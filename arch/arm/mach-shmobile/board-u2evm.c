@@ -43,11 +43,11 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
-static struct platform_device *kota3_devices[] __initdata = {
+static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 };
 
-static struct map_desc kota3_io_desc[] __initdata = {
+static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
@@ -56,9 +56,9 @@ static struct map_desc kota3_io_desc[] __initdata = {
 	},
 };
 
-static void __init kota3_map_io(void)
+static void __init u2evm_map_io(void)
 {
-	iotable_init(kota3_io_desc, ARRAY_SIZE(kota3_io_desc));
+	iotable_init(u2evm_io_desc, ARRAY_SIZE(u2evm_io_desc));
 	r8a73734_add_early_devices();
 	shmobile_setup_console();
 }
@@ -66,7 +66,7 @@ static void __init kota3_map_io(void)
 #define IRQC_INTEN_SET0 0xe61c0008
 #define IRQC_CONFIG_09 0xe61c01a4
 
-void __init kota3_init_irq(void)
+void __init u2evm_init_irq(void)
 {
 	r8a73734_init_irq();
 	__raw_writel(1<<9, IRQC_INTEN_SET0); /* route IRQ9 to CPU0 */
@@ -74,7 +74,7 @@ void __init kota3_init_irq(void)
 
 }
 
-static void __init kota3_init(void)
+static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
 
@@ -103,23 +103,23 @@ static void __init kota3_init(void)
 	l2x0_init(__io(0xf0100000), 0x40460000, 0x82000fff);
 #endif
 	r8a73734_add_standard_devices();
-	platform_add_devices(kota3_devices, ARRAY_SIZE(kota3_devices));
+	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
 }
 
-static void __init kota3_timer_init(void)
+static void __init u2evm_timer_init(void)
 {
 	r8a73734_clock_init();
 	shmobile_timer.init();
 }
 
-struct sys_timer kota3_timer = {
-	.init	= kota3_timer_init,
+struct sys_timer u2evm_timer = {
+	.init	= u2evm_timer_init,
 };
 
-MACHINE_START(KOTA3, "kota3")
-	.map_io		= kota3_map_io,
-	.init_irq	= kota3_init_irq,
+MACHINE_START(U2EVM, "u2evm")
+	.map_io		= u2evm_map_io,
+	.init_irq	= u2evm_init_irq,
 	.handle_irq	= shmobile_handle_irq_gic,
-	.init_machine	= kota3_init,
-	.timer		= &kota3_timer,
+	.init_machine	= u2evm_init,
+	.timer		= &u2evm_timer,
 MACHINE_END
