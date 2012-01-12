@@ -911,19 +911,19 @@ void __init r8a73734_clock_init(void)
 	clk_register(&extal2_clk);
 	clk_register(&extalr_clk);
 
-	sh_clk_cksel_register(&main_clk, 1);
-	sh_clk_cksel_register(&pll2_cksel_clk, 1);
-	/*sh_clk_cksel_register(&pll22_cksel_clk, 1);*/
-
-	sh_clk_div4_register(div4_clks, DIV4_NR, &common_div4_table);
-	sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
-
-	clk_register(&fsiack_clk);
-	clk_register(&fsibck_clk);
 	clk_register(&extal1_div2_clk);
 	clk_register(&extal2_div2_clk);
 	clk_register(&extal2_div4_clk);
+
+	clk_register(&fsiack_clk);
+	clk_register(&fsibck_clk);
+
+	sh_clk_cksel_register(&main_clk, 1);
 	clk_register(&main_div2_clk);
+
+	sh_clk_cksel_register(&pll2_cksel_clk, 1);
+	/*sh_clk_cksel_register(&pll22_cksel_clk, 1);*/
+
 	clk_register(&pll0_clk);
 	clk_register(&pll1_clk);
 	clk_register(&pll1_div2_clk);
@@ -932,6 +932,10 @@ void __init r8a73734_clock_init(void)
 	clk_register(&pll2_clk);
 /*	clk_register(&pll22_clk);*/
 	clk_register(&pll3_clk);
+
+	sh_clk_div4_register(div4_clks, DIV4_NR, &common_div4_table);
+	sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
+
 	clk_register(&ztr_clk);
 	clk_register(&ztrd2_clk);
 	clk_register(&zb30_clk);
