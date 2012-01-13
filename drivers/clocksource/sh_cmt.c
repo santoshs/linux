@@ -34,6 +34,7 @@
 
 struct sh_cmt_priv {
 	void __iomem *mapbase;
+	void __iomem *base;
 	struct clk *clk;
 	struct clk *count_clk;
 	unsigned long overflow_bit;
@@ -70,10 +71,10 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 
 	if (reg_nr == CMSTR) {
 		offs = 0;
-		base -= cfg->channel_offset;
+		base = p->base - cfg->channel_offset;
 	} else if (reg_nr == CMCLKE) {
 		offs = 0;
-		base += cfg->channel_offset_p;
+		base = p->base + cfg->channel_offset_p;
 	} else
 		offs = reg_nr;
 
@@ -90,10 +91,10 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 
 	if (reg_nr == CMSTR) {
 		offs = 0;
-		base -= cfg->channel_offset;
+		base = p->base - cfg->channel_offset;
 	} else if (reg_nr == CMCLKE) {
 		offs = 0;
-		base += cfg->channel_offset_p;
+		base = p->base + cfg->channel_offset_p;
 	} else
 		offs = reg_nr;
 
@@ -684,6 +685,9 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		dev_err(&p->pdev->dev, "failed to get irq\n");
 		goto err0;
 	}
+
+	/* save physical address for CMSTR and CMCLKE. Find poper fix, later. */
+	p->base = res->start;
 
 	/* map memory, let mapbase point to our channel */
 	p->mapbase = ioremap_nocache(res->start, resource_size(res));

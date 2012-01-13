@@ -168,8 +168,6 @@ static int setup_data_reg(struct pinmux_info *gpioc, unsigned gpio)
 		k++;
 	}
 
-	BUG();
-
 	return -1;
 }
 
