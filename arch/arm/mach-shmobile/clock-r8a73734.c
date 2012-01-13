@@ -5,6 +5,7 @@
 #include <linux/clkdev.h>
 #include <linux/sh_clk.h>
 #include <asm/clkdev.h>
+#include <mach/common.h>     
 
 #define	FRQCRA	0xE6150000UL
 #define	FRQCRB	0xE6150004UL
@@ -974,4 +975,6 @@ void __init r8a73734_clock_init(void)
 	sh_clk_mstp32_register(mstp_clks, MSTP_NR);
 
 	clkdev_add_table(lookups, ARRAY_SIZE(lookups));
+
+	clk_init();
 };
