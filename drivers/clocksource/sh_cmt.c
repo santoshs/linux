@@ -57,11 +57,19 @@ struct sh_cmt_priv {
 
 static DEFINE_SPINLOCK(sh_cmt_lock);
 
+#ifdef CONFIG_ARCH_R8A73734
+#define CMCLKE -2 /* shared register */
+#define CMSTR (0x00>>2) /* channel register */
+#define CMCSR (0x10>>2) /* channel register */
+#define CMCNT (0x14>>2) /* channel register */
+#define CMCOR (0x18>>2) /* channel register */
+#else
 #define CMCLKE -2 /* shared register */
 #define CMSTR -1 /* shared register */
 #define CMCSR 0 /* channel register */
 #define CMCNT 1 /* channel register */
 #define CMCOR 2 /* channel register */
+#endif
 
 static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 {
