@@ -933,32 +933,38 @@ void __init r8a73734_clock_init(void)
 /*	clk_register(&pll22_clk);*/
 	clk_register(&pll3_clk);
 
+	/* common divider following pll1 and pll3 */
 	sh_clk_div4_register(div4_clks, DIV4_NR, &common_div4_table);
-	sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
-
+	/* siblings of common divider following pll1 */
 	clk_register(&ztr_clk);
 	clk_register(&ztrd2_clk);
+
+	/* siblings of common divider following pll3 */
+	sh_clk_cksel_register(&ddr_clk, 1);
 	clk_register(&zb30_clk);
 	clk_register(&zb30d2_clk);
 	clk_register(&ddr_div2_clk);
 	clk_register(&ddr_div4_clk);
+	sh_clk_cksel_register(&zb30sl_clk, 1);
+
+	/* dedicated dividers */
+	sh_clk_cksel_register(&vclk3_cksel_clk, 1);
 	clk_register(&vclk3_pdiv_clk);
+	sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
+
 	clk_register(&extcki_clk);
+	sh_clk_cksel_register(&dsi0p0_cksel_clk, 1);
+	sh_clk_cksel_register(&dsi0p1_cksel_clk, 1);
 	clk_register(&dsi0p0_clk);
 	clk_register(&dsi0p1_clk);
 	clk_register(&dsi0p_clk);
 	clk_register(&hdmi0_clk);
 
-	sh_clk_cksel_register(&ddr_clk, 1);
-	sh_clk_cksel_register(&zb30sl_clk, 1);
-	sh_clk_cksel_register(&vclk3_cksel_clk, 1);
 	sh_clk_cksel_register(&mp_clk, 1);
 	sh_clk_cksel_register(&mpc_clk, 1);
 	sh_clk_cksel_register(&fsia_clk, 1);
 	sh_clk_cksel_register(&fsib_clk, 1);
 	sh_clk_cksel_register(&spua_clk, 1);
-	sh_clk_cksel_register(&dsi0p0_cksel_clk, 1);
-	sh_clk_cksel_register(&dsi0p1_cksel_clk, 1);
 	sh_clk_cksel_register(&cp_clk, 1);
 
 	clk_set_parent(&dsi0p_clk, NULL);
