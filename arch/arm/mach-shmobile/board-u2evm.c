@@ -21,7 +21,7 @@ static struct resource smsc9220_resources[] = {
 		.end	= 0x14000000 + SZ_64K - 1,
 		.flags	= IORESOURCE_MEM,
 	}, {
-		.start	= 9,
+		.start	= gic_spi(9),
 		.flags	= IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
 	},
 };
