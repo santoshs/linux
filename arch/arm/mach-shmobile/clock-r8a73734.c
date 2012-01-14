@@ -861,7 +861,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("fsibck_clk", &fsibck_clk),
 
 	/* reparent candidates for peripherals */
-	CLKDEV_CON_ID("rclk_clk", &extalr_clk),
+	CLKDEV_CON_ID("r_clk", &extalr_clk),
 	CLKDEV_CON_ID("i_clk", &div4_clks[DIV4_I]),
 	CLKDEV_CON_ID("b_clk", &div4_clks[DIV4_B]),
 	CLKDEV_CON_ID("zx_clk", &div4_clks[DIV4_ZX]),

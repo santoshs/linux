@@ -15,10 +15,10 @@ static struct sh_timer_clock cmt1_cks_table[] = {
 	[1] = CKS("cp_clk", 32),
 	[2] = CKS("cp_clk", 128),
 	[3] = CKS("cp_clk", 1),
-	[4] = CKS("rclk_clk", 8),
-	[5] = CKS("rclk_clk", 32),
-	[6] = CKS("rclk_clk", 128),
-	[7] = CKS("rclk_clk", 1),
+	[4] = CKS("r_clk", 8),
+	[5] = CKS("r_clk", 32),
+	[6] = CKS("r_clk", 128),
+	[7] = CKS("r_clk", 1),
 	/* Pseudo 32KHz/1 is omitted */
 };
 
