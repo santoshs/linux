@@ -100,7 +100,15 @@ static void __init u2evm_init(void)
 	gpio_direction_output(GPIO_PORT10, 1); /* release NRESET */
 
 #ifdef CONFIG_CACHE_L2X0
-	l2x0_init(__io(0xf0100000), 0x40460000, 0x82000fff);
+	/*
+	 * [30] Early BRESP enable
+	 * [27] Non-secure interrupt access control
+	 * [26] Non-secure lockdown enable
+	 * [22] Shared attribute override enable
+	 * [19:17] Way-size: b010 = 32KB
+	 * [16] Accosiativity: 0 = 8-way
+	 */
+	l2x0_init(__io(0xf0100000), 0x4c440000, 0x820f0fff);
 #endif
 	r8a73734_add_standard_devices();
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
