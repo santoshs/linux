@@ -190,12 +190,13 @@ static unsigned long pll0_recalc(struct clk *clk)
 {
 	unsigned long rate = clk->parent->rate;
 	u32 pll0cr = __raw_readl(PLL0CR);
-	int pll0control = (pll0cr >> (8 + 0)) & 1;
+	int pll0st = __raw_readl(PLLECR) & (1 << (8 + 0));
+
 	/* pll0 */
-	if (pll0control)
+	if (pll0st)
 		rate *= ((pll0cr >> 24) & 0x3f) + 1;
 	/* sys-cpu divider */
-	if (pll0control) {
+	if (pll0st) {
 		u32 frqcrb = __raw_readl(FRQCRB);
 		if (frqcrb & (1 << 28)) { /* ZSEL */
 			int div = zfc_divisors[(frqcrb >> 24) & 0xf];
