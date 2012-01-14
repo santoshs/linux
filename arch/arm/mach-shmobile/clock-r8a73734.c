@@ -155,6 +155,10 @@ static struct clk extal2_div4_clk = {
 	.priv	= (void *)4,
 };
 
+static struct clk_ops followparent_clk_ops = {
+	.recalc	= followparent_recalc,
+};
+
 static struct clk *main_clk_parent[] = {
 	[0]	= &extal1_clk,
 	[1]	= &extal1_div2_clk,
@@ -172,42 +176,14 @@ static struct clk main_div2_clk = {
 };
 
 /* PLL0 */
-static unsigned int zfc_divisors[16] = {
-	[0]	= 2,
-	[1]	= 3,
-	[2]	= 4,
-	[3]	= 6,
-	[4]	= 8,
-	[5]	= 12,
-	[6]	= 16,
-	[8]	= 24,
-	[11]	= 48,
-};
-
-/* pll0 + sys-cpu divider */
-/* Just follows HW setting. No modify, no kick.  */
 static unsigned long pll0_recalc(struct clk *clk)
 {
-	unsigned long rate = clk->parent->rate;
-	u32 pll0cr = __raw_readl(PLL0CR);
-	int pll0st = __raw_readl(PLLECR) & (1 << (8 + 0));
+	unsigned long mult = 1;
 
-	/* pll0 */
-	if (pll0st)
-		rate *= ((pll0cr >> 24) & 0x3f) + 1;
-	/* sys-cpu divider */
-	if (pll0st) {
-		u32 frqcrb = __raw_readl(FRQCRB);
-		if (frqcrb & (1 << 28)) { /* ZSEL */
-			int div = zfc_divisors[(frqcrb >> 24) & 0xf];
-			if (div)
-				rate /= div;
-			else
-				rate = 0; /* warn */
-		}
-	} else
-		rate = clk->parent->rate;
-	return rate;
+	if (__raw_readl(PLLECR) & (1 << (8 + 0)))
+		mult = ((__raw_readl(PLL0CR) >> 24) & 0x3f) + 1;
+
+	return clk->parent->rate * mult;
 }
 
 static struct clk_ops pll0_clk_ops = {
@@ -357,7 +333,7 @@ static struct clk_div4_table common_div4_table = {
 
 enum {
 	DIV4_I, DIV4_ZG, DIV4_M3, DIV4_B, DIV4_M1,
-	DIV4_ZTR, DIV4_ZT, DIV4_ZX, DIV4_ZS, DIV4_HP,
+	DIV4_Z, DIV4_ZTR, DIV4_ZT, DIV4_ZX, DIV4_ZS, DIV4_HP,
 	DIV4_DDR,
 	DIV4_NR
 };
@@ -368,6 +344,7 @@ static struct clk div4_clks[DIV4_NR] = {
 	[DIV4_M3] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 12, 0x1dff, 0),
 	[DIV4_B] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 8, 0xdff, 0),
 	[DIV4_M1] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 4, 0x1dff, 0),
+	[DIV4_Z] = SH_CLK_DIV4(NULL, FRQCRB, 24, 0x097f, 0),
 	[DIV4_ZTR] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 20, 0x0dff, 0),
 	[DIV4_ZT] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 16, 0xdff, 0),
 	[DIV4_ZX] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 12, 0xdff, 0),
@@ -658,6 +635,10 @@ static struct clk *cp_parent[] = {
 static struct clk cp_clk = SH_CLK_CKSEL(&main_div2_clk, 0, 0, 0,
 		cp_parent, ARRAY_SIZE(cp_parent), 0, 0);
 
+static struct clk z_clk = {
+	.ops	= &followparent_clk_ops,
+};
+
 enum {
 	MSTP031,
 	MSTP030,
@@ -883,9 +864,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("rclk_clk", &extalr_clk),
 	CLKDEV_CON_ID("i_clk", &div4_clks[DIV4_I]),
 	CLKDEV_CON_ID("b_clk", &div4_clks[DIV4_B]),
-	CLKDEV_CON_ID("z_clk", &pll0_clk),
 	CLKDEV_CON_ID("zx_clk", &div4_clks[DIV4_ZX]),
 	CLKDEV_CON_ID("zt_clk", &div4_clks[DIV4_ZT]),
+/*	CLKDEV_CON_ID("z_clk", &div4_clks[DIV4_Z]), */
 	CLKDEV_CON_ID("ztr_clk", &ztr_clk),
 	CLKDEV_CON_ID("zs_clk", &div4_clks[DIV4_ZS]),
 	CLKDEV_CON_ID("hp_clk", &div4_clks[DIV4_HP]),
@@ -894,6 +875,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("mpc_clk", &mpc_clk),
 	CLKDEV_CON_ID("m3_clk", &div4_clks[DIV4_M3]),
 	CLKDEV_CON_ID("mp_clk", &mp_clk),
+	CLKDEV_CON_ID("z_clk", &z_clk),
 
 	/* stray clocks */
 	CLKDEV_CON_ID("ztrd2_clk", &ztrd2_clk),
@@ -910,6 +892,19 @@ static struct clk_lookup lookups[] = {
 
 void __init r8a73734_clock_init(void)
 {
+	/* detect System-CPU clock parent */
+	if (__raw_readl(PLLECR) & (1 << 8)) { /* PLL0ST */
+		div4_clks[DIV4_Z].parent = &pll0_clk;
+
+		if (__raw_readl(FRQCRB) & (1 << 28)) /* ZSEL */
+			z_clk.parent = &div4_clks[DIV4_Z];
+		else
+			z_clk.parent = &pll0_clk;
+	} else {
+		div4_clks[DIV4_Z].parent = &main_clk;
+		z_clk.parent = &main_clk;
+	}
+
 	clk_register(&extal1_clk);
 	clk_register(&extal2_clk);
 	clk_register(&extalr_clk);
@@ -935,6 +930,8 @@ void __init r8a73734_clock_init(void)
 	clk_register(&pll2_clk);
 /*	clk_register(&pll22_clk);*/
 	clk_register(&pll3_clk);
+
+	clk_register(&z_clk);
 
 	/* common divider following pll1 and pll3 */
 	sh_clk_div4_register(div4_clks, DIV4_NR, &common_div4_table);
