@@ -467,21 +467,22 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 	else
 		wakeup = sh_mobile_i2c_isr_tx(pd);
 
-	if (sr & ICSR_WAIT) /* TODO: add delay here to support slow acks */
-		iic_wr(pd, ICSR, sr & ~ICSR_WAIT);
-
 	if (wakeup) {
 
 		pd->curr_msg++;
 		pd->pos = -1;
-		iic_wr(pd, ICIC, ICIC_DTEE | ICIC_WAITE | ICIC_ALE | ICIC_TACKE);
 
 		if (pd->curr_msg < pd->msgs_num) {
 			i2c_op(pd, OP_START, 0);
 			wakeup = 0;
 		} else
 			wakeup = 1;
+
+		iic_wr(pd, ICIC, ICIC_DTEE | ICIC_WAITE | ICIC_ALE | ICIC_TACKE);
 	}
+
+	if (sr & ICSR_WAIT) /* TODO: add delay here to support slow acks */
+		iic_wr(pd, ICSR, sr & ~ICSR_WAIT);
 
 	if (wakeup) {
 		pd->sr |= SW_DONE;
