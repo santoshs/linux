@@ -169,6 +169,7 @@ static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
 
+	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RTS_, NULL);
