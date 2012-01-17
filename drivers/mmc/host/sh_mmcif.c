@@ -175,6 +175,7 @@ struct sh_mmcif_host {
 	enum mmcif_state state;
 	spinlock_t lock;
 	bool power;
+	bool card_present;
 
 	/* DMA support */
 	struct dma_chan		*chan_rx;
@@ -375,6 +376,7 @@ static void sh_mmcif_release_dma(struct sh_mmcif_host *host)
 static void sh_mmcif_clock_control(struct sh_mmcif_host *host, unsigned int clk)
 {
 	struct sh_mmcif_plat_data *p = host->pd->dev.platform_data;
+	u32 clkdiv;
 
 	sh_mmcif_bitclr(host, MMCIF_CE_CLK_CTRL, CLK_ENABLE);
 	sh_mmcif_bitclr(host, MMCIF_CE_CLK_CTRL, CLK_CLEAR);
@@ -383,9 +385,13 @@ static void sh_mmcif_clock_control(struct sh_mmcif_host *host, unsigned int clk)
 		return;
 	if (p->sup_pclk && clk == host->clk)
 		sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL, CLK_SUP_PCLK);
-	else
-		sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL, CLK_CLEAR &
-			(ilog2(__rounddown_pow_of_two(host->clk / clk)) << 16));
+	else {
+		clkdiv = ilog2(__rounddown_pow_of_two(host->clk / clk));
+		if (clkdiv == 0)
+			clkdiv = 1; /* just in case */
+		sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL,
+			CLK_CLEAR & ((clkdiv - 1) << 16));
+	}
 
 	sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL, CLK_ENABLE);
 }
@@ -825,6 +831,13 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	switch (mrq->cmd->opcode) {
 	/* MMCIF does not support SD/SDIO command */
 	case SD_IO_SEND_OP_COND:
+		/*
+		 * MMC_SLEEP_AWAKE happens to be given an idential number
+		 * with SD_IO_SEND_OP_COND, but we need to send it out here
+		 * to put MMC to sleep.
+		 */
+		if ((mrq->cmd->flags & MMC_CMD_MASK) == MMC_CMD_AC)
+			break;
 	case MMC_APP_CMD:
 		host->state = STATE_IDLE;
 		mrq->cmd->error = -ETIMEDOUT;
@@ -877,23 +890,23 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	if (ios->power_mode == MMC_POWER_UP) {
-		if (p->set_pwr)
-			p->set_pwr(host->pd, ios->power_mode);
-		if (!host->power) {
+		if (!host->card_present) {
 			/* See if we also get DMA */
 			sh_mmcif_request_dma(host, host->pd->dev.platform_data);
-			pm_runtime_get_sync(&host->pd->dev);
-			host->power = true;
+			host->card_present = true;
 		}
 	} else if (ios->power_mode == MMC_POWER_OFF || !ios->clock) {
 		/* clock stop */
 		sh_mmcif_clock_control(host, 0);
 		if (ios->power_mode == MMC_POWER_OFF) {
-			if (host->power) {
-				pm_runtime_put(&host->pd->dev);
+			if (host->card_present) {
 				sh_mmcif_release_dma(host);
-				host->power = false;
+				host->card_present = false;
 			}
+		}
+		if (host->power) {
+			pm_runtime_put(&host->pd->dev);
+			host->power = false;
 			if (p->down_pwr)
 				p->down_pwr(host->pd);
 		}
@@ -901,8 +914,16 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		return;
 	}
 
-	if (ios->clock)
+	if (ios->clock) {
+		if (!host->power) {
+			if (p->set_pwr)
+				p->set_pwr(host->pd, ios->power_mode);
+			pm_runtime_get_sync(&host->pd->dev);
+			host->power = true;
+			sh_mmcif_sync_reset(host);
+		}
 		sh_mmcif_clock_control(host, ios->clock);
+	}
 
 	host->bus_width = ios->bus_width;
 	host->state = STATE_IDLE;
@@ -1046,14 +1067,14 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 
 	mmc->ops = &sh_mmcif_ops;
-	mmc->f_max = host->clk;
+	mmc->f_max = host->clk / 2;
 	/* close to 400KHz */
-	if (mmc->f_max < 51200000)
-		mmc->f_min = mmc->f_max / 128;
-	else if (mmc->f_max < 102400000)
-		mmc->f_min = mmc->f_max / 256;
+	if (host->clk < 51200000)
+		mmc->f_min = host->clk / 128;
+	else if (host->clk < 102400000)
+		mmc->f_min = host->clk / 256;
 	else
-		mmc->f_min = mmc->f_max / 512;
+		mmc->f_min = host->clk / 512;
 	if (pd->ocr)
 		mmc->ocr_avail = pd->ocr;
 	mmc->caps = MMC_CAP_MMC_HIGHSPEED;
