@@ -1058,7 +1058,7 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 
 static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 {
-	int ret = 0, irq[2];
+	int ret = 0, irq, i;
 	struct mmc_host *mmc;
 	struct sh_mmcif_host *host;
 	struct sh_mmcif_plat_data *pd;
@@ -1066,9 +1066,8 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	void __iomem *reg;
 	char clk_name[8];
 
-	irq[0] = platform_get_irq(pdev, 0);
-	irq[1] = platform_get_irq(pdev, 1);
-	if (irq[0] < 0 || irq[1] < 0) {
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
 		dev_err(&pdev->dev, "Get irq error\n");
 		return -ENXIO;
 	}
@@ -1154,16 +1153,22 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 
 	sh_mmcif_writel(host->addr, MMCIF_CE_INT_MASK, MASK_ALL);
 
-	ret = request_irq(irq[0], sh_mmcif_intr, 0, "sh_mmc:error", host);
-	if (ret) {
-		dev_err(&pdev->dev, "request_irq error (sh_mmc:error)\n");
-		goto clean_up3;
-	}
-	ret = request_irq(irq[1], sh_mmcif_intr, 0, "sh_mmc:int", host);
-	if (ret) {
-		free_irq(irq[0], host);
-		dev_err(&pdev->dev, "request_irq error (sh_mmc:int)\n");
-		goto clean_up3;
+	for (i = 0; i < 2; i++) {
+		irq = platform_get_irq(pdev, i);
+		if (irq < 0)
+			break;
+		ret = request_irq(irq, sh_mmcif_intr,
+				0, dev_name(&pdev->dev), host);
+		if (ret) {
+			dev_err(&pdev->dev, "request_irq error. (irq=%d)\n",
+					irq);
+			while (i--) {
+				irq = platform_get_irq(pdev, i);
+				if (irq >= 0)
+					free_irq(irq, host);
+			}
+			goto clean_up3;
+		}
 	}
 
 	clk_disable(host->hclk);
@@ -1192,7 +1197,7 @@ clean_up:
 static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 {
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-	int irq[2];
+	int i, irq;
 
 	pm_runtime_get_sync(&pdev->dev);
 	clk_enable(host->hclk);
@@ -1203,11 +1208,11 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 	if (host->addr)
 		iounmap(host->addr);
 
-	irq[0] = platform_get_irq(pdev, 0);
-	irq[1] = platform_get_irq(pdev, 1);
-
-	free_irq(irq[0], host);
-	free_irq(irq[1], host);
+	for (i = 0; i < 3; i++) {
+		irq = platform_get_irq(pdev, i);
+		if (irq >= 0)
+			free_irq(irq, host);
+	}
 
 	platform_set_drvdata(pdev, NULL);
 
