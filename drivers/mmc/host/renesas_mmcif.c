@@ -1079,7 +1079,7 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	host		= mmc_priv(mmc);
 	host->mmc	= mmc;
 	host->addr	= reg;
-	host->timeout	= 1000;
+	host->timeout	= msecs_to_jiffies(10000);
 
 	snprintf(clk_name, sizeof(clk_name), "mmc%d", pdev->id);
 	host->hclk = clk_get(&pdev->dev, clk_name);
