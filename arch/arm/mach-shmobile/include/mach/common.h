@@ -59,4 +59,9 @@ extern void sh73a0_secondary_init(unsigned int cpu);
 extern int sh73a0_boot_secondary(unsigned int cpu);
 extern void sh73a0_smp_prepare_cpus(void);
 
+extern unsigned int r8a73734_get_core_count(void);
+extern void r8a73734_secondary_init(unsigned int cpu);
+extern int r8a73734_boot_secondary(unsigned int cpu);
+extern void r8a73734_smp_prepare_cpus(void);
+
 #endif /* __ARCH_MACH_COMMON_H */
