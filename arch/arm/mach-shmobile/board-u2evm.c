@@ -16,6 +16,7 @@
 #include <linux/smsc911x.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/sh_mmcif.h>
+#include <linux/mmc/renesas_sdhi.h>
 
 static struct resource smsc9220_resources[] = {
 	{
@@ -86,9 +87,55 @@ static struct platform_device sh_mmcif_device = {
 	.resource	= sh_mmcif_resources,
 };
 
+/* SDHI0 */
+static void sdhi0_set_pwr(struct platform_device *pdev, int state)
+{
+	;
+}
+
+static struct renesas_sdhi_dma sdhi0_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI0_RX,
+	}
+};
+
+static struct renesas_sdhi_platdata sdhi0_info = {
+	.caps		= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
+	.dma		= &sdhi0_dma,
+	.set_pwr	= sdhi0_set_pwr,
+};
+
+static struct resource sdhi0_resources[] = {
+	[0] = {
+		.name	= "SDHI0",
+		.start	= 0xee100000,
+		.end	= 0xee1000ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(118),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi0_device = {
+	.name		= "renesas_sdhi",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &sdhi0_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi0_resources),
+	.resource	= sdhi0_resources,
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 	&sh_mmcif_device,
+	&sdhi0_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -138,6 +185,16 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCD0_6, NULL);
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
+
+	/* SDHI0 */
+	gpio_request(GPIO_FN_SDHID0_0, NULL);
+	gpio_request(GPIO_FN_SDHID0_1, NULL);
+	gpio_request(GPIO_FN_SDHID0_2, NULL);
+	gpio_request(GPIO_FN_SDHID0_3, NULL);
+	gpio_request(GPIO_FN_SDHICMD0, NULL);
+	gpio_request(GPIO_FN_SDHIWP0, NULL);
+	gpio_request(GPIO_FN_SDHICLK0, NULL);
+	gpio_request(GPIO_FN_SDHICD0, NULL);
 
 	gpio_request(GPIO_PORT9, NULL);
 	gpio_direction_input(GPIO_PORT9); /* for IRQ */
