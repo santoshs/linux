@@ -5,6 +5,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial_sci.h>
 #include <linux/sh_timer.h>
+#include <linux/i2c/i2c-sh_mobile.h>
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
 
@@ -157,6 +158,146 @@ static struct platform_device scif3_device = {
 	.id		= 3,
 	.dev		= {
 		.platform_data	= &scif3_platform_data,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c0_resources[] = {
+	[0] = {
+		.name	= "IIC0",
+		.start	= 0xe6820000,
+		.end	= 0xe6820425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(184),
+		.end	= gic_spi(184),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c1_resources[] = {
+	[0] = {
+		.name	= "IIC1",
+		.start	= 0xe6822000,
+		.end	= 0xe6822425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(185),
+		.end	= gic_spi(185),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c2_resources[] = {
+	[0] = {
+		.name	= "IIC2",
+		.start	= 0xe6824000,
+		.end	= 0xe6824425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(186),
+		.end	= gic_spi(186),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c4_resources[] = {
+	[0] = {
+		.name	= "IIC4",
+		.start	= 0xe6828000,
+		.end	= 0xe6828425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(188),
+		.end	= gic_spi(188),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c5_resources[] = {
+	[0] = {
+		.name	= "IIC5",
+		.start	= 0xe682a000,
+		.end	= 0xe682a425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(189),
+		.end	= gic_spi(189),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device i2c0_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 0,
+	.resource	= i2c0_resources,
+	.num_resources	= ARRAY_SIZE(i2c0_resources),
+	.dev		= {
+		.platform_data	= &i2c0_platform_data,
+	},
+};
+
+static struct platform_device i2c1_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 1,
+	.resource	= i2c1_resources,
+	.num_resources	= ARRAY_SIZE(i2c1_resources),
+	.dev		= {
+		.platform_data	= &i2c1_platform_data,
+	},
+};
+
+static struct platform_device i2c2_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 2,
+	.resource	= i2c2_resources,
+	.num_resources	= ARRAY_SIZE(i2c2_resources),
+	.dev		= {
+		.platform_data	= &i2c2_platform_data,
+	},
+};
+
+static struct platform_device i2c4_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 4,
+	.resource	= i2c4_resources,
+	.num_resources	= ARRAY_SIZE(i2c4_resources),
+	.dev		= {
+		.platform_data	= &i2c4_platform_data,
+	},
+};
+
+static struct platform_device i2c5_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 5,
+	.resource	= i2c5_resources,
+	.num_resources	= ARRAY_SIZE(i2c5_resources),
+	.dev		= {
+		.platform_data	= &i2c5_platform_data,
 	},
 };
 
@@ -384,6 +525,11 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 };
 
 static struct platform_device *r8a73734_late_devices[] __initdata = {
+	&i2c0_device,
+	&i2c1_device,
+	&i2c2_device,
+	&i2c4_device,
+	&i2c5_device,
 	&dma0_device,
 };
 

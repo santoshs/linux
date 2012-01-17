@@ -882,9 +882,12 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30_clk", &zb30_clk),
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
+	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
+	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &mstp_clks[MSTP218]), /* DMAC */
 	CLKDEV_DEV_ID("sh_cmt.0", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_DEV_ID("sh_cmt.1", &mstp_clks[MSTP329]), /* CMT1 */
+	CLKDEV_DEV_ID("i2c-sh_mobile.1", &mstp_clks[MSTP323]), /* I2C1 */
 	CLKDEV_DEV_ID("sh_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
@@ -892,6 +895,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("sh-sci.1", &mstp_clks[MSTP203]), /* SCIFA1 */
 	CLKDEV_DEV_ID("sh-sci.2", &mstp_clks[MSTP202]), /* SCIFA2 */
 	CLKDEV_DEV_ID("sh-sci.3", &mstp_clks[MSTP201]), /* SCIFA3 */
+	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP410]), /* I2C4 */
+	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */
 };
 
 void __init r8a73734_clock_init(void)

@@ -196,6 +196,12 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SDHICLK0, NULL);
 	gpio_request(GPIO_FN_SDHICD0, NULL);
 
+	/* I2C */
+	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
+	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
+	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
+	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
+
 	gpio_request(GPIO_PORT9, NULL);
 	gpio_direction_input(GPIO_PORT9); /* for IRQ */
 	gpio_request(GPIO_PORT10, NULL);
