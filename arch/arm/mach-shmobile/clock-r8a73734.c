@@ -799,7 +799,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP321] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 21, 0), /* SBSC performance monitor */
 	[MSTP319] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 19, 0), /* RT-DMAC scheduler */
 	[MSTP316] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_ZS], SMSTPCR3, MSTPSR3, 16, 0), /* SHWYSTAT */
-	[MSTP315] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 15, 0), /* MMC0 */
+	[MSTP315] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 15, 0), /* MMCIF0 */
 	[MSTP314] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_SD0], SMSTPCR3, MSTPSR3, 14, 0), /* SDHI0 */
 	[MSTP313] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_SD1], SMSTPCR3, MSTPSR3, 13, 0), /* SDHI1 */
 	[MSTP309] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR3, MSTPSR3, 9, 0), /* ICU-USB */
@@ -884,6 +884,7 @@ static struct clk_lookup lookups[] = {
 
 	CLKDEV_DEV_ID("sh_cmt.0", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_DEV_ID("sh_cmt.1", &mstp_clks[MSTP329]), /* CMT1 */
+	CLKDEV_DEV_ID("sh_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("sh-sci.0", &mstp_clks[MSTP204]), /* SCIFA0 */
 	CLKDEV_DEV_ID("sh-sci.1", &mstp_clks[MSTP203]), /* SCIFA1 */
 	CLKDEV_DEV_ID("sh-sci.2", &mstp_clks[MSTP202]), /* SCIFA2 */

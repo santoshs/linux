@@ -14,6 +14,8 @@
 #include <asm/mach/map.h>
 #include <asm/mach/time.h>
 #include <linux/smsc911x.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/sh_mmcif.h>
 
 static struct resource smsc9220_resources[] = {
 	{
@@ -43,8 +45,50 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
+/* MMCIF */
+static struct sh_mmcif_dma sh_mmcif_dma = {
+	.chan_priv_rx	= {
+		.slave_id	= SHDMA_SLAVE_MMCIF_RX,
+	},
+	.chan_priv_tx	= {
+		.slave_id	= SHDMA_SLAVE_MMCIF_TX,
+	},
+};
+
+static struct sh_mmcif_plat_data sh_mmcif_plat = {
+	.sup_pclk	= 0,
+	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
+	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
+			  MMC_CAP_NONREMOVABLE,
+	.dma		= &sh_mmcif_dma,
+};
+
+static struct resource sh_mmcif_resources[] = {
+	[0] = {
+		.name	= "MMCIF",
+		.start	= 0xe6bd0000,
+		.end	= 0xe6bd00ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(122),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sh_mmcif_device = {
+	.name		= "sh_mmcif",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &sh_mmcif_plat,
+	},
+	.num_resources	= ARRAY_SIZE(sh_mmcif_resources),
+	.resource	= sh_mmcif_resources,
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
+	&sh_mmcif_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -83,6 +127,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFA0_RTS_, NULL);
 	gpio_request(GPIO_FN_SCIFA0_CTS_, NULL);
 
+	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
 	gpio_request(GPIO_FN_MMCD0_0, NULL);
 	gpio_request(GPIO_FN_MMCD0_1, NULL);
