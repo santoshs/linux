@@ -15,6 +15,6 @@ void __init r8a73734_init_irq(void)
 	void __iomem *gic_dist_base = __io(0xf0001000);
 	void __iomem *gic_cpu_base = __io(0xf0000100);
 
-	gic_init(0, 9, gic_dist_base, gic_cpu_base);
+	gic_init(0, 29, gic_dist_base, gic_cpu_base);
 	gic_arch_extn.irq_set_wake = r8a73734_irq_set_wake;
 }
