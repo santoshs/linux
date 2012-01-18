@@ -154,15 +154,9 @@ static void __init u2evm_map_io(void)
 	shmobile_setup_console();
 }
 
-#define IRQC_INTEN_SET0 0xe61c0008
-#define IRQC_CONFIG_09 0xe61c01a4
-
 void __init u2evm_init_irq(void)
 {
 	r8a73734_init_irq();
-	__raw_writel(1<<9, IRQC_INTEN_SET0); /* route IRQ9 to CPU0 */
-	__raw_writel(1, IRQC_CONFIG_09); /* low level */
-
 }
 
 static void __init u2evm_init(void)
