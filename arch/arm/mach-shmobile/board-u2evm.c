@@ -17,6 +17,31 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/sh_mmcif.h>
 #include <linux/mmc/renesas_sdhi.h>
+#include <linux/input.h>
+#include <linux/gpio_keys.h>
+
+#define GPIO_PULL_OFF	0x00
+#define GPIO_PULL_DOWN	0x80
+#define GPIO_PULL_UP	0xc0
+
+#define GPIO_BASE	0xe6050000
+#define GPIO_PORTCR(n)	({				\
+	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 192) ? 0 :				\
+	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
+	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+static void gpio_pull(u32 addr, int type)
+{
+	u8 data = __raw_readb(addr);
+
+	data &= ~0xc0;
+	data |= type;
+
+	__raw_writeb(data, addr);
+}
 
 static struct resource smsc9220_resources[] = {
 	{
@@ -140,10 +165,49 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+#define GPIO_KEY(c, g, d) \
+	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1}
+
+static struct gpio_keys_button gpio_buttons[] = {
+	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
+	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
+	GPIO_KEY(KEY_HOME, GPIO_PORT26, "Home"),
+	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
+	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
+};
+
+static int gpio_key_enable(struct device *dev)
+{
+	gpio_pull(GPIO_PORTCR(24), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR(25), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR(26), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR(27), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR(1), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR(2), GPIO_PULL_UP);
+	return 0;
+}
+
+static struct gpio_keys_platform_data gpio_key_info = {
+	.buttons	= gpio_buttons,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.rep		= 0,
+	.enable		= gpio_key_enable,
+};
+
+static struct platform_device gpio_key_device = {
+	.name	= "gpio-keys",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_key_info,
+	},
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 	&sh_mmcif_device,
 	&sdhi0_device,
+	&gpio_key_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
