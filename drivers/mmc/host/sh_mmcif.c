@@ -1135,9 +1135,9 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	mmc->max_seg_size = mmc->max_req_size;
 
 	if (pd->buf_acc)
-		mmc->buf_acc = pd->buf_acc;
+		host->buf_acc = pd->buf_acc;
 	else
-		mmc->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
+		host->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
 
 	sh_mmcif_sync_reset(host);
 	platform_set_drvdata(pdev, host);
