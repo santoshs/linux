@@ -93,6 +93,11 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 	;
 }
 
+static int sdhi0_get_cd(struct platform_device *pdev)
+{
+	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
+}
+
 static struct renesas_sdhi_dma sdhi0_dma = {
 	.chan_tx = {
 		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
@@ -103,10 +108,13 @@ static struct renesas_sdhi_dma sdhi0_dma = {
 };
 
 static struct renesas_sdhi_platdata sdhi0_info = {
-	.caps		= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED,
+	.caps		= 0,
 	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
 	.dma		= &sdhi0_dma,
 	.set_pwr	= sdhi0_set_pwr,
+	.detect_irq	= irqpin2irq(50),
+	.detect_msec	= 0,
+	.get_cd		= sdhi0_get_cd,
 };
 
 static struct resource sdhi0_resources[] = {
@@ -159,6 +167,20 @@ void __init u2evm_init_irq(void)
 	r8a73734_init_irq();
 }
 
+#define IRQC0_CONFIG_00		0xe61c0180
+#define IRQC1_CONFIG_00		0xe61c0380
+static void irqc_set_chattering(int pin, int timing)
+{
+	u32 val;
+	u32 *reg;
+
+	reg = (pin >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg += (pin & 0x1f);
+
+	val = __raw_readl(reg) & ~0x80ff0000;
+	__raw_writel(val | (timing << 16) | (1 << 31), reg);
+}
+
 static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
@@ -189,7 +211,10 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SDHICMD0, NULL);
 	gpio_request(GPIO_FN_SDHIWP0, NULL);
 	gpio_request(GPIO_FN_SDHICLK0, NULL);
-	gpio_request(GPIO_FN_SDHICD0, NULL);
+	gpio_request(GPIO_PORT327, NULL);
+	gpio_direction_input(GPIO_PORT327);
+	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
+	irqc_set_chattering(50, 0x01);	/* 1msec */
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
