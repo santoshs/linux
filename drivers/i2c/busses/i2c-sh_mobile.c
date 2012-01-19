@@ -203,7 +203,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	 * We also round off the result.
 	 */
 	num = i2c_clk * 5;
-#ifdef CONFIG_ARCH_SH73A0
+#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
 	denom = pd->bus_speed * 9 * 2;
 #else
 	denom = pd->bus_speed * 9;
