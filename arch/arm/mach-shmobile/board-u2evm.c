@@ -19,6 +19,8 @@
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
+#include <video/sh_mobile_lcdc.h>
+#include <video/sh_mipi_dsi.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -203,11 +205,101 @@ static struct platform_device gpio_key_device = {
 	},
 };
 
+static const struct fb_videomode lcdc0_modes[] = {
+	{
+		.name		= "WVGA",
+		.xres		= 480,
+		.yres		= 864,
+		.left_margin	= 16,
+		.right_margin	= 1000,
+		.hsync_len	= 16,
+		.upper_margin	= 1,
+		.lower_margin	= 4,
+		.vsync_len	= 2,
+		.sync		= FB_SYNC_VERT_HIGH_ACT | FB_SYNC_HOR_HIGH_ACT,
+	},
+};
+
+static struct sh_mobile_lcdc_info lcdc_info = {
+	.clock_source	= LCDC_CLK_PERIPHERAL,
+
+	/* LCDC0 */
+	.ch[0] = {
+		.chan = LCDC_CHAN_MAINLCD,
+		.bpp = 32,
+		.interface_type		= RGB24,
+		.clock_divider		= 1,
+		.flags			= LCDC_FLAGS_DWPOL,
+		.lcd_cfg = lcdc0_modes,
+		.num_cfg = ARRAY_SIZE(lcdc0_modes),
+		.lcd_size_cfg = {
+			.width	= 44,
+			.height	= 79,
+		},
+	},
+};
+
+static struct resource lcdc_resources[] = {
+	[0] = {
+		.name	= "LCDC",
+		.start	= 0xfe940000,
+		.end	= 0xfe943fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= intcs_evt2irq(0x580),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device lcdc_device = {
+	.name		= "sh_mobile_lcdc_fb",
+	.num_resources	= ARRAY_SIZE(lcdc_resources),
+	.resource	= lcdc_resources,
+	.dev	= {
+		.platform_data  = &lcdc_info,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+
+static struct resource mipidsi0_resources[] = {
+	[0] = {
+		.start  = 0xfeab0000,
+		.end    = 0xfeab3fff,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start  = 0xfeab4000,
+		.end    = 0xfeab7fff,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct sh_mipi_dsi_info mipidsi0_info = {
+	.data_format	= MIPI_RGB888,
+	.lcd_chan	= &lcdc_info.ch[0],
+	.vsynw_offset	= 20,
+	.clksrc		= 1,
+	.flags		= SH_MIPI_DSI_HSABM,
+};
+
+static struct platform_device mipidsi0_device = {
+	.name           = "sh-mipi-dsi",
+	.num_resources  = ARRAY_SIZE(mipidsi0_resources),
+	.resource       = mipidsi0_resources,
+	.id             = 0,
+	.dev	= {
+		.platform_data	= &mipidsi0_info,
+	},
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 	&sh_mmcif_device,
 	&sdhi0_device,
 	&gpio_key_device,
+	&lcdc_device,
+	&mipidsi0_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -245,6 +337,7 @@ static void irqc_set_chattering(int pin, int timing)
 	__raw_writel(val | (timing << 16) | (1 << 31), reg);
 }
 
+#define DSI0PHYCR	0xe615006c
 static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
@@ -285,6 +378,13 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
+
+	/* LCD */
+	gpio_request(GPIO_PORT31, NULL);
+	gpio_set_value(GPIO_PORT31, 1); /* unreset */
+
+	/* MIPI-DSI clock setup */
+	__raw_writel(0x2a83900D, DSI0PHYCR);
 
 	gpio_request(GPIO_PORT9, NULL);
 	gpio_direction_input(GPIO_PORT9); /* for IRQ */
