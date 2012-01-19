@@ -17,7 +17,7 @@
 
 #ifdef CONFIG_ARCH_R8A73734
 /* IRQ pin */
-#define IRQPIN_IRQ_BASE		256
+#define IRQPIN_IRQ_BASE		512
 #define irqpin2irq(nr)		(IRQPIN_IRQ_BASE + (nr))
 #endif
 
