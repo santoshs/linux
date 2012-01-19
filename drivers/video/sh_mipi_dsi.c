@@ -51,6 +51,7 @@ struct sh_mipi {
 	void __iomem	*linkbase;
 	struct clk	*dsit_clk;
 	struct clk	*dsip_clk;
+	struct clk	*dsi_clk;
 	struct device	*dev;
 
 	void	*next_board_data;
@@ -456,6 +457,12 @@ static int __init sh_mipi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto eclkpon;
 
+	mipi->dsi_clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(mipi->dsi_clk))
+		mipi->dsi_clk = NULL;
+	else
+		clk_enable(mipi->dsi_clk);
+
 	mipi_dsi[idx] = mipi;
 
 	pm_runtime_enable(&pdev->dev);
@@ -484,6 +491,10 @@ static int __init sh_mipi_probe(struct platform_device *pdev)
 emipisetup:
 	mipi_dsi[idx] = NULL;
 	pm_runtime_disable(&pdev->dev);
+	if (mipi->dsi_clk) {
+		clk_disable(mipi->dsi_clk);
+		clk_put(mipi->dsi_clk);
+	}
 	clk_disable(mipi->dsip_clk);
 eclkpon:
 	clk_disable(mipi->dsit_clk);
@@ -541,6 +552,10 @@ static int __exit sh_mipi_remove(struct platform_device *pdev)
 	pdata->lcd_chan->board_cfg.board_data = NULL;
 
 	pm_runtime_disable(&pdev->dev);
+	if (mipi->dsi_clk) {
+		clk_disable(mipi->dsi_clk);
+		clk_put(mipi->dsi_clk);
+	}
 	clk_disable(mipi->dsip_clk);
 	clk_disable(mipi->dsit_clk);
 	clk_put(mipi->dsit_clk);
