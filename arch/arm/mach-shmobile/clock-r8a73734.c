@@ -470,6 +470,8 @@ enum {
 	DIV6_FSIB,
 	DIV6_SPUA,
 	DIV6_HSI,
+	DIV6_DSIT,
+	DIV6_DSI0P,
 	DIV6_NR
 };
 
@@ -498,6 +500,9 @@ static struct clk div6_clks[DIV6_NR] = {
 			div6_two_parent, ARRAY_SIZE(div6_two_parent), 6, 1),
 	[DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
 			hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
+	[DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, DSITCKCR, 8, 0,
+			div6_two_parent, ARRAY_SIZE(hsi_parent), 7, 1),
+	[DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
 };
 
 static struct clk *mp_parent[] = {
@@ -586,14 +591,14 @@ static int selmon_reparent(struct clk *clk, struct clk *parent)
 
 static int selmon_enable(struct clk *clk)
 {
-	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
+	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
 		clk->enable_reg);
 	return 0;
 }
 
 static void selmon_disable(struct clk *clk)
 {
-	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
+	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
 		clk->enable_reg);
 }
 
@@ -859,6 +864,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("dsi0p1_clk", &dsi0p1_clk),
 	CLKDEV_CON_ID("fsiack_clk", &fsiack_clk),
 	CLKDEV_CON_ID("fsibck_clk", &fsibck_clk),
+	CLKDEV_ICK_ID("dsit_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSIT]),
+	CLKDEV_ICK_ID("dsi0p_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSI0P]),
 
 	/* reparent candidates for peripherals */
 	CLKDEV_CON_ID("r_clk", &extalr_clk),
@@ -883,7 +890,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
+	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
+	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &mstp_clks[MSTP100]), /* LCDC0 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &mstp_clks[MSTP218]), /* DMAC */
 	CLKDEV_DEV_ID("sh-sci.0", &mstp_clks[MSTP204]), /* SCIFA0 */
 	CLKDEV_DEV_ID("sh-sci.1", &mstp_clks[MSTP203]), /* SCIFA1 */
