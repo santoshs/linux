@@ -47,11 +47,11 @@ static void gpio_pull(u32 addr, int type)
 
 static struct resource smsc9220_resources[] = {
 	{
-		.start	= 0x14000000,
-		.end	= 0x14000000 + SZ_64K - 1,
+		.start	= 0x10000000,
+		.end	= 0x10000000 + SZ_64K - 1,
 		.flags	= IORESOURCE_MEM,
 	}, {
-		.start	= gic_spi(9),
+		.start	= irqpin2irq(41),
 		.flags	= IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
 	},
 };
@@ -386,10 +386,11 @@ static void __init u2evm_init(void)
 	/* MIPI-DSI clock setup */
 	__raw_writel(0x2a83900D, DSI0PHYCR);
 
-	gpio_request(GPIO_PORT9, NULL);
-	gpio_direction_input(GPIO_PORT9); /* for IRQ */
-	gpio_request(GPIO_PORT10, NULL);
-	gpio_direction_output(GPIO_PORT10, 1); /* release NRESET */
+	/* Ethernet */
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97); /* for IRQ */
+	gpio_request(GPIO_PORT105, NULL);
+	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
 
 #ifdef CONFIG_CACHE_L2X0
 	/*
