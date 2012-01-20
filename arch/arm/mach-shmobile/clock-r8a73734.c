@@ -5,7 +5,7 @@
 #include <linux/clkdev.h>
 #include <linux/sh_clk.h>
 #include <asm/clkdev.h>
-#include <mach/common.h>     
+#include <mach/common.h>
 
 #define	FRQCRA	0xE6150000UL
 #define	FRQCRB	0xE6150004UL
@@ -923,6 +923,12 @@ void __init r8a73734_clock_init(void)
 		div4_clks[DIV4_Z].parent = &main_clk;
 		z_clk.parent = &main_clk;
 	}
+
+	/* check MPCLK for errata */
+	if (__raw_readl(MPCKCR) & (1 << 7))
+		mpc_clk.parent = &mp_clk;
+	else
+		mp_clk.flags = 0;
 
 	clk_register(&extal1_clk);
 	clk_register(&extal2_clk);
