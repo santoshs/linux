@@ -31,6 +31,7 @@
 #define SRESCR		0xe6151018
 #define PSTR		0xe6151040
 #define SBAR            0xe6180020
+#define SBAR2           0xe6180060
 #define APARMBAREA      0xe6f10020
 
 static void __iomem *scu_base_addr(void)
@@ -91,7 +92,12 @@ void __init r8a73734_smp_prepare_cpus(void)
 
 	/* Map the reset vector (in headsmp.S) */
 	__raw_writel(0, __io(APARMBAREA));      /* 4k */
+#if 0
 	__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR));
+#else
+	__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR2));
+	__raw_writel(0, __io(SBAR));
+#endif
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (0 * 8));
