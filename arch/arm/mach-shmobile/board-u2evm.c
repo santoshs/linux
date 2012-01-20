@@ -21,6 +21,7 @@
 #include <linux/gpio_keys.h>
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
+#include <linux/platform_data/leds-renesas-tpu.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -293,6 +294,35 @@ static struct platform_device mipidsi0_device = {
 	},
 };
 
+static struct led_renesas_tpu_config tpu3_info = {
+	.name		= "lcd-backlight",
+	.pin_gpio_fn	= GPIO_FN_TPUTO3,
+	.pin_gpio	= GPIO_PORT39,
+	.channel_offset	= 0x00d0,
+	.timer_bit	= 3,
+	.max_brightness = LED_FULL,
+	.init_brightness = LED_FULL,
+	.refresh_rate	= 2000,
+};
+
+static struct resource tpu3_resources[] = {
+	[0] = {
+		.start  = 0xe66000d0,
+		.end    = 0xe66000ff,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device tpu3_device = {
+	.name		= "leds-renesas-tpu",
+	.num_resources  = ARRAY_SIZE(tpu3_resources),
+	.resource       = tpu3_resources,
+	.id		= 3,
+	.dev		= {
+		.platform_data	= &tpu3_info,
+	},
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 	&sh_mmcif_device,
@@ -300,6 +330,7 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
+	&tpu3_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
