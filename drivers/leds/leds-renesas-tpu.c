@@ -283,7 +283,8 @@ static int __devinit r_tpu_probe(struct platform_device *pdev)
 	p->pin_state = R_TPU_PIN_UNUSED;
 	p->timer_state = R_TPU_TIMER_UNUSED;
 	p->refresh_rate = cfg->refresh_rate ? cfg->refresh_rate : 100;
-	r_tpu_set_pin(p, R_TPU_PIN_GPIO, LED_OFF);
+	r_tpu_set_pin(p, R_TPU_PIN_GPIO,
+			cfg->init_brightness ? LED_FULL: LED_OFF);
 	platform_set_drvdata(pdev, p);
 
 	INIT_WORK(&p->work, r_tpu_work);
