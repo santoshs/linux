@@ -31,7 +31,7 @@ static void irqc_irq_mask(struct irq_data *d)
 	u32 irqpin = d->irq - IRQPIN_IRQ_BASE;
 	u32 reg;
 
-	reg = (irqpin >= 32) ? IRQC1_INTEN_STS0 : IRQC0_INTREQ_STS0;
+	reg = (irqpin >= 32) ? IRQC1_INTEN_STS0 : IRQC0_INTEN_STS0;
 	__raw_writel(1 << (irqpin & 0x1f), reg);
 }
 

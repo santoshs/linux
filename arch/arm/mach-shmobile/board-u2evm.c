@@ -376,8 +376,6 @@ static void __init u2evm_init(void)
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
-	gpio_request(GPIO_FN_SCIFA0_RTS_, NULL);
-	gpio_request(GPIO_FN_SCIFA0_CTS_, NULL);
 
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
@@ -412,7 +410,7 @@ static void __init u2evm_init(void)
 
 	/* LCD */
 	gpio_request(GPIO_PORT31, NULL);
-	gpio_set_value(GPIO_PORT31, 1); /* unreset */
+	gpio_direction_output(GPIO_PORT31, 1); /* unreset */
 
 	/* MIPI-DSI clock setup */
 	__raw_writel(0x2a83900D, DSI0PHYCR);
