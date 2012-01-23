@@ -22,6 +22,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
+#include <linux/mfd/tps80031.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -333,6 +334,47 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&tpu3_device,
 };
 
+/* I2C */
+
+#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
+static struct tps80031_rtc_platform_data rtc_data = {
+	.irq = ENT_TPS80031_IRQ_BASE + TPS80031_INT_RTC_ALARM,
+	.time = {
+		.tm_year = 2012,
+		.tm_mon = 0,
+		.tm_mday = 1,
+		.tm_hour = 1,
+		.tm_min = 2,
+		.tm_sec = 3,
+	},
+};
+
+#define TPS_RTC()				\
+	{					\
+		.id	= 0,			\
+		.name	= "rtc_tps80031",	\
+		.platform_data = &rtc_data,	\
+	}
+
+static struct tps80031_subdev_info tps80031_devs[] = {
+	TPS_RTC(),
+};
+
+static struct tps80031_platform_data tps_platform = {
+	.num_subdevs	= ARRAY_SIZE(tps80031_devs),
+	.subdevs	= tps80031_devs,
+	.irq_base	= ENT_TPS80031_IRQ_BASE,
+};
+
+static struct i2c_board_info __initdata i2c0_devices[] = {
+	{
+		I2C_BOARD_INFO("tps80032", 0x4A),
+		.irq		= irqpin2irq(28),
+		.platform_data	= &tps_platform,
+	},
+};
+
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -415,6 +457,13 @@ static void __init u2evm_init(void)
 	/* MIPI-DSI clock setup */
 	__raw_writel(0x2a83900D, DSI0PHYCR);
 
+	/* PMIC */
+	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
+	gpio_direction_output(GPIO_PORT0, 1);
+	gpio_request(GPIO_PORT28, NULL);
+	gpio_direction_input(GPIO_PORT28);
+	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
 	gpio_direction_input(GPIO_PORT97); /* for IRQ */
@@ -434,6 +483,8 @@ static void __init u2evm_init(void)
 #endif
 	r8a73734_add_standard_devices();
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
+
+	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 }
 
 static void __init u2evm_timer_init(void)
