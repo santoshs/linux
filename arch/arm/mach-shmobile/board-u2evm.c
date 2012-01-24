@@ -22,6 +22,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
+#include <linux/spi/sh_msiof.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -323,6 +324,34 @@ static struct platform_device tpu3_device = {
 	},
 };
 
+/* SPI */
+static struct sh_msiof_spi_info sh_msiof0_info = {
+        .rx_fifo_override       = 256,
+        .num_chipselect         = 1,
+};
+
+static struct resource sh_msiof0_resources[] = {
+        [0] = {
+                .start  = 0xe6e20000,
+                .end    = 0xe6e20064 - 1,
+                .flags  = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start  = gic_spi(109),
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+
+static struct platform_device sh_msiof0_device = {
+        .name           = "spi_sh_msiof",
+        .id             = 0,
+        .dev            = {
+                .platform_data  = &sh_msiof0_info,
+        },
+        .num_resources  = ARRAY_SIZE(sh_msiof0_resources),
+        .resource       = sh_msiof0_resources,
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
 	&sh_mmcif_device,
@@ -331,6 +360,7 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&lcdc_device,
 	&mipidsi0_device,
 	&tpu3_device,
+	&sh_msiof0_device,
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -420,6 +450,14 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT97); /* for IRQ */
 	gpio_request(GPIO_PORT105, NULL);
 	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
+
+#ifdef CONFIG_SPI_SH_MSIOF
+	/* enable MSIOF0 */
+	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
+	gpio_request(GPIO_FN_MSIOF0_TSYNC, NULL);
+	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
+	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
+#endif
 
 #ifdef CONFIG_CACHE_L2X0
 	/*
