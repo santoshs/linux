@@ -5,6 +5,8 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/input.h>
+#include <linux/input/sh_keysc.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
@@ -75,6 +77,49 @@ static struct platform_device eth_device = {
 	.resource	= smsc9220_resources,
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
+
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+/* KEYSC */
+static struct sh_keysc_info keysc_platdata = {
+	.mode		= SH_KEYSC_MODE_6,
+	.scan_timing	= 3,
+	.delay		= 100,
+	.keycodes	= {
+		KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G,
+		KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N,
+		KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U,
+		KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_HOME, KEY_SLEEP,
+		KEY_SPACE, KEY_9, KEY_6, KEY_3, KEY_WAKEUP, KEY_RIGHT, \
+		KEY_COFFEE,
+		KEY_0, KEY_8, KEY_5, KEY_2, KEY_DOWN, KEY_ENTER, KEY_UP,
+		KEY_KPASTERISK, KEY_7, KEY_4, KEY_1, KEY_STOP, KEY_LEFT, \
+		KEY_COMPUTER,
+	},
+};
+
+static struct resource keysc_resources[] = {
+	[0] = {
+		.name	= "KEYSC",
+		.start	= 0xe61b0000,
+		.end	= 0xe61b0098 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(71),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device keysc_device = {
+	.name		= "sh_keysc",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(keysc_resources),
+	.resource	= keysc_resources,
+	.dev		= {
+		.platform_data	= &keysc_platdata,
+	},
+};
+#endif
 
 /* MMCIF */
 static struct sh_mmcif_dma sh_mmcif_dma = {
@@ -355,6 +400,9 @@ static struct platform_device sh_msiof0_device = {
 
 static struct platform_device *u2evm_devices[] __initdata = {
 	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
 	&sh_mmcif_device,
 	&sdhi0_device,
 	&gpio_key_device,
@@ -448,6 +496,34 @@ static void __init u2evm_init(void)
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
+
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	/* enable KEYSC */
+	gpio_request(GPIO_FN_KEYIN0, NULL);
+	gpio_request(GPIO_FN_KEYIN1, NULL);
+	gpio_request(GPIO_FN_KEYIN2, NULL);
+	gpio_request(GPIO_FN_KEYIN3, NULL);
+	gpio_request(GPIO_FN_KEYIN4, NULL);
+	gpio_request(GPIO_FN_KEYIN5, NULL);
+	gpio_request(GPIO_FN_KEYIN6, NULL);
+	gpio_request(GPIO_FN_KEYIN7, NULL);
+	gpio_request(GPIO_FN_KEYIN8, NULL);
+	gpio_request(GPIO_FN_KEYIN9, NULL);
+	gpio_request(GPIO_FN_KEYIN10, NULL);
+	gpio_request(GPIO_FN_KEYIN11, NULL);
+	gpio_request(GPIO_FN_KEYOUT0, NULL);
+	gpio_request(GPIO_FN_KEYOUT1, NULL);
+	gpio_request(GPIO_FN_KEYOUT2, NULL);
+	gpio_request(GPIO_FN_KEYOUT3, NULL);
+	gpio_request(GPIO_FN_KEYOUT4, NULL);
+	gpio_request(GPIO_FN_KEYOUT5, NULL);
+	gpio_request(GPIO_FN_KEYOUT6, NULL);
+	gpio_request(GPIO_FN_KEYOUT7, NULL);
+	gpio_request(GPIO_FN_KEYOUT8, NULL);
+	gpio_request(GPIO_FN_KEYOUT9, NULL);
+	gpio_request(GPIO_FN_KEYOUT10, NULL);
+	gpio_request(GPIO_FN_KEYOUT11, NULL);
+#endif
 
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
