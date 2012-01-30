@@ -584,4 +584,6 @@ config MMC_RENESAS_SDHI
 	tristate "Renesas SDHI MMC/SD/SDIO Multimedia Card Interface support"
 	depends on MMC_BLOCK && ARCH_SHMOBILE
 	help
-	  This selects the Renesas Secure Digital Host Controller Interface.
+	  This selects support for the Renesas Secure Digital Host Controller
+	  IP block, this provdes host support for SD/SDIO and MMC interface,
+	  in both PIO and external DMA modes.
