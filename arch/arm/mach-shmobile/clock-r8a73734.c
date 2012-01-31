@@ -889,6 +889,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30_clk", &zb30_clk),
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
+	CLKDEV_ICK_ID("sgx", "pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
+
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
