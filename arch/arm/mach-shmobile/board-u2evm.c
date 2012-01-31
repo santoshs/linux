@@ -24,6 +24,7 @@
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
+#include <linux/i2c/atmel_mxt_ts.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -405,6 +406,26 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 	},
 };
 
+static struct mxt_platform_data mxt224_platform_data = {
+	.x_line		= 19,
+	.y_line		= 11,
+	.x_size		= 864,
+	.y_size		= 480,
+	.blen		= 0x21,
+	.threshold	= 0x28,
+	.voltage	= 1825000,
+	.orient		= MXT_DIAGONAL,
+	.irqflags	= IRQF_TRIGGER_FALLING,
+};
+
+static struct i2c_board_info i2c4_devices[] = {
+	{
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x4b),
+		.platform_data = &mxt224_platform_data,
+		.irq	= irqpin2irq(32),
+	},
+};
+
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -500,6 +521,13 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_PORT105, NULL);
 	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
 
+	/* Touch */
+	gpio_request(GPIO_PORT30, NULL);
+	gpio_direction_output(GPIO_PORT30, 1);
+	gpio_request(GPIO_PORT32, NULL);
+	gpio_direction_input(GPIO_PORT32);
+	gpio_pull(GPIO_PORTCR(32), GPIO_PULL_UP);
+
 #ifdef CONFIG_SPI_SH_MSIOF
 	/* enable MSIOF0 */
 	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
@@ -523,6 +551,7 @@ static void __init u2evm_init(void)
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
+	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 }
 
 static void __init u2evm_timer_init(void)
