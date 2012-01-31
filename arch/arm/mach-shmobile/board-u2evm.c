@@ -25,6 +25,7 @@
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
 #include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/regulator/tps80031-regulator.h>
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -369,6 +370,41 @@ static struct platform_device *u2evm_devices[] __initdata = {
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
+static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
+	REGULATOR_SUPPLY("vdd_touch", NULL),
+};
+
+#define TPS_PDATA_INIT(_id, _minmv, _maxmv, _supply_reg, _always_on,	\
+	_boot_on, _apply_uv, _init_uV, _init_enable, _init_apply, 	\
+	_flags, _delay)						\
+	static struct tps80031_regulator_platform_data pdata_##_id = {	\
+		.regulator = {						\
+			.constraints = {				\
+				.min_uV = (_minmv)*1000,		\
+				.max_uV = (_maxmv)*1000,		\
+				.valid_modes_mask = (REGULATOR_MODE_NORMAL |  \
+						REGULATOR_MODE_STANDBY),      \
+				.valid_ops_mask = (REGULATOR_CHANGE_MODE |    \
+						REGULATOR_CHANGE_STATUS |     \
+						REGULATOR_CHANGE_VOLTAGE),    \
+				.always_on = _always_on,		\
+				.boot_on = _boot_on,			\
+				.apply_uV = _apply_uv,			\
+			},						\
+			.num_consumer_supplies =			\
+				ARRAY_SIZE(tps80031_##_id##_supply),	\
+			.consumer_supplies = tps80031_##_id##_supply,	\
+			.supply_regulator = _supply_reg,		\
+		},							\
+		.init_uV =  _init_uV * 1000,				\
+		.init_enable = _init_enable,				\
+		.init_apply = _init_apply,				\
+		.flags = _flags,					\
+		.delay_us = _delay,					\
+	}
+
+TPS_PDATA_INIT(ldo5, 1000, 3300, 0, 0, 0, 0, 2700, 0, 1, 0, 0);
+
 static struct tps80031_rtc_platform_data rtc_data = {
 	.irq = ENT_TPS80031_IRQ_BASE + TPS80031_INT_RTC_ALARM,
 	.time = {
@@ -381,6 +417,13 @@ static struct tps80031_rtc_platform_data rtc_data = {
 	},
 };
 
+#define TPS_REG(_id, _data)				\
+	{						\
+		.id	 = TPS80031_ID_##_id,		\
+		.name   = "tps80031-regulator",		\
+		.platform_data  = &pdata_##_data,	\
+	}
+
 #define TPS_RTC()				\
 	{					\
 		.id	= 0,			\
@@ -390,6 +433,7 @@ static struct tps80031_rtc_platform_data rtc_data = {
 
 static struct tps80031_subdev_info tps80031_devs[] = {
 	TPS_RTC(),
+	TPS_REG(LDO5, ldo5),
 };
 
 static struct tps80031_platform_data tps_platform = {
@@ -406,6 +450,21 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 	},
 };
 
+static struct regulator *mxt224_regulator;
+
+static void mxt224_set_power(int on)
+{
+	if (!mxt224_regulator)
+		mxt224_regulator = regulator_get(NULL, "vdd_touch");
+
+	if (mxt224_regulator) {
+		if (on)
+			regulator_enable(mxt224_regulator);
+		else
+			regulator_disable(mxt224_regulator);
+	}
+}
+
 static struct mxt_platform_data mxt224_platform_data = {
 	.x_line		= 19,
 	.y_line		= 11,
@@ -416,6 +475,8 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.voltage	= 1825000,
 	.orient		= MXT_DIAGONAL,
 	.irqflags	= IRQF_TRIGGER_FALLING,
+	.set_pwr	= mxt224_set_power,
+
 };
 
 static struct i2c_board_info i2c4_devices[] = {
