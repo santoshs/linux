@@ -290,7 +290,7 @@ static int __devinit r_tpu_probe(struct platform_device *pdev)
 	INIT_WORK(&p->work, r_tpu_work);
 
 	p->ldev.name = cfg->name;
-	p->ldev.brightness = LED_OFF;
+	p->ldev.brightness = cfg->init_brightness ? LED_FULL : LED_OFF;
 	p->ldev.max_brightness = cfg->max_brightness;
 	p->ldev.brightness_set = r_tpu_set_brightness;
 	p->ldev.flags |= LED_CORE_SUSPENDRESUME;
