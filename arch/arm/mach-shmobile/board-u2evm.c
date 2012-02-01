@@ -596,6 +596,12 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
+	/* SCIFB0 */
+	gpio_request(GPIO_FN_SCIFB0_TXD, NULL);
+	gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
+	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
+	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
+
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
 	gpio_request(GPIO_FN_MMCD0_0, NULL);

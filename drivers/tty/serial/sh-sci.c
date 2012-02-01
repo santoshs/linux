@@ -331,7 +331,8 @@ static int scif_rxfill(struct uart_port *port)
 	}
 }
 #elif defined(CONFIG_ARCH_SH7372) || \
-      defined(CONFIG_ARCH_SH73A0)
+      defined(CONFIG_ARCH_SH73A0) || \
+      defined(CONFIG_ARCH_R8A73734)
 static int scif_txfill(struct uart_port *port)
 {
 	if (port->type == PORT_SCIFA)

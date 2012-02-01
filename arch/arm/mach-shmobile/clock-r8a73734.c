@@ -781,13 +781,13 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP223] = SH_CLK_MSTP32_EXT(&spua_clk, SMSTPCR2, MSTPSR2, 23, 0), /* SPU2A */
 	[MSTP220] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 20, 0), /* SPU2V */
 	[MSTP218] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 18, 0), /* SY-DMAC */
-	[MSTP216] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 16, 0), /* EFRAM */
+	[MSTP216] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 16, 0), /* SCIFB2 */
 	[MSTP215] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 15, 0), /* MSIOF3 */
 	[MSTP214] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 14, 0), /* USB-DMAC */
 	[MSTP213] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 13, 0), /* MFIS */
 	[MSTP208] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 8, 0), /* MSIOF1 */
-	[MSTP207] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 7, 0), /* SCIFA5 */
-	[MSTP206] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 6, 0), /* SCIFB */
+	[MSTP207] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 7, 0), /* SCIFB1 */
+	[MSTP206] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 6, 0), /* SCIFB0 */
 	[MSTP205] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 5, 0), /* MSIOF2 */
 	[MSTP204] = SH_CLK_MSTP32_EXT(&mpc_clk, SMSTPCR2, MSTPSR2, 4, 0), /* SCIFA0 */
 	[MSTP203] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 3, 0), /* SCIFA1 */
@@ -896,6 +896,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
 	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &mstp_clks[MSTP100]), /* LCDC0 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &mstp_clks[MSTP218]), /* DMAC */
+	CLKDEV_DEV_ID("sh-sci.6", &mstp_clks[MSTP216]), /* SCIFB2 */
+	CLKDEV_DEV_ID("sh-sci.5", &mstp_clks[MSTP207]), /* SCIFB1 */
+	CLKDEV_DEV_ID("sh-sci.4", &mstp_clks[MSTP206]), /* SCIFB0 */
 	CLKDEV_DEV_ID("sh-sci.0", &mstp_clks[MSTP204]), /* SCIFA0 */
 	CLKDEV_DEV_ID("sh-sci.1", &mstp_clks[MSTP203]), /* SCIFA1 */
 	CLKDEV_DEV_ID("sh-sci.2", &mstp_clks[MSTP202]), /* SCIFA2 */

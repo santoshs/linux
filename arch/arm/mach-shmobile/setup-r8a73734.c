@@ -111,7 +111,7 @@ static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
 	.flags		= UPF_BOOT_AUTOCONF,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_1,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(103), gic_spi(103),
 			    gic_spi(103), gic_spi(103) },
@@ -129,7 +129,7 @@ static struct plat_sci_port scif2_platform_data = {
 	.mapbase	= 0xe6c60000,
 	.flags		= UPF_BOOT_AUTOCONF,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_1,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(104), gic_spi(104),
 			    gic_spi(104), gic_spi(104) },
@@ -147,7 +147,7 @@ static struct plat_sci_port scif3_platform_data = {
 	.mapbase	= 0xe6c70000,
 	.flags		= UPF_BOOT_AUTOCONF,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_1,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(105), gic_spi(105),
 			    gic_spi(105), gic_spi(105) },
@@ -158,6 +158,60 @@ static struct platform_device scif3_device = {
 	.id		= 3,
 	.dev		= {
 		.platform_data	= &scif3_platform_data,
+	},
+};
+
+static struct plat_sci_port scif4_platform_data = {
+	.mapbase	= 0xe6c20000,
+	.flags		= UPF_BOOT_AUTOCONF,
+	.scscr		= SCSCR_RE | SCSCR_TE,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
+	.type		= PORT_SCIFB,
+	.irqs		= { gic_spi(107), gic_spi(107),
+			    gic_spi(107), gic_spi(107) },
+};
+
+static struct platform_device scif4_device = {
+	.name		= "sh-sci",
+	.id		= 4,
+	.dev		= {
+		.platform_data	= &scif4_platform_data,
+	},
+};
+
+static struct plat_sci_port scif5_platform_data = {
+	.mapbase	= 0xe6c30000,
+	.flags		= UPF_BOOT_AUTOCONF,
+	.scscr		= SCSCR_RE | SCSCR_TE,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
+	.type		= PORT_SCIFB,
+	.irqs		= { gic_spi(108), gic_spi(108),
+			    gic_spi(108), gic_spi(108) },
+};
+
+static struct platform_device scif5_device = {
+	.name		= "sh-sci",
+	.id		= 5,
+	.dev		= {
+		.platform_data	= &scif5_platform_data,
+	},
+};
+
+static struct plat_sci_port scif6_platform_data = {
+	.mapbase	= 0xe6ce0000,
+	.flags		= UPF_BOOT_AUTOCONF,
+	.scscr		= SCSCR_RE | SCSCR_TE,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
+	.type		= PORT_SCIFB,
+	.irqs		= { gic_spi(116), gic_spi(116),
+			    gic_spi(116), gic_spi(116) },
+};
+
+static struct platform_device scif6_device = {
+	.name		= "sh-sci",
+	.id		= 6,
+	.dev		= {
+		.platform_data	= &scif6_platform_data,
 	},
 };
 
@@ -522,6 +576,9 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&scif1_device,
 	&scif2_device,
 	&scif3_device,
+	&scif4_device,
+	&scif5_device,
+	&scif6_device,
 };
 
 static struct platform_device *r8a73734_late_devices[] __initdata = {
