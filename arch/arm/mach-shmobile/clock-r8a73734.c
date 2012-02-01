@@ -783,7 +783,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP218] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 18, 0), /* SY-DMAC */
 	[MSTP216] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 16, 0), /* SCIFB2 */
 	[MSTP215] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 15, 0), /* MSIOF3 */
-	[MSTP214] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 14, 0), /* USB-DMAC */
+	[MSTP214] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 14, 0), /* USB-DMAC */
 	[MSTP213] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 13, 0), /* MFIS */
 	[MSTP208] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 8, 0), /* MSIOF1 */
 	[MSTP207] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 7, 0), /* SCIFB1 */
@@ -800,7 +800,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP325] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 25, 0), /* HSI1 */
 	[MSTP324] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 24, 0), /* HSI0 */
 	[MSTP323] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 23, 0), /* IIC1 */
-	[MSTP322] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 22, 0), /* USB */
+	[MSTP322] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR3, MSTPSR3, 22, 0), /* USB */
 	[MSTP321] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 21, 0), /* SBSC performance monitor */
 	[MSTP319] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 19, 0), /* RT-DMAC scheduler */
 	[MSTP316] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_ZS], SMSTPCR3, MSTPSR3, 16, 0), /* SHWYSTAT */
@@ -889,6 +889,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30_clk", &zb30_clk),
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
+	CLKDEV_CON_ID("usb0_dmac", &mstp_clks[MSTP214]), /* USBHS-DMAC */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
 	CLKDEV_ICK_ID("sgx", "pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
@@ -908,6 +909,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("sh_cmt.0", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_DEV_ID("sh_cmt.1", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.1", &mstp_clks[MSTP323]), /* I2C1 */
+	CLKDEV_DEV_ID("r8a66597_udc.0", &mstp_clks[MSTP322]), /* USBHS */
 	CLKDEV_DEV_ID("sh_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
