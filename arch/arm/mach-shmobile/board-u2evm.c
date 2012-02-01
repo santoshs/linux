@@ -1,3 +1,4 @@
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -26,6 +27,10 @@
 #include <linux/spi/sh_msiof.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/tps80031-regulator.h>
+#include <linux/usb/r8a66597.h>
+
+#define SRCR2		0xe61580b0
+#define SRCR3		0xe61580b8
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -76,6 +81,65 @@ static struct platform_device eth_device = {
 	},
 	.resource	= smsc9220_resources,
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
+};
+
+/* USBHS */
+static int is_vbus_powered(void)
+{
+	return 1; /* always powered */
+}
+
+static void usbhs_module_reset(void)
+{
+	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
+	__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+	udelay(50); /* wait for at least one EXTALR cycle */
+	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
+	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+}
+
+static struct r8a66597_platdata usbhs_func_data = {
+	.is_vbus_powered = is_vbus_powered,
+	.module_start	= usbhs_module_reset,
+	.on_chip	= 1,
+	.buswait	= 5,
+	.max_bufnum	= 0x87, /* 0xff or more? */
+	.vbus_irq	= gic_spi(87), /* FIXME */
+};
+
+static struct resource usbhs_resources[] = {
+	[0] = {
+		.name	= "USBHS",
+		.start	= 0xe6890000,
+		.end	= 0xe6890150 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(87) /* USBULPI */,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.name	= "USBHS-DMA",
+		.start	= 0xe68a0000,
+		.end	= 0xe68a0064 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[3] = {
+		.start	= gic_spi(85) /* USBHSDMAC1 */,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device usbhs_func_device = {
+	.name	= "r8a66597_udc",
+	.id	= 0,
+	.dev = {
+		.dma_mask		= NULL,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+		.platform_data		= &usbhs_func_data,
+	},
+	.num_resources	= ARRAY_SIZE(usbhs_resources),
+	.resource	= usbhs_resources,
 };
 
 /* MMCIF */
@@ -356,6 +420,7 @@ static struct platform_device sh_msiof0_device = {
 };
 
 static struct platform_device *u2evm_devices[] __initdata = {
+	&usbhs_func_device,
 	&eth_device,
 	&sh_mmcif_device,
 	&sdhi0_device,
