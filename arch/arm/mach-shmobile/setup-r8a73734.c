@@ -598,8 +598,12 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_late_devices));
 }
 
+#define CCCR		0xe600101c
+
 void __init r8a73734_add_early_devices(void)
 {
+	system_rev = __raw_readl(__io(CCCR));
+
 	early_platform_add_devices(r8a73734_early_devices,
 			ARRAY_SIZE(r8a73734_early_devices));
 }

@@ -22,6 +22,7 @@
 #include <linux/smp.h>
 #include <linux/spinlock.h>
 #include <linux/io.h>
+#include <linux/clk.h>
 #include <mach/common.h>
 #include <asm/smp_scu.h>
 #include <asm/smp_twd.h>
@@ -31,7 +32,6 @@
 #define SRESCR		0xe6151018
 #define PSTR		0xe6151040
 #define SBAR            0xe6180020
-#define SBAR2           0xe6180060
 #define APARMBAREA      0xe6f10020
 
 static void __iomem *scu_base_addr(void)
@@ -70,7 +70,15 @@ unsigned int __init r8a73734_get_core_count(void)
 
 void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 {
+	static struct clk *ram_clk;
+
 	gic_secondary_init(0);
+
+	if ((system_rev & 0xff) < 0x10) {
+		ram_clk = clk_get(NULL, "internal_ram0");
+		clk_disable(ram_clk);
+		clk_put(ram_clk);
+	}
 }
 
 int __cpuinit r8a73734_boot_secondary(unsigned int cpu)
@@ -86,18 +94,33 @@ int __cpuinit r8a73734_boot_secondary(unsigned int cpu)
 	return 0;
 }
 
+#define BOOT_ADDR	0xe63a3000
+extern void r8a73734_secondary_vector(void);
+extern unsigned long r8a73734_secondary_vector_addr;
+extern unsigned long r8a73734_secondary_vector_sz;
+
 void __init r8a73734_smp_prepare_cpus(void)
 {
+	void __iomem *boot_code;
+	static struct clk *ram_clk;
+
 	scu_enable(scu_base_addr());
 
 	/* Map the reset vector (in headsmp.S) */
 	__raw_writel(0, __io(APARMBAREA));      /* 4k */
-#if 0
-	__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR));
-#else
-	__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR2));
-	__raw_writel(0, __io(SBAR));
-#endif
+	if ((system_rev & 0xff) < 0x10) {
+		ram_clk = clk_get(NULL, "internal_ram0");
+		clk_enable(ram_clk);
+		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
+		r8a73734_secondary_vector_addr = __pa(shmobile_secondary_vector);
+		memcpy(boot_code, r8a73734_secondary_vector,
+				r8a73734_secondary_vector_sz);
+		__raw_writel(BOOT_ADDR, __io(SBAR));
+		iounmap(boot_code);
+		clk_put(ram_clk);
+	} else {
+		__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR));
+	}
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (0 * 8));
