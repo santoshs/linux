@@ -284,13 +284,13 @@ static int __devinit r_tpu_probe(struct platform_device *pdev)
 	p->timer_state = R_TPU_TIMER_UNUSED;
 	p->refresh_rate = cfg->refresh_rate ? cfg->refresh_rate : 100;
 	r_tpu_set_pin(p, R_TPU_PIN_GPIO,
-			cfg->init_brightness ? LED_FULL: LED_OFF);
+			cfg->init_brightness ? LED_FULL : LED_OFF);
 	platform_set_drvdata(pdev, p);
 
 	INIT_WORK(&p->work, r_tpu_work);
 
 	p->ldev.name = cfg->name;
-	p->ldev.brightness = LED_OFF;
+	p->ldev.brightness = cfg->init_brightness ? LED_FULL : LED_OFF;
 	p->ldev.max_brightness = cfg->max_brightness;
 	p->ldev.brightness_set = r_tpu_set_brightness;
 	p->ldev.flags |= LED_CORE_SUSPENDRESUME;
