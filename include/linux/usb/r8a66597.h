@@ -31,6 +31,28 @@ struct r8a66597_platdata {
 	/* This callback can control port power instead of DVSTCTR register. */
 	void (*port_power)(int port, int power);
 
+	/* For gadget: This callback can get the configured power */
+	void (*vbus_power)(int ma);
+
+	/* used to check VBUS power supply (at r8a66597 controller end) */
+	int (*is_vbus_powered)(void);
+
+	/* platform-specific module start/stop operations */
+	void (*module_start)(void);
+	void (*module_stop)(void);
+
+	/* supplement clock maintenance (or NULL, if it's not used) */
+	void (*clk_enable)(int enable);
+
+	/* the number of access waits from CPU to this module */
+	u16		buswait;
+
+	/* the maximum number of the FIFO buffer allowed */
+	u16		max_bufnum;
+
+	/* interrupt number for VBUS change IRQ (or zero, if it's not used) */
+	int		vbus_irq;
+
 	/* set one = on chip controller, set zero = external controller */
 	unsigned	on_chip:1;
 
@@ -42,6 +64,9 @@ struct r8a66597_platdata {
 
 	/* set one = big endian, set zero = little endian */
 	unsigned	endian:1;
+
+	/* (external controller only) set one = WR0_N shorted to WR1_N */
+	unsigned	wr0_shorted_to_wr1:1;
 };
 
 /* Register definitions */
@@ -112,6 +137,22 @@ struct r8a66597_platdata {
 #define	PIPE4TRN	0x9E
 #define	PIPE5TRE	0xA0
 #define	PIPE5TRN	0xA2
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+#define	PIPEBTRE	0xA4
+#define	PIPEBTRN	0xA6
+#define	PIPECTRE	0xA8
+#define	PIPECTRN	0xAA
+#define	PIPEDTRE	0xAC
+#define	PIPEDTRN	0xAE
+#define	PIPEETRE	0xB0
+#define	PIPEETRN	0xB2
+#define	PIPEFTRE	0xB4
+#define	PIPEFTRN	0xB6
+#define	PIPE9TRE	0xB8
+#define	PIPE9TRN	0xBA
+#define	PIPEATRE	0xBC
+#define	PIPEATRN	0xBE
+#endif
 #define DEVADD0		0xD0
 #define DEVADD1		0xD2
 #define DEVADD2		0xD4

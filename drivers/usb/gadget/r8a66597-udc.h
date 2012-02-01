@@ -27,31 +27,61 @@
 #include <linux/clk.h>
 #endif
 
+#if defined(CONFIG_ARCH_SH73A0)
+#define USBHS_TYPE_BULK_PIPES_12
+#endif
+
 #include <linux/usb/r8a66597.h>
+#include <linux/usb/r8a66597_dmac.h>
+#include <linux/wakelock.h>
 
 #define R8A66597_MAX_SAMPLING	10
 
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+#define R8A66597_MAX_NUM_PIPE		16
+#define R8A66597_MAX_NUM_BULK		12
+#define R8A66597_MAX_NUM_BULK_1ST	5	/* pipe 1 to 5 */
+#define R8A66597_MAX_NUM_BULK_2ND	7	/* pipe 9 to F */
+#define R8A66597_BASE_PIPENUM_BULK	1
+#define R8A66597_BASE_PIPENUM_BULK_2ND	9
+#define R8A66597_END_OF_PIPENUM_BULK	0x0F
+#else
 #define R8A66597_MAX_NUM_PIPE	8
 #define R8A66597_MAX_NUM_BULK	3
+#define R8A66597_BASE_PIPENUM_BULK	3
+#endif
 #define R8A66597_MAX_NUM_ISOC	2
 #define R8A66597_MAX_NUM_INT	2
 
-#define R8A66597_BASE_PIPENUM_BULK	3
 #define R8A66597_BASE_PIPENUM_ISOC	1
 #define R8A66597_BASE_PIPENUM_INT	6
 
 #define R8A66597_BASE_BUFNUM	6
 #define R8A66597_MAX_BUFNUM	0x4F
+#define R8A66597_MAX_DMA_CHANNELS	2
 
-#define is_bulk_pipe(pipenum)	\
-	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
-	 (pipenum < (R8A66597_BASE_PIPENUM_BULK + R8A66597_MAX_NUM_BULK)))
 #define is_interrupt_pipe(pipenum)	\
 	((pipenum >= R8A66597_BASE_PIPENUM_INT) && \
 	 (pipenum < (R8A66597_BASE_PIPENUM_INT + R8A66597_MAX_NUM_INT)))
 #define is_isoc_pipe(pipenum)	\
 	((pipenum >= R8A66597_BASE_PIPENUM_ISOC) && \
 	 (pipenum < (R8A66597_BASE_PIPENUM_ISOC + R8A66597_MAX_NUM_ISOC)))
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline int is_bulk_pipe(u16 pipenum)
+{
+	if (is_interrupt_pipe(pipenum))
+		return 0;
+	if (pipenum >= R8A66597_BASE_PIPENUM_BULK &&
+	    pipenum <= R8A66597_END_OF_PIPENUM_BULK)
+		return 1;
+	else
+		return 0;
+}
+#else
+#define is_bulk_pipe(pipenum)	\
+	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
+	 (pipenum < (R8A66597_BASE_PIPENUM_BULK + R8A66597_MAX_NUM_BULK)))
+#endif
 
 struct r8a66597_pipe_info {
 	u16	pipe;
@@ -65,11 +95,13 @@ struct r8a66597_pipe_info {
 struct r8a66597_request {
 	struct usb_request	req;
 	struct list_head	queue;
+	unsigned		mapped:1;
 };
 
 struct r8a66597_ep {
 	struct usb_ep		ep;
 	struct r8a66597		*r8a66597;
+	struct r8a66597_dma	*dma;
 
 	struct list_head	queue;
 	unsigned		busy:1;
@@ -87,14 +119,39 @@ struct r8a66597_ep {
 	unsigned char		fifoctr;
 	unsigned char		fifotrn;
 	unsigned char		pipectr;
+	unsigned char		pipetre;
+	unsigned char		pipetrn;
+};
+
+/*
+ * Use CH0 and CH1 with their transfer direction fixed.  Please refer
+ * to [Restrictions] 4) IN/OUT switching after NULLL packet reception,
+ * at the end of "DMA Transfer Function, (3) DMA transfer flow" in the
+ * datasheet.
+ */
+#define USBHS_DMAC_OUT_CHANNEL	0
+#define USBHS_DMAC_IN_CHANNEL	1
+
+struct r8a66597_dma {
+	struct r8a66597_ep	*ep;
+	unsigned long		expect_dmicr;
+	unsigned long		chcr_ts;
+	int			channel;
+	int			tx_size;
+
+	unsigned		initialized:1;
+	unsigned		used:1;
+	unsigned		dir:1;	/* 1 = IN(write), 0 = OUT(read) */
 };
 
 struct r8a66597 {
 	spinlock_t		lock;
 	void __iomem		*reg;
+	void __iomem		*dma_reg;
 
 #ifdef CONFIG_HAVE_CLK
 	struct clk *clk;
+	struct clk *clk_dmac;
 #endif
 	struct r8a66597_platdata	*pdata;
 
@@ -104,6 +161,7 @@ struct r8a66597 {
 	struct r8a66597_ep	ep[R8A66597_MAX_NUM_PIPE];
 	struct r8a66597_ep	*pipenum2ep[R8A66597_MAX_NUM_PIPE];
 	struct r8a66597_ep	*epaddr2ep[16];
+	struct r8a66597_dma	dma[R8A66597_MAX_DMA_CHANNELS];
 
 	struct timer_list	timer;
 	struct usb_request	*ep0_req;	/* for internal request */
@@ -119,11 +177,17 @@ struct r8a66597 {
 	unsigned char num_dma;
 
 	unsigned irq_sense_low:1;
+	unsigned charger_detected:1;
+
+	struct delayed_work	vbus_work;
+	struct delayed_work	charger_work;
+	struct wake_lock	wake_lock;
 };
 
 #define gadget_to_r8a66597(_gadget)	\
 		container_of(_gadget, struct r8a66597, gadget)
 #define r8a66597_to_gadget(r8a66597) (&r8a66597->gadget)
+#define r8a66597_to_dev(r8a66597)	(r8a66597->gadget.dev.parent)
 
 static inline u16 r8a66597_read(struct r8a66597 *r8a66597, unsigned long offset)
 {
@@ -182,12 +246,55 @@ static inline void r8a66597_write(struct r8a66597 *r8a66597, u16 val,
 	iowrite16(val, r8a66597->reg + offset);
 }
 
+static inline void r8a66597_mdfy(struct r8a66597 *r8a66597,
+				 u16 val, u16 pat, unsigned long offset)
+{
+	u16 tmp;
+	tmp = r8a66597_read(r8a66597, offset);
+	tmp = tmp & (~pat);
+	tmp = tmp | val;
+	r8a66597_write(r8a66597, tmp, offset);
+}
+
+/* USBHS-DMA Read/Write */
+static inline u32 r8a66597_dma_read(struct r8a66597 *r8a66597,
+				unsigned long offset)
+{
+	return inl(r8a66597->dma_reg + offset);
+}
+
+static inline void r8a66597_dma_write(struct r8a66597 *r8a66597, u32 val,
+				unsigned long offset)
+{
+	outl(val, r8a66597->dma_reg + offset);
+}
+
+static inline void r8a66597_dma_mdfy(struct r8a66597 *r8a66597,
+				 u32 val, u32 pat, unsigned long offset)
+{
+	u32 tmp;
+	tmp = r8a66597_dma_read(r8a66597, offset);
+	tmp = tmp & (~pat);
+	tmp = tmp | val;
+	r8a66597_dma_write(r8a66597, tmp, offset);
+}
+
+#define r8a66597_bclr(r8a66597, val, offset)	\
+			r8a66597_mdfy(r8a66597, 0, val, offset)
+#define r8a66597_bset(r8a66597, val, offset)	\
+			r8a66597_mdfy(r8a66597, val, 0, offset)
+
+#define r8a66597_dma_bclr(r8a66597, val, offset)	\
+			r8a66597_dma_mdfy(r8a66597, 0, val, offset)
+#define r8a66597_dma_bset(r8a66597, val, offset)	\
+			r8a66597_dma_mdfy(r8a66597, val, 0, offset)
+
 static inline void r8a66597_write_fifo(struct r8a66597 *r8a66597,
-				       unsigned long offset,
+				       struct r8a66597_ep *ep,
 				       unsigned char *buf,
 				       int len)
 {
-	void __iomem *fifoaddr = r8a66597->reg + offset;
+	void __iomem *fifoaddr = r8a66597->reg + ep->fifoaddr;
 	int adj = 0;
 	int i;
 
@@ -215,18 +322,12 @@ static inline void r8a66597_write_fifo(struct r8a66597 *r8a66597,
 			adj = 0x01; /* 16-bit wide */
 	}
 
+	if (r8a66597->pdata->wr0_shorted_to_wr1)
+		r8a66597_bclr(r8a66597, MBW_16, ep->fifosel);
 	for (i = 0; i < len; i++)
 		iowrite8(buf[i], fifoaddr + adj - (i & adj));
-}
-
-static inline void r8a66597_mdfy(struct r8a66597 *r8a66597,
-				 u16 val, u16 pat, unsigned long offset)
-{
-	u16 tmp;
-	tmp = r8a66597_read(r8a66597, offset);
-	tmp = tmp & (~pat);
-	tmp = tmp | val;
-	r8a66597_write(r8a66597, tmp, offset);
+	if (r8a66597->pdata->wr0_shorted_to_wr1)
+		r8a66597_bclr(r8a66597, MBW_16, ep->fifosel);
 }
 
 static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
@@ -251,12 +352,59 @@ static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
 	return clock;
 }
 
-#define r8a66597_bclr(r8a66597, val, offset)	\
-			r8a66597_mdfy(r8a66597, 0, val, offset)
-#define r8a66597_bset(r8a66597, val, offset)	\
-			r8a66597_mdfy(r8a66597, val, 0, offset)
-
 #define get_pipectr_addr(pipenum)	(PIPE1CTR + (pipenum - 1) * 2)
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline unsigned long get_pipetre_addr(u16 pipenum)
+{
+	const unsigned long offset[] = {
+		0,		PIPE1TRE,	PIPE2TRE,	PIPE3TRE,
+		PIPE4TRE,	PIPE5TRE,	0,		0,
+		0,		PIPE9TRE,	PIPEATRE,	PIPEBTRE,
+		PIPECTRE,	PIPEDTRE,	PIPEETRE,	PIPEFTRE,
+	};
+
+	if (offset[pipenum] == 0) {
+		printk(KERN_ERR "no PIPEnTRE (%d)\n", pipenum);
+		return 0;
+	}
+
+	return offset[pipenum];
+}
+
+static inline unsigned long get_pipetrn_addr(u16 pipenum)
+{
+	const unsigned long offset[] = {
+		0,		PIPE1TRN,	PIPE2TRN,	PIPE3TRN,
+		PIPE4TRN,	PIPE5TRN,	0,		0,
+		0,		PIPE9TRN,	PIPEATRN,	PIPEBTRN,
+		PIPECTRN,	PIPEDTRN,	PIPEETRN,	PIPEFTRN,
+	};
+
+	if (offset[pipenum] == 0) {
+		printk(KERN_ERR "no PIPEnTRN (%d)\n", pipenum);
+		return 0;
+	}
+
+	return offset[pipenum];
+}
+
+#else
+#define get_pipetre_addr(pipenum) (PIPE1TRE + (pipenum - 1) * 4)
+#define get_pipetrn_addr(pipenum) (PIPE1TRN + (pipenum - 1) * 4)
+#endif
+
+#if defined(USBHS_TYPE_BULK_PIPES_12)
+static inline int check_bulk_or_isoc(u16 pipenum)
+{
+	if (is_bulk_pipe(pipenum) || is_isoc_pipe(pipenum))
+		return 1;
+	else
+		return 0;
+}
+#else
+#define check_bulk_or_isoc(pipenum) ((pipenum >= 1 && pipenum <= 5))
+#endif
+#define check_interrupt(pipenum)  ((pipenum >= 6 && pipenum <= 9))
 
 #define enable_irq_ready(r8a66597, pipenum)	\
 	enable_pipe_irq(r8a66597, pipenum, BRDYENB)
