@@ -433,7 +433,7 @@ static struct clk *vclk_parent[] = {
 };
 
 static struct clk vclk3_cksel_clk = SH_CLK_CKSEL(NULL, VCLKCR3, 0, 0,
-	vclk_parent, ARRAY_SIZE(vclk_parent), 5, 3);
+	vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3);
 
 /* Dynamic divider. Only for recalc. No setting capable. */
 static unsigned long div_recalc(struct clk *clk)
@@ -866,6 +866,10 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("fsibck_clk", &fsibck_clk),
 	CLKDEV_ICK_ID("dsit_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSIT]),
 	CLKDEV_ICK_ID("dsi0p_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSI0P]),
+	CLKDEV_CON_ID("vclk1_clk", &div6_clks[DIV6_VCK1]),
+	CLKDEV_CON_ID("vclk2_clk", &div6_clks[DIV6_VCK2]),
+	CLKDEV_CON_ID("vclk3_clk", &div6_clks[DIV6_VCK3]),
+	CLKDEV_CON_ID("vclk4_clk", &div6_clks[DIV6_VCK4]),
 
 	/* reparent candidates for peripherals */
 	CLKDEV_CON_ID("r_clk", &extalr_clk),
