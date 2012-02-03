@@ -428,7 +428,9 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&lcdc_device,
 	&mipidsi0_device,
 	&tpu3_device,
+#ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
+#endif
 };
 
 /* I2C */
