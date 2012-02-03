@@ -896,8 +896,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("usb0_dmac", &mstp_clks[MSTP214]), /* USBHS-DMAC */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
-	CLKDEV_ICK_ID("sgx", "pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
-
+	CLKDEV_DEV_ID("pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
