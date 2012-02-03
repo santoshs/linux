@@ -1,3 +1,4 @@
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -45,6 +46,8 @@
 	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
 	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
 
+#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
 static void gpio_pull(u32 addr, int type)
 {
 	u8 data = __raw_readb(addr);
@@ -89,6 +92,8 @@ static int is_vbus_powered(void)
 	return 1; /* always powered */
 }
 
+#define PHYFUNCTR	0xe6890104 /* 16-bit */
+
 static void usbhs_module_reset(void)
 {
 	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
@@ -96,6 +101,14 @@ static void usbhs_module_reset(void)
 	udelay(50); /* wait for at least one EXTALR cycle */
 	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
 	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+
+	/* wait for SuspendM bit being cleared by hardware */
+	while (!(__raw_readw(PHYFUNCTR) & (1 << 14))) /* SUSMON */
+			;
+
+	__raw_writew(__raw_readw(PHYFUNCTR) | (1 << 13), PHYFUNCTR); /* PRESET */
+	while (__raw_readw(PHYFUNCTR) & (1 << 13))
+			;
 }
 
 static struct r8a66597_platdata usbhs_func_data = {
@@ -104,7 +117,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0x87, /* 0xff or more? */
-	.vbus_irq	= gic_spi(87), /* FIXME */
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 };
 
 static struct resource usbhs_resources[] = {
@@ -435,8 +448,6 @@ static struct platform_device *u2evm_devices[] __initdata = {
 
 /* I2C */
 
-#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
-
 static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
 	REGULATOR_SUPPLY("vdd_touch", NULL),
 };
@@ -661,6 +672,30 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull(GPIO_PORTCR(32), GPIO_PULL_UP);
+
+	/* USBHS */
+	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA1, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA2, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA3, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA4, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA5, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA6, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA7, NULL);
+	gpio_request(GPIO_FN_ULPI_CLK, NULL);
+	gpio_request(GPIO_FN_ULPI_STP, NULL);
+	gpio_request(GPIO_FN_ULPI_DIR, NULL);
+	gpio_request(GPIO_FN_ULPI_NXT, NULL);
+
+	/* TUSB1211 */
+	gpio_request(GPIO_PORT131, NULL);
+	gpio_direction_output(GPIO_PORT131, 0);
+	udelay(100); /* assert RESET_N (minimum pulse width 100 usecs) */
+	gpio_direction_output(GPIO_PORT131, 1);
+
+	/* start supplying VIO_CKO3@26MHz to REFCLK */
+	gpio_request(GPIO_FN_VIO_CKO3, NULL);
+	clk_enable(clk_get(NULL, "vclk3_clk"));
 
 #ifdef CONFIG_SPI_SH_MSIOF
 	/* enable MSIOF0 */

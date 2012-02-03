@@ -2267,8 +2267,9 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 
 	if (r8a66597->pdata->vbus_irq) {
 		int ret;
-		ret = request_irq(r8a66597->pdata->vbus_irq, r8a66597_vbus_irq,
-				  0 , "vbus_detect", r8a66597);
+		ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
+					   NULL, r8a66597_vbus_irq,
+					   IRQF_ONESHOT, "vbus_detect", r8a66597);
 		if (ret < 0) {
 			dev_err(r8a66597_to_dev(r8a66597),
 				"request_irq error (%d, %d)\n",
