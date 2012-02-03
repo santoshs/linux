@@ -590,6 +590,11 @@ static void mxt224_set_power(int on)
 	}
 }
 
+static int mxt224_read_chg(void)
+{
+	return gpio_get_value(GPIO_PORT32);
+}
+
 static struct mxt_platform_data mxt224_platform_data = {
 	.x_line		= 19,
 	.y_line		= 11,
@@ -601,7 +606,7 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.orient		= MXT_DIAGONAL,
 	.irqflags	= IRQF_TRIGGER_FALLING,
 	.set_pwr	= mxt224_set_power,
-
+	.read_chg	= mxt224_read_chg,
 };
 
 static struct i2c_board_info i2c4_devices[] = {
