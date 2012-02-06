@@ -91,7 +91,7 @@ config MEMORY_START
 	default "0x50000000" if MACH_G3EVM
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL
-	default "0x44000000" if MACH_U2EVM
+	default "0x50000000" if MACH_U2EVM
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
