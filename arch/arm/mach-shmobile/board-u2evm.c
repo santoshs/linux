@@ -116,7 +116,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.module_start	= usbhs_module_reset,
 	.on_chip	= 1,
 	.buswait	= 5,
-	.max_bufnum	= 0x87, /* 0xff or more? */
+	.max_bufnum	= 0xff,
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 };
 
