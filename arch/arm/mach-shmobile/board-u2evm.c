@@ -79,10 +79,10 @@ static struct platform_device eth_device = {
 /* MMCIF */
 static struct sh_mmcif_dma sh_mmcif_dma = {
 	.chan_priv_rx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF_RX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
 	},
 	.chan_priv_tx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF_TX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
 	},
 };
 
