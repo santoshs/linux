@@ -17,6 +17,8 @@ static int sh_clk_mstp32_enable(struct clk *clk)
 {
 	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
 		     clk->enable_reg);
+	while (__raw_readl(clk->status_reg) & (1 << clk->enable_bit))
+		cpu_relax();
 	return 0;
 }
 
@@ -24,6 +26,7 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 {
 	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
 		     clk->enable_reg);
+	/* Unlike enabling case, we don't have to confirm the bit set */
 }
 
 static struct clk_ops sh_clk_mstp32_clk_ops = {
@@ -134,7 +137,7 @@ static int sh_clk_div6_enable(struct clk *clk)
 	ret = sh_clk_div6_set_rate(clk, clk->rate);
 	if (ret == 0) {
 		value = __raw_readl(clk->enable_reg);
-		value &= ~0x100; /* clear stop bit to enable clock */
+		value &= ~(1 << clk->enable_bit); /* clear stop bit */
 		__raw_writel(value, clk->enable_reg);
 	}
 	return ret;
@@ -145,8 +148,9 @@ static void sh_clk_div6_disable(struct clk *clk)
 	unsigned long value;
 
 	value = __raw_readl(clk->enable_reg);
-	value |= 0x100; /* stop clock */
-	value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
+	value |= (1 << clk->enable_bit); /* stop clock */
+	if ((clk->flags & CLK_DIV_SHARED) == 0)
+		value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
 	__raw_writel(value, clk->enable_reg);
 }
 
@@ -175,7 +179,7 @@ static int __init sh_clk_div6_register_ops(struct clk *clks, int nr,
 	int nr_divs = sh_clk_div6_table.nr_divisors;
 	int freq_table_size = sizeof(struct cpufreq_frequency_table);
 	int ret = 0;
-	int k;
+	int j, k;
 
 	freq_table_size *= (nr_divs + 1);
 	freq_table = kzalloc(freq_table_size * nr, GFP_KERNEL);
@@ -186,6 +190,17 @@ static int __init sh_clk_div6_register_ops(struct clk *clks, int nr,
 
 	for (k = 0; !ret && (k < nr); k++) {
 		clkp = clks + k;
+
+		/*
+		 * In case clock parent is not set up for a reparent clock,
+		 * try to detect from the register status
+		 */
+		if (!clkp->parent && clkp->parent_num && clkp->parent_table) {
+			j = (__raw_readl(clkp->enable_reg) >> clkp->src_shift) &
+			    ((1 << clkp->src_width) - 1);
+			if ((j < clkp->parent_num) && clkp->parent_table[j])
+				clkp->parent = clkp->parent_table[j];
+		}
 
 		clkp->ops = ops;
 		clkp->freq_table = freq_table + (k * freq_table_size);
@@ -355,4 +370,103 @@ int __init sh_clk_div4_reparent_register(struct clk *clks, int nr,
 {
 	return sh_clk_div4_register_ops(clks, nr, table,
 					&sh_clk_div4_reparent_clk_ops);
+}
+
+static int sh_clk_cksel_set_parent(struct clk *clk, struct clk *parent)
+{
+	u32 value;
+	int ret, i;
+
+	if (!clk->parent_table || !clk->parent_num)
+		return -EINVAL;
+
+	/* Search the parent */
+	for (i = 0; i < clk->parent_num; i++)
+		if (clk->parent_table[i] == parent)
+			break;
+
+	if (i == clk->parent_num)
+		return -ENODEV;
+
+	ret = clk_reparent(clk, parent);
+	if (ret < 0)
+		return ret;
+
+	value = __raw_readl(clk->enable_reg) &
+		~(((1 << clk->src_width) - 1) << clk->src_shift);
+
+	__raw_writel(value | (i << clk->src_shift), clk->enable_reg);
+
+	return 0;
+}
+
+static int sh_clk_cksel_enable(struct clk *clk)
+{
+	u32 value;
+
+	/*
+	 * Essentially, CKSEL clock is meant for output clock selection,
+	 * and enable/disable operations won't be required.  That said,
+	 * exceptions go with various types of CPG designs.
+	 *
+	 * We'll manipulate CKSTP bit only when requested.
+	 */
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value &= ~(1 << clk->enable_bit); /* clear stop bit */
+		__raw_writel(value, clk->enable_reg);
+	}
+	return 0;
+}
+
+static void sh_clk_cksel_disable(struct clk *clk)
+{
+	u32 value;
+
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value |= 1 << clk->enable_bit; /* stop clock */
+		__raw_writel(value, clk->enable_reg);
+	}
+}
+
+static struct clk_ops sh_clk_cksel_clk_ops = {
+	.recalc		= followparent_recalc,
+	.enable		= sh_clk_cksel_enable,
+	.disable	= sh_clk_cksel_disable,
+	.set_parent	= sh_clk_cksel_set_parent,
+};
+
+static int __init sh_clk_cksel_register_ops(struct clk *clks, int nr,
+					    struct clk_ops *ops)
+{
+	struct clk *clkp;
+	int ret = 0;
+	int j, k;
+
+	for (k = 0; !ret && (k < nr); k++) {
+		clkp = clks + k;
+
+		/*
+		 * In case clock parent is not set up for a reparent clock,
+		 * try to detect from the register status
+		 */
+		if (!clkp->parent && clkp->parent_num && clkp->parent_table) {
+			j = (__raw_readl(clkp->enable_reg) >> clkp->src_shift) &
+			    ((1 << clkp->src_width) - 1);
+			if ((j < clkp->parent_num) && clkp->parent_table[j])
+				clkp->parent = clkp->parent_table[j];
+		}
+
+		clkp->ops = ops;
+
+		ret = clk_register(clkp);
+	}
+
+	return ret;
+}
+
+int __init sh_clk_cksel_register(struct clk *clks, int nr)
+{
+	return sh_clk_cksel_register_ops(clks, nr, &sh_clk_cksel_clk_ops);
 }

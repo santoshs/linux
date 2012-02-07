@@ -42,7 +42,7 @@ enum sh_dmae_desc_status {
 	DESC_WAITING,	/* callback called, waiting for ack / re-submit */
 };
 
-#define NR_DESCS_PER_CHANNEL 32
+#define NR_DESCS_PER_CHANNEL 128
 /* Default MEMCPY transfer size = 2^2 = 4 bytes */
 #define LOG2_DEFAULT_XFER_SIZE	2
 
@@ -130,8 +130,7 @@ static bool dmae_is_busy(struct sh_dmae_chan *sh_chan)
 
 static unsigned int calc_xmit_shift(struct sh_dmae_chan *sh_chan, u32 chcr)
 {
-	struct sh_dmae_device *shdev = container_of(sh_chan->common.device,
-						struct sh_dmae_device, common);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
 	int cnt = ((chcr & pdata->ts_low_mask) >> pdata->ts_low_shift) |
 		((chcr & pdata->ts_high_mask) >> pdata->ts_high_shift);
@@ -144,8 +143,7 @@ static unsigned int calc_xmit_shift(struct sh_dmae_chan *sh_chan, u32 chcr)
 
 static u32 log2size_to_chcr(struct sh_dmae_chan *sh_chan, int l2size)
 {
-	struct sh_dmae_device *shdev = container_of(sh_chan->common.device,
-						struct sh_dmae_device, common);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
 	int i;
 
@@ -209,12 +207,11 @@ static int dmae_set_chcr(struct sh_dmae_chan *sh_chan, u32 val)
 
 static int dmae_set_dmars(struct sh_dmae_chan *sh_chan, u16 val)
 {
-	struct sh_dmae_device *shdev = container_of(sh_chan->common.device,
-						struct sh_dmae_device, common);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
 	const struct sh_dmae_channel *chan_pdata = &pdata->channel[sh_chan->id];
 	u16 __iomem *addr = shdev->dmars;
-	int shift = chan_pdata->dmars_bit;
+	unsigned int shift = chan_pdata->dmars_bit;
 
 	if (dmae_is_busy(sh_chan))
 		return -EBUSY;
@@ -236,8 +233,9 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(tx->chan);
 	dma_async_tx_callback callback = tx->callback;
 	dma_cookie_t cookie;
+	unsigned long flags;
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 	cookie = sh_chan->common.cookie;
 	cookie++;
@@ -273,7 +271,7 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 		tx->cookie, &last->async_tx, sh_chan->id,
 		desc->hw.sar, desc->hw.tcr, desc->hw.dar);
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	return cookie;
 }
@@ -296,9 +294,7 @@ static struct sh_desc *sh_dmae_get_desc(struct sh_dmae_chan *sh_chan)
 static const struct sh_dmae_slave_config *sh_dmae_find_slave(
 	struct sh_dmae_chan *sh_chan, struct sh_dmae_slave *param)
 {
-	struct dma_device *dma_dev = sh_chan->common.device;
-	struct sh_dmae_device *shdev = container_of(dma_dev,
-					struct sh_dmae_device, common);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
 	int i;
 
@@ -347,24 +343,18 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 		dmae_init(sh_chan);
 	}
 
-	spin_lock_bh(&sh_chan->desc_lock);
 	while (sh_chan->descs_allocated < NR_DESCS_PER_CHANNEL) {
-		spin_unlock_bh(&sh_chan->desc_lock);
 		desc = kzalloc(sizeof(struct sh_desc), GFP_KERNEL);
-		if (!desc) {
-			spin_lock_bh(&sh_chan->desc_lock);
+		if (!desc)
 			break;
-		}
 		dma_async_tx_descriptor_init(&desc->async_tx,
 					&sh_chan->common);
 		desc->async_tx.tx_submit = sh_dmae_tx_submit;
 		desc->mark = DESC_IDLE;
 
-		spin_lock_bh(&sh_chan->desc_lock);
 		list_add(&desc->node, &sh_chan->ld_free);
 		sh_chan->descs_allocated++;
 	}
-	spin_unlock_bh(&sh_chan->desc_lock);
 
 	if (!sh_chan->descs_allocated) {
 		ret = -ENOMEM;
@@ -378,6 +368,7 @@ edescalloc:
 		clear_bit(param->slave_id, sh_dmae_slave_used);
 etestused:
 efindslave:
+	chan->private = NULL;
 	pm_runtime_put(sh_chan->dev);
 	return ret;
 }
@@ -410,12 +401,12 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 		chan->private = NULL;
 	}
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irq(&sh_chan->desc_lock);
 
 	list_splice_init(&sh_chan->ld_free, &list);
 	sh_chan->descs_allocated = 0;
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irq(&sh_chan->desc_lock);
 
 	if (descs > 0)
 		pm_runtime_put(sh_chan->dev);
@@ -507,6 +498,7 @@ static struct dma_async_tx_descriptor *sh_dmae_prep_sg(struct sh_dmae_chan *sh_c
 	struct sh_desc *first = NULL, *new = NULL /* compiler... */;
 	LIST_HEAD(tx_list);
 	int chunks = 0;
+	unsigned long irq_flags;
 	int i;
 
 	if (!sg_len)
@@ -517,7 +509,7 @@ static struct dma_async_tx_descriptor *sh_dmae_prep_sg(struct sh_dmae_chan *sh_c
 			(SH_DMA_TCR_MAX + 1);
 
 	/* Have to lock the whole loop to protect against concurrent release */
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, irq_flags);
 
 	/*
 	 * Chaining:
@@ -563,7 +555,7 @@ static struct dma_async_tx_descriptor *sh_dmae_prep_sg(struct sh_dmae_chan *sh_c
 	/* Put them back on the free list, so, they don't get lost */
 	list_splice_tail(&tx_list, &sh_chan->ld_free);
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, irq_flags);
 
 	return &first->async_tx;
 
@@ -572,7 +564,7 @@ err_get_desc:
 		new->mark = DESC_IDLE;
 	list_splice(&tx_list, &sh_chan->ld_free);
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, irq_flags);
 
 	return NULL;
 }
@@ -634,6 +626,7 @@ static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			   unsigned long arg)
 {
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
+	unsigned long flags;
 
 	/* Only supports DMA_TERMINATE_ALL */
 	if (cmd != DMA_TERMINATE_ALL)
@@ -642,7 +635,7 @@ static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	if (!chan)
 		return -EINVAL;
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	dmae_halt(sh_chan);
 
 	if (!list_empty(&sh_chan->ld_queue)) {
@@ -653,7 +646,7 @@ static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			sh_chan->xmit_shift;
 
 	}
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	sh_dmae_chan_ld_cleanup(sh_chan, true);
 
@@ -668,8 +661,9 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan, bool all
 	dma_cookie_t cookie = 0;
 	dma_async_tx_callback callback = NULL;
 	void *param = NULL;
+	unsigned long flags;
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	list_for_each_entry_safe(desc, _desc, &sh_chan->ld_queue, node) {
 		struct dma_async_tx_descriptor *tx = &desc->async_tx;
 
@@ -746,7 +740,7 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan, bool all
 		 */
 		sh_chan->completed_cookie = sh_chan->common.cookie;
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	if (callback)
 		callback(param);
@@ -769,10 +763,10 @@ static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 {
 	struct sh_desc *desc;
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irq(&sh_chan->desc_lock);
 	/* DMA work check */
 	if (dmae_is_busy(sh_chan)) {
-		spin_unlock_bh(&sh_chan->desc_lock);
+		spin_unlock_irq(&sh_chan->desc_lock);
 		return;
 	}
 
@@ -788,7 +782,7 @@ static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 			break;
 		}
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irq(&sh_chan->desc_lock);
 }
 
 static void sh_dmae_memcpy_issue_pending(struct dma_chan *chan)
@@ -805,6 +799,7 @@ static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
 	dma_cookie_t last_used;
 	dma_cookie_t last_complete;
 	enum dma_status status;
+	unsigned long flags;
 
 	sh_dmae_chan_ld_cleanup(sh_chan, false);
 
@@ -815,7 +810,7 @@ static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
 	BUG_ON(last_complete < 0);
 	dma_set_tx_state(txstate, last_complete, last_used, 0);
 
-	spin_lock_bh(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 	status = dma_async_is_complete(cookie, last_complete, last_used);
 
@@ -833,7 +828,7 @@ static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
 			}
 	}
 
-	spin_unlock_bh(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	return status;
 }
@@ -926,7 +921,7 @@ static void dmae_do_tasklet(unsigned long data)
 	u32 sar_buf = sh_dmae_readl(sh_chan, SAR);
 	u32 dar_buf = sh_dmae_readl(sh_chan, DAR);
 
-	spin_lock(&sh_chan->desc_lock);
+	spin_lock_irq(&sh_chan->desc_lock);
 	list_for_each_entry(desc, &sh_chan->ld_queue, node) {
 		if (desc->mark == DESC_SUBMITTED &&
 		    ((desc->direction == DMA_FROM_DEVICE &&
@@ -939,7 +934,7 @@ static void dmae_do_tasklet(unsigned long data)
 			break;
 		}
 	}
-	spin_unlock(&sh_chan->desc_lock);
+	spin_unlock_irq(&sh_chan->desc_lock);
 
 	/* Next desc */
 	sh_chan_xfer_ld_queue(sh_chan);
@@ -1146,6 +1141,13 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, shdev);
 
+	shdev->clk = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(shdev->clk)) {
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n", dev_name(&pdev->dev));
+		err = PTR_ERR(shdev->clk);
+		goto clk_err;
+	}
+
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -1277,7 +1279,9 @@ rst_err:
 
 	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+	clk_put(shdev->clk);
 
+clk_err:
 	if (dmars)
 		iounmap(shdev->dmars);
 
@@ -1315,6 +1319,7 @@ static int __exit sh_dmae_remove(struct platform_device *pdev)
 	sh_dmae_chan_remove(shdev);
 
 	pm_runtime_disable(&pdev->dev);
+	clk_put(shdev->clk);
 
 	if (shdev->dmars)
 		iounmap(shdev->dmars);
@@ -1343,6 +1348,9 @@ static void sh_dmae_shutdown(struct platform_device *pdev)
 
 static int sh_dmae_runtime_suspend(struct device *dev)
 {
+	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
+
+	clk_disable(shdev->clk);
 	return 0;
 }
 
@@ -1350,6 +1358,7 @@ static int sh_dmae_runtime_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
 
+	clk_enable(shdev->clk);
 	return sh_dmae_rst(shdev);
 }
 

@@ -1175,11 +1175,11 @@ config PL310_ERRATA_727915
 	  Invalidate by Way operation.
 
 config ARM_ERRATA_743622
-	bool "ARM errata: Faulty hazard checking in the Store Buffer may lead to data corruption"
+	bool "ARM errata: Faulty logic in the Store Buffer may lead to data corruption"
 	depends on CPU_V7
 	help
 	  This option enables the workaround for the 743622 Cortex-A9
-	  (r2p0..r2p2) erratum. Under very rare conditions, a faulty
+	  (r2p0..r2p10) erratum. Under very rare conditions, a faulty
 	  optimisation in the Cortex-A9 Store Buffer may lead to data
 	  corruption. This workaround sets a specific bit in the diagnostic
 	  register of the Cortex-A9 which disables the Store Buffer
@@ -1357,6 +1357,26 @@ config SMP_ON_UP
 	  savings.
 
 	  If you don't know what to do here, say Y.
+
+config SCU_STANDBY
+	bool "SCU: SCU standby enable"
+	select HAVE_ARM_SCU
+	help
+	  When set, SCU CLK is turned off when all processors are in WFI
+	  mode, there is no pending request on ACP (if implemented), and
+	  there is no remaining activity in the SCU.
+
+	  When SCU CLK is off, ARREADYS, AWREADYS and DWREADYS on the ACP
+	  are forced HIGH.  The clock is turned on when any processor
+	  leaves WFI mode, or if there is a new request on ACP.
+
+config SCU_IC_STANDBY
+	bool "SCU: IC standby enable"
+	select HAVE_ARM_SCU
+	help
+	  When set, this stops the Interrupt Controller clock when no
+	  interrupts are pending, and no CPU is performing a read/write
+	  request.
 
 config HAVE_ARM_SCU
 	bool
@@ -1684,6 +1704,15 @@ config DEPRECATED_PARAM_STRUCT
 	help
 	  This was deprecated in 2001 and announced to live on for 5 years.
 	  Some old boot loaders still use this way.
+
+config ARM_FLUSH_CONSOLE_ON_RESTART
+	bool "Force flush the console on restart"
+	help
+	  If the console is locked while the system is rebooted, the messages
+	  in the temporary logbuffer would not have propogated to all the
+	  console drivers. This option forces the console lock to be
+	  released if it failed to be acquired, which will cause all the
+	  pending messages to be flushed.
 
 endmenu
 

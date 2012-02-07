@@ -26,6 +26,9 @@ static unsigned int __init shmobile_smp_get_core_count(void)
 	if (machine_is_ag5evm())
 		return sh73a0_get_core_count();
 
+	if (machine_is_u2evm())
+		return r8a73734_get_core_count();
+
 	return 1;
 }
 
@@ -33,6 +36,9 @@ static void __init shmobile_smp_prepare_cpus(void)
 {
 	if (machine_is_ag5evm())
 		sh73a0_smp_prepare_cpus();
+
+	if (machine_is_u2evm())
+		r8a73734_smp_prepare_cpus();
 }
 
 void __cpuinit platform_secondary_init(unsigned int cpu)
@@ -41,12 +47,18 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 
 	if (machine_is_ag5evm())
 		sh73a0_secondary_init(cpu);
+
+	if (machine_is_u2evm())
+		r8a73734_secondary_init(cpu);
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	if (machine_is_ag5evm())
 		return sh73a0_boot_secondary(cpu);
+
+	if (machine_is_u2evm())
+		return r8a73734_boot_secondary(cpu);
 
 	return -ENOSYS;
 }

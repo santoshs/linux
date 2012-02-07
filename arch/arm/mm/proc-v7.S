@@ -290,7 +290,7 @@ __v7_ca9mp_setup:
 __v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
-	bl	v7_flush_dcache_all
+	bl	v7_inv_dcache_all
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
 
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
@@ -348,9 +348,7 @@ __v7_setup:
 	mcreq	p15, 0, r10, c15, c0, 1		@ write diagnostic register
 #endif
 #ifdef CONFIG_ARM_ERRATA_743622
-	teq	r6, #0x20			@ present in r2p0
-	teqne	r6, #0x21			@ present in r2p1
-	teqne	r6, #0x22			@ present in r2p2
+	teq	r5, #0x00200000			@ present in r2p*
 	mrceq	p15, 0, r10, c15, c0, 1		@ read diagnostic register
 	orreq	r10, r10, #1 << 6		@ set bit #6
 	mcreq	p15, 0, r10, c15, c0, 1		@ write diagnostic register
@@ -360,6 +358,30 @@ __v7_setup:
 	mrclt	p15, 0, r10, c15, c0, 1		@ read diagnostic register
 	orrlt	r10, r10, #1 << 11		@ set bit #11
 	mcrlt	p15, 0, r10, c15, c0, 1		@ write diagnostic register
+#endif
+
+#ifdef CONFIG_CPU_DCACHE_PREFETCH
+	/*
+	 * TODO: This should be disabled for all r0, r1 and r2 revisions
+	 * due to the 751473 Cortex-A9 erratum.
+	 */
+	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
+	orr	r10, r10, #1 << 2		@ set L1 prefetch enable bit
+	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
+
+#ifdef CONFIG_SMP
+	/*
+	 * When Cortex-A9 MPCore is configured to run in SMP mode,
+	 * the automatic data prefetchers issue special read accesses
+	 * to the L2CC(L2C-310), called Prefetch Hints.
+	 *
+	 * This feature should be enabled only when all the conditions
+	 * are satisfied.
+	 */
+	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
+	orr	r10, r10, #1 << 1		@ set L2 prefetch hint enable bit
+	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
+#endif
 #endif
 
 3:	mov	r10, #0
