@@ -73,6 +73,7 @@ void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 	static struct clk *ram_clk;
 
 	gic_secondary_init(0);
+	secondary_skip_calibrate();
 
 	if ((system_rev & 0xff) < 0x10) {
 		ram_clk = clk_get(NULL, "internal_ram0");
