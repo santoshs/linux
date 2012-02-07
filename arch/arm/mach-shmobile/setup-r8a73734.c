@@ -91,7 +91,7 @@ static struct platform_device cmt11_device = {
 
 static struct plat_sci_port scif0_platform_data = {
 	.mapbase	= 0xe6450000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -109,7 +109,7 @@ static struct platform_device scif0_device = {
 
 static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -127,7 +127,7 @@ static struct platform_device scif1_device = {
 
 static struct plat_sci_port scif2_platform_data = {
 	.mapbase	= 0xe6c60000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -145,7 +145,7 @@ static struct platform_device scif2_device = {
 
 static struct plat_sci_port scif3_platform_data = {
 	.mapbase	= 0xe6c70000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -163,7 +163,7 @@ static struct platform_device scif3_device = {
 
 static struct plat_sci_port scif4_platform_data = {
 	.mapbase	= 0xe6c20000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
@@ -181,7 +181,7 @@ static struct platform_device scif4_device = {
 
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
@@ -199,7 +199,7 @@ static struct platform_device scif5_device = {
 
 static struct plat_sci_port scif6_platform_data = {
 	.mapbase	= 0xe6ce0000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
