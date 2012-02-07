@@ -678,11 +678,6 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYIN4, NULL);
 	gpio_request(GPIO_FN_KEYIN5, NULL);
 	gpio_request(GPIO_FN_KEYIN6, NULL);
-	gpio_request(GPIO_FN_KEYIN7, NULL);
-	gpio_request(GPIO_FN_KEYIN8, NULL);
-	gpio_request(GPIO_FN_KEYIN9, NULL);
-	gpio_request(GPIO_FN_KEYIN10, NULL);
-	gpio_request(GPIO_FN_KEYIN11, NULL);
 	gpio_request(GPIO_FN_KEYOUT0, NULL);
 	gpio_request(GPIO_FN_KEYOUT1, NULL);
 	gpio_request(GPIO_FN_KEYOUT2, NULL);
@@ -690,11 +685,6 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYOUT4, NULL);
 	gpio_request(GPIO_FN_KEYOUT5, NULL);
 	gpio_request(GPIO_FN_KEYOUT6, NULL);
-	gpio_request(GPIO_FN_KEYOUT7, NULL);
-	gpio_request(GPIO_FN_KEYOUT8, NULL);
-	gpio_request(GPIO_FN_KEYOUT9, NULL);
-	gpio_request(GPIO_FN_KEYOUT10, NULL);
-	gpio_request(GPIO_FN_KEYOUT11, NULL);
 #endif
 
 	/* MMC0 */
