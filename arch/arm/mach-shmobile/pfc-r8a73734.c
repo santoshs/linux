@@ -20,6 +20,7 @@
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/sh_pfc.h>
 #include <mach/irqs.h>
@@ -1858,6 +1859,14 @@ static struct pinmux_irq pinmux_irqs[] = {
 	PINMUX_IRQ(irqpin2irq(50), PORT327_FN0),
 };
 
+static struct resource r8a73734_pfc_resources[] = {
+	[0] = {
+		.start	= 0xe6050000,
+		.end	= 0xe605819f,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
 static struct pinmux_info r8a73734_pinmux_info = {
 	.name = "r8a73734_pfc",
 	.reserved_id = PINMUX_RESERVED,
@@ -1881,6 +1890,9 @@ static struct pinmux_info r8a73734_pinmux_info = {
 
 	.gpio_irq = pinmux_irqs,
 	.gpio_irq_size = ARRAY_SIZE(pinmux_irqs),
+
+	.resource = r8a73734_pfc_resources,
+	.num_resources = ARRAY_SIZE(r8a73734_pfc_resources),
 };
 
 void r8a73734_pinmux_init(void)
