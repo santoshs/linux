@@ -448,6 +448,7 @@ static struct platform_device tpu3_device = {
 	},
 };
 
+#ifdef CONFIG_SPI_SH_MSIOF
 /* SPI */
 static struct sh_msiof_spi_info sh_msiof0_info = {
         .rx_fifo_override       = 256,
@@ -475,6 +476,7 @@ static struct platform_device sh_msiof0_device = {
         .num_resources  = ARRAY_SIZE(sh_msiof0_resources),
         .resource       = sh_msiof0_resources,
 };
+#endif
 
 static struct platform_device *u2evm_devices[] __initdata = {
 	&usbhs_func_device,
