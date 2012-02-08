@@ -48,7 +48,7 @@ static struct resource cmt10_resources[] = {
 
 static struct platform_device cmt10_device = {
 	.name		= "sh_cmt",
-	.id		= 0,
+	.id		= 10,
 	.dev		= {
 			.platform_data	= &cmt10_platform_data,
 	},
@@ -81,7 +81,7 @@ static struct resource cmt11_resources[] = {
 
 static struct platform_device cmt11_device = {
 	.name		= "sh_cmt",
-	.id		= 1,
+	.id		= 11,
 	.dev		= {
 			.platform_data	= &cmt11_platform_data,
 	},
