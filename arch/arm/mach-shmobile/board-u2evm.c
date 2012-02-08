@@ -61,8 +61,8 @@ static void gpio_pull(u32 addr, int type)
 
 static struct resource smsc9220_resources[] = {
 	{
-		.start	= 0x10000000,
-		.end	= 0x10000000 + SZ_64K - 1,
+		.start	= 0x00080000,
+		.end	= 0x00080000 + SZ_64K - 1,
 		.flags	= IORESOURCE_MEM,
 	}, {
 		.start	= irqpin2irq(41),
