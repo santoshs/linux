@@ -205,7 +205,7 @@ static struct renesas_sdhi_dma sdhi0_dma = {
 
 static struct renesas_sdhi_platdata sdhi0_info = {
 	.caps		= 0,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
 	.dma		= &sdhi0_dma,
 	.set_pwr	= sdhi0_set_pwr,
 	.detect_irq	= irqpin2irq(50),
@@ -626,6 +626,104 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT327);
 	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 	irqc_set_chattering(50, 0x01);	/* 1msec */
+
+#define MUX_STM_TO_SDHI1
+#define MUX_STM_SIDI
+#ifdef  MUX_STM_TO_SDHI1
+        /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
+        gpio_request(GPIO_PORT288, NULL);
+        gpio_direction_output(GPIO_PORT288, 0);
+        gpio_request(GPIO_FN_STMCLK_2, NULL);
+
+        gpio_request(GPIO_PORT289, NULL);
+        gpio_direction_output(GPIO_PORT289, 0);
+        gpio_request(GPIO_FN_STMDATA0_2, NULL); 
+
+        gpio_request(GPIO_PORT290, NULL);
+        gpio_direction_output(GPIO_PORT290, 0);
+        gpio_request(GPIO_FN_STMDATA1_2, NULL);
+
+        gpio_request(GPIO_PORT291, NULL);
+        gpio_direction_output(GPIO_PORT291, 0);
+        gpio_request(GPIO_FN_STMDATA2_2, NULL);
+
+        gpio_request(GPIO_PORT292, NULL);
+        gpio_direction_output(GPIO_PORT292, 0);
+        gpio_request(GPIO_FN_STMDATA3_2, NULL);
+
+        {     
+#define VUL volatile unsigned long 
+          volatile unsigned long d;
+/*      Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
+ *        Write bit 28 up to enable SDHIx STMSIDI power
+ *          bits [31:20] All 0, R, Reserved.
+ *          bit  28      MSEL28, Initial value 0, R/W, IO power supply of terminal SDHI when SD is transmitted.
+ *                       0=IO power OFF, 1=IO power ON
+ *          bits [27:16] All 0, R, Reserved.
+ *          bit  15      MSEL15, Initial value 0, R/W, Debug monitor function Setting.
+ *                       0=Use KEYSC pins for debug monitor function.
+ *                       1=Use BSC pins for debug monitor function.
+ *          bits [14:4]  All 0, R, Reserved.
+ *          bit  3       MSEL3, Initial value 0, R/W, IC_DP/IC_DM Output Enable Control.
+ *                       0=Output Disable, 1=Depends on ICUSB Controller. Set 0 before "power down sequence".
+ *          bit  2       0, R, Reserved.
+ *          bits [1:0]   MSEL[1:0], Initial value 00, R/W, Select HSI.
+ *                       0x=Internal connect Port xxx(HSI) shall set func0.
+ *                       10=HSI0 select.
+ *                       11=HSIB select.
+ */
+          d = *( VUL *)0xE6058020;
+          d = d | (1<<28);
+          *( VUL *)0xE6058020 = d;
+        }
+#ifdef MUX_STM_SIDI
+        gpio_request(GPIO_PORT293, NULL);
+        gpio_direction_input(GPIO_PORT293);
+        gpio_request(GPIO_FN_STMSIDI_2, NULL);
+#if 1 // HACK because did not find _PU in macro definitions
+        *( volatile char *)0xE6052125 = 0xE3; // PU, IE, FN=3, i.e. STMSIDI_2
+#endif
+#endif // MUX_STM_SIDI
+        {
+          int i;
+          VUL d, dummy_read;
+#if 1
+          // Lower CPG Frequency Control Register B (BRQCRB) ZTRFC clock by divider  control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz
+          d = *( VUL * )0xe6150004;
+          d = d & 0x7F0FFFFF; 
+          d = d | 0x80400000;         // Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System CPU Debugging and Trace Clock Frequenct Division Ratio
+          *( VUL *)0xe6150004 = d;
+#endif
+
+          *( VUL * )0xe6100040 = 0x0000a501; /* TDBG_DBGREG9, Key register */
+          *( VUL * )0xe6100040 = 0x0000a501; /* TDBG_DBGREG9, Key register */
+
+          for(i=0; i<0x10; i++);
+          d = *( VUL *)0xe6100020;
+          d = d & 0xFFDFFFFF; // Clear STMSEL[1], i.e. select STMSIDI to BB side.
+          d = d | (1<<20);    // Set   STMSEL[0], i.e. select SDH1 as output/in port for STM
+          *( VUL *)0xe6100020 = d;
+          for(i=0; i<0x10; i++);
+
+          /* Configure SYS-(Trace) Funnel-STM @ 0xE6F8B000 */
+          *( VUL *)0xE6F8BFB0 = 0xc5acce55;  /* Lock Access */
+          for(i=0; i<0xF0; i++);
+          *( VUL *)0xE6F8B000 = 0x302;       /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
+          for(i=0; i<0xF0; i++);
+          *( VUL *)0xE6F8BFB0 = 0xc5acce55;  /* Lock Access */
+          for(i=0; i<0x10; i++);
+          *( VUL *)0xE6F8B000 = 0x302;       /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
+          for(i=0; i<0xF0; i++);
+        
+          /* Configure SYS-TPIU-STM @ 0xE6F8A000 */
+                       *( VUL *)0xE6F8AFB0 = 0xc5acce55; /* Lock Access */
+                       *( VUL *)0xE6F8A004 = 0x8;        /* Current Port Size 4-bits wide (TRACEDATA0-3 all set) */
+                       *( VUL *)0xE6F8A304 = 0x112;      /* Formatter and Flush control */
+          dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
+                       *( VUL *)0xE6F8A304 = 0x152;      /* Formatter and Flush control */
+          dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
+        }
+#endif // MUX_STM_TO_SDHI1
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
