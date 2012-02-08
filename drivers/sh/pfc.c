@@ -710,6 +710,22 @@ static int sh_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 	return -ENOSYS;
 }
 
+static int sh_gpio_set_debounce(struct gpio_chip *chip,
+		unsigned offset, unsigned debounce)
+{
+	struct pinmux_info *gpioc = chip_to_pinmux(chip);
+	int irq;
+
+	irq = sh_gpio_to_irq(chip, offset);
+	if (irq < 0)
+		return irq;
+
+	if (gpioc->set_debounce)
+		return gpioc->set_debounce(irq, debounce);
+
+	return -ENOSYS;
+}
+
 int register_pinmux(struct pinmux_info *pip)
 {
 	struct gpio_chip *chip = &pip->chip;
@@ -729,6 +745,7 @@ int register_pinmux(struct pinmux_info *pip)
 	chip->direction_input = sh_gpio_direction_input;
 	chip->get = sh_gpio_get;
 	chip->direction_output = sh_gpio_direction_output;
+	chip->set_debounce = sh_gpio_set_debounce;
 	chip->set = sh_gpio_set;
 	chip->to_irq = sh_gpio_to_irq;
 
