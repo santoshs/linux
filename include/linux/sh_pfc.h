@@ -121,6 +121,8 @@ struct pinmux_info {
 
 	unsigned long unlock_reg;
 
+	int (*set_debounce)(int irq, unsigned debounce);
+
 	struct gpio_chip chip;
 };
 
