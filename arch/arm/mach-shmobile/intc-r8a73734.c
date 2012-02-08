@@ -151,6 +151,48 @@ static void setup_irqc_irq(void)
 }
 
 enum {
+	IRQC_INTERVAL_1MS = 0,
+	IRQC_INTERVAL_2MS,
+	IRQC_INTERVAL_4MS,
+	IRQC_INTERVAL_8MS
+};
+
+int r8a73734_irqc_set_debounce(int irq, unsigned debounce)
+{
+	u32 val, interval, count;
+	u32 *reg;
+
+	irq -= IRQPIN_IRQ_BASE;
+	if (irq > 63)
+		return -ENOSYS;
+
+	debounce = (debounce + 999) / 1000;
+	if (debounce <= 0x3ff) {
+		interval = IRQC_INTERVAL_1MS;
+		count = debounce;
+	} else if (debounce <= 0x3ff * 2) {
+		interval = IRQC_INTERVAL_2MS;
+		count = (debounce + 1) / 2;
+	} else if (debounce <= 0x3ff * 4) {
+		interval = IRQC_INTERVAL_4MS;
+		count = (debounce + 3) / 4;
+	} else if (debounce <= 0x3ff * 8) {
+		interval = IRQC_INTERVAL_8MS;
+		count = (debounce + 7) / 8;
+	} else {
+		interval = IRQC_INTERVAL_8MS;
+		count = 0x3ff;
+	}
+
+	reg = (irq >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg += (irq & 0x1f);
+
+	val = __raw_readl(reg) & ~0x80ff0000;
+	__raw_writel(val | (1 << 31) | (interval << 22) | (count << 16), reg);
+	return 0;
+}
+
+enum {
 	UNUSED = 0,
 
 	/* interrupt sources INTCS */

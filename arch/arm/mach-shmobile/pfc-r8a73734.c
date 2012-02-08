@@ -1893,6 +1893,8 @@ static struct pinmux_info r8a73734_pinmux_info = {
 
 	.resource = r8a73734_pfc_resources,
 	.num_resources = ARRAY_SIZE(r8a73734_pfc_resources),
+
+	.set_debounce = r8a73734_irqc_set_debounce,
 };
 
 void r8a73734_pinmux_init(void)

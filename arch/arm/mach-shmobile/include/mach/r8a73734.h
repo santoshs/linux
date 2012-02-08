@@ -300,6 +300,8 @@ enum {
 	/* Functions with pull-ups */
 };
 
+extern int r8a73734_irqc_set_debounce(int irq, unsigned debounce);
+
 /* DMA slave IDs */
 enum {
 	SHDMA_SLAVE_INVALID,
