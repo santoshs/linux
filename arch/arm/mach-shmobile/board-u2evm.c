@@ -1,3 +1,4 @@
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -22,6 +23,14 @@
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
+#include <linux/mfd/tps80031.h>
+#include <linux/spi/sh_msiof.h>
+#include <linux/i2c/atmel_mxt_ts.h>
+#include <linux/regulator/tps80031-regulator.h>
+#include <linux/usb/r8a66597.h>
+
+#define SRCR2		0xe61580b0
+#define SRCR3		0xe61580b8
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
@@ -72,6 +81,65 @@ static struct platform_device eth_device = {
 	},
 	.resource	= smsc9220_resources,
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
+};
+
+/* USBHS */
+static int is_vbus_powered(void)
+{
+	return 1; /* always powered */
+}
+
+static void usbhs_module_reset(void)
+{
+	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
+	__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+	udelay(50); /* wait for at least one EXTALR cycle */
+	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
+	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+}
+
+static struct r8a66597_platdata usbhs_func_data = {
+	.is_vbus_powered = is_vbus_powered,
+	.module_start	= usbhs_module_reset,
+	.on_chip	= 1,
+	.buswait	= 5,
+	.max_bufnum	= 0x87, /* 0xff or more? */
+	.vbus_irq	= gic_spi(87), /* FIXME */
+};
+
+static struct resource usbhs_resources[] = {
+	[0] = {
+		.name	= "USBHS",
+		.start	= 0xe6890000,
+		.end	= 0xe6890150 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(87) /* USBULPI */,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.name	= "USBHS-DMA",
+		.start	= 0xe68a0000,
+		.end	= 0xe68a0064 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[3] = {
+		.start	= gic_spi(85) /* USBHSDMAC1 */,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device usbhs_func_device = {
+	.name	= "r8a66597_udc",
+	.id	= 0,
+	.dev = {
+		.dma_mask		= NULL,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+		.platform_data		= &usbhs_func_data,
+	},
+	.num_resources	= ARRAY_SIZE(usbhs_resources),
+	.resource	= usbhs_resources,
 };
 
 /* MMCIF */
@@ -323,7 +391,36 @@ static struct platform_device tpu3_device = {
 	},
 };
 
+/* SPI */
+static struct sh_msiof_spi_info sh_msiof0_info = {
+        .rx_fifo_override       = 256,
+        .num_chipselect         = 1,
+};
+
+static struct resource sh_msiof0_resources[] = {
+        [0] = {
+                .start  = 0xe6e20000,
+                .end    = 0xe6e20064 - 1,
+                .flags  = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start  = gic_spi(109),
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+
+static struct platform_device sh_msiof0_device = {
+        .name           = "spi_sh_msiof",
+        .id             = 0,
+        .dev            = {
+                .platform_data  = &sh_msiof0_info,
+        },
+        .num_resources  = ARRAY_SIZE(sh_msiof0_resources),
+        .resource       = sh_msiof0_resources,
+};
+
 static struct platform_device *u2evm_devices[] __initdata = {
+	&usbhs_func_device,
 	&eth_device,
 	&sh_mmcif_device,
 	&sdhi0_device,
@@ -331,6 +428,128 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&lcdc_device,
 	&mipidsi0_device,
 	&tpu3_device,
+	&sh_msiof0_device,
+};
+
+/* I2C */
+
+#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
+static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
+	REGULATOR_SUPPLY("vdd_touch", NULL),
+};
+
+#define TPS_PDATA_INIT(_id, _minmv, _maxmv, _supply_reg, _always_on,	\
+	_boot_on, _apply_uv, _init_uV, _init_enable, _init_apply, 	\
+	_flags, _delay)						\
+	static struct tps80031_regulator_platform_data pdata_##_id = {	\
+		.regulator = {						\
+			.constraints = {				\
+				.min_uV = (_minmv)*1000,		\
+				.max_uV = (_maxmv)*1000,		\
+				.valid_modes_mask = (REGULATOR_MODE_NORMAL |  \
+						REGULATOR_MODE_STANDBY),      \
+				.valid_ops_mask = (REGULATOR_CHANGE_MODE |    \
+						REGULATOR_CHANGE_STATUS |     \
+						REGULATOR_CHANGE_VOLTAGE),    \
+				.always_on = _always_on,		\
+				.boot_on = _boot_on,			\
+				.apply_uV = _apply_uv,			\
+			},						\
+			.num_consumer_supplies =			\
+				ARRAY_SIZE(tps80031_##_id##_supply),	\
+			.consumer_supplies = tps80031_##_id##_supply,	\
+			.supply_regulator = _supply_reg,		\
+		},							\
+		.init_uV =  _init_uV * 1000,				\
+		.init_enable = _init_enable,				\
+		.init_apply = _init_apply,				\
+		.flags = _flags,					\
+		.delay_us = _delay,					\
+	}
+
+TPS_PDATA_INIT(ldo5, 1000, 3300, 0, 0, 0, 0, 2700, 0, 1, 0, 0);
+
+static struct tps80031_rtc_platform_data rtc_data = {
+	.irq = ENT_TPS80031_IRQ_BASE + TPS80031_INT_RTC_ALARM,
+	.time = {
+		.tm_year = 2012,
+		.tm_mon = 0,
+		.tm_mday = 1,
+		.tm_hour = 1,
+		.tm_min = 2,
+		.tm_sec = 3,
+	},
+};
+
+#define TPS_REG(_id, _data)				\
+	{						\
+		.id	 = TPS80031_ID_##_id,		\
+		.name   = "tps80031-regulator",		\
+		.platform_data  = &pdata_##_data,	\
+	}
+
+#define TPS_RTC()				\
+	{					\
+		.id	= 0,			\
+		.name	= "rtc_tps80031",	\
+		.platform_data = &rtc_data,	\
+	}
+
+static struct tps80031_subdev_info tps80031_devs[] = {
+	TPS_RTC(),
+	TPS_REG(LDO5, ldo5),
+};
+
+static struct tps80031_platform_data tps_platform = {
+	.num_subdevs	= ARRAY_SIZE(tps80031_devs),
+	.subdevs	= tps80031_devs,
+	.irq_base	= ENT_TPS80031_IRQ_BASE,
+};
+
+static struct i2c_board_info __initdata i2c0_devices[] = {
+	{
+		I2C_BOARD_INFO("tps80032", 0x4A),
+		.irq		= irqpin2irq(28),
+		.platform_data	= &tps_platform,
+	},
+};
+
+static struct regulator *mxt224_regulator;
+
+static void mxt224_set_power(int on)
+{
+	if (!mxt224_regulator)
+		mxt224_regulator = regulator_get(NULL, "vdd_touch");
+
+	if (mxt224_regulator) {
+		if (on)
+			regulator_enable(mxt224_regulator);
+		else
+			regulator_disable(mxt224_regulator);
+	}
+}
+
+static struct mxt_platform_data mxt224_platform_data = {
+	.x_line		= 19,
+	.y_line		= 11,
+	.x_size		= 864,
+	.y_size		= 480,
+	.blen		= 0x21,
+	.threshold	= 0x28,
+	.voltage	= 1825000,
+	.orient		= MXT_DIAGONAL,
+	.irqflags	= IRQF_TRIGGER_FALLING,
+	.set_pwr	= mxt224_set_power,
+
+};
+
+static struct i2c_board_info i2c4_devices[] = {
+	{
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x4b),
+		.platform_data = &mxt224_platform_data,
+		.irq	= irqpin2irq(32),
+	},
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -377,6 +596,12 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
+	/* SCIFB0 */
+	gpio_request(GPIO_FN_SCIFB0_TXD, NULL);
+	gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
+	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
+	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
+
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
 	gpio_request(GPIO_FN_MMCD0_0, NULL);
@@ -415,11 +640,33 @@ static void __init u2evm_init(void)
 	/* MIPI-DSI clock setup */
 	__raw_writel(0x2a83900D, DSI0PHYCR);
 
+	/* PMIC */
+	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
+	gpio_direction_output(GPIO_PORT0, 1);
+	gpio_request(GPIO_PORT28, NULL);
+	gpio_direction_input(GPIO_PORT28);
+	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
 	gpio_direction_input(GPIO_PORT97); /* for IRQ */
 	gpio_request(GPIO_PORT105, NULL);
 	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
+
+	/* Touch */
+	gpio_request(GPIO_PORT30, NULL);
+	gpio_direction_output(GPIO_PORT30, 1);
+	gpio_request(GPIO_PORT32, NULL);
+	gpio_direction_input(GPIO_PORT32);
+	gpio_pull(GPIO_PORTCR(32), GPIO_PULL_UP);
+
+#ifdef CONFIG_SPI_SH_MSIOF
+	/* enable MSIOF0 */
+	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
+	gpio_request(GPIO_FN_MSIOF0_TSYNC, NULL);
+	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
+	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
+#endif
 
 #ifdef CONFIG_CACHE_L2X0
 	/*
@@ -434,6 +681,9 @@ static void __init u2evm_init(void)
 #endif
 	r8a73734_add_standard_devices();
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
+
+	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
+	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 }
 
 static void __init u2evm_timer_init(void)

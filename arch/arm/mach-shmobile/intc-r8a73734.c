@@ -204,7 +204,8 @@ static struct intc_group intcs_groups[] __initdata = {
 
 static struct intc_prio_reg intcs_prio_registers[] = {
 	{ 0xffd20000, 0, 16, 4, /* IPRAS */ { 0, 0, _2DDM0, 0 } },
-	{ 0xffd20010, 0, 16, 4, /* IPRES */ { JPU_JPEG, LCDC, 0, VPU } },
+	{ 0xffd20004, 0, 16, 4, /* IPRBS */ { JPU_JPEG, LCDC, 0, 0 } },
+	{ 0xffd20010, 0, 16, 4, /* IPRES */ { 0, 0, 0, VPU } },
 	{ 0xffd20020, 0, 16, 4, /* IPRIS */ { 0, 0, TSIF, 0 } },
 	{ 0xffd20028, 0, 16, 4, /* IPRKS */ { 0, 0, LMB, 0 } },
 	{ 0xffd50024, 0, 16, 4, /* IPRJS3 */ { 0, CSIRX, DSITX0, 0 } },

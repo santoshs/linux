@@ -330,7 +330,9 @@ static int scif_rxfill(struct uart_port *port)
 		return sci_in(port, SCFDR) & SCIF2_RFDC_MASK;
 	}
 }
-#elif defined(CONFIG_ARCH_SH7372)
+#elif defined(CONFIG_ARCH_SH7372) || \
+      defined(CONFIG_ARCH_SH73A0) || \
+      defined(CONFIG_ARCH_R8A73734)
 static int scif_txfill(struct uart_port *port)
 {
 	if (port->type == PORT_SCIFA)
@@ -932,7 +934,7 @@ static unsigned int sci_get_mctrl(struct uart_port *port)
 	/* This routine is used for getting signals of: DTR, DCD, DSR, RI,
 	   and CTS/RTS */
 
-	return TIOCM_DTR | TIOCM_RTS | TIOCM_DSR;
+	return TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
 }
 
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
@@ -1416,6 +1418,8 @@ static void sci_free_dma(struct uart_port *port)
 	if (!s->cfg->dma_dev)
 		return;
 
+	del_timer_sync(&s->rx_timer);
+
 	if (s->chan_tx)
 		sci_tx_dma_release(s, false);
 	if (s->chan_rx)
@@ -1543,7 +1547,7 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	dev_dbg(port->dev, "%s: SMR %x, t %x, SCSCR %x\n", __func__, smr_val, t,
 		s->cfg->scscr);
 
-	if (t > 0) {
+	if (t >= 0) {
 		if (t >= 256) {
 			sci_out(port, SCSMR, (sci_in(port, SCSMR) & ~3) | 1);
 			t >>= 2;

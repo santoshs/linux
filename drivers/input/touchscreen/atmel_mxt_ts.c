@@ -1072,7 +1072,7 @@ static int __devinit mxt_probe(struct i2c_client *client,
 		goto err_free_mem;
 	}
 
-	input_dev->name = "Atmel maXTouch Touchscreen";
+	input_dev->name = "atmel_mxt_ts";
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
 	input_dev->open = mxt_input_open;
@@ -1107,6 +1107,9 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
+	if (pdata->set_pwr)
+		pdata->set_pwr(1);
+
 	error = mxt_initialize(data);
 	if (error)
 		goto err_free_object;
@@ -1136,6 +1139,8 @@ err_unregister_device:
 	input_unregister_device(input_dev);
 	input_dev = NULL;
 err_free_irq:
+	if (pdata->set_pwr)
+		pdata->set_pwr(0);
 	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
@@ -1150,6 +1155,10 @@ static int __devexit mxt_remove(struct i2c_client *client)
 	struct mxt_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
+
+	if (data->pdata->set_pwr)
+		data->pdata->set_pwr(0);
+
 	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
 	kfree(data->object_table);

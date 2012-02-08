@@ -1208,7 +1208,7 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 	if (host->addr)
 		iounmap(host->addr);
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < 2; i++) {
 		irq = platform_get_irq(pdev, i);
 		if (irq >= 0)
 			free_irq(irq, host);

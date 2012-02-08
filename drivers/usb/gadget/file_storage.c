@@ -2867,6 +2867,7 @@ static int do_set_config(struct fsg_dev *fsg, u8 new_config)
 			INFO(fsg, "%s speed config #%d\n", speed, fsg->config);
 		}
 	}
+	usb_gadget_vbus_draw(fsg->gadget, CONFIG_USB_GADGET_VBUS_DRAW);
 	return rc;
 }
 
