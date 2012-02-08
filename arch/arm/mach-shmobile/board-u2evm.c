@@ -294,7 +294,8 @@ static struct platform_device sdhi0_device = {
 };
 
 #define GPIO_KEY(c, g, d) \
-	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1}
+	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
+	 .debounce_interval=20}
 
 static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
@@ -640,20 +641,6 @@ void __init u2evm_init_irq(void)
 	r8a73734_init_irq();
 }
 
-#define IRQC0_CONFIG_00		0xe61c0180
-#define IRQC1_CONFIG_00		0xe61c0380
-static void irqc_set_chattering(int pin, int timing)
-{
-	u32 val;
-	u32 *reg;
-
-	reg = (pin >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
-	reg += (pin & 0x1f);
-
-	val = __raw_readl(reg) & ~0x80ff0000;
-	__raw_writel(val | (timing << 16) | (1 << 31), reg);
-}
-
 #define DSI0PHYCR	0xe615006c
 static void __init u2evm_init(void)
 {
@@ -710,7 +697,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_PORT327, NULL);
 	gpio_direction_input(GPIO_PORT327);
 	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
-	irqc_set_chattering(50, 0x01);	/* 1msec */
+	gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
