@@ -896,10 +896,11 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("usb0_dmac", &mstp_clks[MSTP214]), /* USBHS-DMAC */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
-	CLKDEV_DEV_ID("pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
+	CLKDEV_DEV_ID("spi_sh_msiof.0", &mstp_clks[MSTP000]), /* MSIOF0 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* I2C0 */
+	CLKDEV_DEV_ID("pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
 	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &mstp_clks[MSTP100]), /* LCDC0 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &mstp_clks[MSTP218]), /* DMAC */
 	CLKDEV_DEV_ID("sh-sci.6", &mstp_clks[MSTP216]), /* SCIFB2 */
@@ -925,7 +926,6 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("leds-renesas-tpu.3", &mstp_clks[MSTP304]), /* TPU0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP410]), /* I2C4 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */
-	CLKDEV_DEV_ID("spi_sh_msiof.0", &mstp_clks[MSTP000]), /* MSIOF0 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
 };
 
