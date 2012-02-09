@@ -673,7 +673,7 @@ static void __init u2evm_init(void)
  *                       11=HSIB select.
  */
           d = *( VUL *)0xE6058020;
-          d = d | (1<<28);
+          d = d | (1<<28) | (3);
           *( VUL *)0xE6058020 = d;
         }
 #ifdef MUX_STM_SIDI
