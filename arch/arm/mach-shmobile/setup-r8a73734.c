@@ -25,7 +25,7 @@ static struct sh_timer_clock cmt1_cks_table[] = {
 
 static struct sh_timer_config cmt10_platform_data = {
 	.name			= "CMT10",
-	.channel_offset_p	= 0x1000 - 0,
+	.channel_offset		= 0x1000 - 0,
 	.timer_bit		= 0,
 	.clocksource_rating	= 125,
 	.cks_table	= cmt1_cks_table,
@@ -38,7 +38,7 @@ static struct resource cmt10_resources[] = {
 	{
 		.name	= "CMT10",
 		.start	= 0xe6130000,
-		.end	= 0xe6130044,
+		.end	= 0xe6131003,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -55,7 +55,7 @@ static struct platform_device cmt10_device = {
 
 static struct sh_timer_config cmt11_platform_data = {
 	.name			= "CMT11",
-	.channel_offset_p	= 0x1000 - 0x100,
+	.channel_offset		= 0x1000,
 	.timer_bit		= 1,
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
@@ -68,7 +68,7 @@ static struct resource cmt11_resources[] = {
 	{
 		.name	= "CMT11",
 		.start	= 0xe6130100,
-		.end	= 0xe6130144,
+		.end	= 0xe6131003,
 		.flags	= IORESOURCE_MEM,
 	}, {
 		.start	= gic_spi(94),
@@ -88,7 +88,7 @@ static struct platform_device cmt11_device = {
 
 static struct sh_timer_config cmt12_platform_data = {
 	.name			= "CMT12",
-	.channel_offset_p	= 0x1000 - 0x200,
+	.channel_offset		= 0x1000 - 0x200,
 	.timer_bit		= 2,
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
@@ -101,7 +101,7 @@ static struct resource cmt12_resources[] = {
 	{
 		.name	= "CMT12",
 		.start	= 0xe6130200,
-		.end	= 0xe6130244,
+		.end	= 0xe6131003,
 		.flags	= IORESOURCE_MEM,
 	}, {
 		.start	= gic_spi(95),

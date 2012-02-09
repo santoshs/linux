@@ -9,7 +9,6 @@ struct sh_timer_clock {
 struct sh_timer_config {
 	char *name;
 	long channel_offset;
-	long channel_offset_p;
 	int timer_bit;
 	unsigned long clockevent_rating;
 	unsigned long clocksource_rating;

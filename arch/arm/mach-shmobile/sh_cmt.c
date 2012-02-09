@@ -34,7 +34,6 @@
 
 struct sh_cmt_priv {
 	void __iomem *mapbase;
-	void __iomem *base;
 	struct clk *clk;
 	struct clk *count_clk;
 	unsigned long overflow_bit;
@@ -57,19 +56,11 @@ static struct platform_device *sh_cmt_devices[1 + NR_CPUS];
 
 static DEFINE_SPINLOCK(sh_cmt_lock);
 
-#ifdef CONFIG_ARCH_R8A73734
-#define CMCLKE -2 /* shared register */
-#define CMSTR (0x00>>2) /* channel register */
-#define CMCSR (0x10>>2) /* channel register */
-#define CMCNT (0x14>>2) /* channel register */
-#define CMCOR (0x18>>2) /* channel register */
-#else
-#define CMCLKE -2 /* shared register */
-#define CMSTR -1 /* shared register */
-#define CMCSR 0 /* channel register */
-#define CMCNT 1 /* channel register */
-#define CMCOR 2 /* channel register */
-#endif
+#define CMCLKE	-2 /* shared register */
+#define CMSTR	0x00 /* channel register */
+#define CMCSR	0x10 /* channel register */
+#define CMCNT	0x14 /* channel register */
+#define CMCOR	0x18 /* channel register */
 
 static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 {
@@ -77,16 +68,11 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 	void __iomem *base = p->mapbase;
 	unsigned long offs;
 
-	if (reg_nr == CMSTR) {
-		offs = 0;
-		base = p->base - cfg->channel_offset;
-	} else if (reg_nr == CMCLKE) {
-		offs = 0;
-		base = p->base + cfg->channel_offset_p;
-	} else
+	if (reg_nr == CMCLKE)
+		offs = cfg->channel_offset;
+	else
 		offs = reg_nr;
 
-	offs <<= 2;
 	return ioread32(base + offs);
 }
 
@@ -97,16 +83,11 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 	void __iomem *base = p->mapbase;
 	unsigned long offs;
 
-	if (reg_nr == CMSTR) {
-		offs = 0;
-		base = p->base - cfg->channel_offset;
-	} else if (reg_nr == CMCLKE) {
-		offs = 0;
-		base = p->base + cfg->channel_offset_p;
-	} else
+	if (reg_nr == CMCLKE)
+		offs = cfg->channel_offset;
+	else
 		offs = reg_nr;
 
-	offs <<= 2;
 	iowrite32(value, base + offs);
 	return;
 }
@@ -505,9 +486,6 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 		dev_err(&p->pdev->dev, "failed to get irq\n");
 		goto err0;
 	}
-
-	/* save physical address for CMSTR and CMCLKE. Find poper fix, later. */
-	p->base = res->start;
 
 	/* map memory, let mapbase point to our channel */
 	p->mapbase = ioremap_nocache(res->start, resource_size(res));
