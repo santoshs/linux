@@ -782,10 +782,88 @@ static void __init u2evm_init(void)
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 }
 
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+
+/* CMT13 */
+#define CMSTR3		0xe6130300
+#define CMCSR3		0xe6130310
+#define CMCNT3		0xe6130314
+#define CMCOR3		0xe6130318
+#define CMCLKE		0xe6131000
+
+static DEFINE_SPINLOCK(cmt_lock);
+
+int read_current_timer(unsigned long *timer_val)
+{
+	*timer_val = __raw_readl(CMCNT3);
+	return 0;
+}
+
+static int __init setup_current_timer(void)
+{
+	struct clk *clk;
+	unsigned long lpj, flags;
+
+	clk = clk_get(NULL, "currtimer");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+	clk_enable(clk);
+
+	lpj = clk_get_rate(clk) + HZ/2;
+	do_div(lpj, HZ);
+	lpj_fine = lpj;
+
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+
+	__raw_writel(0, CMSTR3);
+	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
+	__raw_writel(0xffffffff, CMCOR3);
+	__raw_writel(0, CMCNT3);
+	while (__raw_readl(CMCNT3) != 0)
+		cpu_relax();
+	__raw_writel(1, CMSTR3);
+
+	pr_info("Current timer started (lpj=%lu)\n", lpj);
+
+	/*
+	 * TODO: Current timer (CMT1) MSTP bit vs. Suspend-to-RAM
+	 *
+	 * We don't have proper suspend/resume operations implemented yet
+	 * for the current timer (CMT1), so there is no guarantee that CMT1
+	 * module is functional when timer-based udelay() is used.  Thus
+	 * we need to enable CMT1 MSTP clock here, and if possible, would
+	 * like to leave it enabled forever.
+	 *
+	 * On the other hand, CMT1 should be halted during Suspend-to-RAM
+	 * state to minimize power consumption.
+	 *
+	 * To solve the problem, we make the following assumptions:
+	 *
+	 * 1) udelay() is not used from now (time_init()) until
+	 *    late_time_init() or calibrate_delay() completes
+	 *
+	 * 2) timer-based udelay() is functional as long as clocksource is
+	 *    available
+	 *
+	 * and disable CMT1 MSTP clock here not to increment CMT1 usecount.
+	 */
+	clk_disable(clk);
+	clk_put(clk);
+	return 0;
+}
+
+#endif /* ARCH_HAS_READ_CURRENT_TIMER */
+
 static void __init u2evm_timer_init(void)
 {
 	r8a73734_clock_init();
 	shmobile_timer.init();
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+	if (!setup_current_timer())
+		set_delay_fn(read_current_timer_delay_loop);
+#endif
 }
 
 struct sys_timer u2evm_timer = {
