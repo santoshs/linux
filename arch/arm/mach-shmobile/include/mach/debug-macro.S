@@ -22,14 +22,15 @@
 #define FSR_TEND	(1 << 6)
 
 #ifdef CONFIG_MACH_U2EVM
-#define DEBUG_UART_BASE	0xe6450000
+#define DEBUG_UART_BASE_PHY	0xe6450000
+#define DEBUG_UART_BASE_VIRT	0xf6450000
 #else
 #error "Set DEBUG_UART_BASE"
 #endif
 
 	.macro	addruart, rp, rv
-	ldr	\rp, =DEBUG_UART_BASE
-	mov	\rv, \rp
+	ldr	\rp, =DEBUG_UART_BASE_PHY
+	ldr	\rv, =DEBUG_UART_BASE_VIRT
 	.endm
 
 	.macro	senduart, rd, rx

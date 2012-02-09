@@ -639,7 +639,7 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_late_devices));
 }
 
-#define CCCR		0xe600101c
+#define CCCR	IO_ADDRESS(0xe600101c)
 
 extern void sh_cmt_register_devices(struct platform_device **devs, int num);
 

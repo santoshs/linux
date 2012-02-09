@@ -31,14 +31,14 @@
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/usb/r8a66597.h>
 
-#define SRCR2		0xe61580b0
-#define SRCR3		0xe61580b8
+#define SRCR2		IO_ADDRESS(0xe61580b0)
+#define SRCR3		IO_ADDRESS(0xe61580b8)
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
 #define GPIO_PULL_UP	0xc0
 
-#define GPIO_BASE	0xe6050000
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
 #define GPIO_PORTCR(n)	({				\
 	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
 	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
@@ -136,7 +136,7 @@ static int is_vbus_powered(void)
 	return 1; /* always powered */
 }
 
-#define PHYFUNCTR	0xe6890104 /* 16-bit */
+#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
 
 static void usbhs_module_reset(void)
 {
@@ -622,10 +622,16 @@ static struct i2c_board_info i2c4_devices[] = {
 
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
-		.virtual	= 0xe6000000,
+		.virtual	= 0xf6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= 256 << 20,
-		.type		= MT_DEVICE_NONSHARED
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= 0xf7000000,
+		.pfn		= __phys_to_pfn(0xf0000000),
+		.length		= SZ_2M,
+		.type		= MT_DEVICE
 	},
 };
 
@@ -641,7 +647,8 @@ void __init u2evm_init_irq(void)
 	r8a73734_init_irq();
 }
 
-#define DSI0PHYCR	0xe615006c
+#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
+
 static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
@@ -773,7 +780,7 @@ static void __init u2evm_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	l2x0_init(__io(0xf0100000), 0x4c440000, 0x820f0fff);
+	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 #endif
 	r8a73734_add_standard_devices();
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
@@ -785,11 +792,11 @@ static void __init u2evm_init(void)
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 
 /* CMT13 */
-#define CMSTR3		0xe6130300
-#define CMCSR3		0xe6130310
-#define CMCNT3		0xe6130314
-#define CMCOR3		0xe6130318
-#define CMCLKE		0xe6131000
+#define CMSTR3		IO_ADDRESS(0xe6130300)
+#define CMCSR3		IO_ADDRESS(0xe6130310)
+#define CMCNT3		IO_ADDRESS(0xe6130314)
+#define CMCOR3		IO_ADDRESS(0xe6130318)
+#define CMCLKE		IO_ADDRESS(0xe6131000)
 
 static DEFINE_SPINLOCK(cmt_lock);
 

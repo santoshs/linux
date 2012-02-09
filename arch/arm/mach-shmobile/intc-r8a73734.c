@@ -5,8 +5,9 @@
 #include <linux/io.h>
 #include <linux/sh_intc.h>
 #include <asm/hardware/gic.h>
+#include <mach/r8a73734.h>
 
-#define IRQC0_BASE	0xe61c0000
+#define IRQC0_BASE	IO_ADDRESS(0xe61c0000)
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */
 #define IRQC0_INTEN_SET0	(IRQC0_BASE + 0x008)	/* W */
@@ -16,7 +17,7 @@
 #define IRQC0_DETECT_STATUS	(IRQC0_BASE + 0x100)	/* R/WC1 */
 #define IRQC0_CONFIG_00		(IRQC0_BASE + 0x180)	/* R/W */
 
-#define IRQC1_BASE	0xe61c0200
+#define IRQC1_BASE	IO_ADDRESS(0xe61c0200)
 #define IRQC1_INTREQ_STS0	(IRQC1_BASE + 0x000)	/* R */
 #define IRQC1_INTEN_STS0	(IRQC1_BASE + 0x004)	/* R/WC1 */
 #define IRQC1_INTEN_SET0	(IRQC1_BASE + 0x008)	/* W */
@@ -296,8 +297,8 @@ static int r8a73734_irq_set_wake(struct irq_data *d, unsigned int on)
 
 void __init r8a73734_init_irq(void)
 {
-	void __iomem *gic_dist_base = __io(0xf0001000);
-	void __iomem *gic_cpu_base = __io(0xf0000100);
+	void __iomem *gic_dist_base = __io(IO_ADDRESS(0xf0001000));
+	void __iomem *gic_cpu_base = __io(IO_ADDRESS(0xf0000100));
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
 

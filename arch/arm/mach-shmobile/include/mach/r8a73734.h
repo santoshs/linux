@@ -329,4 +329,12 @@ enum {
 	SHDMA_SLAVE_MMCIF1_RX,
 };
 
+/*
+ * io_address
+ * 0xe6000000 -> 0xf6000000
+ * 0xf0000000 -> 0xf7000000
+ */
+#define IO_BASE	0xf6000000
+#define IO_ADDRESS(x) ((((x) & 0x10000000)>>4)  | ((x) & 0x00ffffff) | IO_BASE)
+
 #endif /* __ASM_R8A73734_H__ */

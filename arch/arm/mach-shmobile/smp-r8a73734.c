@@ -27,16 +27,17 @@
 #include <asm/smp_scu.h>
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
+#include <mach/r8a73734.h>
 
-#define WUPCR		0xe6151010
-#define SRESCR		0xe6151018
-#define PSTR		0xe6151040
-#define SBAR            0xe6180020
-#define APARMBAREA      0xe6f10020
+#define WUPCR		IO_ADDRESS(0xe6151010)
+#define SRESCR		IO_ADDRESS(0xe6151018)
+#define PSTR		IO_ADDRESS(0xe6151040)
+#define SBAR            IO_ADDRESS(0xe6180020)
+#define APARMBAREA      IO_ADDRESS(0xe6f10020)
 
 static void __iomem *scu_base_addr(void)
 {
-	return (void __iomem *)0xf0000000;
+	return (void __iomem *)IO_ADDRESS(0xf0000000);
 }
 
 static DEFINE_SPINLOCK(scu_lock);
@@ -62,7 +63,7 @@ unsigned int __init r8a73734_get_core_count(void)
 
 #ifdef CONFIG_HAVE_ARM_TWD
 	/* twd_base needs to be initialized before percpu_timer_setup() */
-	twd_base = (void __iomem *)0xf0000600;
+	twd_base = (void __iomem *)IO_ADDRESS(0xf0000600);
 #endif
 
 	return scu_get_core_count(scu_base);
