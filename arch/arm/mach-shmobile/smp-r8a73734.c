@@ -32,12 +32,13 @@
 #define WUPCR		IO_ADDRESS(0xe6151010)
 #define SRESCR		IO_ADDRESS(0xe6151018)
 #define PSTR		IO_ADDRESS(0xe6151040)
-#define SBAR            IO_ADDRESS(0xe6180020)
-#define APARMBAREA      IO_ADDRESS(0xe6f10020)
+#define SBAR		IO_ADDRESS(0xe6180020)
+#define SBAR2		IO_ADDRESS(0xe6180060)
+#define APARMBAREA	IO_ADDRESS(0xe6f10020)
 
 static void __iomem *scu_base_addr(void)
 {
-	return (void __iomem *)IO_ADDRESS(0xf0000000);
+	return __io(IO_ADDRESS(0xf0000000));
 }
 
 static DEFINE_SPINLOCK(scu_lock);
@@ -63,7 +64,7 @@ unsigned int __init r8a73734_get_core_count(void)
 
 #ifdef CONFIG_HAVE_ARM_TWD
 	/* twd_base needs to be initialized before percpu_timer_setup() */
-	twd_base = (void __iomem *)IO_ADDRESS(0xf0000600);
+	twd_base = __io(IO_ADDRESS(0xf0000600));
 #endif
 
 	return scu_get_core_count(scu_base);
@@ -107,6 +108,8 @@ void __init r8a73734_smp_prepare_cpus(void)
 	static struct clk *ram_clk;
 
 	scu_enable(scu_base_addr());
+
+	__raw_writel(0, __io(SBAR2));
 
 	/* Map the reset vector (in headsmp.S) */
 	__raw_writel(0, __io(APARMBAREA));      /* 4k */
