@@ -295,6 +295,50 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+static void sdhi1_set_pwr(struct platform_device *pdev, int state)
+{
+	;
+}
+
+static struct renesas_sdhi_dma sdhi1_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
+	}
+};
+
+static struct renesas_sdhi_platdata sdhi1_info = {
+	.caps		= MMC_CAP_NONREMOVABLE | MMC_CAP_SDIO_IRQ,
+	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
+	.dma		= &sdhi1_dma,
+	.set_pwr	= sdhi1_set_pwr,
+};
+
+static struct resource sdhi1_resources[] = {
+	[0] = {
+		.name	= "SDHI1",
+		.start	= 0xee120000,
+		.end	= 0xee1200ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(119),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi1_device = {
+	.name		= "renesas_sdhi",
+	.id		= 1,
+	.dev		= {
+		.platform_data	= &sdhi1_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi1_resources),
+	.resource	= sdhi1_resources,
+};
+
 #define GPIO_KEY(c, g, d) \
 	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
 	 .debounce_interval=20}
@@ -489,6 +533,7 @@ static struct platform_device *u2evm_devices[] __initdata = {
 #endif
 	&sh_mmcif_device,
 	&sdhi0_device,
+	&sdhi1_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
@@ -707,6 +752,14 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT327);
 	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 	gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
+
+	/* SDHI1 */
+	gpio_request(GPIO_FN_SDHID1_0, NULL);
+	gpio_request(GPIO_FN_SDHID1_1, NULL);
+	gpio_request(GPIO_FN_SDHID1_2, NULL);
+	gpio_request(GPIO_FN_SDHID1_3, NULL);
+	gpio_request(GPIO_FN_SDHICMD1, NULL);
+	gpio_request(GPIO_FN_SDHICLK1, NULL);
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
