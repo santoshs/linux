@@ -932,10 +932,20 @@ struct sys_timer u2evm_timer = {
 	.init	= u2evm_timer_init,
 };
 
+#define SBAR2		__io(IO_ADDRESS(0xe6180060))
+#define RESCNT2		__io(IO_ADDRESS(0xe6188020))
+
+void u2evm_restart(char mode, const char *cmd)
+{
+	__raw_writel(0, SBAR2);
+	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+}
+
 MACHINE_START(U2EVM, "u2evm")
 	.map_io		= u2evm_map_io,
 	.init_irq	= u2evm_init_irq,
 	.handle_irq	= shmobile_handle_irq_gic,
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,
+	.restart	= u2evm_restart,
 MACHINE_END
