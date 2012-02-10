@@ -569,6 +569,47 @@ static struct platform_device dma0_device = {
 	},
 };
 
+
+static struct resource smc_resources[] =
+{
+  [0] = {
+          .start = gic_spi(193),
+          .end   = gic_spi(193),
+          .flags = IORESOURCE_IRQ,
+        },
+  [1] = {
+          .start = gic_spi(194),
+          .end   = gic_spi(194),
+          .flags = IORESOURCE_IRQ,
+        },
+  [2] = {
+          .start = gic_spi(195),
+          .end   = gic_spi(195),
+          .flags = IORESOURCE_IRQ,
+        },
+  [3] = {
+          .start = gic_spi(196),
+          .end   = gic_spi(196),
+          .flags = IORESOURCE_IRQ,
+        },
+};
+
+static struct platform_device smc_netdevice0 =
+{
+    .name          = "smc_net_device",
+    .id            = 0,
+    .resource      = smc_resources,
+    .num_resources = ARRAY_SIZE(smc_resources),
+};
+
+static struct platform_device smc_netdevice1 =
+{
+    .name          = "smc_net_device",
+    .id            = 1,
+    .resource      = smc_resources,
+    .num_resources = ARRAY_SIZE(smc_resources),
+};
+
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt10_device,
 	&cmt11_device,
@@ -588,6 +629,8 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c4_device,
 	&i2c5_device,
 	&dma0_device,
+	&smc_netdevice1,
+	&smc_netdevice0,
 };
 
 void __init r8a73734_add_standard_devices(void)

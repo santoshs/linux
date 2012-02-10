@@ -1,0 +1,94 @@
+/*  SMC Platform Specific Configuration header for Linux Kernel
+*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+*
+*   This material, including documentation and any related source code
+*   and information, is protected by copyright controlled by Renesas.
+*   All rights are reserved. Copying, including reproducing, storing,
+*   adapting, translating and modifying, including decompiling or
+*   reverse engineering, any or all of this material requires the prior
+*   written consent of Renesas. This material also contains
+*   confidential information, which may not be disclosed to others
+*   without the prior written consent of Renesas.
+*/
+#if 0
+/*
+Change history:
+
+Version:       1    21-Dec-2011     Heikki Siikaluoma
+Status:        draft
+Description :  File created
+-------------------------------------------------------------------------------
+*/
+#endif
+
+
+#ifndef SMC_CONF_PLATFORM_H
+#define SMC_CONF_PLATFORM_H
+
+    /* ===============================================
+     * Define Linux Kernel Specific data types for SMC
+     */
+
+#include <linux/interrupt.h>
+#include <linux/irq.h>
+#include <asm/signal.h>
+
+
+#define SMC_SIGNAL_TYPE_INTGEN         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x01)  /* 0x03000001 */
+#define SMC_SIGNAL_TYPE_INTCBB         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x02)  /* 0x03000002 */
+#define SMC_SIGNAL_TYPE_INT_WGM_GENOUT (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x04)  /* 0x03000004 */
+#define SMC_SIGNAL_TYPE_INT_RESOURCE   (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x06)  /* 0x03000006 */
+
+    /*
+     * Data type for SMC signals
+     */
+typedef struct _smc_signal_t
+{
+    uint32_t interrupt_id;
+    uint32_t signal_type;
+    uint32_t peripheral_address;
+    uint8_t  address_remapped;
+
+} smc_signal_t;
+
+
+typedef struct
+{
+  volatile uint32_t OUTPUT;        /* output := <>              input := output */
+  volatile uint32_t SET;           /* output := output OR <>    input := None   */
+  volatile uint32_t CLEAR;         /* output := output AND ~<>  input := None   */
+  volatile uint32_t TOGGLE;        /* output := output XOR <>   input := None   */
+} GOP001_STR;
+
+
+/*
+ * Shared memory remapping from physical to virtual address
+ */
+
+#include <asm/irq.h>
+
+#define SMC_SHM_IOREMAP( address, size )   ioremap( (long unsigned int)address, size )
+
+    /*
+     * Data type for SMC locking
+     */
+#include <linux/spinlock.h>
+
+typedef struct _smc_lock_t
+{
+    spinlock_t    mr_lock;
+    unsigned long flags;   /* For IRQ lock */
+
+} smc_lock_t;
+
+    /*
+     * Data type for SMC semaphore
+     */
+typedef struct _smc_semaphore_t
+{
+    struct semaphore* sem;
+
+} smc_semaphore_t;
+
+
+#endif

@@ -651,6 +651,14 @@ static void __init u2evm_init(void)
         gpio_direction_output(GPIO_PORT292, 0);
         gpio_request(GPIO_FN_STMDATA3_2, NULL);
 
+#if 0
+        /* TODO: Add HSI pinmux and direction etc control for X-coupling */
+        /* TODO: CHECK if any conflict arises, whether X-coupling can be used also wit SHM and EOS Android */
+	gpio_request(GPIO_FN_HSI_RX_FLAG, NULL);
+ /* ... */
+	gpio_requset(GPIO_FN_HSI_TX_WAKE, NULL);
+#endif
+
         {     
 #define VUL volatile unsigned long 
           volatile unsigned long d;
@@ -722,6 +730,9 @@ static void __init u2evm_init(void)
           dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
                        *( VUL *)0xE6F8A304 = 0x152;      /* Formatter and Flush control */
           dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
+#if 0 // STM Walking ones test mode
+	  *( VUL *)0xE6F8A204 = 0x00020001;
+#endif
         }
 #endif // MUX_STM_TO_SDHI1
 

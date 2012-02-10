@@ -1,0 +1,43 @@
+#
+# Smeco Linux Kernel Module Configuration file
+#
+
+menuconfig SMECO
+	tristate "Shared Memory IPC support (SMeCo / SMC)"
+	default y
+	---help---
+	The Shared Memory IPC (SMeCo) is used between APE and Modem.
+
+if SMECO
+
+config SMECO_CONTROL
+	boolean "Use SMeCo / SMC Control Instance"
+	default y
+	---help---
+	If this is selected the SMC control channels between CPUs are taken in use
+
+if SMECO_CONTROL
+config SMECO_CONTROL_USE_PHONET
+    boolean "Use Phonet protocl in SMC Control"
+    default y
+     ---help---
+	If this is selected the SMC control uses phonet protocol for communication
+	
+endif
+
+config SMECO_L2MUX
+	boolean "Use L2MUX in SMeCo / SMC"
+	default y
+	
+	
+config SMECO_TRACES_ENABLED
+	boolean "Activate SMeCo / SMC traces"
+	default n
+
+config SMECO_TEST
+	tristate "SMeCo SMC Test Features"
+	default n
+	---help---
+	If this option is selected the SMeCo test cases and SMeCo test application are built in the package.
+
+endif
