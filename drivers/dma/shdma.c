@@ -240,6 +240,9 @@ static void dmae_init(struct sh_dmae_chan *sh_chan)
 	 */
 	u32 chcr = DM_INC | SM_INC | 0x400 | log2size_to_chcr(sh_chan,
 						   LOG2_DEFAULT_XFER_SIZE);
+#ifdef CONFIG_ARCH_SHMOBILE
+	chcr |= CHCR_CAIE;
+#endif
 	sh_chan->xmit_shift = calc_xmit_shift(sh_chan, chcr);
 	chcr_write(sh_chan, chcr);
 }
@@ -251,6 +254,9 @@ static int dmae_set_chcr(struct sh_dmae_chan *sh_chan, u32 val)
 		return -EBUSY;
 
 	sh_chan->xmit_shift = calc_xmit_shift(sh_chan, val);
+#ifdef CONFIG_ARCH_SHMOBILE
+	val |= CHCR_CAIE;
+#endif
 	chcr_write(sh_chan, val);
 
 	return 0;
@@ -984,6 +990,18 @@ static irqreturn_t sh_dmae_interrupt(int irq, void *data)
 		ret = IRQ_HANDLED;
 		tasklet_schedule(&sh_chan->tasklet);
 	}
+#ifdef CONFIG_ARCH_SHMOBILE
+	if (chcr & CHCR_CAE) {
+		/* DMA stop */
+		dmae_halt(sh_chan);
+
+		ret = IRQ_HANDLED;
+		chcr = chcr_read(sh_chan);
+		chcr_write(sh_chan, chcr & ~CHCR_CAE);
+		sh_chan->addr_error = 1;
+		tasklet_schedule(&sh_chan->tasklet);
+	}
+#endif
 
 	spin_unlock(&sh_chan->desc_lock);
 
@@ -1042,6 +1060,7 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 	return !!handled;
 }
 
+#ifdef CONFIG_CPU_SH4
 static irqreturn_t sh_dmae_err(int irq, void *data)
 {
 	struct sh_dmae_device *shdev = data;
@@ -1052,6 +1071,7 @@ static irqreturn_t sh_dmae_err(int irq, void *data)
 	sh_dmae_reset(data);
 	return IRQ_HANDLED;
 }
+#endif
 
 static void dmae_do_tasklet(unsigned long data)
 {
@@ -1062,6 +1082,11 @@ static void dmae_do_tasklet(unsigned long data)
 	unsigned long flags;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
+
+	if (sh_chan->addr_error) {
+		dev_err(sh_chan->dev, "Address error source:%08x dest:%08x", sar_buf, dar_buf);
+		sh_chan->addr_error = 0;
+	}
 
 	list_for_each_entry(desc, &sh_chan->ld_queue, node) {
 		if (desc->mark == DESC_SUBMITTED &&
@@ -1344,6 +1369,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 
 	errirq = errirq_res->start;
 
+#ifdef CONFIG_CPU_SH4
 	err = request_irq(errirq, sh_dmae_err, irqflags,
 			  "DMAC Address Error", shdev);
 	if (err) {
@@ -1352,6 +1378,9 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 			errirq, err);
 		goto eirq_err;
 	}
+#else
+	/* DMA address error is processed channel by channel */
+#endif
 
 #else
 	chanirq_res = errirq_res;
@@ -1417,7 +1446,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 chan_probe_err:
 	sh_dmae_chan_remove(shdev);
 
-#if defined(CONFIG_CPU_SH4) || defined(CONFIG_ARCH_SHMOBILE)
+#if defined(CONFIG_CPU_SH4)
 	free_irq(errirq, shdev);
 eirq_err:
 #endif
