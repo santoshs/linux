@@ -119,6 +119,7 @@ struct sh_mobile_i2c_data {
 	void __iomem *reg;
 	struct i2c_adapter adap;
 	unsigned long bus_speed;
+	unsigned int clks_per_count;
 	struct clk *clk;
 	u_int8_t icic;
 	u_int8_t flags;
@@ -230,6 +231,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	/* Get clock rate after clock is enabled */
 	clk_enable(pd->clk);
 	i2c_clk_khz = clk_get_rate(pd->clk) / 1000;
+	i2c_clk_khz /= pd->clks_per_count;
 
 	if (pd->bus_speed == STANDARD_MODE) {
 		tLOW	= 47;	/* tLOW = 4.7 us */
@@ -657,6 +659,9 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	pd->bus_speed = STANDARD_MODE;
 	if (pdata && pdata->bus_speed)
 		pd->bus_speed = pdata->bus_speed;
+	pd->clks_per_count = 1;
+	if (pdata && pdata->clks_per_count)
+		pd->clks_per_count = pdata->clks_per_count;
 
 	/* The IIC blocks on SH-Mobile ARM processors
 	 * come with two new bits in ICIC.
