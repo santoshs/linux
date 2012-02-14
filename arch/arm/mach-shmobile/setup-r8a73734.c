@@ -299,8 +299,8 @@ static struct resource i2c5_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= gic_spi(189),
-		.end	= gic_spi(189),
+		.start	= gic_spi(190),
+		.end	= gic_spi(190),
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -629,8 +629,8 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c4_device,
 	&i2c5_device,
 	&dma0_device,
-	&smc_netdevice1,
 	&smc_netdevice0,
+	&smc_netdevice1,
 };
 
 void __init r8a73734_add_standard_devices(void)
