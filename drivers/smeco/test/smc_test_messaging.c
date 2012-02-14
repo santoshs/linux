@@ -30,6 +30,20 @@ Description :  File created
 #include "smc_test_fifo.h"
 #include "smc_trace.h"
 
+#ifdef SMECO_MODEM
+    /*TODO Remove I2C tests */
+  #define INCLUDE_I2C_TEST
+
+#endif
+
+#ifdef INCLUDE_I2C_TEST
+  #include "i2c_drv_if.h"
+  #include "power_hal_modem_ext.h"
+
+  static uint8_t smc_start_messaging_test_i2c(uint8_t* test_input_data, uint16_t test_input_data_len);
+
+#endif
+
     /* Local messaging test case functions */
 static uint8_t smc_start_messaging_test_single_cpu(uint8_t* test_input_data, uint16_t test_input_data_len);
 
@@ -91,6 +105,17 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
 
                 break;
             }
+            case 0xFE:
+            {
+#ifdef INCLUDE_I2C_TEST
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: smc_start_messaging_test_i2c dummy test case starting...");
+                test_result = smc_start_messaging_test_i2c((test_input_data+data_index), test_input_data_len-data_index);
+#else
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_messaging: SMC dummy test is not available");
+                test_result = SMC_ERROR;
+#endif
+                break;
+            }
             default:
             {
                 SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_messaging: Invalid test case 0x%02X", test_case);
@@ -125,3 +150,186 @@ static uint8_t smc_start_messaging_test_single_cpu(uint8_t* test_input_data, uin
     return test_result;
 }
 
+#ifdef INCLUDE_I2C_TEST
+
+static uint8_t smc_start_messaging_test_i2c(uint8_t* test_input_data, uint16_t test_input_data_len)
+{
+    uint8_t  test_result             = SMC_ERROR;
+    uint16_t test_input_len_required = 4;
+
+    SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: START I2C test, (Input data len %d)...", test_input_data_len);
+    SMC_TEST_TRACE_PRINTF_INFO_DATA(test_input_data_len, test_input_data);
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        i2c_result_t ret_val        = I2C_DRV_ERROR;
+        uint16_t     data_index     = 0;
+        uint8_t      exec_write     = test_input_data[data_index++];
+        uint8_t      address        = test_input_data[data_index++];
+        uint8_t      slave_register = test_input_data[data_index++];
+        uint8_t*     data           = &test_input_data[data_index];
+        uint16_t     data_len       = test_input_data_len-data_index;
+        uint16_t     loop_times     = 1;
+        uint8_t      data_to_read[] = {0,0,0,0,0,0,0,0,0,0};
+
+
+
+        SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: sysdrv_i2c_init...");
+
+        sysdrv_i2c_init();
+
+        SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: hw_resource_control power up...");
+        hw_resource_control(HW_EXT_I2C, HW_RESOURCE_ON, NULL);
+
+        if( exec_write == 0x02 )
+        {
+            uint8_t start_address = address;
+            uint8_t end_address  = slave_register;
+            int     devices_found = 0;
+            slave_register = 0x00;
+            data_len = 1;
+
+            uint8_t   device_list[0xFF];
+
+            memset( &device_list[0], 0, 0xFF);
+
+            if( end_address< start_address ) end_address = start_address;
+
+            SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: scanning address range 0x%02X-0x%02X...",
+                    start_address, end_address);
+
+            for(uint8_t i = start_address; i <= end_address; i++ )
+            {
+                data_to_read[0] = 0x00;
+
+                SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: Write address 0x%02X, register 0x%02X...", i, slave_register);
+
+                ret_val = sysdrv_i2c_write( i, slave_register, data_len, data );
+
+                SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: write ret_val = 0x%02X (%s)", ret_val, (ret_val==I2C_DRV_SUCCESS)?"SUCCESS":"ERROR");
+
+                if( ret_val == I2C_DRV_SUCCESS )
+                {
+                    // Read something from the device
+
+                    if( i == 0x48 || i == 0x49 || i==0x4A )
+                    {
+                        SMC_TEST_TRACE_PRINTF_DEBUG( "smc_start_messaging_test_i2c: ============= Check TPS80032 Status...");
+                        data_to_read[0] = 0x00;
+
+                        DELAY_SMC_TEST(5000);
+
+                        ret_val = sysdrv_i2c_read( 0x4A, 0x87, 1, &data_to_read[0]);
+
+                        if( ret_val == I2C_DRV_SUCCESS )
+                        {
+                            SMC_TEST_TRACE_PRINTF_DEBUG( "smc_start_messaging_test_i2c: ============= Check TPS80032 Status. OK IC=0x%02X", data_to_read[0]);
+                            device_list[devices_found++] = i;
+                        }
+                        else
+                        {
+                            SMC_TEST_TRACE_PRINTF_ERROR( "smc_start_messaging_test_i2c: ============= TPS80032 Status not found");
+                        }
+
+                    }
+                    else
+                    {
+                        device_list[devices_found++] = i;
+                    }
+                }
+
+                // Delay
+                DELAY_SMC_TEST(5000);
+
+                /*
+                ret_val = sysdrv_i2c_read( i, slave_register, data_len, &data_to_read[0]);
+                SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: read ret_val = 0x%02X (%s)", ret_val, (ret_val==I2C_DRV_SUCCESS)?"SUCCESS":"ERROR");
+                */
+            }
+
+            if( devices_found > 0 )
+            {
+                SMC_TEST_TRACE_PRINTF_DEBUG( "smc_start_messaging_test_i2c: ============= FOLLOWING I2C DEVICES FOUND FROM BUS (%d):", devices_found);
+                SMC_TEST_TRACE_PRINTF_DEBUG( "" );
+
+                for(int i = 0; i < devices_found; i++ )
+                {
+                    SMC_TEST_TRACE_PRINTF_DEBUG( "smc_start_messaging_test_i2c: - 0x%02X", device_list[i] );
+                }
+
+                SMC_TEST_TRACE_PRINTF_DEBUG( "" );
+                SMC_TEST_TRACE_PRINTF_DEBUG( "smc_start_messaging_test_i2c: ============= END OF I2C Device list");
+            }
+            else
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR( "smc_start_messaging_test_i2c: ============= NO I2C DEVICES FOUND FROM BUS");
+            }
+        }
+        else
+        {
+            SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: %s address 0x%02X, register 0x%02X, data len %d, loop times %d",
+                    (exec_write == 0x01)?"WRITE to":"READ from", address, slave_register, data_len, loop_times);
+
+            SMC_TEST_TRACE_PRINTF_INFO_DATA(data_len, data);
+
+            for(int i = 0; i < loop_times; i++)
+            {
+                if (exec_write == 0x01)
+                {
+                    ret_val = sysdrv_i2c_write( address, slave_register, data_len, data );
+                }
+                else
+                {
+                    if( data_len > 10 )
+                    {
+                        data_len = 10;
+                    }
+
+                    ret_val = sysdrv_i2c_read( address, slave_register, data_len, &data_to_read[0]);
+                }
+
+                if( ret_val == I2C_DRV_SUCCESS )
+                {
+                    if (exec_write == 0x01)
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: write success in %d", i );
+                    }
+                    else
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: read success in %d, len %d", i, data_len );
+                        SMC_TEST_TRACE_PRINTF_INFO_DATA(data_len, data_to_read);
+                    }
+
+                    break;
+                }
+
+                if( (i&0x0A)==i )
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: loop %d", i );
+                }
+            }
+         }
+
+        SMC_TEST_TRACE_PRINTF_INFO( "smc_start_messaging_test_i2c: completed, ret_val = 0x%02X (%s)",
+                ret_val, (ret_val==I2C_DRV_SUCCESS)?"SUCCESS":"ERROR");
+
+        if( ret_val == I2C_DRV_SUCCESS )
+        {
+            test_result = SMC_OK;
+        }
+        else
+        {
+            test_result = SMC_ERROR;
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_start_messaging_test_i2c: not enough test input data (received %d, expected %d)",
+                                                    test_input_data_len, test_input_len_required);
+    }
+
+
+    return test_result;
+}
+
+#endif

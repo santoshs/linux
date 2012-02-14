@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       15   07-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.15
+
 Version:       14   06-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.14
@@ -64,7 +68,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.14"
+#define SMC_SW_VERSION  "0.0.15"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -228,8 +232,8 @@ typedef struct _smc_channel_t
 {
     uint8_t                             id;                              /* Channel ID / the index in the channel array */
     uint8_t                             priority;                        /* The priority of the channel, the highest priority is 0 */
-    /*uint8_t                             smc_instance_id;*/                 /* ID of the SMC the channel belongs to */
     uint8_t                             copy_scheme;                     /* Copy scheme bits for send and receive */
+    uint8_t                             fill;
 
     struct _smc_t*                      smc_instance;                    /* Pointer to SMC instance the channel belongs to */
 
@@ -243,6 +247,7 @@ typedef struct _smc_channel_t
 
     uint8_t*                            mdb_out;                         /* MDB OUT area */
     uint8_t*                            mdb_in;                          /* MDB IN  area  */
+    struct _smc_mdb_channel_info_t*     smc_mdb_info;                    /* MDB info containing pool data */
 
     smc_signal_t*                       signal_remote;                   /* Pointer to signal to raise for sending data to remote */
     smc_signal_t*                       signal_local;                    /* Pointer to signal to get to receive data from remote  */
@@ -254,10 +259,11 @@ typedef struct _smc_channel_t
     smc_send_data_deallocator_callback  smc_send_data_deallocator_cb;    /* If set, the channel calls this to deallocate the send data not belonging to MDB */
     smc_event_callback                  smc_event_cb;                    /* If set, the channel send events to this callback functions */
 
+    smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
 
     uint8_t                             fifo_buffer_item_count;          /* Count of items in the FIFO buffer */
     uint8_t                             fifo_buffer_flushing;            /* Flag indicating that the buffer flush is ongoing*/
-    smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
+
 
 } smc_channel_t;
 

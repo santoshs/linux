@@ -201,11 +201,9 @@ smc_conf_t* smc_conf_create_from_instance_conf( char* smc_cpu_name, smc_instance
 
     if( smc_conf->is_master )
     {
-        smc_shm_conf->use_cache_control = smc_instance_conf->shm_use_cache_control_master;
-        smc_shm_conf->cache_line_len    = smc_instance_conf->shm_cache_line_len_master;
+        smc_shm_conf->use_cache_control             = smc_instance_conf->shm_use_cache_control_master;
+        smc_shm_conf->cache_line_len                = smc_instance_conf->shm_cache_line_len_master;
         smc_shm_conf->remote_cpu_memory_offset_type = smc_instance_conf->shm_memory_offset_type_master_to_slave;
-
-
     }
     else
     {

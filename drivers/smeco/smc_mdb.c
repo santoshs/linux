@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       7    11-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Removed MDB list, smc_channel pointer in use.
+
 Version:       6    03-Jan-2012     Janne Mahosenaho
 Status:        draft
 Description :  Added TLSF statistics.
@@ -41,16 +45,7 @@ Description :  File created
 #include "smc_mdb.h"
 
 
-    //
-    // Global variables
-    //
-static smc_mdb_channel_info_set_t* mdb_channel_info_set = NULL;
-
-static void mdb_info_store( smc_mdb_channel_info_t* channel_info );
-static smc_mdb_channel_info_t* mdb_info_fetch( uint8_t channel_id );
-static void mdb_channel_info_delete( void );
-
-/* The  debug functions  only can  be used  when _DEBUG_TLSF_  is set. */
+    /* The  debug functions  only can  be used  when _DEBUG_TLSF_  is set. */
 #ifndef _DEBUG_TLSF_
 #define _DEBUG_TLSF_  (0)
 #endif
@@ -61,12 +56,8 @@ static void mdb_channel_info_delete( void );
 #endif
 #endif
 
-/* This is set as FALSE by default. */
+    /* This is set as FALSE by default. */
 #if TLSF_USE_REF 
-
-#ifndef USE_PRINTF
-#define USE_PRINTF      (1)
-#endif
 
 #ifndef TLSF_USE_LOCKS
 #define TLSF_USE_LOCKS  (0)
@@ -166,18 +157,6 @@ static void mdb_channel_info_delete( void );
 
 #ifdef USE_MMAP
   #define PAGE_SIZE (getpagesize())
-#endif
-
-#ifdef USE_PRINTF
-  #define PRINT_MSG(...) SMC_TRACE_PRINTF_INFO( __VA_ARGS__ )
-  #define ERROR_MSG(...) SMC_TRACE_PRINTF_ERROR( __VA_ARGS__ )
-#else
-  #if !defined(PRINT_MSG)
-  #define PRINT_MSG(fmt, args...)
-  #endif
-  #if !defined(ERROR_MSG)
-    #define ERROR_MSG(fmt, args...)
-  #endif
 #endif
 
 typedef unsigned int uint32_t;     /* NOTE: Make sure that this type is 4 bytes long on your computer */
@@ -461,13 +440,13 @@ size_t init_memory_pool(size_t mem_pool_size, void *mem_pool)
 
     if (!mem_pool || !mem_pool_size || mem_pool_size < sizeof(tlsf_t) + BHDR_OVERHEAD * 8)
     {
-        ERROR_MSG("init_memory_pool (): memory_pool invalid\n");
+        SMC_TRACE_PRINTF_ERROR("init_memory_pool (): memory_pool invalid\n");
         return (size_t)-1;
     }
 
     if (((unsigned long) mem_pool & PTR_MASK))
     {
-        ERROR_MSG("init_memory_pool (): mem_pool must be aligned to a word\n");
+        SMC_TRACE_PRINTF_ERROR("init_memory_pool (): mem_pool must be aligned to a word\n");
         return (size_t)-1;
     }
     tlsf = (tlsf_t *) mem_pool;
@@ -685,39 +664,40 @@ void dump_memory_region(unsigned char *mem_ptr, unsigned int size)
     end++;
     end <<= 2;
 
-    PRINT_MSG("\nMemory region dumped: 0x%lx - 0x%lx\n\n", begin, end);
+    SMC_TRACE_PRINTF("Memory region dumped: 0x%lx - 0x%lx", begin, end);
 
     column = 0;
-    PRINT_MSG("0x%lx ", begin);
 
+    SMC_TRACE_PRINTF_DATA(size, mem_ptr);
+
+    /*
     while (begin < end)
     {
         if (((unsigned char *) begin)[0] == 0)
         {
-            PRINT_MSG("00");
+            SMC_TRACE_PRINTF("00");
         }
         else
         {
-            PRINT_MSG("%02x", ((unsigned char *) begin)[0]);
+            SMC_TRACE_PRINTF("%02x", ((unsigned char *) begin)[0]);
         }
         if (((unsigned char *) begin)[1] == 0)
         {
-            PRINT_MSG("00 ");
+            SMC_TRACE_PRINTF("00 ");
         }
         else
         {
-            PRINT_MSG("%02x ", ((unsigned char *) begin)[1]);
+            SMC_TRACE_PRINTF("%02x ", ((unsigned char *) begin)[1]);
         }
         begin += 2;
         column++;
         if (column == 8)
         {
-            PRINT_MSG("\n0x%lx ", begin);
+            SMC_TRACE_PRINTF("0x%lx ", begin);
             column = 0;
         }
-
     }
-    PRINT_MSG("\n\n");
+    */
 }
 
 void print_block(bhdr_t * b)
@@ -726,6 +706,7 @@ void print_block(bhdr_t * b)
     {
         return;
     }
+    /*
     PRINT_MSG(">> [%p] (", b);
     if ((b->size & BLOCK_SIZE))
     {
@@ -751,6 +732,7 @@ void print_block(bhdr_t * b)
     {
         PRINT_MSG("prev used)\n");
     }
+    */
 }
 
 void print_tlsf(tlsf_t * tlsf)
@@ -759,22 +741,22 @@ void print_tlsf(tlsf_t * tlsf)
     int i;
     int j;
 
-    PRINT_MSG("\nTLSF at %p\n", tlsf);
+    SMC_TRACE_PRINTF_MDB("\nTLSF at 0x%08X", (uint32_t)tlsf);
 
-    PRINT_MSG("FL bitmap: 0x%x\n\n", (unsigned) tlsf->fl_bitmap);
+    SMC_TRACE_PRINTF_MDB("FL bitmap: 0x%08X", (uint32_t)tlsf->fl_bitmap);
 
     for (i = 0; i < REAL_FLI; i++)
     {
         if (tlsf->sl_bitmap[i])
         {
-            PRINT_MSG("SL bitmap 0x%x\n", (unsigned) tlsf->sl_bitmap[i]);
+            SMC_TRACE_PRINTF_MDB("SL bitmap 0x%08X", (uint32_t)tlsf->sl_bitmap[i]);
         }
         for (j = 0; j < MAX_SLI; j++)
         {
             next = tlsf->matrix[i][j];
             if (next)
             {
-                PRINT_MSG("-> [%d][%d]\n", i, j);
+                SMC_TRACE_PRINTF_MDB("-> [%d][%d]\n", i, j);
             }
             while (next)
             {
@@ -789,8 +771,9 @@ void print_all_blocks(tlsf_t * tlsf)
 {
     area_info_t *ai;
     bhdr_t *next;
-    PRINT_MSG("\nTLSF at %p\nALL BLOCKS\n\n", tlsf);
+    SMC_TRACE_PRINTF_MDB("TLSF at 0x%08X: ALL BLOCKS", (uint32_t)tlsf);
     ai = tlsf->area_head;
+
     while (ai)
     {
         next = (bhdr_t *) ((char *) ai - BHDR_OVERHEAD);
@@ -1372,11 +1355,12 @@ static __inline__ void* block_prepare_used(pool_t* pool, block_header_t* block, 
 	{
 		block_trim_free(pool, block, size);
 		block_mark_as_used(block);
+
 #if TLSF_STATISTICS
         pool->free_space -= block_size(block);
         if (pool->free_space < pool->free_space_min)
             pool->free_space_min = pool->free_space;
-        SMC_TRACE_PRINTF_INFO("ALLOCATED %d bytes, free_space %d, free_space_min %d", block_size(block), pool->free_space, pool->free_space_min);
+        SMC_TRACE_PRINTF_MDB("ALLOCATED %d bytes, free_space %d, free_space_min %d", block_size(block), pool->free_space, pool->free_space_min);
 #endif
 		p = block_to_ptr(block);
 	}
@@ -1495,7 +1479,7 @@ int tlsf_check_heap(tlsf_pool tlsf)
 static void default_walker(void* ptr, size_t size, int used, void* user)
 {
 	(void)user;
-	SMC_TRACE_PRINTF_INFO("\t%p %s size: %x (%p)\n", ptr, used ? "used" : "free", (unsigned int)size, block_from_ptr(ptr));
+	SMC_TRACE_PRINTF_MDB("0x%08X %s size: 0x%08X (0x%08X)", (uint32_t)ptr, used ? "used" : "free", (uint32_t)size, (uint32_t)block_from_ptr(ptr));
 }
 
 void tlsf_walk_heap(tlsf_pool pool, tlsf_walker walker, void* user)
@@ -1560,7 +1544,7 @@ size_t tlsf_create(size_t bytes, void *mem)
     /* Subtract the size of pool header overhead and size of sentinel to get
     ** the actual usable pool size */
 	const size_t pool_bytes = align_down(bytes - pool_overhead - block_size_min, ALIGN_SIZE);
-    SMC_TRACE_PRINTF_INFO("bytes %d, pool_bytes %d, pool_overhead %d, block_size_min %d", bytes, pool_bytes, pool_overhead, block_size_min);
+    SMC_TRACE_PRINTF_MDB("bytes %d, pool_bytes %d, pool_overhead %d, block_size_min %d", bytes, pool_bytes, pool_overhead, block_size_min);
 	pool_t* pool = tlsf_cast(pool_t*, mem);
 
 #if _DEBUG_TLSF_
@@ -1578,7 +1562,7 @@ size_t tlsf_create(size_t bytes, void *mem)
 
 	if (pool_bytes < block_size_min || pool_bytes > block_size_max)
 	{
-		SMC_TRACE_PRINTF_INFO("tlsf_create: Pool size must be between %u and %u bytes.\n", 
+		SMC_TRACE_PRINTF_MDB("tlsf_create: Pool size must be between %u and %u bytes.\n",
 			(unsigned int)(block_size_min),
 			(unsigned int)(block_size_max));
 		return 0;
@@ -1768,78 +1752,6 @@ void* tlsf_realloc(tlsf_pool tlsf, void* ptr, size_t size)
 ** MDB functions **
 ******************/
 
-static void mdb_info_store( smc_mdb_channel_info_t* channel_info_ptr )
-{
-    const smc_mdb_channel_info_t channel_info_initial = { -1, NULL, NULL, 0, 0 };
-    
-    SMC_TRACE_PRINTF_INFO("mdb_info_store(): channel_id: %d, pool_in: 0x%08x, pool_out: 0x%08x, size_in: %d, size_out: %d",
-        channel_info_ptr->id, channel_info_ptr->pool_in, channel_info_ptr->pool_out,
-        channel_info_ptr->total_size_in, channel_info_ptr->total_size_out);
-
-    if (mdb_channel_info_set == NULL)
-    {
-        mdb_channel_info_set = SMC_MALLOC(sizeof(smc_mdb_channel_info_set_t) + (channel_info_ptr->id * sizeof(smc_mdb_channel_info_t)));
-        for (uint8_t i = 0; i < channel_info_ptr->id + 1; i++)
-        {
-            mdb_channel_info_set->channel_info[i] = channel_info_initial;
-            mdb_channel_info_set->channel_info[i].id = i;
-        }
-        mdb_channel_info_set->channel_amount = channel_info_ptr->id + 1;
-    }
-   
-    if (channel_info_ptr->id >= mdb_channel_info_set->channel_amount)
-    {
-        smc_mdb_channel_info_set_t* old_channel_info_set = mdb_channel_info_set;
-        mdb_channel_info_set = SMC_MALLOC(sizeof(smc_mdb_channel_info_set_t) + (channel_info_ptr->id * sizeof(smc_mdb_channel_info_t)));
-        memcpy(mdb_channel_info_set, old_channel_info_set, 
-            sizeof(smc_mdb_channel_info_set_t) + ((channel_info_ptr->id - 1) * sizeof(smc_mdb_channel_info_t)));
-        SMC_FREE(old_channel_info_set);
-        for (uint8_t i = mdb_channel_info_set->channel_amount; i < channel_info_ptr->id + 1; i++)
-        {
-            mdb_channel_info_set->channel_info[i] = channel_info_initial;
-            mdb_channel_info_set->channel_info[i].id = i;
-        }
-        mdb_channel_info_set->channel_amount = channel_info_ptr->id + 1;
-    }
-    mdb_channel_info_set->channel_info[channel_info_ptr->id] = *channel_info_ptr;
-}
-
-
-static smc_mdb_channel_info_t* mdb_info_fetch( uint8_t channel_id )
-{
-    smc_mdb_channel_info_t* channel_info_ptr = NULL;
-    const smc_mdb_channel_info_t channel_info_initial = { -1, NULL, NULL, 0, 0 };
-
-    SMC_TRACE_PRINTF_INFO("mdb_info_fetch(): channel_id: %d", channel_id);
-
-    if ((mdb_channel_info_set != NULL) && (channel_id < mdb_channel_info_set->channel_amount))
-    {
-        channel_info_ptr = &(mdb_channel_info_set->channel_info[channel_id]);
-        
-        SMC_TRACE_PRINTF_INFO("mdb_info_fetch(): channel_id: %d, pool_in: 0x%08x, pool_out: 0x%08x, size_in: %d, size_out: %d",
-            channel_info_ptr->id, channel_info_ptr->pool_in, channel_info_ptr->pool_out,
-            channel_info_ptr->total_size_in, channel_info_ptr->total_size_out);
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_INFO("mdb_info_fetch(): channel_id: %d, pool_in: 0x%08x, pool_out: 0x%08x, size_in: %d, size_out: %d",
-            channel_info_initial.id, channel_info_initial.pool_in, channel_info_initial.pool_out,
-            channel_info_initial.total_size_in, channel_info_initial.total_size_out);
-    }
-    
-    return channel_info_ptr;
-}
-
-
-static void mdb_channel_info_delete( void )
-{
-    if (mdb_channel_info_set != NULL)
-    {
-        SMC_FREE(mdb_channel_info_set);
-        mdb_channel_info_set = NULL;
-    }
-}
-
 
 /*
  * Calculates the size of required share memory MDB with given MDB data area size.
@@ -1851,203 +1763,152 @@ uint32_t smc_mdb_calculate_required_shared_mem( uint32_t mdb_data_area_size )
         /* No additional shared memory needed except the data area */
     required_mem = mdb_data_area_size;
 
-    SMC_TRACE_PRINTF_INFO("smc_mdb_calculate_required_shared_mem: MDB requires %d bytes of shared memory", required_mem);
+    SMC_TRACE_PRINTF_MDB("smc_mdb_calculate_required_shared_mem: MDB requires %d bytes of shared memory", required_mem);
 
     return required_mem;
 }
 
 
-int32_t smc_mdb_create( uint8_t channel_id, void* pool_address, uint32_t pool_size )
+smc_mdb_channel_info_t* smc_mdb_channel_info_create( void )
 {
-    smc_mdb_channel_info_t channel_info = { -1, NULL, NULL, 0, 0 };
-    int32_t result = 0;
+    smc_mdb_channel_info_t* channel_info = NULL;
+
+    channel_info = (smc_mdb_channel_info_t*)SMC_MALLOC(sizeof(smc_mdb_channel_info_t));
+
+    assert( channel_info != NULL );
+
+    channel_info->pool_out       = NULL;
+    channel_info->total_size_out = 0;
+    channel_info->pool_in        = NULL;
+    channel_info->total_size_in  = 0;
+
+    SMC_TRACE_PRINTF_MDB("smc_mdb_channel_info_create: MDB channel info 0x%08X created", (uint32_t)channel_info);
+
+    return channel_info;
+}
+
+
+/**
+ * Create POOL OUT
+ */
+uint8_t smc_mdb_create_pool_out( void* pool_address, uint32_t pool_size )
+{
+    uint8_t ret_val   = SMC_OK;
+    int32_t result    = 0;
     int32_t init_size = 0;
-    int32_t i = 0;
+    int32_t i         = 0;
 
     assert(sizeof(uint32_t) == 4); /* NOTE: Make sure that this type is 4 bytes long on your computer */
     assert(sizeof(uint8_t)  == 1); /* NOTE: Make sure that this type is 1 byte on your computer */
 
     assert(pool_address != NULL);
     assert(pool_size != NULL);
-    
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-    
-    if (channel_info_ptr != NULL)
-    {
-        channel_info = *channel_info_ptr;
-    }
-    
-    channel_info.id = channel_id;
-    channel_info.pool_out = pool_address;
-    channel_info.total_size_out = pool_size;
-    
-    SMC_TRACE_PRINTF_INFO("mdb_info_create(): channel_id: %d, pool_address: 0x%08x, pool_size: %d",
-        channel_info.id, channel_info.pool_out, channel_info.total_size_out);
 
-    mdb_info_store(&channel_info);
- 
+    SMC_TRACE_PRINTF_MDB("smc_mdb_create_pool_out: pool_address: 0x%08X, pool_size: %d", (uint32_t)pool_address, pool_size);
+
 #if TLSF_USE_REF
-    init_size = init_memory_pool(channel_info.total_size_out, channel_info.pool_out);
+    init_size = init_memory_pool(pool_size, pool_address);
 #else
-    init_size = tlsf_create(channel_info.total_size_out, channel_info.pool_out);
+    init_size = tlsf_create(pool_size, pool_address);
 #endif
+
     if (init_size <= 0)
     {
-        SMC_TRACE_PRINTF_ERROR("smc_mdb_create(): MDB OUT not created");
+        SMC_TRACE_PRINTF_ASSERT("smc_mdb_create_pool_out: MDB OUT not created, invalid size %d", init_size);
         assert(init_size <= 0);
     }
     else
     {
-        SMC_TRACE_PRINTF_INFO("smc_mdb_create(): MDB OUT successfully created");
-    
-        for (i = channel_info.total_size_out; i > 0; i--)
+        SMC_TRACE_PRINTF_MDB("smc_mdb_create_pool_out: MDB OUT successfully created, init size was %d", init_size);
+
+        for (i = pool_size; i > 0; i--)
         {
-#if TLSF_USE_REF
-            void* ptr = malloc_ex(i, channel_info.pool_out);
-#else
-            void* ptr = tlsf_malloc(channel_info.pool_out, i);
-#endif
+            void* ptr = SMC_MDB_ALLOC_FROM_POOL(pool_address, i);
+
             if (ptr != NULL)
             {
-#if TLSF_USE_REF
-                free_ex(ptr, channel_info.pool_out);
-#else
-                tlsf_free(channel_info.pool_out, ptr);
-#endif
+                SMC_MDB_FREE_FROM_POOL(pool_address, ptr);
                 break;
             }
         }
-    }   
+    }
 #if TLSF_STATISTICS
-    ((pool_t*)channel_info.pool_out)->free_space_min = ((pool_t*)channel_info.pool_out)->free_space;
+    ((pool_t*)pool_address)->free_space_min = ((pool_t*)pool_address)->free_space;
 #endif
 
-    return result;
+    return ret_val;
 }
 
-int32_t smc_mdb_init( uint8_t channel_id, void* pool_address, uint32_t pool_size )
+void smc_mdb_info_destroy( smc_mdb_channel_info_t* smc_mdb_info )
 {
-    smc_mdb_channel_info_t channel_info = { -1, NULL, NULL, 0, 0 };
-    int32_t result = 0;
-    
-    assert(pool_address != NULL);
-    assert(pool_size != NULL);
-    
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-    
-    if (channel_info_ptr != NULL)
+    if( smc_mdb_info )
     {
-        channel_info = *channel_info_ptr;
-    }
-    
-    channel_info.id = channel_id;
-    channel_info.pool_in = pool_address;
-    channel_info.total_size_in = pool_size;
-    
-    SMC_TRACE_PRINTF_INFO("smc_mdb_init(): channel_id: %d, pool_address: 0x%08x, pool_size: %d",
-        channel_info.id, channel_info.pool_in, channel_info.total_size_in);
-
-    mdb_info_store(&channel_info);
-#if TLSF_USE_REF 
-    if (((tlsf_t *)pool_address)->tlsf_signature == TLSF_SIGNATURE)
-#else
-    if (((pool_t*)pool_address)->tlsf_free_marker == TLSF_SIGNATURE)
-#endif
-    {
-        SMC_TRACE_PRINTF_INFO("smc_mdb_init(): MDB IN already initialised");
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_INFO("smc_mdb_init(): MDB IN not yet initialised");
-    }
-    
-    return result;
-}
-
-
-void smc_mdb_destroy( uint8_t channel_id )
-{
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-    
-    assert(channel_info_ptr != NULL);
-
-    SMC_TRACE_PRINTF_INFO("smc_mdb_destroy(): channel_id: %d", channel_info_ptr->id);
-
-    assert(channel_info_ptr->pool_out != NULL);
-    assert(channel_info_ptr->total_size_out > 0);
+        SMC_TRACE_PRINTF_MDB("smc_mdb_info_destroy: 0x%08X", (uint32_t)smc_mdb_info);
 
 #if TLSF_USE_REF
-    destroy_memory_pool(channel_info_ptr->pool_out);
+        destroy_memory_pool(smc_mdb_info->pool_out);
 #else
-    tlsf_destroy(channel_info_ptr->pool_out);
+        tlsf_destroy(smc_mdb_info->pool_out);
 #endif
 
-
-    channel_info_ptr->id = channel_id;    
-    channel_info_ptr->pool_in = NULL;
-    channel_info_ptr->pool_out = NULL;
-    channel_info_ptr->total_size_in = 0;
-    channel_info_ptr->total_size_out = 0;
-                                     
-    mdb_info_store(channel_info_ptr);
+        SMC_FREE( smc_mdb_info );
+        smc_mdb_info = NULL;
+    }
 }
-
 
 void smc_mdb_all_destroy( void )
 {
-    SMC_TRACE_PRINTF_INFO("smc_mdb_all_destroy()");
+    SMC_TRACE_PRINTF_MDB("smc_mdb_all_destroy: NOTHING TO DO !!");
 
-    mdb_channel_info_delete();
+    //mdb_channel_info_delete();
 }
 
 
-void* smc_mdb_alloc( uint8_t channel_id, uint32_t length )
+/**
+ * Allocates memory for specified channel
+ */
+void* smc_mdb_alloc( smc_channel_t* smc_channel, uint32_t length )
 {
     void* ptr;
+    void* pool_out = NULL;
  
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-
-    assert(channel_info_ptr != NULL);
+    assert(smc_channel!=NULL);
+    assert(smc_channel->smc_mdb_info != NULL );
     
-    SMC_TRACE_PRINTF_INFO("smc_mdb_alloc(): channel_id: %d, length: %d", channel_info_ptr->id, length);
+    pool_out = smc_channel->smc_mdb_info->pool_out;
+
+    SMC_TRACE_PRINTF_MDB("smc_mdb_alloc: channel: id %d (0x%08X), allocates %d bytes from out pool 0x%08X",
+            smc_channel->id, (uint32_t)smc_channel, length, pool_out );
     
     assert(length > 0);
-    assert(channel_info_ptr->pool_out != NULL);
+    assert(pool_out != NULL);
     
-#if TLSF_USE_REF
-    ptr = malloc_ex(length, channel_info_ptr->pool_out);
-#else
-    ptr = tlsf_malloc(channel_info_ptr->pool_out, length);
-#endif
+    ptr = SMC_MDB_ALLOC_FROM_POOL( pool_out, length );
     
     return ptr;
 }
 
-
-void smc_mdb_free( uint8_t channel_id, void* ptr )
+void smc_mdb_free( const smc_channel_t* smc_channel, void* ptr )
 {
-    assert(ptr != NULL);
-    
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-    
-    assert(channel_info_ptr != NULL);
-    
-    SMC_TRACE_PRINTF_INFO("smc_mdb_free(): channel_id: %d, ptr: 0x%08x", channel_info_ptr->id, ptr);
-    
-    assert(channel_info_ptr->pool_out != NULL);
-    assert(channel_info_ptr->total_size_out > 0);
-    
-#if TLSF_USE_REF
-    free_ex(ptr, channel_info_ptr->pool_out);
-#else
-    tlsf_free(channel_info_ptr->pool_out, ptr);
-#endif
-}
+    void* pool_out = NULL;
 
+    assert(ptr != NULL);
+    assert(smc_channel != NULL);
+    assert(smc_channel->smc_mdb_info != NULL);
+
+    pool_out = smc_channel->smc_mdb_info->pool_out;
+
+    SMC_TRACE_PRINTF_MDB("smc_mdb_free: channel_id: ID %d (0x%08X), free ptr 0x%08X from pool 0x%08X",
+            smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr, (uint32_t)pool_out);
+
+    assert(pool_out != NULL);
+
+    SMC_MDB_FREE_FROM_POOL(pool_out, ptr);
+}
 
 void smc_mdb_copy( void* target, void* source, uint32_t length )
 {
-    SMC_TRACE_PRINTF_INFO("smc_mdb_copy(): target: 0x%08x, source: 0x%08x, length: %d", target, source, length);
+    SMC_TRACE_PRINTF_MDB("smc_mdb_copy(): target: 0x%08X, source: 0x%08X, length: %d", (uint32_t)target, (uint32_t)source, length);
 
     assert(target != NULL);
     assert(source != NULL);
@@ -2056,103 +1917,102 @@ void smc_mdb_copy( void* target, void* source, uint32_t length )
     memcpy(target, source, length);
 }
 
-
-uint8_t smc_mdb_address_check( uint8_t channel_id, void* ptr, uint8_t direction )
+uint8_t smc_mdb_address_check( const smc_channel_t* smc_channel, void* ptr, uint8_t direction )
 {
-    uint8_t result = FALSE;
-    void* begin_ptr = NULL;
-    void* end_ptr = NULL;
-    
-    smc_mdb_channel_info_t* channel_info_ptr = mdb_info_fetch(channel_id);
-    
+    uint8_t result    = SMC_OK;
+    void*   begin_ptr = NULL;
+    void*   end_ptr   = NULL;
+
+    smc_mdb_channel_info_t* channel_info_ptr = smc_channel->smc_mdb_info;
+
     assert(channel_info_ptr != NULL);
 
-    SMC_TRACE_PRINTF_INFO("smc_mdb_address_check(): channel_id: %d, ptr: 0x%08x, direction: %d", channel_info_ptr->id, ptr, direction);
+    SMC_TRACE_PRINTF_MDB("smc_mdb_address_check: channel_id: ID %d (0x%08X), ptr: 0x%08X, direction: %d",
+            smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr, direction);
 
     switch (direction)
     {
-    case SMC_MDB_IN:
-        assert(channel_info_ptr->pool_in != NULL);
-        begin_ptr = channel_info_ptr->pool_in;
-        end_ptr = (uint8_t*)channel_info_ptr->pool_in + channel_info_ptr->total_size_in;
-        break;
-    case SMC_MDB_OUT:
-        assert(channel_info_ptr->pool_out != NULL);
-        begin_ptr = channel_info_ptr->pool_out;
-        end_ptr = (uint8_t*)channel_info_ptr->pool_out + channel_info_ptr->total_size_out;
-        break;
-    default:
-        assert((direction != SMC_MDB_IN) && (direction != SMC_MDB_OUT));
-        break;
-    }
-    
-    if ((ptr >= begin_ptr) && (ptr < end_ptr))
-    {
-        result = TRUE;
+        case SMC_MDB_IN:
+        {
+            assert(channel_info_ptr->pool_in != NULL);
+            begin_ptr = channel_info_ptr->pool_in;
+            end_ptr = (uint8_t*)channel_info_ptr->pool_in + channel_info_ptr->total_size_in;
+            break;
+        }
+        case SMC_MDB_OUT:
+        {
+            assert(channel_info_ptr->pool_out != NULL);
+            begin_ptr = channel_info_ptr->pool_out;
+            end_ptr = (uint8_t*)channel_info_ptr->pool_out + channel_info_ptr->total_size_out;
+            break;
+        }
+        default:
+        {
+            assert((direction != SMC_MDB_IN) && (direction != SMC_MDB_OUT));
+            break;
+        }
     }
 
-    SMC_TRACE_PRINTF_INFO("smc_mdb_address_check() return: %s", result != FALSE ? "TRUE" : "FALSE");
-    
+    if ((ptr >= begin_ptr) && (ptr < end_ptr))
+    {
+        SMC_TRACE_PRINTF_MDB("smc_mdb_address_check: ptr 0x%08X is in pool area 0x%08X - 0x%08X",
+                        (uint32_t)ptr, (uint32_t)begin_ptr, (uint32_t)end_ptr);
+        result = SMC_OK;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_MDB("smc_mdb_address_check: ptr 0x%08X is not in pool area 0x%08X - 0x%08X",
+                (uint32_t)ptr, (uint32_t)begin_ptr, (uint32_t)end_ptr);
+        result = SMC_ERROR;
+    }
+
     return result;
 }
 
 
-void smc_mdb_channel_info_dump( void )
-{
-    if (mdb_channel_info_set == NULL)
-    {
-        SMC_TRACE_PRINTF_INFO("smc_mdb_channel_info_dump(): channel_amount: 0");
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_INFO("smc_mdb_channel_info_dump(): channel_amount %d", mdb_channel_info_set->channel_amount);
-        for (uint8_t i = 0; i < mdb_channel_info_set->channel_amount; i++)
-        {
-            SMC_TRACE_PRINTF_INFO("channel_id: %d", mdb_channel_info_set->channel_info[i].id);
-            SMC_TRACE_PRINTF_INFO("    pool_in:  0x%08x", mdb_channel_info_set->channel_info[i].pool_in);
-            SMC_TRACE_PRINTF_INFO("    pool_out: 0x%08x", mdb_channel_info_set->channel_info[i].pool_out);
-            SMC_TRACE_PRINTF_INFO("    total_size_in:  %d", mdb_channel_info_set->channel_info[i].total_size_in);
-            SMC_TRACE_PRINTF_INFO("    total_size_out: %d", mdb_channel_info_set->channel_info[i].total_size_out);
-        }
-    }
-}
-
-uint32_t smc_mdb_channel_frag_get( uint8_t ch_id )
+uint32_t smc_mdb_channel_frag_get( smc_channel_t* smc_channel )
 { 
+    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = mdb_channel_info_set->channel_info[ch_id].pool_out;
+    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+
     return pool->free_blocks;
 #else
-    SMC_TRACE_PRINTF_INFO("smc_mdb_channel_frag_get(): no fragmentation information available in used TLSF implementation");
+    SMC_TRACE_PRINTF_INFO("smc_mdb_channel_frag_get: no fragmentation information available in used TLSF implementation");
     return 0;
 #endif
 }
 
-uint32_t smc_mdb_channel_free_space_get( uint8_t ch_id )
+uint32_t smc_mdb_channel_free_space_get( smc_channel_t* smc_channel )
 {
+    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = mdb_channel_info_set->channel_info[ch_id].pool_out;
+
+    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
     return  pool->free_space;
 #else
-    SMC_TRACE_PRINTF_INFO("smc_mdb_channel_free_space_get(): no free space information available in used TLSF implementation");
+    SMC_TRACE_PRINTF_INFO("smc_mdb_channel_free_space_get: no free space information available in used TLSF implementation");
     return 0;
 #endif
 }
 
-uint32_t smc_mdb_channel_free_space_min_get( uint8_t ch_id )
+uint32_t smc_mdb_channel_free_space_min_get( smc_channel_t* smc_channel )
 {
+    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = mdb_channel_info_set->channel_info[ch_id].pool_out;
+    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
     return  pool->free_space_min;
 #else
     SMC_TRACE_PRINTF_INFO("smc_mdb_channel_free_space_min_get(): no free space information available in used TLSF implementation");
     return 0;
 #endif
 }
-uint32_t smc_mdb_channel_largest_free_block_get( uint8_t ch_id )
+uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel )
 {
+    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = mdb_channel_info_set->channel_info[ch_id].pool_out;
+    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+
     uint32_t fli = tlsf_fls(pool->fl_bitmap);
     uint32_t sli = tlsf_fls(pool->sl_bitmap[fli]);
     uint32_t size = 1U << (fli + FL_INDEX_SHIFT - 1);

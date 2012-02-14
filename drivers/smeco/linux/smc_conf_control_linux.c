@@ -97,7 +97,7 @@ smc_t* smc_instance_get_control( void )
 
     if( dev_config_control.device_driver_priv != NULL )
     {
-        SMC_TRACE_PRINTF_ERROR("smc_instance_get_control: SMC Net Device is configured properly, retrieving SMC Control instance...");
+        SMC_TRACE_PRINTF_INFO("smc_instance_get_control: SMC Net Device is configured properly, retrieving SMC Control instance...");
         smc_instance_control = dev_config_control.device_driver_priv->smc_instance;
     }
     else
@@ -287,16 +287,15 @@ static int smc_control_net_device_driver_ioctl(struct net_device* device, struct
         */
         case SIOCPNGETOBJECT:
         {
-            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGETOBJECT");
+            SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCPNGETOBJECT");
             break;
         }
 #endif
-
         case SIOCDEV_SEND_DATA:
         {
             struct ifreq_smc* if_req_smc = (struct ifreq_smc *)ifr;
 
-            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_SEND_DATA: Data length = %d, data 0x%08X", if_req_smc->if_data_len, (uint32_t)if_req_smc->if_data);
+            SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_SEND_DATA: Data length = %d, data 0x%08X", if_req_smc->if_data_len, (uint32_t)if_req_smc->if_data);
 
             if(if_req_smc->if_data_len > 0 && if_req_smc->if_data != NULL )
             {
@@ -315,7 +314,7 @@ static int smc_control_net_device_driver_ioctl(struct net_device* device, struct
 
             struct ifreq_smc_test* if_req_smc_test = (struct ifreq_smc_test *)ifr;
 
-            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test case 0x%02X, test data length = %d, test data 0x%08X",
+            SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test case 0x%02X, test data length = %d, test data 0x%08X",
                     if_req_smc_test->if_test_case ,if_req_smc_test->if_test_data_len, (uint32_t)if_req_smc_test->if_test_data);
 
             if(if_req_smc_test->if_test_data_len > 0 && if_req_smc_test->if_test_data != NULL )
@@ -324,24 +323,24 @@ static int smc_control_net_device_driver_ioctl(struct net_device* device, struct
             }
             else
             {
-                SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: No test input data found");
+                SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: No test input data found");
             }
 
             if( smc_test_handler_start(if_req_smc_test->if_test_case, if_req_smc_test->if_test_data_len, if_req_smc_test->if_test_data) == SMC_OK )
             {
-                SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X OK", if_req_smc_test->if_test_case);
+                SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X OK", if_req_smc_test->if_test_case);
 
                 if_req_smc_test->if_test_result = 0xABCD;
                 ret_val = SMC_DRIVER_OK;
             }
             else
             {
-                SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
+                SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
                 if_req_smc_test->if_test_result = 0xCDEF;
                 ret_val = SMC_DRIVER_ERROR;
             }
 #else
-            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: Test interface not available");
+            SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: Test interface not available");
             ret_val = SMC_DRIVER_ERROR;
 #endif
             break;

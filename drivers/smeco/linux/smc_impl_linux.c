@@ -70,7 +70,7 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -85,7 +85,7 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
     {
         smc_channel_interrupt_handler( signal_handler->smc_channel );
 
-        SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d) handled", (uint32_t)irq, irq);
+        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d) handled", (uint32_t)irq, irq);
     }
     else
     {
@@ -99,7 +99,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -114,7 +114,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
     {
         smc_channel_interrupt_handler( signal_handler->smc_channel );
 
-        SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d) handled", (uint32_t)irq, irq);
+        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d) handled", (uint32_t)irq, irq);
     }
     else
     {
@@ -129,7 +129,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     smc_signal_t* signal = NULL;
     int irq_spi = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
-    SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -146,7 +146,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         {
             smc_channel_interrupt_handler( signal_handler->smc_channel );
 
-            SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_int_resource: IRQ: ID %d SPI %d handled", irq, irq_spi);
+            SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: IRQ: ID %d SPI %d handled", irq, irq_spi);
         }
         else
         {
@@ -164,7 +164,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         /* TODO FIX: The SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM only valid for SPI 193 - 198 */
         uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
 
-        SMC_TRACE_PRINTF_DEBUG("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
+        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
         signal->interrupt_id, genios);
 
             // TODO Use GOP001 STR variable name for CLEAR
@@ -197,12 +197,12 @@ smc_signal_t* smc_signal_create( uint32_t signal_id, uint32_t signal_type )
         signal->peripheral_address = ioremap(p_address, sizeof(GOP001_STR));
         signal->address_remapped = TRUE;
 
-        SMC_TRACE_PRINTF_DEBUG("smc_signal_create: signal: 0x%08X, ID: (%d) 0x%08X type 0x%08X, remapped peripheral address from 0x%08X is 0x%08X",
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_create: signal: 0x%08X, ID: (%d) 0x%08X type 0x%08X, remapped peripheral address from 0x%08X is 0x%08X",
                     (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type,
                     p_address, (uint32_t)signal->peripheral_address);
     }
 
-    SMC_TRACE_PRINTF_DEBUG("smc_signal_create: signal: 0x%08X, ID: (%d) 0x%08X, type 0x%08X",
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_create: signal: 0x%08X, ID: (%d) 0x%08X, type 0x%08X",
             (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type);
 
     return signal;
@@ -212,7 +212,7 @@ smc_signal_t*  smc_signal_copy( smc_signal_t* signal )
 {
     smc_signal_t* copy_signal = NULL;
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_copy: copy from 0x%08X", (uint32_t)signal);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_copy: copy from 0x%08X", (uint32_t)signal);
 
     if( signal )
     {
@@ -227,7 +227,7 @@ smc_signal_t*  smc_signal_copy( smc_signal_t* signal )
 
 void smc_signal_destroy( smc_signal_t* signal )
 {
-    SMC_TRACE_PRINTF_INFO("smc_signal_destroy: signal: 0x%08X", (uint32_t)signal);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_destroy: signal: 0x%08X", (uint32_t)signal);
 
     if( signal != NULL )
     {
@@ -249,7 +249,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 {
     uint8_t ret_value = SMC_OK;
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_raise: signal: 0x%08X", (uint32_t)signal);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: signal: 0x%08X", (uint32_t)signal);
 
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTGEN )
     {
@@ -257,7 +257,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
         {
             uint32_t genios = (1UL << ((signal->interrupt_id-SMC_MODEM_INTGEN_L2_FIRST) + SMC_MODEM_INTGEN_L2_OFFSET));
 
-            SMC_TRACE_PRINTF_DEBUG("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
             signal->interrupt_id, genios);
 
                 // TODO Use GOP001 STR variable names
@@ -276,7 +276,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 
         /* TODO Write to register */
 
-        SMC_TRACE_PRINTF_WARNING("smc_signal_raise: NOT IMPLEMENTED");
+        SMC_TRACE_PRINTF_ERROR("smc_signal_raise: Signal type 0x%08X NOT IMPLEMENTED", signal->signal_type);
      }
 
     return ret_value;
@@ -286,7 +286,7 @@ uint8_t smc_signal_acknowledge( smc_signal_t* signal )
 {
     uint8_t ret_value = SMC_OK;
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_acknowledge: signal: 0x%08X", (uint32_t)signal);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_acknowledge: signal: 0x%08X", (uint32_t)signal);
 
     return ret_value;
 }
@@ -301,14 +301,13 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
     unsigned long flags     = 0x00; /* 0x00, IRQF_SHARED, IRQ_TYPE_PRIO, IRQF_SAMPLE_RANDOM | IRQF_DISABLED */
 
-    SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: 0x%08X: 0x%02X (%d), type 0x%08X for channel: 0x%08X", (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type, (uint32_t)smc_channel);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: 0x%02X (%d), type 0x%08X for channel: 0x%08X", (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type, (uint32_t)smc_channel);
 
     smc_signal_handler_create_and_add( smc_instance, signal, smc_channel);
 
-        /* Currently handlers for INTC-BB supported */
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTCBB )
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INTCBB", (uint32_t)signal);
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INTCBB", (uint32_t)signal);
         result = request_irq( (unsigned int)signal->interrupt_id, smc_linux_interrupt_handler_intcbb, flags, device_name, dev_id );
 
         if( result )
@@ -317,7 +316,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
         }
         else
         {
-            SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INTCBB 0x%08X: request_irq SUCCESS", (uint32_t)signal);
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INTCBB 0x%08X: request_irq SUCCESS", (uint32_t)signal);
         }
 
 #if(SMCTEST==TRUE)
@@ -330,7 +329,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
     }
     else if( signal->signal_type == SMC_SIGNAL_TYPE_INT_WGM_GENOUT )
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_WGM_GENOUT", (uint32_t)signal);
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_WGM_GENOUT", (uint32_t)signal);
 
         result = request_irq( (unsigned int)signal->interrupt_id, smc_linux_interrupt_handler_int_genout, flags, device_name, dev_id );
 
@@ -340,7 +339,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
         }
         else
         {
-            SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_WGM_GENOUT 0x%08X: request_irq SUCCESS", (uint32_t)signal);
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_WGM_GENOUT 0x%08X: request_irq SUCCESS", (uint32_t)signal);
         }
 
 #if(SMCTEST==TRUE)
@@ -356,11 +355,11 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
         struct resource*        res             = NULL;
         struct platform_device* platform_device = NULL;
 
-        SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_RESOURCE", (uint32_t)signal);
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_RESOURCE", (uint32_t)signal);
 
         if( smc_instance->smc_parent_ptr != NULL )
         {
-            SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: parent object 0x%08X found, extract the platform device", smc_instance->smc_parent_ptr);
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: parent object 0x%08X found, extract the platform device", smc_instance->smc_parent_ptr);
             platform_device = (struct platform_device*)smc_instance->smc_parent_ptr;
         }
 
@@ -374,11 +373,11 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
             while( (res = platform_get_resource(platform_device, IORESOURCE_IRQ, res_id)) )
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: check res id %d where IRQ ID %d...", res_id, res->start);
+                SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: check res id %d where IRQ ID %d...", res_id, res->start);
 
                 if( (res->start-SMC_APE_IRQ_OFFSET_INTCSYS_SPI) == irq_spi )
                 {
-                    SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: res id %d: IRQ ID %d match to SPI %d...", res_id, res->start,irq_spi);
+                    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: res id %d: IRQ ID %d match to SPI %d...", res_id, res->start,irq_spi);
                     found = TRUE;
                     break;
                 }
@@ -388,7 +387,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
             if( found )
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: found res 0x%08X, IRQ start is %d",
+                SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: found res 0x%08X, IRQ start is %d",
                         (uint32_t)signal, res, res->start );
 
                 /*flags = IRQF_SHARED | IRQF_DISABLED;*/
@@ -405,7 +404,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                 }
                 else
                 {
-                    SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: request_irq SUCCESS", (uint32_t)signal);
+                    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: request_irq SUCCESS", (uint32_t)signal);
                 }
             }
             else
@@ -439,7 +438,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
     }
     else
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_signal_handler_register: signal: 0x%08X: 0x%02X (%d) for channel: 0x%08X successfully registered", (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, (uint32_t)smc_channel);
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: 0x%02X (%d) for channel: 0x%08X successfully registered", (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, (uint32_t)smc_channel);
     }
 
     return ret_value;

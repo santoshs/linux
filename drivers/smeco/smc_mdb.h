@@ -14,6 +14,11 @@
 /*
 Change history:
 
+Version:       6    12-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  MDB info container changed to SMC channel structure.
+               Channel ID changed to pointer to valid SMC channel.
+
 Version:       3    27-Dec-2011     Janne Mahosenaho
 Status:        draft
 Description :  Alternative TLSF implementation added.
@@ -39,40 +44,42 @@ Description :  File created
 #ifndef SMC_MDB_H
 #define SMC_MDB_H
 
+#include "smc.h"
 
 #define SMC_MDB_IN  0
 #define SMC_MDB_OUT 1
 
-typedef struct
+#if TLSF_USE_REF
+    #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  malloc_ex(size, pool)
+    #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      free_ex(ptr, pool)
+#else
+    #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  tlsf_malloc(pool, size)
+    #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      tlsf_free(pool, ptr)
+#endif
+
+typedef struct _smc_mdb_channel_info_t
 {
-    int8_t   id;
     void*    pool_in;
     void*    pool_out;
     uint32_t total_size_in;
     uint32_t total_size_out;
+
 } smc_mdb_channel_info_t;
 
-typedef struct
-{
-    uint8_t channel_amount;
-    smc_mdb_channel_info_t channel_info[1];
-} smc_mdb_channel_info_set_t;
-
+smc_mdb_channel_info_t* smc_mdb_channel_info_create( void );
 
 uint32_t smc_mdb_calculate_required_shared_mem( uint32_t mdb_size );
-int32_t  smc_mdb_create( uint8_t channel_id, void* pool_address, uint32_t pool_size );
-int32_t  smc_mdb_init( uint8_t channel_id, void* pool_address, uint32_t pool_size );
-void     smc_mdb_destroy( uint8_t channel_id );
+uint8_t  smc_mdb_create_pool_out( void* pool_address, uint32_t pool_size );
+void     smc_mdb_info_destroy( smc_mdb_channel_info_t* smc_mdb_info );
 void     smc_mdb_all_destroy( void );
-void*    smc_mdb_alloc( uint8_t channel_id, uint32_t size );
-void     smc_mdb_free( uint8_t channel_id, void* ptr );
+void*    smc_mdb_alloc        ( smc_channel_t* smc_channel, uint32_t size );
+void     smc_mdb_free         ( const smc_channel_t* smc_channel, void* ptr );
+uint8_t  smc_mdb_address_check( const smc_channel_t* smc_channel, void* ptr, uint8_t direction );
 void     smc_mdb_copy( void* target_ptr, void* source_ptr, uint32_t length );
-uint8_t  smc_mdb_address_check( uint8_t channel_id, void* ptr, uint8_t direction );
-void   	 smc_mdb_channel_info_dump( void );
-uint32_t smc_mdb_channel_frag_get( uint8_t channel_id );
-uint32_t smc_mdb_channel_free_space_get( uint8_t channel_id );
-uint32_t smc_mdb_channel_free_space_min_get( uint8_t channel_id );
-uint32_t smc_mdb_channel_largest_free_block_get( uint8_t channel_id );
+uint32_t smc_mdb_channel_frag_get( smc_channel_t* smc_channel );
+uint32_t smc_mdb_channel_free_space_get( smc_channel_t* smc_channel );
+uint32_t smc_mdb_channel_free_space_min_get( smc_channel_t* smc_channel );
+uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel );
 
 #if !TLSF_USE_REF
 typedef void* tlsf_pool;
@@ -94,5 +101,4 @@ size_t tlsf_overhead( void );
 
 #endif
 
-
-
+/* EOF */

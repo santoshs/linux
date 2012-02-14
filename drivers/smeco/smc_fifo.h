@@ -63,10 +63,8 @@ typedef struct
 
     int32_t         fill_write_3;       /* Not in use */
     int32_t         fill_write_4;       /* Not in use */
-    int16_t         fill_write_5;       /* Not in use */
-    uint8_t         fill_write_6;       /* Not in use */
-    uint8_t         fill_write_7;       /* Not in use */
-    uint8_t         use_cache_control;  /* If TRUE the user is responsible of cache clean/invalidate */
+    int32_t         fill_write_5;       /* Not in use */
+    int32_t         fill_write_6;       /* Not in use */
 
         /* FIFO read control */
     int32_t         read_index;         /* Index of the recently read item */
@@ -98,17 +96,18 @@ typedef struct
 
 void        smc_fifo_init_out( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_control );
 void        smc_fifo_init_in ( smc_fifo_t *p_fifo, int32_t length, uint8_t use_cache_control );
-int32_t     smc_fifo_peek    ( smc_fifo_t* p_fifo );
+int32_t     smc_fifo_peek    ( smc_fifo_t* p_fifo, uint8_t use_cache_control );
 uint32_t    smc_fifo_put     ( smc_fifo_t* p_fifo, uint32_t  data, int32_t  length );
 uint32_t    smc_fifo_put_ext ( smc_fifo_t* p_fifo, uint32_t  data, int32_t  length, uint32_t  flags );
 
 int32_t     smc_fifo_get     ( smc_fifo_t* p_fifo, uint32_t* data, int32_t* length, uint32_t* flags );
 
-uint32_t    smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell );
-int32_t     smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell );
+uint32_t    smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t use_cache_control );
+int32_t     smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t use_cache_control );
 
 uint32_t    smc_fifo_calculate_required_shared_mem( uint32_t fifo_len );
-void        smc_fifo_dump    ( smc_fifo_t* p_fifo );
+void        smc_fifo_dump     ( char* indent, smc_fifo_t* p_fifo, int32_t mem_offset );
+void        smc_fifo_dump_data( smc_fifo_t* p_fifo );
 
 #endif /* EOF */
 

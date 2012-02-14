@@ -114,6 +114,12 @@ Description :  File created
 #define SMC_BYTES_TO_32BIT(data)    ((data[0]<<24) + (data[1]<<16) + (data[2]<<8) + (data[3]&0xFF))
 #define SMC_BYTES_TO_16BIT(data)    ((data[0]<< 8) + (data[1]&0xFF))
 
+#define DELAY_SMC_TEST(delayrnd)  {                                   \
+                                  volatile uint32_t delay = delayrnd; \
+                                  while(delay>0) delay--;             \
+                                  }                                   \
+
+
     /*
      * Test Trace defines
      */

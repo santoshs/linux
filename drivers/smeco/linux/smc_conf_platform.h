@@ -67,8 +67,12 @@ typedef struct
 
 #include <asm/irq.h>
 
-#define SMC_SHM_IOREMAP( address, size )   ioremap( (long unsigned int)address, size )
+#define SMC_SHM_IOREMAP( address, size )           ioremap( (long unsigned int)address, size )
 
+#define SMC_HW_ARM_MEMORY_SYNC(startaddress)
+
+#define SMC_SHM_WRITE32( target_address, value )   __raw_writel( value, ((void __iomem *)(target_address)) )
+#define SMC_SHM_READ32( source_address )           __raw_readl( ((void __iomem *)source_address) )
     /*
      * Data type for SMC locking
      */

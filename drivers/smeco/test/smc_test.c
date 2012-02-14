@@ -804,12 +804,12 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
                 {
                     smc_fifo_t* p_fifo = SMC_CHANNEL_GET(g_smc_instance1, 0)->fifo_out;
 
-                    smc_fifo_dump(p_fifo);
+                    smc_fifo_dump_data(p_fifo);
 
                     p_fifo = SMC_CHANNEL_GET(g_smc_instance1, 0)->fifo_in;
 
                     SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: FIFO IN");
-                    smc_fifo_dump(p_fifo);
+                    smc_fifo_dump_data(p_fifo);
                 }
                 else
                 {

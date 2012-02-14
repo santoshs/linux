@@ -52,11 +52,16 @@ Description :  File created
 
 #define SMC_CONF_GLOBAL_SHM_START       0x43B00000
 
-    /* Put the control SMC in the beginning */
-    /* TODO Put max size available for each SMC device */
+    /* Put the SMC Control instance in the beginning of the SHM area */
 
+    /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START      SMC_CONF_GLOBAL_SHM_START
-#define SMC_CONF_L2MUX_SHM_START       (SMC_CONF_GLOBAL_SHM_START + 1024*200 + 62*32)
+#define SMC_CONF_CONTROL_SHM_SIZE      (1024*200)                  /* 200kB */
+
+    /* SHM Area for L2MUX */
+#define SMC_CONF_L2MUX_SHM_START       (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_SIZE + 64)
+#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*3 + 1024*512)    /* 3.5MB */
+
 
 
     /* Modem side offset */

@@ -140,10 +140,10 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
         .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2,
         .shm_start_address            = SMC_CONF_L2MUX_SHM_START,
-        .shm_size                     = (1024*1024*3 + 1024*512),    /* 3.5MB */
+        .shm_size                     = SMC_CONF_L2MUX_SHM_SIZE,
         .shm_use_cache_control_master = FALSE,
-        .shm_use_cache_control_slave  = FALSE,
-        .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_EQUAL,
+        .shm_use_cache_control_slave  = TRUE,
+        .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,
         .shm_cpu_memory_offset        = 0,
 
         .channel_config_count         = SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2_WAKEUP,

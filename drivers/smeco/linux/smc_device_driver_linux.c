@@ -82,18 +82,20 @@ MODULE_LICENSE("Dual BSD/GPL");
 
     /**
      * IRQ Resources from the R-Mobile HW Manual
+     * Index of array is the bit in the Modem --> TODO Check
      */
-    static struct resource smc0_resources[] =
+    static struct resource smc_resources[] =
     {
         [0] = {
                   .start = gic_spi(193),
                   .end   = gic_spi(193),
-                  .flags = IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
+                  .flags = IORESOURCE_IRQ, /* | IRQ_TYPE_LEVEL_LOW,*/
               },
+
         [1] = {
                   .start = gic_spi(194),
                   .end   = gic_spi(194),
-                  .flags = IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
+                  .flags = IORESOURCE_IRQ,
               },
         [2] = {
                   .start = gic_spi(195),
@@ -112,13 +114,22 @@ MODULE_LICENSE("Dual BSD/GPL");
     {
       .name          = "smc_net_device",
       .id            = 0,
-      .resource      = smc0_resources,
-      .num_resources = ARRAY_SIZE(smc0_resources),
+      .resource      = smc_resources,
+      .num_resources = ARRAY_SIZE(smc_resources),
+    };
+
+    static struct platform_device smc_ctrldevice1 =
+    {
+      .name          = "smc_ctrl_device",
+      .id            = 1,
+      .resource      = smc_resources,
+      .num_resources = ARRAY_SIZE(smc_resources),
     };
 
     static struct platform_device *devices[] __initdata =
     {
         &smc_netdevice0,
+        &smc_ctrldevice1,
     };
 
 #endif

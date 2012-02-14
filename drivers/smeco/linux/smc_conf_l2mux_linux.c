@@ -156,6 +156,8 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Data 0x%08X from SMC 0x%08X: channel %d, len %d",
                             (uint32_t)data, (uint32_t)channel->smc_instance, channel->id, data_length);
 
+    SMC_TRACE_PRINTF_DEBUG_DATA(data_length, data);
+
     device = dev_config_l2mux.device_driver_priv->net_dev;
 
     if( device != NULL )
@@ -187,6 +189,12 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 skb->dev = device;
 
+                skb_put(skb, data_length); /* Put the length  l3len = LENGTH_IN_HEADER (hsi_data_client->rx_l2_header); in hsi_logical.c */
+
+		memcpy(skb->data, data, data_length);
+
+                /* TODO The fragmentation ( hsi_logical_skb_to_msg in hsi_locigal.c )*/
+
                 /* TODO Build the SKB based on device type */
 
                 skb_push(skb, SMC_L2MUX_HEADER_SIZE);
@@ -198,7 +206,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 smc_net_dev = netdev_priv( device );
 
-                SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: Deliver SKB to upper layer RX ...");
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Deliver SKB (length %d) to upper layer RX ...", skb->len);
                 SMC_TRACE_PRINTF_DEBUG_DATA( skb->len , skb->data );
 
                 smc_net_dev->smc_dev_config->skb_rx_function( skb, device );

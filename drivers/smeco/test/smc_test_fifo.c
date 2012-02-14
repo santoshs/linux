@@ -214,7 +214,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
             {
                 /* get */
                 SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET <-- (case %d, fifo size %d, fill %d)", test_case, fifo_len, fill );
-                fifo_count = smc_fifo_peek( test_fifo );
+                fifo_count = smc_fifo_peek( test_fifo, FALSE );
 
                 if ( fifo_count > 0 )
                 {
@@ -245,7 +245,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
 
             /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: Read until empty..." );*/
 
-            fifo_count = smc_fifo_peek( test_fifo );
+            fifo_count = smc_fifo_peek( test_fifo, FALSE );
 
             while( fifo_count > 0 )
             {
@@ -267,7 +267,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
                     return SMC_ERROR;
                 }
 
-                fifo_count = smc_fifo_peek( test_fifo );
+                fifo_count = smc_fifo_peek( test_fifo, FALSE );
             }
 
             /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: Read empty, check that fill is zero.." );*/
