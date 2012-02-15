@@ -98,5 +98,7 @@ struct sh_dmae_pdata {
 #define CHCR_DE	0x00000001
 #define CHCR_TE	0x00000002
 #define CHCR_IE	0x00000004
+#define CHCR_CAE (1<<31)
+#define CHCR_CAIE (1<<30)
 
 #endif

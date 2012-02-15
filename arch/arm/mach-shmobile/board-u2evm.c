@@ -1,3 +1,4 @@
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -19,6 +20,7 @@
 #include <linux/mmc/sh_mmcif.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/input.h>
+#include <linux/input/sh_keysc.h>
 #include <linux/gpio_keys.h>
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
@@ -29,14 +31,14 @@
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/usb/r8a66597.h>
 
-#define SRCR2		0xe61580b0
-#define SRCR3		0xe61580b8
+#define SRCR2		IO_ADDRESS(0xe61580b0)
+#define SRCR3		IO_ADDRESS(0xe61580b8)
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
 #define GPIO_PULL_UP	0xc0
 
-#define GPIO_BASE	0xe6050000
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
 #define GPIO_PORTCR(n)	({				\
 	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
 	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
@@ -44,6 +46,8 @@
 	((n) < 192) ? 0 :				\
 	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
 	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 static void gpio_pull(u32 addr, int type)
 {
@@ -57,8 +61,8 @@ static void gpio_pull(u32 addr, int type)
 
 static struct resource smsc9220_resources[] = {
 	{
-		.start	= 0x10000000,
-		.end	= 0x10000000 + SZ_64K - 1,
+		.start	= 0x00080000,
+		.end	= 0x00080000 + SZ_64K - 1,
 		.flags	= IORESOURCE_MEM,
 	}, {
 		.start	= irqpin2irq(41),
@@ -83,11 +87,56 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+/* KEYSC */
+static struct sh_keysc_info keysc_platdata = {
+	.mode		= SH_KEYSC_MODE_6,
+	.scan_timing	= 3,
+	.delay		= 100,
+	.keycodes	= {
+		KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G,
+		KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N,
+		KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U,
+		KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_HOME, KEY_SLEEP,
+		KEY_SPACE, KEY_9, KEY_6, KEY_3, KEY_WAKEUP, KEY_RIGHT, \
+		KEY_COFFEE,
+		KEY_0, KEY_8, KEY_5, KEY_2, KEY_DOWN, KEY_ENTER, KEY_UP,
+		KEY_KPASTERISK, KEY_7, KEY_4, KEY_1, KEY_STOP, KEY_LEFT, \
+		KEY_COMPUTER,
+	},
+};
+
+static struct resource keysc_resources[] = {
+	[0] = {
+		.name	= "KEYSC",
+		.start	= 0xe61b0000,
+		.end	= 0xe61b0098 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(71),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device keysc_device = {
+	.name		= "sh_keysc",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(keysc_resources),
+	.resource	= keysc_resources,
+	.dev		= {
+		.platform_data	= &keysc_platdata,
+	},
+};
+#endif
+
 /* USBHS */
 static int is_vbus_powered(void)
 {
 	return 1; /* always powered */
 }
+
+#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
 
 static void usbhs_module_reset(void)
 {
@@ -96,6 +145,14 @@ static void usbhs_module_reset(void)
 	udelay(50); /* wait for at least one EXTALR cycle */
 	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
 	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+
+	/* wait for SuspendM bit being cleared by hardware */
+	while (!(__raw_readw(PHYFUNCTR) & (1 << 14))) /* SUSMON */
+			;
+
+	__raw_writew(__raw_readw(PHYFUNCTR) | (1 << 13), PHYFUNCTR); /* PRESET */
+	while (__raw_readw(PHYFUNCTR) & (1 << 13))
+			;
 }
 
 static struct r8a66597_platdata usbhs_func_data = {
@@ -103,8 +160,8 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.module_start	= usbhs_module_reset,
 	.on_chip	= 1,
 	.buswait	= 5,
-	.max_bufnum	= 0x87, /* 0xff or more? */
-	.vbus_irq	= gic_spi(87), /* FIXME */
+	.max_bufnum	= 0xff,
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 };
 
 static struct resource usbhs_resources[] = {
@@ -145,10 +202,10 @@ static struct platform_device usbhs_func_device = {
 /* MMCIF */
 static struct sh_mmcif_dma sh_mmcif_dma = {
 	.chan_priv_rx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF_RX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
 	},
 	.chan_priv_tx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF_TX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
 	},
 };
 
@@ -156,8 +213,10 @@ static struct sh_mmcif_plat_data sh_mmcif_plat = {
 	.sup_pclk	= 0,
 	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
 	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
+			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
 			  MMC_CAP_NONREMOVABLE,
 	.dma		= &sh_mmcif_dma,
+	.max_clk	= 25000000,
 };
 
 static struct resource sh_mmcif_resources[] = {
@@ -236,8 +295,62 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+static void sdhi1_set_pwr(struct platform_device *pdev, int state)
+{
+	;
+}
+
+#if !defined CONFIG_MUX_STM_TO_SDHI1
+
+// NOTE by ToKaikko 15-Feb-2012
+// SHDI1 is used for Modem STM trace in EOS2 EVM and EOS2 Kota boards
+// Until eMMC flashing and eMMC boot works as mainstream,
+// his can not be taken into use, since SDHI0 is used for SD-Card Boot.
+//
+// Once eMMC booting works, then SDHI0 can be taken into use for Modem STM tracing.
+static struct renesas_sdhi_dma sdhi1_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
+	}
+};
+
+static struct renesas_sdhi_platdata sdhi1_info = {
+	.caps		= MMC_CAP_NONREMOVABLE | MMC_CAP_SDIO_IRQ,
+	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
+	.dma		= &sdhi1_dma,
+	.set_pwr	= sdhi1_set_pwr,
+};
+
+static struct resource sdhi1_resources[] = {
+	[0] = {
+		.name	= "SDHI1",
+		.start	= 0xee120000,
+		.end	= 0xee1200ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(119),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi1_device = {
+	.name		= "renesas_sdhi",
+	.id		= 1,
+	.dev		= {
+		.platform_data	= &sdhi1_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi1_resources),
+	.resource	= sdhi1_resources,
+};
+#endif
+
 #define GPIO_KEY(c, g, d) \
-	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1}
+	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
+	 .debounce_interval=20}
 
 static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
@@ -391,6 +504,7 @@ static struct platform_device tpu3_device = {
 	},
 };
 
+#ifdef CONFIG_SPI_SH_MSIOF
 /* SPI */
 static struct sh_msiof_spi_info sh_msiof0_info = {
         .rx_fifo_override       = 256,
@@ -418,22 +532,29 @@ static struct platform_device sh_msiof0_device = {
         .num_resources  = ARRAY_SIZE(sh_msiof0_resources),
         .resource       = sh_msiof0_resources,
 };
+#endif
 
 static struct platform_device *u2evm_devices[] __initdata = {
 	&usbhs_func_device,
 	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
 	&sh_mmcif_device,
 	&sdhi0_device,
+#if !defined CONFIG_MUX_STM_TO_SDHI1
+	&sdhi1_device, // SEE NOTE ABOVE ABOUT SDHI1 CONFLICT WITH STM UNTIL eMMC BOOT WORKS!
+#endif
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
 	&tpu3_device,
+#ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
+#endif
 };
 
 /* I2C */
-
-#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
 	REGULATOR_SUPPLY("vdd_touch", NULL),
@@ -530,6 +651,11 @@ static void mxt224_set_power(int on)
 	}
 }
 
+static int mxt224_read_chg(void)
+{
+	return gpio_get_value(GPIO_PORT32);
+}
+
 static struct mxt_platform_data mxt224_platform_data = {
 	.x_line		= 19,
 	.y_line		= 11,
@@ -541,7 +667,7 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.orient		= MXT_DIAGONAL,
 	.irqflags	= IRQF_TRIGGER_FALLING,
 	.set_pwr	= mxt224_set_power,
-
+	.read_chg	= mxt224_read_chg,
 };
 
 static struct i2c_board_info i2c4_devices[] = {
@@ -554,10 +680,16 @@ static struct i2c_board_info i2c4_devices[] = {
 
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
-		.virtual	= 0xe6000000,
+		.virtual	= 0xf6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= 256 << 20,
-		.type		= MT_DEVICE_NONSHARED
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= 0xf7000000,
+		.pfn		= __phys_to_pfn(0xf0000000),
+		.length		= SZ_2M,
+		.type		= MT_DEVICE
 	},
 };
 
@@ -573,21 +705,9 @@ void __init u2evm_init_irq(void)
 	r8a73734_init_irq();
 }
 
-#define IRQC0_CONFIG_00		0xe61c0180
-#define IRQC1_CONFIG_00		0xe61c0380
-static void irqc_set_chattering(int pin, int timing)
-{
-	u32 val;
-	u32 *reg;
 
-	reg = (pin >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
-	reg += (pin & 0x1f);
+#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 
-	val = __raw_readl(reg) & ~0x80ff0000;
-	__raw_writel(val | (timing << 16) | (1 << 31), reg);
-}
-
-#define DSI0PHYCR	0xe615006c
 static void __init u2evm_init(void)
 {
 	r8a73734_pinmux_init();
@@ -602,6 +722,23 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	/* enable KEYSC */
+	gpio_request(GPIO_FN_KEYIN0, NULL);
+	gpio_request(GPIO_FN_KEYIN1, NULL);
+	gpio_request(GPIO_FN_KEYIN2, NULL);
+	gpio_request(GPIO_FN_KEYIN3, NULL);
+	gpio_request(GPIO_FN_KEYIN4, NULL);
+	gpio_request(GPIO_FN_KEYIN5, NULL);
+	gpio_request(GPIO_FN_KEYIN6, NULL);
+	gpio_request(GPIO_FN_KEYOUT0, NULL);
+	gpio_request(GPIO_FN_KEYOUT1, NULL);
+	gpio_request(GPIO_FN_KEYOUT2, NULL);
+	gpio_request(GPIO_FN_KEYOUT3, NULL);
+	gpio_request(GPIO_FN_KEYOUT4, NULL);
+	gpio_request(GPIO_FN_KEYOUT5, NULL);
+	gpio_request(GPIO_FN_KEYOUT6, NULL);
+#endif
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
 	gpio_request(GPIO_FN_MMCD0_0, NULL);
@@ -625,33 +762,10 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_PORT327, NULL);
 	gpio_direction_input(GPIO_PORT327);
 	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
-	irqc_set_chattering(50, 0x01);	/* 1msec */
-
-#define MUX_STM_TO_SDHI1
-#define MUX_STM_SIDI
-#ifdef  MUX_STM_TO_SDHI1
-        /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
-        gpio_request(GPIO_PORT288, NULL);
-        gpio_direction_output(GPIO_PORT288, 0);
-        gpio_request(GPIO_FN_STMCLK_2, NULL);
-
-        gpio_request(GPIO_PORT289, NULL);
-        gpio_direction_output(GPIO_PORT289, 0);
-        gpio_request(GPIO_FN_STMDATA0_2, NULL); 
-
-        gpio_request(GPIO_PORT290, NULL);
-        gpio_direction_output(GPIO_PORT290, 0);
-        gpio_request(GPIO_FN_STMDATA1_2, NULL);
-
-        gpio_request(GPIO_PORT291, NULL);
-        gpio_direction_output(GPIO_PORT291, 0);
-        gpio_request(GPIO_FN_STMDATA2_2, NULL);
-
-        gpio_request(GPIO_PORT292, NULL);
-        gpio_direction_output(GPIO_PORT292, 0);
-        gpio_request(GPIO_FN_STMDATA3_2, NULL);
+	gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 
 #if 0
+	/* ONLY FOR HSI CROSS COUPLING */
         /* TODO: Add HSI pinmux and direction etc control for X-coupling */
         /* TODO: CHECK if any conflict arises, whether X-coupling can be used also wit SHM and EOS Android */
 	gpio_request(GPIO_FN_HSI_RX_FLAG, NULL);
@@ -659,9 +773,31 @@ static void __init u2evm_init(void)
 	gpio_requset(GPIO_FN_HSI_TX_WAKE, NULL);
 #endif
 
-        {     
-#define VUL volatile unsigned long 
-          volatile unsigned long d;
+#ifdef  CONFIG_MUX_STM_TO_SDHI1
+	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX */
+
+        /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
+//        gpio_request(GPIO_PORT288, NULL);
+//        gpio_direction_output(GPIO_PORT288, 0);
+        gpio_request(GPIO_FN_STMCLK_2, NULL);
+
+//        gpio_request(GPIO_PORT289, NULL);
+//        gpio_direction_output(GPIO_PORT289, 0);
+        gpio_request(GPIO_FN_STMDATA0_2, NULL); 
+
+//        gpio_request(GPIO_PORT290, NULL);
+//        gpio_direction_output(GPIO_PORT290, 0);
+        gpio_request(GPIO_FN_STMDATA1_2, NULL);
+
+//        gpio_request(GPIO_PORT291, NULL);
+//        gpio_direction_output(GPIO_PORT291, 0);
+        gpio_request(GPIO_FN_STMDATA2_2, NULL);
+
+//        gpio_request(GPIO_PORT292, NULL);
+//        gpio_direction_output(GPIO_PORT292, 0);
+        gpio_request(GPIO_FN_STMDATA3_2, NULL);
+
+
 /*      Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
  *        Write bit 28 up to enable SDHIx STMSIDI power
  *          bits [31:20] All 0, R, Reserved.
@@ -680,61 +816,78 @@ static void __init u2evm_init(void)
  *                       10=HSI0 select.
  *                       11=HSIB select.
  */
-          d = *( VUL *)0xE6058020;
-          d = d | (1<<28) | (3);
-          *( VUL *)0xE6058020 = d;
-        }
-#ifdef MUX_STM_SIDI
-        gpio_request(GPIO_PORT293, NULL);
-        gpio_direction_input(GPIO_PORT293);
+
+	/* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
+	
+#define MSEL3CR		IO_ADDRESS(0xE6058020)
+	__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+
+
+
+	/* THIRD, PINMUX STM SIDI (i,e, return channel) MUX FOR BB/MODEM */
+	/* ALSO, CONFIGURE SYS-(TRACE) FUNNEL-STM, and SYS-TPIU-STM */
+
+//        gpio_request(GPIO_PORT293, NULL);
+//        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
-#if 1 // HACK because did not find _PU in macro definitions
-        *( volatile char *)0xE6052125 = 0xE3; // PU, IE, FN=3, i.e. STMSIDI_2
-#endif
-#endif // MUX_STM_SIDI
+        gpio_pull(GPIO_PORTCR(293), GPIO_PULL_UP);
         {
           int i;
-          VUL d, dummy_read;
-#if 1
+          volatile unsigned long dummy_read;
+#if 0 // NOT neede any more with new FIDO SW version Fido.1.9.5.36.edge_aligned_stpv2
           // Lower CPG Frequency Control Register B (BRQCRB) ZTRFC clock by divider  control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz
-          d = *( VUL * )0xe6150004;
-          d = d & 0x7F0FFFFF; 
-          d = d | 0x80400000;         // Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System CPU Debugging and Trace Clock Frequenct Division Ratio
-          *( VUL *)0xe6150004 = d;
+#define BRQCRB		IO_ADDRESS(0xE6150004)
+	  __raw_writel((__raw_readl(BRQCRB) & 0x7F0FFFFF) | 0x80400000, BRQCRB); // Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System CPU Debugging and Trace Clock Frequenct Division Ratio
 #endif
 
-          *( VUL * )0xe6100040 = 0x0000a501; /* TDBG_DBGREG9, Key register */
-          *( VUL * )0xe6100040 = 0x0000a501; /* TDBG_DBGREG9, Key register */
+#define DBGREG9		IO_ADDRESS(0xE6100040)
+	  __raw_writel(0x0000a501, DBGREG9); /* Key register */
+	  __raw_writel(0x0000a501, DBGREG9); /* Key register, must write twice! */
 
           for(i=0; i<0x10; i++);
-          d = *( VUL *)0xe6100020;
-          d = d & 0xFFDFFFFF; // Clear STMSEL[1], i.e. select STMSIDI to BB side.
-          d = d | (1<<20);    // Set   STMSEL[0], i.e. select SDH1 as output/in port for STM
-          *( VUL *)0xe6100020 = d;
+
+#define DBGREG1		IO_ADDRESS(0xE6100020)
+          __raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
+		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
+		// Set   STMSEL[0], i.e. select SDH1 as output/in port for STM
+
           for(i=0; i<0x10; i++);
 
+#define SYS_TRACE_FUNNEL_STM_BASE	IO_ADDRESS(0xE6F8B000)
           /* Configure SYS-(Trace) Funnel-STM @ 0xE6F8B000 */
-          *( VUL *)0xE6F8BFB0 = 0xc5acce55;  /* Lock Access */
+	  // TODO: check if delays and double writing really needed or not?
+	  __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
           for(i=0; i<0xF0; i++);
-          *( VUL *)0xE6F8B000 = 0x302;       /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
+	  __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
           for(i=0; i<0xF0; i++);
-          *( VUL *)0xE6F8BFB0 = 0xc5acce55;  /* Lock Access */
+	  __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
           for(i=0; i<0x10; i++);
-          *( VUL *)0xE6F8B000 = 0x302;       /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
+	  __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
           for(i=0; i<0xF0; i++);
         
           /* Configure SYS-TPIU-STM @ 0xE6F8A000 */
-                       *( VUL *)0xE6F8AFB0 = 0xc5acce55; /* Lock Access */
-                       *( VUL *)0xE6F8A004 = 0x8;        /* Current Port Size 4-bits wide (TRACEDATA0-3 all set) */
-                       *( VUL *)0xE6F8A304 = 0x112;      /* Formatter and Flush control */
-          dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
-                       *( VUL *)0xE6F8A304 = 0x152;      /* Formatter and Flush control */
-          dummy_read = *( VUL *)0xE6F8A304;              /* Formatter and Flush control */
-#if 0 // STM Walking ones test mode
-	  *( VUL *)0xE6F8A204 = 0x00020001;
+#define SYS_TPIU_STM_BASE	IO_ADDRESS(0xE6F8A000)
+	  __raw_writel(0xc5acce55, SYS_TPIU_STM_BASE + 0xFB0); // Lock Access
+	  __raw_writel(       0x8, SYS_TPIU_STM_BASE + 0x004); // 0x8 means Current Port Size 4-bits wide (TRACEDATA0-3 all set)
+	  __raw_writel(     0x112, SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
+          dummy_read = __raw_readl(SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
+	  __raw_writel(     0x162, SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
+          dummy_read = __raw_readl(SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
+#if 0 // STM Walking ones test mode, only for testing timing, not for normal trace operation!
+	  __raw_writel(0x00020001, SYS_TPIU_STM_BASE + 0x204); // STM Walking ones test mode
 #endif
         }
-#endif // MUX_STM_TO_SDHI1
+#endif // CONFIG_MUX_STM_TO_SDHI1
+
+#if !defined CONFIG_MUX_STM_TO_SDHI1
+	/* SDHI1 */
+	gpio_request(GPIO_FN_SDHID1_0, NULL);
+	gpio_request(GPIO_FN_SDHID1_1, NULL);
+	gpio_request(GPIO_FN_SDHID1_2, NULL);
+	gpio_request(GPIO_FN_SDHID1_3, NULL);
+	gpio_request(GPIO_FN_SDHICMD1, NULL);
+	gpio_request(GPIO_FN_SDHICLK1, NULL);
+#endif
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
@@ -769,6 +922,30 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull(GPIO_PORTCR(32), GPIO_PULL_UP);
 
+	/* USBHS */
+	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA1, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA2, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA3, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA4, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA5, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA6, NULL);
+	gpio_request(GPIO_FN_ULPI_DATA7, NULL);
+	gpio_request(GPIO_FN_ULPI_CLK, NULL);
+	gpio_request(GPIO_FN_ULPI_STP, NULL);
+	gpio_request(GPIO_FN_ULPI_DIR, NULL);
+	gpio_request(GPIO_FN_ULPI_NXT, NULL);
+
+	/* TUSB1211 */
+	gpio_request(GPIO_PORT131, NULL);
+	gpio_direction_output(GPIO_PORT131, 0);
+	udelay(100); /* assert RESET_N (minimum pulse width 100 usecs) */
+	gpio_direction_output(GPIO_PORT131, 1);
+
+	/* start supplying VIO_CKO3@26MHz to REFCLK */
+	gpio_request(GPIO_FN_VIO_CKO3, NULL);
+	clk_enable(clk_get(NULL, "vclk3_clk"));
+
 #ifdef CONFIG_SPI_SH_MSIOF
 	/* enable MSIOF0 */
 	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
@@ -786,7 +963,7 @@ static void __init u2evm_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	l2x0_init(__io(0xf0100000), 0x4c440000, 0x820f0fff);
+	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 #endif
 	r8a73734_add_standard_devices();
 	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
@@ -795,15 +972,102 @@ static void __init u2evm_init(void)
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 }
 
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+
+/* CMT13 */
+#define CMSTR3		IO_ADDRESS(0xe6130300)
+#define CMCSR3		IO_ADDRESS(0xe6130310)
+#define CMCNT3		IO_ADDRESS(0xe6130314)
+#define CMCOR3		IO_ADDRESS(0xe6130318)
+#define CMCLKE		IO_ADDRESS(0xe6131000)
+
+static DEFINE_SPINLOCK(cmt_lock);
+
+int read_current_timer(unsigned long *timer_val)
+{
+	*timer_val = __raw_readl(CMCNT3);
+	return 0;
+}
+
+static int __init setup_current_timer(void)
+{
+	struct clk *clk;
+	unsigned long lpj, flags;
+
+	clk = clk_get(NULL, "currtimer");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+	clk_enable(clk);
+
+	lpj = clk_get_rate(clk) + HZ/2;
+	do_div(lpj, HZ);
+	lpj_fine = lpj;
+
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+
+	__raw_writel(0, CMSTR3);
+	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
+	__raw_writel(0xffffffff, CMCOR3);
+	__raw_writel(0, CMCNT3);
+	while (__raw_readl(CMCNT3) != 0)
+		cpu_relax();
+	__raw_writel(1, CMSTR3);
+
+	pr_info("Current timer started (lpj=%lu)\n", lpj);
+
+	/*
+	 * TODO: Current timer (CMT1) MSTP bit vs. Suspend-to-RAM
+	 *
+	 * We don't have proper suspend/resume operations implemented yet
+	 * for the current timer (CMT1), so there is no guarantee that CMT1
+	 * module is functional when timer-based udelay() is used.  Thus
+	 * we need to enable CMT1 MSTP clock here, and if possible, would
+	 * like to leave it enabled forever.
+	 *
+	 * On the other hand, CMT1 should be halted during Suspend-to-RAM
+	 * state to minimize power consumption.
+	 *
+	 * To solve the problem, we make the following assumptions:
+	 *
+	 * 1) udelay() is not used from now (time_init()) until
+	 *    late_time_init() or calibrate_delay() completes
+	 *
+	 * 2) timer-based udelay() is functional as long as clocksource is
+	 *    available
+	 *
+	 * and disable CMT1 MSTP clock here not to increment CMT1 usecount.
+	 */
+	clk_disable(clk);
+	clk_put(clk);
+	return 0;
+}
+
+#endif /* ARCH_HAS_READ_CURRENT_TIMER */
+
 static void __init u2evm_timer_init(void)
 {
 	r8a73734_clock_init();
 	shmobile_timer.init();
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+	if (!setup_current_timer())
+		set_delay_fn(read_current_timer_delay_loop);
+#endif
 }
 
 struct sys_timer u2evm_timer = {
 	.init	= u2evm_timer_init,
 };
+
+#define SBAR2		__io(IO_ADDRESS(0xe6180060))
+#define RESCNT2		__io(IO_ADDRESS(0xe6188020))
+
+void u2evm_restart(char mode, const char *cmd)
+{
+	__raw_writel(0, SBAR2);
+	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+}
 
 MACHINE_START(U2EVM, "u2evm")
 	.map_io		= u2evm_map_io,
@@ -811,4 +1075,5 @@ MACHINE_START(U2EVM, "u2evm")
 	.handle_irq	= shmobile_handle_irq_gic,
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,
+	.restart	= u2evm_restart,
 MACHINE_END

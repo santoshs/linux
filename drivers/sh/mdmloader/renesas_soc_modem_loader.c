@@ -17,6 +17,7 @@
 #include <linux/uaccess.h>
 #include <linux/scatterlist.h>
 #include <mach/common.h>
+#include <mach/r8a73734.h>
 
 static dev_t rmc_loader_dev;
 
@@ -41,13 +42,30 @@ static int all_toc_entries_loaded = 0;
 #define TOC_ENTRY_SIZE (sizeof(struct toc_str))
 #define BUF_SIZE       256
 
+#define HPB_OCPBRGWIN1_MDM2MEM		IO_ADDRESS(0xE6001200)
+#define HPB_OCPBRGWIN2_MDM2APE		IO_ADDRESS(0xE6001204)
+#define HPB_OCPBRGWIN3_APE2MDM		IO_ADDRESS(0xE6001208)
+
+#define C4POWCR				IO_ADDRESS(0xE618004C)
+
+#define WPMCIF_EPMU_BASE		IO_ADDRESS(0xE6190000)
+#define WPMCIF_EPMU_START_CR		(WPMCIF_EPMU_BASE + 0x0000)
+#define WPMCIF_EPMU_ACC_CR		(WPMCIF_EPMU_BASE + 0x0004)
+#define WPMCIF_EPMU_RES_CR		(WPMCIF_EPMU_BASE + 0x0008)
+#define WPMCIF_EPMU_PLL2_REALLY5_CR	(WPMCIF_EPMU_BASE + 0x0020)
+#define WPMCIF_EPMU_RFCLK_CR		(WPMCIF_EPMU_BASE + 0x0024)
+#define WPMCIF_EPMU_HPSSCLK_CR		(WPMCIF_EPMU_BASE + 0x0028)
+
+#define CPG_SMSTPCR5			IO_ADDRESS(0xE6150144)
+#define CPG_SMSTPCR3			IO_ADDRESS(0xE615013C)
+
 static void ape5r_modify_register32(unsigned long addr, unsigned long set, unsigned long clear)
 {
   unsigned long data = 0;
-  data = *(volatile unsigned long *)addr;
+  data = __raw_readl(addr);
   data &= ~clear;
   data |= set;
-  *(volatile unsigned long *)addr = data;
+  __raw_writel(data, addr);
 }
 
 
@@ -264,65 +282,76 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 	printk(KERN_ALERT "rmc_loader_open(), ToDo: Initialize modem to receive boot data\n");
 #else
 	printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data >>\n");
-	ape5r_modify_register32(0xE618004C, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
-    printk(KERN_ALERT "T001\n");
-        *(volatile uint32_t *)0xE6190028 = 0x03000000; /* PLL lock count for PLL5 */
-    printk(KERN_ALERT "T002\n");
-
-        *(volatile uint32_t *)0xE6190020 = 0x32000100; /* PLL5 (PLL2 in EPMU doc) control register */
+	ape5r_modify_register32(C4POWCR, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
+    printk(KERN_ALERT "T001 HPSSCLK\n");
+    	__raw_writel(0x03000000, WPMCIF_EPMU_HPSSCLK_CR); /* PLL lock count for PLL5 */
+    printk(KERN_ALERT "T002 PLL5\n");
+	__raw_writel(0x32000100, WPMCIF_EPMU_PLL2_REALLY5_CR); /* PLL5 (PLL2 in EPMU doc) control register */
                                                        /*     bits [31:25] is MULFAC[6:0]           */
                                                        /*     bits [14:8]  is DIVFAC[6:0]           */
                                                        /*     HFCLKC = (MULFAC+1)*?38.4?/(DIVFAC+1) MHz */
                                                        /* Now MULFAC=25 and DIVFAC=1, i.e. HFCLK=38.4*26/2 MHz=499.2MHz */
-    printk(KERN_ALERT "T003\n");
-
-	*(volatile uint32_t *)0xE6190024 = 0x30000000; /* RF Clock Control Register (RFCLK_CR)        */
+    printk(KERN_ALERT "T003 RFCLK\n");
+	__raw_writel(0x30000000, WPMCIF_EPMU_RFCLK_CR); /* RF Clock Control Register (RFCLK_CR)        */
                                                        /*     bits [31:26] is RFCLK_DIV[5:0]        */
                                                        /*     RFCLK = HFCLK/(RFCLK_DIV+1)               */
                                                        /* Now RFCLK_DIV=HFCLK/13 = 38.4 MHz          */
                                                        /* RFCLKC divider for 38.4 MHz */
-    printk(KERN_ALERT "T004\n");
+    printk(KERN_ALERT "T004 OCPBRGWIN1\n");
 
-	*(volatile uint32_t *)0xE6001200 = 0x40000000; /* Configure upper 8 bits of OCP bus for modem */
+	__raw_writel(0x40000000,HPB_OCPBRGWIN1_MDM2MEM); /* Configure upper 8 bits of OCP bus for modem */
 	                                               /* This should be deferred until we know where to laod modem! */
-    printk(KERN_ALERT "T005\n");
+    printk(KERN_ALERT "T005 OCPBRGWIN3\n");
 
-        *(volatile uint32_t *)0xE6001208 = 0x06000000; /* OCP Bridge Window Reg3: Configure upper 7 bits of modem peripheral OCP address for APE to access */
+	__raw_writel(0x06000000, HPB_OCPBRGWIN3_APE2MDM); /* OCP Bridge Window Reg3: Configure upper 7 bits of modem peripheral OCP address for APE to access */
                                                             /* FOR APE, range 0xE2000000--0xE3FFFFFF maps to THIS+(0x00000000--0x01FFFFFF). */
                                                             /* So to e.g. for APE to access Modem SCU_AD base address would be */
                                                             /*   0xE3D40000 ==> OCP Bus address 0x07D40000, and */
                                                             /* SCU_AD.CCR.OUTPUT would be mapped like this: */
                                                             /*   0xE3D40410 ==> 0x07D0410            */
-    printk(KERN_ALERT "T006\n");
-	*(volatile uint32_t *)0xE6190000 = 0x00000001; /* Enable Modem */
-    printk(KERN_ALERT "T007\n");
+							    
+/* TODO: Should we configure HPB_OCPBRGWIN3_MDM2APE to something away from reset value? */
+/* That would allow modem to access some APE peripherals, maybe Modem can configure that register by itself later... */
 
-	while (0x00000000 != *(volatile uint32_t *)0xE6190000) {
-		/* Wait until WGM is up, how long this takes? Should we usleep? */
+    printk(KERN_ALERT "T006 START\n");
+
+    	__raw_writel(0x00000001, WPMCIF_EPMU_START_CR); /* WGEM3.1 Start bit, 1: Start modem operations */
+							/* Reading != 0 confirms Modem Power on sequence is completed */
+							/* NOTE: This is NOT reset to modem! */
+							/* Currently, we assume that power on reset has reset the modem already. */
+    printk(KERN_ALERT "T007 busy-poll START\n");
+
+	while (0x00000000 != __raw_readl(WPMCIF_EPMU_START_CR) ) {
+		/* Wait until WGM is up, should be very quick. */
 	}
-    printk(KERN_ALERT "T008\n");
+    printk(KERN_ALERT "T008 ACC\n");
 
-	*(volatile uint32_t *)0xE6190004 = 0x00000002; /* Host Access request */
-    printk(KERN_ALERT "T009\n");
+	__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
+							/* NOTE: When ACCREQ is set, modem cannot enter into deep sleep. */
+							/* Once host has completed intended operations, it should clear this bit. */
+	(void) __raw_readl(WPMCIF_EPMU_ACC_CR);		/* Dummy read, make sure write went through to the device... */
+    printk(KERN_ALERT "T009 busy-poll ACC\n");
 
-	while (0x00000003 != *(volatile uint32_t *)0xE6190004) {
-		/* Wait until Access OK, how long this takes? Should we usleep? */
+	while (0x00000003 != __raw_readl(WPMCIF_EPMU_ACC_CR) ) {
+		/* Wait until Access OK, should be very quick. */
 	}
     printk(KERN_ALERT "T010\n");
 
-	ape5r_modify_register32(0xE6150144, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
+	ape5r_modify_register32(CPG_SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
                                                               /* Supply clocks to OCP2SuperHiWay and OCP2Memory and SuperHiWay2OCP0/1 instances */
                                                               /* bit25: MSTP525=0, IICB0 operates */
                                                               /* bit19: MSTP519=0, O2S operates */
                                                               /* bit18: MSTP519=0, O2M operates */
                                                               /* bit17: MSTP517=0, S2O0 operates */
                                                               /* bit16: MSTP516=0, S2O1 operates */
-        ape5r_modify_register32(0xE615013C, 0, (1<<25));
+#if 0 // For HSI X-Coupling
+        ape5r_modify_register32(CPG_SMSTPCR3, 0, (1<<25));
                                /* SMSTPCR3 Bit25: MSTP325=0, HSI1 operates */
+#endif
 
 
 // IF I WANT TO RESET MODEM, THIS WILL DO IT:
-// EPMU RES_CR registger, wriet 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?	
+// EPMU RES_CR, write 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?	
 	printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data <<\n");
 #endif
 	return ret;

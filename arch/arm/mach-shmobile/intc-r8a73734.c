@@ -5,8 +5,9 @@
 #include <linux/io.h>
 #include <linux/sh_intc.h>
 #include <asm/hardware/gic.h>
+#include <mach/r8a73734.h>
 
-#define IRQC0_BASE	0xe61c0000
+#define IRQC0_BASE	IO_ADDRESS(0xe61c0000)
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */
 #define IRQC0_INTEN_SET0	(IRQC0_BASE + 0x008)	/* W */
@@ -16,7 +17,7 @@
 #define IRQC0_DETECT_STATUS	(IRQC0_BASE + 0x100)	/* R/WC1 */
 #define IRQC0_CONFIG_00		(IRQC0_BASE + 0x180)	/* R/W */
 
-#define IRQC1_BASE	0xe61c0200
+#define IRQC1_BASE	IO_ADDRESS(0xe61c0200)
 #define IRQC1_INTREQ_STS0	(IRQC1_BASE + 0x000)	/* R */
 #define IRQC1_INTEN_STS0	(IRQC1_BASE + 0x004)	/* R/WC1 */
 #define IRQC1_INTEN_SET0	(IRQC1_BASE + 0x008)	/* W */
@@ -151,6 +152,48 @@ static void setup_irqc_irq(void)
 }
 
 enum {
+	IRQC_INTERVAL_1MS = 0,
+	IRQC_INTERVAL_2MS,
+	IRQC_INTERVAL_4MS,
+	IRQC_INTERVAL_8MS
+};
+
+int r8a73734_irqc_set_debounce(int irq, unsigned debounce)
+{
+	u32 val, interval, count;
+	u32 *reg;
+
+	irq -= IRQPIN_IRQ_BASE;
+	if (irq > 63)
+		return -ENOSYS;
+
+	debounce = (debounce + 999) / 1000;
+	if (debounce <= 0x3ff) {
+		interval = IRQC_INTERVAL_1MS;
+		count = debounce;
+	} else if (debounce <= 0x3ff * 2) {
+		interval = IRQC_INTERVAL_2MS;
+		count = (debounce + 1) / 2;
+	} else if (debounce <= 0x3ff * 4) {
+		interval = IRQC_INTERVAL_4MS;
+		count = (debounce + 3) / 4;
+	} else if (debounce <= 0x3ff * 8) {
+		interval = IRQC_INTERVAL_8MS;
+		count = (debounce + 7) / 8;
+	} else {
+		interval = IRQC_INTERVAL_8MS;
+		count = 0x3ff;
+	}
+
+	reg = (irq >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg += (irq & 0x1f);
+
+	val = __raw_readl(reg) & ~0x80ff0000;
+	__raw_writel(val | (1 << 31) | (interval << 22) | (count << 16), reg);
+	return 0;
+}
+
+enum {
 	UNUSED = 0,
 
 	/* interrupt sources INTCS */
@@ -254,8 +297,8 @@ static int r8a73734_irq_set_wake(struct irq_data *d, unsigned int on)
 
 void __init r8a73734_init_irq(void)
 {
-	void __iomem *gic_dist_base = __io(0xf0001000);
-	void __iomem *gic_cpu_base = __io(0xf0000100);
+	void __iomem *gic_dist_base = __io(IO_ADDRESS(0xf0001000));
+	void __iomem *gic_cpu_base = __io(IO_ADDRESS(0xf0000100));
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
 

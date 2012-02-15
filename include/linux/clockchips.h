@@ -67,6 +67,7 @@ enum clock_event_nofitiers {
  * @mode:		operating mode assigned by the management code
  * @features:		features
  * @retries:		number of forced programming retries
+ * @priv:		private pointer for the driver's use
  * @set_mode:		set mode function
  * @broadcast:		function to broadcast events
  * @min_delta_ticks:	minimum delta value in ticks stored for reconfiguration
@@ -89,6 +90,7 @@ struct clock_event_device {
 	enum clock_event_mode	mode;
 	unsigned int		features;
 	unsigned long		retries;
+	void			*priv;
 
 	void			(*broadcast)(const struct cpumask *mask);
 	void			(*set_mode)(enum clock_event_mode mode,

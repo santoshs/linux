@@ -25,12 +25,12 @@ static struct sh_timer_clock cmt1_cks_table[] = {
 
 static struct sh_timer_config cmt10_platform_data = {
 	.name			= "CMT10",
-	.channel_offset_p	= 0x1000 - 0,
+	.channel_offset		= 0x1000 - 0,
 	.timer_bit		= 0,
 	.clocksource_rating	= 125,
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 7, /* initial value */
+	.cks		= 3,
 	.cmcsr_init	= 0x108, /* Free-running, debug */
 };
 
@@ -38,17 +38,14 @@ static struct resource cmt10_resources[] = {
 	{
 		.name	= "CMT10",
 		.start	= 0xe6130000,
-		.end	= 0xe6130044,
+		.end	= 0xe6131003,
 		.flags	= IORESOURCE_MEM,
-	}, {
-		.start	= gic_spi(93),
-		.flags	= IORESOURCE_IRQ,
 	},
 };
 
 static struct platform_device cmt10_device = {
 	.name		= "sh_cmt",
-	.id		= 0,
+	.id		= 10,
 	.dev		= {
 			.platform_data	= &cmt10_platform_data,
 	},
@@ -58,12 +55,12 @@ static struct platform_device cmt10_device = {
 
 static struct sh_timer_config cmt11_platform_data = {
 	.name			= "CMT11",
-	.channel_offset_p	= 0x1000 - 0x100,
+	.channel_offset		= 0x1000,
 	.timer_bit		= 1,
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 7, /* initial value */
+	.cks		= 3,
 	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 };
 
@@ -71,7 +68,7 @@ static struct resource cmt11_resources[] = {
 	{
 		.name	= "CMT11",
 		.start	= 0xe6130100,
-		.end	= 0xe6130144,
+		.end	= 0xe6131003,
 		.flags	= IORESOURCE_MEM,
 	}, {
 		.start	= gic_spi(94),
@@ -81,7 +78,7 @@ static struct resource cmt11_resources[] = {
 
 static struct platform_device cmt11_device = {
 	.name		= "sh_cmt",
-	.id		= 1,
+	.id		= 11,
 	.dev		= {
 			.platform_data	= &cmt11_platform_data,
 	},
@@ -89,9 +86,42 @@ static struct platform_device cmt11_device = {
 	.num_resources	= ARRAY_SIZE(cmt11_resources),
 };
 
+static struct sh_timer_config cmt12_platform_data = {
+	.name			= "CMT12",
+	.channel_offset		= 0x1000 - 0x200,
+	.timer_bit		= 2,
+	.clockevent_rating	= 125,
+	.cks_table	= cmt1_cks_table,
+	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
+	.cks		= 3,
+	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
+};
+
+static struct resource cmt12_resources[] = {
+	{
+		.name	= "CMT12",
+		.start	= 0xe6130200,
+		.end	= 0xe6131003,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= gic_spi(95),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device cmt12_device = {
+	.name		= "sh_cmt",
+	.id		= 12,
+	.dev		= {
+			.platform_data	= &cmt12_platform_data,
+	},
+	.resource	= cmt12_resources,
+	.num_resources	= ARRAY_SIZE(cmt12_resources),
+};
+
 static struct plat_sci_port scif0_platform_data = {
 	.mapbase	= 0xe6450000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -109,7 +139,7 @@ static struct platform_device scif0_device = {
 
 static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -127,7 +157,7 @@ static struct platform_device scif1_device = {
 
 static struct plat_sci_port scif2_platform_data = {
 	.mapbase	= 0xe6c60000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -145,7 +175,7 @@ static struct platform_device scif2_device = {
 
 static struct plat_sci_port scif3_platform_data = {
 	.mapbase	= 0xe6c70000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFA,
@@ -163,7 +193,7 @@ static struct platform_device scif3_device = {
 
 static struct plat_sci_port scif4_platform_data = {
 	.mapbase	= 0xe6c20000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
@@ -181,7 +211,7 @@ static struct platform_device scif4_device = {
 
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
@@ -199,7 +229,7 @@ static struct platform_device scif5_device = {
 
 static struct plat_sci_port scif6_platform_data = {
 	.mapbase	= 0xe6ce0000,
-	.flags		= UPF_BOOT_AUTOCONF,
+	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
 	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
@@ -299,8 +329,15 @@ static struct resource i2c5_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
+#ifdef CONFIG_U2_ES1
+	// This was swapped in ES1 (189 is for I2CB interrupt!)
 		.start	= gic_spi(190),
 		.end	= gic_spi(190),
+#else
+	// In ES2, 189 is for I2C5 and 190 for I2CB.
+		.start	= gic_spi(189),
+		.end	= gic_spi(189),
+#endif
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -473,15 +510,25 @@ static const struct sh_dmae_slave_config r8a73734_dmae_slaves[] = {
 		.chcr		= CHCR_RX(XMIT_SZ_16BIT),
 		.mid_rid	= 0xc6,
 	}, {
-		.slave_id	= SHDMA_SLAVE_MMCIF_TX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
 		.addr		= 0xe6bd0034,
 		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
 		.mid_rid	= 0xd1,
 	}, {
-		.slave_id	= SHDMA_SLAVE_MMCIF_RX,
+		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
 		.addr		= 0xe6bd0034,
 		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
 		.mid_rid	= 0xd2,
+	}, {
+		.slave_id	= SHDMA_SLAVE_MMCIF1_TX,
+		.addr		= 0xe6be0034,
+		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid	= 0xe1,
+	}, {
+		.slave_id	= SHDMA_SLAVE_MMCIF1_RX,
+		.addr		= 0xe6be0034,
+		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
+		.mid_rid	= 0xe2,
 	},
 };
 
@@ -569,7 +616,7 @@ static struct platform_device dma0_device = {
 	},
 };
 
-
+#ifdef CONFIG_SMECO
 static struct resource smc_resources[] =
 {
   [0] = {
@@ -609,10 +656,12 @@ static struct platform_device smc_netdevice1 =
     .resource      = smc_resources,
     .num_resources = ARRAY_SIZE(smc_resources),
 };
+#endif // CONFIG_SMECO
 
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt10_device,
 	&cmt11_device,
+	&cmt12_device,
 	&scif0_device,
 	&scif1_device,
 	&scif2_device,
@@ -629,8 +678,10 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c4_device,
 	&i2c5_device,
 	&dma0_device,
+#ifdef CONFIG_SMECO
 	&smc_netdevice0,
 	&smc_netdevice1,
+#endif
 };
 
 void __init r8a73734_add_standard_devices(void)
@@ -641,7 +692,9 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_late_devices));
 }
 
-#define CCCR		0xe600101c
+#define CCCR	IO_ADDRESS(0xe600101c)
+
+extern void sh_cmt_register_devices(struct platform_device **devs, int num);
 
 void __init r8a73734_add_early_devices(void)
 {
@@ -649,4 +702,8 @@ void __init r8a73734_add_early_devices(void)
 
 	early_platform_add_devices(r8a73734_early_devices,
 			ARRAY_SIZE(r8a73734_early_devices));
+
+#ifdef CONFIG_SH_TIMER_CMT_ARM
+	sh_cmt_register_devices(r8a73734_early_devices, 1 + NR_CPUS);
+#endif
 }

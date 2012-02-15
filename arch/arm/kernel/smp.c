@@ -56,6 +56,8 @@ enum ipi_msg_type {
 	IPI_CPU_BACKTRACE,
 };
 
+static unsigned int skip_secondary_calibrate;
+
 int __cpuinit __cpu_up(unsigned int cpu)
 {
 	struct cpuinfo_arm *ci = &per_cpu(cpu_data, cpu);
@@ -272,6 +274,16 @@ static void __cpuinit smp_store_cpu_info(unsigned int cpuid)
 }
 
 /*
+ * Skip the secondary calibration on architectures sharing clock
+ * with primary cpu. Needs to be called for archs from
+ * platform_secondary_init()
+ */
+void secondary_skip_calibrate(void)
+{
+	skip_secondary_calibrate = 1;
+}
+
+/*
  * This is the secondary CPU boot entry.  We're using this CPUs
  * idle thread stack, but a set of temporary page tables.
  */
@@ -304,7 +316,8 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 
 	notify_cpu_starting(cpu);
 
-	calibrate_delay();
+	if (!skip_secondary_calibrate)
+		calibrate_delay();
 
 	smp_store_cpu_info(cpu);
 
@@ -339,16 +352,20 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 void __init smp_cpus_done(unsigned int max_cpus)
 {
 	int cpu;
+	char bogosums[32];
 	unsigned long bogosum = 0;
 
-	for_each_online_cpu(cpu)
-		bogosum += per_cpu(cpu_data, cpu).loops_per_jiffy;
+	if (!skip_secondary_calibrate) {
+		for_each_online_cpu(cpu)
+			bogosum += per_cpu(cpu_data, cpu).loops_per_jiffy;
 
-	printk(KERN_INFO "SMP: Total of %d processors activated "
-	       "(%lu.%02lu BogoMIPS).\n",
-	       num_online_cpus(),
-	       bogosum / (500000/HZ),
-	       (bogosum / (5000/HZ)) % 100);
+		snprintf(bogosums, sizeof(bogosums), " (%lu.%02lu BogoMIPS)",
+			bogosum / (500000/HZ), (bogosum / (5000/HZ)) % 100);
+	} else
+		bogosums[0] = '\0';
+
+	pr_info("SMP: Total of %d processors activated%s.\n",
+		num_online_cpus(), bogosums);
 }
 
 void __init smp_prepare_boot_cpu(void)

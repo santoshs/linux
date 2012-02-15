@@ -23,6 +23,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <asm/mach/time.h>
+#include <mach/common.h>
 
 static void __init shmobile_late_time_init(void)
 {
@@ -39,7 +40,15 @@ static void __init shmobile_late_time_init(void)
 	 * instead. No error handling is necessary here.
 	 */
 	early_platform_driver_register_all("earlytimer");
-	early_platform_driver_probe("earlytimer", 2, 0);
+	early_platform_driver_probe("earlytimer", 1 + NR_CPUS, 0);
+
+#ifdef CONFIG_SH_TIMER_CMT_ARM
+	shmobile_clocksource_init();
+	shmobile_clockevent_init();
+#endif
+
+	if (lpj_fine)
+		return; /* seems to be set up for the current timer */
 
 	/*
 	 * Calculate loops_per_jiffy using System-CPU frequency if it's
@@ -47,7 +56,7 @@ static void __init shmobile_late_time_init(void)
 	 */
 	clkp = clk_get(NULL, "z_clk");
 	if (!IS_ERR(clkp)) {
-		lpj = clk_get_rate(clkp);
+		lpj = clk_get_rate(clkp) + HZ/2;
 		do_div(lpj, HZ);
 		lpj_fine = lpj;
 		clk_put(clkp);

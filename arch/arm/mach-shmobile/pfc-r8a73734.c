@@ -20,208 +20,135 @@
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/sh_pfc.h>
 #include <mach/irqs.h>
 #include <mach/r8a73734.h>
 
-/* GPIO ids in HW manual are 1:1 to pin#s.
- * Gaps are filled by NA_*, to make GPIO ids in kernel be same as them.
- * So far, we define GPIO_* with the value of NA_GPIO to ease to handle
- * them by conventional code. Special ids, or anything other smarter
- * solution will be preferable, in future. */
-#define GPIO_PORT49 NA_GPIO_PORT49
-#define GPIO_PORT50 NA_GPIO_PORT50
-#define GPIO_PORT51 NA_GPIO_PORT51
-#define GPIO_PORT52 NA_GPIO_PORT52
-#define GPIO_PORT53 NA_GPIO_PORT53
-#define GPIO_PORT54 NA_GPIO_PORT54
-#define GPIO_PORT55 NA_GPIO_PORT55
-#define GPIO_PORT56 NA_GPIO_PORT56
-#define GPIO_PORT57 NA_GPIO_PORT57
-#define GPIO_PORT58 NA_GPIO_PORT58
-#define GPIO_PORT59 NA_GPIO_PORT59
-#define GPIO_PORT60 NA_GPIO_PORT60
-#define GPIO_PORT61 NA_GPIO_PORT61
-#define GPIO_PORT62 NA_GPIO_PORT62
-#define GPIO_PORT63 NA_GPIO_PORT63
-#define GPIO_PORT92 NA_GPIO_PORT92
-#define GPIO_PORT93 NA_GPIO_PORT93
-#define GPIO_PORT94 NA_GPIO_PORT94
-#define GPIO_PORT95 NA_GPIO_PORT95
-#define GPIO_PORT111 NA_GPIO_PORT111
-#define GPIO_PORT112 NA_GPIO_PORT112
-#define GPIO_PORT113 NA_GPIO_PORT113
-#define GPIO_PORT114 NA_GPIO_PORT114
-#define GPIO_PORT115 NA_GPIO_PORT115
-#define GPIO_PORT116 NA_GPIO_PORT116
-#define GPIO_PORT117 NA_GPIO_PORT117
-#define GPIO_PORT118 NA_GPIO_PORT118
-#define GPIO_PORT119 NA_GPIO_PORT119
-#define GPIO_PORT120 NA_GPIO_PORT120
-#define GPIO_PORT121 NA_GPIO_PORT121
-#define GPIO_PORT122 NA_GPIO_PORT122
-#define GPIO_PORT123 NA_GPIO_PORT123
-#define GPIO_PORT124 NA_GPIO_PORT124
-#define GPIO_PORT125 NA_GPIO_PORT125
-#define GPIO_PORT126 NA_GPIO_PORT126
-#define GPIO_PORT127 NA_GPIO_PORT127
-#define GPIO_PORT143 NA_GPIO_PORT143
-#define GPIO_PORT144 NA_GPIO_PORT144
-#define GPIO_PORT145 NA_GPIO_PORT145
-#define GPIO_PORT146 NA_GPIO_PORT146
-#define GPIO_PORT147 NA_GPIO_PORT147
-#define GPIO_PORT148 NA_GPIO_PORT148
-#define GPIO_PORT149 NA_GPIO_PORT149
-#define GPIO_PORT150 NA_GPIO_PORT150
-#define GPIO_PORT151 NA_GPIO_PORT151
-#define GPIO_PORT152 NA_GPIO_PORT152
-#define GPIO_PORT153 NA_GPIO_PORT153
-#define GPIO_PORT154 NA_GPIO_PORT154
-#define GPIO_PORT155 NA_GPIO_PORT155
-#define GPIO_PORT156 NA_GPIO_PORT156
-#define GPIO_PORT157 NA_GPIO_PORT157
-#define GPIO_PORT158 NA_GPIO_PORT158
-#define GPIO_PORT159 NA_GPIO_PORT159
-#define GPIO_PORT160 NA_GPIO_PORT160
-#define GPIO_PORT161 NA_GPIO_PORT161
-#define GPIO_PORT162 NA_GPIO_PORT162
-#define GPIO_PORT163 NA_GPIO_PORT163
-#define GPIO_PORT164 NA_GPIO_PORT164
-#define GPIO_PORT165 NA_GPIO_PORT165
-#define GPIO_PORT166 NA_GPIO_PORT166
-#define GPIO_PORT167 NA_GPIO_PORT167
-#define GPIO_PORT168 NA_GPIO_PORT168
-#define GPIO_PORT169 NA_GPIO_PORT169
-#define GPIO_PORT170 NA_GPIO_PORT170
-#define GPIO_PORT171 NA_GPIO_PORT171
-#define GPIO_PORT172 NA_GPIO_PORT172
-#define GPIO_PORT173 NA_GPIO_PORT173
-#define GPIO_PORT174 NA_GPIO_PORT174
-#define GPIO_PORT175 NA_GPIO_PORT175
-#define GPIO_PORT176 NA_GPIO_PORT176
-#define GPIO_PORT177 NA_GPIO_PORT177
-#define GPIO_PORT178 NA_GPIO_PORT178
-#define GPIO_PORT179 NA_GPIO_PORT179
-#define GPIO_PORT180 NA_GPIO_PORT180
-#define GPIO_PORT181 NA_GPIO_PORT181
-#define GPIO_PORT182 NA_GPIO_PORT182
-#define GPIO_PORT183 NA_GPIO_PORT183
-#define GPIO_PORT184 NA_GPIO_PORT184
-#define GPIO_PORT185 NA_GPIO_PORT185
-#define GPIO_PORT186 NA_GPIO_PORT186
-#define GPIO_PORT187 NA_GPIO_PORT187
-#define GPIO_PORT188 NA_GPIO_PORT188
-#define GPIO_PORT189 NA_GPIO_PORT189
-#define GPIO_PORT190 NA_GPIO_PORT190
-#define GPIO_PORT191 NA_GPIO_PORT191
-#define GPIO_PORT192 NA_GPIO_PORT192
-#define GPIO_PORT193 NA_GPIO_PORT193
-#define GPIO_PORT194 NA_GPIO_PORT194
-#define GPIO_PORT195 NA_GPIO_PORT195
-#define GPIO_PORT196 NA_GPIO_PORT196
-#define GPIO_PORT197 NA_GPIO_PORT197
-#define GPIO_PORT198 NA_GPIO_PORT198
-#define GPIO_PORT199 NA_GPIO_PORT199
-#define GPIO_PORT200 NA_GPIO_PORT200
-#define GPIO_PORT201 NA_GPIO_PORT201
-#define GPIO_PORT219 NA_GPIO_PORT219
-#define GPIO_PORT220 NA_GPIO_PORT220
-#define GPIO_PORT221 NA_GPIO_PORT221
-#define GPIO_PORT222 NA_GPIO_PORT222
-#define GPIO_PORT223 NA_GPIO_PORT223
-#define GPIO_PORT273 NA_GPIO_PORT273
-#define GPIO_PORT274 NA_GPIO_PORT274
-#define GPIO_PORT275 NA_GPIO_PORT275
-#define GPIO_PORT276 NA_GPIO_PORT276
-#define GPIO_PORT277 NA_GPIO_PORT277
-#define GPIO_PORT278 NA_GPIO_PORT278
-#define GPIO_PORT279 NA_GPIO_PORT279
-#define GPIO_PORT280 NA_GPIO_PORT280
-#define GPIO_PORT281 NA_GPIO_PORT281
-#define GPIO_PORT282 NA_GPIO_PORT282
-#define GPIO_PORT283 NA_GPIO_PORT283
-#define GPIO_PORT284 NA_GPIO_PORT284
-#define GPIO_PORT285 NA_GPIO_PORT285
-#define GPIO_PORT286 NA_GPIO_PORT286
-#define GPIO_PORT287 NA_GPIO_PORT287
-#define GPIO_PORT294 NA_GPIO_PORT294
-#define GPIO_PORT295 NA_GPIO_PORT295
-#define GPIO_PORT296 NA_GPIO_PORT296
-#define GPIO_PORT297 NA_GPIO_PORT297
-#define GPIO_PORT298 NA_GPIO_PORT298
-#define GPIO_PORT299 NA_GPIO_PORT299
-#define GPIO_PORT311 NA_GPIO_PORT311
-#define GPIO_PORT312 NA_GPIO_PORT312
-#define GPIO_PORT313 NA_GPIO_PORT313
-#define GPIO_PORT314 NA_GPIO_PORT314
-#define GPIO_PORT315 NA_GPIO_PORT315
-#define GPIO_PORT316 NA_GPIO_PORT316
-#define GPIO_PORT317 NA_GPIO_PORT317
-#define GPIO_PORT318 NA_GPIO_PORT318
-#define GPIO_PORT319 NA_GPIO_PORT319
-
-#define _1(fn, pfx, sfx) fn(pfx, sfx)
-
-#define _10(fn, pfx, sfx) \
-	_1(fn, pfx##0, sfx), _1(fn, pfx##1, sfx), \
-	_1(fn, pfx##2, sfx), _1(fn, pfx##3, sfx), \
-	_1(fn, pfx##4, sfx), _1(fn, pfx##5, sfx), \
-	_1(fn, pfx##6, sfx), _1(fn, pfx##7, sfx), \
-	_1(fn, pfx##8, sfx), _1(fn, pfx##9, sfx)
-
-#define _90(fn, pfx, sfx) \
-	_10(fn, pfx##1, sfx), _10(fn, pfx##2, sfx), \
-	_10(fn, pfx##3, sfx), _10(fn, pfx##4, sfx), \
-	_10(fn, pfx##5, sfx), _10(fn, pfx##6, sfx), \
-	_10(fn, pfx##7, sfx), _10(fn, pfx##8, sfx), \
-	_10(fn, pfx##9, sfx)
-
-#define _328(fn, pfx, sfx) \
-	_10(fn, pfx, sfx), _90(fn, pfx, sfx), \
-	_10(fn, pfx##10, sfx), _90(fn, pfx##1, sfx), \
-	_10(fn, pfx##20, sfx), _90(fn, pfx##2, sfx), \
-	_10(fn, pfx##30, sfx), _10(fn, pfx##31, sfx), \
-	_1(fn, pfx##320, sfx), _1(fn, pfx##321, sfx), \
-	_1(fn, pfx##322, sfx), _1(fn, pfx##323, sfx), \
-	_1(fn, pfx##324, sfx), _1(fn, pfx##325, sfx), \
-	_1(fn, pfx##326, sfx), _1(fn, pfx##327, sfx)
-
-#define _PORT(pfx, sfx) pfx##_##sfx
-#define PORT_328(str) _328(_PORT, PORT, str)
+#define CPU_ALL_PORT(fn, pfx, sfx) \
+	PORT_10(fn, pfx, sfx), \
+	PORT_10(fn, pfx##1, sfx), \
+	PORT_10(fn, pfx##2, sfx), \
+	PORT_10(fn, pfx##3, sfx), \
+	PORT_1(fn, pfx##40, sfx), \
+	PORT_1(fn, pfx##41, sfx), \
+	PORT_1(fn, pfx##42, sfx), \
+	PORT_1(fn, pfx##43, sfx), \
+	PORT_1(fn, pfx##44, sfx), \
+	PORT_1(fn, pfx##45, sfx), \
+	PORT_1(fn, pfx##46, sfx), \
+	PORT_1(fn, pfx##47, sfx), \
+	PORT_1(fn, pfx##48, sfx), \
+	/* #49 to #63 are not a GPIO */ \
+	PORT_1(fn, pfx##64, sfx), \
+	PORT_1(fn, pfx##65, sfx), \
+	PORT_1(fn, pfx##66, sfx), \
+	PORT_1(fn, pfx##67, sfx), \
+	PORT_1(fn, pfx##68, sfx), \
+	PORT_1(fn, pfx##69, sfx), \
+	PORT_10(fn, pfx##7, sfx), \
+	PORT_10(fn, pfx##8, sfx), \
+	PORT_1(fn, pfx##90, sfx), \
+	PORT_1(fn, pfx##91, sfx), \
+	/* #92 to #95 are not a GPIO */ \
+	PORT_1(fn, pfx##96, sfx), \
+	PORT_1(fn, pfx##97, sfx), \
+	PORT_1(fn, pfx##98, sfx), \
+	PORT_1(fn, pfx##99, sfx), \
+	PORT_10(fn, pfx##10, sfx), \
+	PORT_1(fn, pfx##110, sfx), \
+	/* #111 to #127 are not a GPIO */ \
+	PORT_1(fn, pfx##128, sfx), \
+	PORT_1(fn, pfx##129, sfx), \
+	PORT_10(fn, pfx##13, sfx), \
+	PORT_1(fn, pfx##140, sfx), \
+	PORT_1(fn, pfx##141, sfx), \
+	PORT_1(fn, pfx##142, sfx), \
+	/* #143 to #201 are not a GPIO */ \
+	PORT_1(fn, pfx##202, sfx), \
+	PORT_1(fn, pfx##203, sfx), \
+	PORT_1(fn, pfx##204, sfx), \
+	PORT_1(fn, pfx##205, sfx), \
+	PORT_1(fn, pfx##206, sfx), \
+	PORT_1(fn, pfx##207, sfx), \
+	PORT_1(fn, pfx##208, sfx), \
+	PORT_1(fn, pfx##209, sfx), \
+	PORT_1(fn, pfx##210, sfx), \
+	PORT_1(fn, pfx##211, sfx), \
+	PORT_1(fn, pfx##212, sfx), \
+	PORT_1(fn, pfx##213, sfx), \
+	PORT_1(fn, pfx##214, sfx), \
+	PORT_1(fn, pfx##215, sfx), \
+	PORT_1(fn, pfx##216, sfx), \
+	PORT_1(fn, pfx##217, sfx), \
+	PORT_1(fn, pfx##218, sfx), \
+	/* #219 to #223 are not a GPIO */ \
+	PORT_1(fn, pfx##224, sfx), \
+	PORT_1(fn, pfx##225, sfx), \
+	PORT_1(fn, pfx##226, sfx), \
+	PORT_1(fn, pfx##227, sfx), \
+	PORT_1(fn, pfx##228, sfx), \
+	PORT_1(fn, pfx##229, sfx), \
+	PORT_10(fn, pfx##23, sfx), \
+	PORT_10(fn, pfx##24, sfx), \
+	PORT_10(fn, pfx##25, sfx), \
+	PORT_10(fn, pfx##26, sfx), \
+	PORT_1(fn, pfx##270, sfx), \
+	PORT_1(fn, pfx##271, sfx), \
+	PORT_1(fn, pfx##272, sfx), \
+	/* #273 to #287 are not a GPIO */ \
+	PORT_1(fn, pfx##288, sfx), \
+	PORT_1(fn, pfx##289, sfx), \
+	PORT_1(fn, pfx##290, sfx), \
+	PORT_1(fn, pfx##291, sfx), \
+	PORT_1(fn, pfx##292, sfx), \
+	PORT_1(fn, pfx##293, sfx), \
+	/* #294 to #299 are not a GPIO */ \
+	PORT_10(fn, pfx##30, sfx), \
+	PORT_1(fn, pfx##310, sfx), \
+	/* #311 to #319 are not a GPIO */ \
+	PORT_1(fn, pfx##320, sfx), \
+	PORT_1(fn, pfx##321, sfx), \
+	PORT_1(fn, pfx##322, sfx), \
+	PORT_1(fn, pfx##323, sfx), \
+	PORT_1(fn, pfx##324, sfx), \
+	PORT_1(fn, pfx##325, sfx), \
+	PORT_1(fn, pfx##326, sfx), \
+	PORT_1(fn, pfx##327, sfx)
 
 enum {
 	PINMUX_RESERVED = 0,
 
 	PINMUX_DATA_BEGIN,
-	PORT_328(DATA),                 /* PORT0_DATA -> PORT327_DATA */
+	PORT_ALL(DATA),                 /* PORT0_DATA -> PORT327_DATA */
 	PINMUX_DATA_END,
 
 	PINMUX_INPUT_BEGIN,
-	PORT_328(IN),                   /* PORT0_IN -> PORT327_IN */
+	PORT_ALL(IN),                   /* PORT0_IN -> PORT327_IN */
 	PINMUX_INPUT_END,
 
 	PINMUX_INPUT_PULLUP_BEGIN,
-	PORT_328(IN_PU),                /* PORT0_IN_PU -> PORT327_IN_PU */
+	PORT_ALL(IN_PU),                /* PORT0_IN_PU -> PORT327_IN_PU */
 	PINMUX_INPUT_PULLUP_END,
 
 	PINMUX_INPUT_PULLDOWN_BEGIN,
-	PORT_328(IN_PD),                /* PORT0_IN_PD -> PORT327_IN_PD */
+	PORT_ALL(IN_PD),                /* PORT0_IN_PD -> PORT327_IN_PD */
 	PINMUX_INPUT_PULLDOWN_END,
 
 	PINMUX_OUTPUT_BEGIN,
-	PORT_328(OUT),                  /* PORT0_OUT -> PORT327_OUT */
+	PORT_ALL(OUT),                  /* PORT0_OUT -> PORT327_OUT */
 	PINMUX_OUTPUT_END,
 
 	PINMUX_FUNCTION_BEGIN,
-	PORT_328(FN_IN),		/* PORT0_FN_IN -> PORT327_FN_IN */
-	PORT_328(FN_OUT),		/* PORT0_FN_OUT -> PORT327_FN_OUT */
-	PORT_328(FN0),			/* PORT0_FN0 -> PORT327_FN0 */
-	PORT_328(FN1),			/* PORT0_FN1 -> PORT327_FN1 */
-	PORT_328(FN2),			/* PORT0_FN2 -> PORT327_FN2 */
-	PORT_328(FN3),			/* PORT0_FN3 -> PORT327_FN3 */
-	PORT_328(FN4),			/* PORT0_FN4 -> PORT327_FN4 */
-	PORT_328(FN5),			/* PORT0_FN5 -> PORT327_FN5 */
+	PORT_ALL(FN_IN),		/* PORT0_FN_IN -> PORT327_FN_IN */
+	PORT_ALL(FN_OUT),		/* PORT0_FN_OUT -> PORT327_FN_OUT */
+	PORT_ALL(FN0),			/* PORT0_FN0 -> PORT327_FN0 */
+	PORT_ALL(FN1),			/* PORT0_FN1 -> PORT327_FN1 */
+	PORT_ALL(FN2),			/* PORT0_FN2 -> PORT327_FN2 */
+	PORT_ALL(FN3),			/* PORT0_FN3 -> PORT327_FN3 */
+	PORT_ALL(FN4),			/* PORT0_FN4 -> PORT327_FN4 */
+	PORT_ALL(FN5),			/* PORT0_FN5 -> PORT327_FN5 */
 
 	MSEL3CR_MSEL28_0, MSEL3CR_MSEL28_1,
 	MSEL3CR_MSEL27_0, MSEL3CR_MSEL27_1,
@@ -463,45 +390,6 @@ enum {
 
 	PINMUX_MARK_END,
 };
-
-#define PORT_DATA_I(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0, PORT##nr##_IN)
-
-#define PORT_DATA_I_PD(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_IN, PORT##nr##_IN_PD)
-
-#define PORT_DATA_I_PU(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_IN, PORT##nr##_IN_PU)
-
-#define PORT_DATA_I_PU_PD(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_IN, PORT##nr##_IN_PD,	\
-				PORT##nr##_IN_PU)
-
-#define PORT_DATA_O(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_OUT)
-
-#define PORT_DATA_IO(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_OUT, PORT##nr##_IN)
-
-#define PORT_DATA_IO_PD(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_OUT, PORT##nr##_IN,		\
-				PORT##nr##_IN_PD)
-
-#define PORT_DATA_IO_PU(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_OUT, PORT##nr##_IN,		\
-				PORT##nr##_IN_PU)
-
-#define PORT_DATA_IO_PU_PD(nr)	\
-	PINMUX_DATA(PORT##nr##_DATA, PORT##nr##_FN0,	\
-				PORT##nr##_OUT, PORT##nr##_IN,		\
-				PORT##nr##_IN_PD, PORT##nr##_IN_PU)
 
 static pinmux_enum_t pinmux_data[] = {
 	/* specify valid pin states for each pin in GPIO mode */
@@ -1037,13 +925,8 @@ static pinmux_enum_t pinmux_data[] = {
 	PINMUX_DATA(ASEBRK_PU_MARK, MSEL4CR_MSEL1_1),
 };
 
-
-#define _GPIO_PORT(pfx, sfx) PINMUX_GPIO(GPIO_PORT##pfx, PORT##pfx##_DATA)
-#define GPIO_PORT_328() _328(_GPIO_PORT, , unused)
-#define GPIO_FN(str) PINMUX_GPIO(GPIO_FN_##str, str##_MARK)
-
 static struct pinmux_gpio pinmux_gpios[] = {
-	GPIO_PORT_328(),
+	GPIO_PORT_ALL(),
 
 	/* Table 9-1 (Functions 0-5) */
 	GPIO_FN(LCDD0),
@@ -1858,6 +1741,14 @@ static struct pinmux_irq pinmux_irqs[] = {
 	PINMUX_IRQ(irqpin2irq(50), PORT327_FN0),
 };
 
+static struct resource r8a73734_pfc_resources[] = {
+	[0] = {
+		.start	= 0xe6050000,
+		.end	= 0xe605819f,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
 static struct pinmux_info r8a73734_pinmux_info = {
 	.name = "r8a73734_pfc",
 	.reserved_id = PINMUX_RESERVED,
@@ -1881,6 +1772,11 @@ static struct pinmux_info r8a73734_pinmux_info = {
 
 	.gpio_irq = pinmux_irqs,
 	.gpio_irq_size = ARRAY_SIZE(pinmux_irqs),
+
+	.resource = r8a73734_pfc_resources,
+	.num_resources = ARRAY_SIZE(r8a73734_pfc_resources),
+
+	.set_debounce = r8a73734_irqc_set_debounce,
 };
 
 void r8a73734_pinmux_init(void)

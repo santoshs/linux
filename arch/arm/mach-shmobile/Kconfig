@@ -82,6 +82,13 @@ config MACH_U2EVM
 	select SH_LCD_MIPI_DSI
 	depends on ARCH_R8A73734
 
+config U2_ES1
+	bool "U2 ES1.0"
+	default y
+	depends on ARCH_R8A73734
+	help
+	  R-Mobile-U2 Engineering Sample 1.0.
+
 comment "SH-Mobile System Configuration"
 
 menu "Memory configuration"
@@ -91,7 +98,7 @@ config MEMORY_START
 	default "0x50000000" if MACH_G3EVM
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL
-	default "0x44000000" if MACH_U2EVM
+	default "0x50000000" if MACH_U2EVM
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -128,6 +135,11 @@ config SHMOBILE_TIMER_HZ
 
 config SH_TIMER_CMT
 	bool "CMT timer driver"
+	help
+	  This enables build of the CMT timer driver.
+
+config SH_TIMER_CMT_ARM
+	bool "CMT timer driver dedicated for ARM CPU timer"
 	default y
 	help
 	  This enables build of the CMT timer driver.
@@ -142,6 +154,16 @@ endmenu
 
 config SH_CLK_CPG
 	bool
+
+menu "Modem STM trace and debug configuration"
+
+config MUX_STM_TO_SDHI1
+        bool "Mux STM to SDHI1"
+        default y
+        help
+          Mux STM CLK, DATA0-3, and SIDI to SDHI1 interface.
+
+endmenu
 
 source "drivers/sh/Kconfig"
 

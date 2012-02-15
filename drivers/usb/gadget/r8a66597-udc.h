@@ -27,7 +27,7 @@
 #include <linux/clk.h>
 #endif
 
-#if defined(CONFIG_ARCH_SH73A0)
+#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
 #define USBHS_TYPE_BULK_PIPES_12
 #endif
 

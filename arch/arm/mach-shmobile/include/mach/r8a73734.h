@@ -300,6 +300,8 @@ enum {
 	/* Functions with pull-ups */
 };
 
+extern int r8a73734_irqc_set_debounce(int irq, unsigned debounce);
+
 /* DMA slave IDs */
 enum {
 	SHDMA_SLAVE_INVALID,
@@ -321,8 +323,18 @@ enum {
 	SHDMA_SLAVE_SDHI0_RX,
 	SHDMA_SLAVE_SDHI1_TX,
 	SHDMA_SLAVE_SDHI1_RX,
-	SHDMA_SLAVE_MMCIF_TX,
-	SHDMA_SLAVE_MMCIF_RX,
+	SHDMA_SLAVE_MMCIF0_TX,
+	SHDMA_SLAVE_MMCIF0_RX,
+	SHDMA_SLAVE_MMCIF1_TX,
+	SHDMA_SLAVE_MMCIF1_RX,
 };
+
+/*
+ * io_address
+ * 0xe6000000 -> 0xf6000000
+ * 0xf0000000 -> 0xf7000000
+ */
+#define IO_BASE	0xf6000000
+#define IO_ADDRESS(x) ((((x) & 0x10000000)>>4)  | ((x) & 0x00ffffff) | IO_BASE)
 
 #endif /* __ASM_R8A73734_H__ */

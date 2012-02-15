@@ -68,6 +68,7 @@ struct sh_mmcif_plat_data {
 #define MMCIF_CE_HOST_STS1	0x00000048
 #define MMCIF_CE_HOST_STS2	0x0000004C
 #define MMCIF_CE_VERSION	0x0000007C
+#define MMCIF_CE_DELAY_SEL	0x00000080
 
 /* CE_BUF_ACC */
 #define BUF_ACC_DMAWEN		(1 << 25)

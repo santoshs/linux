@@ -156,8 +156,10 @@ extern u64 timecounter_cyc2time(struct timecounter *tc,
  * @vread:		vsyscall based read
  * @suspend:		suspend function for the clocksource, if necessary
  * @resume:		resume function for the clocksource, if necessary
+ * @priv:		private pointer for the driver's use
  */
 struct clocksource {
+	void *priv;
 	/*
 	 * Hotpath data, fits in a single cache line when the
 	 * clocksource itself is cacheline aligned.

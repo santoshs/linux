@@ -171,6 +171,7 @@
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		25	/* msec */
 #define MXT_RESET_TIME		65	/* msec */
+#define MXT_RESET_NOCHGREAD	200     /* msec */
 
 #define MXT_FWRESET_TIME	175	/* msec */
 
@@ -793,6 +794,7 @@ static int mxt_initialize(struct mxt_data *data)
 	struct mxt_info *info = &data->info;
 	int error;
 	u8 val;
+	int timeout = 0;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -828,6 +830,16 @@ static int mxt_initialize(struct mxt_data *data)
 	mxt_write_object(data, MXT_GEN_COMMAND,
 			MXT_COMMAND_RESET, 1);
 	msleep(MXT_RESET_TIME);
+	if (data->pdata->read_chg) {
+		while ((timeout++ < 100) && data->pdata->read_chg())
+			msleep(2);
+		if (timeout >= 100) {
+			dev_err(&client->dev, "No response after reset!\n");
+			return -EIO;
+		}
+	} else {
+		msleep(MXT_RESET_NOCHGREAD);
+	}
 
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
