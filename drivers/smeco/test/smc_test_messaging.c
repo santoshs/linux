@@ -47,6 +47,8 @@ Description :  File created
     /* Local messaging test case functions */
 static uint8_t smc_start_messaging_test_single_cpu(uint8_t* test_input_data, uint16_t test_input_data_len);
 
+static uint8_t smc_test_handler_send_phonet_message(uint8_t* test_input_data, uint32_t test_input_data_len);
+
 uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
     uint8_t  test_result = SMC_ERROR;
@@ -105,6 +107,16 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
 
                 break;
             }
+            case 0x02:
+            {
+                uint32_t data_length = (test_input_data_len-data_index);
+
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: smc_test_handler_send_phonet_message...");
+
+                test_result = smc_test_handler_send_phonet_message(&test_input_data[data_index], data_length);
+
+                break;
+            }
             case 0xFE:
             {
 #ifdef INCLUDE_I2C_TEST
@@ -149,6 +161,52 @@ static uint8_t smc_start_messaging_test_single_cpu(uint8_t* test_input_data, uin
     
     return test_result;
 }
+
+static uint8_t smc_test_handler_send_phonet_message(uint8_t* test_input_data, uint32_t test_input_data_len)
+{
+    uint8_t return_value = SMC_ERROR;
+
+#ifdef SMECO_MODEM
+#if(MEXE_TARGET_IMAGE == MEXE_TARGET_IMAGE_L2)
+
+    if( test_input_data_len >= 10 )
+    {
+
+        pn_msg* pn_message = (pn_msg*)SMC_MALLOC(test_input_data_len);
+
+        memcpy( pn_message, test_input_data, test_input_data_len);
+
+
+        if( pn_msg_send(pn_message) == PN_OK )
+        {
+            SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_phonet_message: Phonet message 0x%08X successfully sent", pn_message);
+            return_value = SMC_OK;
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_phonet_message: Phonet message 0x%08X send failed", pn_message);
+            /* Do not free the message */
+            return_value = SMC_ERROR;
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_phonet_message: not enough data for phonet message");
+        return_value = SMC_ERROR;
+
+    }
+
+#else
+    SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_phonet_message: IMPLEMENTED ONLY IN L2");
+#endif
+#else
+    SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_phonet_message: IMPLEMENTED ONLY IN MODEM");
+#endif
+
+    return return_value;
+
+}
+
 
 #ifdef INCLUDE_I2C_TEST
 

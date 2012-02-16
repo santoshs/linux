@@ -68,7 +68,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.15"
+#define SMC_SW_VERSION  "0.0.17"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -335,6 +335,7 @@ uint8_t               smc_send_event(smc_channel_t* channel, SMC_CHANNEL_EVENT e
 
 uint8_t               smc_initialize( smc_conf_t* smc_instance_conf );
 
+void                  smc_channel_free_ptr_local(const  smc_channel_t* smc_channel, void* ptr, smc_user_data_t* userdata);
 
     /*
      * Structure holding signal handler information.

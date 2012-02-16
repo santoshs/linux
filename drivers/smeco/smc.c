@@ -183,6 +183,15 @@ static inline void* smc_allocate_local_ptr( const smc_channel_t* smc_channel, ui
     return ptr;
 }
 
+/**
+ * Frees pointer that was locally allocated in the channel operations.
+ */
+void smc_channel_free_ptr_local(const  smc_channel_t* smc_channel, void* ptr, smc_user_data_t* userdata)
+{
+    smc_free_local_ptr( smc_channel, ptr, userdata);
+}
+
+
 /*
  * Deallocates local pointer from proper source.
  */
@@ -194,19 +203,19 @@ static inline void smc_free_local_ptr(const  smc_channel_t* smc_channel, void* p
 
     if( smc_mdb_address_check( smc_channel, ptr, SMC_MDB_OUT) == SMC_OK )
     {
-        SMC_TRACE_PRINTF_INFO("smc_free_local_ptr: channel %d (0x%08X): deallocating ptr 0x%08X from MDB...", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr);
+        SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: channel %d (0x%08X): deallocating ptr 0x%08X from MDB...", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr);
         smc_mdb_free( smc_channel, ptr );
     }
     else if( smc_channel->smc_send_data_deallocator_cb != NULL )
     {
-        SMC_TRACE_PRINTF_INFO("smc_free_local_ptr: Channel %d: deallocating using deallocator callback 0x%08X...",
-                smc_channel->id, (uint32_t)smc_channel->smc_send_data_deallocator_cb);
+        SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: Channel %d: deallocating ptr 0x%08X using deallocator callback 0x%08X...",
+                        smc_channel->id, (uint32_t)ptr, (uint32_t)smc_channel->smc_send_data_deallocator_cb);
 
         smc_channel->smc_send_data_deallocator_cb( smc_channel, ptr, userdata );
     }
     else
     {
-        SMC_TRACE_PRINTF_INFO("smc_free_local_ptr: Channel %d: deallocating using OS...", smc_channel->id);
+        SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: Channel %d: deallocating ptr 0x%08X using OS...", smc_channel->id, (uint32_t)ptr );
 
         SMC_FREE( ptr );
         ptr = NULL;
@@ -568,10 +577,13 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                         {
                             void* data = NULL;
 
-                            SMC_TRACE_PRINTF_DEBUG("smc_channel_interrupt_handler: SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB");
+                            SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB");
 
                                 /* Do the address translation because the remote send the data ptr to free as it gets it */
                             data = (void*)smc_local_address_translate( smc_channel, celldata.data, celldata.flags );
+
+                            SMC_TRACE_PRINTF_DEBUG("smc_channel_interrupt_handler(ch %d): SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB 0x%08X",
+                            smc_channel->id, (uint32_t)data);
 
                             smc_free_local_ptr( smc_channel, data, &userdata );
                         }

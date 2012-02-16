@@ -1038,6 +1038,8 @@ static void smc_receive_data_callback_channel_conf_1( void*   data,
     SMC_TEST_TRACE_PRINTF_INFO("==============================================================================================");
 }
 
+
+
 #ifdef SMECO_LINUX_ANDROID
 
     /* ====================================================
@@ -1064,6 +1066,8 @@ uint8_t smc_test_handler_send_message(uint16_t test_case_id, uint8_t* test_input
 }
 
 #else
+
+
 
 
 /*

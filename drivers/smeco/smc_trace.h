@@ -40,8 +40,8 @@ Description :  File created
 #define SMC_TRACE_VERSION_INFO_ENABLED
 #define SMC_TRACE_ASSERT_ENABLED
 #define SMC_TRACE_ERROR_ENABLED
-#define SMC_TRACE_DEBUG_ENABLED
 #define SMC_TRACE_WARNING_ENABLED
+/*#define SMC_TRACE_DEBUG_ENABLED*/
 /*#define SMC_TRACE_INFO_ENABLED*/
 
 /* -----------------------------------
@@ -52,6 +52,7 @@ Description :  File created
 /*#define SMC_TRACE_MDB_ENABLED*/
 /*#define SMC_TRACE_SIGNALS_ENABLED*/
 
+/*#define SMC_TRACE_TRANSMIT_ENABLED*/
 
 
 /**
@@ -87,6 +88,14 @@ Description :  File created
 #else
   #define SMC_TRACE_PRINTF_SIGNAL(...)
   #define SMC_TRACE_PRINTF_SIGNAL_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_TRANSMIT_ENABLED
+  #define SMC_TRACE_PRINTF_TRANSMIT(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"XMIT: " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_TRANSMIT(...)
+  #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data )
 #endif
 
 
