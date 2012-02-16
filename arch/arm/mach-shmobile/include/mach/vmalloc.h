@@ -1,7 +1,7 @@
 #ifndef __ASM_MACH_VMALLOC_H
 #define __ASM_MACH_VMALLOC_H
 
-#ifdef CONFIG_ARCH_R8A73734
+#if 0
 /* Vmalloc at ... - 0xf5ffffff */
 #define VMALLOC_END 0xf6000000UL
 #else

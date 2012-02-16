@@ -680,16 +680,25 @@ static struct i2c_board_info i2c4_devices[] = {
 
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
-		.virtual	= 0xf6000000,
+		.virtual	= 0xe6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_16M,
+		.length		= SZ_256M,
 		.type		= MT_DEVICE
 	},
 	{
-		.virtual	= 0xf7000000,
-		.pfn		= __phys_to_pfn(0xf0000000),
-		.length		= SZ_2M,
-		.type		= MT_DEVICE
+		/*
+		 * Create 4 MiB of virtual address hole within a big 1:1 map
+		 * requested above, which is dedicated for the RT-CPU driver.
+		 *
+		 * According to the hardware manuals, physical 0xefc00000
+		 * space is reserved for Router and a data abort error will
+		 * be generated if access is made there.  So this partial
+		 * mapping change won't be a problem.
+		 */
+		.virtual        = 0xefc00000,
+		.pfn            = __phys_to_pfn(0xffc00000),
+		.length         = SZ_4M,
+		.type           = MT_DEVICE
 	},
 };
 
