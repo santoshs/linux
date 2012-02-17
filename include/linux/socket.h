@@ -192,7 +192,9 @@ struct ucred {
 #define AF_IEEE802154	36	/* IEEE802154 sockets		*/
 #define AF_CAIF		37	/* CAIF sockets			*/
 #define AF_ALG		38	/* Algorithm sockets		*/
-#define AF_MAX		39	/* For now.. */
+#define AF_MHI		39	/* MHI sockets			*/
+#define AF_RAW		40	/* RAW sockets			*/
+#define AF_MAX		41	/* For now.. */
 
 /* Protocol families, same as address families. */
 #define PF_UNSPEC	AF_UNSPEC
@@ -234,6 +236,8 @@ struct ucred {
 #define PF_IEEE802154	AF_IEEE802154
 #define PF_CAIF		AF_CAIF
 #define PF_ALG		AF_ALG
+#define PF_MHI		AF_MHI
+#define PF_RAW		AF_RAW
 #define PF_MAX		AF_MAX
 
 /* Maximum queue length specifiable by listen.  */

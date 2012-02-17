@@ -25,6 +25,12 @@
 
 #include <linux/types.h>
 
+/* Phonet media types */
+#define PN_MEDIA_ROUTING	0x00
+#define PN_MEDIA_USB		0x1B
+#define PN_MEDIA_DEFAULT	0x25
+#define PN_MEDIA_MODEM_HOST_IF  0x26
+
 /* Automatic protocol selection */
 #define PN_PROTO_TRANSPORT	0
 /* Phonet datagram socket */
@@ -50,6 +56,8 @@
 #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
 #define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
 #define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
+#define SIOCCONFIGTYPE		(SIOCPROTOPRIVATE + 1)
+#define SIOCCONFIGSUBTYPE	(SIOCPROTOPRIVATE + 2)
 
 /* Phonet protocol header */
 struct phonethdr {

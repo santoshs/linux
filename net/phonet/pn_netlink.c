@@ -69,9 +69,9 @@ static int addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *attr)
 	struct ifaddrmsg *ifm;
 	int err;
 	u8 pnaddr;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+//PATCH
+//	if (!capable(CAP_SYS_ADMIN))
+//		return -EPERM;
 
 	ASSERT_RTNL();
 
@@ -228,9 +228,10 @@ static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *attr)
 	int err;
 	u8 dst;
 
+/*FIXME For now comment this out
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
-
+*/
 	ASSERT_RTNL();
 
 	err = nlmsg_parse(nlh, sizeof(*rtm), tb, RTA_MAX, rtm_phonet_policy);
@@ -264,11 +265,10 @@ static int route_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
 	struct net *net = sock_net(skb->sk);
 	u8 addr, addr_idx = 0, addr_start_idx = cb->args[0];
 
-	rcu_read_lock();
 	for (addr = 0; addr < 64; addr++) {
 		struct net_device *dev;
 
-		dev = phonet_route_get_rcu(net, addr << 2);
+		dev = phonet_route_get(net, addr << 2);
 		if (!dev)
 			continue;
 
@@ -280,7 +280,6 @@ static int route_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
 	}
 
 out:
-	rcu_read_unlock();
 	cb->args[0] = addr_idx;
 	cb->args[1] = 0;
 
