@@ -67,6 +67,8 @@ smc_channel_conf_t* smc_channel_conf_create( void )
          */
     conf->channel_id    = 0;
     conf->priority      = SMC_CHANNEL_PRIORITY_DEFAULT;
+    conf->copy_scheme   = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
+
     conf->fifo_size_in  = 0;
     conf->fifo_size_out = 0;
     conf->mdb_size_in   = 0;

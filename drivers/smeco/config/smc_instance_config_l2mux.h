@@ -46,8 +46,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
             .protocol            = 0x00,
             .fifo_size_master    = 30,
             .fifo_size_slave     = 30,
-            .mdb_size_master     = 1024*512,
-            .mdb_size_slave      = 1024*512,
+            .mdb_size_master     = 1024*256,
+            .mdb_size_slave      = 1024*256,
 
                 /*
                  * Master side signal configuration
@@ -101,10 +101,10 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
      {
              .name                = "ETH_P_MHDP",
              .protocol            = 0x00,
-             .fifo_size_master    = 30,
-             .fifo_size_slave     = 30,
-             .mdb_size_master     = 1024*512,
-             .mdb_size_slave      = 1024*512,
+             .fifo_size_master    = 300,
+             .fifo_size_slave     = 300,
+             .mdb_size_master     = 1024*768,
+             .mdb_size_slave      = 1024*768,
 
                  /*
                   * Master side signal configuration

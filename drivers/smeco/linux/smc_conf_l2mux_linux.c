@@ -170,7 +170,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
     {
         SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: net device is 0x%08X", (uint32_t)device);
 
-        if (unlikely( !netif_running(device) ) )
+        if( unlikely( !netif_running(device) ) )
         {
             SMC_TRACE_PRINTF_WARNING("smc_receive_data_callback_channel_l2mux: Device 0x%08X not running, drop RX packet", (uint32_t)device);
             device->stats.rx_dropped++;
@@ -179,7 +179,6 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         {
             struct sk_buff *skb = NULL;
 
-            /* TODO Check the L2 header */
             /* TODO Use channel allocator */
 
             skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
@@ -192,23 +191,23 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
             else
             {
                 smc_device_driver_priv_t* smc_net_dev = NULL;
-		char* skb_data_buffer = NULL;
+                char* skb_data_buffer = NULL;
                 
-		skb_data_buffer = skb_put(skb, data_length);
+                skb_data_buffer = skb_put(skb, data_length);
 
-		SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X...",
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X...",
                         data, (uint32_t)skb->data, skb_data_buffer);
 
                 // skb_put(skb, data_length); /* Put the length  l3len = LENGTH_IN_HEADER (hsi_data_client->rx_l2_header); in hsi_logical.c */
-		//memcpy(skb->data, data, data_length);
+                //memcpy(skb->data, data, data_length);
 
 
-		/* NOTE SINCE WE ARE COPYING HERE -> We must free the original memory --> Call SMC free function after copy */
-		memcpy( skb_data_buffer, data, data_length);
-	
-		SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", data);
+                /* NOTE SINCE WE ARE COPYING HERE -> We must free the original memory --> Call SMC free function after copy */
+                memcpy( skb_data_buffer, data, data_length);
 
-		smc_channel_free_ptr_local( channel, data, userdata );
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", data);
+
+                smc_channel_free_ptr_local( channel, data, userdata );
 
                 /* TODO The fragmentation ( hsi_logical_skb_to_msg in hsi_locigal.c )*/
 
@@ -219,10 +218,10 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 *(uint32_t*)(skb->data) = userdata->userdata1;
 
-			/* Put the metadata */ 
-		skb->dev = device;
-		/*skb->protocol = eth_type_trans(skb, dev);*/
-		skb->ip_summed = CHECKSUM_UNNECESSARY;		
+                    /* Put the metadata */
+                skb->dev = device;
+                /*skb->protocol = eth_type_trans(skb, dev);*/
+                skb->ip_summed = CHECKSUM_UNNECESSARY;
 
                 smc_net_dev = netdev_priv( device );
 

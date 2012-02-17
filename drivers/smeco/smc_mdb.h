@@ -81,6 +81,13 @@ uint32_t smc_mdb_channel_free_space_get( smc_channel_t* smc_channel );
 uint32_t smc_mdb_channel_free_space_min_get( smc_channel_t* smc_channel );
 uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel );
 
+
+#define SMC_MDB_ADDRESS_IN_POOL_IN(address, smc_mdb_info_ptr)   SMC_MDB_ADDRESS_IN_POOL( address, smc_mdb_info_ptr->pool_in,  smc_mdb_info_ptr->total_size_in )
+#define SMC_MDB_ADDRESS_IN_POOL_OUT(address, smc_mdb_info_ptr)  SMC_MDB_ADDRESS_IN_POOL( address, smc_mdb_info_ptr->pool_out, smc_mdb_info_ptr->total_size_out )
+
+#define SMC_MDB_ADDRESS_IN_POOL(address, pool, pool_size)   (((uint32_t)address >= (uint32_t)((uint8_t*)pool)) && ((uint32_t)address < ((uint32_t)((uint8_t*)pool)+pool_size)))
+
+
 #if !TLSF_USE_REF
 typedef void* tlsf_pool;
 /* Debugging. */

@@ -38,6 +38,7 @@ Description :  File created
  * R&D common traces enabling
  */
 #define SMC_TRACE_VERSION_INFO_ENABLED
+#define SMC_TRACE_STARTUP_INFO_ENABLED
 #define SMC_TRACE_ASSERT_ENABLED
 #define SMC_TRACE_ERROR_ENABLED
 #define SMC_TRACE_WARNING_ENABLED
@@ -46,6 +47,7 @@ Description :  File created
 
 /* -----------------------------------
  * Module specific traces.
+ * NOTE: These flags can be enabled also in the smc_trace_platform.h file
  */
 
 /*#define SMC_TRACE_FIFO_ENABLED*/
@@ -53,6 +55,7 @@ Description :  File created
 /*#define SMC_TRACE_SIGNALS_ENABLED*/
 
 /*#define SMC_TRACE_TRANSMIT_ENABLED*/
+/*#define SMC_TRACE_RECEIVE_ENABLED*/
 
 
 /**
@@ -63,6 +66,12 @@ Description :  File created
   #define SMC_TRACE_PRINTF_VERSION(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX" " __VA_ARGS__ )
 #else
   #define SMC_TRACE_PRINTF_VERSION(...)
+#endif
+
+#ifdef SMC_TRACE_STARTUP_INFO_ENABLED
+  #define SMC_TRACE_PRINTF_STARTUP(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX" " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_STARTUP(...)
 #endif
 
 #ifdef SMC_TRACE_FIFO_ENABLED
@@ -96,6 +105,14 @@ Description :  File created
 #else
   #define SMC_TRACE_PRINTF_TRANSMIT(...)
   #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_RECEIVE_ENABLED
+  #define SMC_TRACE_PRINTF_RECEIVE(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"RECV: " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_RECEIVE_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_RECEIVE(...)
+  #define SMC_TRACE_PRINTF_RECEIVE_DATA( length, data )
 #endif
 
 
