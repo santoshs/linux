@@ -342,6 +342,24 @@ static struct resource i2c5_resources[] = {
 	},
 };
 
+static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
+	.bus_speed	= 400000,
+};
+
+static struct resource i2c6_resources[] = {
+	[0] = {
+		.name	= "IICM",
+		.start	= 0xe6d20000,
+		.end	= 0xe6d20009 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(191),
+		.end	= gic_spi(191),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static struct platform_device i2c0_device = {
 	.name		= "i2c-sh_mobile",
 	.id		= 0,
@@ -389,6 +407,16 @@ static struct platform_device i2c5_device = {
 	.num_resources	= ARRAY_SIZE(i2c5_resources),
 	.dev		= {
 		.platform_data	= &i2c5_platform_data,
+	},
+};
+
+static struct platform_device i2c6_device = {
+	.name		= "i2c-sh7730",
+	.id		= 6,
+	.resource	= i2c6_resources,
+	.num_resources	= ARRAY_SIZE(i2c6_resources),
+	.dev		= {
+		.platform_data	= &i2c6_platform_data,
 	},
 };
 
@@ -677,6 +705,7 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c2_device,
 	&i2c4_device,
 	&i2c5_device,
+	&i2c6_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
 	&smc_netdevice0,

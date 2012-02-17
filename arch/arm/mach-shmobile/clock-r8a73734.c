@@ -928,6 +928,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("leds-renesas-tpu.3", &mstp_clks[MSTP304]), /* TPU0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP410]), /* I2C4 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */
+	CLKDEV_DEV_ID("i2c-sh7730.6", &mstp_clks[MSTP412]), /* I2CM0 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
 };
 
