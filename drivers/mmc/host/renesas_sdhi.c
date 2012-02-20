@@ -141,6 +141,7 @@ struct renesas_sdhi_host {
 	bool			force_pio;
 	struct dma_chan		*dma_tx;
 	struct dma_chan		*dma_rx;
+	u32			burst_size;
 
 	/* pio related stuff */
 	struct scatterlist      *sg_ptr;
@@ -215,12 +216,15 @@ static void sdhi_disable_irqs(struct renesas_sdhi_host *host, u32 i)
 
 static void sdhi_dma_enable(struct renesas_sdhi_host *host, bool enable)
 {
+	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u16 val;
 
-	sdhi_write16(host, SDHI_DMA_MODE,
-			enable ? host->pdata->dma_en_val : 0);
+	sdhi_write16(host, SDHI_DMA_MODE, enable ? pdata->dma_en_val : 0);
 
-	if (host->pdata->dma_buf_acc32) {
+	if (pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
+		pdata->set_dma(host->pdev, 2);
+
+	if (pdata->dma_buf_acc32) {
 		val = sdhi_read16(host, SDHI_EXT_ACC);
 		sdhi_write16(host, SDHI_EXT_ACC,
 				enable ? (val | 1) : (val & ~1));
@@ -239,10 +243,18 @@ static void sdhi_reset(struct renesas_sdhi_host *host)
 	sdhi_write32(host, SDHI_INFO, 0);
 	sdhi_write16(host, SDHI_OPTION, SDHI_OPT_WIDTH1 | SDHI_OPT_TIMEOUT);
 
+	/*
+	 * Ensure that the data size of DMA transfer is set to default '2'
+	 * on reset, regardless of RENESAS_SDHI_DMA_SLAVE_CONFIG option.
+	 */
+	if (host->pdata->set_dma)
+		host->pdata->set_dma(host->pdev, 2);
+
 	host->clock = 0;
 	host->bus_width = 0;
 	host->app_mode = 0;
 	host->force_pio = false;
+	host->burst_size = 0;
 }
 
 static void renesas_sdhi_set_clock(
@@ -680,6 +692,51 @@ static void renesas_sdhi_dma_callback(void *arg)
 		sdhi_enable_irqs(host, SDHI_INFO_RW_END);
 }
 
+static void renesas_sdhi_config_dma(struct renesas_sdhi_host *host,
+				    unsigned int length)
+{
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	struct dma_slave_config config;
+	int burst_size, ret;
+
+	config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	if (length % 32 == 0) {
+		burst_size = 32;
+		config.src_maxburst = 16;
+		config.dst_maxburst = 16;
+		pdata->set_dma(host->pdev, 32);
+	} else if (length % 16 == 0) {
+		burst_size = 16;
+		config.src_maxburst = 8;
+		config.dst_maxburst = 8;
+		pdata->set_dma(host->pdev, 16);
+	} else {
+		burst_size = 2;
+		config.src_maxburst = 1;
+		config.dst_maxburst = 1;
+	}
+
+	if (burst_size == host->burst_size)
+		return;
+
+	config.direction = DMA_FROM_DEVICE;
+	ret = dmaengine_slave_config(host->dma_rx, &config);
+
+	config.direction = DMA_TO_DEVICE;
+	ret |= dmaengine_slave_config(host->dma_tx, &config);
+
+	if (ret) {
+		dev_err(&host->pdev->dev,
+			"%s(): dmaengine_slave_config error\n", __func__);
+		host->burst_size = 2;
+		pdata->set_dma(host->pdev, 2);
+		return;
+	}
+
+	host->burst_size = burst_size;
+}
+
 static void renesas_sdhi_start_dma(
 	struct renesas_sdhi_host *host, struct mmc_data *data)
 {
@@ -710,6 +767,9 @@ static void renesas_sdhi_start_dma(
 		dir = DMA_TO_DEVICE;
 		chan = host->dma_tx;
 	}
+
+	if (host->pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
+		renesas_sdhi_config_dma(host, sg->length);
 
 	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir);
 	if (count <= 0) {
@@ -1025,6 +1085,11 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
 	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
+
+	if ((pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG) && !pdata->set_dma) {
+		ret = -EINVAL;
+		goto err3;
+	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_resume(&pdev->dev);

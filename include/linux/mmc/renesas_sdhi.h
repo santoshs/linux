@@ -17,6 +17,7 @@
 /* flags */
 #define RENESAS_SDHI_WP_DISABLE		0x01	/* Disable WriteProtect check */
 #define RENESAS_SDHI_SDCLK_OFFEN	0x02	/* Enable Card clock auto off */
+#define RENESAS_SDHI_DMA_SLAVE_CONFIG	0x08	/* Runtime DMA config support */
 
 struct renesas_sdhi_dma {
 	struct sh_dmae_slave chan_tx;
@@ -42,6 +43,8 @@ struct renesas_sdhi_platdata {
 	int (*get_cd)(struct platform_device *pdev);
 
 	void (*set_pwr)(struct platform_device *pdev, int state);
+
+	void (*set_dma)(struct platform_device *pdev, int size);
 };
 
 #endif
