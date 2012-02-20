@@ -682,18 +682,96 @@ static struct dma_async_tx_descriptor *sh_dmae_prep_slave_sg(
 			       direction, flags);
 }
 
+static int dma_set_runtime_config(struct dma_chan *chan,
+				  struct dma_slave_config *config)
+{
+	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
+	struct sh_dmae_pdata *pdata = shdev->pdata;
+	struct sh_dmae_slave *param = sh_chan->common.private;
+	enum dma_slave_buswidth addr_width;
+	u32 maxburst;
+	u32 chcr;
+	int l2size;
+
+	if (!config || !param)
+		return -EINVAL;
+
+	if (dmae_is_busy(sh_chan))
+		return -EBUSY;
+
+	/* Transfer direction */
+	if (config->direction == DMA_MEM_TO_DEV) {
+		addr_width = config->dst_addr_width;
+		maxburst = config->dst_maxburst;
+	} else if (config->direction == DMA_DEV_TO_MEM) {
+		addr_width = config->src_addr_width;
+		maxburst = config->src_maxburst;
+	} else {
+		dev_err(sh_chan->dev,
+			"bad runtime_config: alien transfer direction\n");
+		return -EINVAL;
+	}
+
+	switch (addr_width) {
+	case DMA_SLAVE_BUSWIDTH_1_BYTE:
+	case DMA_SLAVE_BUSWIDTH_2_BYTES:
+	case DMA_SLAVE_BUSWIDTH_4_BYTES:
+	case DMA_SLAVE_BUSWIDTH_8_BYTES:
+		break;
+	default:
+		dev_err(sh_chan->dev,
+			"bad runtime_config: alien address width\n");
+		return -EINVAL;
+	}
+
+	/* Select one element if no maxburst is specified */
+	if (maxburst == 0)
+		maxburst = 1;
+
+	/*
+	 * Make sure that the burst_size passed in is available on this
+	 * channel.  If it's not, leave current CHCR setting unchanged.
+	 */
+	l2size = __fls(addr_width * maxburst);
+	if (((1 << l2size) & param->config->burst_sizes) == 0) {
+		dev_err(sh_chan->dev,
+			"bad runtime_config: illegal burst_size, rejected\n");
+		return -EINVAL;
+	}
+
+	chcr = chcr_read(sh_chan);
+	chcr &= ~(pdata->ts_high_mask | pdata->ts_low_mask);
+	chcr |= log2size_to_chcr(sh_chan, l2size);
+	dmae_set_chcr(sh_chan, chcr);
+
+	dev_dbg(sh_chan->dev,
+		"configured channel %s for %s, data width %d, "
+		"maxburst %d words (burst_size %d bytes), CHCR=0x%08x\n",
+		dma_chan_name(chan),
+		(config->direction == DMA_DEV_TO_MEM) ? "RX" : "TX",
+		addr_width, maxburst, 1 << l2size, chcr);
+
+	return 0;
+}
+
 static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 			   unsigned long arg)
 {
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	unsigned long flags;
 
+	if (!chan)
+		return -EINVAL;
+
+	/* Controls applicable to inactive channels */
+	if (cmd == DMA_SLAVE_CONFIG)
+		return dma_set_runtime_config(chan,
+					      (struct dma_slave_config *)arg);
+
 	/* Only supports DMA_TERMINATE_ALL */
 	if (cmd != DMA_TERMINATE_ALL)
 		return -ENXIO;
-
-	if (!chan)
-		return -EINVAL;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	dmae_halt(sh_chan);
