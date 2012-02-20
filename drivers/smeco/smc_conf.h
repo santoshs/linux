@@ -134,6 +134,8 @@ typedef struct _smc_instance_conf_channel_t
     // TODO Clean uint32_t signal_type_to_slave;    /* Type of the signal from master to slave */
 
     uint8_t  priority;
+    uint8_t  copy_scheme_master;                    /* Copy scheme used in the master */
+    uint8_t  copy_scheme_slave;                     /* Copy scheme used in the slave */
 
 } smc_instance_conf_channel_t;
 

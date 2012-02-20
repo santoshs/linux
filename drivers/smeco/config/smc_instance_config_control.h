@@ -83,7 +83,9 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .signal_id_slave_from_master   = 46,             /* INTGEN C2_L2_CPU_Int_Gen_Ch11 */
             .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
-            .priority            = SMC_CHANNEL_PRIORITY_HIGHEST
+            .priority                      = SMC_CHANNEL_PRIORITY_HIGHEST,
+            .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
+            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE)
      }
 };
 

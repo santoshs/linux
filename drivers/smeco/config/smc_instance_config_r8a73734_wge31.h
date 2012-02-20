@@ -60,7 +60,7 @@ Description :  File created
 
     /* SHM Area for L2MUX */
 #define SMC_CONF_L2MUX_SHM_START       (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_SIZE + 64)
-#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*4 + 1024*512)    /* 3.5MB */
+#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*4 + 1024*512)    /* 4.5MB */
 
 
 

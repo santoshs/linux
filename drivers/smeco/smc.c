@@ -206,6 +206,15 @@ static inline void smc_free_local_ptr(const  smc_channel_t* smc_channel, void* p
     {
         SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: channel %d (0x%08X): deallocating ptr 0x%08X from MDB OUT...", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr);
         smc_mdb_free( smc_channel, ptr );
+
+        // TODO This is temporary implementation for L2MUX->GPDS mem free, make more robust check
+
+        if( smc_channel->smc_send_data_deallocator_cb != NULL && userdata->userdata2 > 0)
+        {
+            SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: channel %d (0x%08X): deallocating ptr 0x%08X from using CB and userdata2 0x%08X...", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr, userdata->userdata2);
+
+            smc_channel->smc_send_data_deallocator_cb( smc_channel, ptr, userdata );
+        }
     }
     else if( smc_channel->smc_send_data_deallocator_cb != NULL )
     {
@@ -230,31 +239,36 @@ static inline uint32_t smc_local_address_translate( const smc_channel_t* smc_cha
 
     if( shm_conf_channel->remote_cpu_memory_offset_type == SMC_SHM_OFFSET_MDB_OFFSET )
     {
+        smc_mdb_channel_info_t* smc_mdb_pool_info = smc_channel->smc_mdb_info;
+
         if( !SMC_FIFO_IS_INTERNAL_MESSAGE_SYNC_REQ(flags) && !SMC_FIFO_IS_INTERNAL_MESSAGE_SYNC_RESP(flags) )
         {
-            if (!SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB(flags))
+            if( !SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB(flags) )
             {
                 if( smc_mdb_address_check( smc_channel, (void*)ptr, SMC_MDB_OUT) == SMC_OK )
-                //if( SMC_MDB_ADDRESS_IN_POOL_OUT( ptr, smc_channel->smc_mdb_info ))
+                //if( SMC_MDB_ADDRESS_IN_POOL_OUT( ptr, smc_mdb_pool_info ))
                 {
-                    SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM address to offset translation required for address 0x%08X (MDB OUT)",
-                            smc_channel->id, ptr);
-                    new_ptr = ptr - (uint32_t)smc_channel->mdb_out;
+                    SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM address to offset translation required for address 0x%08X (remove MDB OUT offset 0x%08X)",
+                            smc_channel->id, ptr, smc_mdb_pool_info->pool_out);
+                    //new_ptr = ptr - (uint32_t)smc_channel->mdb_out;
+                    new_ptr = ptr - (uint32_t)smc_mdb_pool_info->pool_out;
                     SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM address to offset translation performed, offset 0x%08X", smc_channel->id, new_ptr);
                 }
                 else if(smc_mdb_address_check( smc_channel, (void*)(ptr + smc_channel->mdb_in), SMC_MDB_IN) == SMC_OK)
-                //else if( SMC_MDB_ADDRESS_IN_POOL_IN( ptr, smc_channel->smc_mdb_info ))
+                //else if( SMC_MDB_ADDRESS_IN_POOL_IN( ptr, smc_mdb_pool_info ))
                 {
-                    SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM offset to address translation required for offset 0x%08X (MDB IN)", smc_channel->id, ptr);
-                    new_ptr = ptr + (uint32_t)smc_channel->mdb_in;
+                    SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM offset to address translation required for offset 0x%08X (add MDB IN offset 0x%08X)",
+                            smc_channel->id, ptr, smc_mdb_pool_info->pool_in);
+                    //new_ptr = ptr + (uint32_t)smc_channel->mdb_in;
+                    new_ptr = ptr + (uint32_t)smc_mdb_pool_info->pool_in;
                     SMC_TRACE_PRINTF_INFO("smc_local_address_translate: channel %d: SHM offset to address translation performed, new address from 0x%08X is 0x%08X", smc_channel->id, ptr, new_ptr);
                 }
                 else
                 {
                     SMC_TRACE_PRINTF_ASSERT("smc_local_address_translate: channel %d (0x%08X) address translation failed, pointer 0x%08X is not in any MDB pool: IN 0x%08X / OUT 0x%08X",
                             smc_channel->id, (uint32_t)smc_channel, ptr,
-                            (uint32_t)smc_channel->smc_mdb_info->pool_in,
-                            (uint32_t)smc_channel->smc_mdb_info->pool_out);
+                            (uint32_t)smc_mdb_pool_info->pool_in,
+                            (uint32_t)smc_mdb_pool_info->pool_out);
 
                     assert(0);
                 }
@@ -441,6 +455,9 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
             {
                 smc_fifo_cell_t cell;
 
+                SMC_TRACE_PRINTF_SEND_PACKET("send %d bytes of data from SHM 0x%08X", data_length, (uint32_t)mdb_ptr);
+                SMC_TRACE_PRINTF_SEND_PACKET_DATA(data_length, mdb_ptr);
+
                     /* SHM Address translation */
                 mdb_ptr = (void*)smc_local_address_translate( channel, (uint32_t)mdb_ptr, userdata->flags );
 
@@ -519,6 +536,48 @@ uint8_t smc_send_event(smc_channel_t* channel, SMC_CHANNEL_EVENT event)
     return smc_send_ext( channel, (void*)event, 0, &userdata);
 }
 
+/*
+ * Disable/Enable channel data receive mode.
+ * When receive mode is disabled the incoming data is buffered to FIFO and MDB.
+ * After enabling the receive mode the data is flushed from FIFO and MDB right away.
+ *
+ */
+uint8_t smc_channel_set_receive_mode( smc_channel_t* smc_channel, uint8_t new_receive_mode)
+{
+    uint8_t ret_val = SMC_OK;
+
+    SMC_TRACE_PRINTF_DEBUG("smc_channel_set_receive_mode: channel %d (0x%08X) set new receive mode 0x%02X",
+            smc_channel->id, (uint32_t)smc_channel, new_receive_mode);
+
+    /* ========================================
+     * Critical section begins
+     *
+     */
+
+    smc_lock_irq( smc_channel->lock_read );
+
+    /* TODO Indicate the remote CPU */
+
+    /* TODO Different lock object to enable the receive handling (also without IRQ) */
+    /* If state changed disable -> enable call the interrupt in the loop (user might disable the receive during this) */
+
+
+    smc_unlock_irq( smc_channel->lock_read );
+    /*
+     * Critical section ends
+     * ========================================
+     */
+
+
+
+    SMC_TRACE_PRINTF_DEBUG("smc_channel_set_receive_mode: channel %d (0x%08X) new receive mode 0x%02X set %s",
+                smc_channel->id, (uint32_t)smc_channel, new_receive_mode, ((ret_val==SMC_OK)?"OK":"FAILED"));
+
+    return ret_val;
+}
+
+
+
 /* =======================================================================================0
  * SMC interrupt handler to receive message from remote.
  * This is the first function receiving data from remote.
@@ -529,6 +588,19 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
     if( smc_channel != NULL )
     {
         SMC_TRACE_PRINTF_DEBUG("smc_channel_interrupt_handler: channel %d (0x%08X)", smc_channel->id, (uint32_t)smc_channel);
+
+            /*
+             * Check that channel has not disabled the data receiving
+             * NOTE THE FLAG DOES NOT WORK HERE
+             */
+             /*
+        if( SMC_CHANNEL_STATE_SET_RECEIVE_IS_DISABLED( smc_channel->state ) )
+        {
+            SMC_TRACE_PRINTF_DEBUG("smc_channel_interrupt_handler: channel %d (0x%08X), receive is disable", smc_channel->id, (uint32_t)smc_channel);
+            return;
+        }
+            */
+
 
         if( smc_channel->fifo_in != NULL )
         {
@@ -646,7 +718,7 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
 
                                 SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: channel %d: copy scheme detected, check address 0x%08X", smc_channel->id, (uint32_t)data);
 
-                                /* TODO too many address checks so far -> optimize */
+                                /* TODO maybe too many address checks so far -> optimize */
                                 result = smc_mdb_address_check(smc_channel, data, SMC_MDB_IN);
 
                                 if (result == SMC_OK)
@@ -672,6 +744,10 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                         /* Use the allocator to get memory for the data */
                                     received_data_ptr = smc_allocate_local_ptr( smc_channel, celldata.length, &userdata );
 
+                                    /* TODO If no memory --> Disable the receiving
+                                     * TODO Check if possible to put item back in the FIFO/MDB
+                                     * */
+
                                     assert( received_data_ptr != NULL );
 
                                     if( smc_channel->smc_shm_conf_channel->use_cache_control )
@@ -682,6 +758,9 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                     {
                                         SMC_TRACE_PRINTF_RECEIVE("smc_channel_interrupt_handler: channel %d: No cache control required", smc_channel->id);
                                     }
+
+                                    SMC_TRACE_PRINTF_RECEIVE_PACKET("received %d bytes of data to SHM 0x%08X", celldata.length, (uint32_t)data);
+                                    SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA(celldata.length, data);
 
                                     smc_mdb_copy( received_data_ptr, data, celldata.length );
 
@@ -715,6 +794,10 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                             else
                             {
                                 SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: channel %d (0x%08X) copy scheme is not copy in receive", smc_channel->id, (uint32_t)smc_channel);
+
+                                SMC_TRACE_PRINTF_RECEIVE_PACKET("received %d bytes of data to SHM 0x%08X (0-copy)", celldata.length, (uint32_t)data);
+                                SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA(celldata.length, data);
+
                                 received_data_ptr = data;
                             }
                         }
@@ -1508,7 +1591,6 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
             SMC_CHANNEL_STATE_IS_SYNCHRONIZED(smc_channel->state)?"IN SYNC":"NOT IN SYNC", ret_val);
 
 
-
     if( SMC_CHANNEL_STATE_IS_READY_TO_SEND( smc_channel->state ) && !SMC_CHANNEL_STATE_IS_READY_TO_SEND(old_state))
     {
             /* Send the event to user if callback initialized */
@@ -1523,6 +1605,8 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
         }
 
         SMC_TRACE_PRINTF_DEBUG("smc_channel_handle_sync(ch %d, 0x%08X): ==================== CHANNEL %d IS READY TO SEND AND RECEIVE DATA ====================", smc_channel->id, (uint32_t)smc_channel, smc_channel->id);
+
+        SMC_TRACE_PRINTF_STARTUP("Channel %d is synchronized with the remote", smc_channel->id);
 
         /* Flush the FIFO buffer */
         smc_channel_buffer_fifo_flush( smc_channel );

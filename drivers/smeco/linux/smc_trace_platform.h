@@ -36,12 +36,18 @@ Description :  File created
 #define RD_TRACE_SEND4(...)
 #define RD_TRACE_SEND5(...)
 
-/*	
+
+    /*
+     *  Linux kernel side specific traces
+     */
+/*
 #define SMC_TRACE_DEBUG_ENABLED
 #define SMC_TRACE_INFO_ENABLED
 #define SMC_TRACE_MDB_ENABLED
 #define SMC_TRACE_RECEIVE_ENABLED
 #define SMC_TRACE_TRANSMIT_ENABLED
+
+#define SMC_TRACE_RECEIVE_PACKET_ENABLED
 */
 
 #define SMC_TRACE_PRINTF(...)                printk(KERN_ALERT __VA_ARGS__)
