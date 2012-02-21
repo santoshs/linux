@@ -46,6 +46,9 @@ void platform_cpu_die(unsigned int cpu)
 	/* notify platform_cpu_kill() that hardware shutdown is finished */
 	cpumask_set_cpu(cpu, &dead_cpus);
 
+	if (!shmobile_platform_cpu_die(cpu))
+		return;
+
 	/* wait for SoC code in platform_cpu_kill() to shut off CPU core
 	 * power. CPU bring up starts from the reset vector.
 	 */

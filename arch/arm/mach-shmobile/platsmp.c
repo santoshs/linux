@@ -51,6 +51,11 @@ int shmobile_platform_cpu_kill(unsigned int cpu)
 	return 1;
 }
 
+int shmobile_platform_cpu_die(unsigned int cpu)
+{
+	return 1;
+}
+
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
 	trace_hardirqs_off();
