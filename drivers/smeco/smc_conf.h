@@ -59,6 +59,8 @@ typedef struct
 {
     uint8_t           channel_id;
     uint8_t           priority;                         /* The priority of the channel, the highest priority is 0 */
+    uint8_t           copy_scheme;                      /* Copy scheme bits: SMC_COPY_SCHEME_COPY_IN_SEND | SMC_COPY_SCHEME_COPY_IN_RECEIVE*/
+    uint8_t           fill1;
 
     uint32_t          fifo_size_in;                     /* The size of the FIFO receiving data (remote) */
     uint32_t          fifo_size_out;                    /* The size of the FIFO sending data (local) */
@@ -132,6 +134,8 @@ typedef struct _smc_instance_conf_channel_t
     // TODO Clean uint32_t signal_type_to_slave;    /* Type of the signal from master to slave */
 
     uint8_t  priority;
+    uint8_t  copy_scheme_master;                    /* Copy scheme used in the master */
+    uint8_t  copy_scheme_slave;                     /* Copy scheme used in the slave */
 
 } smc_instance_conf_channel_t;
 

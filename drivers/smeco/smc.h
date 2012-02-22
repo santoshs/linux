@@ -127,6 +127,7 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SYNC_MSG_SENT     0x00000002      /* If set the synchronize msg has been sent to remote */
 #define SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED 0x00000004      /* If set the synchronize msg has been received from remote */
 #define SMC_CHANNEL_STATE_SHM_CONFIGURED    0x00000008      /* If set the shared memory of the channel is initialized */
+#define SMC_CHANNEL_STATE_RECEIVE_DISABLED  0x00000010      /* If set the channel does not receive any data (data is buffered to MDB)*/
 
     /* Defines the flags to be set before SMC send is possible */
 #define SMC_CHANNEL_STATE_READY_TO_SEND     (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
@@ -174,6 +175,11 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SET_SHM_CONFIGURED( state )   ((state) |= SMC_CHANNEL_STATE_SHM_CONFIGURED)
 #define SMC_CHANNEL_STATE_CLEAR_SHM_CONFIGURED( state ) ((state) &= ~SMC_CHANNEL_STATE_SHM_CONFIGURED)
 
+#define SMC_CHANNEL_STATE_RECEIVE_IS_DISABLED( state )       (((state)&SMC_CHANNEL_STATE_RECEIVE_DISABLED)==SMC_CHANNEL_STATE_RECEIVE_DISABLED)
+#define SMC_CHANNEL_STATE_SET_RECEIVE_IS_DISABLED( state )   ((state) |= SMC_CHANNEL_STATE_RECEIVE_DISABLED)
+#define SMC_CHANNEL_STATE_CLEAR_RECEIVE_IS_DISABLED( state ) ((state) &= ~SMC_CHANNEL_STATE_RECEIVE_DISABLED)
+
+
     /*
      * SMC Macros for common usage
      */
@@ -191,6 +197,8 @@ typedef enum
     SMC_SEND_FIFO_HAS_FREE_SPACE,           /* FIFO has free space available */
     SMC_STOP_SEND,                          /* Remote channel requests to stop sending data */
     SMC_RESUME_SEND,                        /* Remote channel requests to continue sending data */
+    SMC_RECEIVE_STOPPED,                    /* The remote channel has stopped to receive data */
+    SMC_RECEIVE_RESUMED,                    /* The remote channel has started to receive data again */
     SMC_RESET,                              /* Remote channel requests reset */
     SMC_CLOSED                              /* Remote SMC instance is closed */
 
@@ -325,6 +333,7 @@ smc_channel_t*        smc_channel_get( const smc_t* smc_instance, uint8_t smc_ch
 smc_conf_t*           smc_instance_get_conf( smc_t* smc_instance );
 smc_channel_conf_t*   smc_channel_get_conf( smc_channel_t* smc_channel );
 
+uint8_t               smc_channel_set_receive_mode( smc_channel_t* smc_channel, uint8_t new_receive_mode);
 void                  smc_channel_interrupt_handler( smc_channel_t* smc_channel );
 uint8_t               smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_channel_conf_t* smc_channel_conf);
 uint32_t              smc_channel_calculate_required_shared_mem( smc_channel_conf_t* smc_channel_conf );
@@ -389,12 +398,15 @@ smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uin
      * Implementations are in the platform specific modules.
      */
 smc_lock_t* smc_lock_create ( void );
+void        smc_lock_destroy( smc_lock_t* lock );
 
+/* Changed to macros, TODO Cleanup
 void        smc_lock        ( smc_lock_t* lock );
 void        smc_unlock      ( smc_lock_t* lock );
 void        smc_lock_irq    ( smc_lock_t* lock );
 void        smc_unlock_irq  ( smc_lock_t* lock );
-void        smc_lock_destroy( smc_lock_t* lock );
+*/
+
 
     /*
      * SMC semaphore function prototypes.

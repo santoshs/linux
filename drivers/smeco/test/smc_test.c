@@ -1208,9 +1208,9 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
 
     /* Select configuration "user name" based on platform */
 #ifdef SMECO_LINUX_ANDROID
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2;
+    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
 #elif defined SMECO_LINUX_KERNEL
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2;
+    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
 #elif defined SMECO_MODEM
     char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2;
 #else

@@ -43,6 +43,10 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
  * SMC Memory management platform specific implementations
  */
 
+
+
+/* Changed to macros in h file
+ * TODO Cleanup
 void smc_shm_cache_invalidate(void* start_address, void* end_address)
 {
     SMC_TRACE_PRINTF_INFO("smc_shm_cache_invalidate: 0x%08X-0x%08X", (uint32_t)start_address, (uint32_t)end_address);
@@ -56,7 +60,7 @@ void smc_shm_cache_clean(void* start_address, void* end_address)
 
     SMC_TRACE_PRINTF_WARNING("smc_shm_cache_clean: NOT IMPLEMENTED");
 }
-
+*/
 
 /* =============================================================
  * SMC Signal function platform specific implementation
@@ -463,21 +467,23 @@ smc_lock_t* smc_lock_create( void )
     return lock;
 }
 
+
+/* Changed to macros: TODO Cleanup
 void smc_lock( smc_lock_t* lock )
 {
-    SMC_TRACE_PRINTF_INFO("smc_lock: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_lock: lock 0x%08X...", (uint32_t)lock);
     spin_lock( &(lock->mr_lock) );
 }
 
 void smc_unlock( smc_lock_t* lock )
 {
     spin_unlock( &(lock->mr_lock) );
-    SMC_TRACE_PRINTF_INFO("smc_unlock: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_unlock: unlock 0x%08X...", (uint32_t)lock);
 }
 
 void smc_lock_irq( smc_lock_t* lock )
 {
-    SMC_TRACE_PRINTF_INFO("smc_lock_irq: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_lock_irq: lock 0x%08X...", (uint32_t)lock);
 
     spin_lock_irqsave( &(lock->mr_lock), lock->flags);
 
@@ -487,8 +493,10 @@ void smc_unlock_irq( smc_lock_t* lock )
 {
     spin_unlock_irqrestore(&lock->mr_lock, lock->flags);
 
-    SMC_TRACE_PRINTF_INFO("smc_unlock_irq: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_unlock_irq: lock 0x%08X...", (uint32_t)lock);
 }
+*/
+
 
 void smc_lock_destroy( smc_lock_t* lock )
 {

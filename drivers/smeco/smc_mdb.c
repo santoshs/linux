@@ -1885,6 +1885,12 @@ void* smc_mdb_alloc( smc_channel_t* smc_channel, uint32_t length )
     
     ptr = SMC_MDB_ALLOC_FROM_POOL( pool_out, length );
     
+    if( ptr == NULL )
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_mdb_alloc: OUT OF SHM MEMORY channel id %d (0x%08X), allocated %d bytes from out pool 0x%08X",
+                    smc_channel->id, (uint32_t)smc_channel, length, pool_out );
+    }
+
     return ptr;
 }
 

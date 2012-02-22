@@ -55,7 +55,7 @@
 #define MHDP_CTL_IFNAME		"rmnetctl"
 
 /* Print every MHDP SKB content */
-#define MHDP_DEBUG_SKB
+/*#define MHDP_DEBUG_SKB*/
 
 
 #ifdef CONFIG_MHI_DEBUG

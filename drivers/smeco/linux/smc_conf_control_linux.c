@@ -130,7 +130,7 @@ static smc_conf_t* smc_device_create_conf_control(void)
 
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2;
+    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_control: start...");
 

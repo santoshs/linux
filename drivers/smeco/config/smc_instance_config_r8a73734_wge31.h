@@ -30,7 +30,7 @@ Description :  File created
  * SMC configuration names
  */
 
-#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2  "SH-Mobile-APE5R-EOS2"
+#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2  "SH-Mobile-R8A73734-EOS2"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2      "WGEModem-3.1-EOS2"
 
 
@@ -44,7 +44,7 @@ Description :  File created
  * 0x4100_0000    0x0900_0000     L1  Code
  * 0x4200_0000    0x0A00_0000     L23 Data
  * 0x4300_0000    0x0B00_0000     L1  Data
- * 0x43B0_0000    0x0BB0_0000     Shared Memory starts
+ * 0x43B0_0000    0x0BB0_0000     Shared Memory starts 0x500000 == 5242880 bytes
  * 0x4400_0000    0xC400_0000     Linux SW
  *
  * In Linux side the SHM is ioremapped from physical address (no static value possible)
@@ -60,7 +60,7 @@ Description :  File created
 
     /* SHM Area for L2MUX */
 #define SMC_CONF_L2MUX_SHM_START       (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_SIZE + 64)
-#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*3 + 1024*512)    /* 3.5MB */
+#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*4 + 1024*512)    /* 4.5MB */
 
 
 

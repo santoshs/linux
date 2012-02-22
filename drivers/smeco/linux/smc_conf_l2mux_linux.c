@@ -120,7 +120,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
 
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2;
+    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -170,7 +170,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
     {
         SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: net device is 0x%08X", (uint32_t)device);
 
-        if (unlikely( !netif_running(device) ) )
+        if( unlikely( !netif_running(device) ) )
         {
             SMC_TRACE_PRINTF_WARNING("smc_receive_data_callback_channel_l2mux: Device 0x%08X not running, drop RX packet", (uint32_t)device);
             device->stats.rx_dropped++;
@@ -179,8 +179,12 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         {
             struct sk_buff *skb = NULL;
 
-            /* TODO Check the L2 header */
-            /* TODO Use channel allocator */
+
+            /* ========================================
+             * Critical section begins
+             *
+             */
+            SMC_LOCK( channel->lock_read );
 
             skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
 
@@ -188,29 +192,59 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
             {
                 SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No memory for RX skb");
                 device->stats.rx_dropped++;
+
+                SMC_UNLOCK( channel->lock_read );
+                /*
+                 * Critical section ends
+                 * ========================================
+                 */
             }
             else
             {
                 smc_device_driver_priv_t* smc_net_dev = NULL;
-		char* skb_data_buffer = NULL;
+                char* skb_data_buffer = NULL;
                 
-		skb_data_buffer = skb_put(skb, data_length);
+                skb_data_buffer = skb_put(skb, data_length);
 
-		SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X...",
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X...",
                         data, (uint32_t)skb->data, skb_data_buffer);
 
-                // skb_put(skb, data_length); /* Put the length  l3len = LENGTH_IN_HEADER (hsi_data_client->rx_l2_header); in hsi_logical.c */
-		//memcpy(skb->data, data, data_length);
 
+                /* TODO Cache control */
 
-		/* NOTE SINCE WE ARE COPYING HERE -> We must free the original memory --> Call SMC free function after copy */
-		memcpy( skb_data_buffer, data, data_length);
-	
-		SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", data);
+                memcpy( skb_data_buffer, data, data_length);
 
-		smc_channel_free_ptr_local( channel, data, userdata );
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", data);
 
-                /* TODO The fragmentation ( hsi_logical_skb_to_msg in hsi_locigal.c )*/
+                /* TODO Create common free function for freeing RECEIVE data -> detects there if data is from remote */
+
+                if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( channel->copy_scheme ) )
+                {
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from local mem", data);
+                    smc_channel_free_ptr_local( channel, data, userdata );
+                }
+                else
+                {
+                    smc_user_data_t userdata_free;
+
+                    userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
+                    userdata_free.userdata1 = userdata->userdata1;
+                    userdata_free.userdata2 = userdata->userdata2;
+                    userdata_free.userdata3 = userdata->userdata3;
+                    userdata_free.userdata4 = userdata->userdata4;
+                    userdata_free.userdata5 = userdata->userdata5;
+
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from SHM...", data);
+
+                        /* Free the MDB SHM data PTR from remote */
+                    if( smc_send_ext( channel, data, 0, &userdata_free) != SMC_OK )
+                    {
+                        SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: channel %d: MDB memory 0x%08X free from remote failed",
+                                channel->id, (uint32_t)data);
+                    }
+                }
+
+                /* TODO Implement the fragments for SKB ( hsi_logical_skb_to_msg in hsi_locigal.c ) */
 
                 skb_push(skb, SMC_L2MUX_HEADER_SIZE);
 
@@ -219,12 +253,18 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 *(uint32_t*)(skb->data) = userdata->userdata1;
 
-			/* Put the metadata */ 
-		skb->dev = device;
-		/*skb->protocol = eth_type_trans(skb, dev);*/
-		skb->ip_summed = CHECKSUM_UNNECESSARY;		
+                    /* Put the metadata */
+                skb->dev = device;
+                /*skb->protocol = eth_type_trans(skb, dev);*/
+                skb->ip_summed = CHECKSUM_UNNECESSARY;
 
                 smc_net_dev = netdev_priv( device );
+
+                SMC_UNLOCK( channel->lock_read );
+                /*
+                 * Critical section ends
+                 * ========================================
+                 */
 
                 SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Deliver SKB (length %d) to upper layer RX ...", skb->len);
                 SMC_TRACE_PRINTF_INFO_DATA( skb->len , skb->data );
@@ -271,21 +311,21 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
         case SIOCPNGAUTOCONF:
         {
             struct if_phonet_req *req = (struct if_phonet_req *)ifr;
-	    uint8_t address = 0x00;
+            uint8_t address = 0x00;
 
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF");
 
             req->ifr_phonet_autoconf.device = PN_DEV_HOST;
 
-	    address = 0x60;
+            address = 0x60;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
-	    address = 0x44;
+            address = 0x44;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
-	    address = 0x64;
+            address = 0x64;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
@@ -293,7 +333,6 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 #endif
-
             break;
         }
         case SIOCCONFIGTYPE:

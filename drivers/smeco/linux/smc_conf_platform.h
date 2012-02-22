@@ -73,6 +73,16 @@ typedef struct
 
 #define SMC_SHM_WRITE32( target_address, value )   __raw_writel( value, ((void __iomem *)(target_address)) )
 #define SMC_SHM_READ32( source_address )           __raw_readl( ((void __iomem *)source_address) )
+
+#define SMC_SHM_CACHE_INVALIDATE( start_address, end_address )
+#define SMC_SHM_CACHE_CLEAN( start_address, end_address )
+
+
+#define  SMC_LOCK( lock )        (spin_lock( &(lock->mr_lock) ))
+#define  SMC_UNLOCK( lock )      (spin_unlock( &(lock->mr_lock) ))
+#define  SMC_LOCK_IRQ( lock )    { spin_lock_irqsave( &lock->mr_lock, lock->flags); }
+#define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); }
+
     /*
      * Data type for SMC locking
      */

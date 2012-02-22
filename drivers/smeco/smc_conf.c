@@ -67,6 +67,8 @@ smc_channel_conf_t* smc_channel_conf_create( void )
          */
     conf->channel_id    = 0;
     conf->priority      = SMC_CHANNEL_PRIORITY_DEFAULT;
+    conf->copy_scheme   = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
+
     conf->fifo_size_in  = 0;
     conf->fifo_size_out = 0;
     conf->mdb_size_in   = 0;
@@ -278,6 +280,10 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
 
         if( is_master )
         {
+            SMC_TRACE_PRINTF_DEBUG("smc_channel_conf_create_from_instance_conf: MASTER configuration used");
+
+            smc_channel_conf->copy_scheme   = smc_instance_conf_channel->copy_scheme_master;
+
             smc_channel_conf->fifo_size_in  = smc_instance_conf_channel->fifo_size_slave;
             smc_channel_conf->fifo_size_out = smc_instance_conf_channel->fifo_size_master;
 
@@ -289,6 +295,10 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
         }
         else
         {
+            SMC_TRACE_PRINTF_DEBUG("smc_channel_conf_create_from_instance_conf: SLAVE configuration used");
+
+            smc_channel_conf->copy_scheme   = smc_instance_conf_channel->copy_scheme_slave;
+
             smc_channel_conf->fifo_size_in   = smc_instance_conf_channel->fifo_size_master;
             smc_channel_conf->fifo_size_out  = smc_instance_conf_channel->fifo_size_slave;
 

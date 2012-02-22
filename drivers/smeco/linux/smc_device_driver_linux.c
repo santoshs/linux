@@ -262,7 +262,7 @@ static int smc_net_device_driver_open_channels(struct net_device* device)
 
     SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open_channels: Completed by return value %d", ret_val);
 
-
+    return ret_val;
 }
 
 static int smc_net_device_driver_open(struct net_device* device)
@@ -285,29 +285,8 @@ static int smc_net_device_driver_open(struct net_device* device)
             SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv 0x%08X: SMC configuration 0x%08X ok, ready to start device",
 			(uint32_t)smc_priv, (uint32_t)smc_instance_conf);
 
-	    ret_val = SMC_DRIVER_OK;
+            ret_val = SMC_DRIVER_OK;
 
-		/* TODO CLEANUP
-            SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv 0x%08X: read SMC configuration 0x%08X and create SMC instance, use parent 0x%08X...",
-                    (uint32_t)smc_priv, (uint32_t)smc_instance_conf, smc_priv->platform_device);
-
-            smc_priv->smc_instance = smc_instance_create_ext(smc_instance_conf, smc_priv->platform_device);
-
-            if( smc_priv->smc_instance != NULL )
-            {
-                SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv 0x%08X: SMC instance 0x%08X created", (uint32_t)smc_priv, (uint32_t)smc_priv->smc_instance);
-
-                SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: netif_tx_start_all_queues...");
-                netif_tx_start_all_queues(device);
-
-                ret_val = SMC_DRIVER_OK;
-            }
-            else
-            {
-                SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_open: SMC instance creation failed");
-                ret_val = SMC_DRIVER_ERROR;
-            }
-	    */
          }
          else
          {
@@ -609,21 +588,20 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 {
 	struct net_device *dev = arg;
 
-	SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' notifies 0x%02X", dev!=NULL?dev->name:"<NO NAME>", event);
+	SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' notifies 0x%02X", dev!=NULL?dev->name:"<NO NAME>", event);
 
 	switch(event) 
 	{
 		case NETDEV_REGISTER:	/* 0x05 */
 		{
-			SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_REGISTER", dev!=NULL?dev->name:"<NO NAME>");
-
-			
+			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_REGISTER", dev!=NULL?dev->name:"<NO NAME>");
 			break;
 		}
 		case NETDEV_UP:    /* 0x01 */
 		{
 			SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
 			
+			/* TODO Check if the type check is necessary */
 			if (dev->type == ARPHRD_PHONET || dev->type == ARPHRD_MHI)
 			{
 				SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, found correct type, check name...", 
@@ -631,10 +609,17 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 
 				if( strncmp( dev->name, "smc", 3 ) == 0 )
 				{
-					SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, smc found start the device...", 
+					SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, SMC found, start the device...",
 						dev!=NULL?dev->name:"<NO NAME>");
-					smc_net_device_driver_open_channels( dev );
 
+					if( smc_net_device_driver_open_channels( dev ) == SMC_DRIVER_OK )
+					{
+					    SMC_TRACE_PRINTF_STARTUP(" network device '%s' is up and channels are started", dev->name);
+					}
+					else
+					{
+					    SMC_TRACE_PRINTF_ERROR(" network device '%s' is up but startup of channels failed", dev->name);
+					}
 				}
 				else
 				{
@@ -647,13 +632,13 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 		}
 		case NETDEV_DOWN:  /* 0x02 */
 		{
-			SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
+			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
 			break;
 		}
 
 		case NETDEV_UNREGISTER:
 		{
-			SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UNREGISTER", dev!=NULL?dev->name:"<NO NAME>");
+			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_UNREGISTER", dev!=NULL?dev->name:"<NO NAME>");
 			break;
 		}
 	}
