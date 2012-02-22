@@ -61,6 +61,11 @@ static void intc_disable(struct irq_data *data)
 
 static int intc_set_wake(struct irq_data *data, unsigned int on)
 {
+	struct intc_desc_int *d = get_intc_desc(data->irq);
+
+	if (d->set_wake)
+		return d->set_wake(data, on);
+
 	return 0; /* allow wakeup, but setup hardware in intc_suspend() */
 }
 
@@ -198,6 +203,10 @@ static int intc_set_type(struct irq_data *data, unsigned int type)
 		addr = INTC_REG(d, _INTC_ADDR_E(ihp->handle), 0);
 		intc_reg_fns[_INTC_FN(ihp->handle)](addr, ihp->handle, value);
 	}
+
+	if (d->set_type)
+		/* TODO: intentionally ignore the return value for now */
+		d->set_type(data, type);
 
 	return 0;
 }

@@ -68,6 +68,9 @@ struct intc_desc_int {
 	unsigned int nr_windows;
 	struct irq_chip chip;
 	bool skip_suspend;
+
+	int (*set_type)(struct irq_data *data, unsigned int flow_type);
+	int (*set_wake)(struct irq_data *data, unsigned int on);
 };
 
 
