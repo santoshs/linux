@@ -78,10 +78,10 @@ typedef struct
 #define SMC_SHM_CACHE_CLEAN( start_address, end_address )
 
 
-#define  SMC_LOCK( lock )        (spin_lock( &(lock->mr_lock) ))
-#define  SMC_UNLOCK( lock )      (spin_unlock( &(lock->mr_lock) ))
-#define  SMC_LOCK_IRQ( lock )    { spin_lock_irqsave( &lock->mr_lock, lock->flags); }
-#define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); }
+#define  SMC_LOCK( lock )        { SMC_TRACE_PRINTF_LOCK("lock: 0x%08X...", (uint32_t)lock); spin_lock( &(lock->mr_lock)); }
+#define  SMC_UNLOCK( lock )      { spin_unlock( &(lock->mr_lock)); SMC_TRACE_PRINTF_LOCK("unlock: 0x%08X", (uint32_t)lock); }
+#define  SMC_LOCK_IRQ( lock )    { SMC_TRACE_PRINTF_LOCK("lock irq save: 0x%08X...", (uint32_t)lock); spin_lock_irqsave( &lock->mr_lock, lock->flags); }
+#define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); SMC_TRACE_PRINTF_LOCK("unlock irq save: 0x%08X...", (uint32_t)lock); }
 
     /*
      * Data type for SMC locking

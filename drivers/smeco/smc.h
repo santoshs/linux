@@ -68,7 +68,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.17"
+#define SMC_SW_VERSION  "0.0.18"
 
 #define SMC_ERROR   0
 #define SMC_OK      1

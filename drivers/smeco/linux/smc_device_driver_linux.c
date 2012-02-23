@@ -399,10 +399,10 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                 userdata.userdata4 = 0x00000000;
                 userdata.userdata5 = 0x00000000;
 
-		if(skb_shinfo(skb)->nr_frags != 0) 
-		{
-		    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: FRAGMENTS NOT HANDLED");
-		}
+                if(skb_shinfo(skb)->nr_frags != 0)
+                {
+                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: FRAGMENTS NOT HANDLED");
+                }
 
                 if( smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_modify_send_data )
                 {
@@ -429,11 +429,11 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                     device->stats.tx_packets++;
                     device->stats.tx_bytes += skb->len;
 
-		    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: Free the SKB ANY 0x%08X...", (uint32_t)skb);
+                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: Free the SKB ANY 0x%08X...", (uint32_t)skb);
 
                         /* Free the message data */
                     /*dev_kfree_skb(skb);*/
-		    dev_kfree_skb_any(skb);
+                    dev_kfree_skb_any(skb);
 
                     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: wake up the subqueue to allow message sending");
                     netif_wake_subqueue(device, skb->queue_mapping);

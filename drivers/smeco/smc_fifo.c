@@ -502,6 +502,9 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
                                          4, &cell->flags,
                                          4, &packet_count_left);
 
+        SMC_TRACE_PRINTF_FIFO_GET("fifoPtr 0x%08X, data 0x%08X, length %d, flags 0x%08X, itemsInFifo: %d",
+            (uint32_t)p_fifo, (uint32_t)cell->data, cell->length, cell->flags, packet_count_left);
+
         if( read_index == (p_fifo->length * SMC_FIFO_LENGTH_MULTIPLIER) )
         {
             SMC_TRACE_PRINTF_FIFO("smc_fifo_get_cell: FIFO 0x%08X read index %d==fifo len %d * %d --> Set read index to 0",

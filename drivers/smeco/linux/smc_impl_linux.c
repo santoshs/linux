@@ -74,7 +74,7 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -103,7 +103,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -133,7 +133,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     smc_signal_t* signal = NULL;
     int irq_spi = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -549,22 +549,22 @@ void smc_printf_data_linux_kernel(int length, uint8_t* data)
     int i = 0;
     int row_len = 16;
 
-    printk("\n");
+    printk(KERN_DEBUG "\n");
 
     for( i = 0; i < length; i++ )
     {
         if(i%row_len == 0)
         {
-            printk("0x%02X", data[i]);
+            printk(KERN_DEBUG "0x%02X", data[i]);
         }
         else
         {
-            printk(" 0x%02X", data[i]);
+            printk(KERN_DEBUG " 0x%02X", data[i]);
         }
 
         if( i > 0 && ( i%(row_len) == (row_len-1) || i >= length-1 ))
         {
-            printk("\n");
+            printk(KERN_DEBUG "\n");
         }
     }
 }
