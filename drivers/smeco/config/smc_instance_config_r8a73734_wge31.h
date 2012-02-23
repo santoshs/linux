@@ -30,7 +30,7 @@ Description :  File created
  * SMC configuration names
  */
 
-#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2  "SH-Mobile-APE5R-EOS2"
+#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2  "SH-Mobile-R8A73734-EOS2"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2      "WGEModem-3.1-EOS2"
 
 

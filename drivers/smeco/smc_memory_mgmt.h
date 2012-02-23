@@ -61,10 +61,10 @@ typedef struct
      * Shared memory API functions
      */
 
-smc_shm_config_t* smc_shm_conf_create( void );
+smc_shm_config_t* smc_shm_conf_create ( void );
 void              smc_shm_conf_destroy( smc_shm_config_t* smc_shm_conf);
 
-smc_shm_config_t* smc_shm_config_copy  ( smc_shm_config_t* source_shm_config );
+smc_shm_config_t* smc_shm_config_copy ( smc_shm_config_t* source_shm_config );
 
     /*
      * Platform specific shared memory API functions
@@ -72,9 +72,15 @@ smc_shm_config_t* smc_shm_config_copy  ( smc_shm_config_t* source_shm_config );
      * - /modem
      * - /linux
      */
-
+/* Cache controls are changed to macros
+ * TODO Cleanup
 void smc_shm_cache_invalidate(void* start_address, void* end_address);
 void smc_shm_cache_clean     (void* start_address, void* end_address);
+*/
+
+/* Remove these */
+#define smc_shm_cache_invalidate  SMC_SHM_CACHE_INVALIDATE
+#define smc_shm_cache_clean  SMC_SHM_CACHE_CLEAN
 
 #endif /* EOF */
 

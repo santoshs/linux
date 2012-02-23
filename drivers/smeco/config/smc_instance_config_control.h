@@ -98,7 +98,7 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
     {
         .name                         = SMC_CONFIG_NAME_EOS2,
         .user_name                    = SMC_CONFIG_USER_CONTROL,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2,
         .shm_start_address            = SMC_CONF_CONTROL_SHM_START,
         .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE,

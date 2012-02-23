@@ -43,6 +43,10 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
  * SMC Memory management platform specific implementations
  */
 
+
+
+/* Changed to macros in h file
+ * TODO Cleanup
 void smc_shm_cache_invalidate(void* start_address, void* end_address)
 {
     SMC_TRACE_PRINTF_INFO("smc_shm_cache_invalidate: 0x%08X-0x%08X", (uint32_t)start_address, (uint32_t)end_address);
@@ -56,7 +60,7 @@ void smc_shm_cache_clean(void* start_address, void* end_address)
 
     SMC_TRACE_PRINTF_WARNING("smc_shm_cache_clean: NOT IMPLEMENTED");
 }
-
+*/
 
 /* =============================================================
  * SMC Signal function platform specific implementation
@@ -70,7 +74,7 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -99,7 +103,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 {
     /*smc_signal_t* signal = NULL;*/
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -129,7 +133,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     smc_signal_t* signal = NULL;
     int irq_spi = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
-    SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
+    SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
@@ -463,21 +467,23 @@ smc_lock_t* smc_lock_create( void )
     return lock;
 }
 
+
+/* Changed to macros: TODO Cleanup
 void smc_lock( smc_lock_t* lock )
 {
-    SMC_TRACE_PRINTF_INFO("smc_lock: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_lock: lock 0x%08X...", (uint32_t)lock);
     spin_lock( &(lock->mr_lock) );
 }
 
 void smc_unlock( smc_lock_t* lock )
 {
     spin_unlock( &(lock->mr_lock) );
-    SMC_TRACE_PRINTF_INFO("smc_unlock: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_unlock: unlock 0x%08X...", (uint32_t)lock);
 }
 
 void smc_lock_irq( smc_lock_t* lock )
 {
-    SMC_TRACE_PRINTF_INFO("smc_lock_irq: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_lock_irq: lock 0x%08X...", (uint32_t)lock);
 
     spin_lock_irqsave( &(lock->mr_lock), lock->flags);
 
@@ -487,8 +493,10 @@ void smc_unlock_irq( smc_lock_t* lock )
 {
     spin_unlock_irqrestore(&lock->mr_lock, lock->flags);
 
-    SMC_TRACE_PRINTF_INFO("smc_unlock_irq: lock 0x%08X...", (uint32_t)lock);
+    SMC_TRACE_PRINTF_LOCK("smc_unlock_irq: lock 0x%08X...", (uint32_t)lock);
 }
+*/
+
 
 void smc_lock_destroy( smc_lock_t* lock )
 {
@@ -541,22 +549,22 @@ void smc_printf_data_linux_kernel(int length, uint8_t* data)
     int i = 0;
     int row_len = 16;
 
-    printk("\n");
+    printk(KERN_DEBUG "\n");
 
     for( i = 0; i < length; i++ )
     {
         if(i%row_len == 0)
         {
-            printk("0x%02X", data[i]);
+            printk(KERN_DEBUG "0x%02X", data[i]);
         }
         else
         {
-            printk(" 0x%02X", data[i]);
+            printk(KERN_DEBUG " 0x%02X", data[i]);
         }
 
         if( i > 0 && ( i%(row_len) == (row_len-1) || i >= length-1 ))
         {
-            printk("\n");
+            printk(KERN_DEBUG "\n");
         }
     }
 }

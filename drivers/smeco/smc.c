@@ -377,6 +377,11 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
 
     SMC_TRACE_PRINTF_DEBUG("smc_send_ext: Starting send SMC 0x%08X Channel %d (0x%08X): Data 0x%08X, length %d, flags 0x%08X", (uint32_t)channel->smc_instance, channel->id, (uint32_t)channel, (uint32_t)data, data_length, userdata->flags);
 
+    RD_TRACE_SEND4(TRA_SMC_MESSAGE_SEND, 1, &channel->id,
+                                         4, &data,
+                                         4, &data_length,
+                                         4, &userdata->flags);
+
     if( channel->fifo_out )
     {
         if( SMC_CHANNEL_STATE_IS_READY_TO_SEND( channel->state )   ||
@@ -389,7 +394,8 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
              * Critical section begins
              *
              */
-            smc_lock_irq( channel->lock_write );
+            //SMC_LOCK_IRQ( channel->lock_write );
+            // TODO LOCK CHECK
 
             /* Execute the MDB functions for copying */
 
@@ -412,7 +418,19 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                         SMC_TRACE_PRINTF_INFO("smc_send_ext: channel %d: MDB copy required, data 0x%08X NOT in MDB OUT area",
                                 channel->id, (uint32_t)data);
 
+                        /* ========================================
+                         * Critical section begins
+                         *
+                         */
+                        SMC_LOCK_IRQ( channel->lock_write );
+
                         mdb_ptr = smc_mdb_alloc(channel, data_length);
+
+                        SMC_UNLOCK_IRQ( channel->lock_write );
+                        /*
+                         * Critical section ends
+                         * ========================================
+                         */
 
                         if (mdb_ptr != NULL)
                         {
@@ -420,7 +438,7 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
 
                             if( channel->smc_shm_conf_channel->use_cache_control )
                             {
-                                smc_shm_cache_clean( mdb_ptr, ((void*)(((uint32_t)mdb_ptr)+data_length)) );
+                                SMC_SHM_CACHE_CLEAN( mdb_ptr, ((void*)(((uint32_t)mdb_ptr)+data_length)) );
                             }
                             else
                             {
@@ -473,7 +491,19 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                 cell.userdata4   = userdata->userdata4;
                 cell.userdata5   = userdata->userdata5;
 
+                /* ========================================
+                 * Critical section begins
+                 *
+                 */
+                SMC_LOCK_IRQ( channel->lock_write );
+
                 return_value = smc_fifo_put_cell( channel->fifo_out, &cell, channel->smc_shm_conf_channel->use_cache_control );
+
+                SMC_UNLOCK_IRQ( channel->lock_write );
+                /*
+                 * Critical section ends
+                 * ========================================
+                 */
 
                 if( return_value == SMC_OK )
                 {
@@ -492,8 +522,8 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                 SMC_TRACE_PRINTF_ERROR("smc_send_ext: Channel %d: MDB ptr is NULL", channel->id);
             }
 
-            smc_unlock_irq( channel->lock_write );
-
+            // TODO CHECK LOCK
+            //SMC_UNLOCK_IRQ( channel->lock_write );
             /*
              * Critical section ends
              * ========================================
@@ -513,6 +543,12 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
 
     SMC_TRACE_PRINTF_DEBUG("smc_send_ext: Completed send SMC 0x%08X Channel %d (0x%08X): Data 0x%08X, length %d, flags 0x%08X by return value %d",
             (uint32_t)channel->smc_instance, channel->id, (uint32_t)channel, (uint32_t)data, data_length, userdata->flags, return_value);
+
+
+    RD_TRACE_SEND4(TRA_SMC_MESSAGE_SEND_END, 1, &channel->id,
+                                             4, &data,
+                                             4, &data_length,
+                                             4, &userdata->flags);
 
     return return_value;
 }
@@ -554,7 +590,7 @@ uint8_t smc_channel_set_receive_mode( smc_channel_t* smc_channel, uint8_t new_re
      *
      */
 
-    smc_lock_irq( smc_channel->lock_read );
+    SMC_LOCK_IRQ( smc_channel->lock_read );
 
     /* TODO Indicate the remote CPU */
 
@@ -562,7 +598,7 @@ uint8_t smc_channel_set_receive_mode( smc_channel_t* smc_channel, uint8_t new_re
     /* If state changed disable -> enable call the interrupt in the loop (user might disable the receive during this) */
 
 
-    smc_unlock_irq( smc_channel->lock_read );
+    SMC_UNLOCK_IRQ( smc_channel->lock_read );
     /*
      * Critical section ends
      * ========================================
@@ -601,7 +637,6 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
         }
             */
 
-
         if( smc_channel->fifo_in != NULL )
         {
             int32_t fifo_count = SMC_FIFO_READ_TO_EMPTY;
@@ -616,12 +651,15 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                  * Critical section begins
                  *
                  */
-
-                smc_lock_irq( smc_channel->lock_read );
+                SMC_LOCK_IRQ( smc_channel->lock_read );
 
                 fifo_count = smc_fifo_get_cell( smc_channel->fifo_in, &celldata, smc_channel->smc_shm_conf_channel->use_cache_control );
 
-                smc_unlock_irq( smc_channel->lock_read );
+                SMC_UNLOCK_IRQ( smc_channel->lock_read );
+                /*
+                 * Critical section ends
+                 * ========================================
+                 */
 
                 userdata.flags     = celldata.flags;
                 userdata.userdata1 = celldata.userdata1;
@@ -630,15 +668,15 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                 userdata.userdata4 = celldata.userdata4;
                 userdata.userdata5 = celldata.userdata5;
 
-                /*
-                 * Critical section ends
-                 * ========================================
-                 */
-
                 if( fifo_count != SMC_FIFO_EMPTY )
                 {
                     SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: channel %d (0x%08X) Read data 0x%08X, length %d, flags 0x%08X, FIFO count %d",
                             smc_channel->id, (uint32_t)smc_channel, celldata.data, celldata.length, celldata.flags, fifo_count);
+
+                    RD_TRACE_SEND4(TRA_SMC_MESSAGE_RECV, 1, &smc_channel->id,
+                                                         4, &celldata.data,
+                                                         4, &celldata.length,
+                                                         4, &celldata.flags);
 
                         /* Check if internal message */
                     if( SMC_FIFO_IS_INTERNAL_MESSAGE( celldata.flags ) )
@@ -694,7 +732,7 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                         else
                         {
                             SMC_TRACE_PRINTF_ASSERT("smc_channel_interrupt_handler: channel %d: unsupported internal msg flag used 0x%08X", smc_channel->id, celldata.flags);
-                            assert(0);
+                            //assert(0);
                         }
                     }
                     else
@@ -739,20 +777,20 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                      * Critical section begins
                                      *
                                      */
-                                    smc_lock_irq( smc_channel->lock_read );
+                                    SMC_LOCK_IRQ( smc_channel->lock_read );
 
                                         /* Use the allocator to get memory for the data */
                                     received_data_ptr = smc_allocate_local_ptr( smc_channel, celldata.length, &userdata );
 
                                     /* TODO If no memory --> Disable the receiving
-                                     * TODO Check if possible to put item back in the FIFO/MDB
+                                     * TODO Check if possible to put item back in the FIFO/MDB to be reused
                                      * */
 
                                     assert( received_data_ptr != NULL );
 
                                     if( smc_channel->smc_shm_conf_channel->use_cache_control )
                                     {
-                                        smc_shm_cache_invalidate( data, ((void*)(((uint32_t)data) + celldata.length)) );
+                                        SMC_SHM_CACHE_INVALIDATE( data, ((void*)(((uint32_t)data) + celldata.length)) );
                                     }
                                     else
                                     {
@@ -767,10 +805,11 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                     if( smc_channel->smc_shm_conf_channel->use_cache_control )
                                     {
                                             /* Clean the new data from cache */
-                                        smc_shm_cache_clean( received_data_ptr, ((void*)(((uint32_t)received_data_ptr) + celldata.length)) );
+                                        SMC_SHM_CACHE_CLEAN( received_data_ptr, ((void*)(((uint32_t)received_data_ptr) + celldata.length)) );
                                     }
 
-                                    smc_unlock_irq( smc_channel->lock_read );
+                                    // TODO CHECK LOCK
+                                    SMC_UNLOCK_IRQ( smc_channel->lock_read );
                                     /*
                                      * Critical section ends
                                      * ========================================
@@ -806,8 +845,20 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                             received_data_ptr = data;
                         }
 
+                        RD_TRACE_SEND5(TRA_SMC_MESSAGE_RECV_TO_CB, 1, &smc_channel->id,
+                                                                   4, &celldata.data,
+                                                                   4, &received_data_ptr,
+                                                                   4, &celldata.length,
+                                                                   4, &celldata.flags);
+
                             /* Deliver data to callback */
                         smc_channel->smc_receive_cb( received_data_ptr, celldata.length, &userdata, smc_channel);
+
+
+                        RD_TRACE_SEND4(TRA_SMC_MESSAGE_RECV, 1, &smc_channel->id,
+                                                             4, &celldata.data,
+                                                             4, &celldata.length,
+                                                             4, &celldata.flags);
                     }
                 }
                 else
@@ -1238,7 +1289,7 @@ uint8_t smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_cha
     SMC_TRACE_PRINTF_DEBUG("smc_add_channel: channel 0x%08X to SMC instance 0x%08X starts...", (uint32_t)smc_channel, (uint32_t)smc_instance);
 
     local_lock = get_local_lock_smc_channel();
-    smc_lock_irq( local_lock );
+    SMC_LOCK_IRQ( local_lock );
 
     smc_instance->smc_channel_list_count++;
 
@@ -1329,7 +1380,7 @@ uint8_t smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_cha
         assert(ret_val == SMC_OK);
     }
 
-    smc_unlock_irq( local_lock );
+    SMC_UNLOCK_IRQ( local_lock );
 
         /*
          * Finally send the sync message to remote
@@ -1454,7 +1505,7 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
     smc_signal_handler_t** old_ptr_array = NULL;
 
     smc_lock_t* local_lock = get_local_lock_signal_handler();
-    smc_lock_irq( local_lock );
+    SMC_LOCK_IRQ( local_lock );
 
     SMC_TRACE_PRINTF_INFO("smc_signal_add_handler: add handler 0x%08X, current count %d", (uint32_t)signal_handler, signal_handler_count);
 
@@ -1496,7 +1547,7 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 
     SMC_TRACE_PRINTF_INFO("smc_signal_add_handler: completed, signal handler count is %d", signal_handler_count);
 
-    smc_unlock_irq( local_lock );
+    SMC_UNLOCK_IRQ( local_lock );
 
     return SMC_OK;
 }
@@ -1507,7 +1558,7 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
     uint32_t old_state = smc_channel->state;
 
     smc_lock_t* local_lock = get_local_lock_smc_channel_sync();
-    smc_lock_irq( local_lock );
+    SMC_LOCK_IRQ( local_lock );
 
     SMC_TRACE_PRINTF_DEBUG("smc_channel_handle_sync(ch %d, 0x%08X): handle sync msg 0x%08X, state 0x%08X", smc_channel->id,(uint32_t)smc_channel,
                                     sync_msg,
@@ -1612,7 +1663,7 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
         smc_channel_buffer_fifo_flush( smc_channel );
     }
 
-    smc_unlock_irq( local_lock );
+    SMC_UNLOCK_IRQ( local_lock );
 
     return ret_val;
 }
@@ -1634,8 +1685,8 @@ static uint8_t smc_channel_buffer_fifo_message(smc_channel_t* channel, void* dat
     else
     {
         smc_lock_t* local_lock = get_local_lock_smc_fifo_buffer();
-        /*smc_lock_irq( local_lock );*/
-        smc_lock( local_lock );
+
+        SMC_LOCK( local_lock );
 
         if( channel->fifo_buffer == NULL )
         {
@@ -1672,7 +1723,7 @@ static uint8_t smc_channel_buffer_fifo_message(smc_channel_t* channel, void* dat
         }
 
         /*smc_unlock_irq( local_lock );*/
-        smc_unlock( local_lock );
+        SMC_UNLOCK( local_lock );
     }
 
     SMC_TRACE_PRINTF_INFO("smc_channel_buffer_fifo_message: completed by return value 0x%02X", ret_value);
@@ -1688,8 +1739,8 @@ static uint8_t smc_channel_buffer_fifo_flush( smc_channel_t* channel )
     uint8_t ret_val = SMC_OK;
 
     smc_lock_t* local_lock = get_local_lock_smc_fifo_buffer_flush();
-    /* smc_lock_irq( local_lock );*/
-    smc_lock( local_lock );
+
+    SMC_LOCK( local_lock );
 
     SMC_TRACE_PRINTF_INFO("smc_channel_buffer_fifo_flush: channel 0x%08X...", (uint32_t)channel);
 
@@ -1752,8 +1803,7 @@ static uint8_t smc_channel_buffer_fifo_flush( smc_channel_t* channel )
 
     SMC_TRACE_PRINTF_INFO("smc_channel_buffer_fifo_flush: channel 0x%08X completed by return value 0x%02X", (uint32_t)channel, ret_val);
 
-    /*smc_unlock_irq( local_lock );*/
-    smc_unlock( local_lock );
+    SMC_UNLOCK( local_lock );
 
     return ret_val;
 }

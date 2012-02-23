@@ -68,7 +68,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.17"
+#define SMC_SW_VERSION  "0.0.18"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -398,12 +398,15 @@ smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uin
      * Implementations are in the platform specific modules.
      */
 smc_lock_t* smc_lock_create ( void );
+void        smc_lock_destroy( smc_lock_t* lock );
 
+/* Changed to macros, TODO Cleanup
 void        smc_lock        ( smc_lock_t* lock );
 void        smc_unlock      ( smc_lock_t* lock );
 void        smc_lock_irq    ( smc_lock_t* lock );
 void        smc_unlock_irq  ( smc_lock_t* lock );
-void        smc_lock_destroy( smc_lock_t* lock );
+*/
+
 
     /*
      * SMC semaphore function prototypes.

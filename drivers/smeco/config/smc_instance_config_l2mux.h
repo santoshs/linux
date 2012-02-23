@@ -106,7 +106,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .name                = "ETH_P_MHDP",
              .protocol            = 0x00,
              .fifo_size_master    = 300,
-             .fifo_size_slave     = 300,
+             .fifo_size_slave     = 400,
              .mdb_size_master     = 1024*1024,
              .mdb_size_slave      = 1024*1024,
 
@@ -128,9 +128,9 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .signal_id_slave_from_master   = 45,             /* INTGEN C2_L2_CPU_Int_Gen_Ch10 */
              .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
-             .priority                      = SMC_CHANNEL_PRIORITY_LOWEST,
+             .priority                      = SMC_CHANNEL_PRIORITY_LOWEST,           /*  */
              .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND)         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
      }
 };
 
@@ -143,7 +143,7 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
     {
         .name                         = SMC_CONFIG_NAME_EOS2_WAKEUP,
         .user_name                    = SMC_CONFIG_USER_L2MUX,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2,
         .shm_start_address            = SMC_CONF_L2MUX_SHM_START,
         .shm_size                     = SMC_CONF_L2MUX_SHM_SIZE,

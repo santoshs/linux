@@ -54,12 +54,12 @@
 #define MHDP_IFNAME		"rmnet%d"
 #define MHDP_CTL_IFNAME		"rmnetctl"
 
+/* Print every MHDP SKB content */
+/*#define MHDP_DEBUG_SKB*/
 
 
 #ifdef CONFIG_MHI_DEBUG
 # define DPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
-/* Print every MHDP SKB content */
-#define MHDP_DEBUG_SKB
 #else
 # define DPRINTK(...)
 #endif

@@ -52,8 +52,12 @@ Description :  File created
  */
 
 /*#define SMC_TRACE_FIFO_ENABLED*/
+/*#define SMC_TRACE_FIFO_GET_ENABLED*/
 /*#define SMC_TRACE_MDB_ENABLED*/
 /*#define SMC_TRACE_SIGNALS_ENABLED*/
+/*#define SMC_TRACE_SIGNAL_RECEIVE_ENABLED*/
+
+/*#define SMC_TRACE_LOCK_ENABLED*/
 
 /*#define SMC_TRACE_TRANSMIT_ENABLED*/
 /*#define SMC_TRACE_RECEIVE_ENABLED*/
@@ -86,6 +90,21 @@ Description :  File created
   #define SMC_TRACE_PRINTF_FIFO_DATA( length, data )
 #endif
 
+#ifdef SMC_TRACE_FIFO_GET_ENABLED
+  #define SMC_TRACE_PRINTF_FIFO_GET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"FIFO: get:" __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_FIFO_GET_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_FIFO_GET(...)
+  #define SMC_TRACE_PRINTF_FIFO_GET_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_LOCK_ENABLED
+  #define SMC_TRACE_PRINTF_LOCK(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"LOCK: " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_LOCK_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_LOCK(...)
+  #define SMC_TRACE_PRINTF_LOCK_DATA( length, data )
+#endif
 
 #ifdef SMC_TRACE_MDB_ENABLED
   #define SMC_TRACE_PRINTF_MDB(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"MDB:  " __VA_ARGS__ )
@@ -101,6 +120,14 @@ Description :  File created
 #else
   #define SMC_TRACE_PRINTF_SIGNAL(...)
   #define SMC_TRACE_PRINTF_SIGNAL_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_SIGNAL_RECEIVE_ENABLED
+  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SIGRC:" __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE(...)
+  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE_DATA( length, data )
 #endif
 
 #ifdef SMC_TRACE_TRANSMIT_ENABLED

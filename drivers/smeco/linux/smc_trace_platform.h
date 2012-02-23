@@ -46,11 +46,13 @@ Description :  File created
 #define SMC_TRACE_MDB_ENABLED
 #define SMC_TRACE_RECEIVE_ENABLED
 #define SMC_TRACE_TRANSMIT_ENABLED
-
+#define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
+#define SMC_TRACE_FIFO_GET_ENABLED
+#define SMC_TRACE_LOCK_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 */
 
-#define SMC_TRACE_PRINTF(...)                printk(KERN_ALERT __VA_ARGS__)
+#define SMC_TRACE_PRINTF(...)                printk(KERN_DEBUG __VA_ARGS__)
 #define SMC_TRACE_PRINTF_DATA(length, data)  smc_printf_data_linux_kernel( length, data );
 
 

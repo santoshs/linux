@@ -120,7 +120,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
 
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_APE5R_EOS2;
+    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -184,10 +184,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
              * Critical section begins
              *
              */
-            smc_lock_irq( channel->lock_read );
-
-
-            /* TODO Use channel allocator */
+            SMC_LOCK( channel->lock_read );
 
             skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
 
@@ -196,7 +193,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No memory for RX skb");
                 device->stats.rx_dropped++;
 
-                smc_unlock_irq( channel->lock_read );
+                SMC_UNLOCK( channel->lock_read );
                 /*
                  * Critical section ends
                  * ========================================
@@ -263,7 +260,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 smc_net_dev = netdev_priv( device );
 
-                smc_unlock_irq( channel->lock_read );
+                SMC_UNLOCK( channel->lock_read );
                 /*
                  * Critical section ends
                  * ========================================
@@ -272,12 +269,8 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Deliver SKB (length %d) to upper layer RX ...", skb->len);
                 SMC_TRACE_PRINTF_INFO_DATA( skb->len , skb->data );
 
-
-
                 smc_net_dev->smc_dev_config->skb_rx_function( skb, device );
             }
-
-
         }
     }
     else
@@ -318,21 +311,21 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
         case SIOCPNGAUTOCONF:
         {
             struct if_phonet_req *req = (struct if_phonet_req *)ifr;
-	    uint8_t address = 0x00;
+            uint8_t address = 0x00;
 
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF");
 
             req->ifr_phonet_autoconf.device = PN_DEV_HOST;
 
-	    address = 0x60;
+            address = 0x60;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
-	    address = 0x44;
+            address = 0x44;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
-	    address = 0x64;
+            address = 0x64;
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
@@ -340,7 +333,6 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 #endif
-
             break;
         }
         case SIOCCONFIGTYPE:
