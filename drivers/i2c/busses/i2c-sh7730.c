@@ -798,6 +798,7 @@ static int sh7730_i2c_master_xfer(struct i2c_adapter *adap,
 				  int num)
 {
 	struct i2cm *id = adap->algo_data;
+	struct i2c_msg w_msgs;
 	unsigned char iccr2;
 	int i, retr;
 
@@ -818,7 +819,8 @@ static int sh7730_i2c_master_xfer(struct i2c_adapter *adap,
 retry:
 		id->flags = ((i == (num-1)) ? IDF_STOP : 0);
 		id->status = 0;
-		id->msg = msgs;
+		w_msgs = *msgs;
+		id->msg = &w_msgs;
 		init_completion(&id->xfer_done);
 
 		/* Wait Restart Condition */
