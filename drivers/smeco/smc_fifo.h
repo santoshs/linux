@@ -58,7 +58,7 @@ typedef struct
         /* FIFO write control */
     int32_t         write_index;        /* Index of the recently written item */
     int32_t         length;             /* Size of the FIFO ( count of FIFO cell items ) */
-    int32_t         fill_write_1;       /* Not in use */
+    uint32_t        write_counter;      /* For statistics and in trace for packet verification */
     int32_t         fill_write_2;       /* Not in use */
 
     int32_t         fill_write_3;       /* Not in use */
@@ -68,7 +68,7 @@ typedef struct
 
         /* FIFO read control */
     int32_t         read_index;         /* Index of the recently read item */
-    int32_t         fill_read_1;        /* Not in use */
+    uint32_t        read_counter;       /* For statistics and in trace for packet verification */
     int32_t         fill_read_2;        /* Not in use */
     int32_t         fill_read_3;        /* Not in use */
 

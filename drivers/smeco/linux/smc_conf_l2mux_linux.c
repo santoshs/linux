@@ -295,9 +295,66 @@ static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t s
     return NULL;
 }
 
-static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event)
+static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event)
 {
-    SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: SMC channel 0x%08X, event %d", (uint32_t)smc_channel, event);
+    assert(smc_channel != NULL );
+
+    switch(event)
+    {
+        case SMC_STOP_SEND:
+        {
+            struct net_device* device = NULL;
+
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_STOP_SEND", smc_channel->id);
+
+            /* Get the net device and close */
+            device = dev_config_l2mux.device_driver_priv->net_dev;
+
+            if( device != NULL )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_stop_all_queues...", smc_channel->id);
+                netif_tx_stop_all_queues(device);
+                // void netif_tx_stop_queue(struct netdev_queue *dev_queue);
+
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ASSERT("mc_event_callback_l2mux: channel id %d: Net device not found", smc_channel->id);
+                assert(0);
+            }
+
+            break;
+        }
+        case SMC_RESUME_SEND:
+        {
+            struct net_device* device = NULL;
+
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_RESUME_SEND", smc_channel->id);
+
+            /* Get the net device and close */
+            device = dev_config_l2mux.device_driver_priv->net_dev;
+
+            if( device != NULL )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_start_all_queues...", smc_channel->id);
+                netif_tx_start_all_queues(device);
+
+                // TODO Just one queue to stop: void netif_tx_start_queue(struct netdev_queue *dev_queue);
+                // void netif_tx_wake_queue(struct netdev_queue *dev_queue);
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ASSERT("mc_event_callback_l2mux: channel id %d: Net device not found", smc_channel->id);
+                assert(0);
+            }
+
+            break;
+        }
+        default:
+        {
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: event %d, no actions", smc_channel->id, event);
+        }
+    }
 }
 
 static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq* ifr, int cmd)

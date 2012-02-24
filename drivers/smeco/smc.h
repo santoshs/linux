@@ -14,6 +14,14 @@
 /*
 Change history:
 
+Version:       20   24-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.20
+
+Version:       19   23-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.19
+
 Version:       15   07-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.15
@@ -68,7 +76,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.18"
+#define SMC_SW_VERSION  "0.0.20"
 
 #define SMC_ERROR   0
 #define SMC_OK      1

@@ -476,8 +476,18 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                 SMC_TRACE_PRINTF_SEND_PACKET("send %d bytes of data from SHM 0x%08X", data_length, (uint32_t)mdb_ptr);
                 SMC_TRACE_PRINTF_SEND_PACKET_DATA(data_length, mdb_ptr);
 
-                    /* SHM Address translation */
-                mdb_ptr = (void*)smc_local_address_translate( channel, (uint32_t)mdb_ptr, userdata->flags );
+                    /* Check that the data pointer is not dedicated to other use*/
+                    /* TODO Move event data to userdata field 1 */
+                if( !SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER( userdata->flags ) )
+                {
+                        /* SHM Address translation */
+                    mdb_ptr = (void*)smc_local_address_translate( channel, (uint32_t)mdb_ptr, userdata->flags );
+                }
+                else
+                {
+                    RD_TRACE_SEND2(TRA_SMC_EVENT_SEND, 1, &channel->id,
+                                                       4, &mdb_ptr);
+                }
 
                     /* Send the pointer to FIFO */
                 SMC_TRACE_PRINTF_INFO("smc_send_ext: SMC 0x%08X Channel %d: Put data to FIFO...", (uint32_t)channel->smc_instance, channel->id);
@@ -707,11 +717,14 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                         }
                         else if( SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER( celldata.flags ) )
                         {
-                            SMC_TRACE_PRINTF_DEBUG("smc_channel_interrupt_handler: SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER");
+                            RD_TRACE_SEND2(TRA_SMC_EVENT_RECV, 1, &smc_channel->id,
+                                                               4, &celldata.data);
+
+                            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_channel_interrupt_handler: SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER: 0x%08X", (uint32_t)celldata.data);
 
                             if( smc_channel->smc_event_cb )
                             {
-                                smc_channel->smc_event_cb( smc_channel, (SMC_CHANNEL_EVENT)(celldata.data) );
+                                smc_channel->smc_event_cb( smc_channel, (SMC_CHANNEL_EVENT)celldata.data );
                             }
                             else
                             {

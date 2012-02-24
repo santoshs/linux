@@ -34,11 +34,6 @@ Description :  File created
     /*TODO Remove I2C tests */
   #define INCLUDE_I2C_TEST
 
-
-#if( SMC_L2MUX_IF == TRUE )
-    #include "./modem/smc_conf_l2mux_modem.h"
-#endif
-
 #endif
 
 #ifdef INCLUDE_I2C_TEST
@@ -53,7 +48,6 @@ Description :  File created
 static uint8_t smc_start_messaging_test_single_cpu(uint8_t* test_input_data, uint16_t test_input_data_len);
 
 static uint8_t smc_test_handler_send_phonet_message(uint8_t* test_input_data, uint32_t test_input_data_len );
-static uint8_t smc_test_handler_send_event(uint8_t* test_input_data, uint32_t test_input_data_len);
 
 uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
@@ -120,16 +114,6 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: smc_test_handler_send_phonet_message...");
 
                 test_result = smc_test_handler_send_phonet_message(&test_input_data[data_index], data_length );
-
-                break;
-            }
-            case 0x03:
-            {
-                uint32_t data_length = (test_input_data_len-data_index);
-
-                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: smc_test_handler_send_event...");
-
-                test_result = smc_test_handler_send_event( &test_input_data[data_index], data_length );
 
                 break;
             }
@@ -222,60 +206,6 @@ static uint8_t smc_test_handler_send_phonet_message(uint8_t* test_input_data, ui
     return return_value;
 
 }
-
-
-static uint8_t smc_test_handler_send_event(uint8_t* test_input_data, uint32_t test_input_data_len)
-{
-    uint8_t return_value = SMC_ERROR;
-
-#ifdef SMECO_MODEM
-#if(MEXE_TARGET_IMAGE == MEXE_TARGET_IMAGE_L2)
-
-    if( test_input_data_len >= 2 )
-    {
-        smc_t* smc_instance = NULL;
-        uint8_t channel_id = test_input_data[0];
-        uint8_t event      = test_input_data[1];
-
-#if( SMC_L2MUX_IF == TRUE )
-        SMC_TRACE_PRINTF_DEBUG( "smc_test_handler_send_event: get L2MUX instance...");
-        smc_instance = get_smc_instance_l2mux();
-#else
-#error "L2MUX Flag not visible"
-#endif
-
-        if( smc_instance != NULL )
-        {
-            SMC_TRACE_PRINTF_DEBUG( "smc_test_handler_send_event: Send event %d to channel %d", event, channel_id);
-
-            smc_channel_t* smc_channel = SMC_CHANNEL_GET( smc_instance, channel_id );
-
-            return_value = smc_send_event(smc_channel, (SMC_CHANNEL_EVENT)event);
-
-        }
-        else
-        {
-             SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_event: no proper SMC instance available");
-             return_value = SMC_ERROR;
-         }
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_event: not enough data for event message");
-        return_value = SMC_ERROR;
-    }
-
-#else
-    SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_event: IMPLEMENTED ONLY IN L2");
-#endif
-#else
-    SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_event: IMPLEMENTED ONLY IN MODEM");
-#endif
-    SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_event: completed by return value %d", ret_value);
-    return return_value;
-
-}
-
 
 
 #ifdef INCLUDE_I2C_TEST

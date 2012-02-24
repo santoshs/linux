@@ -274,7 +274,8 @@ static int smc_net_device_driver_open(struct net_device* device)
 
     smc_priv = netdev_priv(device);
 
-    SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv: 0x%08X, SMC version %s...", (uint32_t)smc_priv, SMC_SW_VERSION);
+    SMC_TRACE_PRINTF_VERSION("Version %s (net device name %s)", SMC_SW_VERSION, device->name);
+    SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv: 0x%08X...", (uint32_t)smc_priv );
 
     if( smc_priv != NULL && smc_priv->smc_dev_config != NULL )
     {
@@ -813,6 +814,7 @@ static int __init smc_platform_device_driver_init(void)
 {
     int ret_val = SMC_DRIVER_OK;
 
+    SMC_TRACE_PRINTF_VERSION("Platform device driver version %s", SMC_SW_VERSION);
     SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_init: starts...");
 
     SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_init: register driver...");

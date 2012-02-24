@@ -26,7 +26,8 @@ Version:       3    08-Nov-2011     Heikki Siikaluoma
 Status:        draft
 Description :  Platform independent code implemented
 
-Version:       2    21-Oct-2011     Heikki Siikaluoma
+Version:       2    21-Oct-2011     Heik
+ki Siikaluoma
 Status:        draft
 Description :  FIFO created
 
@@ -63,10 +64,10 @@ void smc_fifo_init_out( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_co
         SMC_SHM_CACHE_INVALIDATE( ((void*)start), ((void*)(end)) );
     }
 
-    SMC_SHM_WRITE32( &p_fifo->write_index, 0 );
-    SMC_SHM_WRITE32( &p_fifo->length     , length );
+    SMC_SHM_WRITE32( &p_fifo->write_index,   0 );
+    SMC_SHM_WRITE32( &p_fifo->length       , length );
+    SMC_SHM_WRITE32( &p_fifo->write_counter, 0);
 
-    p_fifo->fill_write_1       = 0;
     p_fifo->fill_write_2       = 0;
     p_fifo->fill_write_3       = 0;
     p_fifo->fill_write_4       = 0;
@@ -86,7 +87,7 @@ void smc_fifo_init_out( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_co
 
         /* TODO Check if read index should not updated here */
     p_fifo->read_index   = 0;
-    p_fifo->fill_read_1  = 0;
+    p_fifo->read_counter = 0;
     p_fifo->fill_read_2  = 0;
     p_fifo->fill_read_3  = 0;
     p_fifo->fill_read_4  = 0;
@@ -127,7 +128,7 @@ void smc_fifo_init_in( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_con
     /* TODO Check if write index should not updated here */
     p_fifo->write_index        = 0;
     p_fifo->length             = length;
-    p_fifo->fill_write_1       = 0;
+    p_fifo->write_counter      = 0;
     p_fifo->fill_write_2       = 0;
     p_fifo->fill_write_3       = 0;
     p_fifo->fill_write_4       = 0;
@@ -153,8 +154,8 @@ void smc_fifo_init_in( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_con
     }
 
     SMC_SHM_WRITE32( &p_fifo->read_index, 0 );
-    /* TODO Update the rest of the fields */
-    p_fifo->fill_read_1  = 0;
+    SMC_SHM_WRITE32( &p_fifo->read_counter, 0 );
+
     p_fifo->fill_read_2  = 0;
     p_fifo->fill_read_3  = 0;
     p_fifo->fill_read_4  = 0;
@@ -208,6 +209,9 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     int32_t  write_index  = 0;
     int32_t  read_index   = 0;
     int32_t  n_in_fifo    = 0;
+    uint32_t write_cnt    = 0;
+    uint32_t read_cnt     = 0;
+
 
     assert( p_fifo != NULL );
     assert( ((cell->data > 0) | (cell->length > 0) | (cell->flags > 0)) );
@@ -223,11 +227,15 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     }
 
     write_index = p_fifo->write_index;
+    write_cnt   = p_fifo->write_counter;
+
 
     /* -- SHM READ/WRITE
     n_in_fifo   = write_index - p_fifo->read_index;
     */
     read_index = SMC_SHM_READ32( &p_fifo->read_index );
+    read_cnt   = SMC_SHM_READ32( &p_fifo->read_counter );
+
     n_in_fifo  = write_index - read_index;
 
     if( n_in_fifo < 0 )
@@ -287,16 +295,26 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
             write_index = 0;
         }
 
-        /* -- SHM READ/WRITE
-        p_fifo->write_index = write_index;
-        */
+        write_cnt++;
+
         SMC_SHM_WRITE32( &p_fifo->write_index, write_index );
+        SMC_SHM_WRITE32( &p_fifo->write_counter, write_cnt );
 
         RD_TRACE_SEND5(TRA_SMC_FIFO_PUT, 4, &p_fifo,
                                          4, &cell->data,
                                          4, &cell->length,
                                          4, &cell->flags,
                                          4, &n_in_fifo);
+
+        RD_TRACE_SEND4(TRA_SMC_FIFO_PUT_STATISTICS, 4, &p_fifo,
+                                                    4, &write_cnt,
+                                                    4, &read_cnt,
+                                                    4, &n_in_fifo);
+
+
+        SMC_TRACE_PRINTF_FIFO_PUT("fifoPtr 0x%08X, data 0x%08X, length %d, flags 0x%08X, itemsInFifo: %d, writecnt: %d, readcnt: %d",
+            (uint32_t)p_fifo, (uint32_t)cell->data, cell->length, cell->flags, n_in_fifo, write_cnt, read_cnt);
+
         return_value = SMC_OK;
     }
     else
@@ -367,9 +385,11 @@ int32_t smc_fifo_get( smc_fifo_t* p_fifo, uint32_t* data, int32_t* length, uint3
  */
 int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t use_cache_control )
 {
-    int32_t packet_count_left = 0;
-    int32_t write_index       = 0;
-    int32_t read_index        = 0;
+    int32_t  packet_count_left = 0;
+    int32_t  write_index       = 0;
+    int32_t  read_index        = 0;
+    uint32_t write_cnt         = 0;
+    uint32_t read_cnt          = 0;
 
     assert( p_fifo != NULL );
 
@@ -386,8 +406,13 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
     }
 
     SMC_TRACE_PRINTF_FIFO("smc_fifo_get_cell: FIFO 0x%08X get W/R from address 0x%08X/0x%08X", p_fifo, &p_fifo->write_index, &p_fifo->read_index);
+
     write_index = SMC_SHM_READ32( &p_fifo->write_index );
+    write_cnt   = SMC_SHM_READ32( &p_fifo->write_counter);
+
     read_index  = SMC_SHM_READ32( &p_fifo->read_index  );
+    read_cnt    = SMC_SHM_READ32( &p_fifo->read_counter );
+
 
     if ( (write_index - read_index) == 0 )
     {
@@ -468,19 +493,13 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
             cell->userdata4   = SMC_SHM_READ32( &fifo_cell->userdata4 );
             cell->userdata5   = SMC_SHM_READ32( &fifo_cell->userdata5 );
 
-
         }   /* If NULL read and no assert --> normal proceed but SMC read function handles the NULL item */
 
 
-            /* Reset fifo cell item values to verify
+            /*
+             * Reset fifo cell item values to verify
              * that data is updated correctly when put a new item
              */
-
-        /* -- SHM READ/WRITE
-        fifo_cell->data   =  0;
-        fifo_cell->length = -1;
-        fifo_cell->flags  =  0;
-        */
 
         SMC_SHM_WRITE32( &fifo_cell->data  ,  0 );
         SMC_SHM_WRITE32( &fifo_cell->length, -1 );
@@ -495,6 +514,7 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
 
         read_index++;
         packet_count_left--;
+        read_cnt++;
 
         RD_TRACE_SEND5(TRA_SMC_FIFO_GET, 4, &p_fifo,
                                          4, &cell->data,
@@ -502,8 +522,8 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
                                          4, &cell->flags,
                                          4, &packet_count_left);
 
-        SMC_TRACE_PRINTF_FIFO_GET("fifoPtr 0x%08X, data 0x%08X, length %d, flags 0x%08X, itemsInFifo: %d",
-            (uint32_t)p_fifo, (uint32_t)cell->data, cell->length, cell->flags, packet_count_left);
+        SMC_TRACE_PRINTF_FIFO_GET("fifoPtr 0x%08X, data 0x%08X, length %d, flags 0x%08X, itemsInFifo: %d, writecnt: %d, readcnt: %d",
+            (uint32_t)p_fifo, (uint32_t)cell->data, cell->length, cell->flags, packet_count_left, write_cnt, read_cnt);
 
         if( read_index == (p_fifo->length * SMC_FIFO_LENGTH_MULTIPLIER) )
         {
@@ -517,12 +537,13 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
             assert(0);
         }
 
-        /* -- SHM READ/WRITE
-        p_fifo->read_index = read_index;
-        */
+        SMC_SHM_WRITE32( &p_fifo->read_index,   read_index );
+        SMC_SHM_WRITE32( &p_fifo->read_counter, read_cnt );
 
-        SMC_SHM_WRITE32( &p_fifo->read_index, read_index );
-
+        RD_TRACE_SEND4(TRA_SMC_FIFO_GET_STATISTICS, 4, &p_fifo,
+                                                    4, &write_cnt,
+                                                    4, &read_cnt,
+                                                    4, &packet_count_left);
         if( use_cache_control )
         {
             uint32_t* startcell = FIFO_HEADER_GET_START_ADDRESS_CELL( p_fifo, cell_index );
