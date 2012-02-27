@@ -1077,6 +1077,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 					pdata->detect_irq);
 			goto err5;
 		}
+		device_init_wakeup(&pdev->dev, 1);
 	}
 
 	dev_info(&pdev->dev, "%s base at 0x%08lx clock rate %u MHz\n",
@@ -1148,6 +1149,9 @@ int renesas_sdhi_suspend(struct device *dev)
 		pm_runtime_put_sync(dev);
 	}
 
+	if (device_may_wakeup(dev))
+		enable_irq_wake(host->pdata->detect_irq);
+
 	return ret;
 }
 
@@ -1156,6 +1160,9 @@ int renesas_sdhi_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	u32 val;
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(host->pdata->detect_irq);
 
 	if (!host->dynamic_clock) {
 		pm_runtime_get_sync(dev);
