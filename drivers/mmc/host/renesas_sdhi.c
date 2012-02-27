@@ -107,6 +107,7 @@
 
 
 #define SDHI_MIN_DMA_LEN	8
+#define SDHI_TIMEOUT		5000	/* msec */
 
 struct renesas_sdhi_host {
 	struct mmc_host *mmc;
@@ -133,6 +134,7 @@ struct renesas_sdhi_host {
 
 	struct workqueue_struct *work;
 	struct delayed_work	detect_wq;
+	struct delayed_work	timeout_wq;
 
 	/* DMA support */
 	bool			force_pio;
@@ -412,6 +414,7 @@ static void renesas_sdhi_cmd_done(
 			else
 				dmaengine_terminate_all(host->dma_tx);
 		}
+		__cancel_delayed_work(&host->timeout_wq);
 		renesas_sdhi_data_done(host, host->cmd);
 	} else {
 		sdhi_disable_irqs(host, SDHI_INFO_RSP_END);
@@ -490,6 +493,7 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 	if (status & SDHI_INFO_RW_END) {
+		__cancel_delayed_work(&host->timeout_wq);
 		renesas_sdhi_data_done(host, host->cmd);
 		goto end;
 	}
@@ -529,6 +533,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
+			cancel_delayed_work_sync(&host->timeout_wq);
 		}
 		renesas_sdhi_data_done(host, host->cmd);
 	}
@@ -554,6 +559,58 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 
 	spin_unlock(&host->lock);
 	return IRQ_HANDLED;
+}
+
+static void renesas_sdhi_timeout_work(struct work_struct *work)
+{
+	struct renesas_sdhi_host *host =
+		container_of(work, struct renesas_sdhi_host, timeout_wq.work);
+	unsigned long flags;
+	int timeout = 0;
+	u32 val;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	if (IS_ERR_OR_NULL(host->mrq)) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
+	}
+
+	sdhi_disable_irqs(host, 0xffffffff);
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	dev_err(&host->pdev->dev,
+		"timeout waiting for hardware interrupt (CMD%u)\n",
+		host->cmd->opcode);
+
+	sdhi_write16(host, SDHI_STOP,
+			sdhi_read16(host, SDHI_STOP) | SDHI_STOP_STOP);
+	while ((sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DIVEN) == 0) {
+		if (timeout++ > 1000) {
+			dev_err(&host->pdev->dev,
+				"timeout waiting STOP command\n");
+			break;
+		}
+		msleep(1);
+	}
+
+	if (host->dma_tx)
+		dmaengine_terminate_all(host->dma_tx);
+	if (host->dma_rx)
+		dmaengine_terminate_all(host->dma_rx);
+
+	host->cmd->error = -ETIMEDOUT;
+	host->data->error = -ETIMEDOUT;
+
+	val = sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DETECT;
+	sdhi_write32(host, SDHI_INFO, val);
+
+	host->info_mask = 0xffffffff;
+	sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+	if (!host->dynamic_clock)
+		sdhi_enable_irqs(host, SDHI_INFO_DETECT);
+
+	renesas_sdhi_data_done(host, host->cmd);
 }
 
 static bool renesas_sdhi_filter(struct dma_chan *chan, void *arg)
@@ -779,6 +836,8 @@ static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			cmddat |= SDHI_CMD_MULTI;
 			sdhi_write16(host, SDHI_STOP, SDHI_STOP_MULTI);
 		}
+		queue_delayed_work(host->work, &host->timeout_wq,
+					msecs_to_jiffies(SDHI_TIMEOUT));
 	}
 
 	renesas_sdhi_start_cmd(host, mrq->cmd, cmddat);
@@ -958,6 +1017,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
+	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
 
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_resume(&pdev->dev);
@@ -1031,6 +1091,8 @@ err5:
 err4:
 	pm_runtime_disable(&pdev->dev);
 err3:
+	if (host->work)
+		destroy_workqueue(host->work);
 	iounmap(host->base);
 err2:
 	clk_put(host->clk);
