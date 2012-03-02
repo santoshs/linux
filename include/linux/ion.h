@@ -42,6 +42,20 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
 
+
+/**
+ * These are the only ids that should be used for Ion heap ids.
+ * The ids listed are the order in which allocation will be attempted
+ * if specified. Don't swap the order of heap ids unless you know what
+ * you are doing!
+ */
+enum ion_heap_ids {
+	ION_HEAP_SYSTEM_ID,
+	ION_HEAP_SYSTEM_CONTIG_ID,
+	ION_HEAP_VIDEO_ID,
+	ION_HEAP_CAMERA_ID = ION_HEAP_VIDEO_ID,
+};
+
 #ifdef __KERNEL__
 struct ion_device;
 struct ion_heap;
@@ -96,6 +110,15 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 				     unsigned int heap_mask, const char *name);
 
 /**
+ * r_mobile_ion_client_create() - creates a new platform-specific ion client
+ *
+ * heap_mask and name are the same as ion_client_create, return values
+ * are the same as ion_client_create.
+ */
+struct ion_client *r_mobile_ion_client_create(unsigned int heap_mask,
+					      const char *name);
+
+/**
  * ion_client_destroy() -  free's a client and all it's handles
  * @client:	the client
  *
@@ -136,7 +159,7 @@ void ion_free(struct ion_client *client, struct ion_handle *handle);
  * @len:	a pointer to put the length in
  *
  * This function queries the heap for a particular handle to get the
- * handle's physical address.  It't output is only correct if
+ * handle's physical address.  Its output is only correct if
  * a heap returns physically contiguous memory -- in other cases
  * this api should not be implemented -- ion_map_dma should be used
  * instead.  Returns -EINVAL if the handle is invalid.  This has
@@ -199,7 +222,7 @@ struct ion_buffer *ion_share(struct ion_client *client,
 			     struct ion_handle *handle);
 
 /**
- * ion_import() - given an buffer in another client, import it
+ * ion_import() - given a buffer in another client, import it
  * @client:	this blocks client
  * @buffer:	the buffer to import (as obtained from ion_share)
  *
@@ -215,7 +238,7 @@ struct ion_handle *ion_import(struct ion_client *client,
  * @client:	this blocks client
  * @fd:		the fd
  *
- * A helper function for drivers that will be recieving ion buffers shared
+ * A helper function for drivers that will be receiving ion buffers shared
  * with them from userspace.  These buffers are represented by a file
  * descriptor obtained as the return from the ION_IOC_SHARE ioctl.
  * This function coverts that fd into the underlying buffer, and returns

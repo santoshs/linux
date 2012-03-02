@@ -332,6 +332,7 @@ end:
 	ion_buffer_put(buffer);
 	return handle;
 }
+EXPORT_SYMBOL(ion_alloc);
 
 void ion_free(struct ion_client *client, struct ion_handle *handle)
 {
@@ -349,6 +350,7 @@ void ion_free(struct ion_client *client, struct ion_handle *handle)
 	}
 	ion_handle_put(handle);
 }
+EXPORT_SYMBOL(ion_free);
 
 static void ion_client_get(struct ion_client *client);
 static int ion_client_put(struct ion_client *client);
@@ -406,6 +408,7 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
 	return ret;
 }
+EXPORT_SYMBOL(ion_phys);
 
 void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 {
@@ -768,6 +771,7 @@ void ion_client_destroy(struct ion_client *client)
 {
 	ion_client_put(client);
 }
+EXPORT_SYMBOL(ion_client_destroy);
 
 static int ion_share_release(struct inode *inode, struct file* file)
 {

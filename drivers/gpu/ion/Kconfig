@@ -10,3 +10,8 @@ config ION_TEGRA
 	help
 	  Choose this option if you wish to use ion on an nVidia Tegra.
 
+config ION_R_MOBILE
+        tristate "Ion for R-Mobile"
+        depends on ARCH_SHMOBILE && ION
+        help
+          Choose this option if you wish to use ion on Renesas R-Mobile.

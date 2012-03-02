@@ -30,6 +30,8 @@
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/usb/r8a66597.h>
+#include <linux/ion.h>
+#include <linux/memblock.h>
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -534,6 +536,42 @@ static struct platform_device sh_msiof0_device = {
 };
 #endif
 
+#ifdef CONFIG_ION_R_MOBILE
+#define ION_HEAP_VIDEO_SIZE	(SZ_64M - SZ_4M)
+#define ION_HEAP_VIDEO_ADDR	(0x80000000 - ION_HEAP_VIDEO_SIZE)
+
+static struct ion_platform_data u2evm_ion_data = {
+	.nr = 3,
+	.heaps = {
+		{
+			.type = ION_HEAP_TYPE_SYSTEM,
+			.id = ION_HEAP_SYSTEM_ID,
+			.name = "system",
+		},
+		{
+			.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
+			.id = ION_HEAP_SYSTEM_CONTIG_ID,
+			.name = "system-contig",
+		},
+		{
+			.type = ION_HEAP_TYPE_CARVEOUT,
+			.id = ION_HEAP_VIDEO_ID,
+			.name = "video-cam",
+			.base = ION_HEAP_VIDEO_ADDR,
+			.size = ION_HEAP_VIDEO_SIZE,
+		},
+	},
+};
+
+static struct platform_device u2evm_ion_device = {
+	.name = "ion-r-mobile",
+	.id = -1,
+	.dev = {
+		.platform_data = &u2evm_ion_data,
+	},
+};
+#endif
+
 static struct platform_device *u2evm_devices[] __initdata = {
 	&usbhs_func_device,
 	&eth_device,
@@ -551,6 +589,9 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&tpu3_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
+#endif
+#ifdef CONFIG_ION_R_MOBILE
+	&u2evm_ion_device,
 #endif
 };
 
@@ -1078,6 +1119,25 @@ void u2evm_restart(char mode, const char *cmd)
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
 
+#ifdef CONFIG_ION_R_MOBILE
+static void __init u2evm_reserve(void)
+{
+	int i;
+	int ret;
+
+	for (i = 0; i < u2evm_ion_data.nr; i++) {
+		if (u2evm_ion_data.heaps[i].type == ION_HEAP_TYPE_CARVEOUT) {
+			ret = memblock_remove(u2evm_ion_data.heaps[i].base,
+					      u2evm_ion_data.heaps[i].size);
+			if (ret)
+				pr_err("memblock remove of %x@%lx failed\n",
+				       u2evm_ion_data.heaps[i].size,
+				       u2evm_ion_data.heaps[i].base);
+		}
+	}
+}
+#endif
+
 MACHINE_START(U2EVM, "u2evm")
 	.map_io		= u2evm_map_io,
 	.init_irq	= u2evm_init_irq,
@@ -1085,4 +1145,7 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,
 	.restart	= u2evm_restart,
+#ifdef CONFIG_ION_R_MOBILE
+	.reserve	= u2evm_reserve,
+#endif
 MACHINE_END
