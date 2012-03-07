@@ -38,6 +38,8 @@ struct sh_dmae_chan {
 	u32 __iomem *base;
 	char dev_id[16];		/* unique name per DMAC of channel */
 	u32 chcr;
+
+	bool outbound;
 };
 
 struct sh_dmae_device {
@@ -49,6 +51,10 @@ struct sh_dmae_device {
 	u16 __iomem *dmars;
 	unsigned int chcr_offset;
 	u32 chcr_ie_bit;
+
+	spinlock_t	dev_lock;
+	unsigned int	burst_in_use;
+	unsigned int	num_in_use;
 };
 
 #define to_sh_chan(chan) container_of(chan, struct sh_dmae_chan, common)

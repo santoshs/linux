@@ -67,6 +67,8 @@ struct sh_dmae_pdata {
 	unsigned int chcr_offset;
 	u32 chcr_ie_bit;
 
+#define WORKAROUND_APE5R_E157_DMAC		BIT(1)
+
 	unsigned int dmaor_is_32bit:1;
 	unsigned int needs_tend_set:1;
 	unsigned int no_dmars:1;
@@ -112,5 +114,8 @@ struct sh_dmae_pdata {
 #define CHCR_IE	0x00000004
 #define CHCR_CAE (1<<31)
 #define CHCR_CAIE (1<<30)
+
+#define CHCR_BD		(1 << 7)
+#define CHCR_OUTBOUND	(DM_FIX | SM_INC | 0x800)
 
 #endif
