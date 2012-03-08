@@ -449,6 +449,21 @@ static struct platform_device lcdc_device = {
 	},
 };
 
+static struct resource mfis_resources[] = {
+	[0] = {
+		.name   = "MFIS",
+		.start  = gic_spi(126),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device mfis_device = {
+	.name           = "mfis",
+	.id                     = 0,
+	.resource       = mfis_resources,
+	.num_resources  = ARRAY_SIZE(mfis_resources),
+};
+
 static struct resource mipidsi0_resources[] = {
 	[0] = {
 		.start  = 0xfeab0000,
@@ -590,6 +605,7 @@ static struct platform_device *u2evm_devices[] __initdata = {
 #endif
 	&gpio_key_device,
 	&lcdc_device,
+	&mfis_device,
 	&mipidsi0_device,
 	&tpu3_device,
 #ifdef CONFIG_SPI_SH_MSIOF
