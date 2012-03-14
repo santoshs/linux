@@ -510,7 +510,9 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->lock, flags);
 	clk_enable(host->clk);
 
 	if (pdata->detect_irq) {
@@ -533,12 +535,13 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
-			cancel_delayed_work_sync(&host->timeout_wq);
+			__cancel_delayed_work(&host->timeout_wq);
 		}
 		renesas_sdhi_data_done(host, host->cmd);
 	}
 
 	clk_disable(host->clk);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
