@@ -192,6 +192,7 @@ static int intc_set_type(struct irq_data *data, unsigned int type)
 	unsigned char value = intc_irq_sense_table[type & IRQ_TYPE_SENSE_MASK];
 	struct intc_handle_int *ihp;
 	unsigned long addr;
+	struct irq_chip *chip;
 
 	if (!value)
 		return -EINVAL;
@@ -206,6 +207,15 @@ static int intc_set_type(struct irq_data *data, unsigned int type)
 
 		addr = INTC_REG(d, _INTC_ADDR_E(ihp->handle), 0);
 		intc_reg_fns[_INTC_FN(ihp->handle)](addr, ihp->handle, value);
+
+		chip = irq_get_chip(data->irq);
+		if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING)) {
+			__irq_set_chip_handler_name_locked(
+				data->irq, chip, handle_edge_irq, "edge");
+		} else if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH)) {
+			__irq_set_chip_handler_name_locked(
+				data->irq, chip, handle_level_irq, "level");
+		}
 	}
 
 	if (d->set_type)
