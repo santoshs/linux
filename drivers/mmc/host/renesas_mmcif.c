@@ -954,7 +954,7 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		clk_disable(host->hclk);
 		if (host->power) {
-			pm_runtime_put(&host->pd->dev);
+			pm_runtime_put_sync(&host->pd->dev);
 			host->power = false;
 		}
 		host->state = STATE_IDLE;
