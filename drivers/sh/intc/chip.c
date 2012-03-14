@@ -88,14 +88,12 @@ static int intc_set_affinity(struct irq_data *data,
 }
 #endif
 
-static void intc_mask_ack(struct irq_data *data)
+static void intc_ack(struct irq_data *data)
 {
 	unsigned int irq = data->irq;
 	struct intc_desc_int *d = get_intc_desc(irq);
 	unsigned long handle = intc_get_ack_handle(irq);
 	unsigned long addr;
-
-	intc_disable(data);
 
 	/* read register and write zero only to the associated bit */
 	if (handle) {
@@ -122,6 +120,12 @@ static void intc_mask_ack(struct irq_data *data)
 			break;
 		}
 	}
+}
+
+static void intc_mask_ack(struct irq_data *data)
+{
+	intc_disable(data);
+	intc_ack(data);
 }
 
 static struct intc_handle_int *intc_find_irq(struct intc_handle_int *hp,
@@ -214,6 +218,7 @@ static int intc_set_type(struct irq_data *data, unsigned int type)
 struct irq_chip intc_irq_chip	= {
 	.irq_mask		= intc_disable,
 	.irq_unmask		= intc_enable,
+	.irq_ack		= intc_ack,
 	.irq_mask_ack		= intc_mask_ack,
 	.irq_enable		= intc_enable,
 	.irq_disable		= intc_disable,
