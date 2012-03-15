@@ -271,6 +271,20 @@ static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 	if (!(cflag & CRTSCTS))
 		__raw_writew(0x0080, SCSPTR2); /* Set RTS = 1 */
 }
+
+ /* Modify on May 19, 2011 */
+ /* Define sci_init_pins() function for CONFIG_ARCH_SH73A0 */
+#elif defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
+static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
+{
+	u16 scipcr = 0;
+	scipcr = sci_in(port, SCPCR);
+	if (cflag & CRTSCTS)
+		sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+}
+/*end modified */
+
+
 #else
 static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
