@@ -39,12 +39,8 @@
 #include <linux/pkt_sched.h>
 
 #include <net/netns/generic.h>
-#include <net/mhi/sched.h>
 #include <net/mhi/mhdp.h>
 
-
-/* MHDP queue number in the MHDP SCH */
-#define SCH_MHDP_QUEUE 		1
 
 /* MHDP device MTU limits */
 #define MHDP_MTU_MAX 		0x2400
@@ -55,14 +51,17 @@
 #define MHDP_CTL_IFNAME		"rmnetctl"
 
 /* Print every MHDP SKB content */
-/*#define MHDP_DEBUG_SKB*/
+//#define MHDP_DEBUG_SKB
 
+
+#define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
 
 #ifdef CONFIG_MHI_DEBUG
 # define DPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
 #else
 # define DPRINTK(...)
 #endif
+
 
 #ifdef MHDP_DEBUG_SKB
 # define SKBPRINT(a,b)    __print_skb_content(a,b)
@@ -77,13 +76,17 @@
 
 /*** Type definitions ***/
 
+#define MAX_MHDPHDR_SIZE 10
+
 struct mhdp_tunnel {
 	struct mhdp_tunnel	*next;
 	struct net_device	*dev;
 	struct net_device	*master_dev;
 	struct sk_buff 		*skb;
 	int			pdn_id;
-	bool			queue_high;
+    struct timer_list tx_timer;
+    struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
+    spinlock_t timer_lock;
 };
 
 struct mhdp_net {
@@ -96,8 +99,6 @@ struct packet_info {
 	uint32_t packet_offset;
 	uint32_t packet_length;
 };
-
-#define MAX_MHDPHDR_SIZE 10
 
 struct mhdp_hdr {
 	uint32_t packet_count;
@@ -114,9 +115,7 @@ static void mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel);
 static int mhdp_netdev_event(struct notifier_block *this,
 			     unsigned long event, void *ptr);
 
-static int mhdp_queue_event(struct notifier_block *this,
-			    unsigned long event, void *ptr);
-
+static void tx_timer_timeout(unsigned long arg);
 
 /*** Global Variables ***/
 
@@ -125,11 +124,6 @@ static int  mhdp_net_id __read_mostly;
 static struct notifier_block mhdp_netdev_notifier = {
 	.notifier_call = mhdp_netdev_event,
 };
-
-static struct notifier_block mhdp_queue_notifier = {
-	.notifier_call = mhdp_queue_event,
-};
-
 
 /*** Funtions ***/
 
@@ -198,26 +192,15 @@ mhdp_tunnel_init(struct net_device *dev,
 	tunnel->master_dev  = master_dev;
 	tunnel->skb         = NULL;
 	tunnel->pdn_id      = parms->pdn_id;
-	tunnel->queue_high  = 0;
 	
-	if (master_dev->qdisc)
-		mhi_register_queue_notifier(master_dev->qdisc,
-					    &mhdp_queue_notifier,
-					    SCH_MHDP_QUEUE);
+	init_timer(&tunnel->tx_timer);
+	spin_lock_init (&tunnel->timer_lock);					    
 }
 
 static void
 mhdp_tunnel_destroy(struct net_device *dev)
 {
-	struct mhdp_tunnel *tunnel = netdev_priv(dev);
-
 	DPRINTK("mhdp_tunnel_destroy: dev:%s", dev->name);
-	
-	if (tunnel->master_dev->qdisc)
-		mhi_unregister_queue_notifier(
-			tunnel->master_dev->qdisc,
-			&mhdp_queue_notifier, 
-			SCH_MHDP_QUEUE);
 	
 	unregister_netdevice(dev);
 }
@@ -388,12 +371,18 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
 {
 	struct sk_buff *skb = tunnel->skb;
 	struct l2muxhdr	*l2hdr;
+	struct mhdp_hdr *mhdpHdr;
+	int i, nb_frags;
 
 	BUG_ON(!tunnel->master_dev);
 	
 	if (skb) {
+
+	    mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
+	    nb_frags = mhdpHdr->packet_count;
+
 		skb->protocol = htons(ETH_P_MHDP);
-		skb->priority = 0;
+		skb->priority = 1;
 		
 		skb->dev = tunnel->master_dev;
 		
@@ -410,8 +399,21 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
 		
 		tunnel->dev->stats.tx_packets++;
 		tunnel->skb = NULL;
+
+                dev_queue_xmit(skb);
 		
-		dev_queue_xmit(skb);
+		for (i=0; i < nb_frags; i++)
+		{
+		    if (tunnel->skb_to_free[i])
+		    {
+		        dev_kfree_skb(tunnel->skb_to_free[i]);
+		    }
+		    else
+		    {
+                       EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
+		    }
+		}
+		
 	}
 }
 
@@ -429,7 +431,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	int start = 0;
 	int has_frag = skb_shinfo(skb)->nr_frags;
 	uint32_t packet_count;
-   unsigned char ip_ver;
+        unsigned char ip_ver;
 
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
@@ -500,7 +502,6 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				goto error;
 
 			skb_pull(newskb, mhdp_header_len + offset);
-
       			ip_ver = (u8)*newskb->data;
 
 		} else if (has_frag) {
@@ -512,20 +513,21 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			get_page(page);
 			skb_add_rx_frag(newskb, skb_shinfo(newskb)->nr_frags, page, frag->page_offset + ((mhdp_header_len - skb_headlen(skb)) + offset), length);
+			
 			ip_ver = *( (unsigned long*)page_address(page) + (frag->page_offset + ((mhdp_header_len - skb_headlen(skb)) + offset))); 
 			if ((ip_ver>>4) !=VER_IPv4 && (ip_ver>>4)!=VER_IPv6)
 			{
 				goto error;
 			}
+
 		} else {
 			DPRINTK("Error in the data received");
 			goto error;
 		}
 
 		skb_reset_network_header(newskb);
-      /* IPv6 Support - Check the IP version and set ETH_P_IP or ETH_P_IPv6 for received packets */
 		
-      DPRINTK("Rx ip_type = %d", (0x00|(ip_ver>>4)));
+      /* IPv6 Support - Check the IP version and set ETH_P_IP or ETH_P_IPv6 for received packets */
       newskb->protocol = htons(ETH_IP_TYPE(ip_ver));
 
 		newskb->pkt_type = PACKET_HOST;
@@ -552,6 +554,17 @@ error:
 	return err;
 }
 
+static void tx_timer_timeout(unsigned long arg)
+{
+    struct mhdp_tunnel *tunnel= (struct mhdp_tunnel *) arg;
+
+    spin_lock(&tunnel->timer_lock);
+
+    mhdp_submit_queued_skb(tunnel);
+
+    spin_unlock(&tunnel->timer_lock);
+}
+
 
 static int 
 mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -561,18 +574,43 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct net_device_stats *stats = &tunnel->dev->stats;
 	struct page *page = NULL;
 	int i;
+	int packet_count, offset, len;
+
+	spin_lock(&tunnel->timer_lock);
 
 	SKBPRINT(skb, "SKB: TX");
 
-	if (tunnel->queue_high || tunnel->skb) 
+        if (timer_pending(&tunnel->tx_timer))
 	{
-		int packet_count, offset, len;
+	   del_timer(&tunnel->tx_timer);
+        }
 
-		DPRINTK("Queing the skb as the master device is busy");
-
+#if 0        
+	{
+	    int i;
+	    int len = skb->len;
+	    u8 *ptr = skb->data;
+	    
+		for (i=0; i<len; i++) 
+		{
+			if (i%8 == 0)
+				printk("MHDP mhdp_netdev_xmit : TX [%04X] ", i);
+			printk(" 0x%02X", ptr[i]);
+			if (i%8 == 7 || i == len-1) 
+				printk("\n");
+		}
+	}
+#endif    	        
+	
 		if (tunnel->skb == NULL) {
 			tunnel->skb = netdev_alloc_skb(dev,
 				L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
+
+			if (!tunnel->skb)
+			{
+			    EPRINTK("mhdp_netdev_xmit error1");
+			    BUG();
+			}
 
 			/* Place holder for the mhdp packet count */
 			len = skb_headroom(tunnel->skb) - L2MUX_HDR_SIZE;
@@ -590,6 +628,10 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 				tunnel->skb->tail -= len;
 				tunnel->skb->len  -= len;
 			}
+		
+		
+		        mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
+		        mhdpHdr->packet_count = 0;
 		}
 
 		/*
@@ -607,6 +649,8 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 
+	        tunnel->skb_to_free[mhdpHdr->packet_count] = skb;
+
 		packet_count = mhdpHdr->packet_count;
 		mhdpHdr->info[packet_count].pdn_id = tunnel->pdn_id;
 		if (packet_count == 0) {
@@ -622,10 +666,10 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		page = virt_to_page(skb->data);
 
-		if (page == NULL) {
-			DPRINTK("kmap_atomic_to_page returns NULL");
-			goto tx_error;
-		}
+	        if (page == NULL) {
+		   EPRINTK("kmap_atomic_to_page returns NULL");
+		   goto tx_error;
+	        }
 
 		get_page(page);
 
@@ -644,43 +688,23 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 			}
 		}
 
-		if ((mhdpHdr->packet_count == MAX_MHDPHDR_SIZE) || (!tunnel->queue_high) )
+		if (mhdpHdr->packet_count == MAX_MHDPHDR_SIZE)
+                {
 			mhdp_submit_queued_skb(tunnel);
+                }
+                else
+                {
+	           tunnel->tx_timer.function = &tx_timer_timeout;
+	           tunnel->tx_timer.data     = (unsigned long) tunnel;
+	           tunnel->tx_timer.expires = jiffies + ((HZ + 999) / 1000);
+	           add_timer(&tunnel->tx_timer);
+	        } 
 
-		dev_kfree_skb(skb);
-	} 
-	else 
-	{
-		int mhdpHeaderLen = L2MUX_HDR_SIZE + sizeof(struct packet_info);
-
-		if (mhdpHeaderLen > skb_headroom(skb)) {
-			struct sk_buff *new_skb = 
-			              skb_realloc_headroom(skb, mhdpHeaderLen);
-
-			DPRINTK("Reallocating headroom of skb");
-			if (!new_skb) {
-				dev_kfree_skb(skb);
-				return NETDEV_TX_OK;
-			}
-			dev_kfree_skb(skb);
-			skb = new_skb;
-		}
-
-		mhdpHdr = (struct mhdp_hdr *)skb_push(skb, mhdpHeaderLen);
-
-		memset(mhdpHdr, 0, mhdpHeaderLen);
-		mhdpHdr->packet_count = 1;
-		mhdpHdr->info[0].pdn_id = tunnel->pdn_id;
-		mhdpHdr->info[0].packet_offset = 0;
-		mhdpHdr->info[0].packet_length = skb->len - mhdpHeaderLen;
-
-		tunnel->skb = skb;
-		mhdp_submit_queued_skb(tunnel);
-	}
-
+        spin_unlock(&tunnel->timer_lock);
 	return NETDEV_TX_OK;
 
 tx_error:
+    spin_unlock(&tunnel->timer_lock);
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
@@ -724,46 +748,6 @@ mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 	
 	return NOTIFY_DONE;
 }
-
-static int 
-mhdp_queue_event(struct notifier_block *this, unsigned long event, void *ptr)
-{
-	struct net_device *event_dev = (struct net_device *)ptr;
-	struct mhdp_net *mhdpn = mhdp_net_dev(event_dev);
-	struct mhdp_tunnel *iter;
-	
-	DPRINTK("event_dev: %s, event: %lx\n",
-		event_dev ? event_dev->name : "None", event);
-	
-	switch(event)
-	{
-	    case MHI_NOTIFY_QUEUE_HIGH:
-	    {
-		    DPRINTK("MHI_NOTIFY_QUEUE_HIGH");
-		    for (iter=mhdpn->tunnels; (iter); iter=iter->next) {
-			    if (event_dev == iter->master_dev) {
-				    iter->queue_high = 1;
-			    }
-		    }
-	    }
-	    break;
-	    
-	    case MHI_NOTIFY_QUEUE_LOW: 
-	    {
-		    DPRINTK("MHI_NOTIFY_QUEUE_LOW");
-		    for (iter=mhdpn->tunnels; (iter); iter=iter->next) {
-			    if (event_dev == iter->master_dev) {
-				    iter->queue_high = 0;
-				    mhdp_submit_queued_skb(iter);
-			    }
-		    }
-	    }
-	    break;
-	}
-	
-	return NOTIFY_DONE;
-}
-
 
 static const struct net_device_ops mhdp_netdev_ops = 
 {
