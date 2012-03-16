@@ -117,6 +117,7 @@ struct renesas_sdhi_host {
 	struct platform_device *pdev;
 	struct renesas_sdhi_platdata *pdata;
 	void __iomem *base;
+	unsigned long bus_shift;
 
 	/* current state */
 	u8 bus_width;
@@ -150,19 +151,19 @@ struct renesas_sdhi_host {
 
 static u16 sdhi_read16(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + offset);
+	return __raw_readw(host->base + (offset << host->bus_shift));
 }
 
 static void sdhi_read16s(struct renesas_sdhi_host *host,
 		u32 offset, u16 *buf, int count)
 {
-	__raw_readsw(host->base + offset, buf, count);
+	__raw_readsw(host->base + (offset << host->bus_shift), buf, count);
 }
 
 static u32 sdhi_read32(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + offset) |
-		__raw_readw(host->base + offset + 2) << 16;
+	return __raw_readw(host->base + (offset << host->bus_shift)) |
+	  __raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
 }
 
 static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
@@ -185,19 +186,19 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		}
 		break;
 	}
-	__raw_writew(val, host->base + offset);
+	__raw_writew(val, host->base + (offset << host->bus_shift));
 }
 
 static void sdhi_write16s(struct renesas_sdhi_host *host,
 		u32 offset, u16 *buf, int count)
 {
-	__raw_writesw(host->base + offset, buf, count);
+	__raw_writesw(host->base + (offset << host->bus_shift), buf, count);
 }
 
 static void sdhi_write32(struct renesas_sdhi_host *host, u32 offset, u32 val)
 {
-	__raw_writew(val & 0xffff, host->base + offset);
-	__raw_writew(val >> 16, host->base + offset + 2);
+	__raw_writew(val & 0xffff, host->base + (offset << host->bus_shift));
+	__raw_writew(val >> 16, host->base + ((offset + 2) << host->bus_shift));
 }
 
 static void sdhi_enable_irqs(struct renesas_sdhi_host *host, u32 i)
@@ -992,6 +993,9 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	host->hclk = clk_get_rate(host->clk);
+
+	/* SD control register space size is 0x100, 0x200 for bus_shift=1 */
+	host->bus_shift = resource_size(res) >> 9;
 
 	host->base = ioremap(res->start, resource_size(res));
 	if (!host->base) {
