@@ -71,6 +71,9 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
         func.fn_screen_display_stop_hdmi        = fnc->fn_screen_display_stop_hdmi;
         func.fn_screen_display_get_address      = fnc->fn_screen_display_get_address;
         func.fn_screen_display_draw             = fnc->fn_screen_display_draw;
+//#MU2DSP222 add -S-
+        func.fn_screen_display_read_dsi_short_packet   = fnc->fn_screen_display_read_dsi_short_packet;
+//#MU2DSP222 add -E-
         func.fn_screen_display_write_dsi_short_packet   = fnc->fn_screen_display_write_dsi_short_packet;
         func.fn_screen_display_write_dsi_long_packet    = fnc->fn_screen_display_write_dsi_long_packet;
         func.fn_screen_display_set_lcd_if_parameters    = fnc->fn_screen_display_set_lcd_if_parameters;
@@ -523,6 +526,20 @@ int screen_display_draw
     }
     return ret;
 }
+
+//#MU2DSP222 add -S-
+int screen_display_read_dsi_short_packet
+(
+	screen_disp_read_dsi_short* read_dsi_s
+){
+	int ret = SMAP_LIB_DISPLAY_NG;
+	
+	if( func.fn_screen_display_read_dsi_short_packet ){
+		ret = func.fn_screen_display_read_dsi_short_packet( read_dsi_s );
+	}
+	return ret;
+}
+//#MU2DSP222 add -E-
 
 int screen_display_write_dsi_short_packet
 (

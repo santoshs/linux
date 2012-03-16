@@ -64,6 +64,9 @@ struct rtapi_regist_func{
 	int (*fn_screen_display_stop_hdmi)(screen_disp_stop_hdmi*);
 	int (*fn_screen_display_get_address)(screen_disp_get_address*);
 	int (*fn_screen_display_draw)(screen_disp_draw*);
+//#MU2DSP222 add -S-
+	int (*fn_screen_display_read_dsi_short_packet)(screen_disp_read_dsi_short*);
+//#MU2DSP222 add -E-
 	int (*fn_screen_display_write_dsi_short_packet)(screen_disp_write_dsi_short*);
 	int (*fn_screen_display_write_dsi_long_packet)(screen_disp_write_dsi_long*);
 	int (*fn_screen_display_set_lcd_if_parameters)(screen_disp_set_lcd_if_param*);

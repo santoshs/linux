@@ -2,7 +2,8 @@
  * drivers/char/rtapi/include/screen_display.h
  *     This file is screen display function.
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
+
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -146,6 +147,20 @@ typedef struct
 	void* handle;
 } screen_disp_stop_hdmi;
 
+//#MU2DSP222 add -S-
+typedef struct
+{
+	void*         handle;
+	unsigned short output_mode;
+	unsigned short dummy;
+	unsigned char data_id;
+	unsigned char reg_address;
+	unsigned char	write_data;
+	unsigned char	data_count;
+	unsigned char*	read_data;
+} screen_disp_read_dsi_short;
+//#MU2DSP222 add -E-
+
 typedef struct
 {
 	void*         handle;
@@ -243,6 +258,15 @@ extern int screen_display_stop_hdmi
 (
 	screen_disp_stop_hdmi* stop_hdmi
 );
+
+//#MU2DSP222 add -S-
+/* Read LCD packet data */
+extern int screen_display_read_dsi_short_packet
+(
+	screen_disp_read_dsi_short* read_dsi_s
+);
+//#MU2DSP222 add -E-
+
 
 /* Write LCD packet data */
 extern int screen_display_write_dsi_short_packet

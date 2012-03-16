@@ -38,6 +38,7 @@
 #define RT_GRAPHICS_COLOR_RGB888			(6)		/* RGB888 */
 #define RT_GRAPHICS_COLOR_ARGB8888			(7)		/* aRGB8888 */
 #define RT_GRAPHICS_COLOR_YUV420PL			(12)	/* YUV420 Planar */
+#define RT_GRAPHICS_COLOR_XRGB8888			(13)	/* xRGB8888 */
 
 /* yuv_format */
 #define RT_GRAPHICS_COLOR_BT601				(1)	/* ITU-R BT.601 */
