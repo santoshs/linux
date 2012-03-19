@@ -14,6 +14,8 @@ struct sh_keysc_info {
 	int automode;
 	int scan_timing1; /* 0 -> 15, see A_KYCR2, SCN1[3:0] */
 	int scan_timing2; /* 0 -> 11, see A_KYCR2, SCN2[3:0] */
+
+	int wakeup;
 };
 
 #endif /* __SH_KEYSC_H__ */

@@ -340,7 +340,8 @@ static int __devinit sh_keysc_probe(struct platform_device *pdev)
 		sh_keysc_level_mode(priv, 0);
 	}
 
-	device_init_wakeup(&pdev->dev, 1);
+	if (pdata->wakeup)
+		device_init_wakeup(&pdev->dev, 1);
 
 	return 0;
 
