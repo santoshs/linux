@@ -66,6 +66,7 @@ struct sh_keysc_priv {
 #define A_KYCR1_MASKVALUE	(1 << 4)
 #define A_KYCR1_MASKVALUE2	(1 << 3)
 
+#define A_KYIR_STBCSL	(1 << 20)
 #define A_KYIR_FIFONE	(1 << 4)
 #define A_KYIR_KYALR	(1 << 3)
 #define A_KYIR_KYCHG	(1 << 2)
@@ -386,15 +387,18 @@ static int sh_keysc_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_keysc_priv *priv = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
-	unsigned short value;
-
-	value = sh_keysc_read(priv, KYCR1);
+	unsigned long value;
 
 	if (device_may_wakeup(dev)) {
-		sh_keysc_write(priv, KYCR1, value | 0x80);
+		if (priv->pdata.automode) {
+			value = sh_keysc_read(priv, A_KYIR);
+			sh_keysc_write(priv, A_KYIR, value | A_KYIR_STBCSL);
+		} else {
+			value = sh_keysc_read(priv, KYCR1);
+			sh_keysc_write(priv, KYCR1, value | 0x80);
+		}
 		enable_irq_wake(irq);
 	} else {
-		sh_keysc_write(priv, KYCR1, value & ~0x80);
 		pm_runtime_put_sync(dev);
 	}
 
