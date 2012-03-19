@@ -27,7 +27,7 @@ void _intc_enable(struct irq_data *data, unsigned long handle)
 #endif
 		addr = INTC_REG(d, _INTC_ADDR_E(handle), cpu);
 		intc_enable_fns[_INTC_MODE(handle)](addr, handle, intc_reg_fns\
-						    [_INTC_FN(handle)], irq);
+					[_INTC_FN(handle)], irq, &d->lock);
 	}
 
 	intc_balancing_enable(irq);
@@ -55,7 +55,7 @@ static void intc_disable(struct irq_data *data)
 #endif
 		addr = INTC_REG(d, _INTC_ADDR_D(handle), cpu);
 		intc_disable_fns[_INTC_MODE(handle)](addr, handle,intc_reg_fns\
-						     [_INTC_FN(handle)], irq);
+					[_INTC_FN(handle)], irq, &d->lock);
 	}
 }
 
@@ -206,7 +206,7 @@ static int intc_set_type(struct irq_data *data, unsigned int type)
 			return -EINVAL;
 
 		addr = INTC_REG(d, _INTC_ADDR_E(ihp->handle), 0);
-		intc_reg_fns[_INTC_FN(ihp->handle)](addr, ihp->handle, value);
+		intc_reg_fns[_INTC_FN(ihp->handle)](addr, ihp->handle, value, &d->lock);
 
 		chip = irq_get_chip(data->irq);
 		if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING)) {
