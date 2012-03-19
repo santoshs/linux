@@ -70,6 +70,10 @@
 #define SIDE_B_OFFSET 0x1000
 #define MIRROR_OFFSET 0x2000
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#include <linux/sh_mobile_composer.h>
+#endif
+
 struct sh_mobile_lcdc_priv;
 struct sh_mobile_lcdc_chan {
 	struct sh_mobile_lcdc_priv *lcdc;
@@ -598,6 +602,12 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
 		disp_draw.buffer_offset = new_pan_offset;
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		sh_mobile_composer_blendoverlay(disp_draw.buffer_offset
+						+ info->fix.smem_start);
+#endif
+
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
@@ -622,6 +632,12 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.draw_rect.height =
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
+		disp_draw.buffer_offset = 0;
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	sh_mobile_composer_blendoverlay(info->fix.smem_start);
+#endif
+
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
