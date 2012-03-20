@@ -244,6 +244,8 @@ static struct platform_device sh_mmcif_device = {
 	.resource	= sh_mmcif_resources,
 };
 
+#ifdef CONFIG_MUX_STM_TO_SDHI1
+/* If STM traces are muxed to SDHI1, then SDHI0 can be used for SD-Card */
 /* SDHI0 */
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
@@ -296,6 +298,7 @@ static struct platform_device sdhi0_device = {
 	.num_resources	= ARRAY_SIZE(sdhi0_resources),
 	.resource	= sdhi0_resources,
 };
+#endif // ifdef CONFIG_MUX_STM_TO_SDHI1
 
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
@@ -579,7 +582,9 @@ static struct platform_device *u2evm_devices[] __initdata = {
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
+#ifdef CONFIG_MUX_STM_TO_SDHI1
 	&sdhi0_device,
+#endif
 #if !defined CONFIG_MUX_STM_TO_SDHI1
 	&sdhi1_device, // SEE NOTE ABOVE ABOUT SDHI1 CONFLICT WITH STM UNTIL eMMC BOOT WORKS!
 #endif
@@ -801,6 +806,8 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
 
+#ifdef CONFIG_MUX_STM_TO_SDHI1
+	/* If STM Traces go to SDHI1, then SDHI0 can be used for SD-Card */
 	/* SDHI0 */
 	gpio_request(GPIO_FN_SDHID0_0, NULL);
 	gpio_request(GPIO_FN_SDHID0_1, NULL);
@@ -813,6 +820,7 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT327);
 	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 	gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
+#endif
 
 #if 0
 	/* ONLY FOR HSI CROSS COUPLING */
@@ -826,7 +834,7 @@ static void __init u2evm_init(void)
 #ifdef  CONFIG_MUX_STM_TO_SDHI1
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX */
 
-        /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
+        /* SDHI1 used for STM Data, STM Clock */
 //        gpio_request(GPIO_PORT288, NULL);
 //        gpio_direction_output(GPIO_PORT288, 0);
         gpio_request(GPIO_FN_STMCLK_2, NULL);
@@ -846,6 +854,34 @@ static void __init u2evm_init(void)
 //        gpio_request(GPIO_PORT292, NULL);
 //        gpio_direction_output(GPIO_PORT292, 0);
         gpio_request(GPIO_FN_STMDATA3_2, NULL);
+
+#else // ifdef  CONFIG_MUX_STM_TO_SDHI1
+	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX using SDHI0 as port */
+
+        /* SDHI0 used for STM Data, STM Clock */
+//        gpio_request(GPIO_PORT326, NULL);
+//        gpio_direction_output(GPIO_PORT326, 0);
+        gpio_request(GPIO_FN_STMCLK_1, NULL);
+
+//        gpio_request(GPIO_PORT320, NULL);
+//        gpio_direction_output(GPIO_PORT320, 0);
+        gpio_request(GPIO_FN_STMDATA0_1, NULL); 
+
+//        gpio_request(GPIO_PORT321, NULL);
+//        gpio_direction_output(GPIO_PORT321, 0);
+        gpio_request(GPIO_FN_STMDATA1_1, NULL);
+
+//        gpio_request(GPIO_PORT322, NULL);
+//        gpio_direction_output(GPIO_PORT322, 0);
+        gpio_request(GPIO_FN_STMDATA2_1, NULL);
+
+//        gpio_request(GPIO_PORT323, NULL);
+//        gpio_direction_output(GPIO_PORT323, 0);
+        gpio_request(GPIO_FN_STMDATA3_1, NULL);
+
+//        *PORTCR(324) = 0x03; //STMCMD0
+
+#endif // ifdef  CONFIG_MUX_STM_TO_SDHI1
 
 
 /*      Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
@@ -877,10 +913,19 @@ static void __init u2evm_init(void)
 	/* THIRD, PINMUX STM SIDI (i,e, return channel) MUX FOR BB/MODEM */
 	/* ALSO, CONFIGURE SYS-(TRACE) FUNNEL-STM, and SYS-TPIU-STM */
 
+#ifdef CONFIG_MUX_STM_TO_SDHI1
+	/* SDHI1 used for STMSIDI */
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
         gpio_pull(GPIO_PORTCR(293), GPIO_PULL_UP);
+#else
+        /* SDHI0 used for STMSIDI */
+//        gpio_request(GPIO_PORT324, NULL);
+//        gpio_direction_input(GPIO_PORT324);
+        gpio_request(GPIO_FN_STMSIDI_1, NULL);
+        gpio_pull(GPIO_PORTCR(324), GPIO_PULL_UP);
+#endif
         {
           int i;
           volatile unsigned long dummy_read;
@@ -897,9 +942,15 @@ static void __init u2evm_init(void)
           for(i=0; i<0x10; i++);
 
 #define DBGREG1		IO_ADDRESS(0xE6100020)
+#ifdef CONFIG_MUX_STM_TO_SDHI1
           __raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
-		// Set   STMSEL[0], i.e. select SDH1 as output/in port for STM
+		// Set   STMSEL[0], i.e. select SDHI1/STM*_2 as output/in port for STM
+#else
+          __raw_writel((__raw_readl(DBGREG1) & 0xFFCFFFFF), DBGREG1);
+		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
+		// Clear STMSEL[0], i.e. select SDHI0/STM*_1 as output/in port for STM
+#endif
 
           for(i=0; i<0x10; i++);
 
@@ -927,7 +978,6 @@ static void __init u2evm_init(void)
 	  __raw_writel(0x00020001, SYS_TPIU_STM_BASE + 0x204); // STM Walking ones test mode
 #endif
         }
-#endif // CONFIG_MUX_STM_TO_SDHI1
 
 #if !defined CONFIG_MUX_STM_TO_SDHI1
 	/* SDHI1 */
