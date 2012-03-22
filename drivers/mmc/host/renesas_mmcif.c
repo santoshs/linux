@@ -450,8 +450,8 @@ static int sh_mmcif_error_manage(struct sh_mmcif_host *host)
 
 	state1 = sh_mmcif_readl(host->addr, MMCIF_CE_HOST_STS1);
 	state2 = sh_mmcif_readl(host->addr, MMCIF_CE_HOST_STS2);
-	dev_dbg(&host->pd->dev, "ERR HOST_STS1 = %08x\n", state1);
-	dev_dbg(&host->pd->dev, "ERR HOST_STS2 = %08x\n", state2);
+	dev_err(&host->pd->dev, "ERR HOST_STS1 = %08x\n", state1);
+	dev_err(&host->pd->dev, "ERR HOST_STS2 = %08x\n", state2);
 
 	if (state1 & STS1_CMDSEQ) {
 		sh_mmcif_bitset(host, MMCIF_CE_CMD_CTRL, CMD_CTRL_BREAK);
@@ -468,18 +468,18 @@ static int sh_mmcif_error_manage(struct sh_mmcif_host *host)
 			return -EIO;
 		}
 		sh_mmcif_sync_reset(host);
-		dev_dbg(&host->pd->dev, "Forced end of command sequence\n");
+		dev_err(&host->pd->dev, "Forced end of command sequence\n");
 		return -EIO;
 	}
 
 	if (state2 & STS2_CRC_ERR) {
-		dev_dbg(&host->pd->dev, ": CRC error\n");
+		dev_err(&host->pd->dev, ": CRC error\n");
 		ret = -EIO;
 	} else if (state2 & STS2_TIMEOUT_ERR) {
-		dev_dbg(&host->pd->dev, ": Timeout\n");
+		dev_err(&host->pd->dev, ": Timeout\n");
 		ret = -ETIMEDOUT;
 	} else {
-		dev_dbg(&host->pd->dev, ": End/Index error\n");
+		dev_err(&host->pd->dev, ": End/Index error\n");
 		ret = -EIO;
 	}
 	return ret;
@@ -775,7 +775,7 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 			cmd->error = -ETIMEDOUT;
 			break;
 		default:
-			dev_dbg(&host->pd->dev, "Cmd(d'%d) err\n",
+			dev_err(&host->pd->dev, "Cmd(d'%d) err\n",
 					cmd->opcode);
 			cmd->error = sh_mmcif_error_manage(host);
 			break;
@@ -1044,7 +1044,7 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 	}
 	if (err) {
 		host->sd_error = true;
-		dev_dbg(&host->pd->dev, "int err state = %08x\n", state);
+		dev_err(&host->pd->dev, "int err state = %08x\n", state);
 	}
 	if (state & ~(INT_CMD12RBE | INT_CMD12CRE))
 		complete(&host->intr_wait);
