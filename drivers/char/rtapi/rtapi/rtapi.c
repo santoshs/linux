@@ -54,6 +54,9 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
         func.fn_system_memory_ap_share_mem      = fnc->fn_system_memory_ap_share_mem;
         func.fn_system_memory_rt_map            = fnc->fn_system_memory_rt_map;
         func.fn_system_memory_rt_unmap          = fnc->fn_system_memory_rt_unmap;
+        func.fn_system_memory_reg_phymem        = fnc->fn_system_memory_reg_phymem;
+        func.fn_system_memory_unreg_phymem      = fnc->fn_system_memory_unreg_phymem;
+        func.fn_system_memory_phy_change_rtaddr = fnc->fn_system_memory_phy_change_rtaddr;
         func.fn_system_memory_info_new          = fnc->fn_system_memory_info_new;
         func.fn_system_memory_get_rtinfo        = fnc->fn_system_memory_get_rtinfo;
         func.fn_system_memory_get_apinfo        = fnc->fn_system_memory_get_apinfo;
@@ -121,6 +124,7 @@ int system_memory_rt_alloc
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_alloc);
 
 int system_memory_rt_free
 (
@@ -133,6 +137,7 @@ int system_memory_rt_free
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_free);
 
 int system_memory_rt_change_rtaddr
 (
@@ -145,6 +150,7 @@ int system_memory_rt_change_rtaddr
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_change_rtaddr);
 
 int system_memory_rt_change_apaddr
 (
@@ -157,6 +163,7 @@ int system_memory_rt_change_apaddr
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_change_apaddr);
 
 int system_memory_ap_open
 (
@@ -169,6 +176,7 @@ int system_memory_ap_open
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_open);
 
 int system_memory_ap_open_wb
 (
@@ -181,6 +189,7 @@ int system_memory_ap_open_wb
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_open_wb);
 
 int system_memory_ap_close
 (
@@ -193,6 +202,7 @@ int system_memory_ap_close
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_close);
 
 int system_memory_ap_alloc
 (
@@ -205,6 +215,7 @@ int system_memory_ap_alloc
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_alloc);
 
 int system_memory_ap_free
 (
@@ -217,6 +228,7 @@ int system_memory_ap_free
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_free);
 
 int system_memory_ap_change_rtaddr
 (
@@ -229,6 +241,7 @@ int system_memory_ap_change_rtaddr
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_change_rtaddr);
 
 int system_memory_ap_change_apaddr
 (
@@ -241,6 +254,7 @@ int system_memory_ap_change_apaddr
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_change_apaddr);
 
 int system_memory_ap_cache_flush
 (
@@ -253,6 +267,7 @@ int system_memory_ap_cache_flush
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_cache_flush);
 
 int system_memory_ap_cache_clear
 (
@@ -265,6 +280,7 @@ int system_memory_ap_cache_clear
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_cache_clear);
 
 void system_memory_ap_buffer_flush
 (
@@ -276,6 +292,7 @@ void system_memory_ap_buffer_flush
     }
     return;
 }
+EXPORT_SYMBOL(system_memory_ap_buffer_flush);
 
 unsigned int system_memory_ap_get_apmem_id
 (
@@ -288,6 +305,7 @@ unsigned int system_memory_ap_get_apmem_id
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_get_apmem_id);
 
 int system_memory_ap_share_area
 (
@@ -300,6 +318,7 @@ int system_memory_ap_share_area
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_share_area);
 
 int system_memory_ap_share_mem_offset
 (
@@ -312,6 +331,7 @@ int system_memory_ap_share_mem_offset
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_share_mem_offset);
 
 int system_memory_ap_share_mem
 (
@@ -324,6 +344,7 @@ int system_memory_ap_share_mem
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_ap_share_mem);
 
 int system_memory_rt_map
 (
@@ -336,6 +357,7 @@ int system_memory_rt_map
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_map);
 
 int system_memory_rt_unmap
 (
@@ -348,6 +370,46 @@ int system_memory_rt_unmap
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_rt_unmap);
+
+int system_memory_reg_phymem
+(
+    system_mem_reg_phymem* reg_phymem
+){
+    int ret = SMAP_LIB_MEMORY_NG;
+
+    if( func.fn_system_memory_reg_phymem ){
+        ret = func.fn_system_memory_reg_phymem( reg_phymem );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(system_memory_reg_phymem);
+
+int system_memory_unreg_phymem
+(
+    system_mem_unreg_phymem* unreg_phymem
+){
+    int ret = SMAP_LIB_MEMORY_NG;
+
+    if( func.fn_system_memory_unreg_phymem ){
+        ret = func.fn_system_memory_unreg_phymem( unreg_phymem );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(system_memory_unreg_phymem);
+
+int system_memory_phy_change_rtaddr
+(
+    system_mem_phy_change_rtaddr*   phy_change_rtaddr
+){
+    int ret = SMAP_LIB_MEMORY_NG;
+
+    if( func.fn_system_memory_phy_change_rtaddr ){
+        ret = func.fn_system_memory_phy_change_rtaddr( phy_change_rtaddr );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(system_memory_phy_change_rtaddr);
 
 void* system_memory_info_new
 (
@@ -360,6 +422,7 @@ void* system_memory_info_new
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_info_new);
 
 int system_memory_get_rtinfo
 (
@@ -372,6 +435,7 @@ int system_memory_get_rtinfo
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_get_rtinfo);
 
 int system_memory_get_apinfo
 (
@@ -384,6 +448,7 @@ int system_memory_get_apinfo
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_get_apinfo);
 
 void system_memory_info_delete
 (
@@ -394,6 +459,7 @@ void system_memory_info_delete
     }
     return;
 }
+EXPORT_SYMBOL(system_memory_info_delete);
 
 int system_memory_meram_alloc
 (
@@ -406,6 +472,7 @@ int system_memory_meram_alloc
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_meram_alloc);
 
 int system_memory_meram_free
 (
@@ -418,6 +485,7 @@ int system_memory_meram_free
     }
     return ret;
 }
+EXPORT_SYMBOL(system_memory_meram_free);
 
 /* Screen - Display */
 void* screen_display_new
@@ -431,6 +499,7 @@ void* screen_display_new
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_new);
 
 int screen_display_set_parameters
 (
@@ -443,6 +512,8 @@ int screen_display_set_parameters
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_set_parameters);
+
 int screen_display_set_lcd_refresh
 (
     screen_disp_set_lcd_refresh* set_lcd_refresh
@@ -454,6 +525,7 @@ int screen_display_set_lcd_refresh
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_set_lcd_refresh);
 
 int screen_display_start_lcd
 (
@@ -466,6 +538,7 @@ int screen_display_start_lcd
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_start_lcd);
 
 int screen_display_stop_lcd
 (
@@ -478,6 +551,7 @@ int screen_display_stop_lcd
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_stop_lcd);
 
 int screen_display_start_hdmi
 (
@@ -490,6 +564,7 @@ int screen_display_start_hdmi
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_start_hdmi);
 
 int screen_display_stop_hdmi
 (
@@ -502,6 +577,7 @@ int screen_display_stop_hdmi
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_stop_hdmi);
 
 int screen_display_get_address
 (
@@ -514,6 +590,7 @@ int screen_display_get_address
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_get_address);
 
 int screen_display_draw
 (
@@ -526,6 +603,7 @@ int screen_display_draw
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_draw);
 
 //#MU2DSP222 add -S-
 int screen_display_read_dsi_short_packet
@@ -540,6 +618,7 @@ int screen_display_read_dsi_short_packet
 	return ret;
 }
 //#MU2DSP222 add -E-
+EXPORT_SYMBOL(screen_display_read_dsi_short_packet);
 
 int screen_display_write_dsi_short_packet
 (
@@ -552,6 +631,7 @@ int screen_display_write_dsi_short_packet
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_write_dsi_short_packet);
 
 int screen_display_write_dsi_long_packet
 (
@@ -564,6 +644,7 @@ int screen_display_write_dsi_long_packet
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_write_dsi_long_packet);
 
 int screen_display_set_lcd_if_parameters
 (
@@ -576,6 +657,7 @@ int screen_display_set_lcd_if_parameters
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_set_lcd_if_parameters);
 
 int screen_display_set_address
 (
@@ -588,6 +670,7 @@ int screen_display_set_address
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_display_set_address);
 
 void screen_display_delete
 (
@@ -598,6 +681,7 @@ void screen_display_delete
     }
     return;
 }
+EXPORT_SYMBOL(screen_display_delete);
 
 /* Screen - Graphics */
 void* screen_graphics_new
@@ -611,6 +695,7 @@ void* screen_graphics_new
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_graphics_new);
 
 int screen_graphics_initialize
 (
@@ -623,6 +708,7 @@ int screen_graphics_initialize
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_graphics_initialize);
 
 int screen_graphics_image_conversion
 (
@@ -635,6 +721,7 @@ int screen_graphics_image_conversion
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_graphics_image_conversion);
 
 int screen_graphics_image_blend
 (
@@ -647,6 +734,7 @@ int screen_graphics_image_blend
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_graphics_image_blend);
 
 int screen_graphics_quit
 (
@@ -659,6 +747,7 @@ int screen_graphics_quit
     }
     return ret;
 }
+EXPORT_SYMBOL(screen_graphics_quit);
 
 void screen_graphics_delete
 (
@@ -669,6 +758,7 @@ void screen_graphics_delete
     }
     return;
 }
+EXPORT_SYMBOL(screen_graphics_delete);
 
 int system_rt_standby(void)
 {
@@ -679,6 +769,7 @@ int system_rt_standby(void)
     }
     return ret;
 }
+EXPORT_SYMBOL(system_rt_standby);
 
 int system_rt_active(void)
 {
@@ -689,6 +780,7 @@ int system_rt_active(void)
     }
     return ret;
 }
+EXPORT_SYMBOL(system_rt_active);
 
 void* system_pwmng_new
 (
@@ -702,6 +794,7 @@ void* system_pwmng_new
     }
     return ret;
 }
+EXPORT_SYMBOL(system_pwmng_new);
 
 int system_pwmng_powerarea_start_notify
 (
@@ -715,6 +808,7 @@ int system_pwmng_powerarea_start_notify
     }
     return ret;
 }
+EXPORT_SYMBOL(system_pwmng_powerarea_start_notify);
 
 int system_pwmng_powerarea_end_notify
 (
@@ -728,6 +822,7 @@ int system_pwmng_powerarea_end_notify
     }
     return ret;
 }
+EXPORT_SYMBOL(system_pwmng_powerarea_end_notify);
 
 void system_pwmng_delete
 (
@@ -739,3 +834,5 @@ void system_pwmng_delete
     }
     return;
 }
+EXPORT_SYMBOL(system_pwmng_delete);
+

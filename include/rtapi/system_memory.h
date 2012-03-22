@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/system_memory.h
  *     This file is memory manager function.
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -210,6 +210,32 @@ typedef struct
     unsigned int    map_size;
 } system_mem_rt_unmap;
 
+/* system_memory_reg_phymem() */
+typedef struct
+{
+    void*           handle;
+    unsigned int    phys_addr;
+    unsigned int    map_size;
+    unsigned int    rtaddr;
+} system_mem_reg_phymem;
+
+/* system_memory_unreg_phymem() */
+typedef struct
+{
+    void*           handle;
+    unsigned int    phys_addr;
+    unsigned int    map_size;
+    unsigned int    rtaddr;
+} system_mem_unreg_phymem;
+
+/* system_memory_phy_change_rtaddr() */
+typedef struct
+{
+    void*           handle;
+    unsigned int    phys_addr;
+    unsigned int    rtaddr;
+} system_mem_phy_change_rtaddr;
+
 /* system_memory_get_rtinfo() */
 typedef struct
 {
@@ -347,6 +373,21 @@ extern int system_memory_rt_map
 extern int system_memory_rt_unmap
 (
     system_mem_rt_unmap*  rt_unmap
+);
+
+extern int system_memory_reg_phymem
+(
+    system_mem_reg_phymem* reg_phymem
+);
+
+extern int system_memory_unreg_phymem
+(
+    system_mem_unreg_phymem* unreg_phymem
+);
+
+extern int system_memory_phy_change_rtaddr
+(
+    system_mem_phy_change_rtaddr* phy_change_rtaddr
 );
 
 extern void* system_memory_info_new
