@@ -17,6 +17,19 @@ U_INCLUDE  += -I$(SMECO_PATH)/test
 E_CFLAGS   += -DSMCTEST=TRUE
 endif
 
+  # Set tracing policy
+ifeq ($(CONFIG_SMECO_TRACES_ENABLED),y)
+E_CFLAGS   += -DSMC_TRACES_PRINTF=TRUE
+ifeq ($(CONFIG_SMECO_TRACES_KERN_ALERT),y)
+E_CFLAGS   += -DSMC_TRACES_PRINTF_KERN_ALERT=TRUE
+else
+E_CFLAGS   += -DSMC_TRACES_PRINTF_KERN_ALERT=FALSE
+endif
+else
+E_CFLAGS   += -DSMC_TRACES_PRINTF=FALSE
+E_CFLAGS   += -DSMC_TRACES_PRINTF_KERN_ALERT=FALSE
+endif
+
   #
   # SMC control configuration
   #
@@ -75,7 +88,7 @@ smeco-objs += ./test/smc_test_messaging.o
 endif
 
   # Build the test module if selected
-obj-$(CONFIG_SMECO_TEST)  += /linux/test/
+obj-$(SMECO_TEST_MODULE)  += /linux/test/
 
 else
 
@@ -84,7 +97,6 @@ else
 
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) LDDINCDIR=$(PWD)
-
 
 endif
 

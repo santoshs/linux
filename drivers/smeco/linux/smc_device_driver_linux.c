@@ -15,6 +15,7 @@
 /*
 Change history:
 
+
 Version:       3    17-Jan-20112    Heikki Siikaluoma
 Status:        draft
 Description :  Improvements, test features added
@@ -68,9 +69,11 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 
 #if( SMCTEST == TRUE )
+
+#if 0 /* Obsolete test invocation method */
     /*#define SMC_TEST_PHONET_DEVICE  0x70*/   /* Phonet messages to this device are routed to SMC test handler */
     static uint8_t smc_test_linux_start_by_phonet_msg(uint32_t phonet_msg_len, uint8_t* phonet_msg);
-
+#endif
         /*
          * For test purposes the smeco.ko can be instantiated in the driver
          * NOTE: In this case there should be no instantiation in the kernel starup
@@ -876,6 +879,7 @@ uint8_t smc_test_linux_start(uint16_t test_case_id, uint16_t test_data_input_len
 
 EXPORT_SYMBOL(smc_test_linux_start);
 
+#if 0 /* Obsolete test invocation method */
 static uint8_t smc_test_linux_start_by_phonet_msg(uint32_t phonet_msg_len, uint8_t* phonet_msg)
 {
     uint8_t ret_val = SMC_OK;
@@ -908,7 +912,7 @@ static uint8_t smc_test_linux_start_by_phonet_msg(uint32_t phonet_msg_len, uint8
 
     return ret_val;
 }
-
+#endif
 
 
 #endif

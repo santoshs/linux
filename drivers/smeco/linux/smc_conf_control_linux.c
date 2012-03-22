@@ -59,7 +59,7 @@ static void  smc_receive_data_callback_channel_control(void*   data,
 
 static void  smc_deallocator_callback_control(smc_channel_t* smc_channel, void* ptr, uint32_t userdata);
 static void* smc_allocator_callback_control(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata);
-static void  smc_event_callback_control(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event);
+static void  smc_event_callback_control(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
 
 static smc_conf_t* smc_device_create_conf_control(void);
@@ -240,7 +240,7 @@ static void* smc_allocator_callback_control(smc_channel_t* smc_channel, uint32_t
     return NULL;
 }
 
-static void  smc_event_callback_control(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event)
+static void  smc_event_callback_control(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data)
 {
     SMC_TRACE_PRINTF_DEBUG("smc_event_callback_control: SMC channel 0x%08X, event %d", (uint32_t)smc_channel, event);
 
@@ -311,7 +311,6 @@ static int smc_control_net_device_driver_ioctl(struct net_device* device, struct
         case SIOCDEV_RUN_TEST:
         {
 #if(SMCTEST==TRUE)
-
             struct ifreq_smc_test* if_req_smc_test = (struct ifreq_smc_test *)ifr;
 
             SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test case 0x%02X, test data length = %d, test data 0x%08X",
@@ -335,19 +334,19 @@ static int smc_control_net_device_driver_ioctl(struct net_device* device, struct
             }
             else
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
+                SMC_TRACE_PRINTF_ERROR("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
                 if_req_smc_test->if_test_result = 0xCDEF;
                 ret_val = SMC_DRIVER_ERROR;
             }
 #else
-            SMC_TRACE_PRINTF_DEBUG("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: Test interface not available");
+            SMC_TRACE_PRINTF_ERROR("smc_control_net_device_driver_ioctl: SIOCDEV_RUN_TEST: Test interface not available");
             ret_val = SMC_DRIVER_ERROR;
 #endif
             break;
         }
         default:
         {
-            SMC_TRACE_PRINTF_WARNING("smc_control_net_device_driver_ioctl: unsupported command");
+            SMC_TRACE_PRINTF_WARNING("smc_control_net_device_driver_ioctl: unsupported ioctl command 0x%04X", cmd);
             break;
         }
     }

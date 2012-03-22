@@ -38,7 +38,7 @@ MODULE_AUTHOR("Renesas Mobile Europe / MeXe");
 MODULE_DESCRIPTION("SMeCo/SMC Test Application");
 MODULE_LICENSE("Dual BSD/GPL");
 
-#define VERSION "0.0.2"
+#define VERSION "0.0.3"
 
 #define SMC_TEST_PASSED  1
 #define SMC_TEST_FAILED  0

@@ -74,6 +74,9 @@ typedef struct
     void*             smc_send_data_deallocator_cb;     /* Function pointer for memory deallocation */
     void*             smc_event_cb;                     /* Function pointer for receiving events    */
 
+    uint8_t           protocol;
+    uint16_t          fifo_full_check_timeout_usec;     /* Timeout in microseconds for timer to check if FIFO full situation is over */
+
 } smc_channel_conf_t;
 
 
@@ -132,6 +135,9 @@ typedef struct _smc_instance_conf_channel_t
 
     // TODO Clean uint32_t signal_id_to_slave;      /* ID of the signal from master to slave - slave is waiting signal */
     // TODO Clean uint32_t signal_type_to_slave;    /* Type of the signal from master to slave */
+
+    uint16_t fifo_full_check_timeout_usec_master;
+    uint16_t fifo_full_check_timeout_usec_slave;
 
     uint8_t  priority;
     uint8_t  copy_scheme_master;                    /* Copy scheme used in the master */

@@ -34,10 +34,24 @@ config SMECO_TRACES_ENABLED
 	boolean "Activate SMeCo / SMC traces"
 	default n
 
+if SMECO_TRACES_ENABLED
+	config SMECO_TRACES_KERN_ALERT
+		boolean "Print SMeCo/SMC traces in KERN_ALERT mode"
+		default n
+		 ---help---
+		If this is selected the SMC traces are printed in KERN_ALERT mode
+endif
+
 config SMECO_TEST
 	tristate "SMeCo SMC Test Features"
 	default n
 	---help---
-	If this option is selected the SMeCo test cases and SMeCo test application are built in the package.
+	If this option is selected the SMeCo test cases are built in the package.
+	
+config SMECO_TEST_MODULE
+	tristate "SMeCo SMC Test Module"
+	default n
+	---help---
+	If this option is selected the SMeCo test application module is built in the package.
 
 endif

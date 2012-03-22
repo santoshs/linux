@@ -105,4 +105,19 @@ typedef struct _smc_semaphore_t
 } smc_semaphore_t;
 
 
+    /*
+     * Data type for SMC timer
+     */
+typedef struct _smc_timer_t
+{
+    uint32_t           period_us;
+    struct timer_list* smc_timer_list;
+    uint32_t           timer_data;
+
+    unsigned long      prev_jiffies;
+
+} smc_timer_t;
+
 #endif
+
+/* EOF */

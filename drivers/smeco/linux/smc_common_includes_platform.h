@@ -15,6 +15,10 @@
 /*
 Change history:
 
+Version:       4    29-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Linux Kernel timer functions for SMC
+
 Version:       1    22-Dec-2011     Heikki Siikaluoma
 Status:        draft
 Description :  File created
@@ -35,6 +39,8 @@ Description :  File created
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
 #include <linux/device.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
 
   /* Linux kernel specific definitions */
 #define TRUE              -1

@@ -26,7 +26,7 @@ Description :  File created
 #define SMC_INSTANCE_CONFIG_CONTROL_H
 
 #define SMC_CONFIG_USER_CONTROL                      "SMC_CONTROL"
-#define SMC_CONFIG_NAME_EOS2                         "EOS2-SH-Mobile-APE5R-WGEModem 3.1 for SMC control"
+#define SMC_CONFIG_NAME_EOS2                         "EOS2-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 
 /* ===========================================================================
  * SHM Configuration is based on memory mapping
@@ -85,7 +85,10 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
 
             .priority                      = SMC_CHANNEL_PRIORITY_HIGHEST,
             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
+
+            .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
+            .fifo_full_check_timeout_usec_slave  = 500
      }
 };
 

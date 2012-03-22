@@ -149,6 +149,9 @@ uint8_t smc_test_handler_start(uint16_t test_case_id, uint16_t test_data_input_l
 os_task_token smc_os_task_create(const char* task_name, os_prior task_priority, os_entrypoint_t task_function);
 uint8_t       smc_os_task_start (const char* task_name, os_prior task_priority, os_entrypoint_t task_function,
                                  uint8_t* test_input_data, uint16_t test_input_data_len, os_task_token* new_task_id);
+
+smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id);
+
 #endif /* EOF */
 
 

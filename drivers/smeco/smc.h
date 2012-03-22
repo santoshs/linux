@@ -14,6 +14,14 @@
 /*
 Change history:
 
+Version:       22   29-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.22
+
+Version:       21   27-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.21
+
 Version:       20   24-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.20
@@ -76,7 +84,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.20"
+#define SMC_SW_VERSION  "0.0.22"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -91,19 +99,20 @@ Description :  File created
 #include "smc_memory_mgmt.h"
 
 
-
     /*
      * SMC internal configuration values
      */
-#define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX   20
+#define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX    20
 
     /*
      * SMC Channel Common Priorities
      */
-#define SMC_CHANNEL_PRIORITY_HIGHEST  0x00
-#define SMC_CHANNEL_PRIORITY_DEFAULT  0x7F
-#define SMC_CHANNEL_PRIORITY_LOWEST   0xFF
+#define SMC_CHANNEL_PRIORITY_HIGHEST        0x00
+#define SMC_CHANNEL_PRIORITY_DEFAULT        0x7F
+#define SMC_CHANNEL_PRIORITY_LOWEST         0xFF
 
+    /* TODO Make this channel specific and configurable */
+#define SMC_TIMER_PERIOD_FIFO_FULL_CHECK_USEC 500   /* 500 usec period */
 
     /*
      * SMC Channel internal message flags
@@ -128,6 +137,10 @@ Description :  File created
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_REQ( flag )        (((flag)&SMC_MSG_FLAG_VERSION_INFO_REQ)==SMC_MSG_FLAG_VERSION_INFO_REQ)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_RESP( flag )       (((flag)&SMC_MSG_FLAG_VERSION_INFO_RESP)==SMC_MSG_FLAG_VERSION_INFO_RESP)
 
+
+    /* This macro defines internal messages which data pointer must be translated */
+#define SMC_INTERNAL_MESSAGE_DATA_ADDRESS_TRANSLATE( flag )   ( !SMC_FIFO_IS_INTERNAL_MESSAGE(flag) || SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB(flag) )
+
     /*
      * SMC Channel state flags
      */
@@ -136,6 +149,8 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED 0x00000004      /* If set the synchronize msg has been received from remote */
 #define SMC_CHANNEL_STATE_SHM_CONFIGURED    0x00000008      /* If set the shared memory of the channel is initialized */
 #define SMC_CHANNEL_STATE_RECEIVE_DISABLED  0x00000010      /* If set the channel does not receive any data (data is buffered to MDB)*/
+#define SMC_CHANNEL_STATE_MDB_OUT_OF_MEM    0x00000020      /* If set the channel's OUT MDB is out of memory*/
+#define SMC_CHANNEL_STATE_FIFO_FULL         0x00000040      /* If set the channel's out FIFO is FULL */
 
     /* Defines the flags to be set before SMC send is possible */
 #define SMC_CHANNEL_STATE_READY_TO_SEND     (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
@@ -187,6 +202,13 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SET_RECEIVE_IS_DISABLED( state )   ((state) |= SMC_CHANNEL_STATE_RECEIVE_DISABLED)
 #define SMC_CHANNEL_STATE_CLEAR_RECEIVE_IS_DISABLED( state ) ((state) &= ~SMC_CHANNEL_STATE_RECEIVE_DISABLED)
 
+#define SMC_CHANNEL_STATE_IS_MDB_OUT_OF_MEM( state )      (((state)&SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)==SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+#define SMC_CHANNEL_STATE_SET_MDB_OUT_OF_MEM( state )     ((state) |= SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+#define SMC_CHANNEL_STATE_CLEAR_MDB_OUT_OF_MEM( state )   ((state) &= ~SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+
+#define SMC_CHANNEL_STATE_IS_FIFO_FULL( state )      (((state)&SMC_CHANNEL_STATE_FIFO_FULL)==SMC_CHANNEL_STATE_FIFO_FULL)
+#define SMC_CHANNEL_STATE_SET_FIFO_FULL( state )     ((state) |= SMC_CHANNEL_STATE_FIFO_FULL)
+#define SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( state )   ((state) &= ~SMC_CHANNEL_STATE_FIFO_FULL)
 
     /*
      * SMC Macros for common usage
@@ -202,13 +224,17 @@ typedef enum
 {
     SMC_CHANNEL_READY_TO_SEND = 0x00,       /* SMC Channel is in sync */
     SMC_CHANNEL_DISCONNECTED,               /* Remote channel disconneted */
+    SMC_SEND_FIFO_FULL,                     /* FIFO is full */
     SMC_SEND_FIFO_HAS_FREE_SPACE,           /* FIFO has free space available */
-    SMC_STOP_SEND,                          /* Remote channel requests to stop sending data */
-    SMC_RESUME_SEND,                        /* Remote channel requests to continue sending data */
+    SMC_SEND_MDB_OUT_OF_MEM,                /* Out MDB is out of memory */
+    SMC_SEND_MDB_HAS_FREE_MEM,              /* MDB has free memory available */
+    SMC_STOP_SEND,                          /* Local or remote channel requests to stop sending data */
+    SMC_RESUME_SEND,                        /* Local or remote channel requests to continue sending data */
     SMC_RECEIVE_STOPPED,                    /* The remote channel has stopped to receive data */
     SMC_RECEIVE_RESUMED,                    /* The remote channel has started to receive data again */
     SMC_RESET,                              /* Remote channel requests reset */
-    SMC_CLOSED                              /* Remote SMC instance is closed */
+    SMC_CLOSED,                             /* Remote SMC instance is closed */
+    SMC_VERSION_INFO_REMOTE                 /* Received version information from the remote channel */
 
 } SMC_CHANNEL_EVENT;
 
@@ -238,7 +264,7 @@ typedef void ( *smc_send_data_deallocator_callback )( const struct _smc_channel_
     /*
      * Prototype of the callback function for the use to get events from SMC or from remote host
      */
-typedef void ( *smc_event_callback )( const struct _smc_channel_t* channel, SMC_CHANNEL_EVENT event );
+typedef void ( *smc_event_callback )( const struct _smc_channel_t* channel, SMC_CHANNEL_EVENT event, void* event_data );
 
 
     /*
@@ -249,7 +275,7 @@ typedef struct _smc_channel_t
     uint8_t                             id;                              /* Channel ID / the index in the channel array */
     uint8_t                             priority;                        /* The priority of the channel, the highest priority is 0 */
     uint8_t                             copy_scheme;                     /* Copy scheme bits for send and receive */
-    uint8_t                             fill;
+    uint8_t                             stop_counter;                    /* Start / stop counter to handle multiple start/stop events for the channel */
 
     struct _smc_t*                      smc_instance;                    /* Pointer to SMC instance the channel belongs to */
 
@@ -258,8 +284,11 @@ typedef struct _smc_channel_t
     smc_fifo_t*                         fifo_out;                        /* FIFO for outgoing data */
     smc_fifo_t*                         fifo_in;                         /* FIFO for incoming data */
 
+    smc_timer_t*                        fifo_timer;                      /* Timer to use when out FIFO is full */
+
     smc_lock_t*                         lock_write;                      /* Lock for write operations */
     smc_lock_t*                         lock_read;                       /* Lock for read operations  */
+    smc_lock_t*                         lock_mdb;                        /* Lock for MDB operations  */
 
     uint8_t*                            mdb_out;                         /* MDB OUT area */
     uint8_t*                            mdb_in;                          /* MDB IN  area  */
@@ -277,9 +306,11 @@ typedef struct _smc_channel_t
 
     smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
 
+
+
     uint8_t                             fifo_buffer_item_count;          /* Count of items in the FIFO buffer */
     uint8_t                             fifo_buffer_flushing;            /* Flag indicating that the buffer flush is ongoing*/
-
+    uint8_t                             protocol;
 
 } smc_channel_t;
 
@@ -341,7 +372,7 @@ smc_channel_t*        smc_channel_get( const smc_t* smc_instance, uint8_t smc_ch
 smc_conf_t*           smc_instance_get_conf( smc_t* smc_instance );
 smc_channel_conf_t*   smc_channel_get_conf( smc_channel_t* smc_channel );
 
-uint8_t               smc_channel_set_receive_mode( smc_channel_t* smc_channel, uint8_t new_receive_mode);
+uint8_t               smc_channel_enable_receive_mode( smc_channel_t* smc_channel, uint8_t enable_receive);
 void                  smc_channel_interrupt_handler( smc_channel_t* smc_channel );
 uint8_t               smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_channel_conf_t* smc_channel_conf);
 uint32_t              smc_channel_calculate_required_shared_mem( smc_channel_conf_t* smc_channel_conf );
@@ -349,10 +380,11 @@ uint32_t              smc_channel_calculate_required_shared_mem( smc_channel_con
 uint8_t               smc_send(smc_t* smc_instance, uint8_t channel_id, void* data, uint32_t data_length);
 uint8_t               smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, smc_user_data_t* userdata);
 uint8_t               smc_send_event(smc_channel_t* channel, SMC_CHANNEL_EVENT event);
+uint8_t               smc_send_event_ext(smc_channel_t* channel, SMC_CHANNEL_EVENT event, smc_user_data_t* userdata);
 
 uint8_t               smc_initialize( smc_conf_t* smc_instance_conf );
 
-void                  smc_channel_free_ptr_local(const  smc_channel_t* smc_channel, void* ptr, smc_user_data_t* userdata);
+void                  smc_channel_free_ptr_local(const smc_channel_t* smc_channel, void* ptr, smc_user_data_t* userdata);
 
     /*
      * Structure holding signal handler information.
@@ -371,8 +403,8 @@ typedef struct
 uint8_t        smc_channel_change_priority( smc_t* smc_instance, uint8_t smc_channel_id, uint8_t new_priority );
 
     /* Function dump information specified SMC instance (channels, FIFOs, etc.) */
-void           smc_instance_dump(smc_t* smc_instance);
-
+void           smc_instance_dump( smc_t* smc_instance );
+void           smc_mdb_info_dump( char* indent, struct _smc_mdb_channel_info_t* smc_mdb_info, int32_t mem_offset, uint8_t out_mdb );
     /*
      * SMC signal handler prototypes
      * Implementations are in the platform specific modules.
@@ -424,12 +456,34 @@ smc_semaphore_t* smc_semaphore_create( void );
 
 
     /*
+     * SMC timer function prototypes
+     *
+     */
+smc_timer_t* smc_timer_create( uint32_t timer_usec );
+
+typedef void ( *smc_timer_callback )( uint32_t timer_data );
+
+uint8_t      smc_timer_start  ( smc_timer_t* timer, smc_timer_callback* timer_cb, uint32_t timer_data );
+uint8_t      smc_timer_stop   ( smc_timer_t* timer );
+uint8_t      smc_timer_destroy( smc_timer_t* timer );
+
+    /*
      * SMC Control Instance API.
      * NOTE: If the SMC Control Instance is not included
      *       the API works but returns NULL
      *       The API implementation is in platform leve.
      */
 smc_t*  smc_instance_get_control( void );
+
+    /*
+     * Misc functions
+     */
+char*    smc_get_version   ( void );
+uint32_t smc_version_to_int( char* version );
+char*    smc_version_to_str( uint32_t version );
+int      smc_atoi          ( char* a );
+char*    smc_utoa          ( uint32_t i );
+
 
 #endif /* EOF */
 

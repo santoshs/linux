@@ -32,6 +32,11 @@ Description :  File created
 
 #if(SMC_L2MUX_IF==TRUE)
 #include "smc_instance_config_l2mux.h"  /* For testing configuration management */
+
+#ifdef SMECO_MODEM
+#include "smc_conf_l2mux_modem.h"
+#endif
+
 #endif
 
 #ifdef SMECO_LINUX_ANDROID
@@ -78,9 +83,9 @@ static void  smc_receive_data_callback_channel_conf_1(void*   data,
 
 static void  smc_test_case_channel_1_deallocator_callback(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
 static void* smc_test_case_channel_1_allocator_callback(smc_channel_t* smc_channel, uint32_t size, struct _smc_user_data_t* userdata);
-static void  smc_test_case_channel_1_event_callback(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event);
+static void  smc_test_case_channel_1_event_callback(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
-static smc_channel_conf_t* smc_test_case_create_channel_conf_2(uint8_t is_master);
+//static smc_channel_conf_t* smc_test_case_create_channel_conf_2(uint8_t is_master);
 static uint8_t* smc_test_case_create_shm_conf_local( smc_conf_t* smc_conf, uint8_t* shm_mem_start_addr );
 
 
@@ -102,6 +107,11 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
     /* Shared memory test case */
 static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+    /* Timer test case */
+static uint8_t smc_test_case_function_timer( uint8_t* test_input_data, uint16_t test_input_data_len );
+
+static uint8_t smc_test_case_function_misc( uint8_t* test_input_data, uint16_t test_input_data_len );
+
     /* ========================================================
      * SMC Test Case functions
      * First index is 0x00
@@ -118,6 +128,8 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_function_remote_event,            /* 0x06 */
     smc_test_case_function_create_configuration,    /* 0x07 */
     smc_test_case_function_shm,                     /* 0x08 */
+    smc_test_case_function_timer,                   /* 0x09 */
+    smc_test_case_function_misc,                    /* 0x0A */
     0
 };
 
@@ -360,7 +372,7 @@ static void* smc_test_case_channel_1_allocator_callback(smc_channel_t* smc_chann
     return (void*)SMC_MALLOC(size);
 }
 
-static void  smc_test_case_channel_1_event_callback(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event)
+static void  smc_test_case_channel_1_event_callback(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data)
 {
     SMC_TEST_TRACE_PRINTF_INFO("=====================================================================");
     SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_1_event_callback: Event %d from channel 0x%08X", event, (uint32_t)smc_channel);
@@ -421,6 +433,7 @@ static smc_channel_conf_t* smc_test_case_create_channel_conf_1(uint8_t is_master
     return smc_channel_conf_1;
 }
 
+/*
 static smc_channel_conf_t* smc_test_case_create_channel_conf_2(uint8_t is_master)
 {
     smc_channel_conf_t* smc_channel_conf_2 = smc_channel_conf_create();
@@ -433,20 +446,21 @@ static smc_channel_conf_t* smc_test_case_create_channel_conf_2(uint8_t is_master
         // Set channel configuration
         smc_channel_conf_2->fifo_size_in  = 30;
         smc_channel_conf_2->fifo_size_out = 40;
-        smc_channel_conf_2->mdb_size_in   = 150*1024;   /* 150 kB */
-        smc_channel_conf_2->mdb_size_out  = 200*1024;   /* 200 kB */
+        smc_channel_conf_2->mdb_size_in   = 150*1024;
+        smc_channel_conf_2->mdb_size_out  = 200*1024;
     }
     else
     {
         // Set channel configuration
         smc_channel_conf_2->fifo_size_in  = 40;
         smc_channel_conf_2->fifo_size_out = 30;
-        smc_channel_conf_2->mdb_size_in   = 200*1024;   /* 200 kB */
-        smc_channel_conf_2->mdb_size_out  = 150*1024;   /* 150 kB */
+        smc_channel_conf_2->mdb_size_in   = 200*1024;
+        smc_channel_conf_2->mdb_size_out  = 150*1024;
     }
 
     return smc_channel_conf_2;
 }
+*/
 
 static uint8_t* smc_test_case_create_shm_conf_local( smc_conf_t* smc_conf, uint8_t* shm_mem_start_addr )
 {
@@ -519,6 +533,38 @@ uint8_t smc_test_case_function_remote_event( uint8_t* test_input_data, uint16_t 
     return test_status;
 }
 
+smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id)
+{
+    smc_t*  smc_instance    = NULL;
+
+    if( smc_instance_id == 0x00 )
+    {
+#if( (SMC_L2MUX_IF==TRUE) && defined(SMECO_MODEM) )
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: get L2MUX SMC instance...");
+        smc_instance = get_smc_instance_l2mux();
+#else
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: L2MUX SMC instance not available");
+#endif
+    }
+    else if( smc_instance_id == 0x01 )
+    {
+#if(SMC_CONTROL==TRUE)
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: get SMC control...");
+        smc_instance = smc_instance_get_control();
+#else
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: SMC control instance not available");
+#endif
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: Unsupported SMC test instance id 0x%02X", smc_instance_id);
+    }
+
+    return smc_instance;
+}
+
+
+
 uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
     uint8_t  test_status = SMC_ERROR;
@@ -536,12 +582,15 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
         {
             case 0x00:
             {
-                uint8_t  test_case_data[6];
-                uint32_t shm_address        = 0x00000000;
                 uint8_t  is_master          = TRUE;
                 uint32_t shm_start_address  = 0x00000000;
                 smc_t*   smc                = NULL;
+
+#ifdef SMECO_MODEM
+                uint8_t  test_case_data[6];
                 uint8_t  start_remote_side  = TRUE;
+                uint32_t shm_address        = 0x00000000;
+#endif
 
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: Test case 0x%02X, creating SMC instance...", test_case);
 
@@ -643,18 +692,20 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
             case 0x02:
             {
                 uint8_t smc_instance_id = test_input_data[1];
+                smc_t*  smc_instance    = NULL;
 
-                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: Test case 0x%02X, Dumping SMC data in index %d...", test_case, smc_instance_id);
+                smc_instance = smc_test_get_instance_by_test_instance_id( smc_instance_id );
 
-                    /* TODO Make own SMC array inside the test module */
-                if( g_smc_instance1 )
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: Test case 0x%02X, dumping SMC data (test id 0x%02X)...", test_case, smc_instance_id);
+
+                if( smc_instance )
                 {
-                    smc_instance_dump( g_smc_instance1 );
+                    smc_instance_dump( smc_instance );
                     test_status = SMC_OK;
                 }
                 else
                 {
-                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_smc_instance: Test case 0x%02X failed: No SMC instance created", test_case);
+                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_smc_instance: Test case 0x%02X failed: No proper SMC instance found", test_case);
                     test_status = SMC_ERROR;
                 }
 
@@ -1301,7 +1352,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                 {
 #if defined SMECO_LINUX_KERNEL
 
-                    shm_address = ioremap(shm_address,shm_data_len);
+                    shm_address = ioremap((void*)shm_address, shm_data_len);
                     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                 }
@@ -1331,9 +1382,9 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
 
                  if( test_input_data_len >= test_input_len_required )
                  {
-                     uint8_t* data_read_from_shm = NULL;
+                     //uint8_t* data_read_from_shm = NULL;
 
-                     shm_data_len = SMC_BYTES_TO_32BIT( (test_input_data+ data_index) );
+                     shm_data_len = SMC_BYTES_TO_32BIT( (test_input_data + data_index) );
                      data_index += 4;
 
                      SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: read %d bytes of data from SHM address 0x%08X...", shm_data_len, shm_address);
@@ -1341,7 +1392,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                      if( remap_address == 1 )
                      {
 #if defined SMECO_LINUX_KERNEL
-                         shm_address = ioremap(shm_address,shm_data_len);
+                         shm_address = ioremap((void*)shm_address, shm_data_len);
                          SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                      }
@@ -1352,7 +1403,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                      {
 #if defined SMECO_LINUX_KERNEL
                          SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: unmap address 0x%08X", shm_address);
-                         iounmap(shm_address);
+                         iounmap((void*)shm_address);
 #endif
                      }
 
@@ -1382,6 +1433,167 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
     }
 
     SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_shm: completed with return value 0x%02X", test_status);
+
+    return test_status;
+}
+
+static void smc_test_timer_expired(uint32_t timer_data)
+{
+    smc_timer_t* timer = NULL;
+    uint32_t     timer_counter = 0;
+
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: Test timer 0x%08X expired...", timer_data);
+
+    timer = (smc_timer_t*)timer_data;
+
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: previous jiffies: %d", timer->prev_jiffies);
+
+    if( timer->timer_data != 0 )
+    {
+        timer_counter = *((uint32_t*)timer->timer_data);
+        timer_counter++;
+    }
+
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: timer object ptr 0x%08X, value %d",
+            timer->timer_data, timer_counter);
+
+    if( timer_counter > 0 && timer_counter <= 5)
+    {
+        *((uint32_t*)timer->timer_data) = timer_counter;
+
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: Start test timer 0x%08X again", timer_data);
+
+        if( smc_timer_start( timer, (void*)smc_test_timer_expired, timer->timer_data ) != SMC_OK )
+        {
+            SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: Test timer 0x%08X restart failed", timer_data);
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: Destroy test timer 0x%08X...", timer_data);
+        smc_timer_destroy( timer );
+    }
+
+    /* TODO Shut down the timer */
+
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: Test timer 0x%08X handling completed", timer_data);
+}
+
+static uint8_t smc_test_case_function_timer( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 5;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t data_index   = 0;
+        uint8_t  test_case    = test_input_data[data_index++];
+
+        switch(test_case)
+        {
+            case 0x00:
+            {
+                smc_timer_t* timer         = NULL;
+                uint32_t     period_us     = SMC_BYTES_TO_32BIT( (test_input_data + data_index) );
+                uint32_t*    timer_counter = (uint32_t*)SMC_MALLOC(sizeof(uint32_t));
+                data_index+=4;
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_timer: Test case 0x%02X: start %u usec timer ...", test_case, period_us);
+
+                timer = smc_timer_create( period_us );
+                *timer_counter = 0;
+
+                test_status = smc_timer_start( timer, (void*)smc_test_timer_expired, (uint32_t)timer_counter );
+
+                break;
+            }
+            default:
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_timer: Invalid test case 0x%02X", test_case);
+                test_status = SMC_ERROR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_timer: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_timer: completed with return value 0x%02X", test_status);
+
+    return test_status;
+}
+
+
+static uint8_t smc_test_case_function_misc( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 1;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t data_index   = 0;
+        uint8_t  test_case    = test_input_data[data_index++];
+
+        switch(test_case)
+        {
+            case 0x00:
+            {
+                uint32_t version_int = 0;
+                char version_str[15];
+                char* version_from_int = NULL;
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_misc: Test case 0x%02X: get version'%s' in integer...", test_case, SMC_SW_VERSION);
+
+                version_int = smc_version_to_int(SMC_SW_VERSION);
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_misc: Test case 0x%02X: version'%s' == 0x%08X", test_case, SMC_SW_VERSION, version_int);
+
+                version_from_int = smc_version_to_str(version_int);
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_misc: Test case 0x%02X: version from 0x%08X is '%s'", test_case, version_int, version_from_int);
+
+                    /* Remember to free */
+                SMC_FREE( version_from_int );
+
+                strcpy(version_str, "12.34.5678");
+
+                version_int = smc_version_to_int(version_str);
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_misc: Test case 0x%02X: version'%s' == 0x%08X", test_case, version_str, version_int);
+
+                version_from_int = smc_version_to_str(version_int);
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_misc: Test case 0x%02X: version from 0x%08X is '%s'", test_case, version_int, version_from_int);
+
+                    /* Remember to free */
+                SMC_FREE( version_from_int );
+
+                test_status = SMC_OK;
+                break;
+            }
+            default:
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_misc: Invalid test case 0x%02X", test_case);
+                test_status = SMC_ERROR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_misc: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_misc: completed with return value 0x%02X", test_status);
 
     return test_status;
 }
