@@ -797,7 +797,7 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 			long time =
 				wait_for_completion_interruptible_timeout(&host->dma_complete,
 									  host->timeout);
-			if (!time)
+			if (!time || host->sd_error)
 				ret = -ETIMEDOUT;
 			else if (time < 0)
 				ret = time;
@@ -805,9 +805,12 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 			sh_mmcif_bitclr(host, MMCIF_CE_BUF_ACC,
 					BUF_ACC_DMAREN | BUF_ACC_DMAWEN);
 
-			if (host->sd_error || time <= 0)
+			if (host->sd_error || time <= 0) {
+				dev_err(&host->pd->dev, "Cmd%d err\n",
+						cmd->opcode);
 				sh_mmcif_dma_terminate(host);
-
+				sh_mmcif_error_manage(host);
+			}
 			host->dma_active = false;
 		}
 		if (ret < 0)
@@ -1046,10 +1049,15 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 		host->sd_error = true;
 		dev_err(&host->pd->dev, "int err state = %08x\n", state);
 	}
-	if (state & ~(INT_CMD12RBE | INT_CMD12CRE))
-		complete(&host->intr_wait);
-	else
+	if (state & ~(INT_CMD12RBE | INT_CMD12CRE)) {
+		if (host->dma_active &&
+		    (state & (INT_CRCSTO | INT_WDATTO | INT_RDATTO)))
+			complete(&host->dma_complete);
+		else
+			complete(&host->intr_wait);
+	} else {
 		dev_dbg(&host->pd->dev, "Unexpected IRQ 0x%x\n", state);
+	}
 
 	return IRQ_HANDLED;
 }
