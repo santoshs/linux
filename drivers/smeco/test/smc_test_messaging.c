@@ -79,19 +79,19 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
             }
             case 0x01:
             {
-                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: Send using SMC control insttance...");
+                smc_t* smc_instance_control = NULL;
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: Send using SMC control instance...");
 
-                smc_t* smc_instance_control = smc_instance_get_control();
+                smc_instance_control = smc_instance_get_control();
 
                 if( smc_instance_control != NULL )
                 {
-                    uint8_t smc_channel_id = 0;
-
-                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_messaging (SMC Control): Sending data using channel %d...", smc_channel_id);
-
+                    uint8_t         smc_channel_id = 0;
                     uint32_t        data_length    = (test_input_data_len-data_index);
                     uint8_t*        data           = (test_input_data + data_index);
                     smc_user_data_t userdata;
+
+                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_messaging (SMC Control): Sending data using channel %d...", smc_channel_id);
 
                     userdata.flags     = 0x00000000;
                     userdata.userdata1 = 0x00000000;
@@ -130,6 +130,41 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: smc_test_handler_send_event...");
 
                 test_result = smc_test_handler_send_event( &test_input_data[data_index], data_length );
+
+                break;
+            }
+            case 0x04:
+            {
+                test_input_len_required = 4;
+
+                if( test_input_data_len >= test_input_len_required )
+                {
+                    uint8_t smc_instance_id = test_input_data[data_index++];
+                    uint8_t smc_channel_id  = test_input_data[data_index++];
+                    uint8_t enable          = (test_input_data[data_index++]==0x01);
+                    smc_t*  smc_instance    = NULL;
+
+                    smc_instance = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: %s sending in SMC instance 0x%02X channel %d...",
+                            (enable?"ENABLE":"DISABLE"), smc_instance_id, smc_channel_id);
+
+                    if( smc_instance )
+                    {
+                        test_result = smc_channel_enable_receive_mode( SMC_CHANNEL_GET(smc_instance, smc_channel_id), enable);
+                    }
+                    else
+                    {
+                        SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_messaging: Test case 0x%02X failed: No proper SMC instance found", test_case);
+                        test_result = SMC_ERROR;
+                    }
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: not enough test input data (received %d, expected %d)",
+                                                                test_input_data_len, test_input_len_required);
+                    test_result = SMC_ERROR;
+                }
 
                 break;
             }

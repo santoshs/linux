@@ -41,6 +41,20 @@ Description :  File created
 
 #include "smc_instance_config_l2mux.h"
 
+
+/*
+ * Start / stop lock mechanism
+ */
+static smc_lock_t* g_local_lock_smc_start_stop = NULL;
+
+static inline smc_lock_t* get_local_lock_smc_start_stop(void)
+{
+    if( g_local_lock_smc_start_stop == NULL ) g_local_lock_smc_start_stop = smc_lock_create();
+    return g_local_lock_smc_start_stop;
+}
+
+
+
 /*
  * Callback functions for SMC
  */
@@ -49,11 +63,10 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                                       const struct _smc_user_data_t* userdata,
                                                       const struct _smc_channel_t* channel);
 
-static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, uint32_t userdata);
-static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata);
-static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event);
+//static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata);
+static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
-static void  smc_event_callback_l2mux_deallocator(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
+static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
 
 
 static smc_conf_t* smc_device_create_conf_l2mux(void);
@@ -62,6 +75,7 @@ static int      l2mux_net_device_driver_ioctl(struct net_device* device, struct 
 static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device, struct sk_buff *skb );
 static int      l2mux_modify_send_data( struct sk_buff *skb, smc_user_data_t* smc_user_data );
 static void     l2mux_layer_device_driver_setup(struct net_device* dev);
+
 
 
 /*
@@ -108,6 +122,7 @@ smc_instance_conf_t* smc_instance_conf_get_l2mux( char* smc_user_name, char* con
 
 
 
+
 /*
  * Creates configuration for SMC between CA9 and MODEM
  */
@@ -135,7 +150,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
         smc_channel_conf = smc_conf->smc_channel_conf_ptr_array[i];
 
         smc_channel_conf->smc_receive_data_cb           = (void*)smc_receive_data_callback_channel_l2mux;
-        smc_channel_conf->smc_send_data_deallocator_cb  = (void*)smc_event_callback_l2mux_deallocator;
+        smc_channel_conf->smc_send_data_deallocator_cb  = (void*)smc_deallocator_callback_l2mux;
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;
     }
@@ -145,15 +160,15 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
     return smc_conf;
 }
 
-static void smc_event_callback_l2mux_deallocator(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata)
+static void smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata)
 {
-	SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux_deallocator: do not deallocate SKB data 0x%08X", (uint32_t)ptr);
+	SMC_TRACE_PRINTF_DEBUG("smc_deallocator_callback_l2mux: do not deallocate SKB data 0x%08X", (uint32_t)ptr);
 }
 
 static void  smc_receive_data_callback_channel_l2mux(void*   data,
-                                                      int32_t data_length,
-                                                      const struct _smc_user_data_t* userdata,
-                                                      const struct _smc_channel_t* channel)
+                                                     int32_t data_length,
+                                                     const struct _smc_user_data_t* userdata,
+                                                     const struct _smc_channel_t* channel)
 {
     struct net_device* device = NULL;
 
@@ -178,7 +193,6 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         else
         {
             struct sk_buff *skb = NULL;
-
 
             /* ========================================
              * Critical section begins
@@ -221,7 +235,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( channel->copy_scheme ) )
                 {
                     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from local mem", data);
-                    smc_channel_free_ptr_local( channel, data, userdata );
+                    smc_channel_free_ptr_local( (smc_channel_t*)channel, data, (smc_user_data_t*)userdata );
                 }
                 else
                 {
@@ -237,7 +251,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from SHM...", data);
 
                         /* Free the MDB SHM data PTR from remote */
-                    if( smc_send_ext( channel, data, 0, &userdata_free) != SMC_OK )
+                    if( smc_send_ext( (smc_channel_t*)channel, data, 0, &userdata_free) != SMC_OK )
                     {
                         SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: channel %d: MDB memory 0x%08X free from remote failed",
                                 channel->id, (uint32_t)data);
@@ -254,9 +268,10 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 *(uint32_t*)(skb->data) = userdata->userdata1;
 
                     /* Put the metadata */
-                skb->dev = device;
+                skb->dev        = device;
+                /* TODO Check to put protocol ETH_xxx from channel information */
                 /*skb->protocol = eth_type_trans(skb, dev);*/
-                skb->ip_summed = CHECKSUM_UNNECESSARY;
+                skb->ip_summed  = CHECKSUM_UNNECESSARY;
 
                 smc_net_dev = netdev_priv( device );
 
@@ -281,72 +296,129 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: completed");
 }
 
-static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, uint32_t userdata)
-{
-    SMC_TRACE_PRINTF_DEBUG("smc_deallocator_callback_l2mux: SMC channel 0x%08X, ptr 0x%08X (NOT IMPLEMENTED)",
-    (uint32_t)smc_channel, (uint32_t)ptr);
-
-}
-
+/*
 static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata)
 {
     SMC_TRACE_PRINTF_DEBUG("smc_allocator_callback_l2mux: SMC channel 0x%08X, size %d (NOT IMPLEMENTED)", (uint32_t)smc_channel, size);
 
     return NULL;
 }
+*/
 
-static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event)
+static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data)
 {
     assert(smc_channel != NULL );
 
     switch(event)
     {
+        case SMC_CHANNEL_READY_TO_SEND:
+        {
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_CHANNEL_READY_TO_SEND", smc_channel->id);
+
+            SMC_TRACE_PRINTF_STARTUP("Channel %d is synchronized with the remote", smc_channel->id);
+
+            break;
+        }
         case SMC_STOP_SEND:
         {
-            struct net_device* device = NULL;
+            struct net_device* device     = NULL;
+            smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
 
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_STOP_SEND", smc_channel->id);
 
-            /* Get the net device and close */
+            SMC_LOCK( local_lock );
+
+            assert( smc_channel->stop_counter < 0xFF );
+
+            smc_channel->stop_counter++;
+
+                /* Get the net device and close */
             device = dev_config_l2mux.device_driver_priv->net_dev;
 
             if( device != NULL )
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_stop_all_queues...", smc_channel->id);
-                netif_tx_stop_all_queues(device);
-                // void netif_tx_stop_queue(struct netdev_queue *dev_queue);
+                struct netdev_queue* queue     = NULL;
+                uint16_t             queue_ind = smc_channel->protocol;
 
+                SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_stop_queue %d...", smc_channel->id, queue_ind);
+
+                /* Get the QUEUE and stop it */
+                queue = netdev_get_tx_queue(device, queue_ind);
+                netif_tx_stop_queue(queue);
+
+                //netif_tx_stop_all_queues(device);
             }
             else
             {
                 SMC_TRACE_PRINTF_ASSERT("mc_event_callback_l2mux: channel id %d: Net device not found", smc_channel->id);
                 assert(0);
             }
+
+            SMC_UNLOCK( local_lock );
 
             break;
         }
         case SMC_RESUME_SEND:
         {
-            struct net_device* device = NULL;
+            struct net_device* device     = NULL;
+            smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
 
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_RESUME_SEND", smc_channel->id);
 
-            /* Get the net device and close */
-            device = dev_config_l2mux.device_driver_priv->net_dev;
+            SMC_LOCK( local_lock );
 
-            if( device != NULL )
+            if( smc_channel->stop_counter > 0 ) smc_channel->stop_counter--;
+
+            if( smc_channel->stop_counter==0 )
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_start_all_queues...", smc_channel->id);
-                netif_tx_start_all_queues(device);
+                    /* Get the net device and close */
+                device = dev_config_l2mux.device_driver_priv->net_dev;
 
-                // TODO Just one queue to stop: void netif_tx_start_queue(struct netdev_queue *dev_queue);
-                // void netif_tx_wake_queue(struct netdev_queue *dev_queue);
+                if( device != NULL )
+                {
+                    struct netdev_queue* queue     = NULL;
+                    uint16_t             queue_ind = smc_channel->protocol;
+
+                    SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_start_queue %d...", smc_channel->id, queue_ind);
+
+                    queue = netdev_get_tx_queue(device, queue_ind);
+                    netif_tx_start_queue(queue);
+
+                    //netif_tx_start_all_queues(device);
+                    // void netif_tx_wake_queue(struct netdev_queue *dev_queue);
+                }
+                else
+                {
+                    SMC_TRACE_PRINTF_ASSERT("mc_event_callback_l2mux: channel id %d: Net device not found", smc_channel->id);
+                    assert(0);
+                }
             }
             else
             {
-                SMC_TRACE_PRINTF_ASSERT("mc_event_callback_l2mux: channel id %d: Net device not found", smc_channel->id);
-                assert(0);
+                SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channels %d lock counter is %d, not starting queues", smc_channel->id, smc_channel->stop_counter);
             }
+
+            SMC_UNLOCK( local_lock );
+
+            break;
+        }
+        case SMC_VERSION_INFO_REMOTE:
+        {
+            uint32_t version           = *(uint32_t*)event_data;
+            char*    str_version       = smc_version_to_str(version);
+            char*    str_version_local = smc_get_version();
+            uint32_t version_local     = smc_version_to_int( str_version_local );
+
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_l2mux_event_handler: channel id %d: SMC_VERSION_INFO_REMOTE, version is 0x%08X -> v.%s, local version: 0x%08X -> v.%s",
+                    smc_channel->id, version, str_version, version_local, str_version_local);
+
+
+            SMC_TRACE_PRINTF_STARTUP("Channel %d version info: local v.%s, remote v.%s", smc_channel->id,str_version_local, str_version);
+
+            /* TODO Implement version compare and decide if it is possible to communicate */
+
+
+            SMC_FREE( str_version );
 
             break;
         }
@@ -386,10 +458,6 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
             phonet_route_add(device, address);
 
-#if( SMCTEST == TRUE )
-            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGAUTOCONF: Add route 0x%02X...", address);
-            phonet_route_add(device, address);
-#endif
             break;
         }
         case SIOCCONFIGTYPE:
@@ -409,7 +477,7 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
         }
         default:
         {
-            SMC_TRACE_PRINTF_WARNING("smc_event_callback_l2mux: unsupported command");
+            SMC_TRACE_PRINTF_WARNING("l2mux_net_device_driver_ioctl: unsupported ioctl command 0x%04X", cmd);
             break;
         }
     }
@@ -424,8 +492,6 @@ static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device,
     uint16_t subqueue = 0;
 
     SMC_TRACE_PRINTF_TRANSMIT("l2mux_net_device_driver_select_queue: device 0x%08X, protocol 0x%04X...", (uint32_t)device, skb->protocol);
-
-    /* TODO Remove L2MUX specific code*/
 
     if (skb->protocol == htons(ETH_P_PHONET))
     {
@@ -446,7 +512,7 @@ static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device,
     }
     else
     {
-	SMC_TRACE_PRINTF_WARNING("l2mux_net_device_driver_select_queue: unsupported protocol device 0x%08X, 0x%04X", (uint32_t)device, skb->protocol);
+        SMC_TRACE_PRINTF_WARNING("l2mux_net_device_driver_select_queue: unsupported protocol device 0x%08X, 0x%04X", (uint32_t)device, skb->protocol);
     }
 
     SMC_TRACE_PRINTF_TRANSMIT("l2mux_net_device_driver_select_queue: completed: subqueue 0x%04X", subqueue);

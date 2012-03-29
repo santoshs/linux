@@ -15,6 +15,10 @@
 /*
 Change history:
 
+Version:       8    29-Feb-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Linux Kernel SMC timer functions added
+
 Version:       4    19-Dec-2011     Heikki Siikaluoma
 Status:        draft
 Description :  Linux Kernel module features implemented
@@ -40,46 +44,22 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id );
 
 /* =============================================================
- * SMC Memory management platform specific implementations
+ * SMC Interrupt platform specific implementations
  */
-
-
-
-/* Changed to macros in h file
- * TODO Cleanup
-void smc_shm_cache_invalidate(void* start_address, void* end_address)
-{
-    SMC_TRACE_PRINTF_INFO("smc_shm_cache_invalidate: 0x%08X-0x%08X", (uint32_t)start_address, (uint32_t)end_address);
-
-    SMC_TRACE_PRINTF_WARNING("smc_shm_cache_clean: NOT IMPLEMENTED");
-}
-
-void smc_shm_cache_clean(void* start_address, void* end_address)
-{
-    SMC_TRACE_PRINTF_INFO("smc_shm_cache_clean: 0x%08X-0x%08X", (uint32_t)start_address, (uint32_t)end_address);
-
-    SMC_TRACE_PRINTF_WARNING("smc_shm_cache_clean: NOT IMPLEMENTED");
-}
-*/
-
-/* =============================================================
- * SMC Signal function platform specific implementation
- */
-
 
 /*
  * Interrupt handler
  */
 static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
 {
-    /*smc_signal_t* signal = NULL;*/
+    smc_signal_handler_t* signal_handler = NULL;
 
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
         /* Get the appropriate signal from array */
-    smc_signal_handler_t* signal_handler = smc_signal_handler_get( (uint32_t)irq, SMC_SIGNAL_TYPE_INTCBB );
+    signal_handler = smc_signal_handler_get( (uint32_t)irq, SMC_SIGNAL_TYPE_INTCBB );
 
     /* TODO Unlock if locked */
 
@@ -101,14 +81,14 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
 
 static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id )
 {
-    /*smc_signal_t* signal = NULL;*/
+    smc_signal_handler_t* signal_handler = NULL;
 
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
 
         /* Get the appropriate signal from array */
-    smc_signal_handler_t* signal_handler = smc_signal_handler_get( (uint32_t)irq, SMC_SIGNAL_TYPE_INT_WGM_GENOUT );
+    signal_handler = smc_signal_handler_get( (uint32_t)irq, SMC_SIGNAL_TYPE_INT_WGM_GENOUT );
 
     /* TODO Unlock if locked */
 
@@ -130,6 +110,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id )
 {
+    smc_signal_handler_t* signal_handler = NULL;
     smc_signal_t* signal = NULL;
     int irq_spi = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
@@ -138,7 +119,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     /* TODO Check lock --> Create common lock to smc.c */
 
         /* Get the appropriate signal from array */
-    smc_signal_handler_t* signal_handler = smc_signal_handler_get( (uint32_t)irq_spi, SMC_SIGNAL_TYPE_INT_RESOURCE );
+    signal_handler = smc_signal_handler_get( (uint32_t)irq_spi, SMC_SIGNAL_TYPE_INT_RESOURCE );
 
     /* TODO Unlock if locked */
 
@@ -162,8 +143,8 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         SMC_TRACE_PRINTF_WARNING("smc_linux_interrupt_handler_int_resource: No IRQ handler initialized for IRQ: ID %d SPI %d", irq, irq_spi);
     }
 
-    /* Pull down the IRQ since there is GOP001 used in MOdem Side (the peripheral address is given) */
-    if( signal != NULL && signal->peripheral_address != NULL )
+    /* Pull down the IRQ since there is GOP001 used in Modem Side (the peripheral address is given) */
+    if( signal != NULL && signal->peripheral_address != 0 )
     {
         /* TODO FIX: The SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM only valid for SPI 193 - 198 */
         uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
@@ -177,7 +158,6 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         __raw_readl( ((void __iomem *)signal->peripheral_address) );
     }
 
-
     return IRQ_HANDLED;
 }
 
@@ -189,7 +169,7 @@ smc_signal_t* smc_signal_create( uint32_t signal_id, uint32_t signal_type )
 
     signal->interrupt_id       = signal_id;
     signal->signal_type        = signal_type;
-    signal->peripheral_address = NULL;
+    signal->peripheral_address = 0;
     signal->address_remapped   = FALSE;
 
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTGEN ||
@@ -198,8 +178,8 @@ smc_signal_t* smc_signal_create( uint32_t signal_id, uint32_t signal_type )
         /* TODO Peripheral address configurable */
         uint32_t p_address = SMC_PERIPHERAL_ADDRESS_MODEM_GOP_INTGEN_1+SMC_ADDRESS_APE_OFFSET_TO_MODEM ;
 
-        signal->peripheral_address = ioremap(p_address, sizeof(GOP001_STR));
-        signal->address_remapped = TRUE;
+        signal->peripheral_address = (uint32_t)ioremap(p_address, sizeof(GOP001_STR));
+        signal->address_remapped   = TRUE;
 
         SMC_TRACE_PRINTF_SIGNAL("smc_signal_create: signal: 0x%08X, ID: (%d) 0x%08X type 0x%08X, remapped peripheral address from 0x%08X is 0x%08X",
                     (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type,
@@ -235,10 +215,10 @@ void smc_signal_destroy( smc_signal_t* signal )
 
     if( signal != NULL )
     {
-        if( signal->peripheral_address != NULL && signal->address_remapped==TRUE )
+        if( signal->peripheral_address != 0 && signal->address_remapped==TRUE )
         {
-            iounmap( signal->peripheral_address );
-            signal->peripheral_address = NULL;
+            iounmap( (void*)signal->peripheral_address );
+            signal->peripheral_address = 0;
         }
     }
 
@@ -257,7 +237,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTGEN )
     {
-        if( signal->peripheral_address != NULL )
+        if( signal->peripheral_address != 0 )
         {
             uint32_t genios = (1UL << ((signal->interrupt_id-SMC_MODEM_INTGEN_L2_FIRST) + SMC_MODEM_INTGEN_L2_OFFSET));
 
@@ -277,7 +257,6 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
     }
     else
     {
-
         /* TODO Write to register */
 
         SMC_TRACE_PRINTF_ERROR("smc_signal_raise: Signal type 0x%08X NOT IMPLEMENTED", signal->signal_type);
@@ -297,13 +276,11 @@ uint8_t smc_signal_acknowledge( smc_signal_t* signal )
 
 uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel )
 {
-    uint8_t       ret_value = SMC_OK;
-    int           result    = 0;
-
+    uint8_t       ret_value    = SMC_OK;
+    int           result       = 0;
     const char*   device_name  = NULL;
-    void*         dev_id    = NULL;
-
-    unsigned long flags     = 0x00; /* 0x00, IRQF_SHARED, IRQ_TYPE_PRIO, IRQF_SAMPLE_RANDOM | IRQF_DISABLED */
+    void*         dev_id       = NULL;
+    unsigned long flags        = 0x00; /* 0x00, IRQF_SHARED, IRQ_TYPE_PRIO, IRQF_SAMPLE_RANDOM | IRQF_DISABLED */
 
     SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: 0x%08X: 0x%02X (%d), type 0x%08X for channel: 0x%08X", (uint32_t)signal, signal->interrupt_id, signal->interrupt_id, signal->signal_type, (uint32_t)smc_channel);
 
@@ -467,37 +444,6 @@ smc_lock_t* smc_lock_create( void )
     return lock;
 }
 
-
-/* Changed to macros: TODO Cleanup
-void smc_lock( smc_lock_t* lock )
-{
-    SMC_TRACE_PRINTF_LOCK("smc_lock: lock 0x%08X...", (uint32_t)lock);
-    spin_lock( &(lock->mr_lock) );
-}
-
-void smc_unlock( smc_lock_t* lock )
-{
-    spin_unlock( &(lock->mr_lock) );
-    SMC_TRACE_PRINTF_LOCK("smc_unlock: unlock 0x%08X...", (uint32_t)lock);
-}
-
-void smc_lock_irq( smc_lock_t* lock )
-{
-    SMC_TRACE_PRINTF_LOCK("smc_lock_irq: lock 0x%08X...", (uint32_t)lock);
-
-    spin_lock_irqsave( &(lock->mr_lock), lock->flags);
-
-}
-
-void smc_unlock_irq( smc_lock_t* lock )
-{
-    spin_unlock_irqrestore(&lock->mr_lock, lock->flags);
-
-    SMC_TRACE_PRINTF_LOCK("smc_unlock_irq: lock 0x%08X...", (uint32_t)lock);
-}
-*/
-
-
 void smc_lock_destroy( smc_lock_t* lock )
 {
     SMC_TRACE_PRINTF_INFO("smc_lock_destroy: lock 0x%08X...", (uint32_t)lock);
@@ -529,6 +475,124 @@ smc_semaphore_t* smc_semaphore_create( void )
 
 
 /* =============================================================
+ * SMC timer functions platform specific implementations
+ * The timer struct is defined in smc_conf_platform.h
+ *
+ */
+
+smc_timer_t* smc_timer_create( uint32_t timer_usec )
+{
+    smc_timer_t* timer = (smc_timer_t*)SMC_MALLOC( sizeof( smc_timer_t ) );
+
+    assert(timer != NULL );
+
+    timer->period_us      = timer_usec;
+    timer->timer_data     = 0;
+    timer->smc_timer_list = NULL;
+    timer->prev_jiffies   = 0;
+
+    SMC_TRACE_PRINTF_TIMER("smc_timer_create: timer 0x%08X created, timeout is %u usec", (uint32_t)timer, timer_usec);
+
+    return timer;
+}
+
+uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint32_t timer_data )
+{
+    uint8_t ret_val  = SMC_OK;
+
+    unsigned long period  = (timer->period_us * HZ)/(1000*1000);
+    //unsigned long jiff    = jiffies;
+
+    timer->timer_data = timer_data;
+
+    if( timer->smc_timer_list == NULL )
+    {
+        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
+        //struct timer_list tmr_lst = TIMER_INITIALIZER( timer_cb, (jiff + period), ((uint32_t)timer) );
+        //timer->smc_timer_list = &tmr_lst;
+
+        timer->smc_timer_list = (struct timer_list*)SMC_MALLOC( sizeof(struct timer_list) );
+        timer->smc_timer_list->data     = (unsigned long)timer;
+        timer->smc_timer_list->function = (void*)timer_cb;
+        timer->prev_jiffies             = jiffies;
+        timer->smc_timer_list->expires  = timer->prev_jiffies + period;
+
+        init_timer( timer->smc_timer_list );
+
+        add_timer( timer->smc_timer_list );
+
+        //wait_event_interruptible(data->wait, !data->loops);
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X: timer list created, modify it...", (uint32_t)timer, (uint32_t)timer_cb);
+
+        timer->prev_jiffies = jiffies;
+        mod_timer( timer->smc_timer_list, (timer->prev_jiffies + period) );
+    }
+
+    SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X period %d us, expires: %lu , HZ: %d...",
+                (uint32_t)timer, (uint32_t)timer_cb, timer->period_us, timer->smc_timer_list->expires, HZ);
+
+    return ret_val;
+}
+
+uint8_t smc_timer_stop( smc_timer_t* timer )
+{
+    uint8_t ret_val = SMC_OK;
+
+    SMC_TRACE_PRINTF_TIMER("smc_timer_stop: timer 0x%08X...", (uint32_t)timer);
+
+    if( timer!= NULL && timer->smc_timer_list != NULL )
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_timer_stop: delete timer list 0x%08X...", (uint32_t)timer->smc_timer_list);
+        del_timer( timer->smc_timer_list );
+        SMC_TRACE_PRINTF_DEBUG("smc_timer_stop: free timer list ptr 0x%08X...", (uint32_t)timer->smc_timer_list);
+        SMC_FREE( timer->smc_timer_list );
+        timer->smc_timer_list = NULL;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_TIMER("smc_timer_stop: invalid timer parameter NULL");
+        ret_val = SMC_ERROR;
+    }
+
+    return ret_val;
+}
+
+uint8_t smc_timer_destroy( smc_timer_t* timer )
+{
+    uint8_t ret_val = SMC_OK;
+
+    SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: timer 0x%08X...", (uint32_t)timer);
+
+    if( timer!= NULL )
+    {
+        if( timer->smc_timer_list != NULL )
+        {
+            SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: delete timer list 0x%08X...", (uint32_t)timer->smc_timer_list);
+            del_timer( timer->smc_timer_list );
+            SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: free timer list ptr 0x%08X...", (uint32_t)timer->smc_timer_list);
+            SMC_FREE( timer->smc_timer_list );
+            timer->smc_timer_list = NULL;
+        }
+
+        SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: free timer 0x%08X...", (uint32_t)timer);
+        SMC_FREE( timer );
+        timer = NULL;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_timer_destroy: invalid timer parameter NULL");
+        ret_val = SMC_ERROR;
+    }
+
+    return ret_val;
+}
+
+
+
+/* =============================================================
  * Miscellaneous Linux Kernel implementations.
  */
 uint32_t rand(void)
@@ -549,22 +613,22 @@ void smc_printf_data_linux_kernel(int length, uint8_t* data)
     int i = 0;
     int row_len = 16;
 
-    printk(KERN_DEBUG "\n");
+    printk(KERNEL_DEBUG_LEVEL "\n");
 
     for( i = 0; i < length; i++ )
     {
         if(i%row_len == 0)
         {
-            printk(KERN_DEBUG "0x%02X", data[i]);
+            printk(KERNEL_DEBUG_LEVEL "0x%02X", data[i]);
         }
         else
         {
-            printk(KERN_DEBUG " 0x%02X", data[i]);
+            printk(KERNEL_DEBUG_LEVEL " 0x%02X", data[i]);
         }
 
         if( i > 0 && ( i%(row_len) == (row_len-1) || i >= length-1 ))
         {
-            printk(KERN_DEBUG "\n");
+            printk(KERNEL_DEBUG_LEVEL "\n");
         }
     }
 }

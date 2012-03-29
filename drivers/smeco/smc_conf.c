@@ -68,6 +68,7 @@ smc_channel_conf_t* smc_channel_conf_create( void )
     conf->channel_id    = 0;
     conf->priority      = SMC_CHANNEL_PRIORITY_DEFAULT;
     conf->copy_scheme   = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
+    conf->protocol      = 0;
 
     conf->fifo_size_in  = 0;
     conf->fifo_size_out = 0;
@@ -81,6 +82,8 @@ smc_channel_conf_t* smc_channel_conf_create( void )
     conf->smc_receive_data_allocator_cb = NULL;
     conf->smc_send_data_deallocator_cb  = NULL;
     conf->smc_event_cb                  = NULL;
+
+    conf->fifo_full_check_timeout_usec = 0;
 
     return conf;
 }
@@ -154,7 +157,6 @@ void smc_conf_destroy( smc_conf_t* smc_conf )
         SMC_FREE( smc_conf ) ;
         smc_conf = NULL;
     }
-
 }
 
 void smc_channel_conf_destroy( smc_channel_conf_t* smc_channel_conf)
@@ -292,6 +294,8 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
 
             smc_channel_conf->signal_remote = smc_signal_create( smc_instance_conf_channel->signal_id_master_to_slave, smc_instance_conf_channel->signal_type_master_to_slave );
             smc_channel_conf->signal_local  = smc_signal_create( smc_instance_conf_channel->signal_id_master_from_slave, smc_instance_conf_channel->signal_type_master_from_slave );
+
+            smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_master;
         }
         else
         {
@@ -307,9 +311,12 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
 
             smc_channel_conf->signal_remote  = smc_signal_create( smc_instance_conf_channel->signal_id_slave_to_master, smc_instance_conf_channel->signal_type_slave_to_master );
             smc_channel_conf->signal_local   = smc_signal_create( smc_instance_conf_channel->signal_id_slave_from_master, smc_instance_conf_channel->signal_type_slave_from_master);
+
+            smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_slave;
         }
 
         smc_channel_conf->priority = smc_instance_conf_channel->priority;
+        smc_channel_conf->protocol = smc_instance_conf_channel->protocol;
     }
     else
     {

@@ -27,12 +27,20 @@ Description :  File created
 
 #define SMC_CONFIG_USER_L2MUX                        "L2MUX"
 
-#define SMC_CONFIG_NAME_EOS2_WAKEUP                  "EOS2-Wakeup-SH-Mobile-APE5R-WGEModem 3.1 for L2MUX"
+#define SMC_CONFIG_NAME_EOS2_WAKEUP                  "EOS2-Wakeup-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 
 
 #define SMC_CONF_COUNT_L2MUX                         1
 
 #define SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2_WAKEUP     3
+
+#define SMC_L2MUX_QUEUE_COUNT        3
+
+    /* L2MUX Queue mapping for protocols */
+#define SMC_L2MUX_QUEUE_1_PHONET     0
+#define SMC_L2MUX_QUEUE_2_MHI        1
+#define SMC_L2MUX_QUEUE_3_MHDP       2
+
 
 
 /**
@@ -43,7 +51,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 {
     {
             .name                = "ETH_P_PHONET",
-            .protocol            = 0x00,
+            .protocol            = SMC_L2MUX_QUEUE_1_PHONET,
             .fifo_size_master    = 30,
             .fifo_size_slave     = 30,
             .mdb_size_master     = 1024*256,
@@ -69,11 +77,14 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
             .priority                      = SMC_CHANNEL_PRIORITY_HIGHEST,
             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
+
+            .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
+            .fifo_full_check_timeout_usec_slave  = 500
      },
      {
              .name                = "ETH_P_MHI",
-             .protocol            = 0x00,
+             .protocol            = SMC_L2MUX_QUEUE_2_MHI,
              .fifo_size_master    = 30,
              .fifo_size_slave     = 30,
              .mdb_size_master     = 1024*256,
@@ -99,12 +110,14 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
              .priority                      = SMC_CHANNEL_PRIORITY_DEFAULT,
              .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
+             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
+             .fifo_full_check_timeout_usec_slave  = 500
      },
 
      {
              .name                = "ETH_P_MHDP",
-             .protocol            = 0x00,
+             .protocol            = SMC_L2MUX_QUEUE_3_MHDP,
              .fifo_size_master    = 300,
              .fifo_size_slave     = 400,
              .mdb_size_master     = 1024*1024,
@@ -130,7 +143,9 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
              .priority                      = SMC_CHANNEL_PRIORITY_LOWEST,           /*  */
              .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND)         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
+             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND),         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
+             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
+             .fifo_full_check_timeout_usec_slave  = 500
      }
 };
 

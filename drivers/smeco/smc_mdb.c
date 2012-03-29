@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       10   15-Mar-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Code cleanup, Linux Kernel compile warnings removed.
+
 Version:       7    11-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Removed MDB list, smc_channel pointer in use.
@@ -1537,19 +1541,25 @@ size_t tlsf_overhead()
 
 size_t tlsf_create(size_t bytes, void *mem)
 {
-	block_header_t* block;
-	block_header_t* next;
+	block_header_t* block = NULL;
+	block_header_t* next  = NULL;
+	pool_t*         pool  = NULL;
+
+#if _DEBUG_TLSF_
+	int rv = 0;
+#endif
 
 	const size_t pool_overhead = tlsf_overhead();
     /* Subtract the size of pool header overhead and size of sentinel to get
     ** the actual usable pool size */
-	const size_t pool_bytes = align_down(bytes - pool_overhead - block_size_min, ALIGN_SIZE);
+	const size_t pool_bytes = align_down((bytes - pool_overhead - block_size_min), ALIGN_SIZE);
+
     SMC_TRACE_PRINTF_MDB("bytes %d, pool_bytes %d, pool_overhead %d, block_size_min %d", bytes, pool_bytes, pool_overhead, block_size_min);
-	pool_t* pool = tlsf_cast(pool_t*, mem);
+
+	pool = tlsf_cast(pool_t*, mem);
 
 #if _DEBUG_TLSF_
 	/* Verify ffs/fls work properly. */
-	int rv = 0;
 	rv += (tlsf_ffs(0) == -1) ? 0 : 0x1;
 	rv += (tlsf_fls(0) == -1) ? 0 : 0x2;
 	rv += (tlsf_ffs(1) == 0) ? 0 : 0x4;
@@ -1794,7 +1804,7 @@ smc_mdb_channel_info_t* smc_mdb_channel_info_create( void )
 uint8_t smc_mdb_create_pool_out( void* pool_address, uint32_t pool_size )
 {
     uint8_t ret_val   = SMC_OK;
-    int32_t result    = 0;
+    //int32_t result    = 0;
     int32_t init_size = 0;
     int32_t i         = 0;
 
@@ -1802,7 +1812,7 @@ uint8_t smc_mdb_create_pool_out( void* pool_address, uint32_t pool_size )
     assert(sizeof(uint8_t)  == 1); /* NOTE: Make sure that this type is 1 byte on your computer */
 
     assert(pool_address != NULL);
-    assert(pool_size != NULL);
+    assert(pool_size != 0);
 
     SMC_TRACE_PRINTF_MDB("smc_mdb_create_pool_out: pool_address: 0x%08X, pool_size: %d", (uint32_t)pool_address, pool_size);
 
@@ -1978,9 +1988,14 @@ uint8_t smc_mdb_address_check( const smc_channel_t* smc_channel, void* ptr, uint
 
 uint32_t smc_mdb_channel_frag_get( smc_channel_t* smc_channel )
 { 
-    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+    pool_t *pool = NULL;
+
+    assert( smc_channel != NULL );
+
+    pool = smc_channel->smc_mdb_info->pool_out;
+
+    assert( pool!=NULL );
 
     return pool->free_blocks;
 #else
@@ -1991,10 +2006,15 @@ uint32_t smc_mdb_channel_frag_get( smc_channel_t* smc_channel )
 
 uint32_t smc_mdb_channel_free_space_get( smc_channel_t* smc_channel )
 {
-    assert( smc_channel!=NULL );
-#if !TLSF_USE_REF
+#if( !TLSF_USE_REF )
+    pool_t* pool = NULL;
 
-    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+    assert( smc_channel!=NULL );
+
+    pool = smc_channel->smc_mdb_info->pool_out;
+
+    assert( pool!=NULL );
+
     return  pool->free_space;
 #else
     SMC_TRACE_PRINTF_INFO("smc_mdb_channel_free_space_get: no free space information available in used TLSF implementation");
@@ -2004,9 +2024,15 @@ uint32_t smc_mdb_channel_free_space_get( smc_channel_t* smc_channel )
 
 uint32_t smc_mdb_channel_free_space_min_get( smc_channel_t* smc_channel )
 {
+#if( !TLSF_USE_REF )
+    pool_t* pool = NULL;
+
     assert( smc_channel!=NULL );
-#if !TLSF_USE_REF
-    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+
+    pool = smc_channel->smc_mdb_info->pool_out;
+
+    assert( pool!=NULL );
+
     return  pool->free_space_min;
 #else
     SMC_TRACE_PRINTF_INFO("smc_mdb_channel_free_space_min_get(): no free space information available in used TLSF implementation");
@@ -2015,15 +2041,27 @@ uint32_t smc_mdb_channel_free_space_min_get( smc_channel_t* smc_channel )
 }
 uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel )
 {
-    assert( smc_channel!=NULL );
 #if !TLSF_USE_REF
-    pool_t *pool = smc_channel->smc_mdb_info->pool_out;
+    pool_t* pool = NULL;
+    assert( smc_channel!=NULL );
 
-    uint32_t fli = tlsf_fls(pool->fl_bitmap);
-    uint32_t sli = tlsf_fls(pool->sl_bitmap[fli]);
-    uint32_t size = 1U << (fli + FL_INDEX_SHIFT - 1);
-    size += sli << (fli + FL_INDEX_SHIFT - 1 - SL_INDEX_COUNT_LOG2);
-    return size;
+    pool = smc_channel->smc_mdb_info->pool_out;
+
+    if( pool!=NULL )
+    {
+        uint32_t fli = tlsf_fls(pool->fl_bitmap);
+        uint32_t sli = tlsf_fls(pool->sl_bitmap[fli]);
+        uint32_t size = 1U << (fli + FL_INDEX_SHIFT - 1);
+
+        size += sli << (fli + FL_INDEX_SHIFT - 1 - SL_INDEX_COUNT_LOG2);
+
+        return size;
+    }
+    else
+    {
+        assert(pool!=NULL);
+        return 0;
+    }
 #else
     SMC_TRACE_PRINTF_INFO("smc_mdb_channel_largest_free_block_get(): no largest free block information available in used TLSF implementation");
     return 0;

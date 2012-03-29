@@ -45,13 +45,6 @@ Description :  File created
 #define SMC_CONF_L2MUX_LOCAL_CPU_ID  0xA9
 #define SMC_CONF_L2MUX_REMOTE_CPU_ID 0xC0
 
-#define SMC_L2MUX_QUEUE_COUNT        3
-
-    /* L2MUX Queue mapping */
-#define SMC_L2MUX_QUEUE_1_PHONET     0
-#define SMC_L2MUX_QUEUE_2_MHI        1
-#define SMC_L2MUX_QUEUE_3_MHDP       2
-
     /* L2MUX control header size */
 #define SMC_L2MUX_HEADER_SIZE        4
 
