@@ -488,8 +488,8 @@ static void pn_disconnect(struct usb_function *f)
 
 /*-------------------------------------------------------------------------*/
 
-static __init
-int pn_bind(struct usb_configuration *c, struct usb_function *f)
+//static __init
+static int pn_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct usb_gadget *gadget = cdev->gadget;
@@ -586,11 +586,12 @@ pn_unbind(struct usb_configuration *c, struct usb_function *f)
 
 static struct net_device *dev;
 
-int __init phonet_bind_config(struct usb_configuration *c)
+int phonet_bind_config(struct usb_configuration *c)
 {
 	struct f_phonet *fp;
 	int err, size;
 
+        printk("****WIPRO **f_phonet phonet_bind_config***\n");
 	size = sizeof(*fp) + (phonet_rxq_size * sizeof(struct usb_request *));
 	fp = kzalloc(size, GFP_KERNEL);
 	if (!fp)
@@ -611,7 +612,7 @@ int __init phonet_bind_config(struct usb_configuration *c)
 	return err;
 }
 
-int __init gphonet_setup(struct usb_gadget *gadget)
+int gphonet_setup(struct usb_gadget *gadget)
 {
 	struct phonet_port *port;
 	int err;
