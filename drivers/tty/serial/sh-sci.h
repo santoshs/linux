@@ -346,6 +346,11 @@ SCIF_FNS(SCRFDR, 0x3c, 16)
 SCIx_FNS(SCxTDR, 0x20,  8, 0x40,  8)
 SCIx_FNS(SCxRDR, 0x24,  8, 0x60,  8)
 SCIF_FNS(SCLSR,  0x00,  0)
+
+/* Modified here on May 19, 2011 */
+SCIF_FNS(SCPCR,  0x30, 16)
+/*end modified*/
+
 #elif defined(CONFIG_CPU_SUBTYPE_SH7723) ||\
       defined(CONFIG_CPU_SUBTYPE_SH7724)
 SCIx_FNS(SCSMR,  0x00, 16, 0x00, 16)
