@@ -1094,7 +1094,7 @@ static int __init setup_current_timer(void)
 	struct clk *clk;
 	unsigned long lpj, flags;
 
-	clk = clk_get(NULL, "currtimer");
+	clk = clk_get(NULL, "z_clk");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 	clk_enable(clk);
