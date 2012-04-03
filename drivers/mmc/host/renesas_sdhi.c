@@ -353,7 +353,7 @@ static void renesas_sdhi_data_done(
 	u32 val;
 
 	if (data) {
-		if (host->dma_tx || host->dma_rx) {
+		if (!host->force_pio) {
 			dir = (host->data->flags & MMC_DATA_READ) ?
 				DMA_FROM_DEVICE : DMA_TO_DEVICE;
 			dma_unmap_sg(mmc_dev(host->mmc), host->sg_ptr,
