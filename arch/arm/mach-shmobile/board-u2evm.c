@@ -244,9 +244,6 @@ static struct platform_device sh_mmcif_device = {
 	.resource	= sh_mmcif_resources,
 };
 
-#ifdef CONFIG_MUX_STM_TO_SDHI1
-/* If STM traces are muxed to SDHI1, then SDHI0 can be used for SD-Card */
-/* SDHI0 */
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
 	;
@@ -298,21 +295,12 @@ static struct platform_device sdhi0_device = {
 	.num_resources	= ARRAY_SIZE(sdhi0_resources),
 	.resource	= sdhi0_resources,
 };
-#endif // ifdef CONFIG_MUX_STM_TO_SDHI1
 
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
 	;
 }
 
-#if !defined CONFIG_MUX_STM_TO_SDHI1
-
-// NOTE by ToKaikko 15-Feb-2012
-// SHDI1 is used for Modem STM trace in EOS2 EVM and EOS2 Kota boards
-// Until eMMC flashing and eMMC boot works as mainstream,
-// his can not be taken into use, since SDHI0 is used for SD-Card Boot.
-//
-// Once eMMC booting works, then SDHI0 can be taken into use for Modem STM tracing.
 static struct renesas_sdhi_dma sdhi1_dma = {
 	.chan_tx = {
 		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
@@ -351,7 +339,6 @@ static struct platform_device sdhi1_device = {
 	.num_resources	= ARRAY_SIZE(sdhi1_resources),
 	.resource	= sdhi1_resources,
 };
-#endif
 
 #define GPIO_KEY(c, g, d) \
 	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
@@ -575,19 +562,60 @@ static struct platform_device u2evm_ion_device = {
 };
 #endif
 
-static struct platform_device *u2evm_devices[] __initdata = {
+/* THREE optional u2evm_devices pointer lists for initializing the platform devices */
+/* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
+
+static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&usbhs_func_device,
 	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
-#ifdef CONFIG_MUX_STM_TO_SDHI1
 	&sdhi0_device,
+//	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
+	&gpio_key_device,
+	&lcdc_device,
+	&mipidsi0_device,
+	&tpu3_device,
+#ifdef CONFIG_SPI_SH_MSIOF
+	&sh_msiof0_device,
 #endif
-#if !defined CONFIG_MUX_STM_TO_SDHI1
-	&sdhi1_device, // SEE NOTE ABOVE ABOUT SDHI1 CONFLICT WITH STM UNTIL eMMC BOOT WORKS!
+#ifdef CONFIG_ION_R_MOBILE
+	&u2evm_ion_device,
 #endif
+};
+
+static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
+	&usbhs_func_device,
+	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
+	&sh_mmcif_device,
+//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
+	&sdhi1_device,
+	&gpio_key_device,
+	&lcdc_device,
+	&mipidsi0_device,
+	&tpu3_device,
+#ifdef CONFIG_SPI_SH_MSIOF
+	&sh_msiof0_device,
+#endif
+#ifdef CONFIG_ION_R_MOBILE
+	&u2evm_ion_device,
+#endif
+};
+
+static struct platform_device *u2evm_devices_stm_none[] __initdata = {
+	&usbhs_func_device,
+	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
+	&sh_mmcif_device,
+	&sdhi0_device,
+	&sdhi1_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
@@ -765,6 +793,31 @@ void __init u2evm_init_irq(void)
 
 static void __init u2evm_init(void)
 {
+	char *cp=&boot_command_line[0];
+	int ci;
+	int stm_select=1;	// Shall tell how to route STM traces.
+				// Taken from boot_command_line[] parameters.
+				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
+				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
+				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
+				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
+	if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
+		for (ci=4; cp[ci]; ci++) {
+			if (cp[ci-4] == 's' &&
+			    cp[ci-3] == 't' &&
+			    cp[ci-2] == 'm' &&
+			    cp[ci-1] == '=') {
+				switch (cp[ci]) {
+					case '0': stm_select =  0; break;
+					case '1': stm_select =  1; break;
+					default:  stm_select = -1; break;
+				}
+				break;
+			}
+		}
+	}
+	printk("stm_select=%d\n", stm_select);
+
 	r8a73734_pinmux_init();
 
 	/* SCIFA0 */
@@ -806,22 +859,22 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
 
-#ifdef CONFIG_MUX_STM_TO_SDHI1
-	/* If STM Traces go to SDHI1, then SDHI0 can be used for SD-Card */
-	/* SDHI0 */
-	gpio_request(GPIO_FN_SDHID0_0, NULL);
-	gpio_request(GPIO_FN_SDHID0_1, NULL);
-	gpio_request(GPIO_FN_SDHID0_2, NULL);
-	gpio_request(GPIO_FN_SDHID0_3, NULL);
-	gpio_request(GPIO_FN_SDHICMD0, NULL);
-	gpio_request(GPIO_FN_SDHIWP0, NULL);
-	gpio_request(GPIO_FN_SDHICLK0, NULL);
-	gpio_request(GPIO_PORT327, NULL);
-	gpio_direction_input(GPIO_PORT327);
-	irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
-	gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
-#endif
-
+	if (0 != stm_select) {
+		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used for SD-Card */
+		/* SDHI0 */
+		gpio_request(GPIO_FN_SDHID0_0, NULL);
+		gpio_request(GPIO_FN_SDHID0_1, NULL);
+		gpio_request(GPIO_FN_SDHID0_2, NULL);
+		gpio_request(GPIO_FN_SDHID0_3, NULL);
+		gpio_request(GPIO_FN_SDHICMD0, NULL);
+		gpio_request(GPIO_FN_SDHIWP0, NULL);
+		gpio_request(GPIO_FN_SDHICLK0, NULL);
+		gpio_request(GPIO_PORT327, NULL);
+		gpio_direction_input(GPIO_PORT327);
+		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
+		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
+	}
+	
 #if 0
 	/* ONLY FOR HSI CROSS COUPLING */
         /* TODO: Add HSI pinmux and direction etc control for X-coupling */
@@ -831,7 +884,7 @@ static void __init u2evm_init(void)
 	gpio_requset(GPIO_FN_HSI_TX_WAKE, NULL);
 #endif
 
-#ifdef  CONFIG_MUX_STM_TO_SDHI1
+	if (1 == stm_select) {
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX */
 
         /* SDHI1 used for STM Data, STM Clock */
@@ -855,7 +908,7 @@ static void __init u2evm_init(void)
 //        gpio_direction_output(GPIO_PORT292, 0);
         gpio_request(GPIO_FN_STMDATA3_2, NULL);
 
-#else // ifdef  CONFIG_MUX_STM_TO_SDHI1
+	} else if (0 == stm_select) {
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX using SDHI0 as port */
 
         /* SDHI0 used for STM Data, STM Clock */
@@ -881,8 +934,7 @@ static void __init u2evm_init(void)
 
 //        *PORTCR(324) = 0x03; //STMCMD0
 
-#endif // ifdef  CONFIG_MUX_STM_TO_SDHI1
-
+	}
 
 /*      Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
  *        Write bit 28 up to enable SDHIx STMSIDI power
@@ -904,29 +956,33 @@ static void __init u2evm_init(void)
  */
 
 	/* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
-	
+
+	if (-1 != stm_select) {	
 #define MSEL3CR		IO_ADDRESS(0xE6058020)
 	__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
-
+	}
 
 
 	/* THIRD, PINMUX STM SIDI (i,e, return channel) MUX FOR BB/MODEM */
 	/* ALSO, CONFIGURE SYS-(TRACE) FUNNEL-STM, and SYS-TPIU-STM */
 
-#ifdef CONFIG_MUX_STM_TO_SDHI1
+	if (1 == stm_select) {
 	/* SDHI1 used for STMSIDI */
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
         gpio_pull(GPIO_PORTCR(293), GPIO_PULL_UP);
-#else
+	}
+	
+	if (0 == stm_select) {
         /* SDHI0 used for STMSIDI */
 //        gpio_request(GPIO_PORT324, NULL);
 //        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
         gpio_pull(GPIO_PORTCR(324), GPIO_PULL_UP);
-#endif
-        {
+	}
+
+        if (-1 != stm_select) {
           int i;
           volatile unsigned long dummy_read;
 #if 0 // NOT neede any more with new FIDO SW version Fido.1.9.5.36.edge_aligned_stpv2
@@ -942,15 +998,17 @@ static void __init u2evm_init(void)
           for(i=0; i<0x10; i++);
 
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-#ifdef CONFIG_MUX_STM_TO_SDHI1
+	  if (1 == stm_select) {
           __raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
 		// Set   STMSEL[0], i.e. select SDHI1/STM*_2 as output/in port for STM
-#else
+	  }
+	  
+	  if (0 == stm_select) {
           __raw_writel((__raw_readl(DBGREG1) & 0xFFCFFFFF), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
 		// Clear STMSEL[0], i.e. select SDHI0/STM*_1 as output/in port for STM
-#endif
+	  }
 
           for(i=0; i<0x10; i++);
 
@@ -979,15 +1037,15 @@ static void __init u2evm_init(void)
 #endif
         }
 
-#if !defined CONFIG_MUX_STM_TO_SDHI1
-	/* SDHI1 */
-	gpio_request(GPIO_FN_SDHID1_0, NULL);
-	gpio_request(GPIO_FN_SDHID1_1, NULL);
-	gpio_request(GPIO_FN_SDHID1_2, NULL);
-	gpio_request(GPIO_FN_SDHID1_3, NULL);
-	gpio_request(GPIO_FN_SDHICMD1, NULL);
-	gpio_request(GPIO_FN_SDHICLK1, NULL);
-#endif
+	if (1 != stm_select) {
+		/* SDHI1 */
+		gpio_request(GPIO_FN_SDHID1_0, NULL);
+		gpio_request(GPIO_FN_SDHID1_1, NULL);
+		gpio_request(GPIO_FN_SDHID1_2, NULL);
+		gpio_request(GPIO_FN_SDHID1_3, NULL);
+		gpio_request(GPIO_FN_SDHICMD1, NULL);
+		gpio_request(GPIO_FN_SDHICLK1, NULL);
+	}
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
@@ -1066,7 +1124,18 @@ static void __init u2evm_init(void)
 	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 #endif
 	r8a73734_add_standard_devices();
-	platform_add_devices(u2evm_devices, ARRAY_SIZE(u2evm_devices));
+
+	switch (stm_select) {
+		case 0:
+			platform_add_devices(u2evm_devices_stm_sdhi0, ARRAY_SIZE(u2evm_devices_stm_sdhi0));
+			break;
+		case 1:
+			platform_add_devices(u2evm_devices_stm_sdhi1, ARRAY_SIZE(u2evm_devices_stm_sdhi1));
+			break;
+		default:
+			platform_add_devices(u2evm_devices_stm_none,  ARRAY_SIZE(u2evm_devices_stm_none));
+			break;
+	}
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
