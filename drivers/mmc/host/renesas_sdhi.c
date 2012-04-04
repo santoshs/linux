@@ -260,15 +260,31 @@ static void sdhi_reset(struct renesas_sdhi_host *host)
 static void renesas_sdhi_set_clock(
 	struct renesas_sdhi_host *host, int new_clock)
 {
-	u32 clk = 0, clock;
+	u32 clk = 0, clock, flags = host->pdata->flags;
+	u16 val16;
 
 	if (new_clock) {
 		for (clock = host->mmc->f_min, clk = 0x80000080;
 				new_clock >= (clock<<1); clk >>= 1)
 			clock <<= 1;
 		clk |= 0x100;
-		if (host->pdata->flags & RENESAS_SDHI_SDCLK_OFFEN)
+		if (flags & RENESAS_SDHI_SDCLK_OFFEN)
 			clk |= 0x200;
+		if (flags & RENESAS_SDHI_SDCLK_DIV1 &&
+				new_clock == host->mmc->f_max)
+			clk |= 0xff;
+	}
+	if (flags & RENESAS_SDHI_SDCLK_DIV1) {
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		if ((clk & 0xff) == 0xff || (val16 & 0xff) == 0xff) {
+			val16 &= ~0x100;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			val16 = clk & 0xff;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			val16 |= clk & 0x300;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			return;
+		}
 	}
 	sdhi_write16(host, SDHI_CLK_CTRL, clk & 0x3ff);
 }

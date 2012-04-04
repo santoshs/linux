@@ -17,6 +17,7 @@
 /* flags */
 #define RENESAS_SDHI_WP_DISABLE		0x01	/* Disable WriteProtect check */
 #define RENESAS_SDHI_SDCLK_OFFEN	0x02	/* Enable Card clock auto off */
+#define RENESAS_SDHI_SDCLK_DIV1		0x04	/* Enable SDCLK div 1 */
 #define RENESAS_SDHI_DMA_SLAVE_CONFIG	0x08	/* Runtime DMA config support */
 
 struct renesas_sdhi_dma {
