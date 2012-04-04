@@ -554,7 +554,6 @@ static struct platform_device sh_msiof0_device = {
 };
 #endif
 
-#ifdef CONFIG_ION_R_MOBILE
 #define ION_HEAP_VIDEO_SIZE	(SZ_64M - SZ_4M)
 #define ION_HEAP_VIDEO_ADDR	(0x80000000 - ION_HEAP_VIDEO_SIZE)
 
@@ -588,7 +587,6 @@ static struct platform_device u2evm_ion_device = {
 		.platform_data = &u2evm_ion_data,
 	},
 };
-#endif
 
 static struct platform_device *u2evm_devices[] __initdata = {
 	&usbhs_func_device,
@@ -611,9 +609,7 @@ static struct platform_device *u2evm_devices[] __initdata = {
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
-#ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
-#endif
 };
 
 /* I2C */
@@ -1185,7 +1181,6 @@ void u2evm_restart(char mode, const char *cmd)
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
 
-#ifdef CONFIG_ION_R_MOBILE
 static void __init u2evm_reserve(void)
 {
 	int i;
@@ -1202,7 +1197,6 @@ static void __init u2evm_reserve(void)
 		}
 	}
 }
-#endif
 
 MACHINE_START(U2EVM, "u2evm")
 	.map_io		= u2evm_map_io,
@@ -1211,7 +1205,5 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,
 	.restart	= u2evm_restart,
-#ifdef CONFIG_ION_R_MOBILE
 	.reserve	= u2evm_reserve,
-#endif
 MACHINE_END
