@@ -32,7 +32,9 @@
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
-
+#include <linux/tpu_pwm.h>
+#include <linux/tpu_pwm_board.h>
+#include <linux/pcm2pwm.h>
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
 
@@ -296,6 +298,8 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+
+
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
 	;
@@ -496,6 +500,63 @@ static struct platform_device tpu3_device = {
 	},
 };
 
+static struct resource	tpu_resources[] = {
+	[TPU_MODULE_0] = {
+		.name	= "tpu0_map",
+		.start	= 0xe6600000,
+		.end	= 0xe6600200,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct port_info
+	tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
+	[TPU_MODULE_0] = {
+		[TPU_CHANNEL_0]	= {
+			.port_func	= GPIO_FN_TPUTO0,
+			.func_name	= "pwm-tpu0to0",
+		},
+		[TPU_CHANNEL_1]	= {
+			.port_func	= GPIO_FN_TPUTO1,
+			.func_name	= "pwm-tpu0to1",
+		},
+		[TPU_CHANNEL_2]	= {
+			.port_func	= GPIO_FN_TPUTO2,
+			.func_name	= "pwm-tpu0to2",
+		},
+		[TPU_CHANNEL_3]	= {
+			.port_func	= GPIO_FN_TPUTO3,
+			.func_name	= "pwm-tpu0to3",
+		},
+	},
+};
+
+static struct platform_device	tpu_devices[] = {
+	{
+		.name	= "tpu-renesas-sh_mobile",
+		.id		= TPU_MODULE_0,
+		.dev	= {
+			.platform_data = &tpu_pwm_pfc[TPU_MODULE_0],
+		},
+		.num_resources	= 1,
+		.resource		= &tpu_resources[TPU_MODULE_0],
+	},
+};
+
+/* PCM2PWM */
+static struct resource pcm2pwm_resource = {
+	.name	= "pcm2pwm_map",
+	.start	= 0xEC380000,
+	.end	= 0xEC380090,
+	.flags	= IORESOURCE_MEM,
+};
+static struct platform_device pcm2pwm_device = {
+	.name			= "pcm2pwm-renesas-sh_mobile",
+
+	.id				= 1,
+	.num_resources 	= 1,
+	.resource		= &pcm2pwm_resource,
+};
 #ifdef CONFIG_SPI_SH_MSIOF
 /* SPI */
 static struct sh_msiof_spi_info sh_msiof0_info = {
@@ -577,7 +638,8 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
-	&tpu3_device,
+	&tpu_devices[TPU_MODULE_0],
+	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -598,7 +660,8 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
-	&tpu3_device,
+	&tpu_devices[TPU_MODULE_0],
+	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -619,7 +682,8 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
-	&tpu3_device,
+	&tpu_devices[TPU_MODULE_0],
+	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -752,6 +816,15 @@ static struct i2c_board_info i2c4_devices[] = {
 	},
 };
 
+static struct i2c_board_info i2cm_devices[] = {
+	{
+		I2C_BOARD_INFO("led", 0x74),
+	},
+	{
+		I2C_BOARD_INFO("flash", 0x30),
+	},
+};
+
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -787,6 +860,9 @@ void __init u2evm_init_irq(void)
 {
 	r8a73734_init_irq();
 }
+
+
+
 
 
 #define DSI0PHYCR	IO_ADDRESS(0xe615006c)
@@ -936,6 +1012,7 @@ static void __init u2evm_init(void)
 
 	}
 
+
 /*      Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
  *        Write bit 28 up to enable SDHIx STMSIDI power
  *          bits [31:20] All 0, R, Reserved.
@@ -1047,6 +1124,8 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_SDHICLK1, NULL);
 	}
 
+
+
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
@@ -1123,6 +1202,9 @@ static void __init u2evm_init(void)
 	 */
 	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 #endif
+	gpio_request(GPIO_PORT39, NULL);
+	gpio_direction_output(GPIO_PORT39, 0);
+
 	r8a73734_add_standard_devices();
 
 	switch (stm_select) {
@@ -1139,6 +1221,7 @@ static void __init u2evm_init(void)
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
+	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER

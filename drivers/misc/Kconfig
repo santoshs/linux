@@ -532,4 +532,8 @@ source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 
+source "drivers/misc/pwm/Kconfig"
+source "drivers/misc/vibrator/Kconfig"
+source "drivers/misc/pcm2pwm/Kconfig"
+
 endif # MISC_DEVICES

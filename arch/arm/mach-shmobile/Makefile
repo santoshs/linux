@@ -52,3 +52,8 @@ obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
 obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
+
+# LED support
+obj-y	+= led-control.o
+obj-y	+= flash-control.o
+
