@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This file is released under the GPLv2
  *
@@ -28,6 +29,9 @@
 #include <linux/async.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#ifdef CONFIG_MACH_U2EVM
+#include <linux/wakelock.h>
+#endif /* CONFIG_MACH_U2EVM */
 
 #include "../base.h"
 #include "power.h"
@@ -971,6 +975,9 @@ static int device_suspend(struct device *dev)
 	return __device_suspend(dev, pm_transition, false);
 }
 
+#ifdef CONFIG_PM_DEBUG
+	extern int ignore_wakelock;
+#endif
 /**
  * dpm_suspend - Execute "suspend" callbacks for all non-sysdev devices.
  * @state: PM transition of the system being carried out.
@@ -1004,6 +1011,16 @@ int dpm_suspend(pm_message_t state)
 		put_device(dev);
 		if (async_error)
 			break;
+#ifdef CONFIG_MACH_U2EVM
+		error = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
+#ifndef CONFIG_PM_DEBUG
+		if (error)
+			break;
+#else /* CONFIG_PM_DEBUG is defined */
+		if (error && (ignore_wakelock == 0))
+			break;
+#endif /* CONFIG_PM_DEBUG */
+#endif /* CONFIG_MACH_U2EVM */
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();

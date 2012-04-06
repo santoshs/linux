@@ -1,6 +1,7 @@
 /* kernel/power/earlysuspend.c
  *
  * Copyright (C) 2005-2008 Google, Inc.
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -153,9 +154,13 @@ void request_suspend_state(suspend_state_t new_state)
 {
 	unsigned long irqflags;
 	int old_sleep;
+	int ret;
+	suspend_state_t update_state;
 
+	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
-	old_sleep = state & SUSPEND_REQUESTED;
+	update_state = requested_suspend_state;
+	old_sleep = state & SUSPEND_REQUESTED_AND_SUSPENDED;
 	if (debug_mask & DEBUG_USER_STATE) {
 		struct timespec ts;
 		struct rtc_time tm;
@@ -170,15 +175,27 @@ void request_suspend_state(suspend_state_t new_state)
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 	}
 	if (!old_sleep && new_state != PM_SUSPEND_ON) {
-		state |= SUSPEND_REQUESTED;
-		queue_work(suspend_work_queue, &early_suspend_work);
-	} else if (old_sleep && new_state == PM_SUSPEND_ON) {
-		state &= ~SUSPEND_REQUESTED;
+		ret = queue_work(suspend_work_queue, &early_suspend_work);
+		if (ret) {
+			pr_info("request_suspend_state: SUSPEND_REQUESTED\n");
+			state |= SUSPEND_REQUESTED;
+			update_state = new_state;
+		}
+	} else if (((state & SUSPEND_REQUESTED_AND_SUSPENDED) == SUSPEND_REQUESTED_AND_SUSPENDED) 
+				&& new_state == PM_SUSPEND_ON) {
 		wake_lock(&main_wake_lock);
-		queue_work(suspend_work_queue, &late_resume_work);
+		ret = queue_work(suspend_work_queue, &late_resume_work);
+		if (ret) {
+			pr_info("request_suspend_state: delSUSPEND_REQUESTED\n");
+			state &= ~SUSPEND_REQUESTED;
+			update_state = new_state;
+		} else {
+			wake_unlock(&main_wake_lock);
+		}
 	}
-	requested_suspend_state = new_state;
+	requested_suspend_state = update_state;
 	spin_unlock_irqrestore(&state_lock, irqflags);
+	mutex_unlock(&early_suspend_lock);
 }
 
 suspend_state_t get_suspend_state(void)

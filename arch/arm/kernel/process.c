@@ -1,8 +1,10 @@
 /*
- *  linux/arch/arm/kernel/process.c
+ * linux/arch/arm/kernel/process.c
  *
- *  Copyright (C) 1996-2000 Russell King - Converted to ARM.
- *  Original Copyright (C) 1995  Linus Torvalds
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
+ * Copyright (C) 1996-2000 Russell King - Converted to ARM.
+ * Original Copyright (C) 1995  Linus Torvalds
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -61,6 +63,8 @@ extern void setup_mm_for_reboot(void);
 static volatile int hlt_counter;
 
 #include <mach/system.h>
+#include <mach/pm.h>
+
 
 #ifdef CONFIG_SMP
 void arch_trigger_all_cpu_backtrace(void)
@@ -159,6 +163,14 @@ void soft_restart(unsigned long addr)
 
 void arm_machine_restart(char mode, const char *cmd)
 {
+#if 0
+#ifdef CONFIG_ARCH_R8A73734
+	extern void shmobile_pm_set_recovery_mode(const char *cmd);
+	
+	/* Set Recovery Mode */
+	shmobile_pm_set_recovery_mode(cmd);
+#endif /* CONFIG_ARCH_R8A73734 */
+#endif
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
@@ -271,6 +283,12 @@ __setup("reboot=", reboot_setup);
 
 void machine_shutdown(void)
 {
+#ifdef CONFIG_ARCH_R8A73734
+	extern void shmobile_pm_stop_peripheral_devices(void);
+
+	/* Stop peripheral devices */
+	shmobile_pm_stop_peripheral_devices();
+#endif
 #ifdef CONFIG_SMP
 	smp_send_stop();
 #endif
@@ -278,12 +296,17 @@ void machine_shutdown(void)
 
 void machine_halt(void)
 {
+	uint32_t ret;
+	ret = sec_hal_power_off();
 	machine_shutdown();
 	while (1);
 }
 
 void machine_power_off(void)
 {
+	uint32_t ret;
+	ret = sec_hal_power_off();
+
 	machine_shutdown();
 	if (pm_power_off)
 		pm_power_off();
@@ -291,6 +314,10 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
+
+	uint32_t ret;
+	ret = sec_hal_power_off();
+
 	machine_shutdown();
 
 	arm_pm_restart(reboot_mode, cmd);

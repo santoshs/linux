@@ -6,13 +6,15 @@ extern void shmobile_setup_console(void);
 extern void shmobile_secondary_vector(void);
 struct clk;
 extern int clk_init(void);
+#ifdef CONFIG_ARCH_R8A73734
+extern void (*shmobile_arch_reset)(char mode, const char *cmd);
+#endif
 extern void shmobile_handle_irq_intc(struct pt_regs *);
 extern void shmobile_handle_irq_gic(struct pt_regs *);
 extern struct platform_suspend_ops shmobile_suspend_ops;
 struct cpuidle_device;
 extern void (*shmobile_cpuidle_modes[])(void);
 extern void (*shmobile_cpuidle_setup)(struct cpuidle_device *dev);
-
 extern void shmobile_clocksource_init(void);
 extern void shmobile_clockevent_init(void);
 

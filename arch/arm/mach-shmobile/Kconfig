@@ -165,6 +165,68 @@ config MUX_STM_TO_SDHI1
 
 endmenu
 
+menu "SH-Mobile CPUFreq Setting"
+config SHMOBILE_CPUFREQ
+	bool "SH-Mobile has CPUFreq support"
+	depends on ARCH_SHMOBILE
+	select ARCH_HAS_CPUFREQ
+	default n
+
+config SH_TRANSITION_LATENCY
+	int "Transition Latency (micro second)"
+	range 1000 9000
+	default "5000"
+	depends on SHMOBILE_CPUFREQ
+	help
+	  Transition latency between each sampling.
+
+config SH_UP_THRESHOLD
+	int "Up threshold (%)"
+	range 50 100
+	default "80"
+	depends on SHMOBILE_CPUFREQ
+	help
+	  Upper threshold.
+
+config SH_DOWN_THRESHOLD
+	int "Down threshold (%)"
+	range 10 50
+	default "20"
+	depends on SHMOBILE_CPUFREQ
+	help
+	  Lower threshold.
+
+config SH_FRQ_STEP
+	int "Transition frequency step (%)"
+	range 1 100
+	default "15"
+	depends on SHMOBILE_CPUFREQ
+	help
+	  Frequency Step.
+endmenu
+
+
+config PDC
+	bool "Power Domain Control"
+	default n
+	depends on PM_RUNTIME
+	help
+	  This enables build of PDC driver.
+	  
+config PM_HAS_SECURE
+	default n
+	bool "Support Secure OS by Power Management"
+	depends on ARCH_SHMOBILE
+	help
+	  This enables PM support for Secure OS.
+	  
+config PM_SECURE_HAL_DUMMY
+	default n
+	depends on PM_HAS_SECURE
+	bool "Dummy SEC HAL function for PM"
+	help
+	  Dummy SEC HAL function for PM
+
 source "drivers/sh/Kconfig"
 
 endif

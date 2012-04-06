@@ -3,8 +3,8 @@
 #
 
 # Common objects
-obj-y				:= timer.o console.o clock.o pm_runtime.o
-
+# obj-y				:= timer.o console.o clock.o pm_runtime.o
+obj-y				:= timer.o console.o clock.o
 obj-$(CONFIG_SH_TIMER_CMT_ARM)	+= sh_cmt.o
 
 # CPU objects
@@ -37,9 +37,16 @@ obj-$(CONFIG_ARCH_SH73A0)	+= entry-gic.o
 obj-$(CONFIG_ARCH_R8A73734)	+= entry-gic.o
 
 # PM objects
+ifeq ($(CONFIG_PM_HAS_SECURE),y)
+obj-y						+= pm_secure_support/
+else
 obj-$(CONFIG_SUSPEND)		+= suspend.o
-obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
+obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o pmCoreStandby.o
+endif
 obj-$(CONFIG_ARCH_SH7372)	+= pm-sh7372.o sleep-sh7372.o
+obj-y						+= poweroff.o
+obj-$(CONFIG_PDC) 			+= powerdomain.o
+obj-$(CONFIG_CPU_FREQ) 		+= cpufreq.o clocksuspend.o
 
 # Board objects
 obj-$(CONFIG_MACH_G3EVM)	+= board-g3evm.o
@@ -52,3 +59,6 @@ obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
 obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
+
+# RAM Defragmentation
+obj-$(CONFIG_MACH_U2EVM)	+= ramdefrag/

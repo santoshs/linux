@@ -1,3 +1,9 @@
+/*
+ * drivers/base/power/power.h
+ *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ */
+
 #ifdef CONFIG_PM_RUNTIME
 
 extern void pm_runtime_init(struct device *dev);
@@ -73,3 +79,7 @@ static inline int wakeup_sysfs_add(struct device *dev) { return 0; }
 static inline void wakeup_sysfs_remove(struct device *dev) {}
 
 #endif
+
+#ifdef CONFIG_MACH_U2EVM
+extern int has_wake_lock_no_expire(int type);
+#endif /* CONFIG_MACH_U2EVM */

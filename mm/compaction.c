@@ -1,6 +1,8 @@
 /*
  * linux/mm/compaction.c
  *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
  * Memory compaction for the reduction of external fragmentation. Note that
  * this heavily depends upon page migration to do all the real heavy
  * lifting
@@ -693,7 +695,8 @@ static int compact_node(int nid)
 }
 
 /* Compact all nodes in the system */
-static int compact_nodes(void)
+/* static int compact_nodes(void) */
+int compact_nodes(void)
 {
 	int nid;
 

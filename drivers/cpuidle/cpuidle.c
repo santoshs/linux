@@ -1,6 +1,8 @@
 /*
  * cpuidle.c - core cpuidle infrastructure
  *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
  * (C) 2006-2007 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
  *               Shaohua Li <shaohua.li@intel.com>
  *               Adam Belay <abelay@novell.com>
@@ -35,7 +37,12 @@ static void cpuidle_kick_cpus(void)
 	cpu_idle_wait();
 }
 #elif defined(CONFIG_SMP)
-# error "Arch needs cpu_idle_wait() equivalent here"
+extern void cpu_idle_wait(void);
+static void cpuidle_kick_cpus(void)
+{
+	cpu_idle_wait();
+}
+/* # error "Arch needs cpu_idle_wait() equivalent here" */
 #else /* !CONFIG_ARCH_HAS_CPU_IDLE_WAIT && !CONFIG_SMP */
 static void cpuidle_kick_cpus(void) {}
 #endif
@@ -439,3 +446,4 @@ static int __init cpuidle_init(void)
 }
 
 core_initcall(cpuidle_init);
+

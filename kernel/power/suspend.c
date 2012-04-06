@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This file is released under the GPLv2.
  */
@@ -310,8 +311,22 @@ int enter_state(suspend_state_t state)
  */
 int pm_suspend(suspend_state_t state)
 {
+#ifdef CONFIG_PM_DEBUG
+	int ret;
+#endif
+
 	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
+#ifndef CONFIG_PM_DEBUG
 		return enter_state(state);
+#else	/* CONFIG_PM_DEBUG is defined */
+	{
+		ret = enter_state(state);
+		
+		/* Execute late resume */
+		request_suspend_state(PM_SUSPEND_ON);
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	return -EINVAL;
 }
 EXPORT_SYMBOL(pm_suspend);

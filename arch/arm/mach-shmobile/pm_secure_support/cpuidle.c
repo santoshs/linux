@@ -55,6 +55,8 @@ extern void sys_powerdown(void);
 extern void sys_powerup(void);
 extern void setclock_systemsuspend(void);
 extern void start_wfi(void);
+
+
 #ifdef VMALLOC_EXPAND
 extern void disablemmu(void);
 extern void systemsuspend_cpu0_pa(void);
@@ -192,7 +194,10 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev, struct cpuidle_state *
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 
+
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
+#endif /* CONFIG_PM_HAS_SECURE */
 
 	do_gettimeofday(&beforeTime);
 
@@ -216,7 +221,9 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev, struct cpuidle_state *
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
+#endif /* CONFIG_PM_HAS_SECURE */
 
 	return idle_time;
 }
@@ -233,7 +240,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev, struct cpuidle
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
+#endif /* CONFIG_PM_HAS_SECURE */
 
 	do_gettimeofday(&beforeTime);
 
@@ -258,8 +267,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev, struct cpuidle
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
-
+#endif /* CONFIG_PM_HAS_SECURE */
 	return idle_time;
 }
 
@@ -281,7 +291,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 	printk(KERN_INFO "Standby IN  %d\n", cpuid);
 #endif
 
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
+#endif /* CONFIG_PM_HAS_SECURE */
 
 	do_gettimeofday(&beforeTime);
 
@@ -315,7 +327,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
+#endif /* CONFIG_PM_HAS_SECURE */ 
 
 #if DISPLAY_LOG
 	printk(KERN_INFO "Standby OUT %d  IDLE=0x%x\n", cpuid,idle_time);
@@ -380,6 +394,9 @@ static int shmobile_init_cpuidle(void)
 	}
 
 	/* Initialize internal setting */
+#ifdef CONFIG_PM_HAS_SECURE
+	__raw_writel((unsigned long)(&sec_hal_coma_entry), __io(ram0SecHalCommaEntry));
+#endif /* CONFIG_PM_HAS_SECURE */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
 	__raw_writel((unsigned long)0x0, __io(ram0CpuClock));
@@ -433,7 +450,7 @@ static int shmobile_init_cpuidle(void)
 		/* CoreStandby state */
 		strcpy(device->states[2].name, "CoreStandby");
 		strcpy(device->states[2].desc, "Core Standby");
-		device->states[2].enter = shmobile_enter_wfi_lowfreq;
+		device->states[2].enter = shmobile_enter_corestandby;
 		device->states[2].exit_latency = 300;
 		device->states[2].target_residency = 500;
 		device->states[2].flags = CPUIDLE_FLAG_TIME_VALID;

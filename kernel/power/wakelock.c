@@ -1,7 +1,8 @@
 /* kernel/power/wakelock.c
  *
  * Copyright (C) 2005-2008 Google, Inc.
- *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ * 
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -267,6 +268,28 @@ static void suspend_backoff(void)
 	wake_lock_timeout(&suspend_backoff_lock,
 			  msecs_to_jiffies(SUSPEND_BACKOFF_INTERVAL));
 }
+
+#ifdef CONFIG_MACH_U2EVM
+int has_wake_lock_no_expire(int type)
+{
+	int locked = 0;
+	struct wake_lock *lock;
+	unsigned long irqflags;
+
+	BUG_ON(type >= WAKE_LOCK_TYPE_COUNT);
+	
+	spin_lock_irqsave(&list_lock, irqflags);
+	if (!list_empty(&active_wake_locks[type]))
+		locked = 1;
+
+	if (locked && (debug_mask & (DEBUG_SUSPEND | DEBUG_WAKE_LOCK))) {
+		list_for_each_entry(lock, &active_wake_locks[type], link)
+			pr_info("locked: active wakelock %s\n", lock->name);
+	}
+	spin_unlock_irqrestore(&list_lock, irqflags);
+	return locked;
+}
+#endif /* CONFIG_MACH_U2EVM */
 
 static void suspend(struct work_struct *work)
 {

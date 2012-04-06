@@ -1,7 +1,6 @@
 /*
  * arch/arm/mach-shmobile/suspend.c
  *
- * Copyright (C) 2011 Magnus Damm
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -50,6 +49,7 @@
 
 #define CCCR					0xE600101C		/* Common Chip Code Register */
 #define RAM0_ARM_VECT			ram0ArmVectorPhys
+
 
 enum {
 	IRQC_EVENTDETECTOR_BLK0 = 0,
@@ -586,15 +586,21 @@ static int core_shutdown_status(unsigned int cpu)
  */
 static int shmobile_suspend_begin(suspend_state_t state)
 {
+#ifdef CONFIG_SHMOBILE_CPUFREQ
 	int ret;
+#endif /* CONFIG_SHMOBILE_CPUFREQ */
 
 	shmobile_suspend_state = state;
 	
+#ifdef CONFIG_SHMOBILE_CPUFREQ
 	/* set DFS mode */
 	ret = suspend_cpufreq();
 	if (ret != 0)
 		printk(KERN_WARNING "shmobile_suspend_begin: suspend_cpufreq() returns %d.\n",ret);
 	return 0;
+#else /* !CONFIG_SHMOBILE_CPUFREQ */
+	return 0;
+#endif /* CONFIG_SHMOBILE_CPUFREQ */
 }
 
 static void shmobile_suspend_end(void)
@@ -616,6 +622,8 @@ static void shmobile_suspend_end(void)
 static int shmobile_suspend(void)
 {
 	int locked;
+	unsigned long value;
+	unsigned long sec_hal_func_addr;
 #ifdef CONFIG_COMPACTION
 	int ret;
 	unsigned int bankState;
@@ -666,13 +674,17 @@ static int shmobile_suspend(void)
 	pm_writel(dramPasrSettingsArea0, ram0DramPasrSettingArea0);
 	pm_writel(dramPasrSettingsArea1, ram0DramPasrSettingArea1);
 #endif /* CONFIG_COMPACTION	*/
-
+	
+	sec_hal_func_addr = (unsigned long)(&sec_hal_coma_entry);
+	pm_writel(sec_hal_func_addr, ram0SecHal);
 	
 	/* 
 	 * do cpu suspend ...
 	 */
 	jump_systemsuspend();
 
+	value = pm_readl(ram0SecHalvalue);
+	printk(KERN_DEBUG "SEC HAL return value is 0x%lx\n", value);
 	/* Restore IP registers */
 	shwy_regs_restore();
 	irqx_eventdetectors_regs_restore();
