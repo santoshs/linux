@@ -217,18 +217,11 @@ static void sdhi_disable_irqs(struct renesas_sdhi_host *host, u32 i)
 static void sdhi_dma_enable(struct renesas_sdhi_host *host, bool enable)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
-	u16 val;
 
 	sdhi_write16(host, SDHI_DMA_MODE, enable ? pdata->dma_en_val : 0);
 
 	if (pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
 		pdata->set_dma(host->pdev, 2);
-
-	if (pdata->dma_buf_acc32) {
-		val = sdhi_read16(host, SDHI_EXT_ACC);
-		sdhi_write16(host, SDHI_EXT_ACC,
-				enable ? (val | 1) : (val & ~1));
-	}
 }
 
 static void sdhi_reset(struct renesas_sdhi_host *host)

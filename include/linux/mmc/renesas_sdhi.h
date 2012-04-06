@@ -32,7 +32,6 @@ struct renesas_sdhi_platdata {
 
 	/* DMA */
 	struct renesas_sdhi_dma	*dma;
-	u8			dma_buf_acc32;	/* 0:16bit 1:32bit */
 	u16			dma_en_val;	/* default:0x0002 */
 	u16			dma_alignment;	/* default:2 */
 	u32			dma_min_size;	/* default:8 */
