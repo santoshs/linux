@@ -51,10 +51,10 @@
 #include "f_adb.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
-#include "f_phonet.c"
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
+#include "f_phonet.c"
 #include "u_ether.c"
 
 MODULE_AUTHOR("Mike Lockwood");
@@ -209,50 +209,6 @@ static struct android_usb_function adb_function = {
 	.bind_config	= adb_function_bind_config,
 };
 
-static int phonet_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
-{
-         printk("****WIPRO **android.c phonet_function_init***\n");
-	int status = gphonet_setup(cdev->gadget);
-	
-	return status;
-	
-}
-
-
-static void phonet_function_cleanup(struct android_usb_function *f)
-{
-   printk("****WIPRO **android.c phonet_function_cleanup***\n");
-   kfree(f->config);
-   f->config = NULL;
-}
-
-static int phonet_function_bind_config(struct android_usb_function *f,
-					struct usb_configuration *c)
-{
-        printk("***WIPRO **android.c phonet_function_bind_config**** \n");
-  	int status = phonet_bind_config(c);
-    	return status;
-}
-
-
-static void phonet_function_unbind_config(struct android_usb_function *f,
-						struct usb_configuration *c)
-{
-             printk("****WIPRO **android.c phonet_function_unbind_config***\n");
-		gphonet_cleanup();
-
-}
-
-
-
-static struct android_usb_function phonet_function = {
-    .name		= "phonet",
-	.init		= phonet_function_init,
-	.cleanup	=  phonet_function_cleanup,
-	.bind_config	= phonet_function_bind_config,
-	.unbind_config	= phonet_function_unbind_config,
-	//.attributes	= ,
-};
 
 #define MAX_ACM_INSTANCES 4
 struct acm_function_config {
@@ -686,6 +642,36 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+
+static int phonet_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
+{
+	return gphonet_setup(cdev->gadget);
+}
+
+static void phonet_function_cleanup(struct android_usb_function *f)
+{
+	gphonet_cleanup();
+}
+
+static int phonet_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
+{
+	return phonet_bind_config(c);
+}
+
+static void phonet_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+             printk("****WIPRO **android.c phonet_function_unbind_config***\n");
+		gphonet_cleanup();
+
+}
+static struct android_usb_function phonet_function = {
+	.name			= "phonet",
+	.init			= phonet_function_init,
+	.cleanup		= phonet_function_cleanup,
+	.bind_config	= phonet_function_bind_config,
+	.unbind_config	= phonet_function_unbind_config,
+};
 
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
