@@ -656,9 +656,9 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
-#ifdef CONFIG_ION_R_MOBILE
+// #ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
-#endif
+// #endif
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -678,9 +678,9 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
-#ifdef CONFIG_ION_R_MOBILE
+// #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
 	&u2evm_ion_device,
-#endif
+// #endif
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
