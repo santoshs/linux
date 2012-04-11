@@ -1,1 +1,1 @@
-obj-y += r-mobile_ion.o
+obj-$(CONFIG_ION_R_MOBILE) += r-mobile_ion.o

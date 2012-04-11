@@ -38,6 +38,24 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 #define LCDC_FLAGS_HSCNT (1 << 3) /* Disable HSYNC during VBLANK */
 #define LCDC_FLAGS_DWCNT (1 << 4) /* Disable dotclock during blanking */
 
+/*Main display*/
+#define SH_MLCD_WIDTH           480
+#define SH_MLCD_HEIGHT          864
+
+#define SH_MLCD_TRCOLOR         0
+#define SH_MLCD_REPLACECOLOR    0
+#define SH_MLCD_RECTX           0
+#define SH_MLCD_RECTY           0
+
+/*Sub display*/
+#define SH_SLCD_WIDTH           480
+#define SH_SLCD_HEIGHT          864
+
+#define SH_SLCD_TRCOLOR         0
+#define SH_SLCD_REPLACECOLOR    0
+#define SH_SLCD_RECTX           0
+#define SH_SLCD_RECTY           0
+
 struct sh_mobile_lcdc_sys_bus_cfg {
 	unsigned long ldmt2r;
 	unsigned long ldmt3r;
@@ -96,5 +114,12 @@ struct sh_mobile_lcdc_info {
 	struct sh_mobile_lcdc_chan_cfg ch[2];
 	struct sh_mobile_meram_info *meram_dev;
 };
+
+extern int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
+				     unsigned short output_mode);
+extern int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
+				    unsigned short output_mode);
+extern int sh_mobile_lcdc_refresh(unsigned short set_state,
+				  unsigned short output_mode);
 
 #endif /* __ASM_SH_MOBILE_LCDC_H__ */

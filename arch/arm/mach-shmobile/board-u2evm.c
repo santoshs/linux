@@ -440,6 +440,21 @@ static struct platform_device lcdc_device = {
 	},
 };
 
+static struct resource mfis_resources[] = {
+	[0] = {
+		.name   = "MFIS",
+		.start  = gic_spi(126),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device mfis_device = {
+	.name           = "mfis",
+	.id                     = 0,
+	.resource       = mfis_resources,
+	.num_resources  = ARRAY_SIZE(mfis_resources),
+};
+
 static struct resource mipidsi0_resources[] = {
 	[0] = {
 		.start  = 0xfeab0000,
@@ -587,7 +602,6 @@ static struct platform_device sh_msiof0_device = {
 };
 #endif
 
-#ifdef CONFIG_ION_R_MOBILE
 #define ION_HEAP_VIDEO_SIZE	(SZ_64M - SZ_4M)
 #define ION_HEAP_VIDEO_ADDR	(0x80000000 - ION_HEAP_VIDEO_SIZE)
 
@@ -621,7 +635,6 @@ static struct platform_device u2evm_ion_device = {
 		.platform_data = &u2evm_ion_data,
 	},
 };
-#endif
 
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
@@ -681,15 +694,14 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sdhi1_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&mfis_device,
 	&mipidsi0_device,
 	&tpu_devices[TPU_MODULE_0],
 	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
-#ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
-#endif
 };
 
 /* I2C */
@@ -1321,7 +1333,6 @@ void u2evm_restart(char mode, const char *cmd)
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
 
-#ifdef CONFIG_ION_R_MOBILE
 static void __init u2evm_reserve(void)
 {
 	int i;
@@ -1338,7 +1349,6 @@ static void __init u2evm_reserve(void)
 		}
 	}
 }
-#endif
 
 MACHINE_START(U2EVM, "u2evm")
 	.map_io		= u2evm_map_io,
@@ -1347,7 +1357,5 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,
 	.restart	= u2evm_restart,
-#ifdef CONFIG_ION_R_MOBILE
 	.reserve	= u2evm_reserve,
-#endif
 MACHINE_END
