@@ -738,6 +738,9 @@ enum {
 	MSTP507,
 	MSTP501,
 	MSTP500,
+// sound add
+	MSTP700,
+// sound add
 	MSTP_NR
 };
 
@@ -836,6 +839,9 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP507] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 7, 0), /* IRQC */
 	[MSTP501] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 1, 0), /* SPU2A Core1 */
 	[MSTP500] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 0, 0), /* SPU2A Core0 */
+// sound add
+	[MSTP700] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_MP], SMSTPCR3, MSTPSR3, 28, 0), /* FSI sound */
+// sound add
 };
 
 static struct clk_lookup lookups[] = {
@@ -898,6 +904,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("currtimer", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
+	CLKDEV_CON_ID("clkgen", &mstp_clks[MSTP224]),
+
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
 	CLKDEV_DEV_ID("spi_sh_msiof.0", &mstp_clks[MSTP000]), /* MSIOF0 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
@@ -930,6 +938,10 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */
 	CLKDEV_DEV_ID("i2c-sh7730.6", &mstp_clks[MSTP412]), /* I2CM0 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
+// sound add
+	CLKDEV_DEV_ID("sh_fsi2.0", &mstp_clks[MSTP700]), /* FSIA */
+	CLKDEV_DEV_ID("sh_fsi2.1", &mstp_clks[MSTP700]), /* FSIB */
+// sound add
 };
 
 void __init r8a73734_clock_init(void)

@@ -1,0 +1,505 @@
+/* common_ctrl.c
+ *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+
+#define __COMMON_CTRL_NO_EXTERN__
+
+#include <linux/clk.h>
+#include <sound/soundpath/soundpath.h>
+#include <sound/soundpath/common_extern.h>
+#include "common_ctrl.h"
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// GLOBAL DATA Definitions
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// CPGA register base address
+static u_long g_common_ulClkRstRegBase = 0;
+// CPGA register(soft reset) base address
+static u_long g_common_ulSrstRegBase = 0;
+
+// Clock status flag
+static u_int g_clock_flag = 0;
+
+
+/*!
+   @brief Register value modify
+
+   @param[in]	uiClr		Clear bit
+   @param[in]	uiSet		Set bit
+   @param[in]	uiReg		Register address
+   @param[out]	None
+
+   @retval		None
+ */
+void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg)
+{
+	// Local variable declaration
+	u_int uiTmp;
+
+	uiTmp = ioread32((void __iomem *)uiReg);
+	uiTmp &= (~uiClr);
+	uiTmp |= uiSet;
+	iowrite32(uiTmp, (void __iomem *)uiReg);
+}
+
+
+/*!
+   @brief Registers ioremap for Common/CLKGEN/FSI/SCUW
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		0			Successfull
+   @retval		-ENOMEM		Resource error
+ */
+int common_ioremap(void)
+{
+	// Local variable declaration
+	int iRet = ERROR_NONE;
+
+	iRet = common_audio_status_ioremap();
+	if (ERROR_NONE != iRet) {
+		goto ioremap_audio_err;
+	}
+	iRet = clkgen_ioremap();
+	if (ERROR_NONE != iRet) {
+		goto ioremap_clkgen_err;
+	}
+	iRet = fsi_ioremap();
+	if (ERROR_NONE != iRet) {
+		goto ioremap_fsi_err;
+	}
+	iRet = scuw_ioremap();
+	if (ERROR_NONE != iRet) {
+		goto ioremap_scuw_err;
+	}
+
+	// Success of all
+	return ERROR_NONE;
+
+ioremap_scuw_err:
+	fsi_iounmap();
+ioremap_fsi_err:
+	clkgen_iounmap();
+ioremap_clkgen_err:
+	common_audio_status_iounmap();
+ioremap_audio_err:
+	return iRet;
+}
+
+
+/*!
+   @brief Registers iounmap for Common/CLKGEN/FSI/SCUW
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		None
+ */
+void common_iounmap(void)
+{
+	scuw_iounmap();
+	fsi_iounmap();
+	clkgen_iounmap();
+	common_audio_status_iounmap();
+}
+
+
+/*!
+   @brief FSI registers ioremap
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		0			Successful
+   @retval		-ENOMEM		Resource error
+ */
+static int fsi_ioremap(void)
+{
+	// Get FSI Logical Address
+	g_fsi_Base = (u_long)ioremap_nocache(FSI_PHY_BASE, FSI_MAP_LEN);
+	if (0 >= g_fsi_Base) {
+		sndp_log_err("fsi ioremap failed error\n");
+		return -ENOMEM;
+	}
+
+	// Successfull all
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief	SCUW ioremap function
+
+   @param[in]	None
+   @param[out]	None
+   @retval		ERROR_NONE	: successful
+   				-ENOMEM		: resource error
+ */
+static int scuw_ioremap(void)
+{
+	// Get SCUW Logical Address
+	g_scuw_Base = (u_long)ioremap_nocache(SCUW_PHY_BASE, SUCW_MAP_LEN);
+	if (0 >= g_scuw_Base) {
+		sndp_log_err("scuw ioremap failed error\n");
+		return -ENOMEM;
+	}
+
+	// Get SCUW(FFD) Logical Address
+	g_scuw_Base_FFD = (u_long)ioremap_nocache(SCUW_PHY_BASE_FFD, SUCW_MAP_LEN_FFD);
+	if (0 >= g_scuw_Base_FFD) {
+		sndp_log_err("scuw(FFD) ioremap failed error\n");
+		// Release SCUW Logical Address
+		iounmap((void*)g_scuw_Base);
+		g_scuw_Base = 0;
+		return -ENOMEM;
+	}
+
+	// Successfull all
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief CLKGEN registers ioremap
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		0			Successful
+   @retval		-ENOMEM		Resource error
+ */
+int clkgen_ioremap(void)
+{
+	// Get CLKGEN Logical Address
+	g_clkgen_Base = (u_long)ioremap_nocache(CLKGEN_PHY_BASE, CLKGEN_MAP_LEN);
+	if (0 >= g_clkgen_Base) {
+		sndp_log_err("clkgen ioremap failed error\n");
+		return -ENOMEM;
+	}
+
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief Registers ioremap for use audio_ctrl_func()
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		0			Succcessfull
+   @retval		-ENOMEM		Resource error
+ */
+static int common_audio_status_ioremap(void)
+{
+	// Get CPGA Logical Address
+	g_common_ulClkRstRegBase = (u_long)ioremap_nocache(CPG_PHY_BASE, CPG_REG_MAX);
+	if (0 >= g_common_ulClkRstRegBase) {
+		sndp_log_err(" SUBCKCR and SMSTPCR register ioremap failed error\n");
+		return -ENOMEM;
+	}
+
+	// Get CPGA(soft reset) Logical Address
+	g_common_ulSrstRegBase = (u_long)ioremap_nocache(CPG_PHY_BASE_SRST, CPG_REG_MAX_SRST);
+	if (0 >= g_common_ulSrstRegBase) {
+		sndp_log_err(" Software Reset register ioremap failed error\n");
+		// Release CPGA Logical Address
+		iounmap((void*)g_common_ulClkRstRegBase);
+		g_common_ulClkRstRegBase = 0;
+		return -ENOMEM;
+	}
+
+	// Successfull all
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief FSI registers iounmap
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		None
+ */
+static void fsi_iounmap(void)
+{
+	// Release FSI Logical Address
+	if (0 < g_fsi_Base) {
+		iounmap((void*)g_fsi_Base);
+		g_fsi_Base = 0;
+	}
+}
+
+
+/*!
+   @brief	SCUW iounmap function
+
+   @param[in]	None
+   @param[out]	None
+   @retval		None
+ */
+static void scuw_iounmap(void)
+{
+	// Release SCUW Logical Address
+	if (0 < g_scuw_Base) {
+		iounmap((void *)g_scuw_Base);
+		g_scuw_Base = 0;
+	}
+	// Release SCUW Logical Address to FFD
+	if (0 < g_scuw_Base_FFD) {
+		iounmap((void *)g_scuw_Base_FFD);
+		g_scuw_Base_FFD = 0;
+	}
+}
+
+
+/*!
+   @brief CLKGEN registers iounmap
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		None
+ */
+void clkgen_iounmap(void)
+{
+	// Release CLKGEN Logical Address
+	if (0 < g_clkgen_Base) {
+		iounmap((void*)g_clkgen_Base);
+		g_clkgen_Base = 0;
+	}
+}
+
+
+/*!
+   @brief Registers iounmap for use audio_ctrl_func()
+
+   @param[in]	None
+   @param[out]	None
+
+   @retval		None
+ */
+static void common_audio_status_iounmap(void)
+{
+	// Release CPGA Logical Address
+	if (0 < g_common_ulClkRstRegBase) {
+		iounmap((void*)g_common_ulClkRstRegBase);
+		g_common_ulClkRstRegBase = 0;
+	}
+
+	// Release CPGA(soft reset) Logical Address
+	if (0 < g_common_ulSrstRegBase) {
+		iounmap((void*)g_common_ulSrstRegBase);
+		g_common_ulSrstRegBase = 0;
+	}
+}
+
+
+/*!
+   @brief Power management for CLKGEN/FSI/SCUW
+
+   @param[in]	drv			H/W type
+   @param[in]	stat		On/Off
+   @param[out]	None
+
+   @retval		None
+ */
+void audio_ctrl_func(sndp_hw_audio drv, int stat)
+{
+	// Local variable declaration
+	struct clk *clk;
+//	unsigned long flags;
+#ifdef SOUND_TEST
+	u_int reg;
+#endif
+
+	switch (drv) {
+	case SNDP_HW_CLKGEN:
+		// Status ON
+		if (STAT_ON == stat) {
+			if (!(SNDP_CLK_CLKGEN & g_clock_flag)) {
+				clk = clk_get(NULL, "clkgen");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(clkgen) error\n");
+				} else {
+					clk_enable(clk);
+					clk_put(clk);
+				}
+
+//				ape5r_get_cpg_hpb_sem_with_lock(flags);
+				// Soft Reset
+				iomodify32(0, 0x01000000, CPG_SRCR2);
+				udelay(62);
+				// CLKGEN operates
+				iomodify32(0x01000000, 0, CPG_SRCR2);
+//				ape5r_put_cpg_hpb_sem_with_lock(flags);
+
+				g_clock_flag |= SNDP_CLK_CLKGEN;
+			}
+		// Status OFF
+		} else { 
+			if ((SNDP_CLK_CLKGEN & g_clock_flag)) {
+				clk = clk_get(NULL, "clkgen");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(clkgen) error\n");
+				} else {
+					clk_disable(clk);
+					clk_put(clk);
+				}
+				
+				g_clock_flag &= ~SNDP_CLK_CLKGEN;
+			}
+		}
+		break;
+
+	case SNDP_HW_FSI:
+		// Status ON
+		if (STAT_ON == stat) {
+			if (!(SNDP_CLK_FSI & g_clock_flag)) {
+				clk = clk_get(NULL, "fsi");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(fsi) error\n");
+				} else {
+					clk_enable(clk);
+					clk_put(clk);
+				}
+
+//				ape5r_get_cpg_hpb_sem_with_lock(flags);
+				// Soft Reset
+				iomodify32(0, 0x10000000, CPG_SRCR3);
+				udelay(62);
+				// FSI operates
+				iomodify32(0x10000000, 0, CPG_SRCR3);
+//				ape5r_put_cpg_hpb_sem_with_lock(flags);
+
+				g_clock_flag |= SNDP_CLK_FSI;
+#ifdef SOUND_TEST
+				reg = ioread32((g_common_ulClkRstRegBase + 0x0080));
+				if (reg & (1 << 11)) {
+					iomodify32(0x00000800, 0, (g_common_ulClkRstRegBase + 0x0080));
+				reg = ioread32((g_common_ulClkRstRegBase + 0x0080));
+				}
+#endif // SOUND_TEST
+			}
+		// Status OFF
+		} else {
+			if ((SNDP_CLK_FSI & g_clock_flag)) {
+				clk = clk_get(NULL, "fsi");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(fsi) error\n");
+				} else {
+					clk_disable(clk);
+					clk_put(clk);
+				}
+
+				g_clock_flag &= ~SNDP_CLK_FSI;
+			}
+		}
+		break;
+
+	case SNDP_HW_SCUW:
+		// Status ON
+		if (STAT_ON == stat) {
+			if (!(SNDP_CLK_SCUW & g_clock_flag)) {
+				clk = clk_get(NULL, "scuw");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(scuw) error\n");
+				} else {
+					clk_enable(clk);
+					clk_put(clk);
+				}
+
+//				ape5r_get_cpg_hpb_sem_with_lock(flags);
+				// Soft Reset
+				iomodify32(0, 0x04000000, CPG_SRCR3);
+				udelay(62);
+				// SCUW operates
+				iomodify32(0x04000000, 0, CPG_SRCR3);
+//				ape5r_put_cpg_hpb_sem_with_lock(flags);
+
+				g_clock_flag |= SNDP_CLK_SCUW;
+			}
+		// Status OFF
+		} else {
+			if ((SNDP_CLK_SCUW & g_clock_flag)) {
+				clk = clk_get(NULL, "scuw");
+				if (IS_ERR(clk)) {
+					sndp_log_err("clkget(scuw) error\n");
+				} else {
+					clk_disable(clk);
+					clk_put(clk);
+				}
+				g_clock_flag &= ~SNDP_CLK_SCUW;
+			}
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+/*!
+   @brief Common registers setting function
+
+   @param[in]	H/W type
+   @param[in]	Register table
+   @param[in]	Register table size
+   @param[out]	None
+
+   @retval		None
+ */
+void common_set_register(sndp_hw_audio drv, common_reg_table *reg_tbl, u_int size)
+{
+	// Local variable declaration
+	int			i;
+
+	sndp_log_debug_func("start\n");
+
+	for (i = 0; size > i; i++) {
+		// Delay
+		if (0 != reg_tbl[i].uiDelay) {
+			// 1000 micro over
+			if (COMMON_UDELAY_MAX <= reg_tbl[i].uiDelay) {
+				mdelay((reg_tbl[i].uiDelay / COMMON_UDELAY_MAX));
+			} else {
+				udelay(reg_tbl[i].uiDelay);
+			}
+		// Register setting
+		} else {
+			// CLKGEN
+			if (SNDP_HW_CLKGEN == drv) {
+				iowrite32(reg_tbl[i].uiValue, (g_clkgen_Base + reg_tbl[i].uiReg));
+			// FSI
+			} else if (SNDP_HW_FSI == drv) {
+				iowrite32(reg_tbl[i].uiValue, (g_fsi_Base + reg_tbl[i].uiReg));
+			// SCUW
+			} else {
+				iowrite32(reg_tbl[i].uiValue, (g_scuw_Base + reg_tbl[i].uiReg));
+			}
+		}
+	}
+
+	sndp_log_debug_func("end\n");
+}
+
+

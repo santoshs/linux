@@ -32,6 +32,7 @@
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
+#include <sound/sh_fsi.h>
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
@@ -344,6 +345,106 @@ static struct platform_device sdhi1_device = {
 	.resource	= sdhi1_resources,
 };
 
+static struct sh_fsi_platform_info fsi_info = {
+	.port_flags = SH_FSI_OUT_SLAVE_MODE |
+	              SH_FSI_IN_SLAVE_MODE	|
+		          SH_FSI_BRS_INV		|
+		          SH_FSI_OFMT(I2S)		|
+		          SH_FSI_IFMT(I2S),
+};
+
+static struct resource fsi_resources[] = {
+	[0] = {
+		.name	= "FSI",
+		.start	= 0xEC230000,
+		.end	= 0xEC230400 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start  = gic_spi(146),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device fsi_device = {
+	.name		= "sh_fsi2",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(fsi_resources),
+	.resource	= fsi_resources,
+	.dev	= {
+		.platform_data	= &fsi_info,
+	},
+};
+
+#define CLKGBASE	(0xec270000)
+#define CLKGSYSCTL	(0xec270000 - CLKGBASE)
+#define CLKGVINTCTL	(0xec270004 - CLKGBASE)
+#define CLKGTIMSEL	(0xec270008 - CLKGBASE)
+#define CLKGFSISEL	(0xec27000c - CLKGBASE)
+#define CLKGFSIBCOM	(0xec270014 - CLKGBASE)
+#define WUPSMSK		(0xe618002c)
+#define IPRDA		(0xe694000c)
+
+static int fsi_set_rate(int is_port, int rate)
+{
+	void __iomem *base;
+
+	printk("[CLKGEN] FSI_SET_RATE\n");
+
+	base = ioremap_nocache(CLKGBASE, 0x20);
+	if (!base) {
+		pr_err("ioremap failed for CLKGEN\n");
+		return -1;
+	}
+
+	/* CLKGEN setup for FSI B */
+	__raw_writel(1, base + CLKGSYSCTL);
+	__raw_writel(0, base + CLKGSYSCTL);
+	__raw_writel(0x202, base + CLKGVINTCTL); /* sw vint, port B */
+	__raw_writel(1<<24, base + CLKGTIMSEL); /* if0=B */
+	__raw_writel(1<<1, base + CLKGFSISEL);	/* B outputs clocks */
+	__raw_writel((0<<12) | (rate == 8000 ? 0 : 1) << 8 | (0<<4) | (1<<0),
+			base + CLKGFSIBCOM);
+
+	iounmap(base);
+
+	return SH_FSI_ACKMD_128 | SH_FSI_BPFMD_64;
+}
+
+static struct sh_fsi_platform_info fsi_b_info = {
+	.port_flags = SH_FSI_BRM_INV		|
+		       SH_FSI_LRM_INV		|
+		       SH_FSI_OFMT(MONO)	|
+		       SH_FSI_IFMT(MONO),
+	.set_rate	= fsi_set_rate,
+	.always_slave	= 1,
+};
+
+static struct resource fsi_b_resources[] = {
+	[0] = {
+		.name	= "FSI",
+		.start	= 0xec240000,
+		.end	= 0xec240400 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(146),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device fsi_b_device = {
+	.name		= "sh_fsi2",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(fsi_b_resources),
+	.resource	= fsi_b_resources,
+	.dev	= {
+		.platform_data	= &fsi_b_info,
+	},
+};
+
+
+
 #define GPIO_KEY(c, g, d) \
 	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
 	 .debounce_interval=20}
@@ -648,6 +749,8 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&sh_mmcif_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
+	&fsi_device,
+	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
@@ -670,6 +773,8 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&sh_mmcif_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 	&sdhi1_device,
+	&fsi_device,
+	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mipidsi0_device,
@@ -692,6 +797,8 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sh_mmcif_device,
 	&sdhi0_device,
 	&sdhi1_device,
+	&fsi_device,
+	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
@@ -829,6 +936,14 @@ static struct i2c_board_info i2c4_devices[] = {
 };
 
 static struct i2c_board_info i2cm_devices[] = {
+        {
+                I2C_BOARD_INFO("max98090", 0x10),
+                .irq            = irqpin2irq(34),
+        },
+        {
+                I2C_BOARD_INFO("max97236", 0x40),
+                .irq            = irqpin2irq(34),
+        },
 	{
 		I2C_BOARD_INFO("led", 0x74),
 	},
@@ -1202,6 +1317,17 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
+
+	/* enable sound */
+	gpio_request(GPIO_FN_FSIAISLD, "sound");
+	gpio_request(GPIO_FN_FSIAOBT, "sound");
+	gpio_request(GPIO_FN_FSIAOLR, "sound");
+	gpio_request(GPIO_FN_FSIAOSLD, "sound");
+
+    gpio_request(GPIO_FN_FSIBISLD, "sound");
+	gpio_request(GPIO_FN_FSIBOBT, "sound");
+	gpio_request(GPIO_FN_FSIBOLR, "sound");
+	gpio_request(GPIO_FN_FSIBOSLD, "sound");
 
 #ifdef CONFIG_CACHE_L2X0
 	/*
