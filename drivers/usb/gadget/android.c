@@ -642,33 +642,27 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
-
-static int phonet_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
-{
-	return gphonet_setup(cdev->gadget);
-}
-
-static void phonet_function_cleanup(struct android_usb_function *f)
-{
-	gphonet_cleanup();
-}
-
 static int phonet_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
 {
-	return phonet_bind_config(c);
+	int ret = gphonet_setup(c->cdev->gadget);
+	if(ret) {
+		pr_err("gphonet_setup failed \n");
+		return ret;
+	}
+	ret = phonet_bind_config(c);
+	if(ret)
+		pr_err("phonet_bind_config failed \n");
+	return ret;
 }
 
 static void phonet_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-             printk("****WIPRO **android.c phonet_function_unbind_config***\n");
 		gphonet_cleanup();
 
 }
 static struct android_usb_function phonet_function = {
 	.name			= "phonet",
-	.init			= phonet_function_init,
-	.cleanup		= phonet_function_cleanup,
 	.bind_config	= phonet_function_bind_config,
 	.unbind_config	= phonet_function_unbind_config,
 };
