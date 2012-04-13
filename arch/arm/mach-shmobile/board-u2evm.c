@@ -35,12 +35,22 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
+#include <linux/ti_wilink_st.h> //120220 TI BTFM
+#include <linux/wl12xx.h>
+
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
 
 #define GPIO_PULL_OFF	0x00
 #define GPIO_PULL_DOWN	0x80
 #define GPIO_PULL_UP	0xc0
+
+#define SDHI1_CLK_CR IO_ADDRESS(0xE6052120)
+#define SDHI1_D0_CR IO_ADDRESS(0xE6052121)
+#define SDHI1_D1_CR IO_ADDRESS(0xE6052122)
+#define SDHI1_D2_CR IO_ADDRESS(0xE6052123)
+#define SDHI1_D3_CR IO_ADDRESS(0xE6052124)
+#define SDHI1_CMD_CR IO_ADDRESS(0xE6052125)
 
 #define GPIO_BASE	IO_ADDRESS(0xe6050000)
 #define GPIO_PORTCR(n)	({				\
@@ -50,6 +60,9 @@
 	((n) < 192) ? 0 :				\
 	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
 	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+#define WLAN_GPIO_EN 	GPIO_PORT260
+#define WLAN_IRQ	GPIO_PORT98
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
@@ -298,11 +311,40 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+/*Config wl12xx platform data*/
+static struct wl12xx_platform_data wlan_pdata = {
+   .irq = irqpin2irq(42),
+   .use_eeprom = 0,
+   .board_ref_clock = WL12XX_REFCLOCK_26,
+   .board_tcxo_clock = WL12XX_TCXOCLOCK_26,
+   .platform_quirks = 0,
+};
 
 
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
-	;
+   static int power_state;
+
+   printk("Powering %s wifi\n", (state ? "on" : "off"));
+
+   if (state == power_state)
+       return;
+   power_state = state;
+
+   if (state) {
+       gpio_set_value(WLAN_GPIO_EN, 1);
+       mdelay(15);
+       gpio_set_value(WLAN_GPIO_EN, 0);
+       mdelay(1);
+       gpio_set_value(WLAN_GPIO_EN, 1);
+       mdelay(70);
+   } else {
+       gpio_set_value(WLAN_GPIO_EN, 0);
+   }
+}
+static int sdhi1_get_cd(struct platform_device *pdev)
+{
+   return 1;//return gpio_get_value(GPIO_PORT327) ? 0 : 1;
 }
 
 static struct renesas_sdhi_dma sdhi1_dma = {
@@ -314,11 +356,17 @@ static struct renesas_sdhi_dma sdhi1_dma = {
 	}
 };
 
+#define SDHI1_VOLTAGE  MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 | MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 | MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_VDD_34_35 | MMC_VDD_35_36 
+
 static struct renesas_sdhi_platdata sdhi1_info = {
-	.caps		= MMC_CAP_NONREMOVABLE | MMC_CAP_SDIO_IRQ,
-	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
-	.dma		= &sdhi1_dma,
-	.set_pwr	= sdhi1_set_pwr,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+ 	.dma		= &sdhi1_dma,
+ 	.set_pwr	= sdhi1_set_pwr,
+	.detect_irq	= 0, 
+	.detect_msec	= 0,
+	.get_cd		= sdhi1_get_cd,
+	.ocr		= MMC_VDD_165_195,//SDHI1_VOLTAGE,
 };
 
 static struct resource sdhi1_resources[] = {
@@ -636,6 +684,53 @@ static struct platform_device u2evm_ion_device = {
 	},
 };
 
+//120220 TI BTFM start
+static unsigned long retry_suspend;
+int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
+{
+   struct kim_data_s *kim_gdata;
+   struct st_data_s *core_data;
+   kim_gdata = dev_get_drvdata(&pdev->dev);
+   core_data = kim_gdata->core_data;
+    if (st_ll_getstate(core_data) != ST_LL_INVALID) {
+        //Prevent suspend until sleep indication from chip
+          while(st_ll_getstate(core_data) != ST_LL_ASLEEP &&
+                  (retry_suspend++< 5)) {
+              return -1;
+          }
+    }
+   return 0;
+}
+int plat_kim_resume(struct platform_device *pdev)
+{
+   retry_suspend = 0;
+   return 0;
+}
+
+#define BLUETOOTH_UART_DEV_NAME "/dev/ttySC4"
+
+/* wl128x BT, FM, GPS connectivity chip */
+struct ti_st_plat_data wilink_pdata = {
+   .nshutdown_gpio = GPIO_PORT268,
+   .dev_name = BLUETOOTH_UART_DEV_NAME,
+   .flow_cntrl = 1,
+   .baud_rate = 3000000,
+// .baud_rate = 115200,
+   .suspend = plat_kim_suspend,
+   .resume = plat_kim_resume,
+};
+static struct platform_device wl128x_device = {
+   .name       = "kim",
+   .id     = -1,
+   .dev.platform_data = &wilink_pdata,
+};
+static struct platform_device btwilink_device = {
+   .name = "btwilink",
+   .id = -1,
+};
+//120220 TI BTFM end
+
+
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
 
@@ -659,6 +754,10 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
 // #endif
+//120220 TI BTFM start
+   &wl128x_device,
+   &btwilink_device,
+//120220 TI BTFM
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -681,6 +780,10 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
 	&u2evm_ion_device,
 // #endif
+//120220 TI BTFM start
+   &wl128x_device,
+   &btwilink_device,
+//120220 TI BTFM
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -702,6 +805,10 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
+//120220 TI BTFM start
+	&wl128x_device,
+	&btwilink_device,
+//120220 TI BTFM
 };
 
 /* I2C */
@@ -876,14 +983,28 @@ void __init u2evm_init_irq(void)
 
 
 
+#define IRQC0_CONFIG_00		IO_ADDRESS(0xe61c0180)
+#define IRQC1_CONFIG_00		IO_ADDRESS(0xe61c0380)
+static void irqc_set_chattering(int pin, int timing)
+{
+	u32 val;
+	u32 *reg;
 
+	reg = (pin >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg += (pin & 0x1f);
+
+	val = __raw_readl(reg) & ~0x80ff0000;
+	__raw_writel(val | (timing << 16) | (1 << 31), reg);
+}
+ 
+ 
 #define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 
 static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
 	int ci;
-	int stm_select=1;	// Shall tell how to route STM traces.
+	int stm_select=-1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
@@ -962,6 +1083,14 @@ static void __init u2evm_init(void)
 		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}
+
+   /* WLAN enable*/
+   gpio_request(WLAN_GPIO_EN, NULL);
+   gpio_direction_output(WLAN_GPIO_EN, 0);
+
+   /* WLAN OutOfBand IRQ*/
+   gpio_request(WLAN_IRQ, NULL);
+   gpio_direction_input(WLAN_IRQ);
 	
 #if 0
 	/* ONLY FOR HSI CROSS COUPLING */
@@ -975,7 +1104,7 @@ static void __init u2evm_init(void)
 	if (1 == stm_select) {
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX */
 
-        /* SDHI1 used for STM Data, STM Clock */
+        /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
 //        gpio_request(GPIO_PORT288, NULL);
 //        gpio_direction_output(GPIO_PORT288, 0);
         gpio_request(GPIO_FN_STMCLK_2, NULL);
@@ -1134,6 +1263,11 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_SDHID1_3, NULL);
 		gpio_request(GPIO_FN_SDHICMD1, NULL);
 		gpio_request(GPIO_FN_SDHICLK1, NULL);
+	    irq_set_irq_type(irqpin2irq(42), IRQ_TYPE_EDGE_FALLING);
+	    irqc_set_chattering(42, 0x01);  /* 1msec */
+	
+	    /*WLAN*/
+	    wl12xx_set_platform_data(&wlan_pdata);
 	}
 
 
@@ -1202,6 +1336,13 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
+
+    /*configure Ports for SDHI1*/
+    *((volatile u8 *)SDHI1_D0_CR) = 0xC1;
+    *((volatile u8 *)SDHI1_D1_CR) = 0xC1;
+    *((volatile u8 *)SDHI1_D2_CR) = 0xC1;
+    *((volatile u8 *)SDHI1_D3_CR) = 0xC1;
+    *((volatile u8 *)SDHI1_CMD_CR) = 0xC1;
 
 #ifdef CONFIG_CACHE_L2X0
 	/*

@@ -36,6 +36,27 @@
 #include <linux/skbuff.h>
 #include <linux/ti_wilink_st.h>
 
+//SCIFB0 W/A
+#include <mach/r8a73734.h>
+#define GPIO_PULL_OFF	0x00
+#define GPIO_PULL_DOWN	0x80
+#define GPIO_PULL_UP	0xc0
+
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
+#define GPIO_PORTCR(n)	({				\
+	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 192) ? 0 :				\
+	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
+	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+#define FUNC_MODE_SCIFB 0x01
+#define SCIFB_TXD_CR GPIO_PORTCR(137)
+#define SCIFB_RXD_CR GPIO_PORTCR(138)
+#define SCIFB_RTS_CR GPIO_PORTCR(37)
+#define SCIFB_CTS_CR GPIO_PORTCR(38)
+//end W/A
 
 #define MAX_ST_DEVICES	3	/* Imagine 1 on each UART for now */
 static struct platform_device *st_kim_devices[MAX_ST_DEVICES];
@@ -68,8 +89,12 @@ void validate_firmware_response(struct kim_data_s *kim_gdata)
 	if (unlikely(skb->data[5] != 0)) {
 		pr_err("no proper response during fw download");
 		pr_err("data6 %x", skb->data[5]);
+		kfree_skb(skb);
 		return;		/* keep waiting for the proper response */
 	}
+	
+	pr_debug("validate_firmw");
+	
 	/* becos of all the script being downloaded */
 	complete_all(&kim_gdata->kim_rcvd);
 	kfree_skb(skb);
@@ -210,6 +235,7 @@ static long read_local_version(struct kim_data_s *kim_gdata, char *bts_scr_name)
 		pr_err(" waiting for ver info- timed out ");
 		return -ETIMEDOUT;
 	}
+	INIT_COMPLETION(kim_gdata->kim_rcvd);
 
 	version =
 		MAKEWORD(kim_gdata->resp_buffer[13],
@@ -268,6 +294,10 @@ static long download_firmware(struct kim_data_s *kim_gdata)
 	int wr_room_space;
 	int cmd_size;
 	unsigned long timeout;
+	struct st_data_s *core_data;
+	core_data = kim_gdata->core_data;
+
+	pr_debug("download_firmware");
 
 	err = read_local_version(kim_gdata, bts_scr_name);
 	if (err != 0) {
@@ -309,6 +339,12 @@ static long download_firmware(struct kim_data_s *kim_gdata)
 				skip_change_remote_baud(&ptr, &len);
 				break;
 			}
+			/*Enable the ST_LL state machine if HCILL SLEEP command
+			 * enabled in BT init script*/
+			if (unlikely
+			   (((struct hci_command *)action_ptr)->opcode ==
+			     HCILL_SLEEP_MODE_OPCODE))
+				st_ll_enable(core_data);
 			/*
 			 * Make sure we have enough free space in uart
 			 * tx buffer to write current firmware command
@@ -335,6 +371,10 @@ static long download_firmware(struct kim_data_s *kim_gdata)
 				release_firmware(kim_gdata->fw_entry);
 				return -ETIMEDOUT;
 			}
+			/* reinit completion before sending for the
+			 * relevant wait
+			 */
+			INIT_COMPLETION(kim_gdata->kim_rcvd);
 
 			/*
 			 * Free space found in uart buffer, call st_int_write
@@ -384,6 +424,9 @@ static long download_firmware(struct kim_data_s *kim_gdata)
 		    ptr + sizeof(struct bts_action) +
 		    ((struct bts_action *)ptr)->size;
 	}
+	
+	pr_debug("dwl firm complete");
+	
 	/* fw download complete */
 	release_firmware(kim_gdata->fw_entry);
 	return 0;
@@ -420,6 +463,12 @@ void st_kim_recv(void *disc_data, const unsigned char *data, long count)
 void st_kim_complete(void *kim_data)
 {
 	struct kim_data_s	*kim_gdata = (struct kim_data_s *)kim_data;
+	//SCIFB0 W/A
+	*((volatile u8 *)SCIFB_TXD_CR) = GPIO_PULL_OFF | FUNC_MODE_SCIFB;
+	*((volatile u8 *)SCIFB_RXD_CR) = GPIO_PULL_UP | FUNC_MODE_SCIFB;
+	*((volatile u8 *)SCIFB_CTS_CR) = GPIO_PULL_UP | FUNC_MODE_SCIFB;
+	*((volatile u8 *)SCIFB_RTS_CR) = GPIO_PULL_OFF | FUNC_MODE_SCIFB;
+	//End W/A
 	complete(&kim_gdata->ldisc_installed);
 }
 
@@ -460,6 +509,12 @@ long st_kim_start(void *kim_data)
 			pr_info("ldisc_install = 0");
 			sysfs_notify(&kim_gdata->kim_pdev->dev.kobj,
 					NULL, "install");
+			/* the following wait is never going to be completed,
+			 * since the ldisc was never installed, hence serving
+			 * as a mdelay of LDISC_TIME msecs */
+			err = wait_for_completion_timeout
+				(&kim_gdata->ldisc_installed,
+				 msecs_to_jiffies(LDISC_TIME));
 			err = -ETIMEDOUT;
 			continue;
 		} else {
@@ -472,6 +527,13 @@ long st_kim_start(void *kim_data)
 				pr_info("ldisc_install = 0");
 				sysfs_notify(&kim_gdata->kim_pdev->dev.kobj,
 						NULL, "install");
+				/* this wait might be completed, though in the
+				 * tty_close() since the ldisc is already
+				 * installed */
+				err = wait_for_completion_timeout
+					(&kim_gdata->ldisc_installed,
+					 msecs_to_jiffies(LDISC_TIME));
+				err = -EINVAL;
 				continue;
 			} else {	/* on success don't retry */
 				break;
