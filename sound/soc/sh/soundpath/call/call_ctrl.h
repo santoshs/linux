@@ -21,76 +21,77 @@
 
 #include <linux/vcd/vcd.h>
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// DEFINE Definitions
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ *
+ * DEFINE Definitions
+ *
+ */
 #define CALL_WAIT_TIME					(20)
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// STRUCTURE Definitions
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ *
+ * STRUCTURE Definitions
+ *
+ */
 
-// Vocoder buf index
+/* Vocoder buf index */
 typedef enum {
 	DATA_SIDE_0 = 0,
 	DATA_SIDE_1,
 	DATA_SIDE_MAX
 } call_data_side;
 
-// Vocoder status
+/* Vocoder status */
 typedef enum {
-	IDLE_STATUS			= 0x00,
-	CALL_STATUS			= 0x01,
-	PLAY_STATUS			= 0x02,
-	REC_STATUS			= 0x04
+	IDLE_STATUS		= 0x00,
+	CALL_STATUS		= 0x01,
+	PLAY_STATUS		= 0x02,
+	REC_STATUS		= 0x04
 } call_status;
 
-// Data information
+/* Data information */
 typedef struct {
-	int			next_pd_side;
+	int		next_pd_side;
 	long		buffer_len;
 	long		byte_offset;
-	int			period_len;
-	int			period;
+	int		period_len;
+	int		period;
 } call_pcm_info_t;
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// PROTOTYPE Declarations
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ *
+ * PROTOTYPE Declarations
+ *
+ */
 
-// PCM information initialization function
-static void call_pcm_info_init(struct snd_pcm_substream *substream, call_status kind);
-// Vocoder API call function
+/* PCM information initialization function */
+static void call_pcm_info_init(
+	struct snd_pcm_substream *substream,
+	call_status kind);
+/* Vocoder API call function */
 static int call_vcd_execute(int command, void *arg);
-// Playback data setting function
+/* Playback data setting function */
 static void call_playback_data_set(void);
-// Capture data reaping function
+/* Capture data reaping function */
 static void call_record_data_set(void);
 
-// Callback for Playback
+/* Callback for Playback */
 static void call_playback_cb(void);
-// Callback for Capture
+/* Callback for Capture */
 static void call_record_cb(void);
-// Callback for Voice call end
+/* Callback for Voice call end */
 static void call_watch_stop_fw_cb(void);
 
-// Work queue process function
+/* Work queue process function */
 static void call_work_dummy_rec(struct work_struct *work);
 
-// Work queue initialization function
+/* Work queue initialization function */
 static DECLARE_WORK(g_call_work_in, call_work_dummy_rec);
 
-// Wait queue initialization function
+/* Wait queue initialization function */
 static DECLARE_WAIT_QUEUE_HEAD(g_call_wait_in);
 
 
-#endif // __CALL_CTRL_H__
-
+#endif /* __CALL_CTRL_H__ */

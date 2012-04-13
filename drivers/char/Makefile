@@ -5,6 +5,7 @@
 obj-y				+= mfis/
 obj-y				+= rtapi/rtapi/
 obj-y				+= composer/
+obj-y				+= vcd/
 
 obj-y				+= mem.o random.o
 obj-$(CONFIG_TTY_PRINTK)	+= ttyprintk.o

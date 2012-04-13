@@ -12,3 +12,4 @@ void sound_loopback_spuv_stop(void);
 void record_sound_callback(unsigned int size);
 
 #endif /* _SNDPTEST_CORE_H_ */
+

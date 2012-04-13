@@ -28,38 +28,38 @@
 
 typedef void (*callback_func)(u_int);
 
-// Call initialization function
+/* Call initialization function */
 CALL_CTRL_NO_EXTERN void call_init(callback_func rat_cb, callback_func control_cb);
-// Speech Start function
+/* Speech Start function */
 CALL_CTRL_NO_EXTERN void call_speech_start(void);
-// Speech Stop function
+/* Speech Stop function */
 CALL_CTRL_NO_EXTERN void call_speech_stop(void);
-// Speech Force Stop function
+/* Speech Force Stop function */
 CALL_CTRL_NO_EXTERN void call_force_stop(void);
-// Speech + Playback Start function
+/* Speech + Playback Start function */
 CALL_CTRL_NO_EXTERN int call_playback_start(struct snd_pcm_substream *substream);
-// Speech + Playback Stop function
+/* Speech + Playback Stop function */
 CALL_CTRL_NO_EXTERN void call_playback_stop(void);
-// Speech + Record Start function
+/* Speech + Record Start function */
 CALL_CTRL_NO_EXTERN int call_record_start(struct snd_pcm_substream *substream);
-// Speech + Record Stop function
+/* Speech + Record Stop function */
 CALL_CTRL_NO_EXTERN void call_record_stop(void);
-// Speech + Playback/Record buffer offset return function
+/* Speech + Playback/Record buffer offset return function */
 CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_pcmdata_pointer(struct snd_pcm_substream *substream);
-// VOCODER Set VQA mode function
+/* VOCODER Set VQA mode function */
 CALL_CTRL_NO_EXTERN int call_set_vqa(u_int value);
-// VOCODER Set Callback function for VCD Watch function
+/* VOCODER Set Callback function for VCD Watch function */
 CALL_CTRL_NO_EXTERN int call_watch_stop_fw(callback_func callback);
-// Record dummy change function
-CALL_CTRL_NO_EXTERN void call_change_dummy_rec( void );
-// Speech UpLink status set function
+/* Record dummy change function */
+CALL_CTRL_NO_EXTERN void call_change_dummy_rec(void);
+/* Speech UpLink status set function */
 CALL_CTRL_NO_EXTERN void call_set_play_uplink(bool flag);
-// Speech UpLink status get function
+/* Speech UpLink status get function */
 CALL_CTRL_NO_EXTERN int call_read_play_uplink_state(void);
-// Create work queue function
+/* Create work queue function */
 CALL_CTRL_NO_EXTERN int call_create_workque(void);
-// Destroy work queue function
+/* Destroy work queue function */
 CALL_CTRL_NO_EXTERN void call_destroy_workque(void);
 
-#endif // __CALL_EXTERN_H__
+#endif /* __CALL_EXTERN_H__ */
 

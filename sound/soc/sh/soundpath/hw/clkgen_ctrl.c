@@ -24,13 +24,13 @@
 #include <mach/common.h>
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//
-// GLOBAL DATA Definitions
-//
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+ *
+ * GLOBAL DATA Definitions
+ *
+ */
 
-// CLKGEN Control functions table
+/* CLKGEN Control functions table */
 ctrl_func_tbl_t g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_PLAYBACK_EARPIECE_NORMAL,                    clkgen_playback   },
 	{ SNDP_PLAYBACK_EARPIECE_RINGTONE,                  clkgen_playback   },
@@ -79,58 +79,58 @@ ctrl_func_tbl_t g_clkgen_ctrl_func_tbl[] = {
 };
 
 
-// Table for Playback(PortA)
+/* Table for Playback(PortA) */
 static common_reg_table clkgen_reg_tbl_playA[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_FSIACOM,		0x00212901,	0 },			// 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000001,	0 },			// PortA Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_FSIACOM,		0x00212901,	0 },			/* 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000001,	0 },			/* PortA Enable */
 };
 
-// Table for Playback(PortB)
+/* Table for Playback(PortB) */
 static common_reg_table clkgen_reg_tbl_playB[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_FSIBCOM,		0x00212901,	0 },			// 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000002,	0 },			// PortB Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_FSIBCOM,		0x00212901,	0 },			/* 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000002,	0 },			/* PortB Enable */
 };
 
-// Table for Capture(PortA)
+/* Table for Capture(PortA) */
 static common_reg_table clkgen_reg_tbl_captureA[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_TIMSEL1,		0x00000000,	0 },			// REC TIM0(PortA)
-	{ CLKG_FSIACOM,		0x00212901,	0 },			// 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000001,	0 },			// PortA Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,		0x00000000,	0 },			/* REC TIM0(PortA) */
+	{ CLKG_FSIACOM,		0x00212901,	0 },			/* 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000001,	0 },			/* PortA Enable */
 };
 
-// Table for Capture(PortB)
+/* Table for Capture(PortB) */
 static common_reg_table clkgen_reg_tbl_captureB[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_TIMSEL1,		0x00000002,	0 },			// REC TIM0(PortB)
-	{ CLKG_FSIACOM,		0x00212901,	0 },			// 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000002,	0 },			// PortB Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,		0x00000002,	0 },			/* REC TIM0(PortB) */
+	{ CLKG_FSIACOM,		0x00212901,	0 },			/* 2ch, 64fs, 48kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000002,	0 },			/* PortB Enable */
 };
 
-// Table for Voicecall(PortA)
+/* Table for Voicecall(PortA) */
 static common_reg_table clkgen_reg_tbl_voicecallA[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_SPUVCOM,		0x00212401,	0 },			// 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_TIMSEL1,		0x00000000,	0 },			// REC TIM0(PortA)
-	{ CLKG_FSIACOM,		0x00212401,	0 },			// 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000011,	0 },			// SPUV / PortA Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_SPUVCOM,		0x00212401,	0 },			/* 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_TIMSEL1,		0x00000000,	0 },			/* REC TIM0(PortA) */
+	{ CLKG_FSIACOM,		0x00212401,	0 },			/* 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000011,	0 },			/* SPUV / PortA Enable */
 };
 
-// Table for Voicecall(PortB)
+/* Table for Voicecall(PortB) */
 static common_reg_table clkgen_reg_tbl_voicecallB[] = {
-//    Register          Value       Delay time
-	{ CLKG_SYSCTL,		0x00000000,	0 },			// EXTAL1 clock supply
-	{ CLKG_SPUVCOM,		0x00212401,	0 },			// 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_TIMSEL1,		0x00000002,	0 },			// REC TIM0(PortB)
-	{ CLKG_FSIBCOM,		0x00212401,	0 },			// 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode
-	{ CLKG_PULSECTL,	0x00000012,	0 },			// SPUV / PortB Enable
+/*	  Register		Value		Delay time */
+	{ CLKG_SYSCTL,		0x00000000,	0 },			/* EXTAL1 clock supply */
+	{ CLKG_SPUVCOM,		0x00212401,	0 },			/* 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_TIMSEL1,		0x00000002,	0 },			/* REC TIM0(PortB) */
+	{ CLKG_FSIBCOM,		0x00212401,	0 },			/* 2ch, 64fs, 16kHz, CLKGEN master, Non - continuos mode */
+	{ CLKG_PULSECTL,	0x00000012,	0 },			/* SPUV / PortB Enable */
 };
 
 
@@ -140,25 +140,25 @@ static common_reg_table clkgen_reg_tbl_voicecallB[] = {
    @param[in]	uiValue		PCM type
    @param[out]	None
 
-   @retval		0			Successful
-   @retval		-EINVAL		Invalid argument
+   @retval	0		Successful
+   @retval	-EINVAL		Invalid argument
  */
 int clkgen_start(const u_int uiValue)
 {
-	// Local variable declaration
+	/* Local variable declaration */
 	int iCnt;
 
 	sndp_log_debug_func("start [0x%08x]\n", uiValue);
 
-	// Call of function of each PATH
-	for (iCnt=0; ARRAY_SIZE(g_clkgen_ctrl_func_tbl) > iCnt; iCnt++) {
-		// uiValue check
+	/* Call of function of each PATH */
+	for (iCnt = 0; ARRAY_SIZE(g_clkgen_ctrl_func_tbl) > iCnt; iCnt++) {
+		/* uiValue check */
 		if (uiValue == g_clkgen_ctrl_func_tbl[iCnt].uiValue) {
-			// Function pointer check
+			/* Function pointer check */
 			if (NULL != g_clkgen_ctrl_func_tbl[iCnt].func) {
-				// Clock framework API, Status ON
+				/* Clock framework API, Status ON */
 				audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
-				// Path setting API call
+				/* Path setting API call */
 				g_clkgen_ctrl_func_tbl[iCnt].func(uiValue);
 			}
 			clkgen_reg_dump();
@@ -186,7 +186,7 @@ void clkgen_stop(void)
 
 	clkgen_reg_dump();
 
-	// Clock framework API, Status OFF
+	/* Clock framework API, Status OFF */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
 
 	sndp_log_debug_func("end\n");
@@ -220,26 +220,26 @@ static void clkgen_voicecall(const u_int uiValue)
 	 * Adjust mode   : OFF
 	 **********************************************/
 
-	// Local variable declaration
+	/* Local variable declaration */
 	u_int				devices		= 0;
 	common_reg_table	*reg_tbl	= NULL;
 	u_int				tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
-	// Device check
+	/* Device check */
 	devices = SNDP_GET_DEVICE_VAL(uiValue);
-	// SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE
+	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE */
 	if (devices != SNDP_BLUETOOTHSCO) {
 		reg_tbl  = clkgen_reg_tbl_voicecallA;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallA);
-	// BLUETOOTHSCO
+	/* BLUETOOTHSCO */
 	} else {
 		reg_tbl  = clkgen_reg_tbl_voicecallB;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB);
 	}
 
-	// Register setting function call
+	/* Register setting function call */
 	common_set_register(SNDP_HW_CLKGEN, reg_tbl, tbl_size);
 
 	sndp_log_debug_func("end\n");
@@ -268,26 +268,26 @@ static void clkgen_playback(const u_int uiValue)
 	 * Sampling rate : 48000
 	 *********************************************/
 
-	// Local variable declaration
-	u_int				devices		= 0;
+	/* Local variable declaration */
+	u_int			devices		= 0;
 	common_reg_table	*reg_tbl	= NULL;
-	u_int				tbl_size	= 0;
+	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
-	// Device check
+	/* Device check */
 	devices = SNDP_GET_DEVICE_VAL(uiValue);
-	// SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, AUXDIGITAL(HDMI)
+	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, AUXDIGITAL(HDMI) */
 	if (devices != SNDP_BLUETOOTHSCO) {
 		reg_tbl  = clkgen_reg_tbl_playA;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA);
-	// BLUETOOTHSCO
+	/* BLUETOOTHSCO */
 	} else {
 		reg_tbl  = clkgen_reg_tbl_playB;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB);
 	}
 
-	// Register setting function call
+	/* Register setting function call */
 	common_set_register(SNDP_HW_CLKGEN, reg_tbl, tbl_size);
 
 	sndp_log_debug_func("end\n");
@@ -319,26 +319,27 @@ static void clkgen_capture(const u_int uiValue)
 	 * Sampling rate  : 48000
 	 *********************************************/
 
-	// Local variable declaration
-	u_int				devices		= 0;
+	/* Local variable declaration */
+	u_int			devices		= 0;
 	common_reg_table	*reg_tbl	= NULL;
-	u_int				tbl_size	= 0;
+	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
-	// Device check
+	/* Device check */
 	devices = SNDP_GET_DEVICE_VAL(uiValue);
-	// MIC, WIREDHEADSET
-//	if (devices != ) {
+	/* MIC, WIREDHEADSET */
+/*	if (devices != ) { */
 		reg_tbl  = clkgen_reg_tbl_captureA;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA);
-	// FM(T.B.D.)
-//	} else {
-//		reg_tbl = clkgen_reg_tbl_captureB;
-//		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB);
-//	}
-
-	// Register setting function call
+	/* FM(T.B.D.) */
+/*
+ *	} else {
+ *		reg_tbl = clkgen_reg_tbl_captureB;
+ *		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB);
+ *	}
+ */
+	/* Register setting function call */
 	common_set_register(SNDP_HW_CLKGEN, reg_tbl, tbl_size);
 
 	sndp_log_debug_func("end\n");
@@ -357,28 +358,28 @@ void clkgen_reg_dump(void)
 {
 	sndp_log_reg_dump("===== CLKGEN Registers Dump Start =====\n");
 
-	sndp_log_reg_dump("CLKG_SYSCTL   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SYSCTL  ))   ,(g_clkgen_Base + CLKG_SYSCTL   ));
-	sndp_log_reg_dump("CLKG_PULSECTL [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_PULSECTL))   ,(g_clkgen_Base + CLKG_PULSECTL ));
-	sndp_log_reg_dump("CLKG_TIMSEL0  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_TIMSEL0 ))   ,(g_clkgen_Base + CLKG_TIMSEL0  ));
-	sndp_log_reg_dump("CLKG_TIMSEL1  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_TIMSEL1 ))   ,(g_clkgen_Base + CLKG_TIMSEL1  ));
-	sndp_log_reg_dump("CLKG_FSISEL   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSISEL  ))   ,(g_clkgen_Base + CLKG_FSISEL   ));
-	sndp_log_reg_dump("CLKG_FSIACOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIACOM ))   ,(g_clkgen_Base + CLKG_FSIACOM  ));
-	sndp_log_reg_dump("CLKG_FSIBCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIBCOM ))   ,(g_clkgen_Base + CLKG_FSIBCOM  ));
-	sndp_log_reg_dump("CLKG_CPF0COM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF0COM ))   ,(g_clkgen_Base + CLKG_CPF0COM  ));
-	sndp_log_reg_dump("CLKG_CPF1COM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF1COM ))   ,(g_clkgen_Base + CLKG_CPF1COM  ));
-	sndp_log_reg_dump("CLKG_SPUVCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SPUVCOM ))   ,(g_clkgen_Base + CLKG_SPUVCOM  ));
-	sndp_log_reg_dump("CLKG_AURCOM   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_AURCOM  ))   ,(g_clkgen_Base + CLKG_AURCOM   ));
-	sndp_log_reg_dump("CLKG_FFDCOM   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FFDCOM  ))   ,(g_clkgen_Base + CLKG_FFDCOM   ));
-	sndp_log_reg_dump("CLKG_SLIMCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SLIMCOM ))   ,(g_clkgen_Base + CLKG_SLIMCOM  ));
-	sndp_log_reg_dump("CLKG_FSIAAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIAAD  ))   ,(g_clkgen_Base + CLKG_FSIAAD   ));
-	sndp_log_reg_dump("CLKG_FSIBAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIBAD  ))   ,(g_clkgen_Base + CLKG_FSIBAD   ));
-	sndp_log_reg_dump("CLKG_CPF0AD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF0AD  ))   ,(g_clkgen_Base + CLKG_CPF0AD   ));
-	sndp_log_reg_dump("CLKG_CPF1AD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF1AD  ))   ,(g_clkgen_Base + CLKG_CPF1AD   ));
-	sndp_log_reg_dump("CLKG_SPUVAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SPUVAD  ))   ,(g_clkgen_Base + CLKG_SPUVAD   ));
-	sndp_log_reg_dump("CLKG_AURAD    [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_AURAD   ))   ,(g_clkgen_Base + CLKG_AURAD    ));
-	sndp_log_reg_dump("CLKG_FFDAD    [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FFDAD   ))   ,(g_clkgen_Base + CLKG_FFDAD    ));
-	sndp_log_reg_dump("CLKG_CLKADIV  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CLKADIV ))   ,(g_clkgen_Base + CLKG_CLKADIV  ));
-	sndp_log_reg_dump("CLKG_CLKSDIV  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CLKSDIV ))   ,(g_clkgen_Base + CLKG_CLKSDIV  ));
+	sndp_log_reg_dump("CLKG_SYSCTL   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SYSCTL)),   (g_clkgen_Base + CLKG_SYSCTL));
+	sndp_log_reg_dump("CLKG_PULSECTL [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_PULSECTL)), (g_clkgen_Base + CLKG_PULSECTL));
+	sndp_log_reg_dump("CLKG_TIMSEL0  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_TIMSEL0)),  (g_clkgen_Base + CLKG_TIMSEL0));
+	sndp_log_reg_dump("CLKG_TIMSEL1  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_TIMSEL1)),  (g_clkgen_Base + CLKG_TIMSEL1));
+	sndp_log_reg_dump("CLKG_FSISEL   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSISEL)),   (g_clkgen_Base + CLKG_FSISEL));
+	sndp_log_reg_dump("CLKG_FSIACOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIACOM)),  (g_clkgen_Base + CLKG_FSIACOM));
+	sndp_log_reg_dump("CLKG_FSIBCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIBCOM)),  (g_clkgen_Base + CLKG_FSIBCOM));
+	sndp_log_reg_dump("CLKG_CPF0COM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF0COM)),  (g_clkgen_Base + CLKG_CPF0COM));
+	sndp_log_reg_dump("CLKG_CPF1COM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF1COM)),  (g_clkgen_Base + CLKG_CPF1COM));
+	sndp_log_reg_dump("CLKG_SPUVCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SPUVCOM)),  (g_clkgen_Base + CLKG_SPUVCOM));
+	sndp_log_reg_dump("CLKG_AURCOM   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_AURCOM)),   (g_clkgen_Base + CLKG_AURCOM));
+	sndp_log_reg_dump("CLKG_FFDCOM   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FFDCOM)),   (g_clkgen_Base + CLKG_FFDCOM));
+	sndp_log_reg_dump("CLKG_SLIMCOM  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SLIMCOM)),  (g_clkgen_Base + CLKG_SLIMCOM));
+	sndp_log_reg_dump("CLKG_FSIAAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIAAD)),   (g_clkgen_Base + CLKG_FSIAAD));
+	sndp_log_reg_dump("CLKG_FSIBAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FSIBAD)),   (g_clkgen_Base + CLKG_FSIBAD));
+	sndp_log_reg_dump("CLKG_CPF0AD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF0AD)),   (g_clkgen_Base + CLKG_CPF0AD));
+	sndp_log_reg_dump("CLKG_CPF1AD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CPF1AD)),   (g_clkgen_Base + CLKG_CPF1AD));
+	sndp_log_reg_dump("CLKG_SPUVAD   [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_SPUVAD)),   (g_clkgen_Base + CLKG_SPUVAD));
+	sndp_log_reg_dump("CLKG_AURAD    [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_AURAD)),    (g_clkgen_Base + CLKG_AURAD));
+	sndp_log_reg_dump("CLKG_FFDAD    [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_FFDAD)),    (g_clkgen_Base + CLKG_FFDAD));
+	sndp_log_reg_dump("CLKG_CLKADIV  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CLKADIV)),  (g_clkgen_Base + CLKG_CLKADIV));
+	sndp_log_reg_dump("CLKG_CLKSDIV  [%08X][%08lX]\n", ioread32((g_clkgen_Base + CLKG_CLKSDIV)),  (g_clkgen_Base + CLKG_CLKSDIV));
 
 	sndp_log_reg_dump("\n===== CLKGEN Registers Dump End =====\n");
 }
@@ -388,7 +389,7 @@ void clkgen_reg_dump(void)
 
 void clkgen_play_test_start_a(void)
 {
-	// Clock framework API, Status ON
+	/* Clock framework API, Status ON */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
@@ -400,7 +401,7 @@ void clkgen_play_test_start_a(void)
 
 void clkgen_rec_test_start_a(void)
 {
-	// Clock framework API, Status ON
+	/* Clock framework API, Status ON */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
@@ -413,7 +414,7 @@ void clkgen_rec_test_start_a(void)
 
 void clkgen_voice_test_start_a(void)
 {
-	// Clock framework API, Status ON
+	/* Clock framework API, Status ON */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
@@ -429,7 +430,7 @@ void clkgen_play_test_stop_a(void)
 {
 	clkgen_reg_dump();
 
-	// Clock framework API, Status OFF
+	/* Clock framework API, Status OFF */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
 }
 
@@ -437,7 +438,7 @@ void clkgen_rec_test_stop_a(void)
 {
 	clkgen_reg_dump();
 
-	// Clock framework API, Status OFF
+	/* Clock framework API, Status OFF */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
 }
 
@@ -445,9 +446,9 @@ void clkgen_voice_test_stop_a(void)
 {
 	clkgen_reg_dump();
 
-	// Clock framework API, Status OFF
+	/* Clock framework API, Status OFF */
 	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
 }
 
-#endif // SOUND_TEST
+#endif /* SOUND_TEST */
 

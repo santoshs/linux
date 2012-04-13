@@ -32,18 +32,18 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
-// PCM direction kind
+/* PCM direction kind */
 typedef enum {
-	SNDP_PCM_OUT,									// out(playback)
-	SNDP_PCM_IN,									// in(capture)
+	SNDP_PCM_OUT,			/* out(playback) */
+	SNDP_PCM_IN,			/* in(capture)   */
 	SNDP_PCM_DIRECTION_MAX,
-} sndp_direction;									// direction
+} sndp_direction;			/* direction */
 
-// Wake lock kind
+/* Wake lock kind */
 typedef enum {
-	E_LOCK = 0,		// to Wake Lock
-	E_UNLOCK,		// to Wake Unlock
-	E_FORCE_UNLOCK,	// to Wake Unlock Forced
+	E_LOCK = 0,			/* to Wake Lock   */
+	E_UNLOCK,			/* to Wake Unlock */
+	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
 } sndp_wake_lock_kind;
 
 #ifndef __RC5T7316_CTRL_NO_EXTERN__
@@ -74,9 +74,9 @@ SOUNDPATHLOGICAL_NO_EXTERN	struct wake_lock g_sndp_wake_lock_suspend;
 SOUNDPATHLOGICAL_NO_EXTERN	u_int g_sndp_log_level;
 SOUNDPATHLOGICAL_NO_EXTERN	u_int g_sndp_mode;
 
-#endif	// != __RC5T7316_CTRL_NO_EXTERN__
+#endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 
-// start : define for debug
+/* start : define for debug */
 #ifndef DEBUG
 #define DEBUG
 #endif
@@ -84,9 +84,9 @@ SOUNDPATHLOGICAL_NO_EXTERN	u_int g_sndp_mode;
 #define DEBUG_FUNC
 #define __PRN_SNDP__
 #define __PRN_ADD_TIME__
-//#define __SNDP_ROUTE_DEBUG__
+/* #define __SNDP_ROUTE_DEBUG__ */
 
-// end : define for debug
+/* end : define for debug */
 
 #define SNDP_DRV_NAME		"sndp"
 #define LOG_LEVEL			"log_level"
@@ -113,13 +113,13 @@ SOUNDPATHLOGICAL_NO_EXTERN	u_int g_sndp_mode;
 #define REG_DUMP_CLKGEN						(0x04)
 #define REG_DUMP_SCUW						(0x08)
 
-//#define SOUND_TEST
+/* #define SOUND_TEST */
 #define NO_INTURRUPT
 #ifdef SOUND_TEST
 SOUNDPATHLOGICAL_NO_EXTERN	void sndp_path_test_pm_runtime_get_sync(void);
 SOUNDPATHLOGICAL_NO_EXTERN	void sndp_path_test_pm_runtime_put_sync(void);
 SOUNDPATHLOGICAL_NO_EXTERN	void sndp_path_test_sndp_init(void);
-#endif // SOUND_TEST
+#endif /* SOUND_TEST */
 
 #ifdef __PRN_SNDP__
 
@@ -199,13 +199,13 @@ do {																												\
 	}																												\
 } while (0)
 
-#else	// != DEBUG_FUNC
+#else	/* != DEBUG_FUNC */
 
 #define sndp_log_debug_func(fmt, ...)		do { } while (0)
 
-#endif	// DEBUG_FUNC
+#endif	/* DEBUG_FUNC */
 
-#else	// != __PRN_ADD_TIME__
+#else	/* != __PRN_ADD_TIME__ */
 
 #define sndp_log_ver(fmt, ...)																						\
 do {																												\
@@ -267,15 +267,15 @@ do {																												\
 	}																												\
 } while (0)
 
-#else	// != DEBUG_FUNC
+#else	/* != DEBUG_FUNC */
 
 #define sndp_log_debug_func(fmt, ...)		do { } while (0)
 
-#endif	// DEBUG_FUNC
+#endif	/* DEBUG_FUNC */
 
-#endif	// __PRN_ADD_TIME__
+#endif	/* __PRN_ADD_TIME__ */
 
-#else // != __PRN_SNDP__
+#else /* != __PRN_SNDP__ */
 
 #define sndp_log_ver(fmt, ...)				do { } while (0)
 #define sndp_log_err(fmt, ...)				do { } while (0)
@@ -285,7 +285,7 @@ do {																												\
 #define sndp_log_reg_dump(fmt, ...)			do { } while (0)
 #define sndp_log_dump(fmt, ...)				do { } while (0)
 
-#endif	// __PRN_SNDP__
+#endif	/* __PRN_SNDP__ */
 
 #ifdef __PRN_ADD_TIME__
 
@@ -296,23 +296,23 @@ do {																												\
 	pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): " fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);		\
 } while (0)
 
-#else	// != __PRN_ADD_TIME__
+#else	/* != __PRN_ADD_TIME__ */
 
 #define sndp_log_always_err(fmt, ...)																				\
 	pr_alert(SNDP_DRV_NAME " : %s(): " fmt, __func__, ##__VA_ARGS__)
 
-#endif	// __PRN_ADD_TIME__
+#endif	/* __PRN_ADD_TIME__ */
 
 /*
  * Constant definitions
  */
-// On/Off
+/* On/Off */
 #define ERROR_NONE							(0)
 
 #define SNDP_ON								(1)
 #define SNDP_OFF							(0)
 
-// Start/Stop
+/* Start/Stop */
 #define SNDP_START							(1)
 #define SNDP_STOP							(0)
 
@@ -333,12 +333,12 @@ typedef enum {
 } sndp_incall_kind;
 
 
-//*
-//* ************************************************** *
-//**  Struct declaration                              **
-//* ************************************************** *
-//
-// Function table
+/**
+ ** ************************************************** *
+ ***  Struct declaration                              **
+ ** ************************************************** *
+ */
+/* Function table */
 typedef struct {
 	u_int		uiValue;
 	void		(*func)(const u_int);
@@ -346,32 +346,32 @@ typedef struct {
 
 typedef enum {
 	SNDP_NO_DEVICE = 0,
-	SNDP_SPEAKER = 0x1,								// SPEAKER
-	SNDP_WIREDHEADSET = 0x2,						// WIRED_HEADSET
-	SNDP_EARPIECE = 0x4,							// EARPIECE
-	SNDP_BLUETOOTHSCO = 0x8,						// BLUETOOTH_SCO
-	SNDP_AUXDIGITAL = 0x10,							// AUX_DIGITAL(HDMI : Port C)
-	SNDP_BUILTIN_MIC = 0x20,						// MIC
-	SNDP_WIREDHEADPHONE = 0x40,						// WIRED_HEADPHONE
-} sndp_device_type;									// device type
+	SNDP_SPEAKER = 0x1,			/* SPEAKER */
+	SNDP_WIREDHEADSET = 0x2,		/* WIRED_HEADSET */
+	SNDP_EARPIECE = 0x4,			/* EARPIECE */
+	SNDP_BLUETOOTHSCO = 0x8,		/* BLUETOOTH_SCO */
+	SNDP_AUXDIGITAL = 0x10,			/* AUX_DIGITAL(HDMI:Port C) */
+	SNDP_BUILTIN_MIC = 0x20,		/* MIC */
+	SNDP_WIREDHEADPHONE = 0x40,		/* WIRED_HEADPHONE */
+} sndp_device_type;				/* device type */
 
-// Mode types
+/* Mode types */
 typedef enum {
-	SNDP_MODE_NORMAL,								// MODE_NORMAL 
-	SNDP_MODE_RING,									// MODE_RINGTONE
-	SNDP_MODE_INCALL,								// MODE_IN_CALL
-	SNDP_MODE_INCOMM,								// MODE_IN_COMMUNICATION
-	SNDP_MODE_INIT,									// init
+	SNDP_MODE_NORMAL,			/* MODE_NORMAL */
+	SNDP_MODE_RING,				/* MODE_RINGTONE */
+	SNDP_MODE_INCALL,			/* MODE_IN_CALL */
+	SNDP_MODE_INCOMM,			/* MODE_IN_COMMUNICATION */
+	SNDP_MODE_INIT,				/* init */
 	SNDP_MODE_MAX,
-} sndp_mode_type;									// mode type
+} sndp_mode_type;				/* mode type */
 
-#define SNDP_DIRECTION_BIT							(20)
-#define SNDP_DEVICE_BIT								(4)
-#define SNDP_MODE_BIT								(0)
-#define SNDP_VALUE_INIT								(0xff000000 + SNDP_MODE_INIT)
+#define SNDP_DIRECTION_BIT			(20)
+#define SNDP_DEVICE_BIT				(4)
+#define SNDP_MODE_BIT				(0)
+#define SNDP_VALUE_INIT				(0xff000000 + SNDP_MODE_INIT)
 
 typedef enum {
-	// output devices
+	/* output devices */
 	SNDP_OUT_EARPIECE = 0x1,
 	SNDP_OUT_SPEAKER = 0x2,
 	SNDP_OUT_WIRED_HEADSET = 0x4,
@@ -384,7 +384,7 @@ typedef enum {
 	SNDP_OUT_BLUETOOTH_A2DP_SPEAKER = 0x200,
 	SNDP_OUT_AUX_DIGITAL = 0x400,
 	SNDP_OUT_UPLINK = 0x800,
-	// input devices
+	/* input devices */
 	SNDP_IN_COMMUNICATION = 0x10000,
 	SNDP_IN_AMBIENT = 0x20000,
 	SNDP_IN_BUILTIN_MIC = 0x40000,
@@ -395,10 +395,10 @@ typedef enum {
 	SNDP_IN_BACK_MIC = 0x800000,
 } sndp_audio_devices;
 
-#define SNDP_GET_DIRECTION_VAL(val)					\
+#define SNDP_GET_DIRECTION_VAL(val)				\
 	((u_int)(val) >= ((u_int)1 << SNDP_DIRECTION_BIT))
 
-#define SNDP_GET_AUDIO_DEVICE(val)					\
+#define SNDP_GET_AUDIO_DEVICE(val)				\
 	((u_int)(val) >> SNDP_DEVICE_BIT)
 
 static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
@@ -406,178 +406,177 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 	u_int		audio_val = SNDP_GET_AUDIO_DEVICE(val);
 	u_int		ret = SNDP_NO_DEVICE;
 
-	if (audio_val & SNDP_OUT_SPEAKER) {
+	if (audio_val & SNDP_OUT_SPEAKER)
 		ret |= SNDP_SPEAKER;
-	}
-	if (audio_val & SNDP_OUT_EARPIECE) {
+
+	if (audio_val & SNDP_OUT_EARPIECE)
 		ret |= SNDP_EARPIECE;
-	}
-	if ((audio_val & SNDP_OUT_WIRED_HEADSET) || (audio_val & SNDP_IN_WIRED_HEADSET)) {
+
+	if ((audio_val & SNDP_OUT_WIRED_HEADSET) || (audio_val & SNDP_IN_WIRED_HEADSET))
 		ret |= SNDP_WIREDHEADSET;
-	}
+
 	if ((audio_val & SNDP_OUT_BLUETOOTH_SCO) || (audio_val & SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
-		(audio_val & SNDP_OUT_BLUETOOTH_SCO_CARKIT) || (audio_val & SNDP_IN_BLUETOOTH_SCO_HEADSET)) {
+		(audio_val & SNDP_OUT_BLUETOOTH_SCO_CARKIT) || (audio_val & SNDP_IN_BLUETOOTH_SCO_HEADSET))
 		ret |= SNDP_BLUETOOTHSCO;
-	}
-	if ((audio_val & SNDP_OUT_AUX_DIGITAL) || (audio_val & SNDP_IN_AUX_DIGITAL)) {
+
+	if ((audio_val & SNDP_OUT_AUX_DIGITAL) || (audio_val & SNDP_IN_AUX_DIGITAL))
 		ret |= SNDP_AUXDIGITAL;
-	}
-	if (audio_val & SNDP_IN_BUILTIN_MIC) {
+
+	if (audio_val & SNDP_IN_BUILTIN_MIC)
 		ret |= SNDP_BUILTIN_MIC;
-	}
-	if (audio_val & SNDP_OUT_WIRED_HEADPHONE) {
+
+	if (audio_val & SNDP_OUT_WIRED_HEADPHONE)
 		ret |= SNDP_WIREDHEADPHONE;
-	}
 	return ret;
 }
 
-#define SNDP_GET_MODE_VAL(val)						\
+#define SNDP_GET_MODE_VAL(val)					\
 	(((u_int)(val) & ~((0xffffffff >> SNDP_DEVICE_BIT) << SNDP_DEVICE_BIT)) >> SNDP_MODE_BIT)
 
-#define SNDP_GET_VALUE(dev, mod)					\
+#define SNDP_GET_VALUE(dev, mod)				\
 	(((u_int)(dev) << SNDP_DEVICE_BIT) | ((u_int)(mod) << SNDP_MODE_BIT))
 
-// 0x00000020
-#define SNDP_PLAYBACK_SPEAKER_NORMAL					\
+/* 0x00000020 */
+#define SNDP_PLAYBACK_SPEAKER_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_SPEAKER, SNDP_MODE_NORMAL)
-// 0x00000021
-#define SNDP_PLAYBACK_SPEAKER_RINGTONE					\
+/* 0x00000021 */
+#define SNDP_PLAYBACK_SPEAKER_RINGTONE				\
 	SNDP_GET_VALUE(SNDP_OUT_SPEAKER, SNDP_MODE_RING)
-// 0x00000022
-#define SNDP_PLAYBACK_SPEAKER_INCALL					\
+/* 0x00000022 */
+#define SNDP_PLAYBACK_SPEAKER_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_SPEAKER, SNDP_MODE_INCALL)
-// 0x00000023
+/* 0x00000023 */
 #define SNDP_PLAYBACK_SPEAKER_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_OUT_SPEAKER, SNDP_MODE_INCOMM)
-// 0x00000040
-#define SNDP_PLAYBACK_HEADSET_NORMAL					\
+/* 0x00000040 */
+#define SNDP_PLAYBACK_HEADSET_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADSET, SNDP_MODE_NORMAL)
-// 0x00000041
-#define SNDP_PLAYBACK_HEADSET_RINGTONE					\
+/* 0x00000041 */
+#define SNDP_PLAYBACK_HEADSET_RINGTONE				\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADSET, SNDP_MODE_RING)
-// 0x00000042
-#define SNDP_PLAYBACK_HEADSET_INCALL					\
+/* 0x00000042 */
+#define SNDP_PLAYBACK_HEADSET_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADSET, SNDP_MODE_INCALL)
-// 0x00000043
+/* 0x00000043 */
 #define SNDP_PLAYBACK_HEADSET_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADSET, SNDP_MODE_INCOMM)
-// 0x00000080
-#define SNDP_PLAYBACK_HEADPHONE_NORMAL					\
+/* 0x00000080 */
+#define SNDP_PLAYBACK_HEADPHONE_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADPHONE, SNDP_MODE_NORMAL)
-// 0x00000081
-#define SNDP_PLAYBACK_HEADPHONE_RINGTONE				\
+/* 0x00000081 */
+#define SNDP_PLAYBACK_HEADPHONE_RINGTONE			\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADPHONE, SNDP_MODE_RING)
-// 0x00000082
-#define SNDP_PLAYBACK_HEADPHONE_INCALL					\
+/* 0x00000082 */
+#define SNDP_PLAYBACK_HEADPHONE_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADPHONE, SNDP_MODE_INCALL)
-// 0x00000083
+/* 0x00000083 */
 #define SNDP_PLAYBACK_HEADPHONE_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_OUT_WIRED_HEADPHONE, SNDP_MODE_INCOMM)
-// 0x00000010
-#define SNDP_PLAYBACK_EARPIECE_NORMAL					\
+/* 0x00000010 */
+#define SNDP_PLAYBACK_EARPIECE_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_EARPIECE, SNDP_MODE_NORMAL)
-// 0x00000011
-#define SNDP_PLAYBACK_EARPIECE_RINGTONE					\
+/* 0x00000011 */
+#define SNDP_PLAYBACK_EARPIECE_RINGTONE				\
 	SNDP_GET_VALUE(SNDP_OUT_EARPIECE, SNDP_MODE_RING)
-// 0x00000012
-#define SNDP_PLAYBACK_EARPIECE_INCALL					\
+/* 0x00000012 */
+#define SNDP_PLAYBACK_EARPIECE_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_EARPIECE, SNDP_MODE_INCALL)
-// 0x00000013
+/* 0x00000013 */
 #define SNDP_PLAYBACK_EARPIECE_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_OUT_EARPIECE, SNDP_MODE_INCOMM)
-// 0x00000100
-#define SNDP_PLAYBACK_BLUETOOTH_NORMAL					\
+/* 0x00000100 */
+#define SNDP_PLAYBACK_BLUETOOTH_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_BLUETOOTH_SCO, SNDP_MODE_NORMAL)
-// 0x00000101
-#define SNDP_PLAYBACK_BLUETOOTH_RINGTONE				\
+/* 0x00000101 */
+#define SNDP_PLAYBACK_BLUETOOTH_RINGTONE			\
 	SNDP_GET_VALUE(SNDP_OUT_BLUETOOTH_SCO, SNDP_MODE_RING)
-// 0x00000102
-#define SNDP_PLAYBACK_BLUETOOTH_INCALL					\
+/* 0x00000102 */
+#define SNDP_PLAYBACK_BLUETOOTH_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_BLUETOOTH_SCO, SNDP_MODE_INCALL)
-// 0x00000103
+/* 0x00000103 */
 #define SNDP_PLAYBACK_BLUETOOTH_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_OUT_BLUETOOTH_SCO, SNDP_MODE_INCOMM)
-// 0x00004000
-#define SNDP_PLAYBACK_AUXDIGITAL_NORMAL					\
+/* 0x00004000 */
+#define SNDP_PLAYBACK_AUXDIGITAL_NORMAL				\
 	SNDP_GET_VALUE(SNDP_OUT_AUX_DIGITAL, SNDP_MODE_NORMAL)
-// 0x00004001
-#define SNDP_PLAYBACK_AUXDIGITAL_RINGTONE				\
+/* 0x00004001 */
+#define SNDP_PLAYBACK_AUXDIGITAL_RINGTONE			\
 	SNDP_GET_VALUE(SNDP_OUT_AUX_DIGITAL, SNDP_MODE_RING)
-// 0x00004002
-#define SNDP_PLAYBACK_AUXDIGITAL_INCALL					\
+/* 0x00004002 */
+#define SNDP_PLAYBACK_AUXDIGITAL_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_AUX_DIGITAL, SNDP_MODE_INCALL)
-// 0x00004003
+/* 0x00004003 */
 #define SNDP_PLAYBACK_AUXDIGITAL_INCOMMUNICATION		\
 	SNDP_GET_VALUE(SNDP_OUT_AUX_DIGITAL, SNDP_MODE_INCOMM)
-// 0x01000000
-#define SNDP_CAPTURE_HEADSET_NORMAL						\
+/* 0x01000000 */
+#define SNDP_CAPTURE_HEADSET_NORMAL				\
 	SNDP_GET_VALUE(SNDP_IN_WIRED_HEADSET, SNDP_MODE_NORMAL)
-// 0x01000001
-#define SNDP_CAPTURE_HEADSET_RINGTONE					\
+/* 0x01000001 */
+#define SNDP_CAPTURE_HEADSET_RINGTONE				\
 	SNDP_GET_VALUE(SNDP_IN_WIRED_HEADSET, SNDP_MODE_RING)
-// 0x01000002
-#define SNDP_CAPTURE_HEADSET_INCALL						\
+/* 0x01000002 */
+#define SNDP_CAPTURE_HEADSET_INCALL				\
 	SNDP_GET_VALUE(SNDP_IN_WIRED_HEADSET, SNDP_MODE_INCALL)
-// 0x01000003
+/* 0x01000003 */
 #define SNDP_CAPTURE_HEADSET_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_IN_WIRED_HEADSET, SNDP_MODE_INCOMM)
-// 0x00800000
+/* 0x00800000 */
 #define SNDP_CAPTURE_BLUETOOTH_NORMAL					\
 	SNDP_GET_VALUE(SNDP_IN_BLUETOOTH_SCO_HEADSET, SNDP_MODE_NORMAL)
-// 0x00800001
+/* 0x00800001 */
 #define SNDP_CAPTURE_BLUETOOTH_RINGTONE					\
 	SNDP_GET_VALUE(SNDP_IN_BLUETOOTH_SCO_HEADSET, SNDP_MODE_RING)
-// 0x00800002
+/* 0x00800002 */
 #define SNDP_CAPTURE_BLUETOOTH_INCALL					\
 	SNDP_GET_VALUE(SNDP_IN_BLUETOOTH_SCO_HEADSET, SNDP_MODE_INCALL)
-// 0x00800003
+/* 0x00800003 */
 #define SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_IN_BLUETOOTH_SCO_HEADSET, SNDP_MODE_INCOMM)
-// 0x00400000
-#define SNDP_CAPTURE_MIC_NORMAL							\
+/* 0x00400000 */
+#define SNDP_CAPTURE_MIC_NORMAL					\
 	SNDP_GET_VALUE(SNDP_IN_BUILTIN_MIC, SNDP_MODE_NORMAL)
-// 0x00400001
-#define SNDP_CAPTURE_MIC_RINGTONE						\
+/* 0x00400001 */
+#define SNDP_CAPTURE_MIC_RINGTONE				\
 	SNDP_GET_VALUE(SNDP_IN_BUILTIN_MIC, SNDP_MODE_RING)
-// 0x00400002
-#define SNDP_CAPTURE_MIC_INCALL							\
+/* 0x00400002 */
+#define SNDP_CAPTURE_MIC_INCALL					\
 	SNDP_GET_VALUE(SNDP_IN_BUILTIN_MIC, SNDP_MODE_INCALL)
-// 0x00400003
-#define SNDP_CAPTURE_MIC_INCOMMUNICATION				\
+/* 0x00400003 */
+#define SNDP_CAPTURE_MIC_INCOMMUNICATION			\
 	SNDP_GET_VALUE(SNDP_IN_BUILTIN_MIC, SNDP_MODE_INCOMM)
 
-// 0x00000060
+/* 0x00000060 */
 #define SNDP_PLAYBACK_SPEAKER_HEADSET_NORMAL			\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADSET), SNDP_MODE_NORMAL)
-// 0x00000061
+/* 0x00000061 */
 #define SNDP_PLAYBACK_SPEAKER_HEADSET_RINGTONE			\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADSET), SNDP_MODE_RING)
-// 0x00000062
+/* 0x00000062 */
 #define SNDP_PLAYBACK_SPEAKER_HEADSET_INCALL			\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADSET), SNDP_MODE_INCALL)
-// 0x00000063
+/* 0x00000063 */
 #define SNDP_PLAYBACK_SPEAKER_HEADSET_INCOMMUNICATION	\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADSET), SNDP_MODE_INCOMM)
 
-// 0x000000a0
+/* 0x000000a0 */
 #define SNDP_PLAYBACK_SPEAKER_HEADPHONE_NORMAL			\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADPHONE), SNDP_MODE_NORMAL)
-// 0x000000a1
+/* 0x000000a1 */
 #define SNDP_PLAYBACK_SPEAKER_HEADPHONE_RINGTONE		\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADPHONE), SNDP_MODE_RING)
-// 0x000000a2
+/* 0x000000a2 */
 #define SNDP_PLAYBACK_SPEAKER_HEADPHONE_INCALL			\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADPHONE), SNDP_MODE_INCALL)
-// 0x000000a3
-#define SNDP_PLAYBACK_SPEAKER_HEADPHONE_INCOMMUNICATION	\
+/* 0x000000a3 */
+#define SNDP_PLAYBACK_SPEAKER_HEADPHONE_INCOMMUNICATION		\
 	SNDP_GET_VALUE((SNDP_OUT_SPEAKER | SNDP_OUT_WIRED_HEADPHONE), SNDP_MODE_INCOMM)
 
-// 0x00008002
-#define SNDP_PLAYBACK_UPLINK_INCALL						\
+/* 0x00008002 */
+#define SNDP_PLAYBACK_UPLINK_INCALL				\
 	SNDP_GET_VALUE(SNDP_OUT_UPLINK, SNDP_MODE_INCALL)
 
-// 0x04000002
-#define SNDP_CAPTURE_VOICE_INCALL						\
+/* 0x04000002 */
+#define SNDP_CAPTURE_VOICE_INCALL				\
 	SNDP_GET_VALUE(SNDP_IN_VOICE_CALL, SNDP_MODE_INCALL)
 
-#endif // __SOUNDPATH_H__
+#endif /* __SOUNDPATH_H__ */

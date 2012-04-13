@@ -14,17 +14,10 @@
  *
  */
 
-/*! 
+/*!
   @file max98090_common_defs.h
-  
+
   @brief Audio LSI driver common header file.
-  
-  
-  @author author Xxxx Xxxx
-  
-  @attention first version is a draft.
-  
-  @date 2012/03/15 first version.
 */
 
 #ifndef __MAX98090_COMMON_DEFS_H__
@@ -68,10 +61,10 @@
 /*!
   @brief register bit information.
 */
-typedef struct {
-    int shift;          //!< bit shift information.
-    int mask;           //!< bit mask information.
-} sMax98090BitInfo;
+struct max98090_bit_info {
+	int shift;          /**< bit shift information. */
+	int mask;           /**< bit mask information. */
+};
 
 /*---------------------------------------------------------------------------*/
 /* extern variable declaration                                               */

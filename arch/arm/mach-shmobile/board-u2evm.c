@@ -936,14 +936,14 @@ static struct i2c_board_info i2c4_devices[] = {
 };
 
 static struct i2c_board_info i2cm_devices[] = {
-        {
-                I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = irqpin2irq(34),
-        },
-        {
-                I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = irqpin2irq(34),
-        },
+	{
+		I2C_BOARD_INFO("max98090", 0x10),
+		.irq		= irqpin2irq(34),
+	},
+	{
+		I2C_BOARD_INFO("max97236", 0x40),
+		.irq		= irqpin2irq(34),
+	},
 	{
 		I2C_BOARD_INFO("led", 0x74),
 	},

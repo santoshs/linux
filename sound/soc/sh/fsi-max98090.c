@@ -1,3 +1,20 @@
+/*
+ * FSI - MAX98090 sound support
+ *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
@@ -9,7 +26,7 @@
 #include <sound/soc-dapm.h>
 
 #include <sound/sh_fsi.h>
-//#include <../sound/soc/codecs/max98090.h>
+/* #include <../sound/soc/codecs/max98090.h> */
 #include <sound/soundpath/soundpath.h>
 
 extern struct snd_soc_dai_driver max98090_dai_driver[];
@@ -47,17 +64,17 @@ static int __init fsi_max98090_init(void)
 printk(KERN_INFO "@@ %s\n", __func__);
 
 	ret = sndp_init(fsi_soc_dai, max98090_dai_driver, &fsi_soc_platform);
-	if(ret)
+	if (ret)
 		goto out;
 
 	fsi_snd_device = platform_device_alloc("soc-audio", -1);
-	if(!fsi_snd_device)
+	if (!fsi_snd_device)
 		goto out;
 
 	platform_set_drvdata(fsi_snd_device, &fsi_soc_card);
 	ret = platform_device_add(fsi_snd_device);
 
-	if(ret)
+	if (ret)
 		platform_device_put(fsi_snd_device);
 
 out:
@@ -68,17 +85,14 @@ printk(KERN_INFO "@@ %s [%d]\n", __func__, ret);
 
 static void __exit fsi_max98090_exit(void)
 {
-//	sndp_exit();
+/*	sndp_exit(); */
 	platform_device_unregister(fsi_snd_device);
 }
 
 module_init(fsi_max98090_init);
 module_exit(fsi_max98090_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Generic SH4 FSI-MAX98090 sound card");
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("");
 MODULE_AUTHOR("");
-
-
-
-

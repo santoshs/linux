@@ -26,11 +26,11 @@
 #define CLKGEN_CTRL_NO_EXTERN	extern
 #endif
 
-// CLKGEN start
+/* CLKGEN start */
 CLKGEN_CTRL_NO_EXTERN int clkgen_start(const u_int uiValue);
-// CLKGEN stop
+/* CLKGEN stop */
 CLKGEN_CTRL_NO_EXTERN void clkgen_stop(void);
-// CLKGEN registers dump
+/* CLKGEN registers dump */
 CLKGEN_CTRL_NO_EXTERN void clkgen_reg_dump(void);
 
 #ifdef SOUND_TEST
@@ -40,9 +40,9 @@ CLKGEN_CTRL_NO_EXTERN void clkgen_rec_test_start_a(void);
 CLKGEN_CTRL_NO_EXTERN void clkgen_rec_test_stop_a(void);
 CLKGEN_CTRL_NO_EXTERN void clkgen_voice_test_start_a(void);
 CLKGEN_CTRL_NO_EXTERN void clkgen_voice_test_stop_a(void);
-#endif // SOUNT_TEST
+#endif /* SOUNT_TEST */
 
 
-#endif // __CLKGEN_EXTERN_H__
+#endif /* __CLKGEN_EXTERN_H__ */
 
 

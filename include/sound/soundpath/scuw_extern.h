@@ -25,13 +25,16 @@
 #define SCUW_NO_EXTERN extern
 #endif
 
-SCUW_NO_EXTERN int scuw_start(const u_int uiValue);		// SCUW start
-SCUW_NO_EXTERN int scuw_stop(void);						// SCUW stop
-SCUW_NO_EXTERN void scuw_reg_dump(void);				// SCUW registers dump
+/* SCUW start */
+SCUW_NO_EXTERN int scuw_start(const u_int uiValue);
+/* SCUW stop */
+SCUW_NO_EXTERN int scuw_stop(void);
+/*  SCUW registers dump */
+SCUW_NO_EXTERN void scuw_reg_dump(void);
 
 #ifdef SOUND_TEST
 SCUW_NO_EXTERN void scuw_voice_test_start_a(void);
 SCUW_NO_EXTERN void scuw_voice_test_stop_a(void);
-#endif // SOUND_TEST
+#endif /* SOUND_TEST */
 
-#endif	// __SCUW_EXTERN_H__
+#endif	/* __SCUW_EXTERN_H__ */

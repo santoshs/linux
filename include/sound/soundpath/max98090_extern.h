@@ -14,17 +14,10 @@
  *
  */
 
-/*! 
+/*!
   @file max98090_extern.h
-  
-  @brief Brief description.
-  
-  
-  @author author Xxxx Xxxx
-  
-  @attention first version is a draft.
-  
-  @date 2012/03/15 first version.
+
+  @brief Public definition Audio LSI driver header file.
 */
 
 #ifndef __MAX98090_EXTERN_H__
@@ -35,9 +28,9 @@
 /*---------------------------------------------------------------------------*/
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/uaccess.h>
+#include <linux/io.h>
 #include <asm/irq.h>
-#include <asm/uaccess.h>
-#include <asm/io.h>
 
 /*---------------------------------------------------------------------------*/
 /* typedef declaration                                                       */
@@ -51,7 +44,7 @@
 
 #ifdef __MAX98090_TODO__
 #define __MAX98090_TODO_POWER__
-//#define __MAX98090_DEBUG__
+/* #define __MAX98090_DEBUG__ */
 #endif  /* __MAX98090_TODO__ */
 
 /*---------------------------------------------------------------------------*/
@@ -66,62 +59,68 @@
   @brief device ID value.
 */
 enum MAX98090_DEV_VAL {
-    MAX98090_DEV_NONE                   = 0x00000000,   //!< device none.
-    MAX98090_DEV_PLAYBACK_SPEAKER       = 0x00000001,   //!< playback speaker.
-    MAX98090_DEV_PLAYBACK_EARPIECE      = 0x00000002,   //!< playback earpiece.
-    MAX98090_DEV_PLAYBACK_HEADPHONES    = 0x00000004,   //!< playback headphones or headset.
-    MAX98090_DEV_CAPTURE_MIC            = 0x00000008,   //!< capture mic.
-    MAX98090_DEV_CAPTURE_HEADPHONES     = 0x00000010,   //!< capture headset mic./*todo:change name */
-    MAX98090_DEV_MAX
+	MAX98090_DEV_NONE			= 0x00000000,
+	/**< device none. */
+	MAX98090_DEV_PLAYBACK_SPEAKER		= 0x00000001,
+	/**< playback speaker. */
+	MAX98090_DEV_PLAYBACK_EARPIECE		= 0x00000002,
+	/**< playback earpiece. */
+	MAX98090_DEV_PLAYBACK_HEADPHONES	= 0x00000004,
+	/**< playback headphones or headset. */
+	MAX98090_DEV_CAPTURE_MIC		= 0x00000008,
+	/**< capture mic. */
+	MAX98090_DEV_CAPTURE_HEADSET_MIC	= 0x00000010,
+	/**< capture headset mic. */
+	MAX98090_DEV_MAX
 };
 
 /*!
   @brief device volume value.
 */
 enum MAX98090_VOLUMEL_VAL {
-    MAX98090_VOLUMEL0   = 0,    //!< volume level 0.
-    MAX98090_VOLUMEL1   = 5,    //!< volume level 1.
-    MAX98090_VOLUMEL2   = 10,   //!< volume level 2.
-    MAX98090_VOLUMEL3   = 15,   //!< volume level 3.
-    MAX98090_VOLUMEL4   = 20,   //!< volume level 4.
-    MAX98090_VOLUMEL5   = 25,   //!< volume level 5.
-    MAX98090_VOLUMEL_MAX
+	MAX98090_VOLUMEL0 = 0,	/**< volume level 0. */
+	MAX98090_VOLUMEL1 = 5,	/**< volume level 1. */
+	MAX98090_VOLUMEL2 = 10,	/**< volume level 2. */
+	MAX98090_VOLUMEL3 = 15,	/**< volume level 3. */
+	MAX98090_VOLUMEL4 = 20,	/**< volume level 4. */
+	MAX98090_VOLUMEL5 = 25,	/**< volume level 5. */
+	MAX98090_VOLUMEL_MAX
 };
 
 /*!
   @brief device mute value.
 */
 enum MAX98090_MUTE_VAL {
-    MAX98090_MUTE_DISABLE = 0,  //!< mute disable.
-    MAX98090_MUTE_ENABLE        //!< mute enable.
+	MAX98090_MUTE_DISABLE = 0,	/**< mute disable. */
+	MAX98090_MUTE_ENABLE		/**< mute enable. */
 };
 
 /*!
   @brief Audio IC ID value.
 */
 enum MAX98090_AUDIO_IC_VAL {
-    MAX98090_AUDIO_IC_MAX98090 = 0,	//!< max98090.
-    MAX98090_AUDIO_IC_MAX97236,		//!< max97236.
-    MAX98090_AUDIO_IC_ALL			//!< max98090 and max97236.
+	MAX98090_AUDIO_IC_MAX98090 = 0,	/**< max98090. */
+	MAX98090_AUDIO_IC_MAX97236,	/**< max97236. */
+	MAX98090_AUDIO_IC_ALL		/**< max98090 and max97236. */
 };
 
 /*!
   @brief interrupt factor value.
 */
 enum MAX98090_INT_FACTOR_VAL {
-    MAX98090_INT_FACTOR_NONE = 0,       //!< none.
-    MAX98090_INT_FACTOR_JACK_CONNECTED, //!< jack connected.
-    MAX98090_INT_FACTOR_JACK_REMOVEED,  //!< jack removed.
-    MAX98090_INT_FACTOR_KEY_PRESSED,    //!< key pressed.
-    MAX98090_INT_FACTOR_KEY_RELEASED    //!< key released.
+	MAX98090_INT_FACTOR_NONE = 0,		/**< none. */
+	MAX98090_INT_FACTOR_JACK_CONNECTED,	/**< jack connected. */
+	MAX98090_INT_FACTOR_JACK_REMOVEED,	/**< jack removed. */
+	MAX98090_INT_FACTOR_KEY_PRESSED,	/**< key pressed. */
+	MAX98090_INT_FACTOR_KEY_RELEASED	/**< key released. */
 };
 
 /*!
   @brief speaker amplifiers setting value.
 */
 enum MAX98090_SPEAKER_AMP_VAL {
-    MAX98090_SPEAKER_AMP_DISABLE = 0,   //!< speaker amp disable.
-    MAX98090_SPEAKER_AMP_ENABLE         //!< speaker amp enable.
+	MAX98090_SPEAKER_AMP_DISABLE = 0,	/**< speaker amp disable. */
+	MAX98090_SPEAKER_AMP_ENABLE		/**< speaker amp enable. */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -130,9 +129,9 @@ enum MAX98090_SPEAKER_AMP_VAL {
 /*!
   @brief structure to register a callback function.
 */
-typedef struct {
-    void (*irq_func)(void);   //!< IRQ callback function.
-} max98090_callback_func_t;
+struct max98090_callback_func {
+	void (*irq_func)(void);	/**< IRQ callback function. */
+};
 
 /*---------------------------------------------------------------------------*/
 /* extern variable declaration                                               */
@@ -279,7 +278,7 @@ int max98090_get_status(u_long *irq_status);
 
   @return function results.
 */
-int max98090_register_callback_func(max98090_callback_func_t *callback_);
+int max98090_register_callback_func(struct max98090_callback_func *callback_);
 
 /*!
   @brief dump registers.
@@ -312,7 +311,8 @@ int max98090_read(const u_int audio_ic, const u_int addr_id, int *value);
 
   @return function results.
 */
-int max98090_write(const u_int audio_ic, const u_int addr_id, const u_int value);
+int max98090_write(const u_int audio_ic, const u_int addr_id,
+		const u_int value);
 
 /*---------------------------------------------------------------------------*/
 /* inline function implementation                                            */

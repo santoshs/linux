@@ -26,11 +26,18 @@
 #define FSI_CTRL_NO_EXTERN	extern
 #endif
 
-FSI_CTRL_NO_EXTERN int fsi_start(const u_int uiValue);							// FSI start function
-FSI_CTRL_NO_EXTERN void fsi_stop(void);											// FSI stop function
-FSI_CTRL_NO_EXTERN void fsi_dma_start(void);									// DMA transfer function
-FSI_CTRL_NO_EXTERN void fsi_dma_stop(void);										// DMA transfer function
-FSI_CTRL_NO_EXTERN void fsi_reg_dump(const u_int uiValue); 						// registers dump function
+/* FSI start function */
+FSI_CTRL_NO_EXTERN int fsi_start(const u_int uiValue);
+/* FSI stop function */
+FSI_CTRL_NO_EXTERN void fsi_stop(void);
+/* DMA transfer function */
+FSI_CTRL_NO_EXTERN void fsi_dma_start(void);
+/* DMA transfer function */
+FSI_CTRL_NO_EXTERN void fsi_dma_stop(void);
+/* registers dump function */
+FSI_CTRL_NO_EXTERN void fsi_reg_dump(const u_int uiValue);
+/* FSI soft reset function */
+FSI_CTRL_NO_EXTERN void fsi_soft_reset(void);
 
 #ifdef SOUND_TEST
 FSI_CTRL_NO_EXTERN int fsi_play_test_start_a(char *buf, u_int size);
@@ -43,9 +50,9 @@ FSI_CTRL_NO_EXTERN void fsi_test_interrupt_a(void);
 #ifdef NO_INTURRUPT
 FSI_CTRL_NO_EXTERN void fsi_test_fifo_write_a(void);
 FSI_CTRL_NO_EXTERN void fsi_test_fifo_read_a(void);
-#endif // NO_INTURRUPT
-#endif // SOUNT_TEST
+#endif /* NO_INTURRUPT */
+#endif /* SOUNT_TEST */
 
-#endif // __FSI_EXTERN_H__
+#endif /* __FSI_EXTERN_H__ */
 
 

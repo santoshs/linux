@@ -14,17 +14,10 @@
  *
  */
 
-/*! 
+/*!
   @file max98090_log.h
-  
+
   @brief Audio LSI driver log header file.
-  
-  
-  @author author Xxxx Xxxx
-  
-  @attention first version is a draft.
-  
-  @date 2012/03/15 first version.
 */
 
 #ifndef __MAX98090_LOG_H__
@@ -99,142 +92,184 @@
 /*---------------------------------------------------------------------------*/
 #ifdef __PRN_LSI__
 
-#define max98090_log_reg_dump(fmt, ...)                                                                                         \
-do {                                                                                                                            \
-    if (max98090_log_level & MAX98090_LOG_BIT_REG_DUMP) {                                                                       \
-        (max98090_log_level & MAX98090_LOG_BIT_DMESG) ? pr_err(fmt, ##__VA_ARGS__) : pr_alert(fmt, ##__VA_ARGS__);              \
-    }                                                                                                                           \
+#define max98090_log_reg_dump(fmt, ...)                                      \
+do {                                                                         \
+	if (max98090_log_level & MAX98090_LOG_BIT_REG_DUMP) {                \
+		(max98090_log_level & MAX98090_LOG_BIT_DMESG) ?              \
+			pr_err(fmt, ##__VA_ARGS__) :                         \
+			pr_alert(fmt, ##__VA_ARGS__);                        \
+	}                                                                    \
 } while (0)
 
 
 #ifdef __PRN_ADD_TIME__
 
-#define max98090_log_err(fmt, ...)                                                                                              \
-do {                                                                                                                            \
-    struct timeval tv;                                                                                                          \
-    if (MAX98090_LOG_ERR_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                                                  \
-        MAX98090_GET_PROCESS_TIME(tv);                                                                                          \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                                                                      \
-            pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[ERR]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);    \
-        } else {                                                                                                                \
-            pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[ERR]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);  \
-        }                                                                                                                       \
-    }                                                                                                                           \
+#define max98090_log_err(fmt, ...)                                           \
+do {                                                                         \
+	struct timeval tv;                                                   \
+	if (MAX98090_LOG_ERR_PRINT <=                                        \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		MAX98090_GET_PROCESS_TIME(tv);                               \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME            \
+				" : %s():[ERR]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__,  ##__VA_ARGS__);                   \
+		} else {                                                     \
+			pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME          \
+				" : %s():[ERR]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_info(fmt, ...)                                                                                             \
-do {                                                                                                                            \
-    struct timeval tv;                                                                                                          \
-    if (MAX98090_LOG_PROC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                                                 \
-        MAX98090_GET_PROCESS_TIME(tv);                                                                                          \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                                                                      \
-            pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[INF]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);    \
-        } else {                                                                                                                \
-            pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[INF]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);  \
-        }                                                                                                                       \
-    }                                                                                                                           \
+#define max98090_log_info(fmt, ...)                                          \
+do {                                                                         \
+	struct timeval tv;                                                   \
+	if (MAX98090_LOG_PROC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		MAX98090_GET_PROCESS_TIME(tv);                               \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME            \
+				" : %s():[INF]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		} else {                                                     \
+			pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME          \
+				" : %s():[INF]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_debug(fmt, ...)                                                                                            \
-do {                                                                                                                            \
-    struct timeval tv;                                                                                                          \
-    if (MAX98090_LOG_DEBUG_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                                                \
-        MAX98090_GET_PROCESS_TIME(tv);                                                                                          \
-        if (max98090_log_level& MAX98090_LOG_BIT_DMESG) {                                                                       \
-            pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[DBG]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);    \
-        } else {                                                                                                                \
-            pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[DBG]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);  \
-        }                                                                                                                       \
-    }                                                                                                                           \
+#define max98090_log_debug(fmt, ...)                                         \
+do {                                                                         \
+	struct timeval tv;                                                   \
+	if (MAX98090_LOG_DEBUG_PRINT <=                                      \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		MAX98090_GET_PROCESS_TIME(tv);                               \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME            \
+				" : %s():[DBG]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		} else {                                                     \
+			pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME          \
+				" : %s():[DBG]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_efunc(fmt, ...)                                                                                             \
-do {                                                                                                                            \
-    struct timeval tv;                                                                                                          \
-    if (MAX98090_LOG_FUNC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                                                 \
-        MAX98090_GET_PROCESS_TIME(tv);                                                                                          \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                                                                      \
-            pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[ENT]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);    \
-        } else {                                                                                                                \
-            pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[ENT]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);  \
-        }                                                                                                                       \
-    }                                                                                                                           \
+#define max98090_log_efunc(fmt, ...)                                         \
+do {                                                                         \
+	struct timeval tv;                                                   \
+	if (MAX98090_LOG_FUNC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		MAX98090_GET_PROCESS_TIME(tv);                               \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME            \
+				" : %s():[ENT]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		} else {                                                     \
+			pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME          \
+				" : %s():[ENT]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_rfunc(fmt, ...)                                                                                             \
-do {                                                                                                                            \
-    struct timeval tv;                                                                                                          \
-    if (MAX98090_LOG_FUNC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                                                 \
-        MAX98090_GET_PROCESS_TIME(tv);                                                                                          \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                                                                      \
-            pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[RTN]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);    \
-        } else {                                                                                                                \
-            pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME " : %s():[RTN]:" fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);  \
-        }                                                                                                                       \
-    }                                                                                                                           \
+#define max98090_log_rfunc(fmt, ...)                                         \
+do {                                                                         \
+	struct timeval tv;                                                   \
+	if (MAX98090_LOG_FUNC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		MAX98090_GET_PROCESS_TIME(tv);                               \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME            \
+				" : %s():[RTN]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		} else {                                                     \
+			pr_alert("[%5ld.%06ld] " AUDIO_LSI_DRV_NAME          \
+				" : %s():[RTN]:" fmt, tv.tv_sec, tv.tv_usec, \
+				__func__, ##__VA_ARGS__);                    \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
 
-#else // != __PRN_ADD_TIME__
+#else /* != __PRN_ADD_TIME__ */
 
 
-#define max98090_log_err(fmt, ...)                                                      \
-do {                                                                                    \
-    if (MAX98090_LOG_ERR_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {          \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                              \
-            pr_err(AUDIO_LSI_DRV_NAME " : %s():[ERR]:" fmt, __func__, ##__VA_ARGS__);   \
-        } else {                                                                        \
-            pr_alert(AUDIO_LSI_DRV_NAME " : %s():[ERR]:" fmt, __func__, ##__VA_ARGS__); \
-        }                                                                               \
-    }                                                                                   \
+#define max98090_log_err(fmt, ...)                                           \
+do {                                                                         \
+	if (MAX98090_LOG_ERR_PRINT <=                                        \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err(AUDIO_LSI_DRV_NAME " : %s():[ERR]:"           \
+				fmt, __func__, ##__VA_ARGS__);               \
+		} else {                                                     \
+			pr_alert(AUDIO_LSI_DRV_NAME " : %s():[ERR]:"         \
+				fmt, __func__, ##__VA_ARGS__);               \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_info(fmt, ...)                                                     \
-do {                                                                                    \
-    if (MAX98090_LOG_PROC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {         \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                              \
-            pr_err(AUDIO_LSI_DRV_NAME " : %s():[INF]:" fmt, __func__, ##__VA_ARGS__);   \
-        } else {                                                                        \
-            pr_alert(AUDIO_LSI_DRV_NAME " : %s():[INF]:" fmt, __func__, ##__VA_ARGS__); \
-        }                                                                               \
-    }                                                                                   \
+#define max98090_log_info(fmt, ...)                                          \
+do {                                                                         \
+	if (MAX98090_LOG_PROC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err(AUDIO_LSI_DRV_NAME " : %s():[INF]:"           \
+				fmt, __func__, ##__VA_ARGS__);               \
+		} else {                                                     \
+			pr_alert(AUDIO_LSI_DRV_NAME " : %s():[INF]:"         \
+				fmt, __func__, ##__VA_ARGS__);               \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_debug(fmt, ...)                                                    \
-do {                                                                                    \
-    if (MAX98090_LOG_DEBUG_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {        \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                              \
-            pr_err(AUDIO_LSI_DRV_NAME " : %s():[DBG]:" fmt, __func__, ##__VA_ARGS__);   \
-        } else {                                                                        \
-            pr_alert(AUDIO_LSI_DRV_NAME " : %s():[DBG]:" fmt, __func__, ##__VA_ARGS__); \
-        }                                                                               \
-    }                                                                                   \
+#define max98090_log_debug(fmt, ...)                                         \
+do {                                                                         \
+	if (MAX98090_LOG_DEBUG_PRINT <=                                      \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err(AUDIO_LSI_DRV_NAME " : %s():[DBG]:"           \
+				fmt, __func__, ##__VA_ARGS__);               \
+		} else {                                                     \
+			pr_alert(AUDIO_LSI_DRV_NAME " : %s():[DBG]:"         \
+				fmt, __func__, ##__VA_ARGS__);               \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_efunc(fmt, ...)                                                    \
-do {                                                                                    \
-    if (MAX98090_LOG_FUNC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {         \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                              \
-            pr_err(AUDIO_LSI_DRV_NAME " : %s():[ENT]:" fmt, __func__, ##__VA_ARGS__);   \
-        } else {                                                                        \
-            pr_alert(AUDIO_LSI_DRV_NAME " : %s():[ENT]:" fmt, __func__, ##__VA_ARGS__); \
-        }                                                                               \
-    }                                                                                   \
+#define max98090_log_efunc(fmt, ...)                                         \
+do {                                                                         \
+	if (MAX98090_LOG_FUNC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err(AUDIO_LSI_DRV_NAME " : %s():[ENT]:"           \
+				fmt, __func__, ##__VA_ARGS__);               \
+		} else {                                                     \
+			pr_alert(AUDIO_LSI_DRV_NAME " : %s():[ENT]:"         \
+				fmt, __func__, ##__VA_ARGS__);               \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#define max98090_log_rfunc(fmt, ...)                                                    \
-do {                                                                                    \
-    if (MAX98090_LOG_FUNC_PRINT <= MAX98090_LOG_BYTE_LOW(max98090_log_level)) {         \
-        if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {                              \
-            pr_err(AUDIO_LSI_DRV_NAME " : %s():[RTN]:" fmt, __func__, ##__VA_ARGS__);   \
-        } else {                                                                        \
-            pr_alert(AUDIO_LSI_DRV_NAME " : %s():[RTN]:" fmt, __func__, ##__VA_ARGS__); \
-        }                                                                               \
-    }                                                                                   \
+#define max98090_log_rfunc(fmt, ...)                                         \
+do {                                                                         \
+	if (MAX98090_LOG_FUNC_PRINT <=                                       \
+		MAX98090_LOG_BYTE_LOW(max98090_log_level)) {                 \
+		if (max98090_log_level & MAX98090_LOG_BIT_DMESG) {           \
+			pr_err(AUDIO_LSI_DRV_NAME " : %s():[RTN]:"           \
+				fmt, __func__, ##__VA_ARGS__);               \
+		} else {                                                     \
+			pr_alert(AUDIO_LSI_DRV_NAME " : %s():[RTN]:"         \
+				fmt, __func__, ##__VA_ARGS__);               \
+		}                                                            \
+	}                                                                    \
 } while (0)
 
-#endif  // __PRN_ADD_TIME__
-#else   // != __PRN_LSI__
+#endif  /* __PRN_ADD_TIME__ */
+#else   /* != __PRN_LSI__ */
 
 #define max98090_log_reg_dump(fmt, ...)         do { } while (0)
 #define max98090_log_err(fmt, ...)              do { } while (0)
@@ -243,6 +278,6 @@ do {                                                                            
 #define max98090_log_efunc(fmt, ...)            do { } while (0)
 #define max98090_log_rfunc(fmt, ...)            do { } while (0)
 
-#endif	// __PRN_LSI__
+#endif	/* __PRN_LSI__ */
 
 #endif  /* __MAX98090_LOG_H__ */
