@@ -20,6 +20,12 @@
 #define RENESAS_SDHI_SDCLK_DIV1		0x04	/* Enable SDCLK div 1 */
 #define RENESAS_SDHI_DMA_SLAVE_CONFIG	0x08	/* Runtime DMA config support */
 
+/* Voltage */
+#define RENESAS_SDHI_POWER_OFF		0x00
+#define RENESAS_SDHI_POWER_ON		0x01
+#define RENESAS_SDHI_SIGNAL_V330	0x10
+#define RENESAS_SDHI_SIGNAL_V180	0x11
+
 struct renesas_sdhi_dma {
 	struct sh_dmae_slave chan_tx;
 	struct sh_dmae_slave chan_rx;

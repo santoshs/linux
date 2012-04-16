@@ -289,7 +289,7 @@ static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 	switch (power) {
 	case 1:
 		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, 1);
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_ON);
 		if (host->dynamic_clock) {
 			pm_runtime_get_sync(&host->pdev->dev);
 			sdhi_reset(host);
@@ -299,7 +299,7 @@ static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 		if (host->dynamic_clock)
 			pm_runtime_put_sync(&host->pdev->dev);
 		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, 0);
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_OFF);
 		break;
 	}
 }
@@ -1004,12 +1004,40 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 	}
 }
 
+static int renesas_sdhi_signal_voltage_switch(
+		struct mmc_host *mmc, struct mmc_ios *ios)
+{
+	struct renesas_sdhi_host *host = mmc_priv(mmc);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	u16 val16;
+
+	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
+		if (pdata->set_pwr)
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V330);
+	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+		clk_enable(host->clk);
+
+		/* disable card clock */
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		sdhi_write16(host, SDHI_CLK_CTRL, val16 & ~0x100);
+
+		if (pdata->set_pwr)
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V180);
+
+		/* enable card clock */
+		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		clk_disable(host->clk);
+	}
+	return 0;
+}
+
 static const struct mmc_host_ops renesas_sdhi_ops = {
 	.request	= renesas_sdhi_request,
 	.set_ios	= renesas_sdhi_set_ios,
 	.get_ro         = renesas_sdhi_get_ro,
 	.get_cd		= renesas_sdhi_get_cd,
 	.enable_sdio_irq = renesas_sdhi_enable_sdio_irq,
+	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
