@@ -1048,6 +1048,10 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdev = pdev;
 	host->pdata = pdata;
 
+	/* powr off */
+	host->power_mode = MMC_POWER_OFF;
+	renesas_sdhi_power(host, 0);
+
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
 	if (!pdata->dma_alignment)
