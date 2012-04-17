@@ -516,6 +516,10 @@ static struct clk mp_clk = SH_CLK_CKSEL(NULL, MPCKCR, 9, CLK_CKSEL_CKSTP,
 
 static struct clk mpc_clk = SH_CLK_CKSEL(NULL, MPCKCR, 10, CLK_CKSEL_CKSTP,
 	mp_parent, ARRAY_SIZE(mp_parent), 7, 1);
+/* sound add */
+static struct clk mpmp_clk = SH_CLK_CKSEL(NULL, MPCKCR, 11, CLK_CKSEL_CKSTP,
+	mp_parent, ARRAY_SIZE(mp_parent), 7, 1);
+/* sound add */
 
 static struct clk *fsia_parent[] = {
 	[0]	= &div6_clks[DIV6_FSIA],
@@ -778,7 +782,10 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP100] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_M3], SMSTPCR1, MSTPSR1, 0, 0), /* LCDC0 */
 	[MSTP229] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 29, 0), /* Crypt1 */
 	[MSTP228] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 28, 0), /* Crypt */
-	[MSTP224] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
+/* sound edit */
+/*	[MSTP224] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
+	[MSTP224] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
+/* sound edit */
 	[MSTP223] = SH_CLK_MSTP32_EXT(&spua_clk, SMSTPCR2, MSTPSR2, 23, 0), /* SPU2A */
 	[MSTP220] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 20, 0), /* SPU2V */
 	[MSTP218] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 18, 0), /* SY-DMAC */
@@ -796,7 +803,10 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP201] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 1, 0), /* SCIFA3 */
 	[MSTP330] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 30, 0), /* MSU */
 	[MSTP329] = SH_CLK_MSTP32_EXT(&cp_clk, SMSTPCR3, MSTPSR3, 29, 0), /* CMT1 */
-	[MSTP328] = SH_CLK_MSTP32_EXT(&fsia_clk, SMSTPCR3, MSTPSR3, 28, 0), /* FSI */
+/* sound edit */
+/*	[MSTP328] = SH_CLK_MSTP32_EXT(&fsia_clk, SMSTPCR3, MSTPSR3, 28, 0), /* FSI */
+	[MSTP328] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR3, MSTPSR3, 28, 0), /* FSI */
+/* sound edit */
 	[MSTP326] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 26, 0), /* SCUW */
 	[MSTP325] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 25, 0), /* HSI1 */
 	[MSTP324] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 24, 0), /* HSI0 */
@@ -885,6 +895,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("cp_clk", &cp_clk),
 	CLKDEV_CON_ID("m1_clk", &div4_clks[DIV4_M1]),
 	CLKDEV_CON_ID("mpc_clk", &mpc_clk),
+/* sound add */
+	CLKDEV_CON_ID("mpmp_clk", &mpmp_clk),
+/* sound add */
 	CLKDEV_CON_ID("m3_clk", &div4_clks[DIV4_M3]),
 	CLKDEV_CON_ID("mp_clk", &mp_clk),
 	CLKDEV_CON_ID("z_clk", &z_clk),
@@ -898,6 +911,13 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("currtimer", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
+	CLKDEV_CON_ID("clkgen", &mstp_clks[MSTP224]),
+/* sound add */
+	CLKDEV_CON_ID("fsi", &mstp_clks[MSTP328]), /* FSI */
+
+	CLKDEV_DEV_ID("sh_fsi2.0", &mstp_clks[MSTP328]), /* FSIA */
+	CLKDEV_DEV_ID("sh_fsi2.1", &mstp_clks[MSTP328]), /* FSIB */
+/* sound add */
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* I2C2 */
 	CLKDEV_DEV_ID("spi_sh_msiof.0", &mstp_clks[MSTP000]), /* MSIOF0 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
@@ -1013,6 +1033,9 @@ void __init r8a73734_clock_init(void)
 
 	sh_clk_cksel_register(&mp_clk, 1);
 	sh_clk_cksel_register(&mpc_clk, 1);
+	/* Sound add */
+	sh_clk_cksel_register(&mpmp_clk, 1);
+	/* Sound add */
 	sh_clk_cksel_register(&fsia_clk, 1);
 	sh_clk_cksel_register(&fsib_clk, 1);
 	sh_clk_cksel_register(&spua_clk, 1);

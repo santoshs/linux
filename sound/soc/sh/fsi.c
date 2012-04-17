@@ -1,6 +1,8 @@
 /*
  * Fifo-attached Serial Interface (FSI) support for SH7724
  *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
  * Copyright (C) 2009 Renesas Solutions Corp.
  * Kuninori Morimoto <morimoto.kuninori@renesas.com>
  *
@@ -12,62 +14,80 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/list.h>
 #include <linux/pm_runtime.h>
 #include <linux/io.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
+#include <sound/core.h>
+#include <sound/pcm.h>
+#include <sound/initval.h>
 #include <sound/soc.h>
+#include <sound/pcm_params.h>
 #include <sound/sh_fsi.h>
+#include <asm/atomic.h>
+#include <asm/cacheflush.h>
 
-/* PortA/PortB register */
-#define REG_DO_FMT	0x0000
-#define REG_DOFF_CTL	0x0004
-#define REG_DOFF_ST	0x0008
-#define REG_DI_FMT	0x000C
-#define REG_DIFF_CTL	0x0010
-#define REG_DIFF_ST	0x0014
-#define REG_CKG1	0x0018
-#define REG_CKG2	0x001C
-#define REG_DIDT	0x0020
-#define REG_DODT	0x0024
-#define REG_MUTE_ST	0x0028
-#define REG_OUT_SEL	0x0030
+#include <linux/sh_dma.h>
+#include <mach/r8a73734.h>
 
-/* master register */
-#define MST_CLK_RST	0x0210
-#define MST_SOFT_RST	0x0214
-#define MST_FIFO_SZ	0x0218
+#define USE_DMA
 
-/* core register (depend on FSI version) */
-#define A_MST_CTLR	0x0180
-#define B_MST_CTLR	0x01A0
+#define DO_FMT		0x0000
+#define DOFF_CTL	0x0004
+#define DOFF_ST		0x0008
+#define DI_FMT		0x000C
+#define DIFF_CTL	0x0010
+#define DIFF_ST		0x0014
+#define CKG1		0x0018
+#define CKG2		0x001C
+#define DIDT		0x0020
+#define DODT		0x0024
+#define MUTE_ST		0x0028
+#define OUT_DMAC	0x002C
+#define IN_DMAC		0x0038
+#define REG_END		IN_DMAC
+
 #define CPU_INT_ST	0x01F4
 #define CPU_IEMSK	0x01F8
 #define CPU_IMSK	0x01FC
 #define INT_ST		0x0200
 #define IEMSK		0x0204
 #define IMSK		0x0208
+#define MUTE		0x020C
+#define CLK_RST		0x0210
+#define SOFT_RST	0x0214
+#define FIFO_SZ		0x0218
+#define CLK_SEL		0x0220
+#ifdef USE_DMA
+#define SWAP_SEL	0x0228
+#endif
+#define HPB_SRST	0x022C
+#define MREG_START	CPU_INT_ST
+#ifdef USE_DMA
+#define MREG_END	SWAP_SEL
+#else
+#define MREG_END	HPB_SRST
+#endif
 
 /* DO_FMT */
 /* DI_FMT */
-#define CR_BWS_24	(0x0 << 20) /* FSI2 */
-#define CR_BWS_16	(0x1 << 20) /* FSI2 */
-#define CR_BWS_20	(0x2 << 20) /* FSI2 */
-
-#define CR_DTMD_PCM		(0x0 << 8) /* FSI2 */
-#define CR_DTMD_SPDIF_PCM	(0x1 << 8) /* FSI2 */
-#define CR_DTMD_SPDIF_STREAM	(0x2 << 8) /* FSI2 */
-
-#define CR_MONO		(0x0 << 4)
-#define CR_MONO_D	(0x1 << 4)
-#define CR_PCM		(0x2 << 4)
-#define CR_I2S		(0x3 << 4)
-#define CR_TDM		(0x4 << 4)
-#define CR_TDM_D	(0x5 << 4)
+#define CR_FMT(param) ((param) << 4)
+# define CR_MONO	0x0
+# define CR_MONO_D	0x1
+# define CR_PCM		0x2
+# define CR_I2S		0x3
+# define CR_TDM		0x4
+# define CR_TDM_D	0x5
 
 /* DOFF_CTL */
 /* DIFF_CTL */
 #define IRQ_HALF	0x00100000
+#define IRQ_1SAMPLE	0x00200000
 #define FIFO_CLR	0x00000001
 
 /* DOFF_ST */
@@ -78,23 +98,16 @@
 /* CKG1 */
 #define ACKMD_MASK	0x00007000
 #define BPFMD_MASK	0x00000700
-#define DIMD		(1 << 4)
-#define DOMD		(1 << 0)
-
-/* A/B MST_CTLR */
-#define BP	(1 << 4)	/* Fix the signal of Biphase output */
-#define SE	(1 << 0)	/* Fix the master clock */
 
 /* CLK_RST */
-#define CRB	(1 << 4)
-#define CRA	(1 << 0)
+#define B_CLK		0x00000010
+#define A_CLK		0x00000001
 
-/* IO SHIFT / MACRO */
-#define BI_SHIFT	12
-#define BO_SHIFT	8
-#define AI_SHIFT	4
-#define AO_SHIFT	0
-#define AB_IO(param, shift)	(param << shift)
+/* INT_ST */
+#define INT_B_IN	(1 << 12)
+#define INT_B_OUT	(1 << 8)
+#define INT_A_IN	(1 << 4)
+#define INT_A_OUT	(1 << 0)
 
 /* SOFT_RST */
 #define PBSR		(1 << 12) /* Port B Software Reset */
@@ -102,44 +115,44 @@
 #define IR		(1 <<  4) /* Interrupt Reset */
 #define FSISR		(1 <<  0) /* Software Reset */
 
-/* OUT_SEL (FSI2) */
-#define DMMD		(1 << 4) /* SPDIF output timing 0: Biphase only */
-				 /*			1: Biphase and serial */
-
 /* FIFO_SZ */
-#define FIFO_SZ_MASK	0x7
+#define OUT_SZ_MASK	0x7
+#define BO_SZ_SHIFT	8
+#define AO_SZ_SHIFT	0
 
 #define FSI_RATES SNDRV_PCM_RATE_8000_96000
 
 #define FSI_FMTS (SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE)
 
-typedef int (*set_rate_func)(struct device *dev, int is_porta, int rate, int enable);
+#define SYSDMA_BASE				0xFE000000
+#define SYSDMA_RESOURSE_SIZE	0xA000
+#define SYSDMA_SAR_BASE			0x8000
+#define SYSDMA_DAR_BASE			0x8004
+#define SYSDMA_ADRR_INTERVAL	0x80
+/************************************************************************
 
-/*
- * FSI driver use below type name for variable
- *
- * xxx_len	: data length
- * xxx_width	: data width
- * xxx_offset	: data offset
- * xxx_num	: number of data
- */
 
-/*
- *		struct
- */
+		struct
 
+
+************************************************************************/
 struct fsi_stream {
 	struct snd_pcm_substream *substream;
 
-	int fifo_max_num;
+	int fifo_max;
+	int chan;
 
-	int buff_offset;
-	int buff_len;
+	int byte_offset;
 	int period_len;
-	int period_num;
-
-	int uerr_num;
-	int oerr_num;
+	int buffer_len;
+	int periods;
+#ifdef USE_DMA
+	struct scatterlist		sg;
+	struct sh_dmae_slave	dma_param;
+	struct dma_chan			*dma_chan;
+	dma_cookie_t			dma_cookie;
+	int	is_play;
+#endif
 };
 
 struct fsi_priv {
@@ -148,28 +161,25 @@ struct fsi_priv {
 
 	struct fsi_stream playback;
 	struct fsi_stream capture;
-
-	int chan_num:16;
-	int clk_master:1;
-
-	long rate;
-
-	/* for suspend/resume */
-	u32 saved_do_fmt;
-	u32 saved_di_fmt;
-	u32 saved_ckg1;
-	u32 saved_ckg2;
-	u32 saved_out_sel;
+#ifdef USE_DMA
+	void __iomem *phys_base;
+	unsigned int out_dma;
+	unsigned int in_dma;
+#endif
 };
 
-struct fsi_core {
+struct fsi_regs {
 	int ver;
 
 	u32 int_st;
 	u32 iemsk;
 	u32 imsk;
-	u32 a_mclk;
-	u32 b_mclk;
+};
+
+struct fsi_clks {
+	struct clk *clkgen;
+/*	struct clk *shdmac; */
+	struct clk *fsi;
 };
 
 struct fsi_master {
@@ -177,23 +187,77 @@ struct fsi_master {
 	int irq;
 	struct fsi_priv fsia;
 	struct fsi_priv fsib;
-	struct fsi_core *core;
+	struct fsi_regs *regs;
 	struct sh_fsi_platform_info *info;
 	spinlock_t lock;
 
-	/* for suspend/resume */
-	u32 saved_a_mclk;
-	u32 saved_b_mclk;
-	u32 saved_iemsk;
-	u32 saved_imsk;
-	u32 saved_clk_rst;
-	u32 saved_soft_rst;
+	struct fsi_clks clks;
 };
 
-/*
- *		basic read write function
- */
+struct fsi_work {
+	struct fsi_master *master;
+	struct work_struct work;
+};
 
+static bool g_fsi_trigger_start[SNDRV_PCM_STREAM_LAST];
+#ifdef USE_DMA
+static unsigned int g_old_addr;
+#endif
+void fsi_set_trigger_stop(struct snd_pcm_substream *substream, bool flag);
+void fsi_dma_stop_by_hooks(void);
+static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream);
+static void fsi_irq_enable(struct fsi_priv *fsi, int is_play);
+static void fsi_irq_disable(struct fsi_priv *fsi, int is_play);
+#ifdef USE_DMA
+static void fsi_dma_callback(void *fsi);
+static void fsi_dma_callback_cap(void *fsi);
+/* static int fsi_dma_stop(struct fsi_priv *fsi, int is_play); */
+static int fsi_dma_exit(struct fsi_priv *fsi, int is_play);
+static void __iomem *sysdma_base_addr;
+#endif
+static struct fsi_work *fsi_push_work;
+static struct fsi_work *fsi_pop_work;
+static struct workqueue_struct *fsi_wq;
+static int pio_is_play;
+
+void fsi_set_trigger_stop(struct snd_pcm_substream *substream, bool flag)
+{
+	struct fsi_priv *fsi = fsi_get_priv(substream);
+	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	g_fsi_trigger_start[substream->stream] = flag;
+
+	if (flag) {
+		fsi_irq_enable(fsi, is_play);
+	} else {
+		fsi_irq_disable(fsi, is_play);
+		if (is_play) {
+#ifdef USE_DMA
+			/* fsi_dma_stop(fsi, is_play); */
+#endif /* USE_DMA */
+		}
+	}
+}
+EXPORT_SYMBOL(fsi_set_trigger_stop);
+
+#ifdef USE_DMA
+void fsi_dma_stop_by_hooks(void)
+{
+
+}
+EXPORT_SYMBOL(fsi_dma_stop_by_hooks);
+#endif /* USE_DMA */
+
+/* global variable */
+callback_function g_fsi_logical;
+
+/************************************************************************
+
+
+		basic read write function
+
+
+************************************************************************/
 static void __fsi_reg_write(u32 reg, u32 data)
 {
 	/* valid data area is 24bit */
@@ -217,21 +281,51 @@ static void __fsi_reg_mask_set(u32 reg, u32 mask, u32 data)
 	__fsi_reg_write(reg, val);
 }
 
-#define fsi_reg_write(p, r, d)\
-	__fsi_reg_write((u32)(p->base + REG_##r), d)
+static void fsi_reg_write(struct fsi_priv *fsi, u32 reg, u32 data)
+{
+	if (reg > REG_END)
+		return;
 
-#define fsi_reg_read(p, r)\
-	__fsi_reg_read((u32)(p->base + REG_##r))
+	__fsi_reg_write((u32)(fsi->base + reg), data);
+}
 
-#define fsi_reg_mask_set(p, r, m, d)\
-	__fsi_reg_mask_set((u32)(p->base + REG_##r), m, d)
+static u32 fsi_reg_read(struct fsi_priv *fsi, u32 reg)
+{
+	if (reg > REG_END)
+		return 0;
 
-#define fsi_master_read(p, r) _fsi_master_read(p, MST_##r)
-#define fsi_core_read(p, r)   _fsi_master_read(p, p->core->r)
-static u32 _fsi_master_read(struct fsi_master *master, u32 reg)
+	return __fsi_reg_read((u32)(fsi->base + reg));
+}
+
+static void fsi_reg_mask_set(struct fsi_priv *fsi, u32 reg, u32 mask, u32 data)
+{
+	if (reg > REG_END)
+		return;
+
+	__fsi_reg_mask_set((u32)(fsi->base + reg), mask, data);
+}
+
+static void fsi_master_write(struct fsi_master *master, u32 reg, u32 data)
+{
+	unsigned long flags;
+
+	if ((reg < MREG_START) ||
+	    (reg > MREG_END))
+		return;
+
+	spin_lock_irqsave(&master->lock, flags);
+	__fsi_reg_write((u32)(master->base + reg), data);
+	spin_unlock_irqrestore(&master->lock, flags);
+}
+
+static u32 fsi_master_read(struct fsi_master *master, u32 reg)
 {
 	u32 ret;
 	unsigned long flags;
+
+	if ((reg < MREG_START) ||
+	    (reg > MREG_END))
+		return 0;
 
 	spin_lock_irqsave(&master->lock, flags);
 	ret = __fsi_reg_read((u32)(master->base + reg));
@@ -240,30 +334,30 @@ static u32 _fsi_master_read(struct fsi_master *master, u32 reg)
 	return ret;
 }
 
-#define fsi_master_mask_set(p, r, m, d) _fsi_master_mask_set(p, MST_##r, m, d)
-#define fsi_core_mask_set(p, r, m, d)  _fsi_master_mask_set(p, p->core->r, m, d)
-static void _fsi_master_mask_set(struct fsi_master *master,
+static void fsi_master_mask_set(struct fsi_master *master,
 			       u32 reg, u32 mask, u32 data)
 {
 	unsigned long flags;
+
+	if ((reg < MREG_START) ||
+	    (reg > MREG_END))
+		return;
 
 	spin_lock_irqsave(&master->lock, flags);
 	__fsi_reg_mask_set((u32)(master->base + reg), mask, data);
 	spin_unlock_irqrestore(&master->lock, flags);
 }
 
-/*
- *		basic function
- */
+/************************************************************************
 
+
+		basic function
+
+
+************************************************************************/
 static struct fsi_master *fsi_get_master(struct fsi_priv *fsi)
 {
 	return fsi->master;
-}
-
-static int fsi_is_clk_master(struct fsi_priv *fsi)
-{
-	return fsi->clk_master;
 }
 
 static int fsi_is_port_a(struct fsi_priv *fsi)
@@ -278,68 +372,66 @@ static struct snd_soc_dai *fsi_get_dai(struct snd_pcm_substream *substream)
 	return  rtd->cpu_dai;
 }
 
-static struct fsi_priv *fsi_get_priv_frm_dai(struct snd_soc_dai *dai)
+struct fsi_priv *fsi_get_priv_frm_dai(struct snd_soc_dai *dai)
 {
 	struct fsi_master *master = snd_soc_dai_get_drvdata(dai);
-
-	if (dai->id == 0)
+/*
+ *	if (dai->id == 0)
+ */
 		return &master->fsia;
-	else
-		return &master->fsib;
+/*	else
+ *		return &master->fsib;
+ */
 }
+EXPORT_SYMBOL(fsi_get_priv_frm_dai);
 
 static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream)
 {
 	return fsi_get_priv_frm_dai(fsi_get_dai(substream));
 }
 
-static set_rate_func fsi_get_info_set_rate(struct fsi_master *master)
-{
-	if (!master->info)
-		return NULL;
-
-	return master->info->set_rate;
-}
-
 static u32 fsi_get_info_flags(struct fsi_priv *fsi)
 {
-	int is_porta = fsi_is_port_a(fsi);
 	struct fsi_master *master = fsi_get_master(fsi);
 
 	if (!master->info)
 		return 0;
 
-	return is_porta ? master->info->porta_flags :
-		master->info->portb_flags;
+	return master->info->port_flags;
 }
 
-static inline int fsi_stream_is_play(int stream)
+static int fsi_is_master_mode(struct fsi_priv *fsi, int is_play)
 {
-	return stream == SNDRV_PCM_STREAM_PLAYBACK;
+	u32 mode;
+	u32 flags = fsi_get_info_flags(fsi);
+
+	mode = is_play ? SH_FSI_OUT_SLAVE_MODE : SH_FSI_IN_SLAVE_MODE;
+
+	/* return
+	 * 1 : master mode
+	 * 0 : slave mode
+	 */
+
+	return (mode & flags) != mode;
 }
 
-static inline int fsi_is_play(struct snd_pcm_substream *substream)
+static u32 fsi_port_ab_io_bit(struct fsi_priv *fsi, int is_play)
 {
-	return fsi_stream_is_play(substream->stream);
+	int is_porta = fsi_is_port_a(fsi);
+	u32 data;
+
+	if (is_porta)
+		data = is_play ? (1 << 0) : (1 << 4);
+	else
+		data = is_play ? (1 << 8) : (1 << 12);
+
+	return data;
 }
 
 static inline struct fsi_stream *fsi_get_stream(struct fsi_priv *fsi,
 						int is_play)
 {
 	return is_play ? &fsi->playback : &fsi->capture;
-}
-
-static u32 fsi_get_port_shift(struct fsi_priv *fsi, int is_play)
-{
-	int is_porta = fsi_is_port_a(fsi);
-	u32 shift;
-
-	if (is_porta)
-		shift = is_play ? AO_SHIFT : AI_SHIFT;
-	else
-		shift = is_play ? BO_SHIFT : BI_SHIFT;
-
-	return shift;
 }
 
 static void fsi_stream_push(struct fsi_priv *fsi,
@@ -351,265 +443,126 @@ static void fsi_stream_push(struct fsi_priv *fsi,
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
 
 	io->substream	= substream;
-	io->buff_len	= buffer_len;
-	io->buff_offset	= 0;
+	io->buffer_len	= buffer_len;
 	io->period_len	= period_len;
-	io->period_num	= 0;
-	io->oerr_num	= -1; /* ignore 1st err */
-	io->uerr_num	= -1; /* ignore 1st err */
+	io->byte_offset	= 0;
+	io->periods	= 0;
 }
 
 static void fsi_stream_pop(struct fsi_priv *fsi, int is_play)
 {
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-	struct snd_soc_dai *dai = fsi_get_dai(io->substream);
-
-
-	if (io->oerr_num > 0)
-		dev_err(dai->dev, "over_run = %d\n", io->oerr_num);
-
-	if (io->uerr_num > 0)
-		dev_err(dai->dev, "under_run = %d\n", io->uerr_num);
 
 	io->substream	= NULL;
-	io->buff_len	= 0;
-	io->buff_offset	= 0;
+	io->buffer_len	= 0;
 	io->period_len	= 0;
-	io->period_num	= 0;
-	io->oerr_num	= 0;
-	io->uerr_num	= 0;
+	io->byte_offset	= 0;
+	io->periods	= 0;
 }
 
-static int fsi_get_fifo_data_num(struct fsi_priv *fsi, int is_play)
+static int fsi_get_fifo_residue(struct fsi_priv *fsi, int is_play)
 {
 	u32 status;
-	int data_num;
-
-	status = is_play ?
-		fsi_reg_read(fsi, DOFF_ST) :
-		fsi_reg_read(fsi, DIFF_ST);
-
-	data_num = 0x1ff & (status >> 8);
-	data_num *= fsi->chan_num;
-
-	return data_num;
-}
-
-static int fsi_len2num(int len, int width)
-{
-	return len / width;
-}
-
-#define fsi_num2offset(a, b) fsi_num2len(a, b)
-static int fsi_num2len(int num, int width)
-{
-	return num * width;
-}
-
-static int fsi_get_frame_width(struct fsi_priv *fsi, int is_play)
-{
+	u32 reg = is_play ? DOFF_ST : DIFF_ST;
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-	struct snd_pcm_substream *substream = io->substream;
-	struct snd_pcm_runtime *runtime = substream->runtime;
+	int residue;
 
-	return frames_to_bytes(runtime, 1) / fsi->chan_num;
+	status = fsi_reg_read(fsi, reg);
+	residue = 0x1ff & (status >> 8);
+	residue *= io->chan;
+
+	return residue;
 }
 
-static void fsi_count_fifo_err(struct fsi_priv *fsi)
-{
-	u32 ostatus = fsi_reg_read(fsi, DOFF_ST);
-	u32 istatus = fsi_reg_read(fsi, DIFF_ST);
-
-	if (ostatus & ERR_OVER)
-		fsi->playback.oerr_num++;
-
-	if (ostatus & ERR_UNDER)
-		fsi->playback.uerr_num++;
-
-	if (istatus & ERR_OVER)
-		fsi->capture.oerr_num++;
-
-	if (istatus & ERR_UNDER)
-		fsi->capture.uerr_num++;
-
-	fsi_reg_write(fsi, DOFF_ST, 0);
-	fsi_reg_write(fsi, DIFF_ST, 0);
-}
-
-/*
- *		dma function
- */
-
-static u8 *fsi_dma_get_area(struct fsi_priv *fsi, int stream)
-{
-	int is_play = fsi_stream_is_play(stream);
-	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-
-	return io->substream->runtime->dma_area + io->buff_offset;
-}
-
-static void fsi_dma_soft_push16(struct fsi_priv *fsi, int num)
-{
-	u16 *start;
-	int i;
-
-	start  = (u16 *)fsi_dma_get_area(fsi, SNDRV_PCM_STREAM_PLAYBACK);
-
-	for (i = 0; i < num; i++)
-		fsi_reg_write(fsi, DODT, ((u32)*(start + i) << 8));
-}
-
-static void fsi_dma_soft_pop16(struct fsi_priv *fsi, int num)
-{
-	u16 *start;
-	int i;
-
-	start  = (u16 *)fsi_dma_get_area(fsi, SNDRV_PCM_STREAM_CAPTURE);
+/************************************************************************
 
 
-	for (i = 0; i < num; i++)
-		*(start + i) = (u16)(fsi_reg_read(fsi, DIDT) >> 8);
-}
-
-static void fsi_dma_soft_push32(struct fsi_priv *fsi, int num)
-{
-	u32 *start;
-	int i;
-
-	start  = (u32 *)fsi_dma_get_area(fsi, SNDRV_PCM_STREAM_PLAYBACK);
+		irq function
 
 
-	for (i = 0; i < num; i++)
-		fsi_reg_write(fsi, DODT, *(start + i));
-}
-
-static void fsi_dma_soft_pop32(struct fsi_priv *fsi, int num)
-{
-	u32 *start;
-	int i;
-
-	start  = (u32 *)fsi_dma_get_area(fsi, SNDRV_PCM_STREAM_CAPTURE);
-
-	for (i = 0; i < num; i++)
-		*(start + i) = fsi_reg_read(fsi, DIDT);
-}
-
-/*
- *		irq function
- */
-
+************************************************************************/
 static void fsi_irq_enable(struct fsi_priv *fsi, int is_play)
 {
-	u32 data = AB_IO(1, fsi_get_port_shift(fsi, is_play));
+	u32 data = fsi_port_ab_io_bit(fsi, is_play);
 	struct fsi_master *master = fsi_get_master(fsi);
 
-	fsi_core_mask_set(master, imsk,  data, data);
-	fsi_core_mask_set(master, iemsk, data, data);
+	fsi_master_mask_set(master, master->regs->imsk,  data, data);
+	fsi_master_mask_set(master, master->regs->iemsk, data, data);
 }
 
 static void fsi_irq_disable(struct fsi_priv *fsi, int is_play)
 {
-	u32 data = AB_IO(1, fsi_get_port_shift(fsi, is_play));
+	u32 data = fsi_port_ab_io_bit(fsi, is_play);
 	struct fsi_master *master = fsi_get_master(fsi);
 
-	fsi_core_mask_set(master, imsk,  data, 0);
-	fsi_core_mask_set(master, iemsk, data, 0);
+	fsi_master_mask_set(master, master->regs->imsk,  data, 0);
+	fsi_master_mask_set(master, master->regs->iemsk, data, 0);
 }
 
 static u32 fsi_irq_get_status(struct fsi_master *master)
 {
-	return fsi_core_read(master, int_st);
+	return fsi_master_read(master, master->regs->int_st);
 }
 
-static void fsi_irq_clear_status(struct fsi_priv *fsi)
+static void fsi_irq_clear_status(struct fsi_priv *fsi, int is_play)
 {
 	u32 data = 0;
 	struct fsi_master *master = fsi_get_master(fsi);
 
-	data |= AB_IO(1, fsi_get_port_shift(fsi, 0));
-	data |= AB_IO(1, fsi_get_port_shift(fsi, 1));
+	data |= fsi_port_ab_io_bit(fsi, is_play);
 
 	/* clear interrupt factor */
-	fsi_core_mask_set(master, int_st, data, 0);
+	fsi_master_mask_set(master, master->regs->int_st, data, 0);
 }
 
-/*
- *		SPDIF master clock function
- *
- * These functions are used later FSI2
- */
-static void fsi_spdif_clk_ctrl(struct fsi_priv *fsi, int enable)
+/************************************************************************
+
+
+		ctrl function
+
+
+************************************************************************/
+static void fsi_clk_enable(struct fsi_master *master)
 {
+	clk_enable(master->clks.clkgen);
+/*	clk_enable(master->clks.shdmac); */
+	clk_enable(master->clks.fsi);
+}
+
+static void fsi_clk_disable(struct fsi_master *master)
+{
+	clk_disable(master->clks.fsi);
+	/* clk_disable(master->clks.shdmac); */
+	/* clk_disable(master->clks.clkgen); */
+}
+
+static void fsi_clk_ctrl(struct fsi_priv *fsi, int enable)
+{
+	u32 val = fsi_is_port_a(fsi) ? (1 << 0) : (1 << 4);
 	struct fsi_master *master = fsi_get_master(fsi);
-	u32 mask, val;
 
-	if (master->core->ver < 2) {
-		pr_err("fsi: register access err (%s)\n", __func__);
-		return;
+	if (enable)
+		fsi_master_mask_set(master, CLK_RST, val, val);
+	else {
+		fsi_master_mask_set(master, CLK_RST, val, 0);
+		udelay(200); /* > one audio clock == 125us @ 8kHz */
 	}
-
-	mask = BP | SE;
-	val = enable ? mask : 0;
-
-	fsi_is_port_a(fsi) ?
-		fsi_core_mask_set(master, a_mclk, mask, val) :
-		fsi_core_mask_set(master, b_mclk, mask, val);
 }
 
-/*
- *		clock function
- */
-#define fsi_module_init(m, d)	__fsi_module_clk_ctrl(m, d, 1)
-#define fsi_module_kill(m, d)	__fsi_module_clk_ctrl(m, d, 0)
-static void __fsi_module_clk_ctrl(struct fsi_master *master,
-				  struct device *dev,
-				  int enable)
-{
-	pm_runtime_get_sync(dev);
-
-	if (enable) {
-		/* enable only SR */
-		fsi_master_mask_set(master, SOFT_RST, FSISR, FSISR);
-		fsi_master_mask_set(master, SOFT_RST, PASR | PBSR, 0);
-	} else {
-		/* clear all registers */
-		fsi_master_mask_set(master, SOFT_RST, FSISR, 0);
-	}
-
-	pm_runtime_put_sync(dev);
-}
-
-#define fsi_port_start(f)	__fsi_port_clk_ctrl(f, 1)
-#define fsi_port_stop(f)	__fsi_port_clk_ctrl(f, 0)
-static void __fsi_port_clk_ctrl(struct fsi_priv *fsi, int enable)
-{
-	struct fsi_master *master = fsi_get_master(fsi);
-	u32 soft = fsi_is_port_a(fsi) ? PASR : PBSR;
-	u32 clk  = fsi_is_port_a(fsi) ? CRA  : CRB;
-	int is_master = fsi_is_clk_master(fsi);
-
-	fsi_master_mask_set(master, SOFT_RST, soft, (enable) ? soft : 0);
-	if (is_master)
-		fsi_master_mask_set(master, CLK_RST, clk, (enable) ? clk : 0);
-}
-
-/*
- *		ctrl function
- */
 static void fsi_fifo_init(struct fsi_priv *fsi,
 			  int is_play,
 			  struct snd_soc_dai *dai)
 {
 	struct fsi_master *master = fsi_get_master(fsi);
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-	u32 shift, i;
+	u32 ctrl, shift, i;
 
 	/* get on-chip RAM capacity */
 	shift = fsi_master_read(master, FIFO_SZ);
-	shift >>= fsi_get_port_shift(fsi, is_play);
-	shift &= FIFO_SZ_MASK;
-	io->fifo_max_num = 256 << shift;
-	dev_dbg(dai->dev, "fifo = %d words\n", io->fifo_max_num);
+	shift >>= fsi_is_port_a(fsi) ? AO_SZ_SHIFT : BO_SZ_SHIFT;
+	shift &= OUT_SZ_MASK;
+	io->fifo_max = 256 << shift;
+	dev_dbg(dai->dev, "fifo = %d words\n", io->fifo_max);
 
 	/*
 	 * The maximum number of sample data varies depending
@@ -630,38 +583,285 @@ static void fsi_fifo_init(struct fsi_priv *fsi,
 	 * 7 channels:  32 ( 32 x 7 = 224)
 	 * 8 channels:  32 ( 32 x 8 = 256)
 	 */
-	for (i = 1; i < fsi->chan_num; i <<= 1)
-		io->fifo_max_num >>= 1;
-	dev_dbg(dai->dev, "%d channel %d store\n",
-		fsi->chan_num, io->fifo_max_num);
+	for (i = 1; i < io->chan; i <<= 1)
+		io->fifo_max >>= 1;
+	dev_dbg(dai->dev, "%d channel %d store\n", io->chan, io->fifo_max);
 
-	/*
-	 * set interrupt generation factor
-	 * clear FIFO
-	 */
-	if (is_play) {
-		fsi_reg_write(fsi,	DOFF_CTL, IRQ_HALF);
-		fsi_reg_mask_set(fsi,	DOFF_CTL, FIFO_CLR, FIFO_CLR);
+	ctrl = is_play ? DOFF_CTL : DIFF_CTL;
+
+	/* set interrupt generation factor */
+	fsi_reg_write(fsi, ctrl, IRQ_HALF);
+
+	/* clear FIFO */
+	fsi_reg_mask_set(fsi, ctrl, FIFO_CLR, FIFO_CLR);
+
+#ifdef USE_DMA
+	/* Setting DMA */
+	if (is_play && io->substream) {
+		/* called by fsi_dma_process() */
+		fsi_reg_write(fsi, OUT_DMAC, 0x21);
+		fsi_master_write(master, SWAP_SEL, 2);
+	} else if (io->substream) {
+		/* called by fsi_dma_process() */
+		fsi_reg_write(fsi, IN_DMAC, 0x1);
+		fsi_master_write(master, SWAP_SEL, 2);
+	} else
+		fsi_master_write(master, SWAP_SEL, 0);
+#endif
+}
+
+static void fsi_soft_all_reset(struct fsi_master *master)
+{
+	uint addr;
+
+	addr = (u_long)ioremap_nocache(0xE6150000, 0x100);
+
+	fsi_clk_enable(master);
+
+	iounmap((void *)addr);
+
+	/* change clock to HPB */
+	fsi_master_mask_set(master, HPB_SRST, (1 << 16), 0x0);
+	udelay(10);
+	fsi_master_mask_set(master, HPB_SRST, (1 << 20), 0x0);
+	fsi_master_mask_set(master, HPB_SRST, (1 << 20), (1 << 20));
+
+	/* port AB reset */
+	fsi_master_mask_set(master, SOFT_RST, PASR | PBSR, 0);
+	mdelay(13);
+
+	/* soft reset */
+	fsi_master_mask_set(master, SOFT_RST, FSISR, 0);
+	fsi_master_mask_set(master, SOFT_RST, FSISR, FSISR);
+	mdelay(13);
+
+	fsi_clk_disable(master);
+}
+
+#ifdef USE_DMA
+static bool fsi_dma_filter(struct dma_chan *chan, void *arg)
+{
+	dev_dbg(chan->device->dev, "%s: slave data %p\n", __func__, arg);
+
+	if (chan->dev->dev_id == 0) {
+		chan->private = arg;
+		return true;
 	} else {
-		fsi_reg_write(fsi,	DIFF_CTL, IRQ_HALF);
-		fsi_reg_mask_set(fsi,	DIFF_CTL, FIFO_CLR, FIFO_CLR);
+		return false;
 	}
 }
 
-static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int stream)
+static int fsi_dma_init(struct fsi_priv *fsi,
+	struct snd_pcm_substream *substream, int is_play)
+{
+	dma_cap_mask_t mask;
+	struct sh_dmae_slave *param;
+	struct snd_soc_dai *dai;
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+
+	param = &io->dma_param;
+	param->dma_dev = NULL;
+
+	if (is_play == 1)
+		param->slave_id = SHDMA_SLAVE_FSI2A_TX;
+	else
+		param->slave_id = SHDMA_SLAVE_FSI2A_RX;
+
+	dma_cap_zero(mask);
+	dma_cap_set(DMA_SLAVE, mask);
+
+	if (!io->dma_chan)
+		io->dma_chan = dma_request_channel(mask, fsi_dma_filter, param);
+
+	if (!io->dma_chan) {
+		dai = fsi_get_dai(substream);
+		dev_dbg(dai->dev, "dma_request_channel failure.\n");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+#if 0
+static int fsi_dma_stop(struct fsi_priv *fsi, int is_play)
+{
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+
+	if (!io->dma_chan)
+		return 0;
+
+	return 0;
+}
+#endif
+
+static int fsi_dma_exit(struct fsi_priv *fsi, int is_play)
+{
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+	struct snd_soc_dai *dai;
+	int dma_direction;
+
+	if (!io->dma_chan)
+		return 0;
+
+	io->dma_chan->device->device_control(io->dma_chan,
+		DMA_TERMINATE_ALL, 0);
+
+	if (is_play == 1)
+		dma_direction = DMA_TO_DEVICE;
+	else
+		dma_direction = DMA_FROM_DEVICE;
+
+	if (io->substream) {
+		dai = fsi_get_dai(io->substream);
+		dma_unmap_sg(dai->dev, &io->sg, 1, dma_direction);
+	}
+
+	dma_release_channel(io->dma_chan);
+	io->dma_chan = NULL;
+
+	if (is_play)
+		fsi_reg_write(fsi, OUT_DMAC, 0);
+	else
+		fsi_reg_write(fsi, IN_DMAC, 0);
+
+	return 0;
+}
+
+static int fsi_dma_get_pos(int is_play, struct fsi_priv *fsi)
+{
+	unsigned int  addr;
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+
+	if (is_play) {
+		addr = __raw_readl(sysdma_base_addr + SYSDMA_SAR_BASE +
+			io->dma_chan->chan_id * SYSDMA_ADRR_INTERVAL);
+		return addr;
+	} else {
+		addr = __raw_readl(sysdma_base_addr + SYSDMA_DAR_BASE +
+			io->dma_chan->chan_id * SYSDMA_ADRR_INTERVAL);
+		return addr;
+	}
+}
+
+static int fsi_dma_data_write(struct fsi_priv *fsi,
+	struct snd_pcm_substream *substream, int is_play)
+{
+	struct snd_pcm_runtime *runtime;
+	struct snd_soc_dai *dai = fsi_get_dai(substream);
+	struct dma_async_tx_descriptor *desc = NULL;
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+	struct dma_chan *chan = io->dma_chan;
+	struct scatterlist *sg;
+	unsigned int period_size;
+	unsigned int dma_offset;
+	dma_addr_t dma_pos;
+	int bufsize;
+	int ret;
+	int dma_direction;
+	void *callback;
+
+	if (!chan) {
+		dev_dbg(dai->dev, "%s :dma channel err.\n", __func__);
+		return -ENODEV;
+	}
+
+	runtime = substream->runtime;
+
+	period_size = snd_pcm_lib_period_bytes(substream);
+	dma_offset = io->periods * period_size;
+	dma_pos = runtime->dma_addr + dma_offset;
+	bufsize = period_size;
+
+	if (is_play == 1) {
+		dma_direction = DMA_TO_DEVICE;
+		callback = fsi_dma_callback;
+	} else {
+		dma_direction = DMA_FROM_DEVICE;
+		callback = fsi_dma_callback_cap;
+	}
+
+	if (chan) {
+		sg = &io->sg;
+		sg_init_table(sg, 1);
+		sg_set_page(sg, pfn_to_page(PFN_DOWN(dma_pos)),
+			bufsize, offset_in_page(dma_pos));
+		ret = dma_map_sg(dai->dev, sg, 1, dma_direction);
+		if (0 < ret) {
+			desc = chan->device->device_prep_slave_sg(chan, sg, 1,
+			dma_direction, (DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
+			if (NULL != desc) {
+				desc->callback = callback;
+				desc->callback_param = fsi;
+				io->dma_cookie = dmaengine_submit(desc);
+			} else {
+				dev_dbg(dai->dev,
+				"%s device_prep_slave_sg err.\n", __func__);
+			}
+		} else {
+			dev_dbg(dai->dev,
+			"%s dma_map_sg err(%d).\n", __func__, ret);
+		}
+	}
+
+	io->periods++;
+	if (unlikely(io->periods >= runtime->periods))
+		io->periods = 0;
+
+	return 0;
+}
+
+static int fsi_dma_start(struct fsi_priv *fsi, int is_play)
+{
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+
+	if (!io->dma_chan)
+		return -ENODEV;
+
+	dma_async_issue_pending(io->dma_chan);
+
+	return 0;
+}
+
+static int fsi_dma_process(struct fsi_priv *fsi, int startup, int is_play)
+{
+	struct snd_pcm_substream *substream = NULL;
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
+	struct snd_pcm_runtime *runtime;
+
+	if (!io				||
+	    !io->substream		||
+	    !io->substream->runtime)
+		return -EINVAL;
+
+	substream = io->substream;
+	fsi_dma_data_write(fsi, substream, is_play);
+
+	if (startup) {
+		runtime = substream->runtime;
+		g_old_addr = runtime->dma_addr;
+		fsi_dma_start(fsi, is_play);
+		fsi_fifo_init(fsi, is_play, NULL);
+	} else {
+		fsi_dma_start(fsi, is_play);
+	}
+
+	return 0;
+}
+
+#if 0
+static int fsi_dma_process_cap(struct fsi_priv *fsi, int startup)
 {
 	struct snd_pcm_runtime *runtime;
 	struct snd_pcm_substream *substream = NULL;
-	int is_play = fsi_stream_is_play(stream);
-	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-	int data_residue_num;
-	int data_num;
-	int data_num_max;
-	int ch_width;
-	int over_period;
-	void (*fn)(struct fsi_priv *fsi, int size);
+	struct fsi_stream *io = fsi_get_stream(fsi, 0);
+	u32 status;
+	int free;
+	int fifo_fill;
+	int width;
+	u8 *start;
+	int i, over_period;
 
-	if (!fsi			||
+	if (!io			||
 	    !io->substream		||
 	    !io->substream->runtime)
 		return -EINVAL;
@@ -673,131 +873,462 @@ static int fsi_fifo_data_ctrl(struct fsi_priv *fsi, int stream)
 	/* FSI FIFO has limit.
 	 * So, this driver can not send periods data at a time
 	 */
-	if (io->buff_offset >=
-	    fsi_num2offset(io->period_num + 1, io->period_len)) {
+	if (io->byte_offset >=
+	    io->period_len * (io->periods + 1)) {
 
 		over_period = 1;
-		io->period_num = (io->period_num + 1) % runtime->periods;
+		io->periods = (io->periods + 1) % runtime->periods;
 
-		if (0 == io->period_num)
-			io->buff_offset = 0;
+		if (0 == io->periods)
+			io->byte_offset = 0;
 	}
 
 	/* get 1 channel data width */
-	ch_width = fsi_get_frame_width(fsi, is_play);
+	width = frames_to_bytes(runtime, 1) / io->chan;
 
-	/* get residue data number of alsa */
-	data_residue_num = fsi_len2num(io->buff_len - io->buff_offset,
-				       ch_width);
+	/* get free space for alsa */
+	free = (io->buffer_len - io->byte_offset) / width;
 
-	if (is_play) {
-		/*
-		 * for play-back
-		 *
-		 * data_num_max	: number of FSI fifo free space
-		 * data_num	: number of ALSA residue data
-		 */
-		data_num_max  = io->fifo_max_num * fsi->chan_num;
-		data_num_max -= fsi_get_fifo_data_num(fsi, is_play);
+	/* get recv size */
+	fifo_fill = fsi_get_fifo_residue(fsi, 0);
 
-		data_num = data_residue_num;
+	if (free < fifo_fill)
+		fifo_fill = free;
 
-		switch (ch_width) {
-		case 2:
-			fn = fsi_dma_soft_push16;
-			break;
-		case 4:
-			fn = fsi_dma_soft_push32;
-			break;
-		default:
-			return -EINVAL;
-		}
-	} else {
-		/*
-		 * for capture
-		 *
-		 * data_num_max	: number of ALSA free space
-		 * data_num	: number of data in FSI fifo
-		 */
-		data_num_max = data_residue_num;
-		data_num     = fsi_get_fifo_data_num(fsi, is_play);
+	start = runtime->dma_area;
+	start += io->byte_offset;
 
-		switch (ch_width) {
-		case 2:
-			fn = fsi_dma_soft_pop16;
-			break;
-		case 4:
-			fn = fsi_dma_soft_pop32;
-			break;
-		default:
-			return -EINVAL;
-		}
+	switch (width) {
+	case 2:
+		for (i = 0; i < fifo_fill; i++)
+			*((u16 *)start + i) =
+				(u16)(fsi_reg_read(fsi, DIDT) >> 8);
+		break;
+	case 4:
+		for (i = 0; i < fifo_fill; i++)
+			*((u32 *)start + i) = fsi_reg_read(fsi, DIDT);
+		break;
+	default:
+		return -EINVAL;
 	}
 
-	data_num = min(data_num, data_num_max);
+	io->byte_offset += fifo_fill * width;
 
-	fn(fsi, data_num);
+	status = fsi_reg_read(fsi, DIFF_ST);
+	if (!startup) {
+		struct snd_soc_dai *dai = fsi_get_dai(substream);
 
-	/* update buff_offset */
-	io->buff_offset += fsi_num2offset(data_num, ch_width);
+		if (status & ERR_OVER)
+			dev_err(dai->dev, "over run\n");
+		if (status & ERR_UNDER)
+			dev_err(dai->dev, "under run\n");
+	}
+	fsi_reg_write(fsi, DIFF_ST, 0);
+
+	fsi_irq_enable(fsi, 0);
 
 	if (over_period)
 		snd_pcm_period_elapsed(substream);
 
 	return 0;
 }
+#endif
 
-static int fsi_data_pop(struct fsi_priv *fsi)
+static int fsi_dma_fsi_int(struct fsi_priv *fsi, int startup)
 {
-	return fsi_fifo_data_ctrl(fsi, SNDRV_PCM_STREAM_CAPTURE);
+	struct snd_pcm_substream *substream = NULL;
+	struct fsi_stream *io = fsi_get_stream(fsi, 1);
+	u32 status;
+
+	if (!io			||
+	    !io->substream		||
+	    !io->substream->runtime)
+		return -EINVAL;
+
+	substream = io->substream;
+
+	status = fsi_reg_read(fsi, DOFF_ST);
+/*
+ *	if (!startup) {
+ *		struct snd_soc_dai *dai = fsi_get_dai(substream);
+ *
+ *		if (status & ERR_OVER)
+ *			dev_err(dai->dev, "over run\n");
+ *		if (status & ERR_UNDER)
+ *			dev_err(dai->dev, "under run\n");
+ *	}
+*/
+	fsi_reg_write(fsi, DOFF_ST, 0);
+
+	return 0;
 }
 
-static int fsi_data_push(struct fsi_priv *fsi)
+#endif
+
+/* playback interrupt */
+static int fsi_data_push(struct fsi_priv *fsi, int startup)
 {
-	return fsi_fifo_data_ctrl(fsi, SNDRV_PCM_STREAM_PLAYBACK);
+	struct snd_pcm_runtime *runtime;
+	struct snd_pcm_substream *substream = NULL;
+	struct fsi_stream *io = fsi_get_stream(fsi, 1);
+	u32 status;
+	int send;
+	int fifo_free;
+	int width;
+	u8 *start;
+	int i, over_period;
+
+	if (!io			||
+	    !io->substream		||
+	    !io->substream->runtime) {
+		return -EINVAL;
+	}
+
+	over_period	= 0;
+	substream	= io->substream;
+	runtime		= substream->runtime;
+
+	/* FSI FIFO has limit.
+	 * So, this driver can not send periods data at a time
+	 */
+	if (io->byte_offset >=
+	    io->period_len * (io->periods + 1)) {
+
+		over_period = 1;
+		io->periods = (io->periods + 1) % runtime->periods;
+
+		if (0 == io->periods)
+			io->byte_offset = 0;
+	}
+
+	/* get 1 channel data width */
+	width = frames_to_bytes(runtime, 1) / io->chan;
+
+	/* get send size for alsa */
+	send = (io->buffer_len - io->byte_offset) / width;
+
+	/*  get FIFO free size */
+	fifo_free = (io->fifo_max * io->chan) - fsi_get_fifo_residue(fsi, 1);
+
+	/* size check */
+	if (fifo_free < send)
+		send = fifo_free;
+
+	start = runtime->dma_area;
+	start += io->byte_offset;
+
+	switch (width) {
+	case 2:
+		for (i = 0; i < send; i++)
+			fsi_reg_write(fsi, DODT,
+				      ((u32)*((u16 *)start + i) << 8));
+		break;
+	case 4:
+		for (i = 0; i < send; i++)
+			fsi_reg_write(fsi, DODT, *((u32 *)start + i));
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	io->byte_offset += send * width;
+	status = fsi_reg_read(fsi, DOFF_ST);
+/*
+ *	if (!startup) {
+ *		struct snd_soc_dai *dai = fsi_get_dai(substream);
+ *
+ *		if (status & ERR_OVER)
+ *			dev_err(dai->dev, "over run\n");
+ *		if (status & ERR_UNDER)
+ *			dev_err(dai->dev, "under run\n");
+ *	}
+ */
+	fsi_reg_write(fsi, DOFF_ST, 0);
+
+	fsi_irq_enable(fsi, 1);
+
+	if (over_period)
+		snd_pcm_period_elapsed(substream);
+
+	if (!g_fsi_trigger_start[substream->stream])
+		return 0;
+	else
+		queue_work(fsi_wq, &fsi_push_work->work);
+
+	return 0;
 }
+
+static int fsi_data_pop(struct fsi_priv *fsi, int startup)
+{
+	struct snd_pcm_runtime *runtime;
+	struct snd_pcm_substream *substream = NULL;
+	struct fsi_stream *io = fsi_get_stream(fsi, 0);
+	u32 status;
+	int free;
+	int fifo_fill;
+	int width;
+	u8 *start;
+	int i, over_period;
+
+	if (!io			||
+	    !io->substream		||
+	    !io->substream->runtime    ||
+		!io->substream->runtime->dma_area)
+		return -EINVAL;
+
+	if (false == g_fsi_trigger_start[SNDRV_PCM_STREAM_CAPTURE]) {
+		fsi_irq_disable(fsi, 0);
+		return 0;
+	}
+
+	over_period	= 0;
+	substream	= io->substream;
+	runtime		= substream->runtime;
+
+	/* FSI FIFO has limit.
+	 * So, this driver can not send periods data at a time
+	 */
+	if (io->byte_offset >=
+	    io->period_len * (io->periods + 1)) {
+
+		over_period = 1;
+		io->periods = (io->periods + 1) % runtime->periods;
+
+		if (0 == io->periods)
+			io->byte_offset = 0;
+	}
+
+	/* get 1 channel data width */
+	width = frames_to_bytes(runtime, 1) / io->chan;
+
+	/* get free space for alsa */
+	free = (io->buffer_len - io->byte_offset) / width;
+
+	/* get recv size */
+	fifo_fill = fsi_get_fifo_residue(fsi, 0);
+
+	if (free < fifo_fill)
+		fifo_fill = free;
+
+	start = runtime->dma_area;
+	start += io->byte_offset;
+
+	switch (width) {
+	case 2:
+		for (i = 0; i < fifo_fill; i++)
+			*((u16 *)start + i) =
+				(u16)(fsi_reg_read(fsi, DIDT) >> 8);
+		break;
+	case 4:
+		for (i = 0; i < fifo_fill; i++)
+			*((u32 *)start + i) = fsi_reg_read(fsi, DIDT);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	io->byte_offset += fifo_fill * width;
+
+	status = fsi_reg_read(fsi, DIFF_ST);
+/*
+ *	if (!startup) {
+ *		struct snd_soc_dai *dai = fsi_get_dai(substream);
+ *
+ *		if (status & ERR_OVER)
+ *			dev_err(dai->dev, "over run\n");
+ *		if (status & ERR_UNDER)
+ *			dev_err(dai->dev, "under run\n");
+ *	}
+ */
+	fsi_reg_write(fsi, DIFF_ST, 0);
+
+	fsi_irq_enable(fsi, 0);
+
+	if (over_period)
+		snd_pcm_period_elapsed(substream);
+
+	if (!g_fsi_trigger_start[substream->stream])
+		return 0;
+	else
+		queue_work(fsi_wq, &fsi_pop_work->work);
+
+	return 0;
+}
+
+#ifdef USE_DMA
+static void fsi_dma_callback(void *data)
+{
+	struct fsi_priv *fsi = data;
+	struct snd_pcm_substream *substream;
+	struct fsi_stream *io = fsi_get_stream(fsi, 1);
+	int status;
+	struct snd_soc_dai *dai;
+
+	substream = io->substream;
+
+	status = dma_async_is_tx_complete(io->dma_chan,
+				io->dma_cookie, NULL, NULL);
+	if (DMA_SUCCESS != status) {
+		dai = fsi_get_dai(substream);
+		dev_err(dai->dev,
+		"%s:dma status error(%d).\n", __func__, status);
+		return;
+	}
+
+	fsi_clk_enable(fsi->master);
+
+	if (substream) {
+		if (snd_pcm_running(substream)) {
+			if (false != g_fsi_trigger_start[substream->stream]) {
+				fsi_dma_process(fsi, 0, 1);
+				/* fsi_dma_process_cap(fsi, 0); */
+				snd_pcm_period_elapsed(substream);
+			} else {
+				/* fsi_dma_stop(fsi, 1); */
+			}
+		}
+	}
+
+	fsi_clk_disable(fsi->master);
+}
+
+static void fsi_dma_callback_cap(void *data)
+{
+	struct fsi_priv *fsi = data;
+	struct snd_pcm_substream *substream;
+	struct fsi_stream *io = fsi_get_stream(fsi, 0);
+	int status;
+	struct snd_soc_dai *dai;
+
+	substream = io->substream;
+
+	status = dma_async_is_tx_complete(io->dma_chan,
+				io->dma_cookie, NULL, NULL);
+	if (DMA_SUCCESS != status) {
+		dai = fsi_get_dai(substream);
+		dev_err(dai->dev, "%s:dma status err(%d).\n", __func__, status);
+		return;
+	}
+
+	fsi_clk_enable(fsi->master);
+
+	if (substream) {
+		if (snd_pcm_running(substream)) {
+			if (false != g_fsi_trigger_start[substream->stream]) {
+				fsi_dma_process(fsi, 0, 0);
+				/* fsi_dma_process_cap(fsi, 0); */
+				snd_pcm_period_elapsed(substream);
+			} else {
+				/* fsi_dma_stop(fsi, 1); */
+			}
+		}
+	}
+
+	fsi_clk_disable(fsi->master);
+}
+#endif
 
 static irqreturn_t fsi_interrupt(int irq, void *data)
 {
 	struct fsi_master *master = data;
-	u32 int_st = fsi_irq_get_status(master);
+	u32 int_st;
 
-	/* clear irq status */
-	fsi_master_mask_set(master, SOFT_RST, IR, 0);
-	fsi_master_mask_set(master, SOFT_RST, IR, IR);
+	fsi_clk_enable(master);
+	int_st = fsi_irq_get_status(master);
 
-	if (int_st & AB_IO(1, AO_SHIFT))
-		fsi_data_push(&master->fsia);
-	if (int_st & AB_IO(1, BO_SHIFT))
-		fsi_data_push(&master->fsib);
-	if (int_st & AB_IO(1, AI_SHIFT))
-		fsi_data_pop(&master->fsia);
-	if (int_st & AB_IO(1, BI_SHIFT))
-		fsi_data_pop(&master->fsib);
+	if (NULL == g_fsi_logical) {
+		/* clear irq status */
+		fsi_master_mask_set(master, SOFT_RST, IR, 0);
+		fsi_master_mask_set(master, SOFT_RST, IR, IR);
 
-	fsi_count_fifo_err(&master->fsia);
-	fsi_count_fifo_err(&master->fsib);
+/*		if (int_st & INT_A_OUT) { */
+		if (pio_is_play == 1) {
+#ifdef USE_DMA
+			if (master->fsia.playback.substream->runtime->dma_addr)
+				fsi_dma_fsi_int(&master->fsia, 0);
+			else
+#endif
+			fsi_data_push(&master->fsia, 0);
+		}
+/*
+ *		if (int_st & INT_B_OUT)
+ *			fsi_data_push(&master->fsib, 0);
+ *		if (int_st & INT_A_IN)
+ */
+		if (pio_is_play == 0)
+			fsi_data_pop(&master->fsia, 0);
+/*
+ *		if (int_st & INT_B_IN)
+ *			fsi_data_pop(&master->fsib, 0);
+ */
+		fsi_irq_clear_status(&master->fsia, 0);
+		fsi_irq_clear_status(&master->fsia, 1);
+		fsi_irq_clear_status(&master->fsib, 0);
+		fsi_irq_clear_status(&master->fsib, 1);
+	} else {
+		g_fsi_logical();
+	}
 
-	fsi_irq_clear_status(&master->fsia);
-	fsi_irq_clear_status(&master->fsib);
+	fsi_clk_disable(master);
 
 	return IRQ_HANDLED;
 }
 
-/*
- *		dai ops
- */
+static void __fsi_interrupt_push(struct work_struct *work)
+{
+	struct fsi_master *master = fsi_push_work->master;
 
+	pio_is_play = 1;
+	fsi_interrupt(master->irq, master);
+}
+
+static void __fsi_interrupt_pop(struct work_struct *work)
+{
+	struct fsi_master *master = fsi_pop_work->master;
+
+	pio_is_play = 0;
+	fsi_interrupt(master->irq, master);
+}
+/************************************************************************
+
+
+		dai ops
+
+
+************************************************************************/
 static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			   struct snd_soc_dai *dai)
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
+	struct fsi_master *master = fsi_get_master(fsi);
+	const char *msg;
 	u32 flags = fsi_get_info_flags(fsi);
+	u32 fmt;
+	u32 reg;
 	u32 data;
-	int is_play = fsi_is_play(substream);
+	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+	int is_master;
+	int ret = 0;
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
 
-	pm_runtime_get_sync(dai->dev);
+/*	pm_runtime_get_sync(dai->dev); */
+	fsi_clk_enable(master);
 
+	if (is_play)
+		fsi_reg_write(fsi, OUT_DMAC, (0x1 << 4));
+	else
+		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
+
+	/* CKG1 */
+	data = is_play ? (1 << 0) : (1 << 4);
+	is_master = fsi_is_master_mode(fsi, is_play);
+	if (is_master && !master->info->always_slave)
+		fsi_reg_mask_set(fsi, CKG1, data, data);
+	else
+		fsi_reg_mask_set(fsi, CKG1, data, 0);
+
+	fsi_reg_mask_set(fsi, CKG1, 7<<12, 2<<12);
+	fsi_reg_mask_set(fsi, CKG1, 7<<8, 1<<8);
 
 	/* clock inversion (CKG2) */
 	data = 0;
@@ -812,32 +1343,75 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 
 	fsi_reg_write(fsi, CKG2, data);
 
+	/* do fmt, di fmt */
+	data = 0;
+	reg = is_play ? DO_FMT : DI_FMT;
+	fmt = is_play ? SH_FSI_GET_OFMT(flags) : SH_FSI_GET_IFMT(flags);
+
+	switch (fmt) {
+	case SH_FSI_FMT_MONO:
+		msg = "MONO";
+		data = CR_FMT(CR_MONO);
+		io->chan = 1;
+		break;
+	case SH_FSI_FMT_MONO_DELAY:
+		msg = "MONO Delay";
+		data = CR_FMT(CR_MONO_D);
+		io->chan = 1;
+		break;
+	case SH_FSI_FMT_PCM:
+		msg = "PCM";
+		data = CR_FMT(CR_PCM);
+		io->chan = 2;
+		break;
+	case SH_FSI_FMT_I2S:
+		msg = "I2S";
+		data = CR_FMT(CR_I2S);
+		io->chan = 2;
+		break;
+	case SH_FSI_FMT_TDM:
+		msg = "TDM";
+		io->chan = is_play ?
+			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
+		data = CR_FMT(CR_TDM) | (io->chan - 1);
+		break;
+	case SH_FSI_FMT_TDM_DELAY:
+		msg = "TDM Delay";
+		io->chan = is_play ?
+			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
+		data = CR_FMT(CR_TDM_D) | (io->chan - 1);
+		break;
+	default:
+		dev_err(dai->dev, "unknown format.\n");
+		return -EINVAL;
+	}
+	fsi_reg_write(fsi, reg, data);
+
 	/* irq clear */
 	fsi_irq_disable(fsi, is_play);
-	fsi_irq_clear_status(fsi);
+	fsi_irq_clear_status(fsi, is_play);
 
 	/* fifo init */
 	fsi_fifo_init(fsi, is_play, dai);
 
-	return 0;
+	fsi_clk_disable(master);
+
+	return ret;
 }
 
 static void fsi_dai_shutdown(struct snd_pcm_substream *substream,
 			     struct snd_soc_dai *dai)
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
-	int is_play = fsi_is_play(substream);
-	struct fsi_master *master = fsi_get_master(fsi);
-	set_rate_func set_rate = fsi_get_info_set_rate(master);
+	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
+
+	fsi_clk_enable(fsi->master);
 
 	fsi_irq_disable(fsi, is_play);
+	fsi_clk_ctrl(fsi, 0);
 
-	if (fsi_is_clk_master(fsi))
-		set_rate(dai->dev, fsi_is_port_a(fsi), fsi->rate, 0);
-
-	fsi->rate = 0;
-
-	pm_runtime_put_sync(dai->dev);
+	fsi_clk_disable(fsi->master);
+/*	pm_runtime_put_sync(dai->dev); */
 }
 
 static int fsi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -845,116 +1419,38 @@ static int fsi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	int is_play = fsi_is_play(substream);
+	int is_play = substream->stream == SNDRV_PCM_STREAM_PLAYBACK;
 	int ret = 0;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
+		fsi_clk_enable(fsi->master);
+		g_fsi_trigger_start[substream->stream] = true;
+
 		fsi_stream_push(fsi, is_play, substream,
 				frames_to_bytes(runtime, runtime->buffer_size),
 				frames_to_bytes(runtime, runtime->period_size));
-		ret = is_play ? fsi_data_push(fsi) : fsi_data_pop(fsi);
-		fsi_irq_enable(fsi, is_play);
-		fsi_port_start(fsi);
+
+#ifdef USE_DMA
+		if (runtime->dma_addr) {
+			fsi_dma_init(fsi, substream, is_play);
+			ret = fsi_dma_process(fsi, 1, is_play);
+		}
+#else
+		ret = is_play ? fsi_data_push(fsi, 1) : fsi_data_pop(fsi, 1);
+#endif
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
-		fsi_port_stop(fsi);
+		g_fsi_trigger_start[substream->stream] = false;
 		fsi_irq_disable(fsi, is_play);
+#ifdef USE_DMA
+		/* fsi_dma_stop(fsi, is_play); */
+		fsi_dma_exit(fsi, is_play);
+#endif
 		fsi_stream_pop(fsi, is_play);
+		fsi_clk_disable(fsi->master);
 		break;
 	}
-
-	return ret;
-}
-
-static int fsi_set_fmt_dai(struct fsi_priv *fsi, unsigned int fmt)
-{
-	u32 data = 0;
-
-	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
-	case SND_SOC_DAIFMT_I2S:
-		data = CR_I2S;
-		fsi->chan_num = 2;
-		break;
-	case SND_SOC_DAIFMT_LEFT_J:
-		data = CR_PCM;
-		fsi->chan_num = 2;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	fsi_reg_write(fsi, DO_FMT, data);
-	fsi_reg_write(fsi, DI_FMT, data);
-
-	return 0;
-}
-
-static int fsi_set_fmt_spdif(struct fsi_priv *fsi)
-{
-	struct fsi_master *master = fsi_get_master(fsi);
-	u32 data = 0;
-
-	if (master->core->ver < 2)
-		return -EINVAL;
-
-	data = CR_BWS_16 | CR_DTMD_SPDIF_PCM | CR_PCM;
-	fsi->chan_num = 2;
-	fsi_spdif_clk_ctrl(fsi, 1);
-	fsi_reg_mask_set(fsi, OUT_SEL, DMMD, DMMD);
-
-	fsi_reg_write(fsi, DO_FMT, data);
-	fsi_reg_write(fsi, DI_FMT, data);
-
-	return 0;
-}
-
-static int fsi_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
-{
-	struct fsi_priv *fsi = fsi_get_priv_frm_dai(dai);
-	struct fsi_master *master = fsi_get_master(fsi);
-	set_rate_func set_rate = fsi_get_info_set_rate(master);
-	u32 flags = fsi_get_info_flags(fsi);
-	u32 data = 0;
-	int ret;
-
-	pm_runtime_get_sync(dai->dev);
-
-	/* set master/slave audio interface */
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
-		data = DIMD | DOMD;
-		fsi->clk_master = 1;
-		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
-		break;
-	default:
-		ret = -EINVAL;
-		goto set_fmt_exit;
-	}
-
-	if (fsi_is_clk_master(fsi) && !set_rate) {
-		dev_err(dai->dev, "platform doesn't have set_rate\n");
-		ret = -EINVAL;
-		goto set_fmt_exit;
-	}
-
-	fsi_reg_mask_set(fsi, CKG1, (DIMD | DOMD), data);
-
-	/* set format */
-	switch (flags & SH_FSI_FMT_MASK) {
-	case SH_FSI_FMT_DAI:
-		ret = fsi_set_fmt_dai(fsi, fmt & SND_SOC_DAIFMT_FORMAT_MASK);
-		break;
-	case SH_FSI_FMT_SPDIF:
-		ret = fsi_set_fmt_spdif(fsi);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-set_fmt_exit:
-	pm_runtime_put_sync(dai->dev);
 
 	return ret;
 }
@@ -965,19 +1461,25 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	struct fsi_master *master = fsi_get_master(fsi);
-	set_rate_func set_rate = fsi_get_info_set_rate(master);
-	int fsi_ver = master->core->ver;
-	long rate = params_rate(params);
+	int (*set_rate)(int is_porta, int rate) = master->info->set_rate;
+	int fsi_ver = master->regs->ver;
+	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 	int ret;
 
-	if (!fsi_is_clk_master(fsi))
+	fsi_clk_ctrl(fsi, 1);
+	/* if slave mode, set_rate is not needed */
+	if (!fsi_is_master_mode(fsi, is_play))
 		return 0;
 
-	ret = set_rate(dai->dev, fsi_is_port_a(fsi), rate, 1);
-	if (ret < 0) /* error */
-		return ret;
+	/* it is error if no set_rate */
+	if (!set_rate)
+		return -EIO;
 
-	fsi->rate = rate;
+	/* clock stop */
+	fsi_clk_enable(master);
+	fsi_clk_ctrl(fsi, 0);
+
+	ret = set_rate(fsi_is_port_a(fsi), params_rate(params));
 	if (ret > 0) {
 		u32 data = 0;
 
@@ -1032,25 +1534,29 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 
 		fsi_reg_mask_set(fsi, CKG1, (ACKMD_MASK | BPFMD_MASK) , data);
 		udelay(10);
+		fsi_clk_ctrl(fsi, 1);
 		ret = 0;
 	}
 
-	return ret;
+	fsi_clk_disable(master);
 
+	return ret;
 }
 
 static struct snd_soc_dai_ops fsi_dai_ops = {
 	.startup	= fsi_dai_startup,
 	.shutdown	= fsi_dai_shutdown,
 	.trigger	= fsi_dai_trigger,
-	.set_fmt	= fsi_dai_set_fmt,
 	.hw_params	= fsi_dai_hw_params,
 };
 
-/*
- *		pcm ops
- */
+/************************************************************************
 
+
+		pcm ops
+
+
+************************************************************************/
 static struct snd_pcm_hardware fsi_pcm_hardware = {
 	.info =		SNDRV_PCM_INFO_INTERLEAVED	|
 			SNDRV_PCM_INFO_MMAP		|
@@ -1063,10 +1569,10 @@ static struct snd_pcm_hardware fsi_pcm_hardware = {
 	.channels_min		= 1,
 	.channels_max		= 2,
 	.buffer_bytes_max	= 64 * 1024,
-	.period_bytes_min	= 32,
+	.period_bytes_min	= 384,
 	.period_bytes_max	= 8192,
-	.periods_min		= 1,
-	.periods_max		= 32,
+	.periods_min		= 2,
+	.periods_max		= 8,
 	.fifo_size		= 256,
 };
 
@@ -1099,10 +1605,78 @@ static snd_pcm_uframes_t fsi_pointer(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct fsi_priv *fsi = fsi_get_priv(substream);
-	struct fsi_stream *io = fsi_get_stream(fsi, fsi_is_play(substream));
+	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
 	long location;
+#ifdef USE_DMA
+	unsigned int clr_size;
+	unsigned int location_addr;
+	unsigned int addr;
+	struct snd_soc_dai *dai = fsi_get_dai(substream);
+#endif
+	if (!g_fsi_trigger_start[substream->stream])
+		return 0;
 
-	location = (io->buff_offset - 1);
+#ifdef USE_DMA
+	if (runtime->dma_addr) {
+		if (!io->dma_chan) {
+			dev_dbg(dai->dev, "%s :dma channel err.\n", __func__);
+			return 0;
+		}
+		addr = fsi_dma_get_pos(is_play, fsi);
+		location = bytes_to_frames(runtime, addr - runtime->dma_addr);
+		location_addr = runtime->dma_addr + frames_to_bytes(runtime, location);
+
+		if (is_play && location_addr != g_old_addr) {
+			if (location_addr < g_old_addr) {
+				clr_size = frames_to_bytes(runtime, runtime->buffer_size) - (g_old_addr - runtime->dma_addr);
+
+				dmac_flush_range((void *)phys_to_virt(g_old_addr),
+								 (void *)(phys_to_virt(g_old_addr) + clr_size));
+				outer_flush_range((unsigned long)g_old_addr,
+								  (unsigned long)(g_old_addr + clr_size));
+
+				memset((void *)phys_to_virt(g_old_addr), '\0', clr_size);
+
+				dmac_flush_range((void *)phys_to_virt(g_old_addr),
+								 (void *)(phys_to_virt(g_old_addr) + clr_size));
+				outer_flush_range((unsigned long)g_old_addr,
+								  (unsigned long)(g_old_addr + clr_size));
+
+				g_old_addr = runtime->dma_addr;
+			}
+
+			if (location_addr > g_old_addr) {
+				clr_size = location_addr - g_old_addr;
+
+				dmac_flush_range((void *)phys_to_virt(g_old_addr),
+								 (void *)(phys_to_virt(g_old_addr) + clr_size));
+				outer_flush_range((unsigned long)g_old_addr,
+								  (unsigned long)(g_old_addr + clr_size));
+
+				memset((void *)phys_to_virt(g_old_addr), '\0', clr_size);
+
+				dmac_flush_range((void *)phys_to_virt(g_old_addr),
+								 (void *)(phys_to_virt(g_old_addr) + clr_size));
+				outer_flush_range((unsigned long)g_old_addr,
+								  (unsigned long)(g_old_addr + clr_size));
+
+				g_old_addr = location_addr;
+			}
+		}
+
+		if (location >= runtime->buffer_size)
+			location = 0;
+
+		return location;
+	}
+#endif
+
+	if (is_play)
+		location = io->byte_offset;
+	else
+		location = (io->byte_offset - 1);
+
 	if (location < 0)
 		location = 0;
 
@@ -1117,10 +1691,13 @@ static struct snd_pcm_ops fsi_pcm_ops = {
 	.pointer	= fsi_pointer,
 };
 
-/*
- *		snd_soc_platform
- */
+/************************************************************************
 
+
+		snd_soc_platform
+
+
+************************************************************************/
 #define PREALLOC_BUFFER		(32 * 1024)
 #define PREALLOC_BUFFER_MAX	(32 * 1024)
 
@@ -1133,6 +1710,17 @@ static int fsi_pcm_new(struct snd_card *card,
 		       struct snd_soc_dai *dai,
 		       struct snd_pcm *pcm)
 {
+#ifdef USE_DMA
+	if (strcmp(dai->name, "max98090-hifi") == 0) {
+		if (!card->dev->coherent_dma_mask)
+			card->dev->coherent_dma_mask = 0xffffffff;
+		return snd_pcm_lib_preallocate_pages_for_all(
+			pcm,
+			SNDRV_DMA_TYPE_DEV,
+			card->dev,
+			PREALLOC_BUFFER, PREALLOC_BUFFER_MAX);
+	}
+#endif
 	/*
 	 * dont use SNDRV_DMA_TYPE_DEV, since it will oops the SH kernel
 	 * in MMAP mode (i.e. aplay -M)
@@ -1144,11 +1732,14 @@ static int fsi_pcm_new(struct snd_card *card,
 		PREALLOC_BUFFER, PREALLOC_BUFFER_MAX);
 }
 
-/*
- *		alsa struct
- */
+/************************************************************************
 
-static struct snd_soc_dai_driver fsi_soc_dai[] = {
+
+		alsa struct
+
+
+************************************************************************/
+struct snd_soc_dai_driver fsi_soc_dai[] = {
 	{
 		.name			= "fsia-dai",
 		.playback = {
@@ -1182,24 +1773,32 @@ static struct snd_soc_dai_driver fsi_soc_dai[] = {
 		.ops = &fsi_dai_ops,
 	},
 };
+EXPORT_SYMBOL_GPL(fsi_soc_dai);
 
-static struct snd_soc_platform_driver fsi_soc_platform = {
+struct snd_soc_platform_driver fsi_soc_platform = {
 	.ops		= &fsi_pcm_ops,
 	.pcm_new	= fsi_pcm_new,
 	.pcm_free	= fsi_pcm_free,
 };
+EXPORT_SYMBOL_GPL(fsi_soc_platform);
 
-/*
- *		platform function
- */
+/************************************************************************
 
+
+		platform function
+
+
+************************************************************************/
 static int fsi_probe(struct platform_device *pdev)
 {
 	struct fsi_master *master;
 	const struct platform_device_id	*id_entry;
 	struct resource *res;
 	unsigned int irq;
-	int ret;
+	int ret = 0;
+
+	g_fsi_trigger_start[SNDRV_PCM_STREAM_PLAYBACK] = false;
+	g_fsi_trigger_start[SNDRV_PCM_STREAM_CAPTURE] = false;
 
 	id_entry = pdev->id_entry;
 	if (!id_entry) {
@@ -1229,54 +1828,105 @@ static int fsi_probe(struct platform_device *pdev)
 		goto exit_kfree;
 	}
 
-	/* master setting */
+#ifdef USE_DMA
+	sysdma_base_addr = ioremap_nocache(SYSDMA_BASE, SYSDMA_RESOURSE_SIZE);
+	if (!sysdma_base_addr) {
+		ret = -ENXIO;
+		dev_err(&pdev->dev, "Unable to ioremap SYS-DMA registers.\n");
+		goto exit_iounmap_fsi;
+	}
+#endif
+
 	master->irq		= irq;
 	master->info		= pdev->dev.platform_data;
-	master->core		= (struct fsi_core *)id_entry->driver_data;
-	spin_lock_init(&master->lock);
-
-	/* FSI A setting */
 	master->fsia.base	= master->base;
 	master->fsia.master	= master;
-
-	/* FSI B setting */
 	master->fsib.base	= master->base + 0x40;
 	master->fsib.master	= master;
+	master->regs		= (struct fsi_regs *)id_entry->driver_data;
+#ifdef USE_DMA
+	master->fsia.phys_base	= (void *)res->start;
+	master->fsib.phys_base	= (void *)res->start + 0x40;
+#endif
+	spin_lock_init(&master->lock);
 
-	pm_runtime_enable(&pdev->dev);
-	dev_set_drvdata(&pdev->dev, master);
-
-	fsi_module_init(master, &pdev->dev);
-
-	ret = request_irq(irq, &fsi_interrupt, IRQF_DISABLED,
-			  id_entry->name, master);
-	if (ret) {
-		dev_err(&pdev->dev, "irq request err\n");
+	master->clks.clkgen = clk_get(NULL, "clkgen");
+	if (IS_ERR(master->clks.clkgen)) {
+		dev_err(&pdev->dev, "cannot get CLKGEN clock to enable\n");
+		ret = PTR_ERR(master->clks.clkgen);
 		goto exit_iounmap;
+	}
+	master->clks.fsi = clk_get(&pdev->dev, NULL);
+	if (IS_ERR(master->clks.fsi)) {
+		dev_err(&pdev->dev, "cannot get FSI clock to enable\n");
+		ret = PTR_ERR(&pdev->dev);
+		goto exit_clk_clkgen;
+	}
+
+/*	pm_runtime_enable(&pdev->dev); */
+	dev_set_drvdata(&pdev->dev, master);
+/*	ret = pm_runtime_resume(&pdev->dev); */
+	if (ret < 0) {
+		dev_err(&pdev->dev, "pm_runtime_resume failed\n");
+		goto exit_clk_fsi;
+	}
+
+/*	fsi_soft_all_reset(master); */
+
+	fsi_wq = create_workqueue("fsi_irq_queue");
+	if (NULL == fsi_wq) {
+		ret = -ENOMEM;
+		dev_err(&pdev->dev, "failed to create workqueue\n");
+		goto exit_create_workqueue;
+	}
+
+	if (0 == pdev->id) {
+		fsi_push_work = kzalloc(sizeof(*fsi_push_work), GFP_KERNEL);
+		if (NULL == fsi_push_work) {
+			ret = -ENOMEM;
+			dev_err(&pdev->dev, "failed to kzalloc\n");
+			goto exit_push_work;
+		}
+		INIT_WORK(&fsi_push_work->work, __fsi_interrupt_push);
+		fsi_push_work->master = master;
+
+		fsi_pop_work = kzalloc(sizeof(*fsi_pop_work), GFP_KERNEL);
+		if (NULL == fsi_pop_work) {
+			ret = -ENOMEM;
+			dev_err(&pdev->dev, "failed to kzalloc\n");
+			goto exit_pop_work;
+		}
+		INIT_WORK(&fsi_pop_work->work, __fsi_interrupt_pop);
+		fsi_pop_work->master = master;
 	}
 
 	ret = snd_soc_register_platform(&pdev->dev, &fsi_soc_platform);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "cannot snd soc register\n");
-		goto exit_free_irq;
+		goto exit_reg_plt;
 	}
+	return snd_soc_register_dais(&pdev->dev, &fsi_soc_dai[pdev->id], 1);
 
-	ret = snd_soc_register_dais(&pdev->dev, fsi_soc_dai,
-				    ARRAY_SIZE(fsi_soc_dai));
-	if (ret < 0) {
-		dev_err(&pdev->dev, "cannot snd dai register\n");
-		goto exit_snd_soc;
-	}
-
-	return ret;
-
-exit_snd_soc:
-	snd_soc_unregister_platform(&pdev->dev);
-exit_free_irq:
-	free_irq(irq, master);
+exit_reg_plt:
+	if (0 == pdev->id)
+		kfree(&fsi_pop_work->work);
+exit_pop_work:
+	if (0 == pdev->id)
+		kfree(&fsi_push_work->work);
+exit_push_work:
+	destroy_workqueue(fsi_wq);
+exit_create_workqueue:
+exit_clk_fsi:
+/*	pm_runtime_disable(&pdev->dev); */
+	clk_put(master->clks.fsi);
+exit_clk_clkgen:
+	clk_put(master->clks.clkgen);
 exit_iounmap:
+#ifdef USE_DMA
+	iounmap(sysdma_base_addr);
+exit_iounmap_fsi:
+#endif
 	iounmap(master->base);
-	pm_runtime_disable(&pdev->dev);
 exit_kfree:
 	kfree(master);
 	master = NULL;
@@ -1290,144 +1940,86 @@ static int fsi_remove(struct platform_device *pdev)
 
 	master = dev_get_drvdata(&pdev->dev);
 
-	fsi_module_kill(master, &pdev->dev);
-
-	free_irq(master->irq, master);
-	pm_runtime_disable(&pdev->dev);
-
-	snd_soc_unregister_dais(&pdev->dev, ARRAY_SIZE(fsi_soc_dai));
+	snd_soc_unregister_dais(&pdev->dev, 1);
 	snd_soc_unregister_platform(&pdev->dev);
 
+/*	pm_runtime_disable(&pdev->dev); */
+
+	kfree(&fsi_pop_work->work);
+	kfree(&fsi_push_work->work);
+	if (fsi_wq) {
+		destroy_workqueue(fsi_wq);
+		fsi_wq = NULL;
+	}
+	iounmap(sysdma_base_addr);
 	iounmap(master->base);
 	kfree(master);
 
+	clk_put(master->clks.fsi);
+/*	clk_put(master->clks.shdmac); */
+	clk_put(master->clks.clkgen);
+
 	return 0;
 }
 
-static void __fsi_suspend(struct fsi_priv *fsi,
-			  struct device *dev,
-			  set_rate_func set_rate)
+/*
+ * This does not exactlly suspend/resume, but initialize.
+ * And, it is the basic PM strategy of this driver.
+ */
+static int fsi_runtime_suspend(struct device *dev)
 {
-	fsi->saved_do_fmt	= fsi_reg_read(fsi, DO_FMT);
-	fsi->saved_di_fmt	= fsi_reg_read(fsi, DI_FMT);
-	fsi->saved_ckg1		= fsi_reg_read(fsi, CKG1);
-	fsi->saved_ckg2		= fsi_reg_read(fsi, CKG2);
-	fsi->saved_out_sel	= fsi_reg_read(fsi, OUT_SEL);
-
-	if (fsi_is_clk_master(fsi))
-		set_rate(dev, fsi_is_port_a(fsi), fsi->rate, 0);
+	return 0;
 }
 
-static void __fsi_resume(struct fsi_priv *fsi,
-			 struct device *dev,
-			 set_rate_func set_rate)
-{
-	fsi_reg_write(fsi, DO_FMT,	fsi->saved_do_fmt);
-	fsi_reg_write(fsi, DI_FMT,	fsi->saved_di_fmt);
-	fsi_reg_write(fsi, CKG1,	fsi->saved_ckg1);
-	fsi_reg_write(fsi, CKG2,	fsi->saved_ckg2);
-	fsi_reg_write(fsi, OUT_SEL,	fsi->saved_out_sel);
-
-	if (fsi_is_clk_master(fsi))
-		set_rate(dev, fsi_is_port_a(fsi), fsi->rate, 1);
-}
-
-static int fsi_suspend(struct device *dev)
+static int fsi_runtime_resume(struct device *dev)
 {
 	struct fsi_master *master = dev_get_drvdata(dev);
-	set_rate_func set_rate = fsi_get_info_set_rate(master);
 
-	pm_runtime_get_sync(dev);
+	fsi_soft_all_reset(master);
 
-	__fsi_suspend(&master->fsia, dev, set_rate);
-	__fsi_suspend(&master->fsib, dev, set_rate);
-
-	master->saved_a_mclk	= fsi_core_read(master, a_mclk);
-	master->saved_b_mclk	= fsi_core_read(master, b_mclk);
-	master->saved_iemsk	= fsi_core_read(master, iemsk);
-	master->saved_imsk	= fsi_core_read(master, imsk);
-	master->saved_clk_rst	= fsi_master_read(master, CLK_RST);
-	master->saved_soft_rst	= fsi_master_read(master, SOFT_RST);
-
-	fsi_module_kill(master, dev);
-
-	pm_runtime_put_sync(dev);
-
-	return 0;
-}
-
-static int fsi_resume(struct device *dev)
-{
-	struct fsi_master *master = dev_get_drvdata(dev);
-	set_rate_func set_rate = fsi_get_info_set_rate(master);
-
-	pm_runtime_get_sync(dev);
-
-	fsi_module_init(master, dev);
-
-	fsi_master_mask_set(master, SOFT_RST, 0xffff, master->saved_soft_rst);
-	fsi_master_mask_set(master, CLK_RST, 0xffff, master->saved_clk_rst);
-	fsi_core_mask_set(master, a_mclk, 0xffff, master->saved_a_mclk);
-	fsi_core_mask_set(master, b_mclk, 0xffff, master->saved_b_mclk);
-	fsi_core_mask_set(master, iemsk, 0xffff, master->saved_iemsk);
-	fsi_core_mask_set(master, imsk, 0xffff, master->saved_imsk);
-
-	__fsi_resume(&master->fsia, dev, set_rate);
-	__fsi_resume(&master->fsib, dev, set_rate);
-
-	pm_runtime_put_sync(dev);
-
-	return 0;
-}
-
-static int fsi_runtime_nop(struct device *dev)
-{
-	/* Runtime PM callback shared between ->runtime_suspend()
-	 * and ->runtime_resume(). Simply returns success.
-	 *
-	 * This driver re-initializes all registers after
-	 * pm_runtime_get_sync() anyway so there is no need
-	 * to save and restore registers here.
-	 */
 	return 0;
 }
 
 static struct dev_pm_ops fsi_pm_ops = {
-	.suspend		= fsi_suspend,
-	.resume			= fsi_resume,
-	.runtime_suspend	= fsi_runtime_nop,
-	.runtime_resume		= fsi_runtime_nop,
+	.runtime_suspend	= fsi_runtime_suspend,
+	.runtime_resume		= fsi_runtime_resume,
 };
 
-static struct fsi_core fsi1_core = {
+void fsi_set_run_time(void *sndp_fsi_suspend, void *sndp_fsi_resume);
+
+void fsi_set_run_time(void *sndp_fsi_suspend, void *sndp_fsi_resume)
+{
+	fsi_pm_ops.suspend = sndp_fsi_suspend;
+	fsi_pm_ops.resume = sndp_fsi_resume;
+}
+EXPORT_SYMBOL(fsi_set_run_time);
+
+
+static struct fsi_regs fsi_regs = {
 	.ver	= 1,
 
-	/* Interrupt */
 	.int_st	= INT_ST,
 	.iemsk	= IEMSK,
 	.imsk	= IMSK,
 };
 
-static struct fsi_core fsi2_core = {
+static struct fsi_regs fsi2_regs = {
 	.ver	= 2,
 
-	/* Interrupt */
 	.int_st	= CPU_INT_ST,
 	.iemsk	= CPU_IEMSK,
 	.imsk	= CPU_IMSK,
-	.a_mclk	= A_MST_CTLR,
-	.b_mclk	= B_MST_CTLR,
 };
 
 static struct platform_device_id fsi_id_table[] = {
-	{ "sh_fsi",	(kernel_ulong_t)&fsi1_core },
-	{ "sh_fsi2",	(kernel_ulong_t)&fsi2_core },
+	{ "sh_fsi",		(kernel_ulong_t)&fsi_regs },
+	{ "sh_fsi2",	(kernel_ulong_t)&fsi2_regs },
 	{},
 };
 MODULE_DEVICE_TABLE(platform, fsi_id_table);
 
 static struct platform_driver fsi_driver = {
-	.driver 	= {
+	.driver	= {
 		.name	= "fsi-pcm-audio",
 		.pm	= &fsi_pm_ops,
 	},
@@ -1445,11 +2037,8 @@ static void __exit fsi_mobile_exit(void)
 {
 	platform_driver_unregister(&fsi_driver);
 }
-
 module_init(fsi_mobile_init);
 module_exit(fsi_mobile_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("SuperH onchip FSI audio driver");
-MODULE_AUTHOR("Kuninori Morimoto <morimoto.kuninori@renesas.com>");
-MODULE_ALIAS("platform:fsi-pcm-audio");
+MODULE_LICENSE("GPL v2");
+	
