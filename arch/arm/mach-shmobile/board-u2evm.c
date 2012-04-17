@@ -763,7 +763,7 @@ static struct tps80031_rtc_platform_data rtc_data = {
 #define TPS_RTC()				\
 	{					\
 		.id	= 0,			\
-		.name	= "rtc_tps80031",	\
+		.name	= "rtc_tps80032",	\
 		.platform_data = &rtc_data,	\
 	}
 
