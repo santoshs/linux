@@ -633,6 +633,10 @@ config MSM_SMD_PKT
 	help
 	  Enables userspace clients to read and write to some packet SMD
 	  ports via device interface for MSM chipset.
+#
+# cc4.2 driver
+#
+source "drivers/char/cc4.2/Kconfig"
 
 endmenu
 
