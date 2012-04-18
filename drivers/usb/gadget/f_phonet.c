@@ -523,9 +523,9 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			fp->out_ep->driver_data = fp;
 			fp->in_ep->driver_data = fp;
 
-			netif_carrier_on(dev);
 			for (i = 0; i < phonet_rxq_size; i++)
 				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC);
+			netif_carrier_on(dev);
 		}
 		spin_unlock(&port->lock);
 		return 0;
@@ -751,10 +751,5 @@ void gphonet_cleanup(void)
     if (dev)
 	{
 	unregister_netdev(dev);
-	printk("**WIPRO** dev is not null  \n");
-	}
-	else
-	{
-	printk("**WIPRO** dev is null  \n");
 	}
 }
