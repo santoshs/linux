@@ -572,7 +572,7 @@ static void smc_fifo_timer_expired(uint32_t data)
     /* Invoke the SMC FIFO release check */
     if( smc_channel != NULL )
     {
-        uint8_t           forward_event = FALSE;
+        /*uint8_t           forward_event = FALSE;*/
         SMC_CHANNEL_EVENT new_event     = SMC_SEND_FIFO_FULL;
 
         SMC_LOCK_IRQ( smc_channel->lock_read );
@@ -581,7 +581,7 @@ static void smc_fifo_timer_expired(uint32_t data)
         {
             SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( smc_channel->state );
             new_event = SMC_SEND_FIFO_HAS_FREE_SPACE;
-            forward_event = TRUE;
+            /*forward_event = TRUE;*/
         }
         else
         {
@@ -2368,7 +2368,8 @@ void smc_instance_dump(smc_t* smc_instance)
         return;
     }
 
-    SMC_TRACE_PRINTF("SMC: 0x%08X (%s) CPU ID 0x%02X, Remote CPU ID: %d, channel count %d", (uint32_t)smc_instance,
+    SMC_TRACE_PRINTF("SMC: ");
+    SMC_TRACE_PRINTF("SMC: Instance: 0x%08X (%s) CPU ID 0x%02X, Remote CPU ID: %d, channel count %d", (uint32_t)smc_instance,
                                                                              smc_instance->is_master?"Master":"Slave",
                                                                              smc_instance->cpu_id_local,
                                                                              smc_instance->cpu_id_remote,
@@ -2397,7 +2398,6 @@ void smc_instance_dump(smc_t* smc_instance)
             mem_offset = (int32_t)smc_instance->smc_shm_conf->remote_cpu_memory_offset;
         }
 
-
         for( int i = 0; i < smc_instance->smc_channel_list_count; i++ )
         {
             smc_channel_t* channel = smc_instance->smc_channel_ptr_array[i];
@@ -2413,7 +2413,7 @@ void smc_instance_dump(smc_t* smc_instance)
                                                                              (uint32_t)channel->lock_read,
                                                                              (uint32_t)channel->lock_mdb);
 
-            /* Dump the FIFO and MDB data */
+            /* Dump the FIFO SIGNAL and MDB data */
 
             if( channel->fifo_out != NULL )
             {
@@ -2424,6 +2424,16 @@ void smc_instance_dump(smc_t* smc_instance)
             {
                 SMC_TRACE_PRINTF("SMC:    - <FIFO OUT is not initialized>");
             }
+
+            if( channel->signal_remote != NULL )
+            {
+                SMC_TRACE_PRINTF("SMC:    - Signal OUT 0x%08X", (uint32_t)channel->signal_remote);
+            }
+            else
+            {
+                SMC_TRACE_PRINTF("SMC:    - <Signal OUT is not initialized>");
+            }
+
 
             if( channel->smc_mdb_info != NULL )
             {
@@ -2446,6 +2456,15 @@ void smc_instance_dump(smc_t* smc_instance)
             else
             {
                 SMC_TRACE_PRINTF("SMC:    - <FIFO IN  is not initialized>");
+            }
+
+            if( channel->signal_local != NULL )
+            {
+                SMC_TRACE_PRINTF("SMC:    - Signal IN 0x%08X", (uint32_t)channel->signal_local);
+            }
+            else
+            {
+                SMC_TRACE_PRINTF("SMC:    - <Signal IN is not initialized>");
             }
 
             if( channel->smc_mdb_info != NULL )
@@ -2503,9 +2522,8 @@ void smc_mdb_info_dump( char* indent, struct _smc_mdb_channel_info_t* smc_mdb_in
     }
     else
     {
-        SMC_TRACE_PRINTF("%- <MDB %s is not initialized>", out_mdb?"OUT":"IN");
+        SMC_TRACE_PRINTF("%s- <MDB %s is not initialized>", indent, (out_mdb==TRUE)?"OUT":"IN");
     }
-
 }
 
 /* EOF */

@@ -52,6 +52,7 @@ Description :  File created
     #define SMC_TEST_PHONET_DEVICE  0x70   /* Phonet messages to this device are routed to SMC test handler */
 #endif
 
+smc_t* get_smc_instance_l2mux( void );
 
 #endif
 

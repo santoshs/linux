@@ -146,7 +146,7 @@ static smc_conf_t* smc_device_create_conf_control(void)
 
         smc_channel_conf->smc_receive_data_cb           = (void*)smc_receive_data_callback_channel_control;
         smc_channel_conf->smc_send_data_deallocator_cb  = (void*)smc_deallocator_callback_control;
-        smc_channel_conf->smc_receive_data_allocator_cb = NULL;
+        smc_channel_conf->smc_receive_data_allocator_cb = (void*)smc_allocator_callback_control;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_control;
     }
 

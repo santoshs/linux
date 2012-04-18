@@ -427,7 +427,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
 /* =============================================================
  * SMC locking function platform specific implementation
- * The cock struct defined in smc_conf_platform.h
+ * The lock struct defined in smc_conf_platform.h
  *
  */
 

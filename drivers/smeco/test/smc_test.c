@@ -35,6 +35,8 @@ Description :  File created
 
 #ifdef SMECO_MODEM
 #include "smc_conf_l2mux_modem.h"
+#else
+#include "smc_conf_l2mux_linux.h"
 #endif
 
 #endif
@@ -539,7 +541,7 @@ smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id)
 
     if( smc_instance_id == 0x00 )
     {
-#if( (SMC_L2MUX_IF==TRUE) && defined(SMECO_MODEM) )
+#if( (SMC_L2MUX_IF==TRUE) )
         SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: get L2MUX SMC instance...");
         smc_instance = get_smc_instance_l2mux();
 #else
@@ -1392,7 +1394,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                      if( remap_address == 1 )
                      {
 #if defined SMECO_LINUX_KERNEL
-                         shm_address = ioremap((void*)shm_address, shm_data_len);
+                         shm_address = (uint32_t)ioremap((void*)shm_address, shm_data_len);
                          SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                      }
@@ -1446,7 +1448,7 @@ static void smc_test_timer_expired(uint32_t timer_data)
 
     timer = (smc_timer_t*)timer_data;
 
-    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: previous jiffies: %d", timer->prev_jiffies);
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: previous jiffies: %ld", timer->prev_jiffies);
 
     if( timer->timer_data != 0 )
     {
