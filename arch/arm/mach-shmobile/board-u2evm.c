@@ -500,7 +500,7 @@ static struct platform_device fsi_b_device = {
 static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
 	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
-	GPIO_KEY(KEY_HOME, GPIO_PORT26, "Home"),
+	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
 	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
 	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
