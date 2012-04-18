@@ -20,7 +20,7 @@ extern int mhi_raw_sock_create(
 	struct net *net,
 	struct socket *sock,
 	int proto,
-	int kern );
+	int kern);
 
 extern int  mhi_raw_proto_init(void);
 extern void mhi_raw_proto_exit(void);

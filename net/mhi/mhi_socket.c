@@ -10,7 +10,7 @@
  * This module implements generic sockets for MHI.
  * The protocol is implemented separately, like mhi_dgram.c.
  *
- * As MHI does not have addressed, the MHI interface is 
+ * As MHI does not have addressed, the MHI interface is
  * defined by sa_ifindex field in sockaddr_mhi.
  *
  * This program is free software; you can redistribute it and/or
@@ -59,28 +59,30 @@ static struct hlist_head mhi_sock_list;
 static int mhi_sock_create(
 	struct net		*net,
 	struct socket		*sock,
-	int			 proto, 
-	int			 kern )
+	int			 proto,
+	int			 kern)
 {
 	int err = 0;
 
-	DPRINTK("mhi_sock_create: type:%d proto:%d\n", 
+	DPRINTK("mhi_sock_create: type:%d proto:%d\n",
 		sock->type, proto);
-	
+
 	if (!capable(CAP_SYS_ADMIN) || !capable(CAP_NET_ADMIN)) {
 		printk(KERN_WARNING "AF_MHI: socket create failed: PERMISSION DENIED\n");
 		return -EPERM;
 	}
-	
+
 	if (!mhi_protocol_registered(proto)) {
-		printk(KERN_WARNING "AF_MHI: socket create failed: No support for L2 channel %d\n", proto);
+		printk(KERN_WARNING
+			"AF_MHI: socket create failed: No support for L2 channel %d\n",
+			proto);
 		return -EPROTONOSUPPORT;
 	}
-	
+
 	if (sock->type == SOCK_DGRAM)
-		err = mhi_dgram_sock_create(net,sock,proto,kern);
+		err = mhi_dgram_sock_create(net, sock, proto, kern);
 	else if (sock->type == SOCK_RAW)
-		err = mhi_raw_sock_create(net,sock,proto,kern);
+		err = mhi_raw_sock_create(net, sock, proto, kern);
 	else {
 		printk(KERN_WARNING "AF_MHI: trying to create a socket with "
 		       "unknown type %d\n", sock->type);
@@ -99,7 +101,7 @@ static int mhi_sock_release(struct socket *sock)
 	if (sock->sk) {
 		DPRINTK("mhi_sock_release: proto:%d type:%d\n",
 			sock->sk->sk_protocol, sock->type);
-	
+
 		sock->sk->sk_prot->close(sock->sk, 0);
 		sock->sk = NULL;
 	}
@@ -108,25 +110,25 @@ static int mhi_sock_release(struct socket *sock)
 }
 
 static int mhi_sock_bind(
-	struct socket		*sock, 
-	struct sockaddr 	*addr,
-	int 			 len )
+	struct socket		*sock,
+	struct sockaddr		*addr,
+	int					len)
 {
 	struct sock		*sk  = sock->sk;
-	struct mhi_sock 	*msk = mhi_sk(sk);
+	struct mhi_sock		*msk = mhi_sk(sk);
 	struct sockaddr_mhi	*sam = sa_mhi(addr);
 
 	int err = 0;
 
-	DPRINTK("mhi_sock_bind: proto:%d state:%d\n", 
+	DPRINTK("mhi_sock_bind: proto:%d state:%d\n",
 		sk->sk_protocol, sk->sk_state);
-	
+
 	if (sk->sk_prot->bind)
 		return sk->sk_prot->bind(sk, addr, len);
 
 	if (len < sizeof(struct sockaddr_mhi))
 		return -EINVAL;
-   
+
 	lock_sock(sk);
 	{
 		if (sk->sk_state == TCP_CLOSE) {
@@ -143,9 +145,9 @@ static int mhi_sock_bind(
 }
 
 int mhi_sock_rcv_unicast(
-	struct sk_buff     *skb, 
+	struct sk_buff     *skb,
 	u8                  l3proto,
-	u32                 l3length )
+	u32                 l3length)
 {
 	struct hlist_node  *hnode;
 	struct sock        *sknode;
@@ -157,14 +159,13 @@ int mhi_sock_rcv_unicast(
 	{
 		sk_for_each(sknode, hnode, &mhi_sock_list) {
 			msk = mhi_sk(sknode);
-			if ( (msk->sk_l3proto == MHI_L3_ANY ||
-			      msk->sk_l3proto == l3proto) &&
-			     (msk->sk_ifindex == skb->dev->ifindex)) 
-			{
-				sock_hold(sknode);
-				sk_receive_skb(sknode, skb, 0);
-				skb = NULL;
-				break;
+			if ((msk->sk_l3proto == MHI_L3_ANY ||
+			     msk->sk_l3proto == l3proto) &&
+			    (msk->sk_ifindex == skb->dev->ifindex)) {
+					sock_hold(sknode);
+					sk_receive_skb(sknode, skb, 0);
+					skb = NULL;
+					break;
 			}
 		}
 	}
@@ -179,28 +180,30 @@ int mhi_sock_rcv_unicast(
 int mhi_sock_rcv_multicast(
 	struct sk_buff     *skb,
 	u8                  l3proto,
-	u32                 l3length )
+	u32                 l3length)
 {
 	struct hlist_node  *hnode;
 	struct sock        *sknode;
 	struct mhi_sock	   *msk;
 	struct sk_buff     *clone;
 
-	DPRINTK("mhi_sock_rcv_multicast: proto:%d, len:%d\n", l3proto, l3length);
-	
+	DPRINTK("mhi_sock_rcv_multicast: proto:%d, len:%d\n",
+			l3proto, l3length);
+
 	spin_lock(&mhi_sock_lock);
 	{
 		sk_for_each(sknode, hnode, &mhi_sock_list) {
 			msk = mhi_sk(sknode);
-			if ( (msk->sk_l3proto == MHI_L3_ANY ||
-			      msk->sk_l3proto == l3proto) &&
-			     (msk->sk_ifindex == skb->dev->ifindex)) 
-			{
-				clone = skb_clone(skb, GFP_ATOMIC);
-				if (likely(clone)) {
-					sock_hold(sknode);
-					sk_receive_skb(sknode, clone, 0);
-				}
+			if ((msk->sk_l3proto == MHI_L3_ANY ||
+			     msk->sk_l3proto == l3proto) &&
+			    (msk->sk_ifindex == skb->dev->ifindex)) {
+					clone = skb_clone(skb, GFP_ATOMIC);
+					if (likely(clone)) {
+						sock_hold(sknode);
+						sk_receive_skb(sknode,
+							clone,
+							0);
+					}
 			}
 		}
 	}
@@ -215,10 +218,10 @@ int mhi_sock_sendmsg(
 	struct kiocb	*iocb,
 	struct socket	*sock,
 	struct msghdr	*msg,
-	size_t		 len )
+	size_t		 len)
 {
 	DPRINTK("mhi_sock_sendmsg: len:%lu\n", len);
-	
+
 	return sock->sk->sk_prot->sendmsg(iocb, sock->sk, msg, len);
 }
 
@@ -227,7 +230,7 @@ int mhi_sock_recvmsg(
 	struct socket   *sock,
 	struct msghdr   *msg,
 	size_t           len,
-	int              flags )
+	int              flags)
 {
 	int addrlen = 0;
 	int err;
@@ -247,7 +250,7 @@ int mhi_sock_recvmsg(
 void mhi_sock_hash(struct sock *sk)
 {
 	DPRINTK("mhi_sock_hash: proto:%d\n", sk->sk_protocol);
-	
+
 	spin_lock_bh(&mhi_sock_lock);
 	sk_add_node(sk, &mhi_sock_list);
 	spin_unlock_bh(&mhi_sock_lock);
@@ -256,15 +259,14 @@ void mhi_sock_hash(struct sock *sk)
 void mhi_sock_unhash(struct sock *sk)
 {
 	DPRINTK("mhi_sock_unhash: proto:%d\n", sk->sk_protocol);
-	
+
 	spin_lock_bh(&mhi_sock_lock);
 	sk_del_node_init(sk);
 	spin_unlock_bh(&mhi_sock_lock);
 }
 
 
-struct proto_ops mhi_socket_ops = 
-{
+struct proto_ops mhi_socket_ops = {
 	.family		= AF_MHI,
 	.owner		= THIS_MODULE,
 	.release	= mhi_sock_release,
@@ -289,8 +291,7 @@ struct proto_ops mhi_socket_ops =
 	.sendpage	= sock_no_sendpage,
 };
 
-static const struct net_proto_family mhi_proto_family = 
-{
+static const struct net_proto_family mhi_proto_family = {
 	.family = PF_MHI,
 	.create = mhi_sock_create,
 	.owner  = THIS_MODULE,
@@ -303,12 +304,12 @@ int mhi_sock_init(void)
 
 	INIT_HLIST_HEAD(&mhi_sock_list);
 	spin_lock_init(&mhi_sock_lock);
-	
+
 	return sock_register(&mhi_proto_family);
 }
 
 void mhi_sock_exit(void)
-{	
+{
 	DPRINTK("mhi_sock_exit\n");
 
 	sock_unregister(PF_MHI);

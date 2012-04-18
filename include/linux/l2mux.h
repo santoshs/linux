@@ -62,16 +62,16 @@ static inline int l2mux_get_proto(struct l2muxhdr *hdr)
 
 static inline void l2mux_set_length(struct l2muxhdr *hdr, unsigned len)
 {
-	hdr->l3_len[0] = (len      ) & 0xFF;
+	hdr->l3_len[0] = (len) & 0xFF;
 	hdr->l3_len[1] = (len >>  8) & 0xFF;
 	hdr->l3_len[2] = (len >> 16) & 0xFF;
 }
 
 static inline unsigned l2mux_get_length(struct l2muxhdr *hdr)
 {
-  return (((unsigned)hdr->l3_len[2])<<16) | 
-  	 (((unsigned)hdr->l3_len[1])<< 8) | 
-          ((unsigned)hdr->l3_len[0]);
+	return (((unsigned)hdr->l3_len[2]) << 16) |
+		(((unsigned)hdr->l3_len[1]) << 8) |
+		((unsigned)hdr->l3_len[0]);
 }
 
 extern int l2mux_netif_rx_register(int l3, l2mux_skb_fn *rx_fn);

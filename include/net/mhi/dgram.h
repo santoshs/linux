@@ -20,7 +20,7 @@ extern int mhi_dgram_sock_create(
 	struct net *net,
 	struct socket *sock,
 	int proto,
-	int kern );
+	int kern);
 
 extern int  mhi_dgram_proto_init(void);
 extern void mhi_dgram_proto_exit(void);

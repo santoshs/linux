@@ -46,8 +46,7 @@
 
 /*** Local types ***/
 
-struct mhi_qdisc
-{
+struct mhi_qdisc {
 	/* Number of hardware queues */
 	int nq;
 
@@ -55,8 +54,7 @@ struct mhi_qdisc
 	struct Qdisc **qdiscs;
 };
 
-struct mhdp_qdisc
-{
+struct mhdp_qdisc {
 	int state;
 	int limit;
 	int lowmark;
@@ -95,7 +93,9 @@ static int mhdp_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 	struct mhdp_qdisc *priv = qdisc_priv(sch);
 	int ret = 0;
 
-	DPRINTK("mhdp_enqueue: SKB len:%d mapping:%d", skb->len, skb->queue_mapping);
+	DPRINTK("mhdp_enqueue: SKB len:%d mapping:%d",
+			skb->len,
+			skb->queue_mapping);
 
 	qdisc_enqueue_tail(skb, sch);
 
@@ -125,8 +125,10 @@ static struct sk_buff *mhdp_dequeue(struct Qdisc *sch)
 						 qdisc_dev(sch));
 			priv->state = QUEUE_LOW;
 		}
-		
-		DPRINTK("mhdp_dequeue: SKB len:%d mapping:%d", skb->len, skb->queue_mapping);
+
+		DPRINTK("mhdp_dequeue: SKB len:%d mapping:%d",
+				skb->len,
+				skb->queue_mapping);
 	}
 
 	return skb;
@@ -137,21 +139,22 @@ static unsigned int mhdp_drop(struct Qdisc *sch)
 {
 	struct mhdp_qdisc *priv = qdisc_priv(sch);
 	unsigned int len = 0;
-	
+
 	len = qdisc_queue_drop_head(sch);
-	
+
 	if (len) {
-		if (priv->state == QUEUE_HIGH && qdisc_qlen(sch) <= priv->lowmark) {
-			DPRINTK("mhdp_enqnueue: NOTIFY QUEUE LOW LEVEL");
-			srcu_notifier_call_chain(&priv->qnot,
+		if (priv->state == QUEUE_HIGH &&
+			qdisc_qlen(sch) <= priv->lowmark) {
+				DPRINTK("mhdp_enqnueue: NOTIFY QUEUE LOW LEVEL");
+				srcu_notifier_call_chain(&priv->qnot,
 						 MHI_NOTIFY_QUEUE_LOW,
 						 qdisc_dev(sch));
-			priv->state = QUEUE_LOW;
+				priv->state = QUEUE_LOW;
 		}
 	}
-	
+
 	DPRINTK("mhi_drop: len:%d", len);
-	
+
 	return len;
 }
 
@@ -164,10 +167,10 @@ static int mhdp_tune(struct Qdisc *sch, struct nlattr *opt)
 
 	if (!opt)
 		return -EINVAL;
-		
+
 	if (nla_len(opt) < sizeof(*qopt))
 		return -EINVAL;
-		
+
 	qopt = nla_data(opt);
 
 	if (qopt->limit < 1)
@@ -191,8 +194,8 @@ static int mhdp_tune(struct Qdisc *sch, struct nlattr *opt)
 	priv->limit    = qopt->limit;
 	priv->lowmark  = qopt->lowmark;
 	priv->highmark = qopt->highmark;
-	
-	DPRINTK("mhdp_tune: limit:%d lowmark:%d highmark:%d", 
+
+	DPRINTK("mhdp_tune: limit:%d lowmark:%d highmark:%d",
 		priv->limit, priv->lowmark,  priv->highmark);
 
 	return 0;
@@ -202,20 +205,20 @@ static int mhdp_init(struct Qdisc *sch, struct nlattr *opt)
 {
 	struct mhdp_qdisc *priv = qdisc_priv(sch);
 	int err = 0;
-	
+
 	DPRINTK("mhdp_init");
 
 	priv->state    = QUEUE_LOW;
 	priv->limit    = 1000;
 	priv->lowmark  = 1;
 	priv->highmark = 3;
-	
+
 	srcu_init_notifier_head(&priv->qnot);
 
 	if (opt)
-		err = mhdp_tune(sch,opt);
+		err = mhdp_tune(sch, opt);
 
-	DPRINTK("mhdp_init: %s (%d)", err?"ERROR":"OK", err);
+	DPRINTK("mhdp_init: %s (%d)", err ? "ERROR" : "OK", err);
 
 	return err;
 }
@@ -223,7 +226,7 @@ static int mhdp_init(struct Qdisc *sch, struct nlattr *opt)
 static void mhdp_destroy(struct Qdisc *sch)
 {
 	struct mhdp_qdisc *priv = qdisc_priv(sch);
-	
+
 	DPRINTK("mhdp_destroy");
 
 	srcu_cleanup_notifier_head(&priv->qnot);
@@ -236,12 +239,12 @@ static struct Qdisc_ops *mhi_get_qdisc_ops(int queue)
 {
 	int qcl;
 
-	if ( queue < 0 || queue > 7 )
+	if (queue < 0 || queue > 7)
 		qcl = 1;
 	else
 		qcl = mhi_qdisc_tab[queue];
 
-	if ( qcl < 0 || qcl > 2 )
+	if (qcl < 0 || qcl > 2)
 		qcl = 1;
 
 	return mhi_queue_ops[qcl];
@@ -258,7 +261,7 @@ static void mhi_destroy(struct Qdisc *sch)
 	if (priv->qdiscs) {
 		for (i = 0; i < priv->nq; i++)
 			if (priv->qdiscs[i])
-				qdisc_destroy( priv->qdiscs[i] );
+				qdisc_destroy(priv->qdiscs[i]);
 		kfree(priv->qdiscs);
 	}
 }
@@ -280,28 +283,27 @@ static int mhi_init(struct Qdisc *sch, struct nlattr *opt)
 		return -EOPNOTSUPP;
 
 	priv->nq = dev->num_tx_queues;
-	
+
 	priv->qdiscs = kcalloc(priv->nq, sizeof(struct Qdisc *), GFP_KERNEL);
 	if (!priv->qdiscs)
 		goto rollback0;
 
-	for (i = 0; i < priv->nq; i++) 
-	{
+	for (i = 0; i < priv->nq; i++) {
 		qdev = netdev_get_tx_queue(dev, i);
 		qops = mhi_get_qdisc_ops(i);
-		
-		priv->qdiscs[i] = 
+
+		priv->qdiscs[i] =
 			qdisc_create_dflt(/*dev,*/ qdev, qops,
 				TC_H_MAKE(TC_H_MAJ(sch->handle), TC_H_MIN(i+1)));/*PATCH GBR : dev no more used*/
-		
+
 		if (!priv->qdiscs[i])
 			goto rollback1;
-		
+
 		try_module_get(qops->owner); /* released in qdisc_destroy() */
 	}
 
 	sch->flags |= TCQ_F_MQROOT;
-	
+
 	return 0;
 
 rollback1:
@@ -320,11 +322,12 @@ static void mhi_attach(struct Qdisc *sch)
 	BUGGER(priv->qdiscs == NULL);
 
 	for (i = 0; i < priv->nq; i++) {
-		qdisc = dev_graft_qdisc(priv->qdiscs[i]->dev_queue, priv->qdiscs[i]);
+		qdisc = dev_graft_qdisc(priv->qdiscs[i]->dev_queue,
+					priv->qdiscs[i]);
 		if (qdisc)
 			qdisc_destroy(qdisc);
 	}
-	
+
 	kfree(priv->qdiscs);
 	priv->qdiscs = NULL;
 }
@@ -340,17 +343,16 @@ static int mhi_dump(struct Qdisc *sch, struct sk_buff *skb)
 	DPRINTK("mhi_dump");
 
 	sch->q.qlen = 0;
-	
+
 	memset(&sch->bstats, 0, sizeof(sch->bstats));
 	memset(&sch->qstats, 0, sizeof(sch->qstats));
 
-	for (i = 0; i < priv->nq; i++)
-	{
+	for (i = 0; i < priv->nq; i++) {
 		qdev = netdev_get_tx_queue(dev, i);
 		BUGGER(qdev == NULL);
-		
+
 		qdisc = qdev->qdisc_sleeping;
-		
+
 		spin_lock_bh(qdisc_lock(qdisc));
 		{
 			sch->q.qlen		+= qdisc->q.qlen;
@@ -367,29 +369,31 @@ static int mhi_dump(struct Qdisc *sch, struct sk_buff *skb)
 	return 0;
 }
 
-static struct netdev_queue *mhi_netdev_queue_get(struct Qdisc *sch, unsigned long cl)
+static struct netdev_queue *mhi_netdev_queue_get(struct Qdisc *sch,
+							unsigned long cl)
 {
 	struct net_device *dev = qdisc_dev(sch);
 
 	if (cl < 1 || cl > dev->num_tx_queues)
 		return NULL;
-	
+
 	return netdev_get_tx_queue(dev, cl-1);
 }
 
-static struct netdev_queue *mhi_select_queue(struct Qdisc *sch, struct tcmsg *tcm)
+static struct netdev_queue *mhi_select_queue(struct Qdisc *sch,
+							struct tcmsg *tcm)
 {
 	struct netdev_queue *qdev;
 
 	qdev = mhi_netdev_queue_get(sch, TC_H_MIN(tcm->tcm_parent));
-	
+
 	if (qdev)
 		return qdev;
 
 	return netdev_get_tx_queue(qdisc_dev(sch), 0);
 }
 
-static int mhi_graft(struct Qdisc *sch, unsigned long cl, 
+static int mhi_graft(struct Qdisc *sch, unsigned long cl,
 		     struct Qdisc *new, struct Qdisc **old)
 {
 	struct net_device *dev = qdisc_dev(sch);
@@ -399,7 +403,7 @@ static int mhi_graft(struct Qdisc *sch, unsigned long cl,
 
 	qdev = mhi_netdev_queue_get(sch, cl);
 	BUGGER(qdev == NULL);
-	
+
 	if (dev->flags & IFF_UP)
 		dev_deactivate(dev);
 
@@ -407,7 +411,7 @@ static int mhi_graft(struct Qdisc *sch, unsigned long cl,
 
 	if (dev->flags & IFF_UP)
 		dev_activate(dev);
-	
+
 	return 0;
 }
 
@@ -427,7 +431,7 @@ static unsigned long mhi_get(struct Qdisc *sch, u32 classid)
 
 	if (!mhi_netdev_queue_get(sch, i))
 		return 0;
-	
+
 	return i;
 }
 
@@ -447,7 +451,7 @@ static int mhi_dump_class(struct Qdisc *sch, unsigned long cl,
 	tcm->tcm_parent  = TC_H_ROOT;
 	tcm->tcm_handle |= TC_H_MIN(cl);
 	tcm->tcm_info    = qdev->qdisc_sleeping->handle;
-	
+
 	return 0;
 }
 
@@ -460,13 +464,13 @@ static int mhi_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 	BUGGER(qdev == NULL);
 
 	sch = qdev->qdisc_sleeping;
-	
+
 	sch->qstats.qlen = sch->q.qlen;
-	
+
 	if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
 	    gnet_stats_copy_queue(d, &sch->qstats) < 0)
 		return -1;
-	
+
 	return 0;
 }
 
@@ -474,9 +478,9 @@ static void mhi_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 {
 	struct mhi_qdisc *priv = qdisc_priv(sch);
 	unsigned int i;
-	
+
 	BUGGER(priv == NULL);
-	
+
 	if (arg->stop)
 		return;
 
@@ -494,7 +498,9 @@ static void mhi_walk(struct Qdisc *sch, struct qdisc_walker *arg)
 /*** Notifier functions ***/
 
 int
-mhi_register_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsigned long cl)
+mhi_register_queue_notifier(struct Qdisc *sch,
+					struct notifier_block *nb,
+					unsigned long cl)
 {
 	struct netdev_queue *qdev;
 	struct mhdp_qdisc *leaf;
@@ -508,7 +514,7 @@ mhi_register_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsign
 		return -1;
 	}
 
-	qdev = mhi_netdev_queue_get(sch,cl);
+	qdev = mhi_netdev_queue_get(sch, cl);
 	if (!qdev) {
 		DPRINTK("mhi_register_queue_notifier: FAILED: no such queue");
 		return -1;
@@ -523,17 +529,19 @@ mhi_register_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsign
 
 	leaf = qdisc_priv(qdisc);
 
-	err = srcu_notifier_chain_register(&leaf->qnot,nb);
+	err = srcu_notifier_chain_register(&leaf->qnot, nb);
 
 	if (err)
 		DPRINTK("mhi_qdisc_register_notifier: failed: %d", err);
-	
+
 	return err;
 }
 EXPORT_SYMBOL(mhi_register_queue_notifier);
 
 int
-mhi_unregister_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsigned long cl)
+mhi_unregister_queue_notifier(struct Qdisc *sch,
+				struct notifier_block *nb,
+				unsigned long cl)
 {
 	struct netdev_queue *qdev;
 	struct mhdp_qdisc *leaf;
@@ -547,7 +555,7 @@ mhi_unregister_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsi
 		return -1;
 	}
 
-	qdev = mhi_netdev_queue_get(sch,cl);
+	qdev = mhi_netdev_queue_get(sch, cl);
 	if (!qdev) {
 		DPRINTK("mhi_register_queue_notifier: FAILED: no such queue");
 		return -1;
@@ -562,7 +570,7 @@ mhi_unregister_queue_notifier(struct Qdisc *sch, struct notifier_block *nb, unsi
 
 	leaf = qdisc_priv(qdisc);
 
-	err = srcu_notifier_chain_unregister(&leaf->qnot,nb);
+	err = srcu_notifier_chain_unregister(&leaf->qnot, nb);
 
 	if (err)
 		DPRINTK("mhi_unregister_queue_notifier: failed: %d", err);
@@ -574,8 +582,7 @@ EXPORT_SYMBOL(mhi_unregister_queue_notifier);
 
 /*** Qdisc structures ***/
 
-static struct Qdisc_ops mhi_noq_ops __read_mostly = 
-{
+static struct Qdisc_ops mhi_noq_ops __read_mostly = {
 	.id		= "mhi-noq",
 	.priv_size	= 0,
 	.enqueue	= NULL,
@@ -584,8 +591,7 @@ static struct Qdisc_ops mhi_noq_ops __read_mostly =
 	.owner		= THIS_MODULE,
 };
 
-static struct Qdisc_ops mhi_fifo_ops __read_mostly = 
-{
+static struct Qdisc_ops mhi_fifo_ops __read_mostly = {
 	.id		= "mhi-fifo",
 	.priv_size	= 0,
 	.enqueue	= qdisc_enqueue_tail,
@@ -596,8 +602,7 @@ static struct Qdisc_ops mhi_fifo_ops __read_mostly =
 	.owner		= THIS_MODULE,
 };
 
-static struct Qdisc_ops mhi_mhdp_ops __read_mostly = 
-{
+static struct Qdisc_ops mhi_mhdp_ops __read_mostly = {
 	.id		= "mhi-mhdp",
 	.priv_size	= sizeof(struct mhdp_qdisc),
 	.enqueue	= mhdp_enqueue,
@@ -611,8 +616,7 @@ static struct Qdisc_ops mhi_mhdp_ops __read_mostly =
 	.owner		= THIS_MODULE,
 };
 
-static const struct Qdisc_class_ops mhi_class_ops = 
-{
+static const struct Qdisc_class_ops mhi_class_ops = {
 	.select_queue	= mhi_select_queue,
 	.graft		= mhi_graft,
 	.leaf		= mhi_leaf,
@@ -623,8 +627,7 @@ static const struct Qdisc_class_ops mhi_class_ops =
 	.dump_stats	= mhi_dump_class_stats,
 };
 
-static struct Qdisc_ops mhi_qdisc_ops __read_mostly = 
-{
+static struct Qdisc_ops mhi_qdisc_ops __read_mostly = {
 	.cl_ops		= &mhi_class_ops,
 	.id		= "mhi",
 	.priv_size	= sizeof(struct mhi_qdisc),
@@ -636,8 +639,7 @@ static struct Qdisc_ops mhi_qdisc_ops __read_mostly =
 };
 
 
-static struct Qdisc_ops *mhi_queue_ops[] = 
-{
+static struct Qdisc_ops *mhi_queue_ops[] = {
 	&mhi_noq_ops,
 	&mhi_fifo_ops,
 	&mhi_mhdp_ops,
@@ -647,8 +649,7 @@ static struct Qdisc_ops *mhi_queue_ops[] =
 #define MHI_FIFO_OPS   1
 #define MHI_MHDP_OPS   2
 
-static int mhi_qdisc_tab[] = 
-{
+static int mhi_qdisc_tab[] = {
 	MHI_MHDP_OPS,	/* Priority 0 = User plane */
 	MHI_FIFO_OPS,	/* Priority 1 = Control plane */
 	MHI_FIFO_OPS,	/* Priority 2 = Audio */
@@ -667,22 +668,26 @@ static int mhi_param_count = 0;
 static int __init sch_mhi_init(void)
 {
 	int err;
-	
+
 	if (mhi_param_count > 8)
 		return -1;
-	
+
 	err = register_qdisc(&mhi_qdisc_ops);
-	if (err) goto rollback0;
-	
+	if (err)
+		goto rollback0;
+
 	err = register_qdisc(&mhi_noq_ops);
-	if (err) goto rollback1;
-	
+	if (err)
+		goto rollback1;
+
 	err = register_qdisc(&mhi_fifo_ops);
-	if (err) goto rollback2;
-	
+	if (err)
+		goto rollback2;
+
 	err = register_qdisc(&mhi_mhdp_ops);
-	if (err) goto rollback3;
-	
+	if (err)
+		goto rollback3;
+
 	return 0;
 
 rollback3:
@@ -706,7 +711,11 @@ static void __exit sch_mhi_exit(void)
 module_init(sch_mhi_init)
 module_exit(sch_mhi_exit)
 
-module_param_array_named(default_qdisc,mhi_qdisc_tab,int,&mhi_param_count,0444);
+module_param_array_named(default_qdisc,
+						mhi_qdisc_tab,
+						int,
+						&mhi_param_count,
+						0444);
 
 MODULE_AUTHOR("Renesas Mobile Corporation");
 MODULE_DESCRIPTION("MHI Queue Discipline");

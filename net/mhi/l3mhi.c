@@ -43,8 +43,7 @@
 
 
 /* Module parameters - with defaults */
-static int l2chs[MAX_CHANNELS] = 
-{ 
+static int l2chs[MAX_CHANNELS] = {
 	MHI_L3_FILE,
 	MHI_L3_XFILE,
 	MHI_L3_SECURITY,
@@ -62,7 +61,7 @@ static int
 mhi_netif_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	skb->protocol = htons(ETH_P_MHI);
-	
+
 	return netif_rx(skb);
 }
 
@@ -74,48 +73,42 @@ int __init l3mhi_init(void)
 	int ch, i;
 	int err;
 
-	for (i=0; i<l2cnt; i++) 
-	{
+	for (i = 0; i < l2cnt; i++) {
 		ch = l2chs[i];
-		if (ch >= 0 && ch < MHI_L3_NPROTO) 
-		{
-			err = l2mux_netif_rx_register(ch,mhi_netif_rx);
-			if (err) 
+		if (ch >= 0 && ch < MHI_L3_NPROTO) {
+			err = l2mux_netif_rx_register(ch, mhi_netif_rx);
+			if (err)
 				goto error;
-			
+
 			err = mhi_register_protocol(ch);
-			if (err) 
+			if (err)
 				goto error;
 		}
 	}
-	
+
 	return 0;
 
 error:
-	for (i=0; i<l2cnt; i++)	
-	{
+	for (i = 0; i < l2cnt; i++)	{
 		ch = l2chs[i];
-		if (ch >= 0 && ch < MHI_L3_NPROTO) 
-		{
+		if (ch >= 0 && ch < MHI_L3_NPROTO) {
 			if (mhi_protocol_registered(ch)) {
 				l2mux_netif_rx_unregister(ch);
 				mhi_unregister_protocol(ch);
 			}
 		}
 	}
-	
+
 	return err;
 }
 
 void __exit l3mhi_exit(void)
 {
 	int ch, i;
-	
-	for (i=0; i<l2cnt; i++) 
-	{
+
+	for (i = 0; i < l2cnt; i++) {
 		ch = l2chs[i];
-		if (ch >= 0 && ch < MHI_L3_NPROTO) 
-		{
+		if (ch >= 0 && ch < MHI_L3_NPROTO) {
 			if (mhi_protocol_registered(ch)) {
 				l2mux_netif_rx_unregister(ch);
 				mhi_unregister_protocol(ch);
@@ -128,7 +121,7 @@ void __exit l3mhi_exit(void)
 module_init(l3mhi_init);
 module_exit(l3mhi_exit);
 
-module_param_array_named(l2_channels,l2chs,int,&l2cnt,0444);
+module_param_array_named(l2_channels, l2chs, int, &l2cnt, 0444);
 
 MODULE_AUTHOR("Petri Mattila <petri.to.mattila@renesasmobile.com>");
 MODULE_DESCRIPTION("L3 MHI Binding");

@@ -63,12 +63,12 @@ int mhi_dgram_sock_create(
 	struct net		*net,
 	struct socket		*sock,
 	int			proto,
-	int			kern )
+	int			kern)
 {
 	struct sock		*sk;
 	struct mhi_sock	        *msk;
-	
-	DPRINTK("mhi_dgram_sock_create: proto:%d type:%d\n", 
+
+	DPRINTK("mhi_dgram_sock_create: proto:%d type:%d\n",
 		proto, sock->type);
 
 	if (sock->type != SOCK_DGRAM)
@@ -76,16 +76,16 @@ int mhi_dgram_sock_create(
 
 	if (proto == MHI_L3_ANY)
 		return -EPROTONOSUPPORT;
-	
+
 	sk = sk_alloc(net, PF_MHI, GFP_KERNEL, &mhi_dgram_proto);
 	if (!sk)
 		return -ENOMEM;
-	
+
 	sock_init_data(sock, sk);
 
 	sock->ops = &mhi_socket_ops;
 	sock->state = SS_UNCONNECTED;
-	
+
 	sk->sk_protocol = proto;
 	sk->sk_destruct = mhi_dgram_destruct;
 	sk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
@@ -96,7 +96,7 @@ int mhi_dgram_sock_create(
 
 	msk->sk_l3proto = proto;
 	msk->sk_ifindex = -1;
-	
+
 	return 0;
 }
 
@@ -122,7 +122,7 @@ static int mhi_dgram_ioctl(struct sock *sk, int cmd, unsigned long arg)
 	DPRINTK("mhi_dgram_ioctl: cmd:%d arg:%lu\n", cmd, arg);
 
 	switch (cmd) {
-	    case SIOCOUTQ:
+	case SIOCOUTQ:
 		{
 			int len;
 			len = sk_wmem_alloc_get(sk);
@@ -130,23 +130,23 @@ static int mhi_dgram_ioctl(struct sock *sk, int cmd, unsigned long arg)
 		}
 		break;
 
-	    case SIOCINQ:
+	case SIOCINQ:
 		{
 			struct sk_buff *skb;
 			int len;
-			
+
 			lock_sock(sk);
 			{
 				skb = skb_peek(&sk->sk_receive_queue);
 				len = skb ? skb->len : 0;
 			}
 			release_sock(sk);
-			
+
 			err = put_user(len, (int __user *)arg);
 		}
 		break;
 
-	    default:
+	default:
 		err = -ENOIOCTLCMD;
 	}
 
@@ -154,10 +154,10 @@ static int mhi_dgram_ioctl(struct sock *sk, int cmd, unsigned long arg)
 }
 
 static int mhi_dgram_sendmsg(
-	struct kiocb 	    *iocb, 
+	struct kiocb		*iocb,
 	struct sock         *sk,
-	struct msghdr       *msg, 
-	size_t               len )
+	struct msghdr       *msg,
+	size_t               len)
 {
 	struct mhi_sock	    *msk = mhi_sk(sk);
 	struct net_device   *dev = NULL;
@@ -166,9 +166,11 @@ static int mhi_dgram_sendmsg(
 
 	int err = -EFAULT;
 
-	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR|MSG_NOSIGNAL|MSG_CMSG_COMPAT)) {
-		printk(KERN_WARNING "mhi_dgram_sendmsg: incompatible socket msg_flags: 0x%08X\n", 
-		       msg->msg_flags);
+	if (msg->msg_flags &
+		~(MSG_DONTWAIT|MSG_EOR|MSG_NOSIGNAL|MSG_CMSG_COMPAT)) {
+		printk(KERN_WARNING
+			"mhi_dgram_sendmsg: incompatible socket msg_flags: 0x%08X\n",
+			msg->msg_flags);
 		err = -EOPNOTSUPP;
 		goto out;
 	}
@@ -176,16 +178,20 @@ static int mhi_dgram_sendmsg(
 	skb = sock_alloc_send_skb(sk, len + L2MUX_HDR_SIZE,
 				  (msg->msg_flags & MSG_DONTWAIT), &err);
 	if (!skb) {
-		printk(KERN_ERR "mhi_dgram_sendmsg: sock_alloc_send_skb failed: %d\n", err);
+		printk(KERN_ERR
+			"mhi_dgram_sendmsg: sock_alloc_send_skb failed: %d\n",
+			err);
 		goto out;
 	}
 
 	skb_reserve(skb, L2MUX_HDR_SIZE);
 	skb_reset_transport_header(skb);
 
-	err = memcpy_fromiovec((void *)skb_put(skb,len), msg->msg_iov, len);
+	err = memcpy_fromiovec((void *)skb_put(skb, len), msg->msg_iov, len);
 	if (err < 0) {
-		printk(KERN_ERR "mhi_dgram_sendmsg: memcpy_fromiovec failed: %d\n", err);
+		printk(KERN_ERR
+			"mhi_dgram_sendmsg: memcpy_fromiovec failed: %d\n",
+			err);
 		goto drop;
 	}
 
@@ -193,12 +199,16 @@ static int mhi_dgram_sendmsg(
 		dev = dev_get_by_index(sock_net(sk), msk->sk_ifindex);
 
 	if (!dev) {
-		printk(KERN_ERR "mhi_dgram_sendmsg: no device for ifindex:%d\n", msk->sk_ifindex);
+		printk(KERN_ERR
+		"mhi_dgram_sendmsg: no device for ifindex:%d\n",
+		msk->sk_ifindex);
 		goto drop;
 	}
 
 	if (!(dev->flags & IFF_UP)) {
-		printk(KERN_ERR "mhi_dgram_sendmsg: device %d not IFF_UP\n", msk->sk_ifindex);
+		printk(KERN_ERR
+			"mhi_dgram_sendmsg: device %d not IFF_UP\n",
+			msk->sk_ifindex);
 		err = -ENETDOWN;
 		goto drop;
 	}
@@ -214,9 +224,9 @@ static int mhi_dgram_sendmsg(
 	skb_reset_mac_header(skb);
 
 	l2hdr = l2mux_hdr(skb);
-	l2mux_set_proto(l2hdr,sk->sk_protocol);
-	l2mux_set_length(l2hdr,len);
-	
+	l2mux_set_proto(l2hdr, sk->sk_protocol);
+	l2mux_set_length(l2hdr, len);
+
 	err = mhi_skb_send(skb, dev, sk->sk_protocol);
 
 	goto put;
@@ -224,30 +234,35 @@ static int mhi_dgram_sendmsg(
 drop:
 	kfree(skb);
 put:
-	if (dev) dev_put(dev);
+	if (dev)
+		dev_put(dev);
 out:
 	return err;
 }
 
 static int mhi_dgram_recvmsg(
-	struct kiocb *iocb, 
+	struct kiocb *iocb,
 	struct sock *sk,
 	struct msghdr *msg,
-	size_t len, 
+	size_t len,
 	int noblock,
-	int flags, 
-	int *addr_len )
+	int flags,
+	int *addr_len)
 {
 	struct sk_buff *skb = NULL;
 	int cnt, err;
 
 	err = -EOPNOTSUPP;
 
-	if (flags & ~(MSG_PEEK|MSG_TRUNC|MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_COMPAT)) {
-		printk(KERN_WARNING "mhi_dgram_recvmsg: incompatible socket flags: 0x%08X", flags);
+	if (flags &
+		~(MSG_PEEK|MSG_TRUNC|MSG_DONTWAIT|
+			MSG_NOSIGNAL|MSG_CMSG_COMPAT)) {
+		printk(KERN_WARNING
+			"mhi_dgram_recvmsg: incompatible socket flags: 0x%08X",
+			flags);
 		goto out2;
 	}
-   
+
 	if (addr_len)
 		addr_len[0] = 0;
 
@@ -271,7 +286,7 @@ static int mhi_dgram_recvmsg(
 		err = cnt;
 
 out:
-	skb_free_datagram(sk,skb);
+	skb_free_datagram(sk, skb);
 out2:
 	return err;
 }
@@ -287,8 +302,7 @@ static int mhi_dgram_backlog_rcv(struct sock *sk, struct sk_buff *skb)
 }
 
 
-static struct proto mhi_dgram_proto = 
-{
+static struct proto mhi_dgram_proto = {
 	.name		= "MHI-DGRAM",
 	.owner		= THIS_MODULE,
 	.close		= mhi_dgram_close,
@@ -307,7 +321,7 @@ int mhi_dgram_proto_init(void)
 {
 	DPRINTK("mhi_dgram_proto_init\n");
 
-	return proto_register(&mhi_dgram_proto,1);
+	return proto_register(&mhi_dgram_proto, 1);
 }
 
 void mhi_dgram_proto_exit(void)

@@ -69,9 +69,10 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
 	struct phonet_protocol *pnp;
 	int err;
 
-//PATCH
-//	if (!capable(CAP_SYS_ADMIN))
-//		return -EPERM;
+/*PATCH
+ *	if (!capable(CAP_SYS_ADMIN))
+ *	return -EPERM;
+ */
 
 	if (protocol == 0) {
 		/* Default protocol selection */
@@ -114,7 +115,7 @@ static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
 	pn->sobject = 0;
 	pn->resource = 0;
 	pn->resource_type = 0;
-	pn->resource_subtype = 0;	
+	pn->resource_subtype = 0;
 	sk->sk_prot->init(sk);
 	err = 0;
 
@@ -434,7 +435,7 @@ out_dev:
 		dev_put(out_dev);
 	}
 
-out:   
+out:
 	kfree_skb(skb);
 	return NET_RX_DROP;
 }

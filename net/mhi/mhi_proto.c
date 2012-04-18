@@ -6,7 +6,7 @@
  * Author: Petri Mattila <petri.to.mattila@renesasmobile.com>
  *
  * Modem-Host Interface (MHI) Protocol Family
- * 
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -69,31 +69,31 @@ mhi_register_protocol(int protocol)
 		return -EINVAL;
 
 	mhi_protocols[protocol] = 1;
-	
+
 	return 0;
 }
 EXPORT_SYMBOL(mhi_register_protocol);
 
-int 
+int
 mhi_unregister_protocol(int protocol)
 {
 	DPRINTK("mhi_unregister_protocol: %d\n", protocol);
-	
+
 	if (protocol < 0 || protocol >= MHI_L3_NPROTO)
 		return -EINVAL;
 
 	mhi_protocols[protocol] = 0;
-	
+
 	return 0;
 }
 EXPORT_SYMBOL(mhi_unregister_protocol);
 
 
-int 
+int
 mhi_skb_send(
 	struct sk_buff		*skb,
 	struct net_device	*dev,
-	u8			 proto )
+	u8			 proto)
 {
 	int err = 0;
 
@@ -112,12 +112,12 @@ mhi_skb_send(
 	return err;
 }
 
-int 
+int
 mhi_skb_recv(
-	struct sk_buff		*skb, 
+	struct sk_buff		*skb,
 	struct net_device	*dev,
 	struct packet_type	*type,
-	struct net_device	*orig_dev )
+	struct net_device	*orig_dev)
 {
 	struct l2muxhdr		*l2hdr;
 
@@ -126,20 +126,20 @@ mhi_skb_recv(
 	int    err;
 
 	l2hdr = l2mux_hdr(skb);
-	
+
 	l3pid = l2mux_get_proto(l2hdr);
 	l3len = l2mux_get_length(l2hdr);
-	
-	DPRINTK("mhi_skb_recv: skb_len:%d l3pid:%d l3len:%d\n", skb->len, l3pid, l3len);
-	
-	err = mhi_sock_rcv_multicast(skb,l3pid,l3len);
-	
+
+	DPRINTK("mhi_skb_recv: skb_len:%d l3pid:%d l3len:%d\n",
+			skb->len, l3pid, l3len);
+
+	err = mhi_sock_rcv_multicast(skb, l3pid, l3len);
+
 	return err;
 }
 
 
-static struct packet_type mhi_packet_type __read_mostly = 
-{
+static struct packet_type mhi_packet_type __read_mostly = {
 	.type = cpu_to_be16(ETH_P_MHI),
 	.func = mhi_skb_recv,
 };
@@ -186,7 +186,7 @@ static void __exit mhi_proto_exit(void)
 	DPRINTK("mhi_proto_exit\n");
 
 	dev_remove_pack(&mhi_packet_type);
-	
+
 	mhi_dgram_proto_exit();
 	mhi_raw_proto_exit();
 	mhi_sock_exit();

@@ -20,7 +20,7 @@ config MHI_L2MUX
 	help
 	  L2 MUX is a protocol layer in the MHI stack. It is required
 	  by the MHI L3 components.
-	  
+
 	  To compile this driver as a module, choose M here: the module
 	  will be called l2mux. If unsure, say Y.
 
@@ -29,7 +29,7 @@ config MHI_L3MHI
 	select MHI_L2MUX
 	default y
 	help
-	  AF_MHI provides datagram access to L2 channels in MHI, 
+	  AF_MHI provides datagram access to L2 channels in MHI,
 	  developed by Renesas Mobile for use with their modems.
 
 	  To compile this driver as a module, choose M here: the modules
@@ -59,13 +59,12 @@ config MHI_L3MHDP
 	  Tunneling means encapsulating data of one protocol type within
 	  another protocol and sending it over a channel that understands the
 	  encapsulating protocol. This particular tunneling driver implements
-	  encapsulation of IP within MHDP (Modem Host Data Protocol), which 
+	  encapsulation of IP within MHDP (Modem Host Data Protocol), which
 	  is used for communication between the APE and the Modem.
 
 	  To compile this driver as a module, choose M here: the module
 	  will be called l3mhdp. If unsure, say Y.
 
-  
 config MHI_DEBUG
 	bool "MHI Debugging"
 	default n
