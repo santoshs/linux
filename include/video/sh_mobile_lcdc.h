@@ -2,33 +2,44 @@
 #define __ASM_SH_MOBILE_LCDC_H__
 
 #include <linux/fb.h>
-#include <video/sh_mobile_meram.h>
 
 enum {
-	RGB8,   /* 24bpp, 8:8:8 */
-	RGB9,   /* 18bpp, 9:9 */
+	RGB8,	/* 24bpp, 8:8:8 */
+	RGB9,	/* 18bpp, 9:9 */
 	RGB12A, /* 24bpp, 12:12 */
 	RGB12B, /* 12bpp */
-	RGB16,  /* 16bpp */
-	RGB18,  /* 18bpp */
-	RGB24,  /* 24bpp */
+	RGB16,	/* 16bpp */
+	RGB18,	/* 18bpp */
+	RGB24,	/* 24bpp */
 	YUV422, /* 16bpp */
-	SYS8A,  /* 24bpp, 8:8:8 */
-	SYS8B,  /* 18bpp, 8:8:2 */
-	SYS8C,  /* 18bpp, 2:8:8 */
-	SYS8D,  /* 16bpp, 8:8 */
-	SYS9,   /* 18bpp, 9:9 */
-	SYS12,  /* 24bpp, 12:12 */
+	SYS8A,	/* 24bpp, 8:8:8 */
+	SYS8B,	/* 18bpp, 8:8:2 */
+	SYS8C,	/* 18bpp, 2:8:8 */
+	SYS8D,	/* 16bpp, 8:8 */
+	SYS9,	/* 18bpp, 9:9 */
+	SYS12,	/* 24bpp, 12:12 */
 	SYS16A, /* 16bpp */
 	SYS16B, /* 18bpp, 16:2 */
 	SYS16C, /* 18bpp, 2:16 */
-	SYS18,  /* 18bpp */
-	SYS24,  /* 24bpp */
+	SYS18,	/* 18bpp */
+	SYS24,	/* 24bpp */
 };
 
-enum { LCDC_CHAN_DISABLED = 0,
-       LCDC_CHAN_MAINLCD,
-       LCDC_CHAN_SUBLCD };
+/* Header Section */
+struct lcdrt_sectioninfo {
+	u32 variableareaaddr;	/* Address of Variable Area */
+	u32 variableareasize;	/* Size of Variable Area */
+	u32 fixedareaaddr;	/* Address of Fixed Area */
+	u32 fixedareasize;	/* Size of Fixed Area */
+	u32 commandareaaddr;	/* Address of Command Transfer Area */
+	u32 commandareasize;	/* Size of Command Transfer Area */
+	u32 onscrnaddr;		/* Address of OnScreen Buffer */
+	u32 onscrnsize;		/* Size of OnScreen Buffer */
+};
+
+enum {  LCDC_CHAN_DISABLED = 0,
+	LCDC_CHAN_MAINLCD,
+	LCDC_CHAN_SUBLCD };
 
 enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 
@@ -39,28 +50,33 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 #define LCDC_FLAGS_DWCNT (1 << 4) /* Disable dotclock during blanking */
 
 /*Main display*/
-#define SH_MLCD_WIDTH           480
-#define SH_MLCD_HEIGHT          864
+#define SH_MLCD_WIDTH		480
+#define SH_MLCD_HEIGHT		864
 
-#define SH_MLCD_TRCOLOR         0
-#define SH_MLCD_REPLACECOLOR    0
-#define SH_MLCD_RECTX           0
-#define SH_MLCD_RECTY           0
+#define SH_MLCD_TRCOLOR		0
+#define SH_MLCD_REPLACECOLOR	0
+#define SH_MLCD_RECTX		0
+#define SH_MLCD_RECTY		0
 
 /*Sub display*/
-#define SH_SLCD_WIDTH           480
-#define SH_SLCD_HEIGHT          864
+#define SH_SLCD_WIDTH		480
+#define SH_SLCD_HEIGHT		864
 
-#define SH_SLCD_TRCOLOR         0
-#define SH_SLCD_REPLACECOLOR    0
-#define SH_SLCD_RECTX           0
-#define SH_SLCD_RECTY           0
+#define SH_SLCD_TRCOLOR		0
+#define SH_SLCD_REPLACECOLOR	0
+#define SH_SLCD_RECTX		0
+#define SH_SLCD_RECTY		0
 
-struct sh_mobile_lcdc_sys_bus_cfg {
-	unsigned long ldmt2r;
-	unsigned long ldmt3r;
-	unsigned long deferred_io_msec;
+#define SH_FB_HDMI_START	1
+#define SH_FB_HDMI_STOP		2
+
+enum {	SH_FB_HDMI_480P60,
+	SH_FB_HDMI_720P60,
+	SH_FB_HDMI_1080I60,
+	SH_FB_HDMI_1080P24,
 };
+
+#define FBIO_WAITFORVSYNC _IOW('F', 0x20, __u32)
 
 struct sh_mobile_lcdc_sys_bus_ops {
 	void (*write_index)(void *handle, unsigned long data);
@@ -87,39 +103,41 @@ struct sh_mobile_lcdc_lcd_size_cfg { /* width and height of panel in mm */
 	unsigned long height;
 };
 
-/* backlight info */
-struct sh_mobile_lcdc_bl_info {
-	const char *name;
-	int max_brightness;
-};
-
 struct sh_mobile_lcdc_chan_cfg {
 	int chan;
 	int bpp;
 	int interface_type; /* selects RGBn or SYSn I/F, see above */
 	int clock_divider;
 	unsigned long flags; /* LCDC_FLAGS_... */
-	const struct fb_videomode *lcd_cfg;
+	struct fb_videomode *lcd_cfg;
 	int num_cfg;
 	struct sh_mobile_lcdc_lcd_size_cfg lcd_size_cfg;
 	struct sh_mobile_lcdc_board_cfg board_cfg;
-	struct sh_mobile_lcdc_bl_info bl_info;
-	struct sh_mobile_lcdc_sys_bus_cfg sys_bus_cfg; /* only for SYSn I/F */
-	int nonstd;
-	struct sh_mobile_meram_cfg *meram_cfg;
 };
 
 struct sh_mobile_lcdc_info {
 	int clock_source;
 	struct sh_mobile_lcdc_chan_cfg ch[2];
-	struct sh_mobile_meram_info *meram_dev;
 };
+
+struct fb_hdmi_set_mode {
+	unsigned int start;
+	unsigned int format;
+};
+
+#define IOC_SH_MOBILE_FB_MAGIC 'S'
+
+#define SH_MOBILE_FB_HDMI_SET \
+	_IOW(IOC_SH_MOBILE_FB_MAGIC, 0x00, struct fb_hdmi_set_mode)
 
 extern int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 				     unsigned short output_mode);
 extern int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
-				    unsigned short output_mode);
+				     unsigned short output_mode);
 extern int sh_mobile_lcdc_refresh(unsigned short set_state,
-				  unsigned short output_mode);
+				     unsigned short output_mode);
+extern void sh_mobile_backlight_brightness(int value);
+
+/*extern struct semaphore   sh_mobile_sem_hdmi;*/
 
 #endif /* __ASM_SH_MOBILE_LCDC_H__ */
