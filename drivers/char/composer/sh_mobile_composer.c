@@ -125,6 +125,7 @@ static void notify_graphics_image_conv(int result, unsigned long user_data);
 static void notify_graphics_image_blend(int result, unsigned long user_data);
 static void callback_iocs_start(int result, void *user_data);
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void process_composer_queue_callback(struct composer_rh *rh);
 static int  queue_fb_address_mapping(void);
 static void callback_composer_queue(int result, void *user_data);
 #endif
@@ -241,7 +242,7 @@ static void pm_late_resume(struct early_suspend *h);
 #if _LOG_DBG >= 2
 #define printk_dbg2(level, fmt, arg...) \
 	do { \
-		if (level <= debug) \
+		if ((level)+2 <= debug) \
 			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
 				__func__, ## arg); \
 	} while (0)
@@ -253,7 +254,7 @@ static void pm_late_resume(struct early_suspend *h);
 #if _LOG_DBG >= 1
 #define printk_dbg1(level, fmt, arg...) \
 	do { \
-		if (level <= debug) \
+		if ((level)+2 <= debug) \
 			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
 				__func__, ## arg); \
 	} while (0)
@@ -263,7 +264,7 @@ static void pm_late_resume(struct early_suspend *h);
 
 #define printk_dbg(level, fmt, arg...) \
 	do { \
-		if (level <= debug) \
+		if ((level)+2 <= debug) \
 			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
 				__func__, ## arg); \
 	} while (0)
@@ -310,8 +311,13 @@ static int                    rtapi_hungup;
 static unsigned long          queue_fb_map_address;
 static unsigned long          queue_fb_map_endaddress;
 static unsigned long          queue_fb_map_RTaddress;
+static DECLARE_WAIT_QUEUE_HEAD(kernel_waitqueue_comp);
 static DEFINE_SEMAPHORE(kernel_queue_sem);
 static LIST_HEAD(kernel_queue_top);
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+static struct composer_rh     *current_overlayrequest;
+static int                    overlay_draw_complete;
+#endif
 static struct composer_rh     kernel_request[MAX_KERNELREQ];
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -1589,6 +1595,10 @@ static int update_grap_arguments(struct composer_fh *fh)
 			/* set key color */
 			_layer->key_color = buf[i]->keycolor;
 		}
+#ifdef RT_GRAPHICS_PREMULTI_OFF
+		_layer->premultiplied = RT_GRAPHICS_PREMULTI_OFF;
+		_layer->alpha_coef    = RT_GRAPHICS_COEFFICIENT_ALPHA1;
+#endif
 	}
 
 	/* pass */
@@ -3204,46 +3214,98 @@ static int  ioc_issuspend(struct composer_fh *fh)
 	return rc;
 }
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static int  wait_condition_for_ioc_waitcomp(void)
+{
+	int i;
+	int rc = 0;
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		struct composer_rh *rh = &kernel_request[i];
+		if (rh->active) {
+			rc = 1;
+			break;
+		}
+	}
+	return (rc == 0);
+}
+#endif
 static int  ioc_waitcomp(struct composer_fh *fh)
 {
 	int rc = 0;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	int i;
-	int request_queue_used, loop;
+#if _LOG_DBG > 1
+	unsigned long jiffies_s = jiffies;
+	int prev_state[4];
+#endif
 #endif
 	DBGENTER("fh:%p\n", fh);
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	for (loop = 10; loop > 0; loop--) {
-		request_queue_used = 0;
+#if _LOG_DBG > 1
+	prev_state[0] = kernel_request[0].active;
+	prev_state[1] = kernel_request[1].active;
+	prev_state[2] = kernel_request[2].active;
+	prev_state[3] = kernel_request[3].active;
+#endif
+	rc = wait_event_timeout(kernel_waitqueue_comp,
+		wait_condition_for_ioc_waitcomp(), msecs_to_jiffies(100));
 
-		spin_lock(&irqlock);
-		for (i = 0; i < MAX_KERNELREQ; i++) {
-			struct composer_rh *rh = &kernel_request[i];
-			if (rh->active) {
-				request_queue_used = 1;
-				break;
-			}
-		}
-		spin_unlock(&irqlock);
-
-		if (request_queue_used == 0) {
-			/* nothing to do */
-			break;
-		}
-
-		/* wait task finished. */
-		for (i = 0; i < MAX_KERNELREQ; i++) {
-			struct composer_rh *rh = &kernel_request[i];
-
-			localworkqueue_flush(workqueue,
-				&rh->rh_wqtask);
-		}
-	}
-	if (loop == 0) {
-		printk_err("abort to wait task complete.\n");
+#if _LOG_DBG > 1
+	printk_dbg2(3, "%d %d %d %d\n",
+		prev_state[0],
+		prev_state[1],
+		prev_state[2],
+		prev_state[3]);
+	printk_dbg2(3, "%d %d %d %d\n",
+		kernel_request[0].active,
+		kernel_request[1].active,
+		kernel_request[2].active,
+		kernel_request[3].active);
+#endif
+	if (rc == 0) {
+		printk_err("fail to wait task complete.\n");
 		rc = -EBUSY;
+	} else {
+		/* wait success before timeout */
+		rc = 0;
 	}
+#if _LOG_DBG > 1
+	printk_dbg2(3, "actual waiting %d msec",
+		jiffies_to_msecs(jiffies - jiffies_s));
+#endif
+#endif
+
+	DBGLEAVE("%d\n", rc);
+	return rc;
+}
+static int  ioc_waitdraw(struct composer_fh *fh, int *mode)
+{
+	int rc = 0;
+	DBGENTER("fh:%p\n", fh);
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+	if (*mode == 0) {
+		/* clear flag */
+		overlay_draw_complete = 0;
+	} else if (*mode == 1) {
+		/* wait set flag */
+		rc = wait_event_timeout(kernel_waitqueue_comp,
+			overlay_draw_complete != 0, msecs_to_jiffies(200));
+
+		if (rc == 0) {
+			printk_err("fail to wait draw complete.\n");
+			rc = -EBUSY;
+		} else {
+			/* wait success before timeout */
+			overlay_draw_complete = 0;
+			rc = 0;
+		}
+	} else {
+		printk_err("unknown mode %d.\n", *mode);
+		rc = -EINVAL;
+	}
+#endif
 #endif
 
 	DBGLEAVE("%d\n", rc);
@@ -4716,6 +4778,19 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 				break;
 			}
 		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		for (i = 0; i < MAX_KERNELREQ; i++) {
+			struct composer_rh *rh = &kernel_request[i];
+
+			printk_dbg2(3, "list of valid user_data: %p\n", \
+				&rh->rh_wqcommon);
+
+			if (user_data == (unsigned long)&rh->rh_wqcommon) {
+				match = 1;
+				break;
+			}
+		}
+#endif
 		if (!match) {
 			printk_err("user_data 0x%lx unexpected."
 				" ignore callback\n", user_data);
@@ -4981,6 +5056,22 @@ static void work_createhandle(struct localwork *work)
 finish:
 	DBGLEAVE("\n");
 }
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void work_overlay(struct localwork *work)
+{
+	struct composer_rh *rh;
+	DBGENTER("work:%p\n", work);
+
+	rh = container_of(work, struct composer_rh, rh_wqtask_hdmi);
+
+	/* currently not implemented. */
+	process_composer_queue_callback(rh);
+
+	DBGLEAVE("\n");
+	return;
+}
+#endif
 
 static void work_runblend(struct localwork *work)
 {
@@ -5441,17 +5532,8 @@ err_exit:
 static void composer_blendoverlay_errorcallback(
 	struct composer_rh *rh)
 {
-	void                   (*user_callback)(void*, int);
-	void                   *user_data;
-
-	user_callback = rh->user_callback;
-	user_data     = rh->user_data;
-	rh->user_callback = NULL;
-	rh->active = 0;
-	if (user_callback) {
-		user_callback(user_data, 1);
-		/* process callback */
-	}
+	rh->refcount = 0;
+	process_composer_queue_callback(rh);
 }
 
 
@@ -5468,6 +5550,9 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 		struct composer_rh     *rh;
 		struct list_head       *list;
 		int                    count;
+		int                    fb_size;
+
+		fb_size = (queue_fb_map_endaddress-queue_fb_map_address)/2;
 
 		/* search last list entry */
 		count = 0;
@@ -5484,7 +5569,9 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 			printk_dbg2(3, "list%d: phys addr:%p.\n",
 				count, rh->org_fb_address);
 
-			if ((unsigned long)rh->org_fb_address == fb_physical)
+			if ((unsigned long)rh->org_fb_address >= fb_physical &&
+				(unsigned long)rh->org_fb_address <
+				fb_physical + fb_size)
 				blend_req = rh;
 		}
 
@@ -5546,6 +5633,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 	up(&kernel_queue_sem);
 
+	/* blend image */
 	if (blend_req) {
 		if (localworkqueue_queue(workqueue, &blend_req->rh_wqtask)) {
 			printk_dbg2(3, "success to queue requests.\n");
@@ -5557,13 +5645,65 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 
 			/* process callback */
 			composer_blendoverlay_errorcallback(blend_req);
+			blend_req = NULL;
 		}
 	}
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	/* overlay HDMI image */
+	if (blend_req && blend_req->data.extlayer.image.format != 0) {
+		if (localworkqueue_queue(workqueue,
+			&blend_req->rh_wqtask_hdmi)) {
+			printk_dbg2(3, "success to queue hdmi requests.\n");
+
+			/* overlay no need wait complete. */
+			/* temporally wait comple.        */
+			localworkqueue_flush(workqueue,
+				&blend_req->rh_wqtask_hdmi);
+		} else {
+			printk_err("can not queue requests.");
+
+			/* process callback */
+			composer_blendoverlay_errorcallback(blend_req);
+			blend_req = NULL;
+		}
+	}
+#endif
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+	current_overlayrequest = blend_req;
+#endif
 
 	DBGLEAVE("\n");
 	return 0;
 }
 EXPORT_SYMBOL(sh_mobile_composer_blendoverlay);
+
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+void sh_mobile_composer_notifyrelease(void)
+{
+	struct composer_rh *rh = current_overlayrequest;
+	DBGENTER("\n");
+
+	overlay_draw_complete = 1;
+	if (rh) {
+#if _LOG_DBG >= 1
+		if (rh->refcount != 1) {
+			/* error report */
+			printk_err1("buffer refcount not 1. current:%d",
+				rh->refcount);
+		}
+#endif
+		current_overlayrequest = NULL;
+
+		/* process callback */
+		process_composer_queue_callback(rh);
+	} else {
+		/* wake-up waiting thread */
+		wake_up(&kernel_waitqueue_comp);
+	}
+	DBGLEAVE("\n");
+}
+EXPORT_SYMBOL(sh_mobile_composer_notifyrelease);
+#endif
 
 int sh_mobile_composer_queue(
 	void *data,
@@ -5629,6 +5769,17 @@ int sh_mobile_composer_queue(
 	memcpy(&rh->data, data, sizeof(struct cmp_request_queuedata));
 	rh->user_callback  = callback;
 	rh->user_data      = user_data;
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	if (rh->data.extlayer.image.format == 0) {
+		/* not use external layer */
+#endif
+		rh->refcount = 1 + SH_MOBILE_COMPOSER_WAIT_DRAWEND;
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	} else {
+		/* use external layer */
+		rh->refcount = 2 + SH_MOBILE_COMPOSER_WAIT_DRAWEND;
+	}
+#endif
 
 	/* initialize pointer */
 	{
@@ -5720,16 +5871,43 @@ err_exit:
 }
 EXPORT_SYMBOL(sh_mobile_composer_queue);
 
+static void process_composer_queue_callback(struct composer_rh *rh)
+{
+	void   (*user_callback)(void*, int);
+	void   *user_data;
+	DBGENTER("rh:%p\n", rh);
+
+	user_callback = NULL;
+	user_data     = NULL;
+
+	printk_dbg2(3, "down\n");
+	down(&kernel_queue_sem);
+
+	rh->refcount--;
+	printk_dbg2(3, "refcount:%d\n", rh->refcount);
+	if (rh->refcount <= 0) {
+		user_callback = rh->user_callback;
+		user_data     = rh->user_data;
+		rh->user_callback = NULL;
+		rh->active = 0;
+
+		/* wake-up waiting thread */
+		wake_up(&kernel_waitqueue_comp);
+	}
+	up(&kernel_queue_sem);
+
+	if (user_callback) {
+		user_callback(user_data, 1);
+		/* process callback */
+	}
+	DBGLEAVE("\n");
+}
+
+
 static void callback_composer_queue(int result, void *user_data)
 {
 	struct composer_rh *rh = (struct composer_rh *) user_data;
-	void   (*user_callback)(void*, int);
 	DBGENTER("result:%d user_data:%p\n", result, user_data);
-
-	user_callback = rh->user_callback;
-	user_data     = rh->user_data;
-	rh->user_callback = NULL;
-	rh->active = 0;
 
 	if (result != CMP_OK) {
 		/* error report */
@@ -5738,10 +5916,8 @@ static void callback_composer_queue(int result, void *user_data)
 			(graphic_handle == NULL),
 			rtapi_hungup);
 	}
-	if (user_callback) {
-		user_callback(user_data, 1);
-		/* process callback */
-	}
+	process_composer_queue_callback(rh);
+
 	DBGLEAVE("\n");
 }
 #endif
@@ -5924,6 +6100,9 @@ static long core_ioctl(struct file *filep, \
 	case CMP_IOC_WAITCOMP:
 		rc = ioc_waitcomp(fh);
 		break;
+	case CMP_IOC_WAITDRAW:
+		rc = ioc_waitdraw(fh, parg);
+		break;
 	default:
 		printk_err2("invalid cmd 0x%x\n", cmd);
 	}
@@ -6070,7 +6249,6 @@ static int core_release(struct inode *inode, struct file *filep)
 static void pm_early_suspend(struct early_suspend *h)
 {
 	DBGENTER("h:%p\n", h);
-	down(&sem);
 	in_early_suspend = 1;
 
 	if (rtapi_hungup && graphic_handle) {
@@ -6078,6 +6256,8 @@ static void pm_early_suspend(struct early_suspend *h)
 			"due to RTAPI hung-up\n");
 	} else if (graphic_handle) {
 		int rc;
+
+		down(&sem);
 
 		/* flush work. */
 		localworkqueue_flush(workqueue,
@@ -6093,11 +6273,40 @@ static void pm_early_suspend(struct early_suspend *h)
 		} else {
 			printk_err("failed to release graphic handle\n");
 		}
+
+		up(&sem);
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		/* remove pending queue. */
+		down(&kernel_queue_sem);
+		while (!list_empty(&kernel_queue_top)) {
+			struct composer_rh *rh;
+
+			rh = list_first_entry(&kernel_queue_top,
+				struct composer_rh, list);
+
+			/* remove list */
+			printk_dbg2(3, "list %p is removed.\n", rh);
+
+			list_del_init(&rh->list);
+
+			/* process callback */
+			up(&kernel_queue_sem);
+
+			composer_blendoverlay_errorcallback(rh);
+
+			printk_dbg2(3, "down\n");
+			down(&kernel_queue_sem);
+		}
+		up(&kernel_queue_sem);
+
+		/* confirm complete of request queue. */
+		ioc_waitcomp(NULL);
+#endif
 	} else {
 		printk_dbg2(3, "already release graphic handle\n");
 		/* nothing to do */
 	}
-	up(&sem);
 	printk_dbg2(3, "suspend state:%d graphic_handle:%p\n",
 		in_early_suspend, graphic_handle);
 	/* nothing to do */
@@ -6191,6 +6400,7 @@ static int __init sh_mobile_composer_init(void)
 	for (i = 0; i < MAX_KERNELREQ; i++) {
 		struct composer_rh *rh =  &kernel_request[i];
 		localwork_init(&rh->rh_wqtask, work_runblend);
+		localwork_init(&rh->rh_wqtask_hdmi, work_overlay);
 		INIT_LIST_HEAD(&rh->list);
 		initialize_blendcommon_obj(&rh->rh_wqcommon,
 			&rh->data.blend,
@@ -6198,6 +6408,7 @@ static int __init sh_mobile_composer_init(void)
 			rh);
 	}
 	sema_init(&kernel_queue_sem, 1);
+	init_waitqueue_head(&kernel_waitqueue_comp);
 
 	/* calcurate PHYSICAL ADDRESS SIZE */
 	{
