@@ -40,8 +40,13 @@
 #define RT_MEMORY_NONCACHE          0x00000002
 #define RT_MEMORY_BUFFER_NONCACHE   0x00000004
 
+/* RTDomain cache type */
+#define RT_MEMORY_RTMAP_WB          0x00000000
+#define RT_MEMORY_RTMAP_WBNC        0x00000000 | 0x00000002
+
 /* app memory align macro */
 #define RT_MEMORY_APAREA_SIZE(x) (((x + 31) & (~31)) + 32)
+#define RT_MEMORY_MAP_SIZE(x) (((x + 128) + 4095) & (~4095))
 
 /* this structure is for information on the shared memory. */
 typedef struct
@@ -236,6 +241,24 @@ typedef struct
     unsigned int    rtaddr;
 } system_mem_phy_change_rtaddr;
 
+/* system_memory_rt_map_pnc() */
+typedef struct
+{
+    void*           handle;
+    unsigned int    apaddr;
+    unsigned int    map_size;
+    struct page**   pages;
+    unsigned int    rtcache_kind;
+    void*           apmem_handle;
+} system_mem_rt_map_pnc;
+
+/* system_memory_rt_unmap_pnc() */
+typedef struct
+{
+    void*           handle;
+    void*           apmem_handle;
+} system_mem_rt_unmap_pnc;
+
 /* system_memory_get_rtinfo() */
 typedef struct
 {
@@ -388,6 +411,16 @@ extern int system_memory_unreg_phymem
 extern int system_memory_phy_change_rtaddr
 (
     system_mem_phy_change_rtaddr* phy_change_rtaddr
+);
+
+extern int system_memory_rt_map_pnc
+(
+    system_mem_rt_map_pnc*   rt_map_pnc
+);
+
+extern int system_memory_rt_unmap_pnc
+(
+    system_mem_rt_unmap_pnc*   rt_unmap_pnc
 );
 
 extern void* system_memory_info_new

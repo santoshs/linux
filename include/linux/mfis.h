@@ -1,9 +1,9 @@
 /*
- * mfis_private.h - RT "av-domain" control driver
+ * mfis.h - RT "av-domain" control driver
  *
  * This file is MFIS driver function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,15 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#ifndef __MFIS_PRIVATE_H__
-#define __MFIS_PRIVATE_H__
+#ifndef __MFIS_H__
+#define __MFIS_H__
 
-#define RTPM_PF_CUSTOM 0
+int mfis_drv_suspend(void);
+int mfis_drv_resume(void);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#define EARLYSUSPEND_STANDBY 0
-#else
-#define EARLYSUSPEND_STANDBY 0
-#endif /* CONFIG_HAS_EARLYSUSPEND */
-
-#endif /* __MFIS_PRIVATE_H__ */
+#endif /* __MFIS_H__ */

@@ -57,6 +57,8 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
         func.fn_system_memory_reg_phymem        = fnc->fn_system_memory_reg_phymem;
         func.fn_system_memory_unreg_phymem      = fnc->fn_system_memory_unreg_phymem;
         func.fn_system_memory_phy_change_rtaddr = fnc->fn_system_memory_phy_change_rtaddr;
+        func.fn_system_memory_rt_map_pnc        = fnc->fn_system_memory_rt_map_pnc;
+        func.fn_system_memory_rt_unmap_pnc      = fnc->fn_system_memory_rt_unmap_pnc;
         func.fn_system_memory_info_new          = fnc->fn_system_memory_info_new;
         func.fn_system_memory_get_rtinfo        = fnc->fn_system_memory_get_rtinfo;
         func.fn_system_memory_get_apinfo        = fnc->fn_system_memory_get_apinfo;
@@ -410,6 +412,32 @@ int system_memory_phy_change_rtaddr
     return ret;
 }
 EXPORT_SYMBOL(system_memory_phy_change_rtaddr);
+
+int system_memory_rt_map_pnc
+(
+    system_mem_rt_map_pnc*   rt_map_pnc
+){
+    int ret = SMAP_LIB_MEMORY_NG;
+
+    if( func.fn_system_memory_rt_map_pnc ){
+        ret = func.fn_system_memory_rt_map_pnc( rt_map_pnc );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(system_memory_rt_map_pnc);
+
+int system_memory_rt_unmap_pnc
+(
+    system_mem_rt_unmap_pnc*   rt_unmap_pnc
+){
+    int ret = SMAP_LIB_MEMORY_NG;
+
+    if( func.fn_system_memory_rt_unmap_pnc ){
+        ret = func.fn_system_memory_rt_unmap_pnc( rt_unmap_pnc );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(system_memory_rt_unmap_pnc);
 
 void* system_memory_info_new
 (
