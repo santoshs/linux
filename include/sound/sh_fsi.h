@@ -58,7 +58,7 @@
 #define SH_FSI_FMT_TDM_DELAY	(1 << 5)
 
 /* B: format mode */
-//#define SH_FSI_FMT_MASK		0x000000F0
+/* #define SH_FSI_FMT_MASK	0x000000F0 */
 #define SH_FSI_FMT_DAI		(0 << 4)
 #define SH_FSI_FMT_SPDIF	(1 << 4)
 

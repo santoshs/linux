@@ -23,61 +23,85 @@
 #include <mach/common.h>
 
 /*
- *
  * GLOBAL DATA Definitions
- *
  */
 
 /* Table for Voicecall(PortA) */
-static common_reg_table scuw_reg_tbl_voicecallA[] = {
-/*    Register              Value       Delay time */
-	{ SCUW_SEL_SELCR21,	0x00000001,	0 },			/*   1 : SPU2V output data */
-	{ SCUW_SEL_SELCR15,	0x00000001,	0 },			/*   1 : Voice data (from VOIP) */
-	{ SCUW_SEL_SELCR12,	0x00000003,	0 },			/* 011 : FSI-IF read port 1 data (from FSI2) */
-	{ SCUW_MSTP1,		0x00000001,	0 },			/*   1 : FSI-IF operates. */
-	{ SCUW_FSIIF_SWRSR,	0x00000000,	0 },			/*   0 : Reset the FSI IF. */
-	{ SCUW_FSIIF_SWRSR,	0x00000001,	0 },			/*   1 : FSI IF enters the operating state. */
-	{ SCUW_FSIIF_FSIIR,	0x00000001,	0 },			/*   1 : Initialization */
-	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0 },			/* 010 : 2 channel */
-	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },			/* 010 : 2 channel */
-	{ SCUW_FSIIF_WADCR0,	0x00000009,	0 },			/* target module : FSI2(0x00), Write address : FSI2 port A(0x09) */
-	{ SCUW_FSIIF_RADCR1,	0x00000008,	0 },			/* target module : FSI2(0x00), Write address : FSI2 port A(0x08) */
-	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },			/*   0 : Processing State */
-	{ SCUW_VD_VDSET,	0x00000002,	0 },			/* 010 : Channel 1 to 7 are copied Channel 0 */
+static struct common_reg_table scuw_reg_tbl_voicecallA[] = {
+/*	  Register		Value		Delay time */
+	/*   1 : SPU2V output data */
+	{ SCUW_SEL_SELCR21,	0x00000001,	0 },
+	/*   1 : Voice data(from VOIP) */
+	{ SCUW_SEL_SELCR15,	0x00000001,	0 },
+	/* 011 : FSI-IF read port 1 data (from FSI2) */
+	{ SCUW_SEL_SELCR12,	0x00000003,	0 },
+	/*   1 : FSI-IF operates. */
+	{ SCUW_MSTP1,		0x00000001,	0 },
+	/*   0 : Reset the FSI IF. */
+	{ SCUW_FSIIF_SWRSR,	0x00000000,	0 },
+	/*   1 : FSI IF enters the operating state. */
+	{ SCUW_FSIIF_SWRSR,	0x00000001,	0 },
+	/*   1 : Initialization */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port A(0x09) */
+	{ SCUW_FSIIF_WADCR0,	0x00000009,	0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port A(0x08) */
+	{ SCUW_FSIIF_RADCR1,	0x00000008,	0 },
+	/*   0 : Processing State */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },
+	/* 010 : Channel 1 to 7 are copied Channel 0 */
+	{ SCUW_VD_VDSET,	0x00000002,	0 },
 };
 
 /* Table for Voicecall(PortB) */
-static common_reg_table scuw_reg_tbl_voicecallB[] = {
-/*    Register              Value       Delay time */
-	{ SCUW_SEL_SELCR21,	0x00000001,	0 },			/*   1 : SPU2V output data */
-	{ SCUW_SEL_SELCR15,	0x00000001,	0 },			/*   1 : Voice data (from VOIP) */
-	{ SCUW_SEL_SELCR12,	0x00000003,	0 },			/* 011 : FSI-IF read port 1 data (from FSI2) */
-	{ SCUW_MSTP1,		0x00000001,	0 },			/*   1 : FSI-IF operates. */
-	{ SCUW_FSIIF_SWRSR,	0x00000000,	0 },			/*   0 : Reset the FSI IF. */
-	{ SCUW_FSIIF_SWRSR,	0x00000001,	0 },			/*   1 : FSI IF enters the operating state. */
-	{ SCUW_FSIIF_FSIIR,	0x00000001,	0 },			/*   1 : Initialization */
-	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0 },			/* 010 : 2 channel */
-	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },			/* 010 : 2 channel */
-	{ SCUW_FSIIF_WADCR0,	0x00000019,	0 },			/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
-	{ SCUW_FSIIF_RADCR1,	0x00000018,	0 },			/* target module : FSI2(0x00), Write address : FSI2 port B(0x18) */
-	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },			/*   0 : Processing State */
-	{ SCUW_VD_VDSET,	0x00000002,	0 },			/* 010 : Channel 1 to 7 are copied Channel 0 */
+static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
+/*	  Register		Value		Delay time */
+	/*   1 : SPU2V output data */
+	{ SCUW_SEL_SELCR21,	0x00000001,	0 },
+	/*   1 : Voice data (from VOIP) */
+	{ SCUW_SEL_SELCR15,	0x00000001,	0 },
+	/* 011 : FSI-IF read port 1 data (from FSI2) */
+	{ SCUW_SEL_SELCR12,	0x00000003,	0 },
+	/*   1 : FSI-IF operates. */
+	{ SCUW_MSTP1,		0x00000001,	0 },
+	/*   0 : Reset the FSI IF. */
+	{ SCUW_FSIIF_SWRSR,	0x00000000,	0 },
+	/*   1 : FSI IF enters the operating state. */
+	{ SCUW_FSIIF_SWRSR,	0x00000001,	0 },
+	/*   1 : Initialization */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
+	{ SCUW_FSIIF_WADCR0,	0x00000019,	0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port B(0x18) */
+	{ SCUW_FSIIF_RADCR1,	0x00000018,	0 },
+	/*   0 : Processing State */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },
+	/* 010 : Channel 1 to 7 are copied Channel 0 */
+	{ SCUW_VD_VDSET,	0x00000002,	0 },
 };
 
 
 /*!
-   @brief	SCUW start function
+   @brief SCUW start function
 
    @param[in]	uiValue		PCM type
-   @param[out]	None
+   @param[out]	none
 
-   @retval	ERROR_NONE	: successful
+   @retval	ERROR_NONE	successful
  */
 int scuw_start(const u_int uiValue)
 {
 	/* Local variable declaration */
 	u_int			devices		= 0;
-	common_reg_table	*reg_tbl	= NULL;
+	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
@@ -110,12 +134,12 @@ int scuw_start(const u_int uiValue)
 
 
 /*!
-   @brief	SCUW stop function(all path)
+   @brief SCUW stop function(all path)
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval	ERROR_NONE : successful
+   @retval	ERROR_NONE	successful
  */
 int scuw_stop(void)
 {
@@ -134,32 +158,60 @@ int scuw_stop(void)
 
 
 /*!
-   @brief	dump registers function
+   @brief Dump registers function
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 void scuw_reg_dump(void)
 {
 	/* Register Dump Start */
 	sndp_log_reg_dump("=== SCUW REGISTER DUMP START ===\n");
 
-	sndp_log_reg_dump("SCUW_VD_VDSET       [%08lX] = %08X\n", (g_scuw_Base + SCUW_VD_VDSET),      ioread32((g_scuw_Base + SCUW_VD_VDSET)));
-	sndp_log_reg_dump("SCUW_SEL_SELCR12    [%08lX] = %08X\n", (g_scuw_Base + SCUW_SEL_SELCR12),   ioread32((g_scuw_Base + SCUW_SEL_SELCR12)));
-	sndp_log_reg_dump("SCUW_SEL_SELCR15    [%08lX] = %08X\n", (g_scuw_Base + SCUW_SEL_SELCR15),   ioread32((g_scuw_Base + SCUW_SEL_SELCR15)));
-	sndp_log_reg_dump("SCUW_SEL_SELCR21    [%08lX] = %08X\n", (g_scuw_Base + SCUW_SEL_SELCR21),   ioread32((g_scuw_Base + SCUW_SEL_SELCR21)));
-	sndp_log_reg_dump("SCUW_FSIIF_SWRSR    [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_SWRSR),   ioread32((g_scuw_Base + SCUW_FSIIF_SWRSR)));
-	sndp_log_reg_dump("SCUW_FSIIF_FSIIR    [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_FSIIR),   ioread32((g_scuw_Base + SCUW_FSIIF_FSIIR)));
-	sndp_log_reg_dump("SCUW_FSIIF_ADINRW0  [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_ADINRW0), ioread32((g_scuw_Base + SCUW_FSIIF_ADINRW0)));
-	sndp_log_reg_dump("SCUW_FSIIF_ADINRW1  [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_ADINRW1), ioread32((g_scuw_Base + SCUW_FSIIF_ADINRW1)));
-	sndp_log_reg_dump("SCUW_FSIIF_ADINRR0  [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_ADINRR0), ioread32((g_scuw_Base + SCUW_FSIIF_ADINRR0)));
-	sndp_log_reg_dump("SCUW_FSIIF_ADINRR1  [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_ADINRR1), ioread32((g_scuw_Base + SCUW_FSIIF_ADINRR1)));
-	sndp_log_reg_dump("SCUW_FSIIF_WADCR0   [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_WADCR0),  ioread32((g_scuw_Base + SCUW_FSIIF_WADCR0)));
-	sndp_log_reg_dump("SCUW_FSIIF_WADCR1   [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_WADCR1),  ioread32((g_scuw_Base + SCUW_FSIIF_WADCR1)));
-	sndp_log_reg_dump("SCUW_FSIIF_RADCR0   [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_RADCR0),  ioread32((g_scuw_Base + SCUW_FSIIF_RADCR0)));
-	sndp_log_reg_dump("SCUW_FSIIF_RADCR1   [%08lX] = %08X\n", (g_scuw_Base + SCUW_FSIIF_RADCR1),  ioread32((g_scuw_Base + SCUW_FSIIF_RADCR1)));
+	sndp_log_reg_dump("SCUW_VD_VDSET       [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_VD_VDSET),
+			ioread32((g_scuw_Base + SCUW_VD_VDSET)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR12    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR12),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR12)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR15    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR15),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR15)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR21    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR21),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR21)));
+	sndp_log_reg_dump("SCUW_FSIIF_SWRSR    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_SWRSR),
+			ioread32((g_scuw_Base + SCUW_FSIIF_SWRSR)));
+	sndp_log_reg_dump("SCUW_FSIIF_FSIIR    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_FSIIR),
+			ioread32((g_scuw_Base + SCUW_FSIIF_FSIIR)));
+	sndp_log_reg_dump("SCUW_FSIIF_ADINRW0  [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_ADINRW0),
+			ioread32((g_scuw_Base + SCUW_FSIIF_ADINRW0)));
+	sndp_log_reg_dump("SCUW_FSIIF_ADINRW1  [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_ADINRW1),
+			ioread32((g_scuw_Base + SCUW_FSIIF_ADINRW1)));
+	sndp_log_reg_dump("SCUW_FSIIF_ADINRR0  [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_ADINRR0),
+			ioread32((g_scuw_Base + SCUW_FSIIF_ADINRR0)));
+	sndp_log_reg_dump("SCUW_FSIIF_ADINRR1  [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_ADINRR1),
+			ioread32((g_scuw_Base + SCUW_FSIIF_ADINRR1)));
+	sndp_log_reg_dump("SCUW_FSIIF_WADCR0   [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_WADCR0),
+			ioread32((g_scuw_Base + SCUW_FSIIF_WADCR0)));
+	sndp_log_reg_dump("SCUW_FSIIF_WADCR1   [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_WADCR1),
+			ioread32((g_scuw_Base + SCUW_FSIIF_WADCR1)));
+	sndp_log_reg_dump("SCUW_FSIIF_RADCR0   [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_RADCR0),
+			ioread32((g_scuw_Base + SCUW_FSIIF_RADCR0)));
+	sndp_log_reg_dump("SCUW_FSIIF_RADCR1   [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_FSIIF_RADCR1),
+			ioread32((g_scuw_Base + SCUW_FSIIF_RADCR1)));
 
 	sndp_log_reg_dump("==== SCUW REGISTER DUMP END ====\n");
 }

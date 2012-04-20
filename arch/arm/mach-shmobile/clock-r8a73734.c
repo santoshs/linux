@@ -806,8 +806,9 @@ static struct clk mstp_clks[MSTP_NR] = {
 /* sound edit */
 /*	[MSTP328] = SH_CLK_MSTP32_EXT(&fsia_clk, SMSTPCR3, MSTPSR3, 28, 0), /* FSI */
 	[MSTP328] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR3, MSTPSR3, 28, 0), /* FSI */
+/*	[MSTP326] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 26, 0), /* SCUW */
+	[MSTP326] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR3, MSTPSR3, 26, 0), /* SCUW */
 /* sound edit */
-	[MSTP326] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 26, 0), /* SCUW */
 	[MSTP325] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 25, 0), /* HSI1 */
 	[MSTP324] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_HSI], SMSTPCR3, MSTPSR3, 24, 0), /* HSI0 */
 	[MSTP323] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 23, 0), /* IIC1 */
@@ -913,6 +914,7 @@ static struct clk_lookup lookups[] = {
 
 	CLKDEV_CON_ID("clkgen", &mstp_clks[MSTP224]),
 /* sound add */
+	CLKDEV_CON_ID("scuw", &mstp_clks[MSTP326]), /* SCUW */
 	CLKDEV_CON_ID("fsi", &mstp_clks[MSTP328]), /* FSI */
 
 	CLKDEV_DEV_ID("sh_fsi2.0", &mstp_clks[MSTP328]), /* FSIA */
