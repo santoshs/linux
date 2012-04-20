@@ -30,6 +30,7 @@ Description :  File created
  * There is different flagging between APE and Modem
  *
  */
+
 #ifdef SMECO_MODEM
     /* Modem ES10/ES20 definitions from makefile */
 
@@ -53,16 +54,45 @@ Description :  File created
 #endif
 
 
+    /* =============================================================================
+     * SMC specific configurations for EOS2 ES1.0/ES2.0
+     */
+
+    /* ES1.0 */
+#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10  "SH-Mobile-R8A73734-EOS2-ES10"
+#define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10         "WGEModem-3.1-EOS2-ES10"
+
+#define SMC_CONF_GLOBAL_SHM_START_ES10                       0x43B00000
+    /* SHM area for SMC Control Instance */
+#define SMC_CONF_CONTROL_SHM_START_OFFSET_ES10               (0)
+#define SMC_CONF_CONTROL_SHM_START_ES10                      (SMC_CONF_GLOBAL_SHM_START_ES10 + SMC_CONF_CONTROL_SHM_START_OFFSET_ES10)
+#define SMC_CONF_CONTROL_SHM_SIZE_ES10                       (1024*200)                  /* 200kB */
+    /* SHM Area for L2MUX */
+#define SMC_CONF_L2MUX_SHM_START_OFFSET_ES10                 (SMC_CONF_CONTROL_SHM_SIZE_ES10 + 64)
+#define SMC_CONF_L2MUX_SHM_START_ES10                        (SMC_CONF_GLOBAL_SHM_START_ES10 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES10)
+#define SMC_CONF_L2MUX_SHM_SIZE_ES10                         (1024*1024*4 + 1024*512)    /* 4.5MB */
+
+
+
+    /* ES2.0 */
+#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
+#define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
+
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x4C001000
+
+    /* SHM area for SMC Control Instance */
+#define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
+#define SMC_CONF_CONTROL_SHM_START_ES20                      (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_CONTROL_SHM_START_OFFSET_ES20)
+#define SMC_CONF_CONTROL_SHM_SIZE_ES20                       (1024*200)                  /* 200kB */
+    /* SHM Area for L2MUX */
+#define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
+#define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)
+#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1024*4 + 1024*512)    /* 4.5MB */
+
+
 
 
 #ifdef SMC_IN_EOS2_ES10
-
-    /*
-     * SMC configuration names
-     */
-    #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2  "SH-Mobile-R8A73734-EOS2-ES10"
-    #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2         "WGEModem-3.1-EOS2-ES10"
-
 
     /* ===========================================================================
      * SHM Configuration is based on memory mapping for ES10
@@ -80,15 +110,14 @@ Description :  File created
      * In Linux side the SHM is ioremapped from physical address (no static value possible)
      */
 
-    #define SMC_CONF_GLOBAL_SHM_START       0x43B00000
+    //#define SMC_CONF_GLOBAL_SHM_START       0x43B00000
 
 #else  /* #ifdef SMC_IN_EOS2_ES10 (Currently only two different EOS2 ASIC definitions) */
 
     /*
      * SMC configuration names
      */
-    #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2  "SH-Mobile-R8A73734-EOS2-ES20"
-    #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2         "WGEModem-3.1-EOS2-ES20"
+
 
 
     /* ===========================================================================
@@ -109,7 +138,7 @@ Description :  File created
      * In Linux side the SHM is ioremapped from physical address (no static value possible)
      */
 
-    #define SMC_CONF_GLOBAL_SHM_START       0x4C001000
+    //#define SMC_CONF_GLOBAL_SHM_START       0x4C001000
 
 #endif
 
@@ -117,13 +146,22 @@ Description :  File created
     /* Put the SMC Control instance in the beginning of the SHM area */
 
     /* SHM area for SMC Control Instance */
-#define SMC_CONF_CONTROL_SHM_START      SMC_CONF_GLOBAL_SHM_START
-#define SMC_CONF_CONTROL_SHM_SIZE      (1024*200)                  /* 200kB */
+    /*
+#define SMC_CONF_CONTROL_SHM_START_OFFSET (0)
+#define SMC_CONF_CONTROL_SHM_START        (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_START_OFFSET)
+#define SMC_CONF_CONTROL_SHM_SIZE         (1024*200)                  * 200kB *
+    */
 
     /* SHM Area for L2MUX */
-#define SMC_CONF_L2MUX_SHM_START       (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_SIZE + 64)
-#define SMC_CONF_L2MUX_SHM_SIZE        (1024*1024*4 + 1024*512)    /* 4.5MB */
+    /*
+#define SMC_CONF_L2MUX_SHM_START_OFFSET   (SMC_CONF_CONTROL_SHM_SIZE + 64)
+#define SMC_CONF_L2MUX_SHM_START          (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_L2MUX_SHM_START_OFFSET)
+#define SMC_CONF_L2MUX_SHM_SIZE           (1024*1024*4 + 1024*512)    * 4.5MB *
+    */
 
+    /* =============================================================================
+     * COMMON Configuration for EOS2 ES1.0/ES2.0
+     */
 
 
     /* Modem side offset */

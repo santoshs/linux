@@ -154,7 +154,24 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
 
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+    //char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+
+    char* smc_cpu_name = NULL;
+    uint8_t asic_version = smc_asic_version_get();
+
+    if( asic_version == SMC_EOS_ASIC_ES10 )
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+    }
+    else
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+    }
+
+    /* TODO Check the CPU version */
+    //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+
+    SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 

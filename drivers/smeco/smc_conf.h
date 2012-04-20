@@ -154,6 +154,7 @@ typedef struct _smc_instance_conf_t
     char*    slave_name;            /* Slave CPU name */
 
     uint32_t shm_start_address;
+    uint32_t shm_start_address_offset;
     uint32_t shm_size;
 
         /* Share memory configuration */

@@ -33,6 +33,11 @@ Description :  File created
 #include <linux/irq.h>
 #include <asm/signal.h>
 
+#define HPB_BASE    0xE6000000
+#define CCCR        (HPB_BASE + 0x101C)
+
+#define SMC_EOS_ASIC_ES10   0x10
+#define SMC_EOS_ASIC_ES20   0x20
 
 #define SMC_SIGNAL_TYPE_INTGEN         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x01)  /* 0x03000001 */
 #define SMC_SIGNAL_TYPE_INTCBB         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x02)  /* 0x03000002 */
@@ -117,6 +122,9 @@ typedef struct _smc_timer_t
     unsigned long      prev_jiffies;
 
 } smc_timer_t;
+
+
+uint16_t smc_asic_version_get(void);
 
 #endif
 

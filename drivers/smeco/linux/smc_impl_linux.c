@@ -643,4 +643,22 @@ uint8_t smc_module_initialize( smc_conf_t* smc_instance_conf )
     return ret_value;
 }
 
+
+uint16_t smc_asic_version_get(void)
+{
+    uint8_t cpu_version = 0x00;
+    unsigned int cccr, major, minor;
+
+    cccr = readl(CCCR);
+
+    major = ((cccr & 0xf0) >> 4) + 1;
+    minor = cccr & 0x0f;
+
+    cpu_version = ((major&0xFF)<<4) + (minor&0xFF);
+
+    SMC_TRACE_PRINTF_DEBUG("ASIC version Renesas R-Mobile U2 ES%d.%d (0x%08X / 0x%04X)\n", major, minor, cccr, cpu_version);
+
+    return cpu_version;
+}
+
 /* EOF */
