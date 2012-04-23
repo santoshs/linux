@@ -1,0 +1,13 @@
+config AV7100
+       tristate "AV7100 driver support HDMI"
+       default m
+       help
+           Please enable this feature if hdmi/tvout driver support is required.
+
+config HDMI_AV7100_DEBUG
+	bool "HDMI and AV7100 debug messages"
+	default n
+	depends on AV7100
+	---help---
+	  Say Y here if you want the HDMI and AV7100 driver to output debug messages
+

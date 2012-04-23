@@ -130,4 +130,6 @@ source "drivers/clocksource/Kconfig"
 
 source "drivers/smeco/Kconfig"
 
+source "drivers/sensor/Kconfig"
+
 endmenu
