@@ -78,8 +78,8 @@
 #define MAX98090_ENABLE			1    /* enable value */
 #define MAX98090_DISABLE		0    /* disable value */
 
-#define MAX98090_EVM			0    /* enable value */
-#define MAX98090_KOTA			1    /* disable value */
+#define MAX98090_EVM			0    /* max97236 deployment */
+#define MAX98090_E2K			1    /* max97236 non-deployment */
 
 #ifdef __MAX98090_TODO_POWER__
 u_long max98090_sysc_Base;  /* SYSC base address */
@@ -91,6 +91,11 @@ u_long max98090_sysc_Base;  /* SYSC base address */
 #define SYSC_SWUCR      (max98090_sysc_Base + 0x0014)
 #define SYSC_PSTR       (max98090_sysc_Base + 0x0080)
 #endif  /* __MAX98090_TODO_POWER__ */
+
+#ifdef __MAX98090_TODO__
+#define MAX98090_GPIO_BASE	IO_ADDRESS(0xE6050000)
+#define MAX98090_GPIO_034	(MAX98090_GPIO_BASE + 0x0022)	/* AUDIO_IRQ */
+#endif  /* __MAX98090_TODO__ */
 
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration (private)                               */
@@ -419,7 +424,6 @@ static int max98090_disable_vclk4(void)
 	int ret = 0;
 	max98090_log_efunc("");
 	gpio_free(GPIO_FN_VIO_CKO4);
-	gpio_free(GPIO_PORT29);
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -468,6 +472,11 @@ static int max98090_setup(struct i2c_client *client,
 		INIT_WORK(&dev->irq_work, max98090_irq_work_func);
 	}
 
+	ret = max98090_switch_dev_register(dev);
+
+	if (0 != ret)
+		goto err_max98090_switch_dev_register;
+
 	/***********************************/
 	/* setup r8a73734                  */
 	/***********************************/
@@ -481,31 +490,24 @@ static int max98090_setup(struct i2c_client *client,
 			MAX97236_REG_OR_STATUS1, &status1);
 
 	if (0 > status1)
-		max98090_conf->board = MAX98090_KOTA;
+		max98090_conf->board = MAX98090_E2K;
 	else
 		max98090_conf->board = MAX98090_EVM;
 
-	max98090_log_info("read max97236(0x00) [0x%x]", status1);
-	ret = max98090_switch_dev_register(dev);
+	max98090_log_info("read max97236(0x00) status1[0x%x] board[%d]",
+			status1,
+			max98090_conf->board);
 
-	if (0 != ret)
-		goto err_max98090_switch_dev_register;
+	/* request irq */
+	dev->irq = client->irq;
+	max98090_log_info("client->irq[%d]", client->irq);
+	ret = request_irq(client->irq, &max98090_irq_handler,
+			  (IRQF_DISABLED | IRQF_TRIGGER_FALLING),
+			  client->name, NULL);
 
-	if (MAX98090_EVM == max98090_conf->board) {
-		dev->irq = client->irq;
-		max98090_log_info("client->irq[%d]", client->irq);
-		ret = request_irq(client->irq, &max98090_irq_handler,
-				  (IRQF_DISABLED | IRQF_TRIGGER_FALLING),
-				  client->name, NULL);
-
-		if (0 != ret) {
-			max98090_log_err("irq request err. ret[%d]", ret);
-			goto err_request_irq;
-		}
-	} else {
-#ifdef __MAX98090_TODO__
-		/* todo */
-#endif  /* __MAX98090_TODO__ */
+	if (0 != ret) {
+		max98090_log_err("irq request err. ret[%d]", ret);
+		goto err_request_irq;
 	}
 
 	/***********************************/
@@ -539,8 +541,8 @@ err_enable_interrupt:
 err_setup_max97236:
 err_setup_max98090:
 err_request_irq:
-err_max98090_switch_dev_register:
 err_setup_r8a73734:
+err_max98090_switch_dev_register:
 err_create_singlethread_workqueue:
 
 	if (dev->irq_workqueue)
@@ -574,16 +576,24 @@ static int max98090_setup_r8a73734(void)
 	if (0 != ret)
 		goto err_enable_vclk4;
 
-	ret = gpio_request(GPIO_PORT29, NULL);
+	if (MAX98090_EVM == max98090_conf->board) {
+		ret = gpio_request(GPIO_PORT29, NULL);
 
-	if (0 != ret)
-		goto err_gpio_request;
+		if (0 != ret)
+			goto err_gpio_request;
 
-	gpio_set_value(GPIO_PORT29, 0);
-	ret = gpio_direction_output(GPIO_PORT29, 1);
+		gpio_set_value(GPIO_PORT29, 0);
+		ret = gpio_direction_output(GPIO_PORT29, 1);
 
-	if (0 != ret)
-		goto err_gpio_request;
+		if (0 != ret)
+			goto err_gpio_request;
+
+	}
+
+#ifdef __MAX98090_TODO__
+	if (MAX98090_E2K == max98090_conf->board)
+		iowrite8(0xe0, MAX98090_GPIO_034);
+#endif  /* __MAX98090_TODO__ */
 
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -633,6 +643,20 @@ static int max98090_setup_max98090(void)
 		/* Register 0x03 (INTERUPT MASKS) = 0x00 */
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
 				MAX98090_REG_RW_INTERRUPT_MASKS, 0x00);
+
+		if (0 != ret)
+			goto err_i2c_write;
+	} else {
+		/* Register 0x03 (INTERUPT MASKS) = 0x04:IJDET */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_INTERRUPT_MASKS, 0x04);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		/* Register 0x3D (JACK DETECT) = 0x80:JDETEN */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_JACK_DETECT, 0x82);
 
 		if (0 != ret)
 			goto err_i2c_write;
@@ -787,9 +811,12 @@ static int max98090_enable_interrupt(void)
 		if (0 != ret)
 			goto err_i2c_write;
 	} else {
-#ifdef __MAX98090_TODO__
-		/* todo */
-#endif  /* __MAX98090_TODO__ */
+		/* set IRQ Mask Enable : IJDET */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_INTERRUPT_MASKS, 0x04);
+
+		if (0 != ret)
+			goto err_i2c_write;
 	}
 
 	max98090_log_rfunc("ret[%d]", ret);
@@ -826,9 +853,12 @@ static int max98090_disable_interrupt(void)
 		if (0 != ret)
 			goto err_i2c_write;
 	} else {
-#ifdef __MAX98090_TODO__
-		/* todo */
-#endif  /* __MAX98090_TODO__ */
+		/* set IRQ Mask Disable */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_INTERRUPT_MASKS, 0x00);
+
+		if (0 != ret)
+			goto err_i2c_write;
 	}
 
 	max98090_log_rfunc("ret[%d]", ret);
@@ -904,9 +934,12 @@ static void max98090_irq_work_func(struct work_struct *unused)
 			}
 		}
 	} else {
-#ifdef __MAX98090_TODO__
-		/* todo */
-#endif  /* __MAX98090_TODO__ */
+		/* read status */
+		res = max98090_read(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_R_DEVICE_STATUS, &status1);
+		res = max98090_read(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_R_JACK_DETECT, &status2);
+		/* todo set state and key_press */
 	}
 
 	if (max98090_conf->switch_data.state != state) {
@@ -926,8 +959,9 @@ static void max98090_irq_work_func(struct work_struct *unused)
 		max98090_conf->callback->irq_func();
 
 	res = max98090_enable_interrupt();
-	max98090_log_rfunc("res[%d] state[%d]", res,
-			max98090_conf->switch_data.state);
+	max98090_log_rfunc("res[%d] state[%d] event[%d]", res,
+			max98090_conf->switch_data.state,
+			max98090_conf->switch_data.key_press);
 }
 
 /*!
@@ -2125,6 +2159,12 @@ int max98090_set_speaker_amp(const u_int value)
 {
 	int ret = 0;
 	max98090_log_efunc("value[%d]", value);
+
+#ifdef __MAX98090_TODO__
+	if (MAX98090_E2K == max98090_conf->board)
+		iowrite8(0xe0, MAX98090_GPIO_034);
+#endif  /* __MAX98090_TODO__ */
+
 	/* check param */
 	ret = max98090_check_speaker_amp(value);
 
@@ -2140,16 +2180,18 @@ int max98090_set_speaker_amp(const u_int value)
 	}
 
 	/* set value */
-	switch (value) {
-	case MAX98090_SPEAKER_AMP_DISABLE:
-		gpio_set_value(GPIO_PORT29, 0);
-		break;
-	case MAX98090_SPEAKER_AMP_ENABLE:
-		gpio_set_value(GPIO_PORT29, 1);
-		break;
-	default:
-		/* nothing to do. */
-		break;
+	if (MAX98090_EVM == max98090_conf->board) {
+		switch (value) {
+		case MAX98090_SPEAKER_AMP_DISABLE:
+			gpio_set_value(GPIO_PORT29, 0);
+			break;
+		case MAX98090_SPEAKER_AMP_ENABLE:
+			gpio_set_value(GPIO_PORT29, 1);
+			break;
+		default:
+			/* nothing to do. */
+			break;
+		}
 	}
 
 	max98090_conf->info.speaker_amp = value;
@@ -2198,12 +2240,15 @@ int max98090_get_status(u_long *irq_status)
 				MAX97236_REG_OR_STATUS1, &status1);
 		ret = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_OR_STATUS2, &status2);
-		*irq_status |= (status1 << 8);
+		*irq_status = (status1 << 8);
 		*irq_status |= status2;
 	} else {
 		ret = max98090_read(MAX98090_AUDIO_IC_MAX98090,
 				MAX98090_REG_R_DEVICE_STATUS, &status1);
-		*irq_status = status1;
+		ret = max98090_read(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_R_JACK_DETECT, &status2);
+		*irq_status = (status1 << 8);
+		*irq_status |= status2;
 	}
 
 	max98090_log_rfunc("ret[%d] irq_status[%ld]", ret, *irq_status);
@@ -2485,8 +2530,9 @@ static struct snd_soc_dai_driver max98090_dai_driver[] = {
 			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE },
-			   .ops = NULL,
-	}, {
+		.ops = NULL,
+	},
+	{
 		.name = "max98090-fm",
 		.playback = {
 			.stream_name = "Playback",
@@ -2500,10 +2546,10 @@ static struct snd_soc_dai_driver max98090_dai_driver[] = {
 			.channels_max = 1,
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE },
-			   .ops = NULL,
-				  .symmetric_rates = 1,
-					     },
-				     };
+		.ops = NULL,
+		.symmetric_rates = 1,
+	},
+};
 EXPORT_SYMBOL(max98090_dai_driver);
 
 static void max98090_set_soc_controls(struct snd_kcontrol_new *controls,
@@ -2627,10 +2673,11 @@ static int max98090_remove(struct i2c_client *client)
 
 	max98090_log_efunc("");
 
+	/* todo release request_irq */
 	if (((MAX98090_EVM == max98090_conf->board) &&
 		(NULL == max98090_conf->client_max98090) &&
 		(NULL == max98090_conf->client_max97236)) ||
-		((MAX98090_KOTA == max98090_conf->board) &&
+		((MAX98090_E2K == max98090_conf->board) &&
 		(NULL == max98090_conf->client_max98090))) {
 		ret = max98090_disable_interrupt();
 
@@ -2644,21 +2691,18 @@ static int max98090_remove(struct i2c_client *client)
 
 	kfree(i2c_get_clientdata(client));
 
-	if (((MAX98090_EVM == max98090_conf->board) &&
-		(NULL == max98090_conf->client_max98090) &&
-		(NULL == max98090_conf->client_max97236)) ||
-		((MAX98090_KOTA == max98090_conf->board) &&
-		(NULL == max98090_conf->client_max98090))) {
-		max98090_disable_vclk4();
-		kfree(max98090_conf);
-	}
-
 	if (max98090_conf->log_entry)
 		remove_proc_entry(MAX98090_LOG_LEVEL,
 				max98090_conf->log_parent);
 
 	if (max98090_conf->log_parent)
 		remove_proc_entry(AUDIO_LSI_DRV_NAME, NULL);
+
+	if (MAX97236_SLAVE_ADDR == client->addr) {
+		max98090_disable_vclk4();
+		gpio_free(GPIO_PORT29);
+		kfree(max98090_conf);
+	}
 
 	max98090_log_rfunc("");
 	return 0;

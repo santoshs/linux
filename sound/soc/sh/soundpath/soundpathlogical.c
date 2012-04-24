@@ -42,9 +42,12 @@
  *
  */
 /* For all Playback device types */
-#define SNDP_OUT_DEV_ALL	(MAX98090_DEV_PLAYBACK_SPEAKER|MAX98090_DEV_PLAYBACK_EARPIECE|MAX98090_DEV_PLAYBACK_HEADPHONES)
+#define SNDP_OUT_DEV_ALL	(MAX98090_DEV_PLAYBACK_SPEAKER	|	\
+				 MAX98090_DEV_PLAYBACK_EARPIECE |	\
+				 MAX98090_DEV_PLAYBACK_HEADPHONES)
 /* For all Capture device types */
-#define SNDP_IN_DEV_ALL		(MAX98090_DEV_CAPTURE_MIC|MAX98090_DEV_CAPTURE_HEADSET_MIC)
+#define SNDP_IN_DEV_ALL		(MAX98090_DEV_CAPTURE_MIC	|	\
+				 MAX98090_DEV_CAPTURE_HEADSET_MIC)
 
 
 /*
@@ -54,13 +57,16 @@
  */
 
 /* Operation mode string */
-static const char *g_sndpdrv_op_modes_texts[] = {
+static const char *const g_sndpdrv_op_modes_texts[] = {
 	"PCM"
 };
 
 /* for SoC */
 static const struct soc_enum g_sndpdrv_op_modes_enum
-	= SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(g_sndpdrv_op_modes_texts), g_sndpdrv_op_modes_texts);
+	= SOC_ENUM_SINGLE(0,
+			  0,
+			  ARRAY_SIZE(g_sndpdrv_op_modes_texts),
+			  g_sndpdrv_op_modes_texts);
 
 /* for Kcontrol */
 /* COMMENT: Debaisu ha, korede zenbu? */
@@ -70,56 +76,63 @@ static struct snd_kcontrol_new g_sndpdrv_controls[] = {
 	SNDPDRV_SOC_SINGLE("Speaker Volume"  , 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_get_voice_out_volume, sndp_soc_put_voice_out_volume),
 	SNDPDRV_SOC_SINGLE("Headphone Volume", 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_get_voice_out_volume, sndp_soc_put_voice_out_volume),
 	SNDPDRV_SOC_SINGLE("Bluetooth Volume", 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_get_voice_out_volume, sndp_soc_put_voice_out_volume),
-	SNDPDRV_SOC_SINGLE("Capture Volume"  , 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_capture_volume,       sndp_soc_capture_volume),
-	SNDPDRV_SOC_SINGLE("Capture Switch"  , 0, 0, 1,                     0, sndp_soc_get_capture_mute,     sndp_soc_put_capture_mute),
+	SNDPDRV_SOC_SINGLE("Capture Volume"  , 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_capture_volume, sndp_soc_capture_volume),
+	SNDPDRV_SOC_SINGLE("Capture Switch"  , 0, 0, 1, 0, sndp_soc_get_capture_mute, sndp_soc_put_capture_mute),
 };
 
 /* Mode change table */
-const sndp_mode_transition_t g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
-	[SNDP_MODE_INIT][SNDP_MODE_NORMAL]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_MODE_NORMAL},					/* Next Status */
-	[SNDP_MODE_INIT][SNDP_MODE_RING]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_RINGTONE},					/* Next Status */
-	[SNDP_MODE_INIT][SNDP_MODE_INCALL]	=	{SNDP_PROC_CALL_START | SNDP_PROC_WATCH_STOP_FW,	/* Next Proc   */
-							 SNDP_STAT_IN_CALL},					/* Next Status */
-	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_IN_COMM},					/* Next Status */
-	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_NOT_CHG},					/* Next Status */
-	[SNDP_MODE_NORMAL][SNDP_MODE_RING]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_RINGTONE},					/* Next Status */
-	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL]	=	{SNDP_PROC_CALL_START | SNDP_PROC_WATCH_STOP_FW,	/* Next Proc   */
-							 SNDP_STAT_IN_CALL},					/* Next Status */
-	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_IN_COMM},					/* Next Status */
-	[SNDP_MODE_RING][SNDP_MODE_NORMAL]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_NORMAL},					/* Next Status */
-	[SNDP_MODE_RING][SNDP_MODE_RING]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_NOT_CHG},					/* Next Status */
-	[SNDP_MODE_RING][SNDP_MODE_INCALL]	=	{SNDP_PROC_CALL_START | SNDP_PROC_WATCH_STOP_FW,	/* Next Proc   */
-							 SNDP_STAT_IN_CALL},					/* Next Status */
-	[SNDP_MODE_RING][SNDP_MODE_INCOMM]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_IN_COMM},					/* Next Status */
-	[SNDP_MODE_INCALL][SNDP_MODE_NORMAL]	=	{SNDP_PROC_CALL_STOP | SNDP_PROC_MAXIM_START,		/* Next Proc   */
-							 SNDP_STAT_NORMAL},					/* Next Status */
-	[SNDP_MODE_INCALL][SNDP_MODE_RING]	=	{SNDP_PROC_CALL_STOP | SNDP_PROC_MAXIM_START,		/* Next Proc   */
-							 SNDP_STAT_RINGTONE},					/* Next Status */
-	[SNDP_MODE_INCALL][SNDP_MODE_INCALL]	=	{SNDP_PROC_DEV_CHANGE,					/* Next Proc   */
-							 SNDP_STAT_NOT_CHG},					/* Next Status */
-	[SNDP_MODE_INCALL][SNDP_MODE_INCOMM]	=	{SNDP_PROC_CALL_STOP | SNDP_PROC_MAXIM_START,		/* Next Proc   */
-							 SNDP_STAT_IN_COMM},					/* Next Status */
-	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_NORMAL},					/* Next Status */
-	[SNDP_MODE_INCOMM][SNDP_MODE_RING]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_RINGTONE},					/* Next Status */
-	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL]	=	{SNDP_PROC_CALL_START | SNDP_PROC_WATCH_STOP_FW,	/* Next Proc   */
-							 SNDP_STAT_IN_CALL},					/* Next Status */
-	[SNDP_MODE_INCOMM][SNDP_MODE_INCOMM]	=	{SNDP_PROC_MAXIM_START,					/* Next Proc   */
-							 SNDP_STAT_NOT_CHG},					/* Next Status */
+const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
+	[SNDP_MODE_INIT][SNDP_MODE_NORMAL]  =	{SNDP_PROC_MAXIM_START,
+							SNDP_MODE_NORMAL},
+	[SNDP_MODE_INIT][SNDP_MODE_RING]    =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_RINGTONE},
+	[SNDP_MODE_INIT][SNDP_MODE_INCALL]  =	{SNDP_PROC_CALL_START |
+						 SNDP_PROC_WATCH_STOP_FW,
+							SNDP_STAT_IN_CALL},
+	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_IN_COMM},
+	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NOT_CHG},
+	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_RINGTONE},
+	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START |
+						 SNDP_PROC_WATCH_STOP_FW,
+							SNDP_STAT_IN_CALL},
+	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM] =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_IN_COMM},
+	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NORMAL},
+	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NOT_CHG},
+	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START |
+						 SNDP_PROC_WATCH_STOP_FW,
+							SNDP_STAT_IN_CALL},
+	[SNDP_MODE_RING][SNDP_MODE_INCOMM]   =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_IN_COMM},
+	[SNDP_MODE_INCALL][SNDP_MODE_NORMAL] =	{SNDP_PROC_CALL_STOP |
+						 SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NORMAL},
+	[SNDP_MODE_INCALL][SNDP_MODE_RING]   =	{SNDP_PROC_CALL_STOP |
+						 SNDP_PROC_MAXIM_START,
+							SNDP_STAT_RINGTONE},
+	[SNDP_MODE_INCALL][SNDP_MODE_INCALL] =	{SNDP_PROC_DEV_CHANGE,
+							SNDP_STAT_NOT_CHG},
+	[SNDP_MODE_INCALL][SNDP_MODE_INCOMM] =	{SNDP_PROC_CALL_STOP |
+						 SNDP_PROC_MAXIM_START,
+							SNDP_STAT_IN_COMM},
+	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL] =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NORMAL},
+	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_RINGTONE},
+	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START |
+						 SNDP_PROC_WATCH_STOP_FW,
+							SNDP_STAT_IN_CALL},
+	[SNDP_MODE_INCOMM][SNDP_MODE_INCOMM] =	{SNDP_PROC_MAXIM_START,
+							SNDP_STAT_NOT_CHG},
 };
 
 /* Function table */
-static sndp_dai_func_t g_sndp_dai_func = {
+static struct sndp_dai_func g_sndp_dai_func = {
 	.fsi_startup		= NULL,
 	.fsi_shutdown		= NULL,
 	.fsi_trigger		= NULL,
@@ -133,26 +146,40 @@ static sndp_dai_func_t g_sndp_dai_func = {
 
 /* Main Process table */
 /* 0:Playback/1:Capture */
-sndp_main_t g_sndp_main[SNDP_PCM_DIRECTION_MAX];
+struct sndp_main g_sndp_main[SNDP_PCM_DIRECTION_MAX];
 
 /* FSI format */
 static u_int g_sndp_fsi_format;
 
 /* Work queue processing table */
-static sndp_work_info_t g_sndp_work_voice_start;		/* Voice start */
-static sndp_work_info_t g_sndp_work_voice_stop;			/* Voice stop */
-static sndp_work_info_t g_sndp_work_voice_dev_chg;		/* Device change for voice */
-static sndp_work_info_t g_sndp_work_normal_dev_chg;		/* Device change for not voice */
-static sndp_work_info_t g_sndp_work_maxim_play_start;		/* Playback start for MAXIM */
-static sndp_work_info_t g_sndp_work_maxim_capture_start;	/* Capture start for MAXIM */
-static sndp_work_info_t g_sndp_work_maxim_play_stop;		/* Playback stop for MAXIM */
-static sndp_work_info_t g_sndp_work_maxim_capture_stop;		/* Capture stop for MAXIM */
-static sndp_work_info_t g_sndp_work_call_playback_start;	/* Start during a call playback */
-static sndp_work_info_t g_sndp_work_call_capture_start;		/* Start during a call capture */
-static sndp_work_info_t g_sndp_work_call_playback_stop;		/* Stop during a call playback */
-static sndp_work_info_t g_sndp_work_call_capture_stop;		/* Stop during a call capture */
-static sndp_work_info_t g_sndp_work_regist_watch_stop_fw;	/* VCD_COMMAND_WATCH_STOP_FW registration process */
-static sndp_work_info_t g_sndp_work_watch_stop_fw;		/* VCD_COMMAND_WATCH_STOP_FW process */
+/* Voice start */
+static struct sndp_work_info g_sndp_work_voice_start;
+/* Voice stop */
+static struct sndp_work_info g_sndp_work_voice_stop;
+/* Device change for voice */
+static struct sndp_work_info g_sndp_work_voice_dev_chg;
+/* Device change for not voice */
+static struct sndp_work_info g_sndp_work_normal_dev_chg;
+/* Playback start for MAXIM */
+static struct sndp_work_info g_sndp_work_maxim_play_start;
+/* Capture start for MAXIM */
+static struct sndp_work_info g_sndp_work_maxim_capture_start;
+/* Playback stop for MAXIM */
+static struct sndp_work_info g_sndp_work_maxim_play_stop;
+/* Capture stop for MAXIM */
+static struct sndp_work_info g_sndp_work_maxim_capture_stop;
+/* Start during a call playback */
+static struct sndp_work_info g_sndp_work_call_playback_start;
+/* Start during a call capture */
+static struct sndp_work_info g_sndp_work_call_capture_start;
+/* Stop during a call playback */
+static struct sndp_work_info g_sndp_work_call_playback_stop;
+/* Stop during a call capture */
+static struct sndp_work_info g_sndp_work_call_capture_stop;
+/* VCD_COMMAND_WATCH_STOP_FW registration process */
+static struct sndp_work_info g_sndp_work_regist_watch_stop_fw;
+/* VCD_COMMAND_WATCH_STOP_FW process */
+static struct sndp_work_info g_sndp_work_watch_stop_fw;
 
 /* for Power control */
 static int g_sndp_power_status = SNDP_POWER_INIT;
@@ -202,7 +229,7 @@ u_int g_sndp_log_cycle_counter[SNDP_PCM_DIRECTION_MAX];
 #if defined(DEBUG) && defined(__PRN_SNDP__)
 /* Device name */
 /* COMMENT: Debaisuha, korede zenbu? */
-static const sndp_pcm_name_suffix_t device_suffix[] = {
+static const struct sndp_pcm_name_suffix device_suffix[] = {
 	{ SNDP_OUT_EARPIECE,			"_Earpiece"		},
 	{ SNDP_OUT_SPEAKER,			"_Speaker"		},
 	{ SNDP_OUT_WIRED_HEADSET,		"_Headset"		},
@@ -218,7 +245,7 @@ static const sndp_pcm_name_suffix_t device_suffix[] = {
 };
 
 /* Mode name */
-static const sndp_pcm_name_suffix_t mode_suffix[] = {
+static const struct sndp_pcm_name_suffix mode_suffix[] = {
 	{ SNDP_MODE_NORMAL,			"_normal"		},
 	{ SNDP_MODE_RING,			"_ringtone"		},
 	{ SNDP_MODE_INCALL,			"_incall"		},
@@ -226,7 +253,7 @@ static const sndp_pcm_name_suffix_t mode_suffix[] = {
 };
 
 /* Status */
-static const sndp_pcm_name_suffix_t status_list[] = {
+static const struct sndp_pcm_name_suffix status_list[] = {
 	{ SNDP_STAT_NOT_CHG,		"SNDP_STAT_NOT_CHG"		},
 	{ SNDP_STAT_NORMAL,		"SNDP_STAT_NORMAL"		},
 	{ SNDP_STAT_RINGTONE,		"SNDP_STAT_RINGTONE"		},
@@ -239,12 +266,12 @@ static const sndp_pcm_name_suffix_t status_list[] = {
 
 
 /*!
-   @brief Print PCM name for debbug
+   @brief Print PCM name for debug
 
-   @param[in]	uiValue			PCM value
-   @param[out]	None
+   @param[in]	uiValue		PCM value
+   @param[out]	none
 
-   @retval		none
+   @retval	none
  */
 
 #if defined(DEBUG) && defined(__PRN_SNDP__)
@@ -252,7 +279,7 @@ static const sndp_pcm_name_suffix_t status_list[] = {
 static inline void sndp_print_pcm_name(const u_int uiValue)
 {
 	char	cBuf[SNDP_PCM_NAME_MAX_LEN];
-	int		iCnt;
+	int	iCnt;
 	u_int	uiDevice;
 	u_int	uiMode;
 
@@ -268,7 +295,9 @@ static inline void sndp_print_pcm_name(const u_int uiValue)
 	uiDevice = SNDP_GET_AUDIO_DEVICE(uiValue);
 
 	/* Direction type */
-	strcpy(cBuf, (SNDP_GET_DIRECTION_VAL(uiValue)) ? SNDP_IN_PCM_SUFFIX : SNDP_OUT_PCM_SUFFIX);
+	strcpy(cBuf,
+	       (SNDP_GET_DIRECTION_VAL(uiValue)) ?
+		SNDP_IN_PCM_SUFFIX : SNDP_OUT_PCM_SUFFIX);
 
 	/* Device name */
 	for (iCnt = 0; ARRAY_SIZE(device_suffix) > iCnt; iCnt++) {
@@ -295,13 +324,15 @@ static inline void sndp_print_pcm_name(const u_int uiValue)
    @brief Print Log informs of data receiving
 
    @param[in]	stream		Direction type
-   @param[in]	frame		Frame infomation
-   @param[out]	None
+   @param[in]	frame		Frame information
+   @param[out]	none
 
-   @retval		none
+   @retval	none
  */
 #if defined(DEBUG) && defined(__PRN_SNDP__)
-static inline void sndp_log_data_rcv_indicator(const int stream, snd_pcm_uframes_t frame)
+static inline void sndp_log_data_rcv_indicator(
+	const int stream,
+	snd_pcm_uframes_t frame)
 {
 	/* Log level check */
 	if (LOG_DEBUG_PRINT > LOG_BYTE_LOW(g_sndp_log_level))
@@ -320,40 +351,48 @@ static inline void sndp_log_data_rcv_indicator(const int stream, snd_pcm_uframes
 	/* Receive data notification log is output */
 	if (0 == g_sndp_log_cycle_counter[stream]) {
 		if (SNDP_PCM_OUT == stream)
-			sndp_log_debug("OUT : Pointer from a upper layer [%ld]\n", frame);
+			sndp_log_debug("OUT : Pointer [%ld]\n", frame);
 		else
-			sndp_log_debug("IN  : Pointer from a upper layer [%ld]\n", frame);
+			sndp_log_debug("IN  : Pointer [%ld]\n", frame);
 	}
 
 	g_sndp_log_cycle_counter[stream]++;
 }
 #else
-#define sndp_log_data_rcv_indicator(int stream, snd_pcm_uframes_t frame) do { } while (0)
+#define sndp_log_data_rcv_indicator(int stream, snd_pcm_uframes_t frame) \
+	do { } while (0)
 #endif
 
 
 /*!
    @brief Print Status change
 
-   @param[in]	uiBefore		Before status
-   @param[in]	uiAfter			After status
-   @param[out]	None
+   @param[in]	uiBefore	Before status
+   @param[in]	uiAfter		After status
+   @param[out]	none
 
-   @retval		none
+   @retval	none
  */
 
 #if defined(DEBUG) && defined(__PRN_SNDP__)
 
-static inline void sndp_print_status_change(const u_int uiBefore, const u_int uiAfter)
+static inline void sndp_print_status_change(
+	const u_int uiBefore,
+	const u_int uiAfter)
 {
 	sndp_log_info("STATUS CHANGE: %s(%d) -> %s(%d)\n",
-		((SNDP_STAT_NOT_CHG <= uiBefore) && (SNDP_STAT_IN_COMM >= uiBefore)) ? status_list[uiBefore].suffix : "***",
+		((SNDP_STAT_NOT_CHG <= uiBefore) &&
+		 (SNDP_STAT_IN_COMM >= uiBefore)) ?
+			status_list[uiBefore].suffix : "***",
 		uiBefore,
-		((SNDP_STAT_NOT_CHG <= uiAfter) && (SNDP_STAT_IN_COMM >= uiAfter)) ? status_list[uiAfter].suffix : "***",
+		((SNDP_STAT_NOT_CHG <= uiAfter) &&
+		 (SNDP_STAT_IN_COMM >= uiAfter)) ?
+			status_list[uiAfter].suffix : "***",
 		uiAfter);
 }
 #else
-#define sndp_print_status_change(const u_int uiBefore, const u_int uiAfter) do { } while (0)
+#define sndp_print_status_change(const u_int uiBefore, const u_int uiAfter) \
+	do { } while (0)
 #endif
 
 
@@ -361,13 +400,13 @@ static inline void sndp_print_status_change(const u_int uiBefore, const u_int ui
    @brief Next set device type, to identify
 
    @param[in]	uiValue		PCM value
-   @param[out]	None
+   @param[out]	none
 
-   @retval		Next set devices
+   @retval	Next set devices
  */
 static u_long sndp_get_next_devices(const u_int uiValue)
 {
-	int		iRet = ERROR_NONE;
+	int	iRet = ERROR_NONE;
 	u_long	ulTmpNextDev = MAX98090_DEV_NONE;
 	u_int	uiDev;
 
@@ -380,25 +419,30 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 		/* Get now enabled devices */
 		iRet = max98090_get_device(&ulTmpNextDev);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_get_device error(code=%d)\n", iRet);
+			sndp_log_err("max98090_get_device error(code=%d)\n",
+				iRet);
 
 		/* Init to Playback side */
 		ulTmpNextDev &= ~SNDP_OUT_DEV_ALL;
 
 		/* Check OUTPUT device */
 		uiDev = SNDP_GET_DEVICE_VAL(uiValue);
+
+		/* [OUT]Speaker */
 		if (SNDP_SPEAKER & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_SPEAKER;		/* [OUT]Speaker */
+			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_SPEAKER;
 
+		/* [OUT]Earpiece */
 		if (SNDP_EARPIECE & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_EARPIECE;		/* [OUT]Earpiece */
+			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_EARPIECE;
 
+		/* [OUT]Headphone */
 		if (SNDP_WIREDHEADPHONE & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_HEADPHONES;	/* [OUT]Headphone */
+			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_HEADPHONES;
 
+		/* [OUT]Headset */
 		if (SNDP_WIREDHEADSET & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_HEADPHONES;	/* [OUT]Headset */
-
+			ulTmpNextDev |= MAX98090_DEV_PLAYBACK_HEADPHONES;
 
 		/* IN_CALL mode check */
 		if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue)) {
@@ -406,12 +450,21 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 			/* Init to Capture side */
 			ulTmpNextDev &= ~SNDP_IN_DEV_ALL;
 
-			/* To identify the INPUT device, to check the OUTPUT device. */
+			/*
+			 * To identify the INPUT device,
+			 * to check the OUTPUT device.
+			 */
 			if (SNDP_WIREDHEADSET & uiDev) {
-				/* [OUT]Including the Headset, [IN]Headset MIC */
+				/*
+				 * [OUT]Including the Headset,
+				 * [IN]Headset MIC
+				 */
 				ulTmpNextDev |= MAX98090_DEV_CAPTURE_HEADSET_MIC;
 			} else {
-				/* [OUT]Dosn't include the Headset, [IN]Built-in MIC */
+				/*
+				 * [OUT]Dosn't include the Headset,
+				 * [IN]Built-in MIC
+				 */
 				ulTmpNextDev |= MAX98090_DEV_CAPTURE_MIC;
 			}
 		}
@@ -420,18 +473,22 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 		/* Get now enabled devices */
 		iRet = max98090_get_device(&ulTmpNextDev);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_get_device error(code=%d)\n", iRet);
+			sndp_log_err("max98090_get_device error(code=%d)\n",
+				     iRet);
 
 		/* Init to Capture side */
 		ulTmpNextDev &= ~SNDP_IN_DEV_ALL;
 
 		/* Check INPUT device */
 		uiDev = SNDP_GET_DEVICE_VAL(uiValue);
-		if (SNDP_BUILTIN_MIC & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_CAPTURE_MIC;		/* [IN]Built-in MIC */
 
+		/* [IN]Built-in MIC */
+		if (SNDP_BUILTIN_MIC & uiDev)
+			ulTmpNextDev |= MAX98090_DEV_CAPTURE_MIC;
+
+		/* [IN]Headset MIC */
 		if (SNDP_WIREDHEADSET & uiDev)
-			ulTmpNextDev |= MAX98090_DEV_CAPTURE_HEADSET_MIC;	/* [IN]Headset MIC */
+			ulTmpNextDev |= MAX98090_DEV_CAPTURE_HEADSET_MIC;
 	}
 
 	sndp_log_debug_func("end ulNextDev[0x%08lX]\n", ulTmpNextDev);
@@ -444,13 +501,15 @@ static u_long sndp_get_next_devices(const u_int uiValue)
    @brief Wake lock control
 
    @param[in]	kind		Wake lock kind
-   @param[out]	None
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-void sndp_wake_lock(const sndp_wake_lock_kind kind)
+void sndp_wake_lock(const enum sndp_wake_lock_kind kind)
 {
-	sndp_log_debug_func("start kind[%d] count[%d]\n", kind, g_wake_lock_count);
+	sndp_log_debug_func("start kind[%d] count[%d]\n",
+			    kind,
+			    g_wake_lock_count);
 
 	spin_lock(&lock);
 
@@ -491,12 +550,15 @@ void sndp_wake_lock(const sndp_wake_lock_kind kind)
 }
 
 
-extern void max98090_set_soc_controls(struct snd_kcontrol_new *controls, u_int array_size);
+extern void max98090_set_soc_controls(
+	struct snd_kcontrol_new *controls,
+	u_int array_size);
 
 #define SYSC_PHY_BASE	(0xE6180000)
 #define SYSC_REG_MAX	(0x0084)
 
-u_long g_sysc_Base;			/* SYSC base address */
+/* SYSC base address */
+u_long g_sysc_Base;
 
 #define SYSC_SPDCR		(g_sysc_Base + 0x0008)
 #define SYSC_SWUCR		(g_sysc_Base + 0x0014)
@@ -506,23 +568,24 @@ u_long g_sysc_Base;			/* SYSC base address */
    @brief Sound path driver init function (from module_init)
 
    @param[in]	fsi_port_dai		DAI for FSI(CPU DAI)
-   @param[in]	maxim_dai			DAI for MAXIM(CODEC DAI)
+   @param[in]	maxim_dai		DAI for MAXIM(CODEC DAI)
    @param[in]	fsi_soc_platform	Structure for FSI SoC platform
-   @param[out]	None
+   @param[out]	none
 
-   @retval		0					Successful
-   @retval		-EFAULT				Other error
+   @retval	0			Successful
+   @retval	-EFAULT			Other error
  */
 int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	      struct snd_soc_dai_driver *max98090_dai_driver,
 	      struct snd_soc_platform_driver *fsi_soc_platform)
 {
-	int						iRet = -EFAULT;
-	int						iCnt = 0;
+	int			iRet = -EFAULT;
+	int			iCnt = 0;
 	struct proc_dir_entry	*entry = NULL;
 	struct proc_dir_entry	*reg_dump_entry = NULL;
 
 	int reg, i;
+
 
 	sndp_log_debug_func("start\n");
 
@@ -534,7 +597,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 */
 	/* Main Process table init */
 	for (iCnt = 0; iCnt < SNDP_PCM_DIRECTION_MAX; iCnt++) {
-		memset(&g_sndp_main[iCnt].arg, 0, sizeof(sndp_arg_t));
+		memset(&g_sndp_main[iCnt].arg, 0, sizeof(struct sndp_arg));
 		g_sndp_main[iCnt].status = SNDP_STAT_NORMAL;
 		g_sndp_main[iCnt].old_value = SNDP_VALUE_INIT;
 		g_sndp_log_cycle_counter[iCnt] = 0;
@@ -547,22 +610,26 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	g_sndp_parent = proc_mkdir(SNDP_DRV_NAME, NULL);
 	if (NULL != g_sndp_parent) {
 		/* create file for log level entry */
-		entry = create_proc_entry(LOG_LEVEL, S_IRUGO | S_IWUGO, g_sndp_parent);
+		entry = create_proc_entry(LOG_LEVEL,
+					  S_IRUGO | S_IWUGO,
+					  g_sndp_parent);
 		if (NULL != entry) {
 			entry->read_proc  = sndp_proc_read;
 			entry->write_proc = sndp_proc_write;
 		} else {
-			sndp_log_always_err("create failed for proc entry\n");
+			sndp_log_always_err("create_proc_entry(LOG) failed\n");
 			goto mkproc_sub_err;
 		}
 
 		/* create file for register dump */
-		reg_dump_entry = create_proc_entry(SNDP_REG_DUMP, S_IRUGO | S_IWUGO, g_sndp_parent);
+		reg_dump_entry = create_proc_entry(SNDP_REG_DUMP,
+						   S_IRUGO | S_IWUGO,
+						   g_sndp_parent);
 		if (NULL != reg_dump_entry) {
 			reg_dump_entry->read_proc = sndp_proc_reg_dump_read;
 			reg_dump_entry->write_proc = sndp_proc_reg_dump_write;
 		} else {
-			sndp_log_always_err("create failed for register dump proc entry\n");
+			sndp_log_always_err("create_proc_entry(REG) failed\n");
 			goto mkproc_sub_err;
 		}
 
@@ -575,20 +642,34 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	g_sndp_log_level = LOG_NO_PRINT;
 
 	/* Initializing work queue processing */
-	INIT_WORK(&g_sndp_work_voice_start.work, sndp_work_voice_start);
-	INIT_WORK(&g_sndp_work_voice_stop.work, sndp_work_voice_stop);
-	INIT_WORK(&g_sndp_work_voice_dev_chg.work, sndp_work_voice_dev_chg);
-	INIT_WORK(&g_sndp_work_normal_dev_chg.work, sndp_work_normal_dev_chg);
-	INIT_WORK(&g_sndp_work_maxim_play_start.work, sndp_work_maxim_play_start);
-	INIT_WORK(&g_sndp_work_maxim_capture_start.work, sndp_work_maxim_capture_start);
-	INIT_WORK(&g_sndp_work_maxim_play_stop.work, sndp_work_maxim_play_stop);
-	INIT_WORK(&g_sndp_work_maxim_capture_stop.work, sndp_work_maxim_capture_stop);
-	INIT_WORK(&g_sndp_work_call_playback_start.work, sndp_work_call_playback_start);
-	INIT_WORK(&g_sndp_work_call_capture_start.work, sndp_work_call_capture_start);
-	INIT_WORK(&g_sndp_work_call_playback_stop.work, sndp_work_call_playback_stop);
-	INIT_WORK(&g_sndp_work_call_capture_stop.work, sndp_work_call_capture_stop);
-	INIT_WORK(&g_sndp_work_regist_watch_stop_fw.work, sndp_work_regist_watch_stop_fw);
-	INIT_WORK(&g_sndp_work_watch_stop_fw.work, sndp_work_watch_stop_fw);
+	INIT_WORK(&g_sndp_work_voice_start.work,
+		  sndp_work_voice_start);
+	INIT_WORK(&g_sndp_work_voice_stop.work,
+		  sndp_work_voice_stop);
+	INIT_WORK(&g_sndp_work_voice_dev_chg.work,
+		  sndp_work_voice_dev_chg);
+	INIT_WORK(&g_sndp_work_normal_dev_chg.work,
+		  sndp_work_normal_dev_chg);
+	INIT_WORK(&g_sndp_work_maxim_play_start.work,
+		  sndp_work_maxim_play_start);
+	INIT_WORK(&g_sndp_work_maxim_capture_start.work,
+		  sndp_work_maxim_capture_start);
+	INIT_WORK(&g_sndp_work_maxim_play_stop.work,
+		  sndp_work_maxim_play_stop);
+	INIT_WORK(&g_sndp_work_maxim_capture_stop.work,
+		  sndp_work_maxim_capture_stop);
+	INIT_WORK(&g_sndp_work_call_playback_start.work,
+		  sndp_work_call_playback_start);
+	INIT_WORK(&g_sndp_work_call_capture_start.work,
+		  sndp_work_call_capture_start);
+	INIT_WORK(&g_sndp_work_call_playback_stop.work,
+		  sndp_work_call_playback_stop);
+	INIT_WORK(&g_sndp_work_call_capture_stop.work,
+		  sndp_work_call_capture_stop);
+	INIT_WORK(&g_sndp_work_regist_watch_stop_fw.work,
+		  sndp_work_regist_watch_stop_fw);
+	INIT_WORK(&g_sndp_work_watch_stop_fw.work,
+		  sndp_work_watch_stop_fw);
 
 	/* To initialize the flag waiting for the trigger stop processing. */
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++)
@@ -599,7 +680,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	 */
 	iRet = max98090_set_volume(SNDP_OUT_DEV_ALL, MAX98090_VOLUMEL5);
 	if (ERROR_NONE != iRet) {
-		sndp_log_always_err("set volume[%d] error\n", MAX98090_VOLUMEL5);
+		sndp_log_always_err("set volume[%d] error\n",
+				    MAX98090_VOLUMEL5);
 		goto set_volume_err;
 	}
 
@@ -608,7 +690,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	 */
 	iRet = max98090_set_mute(MAX98090_MUTE_DISABLE);
 	if (ERROR_NONE != iRet) {
-		sndp_log_always_err("set mute[%d] error\n", MAX98090_MUTE_DISABLE);
+		sndp_log_always_err("set mute[%d] error\n",
+				    MAX98090_MUTE_DISABLE);
 		goto set_mute_err;
 	}
 
@@ -625,8 +708,10 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	g_sndp_dai_func.fsi_hw_params = fsi_port_dai_driver->ops->hw_params;
 	g_sndp_dai_func.fsi_pointer = fsi_soc_platform->ops->pointer;
 /*
-	g_sndp_dai_func.maxim_hw_params[SNDP_PCM_OUT] = max98090_dai_driver[SNDP_PCM_OUT]->ops->hw_params;
-	g_sndp_dai_func.maxim_hw_params[SNDP_PCM_IN] = max98090_dai_driver[SNDP_PCM_IN]->ops->hw_params;
+	g_sndp_dai_func.maxim_hw_params[SNDP_PCM_OUT] =
+		max98090_dai_driver[SNDP_PCM_OUT]->ops->hw_params;
+	g_sndp_dai_func.maxim_hw_params[SNDP_PCM_IN] =
+		max98090_dai_driver[SNDP_PCM_IN]->ops->hw_params;
 */
 #if 0
 	/* COMMENT: atode I/F wo kimeru. */
@@ -644,9 +729,12 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* MAXIM SoC control */
 	/* COMMENT: Kono syoriha hitsuyouka?? */
-	max98090_set_soc_controls(g_sndpdrv_controls, ARRAY_SIZE(g_sndpdrv_controls));
+	max98090_set_soc_controls(g_sndpdrv_controls,
+				  ARRAY_SIZE(g_sndpdrv_controls));
 /*
-	iRet = snd_soc_add_controls(maxim_dai[SNDP_PCM_OUT].codec, g_sndpdrv_controls, ARRAY_SIZE(g_sndpdrv_controls));
+	iRet = snd_soc_add_controls(maxim_dai[SNDP_PCM_OUT].codec,
+				    g_sndpdrv_controls,
+				    ARRAY_SIZE(g_sndpdrv_controls));
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("Failed to create control\n");
 		goto add_control_err;
@@ -654,7 +742,9 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 */
 /*
 	// Power domain setting
-	iRet = power_domain_devices("snd-soc-fsi", &g_sndp_power_domain, &g_sndp_power_domain_count);
+	iRet = power_domain_devices("snd-soc-fsi",
+				    &g_sndp_power_domain,
+				    &g_sndp_power_domain_count);
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("Modules not found ... [iRet=%d]\n", iRet);
 		goto power_domain_err;
@@ -670,12 +760,12 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	}
 
 	/* Wake lock init */
-	wake_lock_init(&g_sndp_wake_lock_suspend, WAKE_LOCK_SUSPEND, "snd-soc-fsi");
+	wake_lock_init(&g_sndp_wake_lock_suspend,
+		       WAKE_LOCK_SUSPEND,
+		       "snd-soc-fsi");
 
 	/* wait queue init */
 	init_waitqueue_head(&g_sndp_stop_wait);
-
-
 
 	/* Get SYSC Logical Address */
 	g_sysc_Base = (u_long)ioremap_nocache(SYSC_PHY_BASE, SYSC_REG_MAX);
@@ -731,21 +821,21 @@ mkproc_err:
 /*!
    @brief Sound path driver exit function (from module_exit)
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 void sndp_exit(void)
 {
 	/* iounmap */
-/*	common_iounmap(); */
+	common_iounmap();
 
 	/* Proc entry remove */
 	if (NULL != g_sndp_parent)
 		remove_proc_entry(SNDP_DRV_NAME, NULL);
 
-	/* Desitroy work queue */
+	/* Destroy work queue */
 	if (NULL != g_sndp_queue_main) {
 		destroy_workqueue(g_sndp_queue_main);
 		g_sndp_queue_main = NULL;
@@ -763,15 +853,20 @@ void sndp_exit(void)
    @param[-]	start	Not use
    @param[-]	offset	Not use
    @param[-]	count	Not use
-   @param[out]	eof		EOF flag
+   @param[out]	eof	EOF flag
    @param[-]	data	Not use
 
-   @retval		read data length
+   @retval	read data length
  */
-static int sndp_proc_read(char *page, char **start, off_t offset, int count, int *eof, void *data)
+static int sndp_proc_read(
+	char *page,
+	char **start,
+	off_t offset,
+	int count,
+	int *eof,
+	void *data)
 {
 	int	iLen = sprintf(page, "0x%08x\n", (int)g_sndp_log_level);
-
 
 	*eof = 1;
 	return iLen;
@@ -788,12 +883,27 @@ static int sndp_proc_read(char *page, char **start, off_t offset, int count, int
 
    @retval		Write data count
  */
-static int sndp_proc_write(struct file *filp, const char *buffer, unsigned long count, void *data)
+static int sndp_proc_write(
+	struct file *filp,
+	const char *buffer,
+	unsigned long count,
+	void *data)
 {
 	unsigned long long int	uiIn;
+	static unsigned char	proc_buf[32];
 
+	memset(proc_buf, 0, sizeof(proc_buf));
+	/* copy, from user */
+	if (copy_from_user(proc_buf, (void __user *)buffer, count)) {
+		sndp_log_err("copy_from_user failed.\n");
+		return -EFAULT;
+	}
 
-	uiIn = simple_strtoull(buffer, NULL, 0);
+	if (kstrtoull(proc_buf, 0, &uiIn)) {
+		sndp_log_err("kstrtoull error\n");
+		return -EFAULT;
+	}
+
 	g_sndp_log_level = (u_int)uiIn & LOG_LEVEL_MAX;
 	LOG_INIT_CYCLE_COUNT(SNDP_PCM_OUT);
 
@@ -813,7 +923,13 @@ static int sndp_proc_write(struct file *filp, const char *buffer, unsigned long 
 
    @retval      0
  */
-static int sndp_proc_reg_dump_read(char *page, char **start, off_t offset, int count, int *eof, void *data)
+static int sndp_proc_reg_dump_read(
+	char *page,
+	char **start,
+	off_t offset,
+	int count,
+	int *eof,
+	void *data)
 {
 	return ERROR_NONE;
 }
@@ -827,23 +943,40 @@ static int sndp_proc_reg_dump_read(char *page, char **start, off_t offset, int c
    @param[in]	count	Data length
    @param[-]	data	Not use
 
-   @retval		Write data length
+   @retval	Write data length
  */
-static int sndp_proc_reg_dump_write(struct file *filp, const char *buffer, unsigned long count, void *data)
+static int sndp_proc_reg_dump_write(
+	struct file *filp,
+	const char *buffer,
+	unsigned long count,
+	void *data)
 {
-/*
-	int		iRet = ERROR_NONE;	*TODO
-*/
-	u_long	ulIn;
-	u_long	log_level_back = 0;
+	int			iRet = ERROR_NONE;
+	u_long			ulIn;
+	u_long			log_level_back = 0;
+	static unsigned char	proc_buf[32];
 
-
-	sndp_log_debug_func("%s ulIn[0x%08lX]\n", __func__, simple_strtoul(buffer, NULL, 0));
+	sndp_log_debug_func("start\n");
 
 	log_level_back = LOG_BIT_REG_DUMP & g_sndp_log_level;
 	g_sndp_log_level |= LOG_BIT_REG_DUMP;
 
-	ulIn = simple_strtoul(buffer, NULL, 0);
+	memset(proc_buf, 0, sizeof(proc_buf));
+	/* copy, from user */
+	if (copy_from_user(proc_buf, (void __user *)buffer, count)) {
+		iRet = -EFAULT;
+		sndp_log_err("copy_from_user failed.\n");
+		return iRet;
+	}
+
+	iRet = kstrtoul(proc_buf, 0, &ulIn);
+	if (0 != iRet) {
+		sndp_log_err("kstrtoul error(ret=%d)\n", iRet);
+		return iRet;
+	}
+
+	sndp_log_reg_dump("ulIn : 0x%08lx\n", ulIn);
+
 	g_sndp_mode = ((u_int)ulIn & 0xffff0000) >> 16;
 	ulIn &= 0xffff;
 #if 0
@@ -857,32 +990,31 @@ static int sndp_proc_reg_dump_write(struct file *filp, const char *buffer, unsig
 #endif
 	/* for FSI */
 	if ((REG_DUMP_ALL == ulIn) || (REG_DUMP_FSI & ulIn)) {
-//		if (SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) {
+		if (SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction)
 			fsi_reg_dump(GET_OLD_VALUE(g_sndp_now_direction));
-//		} else {
-//			sndp_log_reg_dump("FSI register is not ready.\n");
-//		}
+		else
+			sndp_log_reg_dump("FSI register is not ready.\n");
 	}
 
 	/* for CLKGEN */
 	if ((REG_DUMP_ALL == ulIn) || (REG_DUMP_CLKGEN & ulIn)) {
-//		if (SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) {
+		if (SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction)
 			clkgen_reg_dump();
-//		} else {
-//			sndp_log_reg_dump("CLKGEN register is not ready.\n");
-//      }
+		else
+			sndp_log_reg_dump("CLKGEN register is not ready.\n");
 	}
-#if 0
+
 	/* for SCUW */
 	if ((REG_DUMP_ALL == ulIn) || (REG_DUMP_SCUW & ulIn)) {
 		if ((SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) &&
-			(SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT)))) {
+		    (SNDP_MODE_INCALL == 
+			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
+			(!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
 			scuw_reg_dump();
-		} else {
+		else
 			sndp_log_reg_dump("SCUW register is not ready.\n");
-		}
 	}
-#endif
+
 	g_sndp_log_level &= ~LOG_BIT_REG_DUMP | log_level_back;
 
 	sndp_log_debug_func("%s out\n", __func__);
@@ -897,9 +1029,11 @@ static int sndp_proc_reg_dump_write(struct file *filp, const char *buffer, unsig
    @param[in]	kcontrol	Kcontrol structure
    @param[out]	uinfo		Element information structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_soc_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info *uinfo)
+static int sndp_soc_info(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_info *uinfo)
 {
 	struct soc_enum	*e = (struct soc_enum *)kcontrol->private_value;
 
@@ -910,7 +1044,9 @@ static int sndp_soc_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info
 
 	if (uinfo->value.enumerated.item > e->max - 1)
 		uinfo->value.enumerated.item = e->max - 1;
-	strcpy(uinfo->value.enumerated.name, e->texts[uinfo->value.enumerated.item]);
+
+	strcpy(uinfo->value.enumerated.name,
+	       e->texts[uinfo->value.enumerated.item]);
 
 	return ERROR_NONE;
 }
@@ -922,9 +1058,11 @@ static int sndp_soc_info(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_info
    @param[-]	kcontrol	Not use
    @param[-]	ucontrol	Not use
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_soc_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_get(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
 	return ERROR_NONE;
 }
@@ -936,20 +1074,22 @@ static int sndp_soc_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
-   @retval		-EINVAL		Invalid argument
+   @retval	0		Successful
+   @retval	-EINVAL		Invalid argument
  */
-static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_put(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
-	int			iRet = ERROR_NONE;
-	u_int		uiValue;
-	u_int		uiProcess;
-	u_int		uiDirection;
-	u_int		uiMode;
-	u_int		uiNextStatus;
-	u_int		uiSaveStatus;
-	u_int		uiOldValue;
-
+	/* int	iRet = ERROR_NONE; */
+	u_int	uiValue;
+	u_int	uiProcess;
+	u_int	uiDirection;
+	u_int	uiMode;
+	u_int	uiNextStatus;
+	u_int	uiSaveStatus;
+	u_int	uiOldValue;
+	u_int	old_mode;
 
 	sndp_log_debug_func("start\n");
 
@@ -968,7 +1108,7 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
 
 	/* Get Old Value */
 	uiOldValue = GET_OLD_VALUE(uiDirection);
-
+	old_mode   = SNDP_GET_MODE_VAL(uiOldValue);
 #if 0
 	/* Uplink only/Downlink only/Both Uplink and Downlink */
 	if (SNDP_PLAYBACK_UPLINK_INCALL == uiValue) {
@@ -991,15 +1131,14 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
 			return ERROR_NONE;
 	}
 #endif
-
 	/* Gets the mode (NORMAL/RINGTONE/INCALL/INCOMMUNICATION) */
 	uiMode = SNDP_GET_MODE_VAL(uiValue);
 
 	/* Identify the process for changing modes (Old mode -> New mode) */
-	uiProcess = g_sndp_mode_map[SNDP_GET_MODE_VAL(uiOldValue)][uiMode].next_proc;
+	uiProcess = g_sndp_mode_map[old_mode][uiMode].next_proc;
 
 	/* Identify the next status for changing modes */
-	uiNextStatus = g_sndp_mode_map[SNDP_GET_MODE_VAL(uiOldValue)][uiMode].next_status;
+	uiNextStatus = g_sndp_mode_map[old_mode][uiMode].next_status;
 
 	/* Save now status */
 	uiSaveStatus = GET_SNDP_STATUS(uiDirection);
@@ -1019,40 +1158,47 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
 	}
 
 	/* for Register dump debug */
-	g_sndp_now_direction = (SNDP_MODE_INCALL == uiMode) ? SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
+	g_sndp_now_direction =
+	(SNDP_MODE_INCALL == uiMode) ? SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
 	/* Processing for each process */
 	/* SNDP_PROC_CALL_STOP */
 	if (uiProcess & SNDP_PROC_CALL_STOP) {
 		/* Call + Recording is not running */
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) {
+		if (SNDP_MODE_INCALL !=
+			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) {
 
 			/* Wake Lock */
 			sndp_wake_lock(E_LOCK);
 
 			/* Registered in the work queue for call stop */
 			g_sndp_work_voice_stop.old_value = uiOldValue;
-			queue_work(g_sndp_queue_main, &g_sndp_work_voice_stop.work);
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_voice_stop.work);
 		}
 	}
 
 	/* SNDP_PROC_CALL_START */
 	if (uiProcess & SNDP_PROC_CALL_START) {
 		/* Enable the power domain */
+#if 0
 		iRet = pm_runtime_get_sync(g_sndp_power_domain);
 		if (!(0 == iRet || 1 == iRet)) {  /* 0:success 1:active */
-			sndp_log_err("modules power on error[iRet=%d]\n", iRet);
+			sndp_log_err("modules power on error[iRet=%d]\n",
+				     iRet);
 
 			/* Revert the status */
-			sndp_print_status_change(GET_SNDP_STATUS(uiDirection), uiSaveStatus);
+			sndp_print_status_change(GET_SNDP_STATUS(uiDirection),
+						 uiSaveStatus);
 			SET_SNDP_STATUS(uiDirection, uiSaveStatus);
 			return iRet;
 		}
-
+#endif
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
 
-		/* Registered in the wowk queue for call start */
+		/* Registered in the work queue for call start */
 		g_sndp_work_voice_start.new_value = uiValue;
 		queue_work(g_sndp_queue_main, &g_sndp_work_voice_start.work);
 	}
@@ -1063,7 +1209,10 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
 
-		/* Registered in the work queue for device change (not voice call) */
+		/*
+		 * Registered in the work queue for
+		 * device change (not voice call)
+		 */
 		g_sndp_work_normal_dev_chg.new_value = uiValue;
 		queue_work(g_sndp_queue_main, &g_sndp_work_normal_dev_chg.work);
 	}
@@ -1073,25 +1222,39 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
 		/* Modes other than the INIT */
 		if (SNDP_VALUE_INIT != uiOldValue) {
 			/* Change the device type */
-			if ((SNDP_GET_DEVICE_VAL(uiOldValue) != SNDP_GET_DEVICE_VAL(uiValue))) {
+			if ((SNDP_GET_DEVICE_VAL(uiOldValue) !=
+					SNDP_GET_DEVICE_VAL(uiValue))) {
 
 				/* Wake Lock */
 				sndp_wake_lock(E_LOCK);
 
-				/* Registered in the work queue for voice call device change */
-				sndp_log_debug("uiValue %08x  old_value %08x\n", uiValue, uiOldValue);
-				g_sndp_work_voice_dev_chg.new_value = uiValue;
-				g_sndp_work_voice_dev_chg.old_value = uiOldValue;
-				queue_work(g_sndp_queue_main, &g_sndp_work_voice_dev_chg.work);
+				/*
+				 * Registered in the work queue for
+				 * voice call device change
+				 */
+				sndp_log_debug("uiValue %08x  old_value %08x\n",
+						uiValue, uiOldValue);
+
+				g_sndp_work_voice_dev_chg.new_value =
+								uiValue;
+
+				g_sndp_work_voice_dev_chg.old_value =
+								uiOldValue;
+
+				queue_work(g_sndp_queue_main,
+					   &g_sndp_work_voice_dev_chg.work);
 			}
 		}
 	}
 
 	/* SNDP_PROC_WATCH_STOP_FW */
 	if (uiProcess & SNDP_PROC_WATCH_STOP_FW) {
-
-		/* Registered in the work queue for VCD_COMMAND_WATCH_STOP_FW registration */
-		queue_work(g_sndp_queue_main, &g_sndp_work_regist_watch_stop_fw.work);
+		/*
+		 * Registered in the work queue for
+		 * VCD_COMMAND_WATCH_STOP_FW registration
+		 */
+		queue_work(g_sndp_queue_main,
+			   &g_sndp_work_regist_watch_stop_fw.work);
 	}
 
 	/* Saving the type of PCM */
@@ -1108,13 +1271,14 @@ static int sndp_soc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
-   @retval		-EIO		kernel-side error
+   @retval	0		Successful
+   @retval	-EIO		kernel-side error
  */
-static int sndp_soc_get_voice_out_volume(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
-	int		iRet = ERROR_NONE;
-#if 0
+	int	iRet = ERROR_NONE;
 	u_int	uiVal = 0;
 
 
@@ -1128,7 +1292,7 @@ static int sndp_soc_get_voice_out_volume(struct snd_kcontrol *kcontrol, struct s
 
 	/* Return the current settings */
 	ucontrol->value.enumerated.item[0] = uiVal;
-#endif
+
 	return iRet;
 }
 
@@ -1139,13 +1303,14 @@ static int sndp_soc_get_voice_out_volume(struct snd_kcontrol *kcontrol, struct s
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
-   @retval		-EINVAL		Invalid argument
+   @retval	0		Successful
+   @retval	-EINVAL		Invalid argument
  */
-static int sndp_soc_put_voice_out_volume(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
 	int		iRet = ERROR_NONE;
-#if 0
 	u_int	uiVal = ucontrol->value.enumerated.item[0];
 
 
@@ -1156,7 +1321,7 @@ static int sndp_soc_put_voice_out_volume(struct snd_kcontrol *kcontrol, struct s
 		sndp_log_err("maxim set volume error(code=%d)\n", iRet);
 		return iRet;
 	}
-#endif
+
 	return iRet;
 }
 
@@ -1167,9 +1332,11 @@ static int sndp_soc_put_voice_out_volume(struct snd_kcontrol *kcontrol, struct s
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_soc_capture_volume(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_capture_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
 	/* Not processing */
 	return ERROR_NONE;
@@ -1182,12 +1349,13 @@ static int sndp_soc_capture_volume(struct snd_kcontrol *kcontrol, struct snd_ctl
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_soc_get_capture_mute(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_get_capture_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
-	int		iRet = ERROR_NONE;
-#if 0
+	int	iRet = ERROR_NONE;
 	u_int	uiVal = 0;
 
 
@@ -1200,7 +1368,7 @@ static int sndp_soc_get_capture_mute(struct snd_kcontrol *kcontrol, struct snd_c
 
 	/* Return the current settings */
 	ucontrol->value.enumerated.item[0] = !(uiVal);
-#endif
+
 	return iRet;
 }
 
@@ -1211,13 +1379,14 @@ static int sndp_soc_get_capture_mute(struct snd_kcontrol *kcontrol, struct snd_c
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
 
-   @retval		0			Successful
-   @retval		-EINVAL		Invalid argument
+   @retval	0		Successful
+   @retval	-EINVAL		Invalid argument
  */
-static int sndp_soc_put_capture_mute(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+static int sndp_soc_put_capture_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
 {
-	int		iRet = ERROR_NONE;
-#if 0
+	int	iRet = ERROR_NONE;
 	u_int	uiVal = ucontrol->value.enumerated.item[0];
 
 
@@ -1227,7 +1396,7 @@ static int sndp_soc_put_capture_mute(struct snd_kcontrol *kcontrol, struct snd_c
 		sndp_log_err("maxim set mute error(code=%d)\n", iRet);
 		return iRet;
 	}
-#endif
+
 	return iRet;
 }
 
@@ -1235,10 +1404,10 @@ static int sndp_soc_put_capture_mute(struct snd_kcontrol *kcontrol, struct snd_c
 /*!
    @brief System suspend function
 
-   @param[in]	dev		Device
-   @param[out]	None
+   @param[in]	dev	Device
+   @param[out]	none
 
-   @retval		ERROR_NONE
+   @retval	ERROR_NONE
  */
 static int sndp_fsi_suspend(struct device *dev)
 {
@@ -1248,12 +1417,17 @@ static int sndp_fsi_suspend(struct device *dev)
 	sndp_log_info("start\n");
 
 	/* Otherwise only IN_CALL, for processing */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
+	if (SNDP_MODE_INCALL !=
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
 		if (SNDP_POWER_SUSPEND != g_sndp_power_status) {
-			/* Transition to SUSPEND, status of MAXIM (Disable all devices) */
+			/*
+			 * Transition to SUSPEND,
+			 * status of MAXIM (Disable all devices)
+			 */
 			iRet = max98090_set_device(MAX98090_DEV_NONE);
 			if (ERROR_NONE != iRet)
-				sndp_log_err("maxim set device error (code=%d)\n", iRet);
+				sndp_log_err("max set device error(code=%d)\n",
+					     iRet);
 
 			g_sndp_power_status = SNDP_POWER_SUSPEND;
 		}
@@ -1268,27 +1442,31 @@ static int sndp_fsi_suspend(struct device *dev)
 /*!
    @brief System resume function
 
-   @param[in]	dev		Device
-   @param[out]	None
+   @param[in]	dev	Device
+   @param[out]	none
 
-   @retval		ERROR_NONE
+   @retval	ERROR_NONE
  */
 static int sndp_fsi_resume(struct device *dev)
 {
-	int		iRet = ERROR_NONE;
+	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = MAX98090_DEV_NONE;
 
 
 	sndp_log_info("start\n");
 
 	/* Otherwise only IN_CALL, for processing */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
+	if (SNDP_MODE_INCALL !=
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
 		if (SNDP_POWER_RESUME != g_sndp_power_status) {
 			/* Transition to RESUME, status of MAXIM */
-			ulSetDevice = sndp_get_next_devices(GET_OLD_VALUE(SNDP_PCM_OUT));
+			ulSetDevice =
+			sndp_get_next_devices(GET_OLD_VALUE(SNDP_PCM_OUT));
+
 			iRet = max98090_set_device(ulSetDevice);
 			if (ERROR_NONE != iRet)
-				sndp_log_err("maxim set device error (code=%d)\n", iRet);
+				sndp_log_err("max set device error(code=%d)\n",
+					     iRet);
 
 			g_sndp_power_status = SNDP_POWER_RESUME;
 		}
@@ -1304,11 +1482,13 @@ static int sndp_fsi_resume(struct device *dev)
    @brief FSI startup function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_fsi_startup(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+static int sndp_fsi_startup(
+	struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
 {
 	int	iRet = ERROR_NONE;
 
@@ -1339,11 +1519,13 @@ static int sndp_fsi_startup(struct snd_pcm_substream *substream, struct snd_soc_
    @brief FSI shutdown function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		None
+   @retval	none
  */
-static void sndp_fsi_shutdown(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+static void sndp_fsi_shutdown(
+	struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
 {
 	long	iRet = 0;
 
@@ -1354,16 +1536,18 @@ static void sndp_fsi_shutdown(struct snd_pcm_substream *substream, struct snd_so
 		substream->stream,
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
 		GET_OLD_VALUE(substream->stream));
+
 	sndp_log_info("g_sndp_stop_trigger_condition[%d] = 0x%08x\n",
-		substream->stream, g_sndp_stop_trigger_condition[substream->stream]);
+		substream->stream,
+		g_sndp_stop_trigger_condition[substream->stream]);
 
 	/* Playback or Capture, than the Not processing */
 	if ((SNDP_PCM_OUT != substream->stream) &&
-		(SNDP_PCM_IN != substream->stream)) {
+	    (SNDP_PCM_IN != substream->stream)) {
 		return;
 	}
 
-	/* Check the waiting processing of TRIGSTOP */
+	/* Check the waiting processing of TRIGGER STOP */
 	iRet = wait_event_interruptible_timeout(
 		g_sndp_stop_wait, !SNDP_STOP_TRIGGER_CHECK(substream->stream),
 		msecs_to_jiffies(SNDP_WAIT_MAX));
@@ -1385,25 +1569,32 @@ static void sndp_fsi_shutdown(struct snd_pcm_substream *substream, struct snd_so
    @brief FSI trigger function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	cmd			Trigger command type
-					(SNDRV_PCM_TRIGGER_START/SNDRV_PCM_TRIGGER_STOP)
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	cmd		Trigger command type
+				(SNDRV_PCM_TRIGGER_START/
+				 SNDRV_PCM_TRIGGER_STOP)
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
-static int sndp_fsi_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
+static int sndp_fsi_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai)
 {
-	int		iRet = ERROR_NONE;
-	bool	trigger_normal = true;
+	int			iRet = ERROR_NONE;
+	bool			trigger_normal = true;
+	struct sndp_stop	*stop;
+	struct sndp_arg		*arg;
 
 
 	sndp_log_debug_func("start\n");
 
-	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X  cmd = %s\n",
+	sndp_log_info("stream = %d(%s)  old_value = 0x%08X  cmd = %s\n",
 		substream->stream,
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
 		GET_OLD_VALUE(substream->stream),
-		(SNDRV_PCM_TRIGGER_START == cmd) ? "TRIGGER_START" : "TRIGGER_STOP");
+		(SNDRV_PCM_TRIGGER_START == cmd) ?
+					"TRIGGER_START" : "TRIGGER_STOP");
 
 	/* Playback or Capture, than the Not processing */
 	if ((SNDP_PCM_OUT != substream->stream) &&
@@ -1415,7 +1606,8 @@ static int sndp_fsi_trigger(struct snd_pcm_substream *substream, int cmd, struct
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
 	/* Checking whether a call */
-	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream)))
+	if (SNDP_MODE_INCALL ==
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream)))
 		trigger_normal = false;
 
 	/* MM Playback or MM Capture process route */
@@ -1432,37 +1624,55 @@ static int sndp_fsi_trigger(struct snd_pcm_substream *substream, int cmd, struct
 
 			/* A work queue processing to register TRIGGER_START */
 			if (SNDP_PCM_OUT == substream->stream) {
-				queue_work(g_sndp_queue_main, &g_sndp_work_maxim_play_start.work);
-				g_sndp_now_direction = SNDP_PCM_OUT;	/* for Register dump debug */
+				queue_work(g_sndp_queue_main,
+					   &g_sndp_work_maxim_play_start.work);
+
+				/* for Register dump debug */
+				g_sndp_now_direction = SNDP_PCM_OUT;
 			} else {
-				queue_work(g_sndp_queue_main, &g_sndp_work_maxim_capture_start.work);
-				g_sndp_now_direction = SNDP_PCM_IN;	/* for Register dump debug */
+				queue_work(g_sndp_queue_main,
+					&g_sndp_work_maxim_capture_start.work);
+
+				/* for Register dump debug */
+				g_sndp_now_direction = SNDP_PCM_IN;
 			}
 			break;
 
 		case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
 			sndp_log_info("#Trigger stop[MM]\n");
 
+			arg = &g_sndp_main[substream->stream].arg;
 			/* FSI trigger stop process */
-#if 0
-			/* COMMENT: mada kono kansuu ha nai */
-			fsi_set_trigger_stop(g_sndp_main[substream->stream].arg.fsi_substream, false);
-#endif
+			fsi_set_trigger_stop(arg->fsi_substream, false);
 
 			/* Init register dump log flag for debug */
 			g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 
 			/* A work queue processing to register TRIGGER_STOP */
 			if (SNDP_PCM_OUT == substream->stream) {
-				g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |= SNDP_STOP_TRIGGER_PLAYBACK;
-				g_sndp_work_maxim_play_stop.stop.fsi_substream = *g_sndp_main[substream->stream].arg.fsi_substream;
-				g_sndp_work_maxim_play_stop.stop.fsi_dai = *g_sndp_main[substream->stream].arg.fsi_dai;
-				queue_work(g_sndp_queue_main, &g_sndp_work_maxim_play_stop.work);
+				g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+						SNDP_STOP_TRIGGER_PLAYBACK;
+
+				stop = &g_sndp_work_maxim_play_stop.stop;
+
+				stop->fsi_substream = *arg->fsi_substream;
+
+				stop->fsi_dai =	*arg->fsi_dai;
+
+				queue_work(g_sndp_queue_main,
+					   &g_sndp_work_maxim_play_stop.work);
 			} else {
-				g_sndp_stop_trigger_condition[SNDP_PCM_IN] |= SNDP_STOP_TRIGGER_CAPTURE;
-				g_sndp_work_maxim_capture_stop.stop.fsi_substream = *g_sndp_main[substream->stream].arg.fsi_substream;
-				g_sndp_work_maxim_capture_stop.stop.fsi_dai = *g_sndp_main[substream->stream].arg.fsi_dai;
-				queue_work(g_sndp_queue_main, &g_sndp_work_maxim_capture_stop.work);
+				g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
+						SNDP_STOP_TRIGGER_CAPTURE;
+
+				stop = &g_sndp_work_maxim_capture_stop.stop;
+
+				stop->fsi_substream = *arg->fsi_substream;
+
+				stop->fsi_dai = *arg->fsi_dai;
+
+				queue_work(g_sndp_queue_main,
+					&g_sndp_work_maxim_capture_stop.work);
 			}
 			break;
 		default:
@@ -1471,12 +1681,16 @@ static int sndp_fsi_trigger(struct snd_pcm_substream *substream, int cmd, struct
 		}
 	/* Call process route */
 	} else {
-		sndp_call_trigger(substream, cmd, dai, GET_OLD_VALUE(substream->stream));
+		sndp_call_trigger(substream,
+				  cmd,
+				  dai,
+				  GET_OLD_VALUE(substream->stream));
 	}
 
 	sndp_log_debug_func("end[%s %s]\n",
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
-		(SNDRV_PCM_TRIGGER_START == cmd) ? "TRIGGER_START" : "TRIGGER_STOP");
+		(SNDRV_PCM_TRIGGER_START == cmd) ?
+					"TRIGGER_START" : "TRIGGER_STOP");
 	return iRet;
 }
 
@@ -1484,10 +1698,10 @@ static int sndp_fsi_trigger(struct snd_pcm_substream *substream, int cmd, struct
 /*!
    @brief FSI Set format function
 
-   @param[in]	dai			Digital audio interface structure
-   @param[in]	fmt			Format type
+   @param[in]	dai	Digital audio interface structure
+   @param[in]	fmt	Format type
 
-   @retval		0			Successful
+   @retval	0	Successful
  */
 static int sndp_fsi_set_fmt(struct snd_soc_dai *dai, u_int fmt)
 {
@@ -1508,16 +1722,17 @@ static int sndp_fsi_set_fmt(struct snd_soc_dai *dai, u_int fmt)
 
    @param[in]	substream	PCM substream structure
    @param[in]	params		HW Parameters structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
 static int sndp_fsi_hw_params(struct snd_pcm_substream *substream,
-							  struct snd_pcm_hw_params *params,
-							  struct snd_soc_dai *dai)
+	struct snd_pcm_hw_params *params,
+	struct snd_soc_dai *dai)
 {
 	sndp_log_debug_func("start\n");
-	sndp_log_debug("substream->stream = %d  params = %d\n", substream->stream, params_rate(params));
+	sndp_log_debug("substream->stream = %d  params = %d\n",
+			substream->stream, params_rate(params));
 
 	/* To store information about Hardware parameters */
 	g_sndp_main[substream->stream].arg.fsi_params = *params;
@@ -1532,21 +1747,22 @@ static int sndp_fsi_hw_params(struct snd_pcm_substream *substream,
 
    @param[in]	substream	PCM substream structure
 
-   @retval		Data position
+   @retval	Data position
  */
 static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 {
 	snd_pcm_uframes_t	iRet = 0;
 
-
 	/* Not in a call */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream)))  {
+	if (SNDP_MODE_INCALL !=
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) {
 		iRet = g_sndp_dai_func.fsi_pointer(substream);
 
 	/* During a call */
 	} else {
 		/* VCD is dead */
-		if ((E_ROUTE_PLAY_CHANGED & g_sndp_stream_route) && (SNDP_PCM_OUT == substream->stream)) {
+		if ((E_ROUTE_PLAY_CHANGED & g_sndp_stream_route) &&
+		    (SNDP_PCM_OUT == substream->stream)) {
 			iRet = g_sndp_dai_func.fsi_pointer(substream);
 
 		/* VCD is alive */
@@ -1564,12 +1780,14 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
    @brief MAXIM startup function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
 #if 0	/* TODO */
-static int sndp_maxim_startup(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+static int sndp_maxim_startup(
+	struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
 {
 	int	iRet = ERROR_NONE;
 
@@ -1601,12 +1819,14 @@ static int sndp_maxim_startup(struct snd_pcm_substream *substream, struct snd_so
    @brief MAXIM shutdown function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		None
+   @retval	None
  */
 #if 0	/* TODO */
-static void sndp_maxim_shutdown(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+static void sndp_maxim_shutdown(
+	struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
 {
 	sndp_log_debug_func("start\n");
 	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
@@ -1616,7 +1836,7 @@ static void sndp_maxim_shutdown(struct snd_pcm_substream *substream, struct snd_
 
 	/* Playback or Capture, than the Not processing */
 	if ((SNDP_PCM_OUT != substream->stream) &&
-		(SNDP_PCM_IN  != substream->stream)) {
+	    (SNDP_PCM_IN  != substream->stream)) {
 		return;
 	}
 
@@ -1625,8 +1845,9 @@ static void sndp_maxim_shutdown(struct snd_pcm_substream *substream, struct snd_
 	g_sndp_main[substream->stream].arg.maxim_dai = dai;
 
 	/* During a Call + Playback, to return */
-	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) &&
-		(SNDP_PCM_OUT == substream->stream)) {
+	if ((SNDP_MODE_INCALL ==
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) &&
+	    (SNDP_PCM_OUT == substream->stream)) {
 		return;
 	}
 
@@ -1644,14 +1865,15 @@ static void sndp_maxim_shutdown(struct snd_pcm_substream *substream, struct snd_
 
    @param[in]	substream	PCM substream structure
    @param[in]	params		HW Parameters structure
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	dai		Digital audio interface structure
 
-   @retval		0			Successful
+   @retval	0		Successful
  */
 #if 0	/* TODO */
-static int sndp_maxim_hw_params(struct snd_pcm_substream *substream,
-							  struct snd_pcm_hw_params *params,
-							  struct snd_soc_dai *dai)
+static int sndp_maxim_hw_params(
+	struct snd_pcm_substream *substream,
+	struct snd_pcm_hw_params *params,
+	struct snd_soc_dai *dai)
 {
 	sndp_log_debug_func("start\n");
 	sndp_log_info("params = %d\n", params_rate(params));
@@ -1669,74 +1891,123 @@ static int sndp_maxim_hw_params(struct snd_pcm_substream *substream,
    @brief During a call trigger function
 
    @param[in]	substream	PCM substream structure
-   @param[in]	cmd			Trigger command type
-					(SNDRV_PCM_TRIGGER_START/SNDRV_PCM_TRIGGER_STOP)
-   @param[in]	dai			Digital audio interface structure
+   @param[in]	cmd		Trigger command type
+				(SNDRV_PCM_TRIGGER_START/
+				 SNDRV_PCM_TRIGGER_STOP)
+   @param[in]	dai		Digital audio interface structure
    @param[in]	value		PCM value
 
-   @retval		None
+   @retval	none
  */
-static void sndp_call_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai, u_int value)
+static void sndp_call_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value)
 {
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* Branch processing for each command (TRIGGER_START/TRIGGER_STOP) */
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
 		sndp_log_debug("call_%s_start\n",
-				(SNDP_PCM_OUT == substream->stream) ? "playback" : "record");
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
 
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
 
 		/* For during a call playback */
 		if (SNDP_PCM_OUT == substream->stream) {
-			/* Status change (from SNDP_STAT_IN_CALL to SNDP_STAT_IN_CALL_PLAY) */
-			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_OUT), SNDP_STAT_IN_CALL_PLAY);
+			/*
+			 * Status change
+			 * (from SNDP_STAT_IN_CALL to SNDP_STAT_IN_CALL_PLAY)
+			 */
+			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_OUT),
+						 SNDP_STAT_IN_CALL_PLAY);
+
 			SET_SNDP_STATUS(SNDP_PCM_OUT, SNDP_STAT_IN_CALL_PLAY);
 
-			/* To register a work queue to start processing During a call playback */
-			g_sndp_work_call_playback_start.save_substream = substream;
-			queue_work(g_sndp_queue_main, &g_sndp_work_call_playback_start.work);
+			/*
+			 * To register a work queue to start processing
+			 * during a call playback
+			 */
+			g_sndp_work_call_playback_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_playback_start.work);
 
 		/* For during a call capture */
 		} else {
-			/* Status change (from SNDP_STAT_IN_CALL to SNDP_STAT_IN_CALL_CAP) */
-			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_IN), SNDP_STAT_IN_CALL_CAP);
+			/*
+			 * Status change
+			 * (from SNDP_STAT_IN_CALL to SNDP_STAT_IN_CALL_CAP)
+			 */
+			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_IN),
+						 SNDP_STAT_IN_CALL_CAP);
+
 			SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_IN_CALL_CAP);
 
-			/* To register a work queue to start processing During a call capture */
-			g_sndp_work_call_capture_start.save_substream = substream;
-			queue_work(g_sndp_queue_main, &g_sndp_work_call_capture_start.work);
+			/*
+			 * To register a work queue to start processing
+			 * during a call capture
+			 */
+			g_sndp_work_call_capture_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_capture_start.work);
 		}
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
 		sndp_log_debug("call_%s_stop\n",
-				(SNDP_PCM_OUT == substream->stream) ? "playback" : "record");
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
 
 		/* For during a call playback */
 		if (SNDP_PCM_OUT == substream->stream) {
-			/* Status change (from SNDP_STAT_IN_CALL_PLAY to SNDP_STAT_IN_CALL) */
-			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_OUT), SNDP_STAT_IN_CALL);
+			/*
+			 * Status change
+			 * (from SNDP_STAT_IN_CALL_PLAY to SNDP_STAT_IN_CALL)
+			 */
+			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_OUT),
+						 SNDP_STAT_IN_CALL);
+
 			SET_SNDP_STATUS(SNDP_PCM_OUT, SNDP_STAT_IN_CALL);
 
-			/* To register a work queue to stop processing During a call playback */
-			g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |= SNDP_STOP_TRIGGER_PLAYBACK;
-			g_sndp_work_call_playback_stop.stop.fsi_substream = *substream;
+			/*
+			 * To register a work queue to stop processing
+			 * during a call playback
+			 */
+			g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+						SNDP_STOP_TRIGGER_PLAYBACK;
+
+			g_sndp_work_call_playback_stop.stop.fsi_substream =
+								*substream;
+
 			g_sndp_work_call_playback_stop.stop.fsi_dai = *dai;
-			queue_work(g_sndp_queue_main, &g_sndp_work_call_playback_stop.work);
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_playback_stop.work);
 
 		/* For during a call capture */
 		} else {
-			/* Status change (from SNDP_STAT_IN_CALL_CAP to SNDP_STAT_IN_CALL) */
-			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_IN), SNDP_STAT_IN_CALL);
+			/*
+			 * Status change
+			 * (from SNDP_STAT_IN_CALL_CAP to SNDP_STAT_IN_CALL)
+			 */
+			sndp_print_status_change(GET_SNDP_STATUS(SNDP_PCM_IN),
+						 SNDP_STAT_IN_CALL);
+
 			SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_IN_CALL);
 
 			/* To register a work queue to stop */
 			/* processing During a call capture */
 			g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
 			(SNDP_STOP_TRIGGER_CAPTURE | SNDP_STOP_TRIGGER_VOICE);
-			queue_work(g_sndp_queue_main, &g_sndp_work_call_capture_stop.work);
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_capture_stop.work);
 		}
 		break;
 
@@ -1744,33 +2015,34 @@ static void sndp_call_trigger(struct snd_pcm_substream *substream, int cmd, stru
 		sndp_log_debug("Trigger none.\n");
 		break;
 	}
-#endif
+
 	sndp_log_debug_func("end[%s %s]\n",
-		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
-		(SNDRV_PCM_TRIGGER_START == cmd) ? "TRIGGER_START" : "TRIGGER_STOP");
+		(SNDP_PCM_OUT == substream->stream) ?
+					"PLAYBACK" : "CAPTURE",
+		(SNDRV_PCM_TRIGGER_START == cmd) ?
+					"TRIGGER_START" : "TRIGGER_STOP");
 }
 
 
 /*!
    @brief Work queue function for Voice Start
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_voice_start(struct work_struct *work)
 {
-/*
-	int			iRet = ERROR_NONE;			*TODO
-	u_long			ulSetDevice = MAX98090_DEV_NONE;	*TODO
-	sndp_work_info_t	*wp = NULL;				*TODO
-*/
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* start MAXIM */
 	ulSetDevice = sndp_get_next_devices(wp->new_value);
@@ -1805,7 +2077,8 @@ static void sndp_work_voice_start(struct work_struct *work)
 	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) {
 		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
 		if (ERROR_NONE != iRet) {
-			sndp_log_err("max98090_set_speaker_amp ENABLE error(code=%d)\n", iRet);
+			sndp_log_err("speaker_amp ENABLE error(code=%d)\n",
+				     iRet);
 			goto start_err;
 		}
 	}
@@ -1813,7 +2086,7 @@ static void sndp_work_voice_start(struct work_struct *work)
 start_err:
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -1821,28 +2094,28 @@ start_err:
 /*!
    @brief Work queue function for Voice Stop
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_voice_stop(struct work_struct *work)
 {
-/*
-	int			iRet = ERROR_NONE;	*TODO
-	sndp_work_info_t	*wp = NULL;		*TODO
-*/
+	int			iRet = ERROR_NONE;
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Set to DISABLE the speaker amp */
 	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->old_value)) {
 		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_set_speaker_amp DISABLE error(code=%d)\n", iRet);
+			sndp_log_err("speaker_amp DISABLE error(code=%d)\n",
+				     iRet);
 	}
 
 	/* stop SCUW */
@@ -1857,23 +2130,26 @@ static void sndp_work_voice_stop(struct work_struct *work)
 	/* stop MAXIM */
 	if (NULL != g_sndp_dai_func.maxim_shutdown) {
 		sndp_log_debug("maxim_dai_shutdown\n");
-		g_sndp_dai_func.maxim_shutdown(g_sndp_main[SNDP_PCM_OUT].arg.maxim_dai, wp->old_value);
+		g_sndp_dai_func.maxim_shutdown(
+			g_sndp_main[SNDP_PCM_OUT].arg.maxim_dai,
+			wp->old_value);
 	}
-
+#if 0
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
-
+#endif
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
 
 	/* Trigger stop control flag update */
-	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_VOICE;
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_VOICE;
 
 	/* Return from the waiting of the shutdown */
 	wake_up_interruptible(&g_sndp_stop_wait);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -1881,30 +2157,30 @@ static void sndp_work_voice_stop(struct work_struct *work)
 /*!
    @brief Work queue function for Device change (IN_CALL)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_voice_dev_chg(struct work_struct *work)
 {
-/*
-	int			iRet = ERROR_NONE;			*TODO
-	u_long			ulSetDevice = MAX98090_DEV_NONE;	*TODO
-	sndp_work_info_t	*wp = NULL;				*TODO
-*/
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* MAXIM device change */
 	if (wp->new_value != wp->old_value) {
 		ulSetDevice = sndp_get_next_devices(wp->new_value);
 		iRet = max98090_set_device(ulSetDevice);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("maxim set device error (code=%d)\n", iRet);
+			sndp_log_err("maxim set device error (code=%d)\n",
+				     iRet);
 	}
 
 	/* Set to ENABLE/DISABLE the speaker amp */
@@ -1915,13 +2191,14 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("max98090_set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ? "ENABLE" : "DISABLE",
+			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ?
+							"ENABLE" : "DISABLE",
 			iRet);
 	}
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -1929,22 +2206,22 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 /*!
    @brief Work queue function for Device change (not IN_CALL)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_normal_dev_chg(struct work_struct *work)
 {
-	int					iRet = ERROR_NONE;
-	u_long				ulSetDevice = MAX98090_DEV_NONE;
-	sndp_work_info_t	*wp = NULL;
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
 
 
 	sndp_log_debug_func("start\n");
 
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* MAXIM device change */
 	ulSetDevice = sndp_get_next_devices(wp->new_value);
@@ -1960,7 +2237,8 @@ static void sndp_work_normal_dev_chg(struct work_struct *work)
 
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("max98090_set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ? "ENABLE" : "DISABLE",
+			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ?
+							"ENABLE" : "DISABLE",
 			iRet);
 	}
 
@@ -1974,10 +2252,10 @@ static void sndp_work_normal_dev_chg(struct work_struct *work)
 /*!
    @brief Work queue function for MAXIM Setting(Playback)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_maxim_play_start(struct work_struct *work)
 {
@@ -1996,10 +2274,10 @@ static void sndp_work_maxim_play_start(struct work_struct *work)
 /*!
    @brief Work queue function for MAXIM Setting(Capture)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_maxim_capture_start(struct work_struct *work)
 {
@@ -2018,10 +2296,10 @@ static void sndp_work_maxim_capture_start(struct work_struct *work)
 /*!
    @brief Work queue function for MAXIM Stop(Playback)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_maxim_play_stop(struct work_struct *work)
 {
@@ -2034,7 +2312,8 @@ static void sndp_work_maxim_play_stop(struct work_struct *work)
 	sndp_maxim_work_stop(work, SNDP_PCM_OUT);
 
 	/* Reset a Trigger stop status flag */
-	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &= ~SNDP_STOP_TRIGGER_PLAYBACK;
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
 
 	/* Wake up main process */
 	wake_up_interruptible(&g_sndp_stop_wait);
@@ -2046,10 +2325,10 @@ static void sndp_work_maxim_play_stop(struct work_struct *work)
 /*!
    @brief Work queue function for MAXIM Stop(Capture)
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_maxim_capture_stop(struct work_struct *work)
 {
@@ -2062,7 +2341,8 @@ static void sndp_work_maxim_capture_stop(struct work_struct *work)
 	sndp_maxim_work_stop(work, SNDP_PCM_IN);
 
 	/* Reset a Trigger stop status flag */
-	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_CAPTURE;
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_CAPTURE;
 
 	/* Wake up main process */
 	wake_up_interruptible(&g_sndp_stop_wait);
@@ -2074,22 +2354,21 @@ static void sndp_work_maxim_capture_stop(struct work_struct *work)
 /*!
    @brief Work queue function for Start during a call playback
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_call_playback_start(struct work_struct *work)
 {
-/*
-	int			iRet = ERROR_NONE;	*TODO
-	sndp_work_info_t	*wp = NULL;		*TODO
-*/
+	int			iRet = ERROR_NONE;
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Call + Playback start request */
 	iRet = call_playback_start(wp->save_substream);
@@ -2101,7 +2380,7 @@ static void sndp_work_call_playback_start(struct work_struct *work)
 			g_sndp_stream_route |= E_ROUTE_PLAY_CHANGED;
 		}
 	}
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2109,22 +2388,21 @@ static void sndp_work_call_playback_start(struct work_struct *work)
 /*!
    @brief Work queue function for Start during a call capture
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_call_capture_start(struct work_struct *work)
 {
-/*
-	int			iRet = ERROR_NONE;	*TODO
-	sndp_work_info_t	*wp = NULL;		*TODO
-*/
+	int			iRet = ERROR_NONE;
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Call + Capture start request */
 	iRet = call_record_start(wp->save_substream);
@@ -2136,7 +2414,7 @@ static void sndp_work_call_capture_start(struct work_struct *work)
 			g_sndp_stream_route |= E_ROUTE_CAP_DUMMY;
 		}
 	}
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2144,28 +2422,25 @@ static void sndp_work_call_capture_start(struct work_struct *work)
 /*!
    @brief Work queue function for Stop during a call playback
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_call_playback_stop(struct work_struct *work)
 {
-/*
-	sndp_work_info_t	*wp = NULL;	*TODO
-*/
+	struct sndp_work_info	*wp = NULL;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Back-out path of the sound during a Call + Playback */
 	if (E_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
-#if 0
 		/* COMMENT: mada kono kansuu ha nai */
 		fsi_set_trigger_stop(&(wp->stop.fsi_substream), false);
-#endif
 		sndp_path_backout(GET_OLD_VALUE(SNDP_PCM_OUT));
 		g_sndp_stream_route &= ~E_ROUTE_PLAY_CHANGED;
 	}
@@ -2174,11 +2449,12 @@ static void sndp_work_call_playback_stop(struct work_struct *work)
 	call_playback_stop();
 
 	/* Reset a Trigger stop status flag */
-	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &= ~SNDP_STOP_TRIGGER_PLAYBACK;
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
 
 	/* Wake up main process */
 	wake_up_interruptible(&g_sndp_stop_wait);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2186,15 +2462,19 @@ static void sndp_work_call_playback_stop(struct work_struct *work)
 /*!
    @brief Work queue function for Stop during a call capture
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_call_capture_stop(struct work_struct *work)
 {
+	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
+	u_int out_old_val = GET_OLD_VALUE(SNDP_PCM_OUT);
+
+
 	sndp_log_debug_func("start\n");
-#if 0
+
 	if (E_ROUTE_CAP_DUMMY & g_sndp_stream_route) {
 		/* Dummy capture stop */
 		g_sndp_stream_route &= ~E_ROUTE_CAP_DUMMY;
@@ -2204,49 +2484,54 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 	call_record_stop();
 
 	/* Reset a Trigger stop status flag */
-	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_CAPTURE;
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_CAPTURE;
 
 	/* If the state already NORMAL Playback side */
-	if ((!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&				/* Normal Playback stream */
-		(SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) &&	/* IN_CALL side IN */
-		(SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT)))) {	/* NORMAL side OUT */
+	if ((!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&
+	    (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(in_old_val)) &&
+	    (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(out_old_val))) {
 
-		/* Voice stop and Normal device change (Post-processing of this function) */
-		sndp_after_of_work_call_capture_stop(GET_OLD_VALUE(SNDP_PCM_IN), GET_OLD_VALUE(SNDP_PCM_OUT));
+		/*
+		 * Voice stop and Normal device change
+		 * (Post-processing of this function)
+		 */
+		sndp_after_of_work_call_capture_stop(in_old_val, out_old_val);
 
 	} else {
 		/* Reset a Trigger stop status flag */
-		g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_VOICE;
+		g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+						~SNDP_STOP_TRIGGER_VOICE;
 
 		/* Wake up main process */
 		wake_up_interruptible(&g_sndp_stop_wait);
 	}
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
 
 /*!
-   @brief Work queue processing for VCD_COMMAND_WATCH_STOP_FW registration process
+   @brief Work queue processing for VCD_COMMAND_WATCH_STOP_FW
+	  registration process
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_regist_watch_stop_fw(struct work_struct *work)
 {
-/*
-	int	iRet = ERROR_NONE;	*TODO
-*/
+	int	iRet = ERROR_NONE;
+
 
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* VCD command execution (VCD_COMMAND_WATCH_STOP_FW) */
 	iRet = call_watch_stop_fw(sndp_watch_stop_fw_cb);
 	if (ERROR_NONE  != iRet)
 		sndp_log_err("VCD watch command set error(code=%d)\n", iRet);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2254,15 +2539,15 @@ static void sndp_work_regist_watch_stop_fw(struct work_struct *work)
 /*!
    @brief Work queue processing for VCD_COMMAND_WATCH_STOP_FW process
 
-   @param[in]	work		work queue structure
-   @param[out]	None
+   @param[in]	work	work queue structure
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_work_watch_stop_fw(struct work_struct *work)
 {
 	sndp_log_debug_func("start\n");
-#if 0
+
 	/* During a Call + Playback */
 	if (SNDP_STAT_IN_CALL_PLAY == GET_SNDP_STATUS(SNDP_PCM_OUT)) {
 		/* Switching path of the sound during a Call + Playback */
@@ -2280,7 +2565,7 @@ static void sndp_work_watch_stop_fw(struct work_struct *work)
 			g_sndp_stream_route |= E_ROUTE_CAP_DUMMY;
 		}
 	}
-#endif
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2288,40 +2573,37 @@ static void sndp_work_watch_stop_fw(struct work_struct *work)
 /*!
    @brief Watch stop Firmware notification callback function
 
-   @param[in]	uiNop		Not used
-   @param[out]	None
+   @param[in]	uiNop	Not used
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-#if 0	/* TODO */
 static void sndp_watch_stop_fw_cb(u_int uiNop)
 {
 	sndp_log_debug_func("start uiNop[%d]\n", uiNop);
 
-	/* Registered in the work queue for VCD_COMMAND_WATCH_STOP_FW process */
-/*	queue_work(g_sndp_queue_main, &g_sndp_work_watch_stop_fw.work); */
+	/*
+	 * Registered in the work queue for
+	 * VCD_COMMAND_WATCH_STOP_FW process
+	 */
+	queue_work(g_sndp_queue_main, &g_sndp_work_watch_stop_fw.work);
 
 	sndp_log_debug_func("end\n");
 }
-#endif	/* TODO */
+
 
 /*!
    @brief Switching path of the sound during a Call + Playback
 
    @param[in]	uiValue		PCM value
-   @param[out]	None
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-#if 0	/* TODO */
 static void sndp_path_switching(const u_int uiValue)
 {
-/*
-	int	iRet = ERROR_NONE;	*TODO
-*/
-
 	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
-#if 0
+
 	/* stop SCUW */
 	scuw_stop();
 
@@ -2331,55 +2613,70 @@ static void sndp_path_switching(const u_int uiValue)
 	/* stop CLKGEN */
 	clkgen_stop();
 
-	/* start FSI */
-	iRet = fsi_start(uiValue);
-	if (ERROR_NONE != iRet)
-		sndp_log_err("fsi start error(code=%d)\n", iRet);
+	/* Wake Lock */
+	sndp_wake_lock(E_LOCK);
 
-	/* start CLKGEN */
-	iRet = clkgen_start(uiValue);
-	if (ERROR_NONE != iRet)
-		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+	/* for Register dump debug */
+	/* g_sndp_now_direction = SNDP_PCM_OUT; */
 
-	/* Set to ENABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue)) {
-		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_set_speaker_amp ENABLE error(code=%d)\n", iRet);
-	}
-#endif
+	/* Running Playback */
+	g_sndp_playrec_flg |= E_PLAY;
+
+	/* To register a work queue to start processing Playback */
+	sndp_maxim_work_start(SNDP_PCM_OUT);
 }
-#endif	/* TODO */
+
 
 /*!
    @brief Back-out path of the sound during a Call + Playback
 
    @param[in]	uiValue		PCM value
-   @param[out]	None
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-#if 0	/* TODO */
 static void sndp_path_backout(const u_int uiValue)
 {
-/*
-	int	iRet = ERROR_NONE;	*TODO
-*/
+	int			iRet = ERROR_NONE;
+	struct sndp_stop	*stop;
+	struct sndp_arg		*arg;
+
 
 	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
-#if 0
-	/* Set to DISABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue)) {
-		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_set_speaker_amp DISABLE error(code=%d)\n", iRet);
-	}
 
-	/* stop FSI */
-	fsi_stop();
+	arg = &g_sndp_main[SNDP_PCM_OUT].arg;
+	/* FSI trigger stop process */
+	fsi_set_trigger_stop(arg->fsi_substream, false);
 
-	/* stop CLKGEN */
-	clkgen_stop();
+	/* Init register dump log flag for debug */
+	/* g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX; */
+
+	/* A work queue processing to register TRIGGER_STOP */
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+			SNDP_STOP_TRIGGER_PLAYBACK;
+
+	stop = &g_sndp_work_maxim_play_stop.stop;
+
+	stop->fsi_substream = *arg->fsi_substream;
+	if (NULL == &stop->fsi_substream)
+		sndp_log_debug_func("#### stop->fsi_substream is NULL.\n");
+
+	stop->fsi_dai =	*arg->fsi_dai;
+	if (NULL == &stop->fsi_dai)
+		sndp_log_debug_func("#### stop->fsi_dai is NULL.\n");
+
+	/* Stop Playback runnning */
+	g_sndp_playrec_flg &= ~E_PLAY;
+
+	/* To register a work queue to stop processing Playback */
+	sndp_maxim_work_stop(&g_sndp_work_maxim_play_stop.work, SNDP_PCM_OUT);
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
 
 	/* start SCUW */
 	iRet = scuw_start(uiValue);
@@ -2395,22 +2692,20 @@ static void sndp_path_backout(const u_int uiValue)
 	iRet = clkgen_start(uiValue);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
-#endif
 }
-#endif	/* TODO */
 
 
 /*!
    @brief MAXIM Start and HardWare Parameter settings
 
    @param[in]	direction	SNDP_PCM_OUT/SNDP_PCM_IN
-   @param[out]	None
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 static void sndp_maxim_work_start(const int direction)
 {
-	int		iRet = ERROR_NONE;
+	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = MAX98090_DEV_NONE;
 
 
@@ -2421,7 +2716,8 @@ static void sndp_maxim_work_start(const int direction)
 		ulSetDevice = sndp_get_next_devices(GET_OLD_VALUE(direction));
 		iRet = max98090_set_device(ulSetDevice);
 		if (ERROR_NONE != iRet) {
-			sndp_log_err("maxim set device error (code=%d)\n", iRet);
+			sndp_log_err("maxim set device error (code=%d)\n",
+				     iRet);
 			return;
 		}
 	}
@@ -2481,13 +2777,13 @@ static void sndp_maxim_work_start(const int direction)
 	}
 
 	/* Set to ENABLE the speaker amp */
-	if (SNDP_PCM_OUT == direction) {
-		if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction))) {
-/*			iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE); */
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("max98090_set_speaker_amp ENABLE error(code=%d)\n", iRet);
-				return;
-			}
+	if ((SNDP_PCM_OUT == direction) &&
+	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
+		if (ERROR_NONE != iRet) {
+			sndp_log_err("speaker_amp ENABLE error(code=%d)\n",
+				     iRet);
+			return;
 		}
 	}
 
@@ -2504,12 +2800,10 @@ static void sndp_maxim_work_start(const int direction)
 		}
 	}
 
-	/* Temp process */
 	/* start CLKGEN */
 	iRet = clkgen_start(GET_OLD_VALUE(direction));
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
-	/* Temp process */
 
 	sndp_log_debug_func("end\n");
 }
@@ -2520,29 +2814,31 @@ static void sndp_maxim_work_start(const int direction)
 
    @param[in]	work		work queue structure
    @param[in]	direction	SNDP_PCM_OUT/SNDP_PCM_IN
-   @param[out]	None
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-static void sndp_maxim_work_stop(struct work_struct *work, const int direction)
+static void sndp_maxim_work_stop(
+	struct work_struct *work,
+	const int direction)
 {
-	int					iRet = ERROR_NONE;
-	u_long				ulSetDevice = MAX98090_DEV_NONE;
-	sndp_work_info_t	*wp = NULL;
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
 
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
 
 	/* To get a work queue structure */
-	wp = container_of((void *)work, sndp_work_info_t, work);
+	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Set to DISABLE the speaker amp */
-	if (SNDP_PCM_OUT == direction) {
-		if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction))) {
-			iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("max98090_set_speaker_amp DISABLE error(code=%d)\n", iRet);
-		}
+	if ((SNDP_PCM_OUT == direction) &&
+	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("speaker_amp DISABLE error(code=%d)\n",
+				     iRet);
 	}
 
 	/* FSI Trigger stop */
@@ -2564,7 +2860,8 @@ static void sndp_maxim_work_stop(struct work_struct *work, const int direction)
 	if (SNDP_PCM_IN == direction) {
 		iRet = max98090_get_device(&ulSetDevice);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("max98090_get_device error(code=%d)\n", iRet);
+			sndp_log_err("max98090_get_device error(code=%d)\n",
+				     iRet);
 
 		/* Init to Capture side */
 		ulSetDevice &= ~SNDP_IN_DEV_ALL;
@@ -2572,7 +2869,8 @@ static void sndp_maxim_work_stop(struct work_struct *work, const int direction)
 		/* set Device */
 		iRet = max98090_set_device(ulSetDevice);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("maxim set device error (code=%d)\n", iRet);
+			sndp_log_err("max98090_set_device error (code=%d)\n",
+				     iRet);
 	}
 
 	/* stop CLKGEN */
@@ -2589,25 +2887,22 @@ static void sndp_maxim_work_stop(struct work_struct *work, const int direction)
    @brief Voice stop and Normal device change <br>
 	  (Post-processing of this sndp_work_call_capture_stop())
 
-   @param[in]	iInValue		PCM value for INPUT side
-   @param[in]	iOutValue		PCM value for OUTPUT side
-   @param[out]	None
+   @param[in]	iInValue	PCM value for INPUT side
+   @param[in]	iOutValue	PCM value for OUTPUT side
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
-#if 0	/* TODO */
 static void sndp_after_of_work_call_capture_stop(
 	const u_int iInValue,
 	const u_int iOutValue)
 {
-/*
-	int		iRet = ERROR_NONE;		*TODO
-	u_long	ulSetDevice = MAX98090_DEV_NONE;	*TODO
-*/
+	int	iRet = ERROR_NONE;
+	u_long	ulSetDevice = MAX98090_DEV_NONE;
+
 
 	sndp_log_debug_func("start iInValue[0x%08X] iOutValue[0x%08X]\n",
 							iInValue, iOutValue);
-#if 0
 	/*
 	 * A process similar to sndp_work_voice_stop()
 	 */
@@ -2628,12 +2923,12 @@ static void sndp_after_of_work_call_capture_stop(
 				g_sndp_main[SNDP_PCM_OUT].arg.maxim_dai,
 				iInValue);
 	}
-
+#if 0
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
-
+#endif
 	/* Trigger stop control flag update */
 	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_VOICE;
 
@@ -2652,21 +2947,22 @@ static void sndp_after_of_work_call_capture_stop(
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
-#endif
+
 	sndp_log_debug_func("end\n");
 }
-#endif	/* TODO */
+
 
 #ifdef SOUND_TEST
 
 #define SYSC_PHY_BASE	(0xE6180000)
 #define SYSC_REG_MAX	(0x0084)
 
-u_long g_sysc_Base;		/* SYSC base address */
+/* SYSC base address */
+u_long g_sysc_Base;
 
-#define SYSC_SPDCR		(g_sysc_Base + 0x0008)
-#define SYSC_SWUCR		(g_sysc_Base + 0x0014)
-#define SYSC_PSTR		(g_sysc_Base + 0x0080)
+#define SYSC_SPDCR	(g_sysc_Base + 0x0008)
+#define SYSC_SWUCR	(g_sysc_Base + 0x0014)
+#define SYSC_PSTR	(g_sysc_Base + 0x0080)
 
 
 /* Path test pm_runtime get function */
@@ -2682,14 +2978,14 @@ void sndp_path_test_pm_runtime_get_sync(void)
 	/* Get SYSC Logical Address */
 	g_sysc_Base = (u_long)ioremap_nocache(SYSC_PHY_BASE, SYSC_REG_MAX);
 	if (0 >= g_sysc_Base) {
-		printk(KERN_WARNING "sndp_path_test_pm_runtime_get_sync() SYSC ioremap failed error\n");
+		printk(KERN_WARNING "%s SYSC ioremap failed\n", __func__);
 		return;
 	}
 
 	/* PSTR */
 	reg = ioread32(SYSC_PSTR);
 	if (reg & (1 << 8)) {
-		printk(KERN_WARNING "sndp_path_test_pm_runtime_get_sync() Power is supplied to A4MP area\n");
+		printk(KERN_WARNING "%s supplied to A4MP\n", __func__);
 		return;
 	}
 
@@ -2702,7 +2998,7 @@ void sndp_path_test_pm_runtime_get_sync(void)
 			break;
 	}
 	if (500 == i)
-		printk(KERN_WARNING "sndp_path_test_pm_runtime_get_sync() Wake up error\n");
+		printk(KERN_WARNING "%s Wake up error\n", __func__);
 
 }
 
@@ -2716,13 +3012,12 @@ void sndp_path_test_pm_runtime_put_sync(void)
 		iounmap((void *)g_sysc_Base);
 		g_sysc_Base = 0;
 	}
-
 }
 
 /* Path test sndp_init */
 void sndp_path_test_sndp_init(void)
 {
-	int						iRet = -EFAULT;
+	int			iRet = -EFAULT;
 	struct proc_dir_entry	*entry = NULL;
 	struct proc_dir_entry	*reg_dump_entry = NULL;
 
@@ -2745,7 +3040,7 @@ void sndp_path_test_sndp_init(void)
 			entry->read_proc  = sndp_proc_read;
 			entry->write_proc = sndp_proc_write;
 		} else {
-			printk(KERN_WARNING"create failed for proc entry\n");
+			printk(KERN_WARNING"create_proc_entry(LOG) failed\n");
 		}
 
 		/* create file for register dump */
@@ -2757,7 +3052,7 @@ void sndp_path_test_sndp_init(void)
 			reg_dump_entry->read_proc = sndp_proc_reg_dump_read;
 			reg_dump_entry->write_proc = sndp_proc_reg_dump_write;
 		} else {
-			printk(KERN_WARNING"create failed for register dump proc entry\n");
+			printk(KERN_WARNING"create_proc_entry(REG) failed\n");
 			remove_proc_entry(LOG_LEVEL, g_sndp_parent);
 			remove_proc_entry(CALL_STATUS_SWITCH, g_sndp_parent);
 		}

@@ -471,38 +471,20 @@ int vcd_spuv_func_set_fw(void)
 			VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE) *
 			VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE);
 		if (global_size == 0)
-			global_size = VCD_SPUV_FUNC_GLOBAL_SIZE_64KB;
+			global_size = VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW;
 
 		if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_PRAM) {
 			read_fw_info.pram_addr[page_number] = page_data_addr;
 			read_fw_info.pram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.pram_global_size)
-				read_fw_info.pram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.pram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.pram_global_size = global_size;
+			read_fw_info.pram_global_size = global_size;
 		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_XRAM) {
 			read_fw_info.xram_addr[page_number] = page_data_addr;
 			read_fw_info.xram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.xram_global_size)
-				read_fw_info.xram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.xram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.xram_global_size = global_size;
+			read_fw_info.xram_global_size = global_size;
 		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_YRAM) {
 			read_fw_info.yram_addr[page_number] = page_data_addr;
 			read_fw_info.yram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.yram_global_size)
-				read_fw_info.yram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.yram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.yram_global_size = global_size;
+			read_fw_info.yram_global_size = global_size;
 		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE) {
 			/* read complete */
 			break;
@@ -573,38 +555,20 @@ int vcd_spuv_func_set_fw(void)
 				VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE) *
 				VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE);
 		if (global_size == 0)
-			global_size = VCD_SPUV_FUNC_GLOBAL_SIZE_64KB;
+			global_size = VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW;
 
 		if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_PRAM) {
 			read_fw_info.pram_addr[page_number] = page_data_addr;
 			read_fw_info.pram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.pram_global_size)
-				read_fw_info.pram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.pram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.pram_global_size = global_size;
+			read_fw_info.pram_global_size = global_size;
 		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_XRAM) {
 			read_fw_info.xram_addr[page_number] = page_data_addr;
 			read_fw_info.xram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.xram_global_size)
-				read_fw_info.xram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.xram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.xram_global_size = global_size;
+			read_fw_info.xram_global_size = global_size;
 		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_YRAM) {
 			read_fw_info.yram_addr[page_number] = page_data_addr;
 			read_fw_info.yram_page_size[page_number] = page_size;
-			if (0 == read_fw_info.yram_global_size)
-				read_fw_info.yram_global_size = global_size;
-			else if ((VCD_SPUV_FUNC_GLOBAL_SIZE_64KB ==
-				read_fw_info.yram_global_size) &&
-				(VCD_SPUV_FUNC_GLOBAL_SIZE_64KB !=
-				global_size))
-				read_fw_info.yram_global_size = global_size;
+			read_fw_info.yram_global_size = global_size;
 		}  else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE) {
 			/* read complete */
 			break;
@@ -1763,17 +1727,17 @@ void vcd_spuv_func_dump_dsp0_registers(void)
 		ioread32(SPUV_FUNC_RW_32_IEVENTC),
 		SPUV_FUNC_RW_32_IEVENTC);
 	/* vcd_pr_registers_dump("IEMASKD      [%08x][0x%08x]",
-		ioread32(SPUV_FUNC_--_32__IEMASKD),
-		SPUV_FUNC_--_32__IEMASKD); */
+		ioread32(SPUV_FUNC_OO_32_IEMASKD),
+		SPUV_FUNC_OO_32_IEMASKD); */
 	/* vcd_pr_registers_dump("IMASKD       [%08x][0x%08x]",
-		ioread32(SPUV_FUNC_--_32__IMASKD),
-		SPUV_FUNC_--_32__IMASKD); */
+		ioread32(SPUV_FUNC_OO_32_IMASKD),
+		SPUV_FUNC_OO_32_IMASKD); */
 	vcd_pr_registers_dump("IESETD       [%08x][0x%08x]",
 		ioread32(SPUV_FUNC_RW_32_IESETD),
 		SPUV_FUNC_RW_32_IESETD);
 	/* vcd_pr_registers_dump("IECLRD       [%08x][0x%08x]",
-		ioread32(SPUV_FUNC_--_32__IECLRD),
-		SPUV_FUNC_--_32__IECLRD); */
+		ioread32(SPUV_FUNC_OO_32_IECLRD),
+		SPUV_FUNC_OO_32_IECLRD); */
 	vcd_pr_registers_dump("OR           [%08x][0x%08x]",
 		ioread32(SPUV_FUNC_RW_32_OR),
 		SPUV_FUNC_RW_32_OR);

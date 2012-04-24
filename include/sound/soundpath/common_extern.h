@@ -28,11 +28,11 @@
 
 /* Struct declaration */
 /* Register setting table */
-typedef struct {
+struct common_reg_table {
 	u_int	uiReg;
 	u_int	uiValue;
 	u_int	uiDelay;
-} common_reg_table;
+};
 
 /* FSI base address (PortA) */
 COMMON_CTRL_NO_EXTERN u_long g_fsi_Base;
@@ -46,8 +46,11 @@ COMMON_CTRL_NO_EXTERN u_long g_clkgen_Base;
 COMMON_CTRL_NO_EXTERN void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg);
 COMMON_CTRL_NO_EXTERN int common_ioremap(void);
 COMMON_CTRL_NO_EXTERN void common_iounmap(void);
-COMMON_CTRL_NO_EXTERN void audio_ctrl_func(sndp_hw_audio drv, int stat);
-COMMON_CTRL_NO_EXTERN void common_set_register(sndp_hw_audio drv, common_reg_table *reg_tbl, u_int size);
+COMMON_CTRL_NO_EXTERN void audio_ctrl_func(enum sndp_hw_audio drv, int stat);
+COMMON_CTRL_NO_EXTERN void common_set_register(
+	enum sndp_hw_audio drv,
+	struct common_reg_table *reg_tbl,
+	u_int size);
 
 #endif /* __COMMON_EXTERN_H__ */
 

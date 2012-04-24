@@ -26,7 +26,7 @@
  * DEFINE Definitions
  *
  */
-#define CALL_WAIT_TIME					(20)
+#define CALL_WAIT_TIME	(20)
 
 
 /*
@@ -36,28 +36,28 @@
  */
 
 /* Vocoder buf index */
-typedef enum {
+enum call_data_side {
 	DATA_SIDE_0 = 0,
 	DATA_SIDE_1,
 	DATA_SIDE_MAX
-} call_data_side;
+};
 
 /* Vocoder status */
-typedef enum {
-	IDLE_STATUS		= 0x00,
-	CALL_STATUS		= 0x01,
-	PLAY_STATUS		= 0x02,
-	REC_STATUS		= 0x04
-} call_status;
+enum call_status {
+	IDLE_STATUS	= 0x00,
+	CALL_STATUS	= 0x01,
+	PLAY_STATUS	= 0x02,
+	REC_STATUS	= 0x04
+};
 
 /* Data information */
-typedef struct {
+struct call_pcm_info {
 	int		next_pd_side;
 	long		buffer_len;
 	long		byte_offset;
 	int		period_len;
 	int		period;
-} call_pcm_info_t;
+};
 
 
 /*
@@ -69,7 +69,7 @@ typedef struct {
 /* PCM information initialization function */
 static void call_pcm_info_init(
 	struct snd_pcm_substream *substream,
-	call_status kind);
+	enum call_status kind);
 /* Vocoder API call function */
 static int call_vcd_execute(int command, void *arg);
 /* Playback data setting function */

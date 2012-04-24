@@ -20,9 +20,7 @@
 #include <linux/kernel.h>
 
 /*
- *
  * CLKGEN Registers
- *
  */
 
 #define CLKG_SYSCTL	(0x0000)	/* System control register    */
@@ -50,9 +48,7 @@
 
 
 /*
- *
  * PROTOTYPE Declarations
- *
  */
 
 /* Voice call setting function */

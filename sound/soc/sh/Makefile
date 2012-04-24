@@ -21,8 +21,8 @@ snd-soc-fsi-max98090-objs	:= fsi-max98090.o \
 							soundpath/hw/common_ctrl.o \
 							soundpath/hw/fsi_ctrl.o \
 							soundpath/hw/scuw_ctrl.o \
-							soundpath/hw/clkgen_ctrl.o
-#							soundpath/call/call_ctrl.o
+							soundpath/hw/clkgen_ctrl.o \
+							soundpath/call/call_ctrl.o
 
 snd-soc-fsi-hdmi-objs		:= fsi-hdmi.o
 snd-soc-migor-objs		:= migor.o

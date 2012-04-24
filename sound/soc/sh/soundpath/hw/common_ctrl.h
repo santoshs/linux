@@ -20,9 +20,7 @@
 #include <linux/kernel.h>
 
 /*
- *
  * COMMON Registers
- *
  */
 #define CPG_PHY_BASE		(0xE6150000)
 #define CPG_REG_MAX		(0x0150)
@@ -37,16 +35,26 @@
 #define CPG_SRCR3		(g_common_ulSrstRegBase + 0x000000B8)
 #define CPG_SRCR6		(g_common_ulSrstRegBase + 0x000001C8)
 
+#ifdef SOUND_TEST
+	CPG_SUBCKCR		(g_common_ulSrstRegBase + 0x00000080)
+#endif
+
 #define FSI_PHY_BASE		(0xEC230000)
 #define FSI_REG_MAX		(0x022C)
 #define FSI_MAP_LEN		(FSI_REG_MAX + 4)
 
-#define SCUW_PHY_BASE		(0xEC700000)			/* SCUW physical address top. */
-#define SCUW_REG_MAX		(0x00738)			/* SCUW physical address offset size. */
-#define SUCW_MAP_LEN		(SCUW_REG_MAX + 4)		/* SCUW physical address mapped size. */
-#define SCUW_PHY_BASE_FFD	(0xEC748000)			/* SCUW FFD physical address top. */
-#define SCUW_REG_MAX_FFD	(0x00020)			/* SCUW FFD physical address offset size. */
-#define SUCW_MAP_LEN_FFD	(SCUW_REG_MAX_FFD + 4)		/* SCUW FFD physical address mapped size. */
+/* SCUW physical address top. */
+#define SCUW_PHY_BASE		(0xEC700000)
+/* SCUW physical address offset size. */
+#define SCUW_REG_MAX		(0x00738)
+/* SCUW physical address mapped size. */
+#define SUCW_MAP_LEN		(SCUW_REG_MAX + 4)
+/* SCUW FFD physical address top. */
+#define SCUW_PHY_BASE_FFD	(0xEC748000)
+/* SCUW FFD physical address offset size. */
+#define SCUW_REG_MAX_FFD	(0x00020)
+/* SCUW FFD physical address mapped size. */
+#define SUCW_MAP_LEN_FFD	(SCUW_REG_MAX_FFD + 4)
 
 #define CLKGEN_PHY_BASE		(0xEC270000)
 #define CLKGEN_REG_MAX		(0x0098)
@@ -59,9 +67,7 @@
 #define COMMON_UDELAY_MAX	(1000)
 
 /*
- *
  * PROTOTYPE Declarations
- *
  */
 
 /* ioremap function */

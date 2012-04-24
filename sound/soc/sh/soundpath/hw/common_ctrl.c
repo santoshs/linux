@@ -24,9 +24,7 @@
 
 
 /*
- *
  * GLOBAL DATA Definitions
- *
  */
 
 /* CPGA register base address */
@@ -41,12 +39,12 @@ static u_int g_clock_flag;
 /*!
    @brief Register value modify
 
-   @param[in]	uiClr		Clear bit
-   @param[in]	uiSet		Set bit
-   @param[in]	uiReg		Register address
-   @param[out]	None
+   @param[in]	uiClr	Clear bit
+   @param[in]	uiSet	Set bit
+   @param[in]	uiReg	Register address
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg)
 {
@@ -63,8 +61,8 @@ void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg)
 /*!
    @brief Registers ioremap for Common/CLKGEN/FSI/SCUW
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
    @retval	0		Successfull
    @retval	-ENOMEM		Resource error
@@ -107,10 +105,10 @@ ioremap_audio_err:
 /*!
    @brief Registers iounmap for Common/CLKGEN/FSI/SCUW
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval		None
+   @retval	none
  */
 void common_iounmap(void)
 {
@@ -124,8 +122,8 @@ void common_iounmap(void)
 /*!
    @brief FSI registers ioremap
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
    @retval	0		Successful
    @retval	-ENOMEM		Resource error
@@ -135,7 +133,7 @@ static int fsi_ioremap(void)
 	/* Get FSI Logical Address */
 	g_fsi_Base = (u_long)ioremap_nocache(FSI_PHY_BASE, FSI_MAP_LEN);
 	if (0 >= g_fsi_Base) {
-		sndp_log_err("fsi ioremap failed error\n");
+		sndp_log_err("error fsi ioremap failed\n");
 		return -ENOMEM;
 	}
 
@@ -145,27 +143,28 @@ static int fsi_ioremap(void)
 
 
 /*!
-   @brief	SCUW ioremap function
+   @brief SCUW ioremap function
 
-   @param[in]	None
-   @param[out]	None
-   @retval	ERROR_NONE	: successful
-		-ENOMEM		: resource error
+   @param[in]	none
+   @param[out]	none
+
+   @retval	ERROR_NONE	successful
+   @retval	-ENOMEM		resource error
  */
 static int scuw_ioremap(void)
 {
 	/* Get SCUW Logical Address */
 	g_scuw_Base = (u_long)ioremap_nocache(SCUW_PHY_BASE, SUCW_MAP_LEN);
 	if (0 >= g_scuw_Base) {
-		sndp_log_err("scuw ioremap failed error\n");
+		sndp_log_err("error scuw ioremap failed\n");
 		return -ENOMEM;
 	}
 
 	/* Get SCUW(FFD) Logical Address */
-	g_scuw_Base_FFD = (u_long)ioremap_nocache(SCUW_PHY_BASE_FFD,
-						  SUCW_MAP_LEN_FFD);
+	g_scuw_Base_FFD =
+		(u_long)ioremap_nocache(SCUW_PHY_BASE_FFD, SUCW_MAP_LEN_FFD);
 	if (0 >= g_scuw_Base_FFD) {
-		sndp_log_err("scuw(FFD) ioremap failed error\n");
+		sndp_log_err("error scuw(FFD) ioremap failed\n");
 		/* Release SCUW Logical Address */
 		iounmap((void *)g_scuw_Base);
 		g_scuw_Base = 0;
@@ -180,8 +179,8 @@ static int scuw_ioremap(void)
 /*!
    @brief CLKGEN registers ioremap
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
    @retval	0		Successful
    @retval	-ENOMEM		Resource error
@@ -189,10 +188,10 @@ static int scuw_ioremap(void)
 int clkgen_ioremap(void)
 {
 	/* Get CLKGEN Logical Address */
-	g_clkgen_Base = (u_long)ioremap_nocache(CLKGEN_PHY_BASE,
-						CLKGEN_MAP_LEN);
+	g_clkgen_Base =
+		(u_long)ioremap_nocache(CLKGEN_PHY_BASE, CLKGEN_MAP_LEN);
 	if (0 >= g_clkgen_Base) {
-		sndp_log_err("clkgen ioremap failed error\n");
+		sndp_log_err("error clkgen ioremap failed\n");
 		return -ENOMEM;
 	}
 
@@ -203,19 +202,19 @@ int clkgen_ioremap(void)
 /*!
    @brief Registers ioremap for use audio_ctrl_func()
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval		0			Succcessfull
-   @retval		-ENOMEM		Resource error
+   @retval	0		Succcessfull
+   @retval	-ENOMEM		Resource error
  */
 static int common_audio_status_ioremap(void)
 {
 	/* Get CPGA Logical Address */
-	g_common_ulClkRstRegBase = (u_long)ioremap_nocache(CPG_PHY_BASE,
-							   CPG_REG_MAX);
+	g_common_ulClkRstRegBase =
+		(u_long)ioremap_nocache(CPG_PHY_BASE, CPG_REG_MAX);
 	if (0 >= g_common_ulClkRstRegBase) {
-		sndp_log_err("CPGA register ioremap failed error\n");
+		sndp_log_err("error CPGA register ioremap failed\n");
 		return -ENOMEM;
 	}
 
@@ -223,7 +222,7 @@ static int common_audio_status_ioremap(void)
 	g_common_ulSrstRegBase =
 		(u_long)ioremap_nocache(CPG_PHY_BASE_SRST, CPG_REG_MAX_SRST);
 	if (0 >= g_common_ulSrstRegBase) {
-		sndp_log_err(" Software Reset register ioremap failed error\n");
+		sndp_log_err("error Software Reset register ioremap failed\n");
 		/* Release CPGA Logical Address */
 		iounmap((void *)g_common_ulClkRstRegBase);
 		g_common_ulClkRstRegBase = 0;
@@ -238,10 +237,10 @@ static int common_audio_status_ioremap(void)
 /*!
    @brief FSI registers iounmap
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 static void fsi_iounmap(void)
 {
@@ -254,11 +253,11 @@ static void fsi_iounmap(void)
 
 
 /*!
-   @brief	SCUW iounmap function
+   @brief SCUW iounmap function
 
-   @param[in]	None
-   @param[out]	None
-   @retval	None
+   @param[in]	none
+   @param[out]	none
+   @retval	none
  */
 static void scuw_iounmap(void)
 {
@@ -278,10 +277,10 @@ static void scuw_iounmap(void)
 /*!
    @brief CLKGEN registers iounmap
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 void clkgen_iounmap(void)
 {
@@ -296,10 +295,10 @@ void clkgen_iounmap(void)
 /*!
    @brief Registers iounmap for use audio_ctrl_func()
 
-   @param[in]	None
-   @param[out]	None
+   @param[in]	none
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 static void common_audio_status_iounmap(void)
 {
@@ -320,13 +319,13 @@ static void common_audio_status_iounmap(void)
 /*!
    @brief Power management for CLKGEN/FSI/SCUW
 
-   @param[in]	drv		H/W type
-   @param[in]	stat		On/Off
-   @param[out]	None
+   @param[in]	drv	H/W type
+   @param[in]	stat	On/Off
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
-void audio_ctrl_func(sndp_hw_audio drv, int stat)
+void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 {
 	/* Local variable declaration */
 	struct clk *clk;
@@ -395,10 +394,10 @@ void audio_ctrl_func(sndp_hw_audio drv, int stat)
 
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
-				reg = ioread32((g_common_ulClkRstRegBase + 0x0080));
+				reg = ioread32(CPG_SUBCKCR);
 				if (reg & (1 << 11)) {
-					iomodify32(0x00000800, 0, (g_common_ulClkRstRegBase + 0x0080));
-				reg = ioread32((g_common_ulClkRstRegBase + 0x0080));
+					iomodify32(0x00000800, 0, CPG_SUBCKCR);
+				reg = ioread32(CPG_SUBCKCR);
 				}
 #endif /* SOUND_TEST */
 			}
@@ -460,23 +459,24 @@ void audio_ctrl_func(sndp_hw_audio drv, int stat)
 	}
 }
 
+
 /*!
    @brief Common registers setting function
 
    @param[in]	H/W type
    @param[in]	Register table
    @param[in]	Register table size
-   @param[out]	None
+   @param[out]	none
 
-   @retval	None
+   @retval	none
  */
 void common_set_register(
-	sndp_hw_audio drv,
-	common_reg_table *reg_tbl,
+	enum sndp_hw_audio drv,
+	struct common_reg_table *reg_tbl,
 	u_int size)
 {
 	/* Local variable declaration */
-	int			i;
+	int	i;
 
 	sndp_log_debug_func("start\n");
 
@@ -485,7 +485,8 @@ void common_set_register(
 		if (0 != reg_tbl[i].uiDelay) {
 			/* 1000 micro over */
 			if (COMMON_UDELAY_MAX <= reg_tbl[i].uiDelay)
-				mdelay((reg_tbl[i].uiDelay / COMMON_UDELAY_MAX));
+				mdelay((reg_tbl[i].uiDelay /
+					COMMON_UDELAY_MAX));
 			else
 				udelay(reg_tbl[i].uiDelay);
 		/* Register setting */

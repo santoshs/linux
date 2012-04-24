@@ -779,6 +779,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 		break;
 	case VCD_PROC_IF_GET_STATUS:
 		vcd_get_status();
+		break;
 	default:
 		vcd_pr_err("write number failed.\n");
 		goto rtn;
