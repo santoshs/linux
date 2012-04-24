@@ -50,6 +50,8 @@ struct rtapi_regist_func{
 	int (*fn_system_memory_reg_phymem)(system_mem_reg_phymem*);
 	int (*fn_system_memory_unreg_phymem)(system_mem_unreg_phymem*);
 	int (*fn_system_memory_phy_change_rtaddr)(system_mem_phy_change_rtaddr*);
+	int (*fn_system_memory_rt_map_pnc)(system_mem_rt_map_pnc*);
+	int (*fn_system_memory_rt_unmap_pnc)(system_mem_rt_unmap_pnc*);
 	void* (*fn_system_memory_info_new)(void);
 	int (*fn_system_memory_get_rtinfo)(system_mem_get_rtinfo*);
 	int (*fn_system_memory_get_apinfo)(system_mem_get_apinfo*);
