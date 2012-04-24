@@ -35,6 +35,8 @@ Description :  File created
 
 #ifdef SMECO_MODEM
 #include "smc_conf_l2mux_modem.h"
+#else
+#include "smc_conf_l2mux_linux.h"
 #endif
 
 #endif
@@ -539,7 +541,7 @@ smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id)
 
     if( smc_instance_id == 0x00 )
     {
-#if( (SMC_L2MUX_IF==TRUE) && defined(SMECO_MODEM) )
+#if( (SMC_L2MUX_IF==TRUE) )
         SMC_TEST_TRACE_PRINTF_INFO("smc_test_get_instance_by_test_instance_id: get L2MUX SMC instance...");
         smc_instance = get_smc_instance_l2mux();
 #else
@@ -1259,11 +1261,20 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
 
     /* Select configuration "user name" based on platform */
 #ifdef SMECO_LINUX_ANDROID
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
 #elif defined SMECO_LINUX_KERNEL
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+    /* TODO Detect using the version register */
+    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+
 #elif defined SMECO_MODEM
-    char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2;
+
+#if defined EOS2_ASIC && (EOS2_ASIC == EOS2_ASIC_ES10)
+    char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10;
+#else
+    char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20;
+#endif
+
+
 #else
     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: NOT IMPLEMENTED FOR THIS PRODUCT");
 #endif
@@ -1392,7 +1403,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                      if( remap_address == 1 )
                      {
 #if defined SMECO_LINUX_KERNEL
-                         shm_address = ioremap((void*)shm_address, shm_data_len);
+                         shm_address = (uint32_t)ioremap((void*)shm_address, shm_data_len);
                          SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                      }
@@ -1446,7 +1457,7 @@ static void smc_test_timer_expired(uint32_t timer_data)
 
     timer = (smc_timer_t*)timer_data;
 
-    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: previous jiffies: %d", timer->prev_jiffies);
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_timer_expired: previous jiffies: %ld", timer->prev_jiffies);
 
     if( timer->timer_data != 0 )
     {

@@ -25,26 +25,19 @@ Description :  File created
 #ifndef SMC_INSTANCE_CONFIG_CONTROL_H
 #define SMC_INSTANCE_CONFIG_CONTROL_H
 
-#define SMC_CONFIG_USER_CONTROL                      "SMC_CONTROL"
-#define SMC_CONFIG_NAME_EOS2                         "EOS2-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 
-/* ===========================================================================
- * SHM Configuration is based on memory mapping
- * TODO ---- Common SHM area config for products
- *
- * SHM Address    Modem Address   Owner
- * -------------------------------------------------------------------------
- * 0x4000_0000    0x0800_0000     L23 Code
- * 0x4100_0000    0x0900_0000     L1  Code
- * 0x4200_0000    0x0A00_0000     L23 Data
- * 0x4300_0000    0x0B00_0000     L1  Data
- * 0x43B0_0000    0x0BB0_0000     Shared Memory starts
- * 0x4400_0000    0xC400_0000     Linux SW
- *
+/*
+ * EOS2 Contains two different configurations for ES1.0 and ES2.0
+ * NOTE: The channel configuration are currently the same
  */
 
+#define SMC_CONFIG_USER_CONTROL                      "SMC_CONTROL"
+#define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
+#define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 
-#define SMC_CONF_COUNT_CONTROL          1
+
+
+#define SMC_CONF_COUNT_CONTROL          2
 
 #define SMC_CONF_CHANNEL_COUNT_CONTROL  1
 
@@ -96,15 +89,34 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 {
     /**
      * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1
-     *
+     * ES1.0/ES2.0 configurations
      */
+
+    /* ES1.0 configuration */
     {
-        .name                         = SMC_CONFIG_NAME_EOS2,
+        .name                         = SMC_CONFIG_NAME_EOS2_ES10,
         .user_name                    = SMC_CONFIG_USER_CONTROL,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2,
-        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2,
-        .shm_start_address            = SMC_CONF_CONTROL_SHM_START,
-        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10,
+        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10,
+        .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES10,
+        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES10,
+        .shm_use_cache_control_master = FALSE,
+        .shm_use_cache_control_slave  = TRUE,
+        .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,    /* Data location is transferred as an offset not as a pointer */
+        .shm_cpu_memory_offset        = 0,
+
+        .channel_config_count         = SMC_CONF_CHANNEL_COUNT_CONTROL,
+        .channel_config_array         = smc_instance_conf_control_channels,
+    },
+
+    /* ES2.0 configuration */
+    {
+        .name                         = SMC_CONFIG_NAME_EOS2_ES20,
+        .user_name                    = SMC_CONFIG_USER_CONTROL,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
+        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
+        .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES20,
+        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES20,
         .shm_use_cache_control_master = FALSE,
         .shm_use_cache_control_slave  = TRUE,
         .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,    /* Data location is transferred as an offset not as a pointer */

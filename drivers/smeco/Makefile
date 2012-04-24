@@ -54,6 +54,11 @@ else
 E_CFLAGS   += -DSMC_L2MUX_IF=FALSE
 endif
 
+
+ifeq ($(CONFIG_SMECO_EOS2_ES10),y)
+E_CFLAGS   += -DSMC_CONFIG_USE_EOS2_ES10=TRUE
+endif
+
 EXTRA_CFLAGS += -std=gnu99 $(U_INCLUDE) $(E_CFLAGS)
 
 ifneq ($(KERNELRELEASE),)

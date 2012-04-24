@@ -128,11 +128,23 @@ static smc_conf_t* smc_device_create_conf_control(void)
     smc_instance_conf_t* smc_instance_conf       = NULL;
     int                  i                       = 0;
 
+
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+    char* smc_cpu_name = NULL;
+    uint16_t asic_version = smc_asic_version_get();;
 
-    SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_control: start...");
+    /* TODO Check the CPU version */
+    if( asic_version == SMC_EOS_ASIC_ES10 )
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+    }
+    else
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+    }
+
+    SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%04X", smc_cpu_name, asic_version);
 
     smc_instance_conf = smc_instance_conf_get_control( SMC_CONFIG_USER_CONTROL, smc_cpu_name );
 
@@ -146,7 +158,7 @@ static smc_conf_t* smc_device_create_conf_control(void)
 
         smc_channel_conf->smc_receive_data_cb           = (void*)smc_receive_data_callback_channel_control;
         smc_channel_conf->smc_send_data_deallocator_cb  = (void*)smc_deallocator_callback_control;
-        smc_channel_conf->smc_receive_data_allocator_cb = NULL;
+        smc_channel_conf->smc_receive_data_allocator_cb = (void*)smc_allocator_callback_control;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_control;
     }
 

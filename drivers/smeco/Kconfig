@@ -54,4 +54,10 @@ config SMECO_TEST_MODULE
 	---help---
 	If this option is selected the SMeCo test application module is built in the package.
 
+config SMECO_EOS2_ES10
+	boolean "SMeCo / SMC is used in EOS2 ES10"
+	default y
+	---help---
+	Select SMC EOS2 definition
+	
 endif

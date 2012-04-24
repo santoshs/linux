@@ -14,6 +14,14 @@
 /*
 Change history:
 
+Version:       24   19-Apr-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.24, EOS2 ES2.0 wakeup modifications
+
+Version:       23   23-Mar-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.23, Modem DMA DL
+
 Version:       22   29-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.22
@@ -84,7 +92,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.22"
+#define SMC_SW_VERSION  "0.0.24"
 
 #define SMC_ERROR   0
 #define SMC_OK      1

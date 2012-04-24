@@ -93,6 +93,9 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
 
                     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_messaging (SMC Control): Sending data using channel %d...", smc_channel_id);
 
+                    /* Put the length to the userdata in case of L2MUX channel
+                     * TODO add own parameter ??
+                     */
                     userdata.flags     = 0x00000000;
                     userdata.userdata1 = 0x00000000;
                     userdata.userdata2 = 0x00000000;
@@ -146,8 +149,8 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
 
                     smc_instance = smc_test_get_instance_by_test_instance_id( smc_instance_id );
 
-                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: %s sending in SMC instance 0x%02X channel %d...",
-                            (enable?"ENABLE":"DISABLE"), smc_instance_id, smc_channel_id);
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: %s sending in SMC instance 0x%02X channel %d ...",
+                                                (enable?"ENABLE":"DISABLE"), smc_instance_id, smc_channel_id);
 
                     if( smc_instance )
                     {
@@ -166,6 +169,55 @@ uint8_t smc_test_case_function_messaging( uint8_t* test_input_data, uint16_t tes
                     test_result = SMC_ERROR;
                 }
 
+                break;
+            }
+            case 0x05:
+            {
+                test_input_len_required = 4;
+
+                if( test_input_data_len >= test_input_len_required )
+                {
+                    uint8_t  smc_instance_id = test_input_data[data_index++];
+                    uint8_t  smc_channel_id  = test_input_data[data_index++];
+                    uint8_t* data            = &test_input_data[data_index];
+                    uint8_t  data_length     = test_input_data_len-data_index;
+                    smc_t*   smc_instance    = NULL;
+
+                    smc_instance = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: send data using SMC instance 0x%02X channel %d...",
+                                                smc_instance_id, smc_channel_id );
+                    if( smc_instance )
+                    {
+                        smc_user_data_t userdata;
+
+                        /* Put the length to the userdata in case of L2MUX channel
+                         * TODO add own parameter ??
+                         */
+                        userdata.flags     = 0x00000000;
+                        userdata.userdata1 = data_length&0x00FFFFFF;
+                        userdata.userdata2 = 0x00000000;
+                        userdata.userdata3 = 0x00000000;
+                        userdata.userdata4 = 0x00000000;
+                        userdata.userdata5 = 0x00000000;
+
+                        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_messaging: sending %d bytes of data, userdata1 0x%08X...", data_length, userdata.userdata1);
+                        SMC_TEST_TRACE_PRINTF_DEBUG_DATA(data_length, data);
+
+                        test_result = smc_send_ext(SMC_CHANNEL_GET(smc_instance, smc_channel_id), (void*)data, data_length, &userdata);
+                    }
+                    else
+                    {
+                        SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_messaging: Test case 0x%02X failed: No proper SMC instance found", test_case);
+                        test_result = SMC_ERROR;
+                    }
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_messaging: not enough test input data (received %d, expected %d)",
+                                                                test_input_data_len, test_input_len_required);
+                    test_result = SMC_ERROR;
+                }
                 break;
             }
             case 0xFE:

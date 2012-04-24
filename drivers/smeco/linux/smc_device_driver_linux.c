@@ -383,7 +383,10 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
             if( unlikely(ret_val) )
             {
-                SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: protocol %d, L2MUX SKB TX failed", skb->protocol);
+                SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, SKB TX failed (wakeup the queue)", skb->protocol);
+
+                netif_wake_subqueue(device, skb->queue_mapping);
+
                 goto DROP_PACKET;
             }
             else

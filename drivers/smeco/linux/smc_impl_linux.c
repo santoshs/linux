@@ -427,7 +427,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
 /* =============================================================
  * SMC locking function platform specific implementation
- * The cock struct defined in smc_conf_platform.h
+ * The lock struct defined in smc_conf_platform.h
  *
  */
 
@@ -641,6 +641,24 @@ uint8_t smc_module_initialize( smc_conf_t* smc_instance_conf )
     uint8_t ret_value = SMC_OK;
 
     return ret_value;
+}
+
+
+uint16_t smc_asic_version_get(void)
+{
+    uint8_t cpu_version = 0x00;
+    unsigned int cccr, major, minor;
+
+    cccr = readl(CCCR);
+
+    major = ((cccr & 0xf0) >> 4) + 1;
+    minor = cccr & 0x0f;
+
+    cpu_version = ((major&0xFF)<<4) + (minor&0xFF);
+
+    SMC_TRACE_PRINTF_DEBUG("ASIC version Renesas R-Mobile U2 ES%d.%d (0x%08X / 0x%04X)\n", major, minor, cccr, cpu_version);
+
+    return cpu_version;
 }
 
 /* EOF */

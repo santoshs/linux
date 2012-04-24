@@ -41,6 +41,9 @@ Description :  File created
 
 #include "smc_instance_config_l2mux.h"
 
+#if( SMCTEST == TRUE )
+  #include "smc_test.h"
+#endif
 
 /*
  * Start / stop lock mechanism
@@ -120,7 +123,23 @@ smc_instance_conf_t* smc_instance_conf_get_l2mux( char* smc_user_name, char* con
     return smc_instance_conf_get_from_list(smc_instance_conf_l2mux, SMC_CONF_COUNT_L2MUX, smc_user_name, config_name);
 }
 
+smc_t* get_smc_instance_l2mux( void )
+{
+    smc_t*  smc_instance = NULL;
 
+    if( dev_config_l2mux.device_driver_priv != NULL )
+    {
+        SMC_TRACE_PRINTF_INFO("get_smc_instance_l2mux: SMC Net Device is configured properly, retrieving SMC instance...");
+        smc_instance = dev_config_l2mux.device_driver_priv->smc_instance;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("get_smc_instance_l2mux: SMC Net Device is not configured properly. SMC instance is not available");
+    }
+
+    SMC_TRACE_PRINTF_DEBUG("get_smc_instance_l2mux: Return the SMC Instance 0x%08X...", (uint32_t)smc_instance);
+    return smc_instance;
+}
 
 
 /*
@@ -135,7 +154,24 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
 
         /* Select the SMC configuration */
         /* TODO Set configuration master name in the network device  */
-    char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+    //char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
+
+    char* smc_cpu_name = NULL;
+    uint8_t asic_version = smc_asic_version_get();
+
+    if( asic_version == SMC_EOS_ASIC_ES10 )
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+    }
+    else
+    {
+        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+    }
+
+    /* TODO Check the CPU version */
+    //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
+
+    SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -409,6 +445,11 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
             char*    str_version_local = smc_get_version();
             uint32_t version_local     = smc_version_to_int( str_version_local );
 
+            if( version_local <= 0 )
+            {
+                version_local = version_local;  /* Remove warning */
+            }
+
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_l2mux_event_handler: channel id %d: SMC_VERSION_INFO_REMOTE, version is 0x%08X -> v.%s, local version: 0x%08X -> v.%s",
                     smc_channel->id, version, str_version, version_local, str_version_local);
 
@@ -475,6 +516,40 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCPNGETOBJECT");
             break;
         }
+#if(SMCTEST==TRUE)
+        case SIOCDEV_RUN_TEST:
+        {
+            struct ifreq_smc_test* if_req_smc_test = (struct ifreq_smc_test *)ifr;
+
+            SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test case 0x%02X, test data length = %d, test data 0x%08X",
+                    if_req_smc_test->if_test_case ,if_req_smc_test->if_test_data_len, (uint32_t)if_req_smc_test->if_test_data);
+
+            if(if_req_smc_test->if_test_data_len > 0 && if_req_smc_test->if_test_data != NULL )
+            {
+                SMC_TRACE_PRINTF_DEBUG_DATA( if_req_smc_test->if_test_data_len, if_req_smc_test->if_test_data );
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: No test input data found");
+            }
+
+            if( smc_test_handler_start(if_req_smc_test->if_test_case, if_req_smc_test->if_test_data_len, if_req_smc_test->if_test_data) == SMC_OK )
+            {
+                SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X OK", if_req_smc_test->if_test_case);
+
+                if_req_smc_test->if_test_result = 0xABCD;
+                ret_val = SMC_DRIVER_OK;
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ERROR("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
+                if_req_smc_test->if_test_result = 0xCDEF;
+                ret_val = SMC_DRIVER_ERROR;
+            }
+
+            break;
+        }
+#endif
         default:
         {
             SMC_TRACE_PRINTF_WARNING("l2mux_net_device_driver_ioctl: unsupported ioctl command 0x%04X", cmd);
