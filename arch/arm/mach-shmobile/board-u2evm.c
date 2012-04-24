@@ -1199,13 +1199,15 @@ static void __init u2evm_init(void)
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}
 
-   /* WLAN enable*/
-   gpio_request(WLAN_GPIO_EN, NULL);
-   gpio_direction_output(WLAN_GPIO_EN, 0);
+	if (1 != stm_select) {
+		/* WLAN enable*/
+		gpio_request(WLAN_GPIO_EN, NULL);
+		gpio_direction_output(WLAN_GPIO_EN, 0);
 
-   /* WLAN OutOfBand IRQ*/
-   gpio_request(WLAN_IRQ, NULL);
-   gpio_direction_input(WLAN_IRQ);
+		/* WLAN OutOfBand IRQ*/
+		gpio_request(WLAN_IRQ, NULL);
+		gpio_direction_input(WLAN_IRQ);
+	}
 	
 #if 0
 	/* ONLY FOR HSI CROSS COUPLING */
@@ -1452,12 +1454,14 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
 
-    /*configure Ports for SDHI1*/
-    *((volatile u8 *)SDHI1_D0_CR) = 0xC1;
-    *((volatile u8 *)SDHI1_D1_CR) = 0xC1;
-    *((volatile u8 *)SDHI1_D2_CR) = 0xC1;
-    *((volatile u8 *)SDHI1_D3_CR) = 0xC1;
-    *((volatile u8 *)SDHI1_CMD_CR) = 0xC1;
+	if (1 != stm_select) {
+		/*configure Ports for SDHI1*/
+		*((volatile u8 *)SDHI1_D0_CR) = 0xC1;
+		*((volatile u8 *)SDHI1_D1_CR) = 0xC1;
+		*((volatile u8 *)SDHI1_D2_CR) = 0xC1;
+		*((volatile u8 *)SDHI1_D3_CR) = 0xC1;
+		*((volatile u8 *)SDHI1_CMD_CR) = 0xC1;
+	}
 
 	/* enable sound */
 	gpio_request(GPIO_FN_FSIAISLD, "sound");
