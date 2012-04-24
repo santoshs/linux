@@ -751,8 +751,8 @@ static struct platform_device sh_msiof0_device = {
 };
 #endif
 
-#define ION_HEAP_VIDEO_SIZE	(SZ_64M - SZ_4M)
-#define ION_HEAP_VIDEO_ADDR	(0x80000000 - ION_HEAP_VIDEO_SIZE)
+#define ION_HEAP_VIDEO_SIZE	(SZ_32M - SZ_4M)
+#define ION_HEAP_VIDEO_ADDR	(0x4bc00000 - ION_HEAP_VIDEO_SIZE)
 
 static struct ion_platform_data u2evm_ion_data = {
 	.nr = 3,

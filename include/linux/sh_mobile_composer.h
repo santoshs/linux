@@ -190,8 +190,8 @@ struct cmp_layaddr {
 	_IO(IOC_SH_MOBILE_COMP_MAGIC, 0x1a)
 #define CMP_IOC_WAITCOMP \
 	_IO(IOC_SH_MOBILE_COMP_MAGIC, 0x1b)
-
-
+#define CMP_IOC_WAITDRAW \
+	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1c, int)
 
 
 /*******************/
@@ -397,20 +397,27 @@ struct composer_fh {
 };
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    0
+#define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;
 	screen_grap_layer       layer[4];
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	screen_grap_layer       extlayer;
+#endif
 };
 
 /* request queue handle */
 struct composer_rh {
 	struct localwork             rh_wqtask;
 	struct composer_blendcommon  rh_wqcommon;
+	struct localwork             rh_wqtask_hdmi;
 	struct cmp_request_queuedata data;
 	int                          active;
 	void                        (*user_callback)\
 		(void *user_data, int result);
 	void                         *user_data;
+	int                          refcount;
 
 	struct list_head             list;
 	unsigned char                *org_fb_address;
@@ -423,7 +430,9 @@ extern int sh_mobile_composer_queue(
 	void   *user_data);
 
 extern int sh_mobile_composer_blendoverlay(unsigned long addr);
-
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+extern void sh_mobile_composer_notifyrelease(void);
+#endif
 #endif
 /* end CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
 

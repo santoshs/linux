@@ -7,7 +7,7 @@
 config MISC_R_MOBILE_COMPOSER
 	tristate "R-Mobile composer support"
 	default y
-	depends on MACH_U2EVM && MISC_R_MOBILE_COMPOSER_APPMEM_SHAREMANGER
+	depends on MISC_R_MOBILE_COMPOSER_APPMEM_SHAREMANGER
 	---help---
 	  If Y is used, support of composer becomes effective.
 	  and MISC_R_MOBILE_COMPOSER_APPMEM_SHAREMANGER is necessary.

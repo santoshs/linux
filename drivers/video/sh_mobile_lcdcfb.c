@@ -2,8 +2,6 @@
  * drivers/video/sh_mobile_lcdcfb.c
  *
  * Copyright (C) 2011 Renesas Electronics Corporation
- * This software is contributed or developed by KYOCERA Corporation.
- * (C) 2011 KYOCERA Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,7 +44,7 @@
 #include <video/sh_mobile_lcdc.h>
 /*#include <media/sh_mobile_overlay.h>*/
 #include <linux/atomic.h>
-
+#include <linux/uaccess.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -54,6 +52,8 @@
 
 #include <rtapi/screen_display.h>
 #include <rtapi/screen_common.h>
+
+#define LCD_BG_BLACK 0x0
 
 #define FB_SH_MOBILE_REFRESH 0
 
@@ -63,6 +63,8 @@
 #include <linux/mfis.h>
 #define COUNT_MFIS_SUSPEND 10
 #endif
+
+#define FB_SH_MOBILE_HDMI 0
 
 #define CHAN_NUM 2
 
@@ -98,6 +100,7 @@ struct sh_mobile_lcdc_ext_param {
 	int lcd_type;
 	void *aInfo;
 	unsigned short o_mode;
+	unsigned short draw_mode;
 	unsigned int phy_addr;
 	unsigned int vir_addr;
 	unsigned short rect_x;
@@ -113,6 +116,7 @@ struct sh_mobile_lcdc_ext_param {
 	unsigned short refresh_on;
 	struct delayed_work ref_work;
 	unsigned short mfis_err_flag;
+	unsigned short rotate;
 };
 
 struct sh_mobile_lcdc_ext_param lcd_ext_param[CHAN_NUM];
@@ -130,7 +134,6 @@ static u32 fb_debug;
 
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
-
 
 static int sh_mobile_lcdc_setcolreg(u_int regno,
 				    u_int red, u_int green, u_int blue,
@@ -206,19 +209,18 @@ static struct fb_fix_screeninfo sh_mobile_lcdc_fix  = {
 
 static int display_initialize(int lcd_num)
 {
-	screen_disp_param disp_param;
+	/*screen_disp_param disp_param;*/
 	screen_disp_get_address disp_addr;
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_short write_dsi_s;
 
 	int ret = 0;
 
-	/*unsigned int i;*/
-
 	lcd_ext_param[lcd_num].aInfo = screen_display_new();
 	if (lcd_ext_param[lcd_num].aInfo == NULL)
 		return -2;
 
+#if 0
 	disp_param.handle = lcd_ext_param[lcd_num].aInfo;
 	disp_param.output_mode = lcd_ext_param[lcd_num].o_mode;
 	disp_param.key_color = lcd_ext_param[lcd_num].key_clr;
@@ -231,6 +233,7 @@ static int display_initialize(int lcd_num)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
+#endif
 
 	disp_addr.handle = lcd_ext_param[lcd_num].aInfo;
 	disp_addr.output_mode = lcd_ext_param[lcd_num].o_mode;
@@ -242,54 +245,60 @@ static int display_initialize(int lcd_num)
 		return -1;
 	}
 
-	write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
-	write_dsi_s.data_id	= 0x05;
-	write_dsi_s.reg_address	= 0x11;
-	write_dsi_s.write_data	= 0x00;
-	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
-		disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
+	if (lcd_ext_param[lcd_num].o_mode == RT_DISPLAY_LCD1) {
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x05;
+		write_dsi_s.reg_address = 0x11;
+		write_dsi_s.write_data	= 0x00;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
 
-	/* wait 120ms */
-	msleep(120);
+		/* wait 120ms */
+		msleep(120);
 
-	write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
-	write_dsi_s.data_id	= 0x15;
-	write_dsi_s.reg_address	= 0x53;
-	write_dsi_s.write_data	= 0x24;
-	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
-		disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
-	write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
-	write_dsi_s.data_id	= 0x15;
-	write_dsi_s.reg_address	= 0x51;
-	write_dsi_s.write_data	= 0xFF;
-	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
-		disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x15;
+		write_dsi_s.reg_address = 0x53;
+		write_dsi_s.write_data	= 0x24;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
 
-	write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
-	write_dsi_s.data_id	= 0x05;
-	write_dsi_s.reg_address	= 0x29;
-	write_dsi_s.write_data	= 0x00;
-	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
-		disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
-		screen_display_delete(&disp_delete);
-		return -1;
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x15;
+		write_dsi_s.reg_address = 0x51;
+		write_dsi_s.write_data	= 0xFF;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x05;
+		write_dsi_s.reg_address = 0x29;
+		write_dsi_s.write_data	= 0x00;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
 	}
 
 	disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
@@ -302,6 +311,8 @@ static int display_initialize(int lcd_num)
 int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 			      unsigned short output_mode)
 {
+
+#if 0
 	int i, ret;
 	screen_disp_param disp_param;
 	screen_disp_delete disp_delete;
@@ -322,7 +333,7 @@ int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 
 	lcd_ext_param[i].key_clr = s_key_clr;
 
-	if (lcd_ext_param[i].aInfo == NULL) {
+	if (lcd_ext_param[i].aInfo != NULL) {
 		screen_handle = screen_display_new();
 		disp_param.handle = screen_handle;
 		disp_param.output_mode = lcd_ext_param[i].o_mode;
@@ -341,6 +352,7 @@ int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 
 	up(&lcd_ext_param[i].sem_lcd);
 
+#endif
 	return 0;
 
 }
@@ -349,6 +361,8 @@ EXPORT_SYMBOL(sh_mobile_lcdc_keyclr_set);
 int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
 			      unsigned short output_mode)
 {
+
+#if 0
 	int i, ret;
 	screen_disp_param disp_param;
 	screen_disp_delete disp_delete;
@@ -388,6 +402,7 @@ int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
 
 	up(&lcd_ext_param[i].sem_lcd);
 
+#endif
 	return 0;
 
 }
@@ -438,8 +453,9 @@ static void refresh_work(struct work_struct *work)
 }
 #endif
 
+
 int sh_mobile_lcdc_refresh(unsigned short set_state,
-			      unsigned short output_mode)
+			   unsigned short output_mode)
 {
 
 #if FB_SH_MOBILE_REFRESH
@@ -447,7 +463,6 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 	screen_disp_set_lcd_refresh disp_refresh;
 	screen_disp_delete disp_delete;
 	void *screen_handle;
-
 	for (i = 0 ; i < CHAN_NUM ; i++) {
 		if (output_mode == lcd_ext_param[i].o_mode)
 			break;
@@ -474,7 +489,7 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 				if (ret != 0) {
 					printk(KERN_ALERT "##mfis_drv_resume"
 					       " ERR%d\n", ret);
-					       }
+				}
 				screen_handle = screen_display_new();
 				disp_refresh.handle = screen_handle;
 				disp_refresh.output_mode
@@ -506,6 +521,85 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 
 }
 EXPORT_SYMBOL(sh_mobile_lcdc_refresh);
+
+#if FB_SH_MOBILE_HDMI
+int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
+{
+
+	void *hdmi_handle;
+	screen_disp_start_hdmi disp_start_hdmi;
+	screen_disp_stop_hdmi disp_stop_hdmi;
+	screen_disp_delete disp_delete;
+	int hdmi_mode = RT_DISPLAY_1920_1080P24;
+	int ret;
+
+	if (set_mode->start != SH_FB_HDMI_START &&
+	    set_mode->start != SH_FB_HDMI_STOP) {
+		DBG_PRINT("set_mode->start param\n");
+		return -1;
+	}
+	if (set_mode->format < SH_FB_HDMI_480P60 ||
+	    set_mode->format > SH_FB_HDMI_1080P24) {
+		DBG_PRINT("set_mode->format param\n");
+		return -1;
+	}
+
+	hdmi_handle = screen_display_new();
+
+	if (set_mode->start == SH_FB_HDMI_STOP) {
+		disp_stop_hdmi.handle = hdmi_handle;
+		DBG_PRINT("screen_display_stop_hdmi\n");
+		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
+		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
+	} else {
+		switch (set_mode->format) {
+		case SH_FB_HDMI_480P60:
+		{
+			hdmi_mode = RT_DISPLAY_720_480P60;
+			break;
+		}
+		case SH_FB_HDMI_720P60:
+		{
+			hdmi_mode = RT_DISPLAY_1280_720P60;
+			break;
+		}
+		case SH_FB_HDMI_1080I60:
+		{
+			hdmi_mode = RT_DISPLAY_1920_1080I60;
+			break;
+		}
+		case SH_FB_HDMI_1080P24:
+		{
+			hdmi_mode = RT_DISPLAY_1920_1080P24;
+			break;
+		}
+		}
+
+		disp_start_hdmi.handle = hdmi_handle;
+		disp_start_hdmi.format = hdmi_mode;
+		disp_start_hdmi.background_color = LCD_BG_BLACK;
+		DBG_PRINT("screen_display_start_hdmi handle = %x\n",
+			  (unsigned int)disp_start_hdmi.handle);
+		DBG_PRINT("screen_display_start_hdmi format = %d\n",
+			  disp_start_hdmi.format);
+		DBG_PRINT("screen_display_start_hdmi background_color = %x\n",
+			  disp_start_hdmi.background_color);
+
+		ret = screen_display_start_hdmi(&disp_start_hdmi);
+		DBG_PRINT("screen_display_start_hdmi return = %d\n", ret);
+
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_start_hdmi ERR%d\n"
+			       , ret);
+		}
+	}
+
+	disp_delete.handle = hdmi_handle;
+	screen_display_delete(&disp_delete);
+
+	return 0;
+}
+#endif
 
 static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 				     struct fb_info *info)
@@ -568,7 +662,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 					printk(KERN_ALERT
 					       "##mfis_drv_resume "
 					       "ERR%d\n", ret);
-					       }
+				}
 				disp_refresh.handle = screen_handle;
 				disp_refresh.output_mode
 					= lcd_ext_param[lcd_num].o_mode;
@@ -593,7 +687,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 
 #ifdef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
 		disp_draw.handle = screen_handle;
-		disp_draw.output_mode = lcd_ext_param[lcd_num].o_mode;
+		disp_draw.output_mode = lcd_ext_param[lcd_num].draw_mode;
 		disp_draw.draw_rect.x = lcd_ext_param[lcd_num].rect_x;
 		disp_draw.draw_rect.y = lcd_ext_param[lcd_num].rect_y;
 		disp_draw.draw_rect.width =
@@ -602,13 +696,29 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
 		disp_draw.buffer_offset = new_pan_offset;
-
+		/*disp_draw.rotate = lcd_ext_param[lcd_num].rotate;*/
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 		sh_mobile_composer_blendoverlay(disp_draw.buffer_offset
 						+ info->fix.smem_start);
 #endif
-
+		DBG_PRINT("screen_display_draw handle %x\n",
+			  (unsigned int)disp_draw.handle);
+		DBG_PRINT("screen_display_draw output_mode %d\n",
+			  disp_draw.output_mode);
+		DBG_PRINT("screen_display_draw draw_rect.x %d\n",
+			  disp_draw.draw_rect.x);
+		DBG_PRINT("screen_display_draw draw_rect.y %d\n",
+			  disp_draw.draw_rect.y);
+		DBG_PRINT("screen_display_draw draw_rect.width %d\n",
+			  disp_draw.draw_rect.width);
+		DBG_PRINT("screen_display_draw draw_rect.height %d\n",
+			  disp_draw.draw_rect.height);
+		DBG_PRINT("screen_display_draw format %d\n", disp_draw.format);
+		DBG_PRINT("screen_display_draw buffer_offset %d\n",
+			  disp_draw.buffer_offset);
+		/*DBG_PRINT("screen_display_draw rotate %d\n", disp_draw.rotate);*/
 		ret = screen_display_draw(&disp_draw);
+		DBG_PRINT("screen_display_draw return %d\n", ret);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
@@ -624,7 +734,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			var->bits_per_pixel / 8));
 
 		disp_draw.handle = screen_handle;
-		disp_draw.output_mode = lcd_ext_param[lcd_num].o_mode;
+		disp_draw.output_mode = lcd_ext_param[lcd_num].draw_mode;
 		disp_draw.draw_rect.x = lcd_ext_param[lcd_num].rect_x;
 		disp_draw.draw_rect.y = lcd_ext_param[lcd_num].rect_y;
 		disp_draw.draw_rect.width =
@@ -633,11 +743,10 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
 		disp_draw.buffer_offset = 0;
-
+		/*disp_draw.rotate = lcd_ext_param[lcd_num].rotate;*/
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	sh_mobile_composer_blendoverlay(info->fix.smem_start);
+		sh_mobile_composer_blendoverlay(info->fix.smem_start);
 #endif
-
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
@@ -672,12 +781,34 @@ static int sh_mobile_ioctl(struct fb_info *info, unsigned int cmd,
 		       unsigned long arg)
 {
 	int retval;
-
+#if FB_SH_MOBILE_HDMI
+	struct fb_hdmi_set_mode hdmi_set;
+#endif
 	switch (cmd) {
 	case FBIO_WAITFORVSYNC:
 		retval = 0;
 		break;
 
+#if FB_SH_MOBILE_HDMI
+	case SH_MOBILE_FB_HDMI_SET:
+		if (arg == 0) {
+			retval = -EINVAL;
+			break;
+		}
+		if (copy_from_user(&hdmi_set, (void *)arg,
+				   sizeof(struct fb_hdmi_set_mode))) {
+			printk(KERN_ALERT "copy_from_user failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (sh_mobile_fb_hdmi_set(&hdmi_set)) {
+			retval = -EINVAL;
+			break;
+		} else {
+			retval = 0;
+			break;
+		}
+#endif
 	default:
 		retval = -ENOIOCTLCMD;
 		break;
@@ -811,7 +942,6 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 	screen_disp_set_lcd_refresh disp_refresh;
 #endif
 
-
 	suspend_handle = screen_display_new();
 
 	down(&sh_mobile_sem_hdmi);
@@ -870,11 +1000,13 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 				}
 			}
 			disp_draw.buffer_offset = 0;
+			/*disp_draw.rotate = lcd_ext_param[lcd_num].rotate;*/
 			screen_display_draw(&disp_draw);
 			disp_stop_lcd.handle = suspend_handle;
 			disp_stop_lcd.output_mode =
 				lcd_ext_param[lcd_num].o_mode;
 			screen_display_stop_lcd(&disp_stop_lcd);
+
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 		}
 	}
@@ -1085,6 +1217,11 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		switch (pdata->ch[i].chan) {
 		case LCDC_CHAN_MAINLCD:
 			lcd_ext_param[i].o_mode = RT_DISPLAY_LCD1;
+#if FB_SH_MOBILE_HDMI
+			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCDHDMI;
+#else
+			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
+#endif
 			lcd_ext_param[i].rect_x = SH_MLCD_RECTX;
 			lcd_ext_param[i].rect_y = SH_MLCD_RECTY;
 			lcd_ext_param[i].rect_width = SH_MLCD_WIDTH;
@@ -1095,6 +1232,15 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			lcd_ext_param[i].delay_flag = 0;
 			lcd_ext_param[i].refresh_on = 0;
 			lcd_ext_param[i].phy_addr = SCREEN_DISPLAY_BUFF_ADDR;
+#if 0
+			if (SH_MLCD_HEIGHT > SH_MLCD_WIDTH) {
+				lcd_ext_param[i].rotate
+					= RT_DISPLAY_ROTATE_270;
+			} else {
+				lcd_ext_param[i].rotate
+					= RT_DISPLAY_ROTATE_0;
+			}
+#endif
 #if FB_SH_MOBILE_REFRESH
 			INIT_DELAYED_WORK(&lcd_ext_param[i].ref_work,
 					  refresh_work);
@@ -1103,6 +1249,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			break;
 		case LCDC_CHAN_SUBLCD:
 			lcd_ext_param[i].o_mode = RT_DISPLAY_LCD2;
+			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD2;
 			lcd_ext_param[i].rect_x = SH_SLCD_RECTX;
 			lcd_ext_param[i].rect_y = SH_SLCD_RECTY;
 			lcd_ext_param[i].rect_width = SH_SLCD_WIDTH;
@@ -1114,6 +1261,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			lcd_ext_param[i].refresh_on = 0;
 			/* SUBLCD undefined */
 			lcd_ext_param[i].phy_addr = 0;
+			/*lcd_ext_param[i].rotate = RT_DISPLAY_ROTATE_0;*/
 #if FB_SH_MOBILE_REFRESH
 			INIT_DELAYED_WORK(&lcd_ext_param[i].ref_work,
 					  refresh_work);
@@ -1304,12 +1452,6 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 	kfree(priv);
 	return 0;
 }
-#if 0
-static void sh_mobile_lcdc_shutdown(struct platform_device *pdev)
-{
-	sh_mobile_lcdc_suspend(NULL);
-}
-#endif
 
 static struct platform_driver sh_mobile_lcdc_driver = {
 	.driver		= {
@@ -1321,9 +1463,6 @@ static struct platform_driver sh_mobile_lcdc_driver = {
 	},
 	.probe		= sh_mobile_lcdc_probe,
 	.remove		= sh_mobile_lcdc_remove,
-#if 0
-	.shutdown	= sh_mobile_lcdc_shutdown,
-#endif
 };
 
 static int __init sh_mobile_lcdc_init(void)
@@ -1338,6 +1477,35 @@ static void __exit sh_mobile_lcdc_exit(void)
 
 module_init(sh_mobile_lcdc_init);
 module_exit(sh_mobile_lcdc_exit);
+
+void sh_mobile_backlight_brightness(int value)
+{
+	screen_disp_write_dsi_short write_dsi_s;
+	screen_disp_delete disp_delete;
+	void *screen_handle;
+	int ret;
+
+	screen_handle = screen_display_new();
+	if (screen_handle == NULL)
+		return;
+	if (lcd_ext_param[0].o_mode == RT_DISPLAY_LCD1) {
+		write_dsi_s.handle = screen_handle;
+		write_dsi_s.data_id = 0x15;
+		write_dsi_s.reg_address = 0x51;
+		write_dsi_s.write_data = (value & 0xFF);
+		write_dsi_s.output_mode = lcd_ext_param[0].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "set_backlight_brightness err!\n");
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			return;
+		}
+	}
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+	return;
+}
 
 MODULE_DESCRIPTION("SuperH Mobile LCDC Framebuffer driver");
 MODULE_AUTHOR("Renesas Electronics");
