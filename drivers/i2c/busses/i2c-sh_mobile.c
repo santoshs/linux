@@ -202,18 +202,23 @@ static u32 sh_mobile_i2c_iccl(unsigned long count_khz, u32 tLOW, u32 tf, int off
 	return (((count_khz * (tLOW + tf)) + 5000) / 10000) + offset;
 }
 
-static u32 sh_mobile_i2c_icch(unsigned long count_khz, u32 tHIGH, int offset)
+static u32 sh_mobile_i2c_icch(unsigned long count_khz, u32 tHIGH, u32 tf, int offset)
 {
 	/*
 	 * Conditional expression:
-	 *   ICCH >= COUNT_CLK * tHIGH
+	 *   ICCH >= COUNT_CLK * (tHIGH + tf)
 	 *
 	 * SH-Mobile IIC hardware is aware of SCL transition period 'tr',
 	 * and can ignore it.  SH-Mobile IIC controller starts counting
 	 * the HIGH period of the SCL signal (tHIGH) after the SCL input
 	 * voltage increases at VIH.
+	 *
+	 * Afterward it turns out calculating ICCH using only tHIGH spec
+	 * will result in violation of the tHD;STA timing spec.  We need
+	 * to take into account the fall time of SDA signal (tf) at START
+	 * condition, in order to meet both tHIGH and tHD;STA specs.
 	 */
-	return ((count_khz * tHIGH) + 5000) / 10000 + offset;
+	return (((count_khz * (tHIGH + tf)) + 5000) / 10000) + offset;
 }
 
 static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
@@ -249,7 +254,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	else
 		pd->icic &= ~ICIC_ICCLB8;
 
-	pd->icch = sh_mobile_i2c_icch(i2c_clk_khz, tHIGH, offset);
+	pd->icch = sh_mobile_i2c_icch(i2c_clk_khz, tHIGH, tf, offset);
 	/* one more bit of ICCH in ICIC */
 	if ((pd->icch > 0xff) && (pd->flags & IIC_FLAG_HAS_ICIC67))
 		pd->icic |= ICIC_ICCHB8;
