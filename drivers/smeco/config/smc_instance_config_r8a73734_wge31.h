@@ -78,7 +78,7 @@ Description :  File created
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
-#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x4C001000
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
