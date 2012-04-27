@@ -73,7 +73,7 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 	else
 		offs = reg_nr;
 
-	return ioread32(base + offs);
+	return __raw_readl(base + offs);
 }
 
 static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
@@ -88,7 +88,7 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 	else
 		offs = reg_nr;
 
-	iowrite32(value, base + offs);
+	__raw_writel(value, base + offs);
 	return;
 }
 
