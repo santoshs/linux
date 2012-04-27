@@ -2385,6 +2385,7 @@ source "drivers/video/omap2/Kconfig"
 
 source "drivers/video/backlight/Kconfig"
 source "drivers/video/display/Kconfig"
+source "drivers/video/av7100/Kconfig"
 
 if VT
 	source "drivers/video/console/Kconfig"

@@ -6,6 +6,7 @@
 #
 
 obj-y				+= gpio/
+obj-$(CONFIG_SENSOR_SUPPORT)		+= sensor/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
