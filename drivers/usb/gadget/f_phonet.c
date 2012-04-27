@@ -741,15 +741,17 @@ int gphonet_setup(struct usb_gadget *gadget)
 	SET_NETDEV_DEV(dev, &gadget->dev);
 
 	err = register_netdev(dev);
-	if (err)
+	if (err) {
 		free_netdev(dev);
+		dev = NULL;
+	}
 	return err;
 }
 
 void gphonet_cleanup(void)
 {
-    if (dev)
-	{
-	unregister_netdev(dev);
+    if (dev) {
+		unregister_netdev(dev);
+		dev = NULL;
 	}
 }
