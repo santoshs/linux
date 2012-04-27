@@ -36,25 +36,26 @@
 #include <linux/tpu_pwm.h>
 
 /* Functions prototype */
-/* Functions to control PWM signal */
-extern int tpu_pwm_open(const char *channel, int prescaler, void **handle);
-extern int tpu_pwm_close(void *handle);
-extern int tpu_pwm_enable(void *handle, enum tpu_pwm_state state, int duty, int cycle);
-
-static void set_backlight_brightness(struct led_classdev *led_cdev, enum led_brightness value);
-static void set_keylight_brightness(struct led_classdev *led_cdev, enum led_brightness value);
-static void set_red_brightness(struct led_classdev *led_cdev, enum led_brightness value);
-static void set_green_brightness(struct led_classdev *led_cdev, enum led_brightness value);
-static void set_blue_brightness(struct led_classdev *led_cdev, enum led_brightness value);
+static void set_backlight_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value);
+static void set_keylight_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value);
+static void set_red_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value);
+static void set_green_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value);
+static void set_blue_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value);
 static int control_led_backlight(enum led_brightness value);
 static void set_color_brightness(int value, unsigned char brightness_reg);
 static ssize_t led_colorlight_onoff_store(struct device *dev,
-										struct device_attribute *attr,
-										const char *buf, size_t count);
-static void led_colorlight_on_off(unsigned char leds_set_bit, unsigned char value);
+						struct device_attribute *attr,
+						const char *buf, size_t count);
+static void led_colorlight_on_off(unsigned char leds_set_bit,
+					unsigned char value);
 static ssize_t led_hard_blink_store(struct device *dev,
-									struct device_attribute *attr,
-									const char *buf, size_t count);
+					struct device_attribute *attr,
+					const char *buf, size_t count);
 static void vout_control(int onoff);
 static s32 wrap_led_i2c_write_data(u8 command, u8 value);
 static s32 wrap_led_i2c_read_data(u8 command);
@@ -105,7 +106,8 @@ static struct i2c_client *led_client;
 static struct wake_lock wakelock;
 
 static const int periodical_cycle = 43000; /* PWM periodic cycle */
-static const int backlight_brightness = 192; /* Initial value for LCD backlight */
+static const int backlight_brightness = 192; /* Initial value
+						for LCD backlight */
 static unsigned char i2c_reg[40]; /* Array storing current value of register */
 
 struct i2c_def_reg {
@@ -132,7 +134,8 @@ static DEVICE_ATTR(blink, 0644, NULL, led_hard_blink_store);
  * @value: Brightness value
  * return: None
  */
-static void set_backlight_brightness(struct led_classdev *led_cdev, enum led_brightness value)
+static void set_backlight_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value)
 {
 	control_led_backlight(value);
 }
@@ -143,7 +146,8 @@ static void set_backlight_brightness(struct led_classdev *led_cdev, enum led_bri
  * @value: Brightness value
  * return: None
  */
-static void set_keylight_brightness(struct led_classdev *led_cdev, enum led_brightness value)
+static void set_keylight_brightness(struct led_classdev *led_cdev,
+					enum led_brightness value)
 {
 	int ret;
 	int hw_val;
@@ -154,13 +158,14 @@ static void set_keylight_brightness(struct led_classdev *led_cdev, enum led_brig
 	/* Set brightness to register */
 	ret = wrap_led_i2c_write_data(0x03, hw_val);
 	if (ret) {
-		printk("ERROR %s[%d] i2c write err\n", __func__, __LINE__);
+		printk(KERN_ERR "%s[%d] i2c write err\n", __func__, __LINE__);
 	} else {
 		if (LED_OFF == value) {
 			/* Set status of LED is OFF */
 			ret = wrap_led_i2c_write_data(0x01, 0x00);
 			if (ret) {
-				printk("ERROR %s[%d] i2c write err\n", __func__, __LINE__);
+				printk(KERN_ERR "%s[%d] i2c write err\n",
+					__func__, __LINE__);
 			}
 			/* Turn OFF ChargePump and standby */
 			vout_control(CHARGE_OFF);
@@ -170,7 +175,8 @@ static void set_keylight_brightness(struct led_classdev *led_cdev, enum led_brig
 			/* Set status of LED is ON */
 			ret = wrap_led_i2c_write_data(0x01, 0x1E);
 			if (ret) {
-				printk("ERROR %s[%d] i2c write err\n", __func__, __LINE__);
+				printk(KERN_ERR "%s[%d] i2c write err\n",
+					__func__, __LINE__);
 			}
 		}
 	}
@@ -183,7 +189,8 @@ static void set_keylight_brightness(struct led_classdev *led_cdev, enum led_brig
  * @value: Brightness value
  * return: None
  */
-static void set_red_brightness(struct led_classdev *led_cdev, enum led_brightness value)
+static void set_red_brightness(struct led_classdev *led_cdev,
+				enum led_brightness value)
 {
 	set_color_brightness(value, LEDS_RED_BRIGHTNESS_REG);
 }
@@ -194,7 +201,8 @@ static void set_red_brightness(struct led_classdev *led_cdev, enum led_brightnes
  * @value: Brightness value
  * return: None
  */
-static void set_green_brightness(struct led_classdev *led_cdev, enum led_brightness value)
+static void set_green_brightness(struct led_classdev *led_cdev,
+				enum led_brightness value)
 {
 	set_color_brightness(value, LEDS_GREEN_BRIGHTNESS_REG);
 }
@@ -205,7 +213,8 @@ static void set_green_brightness(struct led_classdev *led_cdev, enum led_brightn
  * @value: Brightness value
  * return: None
  */
-static void set_blue_brightness(struct led_classdev *led_cdev, enum led_brightness value)
+static void set_blue_brightness(struct led_classdev *led_cdev,
+				enum led_brightness value)
 {
 	set_color_brightness(value, LEDS_BLUE_BRIGHTNESS_REG);
 }
@@ -224,7 +233,8 @@ static int control_led_backlight(enum led_brightness value)
 	static void *handle;
 
 	/* Calculate duty cycle basing on brightness value */
-	duty_cycle = (periodical_cycle + 1) - (value * (periodical_cycle + 1) / 255);
+	duty_cycle = (periodical_cycle + 1) -
+			(value * (periodical_cycle + 1) / 255);
 
 	/* Enable PWM signal */
 	if (value) {
@@ -233,29 +243,31 @@ static int control_led_backlight(enum led_brightness value)
 			gpio_free(GPIO_PORT);
 			ret = tpu_pwm_open(TPU_CHANNEL, CLK_SOURCE_CP, &handle);
 			if (ret) {
-				printk("ERROR tpu_pwm_open() %d\n", ret);
+				printk(KERN_ERR "tpu_pwm_open() %d\n", ret);
 				return ret;
 			}
 		}
-		/* Enable PWM signal with specific duty cycle and periodic cycle */
-		ret = tpu_pwm_enable(handle, TPU_PWM_START, duty_cycle, periodical_cycle);
+	/* Enable PWM signal with specific duty cycle and periodic cycle */
+		ret = tpu_pwm_enable(handle, TPU_PWM_START,
+					duty_cycle, periodical_cycle);
 		if (ret) {
-			printk("ERROR tpu_pwm_enable() - Enable PWM signal, %d\n", ret);
+			printk(KERN_ERR "Enable PWM signal %d\n", ret);
 			return ret;
 		}
 		return ret;
 	} else {
 		if (handle) {
 			/* Disable PWM signal */
-			ret = tpu_pwm_enable(handle, TPU_PWM_STOP, duty_cycle, periodical_cycle);
+			ret = tpu_pwm_enable(handle, TPU_PWM_STOP,
+						duty_cycle, periodical_cycle);
 			if (ret) {
-				printk("ERROR tpu_pwm_enable() - Disable PWM signal %d\n", ret);
+				printk(KERN_ERR "Disable PWM signal %d\n", ret);
 				return ret;
 			}
 			/* Close TPU channel */
 			ret = tpu_pwm_close(handle);
 			if (ret) {
-				printk("ERROR tpu_pwm_close() %d\n", ret);
+				printk(KERN_ERR "tpu_pwm_close() %d\n", ret);
 				return ret;
 			}
 			handle = NULL;
@@ -274,15 +286,15 @@ static int control_led_backlight(enum led_brightness value)
  */
 static void set_color_brightness(int value, unsigned char brightness_reg)
 {
-	int hw_val = value >> 3; /* Hardware suports only 5 bits for brightness */
+	int hw_val = value >> 3; /* Hardware suports
+				only 5 bits for brightness */
 	int ret = 0;
 
 	mutex_lock(&led_mutex);
 	/* Set LED brightness */
 	ret = wrap_led_i2c_write_data(brightness_reg, (hw_val & 0xff));
-	if (ret) {
-		printk("Set brightness failed %d\n", ret);
-	}
+	if (ret)
+		printk(KERN_ERR "Set brightness failed %d\n", ret);
 	mutex_unlock(&led_mutex);
 }
 
@@ -297,8 +309,8 @@ static void set_color_brightness(int value, unsigned char brightness_reg)
  *   + -EINVAL: Error of reading buffer
  */
 static ssize_t led_colorlight_onoff_store(struct device *dev,
-										struct device_attribute *attr,
-										const char *buf, size_t count)
+						struct device_attribute *attr,
+						const char *buf, size_t count)
 {
 	int value = 0;
 	int scan_result = 0;
@@ -313,13 +325,13 @@ static ssize_t led_colorlight_onoff_store(struct device *dev,
 	mutex_lock(&led_mutex);
 	scan_result = sscanf(buf, "%d", &value);
 	if (1 != scan_result) {
-		printk("ERROR - failed to read value\n");
+		printk(KERN_ERR "failed to read value\n");
 		mutex_unlock(&led_mutex);
 		return -EINVAL;
 	}
 
 	if (value < 0) {
-		printk("ERROR - invalid input\n");
+		printk(KERN_ERR "invalid input\n");
 		mutex_unlock(&led_mutex);
 		return -EINVAL;
 	}
@@ -351,7 +363,8 @@ static ssize_t led_colorlight_onoff_store(struct device *dev,
  * @value: Bit value sample
  * return: None
  */
-static void led_colorlight_on_off(unsigned char leds_set_bit, unsigned char value)
+static void led_colorlight_on_off(unsigned char leds_set_bit,
+					unsigned char value)
 {
 	unsigned char get_reg_val = 0;
 	unsigned char set_reg_val = 0;
@@ -362,9 +375,8 @@ static void led_colorlight_on_off(unsigned char leds_set_bit, unsigned char valu
 	set_reg_val = (get_reg_val & ~leds_set_bit) | (value & leds_set_bit);
 
 	ret = wrap_led_i2c_write_data(0x02, set_reg_val);
-	if (ret) {
-		printk("ERROR - Set register failed\n");
-	}
+	if (ret)
+		printk(KERN_ERR "Set register failed\n");
 }
 
 /*
@@ -378,8 +390,8 @@ static void led_colorlight_on_off(unsigned char leds_set_bit, unsigned char valu
  *   + -EINVAL: Error of reading buffer
  */
 static ssize_t led_hard_blink_store(struct device *dev,
-										struct device_attribute *attr,
-										const char *buf, size_t count)
+					struct device_attribute *attr,
+					const char *buf, size_t count)
 {
 	unsigned int value = 0;
 	int scan_result = 0;
@@ -394,13 +406,13 @@ static ssize_t led_hard_blink_store(struct device *dev,
 	mutex_lock(&led_mutex);
 	scan_result = sscanf(buf, "%ul", &value);
 	if (1 != scan_result) {
-		printk(" ERROR - failed to read value\n");
+		printk(KERN_ERR "Failed to read value\n");
 		mutex_unlock(&led_mutex);
 		return -EINVAL;
 	}
 
 	if (value < 0) {
-		printk(" ERROR - invalid input\n");
+		printk(KERN_ERR "Invalid input\n");
 		mutex_unlock(&led_mutex);
 		return -EINVAL;
 	}
@@ -411,40 +423,42 @@ static ssize_t led_hard_blink_store(struct device *dev,
 	set_baoff_val = (value & 0x000000FF);
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_RED_AUTO_ON_REG, 0);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
 	i2c_err = wrap_led_i2c_write_data(LEDS_GREEN_AUTO_ON_REG, 0);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
 	i2c_err = wrap_led_i2c_write_data(LEDS_BLUE_AUTO_ON_REG, 0);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_RED_AUTO_OFF_REG, set_raoff_val);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
-	i2c_err = wrap_led_i2c_write_data(LEDS_GREEN_AUTO_OFF_REG, set_gaoff_val);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
-	i2c_err = wrap_led_i2c_write_data(LEDS_BLUE_AUTO_OFF_REG, set_baoff_val);
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
+	i2c_err = wrap_led_i2c_write_data(LEDS_GREEN_AUTO_OFF_REG,
+						set_gaoff_val);
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
+	i2c_err = wrap_led_i2c_write_data(LEDS_BLUE_AUTO_OFF_REG,
+						set_baoff_val);
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
 	if (!set_grfreq_val) {
 		i2c_err = wrap_led_i2c_write_data(LEDS_GRADATION_CTRL_REG, 0);
 		vout_control(CHARGE_OFF);
 	} else {
 		vout_control(CHARGE_ON);
-		i2c_err = wrap_led_i2c_write_data(LEDS_GRADATION_CTRL_REG, set_grfreq_val);
+		i2c_err = wrap_led_i2c_write_data(LEDS_GRADATION_CTRL_REG,
+							set_grfreq_val);
 	}
-	if (i2c_err) {
-		printk(" ERROR - %s[%d]: I2C error\n", __func__, __LINE__);
-	}
+	if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+
 	mutex_unlock(&led_mutex);
 	return err;
 }
@@ -469,20 +483,21 @@ static void vout_control(int onoff)
 	}
 
 	if (!set_val) {
-		if (!(i2c_reg[0x01] & 0x1E) && !(i2c_reg[0x02] & 0x07) && !(i2c_reg[0x0d] & 0x18)) {
+		if (!(i2c_reg[0x01] & 0x1E) &&
+			!(i2c_reg[0x02] & 0x07) &&
+			!(i2c_reg[0x0d] & 0x18)) {
 			ret = wrap_led_i2c_write_data(0x00, set_val);
 		}
 	} else {
-		if (!(i2c_reg[0x00] & 0x80)) {
+		if (!(i2c_reg[0x00] & 0x80))
 			wait = 1;
-		}
 		ret = wrap_led_i2c_write_data(0x00, set_val);
 	}
 
-	if (wait == 1) {
+	if (wait == 1)
 		/* Wait until charge pump is stable */
-		msleep(2);
-	}
+		msleep(20);
+
 }
 
 /*
@@ -508,7 +523,7 @@ static s32 wrap_led_i2c_write_data(u8 command, u8 value)
 			break;
 		} else {
 			/* Failed */
-			printk("ERROR - i2c write error %d \n", err);
+			printk(KERN_ERR "i2c write error %d\n", err);
 		}
 	}
 	return err;
@@ -536,7 +551,7 @@ static s32 wrap_led_i2c_read_data(u8 command)
 			break;
 		} else {
 			/* Failed */
-			printk("ERROR - i2c read error %d\n", ret_val);
+			printk(KERN_ERR "i2c read error %d\n", ret_val);
 		}
 	}
 	return ret_val;
@@ -590,7 +605,8 @@ static int led_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/* Save initial value for some functions */
 	i2c_reg[0] = 0x81; /* Turn charge pump ON, set actively */
-	i2c_reg[1] = 0x1E; /* Turn ON MLED4, 5, 6 & set nomal mode, turn OFF mini light mode */
+	i2c_reg[1] = 0x1E; /* Turn ON MLED4, 5, 6 & set nomal mode,
+				turn OFF mini light mode */
 	i2c_reg[2] = 0x0F; /* Turn ON BLED, GLED, RLED */
 	i2c_reg[3] = 0x10; /* Set current to KEY LED at 10.2mA */
 	i2c_reg[6] = 0x00; /* Set current of RLED 0.6mA */
@@ -602,35 +618,33 @@ static int led_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	udelay(30);
 
 	/* Turn OFF camera and sensor */
-	for (i = 0; i2c_val[i].add != 0xFF; i++) {
+	for (i = 0; i2c_val[i].add != 0xFF; i++)
 		wrap_led_i2c_write_data(i2c_val[i].add, i2c_val[i].val);
-	}
+
 
 	for (i = 0; i < LEDS_NUM; i++) {
 		ret = led_classdev_register(&client->dev, &led_lights[i]);
 		if (ret) {
-			printk("ERROR - led_classdev_register() failed\n");
+			printk(KERN_ERR "led_classdev_register() failed\n");
 			led_err = i;
 			break;
 		}
 	}
 	/* Unregister all registered LEDs */
 	if (ret) {
-		for (j = 0; j <= led_err; j++) {
+		for (j = 0; j <= led_err; j++)
 			led_classdev_unregister(&led_lights[j]);
-		}
 	}
 
 	/* Create device file for LEDs ON/OFF */
 	ret_createfile = device_create_file(&led_client->dev, &dev_attr_onoff);
-	if (ret_createfile) {
-		printk("ERROR - device_create_file() - onoff\n");
-	}
+	if (ret_createfile)
+		printk(KERN_ERR "device_create_file() - onoff\n");
+
 	/* Create device file for LEDs hardware blink */
 	ret_createfile = device_create_file(&led_client->dev, &dev_attr_blink);
-	if (ret_createfile) {
-		printk("ERROR - device_create_file() - blink\n");
-	}
+	if (ret_createfile)
+		printk(KERN_ERR "device_create_file() - blink\n");
 
 	/* Turn ON LCD backlight */
 	control_led_backlight(backlight_brightness);
