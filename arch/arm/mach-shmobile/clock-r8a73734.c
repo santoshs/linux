@@ -909,6 +909,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
 	CLKDEV_CON_ID("usb0_dmac", &mstp_clks[MSTP214]), /* USBHS-DMAC */
+	CLKDEV_CON_ID("mfis", &mstp_clks[MSTP213]), /* MFIS */
 	CLKDEV_CON_ID("currtimer", &mstp_clks[MSTP329]), /* CMT1 */
 	CLKDEV_CON_ID("rwdt0", &mstp_clks[MSTP402]), /* RWDT0 */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
