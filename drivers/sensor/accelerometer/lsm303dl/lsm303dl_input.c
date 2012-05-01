@@ -411,9 +411,9 @@ void lsm303dl_acc_report_values(void)
 		input_report_abs(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Y, xyz[1]);
 		input_report_abs(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Z, xyz[2]);
 		
-		lsm303dl_log("xyz[0] = %d\n", xyz[0]);
-		lsm303dl_log("xyz[1] = %d\n", xyz[1]);
-		lsm303dl_log("xyz[2] = %d\n", xyz[2]);
+//		lsm303dl_log("xyz[0] = %d\n", xyz[0]);
+//		lsm303dl_log("xyz[1] = %d\n", xyz[1]);
+//		lsm303dl_log("xyz[2] = %d\n", xyz[2]);
 		
 		/*Mark this event for accelerometer and inform
 		 *to input core that value report is completed */
@@ -443,9 +443,9 @@ void lsm303dl_mag_report_values(void)
 		input_report_abs(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Y, xyz[1]);
 		input_report_abs(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Z, xyz[2]);
 		
-		lsm303dl_log("xyz[0] = %d\n", xyz[0]);
-		lsm303dl_log("xyz[1] = %d\n", xyz[1]);
-		lsm303dl_log("xyz[2] = %d\n", xyz[2]);
+//		lsm303dl_log("xyz[0] = %d\n", xyz[0]);
+//		lsm303dl_log("xyz[1] = %d\n", xyz[1]);
+//		lsm303dl_log("xyz[2] = %d\n", xyz[2]);
 		
 		/*Mark this event for magnetometer and inform
 		 *to input core that value report is completed */
