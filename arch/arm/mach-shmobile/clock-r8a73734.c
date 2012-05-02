@@ -832,7 +832,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP407] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR4, MSTPSR4, 7, 0), /* USB-DMAC1 */
 	[MSTP406] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR4, MSTPSR4, 6, 0), /* DDM */
 	[MSTP403] = SH_CLK_MSTP32_EXT(&cp_clk, SMSTPCR4, MSTPSR4, 3, 0), /* KEYSC */
-	[MSTP402] = SH_CLK_MSTP32_EXT(&cp_clk, SMSTPCR4, MSTPSR4, 2, 0), /* RWDT0 */
+	[MSTP402] = SH_CLK_MSTP32_EXT(&extalr_clk, SMSTPCR4, MSTPSR4, 2, 0), /* RWDT0 */
 	[MSTP530] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 30, 0), /* Secure ROM */
 	[MSTP529] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 29, 0), /* Secure RAM */
 	[MSTP528] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR5, MSTPSR5, 28, 0), /* Internal RAM1 */
@@ -909,7 +909,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("zb30d2_clk", &zb30d2_clk),
 
 	CLKDEV_CON_ID("usb0_dmac", &mstp_clks[MSTP214]), /* USBHS-DMAC */
+	CLKDEV_CON_ID("mfis", &mstp_clks[MSTP213]), /* MFIS */
 	CLKDEV_CON_ID("currtimer", &mstp_clks[MSTP329]), /* CMT1 */
+	CLKDEV_CON_ID("rwdt0", &mstp_clks[MSTP402]), /* RWDT0 */
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
 	CLKDEV_CON_ID("clkgen", &mstp_clks[MSTP224]),
