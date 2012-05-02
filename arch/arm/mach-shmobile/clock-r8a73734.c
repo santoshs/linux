@@ -666,6 +666,9 @@ enum {
 	MSTP001,
 	MSTP000,
 	MSTP130,
+// EOS-CSI ADD-S
+	MSTP128,
+// EOS-CSI ADD-E
 	MSTP126,
 	MSTP125,
 	MSTP124,
@@ -680,6 +683,9 @@ enum {
 	MSTP108,
 	MSTP107,
 	MSTP106,
+// EOS-RCU ADD-S
+	MSTP105,
+// EOS-RCU ADD-E
 	MSTP101,
 	MSTP100,
 	MSTP229,
@@ -764,6 +770,9 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP001] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR0, MSTPSR0, 1, 0), /* IIC2 */
 	[MSTP000] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR0, MSTPSR0, 0, 0), /* MSIOF0 */
 	[MSTP130] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR1, MSTPSR1, 30, 0), /* VIO60 */
+// EOS-CSI ADD-S
+	[MSTP128] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_ZS], SMSTPCR1, MSTPSR1, 28, 0), /* CSI2-RX1 */
+// EOS-CSI ADD-E
 	[MSTP126] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_ZS], SMSTPCR1, MSTPSR1, 26, 0), /* CSI2-RX0 */
 	[MSTP125] = SH_CLK_MSTP32_EXT(&cp_clk, SMSTPCR1, MSTPSR1, 25, 0), /* TMU0 */
 	[MSTP124] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_B], SMSTPCR1, MSTPSR1, 24, 0), /* CMT0 */
@@ -778,6 +787,9 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP108] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR1, MSTPSR1, 8, 0), /* TSIF0 */
 	[MSTP107] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR1, MSTPSR1, 7, 0), /* RCUA */
 	[MSTP106] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_B], SMSTPCR1, MSTPSR1, 6, 0), /* JPU */
+// EOS-RCU ADD-S
+	[MSTP105] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR1, MSTPSR1, 5, 0), /* RCUA1 */
+// EOS-RCU ADD-E
 	[MSTP101] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_M1], SMSTPCR1, MSTPSR1, 1, 0), /* VPU */
 	[MSTP100] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_M3], SMSTPCR1, MSTPSR1, 0, 0), /* LCDC0 */
 	[MSTP229] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 29, 0), /* Crypt1 */
@@ -952,6 +964,23 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */
 	CLKDEV_DEV_ID("i2c-sh7730.6", &mstp_clks[MSTP412]), /* I2CM0 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
+// EOS-RCU ADD-S
+	CLKDEV_CON_ID("icb", &mstp_clks[MSTP007]), /* ICB */
+	CLKDEV_CON_ID("meram", &mstp_clks[MSTP113]), /* MERAM */
+	CLKDEV_CON_ID("rcu0", &mstp_clks[MSTP107]), /* RCUA0 */
+	CLKDEV_CON_ID("rcu1", &mstp_clks[MSTP105]), /* RCUA1 */
+	CLKDEV_CON_ID("RCU0", &mstp_clks[MSTP107]), /* RCUA0 */
+	CLKDEV_CON_ID("RCU1", &mstp_clks[MSTP105]), /* RCUA1 */
+	CLKDEV_DEV_ID("sh_mobile_rcu.0", &mstp_clks[MSTP107]), /* RCUA0 */
+	CLKDEV_DEV_ID("sh_mobile_rcu.1", &mstp_clks[MSTP105]), /* RCUA1 */
+// EOS-RCU ADD-S
+
+// EOS-CSI ADD-S
+	CLKDEV_CON_ID("csi21", &mstp_clks[MSTP128]), /* CSI2-RX1 */
+	CLKDEV_CON_ID("csi20", &mstp_clks[MSTP126]), /* CSI2-RX0 */
+	CLKDEV_DEV_ID("sh-mobile-csi2.1", &mstp_clks[MSTP128]), /* CSI2-RX1 */
+	CLKDEV_DEV_ID("sh-mobile-csi2.0", &mstp_clks[MSTP126]), /* CSI2-RX0 */
+// EOS-CSI ADD-S
 };
 
 void __init r8a73734_clock_init(void)

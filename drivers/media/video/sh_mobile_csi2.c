@@ -1,6 +1,9 @@
 /*
  * Driver for the SH-Mobile MIPI CSI-2 unit
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2010, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,6 +32,8 @@
 #define SH_CSI2_PHYCNT	0x08
 #define SH_CSI2_CHKSUM	0x0C
 #define SH_CSI2_VCDT	0x10
+#define SH_CSI2_PHYCNT2	0x48
+#define SH_CSI2_PHYCNT3	0x20
 
 struct sh_csi2 {
 	struct v4l2_subdev		subdev;
@@ -61,6 +66,18 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_Y8_1X8:		/* RAW8 */
 		case V4L2_MBUS_FMT_SBGGR8_1X8:
 		case V4L2_MBUS_FMT_SGRBG8_1X8:
+// EOS-CSI ADD-S
+		case V4L2_MBUS_FMT_SGBRG8_1X8:
+		case V4L2_MBUS_FMT_SRGGB8_1X8:
+		case V4L2_MBUS_FMT_SBGGR10_1X10:
+		case V4L2_MBUS_FMT_SGBRG10_1X10:
+		case V4L2_MBUS_FMT_SGRBG10_1X10:
+		case V4L2_MBUS_FMT_SRGGB10_1X10:
+		case V4L2_MBUS_FMT_SBGGR12_1X12:
+		case V4L2_MBUS_FMT_SGBRG12_1X12:
+		case V4L2_MBUS_FMT_SGRBG12_1X12:
+		case V4L2_MBUS_FMT_SRGGB12_1X12:
+// EOS-CSI ADD-E
 			break;
 		default:
 			/* All MIPI CSI-2 devices must support one of primary formats */
@@ -116,13 +133,40 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	case V4L2_MBUS_FMT_Y8_1X8:
 	case V4L2_MBUS_FMT_SBGGR8_1X8:
 	case V4L2_MBUS_FMT_SGRBG8_1X8:
+// EOS-CSI ADD-S
+	case V4L2_MBUS_FMT_SGBRG8_1X8:
+	case V4L2_MBUS_FMT_SRGGB8_1X8:
+// EOS-CSI ADD-E
 		tmp |= 0x2a;	/* RAW8 */
 		break;
+// EOS-CSI ADD-S
+	case V4L2_MBUS_FMT_SBGGR10_1X10:
+	case V4L2_MBUS_FMT_SGBRG10_1X10:
+	case V4L2_MBUS_FMT_SGRBG10_1X10:
+	case V4L2_MBUS_FMT_SRGGB10_1X10:
+		tmp |= 0x2b;	/* RAW10 */
+		break;
+	case V4L2_MBUS_FMT_SBGGR12_1X12:
+	case V4L2_MBUS_FMT_SGBRG12_1X12:
+	case V4L2_MBUS_FMT_SGRBG12_1X12:
+	case V4L2_MBUS_FMT_SRGGB12_1X12:
+		tmp |= 0x2c;	/* RAW12 */
+		break;
+// EOS-CSI ADD-E
 	default:
 		return -EINVAL;
 	}
 
 	iowrite32(tmp, priv->base + SH_CSI2_VCDT);
+
+// EOS-CSI ADD-S
+	if (priv->client->phy == SH_CSI2_PHY_MAIN)
+		tmp = 0;
+	else
+		tmp = (1 << 30);
+
+	iowrite32(tmp,priv->base + SH_CSI2_PHYCNT3);
+// EOS-CSI ADD-E
 
 	return 0;
 }
@@ -156,9 +200,6 @@ static void sh_csi2_hwinit(struct sh_csi2 *priv)
 	else
 		/* Default - both lanes */
 		tmp |= 3;
-
-	if (priv->client->phy == SH_CSI2_PHY_MAIN)
-		tmp |= 0x8000;
 
 	iowrite32(tmp, priv->base + SH_CSI2_PHYCNT);
 
@@ -284,9 +325,12 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	}
 
 	if (!request_mem_region(res->start, resource_size(res), pdev->name)) {
-		dev_err(&pdev->dev, "CSI2 register region already claimed\n");
-		ret = -EBUSY;
-		goto ereqreg;
+		if (!(pdata->flags & SH_CSI2_MULTI))
+		{
+			dev_err(&pdev->dev, "CSI2 register region already claimed\n");
+			ret = -EBUSY;
+			goto ereqreg;
+		}
 	}
 
 	priv->base = ioremap(res->start, resource_size(res));

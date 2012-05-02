@@ -232,6 +232,17 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_EXTEND16,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
+// EOS-RCU ADD-S
+}, {
+	.code = V4L2_MBUS_FMT_SGBRG8_1X8,
+	.fmt = {
+		.fourcc			= V4L2_PIX_FMT_SGBRG8,
+		.name			= "Bayer 8 GBRG",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_NONE,
+		.order			= SOC_MBUS_ORDER_LE,
+	},
+// EOS-RCU ADD-E
 }, {
 	.code = V4L2_MBUS_FMT_SGRBG8_1X8,
 	.fmt = {
@@ -241,6 +252,17 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_NONE,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
+// EOS-RCU ADD-S
+}, {
+	.code = V4L2_MBUS_FMT_SRGGB8_1X8,
+	.fmt = {
+		.fourcc			= V4L2_PIX_FMT_SRGGB8,
+		.name			= "Bayer 8 RGGB",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_NONE,
+		.order			= SOC_MBUS_ORDER_LE,
+	},
+// EOS-RCU ADD-E
 }, {
 	.code = V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8,
 	.fmt = {
@@ -379,6 +401,7 @@ EXPORT_SYMBOL(soc_mbus_find_fmtdesc);
 const struct soc_mbus_pixelfmt *soc_mbus_get_fmtdesc(
 	enum v4l2_mbus_pixelcode code)
 {
+	printk(KERN_ALERT "%s :code=%d\n",__func__,code);
 	return soc_mbus_find_fmtdesc(code, mbus_fmt, ARRAY_SIZE(mbus_fmt));
 }
 EXPORT_SYMBOL(soc_mbus_get_fmtdesc);
