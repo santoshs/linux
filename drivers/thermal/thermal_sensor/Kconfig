@@ -1,0 +1,7 @@
+config THERMAL_SENSOR
+	bool "Temperature module (Renesas)"
+	depends on ARCH_SHMOBILE
+	default n
+	help
+	  Temperature module is used to measure temperature of areas in LSI of Renesas.
+	  

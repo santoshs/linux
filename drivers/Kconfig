@@ -130,6 +130,8 @@ source "drivers/clocksource/Kconfig"
 
 source "drivers/smeco/Kconfig"
 
+source "drivers/thermal/thermal_sensor/Kconfig"
+
 source "drivers/sensor/Kconfig"
 
 endmenu
