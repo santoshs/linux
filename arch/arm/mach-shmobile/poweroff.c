@@ -20,22 +20,21 @@
 
 #include <linux/device.h>
 #include <linux/string.h>
-
-#if 0
 #include <linux/io.h>
 #include <asm/cacheflush.h>
+#include <mach/pm.h>
 
 /* PLL2CR */
-#define PLL2CR		__io(0xE615002C)
+#define PLL2CR		IO_ADDRESS(0xE615002C)
 #define PLL2CE_XOE	0x1
 
-/* Recovery Mode setting */
-#define BOOTFLAG		0x40
-#define SIZE			0x40
+/* Restart Mode Setting*/
+#define SBAR2		IO_ADDRESS(0xe6180060)
+#define RESCNT2		IO_ADDRESS(0xE6188020)
 
-#define STBCHRB2		__io(0xE6180042)
-#define INTERNAL_RAM0	__io(0xE63A1FC0)
-#endif
+/* Power Off Mode Setting */
+#define POFFFLAG	0x80
+#define STBCHRB2		IO_ADDRESS(0xE6180042)
 
 
 #ifdef CONFIG_PMIC_INTERFACE
@@ -44,16 +43,13 @@
 #define pmic_force_power_off(x)
 #endif
 
-// #define DEBUG_POWEROFF
+/* #define DEBUG_POWEROFF */
 
 #ifdef DEBUG_POWEROFF
-	#define POWEROFF_PRINTK(fmt, arg...)  printk(fmt,##arg)
+	#define POWEROFF_PRINTK(fmt, arg...)  printk(fmt, ##arg)
 #else
 	#define POWEROFF_PRINTK(fmt, arg...)
 #endif
-
-
-void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 #if 0
 /*
@@ -64,18 +60,15 @@ void shmobile_pm_set_recovery_mode(const char *cmd)
 {
 	POWEROFF_PRINTK("%s\n", __func__);
 	local_irq_disable();
-	
 	if (cmd == NULL) {
 		/* copy cmd to Inter Connect RAM0 */
 		strncpy((void *)INTERNAL_RAM0, "", SIZE);
 	} else {
 		/* copy cmd to Inter Connect RAM0 */
-	 	strncpy((void *)INTERNAL_RAM0, cmd, SIZE);
+		strncpy((void *)INTERNAL_RAM0, cmd, SIZE);
 	}
-	
 	/* set boot flag */
 	__raw_writeb(__raw_readb(STBCHRB2) | BOOTFLAG, STBCHRB2);
-	
 	local_irq_enable();
 }
 #endif
@@ -86,15 +79,45 @@ void shmobile_pm_set_recovery_mode(const char *cmd)
 void shmobile_pm_stop_peripheral_devices(void)
 {
 	POWEROFF_PRINTK("%s\n", __func__);
-	
-	POWEROFF_PRINTK("Turn off SIM Reader \n");
+	POWEROFF_PRINTK("Turn off SIM Reader\n");
 	pmic_force_power_off(E_POWER_VUSIM1);
-	
-	POWEROFF_PRINTK("Turn off SD Host Interface \n");
+	POWEROFF_PRINTK("Turn off SD Host Interface\n");
 	pmic_force_power_off(E_POWER_VIO_SD);
-
-	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module \n");
+	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
 	pmic_force_power_off(E_POWER_VANA_MM);
+}
+
+/*
+ *  U2EVM Restart
+ */
+static void shmobile_pm_restart(char mode, const char *cmd)
+{
+	POWEROFF_PRINTK("%s\n", __func__);
+	/* Flush the console to make sure all the relevant messages make it
+	 * out to the console drivers */
+	arm_machine_flush_console();
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+	/* Clear Power off flag */
+	__raw_writeb(__raw_readb(STBCHRB2) & (~POFFFLAG), STBCHRB2);
+	/*
+	 * Tell the mm system that we are going to reboot -
+	 * we may need it to insert some 1:1 mappings so that
+	 * soft boot works.
+	 */
+	setup_mm_for_reboot();
+	/* Clean and invalidate caches */
+	flush_cache_all();
+	/* Turn off caching */
+	cpu_proc_fin();
+	/* Push out any further dirty data, and ensure cache is empty */
+	flush_cache_all();
+	/* The architecture specific reboot */
+	#ifndef CONFIG_PM_HAS_SECURE
+	__raw_writel(0, SBAR2);
+	#endif
+	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
 
 /*
@@ -102,13 +125,32 @@ void shmobile_pm_stop_peripheral_devices(void)
  */
 static void shmobile_pm_poweroff(void)
 {
-	POWEROFF_PRINTK("%s\n", __func__);
-
+	POWEROFF_PRINTK("%s\n", __func__);	
+#if 0
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+	/* Disable XTAL2 */
+	__raw_writel(__raw_readl(PLL2CR) | PLL2CE_XOE, PLL2CR);
+	/* Set Power off flag */
+	__raw_writeb(__raw_readb(STBCHRB2) | POFFFLAG, STBCHRB2);
+	/* Clean and invalidate caches */
+	flush_cache_all();
+	/* Turn off caching */
+	cpu_proc_fin();
+	/* Push out any further dirty data, and ensure cache is empty */
+	flush_cache_all();
+	/* The architecture specific reboot */
+	#ifndef CONFIG_PM_HAS_SECURE
+	__raw_writel(0, SBAR2);
+	#endif
+	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+#else
 	/* Turn off power of whole system */
 	pmic_force_power_off(E_POWER_ALL);
-	
+#endif	
 	/* Wait for power off */
-	while (1) {};
+	while (1);
 }
 
 /*
@@ -117,10 +159,9 @@ static void shmobile_pm_poweroff(void)
 static int __init shmobile_init_poweroff(void)
 {
 	POWEROFF_PRINTK("%s\n", __func__);
-	
-	/* Register globally exported PM poweroff hook */
+	/* Register globally exported PM poweroff and restart */
 	pm_power_off = shmobile_pm_poweroff;
-	
+	arm_pm_restart = shmobile_pm_restart;
 	return 0;
 }
 

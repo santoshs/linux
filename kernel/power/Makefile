@@ -17,4 +17,4 @@ obj-$(CONFIG_SUSPEND_TIME)	+= suspend_time.o
 
 obj-$(CONFIG_MAGIC_SYSRQ)	+= poweroff.o
 
-obj-$(CONFIG_PM_DEBUG)		+= pm_test.o
+obj-$(CONFIG_PM_TEST)		+= pm_test.o
