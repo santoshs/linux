@@ -38,6 +38,7 @@
 #include <linux/pcm2pwm.h>
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
 #include <linux/wl12xx.h>
+#include <linux/thermal_sensor/ths_kernel.h>
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -831,6 +832,44 @@ static struct platform_device btwilink_device = {
 };
 //120220 TI BTFM end
 
+/* << Add for Thermal Sensor driver*/
+static struct thermal_sensor_data ths_platdata[] = {
+	/* THS0 */
+	{
+	.current_mode		= E_NORMAL_1,	/* Normal 1 operation */
+	.last_mode			= E_NORMAL_1,	/* Normal 1 operation */
+	},
+	
+	/* THS1 */
+	{
+	.current_mode		= E_NORMAL_1,	/* Normal 1 operation */
+	.last_mode			= E_NORMAL_1,	/* Normal 1 operation */
+	},
+};
+
+static struct resource ths_resources[] = {
+	[0] = {
+		.name	= "THS",
+		.start	= 0xe61F0000,
+		.end	= 0xe61F0238 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(73),		/* SPI# of THS is 73 */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device thermal_sensor_device = {
+	.name			= "thermal_sensor",
+	.id				= 0,
+	.num_resources	= ARRAY_SIZE(ths_resources),
+	.resource	= ths_resources,
+	.dev		= {
+		.platform_data	= &ths_platdata,
+	},
+};
+/* >> End Add for Thermal Sensor driver*/
 
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
@@ -861,6 +900,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
    &wl128x_device,
    &btwilink_device,
 //120220 TI BTFM
+	&thermal_sensor_device,
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -889,6 +929,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
    &wl128x_device,
    &btwilink_device,
 //120220 TI BTFM
+	&thermal_sensor_device,
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -916,6 +957,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&wl128x_device,
 	&btwilink_device,
 //120220 TI BTFM
+	&thermal_sensor_device,
 };
 
 /* I2C */
