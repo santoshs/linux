@@ -1483,7 +1483,15 @@ static void __init u2evm_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
+	if ((system_rev & 0xFF) == 0x00)
+	{
+		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
+	}
+	else
+	{
+		/*The L2Cache is resized to 512 KB*/
+		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
+	}
 #endif
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 0);
