@@ -74,8 +74,18 @@ static int suspend_test(int level)
 {
 #ifdef CONFIG_PM_DEBUG
 	if (pm_test_level == level) {
+#ifdef CONFIG_MACH_U2EVM
+#include <linux/time.h>
+		extern int wait_time;
+		long wait_time_jiffies = jiffies + (wait_time * HZ);
+		printk(KERN_INFO "%s: Waiting for %d seconds.\n", __func__, wait_time);
+		while ( time_before ( jiffies, wait_time_jiffies ) ) {
+			cpu_relax ( ) ;
+		}
+#else /* !CONFIG_MACH_U2EVM */
 		printk(KERN_INFO "suspend debug: Waiting for 5 seconds.\n");
 		mdelay(5000);
+#endif /* CONFIG_MACH_U2EVM */
 		return 1;
 	}
 #endif /* !CONFIG_PM_DEBUG */
@@ -311,22 +321,25 @@ int enter_state(suspend_state_t state)
  */
 int pm_suspend(suspend_state_t state)
 {
-#ifdef CONFIG_PM_DEBUG
+#ifdef CONFIG_PM_TEST
 	int ret;
+	extern int for_kernel_test;
 #endif
 
 	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
-#ifndef CONFIG_PM_DEBUG
+#ifndef CONFIG_PM_TEST
 		return enter_state(state);
-#else	/* CONFIG_PM_DEBUG is defined */
+#else	/* CONFIG_PM_TEST is defined */
 	{
 		ret = enter_state(state);
+		if (for_kernel_test == 1) {
+			/* Execute late resume */
+			request_suspend_state(PM_SUSPEND_ON);
+		}
 		
-		/* Execute late resume */
-		request_suspend_state(PM_SUSPEND_ON);
 		return ret;
 	}
-#endif /* CONFIG_PM_DEBUG */
+#endif /* CONFIG_PM_TEST */
 	return -EINVAL;
 }
 EXPORT_SYMBOL(pm_suspend);
