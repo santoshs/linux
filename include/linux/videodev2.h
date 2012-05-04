@@ -274,6 +274,10 @@ struct v4l2_capability {
 #define V4L2_CAP_ASYNCIO                0x02000000  /* async I/O */
 #define V4L2_CAP_STREAMING              0x04000000  /* streaming I/O ioctls */
 
+// EOS-RCU ADD-S
+#define V4L2_CID_SET_OUTPUT_MODE	(V4L2_CID_PRIVATE_BASE+0x101)
+// EOS-RCU ADD-E
+
 /*
  *	V I D E O   I M A G E   F O R M A T
  */

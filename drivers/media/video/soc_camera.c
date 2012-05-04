@@ -1166,8 +1166,9 @@ eiufmt:
 	if (icl->board_info) {
 		soc_camera_free_i2c(icd);
 	} else {
-		icl->del_device(icl);
 		module_put(control->driver->owner);
+		icl->del_device(icl);
+//		module_put(control->driver->owner);
 	}
 enodrv:
 eadddev:
