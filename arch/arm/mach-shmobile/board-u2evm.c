@@ -1726,9 +1726,11 @@ static void __init u2evm_init(void)
 
 	/* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
 
-	if (-1 != stm_select) {	
 #define MSEL3CR		IO_ADDRESS(0xE6058020)
-	__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+	__raw_writel(__raw_readl(MSEL3CR) | (1<<27), MSEL3CR); /* ES2.0: SIM powers */
+
+	if (-1 != stm_select) {	
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 	}
 
 
