@@ -69,9 +69,11 @@ static int addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *attr)
 	struct ifaddrmsg *ifm;
 	int err;
 	u8 pnaddr;
-//PATCH
-//	if (!capable(CAP_SYS_ADMIN))
-//		return -EPERM;
+/*
+ * PATCH
+ *	if (!capable(CAP_SYS_ADMIN))
+ *		return -EPERM;
+ */
 
 	ASSERT_RTNL();
 

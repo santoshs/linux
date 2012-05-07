@@ -32,7 +32,7 @@
 
 /* Functions */
 
-static int 
+static int
 mhi_pn_netif_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	/* Set Protocol Family */
@@ -45,7 +45,7 @@ mhi_pn_netif_rx(struct sk_buff *skb, struct net_device *dev)
 	return netif_rx(skb);
 }
 
-static int 
+static int
 mhi_pn_netif_tx(struct sk_buff *skb, struct net_device *dev)
 {
 	struct l2muxhdr *l2hdr;
@@ -71,11 +71,11 @@ mhi_pn_netif_tx(struct sk_buff *skb, struct net_device *dev)
 	l2hdr = l2mux_hdr(skb);
 
 	/* L3 Proto ID */
-	l2mux_set_proto(l2hdr,MHI_L3_PHONET);
-	
+	l2mux_set_proto(l2hdr, MHI_L3_PHONET);
+
 	/* L3 payload length */
-	l2mux_set_length(l2hdr,l3len);
-	
+	l2mux_set_length(l2hdr, l3len);
+
 	return 0;
 }
 
@@ -86,16 +86,16 @@ int __init mhi_pn_init(void)
 {
 	int err;
 
-	err = l2mux_netif_rx_register(MHI_L3_PHONET,mhi_pn_netif_rx);
+	err = l2mux_netif_rx_register(MHI_L3_PHONET, mhi_pn_netif_rx);
 	if (err)
 		goto err1;
-	
-	err = l2mux_netif_tx_register(ETH_P_PHONET,mhi_pn_netif_tx);
+
+	err = l2mux_netif_tx_register(ETH_P_PHONET, mhi_pn_netif_tx);
 	if (err)
 		goto err2;
 
 	return 0;
-	
+
 err2:
 	l2mux_netif_rx_unregister(MHI_L3_PHONET);
 err1:

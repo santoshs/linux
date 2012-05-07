@@ -47,10 +47,10 @@
 static DEFINE_SPINLOCK(l2mux_lock);
 
 /* L3 ID -> RX function table */
-static l2mux_skb_fn * l2mux_id2rx_tab[MHI_L3_NPROTO] __read_mostly;
+static l2mux_skb_fn *l2mux_id2rx_tab[MHI_L3_NPROTO] __read_mostly;
 
 /* Packet Type -> TX function table */
-static l2mux_skb_fn * l2mux_pt2tx_tab[ETH_NON_DIX_NPROTO] __read_mostly;
+static l2mux_skb_fn *l2mux_pt2tx_tab[ETH_NON_DIX_NPROTO] __read_mostly;
 
 
 int l2mux_netif_rx_register(int l3, l2mux_skb_fn *fn)
@@ -151,7 +151,7 @@ int l2mux_skb_rx(struct sk_buff *skb, struct net_device *dev)
 	unsigned          l3pid;
 	unsigned	  l3len;
 	l2mux_skb_fn     *rxfn;
-   
+
 	/* Set the device in the skb */
 	skb->dev = dev;
 
@@ -170,22 +170,22 @@ int l2mux_skb_rx(struct sk_buff *skb, struct net_device *dev)
 		u8 *ptr = skb->data;
 		int len = skb_headlen(skb);
 		int i;
-	
+
 		printk(KERN_DEBUG "L2MUX: RX dev:%d skb_len:%d l3_len:%d l3_pid:%d\n",
 		       dev->ifindex, skb->len, l3len, l3pid);
-		
-		for (i=0; i<len; i++) {
+
+		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
 				printk(KERN_DEBUG "L2MUX: RX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
-			if (i%8 == 7 || i == len-1) 
+			if (i%8 == 7 || i == len-1)
 				printk("\n");
 		}
 	}
 #endif
 	/* check that the advertised length is correct */
 	if (l3len != skb->len - L2MUX_HDR_SIZE) {
-		printk(KERN_WARNING "L2MUX: l2mux_skb_rx: L3_id:%d - skb length mismatch L3:%d (+4) <> SKB:%d", 
+		printk(KERN_WARNING "L2MUX: l2mux_skb_rx: L3_id:%d - skb length mismatch L3:%d (+4) <> SKB:%d",
 		       l3pid, l3len, skb->len);
 		goto drop;
 	}
@@ -198,7 +198,7 @@ int l2mux_skb_rx(struct sk_buff *skb, struct net_device *dev)
 		goto drop;
 
 	/* Call the receiver function */
-	return rxfn(skb,dev);
+	return rxfn(skb, dev);
 
 drop:
 	kfree_skb(skb);
@@ -218,15 +218,15 @@ int l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev)
 		u8 *ptr = skb->data;
 		int len = skb_headlen(skb);
 		int i;
-	
-		printk(KERN_DEBUG "L2MUX: TX dev:%d skb_len:%d ETH_P:%d\n", 
+
+		printk(KERN_DEBUG "L2MUX: TX dev:%d skb_len:%d ETH_P:%d\n",
 		       dev->ifindex, skb->len, type);
-		
-		for (i=0; i<len; i++) {
+
+		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
 				printk(KERN_DEBUG "L2MUX: TX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
-			if (i%8 == 7 || i == len-1) 
+			if (i%8 == 7 || i == len-1)
 				printk("\n");
 		}
 	}
@@ -239,7 +239,7 @@ int l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev)
 	txfn = l2mux_pt2tx_tab[type];
 
 	if (txfn)
-		return txfn(skb,dev);
+		return txfn(skb, dev);
 
 	return 0;
 }
@@ -251,10 +251,10 @@ static int __init l2mux_init(void)
 
 	DPRINTK("l2mux_init\n");
 
-	for (i=0; i<MHI_L3_NPROTO; i++)
+	for (i = 0; i < MHI_L3_NPROTO; i++)
 		l2mux_id2rx_tab[i] = NULL;
 
-	for (i=0; i<ETH_NON_DIX_NPROTO; i++)
+	for (i = 0; i < ETH_NON_DIX_NPROTO; i++)
 		l2mux_pt2tx_tab[i] = NULL;
 
 	return 0;

@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2011 Renesas Mobile Corporation. All rights reserved.
  *
- * Author: 	Sugnan Prabhu S <sugnan.prabhu@renesasmobile.com>
+ * Author:	Sugnan Prabhu S <sugnan.prabhu@renesasmobile.com>
  *		Petri Mattila <petri.to.mattila@renesasmobile.com>
  *
  * Based on work by: Sam Lantinga (slouken@cs.ucdavis.edu)
@@ -43,15 +43,15 @@
 
 
 /* MHDP device MTU limits */
-#define MHDP_MTU_MAX 		0x2400
-#define MHDP_MTU_MIN 		0x44
+#define MHDP_MTU_MAX		0x2400
+#define MHDP_MTU_MIN		0x44
 
 /* MHDP device names */
-#define MHDP_IFNAME		"rmnet%d"
+#define MHDP_IFNAME			"rmnet%d"
 #define MHDP_CTL_IFNAME		"rmnetctl"
 
 /* Print every MHDP SKB content */
-//#define MHDP_DEBUG_SKB
+/* #define MHDP_DEBUG_SKB */
 
 
 #define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
@@ -62,17 +62,16 @@
 # define DPRINTK(...)
 #endif
 
-
 #ifdef MHDP_DEBUG_SKB
-# define SKBPRINT(a,b)    __print_skb_content(a,b)
+# define SKBPRINT(a, b)    __print_skb_content(a, b)
 #else
-# define SKBPRINT(a,b)
+# define SKBPRINT(a, b)
 #endif
 
 /* IPv6 support */
 #define VER_IPv4 0x04
 #define VER_IPv6 0x06
-#define ETH_IP_TYPE(x) (((0x00|(x>>4)) == VER_IPv4)? ETH_P_IP: ETH_P_IPV6)
+#define ETH_IP_TYPE(x) (((0x00|(x>>4)) == VER_IPv4) ? ETH_P_IP : ETH_P_IPV6)
 
 /*** Type definitions ***/
 
@@ -82,7 +81,7 @@ struct mhdp_tunnel {
 	struct mhdp_tunnel	*next;
 	struct net_device	*dev;
 	struct net_device	*master_dev;
-	struct sk_buff 		*skb;
+	struct sk_buff		*skb;
 	int			pdn_id;
     struct timer_list tx_timer;
     struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
@@ -134,13 +133,13 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 	struct page *page;
 	skb_frag_t *frag;
 	int len;
-	int i,j;
+	int i, j;
 	u8 *ptr;
 
 	/* Main SKB buffer */
 	ptr = (u8 *)skb->data;
 	len = skb_headlen(skb);
-	
+
 	printk(KERN_DEBUG "MHDP: SKB buffer lenght %02u\n", len);
 	for (i = 0; i < len; i++) {
 		if (i%8 == 0)
@@ -149,14 +148,14 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 		if (i%8 == 7 || i == len - 1)
 			printk("\n");
 	}
-	
+
 	/* SKB fragments */
 	for (i = 0; i < (skb_shinfo(skb)->nr_frags); i++) {
 		frag = &skb_shinfo(skb)->frags[i];
 		page = frag->page;
-		
+
 		ptr = page_address(page);
-		
+
 		for (j = 0; j < frag->size; j++) {
 			if (j%8 == 0)
 				printk(KERN_DEBUG "%s FRAG[%d]: ", tag, i);
@@ -170,12 +169,12 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 
 
 static inline struct mhdp_net *
-mhdp_net_dev( struct net_device *dev )
+mhdp_net_dev(struct net_device *dev)
 {
 	return net_generic(dev_net(dev), mhdp_net_id);
 }
 
-static void 
+static void
 mhdp_tunnel_init(struct net_device *dev,
 		 struct mhdp_tunnel_parm *parms,
 		 struct net_device *master_dev)
@@ -192,16 +191,16 @@ mhdp_tunnel_init(struct net_device *dev,
 	tunnel->master_dev  = master_dev;
 	tunnel->skb         = NULL;
 	tunnel->pdn_id      = parms->pdn_id;
-	
+
 	init_timer(&tunnel->tx_timer);
-	spin_lock_init (&tunnel->timer_lock);					    
+	spin_lock_init (&tunnel->timer_lock);
 }
 
 static void
 mhdp_tunnel_destroy(struct net_device *dev)
 {
 	DPRINTK("mhdp_tunnel_destroy: dev:%s", dev->name);
-	
+
 	unregister_netdevice(dev);
 }
 
@@ -209,22 +208,22 @@ static void
 mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 {
 	struct mhdp_tunnel *tunnel;
-	
-	for (tunnel=mhdpn->tunnels; (tunnel); tunnel=tunnel->next)
+
+	for (tunnel = mhdpn->tunnels; (tunnel); tunnel = tunnel->next)
 		mhdp_tunnel_destroy(tunnel->dev);
-	
+
 	mhdpn->tunnels = NULL;
 }
 
-static struct mhdp_tunnel * 
+static struct mhdp_tunnel *
 mhdp_locate_tunnel(struct mhdp_net *mhdpn, int pdn_id)
 {
 	struct mhdp_tunnel *tunnel;
-	
-	for (tunnel=mhdpn->tunnels; tunnel; tunnel=tunnel->next)
+
+	for (tunnel = mhdpn->tunnels; tunnel; tunnel = tunnel->next)
 		if (tunnel->pdn_id == pdn_id)
 			return tunnel;
-	
+
 	return NULL;
 }
 
@@ -234,7 +233,7 @@ mhdp_add_tunnel(struct net *net, struct mhdp_tunnel_parm *parms)
 	struct net_device *mhdp_dev, *master_dev;
 
 	DPRINTK("mhdp_add_tunnel: adding a tunnel to %s\n", parms->master);
-	
+
 	master_dev = dev_get_by_name(net, parms->master);
 	if (!master_dev)
 		goto err_alloc_dev;
@@ -243,28 +242,28 @@ mhdp_add_tunnel(struct net *net, struct mhdp_tunnel_parm *parms)
 				MHDP_IFNAME, mhdp_netdev_setup);
 	if (!mhdp_dev)
 		goto err_alloc_dev;
-	
+
 	dev_net_set(mhdp_dev, net);
-	
+
 	if (dev_alloc_name(mhdp_dev, MHDP_IFNAME) < 0)
 		goto err_reg_dev;
-	
+
 	strcpy(parms->name, mhdp_dev->name);
-	
+
 	if (register_netdevice(mhdp_dev)) {
 		printk(KERN_ERR "MHDP: register_netdev failed\n");
 		goto err_reg_dev;
 	}
 
 	dev_hold(mhdp_dev);
-	
+
 	mhdp_tunnel_init(mhdp_dev, parms, master_dev);
-	
+
 	mhdp_dev->flags    |= IFF_SLAVE;
 	master_dev->flags  |= IFF_MASTER;
-	
+
 	dev_put(master_dev);
-	
+
 	return mhdp_dev;
 
 err_reg_dev:
@@ -282,9 +281,9 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	struct mhdp_tunnel *tunnel, *pre_dev;
 	struct mhdp_tunnel_parm __user *u_parms;
 	struct mhdp_tunnel_parm k_parms;
-	
+
 	int err = 0;
-	
+
 	DPRINTK("mhdp tunnel ioctl %X", cmd);
 
 	switch (cmd) {
@@ -296,13 +295,15 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			DPRINTK("Error: Failed to copy data from user space");
 			return -EFAULT;
 		}
-		
-		DPRINTK("pdn_id:%d master_device:%s", k_parms.pdn_id, k_parms.master);
-		
+
+		DPRINTK("pdn_id:%d master_device:%s",
+				k_parms.pdn_id,
+				k_parms.master);
+
 		if (!mhdp_locate_tunnel(mhdpn, k_parms.pdn_id)) {
 			if (mhdp_add_tunnel(net, &k_parms)) {
 				if (copy_to_user(u_parms, &k_parms,
-						 sizeof(struct mhdp_tunnel_parm)))
+					sizeof(struct mhdp_tunnel_parm)))
 					err = -EINVAL;
 			} else {
 				err = -EINVAL;
@@ -311,7 +312,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			err = -EBUSY;
 		}
 		break;
-		
+
 	case SIOCDELPDNID:
 		u_parms = (struct mhdp_tunnel_parm *)ifr->ifr_data;
 		if (copy_from_user(&k_parms, u_parms,
@@ -319,54 +320,53 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			DPRINTK("Error: Failed to copy data from user space");
 			return -EFAULT;
 		}
-		
+
 		DPRINTK("pdn_id:%d", k_parms.pdn_id);
-		
-		for ( tunnel = mhdpn->tunnels, pre_dev = NULL; 
-		      tunnel;
-		      pre_dev = tunnel, tunnel = tunnel->next ) 
-		{
+
+		for (tunnel = mhdpn->tunnels, pre_dev = NULL;
+		     tunnel;
+		     pre_dev = tunnel, tunnel = tunnel->next) {
 			if (tunnel->pdn_id == k_parms.pdn_id) {
 				if (!pre_dev)
 					mhdpn->tunnels = mhdpn->tunnels->next;
 				else
 					pre_dev->next = tunnel->next;
-				
+
 				mhdp_tunnel_destroy(tunnel->dev);
 			}
 		}
 		break;
-		
+
 	case SIOCRESETMHDP:
 		mhdp_destroy_tunnels(mhdpn);
 		break;
-		
+
 	default:
 		err = -EINVAL;
 	}
-	
+
 	return err;
 }
 
-static int 
+static int
 mhdp_netdev_change_mtu(struct net_device *dev, int new_mtu)
 {
 	if (new_mtu < MHDP_MTU_MIN || new_mtu > MHDP_MTU_MAX)
 		return -EINVAL;
 
 	dev->mtu = new_mtu;
-	
+
 	return 0;
 }
 
-static void 
+static void
 mhdp_netdev_uninit(struct net_device *dev)
 {
 	dev_put(dev);
 }
 
 
-static void 
+static void
 mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
 {
 	struct sk_buff *skb = tunnel->skb;
@@ -375,7 +375,7 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
 	int i, nb_frags;
 
 	BUG_ON(!tunnel->master_dev);
-	
+
 	if (skb) {
 
 	    mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
@@ -383,41 +383,37 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
 
 		skb->protocol = htons(ETH_P_MHDP);
 		skb->priority = 1;
-		
+
 		skb->dev = tunnel->master_dev;
-		
+
 		skb_reset_network_header(skb);
-		
+
 		skb_push(skb, L2MUX_HDR_SIZE);
 		skb_reset_mac_header(skb);
-		
+
 		l2hdr = l2mux_hdr(skb);
 		l2mux_set_proto(l2hdr, MHI_L3_MHDP_UL);
 		l2mux_set_length(l2hdr, skb->len - L2MUX_HDR_SIZE);
-		
+
 		SKBPRINT(skb, "MHDP: TX");
-		
+
 		tunnel->dev->stats.tx_packets++;
 		tunnel->skb = NULL;
 
-                dev_queue_xmit(skb);
-		
-		for (i=0; i < nb_frags; i++)
-		{
-		    if (tunnel->skb_to_free[i])
-		    {
-		        dev_kfree_skb(tunnel->skb_to_free[i]);
-		    }
-		    else
-		    {
-                       EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
+		dev_queue_xmit(skb);
+
+		for (i = 0; i < nb_frags; i++) {
+		    if (tunnel->skb_to_free[i]) {
+			    dev_kfree_skb(tunnel->skb_to_free[i]);
+		    } else {
+			    EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
 		    }
 		}
-		
+
 	}
 }
 
-static int 
+static int
 mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	skb_frag_t *frag = NULL;
@@ -431,18 +427,17 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	int start = 0;
 	int has_frag = skb_shinfo(skb)->nr_frags;
 	uint32_t packet_count;
-        unsigned char ip_ver;
+	unsigned char ip_ver;
 
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
 		page = frag->page;
 	}
 
-	if (skb_headlen(skb) > L2MUX_HDR_SIZE) {
+	if (skb_headlen(skb) > L2MUX_HDR_SIZE)
 		skb_pull(skb, L2MUX_HDR_SIZE);
-	} else if (has_frag){
+	else if (has_frag)
 		frag->page_offset += L2MUX_HDR_SIZE;
-	}
 
 	packet_count = *((unsigned char *)skb->data);
 
@@ -454,10 +449,10 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 		DPRINTK("mhdp header length: %d, skb_headerlen: %d",
 				mhdp_header_len, skbheadlen);
-		
+
 		mhdpHdr = (struct mhdp_hdr *) kmalloc(mhdp_header_len,
 				GFP_ATOMIC);
-		
+
 		if (skbheadlen == 0) {
 			memcpy((__u8 *)mhdpHdr,	page_address(page) +
 						frag->page_offset,
@@ -465,27 +460,26 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 		} else {
 			memcpy((__u8 *)mhdpHdr, skb->data, skbheadlen);
-			
-			memcpy((__u8 *)mhdpHdr + skbheadlen, 
+
+			memcpy((__u8 *)mhdpHdr + skbheadlen,
 			       page_address(page) +
 			       frag->page_offset,
 			       mhdp_header_len - skbheadlen);
-			
+
 			start = mhdp_header_len - skbheadlen;
 		}
-		
+
 		DPRINTK("page start: %d", start);
 	} else {
 		DPRINTK("skb->data has whole mhdp header");
 		mhdpHdr = (struct mhdp_hdr *)(((__u8 *)skb->data));
 	}
-	
-	DPRINTK("MHDP PACKET COUNT : %d",  mhdpHdr->packet_count);
-	
-	rcu_read_lock();
-	
-	for(i = 0; i < mhdpHdr->packet_count; i++) {
 
+	DPRINTK("MHDP PACKET COUNT : %d",  mhdpHdr->packet_count);
+
+	rcu_read_lock();
+
+	for (i = 0; i < mhdpHdr->packet_count; i++) {
 		DPRINTK(" packet_info[%d] - PDNID:%d, packet_offset: %d, packet_length: %d\n",
 				i, mhdpHdr->info[i].pdn_id,
 				mhdpHdr->info[i].packet_offset,
@@ -495,14 +489,15 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		offset = mhdpHdr->info[i].packet_offset;
 		length = mhdpHdr->info[i].packet_length;
 
-		if(skb_headlen(skb) > (mhdp_header_len + offset)) {
+		if (skb_headlen(skb) > (mhdp_header_len + offset)) {
 
 			newskb = skb_clone(skb, GFP_ATOMIC);
 			if (unlikely(!newskb))
 				goto error;
 
 			skb_pull(newskb, mhdp_header_len + offset);
-      			ip_ver = (u8)*newskb->data;
+
+			ip_ver = (u8)*newskb->data;
 
 		} else if (has_frag) {
 
@@ -512,23 +507,31 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				goto error;
 
 			get_page(page);
-			skb_add_rx_frag(newskb, skb_shinfo(newskb)->nr_frags, page, frag->page_offset + ((mhdp_header_len - skb_headlen(skb)) + offset), length);
-			
-			ip_ver = *( (unsigned long*)page_address(page) + (frag->page_offset + ((mhdp_header_len - skb_headlen(skb)) + offset))); 
-			if ((ip_ver>>4) !=VER_IPv4 && (ip_ver>>4)!=VER_IPv6)
-			{
+			skb_add_rx_frag(newskb,
+				skb_shinfo(newskb)->nr_frags,
+				page,
+				frag->page_offset +
+				((mhdp_header_len - skb_headlen(skb)) + offset),
+				length);
+
+			ip_ver = *((unsigned long *)page_address(page) +
+					(frag->page_offset +
+					((mhdp_header_len - skb_headlen(skb)) +
+					offset)));
+			if ((ip_ver>>4) != VER_IPv4 &&
+				(ip_ver>>4) != VER_IPv6) {
 				goto error;
 			}
-
 		} else {
 			DPRINTK("Error in the data received");
 			goto error;
 		}
 
 		skb_reset_network_header(newskb);
-		
-      /* IPv6 Support - Check the IP version and set ETH_P_IP or ETH_P_IPv6 for received packets */
-      newskb->protocol = htons(ETH_IP_TYPE(ip_ver));
+      /* IPv6 Support - Check the IP version */
+	  /* and set ETH_P_IP or ETH_P_IPv6 for received packets */
+
+		newskb->protocol = htons(ETH_IP_TYPE(ip_ver));
 
 		newskb->pkt_type = PACKET_HOST;
 
@@ -556,7 +559,7 @@ error:
 
 static void tx_timer_timeout(unsigned long arg)
 {
-    struct mhdp_tunnel *tunnel= (struct mhdp_tunnel *) arg;
+    struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
 
     spin_lock(&tunnel->timer_lock);
 
@@ -566,7 +569,7 @@ static void tx_timer_timeout(unsigned long arg)
 }
 
 
-static int 
+static int
 mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct mhdp_hdr *mhdpHdr;
@@ -580,127 +583,121 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	SKBPRINT(skb, "SKB: TX");
 
-        if (timer_pending(&tunnel->tx_timer))
-	{
-	   del_timer(&tunnel->tx_timer);
-        }
+	if (timer_pending(&tunnel->tx_timer)) {
+		del_timer(&tunnel->tx_timer);
+	}
 
-#if 0        
+#if 0
 	{
 	    int i;
 	    int len = skb->len;
 	    u8 *ptr = skb->data;
-	    
-		for (i=0; i<len; i++) 
-		{
+
+		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
 				printk("MHDP mhdp_netdev_xmit : TX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
-			if (i%8 == 7 || i == len-1) 
+			if (i%8 == 7 || i == len-1)
 				printk("\n");
 		}
 	}
-#endif    	        
-	
+#endif
+
 		if (tunnel->skb == NULL) {
 			tunnel->skb = netdev_alloc_skb(dev,
 				L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
 
-			if (!tunnel->skb)
-			{
-			    EPRINTK("mhdp_netdev_xmit error1");
-			    BUG();
-			}
-
-			/* Place holder for the mhdp packet count */
-			len = skb_headroom(tunnel->skb) - L2MUX_HDR_SIZE;
-
-			skb_push(tunnel->skb, len);
-			len -= 4;
-
-			memset(tunnel->skb->data, 0, len);
-
-			/*
-			 * Need to replace following logic, with something better like
-			 * __pskb_pull_tail or pskb_may_pull(tunnel->skb, len);
-			 */
-			{
-				tunnel->skb->tail -= len;
-				tunnel->skb->len  -= len;
-			}
-		
-		
-		        mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
-		        mhdpHdr->packet_count = 0;
+		if (!tunnel->skb) {
+			EPRINTK("mhdp_netdev_xmit error1");
+			BUG();
 		}
+
+		/* Place holder for the mhdp packet count */
+		len = skb_headroom(tunnel->skb) - L2MUX_HDR_SIZE;
+
+		skb_push(tunnel->skb, len);
+		len -= 4;
+
+		memset(tunnel->skb->data, 0, len);
 
 		/*
-		 * skb_put cannot be called as the (data_len != 0)
+		 * Need to replace following logic, with something better like
+		 * __pskb_pull_tail or pskb_may_pull(tunnel->skb, len);
 		 */
 		{
-			tunnel->skb->tail += sizeof(struct packet_info);
-			tunnel->skb->len  += sizeof(struct packet_info);
-
-			DPRINTK("new - skb->tail:%lu skb->end:%lu skb->data_len:%lu",
-					(unsigned long)tunnel->skb->tail,
-					(unsigned long)tunnel->skb->end,
-					(unsigned long)tunnel->skb->data_len);
+			tunnel->skb->tail -= len;
+			tunnel->skb->len  -= len;
 		}
+
 
 		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
+		mhdpHdr->packet_count = 0;
+	}
 
-	        tunnel->skb_to_free[mhdpHdr->packet_count] = skb;
+	/*
+	 * skb_put cannot be called as the (data_len != 0)
+	 */
+	{
+		tunnel->skb->tail += sizeof(struct packet_info);
+		tunnel->skb->len  += sizeof(struct packet_info);
 
-		packet_count = mhdpHdr->packet_count;
-		mhdpHdr->info[packet_count].pdn_id = tunnel->pdn_id;
-		if (packet_count == 0) {
-			mhdpHdr->info[packet_count].packet_offset = 0;
-		} else {
-			mhdpHdr->info[packet_count].packet_offset =
-				mhdpHdr->info[packet_count - 1].packet_offset +
-				mhdpHdr->info[packet_count - 1].packet_length;
-		}
+		DPRINTK("new - skb->tail:%lu skb->end:%lu skb->data_len:%lu",
+				(unsigned long)tunnel->skb->tail,
+				(unsigned long)tunnel->skb->end,
+				(unsigned long)tunnel->skb->data_len);
+	}
 
-		mhdpHdr->info[packet_count].packet_length = skb->len;
-		mhdpHdr->packet_count++;
+	mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 
-		page = virt_to_page(skb->data);
+	tunnel->skb_to_free[mhdpHdr->packet_count] = skb;
 
-	        if (page == NULL) {
-		   EPRINTK("kmap_atomic_to_page returns NULL");
-		   goto tx_error;
-	        }
+	packet_count = mhdpHdr->packet_count;
+	mhdpHdr->info[packet_count].pdn_id = tunnel->pdn_id;
+	if (packet_count == 0) {
+		mhdpHdr->info[packet_count].packet_offset = 0;
+	} else {
+		mhdpHdr->info[packet_count].packet_offset =
+			mhdpHdr->info[packet_count - 1].packet_offset +
+			mhdpHdr->info[packet_count - 1].packet_length;
+	}
 
-		get_page(page);
+	mhdpHdr->info[packet_count].packet_length = skb->len;
+	mhdpHdr->packet_count++;
 
-		offset = ((unsigned long)skb->data -
-			  (unsigned long)page_address(page));
+	page = virt_to_page(skb->data);
 
-		skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-				page, offset, skb_headlen(skb));
+	if (page == NULL) {
+		EPRINTK("kmap_atomic_to_page returns NULL");
+		goto tx_error;
+	}
 
-		if (skb_shinfo(skb)->nr_frags) {
-			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-				skb_frag_t *frag = &skb_shinfo(tunnel->skb)->frags[i];
-				get_page(frag->page);
-				skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
+	get_page(page);
+
+	offset = ((unsigned long)skb->data -
+			(unsigned long)page_address(page));
+
+	skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
+			page, offset, skb_headlen(skb));
+
+	if (skb_shinfo(skb)->nr_frags) {
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			skb_frag_t *frag = &skb_shinfo(tunnel->skb)->frags[i];
+			get_page(frag->page);
+			skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
 					frag->page, frag->page_offset, frag->size);
-			}
 		}
+	}
 
-		if (mhdpHdr->packet_count == MAX_MHDPHDR_SIZE)
-                {
-			mhdp_submit_queued_skb(tunnel);
-                }
-                else
-                {
-	           tunnel->tx_timer.function = &tx_timer_timeout;
-	           tunnel->tx_timer.data     = (unsigned long) tunnel;
-	           tunnel->tx_timer.expires = jiffies + ((HZ + 999) / 1000);
-	           add_timer(&tunnel->tx_timer);
-	        } 
+	if (mhdpHdr->packet_count == MAX_MHDPHDR_SIZE) {
+		mhdp_submit_queued_skb(tunnel);
+	} else {
+		tunnel->tx_timer.function = &tx_timer_timeout;
+		tunnel->tx_timer.data     = (unsigned long) tunnel;
+		tunnel->tx_timer.expires = jiffies + ((HZ + 999) / 1000);
+		add_timer(&tunnel->tx_timer);
+	}
 
-        spin_unlock(&tunnel->timer_lock);
+	spin_unlock(&tunnel->timer_lock);
 	return NETDEV_TX_OK;
 
 tx_error:
@@ -711,7 +708,7 @@ tx_error:
 }
 
 
-static int 
+static int
 mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
 	struct net_device *event_dev = (struct net_device *)ptr;
@@ -719,38 +716,35 @@ mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 	DPRINTK("event_dev: %s, event: %lx\n",
 		event_dev ? event_dev->name : "None", event);
 
-	switch(event)
-	{
-	    case NETDEV_UNREGISTER: 
+	switch (event) {
+	case NETDEV_UNREGISTER:
 	    {
-		    struct mhdp_net *mhdpn = mhdp_net_dev(event_dev);
-		    struct mhdp_tunnel *iter, *prev;
-		    
-		    DPRINTK("event_dev: %s, event: %lx\n",
-			    event_dev ? event_dev->name : "None", event);
-		    
-		    for ( iter = mhdpn->tunnels, prev = NULL;
-			  iter;
-			  prev = iter, iter = iter->next ) 
-		    {
-			    if (event_dev == iter->master_dev) {
-				    if (!prev)
-					    mhdpn->tunnels = mhdpn->tunnels->next;
-				    else
-					    prev->next = iter->next;
-				    
-				    mhdp_tunnel_destroy(iter->dev);
-			    }
-		    }
-	    }
-	    break;
+		struct mhdp_net *mhdpn = mhdp_net_dev(event_dev);
+		struct mhdp_tunnel *iter, *prev;
+
+		DPRINTK("event_dev: %s, event: %lx\n",
+		    event_dev ? event_dev->name : "None", event);
+
+		for (iter = mhdpn->tunnels, prev = NULL;
+			iter;
+			prev = iter, iter = iter->next) {
+				if (event_dev == iter->master_dev) {
+					if (!prev)
+						mhdpn->tunnels =
+							mhdpn->tunnels->next;
+				else
+					prev->next = iter->next;
+					mhdp_tunnel_destroy(iter->dev);
+				}
+			}
+		}
+		break;
 	}
-	
+
 	return NOTIFY_DONE;
 }
 
-static const struct net_device_ops mhdp_netdev_ops = 
-{
+static const struct net_device_ops mhdp_netdev_ops = {
 	.ndo_uninit	= mhdp_netdev_uninit,
 	.ndo_start_xmit	= mhdp_netdev_xmit,
 	.ndo_do_ioctl	= mhdp_netdev_ioctl,
@@ -759,16 +753,16 @@ static const struct net_device_ops mhdp_netdev_ops =
 
 static void mhdp_netdev_setup(struct net_device *dev)
 {
-	dev->netdev_ops		= &mhdp_netdev_ops;
-	dev->destructor		= free_netdev;
+	dev->netdev_ops	= &mhdp_netdev_ops;
+	dev->destructor	= free_netdev;
 
 	dev->type		= ARPHRD_TUNNEL;
-	dev->hard_header_len 	= L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr);
+	dev->hard_header_len	= L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr);
 	dev->mtu		= ETH_DATA_LEN;
 	dev->flags		= IFF_NOARP;
 	dev->iflink		= 0;
-	dev->addr_len		= 4;
-	dev->features	       |= ( NETIF_F_NETNS_LOCAL | NETIF_F_FRAGLIST );
+	dev->addr_len	= 4;
+	dev->features	|= (NETIF_F_NETNS_LOCAL | NETIF_F_FRAGLIST);
 }
 
 static int __net_init mhdp_init_net(struct net *net)
@@ -777,38 +771,37 @@ static int __net_init mhdp_init_net(struct net *net)
 	int err;
 
 	mhdpn->tunnels = NULL;
-	
+
 	mhdpn->ctl_dev = alloc_netdev(sizeof(struct mhdp_tunnel),
 				      MHDP_CTL_IFNAME,
 				      mhdp_netdev_setup);
 	if (!mhdpn->ctl_dev)
 		return -ENOMEM;
-	
+
 	dev_net_set(mhdpn->ctl_dev, net);
 	dev_hold(mhdpn->ctl_dev);
-	
+
 	err = register_netdev(mhdpn->ctl_dev);
 	if (err) {
 		printk(KERN_ERR MHDP_CTL_IFNAME " register failed");
 		free_netdev(mhdpn->ctl_dev);
 		return err;
 	}
-	
+
 	return 0;
 }
 
 static void __net_exit mhdp_exit_net(struct net *net)
 {
 	struct mhdp_net *mhdpn = net_generic(net, mhdp_net_id);
-	
+
 	rtnl_lock();
 	mhdp_destroy_tunnels(mhdpn);
 	unregister_netdevice(mhdpn->ctl_dev);
 	rtnl_unlock();
 }
 
-static struct pernet_operations mhdp_net_ops = 
-{
+static struct pernet_operations mhdp_net_ops = {
 	.init = mhdp_init_net,
 	.exit = mhdp_exit_net,
 	.id   = &mhdp_net_id,
@@ -856,4 +849,3 @@ module_exit(mhdp_exit);
 MODULE_AUTHOR("Sugnan Prabhu S <sugnan.prabhu@renesasmobile.com>");
 MODULE_DESCRIPTION("Modem Host Data Protocol for MHI");
 MODULE_LICENSE("GPL");
-
