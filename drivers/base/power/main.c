@@ -975,9 +975,9 @@ static int device_suspend(struct device *dev)
 	return __device_suspend(dev, pm_transition, false);
 }
 
-#ifdef CONFIG_PM_TEST
+#ifdef CONFIG_PM_DEBUG
 	extern int ignore_wakelock;
-#endif /* CONFIG_PM_TEST */
+#endif
 /**
  * dpm_suspend - Execute "suspend" callbacks for all non-sysdev devices.
  * @state: PM transition of the system being carried out.
@@ -1013,13 +1013,13 @@ int dpm_suspend(pm_message_t state)
 			break;
 #ifdef CONFIG_MACH_U2EVM
 		error = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
-#ifndef CONFIG_PM_TEST
+#ifndef CONFIG_PM_DEBUG
 		if (error)
 			break;
-#else /* CONFIG_PM_TEST is defined */
+#else /* CONFIG_PM_DEBUG is defined */
 		if (error && (ignore_wakelock == 0))
 			break;
-#endif /* CONFIG_PM_TEST */
+#endif /* CONFIG_PM_DEBUG */
 #endif /* CONFIG_MACH_U2EVM */
 	}
 	mutex_unlock(&dpm_list_mtx);

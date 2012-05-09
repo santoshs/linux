@@ -1,4 +1,4 @@
-/*
+/* 
  * arch/arm/mach-shmobile/ramdefrag/ram_defrag_internal.h
  *
  * Copyright (C) 2012 Renesas Mobile Corporation
@@ -18,7 +18,7 @@
  * MA  02110-1301, USA.
  */
 
-/* Internal declaration of RAM defragmentation */
+/* Internal declaration of RAM defragmentation (global variable, prototype, etc.) */
 #ifndef __ARCH_RAM_DEFRAG_INTERNAL_H__
 #define __ARCH_RAM_DEFRAG_INTERNAL_H__
 

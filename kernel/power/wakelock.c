@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2005-2008 Google, Inc.
  * Copyright (C) 2012 Renesas Mobile Corporation
- *
+ * 
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -277,7 +277,7 @@ int has_wake_lock_no_expire(int type)
 	unsigned long irqflags;
 
 	BUG_ON(type >= WAKE_LOCK_TYPE_COUNT);
-
+	
 	spin_lock_irqsave(&list_lock, irqflags);
 	if (!list_empty(&active_wake_locks[type]))
 		locked = 1;

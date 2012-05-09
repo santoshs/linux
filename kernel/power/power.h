@@ -190,6 +190,16 @@ static inline int enter_state(suspend_state_t state) { return -ENOSYS; }
 static inline bool valid_state(suspend_state_t state) { return false; }
 #endif /* !CONFIG_SUSPEND */
 
+#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_PM_DEBUG
+/* kernel/power/pm_test.c */
+extern void suspend_test_start(void);
+extern void suspend_test_finish(const char *label);
+#else /* !CONFIG_PM_DEBUG */
+static inline void suspend_test_start(void) {}
+static inline void suspend_test_finish(const char *label) {}
+#endif /* CONFIG_PM_DEBUG */
+#else /* !CONFIG_MACH_U2EVM */
 #ifdef CONFIG_PM_TEST_SUSPEND
 /* kernel/power/suspend_test.c */
 extern void suspend_test_start(void);
@@ -198,7 +208,7 @@ extern void suspend_test_finish(const char *label);
 static inline void suspend_test_start(void) {}
 static inline void suspend_test_finish(const char *label) {}
 #endif /* !CONFIG_PM_TEST_SUSPEND */
-
+#endif /* CONFIG_MACH_U2EVM */
 
 #ifdef CONFIG_PM_SLEEP
 /* kernel/power/main.c */

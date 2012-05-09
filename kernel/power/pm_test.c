@@ -1,42 +1,197 @@
 /*
  * kernel/power/pm_test.c
+ * (Based on kernel/power/suspend_test.c)
  *
+ * Copyright (c) 2009 Pavel Machek <pavel@ucw.cz>
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
+ * This file is released under the GPLv2.
  */
 
 #include "power.h"
-#include <linux/module.h>
 
+#ifdef CONFIG_MACH_U2EVM
+#include <linux/module.h>
+#endif
+
+#define TEST_SUSPEND_SECONDS	10
+
+static unsigned long suspend_test_start_time;
+
+#ifdef CONFIG_MACH_U2EVM
 /* 
  * Offer files to turn on/off below functions
- *   Serial console 
- *     0: no_console_suspend, 1:console_suspend
- *   Wakelock checking 
- *     0: don't ignore wakelocks, 1: ignore wakelocks
- *   Call late resume immediately after resume
- *     0: don't call late resume
- *     1: call late resume
- *   Set wait time before resuming (ms)
+ *   Serial console
+ *   Wakelock checking
  */
 extern int console_suspend_enabled;
 int ignore_wakelock;
 EXPORT_SYMBOL(ignore_wakelock);
-int for_kernel_test;
-EXPORT_SYMBOL(for_kernel_test);
-int wait_time;
-EXPORT_SYMBOL(wait_time);
 
-/* Initialize */
-ignore_wakelock = 0;
-for_kernel_test = 0;
-wait_time = 5;		/* default is 5ms */
+module_param_named(no_console_suspend, console_suspend_enabled, int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(ignore_wakelocks, ignore_wakelock, int, S_IRUGO | S_IWUSR | S_IWGRP);
+#endif
 
-module_param_named(console_suspend, console_suspend_enabled, int, \
-					S_IRUGO | S_IWUSR | S_IWGRP);
-module_param_named(ignore_wakelocks, ignore_wakelock, int, \
-					S_IRUGO | S_IWUSR | S_IWGRP);
-module_param_named(for_kernel_test, for_kernel_test, int, \
-					S_IRUGO | S_IWUSR | S_IWGRP);
-module_param_named(wait_time, wait_time, int, \
-					S_IRUGO | S_IWUSR | S_IWGRP);
+void suspend_test_start(void)
+{
+	suspend_test_start_time = jiffies;
+}
+
+void suspend_test_finish(const char *label)
+{
+	long nj = jiffies - suspend_test_start_time;
+	unsigned msec;
+
+	msec = jiffies_to_msecs(abs(nj));
+	pr_info("PM: %s took %d.%03d seconds\n", label,
+			msec / 1000, msec % 1000);
+
+	/* Warning on suspend means the RTC alarm period needs to be
+	 * larger -- the system was sooo slooowwww to suspend that the
+	 * alarm (should have) fired before the system went to sleep!
+	 *
+	 * Warning on either suspend or resume also means the system
+	 * has some performance issues.  The stack dump of a WARN_ON
+	 * is more likely to get the right attention than a printk...
+	 */
+	WARN(msec > (TEST_SUSPEND_SECONDS * 1000),
+	     "Component: %s, time: %u\n", label, msec);
+}
+
+
+#ifndef CONFIG_MACH_U2EVM
+/*
+ * To test system suspend, we need a hands-off mechanism to resume the
+ * system.  RTCs wake alarms are a common self-contained mechanism.
+ */
+
+static void __init test_wakealarm(struct rtc_device *rtc, suspend_state_t state)
+{
+	static char err_readtime[] __initdata =
+		KERN_ERR "PM: can't read %s time, err %d\n";
+	static char err_wakealarm [] __initdata =
+		KERN_ERR "PM: can't set %s wakealarm, err %d\n";
+	static char err_suspend[] __initdata =
+		KERN_ERR "PM: suspend test failed, error %d\n";
+	static char info_test[] __initdata =
+		KERN_INFO "PM: test RTC wakeup from '%s' suspend\n";
+
+	unsigned long		now;
+	struct rtc_wkalrm	alm;
+	int			status;
+
+	/* this may fail if the RTC hasn't been initialized */
+	status = rtc_read_time(rtc, &alm.time);
+	if (status < 0) {
+		printk(err_readtime, dev_name(&rtc->dev), status);
+		return;
+	}
+	rtc_tm_to_time(&alm.time, &now);
+
+	memset(&alm, 0, sizeof alm);
+	rtc_time_to_tm(now + TEST_SUSPEND_SECONDS, &alm.time);
+	alm.enabled = true;
+
+	status = rtc_set_alarm(rtc, &alm);
+	if (status < 0) {
+		printk(err_wakealarm, dev_name(&rtc->dev), status);
+		return;
+	}
+
+	if (state == PM_SUSPEND_MEM) {
+		printk(info_test, pm_states[state]);
+		status = pm_suspend(state);
+		if (status == -ENODEV)
+			state = PM_SUSPEND_STANDBY;
+	}
+	if (state == PM_SUSPEND_STANDBY) {
+		printk(info_test, pm_states[state]);
+		status = pm_suspend(state);
+	}
+	if (status < 0)
+		printk(err_suspend, status);
+
+	/* Some platforms can't detect that the alarm triggered the
+	 * wakeup, or (accordingly) disable it after it afterwards.
+	 * It's supposed to give oneshot behavior; cope.
+	 */
+	alm.enabled = false;
+	rtc_set_alarm(rtc, &alm);
+}
+
+static int __init has_wakealarm(struct device *dev, void *name_ptr)
+{
+	struct rtc_device *candidate = to_rtc_device(dev);
+
+	if (!candidate->ops->set_alarm)
+		return 0;
+	if (!device_may_wakeup(candidate->dev.parent))
+		return 0;
+
+	*(const char **)name_ptr = dev_name(dev);
+	return 1;
+}
+
+/*
+ * Kernel options like "test_suspend=mem" force suspend/resume sanity tests
+ * at startup time.  They're normally disabled, for faster boot and because
+ * we can't know which states really work on this particular system.
+ */
+static suspend_state_t test_state __initdata = PM_SUSPEND_ON;
+
+static char warn_bad_state[] __initdata =
+	KERN_WARNING "PM: can't test '%s' suspend state\n";
+
+static int __init setup_test_suspend(char *value)
+{
+	unsigned i;
+
+	/* "=mem" ==> "mem" */
+	value++;
+	for (i = 0; i < PM_SUSPEND_MAX; i++) {
+		if (!pm_states[i])
+			continue;
+		if (strcmp(pm_states[i], value) != 0)
+			continue;
+		test_state = (__force suspend_state_t) i;
+		return 0;
+	}
+	printk(warn_bad_state, value);
+	return 0;
+}
+__setup("test_suspend", setup_test_suspend);
+
+static int __init test_suspend(void)
+{
+	static char		warn_no_rtc[] __initdata =
+		KERN_WARNING "PM: no wakealarm-capable RTC driver is ready\n";
+
+	char			*pony = NULL;
+	struct rtc_device	*rtc = NULL;
+
+	/* PM is initialized by now; is that state testable? */
+	if (test_state == PM_SUSPEND_ON)
+		goto done;
+	if (!valid_state(test_state)) {
+		printk(warn_bad_state, pm_states[test_state]);
+		goto done;
+	}
+
+	/* RTCs have initialized by now too ... can we use one? */
+	class_find_device(rtc_class, NULL, &pony, has_wakealarm);
+	if (pony)
+		rtc = rtc_class_open(pony);
+	if (!rtc) {
+		printk(warn_no_rtc);
+		goto done;
+	}
+
+	/* go for it */
+	test_wakealarm(rtc, test_state);
+	rtc_class_close(rtc);
+done:
+	return 0;
+}
+late_initcall(test_suspend);
+#endif /* CONFIG_MACH_U2EVM */
+

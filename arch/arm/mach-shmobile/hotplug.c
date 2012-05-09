@@ -33,9 +33,9 @@ void platform_cpu_die(unsigned int cpu)
 #ifdef CONFIG_MACH_U2EVM
 
 #ifdef CONFIG_SUSPEND
-	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM) {
-		/*
-		 * cpu state is "shutdown mode" will transition
+	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM ) {
+		/* 
+		 * cpu state is "shutdown mode" will transition 
 		 * in this function.
 		 */
 		jump_systemsuspend();

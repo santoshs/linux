@@ -301,9 +301,3 @@ config SUSPEND_TIME
 	  Prints the time spent in suspend in the kernel log, and
 	  keeps statistics on the time spent in suspend in
 	  /sys/kernel/debug/suspend_time
-	  
-config PM_TEST
-	bool "Addition test features for suspend/resume"
-	depends on SUSPEND
-	select PM_DEBUG
-	select WAKELOCK_STAT

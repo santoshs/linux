@@ -98,9 +98,8 @@ static void early_suspend(struct work_struct *work)
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
 		if (pos->suspend != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
-				pr_info("early_suspend: calling %pf\n",
-							pos->suspend);
-				pos->suspend(pos);
+				pr_info("early_suspend: calling %pf\n", pos->suspend);
+			pos->suspend(pos);
 		}
 	}
 	mutex_unlock(&early_suspend_lock);
@@ -140,9 +139,9 @@ static void late_resume(struct work_struct *work)
 	list_for_each_entry_reverse(pos, &early_suspend_handlers, link) {
 		if (pos->resume != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
-				pr_info("late_resume: calling %pf\n",
-						pos->resume);
-				pos->resume(pos);
+				pr_info("late_resume: calling %pf\n", pos->resume);
+
+			pos->resume(pos);
 		}
 	}
 	if (debug_mask & DEBUG_SUSPEND)
@@ -158,7 +157,7 @@ void request_suspend_state(suspend_state_t new_state)
 	int ret;
 	suspend_state_t update_state;
 
-	/* mutex_lock(&early_suspend_lock); */
+	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
 	update_state = requested_suspend_state;
 	old_sleep = state & SUSPEND_REQUESTED_AND_SUSPENDED;
@@ -182,9 +181,8 @@ void request_suspend_state(suspend_state_t new_state)
 			state |= SUSPEND_REQUESTED;
 			update_state = new_state;
 		}
-	} else if (((state & SUSPEND_REQUESTED_AND_SUSPENDED)
-				== SUSPEND_REQUESTED_AND_SUSPENDED)
-				&& new_state == PM_SUSPEND_ON){
+	} else if (((state & SUSPEND_REQUESTED_AND_SUSPENDED) == SUSPEND_REQUESTED_AND_SUSPENDED) 
+				&& new_state == PM_SUSPEND_ON) {
 		wake_lock(&main_wake_lock);
 		ret = queue_work(suspend_work_queue, &late_resume_work);
 		if (ret) {
@@ -197,7 +195,7 @@ void request_suspend_state(suspend_state_t new_state)
 	}
 	requested_suspend_state = update_state;
 	spin_unlock_irqrestore(&state_lock, irqflags);
-	/* mutex_unlock(&early_suspend_lock); */
+	mutex_unlock(&early_suspend_lock);
 }
 
 suspend_state_t get_suspend_state(void)
