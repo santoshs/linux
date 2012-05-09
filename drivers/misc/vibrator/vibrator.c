@@ -63,6 +63,7 @@ extern int pcm2pwm_enable(enum pcm2pwm_request_state state, const void *src,
 							unsigned int data_sz, u16 cnt);
 #endif /* !defined(VIB_PCM2PWM */
 
+
 static int __init init_vibrator(void);
 extern void vibrator_enable(struct timed_output_dev *sdev, int timeout);
 static int vib_get_time(struct timed_output_dev *sdev);
@@ -190,9 +191,9 @@ extern void vibrator_enable(struct timed_output_dev *sdev, int timeout)
 			request->object_request = USER_TURN_ON;
 		}
 		request->timeout = timeout;
+		INIT_WORK(&request->work, vibrator_work_func);
 		spin_lock_irqsave(&vibrator_spinlock, flags);
 		list_add_tail(&request->node, &vibrator_list_head);
-		INIT_WORK(&request->work, vibrator_work_func);
 		queue_work(vibrator_single_workqueue, &request->work);
 		spin_unlock_irqrestore(&vibrator_spinlock, flags);
 	} else {
@@ -290,6 +291,7 @@ static void vibrator_work_func(struct work_struct *work)
 
 			spin_lock(&vibrator_spinlock);
 			vib_state = VIBRATE;
+
 			/* vibrate in timeout */
 			hrtimer_start(&vib_timer, ktime_set(vib_duration / 1000,
 								(vib_duration % 1000) * 1000000),
@@ -318,11 +320,12 @@ static void vibrator_work_func(struct work_struct *work)
 			tpu_handle = NULL;
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_OFF;
+			spin_unlock(&vibrator_spinlock);
 			/* start hrtimer for 40ms */
 			hrtimer_start(&vib_timer, ktime_set(VIB_OVERDRV_TIME / 1000,
 								(VIB_OVERDRV_TIME % 1000) * 1000000),
 								HRTIMER_MODE_REL);
-			spin_unlock(&vibrator_spinlock);
+
 		} else if ((TURN_OFF == vib_state)
 					&& (NO_VIBRATE == request->request_state)) {
 			spin_lock(&vibrator_spinlock);
@@ -339,30 +342,22 @@ static void vibrator_work_func(struct work_struct *work)
 				request_on->timeout = vib_duration;
 				list_add_tail(&request_on->node, &vibrator_list_head);
 				/* send request to bottom-half */
-				INIT_WORK(&request->work, vibrator_work_func);
-				queue_work(vibrator_single_workqueue, &request->work);
+				INIT_WORK(&request_on->work, vibrator_work_func);
+				queue_work(vibrator_single_workqueue, &request_on->work);
 			}
 			vib_state = NO_VIBRATE;
+			spin_unlock(&vibrator_spinlock);
 
 			ret = gpio_direction_output(GPIO_PORT226, LOW);
 			if (ret) {
 				printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_func(): gpio_direction_output is failed\n");
-				spin_unlock(&vibrator_spinlock);
 				return;
 			}
-
-			spin_unlock(&vibrator_spinlock);
 		}
 	} else if (USER_TURN_ON == request->object_request) {
 		/* User request to turn ON*/
 		if (NO_VIBRATE == vib_state) {
 			hrtimer_cancel(&vib_timer);
-
-			ret = gpio_direction_output(GPIO_PORT226, HIGH);
-			if (ret) {
-				printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_func(): gpio_direction_output is failed\n");
-				return;
-			}
 
 			ret = tpu_pwm_open(TPU_CHANNEL, CLK_SOURCE_CP, &tpu_handle);
 			if (ret) {
@@ -381,13 +376,18 @@ static void vibrator_work_func(struct work_struct *work)
 				return;
 			}
 
+			ret = gpio_direction_output(GPIO_PORT226, HIGH);
+			if (ret) {
+				printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_func(): gpio_direction_output is failed\n");
+				return;
+			}
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_ON;
 			vib_duration = request->timeout;
+			spin_unlock(&vibrator_spinlock);
 			hrtimer_start(&vib_timer, ktime_set(VIB_OVERDRV_TIME / 1000,
 							(VIB_OVERDRV_TIME % 1000) * 1000000),
 							HRTIMER_MODE_REL);
-			spin_unlock(&vibrator_spinlock);
 		}
 	} else if (USER_TURN_OFF == request->object_request) {
 		/* User request to turn off */
@@ -415,10 +415,10 @@ static void vibrator_work_func(struct work_struct *work)
 
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_OFF;
+			spin_unlock(&vibrator_spinlock);
 			hrtimer_start(&vib_timer, ktime_set(VIB_OVERDRV_TIME / 1000,
 							(VIB_OVERDRV_TIME % 1000) * 1000000),
 							HRTIMER_MODE_REL);
-			spin_unlock(&vibrator_spinlock);
 		}
 	}
 	kfree(request);
@@ -463,6 +463,7 @@ static void vibrator_work_func(struct work_struct *work)
 			}
 			spin_lock(&vibrator_spinlock);
 			vib_state = VIBRATE;
+
 			/* vibrate in timeout */
 			hrtimer_start(&vib_timer, ktime_set(vib_duration / 1000,
 								(vib_duration % 1000) * 1000000),
@@ -491,11 +492,12 @@ static void vibrator_work_func(struct work_struct *work)
 			tpu_handle = NULL;
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_OFF;
+			spin_unlock(&vibrator_spinlock);
 			/* start hrtimer for 40ms */
 			hrtimer_start(&vib_timer, ktime_set(VIB_OVERDRV_TIME / 1000,
 							(VIB_OVERDRV_TIME % 1000) * 1000000),
 							HRTIMER_MODE_REL);
-			spin_unlock(&vibrator_spinlock);
+
 		} else if ((TURN_OFF == vib_state)
 					&& (NO_VIBRATE == request->request_state)) {
 			spin_lock(&vibrator_spinlock);
@@ -516,13 +518,14 @@ static void vibrator_work_func(struct work_struct *work)
 			}
 
 			vib_state = NO_VIBRATE;
+			spin_unlock(&vibrator_spinlock);
+			
 			ret = gpio_direction_output(GPIO_PORT226, LOW);
 			if (ret) {
 				printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_func(): gpio_direction_output is failed\n");
 				return;
 			}
 
-			spin_unlock(&vibrator_spinlock);
 		} else {
 			printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_func(): hrtimer request in error vib_state = %d\n", vib_state);
 		}
@@ -559,11 +562,10 @@ static void vibrator_work_func(struct work_struct *work)
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_ON;
 			vib_duration = request->timeout;
+			spin_unlock(&vibrator_spinlock);
 			hrtimer_start(&vib_timer, ktime_set(VIB_OVERDRV_TIME / 1000,
 							(VIB_OVERDRV_TIME % 1000) * 1000000),
 							HRTIMER_MODE_REL);
-
-			spin_unlock(&vibrator_spinlock);
 		}
 	} else if (USER_TURN_OFF == request->object_request) {
 		/* user request to turn off */
@@ -594,12 +596,12 @@ static void vibrator_work_func(struct work_struct *work)
 
 			spin_lock(&vibrator_spinlock);
 			vib_state = TURN_OFF;
+			spin_unlock(&vibrator_spinlock);
+
 			hrtimer_start(&vib_timer,
 							ktime_set(VIB_OVERDRV_TIME / 1000,
 							(VIB_OVERDRV_TIME % 1000) * 1000000),
 							HRTIMER_MODE_REL);
-
-			spin_unlock(&vibrator_spinlock);
 		}
 	}
 	kfree(request);
@@ -715,6 +717,7 @@ static void vibrator_work_turn_on(struct work_struct *work)
 			return;
 		}
 
+
 		ret = gpio_direction_output(GPIO_PORT226, HIGH);
 		if (ret) {
 			printk(KERN_ERR "[VIBRATOR ERR] vibrator_work_turn_on(): gpio_direction_output GPIO_PORT226 error\n");
@@ -801,6 +804,7 @@ extern void vibrator_enable(struct timed_output_dev *sdev, int timeout)
 						(timeout % 1000) * 1000000), HRTIMER_MODE_REL);
 	}
 }
+
 
 /*
 * init_vibrator: init vibrator driver
