@@ -11,6 +11,8 @@
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 
+static bool is_es20(void);
+
 static struct sh_timer_clock cmt1_cks_table[] = {
 	[0] = CKS("cp_clk", 8),
 	[1] = CKS("cp_clk", 32),
@@ -321,7 +323,7 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 };
 
-static struct resource i2c5_resources[] = {
+static struct resource i2c5_resources_es10[] = {
 	[0] = {
 		.name	= "IIC5",
 		.start	= 0xe682a000,
@@ -329,18 +331,32 @@ static struct resource i2c5_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-#ifdef CONFIG_U2_ES1
+
 	// This was swapped in ES1 (189 is for I2CB interrupt!)
 		.start	= gic_spi(190),
 		.end	= gic_spi(190),
-#else
-	// In ES2, 189 is for I2C5 and 190 for I2CB.
-		.start	= gic_spi(189),
-		.end	= gic_spi(189),
-#endif
+
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+
+static struct resource i2c5_resources_es20[] = {
+	[0] = {
+		.name	= "IIC5",
+		.start	= 0xe682a000,
+		.end	= 0xe682a425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+	// In ES2, 189 is for I2C5 and 190 for I2CB.
+		.start	= gic_spi(189),
+		.end	= gic_spi(189),
+
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+
 
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.bus_speed	= 400000,
@@ -400,11 +416,21 @@ static struct platform_device i2c4_device = {
 	},
 };
 
-static struct platform_device i2c5_device = {
+static struct platform_device i2c5_device_es10 = {
 	.name		= "i2c-sh_mobile",
 	.id		= 5,
-	.resource	= i2c5_resources,
-	.num_resources	= ARRAY_SIZE(i2c5_resources),
+	.resource	= i2c5_resources_es10,
+	.num_resources	= ARRAY_SIZE(i2c5_resources_es10),
+	.dev		= {
+		.platform_data	= &i2c5_platform_data,
+	},
+};
+
+static struct platform_device i2c5_device_es20 = {
+	.name		= "i2c-sh_mobile",
+	.id		= 5,
+	.resource	= i2c5_resources_es20,
+	.num_resources	= ARRAY_SIZE(i2c5_resources_es20),
 	.dev		= {
 		.platform_data	= &i2c5_platform_data,
 	},
@@ -714,7 +740,7 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c1_device,
 	&i2c2_device,
 	&i2c4_device,
-	&i2c5_device,
+	/*&i2c5_device,*/
 	&i2c6_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
@@ -723,15 +749,52 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 #endif
 };
 
+// HS-- ES10 Specific late devices
+static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
+	&i2c5_device_es10,
+};
+
+// HS-- ES20 Specific late devices
+static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
+	&i2c5_device_es20,
+};
+
 void __init r8a73734_add_standard_devices(void)
 {
 	platform_add_devices(r8a73734_early_devices,
 			ARRAY_SIZE(r8a73734_early_devices));
 	platform_add_devices(r8a73734_late_devices,
 			ARRAY_SIZE(r8a73734_late_devices));
+
+	if( is_es20() )
+	{
+		printk("Loading ES20 late devices...\n");
+		platform_add_devices(r8a73734_late_devices_es20,
+			ARRAY_SIZE(r8a73734_late_devices_es20));
+	}
+	else
+	{
+		printk("Loading ES10 late devices...\n");
+		platform_add_devices(r8a73734_late_devices_es10,
+			ARRAY_SIZE(r8a73734_late_devices_es10));
+	}
 }
 
 #define CCCR	IO_ADDRESS(0xe600101c)
+
+static bool is_es20(void)
+{
+    unsigned int cccr = 0x00;
+    unsigned int major = 0x00;
+    unsigned int minor = 0x00;
+
+    cccr = __raw_readl(__io(CCCR));
+
+    major = ((cccr & 0xF0) >> 4) + 1;
+    minor = cccr & 0x0F;
+
+    return (((major&0xFF)<<4) + (minor&0xFF) == 0x20 );
+}
 
 extern void sh_cmt_register_devices(struct platform_device **devs, int num);
 
