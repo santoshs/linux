@@ -35,6 +35,14 @@ config USB_GPIO_VBUS
 	  optionally control of a D+ pullup GPIO as well as a VBUS
 	  current limit regulator.
 
+config USB_USBHS_VBUS
+	bool "Renesas SH/R-Mobile peripheral-only VBUS sensing 'transceiver'"
+	depends on ARCH_SHMOBILE && USB_R8A66597
+	select USB_OTG_UTILS
+	help
+	  Provides VBUS sensing function for Renesas SH/R-Mobile devices
+	  with an internal transceiver via the otg_transceiver interface.
+
 config ISP1301_OMAP
 	tristate "Philips ISP1301 with OMAP OTG"
 	depends on I2C && ARCH_OMAP_OTG
