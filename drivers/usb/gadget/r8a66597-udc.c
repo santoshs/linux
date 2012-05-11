@@ -180,7 +180,11 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
 	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
 
-	r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+	if (r8a66597->pullup_requested)
+		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+	else
+		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+
 	r8a66597_dma_reset(r8a66597);
 
 	r8a66597_inform_vbus_power(r8a66597, 2);
@@ -221,7 +225,7 @@ static void r8a66597_charger_work(struct work_struct *work)
 	schedule_delayed_work(&r8a66597->vbus_work, 0);
 }
 
-#define CHARGER_DETECT_TIMEOUT	(10 * 1000) /* 10s */
+#define CHARGER_DETECT_TIMEOUT	(30 * 1000) /* 30s */
 
 static void r8a66597_vbus_work(struct work_struct *work)
 {
@@ -257,6 +261,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
 
 		r8a66597_usb_connect(r8a66597);
+		r8a66597->vbus_active = 1;
 
 		schedule_delayed_work(&r8a66597->charger_work,
 				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
@@ -268,6 +273,8 @@ vbus_disconnect:
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
+
+		r8a66597->vbus_active = 0;
 
 		/* stop clock */
 		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
@@ -2279,6 +2286,10 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 
 		r8a66597->old_vbus = 0; /* start with disconnected */
 		r8a66597->charger_detected = 0;
+
+		/* do not pull up D+ line, unless explicitly requested so */
+		r8a66597->pullup_requested = 0;
+
 		if (r8a66597->pdata->is_vbus_powered()) {
 			wake_lock(&r8a66597->wake_lock);
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
@@ -2353,6 +2364,11 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
 }
 
+static int can_pullup(struct r8a66597 *r8a66597)
+{
+	return r8a66597->driver && r8a66597->pullup_requested;
+}
+
 static int r8a66597_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
 {
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(_gadget);
@@ -2368,10 +2384,13 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 	unsigned long flags;
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
-	if (is_on)
-		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
-	else
-		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+	r8a66597->pullup_requested = (is_on != 0);
+	if (r8a66597->vbus_active) {
+		if (can_pullup(r8a66597))
+			r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+		else
+			r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+	}
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
 
 	return 0;
