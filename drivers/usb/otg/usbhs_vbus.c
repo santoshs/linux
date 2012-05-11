@@ -88,7 +88,7 @@ static void usb_phy_work(struct work_struct *work)
 {
 	struct usbhs_vbus_data *usbhs_vbus =
 		container_of(work, struct usbhs_vbus_data, phy_work);
-	int is_on;
+	int is_on, status;
 
 	if (!usbhs_vbus->phy.otg->gadget)
 		return;
@@ -100,16 +100,26 @@ static void usb_phy_work(struct work_struct *work)
 	usbhs_vbus->is_on = is_on;
 
 	if (is_on) {
+		status = USB_EVENT_VBUS;
 		usbhs_vbus->phy.state = OTG_STATE_B_PERIPHERAL;
+		usbhs_vbus->phy.last_event = status;
 		usb_gadget_vbus_connect(usbhs_vbus->phy.otg->gadget);
 
 		/* drawing a "unit load" is *always* OK, except for OTG */
 		set_vbus_draw(usbhs_vbus, 100);
+
+		atomic_notifier_call_chain(&usbhs_vbus->phy.notifier,
+					   status, usbhs_vbus->phy.otg->gadget);
 	} else {
 		set_vbus_draw(usbhs_vbus, 0);
 
 		usb_gadget_vbus_disconnect(usbhs_vbus->phy.otg->gadget);
+		status = USB_EVENT_NONE;
 		usbhs_vbus->phy.state = OTG_STATE_B_IDLE;
+		usbhs_vbus->phy.last_event = status;
+
+		atomic_notifier_call_chain(&usbhs_vbus->phy.notifier,
+					   status, usbhs_vbus->phy.otg->gadget);
 	}
 }
 
@@ -320,6 +330,8 @@ static int __init usbhs_vbus_probe(struct platform_device *pdev)
 		goto err_vbus_irq;
 	}
 	INIT_DELAYED_WORK(&usbhs_vbus->work, gpio_vbus_work);
+
+	ATOMIC_INIT_NOTIFIER_HEAD(&usbhs_vbus->phy.notifier);
 
 	usbhs_vbus->vbus_draw = regulator_get(&pdev->dev, "vbus_draw");
 	if (IS_ERR(usbhs_vbus->vbus_draw)) {
