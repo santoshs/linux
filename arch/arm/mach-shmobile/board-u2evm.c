@@ -1523,7 +1523,7 @@ static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
 	int ci;
-	int stm_select=-1;	// Shall tell how to route STM traces.
+	int stm_select=1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
