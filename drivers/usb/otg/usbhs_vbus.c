@@ -107,9 +107,6 @@ static void usb_phy_work(struct work_struct *work)
 
 		/* drawing a "unit load" is *always* OK, except for OTG */
 		set_vbus_draw(usbhs_vbus, 100);
-
-		atomic_notifier_call_chain(&usbhs_vbus->phy.notifier,
-					   status, usbhs_vbus->phy.otg->gadget);
 	} else {
 		set_vbus_draw(usbhs_vbus, 0);
 
@@ -117,10 +114,10 @@ static void usb_phy_work(struct work_struct *work)
 		status = USB_EVENT_NONE;
 		usbhs_vbus->phy.state = OTG_STATE_B_IDLE;
 		usbhs_vbus->phy.last_event = status;
-
-		atomic_notifier_call_chain(&usbhs_vbus->phy.notifier,
-					   status, usbhs_vbus->phy.otg->gadget);
 	}
+
+	atomic_notifier_call_chain(&usbhs_vbus->phy.notifier,
+				   status, usbhs_vbus->phy.otg->gadget);
 }
 
 /* USB-PHY on/off IRQ handler */
