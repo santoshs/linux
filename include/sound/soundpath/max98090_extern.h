@@ -26,11 +26,15 @@
 /*---------------------------------------------------------------------------*/
 /* include files                                                             */
 /*---------------------------------------------------------------------------*/
+#ifdef __MAX98090_UT__
+/* none. */
+#else	/* __MAX98090_UT__ */
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/uaccess.h>
 #include <linux/io.h>
 #include <asm/irq.h>
+#endif	/* __MAX98090_UT__ */
 
 /*---------------------------------------------------------------------------*/
 /* typedef declaration                                                       */
@@ -45,6 +49,7 @@
 #ifdef __MAX98090_TODO__
 #define __MAX98090_TODO_POWER__
 /* #define __MAX98090_DEBUG__ */
+/* #define __MAX98090_RELEASE_CHECK__ */
 #endif  /* __MAX98090_TODO__ */
 
 /*---------------------------------------------------------------------------*/

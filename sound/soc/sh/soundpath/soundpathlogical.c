@@ -751,6 +751,13 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	}
 */
 
+	/* create work queue for call*/
+	iRet = call_create_workque();
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("work queue create error.\n");
+		goto workque_create_err;
+	}
+
 	/* create work queue */
 	g_sndp_queue_main = create_singlethread_workqueue("sndp_queue_main");
 	if (NULL == g_sndp_queue_main) {
@@ -834,6 +841,9 @@ void sndp_exit(void)
 	/* Proc entry remove */
 	if (NULL != g_sndp_parent)
 		remove_proc_entry(SNDP_DRV_NAME, NULL);
+
+	/* Destroy work queue for call */
+	call_destroy_workque();
 
 	/* Destroy work queue */
 	if (NULL != g_sndp_queue_main) {
@@ -1767,7 +1777,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 
 		/* VCD is alive */
 		} else {
-/*			iRet = call_pcmdata_pointer(substream); */
+			iRet = call_pcmdata_pointer(substream);
 		}
 	}
 
