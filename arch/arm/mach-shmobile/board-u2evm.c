@@ -1577,6 +1577,17 @@ static void __init u2evm_init(void)
 	printk("stm_select=%d\n", stm_select);
 
 	r8a73734_pinmux_init();
+	if((system_rev & 0xFF) != 0x00)      /*ES1_ECR0208*/
+	{
+#define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
+#define GPIO_DRVCR_SIM1	((volatile ushort *)(0xE6050000ul + 0x8192))
+#define GPIO_DRVCR_SIM2	((volatile ushort *)(0xE6050000ul + 0x8194))
+
+		*GPIO_DRVCR_SD0 = 0x0023;
+		*GPIO_DRVCR_SIM1 = 0x0023;
+		*GPIO_DRVCR_SIM2 = 0x0023;
+	}
+
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -1919,15 +1930,7 @@ static void __init u2evm_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if ((system_rev & 0xFF) == 0x00)
-	{
-		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
-	}
-	else
-	{
-		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
-	}
+	l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 #endif
 // EOS-CAM ADD-S
 {
