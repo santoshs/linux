@@ -4,6 +4,9 @@
     This header provides a list of chip identifiers that can be returned
     through the VIDIOC_DBG_G_CHIP_IDENT ioctl.
 
+	Copyright (C) 2012 Renesas Mobile Corp.
+	All rights reserved.
+
     Copyright (C) 2007 Hans Verkuil <hverkuil@xs4all.nl>
 
     This program is free software; you can redistribute it and/or modify
@@ -321,11 +324,9 @@ enum {
 	/* module upd64083: just ident 64083 */
 	V4L2_IDENT_UPD64083 = 64083,
 
-// EOS-CAM ADD-S
 	/* Omnivision OV8820 */
 	V4L2_IDENT_OV8820 = 100000,
 	V4L2_IDENT_OV5640 = 100001,
-// EOS-CAM ADD-E
 
 	/* Don't just add new IDs at the end: KEEP THIS LIST ORDERED BY ID! */
 };

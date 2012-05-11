@@ -1,6 +1,9 @@
 /*
  * camera image capture (abstract) bus driver
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2008, Guennadi Liakhovetski <kernel@pengutronix.de>
  *
  * This driver provides an interface between platform-specific camera
@@ -1168,7 +1171,6 @@ eiufmt:
 	} else {
 		module_put(control->driver->owner);
 		icl->del_device(icl);
-//		module_put(control->driver->owner);
 	}
 enodrv:
 eadddev:

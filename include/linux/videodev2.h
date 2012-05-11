@@ -1,6 +1,9 @@
 /*
  *  Video for Linux Two header file
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ * 
  *  Copyright (C) 1999-2007 the contributors
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -273,10 +276,7 @@ struct v4l2_capability {
 #define V4L2_CAP_READWRITE              0x01000000  /* read/write systemcalls */
 #define V4L2_CAP_ASYNCIO                0x02000000  /* async I/O */
 #define V4L2_CAP_STREAMING              0x04000000  /* streaming I/O ioctls */
-
-// EOS-RCU ADD-S
 #define V4L2_CID_SET_OUTPUT_MODE	(V4L2_CID_PRIVATE_BASE+0x101)
-// EOS-RCU ADD-E
 
 /*
  *	V I D E O   I M A G E   F O R M A T

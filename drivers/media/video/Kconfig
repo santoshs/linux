@@ -834,7 +834,6 @@ config SOC_CAMERA_TW9910
 	help
 	  This is a tw9910 video driver
 
-# EOS-CAM ADD-S
 config SOC_CAMERA_OV8820
 	tristate "OV8820 support"
 	depends on SOC_CAMERA && I2C
@@ -846,7 +845,6 @@ config SOC_CAMERA_OV5640
 	depends on SOC_CAMERA && I2C
 	help
 	  This driver supports OV5640 cameras from Omnivision
-# EOS-CAM ADD-E
 
 config SOC_CAMERA_PLATFORM
 	tristate "platform camera support"
@@ -927,14 +925,12 @@ config VIDEO_SH_MOBILE_CEU
 	---help---
 	  This is a v4l2 driver for the SuperH Mobile CEU Interface
 
-# EOS-RCU ADD-S
 config VIDEO_SH_MOBILE_RCU
 	tristate "SuperH Mobile RCU Interface driver"
 	depends on VIDEO_DEV && SOC_CAMERA && HAS_DMA && HAVE_CLK
 	select VIDEOBUF2_DMA_CONTIG
 	---help---
 	  This is a v4l2 driver for the SuperH Mobile RCU Interface
-# EOS-RCU ADD-E
 
 config VIDEO_OMAP1
 	tristate "OMAP1 Camera Interface driver"

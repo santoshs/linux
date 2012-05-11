@@ -1,6 +1,9 @@
 /*
  * soc-camera media bus helper routines
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2009, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -232,7 +235,6 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_EXTEND16,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
-// EOS-RCU ADD-S
 }, {
 	.code = V4L2_MBUS_FMT_SGBRG8_1X8,
 	.fmt = {
@@ -242,7 +244,6 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_NONE,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
-// EOS-RCU ADD-E
 }, {
 	.code = V4L2_MBUS_FMT_SGRBG8_1X8,
 	.fmt = {
@@ -252,7 +253,6 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_NONE,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
-// EOS-RCU ADD-S
 }, {
 	.code = V4L2_MBUS_FMT_SRGGB8_1X8,
 	.fmt = {
@@ -262,7 +262,6 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_NONE,
 		.order			= SOC_MBUS_ORDER_LE,
 	},
-// EOS-RCU ADD-E
 }, {
 	.code = V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8,
 	.fmt = {
@@ -401,7 +400,6 @@ EXPORT_SYMBOL(soc_mbus_find_fmtdesc);
 const struct soc_mbus_pixelfmt *soc_mbus_get_fmtdesc(
 	enum v4l2_mbus_pixelcode code)
 {
-	printk(KERN_ALERT "%s :code=%d\n",__func__,code);
 	return soc_mbus_find_fmtdesc(code, mbus_fmt, ARRAY_SIZE(mbus_fmt));
 }
 EXPORT_SYMBOL(soc_mbus_get_fmtdesc);

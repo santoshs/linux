@@ -18,6 +18,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
+#include <linux/interrupt.h>
 
 #include <media/sh_mobile_csi2.h>
 #include <media/soc_camera.h>
@@ -27,6 +28,8 @@
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
 
+#define SH_CSI2_DEBUG	0
+
 #define SH_CSI2_TREF	0x00
 #define SH_CSI2_SRST	0x04
 #define SH_CSI2_PHYCNT	0x08
@@ -34,6 +37,10 @@
 #define SH_CSI2_VCDT	0x10
 #define SH_CSI2_PHYCNT2	0x48
 #define SH_CSI2_PHYCNT3	0x20
+#define SH_CSI2_INTSTATE	0x38
+#define SH_CSI2_INTEN	0x30
+#define SH_CSI2_INTEN_ALL 0x5F53
+#define	SH_CSI2_OUT	0x24
 
 struct sh_csi2 {
 	struct v4l2_subdev		subdev;
@@ -45,7 +52,51 @@ struct sh_csi2 {
 	struct sh_csi2_client_config	*client;
 	unsigned long (*query_bus_param)(struct soc_camera_device *);
 	int (*set_bus_param)(struct soc_camera_device *, unsigned long);
+	int				strm_on;
+	spinlock_t			lock;
+#if SH_CSI2_DEBUG
+	int				vd_s_cnt;
+	int				vd_e_cnt;
+	int				shp_cnt;
+	int				lnp_cnt;
+#endif
 };
+
+static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
+{
+	u32 tmp = 0;
+
+	if (0 != enable) {
+		/* stream ON */
+		if (priv->client->phy == SH_CSI2_PHY_MAIN)
+			tmp = 0;
+		else
+			tmp = (1 << 30);
+
+		iowrite32(tmp, priv->base + SH_CSI2_PHYCNT3);
+
+		tmp = ioread32(priv->base + SH_CSI2_INTSTATE);
+		iowrite32(tmp, priv->base + SH_CSI2_INTSTATE);
+
+		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
+
+		tmp = 0x10;
+		if (priv->client->lanes & 3)
+			tmp |= priv->client->lanes & 3;
+		else
+			/* Default - both lanes */
+			tmp |= 3;
+
+		iowrite32(tmp, priv->base + SH_CSI2_PHYCNT);
+	} else {
+		/* stream OFF */
+		iowrite32(0, priv->base + SH_CSI2_INTEN);
+
+		iowrite32(0x00000000, priv->base + SH_CSI2_PHYCNT);
+	}
+
+	return 0;
+}
 
 static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_mbus_framefmt *mf)
@@ -66,7 +117,6 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_Y8_1X8:		/* RAW8 */
 		case V4L2_MBUS_FMT_SBGGR8_1X8:
 		case V4L2_MBUS_FMT_SGRBG8_1X8:
-// EOS-CSI ADD-S
 		case V4L2_MBUS_FMT_SGBRG8_1X8:
 		case V4L2_MBUS_FMT_SRGGB8_1X8:
 		case V4L2_MBUS_FMT_SBGGR10_1X10:
@@ -77,7 +127,6 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_SGBRG12_1X12:
 		case V4L2_MBUS_FMT_SGRBG12_1X12:
 		case V4L2_MBUS_FMT_SRGGB12_1X12:
-// EOS-CSI ADD-E
 			break;
 		default:
 			/* All MIPI CSI-2 devices must support one of primary formats */
@@ -100,6 +149,57 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 	}
 
 	return 0;
+}
+
+static void sh_csi2_hwinit(struct sh_csi2 *priv);
+
+static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
+{
+	struct sh_csi2 *priv = data;
+	u32 intstate = ioread32(priv->base + SH_CSI2_INTSTATE);
+	u32 tmp = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&priv->lock, flags);
+
+	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
+	if (intstate & 0x5F53)
+		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
+
+	if (intstate & 0x53) {
+		printk(KERN_ALERT "CSI HW Error Reset(0x%08X)\n", intstate);
+		tmp = ioread32(priv->base + SH_CSI2_VCDT);
+		sh_csi2_hwinit(priv);
+		iowrite32(tmp, priv->base + SH_CSI2_VCDT);
+		sh_csi2_stream(priv, priv->strm_on);
+	}
+
+#if SH_CSI2_DEBUG
+	if (intstate & (1 << 26)) {
+		if (0 == (priv->vd_s_cnt % 10))
+			printk(KERN_ALERT "VD_S = %d\n",priv->vd_s_cnt);
+		priv->vd_s_cnt++;
+	}
+	if (intstate & (1 << 25)) {
+		if (0 == (priv->vd_e_cnt % 10))
+			printk(KERN_ALERT "VD_E = %d\n",priv->vd_e_cnt);
+		priv->vd_e_cnt++;
+	}
+	if (intstate & (1 << 17)) {
+		if (0 == (priv->shp_cnt % 100))
+			printk(KERN_ALERT "SHP = %d\n", priv->shp_cnt);
+		priv->shp_cnt++;
+	}
+	if (intstate & (1 << 16)) {
+		if (0 == (priv->lnp_cnt % 1000))
+			printk(KERN_ALERT "LNP = %d\n", priv->lnp_cnt);
+		priv->lnp_cnt++;
+	}
+#endif
+
+	spin_unlock_irqrestore(&priv->lock, flags);
+
+	return IRQ_HANDLED;
 }
 
 /*
@@ -133,13 +233,10 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	case V4L2_MBUS_FMT_Y8_1X8:
 	case V4L2_MBUS_FMT_SBGGR8_1X8:
 	case V4L2_MBUS_FMT_SGRBG8_1X8:
-// EOS-CSI ADD-S
 	case V4L2_MBUS_FMT_SGBRG8_1X8:
 	case V4L2_MBUS_FMT_SRGGB8_1X8:
-// EOS-CSI ADD-E
 		tmp |= 0x2a;	/* RAW8 */
 		break;
-// EOS-CSI ADD-S
 	case V4L2_MBUS_FMT_SBGGR10_1X10:
 	case V4L2_MBUS_FMT_SGBRG10_1X10:
 	case V4L2_MBUS_FMT_SGRBG10_1X10:
@@ -152,28 +249,75 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	case V4L2_MBUS_FMT_SRGGB12_1X12:
 		tmp |= 0x2c;	/* RAW12 */
 		break;
-// EOS-CSI ADD-E
 	default:
 		return -EINVAL;
 	}
 
 	iowrite32(tmp, priv->base + SH_CSI2_VCDT);
 
-// EOS-CSI ADD-S
-	if (priv->client->phy == SH_CSI2_PHY_MAIN)
-		tmp = 0;
-	else
-		tmp = (1 << 30);
-
-	iowrite32(tmp,priv->base + SH_CSI2_PHYCNT3);
-// EOS-CSI ADD-E
+	iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
+	{
+		void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+		iowrite16(ioread16(intcs_base + 0x24) | (0x0001 << 8),
+				intcs_base + 0x24);
+		/* IPRJS3[11:8] */
+		iowrite8(0x01 << 2, intcs_base + 0x1D0);
+		/* IMCR10SA3 */
+		dev_dbg(&priv->pdev->dev, "> IPRJS3=0x04%x, IMCR10SA3=0x02%x\n",
+				ioread16(intcs_base + 0x24),
+				ioread8(intcs_base + 0x1D0));
+		iounmap(intcs_base);
+	}
 
 	return 0;
 }
 
+static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	unsigned long flags;
+
+	spin_lock_irqsave(&priv->lock, flags);
+	if(0 != enable) {
+		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
+			dev_name(&priv->pdev->dev), priv)) {
+			dev_err(&priv->pdev->dev,
+				"Unable to register CSI interrupt.\n");
+		}
+		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
+
+		{ /* ES 1.0 only */
+			void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+			iowrite16(ioread16(intcs_base + 0x24) | (0x0001 << 8),
+				intcs_base + 0x24);
+			/* IPRJS3[11:8] */
+			iowrite8(0x01 << 2, intcs_base + 0x1D0);
+			/* IMCR10SA3 */
+			dev_dbg(&priv->pdev->dev, "> IPRJS3=0x04%x, IMCR10SA3=0x02%x\n",
+				ioread16(intcs_base + 0x24),
+				ioread8(intcs_base + 0x1D0));
+			iounmap(intcs_base);
+		}
+
+		/* stream ON */
+		priv->strm_on = 1;
+		sh_csi2_stream(priv, 1);
+	} else {
+		/* stream OFF */
+		sh_csi2_stream(priv, 0);
+		priv->strm_on = 0;
+
+		free_irq(priv->irq, priv);
+	}
+	spin_unlock_irqrestore(&priv->lock, flags);
+	return 0;
+}
+
+
 static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
 	.try_mbus_fmt	= sh_csi2_try_fmt,
+	.s_stream	= sh_csi2_s_stream,
 };
 
 static struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops;
@@ -190,18 +334,12 @@ static void sh_csi2_hwinit(struct sh_csi2 *priv)
 
 	/* Reflect registers immediately */
 	iowrite32(0x00000001, priv->base + SH_CSI2_TREF);
-	/* reset CSI2 harware */
+	/* reset CSI2 hardware */
 	iowrite32(0x00000001, priv->base + SH_CSI2_SRST);
 	udelay(5);
 	iowrite32(0x00000000, priv->base + SH_CSI2_SRST);
 
-	if (priv->client->lanes & 3)
-		tmp |= priv->client->lanes & 3;
-	else
-		/* Default - both lanes */
-		tmp |= 3;
-
-	iowrite32(tmp, priv->base + SH_CSI2_PHYCNT);
+	iowrite32(0x00000000, priv->base + SH_CSI2_PHYCNT);
 
 	tmp = 0;
 	if (pdata->flags & SH_CSI2_ECC)
@@ -209,6 +347,7 @@ static void sh_csi2_hwinit(struct sh_csi2 *priv)
 	if (pdata->flags & SH_CSI2_CRC)
 		tmp |= 1;
 	iowrite32(tmp, priv->base + SH_CSI2_CHKSUM);
+
 }
 
 static int sh_csi2_set_bus_param(struct soc_camera_device *icd,
@@ -325,8 +464,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	}
 
 	if (!request_mem_region(res->start, resource_size(res), pdev->name)) {
-		if (!(pdata->flags & SH_CSI2_MULTI))
-		{
+		if (!(pdata->flags & SH_CSI2_MULTI)) {
 			dev_err(&pdev->dev, "CSI2 register region already claimed\n");
 			ret = -EBUSY;
 			goto ereqreg;
@@ -348,6 +486,16 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 
 	pm_runtime_enable(&pdev->dev);
+
+	spin_lock_init(&priv->lock);
+
+	priv->strm_on = 0;
+#if SH_CSI2_DEBUG
+	priv->vd_s_cnt = 0;
+	priv->vd_e_cnt = 0;
+	priv->shp_cnt = 0;
+	priv->lnp_cnt = 0;
+#endif
 
 	dev_dbg(&pdev->dev, "CSI2 probed.\n");
 

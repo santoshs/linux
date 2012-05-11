@@ -19,7 +19,7 @@
 
 /* for debug */
 #undef DEBUG
-//#define DEBUG
+/* #define DEBUG */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -56,133 +56,159 @@
 #define ALIGN32(size)		(((size) + 31) & ~31)
 #define ALIGN4(size)		(((size) +  3) &  ~3)
 
-#define ROUNDDOWN(size, X)	(0==(X) ? (size) : ((size) / (X)) * (X))
+#define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
 #define PRINT_FOURCC(fourcc) (fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
 
 /* register offsets for r8a73734 */
 
-#define RCAPSR				0x0000UL	/* Capture start register */
-#define RCAPCR				0x0004UL	/* Capture Mode control register */
-#define RCAMCR				0x0008UL	/* Capture control register */
-#define RCPICR				0x000CUL	/* Capture Paralell Interface Control register */
-#define RCAMOR				0x0010UL	/* Capture offset register */
-#define RCPIHCR				0x0014UL	/* Capture Parallel Interface Horizontal Cycle resgster */
-#define RCRCNTR				0x0028UL	/* RCU register control register */
-#define RCRCMPR				0x002CUL	/* RCU register forcible control register */
-#define RCSZR				0x0034UL	/* Capture size clip register */
-#define RCDWDR				0x0038UL	/* Capture destination width register */
-#define RCDAYR				0x003CUL	/* Capture data address Y register */
-#define RCDACR				0x0040UL	/* Capture data address C register */
-#define RCBDSR				0x004CUL	/* Capture bundle destination size register */
-#define RCFWCR				0x005CUL	/* Firewall operating control register */
-#define RCDOCR				0x0064UL	/* Capture data output control register */
-#define RCEIER				0x0070UL	/* Capture event interrupt enable register */
-#define RCETCR				0x0074UL	/* Capture event flag clear register */
-#define RCSTSR				0x007CUL	/* Capture status register */
-#define RCSRTR				0x0080UL	/* Capture software reset register */
-#define RCDSSR				0x0084UL	/* Capture data capacity register */
-#define RCDAYR2				0x0090UL	/* Capture data address Y register 2 */
-#define RCDACR2				0x0094UL	/* Capture data address C register 2 */
-#define RCECNTR				0x0200UL	/* Extra Capture Control Register */
-#define RCEDAYR				0x0204UL	/* Extra Capture data address register */
-#define RCEDSSR				0x0214UL	/* Extra Capture capacity register */
-#define RCEFWCR				0x0228UL	/* Extra Firewall operating control register */
+/* Capture start register */
+/* Capture Mode control register */
+/* Capture control register */
+/* Capture Paralell Interface Control register */
+/* Capture offset register */
+/* Capture Parallel Interface Horizontal Cycle resgster */
+/* RCU register control register */
+/* RCU register forcible control register */
+/* Capture size clip register */
+/* Capture destination width register */
+/* Capture data address Y register */
+/* Capture data address C register */
+/* Capture bundle destination size register */
+/* Firewall operating control register */
+/* Capture data output control register */
+/* Capture event interrupt enable register */
+/* Capture event flag clear register */
+/* Capture status register */
+/* Capture software reset register */
+/* Capture data capacity register */
+/* Capture data address Y register 2 */
+/* Capture data address C register 2 */
+/* Extra Capture Control Register */
+/* Extra Capture data address register */
+/* Extra Capture capacity register */
+/* Extra Firewall operating control register */
+#define RCAPSR				0x0000UL
+#define RCAPCR				0x0004UL
+#define RCAMCR				0x0008UL
+#define RCPICR				0x000CUL
+#define RCAMOR				0x0010UL
+#define RCPIHCR				0x0014UL
+#define RCRCNTR				0x0028UL
+#define RCRCMPR				0x002CUL
+#define RCSZR				0x0034UL
+#define RCDWDR				0x0038UL
+#define RCDAYR				0x003CUL
+#define RCDACR				0x0040UL
+#define RCBDSR				0x004CUL
+#define RCFWCR				0x005CUL
+#define RCDOCR				0x0064UL
+#define RCEIER				0x0070UL
+#define RCETCR				0x0074UL
+#define RCSTSR				0x007CUL
+#define RCSRTR				0x0080UL
+#define RCDSSR				0x0084UL
+#define RCDAYR2				0x0090UL
+#define RCDACR2				0x0094UL
+#define RCECNTR				0x0200UL
+#define RCEDAYR				0x0204UL
+#define RCEDSSR				0x0214UL
+#define RCEFWCR				0x0228UL
 
-#define RCAPSR_CPKIL		16			/* offset of RCAPSR.CPKIL */
-#define RCAPSR_CSE			1			/* offset of RCAPSR.CSE */
-#define RCAPSR_CE			0			/* offset of RCAPSR.CE */
-#define RCAPCR_MTCM			20			/* offset of RCAPCR.MTCM */
-#define RCAPCR_CTNCP		16			/* offset of RCAPCR.CTNCP */
-#define RCAMCR_OCNT			28			/* offset of RCAMCR.OCNT */
-#define RCAMCR_RPAC			24			/* offset of RCAMCR.RPAC */
-#define RCAMCR_UCON			22			/* offset of RCAMCR.UCON */
-#define RCAMCR_CMPMD		20			/* offset of RCAMCR.CMPMD */
-#define RCAMCR_E810B		19			/* offset of RCAMCR.E810B */
-#define RCAMCR_E810I		18			/* offset of RCAMCR.E810I */
-#define RCAMCR_RAWTYP		16			/* offset of RCAMCR.RAWTYP */
-#define RCAMCR_VSS2			15			/* offset of RCAMCR.VSS2 */
-#define RCAMCR_HSSM			13			/* offset of RCAMCR.HSSM */
-#define RCAMCR_HSS2			12			/* offset of RCAMCR.HSS2 */
-#define RCAMCR_CFMT			4			/* offset of RCAMCR.CFMT */
-#define RCPICR_IFS			13			/* offset of RCPICR.IFS */
-#define RCPICR_DTARY		8			/* offset of RCPICR.DTARY */
-#define RCPICR_CKPOL		2			/* offset of RCPICR.CKPOL */
-#define RCPICR_VDPOL		1			/* offset of RCPICR.VDPOL */
-#define RCPICR_HDPOL		0			/* offset of RCPICR.HDPOL */
-#define RCAMOR_VOFST		16			/* offset of RCAMOR.VOFST */
-#define RCAMOR_HOFST		0			/* offset of RCAMOR.HOFST */
-#define RCPIHCR_STC			16			/* offset of RCPIHCR.STC */
-#define RCPIHCR_ENDC		0			/* offset of RCPIHCR.ENDC */
-#define RCRCNTR_RSS			17			/* offset of RCRCNTR.RSS */
-#define RCRCNTR_RSC			16			/* offset of RCRCNTR.RSC */
-#define RCRCNTR_RS			1			/* offset of RCRCNTR.RS */
-#define RCRCNTR_RC			0			/* offset of RCRCNTR.RC */
-#define RCRCMPR_RSA			16			/* offset of RCRCMPR.RSA */
-#define RCRCMPR_RA			0			/* offset of RCRCMPR.RA */
-#define RCSZR_VFCLP			16			/* offset of RCSZR.VFCLP */
-#define RCSZR_HFCLP			0			/* offset of RCSZR.HFCLP */
-#define RCDWDR_CHDW			0			/* offset of RCDWDR.CHDW */
-#define RCDAYR_CAYR			0			/* offset of RCDAYR.CAYR */
-#define RCDACR_CACR			0			/* offset of RCDACR.CACR */
-#define RCBDSR_CBVS			0			/* offset of RCBDSR.CBVS */
-#define RCFWCR_WLE			31			/* offset of RCFWCR.WLE */
-#define RCFWCR_WLSE			0			/* offset of RCFWCR.WLSE */
-#define RCDOCR_CBE			16			/* offset of RCDOCR.CBE */
-#define RCDOCR_T420			15			/* offset of RCDOCR.T420 */
-#define RCDOCR_H420			12			/* offset of RCDOCR.H420 */
-#define RCDOCR_C1BS			9			/* offset of RCDOCR.C1BS */
-#define RCDOCR_COLS			2			/* offset of RCDOCR.COLS */
-#define RCDOCR_COWS			1			/* offset of RCDOCR.COWS */
-#define RCDOCR_COBS			0			/* offset of RCDOCR.COBS */
-#define RCEIER_DFOE			28			/* offset of RCEIER.DFOE */
-#define RCEIER_ISPOE		24			/* offset of RCEIER.ISPOE */
-#define RCEIER_EFWFE		23			/* offset of RCEIER.EFWFE */
-#define RCEIER_FWFE			22			/* offset of RCEIER.FWFE */
-#define RCEIER_EVBPE		21			/* offset of RCEIER.EVBPE */
-#define RCEIER_VBPE			20			/* offset of RCEIER.VBPE */
-#define RCEIER_ECDTOFE		17			/* offset of RCEIER.ECDTOFE */
-#define RCEIER_CDTOFE		16			/* offset of RCEIER.CDTOFE */
-#define RCEIER_CPBE2E		13			/* offset of RCEIER.CPBE2E */
-#define RCEIER_CPBE1E		12			/* offset of RCEIER.CPBE1E */
-#define RCEIER_VDE			9			/* offset of RCEIER.VDE */
-#define RCEIER_HDE			8			/* offset of RCEIER.HDE */
-#define RCEIER_EVDE			7			/* offset of RCEIER.EVDE */
-#define RCEIER_IGRWE		4			/* offset of RCEIER.IGRWE */
-#define RCEIER_CPSEE		2			/* offset of RCEIER.CPSEE */
-#define RCEIER_CPEE			0			/* offset of RCEIER.CPEE */
-#define RCETCR_DFO			28			/* offset of RCETCR.DFO */
-#define RCETCR_ISPO			24			/* offset of RCETCR.ISPO */
-#define RCETCR_EFWF			23			/* offset of RCETCR.EFWF */
-#define RCETCR_FWF			22			/* offset of RCETCR.FWF */
-#define RCETCR_EVBP			21			/* offset of RCETCR.EVBP */
-#define RCETCR_VBP			20			/* offset of RCETCR.VBP */
-#define RCETCR_ECDTOF		17			/* offset of RCETCR.ECDTOF */
-#define RCETCR_CDTOF		16			/* offset of RCETCR.CDTOF */
-#define RCETCR_CPBE2		13			/* offset of RCETCR.CPBE2 */
-#define RCETCR_CPBE1		12			/* offset of RCETCR.CPBE1 */
-#define RCETCR_VD			9			/* offset of RCETCR.VD */
-#define RCETCR_HD			8			/* offset of RCETCR.HD */
-#define RCETCR_EVD			7			/* offset of RCETCR.EVD */
-#define RCETCR_IGRW			4			/* offset of RCETCR.IGRW */
-#define RCETCR_CPSE			2			/* offset of RCETCR.CPSE */
-#define RCETCR_CPE			0			/* offset of RCETCR.CPE */
-#define RCSTSR_CRSST		25			/* offset of RCSTSR.CRSST */
-#define RCSTSR_CRST			24			/* offset of RCSTSR.CRST */
-#define RCSTSR_CPREQ		9			/* offset of RCSTSR.CPREQ */
-#define RCSTSR_CPACK		8			/* offset of RCSTSR.CPACK */
-#define RCSTSR_CPTSON		1			/* offset of RCSTSR.CPTSON */
-#define RCSTSR_CPTON		0			/* offset of RCSTSR.CPTON */
-#define RCSRTR_ALLRST		0			/* offset of RCSRTR.ALLRST */
-#define RCDSSR_CDSS			0			/* offset of RCDSSR.CDSS */
-#define RCDAYR2_CAYR2		0			/* offset of RCDAYR2.CAYR2 */
-#define RCDACR2_CACR2		0			/* offset of RCDACR2.CACR2 */
-#define RCECNTR_CTNCP		4			/* offset of RCECNTR.CTNCP */
-#define RCECNTR_JPG			1			/* offset of RCECNTR.JPG */
-#define RCEDAYR_CAYR		0			/* offset of RCEDAYR.CAYR */
-#define RCEDSSR_CDSS		0			/* offset of RCEDSSR.CDSS */
-#define RCEFWCR_WLE			31			/* offset of RCEFWCR.WLE */
-#define RCEFWCR_WLSE		0			/* offset of RCEFWCR.WLSE */
+#define RCAPSR_CPKIL		16	/* offset of RCAPSR.CPKIL */
+#define RCAPSR_CSE			1	/* offset of RCAPSR.CSE */
+#define RCAPSR_CE			0	/* offset of RCAPSR.CE */
+#define RCAPCR_MTCM			20	/* offset of RCAPCR.MTCM */
+#define RCAPCR_CTNCP		16	/* offset of RCAPCR.CTNCP */
+#define RCAMCR_OCNT			28	/* offset of RCAMCR.OCNT */
+#define RCAMCR_RPAC			24	/* offset of RCAMCR.RPAC */
+#define RCAMCR_UCON			22	/* offset of RCAMCR.UCON */
+#define RCAMCR_CMPMD		20	/* offset of RCAMCR.CMPMD */
+#define RCAMCR_E810B		19	/* offset of RCAMCR.E810B */
+#define RCAMCR_E810I		18	/* offset of RCAMCR.E810I */
+#define RCAMCR_RAWTYP		16	/* offset of RCAMCR.RAWTYP */
+#define RCAMCR_VSS2			15	/* offset of RCAMCR.VSS2 */
+#define RCAMCR_HSSM			13	/* offset of RCAMCR.HSSM */
+#define RCAMCR_HSS2			12	/* offset of RCAMCR.HSS2 */
+#define RCAMCR_CFMT			4	/* offset of RCAMCR.CFMT */
+#define RCPICR_IFS			13	/* offset of RCPICR.IFS */
+#define RCPICR_DTARY		8	/* offset of RCPICR.DTARY */
+#define RCPICR_CKPOL		2	/* offset of RCPICR.CKPOL */
+#define RCPICR_VDPOL		1	/* offset of RCPICR.VDPOL */
+#define RCPICR_HDPOL		0	/* offset of RCPICR.HDPOL */
+#define RCAMOR_VOFST		16	/* offset of RCAMOR.VOFST */
+#define RCAMOR_HOFST		0	/* offset of RCAMOR.HOFST */
+#define RCPIHCR_STC			16	/* offset of RCPIHCR.STC */
+#define RCPIHCR_ENDC		0	/* offset of RCPIHCR.ENDC */
+#define RCRCNTR_RSS			17	/* offset of RCRCNTR.RSS */
+#define RCRCNTR_RSC			16	/* offset of RCRCNTR.RSC */
+#define RCRCNTR_RS			1	/* offset of RCRCNTR.RS */
+#define RCRCNTR_RC			0	/* offset of RCRCNTR.RC */
+#define RCRCMPR_RSA			16	/* offset of RCRCMPR.RSA */
+#define RCRCMPR_RA			0	/* offset of RCRCMPR.RA */
+#define RCSZR_VFCLP			16	/* offset of RCSZR.VFCLP */
+#define RCSZR_HFCLP			0	/* offset of RCSZR.HFCLP */
+#define RCDWDR_CHDW			0	/* offset of RCDWDR.CHDW */
+#define RCDAYR_CAYR			0	/* offset of RCDAYR.CAYR */
+#define RCDACR_CACR			0	/* offset of RCDACR.CACR */
+#define RCBDSR_CBVS			0	/* offset of RCBDSR.CBVS */
+#define RCFWCR_WLE			31	/* offset of RCFWCR.WLE */
+#define RCFWCR_WLSE			0	/* offset of RCFWCR.WLSE */
+#define RCDOCR_CBE			16	/* offset of RCDOCR.CBE */
+#define RCDOCR_T420			15	/* offset of RCDOCR.T420 */
+#define RCDOCR_H420			12	/* offset of RCDOCR.H420 */
+#define RCDOCR_C1BS			9	/* offset of RCDOCR.C1BS */
+#define RCDOCR_COLS			2	/* offset of RCDOCR.COLS */
+#define RCDOCR_COWS			1	/* offset of RCDOCR.COWS */
+#define RCDOCR_COBS			0	/* offset of RCDOCR.COBS */
+#define RCEIER_DFOE			28	/* offset of RCEIER.DFOE */
+#define RCEIER_ISPOE		24	/* offset of RCEIER.ISPOE */
+#define RCEIER_EFWFE		23	/* offset of RCEIER.EFWFE */
+#define RCEIER_FWFE			22	/* offset of RCEIER.FWFE */
+#define RCEIER_EVBPE		21	/* offset of RCEIER.EVBPE */
+#define RCEIER_VBPE			20	/* offset of RCEIER.VBPE */
+#define RCEIER_ECDTOFE		17	/* offset of RCEIER.ECDTOFE */
+#define RCEIER_CDTOFE		16	/* offset of RCEIER.CDTOFE */
+#define RCEIER_CPBE2E		13	/* offset of RCEIER.CPBE2E */
+#define RCEIER_CPBE1E		12	/* offset of RCEIER.CPBE1E */
+#define RCEIER_VDE			9	/* offset of RCEIER.VDE */
+#define RCEIER_HDE			8	/* offset of RCEIER.HDE */
+#define RCEIER_EVDE			7	/* offset of RCEIER.EVDE */
+#define RCEIER_IGRWE		4	/* offset of RCEIER.IGRWE */
+#define RCEIER_CPSEE		2	/* offset of RCEIER.CPSEE */
+#define RCEIER_CPEE			0	/* offset of RCEIER.CPEE */
+#define RCETCR_DFO			28	/* offset of RCETCR.DFO */
+#define RCETCR_ISPO			24	/* offset of RCETCR.ISPO */
+#define RCETCR_EFWF			23	/* offset of RCETCR.EFWF */
+#define RCETCR_FWF			22	/* offset of RCETCR.FWF */
+#define RCETCR_EVBP			21	/* offset of RCETCR.EVBP */
+#define RCETCR_VBP			20	/* offset of RCETCR.VBP */
+#define RCETCR_ECDTOF		17	/* offset of RCETCR.ECDTOF */
+#define RCETCR_CDTOF		16	/* offset of RCETCR.CDTOF */
+#define RCETCR_CPBE2		13	/* offset of RCETCR.CPBE2 */
+#define RCETCR_CPBE1		12	/* offset of RCETCR.CPBE1 */
+#define RCETCR_VD			9	/* offset of RCETCR.VD */
+#define RCETCR_HD			8	/* offset of RCETCR.HD */
+#define RCETCR_EVD			7	/* offset of RCETCR.EVD */
+#define RCETCR_IGRW			4	/* offset of RCETCR.IGRW */
+#define RCETCR_CPSE			2	/* offset of RCETCR.CPSE */
+#define RCETCR_CPE			0	/* offset of RCETCR.CPE */
+#define RCSTSR_CRSST		25	/* offset of RCSTSR.CRSST */
+#define RCSTSR_CRST			24	/* offset of RCSTSR.CRST */
+#define RCSTSR_CPREQ		9	/* offset of RCSTSR.CPREQ */
+#define RCSTSR_CPACK		8	/* offset of RCSTSR.CPACK */
+#define RCSTSR_CPTSON		1	/* offset of RCSTSR.CPTSON */
+#define RCSTSR_CPTON		0	/* offset of RCSTSR.CPTON */
+#define RCSRTR_ALLRST		0	/* offset of RCSRTR.ALLRST */
+#define RCDSSR_CDSS			0	/* offset of RCDSSR.CDSS */
+#define RCDAYR2_CAYR2		0	/* offset of RCDAYR2.CAYR2 */
+#define RCDACR2_CACR2		0	/* offset of RCDACR2.CACR2 */
+#define RCECNTR_CTNCP		4	/* offset of RCECNTR.CTNCP */
+#define RCECNTR_JPG			1	/* offset of RCECNTR.JPG */
+#define RCEDAYR_CAYR		0	/* offset of RCEDAYR.CAYR */
+#define RCEDSSR_CDSS		0	/* offset of RCEDSSR.CDSS */
+#define RCEFWCR_WLE			31	/* offset of RCEFWCR.WLE */
+#define RCEFWCR_WLSE		0	/* offset of RCEFWCR.WLSE */
 
 #define SH_RCU_MODE_IMAGE		0x00	/* image capture mode */
 #define SH_RCU_MODE_DATA		0x01	/* data fech mode */
@@ -198,20 +224,27 @@
 #define SH_RCU_RPAC_ENHANCE		0x00	/* 16bit Enhancing */
 #define SH_RCU_RPAC_PACKING		0x01	/* Packing(MIPI-CSI2 standerd) */
 
-#define SH_RCU_MTCM_SIZE_1		0x00	/* Transferred to the bus in 4-burst 1-transfer (4QW x 1) units */
-#define SH_RCU_MTCM_SIZE_2		0x01	/* Transferred to the bus in 4-burst 2-transfer (4QW x 2) units */
-#define SH_RCU_MTCM_SIZE_4		0x02	/* Transferred to the bus in 4-burst 4-transfer (4QW x 4) units */
-#define SH_RCU_MTCM_SIZE_8		0x03	/* Transferred to the bus in 4-burst 8-transfer (4QW x 8) units */
+/* Transferred to the bus in 4-burst 1-transfer (4QW x 1) units */
+#define SH_RCU_MTCM_SIZE_1		0x00
+/* Transferred to the bus in 4-burst 2-transfer (4QW x 2) units */
+#define SH_RCU_MTCM_SIZE_2		0x01
+/* Transferred to the bus in 4-burst 4-transfer (4QW x 4) units */
+#define SH_RCU_MTCM_SIZE_4		0x02
+/* Transferred to the bus in 4-burst 8-transfer (4QW x 8) units */
+#define SH_RCU_MTCM_SIZE_8		0x03
+/* Image input data is fetched in the order of Cb, Y0, Cr, and Y1. */
+#define SH_RCU_ORDER_UYVY		0x00
+/* Image input data is fetched in the order of Cr, Y0, Cb, and Y1. */
+#define SH_RCU_ORDER_VYUY		0x01
+/* Image input data is fetched in the order of Y0, Cb, Y1, and Cr. */
+#define SH_RCU_ORDER_YUYV		0x02
+/* Image input data is fetched in the order of Y0, Cr, Y1, and Cb. */
+#define SH_RCU_ORDER_YVYU		0x03
 
-#define SH_RCU_ORDER_UYVY		0x00	/* Image input data is fetched in the order of Cb, Y0, Cr, and Y1. */
-#define SH_RCU_ORDER_VYUY		0x01	/* Image input data is fetched in the order of Cr, Y0, Cb, and Y1. */
-#define SH_RCU_ORDER_YUYV		0x02	/* Image input data is fetched in the order of Y0, Cb, Y1, and Cr. */
-#define SH_RCU_ORDER_YVYU		0x03	/* Image input data is fetched in the order of Y0, Cr, Y1, and Cb. */
-
-#define SH_RCU_MAX_WIDTH		8188	/* max width size  [pixels] */
-#define SH_RCU_MAX_HEIGHT		8188	/* max height size [lines] */
-#define SH_RCU_MIN_WIDTH		48		/* min width size  [pixels] */
-#define SH_RCU_MIN_HEIGHT		48		/* min height size [lines] */
+#define SH_RCU_MAX_WIDTH	8188	/* max width size  [pixels] */
+#define SH_RCU_MAX_HEIGHT	8188	/* max height size [lines] */
+#define SH_RCU_MIN_WIDTH	48		/* min width size  [pixels] */
+#define SH_RCU_MIN_HEIGHT	48		/* min height size [lines] */
 
 #undef DEBUG_GEOMETRY
 #ifdef DEBUG_GEOMETRY
@@ -348,16 +381,16 @@ static int sh_mobile_rcu_soft_reset(struct sh_mobile_rcu_dev *pcdev)
 	return 0;
 }
 
-int sh_mobile_rcu_bytes_per_line
-(u32 width, const struct soc_mbus_pixelfmt *mf, struct sh_mobile_rcu_dev *pcdev)
+int sh_mobile_rcu_bytes_per_line(u32 width,
+const struct soc_mbus_pixelfmt *mf, struct sh_mobile_rcu_dev *pcdev)
 {
 	int bytes_per_line = -EINVAL;
 
-	if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
+	if (SH_RCU_MODE_IMAGE == pcdev->image_mode)
 		bytes_per_line = soc_mbus_bytes_per_line(ALIGN32(width), mf);
-	} else {
+	else
 		bytes_per_line = ALIGN4(soc_mbus_bytes_per_line(width, mf));
-	}
+
 	return bytes_per_line;
 }
 
@@ -368,12 +401,14 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 			unsigned int *count, unsigned int *num_planes,
 			unsigned long sizes[], void *alloc_ctxs[])
 {
-	struct soc_camera_device *icd = container_of(vq, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(vq, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	int bytes_per_line = sh_mobile_rcu_bytes_per_line(
 						icd->user_width,
-						icd->current_fmt->host_fmt, pcdev);
+						icd->current_fmt->host_fmt,
+						pcdev);
 
 	dev_geo(icd->dev.parent, "%s(): stride=%d width=%d packing=%d bps=%d\n",
 		__func__, bytes_per_line, icd->user_width,
@@ -402,20 +437,32 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 	return 0;
 }
 
-#define RCU_RCETCR_MAGIC	0x11F33395			/* acknowledge magical interrupt sources */
-#define RCU_RCETCR_IGRW		(1 << RCETCR_IGRW)	/* prohibited register access interrupt bit */
-#define RCU_RCETCR_VBP		(1 << RCETCR_VBP)	/* vbp error */
-#define RCU_RCETCR_DFO		(1 << RCETCR_DFO)	/* depacking-fifo was overflow */
+/* acknowledge magical interrupt sources */
+#define RCU_RCETCR_MAGIC	0x11F33395
+/* prohibited register access interrupt bit */
+#define RCU_RCETCR_IGRW		(1 << RCETCR_IGRW)
+/* vbp error */
+#define RCU_RCETCR_VBP		(1 << RCETCR_VBP)
+/* depacking-fifo was overflow */
+#define RCU_RCETCR_DFO		(1 << RCETCR_DFO)
 
-#define RCU_RCAPCR_CTNCP	(1 << RCAPCR_CTNCP)	/* continuous capture mode (if set) */
-#define RCU_RCEIER_CPEE		(1 << RCEIER_CPEE)	/* one-frame capture end interrupt */
-#define RCU_RCEIER_VBPE		(1 << RCEIER_VBPE)	/* vbp error */
-#define RCU_RCEIER_DFOE		(1 << RCEIER_DFOE)	/* depacking-fifo was overflow */
-#define RCU_RCEIER_ISPOE	(1 << RCEIER_ISPOE)	/* output of one frame is completed to ISP module. */
+/* continuous capture mode (if set) */
+#define RCU_RCAPCR_CTNCP	(1 << RCAPCR_CTNCP)
+/* one-frame capture end interrupt */
+#define RCU_RCEIER_CPEE		(1 << RCEIER_CPEE)
+/* vbp error */
+#define RCU_RCEIER_VBPE		(1 << RCEIER_VBPE)
+/* depacking-fifo was overflow */
+#define RCU_RCEIER_DFOE		(1 << RCEIER_DFOE)
+/* output of one frame is completed to ISP module. */
+#define RCU_RCEIER_ISPOE	(1 << RCEIER_ISPOE)
 
-#define RCU_RCETCR_ERR_MASK		(RCU_RCETCR_VBP | RCU_RCETCR_DFO)						/* error mask */
-#define RCU_RCEIER_MASK			(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)	/* interrupt enable mask */
-#define RCU_RCEIER_MASK_MEM		(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)	/* interrupt enable mask */
+/* error mask */
+#define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO)
+/* interrupt enable mask */
+#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)
+/* interrupt enable mask */
+#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)
 
 
 /*
@@ -434,11 +481,11 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 	 * the RCU_RCETCR_MAGIC value. It seems like we need to acknowledge
 	 * several not-so-well documented interrupt sources in CETCR.
 	 */
-	if ( SH_RCU_OUTPUT_MEM == pcdev->output_mode ) {
+	if (SH_RCU_OUTPUT_MEM == pcdev->output_mode)
 		rceier = RCU_RCEIER_MASK_MEM;
-	} else {
+	else
 		rceier = RCU_RCEIER_MASK;
-	}
+
 	rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) & ~rceier);
 	status = rcu_read(pcdev, RCETCR);
 	rcu_write(pcdev, RCETCR, ~status & RCU_RCETCR_MAGIC);
@@ -464,11 +511,13 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 	/* ISP output */
 	/* Memory and ISP output mode (Active buffer doesn't exist.) */
 	if ((SH_RCU_OUTPUT_ISP     == pcdev->output_mode) ||
-		(SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode && !pcdev->active)) {
+		(SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode &&
+		!pcdev->active)) {
 		/* set output mode */
 		rcamcr = rcu_read(pcdev, RCAMCR);
 		rcamcr = rcamcr & ~(3 << RCAMCR_OCNT);
-		rcu_write(pcdev, RCAMCR, rcamcr | (SH_RCU_OUTPUT_ISP << RCAMCR_OCNT));
+		rcu_write(pcdev, RCAMCR, rcamcr |
+			(SH_RCU_OUTPUT_ISP << RCAMCR_OCNT));
 
 		rcu_write(pcdev, RCDAYR, 0);
 		rcu_write(pcdev, RCDACR, 0);
@@ -476,8 +525,10 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 
 	/* Memory and ISP output mode (Active buffer exists.) */
 	/* Memory output (Active buffer exists.) */
-	} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode && pcdev->active) ||
-	           (SH_RCU_OUTPUT_MEM     == pcdev->output_mode && pcdev->active)) {
+	} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode &&
+			pcdev->active) ||
+			(SH_RCU_OUTPUT_MEM == pcdev->output_mode &&
+			pcdev->active)) {
 		/* set output mode */
 		/*
 		 * When there is not an active buffer,
@@ -486,30 +537,20 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		 */
 		rcamcr = rcu_read(pcdev, RCAMCR);
 		rcamcr = rcamcr & ~(3 << RCAMCR_OCNT);
-		rcu_write(pcdev, RCAMCR, rcamcr | (pcdev->output_mode << RCAMCR_OCNT));
-#if 0
-		phys_addr_top = pcdev->active->v4l2_planes[0].m.userptr;
-#else
-{
-#if 0
-		unsigned long user_meminfo[2];
-		if(copy_from_user(user_meminfo, (void __user *)pcdev->active->v4l2_planes[0].m.userptr, 8))
+		rcu_write(pcdev, RCAMCR, rcamcr |
+			(pcdev->output_mode << RCAMCR_OCNT));
+
 		{
-			printk(KERN_ALERT "%s error copy_from_user (0x%08lx)(0x%08lx)(%d)\n",__func__,(unsigned long)user_meminfo,(unsigned long)pcdev->active->v4l2_planes[0].m.userptr,8);
+			struct vb2_dc_buf *buf =
+			(struct vb2_dc_buf *) pcdev->active->planes[0].mem_priv;
+			phys_addr_top = (dma_addr_t) buf->paddr;
 		}
-		phys_addr_top = user_meminfo[0];
-#else
-		struct vb2_dc_buf *buf = (struct vb2_dc_buf *)pcdev->active->planes[0].mem_priv;
-		phys_addr_top = (dma_addr_t)buf->paddr;
-#endif
-		//printk(KERN_ALERT "%s Set addr(0x%08x)\n",__func__,phys_addr_top);
-}
-#endif
 		rcu_write(pcdev, RCDAYR, phys_addr_top);
 
 		if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
 			phys_addr_top +=
-				ALIGN32(icd->user_width) * ALIGN32(icd->user_height);
+				ALIGN32(icd->user_width) *
+				ALIGN32(icd->user_height);
 			rcu_write(pcdev, RCDACR, phys_addr_top);
 		} else {
 			rcu_write(pcdev, RCDACR, 0);
@@ -528,13 +569,15 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 
 static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 {
-	struct soc_camera_device *icd = container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf;
 	int bytes_per_line = sh_mobile_rcu_bytes_per_line(
 						icd->user_width,
-						icd->current_fmt->host_fmt, pcdev);
+						icd->current_fmt->host_fmt,
+						pcdev);
 	unsigned long size;
 
 	dev_dbg(icd->dev.parent, "%s(vb=0x%p): 0x%p %lu\n", __func__,
@@ -553,39 +596,36 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 	 * This can be useful if you want to see if we actually fill
 	 * the buffer with something
 	 */
-	if (vb2_plane_vaddr(vb, 0))
-		memset(vb2_plane_vaddr(vb, 0), 0xaa, vb2_get_plane_payload(vb, 0));
+	if (vb2_plane_vaddr(vb, 0)) {
+		memset(vb2_plane_vaddr(vb, 0), 0xaa,
+			vb2_get_plane_payload(vb, 0));
+	}
 #endif
 
 	BUG_ON(NULL == icd->current_fmt);
 
 	size = icd->user_height * bytes_per_line;
 
-#if 0
-	if (vb2_plane_size(vb, 0) < size) {
-		dev_err(icd->dev.parent, "Buffer too small (%lu < %lu)\n",
-			vb2_plane_size(vb, 0), size);
-		return -ENOBUFS;
-	}
-#else
-{
-
-	struct vb2_dc_buf *buf = (struct vb2_dc_buf *)vb->planes[0].mem_priv;
-	unsigned long user_meminfo[2];
-	if(copy_from_user(user_meminfo, (void __user *)vb->v4l2_planes[0].m.userptr, 8))
 	{
-		printk(KERN_ALERT "%s error copy_from_user (0x%08lx)(0x%08lx)(%d)\n",__func__,(unsigned long)user_meminfo,(unsigned long)vb->v4l2_planes[0].m.userptr,8);
-	}
-	//printk(KERN_ALERT "%s Set length(0x%08lx)\n",__func__,user_meminfo[1]);
-	if (user_meminfo[1] < size) {
+		struct vb2_dc_buf *buf =
+			(struct vb2_dc_buf *) vb->planes[0].mem_priv;
+		unsigned long user_meminfo[2];
+		if (copy_from_user(user_meminfo,
+			(void __user *) vb->v4l2_planes[0].m.userptr, 8)) {
+			printk(
+				KERN_ALERT
+				"%s error copy_from_user (0x%08lx)(0x%08lx)(%d)\n",
+				__func__, (unsigned long) user_meminfo,
+				(unsigned long) vb->v4l2_planes[0].m.userptr,
+				8);
+		}
+		if (user_meminfo[1] < size) {
 			dev_err(icd->dev.parent, "Buffer too small (%lu < %lu)\n",
-			user_meminfo[1], size);
-		return -ENOBUFS;
+				user_meminfo[1], size);
+			return -ENOBUFS;
+		}
+		buf->paddr = user_meminfo[0];
 	}
-	buf->paddr = user_meminfo[0];
-	//printk(KERN_ALERT "%s Set addr(0x%08lx)\n",__func__,user_meminfo[0]);
-}
-#endif
 
 	vb2_set_plane_payload(vb, 0, size);
 
@@ -594,7 +634,8 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 
 static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 {
-	struct soc_camera_device *icd = container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
@@ -618,7 +659,8 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 
 static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 {
-	struct soc_camera_device *icd = container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
@@ -643,7 +685,8 @@ static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 
 static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 {
-	struct soc_camera_device *icd = container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	/* This is for locking debugging only */
@@ -653,20 +696,26 @@ static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 
 static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 {
-	struct soc_camera_device *icd = container_of(q, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(q, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	unsigned long flags;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	int ret = 0;
 
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
 {
-	void __iomem * intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-	iowrite16(ioread16(intcs_base + 0x54) | 0x0001, intcs_base + 0x54); // IPRVS3
-	iowrite8(0x01, intcs_base + 0x1E8); // IMCR10SA3
-	dev_geo(icd->dev.parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n", ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
+	void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+	/* IPRVS3 */
+	iowrite16(ioread16(intcs_base + 0x54) | 0x0001, intcs_base + 0x54);
+	/* IMCR10SA3 */
+	iowrite8(0x01, intcs_base + 0x1E8);
+	dev_geo(icd->dev.parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n",
+		ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
 	iounmap(intcs_base);
 }
 
@@ -676,18 +725,34 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
+	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0,
+				video, s_stream, 1);
+	if (ret) {
+		printk(KERN_ALERT "%s :Error v4l2_device_call_until_err(%d)\n",
+				__func__, ret);
+	}
+
 	return 0;
 }
 
 static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 {
-	struct soc_camera_device *icd = container_of(q, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd =
+			container_of(q, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct list_head *buf_head, *tmp;
 	unsigned long flags;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	int ret = 0;
 
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
+
+	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video, s_stream, 0);
+	if (ret) {
+		printk(KERN_ALERT "%s :Error v4l2_device_call_until_err(%d)\n",
+				__func__, ret);
+	}
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
@@ -702,15 +767,15 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 }
 
 static struct vb2_ops sh_mobile_rcu_videobuf_ops = {
-	.queue_setup	= sh_mobile_rcu_videobuf_setup,
-	.buf_prepare	= sh_mobile_rcu_videobuf_prepare,
-	.buf_queue	= sh_mobile_rcu_videobuf_queue,
-	.buf_cleanup	= sh_mobile_rcu_videobuf_release,
-	.buf_init	= sh_mobile_rcu_videobuf_init,
-	.wait_prepare	= soc_camera_unlock,
-	.wait_finish	= soc_camera_lock,
-	.start_streaming= sh_mobile_rcu_start_streaming,
-	.stop_streaming	= sh_mobile_rcu_stop_streaming,
+	.queue_setup		= sh_mobile_rcu_videobuf_setup,
+	.buf_prepare		= sh_mobile_rcu_videobuf_prepare,
+	.buf_queue			= sh_mobile_rcu_videobuf_queue,
+	.buf_cleanup		= sh_mobile_rcu_videobuf_release,
+	.buf_init			= sh_mobile_rcu_videobuf_init,
+	.wait_prepare		= soc_camera_unlock,
+	.wait_finish		= soc_camera_lock,
+	.start_streaming	= sh_mobile_rcu_start_streaming,
+	.stop_streaming		= sh_mobile_rcu_stop_streaming,
 };
 
 static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
@@ -725,9 +790,6 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 	/* stream on */
 	if (SH_RCU_STREAMING_ON == pcdev->streaming) {
 
-//	dev_geo(pcdev->icd->dev.parent, "%s(): mode=%d, active=%p\n",
-//		__func__, pcdev->output_mode, pcdev->active);
-
 		vb = pcdev->active;
 
 		/* ISP output */
@@ -738,13 +800,15 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 
 		/* Memory and ISP output mode (Active buffer exists.) */
 		/* Memory output (Active buffer exists.) */
-		} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode || vb) ||
-		           (SH_RCU_OUTPUT_MEM     == pcdev->output_mode || vb)) {
+		} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode ||
+				vb) ||
+				(SH_RCU_OUTPUT_MEM == pcdev->output_mode ||
+				vb)) {
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
 				pcdev->active = &list_entry(pcdev->capture.next,
-							    struct sh_mobile_rcu_buffer, queue)->vb;
+						struct sh_mobile_rcu_buffer, queue)->vb;
 			else
 				pcdev->active = NULL;
 
@@ -754,7 +818,8 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				vb->v4l2_buf.field = V4L2_FIELD_NONE;
 				vb->v4l2_buf.sequence = pcdev->sequence++;
 			}
-			vb2_buffer_done(vb, ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
+			vb2_buffer_done(vb,
+				ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
 
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
@@ -854,8 +919,8 @@ static void sh_mobile_rcu_set_rect(struct soc_camera_device *icd)
 
 	} else {
 		bytes_per_line = sh_mobile_rcu_bytes_per_line(
-						icd->user_width,
-						icd->current_fmt->host_fmt, pcdev);
+				icd->user_width,
+				icd->current_fmt->host_fmt, pcdev);
 
 		if (bytes_per_line < 0)
 			rcdwdr = ALIGN4(icd->user_width * 2);
@@ -997,16 +1062,20 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	case V4L2_PIX_FMT_NV61:
 		switch (cam->code) {
 		case V4L2_MBUS_FMT_UYVY8_2X8:
-			rcpicr |= SH_RCU_ORDER_UYVY << RCPICR_DTARY; /* Cb0, Y0, Cr0, Y1 */
+			/* Cb0, Y0, Cr0, Y1 */
+			rcpicr |= SH_RCU_ORDER_UYVY << RCPICR_DTARY;
 			break;
 		case V4L2_MBUS_FMT_VYUY8_2X8:
-			rcpicr |= SH_RCU_ORDER_VYUY << RCPICR_DTARY; /* Cr0, Y0, Cb0, Y1 */
+			/* Cr0, Y0, Cb0, Y1 */
+			rcpicr |= SH_RCU_ORDER_VYUY << RCPICR_DTARY;
 			break;
 		case V4L2_MBUS_FMT_YUYV8_2X8:
-			rcpicr |= SH_RCU_ORDER_YUYV << RCPICR_DTARY; /* Y0, Cb0, Y1, Cr0 */
+			/* Y0, Cb0, Y1, Cr0 */
+			rcpicr |= SH_RCU_ORDER_YUYV << RCPICR_DTARY;
 			break;
 		case V4L2_MBUS_FMT_YVYU8_2X8:
-			rcpicr |= SH_RCU_ORDER_YVYU << RCPICR_DTARY; /* Y0, Cr0, Y1, Cb0 */
+			/* Y0, Cr0, Y1, Cb0 */
+			rcpicr |= SH_RCU_ORDER_YVYU << RCPICR_DTARY;
 			break;
 		default:
 			BUG();
@@ -1019,9 +1088,8 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	/* setting RCPICR */
 	rcpicr |= common_flags & SOCAM_VSYNC_ACTIVE_LOW ? 1 << RCPICR_VDPOL : 0;
 	rcpicr |= common_flags & SOCAM_HSYNC_ACTIVE_LOW ? 1 << RCPICR_HDPOL : 0;
-	if (!pcdev->pdata->csi2_dev) {
+	if (!pcdev->pdata->csi2_dev)
 		rcpicr |= 1 << RCPICR_IFS;	/* Paralell I/F */
-	}
 
 	/* setting RCAPCR */
 	rcapcr |= SH_RCU_MTCM_SIZE_8 << RCAPCR_MTCM;
@@ -1044,13 +1112,14 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	rcdocr |= 1 << RCDOCR_COWS;
 	rcdocr |= 1 << RCDOCR_COBS;
 
-	if (yuv_lineskip) {
+	if (yuv_lineskip)
 		rcdocr |= 1 << RCDOCR_T420;	/* output YUV420 */
-	}
 
 	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21 ||
-	    icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61)
-		rcdocr |= 1 << RCDOCR_C1BS; /* swap U, V to change from NV1x->NVx1 */
+	    icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61) {
+	    /* swap U, V to change from NV1x->NVx1 */
+		rcdocr |= 1 << RCDOCR_C1BS;
+	}
 
 	sh_mobile_rcu_set_rect(icd);
 	mdelay(1);
@@ -1068,39 +1137,62 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	rcu_write(pcdev, RCRCMPR, 0);
 	rcu_write(pcdev, RCBDSR,  0);
 
-	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n",
-		PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
+	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n", PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
 
 	capture_restore(pcdev, rcapsr);
 
-//debug
-	dev_dbg(icd->dev.parent, "> RCAPSR  : 0x%08X\n", rcu_read(pcdev, RCAPSR ));
-	dev_dbg(icd->dev.parent, "> RCAPCR  : 0x%08X\n", rcu_read(pcdev, RCAPCR ));
-	dev_dbg(icd->dev.parent, "> RCAMCR  : 0x%08X\n", rcu_read(pcdev, RCAMCR ));
-	dev_dbg(icd->dev.parent, "> RCPICR  : 0x%08X\n", rcu_read(pcdev, RCPICR ));
-	dev_dbg(icd->dev.parent, "> RCAMOR  : 0x%08X\n", rcu_read(pcdev, RCAMOR ));
-	dev_dbg(icd->dev.parent, "> RCPIHCR : 0x%08X\n", rcu_read(pcdev, RCPIHCR));
-	dev_dbg(icd->dev.parent, "> RCRCNTR : 0x%08X\n", rcu_read(pcdev, RCRCNTR));
-	dev_dbg(icd->dev.parent, "> RCRCMPR : 0x%08X\n", rcu_read(pcdev, RCRCMPR));
-	dev_dbg(icd->dev.parent, "> RCSZR   : 0x%08X\n", rcu_read(pcdev, RCSZR  ));
-	dev_dbg(icd->dev.parent, "> RCDWDR  : 0x%08X\n", rcu_read(pcdev, RCDWDR ));
-	dev_dbg(icd->dev.parent, "> RCDAYR  : 0x%08X\n", rcu_read(pcdev, RCDAYR ));
-	dev_dbg(icd->dev.parent, "> RCDACR  : 0x%08X\n", rcu_read(pcdev, RCDACR ));
-	dev_dbg(icd->dev.parent, "> RCBDSR  : 0x%08X\n", rcu_read(pcdev, RCBDSR ));
-	dev_dbg(icd->dev.parent, "> RCFWCR  : 0x%08X\n", rcu_read(pcdev, RCFWCR ));
-	dev_dbg(icd->dev.parent, "> RCDOCR  : 0x%08X\n", rcu_read(pcdev, RCDOCR ));
-	dev_dbg(icd->dev.parent, "> RCEIER  : 0x%08X\n", rcu_read(pcdev, RCEIER ));
-	dev_dbg(icd->dev.parent, "> RCETCR  : 0x%08X\n", rcu_read(pcdev, RCETCR ));
-	dev_dbg(icd->dev.parent, "> RCSTSR  : 0x%08X\n", rcu_read(pcdev, RCSTSR ));
-	dev_dbg(icd->dev.parent, "> RCSRTR  : 0x%08X\n", rcu_read(pcdev, RCSRTR ));
-	dev_dbg(icd->dev.parent, "> RCDSSR  : 0x%08X\n", rcu_read(pcdev, RCDSSR ));
-	dev_dbg(icd->dev.parent, "> RCDAYR2 : 0x%08X\n", rcu_read(pcdev, RCDAYR2));
-	dev_dbg(icd->dev.parent, "> RCDACR2 : 0x%08X\n", rcu_read(pcdev, RCDACR2));
-	dev_dbg(icd->dev.parent, "> RCECNTR : 0x%08X\n", rcu_read(pcdev, RCECNTR));
-	dev_dbg(icd->dev.parent, "> RCEDAYR : 0x%08X\n", rcu_read(pcdev, RCEDAYR));
-	dev_dbg(icd->dev.parent, "> RCEDSSR : 0x%08X\n", rcu_read(pcdev, RCEDSSR));
-	dev_dbg(icd->dev.parent, "> RCEFWCR : 0x%08X\n", rcu_read(pcdev, RCEFWCR));
-//debug
+	dev_dbg(icd->dev.parent, "> RCAPSR  : 0x%08X\n",
+		rcu_read(pcdev, RCAPSR));
+	dev_dbg(icd->dev.parent, "> RCAPCR  : 0x%08X\n",
+		rcu_read(pcdev, RCAPCR));
+	dev_dbg(icd->dev.parent, "> RCAMCR  : 0x%08X\n",
+		rcu_read(pcdev, RCAMCR));
+	dev_dbg(icd->dev.parent, "> RCPICR  : 0x%08X\n",
+		rcu_read(pcdev, RCPICR));
+	dev_dbg(icd->dev.parent, "> RCAMOR  : 0x%08X\n",
+		rcu_read(pcdev, RCAMOR));
+	dev_dbg(icd->dev.parent, "> RCPIHCR : 0x%08X\n",
+		rcu_read(pcdev, RCPIHCR));
+	dev_dbg(icd->dev.parent, "> RCRCNTR : 0x%08X\n",
+		rcu_read(pcdev, RCRCNTR));
+	dev_dbg(icd->dev.parent, "> RCRCMPR : 0x%08X\n",
+		rcu_read(pcdev, RCRCMPR));
+	dev_dbg(icd->dev.parent, "> RCSZR   : 0x%08X\n",
+		rcu_read(pcdev, RCSZR));
+	dev_dbg(icd->dev.parent, "> RCDWDR  : 0x%08X\n",
+		rcu_read(pcdev, RCDWDR));
+	dev_dbg(icd->dev.parent, "> RCDAYR  : 0x%08X\n",
+		rcu_read(pcdev, RCDAYR));
+	dev_dbg(icd->dev.parent, "> RCDACR  : 0x%08X\n",
+		rcu_read(pcdev, RCDACR));
+	dev_dbg(icd->dev.parent, "> RCBDSR  : 0x%08X\n",
+		rcu_read(pcdev, RCBDSR));
+	dev_dbg(icd->dev.parent, "> RCFWCR  : 0x%08X\n",
+		rcu_read(pcdev, RCFWCR));
+	dev_dbg(icd->dev.parent, "> RCDOCR  : 0x%08X\n",
+		rcu_read(pcdev, RCDOCR));
+	dev_dbg(icd->dev.parent, "> RCEIER  : 0x%08X\n",
+		rcu_read(pcdev, RCEIER));
+	dev_dbg(icd->dev.parent, "> RCETCR  : 0x%08X\n",
+		rcu_read(pcdev, RCETCR));
+	dev_dbg(icd->dev.parent, "> RCSTSR  : 0x%08X\n",
+		rcu_read(pcdev, RCSTSR));
+	dev_dbg(icd->dev.parent, "> RCSRTR  : 0x%08X\n",
+		rcu_read(pcdev, RCSRTR));
+	dev_dbg(icd->dev.parent, "> RCDSSR  : 0x%08X\n",
+		rcu_read(pcdev, RCDSSR));
+	dev_dbg(icd->dev.parent, "> RCDAYR2 : 0x%08X\n",
+		rcu_read(pcdev, RCDAYR2));
+	dev_dbg(icd->dev.parent, "> RCDACR2 : 0x%08X\n",
+		rcu_read(pcdev, RCDACR2));
+	dev_dbg(icd->dev.parent, "> RCECNTR : 0x%08X\n",
+		rcu_read(pcdev, RCECNTR));
+	dev_dbg(icd->dev.parent, "> RCEDAYR : 0x%08X\n",
+		rcu_read(pcdev, RCEDAYR));
+	dev_dbg(icd->dev.parent, "> RCEDSSR : 0x%08X\n",
+		rcu_read(pcdev, RCEDSSR));
+	dev_dbg(icd->dev.parent, "> RCEFWCR : 0x%08X\n",
+		rcu_read(pcdev, RCEFWCR));
 
 	/* not in bundle mode: skip RCBDSR, RCDAYR2, RCDACR2 */
 	return 0;
@@ -1116,81 +1208,83 @@ static int sh_mobile_rcu_try_bus_param(struct soc_camera_device *icd,
 	camera_flags = icd->ops->query_bus_param(icd);
 	common_flags = soc_camera_bus_param_compatible(camera_flags,
 						       make_bus_param(pcdev));
-	if (!common_flags || buswidth > 8 || !(common_flags & SOCAM_DATAWIDTH_8))
+	if (!common_flags || buswidth > 8 ||
+		!(common_flags & SOCAM_DATAWIDTH_8)) {
 		return -EINVAL;
+	}
 
 	return 0;
 }
 
 static const struct soc_mbus_pixelfmt sh_mobile_rcu_formats[] = {
 	{
-		.fourcc 			= V4L2_PIX_FMT_SBGGR8,
+		.fourcc				= V4L2_PIX_FMT_SBGGR8,
 		.name				= "Bayer 8 BGGR",
 		.bits_per_sample	= 8,
 		.packing			= SOC_MBUS_PACKING_NONE,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGBRG8,
+		.fourcc				= V4L2_PIX_FMT_SGBRG8,
 		.name				= "Bayer 8 GBRG",
 		.bits_per_sample	= 8,
 		.packing			= SOC_MBUS_PACKING_NONE,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGRBG8,
+		.fourcc				= V4L2_PIX_FMT_SGRBG8,
 		.name				= "Bayer 8 GRBG",
 		.bits_per_sample	= 8,
 		.packing			= SOC_MBUS_PACKING_NONE,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SRGGB8,
+		.fourcc				= V4L2_PIX_FMT_SRGGB8,
 		.name				= "Bayer 8 RGGB",
 		.bits_per_sample	= 8,
 		.packing			= SOC_MBUS_PACKING_NONE,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SBGGR10,
+		.fourcc				= V4L2_PIX_FMT_SBGGR10,
 		.name				= "Bayer 10 BGGR",
 		.bits_per_sample	= 10,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGBRG10,
+		.fourcc				= V4L2_PIX_FMT_SGBRG10,
 		.name				= "Bayer 10 GBRG",
 		.bits_per_sample	= 10,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGRBG10,
+		.fourcc				= V4L2_PIX_FMT_SGRBG10,
 		.name				= "Bayer 10 GRBG",
 		.bits_per_sample	= 10,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SRGGB10,
+		.fourcc				= V4L2_PIX_FMT_SRGGB10,
 		.name				= "Bayer 10 RGGB",
 		.bits_per_sample	= 10,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SBGGR12,
+		.fourcc				= V4L2_PIX_FMT_SBGGR12,
 		.name				= "Bayer 12 BGGR",
 		.bits_per_sample	= 12,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGBRG12,
+		.fourcc				= V4L2_PIX_FMT_SGBRG12,
 		.name				= "Bayer 12 GBRG",
 		.bits_per_sample	= 12,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SGRBG12,
+		.fourcc				= V4L2_PIX_FMT_SGRBG12,
 		.name				= "Bayer 12 GRBG",
 		.bits_per_sample	= 12,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
 		.order				= SOC_MBUS_ORDER_LE,
 	}, {
-		.fourcc 			= V4L2_PIX_FMT_SRGGB12,
+		.fourcc				= V4L2_PIX_FMT_SRGGB12,
 		.name				= "Bayer 12 RGGB",
 		.bits_per_sample	= 12,
 		.packing			= SOC_MBUS_PACKING_EXTEND16,
@@ -1224,8 +1318,8 @@ static const struct soc_mbus_pixelfmt sh_mobile_rcu_formats[] = {
 
 static int client_g_rect(struct v4l2_subdev *sd, struct v4l2_rect *rect);
 
-static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd, unsigned int idx,
-				     struct soc_camera_format_xlate *xlate)
+static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
+		unsigned int idx, struct soc_camera_format_xlate *xlate)
 {
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	struct device *dev = icd->dev.parent;
@@ -1272,8 +1366,8 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd, unsigned int
 			/* Try 2560x1920, 1280x960, 640x480, 320x240 */
 			mf.width	= 2560 >> shift;
 			mf.height	= 1920 >> shift;
-			ret = v4l2_device_call_until_err(sd->v4l2_dev, (long)icd, video,
-							 s_mbus_fmt, &mf);
+			ret = v4l2_device_call_until_err(sd->v4l2_dev,
+				(long)icd, video, s_mbus_fmt, &mf);
 			if (ret < 0)
 				return ret;
 			shift++;
@@ -1296,7 +1390,8 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd, unsigned int
 		if (!cam)
 			return -ENOMEM;
 
-		/* We are called with current camera crop, initialise rect with it */
+		/* We are called with current camera crop, */
+		/* initialise rect with it */
 		cam->width		= mf.width;
 		cam->height		= mf.height;
 		cam->rcu_left	= rect.left;
@@ -1450,8 +1545,8 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd, unsigned int
 		 */
 		cam->extra_fmt = sh_mobile_rcu_formats;
 
-		n = 4;	// support formats
-		j = 12;	// offset
+		n = 4;	/* support formats */
+		j = 12;	/* offset */
 		formats += n;
 		for (k = j; xlate && k < n + j; k++) {
 			xlate->host_fmt	= &sh_mobile_rcu_formats[k];
@@ -1514,7 +1609,7 @@ static int client_g_rect(struct v4l2_subdev *sd, struct v4l2_rect *rect)
 
 /* Alignment is multiple of 2^(walign or haling). */
 static void get_alignment(__u32 pixfmt, unsigned int output_mode,
-						  unsigned int* walign, unsigned int* haling)
+				unsigned int *walign, unsigned int *haling)
 {
 	*haling = 0;
 	switch (pixfmt) {
@@ -1562,8 +1657,7 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	unsigned int walign, halign;
 	struct v4l2_rect rect;
 
-	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__,
-		PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
@@ -1578,7 +1672,8 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	mf.colorspace	= pix->colorspace;
 	mf.code			= xlate->code;
 
-	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video, s_mbus_fmt, &mf);
+	ret = v4l2_device_call_until_err(sd->v4l2_dev,
+			0, video, s_mbus_fmt, &mf);
 	dev_geo(dev, "fmt %ux%u, requested %ux%u\n",
 		mf.width, mf.height, pix->width, pix->height);
 	if (ret < 0)
@@ -1595,8 +1690,10 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	get_alignment(pixfmt, pcdev->output_mode, &walign, &halign);
 	mf.width  = ROUNDDOWN(mf.width,  1<<walign);
 	mf.height = ROUNDDOWN(mf.height, 1<<halign);
-	if(mf.width  < pix->width)  pix->width  = mf.width;
-	if(mf.height < pix->height) pix->height = mf.height;
+	if (mf.width  < pix->width)
+		pix->width  = mf.width;
+	if (mf.height < pix->height)
+		pix->height = mf.height;
 
 	/* Prepare RCU crop */
 	cam->width			= pix->width;
@@ -1638,13 +1735,11 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	int ret;
 	unsigned int walign, halign;
 
-	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n",
-		__func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n",
-		PRINT_FOURCC(pixfmt));
+		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -1654,9 +1749,8 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
 		/* ISP module does not support YUV format. */
-		if (pcdev->output_mode != SH_RCU_OUTPUT_MEM) {
+		if (pcdev->output_mode != SH_RCU_OUTPUT_MEM)
 			return -EINVAL;
-		}
 		break;
 	default:
 		break;
@@ -1665,8 +1759,10 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	/* FIXME: calculate using depth and bus width */
 
 	get_alignment(pixfmt, pcdev->output_mode, &walign, &halign);
-	v4l_bound_align_image(&pix->width,  SH_RCU_MIN_WIDTH,  SH_RCU_MAX_WIDTH,  walign,
-	                      &pix->height, SH_RCU_MIN_HEIGHT, SH_RCU_MAX_HEIGHT, halign, 0);
+	v4l_bound_align_image(&pix->width,  SH_RCU_MIN_WIDTH,
+				SH_RCU_MAX_WIDTH,  walign,
+				&pix->height, SH_RCU_MIN_HEIGHT,
+				SH_RCU_MAX_HEIGHT, halign, 0);
 
 	/* limit to sensor capabilities */
 	mf.width	= pix->width;
@@ -1675,7 +1771,8 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	mf.code		= xlate->code;
 	mf.colorspace	= pix->colorspace;
 
-	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video, try_mbus_fmt, &mf);
+	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video,
+			try_mbus_fmt, &mf);
 	dev_geo(icd->dev.parent, "try_fmt %ux%u, requested %ux%u\n",
 		mf.width, mf.height, pix->width, pix->height);
 	if (ret < 0)
@@ -1683,11 +1780,14 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 
 	mf.width  = ROUNDDOWN(mf.width,  1<<walign);
 	mf.height = ROUNDDOWN(mf.height, 1<<halign);
-	if(mf.width  < pix->width)  pix->width  = mf.width;
-	if(mf.height < pix->height) pix->height = mf.height;
+	if (mf.width  < pix->width)
+		pix->width  = mf.width;
+	if (mf.height < pix->height)
+		pix->height = mf.height;
 
-	pix->bytesperline = 
-		sh_mobile_rcu_bytes_per_line(pix->width, xlate->host_fmt, pcdev);
+	pix->bytesperline =
+		sh_mobile_rcu_bytes_per_line(pix->width,
+				xlate->host_fmt, pcdev);
 	if ((int)pix->bytesperline < 0)
 		return pix->bytesperline;
 	pix->sizeimage = pix->height * pix->bytesperline;
@@ -1695,7 +1795,8 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	pix->field		= mf.field;
 	pix->colorspace	= mf.colorspace;
 
-	dev_geo(icd->dev.parent, "pix format: width=%d height=%d stride=%d sizeimage=%d\n",
+	dev_geo(icd->dev.parent,
+		"pix format: width=%d height=%d stride=%d sizeimage=%d\n",
 		pix->width, pix->height, pix->bytesperline, pix->sizeimage);
 
 	return ret;
@@ -1750,13 +1851,13 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 
-	dev_geo(icd->dev.parent, "%s(): id=0x%x value=0x%x\n", __func__, ctrl->id, ctrl->value);
+	dev_geo(icd->dev.parent, "%s(): id=0x%x value=0x%x\n",
+			__func__, ctrl->id, ctrl->value);
 
 	switch (ctrl->id) {
 	case V4L2_CID_SET_OUTPUT_MODE:
-		if (SH_RCU_STREAMING_ON == pcdev->streaming) {
+		if (SH_RCU_STREAMING_ON == pcdev->streaming)
 			return -EBUSY;
-		}
 		if ((SH_RCU_OUTPUT_ISP     != ctrl->value) &&
 		    (SH_RCU_OUTPUT_MEM_ISP != ctrl->value) &&
 		    (SH_RCU_OUTPUT_MEM     != ctrl->value)) {
@@ -1872,7 +1973,8 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	pcdev->fclk = clk_get(NULL, pcdev->pdata->mod_name);
 	if (IS_ERR(pcdev->fclk)) {
 		pcdev->fclk = NULL;
-		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",pcdev->pdata->mod_name);
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",
+				pcdev->pdata->mod_name);
 	}
 	pcdev->mclk = clk_get(NULL, "meram");
 	if (IS_ERR(pcdev->mclk)) {
@@ -1882,7 +1984,8 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	pcdev->cclk = clk_get(NULL, pcdev->pdata->cmod_name);
 	if (IS_ERR(pcdev->cclk)) {
 		pcdev->cclk = NULL;
-		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",pcdev->pdata->cmod_name);
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",
+				pcdev->pdata->cmod_name);
 	}
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
@@ -2018,9 +2121,9 @@ static int sh_mobile_rcu_resume(struct device *dev)
 static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev){
+	if(NULL == dev)
 		return 0;
-	}
+
 	pcdev = dev_get_drvdata(dev);
 
 	/*
@@ -2029,33 +2132,38 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 * to save and restore registers here.
 	 */
 
-	if(NULL == pcdev){
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev is NULL\n", __func__);
+	if(NULL == pcdev) {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk){
+	if(NULL != pcdev->iclk)
 		clk_disable(pcdev->iclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->iclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk){
+	if(NULL != pcdev->fclk)
 		clk_disable(pcdev->fclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->fclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk){
+	if(NULL != pcdev->mclk)
 		clk_disable(pcdev->mclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->mclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->mclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->cclk){
+	if(NULL != pcdev->cclk)
 		clk_disable(pcdev->cclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->cclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->cclk is NULL\n", __func__);
 	}
 	return 0;
 }
@@ -2063,38 +2171,43 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 static int sh_mobile_rcu_runtime_resume(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev){
+	if(NULL == dev)
 		return 0;
-	}
+
 	pcdev = dev_get_drvdata(dev);
 
-	if(NULL == pcdev){
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev is NULL\n", __func__);
+	if(NULL == pcdev) {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk){
+	if(NULL != pcdev->iclk)
 		clk_enable(pcdev->iclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->iclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk){
+	if(NULL != pcdev->fclk)
 		clk_enable(pcdev->fclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->fclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk){
+	if(NULL != pcdev->mclk)
 		clk_enable(pcdev->mclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->mclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->mclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->cclk){
+	if(NULL != pcdev->cclk)
 		clk_enable(pcdev->cclk);
-	}else{
-		dev_err(pcdev->icd->dev.parent, "%s, pcdev->cclk is NULL\n", __func__);
+	else {
+		dev_err(pcdev->icd->dev.parent,
+			"%s, pcdev->cclk is NULL\n", __func__);
 	}
 	return 0;
 
@@ -2108,7 +2221,7 @@ static const struct dev_pm_ops sh_mobile_rcu_dev_pm_ops = {
 };
 
 static struct platform_driver sh_mobile_rcu_driver = {
-	.driver 	= {
+	.driver		= {
 		.name	= "sh_mobile_rcu",
 		.pm	= &sh_mobile_rcu_dev_pm_ops,
 	},
