@@ -283,6 +283,7 @@ static int __init usbhs_vbus_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, usbhs_vbus);
 	usbhs_vbus->dev = &pdev->dev;
+	usbhs_vbus->phy.dev = &pdev->dev;
 	usbhs_vbus->phy.label = "usbhs_vbus";
 	usbhs_vbus->phy.set_power = usbhs_vbus_set_power;
 	usbhs_vbus->phy.set_suspend = usbhs_vbus_set_suspend;
