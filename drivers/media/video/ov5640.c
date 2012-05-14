@@ -1,6 +1,9 @@
 /*
  * Driver for Omnivision OV5640 CMOS Image Sensor
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2011, Renesas Solutions Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,7 +13,7 @@
 
 /* for debug */
 #undef DEBUG
-// #define DEBUG
+/* #define DEBUG */
 
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -34,8 +37,8 @@ struct OV5640_datafmt {
 struct OV5640 {
 	struct v4l2_subdev		subdev;
 	const struct OV5640_datafmt	*fmt;
-	unsigned int 			width;
-	unsigned int 			height;
+	unsigned int			width;
+	unsigned int			height;
 };
 
 static const struct OV5640_datafmt OV5640_colour_fmts[] = {
@@ -47,7 +50,6 @@ static const struct OV5640_datafmt OV5640_colour_fmts[] = {
 	{V4L2_MBUS_FMT_VYUY8_2X8,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
-//	{V4L2_MBUS_FMT_YUYV8_1_5X8,	V4L2_COLORSPACE_SRGB},
 };
 
 static struct OV5640 *
@@ -61,7 +63,6 @@ static const struct OV5640_datafmt *
 OV5640_find_datafmt(enum v4l2_mbus_pixelcode code)
 {
 	int i;
-	printk(KERN_ALERT "%s :code=%d\n",__func__,code);
 	for (i = 0; i < ARRAY_SIZE(OV5640_colour_fmts); i++)
 		if (OV5640_colour_fmts[i].code == code)
 			return OV5640_colour_fmts + i;
@@ -73,12 +74,9 @@ OV5640_find_datafmt(enum v4l2_mbus_pixelcode code)
 static void OV5640_res_roundup(u32 *width, u32 *height)
 {
 	int i;
-	enum { QCIF, QVGA, VGA, WVGA, WVGAPLUS, HD,
-	       SXGA, UXGA, FHD, QXGA, QSXGA, MIXED, PIX8M };
-	int res_x[] = { 176, 320, 640, 800, 854, 1280,
-			1280, 1600, 1920, 2048, 2592, 2696, 3264 };
-	int res_y[] = { 144, 240, 480, 480, 480, 720,
-			960, 1200, 1080, 1536, 1944, 1952, 2448 };
+	enum {          VGA, HD,   UXGA, FHD,  PIX5M };
+	int res_x[] = { 640, 1280, 1600, 1920, 2560  };
+	int res_y[] = { 480, 720,  1200, 1080, 1920  };
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
@@ -88,8 +86,8 @@ static void OV5640_res_roundup(u32 *width, u32 *height)
 		}
 	}
 
-	*width = res_x[PIX8M];
-	*height = res_y[PIX8M];
+	*width = res_x[PIX5M];
+	*height = res_y[PIX5M];
 }
 
 static int
@@ -123,7 +121,6 @@ OV5640_s_fmt(struct v4l2_subdev *sd,
 	struct OV5640 *priv = to_OV5640(client);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
-	printk(KERN_ALERT "%s :code=%d",__func__,mf->code);
 
 	/* MIPI CSI could have changed the format, double-check */
 	if (!OV5640_find_datafmt(mf->code)) {
@@ -182,7 +179,7 @@ OV5640_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
-	a->bounds.width 		= priv->width;
+	a->bounds.width			= priv->width;
 	a->bounds.height		= priv->height;
 	dev_dbg(&client->dev, "crop: width = %d, height = %d\n",
 		a->bounds.width, a->bounds.height);

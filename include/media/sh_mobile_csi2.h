@@ -1,6 +1,9 @@
 /*
  * Driver header for the SH-Mobile MIPI CSI-2 unit
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2010, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  *
  * This program is free software; you can redistribute it and/or modify

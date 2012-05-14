@@ -39,20 +39,12 @@
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
 #include <linux/wl12xx.h>
 #include <linux/thermal_sensor/ths_kernel.h>
-// EOS-RCU ADD-S
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
-// EOS-RCU ADD-E
-
-// EOS-CSI ADD-S
 #include <media/sh_mobile_csi2.h>
-// EOS-CSI ADD-E
-
-// EOS-CAM ADD-S
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
-// EOS-CAM ADD-E
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -884,7 +876,7 @@ static struct platform_device thermal_sensor_device = {
 	},
 };
 /* >> End Add for Thermal Sensor driver*/
-// EOS-CAM ADD-S
+
 static int OV8820_power0(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk;
@@ -904,13 +896,17 @@ static int OV8820_power0(struct device *dev, int power_on)
 		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
 		mdelay(5);
 
-		iRet = clk_set_rate(vclk1_clk, clk_round_rate(vclk1_clk, 24000000));
+		iRet = clk_set_rate(vclk1_clk,
+				clk_round_rate(vclk1_clk, 24000000));
 		if (0 != iRet) {
-			dev_err(dev, "clk_set_rate(vclk1_clk) failed (ret=%d)\n", iRet);
+			dev_err(dev,
+			"clk_set_rate(vclk1_clk) failed (ret=%d)\n", iRet);
 		}
+
 		iRet = clk_enable(vclk1_clk);
 		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n", iRet);
+			dev_err(dev,
+			"clk_enable(vclk1_clk) failed (ret=%d)\n", iRet);
 		}
 
 		mdelay(100);	/* 0ms */
@@ -949,7 +945,7 @@ static int OV5640_power(struct device *dev, int power_on)
 	int iRet;
 
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-	printk(KERN_ALERT "%s : IN\n",__func__);
+	printk(KERN_ALERT "%s : IN\n", __func__);
 
 	vclk2_clk = clk_get(NULL, "vclk2_clk");
 	if (IS_ERR(vclk2_clk)) {
@@ -958,30 +954,33 @@ static int OV5640_power(struct device *dev, int power_on)
 	}
 
 	if (power_on) {
-		printk(KERN_ALERT "%s : PowerON2\n",__func__);
-		
+		printk(KERN_ALERT "%s : PowerON2\n", __func__);
+
 		gpio_set_value(GPIO_PORT16, 0);
 		mdelay(1);
 		gpio_set_value(GPIO_PORT91, 1);
-		
+
 		gpio_direction_output(GPIO_PORT5, 1); /* VDIG ON */
 		gpio_direction_output(GPIO_PORT3, 1); /* VANA ON */
 		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
 		mdelay(5);
 
-		iRet = clk_set_rate(vclk2_clk, clk_round_rate(vclk2_clk, 24000000));
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
 		if (0 != iRet) {
-			dev_err(dev, "clk_set_rate(vclk2_clk) failed (ret=%d)\n", iRet);
+			dev_err(dev,
+			"clk_set_rate(vclk2_clk) failed (ret=%d)\n", iRet);
 		}
 		iRet = clk_enable(vclk2_clk);
 		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n", iRet);
+			dev_err(dev,
+			"clk_enable(vclk2_clk) failed (ret=%d)\n", iRet);
 		}
-		
+
 		mdelay(5);
-		gpio_set_value(GPIO_PORT91, 0);	
+		gpio_set_value(GPIO_PORT91, 0);
 		mdelay(1);
-		gpio_set_value(GPIO_PORT16, 1);	
+		gpio_set_value(GPIO_PORT16, 1);
 	} else {
 		gpio_set_value(GPIO_PORT16, 0);		/* assert RESET */
 		mdelay(100);	/* 0ms */
@@ -1011,15 +1010,15 @@ static struct i2c_board_info i2c_cameras[] = {
 
 static struct soc_camera_link camera_links[] = {
 	{
-		.bus_id 		= 0,
-		.board_info 	= &i2c_cameras[0],
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
 		.i2c_adapter_id	= 1,
 		.module_name	= "OV8820",
 		.power			= OV8820_power0,
 	},
 	{
-		.bus_id 		= 1,
-		.board_info 	= &i2c_cameras[1],
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
 		.i2c_adapter_id	= 1,
 		.module_name	= "OV5640",
 		.power			= OV5640_power,
@@ -1029,7 +1028,7 @@ static struct soc_camera_link camera_links[] = {
 static struct platform_device camera_devices[] = {
 	{
 		.name	= "soc-camera-pdrv",
-		.id 	= 0,
+		.id		= 0,
 		.dev	= {
 			.platform_data = &camera_links[0],
 		},
@@ -1042,9 +1041,7 @@ static struct platform_device camera_devices[] = {
 		},
 	},
 };
-// EOS-CAM ADD-E
 
-// EOS-CSI ADD-S
 static struct sh_csi2_client_config csi20_clients[] = {
 	{
 		.phy		= SH_CSI2_PHY_MAIN,
@@ -1070,7 +1067,7 @@ static struct resource csi20_resources[] = {
 	},
 	[1] = {
 		.start	= intcs_evt2irq(0x17a0),
-		.flags  = IORESOURCE_IRQ,
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
@@ -1078,7 +1075,7 @@ static struct platform_device csi20_device = {
 	.name   = "sh-mobile-csi2",
 	.id     = 0,
 	.num_resources	= ARRAY_SIZE(csi20_resources),
-	.resource	= csi20_resources,		// ES1 is CSI21 connect
+	.resource	= csi20_resources, /* ES1 is CSI21 connect */
 	.dev    = {
 		.platform_data = &csi20_info,
 	},
@@ -1121,7 +1118,7 @@ static struct resource csi21_resources_es1[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= intcs_evt2irq(0x1be0),
+		.start	= intcs_evt2irq(0x17a0),
 		.flags  = IORESOURCE_IRQ,
 	},
 };
@@ -1135,9 +1132,7 @@ static struct platform_device csi21_device = {
 		.platform_data = &csi21_info,
 	},
 };
-// EOS-CSI ADD-E
 
-// EOS-RCU ADD-S
 static struct sh_mobile_rcu_info sh_mobile_rcu0_info = {
 	.flags		= 0,
 	.csi2_dev	= &csi20_device.dev,
@@ -1163,7 +1158,7 @@ static struct resource rcu0_resources[] = {
 
 static struct platform_device rcu0_device = {
 	.name			= "sh_mobile_rcu",
-	.id 			= 0, /* "rcu0" clock */
+	.id				= 0, /* "rcu0" clock */
 	.num_resources	= ARRAY_SIZE(rcu0_resources),
 	.resource		= rcu0_resources,
 	.dev = {
@@ -1212,14 +1207,13 @@ static struct resource rcu1_resources_es1[] = {
 
 static struct platform_device rcu1_device = {
 	.name			= "sh_mobile_rcu",
-	.id 			= 1, /* "rcu1" clock */
+	.id				= 1, /* "rcu1" clock */
 	.num_resources	= ARRAY_SIZE(rcu1_resources),
-	.resource		= rcu1_resources,	// ES1 is RCU0 connect
+	.resource		= rcu1_resources, /* ES1 is RCU0 connect */
 	.dev	= {
 		.platform_data	= &sh_mobile_rcu1_info,
 	},
 };
-// EOS-RCU ADD-E
 
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
@@ -1251,20 +1245,12 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
    &btwilink_device,
 //120220 TI BTFM
 	&thermal_sensor_device,
-// EOS-CSI ADD-S
 	&csi20_device,
 	&csi21_device,
-// EOS-CSI ADD-E
-
-// EOS-RCU ADD-S
 	&rcu0_device,
 	&rcu1_device,
-// EOS-RCU ADD-E
-
-// EOS-CAM ADD-S
 	&camera_devices[0],
 	&camera_devices[1],
-// EOS-CAM ADD-E
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -1294,20 +1280,12 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
    &btwilink_device,
 //120220 TI BTFM
 	&thermal_sensor_device,
-// EOS-CSI ADD-S
 	&csi20_device,
 	&csi21_device,
-// EOS-CSI ADD-E
-
-// EOS-RCU ADD-S
 	&rcu0_device,
 	&rcu1_device,
-// EOS-RCU ADD-E
-
-// EOS-CAM ADD-S
 	&camera_devices[0],
 	&camera_devices[1],
-// EOS-CAM ADD-E
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -1336,20 +1314,12 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&btwilink_device,
 //120220 TI BTFM
 	&thermal_sensor_device,
-// EOS-CSI ADD-S
 	&csi20_device,
 	&csi21_device,
-// EOS-CSI ADD-E
-
-// EOS-RCU ADD-S
 	&rcu0_device,
 	&rcu1_device,
-// EOS-RCU ADD-E
-
-// EOS-CAM ADD-S
 	&camera_devices[0],
 	&camera_devices[1],
-// EOS-CAM ADD-E
 };
 
 /* I2C */
@@ -1929,7 +1899,7 @@ static void __init u2evm_init(void)
 		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
 	}
 #endif
-// EOS-CAM ADD-S
+
 {
 	struct clk *vclk1_clk;
 	struct clk *pll1_div2_clk;
@@ -1953,24 +1923,25 @@ static void __init u2evm_init(void)
 	gpio_direction_output(GPIO_PORT16, 0);
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
-	if (IS_ERR(pll1_div2_clk)) {
+	if (IS_ERR(pll1_div2_clk))
 		printk(KERN_ERR "clk_get(pll1_div2_clk) failed\n");
-	}
 
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
-	if (IS_ERR(vclk1_clk)) {
+	if (IS_ERR(vclk1_clk))
 		printk(KERN_ERR "clk_get(vclk1_clk) failed\n");
-	}
+
 	iRet = clk_set_parent(vclk1_clk, pll1_div2_clk);
 	if (0 != iRet) {
-		printk(KERN_ERR "clk_set_parent(vclk1_clk) failed (ret=%d)\n", iRet);
+		printk(KERN_ERR
+		"clk_set_parent(vclk1_clk) failed (ret=%d)\n", iRet);
 	}
 
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);
 
-	// ES version convert
-	if (0x00003E00 == system_rev) { // ES1.0
+	/* ES version convert */
+	if (0x00003E00 == system_rev) {
+		/* ES1.0 */
 		printk(KERN_ALERT "Camera ISP ES version switch (ES1)\n");
 		csi21_device.resource = csi21_resources_es1;
 		csi21_device.num_resources = ARRAY_SIZE(csi21_resources_es1);
@@ -1979,11 +1950,9 @@ static void __init u2evm_init(void)
 		rcu1_device.num_resources = ARRAY_SIZE(rcu1_resources_es1);
 		sh_mobile_rcu1_info.mod_name = sh_mobile_rcu0_info.mod_name;
 		sh_mobile_rcu1_info.cmod_name = sh_mobile_rcu0_info.cmod_name;
-	}
-	else
+	} else
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 }
-// EOS-CAM ADD-E
 
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 0);
@@ -1992,13 +1961,16 @@ static void __init u2evm_init(void)
 
 	switch (stm_select) {
 		case 0:
-			platform_add_devices(u2evm_devices_stm_sdhi0, ARRAY_SIZE(u2evm_devices_stm_sdhi0));
+			platform_add_devices(u2evm_devices_stm_sdhi0,
+				ARRAY_SIZE(u2evm_devices_stm_sdhi0));
 			break;
 		case 1:
-			platform_add_devices(u2evm_devices_stm_sdhi1, ARRAY_SIZE(u2evm_devices_stm_sdhi1));
+			platform_add_devices(u2evm_devices_stm_sdhi1,
+				ARRAY_SIZE(u2evm_devices_stm_sdhi1));
 			break;
 		default:
-			platform_add_devices(u2evm_devices_stm_none,  ARRAY_SIZE(u2evm_devices_stm_none));
+			platform_add_devices(u2evm_devices_stm_none,
+				ARRAY_SIZE(u2evm_devices_stm_none));
 			break;
 	}
 

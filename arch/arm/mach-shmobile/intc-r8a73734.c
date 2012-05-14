@@ -199,12 +199,7 @@ enum {
 	/* interrupt sources INTCS */
 	VPU, _2DDM0, TSIF, LMB, JPU_JPEG, LCDC, CSIRX,
 	DSITX0_DSITX0, DSITX0_DSITX1, FSI, VSP1, ISP_PRE, ISP_POS, RCU0,
-// EOS-RCU ADD-S
-	RCU1,
-// EOS-RCU ADD-E
-// EOS-CSI ADD-S
-	CSIRX1,
-// EOS-CSI ADD-E
+	RCU1, CSIRX1,
 	/* interrupt groups INTCS */
 	DSITX0,
 };
@@ -217,12 +212,7 @@ static struct intc_vect intcs_vectors[] = {
 	INTCS_VECT(DSITX0_DSITX1, 0x17e0), INTCS_VECT(FSI, 0x1840),
 	INTCS_VECT(VSP1, 0x1b60), INTCS_VECT(ISP_PRE, 0x1d40),
 	INTCS_VECT(ISP_POS, 0x1d60), INTCS_VECT(RCU0, 0x1de0),
-// EOS-RCU ADD-S
-	INTCS_VECT(RCU1, 0x1dc0),
-// EOS-RCU ADD-E
-// EOS-CSI ADD-S
-	INTCS_VECT(CSIRX1, 0x1be0),
-// EOS-CSI ADD-E
+	INTCS_VECT(RCU1, 0x1dc0), INTCS_VECT(CSIRX1, 0x1be0),
 };
 
 static struct intc_mask_reg intcs_mask_registers[] = {
@@ -246,16 +236,10 @@ static struct intc_mask_reg intcs_mask_registers[] = {
 	    0, 0, 0, 0 } },
 	{ 0xffd501a0, 0xffd501e0, 8, /* IMR8SA3 / IMCR8SA3 */
 	  { 0, 0, 0, VSP1,
-// EOS-CSI CHG-S
-//	    0, 0, 0, 0 } },
 	    0, 0, 0, CSIRX1 } },
-// EOS-CSI CHG-E
 	{ 0xffd501a8, 0xffd501e8, 8, /* IMR10SA3 / IMCR10SA3 */
 	  { 0, 0, ISP_PRE, ISP_POS,
-// EOS-RCU CHG-S
-//	    0, 0, 0, RCU0 } },
 	    0, 0, RCU1, RCU0 } },
-// EOS-RCU CHG-E
 };
 
 static struct intc_group intcs_groups[] __initdata = {
@@ -272,13 +256,8 @@ static struct intc_prio_reg intcs_prio_registers[] = {
 	{ 0xffd50028, 0, 16, 4, /* IPRKS3 */ { 0, 0, FSI, 0 } },
 	{ 0xffd50040, 0, 16, 4, /* IPRQS3 */ { 0, 0, 0, VSP1 } },
 	{ 0xffd50050, 0, 16, 4, /* IPRUS3 */ { 0, 0, ISP_PRE, ISP_POS } },
-// EOS-RCU CHG-S
-//	{ 0xffd50054, 0, 16, 4, /* IPRVS3 */ { 0, 0, 0, RCU0 } },
 	{ 0xffd50054, 0, 16, 4, /* IPRVS3 */ { 0, 0, RCU1, RCU0 } },
-// EOS-RCU CHG-E
-// EOS-CSI ADD-S
 	{ 0xffd50044, 0, 16, 4, /* IPRRS3 */ { 0, 0, 0, CSIRX1 } },
-// EOS-CSI ADD-E
 };
 
 static struct resource intcs_resources[] __initdata = {

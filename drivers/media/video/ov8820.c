@@ -1,6 +1,9 @@
 /*
  * Driver for Omnivision OV8820 CMOS Image Sensor
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2011, Renesas Solutions Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -10,7 +13,7 @@
 
 /* for debug */
 #undef DEBUG
-// #define DEBUG
+/* #define DEBUG */
 
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -34,8 +37,8 @@ struct OV8820_datafmt {
 struct OV8820 {
 	struct v4l2_subdev		subdev;
 	const struct OV8820_datafmt	*fmt;
-	unsigned int 			width;
-	unsigned int 			height;
+	unsigned int			width;
+	unsigned int			height;
 };
 
 static const struct OV8820_datafmt OV8820_colour_fmts[] = {
@@ -72,12 +75,9 @@ OV8820_find_datafmt(enum v4l2_mbus_pixelcode code)
 static void OV8820_res_roundup(u32 *width, u32 *height)
 {
 	int i;
-	enum { QCIF, QVGA, VGA, WVGA, WVGAPLUS, HD,
-	       SXGA, UXGA, FHD, QXGA, QSXGA, MIXED, PIX8M };
-	int res_x[] = { 176, 320, 640, 800, 854, 1280,
-			1280, 1600, 1920, 2048, 2592, 2696, 3272 };
-	int res_y[] = { 144, 240, 480, 480, 480, 720,
-			960, 1200, 1080, 1536, 1944, 1952, 2456 };
+	enum {          VGA, HD,   UXGA, FHD,  PIX5M, PIX8M};
+	int res_x[] = { 640, 1280, 1600, 1920, 2560,  3272 };
+	int res_y[] = { 480, 720,  1200, 1080, 1920,  2456 };
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
@@ -180,7 +180,7 @@ OV8820_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
-	a->bounds.width 		= priv->width;
+	a->bounds.width			= priv->width;
 	a->bounds.height		= priv->height;
 	dev_dbg(&client->dev, "crop: width = %d, height = %d\n",
 		a->bounds.width, a->bounds.height);
