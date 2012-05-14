@@ -26,6 +26,9 @@
 /*---------------------------------------------------------------------------*/
 /* include files                                                             */
 /*---------------------------------------------------------------------------*/
+#ifdef __MAX98090_UT__
+#include "max98090_ut_stb.h"
+#else   /* __MAX98090_UT__ */
 #include <linux/time.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -46,7 +49,10 @@
 #endif  /* __SOC_CODEC_ADD__ */
 
 #include <mach/r8a73734.h>
+#endif  /* __MAX98090_UT__ */
+
 #include <sound/soundpath/max98090_extern.h>
+
 #include "max98090_defs.h"
 #include "max97236_defs.h"
 #include "max98090_log.h"
@@ -92,10 +98,8 @@ u_long max98090_sysc_Base;  /* SYSC base address */
 #define SYSC_PSTR       (max98090_sysc_Base + 0x0080)
 #endif  /* __MAX98090_TODO_POWER__ */
 
-#ifdef __MAX98090_TODO__
 #define MAX98090_GPIO_BASE	IO_ADDRESS(0xE6050000)
 #define MAX98090_GPIO_034	(MAX98090_GPIO_BASE + 0x0022)	/* AUDIO_IRQ */
-#endif  /* __MAX98090_TODO__ */
 
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration (private)                               */
@@ -167,6 +171,9 @@ struct max98090_priv {
 						 a callback function. */
 	/* log */
 	struct proc_dir_entry *log_entry;   /**< log level entry. */
+#ifdef __MAX98090_RELEASE_CHECK__
+	struct proc_dir_entry *release_entry;/**< release check entry. */
+#endif	/* __MAX98090_RELEASE_CHECK__ */
 	struct proc_dir_entry *log_parent;  /**< log level parent. */
 #ifdef __SOC_CODEC_ADD__
 	struct snd_soc_codec *codec;
@@ -214,7 +221,6 @@ static int max98090_set_mic_device(const u_int cur_dev, const u_int new_dev);
 static int max98090_set_headset_mic_device(const u_int cur_dev,
 				const u_int new_dev);
 
-static void max98090_set_log_level(const u_int log_level);
 static int max98090_dump_max98090_registers(void);
 static int max98090_dump_max97236_registers(void);
 #ifdef __MAX98090_DEBUG__
@@ -225,6 +231,12 @@ static int max98090_proc_read(char *page, char **start, off_t offset,
 			int count, int *eof, void *data);
 static int max98090_proc_write(struct file *filp, const char *buffer,
 			unsigned long count, void *data);
+
+#ifdef __MAX98090_RELEASE_CHECK__
+static int max98090_proc_release_write(struct file *filp, const char *buffer,
+			unsigned long count, void *data);
+#endif	/* __MAX98090_RELEASE_CHECK__ */
+
 
 #ifdef __SOC_CODEC_ADD__
 static int max98090_probe(struct snd_soc_codec *codec);
@@ -439,7 +451,6 @@ static int max98090_setup(struct i2c_client *client,
 			struct max98090_priv *dev)
 {
 	int ret = 0;
-	int status1 = 0;
 	max98090_log_efunc("");
 	/* create file for log level entry */
 	dev->log_parent = proc_mkdir(AUDIO_LSI_DRV_NAME, NULL);
@@ -459,10 +470,28 @@ static int max98090_setup(struct i2c_client *client,
 		}
 	}
 
+#ifdef __MAX98090_RELEASE_CHECK__
+	if (NULL != dev->log_parent) {
+		dev->release_entry = create_proc_entry("release_check",
+						(S_IRUGO | S_IWUGO),
+						dev->log_parent);
+
+		if (NULL != dev->release_entry) {
+			dev->release_entry->write_proc =
+						max98090_proc_release_write;
+		} else {
+			max98090_log_err("create failed for proc entry.");
+			ret = -ENOMEM;
+			goto err_proc;
+		}
+	}
+#endif	/* __MAX98090_RELEASE_CHECK__ */
+
 	/* create workqueue for irq */
 	if (NULL == dev->irq_workqueue) {
 		dev->irq_workqueue =
 			create_singlethread_workqueue("jack_detect");
+
 		if (NULL == dev->irq_workqueue) {
 			ret = -ENOMEM;
 			max98090_log_err("queue create error. ret[%d]", ret);
@@ -484,19 +513,6 @@ static int max98090_setup(struct i2c_client *client,
 
 	if (0 != ret)
 		goto err_setup_r8a73734;
-
-	/* update internal board info */
-	ret = max98090_read(MAX98090_AUDIO_IC_MAX97236,
-			MAX97236_REG_OR_STATUS1, &status1);
-
-	if (0 > status1)
-		max98090_conf->board = MAX98090_E2K;
-	else
-		max98090_conf->board = MAX98090_EVM;
-
-	max98090_log_info("read max97236(0x00) status1[0x%x] board[%d]",
-			status1,
-			max98090_conf->board);
 
 	/* request irq */
 	dev->irq = client->irq;
@@ -553,6 +569,11 @@ err_proc:
 	if (dev->log_entry)
 		remove_proc_entry(MAX98090_LOG_LEVEL, dev->log_parent);
 
+#ifdef __MAX98090_RELEASE_CHECK__
+	if (dev->release_entry)
+		remove_proc_entry("release_check", dev->log_parent);
+#endif	/* __MAX98090_RELEASE_CHECK__ */
+
 	if (dev->log_parent)
 		remove_proc_entry(AUDIO_LSI_DRV_NAME, NULL);
 
@@ -570,11 +591,25 @@ err_proc:
 static int max98090_setup_r8a73734(void)
 {
 	int ret = 0;
+	int status1 = 0;
 	max98090_log_efunc("");
 	ret = max98090_enable_vclk4();
 
 	if (0 != ret)
 		goto err_enable_vclk4;
+
+	/* update internal board info */
+	ret = max98090_read(MAX98090_AUDIO_IC_MAX97236,
+			MAX97236_REG_OR_STATUS1, &status1);
+
+	if (0 > status1)
+		max98090_conf->board = MAX98090_E2K;
+	else
+		max98090_conf->board = MAX98090_EVM;
+
+	max98090_log_info("read max97236(0x00) status1[0x%x] board[%d]",
+			status1,
+			max98090_conf->board);
 
 	if (MAX98090_EVM == max98090_conf->board) {
 		ret = gpio_request(GPIO_PORT29, NULL);
@@ -587,13 +622,9 @@ static int max98090_setup_r8a73734(void)
 
 		if (0 != ret)
 			goto err_gpio_request;
-
-	}
-
-#ifdef __MAX98090_TODO__
-	if (MAX98090_E2K == max98090_conf->board)
+	} else {
 		iowrite8(0xe0, MAX98090_GPIO_034);
-#endif  /* __MAX98090_TODO__ */
+	}
 
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -681,28 +712,6 @@ static int max98090_setup_max98090(void)
 	if (0 != ret)
 		goto err_set_volume;
 
-	/* set mic volume */
-	/* 0x11(MIC2 INPUT LEVEL) 0x2A:PA2EN=0dB PGAM2=10dB */
-	ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-			MAX98090_REG_RW_MIC2_INPUT_LEVEL, 0x2A);
-
-	if (0 != ret)
-		goto err_i2c_write;
-
-	/* 0x17(LEFT ADC LEVEL)   0x10:AVRG=6dB AVR=3dB */
-	ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-			MAX98090_REG_RW_LEFT_ADC_LEVEL, 0x10);
-
-	if (0 != ret)
-		goto err_i2c_write;
-
-	/* 0x18(RIGHT ADC LEVEL)  0x10:AVRG=6dB AVR=3dB */
-	ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-			MAX98090_REG_RW_RIGHT_ADC_LEVEL, 0x10);
-
-	if (0 != ret)
-		goto err_i2c_write;
-
 	/* 0x44(ADC CONTROL) 0x03:OSR128=ADCCLK=64*fS ADCDITHER=Dither enabled
 	   ADCHP=ADC is optimized for best performance */
 	ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
@@ -780,6 +789,10 @@ static int max98090_switch_dev_register(struct max98090_priv *dev)
 	dev->switch_data.sdev.state = 0;
 	dev->switch_data.state = 0;
 	ret = switch_dev_register(&dev->switch_data.sdev);
+
+	if (0 != ret)
+		max98090_log_err("ret[%d]", ret);
+
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -880,12 +893,12 @@ static void max98090_irq_work_func(struct work_struct *unused)
 	int res = 0;
 	int state = max98090_conf->switch_data.state;
 	int key_press = max98090_conf->switch_data.key_press;
-	u_int status1 = 0;
-	u_int status2 = 0;
-	u_int status3 = 0;
-	u_int enable1 = 0;
-	u_int enable2 = 0;
-	u_int press = 0;
+	int status1 = 0;
+	int status2 = 0;
+	int status3 = 0;
+	int enable1 = 0;
+	int enable2 = 0;
+	int press = 0;
 	max98090_log_efunc("");
 	res = max98090_disable_interrupt();
 
@@ -893,14 +906,33 @@ static void max98090_irq_work_func(struct work_struct *unused)
 		/* read status */
 		res = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_OR_STATUS1, &status1);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
 		res = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_OR_STATUS2, &status2);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
 		res = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_OR_STATUS3, &status3);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
 		res = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_RW_ENABLE1, &enable1);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
 		res = max98090_read(MAX98090_AUDIO_IC_MAX97236,
 				MAX97236_REG_RW_ENABLE2, &enable2);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
 
 		if (0x80 & enable2) {
 			max98090_log_info("jack insert.");
@@ -925,6 +957,9 @@ static void max98090_irq_work_func(struct work_struct *unused)
 				MAX97236_REG_OR_PASSIVE_MBH_KEYSCAN_DATA,
 				&press);
 
+			if (0 != res)
+				max98090_log_err("res[%d]", res);
+
 			if (0x80 & press) {
 				max98090_log_info("key press.");
 				key_press = 0x01;
@@ -937,9 +972,47 @@ static void max98090_irq_work_func(struct work_struct *unused)
 		/* read status */
 		res = max98090_read(MAX98090_AUDIO_IC_MAX98090,
 				MAX98090_REG_R_DEVICE_STATUS, &status1);
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
 		res = max98090_read(MAX98090_AUDIO_IC_MAX98090,
 				MAX98090_REG_R_JACK_DETECT, &status2);
-		/* todo set state and key_press */
+
+		if (0 != res)
+			max98090_log_err("res[%d]", res);
+
+		if (0x04 & status1) {
+
+			if (0x06 == status2) {
+				max98090_log_info("jack remove.");
+				state = 0x00;
+			} else if (0x02 == status2) {
+
+				if (0x01 == max98090_conf->switch_data.state) {
+					max98090_log_info("key release.");
+					key_press = 0x00;
+				} else {
+					max98090_log_info("jack insert.");
+					max98090_log_info("mic.");
+					state = 0x01;
+				}
+			} else if (0x00 == status2) {
+
+				if (0x01 == max98090_conf->switch_data.state) {
+					max98090_log_info("key press.");
+					key_press = 0x01;
+				} else {
+					max98090_log_info("jack insert.");
+					max98090_log_info("no mic.");
+					state = 0x02;
+				}
+			} else {
+				/* nothing to do. */
+				max98090_log_err("status1[0x%x] status2[0x%x]",
+						status1, status2);
+			}
+		}
 	}
 
 	if (max98090_conf->switch_data.state != state) {
@@ -991,20 +1064,17 @@ static irqreturn_t max98090_irq_handler(int irq, void *data)
 static int max98090_conv_device_info(const u_long device,
 				struct max98090_info *device_info)
 {
+	int ret = 0;
 	max98090_log_efunc("device[%ld]", device);
-	device_info->raw_device     = device;
-#ifdef __MAX98090_TODO__
 
-	/* release */
-	if (MAX98090_EVM == max98090_conf->board) {
-		device_info->headphone = MAX98090_ENABLE;
-		device_info->mic       = MAX98090_ENABLE;   /* handset mic */
-	} else {
-		device_info->speaker   = MAX98090_ENABLE;
-		device_info->mic       = MAX98090_ENABLE;   /* digital mic */
+	/* check param */
+	if (NULL == device_info) {
+		ret = -EINVAL;
+		max98090_log_err("parameter error. ret[%d]", ret);
+		return ret;
 	}
 
-#else  /* __MAX98090_TODO__ */
+	device_info->raw_device     = device;
 	device_info->speaker = (MAX98090_DEV_PLAYBACK_SPEAKER & device) ?
 					MAX98090_ENABLE : MAX98090_DISABLE;
 	device_info->earpiece = (MAX98090_DEV_PLAYBACK_EARPIECE & device) ?
@@ -1015,7 +1085,6 @@ static int max98090_conv_device_info(const u_long device,
 				MAX98090_ENABLE : MAX98090_DISABLE;
 	device_info->headset_mic = (MAX98090_DEV_CAPTURE_HEADSET_MIC & device)
 					? MAX98090_ENABLE : MAX98090_DISABLE;
-#endif  /* __MAX98090_TODO__ */
 	max98090_log_rfunc("");
 	return 0;
 }
@@ -1236,10 +1305,10 @@ static int max98090_set_speaker_device(const u_int cur_dev,
 				const u_int new_dev)
 {
 	int ret = 0;
-	u_int io = 0;
-	u_int oe = 0;
-	u_int mix_l = 0;
-	u_int mix_r = 0;
+	int io = 0;
+	int oe = 0;
+	int mix_l = 0;
+	int mix_r = 0;
 	max98090_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1338,10 +1407,10 @@ static int max98090_set_earpiece_device(const u_int cur_dev,
 				const u_int new_dev)
 {
 	int ret = 0;
-	u_int io = 0;
-	u_int oe = 0;
-	u_int mix_l = 0;
-	u_int mix_r = 0;
+	int io = 0;
+	int oe = 0;
+	int mix_l = 0;
+	int mix_r = 0;
 	max98090_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1442,8 +1511,8 @@ static int max98090_set_headphone_device(const u_int cur_dev,
 				const u_int new_dev)
 {
 	int ret = 0;
-	u_int io = 0;
-	u_int oe = 0;
+	int io = 0;
+	int oe = 0;
 	max98090_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1461,6 +1530,7 @@ static int max98090_set_headphone_device(const u_int cur_dev,
 
 		/* update device conf */
 		if (MAX98090_ENABLE == new_dev) {
+
 			/* headphone on */
 			if (MAX98090_OE_DAC_ENABLE & oe) {
 				/* other features are enabled. */
@@ -1472,6 +1542,7 @@ static int max98090_set_headphone_device(const u_int cur_dev,
 					MAX98090_OE_DAC_ENABLE);
 			}
 		} else {
+
 			/* headphone off */
 			if (~(MAX98090_OE_HEADPHONE_ENABLE |
 				MAX98090_OE_DAC_ENABLE) & oe) {
@@ -1519,8 +1590,9 @@ err_i2c_write:
 static int max98090_set_mic_device(const u_int cur_dev, const u_int new_dev)
 {
 	int ret = 0;
-	u_int io = 0;
-	u_int ie = 0;
+	int io = 0;
+	int ie = 0;
+	int dmic = 0;
 	max98090_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1542,11 +1614,13 @@ static int max98090_set_mic_device(const u_int cur_dev, const u_int new_dev)
 			io |= (MAX98090_IO_SDOEN_ON | MAX98090_IO_HIZOFF_ON);
 			ie |= (MAX98090_IE_MIC_ENABLE |
 				MAX98090_IE_ADC_ENABLE);
+			dmic = 0x30;
 		} else {
 			/* mic off */
 			io &= ~(MAX98090_IO_SDOEN_ON | MAX98090_IO_HIZOFF_ON);
 			ie &= ~(MAX98090_IE_MIC_ENABLE |
 				MAX98090_IE_ADC_ENABLE);
+			dmic = 0x00;
 		}
 
 		if (MAX98090_EVM == max98090_conf->board) {
@@ -1568,18 +1642,37 @@ static int max98090_set_mic_device(const u_int cur_dev, const u_int new_dev)
 
 			if (0 != ret)
 				goto err_i2c_write;
+
+			/* 0x11(MIC2 INPUT LEVEL) 0x2A:PA2EN=0dB PGAM2=10dB */
+			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_MIC2_INPUT_LEVEL, 0x2A);
+
+			if (0 != ret)
+				goto err_i2c_write;
+
 		} else {
 			/* digital mic */
-			/* 0x0C(DIGITAL MIC)
-			   0x30:MICCLK=DIGMICCLK=PCLK/8, DIGMICR=Right record
-			   channel uses digital microphone input, DIGMICL=Left
-			   record channel uses digital microphone input */
 			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-					MAX98090_REG_RW_DIGITAL_MIC, 0x30);
+					MAX98090_REG_RW_DIGITAL_MIC, dmic);
 
 			if (0 != ret)
 				goto err_i2c_write;
 		}
+
+
+		/* 0x17(LEFT ADC LEVEL)   0x10:AVLG=6dB AVL=3dB */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_LEFT_ADC_LEVEL, 0x10);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		/* 0x18(RIGHT ADC LEVEL)  0x10:AVRG=6dB AVR=3dB */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_RIGHT_ADC_LEVEL, 0x10);
+
+		if (0 != ret)
+			goto err_i2c_write;
 
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
 				     MAX98090_REG_RW_INPUT_ENABLE, ie);
@@ -1616,8 +1709,8 @@ static int max98090_set_headset_mic_device(const u_int cur_dev,
 					const u_int new_dev)
 {
 	int ret = 0;
-	u_int io = 0;
-	u_int ie = 0;
+	int io = 0;
+	int ie = 0;
 	max98090_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1647,13 +1740,6 @@ static int max98090_set_headset_mic_device(const u_int cur_dev,
 		}
 
 		/* headset mic */
-		/* 0x10(MIC1 INPUT LEVEL)   0x4A:PA1EN=20dB PGAM1=10dB */
-		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-				MAX98090_REG_RW_MIC1_INPUT_LEVEL, 0x4A);
-
-		if (0 != ret)
-			goto err_i2c_write;
-
 		/* 0x15(LEFT ADC MIXER)
 		   0x04:Select Microphone Input 1 to Left ADC Mixer */
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
@@ -1661,6 +1747,51 @@ static int max98090_set_headset_mic_device(const u_int cur_dev,
 
 		if (0 != ret)
 			goto err_i2c_write;
+
+		/* 0x16(RIGHT ADC MIXER)
+		   0x04:Select Microphone Input 1 to Right ADC Mixer */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_RIGHT_ADC_MIXER, 0x04);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		/* 0x10(MIC1 INPUT LEVEL)   0x2A:PA1EN=0dB PGAM1=10dB */
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_MIC1_INPUT_LEVEL, 0x2A);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		if (MAX98090_EVM == max98090_conf->board) {
+			/* 0x17(LEFT ADC LEVEL)   0x20:AVRG=12dB AVR=0dB */
+			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+					MAX98090_REG_RW_LEFT_ADC_LEVEL, 0x23);
+
+			if (0 != ret)
+				goto err_i2c_write;
+
+			/* 0x18(RIGHT ADC LEVEL)  0x20:AVRG=12dB AVR=0dB */
+			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+					MAX98090_REG_RW_RIGHT_ADC_LEVEL, 0x23);
+
+			if (0 != ret)
+				goto err_i2c_write;
+		} else {
+			/* 0x17(LEFT ADC LEVEL)   0x73:AVRG=42dB AVR=0dB */
+			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+					MAX98090_REG_RW_LEFT_ADC_LEVEL, 0x73);
+
+			if (0 != ret)
+				goto err_i2c_write;
+
+			/* 0x18(RIGHT ADC LEVEL)  0x73:AVRG=42dB AVR=0dB */
+			ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+					MAX98090_REG_RW_RIGHT_ADC_LEVEL, 0x73);
+
+			if (0 != ret)
+				goto err_i2c_write;
+		}
 
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
 				     MAX98090_REG_RW_INPUT_ENABLE, ie);
@@ -1686,18 +1817,6 @@ err_i2c_write:
 }
 
 /*!
-  @brief change log level.
-
-  @param[i] log_level  log level.
-
-  @return none.
-*/
-static void max98090_set_log_level(const u_int log_level)
-{
-	max98090_log_level = log_level;
-}
-
-/*!
   @brief display registers of max98090.
 
   @param none.
@@ -1708,7 +1827,7 @@ static int max98090_dump_max98090_registers(void)
 {
 	int ret = 0;
 	int i = 0;
-	u_int val = 0;
+	int val = 0;
 	max98090_log_debug("");
 
 	for (i = 0; i < MAX98090_REG_ID_MAX; i++) {
@@ -1756,7 +1875,7 @@ static int max98090_dump_max97236_registers(void)
 {
 	int ret = 0;
 	int i = 0;
-	u_int val = 0;
+	int val = 0;
 	max98090_log_debug("");
 
 	for (i = 0; i < MAX97236_REG_ID_MAX; i++) {
@@ -1965,6 +2084,7 @@ int max98090_set_volume(const u_long device, const u_int volume)
 
 	/* convert volume value to index */
 	for (i = 0; i < MAX98090_VOLUMEL_MAX; i++) {
+
 		if (MAX98090_volume[MAX98090_VOL_DEV_SW][i] == volume) {
 			vol_index = i;
 			break;
@@ -2082,7 +2202,8 @@ EXPORT_SYMBOL(max98090_get_volume);
 int max98090_set_mute(const u_int mute)
 {
 	int ret = 0;
-	u_int val = 0;
+	int io = 0;
+	int ie = 0;
 	max98090_log_efunc("mute[%d]", mute);
 	/* check param */
 	ret = max98090_check_mute(mute);
@@ -2107,15 +2228,27 @@ int max98090_set_mute(const u_int mute)
 
 	/* get current value */
 	ret = max98090_read(MAX98090_AUDIO_IC_MAX98090,
-			    MAX98090_REG_RW_I_OR_O_CONFIGURATION, &val);
+			    MAX98090_REG_RW_I_OR_O_CONFIGURATION, &io);
+
+	if (0 != ret)
+		goto err_i2c_read;
+
+	ret = max98090_read(MAX98090_AUDIO_IC_MAX98090,
+			    MAX98090_REG_RW_INPUT_ENABLE, &ie);
 
 	if (0 == ret) {
 		switch (mute) {
 		case MAX98090_MUTE_DISABLE:
-			val &= ~MAX98090_IO_SDOEN_ON;
+			/* mic on */
+			io |= (MAX98090_IO_SDOEN_ON | MAX98090_IO_HIZOFF_ON);
+			ie |= (MAX98090_IE_MIC_ENABLE |
+				MAX98090_IE_ADC_ENABLE);
 			break;
 		case MAX98090_MUTE_ENABLE:
-			val |= MAX98090_IO_SDOEN_ON;
+			/* mic off */
+			io &= ~(MAX98090_IO_SDOEN_ON | MAX98090_IO_HIZOFF_ON);
+			ie &= ~(MAX98090_IE_MIC_ENABLE |
+				MAX98090_IE_ADC_ENABLE);
 			break;
 		default:
 			/* nothing to do. */
@@ -2124,13 +2257,26 @@ int max98090_set_mute(const u_int mute)
 
 		/* set value */
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
-				MAX98090_REG_RW_I_OR_O_CONFIGURATION, val);
+				     MAX98090_REG_RW_INPUT_ENABLE, ie);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				     MAX98090_REG_RW_I_OR_O_CONFIGURATION, io);
+
+		if (0 != ret)
+			goto err_i2c_write;
 
 		if (0 == ret)
 			max98090_conf->info.mute = mute;
 	}
 
 	max98090_log_rfunc("ret[%d]", ret);
+	return ret;
+err_i2c_read:
+err_i2c_write:
+	max98090_log_err("ret[%d]", ret);
 	return ret;
 }
 EXPORT_SYMBOL(max98090_set_mute);
@@ -2159,12 +2305,6 @@ int max98090_set_speaker_amp(const u_int value)
 {
 	int ret = 0;
 	max98090_log_efunc("value[%d]", value);
-
-#ifdef __MAX98090_TODO__
-	if (MAX98090_E2K == max98090_conf->board)
-		iowrite8(0xe0, MAX98090_GPIO_034);
-#endif  /* __MAX98090_TODO__ */
-
 	/* check param */
 	ret = max98090_check_speaker_amp(value);
 
@@ -2223,8 +2363,8 @@ EXPORT_SYMBOL(max98090_get_speaker_amp);
 int max98090_get_status(u_long *irq_status)
 {
 	int ret = 0;
-	u_int status1 = 0;
-	u_int status2 = 0;
+	int status1 = 0;
+	int status2 = 0;
 	max98090_log_efunc("");
 
 	/* check param */
@@ -2371,7 +2511,8 @@ int max98090_read(const u_int audio_ic, const u_int addr_id, int *value)
 				"MAX97236 addr[0x%02X] value[0x%02X]",
 				MAX97236_reg_addr[addr_id], *value);
 		} else {
-			/* nothing to do. */
+			max98090_log_err("device is none.");
+			ret = -EINVAL;
 		}
 
 		break;
@@ -2416,7 +2557,6 @@ int max98090_write(const u_int audio_ic, const u_int addr_id,
 				"iowrite32((1<<17),SYSC_SWUCR)Wake up error\n"
 				);
 	}
-
 #endif  /* __MAX98090_TODO_POWER__ */
 
 	switch (audio_ic) {
@@ -2437,12 +2577,13 @@ int max98090_write(const u_int audio_ic, const u_int addr_id,
 						MAX97236_reg_addr[addr_id],
 						value);
 		} else {
-			/* nothing to do. */
+			max98090_log_err("device is none.");
+			ret = -EINVAL;
 		}
 
 		break;
 	default:
-		max98090_log_err("device is out of range");
+		max98090_log_err("device is out of range.");
 		ret = -EINVAL;
 		break;
 	}
@@ -2471,16 +2612,54 @@ static int max98090_proc_write(struct file *filp, const char *buffer,
 {
 	int r = 0;
 	int in = 0;
+	char *temp = NULL;
 	max98090_log_efunc("filp[%p] buffer[%p] count[%ld] data[%p]",
 			filp, buffer, count, data);
-	r = kstrtoint(buffer, 0, &in);
+	temp = kmalloc(count, GFP_KERNEL);
+	memset(temp, 0, count);
+	strncpy(temp, buffer, count);
+	temp[count-1] = '\0';
+	r = kstrtoint(temp, 0, &in);
+	kfree(temp);
+
 	if (r)
 		return r;
+
 	max98090_log_level = (u_int)in & MAX98090_LOG_LEVEL_MAX;
-	max98090_set_log_level(max98090_log_level);
 	max98090_log_rfunc("count[%ld]", count);
 	return count;
 }
+
+#ifdef __MAX98090_RELEASE_CHECK__
+static int max98090_proc_release_write(struct file *filp, const char *buffer,
+	unsigned long count, void *data)
+{
+	int r = 0;
+	int in = 0;
+	char *temp = NULL;
+	max98090_log_efunc("filp[%p] buffer[%p] count[%ld] data[%p]",
+			filp, buffer, count, data);
+	temp = kmalloc(count, GFP_KERNEL);
+	memset(temp, 0, count);
+	strncpy(temp, buffer, count);
+	temp[count-1] = '\0';
+	r = kstrtoint(temp, 0, &in);
+	kfree(temp);
+
+	if (r)
+		return r;
+
+	if (in == 20)
+		max98090_set_mute(0);
+	else if (in == 21)
+		max98090_set_mute(1);
+	else
+		max98090_set_device(in);
+
+	max98090_log_rfunc("count[%ld]", count);
+	return count;
+}
+#endif	/* __MAX98090_RELEASE_CHECK__ */
 
 #ifdef __SOC_CODEC_ADD__
 static int max98090_probe(struct snd_soc_codec *codec)
@@ -2601,7 +2780,6 @@ static int max98090_probe(struct i2c_client *client,
 			"max98090_probe() SYSC ioremap failed error\n");
 		return 0;
 	}
-
 #endif /* __MAX98090_TODO_POWER__ */
 
 	max98090_log_info("client->addr[0x%02X]", client->addr);
@@ -2673,12 +2851,7 @@ static int max98090_remove(struct i2c_client *client)
 
 	max98090_log_efunc("");
 
-	/* todo release request_irq */
-	if (((MAX98090_EVM == max98090_conf->board) &&
-		(NULL == max98090_conf->client_max98090) &&
-		(NULL == max98090_conf->client_max97236)) ||
-		((MAX98090_E2K == max98090_conf->board) &&
-		(NULL == max98090_conf->client_max98090))) {
+	if (MAX98090_SLAVE_ADDR == client->addr) {
 		ret = max98090_disable_interrupt();
 
 		if (0 != ret)
@@ -2694,6 +2867,11 @@ static int max98090_remove(struct i2c_client *client)
 	if (max98090_conf->log_entry)
 		remove_proc_entry(MAX98090_LOG_LEVEL,
 				max98090_conf->log_parent);
+#ifdef __MAX98090_RELEASE_CHECK__
+	if (max98090_conf->release_entry)
+		remove_proc_entry("release_check",
+				max98090_conf->log_parent);
+#endif	/* __MAX98090_RELEASE_CHECK__ */
 
 	if (max98090_conf->log_parent)
 		remove_proc_entry(AUDIO_LSI_DRV_NAME, NULL);
@@ -2723,6 +2901,12 @@ void __exit max98090_exit(void)
 	i2c_del_driver(&max98090_i2c_driver);
 	max98090_log_rfunc("");
 }
+
+#ifdef __MAX98090_UT__
+#include "max98090_ut_priv_func.h"
+#include "max98090_ut_priv_func.cc"
+#endif	/* __MAX98090_UT__ */
+
 
 module_init(max98090_init);
 module_exit(max98090_exit);
