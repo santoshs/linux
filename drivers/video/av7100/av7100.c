@@ -2543,7 +2543,7 @@ err_globals_init:
 err_config_init:
 	return -ENOTSUPP;
 #else
-	printk(KERN_ALERT "Probe\n");
+	printk(KERN_DEBUG "av7100_Probe\n");
 	return 0;
 #endif
 }
@@ -2582,6 +2582,7 @@ static int av7100_remove(struct device *dev)
 ****************************************************************************/
 static int av7100_suspend(struct device *dev)
 {
+#ifdef HDMI_RUN
 	int ret = 0;
 	
 	/* Set DSI to ULPS/Standby ON to save power */
@@ -2599,6 +2600,11 @@ static int av7100_suspend(struct device *dev)
 	switch_set_state(&hdmi_dev->sdev, HPD_STATE_UNPLUGGED);
 	
 	return 0;
+#else
+	printk(KERN_DEBUG "av7100_Suspend\n");
+	return 0;
+#endif
+
 }
 
 /****************************************************************************
@@ -2610,6 +2616,7 @@ static int av7100_suspend(struct device *dev)
 ****************************************************************************/
 static int av7100_resume(struct device *dev)
 {
+#ifdef HDMI_RUN
 	int ret = 0;
 	
 	/* Enable all interrupts */
@@ -2625,6 +2632,10 @@ static int av7100_resume(struct device *dev)
 	hdmi_hpd_handler(hdmi_get_current_hpd());
 	
 	return 0;
+#else
+	printk(KERN_DEBUG "av7100_Resume\n");
+	return 0;
+#endif
 }
 
 static struct dev_pm_ops av7100_pm_ops ={
