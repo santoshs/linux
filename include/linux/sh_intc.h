@@ -95,7 +95,10 @@ struct intc_desc {
 	unsigned int num_resources;
 	intc_enum force_enable;
 	intc_enum force_disable;
+	bool skip_syscore_suspend;
 	struct intc_hw_desc hw;
+	int (*set_type)(struct irq_data *data, unsigned int flow_type);
+	int (*set_wake)(struct irq_data *data, unsigned int on);
 };
 
 #define DECLARE_INTC_DESC(symbol, chipname, vectors, groups,		\

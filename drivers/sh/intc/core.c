@@ -99,8 +99,11 @@ static void __init intc_register_irq(struct intc_desc *desc,
 
 	primary = 0;
 	if (!data[0] && data[1])
+		{
+		pr_warning("missing unique irq mask for irq %d (vect 0x%04x)\n",
+			   irq, irq2evt(irq));
 		primary = 1;
-
+		}
 	if (!data[0] && !data[1])
 		pr_warning("missing unique irq mask for irq %d (vect 0x%04x)\n",
 			   irq, irq2evt(irq));
@@ -352,6 +355,13 @@ int __init register_intc_controller(struct intc_desc *desc)
 	if (desc->force_enable)
 		intc_enable_disable_enum(desc, d, desc->force_enable, 1);
 
+	d->skip_suspend = desc->skip_syscore_suspend;
+	
+	if (desc->set_type)
+			d->set_type = desc->set_type;
+	if (desc->set_wake)
+			d->set_wake = desc->set_wake;
+
 	nr_intc_controllers++;
 
 	return 0;
@@ -384,6 +394,9 @@ static int intc_suspend(void)
 	list_for_each_entry(d, &intc_list, list) {
 		int irq;
 
+		if (d->skip_suspend)
+			continue;
+		
 		/* enable wakeup irqs belonging to this intc controller */
 		for_each_active_irq(irq) {
 			struct irq_data *data;
@@ -406,6 +419,9 @@ static void intc_resume(void)
 
 	list_for_each_entry(d, &intc_list, list) {
 		int irq;
+
+		if (d->skip_suspend)
+				continue;
 
 		for_each_active_irq(irq) {
 			struct irq_data *data;
