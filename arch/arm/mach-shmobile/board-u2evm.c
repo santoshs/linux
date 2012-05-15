@@ -36,7 +36,9 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
+#ifdef CONFIG_TI_ST
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
+#endif /* CONFIG_TI_ST */
 #include <linux/wl12xx.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 // EOS-RCU ADD-S
@@ -800,6 +802,7 @@ static struct platform_device u2evm_ion_device = {
 	},
 };
 
+#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
 static unsigned long retry_suspend;
 int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
@@ -845,6 +848,7 @@ static struct platform_device btwilink_device = {
    .id = -1,
 };
 //120220 TI BTFM end
+#endif /* CONFIG_TI_ST */
 
 /* << Add for Thermal Sensor driver*/
 static struct thermal_sensor_data ths_platdata[] = {
@@ -1246,10 +1250,12 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
 // #endif
+#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
    &wl128x_device,
    &btwilink_device,
 //120220 TI BTFM
+#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 // EOS-CSI ADD-S
 	&csi20_device,
@@ -1289,10 +1295,12 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
 	&u2evm_ion_device,
 // #endif
+#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
    &wl128x_device,
    &btwilink_device,
 //120220 TI BTFM
+#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 // EOS-CSI ADD-S
 	&csi20_device,
@@ -1331,10 +1339,12 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
+#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
 	&wl128x_device,
 	&btwilink_device,
 //120220 TI BTFM
+#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 // EOS-CSI ADD-S
 	&csi20_device,
