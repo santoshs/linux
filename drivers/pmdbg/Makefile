@@ -1,0 +1,10 @@
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_core.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_hw.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_sysc.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_cpg.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_pdc.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_dfs.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_idle.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_suspend.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_mem.o
+obj-$(CONFIG_MACH_U2EVM)		+= pmdbg_dbgpin.o

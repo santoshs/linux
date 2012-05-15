@@ -96,7 +96,7 @@ static struct dbs_tuners {
 	.down_threshold = DEF_FREQUENCY_DOWN_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
 	.ignore_nice = 0,
-#ifdef CONFIG_SHMOBILE_CPUFREQ	
+#ifdef CONFIG_SHMOBILE_CPUFREQ
 	.freq_step = CONFIG_SH_FRQ_STEP,
 #else
 	.freq_step = 5,
