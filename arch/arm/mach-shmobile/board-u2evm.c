@@ -74,6 +74,8 @@
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
+#undef ENABLE_WIFI_HS
+
 static void gpio_pull(u32 addr, int type)
 {
 	u8 data = __raw_readb(addr);
@@ -1241,8 +1243,10 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&u2evm_ion_device,
 // #endif
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
@@ -1276,8 +1280,10 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&u2evm_ion_device,
 // #endif
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
@@ -1310,8 +1316,10 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 #endif
 	&u2evm_ion_device,
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
 	&wl128x_device,
 	&btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
