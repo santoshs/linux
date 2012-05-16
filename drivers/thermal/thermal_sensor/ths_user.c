@@ -89,11 +89,11 @@ int ths_close(struct inode *node, struct file *fp)
  *  @cmd   	  : command to get current temperature of LSI
  *  @userdata : store address of user data (temperature and Thermal Sensor device id)
  * return: 
- *		-EINVAL: invalid argument
- *		-ENXIO : Thermal Sensor device is IDLE state
- *		-EFAULT: Can't exchange data between kernel and user side
- *		-EACCES: Permission denied due to driver in suspend state
- *		0	   : Get current temperature successfully
+ *		-EINVAL (-22): invalid argument
+ *		-ENXIO   (-6): Thermal Sensor device is IDLE state
+ *		-EFAULT (-14): Can't exchange data between kernel and user side
+ *		-EACCES (-13): Permission denied due to driver in suspend state
+ *		0			 : Get current temperature successfully
  */
  
 long ths_ioctl(struct file *fp, unsigned int cmd, unsigned long userdata)
@@ -132,3 +132,4 @@ ths_error:
 
 	return ret;
 }
+

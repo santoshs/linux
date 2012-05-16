@@ -31,8 +31,8 @@
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
  * 	@cur_temp: current temperature of LSI
  * return: 
- * 		-EINVAL : invalid argument
- *		-ENXIO  : Thermal Sensor device is IDLE state
+ * 		-EINVAL (-22): invalid argument
+ *		-ENXIO   (-6): Thermal Sensor device is IDLE state
  */
  
 int ths_get_cur_temp(unsigned int ths_id, int *cur_temp)
@@ -46,8 +46,8 @@ EXPORT_SYMBOL_GPL(ths_get_cur_temp);
  *  @ths_mode: operation mode of Thermal Sensor device
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
  * return: 
- *		0		: set new operation mode successfully
- *		-EINVAL : invalid argument
+ *	0			  : set new operation mode successfully
+ *	-EINVAL (-22) : invalid argument
  */
  
 int ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
@@ -63,7 +63,7 @@ EXPORT_SYMBOL_GPL(ths_set_op_mode);
  *		E_NORMAL_1 (0): is equivalent to NORMAL 1 operation.
  *		E_NORMAL_2 (1): is equivalent to NORMAL 2 operation.
  *		E_IDLE 	   (2): is equivalent to IDLE operation.
- *		-EINVAL 	  : invalid argument (ths_id is different from 0 and 1)
+ *		-EINVAL  (-22): invalid argument (ths_id is different from 0 and 1)
  */
  
 int ths_get_op_mode(unsigned int ths_id)

@@ -48,17 +48,14 @@
     #define FALSE 0
 #endif
 
-#define FRQCRB_R			IO_ADDRESS(0xE6150004)  /* Frequency control register B */
-#define PLL0CR_R			IO_ADDRESS(0xE61500D8)  /* PLL0 control register */
-#define CLOCK_SOURCE		26000000 /* MHz */
-#define SYS_CPU_CLK_MIN		299000000	/* SYS-CPU Core clock Z: 299 MHz */
-#define SYS_CPU_CLK_MID		598000000	/* SYS-CPU Core clock Z: 598 MHz */
-
+#define RESCNT			 IO_ADDRESS(0xE618801C)	/* Reset control register */
+#define TRESV			 0x00000008				/* Temperature sensor reset enable bit */
 
 struct thermal_sensor *ths;
 int suspend_state = FALSE;
 
 /* Define the functions of Temperature control part */
+static void ths_enable_reset_signal(void);
 static void ths_initialize_hardware(void);
 static int ths_suspend(struct device *dev);
 static int ths_resume(struct device *dev);
@@ -82,10 +79,10 @@ static void __exit ths_exit(void);
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
  * 	@cur_temp: current temperature of LSI 
  * return: 
- * 		-EINVAL: invalid argument
- *		-ENXIO : Thermal Sensor device is IDLE state
- *		-EACCES: Permission denied due to driver in suspend state
- *		0	   : Get current temperature successfully
+ * 		-EINVAL (-22): invalid argument
+ *		-ENXIO   (-6): Thermal Sensor device is IDLE state
+ *		-EACCES (-13): Permission denied due to driver in suspend state
+ *		0			 : Get current temperature successfully
  */
  
 int __ths_get_cur_temp(unsigned int ths_id, int *cur_temp)
@@ -131,9 +128,9 @@ ths_error:
  *  @ths_mode: operation mode of Thermal Sensor device
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
  * return: 
- *		0		: set new operation mode successfully
- *		-EINVAL	: invalid argument
-  *		-EACCES : Permission denied
+ *		0			 : set new operation mode successfully
+ *		-EINVAL	(-22): invalid argument
+  *		-EACCES (-13): Permission denied
  */
  
 int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
@@ -143,7 +140,7 @@ int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	if (TRUE == suspend_state) {
-		dev_err(&ths->pdev->dev, "Thermal Sensor driver is suspended.\n");
+		dev_err(&ths->pdev->dev, "Error! Thermal Sensor driver is suspended.\n");
 		ret = -EACCES;
 		goto ths_error;
 	}
@@ -194,9 +191,9 @@ ths_error:
  * return: 
  *		E_NORMAL_1 (0): is equivalent to NORMAL 1 mode.
  *		E_NORMAL_2 (1): is equivalent to NORMAL 2 mode.
- *		E_IDLE (2)	  : is equivalent to IDLE mode
- *		-EINVAL		  : invalid argument (ths_id is different from 0 and 1)
-  *		-EACCES		  : Permission denied
+ *		E_IDLE     (2): is equivalent to IDLE mode
+ *		-EINVAL  (-22): invalid argument (ths_id is different from 0 and 1)
+  *		-EACCES  (-13): Permission denied
  */
 
 int __ths_get_op_mode(unsigned int ths_id)
@@ -206,7 +203,7 @@ int __ths_get_op_mode(unsigned int ths_id)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	if (TRUE == suspend_state) {
-		dev_err(&ths->pdev->dev, "Thermal Sensor driver is suspended.\n");
+		dev_err(&ths->pdev->dev, "Error! Thermal Sensor driver is suspended.\n");
 		ret = -EACCES;
 		goto ths_error;
 	}
@@ -228,6 +225,24 @@ int __ths_get_op_mode(unsigned int ths_id)
 ths_error:
 
 	return ret;
+}
+
+/*
+ * ths_enable_reset_signal: enable reset request
+ * return: 
+ *		None
+ */
+ 
+static void ths_enable_reset_signal(void)
+{
+	unsigned int value;
+	
+	/* Enable reset signal */
+	value  = __raw_readl(RESCNT);
+	value &= ~TRESV;
+	value |= TRESV;
+	__raw_writel(value, RESCNT);
+
 }
 
 /*
@@ -257,9 +272,6 @@ static void ths_initialize_hardware(void)
 	/* Clear Interrupt Status register */
 	set_register_32(STR_RW_32B, TJST_ALL_CLEAR);
 	
-	/* Clear Interrupt Mask Register */
-	set_register_32(INT_MASK_RW_32B, TJST_ALL_CLEAR);
-	
 	/* 
 	 * Set operation mode for THS0/THS1: Normal 1 mode
 	 * and TSC decides a value of CPTAP automatically
@@ -267,18 +279,24 @@ static void ths_initialize_hardware(void)
 	modify_register_32(THSCR0_RW_32B, CPCTL, THIDLE1 | THIDLE0);
 	modify_register_32(THSCR1_RW_32B, CPCTL, THIDLE1 | THIDLE0);
 	
+	/* Enable all interrupts in THS0 and only INTDT3 in THS1 */
+	set_register_32(ENR_RW_32B, TJ13_EN | TJ03_EN | TJ02_EN | TJ01_EN | TJ00_EN);
+	
+	ths_enable_reset_signal();
+	
 	/* Set threshold interrupts INTDT3/2/1/0 interrupts for both THS0/1 */
-	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);
-	set_register_32(INTCTLR1_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);
+	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);	
 	
 	/* Un-mask to output reset signal when Tj > Tj3 for both THS0/1 */
-	modify_register_32(PORTRST_MASK_RW_32B, 0, TJ13RST_MSK | TJ03RST_MSK);
+	modify_register_32(PORTRST_MASK_RW_32B, TJ13PORT_MSK | TJ03PORT_MSK, TJ13RST_MSK | TJ03RST_MSK);
 	
 	/* Wait for THS operating */
 	udelay(300);	/* 300us */
 	
 	/* Get current temperature here to judge which Tj will be monitored (Tj0/1/2) */
 	__ths_get_cur_temp(0, &cur_temp);
+	
+	THS_DEBUG_MSG("cur_temp:%d \n", cur_temp);
 	
 	if (cur_temp < CTEMP0_DEC) {
 		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
@@ -297,9 +315,8 @@ static void ths_initialize_hardware(void)
 	/* Mask Tj0/1/2/3 in THS1 to not output them to INTC */
 	modify_register_32(INT_MASK_RW_32B, TJ13INT_MSK | TJ12INT_MSK | TJ11INT_MSK | TJ10INT_MSK, 0);
 	
-	/* Enable all interrupts in THS0 and only INTDT3 in THS1 */
-	set_register_32(ENR_RW_32B, TJ13_EN | TJ03_EN | TJ02_EN | TJ01_EN | TJ00_EN);
-								
+	set_register_32(STR_RW_32B, TJST_ALL_CLEAR);
+	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 }
 
@@ -342,10 +359,10 @@ static int ths_resume(struct device *dev)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
+	suspend_state = FALSE;
+	
 	__ths_set_op_mode((enum mode)ths->pdata[0].last_mode, 0);
 	__ths_set_op_mode((enum mode)ths->pdata[1].last_mode, 1);
-	
-	suspend_state = FALSE;
 	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 	
@@ -357,7 +374,7 @@ static int ths_resume(struct device *dev)
  *  @pdev: a struct platform_device
  * return: 
  *		0            : Initialize successfully
- *		-EINVAL(-22): No such device or address
+ *		-EINVAL(-22) : No such device or address
  *		-ENOMEM (-12): Can't get clock
  */
  
@@ -390,8 +407,8 @@ static int ths_initialize_platform_data(struct platform_device *pdev)
  * ths_initialize_resource: Get base address of Thermal Sensor module then remap I/O memory. 
  *  @pdev: a struct platform_device
  * return: 
- *		0              : Initialize successfully
- *		-ENXIO : No such device or address
+ *		0          : Initialize successfully
+ *		-ENXIO (-6): No such device or address
  */
  
 static int ths_initialize_resource(struct platform_device *pdev)
@@ -433,6 +450,7 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	disable_irq_nosync(irq);
+	
 	intr_status = get_register_32(STR_RW_32B);
 		
 	if (TJ02ST == (intr_status & TJ02ST)) { /* INTDT2 interrupt occurs */
@@ -440,7 +458,7 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK | TJ01INT_MSK, TJ00INT_MSK);
 		queue_work(ths->queue, &ths->tj2_work); 
 	} else if (TJ01ST == (intr_status & TJ01ST)) { /* INTDT1 interrupt occurs */
-		/* Un-mask INTDT0 and INTDT2 interrupts to output them to INTC (only THS0)] */
+		/* Un-mask INTDT0 and INTDT2 interrupts to output them to INTC (only THS0)] */		
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ01INT_MSK, TJ00INT_MSK | TJ02INT_MSK);
 		queue_work(ths->queue, &ths->tj1_work); 
 	} else if ( TJ00ST == (intr_status & TJ00ST)) { /* INTDT0 interrupt occurs */
@@ -458,8 +476,10 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 }
 
 /*
- * ths_work_tj0: make clock frequency up ( to orginal level, done by DFS)
- *  in case of CTEMP < CTEMP0 
+ * ths_work_tj0: configure DFS driver to limit the maximum frequency
+ *  in OVERDRIVE(option) - MAX - MID - LOW - Very LOW frequency 
+ *  (1456.0[MHz] - 1196.0[MHz] - 598.0[MHz] - 299.0[MHz] - 199.3[MHz])
+ *  in case of CTEMP <= CTEMP0 
  *  @work: a struct work_struct
  * return: 
  *		None
@@ -469,10 +489,11 @@ static void ths_work_tj0(struct work_struct *work)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
-	/* Stop scaling clock */
-	/* stepdown_cpufreq_done(); */
-	
-	dev_dbg(&ths->pdev->dev, "SYS-CPU Clock frequency will be adjusted to original\n");
+#ifdef CONFIG_SHMOBILE_CPUFREQ
+	limit_max_cpufreq(LIMIT_NONE);
+#else
+	THS_DEBUG_MSG("%s DFS is disabled <<<\n", __func__);
+#endif /* CONFIG_SHMOBILE_CPUFREQ */
 	
 	enable_irq(ths->ths_irq);
 	
@@ -481,75 +502,48 @@ static void ths_work_tj0(struct work_struct *work)
 }
 
 /*
- * ths_work_tj1: make clock frequency down (1/2 current frequency - MID level)
- *  in case of CTEMP >= CTEMP1 
+ * ths_work_tj1: configure DFS driver to limit the maximum frequency
+ *  in MID - LOW - Very LOW frequency 
+ *  in case of CTEMP > CTEMP1 
  *  @work: a struct work_struct
  * return: 
  *		None
  */
 
 static void ths_work_tj1(struct work_struct *work)
-{	
-/*	unsigned long rate; */
-
+{
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
-	
-	/* 
-	 * Processing for adjusting frequency here.
-	 * Check current frequency is higher than setting frequency
-	 * (avoid cases cpu is hot because of other reasons than high frequency)
-	 * if yes, drecease frequency by calling stepdown_cpufreq
-	 * if no, do not something
-	 */
 
-	/*
-	if (rate > SYS_CPU_CLK_MID) {
-		
-		do {
-			rate = stepdown_cpufreq();
-		} while (rate > SYS_CPU_CLK_MID);
+#ifdef CONFIG_SHMOBILE_CPUFREQ
+	limit_max_cpufreq(LIMIT_MID);
+#else
+	THS_DEBUG_MSG("%s DFS is disabled <<<\n", __func__);
+#endif /* CONFIG_SHMOBILE_CPUFREQ */
 
-		dev_dbg(&ths->pdev->dev, "SYS-CPU Clock frequency is reduced to MID frequency level: %8lu\n", rate);
-	}
-	*/
-	
 	enable_irq(ths->ths_irq);
 	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 }
 
 /*
- * ths_work_tj2: make clock frequency down (1/4 current frequency - MIN level)
- *  in case of CTEMP >= CTEMP2 
+ * ths_work_tj2: configure DFS driver to limit the maximum frequency
+ *  in LOW - Very LOW frequency
+ *  in case of CTEMP > CTEMP2 
  *  @work: a struct work_struct
  * return: 
  *		None
  */
 
 static void ths_work_tj2(struct work_struct *work)
-{	
-/*	unsigned long rate; */
-	
+{
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
-	/* 
-	 * Processing for adjusting frequency here.
-	 * Check current frequency is higher than setting frequency
-	 * (avoid cases cpu is hot because of other reasons than high frequency)
-	 * if yes, drecease frequency by calling stepdown_cpufreq
-	 * if no, do not something
-	 */
+#ifdef CONFIG_SHMOBILE_CPUFREQ
+	limit_max_cpufreq(LIMIT_LOW);
+#else
+	THS_DEBUG_MSG("%s DFS is disabled <<<\n", __func__);
+#endif /* CONFIG_SHMOBILE_CPUFREQ */
 
-	/*	
-	if (rate > SYS_CPU_CLK_MIN) {
-		
-		do {
-			rate = stepdown_cpufreq();
-		} while (rate > SYS_CPU_CLK_MIN);
-		
-		dev_dbg(&ths->pdev->dev, "SYS-CPU Clock frequency is reduced to MIN frequency level: %8lu\n", rate);	
-	}
-	*/		
 	enable_irq(ths->ths_irq);
 	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
@@ -569,7 +563,6 @@ static int ths_start_module(struct platform_device *pdev)
 
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	snprintf(clk_name, sizeof(clk_name), "thermal_sensor.%d", pdev->id);
-	THS_DEBUG_MSG("clk_name = %s\n", clk_name);
 	ths->clk = clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(ths->clk)) {
 		ret = PTR_ERR(ths->clk);
