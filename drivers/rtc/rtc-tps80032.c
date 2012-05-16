@@ -51,8 +51,6 @@
 #define RTC_POR_MONTH			1
 #define RTC_POR_DAY				1
 
-#define CONST_INT_ID			28
-
 static DEFINE_MUTEX(set_alarm_lock);
 static DEFINE_MUTEX(set_time_lock);
 static DEFINE_MUTEX(cntrol1_lock);
@@ -62,6 +60,7 @@ struct rtc_tps80032_data{
 	struct rtc_device *rtc;
 	struct device *dev;
 };
+
 
 /*
  * tps80032_rtc_stop: Stop RTC Hardware
@@ -156,7 +155,7 @@ static irqreturn_t tps80032_rtc_irq(int irq, void *dev_id)
 	u8 val;
 	
 	/*dummy read RTC_STATUS for updating the register*/
-	ret = tps80031_read(data->dev, 1, RTC_STATUS_REG, &reg);
+	ret = tps80031_read(dev->parent, 1, RTC_STATUS_REG, &reg);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to read RTC_STATUS reg\n");
 		goto exit;
@@ -165,15 +164,15 @@ static irqreturn_t tps80032_rtc_irq(int irq, void *dev_id)
 	mutex_lock(&cntrol2_lock);
 	
 	/*read RTC_STATUS for updating the register*/
-	ret = tps80031_read(data->dev, 1, RTC_STATUS_REG, &reg);
+	ret = tps80031_read(dev->parent, 1, RTC_STATUS_REG, &reg);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to read RTC_STATUS reg\n");
 		goto exit;
 	}
 	
-	val = ret | ALARM_INT_STATUS;
+	val = (ret & (~ALARM_INT_STATUS)) | ALARM_INT_STATUS;
 	/*Clear interrupt status*/
-	ret = tps80031_write(data->dev, 1, RTC_STATUS_REG, val);
+	ret = tps80031_write(dev->parent, 1, RTC_STATUS_REG, val);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to clear set Alarm INT status\n");
 		goto exit;
@@ -314,14 +313,9 @@ static int tps80032_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	u8 val[6];
 	
 	dev_dbg(dev->parent, ">>> %s start\n", __func__);
-	
+
 	mutex_lock(&set_alarm_lock);
-	ret = tps80032_rtc_read_time(dev, &alarm->time);
-	if (ret < 0){
-		dev_err(dev->parent, "failed to read time\n");
-		goto exit;
-	}
-		
+	
 	ret = tps80031_reads(dev->parent, 1, RTC_ALARM_SECONDS_REG, 6, val);
 	if (ret < 0){
 		dev_err(dev->parent, "failed to read alarm reg\n");
@@ -378,7 +372,7 @@ static int tps80032_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		val[2] = dec2bcd(alarm->time.tm_hour);
 		val[3] = dec2bcd(alarm->time.tm_mday);
 		val[4] = dec2bcd(alarm->time.tm_mon);
-		val[5] = dec2bcd(alarm->time.tm_year);
+		val[5] = dec2bcd(alarm->time.tm_year % RTC_YEAR_OFFSET);
 		
 		ret = tps80031_writes(dev->parent, 1, RTC_ALARM_SECONDS_REG, 6, val);
 		if (ret < 0)
@@ -484,7 +478,8 @@ int tps80032_rtc_init_irq(struct device *dev, struct rtc_tps80032_data *data)
 	}
 	
 	device_init_wakeup(dev, 1);
-	enable_irq_wake(irqpin2irq(CONST_INT_ID));
+	
+	enable_irq_wake(pdata->irq);
 	
 	return 0;
 }
@@ -578,10 +573,13 @@ err:
 static int __devexit tps80032_rtc_remove(struct platform_device *pdev)
 {
 	struct rtc_tps80032_data *data = dev_get_drvdata(&pdev->dev);
+	
+	struct device *dev = &pdev->dev;
+	struct tps80031_rtc_platform_data *pdata = dev->platform_data;
 	if (data) {
 		if (data->rtc) {
 			rtc_device_unregister(data->rtc);
-			free_irq(irqpin2irq(CONST_INT_ID),data);
+			free_irq(pdata->irq, data);
 		}
 		kfree(data);
 	}
