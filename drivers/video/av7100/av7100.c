@@ -2476,7 +2476,7 @@ static int __devinit av7100_probe(struct device *dev)
 	av7100_globals->av7100_state = AV7100_OPMODE_SHUTDOWN;
 	
 	/* MIPI HDMI */
-	ret = gpio_request(NA_GPIO_PORT219, NULL); 	/* portVIO_CK05 MCLK */
+	ret = gpio_request(GPIO_PORT219, NULL); 	/* portVIO_CK05 MCLK */
 	if (ret)
 		goto err_gpio_request_mclk;
 
@@ -2532,7 +2532,7 @@ err_gpio_request_int:
 	gpio_free(GPIO_PORT8);
 	
 err_gpio_request_pwdown:
-	gpio_free(NA_GPIO_PORT219);
+	gpio_free(GPIO_PORT219);
 	
 err_gpio_request_mclk:
 	av7100_globals_exit();
@@ -2565,7 +2565,7 @@ static int av7100_remove(struct device *dev)
 	
 	gpio_free(GPIO_PORT15);
 	gpio_free(GPIO_PORT8);
-	gpio_free(NA_GPIO_PORT219);
+	gpio_free(GPIO_PORT219);
 	
 	av7100_globals_exit();
 	av7100_config_exit();
