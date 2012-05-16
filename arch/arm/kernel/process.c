@@ -165,7 +165,7 @@ void arm_machine_restart(char mode, const char *cmd)
 {
 #if 0
 #ifdef CONFIG_ARCH_R8A73734
-	extern void shmobile_pm_set_recovery_mode(const char *cmd);
+	/* extern void shmobile_pm_set_recovery_mode(const char *cmd); */
 	
 	/* Set Recovery Mode */
 	shmobile_pm_set_recovery_mode(cmd);

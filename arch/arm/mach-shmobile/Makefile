@@ -48,6 +48,8 @@ obj-y						+= poweroff.o
 obj-$(CONFIG_PDC) 			+= powerdomain.o
 obj-$(CONFIG_CPU_FREQ) 		+= cpufreq.o clocksuspend.o
 
+ccflags-$(CONFIG_PM_TEST)	:= -DDEBUG
+
 # Board objects
 obj-$(CONFIG_MACH_G3EVM)	+= board-g3evm.o
 obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o

@@ -128,3 +128,5 @@ obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
 obj-$(CONFIG_SMECO)		+= smeco/
 
 obj-$(CONFIG_THERMAL_SENSOR) += thermal/thermal_sensor/
+
+obj-$(CONFIG_PM_DEBUG)	+= pmdbg/

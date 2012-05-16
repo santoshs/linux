@@ -174,8 +174,8 @@ config SHMOBILE_CPUFREQ
 
 config SH_TRANSITION_LATENCY
 	int "Transition Latency (micro second)"
-	range 1000 9000
-	default "5000"
+	range 500 9000
+	default "500"
 	depends on SHMOBILE_CPUFREQ
 	help
 	  Transition latency between each sampling.

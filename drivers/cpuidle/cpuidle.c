@@ -37,7 +37,6 @@ static void cpuidle_kick_cpus(void)
 	cpu_idle_wait();
 }
 #elif defined(CONFIG_SMP)
-extern void cpu_idle_wait(void);
 static void cpuidle_kick_cpus(void)
 {
 	cpu_idle_wait();

@@ -33,34 +33,12 @@
 #include "pmRegisterDef.h"
 
 #define SHMOBILE_MAX_STATES	3
-#define NUM_OF_CPU			2
+
 
 #define DISPLAY_LOG 0
 
 
 spinlock_t clock_lock;
-
-extern int start_corestandby(void);
-extern void ArmVector(void);
-extern void corestandby(void);
-extern void systemsuspend(void);
-extern void save_arm_register(void);
-extern void restore_arm_register_pa(void);
-extern void restore_arm_register_va(void);
-extern void save_arm_common_register(void);
-extern void restore_arm_common_register(void);
-extern void save_common_register(void);
-extern void restore_common_register(void);
-extern void sys_powerdown(void);
-extern void sys_powerup(void);
-extern void setclock_systemsuspend(void);
-extern void start_wfi(void);
-#ifdef VMALLOC_EXPAND
-extern void disablemmu(void);
-extern void systemsuspend_cpu0_pa(void);
-extern void systemsuspend_cpu1_pa(void);
-extern void corestandby_pa(void);
-#endif /* VMALLOC_EXPAND */
 
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
 
@@ -85,8 +63,9 @@ static DEFINE_MUTEX(state_notify_lock);
 static DEFINE_MUTEX(state_notify_confirm_lock);
 
 /*
- * register_pm_state_notify: registers a notification callback function for PM state
- * @h: A callback function address to be notified PM state of AP-System domain.
+ * register_pm_state_notify: registers a notification callback function
+ * for PM state
+ * @h: A callback function address to be notified PM state of AP-System domain
  */
 void register_pm_state_notify(struct pm_state_notify *h)
 {
@@ -97,8 +76,9 @@ void register_pm_state_notify(struct pm_state_notify *h)
 EXPORT_SYMBOL(register_pm_state_notify);
 
 /*
- * unregister_pm_state_notify: unregisters a notification callback function for PM state.
- * @h: A callback function address to be notified PM state of AP-System domain.
+ * unregister_pm_state_notify: unregisters a notification callback function
+ * for PM state.
+ * @h: A callback function address to be notified PM state of AP-System domain
  */
 void unregister_pm_state_notify(struct pm_state_notify *h)
 {
@@ -109,9 +89,9 @@ void unregister_pm_state_notify(struct pm_state_notify *h)
 EXPORT_SYMBOL(unregister_pm_state_notify);
 
 /*
- * register_pm_state_notify_confirm: registers a callback function to be confirmed 
- * whether a notification is necessary or not when PM state is changed.
- * @h: A callback function address to be confirmed PM state of AP-System domain.
+ * register_pm_state_notify_confirm: registers a callback function to be
+ * confirmed whether a notification is necessary when PM state is changed
+ * @h: A callback function address to be confirmed PM state of AP-System domain
  */
 void register_pm_state_notify_confirm(struct pm_state_notify_confirm *h)
 {
@@ -122,8 +102,9 @@ void register_pm_state_notify_confirm(struct pm_state_notify_confirm *h)
 EXPORT_SYMBOL(register_pm_state_notify_confirm);
 
 /*
- * unregister_pm_state_notify_confirm: unregisters a confirmation callback function of a notification.
- * @h: A callback function address to be confirmed PM state of AP-System domain.
+ * unregister_pm_state_notify_confirm: unregisters a confirmation
+ * callback function of a notification.
+ * @h: A callback function address to be confirmed PM state of AP-System domain
  */
 void unregister_pm_state_notify_confirm(struct pm_state_notify_confirm *h)
 {
@@ -136,8 +117,8 @@ EXPORT_SYMBOL(unregister_pm_state_notify_confirm);
 /*
  * state_notify: notify the state.
  * @state: the state
- * return: 
- * 		0: successful
+ * return:
+ *		0: successful
  *
  * The caller must call after irq disabled
  */
@@ -155,9 +136,9 @@ unsigned int state_notify(int state)
 
 /*
  * state_notify_confirm: confirm for the state to be nofified.
- * return: 
- * 		0: successful
- * 		Otherwise: error of confirmation callback function.
+ * return:
+ *		0: successful
+ *		Otherwise: error of confirmation callback function.
  *
  * The caller must call after irq disabled
  */
@@ -184,10 +165,11 @@ End:
  * shmobile_enter_wfi: executes idle PM for a CPU - WFI state
  * @dev: the target CPU
  * @state: the state
- * return: 
+ * return:
  *		int: the idle duration
  */
-static int shmobile_enter_wfi(struct cpuidle_device *dev, struct cpuidle_state *state)
+static int shmobile_enter_wfi(struct cpuidle_device *dev,
+				struct cpuidle_state *state)
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
@@ -197,18 +179,14 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev, struct cpuidle_state *
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
-	if(!state_notify_confirm())
-	{
+	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_SLEEP);
-	}
 
 	arch_idle();		/* WFI cpu_do_idle(); */
 
 	/* WakeUp State Notify */
-	if(!state_notify_confirm())
-	{
+	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
-	}
 
 	do_gettimeofday(&afterTime);
 
@@ -225,10 +203,11 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev, struct cpuidle_state *
  * shmobile_enter_wfi_lowfreq: executes idle PM for a CPU - WFI(low-freq) state
  * @dev: the target CPU
  * @state: the state
- * return: 
- * 		int: the idle duration
+ * return:
+ *		int: the idle duration
  */
-static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev, struct cpuidle_state *state)
+static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
+				struct cpuidle_state *state)
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
@@ -238,19 +217,15 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev, struct cpuidle
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
-	if(!state_notify_confirm())
-	{
+	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_SLEEP_LOWFREQ);
-	}
 
 	/* Transition to WFI standby with low-frequency setting	*/
 	start_wfi();
 
 	/* WakeUp State Notify */
-	if(!state_notify_confirm())
-	{
+	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
-	}
 
 	do_gettimeofday(&afterTime);
 
@@ -267,10 +242,11 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev, struct cpuidle
  * shmobile_enter_corestandby: executes idle PM for a CPU - CoreStandby state
  * @dev: the target CPU
  * @state: the state
- * return: 
- * 		int: the idle duration
+ * return:
+ *		int: the idle duration
  */
-static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle_state *state)
+static int shmobile_enter_corestandby(struct cpuidle_device *dev,
+						struct cpuidle_state *state)
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
@@ -292,7 +268,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
 		corestandby_cpufreq();
-		start_corestandby();								/* CoreStandby(A1SL0 or A1SL1 Off) */
+		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
 	} else {
 #if DISPLAY_LOG
 		printk(KERN_INFO "Core-Standby %d (WAKELOCK)", cpuid);
@@ -300,14 +276,12 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_SLEEP);
-		arch_idle();										/* WFI cpu_do_idle(); */
+		arch_idle(); /* WFI cpu_do_idle(); */
 	}
 
 	/* WakeUp State Notify */
-	if(!state_notify_confirm())
-	{
+	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
-	}
 
 	do_gettimeofday(&afterTime);
 
@@ -318,7 +292,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 	local_fiq_enable();
 
 #if DISPLAY_LOG
-	printk(KERN_INFO "Standby OUT %d  IDLE=0x%x\n", cpuid,idle_time);
+	printk(KERN_INFO "Standby OUT %d IDLE=0x%x\n", cpuid, idle_time);
 #endif
 
 	return idle_time;
@@ -326,9 +300,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev, struct cpuidle
 
 /*
  * shmobile_init_cpuidle: Initialization of CPU's idle PM
- * return: 
- * 		0: successful
- * 		-EIO: failed ioremap, or failed registering a CPU's idle PM
+ * return:
+ *		0: successful
+ *		-EIO: failed ioremap, or failed registering a CPU's idle PM
  */
 static int shmobile_init_cpuidle(void)
 {
@@ -336,43 +310,68 @@ static int shmobile_init_cpuidle(void)
 	unsigned int smstpcr5_val;
 	unsigned int mstpsr5_val;
 	unsigned long flags;
-	unsigned int count;
+	int count;
 	void __iomem *map = NULL;
+	int chip_rev;
+	unsigned long cpuidle_spinlock;
 
+	/* Chip revision */
+	chip_rev = shmobile_chip_rev();
+	
 	/* Internal RAM0 Module Clock ON */
 	spin_lock_irqsave(&clock_lock, flags);
-	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-	if (0 != (mstpsr5_val & MSTPST527)) {
-	
-		smstpcr5_val = __raw_readl(CPG_SMSTPCR5); 
-		__raw_writel((smstpcr5_val & (~MSTP527)), CPG_SMSTPCR5);
-
-		do {
-			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-		} while (mstpsr5_val & MSTPST527);
+	if (chip_rev < ES_REV_2_0) {
+		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		if (0 != (mstpsr5_val & MSTPST527)) {
+			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~MSTP527)), CPG_SMSTPCR5);
+			do {
+				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+			} while (mstpsr5_val & MSTPST527);
+		}
+	} else {
+	/* W/A of errata ES2 E0263 */
+		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
+			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529))), CPG_SMSTPCR5);
+			do {
+				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
+		}
+		
 	}
 	spin_unlock_irqrestore(&clock_lock, flags);
 	/* Allocate CPU0 back up area */
 	cpu0BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
-	if (cpu0BackupArea == NULL) {
-		printk(KERN_ERR "shmobile_init_cpuidle: Failed Allocate CPU0 back up area\n");
-	} else {
-		__raw_writel((unsigned int)cpu0BackupArea, ram0Cpu0RegisterArea);
-	}
+	if (cpu0BackupArea == NULL)
+		printk(KERN_ERR "shmobile_init_cpuidle: "
+			"Failed Allocate CPU0 back up area\n");
+	else
+		__raw_writel((unsigned int)cpu0BackupArea,
+						ram0Cpu0RegisterArea);
 
 	/* Allocate CPU1 back up area */
 	cpu1BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
-	if (cpu1BackupArea == NULL) {
-		printk(KERN_ERR "shmobile_init_cpuidle: Failed Allocate CPU1 back up area\n");
-	} else {
-		__raw_writel((unsigned int)cpu1BackupArea, ram0Cpu1RegisterArea);
-	}
+	if (cpu1BackupArea == NULL)
+		printk(KERN_ERR "shmobile_init_cpuidle: "
+			"Failed Allocate CPU1 back up area\n");
+	else
+		__raw_writel((unsigned int)cpu1BackupArea,
+						ram0Cpu1RegisterArea);
 
 	/* Initialize SpinLock setting */
-	map = ioremap_nocache((unsigned long)CPUIDLE_SPINLOCK, 0x00000400/*1k*/);
+	if (chip_rev < ES_REV_2_0 )
+		cpuidle_spinlock = 0x47BDF000;
+	else 
+		cpuidle_spinlock = 0x4C000000;
+
+	map = ioremap_nocache(cpuidle_spinlock,
+							0x00000400/*1k*/);
 	if (map != NULL) {
 		__raw_writel((unsigned long)map, __io(ram0SpinLockVA));
-		__raw_writel((unsigned long)CPUIDLE_SPINLOCK, __io(ram0SpinLockPA));
+		__raw_writel(cpuidle_spinlock,
+						__io(ram0SpinLockPA));
 		__raw_writel((unsigned long)0x0, __io(map));
 	} else {
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
@@ -384,32 +383,87 @@ static int shmobile_init_cpuidle(void)
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
 	__raw_writel((unsigned long)0x0, __io(ram0CpuClock));
 
+#ifndef CONFIG_PM_SMP
+	/* Temporary solution for Kernel in Secure */
+	__raw_writel(0, __io(SBAR2));
+
+	__raw_writel((unsigned long)0x0, __io(APARMBAREA)); /* 4k */
+#endif
 	/* Copy the source code internal RAM0 */
-	(void)memcpy((void *)ram0ArmVector,						(void *)&ArmVector,						fsArmVector					);
-	(void)memcpy((void *)ram0CoreStandby,					(void *)&corestandby,					fsCoreStandby				);
-	(void)memcpy((void *)ram0SystemSuspend,					(void *)&systemsuspend,					fsSystemSuspend				);
-	(void)memcpy((void *)ram0SaveArmRegister,				(void *)&save_arm_register,				fsSaveArmRegister			);
-	(void)memcpy((void *)ram0RestoreArmRegisterPA,			(void *)&restore_arm_register_pa,		fsRestoreArmRegisterPA		);
-	(void)memcpy((void *)ram0RestoreArmRegisterVA,			(void *)&restore_arm_register_va,		fsRestoreArmRegisterVA		);
-	(void)memcpy((void *)ram0SaveArmCommonRegister,			(void *)&save_arm_common_register,		fsSaveArmCommonRegister		);
-	(void)memcpy((void *)ram0RestoreArmCommonRegister,		(void *)&restore_arm_common_register,	fsRestoreArmCommonRegister	);
-	(void)memcpy((void *)ram0SaveCommonRegister,			(void *)&save_common_register,			fsSaveCommonRegister		);
-	(void)memcpy((void *)ram0RestoreCommonRegister,			(void *)&restore_common_register,		fsRestoreCommonRegister		);
-	(void)memcpy((void *)ram0SysPowerDown,					(void *)&sys_powerdown,					fsSysPowerDown				);
-	(void)memcpy((void *)ram0SysPowerUp,					(void *)&sys_powerup,					fsSysPowerUp				);
-	(void)memcpy((void *)ram0SetClockSystemSuspend,			(void *)&setclock_systemsuspend,		fsSetClockSystemSuspend		);
+	(void)memcpy((void *)ram0ArmVector,
+				(void *)&ArmVector,
+				fsArmVector);
+
+	(void)memcpy((void *)ram0CoreStandby,
+				(void *)&corestandby,
+				fsCoreStandby);
+
+	(void)memcpy((void *)ram0SystemSuspend,
+				(void *)&systemsuspend,
+				fsSystemSuspend);
+
+	(void)memcpy((void *)ram0SaveArmRegister,
+				(void *)&save_arm_register,
+				fsSaveArmRegister);
+
+	(void)memcpy((void *)ram0RestoreArmRegisterPA,
+				(void *)&restore_arm_register_pa,
+				fsRestoreArmRegisterPA);
+
+	(void)memcpy((void *)ram0RestoreArmRegisterVA,
+				(void *)&restore_arm_register_va,
+				fsRestoreArmRegisterVA);
+
+	(void)memcpy((void *)ram0SaveArmCommonRegister,
+				(void *)&save_arm_common_register,
+				fsSaveArmCommonRegister);
+
+	(void)memcpy((void *)ram0RestoreArmCommonRegister,
+				(void *)&restore_arm_common_register,
+				fsRestoreArmCommonRegister);
+
+	(void)memcpy((void *)ram0SaveCommonRegister,
+				(void *)&save_common_register,
+				fsSaveCommonRegister);
+
+	(void)memcpy((void *)ram0RestoreCommonRegister,
+				(void *)&restore_common_register,
+				fsRestoreCommonRegister);
+
+	(void)memcpy((void *)ram0SysPowerDown,
+				(void *)&sys_powerdown,
+				fsSysPowerDown);
+
+	(void)memcpy((void *)ram0SysPowerUp,
+				(void *)&sys_powerup,
+				fsSysPowerUp);
+
+	(void)memcpy((void *)ram0SetClockSystemSuspend,
+				(void *)&setclock_systemsuspend,
+				fsSetClockSystemSuspend);
 
 #ifdef VMALLOC_EXPAND
-	(void)memcpy((void *)ram0SystemSuspendCPU0PA,			(void *)&systemsuspend_cpu0_pa,			fsSystemSuspendCPU0PA		);
-	(void)memcpy((void *)ram0CoreStandbyPA		,			(void *)&corestandby_pa,				fsCoreStandbyPA				);
-	(void)memcpy((void *)ram0DisableMMU,					(void *)&disablemmu,					fsDisableMMU				);
-	(void)memcpy((void *)ram0SystemSuspendCPU1PA,			(void *)&systemsuspend_cpu1_pa,			fsSystemSuspendCPU1PA		);
+	(void)memcpy((void *)ram0SystemSuspendCPU0PA,
+				(void *)&systemsuspend_cpu0_pa,
+				fsSystemSuspendCPU0PA);
+
+	(void)memcpy((void *)ram0CoreStandbyPA,
+				(void *)&corestandby_pa,
+				fsCoreStandbyPA);
+
+	(void)memcpy((void *)ram0DisableMMU,
+				(void *)&disablemmu,
+				fsDisableMMU);
+
+	(void)memcpy((void *)ram0SystemSuspendCPU1PA,
+				(void *)&systemsuspend_cpu1_pa,
+				fsSystemSuspendCPU1PA);
 #endif /* VMALLOC_EXPAND */
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
 
-	for (count = 0; count < NUM_OF_CPU; count++) {
+	for_each_possible_cpu(count) {
 		device = &per_cpu(shmobile_cpuidle_device, count);
 		device->state_count = SHMOBILE_MAX_STATES;
 		device->cpu = count;
@@ -433,13 +487,14 @@ static int shmobile_init_cpuidle(void)
 		/* CoreStandby state */
 		strcpy(device->states[2].name, "CoreStandby");
 		strcpy(device->states[2].desc, "Core Standby");
-		device->states[2].enter = shmobile_enter_wfi_lowfreq;
+		device->states[2].enter = shmobile_enter_corestandby;
 		device->states[2].exit_latency = 300;
 		device->states[2].target_residency = 500;
 		device->states[2].flags = CPUIDLE_FLAG_TIME_VALID;
 
 		if (cpuidle_register_device(device)) {
-			printk(KERN_ERR "shmobile_init_cpuidle: Failed registering\n");
+			printk(KERN_ERR "shmobile_init_cpuidle: "
+				"Failed registering\n");
 			return -EIO;
 		}
 	}
