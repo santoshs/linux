@@ -186,6 +186,12 @@ static void usbhs_module_reset(void)
 	__raw_writew(__raw_readw(PHYFUNCTR) | (1 << 13), PHYFUNCTR); /* PRESET */
 	while (__raw_readw(PHYFUNCTR) & (1 << 13))
 			;
+#ifdef CONFIG_USB_OTG
+#define SYSSTS	IO_ADDRESS(0xe6890004) /* 16-bit */
+#define PHYOTGCTR	IO_ADDRESS(0xe689010a) /* 16-bit */
+	__raw_writew(__raw_readw(PHYOTGCTR) | (1 << 8), PHYOTGCTR); /* IDPULLUP */
+	msleep(50);
+#endif
 }
 
 static struct r8a66597_platdata usbhs_func_data = {
@@ -194,7 +200,11 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
+#ifdef CONFIG_PMIC_INTERFACE
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
+#else
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
+#endif
 };
 
 static struct resource usbhs_resources[] = {
@@ -231,6 +241,71 @@ static struct platform_device usbhs_func_device = {
 	.num_resources	= ARRAY_SIZE(usbhs_resources),
 	.resource	= usbhs_resources,
 };
+#ifdef CONFIG_USB_R8A66597_HCD
+static void usb_host_port_power(int port, int power)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	if (power) {
+		pmic_set_vbus(1);
+	} else {
+		pmic_set_vbus(0);
+	}
+#endif
+}
+static struct r8a66597_platdata usb_host_data = {
+	.module_start	= usbhs_module_reset,
+	.on_chip = 1,
+	.port_power = usb_host_port_power,
+};
+
+static struct resource usb_host_resources[] = {
+	[0] = {
+		.name	= "USBHS",
+		.start	= 0xe6890000,
+		.end	= 0xe689014b,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(87), /* USBULPI */
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device usb_host_device = {
+	.name		= "r8a66597_hcd",
+	.id		= 0,
+	.dev = {
+		.platform_data		= &usb_host_data,
+		.dma_mask		= NULL,
+		.coherent_dma_mask	= 0xffffffff,
+	},
+	.num_resources	= ARRAY_SIZE(usb_host_resources),
+	.resource	= usb_host_resources,
+};
+#endif /*CONFIG_USB_R8A66597_HCD*/
+#ifdef CONFIG_USB_OTG
+/*TUSB1211 OTG*/
+static struct resource tusb1211_resource[] = {
+	[0] = {
+		.name	= "tusb1211_resource",
+		.start	= 0xe6890000,
+		.end	= 0xe689014b,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.name	= "INT_ID",
+		.start	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_ID,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device tusb1211_device = {
+	.name = "tusb1211_driver",
+	.id = 0,
+	.num_resources = ARRAY_SIZE (tusb1211_resource),
+	.resource = tusb1211_resource,
+};
+#endif /*CONFIG_USB_OTG*/
 
 /* MMCIF */
 static struct sh_mmcif_dma sh_mmcif_dma = {
@@ -1226,6 +1301,12 @@ static struct platform_device rcu1_device = {
 
 static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
 	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
@@ -1269,6 +1350,12 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
 	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
@@ -1312,6 +1399,12 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
 	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
@@ -1448,6 +1541,10 @@ static void mxt224_set_power(int on)
 			regulator_disable(mxt224_regulator);
 	}
 }
+
+
+
+
 
 static int mxt224_read_chg(void)
 {

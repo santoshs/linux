@@ -138,4 +138,12 @@ config FSL_USB2_OTG
 	help
 	  Enable this to support Freescale USB OTG transceiver.
 
+config EOS2_USB2_OTG
+	bool "EOS2 USB OTG Driver"
+	depends on  USB_R8A66597_HCD && USB_R8A66597
+	select USB_OTG
+	select USB_OTG_UTILS
+	help
+	  Enable this to support EOS2 USB OTG Driver.
+
 endif # USB || OTG
