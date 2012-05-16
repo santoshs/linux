@@ -22,6 +22,7 @@
 
 #include <linux/slab.h>
 #include <linux/pmic/pmic.h>
+#include <asm/io.h>
 
 static LIST_HEAD(driver_work_list);
 static DEFINE_SPINLOCK(pmic_lock);
@@ -32,6 +33,7 @@ struct pmic_device {
 };
 
 static struct pmic_device *pmic_dev = NULL;
+
 
 /*
  * pmic_set_power_on: turn on a power resource
@@ -49,7 +51,6 @@ int pmic_set_power_on(int resource)
 	}
 	
 	ret = pmic_dev->ops->set_power_on(pmic_dev->dev.parent, resource);
-	
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_power_on);
@@ -69,7 +70,6 @@ int pmic_set_power_off(int resource)
 	}
 	
 	ret = pmic_dev->ops->set_power_off(pmic_dev->dev.parent, resource);
-	
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_power_off);
@@ -101,14 +101,13 @@ EXPORT_SYMBOL_GPL(pmic_force_power_off);
  *         <0: error
  */
 int pmic_set_voltage(int resource, int voltage)
-{
+{	
 	int ret;
 	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_voltage)) {
 		return -ENODEV;
 	}
 	
 	ret = pmic_dev->ops->set_voltage(pmic_dev->dev.parent, resource, voltage);
-	
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_voltage);
@@ -130,7 +129,6 @@ int pmic_set_power_mode(int resource, int pstate, int pmode)
 	}
 	
 	ret = pmic_dev->ops->set_power_mode(pmic_dev->dev.parent, resource, pstate, pmode);
-	
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_power_mode);
@@ -157,6 +155,27 @@ int pmic_get_ext_device(void)
 EXPORT_SYMBOL_GPL(pmic_get_ext_device);
 
 /*
+ * pmic_set_current_limit: set the current limit for charging operation
+ * @chrg_state: The charger state: (1/0)
+ * @chrg_type: The charger type
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+int pmic_set_current_limit(int chrg_state, int chrg_type)
+{
+	int ret;
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_current_limit)) {
+		ret = -ENODEV;
+	}
+
+	ret = pmic_dev->ops->set_current_limit(pmic_dev->dev.parent, chrg_state, chrg_type);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pmic_set_current_limit);
+
+
+/*
  * pmic_read_register: read the current value of TPS80032 register
  * @addr: The address of register.
  * @slave: The I2C slave address.
@@ -178,72 +197,112 @@ int pmic_read_register(int slave, u8 addr)
 EXPORT_SYMBOL_GPL(pmic_read_register);
 
 /*
- * pmic_read_registers: read the current value of TPS80032 registers
+ * pmic_read: read the current value of TPS80032 register
+ * @dev: The struct which handles the RTC TPS80032 driver.
+ * @addr: The address of register.
+ * @val: The return value of register.
+ * return:
+ *        >= 0: Value of register
+ *        < 0: Error occurs
+ */
+int pmic_read(struct device *dev, u8 addr, uint8_t *val)
+{
+	int ret;
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read)) {
+		ret = -ENODEV;
+	}
+
+	ret = pmic_dev->ops->read(dev, addr);
+	if (0 <= ret) {
+		*val = ret;
+		return 0;
+	} else {
+		return ret;
+	}
+}
+EXPORT_SYMBOL_GPL(pmic_read);
+
+
+/*
+ * pmic_reads: read the current value of TPS80032 registers
+ * @dev: The struct which handles the RTC TPS80032 driver.
  * @addr: The address of register.
  * @len: The number of registers is read.
- * @slave: The I2C slave address.
  * @val: The value of TPS80032 registers is read.
  * return:
  *        = 0: Normal operation
  *        < 0: Error occurs
  */
-int pmic_read_registers(int slave, u8 addr, int len, u8* val)
+int pmic_reads(struct device *dev, u8 addr, int len, u8* val)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read_registers)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->reads)) {
 		ret = -ENODEV;
 	}
 
-	ret = pmic_dev->ops->read_registers(pmic_dev->dev.parent, slave, addr, len, val);
+	ret = pmic_dev->ops->reads(dev, addr, len, val);
 
-	return ret;
+	if (0 <= ret) {
+		return 0;
+	} else {
+		return ret;
+	}
 }
-EXPORT_SYMBOL_GPL(pmic_read_registers);
+EXPORT_SYMBOL_GPL(pmic_reads);
 
 /*
- * pmic_write_register: write value to PMIC hardware register
+ * pmic_write: write value to PMIC hardware register
+ * @dev: The struct which handles the RTC TPS80032 driver.
  * @addr: The address of register.
- * @slave: The I2C slave address.
  * @value: The value is written to PMIC hardware register
  * return:
  *        = 0: Normal termination
  *        < 0: Error occurs
  */
-int pmic_write_register(int slave, u8 addr, u8 value)
+int pmic_write(struct device *dev, u8 addr, u8 value)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->write_register)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->write)) {
 		ret = -ENODEV;
 	}
 
-	ret = pmic_dev->ops->write_register(pmic_dev->dev.parent, slave, addr, value);
+	ret = pmic_dev->ops->write(dev, addr, value);
 
-	return ret;
+	if (0 <= ret) {
+		return 0;
+	} else {
+		return ret;
+	}
 }
-EXPORT_SYMBOL_GPL(pmic_write_register);
+EXPORT_SYMBOL_GPL(pmic_write);
 
 /*
- * pmic_write_registers: write value to PMIC hardware registers
+ * pmic_writes: write value to PMIC hardware registers
+ * @dev: The struct which handles the RTC TPS80032 driver.
  * @addr: The address of register.
  * @len: The number of registers is wrote
- * @slave: The I2C slave address.
  * @value: The value is written to PMIC hardware register
  * return:
  *        = 0: Normal termination
  *        < 0: Error occurs
  */
-int pmic_write_registers(int slave, u8 addr, int len, u8 *value)
+int pmic_writes(struct device *dev, u8 addr, int len, u8 *value)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->write_registers)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->writes)) {
 		ret = -ENODEV;
 	}
 
-	ret = pmic_dev->ops->write_registers(pmic_dev->dev.parent, slave, addr, len, value);
+	ret = pmic_dev->ops->writes(dev, addr, len, value);
 
-	return ret;
+	if (0 <= ret) {
+		return 0;
+	} else {
+		return ret;
+	}
 }
-EXPORT_SYMBOL_GPL(pmic_write_registers);
+EXPORT_SYMBOL_GPL(pmic_writes);
+
 /*
  * pmic_get_temp_status: read the current temperature of battery
  * input: void
@@ -307,94 +366,6 @@ EXPORT_SYMBOL_GPL(pmic_ext_device_changed);
 #ifdef PMIC_PT_TEST_ENABLE
 
 /*
- * pmic_read_time: read current time from PMIC hardware
- * @tm: output time under pmic_time struct
- * struct pmic_time {
- *     int tm_year; The number of years since 2000 (up to 2099)
- *     int tm_mon;  The number of months since January, in the range 0 to 11
- *     int tm_mday; The day of the month, in the range 1 to 31
- *     int tm_hour; The number of hours past midnight, in the range 0 to 23
- *     int tm_min;  The number of minutes after the hour, in the range 0 to 59
- *     int tm_sec;  The number of seconds after the minute, in the range 0 to 59
- *     }
- * return:
- *        = 0: Normal termination
- *        < 0: Error occurs
- */
-int pmic_read_time(struct pmic_time *tm)
-{
-	int ret = 0;
-	int num1 = 0;
-	int num2 = 0;
-	int am_pm = 0;
-
-	/* read year */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x05);
-	if (ret < 0)
-		return ret;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_year = 2000 + num1*10 + num2;
-
-	/* read month */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x04);
-	if (ret < 0)
-		return ret;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_mon = num1*10 + num2;
-
-	/* read mday */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x03);
-	if (ret < 0)
-		return ret;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_mday = num1*10 + num2;
-
-	/* read hour */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x10);
-	if (ret < 0)
-		return ret;
-	am_pm = ret;
-
-
-
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x02);
-	if (ret < 0)
-		return ret;
-
-	if (am_pm)
-		am_pm = ret >> 7;
-
-	ret = ret & 0x3F;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_hour = num1*10 + num2 + (am_pm * 12);
-
-	/* read minute */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x01);
-	if (ret < 0)
-		return ret;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_min = num1*10 + num2;
-
-	/* read second */
-	ret = pmic_read_register(E_SLAVE_RTC_POWER, 0x00);
-	if (ret < 0)
-		return ret;
-	num1 = ret >> 4;
-	num2 = ret & 0x0F;
-	tm->tm_sec = num1*10 + num2;
-
-
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(pmic_read_time);
-
-/*
  * pmic_read_battery_status: read battery status at present
  * @property: Battery property which wants to receive status
  * return:
@@ -409,9 +380,6 @@ int pmic_read_battery_status(int property)
 	}
 
 	ret = pmic_dev->ops->get_batt_status(pmic_dev->dev.parent, property);
-
-
-
 
 	return ret;
 }

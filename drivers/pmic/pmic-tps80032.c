@@ -21,7 +21,10 @@
  */
  
 #include <linux/init.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/irq.h>
 #include <linux/workqueue.h>
 #include <linux/i2c.h>
@@ -51,8 +54,10 @@
 static void __iomem *virt_addr   = NULL;
 static struct timer_list bat_timer;
 static void tps80032_battery_timer_handler(unsigned long data);
+static short BAT_VOLT_THRESHOLD[100];
 
 struct tps80032_data {
+	struct device *dev;
 	int device;
 	int charger;
 	int bat_volt;
@@ -61,7 +66,10 @@ struct tps80032_data {
 	int bat_over_temp;
 	int bat_capacity;
 	int bat_presence;
-	int stop_charge;
+	int en_charger;
+	int cin_limit;
+	int vbus_det;
+	int vac_det;
 	int rscounter[RESOURCE_COUNTER_MAX];
 	struct mutex smps1_lock;
 	struct mutex smps2_lock;
@@ -84,7 +92,10 @@ struct tps80032_data {
 	struct i2c_client *client_dvs;
 	struct i2c_client *client_jtag;
 	struct work_struct ext_work;
-	struct work_struct bat_work;
+	struct work_struct update_work;
+	struct work_struct vac_charger_work;
+	struct work_struct int_chrg_work;
+	struct work_struct chrg_ctrl_work;
 	struct work_struct interrupt_work;
 	struct work_struct resume_work;
 	struct irq_chip		irq_chip;
@@ -122,7 +133,7 @@ static void tps80032_battery_timer_handler(unsigned long data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	/* Start timer to update battery info */
-	queue_work(pdata->queue,&pdata->bat_work);
+	queue_work(pdata->queue,&pdata->update_work);
 	bat_timer.expires  = jiffies + msecs_to_jiffies(CONST_TIMER_BATTERY_UPDATE);
 	add_timer(&bat_timer);
 	
@@ -176,52 +187,94 @@ static void tps80032_irq_sync_unlock(struct irq_data *data)
  */
 static void tps80032_interrupt_work(struct work_struct *work)
 {
+	int sts_a = 0;
+	int sts_b = 0;
 	int sts_c = 0;
-	int ret;
+	int ret = 0;
+	int i = 0;
 	
 	struct tps80032_data *data = container_of(work, struct tps80032_data, interrupt_work);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
+	
 	/* Define the interrupt source */
+	/* Read status interrupt A */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_INT_STS_A);
+	if (0 > ret) {
+		PMIC_DEBUG_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,ret);
+		goto exit;
+	}
+	
+	/* Update value of interrupt register A */
+	sts_a = ret & MSK_GET_INT_SRC_A;
+	
+	
+	/* Read status interrupt B */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_INT_STS_B);
+	if (0 > ret) {
+		PMIC_DEBUG_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,ret);
+		goto exit;
+	}
+	
+	/* Update value of interrupt register B */
+	sts_b = ret;
+	
 	/* Read status interrupt C */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_INT_STS_C);
 	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,sts_c);
+		PMIC_DEBUG_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,ret);
 		goto exit;
 	}
 	
 	/* Update value of interrupt register C */
-	sts_c = ret & MSK_GET_INT_SRC;
-	
+	sts_c = ret & MSK_GET_INT_SRC_C;
+
 	/* Clear interrupt source */
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_A, MSK_DISABLE);
 	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,sts_c);
+		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
 		goto exit;
 	}	
 	
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_B, MSK_DISABLE);
 	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,sts_c);
+		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
 		goto exit;
 	}	
 	
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_C, MSK_DISABLE);
 	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,sts_c);
+		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
 		goto exit;
 	}
-
+	
 	/* Process interrupt source */
-	/* interrupt source relate to battery */
-	if ((MSK_BIT_6 == sts_c) || (MSK_BIT_4 == sts_c)) {
-		queue_work(data->queue,&data->bat_work);
-	} else if ((MSK_BIT_2 == sts_c) || (MSK_BIT_3 == sts_c)) {
+	/* interrupt source relate to RTC */
+	if ((0 != (MSK_BIT_3 & sts_a)) || (0 != (MSK_BIT_4 & sts_a))) {
+		for (i = TPS80032_INT_RTC_ALARM; i <= TPS80032_INT_RTC_PERIOD; i++) {
+			handle_nested_irq(data->irq_base + i);
+		}
+	}
+	
+	if (0 != (MSK_BIT_4 & sts_c)) {
+		/* interrupt source relate to charge controller */
+		queue_work(data->queue,&data->chrg_ctrl_work);
+	}  else if (0 != (MSK_BIT_6 & sts_c)) {
+		/* interrupt source relate to internal charge */
+		queue_work(data->queue,&data->int_chrg_work);
+	} else if ((0 != (MSK_BIT_0 & sts_c)) || (0 != (MSK_BIT_2 & sts_c))) {
 		/* interrupt source relate to external device */
 		queue_work(data->queue,&data->ext_work);
-	}
-
+		handle_nested_irq(data->irq_base + TPS80032_INT_ID_WKUP);
+		handle_nested_irq(data->irq_base + TPS80032_INT_ID);
+		/* Clear interrupt for USB ID */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_USB_ID_INT_LATCH_CLR, (~MSK_DISABLE));
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			goto exit;
+		}
+	} 
+	
 	/* Notify when hava an interrupt signal */
 	pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
 
@@ -231,7 +284,6 @@ static void tps80032_interrupt_work(struct work_struct *work)
 exit:	
 	return;
 }
-
 
 
 /*
@@ -244,7 +296,6 @@ exit:
 static irqreturn_t tps80032_interrupt_handler(int irq, void *dev_id)
 {
 	struct tps80032_data *data = (struct tps80032_data *)dev_id;
-
 	PMIC_DEBUG_MSG("%s: irq=%d\n", __func__, irq);
 
 	queue_work(data->queue,&data->interrupt_work);
@@ -483,7 +534,7 @@ static int tps80032_set_power_on(struct device *dev, int resource)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	mutex_lock(&data->rscounter_lock);
-	if (data->rscounter[resource] == 0) {
+	if ((data->rscounter[resource] == 0) || (RESOURCE_COUNTER_MAX <= resource)) {
 		switch(resource) {
 			case E_POWER_VCORE:
 			case E_POWER_VIO2:
@@ -543,7 +594,7 @@ static int tps80032_set_power_off(struct device *dev, int resource)
 		data->rscounter[resource] = data->rscounter[resource] - 1;
 	}
 
-	if (data->rscounter[resource] == 0) {
+	if ((data->rscounter[resource] == 0) || (RESOURCE_COUNTER_MAX <= resource)) {
 		switch(resource) {
 			case E_POWER_VCORE:
 			case E_POWER_VIO2:
@@ -2123,7 +2174,7 @@ static int tps80032_set_vbus(struct device *dev, int enable)
 
 	mutex_lock(&data->vbus_lock);
 
-	if ((enable != 0) && (enable != 1)) {
+	if ((0 != enable) && (1 != enable)) {
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -2151,14 +2202,14 @@ static int tps80032_set_vbus(struct device *dev, int enable)
 	cur_boost = ret;
 	
 	/* If current mode is boost mode and there's a charger mode request */
-	if (enable == 0) {
+	if (0 == enable) {
 		/* set charger mode */
 		val_mode = cur_mode & ~MSK_BIT_6;
 		/* Enable DC-DC Tracking-Mode */
 		val_dcdc = cur_dcdc & ~MSK_BIT_7;
 		/* Stop boost mode */
 		val_boost= cur_boost & ~MSK_BIT_5;
-	} else if (enable == 1) {
+	} else if (1 == enable) {
 		/* Set boost mode */
 		val_mode = cur_mode | MSK_BIT_6;
 		/* Disable DC-DC Tracking-Mode */
@@ -2368,13 +2419,13 @@ int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 	}
 
 	ret_trim5 = i2c_smbus_read_byte_data(data->client_jtag, HW_REG_GPADC_TRIM5);
-	if (0 > ret_trim1) {
+	if (0 > ret_trim5) {
 		result = ret_trim5;
 		goto exit;
 	}
 
 	ret_trim6 = i2c_smbus_read_byte_data(data->client_jtag, HW_REG_GPADC_TRIM6);
-	if (0 > ret_trim1) {
+	if (0 > ret_trim6) {
 		result = ret_trim6;
 		goto exit;
 	}
@@ -2445,42 +2496,42 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 	/*Set 5V scaler and other internal ADC reference */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL, 0x6B);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x0E);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Select TEMP measurement channel */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_GPSELECT_ISB, 0x01);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Start GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_CTRL_P1, 0x08);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Wait for ADC interrupt */
 	while (count_timer <= CONST_WAIT_TIME) {
-		msleep(1);
+		schedule();
 
-		/* Check ADC intterupt bit */
+		/* Check ADC interrupt bit */
 		ret = i2c_smbus_read_byte_data(client, HW_REG_INT_STS_B);
-		
-
 		if (0 > ret) {
-			goto exit;
+			result = ret;
+			goto disable;
 		} else if (0 != (ret & MSK_BIT_5)) {
 			/* Conversion finished */
 			/* Clear interrupt source B */
-			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_B, MSK_DISABLE);
+			ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
 			if (0 > ret) {
+				result = ret;
 				goto disable;
 			}
 			break;
@@ -2492,49 +2543,40 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 
 	if (CONST_WAIT_TIME < count_timer) {
 		/* Time out */
-		PMIC_DEBUG_MSG("%s: measurement conversion failed err=%d\n",__func__,ret);
+		PMIC_DEBUG_MSG("%s: measurement conversion failed\n",__func__);
+		result =  -1;
 		goto disable;
 	}
 
 	/*Read the VBAT conversion result */
 	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_MSB);
 	if (0 > ret) {
-		goto exit;
+		result = ret;
+		goto disable;
 	} else {
 		ret_MSB = ret;
 	}
 
 	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_LSB);
 	if (0 > ret) {
-		goto exit;
+		result = ret;
+		goto disable;
 	} else {
 		ret_LSB = ret;
 	}
 
 	/*Correct the result */
 	result = ((ret_MSB & 0x0F)<<8) | ret_LSB;
+	result = (833000 - (338 * result))/1000;
 
 disable:
 	/*Disable GPAD */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x01);
 	if (0 > ret) {
-		goto exit;
-	}
-
-	/*Disable scaler */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL, 0x00);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	if (CONST_WAIT_TIME < count_timer) {
-		result =  -1;
+		/* Do nothing */
 	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-	return result;
-exit:
-	result = ret;
 	return result;
 }
 
@@ -2550,54 +2592,54 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 	int result = 0;
 	int ret, count_timer = 0;
 	int ret_MSB, ret_LSB;
-
+	
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/*Set 5V scaler and other internal ADC reference */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL, 0x6B);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Set 5V scaler and enable VBAT */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL2, 0x0C);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x0E);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Select VBAT measurement channel */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_GPSELECT_ISB, 0x12);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Start GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_CTRL_P1, 0x08);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/*Wait for ADC interrupt */
 	while (count_timer <= CONST_WAIT_TIME) {
-		msleep(1);
+		schedule();
 
-		/* Check ADC intterupt bit */
+		/* Check ADC interrupt bit */
 		ret = i2c_smbus_read_byte_data(client, HW_REG_INT_STS_B);
-		
-
 		if (0 > ret) {
-			goto exit;
+			result = ret;
+			goto disable;
 		} else if (0 != (ret & MSK_BIT_5)) {
 			/* Conversion finished */
 			/* Clear interrupt source B */
-			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_B, MSK_DISABLE);
+			ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
 			if (0 > ret) {
+				result = ret;
 				goto disable;
 			}
 			break;
@@ -2609,21 +2651,24 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 
 	if (CONST_WAIT_TIME < count_timer) {
 		/* Time out */
-		PMIC_DEBUG_MSG("%s: measurement conversion failed err=%d\n",__func__,ret);
+		PMIC_DEBUG_MSG("%s: measurement conversion failed\n",__func__);
+		result =  -1;
 		goto disable;
 	}
 
 	/*Read the VBAT conversion result */
 	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_MSB);
 	if (0 > ret) {
-		goto exit;
+		result = ret;
+		goto disable;
 	} else {
 		ret_MSB = ret;
 	}
 
 	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_LSB);
 	if (0 > ret) {
-		goto exit;
+		result = ret;
+		goto disable;
 	} else {
 		ret_LSB = ret;
 	}
@@ -2636,31 +2681,10 @@ disable:
 	/*Disable GPAD */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x01);
 	if (0 > ret) {
-		goto exit;
-	}
-
-	/*Disable scaler */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL, 0x00);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/*Disable scaler */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL2, 0x00);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	if (CONST_WAIT_TIME < count_timer) {
-		result =  -1;
+		/* Do nothing */
 	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-
-	goto finish;
-exit:
-	result = ret;
-finish:
 	return result;
 }
 
@@ -2674,70 +2698,25 @@ finish:
  */
 int tps80032_calc_bat_capacity(struct i2c_client *client)
 {
-	int ret;
+	int ret_vbat;
+	int i;
+	int soc;
 	struct tps80032_data *data = i2c_get_clientdata(client);
-
-	if (0 >= data->bat_volt) {
-		return data->bat_volt;
-	} else {
-		if (3150 > data->bat_volt)
-			ret = 4;
-		else if ((3200 > data->bat_volt) && (3150 <= data->bat_volt))
-			ret = 5;
-		else if ((3300 > data->bat_volt) && (3200 <= data->bat_volt))
-			ret = 20;
-		else if ((3400 > data->bat_volt) && (3300 <= data->bat_volt))
-			ret = 50;
-		else if ((3500 > data->bat_volt) && (3400 <= data->bat_volt))
-			ret = 75;
-		else if ((3600 > data->bat_volt) && (3500 <= data->bat_volt))
-			ret = 90;
-		else if (3600 <= data->bat_volt)
-			ret = 100;
-	}
-
-	return ret;
-}
-
-/*
- * tps80032_check_charger: enable/disable charger when the charger is present/not present
- * @data: The struct which handles the TPS80032 data.
- * return: void
- */
-void tps80032_check_charger(struct tps80032_data *data)
-{
-	int ret, val;
-
+	
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
-	/* Read the current value of CONTROLLER_CTRL1 register */
-	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,ret);
-		return;
-	}
-
-	if (1 == data->charger) {
-		/* Enable charger if charger is present*/
-		/* Select charge source is USB */
-		val = ret | MSK_BIT_4;
-		val = val & (~MSK_BIT_3);
-	} else {
-		/* Disable charger if charger is not present*/
-		val  = ret & (~MSK_BIT_4);
-	}
-
-	/* Set default value of stop_charge */
-	data->stop_charge = 0;
-
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
-		return;
-	}
-
+	
+	ret_vbat = data->bat_volt;
+	
+	for (i = 99; i > 0; i-- ) {
+        if (BAT_VOLT_THRESHOLD[i] <= ret_vbat) {
+            break;
+        }
+    }
+	
+	soc = i + 1;
+	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-	return;
+	return soc;
 }
 
 /*
@@ -2768,9 +2747,18 @@ void tps80032_bat_update(struct tps80032_data *data)
 	/* check the change of usb charger */
 	if (old_data != data->charger) {
 		notify = 1;
-		tps80032_check_charger(data);
 	}
 
+	/* Read the state of EN_CHARGER bit */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret) {
+		/* Do nothing */
+	} else if (0 == (ret & MSK_BIT_4)) {
+		data->en_charger = 0;
+	} else {
+		data->en_charger = 1;
+	}
+	
 	/* Read the state of battery */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
 	if (0 > ret) {
@@ -2812,7 +2800,13 @@ void tps80032_bat_update(struct tps80032_data *data)
 		ret = tps80032_gpadc_correct_voltage(data, ret);
 	}
 
-	data->bat_volt = ret;
+	if ((0 != data->en_charger) && (-1 != ret))  {
+		/* Update battery voltage */
+		data->bat_volt = ret;
+	} else if (((old_data > ret) ||(0 == old_data)) && (-1 != ret)) {
+		/* Update battery voltage */
+		data->bat_volt = ret;
+	}
 
 	/* check the change of battery capacity */
 	if ((old_data != data->bat_volt) && (1 != notify)) {
@@ -2845,6 +2839,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 
 	/* Update battery capacity */
 	data->bat_capacity = ret;
+	
 	/* check the battery capacity is low or critical */
 	if (20 > ret) {
 		tps80032_check_bat_low_1(old_data, ret);
@@ -2855,7 +2850,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 	if ((old_data != data->bat_capacity) && (1 != notify)) {
 		notify = 1;
 	}
-
+	
 	/* Notify if there have any change */
 	if (0 != notify) {
 		pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
@@ -2900,24 +2895,217 @@ static void tps80032_ext_work(struct work_struct *work)
 
 	pmic_ext_device_changed(data->device);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-
 	return;
 }
 
 
 /*
- * tps80032_bat_work: update all battery information and notify the change of battery state
+ * tps80032_update_work: update all battery information
  * @work: The struct work.
  * return: void
  */
-static void tps80032_bat_work(struct work_struct *work)
+static void tps80032_update_work(struct work_struct *work)
 {
-	struct tps80032_data *data = container_of(work, struct tps80032_data, bat_work);
+	struct tps80032_data *data = container_of(work, struct tps80032_data, update_work);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
+	
 	/* call bat_updat function */
 	tps80032_bat_update(data);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+/*
+ * tps80032_int_chrg_work: update all battery information and notify the change of battery state
+ * @work: The struct work.
+ * return: void
+ */
+static void tps80032_int_chrg_work(struct work_struct *work)
+{
+	int ret = 0;
+	int val = 0;
+	struct tps80032_data *data = container_of(work, struct tps80032_data, int_chrg_work);
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	
+	/* Check status of battery voltage */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
+	if (0 > ret) {
+		return;
+	}
+	
+	if (0 != (ret & MSK_BIT_3)) {
+		/* If battery voltage is over-volt */
+		/* Disable charger */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, MSK_DISABLE);
+		if (0 > ret) {
+			return;
+		}
+	} else {
+		/* If battery voltage is not over-volt */
+		/* Check the state of charger */
+		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+		if (0 > ret) {
+			return;
+		}
+		
+		if (0 != (ret & (MSK_BIT_2 | MSK_BIT_3))) {
+			ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+			if (0 > ret) {
+				return;
+			}
+			
+			if (0 == (ret & MSK_BIT_4)) {
+				/* Enable charger */
+				val = ret | MSK_BIT_4;
+				ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
+				if (0 > ret) {
+					return;
+				}
+			} else {
+				/* Do nothing */
+			}
+		}
+	}
+	
+	/* call bat_updat function */
+	tps80032_bat_update(data);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+
+
+/*
+ * tps80032_chrg_ctrl_work: update all battery information and notify the change of battery state
+ * @work: The struct work.
+ * return: void
+ */
+static void tps80032_chrg_ctrl_work(struct work_struct *work)
+{
+	int ret = 0;
+	int ret_stat1 = 0;
+	struct tps80032_data *data = container_of(work, struct tps80032_data, chrg_ctrl_work);
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	
+	/* Check interrupt source */
+	/* If charge full */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_LINEAR_CHRG_STS);
+	if (0 > ret) {
+		return;
+	}
+	
+	if (0 != (ret & MSK_BIT_5)) {
+		/* Disable charger */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, MSK_DISABLE);
+		if (0 > ret) {
+			return;
+		}
+	}
+	
+	/* Check if interrupt source is related to ac charger */
+	ret_stat1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret_stat1) {
+		return;
+	}
+	
+	if (data->vac_det != (ret_stat1 & MSK_BIT_3)) {
+		/* interrupt source relate to external charger */
+		queue_work(data->queue,&data->vac_charger_work);
+		/* Update status of VAC_DET */
+		data->vac_det = ret_stat1 & MSK_BIT_3;
+	}
+	
+	if (data->vbus_det != (ret_stat1 & MSK_BIT_2)) {
+		/* interrupt source relate to external charger */
+		handle_nested_irq(data->irq_base + TPS80032_INT_VBUSS_WKUP);
+		handle_nested_irq(data->irq_base + TPS80032_INT_VBUS);
+		/* Update status of VBUS_DET */
+		data->vbus_det = ret_stat1 & MSK_BIT_2;
+	}
+	
+	/* call bat_updat function */
+	tps80032_bat_update(data);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+/*
+ * tps80032_vac_charger_work: detect VAC charger and set current limit when VAC charger is plugged
+ * @work: The struct work.
+ * return: void
+ */
+static void tps80032_vac_charger_work(struct work_struct *work)
+{
+	int ret;
+	int ret_stat1;
+	int ret_ctrl1;
+	struct tps80032_data *data = container_of(work, struct tps80032_data, vac_charger_work);
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	
+	/* Check status of VAC_DET and VBUS_DET bits */
+	ret_stat1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret_stat1) {
+		return;
+	}
+	
+	/* Read current value of CONTROLLER_CTRL1 register */
+	ret_ctrl1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret_ctrl1) {
+		return;
+	}
+	
+	/* Check VAC_DET bit value */
+	if (0 != (ret_stat1 & MSK_BIT_3)) {
+		/* If VAC charger is present */
+		/* Set configuration for VAC charger current limit */
+		/* Default setting for VAC charger */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, CONST_VAC_CURRENT_LIMIT);
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			return;
+		}
+		
+		/* Enable charger and select charge source */
+		ret_ctrl1 = ret_ctrl1 | MSK_BIT_3 | MSK_BIT_4;
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			return;
+		}
+	} else if ((0 != (ret_stat1 & MSK_BIT_2))) {
+		/* If VAC charger is not present and USB charger is present */
+		/* Set previous value of current limit for USB charger */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, data->cin_limit);
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			return;
+		}
+		
+		/* Enable charger and select charge source */
+		ret_ctrl1 = (ret_ctrl1 | MSK_BIT_4) & (~MSK_BIT_3);
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			return;
+		}
+	} else {
+		/* If both VAC charger and USB charger are not present */
+		/* Disable charger */
+		ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_4);
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+		if (0 > ret) {
+			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+			return;
+		}
+	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 
@@ -2945,7 +3133,6 @@ static void tps80032_resume_work(struct work_struct *work)
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 }
-
 
 /*
  * tps80032_get_usb_online: get the presence of USB charger
@@ -2980,8 +3167,8 @@ static int tps80032_get_usb_online(struct device *dev)
  */
 static int tps80032_get_bat_status(struct device *dev)
 {
-	int ret;
-	int ret_cap, ret_charger, ret_bat, ret_stop_charge;
+	int ret = 0;
+	int ret_cap, ret_charger, ret_bat, ret_en_charger;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tps80032_data *data = i2c_get_clientdata(client);
 
@@ -2990,7 +3177,7 @@ static int tps80032_get_bat_status(struct device *dev)
 	ret_cap = data->bat_capacity;
 	ret_charger = data->charger;
 	ret_bat = data->bat_presence;
-	ret_stop_charge = data->stop_charge;
+	ret_en_charger = data->en_charger;
 
 	if (0 > ret_cap) {
 		/* return UNKNOWN status */
@@ -2998,13 +3185,13 @@ static int tps80032_get_bat_status(struct device *dev)
 	} else if (THR_BAT_FULL == ret_cap) {
 		/* return Full status */
 		ret = POWER_SUPPLY_STATUS_FULL;
-	} else if ((((0 == ret_charger) && (1 == ret_bat))) || (1 == ret_stop_charge)) {
+	} else if (0 == ret_en_charger) {
 		/* return DISCHARGING status */
 		ret = POWER_SUPPLY_STATUS_DISCHARGING;
-	} else if ((1 == ret_charger) && (0 == ret_bat)) {
+	} else if ((1 == ret_charger) && (0 == ret_bat))  {
 		/* return NOT_CHARGING status */
 		ret = POWER_SUPPLY_STATUS_NOT_CHARGING;
-	} else {
+	} else if (1 == ret_en_charger){
 		/* return CHARGING status */
 		ret = POWER_SUPPLY_STATUS_CHARGING;
 	}
@@ -3224,7 +3411,6 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 {
 	int ret, cal;
 	struct i2c_client *client = to_i2c_client(dev);
-	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
@@ -3243,11 +3429,9 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 		} else {
 			if (0 == stop) {
 				/* Disable charger */
-				data->stop_charge = 1;
 				cal  = ret & (~MSK_BIT_4);
 			} else {
 				/* Enable charger */
-				data->stop_charge = 0;
 				cal = ret | MSK_BIT_4;
 			}
 
@@ -3276,7 +3460,7 @@ static int tps80032_correct_temp(int temp)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* change temperature unit from 0.1K to 0.1C */
-	ret = temp - CONST_CONVERT_TEMP;
+	ret = temp;
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;	
@@ -3370,9 +3554,141 @@ static int tps80032_read_register(struct device *dev, int slave, u8 addr)
 }
 
 /*
- * tps80032_read_registers: read the current value of TPS80032 registers
+ * tps80032_set_current_limit: enable/disable charger when the charger is present/not present
+ * 							set current limit for charging operation
+ * @dev: an i2c client
+ * @chrg_state: The charger state: (1/0)
+ * @chrg_type: The charger type
+ *        < 0: Error occurs
+ *        = 0: Normal operation
+ */
+static int tps80032_set_current_limit(struct device *dev, int chrg_state, int chrg_type)
+{
+	int ret = 0;
+	int ret_stat1 = 0;
+	int ret_ctrl1 = 0;
+	int val_limit = 0;
+
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps80032_data *data = i2c_get_clientdata(client);
+	
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	
+	if ((0 != chrg_state) && (1 != chrg_state)) {
+		return -EINVAL;
+	}
+	
+	if ((0 > chrg_type) || (4 < chrg_type)) {
+		return -EINVAL;
+	}
+	
+	/* Check status of charger */
+	ret_stat1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret_stat1) {
+		return ret_stat1;
+	}
+
+	ret_ctrl1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret_ctrl1) {
+		return ret_ctrl1;
+	}
+	
+	if (0 == chrg_state) {
+		/* If USB charger is not present */
+		if (0 == (ret_stat1 & MSK_BIT_3)) {
+			/* VAC charger is not present */
+			/* Disable charger */
+			ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_4);
+			
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+			if (0 > ret) {
+				return ret;
+			}
+		} else {
+			/* VAC charger is present */
+			/* Do nothing */
+			return 0;
+		}
+	} else {
+		/* If USB charger is present */
+		/* Set current limit for USB charger */
+		switch(chrg_type) {
+			case USB_SDP_FULL_SPEED:
+				val_limit = 0x01; /* 100mA */
+				break;
+			case USB_SDP_HIGH_SPEED:
+				val_limit = 0x09; /* 500mA */
+				break;
+			case USB_CDP_FULL_SPEED:
+				val_limit = 0x2E; /* 1500mA */
+				break;
+			case USB_CDP_HIGH_SPEED:
+				val_limit = 0x28; /* 900mA */
+				break;
+			case USB_DCP:
+				val_limit = 0x2E; /* 1500mA */
+				break;
+			default:
+				val_limit = 0x01; /* 100mA */
+				break;
+		}
+		/* Save the current limit for USB charger setting */
+		data->cin_limit = val_limit;
+		
+		/* Check state of VAC charger */
+		if (0 == (ret_stat1 & MSK_BIT_3)) {
+			/* VAC charger is not present */
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, val_limit);
+			if (0 > ret) {
+				return ret;
+			}
+			
+			/* Enable charger */
+			/* Select charger source is VBUS */
+			ret_ctrl1 = (ret_ctrl1 | MSK_BIT_4) & (~MSK_BIT_3);
+			
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+			if (0 > ret) {
+				return ret;
+			}
+			
+		} else {
+			/* VAC charger is present */
+			/* Do nothing */
+			return 0;
+		}
+	}
+	
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return 0;
+}
+
+
+/*
+ * tps80032_read: read the current value of TPS80032 register
  * @dev: The struct which handles the TPS80032 driver.
- * @slave: The I2C slave address.
+ * @addr: The address of register.
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+static int tps80032_read(struct device *dev, u8 addr)
+{
+	int ret;
+	struct i2c_client *client = to_i2c_client(dev);
+	
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	ret = i2c_smbus_read_byte_data(client, addr);
+	
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return ret;
+}
+
+
+/*
+ * tps80032_reads: read the current value of TPS80032 registers
+ * @dev: The struct which handles the TPS80032 driver.
  * @addr: The address of register.
  * @len: The number of registers is read.
  * @val: The values of registers.
@@ -3380,113 +3696,64 @@ static int tps80032_read_register(struct device *dev, int slave, u8 addr)
  *        = 0: Normal operation
  *        < 0: Error occurs
  */
-static int tps80032_read_registers(struct device *dev, int slave, u8 addr, int len, u8 *val)
+static int tps80032_reads(struct device *dev, u8 addr, int len, u8 *val)
 {
 	int ret;
 	struct i2c_client *client = to_i2c_client(dev);
-	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	switch(slave) {
-		case E_SLAVE_RTC_POWER:
-			ret = i2c_smbus_read_i2c_block_data(data->client_power, addr, len, val);
-			break;
-		case E_SLAVE_BATTERY:
-			ret = i2c_smbus_read_i2c_block_data(data->client_battery, addr, len, val);
-			break;
-		case E_SLAVE_DVS:
-			ret = i2c_smbus_read_i2c_block_data(data->client_dvs, addr, len, val);
-			break;
-		case E_SLAVE_JTAG:
-			ret = i2c_smbus_read_i2c_block_data(data->client_jtag, addr, len, val);
-			break;
-		default:
-			ret = -EINVAL;
-	}
+	ret = i2c_smbus_read_i2c_block_data(client, addr, len, val);
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
 
 /*
- * tps80032_write_register: write the value to TPS80032 register
+ * tps80032_write: write the value to TPS80032 register
  * @dev: The struct which handles the TPS80032 driver.
- * @slave: The I2C slave address.
  * @addr: The address of register.
  * @val: The value for setting to register.
  * return:
  *        = 0: Normal operation
  *        < 0: Error occurs
  */
-static int tps80032_write_register(struct device *dev, int slave, u8 addr, u8 val)
+static int tps80032_write(struct device *dev, u8 addr, u8 val)
 {
 	int ret;
 	struct i2c_client *client = to_i2c_client(dev);
-	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	switch(slave) {
-		case E_SLAVE_RTC_POWER:
-			ret = i2c_smbus_write_byte_data(data->client_power, addr, val);
-			break;
-		case E_SLAVE_BATTERY:
-			ret = i2c_smbus_write_byte_data(data->client_battery, addr, val);
-			break;
-		case E_SLAVE_DVS:
-			ret = i2c_smbus_write_byte_data(data->client_dvs, addr, val);
-			break;
-		case E_SLAVE_JTAG:
-			ret = i2c_smbus_write_byte_data(data->client_jtag, addr, val);
-			break;
-		default:
-			ret = -EINVAL;
-	}
+	ret = i2c_smbus_write_byte_data(client, addr, val);
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
 
 /*
- * tps80032_write_registers: write the values to TPS80032 registers
+ * tps80032_writes: write the values to TPS80032 registers
  * @dev: The struct which handles the TPS80032 driver.
- * @slave: The I2C slave address.
  * @addr: The address of register.
  * @len: The number of registers is wrote.
- * @val: The value for setting to register.
+ * @val: The values for setting to registers.
  * return:
  *        = 0: Normal operation
  *        < 0: Error occurs
  */
-static int tps80032_write_registers(struct device *dev, int slave, u8 addr, int len, u8 *val)
+static int tps80032_writes(struct device *dev, u8 addr, int len, u8 *val)
 {
 	int ret;
 	struct i2c_client *client = to_i2c_client(dev);
-	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	switch(slave) {
-		case E_SLAVE_RTC_POWER:
-			ret = i2c_smbus_write_i2c_block_data(data->client_power, addr, len, val);
-			break;
-		case E_SLAVE_BATTERY:
-			ret = i2c_smbus_write_i2c_block_data(data->client_battery, addr, len, val);
-			break;
-		case E_SLAVE_DVS:
-			ret = i2c_smbus_write_i2c_block_data(data->client_dvs, addr, len, val);
-			break;
-		case E_SLAVE_JTAG:
-			ret = i2c_smbus_write_i2c_block_data(data->client_jtag, addr, len, val);
-			break;
-		default:
-			ret = -EINVAL;
-	}
+	ret = i2c_smbus_write_i2c_block_data(client, addr, len, val);
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
+
 /*
  * tps80032_get_temp_status: read the current temperature of battery
  * @dev: The struct which handles the TPS80032 driver.
@@ -3567,9 +3834,11 @@ static struct pmic_device_ops tps80032_power_ops = {
 	.force_power_off = tps80032_force_power_off,
 	.get_ext_device = tps80032_get_ext_device,
 	.read_register = tps80032_read_register,
-	.read_registers = tps80032_read_registers,
-	.write_register = tps80032_write_register,
-	.write_registers = tps80032_write_registers,
+	.set_current_limit = tps80032_set_current_limit,
+	.read = tps80032_read,
+	.reads = tps80032_reads,
+	.write = tps80032_write,
+	.writes = tps80032_writes,
 	.get_temp_status = tps80032_get_temp_status,
 #ifdef PMIC_PT_TEST_ENABLE
 	.get_batt_status = tps80032_get_batt_status,
@@ -3609,16 +3878,14 @@ struct battery_correct_ops tps80032_correct_ops = {
 
 /*
  * tps80032_power_suspend: power suppend event
- * @client: The I2C client device.
- * @mesg: The power message.
+ * @dev: The device struct.
  * return:
  *        = 0: Normal operation
  */
-static int tps80032_power_suspend(struct i2c_client *client, pm_message_t mesg)
+static int tps80032_power_suspend(struct device *dev)
 {
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, client->name,client->addr);
-	/* Disable interrupt of PMIC */
-	disable_irq(irqpin2irq(CONST_INT_ID));
+	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
@@ -3626,21 +3893,16 @@ static int tps80032_power_suspend(struct i2c_client *client, pm_message_t mesg)
 
 /*
  * tps80032_power_resume: power resume event
- * @client: The I2C client device.
+ * @dev: The device struct.
  * return:
  *        = 0: Normal operation
  */
-static int tps80032_power_resume(struct i2c_client *client)
+static int tps80032_power_resume(struct device *dev)
 {
-	struct tps80032_data *data = i2c_get_clientdata(client);
-
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, client->name,client->addr);
 
-	/* Enable interrupt of PMIC */
-	enable_irq(irqpin2irq(CONST_INT_ID));
-
 	queue_work(data->queue,&data->resume_work);
-	queue_work(data->queue,&data->bat_work);
+	queue_work(data->queue,&data->int_chrg_work);
 	queue_work(data->queue,&data->ext_work);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
@@ -3660,42 +3922,30 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Turn on SMPS4 */
-	/*
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_ON));
 	if (0 > ret) {
-		goto init_power_hw_exit;
-	} */
+		return ret;
+	}
 
 	/* Set default voltage (1.8V) for LDO1 */
-	/*
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO1_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
 	if (0 > ret) {
-		goto init_power_hw_exit;
-	} */
+		return ret;
+	}
 
-	/* Set default voltage (2.9V) for LDO5 */
-	/*
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO5_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_2_9000V));
+	/* Set default voltage (1.8V) for LDO7 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO7_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
 	if (0 > ret) {
-		goto init_power_hw_exit;
-	} */
-
-	/* Set default voltage (2.5V) for LDO7 */
-	/*
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO7_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_2_5000V));
-	if (0 > ret) {
-		goto init_power_hw_exit;
-	}*/
+		return ret;
+	}
 
 	/* Assign LDO6 and LDON into Group1 */
-	/*
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_B, MSK_PREQ1_ASS);
 	if (0 > ret) {
-		goto init_power_hw_exit;
-	} */
-	
+		return ret;
+	}
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-/* init_power_hw_exit: */
 	return ret;
 }
 
@@ -3710,51 +3960,14 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 {
 	int ret = 0;
 	int val;
+	int charger_stat;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
-	/* Mask interrupt line signal A */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_A, MSK_INT_LINE_A);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/* Mask interrupt line signal B */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_B, MSK_INT_LINE_B);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/* Mask interrupt line signal C */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_C, MSK_INT_LINE_C);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	
-	/* Mask interrupt signal A */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_A, MSK_INT_SRC_A);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/* Mask interrupt signal B */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_B, MSK_INT_SRC_B);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/* Mask interrupt signal C */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_C, MSK_INT_SRC_C);
-	if (0 > ret) {
-		goto exit;
-	}
-
 	
 	/* Enable Charge current termination interrupt */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL1);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	ret |= MSK_BIT_4;
@@ -3762,13 +3975,13 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 	/* Set 1 to TERM bit at CHARGERUSB_CTRL1 (0xE8) register */
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL1, ret);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	/* Enable charge one feature */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL3);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 
 	ret |= MSK_BIT_6;
@@ -3776,50 +3989,53 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 	/* Set 1 to CHARGE_ONCE bit at CHARGERUSB_CTRL3 (0xEA) register */	
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL3, ret);
 	if (0 > ret) {
-		goto exit;
+		return ret;
 	}
 	
-	/* Disable interrupt related to EXT_CHRG */	
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_INT_MASK, MSK_CONTROLLER_INT);
-	if (0 > ret) {
-		goto exit;
-	}
-
-	/* Clear all interrupt source */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_A, MSK_DISABLE);
-	if (0 > ret) {
-		goto exit;
-	}
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_B, MSK_DISABLE);
-	if (0 > ret) {
-		goto exit;
-	}
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_C, MSK_DISABLE);
-	if (0 > ret) {
-		goto exit;
-	}
 	/* Enable charger if charger is present at the boot up of driver */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
 	if (0 > ret) {
 		return ret;
-	} else if (0 != (ret & MSK_BIT_2)) {
-		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
-		
-		if (0 > ret) {
-			return ret;
-		}
-		
-		/* Enable charger and set VBUS is source charge */
-		val = ret | MSK_BIT_4;
-		val = val & (~MSK_BIT_3);
+	} else {
+		charger_stat = ret & (MSK_BIT_2 | MSK_BIT_3);
+		data->vbus_det = charger_stat & MSK_BIT_2;
+		data->vac_det = charger_stat & MSK_BIT_3;
+		if (0 != charger_stat) {
+			ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+			
+			if (0 > ret) {
+				return ret;
+			}
+			
+			/* Enable charger and set source charge */
+			val = ret | MSK_BIT_4;
+			if (0 == (charger_stat & MSK_BIT_3)) {
+				/* If VAC Charger is not present */
+				val = val & (~MSK_BIT_3);
+			} else {
+				/* If VAC Charger is present */
+				val = val | MSK_BIT_3;
+			}
 
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
-		if (0 > ret) {
-			return ret;
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
+			if (0 > ret) {
+				return ret;
+			}
+		} else {
+			ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+			
+			if (0 > ret) {
+				return ret;
+			}
+			/* Disable charger */
+			val = ret & (~MSK_BIT_4);
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
+			if (0 > ret) {
+				return ret;
+			}
 		}
 	}
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-exit:
 	return ret;
 }
 
@@ -3837,8 +4053,93 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 {
 	int i, ret;
 
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	
 	if (!irq_base) {
 		return -EINVAL;
+	}
+	
+	/* Mask interrupt line signal A */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_A, MSK_INT_LINE_A);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Mask interrupt line signal B */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_B, MSK_INT_LINE_B);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Mask interrupt line signal C */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_LINE_STS_C, MSK_INT_LINE_C);
+	if (0 > ret) {
+		return ret;
+	}
+
+	
+	/* Mask interrupt signal A */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_A, MSK_INT_SRC_A);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Mask interrupt signal B */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_B, MSK_INT_SRC_B);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Mask interrupt signal C */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_MSK_STS_C, MSK_INT_SRC_C);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Mask value for CONTROLLER_INT register */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_INT_MASK, MSK_CONTROLLER_INT);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Setting for USB ID interrupt */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDOUSB_CFG_STATE, 0x01);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_MISC2, 0x10);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_USB_ID_CTRL_SET, 0x44);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_USB_ID_EN_LO_SET, 0x01);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_USB_ID_EN_HI_SET, 0x01);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Clear all interrupt source */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_A, MSK_DISABLE);
+	if (0 > ret) {
+		return ret;
+	}
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_B, MSK_DISABLE);
+	if (0 > ret) {
+		return ret;
+	}
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_C, MSK_DISABLE);
+	if (0 > ret) {
+		return ret;
 	}
 
 	data->irq_base = irq_base;
@@ -3849,7 +4150,7 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 	data->irq_chip.irq_bus_lock = tps80032_irq_lock;
 	data->irq_chip.irq_bus_sync_unlock = tps80032_irq_sync_unlock;
 
-	for (i = 0; i < TPS80031_INT_NR; i++) {
+	for (i = 0; i < TPS80032_INT_NR; i++) {
 		int __irq = i + data->irq_base;
 		irq_set_chip_data(__irq, data);
 		irq_set_chip_and_handler(__irq, &data->irq_chip, handle_simple_irq);
@@ -3859,14 +4160,73 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 #endif
 	}
 
-	ret = request_threaded_irq(irq, NULL, tps80032_interrupt_handler, IRQF_ONESHOT, "tps80032", data);
+	ret = request_threaded_irq(irq, NULL, tps80032_interrupt_handler, IRQF_SHARED, "tps80032", data);
 
 	if (!ret) {
 		enable_irq_wake(irq);
 	}
 
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
+
+/*
+ * __remove_subdev: remove subdevice of PMIC TPS80032
+ * @dev: The struct which handles the TPS80032 driver.
+ * return:
+ *        = 0: Normal operation
+ */
+static int __remove_subdev(struct device *dev, void *unused)
+{
+	platform_device_unregister(to_platform_device(dev));
+	return 0;
+}
+
+/*
+ * tps80032_remove_subdevs: remove subdevice of PMIC TPS80032
+ * @data: The struct which handles the TPS80032 data.
+ * return:
+ *        = 0: Normal operation
+ */
+static int tps80032_remove_subdevs(struct tps80032_data *data)
+{
+	return device_for_each_child(data->dev, NULL, __remove_subdev);
+}
+
+/*
+ * tps80032_add_subdevs: add subdevices of PMIC TPS80032
+ * @data: The struct which handles the TPS80032 data.
+ * @pdata: The struct which handles the TPS80032 flatform data.
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+static int __devinit tps80032_add_subdevs(struct tps80032_data *data, struct tps80032_platform_data *pdata)
+{
+	struct tps80032_subdev_info *subdev;
+	struct platform_device *pdev;
+	int i, ret = 0;
+
+	for (i = 0; i < pdata->num_subdevs; i++) {
+		subdev = &pdata->subdevs[i];
+		/* subdev->name = rtc-tps80032 */
+		pdev = platform_device_alloc(subdev->name, subdev->id);
+
+		pdev->dev.parent = data->dev;
+		pdev->dev.platform_data = subdev->platform_data;
+
+		ret = platform_device_add(pdev);
+		if (ret)
+			goto failed;
+	}
+
+	return 0;
+
+failed:
+	tps80032_remove_subdevs(data);
+	return ret;
+}
+
 
 /*
  * tps80032_power_probe: probe function for power supply management
@@ -3880,10 +4240,15 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 {
 	int ret = 0;
 	int count = 0;
-
+	struct tps80032_platform_data *pdata = client->dev.platform_data;
 
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, client->name,client->addr);
 
+	if (!pdata) {
+		PMIC_ERROR_MSG("Tps80032 requires platform data\n");
+		return -ENOTSUPP;
+	}
+	
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (NULL == data) {
 		PMIC_ERROR_MSG("%s:%d kzalloc failed err=%d\n",__func__,__LINE__,ret);
@@ -3915,12 +4280,17 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 	data->bat_over_temp = 0;
 	data->bat_capacity = 0;
 	data->bat_presence = 0;
+	data->en_charger = 0;
+	data->cin_limit = 0;
+	data->vbus_det = 0;
+	data->vac_det = 0;
 
 	while (count < RESOURCE_COUNTER_MAX) {
 		data->rscounter[count] = 0;
 		count = count + 1;
 	}
 
+	data->dev = &client->dev;
 
 	/* Set client power */
 	data->client_power = client;
@@ -3936,7 +4306,10 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 	/* init work queue */
 	INIT_WORK(&data->interrupt_work, tps80032_interrupt_work);
 	INIT_WORK(&data->resume_work, tps80032_resume_work);
-	INIT_WORK(&data->bat_work, tps80032_bat_work);
+	INIT_WORK(&data->update_work, tps80032_update_work);
+	INIT_WORK(&data->vac_charger_work, tps80032_vac_charger_work);
+	INIT_WORK(&data->int_chrg_work, tps80032_int_chrg_work);
+	INIT_WORK(&data->chrg_ctrl_work, tps80032_chrg_ctrl_work);
 	INIT_WORK(&data->ext_work, tps80032_ext_work);
 
 	i2c_set_clientdata(client, data);
@@ -3962,19 +4335,17 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 		PMIC_ERROR_MSG("%s:%d tps80032_init_power_hw failed err=%d\n",__func__,__LINE__,ret);
 		goto err_init_hw;
 	}
-
-	/* Init IRQ*/
-	ret = tps80032_init_irq(data, client->irq, IRQPIN_IRQ_BASE + 64);
-	if (0 > ret) {
-		PMIC_ERROR_MSG("%s:%d tps80032_init_irq failed err=%d\n",__func__,__LINE__,ret);
-		goto err_request_irq;
+	
+	/* Add subdevice */
+	ret = tps80032_add_subdevs(data, pdata);
+	if (ret) {
+		PMIC_ERROR_MSG("%s:%d add devices failed err=%d\n",__func__,__LINE__,ret);
+		goto err_init_hw;
 	}
 	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 	
-err_request_irq:
-	free_irq(pint2irq(CONST_INT_ID),data);
 err_init_hw:
 	pmic_device_unregister(&client->dev);
 err_device_register:
@@ -4016,8 +4387,24 @@ static int tps80032_power_remove(struct i2c_client *client)
  */
 static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	int ret=0;
-
+	int ret = 0;
+	int ret_vsysmin_hi = 0;
+	int ret_voreg = 0;
+	int i = 0;
+	int VOREG[63] = {3500, 3250, 3540, 3560, 3580, 3600, 3620, 3640, 3660, 3680, 
+				   3700, 3720, 3740, 3760, 3780, 3800, 3820, 3840, 3860, 3880,
+				   3900, 3920, 3940, 3960, 3980, 4000, 4020, 4060, 4080, 4100,
+				   4120, 4140, 4160, 4180, 4200, 4220, 4240, 4260, 4280, 4300,
+				   4320, 4340, 4360, 4380, 4400, 4420, 4440, 4460, 4480, 4500,
+				   4520, 4540, 4560, 4580, 4600, 4620, 4640, 4660, 4680, 4700,
+				   4720, 4740, 4760};
+	
+	int VSYS[52] = {2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450, 2500,
+				  2550, 2600, 2650, 2700, 2750, 2800, 2850, 2900, 2950, 3000,
+				  3050, 3100, 3150, 3200, 3250, 3300, 3350, 3400, 3450, 3500,
+				  3550, 3600, 3650, 3700, 3750, 3800, 3850, 3900, 3950, 4000,
+				  4050, 4100, 4150, 4200, 4250, 4300, 4350, 4400, 4450, 4500, 
+				  4550, 4600};
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, client->name,client->addr);
 
 	if (NULL == data) {
@@ -4026,10 +4413,26 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 	}
 
 	/* Set client battery and data*/
-	data->stop_charge = 0;
 	data->client_battery = client;
 	i2c_set_clientdata(client, data);
 
+	/* Set value for BAT_VOLT_THRESHOLD array */
+	ret_vsysmin_hi = i2c_smbus_read_byte_data(data->client_power, HW_REG_VSYSMIN_HI_THRESHOLD);
+	if (0 > ret_vsysmin_hi) {
+		PMIC_ERROR_MSG("%s:%d read I2C failed err=%d\n",__func__,__LINE__,ret_vsysmin_hi);
+		return ret_vsysmin_hi;
+	}
+	
+	ret_voreg = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_VOREG);
+	if (0 > ret_voreg) {
+		PMIC_ERROR_MSG("%s:%d read I2C failed err=%d\n",__func__,__LINE__,ret_voreg);
+		return ret_voreg;
+	}
+	
+	for(i = 0; i < 100; i++) {
+		BAT_VOLT_THRESHOLD[i] = (short)((((VOREG[ret_voreg] - VSYS[ret_vsysmin_hi])*(i+1)) + 50)/100+VSYS[ret_vsysmin_hi]);
+	}
+	
 	/* Register into USB OTG VBUS interface */
 	ret = usb_otg_pmic_device_register(&client->dev,&tps80032_vbus_ops);
 	if (0 > ret) {
@@ -4054,19 +4457,28 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 	/* Init hardware configuration*/
 	ret = tps80032_init_battery_hw(data);
 	if (0 > ret) {
-		PMIC_ERROR_MSG("%s:%d tps80032_init_hw failed err=%d\n",__func__,__LINE__,ret);
+		PMIC_ERROR_MSG("%s:%d tps80032_init_battery_hw failed err=%d\n",__func__,__LINE__,ret);
 		goto err_init_hw;
 	}
-
+	
+	/* Init IRQ*/
+	ret = tps80032_init_irq(data, client->irq, IRQPIN_IRQ_BASE + 64);
+	if (0 > ret) {
+		PMIC_ERROR_MSG("%s:%d tps80032_init_irq failed err=%d\n",__func__,__LINE__,ret);
+		goto err_request_irq;
+	}
+	
 	tps80032_init_timer(data);
 	bat_timer.expires  = jiffies + msecs_to_jiffies(CONST_TIMER_BATTERY_UPDATE);
 	add_timer(&bat_timer);
 
 	/* Run bat_work() to update all battery information firstly */
-	queue_work(data->queue, &data->bat_work);
+	queue_work(data->queue, &data->chrg_ctrl_work);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 
+err_request_irq:
+	free_irq(pint2irq(CONST_INT_ID),data);
 err_init_hw:
 	pmic_battery_unregister_correct_func();
 err_correct_device_register:
@@ -4183,16 +4595,21 @@ static const struct i2c_device_id tps80032_jtag_id[] = {
 	{ "tps80032-jtag", 0 }, {{0}, 0},
 };
 
+/* Struct power device ops for power supply driver */
+static const struct dev_pm_ops tps80032_power_pm_ops = {
+	.suspend	= tps80032_power_suspend,
+	.resume		= tps80032_power_resume,
+};
+
 /* Struct I2C driver for power supply driver */
 static struct i2c_driver tps80032_power_driver = {
 	.driver = {
 		.name	= "tps80032-power",
+		.pm = &tps80032_power_pm_ops,
 	},
 	.probe		= tps80032_power_probe,
 	.remove		= tps80032_power_remove,
 	.id_table	= tps80032_power_id,
-	.suspend	= tps80032_power_suspend,
-	.resume		= tps80032_power_resume,
 };
 
 /* Struct I2C driver for battery driver */
