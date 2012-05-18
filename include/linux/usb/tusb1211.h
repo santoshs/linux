@@ -1,14 +1,11 @@
 /*
- * R8A66597 driver platform data
+ * include/linux/usb/tusb1211.h
  *
- * Copyright (C) 2009  Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; version 2 of the License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,64 +14,185 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA  02110-1301, USA.
  */
 
-#ifndef __LINUX_USB_R8A66597_H
-#define __LINUX_USB_R8A66597_H
+#ifndef TUSB1211_H
+#define TUSB1211_H
 
-#define R8A66597_PLATDATA_XTAL_12MHZ	0x01
-#define R8A66597_PLATDATA_XTAL_24MHZ	0x02
-#define R8A66597_PLATDATA_XTAL_48MHZ	0x03
 
-struct r8a66597_platdata {
-	/* This callback can control port power instead of DVSTCTR register. */
-	void (*port_power)(int port, int power);
+#include <linux/usb/otg.h>
+#include <mach/r8a73734.h>
+#include <linux/io.h>
+#include <linux/delay.h>
+#include <linux/timer.h>
 
-	/* For gadget: This callback can get the configured power */
-	void (*vbus_power)(int ma);
 
-	/* used to check VBUS power supply (at r8a66597 controller end) */
-	int (*is_vbus_powered)(void);
+#include <linux/usb/otg.h>
+#include <linux/usb/ulpi.h>
+/*
+ * Register Map
+ */
 
-	/* platform-specific module start/stop operations */
-	void (*module_start)(void);
-	void (*module_stop)(void);
+#define MOTGCTRL	012A
 
-	/* supplement clock maintenance (or NULL, if it's not used) */
-	void (*clk_enable)(int enable);
 
-	/* the number of access waits from CPU to this module */
-	u16		buswait;
 
-	/* the maximum number of the FIFO buffer allowed */
-	u16		max_bufnum;
+/**Bits Default value 
+*********************/
+#define	PINTM	0x100
+#define	RSME	0x4000
+#define	HWUPM	0x80
+#define	SUSMON	0x4000
 
-	/* interrupt number for VBUS change IRQ (or zero, if it's not used) */
-	int		vbus_irq;
+/**Registers address
+*********************/
 
-	/* set one = on chip controller, set zero = external controller */
-	unsigned	on_chip:1;
+#define	LPCTRL	0x0100
 
-	/* (external controller only) set R8A66597_PLATDATA_XTAL_nnMHZ */
-	unsigned	xtal:2;
 
-	/* set one = 3.3V, set zero = 1.5V */
-	unsigned	vif:1;
+#define	PHYFUNCTR	0x0104
 
-	/* set one = big endian, set zero = little endian */
-	unsigned	endian:1;
+static inline u16 otg_read_reg(struct otg_transceiver *otg, u32 reg)
+{
+	return ioread16(otg->io_priv + reg);
+}
+static inline int otg_write_reg(struct otg_transceiver *otg, u32 val, u32 reg) 
+{
+	 iowrite16(val, otg->io_priv + reg);
+	 return 0;
+}
 
-	/* (external controller only) set one = WR0_N shorted to WR1_N */
-	unsigned	wr0_shorted_to_wr1:1;
+static inline void otg_modify_reg(struct otg_transceiver *otg, u16 clr_mask, u16 set_mask, u32 reg)
+{
+	u16 tmp;
+	tmp = ioread16(otg->io_priv + reg);
+	tmp &= (~clr_mask);
+	tmp |= set_mask;
+	iowrite16(tmp, otg->io_priv + reg);
+}
+
+#define otg_io_clear_bits(otg, val, reg)	\
+			otg_modify_reg(otg, val, 0, reg)
+#define otg_io_set_bits(otg, val, reg)	\
+			otg_modify_reg(otg, 0, val, reg)
+
+
+
+#define USB_PHYREAD	0X011E /*H'E689 011E*/
+#define USB_SPADDR	0X0138 /*H'E689 0138*/
+#define USB_SPWDAT	0X013A /*H'E689 013A*/
+#define USB_SPCTRL	0X013C /*H'E689 013C*/
+#define USB_SPRDAT	0X013E /*H'E689 013E*/
+#define USB_PHYRD	0x0001
+
+static u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
+{
+	u16 monreg;
+	otg_io_set_bits(otg, USB_PHYRD, USB_PHYREAD);
+	while(otg_read_reg(otg, USB_PHYREAD) & USB_PHYRD)
+		;
+	monreg = otg_read_reg(otg, reg);
+	return monreg;
+}
+
+#define TUSB1211_MAX_ADDR	0X90			/*Maximum value of TUSB1211 registers' address*/
+#define USB_START_READ 		0X01			/*Start reading register*/
+#define USB_MAX_REG_VAL		0xFF			/*8 bits register max value*/
+#define USB_ULPI_EXTENDED	0x2F			/*Address of extended register set*/
+
+#define ULPI_ADDR(n)          	((n) & 63)	/*Get 6 last bits*/
+#define ULPI_IO_TIMEOUT_USEC	10	/*Time out for accessing to registers*/
+#define ULPI_READ				(1 << 1)	/*Availabe to read register*/
+#define ULPI_WRITE				0X01			/*Availabe to write register*/
+#define ULPI_START_READ			0X01			/*Start reading register*/
+#define ULPI_DATA(n)			(n & 255)	/*Get 8 last bits*/
+#define TUSB_CS	GPIO_PORT130
+#define nTUSB_RST	GPIO_PORT131
+
+#define PHYOTGCTR	0x010A
+
+#define USEVBUS		0x8000 	
+#define DVBUSEX 	0x4000
+#define DRVVBUS 	0x2000
+#define CHRGVBUS 	0x1000
+#define DISCHRGVBUS 0x0800
+#define DMPUDWN 	0x0400
+#define DPPUDWN 	0x0200
+#define IDPUUP 		0x0100
+
+
+#define PHYINTR 0x010C
+
+#define PHYINTENRISE	0x1F
+
+#define IDGND_RISE 		0x10
+#define SESSEND_RISE    0x08
+#define SESSVALID_RISE  0x04
+#define VBUSVALID_RISE  0x02
+#define HOSTDISCONNECT_RISE 0x01
+
+#define PHYINTF 0x0110
+
+#define PHYINTENFALL	0x1F00
+
+#define IDGND_FALL 		0x1000
+#define SESSEND_FALL    0x0800
+#define SESSVALID_FALL  0x0400
+#define VBUSVALID_FALL  0x0200
+#define HOSTDISCONNECT_FALL 0x0100
+
+#define MPINTSTS 0x0132
+
+#define IDGND_STS 		0x10
+#define SESSEND_STS    0x08
+#define SESSVALID_STS  0x04
+#define VBUSVALID_STS  0x02
+#define HOSTDISCONNECT_STS 0x01
+
+
+
+#define VB_SESS_END	0x0000
+#define VSESS_VLD	0x4000
+#define VA_VBUS_VLD	0x8000
+#define VBUS_VLD	0xC000
+
+
+#define PHYFUNCTR	0x0104
+#define PRESET 0x2000
+
+#define TUSB1211_ID_POLL_TIME 500
+
+struct tusb1211 {
+	spinlock_t	lock;
+#ifdef CONFIG_HAVE_CLK
+	struct clk *clk;
+#endif
+	struct otg_transceiver	otg;
+	unsigned			init:1;
+	struct timer_list id_timer;
+
+	struct timer_list se0_srp_timer;
+	struct timer_list b_data_pls_timer;
+	struct timer_list b_chrg_vbus_timer;
+	struct timer_list b_dischrg_vbus_timer;
+	struct timer_list b_srp_fail_timer;
+
+	struct delayed_work	vbus_work;
+	struct delayed_work	vbus_off_work;
+	unsigned power:1;
+	unsigned vbus_enable:1;
+	int vbus_irq;
 };
 
 /* Register definitions */
-#define SYSCFG0		0x00
-#define SYSCFG1		0x02
+#define SYSCFG		0x00
+#define BWAIT		0x02
+#define SYSSTS		0x04
 #define SYSSTS0		0x04
 #define SYSSTS1		0x06
+#define DVSTCTR		0x08
 #define DVSTCTR0	0x08
 #define DVSTCTR1	0x0A
 #define TESTMODE	0x0C
@@ -182,6 +300,9 @@ struct r8a66597_platdata {
 #define	DPRPU		0x0010	/* b4: D+ pull up control */
 #define	USBE		0x0001	/* b0: USB module operation enable */
 
+/* CPU bus wait */
+#define BUSWAIT		0x0004
+
 /* System Configuration Status Register */
 #define	OVCBIT		0x8000	/* b15-14: Over-current bit */
 #define	OVCMON		0xC000	/* b15-14: Over-current monitor */
@@ -196,6 +317,7 @@ struct r8a66597_platdata {
 #define	  SE0		 0x0000	  /* SE0 */
 
 /* Device State Control Register */
+#define HNPBTOA		0x0800	/* b11: switches HNPBTOA*/
 #define	EXTLP0		0x0400	/* b10: External port */
 #define	VBOUT		0x0200	/* b9: VBUS output */
 #define	WKUP		0x0100	/* b8: Remote wakeup */
@@ -275,6 +397,7 @@ struct r8a66597_platdata {
 
 /* Interrupt Enable Register 1 */
 #define	OVRCRE		0x8000	/* b15: Over-current interrupt */
+#define	VBCOMPE		0x8000	/* b15: Vbus compare interrupt */
 #define	BCHGE		0x4000	/* b14: USB us chenge interrupt */
 #define	DTCHE		0x1000	/* b12: Detach sense interrupt */
 #define	ATTCHE		0x0800	/* b11: Attach sense interrupt */
@@ -453,26 +576,26 @@ struct r8a66597_platdata {
 #define	USBSPD		0x00C0
 #define	RTPORT		0x0001
 
-#ifdef CONFIG_USB_OTG
-#define USBHS_PHYOTGCTR	0x010A
 
-#define USEVBUS		0x8000 	
-#define DVBUSEX 	0x4000
-#define DRVVBUS 	0x2000
-#define CHRGVBUS 	0x1000
-#define DISCHRGVBUS 0x0800
-#define DMPUDWN 	0x0400
-#define DPPUDWN 	0x0200
-#define IDPUUP 		0x0100
-/* System Configuration Status Register */
-#define	VSESS_VLD		0x8000	/* b15-14: Over-current bit */
-#define	VA_VBUS_VLD		0xC000	/* b15-14: Over-current monitor */
-#define	VB_SESS_END		0x0000	/* b15-14: Over-current monitor */
-/* Device State Control Register */
-#define HNPBTOA		0x0800	/* b11: switches HNPBTOA*/
-/* Interrupt Enable Register 1 */
-#define	VBCOMPE		0x8000	/* b15: Over-current interrupt */
-/* Interrupt Status Register 1 */
-#define	VBCOMP		0x8000	/* b15: Over-current interrupt */
-#endif
-#endif /* __LINUX_USB_R8A66597_H */
+/* Timer for A-device reponsed to SRP from B-device */
+#define	TA_SRP_RSPNS	(4900)	/* a_idle, max 4.9 seconds */
+
+/* SE0 Timers */
+#define	TB_SE0_SRP	(2)		/* b_idle, min 2ms */
+
+/* D+ PULL UP Timers */
+#define	TB_DATA_PLS	(10)
+
+/* VBUS CHARGE Timers */
+#define TB_CHARGE_VBUS	(30) 
+
+/* VBUS DISCHARGE Timers */
+#define TB_DISCHARGE_VBUS	(60)
+
+/* SRP Initiate Time */
+#define	TB_SRP_INIT	(100)	/* b_srp_init */
+
+/* SRP Fail Time */
+#define	TB_SRP_FAIL	(6000)	/* b_srp_init, min 5s - max 6s */
+
+#endif /* TUSB1211_H */
