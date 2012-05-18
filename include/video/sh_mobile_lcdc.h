@@ -135,8 +135,7 @@ extern int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 extern int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
 				     unsigned short output_mode);
 extern int sh_mobile_lcdc_refresh(unsigned short set_state,
-				     unsigned short output_mode);
-extern void sh_mobile_backlight_brightness(int value);
+				  unsigned short output_mode);
 
 /*extern struct semaphore   sh_mobile_sem_hdmi;*/
 
