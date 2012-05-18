@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/system_pwmng.h
  *     This file is power management function.
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -31,8 +31,7 @@
 /****************************/
 /* Power area type			*/
 /****************************/
-#define	RT_PWMNG_POWERAREA_A4LC0	(1)
-#define	RT_PWMNG_POWERAREA_A4LC1	(2)
+#define	RT_PWMNG_POWERAREA_A4LC	(1)
 
 /****************************/
 /* Struction				*/

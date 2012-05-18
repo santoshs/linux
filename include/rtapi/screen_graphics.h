@@ -62,6 +62,14 @@
 /* key_color */
 #define RT_GRAPHICS_KEY_COLOR_OFF			(-1)		/* key color off */
 
+/* premultiplied */
+#define RT_GRAPHICS_PREMULTI_OFF			(1)		/* premultiplied OFF */
+#define RT_GRAPHICS_PREMULTI_ON				(2)		/* premultiplied ON */
+
+/* alpha coefficient */
+#define RT_GRAPHICS_COEFFICIENT_ALPHA1		(1)		/* alpha coefficient1 */
+#define RT_GRAPHICS_COEFFICIENT_ALPHA2		(2)		/* alpha coefficient2 */
+
 /* RT-API result code */
 #define SMAP_LIB_GRAPHICS_OK				(0)
 #define SMAP_LIB_GRAPHICS_NG				(-1)
@@ -143,6 +151,8 @@ typedef struct
 	unsigned short				mirror;		/* mirror type */
 	unsigned short				dummy;		/* dummy */
 	long					key_color;	/* key color */
+	unsigned short				premultiplied;	/* premultiplied */
+	unsigned short				alpha_coef;		/* alpha coefficient */
 } screen_grap_layer;
 
 typedef struct

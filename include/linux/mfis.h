@@ -23,5 +23,6 @@
 
 int mfis_drv_suspend(void);
 int mfis_drv_resume(void);
+void mfis_drv_eco_suspend(void);
 
 #endif /* __MFIS_H__ */
