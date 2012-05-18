@@ -22,6 +22,7 @@
 #define _LINUX_PMIC_H
 
 #include <linux/device.h>	/* for struct device */
+#include <linux/platform_device.h>
 
 /* Macro for PMIC Production Test enable */
 /* #define PMIC_PT_TEST_ENABLE */
@@ -240,9 +241,11 @@ struct pmic_device_ops {
 	void (*force_power_off)(struct device *dev, int resource);
 	int (*get_ext_device)(struct device *dev);
 	int (*read_register)(struct device *dev, int slave, u8 addr);
-	int (*read_registers)(struct device *dev, int slave, u8 addr, int len, u8 *val);
-	int (*write_register)(struct device *dev, int slave, u8 addr, u8 val);
-	int (*write_registers)(struct device *dev, int slave, u8 addr, int len, u8 *val);
+	int (*set_current_limit)(struct device *dev, int chrg_state, int chrg_type);
+	int (*read)(struct device *dev, u8 addr);
+	int (*reads)(struct device *dev, u8 addr, int len, u8 *val);
+	int (*write)(struct device *dev, u8 addr, u8 val);
+	int (*writes)(struct device *dev, u8 addr, int len, u8 *val);
 	int (*get_temp_status)(struct device *dev);
 #ifdef PMIC_PT_TEST_ENABLE
 	int (*get_batt_status)(struct device *dev, int property);
@@ -339,12 +342,12 @@ extern int pmic_set_vbus(int enable);
 extern int usb_otg_pmic_device_register(struct device *dev,struct usb_otg_pmic_device_ops *ops);
 extern int usb_otg_pmic_device_unregister(struct device *dev);
 extern int pmic_read_register(int slave, u8 addr);
-extern int pmic_read_registers(int slave, u8 addr, int len, u8* val);
-extern int pmic_write_register(int slave, u8 addr, u8 val);
-extern int pmic_write_registers(int slave, u8 addr, int len, u8* val);
-
+extern int pmic_set_current_limit(int chrg_state, int chrg_type);
+extern int pmic_read(struct device *dev, u8 addr, uint8_t *val);
+extern int pmic_reads(struct device *dev, u8 addr, int len, u8* val);
+extern int pmic_write(struct device *dev, u8 addr, u8 val);
+extern int pmic_writes(struct device *dev, u8 addr, int len, u8* val);
 #ifdef PMIC_PT_TEST_ENABLE
-int pmic_read_time(struct pmic_time *tm);
 int pmic_read_battery_status(int property);
 #endif
 
