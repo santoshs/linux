@@ -23,10 +23,13 @@
  * COMMON Registers
  */
 #define CPG_PHY_BASE		(0xE6150000)
-#define CPG_REG_MAX		(0x0150)
+#define CPG_REG_MAX		(0x01FF)
 
 #define CPG_PHY_BASE_SRST	(0xE6158000)
 #define CPG_REG_MAX_SRST	(0x01CC)
+
+#define GPIO_PHY_BASE		(0xE6058000)
+#define GPIO_REG_MAX		(0x0150)
 
 #define CPG_SMSTPCR2		(g_common_ulClkRstRegBase + 0x00000138)
 #define CPG_SMSTPCR3		(g_common_ulClkRstRegBase + 0x0000013C)
@@ -34,13 +37,19 @@
 #define CPG_SRCR2		(g_common_ulSrstRegBase + 0x000000B0)
 #define CPG_SRCR3		(g_common_ulSrstRegBase + 0x000000B8)
 #define CPG_SRCR6		(g_common_ulSrstRegBase + 0x000001C8)
+#define CPG_PLLECR		(g_common_ulClkRstRegBase + 0x000000D0)
+#define CPG_PLL22CR		(g_common_ulClkRstRegBase + 0x000001F4)
+#define CPG_FSIACKCR		(g_common_ulClkRstRegBase + 0x00000018)
+#define CPG_FSIBCKCR		(g_common_ulClkRstRegBase + 0x00000090)
+
+#define GPIO_FSI2CR		(g_common_ulClkGpioRegBase + 0x0144)
 
 #ifdef SOUND_TEST
 	CPG_SUBCKCR		(g_common_ulSrstRegBase + 0x00000080)
 #endif
 
 #define FSI_PHY_BASE		(0xEC230000)
-#define FSI_REG_MAX		(0x022C)
+#define FSI_REG_MAX		(0x040C)
 #define FSI_MAP_LEN		(FSI_REG_MAX + 4)
 
 /* SCUW physical address top. */

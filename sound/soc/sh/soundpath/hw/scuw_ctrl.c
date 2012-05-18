@@ -49,7 +49,7 @@ static struct common_reg_table scuw_reg_tbl_voicecallA[] = {
 	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },
 	/* target module : FSI2(0x00), Write address : FSI2 port A(0x09) */
 	{ SCUW_FSIIF_WADCR0,	0x00000009,	0 },
-	/* target module : FSI2(0x00), Write address : FSI2 port A(0x08) */
+	/* target module : FSI2(0x00), Read address : FSI2 port A(0x08) */
 	{ SCUW_FSIIF_RADCR1,	0x00000008,	0 },
 	/*   0 : Processing State */
 	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },
@@ -80,12 +80,45 @@ static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
 	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },
 	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
 	{ SCUW_FSIIF_WADCR0,	0x00000019,	0 },
-	/* target module : FSI2(0x00), Write address : FSI2 port B(0x18) */
+	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
 	{ SCUW_FSIIF_RADCR1,	0x00000018,	0 },
 	/*   0 : Processing State */
 	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },
 	/* 010 : Channel 1 to 7 are copied Channel 0 */
 	{ SCUW_VD_VDSET,	0x00000002,	0 },
+};
+
+/* Table for FM(loopback, from FSIB to FSIA) */
+static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
+/*	  Register		Value		Delay time */
+	/* 110: FSI-IF read port 1 data (from FSI2) */
+	{ SCUW_SEL_SELCR0,	0x00000006,	0 },
+	/*  00: SEL0 output data, clock supply to MIX0 halted */
+	{ SCUW_SEL_SELCR5,	0x00000000,	0 },
+	/*   0: SEL5 output data, clock supply to IIR0 halted */
+	{ SCUW_SEL_SELCR6,	0x00000000,	0 },
+	/*   0: SEL6 output data, clock supply to DVU0 halted */
+	{ SCUW_SEL_SELCR7,	0x00000003,	0 },
+	/*   0: SEL7 output data */
+	{ SCUW_SEL_SELCR15,	0x00000000,	0 },
+	/*   1 : FSI-IF operates. */
+	{ SCUW_MSTP1,		0x00000001,	0 },
+	/*   0 : Reset the FSI IF. */
+	{ SCUW_FSIIF_SWRSR,	0x00000000,	0 },
+	/*   1 : FSI IF enters the operating state. */
+	{ SCUW_FSIIF_SWRSR,	0x00000001,	0 },
+	/*   1 : Initialization */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0 },
+	/* 010 : 2 channel */
+	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port A(0x09) */
+	{ SCUW_FSIIF_WADCR0,	0x00000009,	0 },
+	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
+	{ SCUW_FSIIF_RADCR1,	0x00000018,	0 },
+	/*   0 : Processing State */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0 },
 };
 
 
@@ -100,7 +133,7 @@ static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
 int scuw_start(const u_int uiValue)
 {
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
@@ -110,15 +143,20 @@ int scuw_start(const u_int uiValue)
 	audio_ctrl_func(SNDP_HW_SCUW, STAT_ON);
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, MIC */
-	if (devices != SNDP_BLUETOOTHSCO) {
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
 		reg_tbl  = scuw_reg_tbl_voicecallA;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallA);
 	/* BLUETOOTHSCO */
-	} else {
+	} else if (SNDP_BLUETOOTHSCO == dev){
 		reg_tbl  = scuw_reg_tbl_voicecallB;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB);
+	/* FM_RADIO_RX */
+	} else {
+		reg_tbl  = scuw_reg_tbl_loopbackBA;
+		tbl_size = ARRAY_SIZE(scuw_reg_tbl_loopbackBA);
 	}
 
 	/* Start SCUW Settings */
@@ -173,6 +211,18 @@ void scuw_reg_dump(void)
 	sndp_log_reg_dump("SCUW_VD_VDSET       [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_VD_VDSET),
 			ioread32((g_scuw_Base + SCUW_VD_VDSET)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR0),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR0)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR5     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR5),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR5)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR6     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR6),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR6)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR7    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR7),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR7)));
 	sndp_log_reg_dump("SCUW_SEL_SELCR12    [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR12),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR12)));

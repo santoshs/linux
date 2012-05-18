@@ -31,6 +31,7 @@
 #include <sound/sh_fsi.h>
 #include <asm/atomic.h>
 #include <asm/cacheflush.h>
+#include <sound/soundpath/common_extern.h>
 
 #include <linux/sh_dma.h>
 #include <mach/r8a73734.h>
@@ -43,8 +44,8 @@
 #define DI_FMT		0x000C
 #define DIFF_CTL	0x0010
 #define DIFF_ST		0x0014
-#define CKG1		0x0018
-#define CKG2		0x001C
+#define ACK_MD		0x0018
+#define ACK_RV		0x001C
 #define DIDT		0x0020
 #define DODT		0x0024
 #define MUTE_ST		0x0028
@@ -67,11 +68,14 @@
 #define SWAP_SEL	0x0228
 #endif
 #define HPB_SRST	0x022C
+#define FSIDIVA		0x0400
+#define FSIDIVB		0x0408
+
 #define MREG_START	CPU_INT_ST
 #ifdef USE_DMA
-#define MREG_END	SWAP_SEL
+#define MREG_END	FSIDIVB
 #else
-#define MREG_END	HPB_SRST
+#define MREG_END	FSIDIVB
 #endif
 
 /* DO_FMT */
@@ -95,7 +99,7 @@
 #define ERR_UNDER	0x00000001
 #define ST_ERR		(ERR_OVER | ERR_UNDER)
 
-/* CKG1 */
+/* ACK_MD */
 #define ACKMD_MASK	0x00007000
 #define BPFMD_MASK	0x00000700
 
@@ -375,13 +379,12 @@ static struct snd_soc_dai *fsi_get_dai(struct snd_pcm_substream *substream)
 struct fsi_priv *fsi_get_priv_frm_dai(struct snd_soc_dai *dai)
 {
 	struct fsi_master *master = snd_soc_dai_get_drvdata(dai);
-/*
- *	if (dai->id == 0)
- */
+
+	if (dai->id == 0)
 		return &master->fsia;
-/*	else
- *		return &master->fsib;
- */
+	else
+		return &master->fsib;
+
 }
 EXPORT_SYMBOL(fsi_get_priv_frm_dai);
 
@@ -525,7 +528,7 @@ static void fsi_irq_clear_status(struct fsi_priv *fsi, int is_play)
 static void fsi_clk_enable(struct fsi_master *master)
 {
 	clk_enable(master->clks.clkgen);
-/*	clk_enable(master->clks.shdmac); */
+	/* clk_enable(master->clks.shdmac); */
 	clk_enable(master->clks.fsi);
 }
 
@@ -1318,30 +1321,36 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 		fsi_reg_write(fsi, OUT_DMAC, (0x1 << 4));
 	else
 		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
-
-	/* CKG1 */
-	data = is_play ? (1 << 0) : (1 << 4);
-	is_master = fsi_is_master_mode(fsi, is_play);
-	if (is_master && !master->info->always_slave)
-		fsi_reg_mask_set(fsi, CKG1, data, data);
-	else
-		fsi_reg_mask_set(fsi, CKG1, data, 0);
-
-	fsi_reg_mask_set(fsi, CKG1, 7<<12, 2<<12);
-	fsi_reg_mask_set(fsi, CKG1, 7<<8, 1<<8);
-
-	/* clock inversion (CKG2) */
-	data = 0;
-	if (SH_FSI_LRM_INV & flags)
-		data |= 1 << 12;
-	if (SH_FSI_BRM_INV & flags)
-		data |= 1 << 8;
-	if (SH_FSI_LRS_INV & flags)
-		data |= 1 << 4;
-	if (SH_FSI_BRS_INV & flags)
-		data |= 1 << 0;
-
-	fsi_reg_write(fsi, CKG2, data);
+	
+	/*  chip revision check */
+	if (0x10 <= (system_rev & 0xff)) {  /* for ES2.0 */
+		fsi_master_write(master, FSIDIVA, 0x00020003);
+		fsi_reg_write(fsi, ACK_RV, 0x00000100);
+		if(0 != is_play)
+			fsi_reg_write(fsi, ACK_MD, 0x00001101);
+		else
+			fsi_reg_write(fsi, ACK_MD, 0x00001110);
+	} else {  /*for ES1.0 */
+		data = is_play ? (1 << 0) : (1 << 4);
+		is_master = fsi_is_master_mode(fsi, is_play);
+		fsi_reg_mask_set(fsi, ACK_MD, 7<<12, 2<<12);
+		fsi_reg_mask_set(fsi, ACK_MD, 7<<8, 1<<8);
+		if (is_master && !master->info->always_slave)
+			fsi_reg_mask_set(fsi, ACK_MD, data, data);
+		else
+			fsi_reg_mask_set(fsi, ACK_MD, data, 0);
+		/* clock inversion (ACK_RV) */
+		data = 0;
+		if (SH_FSI_LRM_INV & flags)
+			data |= 1 << 12;
+		if (SH_FSI_BRM_INV & flags)
+			data |= 1 << 8;
+		if (SH_FSI_LRS_INV & flags)
+			data |= 1 << 4;
+		if (SH_FSI_BRS_INV & flags)
+			data |= 1 << 0;
+		fsi_reg_write(fsi, ACK_RV, data);
+	}
 
 	/* do fmt, di fmt */
 	data = 0;
@@ -1461,31 +1470,24 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	struct fsi_master *master = fsi_get_master(fsi);
-	int (*set_rate)(int is_porta, int rate) = master->info->set_rate;
-	int fsi_ver = master->regs->ver;
 	int is_play = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
 	int ret;
 
+	/* clock start */
+	fsi_clk_enable(master);
+
 	fsi_clk_ctrl(fsi, 1);
+
 	/* if slave mode, set_rate is not needed */
 	if (!fsi_is_master_mode(fsi, is_play))
 		return 0;
 
-	/* it is error if no set_rate */
-	if (!set_rate)
-		return -EIO;
-
-	/* clock stop */
-	fsi_clk_enable(master);
-	fsi_clk_ctrl(fsi, 0);
-
-	ret = set_rate(fsi_is_port_a(fsi), params_rate(params));
+	/*ret = set_rate(fsi_is_port_a(fsi), params_rate(params));
 	if (ret > 0) {
 		u32 data = 0;
 
 		switch (ret & SH_FSI_ACKMD_MASK) {
 		default:
-			/* FALL THROUGH */
 		case SH_FSI_ACKMD_512:
 			data |= (0x0 << 12);
 			break;
@@ -1508,7 +1510,6 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 
 		switch (ret & SH_FSI_BPFMD_MASK) {
 		default:
-			/* FALL THROUGH */
 		case SH_FSI_BPFMD_32:
 			data |= (0x0 << 8);
 			break;
@@ -1532,11 +1533,11 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 			break;
 		}
 
-		fsi_reg_mask_set(fsi, CKG1, (ACKMD_MASK | BPFMD_MASK) , data);
+		fsi_reg_mask_set(fsi, ACK_MD, (ACKMD_MASK | BPFMD_MASK) , data);
 		udelay(10);
 		fsi_clk_ctrl(fsi, 1);
 		ret = 0;
-	}
+	}*/
 
 	fsi_clk_disable(master);
 

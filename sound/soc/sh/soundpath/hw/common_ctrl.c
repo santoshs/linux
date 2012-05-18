@@ -18,7 +18,6 @@
 #define __COMMON_CTRL_NO_EXTERN__
 
 #include <linux/clk.h>
-#include <sound/soundpath/soundpath.h>
 #include <sound/soundpath/common_extern.h>
 #include "common_ctrl.h"
 
@@ -31,6 +30,9 @@
 static u_long g_common_ulClkRstRegBase;
 /* CPGA register(soft reset) base address */
 static u_long g_common_ulSrstRegBase;
+
+/* GPIO register base address */
+static u_long g_common_ulClkGpioRegBase;
 
 /* Clock status flag */
 static u_int g_clock_flag;
@@ -229,6 +231,14 @@ static int common_audio_status_ioremap(void)
 		return -ENOMEM;
 	}
 
+	/* Get GPIO Logical Address */
+	g_common_ulClkGpioRegBase =
+		(u_long)ioremap_nocache(GPIO_PHY_BASE, GPIO_REG_MAX);
+	if (0 >= g_common_ulClkRstRegBase) {
+		sndp_log_err("error GPIO register ioremap failed\n");
+		return -ENOMEM;
+	}
+
 	/* Successfull all */
 	return ERROR_NONE;
 }
@@ -312,6 +322,12 @@ static void common_audio_status_iounmap(void)
 	if (0 < g_common_ulSrstRegBase) {
 		iounmap((void *)g_common_ulSrstRegBase);
 		g_common_ulSrstRegBase = 0;
+	}
+
+	/* Release GPIO Logical Address */
+	if (0 < g_common_ulClkGpioRegBase) {
+		iounmap((void *)g_common_ulClkGpioRegBase);
+		g_common_ulClkGpioRegBase = 0;
 	}
 }
 
@@ -510,4 +526,95 @@ void common_set_register(
 	sndp_log_debug_func("end\n");
 }
 
+
+/*!
+   @brief PLL22 and FSIACKCR/FSIBCKCR setting function
+
+   @param[in]	uiValue		PCM type
+   @param[in]	stat		On/Off
+   @param[out]	none
+
+   @retval	none
+ */
+void common_set_pll22(const u_int uiValue, int stat)
+{
+	/* Local variable declaration */
+	u_int dev, fsickcr;
+	int cnt;
+
+	sndp_log_debug_func("start\n");
+
+	/* Device check */
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
+	/* PortA */
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		fsickcr = CPG_FSIACKCR;
+	/* PortB */
+	} else {
+		fsickcr = CPG_FSIBCKCR;
+	}
+
+	/* Status ON */
+	if (STAT_ON == stat) {
+		/* mode check */
+		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+			/* Pll22 enable 66 divide */
+			iowrite32(0x41000000, CPG_PLL22CR);
+			iomodify32(0, 0x00000010, CPG_PLLECR);
+
+			for (cnt = 0; cnt < 10; cnt++) {
+				if (!(0x1000 & ioread32(CPG_PLLECR)))
+					udelay(100);
+				else
+					break;
+			}
+			if (10 == cnt)
+				sndp_log_err("CPG_PLLECR is not available.\n");
+
+			/* FSICKCR enable 38 divide */
+			iowrite32(0x00001065, fsickcr);
+		} else {
+			/* Pll22 enable 64 divide */
+			/* FSICKCR enable 25 divide */
+			/*
+			 * iowrite32(0x39000000, CPG_PLL22CR);
+			 * iomodify32(0, 0x00000010, CPG_PLLECR);
+			 * iowrite32(0x00001058, fsickcr);
+			 */
+		}
+	/* Status OFF */
+	} else {
+		/* mode check */
+		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+			/* FSICKCR disable */
+			iowrite32(0x00001065, fsickcr);
+			/* Pll22 disable */
+			iomodify32(0x00000010, 0, CPG_PLLECR);
+		}
+	}
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief FSI2CR(GPIO) setting function for FSI master
+
+   @param[in]	stat		On/Off
+   @param[out]	none
+
+   @retval	none
+ */
+void common_set_fsi2cr(int stat)
+{
+	sndp_log_debug_func("start\n");
+
+	if (STAT_ON == stat)
+		iowrite16(0x0300, GPIO_FSI2CR);
+	else
+		iowrite16(0x0000, GPIO_FSI2CR);
+
+	sndp_log_debug_func("end\n");
+}
 

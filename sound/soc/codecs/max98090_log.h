@@ -38,6 +38,9 @@
 /*---------------------------------------------------------------------------*/
 #define AUDIO_LSI_DRV_NAME              "audio_lsi_driver"
 #define MAX98090_LOG_LEVEL              "log_level"
+#define MAX98090_TUNE_REG               "tune_reg"
+#define MAX98090_DUMP_REG               "dump_reg"
+#define MAX98090_PATH_SET               "path_set"
 #define MAX98090_LOG_NO_PRINT           (0x00)
 #define MAX98090_LOG_ERR_PRINT          (0x01)
 #define MAX98090_LOG_PROC_PRINT         (0x02)

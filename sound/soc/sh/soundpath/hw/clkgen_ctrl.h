@@ -44,7 +44,6 @@
 #define CLKG_AURAD	(0x0044)	/* AURAM adjust register      */
 #define CLKG_FFDAD	(0x0048)	/* FFD adjust register        */
 #define CLKG_CLKADIV	(0x0090)	/* CLK audio divider register */
-#define CLKG_CLKSDIV	(0x0098)	/* SLIM Clk divider register  */
 
 
 /*

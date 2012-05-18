@@ -28,6 +28,14 @@
 #define SCUW_VD_VDSET			(0x00500)
 
 /* SEL Register */
+/* SELCR_SEL0     : Selector control register(SEL0) */
+#define SCUW_SEL_SELCR0			(0x00504)
+/* SELCR_SEL5     : Selector control register(SEL5) */
+#define SCUW_SEL_SELCR5			(0x00518)
+/* SELCR_SEL6     : Selector control register(SEL6) */
+#define SCUW_SEL_SELCR6			(0x0051C)
+/* SELCR_SEL7     : Selector control register(SEL7) */
+#define SCUW_SEL_SELCR7			(0x00520)
 /* SELCR_SEL12    : Selector control register(SEL12) */
 #define SCUW_SEL_SELCR12		(0x00534)
 /* SELCR_SEL15    : Selector control register(SEL15) */

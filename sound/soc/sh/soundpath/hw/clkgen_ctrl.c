@@ -62,6 +62,22 @@ static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_PLAYBACK_AUXDIGITAL_RINGTONE,                NULL              },
 	{ SNDP_PLAYBACK_AUXDIGITAL_INCALL,                  NULL              },
 	{ SNDP_PLAYBACK_AUXDIGITAL_INCOMMUNICATION,         NULL              },
+	{ SNDP_PLAYBACK_FMTX_NORMAL,                        clkgen_playback   },
+	{ SNDP_PLAYBACK_FMTX_RINGTONE,                      NULL              },
+	{ SNDP_PLAYBACK_FMTX_INCALL,                        NULL              },
+	{ SNDP_PLAYBACK_FMTX_INCOMMUNICATION,               NULL              },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_NORMAL,                clkgen_playback   },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_RINGTONE,              NULL              },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_INCALL,                NULL              },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_INCOMMUNICATION,       NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_NORMAL,                clkgen_playback   },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_RINGTONE,              NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_INCALL,                NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_INCOMMUNICATION,       NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_NORMAL,              clkgen_playback   },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_RINGTONE,            NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_INCALL,              NULL              },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_INCOMMUNICATION,     NULL              },
 	{ SNDP_CAPTURE_MIC_NORMAL,                          clkgen_capture    },
 	{ SNDP_CAPTURE_MIC_RINGTONE,                        clkgen_capture    },
 	{ SNDP_CAPTURE_MIC_INCALL,                          NULL              },
@@ -74,70 +90,150 @@ static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  NULL              },
 	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    NULL              },
 	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           NULL              },
+	{ SNDP_CAPTURE_FMRX_NORMAL,                         clkgen_capture    },
+	{ SNDP_CAPTURE_FMRX_RINGTONE,                       NULL              },
+	{ SNDP_CAPTURE_FMRX_INCALL,                         NULL              },
+	{ SNDP_CAPTURE_FMRX_INCOMMUNICATION,                NULL              },
 };
 
 
-/* Table for Playback(PortA) */
-static struct common_reg_table clkgen_reg_tbl_playA[] = {
+/* Table for Playback(PortA, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_playA_M[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIACOM,	 0x00212901, 0 }, /* 2ch, 64fs, 48kHz, CLKGEN master,
+	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
 					   * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
 };
 
-/* Table for Playback(PortB) */
-static struct common_reg_table clkgen_reg_tbl_playB[] = {
+/* Table for Playback(PortA, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_playA_S[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIBCOM,	 0x00212901, 0 }, /* 2ch, 64fs, 48kHz, CLKGEN master,
+	{ CLKG_FSISEL,	 0x00000001, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
+};
+
+/* Table for Playback(PortB, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_playB_M[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
 					   * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000002, 0 }, /* PortB Enable */
 };
 
-/* Table for Capture(PortA) */
-static struct common_reg_table clkgen_reg_tbl_captureA[] = {
+/* Table for Playback(PortB, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_playB_S[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM0(PortA) */
-	{ CLKG_FSIACOM,	 0x00212901, 0 }, /* 2ch, 64fs, 48kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
+	{ CLKG_FSISEL,	 0x00000002, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
 };
 
-/* Table for Capture(PortB) */
-static struct common_reg_table clkgen_reg_tbl_captureB[] = {
+/* Table for Playback(from PortB to PortA(FM Playback), CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_playBA_M[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL1,	 0x00000002, 0 }, /* REC TIM0(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212901, 0 }, /* 2ch, 64fs, 48kHz, CLKGEN master,
+	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
+					   * Non - continuos mode */
+	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
+					   * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000003, 0 }, /* PortA, B Enable */
+};
+
+/* Table for Playback(from PortB to PortA(FM Playback), CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_playBA_S[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSISEL,	 0x00000003, 0 }, /* 1:Select FSIAOBT/FSIAOLR
+					   * 1:Select FSIBOBT/FSIBOLR */
+};
+
+/* Table for Capture(PortA, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_captureA_M[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM0(PortA) */
+	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
+					   * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
+};
+
+/* Table for Capture(PortA, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM0(PortA) */
+	{ CLKG_FSISEL,	 0x00000001, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
+};
+
+/* Table for Capture(PortB, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_captureB_M[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000002, 0 }, /* REC TIM0(PortB) */
+	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
 					   * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000002, 0 }, /* PortB Enable */
 };
 
-/* Table for Voicecall(PortA) */
-static struct common_reg_table clkgen_reg_tbl_voicecallA[] = {
+/* Table for Capture(PortB, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000002, 0 }, /* REC TIM0(PortB) */
+	{ CLKG_FSISEL,	 0x00000002, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
+};
+
+/* Table for Voicecall(PortA, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_SPUVCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
 					   * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000002, 0 }, /* VOTIM(PortA) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM0(PortA) */
 	{ CLKG_FSIACOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
 					   * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000011, 0 }, /* SPUV / PortA Enable */
 };
 
-/* Table for Voicecall(PortB) */
-static struct common_reg_table clkgen_reg_tbl_voicecallB[] = {
+#if 0
+/* Table for Voicecall(PortA, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL0,	 0x00000002, 0 }, /* VOTIM(PortA) */
+	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM0(PortA) */
+	{ CLKG_FSISEL,	 0x00000011, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
+					   * CSELA 1:Select FSIAOBT/FSIAOLR */
+};
+#endif
+
+/* Table for Voicecall(PortB, CLKGEN master) */
+static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
 /*	  Register	 Value	     Delay time */
 	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_SPUVCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
 					   * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000004, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000002, 0 }, /* REC TIM0(PortB) */
 	{ CLKG_FSIBCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
 					   * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000012, 0 }, /* SPUV / PortB Enable */
 };
+
+#if 0
+/* Table for Voicecall(PortB, CLKGEN slave) */
+static struct common_reg_table clkgen_reg_tbl_voicecallB_S[] = {
+/*	  Register	 Value	     Delay time */
+	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL0,	 0x00000004, 0 }, /* VOTIM(PortB) */
+	{ CLKG_TIMSEL1,	 0x00000002, 0 }, /* REC TIM0(PortB) */
+	{ CLKG_FSISEL,	 0x00000012, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
+					   * CSELB 1:Select FSIAOBT/FSIAOLR */
+};
+#endif
 
 
 /*!
@@ -227,22 +323,25 @@ static void clkgen_voicecall(const u_int uiValue)
 	 **********************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE */
-	if (devices != SNDP_BLUETOOTHSCO) {
-		reg_tbl  = clkgen_reg_tbl_voicecallA;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallA);
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master */
+		reg_tbl  = clkgen_reg_tbl_voicecallA_M;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallA_M);
 	/* BLUETOOTHSCO */
 	} else {
-		reg_tbl  = clkgen_reg_tbl_voicecallB;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB);
+		/* CLKGEN master */
+		reg_tbl  = clkgen_reg_tbl_voicecallB_M;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB_M);
 	}
 
 	/* Register setting function call */
@@ -271,29 +370,55 @@ static void clkgen_playback(const u_int uiValue)
 	 * CLKGEN        : Master
 	 * Port          : PortA or B
 	 * Ch            : 2
-	 * Sampling rate : 48000
+	 * Sampling rate : 44100
 	 *********************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/*
 	 * SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE,
 	 * AUXDIGITAL(HDMI)
 	 */
-	if (devices != SNDP_BLUETOOTHSCO) {
-		reg_tbl  = clkgen_reg_tbl_playA;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA);
-	/* BLUETOOTHSCO */
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = clkgen_reg_tbl_playA_M;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = clkgen_reg_tbl_playA_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_S);
+		}
+	/* FM_RADIO_RX */
+	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = clkgen_reg_tbl_playBA_M;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_M);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = clkgen_reg_tbl_playBA_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_S);
+		}
+	/* BLUETOOTHSCO, FM_RADIO_TX */
 	} else {
-		reg_tbl  = clkgen_reg_tbl_playB;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB);
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = clkgen_reg_tbl_playB_M;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = clkgen_reg_tbl_playB_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
+		}
 	}
 
 	/* Register setting function call */
@@ -320,34 +445,49 @@ static void clkgen_capture(const u_int uiValue)
 	 *        SNDP_CAPTURE_HEADSET_NORMAL
 	 *        SNDP_CAPTURE_HEADSET_RINGTONE
 	 *        SNDP_CAPTURE_HEADSET_INCOMMUNICATION
+	 *        SNDP_CAPTURE_FMRX_NORMAL
 	 * FSI            : Slave
 	 * MAXIM          : Slave
 	 * CLKGEN         : Master
 	 * Port           : PortA or B
 	 * Ch             : 2
-	 * Sampling rate  : 48000
+	 * Sampling rate  : 44100
 	 *********************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* MIC, WIREDHEADSET */
-/*	if (devices != ) { */
-		reg_tbl  = clkgen_reg_tbl_captureA;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA);
-	/* FM(T.B.D.) */
-/*
- *	} else {
- *		reg_tbl = clkgen_reg_tbl_captureB;
- *		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB);
- *	}
- */
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = clkgen_reg_tbl_captureA_M;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = clkgen_reg_tbl_captureA_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_S);
+		}
+	/* FM_RADIO_RX */
+	} else {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl = clkgen_reg_tbl_captureB_M;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_M);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl = clkgen_reg_tbl_captureB_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_S);
+		}
+	}
+
 	/* Register setting function call */
 	common_set_register(SNDP_HW_CLKGEN, reg_tbl, tbl_size);
 
@@ -430,9 +570,6 @@ void clkgen_reg_dump(void)
 	sndp_log_reg_dump("CLKG_CLKADIV  [%08X][%08lX]\n",
 			ioread32((g_clkgen_Base + CLKG_CLKADIV)),
 			(g_clkgen_Base + CLKG_CLKADIV));
-	sndp_log_reg_dump("CLKG_CLKSDIV  [%08X][%08lX]\n",
-			ioread32((g_clkgen_Base + CLKG_CLKSDIV)),
-			(g_clkgen_Base + CLKG_CLKSDIV));
 
 	sndp_log_reg_dump("\n===== CLKGEN Registers Dump End =====\n");
 }

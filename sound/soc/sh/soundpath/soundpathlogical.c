@@ -227,31 +227,6 @@ static struct snd_soc_dai_ops sndp_maxim_dai_ops = {
 u_int g_sndp_log_cycle_counter[SNDP_PCM_DIRECTION_MAX];
 
 #if defined(DEBUG) && defined(__PRN_SNDP__)
-/* Device name */
-/* COMMENT: Debaisuha, korede zenbu? */
-static const struct sndp_pcm_name_suffix device_suffix[] = {
-	{ SNDP_OUT_EARPIECE,			"_Earpiece"		},
-	{ SNDP_OUT_SPEAKER,			"_Speaker"		},
-	{ SNDP_OUT_WIRED_HEADSET,		"_Headset"		},
-	{ SNDP_OUT_WIRED_HEADPHONE,		"_Headphone"		},
-	{ SNDP_OUT_BLUETOOTH_SCO,		"_Bluetooth"		},
-	{ SNDP_OUT_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},
-	{ SNDP_OUT_BLUETOOTH_A2DP,		"_Bluetooth-A2DP"	},
-	{ SNDP_OUT_UPLINK,			"_Uplink"		},
-	{ SNDP_IN_BUILTIN_MIC,			"_Mic"			},
-	{ SNDP_IN_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},
-	{ SNDP_IN_WIRED_HEADSET,		"_Headset"		},
-	{ SNDP_IN_VOICE_CALL,			"_Voicecall"		},
-};
-
-/* Mode name */
-static const struct sndp_pcm_name_suffix mode_suffix[] = {
-	{ SNDP_MODE_NORMAL,			"_normal"		},
-	{ SNDP_MODE_RING,			"_ringtone"		},
-	{ SNDP_MODE_INCALL,			"_incall"		},
-	{ SNDP_MODE_INCOMM,			"_incommunication"	},
-};
-
 /* Status */
 static const struct sndp_pcm_name_suffix status_list[] = {
 	{ SNDP_STAT_NOT_CHG,		"SNDP_STAT_NOT_CHG"		},
@@ -262,61 +237,6 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 	{ SNDP_STAT_IN_CALL_CAP,	"SNDP_STAT_IN_CALL_CAP"		},
 	{ SNDP_STAT_IN_COMM,		"SNDP_STAT_IN_COMM"		},
 };
-#endif
-
-
-/*!
-   @brief Print PCM name for debug
-
-   @param[in]	uiValue		PCM value
-   @param[out]	none
-
-   @retval	none
- */
-
-#if defined(DEBUG) && defined(__PRN_SNDP__)
-
-static inline void sndp_print_pcm_name(const u_int uiValue)
-{
-	char	cBuf[SNDP_PCM_NAME_MAX_LEN];
-	int	iCnt;
-	u_int	uiDevice;
-	u_int	uiMode;
-
-
-	/* Log level check */
-	if (LOG_DEBUG_PRINT > LOG_BYTE_LOW(g_sndp_log_level))
-		return;
-
-	/* Get mode type */
-	uiMode = SNDP_GET_MODE_VAL(uiValue);
-
-	/* Get device type */
-	uiDevice = SNDP_GET_AUDIO_DEVICE(uiValue);
-
-	/* Direction type */
-	strcpy(cBuf,
-	       (SNDP_GET_DIRECTION_VAL(uiValue)) ?
-		SNDP_IN_PCM_SUFFIX : SNDP_OUT_PCM_SUFFIX);
-
-	/* Device name */
-	for (iCnt = 0; ARRAY_SIZE(device_suffix) > iCnt; iCnt++) {
-		if (device_suffix[iCnt].key & uiDevice)
-			strcat(cBuf, device_suffix[iCnt].suffix);
-	}
-
-	/* Mode name */
-	for (iCnt = 0; ARRAY_SIZE(mode_suffix) > iCnt; iCnt++) {
-		if (mode_suffix[iCnt].key == uiMode) {
-			strcat(cBuf, mode_suffix[iCnt].suffix);
-			break;
-		}
-	}
-
-	sndp_log_info("PCM: %s [0x%08X]\n", cBuf, uiValue);
-}
-#else
-#define sndp_print_pcm_name(uiValue) do { } while (0)
 #endif
 
 
@@ -699,6 +619,10 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	iRet = common_ioremap();
 	if (ERROR_NONE != iRet)
 		goto ioremap_err;
+
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xff) >= 0x10)
+		common_set_fsi2cr(STAT_ON);
 
 	/* Replaced of function pointers. */
 	g_sndp_dai_func.fsi_startup = fsi_port_dai_driver->ops->startup;
@@ -1091,6 +1015,9 @@ static int sndp_soc_put(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	char cPcm[SNDP_PCM_NAME_MAX_LEN];
+
+
 	/* int	iRet = ERROR_NONE; */
 	u_int	uiValue;
 	u_int	uiProcess;
@@ -1111,7 +1038,9 @@ static int sndp_soc_put(
 	uiValue = ucontrol->value.enumerated.item[0];
 
 	/* Show the PCM name */
-	sndp_print_pcm_name(uiValue);
+	memset(cPcm, '\0', sizeof(cPcm));
+	sndp_pcm_name_generate(uiValue, cPcm);
+	sndp_log_info("PCM: %s [0x%08X]\n", cPcm, uiValue);
 
 	/* Gets the direction (Playback/Capture) */
 	uiDirection = SNDP_GET_DIRECTION_VAL(uiValue);
@@ -1434,7 +1363,7 @@ static int sndp_fsi_suspend(struct device *dev)
 			 * Transition to SUSPEND,
 			 * status of MAXIM (Disable all devices)
 			 */
-			iRet = max98090_set_device(MAX98090_DEV_NONE);
+			iRet = max98090_set_device(MAX98090_DEV_NONE, SNDP_VALUE_INIT);
 			if (ERROR_NONE != iRet)
 				sndp_log_err("max set device error(code=%d)\n",
 					     iRet);
@@ -1473,7 +1402,7 @@ static int sndp_fsi_resume(struct device *dev)
 			ulSetDevice =
 			sndp_get_next_devices(GET_OLD_VALUE(SNDP_PCM_OUT));
 
-			iRet = max98090_set_device(ulSetDevice);
+			iRet = max98090_set_device(ulSetDevice, GET_OLD_VALUE(SNDP_PCM_OUT));
 			if (ERROR_NONE != iRet)
 				sndp_log_err("max set device error(code=%d)\n",
 					     iRet);
@@ -1595,6 +1524,7 @@ static int sndp_fsi_trigger(
 	bool			trigger_normal = true;
 	struct sndp_stop	*stop;
 	struct sndp_arg		*arg;
+	char			cPcm[SNDP_PCM_NAME_MAX_LEN];
 
 
 	sndp_log_debug_func("start\n");
@@ -1627,7 +1557,10 @@ static int sndp_fsi_trigger(
 			sndp_log_info("#Trigger start[MM]\n");
 
 			/* Display the name of PCM */
-			sndp_print_pcm_name(GET_OLD_VALUE(substream->stream));
+			sndp_pcm_name_generate(
+				GET_OLD_VALUE(substream->stream), cPcm);
+			sndp_log_info("PCM: %s [0x%08X]\n",
+				cPcm, GET_OLD_VALUE(substream->stream));
 
 			/* Wake Lock */
 			sndp_wake_lock(E_LOCK);
@@ -2051,12 +1984,16 @@ static void sndp_work_voice_start(struct work_struct *work)
 
 	sndp_log_debug_func("start\n");
 
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xff) >= 0x10)
+		common_set_fsi2cr(STAT_OFF);
+
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* start MAXIM */
 	ulSetDevice = sndp_get_next_devices(wp->new_value);
-	iRet = max98090_set_device(ulSetDevice);
+	iRet = max98090_set_device(ulSetDevice, wp->new_value);
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("maxim set device error (code=%d)\n", iRet);
 		goto start_err;
@@ -2150,6 +2087,10 @@ static void sndp_work_voice_stop(struct work_struct *work)
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
 #endif
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xff) >= 0x10)
+		common_set_fsi2cr(STAT_ON);
+
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
 
@@ -2187,7 +2128,7 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 	/* MAXIM device change */
 	if (wp->new_value != wp->old_value) {
 		ulSetDevice = sndp_get_next_devices(wp->new_value);
-		iRet = max98090_set_device(ulSetDevice);
+		iRet = max98090_set_device(ulSetDevice, wp->new_value);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("maxim set device error (code=%d)\n",
 				     iRet);
@@ -2235,7 +2176,7 @@ static void sndp_work_normal_dev_chg(struct work_struct *work)
 
 	/* MAXIM device change */
 	ulSetDevice = sndp_get_next_devices(wp->new_value);
-	iRet = max98090_set_device(ulSetDevice);
+	iRet = max98090_set_device(ulSetDevice, wp->new_value);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("maxim set device error (code=%d)\n", iRet);
 
@@ -2724,7 +2665,7 @@ static void sndp_maxim_work_start(const int direction)
 	if (SNDP_PCM_IN == direction) {
 		/* start MAXIM */
 		ulSetDevice = sndp_get_next_devices(GET_OLD_VALUE(direction));
-		iRet = max98090_set_device(ulSetDevice);
+		iRet = max98090_set_device(ulSetDevice, GET_OLD_VALUE(direction));
 		if (ERROR_NONE != iRet) {
 			sndp_log_err("maxim set device error (code=%d)\n",
 				     iRet);
@@ -2751,6 +2692,10 @@ static void sndp_maxim_work_start(const int direction)
 		/*}*/
 		/* pm_runtime_put_sync(g_sndp_power_domain); */
 	}
+
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xff) >= 0x10)
+		common_set_pll22(GET_OLD_VALUE(direction), STAT_ON);
 
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
@@ -2866,6 +2811,10 @@ static void sndp_maxim_work_stop(
 					     &(wp->stop.fsi_dai));
 	}
 
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xff) >= 0x10)
+		common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
+
 	/* Capture path is delete */
 	if (SNDP_PCM_IN == direction) {
 		iRet = max98090_get_device(&ulSetDevice);
@@ -2877,7 +2826,7 @@ static void sndp_maxim_work_stop(
 		ulSetDevice &= ~SNDP_IN_DEV_ALL;
 
 		/* set Device */
-		iRet = max98090_set_device(ulSetDevice);
+		iRet = max98090_set_device(ulSetDevice, SNDP_VALUE_INIT);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("max98090_set_device error (code=%d)\n",
 				     iRet);
@@ -2951,7 +2900,7 @@ static void sndp_after_of_work_call_capture_stop(
 
 	/* MAXIM device change */
 	ulSetDevice = sndp_get_next_devices(iOutValue);
-	iRet = max98090_set_device(ulSetDevice);
+	iRet = max98090_set_device(ulSetDevice, iOutValue);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("maxim set device error (code=%d)\n", iRet);
 
