@@ -88,6 +88,10 @@
 #define FSI_SWAP_SEL		(0x0228)
 /* HPB software reset register */
 #define FSI_HPB_SRST		(0x022C)
+/* FSIA divide control register */
+#define FSI_FSIDIVA		(0x0400)
+/* FSIB divide control register */
+#define FSI_FSIDIVB		(0x0408)
 
 /* PortA offset to PortB  */
 #define FSI_PORTB_OFFSET	(0x0040)
@@ -135,9 +139,7 @@ struct fsi_priv {
 
 
 /*
- *
  * PROTOTYPE Declarations
- *
  */
 
 /* Voice call setting function */

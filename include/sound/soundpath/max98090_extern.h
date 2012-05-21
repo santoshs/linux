@@ -106,7 +106,8 @@ enum MAX98090_MUTE_VAL {
 enum MAX98090_AUDIO_IC_VAL {
 	MAX98090_AUDIO_IC_MAX98090 = 0,	/**< max98090. */
 	MAX98090_AUDIO_IC_MAX97236,	/**< max97236. */
-	MAX98090_AUDIO_IC_ALL		/**< max98090 and max97236. */
+	MAX98090_AUDIO_IC_ALL,		/**< max98090 and max97236. */
+	MAX98090_AUDIO_IC_NONE		/**< NONE. */
 };
 
 /*!
@@ -178,13 +179,14 @@ void __exit max98090_exit(void);
 /*!
   @brief set device.
 
-  @param[i] device  value of device ID.
+  @param[i] device     value of device ID.
+  @param[i] pcm_value  value of pcm.
 
   @return function results.
 
   @see MAX98090_DEV_VAL.
 */
-int max98090_set_device(const u_long device);
+int max98090_set_device(const u_long device, const u_int pcm_value);
 
 /*!
   @brief get device setting.

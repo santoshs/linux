@@ -63,6 +63,22 @@ static struct ctrl_func_tbl g_fsi_func_tbl[] = {
 	{ SNDP_PLAYBACK_AUXDIGITAL_RINGTONE,                NULL           },
 	{ SNDP_PLAYBACK_AUXDIGITAL_INCALL,                  NULL           },
 	{ SNDP_PLAYBACK_AUXDIGITAL_INCOMMUNICATION,         NULL           },
+	{ SNDP_PLAYBACK_FMTX_NORMAL,                        fsi_playback   },
+	{ SNDP_PLAYBACK_FMTX_RINGTONE,                      NULL           },
+	{ SNDP_PLAYBACK_FMTX_INCALL,                        NULL           },
+	{ SNDP_PLAYBACK_FMTX_INCOMMUNICATION,               NULL           },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_NORMAL,                fsi_playback   },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_RINGTONE,              NULL           },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_INCALL,                NULL           },
+	{ SNDP_PLAYBACK_FMRX_SPEAKER_INCOMMUNICATION,       NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_NORMAL,                fsi_playback   },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_RINGTONE,              NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_INCALL,                NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADSET_INCOMMUNICATION,       NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_NORMAL,              fsi_playback   },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_RINGTONE,            NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_INCALL,              NULL           },
+	{ SNDP_PLAYBACK_FMRX_HEADPHONE_INCOMMUNICATION,     NULL           },
 	{ SNDP_CAPTURE_MIC_NORMAL,                          fsi_capture    },
 	{ SNDP_CAPTURE_MIC_RINGTONE,                        fsi_capture    },
 	{ SNDP_CAPTURE_MIC_INCALL,                          NULL           },
@@ -75,11 +91,36 @@ static struct ctrl_func_tbl g_fsi_func_tbl[] = {
 	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  NULL           },
 	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    NULL           },
 	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           NULL           },
+	{ SNDP_CAPTURE_FMRX_NORMAL,                         fsi_capture    },
+	{ SNDP_CAPTURE_FMRX_RINGTONE,                       NULL           },
+	{ SNDP_CAPTURE_FMRX_INCALL,                         NULL           },
+	{ SNDP_CAPTURE_FMRX_INCOMMUNICATION,                NULL           },
 };
 
 
-/* Table for Voice call(PortA) */
-static struct common_reg_table fsi_reg_tbl_voicecallA[] = {
+#if 0
+/* Table for Voice call(PortA, FSI master) */
+static struct common_reg_table fsi_reg_tbl_voicecallA_M[] = {
+/*	  Register	Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,	0x00000001,	0 },
+	/* Divider clock 1 / 12 (49.174 / 12 = 4.098MHz) */
+	{ FSI_FSIDIVA,	0x000C0003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Master, DOIS:Master, 16.01kHz(4.098M/256) */
+	{ FSI_ACK_MD,	0x00001111,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ FSI_ACK_RV,	0x00000100,	0 },
+	/* 24bits,	PCM format,	I2S */
+	{ FSI_DO_FMT,	0x00000030,	0 },
+	/* 24bits,	PCM format,	I2S */
+	{ FSI_DI_FMT,	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,	0x00001111,	0 },
+};
+#endif
+
+/* Table for Voice call(PortA, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_voicecallA_S[] = {
 /*	  Register	Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0 },
@@ -95,8 +136,29 @@ static struct common_reg_table fsi_reg_tbl_voicecallA[] = {
 	{ FSI_MUTE,	0x00001111,	0 },
 };
 
-/* Table for Voice call(PortB) */
-static struct common_reg_table fsi_reg_tbl_voicecallB[] = {
+#if 0
+/* Table for Voice call(PortB, FSI master) */
+static struct common_reg_table fsi_reg_tbl_voicecallB_M[] = {
+/*	  Register				Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,				0x00000001,	0 },
+	/* Divider clock 1 / 12 (49.174 / 12 = 4.098MHz) */
+	{ FSI_FSIDIVB,				0x000C0003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Master, DOIS:Master, 16.01kHz(4.098M/256) */
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001111,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	/* 24bits, PCM format, I2S */
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	/* 24bits, PCM format, I2S */
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001111,	0 },
+};
+#endif
+
+/* Table for Voice call(PortB, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_voicecallB_S[] = {
 /*	  Register				Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0 },
@@ -112,8 +174,25 @@ static struct common_reg_table fsi_reg_tbl_voicecallB[] = {
 	{ FSI_MUTE,				0x00001111,	0 },
 };
 
-/* Table for Playback(PortA) */
-static struct common_reg_table fsi_reg_tbl_playA[] = {
+/* Table for Playback(PortA, FSI master) */
+static struct common_reg_table fsi_reg_tbl_playA_M[] = {
+/*	  Register	Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,	0x00000001,	0 },
+	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	{ FSI_FSIDIVA,	0x00020003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	{ FSI_ACK_MD,	0x00001101,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ FSI_ACK_RV,	0x00000100,	0 },
+	/* 24bits, PCM format, I2S */
+	{ FSI_DO_FMT,	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,	0x00001111,	0 },
+};
+
+/* Table for Playback(PortA, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_playA_S[] = {
 /*	  Register	Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0 },
@@ -129,8 +208,25 @@ static struct common_reg_table fsi_reg_tbl_playA[] = {
 	{ FSI_MUTE,	0x00001111,	0 },
 };
 
-/* Table for Playback(PortB) */
-static struct common_reg_table fsi_reg_tbl_playB[] = {
+/* Table for Playback(PortB, FSI master) */
+static struct common_reg_table fsi_reg_tbl_playB_M[] = {
+/*	  Register				Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,				0x00000001,	0 },
+	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	{ FSI_FSIDIVB,				0x00020003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001101,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	/* 24bits, PCM format, I2S */
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001111,	0 },
+};
+
+/* Table for Playback(PortB, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_playB_S[] = {
 /*	  Register				Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0 },
@@ -140,14 +236,29 @@ static struct common_reg_table fsi_reg_tbl_playB[] = {
 	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0 },
 	/* 24bits, PCM format, I2S */
 	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0 },
 };
 
-/* Table for Capture(PortA) */
-static struct common_reg_table fsi_reg_tbl_captureA[] = {
+/* Table for Capture(PortA, FSI master) */
+static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
+/*	  Register	Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,	0x00000001,	0 },
+	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	{ FSI_FSIDIVA,	0x00020003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	{ FSI_ACK_MD,	0x00001110,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ FSI_ACK_RV,	0x00000100,	0 },
+	/* 24bits, PCM format, I2S */
+	{ FSI_DI_FMT,	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,	0x00001111,	0 },
+};
+
+/* Table for Capture(PortA, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_captureA_S[] = {
 /*	  Register	Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0 },
@@ -156,15 +267,30 @@ static struct common_reg_table fsi_reg_tbl_captureA[] = {
 	/* LRS:Clock not inverted, BRS:Clock inverted */
 	{ FSI_ACK_RV,	0x00000001,	0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DO_FMT,	0x00000030,	0 },
-	/* 24bits, PCM format, I2S */
 	{ FSI_DI_FMT,	0x00000030,	0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0 },
 };
 
-/* Table for Capture(PortB) */
-static struct common_reg_table fsi_reg_tbl_captureB[] = {
+/* Table for Capture(PortB, FSI master) */
+static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
+/*	  Register				Value		Delay time */
+	/* Bus clock(MP clock) */
+	{ FSI_CLK_SEL,				0x00000001,	0 },
+	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	{ FSI_FSIDIVB,				0x00020003,	0 },
+	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001110,	0 },
+	/* LRM:Clock not inverted, BRM:Clock inverted */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	/* 24bits, PCM format, I2S */
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001111,	0 },
+};
+
+/* Table for Capture(PortB, FSI slave) */
+static struct common_reg_table fsi_reg_tbl_captureB_S[] = {
 /*	  Register				Value		Delay time */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0 },
@@ -270,22 +396,25 @@ static void fsi_voicecall(const u_int uiValue)
 	 *************************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE */
-	if (devices != SNDP_BLUETOOTHSCO) {
-		reg_tbl  = fsi_reg_tbl_voicecallA;
-		tbl_size = ARRAY_SIZE(fsi_reg_tbl_voicecallA);
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master */
+		reg_tbl  = fsi_reg_tbl_voicecallA_S;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_voicecallA_S);
 	/* BLUETOOTHSCO */
 	} else {
-		reg_tbl  = fsi_reg_tbl_voicecallB;
-		tbl_size = ARRAY_SIZE(fsi_reg_tbl_voicecallB);
+		/* CLKGEN master */
+		reg_tbl  = fsi_reg_tbl_voicecallB_S;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_voicecallB_S);
 	}
 
 	/* Register setting function call */
@@ -314,30 +443,72 @@ static void fsi_playback(const u_int uiValue)
 	 * CLKGEN        : Master
 	 * Port          : PortA or B
 	 * Ch            : 2
-	 * Sampling rate : 48000
+	 * Sampling rate : 44100
 	 ********************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, AUXDIGITAL(HDMI) */
-	if (devices != SNDP_BLUETOOTHSCO) {
-		reg_tbl  = fsi_reg_tbl_playA;
-		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA);
-	/* BLUETOOTHSCO */
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_playA_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_playA_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
+		}
+	/* FM_RADIO_RX */
+	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_captureB_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_captureB_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
+		}
+	/* FM_RADIO_TX */
 	} else {
-		reg_tbl  = fsi_reg_tbl_playB;
-		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB);
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_playB_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_playB_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_M);
+		}
 	}
 
 	/* Register setting function call */
 	common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
+
+	/* Add setting for FM_RADIO_RX */
+	if (false != (dev & SNDP_FM_RADIO_RX)) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_playA_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_playA_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
+		}
+
+		/* Register setting function call */
+		common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
+	}
 
 	sndp_log_debug_func("end\n");
 }
@@ -360,33 +531,49 @@ static void fsi_capture(const u_int uiValue)
 	 *        SNDP_CAPTURE_HEADSET_NORMAL,
 	 *        SNDP_CAPTURE_HEADSET_RINGTONE,
 	 *        SNDP_CAPTURE_HEADSET_INCOMMUNICATION,
+	 *        SNDP_CAPTURE_FMRX_NORMAL,
 	 * FSI           : Slave
 	 * MAXIM         : Slave
 	 * CLKGEN        : Master
 	 * Port          : PortA or B
 	 * Ch            : 2
-	 * Sampling rate : 48000
+	 * Sampling rate : 44100
 	 ********************************************/
 
 	/* Local variable declaration */
-	u_int			devices		= 0;
+	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
 
 	sndp_log_debug_func("start\n");
 
 	/* Device check */
-	devices = SNDP_GET_DEVICE_VAL(uiValue);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* MIC, WIREDHEADSET */
-/*	if (devices != ) { */
-		reg_tbl  = fsi_reg_tbl_captureA;
-		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA);
-	/* FM(T.B.D.) */
-/*	} else {
- *		reg_tbl  = fsi_reg_tbl_captureB;
- *		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB);
- *	}
- */
+	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
+					  (false == (dev & SNDP_FM_RADIO_RX))) {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_captureA_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_captureA_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_M);
+		}
+	/* FM_RADIO_RX */
+	} else {
+		/* CLKGEN master for ES 1.0 */
+		if ((system_rev & 0xff) < 0x10) {
+			reg_tbl  = fsi_reg_tbl_captureB_S;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
+		/* FSI master for ES 2.0 over */
+		} else {
+			reg_tbl  = fsi_reg_tbl_captureB_M;
+			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
+		}
+	}
+
 	/* Register setting function call */
 	common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
 
@@ -597,6 +784,12 @@ void fsi_reg_dump(const u_int uiValue)
 	sndp_log_reg_dump("HPB_SRST   [%08X][%08lX]\n",
 			ioread32(g_fsi_Base + FSI_HPB_SRST),
 			(g_fsi_Base + FSI_HPB_SRST));
+	sndp_log_reg_dump("FSIDIVA    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_FSIDIVA),
+			(g_fsi_Base + FSI_FSIDIVA));
+	sndp_log_reg_dump("FSIDIVB    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_FSIDIVB),
+			(g_fsi_Base + FSI_FSIDIVB));
 
 	sndp_log_reg_dump("\n===== FSI Registers Dump End =====\n");
 }

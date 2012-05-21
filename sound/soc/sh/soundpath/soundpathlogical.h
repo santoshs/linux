@@ -253,12 +253,6 @@ static void sndp_watch_stop_fw_cb(u_int uiNop);
  */
 #define SNDPDRV_VOICE_VOL_MAX	(25)	/* Volume MAX value */
 
-#if defined(DEBUG) && defined(__PRN_SNDP__)
-#define SNDP_PCM_NAME_MAX_LEN	(128)
-#define SNDP_OUT_PCM_SUFFIX	"AndroidPlayback"
-#define SNDP_IN_PCM_SUFFIX	"AndroidCapture"
-#endif /* defined(DEBUG) && defined(__PRN_SNDP__) */
-
 #define SNDP_WAIT_MAX	(3000)		/* TRIGGER STOP Wait time max */
 
 /*
@@ -383,15 +377,6 @@ struct sndp_work_info {
 	u_int				new_value;	 /* PCM value (NEW)  */
 	u_int				old_value;	 /* PCM value (OLD)  */
 };
-
-#if defined(DEBUG) && defined(__PRN_SNDP__)
-/* PCM name suffix table */
-struct sndp_pcm_name_suffix {
-	const u_int key;
-	const char *suffix;
-};
-#endif /* defined(DEBUG) && defined(__PRN_SNDP__) */
-
 
 /* SOUND_TEST */
 #ifdef SOUND_TEST

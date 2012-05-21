@@ -19,6 +19,7 @@
 #define __COMMON_EXTERN_H__
 
 #include <linux/kernel.h>
+#include "soundpath.h"
 
 #ifdef __COMMON_CTRL_NO_EXTERN__
 #define COMMON_CTRL_NO_EXTERN
@@ -51,6 +52,8 @@ COMMON_CTRL_NO_EXTERN void common_set_register(
 	enum sndp_hw_audio drv,
 	struct common_reg_table *reg_tbl,
 	u_int size);
+COMMON_CTRL_NO_EXTERN void common_set_pll22(const u_int uiValue, int stat);
+COMMON_CTRL_NO_EXTERN void common_set_fsi2cr(int stat);
 
 #endif /* __COMMON_EXTERN_H__ */
 
