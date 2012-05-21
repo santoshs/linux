@@ -36,28 +36,6 @@
 #include <linux/skbuff.h>
 #include <linux/ti_wilink_st.h>
 
-//SCIFB0 W/A
-#include <mach/r8a73734.h>
-#define GPIO_PULL_OFF	0x00
-#define GPIO_PULL_DOWN	0x80
-#define GPIO_PULL_UP	0xc0
-
-#define GPIO_BASE	IO_ADDRESS(0xe6050000)
-#define GPIO_PORTCR(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
-
-#define FUNC_MODE_SCIFB 0x01
-#define SCIFB_TXD_CR GPIO_PORTCR(137)
-#define SCIFB_RXD_CR GPIO_PORTCR(138)
-#define SCIFB_RTS_CR GPIO_PORTCR(37)
-#define SCIFB_CTS_CR GPIO_PORTCR(38)
-//end W/A
-
 #define MAX_ST_DEVICES	3	/* Imagine 1 on each UART for now */
 static struct platform_device *st_kim_devices[MAX_ST_DEVICES];
 
@@ -463,12 +441,6 @@ void st_kim_recv(void *disc_data, const unsigned char *data, long count)
 void st_kim_complete(void *kim_data)
 {
 	struct kim_data_s	*kim_gdata = (struct kim_data_s *)kim_data;
-	//SCIFB0 W/A
-	*((volatile u8 *)SCIFB_TXD_CR) = GPIO_PULL_OFF | FUNC_MODE_SCIFB;
-	*((volatile u8 *)SCIFB_RXD_CR) = GPIO_PULL_UP | FUNC_MODE_SCIFB;
-	*((volatile u8 *)SCIFB_CTS_CR) = GPIO_PULL_UP | FUNC_MODE_SCIFB;
-	*((volatile u8 *)SCIFB_RTS_CR) = GPIO_PULL_OFF | FUNC_MODE_SCIFB;
-	//End W/A
 	complete(&kim_gdata->ldisc_installed);
 }
 
