@@ -2,6 +2,7 @@
  * R8A66597 UDC
  *
  * Copyright (C) 2007-2009 Renesas Solutions Corp.
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
  *
@@ -184,6 +185,11 @@ struct r8a66597 {
 	struct delayed_work	vbus_work;
 	struct delayed_work	charger_work;
 	struct wake_lock	wake_lock;
+#ifdef CONFIG_USB_OTG
+	struct delayed_work	hnp_work;
+	struct timer_list	hnp_timer_fail;
+	unsigned host_request_flag:1;
+#endif
 };
 
 #define gadget_to_r8a66597(_gadget)	\
@@ -422,4 +428,3 @@ static inline int check_bulk_or_isoc(u16 pipenum)
 	disable_pipe_irq(r8a66597, pipenum, NRDYENB)
 
 #endif	/* __R8A66597_H__ */
-
