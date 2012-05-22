@@ -4,6 +4,7 @@
 
 menuconfig WATCHDOG
 	bool "Watchdog Timer Support"
+	default y
 	---help---
 	  If you say Y here (and to one of the following options) and create a
 	  character special file /dev/watchdog with major number 10 and minor
@@ -569,6 +570,12 @@ config RMU2_RWDT_REBOOT_ENABLE
     bool "reboot enable"
 	default y
 endmenu
+	  
+config RWDT_DEBUG
+	bool "RWDT debug"
+	depends on RMU2_RWDT
+	help
+	  Say Y here to enable debugging messages for rwdt drivers.
 
 # AVR32 Architecture
 

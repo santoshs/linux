@@ -60,6 +60,12 @@
 #define IO_ADDRESS(x)	x
 #endif	/* IO_ADDRESS */
 
+#ifdef CONFIG_RWDT_DEBUG
+#define RWDT_DEBUG(fmt,...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
+#else /* CONFIG_RWDT_DEBUG */
+#define RWDT_DEBUG(fmt,...)
+#endif /* CONFIG_RWDT_DEBUG */
+
 /* register address define */
 #define STBCHR2				IO_ADDRESS(0xE6180002U)
 #define STBCHRB1			IO_ADDRESS(0xE6180041U)
