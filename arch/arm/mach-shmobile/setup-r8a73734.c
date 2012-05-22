@@ -590,9 +590,44 @@ static const struct sh_dmae_slave_config r8a73734_dmae_slaves[] = {
 		.mid_rid	= 0xd6,
 	}, {
 		.slave_id	= SHDMA_SLAVE_FSI2A_TX,
-		.addr		= 0xec230024,
-		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
-		.mid_rid	= 0xd5,
+		.addr           = 0xec230024,
+		.chcr           = CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid        = 0xd5,
+	}, {
+		.slave_id       = SHDMA_SLAVE_FSI2B_TX,
+		.addr           = 0xec230064,
+		.chcr           = CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid        = 0xd9,
+	}, {
+		.slave_id       = SHDMA_SLAVE_FSI2B_RX,
+		.addr           = 0xec230060,
+		.chcr           = CHCR_RX(XMIT_SZ_16BIT),
+		.mid_rid        = 0xda,
+	}, {
+		.slave_id       = SHDMA_SLAVE_SCUW_FFD_TX,
+		.addr           = 0xEC700708,
+		.chcr           = CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid        = 0x79,
+	}, {
+		.slave_id       = SHDMA_SLAVE_SCUW_FFU_RX,
+		.addr           = 0xEC700714,
+		.chcr           = CHCR_RX(XMIT_SZ_32BIT),
+		.mid_rid        = 0x7A,
+	}, {
+		.slave_id       = SHDMA_SLAVE_SCUW_CPUFIFO_0_TX,
+		.addr           = 0xEC700720,
+		.chcr           = CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid        = 0x7D,
+	}, {
+		.slave_id       = SHDMA_SLAVE_SCUW_CPUFIFO_2_RX,
+		.addr           = 0xEC700738,
+		.chcr           = CHCR_RX(XMIT_SZ_32BIT),
+		.mid_rid        = 0x7E,
+	}, {
+		.slave_id       = SHDMA_SLAVE_SCUW_CPUFIFO_1_TX,
+		.addr           = 0xEC70072C,
+		.chcr           = CHCR_TX(XMIT_SZ_32BIT),
+		.mid_rid        = 0x81,
 	},
 };
 
@@ -650,6 +685,12 @@ static struct sh_dmae_pdata r8a73734_dmae_platform_data = {
 };
 
 static struct resource r8a73734_dmae_resources[] = {
+        {
+		/* DescriptorMEM */
+		.start  = 0xFE00A000,
+		.end    = 0xFE00A7FC,
+		.flags  = IORESOURCE_MEM,
+	},
 	{
 		/* Registers including DMAOR and channels including DMARSx */
 		.start  = 0xfe000020,
