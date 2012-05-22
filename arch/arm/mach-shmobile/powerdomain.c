@@ -86,6 +86,12 @@ static unsigned int default_c4_pdsel = 0;
 static int power_a4rm_mask;
 #endif
 static int chip_rev = ES_REV_1_0;
+#ifdef CONFIG_PM_DEBUG
+static DEFINE_SPINLOCK(pdc_lock);
+static int pdc_enable = 1;
+static int old_pdc_enable = 1;
+static int power_areas_status = 0;
+#endif
 
 static struct drv_pd_mapping_table client_names_es1[] = {
 	/* MFIS		 */	{ "mfis", 				ID_C4 	},
@@ -408,6 +414,18 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
+#ifdef CONFIG_PM_DEBUG
+	spin_lock(&pdc_lock);
+	power_areas_status &= (~area);
+	if (0 == pdc_enable) {
+#ifdef __DEBUG_PDC
+		power_areas_info();
+#endif /* __DEBUG_PDC */
+		spin_unlock(&pdc_lock);
+		return 0;
+	}
+#endif
+
 	power_status_set(area, false);
 
 	if (POWER_A3SP == area) {
@@ -417,6 +435,11 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 #ifdef __DEBUG_PDC
 	power_areas_info();
 #endif /* __DEBUG_PDC */
+
+#ifdef CONFIG_PM_DEBUG
+	spin_unlock(&pdc_lock);	
+#endif
+
 	return 0;
 }
 
@@ -428,10 +451,27 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
  */
 static int power_domain_driver_runtime_resume(struct device *dev)
 {
+#ifdef CONFIG_PM_DEBUG
+	spin_lock(&pdc_lock);
+	power_areas_status |= (1 << to_platform_device(dev)->id);
+	if (0 == pdc_enable) {
+#ifdef __DEBUG_PDC
+		power_areas_info();
+#endif /* __DEBUG_PDC */
+		spin_unlock(&pdc_lock);
+		return 0;
+	}
+#endif
+
 	power_status_set(1 << to_platform_device(dev)->id, true);
 #ifdef __DEBUG_PDC
 	power_areas_info();
 #endif /* __DEBUG_PDC */
+
+#ifdef CONFIG_PM_DEBUG
+	spin_unlock(&pdc_lock);	
+#endif
+
 	return 0;
 }
 
@@ -642,6 +682,12 @@ static int __init power_domain_driver_init(void)
 	int i;
 	int j;
 
+#ifdef CONFIG_PM_DEBUG
+	pdc_enable = 1;
+	old_pdc_enable = 1;
+	power_areas_status = POWER_A3R | POWER_A4RM | POWER_A4MP | POWER_A3SP | POWER_A3SG;
+#endif
+
 	chip_rev = shmobile_chip_rev();
 	
 #ifdef CONFIG_PM_RUNTIME_A4RM
@@ -851,3 +897,61 @@ void power_domains_put_noidle(const char *name)
 }
 
 EXPORT_SYMBOL(power_domains_put_noidle);
+
+#ifdef CONFIG_PM_DEBUG
+int control_pdc(int is_enable)
+{
+	spin_lock(&pdc_lock);
+	old_pdc_enable = pdc_enable;
+	if ((1 == old_pdc_enable) && (0 == is_enable)) {
+		if (0 == (power_areas_status & POWER_A4RM)) {
+			power_status_set(POWER_A4RM, true);
+		}
+		if (0 == (power_areas_status & POWER_A3R)) {
+			power_status_set(POWER_A3R, true);
+		}
+		if (0 == (power_areas_status & POWER_A4MP)) {
+			power_status_set(POWER_A4MP, true);
+		}
+		if (0 == (power_areas_status & POWER_A3SP)) {
+			power_status_set(POWER_A3SP, true);
+		}
+		if (0 == (power_areas_status & POWER_A3SG)) {
+			power_status_set(POWER_A3SG, true);
+		}	
+	}
+	
+	if ((0 == old_pdc_enable) && (1 == is_enable)) {
+		if (0 == (power_areas_status & POWER_A3R)) {
+			power_status_set(POWER_A3R, false);
+		}		
+		if (0 == (power_areas_status & POWER_A4RM)) {
+			power_status_set(POWER_A4RM, false);
+		}		
+		if (0 == (power_areas_status & POWER_A4MP)) {
+			power_status_set(POWER_A4MP, false);
+		}		
+		if (0 == (power_areas_status & POWER_A3SP)) {
+			power_status_set(POWER_A3SP, false);
+		}		
+		if (0 == (power_areas_status & POWER_A3SG)) {
+			power_status_set(POWER_A3SG, false);
+		}
+	}
+	pdc_enable = is_enable;
+
+#ifdef __DEBUG_PDC
+	power_areas_info();
+#endif /* __DEBUG_PDC */
+
+	spin_unlock(&pdc_lock);
+	return 0;
+}
+EXPORT_SYMBOL(control_pdc);
+
+int is_pdc_enable(void)
+{
+	return pdc_enable;
+}
+EXPORT_SYMBOL(is_pdc_enable);
+#endif

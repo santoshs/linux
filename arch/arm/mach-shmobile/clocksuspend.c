@@ -1693,7 +1693,6 @@ int cpg_set_freq(const struct clk_rate rates)
 	int zb3_change = 0;
 	int zb_change = 0;
 	int zs_change = 0;
-	int div = 0;
 
 	spin_lock_irqsave(&freq_change_lock, flags);
 	/* violate restriction? */
@@ -1796,8 +1795,7 @@ int cpg_set_freq(const struct clk_rate rates)
 			reg |= DIV_TO_HW(HP_CLK, rates.hp_clk);
 		} else {
 			/* keep current HP-Phy */
-			if (!cpg_get_freqval(HP_CLK, &div))
-				reg |= DIV_TO_HW(HP_CLK, div);
+			reg |= DIV_TO_HW(HP_CLK, curr_rates.hp_clk);
 		}
 
 		/* change ZS */
@@ -1806,8 +1804,7 @@ int cpg_set_freq(const struct clk_rate rates)
 			reg |= DIV_TO_HW(ZS_CLK, rates.zs_clk);
 		} else {
 			/* keep current ZS-Phy */
-			if (!cpg_get_freqval(ZS_CLK, &div))
-				reg |= DIV_TO_HW(ZS_CLK, div);
+			reg |= DIV_TO_HW(ZS_CLK, curr_rates.zs_clk);
 		}
 
 		/* apply setting */
@@ -1885,6 +1882,12 @@ int pm_setup_clock(void)
  */
 int pm_set_clocks(const struct clk_rate rates)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return 0;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	return cpg_set_freq(rates);
 }
 EXPORT_SYMBOL(pm_set_clocks);
@@ -1906,6 +1909,12 @@ int pm_set_clock_mode(int mode)
 	int size = 0;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
 	else
@@ -1941,7 +1950,12 @@ EXPORT_SYMBOL(pm_set_clock_mode);
 int pm_get_clock_mode(int mode, struct clk_rate *rate)
 {
 	int size = 0;
-
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return 0;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
 	else
@@ -1969,6 +1983,12 @@ EXPORT_SYMBOL(pm_get_clock_mode);
  */
 int pm_set_syscpu_frequency(int div)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return 0;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	return cpg_set_freqval(Z_CLK, div);
 }
 EXPORT_SYMBOL(pm_set_syscpu_frequency);
@@ -1988,6 +2008,12 @@ unsigned int pm_get_syscpu_frequency(void)
 	int div = 0;
 	int pll0 = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	ret = cpg_get_freqval(Z_CLK, &div);
 	if (!ret) {
 		pll0 = cpg_get_pll(PLL0);
@@ -2019,6 +2045,12 @@ int pm_disable_clock_change(int clk)
 	unsigned long flags;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&freq_change_lock, flags);
 	/* support ZS/HP only */
 	if (!(clk & (ZSCLK | HPCLK))) {
@@ -2053,6 +2085,12 @@ int pm_enable_clock_change(int clk)
 	unsigned long flags;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&freq_change_lock, flags);
 	/* support ZS/HP only */
 	if (!(clk & (ZSCLK | HPCLK))) {
@@ -2089,6 +2127,12 @@ EXPORT_SYMBOL(pm_enable_clock_change);
  */
 int pm_set_pll_ratio(int pll, unsigned int val)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return 0;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	return cpg_set_pll(pll, val);
 }
 EXPORT_SYMBOL(pm_set_pll_ratio);
@@ -2121,6 +2165,12 @@ EXPORT_SYMBOL(pm_get_pll_ratio);
 unsigned long pm_get_spinlock(void)
 {
 	unsigned long flag;
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return 0;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&zs_change_lock, flag);
 	return flag;
 }
@@ -2137,6 +2187,12 @@ EXPORT_SYMBOL(pm_get_spinlock);
  */
 void pm_release_spinlock(unsigned long flag)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!is_cpufreq_enable()) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_unlock_irqrestore(&zs_change_lock, flag);
 }
 EXPORT_SYMBOL(pm_release_spinlock);

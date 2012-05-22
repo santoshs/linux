@@ -39,9 +39,9 @@
 /* #define CPUFREQ_DEBUG_ENABLE	1 */
 #ifdef CPUFREQ_DEBUG_ENABLE
 #define pr_log(fmt, ...)	printk(KERN_INFO pr_fmt(fmt), ##__VA_ARGS__)
-#else
+#else /* !CPUFREQ_DEBUG_ENABLE */
 #define pr_log(fmt, ...)
-#endif /* CPUFREQ_DEBUG_ENABLE */
+#endif /*   */
 /* #define CPUFREQ_TEST_MODE	1 */
 
 /* MAIN Table */
@@ -85,7 +85,6 @@ struct shmobile_cpuinfo {
 	struct cpufreq_resource upper_lowspeed;
 	struct cpufreq_resource highspeed;
 	struct cpufreq_policy *policy;
-	unsigned int clocks_disabled_count;
 	unsigned int freq;
 	unsigned int req_rate[CONFIG_NR_CPUS];
 	unsigned int limit_maxfrq;
@@ -96,6 +95,9 @@ struct shmobile_cpuinfo {
 };
 
 /**************** static ****************/
+#ifdef CONFIG_PM_DEBUG
+int cpufreq_enabled = 1;
+#endif /* CONFIG_PM_DEBUG */
 static int target_cpu = -1;
 #ifndef CPUFREQ_TEST_MODE
 static
@@ -248,12 +250,12 @@ int __clk_get_rate(struct clk_rate *rate, int clk_state,
 #ifdef SH_CPUFREQ_VERYLOW
 				if (level == FREQ_LEV_EXMIN)
 					level = FREQ_LEV_MIN;
-#endif
+#endif /* SH_CPUFREQ_VERYLOW */
 #ifdef SH_CPUFREQ_OVERDRIVE
 				freq_mode = clk_state * lv_num + level;
-#else
+#else /* !SH_CPUFREQ_OVERDRIVE */
 				freq_mode = clk_state * lv_num + level + 1;
-#endif
+#endif /* SH_CPUFREQ_OVERDRIVE */
 			} else {
 				freq_mode = clk_state * lv_num + level + 1;
 			}
@@ -271,16 +273,6 @@ int __clk_get_rate(struct clk_rate *rate, int clk_state,
 		pr_err("%s()[%d]: error! get clock mode<%d>\n",
 			__func__, __LINE__, freq_mode);
 		return -EINVAL;
-	}
-
-	/* ZS-phy/HP-Phy can not be changed, we supposed to set to highest
-	 * frequencies
-	 */
-	if (the_cpuinfo.clocks_disabled_count) {
-		pr_log("%s()[%d]: ZS/HP disabled count:%d\n",
-			__func__, __LINE__, the_cpuinfo.clocks_disabled_count);
-		rate->zs_clk = MAX_ZS_DIVRATE;
-		rate->hp_clk = MAX_HP_DIVRATE;
 	}
 
 	return ret;
@@ -325,7 +317,14 @@ static void __update_policy(void)
 	struct cpufreq_policy policy;
 	const char *gov = "conservative";
 	int i = 0;
-
+	
+	/* suspend mode, only CPU0 alive */
+	if (the_cpuinfo.clk_state == MODE_SUSPEND)
+		return;
+	
+	/* notify all others about frequency change, reuqest them allocmem
+	 * update current frequency
+	 */
 	for (i = 0; i < num_online_cpus(); i++) {
 		if (!cpufreq_get_policy(&policy, i)) {
 			/* only conservative governor */
@@ -416,6 +415,12 @@ int __set_rate(unsigned int freq)
  */
 void start_cpufreq(void)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: start scaling/begin, cpufreq flag<%d>,\n",
 		__func__, __LINE__, the_cpuinfo.highspeed.used);
 	spin_lock(&the_cpuinfo.lock);
@@ -453,6 +458,12 @@ int stop_cpufreq(void)
 	unsigned int freq_new = 0;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: stop scaling/begin, cpufreq flag<%d>,\n",
 		__func__, __LINE__, the_cpuinfo.highspeed.used);
 	spin_lock(&the_cpuinfo.lock);
@@ -535,7 +546,12 @@ void disable_dfs_mode_min(void)
 	unsigned int freq_old = 0;
 	unsigned int freq_new = 0;
 	int ret = 0;
-
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: disable low-level(MIN)/begin, upper lowspeed<%d>,\n",
 		__func__, __LINE__, the_cpuinfo.upper_lowspeed.used);
 	spin_lock(&the_cpuinfo.lock);
@@ -604,6 +620,12 @@ EXPORT_SYMBOL(disable_dfs_mode_min);
  */
 void enable_dfs_mode_min(void)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: enable low-level(MIN)/begin, highspeed<%d>,\n",
 		__func__, __LINE__, the_cpuinfo.upper_lowspeed.used);
 	spin_lock(&the_cpuinfo.lock);
@@ -632,6 +654,12 @@ int corestandby_cpufreq(void)
 	int idx = CORESTB_CPUFREQ;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	/* pr_log("%s()[%d]: cpufreq standby/begin\n", __func__, __LINE__); */
 	spin_lock(&the_cpuinfo.lock);
 
@@ -695,6 +723,12 @@ int suspend_cpufreq(void)
 	unsigned int freq_new = 0;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: suspend cpufreq/begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
@@ -766,6 +800,12 @@ int resume_cpufreq(void)
 	unsigned int freq_new = 0;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: resume from suspend/begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
@@ -826,10 +866,18 @@ EXPORT_SYMBOL(resume_cpufreq);
  */
 int sgx_cpufreq(int flag)
 {
+	int ret = 0;
+
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock(&the_cpuinfo.lock);
 	the_cpuinfo.sgx_flg = flag;
 	spin_unlock(&the_cpuinfo.lock);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(sgx_cpufreq);
 /*
@@ -844,6 +892,12 @@ EXPORT_SYMBOL(sgx_cpufreq);
  */
 void control_dfs_scaling(bool enabled)
 {
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 	the_cpuinfo.scaling_locked = (enabled) ? 0 : 1;
@@ -868,8 +922,13 @@ int suppress_clocks_change(bool set_max)
 	struct clk_rate clk_div;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock(&the_cpuinfo.lock);
-	the_cpuinfo.clocks_disabled_count++;
 	if (set_max) {
 		ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
 				the_cpuinfo.sgx_flg, the_cpuinfo.freq);
@@ -906,21 +965,27 @@ void unsuppress_clocks_change(void)
 	struct clk_rate clk_div;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	spin_lock(&the_cpuinfo.lock);
-	if (the_cpuinfo.clocks_disabled_count)
-		the_cpuinfo.clocks_disabled_count--;
+	ret = pm_enable_clock_change(ZSCLK | HPCLK);	
 	/* restore to normal operation */
+	if (!ret) {
 	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
 			the_cpuinfo.sgx_flg, the_cpuinfo.freq);
 	if (ret) {
 		spin_unlock(&the_cpuinfo.lock);
-		pr_err("%s()[%d]: __clk_get_rate fail\n", __func__, __LINE__);
+			pr_err("%s()[%d]: __clk_get_rate fail\n",
+				__func__, __LINE__);
 		return;
 	}
 
 	ret = pm_set_clocks(clk_div);
-	if (!ret)
-		ret = pm_enable_clock_change(ZSCLK | HPCLK);
+	}
 
 	spin_unlock(&the_cpuinfo.lock);
 }
@@ -943,6 +1008,12 @@ int limit_max_cpufreq(int max)
 	struct clk_rate clk_div;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
@@ -1020,6 +1091,75 @@ set_end:
 }
 EXPORT_SYMBOL(limit_max_cpufreq);
 
+#ifdef CONFIG_PM_DEBUG
+/*
+ * control_cpufreq: runtime enable/disable cpufreq features
+ *
+ * Argument:
+ *		@is_enable: enable flag: enable(1)/disable(0)
+ *
+ * Return:
+ *		0: normal
+ *		negative: operation fail
+ */
+int control_cpufreq(int is_enable)
+{
+	int ret = 0;
+	
+	if(!is_enable) {
+		if(!cpufreq_enabled) {
+			pr_log("%s()[%d]: cpufreq is disabled already\n",
+			__func__, __LINE__);
+			return 0;
+		}
+		
+		ret = stop_cpufreq();
+		if(ret) {
+			pr_err("%s()[%d]: error<%d>! stop_cpufreq \n",
+				__func__, __LINE__, ret);
+			return ret;
+		}
+		
+		spin_lock(&the_cpuinfo.lock);
+		cpufreq_enabled = 0;
+		spin_unlock(&the_cpuinfo.lock);
+		pr_log("%s()[%d]: cpufreq is disabled\n", __func__, __LINE__);
+	} else {
+		if(cpufreq_enabled) {
+			pr_log("%s()[%d]: cpufreq is enabled already\n",
+				__func__, __LINE__);
+			return ret;
+		} else {
+			spin_lock(&the_cpuinfo.lock);
+			cpufreq_enabled = 1;
+			spin_unlock(&the_cpuinfo.lock);	
+			
+			start_cpufreq();		
+			pr_log("%s()[%d]: cpufreq is enabled\n",
+				__func__, __LINE__);
+		}
+	}
+	return ret;
+}
+EXPORT_SYMBOL(control_cpufreq);
+
+/*
+ * is_cpufreq_enable: get runtime status
+ *
+ * Argument:
+ *		None
+ *
+ * Return:
+ *		0: disabled
+ *		1: enabled
+ */
+int is_cpufreq_enable(void)
+{
+	return cpufreq_enabled;
+}
+EXPORT_SYMBOL(is_cpufreq_enable);
+#endif /* CONFIG_PM_DEBUG */
+
 #ifdef CONFIG_EARLYSUSPEND
 /*
  * function: change clock state and set clocks, support for early suspend state
@@ -1033,12 +1173,18 @@ EXPORT_SYMBOL(limit_max_cpufreq);
  */
 #ifndef CPUFREQ_TEST_MODE
 static
-#endif
+#endif /* CPUFREQ_TEST_MODE */
 void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 {
 	struct clk_rate clk_div;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
@@ -1070,12 +1216,18 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
  */
 #ifndef CPUFREQ_TEST_MODE
 static
-#endif
+#endif /* CPUFREQ_TEST_MODE */
 void shmobile_cpufreq_late_resume(struct early_suspend *h)
 {
 	struct clk_rate clk_div;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 	the_cpuinfo.clk_state = MODE_NORMAL;
@@ -1115,7 +1267,7 @@ static struct early_suspend shmobile_cpufreq_suspend = {
  */
 #ifndef CPUFREQ_TEST_MODE
 static
-#endif
+#endif /* CPUFREQ_TEST_MODE */
 int shmobile_cpufreq_verify(struct cpufreq_policy *policy)
 {
 	struct cpufreq_frequency_table *freq_table = NULL;
@@ -1174,6 +1326,12 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	int seleted_level = 0;
 	int cpu = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	/* pr_log("%s()[%d]: CPU<%d> target<%u>/begin\n", __func__, __LINE__,
 		policy->cpu, target_freq); */
 	spin_lock(&the_cpuinfo.lock);
@@ -1200,7 +1358,7 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 #ifdef SH_CPUFREQ_VERYLOW
 		/* verrylow must not be set in ES1.x */
 		seleted_level = FREQ_LEV_NUM - 2;
-#endif
+#endif /* SH_CPUFREQ_VERYLOW */
 	}
 
 	while (seleted_level > FREQ_LEV_MAX) {
@@ -1291,6 +1449,12 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	int i = 0;
 	int ret = 0;
 
+#ifdef CONFIG_PM_DEBUG
+	if (!cpufreq_enabled) {
+		/* runtime disabled */
+		return ret;
+	}
+#endif /* CONFIG_PM_DEBUG */
 	pr_info("%s()[%d]: init cpufreq driver/start\n", __func__, __LINE__);
 	if (!policy)
 		return -EINVAL;
@@ -1299,7 +1463,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 #ifdef SH_CPUFREQ_OVERDRIVE
 		/* ES1.x does not support OVERDRIVE mode */
 		return -ENOTSUPP;
-#endif
+#endif /* SH_CPUFREQ_OVERDRIVE */
 		freq_table = main_freqtbl_es1_x;
 	} else if (shmobile_chip_rev() >= ES_REV_2_0) {
 		freq_table = main_freqtbl_es2_x;
@@ -1328,8 +1492,8 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		return ret;
 	}
 #ifdef CONFIG_EARLYSUSPEND
-	/*register_early_suspend(&shmobile_cpufreq_suspend);*/
-#endif
+	/* register_early_suspend(&shmobile_cpufreq_suspend); */
+#endif /* CONFIG_EARLYSUSPEND */
 	if (ret < 0)
 		pr_err("%s()[%d]: error<%d>! can not set PLL0 ratio<%u>",
 			__func__, __LINE__,	ret, stc_val);
@@ -1346,7 +1510,6 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	the_cpuinfo.upper_lowspeed.used = false;
 	atomic_set(&the_cpuinfo.highspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.upper_lowspeed.usage_count, 0);
-	the_cpuinfo.clocks_disabled_count = 0;
 
 	/* the max frequency is set at boot time */
 	freq = freq_table[0].frequency;

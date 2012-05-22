@@ -181,6 +181,10 @@ extern const char *const pm_states[];
 extern bool valid_state(suspend_state_t state);
 extern int suspend_devices_and_enter(suspend_state_t state);
 extern int enter_state(suspend_state_t state);
+#ifdef CONFIG_PM_DEBUG
+extern int control_systemsuspend(int is_enabled);
+extern int is_systemsuspend_enable(void);
+#endif	/* CONFIG_PM_DEBUG */
 #else /* !CONFIG_SUSPEND */
 static inline int suspend_devices_and_enter(suspend_state_t state)
 {

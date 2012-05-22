@@ -414,7 +414,7 @@ CPU0_SYSTEMSUSPEND:
 	MOV 	lr, pc
 	MOV		pc, r4
 	
-	LDR		r9, =ram0SecHalvalue
+	LDR		r9, =ram0SecHalReturnCpu0
 	STR		r0, [r9]
 	
 	CMP 	r0, #SEC_HAL_RES_OK
@@ -565,7 +565,7 @@ CPU1_SYSTEMSUSPEND:
 	MOV 	lr, pc
 	MOV		pc, r4
 		
-	LDR		r9, =ram0SecHalvalue
+	LDR		r9, =ram0SecHalReturnCpu1
 	STR		r0, [r9]
 
 	CMP 	r0, #SEC_HAL_RES_OK
@@ -1612,18 +1612,27 @@ SKIP_PASR_DRAM_AREA0:
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
 
-	/*--------------------------------------*/
-	/* Change clock setting for powerdown	*/
-	/*--------------------------------------*/
+	/*------------------------------------------*/
+	/* Change clock setting for powerdown       */
+	/* Switch by Sec_hal function return value  */
+	/*   0x00: Perform clock change             */
+	/*   0x20: Skip clock change                */
+	/*------------------------------------------*/
+	LDR		r0, =ram0SecHalReturnCpu0
+	LDR		r0, [r0]
+	CMP		r0, #SEC_HAL_FREQ_FAIL
+	BEQ		POWERDOWN_NO_CHANGE_FREQUENCY
+	
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
 	LDR		r4, =ram0SetClockSystemSuspendPhys
 	MOV		r0, #0x0	/* Target(r0):Powerdown(0x0)	*/
-	MOV		lr, pc	/* lr: Return address	*/
-	MOV		pc, r4 	/* Call setclock_systemsuspend()*/
+	MOV		lr, pc		/* lr: Return address	*/
+	MOV		pc, r4		/* Call setclock_systemsuspend()*/
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
+POWERDOWN_NO_CHANGE_FREQUENCY:
 
 	/*--------------------------------------*/
 	/* Turn off Watchdog timer				*/
@@ -1661,6 +1670,48 @@ SYSPD_LOOP_TURNOFF_PLL0:
 	/* Loop until operation is completed */
 	BNE		SYSPD_LOOP_TURNOFF_PLL0
 
+#ifdef __EXTAL1_INFO__
+	/*------------------------------------------*/
+	/* Log information for disabling EXTAL1	*/
+	/*------------------------------------------*/
+	
+	/* Read EXTAL1 Mask Count Register (EXMSKCNT1)*/
+	LDR 	r4, =EXMSKCNT1Phys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveEXMSKCNT1Phys_suspend
+	STR		r5, [r6]
+	
+	/* Read EXTAL1 Clock Stop Control Register (APSCSTP)*/
+	LDR 	r4, =APSCSTPPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveAPSCSTPPhys_suspend
+	STR		r5, [r6]
+	
+	/* Read EXTAL1 Control Register (SYCKENMSK)*/
+	LDR 	r4, =SYCKENMSKPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveSYCKENMSKPhys_suspend
+	STR		r5, [r6]
+	
+	/* Read C4 Area Power Control Register (C4POWCR)*/
+	LDR 	r4, =C4POWCRPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveC4POWCRPhys_suspend
+	STR		r5, [r6]
+	
+	/* Read	C4 Area Power Control Register2 (PDNSEL)*/
+	LDR 	r4, =PDNSEL
+	LDR		r5, [r4]
+	LDR		r6, =ram0SavePDNSELPhys_suspend
+	STR		r5, [r6]
+	
+	/* Read	Power Status Register (PSTR)*/
+	LDR 	r4, =PSTR
+	LDR		r5, [r4]
+	LDR		r6, =ram0SavePSTRPhys_suspend
+	STR		r5, [r6]
+#endif /*__EXTAL1_INFO__*/
+
 	/*--------------------------------------*/
 	/* Power Down							*/
 	/*--------------------------------------*/
@@ -1683,6 +1734,66 @@ ENDPROC(sys_powerdown)
 /********************************************/
 .align	5
 ENTRY(sys_powerup)
+
+	/*------------------------------------------*/
+	/* Log information of SPI Status Registers	*/
+	/*------------------------------------------*/
+	
+	/*Read SPI Status Registers 0 */
+	LDR		r10, =ICSPISR0
+	LDR		r11, [r10]
+	
+	LDR		r12, =ram0_ICSPISR0Phys
+	STR		r11, [r12]
+	
+	/*Read SPI Status Registers 1 */
+	LDR		r10, =ICSPISR1
+	LDR		r11, [r10]
+	
+	LDR		r12, =ram0_ICSPISR1Phys
+	STR		r11, [r12]
+
+#ifdef __EXTAL1_INFO__
+	/*------------------------------------------*/
+	/* Log information for disabling EXTAL1	*/
+	/*------------------------------------------*/
+	
+	/* Read EXTAL1 Mask Count Register (EXMSKCNT1)*/
+	LDR 	r4, =EXMSKCNT1Phys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveEXMSKCNT1Phys_resume
+	STR		r5, [r6]
+	
+	/* Read EXTAL1 Clock Stop Control Register (APSCSTP)*/
+	LDR 	r4, =APSCSTPPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveAPSCSTPPhys_resume
+	STR		r5, [r6]
+	
+	/* Read EXTAL1 Control Register (SYCKENMSK)*/
+	LDR 	r4, =SYCKENMSKPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveSYCKENMSKPhys_resume
+	STR		r5, [r6]
+	
+	/* Read C4 Area Power Control Register (C4POWCR)*/
+	LDR 	r4, =C4POWCRPhys
+	LDR		r5, [r4]
+	LDR		r6, =ram0SaveC4POWCRPhys_resume
+	STR		r5, [r6]
+	
+	/* Read	C4 Area Power Control Register2 (PDNSEL)*/
+	LDR 	r4, =PDNSEL
+	LDR		r5, [r4]
+	LDR		r6, =ram0SavePDNSELPhys_resume
+	STR		r5, [r6]
+	
+	/* Read	Power Status Register (PSTR)*/
+	LDR 	r4, =PSTR
+	LDR		r5, [r4]
+	LDR		r6, =ram0SavePSTRPhys_resume
+	STR		r5, [r6]
+#endif /*__EXTAL1_INFO__*/
 
 	/*----------------------------------*/
 	/* Turn on PLL0						*/
@@ -1718,18 +1829,27 @@ SYSPU_TURNON_PLL0_SKIP:
 	STR		r4, [r6]
 	STR		r5, [r7]
 
-	/*--------------------------------------*/
-	/* Change clock setting for wakeup		*/
-	/*--------------------------------------*/
+	/*------------------------------------------*/
+	/* Change clock setting for wakeup          */
+	/* Switch by Sec_hal function return value  */
+	/*   0x00: Perform clock change             */
+	/*   0x20: Skip clock change                */
+	/*------------------------------------------*/
+	LDR		r0, =ram0SecHalReturnCpu0
+	LDR		r0, [r0]
+	CMP		r0, #SEC_HAL_FREQ_FAIL
+	BEQ		POWERUP_NO_CHANGE_FREQUENCY
+	
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
 	LDR		r4, =ram0SetClockSystemSuspendPhys
 	MOV		r0, #0x1		/* Target(r0):Wakeup(0x1) */
-	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call setclock_systemsuspend() */
+	MOV		lr, pc			/* lr: Return address */
+	MOV		pc, r4			/* Call setclock_systemsuspend() */
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
+POWERUP_NO_CHANGE_FREQUENCY:
 
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
@@ -1850,7 +1970,8 @@ ENTRY(setclock_systemsuspend)
 	LDR		r4, =CPG_FRQCRAPhys
 	LDR		r5, =ram0SetClockFrqcraPhys
 	LDR		r6, [r4]
-	LDR		r7, =FRQCRA_MASK
+	LDR		r7, =ram0FRQCRAMaskPhys
+	LDR		r7, [r7]
 	AND		r6, r6, r7
 	STR		r6, [r5]
 	
@@ -1897,7 +2018,8 @@ SETCLOCK_BACKUP_CLOCK_SETTING_SKIP:
 	 * r7: RAM0 address storing backup setting of FRQCRB
 	 */
 	CMP		r0, #0x0
-	LDREQ	r4, =POWERDOWN_FRQCRA
+	LDREQ	r4, =ram0FRQCRADownPhys
+	LDREQ	r4, [r4]
 	LDREQ	r5, =POWERDOWN_FRQCRB
 	LDRNE	r6, =ram0SetClockFrqcraPhys
 	LDRNE	r4, [r6]
@@ -1914,7 +2036,8 @@ SETCLOCK_BACKUP_CLOCK_SETTING_SKIP:
 	LDR		r6, =CPG_FRQCRAPhys
 	LDR		r7, =CPG_FRQCRBPhys
 	LDR		r8, [r6]					/* Read CPG.FRQCRA		*/
-	LDR		r9, =FRQCRA_MASK
+	LDR		r9, =ram0FRQCRAMaskPhys
+	LDR		r9, [r9]
 	AND		r8, r8, r9					/* Clear reserve bit.	*/
 	CMP		r8, r4
 	BNE		SETCLOCK_CHANGE_START

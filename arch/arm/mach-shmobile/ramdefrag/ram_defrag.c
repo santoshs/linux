@@ -92,7 +92,6 @@ static int page_check(struct page *page)
 	int pagecount;
 	mapcount = 0;
 	pagecount = 0;
-	DEFRAG_PRINTK("%s\n", __func__);
 	if (page != NULL) {
 		mapcount = atomic_read(&page->_mapcount);
 		pagecount = atomic_read(&page->_count);

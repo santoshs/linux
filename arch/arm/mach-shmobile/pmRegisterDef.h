@@ -205,7 +205,8 @@
 /*System-CPU PERIPHCLK Control Register*/
 #define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
-#define FRQCRA_MASK			0x00FFFFF0
+#define FRQCRA_ES1_MASK			0x00FFFFF0
+#define FRQCRA_ES2_MASK			0x00FFFFFF
 #define FRQCRB_MASK			0x1FFFFFF0
 #define FRQCRB_ZSEL_BIT		0x10000000
 #define FRQCRB_ZFC_MASK		0x0F000000
@@ -218,7 +219,8 @@
 #define KICK_WAIT			1000
 #define FRRCRB_ZCLK_1_48	0x1B000000	/* Z clock div ratio = 1/48 */
 /* I:1/12, ZG:1/48, M3:1/48, B:1/48, M1:1/48*/
-#define	POWERDOWN_FRQCRA	0x005BBBB0
+#define	POWERDOWN_FRQCRA_ES1	0x005BBBB0
+#define	POWERDOWN_FRQCRA_ES2	0x005BBBBB
 /* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/12, ZS:1/2, HP:1/12*/
 #define	POWERDOWN_FRQCRB	0x10235550
 /* ZB3:1/8*/
@@ -253,6 +255,14 @@
 #define A2SL_PD		0x00100000
 #define A3SP_ON		0x00020000
 
+#ifdef __EXTAL1_INFO__
+#define EXMSKCNT1Phys	(BaseSyscPhys + 0x0214)		/*EXTAL1 Mask Count Register (EXMSKCNT1)*/
+#define APSCSTPPhys		(BaseSyscPhys + 0x0234)		/*EXTAL1 Clock Stop Control Register (APSCSTP)*/
+#define SYCKENMSKPhys	(BaseSyscPhys + 0x024C)		/*EXTAL1 Control Register (SYCKENMSK)*/
+#define C4POWCRPhys		(BaseSyscPhys + 0x004C)		/*C4 Area Power Control Register (C4POWCR)*/
+//#define PDNSEL	(BaseSyscPhys + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
+//#define PSTR		(BaseSyscPhys + 0x0080)		/*Power Status Register (PSTR)*/
+#endif
 /********************************************/
 /* HPBC Register							*/
 /********************************************/
@@ -376,6 +386,9 @@
 #define SHWYSTATSY_BASE				0xE6F20000
 #define SHWYSTATDM_BASE				0xFE060000
 
+/* SPI Status Registers	*/
+#define ICSPISR0		0xF0001D04	/*SPI Status Registers */
+#define ICSPISR1		0xF0001D08	/*SPI Status Registers	*/
 
 /* Register information of IRQC Event Detectors */
 /* IRQx Configuration register */

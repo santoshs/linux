@@ -14,16 +14,22 @@
 
 #define SEC_HAL_RES_OK						0x00000000
 
+int sec_hal_ret = SEC_HAL_RES_OK;
+module_param_named(sec_hal_ret, sec_hal_ret, int, \
+					S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(sec_hal_ret, "Enter return value \
+								of dummy sec_hal_coma_entry()");
+
 uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 			uint32_t wakeup_address, uint32_t context_save_address)
 {
-	return SEC_HAL_RES_OK;
+	return sec_hal_ret;
 }
 EXPORT_SYMBOL(sec_hal_coma_entry);
 
 uint32_t sec_hal_power_off(void)
 {
-	return SEC_HAL_RES_OK;
+	return sec_hal_ret;
 }
 EXPORT_SYMBOL(sec_hal_power_off);
 
