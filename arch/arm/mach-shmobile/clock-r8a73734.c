@@ -463,6 +463,7 @@ enum {
 	DIV6_ZB,
 	DIV6_SD0,
 	DIV6_SD1,
+	DIV6_SD2,
 	DIV6_VCK1,
 	DIV6_VCK2,
 	DIV6_VCK3,
@@ -484,6 +485,8 @@ static struct clk div6_clks[DIV6_NR] = {
 	[DIV6_SD0] = SH_CLK_DIV6_EXT(NULL, SD0CKCR, 8, 0,
 			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
 	[DIV6_SD1] = SH_CLK_DIV6_EXT(NULL, SD1CKCR, 8, 0,
+			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
+	[DIV6_SD2] = SH_CLK_DIV6_EXT(NULL, SD2CKCR, 8, 0,
 			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
 	[DIV6_VCK1] = SH_CLK_DIV6_EXT(NULL, VCLKCR1, 8, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
@@ -716,6 +719,7 @@ enum {
 	MSTP315,
 	MSTP314,
 	MSTP313,
+	MSTP312,
 	MSTP309,
 	MSTP308,
 	MSTP307,
@@ -789,7 +793,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP229] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 29, 0), /* Crypt1 */
 	[MSTP228] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 28, 0), /* Crypt */
 /* sound edit */
-/*	[MSTP224] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
+//	[MSTP224] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
 	[MSTP224] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
 /* sound edit */
 	[MSTP223] = SH_CLK_MSTP32_EXT(&spua_clk, SMSTPCR2, MSTPSR2, 23, 0), /* SPU2A */
@@ -825,6 +829,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP315] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR3, MSTPSR3, 15, 0), /* MMCIF0 */
 	[MSTP314] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_SD0], SMSTPCR3, MSTPSR3, 14, 0), /* SDHI0 */
 	[MSTP313] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_SD1], SMSTPCR3, MSTPSR3, 13, 0), /* SDHI1 */
+	[MSTP312] = SH_CLK_MSTP32_EXT(&div6_clks[DIV6_SD2], SMSTPCR3, MSTPSR3, 12, 0), /* SDHI2 */
 	[MSTP309] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR3, MSTPSR3, 9, 0), /* ICU-USB */
 	[MSTP308] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR3, MSTPSR3, 8, 0), /* MFIR */
 	[MSTP307] = SH_CLK_MSTP32_EXT(&mpc_clk, SMSTPCR3, MSTPSR3, 7, 0), /* ICU-DMAC1 */
@@ -955,6 +960,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("sh_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
+	CLKDEV_DEV_ID("renesas_sdhi.2", &mstp_clks[MSTP312]), /* SDHI2 */
 	CLKDEV_DEV_ID("tpu-renesas-sh_mobile.0", &mstp_clks[MSTP304]), /* TPU0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP410]), /* I2C4 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP409]), /* I2C5 */

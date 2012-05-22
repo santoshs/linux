@@ -485,6 +485,58 @@ static struct platform_device sdhi1_device = {
 	.resource	= sdhi1_resources,
 };
 
+static void sdhi2_set_pwr(struct platform_device *pdev, int state)
+{
+	;
+}
+static int sdhi2_get_cd(struct platform_device *pdev)
+{
+   return 1;
+}
+
+static struct renesas_sdhi_dma sdhi2_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
+	}
+};
+
+static struct renesas_sdhi_platdata sdhi2_info = {
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+ 	.dma		= &sdhi2_dma,
+ 	.set_pwr	= sdhi2_set_pwr,
+	.detect_irq	= 0, 
+	.detect_msec	= 0,
+	.get_cd		= sdhi2_get_cd,
+	.ocr		= MMC_VDD_165_195, //SDHI2_VOLTAGE,
+};
+
+static struct resource sdhi2_resources[] = {
+	[0] = {
+		.name	= "SDHI2",
+		.start	= 0xee140000,
+		.end	= 0xee1400ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(120),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi2_device = {
+	.name		= "renesas_sdhi",
+	.id		= 2,
+	.dev		= {
+		.platform_data	= &sdhi2_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi2_resources),
+	.resource	= sdhi2_resources,
+};
+
 static struct sh_fsi_platform_info fsi_info = {
 	.port_flags = SH_FSI_OUT_SLAVE_MODE |
 	              SH_FSI_IN_SLAVE_MODE	|
