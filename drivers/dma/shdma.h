@@ -24,22 +24,35 @@
 
 struct device;
 
+struct sh_dmae_desc_mem {
+	u32 sar;
+	u32 dar;
+	u32 tcr;
+	u32 rsvd;
+};
+
 struct sh_dmae_chan {
-	dma_cookie_t completed_cookie;	/* The maximum cookie completed */
-	spinlock_t desc_lock;		/* Descriptor operation lock */
-	struct list_head ld_queue;	/* Link descriptors queue */
-	struct list_head ld_free;	/* Link descriptors free */
-	struct dma_chan common;		/* DMA common channel */
-	struct device *dev;		/* Channel device */
-	struct tasklet_struct tasklet;	/* Tasklet */
-	int addr_error;			/* Adress error interrupt has been raised */
-	int descs_allocated;		/* desc count */
-	int xmit_shift;			/* log_2(bytes_per_xfer) */
+	dma_cookie_t completed_cookie;  /* The maximum cookie completed */
+	spinlock_t desc_lock;           /* Descriptor operation lock */
+	struct list_head ld_queue;      /* Link descriptors queue */
+	struct list_head ld_free;       /* Link descriptors free */
+	struct dma_chan common;         /* DMA common channel */
+	struct device *dev;             /* Channel device */
+	struct tasklet_struct tasklet;  /* Tasklet */
+	int addr_error;                 /* Adress error interrupt has been
+					 * raised */
+	int descs_allocated;            /* desc count */
+	int xmit_shift;                 /* log_2(bytes_per_xfer) */
 	int irq;
 	int id;				/* Raw id of this channel */
 	u32 __iomem *base;
-	char dev_id[16];		/* unique name per DMAC of channel */
+	char dev_id[16];                /* unique name per DMAC of channel */
 	int pm_error;
+	void __iomem *desc_mem;
+	phys_addr_t desc_pmem;
+	int desc_mode;
+	int no_of_descs;
+	u32 rpt_cnt;
 };
 
 struct sh_dmae_device {
@@ -49,6 +62,8 @@ struct sh_dmae_device {
 	struct list_head node;
 	u32 __iomem *chan_reg;
 	u16 __iomem *dmars;
+	void __iomem *desc_mem;
+	phys_addr_t desc_pmem;
 
 	struct clk *clk;
 };
@@ -57,6 +72,6 @@ struct sh_dmae_device {
 #define to_sh_desc(lh) container_of(lh, struct sh_desc, node)
 #define tx_to_sh_desc(tx) container_of(tx, struct sh_desc, async_tx)
 #define to_sh_dev(chan) container_of(chan->common.device,\
-				     struct sh_dmae_device, common)
+					struct sh_dmae_device, common)
 
 #endif	/* __DMA_SHDMA_H */
