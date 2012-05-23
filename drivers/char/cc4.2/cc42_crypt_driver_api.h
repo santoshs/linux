@@ -145,6 +145,11 @@ struct device_context {
 	/* whether or not the device-special-file can be opened */
 	atomic_t openable;
 
+	/* this parameter indicates resource status */
+    	/* 0: power-off now, and it's going to power-up. */
+    	/* 1: power-on now, and it's going to power-down. */
+    	atomic_t resource;
+
 
 };
 
