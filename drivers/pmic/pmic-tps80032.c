@@ -3927,12 +3927,6 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 		return ret;
 	}
 
-	/* Set default voltage (1.8V) for LDO1 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO1_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
-	if (0 > ret) {
-		return ret;
-	}
-
 	/* Set default voltage (1.8V) for LDO7 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO7_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
 	if (0 > ret) {
