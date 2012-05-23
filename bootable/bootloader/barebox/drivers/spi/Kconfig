@@ -1,0 +1,22 @@
+menu "SPI drivers                   "
+
+config SPI
+	bool "Enable SPI driver support"
+	default y
+
+config DRIVER_SPI_IMX
+	bool "i.MX SPI Master driver"
+	depends on ARCH_IMX
+	depends on SPI
+
+config DRIVER_SPI_IMX_0_0
+	bool
+	depends on ARCH_IMX27
+	default y
+
+config DRIVER_SPI_IMX_2_3
+	bool
+	depends on ARCH_IMX51
+	default y
+
+endmenu

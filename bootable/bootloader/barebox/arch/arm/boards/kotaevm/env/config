@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# use 'dhcp' to do dhcp in barebox and in kernel
+# use 'none' if you want to skip kernel ip autoconfiguration
+autoboot_timeout=1
+bootargs="console=ttySC0,115200 vmalloc=448M"
+
+# or set your networking parameters here
+eth0.ipaddr=192.168.10.100
+eth0.netmask=255.255.255.0
+eth0.gateway=255.255.255.255
+eth0.serverip=192.168.10.30
+eth0.ethaddr=00:00:87:6b:bc:11
+
+nfsroot=192.168.10.30:/tftpboot/rootfs_android
+
+# The image type of the kernel. Can be uimage, zimage, raw, or raw_lzo
+
+kernelimage_type=uimage
+kernelimage=uImage
