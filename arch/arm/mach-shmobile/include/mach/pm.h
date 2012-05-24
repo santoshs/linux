@@ -84,6 +84,10 @@ void register_pm_state_notify_confirm(struct pm_state_notify_confirm *h);
 void unregister_pm_state_notify_confirm(struct pm_state_notify_confirm *h);
 unsigned int state_notify_confirm(void);
 unsigned int state_notify(int state);
+#ifdef CONFIG_PM_DEBUG
+extern int control_cpuidle(int is_enable);
+extern int is_cpuidle_enable(void);
+#endif /* CONFIG_PM_DEBUG */
 #else /*!CONFIG_CPU_IDLE*/
 static inline void register_pm_state_notify(struct pm_state_notify *h) {}
 static inline void unregister_pm_state_notify(struct pm_state_notify *h) {}
@@ -93,6 +97,10 @@ static inline void unregister_pm_state_notify_confirm(
 	struct pm_state_notify_confirm *h) {}
 static inline unsigned int state_notify_confirm(void) { return 0; }
 static inline unsigned int state_notify(int state) { return 0; }
+#ifdef CONFIG_PM_DEBUG
+static inline int control_cpuidle(int is_enable) { return 0; }
+static inline int is_cpuidle_enable(void)  { return 0; }
+#endif /* CONFIG_PM_DEBUG */
 #endif /*CONFIG_CPU_IDLE*/
 
 
@@ -101,7 +109,7 @@ static inline unsigned int state_notify(int state) { return 0; }
 #define CONFIG_PM_RUNTIME_A3SP
 /* #define CONFIG_PM_RUNTIME_A3R */
 /* #define CONFIG_PM_RUNTIME_A4RM */
-#define CONFIG_PM_RUNTIME_A4MP
+/* #define CONFIG_PM_RUNTIME_A4MP */
 
 /*Value of power area (value is appropriate with SWUCR, SPDCR, PSTR registers)*/
 #define POWER_A2SL					BIT(20)
@@ -129,7 +137,10 @@ void for_each_power_device(const char *name,
 		int (*iterator)(struct device *));
 void power_domains_get_sync(const char *name);
 void power_domains_put_noidle(const char *name);
-
+#ifdef CONFIG_PM_DEBUG
+int control_pdc(int is_enable);
+int is_pdc_enable(void);
+#endif
 #else /*!CONFIG_PDC*/
 static inline int power_domain_devices(const char *drv_name,
 		struct device **dev, size_t *dev_cnt) { return 0; }
@@ -140,12 +151,25 @@ static inline void for_each_power_device(const char *name,
 		int (*iterator)(struct device *)) {}
 static inline void power_domains_get_sync(const char *name) {}
 static inline void power_domains_put_noidle(const char *name) {}
+#ifdef CONFIG_PM_DEBUG
+static inline int control_pdc(int is_enable) ( return 0; )
+static inline int is_pdc_enable(void) { return 0; }
+#endif
 #endif  /*CONFIG_PDC*/
 
 #ifdef CONFIG_SUSPEND
 suspend_state_t get_shmobile_suspend_state(void);
+#ifdef CONFIG_PM_DEBUG
+int control_systemsuspend(int is_enabled);
+int is_systemsuspend_enable(void);
+#else
+static inline int control_systemsuspend(int is_enabled) { return 0; }
+static inline int is_systemsuspend_enable(void) { return 0; }
+#endif
 #else /*!CONFIG_SUSPEND*/
 static inline suspend_state_t get_shmobile_suspend_state(void) { return 0; }
+static inline int control_systemsuspend(int is_enabled) { return 0; }
+static inline int is_systemsuspend_enable(void) { return 0; }
 #endif /*CONFIG_SUSPEND*/
 
 
@@ -317,6 +341,10 @@ extern void control_dfs_scaling(bool enabled);
 extern int limit_max_cpufreq(int max);
 extern int suppress_clocks_change(bool set_max);
 extern void unsuppress_clocks_change(void);
+#ifdef CONFIG_PM_DEBUG
+extern int control_cpufreq(int is_enable);
+extern int is_cpufreq_enable(void);
+#endif
 /* Internal API for CPUFreq driver only */
 extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
@@ -342,8 +370,10 @@ static inline void control_dfs_scaling(bool enabled) {}
 static inline int limit_max_cpufreq(int max) { return 0; }
 static inline int suppress_clocks_change(bool set_max) { return 0; }
 static inline void unsuppress_clocks_change(void) {}
-static inline int pm_enable_clock_change(int clk) { return 0; }
-static inline int pm_disable_clock_change(int clk) { return 0; }
+#ifdef CONFIG_PM_DEBUG
+static inline int control_cpufreq(int is_enable) { return 0; }
+static inline int is_cpufreq_enable(void) { return 0; }
+#endif
 /* Internal API for CPUFreq driver only */
 static inline int pm_set_clocks(const struct clk_rate *clk_div) { return 0; }
 static inline int pm_set_clock_mode(const int mode) { return 0; }
@@ -354,6 +384,8 @@ static inline int pm_set_pll_ratio(int pll, unsigned int val)
 {return -EINVAL; }
 static inline int pm_get_pll_ratio(int pll) { return -EINVAL; }
 static inline int pm_setup_clock(void) { return 0; }
+static inline int pm_enable_clock_change(int clk) { return 0; }
+static inline int pm_disable_clock_change(int clk) { return 0; }
 static inline unsigned long pm_get_spinlock(void) { return 0; }
 static inline void pm_release_spinlock(unsigned long flag) { }
 #endif /* CONFIG_CPU_FREQ */

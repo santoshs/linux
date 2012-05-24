@@ -76,6 +76,15 @@ module_param(log_wakeupfactor, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static int es;
 
+#ifdef CONFIG_PM_DEBUG
+/*
+ * Dynamic on/off for System Suspend
+ *   0: System Suspend is disable
+ *   1: System Suspend in enable
+ */
+static int enable_module = 1;
+static DEFINE_SPINLOCK(systemsuspend_lock);
+#endif	/* CONFIG_PM_DEBUG */
 struct base_map {
 	unsigned long phys;	/* phys base  */
 	int size;			/* remap size */
@@ -415,6 +424,15 @@ static void wakeups_factor(void)
 		pr_debug(PMDBG_PRFX "APE SysteCPU WakeUpS Mask Value = 0x%x \n", \
 					__raw_readl(WUPSMSK));
 	}
+	
+	/* SPI Status Registers */
+	if (__raw_readl(ram0_ICSPISR0Phys) !='0')
+		pr_debug(PMDBG_PRFX " SPI Status Register 0: 0x%x\n",\
+			__raw_readl(ram0_ICSPISR0Phys));
+	else 
+		pr_debug(PMDBG_PRFX " SPI Status Register 1: 0x%x\n",\
+			__raw_readl(ram0_ICSPISR1Phys));	
+		
 }
 
 /*
@@ -522,22 +540,22 @@ static int core_shutdown_status(unsigned int cpu)
  */
 static int shmobile_suspend_begin(suspend_state_t state)
 {
-	int ret;
-
 	shmobile_suspend_state = state;
 
+#if 0
+	int ret;
 	/* set DFS mode */
 	ret = suspend_cpufreq();
 	if (ret != 0) {
 		pr_debug(PMDBG_PRFX "%s: suspend_cpufreq() returns %d.\n", \
 				__func__, ret);
 	}
+#endif
 	return 0;
 }
 
 static void shmobile_suspend_end(void)
 {
-	int ret;
 	shmobile_suspend_state = PM_SUSPEND_ON;
 
 	if (not_core_shutdown) {
@@ -546,17 +564,21 @@ static void shmobile_suspend_end(void)
 		not_core_shutdown = 0;
 	}
 
+#if 0
+	int ret;
 	ret = resume_cpufreq();
 	if (ret != 0) {
 		pr_debug(PMDBG_PRFX "%s: resume_cpufreq() returns %d.\n", \
 				__func__, ret);
 	}
+#endif
 }
 
 static int shmobile_suspend(void)
 {
 	int locked;
-	unsigned long sec_hal_ret_val;
+	unsigned long sec_hal_ret_cpu0;
+	unsigned long sec_hal_ret_cpu1;
 	unsigned int bankState;
 	unsigned int workBankState2Area;
 	unsigned int dramPasrSettingsArea0;
@@ -570,7 +592,7 @@ static int shmobile_suspend(void)
 	/* check cpu#1 power down */
 	if (core_shutdown_status(1) != 3) {
 		not_core_shutdown = 1;
-		udelay(1000);
+		/*udelay(1000);*/
 		barrier();
 		if (core_shutdown_status(1) != 3)
 			return -EBUSY;
@@ -602,27 +624,38 @@ static int shmobile_suspend(void)
 		dramPasrSettingsArea0 = 0;
 		dramPasrSettingsArea1 = 0;
 	}
-	
-	pr_debug(PMDBG_PRFX "%s: RAM bank status: bankState: 0x%x \
-			workBankState2Area: 0x%x \n dramPasrSettingsArea0: %x \
-			dramPasrSettingsArea1: 0x%x \n ", __func__, bankState, \
-			workBankState2Area, dramPasrSettingsArea0, dramPasrSettingsArea1);
-	
+
+	pr_debug(PMDBG_PRFX "%s: RAM bank status: \n \
+	bankState: 0x%x \ workBankState2Area: 0x%x \n \
+	dramPasrSettingsArea0: 0x%x dramPasrSettingsArea1: 0x%x \n ", \
+	__func__, bankState, workBankState2Area,\
+	dramPasrSettingsArea0, dramPasrSettingsArea1);
+
 	/* Save setting value to ram0 */
 	pm_writel(dramPasrSettingsArea0, ram0DramPasrSettingArea0);
 	pm_writel(dramPasrSettingsArea1, ram0DramPasrSettingArea1);
+	
+	pm_writel((es < ES_REV_2_0)?FRQCRA_ES1_MASK:FRQCRA_ES2_MASK
+			, ram0FRQCRAMask); 
+	pm_writel((es < ES_REV_2_0)?POWERDOWN_FRQCRA_ES1:POWERDOWN_FRQCRA_ES2
+			, ram0FRQCRADown); 
 
 	/*
 	 * do cpu suspend ...
 	 */
-	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...", __func__);
+	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...\n\n", __func__);
 	jump_systemsuspend();
 
 	wakeups_factor();
 
-	sec_hal_ret_val = __raw_readl(ram0SecHalvalue);
-	pr_debug(PMDBG_PRFX "%s: SEC HAL return value is 0x%lx\n", \
-					__func__, sec_hal_ret_val);
+	sec_hal_ret_cpu0 = __raw_readl(ram0SecHalReturnCpu0);
+	pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU0: 0x%lx \n", \
+					__func__, sec_hal_ret_cpu0);
+#ifdef CONFIG_PM_SMP
+	sec_hal_ret_cpu1 = __raw_readl(ram0SecHalReturnCpu1);
+	pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU1: 0x%lx\n", \
+					__func__, sec_hal_ret_cpu1);
+#endif
 
 	/* Restore IP registers */
 	shwy_regs_restore();
@@ -683,11 +716,84 @@ static int shmobile_suspend_prepare_late(void)
 
 static void shmobile_suspend_wake(void)
 {
+#ifdef __EXTAL1_INFO__
+	unsigned int reg_val = 0;
+#endif
 	enable_hlt();
 
 	/* restore sys boot address */
 	__raw_writel(save_sbar_val, __io(SBAR));
+
+	/* Log information for Disabling EXTAL1 */
+
+#ifdef __EXTAL1_INFO__
+	pr_debug(PMDBG_PRFX "EXTAL1: Log information\n");
+	pr_debug(PMDBG_PRFX "---------[Before suspend]------------------\n");
+	
+	reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_suspend);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Mask Count Register (EXMSKCNT1): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveAPSCSTPPhys_suspend);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Clock Stop Control Register (APSCSTP): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveSYCKENMSKPhys_suspend);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Control Register (SYCKENMSK): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveC4POWCRPhys_suspend);
+	pr_debug(PMDBG_PRFX "	C4 Area Power Control Register (C4POWCR): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SavePDNSELPhys_suspend);
+	pr_debug(PMDBG_PRFX "	C4 Area Power Control Register2 (PDNSEL): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SavePSTRPhys_suspend);
+	pr_debug(PMDBG_PRFX "	Power Status Register (PSTR): 0x%x\n", reg_val);
+	
+	pr_debug(PMDBG_PRFX "---------[After suspend]-------------------\n");
+	
+	reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_resume);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Mask Count Register (EXMSKCNT1): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveAPSCSTPPhys_resume);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Clock Stop Control Register (APSCSTP): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveSYCKENMSKPhys_resume);
+	pr_debug(PMDBG_PRFX "	EXTAL1 Control Register (SYCKENMSK): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SaveC4POWCRPhys_resume);
+	pr_debug(PMDBG_PRFX "	C4 Area Power Control Register (C4POWCR): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SavePDNSELPhys_resume);
+	pr_debug(PMDBG_PRFX "	C4 Area Power Control Register2 (PDNSEL): 0x%x\n", reg_val);
+	
+	reg_val = pm_readl(ram0SavePSTRPhys_resume);
+	pr_debug(PMDBG_PRFX "	Power Status Register (PSTR): 0x%x\n", reg_val);
+#endif
 }
+
+#ifdef CONFIG_PM_DEBUG
+extern void request_suspend_state(suspend_state_t state);
+extern suspend_state_t get_suspend_state(void);
+int control_systemsuspend(int is_enabled)
+{
+	unsigned long irqflags;
+	int cur_state = 0;
+	spin_lock_irqsave(&systemsuspend_lock, irqflags);
+	cur_state = get_suspend_state();
+	if (cur_state == PM_SUSPEND_MEM){
+		request_suspend_state(PM_SUSPEND_ON);
+	}
+	enable_module = is_enabled;
+	spin_unlock_irqrestore(&systemsuspend_lock, irqflags);
+	return 0;
+}
+EXPORT_SYMBOL(control_systemsuspend);
+
+int is_systemsuspend_enable(void)
+{
+	return enable_module;
+}
+EXPORT_SYMBOL(is_systemsuspend_enable);
+#endif /* CONFIG_PM_DEBUG */
 
 struct platform_suspend_ops shmobile_suspend_ops = {
 	.begin			= shmobile_suspend_begin,

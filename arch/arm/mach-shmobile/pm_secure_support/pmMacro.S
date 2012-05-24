@@ -70,26 +70,4 @@
 #endif
 	.endm
 
-/*====================================================================*/
-/*	Name:PM Remove_CPU_Cluster__Disable_Clean_and_Invalidate_D_cache  */
-/*	Over View: Release CPU Cluster, Disable, Clean, Invalidate D-cache*/
-/*====================================================================*/
-	.macro Remove_CPU_Cluster__Disable_Clean_and_Invalidate_D_cache
-	/* Disable D-Cache	*/
-	MRC		p15, 0, r4, c1, c0, 0
-	BIC		r4, r4, #0x4			/* Clear C bit */
-	MCR		p15, 0, r4, c1, c0, 0	/* Disable D-Cache */
-	ISB
-
-	/* Clean and invalidate D-Cache	*/
-	L1_DataCacheCleanInvalidateSW
-
-	/*----------------------------------------------*/
-	/* Remove the CPU from the cluster				*/
-	/*----------------------------------------------*/
-	MRC		p15, 0, r4, c1, c0, 1
-	BIC		r4, r4, #0x40			/* Clear SMP bit */
-	MCR		p15, 0, r4, c1, c0, 1	/* Write the ACTLR */
-	ISB
-	.endm
 

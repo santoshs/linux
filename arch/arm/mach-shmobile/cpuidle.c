@@ -298,6 +298,83 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	return idle_time;
 }
 
+#ifdef CONFIG_PM_DEBUG
+
+#define SHMOBILE_MAX_STATES_DEBUG	1
+
+static int is_enable_cpuidle = 1; /* Status of CPU's idle PM */
+spinlock_t cpuidle_debug_lock;
+
+/*
+ * control_cpuidle: Enable/Disable of CPU's idle PM
+ * @is_enable: input value to control Enable/Disable
+ *				0: Disable, 1: Enable
+ * return:
+ *		0: successful
+ *		-EINVAL: Invalid argument
+ */
+int control_cpuidle(int is_enable)
+{
+	struct cpuidle_device *device;
+	unsigned long flags;
+	int cpu;
+	int error = 0;
+
+	spin_lock_irqsave(&cpuidle_debug_lock, flags);
+	switch (is_enable) {
+
+	case 0:
+		if (!is_enable_cpuidle)
+			break; /* Already disabled */
+		for_each_possible_cpu(cpu) {
+			device = &per_cpu(shmobile_cpuidle_device, cpu);
+			/* Let the governor work/statistic correct info */
+			device->state_count = SHMOBILE_MAX_STATES_DEBUG;
+			/* Make sure that only WFI state is running */
+			device->states[1].enter = shmobile_enter_wfi;
+			device->states[2].enter = shmobile_enter_wfi;
+		}
+		is_enable_cpuidle = is_enable;
+		break;
+
+	case 1:
+		if (is_enable_cpuidle)
+			break; /* Already enabled */
+		for_each_possible_cpu(cpu) {
+			device = &per_cpu(shmobile_cpuidle_device, cpu);
+			/* Restore to original CPU's idle PM */
+			device->state_count = SHMOBILE_MAX_STATES;
+			device->states[1].enter = shmobile_enter_wfi_lowfreq;
+			device->states[2].enter = shmobile_enter_corestandby;
+		}
+		is_enable_cpuidle = is_enable;
+		break;
+
+	default:
+		printk(KERN_INFO "control_cpuidle: Invalid argument\n");
+		error = -EINVAL; /* Invalid argument */
+		break;
+	}
+	spin_unlock_irqrestore(&cpuidle_debug_lock, flags);
+
+	return error;
+}
+EXPORT_SYMBOL(control_cpuidle);
+
+/*
+ * is_cpuidle_enable: Status of CPU's idle PM
+ * return:
+ *		0: Disable
+ *		1: Enable
+ */
+int is_cpuidle_enable(void)
+{
+	return is_enable_cpuidle;
+}
+EXPORT_SYMBOL(is_cpuidle_enable);
+
+#endif
+
 /*
  * shmobile_init_cpuidle: Initialization of CPU's idle PM
  * return:

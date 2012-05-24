@@ -77,7 +77,7 @@ static int suspend_test(int level)
 #ifdef CONFIG_MACH_U2EVM
 #include <linux/time.h>
 		extern int wait_time;
-		long wait_time_jiffies = jiffies + (wait_time * HZ);
+		unsigned long wait_time_jiffies = jiffies + (wait_time * HZ);
 		printk(KERN_INFO "%s: Waiting for %d seconds.\n", __func__, wait_time);
 		while ( time_before ( jiffies, wait_time_jiffies ) ) {
 			cpu_relax ( ) ;
@@ -326,6 +326,12 @@ int pm_suspend(suspend_state_t state)
 	extern int for_kernel_test;
 #endif
 
+#ifdef CONFIG_PM_DEBUG
+	if (is_systemsuspend_enable() == 0){
+		pr_debug("\nSystem Suspend is not available at this moment\n\n");
+		return 0;
+	}
+#endif	/* CONFIG_PM_DEBUG */
 	if (state > PM_SUSPEND_ON && state <= PM_SUSPEND_MAX)
 #ifndef CONFIG_PM_TEST
 		return enter_state(state);
