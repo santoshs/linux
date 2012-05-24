@@ -1,6 +1,6 @@
 /* drivers/sensor/gyroscope/l3gd20_local.h
  *
- * Copyright (C) 2012 Renesas Mobile Corporation. 
+ * Copyright (C) 2012 Renesas Mobile Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -28,11 +28,11 @@
 #define L3GD20_MIN_RANGE			-32768
 
 /* Define print function */
-#define L3GD20_LOG
+/* #define L3GD20_LOG */
 #ifdef L3GD20_LOG
-	#define l3gd20_log(fmt, ... ) printk(KERN_DEBUG "\n%s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__)
-#else 
-	#define l3gd20_log(x...) do { } while (0) 
+	#define l3gd20_log(fmt, ...) printk(KERN_DEBUG "\n%s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__)
+#else
+	#define l3gd20_log(x...) do { } while (0)
 #endif
 
 /* I2C info */
@@ -104,49 +104,48 @@
 #define CONVERT_SENSITY_2000_DENOMINATOR	1000
 
 /* Parameter location */
-#define BANDWIDTH					0
-#define SENSITIVITY					1
-#define ENABLE_HPF					2
-#define HPF_MODE					3
-#define HPF_CUTOFF_FREQUENCY		4
-#define L3GD20_SETTING_MAX			5
+#define BANDWIDTH		0
+#define SENSITIVITY		1
+#define ENABLE_HPF		2
+#define HPF_MODE		3
+#define HPF_CUTOFF_FREQUENCY	4
+#define L3GD20_SETTING_MAX	5
 
 /* MASK of register */
-#define BW00						0x00
-#define BW01						0x10
-#define BW10						0x20
-#define BW11						0x30
-#define ODR095						0x00  /* ODR =  95Hz */
-#define ODR190						0x40  /* ODR = 190Hz */
-#define ODR380						0x80  /* ODR = 380Hz */
-#define ODR760						0xC0  /* ODR = 760Hz */
+#define BW00		0x00
+#define BW01		0x10
+#define BW10		0x20
+#define BW11		0x30
+#define ODR095		0x00  /* ODR =  95Hz */
+#define ODR190		0x40  /* ODR = 190Hz */
+#define ODR380		0x80  /* ODR = 380Hz */
+#define ODR760		0xC0  /* ODR = 760Hz */
 
 /* data structure */
-struct  l3gd20_data{
-    //struct i2c_client *client;
-    struct mutex lock;
-    struct wake_lock wakelock;
-    struct input_dev *gyro_input_dev;
-    /*int irq;*/
-    struct work_struct timer_work_func;
+struct l3gd20_data {
+	/*struct i2c_client *client;*/
+	struct mutex lock;
+	struct wake_lock wakelock;
+	struct input_dev *gyro_input_dev;
+	/*int irq;*/
+	struct work_struct timer_work_func;
 	struct work_struct irq_work_func;
-    struct workqueue_struct *l3gd20_wq;
-    struct hrtimer timer;
+	struct workqueue_struct *l3gd20_wq;
+	struct hrtimer timer;
 	unsigned long poll_cycle;
-    unsigned long real_dly;
+	unsigned long real_dly;
 	unsigned char sensitivity;
-    atomic_t available;
-    atomic_t enable;
+	atomic_t available;
+	atomic_t enable;
 };
 
 struct l3gd20_triple {
-    short    x; 
-    short    y; 
-    short    z; 
+	short    x;
+	short    y;
+	short    z;
 };
 
 struct output_rate {
-    int poll_rate_ms;
-    unsigned char mask;
+	int poll_rate_ms;
+	unsigned char mask;
 };
-

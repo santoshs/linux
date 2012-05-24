@@ -12,29 +12,29 @@
 #define BH1771_SETTING_MAX	15
 
 /************************************************
-*   	Debug definition section	 	*
-************************************************/ 
-#define BH1771GLC_LOG
+*Debug definition section		*
+************************************************/
+/* #define BH1771GLC_LOG */
 #ifdef BH1771GLC_LOG
-	#define bh1771glc_log(fmt, ... ) printk(KERN_DEBUG "%s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__)
-#else 
-	#define bh1771glc_log(x...) do { } while (0) 
+#define bh1771glc_log(fmt, ...) printk(KERN_DEBUG "%s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__)
+#else
+	#define bh1771glc_log(x...) do { } while (0)
 #endif
 
 /******************************************************************************
- * FUNCTION   : BH1771 interface header of 
-			    Proximity Sensor and Ambient Light Sensor IC
+ * FUNCTION   : BH1771 interface header of
+		Proximity Sensor and Ambient Light Sensor IC
  *****************************************************************************/
 
 /************ definition to dependent on sensor IC ************/
 #define BH1771_I2C_NAME "bh1771glc"
-#define BH1771_I2C_ADDRESS (0x38) //7 bits slave address 011 1000
+#define BH1771_I2C_ADDRESS (0x38) /*7 bits slave address 011 1000*/
 #define I2C_RETRIES 5
 #define I2C_M_WR	0
 #define PROX_IRQ 47
 #define MAX_DELAY_TIME 2000
 #define MIN_DELAY_TIME 10
-#define BH1771_I2C_CHANNEL 2
+#define BH1771_I2C_CHANNEL 2 /* Changed from 2 as I2C3 settings are done in kernel */
 
 /************ define register for IC ************/
 /* BH1771 REGSTER */
@@ -46,8 +46,8 @@
 #define REG_PSMEASRATE     (0x45)
 #define REG_ALSMEASRATE    (0x46)
 #define REG_ALSDATA        (0x4C)
-    #define REG_ALSDATA_L      (0x4C)
-    #define REG_ALSDATA_H      (0x4D)
+#define REG_ALSDATA_L      (0x4C)
+#define REG_ALSDATA_H      (0x4D)
 #define REG_ALSPSSTATUS    (0x4E)
 #define REG_PSDATA         (0x4F)
 #define REG_INTERRUPT      (0x52)
@@ -55,11 +55,11 @@
 #define REG_PSTH_H_L2         (0x54)
 #define REG_PSTH_H_L3         (0x55)
 #define REG_ALSTHUP        (0x56)
-    #define REG_ALSTHUP_L      (0x56)
-    #define REG_ALSTHUP_H      (0x57)
+#define REG_ALSTHUP_L      (0x56)
+#define REG_ALSTHUP_H      (0x57)
 #define REG_ALSTHLOW       (0x58)
-    #define REG_ALSTHLOW_L     (0x58)
-    #define REG_ALSTHLOW_H     (0x59)
+#define REG_ALSTHLOW_L     (0x58)
+#define REG_ALSTHLOW_H     (0x59)
 #define REG_ALSSENSITIVITY (0x5A)
 #define REG_PERSISTENCE    (0x5B)
 #define REG_PSTH_L_L1         (0x5C)
@@ -68,39 +68,36 @@
 
 /* structure of peculiarity to use by system */
 struct bh1771_data {
-    struct i2c_client *client;
-    struct mutex lock;
-    struct wake_lock wakelock;
+	struct i2c_client *client;
+	struct mutex lock;
+	struct wake_lock wakelock;
 	struct input_dev *input_dev;
-	
-    atomic_t available;
-     	
-    struct work_struct als_work;
-    struct hrtimer als_timer;
-    atomic_t als_power_flg;
-    atomic_t als_enable;
-    u16  als_delay;
-    u16  als_poll_interval;
-	u16 	 als_ill_per_count; 	// illuminant per 1 count
+
+	atomic_t available;
+
+	struct work_struct als_work;
+	struct hrtimer als_timer;
+	atomic_t als_power_flg;
+	atomic_t als_enable;
+	u16  als_delay;
+	u16  als_poll_interval;
+	u16  als_ill_per_count;	/* illuminant per 1 count */
 
 	struct work_struct ps_work_poll;
 	struct work_struct ps_work_irq;
 	struct hrtimer ps_timer;
-    int irq;
+	int irq;
 	atomic_t ps_power_flg;
-    atomic_t ps_enable;
+	atomic_t ps_enable;
 	u16  ps_delay;
-    u16  ps_poll_interval;
+	u16  ps_poll_interval;
 };
 
-
-
-
 struct bh1771glc_output_rate {
-	//Output data rate in millisecond
+	/*Output data rate in millisecond*/
 	int poll_rate_ms;
-	
-	//The corresponding output data rate in bh1771glc register
+
+	/*The corresponding output data rate in bh1771glc register*/
 	u8 mask;
 };
 
@@ -146,7 +143,7 @@ struct bh1771glc_output_rate {
 /* REG_ALSMEASRATE(0x46) */
 #define ALSRATE_DISABLE    1
 #define ALSRATE_ENABLE     0
-#define ALSRATE_100		(0)
+#define ALSRATE_100	(0)
 #define ALSRATE_200     (1)
 #define ALSRATE_500     (2)
 #define ALSRATE_1000	(3)

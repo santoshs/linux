@@ -1,6 +1,6 @@
 /* drivers/sensor/gyroscope/l3gd20.c
  *
- * Copyright (C) 2012 Renesas Mobile Corporation. 
+ * Copyright (C) 2012 Renesas Mobile Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,21 +48,26 @@ static const struct output_rate odr_table[] = {
 /* APIs prototype*/
 static int __init l3gd20_init(void);
 static void __exit l3gd20_exit(void);
-static int l3gd20_i2c_read(unsigned char reg_address, unsigned char *buf, int len);
-static int l3gd20_i2c_write(unsigned char reg_address, unsigned char *buf, int len);
-static int l3gd20_register_update(unsigned char reg_address, unsigned char mask, unsigned char new_bit_values);
+static int l3gd20_i2c_read(unsigned char reg_address,
+	unsigned char *buf, int len);
+static int l3gd20_i2c_write(unsigned char reg_address,
+	unsigned char *buf, int len);
+static int l3gd20_register_update(unsigned char reg_address,
+	unsigned char mask, unsigned char new_bit_values);
 static int l3gd20_suspend(struct device *dev);
 static int l3gd20_resume(struct device *dev);
-static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_id *devid);
+static int l3gd20_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *devid);
 static int l3gd20_i2c_remove(struct i2c_client *client);
 static int l3gd20_misc_open(struct inode *ip, struct file *fp);
 static int l3gd20_misc_release(struct inode *ip, struct file *fp);
-static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd,
+	unsigned long arg);
 static enum hrtimer_restart l3gd20_timer_func(struct hrtimer *timer);
 static irqreturn_t l3gd20_irq_handler(int irq, void *dev_id);
 static void l3gd20_irq_work_func(struct work_struct *work);
 static void l3gd20_timer_work_func(struct work_struct *work);
-static int l3gd20_hw_init(const unsigned char* buff);
+static int l3gd20_hw_init(const unsigned char *buff);
 static int l3gd20_get_data(struct l3gd20_triple *data);
 static void l3gd20_report_values(struct l3gd20_triple *data);
 static int l3gd20_enable(unsigned char enable_state);
@@ -75,7 +80,7 @@ static int l3gd20_set_sensitivity(unsigned char fs_value);
 static void l3gd20_get_nv(unsigned long addr);
 
 /* Define global variable */
-static struct l3gd20_data* l3gd20_info;
+static struct l3gd20_data *l3gd20_info;
 static struct i2c_client *l3gd20_client;
 /* Define driver operation structure */
 static const struct i2c_device_id l3gd20_id[] = {
@@ -83,17 +88,16 @@ static const struct i2c_device_id l3gd20_id[] = {
 	{}
 };
 
-static struct dev_pm_ops l3gd20_pm_ops ={
+static struct dev_pm_ops l3gd20_pm_ops = {
 	.suspend = l3gd20_suspend,
 	.resume = l3gd20_resume,
 };
 
 static struct i2c_driver l3gd20_i2c_driver = {
-	.driver			= 
-	{
-		.owner 		= THIS_MODULE,
-		.name		= L3GD20_NAME,
-		.pm 		= &l3gd20_pm_ops,
+	.driver		= {
+	.owner	= THIS_MODULE,
+	.name	= L3GD20_NAME,
+	.pm	= &l3gd20_pm_ops,
 	},
 	.probe = l3gd20_i2c_probe,
 	.remove = l3gd20_i2c_remove,
@@ -101,7 +105,8 @@ static struct i2c_driver l3gd20_i2c_driver = {
 };
 
 static struct i2c_board_info l3gd20_i2c_board_info = {
-	I2C_BOARD_INFO("l3gd20", L3GD20_I2C_SLAVE_ADDR/*device slave address on the bus*/),
+/*device slave address on the bus*/
+	I2C_BOARD_INFO("l3gd20", L3GD20_I2C_SLAVE_ADDR),
 #ifndef L3GD20_POLLING
 	.irq = irqpin2irq(L3GD20_IRQ),
 	.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
@@ -111,7 +116,7 @@ static struct i2c_board_info l3gd20_i2c_board_info = {
 static struct file_operations gyroscope_fops = {
 	.owner  = THIS_MODULE,
 	.llseek = no_llseek,
-	.open  	= l3gd20_misc_open,
+	.open = l3gd20_misc_open,
 	.release = l3gd20_misc_release,
 	.unlocked_ioctl = l3gd20_misc_ioctl
 };
@@ -140,7 +145,8 @@ static const unsigned char l3gd20_default_setting[L3GD20_SETTING_MAX] = {
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22)
  *************************************************************************/
-static int l3gd20_i2c_read(unsigned char reg_address, unsigned char *buf, int len)
+static int l3gd20_i2c_read(unsigned char reg_address,
+	unsigned char *buf, int len)
 {
 	int err;
 	struct i2c_msg read_msg[2];
@@ -148,18 +154,17 @@ static int l3gd20_i2c_read(unsigned char reg_address, unsigned char *buf, int le
 
 	/* Initialize tries */
 	tries = 0;
-	
+
 	/* Check the pointer to memory */
-	if(NULL == buf) {
-		l3gd20_log("Invalid buffer address \n");
+	if (NULL == buf) {
+		l3gd20_log("Invalid buffer address\n");
 		return -EINVAL;
 	}
 
-	if(len > 1) {
+	if (len > 1)
 		buf[0] = (AUTO_INCREMENT | reg_address);
-	} else {
+	else
 		buf[0] = reg_address;
-	}
 
 	/* initialize read message */
 	read_msg[0].addr = l3gd20_client->addr;
@@ -178,13 +183,13 @@ static int l3gd20_i2c_read(unsigned char reg_address, unsigned char *buf, int le
 		if (err != 2)
 			msleep_interruptible(L3GD20_RETRIES_DELAY);
 	} while ((err != 2) && (++tries < L3GD20_I2C_RETRIES));
-	
+
 	if (err != 2) {
 		err = -EIO;
-		l3gd20_log("Read failed \n");
+		l3gd20_log("Read failed\n");
 	} else {
 		err = 0;
-		l3gd20_log("Read successfully \n");
+		l3gd20_log("Read successfully\n");
 	}
 
 	return err;
@@ -194,48 +199,46 @@ static int l3gd20_i2c_read(unsigned char reg_address, unsigned char *buf, int le
 
 /*************************************************************************
  *	name	=	l3gd20_i2c_write
- *	func	=	Write new value to register of L3GD20 chip set 
+ *	func	=	Write new value to register of L3GD20 chip set
  *			(Writing multiple bytes is supported)
  *	input	=	unsigned char reg_address, unsigned char *buf, int len
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22), -ENOMEM(-12)
  *************************************************************************/
-static int l3gd20_i2c_write(unsigned char reg_address, unsigned char *buf, int len)
+static int l3gd20_i2c_write(unsigned char reg_address,
+	unsigned char *buf, int len)
 {
 	int err;
 	struct i2c_msg write_msg;
 	int tries;
-	unsigned char* temp_buf;
+	unsigned char *temp_buf;
 	int i;
 
 	/* Check the pointer to memory */
-	if (NULL == buf) {
+	if (NULL == buf)
 		return -EINVAL;
-	}
 
-	if(len <= 0) {
+	if (len <= 0) {
 		l3gd20_log("The length of data is not correct !\n");
 		return -EINVAL;
 	}
-	
+
 	tries = 0;
 	temp_buf = kzalloc(len + 1, GFP_KERNEL);
 	if (NULL == temp_buf) {
-		l3gd20_log("Out of memory \n");
+		l3gd20_log("Out of memory\n");
 		return -EIO;
 	}
 
 	/* Assign the written register address */
-	if (len > 1) {
+	if (len > 1)
 		temp_buf[0] = (AUTO_INCREMENT | reg_address);
-	} else {
+	else
 		temp_buf[0] = reg_address;
-	}
 
 	/* Copy written array to another array */
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len; i++)
 		temp_buf[i+1] = buf[i];
-	}
 
 	/* Initialize written message */
 	write_msg.addr = l3gd20_client->addr;
@@ -252,7 +255,7 @@ static int l3gd20_i2c_write(unsigned char reg_address, unsigned char *buf, int l
 
 	if (err != 1) {
 		err = -EIO;
-		l3gd20_log("Write failed \n");
+		l3gd20_log("Write failed\n");
 	} else {
 		err = 0;
 		l3gd20_log("Write successfully !\n");
@@ -267,13 +270,15 @@ static int l3gd20_i2c_write(unsigned char reg_address, unsigned char *buf, int l
 
 /*************************************************************************
  *	name	=	l3gd20_register_update
- *	func	=	Update a bit or group of bits on a register of L3GD20 chip
- *	input	=	unsigned char reg_address, unsigned char mask, 
+ *	func	=	Update a bit or group of bits
+			on a register of L3GD20 chip
+ *	input	=	unsigned char reg_address, unsigned char mask,
 *			unsigned char new_bit_values
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22)
  *************************************************************************/
-static int l3gd20_register_update(unsigned char reg_address, unsigned char mask, unsigned char new_bit_values)
+static int l3gd20_register_update(unsigned char reg_address,
+	unsigned char mask, unsigned char new_bit_values)
 {
 	unsigned char buf;
 	unsigned char reg_val;
@@ -281,8 +286,8 @@ static int l3gd20_register_update(unsigned char reg_address, unsigned char mask,
 
 	/* Read the value of target register */
 	ret = l3gd20_i2c_read(reg_address, &buf, 1);
-	if(ret != 0) {
-		l3gd20_log("Can not read  \n");
+	if (ret != 0) {
+		l3gd20_log("Can not read\n");
 		return ret;
 	}
 
@@ -290,11 +295,11 @@ static int l3gd20_register_update(unsigned char reg_address, unsigned char mask,
 	reg_val = buf;
 
 	/* Compare the new value and old value  */
-	if((reg_val & mask) == (new_bit_values & mask)){
-		l3gd20_log("The value of register doesn't need to change \n");
+	if ((reg_val & mask) == (new_bit_values & mask)) {
+		l3gd20_log("The value of register doesn't need to change\n");
 		return 0;
 	}
-	
+
 	/* Clear the target bit */
 	reg_val = reg_val & (~mask);
 
@@ -304,7 +309,7 @@ static int l3gd20_register_update(unsigned char reg_address, unsigned char mask,
 	/* Write the value of local variable to target register */
 	buf = reg_val;
 	ret = l3gd20_i2c_write(reg_address, &buf, 1);
-	if(ret != 0) {
+	if (ret != 0) {
 		l3gd20_log("Register update Failed !\n");
 		return ret;
 	}
@@ -329,7 +334,7 @@ static int l3gd20_suspend(struct device *dev)
 	drv_state = 0;
 
 	mutex_lock(&l3gd20_info->lock);
-	
+
 	drv_state = atomic_read(&l3gd20_info->enable);
 	/* Check the activation status of gyroscope driver */
 	if (DISABLE == drv_state) {
@@ -337,18 +342,18 @@ static int l3gd20_suspend(struct device *dev)
 		l3gd20_log("Driver was deactivated before !\n");
 		return 0;
 	}
-	
+
 #ifndef L3GD20_POLLING
 	/* Interrupt mode is used */
 	/* Disable interrupt */
-	
+
 	disable_irq(l3gd20_client->irq);
-	
+
 	/* in case [polling interval] > MAX_ODR */
 	if (l3gd20_info->poll_cycle > MAX_ODR) {
 		/* Cancel HR timer */
 		hrtimer_cancel(&l3gd20_info->timer);
-		
+
 		if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 			/* Disable output data & Power off Gyroscope */
 			l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
@@ -361,13 +366,13 @@ static int l3gd20_suspend(struct device *dev)
 	/* Polling mode is used */
 	/* Cancel HR timer */
 	hrtimer_cancel(&l3gd20_info->timer);
-	
+
 	if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 		/* Power off Gyroscope */
 		l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 	}
 #endif
-	
+
 	mutex_unlock(&l3gd20_info->lock);
 	l3gd20_log("Suspend successfully !\n");
 	return 0;
@@ -385,7 +390,7 @@ static int l3gd20_suspend(struct device *dev)
 static int l3gd20_resume(struct device *dev)
 {
 	int drv_state;
-	
+
 	drv_state = 0;
 
 	mutex_lock(&l3gd20_info->lock);
@@ -403,7 +408,8 @@ static int l3gd20_resume(struct device *dev)
 	/* [polling interval] > MAX_ODR */
 	if (l3gd20_info->poll_cycle > MAX_ODR) {
 		/* Start HR timer */
-		hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+		hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 
 		if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 			/* polling interval <= POWER_THRESHOLD */
@@ -414,14 +420,15 @@ static int l3gd20_resume(struct device *dev)
 	} else {
 		/* Enable interrupt */
 		enable_irq(l3gd20_client->irq);
-		
+
 		/* Enable output data & Turn power on */
 		l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
 		msleep(11);
 	}
 #else
 	/* Restart HR timer */
-	hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+	hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 
 	if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 		/* Enable output data & Turn power on */
@@ -429,7 +436,7 @@ static int l3gd20_resume(struct device *dev)
 		msleep(11);
 	}
 #endif
-	
+
 	mutex_unlock(&l3gd20_info->lock);
 	l3gd20_log("Resume successfully !\n");
 	return 0;
@@ -439,14 +446,16 @@ static int l3gd20_resume(struct device *dev)
 
 /*************************************************************************
  *	name	=	l3gd20_i2c_probe
- *	func	=	Initializes register, allocates resource(timer, memory, 
- *			work queue, interrupt, input device node) 
+ *	func	=	Initializes register, allocates resource(timer, memory,
+ *			work queue, interrupt, input device node)
 *			and registers Gyroscope MISC device with Linux kernel
- *	input	=	struct i2c_client *client,  const struct i2c_device_id *devid
+ *	input	=	struct i2c_client *client,
+			const struct i2c_device_id *devid
  *	output	=	None
  *	return	=	0, -EIO(-5), -ENOMEM(-12), -ENODEV(-19), -EINVAL(-22)
  *************************************************************************/
-static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_id *devid)
+static int l3gd20_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *devid)
 {
 	int ret;
 	int irq;
@@ -459,7 +468,7 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	err = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
 	if (err < 0) {
 		ret = -ENODEV;
-		l3gd20_log("I2C functionality is not supported \n");
+		l3gd20_log("I2C functionality is not supported\n");
 		goto err_check_i2c_func;
 	}
 
@@ -467,18 +476,19 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	l3gd20_info = kzalloc(sizeof(struct l3gd20_data), GFP_KERNEL);
 	if (NULL == l3gd20_info) {
 		ret = -ENOMEM;
-		l3gd20_log("Out of memory \n");
+		l3gd20_log("Out of memory\n");
 		goto err_check_i2c_func;
 	}
 
 	memset(l3gd20_info, 0, sizeof(struct l3gd20_data));
 
 	/* Save I2C client for global variable */
-    l3gd20_client = client;
+	l3gd20_client = client;
 
 	/* Initialize wake lock, mutex */
 	mutex_init(&l3gd20_info->lock);
-	wake_lock_init(&l3gd20_info->wakelock, WAKE_LOCK_SUSPEND, "l3gd20-wakelock");
+	wake_lock_init(&l3gd20_info->wakelock, WAKE_LOCK_SUSPEND,
+		"l3gd20-wakelock");
 
 	/* Mutex lock */
 	mutex_lock(&l3gd20_info->lock);
@@ -492,16 +502,19 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	}
 	l3gd20_info->gyro_input_dev->name = "gyroscope";
 
-	set_bit(EV_ABS,l3gd20_info->gyro_input_dev->evbit);
-	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_X, L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
-	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Y, L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
-	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Z, L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
+	set_bit(EV_ABS, l3gd20_info->gyro_input_dev->evbit);
+	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_X,
+		L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
+	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Y,
+		L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
+	input_set_abs_params(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Z,
+		L3GD20_MIN_RANGE, L3GD20_MAX_RANGE, 0/*FUZZ*/, 0/*FLAT*/);
 
 	/* Register input device */
 	ret = input_register_device(l3gd20_info->gyro_input_dev);
 	if (ret < 0) {
 		ret = -ENODEV;
-		l3gd20_log("Register input device failed \n");
+		l3gd20_log("Register input device failed\n");
 		goto err_register_input_dev;
 	}
 
@@ -513,7 +526,7 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	l3gd20_info->l3gd20_wq = create_singlethread_workqueue("l3gd20_wq");
 	if (NULL == l3gd20_info->l3gd20_wq) {
 		ret = -ENOMEM;
-		l3gd20_log("Create single thread work queue failed \n");
+		l3gd20_log("Create single thread work queue failed\n");
 		goto err_cre_work_queue;
 	}
 
@@ -524,7 +537,7 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	/* Register MISC device */
 	ret = misc_register(&gyroscope_device);
 	if (ret < 0) {
-		l3gd20_log("MISC registration failed \n");
+		l3gd20_log("MISC registration failed\n");
 		ret = -ENODEV;
 		goto err_register_misc_dev;
 	}
@@ -534,10 +547,11 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	/* register interrupt */
 	irq = l3gd20_client->irq;
 
-	ret = request_irq(irq, l3gd20_irq_handler, 0, "l3gd20_probe", l3gd20_info);
+	ret = request_irq(irq, l3gd20_irq_handler, 0, "l3gd20_probe",
+		l3gd20_info);
 	if (ret < 0) {
 		ret = -ENODEV;
-		l3gd20_log("Register interrupt failed \n");
+		l3gd20_log("Register interrupt failed\n");
 		goto err_register_interrupt;
 	}
 
@@ -552,17 +566,18 @@ static int l3gd20_i2c_probe(struct i2c_client *client,  const struct i2c_device_
 	/* Hardware initialize */
 	ret = l3gd20_hw_init(l3gd20_default_setting);
 	if (ret != 0) {
-		l3gd20_log("HW initialization failed \n");
+		l3gd20_log("HW initialization failed\n");
 		goto err_hw_initialize;
 	}
 
 	/* Set default output data rate */
-	l3gd20_set_output_data_rate(100);		/* 100ms is set as default output data rate */
+	/* 100ms is set as default output data rate */
+	l3gd20_set_output_data_rate(100);
 
 	/* Turn power off */
 	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 	if (ret != 0) {
-		l3gd20_log("Can not turn power off \n");
+		l3gd20_log("Can not turn power off\n");
 		goto err_hw_initialize;
 	}
 
@@ -614,7 +629,7 @@ err_check_i2c_func:
 
 /*************************************************************************
  *	name	=	l3gd20_i2c_remove
- *	func	=	Remove timer, MISC device, work queue, 
+ *	func	=	Remove timer, MISC device, work queue,
  *			input device of Gyroscope device driver
  *	input	=	struct i2c_client *client
  *	output	=	None
@@ -686,7 +701,8 @@ static int l3gd20_misc_release(struct inode *ip, struct file *fp)
  *	output	=	None
  *	return	=	0, -EIO(-5), -EFAULT(-14), -EINVAL(-22), -ENOTTY(-25)
  *************************************************************************/
-static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long l3gd20_misc_ioctl(struct file *filp,
+	unsigned int cmd, unsigned long arg)
 {
 	int ret;
 	int err;
@@ -701,11 +717,12 @@ static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	poll_interval = 0;
 	argp = (void __user *)arg;
 
-	/* Command differ from L3GD20_IOCTL_SET_ENABLE and L3GD20_IOCTL_SET_DELAY and L3GD20_IOCTL_NV_DATA_ADDRESS */
-	if((cmd != L3GD20_IOCTL_SET_ENABLE) &&
+	/* Command differ from L3GD20_IOCTL_SET_ENABLE
+		and L3GD20_IOCTL_SET_DELAY and L3GD20_IOCTL_NV_DATA_ADDRESS */
+	if ((cmd != L3GD20_IOCTL_SET_ENABLE) &&
 		(cmd != L3GD20_IOCTL_SET_DELAY) &&
 		(cmd != L3GD20_IOCTL_NV_DATA_ADDRESS)) {
-		l3gd20_log("Invalid IOCTL command \n");
+		l3gd20_log("Invalid IOCTL command\n");
 		return -ENOTTY;
 	}
 
@@ -714,14 +731,14 @@ static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 
 	/* Get wake lock */
 	wake_lock(&l3gd20_info->wakelock);
-	
+
 	switch (cmd) {
 	case L3GD20_IOCTL_SET_ENABLE:
 	/* Command is L3GD20_IOCTL_SET_ENABLE */
 		/*Get data from user side*/
 		err = copy_from_user(&flag, argp, sizeof(flag));
 		if (err != 0) {
-			l3gd20_log("Can not copy data from user side \n");
+			l3gd20_log("Can not copy data from user side\n");
 			ret = -EFAULT;
 			break;
 		}
@@ -731,9 +748,10 @@ static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	case L3GD20_IOCTL_SET_DELAY:
 	/* command is L3GD20_IOCTL_SET_DELAY */
 		/* Get data from user side */
-		err = copy_from_user(&poll_interval, argp, sizeof(poll_interval));
+		err = copy_from_user(&poll_interval, argp,
+			sizeof(poll_interval));
 		if (err != 0) {
-			l3gd20_log("Can not copy data from user side \n");
+			l3gd20_log("Can not copy data from user side\n");
 			ret = -EFAULT;
 			break;
 		}
@@ -745,7 +763,7 @@ static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		/* Copy data from user side */
 		err = copy_from_user(&addr, argp, sizeof(addr));
 		if (err != 0) {
-			l3gd20_log("Can not copy data from user side \n");
+			l3gd20_log("Can not copy data from user side\n");
 			ret = -EFAULT;
 			break;
 		}
@@ -761,16 +779,15 @@ static long l3gd20_misc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	mutex_unlock(&l3gd20_info->lock);
 
 	/* Return saved code */
-	l3gd20_log("End of ioctl()  \n");
+	l3gd20_log("End of ioctl()\n");
 	return ret;
 }
 
-
-
 /*************************************************************************
  *	name	=	l3gd20_timer_func
- *	func	=	HR timer callback function. This function is used to 
- *			schedule work queue function to get and report Gyroscope data
+ *	func	=	HR timer callback function. This function is used to
+ *			schedule work queue function to get
+			and report Gyroscope data
  *	input	=	struct hrtimer *timer
  *	output	=	None
  *	return	=	HRTIMER_NORESTART(0)
@@ -781,7 +798,7 @@ static enum hrtimer_restart l3gd20_timer_func(struct hrtimer *timer)
 	/* Schedule work queue to copy data */
 	queue_work(l3gd20_info->l3gd20_wq, &l3gd20_info->timer_work_func);
 
-	l3gd20_log("End of timer callback function \n");
+	l3gd20_log("End of timer callback function\n");
 	return HRTIMER_NORESTART;
 }
 
@@ -789,9 +806,9 @@ static enum hrtimer_restart l3gd20_timer_func(struct hrtimer *timer)
 
 /*************************************************************************
  *	name	=	l3gd20_irq_handler
- *	func	=	Interrupt handler of Gyroscope device driver. This function 
- *			is used to schedule work queue function to get and 
-*			report Gyroscope data
+ *	func	=	Interrupt handler of Gyroscope device driver.
+			This function is used to schedule work queue function
+*			to get and report Gyroscope data
  *	input	=	int irq, void *dev_id
  *	output	=	None
  *	return	=	IRQ_HANDLED(1)
@@ -805,15 +822,15 @@ static irqreturn_t l3gd20_irq_handler(int irq, void *dev_id)
 	/* Schedule work queue to copy Gyro data */
 	queue_work(l3gd20_info->l3gd20_wq, &l3gd20_info->irq_work_func);
 
-	l3gd20_log("End of interrupt handler \n");
+	l3gd20_log("End of interrupt handler\n");
 	return IRQ_HANDLED;
 }
 
-
-
 /*************************************************************************
  *	name	=	l3gd20_irq_work_func
- *	func	=	Work queue function for reporting data to HAL when timer interrupt occurs
+ *	func	=	Work queue function for reporting data
+			reporting data to HAL when
+			timer interrupt occurs
  *	input	=	struct work_struct *work
  *	output	=	None
  *	return	=	None
@@ -834,13 +851,12 @@ static void l3gd20_irq_work_func(struct work_struct *work)
 
 	/* Get wake lock */
 	wake_lock(&l3gd20_info->wakelock);
-	
+
 	/* Copy and report data */
 	ret = l3gd20_get_data(&gyro_data);
-	if (0 == ret) {
+	if (0 == ret)
 		l3gd20_report_values(&gyro_data);
-	}
-	
+
 	/* polling interval <= MAX_ODR */
 	if (l3gd20_info->poll_cycle <= MAX_ODR) {
 		/* Enable interrupt */
@@ -852,22 +868,22 @@ static void l3gd20_irq_work_func(struct work_struct *work)
 			msleep(2);
 		}
 		/* Restart timer */
-		hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
-	}	
+		hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+	}
 
 	/* Release wake lock */
 	wake_unlock(&l3gd20_info->wakelock);
 
 	/* Mutex unlock */
 	mutex_unlock(&l3gd20_info->lock);
-	l3gd20_log("End of interrupt work function \n");
+	l3gd20_log("End of interrupt work function\n");
 }
-
-
 
 /*************************************************************************
  *	name	=	l3gd20_timer_work_func
- *	func	=	Work queue function for reporting data to HAL when timer event occurs
+ *	func	=	Work queue function for reporting data
+			to HAL when timer event occurs
  *	input	=	struct work_struct *work
  *	output	=	None
  *	return	=	None
@@ -913,9 +929,8 @@ static void l3gd20_timer_work_func(struct work_struct *work)
 
 	/* Copy and report data */
 	ret = l3gd20_get_data(&gyro_data);
-	if (0 == ret) {
+	if (0 == ret)
 		l3gd20_report_values(&gyro_data);
-	}
 
 	if (l3gd20_info->poll_cycle > POWER_POLLING_THRES) {
 		/* Disable output data & power off */
@@ -923,7 +938,8 @@ static void l3gd20_timer_work_func(struct work_struct *work)
 	}
 
 	/* Restart HR timer */
-	hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+	hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 #endif
 
 	/* Release wake lock */
@@ -931,19 +947,20 @@ static void l3gd20_timer_work_func(struct work_struct *work)
 
 	/* Mutex unlock */
 	mutex_unlock(&l3gd20_info->lock);
-	l3gd20_log("End of timer work function \n");
+	l3gd20_log("End of timer work function\n");
 }
 
 
 
 /*************************************************************************
  *	name	=	l3gd20_hw_init
- *	func	=	Configure registers of L3GD20 chip by parameter array
+ *	func	=	Configure registers of L3GD20 chip by
+			parameter array
  *	input	=	unsigned char* buff
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22)
  *************************************************************************/
-static int l3gd20_hw_init(const unsigned char* buff)
+static int l3gd20_hw_init(const unsigned char *buff)
 {
 	int ret;
 
@@ -951,42 +968,42 @@ static int l3gd20_hw_init(const unsigned char* buff)
 
 	/* Check input argument */
 	if (NULL == buff) {
-		l3gd20_log("Invalid buffer address \n");
+		l3gd20_log("Invalid buffer address\n");
 		return -EINVAL;
 	}
 
 	/* Bandwidth setting */
 	ret = l3gd20_set_bandwidth(buff[0]);
 	if (ret != 0) {
-		l3gd20_log("Set bandwidth failed \n");
+		l3gd20_log("Set bandwidth failed\n");
 		return ret;
 	}
 
 	/* Sensitivity setting */
 	ret = l3gd20_set_sensitivity(buff[1]);
 	if (ret != 0) {
-		l3gd20_log("Set sensitivity failed \n");
+		l3gd20_log("Set sensitivity failed\n");
 		return ret;
 	}
 
 	/* Enable high pass filter */
 	ret = l3gd20_enable_high_pass_filter(buff[2]);
 	if (ret != 0) {
-		l3gd20_log("Enable high pass filter failed \n");
+		l3gd20_log("Enable high pass filter failed\n");
 		return ret;
 	}
 
 	/* High pass filter mode setting */
 	ret = l3gd20_set_high_pass_filter_mode(buff[3]);
 	if (ret != 0) {
-		l3gd20_log("Set high pass filter mode failed \n");
+		l3gd20_log("Set high pass filter mode failed\n");
 		return ret;
 	}
 
 	/* High pass filter cutoff frequency setting */
 	ret = l3gd20_set_high_pass_filter_cutoff_frequency(buff[4]);
 	if (ret != 0) {
-		l3gd20_log("Set high pass filter cutoff frequency failed \n");
+		l3gd20_log("Set high pass filter cutoff frequency failed\n");
 		return ret;
 	}
 
@@ -1015,14 +1032,14 @@ static int l3gd20_get_data(struct l3gd20_triple *data)
 
 	/* Check the input argument */
 	if (NULL == data) {
-		l3gd20_log("Invalid buffer address \n");
+		l3gd20_log("Invalid buffer address\n");
 		return -EINVAL;
 	}
 
 	/* Read Gyro data */
 	ret = l3gd20_i2c_read(L3GD20_OUT_X_L, gyro_data, 6);
 	if (ret != 0) {
-		l3gd20_log("Can not read data from register \n");
+		l3gd20_log("Can not read data from register\n");
 		return ret;
 	}
 
@@ -1030,27 +1047,36 @@ static int l3gd20_get_data(struct l3gd20_triple *data)
 	hw_data[0] = (short) (((gyro_data[1]) << 8) | gyro_data[0]);
 	hw_data[1] = (short) (((gyro_data[3]) << 8) | gyro_data[2]);
 	hw_data[2] = (short) (((gyro_data[5]) << 8) | gyro_data[4]);
-	
+
 	/* Convert Gyro data base on sensitivity */
-	switch(l3gd20_info->sensitivity) {
+	switch (l3gd20_info->sensitivity) {
 	case SENSITIVE_1:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_250_NUMERATOR) / CONVERT_SENSITY_250_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_250_NUMERATOR) / CONVERT_SENSITY_250_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_250_NUMERATOR) / CONVERT_SENSITY_250_DENOMINATOR);
+		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_250_NUMERATOR)
+			/ CONVERT_SENSITY_250_DENOMINATOR);
+		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_250_NUMERATOR)
+			/ CONVERT_SENSITY_250_DENOMINATOR);
+		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_250_NUMERATOR)
+			/ CONVERT_SENSITY_250_DENOMINATOR);
 		break;
 	case SENSITIVE_2:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_500_NUMERATOR) / CONVERT_SENSITY_500_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_500_NUMERATOR) / CONVERT_SENSITY_500_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_500_NUMERATOR) / CONVERT_SENSITY_500_DENOMINATOR);
+		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_500_NUMERATOR)
+			/ CONVERT_SENSITY_500_DENOMINATOR);
+		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_500_NUMERATOR)
+			/ CONVERT_SENSITY_500_DENOMINATOR);
+		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_500_NUMERATOR)
+			/ CONVERT_SENSITY_500_DENOMINATOR);
 		break;
 	case SENSITIVE_3:
 	case SENSITIVE_4:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_2000_NUMERATOR) / CONVERT_SENSITY_2000_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_2000_NUMERATOR) / CONVERT_SENSITY_2000_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_2000_NUMERATOR) / CONVERT_SENSITY_2000_DENOMINATOR);
+		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_2000_NUMERATOR)
+			/ CONVERT_SENSITY_2000_DENOMINATOR);
+		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_2000_NUMERATOR)
+			/ CONVERT_SENSITY_2000_DENOMINATOR);
+		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_2000_NUMERATOR)
+			/ CONVERT_SENSITY_2000_DENOMINATOR);
 		break;
 	}
-	
+
 	/* Save converted Gyro data to output parameter */
 	data->x = hw_data[0];
 	data->y = hw_data[1];
@@ -1074,13 +1100,15 @@ static void l3gd20_report_values(struct l3gd20_triple *data)
 
 	if (data != NULL) {
 		/* Send Gyro data to input device */
-		//input_report_abs(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_X, (int)data->x);
-		//input_report_abs(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Y, (int)data->y);
-		//input_report_abs(l3gd20_info->gyro_input_dev, EVENT_TYPE_GYRO_Z, (int)data->z);
-		//input_sync(l3gd20_info->gyro_input_dev);
-		l3gd20_log("Gyro -X = %d\n", data->x);
-		l3gd20_log("Gyro -Y = %d\n", data->y);
-		l3gd20_log("Gyro -Z = %d\n", data->z);
+
+		input_report_abs(l3gd20_info->gyro_input_dev,
+			EVENT_TYPE_GYRO_X, (int)data->x);
+		input_report_abs(l3gd20_info->gyro_input_dev,
+			EVENT_TYPE_GYRO_Y, (int)data->y);
+		input_report_abs(l3gd20_info->gyro_input_dev,
+			EVENT_TYPE_GYRO_Z, (int)data->z);
+		l3gd20_info->gyro_input_dev->sync = 0;
+		input_sync(l3gd20_info->gyro_input_dev);
 	}
 	l3gd20_log("End of report data !\n");
 }
@@ -1089,7 +1117,8 @@ static void l3gd20_report_values(struct l3gd20_triple *data)
 
 /*************************************************************************
  *	name	=	l3g4200d_enable
- *	func	=	Activating/ Deactivating functionality of Gyroscope device driver
+ *	func	=	Activating/ Deactivating functionality
+			of Gyroscope device driver
  *	input	=	unsigned char enable_state
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22)
@@ -1112,7 +1141,7 @@ static int l3gd20_enable(unsigned char enable_state)
 		/* Enable Gyroscope driver */
 		/* Check wether Gyroscope has been activated? */
 		if (drv_state != 0) {
-			l3gd20_log("Driver has been activated \n");
+			l3gd20_log("Driver has been activated\n");
 			return 0;
 		}
 #ifndef L3GD20_POLLING
@@ -1127,24 +1156,28 @@ static int l3gd20_enable(unsigned char enable_state)
 #endif
 		if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 			/* Turn power on & Enable output data */
-			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
+			ret = l3gd20_register_update(L3GD20_CTRL_REG1,
+				0x0F, 0x0F);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power on \n");
+				l3gd20_log("Can not turn power on\n");
 				return -EIO;
 			}
 			msleep(11);
 #ifdef L3GD20_POLLING
 			/* Start high resolution timer timer */
-			hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+			hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+			l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 #else
 			if (l3gd20_info->poll_cycle > MAX_ODR) {
 				/* Start HR timer */
-				hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+				hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+			l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 			}
 #endif
 		} else {
 			/* Start high resolution timer */
-			hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+			hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 		}
 			/* Set status flag to ACTIVATE */
 			atomic_set(&l3gd20_info->enable, 1);
@@ -1152,7 +1185,7 @@ static int l3gd20_enable(unsigned char enable_state)
 		/* Disable Gyroscope driver */
 		/* Check wether Gyroscope has been deactivated? */
 		if (0 == drv_state) {
-			l3gd20_log("Driver has been deactivated \n");
+			l3gd20_log("Driver has been deactivated\n");
 			return 0;
 		}
 
@@ -1167,10 +1200,10 @@ static int l3gd20_enable(unsigned char enable_state)
 		/* Power off & Disable output data */
 		ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 		if (ret != 0) {
-			l3gd20_log("Can not turn power off \n");
+			l3gd20_log("Can not turn power off\n");
 			return -EIO;
 		}
-		
+
 		/* Set status flag to DEACTIVATE */
 		atomic_set(&l3gd20_info->enable, 0);
 	}
@@ -1182,7 +1215,7 @@ static int l3gd20_enable(unsigned char enable_state)
 
 /*************************************************************************
  *	name	=	l3gd20_set_output_data_rate
- *	func	=	Set the output data rate of L3GD20 chip, calculate and 
+ *	func	=	Set the output data rate of L3GD20 chip, calculate and
  *			create timer handler to copy Gyro data periodically
  *	input	=	unsigned long poll_interval
  *	output	=	None
@@ -1204,17 +1237,18 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 
 	/* Get the activation status of the Gyroscope driver */
 	drv_state = atomic_read(&l3gd20_info->enable);
-	
+
 #ifdef L3GD20_POLLING
 	/* Polling mechanism is used */
 	/* Cancel high resolution timer */
 	hrtimer_cancel(&l3gd20_info->timer);
 
-	if((l3gd20_info->poll_cycle < POWER_POLLING_THRES)&&(ENABLE == drv_state)) {
+	if ((l3gd20_info->poll_cycle < POWER_POLLING_THRES)
+		&& (ENABLE == drv_state)) {
 		/* Disable output data & Power off */
 		ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 		if (ret != 0) {
-			l3gd20_log("Can not turn power off \n");
+			l3gd20_log("Can not turn power off\n");
 			return -EIO;
 		}
 	}
@@ -1224,15 +1258,14 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 		odr_idx = 0;
 	} else {
 		/* Calculate  ODR and save to local variable "setODR" */
-		if (poll_interval <= 3 ) {
+		if (poll_interval <= 3)
 			odr_idx = 0;
-		} else if ((poll_interval > 3) && (poll_interval <= 6)) {
+		else if ((poll_interval > 3) && (poll_interval <= 6))
 			odr_idx = 1;
-		} else if ((poll_interval > 6) && (poll_interval <= 11)) {
+		else if ((poll_interval > 6) && (poll_interval <= 11))
 			odr_idx = 2;
-		} else {
+		else
 			odr_idx = 0;
-		}
 	}
 #else
 	/* Interrupt mechanism is used */
@@ -1250,46 +1283,47 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 			/* Disable output data & Power off */
 			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power off \n");
+				l3gd20_log("Can not turn power off\n");
 				return -EIO;
 			}
 		} else {
 			/* Disable output data & Power off */
 			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power off \n");
+				l3gd20_log("Can not turn power off\n");
 				return -EIO;
 			}
 		}
 		/* Calculate ODR and save to  local variable "setODR" */
-		if (poll_interval <= 3 ) {
+		if (poll_interval <= 3)
 			odr_idx = 0;
-		} else if ((poll_interval > 3) && (poll_interval <= 6)) {
+		else if ((poll_interval > 3) && (poll_interval <= 6))
 			odr_idx = 1;
-		} else if ((poll_interval > 6) && (poll_interval <= 11)) {
+		else if ((poll_interval > 6) && (poll_interval <= 11))
 			odr_idx = 2;
-		} else {
+		else
 			odr_idx = 0;
-		}
 	}
 #endif
 
 	/* Write "setODR" value to register */
-	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0xF0, odr_table[odr_idx].mask);
+	ret = l3gd20_register_update(L3GD20_CTRL_REG1,
+		0xF0, odr_table[odr_idx].mask);
 	if (ret != 0) {
-		l3gd20_log("Can not set output data rate \n");
+		l3gd20_log("Can not set output data rate\n");
 		return -EIO;
 	}
 
-	/* Calculate real delay interval and store it to "real_dly" field of global variable */
+	/* Calculate real delay interval and store it
+		to "real_dly" field of global variable */
 	if (poll_interval > POWER_POLLING_THRES) {
-		l3gd20_info->real_dly = poll_interval - 2;	/* "2" is min output data rate */
-	} else {
+		/* "2" is min output data rate */
+		l3gd20_info->real_dly = poll_interval - 2;
+	} else
 		l3gd20_info->real_dly = poll_interval;
-	} 
 	/* Save "delay" to "poll_cycle" field of global variable */
 	l3gd20_info->poll_cycle = poll_interval;
-	
+
 #ifdef L3GD20_POLLING
 	/*Polling mechanism is used*/
 	if (ENABLE == drv_state) {
@@ -1297,7 +1331,7 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 			/* Power on */
 			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power on \n");
+				l3gd20_log("Can not turn power on\n");
 				return -EIO;
 			}
 			msleep(11);
@@ -1305,21 +1339,23 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 			/* Power off */
 			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power off \n");
+				l3gd20_log("Can not turn power off\n");
 				return -EIO;
 			}
 		}
 		/* Start high resolution timer */
-		hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+		hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+		l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
 	}
 #else
 	/* Interrupt mechanism is used */
 	if (ENABLE == drv_state) {
-		if(l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
+		if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 			/* Power on */
-			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
+			ret = l3gd20_register_update(L3GD20_CTRL_REG1,
+				0x0F, 0x0F);
 			if (ret != 0) {
-				l3gd20_log("Can not turn power on \n");
+				l3gd20_log("Can not turn power on\n");
 				return -EIO;
 			}
 			msleep(11);
@@ -1329,13 +1365,17 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 			} else {
 				/* Disable IRQ */
 				disable_irq(l3gd20_client->irq);
-				
+
 				/* Start high resolution timer */
-				hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+				hrtimer_start(&l3gd20_info->timer, ktime_set(0,
+				l3gd20_info->real_dly * MSEC_TO_NSEC),
+				HRTIMER_MODE_REL);
 			}
 		} else {
 			/* Start high resolution timer */
-			hrtimer_start(&l3gd20_info->timer, ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+			hrtimer_start(&l3gd20_info->timer,
+			ktime_set(0, l3gd20_info->real_dly * MSEC_TO_NSEC),
+			HRTIMER_MODE_REL);
 		}
 	}
 #endif
@@ -1356,20 +1396,20 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 static int l3gd20_set_bandwidth(unsigned char bw_value)
 {
 	int ret;
-	
+
 	ret = -1;
-	
+
 	/* Check bandwidth mode */
 	if (bw_value > BW_MODE4) {
-		l3gd20_log("Invalid bandwidth mode \n");
+		l3gd20_log("Invalid bandwidth mode\n");
 		return -EINVAL;
 	}
 
 	/* Update bits 4,5 of CTRL_REG1 */
-	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x30, (bw_value << 4));
-	
-	
-	l3gd20_log("End of set bandwidth \n");
+	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x30, (bw_value << 4)) ;
+
+
+	l3gd20_log("End of set bandwidth\n");
 	return ret;
 }
 
@@ -1385,9 +1425,9 @@ static int l3gd20_set_bandwidth(unsigned char bw_value)
 static int l3gd20_enable_high_pass_filter(unsigned char enable)
 {
 	int ret;
-	
+
 	ret = -1;
-	
+
 	if (0 == enable) {
 		/* Update bit 4 of CTRL_REG5 with 0 */
 		ret = l3gd20_register_update(L3GD20_CTRL_REG5, 0x10, 0);
@@ -1396,7 +1436,7 @@ static int l3gd20_enable_high_pass_filter(unsigned char enable)
 		ret = l3gd20_register_update(L3GD20_CTRL_REG5, 0x10, 0x10);
 	}
 
-	l3gd20_log("End of enabling  high pass filter \n");
+	l3gd20_log("End of enabling  high pass filter\n");
 	return ret;
 }
 
@@ -1416,14 +1456,14 @@ static int l3gd20_set_high_pass_filter_mode(unsigned char hpf_mode)
 	ret = -1;
 
 	if (hpf_mode > HPF_MODE4) {
-		l3gd20_log("Invalid HPF mode \n");
+		l3gd20_log("Invalid HPF mode\n");
 		return -EINVAL;
 	}
 
 	/* Update bits 4,5 of CTRL_REG2 */
 	ret = l3gd20_register_update(L3GD20_CTRL_REG2, 0x30, hpf_mode << 4);
 
-	l3gd20_log("End of setting HPF mode \n");
+	l3gd20_log("End of setting HPF mode\n");
 	return ret;
 }
 
@@ -1443,13 +1483,13 @@ static int l3gd20_set_high_pass_filter_cutoff_frequency(unsigned char hpf_cf_fre
 	ret = -1;
 
 	if (hpf_cf_freq > HPF_FRE_SEL10) {
-		l3gd20_log("Invalid HPF cutoff frequency \n");
+		l3gd20_log("Invalid HPF cutoff frequency\n");
 		return -EINVAL;
 	}
 	/* Update bits 0,1,2,3 of CTRL_REG2 */
 	ret = l3gd20_register_update(L3GD20_CTRL_REG2, 0x0F, hpf_cf_freq);
 
-	l3gd20_log("End of set high pass filter cut off frequency \n");
+	l3gd20_log("End of set high pass filter cut off frequency\n");
 	return ret;
 }
 
@@ -1469,7 +1509,7 @@ static int l3gd20_set_sensitivity(unsigned char fs_value)
 	ret = -1;
 
 	if (fs_value > SENSITIVE_4) {
-		l3gd20_log("Invalid sensitivity \n");
+		l3gd20_log("Invalid sensitivity\n");
 		return -EINVAL;
 	}
 
@@ -1477,11 +1517,10 @@ static int l3gd20_set_sensitivity(unsigned char fs_value)
 	ret = l3gd20_register_update(L3GD20_CTRL_REG4, 0x30, fs_value << 4);
 
 	/* Save value to global variable */
-	if (0 == ret) {
+	if (0 == ret)
 		l3gd20_info->sensitivity = fs_value;
-	}
 
-	l3gd20_log("End of setting sensitivity \n");
+	l3gd20_log("End of setting sensitivity\n");
 	return ret;
 }
 
@@ -1505,21 +1544,22 @@ static void l3gd20_get_nv(unsigned long addr)
 
 	/* Write the value to registers */
 	l3gd20_hw_init(buf);
-	
-	l3gd20_log("End of getting NV values \n");
+
+	l3gd20_log("End of getting NV values\n");
 }
 
 
 /*************************************************************************
  *	name	=	l3gd20_init
- *	func	=	Set GPIO port, create I2C slave device for Gyroscope device driver
+ *	func	=	Set GPIO port, create I2C slave device
+			for Gyroscope device driver
  *	input	=	None
  *	output	=	None
  *	return	=	0, -ENOTSUPP (-524)
  *************************************************************************/
 static int __init l3gd20_init(void)
 {
-	struct i2c_adapter *l3gd20_adapter	= NULL;
+	struct i2c_adapter *l3gd20_adapter = NULL;
 	struct i2c_client  *l3gd20_i2c_client = NULL;
 	int ret;
 
@@ -1528,12 +1568,12 @@ static int __init l3gd20_init(void)
 #ifndef L3GD20_POLLING
 	/* setting GPIO port */
 	/* Use the GPIO_PORT107 */
-	ret = gpio_request(GPIO_PORT107, NULL);         
+	ret = gpio_request(GPIO_PORT107, NULL);
 	if (ret < 0) {
 		l3gd20_log(" GPIO request failed\n");
 		return -ENOTSUPP;
 	}
-	
+
 	/* Set direction for GPIO_PORT107 */
 	ret = gpio_direction_input(GPIO_PORT107);
 	if (ret < 0) {
@@ -1544,7 +1584,7 @@ static int __init l3gd20_init(void)
 #ifdef PMIC_ENABLE
 	/* Power IC on */
 	ret = pmic_set_power_on(E_POWER_VANA_MM);
-	if(ret < 0) {
+	if (ret < 0) {
 		l3gd20_log(" Turn power on error\n");
 		return -ENOTSUPP;
 	}
@@ -1563,9 +1603,10 @@ static int __init l3gd20_init(void)
 	}
 
 	/* Create a new I2C device base on the KOTA board information */
-	l3gd20_i2c_client = i2c_new_device(l3gd20_adapter, &l3gd20_i2c_board_info);
+	l3gd20_i2c_client = i2c_new_device(l3gd20_adapter,
+		&l3gd20_i2c_board_info);
 	if (NULL == l3gd20_i2c_client) {
-		l3gd20_log("Create new new I2C device failed \n");
+		l3gd20_log("Create new new I2C device failed\n");
 		goto error_i2c_client;
 	}
 
@@ -1595,8 +1636,8 @@ static void __exit l3gd20_exit(void)
 {
 	/* Remove I2C driver */
 	i2c_del_driver(&l3gd20_i2c_driver);
-	
-	if(l3gd20_client != NULL) {
+
+	if (l3gd20_client != NULL) {
 		i2c_unregister_device(l3gd20_client);
 		l3gd20_client = NULL;
 	}
