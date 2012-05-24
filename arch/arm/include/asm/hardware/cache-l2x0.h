@@ -130,6 +130,7 @@ struct l2x0_regs {
 	unsigned long data_latency;
 	unsigned long filter_start;
 	unsigned long filter_end;
+	unsigned long debug_ctrl;
 	unsigned long prefetch_ctrl;
 	unsigned long pwr_ctrl;
 };

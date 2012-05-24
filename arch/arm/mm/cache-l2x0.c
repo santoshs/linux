@@ -420,6 +420,8 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		writel_relaxed(power, l2x0_base + L2X0_POWER_CTRL);
 
 		l2x0_saved_regs.aux_ctrl = aux;
+		l2x0_saved_regs.debug_ctrl =
+			readl_relaxed(l2x0_base + L2X0_DEBUG_CTRL);
 
 		l2x0_inv_all();
 
@@ -553,9 +555,11 @@ static void __init pl310_save(void)
 static void l2x0_resume(void)
 {
 	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
-		/* restore aux ctrl and enable l2 */
+		/* restore debug ctrl, aux ctrl and enable l2 */
 		l2x0_unlock(readl_relaxed(l2x0_base + L2X0_CACHE_ID));
 
+		writel_relaxed(l2x0_saved_regs.debug_ctrl, l2x0_base +
+			L2X0_DEBUG_CTRL);
 		writel_relaxed(l2x0_saved_regs.aux_ctrl, l2x0_base +
 			L2X0_AUX_CTRL);
 
