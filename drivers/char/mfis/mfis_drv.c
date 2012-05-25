@@ -59,6 +59,7 @@ static struct platform_device *pdev_tbl;
 static unsigned long early_suspend_phase_flag;
 static unsigned long late_resume_phase_flag;
 static struct semaphore mfis_sem;
+static unsigned long eco_mode_flag;
 
 #define CYCLE_STANDBY 1
 #else
@@ -69,11 +70,64 @@ static struct semaphore mfis_sem;
 #include <linux/mfis.h>
 #define STANDBY_RETRY_INTERVAL 100
 
-struct workqueue_struct	*mfis_wq;
-struct delayed_work		standby_work;
-unsigned int			standby_work_on;
+static struct workqueue_struct	*mfis_wq;
+static struct delayed_work	standby_work;
+static unsigned long			standby_work_on;
+static unsigned long			standby_work_stop_flag;
 #endif /* CYCLE_STANDBY */
 
+
+static void mfis_standby_work_entry(int reset_flag)
+{
+#if CYCLE_STANDBY
+	if( reset_flag )
+	{
+		standby_work_stop_flag = 0;
+	}
+
+	if( !standby_work_stop_flag )
+	{
+		if (down_interruptible(&mfis_sem)) {
+			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+			return;
+		}
+		
+		standby_work_on = 1;
+		
+		queue_delayed_work(
+			mfis_wq,
+			&standby_work,
+			msecs_to_jiffies(STANDBY_RETRY_INTERVAL));
+		
+		up(&mfis_sem);
+	}
+#endif /* CYCLE_STANDBY */
+
+	return;
+}
+
+static void mfis_standby_work_cancel(void)
+{
+#if CYCLE_STANDBY
+	
+	standby_work_stop_flag = 1;
+	
+	if (standby_work_on)
+	{
+		if (down_interruptible(&mfis_sem)) {
+			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+			return;
+		}
+		
+		cancel_delayed_work_sync(&standby_work);
+		standby_work_on = 0;
+		
+		up(&mfis_sem);
+	}
+#endif /* CYCLE_STANDBY */
+
+	return;
+}
 
 #if CYCLE_STANDBY
 static void mfis_standby_work(struct work_struct *work)
@@ -85,18 +139,11 @@ static void mfis_standby_work(struct work_struct *work)
 	ret = mfis_drv_suspend();
 	if (ret != 0)
 	{
-		if ((down_interruptible(&mfis_sem))) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
-			return;
-		}
-		
-		standby_work_on = 1;
-		queue_delayed_work(
-			mfis_wq,
-			&standby_work,
-			msecs_to_jiffies(STANDBY_RETRY_INTERVAL));
-		
-		up(&mfis_sem);
+		mfis_standby_work_entry(0);
+	}
+	else
+	{
+		eco_mode_flag = 1;
 	}
 	
 	return;
@@ -114,22 +161,19 @@ static int mfis_suspend_noirq(struct device *dev)
 	size_t dev_cnt;
 #endif
 
-#if CYCLE_STANDBY
-	if (standby_work_on)
+#if EARLYSUSPEND_STANDBY
+	if( !early_suspend_phase_flag )
 	{
-		if ((down_interruptible(&mfis_sem))) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
-			return -1;
-		}
-		
-		cancel_delayed_work_sync(&standby_work);
-		standby_work_on = 0;
-		
-		up(&mfis_sem);
-	}
-#endif /* CYCLE_STANDBY */
+		mfis_standby_work_cancel();
 
-	down(&a3r_power_sem);
+		eco_mode_flag = 0;
+	}
+#endif /* EARLYSUSPEND_STANDBY */
+
+	if(down_interruptible(&a3r_power_sem)) {
+		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n",__func__);
+		return -1;
+	}
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
@@ -193,7 +237,10 @@ static int mfis_resume_noirq(struct device *dev)
 	size_t dev_cnt;
 #endif
 
-	down(&a3r_power_sem);
+	if(down_interruptible(&a3r_power_sem)) {
+		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n",__func__);
+		return -1;
+	}
 
 #if EARLYSUSPEND_STANDBY
 	if ( CLOCK_TLB_IC_OC == ( inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC ) ) {
@@ -250,17 +297,14 @@ static void mfis_drv_early_suspend(struct early_suspend *h)
 	early_suspend_phase_flag = 1;
 
 	ret = mfis_suspend_noirq(p_tbl->dev);
-#if CYCLE_STANDBY
 	if (ret != 0)
 	{
-		standby_work_on = 1;
-		
-		queue_delayed_work(
-			mfis_wq,
-			&standby_work,
-			msecs_to_jiffies(STANDBY_RETRY_INTERVAL));
+		mfis_standby_work_entry(1);
 	}
-#endif /* CYCLE_STANDBY */
+	else
+	{
+		eco_mode_flag = 1;
+	}
 
 	early_suspend_phase_flag = 0;
 
@@ -271,20 +315,10 @@ static void mfis_drv_late_resume(struct early_suspend *h)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 
-#if CYCLE_STANDBY
-	if (standby_work_on)
-	{
-		if ((down_interruptible(&mfis_sem))) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
-			return;
-		}
-		
-		cancel_delayed_work_sync(&standby_work);
-		standby_work_on = 0;
-		
-		up(&mfis_sem);
-	}
-#endif /* CYCLE_STANDBY */
+
+	mfis_standby_work_cancel();
+
+	eco_mode_flag = 0;
 
 	p_tbl = container_of(h, struct mfis_early_suspend_tbl, early_suspend);
 
@@ -312,6 +346,7 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	struct mfis_early_suspend_tbl *p_tbl;
 	early_suspend_phase_flag = 0;
 	late_resume_phase_flag = 0;
+	eco_mode_flag = 0;
 #endif /* EARLYSUSPEND_STANDBY */
 	
 	clk_data = clk_get(NULL, "mp_clk");
@@ -350,12 +385,15 @@ static int mfis_drv_probe(struct platform_device *pdev)
 		return -1;
 	}
 	
+	sema_init(&a3r_power_sem,1);
+	
 #if CYCLE_STANDBY
 	mfis_wq = create_singlethread_workqueue("mfis_wq");
 	
 	INIT_DELAYED_WORK(&standby_work, mfis_standby_work);
 	
 	standby_work_on = 0;
+	standby_work_stop_flag = 0;
 #endif /* CYCLE_STANDBY */
 	
 #if EARLYSUSPEND_STANDBY
@@ -367,7 +405,6 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, p_tbl);
 
 	sema_init(&mfis_sem,1);
-	sema_init(&a3r_power_sem,1);
 	p_tbl->dev						= &pdev->dev;
 	p_tbl->early_suspend.level		= (EARLY_SUSPEND_LEVEL_DISABLE_FB + 1);
 	p_tbl->early_suspend.suspend	= mfis_drv_early_suspend;
@@ -439,7 +476,7 @@ int mfis_drv_suspend(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	if ((down_interruptible(&mfis_sem))) {
+	if (down_interruptible(&mfis_sem)) {
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
 		return -1;
 	}
@@ -465,12 +502,12 @@ int mfis_drv_resume(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	if ((down_interruptible(&mfis_sem))) {
+	if (down_interruptible(&mfis_sem)) {
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
 		return -1;
 	}
 
-	if (!(POWER_A3R & inl(REG_SYSC_PSTR))) {
+	if ( CLOCK_TLB_IC_OC == ( inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC ) ) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		late_resume_phase_flag = 1;
@@ -499,6 +536,17 @@ int mfis_drv_resume(void)
 }
 EXPORT_SYMBOL(mfis_drv_resume);
 #endif /* EARLYSUSPEND_STANDBY */
+
+void mfis_drv_eco_suspend(void)
+{
+#if EARLYSUSPEND_STANDBY
+	if( eco_mode_flag )
+	{
+		mfis_drv_suspend();
+	}
+#endif /* EARLYSUSPEND_STANDBY */
+}
+EXPORT_SYMBOL(mfis_drv_eco_suspend);
 
 static int mfis_runtime_nop(struct device *dev)
 {

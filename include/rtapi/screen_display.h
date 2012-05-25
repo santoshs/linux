@@ -48,6 +48,14 @@
 #define	RT_DISPLAY_1920_1080I60			(3)
 #define	RT_DISPLAY_1920_1080P24			(4)
 
+/* #MU2DSP582 mod -S- */
+/* Rotation type */
+#define RT_DISPLAY_ROTATE_0				(1)
+#define RT_DISPLAY_ROTATE_90			(2)
+#define RT_DISPLAY_ROTATE_180			(3)
+#define RT_DISPLAY_ROTATE_270			(4)
+/* #MU2DSP582 mod -E- */
+
 /** RT I/F Return code */
 #define SMAP_LIB_DISPLAY_OK				(0)
 #define SMAP_LIB_DISPLAY_NG				(-1)
@@ -114,6 +122,10 @@ typedef struct
 	unsigned short   format;
 	screen_rect      draw_rect;
 	unsigned int     buffer_offset;
+/* #MU2DSP582 mod -S- */
+	unsigned short   rotate;
+	unsigned short   dummy;
+/* #MU2DSP582 mod -E- */
 } screen_disp_draw;
 
 typedef struct
