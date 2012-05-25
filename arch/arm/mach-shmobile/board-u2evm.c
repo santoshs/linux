@@ -62,14 +62,23 @@
 #define SDHI1_D3_CR IO_ADDRESS(0xE6052124)
 #define SDHI1_CMD_CR IO_ADDRESS(0xE6052125)
 
+/*Support for compatibility between ES1.0 and ES2.0*/
 #define GPIO_BASE	IO_ADDRESS(0xe6050000)
-#define GPIO_PORTCR(n)	({				\
+#define GPIO_PORTCR_ES1(n)	({				\
 	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
 	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
 	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
 	((n) < 192) ? 0 :				\
 	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
 	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+#define GPIO_PORTCR_ES2(n)	({				\
+	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 192) ? 0 :				\
+	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
+	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 
 #define WLAN_GPIO_EN 	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
@@ -122,16 +131,22 @@ static struct sh_keysc_info keysc_platdata = {
 	.mode		= SH_KEYSC_MODE_6,
 	.scan_timing	= 3,
 	.delay		= 100,
+	.wakeup		= 1,	
+	.automode	= 1,
+	.flags		= WA_EOS_E132_KEYSC,
 	.keycodes	= {
-		KEY_A, KEY_B, KEY_C, KEY_D, KEY_E, KEY_F, KEY_G,
-		KEY_H, KEY_I, KEY_J, KEY_K, KEY_L, KEY_M, KEY_N,
-		KEY_O, KEY_P, KEY_Q, KEY_R, KEY_S, KEY_T, KEY_U,
-		KEY_V, KEY_W, KEY_X, KEY_Y, KEY_Z, KEY_HOME, KEY_SLEEP,
-		KEY_SPACE, KEY_9, KEY_6, KEY_3, KEY_WAKEUP, KEY_RIGHT, \
-		KEY_COFFEE,
-		KEY_0, KEY_8, KEY_5, KEY_2, KEY_DOWN, KEY_ENTER, KEY_UP,
-		KEY_KPASTERISK, KEY_7, KEY_4, KEY_1, KEY_STOP, KEY_LEFT, \
-		KEY_COMPUTER,
+		227, KEY_0, 228,
+		0, 0, 0, 0, 0,
+		KEY_7, KEY_8, KEY_9,
+		0, KEY_DOWN, 0, 0, 0,
+		KEY_4, KEY_5, KEY_6,
+		KEY_LEFT, KEY_ENTER, KEY_RIGHT, 0, 0,
+		KEY_1, KEY_2, KEY_3,
+		0, KEY_UP, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
 	},
 };
 
@@ -143,7 +158,7 @@ static struct resource keysc_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= gic_spi(71),
+		.start	= gic_spi(101),
 		.flags	= IORESOURCE_IRQ,
 	},
 };
@@ -610,12 +625,24 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-	gpio_pull(GPIO_PORTCR(24), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR(25), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR(26), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR(27), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR(1), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR(2), GPIO_PULL_UP);
+if((system_rev & 0xFF) == 0x00)
+{
+	gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(25), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(26), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
+}
+else
+{
+	gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(25), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(26), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
+}
 	return 0;
 }
 
@@ -1722,6 +1749,27 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYOUT4, NULL);
 	gpio_request(GPIO_FN_KEYOUT5, NULL);
 	gpio_request(GPIO_FN_KEYOUT6, NULL);
+
+if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+{	
+	gpio_pull(GPIO_PORTCR_ES1(44), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(48), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(96), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(97), GPIO_PULL_UP);
+}
+else /*ES2.0*/
+{
+	gpio_pull(GPIO_PORTCR_ES2(44), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(45), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(46), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(47), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(48), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(96), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
+}
 #endif
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
@@ -1860,7 +1908,11 @@ static void __init u2evm_init(void)
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
-        gpio_pull(GPIO_PORTCR(293), GPIO_PULL_UP);
+if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+        gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
+else /*ES2.0*/
+	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+
 	}
 	
 	if (0 == stm_select) {
@@ -1868,7 +1920,11 @@ static void __init u2evm_init(void)
 //        gpio_request(GPIO_PORT324, NULL);
 //        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
-        gpio_pull(GPIO_PORTCR(324), GPIO_PULL_UP);
+if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+        gpio_pull(GPIO_PORTCR_ES1(324), GPIO_PULL_UP);
+else /*ES2.0*/
+	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+
 	}
 
         if (-1 != stm_select) {
@@ -1974,7 +2030,10 @@ static void __init u2evm_init(void)
 	gpio_direction_output(GPIO_PORT30, 1);
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-	gpio_pull(GPIO_PORTCR(32), GPIO_PULL_UP);
+if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
+else /*ES2.0*/
+	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
 
 	/* USBHS */
 	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
