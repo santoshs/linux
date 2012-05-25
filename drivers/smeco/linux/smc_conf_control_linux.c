@@ -97,7 +97,7 @@ smc_t* smc_instance_get_control( void )
 
     if( dev_config_control.device_driver_priv != NULL )
     {
-        SMC_TRACE_PRINTF_INFO("smc_instance_get_control: SMC Net Device is configured properly, retrieving SMC Control instance...");
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_get_control: SMC Net Device is configured properly, retrieving SMC Control instance...");
         smc_instance_control = dev_config_control.device_driver_priv->smc_instance;
     }
     else
@@ -128,13 +128,10 @@ static smc_conf_t* smc_device_create_conf_control(void)
     smc_instance_conf_t* smc_instance_conf       = NULL;
     int                  i                       = 0;
 
-
         /* Select the SMC configuration */
-        /* TODO Set configuration master name in the network device  */
     char* smc_cpu_name = NULL;
-    uint16_t asic_version = smc_asic_version_get();;
+    uint16_t asic_version = smc_asic_version_get();
 
-    /* TODO Check the CPU version */
     if( asic_version == SMC_EOS_ASIC_ES10 )
     {
         smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
@@ -166,7 +163,6 @@ static smc_conf_t* smc_device_create_conf_control(void)
 
     return smc_conf;
 }
-
 
 static void  smc_receive_data_callback_channel_control(void*   data,
                                                       int32_t data_length,

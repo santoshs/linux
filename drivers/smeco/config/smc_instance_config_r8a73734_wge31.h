@@ -58,7 +58,7 @@ Description :  File created
      * SMC specific configurations for EOS2 ES1.0/ES2.0
      */
 
-    /* ES1.0 */
+    /* ---- ES1.0 ---- */
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10  "SH-Mobile-R8A73734-EOS2-ES10"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10         "WGEModem-3.1-EOS2-ES10"
 
@@ -74,10 +74,13 @@ Description :  File created
 
 
 
-    /* ES2.0 */
+    /* ---- ES2.0 ---- */
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
+//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x4C001000
+//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44000000
+//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x45000000
 #define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
 
     /* SHM area for SMC Control Instance */
@@ -88,8 +91,6 @@ Description :  File created
 #define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
 #define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)
 #define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1024*4 + 1024*512)    /* 4.5MB */
-
-
 
 
 #ifdef SMC_IN_EOS2_ES10
@@ -129,7 +130,11 @@ Description :  File created
      * 0x4000_0000    0x0800_0000     L23 Code
      * 0x4100_0000    0x0900_0000     L1  Code
      * 0x4200_0000    0x0A00_0000     L23 Data/L1 Data
-     * ...
+     * 0x43FF_0000                    Stack space       to 0x4400_0000 size 64 kB
+     * 0x4400_0000    0x0C00_0000     Reserved          to 0x477F_FFFF size 56 MB
+     *    0x4400_0000                 Malloc space      to 0x4500_0000 size 16 MB
+     *
+     * 0x4800_0000    -----           Modem is not able to the area starting from this address
      * 0x4C00_0000    0x1400_0000     Non-Secure Spinlock
      * 0x4C00_1000    0x1400_1000     Shared Memory 0x4C80_0FFF
      * 0x4C80_1000    0x1480_1000     Crash log
@@ -139,33 +144,16 @@ Description :  File created
      */
 
     //#define SMC_CONF_GLOBAL_SHM_START       0x4C001000
-
 #endif
-
-
-    /* Put the SMC Control instance in the beginning of the SHM area */
-
-    /* SHM area for SMC Control Instance */
-    /*
-#define SMC_CONF_CONTROL_SHM_START_OFFSET (0)
-#define SMC_CONF_CONTROL_SHM_START        (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_CONTROL_SHM_START_OFFSET)
-#define SMC_CONF_CONTROL_SHM_SIZE         (1024*200)                  * 200kB *
-    */
-
-    /* SHM Area for L2MUX */
-    /*
-#define SMC_CONF_L2MUX_SHM_START_OFFSET   (SMC_CONF_CONTROL_SHM_SIZE + 64)
-#define SMC_CONF_L2MUX_SHM_START          (SMC_CONF_GLOBAL_SHM_START + SMC_CONF_L2MUX_SHM_START_OFFSET)
-#define SMC_CONF_L2MUX_SHM_SIZE           (1024*1024*4 + 1024*512)    * 4.5MB *
-    */
 
     /* =============================================================================
      * COMMON Configuration for EOS2 ES1.0/ES2.0
      */
 
+#define SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED     TRUE
 
     /* Modem side offset */
-#define SMC_CONF_SHM_OFFSET_TO_MODEM    (-1*0x38000000)
+#define SMC_CONF_SHM_OFFSET_TO_MODEM                (-1*0x38000000)
 
 /*
  *  Peripheral addresses and configurations

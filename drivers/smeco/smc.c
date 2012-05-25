@@ -49,8 +49,7 @@ Description :  File created
      * Global variables
      */
 
-uint8_t smc_initialized        = FALSE;
-
+uint8_t                smc_initialized          = FALSE;
 uint8_t                signal_handler_count     = 0;
 smc_signal_handler_t** signal_handler_ptr_array = NULL;
 
@@ -112,7 +111,7 @@ static uint8_t  smc_channel_buffer_fifo_flush( smc_channel_t* channel );
 
     /* TODO Each channel should have own timer
      * FIFO timer cb function */
-static void smc_fifo_timer_expired(uint32_t timer_data);
+static void     smc_fifo_timer_expired(uint32_t timer_data);
 
     /*
      * Local inline functions
@@ -572,7 +571,7 @@ static void smc_fifo_timer_expired(uint32_t data)
     /* Invoke the SMC FIFO release check */
     if( smc_channel != NULL )
     {
-        /*uint8_t           forward_event = FALSE;*/
+        uint8_t           forward_event = FALSE;
         SMC_CHANNEL_EVENT new_event     = SMC_SEND_FIFO_FULL;
 
         SMC_LOCK_IRQ( smc_channel->lock_read );
@@ -581,7 +580,7 @@ static void smc_fifo_timer_expired(uint32_t data)
         {
             SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( smc_channel->state );
             new_event = SMC_SEND_FIFO_HAS_FREE_SPACE;
-            /*forward_event = TRUE;*/
+            forward_event = TRUE;
         }
         else
         {
@@ -594,7 +593,7 @@ static void smc_fifo_timer_expired(uint32_t data)
 
         SMC_UNLOCK_IRQ( smc_channel->lock_read );
 
-        if( new_event )
+        if( forward_event )
         {
             smc_handle_fifo_event(smc_channel, new_event);
         }
@@ -619,6 +618,12 @@ static inline uint8_t smc_handle_fifo_event(smc_channel_t* channel, SMC_CHANNEL_
 
     if( fifo_event == SMC_SEND_FIFO_FULL )
     {
+#ifdef SMECO_MODEM
+        /* TODO Modem side timer implementation */
+        SMC_TRACE_PRINTF_ASSERT("Channel %d: SMC FIFO 0x%08X full: Remote host does not read messages, CPU probably halted",
+            channel->id, (uint32_t)channel->fifo_out);
+        assert(0);
+#endif
         if( !SMC_CHANNEL_STATE_IS_FIFO_FULL( channel->state ) )
         {
             SMC_CHANNEL_STATE_SET_FIFO_FULL( channel->state );
@@ -1409,6 +1414,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->is_master              = smc_instance_conf->is_master;
     smc->smc_channel_list_count = 0;
     smc->smc_channel_ptr_array  = NULL;
+    smc->smc_instance_conf      = smc_instance_conf;
     smc->smc_parent_ptr         = parent_object;
 
     if( smc_instance_conf->smc_shm_conf != NULL )
@@ -1431,14 +1437,13 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
                 }
 
                 SMC_TRACE_PRINTF_DEBUG("smc_instance_create: Remapped SHM start address from 0x%08X is 0x%08X, size is %d, offset to physical is %d (0x%08X)",
-                        smc_instance_conf->smc_shm_conf->shm_area_start_address , smc->smc_shm_conf->shm_area_start_address,
+                        (uint32_t)smc_instance_conf->smc_shm_conf->shm_area_start_address , (uint32_t)smc->smc_shm_conf->shm_area_start_address,
                         smc->smc_shm_conf->size, (int32_t)smc->smc_shm_conf->remote_cpu_memory_offset, (uint32_t)smc->smc_shm_conf->remote_cpu_memory_offset);
 
                 SMC_TRACE_PRINTF_STARTUP("Shared memory size %d bytes, memory area: 0x%08X - 0x%08X (physical: 0x%08X - 0x%08X)", smc->smc_shm_conf->size,
                                         (uint32_t)smc->smc_shm_conf->shm_area_start_address, ((uint32_t)smc->smc_shm_conf->shm_area_start_address + smc->smc_shm_conf->size),
                                         ((uint32_t)smc->smc_shm_conf->shm_area_start_address-smc->smc_shm_conf->remote_cpu_memory_offset),
                                         (((uint32_t)smc->smc_shm_conf->shm_area_start_address + smc->smc_shm_conf->size)-smc->smc_shm_conf->remote_cpu_memory_offset) );
-
             }
             else
             {
@@ -1519,6 +1524,40 @@ void smc_instance_destroy( smc_t* smc_instance )
         SMC_TRACE_PRINTF_DEBUG("smc_instance_destroy: completed");
     }
 }
+
+/*
+ * SMC Instance restart.
+ * Returns pointer to new instance.
+ */
+
+smc_t* smc_instance_restart( smc_t* smc_instance )
+{
+    SMC_TRACE_PRINTF_DEBUG("smc_instance_restart: restarting SMC instance 0x%08X...", (uint32_t)smc_instance);
+
+    if( smc_instance != NULL )
+    {
+        smc_t*       smc_instance_new  = NULL;
+        smc_conf_t*  smc_instance_conf = smc_instance->smc_instance_conf;
+        void*        smc_parent_ptr    = smc_instance->smc_parent_ptr;
+
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_restart: destroying instance 0x%08X...", (uint32_t)smc_instance);
+        smc_instance_destroy( smc_instance );
+
+        smc_instance_new = smc_instance_create_ext( smc_instance_conf, smc_parent_ptr );
+
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_restart: return new SMC instance 0x%08X", (uint32_t)smc_instance_new);
+
+        return smc_instance_new;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_restart: unable to restart NULL instance");
+        return NULL;
+    }
+
+
+}
+
 
 /*
  * Calculates next valid free SHM address based on bytes consumed.
@@ -1667,7 +1706,6 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_channe
 
         SMC_TRACE_PRINTF_INFO("smc_channel_configure_shm: Channel %d: Creating MDBs...", smc_channel->id);
 
-
         for(int i = 0; i < 2; i++)
         {
             if( (i == 0 && is_master) || (i==1 && !is_master))
@@ -1676,10 +1714,8 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_channe
 
                 /* TODO Remove MDB out pointer from channel */
 
-                smc_channel->mdb_out = (uint8_t*)smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed;
-                //smc_channel->smc_mdb_info->pool_out       = (void*)smc_channel->mdb_out;
+                smc_channel->mdb_out                      = (uint8_t*)smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed;
                 smc_channel->smc_mdb_info->pool_out       = (void*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
-
                 smc_channel->smc_mdb_info->total_size_out = smc_channel_conf->mdb_size_out;
 
                 if( smc_mdb_create_pool_out( smc_channel->smc_mdb_info->pool_out, smc_channel->smc_mdb_info->total_size_out) != SMC_OK )
@@ -1697,8 +1733,7 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_channe
                 SMC_TRACE_PRINTF_INFO("smc_channel_configure_shm: Channel %d: Initializing MDB IN size %d...", smc_channel->id, smc_channel_conf->mdb_size_in);
 
                 /* TODO Remove MDB in pointer from channel */
-                smc_channel->mdb_in = (uint8_t*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
-                //smc_channel->smc_mdb_info->pool_in       = (void*)smc_channel->mdb_in;
+                smc_channel->mdb_in                      = (uint8_t*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
                 smc_channel->smc_mdb_info->pool_in       = (void*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
                 smc_channel->smc_mdb_info->total_size_in = smc_channel_conf->mdb_size_in;
 
@@ -1709,8 +1744,9 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_channe
         }
 
         /* Check that the consumed memory does not exceed the size */
-        SMC_TRACE_PRINTF_STARTUP("Channel %d: shared memory starts from 0x%08X size %d bytes",
-                smc_channel->id, (uint32_t)smc_channel->smc_shm_conf_channel->shm_area_start_address, bytes_consumed);
+        SMC_TRACE_PRINTF_STARTUP("Channel %d: shared memory starts from 0x%08X size %d bytes (Cache control %s)",
+                smc_channel->id, (uint32_t)smc_channel->smc_shm_conf_channel->shm_area_start_address, bytes_consumed,
+                smc_shm_conf->use_cache_control?"enabled":"disabled");
 
         SMC_CHANNEL_STATE_SET_SHM_CONFIGURED(smc_channel->state);
     }

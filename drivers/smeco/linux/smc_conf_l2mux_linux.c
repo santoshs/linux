@@ -171,7 +171,8 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
     /* TODO Check the CPU version */
     //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
 
-    SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
+    SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X (PM Host Access Req %s)", smc_cpu_name, asic_version,
+            SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -256,21 +257,27 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 
                 skb_data_buffer = skb_put(skb, data_length);
 
-                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X...",
-                        data, (uint32_t)skb->data, skb_data_buffer);
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X (0x%08X)...",
+                        (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
 
 
                 /* TODO Cache control */
 
                 memcpy( skb_data_buffer, data, data_length);
 
-                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", data);
+                /* Ensure the cache cleanup */
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux clean 0x%08X->0x%08X (len %d)",
+                        (uint32_t)skb_data_buffer, (uint32_t)(skb_data_buffer+data_length), data_length );
+
+                __raw_readl( ((void __iomem *)(skb_data_buffer+data_length)) );
+
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", (uint32_t)data);
 
                 /* TODO Create common free function for freeing RECEIVE data -> detects there if data is from remote */
 
                 if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( channel->copy_scheme ) )
                 {
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from local mem", data);
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from local mem", (uint32_t)data);
                     smc_channel_free_ptr_local( (smc_channel_t*)channel, data, (smc_user_data_t*)userdata );
                 }
                 else
@@ -284,7 +291,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                     userdata_free.userdata4 = userdata->userdata4;
                     userdata_free.userdata5 = userdata->userdata5;
 
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from SHM...", data);
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from SHM...", (uint32_t)data);
 
                         /* Free the MDB SHM data PTR from remote */
                     if( smc_send_ext( (smc_channel_t*)channel, data, 0, &userdata_free) != SMC_OK )

@@ -33,8 +33,37 @@ Description :  File created
 #include <linux/irq.h>
 #include <asm/signal.h>
 
+
+    // EOS2 registers
+    // TODO Use own Include file
+    //
 #define HPB_BASE    0xE6000000
 #define CCCR        (HPB_BASE + 0x101C)
+
+#define SMC_WPMCIF_EPMU_BASE        0xE6190000
+#define SMC_WPMCIF_EPMU_ACC_CR      (SMC_WPMCIF_EPMU_BASE + 0x0004)
+
+#ifdef SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED
+  #if(SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED==TRUE)
+
+    // TODO Add Global spinlock
+    #define SMC_HOST_ACCESS_WAKEUP(spinlock)  { __raw_writel(0x00000002, SMC_WPMCIF_EPMU_ACC_CR); \
+                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR); \
+                                               while (0x00000003 != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {} \
+                                              }
+
+
+    #define SMC_HOST_ACCESS_SLEEP(spinlock)   { __raw_writel(0x00000000, SMC_WPMCIF_EPMU_ACC_CR);  \
+                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR); \
+                                              }
+
+  #else
+    #define SMC_HOST_ACCESS_WAKEUP(spinlock)
+    #define SMC_HOST_ACCESS_SLEEP(spinlock)
+  #endif
+#else
+  #error "SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED --- NOT DEFINED"
+#endif
 
 #define SMC_EOS_ASIC_ES10   0x10
 #define SMC_EOS_ASIC_ES20   0x20
@@ -72,15 +101,15 @@ typedef struct
 
 #include <asm/irq.h>
 
-#define SMC_SHM_IOREMAP( address, size )           ioremap( (long unsigned int)address, size )
+#define SMC_SHM_IOREMAP( address, size )                        ioremap( (long unsigned int)address, size )
 
 #define SMC_HW_ARM_MEMORY_SYNC(startaddress)
 
-#define SMC_SHM_WRITE32( target_address, value )   __raw_writel( value, ((void __iomem *)(target_address)) )
-#define SMC_SHM_READ32( source_address )           __raw_readl( ((void __iomem *)source_address) )
+#define SMC_SHM_WRITE32( target_address, value )                 __raw_writel( value, ((void __iomem *)(target_address)) )
+#define SMC_SHM_READ32( source_address )                         __raw_readl( ((void __iomem *)source_address) )
 
 #define SMC_SHM_CACHE_INVALIDATE( start_address, end_address )
-#define SMC_SHM_CACHE_CLEAN( start_address, end_address )
+#define SMC_SHM_CACHE_CLEAN( start_address, end_address )        { __raw_readl( ((void __iomem *)(start_address)) ); __raw_readl( ((void __iomem *)(end_address)) );  }
 
 
 #define  SMC_LOCK( lock )        { SMC_TRACE_PRINTF_LOCK("lock: 0x%08X...", (uint32_t)lock); spin_lock( &(lock->mr_lock)); }

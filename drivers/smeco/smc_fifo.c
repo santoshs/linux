@@ -277,17 +277,6 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
         SMC_TRACE_PRINTF_FIFO("smc_fifo_put_cell: FIFO 0x%08X: data to cell_index %d (0x%08X), write_index = %d, read index = %d",
                 (uint32_t)p_fifo, cell_index, (uint32_t)fifo_cell, write_index , read_index);
 
-        /* -- SHM READ/WRITE
-        fifo_cell->data        = cell->data;
-        fifo_cell->length      = cell->length;
-        fifo_cell->flags       = cell->flags;
-        fifo_cell->userdata1   = cell->userdata1;
-        fifo_cell->userdata2   = cell->userdata2;
-        fifo_cell->userdata3   = cell->userdata3;
-        fifo_cell->userdata4   = cell->userdata4;
-        fifo_cell->userdata5   = cell->userdata5;
-        */
-
         SMC_SHM_WRITE32( &fifo_cell->data,      cell->data );
         SMC_SHM_WRITE32( &fifo_cell->length,    cell->length );
         SMC_SHM_WRITE32( &fifo_cell->flags,     cell->flags );
@@ -329,12 +318,6 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     }
     else
     {
-        /*
-        RD_TRACE_SEND4(INTERFACE_CALL_IPC2_WARN_FIFO_FULL, 4, &p_fifo,
-                                                           4, &p_fifo->length,
-                                                           4, &read_index,
-                                                           4, &p_fifo->write_index);
-        */
         SMC_TRACE_PRINTF_ERROR("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
                 (uint32_t)p_fifo, n_in_fifo, p_fifo->length, write_index, read_index);
 
@@ -343,29 +326,8 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
 
     if( use_cache_control )
     {
-        /*
-        uint32_t* startcell = NULL;
-        uint32_t* endcell   = NULL;
-        uint32_t* start     = NULL;
-        uint32_t* end       = NULL;
-
-        start = FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo);
-        end   = FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo);
-
-        startcell = FIFO_HEADER_GET_START_ADDRESS_CELL( p_fifo, cell_index );
-        endcell   = FIFO_HEADER_GET_END_ADDRESS_CELL(   p_fifo, cell_index );
-
-
-        SMC_SHM_CACHE_CLEAN( ((void*)start), ((void*)end) );
-        SMC_SHM_CACHE_CLEAN( ((void*)startcell), ((void*)endcell) );
-        */
-
         SMC_SHM_CACHE_CLEAN( FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo), FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo) );
         SMC_SHM_CACHE_CLEAN( FIFO_HEADER_GET_START_ADDRESS_CELL( p_fifo, cell_index ), FIFO_HEADER_GET_END_ADDRESS_CELL( p_fifo, cell_index ) );
-
-        /* TODO Global LOCK release
-        SMC_FIFO_LOCK_RELEASE_HW_SEM(hw_semaphore_id);
-        */
     }
     else
     {
@@ -430,14 +392,16 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
     read_index  = SMC_SHM_READ32( &p_fifo->read_index  );
     read_cnt    = SMC_SHM_READ32( &p_fifo->read_counter );
 
-
     if ( (write_index - read_index) == 0 )
     {
-        SMC_TRACE_PRINTF_FIFO("smc_fifo_get_cell: FIFO 0x%08X is empty, RI %d, WI %d", (uint32_t)p_fifo, read_index, write_index);
-        /*
-        SMC_TRACE_PRINTF_FIFO_DATA(32, FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo));
-        SMC_TRACE_PRINTF_FIFO_DATA(32, FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo));
-        */
+        SMC_TRACE_PRINTF_FIFO_GET("read empty: fifoPtr: 0x%08X, readIndex: %d, writeIndex: %d, readCount: %d, writeCount: %d",
+                (uint32_t)p_fifo, read_index, write_index, read_cnt, write_cnt);
+
+        RD_TRACE_SEND5(TRA_SMC_FIFO_GET_EMPTY, 4, &p_fifo,
+                                               4, &read_index,
+                                               4, &write_index,
+                                               4, &read_cnt,
+                                               4, &write_cnt);
 
         cell->data        = 0;
         cell->length      = 0;
@@ -494,17 +458,6 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
         }
         else
         {
-            /* -- SHM READ/WRITE
-            cell->data        = fifo_cell->data;
-            cell->length      = fifo_cell->length;
-            cell->flags       = fifo_cell->flags;
-            cell->userdata1   = fifo_cell->userdata1;
-            cell->userdata2   = fifo_cell->userdata2;
-            cell->userdata3   = fifo_cell->userdata3;
-            cell->userdata4   = fifo_cell->userdata4;
-            cell->userdata5   = fifo_cell->userdata5;
-            */
-
             cell->data        = SMC_SHM_READ32( &fifo_cell->data );
             cell->length      = SMC_SHM_READ32( &fifo_cell->length );
             cell->flags       = SMC_SHM_READ32( &fifo_cell->flags );

@@ -232,7 +232,7 @@ static int smc_net_device_driver_open_channels(struct net_device* device)
         if( smc_instance_conf != NULL )
         {
             SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open_channels: SMC priv 0x%08X: read SMC configuration 0x%08X and create SMC instance, use parent 0x%08X...",
-                    (uint32_t)smc_priv, (uint32_t)smc_instance_conf, smc_priv->platform_device);
+                    (uint32_t)smc_priv, (uint32_t)smc_instance_conf, (uint32_t)smc_priv->platform_device);
 
             smc_priv->smc_instance = smc_instance_create_ext(smc_instance_conf, smc_priv->platform_device);
 
@@ -286,11 +286,10 @@ static int smc_net_device_driver_open(struct net_device* device)
 
         if( smc_instance_conf != NULL )
         {
-            SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC priv 0x%08X: SMC configuration 0x%08X ok, ready to start device",
+            SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open: SMC private 0x%08X: SMC configuration 0x%08X ok, ready to start device",
 			(uint32_t)smc_priv, (uint32_t)smc_instance_conf);
 
             ret_val = SMC_DRIVER_OK;
-
          }
          else
          {
@@ -608,10 +607,10 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 		{
 			SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
 			
-			/* TODO Check if the type check is necessary */
-			if (dev->type == ARPHRD_PHONET || dev->type == ARPHRD_MHI)
+			//if (dev->type == ARPHRD_PHONET || dev->type == ARPHRD_MHI)
+			if( TRUE )
 			{
-				SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, found correct type, check name...", 
+				SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, check name...",
 					dev!=NULL?dev->name:"<NO NAME>");
 
 				if( strncmp( dev->name, "smc", 3 ) == 0 )
@@ -634,12 +633,20 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 						dev!=NULL?dev->name:"<NO NAME>");
 				}
 			}
+			else
+			{
+			    SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, correct device type not found",
+			                        dev!=NULL?dev->name:"<NO NAME>");
+			}
 
 			break;
 		}
 		case NETDEV_DOWN:  /* 0x02 */
 		{
 			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
+
+			/* TODO Implement close */
+
 			break;
 		}
 

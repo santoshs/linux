@@ -41,7 +41,9 @@ Description :  File created
 #define MDB_TEST_POOL    (MDB_TEST_PTRS - 1) * MDB_TEST_BYTES
 #define MDB_TEST_RUNS    5
 
-uint8_t g_pool_id = 4;
+static void *ut_malloc(smc_channel_t* smc_channel, size_t sz);
+static void ut_free(smc_channel_t* smc_channel, void *ptr, size_t oldsz);
+
     // Local mdb test case functions
 uint8_t smc_test_case_function_mdb( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
@@ -92,65 +94,56 @@ uint8_t smc_test_case_function_mdb( uint8_t* test_input_data, uint16_t test_inpu
             }
             break;
             
+            // allocation and deallocation
             case 0x01:
             {
-                test_result = smc_test_mdb_channel_test2();
+                test_result = smc_test_mdb_alloc_dealloc();
             }
-            break;            
+            break;
+
+            case 0x02:
+            {
+                test_result = smc_test_mdb_perf();
+            }   
+            break;
+
+            case 0x03:
+            {
+                smc_channel_t smc_map_test_channel;
+                map_pool = SMC_MALLOC( sizeof(void*) * 1024 * 60 );
+                smc_mdb_create_pool_out( map_pool, sizeof(void*) * 1024 * 60 );
+                smc_map_test_channel.smc_mdb_info = smc_mdb_channel_info_create();
+                smc_map_test_channel.smc_mdb_info->pool_out = map_pool;
+                smc_map_test_channel.smc_mdb_info->total_size_out = ( sizeof(void*) * 1024 * 60 );
+                test_result = smc_test_mdb_map_test( map, 10, 10, &smc_map_test_channel );
+                smc_mdb_info_destroy( smc_map_test_channel.smc_mdb_info );
+                SMC_FREE( map_pool );
+            }
+            break;
             
             //address check
-            case 0x02:
+            case 0x04:
             {
                 test_result = smc_test_mdb_address_check();                
                 
             }
             break;
 
-            // allocation and deallocation
-            case 0x03:
-            {
-                test_result = smc_test_mdb_alloc_dealloc( 0 );
-            }
-            break;
-
-            case 0x04:
-            {
-                test_result = smc_test_mdb_perf();
-            }   
-            break;
-
-            case 0x05:
-            {
-                map_pool = SMC_MALLOC( sizeof(void*) * 1024 * 60 );
-                smc_mdb_create_pool_out( map_pool, sizeof(void*) * 1024 * 50 );
-                test_result = smc_test_mdb_map_test( map, 10, 10, 0 );
-                //smc_mdb_destroy( 0 );
-                SMC_FREE( map_pool );
-            }
-            break;
-            
-            // create two channels with the same id
-            case 0x06:
-            {
-                test_result = smc_test_mdb_channel_test3();
-            }
-            break;
-            
             // deallocation from wrong pool
-            case 0x07:
+            case 0x05:
             {
                 test_result = smc_test_mdb_dealloc_wrong_pool();
             }
             break;
 
             // mdb_copy test
-            case 0x08:
+            case 0x06:
             {
                 test_result = smc_test_mdb_copy_test(); 
             }
             break;
 
-            case 0x09:
+            case 0x07:
             {
                 test_result = SMC_OK;
                 smc_test_mdb_random_alloc();
@@ -181,130 +174,19 @@ uint8_t smc_test_mdb_channel_test1()
     int8_t mdb_result;
     uint32_t size;
     void *pool;
-    uint8_t channel_id;
+    smc_channel_t smc_channel;
     
-    channel_id = 0;
     mdb_result = 0;
     size = 1000 * 1024; /*SMC_BYTES_TO_32BIT(test_input_data[data_index]);*/
     pool = SMC_MALLOC(2 * size);
     SMC_TEST_TRACE_PRINTF_INFO("MDB create and destroy");
     assert(pool != NULL);
+
     mdb_result = smc_mdb_create_pool_out( pool, size);
-    
-    SMC_TEST_TRACE_PRINTF_INFO("TEST IS NOT VALID ANYMORE, MISSING SMC MDB INFO FOR DESTROY");
-    assert(0);
-
-    //smc_mdb_destroy(channel_id);
-
-
-    size = 900 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 800 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 700 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 600 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 500 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 400 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 300 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 200 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 100 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 90 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 80 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 70 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 60 * 1024;
-    mdb_result = smc_mdb_create_pool_out(pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 50 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 40 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 30 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 20 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 10 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 9 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 8 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 7 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 6 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 5 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    size = 4 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    //smc_mdb_destroy(channel_id);
-
-    /* MDB creation smaller than 4kB fails
-    size = 3 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    smc_mdb_destroy(channel_id);
-
-    size = 2 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    smc_mdb_destroy(channel_id);
-    
-    size = 1 * 1024;
-    mdb_result = smc_mdb_create_pool_out( pool, size);
-    smc_mdb_destroy(channel_id);*/
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel.smc_mdb_info->pool_out = pool;
+    smc_channel.smc_mdb_info->total_size_out = size;
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
 
     SMC_FREE(pool);
     if (mdb_result >= 0)
@@ -314,151 +196,13 @@ uint8_t smc_test_mdb_channel_test1()
     return SMC_ERROR;
 }
 
-uint8_t smc_test_mdb_channel_test2()
-{
-    int i;
-    void* pool_out[5];
-    void* pool_in[5];
-
-    pool_out[0] = SMC_MALLOC(5000);
-    pool_in[0] = SMC_MALLOC(6000);
-    
-    SMC_TEST_TRACE_PRINTF_INFO("creating output pool for channel 0, size 5000");
-    smc_mdb_create_pool_out(pool_out[0], 5000);
-
-    /*
-    smc_mdb_channel_info_dump();
-    SMC_TEST_TRACE_PRINTF_INFO("initialising input pool for channel 0, size 6000");
-    smc_mdb_init(0, pool_in[0], 6000);
-    smc_mdb_channel_info_dump();
-    */
-
-    pool_out[1] = SMC_MALLOC(7000);
-    pool_in[1]  = SMC_MALLOC(8000);
-    
-    SMC_TEST_TRACE_PRINTF_INFO("creating output pool for channel 1, size 7000");
-    smc_mdb_create_pool_out(pool_out[1], 7000);
-    //smc_mdb_channel_info_dump();
-
-    /*
-    SMC_TEST_TRACE_PRINTF_INFO("initialising input pool for channel 1, size 8000");
-    smc_mdb_init(1, pool_in[1], 8000);
-    smc_mdb_channel_info_dump();
-    */
-    
-    SMC_TEST_TRACE_PRINTF_INFO("destroying pools for channel 0");
-    ////smc_mdb_destroy(0);
-    //smc_mdb_channel_info_dump();
-    
-    SMC_TEST_TRACE_PRINTF_INFO("destroying pools for channel 1");
-    //smc_mdb_destroy(1);
-    //smc_mdb_channel_info_dump();
-    
-    SMC_TEST_TRACE_PRINTF_INFO("destroying all pools");
-    smc_mdb_all_destroy();
-    //smc_mdb_channel_info_dump();
-
-    pool_out[2] = SMC_MALLOC(10000);
-    pool_in[2]  = SMC_MALLOC(9000);
-    SMC_TEST_TRACE_PRINTF_INFO("creating output pool for channel 2, size 10000");
-    smc_mdb_create_pool_out( pool_out[2], 10000);
-    /*
-    smc_mdb_channel_info_dump();
-    SMC_TEST_TRACE_PRINTF_INFO("initialising input pool for channel 2, size 9000");
-    smc_mdb_init(2, pool_in[2], 9000);
-    smc_mdb_channel_info_dump();
-    */
-    
-    pool_out[3] = SMC_MALLOC(8000);
-    pool_in[3]  = SMC_MALLOC(7000);
-    SMC_TEST_TRACE_PRINTF_INFO("creating output pool for channel 0, size 8000");
-    smc_mdb_create_pool_out( pool_out[3], 8000);
-    /*
-    smc_mdb_channel_info_dump();
-    SMC_TEST_TRACE_PRINTF_INFO("initialising input pool for channel 0, size 7000");
-    smc_mdb_init(0, pool_in[3], 7000);
-    smc_mdb_channel_info_dump();
-    */
-    
-    pool_out[4] = SMC_MALLOC(6000);
-    pool_in[4]  = SMC_MALLOC(5000);
-    SMC_TEST_TRACE_PRINTF_INFO("creating output pool for channel 1, size 6000");
-    smc_mdb_create_pool_out( pool_out[4], 6000);
-    //smc_mdb_channel_info_dump();
-
-    /*
-    SMC_TEST_TRACE_PRINTF_INFO("initialising input pool for channel 1, size 5000");
-    smc_mdb_init(1, pool_in[4], 5000);
-    smc_mdb_channel_info_dump();
-    */
-    
-    //SMC_TEST_TRACE_PRINTF_INFO("destroying pools for channel 2");
-    //smc_mdb_destroy(2);
-    //mc_mdb_channel_info_dump();
-    //SMC_TEST_TRACE_PRINTF_INFO("destroying pools for channel 0");
-    //smc_mdb_destroy(0);
-    //smc_mdb_channel_info_dump();
-    //SMC_TEST_TRACE_PRINTF_INFO("destroying pools for channel 1");
-    //smc_mdb_destroy(1);
-    //smc_mdb_channel_info_dump();
-    SMC_TEST_TRACE_PRINTF_INFO("destroying all pools");
-    smc_mdb_all_destroy();
-    
-    //smc_mdb_channel_info_dump();
-
-    for (i = 0; i < 5; i++)
-    {
-        SMC_FREE(pool_out[i]);
-        SMC_FREE(pool_in[i]);
-        pool_out[i] = NULL;
-        pool_in[i]  = NULL;
-    }
-
-    return SMC_OK;
-}
-
-uint8_t smc_test_mdb_channel_test3()
-{
-    uint8_t test_result;
-    int32_t mdb_result; 
-    void *pool_ch1;
-    void *pool_ch2;
-
-    pool_ch1 = SMC_MALLOC( 10 * 1024 );
-    pool_ch2 = SMC_MALLOC(  5 * 1024 );
-
-    test_result = SMC_ERROR;
-
-    mdb_result = smc_mdb_create_pool_out(pool_ch1, 10 * 1024 );
-    //smc_mdb_channel_info_dump();
-    
-    mdb_result = smc_mdb_create_pool_out( pool_ch2, 5 * 1024 );
-    //smc_mdb_channel_info_dump();
-
-    if (mdb_result == SMC_OK)
-    {
-        SMC_TEST_TRACE_PRINTF_ERROR("MDB two mdb channels created with the same id");
-        test_result = SMC_ERROR;
-    }
-    else
-    {
-        test_result = SMC_OK;
-    }
-
-    //smc_mdb_destroy( 0 );
-    SMC_FREE( pool_ch1 );
-    SMC_FREE( pool_ch2 );
-    
-    return test_result;
-}
-
 uint8_t smc_test_mdb_address_check()
 {
     uint8_t test_result;
     void* pool_out; 
     void* pool_in;
     uint8_t mdb_result;
-    smc_channel_t* smc_channel = NULL;
+    smc_channel_t smc_channel;
 
     pool_out = SMC_MALLOC(5000);
     pool_in  = SMC_MALLOC(6000);
@@ -467,42 +211,43 @@ uint8_t smc_test_mdb_address_check()
     mdb_result = FALSE;
 
     smc_mdb_create_pool_out( pool_out, 5000);
-    /*
-    smc_mdb_init(0, pool_in, 6000);
-    */
 
     /* The SMC channel must be initialized with the pool info */
-    assert(0);
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel.smc_mdb_info->pool_out = pool_out;
+    smc_channel.smc_mdb_info->total_size_out = 5000;
+    smc_channel.smc_mdb_info->pool_in = pool_in;
+    smc_channel.smc_mdb_info->total_size_in = 6000;
 
-    mdb_result = smc_mdb_address_check(smc_channel, (uint8_t*)pool_out + 200, SMC_MDB_OUT);
+    mdb_result = smc_mdb_address_check(&smc_channel, (uint8_t*)pool_out + 200, SMC_MDB_OUT);
     if (mdb_result == FALSE)
     {
         test_result = SMC_ERROR;
     }
-    mdb_result = smc_mdb_address_check(smc_channel, (uint8_t*)pool_out + 5200, SMC_MDB_OUT);
+    mdb_result = smc_mdb_address_check(&smc_channel, (uint8_t*)pool_out + 5200, SMC_MDB_OUT);
     if (mdb_result != FALSE)
     {
         test_result = SMC_ERROR;
     }
-    mdb_result = smc_mdb_address_check(smc_channel, (uint8_t*)pool_in + 200, SMC_MDB_IN);
+    mdb_result = smc_mdb_address_check(&smc_channel, (uint8_t*)pool_in + 200, SMC_MDB_IN);
     if (mdb_result == FALSE)
     {
         test_result = SMC_ERROR;
     }
-    mdb_result = smc_mdb_address_check(smc_channel, (uint8_t*)pool_in + 6200, SMC_MDB_IN);
+    mdb_result = smc_mdb_address_check(&smc_channel, (uint8_t*)pool_in + 6200, SMC_MDB_IN);
     if (mdb_result != FALSE)
     {
         test_result = SMC_ERROR;
     }
 
-    //smc_mdb_destroy( 0 );
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
     SMC_FREE( pool_in );
     SMC_FREE( pool_out );
 
     return test_result;
 }
 
-uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
+uint8_t smc_test_mdb_alloc_dealloc( )
 {
 
     uint8_t result;
@@ -513,6 +258,7 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
     char *test_ptr;
     uint32_t total_alloc;
     void *pool; 
+    smc_channel_t smc_channel;
     
     pool = SMC_MALLOC( MDB_TEST_POOL );
 
@@ -522,6 +268,8 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
 
     SMC_TEST_TRACE_PRINTF_INFO("MDB alloc and dealloc test");
     smc_mdb_create_pool_out(pool, MDB_TEST_POOL );
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel.smc_mdb_info->pool_out = pool;
 
     while (test_run--)
     {
@@ -530,9 +278,8 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
         // allocate pointers from MDB pool until it is depleted
         for (i = 0; i < MDB_TEST_PTRS; i++)
         {
-            smc_channel_t* smc_channel = NULL;
 
-            test_ptrs[i] = (char*)smc_mdb_alloc( smc_channel, MDB_TEST_BYTES );
+            test_ptrs[i] = (char*)smc_mdb_alloc( &smc_channel, MDB_TEST_BYTES );
             if (!test_ptrs[i])
             {
                 total_alloc = i * MDB_TEST_BYTES;
@@ -541,7 +288,7 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
             }
             else if (i >= MDB_TEST_POOL / MDB_TEST_BYTES)
             {
-                SMC_TEST_TRACE_PRINTF_INFO("MDB allocation from depleted pool returned pointer: 0x%08X, test FAIL.", test_ptrs[i]);
+                SMC_TEST_TRACE_PRINTF_INFO("MDB allocation from depleted pool returned pointer: 0x%08X, test FAIL.", (uint32_t)test_ptrs[i]);
                 result = SMC_ERROR;
                 break;
             }
@@ -562,7 +309,7 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
                     result = SMC_ERROR;
                 }
             }
-            smc_mdb_free( NULL, (void*)test_ptrs[i] );
+            smc_mdb_free( &smc_channel, (void*)test_ptrs[i] );
         }
         
         if (result == SMC_ERROR)
@@ -572,7 +319,7 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
 
         // try to allocate one big block to ensure that all pointers were freed and
         // the pool has not fragmented
-        test_ptr = (char*)smc_mdb_alloc( NULL, total_alloc );
+        test_ptr = (char*)smc_mdb_alloc( &smc_channel, total_alloc );
         if (!test_ptr)
         {
             SMC_TEST_TRACE_PRINTF_INFO("MDB big block allocation test fail.");
@@ -581,13 +328,14 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
         }
         else
         {
-            smc_mdb_free( NULL, (void*)test_ptr );
+            smc_mdb_free( &smc_channel, (void*)test_ptr );
         }
 
         SMC_TEST_TRACE_PRINTF_INFO("MDB allocation test run %d OK", MDB_TEST_RUNS - test_run);
     }
 
     //smc_mdb_destroy( ch_id );
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
     SMC_FREE( pool );
     return result;
 }
@@ -595,47 +343,47 @@ uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id )
 uint8_t smc_test_mdb_perf()
 {
 #ifdef SMECO_MODEM
-    uint8_t ch_id;
     uint32_t start_time;
     uint32_t stop_time;
     uint32_t *ptr[20];
     void *pool;
     
-    ch_id = 0;
+    SMC_TEST_TRACE_PRINTF_INFO("MDB allocator perf test");
     pool = SMC_MALLOC( MDB_TEST_POOL );
-    smc_mdb_create_pool_out( pool, MDB_TEST_POOL );
     
+    smc_channel_t smc_channel;
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_mdb_create_pool_out( pool, MDB_TEST_POOL );
+    smc_channel.smc_mdb_info->pool_out = pool;
+    smc_channel.smc_mdb_info->total_size_out = MDB_TEST_POOL;
+
     hw_arm_cp15_perf_cntr_init( 0, 0, 0 );
     hw_arm_cp15_perf_cntr_start();
 
     os_conditional_int_disable();
     start_time = hw_arm_cp15_perf_ccnt_read();
 
-    smc_channel_t* smc_channel = NULL;
 
-        /* Test does not work until smc_channel is initialized with pool info*/
-    assert(0);
-
-    ptr[0] = smc_mdb_alloc( smc_channel, 128 );
-    ptr[1] = smc_mdb_alloc( smc_channel, 1280 );
-    ptr[2] = smc_mdb_alloc( smc_channel, 280 );
-    ptr[3] = smc_mdb_alloc( smc_channel, 2800 );
-    ptr[4] = smc_mdb_alloc( smc_channel, 128 );
-    ptr[5] = smc_mdb_alloc( smc_channel, 28 );
-    ptr[6] = smc_mdb_alloc( smc_channel, 4128 );
-    ptr[7] = smc_mdb_alloc( smc_channel, 1428 );
-    ptr[8] = smc_mdb_alloc( smc_channel, 328 );
-    ptr[9] = smc_mdb_alloc( smc_channel, 15280 );
-    ptr[10] = smc_mdb_alloc( smc_channel, 128 );
-    ptr[11] = smc_mdb_alloc( smc_channel, 1280 );
-    ptr[12] = smc_mdb_alloc( smc_channel, 280 );
-    ptr[13] = smc_mdb_alloc( smc_channel, 2800 );
-    ptr[14] = smc_mdb_alloc( smc_channel, 28 );
-    ptr[15] = smc_mdb_alloc( smc_channel, 128 );
-    ptr[16] = smc_mdb_alloc( smc_channel, 4128 );
-    ptr[17] = smc_mdb_alloc( smc_channel, 1428 );
-    ptr[18] = smc_mdb_alloc( smc_channel, 128 );
-    ptr[19] = smc_mdb_alloc( smc_channel, 5280 );
+    ptr[0] = smc_mdb_alloc( &smc_channel, 128 );
+    ptr[1] = smc_mdb_alloc( &smc_channel, 1280 );
+    ptr[2] = smc_mdb_alloc( &smc_channel, 280 );
+    ptr[3] = smc_mdb_alloc( &smc_channel, 2800 );
+    ptr[4] = smc_mdb_alloc( &smc_channel, 128 );
+    ptr[5] = smc_mdb_alloc( &smc_channel, 28 );
+    ptr[6] = smc_mdb_alloc( &smc_channel, 4128 );
+    ptr[7] = smc_mdb_alloc( &smc_channel, 1428 );
+    ptr[8] = smc_mdb_alloc( &smc_channel, 328 );
+    ptr[9] = smc_mdb_alloc( &smc_channel, 15280 );
+    ptr[10] = smc_mdb_alloc( &smc_channel, 128 );
+    ptr[11] = smc_mdb_alloc( &smc_channel, 1280 );
+    ptr[12] = smc_mdb_alloc( &smc_channel, 280 );
+    ptr[13] = smc_mdb_alloc( &smc_channel, 2800 );
+    ptr[14] = smc_mdb_alloc( &smc_channel, 28 );
+    ptr[15] = smc_mdb_alloc( &smc_channel, 128 );
+    ptr[16] = smc_mdb_alloc( &smc_channel, 4128 );
+    ptr[17] = smc_mdb_alloc( &smc_channel, 1428 );
+    ptr[18] = smc_mdb_alloc( &smc_channel, 128 );
+    ptr[19] = smc_mdb_alloc( &smc_channel, 5280 );
     stop_time = hw_arm_cp15_perf_ccnt_read();
     os_conditional_int_enable();
 
@@ -644,33 +392,32 @@ uint8_t smc_test_mdb_perf()
     os_conditional_int_disable();
     start_time = hw_arm_cp15_perf_ccnt_read();
 
-    smc_mdb_free( smc_channel, ptr[0] );
-    smc_mdb_free( smc_channel, ptr[1] );
-    smc_mdb_free( smc_channel, ptr[2] );
-    smc_mdb_free( smc_channel, ptr[3] );
-    smc_mdb_free( smc_channel, ptr[4] );
-    smc_mdb_free( smc_channel, ptr[5] );
-    smc_mdb_free( smc_channel, ptr[6] );
-    smc_mdb_free( smc_channel, ptr[7] );
-    smc_mdb_free( smc_channel, ptr[8] );
-    smc_mdb_free( smc_channel, ptr[9] );
-    smc_mdb_free( smc_channel, ptr[10] );
-    smc_mdb_free( smc_channel, ptr[11] );
-    smc_mdb_free( smc_channel, ptr[12] );
-    smc_mdb_free( smc_channel, ptr[13] );
-    smc_mdb_free( smc_channel, ptr[14] );
-    smc_mdb_free( smc_channel, ptr[15] );
-    smc_mdb_free( smc_channel, ptr[16] );
-    smc_mdb_free( smc_channel, ptr[17] );
-    smc_mdb_free( smc_channel, ptr[18] );
-    smc_mdb_free( smc_channel, ptr[19] );
+    smc_mdb_free( &smc_channel, ptr[0] );
+    smc_mdb_free( &smc_channel, ptr[1] );
+    smc_mdb_free( &smc_channel, ptr[2] );
+    smc_mdb_free( &smc_channel, ptr[3] );
+    smc_mdb_free( &smc_channel, ptr[4] );
+    smc_mdb_free( &smc_channel, ptr[5] );
+    smc_mdb_free( &smc_channel, ptr[6] );
+    smc_mdb_free( &smc_channel, ptr[7] );
+    smc_mdb_free( &smc_channel, ptr[8] );
+    smc_mdb_free( &smc_channel, ptr[9] );
+    smc_mdb_free( &smc_channel, ptr[10] );
+    smc_mdb_free( &smc_channel, ptr[11] );
+    smc_mdb_free( &smc_channel, ptr[12] );
+    smc_mdb_free( &smc_channel, ptr[13] );
+    smc_mdb_free( &smc_channel, ptr[14] );
+    smc_mdb_free( &smc_channel, ptr[15] );
+    smc_mdb_free( &smc_channel, ptr[16] );
+    smc_mdb_free( &smc_channel, ptr[17] );
+    smc_mdb_free( &smc_channel, ptr[18] );
+    smc_mdb_free( &smc_channel, ptr[19] );
     stop_time = hw_arm_cp15_perf_ccnt_read();
     os_conditional_int_enable();
 
     SMC_TEST_TRACE_PRINTF_INFO("MDB allocation perf test 20 deallocations: %d cycles, avg: %d cycles per deallocation", stop_time - start_time, (stop_time - start_time) / 20);
     
-    assert(0);
-    //smc_mdb_destroy( ch_id );
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
     SMC_FREE( pool );
 #else
     SMC_TEST_TRACE_PRINTF_INFO("MDB allocation perf test available only in modem");
@@ -678,7 +425,7 @@ uint8_t smc_test_mdb_perf()
     return SMC_OK;
 }
 
-uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs, uint8_t ch_id )
+uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs, smc_channel_t* smc_channel )
 {
     int i, j, k;
     uint8_t result;
@@ -698,7 +445,7 @@ uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs
         if (map[i] >> 31)
         {
             sizes[j] = map[i] & ~( 1U << 31 );
-            ptrs[j] = (char*)smc_mdb_alloc( NULL, sizes[j]);
+            ptrs[j] = (char*)smc_mdb_alloc( smc_channel, sizes[j]);
             
 
             if (ptrs[j] == NULL)
@@ -708,7 +455,7 @@ uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs
                 break;
             }
 
-            if (smc_mdb_address_check(NULL, ptrs[j], SMC_MDB_OUT) == FALSE)
+            if (smc_mdb_address_check(smc_channel, ptrs[j], SMC_MDB_OUT) == FALSE)
             {
                 SMC_TEST_TRACE_PRINTF_ERROR("MDB allocation map test FAIL at map[%d] (0x%08X). Allocated pointer not in pool.", i, map[i]);
                 result = SMC_ERROR;
@@ -734,12 +481,12 @@ uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs
             {
                 if(ptrs[map[i]][k] != MDB_TEST_MAP_REF(map[i]))
                 {
-                    SMC_TEST_TRACE_PRINTF_ERROR("MDB allocation map test FAIL at prts[%d][%d] (0x%08X). Data corrupted! data: 0x%02X, extected: 0x%02X", map[i], k, ptrs[map[i]], ptrs[j][k], MDB_TEST_MAP_REF(map[i]));
+                    SMC_TEST_TRACE_PRINTF_ERROR("MDB allocation map test FAIL at prts[%d][%d] (0x%08X). Data corrupted! data: 0x%02X, extected: 0x%02X", map[i], k, (uint32_t) ptrs[map[i]], ptrs[j][k], MDB_TEST_MAP_REF(map[i]));
                     result = SMC_ERROR;
                     break;
                 }
             }
-            smc_mdb_free( NULL, ptrs[map[i]] );
+            smc_mdb_free( smc_channel, ptrs[map[i]] );
             ptrs[map[i]] = NULL;
         }
         else
@@ -755,10 +502,11 @@ uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs
     {
         if(ptrs[i] != NULL)
         {
-            smc_mdb_free( NULL, ptrs[i] );
+            smc_mdb_free( smc_channel, ptrs[i] );
             ptrs[map[i]] = NULL;
         }
     }
+
     SMC_FREE( sizes );
     SMC_FREE( ptrs );
 
@@ -772,18 +520,28 @@ uint8_t smc_test_mdb_dealloc_wrong_pool()
     void *pool_ch1;
     uint8_t *ptr;
     int i;
-    
+    smc_channel_t smc_channel0;
+    smc_channel_t smc_channel1;
+
     pool_ch0 = SMC_MALLOC( 10 * 1024 );
     pool_ch1 = SMC_MALLOC( 10 * 1024 );
 
     smc_mdb_create_pool_out( pool_ch0, 10 * 1024 );
     smc_mdb_create_pool_out( pool_ch1, 10 * 1024 );
     
+    smc_channel0.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel1.smc_mdb_info = smc_mdb_channel_info_create();
+
+    smc_channel0.smc_mdb_info->pool_out = pool_ch0;
+    smc_channel0.smc_mdb_info->total_size_out = 10 * 1024;
+    smc_channel1.smc_mdb_info->pool_out = pool_ch1;
+    smc_channel1.smc_mdb_info->total_size_out = 10 * 1024;
+
     test_result = SMC_OK;
     
-    ptr = smc_mdb_alloc( NULL, 1024 );
+    ptr = smc_mdb_alloc( &smc_channel0, 1024 );
     memset( ptr, 0x42, 1024 );
-    smc_mdb_free( NULL, ptr );
+    smc_mdb_free( &smc_channel1, ptr );
 
     for (i = 0; i < 1024; i++)
     {
@@ -795,11 +553,11 @@ uint8_t smc_test_mdb_dealloc_wrong_pool()
         }
     }
 
-    smc_mdb_free( NULL, ptr );
+    smc_mdb_free( &smc_channel0, ptr );
 
-    assert(0);
-    //smc_mdb_destroy( 0 );
-    //smc_mdb_destroy( 1 );
+    smc_mdb_info_destroy( smc_channel0.smc_mdb_info );
+    smc_mdb_info_destroy( smc_channel1.smc_mdb_info );
+
     SMC_FREE( pool_ch0 );
     SMC_FREE( pool_ch1 );
 
@@ -813,14 +571,18 @@ uint8_t smc_test_mdb_copy_test()
     char *target;
     void *pool;
     int i, j;
+    smc_channel_t smc_channel;
 
     test_result = SMC_OK;
 
     pool = SMC_MALLOC( 5 * 1024 );
     smc_mdb_create_pool_out( pool, 5 * 1024 );
+    
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel.smc_mdb_info->pool_out = pool;
 
     source = SMC_MALLOC( 1024 );
-    target = smc_mdb_alloc( NULL, 1024 );
+    target = smc_mdb_alloc( &smc_channel, 1024 );
 
     for (i = 0; (i < 1024 - 4) && (test_result == SMC_OK); i++)
     {
@@ -849,10 +611,8 @@ uint8_t smc_test_mdb_copy_test()
         }
     }
 
-    smc_mdb_free( NULL, target );
-
-    assert(0);
-    //smc_mdb_destroy( 0 );
+    smc_mdb_free( &smc_channel, target );
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
 
     SMC_FREE( source );
     SMC_FREE( pool );
@@ -860,49 +620,44 @@ uint8_t smc_test_mdb_copy_test()
     return test_result;
 }
 
-
-#ifdef SMECO_MODEM
-static void *ut_malloc(uint8_t p_id, size_t sz)
+static void *ut_malloc(smc_channel_t* smc_channel, size_t sz)
 {
-    uint8_t tid;
+    uint8_t ref;
     void *pv;
     size_t up;
 
-    tid = os_task_own_id_read();
-    pv = smc_mdb_alloc(NULL, sz);
-    assert(((intptr_t)pv & 31) == 0); // Cache aligned
+    ref = (uint8_t)((sz) & 0xFF);
+    pv = smc_mdb_alloc(smc_channel, sz);
+    assert(((uint32_t)pv & 31) == 0); // Cache aligned
     if (pv)
     {
         up = (sz + 31) & (~31);  // simulate DMA
-        memset(pv, tid, up);
-        SMC_TEST_TRACE_PRINTF_INFO("Requested %d bytes, allocated %d bytes", sz, tlsf_ptr_size(pv));
+        memset(pv, ref, up);
+        SMC_TEST_TRACE_PRINTF_INFO("Requested %d bytes, allocated %d bytes, ref %d", sz, tlsf_ptr_size(pv), ref);
     }
     return pv;
 }
 
-static void ut_free(uint8_t p_id, void *ptr, size_t oldsz)
+static void ut_free(smc_channel_t* smc_channel, void *ptr, size_t oldsz)
 {
-    uint8_t tid;
+    uint8_t ref;
     int i;
     uint8_t *pt;
 
-    tid = os_task_own_id_read();
     if (ptr)
     {
         pt = (uint8_t*)ptr;
+        ref = (uint8_t)((oldsz) & 0xFF);
         for (i = 0; i < oldsz; ++i)
         {
-            if (pt[i] != tid)
-                SMC_TEST_TRACE_PRINTF_INFO("FATAL 0x%02 != 0x%02X @%d (0x%08X)",
-                                            pt[i], tid, i, (uint32_t)ptr);
-            assert(pt[i] == tid);
+            if (pt[i] != ref)
+                SMC_TEST_TRACE_PRINTF_INFO("FATAL 0x%02X != 0x%02X @%d (0x%08X)",
+                                            pt[i], ref, i, (uint32_t)ptr);
+            assert(pt[i] == ref);
         }
-        //size_t up = (oldsz + 31) & (~31);  // simulate DMA
-        //memset(ptr, 0xAA, up);
-        smc_mdb_free(NULL, ptr);
+        smc_mdb_free(smc_channel, ptr);
     }
 }
-#endif
 
 #define MAX_ALLOCATIONS 123
 #define MAX_ALLOC_SIZE  11003 /*31101*/
@@ -911,13 +666,12 @@ static void ut_free(uint8_t p_id, void *ptr, size_t oldsz)
 
 void smc_test_mdb_random_alloc(void)
 {
-#ifdef SMECO_MODEM
-    uint8_t p_id;
     int i, j, rnd1, rnd2, rnd3;
 
     void *mdb_pool;
     void **references; // [MAX_ALLOCATIONS] = {0};
     size_t *sizes; //[MAX_ALLOCATIONS] = {0};
+    smc_channel_t smc_channel;
 
 #ifdef MDB_REALLOC_TEST
     void *pn;
@@ -926,22 +680,18 @@ void smc_test_mdb_random_alloc(void)
     const int NRCASES = 2;
 #endif
 
-    os_task_token thid = os_task_own_id_read();
-
-    p_id = g_pool_id++;
-    g_pool_id = (g_pool_id % 123) + 4;
-
     references = SMC_MALLOC(MAX_ALLOCATIONS * sizeof(void*));
     memset(references, 0, MAX_ALLOCATIONS * sizeof(void*));
     sizes = SMC_MALLOC(MAX_ALLOCATIONS * sizeof(size_t));
     memset(sizes, 0, MAX_ALLOCATIONS * sizeof(size_t));
     mdb_pool = SMC_MALLOC(MAX_ALLOCATIONS * 1024 * sizeof(void*) );
-    assert(mdb_pool != NULL && "no pool for channel!");
+    assert(mdb_pool != NULL); // no pool for channel
 
-    SMC_TEST_TRACE_PRINTF_INFO("MDB MALLOC TEST: task %d started", thid);
+    SMC_TEST_TRACE_PRINTF_INFO("MDB MALLOC TEST: random alloc test started");
 
     smc_mdb_create_pool_out( mdb_pool, MAX_ALLOCATIONS * 1024 * sizeof(void*) );
-
+    smc_channel.smc_mdb_info = smc_mdb_channel_info_create();
+    smc_channel.smc_mdb_info->pool_out = mdb_pool;
 
     for (i = 0; i < NR_LOOPS; ++i)
     {
@@ -956,12 +706,12 @@ void smc_test_mdb_random_alloc(void)
             case 0: // Allocate
                 if (!references[rnd1] && rnd2 > 0)
                 {
-                    references[rnd1] = ut_malloc(p_id, rnd2);
+                    references[rnd1] = ut_malloc(&smc_channel, rnd2);
                     sizes[rnd1] = rnd2;
                 }
                 break;
             case 1: // Free
-                ut_free(p_id, references[rnd1], sizes[rnd1]);
+                ut_free(&smc_channel, references[rnd1], sizes[rnd1]);
                 references[rnd1] = NULL;
                 sizes[rnd1] = 0;
                 break;
@@ -993,66 +743,17 @@ void smc_test_mdb_random_alloc(void)
     /* Deallocate all */
     for (i = 0; i < MAX_ALLOCATIONS; ++i)
     {
-        ut_free(p_id, references[i], sizes[i]);
+        ut_free(&smc_channel, references[i], sizes[i]);
     }
     SMC_FREE(references);
     SMC_FREE(sizes);
 
-    SMC_TEST_TRACE_PRINTF_INFO("MDB usable space at lowest: %d bytes", smc_mdb_channel_free_space_min_get( NULL ));
-    assert(0);
-    //smc_mdb_destroy( p_id );
+    SMC_TEST_TRACE_PRINTF_INFO("MDB usable space at lowest: %d bytes (valid only if TLSF_STATISTICS enabled on smc_mdb.c)", smc_mdb_channel_free_space_min_get( &smc_channel ));
+    
+    smc_mdb_info_destroy( smc_channel.smc_mdb_info );
     SMC_FREE( mdb_pool );
 
     SMC_TEST_TRACE_PRINTF_INFO("MDB MALLOC TEST: task ends");
-#else
-    SMC_TEST_TRACE_PRINTF_INFO("This MDB test case is only available in modem side.");
-#endif
     
 }
 
-#if 0
-/*===========================================================================*/
-uint8_t malloc_test(void)
-{
-    uint8_t p_id = g_pool_id++;
-    os_task_token task_id;
-    int i;
-    bool succ;
-    void *msg;
-    int32_t msg_len;
-    int nrtasks = 3; /* XXX */
-    size_t stack_sz = os_task_stack_min_get() + 8*100;
-    os_task_token thid = os_task_own_id_read();
-    int32_t *pd_params = SMC_MALLOC(sizeof(int32_t) * 4);
-
-    memset(pd_params, 0, sizeof(int32_t) * 4);
-    pd_params[0] =  4; // count
-    pd_params[1] = 64; // size
-
-    char startmsg[10]; /* Startup message has callers task id */
-    sprintf(startmsg, "%d", thid);
-    size_t startlen = strlen(startmsg) + 1;
-
-    SMC_TEST_TRACE_PRINTF_INFO("MDB MALLOC TEST case requested");
-    
-    for (i = 0; i < nrtasks; ++i)
-    {
-        os_prior prio = os_get_new_prior(231);
-        char name[30];
-        sprintf(name, "mos malloc test %d", i);
-        task_id = os_task_create(name, prio, smc_test_mdb_random_alloc, NULL, // stack
-                                 stack_sz, 3);
-        if (task_id < 0)
-            return SMC_ERROR;
-
-        os_task_resume(task_id);
-        SMC_TEST_TRACE_PRINTF_INFO("MDB MALLOC TEST: task id %d started, prio %d",
-                           task_id, prio);
-
-        /* Send startup message */
-        os_msg_ptr_send(task_id, startmsg, startlen, OS_MSG_F_BLOCK);
-    }
-
-    return SMC_OK;
-}
-#endif
