@@ -21,7 +21,7 @@
 #ifndef __MFIS_PRIVATE_H__
 #define __MFIS_PRIVATE_H__
 
-#define RTPM_PF_CUSTOM 0
+#define RTPM_PF_CUSTOM 1
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define EARLYSUSPEND_STANDBY 0
