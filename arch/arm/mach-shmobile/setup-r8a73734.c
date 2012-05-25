@@ -564,6 +564,16 @@ static const struct sh_dmae_slave_config r8a73734_dmae_slaves[] = {
 		.chcr		= CHCR_RX(XMIT_SZ_16BIT),
 		.mid_rid	= 0xc6,
 	}, {
+		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
+		.addr		= 0xee140030,
+		.chcr		= CHCR_TX(XMIT_SZ_16BIT),
+		.mid_rid	= 0xc9,
+	}, {
+		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
+		.addr		= 0xee140030,
+		.chcr		= CHCR_RX(XMIT_SZ_16BIT),
+		.mid_rid	= 0xca,
+	}, {
 		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
 		.addr		= 0xe6bd0034,
 		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
