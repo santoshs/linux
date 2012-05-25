@@ -1,6 +1,6 @@
 /* include/linux/lsm303dl.h
  *
- * Copyright (C) 2012 Renesas Mobile Corporation. 
+ * Copyright (C) 2012 Renesas Mobile Corporation.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -12,29 +12,30 @@
  * GNU General Public License for more details.
  *
  */
- 
+
 #ifndef __LSM303DL_LOCAL_H__
 #define __LSM303DL_LOCAL_H__
 
 /************************************************
-*   	Debug definition section	 	*
-************************************************/ 
-#define LSM303DL_LOG
+*	Debug definition section		*
+************************************************/
+/* #define LSM303DL_LOG */
 #ifdef LSM303DL_LOG
-	#define lsm303dl_log(fmt, ... ) printk(KERN_DEBUG "%s(%d): " fmt, __func__, __LINE__, ## __VA_ARGS__)
-#else 
-	#define lsm303dl_log(x...) do { } while (0) 
+	#define lsm303dl_log(fmt, ...)	printk(KERN_DEBUG "%s(%d): " \
+			fmt, __func__, __LINE__, ## __VA_ARGS__)
+#else
+	#define lsm303dl_log(x...) do { } while (0)
 #endif
 
 
 /*For debug only*/
-//#define LSM303DL_MAG_INT
-//#define LSM303DL_ACC_INT1
-//#define KOTA_ENV
+/* #define LSM303DL_MAG_INT
+#define LSM303DL_ACC_INT1
+#define KOTA_ENV */
 
 /************************************************
-*   	Accelerometer definition section	    *
-************************************************/ 
+*	Accelerometer definition section	    *
+************************************************/
 
 /*Conversion unit setting*/
 #define ACCELERATION_LOW			(12)
@@ -43,7 +44,7 @@
 #define ACCELERATION_EXTREME		(1)
 
 /*Register name*/
-#define CTRL_REG1_A 				(0x20)
+#define CTRL_REG1_A				(0x20)
 #define CTRL_REG2_A					(0x21)
 #define CTRL_REG4_A					(0x23)
 #define OUT_X_L_A					(0x28)
@@ -62,8 +63,8 @@
 #define ACC_IRQ_NUMBER				(0x31)
 
 /************************************************
-*   	Magnetometer definition section	        *
-************************************************/ 
+*	Magnetometer definition section	        *
+************************************************/
 
 /*Conversion unit setting*/
 #define MAG_XY_SENS_1_3				(1100)
@@ -90,8 +91,8 @@
 #define MAG_IRQ_NUMBER				(0x30)
 
 /************************************************
-*   	LSM303DL definition section	            *
-************************************************/ 
+*	LSM303DL definition section	            *
+************************************************/
 /*Polling mechanism setting*/
 #define LSM303DL_POLL_THR			(1400)
 #define LSM303DL_POLL_MIN			(5)
@@ -128,17 +129,17 @@
 #define LSM303DL_MAX_RANGE_MAG		(32000)
 
 /*sensor ID*/
-#define ID_ACC 						(0)
-#define ID_MAG 						(1)
+#define ID_ACC						(0)
+#define ID_MAG						(1)
 
 /*Driver name setting*/
 #define LSM303DL_DRIVER_NAME		"lsm303dl"
 #define LSM303DL_ACC_NAME			"lsm303dl_acc"
 #define LSM303DL_MAG_NAME			"lsm303dl_mag"
- 
+
 /************************************************
-*   	Exported function definition section	*
-************************************************/ 
+*	Exported function definition section	*
+************************************************/
 /*LSM303DL input driver*/
 void lsm303dl_acc_report_values(void);
 void lsm303dl_mag_report_values(void);
@@ -157,100 +158,100 @@ int lsm303dl_mag_hw_init(u8 *val);
 int lsm303dl_mag_activate(u8 val);
 
 /************************************************
-*   	Structure definition section	        *
-************************************************/ 
+*	Structure definition section	        *
+************************************************/
  /* Structure for lsm303dl_input driver */
- struct  lsm303dl_input {
-    struct mutex lock;						
-    struct wake_lock wakelock;
-    struct input_dev *input_dev;
-    struct work_struct work_func;
-    struct workqueue_struct *poll_workqueue;
-    struct hrtimer timer;
+struct  lsm303dl_input {
+	struct mutex lock;
+	struct wake_lock wakelock;
+	struct input_dev *input_dev;
+	struct work_struct work_func;
+	struct workqueue_struct *poll_workqueue;
+	struct hrtimer timer;
 
-    /*Activation flag for accelerometer*/
+	/*Activation flag for accelerometer*/
 	atomic_t acc_enable;
-	
+
 	/*Activation flag for Magnetometer*/
-    atomic_t mag_enable;
-	
+	atomic_t mag_enable;
+
 	/*Driver status flag*/
-    atomic_t available;
-    
-    /*User-side delay time*/
-    u16  delay;
-	
+	atomic_t available;
+
+	/*User-side delay time*/
+	u16  delay;
+
 	/*Actual polling interval on lsm303dl input driver*/
-    u16  poll_interval;
+	u16  poll_interval;
 };
 
 /* Structure for lsm303dl accelerometer driver */
-struct  lsm303dl_acc_data{
-    struct mutex lock;
+struct  lsm303dl_acc_data {
+	struct mutex lock;
 	struct wake_lock wakelock;
 
-    /*Sensitivity value*/
+	/*Sensitivity value*/
 	u8 sensitivity;
-	
+
 	/*Output data rate*/
-    u8 odr;
+	u8 odr;
 
-    /*User-side delay time*/
-    u16  delay;
-	
+	/*User-side delay time*/
+	u16  delay;
+
 	/*Actual polling interval on lsm303dl accelerometer driver*/
-    u16  poll_interval;
-	
-	/*The number of ignored reporting time*/
-    u16  report_ignore_cnt;
+	u16  poll_interval;
 
-    /*irq number for INT1 interrupt*/
-    int irq1;
-	
+	/*The number of ignored reporting time*/
+	u16  report_ignore_cnt;
+
+	/*irq number for INT1 interrupt*/
+	int irq1;
+
 	/*work_struct structure for INT1 interrupt*/
-    struct work_struct irq1_work;
-	
+	struct work_struct irq1_work;
+
 	/*workqueue_struct structure for INT1 interrupt*/
-    struct workqueue_struct *irq1_workqueue;
+	struct workqueue_struct *irq1_workqueue;
 	struct hrtimer timer;
-	
+
 	/*work_struct structure for timer interrupt*/
-    struct work_struct timer_work;
+	struct work_struct timer_work;
 };
 
 /* Structure for lsm303dl magnetometer driver */
-struct  lsm303dl_mag_data{
-    struct mutex lock;
+struct  lsm303dl_mag_data {
+	struct mutex lock;
 	struct wake_lock wakelock;
 
-    /*Sensitivity value*/
+	/*Sensitivity value*/
 	u8 sensitivity;
 
-    /*User-side delay time*/
-    u16  delay;
-	
-	/*Actual polling interval on lsm303dl magnetometer driver*/
-    u16  poll_interval;
+	/*User-side delay time*/
+	u16  delay;
 
-    /*irq number for DRDY interrupt*/
-    int drdy;
-	
+	/*Actual polling interval on lsm303dl magnetometer driver*/
+	u16  poll_interval;
+
+	/*irq number for DRDY interrupt*/
+	int drdy;
+
 	/*work_struct structure for DRDY interrupt*/
-    struct work_struct drdy_work;
-	
+	struct work_struct drdy_work;
+
 	/*workqueue_struct structure for DRDY interrupt*/
-    struct workqueue_struct *drdy_workqueue;
+	struct workqueue_struct *drdy_workqueue;
 	struct hrtimer timer;
-	
+
 	/*work_struct structure for timer interrupt*/
-    struct work_struct timer_work;
+	struct work_struct timer_work;
 };
 
 /*Output data rate structure*/
 struct lsm303dl_output_rate {
 	/*Output data rate in millisecond*/
 	int poll_rate_ms;
-	
+
 	/*The corresponding output data rate in lsm303dl register*/
 	u8 mask;
 };
@@ -259,10 +260,10 @@ struct lsm303dl_output_rate {
 struct lsm303dl_sens_table {
 	/*Sensitivity unit for x-axis*/
 	u16 x;
-	
+
 	/*Sensitivity unit for y-axis*/
 	u16 y;
-	
+
 	/*Sensitivity unit for z-axis*/
 	u16 z;
 };
