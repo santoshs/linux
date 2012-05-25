@@ -25,6 +25,29 @@
 
 #define VCD_PROC_BUF_SIZE	32
 
+#define VCD_PROC_IF_GET_MSG_BUFFER_LOG		\
+		"V <-- A : '0'  - GET_MSG_BUFFER.\n"
+#define VCD_PROC_IF_START_VCD_LOG		\
+		"V <-- A : '1'  - START_VCD.\n"
+#define VCD_PROC_IF_STOP_VCD_LOG		\
+		"V <-- A : '2'  - STOP_VCD.\n"
+#define VCD_PROC_IF_SET_HW_PARAM_LOG		\
+		"V <-- A : '3'  - SET_HW_PARAM.\n"
+#define VCD_PROC_IF_START_CALL_LOG		\
+		"V <-- A : '4'  - START_CALL.\n"
+#define VCD_PROC_IF_STOP_CALL_LOG		\
+		"V <-- A : '5'  - STOP_CALL.\n"
+#define VCD_PROC_IF_START_TTY_CTM_LOG		\
+		"V <-- A : '6'  - START_TTY_CTM.\n"
+#define VCD_PROC_IF_STOP_TTY_CTM_LOG		\
+		"V <-- A : '7'  - STOP_TTY_CTM.\n"
+#define VCD_PROC_IF_CONFIG_TTY_CTM_LOG		\
+		"V <-- A : '8'  - CONFIG_TTY_CTM.\n"
+#define VCD_PROC_IF_SET_UDATA_LOG		\
+		"V <-- A : '9'  - SET_UDATA.\n"
+#define VCD_PROC_IF_GET_STATUS_LOG		\
+		"V <-- A : '10' - GET_STATUS.\n"
+
 
 /*
  * define macro declaration
@@ -91,6 +114,7 @@ struct vcd_execute_func {
 void vcd_complete_buffer(void);
 void vcd_beginning_buffer(void);
 void vcd_stop_fw(void);
+void vcd_start_clkgen(void);
 
 /* Internal functions */
 static void vcd_get_msg_buffer(void);
@@ -112,6 +136,7 @@ static int vcd_stop_playback(void *arg);
 static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_stop_fw(void *arg);
+static int vcd_watch_start_clkgen(void *arg);
 
 /* Proc functions */
 static int vcd_read_exec_proc(char *page, char **start, off_t offset,
@@ -142,7 +167,9 @@ static int vcd_suspend(struct device *dev);
 static int vcd_resume(struct device *dev);
 static int vcd_runtime_suspend(struct device *dev);
 static int vcd_runtime_resume(struct device *dev);
-static void vcd_release(struct device *dev);
+static int vcd_fops_open(struct inode *inode, struct file *filp);
+static int vcd_fops_release(struct inode *inode, struct file *filp);
+static int vcd_fops_mmap(struct file *fp, struct vm_area_struct *vma);
 
 static int __init vcd_module_init(void);
 static void __exit vcd_module_exit(void);

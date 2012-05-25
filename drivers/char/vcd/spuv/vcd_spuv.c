@@ -139,16 +139,12 @@ int vcd_spuv_get_msg_buffer(void)
 
 	vcd_pr_start_spuv_function();
 
+	vcd_spuv_func_initialize();
+
 	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
 		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER - SPUV_FUNC_SDRAM_AREA_TOP);
 
-#if 0
-	#include <linux/gfp.h>
-	address = get_zeroed_page(GFP_KERNEL);
-	if (0 == address)
-		return error;
-	free_page(address);
-#endif
+	vcd_spuv_func_cacheflush();
 
 	vcd_pr_end_spuv_function("buf_addr[%d].\n", buf_addr);
 	return buf_addr;
@@ -171,8 +167,15 @@ int vcd_spuv_start_vcd(void)
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 
+
 	/* set power supply */
-	ret = vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_ENABLE);
+	ret = vcd_spuv_func_control_power_supply(
+					VCD_SPUV_FUNC_ENABLE);
+
+	/* beginning on clkgen is notified */
+	/* regardless of the execution result. */
+	vcd_ctrl_start_clkgen();
+
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("power supply error[%d].\n", ret);
 		goto rtn;
@@ -230,7 +233,8 @@ int vcd_spuv_stop_vcd()
 	vcd_spuv_free_irq();
 
 	/* power supply off */
-	ret = vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_DISABLE);
+	ret = vcd_spuv_func_control_power_supply(
+				VCD_SPUV_FUNC_DISABLE);
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("power supply error[%d].\n", ret);
 		goto rtn;
@@ -268,12 +272,18 @@ int vcd_spuv_set_hw_param(void)
 	/* set expected response*/
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY, 0);
 
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_HW_PARAMETERS_IND;
 	param[2] = proc_param[0];
 	param[3] = proc_param[1];
 	param[4] = proc_param[2];
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_HW_PARAMETERS_LENGTH);
@@ -312,10 +322,16 @@ int vcd_spuv_start_call(void)
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
 				VCD_SPUV_SPEECH_START_CNF);
 
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_SPEECH_START_REQ;
 	param[2] = proc_param[0];
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_SPEECH_START_LENGTH);
@@ -357,6 +373,9 @@ int vcd_spuv_stop_call(void)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_SPEECH_STOP_REQ;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_SPEECH_STOP_LENGTH);
 
@@ -393,6 +412,9 @@ int vcd_spuv_start_tty_ctm(void)
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
 				VCD_SPUV_TTY_CTM_START_CNF);
 
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_TTY_CTM_START_REQ;
@@ -402,6 +424,10 @@ int vcd_spuv_start_tty_ctm(void)
 	param[4] = 0;
 	param[5] = 0;
 #endif
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_START_LENGTH);
 
@@ -442,6 +468,9 @@ int vcd_spuv_stop_tty_ctm(void)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_TTY_CTM_STOP_REQ;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_STOP_LENGTH);
 
@@ -479,11 +508,17 @@ int vcd_spuv_config_tty_ctm(void)
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
 				VCD_SPUV_TTY_CTM_CONFIG_CNF);
 
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_TTY_CTM_CONFIG_REQ;
 	param[2] = proc_param[0];
 	param[3] = proc_param[1];
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_CONFIG_LENGTH);
@@ -520,12 +555,18 @@ int vcd_spuv_set_udata(void)
 	/* set expected response*/
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY, 0);
 
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_UDATA_REQ;
 	param[2] = proc_param[0];
 	memcpy((void *)&param[3], (void *)&proc_param[1],
 				 sizeof(int)*proc_param[0]);
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_UDATA_LENGTH+param[2]);
@@ -592,6 +633,9 @@ int vcd_spuv_start_record(struct vcd_record_option *option)
 	param[5] = dl_gain;
 	param[6] = ul_gain;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_RECORDING_START_LENGTH);
 
@@ -631,6 +675,9 @@ int vcd_spuv_stop_record(void)
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_VOICE_RECORDING_STOP_REQ;
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_RECORDING_STOP_LENGTH);
@@ -703,6 +750,9 @@ int vcd_spuv_start_playback(struct vcd_playback_option *option)
 	param[7] = ul_speech_gain;
 	param[8] = ul_playback_gain;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_PLAYING_START_LENGTH);
 
@@ -742,6 +792,9 @@ int vcd_spuv_stop_playback(void)
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_VOICE_PLAYING_STOP_REQ;
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_PLAYING_STOP_LENGTH);
@@ -825,6 +878,9 @@ int vcd_spuv_start_1khz_tone(void)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_1KHZ_TONE_START_REQ;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_1KHZ_TONE_START_LENGTH);
 
@@ -864,6 +920,9 @@ int vcd_spuv_stop_1khz_tone(void)
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_1KHZ_TONE_STOP_REQ;
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_1KHZ_TONE_STOP_LENGTH);
@@ -906,6 +965,9 @@ int vcd_spuv_start_pcm_loopback(int mode)
 	param[1] = VCD_SPUV_PCM_LOOPBACK_START_REQ;
 	param[2] = mode;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_PCM_LOOPBACK_START_LENGTH);
 
@@ -946,6 +1008,9 @@ int vcd_spuv_stop_pcm_loopback(void)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_PCM_LOOPBACK_STOP_REQ;
 
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
+
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_PCM_LOOPBACK_STOP_LENGTH);
 
@@ -972,7 +1037,7 @@ int vcd_spuv_start_bbif_loopback(int mode)
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
 
-	vcd_pr_start_spuv_function("mode[%d]", mode);
+	vcd_pr_start_spuv_function("mode[%d].\n", mode);
 
 	/* set status */
 	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK |
@@ -986,6 +1051,9 @@ int vcd_spuv_start_bbif_loopback(int mode)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_BBIF_LOOPBACK_START_REQ;
 	param[2] = mode;
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_BBIF_LOOPBACK_START_LENGTH);
@@ -1026,6 +1094,9 @@ int vcd_spuv_stop_bbif_loopback(void)
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_BBIF_LOOPBACK_STOP_REQ;
+
+	/* output msg log */
+	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
 	vcd_spuv_func_send_msg(param, VCD_SPUV_BBIF_LOOPBACK_STOP_LENGTH);
@@ -1112,18 +1183,18 @@ static int vcd_spuv_set_irq(int validity)
 {
 	int ret = VCD_ERR_NONE;
 
-	vcd_pr_start_spuv_function("validity[%d]", validity);
+	vcd_pr_start_spuv_function("validity[%d].\n", validity);
 
 	switch (validity) {
 	case VCD_SPUV_ENABLE:
 		/* Bind SPUV interrupt */
-		vcd_pr_spuv_info("execute request_irq().");
+		vcd_pr_spuv_info("execute request_irq().\n");
 		ret = request_irq(VCD_SPUV_SPI_NO, vcd_spuv_irq_handler,
 				0, "SPU2V DSP", NULL);
 		break;
 	case VCD_SPUV_DISABLE:
 		/* Unbind SPUV interrupt */
-		vcd_pr_spuv_info("execute free_irq()");
+		vcd_pr_spuv_info("execute free_irq().\n");
 		free_irq(VCD_SPUV_SPI_NO, NULL);
 		break;
 	default:
@@ -1292,12 +1363,12 @@ static void vcd_spuv_interrupt_ack(struct work_struct *work)
 {
 	int ret = VCD_ERR_NONE;
 
-	vcd_pr_start_spuv_function("work[%p]", work);
+	vcd_pr_start_spuv_function("work[%p].\n", work);
 
 	/* set schedule */
 	vcd_spuv_set_schedule();
 
-	vcd_pr_spuv_debug("SPUV -> Cortex [ACK].\n");
+	vcd_pr_if_spuv("V <-- F : ACK.\n");
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
@@ -1308,10 +1379,11 @@ static void vcd_spuv_interrupt_ack(struct work_struct *work)
 	vcd_spuv_unset_status(VCD_SPUV_STATUS_WAIT_ACK);
 
 	/* check status */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
+	ret = vcd_spuv_get_status();
+	if (VCD_SPUV_STATUS_NONE == ret)
 		/* end wait */
 		vcd_spuv_func_end_wait();
+
 
 rtn:
 	vcd_pr_end_if_spuv();
@@ -1329,14 +1401,13 @@ rtn:
 static void vcd_spuv_interrupt_req(struct work_struct *work)
 {
 	int ret = VCD_ERR_NONE;
+	int i = 0;
 	unsigned int *fw_req = (int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
 
-	vcd_pr_start_spuv_function("work[%p]", work);
+	vcd_pr_start_spuv_function("work[%p].\n", work);
 
 	/* set schedule */
 	vcd_spuv_set_schedule();
-
-	vcd_pr_spuv_debug("SPUV -> Cortex [REQ].\n");
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
@@ -1348,11 +1419,13 @@ static void vcd_spuv_interrupt_req(struct work_struct *work)
 		goto rtn;
 
 	/* status update */
-	vcd_spuv_unset_status(VCD_SPUV_STATUS_WAIT_REQ);
 	vcd_spuv_set_status(VCD_SPUV_STATUS_NEED_ACK);
 
 	/* get request details */
 	vcd_spuv_func_get_fw_request();
+
+	/* output msg log */
+	vcd_spuv_interface_log(fw_req[1]);
 
 	switch (fw_req[1]) {
 	case VCD_SPUV_SYSTEM_ERROR_IND:
@@ -1361,6 +1434,10 @@ static void vcd_spuv_interrupt_req(struct work_struct *work)
 			&g_vcd_spuv_system_error.work);
 		break;
 	case VCD_SPUV_SYSTEM_INFO_IND:
+		vcd_pr_spuv_info("system info length[%d].\n", fw_req[2]);
+		for (i = 3; i < (fw_req[2] + 3); i++)
+			vcd_pr_spuv_debug(
+				"system info[%d][%x].\n", i, fw_req[i]);
 		break;
 	case VCD_SPUV_UDATA_IND:
 		break;
@@ -1373,15 +1450,28 @@ static void vcd_spuv_interrupt_req(struct work_struct *work)
 			&g_vcd_spuv_play_trigger.work);
 		break;
 	default:
+		/* status update */
+		vcd_spuv_unset_status(VCD_SPUV_STATUS_WAIT_REQ);
 		/* check result */
 		vcd_spuv_check_wait_fw_info(fw_req[0], fw_req[1], fw_req[2]);
-		/* end wait */
-		vcd_spuv_func_end_wait();
+		if (VCD_SPUV_BOOT_COMPLETE_IND == fw_req[1]) {
+			vcd_pr_spuv_info("SPUV version is.\n");
+			for (i = 2; i < 10; i++)
+				vcd_pr_spuv_info("[%x].\n", fw_req[i]);
+		}
 		break;
 	}
 
 	/* send ack message */
 	vcd_spuv_func_send_ack();
+	vcd_spuv_unset_status(VCD_SPUV_STATUS_NEED_ACK);
+
+	/* check status */
+	ret = vcd_spuv_get_status();
+	if ((VCD_SPUV_STATUS_NONE == ret) ||
+		(VCD_SPUV_STATUS_SYSTEM_ERROR == ret))
+		/* end wait */
+		vcd_spuv_func_end_wait();
 
 rtn:
 	vcd_pr_end_if_spuv();
@@ -1398,7 +1488,7 @@ rtn:
  */
 static void vcd_spuv_rec_trigger(struct work_struct *work)
 {
-	vcd_pr_start_spuv_function("work[%p]", work);
+	vcd_pr_start_spuv_function("work[%p].\n", work);
 
 	/* set schedule */
 	vcd_spuv_set_schedule();
@@ -1420,7 +1510,7 @@ static void vcd_spuv_rec_trigger(struct work_struct *work)
  */
 static void vcd_spuv_play_trigger(struct work_struct *work)
 {
-	vcd_pr_start_spuv_function("work[%p]", work);
+	vcd_pr_start_spuv_function("work[%p].\n", work);
 
 	/* set schedule */
 	vcd_spuv_set_schedule();
@@ -1442,7 +1532,7 @@ static void vcd_spuv_play_trigger(struct work_struct *work)
  */
 static void vcd_spuv_system_error(struct work_struct *work)
 {
-	vcd_pr_start_spuv_function("work[%p]", work);
+	vcd_pr_start_spuv_function("work[%p].\n", work);
 
 	/* set schedule */
 	vcd_spuv_set_schedule();
@@ -1451,6 +1541,143 @@ static void vcd_spuv_system_error(struct work_struct *work)
 	vcd_ctrl_stop_fw();
 
 	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+static void vcd_spuv_interface_log(unsigned int msg)
+{
+	switch (msg) {
+	case VCD_SPUV_HW_PARAMETERS_IND:
+		vcd_pr_if_spuv(VCD_SPUV_HW_PARAMETERS_IND_LOG);
+		break;
+	case VCD_SPUV_ACTIVE_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_ACTIVE_REQ_LOG);
+		break;
+	case VCD_SPUV_SPEECH_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_LOG);
+		break;
+	case VCD_SPUV_SPEECH_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_SPEECH_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_VOICE_RECORDING_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_RECORDING_START_REQ_LOG);
+		break;
+	case VCD_SPUV_VOICE_RECORDING_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_RECORDING_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_VOICE_PLAYING_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_PLAYING_START_REQ_LOG);
+		break;
+	case VCD_SPUV_VOICE_PLAYING_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_PLAYING_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_1KHZ_TONE_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_1KHZ_TONE_START_REQ_LOG);
+		break;
+	case VCD_SPUV_1KHZ_TONE_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_1KHZ_TONE_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_PCM_LOOPBACK_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_PCM_LOOPBACK_START_REQ_LOG);
+		break;
+	case VCD_SPUV_PCM_LOOPBACK_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_PCM_LOOPBACK_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_BBIF_LOOPBACK_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_BBIF_LOOPBACK_START_REQ_LOG);
+		break;
+	case VCD_SPUV_BBIF_LOOPBACK_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_BBIF_LOOPBACK_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_TRACE_SELECT_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_TRACE_SELECT_REQ_LOG);
+		break;
+	case VCD_SPUV_UDATA_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_UDATA_REQ_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_START_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_START_REQ_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_STOP_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_STOP_REQ_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_CONFIG_REQ:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_CONFIG_REQ_LOG);
+		break;
+	case VCD_SPUV_BOOT_COMPLETE_IND:
+		vcd_pr_if_spuv(VCD_SPUV_BOOT_COMPLETE_IND_LOG);
+		break;
+	case VCD_SPUV_SYSTEM_ERROR_IND:
+		vcd_pr_if_spuv(VCD_SPUV_SYSTEM_ERROR_IND_LOG);
+		break;
+	case VCD_SPUV_SYSTEM_INFO_IND:
+		vcd_pr_if_spuv(VCD_SPUV_SYSTEM_INFO_IND_LOG);
+		break;
+	case VCD_SPUV_TRIGGER_PLAY_IND:
+		vcd_pr_if_spuv(VCD_SPUV_TRIGGER_PLAY_IND_LOG);
+		break;
+	case VCD_SPUV_TRIGGER_REC_IND:
+		vcd_pr_if_spuv(VCD_SPUV_TRIGGER_REC_IND_LOG);
+		break;
+	case VCD_SPUV_ACTIVE_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_ACTIVE_CNF_LOG);
+		break;
+	case VCD_SPUV_SPEECH_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_CNF_LOG);
+		break;
+	case VCD_SPUV_SPEECH_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_SPEECH_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_VOICE_RECORDING_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_RECORDING_START_CNF_LOG);
+		break;
+	case VCD_SPUV_VOICE_RECORDING_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_RECORDING_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_VOICE_PLAYING_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_PLAYING_START_CNF_LOG);
+		break;
+	case VCD_SPUV_VOICE_PLAYING_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_VOICE_PLAYING_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_1KHZ_TONE_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_1KHZ_TONE_START_CNF_LOG);
+		break;
+	case VCD_SPUV_1KHZ_TONE_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_1KHZ_TONE_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_PCM_LOOPBACK_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_PCM_LOOPBACK_START_CNF_LOG);
+		break;
+	case VCD_SPUV_PCM_LOOPBACK_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_PCM_LOOPBACK_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_BBIF_LOOPBACK_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_BBIF_LOOPBACK_START_CNF_LOG);
+		break;
+	case VCD_SPUV_BBIF_LOOPBACK_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_BBIF_LOOPBACK_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_TRACE_SELECT_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_TRACE_SELECT_CNF_LOG);
+		break;
+	case VCD_SPUV_UDATA_IND:
+		vcd_pr_if_spuv(VCD_SPUV_UDATA_IND_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_START_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_START_CNF_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_STOP_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_STOP_CNF_LOG);
+		break;
+	case VCD_SPUV_TTY_CTM_CONFIG_CNF:
+		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_CONFIG_CNF_LOG);
+		break;
+	default:
+		vcd_pr_if_spuv("unkown msg[%x].\n", msg);
+	}
+
 	return;
 }
 
@@ -1469,7 +1696,7 @@ static void vcd_spuv_system_error(struct work_struct *work)
  */
 static void vcd_spuv_set_wait_fw_info(unsigned int fw_id, unsigned int msg_id)
 {
-	vcd_pr_start_spuv_function("fw_id[%x],msg_id[%x]", fw_id, msg_id);
+	vcd_pr_start_spuv_function("fw_id[%x],msg_id[%x].\n", fw_id, msg_id);
 
 	g_vcd_spuv_info.wait_fw_if_id = fw_id;
 	g_vcd_spuv_info.wait_fw_msg_id = msg_id;
@@ -1492,12 +1719,17 @@ static void vcd_spuv_set_wait_fw_info(unsigned int fw_id, unsigned int msg_id)
 static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
 							unsigned int result)
 {
-	vcd_pr_start_spuv_function("fw_id[%x], msg_id[%x], result[%d]",
+	vcd_pr_start_spuv_function("fw_id[%x], msg_id[%x], result[%x].\n",
 		fw_id, msg_id, result);
 
-	if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
+	if (VCD_SPUV_BOOT_COMPLETE_IND == msg_id) {
+		if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
+		(g_vcd_spuv_info.wait_fw_msg_id != msg_id)) {
+			g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
+		}
+	} else if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
 		(g_vcd_spuv_info.wait_fw_msg_id != msg_id) ||
-		(VCD_SPUV_FW_RESULT_ERROR == result))
+		(VCD_SPUV_FW_RESULT_SUCCESS != result))
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 
 	vcd_pr_end_spuv_function();
@@ -1534,9 +1766,9 @@ static unsigned int vcd_spuv_get_status(void)
  */
 static void vcd_spuv_set_status(unsigned int status)
 {
-	vcd_pr_start_spuv_function();
+	vcd_pr_start_spuv_function("status[0x%08x].\n", status);
 
-	vcd_pr_status_change("g_vcd_spuv_info.status[%08x] -> [%08x].\n",
+	vcd_pr_status_change("g_vcd_spuv_info.status[0x%08x] -> [0x%08x].\n",
 		g_vcd_spuv_info.status, (g_vcd_spuv_info.status | status));
 	g_vcd_spuv_info.status = g_vcd_spuv_info.status | status;
 
@@ -1579,9 +1811,11 @@ static int vcd_spuv_check_status(void)
 
 	vcd_pr_start_spuv_function();
 
-	if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
+	if (VCD_SPUV_STATUS_SYSTEM_ERROR & g_vcd_spuv_info.status) {
+		ret = VCD_ERR_SYSTEM;
+	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
-		vcd_pr_spuv_debug("SPUV -> Cortex [TIMEOUT].\n");
+		vcd_pr_if_spuv("V <-- F : TIME OUT.\n");
 		ret = VCD_ERR_FW_TIME_OUT;
 		/* fw stop notification */
 		vcd_ctrl_stop_fw();
@@ -1607,13 +1841,13 @@ void vcd_spuv_dump_status(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("g_vcd_spuv_info.status         [%08x]",
+	vcd_pr_registers_dump("g_vcd_spuv_info.status         [%08x].\n",
 		vcd_spuv_get_status());
-	vcd_pr_registers_dump("g_vcd_spuv_info.wait_fw_if_id  [%08x]",
+	vcd_pr_registers_dump("g_vcd_spuv_info.wait_fw_if_id  [%08x].\n",
 		g_vcd_spuv_info.wait_fw_if_id);
-	vcd_pr_registers_dump("g_vcd_spuv_info.wait_fw_msg_id [%08x]",
+	vcd_pr_registers_dump("g_vcd_spuv_info.wait_fw_msg_id [%08x].\n",
 		g_vcd_spuv_info.wait_fw_msg_id);
-	vcd_pr_registers_dump("g_vcd_spuv_info.fw_result      [%08x]",
+	vcd_pr_registers_dump("g_vcd_spuv_info.fw_result      [%08x].\n",
 		g_vcd_spuv_info.fw_result);
 
 	vcd_pr_end_spuv_function();

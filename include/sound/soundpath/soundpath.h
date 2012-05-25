@@ -54,6 +54,8 @@ enum sndp_wake_lock_kind {
 #define SOUNDPATH_NO_EXTERN		extern
 #endif
 
+SOUNDPATH_NO_EXTERN atomic_t g_sndp_watch_clk;
+
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct snd_soc_dai_driver *max98090_dai_driver,
@@ -342,6 +344,10 @@ do {									\
 
 #define STAT_OFF	(0)
 #define STAT_ON		(1)
+
+/* Sampling Rate */
+#define SNDP_NORMAL_RATE	(44100)
+#define SNDP_CALL_RATE		(16000)
 
 enum sndp_hw_audio {
 	SNDP_HW_CLKGEN,

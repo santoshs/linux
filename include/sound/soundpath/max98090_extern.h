@@ -47,10 +47,11 @@
 #define __MAX98090_TODO__   /* todo */
 
 #ifdef __MAX98090_TODO__
-#define __MAX98090_TODO_POWER__
 /* #define __MAX98090_DEBUG__ */
 /* #define __MAX98090_RELEASE_CHECK__ */
 #endif  /* __MAX98090_TODO__ */
+
+#define MAX98090_VOLUMEL_STEP	5
 
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration                                         */
@@ -84,12 +85,17 @@ enum MAX98090_DEV_VAL {
 */
 enum MAX98090_VOLUMEL_VAL {
 	MAX98090_VOLUMEL0 = 0,	/**< volume level 0. */
-	MAX98090_VOLUMEL1 = 5,	/**< volume level 1. */
-	MAX98090_VOLUMEL2 = 10,	/**< volume level 2. */
-	MAX98090_VOLUMEL3 = 15,	/**< volume level 3. */
-	MAX98090_VOLUMEL4 = 20,	/**< volume level 4. */
-	MAX98090_VOLUMEL5 = 25,	/**< volume level 5. */
-	MAX98090_VOLUMEL_MAX
+	MAX98090_VOLUMEL1 = MAX98090_VOLUMEL0 + MAX98090_VOLUMEL_STEP,
+	/**< volume level 1. */
+	MAX98090_VOLUMEL2 = MAX98090_VOLUMEL1 + MAX98090_VOLUMEL_STEP,
+	/**< volume level 2. */
+	MAX98090_VOLUMEL3 = MAX98090_VOLUMEL2 + MAX98090_VOLUMEL_STEP,
+	/**< volume level 3. */
+	MAX98090_VOLUMEL4 = MAX98090_VOLUMEL3 + MAX98090_VOLUMEL_STEP,
+	/**< volume level 4. */
+	MAX98090_VOLUMEL5 = MAX98090_VOLUMEL4 + MAX98090_VOLUMEL_STEP,
+	/**< volume level 5. */
+	MAX98090_VOLUMEL_MAX = MAX98090_VOLUMEL5 + MAX98090_VOLUMEL_STEP
 };
 
 /*!

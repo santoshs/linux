@@ -391,3 +391,16 @@ config SND_SOC_WM2000
 
 config SND_SOC_WM9090
 	tristate
+
+
+choice
+        bool "Select max98090"
+        depends on SND_FSI_MAX98090
+
+config SND_SOC_MAX98090_26MHZ
+        tristate "26MHz Master Clock"
+
+config SND_SOC_MAX98090_13MHZ
+        tristate "13MHz Master Clock"
+
+endchoice

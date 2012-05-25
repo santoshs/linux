@@ -72,6 +72,8 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	}
 
 	switch (command) {
+	case VCD_CTRL_FUNC_GET_MSG_BUFFER:
+		break;
 	case VCD_CTRL_FUNC_START_VCD:
 		if (VCD_CTRL_FUNC_FEATURE_VCD & g_vcd_ctrl_active_feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;

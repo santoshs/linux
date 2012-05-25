@@ -20,10 +20,10 @@
 #include <linux/proc_fs.h>
 #include <linux/pm_runtime.h>
 #include <linux/stat.h>
-/*
- *#include <mach/pm.h>
- *#include <linux/vcd/vcd.h>
-*/
+#include <mach/pm.h>
+
+/* #include <linux/vcd/vcd.h> */
+
 #include <sound/soundpath/soundpath.h>
 #include <sound/soundpath/common_extern.h>
 #include <sound/soundpath/scuw_extern.h>
@@ -86,8 +86,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_MODE_NORMAL},
 	[SNDP_MODE_INIT][SNDP_MODE_RING]    =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_RINGTONE},
-	[SNDP_MODE_INIT][SNDP_MODE_INCALL]  =	{SNDP_PROC_CALL_START |
-						 SNDP_PROC_WATCH_STOP_FW,
+	[SNDP_MODE_INIT][SNDP_MODE_INCALL]  =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_IN_COMM},
@@ -95,8 +94,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_RINGTONE},
-	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START |
-						 SNDP_PROC_WATCH_STOP_FW,
+	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM] =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_IN_COMM},
@@ -104,8 +102,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_NORMAL},
 	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_NOT_CHG},
-	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START |
-						 SNDP_PROC_WATCH_STOP_FW,
+	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_RING][SNDP_MODE_INCOMM]   =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_IN_COMM},
@@ -124,8 +121,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_NORMAL},
 	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_RINGTONE},
-	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START |
-						 SNDP_PROC_WATCH_STOP_FW,
+	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_INCOMM][SNDP_MODE_INCOMM] =	{SNDP_PROC_MAXIM_START,
 							SNDP_STAT_NOT_CHG},
@@ -176,15 +172,13 @@ static struct sndp_work_info g_sndp_work_call_capture_start;
 static struct sndp_work_info g_sndp_work_call_playback_stop;
 /* Stop during a call capture */
 static struct sndp_work_info g_sndp_work_call_capture_stop;
-/* VCD_COMMAND_WATCH_STOP_FW registration process */
-static struct sndp_work_info g_sndp_work_regist_watch_stop_fw;
 /* VCD_COMMAND_WATCH_STOP_FW process */
 static struct sndp_work_info g_sndp_work_watch_stop_fw;
 
 /* for Power control */
 static int g_sndp_power_status = SNDP_POWER_INIT;
 static struct device *g_sndp_power_domain;
-/* static size_t g_sndp_power_domain_count;	 *TODO */
+static size_t g_sndp_power_domain_count;
 
 /* for Wake Lock */
 DEFINE_SPINLOCK(lock);
@@ -474,16 +468,6 @@ extern void max98090_set_soc_controls(
 	struct snd_kcontrol_new *controls,
 	u_int array_size);
 
-#define SYSC_PHY_BASE	(0xE6180000)
-#define SYSC_REG_MAX	(0x0084)
-
-/* SYSC base address */
-u_long g_sysc_Base;
-
-#define SYSC_SPDCR		(g_sysc_Base + 0x0008)
-#define SYSC_SWUCR		(g_sysc_Base + 0x0014)
-#define SYSC_PSTR		(g_sysc_Base + 0x0080)
-
 /*!
    @brief Sound path driver init function (from module_init)
 
@@ -503,8 +487,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	int			iCnt = 0;
 	struct proc_dir_entry	*entry = NULL;
 	struct proc_dir_entry	*reg_dump_entry = NULL;
-
-	int reg, i;
 
 
 	sndp_log_debug_func("start\n");
@@ -586,10 +568,15 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_call_playback_stop);
 	INIT_WORK(&g_sndp_work_call_capture_stop.work,
 		  sndp_work_call_capture_stop);
-	INIT_WORK(&g_sndp_work_regist_watch_stop_fw.work,
-		  sndp_work_regist_watch_stop_fw);
 	INIT_WORK(&g_sndp_work_watch_stop_fw.work,
 		  sndp_work_watch_stop_fw);
+
+	atomic_set(&g_sndp_watch_clk, 0);
+
+	/*
+	 * VCD_COMMAND_WATCH_STOP_FW registration
+	 */
+	sndp_regist_watch();
 
 	/* To initialize the flag waiting for the trigger stop processing. */
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++)
@@ -664,8 +651,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto add_control_err;
 	}
 */
-/*
-	// Power domain setting
+	/* Power domain setting */
 	iRet = power_domain_devices("snd-soc-fsi",
 				    &g_sndp_power_domain,
 				    &g_sndp_power_domain_count);
@@ -673,9 +659,16 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		sndp_log_err("Modules not found ... [iRet=%d]\n", iRet);
 		goto power_domain_err;
 	}
-*/
 
-	/* create work queue for call*/
+	/* RuntimePM */
+	pm_runtime_enable(g_sndp_power_domain);
+	iRet = pm_runtime_resume(g_sndp_power_domain);
+	if (iRet < 0) {
+		sndp_log_err("pm_runtime_resume failed\n");
+		goto power_domain_err;
+	}
+
+	/* create work queue for call */
 	iRet = call_create_workque();
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("work queue create error.\n");
@@ -698,37 +691,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	/* wait queue init */
 	init_waitqueue_head(&g_sndp_stop_wait);
 
-	/* Get SYSC Logical Address */
-	g_sysc_Base = (u_long)ioremap_nocache(SYSC_PHY_BASE, SYSC_REG_MAX);
-	if (0 >= g_sysc_Base) {
-		printk(KERN_WARNING "sndp_init() SYSC ioremap failed error\n");
-		return ERROR_NONE;
-	}
-
-	/* PSTR */
-	reg = ioread32(SYSC_PSTR);
-	printk(KERN_WARNING "sndp_init() reg = 0x%x\n", reg);
-	if (reg & (1 << 8)) {
-		printk(KERN_WARNING "sndp_init() Power is supplied to A4MP area\n");
-		iounmap((void *)g_sysc_Base);
-		return ERROR_NONE;
-	}
-
-	/* WakeUp */
-	iowrite32((1 << 8), SYSC_SWUCR);
-	for (i = 0; i < 500; i++) {
-		reg = ioread32(SYSC_SWUCR);
-		reg &= (1 << 8);
-		if (!reg)
-			break;
-	}
-	if (500 == i)
-		printk(KERN_WARNING "sndp_init() Wake up error\n");
-
-	iounmap((void *)g_sysc_Base);
-
-
-
 	sndp_log_debug_func("end\n");
 	return ERROR_NONE;
 
@@ -738,11 +700,11 @@ ioremap_err:
 mkproc_sub_err:
 /*
 add_control_err:	TODO
-power_domain_err:	TODO
 */
 workque_create_err:
 	remove_proc_entry(SNDP_DRV_NAME, NULL);
-
+power_domain_err:
+	pm_runtime_disable(g_sndp_power_domain);
 mkproc_err:
 	return iRet;
 
@@ -761,6 +723,9 @@ void sndp_exit(void)
 {
 	/* iounmap */
 	common_iounmap();
+
+	/* RuntimePM */
+	pm_runtime_disable(g_sndp_power_domain);
 
 	/* Proc entry remove */
 	if (NULL != g_sndp_parent)
@@ -941,7 +906,7 @@ static int sndp_proc_reg_dump_write(
 	/* for SCUW */
 	if ((REG_DUMP_ALL == ulIn) || (REG_DUMP_SCUW & ulIn)) {
 		if ((SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) &&
-		    (SNDP_MODE_INCALL == 
+		    (SNDP_MODE_INCALL ==
 			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
 			(!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
 			scuw_reg_dump();
@@ -1018,7 +983,7 @@ static int sndp_soc_put(
 	char cPcm[SNDP_PCM_NAME_MAX_LEN];
 
 
-	/* int	iRet = ERROR_NONE; */
+	int	iRet = ERROR_NONE;
 	u_int	uiValue;
 	u_int	uiProcess;
 	u_int	uiDirection;
@@ -1121,7 +1086,6 @@ static int sndp_soc_put(
 	/* SNDP_PROC_CALL_START */
 	if (uiProcess & SNDP_PROC_CALL_START) {
 		/* Enable the power domain */
-#if 0
 		iRet = pm_runtime_get_sync(g_sndp_power_domain);
 		if (!(0 == iRet || 1 == iRet)) {  /* 0:success 1:active */
 			sndp_log_err("modules power on error[iRet=%d]\n",
@@ -1133,7 +1097,7 @@ static int sndp_soc_put(
 			SET_SNDP_STATUS(uiDirection, uiSaveStatus);
 			return iRet;
 		}
-#endif
+
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
 
@@ -1184,16 +1148,6 @@ static int sndp_soc_put(
 					   &g_sndp_work_voice_dev_chg.work);
 			}
 		}
-	}
-
-	/* SNDP_PROC_WATCH_STOP_FW */
-	if (uiProcess & SNDP_PROC_WATCH_STOP_FW) {
-		/*
-		 * Registered in the work queue for
-		 * VCD_COMMAND_WATCH_STOP_FW registration
-		 */
-		queue_work(g_sndp_queue_main,
-			   &g_sndp_work_regist_watch_stop_fw.work);
 	}
 
 	/* Saving the type of PCM */
@@ -2013,8 +1967,13 @@ static void sndp_work_voice_start(struct work_struct *work)
 		goto start_err;
 	}
 
+	wait_event_interruptible_timeout(
+		g_watch_clk_queue, atomic_read(&g_sndp_watch_clk),
+		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
+	atomic_set(&g_sndp_watch_clk, 0);
+
 	/* start CLKGEN */
-	iRet = clkgen_start(wp->new_value);
+	iRet = clkgen_start(wp->new_value, 0);
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		goto start_err;
@@ -2081,12 +2040,12 @@ static void sndp_work_voice_stop(struct work_struct *work)
 			g_sndp_main[SNDP_PCM_OUT].arg.maxim_dai,
 			wp->old_value);
 	}
-#if 0
+
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
-#endif
+
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xff) >= 0x10)
 		common_set_fsi2cr(STAT_ON);
@@ -2463,15 +2422,14 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 
 
 /*!
-   @brief Work queue processing for VCD_COMMAND_WATCH_STOP_FW
-	  registration process
+   @brief VCD_COMMAND_WATCH_STOP_FW registration process
 
-   @param[in]	work	work queue structure
+   @param[in]	none
    @param[out]	none
 
    @retval	none
  */
-static void sndp_work_regist_watch_stop_fw(struct work_struct *work)
+static void sndp_regist_watch(void)
 {
 	int	iRet = ERROR_NONE;
 
@@ -2479,7 +2437,7 @@ static void sndp_work_regist_watch_stop_fw(struct work_struct *work)
 	sndp_log_debug_func("start\n");
 
 	/* VCD command execution (VCD_COMMAND_WATCH_STOP_FW) */
-	iRet = call_watch_stop_fw(sndp_watch_stop_fw_cb);
+	iRet = call_regist_watch(sndp_watch_stop_fw_cb, sndp_watch_clk_cb);
 	if (ERROR_NONE  != iRet)
 		sndp_log_err("VCD watch command set error(code=%d)\n", iRet);
 
@@ -2542,6 +2500,24 @@ static void sndp_watch_stop_fw_cb(u_int uiNop)
 	sndp_log_debug_func("end\n");
 }
 
+/*!
+   @brief wake up callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_watch_clk_cb(void)
+{
+	sndp_log_debug_func("start\n");
+
+	atomic_set(&g_sndp_watch_clk, 1);
+	wake_up_interruptible(&g_watch_clk_queue);
+
+	sndp_log_debug_func("end\n");
+}
+
 
 /*!
    @brief Switching path of the sound during a Call + Playback
@@ -2575,6 +2551,8 @@ static void sndp_path_switching(const u_int uiValue)
 
 	/* To register a work queue to start processing Playback */
 	sndp_maxim_work_start(SNDP_PCM_OUT);
+
+	sndp_log_debug_func("end\n");
 }
 
 
@@ -2640,9 +2618,11 @@ static void sndp_path_backout(const u_int uiValue)
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
 	/* start CLKGEN */
-	iRet = clkgen_start(uiValue);
+	iRet = clkgen_start(uiValue, 0);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+
+	sndp_log_debug_func("end\n");
 }
 
 
@@ -2658,14 +2638,16 @@ static void sndp_maxim_work_start(const int direction)
 {
 	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = MAX98090_DEV_NONE;
-
+	u_int	uiValue;
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
 
+	uiValue = GET_OLD_VALUE(direction);
+
 	if (SNDP_PCM_IN == direction) {
 		/* start MAXIM */
-		ulSetDevice = sndp_get_next_devices(GET_OLD_VALUE(direction));
-		iRet = max98090_set_device(ulSetDevice, GET_OLD_VALUE(direction));
+		ulSetDevice = sndp_get_next_devices(uiValue);
+		iRet = max98090_set_device(ulSetDevice, uiValue);
 		if (ERROR_NONE != iRet) {
 			sndp_log_err("maxim set device error (code=%d)\n",
 				     iRet);
@@ -2683,19 +2665,22 @@ static void sndp_maxim_work_start(const int direction)
 
 	/* PM_RUNTIME */
 	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
-		/* ret = pm_runtime_get_sync(g_sndp_power_domain);
-		if (!(0 == ret || 1 == ret)) {  // 0:success 1:active
-			sndp_log_err("modules power on error(ret=%d)\n", ret);
-		} else { */
+		iRet = pm_runtime_get_sync(g_sndp_power_domain);
+		if (!(0 == iRet || 1 == iRet)) {  // 0:success 1:active
+			sndp_log_err("modules power on error(ret=%d)\n", iRet);
+		} else {
 			/* CPG soft reset */
 			fsi_soft_reset();
-		/*}*/
-		/* pm_runtime_put_sync(g_sndp_power_domain); */
+		}
 	}
 
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xff) >= 0x10)
-		common_set_pll22(GET_OLD_VALUE(direction), STAT_ON);
+		common_set_pll22(uiValue, STAT_ON);
+
+	/* FSI slave setting ON for switch */
+	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue))
+		fsi_set_slave(true);
 
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
@@ -2733,13 +2718,26 @@ static void sndp_maxim_work_start(const int direction)
 
 	/* Set to ENABLE the speaker amp */
 	if ((SNDP_PCM_OUT == direction) &&
-	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
+	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
 		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
 		if (ERROR_NONE != iRet) {
 			sndp_log_err("speaker_amp ENABLE error(code=%d)\n",
 				     iRet);
 			return;
 		}
+	}
+
+	/* start CLKGEN */
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+		iRet = clkgen_start(uiValue, SNDP_NORMAL_RATE);
+	else {
+		/* set mode INCALL -> NORMAL */
+		uiValue &= 0xFFFFFFFC;
+		iRet = clkgen_start(uiValue, SNDP_CALL_RATE);
+	}
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+		return;
 	}
 
 	/* FSI Trigger start */
@@ -2749,16 +2747,9 @@ static void sndp_maxim_work_start(const int direction)
 				g_sndp_main[direction].arg.fsi_substream,
 				SNDRV_PCM_TRIGGER_START,
 				g_sndp_main[direction].arg.fsi_dai);
-		if (ERROR_NONE != iRet) {
+		if (ERROR_NONE != iRet)
 			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
-			return;
-		}
 	}
-
-	/* start CLKGEN */
-	iRet = clkgen_start(GET_OLD_VALUE(direction));
-	if (ERROR_NONE != iRet)
-		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
 	sndp_log_debug_func("end\n");
 }
@@ -2811,6 +2802,9 @@ static void sndp_maxim_work_stop(
 					     &(wp->stop.fsi_dai));
 	}
 
+	/* FSI slave setting OFF */
+	fsi_set_slave(false);
+
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xff) >= 0x10)
 		common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
@@ -2834,6 +2828,10 @@ static void sndp_maxim_work_stop(
 
 	/* stop CLKGEN */
 	clkgen_stop();
+
+	/* Disable the power domain */
+	if (!g_sndp_playrec_flg)
+		pm_runtime_put_sync(g_sndp_power_domain);
 
 	/* Wake Unlock or Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
@@ -2882,12 +2880,12 @@ static void sndp_after_of_work_call_capture_stop(
 				g_sndp_main[SNDP_PCM_OUT].arg.maxim_dai,
 				iInValue);
 	}
-#if 0
+
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
-#endif
+
 	/* Trigger stop control flag update */
 	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &= ~SNDP_STOP_TRIGGER_VOICE;
 

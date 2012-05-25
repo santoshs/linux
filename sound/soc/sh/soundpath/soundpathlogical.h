@@ -37,6 +37,8 @@ extern void fsi_set_run_time(
 extern max98090_ctl_dai_func_t g_max98090_ctrl_dai_func;
 #endif
 
+extern void fsi_set_slave(const bool slave);
+
 
 /*
  *
@@ -179,8 +181,8 @@ static void sndp_work_call_playback_stop(struct work_struct *work);
 /* Work queue processing for Stop during a call capture */
 static void sndp_work_call_capture_stop(struct work_struct *work);
 
-/* Work queue processing for VCD_COMMAND_WATCH_STOP_FW registration process */
-static void sndp_work_regist_watch_stop_fw(struct work_struct *work);
+/* VCD_COMMAND_WATCH_STOP_FW registration process */
+static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
 static void sndp_work_watch_stop_fw(struct work_struct *work);
 
@@ -198,6 +200,9 @@ static void sndp_after_of_work_call_capture_stop(
 
 /* Watch stop Firmware notification callback function */
 static void sndp_watch_stop_fw_cb(u_int uiNop);
+
+/* Wake up callback function */
+static void sndp_watch_clk_cb(void);
 
 /*
  *
@@ -254,6 +259,9 @@ static void sndp_watch_stop_fw_cb(u_int uiNop);
 #define SNDPDRV_VOICE_VOL_MAX	(25)	/* Volume MAX value */
 
 #define SNDP_WAIT_MAX	(3000)		/* TRIGGER STOP Wait time max */
+
+/* Wait time max for wait queue for start voice process wake up */
+#define SNDP_WATCH_CLK_TIME_OUT		(1000)
 
 /*
  *
@@ -377,6 +385,9 @@ struct sndp_work_info {
 	u_int				new_value;	 /* PCM value (NEW)  */
 	u_int				old_value;	 /* PCM value (OLD)  */
 };
+
+/* Wait queue for start voice process wake up */
+static DECLARE_WAIT_QUEUE_HEAD(g_watch_clk_queue);
 
 /* SOUND_TEST */
 #ifdef SOUND_TEST

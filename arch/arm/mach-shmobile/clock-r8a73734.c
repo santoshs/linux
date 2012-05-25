@@ -23,6 +23,9 @@
 #define FSIBCKCR	IO_ADDRESS(0xE6150090)
 #define MPCKCR		IO_ADDRESS(0xE6150080)
 #define SPUACKCR	IO_ADDRESS(0xE6150084)
+/* VCD add start */
+#define SPUVCKCR	IO_ADDRESS(0xE6150094)
+/* VCD add end */
 #define HSICKCR		IO_ADDRESS(0xE615008C)
 #define DSITCKCR	IO_ADDRESS(0xE6150060)
 #define DSI0PCKCR	IO_ADDRESS(0xE6150064)
@@ -470,6 +473,9 @@ enum {
 	DIV6_FSIA,
 	DIV6_FSIB,
 	DIV6_SPUA,
+/* VCD add start */
+	DIV6_SPUV,
+/* VCD add end */
 	DIV6_HSI,
 	DIV6_DSIT,
 	DIV6_DSI0P,
@@ -499,6 +505,10 @@ static struct clk div6_clks[DIV6_NR] = {
 			div6_two_parent, ARRAY_SIZE(div6_two_parent), 6, 1),
 	[DIV6_SPUA] = SH_CLK_DIV6_EXT(NULL, SPUACKCR, 8, 0,
 			div6_two_parent, ARRAY_SIZE(div6_two_parent), 6, 1),
+/* VCD add start */
+	[DIV6_SPUV] = SH_CLK_DIV6_EXT(NULL, SPUVCKCR, 8, 0,
+			div6_two_parent, ARRAY_SIZE(div6_two_parent), 7, 1),
+/* VCD add end */
 	[DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
 			hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
 	[DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, DSITCKCR, 8, 0,
@@ -544,6 +554,18 @@ static struct clk *spua_parent[] = {
 
 static struct clk spua_clk = SH_CLK_CKSEL(NULL, SPUACKCR, 0, 0,
 	spua_parent, ARRAY_SIZE(spua_parent), 7, 1);
+
+/* VCD add start */
+static struct clk *spuv_parent[] = {
+	[0]	= &div6_clks[DIV6_SPUV],
+	[1]	= &extal2_clk,
+};
+
+static struct clk spuv_clk = SH_CLK_CKSEL(NULL, SPUVCKCR, 0, 0,
+	spuv_parent, ARRAY_SIZE(spuv_parent), 7, 1);
+
+/* VCD add end */
+
 
 /* DSI0P
  * HW clock topology is like
@@ -793,7 +815,10 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP224] = SH_CLK_MSTP32_EXT(&mpmp_clk, SMSTPCR2, MSTPSR2, 24, 0), /* CLKGEN */
 /* sound edit */
 	[MSTP223] = SH_CLK_MSTP32_EXT(&spua_clk, SMSTPCR2, MSTPSR2, 23, 0), /* SPU2A */
-	[MSTP220] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 20, 0), /* SPU2V */
+/* VCD mod start */
+/*	[MSTP220] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_], SMSTPCR2, MSTPSR2, 20, 0), /* SPU2V */
+	[MSTP220] = SH_CLK_MSTP32_EXT(&spuv_clk, SMSTPCR2, MSTPSR2, 20, 0), /* SPU2V */
+/* VCD mod end */
 	[MSTP218] = SH_CLK_MSTP32_EXT(&div4_clks[DIV4_HP], SMSTPCR2, MSTPSR2, 18, 0), /* SY-DMAC */
 	[MSTP216] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 16, 0), /* SCIFB2 */
 	[MSTP215] = SH_CLK_MSTP32_EXT(&mp_clk, SMSTPCR2, MSTPSR2, 15, 0), /* MSIOF3 */
@@ -878,6 +903,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("div6_fsib_clk", &div6_clks[DIV6_FSIB]),
 	CLKDEV_CON_ID("div6_mp_clk", &div6_clks[DIV6_MP]),
 	CLKDEV_CON_ID("div6_spua_clk", &div6_clks[DIV6_SPUA]),
+/* VCD add start */
+	CLKDEV_CON_ID("div6_spuv_clk", &div6_clks[DIV6_SPUV]),
+/* VCD add end */
 	CLKDEV_CON_ID("dsi0p0_clk", &dsi0p0_clk),
 	CLKDEV_CON_ID("dsi0p1_clk", &dsi0p1_clk),
 	CLKDEV_CON_ID("fsiack_clk", &fsiack_clk),
@@ -921,6 +949,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("internal_ram0", &mstp_clks[MSTP527]),
 
 	CLKDEV_CON_ID("clkgen", &mstp_clks[MSTP224]),
+/* VCD add start */
+	CLKDEV_CON_ID("spuv", &mstp_clks[MSTP220]), /* SPUV */
+/* VCD add end */
 /* sound add */
 	CLKDEV_CON_ID("scuw", &mstp_clks[MSTP326]), /* SCUW */
 	CLKDEV_CON_ID("fsi", &mstp_clks[MSTP328]), /* FSI */
@@ -1061,6 +1092,9 @@ void __init r8a73734_clock_init(void)
 	sh_clk_cksel_register(&fsia_clk, 1);
 	sh_clk_cksel_register(&fsib_clk, 1);
 	sh_clk_cksel_register(&spua_clk, 1);
+/* VCD add start */
+	sh_clk_cksel_register(&spuv_clk, 1);
+/* VCD add end */
 	sh_clk_cksel_register(&cp_clk, 1);
 
 	clk_set_parent(&dsi0p_clk, NULL);

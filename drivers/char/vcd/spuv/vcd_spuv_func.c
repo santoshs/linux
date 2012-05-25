@@ -28,6 +28,7 @@
 #include <linux/namei.h>
 #include <linux/stat.h>
 #include <linux/uaccess.h>
+#include <asm/cacheflush.h>
 
 #ifdef __VCD_MERAM_ENABLE__
 #include "rtapi/system_memory.h"
@@ -41,6 +42,7 @@
  * global variable declaration
  */
 void  *g_spuv_func_fw_static_buffer;
+unsigned int g_spuv_func_sdram_static_area_top_phy;
 unsigned int g_spuv_func_sdram_static_area_top;
 unsigned int g_spuv_func_hpb_register_top;
 unsigned int g_spuv_func_cpg_register_top;
@@ -70,13 +72,11 @@ static struct device *g_spuv_func_power_domains
 			[VCD_SPUV_FUNC_POWER_DOMAIN_MAX];
 int g_spuv_func_pm_runtime_count;
 struct clk *g_spuv_func_spuv_clk;
-struct clk *g_spuv_func_clkgen_clk;
 #endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 bool g_spuv_func_is_spuv_clk;
-bool g_spuv_func_is_clkgen_clk;
 
-bool is_fw_completion;
+bool g_spuv_func_is_completion;
 
 static DECLARE_WAIT_QUEUE_HEAD(g_vcd_spuv_wait);
 
@@ -126,6 +126,32 @@ void vcd_spuv_func_initialize(void)
 }
 
 
+/**
+ * @brief	cache flush function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_cacheflush(void)
+{
+	int buf_addr = 0;
+
+	vcd_pr_start_spuv_function();
+
+	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
+		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER - SPUV_FUNC_SDRAM_AREA_TOP);
+
+	dmac_flush_range((void *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER,
+		(void *)(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER + PAGE_SIZE));
+	outer_flush_range((unsigned long)buf_addr,
+		(unsigned long)(buf_addr + PAGE_SIZE));
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
 #ifdef __VCD_POWERDOMAIN_ENABLE__
 /**
  * @brief	power supply control function.
@@ -141,7 +167,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 	int ret = VCD_ERR_NONE;
 	int loop_count = 0;
 	unsigned int hpbctrl2 = 0;
-	size_t power_domain_count;
+	size_t power_domain_count = 0;
 
 	vcd_pr_start_spuv_function("effective[%d].\n", effective);
 
@@ -149,7 +175,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x]", hpbctrl2);
+		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		/* get power domain devices */
 		ret = power_domain_devices(VCD_DRIVER_NAME,
@@ -174,24 +200,6 @@ int vcd_spuv_func_control_power_supply(int effective)
 		}
 
 		/* get clock */
-		g_spuv_func_clkgen_clk = clk_get(NULL, "clkgen");
-		if (IS_ERR(g_spuv_func_clkgen_clk)) {
-			vcd_pr_err("g_spuv_func_clkgen_clk[%p].\n",
-				g_spuv_func_clkgen_clk);
-			g_spuv_func_clkgen_clk = NULL;
-			ret = VCD_ERR_SYSTEM;
-			goto rtn;
-		}
-
-		/* clock enable */
-		ret = clk_enable(g_spuv_func_clkgen_clk);
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("clock enable error. ret[%d].\n", ret);
-			goto rtn;
-		}
-		g_spuv_func_is_clkgen_clk = true;
-
-		/* get clock */
 		g_spuv_func_spuv_clk = clk_get(NULL, "spuv");
 		if (IS_ERR(g_spuv_func_spuv_clk)) {
 			vcd_pr_err("g_spuv_func_spuv_clk[%p].\n",
@@ -207,6 +215,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 			vcd_pr_err("clock enable error. ret[%d].\n", ret);
 			goto rtn;
 		}
+		g_spuv_func_is_spuv_clk = true;
 
 		/* cpga spuv module reset */
 #if 0
@@ -221,14 +230,17 @@ int vcd_spuv_func_control_power_supply(int effective)
 			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
 			0,
 			SPUV_FUNC_RW_32_CPG_SRCR2);
-		while (VCD_HW_SPUV_SRCR2_SRT220 &
+		while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
 				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
 			cpu_relax();
 #if 0
 		sh73a0_put_cpg_hpb_sem_with_lock(flags);
 #endif
 
-		g_spuv_func_is_spuv_clk = true;
+		vcd_spuv_func_set_register(
+			VCD_SPUV_FUNC_CRMU_VOICEIF_ON,
+			SPUV_FUNC_RW_32_CRMU_VOICEIF);
+
 	} else {
 		/* spuv clock */
 		if (NULL != g_spuv_func_spuv_clk) {
@@ -237,15 +249,6 @@ int vcd_spuv_func_control_power_supply(int effective)
 				clk_disable(g_spuv_func_spuv_clk);
 			/* put clock */
 			clk_put(g_spuv_func_spuv_clk);
-		}
-
-		/* clkgen clock */
-		if (NULL != g_spuv_func_clkgen_clk) {
-			/* clock disable */
-			if (g_spuv_func_is_clkgen_clk)
-				clk_disable(g_spuv_func_clkgen_clk);
-			/* put clock */
-			clk_put(g_spuv_func_clkgen_clk);
 		}
 
 		/* release power supply */
@@ -260,14 +263,12 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x]", hpbctrl2);
+		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		/* initialize */
 		g_spuv_func_pm_runtime_count = 0;
 		g_spuv_func_spuv_clk = NULL;
 		g_spuv_func_is_spuv_clk = false;
-		g_spuv_func_clkgen_clk = NULL;
-		g_spuv_func_is_clkgen_clk = false;
 	}
 
 rtn:
@@ -302,7 +303,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 	if (VCD_SPUV_FUNC_ENABLE == effective) {
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x]", hpbctrl2);
+		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		/* a4mp */
 		if (!(0x00000100 & reg)) {
@@ -330,36 +331,30 @@ int vcd_spuv_func_control_power_supply(int effective)
 				SPUV_FUNC_RW_32_CPG_SMSTPCR2);
 
 			vcd_spuv_func_modify_register(
+				0x0000013F,
+				0x00000003,
+				SPUV_FUNC_RW_32_CPG_SPUVCKCR);
+
+			vcd_spuv_func_modify_register(
 				0,
-				0x00100000,
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
 				SPUV_FUNC_RW_32_CPG_SRCR2);
 			udelay(62);
 			vcd_spuv_func_modify_register(
-				0x00100000,
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
 				0,
 				SPUV_FUNC_RW_32_CPG_SRCR2);
+			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
+				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
+				cpu_relax();
+
+			vcd_spuv_func_set_register(
+				VCD_SPUV_FUNC_CRMU_VOICEIF_ON,
+				SPUV_FUNC_RW_32_CRMU_VOICEIF);
+
 			g_spuv_func_is_spuv_clk = true;
+
 		}
-
-		/* clkgen */
-		vcd_spuv_func_modify_register(
-			0x01000000,
-			0,
-			SPUV_FUNC_RW_32_CPG_MMSTPCR2);
-		vcd_spuv_func_modify_register(
-			0x01000000,
-			0,
-			SPUV_FUNC_RW_32_CPG_SMSTPCR2);
-
-		vcd_spuv_func_modify_register(
-			0,
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
-		udelay(62);
-		vcd_spuv_func_modify_register(
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			0,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
 	} else {
 		/* it dares not to drop. */
 	}
@@ -485,14 +480,8 @@ int vcd_spuv_func_set_fw(void)
 			read_fw_info.yram_addr[page_number] = page_data_addr;
 			read_fw_info.yram_page_size[page_number] = page_size;
 			read_fw_info.yram_global_size = global_size;
-		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE) {
-			/* read complete */
-			break;
 		} else {
-			vcd_pr_err("unknown memory type. memory_type[%d].\n",
-				memory_type);
-			ret = VCD_ERR_SYSTEM;
-			goto rtn;
+			break;
 		}
 
 		current_offset += page_size + VCD_SPUV_FUNC_OFFSET_PAGE_DATA;
@@ -631,7 +620,7 @@ void vcd_spuv_func_dsp_core_reset(void)
 	vcd_pr_start_spuv_function();
 
 	/* wait on */
-	is_fw_completion = false;
+	g_spuv_func_is_completion = false;
 
 	/* IEMASKC & IMASKC disable */
 	vcd_spuv_func_set_register(VCD_SPUV_FUNC_IEMASKC_DISABLE,
@@ -679,9 +668,12 @@ void vcd_spuv_func_send_msg(int *param, int length)
 	memset((void *)msg_buf_addr, 0, (sizeof(int) * length));
 
 	/* conversion format */
-	for (i = 0; length > i; i++)
+	vcd_pr_spuv_info("send param length[%d].\n", length);
+	for (i = 0; length > i; i++) {
+		vcd_pr_spuv_debug("param[%d][0x%02x].\n", i, param[i]);
 		msg_buf_addr[i] =
 			(param[i] << VCD_SPUV_FUNC_CPU_TO_DSP_BIT_SHIFT);
+	}
 
 	/* conversion address */
 	msg_buf_physical_addr =
@@ -697,9 +689,7 @@ void vcd_spuv_func_send_msg(int *param, int length)
 			SPUV_FUNC_RW_32_COM3);
 
 	/* wait on */
-	is_fw_completion = false;
-
-	vcd_pr_spuv_debug("Cortex -> SPUV [0x%02x]\n", param[1]);
+	g_spuv_func_is_completion = false;
 
 	/* set arm_msg_it */
 	vcd_spuv_func_set_register(VCD_SPUV_FUNC_AMSGIT_MSG_REQ,
@@ -727,6 +717,8 @@ rtn:
 void vcd_spuv_func_send_ack(void)
 {
 	vcd_pr_start_spuv_function();
+
+	vcd_pr_if_spuv("V --> F : ACK.\n");
 
 	/* set arm_msg_it */
 	vcd_spuv_func_modify_register(0,
@@ -758,6 +750,8 @@ void vcd_spuv_func_get_fw_request(void)
 
 	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM0, addr);
 	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM1, length);
+	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM0[%08x].\n", addr);
+	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM1[%08x].\n", length);
 
 #if 0
 	spin_lock_irqsave(&clock_lock, flags);
@@ -770,7 +764,7 @@ void vcd_spuv_func_get_fw_request(void)
 			fw_req[i] = *((int *)addr);
 			fw_req[i] = ((fw_req[i] >> VCD_SPUV_FUNC_BIT_SHIFT) &
 					VCD_SPUV_FUNC_COM2_MASK);
-			addr++;
+			addr += VCD_SPUV_FUNC_NEXT_ADDR;
 		}
 	}
 
@@ -798,9 +792,11 @@ void vcd_spuv_func_start_wait(void)
 {
 	vcd_pr_start_spuv_function();
 
+	init_waitqueue_head(&g_vcd_spuv_wait);
+
 	wait_event_interruptible_timeout(
 		g_vcd_spuv_wait,
-		is_fw_completion,
+		g_spuv_func_is_completion,
 		msecs_to_jiffies(VCD_SPUV_FUNC_MAX_WAIT_TIME));
 
 	vcd_pr_end_spuv_function();
@@ -819,7 +815,7 @@ void vcd_spuv_func_end_wait(void)
 {
 	vcd_pr_start_spuv_function();
 
-	is_fw_completion = true;
+	g_spuv_func_is_completion = true;
 	wake_up_interruptible(&g_vcd_spuv_wait);
 
 	vcd_pr_end_spuv_function();
@@ -844,6 +840,13 @@ int vcd_spuv_func_ioremap(void)
 	int ret = VCD_ERR_NONE;
 
 	vcd_pr_start_spuv_function();
+
+	if ((system_rev & 0xff) == 0x00)
+		g_spuv_func_sdram_static_area_top_phy =
+			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1;
+	else
+		g_spuv_func_sdram_static_area_top_phy =
+			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2;
 
 	/* ioremap sdram */
 	g_spuv_func_sdram_static_area_top =
@@ -1108,142 +1111,142 @@ void vcd_spuv_func_dump_cpg_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("VCLKCR1      [%08x][0x%08x]",
+	vcd_pr_registers_dump("VCLKCR1      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR1),
 		SPUV_FUNC_RW_32_CPG_VCLKCR1);
-	vcd_pr_registers_dump("VCLKCR2      [%08x][0x%08x]",
+	vcd_pr_registers_dump("VCLKCR2      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR2),
 		SPUV_FUNC_RW_32_CPG_VCLKCR2);
-	vcd_pr_registers_dump("VCLKCR3      [%08x][0x%08x]",
+	vcd_pr_registers_dump("VCLKCR3      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR3),
 		SPUV_FUNC_RW_32_CPG_VCLKCR3);
-	vcd_pr_registers_dump("VCLKCR4      [%08x][0x%08x]",
+	vcd_pr_registers_dump("VCLKCR4      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR4),
 		SPUV_FUNC_RW_32_CPG_VCLKCR4);
-	vcd_pr_registers_dump("VCLKCR5      [%08x][0x%08x]",
+	vcd_pr_registers_dump("VCLKCR5      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR5),
 		SPUV_FUNC_RW_32_CPG_VCLKCR5);
-	vcd_pr_registers_dump("FSIACKCR     [%08x][0x%08x]",
+	vcd_pr_registers_dump("FSIACKCR     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_FSIACKCR),
 		SPUV_FUNC_RW_32_CPG_FSIACKCR);
-	vcd_pr_registers_dump("FSIBCKCR     [%08x][0x%08x]",
+	vcd_pr_registers_dump("FSIBCKCR     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_FSIBCKCR),
 		SPUV_FUNC_RW_32_CPG_FSIBCKCR);
-	vcd_pr_registers_dump("SPUACKCR     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUACKCR     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SPUACKCR),
 		SPUV_FUNC_RW_32_CPG_SPUACKCR);
-	vcd_pr_registers_dump("SPUVCKCR     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUVCKCR     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SPUVCKCR),
 		SPUV_FUNC_RW_32_CPG_SPUVCKCR);
-	vcd_pr_registers_dump("HSICKCR      [%08x][0x%08x]",
+	vcd_pr_registers_dump("HSICKCR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_HSICKCR),
 		SPUV_FUNC_RW_32_CPG_HSICKCR);
-	vcd_pr_registers_dump("MSTPSR0      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR0      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR0),
 		SPUV_FUNC_RO_32_CPG_MSTPSR0);
-	vcd_pr_registers_dump("MSTPSR1      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR1      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR1),
 		SPUV_FUNC_RO_32_CPG_MSTPSR1);
-	vcd_pr_registers_dump("MSTPSR2      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR2      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR2),
 		SPUV_FUNC_RO_32_CPG_MSTPSR2);
-	vcd_pr_registers_dump("MSTPSR3      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR3      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR3),
 		SPUV_FUNC_RO_32_CPG_MSTPSR3);
-	vcd_pr_registers_dump("MSTPSR4      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR4      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR4),
 		SPUV_FUNC_RO_32_CPG_MSTPSR4);
-	vcd_pr_registers_dump("MSTPSR5      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR5      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR5),
 		SPUV_FUNC_RO_32_CPG_MSTPSR5);
-	vcd_pr_registers_dump("MSTPSR6      [%08x][0x%08x]",
+	vcd_pr_registers_dump("MSTPSR6      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR6),
 		SPUV_FUNC_RO_32_CPG_MSTPSR6);
-	vcd_pr_registers_dump("RMSTPCR0     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR0     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR0),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR0);
-	vcd_pr_registers_dump("RMSTPCR1     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR1     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR1),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR1);
-	vcd_pr_registers_dump("RMSTPCR2     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR2     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR2),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR2);
-	vcd_pr_registers_dump("RMSTPCR3     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR3     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR3),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR3);
-	vcd_pr_registers_dump("RMSTPCR4     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR4     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR4),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR4);
-	vcd_pr_registers_dump("RMSTPCR5     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR5     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR5),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR5);
-	vcd_pr_registers_dump("RMSTPCR6     [%08x][0x%08x]",
+	vcd_pr_registers_dump("RMSTPCR6     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_RMSTPCR6),
 		SPUV_FUNC_RW_32_CPG_RMSTPCR6);
-	vcd_pr_registers_dump("SMSTPCR0     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR0     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR0),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR0);
-	vcd_pr_registers_dump("SMSTPCR1     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR1     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR1),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR1);
-	vcd_pr_registers_dump("SMSTPCR2     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR2     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR2),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR2);
-	vcd_pr_registers_dump("SMSTPCR3     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR3     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR3),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR3);
-	vcd_pr_registers_dump("SMSTPCR4     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR4     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR4),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR4);
-	vcd_pr_registers_dump("SMSTPCR5     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR5     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR5),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR5);
-	vcd_pr_registers_dump("SMSTPCR6     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SMSTPCR6     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SMSTPCR6),
 		SPUV_FUNC_RW_32_CPG_SMSTPCR6);
-	vcd_pr_registers_dump("MMSTPCR0     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR0     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR0),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR0);
-	vcd_pr_registers_dump("MMSTPCR1     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR1     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR1),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR1);
-	vcd_pr_registers_dump("MMSTPCR2     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR2     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR2),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR2);
-	vcd_pr_registers_dump("MMSTPCR3     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR3     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR3),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR3);
-	vcd_pr_registers_dump("MMSTPCR4     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR4     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR4),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR4);
-	vcd_pr_registers_dump("MMSTPCR5     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR5     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR5),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR5);
-	vcd_pr_registers_dump("MMSTPCR6     [%08x][0x%08x]",
+	vcd_pr_registers_dump("MMSTPCR6     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_MMSTPCR6),
 		SPUV_FUNC_RW_32_CPG_MMSTPCR6);
-	vcd_pr_registers_dump("SRCR0        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR0        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR0),
 		SPUV_FUNC_RW_32_CPG_SRCR0);
-	vcd_pr_registers_dump("SRCR1        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR1        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR1),
 		SPUV_FUNC_RW_32_CPG_SRCR1);
-	vcd_pr_registers_dump("SRCR2        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR2        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR2),
 		SPUV_FUNC_RW_32_CPG_SRCR2);
-	vcd_pr_registers_dump("SRCR3        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR3        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR3),
 		SPUV_FUNC_RW_32_CPG_SRCR3);
-	vcd_pr_registers_dump("SRCR4        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR4        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR4),
 		SPUV_FUNC_RW_32_CPG_SRCR4);
-	vcd_pr_registers_dump("SRCR5        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR5        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR5),
 		SPUV_FUNC_RW_32_CPG_SRCR5);
-	vcd_pr_registers_dump("SRCR6        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SRCR6        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_SRCR6),
 		SPUV_FUNC_RW_32_CPG_SRCR6);
-	vcd_pr_registers_dump("CKSCR        [%08x][0x%08x]",
+	vcd_pr_registers_dump("CKSCR        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_CKSCR),
 		SPUV_FUNC_RW_32_CPG_CKSCR);
 
@@ -1263,13 +1266,13 @@ void vcd_spuv_func_dump_crmu_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("CRMU_GTU     [%08x][0x%08x]",
+	vcd_pr_registers_dump("CRMU_GTU     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CRMU_GTU),
 		SPUV_FUNC_RW_32_CRMU_GTU);
-	vcd_pr_registers_dump("CRMU_VOICEIF [%08x][0x%08x]",
+	vcd_pr_registers_dump("CRMU_VOICEIF [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CRMU_VOICEIF),
 		SPUV_FUNC_RW_32_CRMU_VOICEIF);
-	vcd_pr_registers_dump("CRMU_INTCVO  [%08x][0x%08x]",
+	vcd_pr_registers_dump("CRMU_INTCVO  [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CRMU_INTCVO),
 		SPUV_FUNC_RW_32_CRMU_INTCVO);
 
@@ -1289,55 +1292,55 @@ void vcd_spuv_func_dump_gtu_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("SEL_20_PLS   [%08x][0x%08x]",
+	vcd_pr_registers_dump("SEL_20_PLS   [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SEL_20_PLS),
 		SPUV_FUNC_RW_32_SEL_20_PLS);
-	vcd_pr_registers_dump("PG_LOOP      [%08x][0x%08x]",
+	vcd_pr_registers_dump("PG_LOOP      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PG_LOOP),
 		SPUV_FUNC_RW_32_PG_LOOP);
-	vcd_pr_registers_dump("PG_RELOAD    [%08x][0x%08x]",
+	vcd_pr_registers_dump("PG_RELOAD    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PG_RELOAD),
 		SPUV_FUNC_RW_32_PG_RELOAD);
-	vcd_pr_registers_dump("PG_MIN       [%08x][0x%08x]",
+	vcd_pr_registers_dump("PG_MIN       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PG_MIN),
 		SPUV_FUNC_RW_32_PG_MIN);
-	vcd_pr_registers_dump("PG_MAX       [%08x][0x%08x]",
+	vcd_pr_registers_dump("PG_MAX       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PG_MAX),
 		SPUV_FUNC_RW_32_PG_MAX);
-	vcd_pr_registers_dump("PG_20_EN     [%08x][0x%08x]",
+	vcd_pr_registers_dump("PG_20_EN     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PG_20_EN),
 		SPUV_FUNC_RW_32_PG_20_EN);
-	vcd_pr_registers_dump("PC_PH_STS    [%08x][0x%08x]",
+	vcd_pr_registers_dump("PC_PH_STS    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_PC_PH_STS),
 		SPUV_FUNC_RO_32_PC_PH_STS);
-	vcd_pr_registers_dump("PC_DET_EN    [%08x][0x%08x]",
+	vcd_pr_registers_dump("PC_DET_EN    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PC_DET_EN),
 		SPUV_FUNC_RW_32_PC_DET_EN);
-	vcd_pr_registers_dump("PC_MIN_TH    [%08x][0x%08x]",
+	vcd_pr_registers_dump("PC_MIN_TH    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PC_MIN_TH),
 		SPUV_FUNC_RW_32_PC_MIN_TH);
-	vcd_pr_registers_dump("PC_MAX_TH    [%08x][0x%08x]",
+	vcd_pr_registers_dump("PC_MAX_TH    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PC_MAX_TH),
 		SPUV_FUNC_RW_32_PC_MAX_TH);
-	vcd_pr_registers_dump("EN_TRG       [%08x][0x%08x]",
+	vcd_pr_registers_dump("EN_TRG       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_EN_TRG),
 		SPUV_FUNC_RW_32_EN_TRG);
-	vcd_pr_registers_dump("DLY_P_UL     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DLY_P_UL     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DLY_P_UL),
 		SPUV_FUNC_RW_32_DLY_P_UL);
-	vcd_pr_registers_dump("DLY_P_DL     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DLY_P_DL     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DLY_P_DL),
 		SPUV_FUNC_RW_32_DLY_P_DL);
-	vcd_pr_registers_dump("DLY_B_UL     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DLY_B_UL     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DLY_B_UL),
 		SPUV_FUNC_RW_32_DLY_B_UL);
-	vcd_pr_registers_dump("DLY_SP_0     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DLY_SP_0     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DLY_SP_0),
 		SPUV_FUNC_RW_32_DLY_SP_0);
-	vcd_pr_registers_dump("DLY_SP_1     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DLY_SP_1     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DLY_SP_1),
 		SPUV_FUNC_RW_32_DLY_SP_1);
-	vcd_pr_registers_dump("PC_RL_VL     [%08x][0x%08x]",
+	vcd_pr_registers_dump("PC_RL_VL     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_PC_RL_VL),
 		SPUV_FUNC_RW_32_PC_RL_VL);
 
@@ -1357,58 +1360,58 @@ void vcd_spuv_func_dump_voiceif_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("UL1_BUF      [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL1_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL1_BUF),
 		SPUV_FUNC_RO_32_UL1_BUF);
-	vcd_pr_registers_dump("UL2_BUF      [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL2_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL2_BUF),
 		SPUV_FUNC_RO_32_UL2_BUF);
-	vcd_pr_registers_dump("UL3_BUF      [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL3_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL3_BUF),
 		SPUV_FUNC_RO_32_UL3_BUF);
-	vcd_pr_registers_dump("UL4_BUF      [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL4_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL4_BUF),
 		SPUV_FUNC_RO_32_UL4_BUF);
-	vcd_pr_registers_dump("UL5_BUF      [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL5_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL5_BUF),
 		SPUV_FUNC_RO_32_UL5_BUF);
-	/* vcd_pr_registers_dump("DL_BUF       [%08x][0x%08x]",
+	/* vcd_pr_registers_dump("DL_BUF       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_WO_32_DL_BUF),
 		SPUV_FUNC_WO_32_DL_BUF); */
-	vcd_pr_registers_dump("UL_EN1       [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL_EN1       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_UL_EN1),
 		SPUV_FUNC_RW_32_UL_EN1);
-	vcd_pr_registers_dump("UL_EN2       [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL_EN2       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_UL_EN2),
 		SPUV_FUNC_RW_32_UL_EN2);
-	vcd_pr_registers_dump("U1_P_LT      [%08x][0x%08x]",
+	vcd_pr_registers_dump("U1_P_LT      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_U1_P_LT),
 		SPUV_FUNC_RO_32_U1_P_LT);
-	vcd_pr_registers_dump("U2_P_LT      [%08x][0x%08x]",
+	vcd_pr_registers_dump("U2_P_LT      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_U2_P_LT),
 		SPUV_FUNC_RO_32_U2_P_LT);
-	vcd_pr_registers_dump("D_BUF_FL     [%08x][0x%08x]",
+	vcd_pr_registers_dump("D_BUF_FL     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_D_BUF_FL),
 		SPUV_FUNC_RW_32_D_BUF_FL);
-	vcd_pr_registers_dump("D_P_LT       [%08x][0x%08x]",
+	vcd_pr_registers_dump("D_P_LT       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_D_P_LT),
 		SPUV_FUNC_RO_32_D_P_LT);
-	vcd_pr_registers_dump("UL_EN3       [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL_EN3       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_UL_EN3),
 		SPUV_FUNC_RW_32_UL_EN3);
-	vcd_pr_registers_dump("UL_EN4       [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL_EN4       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_UL_EN4),
 		SPUV_FUNC_RW_32_UL_EN4);
-	vcd_pr_registers_dump("UL_EN5       [%08x][0x%08x]",
+	vcd_pr_registers_dump("UL_EN5       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_UL_EN5),
 		SPUV_FUNC_RW_32_UL_EN5);
-	vcd_pr_registers_dump("U3_P_LT      [%08x][0x%08x]",
+	vcd_pr_registers_dump("U3_P_LT      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_U3_P_LT),
 		SPUV_FUNC_RO_32_U3_P_LT);
-	vcd_pr_registers_dump("U4_P_LT      [%08x][0x%08x]",
+	vcd_pr_registers_dump("U4_P_LT      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_U4_P_LT),
 		SPUV_FUNC_RO_32_U4_P_LT);
-	vcd_pr_registers_dump("U5_P_LT      [%08x][0x%08x]",
+	vcd_pr_registers_dump("U5_P_LT      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_U5_P_LT),
 		SPUV_FUNC_RO_32_U5_P_LT);
 
@@ -1428,58 +1431,58 @@ void vcd_spuv_func_dump_intcvo_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("DINTEN       [%08x][0x%08x]",
+	vcd_pr_registers_dump("DINTEN       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DINTEN),
 		SPUV_FUNC_RW_32_DINTEN);
-	vcd_pr_registers_dump("DINTMASK     [%08x][0x%08x]",
+	vcd_pr_registers_dump("DINTMASK     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DINTMASK),
 		SPUV_FUNC_RW_32_DINTMASK);
-	vcd_pr_registers_dump("DINTCLR      [%08x][0x%08x]",
+	vcd_pr_registers_dump("DINTCLR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DINTCLR),
 		SPUV_FUNC_RW_32_DINTCLR);
-	vcd_pr_registers_dump("DINTSTS      [%08x][0x%08x]",
+	vcd_pr_registers_dump("DINTSTS      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_DINTSTS),
 		SPUV_FUNC_RO_32_DINTSTS);
-	vcd_pr_registers_dump("AMSGIT       [%08x][0x%08x]",
+	vcd_pr_registers_dump("AMSGIT       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_AMSGIT),
 		SPUV_FUNC_RW_32_AMSGIT);
-	vcd_pr_registers_dump("AINTEN       [%08x][0x%08x]",
+	vcd_pr_registers_dump("AINTEN       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_AINTEN),
 		SPUV_FUNC_RW_32_AINTEN);
-	vcd_pr_registers_dump("AINTMASK     [%08x][0x%08x]",
+	vcd_pr_registers_dump("AINTMASK     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_AINTMASK),
 		SPUV_FUNC_RW_32_AINTMASK);
-	vcd_pr_registers_dump("AINTCLR      [%08x][0x%08x]",
+	vcd_pr_registers_dump("AINTCLR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_AINTCLR),
 		SPUV_FUNC_RW_32_AINTCLR);
-	vcd_pr_registers_dump("AINTSTS      [%08x][0x%08x]",
+	vcd_pr_registers_dump("AINTSTS      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_AINTSTS),
 		SPUV_FUNC_RO_32_AINTSTS);
-	vcd_pr_registers_dump("BBINTSET     [%08x][0x%08x]",
+	vcd_pr_registers_dump("BBINTSET     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_BBINTSET),
 		SPUV_FUNC_RW_32_BBINTSET);
-	vcd_pr_registers_dump("SHINTSET     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHINTSET     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SHINTSET),
 		SPUV_FUNC_RW_32_SHINTSET);
-	vcd_pr_registers_dump("V20MSITEN    [%08x][0x%08x]",
+	vcd_pr_registers_dump("V20MSITEN    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_V20MSITEN),
 		SPUV_FUNC_RW_32_V20MSITEN);
-	vcd_pr_registers_dump("V20MSITCLR   [%08x][0x%08x]",
+	vcd_pr_registers_dump("V20MSITCLR   [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_V20MSITCLR),
 		SPUV_FUNC_RW_32_V20MSITCLR);
-	vcd_pr_registers_dump("V20MSITSTAT  [%08x][0x%08x]",
+	vcd_pr_registers_dump("V20MSITSTAT  [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_V20MSITSTAT),
 		SPUV_FUNC_RO_32_V20MSITSTAT);
-	vcd_pr_registers_dump("BBITCLR      [%08x][0x%08x]",
+	vcd_pr_registers_dump("BBITCLR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_BBITCLR),
 		SPUV_FUNC_RW_32_BBITCLR);
-	vcd_pr_registers_dump("SHITCLR      [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHITCLR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SHITCLR),
 		SPUV_FUNC_RW_32_SHITCLR);
-	vcd_pr_registers_dump("BBITSTAT     [%08x][0x%08x]",
+	vcd_pr_registers_dump("BBITSTAT     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_BBITSTAT),
 		SPUV_FUNC_RO_32_BBITSTAT);
-	vcd_pr_registers_dump("SHITSTAT     [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHITSTAT     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_SHITSTAT),
 		SPUV_FUNC_RO_32_SHITSTAT);
 
@@ -1499,193 +1502,193 @@ void vcd_spuv_func_dump_spuv_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("CCTL         [%08x][0x%08x]",
+	vcd_pr_registers_dump("CCTL         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CCTL),
 		SPUV_FUNC_RW_32_CCTL);
-	vcd_pr_registers_dump("P0RAM0       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM0       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE0),
 		SPUV_FUNC_RW_32_P0BASE0);
-	vcd_pr_registers_dump("X0RAM0       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM0       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE0),
 		SPUV_FUNC_RW_32_X0BASE0);
-	vcd_pr_registers_dump("Y0RAM0       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM0       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE0),
 		SPUV_FUNC_RW_32_Y0BASE0);
-	vcd_pr_registers_dump("SPUMSTS      [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUMSTS      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_SPUMSTS),
 		SPUV_FUNC_RO_32_SPUMSTS);
-	vcd_pr_registers_dump("P0RAM1       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM1       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE1),
 		SPUV_FUNC_RW_32_P0BASE1);
-	vcd_pr_registers_dump("X0RAM1       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM1       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE1),
 		SPUV_FUNC_RW_32_X0BASE1);
-	vcd_pr_registers_dump("Y0RAM1       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM1       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE1),
 		SPUV_FUNC_RW_32_Y0BASE1);
-	vcd_pr_registers_dump("P0RAM2       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM2       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE2),
 		SPUV_FUNC_RW_32_P0BASE2);
-	vcd_pr_registers_dump("X0RAM2       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM2       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE2),
 		SPUV_FUNC_RW_32_X0BASE2);
-	vcd_pr_registers_dump("Y0RAM2       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM2       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE2),
 		SPUV_FUNC_RW_32_Y0BASE2);
-	vcd_pr_registers_dump("P0RAM3       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM3       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE3),
 		SPUV_FUNC_RW_32_P0BASE3);
-	vcd_pr_registers_dump("X0RAM3       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM3       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE3),
 		SPUV_FUNC_RW_32_X0BASE3);
-	vcd_pr_registers_dump("Y0RAM3       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM3       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE3),
 		SPUV_FUNC_RW_32_Y0BASE3);
-	vcd_pr_registers_dump("P0RAM4       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM4       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE4),
 		SPUV_FUNC_RW_32_P0BASE4);
-	vcd_pr_registers_dump("X0RAM4       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM4       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE4),
 		SPUV_FUNC_RW_32_X0BASE4);
-	vcd_pr_registers_dump("Y0RAM4       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM4       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE4),
 		SPUV_FUNC_RW_32_Y0BASE4);
-	vcd_pr_registers_dump("P0RAM5       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM5       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE5),
 		SPUV_FUNC_RW_32_P0BASE5);
-	vcd_pr_registers_dump("X0RAM5       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM5       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE5),
 		SPUV_FUNC_RW_32_X0BASE5);
-	vcd_pr_registers_dump("Y0RAM5       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM5       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE5),
 		SPUV_FUNC_RW_32_Y0BASE5);
-	vcd_pr_registers_dump("P0RAM6       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM6       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE6),
 		SPUV_FUNC_RW_32_P0BASE6);
-	vcd_pr_registers_dump("X0RAM6       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM6       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE6),
 		SPUV_FUNC_RW_32_X0BASE6);
-	vcd_pr_registers_dump("Y0RAM6       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM6       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE6),
 		SPUV_FUNC_RW_32_Y0BASE6);
-	vcd_pr_registers_dump("P0RAM7       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM7       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE7),
 		SPUV_FUNC_RW_32_P0BASE7);
-	vcd_pr_registers_dump("X0RAM7       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM7       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE7),
 		SPUV_FUNC_RW_32_X0BASE7);
-	vcd_pr_registers_dump("Y0RAM7       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM7       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE7),
 		SPUV_FUNC_RW_32_Y0BASE7);
-	vcd_pr_registers_dump("P0RAM8       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM8       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE8),
 		SPUV_FUNC_RW_32_P0BASE8);
-	vcd_pr_registers_dump("X0RAM8       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM8       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE8),
 		SPUV_FUNC_RW_32_X0BASE8);
-	vcd_pr_registers_dump("Y0RAM8       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM8       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE8),
 		SPUV_FUNC_RW_32_Y0BASE8);
-	vcd_pr_registers_dump("P0RAM9       [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM9       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE9),
 		SPUV_FUNC_RW_32_P0BASE9);
-	vcd_pr_registers_dump("X0RAM9       [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM9       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE9),
 		SPUV_FUNC_RW_32_X0BASE9);
-	vcd_pr_registers_dump("Y0RAM9       [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM9       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE9),
 		SPUV_FUNC_RW_32_Y0BASE9);
-	vcd_pr_registers_dump("P0RAM10      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM10      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE10),
 		SPUV_FUNC_RW_32_P0BASE10);
-	vcd_pr_registers_dump("X0RAM10      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM10      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE10),
 		SPUV_FUNC_RW_32_X0BASE10);
-	vcd_pr_registers_dump("Y0RAM10      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM10      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE10),
 		SPUV_FUNC_RW_32_Y0BASE10);
-	vcd_pr_registers_dump("P0RAM11      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM11      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE11),
 		SPUV_FUNC_RW_32_P0BASE11);
-	vcd_pr_registers_dump("X0RAM11      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM11      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE11),
 		SPUV_FUNC_RW_32_X0BASE11);
-	vcd_pr_registers_dump("Y0RAM11      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM11      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE11),
 		SPUV_FUNC_RW_32_Y0BASE11);
-	vcd_pr_registers_dump("P0RAM12      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM12      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE12),
 		SPUV_FUNC_RW_32_P0BASE12);
-	vcd_pr_registers_dump("X0RAM12      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM12      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE12),
 		SPUV_FUNC_RW_32_X0BASE12);
-	vcd_pr_registers_dump("Y0RAM12      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM12      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE12),
 		SPUV_FUNC_RW_32_Y0BASE12);
-	vcd_pr_registers_dump("P0RAM13      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM13      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE13),
 		SPUV_FUNC_RW_32_P0BASE13);
-	vcd_pr_registers_dump("X0RAM13      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM13      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE13),
 		SPUV_FUNC_RW_32_X0BASE13);
-	vcd_pr_registers_dump("Y0RAM13      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM13      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE13),
 		SPUV_FUNC_RW_32_Y0BASE13);
-	vcd_pr_registers_dump("P0RAM14      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM14      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE14),
 		SPUV_FUNC_RW_32_P0BASE14);
-	vcd_pr_registers_dump("X0RAM14      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM14      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE14),
 		SPUV_FUNC_RW_32_X0BASE14);
-	vcd_pr_registers_dump("Y0RAM14      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM14      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE14),
 		SPUV_FUNC_RW_32_Y0BASE14);
-	vcd_pr_registers_dump("P0RAM15      [%08x][0x%08x]",
+	vcd_pr_registers_dump("P0RAM15      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_P0BASE15),
 		SPUV_FUNC_RW_32_P0BASE15);
-	vcd_pr_registers_dump("X0RAM15      [%08x][0x%08x]",
+	vcd_pr_registers_dump("X0RAM15      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_X0BASE15),
 		SPUV_FUNC_RW_32_X0BASE15);
-	vcd_pr_registers_dump("Y0RAM15      [%08x][0x%08x]",
+	vcd_pr_registers_dump("Y0RAM15      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_Y0BASE15),
 		SPUV_FUNC_RW_32_Y0BASE15);
-	vcd_pr_registers_dump("CMOD         [%08x][0x%08x]",
+	vcd_pr_registers_dump("CMOD         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CMOD),
 		SPUV_FUNC_RW_32_CMOD);
-	vcd_pr_registers_dump("SPUSRST      [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUSRST      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SPUSRST),
 		SPUV_FUNC_RW_32_SPUSRST);
-	vcd_pr_registers_dump("SPUADR       [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUADR       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_SPUADR),
 		SPUV_FUNC_RO_32_SPUADR);
-	vcd_pr_registers_dump("ENDIAN       [%08x][0x%08x]",
+	vcd_pr_registers_dump("ENDIAN       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_ENDIAN),
 		SPUV_FUNC_RO_32_ENDIAN);
-	vcd_pr_registers_dump("GCOM0        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM0        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM0),
 		SPUV_FUNC_RW_32_GCOM0);
-	vcd_pr_registers_dump("GCOM1        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM1        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM1),
 		SPUV_FUNC_RW_32_GCOM1);
-	vcd_pr_registers_dump("GCOM2        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM2        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM2),
 		SPUV_FUNC_RW_32_GCOM2);
-	vcd_pr_registers_dump("GCOM3        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM3        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM3),
 		SPUV_FUNC_RW_32_GCOM3);
-	vcd_pr_registers_dump("GCOM4        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM4        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM4),
 		SPUV_FUNC_RW_32_GCOM4);
-	vcd_pr_registers_dump("GCOM5        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM5        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM5),
 		SPUV_FUNC_RW_32_GCOM5);
-	vcd_pr_registers_dump("GCOM6        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM6        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM6),
 		SPUV_FUNC_RW_32_GCOM6);
-	vcd_pr_registers_dump("GCOM7        [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCOM7        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCOM7),
 		SPUV_FUNC_RW_32_GCOM7);
-	vcd_pr_registers_dump("GCLK_CTRL    [%08x][0x%08x]",
+	vcd_pr_registers_dump("GCLK_CTRL    [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GCLK_CTRL),
 		SPUV_FUNC_RW_32_GCLK_CTRL);
 
@@ -1705,208 +1708,208 @@ void vcd_spuv_func_dump_dsp0_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_registers_dump("DSPRST       [%08x][0x%08x]",
+	vcd_pr_registers_dump("DSPRST       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DSPRST),
 		SPUV_FUNC_RW_32_DSPRST);
-	vcd_pr_registers_dump("DSPCORERST   [%08x][0x%08x]",
+	vcd_pr_registers_dump("DSPCORERST   [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DSPCORERST),
 		SPUV_FUNC_RW_32_DSPCORERST);
-	vcd_pr_registers_dump("DSPHOLD      [%08x][0x%08x]",
+	vcd_pr_registers_dump("DSPHOLD      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_DSPHOLD),
 		SPUV_FUNC_RO_32_DSPHOLD);
-	vcd_pr_registers_dump("DSPRESTART   [%08x][0x%08x]",
+	vcd_pr_registers_dump("DSPRESTART   [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DSPRESTART),
 		SPUV_FUNC_RW_32_DSPRESTART);
-	vcd_pr_registers_dump("IEMASKC      [%08x][0x%08x]",
+	vcd_pr_registers_dump("IEMASKC      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_IEMASKC),
 		SPUV_FUNC_RW_32_IEMASKC);
-	vcd_pr_registers_dump("IMASKC       [%08x][0x%08x]",
+	vcd_pr_registers_dump("IMASKC       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_IMASKC),
 		SPUV_FUNC_RW_32_IMASKC);
-	vcd_pr_registers_dump("IEVENTC      [%08x][0x%08x]",
+	vcd_pr_registers_dump("IEVENTC      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_IEVENTC),
 		SPUV_FUNC_RW_32_IEVENTC);
-	/* vcd_pr_registers_dump("IEMASKD      [%08x][0x%08x]",
+	/* vcd_pr_registers_dump("IEMASKD      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_OO_32_IEMASKD),
 		SPUV_FUNC_OO_32_IEMASKD); */
-	/* vcd_pr_registers_dump("IMASKD       [%08x][0x%08x]",
+	/* vcd_pr_registers_dump("IMASKD       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_OO_32_IMASKD),
 		SPUV_FUNC_OO_32_IMASKD); */
-	vcd_pr_registers_dump("IESETD       [%08x][0x%08x]",
+	vcd_pr_registers_dump("IESETD       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_IESETD),
 		SPUV_FUNC_RW_32_IESETD);
-	/* vcd_pr_registers_dump("IECLRD       [%08x][0x%08x]",
+	/* vcd_pr_registers_dump("IECLRD       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_OO_32_IECLRD),
 		SPUV_FUNC_OO_32_IECLRD); */
-	vcd_pr_registers_dump("OR           [%08x][0x%08x]",
+	vcd_pr_registers_dump("OR           [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_OR),
 		SPUV_FUNC_RW_32_OR);
-	vcd_pr_registers_dump("COM0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM0),
 		SPUV_FUNC_RW_32_COM0);
-	vcd_pr_registers_dump("COM1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM1),
 		SPUV_FUNC_RW_32_COM1);
-	vcd_pr_registers_dump("COM2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM2),
 		SPUV_FUNC_RW_32_COM2);
-	vcd_pr_registers_dump("COM3         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM3         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM3),
 		SPUV_FUNC_RW_32_COM3);
-	vcd_pr_registers_dump("COM4         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM4         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM4),
 		SPUV_FUNC_RW_32_COM4);
-	vcd_pr_registers_dump("COM5         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM5         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM5),
 		SPUV_FUNC_RW_32_COM5);
-	vcd_pr_registers_dump("COM6         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM6         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM6),
 		SPUV_FUNC_RW_32_COM6);
-	vcd_pr_registers_dump("COM7         [%08x][0x%08x]",
+	vcd_pr_registers_dump("COM7         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_COM7),
 		SPUV_FUNC_RW_32_COM7);
-	vcd_pr_registers_dump("BTADRU       [%08x][0x%08x]",
+	vcd_pr_registers_dump("BTADRU       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_BTADRU),
 		SPUV_FUNC_RW_32_BTADRU);
-	vcd_pr_registers_dump("BTADRL       [%08x][0x%08x]",
+	vcd_pr_registers_dump("BTADRL       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_BTADRL),
 		SPUV_FUNC_RW_32_BTADRL);
-	vcd_pr_registers_dump("WDATU        [%08x][0x%08x]",
+	vcd_pr_registers_dump("WDATU        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_WDATU),
 		SPUV_FUNC_RW_32_WDATU);
-	vcd_pr_registers_dump("WDATL        [%08x][0x%08x]",
+	vcd_pr_registers_dump("WDATL        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_WDATL),
 		SPUV_FUNC_RW_32_WDATL);
-	vcd_pr_registers_dump("RDATU        [%08x][0x%08x]",
+	vcd_pr_registers_dump("RDATU        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_RDATU),
 		SPUV_FUNC_RO_32_RDATU);
-	vcd_pr_registers_dump("RDATL        [%08x][0x%08x]",
+	vcd_pr_registers_dump("RDATL        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_RDATL),
 		SPUV_FUNC_RO_32_RDATL);
-	vcd_pr_registers_dump("BTCTRL       [%08x][0x%08x]",
+	vcd_pr_registers_dump("BTCTRL       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_BTCTRL),
 		SPUV_FUNC_RO_32_BTCTRL);
-	vcd_pr_registers_dump("SPUSTS       [%08x][0x%08x]",
+	vcd_pr_registers_dump("SPUSTS       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_SPUSTS),
 		SPUV_FUNC_RO_32_SPUSTS);
-	vcd_pr_registers_dump("GPI0_INTBIT  [%08x][0x%08x]",
+	vcd_pr_registers_dump("GPI0_INTBIT  [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GPI0_INTBIT),
 		SPUV_FUNC_RW_32_GPI0_INTBIT);
-	vcd_pr_registers_dump("GPI1_INTBIT  [%08x][0x%08x]",
+	vcd_pr_registers_dump("GPI1_INTBIT  [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GPI1_INTBIT),
 		SPUV_FUNC_RW_32_GPI1_INTBIT);
-	vcd_pr_registers_dump("GPI0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("GPI0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_GPI0),
 		SPUV_FUNC_RO_32_GPI0);
-	vcd_pr_registers_dump("GPI1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("GPI1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_GPI1),
 		SPUV_FUNC_RO_32_GPI1);
-	/* vcd_pr_registers_dump("_GO_TO_SLEEP [%08x][0x%08x]",
+	/* vcd_pr_registers_dump("_GO_TO_SLEEP [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_--_--_GO_TO_SLEEP),
 		SPUV_FUNC_--_--_GO_TO_SLEEP); */
-	vcd_pr_registers_dump("SBAR0        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SBAR0        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SBAR0),
 		SPUV_FUNC_RW_32_SBAR0);
-	vcd_pr_registers_dump("SAR0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("SAR0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SAR0),
 		SPUV_FUNC_RW_32_SAR0);
-	vcd_pr_registers_dump("DBAR0        [%08x][0x%08x]",
+	vcd_pr_registers_dump("DBAR0        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DBAR0),
 		SPUV_FUNC_RW_32_DBAR0);
-	vcd_pr_registers_dump("DAR0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("DAR0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DAR0),
 		SPUV_FUNC_RW_32_DAR0);
-	vcd_pr_registers_dump("TCR0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("TCR0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_TCR0),
 		SPUV_FUNC_RW_32_TCR0);
-	vcd_pr_registers_dump("SHPRI0       [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHPRI0       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SHPRI0),
 		SPUV_FUNC_RW_32_SHPRI0);
-	vcd_pr_registers_dump("CHCR0        [%08x][0x%08x]",
+	vcd_pr_registers_dump("CHCR0        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CHCR0),
 		SPUV_FUNC_RW_32_CHCR0);
-	vcd_pr_registers_dump("SBAR1        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SBAR1        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SBAR1),
 		SPUV_FUNC_RW_32_SBAR1);
-	vcd_pr_registers_dump("SAR1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("SAR1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SAR1),
 		SPUV_FUNC_RW_32_SAR1);
-	vcd_pr_registers_dump("DBAR1        [%08x][0x%08x]",
+	vcd_pr_registers_dump("DBAR1        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DBAR1),
 		SPUV_FUNC_RW_32_DBAR1);
-	vcd_pr_registers_dump("DAR1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("DAR1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DAR1),
 		SPUV_FUNC_RW_32_DAR1);
-	vcd_pr_registers_dump("TCR1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("TCR1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_TCR1),
 		SPUV_FUNC_RW_32_TCR1);
-	vcd_pr_registers_dump("SHPRI1       [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHPRI1       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SHPRI1),
 		SPUV_FUNC_RW_32_SHPRI1);
-	vcd_pr_registers_dump("CHCR1        [%08x][0x%08x]",
+	vcd_pr_registers_dump("CHCR1        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CHCR1),
 		SPUV_FUNC_RW_32_CHCR1);
-	vcd_pr_registers_dump("SBAR2        [%08x][0x%08x]",
+	vcd_pr_registers_dump("SBAR2        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SBAR2),
 		SPUV_FUNC_RW_32_SBAR2);
-	vcd_pr_registers_dump("SAR2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("SAR2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SAR2),
 		SPUV_FUNC_RW_32_SAR2);
-	vcd_pr_registers_dump("DBAR2        [%08x][0x%08x]",
+	vcd_pr_registers_dump("DBAR2        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DBAR2),
 		SPUV_FUNC_RW_32_DBAR2);
-	vcd_pr_registers_dump("DAR2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("DAR2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DAR2),
 		SPUV_FUNC_RW_32_DAR2);
-	vcd_pr_registers_dump("TCR2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("TCR2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_TCR2),
 		SPUV_FUNC_RW_32_TCR2);
-	vcd_pr_registers_dump("SHPRI2       [%08x][0x%08x]",
+	vcd_pr_registers_dump("SHPRI2       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SHPRI2),
 		SPUV_FUNC_RW_32_SHPRI2);
-	vcd_pr_registers_dump("CHCR2        [%08x][0x%08x]",
+	vcd_pr_registers_dump("CHCR2        [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CHCR2),
 		SPUV_FUNC_RW_32_CHCR2);
-	vcd_pr_registers_dump("LSA0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LSA0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LSA0),
 		SPUV_FUNC_RW_32_LSA0);
-	vcd_pr_registers_dump("LEA0         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LEA0         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LEA0),
 		SPUV_FUNC_RW_32_LEA0);
-	vcd_pr_registers_dump("LSA1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LSA1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LSA1),
 		SPUV_FUNC_RW_32_LSA1);
-	vcd_pr_registers_dump("LEA1         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LEA1         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LEA1),
 		SPUV_FUNC_RW_32_LEA1);
-	vcd_pr_registers_dump("LSA2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LSA2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LSA2),
 		SPUV_FUNC_RW_32_LSA2);
-	vcd_pr_registers_dump("LEA2         [%08x][0x%08x]",
+	vcd_pr_registers_dump("LEA2         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_LEA2),
 		SPUV_FUNC_RW_32_LEA2);
-	vcd_pr_registers_dump("ASID_DSP     [%08x][0x%08x]",
+	vcd_pr_registers_dump("ASID_DSP     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_ASID_DSP),
 		SPUV_FUNC_RW_32_ASID_DSP);
-	vcd_pr_registers_dump("ASID_CPU     [%08x][0x%08x]",
+	vcd_pr_registers_dump("ASID_CPU     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_ASID_CPU),
 		SPUV_FUNC_RW_32_ASID_CPU);
-	vcd_pr_registers_dump("ASID_DMA_CH0 [%08x][0x%08x]",
+	vcd_pr_registers_dump("ASID_DMA_CH0 [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_ASID_DMA_CH0),
 		SPUV_FUNC_RW_32_ASID_DMA_CH0);
-	vcd_pr_registers_dump("ASID_DMA_CH1 [%08x][0x%08x]",
+	vcd_pr_registers_dump("ASID_DMA_CH1 [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_ASID_DMA_CH1),
 		SPUV_FUNC_RW_32_ASID_DMA_CH1);
-	vcd_pr_registers_dump("ASID_DMA_CH2 [%08x][0x%08x]",
+	vcd_pr_registers_dump("ASID_DMA_CH2 [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_ASID_DMA_CH2),
 		SPUV_FUNC_RW_32_ASID_DMA_CH2);
-	vcd_pr_registers_dump("GADDR_CTRL_P [%08x][0x%08x]",
+	vcd_pr_registers_dump("GADDR_CTRL_P [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GADDR_CTRL_P),
 		SPUV_FUNC_RW_32_GADDR_CTRL_P);
-	vcd_pr_registers_dump("GADDR_CTRL_X [%08x][0x%08x]",
+	vcd_pr_registers_dump("GADDR_CTRL_X [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GADDR_CTRL_X),
 		SPUV_FUNC_RW_32_GADDR_CTRL_X);
-	vcd_pr_registers_dump("GADDR_CTRL_Y [%08x][0x%08x]",
+	vcd_pr_registers_dump("GADDR_CTRL_Y [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_GADDR_CTRL_Y),
 		SPUV_FUNC_RW_32_GADDR_CTRL_Y);
 
@@ -1960,6 +1963,7 @@ static int vcd_spuv_func_relocation_fw(
 	if (0 != ret)
 		vcd_pr_spuv_info("meram not use[%d].\n", ret);
 
+	ret = VCD_ERR_NONE;
 
 	if (0 != SPUV_FUNC_MERAM_FIRMWARE_BUFFER)
 		/* firmware cop to meram */
@@ -2002,6 +2006,7 @@ static int vcd_spuv_func_relocation_fw(
 	g_spuv_func_pram_info.global_size = read_fw_info->pram_global_size;
 	g_spuv_func_xram_info.global_size = read_fw_info->xram_global_size;
 	g_spuv_func_yram_info.global_size = read_fw_info->yram_global_size;
+
 
 	/* set cache to spuv register */
 	vcd_spuv_func_reg_firmware();
@@ -2286,13 +2291,6 @@ static void vcd_spuv_func_reg_firmware(void)
 	int i = 0;
 
 	vcd_pr_start_spuv_function();
-
-	/* soft ware reset spu2v */
-	vcd_spuv_func_modify_register(0,
-		VCD_SPUV_FUNC_SRCR2_SPU2V_RESET, SPUV_FUNC_RW_32_CPG_SRCR2);
-	udelay(1);
-	vcd_spuv_func_modify_register(VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-		0, SPUV_FUNC_RW_32_CPG_SRCR2);
 
 	/* set cache memory */
 	/* pram */

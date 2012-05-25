@@ -62,7 +62,7 @@ void vcd_ctrl_start_vcd(void);
 void vcd_ctrl_stop_vcd(void);
 void vcd_ctrl_set_hw_param(void);
 void vcd_ctrl_start_call(int call_type, int mode);
-void vcd_ctrl_stop_call(void);
+void vcd_ctrl_stop_call(int call_type);
 void vcd_ctrl_start_tty_ctm(void);
 void vcd_ctrl_stop_tty_ctm(void);
 void vcd_ctrl_config_tty_ctm(void);
@@ -82,6 +82,7 @@ void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info);
 void vcd_ctrl_rec_trigger(void);
 void vcd_ctrl_play_trigger(void);
 void vcd_ctrl_stop_fw(void);
+void vcd_ctrl_start_clkgen(void);
 
 /* Driver functions */
 int vcd_ctrl_suspend(void);
