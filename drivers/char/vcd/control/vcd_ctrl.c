@@ -42,7 +42,7 @@ void vcd_ctrl_get_msg_buffer(void)
 	/* execute spuv function */
 	g_vcd_ctrl_result = vcd_spuv_get_msg_buffer();
 
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%x]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -82,7 +82,7 @@ void vcd_ctrl_start_vcd(void)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_VCD);
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -117,7 +117,7 @@ void vcd_ctrl_stop_vcd(void)
 	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_NONE);
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -156,7 +156,7 @@ void vcd_ctrl_set_hw_param(void)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_HW_PARAM);
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -204,7 +204,7 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_CALL);
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -213,11 +213,11 @@ rtn:
 /**
  * @brief	stop call function.
  *
- * @param	none.
+ * @param	call_type	cs/1khz tone/pcm loopback/vif loopback.
  *
  * @retval	none.
  */
-void vcd_ctrl_stop_call(void)
+void vcd_ctrl_stop_call(int call_type)
 {
 	vcd_pr_start_control_function();
 
@@ -233,7 +233,15 @@ void vcd_ctrl_stop_call(void)
 	}
 
 	/* execute spuv function */
-	g_vcd_ctrl_result = vcd_spuv_stop_call();
+	if (VCD_CTRL_CALL_CS == call_type)
+		g_vcd_ctrl_result = vcd_spuv_stop_call();
+	else if (VCD_CTRL_CALL_1KHZ == call_type)
+		g_vcd_ctrl_result = vcd_spuv_stop_1khz_tone();
+	else if (VCD_CTRL_CALL_PCM == call_type)
+		g_vcd_ctrl_result = vcd_spuv_stop_pcm_loopback();
+	else if (VCD_CTRL_CALL_VIF == call_type)
+		g_vcd_ctrl_result = vcd_spuv_stop_bbif_loopback();
+
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
 		vcd_pr_err("stop call error[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
@@ -244,7 +252,7 @@ void vcd_ctrl_stop_call(void)
 		VCD_CTRL_FUNC_FEATURE_CALL | VCD_CTRL_FUNC_FEATURE_TTY_CTM);
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -284,7 +292,7 @@ void vcd_ctrl_start_tty_ctm(void)
 	goto rtn;
 #endif /* __VCD_TTY_ENABLE__ */
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -325,7 +333,7 @@ void vcd_ctrl_stop_tty_ctm(void)
 #endif /* __VCD_TTY_ENABLE__ */
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -366,7 +374,7 @@ void vcd_ctrl_config_tty_ctm(void)
 #endif /* __VCD_TTY_ENABLE__ */
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -402,7 +410,7 @@ void vcd_ctrl_set_udata(void)
 	}
 
 rtn:
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -443,7 +451,7 @@ void vcd_ctrl_get_status(void)
 		g_vcd_ctrl_result = VCD_CTRL_STATUS_NOT_START;
 	}
 
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return;
 }
@@ -460,7 +468,7 @@ int vcd_ctrl_get_result(void)
 {
 	vcd_pr_start_control_function();
 
-	vcd_pr_end_control_function("g_vcd_ctrl_result[%d]",
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return g_vcd_ctrl_result;
 }
@@ -482,8 +490,8 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 {
 	int ret = VCD_ERR_NONE;
 
-	vcd_pr_start_control_function("option[%p]\n", option);
-	vcd_pr_control_info("option.mode[%d]\n", option->mode);
+	vcd_pr_start_control_function("option[%p].\n", option);
+	vcd_pr_control_info("option.mode[%d].\n", option->mode);
 
 	/* check sequence */
 	ret = vcd_ctrl_func_check_sequence(VCD_CTRL_FUNC_START_RECORD);
@@ -504,7 +512,7 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_RECORD);
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -540,7 +548,7 @@ int vcd_ctrl_stop_record(void)
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_RECORD);
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -579,7 +587,7 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_PLAYBACK);
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -615,7 +623,7 @@ int vcd_ctrl_stop_playback(void)
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_PLAYBACK);
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -721,6 +729,25 @@ void vcd_ctrl_stop_fw(void)
 }
 
 
+/**
+ * @brief	start clkgen timing notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_start_clkgen(void)
+{
+	vcd_pr_start_control_function();
+
+	/* notification start clkgen timing */
+	vcd_start_clkgen();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
 /* ========================================================================= */
 /* Driver functions                                                          */
 /* ========================================================================= */
@@ -741,7 +768,7 @@ int vcd_ctrl_suspend(void)
 
 	/* nop */
 
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -760,7 +787,7 @@ int vcd_ctrl_resume(void)
 
 	/* nop */
 
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -789,7 +816,7 @@ int vcd_ctrl_runtime_suspend(void)
 	}
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -809,7 +836,7 @@ int vcd_ctrl_runtime_resume(void)
 
 	/* nop */
 
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -848,7 +875,7 @@ int vcd_ctrl_probe(void)
 	g_vcd_ctrl_result = VCD_ERR_NONE;
 
 rtn:
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -876,7 +903,7 @@ int vcd_ctrl_remove(void)
 	/* execute spuv function */
 	vcd_spuv_iounmap();
 
-	vcd_pr_end_control_function("ret[%d]", ret);
+	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
 
@@ -902,7 +929,7 @@ void vcd_ctrl_dump_status(void)
 	active_feature = vcd_ctrl_func_get_active_feature();
 
 	/* control status dump */
-	vcd_pr_registers_dump("g_vcd_ctrl_active_feature      [%08x]",
+	vcd_pr_registers_dump("g_vcd_ctrl_active_feature      [%08x].\n",
 		active_feature);
 
 	/* execute spuv function */

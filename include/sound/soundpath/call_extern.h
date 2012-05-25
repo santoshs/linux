@@ -27,6 +27,7 @@
 #endif
 
 typedef void (*callback_func)(u_int);
+typedef void (*callback_func_clk)(void);
 
 /* Call initialization function */
 CALL_CTRL_NO_EXTERN void call_init(
@@ -53,7 +54,8 @@ CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_pcmdata_pointer(
 /* VOCODER Set VQA mode function */
 CALL_CTRL_NO_EXTERN int call_set_vqa(u_int value);
 /* VOCODER Set Callback function for VCD Watch function */
-CALL_CTRL_NO_EXTERN int call_watch_stop_fw(callback_func callback);
+CALL_CTRL_NO_EXTERN int call_regist_watch(
+			callback_func callback, callback_func_clk callback_clk);
 /* Record dummy change function */
 CALL_CTRL_NO_EXTERN void call_change_dummy_rec(void);
 /* Speech UpLink status set function */

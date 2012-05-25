@@ -138,8 +138,15 @@ int call_playback_start(struct snd_pcm_substream *substream)
 
 	/* Start speech playback */
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_PLAYBACK\n");
+
+#if 0 /* for 0525 release only */
+
 	ret = call_vcd_execute((int)VCD_COMMAND_START_PLAYBACK,
 			       (void *)&vcd_ply_opt);
+#else
+	ret = -1;
+#endif /* for 0525 release only */
+
 	if (ERROR_NONE != ret) {
 		sndp_log_err("VCD_COMMAND_START_PLAYBACK return (code=%d)\n",
 			     ret);
@@ -238,8 +245,15 @@ int call_record_start(struct snd_pcm_substream *substream)
 
 	/* Start speech record */
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_RECORD\n");
+
+#if 0 /* for 0525 release only */
+
 	ret = call_vcd_execute((int)VCD_COMMAND_START_RECORD,
 			       (void *)&vcd_rec_opt);
+#else
+	ret = -1;
+#endif /* for 0525 release only */
+
 	if (ERROR_NONE != ret) {
 		sndp_log_err("Error COMMAND_START_RECORD(code=%d)\n", ret);
 		/* Status update */
@@ -325,7 +339,7 @@ snd_pcm_uframes_t call_pcmdata_pointer(struct snd_pcm_substream *substream)
 
    @retval	0	Successful
  */
-int call_watch_stop_fw(callback_func callback)
+int call_regist_watch(callback_func callback, callback_func_clk callback_clk)
 {
 	/* Local variable declaration */
 	int ret = ERROR_NONE;
@@ -342,6 +356,17 @@ int call_watch_stop_fw(callback_func callback)
 	if (ERROR_NONE > ret) {
 		sndp_log_err("Error COMMAND_WATCH_STOP_FW(code=%d)\n", ret);
 		ret = -EPERM;
+	} else {
+		/* Set callback for Vocoder */
+		sndp_log_debug(
+			"vcd_execute() cmd=VCD_COMMAND_WATCH_START_CLKGEN\n");
+		ret = call_vcd_execute((int)VCD_COMMAND_WATCH_START_CLKGEN,
+				       (void *)callback_clk);
+		if (ERROR_NONE > ret) {
+			sndp_log_err(
+			"Error VCD_COMMAND_WATCH_START_CLKGEN(code=%d)\n", ret);
+			ret = -EPERM;
+		}
 	}
 
 	sndp_log_debug_func("end\n");

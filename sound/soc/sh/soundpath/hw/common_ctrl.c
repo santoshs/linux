@@ -547,8 +547,9 @@ void common_set_pll22(const u_int uiValue, int stat)
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* PortA */
-	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
-					  (false == (dev & SNDP_FM_RADIO_RX))) {
+	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
+	    (false == (dev & SNDP_FM_RADIO_TX)) &&
+	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		fsickcr = CPG_FSIACKCR;
 	/* PortB */
 	} else {

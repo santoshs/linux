@@ -35,6 +35,9 @@
 /* spuv memory bit shift */
 #define VCD_SPUV_FUNC_BIT_SHIFT			8
 
+/* spuv memory bit shift */
+#define VCD_SPUV_FUNC_NEXT_ADDR			4
+
 /* cpu-dsp communication registers 0 to 7 (COM0 to 7) */
 #define VCD_SPUV_FUNC_COM2_MASK			0x00FFFFFF
 #define VCD_SPUV_FUNC_COM3_MASK			0x00FF0000
@@ -51,7 +54,7 @@
 #define VCD_SPUV_FUNC_UNIT_PAGE_SIZE		4
 #define VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE		1024
 
-#define VCD_SPUV_FUNC_MEMORY_TYPE_NONE		0xFF
+#define VCD_SPUV_FUNC_MEMORY_TYPE_NONE		0x00
 #define VCD_SPUV_FUNC_MEMORY_TYPE_PRAM		0x50
 #define VCD_SPUV_FUNC_MEMORY_TYPE_XRAM		0x58
 #define VCD_SPUV_FUNC_MEMORY_TYPE_YRAM		0x59
@@ -82,6 +85,15 @@
 #define VCD_SPUV_FUNC_SPUMSTS_IDL_NOP		0x00000001
 #define VCD_SPUV_FUNC_SPUMSTS_WAIT_MAX		512
 
+/* voiceif clock and reset control register (CRMU_VOICEIF) */
+#define VCD_SPUV_FUNC_CRMU_VOICEIF_RST_RLS	0x00000010
+#define VCD_SPUV_FUNC_CRMU_VOICEIF_SPUV_EN_REG	0x00000002
+#define VCD_SPUV_FUNC_CRMU_VOICEIF_SUB_EN_REG	0x00000001
+#define VCD_SPUV_FUNC_CRMU_VOICEIF_ON		\
+			(VCD_SPUV_FUNC_CRMU_VOICEIF_RST_RLS | \
+			VCD_SPUV_FUNC_CRMU_VOICEIF_SPUV_EN_REG | \
+			VCD_SPUV_FUNC_CRMU_VOICEIF_SUB_EN_REG)
+
 /* p/x/y ram global memory size control register (GADDR_CTRL_P/X/Y) */
 #define VCD_SPUV_FUNC_GADDR_CTRL_1KW		0x00000009
 #define VCD_SPUV_FUNC_GADDR_CTRL_2KW		0x0000000a
@@ -107,7 +119,6 @@
 #define VCD_SPUV_FUNC_DSPCORERST_ACTIVE		0x00000000
 #define VCD_SPUV_FUNC_DSPCORERST_RESET		0x00000001
 
-
 /* cpu interrupt source mask register (IEMASKC) */
 #define VCD_SPUV_FUNC_IEMASKC_DISABLE		0x00000111
 #define VCD_SPUV_FUNC_IEMASKC_ENABLE		0x00001111
@@ -124,7 +135,14 @@
 
 /* sdram static area */
 #define SPUV_FUNC_SDRAM_AREA_SIZE		0x3DF000
-#define SPUV_FUNC_SDRAM_AREA_TOP_PHY		0x47800000
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1	0x47800000
+#if 0
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x48000000
+#else
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
+#endif
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
+		g_spuv_func_sdram_static_area_top_phy
 #define SPUV_FUNC_SDRAM_AREA_TOP		\
 		g_spuv_func_sdram_static_area_top
 #define SPUV_FUNC_SDRAM_FIRMWARE_BUFFER		( \
@@ -529,6 +547,7 @@ extern unsigned int g_spuv_func_meram_physical_addr;
 extern unsigned int g_spuv_func_meram_logical_addr;
 extern unsigned int g_spuv_func_meram_alloc_size;
 
+extern unsigned int g_spuv_func_sdram_static_area_top_phy;
 extern unsigned int g_spuv_func_sdram_static_area_top;
 extern unsigned int g_spuv_func_hpb_register_top;
 extern unsigned int g_spuv_func_cpg_register_top;
@@ -544,6 +563,7 @@ extern unsigned int g_spuv_func_dsp0_register_top;
  */
 /* Internal public functions */
 extern void vcd_spuv_func_initialize(void);
+extern void vcd_spuv_func_cacheflush(void);
 extern int vcd_spuv_func_control_power_supply(int effective);
 extern int vcd_spuv_func_check_power_supply(void);
 extern int vcd_spuv_func_set_fw(void);

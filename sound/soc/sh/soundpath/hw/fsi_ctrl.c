@@ -405,8 +405,9 @@ static void fsi_voicecall(const u_int uiValue)
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE */
-	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
-					  (false == (dev & SNDP_FM_RADIO_RX))) {
+	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
+	    (false == (dev & SNDP_FM_RADIO_TX)) &&
+	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master */
 		reg_tbl  = fsi_reg_tbl_voicecallA_S;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_voicecallA_S);
@@ -456,8 +457,9 @@ static void fsi_playback(const u_int uiValue)
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, AUXDIGITAL(HDMI) */
-	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
-					  (false == (dev & SNDP_FM_RADIO_RX))) {
+	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
+	    (false == (dev & SNDP_FM_RADIO_TX)) &&
+	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
 		if ((system_rev & 0xff) < 0x10) {
 			reg_tbl  = fsi_reg_tbl_playA_S;
@@ -550,8 +552,9 @@ static void fsi_capture(const u_int uiValue)
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* MIC, WIREDHEADSET */
-	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
-					  (false == (dev & SNDP_FM_RADIO_RX))) {
+	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
+	    (false == (dev & SNDP_FM_RADIO_TX)) &&
+	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
 		if ((system_rev & 0xff) < 0x10) {
 			reg_tbl  = fsi_reg_tbl_captureA_S;
@@ -630,7 +633,7 @@ void fsi_reg_dump(const u_int uiValue)
 	u_long portb_base;
 	sndp_log_reg_dump("===== FSI Registers Dump Start =====\n");
 
-	if (SNDP_BLUETOOTHSCO != SNDP_GET_DEVICE_VAL(uiValue)) {
+	if (false == ((SNDP_GET_DEVICE_VAL(uiValue)) & SNDP_BLUETOOTHSCO)) {
 		sndp_log_reg_dump("\n<PortA>\n");
 		sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
 				ioread32(g_fsi_Base + FSI_DO_FMT),

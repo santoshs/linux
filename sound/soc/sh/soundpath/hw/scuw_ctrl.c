@@ -145,12 +145,13 @@ int scuw_start(const u_int uiValue)
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 	/* SPEAKER, EARPIECE, WIREDHEADSET, WIREDHEADPHONE, MIC */
-	if ((SNDP_BLUETOOTHSCO != dev) && (false == (dev & SNDP_FM_RADIO_TX)) &&
-					  (false == (dev & SNDP_FM_RADIO_RX))) {
+	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
+	    (false == (dev & SNDP_FM_RADIO_TX)) &&
+	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		reg_tbl  = scuw_reg_tbl_voicecallA;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallA);
 	/* BLUETOOTHSCO */
-	} else if (SNDP_BLUETOOTHSCO == dev){
+	} else if (false != (dev & SNDP_BLUETOOTHSCO)){
 		reg_tbl  = scuw_reg_tbl_voicecallB;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB);
 	/* FM_RADIO_RX */

@@ -19,7 +19,6 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/list.h>
-#include <linux/pm_runtime.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
@@ -254,6 +253,14 @@ EXPORT_SYMBOL(fsi_dma_stop_by_hooks);
 
 /* global variable */
 callback_function g_fsi_logical;
+
+bool g_slave;
+void fsi_set_slave(const bool slave)
+{
+	g_slave = slave;
+}
+EXPORT_SYMBOL(fsi_set_slave);
+
 
 /************************************************************************
 
@@ -527,7 +534,7 @@ static void fsi_irq_clear_status(struct fsi_priv *fsi, int is_play)
 ************************************************************************/
 static void fsi_clk_enable(struct fsi_master *master)
 {
-	clk_enable(master->clks.clkgen);
+	/* clk_enable(master->clks.clkgen); */
 	/* clk_enable(master->clks.shdmac); */
 	clk_enable(master->clks.fsi);
 }
@@ -615,6 +622,7 @@ static void fsi_fifo_init(struct fsi_priv *fsi,
 
 static void fsi_soft_all_reset(struct fsi_master *master)
 {
+#if 0
 	uint addr;
 
 	addr = (u_long)ioremap_nocache(0xE6150000, 0x100);
@@ -639,6 +647,8 @@ static void fsi_soft_all_reset(struct fsi_master *master)
 	mdelay(13);
 
 	fsi_clk_disable(master);
+#endif
+	return;
 }
 
 #ifdef USE_DMA
@@ -1314,16 +1324,15 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	int ret = 0;
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
 
-/*	pm_runtime_get_sync(dai->dev); */
 	fsi_clk_enable(master);
 
 	if (is_play)
 		fsi_reg_write(fsi, OUT_DMAC, (0x1 << 4));
 	else
 		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
-	
+
 	/*  chip revision check */
-	if (0x10 <= (system_rev & 0xff)) {  /* for ES2.0 */
+	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {  /* for ES2.0 */
 		fsi_master_write(master, FSIDIVA, 0x00020003);
 		fsi_reg_write(fsi, ACK_RV, 0x00000100);
 		if(0 != is_play)
@@ -1420,7 +1429,6 @@ static void fsi_dai_shutdown(struct snd_pcm_substream *substream,
 	fsi_clk_ctrl(fsi, 0);
 
 	fsi_clk_disable(fsi->master);
-/*	pm_runtime_put_sync(dai->dev); */
 }
 
 static int fsi_dai_trigger(struct snd_pcm_substream *substream, int cmd,
@@ -1864,15 +1872,7 @@ static int fsi_probe(struct platform_device *pdev)
 		goto exit_clk_clkgen;
 	}
 
-/*	pm_runtime_enable(&pdev->dev); */
 	dev_set_drvdata(&pdev->dev, master);
-/*	ret = pm_runtime_resume(&pdev->dev); */
-	if (ret < 0) {
-		dev_err(&pdev->dev, "pm_runtime_resume failed\n");
-		goto exit_clk_fsi;
-	}
-
-/*	fsi_soft_all_reset(master); */
 
 	fsi_wq = create_workqueue("fsi_irq_queue");
 	if (NULL == fsi_wq) {
@@ -1917,8 +1917,6 @@ exit_pop_work:
 exit_push_work:
 	destroy_workqueue(fsi_wq);
 exit_create_workqueue:
-exit_clk_fsi:
-/*	pm_runtime_disable(&pdev->dev); */
 	clk_put(master->clks.fsi);
 exit_clk_clkgen:
 	clk_put(master->clks.clkgen);
@@ -1944,8 +1942,6 @@ static int fsi_remove(struct platform_device *pdev)
 	snd_soc_unregister_dais(&pdev->dev, 1);
 	snd_soc_unregister_platform(&pdev->dev);
 
-/*	pm_runtime_disable(&pdev->dev); */
-
 	kfree(&fsi_pop_work->work);
 	kfree(&fsi_push_work->work);
 	if (fsi_wq) {
@@ -1957,8 +1953,8 @@ static int fsi_remove(struct platform_device *pdev)
 	kfree(master);
 
 	clk_put(master->clks.fsi);
-/*	clk_put(master->clks.shdmac); */
-	clk_put(master->clks.clkgen);
+	/* clk_put(master->clks.shdmac); */
+	/* clk_put(master->clks.clkgen); */
 
 	return 0;
 }
