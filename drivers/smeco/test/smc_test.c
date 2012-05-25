@@ -1287,7 +1287,6 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
 
     if( smc_instance_configuration != NULL )
     {
-        int         i            = 0;
         smc_conf_t* smc_conf     = NULL;
         smc_t*      smc_instance = NULL;
 
@@ -1363,7 +1362,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                 {
 #if defined SMECO_LINUX_KERNEL
 
-                    shm_address = ioremap((void*)shm_address, shm_data_len);
+                    shm_address = (uint32_t)ioremap((long unsigned int)shm_address, shm_data_len);
                     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                 }
@@ -1379,7 +1378,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                 {
 #if defined SMECO_LINUX_KERNEL
                     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: unmap address 0x%08X", shm_address);
-                    iounmap(shm_address);
+                    iounmap((volatile void*)shm_address);
 #endif
                 }
 
@@ -1403,7 +1402,7 @@ static uint8_t smc_test_case_function_shm( uint8_t* test_input_data, uint16_t te
                      if( remap_address == 1 )
                      {
 #if defined SMECO_LINUX_KERNEL
-                         shm_address = (uint32_t)ioremap((void*)shm_address, shm_data_len);
+                         shm_address = (uint32_t)ioremap((long unsigned int)shm_address, shm_data_len);
                          SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_shm: ioremapped address 0x%08X", shm_address);
 #endif
                      }

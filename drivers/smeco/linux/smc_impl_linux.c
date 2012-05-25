@@ -152,10 +152,14 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
         signal->interrupt_id, genios);
 
+        SMC_HOST_ACCESS_WAKEUP(NULL);
+
             // TODO Use GOP001 STR variable name for CLEAR
         __raw_writel( genios, ((void __iomem *)(signal->peripheral_address + 8 )) );
 
         __raw_readl( ((void __iomem *)signal->peripheral_address) );
+
+        SMC_HOST_ACCESS_SLEEP(NULL);
     }
 
     return IRQ_HANDLED;
@@ -244,10 +248,14 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
             SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
             signal->interrupt_id, genios);
 
+            SMC_HOST_ACCESS_WAKEUP(NULL);
+
                 // TODO Use GOP001 STR variable names
             __raw_writel( genios, ((void __iomem *)(signal->peripheral_address+4)) );
 
             __raw_readl( ((void __iomem *)signal->peripheral_address) );
+
+            SMC_HOST_ACCESS_SLEEP(NULL);
         }
         else
         {
@@ -643,7 +651,10 @@ uint8_t smc_module_initialize( smc_conf_t* smc_instance_conf )
     return ret_value;
 }
 
-
+/*
+ * Reading ASIC version from the EOS2 ES10/ES20
+ * TODO Own module required
+ */
 uint16_t smc_asic_version_get(void)
 {
     uint8_t cpu_version = 0x00;
@@ -651,8 +662,8 @@ uint16_t smc_asic_version_get(void)
 
     cccr = readl(CCCR);
 
-    major = ((cccr & 0xf0) >> 4) + 1;
-    minor = cccr & 0x0f;
+    major = ((cccr & 0xF0) >> 4) + 1;
+    minor = cccr & 0x0F;
 
     cpu_version = ((major&0xFF)<<4) + (minor&0xFF);
 

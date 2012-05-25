@@ -219,7 +219,7 @@ Description :  File created
 #endif
 
 #ifdef SMC_TRACE_ASSERT_ENABLED
-  #define SMC_TRACE_PRINTF_ASSERT(...)                 SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"ASSERT: *** " __VA_ARGS__)
+  #define SMC_TRACE_PRINTF_ASSERT(...)                 SMC_TRACE_PRINTF_ALWAYS(SMC_RD_TRACE_PREFIX"ASSERT: *** " __VA_ARGS__)
 #else
   #define SMC_TRACE_PRINTF_ASSERT(...)
 #endif

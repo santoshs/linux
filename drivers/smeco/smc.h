@@ -14,6 +14,18 @@
 /*
 Change history:
 
+Version:       27   15-May-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.27
+
+Version:       26   09-May-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.26, EOS2 ES2.0 sleep wakeup modifications
+
+Version:       25   26-Apr-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.25, EOS2 ES2.0 wakeup modifications
+
 Version:       24   19-Apr-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.24, EOS2 ES2.0 wakeup modifications
@@ -92,7 +104,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.25"
+#define SMC_SW_VERSION  "0.0.27"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -169,8 +181,6 @@ Description :  File created
 #define SMC_SYNC_MSG_FIFO_REQ               0x108F1F0       /* Synchronization request  message put in the FIFO */
 #define SMC_SYNC_MSG_FIFO_RESP              0xF1F0104       /* Synchronization response message put in the FIFO */
 
-/* #define SMC_INSTANCE_ID_NOT_DEFINED         0xFF TODO Clean up */
-
 
     /*
      * Copy Scheme bits
@@ -202,26 +212,25 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SET_SYNC_RECEIVED( state )    ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
 #define SMC_CHANNEL_STATE_CLEAR_SYNC_RECEIVED( state )  ((state) &= ~SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
 
-#define SMC_CHANNEL_STATE_IS_SHM_CONFIGURED( state )    (((state)&SMC_CHANNEL_STATE_SHM_CONFIGURED)==SMC_CHANNEL_STATE_SHM_CONFIGURED)
-#define SMC_CHANNEL_STATE_SET_SHM_CONFIGURED( state )   ((state) |= SMC_CHANNEL_STATE_SHM_CONFIGURED)
-#define SMC_CHANNEL_STATE_CLEAR_SHM_CONFIGURED( state ) ((state) &= ~SMC_CHANNEL_STATE_SHM_CONFIGURED)
+#define SMC_CHANNEL_STATE_IS_SHM_CONFIGURED( state )         (((state)&SMC_CHANNEL_STATE_SHM_CONFIGURED)==SMC_CHANNEL_STATE_SHM_CONFIGURED)
+#define SMC_CHANNEL_STATE_SET_SHM_CONFIGURED( state )        ((state) |= SMC_CHANNEL_STATE_SHM_CONFIGURED)
+#define SMC_CHANNEL_STATE_CLEAR_SHM_CONFIGURED( state )      ((state) &= ~SMC_CHANNEL_STATE_SHM_CONFIGURED)
 
 #define SMC_CHANNEL_STATE_RECEIVE_IS_DISABLED( state )       (((state)&SMC_CHANNEL_STATE_RECEIVE_DISABLED)==SMC_CHANNEL_STATE_RECEIVE_DISABLED)
 #define SMC_CHANNEL_STATE_SET_RECEIVE_IS_DISABLED( state )   ((state) |= SMC_CHANNEL_STATE_RECEIVE_DISABLED)
 #define SMC_CHANNEL_STATE_CLEAR_RECEIVE_IS_DISABLED( state ) ((state) &= ~SMC_CHANNEL_STATE_RECEIVE_DISABLED)
 
-#define SMC_CHANNEL_STATE_IS_MDB_OUT_OF_MEM( state )      (((state)&SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)==SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
-#define SMC_CHANNEL_STATE_SET_MDB_OUT_OF_MEM( state )     ((state) |= SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
-#define SMC_CHANNEL_STATE_CLEAR_MDB_OUT_OF_MEM( state )   ((state) &= ~SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+#define SMC_CHANNEL_STATE_IS_MDB_OUT_OF_MEM( state )         (((state)&SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)==SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+#define SMC_CHANNEL_STATE_SET_MDB_OUT_OF_MEM( state )        ((state) |= SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
+#define SMC_CHANNEL_STATE_CLEAR_MDB_OUT_OF_MEM( state )      ((state) &= ~SMC_CHANNEL_STATE_MDB_OUT_OF_MEM)
 
-#define SMC_CHANNEL_STATE_IS_FIFO_FULL( state )      (((state)&SMC_CHANNEL_STATE_FIFO_FULL)==SMC_CHANNEL_STATE_FIFO_FULL)
-#define SMC_CHANNEL_STATE_SET_FIFO_FULL( state )     ((state) |= SMC_CHANNEL_STATE_FIFO_FULL)
-#define SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( state )   ((state) &= ~SMC_CHANNEL_STATE_FIFO_FULL)
+#define SMC_CHANNEL_STATE_IS_FIFO_FULL( state )              (((state)&SMC_CHANNEL_STATE_FIFO_FULL)==SMC_CHANNEL_STATE_FIFO_FULL)
+#define SMC_CHANNEL_STATE_SET_FIFO_FULL( state )             ((state) |= SMC_CHANNEL_STATE_FIFO_FULL)
+#define SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( state )           ((state) &= ~SMC_CHANNEL_STATE_FIFO_FULL)
 
     /*
      * SMC Macros for common usage
      */
-/*#define SMC_INSTANCE_GET( smc_id )                     ( smc_instance_ptr_array[smc_id] ) TODO Clean up */
 #define SMC_CHANNEL_GET( smc_instance, channel_id )    ( smc_instance->smc_channel_ptr_array[channel_id] )
 
     /*
@@ -314,8 +323,6 @@ typedef struct _smc_channel_t
 
     smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
 
-
-
     uint8_t                             fifo_buffer_item_count;          /* Count of items in the FIFO buffer */
     uint8_t                             fifo_buffer_flushing;            /* Flag indicating that the buffer flush is ongoing*/
     uint8_t                             protocol;
@@ -328,17 +335,14 @@ typedef struct _smc_channel_t
      */
 typedef struct _smc_t
 {
-    /*uint8_t           id;*/                     /* Index in SMC instance array */
     uint8_t           cpu_id_remote;          /* ID of remote CPU */
     uint8_t           cpu_id_local;           /* ID of the CPU used locally */
     uint8_t           is_master;              /* Master flag */
-
-    uint8_t           reserved1;              /* Fill */
-    uint8_t           reserved2;              /* Fill */
-    uint8_t           reserved3;              /* Fill */
     uint8_t           smc_channel_list_count; /* Count of channels initialized to channel pointer array */
 
     smc_channel_t**   smc_channel_ptr_array;  /* Array of pointers to SMC channels */
+
+    smc_conf_t*       smc_instance_conf;      /* Configuration for the whole instance */
 
     smc_shm_config_t* smc_shm_conf;           /* Shared memory configuration for the SMC instance */
     uint8_t*          smc_memory_first_free;  /* Points to end of the SHM area that is in use of the SHM configuration */
@@ -374,9 +378,7 @@ void                  smc_instance_destroy( smc_t * smc_instance );
 smc_channel_t*        smc_channel_create( smc_channel_conf_t* smc_channel_conf );
 void                  smc_channel_destroy( smc_channel_t* smc_channel );
 
-/*smc_t*                smc_instance_get( uint8_t smc_instance_id ); TODO Clean up */
 smc_channel_t*        smc_channel_get( const smc_t* smc_instance, uint8_t smc_channel_id );
-
 smc_conf_t*           smc_instance_get_conf( smc_t* smc_instance );
 smc_channel_conf_t*   smc_channel_get_conf( smc_channel_t* smc_channel );
 
@@ -413,6 +415,7 @@ uint8_t        smc_channel_change_priority( smc_t* smc_instance, uint8_t smc_cha
     /* Function dump information specified SMC instance (channels, FIFOs, etc.) */
 void           smc_instance_dump( smc_t* smc_instance );
 void           smc_mdb_info_dump( char* indent, struct _smc_mdb_channel_info_t* smc_mdb_info, int32_t mem_offset, uint8_t out_mdb );
+
     /*
      * SMC signal handler prototypes
      * Implementations are in the platform specific modules.
@@ -427,7 +430,6 @@ void           smc_mdb_info_dump( char* indent, struct _smc_mdb_channel_info_t* 
 #define SMC_SIGNAL_TYPE_IS_NOT_SET( signal_type )     ( (signal_type&SMC_SIGNAL_TYPE_NONE)     == SMC_SIGNAL_TYPE_NONE )
 #define SMC_SIGNAL_TYPE_IS_REGISTER( signal_type )    ( (signal_type&SMC_SIGNAL_TYPE_REGISTER) == SMC_SIGNAL_TYPE_REGISTER )
 #define SMC_SIGNAL_TYPE_IS_INTERRUPT( signal_type )   ( (signal_type&SMC_SIGNAL_TYPE_INTERRUPT)== SMC_SIGNAL_TYPE_INTERRUPT )
-
 
 
 smc_signal_t*         smc_signal_create                ( uint32_t signal_id, uint32_t signal_type );
@@ -447,14 +449,6 @@ smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uin
      */
 smc_lock_t* smc_lock_create ( void );
 void        smc_lock_destroy( smc_lock_t* lock );
-
-/* Changed to macros, TODO Cleanup
-void        smc_lock        ( smc_lock_t* lock );
-void        smc_unlock      ( smc_lock_t* lock );
-void        smc_lock_irq    ( smc_lock_t* lock );
-void        smc_unlock_irq  ( smc_lock_t* lock );
-*/
-
 
     /*
      * SMC semaphore function prototypes.
@@ -493,6 +487,6 @@ int      smc_atoi          ( char* a );
 char*    smc_utoa          ( uint32_t i );
 
 
-#endif /* EOF */
+#endif
 
-
+/* EOF */

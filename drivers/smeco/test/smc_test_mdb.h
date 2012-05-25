@@ -26,18 +26,12 @@ Description :  File created
 
 uint8_t smc_test_case_function_mdb( uint8_t* test_input_data, uint16_t test_input_data_len );
 uint8_t smc_test_mdb_channel_test1( void );
-uint8_t smc_test_mdb_channel_test2( void );
-uint8_t smc_test_mdb_channel_test3( void );
 uint8_t smc_test_mdb_address_check( void );
-uint8_t smc_test_mdb_alloc_dealloc( uint8_t ch_id );
+uint8_t smc_test_mdb_alloc_dealloc( void );
 uint8_t smc_test_mdb_dealloc_wrong_pool( void );
 uint8_t smc_test_mdb_copy_test( void ); 
 uint8_t smc_test_mdb_perf( void );
-uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs, uint8_t ch_id );
+uint8_t smc_test_mdb_map_test( uint32_t *map, uint32_t allocs, uint32_t deallocs, smc_channel_t* smc_channel );
 void smc_test_mdb_random_alloc(void);
-
-static void *ut_malloc(uint8_t p_id, size_t sz);
-static void ut_free(uint8_t p_id, void *ptr, size_t oldsz);
-//uint8_t malloc_test(void);
 
 #endif
