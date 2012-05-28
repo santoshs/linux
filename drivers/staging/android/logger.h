@@ -67,4 +67,6 @@ struct logger_entry {
 #define LOGGER_GET_VERSION		_IO(__LOGGERIO, 5) /* abi version */
 #define LOGGER_SET_VERSION		_IO(__LOGGERIO, 6) /* abi version */
 
+extern void get_logcat_bufinfo(char* logname, unsigned char ** buffer, size_t * w_off, size_t * head, size_t * size);
+
 #endif /* _LINUX_LOGGER_H */

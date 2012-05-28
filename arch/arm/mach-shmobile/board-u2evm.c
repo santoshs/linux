@@ -48,6 +48,26 @@
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
 
+#include <linux/mmcoops.h>
+
+#define CLASHLOG_R_LOCAL_VER_LOCATE		0x4C801000
+#define CLASHLOG_R_LOCAL_VER_LENGTH       	32
+
+#define CRASHLOG_KMSG_LOCATE			0x4C801020
+#define CRASHLOG_LOGCAT_MAIN_LOCATE		0x4C801030
+#define CRASHLOG_LOGCAT_EVENT_LOCATE	0x4C801040
+#define CRASHLOG_LOGCAT_RADIO_LOCATE	0x4C801050
+#define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x4C801060
+
+#define TMPLOG_ADDRESS 0x4C821200
+#define TMPLOG_SIZE    0x00080000
+#define RMC_LOCAL_VERSION "20120524\n"
+char *tmplog_nocache_address = NULL;
+
+static void crashlog_r_local_ver_write(void);
+static void crashlog_reset_log_write(void);
+static void crashlog_init_tmplog(void); 
+
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
 
@@ -359,6 +379,28 @@ static struct platform_device sh_mmcif_device = {
 	},
 	.num_resources	= ARRAY_SIZE(sh_mmcif_resources),
 	.resource	= sh_mmcif_resources,
+};
+
+static struct mmcoops_platform_data mmcoops_info = {
+	.pdev		= &sh_mmcif_device,
+	.record_size	= MMCOOPS_RECORD_SIZE,
+	.kmsg_size	= MMCOOPS_KMSG_SIZE,
+	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
+	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
+	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
+	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
+	.local_version	= MMCOOPS_LOCAL_VERSION,
+	.soft_version	= RMC_LOCAL_VERSION,
+	/*512 byte blocks */
+	.start		= MMCOOPS_START_OFFSET,
+	.size		= MMCOOPS_LOG_SIZE
+};
+
+static struct platform_device mmcoops_device = {
+	.name   = "mmcoops",
+	.dev    = {
+		.platform_data  = &mmcoops_info,
+	},
 };
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
@@ -1355,6 +1397,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
+	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
 	&fsi_device,
@@ -1402,6 +1445,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
+	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 	&sdhi1_device,
 	&fsi_device,
@@ -1449,6 +1493,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
+	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
 	&fsi_device,
@@ -2184,6 +2229,10 @@ else /*ES2.0*/
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+
+	crashlog_r_local_ver_write();
+	crashlog_reset_log_write();
+	crashlog_init_tmplog();
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
@@ -2279,6 +2328,9 @@ struct sys_timer u2evm_timer = {
 
 void u2evm_restart(char mode, const char *cmd)
 {
+	u8 reg = __raw_readb(0xE6180002); // read STBCHR2 for debug
+	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), 0xE6180002); // write STBCHR2 for debug
+
 	__raw_writel(0, SBAR2);
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
@@ -2298,6 +2350,120 @@ static void __init u2evm_reserve(void)
 				       u2evm_ion_data.heaps[i].base);
 		}
 	}
+}
+
+static void crashlog_r_local_ver_write()
+{
+	void __iomem * adr = 0;
+	void __iomem * adr_bak = 0;
+	char	version_name[CLASHLOG_R_LOCAL_VER_LENGTH];
+	unsigned char i;
+	
+	adr = ioremap(CLASHLOG_R_LOCAL_VER_LOCATE, CLASHLOG_R_LOCAL_VER_LENGTH); 
+	adr_bak = adr;
+	if (adr) 
+	{
+		strncpy(version_name , RMC_LOCAL_VERSION , CLASHLOG_R_LOCAL_VER_LENGTH);
+
+		for(i=0 ; i<CLASHLOG_R_LOCAL_VER_LENGTH ; i++){
+			__raw_writeb(version_name[i], adr);
+			adr++;
+		}
+
+		iounmap(adr_bak);
+	}
+}
+
+extern unsigned long log_buf_address;
+extern unsigned long log_buf_len_address;
+extern unsigned long log_end_address;
+extern unsigned long logged_chars_address;
+
+extern unsigned long log_main_buffer_address;
+extern unsigned long log_main_size_address;
+extern unsigned long log_main_w_off_address;
+extern unsigned long log_main_head_address;
+
+extern unsigned long log_events_buffer_address;
+extern unsigned long log_events_size_address;
+extern unsigned long log_events_w_off_address;
+extern unsigned long log_events_head_address;
+
+extern unsigned long log_radio_buffer_address;
+extern unsigned long log_radio_size_address;
+extern unsigned long log_radio_w_off_address;
+extern unsigned long log_radio_head_address;
+
+extern unsigned long log_system_buffer_address;
+extern unsigned long log_system_size_address;
+extern unsigned long log_system_w_off_address;
+extern unsigned long log_system_head_address;
+
+static void crashlog_reset_log_write()
+{
+	void __iomem * adr = 0;
+	u8 	reg = 0;
+
+/* kmsg */
+/*	printk(KERN_ERR "log_buf_address=0x%08x\n", log_buf_address); */
+	adr = ioremap(CRASHLOG_KMSG_LOCATE, 16);
+	__raw_writel(log_buf_address, adr);
+	__raw_writel(log_buf_len_address, adr + 4);
+	__raw_writel(log_end_address, adr + 8);
+	__raw_writel(logged_chars_address, adr + 12);
+	iounmap(adr);
+
+/* log_cat_main */
+/*	printk(KERN_ERR "log_main_buffer_address=0x%08x\n", log_main_buffer_address); */
+	adr = ioremap(CRASHLOG_LOGCAT_MAIN_LOCATE, 16);
+	__raw_writel(log_main_buffer_address, adr);
+	__raw_writel(log_main_size_address, adr + 4);
+	__raw_writel(log_main_w_off_address, adr + 8);
+	__raw_writel(log_main_head_address, adr + 12);
+	iounmap(adr);
+
+/* log_cat_events */
+/*	printk(KERN_ERR "log_events_buffer_address=0x%08x\n", log_events_buffer_address); */
+	adr = ioremap(CRASHLOG_LOGCAT_EVENT_LOCATE, 16);
+	__raw_writel(log_events_buffer_address, adr);
+	__raw_writel(log_events_size_address, adr + 4);
+	__raw_writel(log_events_w_off_address, adr + 8);
+	__raw_writel(log_events_head_address, adr + 12);
+	iounmap(adr);
+
+/* log_cat_radio */
+/*	printk(KERN_ERR "log_radio_buffer_address=0x%08x\n", log_radio_buffer_address); */
+	adr = ioremap(CRASHLOG_LOGCAT_RADIO_LOCATE, 16);
+	__raw_writel(log_radio_buffer_address, adr);
+	__raw_writel(log_radio_size_address, adr + 4);
+	__raw_writel(log_radio_w_off_address, adr + 8);
+	__raw_writel(log_radio_head_address, adr + 12);
+	iounmap(adr);
+
+/* log_cat_system */
+	adr = ioremap(CRASHLOG_LOGCAT_SYSTEM_LOCATE, 16);
+	__raw_writel(log_system_buffer_address, adr);
+	__raw_writel(log_system_size_address, adr + 4);
+	__raw_writel(log_system_w_off_address, adr + 8);
+	__raw_writel(log_system_head_address, adr + 12);
+	iounmap(adr);
+
+	reg = __raw_readb(0xE6180002); 					/* read STBCHR2  */
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), 0xE6180002);	/* write STBCHR2 */
+}
+
+static void crashlog_init_tmplog(void)
+{
+	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_SIZE, "tmplog-nocache"))
+	{
+		tmplog_nocache_address = (char *)ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_SIZE);
+		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
+	}
+
+	//	reg = __raw_readb(0xE6180002);
+	//	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), 0xE6180002); // write STBCHR2 for debug	
+
+	return;
 }
 
 MACHINE_START(U2EVM, "u2evm")

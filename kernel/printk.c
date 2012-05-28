@@ -154,6 +154,11 @@ static int log_buf_len = __LOG_BUF_LEN;
 static unsigned logged_chars; /* Number of chars produced since last read+clear operation */
 static int saved_console_loglevel = -1;
 
+unsigned long log_buf_address = __pa(&__log_buf[0]);
+unsigned long log_buf_len_address = __pa(&log_buf_len);
+unsigned long log_end_address = __pa(&log_end);
+unsigned long logged_chars_address = __pa(&logged_chars);
+
 #ifdef CONFIG_KEXEC
 /*
  * This appends the listed symbols to /proc/vmcoreinfo
@@ -962,12 +967,19 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				/* Copy original log prefix */
 				int i;
 
-				for (i = 0; i < plen; i++)
+				if (printk_buf[0] == '<') {
+					emit_log_char(this_cpu + '0');
+				} else {
+					emit_log_char(printk_buf[0]);
+				}
+
+				for (i = 1; i < plen; i++)
 					emit_log_char(printk_buf[i]);
 				printed_len += plen;
 			} else {
 				/* Add log prefix */
-				emit_log_char('<');
+				/*emit_log_char('<');*/
+				emit_log_char(this_cpu + '0');
 				emit_log_char(current_log_level + '0');
 				emit_log_char('>');
 				printed_len += 3;
