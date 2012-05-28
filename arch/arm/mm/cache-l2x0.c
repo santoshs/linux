@@ -306,6 +306,10 @@ static void l2x0_unlock(u32 cache_id)
 	}
 }
 
+static void pl310_save(void);
+static void l2x0_resume(void);
+static void pl310_resume(void);
+
 void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 {
 	u32 aux;
@@ -431,6 +435,15 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	outer_cache.inv_all = l2x0_inv_all;
 	outer_cache.disable = l2x0_disable;
 
+#ifndef CONFIG_OF
+	if ((cache_id & L2X0_CACHE_ID_PART_MASK) == L2X0_CACHE_ID_PART_L310) {
+		pl310_save();
+		outer_cache.resume = pl310_resume;
+	} else {
+		outer_cache.resume = l2x0_resume;
+	}
+#endif
+
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			ways, cache_id, aux, l2x0_size);
@@ -506,6 +519,7 @@ static void __init pl310_of_setup(const struct device_node *np,
 			       l2x0_base + L2X0_ADDR_FILTER_START);
 	}
 }
+#endif /* CONFIG_OF */
 
 static void __init pl310_save(void)
 {
@@ -581,6 +595,7 @@ static void pl310_resume(void)
 	l2x0_resume();
 }
 
+#ifdef CONFIG_OF
 static const struct l2x0_of_data pl310_data = {
 	pl310_of_setup,
 	pl310_save,
