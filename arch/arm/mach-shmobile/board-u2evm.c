@@ -1627,6 +1627,26 @@ static struct i2c_board_info i2cm_devices[] = {
 	},
 };
 
+static struct i2c_board_info i2cm_devices_es2[] = {
+        {
+                I2C_BOARD_INFO("max98090", 0x10),
+                .irq            = irqpin2irq(34),
+        },
+        {
+                I2C_BOARD_INFO("max97236", 0x40),
+                .irq            = irqpin2irq(34),
+        },
+	{
+	        I2C_BOARD_INFO("led", 0x74),
+	},
+	{
+	        I2C_BOARD_INFO("flash", 0x30),
+	},
+	{
+	        I2C_BOARD_INFO("av7100", 0x70),
+	},
+};
+
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -2183,7 +2203,11 @@ else /*ES2.0*/
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
-	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+	if (0x00003E00 == system_rev) {
+	    i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+	} else {
+	    i2c_register_board_info(6, i2cm_devices_es2, ARRAY_SIZE(i2cm_devices_es2));
+	}
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
