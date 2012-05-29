@@ -731,7 +731,6 @@ static void pipe_buffer_release(struct r8a66597 *r8a66597,
 static void pipe_initialize(struct r8a66597_ep *ep)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
-
 	r8a66597_change_curpipe(r8a66597, 0, 0, ep->fifosel);
 
 	r8a66597_write(r8a66597, ACLRM, ep->pipectr);
@@ -1294,17 +1293,24 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 	unsigned bufsize;
 	size_t size;
 	void *buf;
+	int time = 0;
 	u16 pipenum = ep->pipenum;
 	struct r8a66597 *r8a66597 = ep->r8a66597;
 
 	pipe_change(r8a66597, pipenum);
 	tmp = r8a66597_read(r8a66597, ep->fifoctr);
 	if (unlikely((tmp & FRDY) == 0)) {
-		pipe_stop(r8a66597, pipenum);
-		pipe_irq_disable(r8a66597, pipenum);
-		dev_err(r8a66597_to_dev(r8a66597),
-			"write fifo not ready. pipnum=%d\n", pipenum);
-		return;
+		do {
+		    tmp = r8a66597_read(r8a66597, ep->fifoctr);
+		}while ((tmp & FRDY) == 0 && time++ < 10000);
+
+		if (unlikely((tmp & FRDY) == 0)) {
+			pipe_stop(r8a66597, pipenum);
+			pipe_irq_disable(r8a66597, pipenum);
+			dev_err(r8a66597_to_dev(r8a66597),
+			  "write fifo not ready. pipnum=%d\n", pipenum);
+			return;
+		}
 	}
 
 	/* prepare parameters */
