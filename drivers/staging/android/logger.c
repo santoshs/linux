@@ -695,10 +695,76 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 256*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 64*1024) //256*1024)
 DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
-DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 64*1024)//256*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 64*1024) //256*1024)
+
+unsigned long log_main_buffer_address = __pa(&_buf_log_main[0]);
+unsigned long log_main_size_address = __pa(&log_main.size);
+unsigned long log_main_w_off_address = __pa(&log_main.w_off);
+unsigned long log_main_head_address = __pa(&log_main.head);
+
+unsigned long log_events_buffer_address = __pa(&_buf_log_events[0]);
+unsigned long log_events_size_address = __pa(&log_events.size);
+unsigned long log_events_w_off_address = __pa(&log_events.w_off);
+unsigned long log_events_head_address = __pa(&log_events.head);
+
+unsigned long log_radio_buffer_address = __pa(&_buf_log_radio[0]);
+unsigned long log_radio_size_address = __pa(&log_radio.size);
+unsigned long log_radio_w_off_address = __pa(&log_radio.w_off);
+unsigned long log_radio_head_address = __pa(&log_radio.head);
+
+unsigned long log_system_buffer_address = __pa(&_buf_log_system[0]);
+unsigned long log_system_size_address = __pa(&log_system.size);
+unsigned long log_system_w_off_address = __pa(&log_system.w_off);
+unsigned long log_system_head_address = __pa(&log_system.head);
+
+void get_logcat_bufinfo(char* logname, unsigned char ** buffer, size_t * w_off, size_t * head, size_t * size)
+{
+	if (0 == strcmp(logname, log_main.misc.name))
+	{
+		mutex_lock(&log_main.mutex);
+		*buffer = log_main.buffer;
+		*w_off = log_main.w_off;
+		*head = log_main.head;
+		*size = log_main.size;
+		mutex_unlock(&log_main.mutex);
+	}
+	else if (0 == strcmp(logname, log_events.misc.name))
+	{
+		mutex_lock(&log_events.mutex);
+		*buffer = log_events.buffer;
+		*w_off = log_events.w_off;
+		*head = log_events.head;
+		*size = log_events.size;
+		mutex_unlock(&log_events.mutex);
+	}
+	else if (0 == strcmp(logname, log_radio.misc.name))
+	{
+		mutex_lock(&log_radio.mutex);
+		*buffer = log_radio.buffer;
+		*w_off = log_radio.w_off;
+		*head = log_radio.head;
+		*size = log_radio.size;
+		mutex_unlock(&log_radio.mutex);
+	}
+	else if (0 == strcmp(logname, log_system.misc.name))
+	{
+		mutex_lock(&log_system.mutex);
+		*buffer = log_system.buffer;
+		*w_off = log_system.w_off;
+		*head = log_system.head;
+		*size = log_system.size;
+		mutex_unlock(&log_system.mutex);
+	}
+	else
+	{
+		printk(KERN_ERR "logger: failed to none logname '%s'!\n", logname);
+	}
+
+	return;
+}
 
 static struct logger_log *get_log_from_minor(int minor)
 {
