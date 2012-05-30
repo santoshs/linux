@@ -5,3 +5,10 @@ config THERMAL_SENSOR
 	help
 	  Temperature module is used to measure temperature of areas in LSI of Renesas.
 	  
+config THS_DEBUG_ENABLE
+	bool "Debug information for Thermal Sensor driver"
+	depends on THERMAL_SENSOR
+	default n
+	help
+		This config helps to print debug information in terminal.
+	  

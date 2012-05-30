@@ -282,10 +282,12 @@ static void ths_initialize_hardware(void)
 	/* Enable all interrupts in THS0 and only INTDT3 in THS1 */
 	set_register_32(ENR_RW_32B, TJ13_EN | TJ03_EN | TJ02_EN | TJ01_EN | TJ00_EN);
 	
+	/* Enable temperature sensor reset request in SYSC */
 	ths_enable_reset_signal();
 	
-	/* Set threshold interrupts INTDT3/2/1/0 interrupts for both THS0/1 */
-	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);	
+	/* Set thresholds  (reset and raising interrupts) for THS0 and THS1 */
+	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);
+	set_register_32(INTCTLR1_RW_32B, CTEMP3_HEX);
 	
 	/* Un-mask to output reset signal when Tj > Tj3 for both THS0/1 */
 	modify_register_32(PORTRST_MASK_RW_32B, TJ13PORT_MSK | TJ03PORT_MSK, TJ13RST_MSK | TJ03RST_MSK);
@@ -298,13 +300,13 @@ static void ths_initialize_hardware(void)
 	
 	THS_DEBUG_MSG("cur_temp:%d \n", cur_temp);
 	
-	if (cur_temp < CTEMP0_DEC) {
+	if (cur_temp <= CTEMP0_DEC) {
 		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK | TJ00INT_MSK, TJ01INT_MSK);
-	} else if ((CTEMP0_DEC <= cur_temp) && (cur_temp < CTEMP1_DEC)) {
+	} else if ((CTEMP0_DEC < cur_temp) && (cur_temp <= CTEMP1_DEC)) {
 		/* Mask Tj3, Tj2; Un-mask Tj1, Tj0 to monitor Tj1, Tj0 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK, TJ00INT_MSK | TJ01INT_MSK);
-	} else if (cur_temp >= CTEMP1_DEC) {
+	} else if ((cur_temp > CTEMP1_DEC) && (cur_temp <= CTEMP2_DEC)) {
 		/* Mask Tj3; Un-mask Tj2, Tj1, Tj0 to monitor Tj2, Tj1, Tj0 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK, TJ00INT_MSK | TJ01INT_MSK | TJ02INT_MSK);
 	} else if (cur_temp >= CTEMP2_DEC) {
@@ -343,7 +345,8 @@ static int ths_suspend(struct device *dev)
 	}
 	
 	suspend_state = TRUE;
-
+	clk_disable(ths->clk);
+	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 	
 	return 0;
@@ -359,6 +362,7 @@ static int ths_resume(struct device *dev)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
+	clk_enable(ths->clk);
 	suspend_state = FALSE;
 	
 	__ths_set_op_mode((enum mode)ths->pdata[0].last_mode, 0);

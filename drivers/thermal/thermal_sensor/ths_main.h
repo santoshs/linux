@@ -25,7 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 
-#ifdef THS_DEBUG_ENABLE
+#ifdef CONFIG_THS_DEBUG_ENABLE
 #define THS_DEBUG_MSG(...) printk(KERN_INFO __VA_ARGS__)
 #define THS_ERROR_MSG(...) printk(KERN_ERR __VA_ARGS__)
 #else
