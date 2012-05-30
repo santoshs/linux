@@ -21,9 +21,11 @@
 /**
  * struct usbhs_vbus_mach_info - configuration for usbhs_vbus
  * @is_vbus_powered: check VBUS power supply status
+ * @set_vbus_draw: set current limit (if it's NULL, regulator framework is used)
  * @wakeup: configure vbus_irq as a wake-up source
  */
 struct usbhs_vbus_mach_info {
 	int (*is_vbus_powered)(void);
+	void (*set_vbus_draw)(int mA, int speed);
 	bool wakeup;
 };

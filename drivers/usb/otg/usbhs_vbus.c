@@ -53,10 +53,16 @@ struct usbhs_vbus_data {
 static void set_vbus_draw(struct usbhs_vbus_data *usbhs_vbus, unsigned mA)
 {
 	struct regulator *vbus_draw = usbhs_vbus->vbus_draw;
+	struct usbhs_vbus_mach_info *pdata = usbhs_vbus->dev->platform_data;
 	int enabled;
 
-	if (!vbus_draw)
+	if (!vbus_draw && !pdata->set_vbus_draw)
 		return;
+
+	if (pdata->set_vbus_draw) {
+		pdata->set_vbus_draw(mA, usbhs_vbus->phy.otg->gadget->speed);
+		goto out;
+	}
 
 	enabled = usbhs_vbus->vbus_draw_enabled;
 	if (mA) {
@@ -71,6 +77,8 @@ static void set_vbus_draw(struct usbhs_vbus_data *usbhs_vbus, unsigned mA)
 			usbhs_vbus->vbus_draw_enabled = 0;
 		}
 	}
+
+out:
 	if (mA)
 		usbhs_vbus->mA = mA;
 
