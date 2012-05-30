@@ -345,6 +345,8 @@ static int __init usbhs_vbus_probe(struct platform_device *pdev)
 		goto err_otg;
 	}
 
+	device_init_wakeup(&pdev->dev, pdata->wakeup);
+
 	return 0;
 
 err_otg:
@@ -363,6 +365,7 @@ static int __exit usbhs_vbus_remove(struct platform_device *pdev)
 {
 	struct usbhs_vbus_data *usbhs_vbus = platform_get_drvdata(pdev);
 
+	device_init_wakeup(&pdev->dev, 0);
 	cancel_delayed_work_sync(&usbhs_vbus->work);
 	cancel_work_sync(&usbhs_vbus->phy_work);
 
@@ -379,6 +382,31 @@ static int __exit usbhs_vbus_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int usbhs_vbus_pm_suspend(struct device *dev)
+{
+	struct usbhs_vbus_data *usbhs_vbus = dev_get_drvdata(dev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(usbhs_vbus->vbus_irq);
+
+	return 0;
+}
+
+static int usbhs_vbus_pm_resume(struct device *dev)
+{
+	struct usbhs_vbus_data *usbhs_vbus = dev_get_drvdata(dev);
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(usbhs_vbus->vbus_irq);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(usbhs_vbus_dev_pm_ops,
+			 usbhs_vbus_pm_suspend, usbhs_vbus_pm_resume);
+
 /* NOTE:  the gpio-vbus device may *NOT* be hotplugged */
 
 MODULE_ALIAS("platform:usbhs_vbus");
@@ -387,6 +415,7 @@ static struct platform_driver usbhs_vbus_driver = {
 	.driver = {
 		.name  = "usbhs_vbus",
 		.owner = THIS_MODULE,
+		.pm = &usbhs_vbus_dev_pm_ops,
 	},
 	.remove  = __exit_p(usbhs_vbus_remove),
 };

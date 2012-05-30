@@ -21,7 +21,9 @@
 /**
  * struct usbhs_vbus_mach_info - configuration for usbhs_vbus
  * @is_vbus_powered: check VBUS power supply status
+ * @wakeup: configure vbus_irq as a wake-up source
  */
 struct usbhs_vbus_mach_info {
 	int (*is_vbus_powered)(void);
+	bool wakeup;
 };
