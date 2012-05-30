@@ -71,7 +71,8 @@ static void set_vbus_draw(struct usbhs_vbus_data *usbhs_vbus, unsigned mA)
 			usbhs_vbus->vbus_draw_enabled = 0;
 		}
 	}
-	usbhs_vbus->mA = mA;
+	if (mA)
+		usbhs_vbus->mA = mA;
 }
 
 static int is_usb_phy_on(void)
