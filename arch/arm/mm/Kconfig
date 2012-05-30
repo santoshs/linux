@@ -791,6 +791,15 @@ config CPU_BPREDICT_DISABLE
 	help
 	  Say Y here to disable branch prediction.  If unsure, say N.
 
+config CPU_DYNAMIC_CLOCK_GATING
+	bool "Enable dynamic clock gating"
+	depends on CPU_V7
+	help
+	  Eneable dynamic high level clock gating for Cortex-A9 CPUS, as
+	  described in 2.3.3 "Dynamic high level clock gating" of the
+	  Cortex-A9 TRM.  This may cut the clock of the integer core,
+	  system control block, and Data Engine in certain conditions.
+
 config TLS_REG_EMUL
 	bool
 	help
