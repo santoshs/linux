@@ -79,6 +79,14 @@ static struct platform_driver sep_driver;
 
 static const struct file_operations sep_file_operarions;
 
+/* 
+ sep power down counter 
+ power_down_count() is the initial value 0, 
+ sep power down counter initialized to 0.
+*/
+static unsigned long long sep_power_down_counter = 0;
+int get_AES_secret_key(void);
+
 /* context of the device */
 struct device_context   sep_context;
 
@@ -490,7 +498,7 @@ int   error;
 	CODE
 	--------------------------*/
 
-printk(KERN_INFO "SEP Driver: sep_create_sync_dma_tables_handler start\n");
+printk(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler start\n");
 
 	if (copy_from_user(&ioctl_params_dma,
 			arg,
@@ -608,6 +616,15 @@ return error;
 
 
 /*
+  This function generates AES secret key
+*/
+int get_AES_secret_key()
+{
+	int error = 0;
+
+	return error;
+}
+/*
   This function is a common suspend processing
 */
 static int sep_suspend(struct device *dev)
@@ -650,6 +667,7 @@ end_function:
 static int sep_resume(struct device *dev)
 {
 	int error = 0;
+	unsigned long long count = 0;
 	
 	/*----------------------------
 	    CODE
@@ -681,6 +699,23 @@ static int sep_resume(struct device *dev)
 	else {
 		printk(KERN_INFO "cc4.2_driver: clk successfully enabled\n");
 	}
+
+	/* check the power down count */
+	count = power_down_count(0);
+	printk(KERN_INFO "SEP Driver: power_down_count: [%lld]->[%lld]\n", sep_power_down_counter, count);
+	if (sep_power_down_counter != count) {
+		/* to update the sep power down counter */
+		sep_power_down_counter = count;
+		error = get_AES_secret_key();
+		if (error) {
+			printk(KERN_ERR "cc4.2_driver: get_AES_secret_key failed\n");
+			goto end_function;
+		}
+		else {
+			printk(KERN_INFO "cc4.2_driver: get_AES_secret_key succeeded \n");
+		}
+	}
+
 	
 end_function:
 	if(error){
@@ -764,7 +799,7 @@ static int sep_driver_resume(struct device *dev)
 		pm_runtime_enable(dev);
 	}
 	
-	printk(KERN_INFO "SEP Driver:<-------- sep_driver_resume end\n");
+	printk(KERN_INFO "cc4.2_driver:<-------- sep_driver_resume end\n");
 	
 	return result;
 }
