@@ -1517,7 +1517,8 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 			goto failure;
 
 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
-			skb = alloc_skb(header_len, gfp_mask);
+			skb = alloc_skb(header_len + 10, gfp_mask);
+			skb_reserve(skb, 10);
 			if (skb) {
 				int npages;
 				int i;
