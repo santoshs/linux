@@ -73,6 +73,8 @@ static void set_vbus_draw(struct usbhs_vbus_data *usbhs_vbus, unsigned mA)
 	}
 	if (mA)
 		usbhs_vbus->mA = mA;
+
+	dev_info(usbhs_vbus->dev, "Avail curr from USB = %u\n", mA);
 }
 
 static int is_usb_phy_on(void)
