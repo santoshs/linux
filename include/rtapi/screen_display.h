@@ -29,6 +29,7 @@
 #define RT_DISPLAY_LCD1 (1)
 #define RT_DISPLAY_LCD2 (2)
 #define RT_DISPLAY_HDMI (3)
+#define RT_DISPLAY_LCDHDMI (7)	/* #MU2DSP582 add */
 
 /** Image format */
 #define RT_DISPLAY_FORMAT_RGB565		(1)
@@ -47,6 +48,14 @@
 #define	RT_DISPLAY_1280_720P60			(2)
 #define	RT_DISPLAY_1920_1080I60			(3)
 #define	RT_DISPLAY_1920_1080P24			(4)
+/* #MU2DSP582 mod -S- */
+#define	RT_DISPLAY_720_576P50			(5)
+#define	RT_DISPLAY_1280_720P50			(6)
+#define	RT_DISPLAY_1920_1080P60			(11)
+#define	RT_DISPLAY_1920_1080P50			(12)
+#define	RT_DISPLAY_720_480P60A43		(13)
+#define	RT_DISPLAY_720_576P50A43		(14)
+/* #MU2DSP582 mod -E- */
 
 /* #MU2DSP582 mod -S- */
 /* Rotation type */
@@ -86,6 +95,10 @@ typedef struct
 	unsigned int MLDHAJR;
 	unsigned int MLDVLNR;
 	unsigned int MLDVSYNR;
+	unsigned int MLDMT1R;		/* #MU2DSP381 */
+	unsigned int LDDCKR;		/* #MU2DSP533 */
+	unsigned int MLDDCKPAT1R;	/* #MU2DSP533 */
+	unsigned int MLDDCKPAT2R;	/* #MU2DSP533 */
 } screen_disp_lcd_if;
 
 #ifndef _SCREEN_RECT_TYPE_
@@ -159,7 +172,7 @@ typedef struct
 	void* handle;
 } screen_disp_stop_hdmi;
 
-//#MU2DSP222 add -S-
+/* #MU2DSP222 add -S- */
 typedef struct
 {
 	void*         handle;
@@ -171,12 +184,12 @@ typedef struct
 	unsigned char	data_count;
 	unsigned char*	read_data;
 } screen_disp_read_dsi_short;
-//#MU2DSP222 add -E-
+/* #MU2DSP222 add -E- */
 
 typedef struct
 {
 	void*         handle;
-	unsigned short output_mode;	//#MU2DSP188
+	unsigned short output_mode;	/* #MU2DSP188 */
 	unsigned char data_id;
 	unsigned char reg_address;
 	unsigned char write_data;
@@ -185,11 +198,11 @@ typedef struct
 typedef struct
 {
 	void*          handle;
-	unsigned short output_mode;	//#MU2DSP188
+	unsigned short output_mode;	/* #MU2DSP188 */
 	unsigned char  data_id;
 	unsigned char  dummy;
 	unsigned short data_count;
-	unsigned short dummy2;		//#MU2DSP188
+	unsigned short dummy2;		/* #MU2DSP188 */
 	unsigned char* write_data;
 } screen_disp_write_dsi_long;
 
@@ -271,13 +284,13 @@ extern int screen_display_stop_hdmi
 	screen_disp_stop_hdmi* stop_hdmi
 );
 
-//#MU2DSP222 add -S-
+/* #MU2DSP222 add -S- */
 /* Read LCD packet data */
 extern int screen_display_read_dsi_short_packet
 (
 	screen_disp_read_dsi_short* read_dsi_s
 );
-//#MU2DSP222 add -E-
+/* #MU2DSP222 add -E- */
 
 
 /* Write LCD packet data */
