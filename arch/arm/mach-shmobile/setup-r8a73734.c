@@ -62,7 +62,7 @@ static struct sh_timer_config cmt11_platform_data = {
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 7,
+	.cks		= 3,
 	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 };
 
@@ -95,7 +95,7 @@ static struct sh_timer_config cmt12_platform_data = {
 	.clockevent_rating	= 125,
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 7,
+	.cks		= 3,
 	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 };
 
