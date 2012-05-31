@@ -18,13 +18,15 @@
 #define SH_RCU_OUTPUT_ISP			0x01	/* ISP output (default) */
 #define SH_RCU_OUTPUT_MEM_ISP		0x03	/* Memory and ISP output */
 
+#define SH_RCU_OUTPUT_OFFSET_OFF		(0)
+#define SH_RCU_OUTPUT_OFFSET_32B		(1)
+
 struct device;
 
 struct sh_mobile_rcu_info {
 	unsigned long flags;
 	struct device *csi2_dev;
 	char *mod_name;
-	char *cmod_name;
 };
 
 #endif /* __ASM_SH_MOBILE_RCU_H__ */

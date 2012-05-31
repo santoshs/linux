@@ -1015,6 +1015,8 @@ static int OV8820_power0(struct device *dev, int power_on)
 	}
 
 	if (power_on) {
+		printk(KERN_ALERT "%s : PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
 		gpio_direction_output(GPIO_PORT5, 1); /* VDIG ON */
 		gpio_direction_output(GPIO_PORT3, 1); /* VANA ON */
 		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
@@ -1046,6 +1048,7 @@ static int OV8820_power0(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT91, 1);		/* POWER off SUB */
 		mdelay(100);	/* 0ms */
 	} else {
+		printk(KERN_ALERT "%s : PowerOFF\n", __func__);
 		gpio_set_value(GPIO_PORT20, 0);		/* assert RESET */
 		mdelay(100);	/* 0ms */
 		clk_disable(vclk1_clk);
@@ -1056,6 +1059,7 @@ static int OV8820_power0(struct device *dev, int power_on)
 		gpio_direction_output(GPIO_PORT4, 0); /* VANA OFF SUB */
 		gpio_direction_output(GPIO_PORT3, 0); /* VANA OFF */
 		gpio_direction_output(GPIO_PORT5, 0); /* VDIG OFF */
+		sh_csi2_power(dev, power_on);
 	}
 
 	clk_put(vclk1_clk);
@@ -1078,7 +1082,8 @@ static int OV5640_power(struct device *dev, int power_on)
 	}
 
 	if (power_on) {
-		printk(KERN_ALERT "%s : PowerON2\n", __func__);
+		printk(KERN_ALERT "%s : PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
 
 		gpio_set_value(GPIO_PORT16, 0);
 		mdelay(1);
@@ -1106,6 +1111,7 @@ static int OV5640_power(struct device *dev, int power_on)
 		mdelay(1);
 		gpio_set_value(GPIO_PORT16, 1);
 	} else {
+		printk(KERN_ALERT "%s : PowerOFF\n", __func__);
 		gpio_set_value(GPIO_PORT16, 0);		/* assert RESET */
 		mdelay(100);	/* 0ms */
 		clk_disable(vclk2_clk);
@@ -1116,6 +1122,7 @@ static int OV5640_power(struct device *dev, int power_on)
 		gpio_direction_output(GPIO_PORT4, 0); /* VANA OFF SUB */
 		gpio_direction_output(GPIO_PORT3, 0); /* VANA OFF */
 		gpio_direction_output(GPIO_PORT5, 0); /* VDIG OFF */
+		sh_csi2_power(dev, power_on);
 	}
 
 	clk_put(vclk2_clk);
@@ -1180,6 +1187,12 @@ static struct sh_csi2_pdata csi20_info = {
 	.clients	= csi20_clients,
 	.num_clients	= ARRAY_SIZE(csi20_clients),
 	.flags		= SH_CSI2_ECC | SH_CSI2_CRC,
+	.ipr		= 0x24,
+	.ipr_set	= (0x0001 << 8),
+	.imcr		= 0x1D0,
+	.imcr_set	= (0x01 << 2),
+	.priv		= NULL,
+	.cmod_name	= "csi20",
 };
 
 static struct resource csi20_resources[] = {
@@ -1219,6 +1232,12 @@ static struct sh_csi2_pdata csi21_info = {
 	.clients	= csi21_clients,
 	.num_clients	= ARRAY_SIZE(csi21_clients),
 	.flags		= SH_CSI2_ECC | SH_CSI2_CRC,
+	.ipr		= 0x44,
+	.ipr_set	= (0x0001 << 0),
+	.imcr		= 0x1E0,
+	.imcr_set	= (0x01 << 0),
+	.priv		= NULL,
+	.cmod_name	= "csi21",
 };
 
 static struct resource csi21_resources[] = {
@@ -1261,10 +1280,25 @@ static struct sh_mobile_rcu_info sh_mobile_rcu0_info = {
 	.flags		= 0,
 	.csi2_dev	= &csi20_device.dev,
 	.mod_name	= "rcu0",
-	.cmod_name	= "csi20",
 };
 
 static struct resource rcu0_resources[] = {
+	[0] = {
+		.name	= "RCU0",
+		.start	= 0xfe910000,
+		.end	= 0xfe91022b,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(83),
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		/* place holder for contiguous memory */
+	},
+};
+
+static struct resource rcu0_resources_es1[] = {
 	[0] = {
 		.name	= "RCU0",
 		.start	= 0xfe910000,
@@ -1284,7 +1318,7 @@ static struct platform_device rcu0_device = {
 	.name			= "sh_mobile_rcu",
 	.id				= 0, /* "rcu0" clock */
 	.num_resources	= ARRAY_SIZE(rcu0_resources),
-	.resource		= rcu0_resources,
+	.resource		= rcu0_resources,	/* ES1 is RCU0 connect */
 	.dev = {
 		.platform_data	= &sh_mobile_rcu0_info,
 	},
@@ -1294,7 +1328,6 @@ static struct sh_mobile_rcu_info sh_mobile_rcu1_info = {
 	.flags		= 0,
 	.csi2_dev	= &csi21_device.dev,
 	.mod_name	= "rcu1",
-	.cmod_name	= "csi21",
 };
 
 static struct resource rcu1_resources[] = {
@@ -1305,7 +1338,7 @@ static struct resource rcu1_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= intcs_evt2irq(0x1dc0),
+		.start	= gic_spi(84),
 		.flags	= IORESOURCE_IRQ,
 	},
 	[2] = {
@@ -2146,17 +2179,20 @@ else /*ES2.0*/
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);
 
-	/* ES version convert */
+	/* Camera ES version convert */
+	camera_links[0].priv = &csi20_info;
+	camera_links[1].priv = &csi21_info;
 	if (0x00003E00 == system_rev) {
 		/* ES1.0 */
 		printk(KERN_ALERT "Camera ISP ES version switch (ES1)\n");
 		csi21_device.resource = csi21_resources_es1;
 		csi21_device.num_resources = ARRAY_SIZE(csi21_resources_es1);
 		csi21_info.flags |= SH_CSI2_MULTI;
+		csi21_info.cmod_name = csi20_info.cmod_name;
+		rcu0_device.resource = rcu0_resources_es1;
 		rcu1_device.resource = rcu1_resources_es1;
 		rcu1_device.num_resources = ARRAY_SIZE(rcu1_resources_es1);
 		sh_mobile_rcu1_info.mod_name = sh_mobile_rcu0_info.mod_name;
-		sh_mobile_rcu1_info.cmod_name = sh_mobile_rcu0_info.cmod_name;
 	} else
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 }

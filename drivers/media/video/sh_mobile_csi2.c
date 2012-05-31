@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 #include <linux/interrupt.h>
+#include <linux/sh_clk.h>
 
 #include <media/sh_mobile_csi2.h>
 #include <media/soc_camera.h>
@@ -62,12 +63,20 @@ struct sh_csi2 {
 #endif
 };
 
+static void sh_csi2_hwinit(struct sh_csi2 *priv);
+
 static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 {
-	u32 tmp = 0;
+	volatile u32 tmp = 0;
 
 	if (0 != enable) {
 		/* stream ON */
+		tmp = ioread32(priv->base + SH_CSI2_INTSTATE);
+		iowrite32(tmp, priv->base + SH_CSI2_INTSTATE);
+		if (tmp & 0x53) {
+			printk(KERN_ALERT "CSI Error(stream)(0x%08X)\n", tmp);
+		}
+
 		if (priv->client->phy == SH_CSI2_PHY_MAIN)
 			tmp = 0;
 		else
@@ -75,10 +84,13 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 
 		iowrite32(tmp, priv->base + SH_CSI2_PHYCNT3);
 
-		tmp = ioread32(priv->base + SH_CSI2_INTSTATE);
-		iowrite32(tmp, priv->base + SH_CSI2_INTSTATE);
-
-		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
+		iowrite32(0, priv->base + SH_CSI2_INTEN);
+#if SH_CSI2_DEBUG
+		priv->vd_s_cnt = 0;
+		priv->vd_e_cnt = 0;
+		priv->shp_cnt = 0;
+		priv->lnp_cnt = 0;
+#endif
 
 		tmp = 0x10;
 		if (priv->client->lanes & 3)
@@ -151,13 +163,12 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static void sh_csi2_hwinit(struct sh_csi2 *priv);
-
 static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 {
 	struct sh_csi2 *priv = data;
 	u32 intstate = ioread32(priv->base + SH_CSI2_INTSTATE);
-	u32 tmp = 0;
+	u32 reg_vcdt = 0;
+	u32 reg_inten = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
@@ -166,12 +177,14 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 	if (intstate & 0x5F53)
 		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
 
-	if (intstate & 0x53) {
-		printk(KERN_ALERT "CSI HW Error Reset(0x%08X)\n", intstate);
-		tmp = ioread32(priv->base + SH_CSI2_VCDT);
+	if (intstate & 0x253) {
+		printk(KERN_ALERT "CSI HW Error Reset3(0x%08X)\n", intstate);
+		reg_vcdt = ioread32(priv->base + SH_CSI2_VCDT);
+		reg_inten = ioread32(priv->base + SH_CSI2_INTEN);
 		sh_csi2_hwinit(priv);
-		iowrite32(tmp, priv->base + SH_CSI2_VCDT);
+		iowrite32(reg_vcdt, priv->base + SH_CSI2_VCDT);
 		sh_csi2_stream(priv, priv->strm_on);
+		iowrite32(reg_inten, priv->base + SH_CSI2_INTEN);
 	}
 
 #if SH_CSI2_DEBUG
@@ -254,57 +267,45 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	}
 
 	iowrite32(tmp, priv->base + SH_CSI2_VCDT);
-
-	iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
-	{
-		void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite16(ioread16(intcs_base + 0x24) | (0x0001 << 8),
-				intcs_base + 0x24);
-		/* IPRJS3[11:8] */
-		iowrite8(0x01 << 2, intcs_base + 0x1D0);
-		/* IMCR10SA3 */
-		dev_dbg(&priv->pdev->dev, "> IPRJS3=0x04%x, IMCR10SA3=0x02%x\n",
-				ioread16(intcs_base + 0x24),
-				ioread8(intcs_base + 0x1D0));
-		iounmap(intcs_base);
-	}
-
 	return 0;
 }
 
 static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
 	unsigned long flags;
+	void __iomem *intcs_base;
 
 	spin_lock_irqsave(&priv->lock, flags);
 	if(0 != enable) {
+		printk(KERN_ALERT "%s stream on\n", __func__);
 		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
 			dev_name(&priv->pdev->dev), priv)) {
 			dev_err(&priv->pdev->dev,
 				"Unable to register CSI interrupt.\n");
 		}
-		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
-
-		{ /* ES 1.0 only */
-			void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-			iowrite16(ioread16(intcs_base + 0x24) | (0x0001 << 8),
-				intcs_base + 0x24);
-			/* IPRJS3[11:8] */
-			iowrite8(0x01 << 2, intcs_base + 0x1D0);
-			/* IMCR10SA3 */
-			dev_dbg(&priv->pdev->dev, "> IPRJS3=0x04%x, IMCR10SA3=0x02%x\n",
-				ioread16(intcs_base + 0x24),
-				ioread8(intcs_base + 0x1D0));
-			iounmap(intcs_base);
-		}
 
 		/* stream ON */
+		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
+
+		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+		iowrite16( ioread16(intcs_base + pdata->ipr) | (pdata->ipr_set),
+			intcs_base + pdata->ipr);
+		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr);
+		dev_dbg(&priv->pdev->dev,
+			"> IPR(0x%x)=0x04%x, IMCR(0x%x)=0x02%x\n",
+			pdata->ipr, ioread16(intcs_base + pdata->ipr), pdata->imcr,
+			ioread8(intcs_base + pdata->imcr));
+		iounmap(intcs_base);
+
 		priv->strm_on = 1;
-		sh_csi2_stream(priv, 1);
 	} else {
 		/* stream OFF */
-		sh_csi2_stream(priv, 0);
+		printk(KERN_ALERT "%s stream off\n", __func__);
+		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr - 0x40);
+		iounmap(intcs_base);
 		priv->strm_on = 0;
 
 		free_irq(priv->irq, priv);
@@ -396,8 +397,6 @@ static int sh_csi2_notify(struct notifier_block *nb,
 		if (ret < 0)
 			return NOTIFY_DONE;
 
-		priv->client = pdata->clients + i;
-
 		priv->set_bus_param		= icd->ops->set_bus_param;
 		priv->query_bus_param		= icd->ops->query_bus_param;
 		icd->ops->set_bus_param		= sh_csi2_set_bus_param;
@@ -405,11 +404,8 @@ static int sh_csi2_notify(struct notifier_block *nb,
 
 		pm_runtime_get_sync(v4l2_get_subdevdata(&priv->subdev));
 
-		sh_csi2_hwinit(priv);
 		break;
 	case BUS_NOTIFY_UNBIND_DRIVER:
-		priv->client = NULL;
-
 		/* Driver is about to be unbound */
 		icd->ops->set_bus_param		= priv->set_bus_param;
 		icd->ops->query_bus_param	= priv->query_bus_param;
@@ -480,6 +476,9 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 
 	priv->pdev = pdev;
 
+	pdata->priv = priv;
+	priv->client = pdata->clients;
+
 	v4l2_subdev_init(&priv->subdev, &sh_csi2_subdev_ops);
 	v4l2_set_subdevdata(&priv->subdev, &pdev->dev);
 
@@ -542,6 +541,66 @@ static int __init sh_csi2_init(void)
 static void __exit sh_csi2_exit(void)
 {
 	platform_driver_unregister(&sh_csi2_pdrv);
+}
+void sh_csi2_power(struct device *dev, int power_on)
+{
+	struct clk *csi_clk;
+	struct clk *meram_clk;
+	struct clk *icb_clk;
+	struct soc_camera_link *icl;
+	struct sh_csi2_pdata *csi_info;
+	int ret;
+	icl = (struct soc_camera_link *) dev->platform_data;
+	csi_info = (struct sh_csi2_pdata *) icl->priv;
+
+	csi_clk = clk_get(NULL, csi_info->cmod_name);
+	if (IS_ERR(csi_clk)) {
+		printk(KERN_ALERT"%s clk_get(%s)", __func__,
+			csi_info->cmod_name);
+		return;
+	}
+	meram_clk = clk_get(NULL, "meram");
+	if (IS_ERR(csi_clk)) {
+		printk(KERN_ALERT"%s clk_get(meram)", __func__);
+		return;
+	}
+	icb_clk = clk_get(NULL, "icb");
+	if (IS_ERR(icb_clk)) {
+		printk(KERN_ALERT"%s clk_get(icb)", __func__);
+		return;
+	}
+
+	if (csi_info->priv) {
+		if (power_on) {
+			ret = clk_enable(icb_clk);
+			if (0 != ret) {
+				printk(
+					KERN_ALERT "%s :clk_enable(icb) error(%d)",
+					__func__, ret);
+			}
+			ret = clk_enable(meram_clk);
+			if (0 != ret) {
+				printk(
+					KERN_ALERT "%s :clk_enable(meram) error(%d)",
+					__func__, ret);
+			}
+			ret = clk_enable(csi_clk);
+			if (0 != ret) {
+				printk(
+					KERN_ALERT "%s :clk_enable(%s) error(%d)",
+					__func__, csi_info->cmod_name, ret);
+			}
+			sh_csi2_hwinit(csi_info->priv);
+			sh_csi2_stream(csi_info->priv, 1);
+		} else {
+			sh_csi2_stream(csi_info->priv, 0);
+			clk_disable(csi_clk);
+			clk_disable(meram_clk);
+			clk_disable(icb_clk);
+		}
+	}
+	clk_put(csi_clk);
+	clk_put(meram_clk);
 }
 
 module_init(sh_csi2_init);
