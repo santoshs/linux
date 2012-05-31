@@ -242,6 +242,7 @@ struct pmic_device_ops {
 	int (*get_ext_device)(struct device *dev);
 	int (*read_register)(struct device *dev, int slave, u8 addr);
 	int (*set_current_limit)(struct device *dev, int chrg_state, int chrg_type);
+	int (*clk32k_enable)(u8 clk_res, u8 state);
 	int (*read)(struct device *dev, u8 addr);
 	int (*reads)(struct device *dev, u8 addr, int len, u8 *val);
 	int (*write)(struct device *dev, u8 addr, u8 val);
@@ -343,6 +344,7 @@ extern int usb_otg_pmic_device_register(struct device *dev,struct usb_otg_pmic_d
 extern int usb_otg_pmic_device_unregister(struct device *dev);
 extern int pmic_read_register(int slave, u8 addr);
 extern int pmic_set_current_limit(int chrg_state, int chrg_type);
+extern int pmic_clk32k_enable(u8 clk_res, u8 state);
 extern int pmic_read(struct device *dev, u8 addr, uint8_t *val);
 extern int pmic_reads(struct device *dev, u8 addr, int len, u8* val);
 extern int pmic_write(struct device *dev, u8 addr, u8 val);

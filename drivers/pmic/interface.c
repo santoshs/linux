@@ -174,6 +174,25 @@ int pmic_set_current_limit(int chrg_state, int chrg_type)
 }
 EXPORT_SYMBOL_GPL(pmic_set_current_limit);
 
+/*
+ * pmic_clk32k_enable: Turn oscillation clock to ON/OFF  
+ * @clk_res: Clock resource id: CLK32KAO(0), CLK32KG(1), CLK32KAUDIO(2)
+ * @state: Clock status: TPS80032_STATE_ON(1), TPS80032_STATE_OFF(0)
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+int pmic_clk32k_enable(u8 clk_res, u8 state)
+{
+	int ret;
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->clk32k_enable)) {
+		ret = -ENODEV;
+	}
+
+	ret = pmic_dev->ops->clk32k_enable(clk_res, state);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pmic_clk32k_enable);
 
 /*
  * pmic_read_register: read the current value of TPS80032 register
