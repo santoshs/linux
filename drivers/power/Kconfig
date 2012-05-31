@@ -62,6 +62,12 @@ config TEST_POWER
 	help
 	  This driver is used for testing. It's safe to say M here.
 
+config PMIC_BAT_INTERFACE
+	bool "PowerManagement IC battery interface support"
+	default y
+	help
+	  This enables support for the PowerManagement IC battery interface.
+
 config BATTERY_DS2760
 	tristate "DS2760 battery driver (HP iPAQ & others)"
 	depends on W1 && W1_SLAVE_DS2760
@@ -250,7 +256,7 @@ config CHARGER_GPIO
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
 
-config BATTERY_DUMMY
-	bool "Dummy battery driver"
+#config BATTERY_DUMMY
+#	bool "Dummy battery driver"
 
 endif # POWER_SUPPLY

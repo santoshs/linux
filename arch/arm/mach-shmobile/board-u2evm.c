@@ -36,6 +36,7 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
+#include <linux/pmic/pmic.h>
 #ifdef CONFIG_TI_ST
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
 #endif /* CONFIG_TI_ST */
@@ -1557,26 +1558,28 @@ static struct tps80031_platform_data tps_platform = {
 };
 
 static struct i2c_board_info __initdata i2c0_devices[] = {
-	{
-		I2C_BOARD_INFO("tps80032", 0x4A),
-		.irq		= irqpin2irq(28),
-		.platform_data	= &tps_platform,
-	},
+ 	{
+  		I2C_BOARD_INFO("tps80032-power", 0x48),
+		.platform_data = &tps_platform,
+  	},
+  	{
+  		I2C_BOARD_INFO("tps80032-battery", 0x49),
+		.irq = irqpin2irq(28),
+  	},
+  	{
+  		I2C_BOARD_INFO("tps80032-dvs", 0x12),
+  	},
+  	{
+  		I2C_BOARD_INFO("tps80032-jtag", 0x4A),
+  	},
 };
+  
 
 static struct regulator *mxt224_regulator;
 
 static void mxt224_set_power(int on)
 {
-	if (!mxt224_regulator)
-		mxt224_regulator = regulator_get(NULL, "vdd_touch");
-
-	if (mxt224_regulator) {
-		if (on)
-			regulator_enable(mxt224_regulator);
-		else
-			regulator_disable(mxt224_regulator);
-	}
+	pmic_set_power_on(E_POWER_VANA_MM);
 }
 
 
@@ -2017,7 +2020,7 @@ else /*ES2.0*/
 	gpio_direction_output(GPIO_PORT0, 1);
 	gpio_request(GPIO_PORT28, NULL);
 	gpio_direction_input(GPIO_PORT28);
-	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_EDGE_FALLING);
 
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);

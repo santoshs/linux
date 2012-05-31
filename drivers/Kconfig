@@ -72,9 +72,9 @@ source "drivers/ssb/Kconfig"
 
 source "drivers/bcma/Kconfig"
 
-source "drivers/mfd/Kconfig"
+#source "drivers/mfd/Kconfig"
 
-source "drivers/regulator/Kconfig"
+#source "drivers/regulator/Kconfig"
 
 source "drivers/media/Kconfig"
 
@@ -127,6 +127,8 @@ source "drivers/clk/Kconfig"
 source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
+
+source "drivers/pmic/Kconfig"
 
 source "drivers/smeco/Kconfig"
 
