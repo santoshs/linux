@@ -361,12 +361,12 @@ MAX98090_E2K_volume[MAX98090_VOL_DEV_MAX][MAX98090_VOLUMEL_ELEMENT] = {
 		MAX98090_VOLUMEL5
 	},
 	{/* MAX98090_VOL_DEV_SPEAKER */
-		0x18, /* -48dB */
-		0x1B, /* -36dB */
+		0x19, /* -44dB */
+		0x1C, /* -32dB */
+		0x1E, /* -26dB */
 		0x1F, /* -23dB */
-		0x24, /* -10dB */
-		0x2E, /*   2dB */
-		0x3F  /*  14db */
+		0x20, /* -20dB */
+		0x21  /* -17db */
 	},
 	{/* MAX98090_VOL_DEV_EARPIECE */
 		0x0C, /* -20dB */
@@ -377,12 +377,12 @@ MAX98090_E2K_volume[MAX98090_VOL_DEV_MAX][MAX98090_VOLUMEL_ELEMENT] = {
 		0x1F  /*   8dB */
 	},
 	{/* MAX98090_VOL_DEV_HEADPHONES */
-		0x00, /* -67dB */
+		0x01, /* -63dB */
 		0x03, /* -55dB */
-		0x07, /* -40db */
-		0x0C, /* -25dB */
-		0x12, /* -11dB */
-		0x1F  /*   3dB */
+		0x05, /* -47db */
+		0x07, /* -40dB */
+		0x09, /* -34dB */
+		0x0D  /* -22dB */
 	}
 };
 
@@ -400,28 +400,28 @@ MAX98090_EVM_volume[MAX98090_VOL_DEV_MAX][MAX98090_VOLUMEL_ELEMENT] = {
 		MAX98090_VOLUMEL5
 	},
 	{/* MAX98090_VOL_DEV_SPEAKER */
-		0x18, /* -48dB */
-		0x1A, /* -40dB */
-		0x1C, /* -32dB */
-		0x20, /* -20dB */
-		0x24, /* -10dB */
-		0x2C  /*   0db */
+		0x1F, /* -23dB */
+		0x23, /* -12dB */
+		0x26, /*  -6dB */
+		0x29, /*  -3dB */
+		0x2C, /*   0dB */
+		0x30  /*   4db */
 	},
 	{/* MAX98090_VOL_DEV_EARPIECE */
-		0x00, /* -62dB */
-		0x03, /* -50dB */
 		0x07, /* -35dB */
-		0x0C, /* -20dB */
-		0x12, /* - 6dB */
-		0x1F  /*   8dB */
+		0x09, /* -29dB */
+		0x0A, /* -26dB */
+		0x0D, /* -17dB */
+		0x0F, /* -12dB */
+		0x13  /*  -4dB */
 	},
 	{/* MAX98090_VOL_DEV_HEADPHONES */
-		0x00, /* -67dB */
-		0x03, /* -55dB */
-		0x07, /* -40db */
-		0x0C, /* -25dB */
-		0x12, /* -11dB */
-		0x1F  /*   3dB */
+		0x02, /* -59dB */
+		0x04, /* -51dB */
+		0x06, /* -43db */
+		0x08, /* -37dB */
+		0x0A, /* -31dB */
+		0x0F  /* -17dB */
 	}
 };
 
@@ -864,6 +864,13 @@ static int max98090_setup_max98090(void)
 		/* Register 0x3D (JACK DETECT) = 0x83:JDETEN JDEB=200ms*/
 		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
 				MAX98090_REG_RW_JACK_DETECT, 0x83);
+
+		if (0 != ret)
+			goto err_i2c_write;
+
+		/* Register 0x27 (PLAYBACK_LEVEL_1) = 0x30:DV1G=+18dB*/
+		ret = max98090_write(MAX98090_AUDIO_IC_MAX98090,
+				MAX98090_REG_RW_PLAYBACK_LEVEL_1, 0x30);
 
 		if (0 != ret)
 			goto err_i2c_write;
@@ -2304,8 +2311,8 @@ static int max98090_set_config(char *buf)
 		if ('#' == buf[i]) {
 			if (E_SLV_ADDR == dev_flag) {
 				goto comment;
-			} else if (E_REG_VAL >= dev_flag &&
-					E_A_WAIT <= dev_flag) {
+			} else if (E_REG_VAL <= dev_flag &&
+					E_A_WAIT >= dev_flag) {
 				temp[j] = '\0';
 				ret = kstrtoint(temp, 0,
 						&config_val[dev_flag]);
@@ -2346,7 +2353,7 @@ static int max98090_set_config(char *buf)
 			check = MAX98090_VAL_TRUE;
 		}
 	}
-	if (E_B_WAIT <= dev_flag && E_MAX >= dev_flag)
+	if (E_REG_VAL <= dev_flag)
 		goto end;
 
 err:
@@ -2410,6 +2417,7 @@ static int max98090_read_line(struct file *config_filp, char *buf)
 	mm_segment_t fs;
 	int ret = 0;
 	int pos = 0;
+	char dummy = '\0';
 	fs = get_fs();
 
 	max98090_log_efunc("");
@@ -2437,15 +2445,15 @@ static int max98090_read_line(struct file *config_filp, char *buf)
 		do {
 			set_fs(KERNEL_DS);
 			ret = config_filp->f_op->read(config_filp,
-						buf, 1,
+						&dummy, 1,
 						&config_filp->f_pos);
 			set_fs(fs);
 			if (1 != ret) {
-				buf[0] = '\0';
+				buf[MAX98090_LEN_MAX_ONELINE] = '\0';
 				goto end;
 			}
-		} while ('\n' != buf[0]);
-		pos = 0;
+		} while ('\n' != dummy);
+		pos = MAX98090_LEN_MAX_ONELINE;
 		ret = 0;
 	}
 	buf[pos] = '\0';

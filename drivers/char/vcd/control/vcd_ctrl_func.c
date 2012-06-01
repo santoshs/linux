@@ -61,10 +61,13 @@ void vcd_ctrl_func_initialize(void)
 int vcd_ctrl_func_check_sequence(unsigned int command)
 {
 	int ret = VCD_ERR_NONE;
+	unsigned int feature = VCD_CTRL_FUNC_FEATURE_NONE;
 
 	vcd_pr_start_control_function("command[%d].\n", command);
 
-	if (VCD_CTRL_FUNC_FEATURE_ERROR & g_vcd_ctrl_active_feature) {
+	feature = vcd_ctrl_func_get_active_feature();
+
+	if (VCD_CTRL_FUNC_FEATURE_ERROR & feature) {
 		if (VCD_CTRL_FUNC_STOP_VCD == command)
 			goto rtn;
 		ret = VCD_ERR_SYSTEM;
@@ -75,96 +78,71 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	case VCD_CTRL_FUNC_GET_MSG_BUFFER:
 		break;
 	case VCD_CTRL_FUNC_START_VCD:
-		if (VCD_CTRL_FUNC_FEATURE_VCD & g_vcd_ctrl_active_feature)
+		if (VCD_CTRL_FUNC_FEATURE_VCD & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
 		break;
 	case VCD_CTRL_FUNC_STOP_VCD:
-		if (!(VCD_CTRL_FUNC_FEATURE_VCD & g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_VCD & feature)) {
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		} else if ((VCD_CTRL_FUNC_FEATURE_CALL &
-				g_vcd_ctrl_active_feature) ||
-				(VCD_CTRL_FUNC_FEATURE_RECORD &
-					g_vcd_ctrl_active_feature) ||
-				(VCD_CTRL_FUNC_FEATURE_PLAYBACK &
-					g_vcd_ctrl_active_feature)) {
+		} else if ((VCD_CTRL_FUNC_FEATURE_CALL & feature) ||
+			(VCD_CTRL_FUNC_FEATURE_RECORD & feature) ||
+			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)) {
 			ret = VCD_ERR_BUSY;
 		}
 		break;
 	case VCD_CTRL_FUNC_HW_PARAM:
-		if (!(VCD_CTRL_FUNC_FEATURE_VCD & g_vcd_ctrl_active_feature))
+		if (!(VCD_CTRL_FUNC_FEATURE_VCD & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_START_CALL:
-		if (!(VCD_CTRL_FUNC_FEATURE_HW_PARAM &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_HW_PARAM & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
-		} else if (VCD_CTRL_FUNC_FEATURE_CALL &
-				g_vcd_ctrl_active_feature) {
+		else if (VCD_CTRL_FUNC_FEATURE_CALL & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
 		break;
 	case VCD_CTRL_FUNC_STOP_CALL:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
 		break;
 	case VCD_CTRL_FUNC_START_TTY_CTM:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature)) {
 			ret = VCD_ERR_NOT_ACTIVE;
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD &
-				g_vcd_ctrl_active_feature) ||
-				(VCD_CTRL_FUNC_FEATURE_PLAYBACK &
-				g_vcd_ctrl_active_feature)) {
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & feature) ||
+			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)) {
 			ret = VCD_ERR_BUSY;
 		}
 		break;
 	case VCD_CTRL_FUNC_CONFIG_TTY_CTM:
-		if (!(VCD_CTRL_FUNC_FEATURE_TTY_CTM &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature))
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
 		break;
 	case VCD_CTRL_FUNC_SET_UDATA:
-		if (!(VCD_CTRL_FUNC_FEATURE_VCD & g_vcd_ctrl_active_feature))
+		if (!(VCD_CTRL_FUNC_FEATURE_VCD & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_START_RECORD:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
-		} else if (VCD_CTRL_FUNC_FEATURE_RECORD &
-				g_vcd_ctrl_active_feature) {
+		else if (VCD_CTRL_FUNC_FEATURE_RECORD & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		} else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM &
-				g_vcd_ctrl_active_feature) {
+		else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature)
 			ret = VCD_ERR_BUSY;
-		}
 		break;
 	case VCD_CTRL_FUNC_STOP_RECORD:
-		if (!(VCD_CTRL_FUNC_FEATURE_RECORD &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_RECORD & feature))
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
 		break;
 	case VCD_CTRL_FUNC_START_PLAYBACK:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
-		} else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK &
-				g_vcd_ctrl_active_feature) {
+		else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		} else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM &
-				g_vcd_ctrl_active_feature) {
+		else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature)
 			ret = VCD_ERR_BUSY;
-		}
 		break;
 	case VCD_CTRL_FUNC_STOP_PLAYBACK:
-		if (!(VCD_CTRL_FUNC_FEATURE_PLAYBACK &
-			g_vcd_ctrl_active_feature)) {
+		if (!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature))
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
 		break;
 	case VCD_CTRL_FUNC_GET_RECORD_BUFFER:
 		break;

@@ -691,7 +691,6 @@ static int fsi_dma_init(struct fsi_priv *fsi,
 		dev_dbg(dai->dev, "dma_request_channel failure.\n");
 		return -ENODEV;
 	}
-
 	return 0;
 }
 
@@ -1176,6 +1175,7 @@ static void fsi_dma_callback(void *data)
 	struct fsi_stream *io = fsi_get_stream(fsi, 1);
 	int status;
 	struct snd_soc_dai *dai;
+	int is_spin;
 
 	substream = io->substream;
 
@@ -1195,7 +1195,9 @@ static void fsi_dma_callback(void *data)
 			if (false != g_fsi_trigger_start[substream->stream]) {
 				fsi_dma_process(fsi, 0, 1);
 				/* fsi_dma_process_cap(fsi, 0); */
-				snd_pcm_period_elapsed(substream);
+				is_spin = spin_is_locked(&substream->self_group.lock);
+				if (is_spin == 0)
+					snd_pcm_period_elapsed(substream);
 			} else {
 				/* fsi_dma_stop(fsi, 1); */
 			}
@@ -1212,6 +1214,7 @@ static void fsi_dma_callback_cap(void *data)
 	struct fsi_stream *io = fsi_get_stream(fsi, 0);
 	int status;
 	struct snd_soc_dai *dai;
+	int is_spin;
 
 	substream = io->substream;
 
@@ -1230,7 +1233,9 @@ static void fsi_dma_callback_cap(void *data)
 			if (false != g_fsi_trigger_start[substream->stream]) {
 				fsi_dma_process(fsi, 0, 0);
 				/* fsi_dma_process_cap(fsi, 0); */
-				snd_pcm_period_elapsed(substream);
+				is_spin = spin_is_locked(&substream->self_group.lock);
+				if (is_spin == 0)
+					snd_pcm_period_elapsed(substream);
 			} else {
 				/* fsi_dma_stop(fsi, 1); */
 			}
@@ -1331,15 +1336,17 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	else
 		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
 
-	/*  chip revision check */
-	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {  /* for ES2.0 */
+	/* chip revision check */
+	/* for ES2.0 */
+	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
 		fsi_master_write(master, FSIDIVA, 0x00020003);
 		fsi_reg_write(fsi, ACK_RV, 0x00000100);
 		if(0 != is_play)
-			fsi_reg_write(fsi, ACK_MD, 0x00001101);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x00001101, 0x00001101);
 		else
-			fsi_reg_write(fsi, ACK_MD, 0x00001110);
-	} else {  /*for ES1.0 */
+			fsi_reg_mask_set(fsi, ACK_MD, 0x00001110, 0x00001110);
+	/*for ES1.0 */
+	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
 		is_master = fsi_is_master_mode(fsi, is_play);
 		fsi_reg_mask_set(fsi, ACK_MD, 7<<12, 2<<12);
@@ -1426,7 +1433,6 @@ static void fsi_dai_shutdown(struct snd_pcm_substream *substream,
 	fsi_clk_enable(fsi->master);
 
 	fsi_irq_disable(fsi, is_play);
-	fsi_clk_ctrl(fsi, 0);
 
 	fsi_clk_disable(fsi->master);
 }
