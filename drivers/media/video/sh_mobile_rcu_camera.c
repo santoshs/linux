@@ -253,19 +253,6 @@
 #define dev_geo	dev_dbg
 #endif
 
-/* export by videobuf2-dma-contig.c */
-struct vb2_dc_buf {
-	struct vb2_dc_conf		*conf;
-	void				*vaddr;
-	dma_addr_t			paddr;
-	unsigned long			size;
-	struct vm_area_struct		*vma;
-	atomic_t			refcount;
-	struct vb2_vmarea_handler	handler;
-};
-
-
-
 /* per video frame buffer */
 struct sh_mobile_rcu_buffer {
 	struct vb2_buffer vb; /* v4l buffer must be first */
@@ -293,11 +280,11 @@ struct sh_mobile_rcu_dev {
 	unsigned int image_mode:2;
 	unsigned int output_mode:2;
 	unsigned int streaming:1;
+	unsigned int output_offset;
 
 	struct clk *iclk;
 	struct clk *fclk;
 	struct clk *mclk;
-	struct clk *cclk;
 };
 
 struct sh_mobile_rcu_cam {
@@ -540,17 +527,16 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		rcu_write(pcdev, RCAMCR, rcamcr |
 			(pcdev->output_mode << RCAMCR_OCNT));
 
-		{
-			struct vb2_dc_buf *buf =
-			(struct vb2_dc_buf *) pcdev->active->planes[0].mem_priv;
-			phys_addr_top = (dma_addr_t) buf->paddr;
-		}
+		phys_addr_top = pcdev->active->v4l2_planes[0].m.userptr;
 		rcu_write(pcdev, RCDAYR, phys_addr_top);
 
 		if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
-			phys_addr_top +=
-				ALIGN32(icd->user_width) *
-				ALIGN32(icd->user_height);
+			if (SH_RCU_OUTPUT_OFFSET_32B == pcdev->output_offset)
+				phys_addr_top += ALIGN32(icd->user_width)
+					* ALIGN32(icd->user_height);
+			else
+				phys_addr_top += icd->user_width
+					* icd->user_height;
 			rcu_write(pcdev, RCDACR, phys_addr_top);
 		} else {
 			rcu_write(pcdev, RCDACR, 0);
@@ -580,8 +566,8 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 						pcdev);
 	unsigned long size;
 
-	dev_dbg(icd->dev.parent, "%s(vb=0x%p): 0x%p %lu\n", __func__,
-		vb, vb2_plane_vaddr(vb, 0), vb2_get_plane_payload(vb, 0));
+	dev_dbg(icd->dev.parent, "%s(vb=0x%p): 0x%lx %lu\n", __func__,
+		vb, vb->v4l2_planes[0].m.userptr, vb2_get_plane_payload(vb, 0));
 
 	if (bytes_per_line < 0)
 		return bytes_per_line;
@@ -606,25 +592,10 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 
 	size = icd->user_height * bytes_per_line;
 
-	{
-		struct vb2_dc_buf *buf =
-			(struct vb2_dc_buf *) vb->planes[0].mem_priv;
-		unsigned long user_meminfo[2];
-		if (copy_from_user(user_meminfo,
-			(void __user *) vb->v4l2_planes[0].m.userptr, 8)) {
-			printk(
-				KERN_ALERT
-				"%s error copy_from_user (0x%08lx)(0x%08lx)(%d)\n",
-				__func__, (unsigned long) user_meminfo,
-				(unsigned long) vb->v4l2_planes[0].m.userptr,
-				8);
-		}
-		if (user_meminfo[1] < size) {
-			dev_err(icd->dev.parent, "Buffer too small (%lu < %lu)\n",
-				user_meminfo[1], size);
-			return -ENOBUFS;
-		}
-		buf->paddr = user_meminfo[0];
+	if (vb->v4l2_planes[0].length < size) {
+		dev_err(icd->dev.parent, "Buffer too small (%d < %lu)\n",
+			vb->v4l2_planes[0].length, size);
+		return -ENOBUFS;
 	}
 
 	vb2_set_plane_payload(vb, 0, size);
@@ -708,16 +679,17 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
-{
-	void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-	/* IPRVS3 */
-	iowrite16(ioread16(intcs_base + 0x54) | 0x0001, intcs_base + 0x54);
-	/* IMCR10SA3 */
-	iowrite8(0x01, intcs_base + 0x1E8);
-	dev_geo(icd->dev.parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n",
-		ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
-	iounmap(intcs_base);
-}
+	if (0x00003E00 == system_rev) {
+		void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+		/* IPRVS3 */
+		iowrite16(ioread16(intcs_base + 0x54) | 0x0001,
+			intcs_base + 0x54);
+		/* IMCR10SA3 */
+		iowrite8(0x01, intcs_base + 0x1E8);
+		dev_geo(icd->dev.parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n",
+			ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
+		iounmap(intcs_base);
+	}
 
 	pcdev->streaming = SH_RCU_STREAMING_ON;
 	rcu_write(pcdev, RCEIER, 0);
@@ -1822,6 +1794,22 @@ static int sh_mobile_rcu_querycap(struct soc_camera_host *ici,
 	return 0;
 }
 
+static void *sh_mobile_rcu_contig_get_userptr(void *alloc_ctx, unsigned long vaddr,
+					unsigned long size, int write)
+{
+	return NULL;
+}
+
+static void sh_mobile_rcu_contig_put_userptr(void *mem_priv)
+{
+	return;
+}
+
+const struct vb2_mem_ops sh_mobile_rcu_memops = {
+	.get_userptr	= sh_mobile_rcu_contig_get_userptr,
+	.put_userptr	= sh_mobile_rcu_contig_put_userptr,
+};
+
 static int sh_mobile_rcu_init_videobuf(struct vb2_queue *q,
 				       struct soc_camera_device *icd)
 {
@@ -1831,7 +1819,7 @@ static int sh_mobile_rcu_init_videobuf(struct vb2_queue *q,
 	q->io_modes = VB2_MMAP | VB2_USERPTR;
 	q->drv_priv = icd;
 	q->ops = &sh_mobile_rcu_videobuf_ops;
-	q->mem_ops = &vb2_dma_contig_memops;
+	q->mem_ops = &sh_mobile_rcu_memops;
 	q->buf_struct_size = sizeof(struct sh_mobile_rcu_buffer);
 
 	return vb2_queue_init(q);
@@ -1864,6 +1852,9 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 			return -EINVAL;
 		}
 		pcdev->output_mode = ctrl->value;
+		return 0;
+	case V4L2_CID_SET_OUTPUT_OFFSET:
+		pcdev->output_offset = ctrl->value;
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -1963,6 +1954,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	pcdev->video_limit = 0; /* only enabled if second resource exists */
 	pcdev->image_mode = SH_RCU_MODE_DATA;
 	pcdev->output_mode = SH_RCU_OUTPUT_ISP;
+	pcdev->output_offset = SH_RCU_OUTPUT_OFFSET_32B;
 	pcdev->streaming = SH_RCU_STREAMING_OFF;
 
 	pcdev->iclk = clk_get(NULL, "icb");
@@ -1980,12 +1972,6 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	if (IS_ERR(pcdev->mclk)) {
 		pcdev->mclk = NULL;
 		dev_err(&pdev->dev, "cannot get clock \"meram\"\n");
-	}
-	pcdev->cclk = clk_get(NULL, pcdev->pdata->cmod_name);
-	if (IS_ERR(pcdev->cclk)) {
-		pcdev->cclk = NULL;
-		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",
-				pcdev->pdata->cmod_name);
 	}
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
@@ -2159,12 +2145,6 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 			"%s, pcdev->mclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->cclk)
-		clk_disable(pcdev->cclk);
-	else {
-		dev_err(pcdev->icd->dev.parent,
-			"%s, pcdev->cclk is NULL\n", __func__);
-	}
 	return 0;
 }
 
@@ -2203,12 +2183,6 @@ static int sh_mobile_rcu_runtime_resume(struct device *dev)
 			"%s, pcdev->mclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->cclk)
-		clk_enable(pcdev->cclk);
-	else {
-		dev_err(pcdev->icd->dev.parent,
-			"%s, pcdev->cclk is NULL\n", __func__);
-	}
 	return 0;
 
 }

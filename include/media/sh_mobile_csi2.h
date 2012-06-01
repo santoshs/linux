@@ -43,9 +43,17 @@ struct sh_csi2_pdata {
 	unsigned int flags;
 	struct sh_csi2_client_config *clients;
 	int num_clients;
+	unsigned int ipr;
+	unsigned short ipr_set;
+	unsigned int imcr;
+	unsigned char imcr_set;
+	void*	priv;
+	char *cmod_name;
 };
 
 struct device;
 struct v4l2_device;
+
+void sh_csi2_power(struct device *dev, int power_on);
 
 #endif
