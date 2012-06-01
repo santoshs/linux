@@ -52,7 +52,6 @@ struct sh_dmae_chan {
 	phys_addr_t desc_pmem;
 	int desc_mode;
 	int no_of_descs;
-	u32 rpt_cnt;
 };
 
 struct sh_dmae_device {

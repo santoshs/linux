@@ -291,29 +291,16 @@ EXPORT_SYMBOL(sh_dmae_clear_rpt_mode);
 void sh_dmae_aquire_desc_config(struct dma_chan *chan, struct sh_dmae_regs *hw)
 {
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
-	u32 __iomem *desc_mem = sh_chan->desc_mem;
-	u32 dptr, idx;
 	unsigned long flags;
 
 	if (!hw)
 		return;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
-	/* Read the DPTR to find out which descriptor is used */
-	dptr = (sh_dmae_readl(sh_chan, CHCRB)) &  CHCRB_DPTR_MASK;
-	dptr = dptr >> CHCRB_DPTR_SHIFT;
 
-	/* Read the last used descriptor configuration */
-	if (!dptr)
-		idx = sh_chan->no_of_descs - 1;
-	else
-		idx = dptr - 1;
-
-	desc_mem += (idx * 16)/sizeof(u32);
-
-	hw->sar = ioread32(desc_mem++);
-	hw->dar = ioread32(desc_mem++);
-	hw->tcr = ioread32(desc_mem);
+	hw->sar = sh_dmae_readl(sh_chan, SAR);
+	hw->dar = sh_dmae_readl(sh_chan, DAR);
+	hw->tcr = sh_dmae_readl(sh_chan, TCR);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 }
@@ -1128,7 +1115,8 @@ static irqreturn_t sh_dmae_interrupt(int irq, void *data)
 
 	if (sh_chan->desc_mode) {
 		if ((chcr & CHCR_DSE) || (chcr & CHCR_TE)) {
-			dmae_rpt_halt(sh_chan);
+			chcr &= ~(CHCR_TE | CHCR_DSE);
+			sh_dmae_writel(sh_chan, chcr, CHCR);
 			ret = IRQ_HANDLED;
 			tasklet_schedule(&sh_chan->tasklet);
 		}
@@ -1224,46 +1212,21 @@ static void dmae_do_tasklet(unsigned long data)
 	struct sh_desc *desc;
 	u32 sar_buf;
 	u32 dar_buf;
-	u32 tcr, num_of_cbs;
-	int i;
+	int desc_mode;
 	unsigned long flags;
 
-
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
-	if (sh_chan->desc_mode) {
-		u32 dptr;
-		u32 __iomem *desc_mem = sh_chan->desc_mem;
-
-		dptr = (sh_dmae_readl(sh_chan, CHCRB)) &  CHCRB_DPTR_MASK;
-		dptr >>= CHCRB_DPTR_SHIFT;
-		desc_mem += (dptr * 16)/sizeof(u32);
-		sar_buf = ioread32(desc_mem++);
-		dar_buf = ioread32(desc_mem++);
-		tcr = ioread32(desc_mem);
-
-		if (dptr > sh_chan->rpt_cnt)
-			num_of_cbs = dptr - sh_chan->rpt_cnt;
-		else
-			num_of_cbs = (sh_chan->no_of_descs - sh_chan->rpt_cnt)
-				     + dptr;
-
-		sh_chan->rpt_cnt = dptr;
-
-		for (i = 0; i < num_of_cbs; i++) {
-			/* We just want to get the only descriptor used */
-			list_for_each_entry(desc, &sh_chan->ld_queue, node) {
-				desc->async_tx.callback(
-					desc->async_tx.callback_param);
-				break;
-			}
+	desc_mode = sh_chan->desc_mode;
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+	if (desc_mode) {
+		/* We just want to get the only descriptor used */
+		list_for_each_entry(desc, &sh_chan->ld_queue, node) {
+			desc->async_tx.callback(desc->async_tx.callback_param);
+			break;
 		}
-
-		dmae_rpt_start(sh_chan);
-		spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 		return;
-	} else {
-		spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 	}
+
 	sar_buf = sh_dmae_readl(sh_chan, SAR);
 	dar_buf = sh_dmae_readl(sh_chan, DAR);
 
