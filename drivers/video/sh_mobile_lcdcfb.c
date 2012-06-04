@@ -55,7 +55,7 @@
 
 #define LCD_BG_BLACK 0x0
 
-#define FB_SH_MOBILE_REFRESH 0
+#define FB_SH_MOBILE_REFRESH 1
 
 #define REFRESH_TIME_MSEC 100
 
@@ -64,7 +64,7 @@
 #define COUNT_MFIS_SUSPEND 10
 #endif
 
-#define FB_SH_MOBILE_HDMI 0
+#define FB_SH_MOBILE_HDMI 1
 
 #define CHAN_NUM 2
 
@@ -551,7 +551,12 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		DBG_PRINT("screen_display_stop_hdmi\n");
 		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
 		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
+		sh_mobile_lcdc_refresh(
+			RT_DISPLAY_REFRESH_ON, RT_DISPLAY_LCD1);
 	} else {
+		sh_mobile_lcdc_refresh(
+			RT_DISPLAY_REFRESH_OFF, RT_DISPLAY_LCD1);
+
 		switch (set_mode->format) {
 		case SH_FB_HDMI_480P60:
 		{

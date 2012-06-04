@@ -397,7 +397,13 @@ struct composer_fh {
 };
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    0
+#ifdef CONFIG_MACH_KOTA2
+/* support HDMI for KOTA2 */
+#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    1
+#else
+/* support HDMI for other */
+#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    1
+#endif
 #define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;

@@ -28,6 +28,7 @@
 /* graphics mode */
 #define RT_GRAPHICS_MODE_IMAGE_CONVERSION	(0x00000001)	/* image conversion */
 #define RT_GRAPHICS_MODE_IMAGE_BLEND		(0x00000002)	/* image blend */
+#define RT_GRAPHICS_MODE_IMAGE_OUTPUT		(0x00000004)	/* image output */
 
 /* color_format */
 #define RT_GRAPHICS_COLOR_YUV422SP			(1)	/* YUV422 SemiPlanar */
@@ -107,6 +108,11 @@ typedef struct
 			int 			result,
 			unsigned long	user_data
 		);
+	void (*notify_graphics_image_output)
+		(
+			int 			result,
+			unsigned long	user_data
+		);
 } screen_grap_new;
 
 
@@ -166,6 +172,16 @@ typedef struct
 	unsigned long			user_data; 		/* user data */
 } screen_grap_image_blend;
 
+/* screen_graphics_image_output API parameter */
+typedef struct
+{
+	void*					handle; 		/* graphics interface handle */
+	screen_grap_image_param	output_image;	/* output image parameters */
+	unsigned short			rotate;			/* rotation type */
+	unsigned short			dummy;			/* dummy */
+	unsigned long			user_data;		/* user data */
+} screen_grap_image_output;
+
 /* screen_graphics_quit API parameter */
 typedef struct
 {
@@ -202,6 +218,11 @@ extern int screen_graphics_image_conversion
 extern int screen_graphics_image_blend
 (
 	screen_grap_image_blend*	grap_blend
+);
+
+extern int screen_graphics_image_output
+(
+	screen_grap_image_output* grap_output
 );
 
 extern int screen_graphics_quit
