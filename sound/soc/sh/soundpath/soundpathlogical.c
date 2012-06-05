@@ -2639,6 +2639,9 @@ static void sndp_maxim_work_start(const int direction)
 	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = MAX98090_DEV_NONE;
 	u_int	uiValue;
+	struct snd_pcm_runtime *runtime =
+		g_sndp_main[direction].arg.fsi_substream->runtime;
+
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
 
@@ -2672,11 +2675,10 @@ static void sndp_maxim_work_start(const int direction)
 			/* CPG soft reset */
 			fsi_soft_reset();
 		}
+		/* FSI master for ES 2.0 over */
+		if ((system_rev & 0xff) >= 0x10)
+			common_set_pll22(uiValue, STAT_ON);
 	}
-
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xff) >= 0x10)
-		common_set_pll22(uiValue, STAT_ON);
 
 	/* FSI slave setting ON for switch */
 	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue))
@@ -2751,6 +2753,9 @@ static void sndp_maxim_work_start(const int direction)
 			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
 	}
 
+	sndp_log_info("buffer_size %ld  period_size %ld  periods %d\n",
+		runtime->buffer_size, runtime->period_size, runtime->periods);
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -2805,10 +2810,6 @@ static void sndp_maxim_work_stop(
 	/* FSI slave setting OFF */
 	fsi_set_slave(false);
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xff) >= 0x10)
-		common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
-
 	/* Capture path is delete */
 	if (SNDP_PCM_IN == direction) {
 		iRet = max98090_get_device(&ulSetDevice);
@@ -2826,12 +2827,17 @@ static void sndp_maxim_work_stop(
 				     iRet);
 	}
 
-	/* stop CLKGEN */
-	clkgen_stop();
-
 	/* Disable the power domain */
-	if (!g_sndp_playrec_flg)
+	if (!g_sndp_playrec_flg) {
+		/* stop CLKGEN */
+		clkgen_stop();
+
+		/* FSI master for ES 2.0 over */
+		if ((system_rev & 0xff) >= 0x10)
+			common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
+
 		pm_runtime_put_sync(g_sndp_power_domain);
+	}
 
 	/* Wake Unlock or Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);

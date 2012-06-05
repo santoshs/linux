@@ -33,6 +33,7 @@ struct common_reg_table {
 	u_int	uiReg;
 	u_int	uiValue;
 	u_int	uiDelay;
+	u_int	uiClrbit;
 };
 
 /* FSI base address (PortA) */

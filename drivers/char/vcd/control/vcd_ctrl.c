@@ -112,6 +112,12 @@ void vcd_ctrl_stop_vcd(void)
 
 	/* execute spuv function */
 	g_vcd_ctrl_result = vcd_spuv_stop_vcd();
+	if (VCD_ERR_NONE != g_vcd_ctrl_result)
+		vcd_pr_control_info("vcd_spuv_stop_vcd[%d].\n",
+			g_vcd_ctrl_result);
+
+	/* update result */
+	g_vcd_ctrl_result = VCD_ERR_NONE;
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_NONE);
@@ -435,20 +441,30 @@ void vcd_ctrl_get_status(void)
 	if (VCD_CTRL_FUNC_FEATURE_ERROR & active_feature) {
 		g_vcd_ctrl_result = VCD_CTRL_STATUS_ERROR;
 	} else if (VCD_CTRL_FUNC_FEATURE_CALL & active_feature) {
-		if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) ||
+		if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
 			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
 			g_vcd_ctrl_result =
-				VCD_CTRL_STATUS_CALL_RECORD_PLAYBACK_STARTED;
+				VCD_CTRL_STATUS_CALL_RECORD_PLAYBACK;
+		} else if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+			g_vcd_ctrl_result = VCD_CTRL_STATUS_CALL_RECORD;
+		} else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
+			g_vcd_ctrl_result = VCD_CTRL_STATUS_CALL_PLAYBACK;
 		} else {
-			g_vcd_ctrl_result = VCD_CTRL_STATUS_CALL_STARTED;
+			g_vcd_ctrl_result = VCD_CTRL_STATUS_CALL;
 		}
-	} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) ||
-			 (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-		g_vcd_ctrl_result = VCD_CTRL_STATUS_RECORD_PLAYBACK_STARTED;
+	} else if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+		if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)
+			g_vcd_ctrl_result = VCD_CTRL_STATUS_RECORD_PLAYBACK;
+		else
+			g_vcd_ctrl_result = VCD_CTRL_STATUS_RECORD;
+	} else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
+		g_vcd_ctrl_result = VCD_CTRL_STATUS_PLAYBACK;
+	} else if (VCD_CTRL_FUNC_FEATURE_HW_PARAM & active_feature) {
+		g_vcd_ctrl_result = VCD_CTRL_STATUS_READY;
 	} else if (VCD_CTRL_FUNC_FEATURE_VCD & active_feature) {
-		g_vcd_ctrl_result = VCD_CTRL_STATUS_DSP_STARTED;
+		g_vcd_ctrl_result = VCD_CTRL_STATUS_ACTIVE;
 	} else {
-		g_vcd_ctrl_result = VCD_CTRL_STATUS_NOT_START;
+		g_vcd_ctrl_result = VCD_CTRL_STATUS_STANDBY;
 	}
 
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
@@ -541,8 +557,11 @@ int vcd_ctrl_stop_record(void)
 
 	/* execute spuv function */
 	ret = vcd_spuv_stop_record();
-	if (VCD_ERR_NONE != ret)
+	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("stop record error[%d].\n", ret);
+		/* update result */
+		g_vcd_ctrl_result = VCD_ERR_NONE;
+	}
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_RECORD);
@@ -616,8 +635,11 @@ int vcd_ctrl_stop_playback(void)
 
 	/* execute spuv function */
 	ret = vcd_spuv_stop_playback();
-	if (VCD_ERR_NONE != ret)
+	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("stop playback error[%d].\n", ret);
+		/* update result */
+		g_vcd_ctrl_result = VCD_ERR_NONE;
+	}
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_PLAYBACK);

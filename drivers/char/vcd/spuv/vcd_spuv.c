@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <mach/pm.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"
@@ -178,21 +179,21 @@ int vcd_spuv_start_vcd(void)
 
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("power supply error[%d].\n", ret);
-		goto rtn;
+		goto err_rtn;
 	}
 
 	/* set firmware */
 	ret = vcd_spuv_func_set_fw();
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("set firmware error[%d].\n", ret);
-		goto rtn;
+		goto err_rtn;
 	}
 
 	/* interrupt start */
 	ret = vcd_spuv_request_irq();
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("request irq error[%d].\n", ret);
-		goto rtn;
+		goto err_rtn;
 	}
 
 	/* set status */
@@ -205,10 +206,17 @@ int vcd_spuv_start_vcd(void)
 	vcd_spuv_func_dsp_core_reset();
 
 	/* check result */
-	ret = vcd_spuv_check_status();
+	ret = vcd_spuv_check_result();
 	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+		goto rtn;
 
+	/* error route */
+	vcd_spuv_free_irq();
+
+err_rtn:
+	vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_DISABLE);
+	vcd_spuv_func_release_firmware();
+	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -233,18 +241,14 @@ int vcd_spuv_stop_vcd()
 	vcd_spuv_free_irq();
 
 	/* power supply off */
-	ret = vcd_spuv_func_control_power_supply(
-				VCD_SPUV_FUNC_DISABLE);
-	if (VCD_ERR_NONE != ret) {
+	ret = vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_DISABLE);
+	if (VCD_ERR_NONE != ret)
 		vcd_pr_err("power supply error[%d].\n", ret);
-		goto rtn;
-	}
 
 	vcd_spuv_func_release_firmware();
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 
-rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -289,9 +293,7 @@ int vcd_spuv_set_hw_param(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_HW_PARAMETERS_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -337,9 +339,7 @@ int vcd_spuv_start_call(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_SPEECH_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -380,9 +380,7 @@ int vcd_spuv_stop_call(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_SPEECH_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -432,9 +430,7 @@ int vcd_spuv_start_tty_ctm(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -475,9 +471,7 @@ int vcd_spuv_stop_tty_ctm(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -524,9 +518,7 @@ int vcd_spuv_config_tty_ctm(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_CONFIG_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -572,9 +564,7 @@ int vcd_spuv_set_udata(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_UDATA_LENGTH+param[2]);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -640,9 +630,7 @@ int vcd_spuv_start_record(struct vcd_record_option *option)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_RECORDING_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -683,9 +671,7 @@ int vcd_spuv_stop_record(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_RECORDING_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -757,9 +743,7 @@ int vcd_spuv_start_playback(struct vcd_playback_option *option)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_PLAYING_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -800,9 +784,7 @@ int vcd_spuv_stop_playback(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_VOICE_PLAYING_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -818,7 +800,7 @@ int vcd_spuv_stop_playback(void)
  */
 void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info)
 {
-	vcd_pr_start_spuv_function("info[%p}.\n", info);
+	vcd_pr_start_spuv_function("info[%p].\n", info);
 
 	/* set buffer address */
 	info->record_buffer[0] =
@@ -839,7 +821,7 @@ void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info)
  */
 void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info)
 {
-	vcd_pr_start_spuv_function("info[%p}.\n", info);
+	vcd_pr_start_spuv_function("info[%p].\n", info);
 
 	/* set buffer address */
 	info->playback_buffer[0] =
@@ -885,9 +867,7 @@ int vcd_spuv_start_1khz_tone(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_1KHZ_TONE_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -928,9 +908,7 @@ int vcd_spuv_stop_1khz_tone(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_1KHZ_TONE_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -972,9 +950,7 @@ int vcd_spuv_start_pcm_loopback(int mode)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_PCM_LOOPBACK_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -1015,9 +991,7 @@ int vcd_spuv_stop_pcm_loopback(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_PCM_LOOPBACK_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -1059,9 +1033,7 @@ int vcd_spuv_start_bbif_loopback(int mode)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_BBIF_LOOPBACK_START_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -1102,9 +1074,7 @@ int vcd_spuv_stop_bbif_loopback(void)
 	vcd_spuv_func_send_msg(param, VCD_SPUV_BBIF_LOOPBACK_STOP_LENGTH);
 
 	/* check result */
-	ret = vcd_spuv_check_status();
-	if (VCD_ERR_NONE == ret)
-		ret = g_vcd_spuv_info.fw_result;
+	ret = vcd_spuv_check_result();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -1469,7 +1439,7 @@ static void vcd_spuv_interrupt_req(struct work_struct *work)
 	/* check status */
 	ret = vcd_spuv_get_status();
 	if ((VCD_SPUV_STATUS_NONE == ret) ||
-		(VCD_SPUV_STATUS_SYSTEM_ERROR == ret))
+			(VCD_SPUV_STATUS_SYSTEM_ERROR & ret))
 		/* end wait */
 		vcd_spuv_func_end_wait();
 
@@ -1729,8 +1699,9 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
 		}
 	} else if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
 		(g_vcd_spuv_info.wait_fw_msg_id != msg_id) ||
-		(VCD_SPUV_FW_RESULT_SUCCESS != result))
+		(VCD_SPUV_FW_RESULT_SUCCESS != result)) {
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
+	}
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1798,31 +1769,35 @@ static void vcd_spuv_unset_status(unsigned int status)
 
 
 /**
- * @brief	check status function.
+ * @brief	check result function.
  *
  * @param	none.
  *
  * @retval	VCD_ERR_NONE		successful.
  * @retval	VCD_ERR_FW_TIME_OUT	timeout occurred.
+ * @retval	VCD_ERR_SYSTEM		other error.
  */
-static int vcd_spuv_check_status(void)
+static int vcd_spuv_check_result(void)
 {
-	int ret = VCD_ERR_NONE;
-
 	vcd_pr_start_spuv_function();
 
 	if (VCD_SPUV_STATUS_SYSTEM_ERROR & g_vcd_spuv_info.status) {
-		ret = VCD_ERR_SYSTEM;
+		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
 		vcd_pr_if_spuv("V <-- F : TIME OUT.\n");
-		ret = VCD_ERR_FW_TIME_OUT;
+		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+		g_vcd_spuv_info.fw_result = VCD_ERR_FW_TIME_OUT;
+		/* fw stop notification */
+		vcd_ctrl_stop_fw();
+	} else if (VCD_ERR_NONE != g_vcd_spuv_info.fw_result) {
+		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
 		/* fw stop notification */
 		vcd_ctrl_stop_fw();
 	}
 
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
+	vcd_pr_end_spuv_function("ret[%d].\n", g_vcd_spuv_info.fw_result);
+	return g_vcd_spuv_info.fw_result;
 }
 
 

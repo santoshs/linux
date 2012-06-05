@@ -168,7 +168,7 @@
 #define VCD_SPUV_SPEECH_STOP_CNF_LOG		\
 		"V <-- F : SPUV_SPEECH_STOP_CNF.\n"
 #define VCD_SPUV_VOICE_RECORDING_START_CNF_LOG	\
-		"V <-- F : SPUV_VOICE_RECORDING_START_CN.\n"
+		"V <-- F : SPUV_VOICE_RECORDING_START_CNF.\n"
 #define VCD_SPUV_VOICE_RECORDING_STOP_CNF_LOG	\
 		"V <-- F : SPUV_VOICE_RECORDING_STOP_CNF.\n"
 #define VCD_SPUV_VOICE_PLAYING_START_CNF_LOG	\
@@ -297,7 +297,7 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id,
 static unsigned int vcd_spuv_get_status(void);
 static void vcd_spuv_set_status(unsigned int status);
 static void vcd_spuv_unset_status(unsigned int status);
-static int vcd_spuv_check_status(void);
+static int vcd_spuv_check_result(void);
 
 /* Dump functions */
 void vcd_spuv_dump_status(void);

@@ -136,11 +136,8 @@
 /* sdram static area */
 #define SPUV_FUNC_SDRAM_AREA_SIZE		0x3DF000
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1	0x47800000
-#if 0
-#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x48000000
-#else
-#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
-#endif
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x4C000000
+
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
 		g_spuv_func_sdram_static_area_top_phy
 #define SPUV_FUNC_SDRAM_AREA_TOP		\
@@ -466,31 +463,28 @@
 /* register control macro */
 #define vcd_spuv_func_register(reg, ret) \
 		{ \
-/*			extern spinlock_t clock_lock; */ \
-/*			unsigned long flags;*/ \
-/*			spin_lock_irqsave(&clock_lock, flags);*/ \
+			unsigned long flags; \
+			flags = pm_get_spinlock(); \
 			ret = ioread32(reg); \
-/*			spin_unlock_irqrestore(&clock_lock, flags);*/ \
+			pm_release_spinlock(flags); \
 		}
 #define vcd_spuv_func_set_register(set_bit, reg) \
 		{ \
-/*			extern spinlock_t clock_lock;*/ \
-/*			unsigned long flags;*/ \
-/*			spin_lock_irqsave(&clock_lock, flags);*/ \
+			unsigned long flags; \
+			flags = pm_get_spinlock(); \
 			iowrite32(set_bit, reg); \
-/*			spin_unlock_irqrestore(&clock_lock, flags);*/ \
+			pm_release_spinlock(flags); \
 		}
 #define vcd_spuv_func_modify_register(clear_bit, set_bit, reg) \
 		{ \
-/*			extern spinlock_t clock_lock; \*/ \
-/*			unsigned long flags;*/ \
-/*			spin_lock_irqsave(&clock_lock, flags);*/ \
+			unsigned long flags; \
 			unsigned long tmp; \
+			flags = pm_get_spinlock(); \
 			tmp = ioread32(reg); \
 			tmp &= (~clear_bit); \
 			tmp |= set_bit; \
 			iowrite32(tmp, reg); \
-/*			spin_unlock_irqrestore(&clock_lock, flags);*/ \
+			pm_release_spinlock(flags); \
 		}
 
 /*
