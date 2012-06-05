@@ -139,6 +139,7 @@ struct sh_mobile_i2c_data {
 
 #define STANDARD_MODE		100000
 #define FAST_MODE		400000
+#define FAST_MODE_PLUS		1000000
 
 /* Register offsets */
 #define ICDR			0x00
@@ -232,15 +233,21 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 #if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
 	i2c_clk_khz /= 2;
 #endif
+
 	if (pd->bus_speed == STANDARD_MODE) {
 		tHIGH	= 40;	/* tHD;STA = tHIGH = 4.0 us */
 		tLOW	= 47;	/* tLOW = 4.7 us */
 		tf	= 3;	/* tf = 0.3 us */
 		offset	= 0;	/* No offset */
-	} else if (pd->bus_speed == FAST_MODE) {
+	} else if(pd->bus_speed == FAST_MODE) {
 		tHIGH	= 6;	/* tHD;STA = tHIGH = 0.6 us */
 		tLOW	= 13;	/* tLOW = 1.3 us */
 		tf	= 3;	/* tf = 0.3 us */
+		offset	= 0;	/* No offset */
+	} else if (pd->bus_speed == FAST_MODE_PLUS) {
+		tHIGH	= 2.6;	/* tHD;STA = tHIGH = 0.26 us */
+		tLOW	= 5;	/* tLOW = 0.5 us */
+		tf	= 1.2;	/* tf = 0.12 us */
 		offset	= 0;	/* No offset */
 	} else
 		dev_err(pd->dev, "unrecognized bus speed %lu Hz\n",
