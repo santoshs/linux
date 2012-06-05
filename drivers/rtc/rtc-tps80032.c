@@ -29,8 +29,23 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <mach/r8a73734.h>
-#include <linux/mfd/tps80031.h>
 #include <linux/slab.h>
+#include <linux/pmic/pmic.h>
+
+#ifdef CONFIG_PMIC_INTERFACE
+	#include <linux/pmic/pmic-tps80032.h>
+	#define rtc_read(dev, addr, val) 			pmic_read(dev, addr, val)
+	#define rtc_write(dev, addr, val)			pmic_write(dev, addr, val)
+	#define rtc_reads(dev, addr, len, val) 		pmic_reads(dev, addr, len, val)
+	#define rtc_writes(dev, addr, len, val)		pmic_writes(dev, addr, len, val)
+#else
+	#include <linux/mfd/tps80031.h>
+	#define rtc_read(dev, addr, val) 			tps80031_read(dev, 1, addr, val)
+	#define rtc_write(dev, addr, val)			tps80031_write(dev, 1, addr, val)
+	#define rtc_reads(dev, addr, len, val) 		tps80031_reads(dev, 1, addr, len, val)
+	#define rtc_writes(dev, addr, len, val)		tps80031_writes(dev, 1, addr, len, val)
+#endif
+
 
 #define RTC_SECONDS_REG			0x00
 #define RTC_ALARM_SECONDS_REG	0x08
@@ -61,7 +76,6 @@ struct rtc_tps80032_data{
 	struct device *dev;
 };
 
-
 /*
  * tps80032_rtc_stop: Stop RTC Hardware
  * @dev:  i2c_client device
@@ -79,7 +93,7 @@ static int tps80032_rtc_stop(struct device *dev)
 	dev_dbg(dev->parent, ">>> %s start\n", __func__);
 	
 	/*Read control register*/
-	ret = tps80031_read(dev->parent, 1, RTC_CTRL_REG, &reg);
+	ret = rtc_read(dev->parent, RTC_CTRL_REG, &reg);
 	if (ret < 0)
 		{
 		dev_err(dev->parent, "failed to read RTC_CTRL reg\n");
@@ -88,7 +102,7 @@ static int tps80032_rtc_stop(struct device *dev)
 	val = (u8) reg & (~STOP_RTC);
 	
 	/*Stop RTC*/
-	ret = tps80031_write(dev->parent, 1, RTC_CTRL_REG, val);
+	ret = rtc_write(dev->parent, RTC_CTRL_REG, val);
 	if (ret < 0)
 		{
 		dev_err(dev->parent, "failed to stop RTC\n");
@@ -116,7 +130,7 @@ static int tps80032_rtc_start(struct device *dev)
 	dev_dbg(dev->parent, ">>> %s start\n", __func__);
 	
 	/*Read control register*/
-	ret = tps80031_read(dev->parent, 1, RTC_CTRL_REG, &reg);
+	ret = rtc_read(dev->parent, RTC_CTRL_REG, &reg);
 	if (ret < 0)
 		{
 		dev_err(dev->parent, "failed to read RTC_CTRL reg\n");
@@ -126,7 +140,7 @@ static int tps80032_rtc_start(struct device *dev)
 	val = (u8) reg | STOP_RTC;
 	
 	/*Start RTC*/
-	ret = tps80031_write(dev->parent, 1, RTC_CTRL_REG, val);
+	ret = rtc_write(dev->parent, RTC_CTRL_REG, val);
 	if (ret < 0)
 		{
 		dev_err(dev->parent, "failed to stop RTC\n");
@@ -155,7 +169,7 @@ static irqreturn_t tps80032_rtc_irq(int irq, void *dev_id)
 	u8 val;
 	
 	/*dummy read RTC_STATUS for updating the register*/
-	ret = tps80031_read(dev->parent, 1, RTC_STATUS_REG, &reg);
+	ret = rtc_read(dev->parent, RTC_STATUS_REG, &reg);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to read RTC_STATUS reg\n");
 		goto exit;
@@ -164,7 +178,7 @@ static irqreturn_t tps80032_rtc_irq(int irq, void *dev_id)
 	mutex_lock(&cntrol2_lock);
 	
 	/*read RTC_STATUS for updating the register*/
-	ret = tps80031_read(dev->parent, 1, RTC_STATUS_REG, &reg);
+	ret = rtc_read(dev->parent, RTC_STATUS_REG, &reg);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to read RTC_STATUS reg\n");
 		goto exit;
@@ -172,7 +186,7 @@ static irqreturn_t tps80032_rtc_irq(int irq, void *dev_id)
 	
 	val = (ret & (~ALARM_INT_STATUS)) | ALARM_INT_STATUS;
 	/*Clear interrupt status*/
-	ret = tps80031_write(dev->parent, 1, RTC_STATUS_REG, val);
+	ret = rtc_write(dev->parent, RTC_STATUS_REG, val);
 	if (ret < 0) {
 		dev_err(data->dev, "unable to clear set Alarm INT status\n");
 		goto exit;
@@ -229,7 +243,7 @@ static int tps80032_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	
 	mutex_lock(&set_time_lock);
 	/*Read system time from RTC hardware*/
-	ret = tps80031_reads(dev->parent, 1, RTC_SECONDS_REG, 7, val);
+	ret = rtc_reads(dev->parent, RTC_SECONDS_REG, 7, val);
 	if (ret < 0) {
 		dev_err(dev->parent, "failed reading time\n");
 		goto exit;
@@ -283,7 +297,7 @@ static int tps80032_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	if (ret < 0)
 		goto exit;
 	
-	ret = tps80031_writes(dev->parent, 1, RTC_SECONDS_REG, 7, val);
+	ret = rtc_writes(dev->parent, RTC_SECONDS_REG, 7, val);
 	
 	if (ret < 0) {
 		dev_err(dev->parent, "failed to program new time\n");
@@ -316,13 +330,13 @@ static int tps80032_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 	mutex_lock(&set_alarm_lock);
 	
-	ret = tps80031_reads(dev->parent, 1, RTC_ALARM_SECONDS_REG, 6, val);
+	ret = rtc_reads(dev->parent, RTC_ALARM_SECONDS_REG, 6, val);
 	if (ret < 0){
 		dev_err(dev->parent, "failed to read alarm reg\n");
 		goto exit;
 	}
 	
-	/*Convert the register setting value to decimal value*/
+	/*/*Convert the register setting value to decimal value*/
 	alarm->time.tm_sec = bcd2dec(val[0] & 0x7F);
 	alarm->time.tm_min = bcd2dec(val[1] & 0x7F);
 	alarm->time.tm_hour = bcd2dec(val[2] & 0x3F);
@@ -374,7 +388,7 @@ static int tps80032_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		val[4] = dec2bcd(alarm->time.tm_mon);
 		val[5] = dec2bcd(alarm->time.tm_year % RTC_YEAR_OFFSET);
 		
-		ret = tps80031_writes(dev->parent, 1, RTC_ALARM_SECONDS_REG, 6, val);
+		ret = rtc_writes(dev->parent, RTC_ALARM_SECONDS_REG, 6, val);
 		if (ret < 0)
 			dev_err(dev->parent, "failed to write alarm reg\n");
 	}
@@ -406,7 +420,7 @@ static int tps80032_alarm_irq_enable(struct device *dev, unsigned int enabled)
 
 	mutex_lock(&cntrol1_lock);
 	if ((0 == enabled) || (1 == enabled)) {
-		ret = tps80031_read(dev->parent, 1, RTC_INTERRUPTS_REG, &reg);
+		ret = rtc_read(dev->parent, RTC_INTERRUPTS_REG, &reg);
 		if (ret < 0){
 			dev_err(dev->parent, "failed to read interrupt reg\n");
 			goto exit;
@@ -414,13 +428,13 @@ static int tps80032_alarm_irq_enable(struct device *dev, unsigned int enabled)
 		
 		if((1 == enabled) && !(reg & ENABLE_ALARM_INT )){
 			val = reg | ENABLE_ALARM_INT;
-			ret = tps80031_write(dev->parent, 1, RTC_INTERRUPTS_REG, val);
+			ret = rtc_write(dev->parent, RTC_INTERRUPTS_REG, val);
 			if (ret < 0)
 				dev_err(dev->parent, "failed to write interrupt reg\n");
 		}
 		else if((0 == enabled) && (reg & ENABLE_ALARM_INT)){
 			val = reg & (~ENABLE_ALARM_INT);
-			ret = tps80031_write(dev->parent, 1, RTC_INTERRUPTS_REG, val);
+			ret = rtc_write(dev->parent, RTC_INTERRUPTS_REG, val);
 			if (ret < 0)
 				dev_err(dev->parent, "failed to write interrupt reg\n");
 		}
@@ -445,7 +459,7 @@ static struct rtc_class_ops tps80032_rtcops = {
 };
 
 /*
- * tps80032_rtc_init_irq: Initialize interrupt
+ * tps80032_rtc_init_irq: Initialize interrup
  * @data: information of rtc_tps80032_data structure
  * return:
  *        0: Normal operation
@@ -454,7 +468,11 @@ static struct rtc_class_ops tps80032_rtcops = {
  
 int tps80032_rtc_init_irq(struct device *dev, struct rtc_tps80032_data *data)
 {
+#ifdef CONFIG_PMIC_INTERFACE
+	struct tps80032_rtc_platform_data *pdata = dev->platform_data;
+#else
 	struct tps80031_rtc_platform_data *pdata = dev->platform_data;
+#endif
 	
 	int ret;
 	
@@ -464,7 +482,7 @@ int tps80032_rtc_init_irq(struct device *dev, struct rtc_tps80032_data *data)
 	}
 	
 	/*Enable alarm interrupt*/
-	ret = tps80031_write(dev->parent, 1, RTC_INTERRUPTS_REG, ENABLE_ALARM_INT);
+	ret = rtc_write(dev->parent, RTC_INTERRUPTS_REG, ENABLE_ALARM_INT);
 	if (ret < 0) {
 		dev_err(dev->parent, "unable to program RTC_INTERRUPTS reg\n");
 		return ret;
@@ -514,7 +532,7 @@ static int __devinit tps80032_rtc_probe(struct platform_device *pdev)
 	
 	data->dev = &pdev->dev;
 	/*Dummy read for RTC_STATUS_REG*/
-	ret = tps80031_read((&pdev->dev)->parent, 1, RTC_STATUS_REG, &reg);
+	ret = rtc_read((&pdev->dev)->parent, RTC_STATUS_REG, &reg);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "unable to read time program RTC_STATUS reg\n");
 		goto err;
@@ -542,12 +560,12 @@ static int __devinit tps80032_rtc_probe(struct platform_device *pdev)
 	
 	/*Clear alarm status*/
 	val = ALARM_INT_STATUS;
-	ret = tps80031_write((&pdev->dev)->parent, 1, RTC_STATUS_REG, val);
+	ret = rtc_write((&pdev->dev)->parent, RTC_STATUS_REG, val);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "unable to program RTC_STATUS reg\n");
 		goto err;
 	}
-
+	
 	dev_set_drvdata(&pdev->dev, data);
 	
 	ret = tps80032_rtc_init_irq(&pdev->dev, data);
@@ -575,7 +593,13 @@ static int __devexit tps80032_rtc_remove(struct platform_device *pdev)
 	struct rtc_tps80032_data *data = dev_get_drvdata(&pdev->dev);
 	
 	struct device *dev = &pdev->dev;
+	
+#ifdef CONFIG_PMIC_INTERFACE
+	struct tps80032_rtc_platform_data *pdata = dev->platform_data;
+#else
 	struct tps80031_rtc_platform_data *pdata = dev->platform_data;
+#endif
+	
 	if (data) {
 		if (data->rtc) {
 			rtc_device_unregister(data->rtc);
