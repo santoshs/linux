@@ -115,11 +115,10 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
-
+	/* TPU     */	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
 	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
 	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
 	/* MFI      */	{ "av-domain",  	    ID_A3R 	},
-	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A3R  },
 	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A4MP },
 
 #if 0
@@ -157,14 +156,14 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
-
+	/* TPU    	*/	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
 	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
 	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
 	/* MFI      */	{ "av-domain",  	    ID_A3R 	},
-	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A3R  },
 	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd", 			ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd", 			ID_A4RM },
+	/* PCM2PWM 	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
 
 #if 0
 	/* The following device is used for test purpose only */

@@ -89,6 +89,7 @@ ENTRY(start_corestandby)
 	LDMFD	sp!, {r4}	/* Load original domain access settings	*/
 	MCR		p15, 0, r4, c3, c0, 0
 	ISB
+
 #ifdef DISPLAY_LOG_DEBUG	/* LOG */
 	/* return value of sec_hal_coma_entry() */
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
@@ -100,7 +101,9 @@ ENTRY(start_corestandby)
 	LDR		r0, =CORESTANDBY_LOG
 	BL		printk
 #endif
+
 	LDMFD	sp!, {r4-r11, pc}
+
 #ifdef DISPLAY_LOG_DEBUG
 CORESTANDBY_LOG:
 	.ascii	"!!!CORESTANDBY sec_hal_coma_entry() return  0x%x\n"
@@ -296,8 +299,10 @@ CORESTANDBY_CHECK_ZCLK:
 
 	/* Release PM SpinLock */
 	PM_Spin_Unlock
-	
-#ifndef CONFIG_PM_SECURE_HAL_DUMMY
+
+	/*----------------------------------------------*/
+	/* Remove cluster */
+	/*----------------------------------------------*/
 	/* Disable D-Cache */
 	MRC		p15, 0, r4, c1, c0, 0
 	BIC		r4, r4, #0x4 /* Clear C bit	*/
@@ -306,7 +311,18 @@ CORESTANDBY_CHECK_ZCLK:
 
 	/* Clean and invalidate D-Cache	*/
 	L1_DataCacheCleanInvalidateSW
-#endif
+
+#ifdef CONFIG_PM_SECURE_HAL_DUMMY
+#ifdef CONFIG_PM_SMP
+	/*----------------------------------------------*/
+	/* Remove the CPU from the cluster				*/
+	/*----------------------------------------------*/
+	MRC		p15, 0, r4, c1, c0, 1
+	BIC		r4, r4, #0x40 /* Clear SMP bit */
+	MCR		p15, 0, r4, c1, c0, 1 /* Write the ACTLR */
+	ISB
+#endif /* CONFIG_PM_SMP */
+#endif /* CONFIG_PM_SECURE_HAL_DUMMY */
 
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
@@ -2294,6 +2310,7 @@ ENTRY(start_wfi)
 	MOV		lr, pc	/* lr: Return address */
 	MOV		pc, r5	/* Call sec_hal_coma_entry() */
 	NOP
+
 #ifdef DISPLAY_LOG_DEBUG	/* LOG */
 	/* r0: return value of sec_hal_coma_entry() */
 	MOV		r1, r0
@@ -2396,6 +2413,7 @@ STRWFI_RESUME:
 	PM_Spin_Unlock
 
 	LDMFD	sp!, {r4-r11, pc}
+
 #ifdef DISPLAY_LOG_DEBUG
 WFI_LOW_LOG:
 	.ascii	"!!!WFI sec_hal_coma_entry() return  0x%x\n"
@@ -2564,16 +2582,13 @@ ENTRY(corestandby_pa)
 	STR		r6, [r5]
 	DSB
 #ifdef DEBUG_IDLE
-	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
-	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
-	CMP		r4, #0x0
+	CMP		r0, #0x0
 	LDREQ	r5, =ram0SecHalReturnCpu0Phys
 	LDRNE	r5, =ram0SecHalReturnCpu1Phys
 	LDR		r5, [r5]
 	CMP		r5, #SEC_HAL_FREQ_FAIL
 	BEQ		CORESTANDBY_CLKCHG_EXIT
 #else
-
 	CMP	r8, #SEC_HAL_FREQ_FAIL /* sec_hal_coma_entry frequency fails */
 	BEQ		CORESTANDBY_CLKCHG_EXIT
 #endif
@@ -2587,7 +2602,7 @@ ENTRY(corestandby_pa)
 	BNE		CORESTANDBY_CHECK_ZCLKCHG
 
 #else /* CORESTANDBY_A2SL */
-
+#ifdef CONFIG_PM_SECURE_HAL_DUMMY
 	/* Set L2 standby mode enable */
 	LDR		r4, =BasePl310Phys
 	LDR		r5, [r4, #L2_POWER_CONTROL]
@@ -2602,6 +2617,7 @@ CPUPD_CACHESYNC_LOOP:
 	LDR		r5, [r4, #L2_CHACH_SYNC]
 	TST		r5, #0x1
 	BNE		CPUPD_CACHESYNC_LOOP
+#endif /* CONFIG_PM_SECURE_HAL_DUMMY */
 #ifdef DEBUG_IDLE
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
@@ -2674,7 +2690,7 @@ CORESTANDBY_CLKCHG_EXIT:
 	/* Release PM SpinLock */
 	PM_Spin_Unlock
 
-#ifdef CONFIG_PM_SECURE_HAL_DUMMY
+#if 0
 	/*--------------------------------------*/
 	/* Remove cluster						*/
 	/*--------------------------------------*/
@@ -2701,6 +2717,7 @@ CORESTANDBY_CLKCHG_EXIT:
 	ISB
 REMOVE_CLUSTER_SKIP:
 #endif
+
 	/*-----------------------------------*/
 	/* CPU power down					*/
 	/*----------------------------------*/

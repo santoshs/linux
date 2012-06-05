@@ -1492,7 +1492,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		return ret;
 	}
 #ifdef CONFIG_EARLYSUSPEND
-	/* register_early_suspend(&shmobile_cpufreq_suspend); */
+	register_early_suspend(&shmobile_cpufreq_suspend);
 #endif /* CONFIG_EARLYSUSPEND */
 	if (ret < 0)
 		pr_err("%s()[%d]: error<%d>! can not set PLL0 ratio<%u>",

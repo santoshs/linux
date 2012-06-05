@@ -36,7 +36,7 @@
 #endif
 
 #ifdef DISPLAY_LOG_DEBUG
-#define DEBUG_IDLE 
+#define DEBUG_IDLE
 #endif
 
 /*
@@ -63,7 +63,7 @@
 
 /* Size of code	*/
 #define	fsArmVector							0x80				/* ARM Vector size							*/
-#define	fsCoreStandby						0x260				/* Core Standby function size				*/
+#define	fsCoreStandby						0x300				/* Core Standby function size				*/
 #define	fsSystemSuspend						0x300				/* System Suspend function size				*/
 #define	fsSaveArmRegister					0x1C0				/* Save ARM register function size			*/
 #define	fsRestoreArmRegisterPA				0x80				/* Restore ARM register function(PA) size	*/
