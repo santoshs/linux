@@ -21,11 +21,11 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
-#include "system_memory.h"
-#include "screen_display.h"
-#include "screen_graphics.h"
-#include "system_standby.h"
-#include "system_pwmng.h"
+#include <rtapi/system_memory.h>
+#include <rtapi/screen_display.h>
+#include <rtapi/screen_graphics.h>
+#include <rtapi/system_standby.h>
+#include <rtapi/system_pwmng.h>
 #include "rtapi.h"
 
 static struct rtapi_regist_func func;
