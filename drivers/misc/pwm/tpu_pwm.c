@@ -71,6 +71,8 @@ enum tpu_requests {
 	TPU_OPEN,
 	TPU_CLOSE,
 	TPU_ENABLE,
+	TPU_SUSPEND,
+	TPU_RESUME,
 	TPU_MAX
 };
 
@@ -143,6 +145,8 @@ static void comp_tpu_enable(struct work_struct *work);
 static int handle_tpu_enable(void *param);
 static void comp_tpu_close(struct work_struct *work);
 static int handle_tpu_close(void *param);
+static void handle_tpu_suspend(struct work_struct *work);
+static void handle_tpu_resume(struct work_struct *work);
 
 static int __init tpu_init(void);
 static void __exit tpu_exit(void);
@@ -152,16 +156,14 @@ static int tpu_probe(struct platform_device *pdev);
 static int __devexit tpu_remove(struct platform_device *pdev);
 
 #ifdef	DEBUG_PWM
-static void	pwm_create_debug_if(void);
-static void	pwm_delete_debug_if(void);
+static void pwm_create_debug_if(void);
+static void pwm_delete_debug_if(void);
 #endif	/* DEBUG_PWM */
 
 /* Global variable */
 static struct workqueue_struct *tpu_work_queue;
 static struct wake_lock tpu_wakelock;
-static struct mutex tpu_mutex;
-static spinlock_t tpu_spinlock;
-static int tpu_suspend_state = UN_SUSPEND;
+static int tpu_suspend_state;
 static int tpu_open_counter;
 
 static struct tpu_platdevice tpu_platform_device[TPU_MODULE_MAX] = {
@@ -233,19 +235,24 @@ static int add_to_workqueue(struct tpu_work_arg *work_arg)
 	switch (work_arg->request) {
 	case TPU_OPEN:
 		INIT_WORK(&work_arg->work, comp_tpu_open);
-		queue_work(tpu_work_queue, &work_arg->work);
 		break;
 	case TPU_ENABLE:
 		INIT_WORK(&work_arg->work, comp_tpu_enable);
-		queue_work(tpu_work_queue, &work_arg->work);
 		break;
 	case TPU_CLOSE:
 		INIT_WORK(&work_arg->work, comp_tpu_close);
-		queue_work(tpu_work_queue, &work_arg->work);
+		break;
+	case TPU_RESUME:
+		INIT_WORK(&work_arg->work, handle_tpu_resume);
+		break;
+	case TPU_SUSPEND:
+		INIT_WORK(&work_arg->work, handle_tpu_suspend);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	queue_work(tpu_work_queue, &work_arg->work);
 
 	/* waiting the complete processing of workqueue */
 	down(&comp.respond_comp);
@@ -337,13 +344,11 @@ static int handle_tpu_open(void *param)
 	struct tpu_platdevice *tpu_pdev;
 	struct platform_device *pdev;
 
-	mutex_lock(&tpu_mutex); /* lock to prevent multiple thread*/
 	for (i = 0; device_info[i].tpu_name; i++) {
 		if (!strcmp(open->tpu_name, device_info[i].tpu_name)) {
 			dev_state = &device_info[i].dev_state;
 			if (TPU_DEVICE_ENABLE == *dev_state) {
 				printk(KERN_ERR "[PWM ERR - handle_tpu_open] device is openning\n");
-				mutex_unlock(&tpu_mutex);
 				return -EBUSY;
 			}
 
@@ -357,14 +362,12 @@ static int handle_tpu_open(void *param)
 
 	if (ret) {
 		printk(KERN_ERR "[PWM ERR - handle_tpu_open] no TPU device name: %s\n", open->tpu_name);
-		mutex_unlock(&tpu_mutex);
 		return ret;
 	}
 
 	handle = (struct tpu_device *)kmalloc(sizeof(struct tpu_device), GFP_KERNEL);
 	if (!handle) {
 		printk(KERN_ERR "[PWM ERR - handle_tpu_open] no memory to be allocated to TPU handler\n");
-		mutex_unlock(&tpu_mutex);
 		return -ENOMEM;
 	}
 
@@ -388,7 +391,6 @@ static int handle_tpu_open(void *param)
 		ret = pm_runtime_get_sync(&pdev->dev);
 		if (ret) {
 			kfree(handle);
-			mutex_unlock(&tpu_mutex);
 			printk(KERN_ERR "[PWM ERR - handle_tpu_open] get PM sync unsuccessfully\n");
 			return ret;
 		}
@@ -401,14 +403,12 @@ static int handle_tpu_open(void *param)
 		if (IS_ERR(*(handle->clock))) {
 			printk(KERN_ERR "[PWM ERR - handle_tpu_open] clk_get unsuccessfully\n");
 			kfree(handle);
-			mutex_unlock(&tpu_mutex);
 			return -EINVAL;
 		}
 
 		ret = clk_enable(*(handle->clock));
 		if (ret) {
 			kfree(handle);
-			mutex_unlock(&tpu_mutex);
 			printk(KERN_ERR "[PWM ERR handle_tpu_open] enable clock unsuccessfully\n");
 			return ret;
 		}
@@ -418,7 +418,6 @@ static int handle_tpu_open(void *param)
 								resource_size(pdev->resource),
 								pdev->resource->name)) {
 			kfree(handle);
-			mutex_unlock(&tpu_mutex);
 			printk(KERN_ERR "[PWM ERR handle_tpu_open] the mapped IO memory is in use\n");
 			return -EBUSY;
 		}
@@ -428,7 +427,6 @@ static int handle_tpu_open(void *param)
 
 	tpu_pdev->open_status[channel] = TPU_PWM_START;
 	tpu_open_counter++;
-	mutex_unlock(&tpu_mutex);
 	*(open->handle) = handle;
 
 	return ret;
@@ -509,8 +507,6 @@ static int handle_tpu_close(void *param)
 
 	handle = (struct tpu_device *)((struct tpu_close_arg *)param)->handle;
 
-	mutex_lock(&tpu_mutex); /* Lock to prevent multiple thread */
-
 	/* Retrieve the TPU device information registered into the platform */
 	tpu_pdev = (struct tpu_platdevice *)platform_get_drvdata(tpu_platform_device[handle->module].pdev);
 	pdev = tpu_pdev->pdev;
@@ -548,8 +544,6 @@ static int handle_tpu_close(void *param)
 
 	}
 	tpu_open_counter--;
-	/* mutual exclusion unlock */
-	mutex_unlock(&tpu_mutex);
 
 	kfree(handle);
 	return ret;
@@ -660,21 +654,16 @@ static int handle_tpu_enable(void *param)
 	/* need to update duty and cycle value */
 	if (TPU_PWM_STOP != *(handle->start_stop)) {
 		/* write Duty and Cycle value to TPUn_TGRC and TPUn_TGRD */
-		spin_lock(&tpu_spinlock); /* Lock to prevent multi thread */
 		handle->duty = enable->duty;
 		handle->cycle = enable->cycle;
-		spin_unlock(&tpu_spinlock);
 
 		__raw_writew(enable->duty, TPUn_TGRC(handle));
 		__raw_writew(enable->cycle, TPUn_TGRD(handle));
 		return ret;
 	}
 
-	/* lock to avoid multiple execution */
-	spin_lock(&tpu_spinlock);
 	/* Update state of device */
 	*(handle->start_stop) = enable->start_stop;
-	spin_unlock(&tpu_spinlock);
 
 	/*[1] Select the counter clock with bits TPSC[2:0] in TPUn_TCR.
 	* At the same time, select the input clock edge with bits CKEG[1:0] in TPUn_TCR.
@@ -687,10 +676,8 @@ static int handle_tpu_enable(void *param)
 	__raw_writew(OUT_1_COMPARE_MATCH_WITH_TPUn_TGRA_MODE, TPUn_TIOR(handle)); /* Output 1 on compare match with TPUn_TGRA */
 
 	/* [4] Set the cycle in TPUn_TGRB and set the duty cycle in TPUn_TGRA. */
-	spin_lock(&tpu_spinlock); /* Lock to prevent multi thread */
 	handle->duty = enable->duty;
 	handle->cycle = enable->cycle;
-	spin_unlock(&tpu_spinlock);
 
 	__raw_writew(enable->duty, TPUn_TGRA(handle));/* Seting the duty cycle */
 	__raw_writew(enable->duty, TPUn_TGRC(handle)); /* setting buffer operation C */
@@ -744,10 +731,6 @@ static int __init tpu_init(void)
 		printk(KERN_ERR "[PWM ERR - tpu_init] can't register TPU driver\n");
 	}
 
-	/* Init mutex and spinlock */
-	mutex_init(&tpu_mutex);
-	spin_lock_init(&tpu_spinlock);
-
 	/* init static variable */
 	tpu_open_counter = 0;
 #ifdef	DEBUG_PWM
@@ -782,14 +765,35 @@ static void __exit tpu_exit(void)
 static int tpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret = 0;
+	struct tpu_work_arg work_arg;
+	work_arg.request = TPU_SUSPEND;
+	ret = add_to_workqueue(&work_arg);
+	return ret;
+}
+
+/*
+* handle_tpu_suspend: bottom-half processing of work-queue to suspend.
+* @work: Pointer to struct work_struct.
+* return:
+*        None
+*/
+static void handle_tpu_suspend(struct work_struct *work)
+{
+	int ret = 0;
+
+	struct tpu_work_arg *work_arg;
+	/* get the containing data structure tpu_work_arg from its member work */
+	work_arg = container_of(work, struct tpu_work_arg, work);
+
 	if (tpu_open_counter) {
 		ret = -EBUSY;
 	} else {
-		spin_lock(&tpu_spinlock);
 		tpu_suspend_state = SUSPEND;
-		spin_unlock(&tpu_spinlock);
 	}
-	return ret;
+
+	work_arg->respond->result = ret;
+	/* complete processing of Workqueue */
+	up(&work_arg->respond->respond_comp);
 }
 
 /*
@@ -800,10 +804,30 @@ static int tpu_suspend(struct platform_device *pdev, pm_message_t state)
  */
 static int tpu_resume(struct platform_device *pdev)
 {
-	spin_lock(&tpu_spinlock);
+	int ret = 0;
+	struct tpu_work_arg work_arg;
+	work_arg.request = TPU_RESUME;
+	ret = add_to_workqueue(&work_arg);
+	return ret;
+}
+
+/*
+* handle_tpu_resume: bottom-half processing of work-queue to resume.
+* @work: Pointer to struct work_struct.
+* return:
+*        None
+*/
+static void handle_tpu_resume(struct work_struct *work)
+{
+	int ret = 0;
+	struct tpu_work_arg *work_arg;
+
+	/* get the containing data structure tpu_work_arg from its member work */
+	work_arg = container_of(work, struct tpu_work_arg, work);
 	tpu_suspend_state = UN_SUSPEND;
-	spin_unlock(&tpu_spinlock);
-	return 0;
+	work_arg->respond->result = ret;
+	/* complete processing of Workqueue */
+	up(&work_arg->respond->respond_comp);
 }
 
 /*
