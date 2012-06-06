@@ -357,14 +357,14 @@ static void r8a66597_vbus_work(struct work_struct *work)
 
 		r8a66597_usb_connect(r8a66597);
 		r8a66597->vbus_active = 1;
-
+		pm_runtime_put(r8a66597_to_dev(r8a66597)); 
 		schedule_delayed_work(&r8a66597->charger_work,
 				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
 	} else {
 vbus_disconnect:
 		if (delayed_work_pending(&r8a66597->charger_work))
 			cancel_delayed_work_sync(&r8a66597->charger_work);
-
+		pm_runtime_get_sync(r8a66597_to_dev(r8a66597)); 
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
@@ -381,7 +381,6 @@ vbus_disconnect:
 
 		r8a66597_clk_disable(r8a66597);
 		pm_runtime_put(r8a66597_to_dev(r8a66597));
-
 		wake_unlock(&r8a66597->wake_lock);
 	}
 }
@@ -2694,10 +2693,10 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
-		if (!r8a66597->pdata->vbus_irq) {
+		//if (!r8a66597->pdata->vbus_irq) {
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
-		}
+		//}
 	}
 #endif
 
@@ -2755,6 +2754,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->ep0_req->complete = nop_completion;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
+	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
 	return 0;
 
 clean_up4:
@@ -2764,10 +2764,10 @@ clean_up3:
 clean_up2:
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		if (!r8a66597->pdata->vbus_irq) {
+		//if (!r8a66597->pdata->vbus_irq) {
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put(r8a66597_to_dev(r8a66597));
-		}
+		//}
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
