@@ -441,7 +441,7 @@ static int shmobile_init_cpuidle(void)
 	if (chip_rev < ES_REV_2_0 )
 		cpuidle_spinlock = 0x47BDF000;
 	else 
-		cpuidle_spinlock = 0x4C000000;
+		cpuidle_spinlock = 0x44000000;
 
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);
