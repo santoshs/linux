@@ -100,160 +100,179 @@ static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 };
 
 
+/*
+ * Register Table Definisions
+ */
+
+/* [Table summary] Reg=Register, Val=Value, D=Delay time, C=Clear bit */
+
 /* Table for Playback(PortA, CLKGEN master, 44.1kHz) */
 static struct common_reg_table clkgen_reg_tbl_playA_M_44[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIACOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000001, 0, 0 }, /* PortA Enable */
 };
 
 /* Table for Playback(PortA, CLKGEN master, 16kHz) */
 static struct common_reg_table clkgen_reg_tbl_playA_M_16[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIACOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIACOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000001, 0, 0 }, /* PortA Enable */
 };
 
 /* Table for Playback(PortA, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_playA_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSISEL,	 0x00000001, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
+	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
 /* Table for Playback(PortB, CLKGEN master, 44.1kHz) */
 static struct common_reg_table clkgen_reg_tbl_playB_M_44[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0 }, /* PortB Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
 };
 
 /* Table for Playback(PortB, CLKGEN master, 16kHz) */
 static struct common_reg_table clkgen_reg_tbl_playB_M_16[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIBCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0 }, /* PortB Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIBCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
 };
 
 /* Table for Playback(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_playB_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSISEL,	 0x00000002, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSISEL,	 0x00000002, 0, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
 };
 
 /* Table for Playback(from PortB to PortA(FM Playback), CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_playBA_M[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000003, 0 }, /* PortA, B Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSIACOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000003, 0, 0 }, /* PortA, B Enable */
 };
 
 /* Table for Playback(from PortB to PortA(FM Playback), CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_playBA_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000003, 0 }, /* 1:Select FSIAOBT/FSIAOLR
-					   * 1:Select FSIBOBT/FSIBOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSISEL,	 0x00000003, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR
+					      * 1:Select FSIBOBT/FSIBOLR */
 };
 
 /* Table for Capture(PortA, CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_captureA_M[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000200, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSIACOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000001, 0 }, /* PortA Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
+	{ CLKG_FSIACOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000001, 0, 0 }, /* PortA Enable */
 };
 
 /* Table for Capture(PortA, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000200, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSISEL,	 0x00000001, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
+	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
 /* Table for Capture(PortB, CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_captureB_M[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212801, 0 }, /* 2ch, 64fs, 44.1kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0 }, /* PortB Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
 };
 
 /* Table for Capture(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000002, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSISEL,	 0x00000002, 0, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
 };
 
 /* Table for Voicecall(PortA, CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_TIMSEL0,	 0x00000002, 0 }, /* VOTIM(PortA) */
-	{ CLKG_TIMSEL1,	 0x00000200, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSIACOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000011, 0 }, /* SPUV / PortA Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_SPUVCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000002, 0, 0 }, /* VOTIM(PortA) */
+	{ CLKG_TIMSEL1,	 0x00000200, 0, 0 }, /* REC TIM1(PortA) */
+	{ CLKG_FSIACOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000011, 0, 0 }, /* SPUV / PortA Enable */
 };
 
 #if 0
 /* Table for Voicecall(PortA, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL0,	 0x00000002, 0 }, /* VOTIM(PortA) */
-	{ CLKG_TIMSEL1,	 0x00000200, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSISEL,	 0x00000011, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
-					   * CSELA 1:Select FSIAOBT/FSIAOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL0,	 0x00000002, 0, 0 }, /* VOTIM(PortA) */
+	{ CLKG_TIMSEL1,	 0x00000200, 0, 0 }, /* REC TIM1(PortA) */
+	{ CLKG_FSISEL,	 0x00000011, 0, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
+					      * CSELA 1:Select FSIAOBT/FSIAOLR */
 };
 #endif
 
 /* Table for Voicecall(PortB, CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_TIMSEL0,	 0x00000004, 0 }, /* VOTIM(PortB) */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212401, 0 }, /* 2ch, 64fs, 16kHz, CLKGEN master,
-					   * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000012, 0 }, /* SPUV / PortB Enable */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_SPUVCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSIBCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
 };
 
 #if 0
 /* Table for Voicecall(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_voicecallB_S[] = {
-/*	  Register	 Value	     Delay time */
-	{ CLKG_SYSCTL,	 0x00000000, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL0,	 0x00000004, 0 }, /* VOTIM(PortB) */
-	{ CLKG_TIMSEL1,	 0x00000000, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000012, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
-					   * CSELB 1:Select FSIAOBT/FSIAOLR */
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSISEL,	 0x00000012, 0, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
+					      * CSELB 1:Select FSIAOBT/FSIAOLR */
 };
 #endif
 

@@ -742,35 +742,34 @@ void vcd_spuv_func_send_ack(void)
 void vcd_spuv_func_get_fw_request(void)
 {
 	int i = 0;
-	unsigned int addr = 0;
+	unsigned long flags;
+	unsigned int read_addr = 0;
+	unsigned int *addr = 0;
 	int length = 0;
-	int *fw_req = (int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
+	unsigned int *fw_req =
+		(unsigned int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
 
 	vcd_pr_start_spuv_function();
 
-	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM0, addr);
+	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM0, read_addr);
 	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM1, length);
-	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM0[%08x].\n", addr);
+	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM0[%08x].\n", read_addr);
 	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM1[%08x].\n", length);
 
-#if 0
-	spin_lock_irqsave(&clock_lock, flags);
-#endif
+	flags = pm_get_spinlock();
 
-	if ((0 != addr) && (0 != length)) {
-		addr = g_spuv_func_xram_base_top +
-			(addr * VCD_SPUV_FUNC_WORD_TO_BYTE);
+	if ((0 != read_addr) && (0 != length)) {
+		addr = (unsigned int *)(g_spuv_func_xram_base_top +
+			(read_addr * VCD_SPUV_FUNC_WORD_TO_BYTE));
 		for (i = 0; i < length; i++) {
-			fw_req[i] = *((int *)addr);
+			fw_req[i] = *addr;
 			fw_req[i] = ((fw_req[i] >> VCD_SPUV_FUNC_BIT_SHIFT) &
 					VCD_SPUV_FUNC_COM2_MASK);
-			addr += VCD_SPUV_FUNC_NEXT_ADDR;
+			addr++;
 		}
 	}
 
-#if 0
-	spin_unlock_irqrestore(&clock_lock, flags);
-#endif
+	pm_release_spinlock(flags);
 
 	vcd_pr_end_spuv_function();
 	return;

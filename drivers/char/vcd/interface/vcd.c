@@ -468,7 +468,7 @@ static int vcd_start_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_start_record().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_RECORD.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -522,7 +522,7 @@ static int vcd_stop_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_stop_record().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_RECORD.\n");
 
 	/* initialize variable */
 	g_vcd_complete_buffer	= NULL;
@@ -551,7 +551,7 @@ static int vcd_start_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_start_playback().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_PLAYBACK.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -605,7 +605,7 @@ static int vcd_stop_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_stop_playback().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_PLAYBACK.\n");
 
 	/* initialize variable */
 	g_vcd_beginning_buffer	= NULL;
@@ -633,7 +633,7 @@ static int vcd_get_record_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_get_record_buffer().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_RECORD_BUFFER.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -666,7 +666,7 @@ static int vcd_get_playback_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_get_playback_buffer().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_PLAYBACK_BUFFER.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -699,7 +699,7 @@ static int vcd_watch_stop_fw(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_watch_stop_fw().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_STOP_FW.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -732,7 +732,7 @@ static int vcd_watch_start_clkgen(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : vcd_watch_start_clkgen().\n");
+	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_START_CLKGEN.\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1068,6 +1068,13 @@ rtn:
 }
 
 
+/**
+ * @brief	debug execute function.
+ *
+ * @param[in]	command	execute command.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_debug_execute(unsigned int command)
 {
 	int ret = VCD_ERR_NONE;
@@ -1118,7 +1125,6 @@ static int vcd_debug_execute(unsigned int command)
 	goto rtn;
 
 debug:
-
 	/* enable dump log_level */
 	temp_log_level = g_vcd_log_level;
 	g_vcd_log_level = g_vcd_log_level | VCD_LOG_REGISTERS_DUMP;
@@ -1197,6 +1203,14 @@ rtn:
 	return ret;
 }
 
+
+/**
+ * @brief	record buffer update debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
 static void vcd_debug_complete_buffer(void)
 {
 	vcd_pr_start_interface_function();
@@ -1204,6 +1218,13 @@ static void vcd_debug_complete_buffer(void)
 }
 
 
+/**
+ * @brief	playback buffer update debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
 static void vcd_debug_beginning_buffer(void)
 {
 	vcd_pr_start_interface_function();
@@ -1211,6 +1232,13 @@ static void vcd_debug_beginning_buffer(void)
 }
 
 
+/**
+ * @brief	firmware stop notify debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
 static void vcd_debug_watch_fw(void)
 {
 	vcd_pr_start_interface_function();
@@ -1321,6 +1349,13 @@ static void vcd_remove_proc_entry(void)
 /* Driver functions                                                          */
 /* ========================================================================= */
 
+/**
+ * @brief	module init function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_probe(void)
 {
 	int ret = VCD_ERR_NONE;
@@ -1368,6 +1403,13 @@ rtn:
 }
 
 
+/**
+ * @brief	module exit function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
 static void vcd_remove(void)
 {
 	vcd_pr_start_interface_function();
@@ -1389,6 +1431,13 @@ static void vcd_remove(void)
 }
 
 
+/**
+ * @brief	suspend notification receive function.
+ *
+ * @param	dev	unused.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_suspend(struct device *dev)
 {
 	int ret = VCD_ERR_NONE;
@@ -1413,6 +1462,13 @@ static int vcd_suspend(struct device *dev)
 }
 
 
+/**
+ * @brief	resume notification receive function.
+ *
+ * @param	dev	unused.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_resume(struct device *dev)
 {
 	int ret = VCD_ERR_NONE;
@@ -1434,6 +1490,13 @@ static int vcd_resume(struct device *dev)
 }
 
 
+/**
+ * @brief	runtime suspend notification receive function.
+ *
+ * @param	dev	unused.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_runtime_suspend(struct device *dev)
 {
 	int ret = VCD_ERR_NONE;
@@ -1458,6 +1521,13 @@ static int vcd_runtime_suspend(struct device *dev)
 }
 
 
+/**
+ * @brief	runtime resume notification receive function.
+ *
+ * @param	dev	unused.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_runtime_resume(struct device *dev)
 {
 	int ret = VCD_ERR_NONE;
@@ -1479,18 +1549,42 @@ static int vcd_runtime_resume(struct device *dev)
 }
 
 
+/**
+ * @brief	file operations open function.
+ *
+ * @param	inode	unused.
+ * @param	filp	unused.
+ *
+ * @retval	VCD_ERR_NONE	result.
+ */
 static int vcd_fops_open(struct inode *inode, struct file *filp)
 {
 	return VCD_ERR_NONE;
 }
 
 
+/**
+ * @brief	file operations release function.
+ *
+ * @param	inode	unused.
+ * @param	filp	unused.
+ *
+ * @retval	VCD_ERR_NONE	result.
+ */
 static int vcd_fops_release(struct inode *inode, struct file *filp)
 {
 	return VCD_ERR_NONE;
 }
 
 
+/**
+ * @brief	file operations mmap function.
+ *
+ * @param	fp	file struct.
+ * @param	vma	vm area struct.
+ *
+ * @retval	ret	result.
+ */
 static int vcd_fops_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	int ret = VCD_ERR_NONE;
@@ -1502,6 +1596,13 @@ static int vcd_fops_mmap(struct file *fp, struct vm_area_struct *vma)
 }
 
 
+/**
+ * @brief	module init function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
 static int __init vcd_module_init(void)
 {
 	int ret = VCD_ERR_NONE;
@@ -1514,6 +1615,14 @@ static int __init vcd_module_init(void)
 	return ret;
 }
 
+
+/**
+ * @brief	module exit function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
 static void __exit vcd_module_exit(void)
 {
 	vcd_pr_start_interface_function();
@@ -1522,6 +1631,7 @@ static void __exit vcd_module_exit(void)
 
 	vcd_pr_end_interface_function();
 }
+
 
 module_init(vcd_module_init);
 module_exit(vcd_module_exit);

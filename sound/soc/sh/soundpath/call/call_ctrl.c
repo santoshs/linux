@@ -139,13 +139,8 @@ int call_playback_start(struct snd_pcm_substream *substream)
 	/* Start speech playback */
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_PLAYBACK\n");
 
-#if 0 /* for 0525 release only */
-
 	ret = call_vcd_execute((int)VCD_COMMAND_START_PLAYBACK,
 			       (void *)&vcd_ply_opt);
-#else
-	ret = -1;
-#endif /* for 0525 release only */
 
 	if (ERROR_NONE != ret) {
 		sndp_log_err("VCD_COMMAND_START_PLAYBACK return (code=%d)\n",
@@ -246,13 +241,8 @@ int call_record_start(struct snd_pcm_substream *substream)
 	/* Start speech record */
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_RECORD\n");
 
-#if 0 /* for 0525 release only */
-
 	ret = call_vcd_execute((int)VCD_COMMAND_START_RECORD,
 			       (void *)&vcd_rec_opt);
-#else
-	ret = -1;
-#endif /* for 0525 release only */
 
 	if (ERROR_NONE != ret) {
 		sndp_log_err("Error COMMAND_START_RECORD(code=%d)\n", ret);

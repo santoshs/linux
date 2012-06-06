@@ -98,210 +98,215 @@ static struct ctrl_func_tbl g_fsi_func_tbl[] = {
 };
 
 
+/*
+ * Register Table Definisions
+ */
+
+/* [Table summary] Reg=Register, Val=Value, D=Delay time, C=Clear bit */
 #if 0
 /* Table for Voice call(PortA, FSI master) */
 static struct common_reg_table fsi_reg_tbl_voicecallA_M[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* Divider clock 1 / 12 (49.174 / 12 = 4.098MHz) */
-	{ FSI_FSIDIVA,	0x000C0003,	0 },
+	{ FSI_FSIDIVA,	0x000C0003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Master, DOIS:Master, 16.01kHz(4.098M/256) */
-	{ FSI_ACK_MD,	0x00001111,	0 },
+	{ FSI_ACK_MD,	0x00001111,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ FSI_ACK_RV,	0x00000100,	0 },
+	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
-	{ FSI_DO_FMT,	0x00000030,	0 },
+	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
-	{ FSI_DI_FMT,	0x00000030,	0 },
+	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 #endif
 
 /* Table for Voice call(PortA, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_voicecallA_S[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ FSI_ACK_MD,	0x00000100,	0 },
+	{ FSI_ACK_MD,	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0 },
+	{ FSI_ACK_RV,	0x00000001,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
-	{ FSI_DO_FMT,	0x00000030,	0 },
+	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
-	{ FSI_DI_FMT,	0x00000030,	0 },
+	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 
 #if 0
 /* Table for Voice call(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_voicecallB_M[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* Divider clock 1 / 12 (49.174 / 12 = 4.098MHz) */
-	{ FSI_FSIDIVB,				0x000C0003,	0 },
+	{ FSI_FSIDIVB,				0x000C0003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Master, DOIS:Master, 16.01kHz(4.098M/256) */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001111,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001111,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 #endif
 
 /* Table for Voice call(PortB, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_voicecallB_S[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 /* Table for Playback(PortA, FSI master) */
 static struct common_reg_table fsi_reg_tbl_playA_M[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVA,	0x00020003,	0 },
+	{ FSI_FSIDIVA,	0x00020003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ FSI_ACK_MD,	0x00001101,	0 },
+	{ FSI_ACK_MD,	0x00001101,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ FSI_ACK_RV,	0x00000100,	0 },
+	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DO_FMT,	0x00000030,	0 },
+	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 
 /* Table for Playback(PortA, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_playA_S[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ FSI_ACK_MD,	0x00000100,	0 },
+	{ FSI_ACK_MD,	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0 },
+	{ FSI_ACK_RV,	0x00000001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DO_FMT,	0x00000030,	0 },
+	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0 },
+	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 
 /* Table for Playback(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_playB_M[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVB,				0x00020003,	0 },
+	{ FSI_FSIDIVB,				0x00020003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001101,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001101,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 /* Table for Playback(PortB, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_playB_S[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 /* Table for Capture(PortA, FSI master) */
 static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVA,	0x00020003,	0 },
+	{ FSI_FSIDIVA,	0x00020003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ FSI_ACK_MD,	0x00001110,	0 },
+	{ FSI_ACK_MD,	0x00001110,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ FSI_ACK_RV,	0x00000100,	0 },
+	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0 },
+	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 
 /* Table for Capture(PortA, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_captureA_S[] = {
-/*	  Register	Value		Delay time */
+/*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0 },
+	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ FSI_ACK_MD,	0x00000100,	0 },
+	{ FSI_ACK_MD,	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0 },
+	{ FSI_ACK_RV,	0x00000001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0 },
+	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0 },
+	{ FSI_MUTE,	0x00001111,	0, 0 },
 };
 
 /* Table for Capture(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVB,				0x00020003,	0 },
+	{ FSI_FSIDIVB,				0x00020003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001110,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001110,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 /* Table for Capture(PortB, FSI slave) */
 static struct common_reg_table fsi_reg_tbl_captureB_S[] = {
-/*	  Register				Value		Delay time */
+/*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0 },
+	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0 },
+	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 
