@@ -43,6 +43,14 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id );
 static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id );
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id );
 
+static smc_lock_t* g_local_lock_sleep_control           = NULL;
+
+static inline smc_lock_t* get_local_lock_sleep_control(void)
+{
+    if( g_local_lock_sleep_control == NULL ) g_local_lock_sleep_control = smc_lock_create();
+    return g_local_lock_sleep_control;
+}
+
 /* =============================================================
  * SMC Interrupt platform specific implementations
  */
@@ -152,14 +160,16 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
         signal->interrupt_id, genios);
 
-        SMC_HOST_ACCESS_WAKEUP(NULL);
+        SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control() );
 
             // TODO Use GOP001 STR variable name for CLEAR
+
+        genios |= __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
+
         __raw_writel( genios, ((void __iomem *)(signal->peripheral_address + 8 )) );
+        __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
 
-        __raw_readl( ((void __iomem *)signal->peripheral_address) );
-
-        SMC_HOST_ACCESS_SLEEP(NULL);
+        SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
     }
 
     return IRQ_HANDLED;
@@ -244,18 +254,31 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
         if( signal->peripheral_address != 0 )
         {
             uint32_t genios = (1UL << ((signal->interrupt_id-SMC_MODEM_INTGEN_L2_FIRST) + SMC_MODEM_INTGEN_L2_OFFSET));
-
+            uint32_t counter = 0;
             SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
             signal->interrupt_id, genios);
 
-            SMC_HOST_ACCESS_WAKEUP(NULL);
+            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control() );
 
                 // TODO Use GOP001 STR variable names
+            genios |= __raw_readl( ((void __iomem *)(signal->peripheral_address+4)) );
             __raw_writel( genios, ((void __iomem *)(signal->peripheral_address+4)) );
 
-            __raw_readl( ((void __iomem *)signal->peripheral_address) );
+            __raw_readl( ((void __iomem *)(signal->peripheral_address+4)) );
 
-            SMC_HOST_ACCESS_SLEEP(NULL);
+            /*
+            while(  (__raw_readl((void __iomem *)(signal->peripheral_address+4))&genios) != genios  )
+            {
+                if( counter++ > 0xFFFFFF )
+                {
+                    SMC_TRACE_PRINTF_UI("ERROR: smc_signal_raise: SIGNAL 0x%08X in reg 0x%08X not raised within decent time", genios,
+                            __raw_readl((void __iomem *)(signal->peripheral_address+4)));
+                    break;
+                }
+            }
+            */
+
+            SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
         }
         else
         {

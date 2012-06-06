@@ -66,6 +66,7 @@ Description :  File created
 #define SMC_TRACE_TIMER_ENABLED
 */
 
+
 /**
  * ----------- R&D Trace macros begin ---------------
  */
@@ -189,7 +190,7 @@ Description :  File created
 
 
 #ifdef SMC_TRACE_ERROR_ENABLED
-  #define SMC_TRACE_PRINTF_ERROR(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"ERR:  " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_ERROR(...)                 SMC_TRACE_PRINTF_ALWAYS( SMC_RD_TRACE_PREFIX"ERR:  " __VA_ARGS__ )
   #define SMC_TRACE_PRINTF_ERROR_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
 #else
   #define SMC_TRACE_PRINTF_ERROR(...)

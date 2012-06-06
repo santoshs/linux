@@ -15,6 +15,10 @@
 /*
 Change history:
 
+Version:       10   06-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  New SHM SDRAM memory mapping for the EOS2 ES2.0
+
 Version:       1    03-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  File created
@@ -78,15 +82,17 @@ Description :  File created
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
-//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x4C001000
-//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44000000
-//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x45000000
-#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
+//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
+//#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x43FFFFFF
+
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44001000
+#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x44800FFF
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
 #define SMC_CONF_CONTROL_SHM_START_ES20                      (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_CONTROL_SHM_START_OFFSET_ES20)
 #define SMC_CONF_CONTROL_SHM_SIZE_ES20                       (1024*200)                  /* 200kB */
+
     /* SHM Area for L2MUX */
 #define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
 #define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)

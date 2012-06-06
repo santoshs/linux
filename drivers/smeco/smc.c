@@ -167,7 +167,7 @@ char* smc_version_to_str(uint32_t version)
         }
     }
 
-    version_str = (char*)SMC_MALLOC(str_len);
+    version_str = (char*)SMC_MALLOC_IRQ(str_len);
 
     temp_str = smc_utoa( v1 );
     strcpy( version_str, temp_str );
@@ -333,7 +333,7 @@ char* smc_utoa(uint32_t i)
         divider_counter--;
     }
 
-    int_str = (char*)SMC_MALLOC(strlen(temp)+1);
+    int_str = (char*)SMC_MALLOC_IRQ(strlen(temp)+1);
 
     strcpy(int_str, temp);
 
@@ -395,7 +395,7 @@ static inline void* smc_allocate_local_ptr( const smc_channel_t* smc_channel, ui
     else
     {
         SMC_TRACE_PRINTF_INFO("smc_allocate_local_ptr: Channel %d (0x%08X) allocating from OS", smc_channel->id, (uint32_t)smc_channel);
-        ptr = (void*)SMC_MALLOC( size );
+        ptr = (void*)SMC_MALLOC_IRQ( size );
     }
 
     SMC_TRACE_PRINTF_INFO("smc_allocate_local_ptr: Channel %d (0x%08X) allocated ptr 0x%08X", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr);
@@ -620,7 +620,7 @@ static inline uint8_t smc_handle_fifo_event(smc_channel_t* channel, SMC_CHANNEL_
     {
 #ifdef SMECO_MODEM
         /* TODO Modem side timer implementation */
-        SMC_TRACE_PRINTF_ASSERT("Channel %d: SMC FIFO 0x%08X full: Remote host does not read messages, CPU probably halted",
+        SMC_TRACE_PRINTF_ASSERT("Channel %d: SMC FIFO 0x%08X full: Remote host does not read messages, remote CPU probably halted",
             channel->id, (uint32_t)channel->fifo_out);
         assert(0);
 #endif
@@ -782,15 +782,6 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
         {
             void* mdb_ptr = NULL;
 
-            /* ========================================
-             * Critical section begins
-             *
-             */
-            //SMC_LOCK_IRQ( channel->lock_write );
-            // TODO LOCK CHECK
-
-            /* Execute the MDB functions for copying */
-
             if( data_length > 0 )
             {
                 if( SMC_COPY_SCHEME_SEND_IS_COPY( channel->copy_scheme ) )
@@ -845,7 +836,7 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                         {
                             SMC_TRACE_PRINTF_ERROR("smc_send_ext: Channel %d: MDB allocation failed, out of SHM memory", channel->id);
 
-                            /* Buffer the original pointer */
+                                /* Buffer the original pointer */
                             return_value = smc_channel_buffer_fifo_message(channel, data, data_length, userdata);
 
                             if( return_value != SMC_OK )
@@ -875,7 +866,6 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
 
                     /* Check that the data pointer is not dedicated to other use */
                     /* TODO Move event data to userdata field 1 */
-                //if( !SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER( userdata->flags ) )
                 if( SMC_INTERNAL_MESSAGE_DATA_ADDRESS_TRANSLATE( userdata->flags ) )
                 {
                     SMC_TRACE_PRINTF_SEND_PACKET("send %d bytes of data from SHM 0x%08X", data_length, (uint32_t)mdb_ptr);
@@ -924,7 +914,7 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                 }
                 else if( return_value == SMC_FIFO_ERROR_FIFO_FULL )
                 {
-                    /* The MDB address must be translated back */
+                        /* The MDB address must be translated back */
                     if( SMC_INTERNAL_MESSAGE_DATA_ADDRESS_TRANSLATE( userdata->flags ) )
                     {
                         mdb_ptr = (void*)smc_local_address_translate( channel, (uint32_t)mdb_ptr, userdata->flags );
@@ -949,13 +939,6 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
             {
                 SMC_TRACE_PRINTF_ERROR("smc_send_ext: Channel %d: MDB ptr is NULL", channel->id);
             }
-
-            // TODO CHECK LOCK
-            //SMC_UNLOCK_IRQ( channel->lock_write );
-            /*
-             * Critical section ends
-             * ========================================
-             */
         }
         else
         {
@@ -1071,8 +1054,6 @@ uint8_t smc_channel_enable_receive_mode( smc_channel_t* smc_channel, uint8_t ena
      * ========================================
      */
 
-
-
     SMC_TRACE_PRINTF_DEBUG("smc_channel_enable_receive_mode: channel %d (0x%08X) %s %s",
                 smc_channel->id, (uint32_t)smc_channel, ((enable_receive==TRUE)?"ENABLED":"DISABLED"),
                 ((ret_val==SMC_OK)?"OK":"FAILED"));
@@ -1103,13 +1084,13 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
             return;
         }
 
-
         if( smc_channel->fifo_in != NULL )
         {
             int32_t fifo_count = SMC_FIFO_READ_TO_EMPTY;
 
                 /* Read the data from FIFO -> Read until empty */
-            while( fifo_count >= SMC_FIFO_READ_TO_EMPTY )
+            // HS_TEST while( fifo_count >= SMC_FIFO_READ_TO_EMPTY )
+            do
             {
                 smc_fifo_cell_t celldata;
                 smc_user_data_t userdata;
@@ -1220,7 +1201,7 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                             if( smc_channel->smc_event_cb )
                             {
                                 /* Read the version from user data field 1 */
-                                uint32_t* version_info = (uint32_t*)SMC_MALLOC( sizeof( uint32_t ) );
+                                uint32_t* version_info = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t ) );
 
                                 *version_info = celldata.userdata1;
 
@@ -1261,12 +1242,8 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                         {
                             if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( smc_channel->copy_scheme ) )
                             {
-                                //uint8_t result = SMC_ERROR;
-
                                 SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: channel %d: copy scheme detected, check address 0x%08X", smc_channel->id, (uint32_t)data);
 
-                                //result = smc_mdb_address_check(smc_channel, data, SMC_MDB_IN);
-                                //if (result == SMC_OK)
                                 if( SMC_MDB_ADDRESS_IN_POOL_IN( data, smc_channel->smc_mdb_info ))
                                 {
                                     smc_user_data_t userdata_free;
@@ -1373,6 +1350,7 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                     SMC_TRACE_PRINTF_INFO("smc_channel_interrupt_handler: channel %d (0x%08X) FIFO 0x%08X is empty", smc_channel->id, (uint32_t)smc_channel, (uint32_t)smc_channel->fifo_in);
                 }
             }   /* while( fifo_count >= IPC2_FIFO_READ_TO_EMPTY ) */
+            while( fifo_count > SMC_FIFO_READ_TO_EMPTY );
         }
         else
         {
