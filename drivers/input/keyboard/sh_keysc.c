@@ -425,6 +425,7 @@ static int sh_keysc_suspend(struct device *dev)
 static int sh_keysc_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
+        struct sh_keysc_priv *priv = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
 
 	if (device_may_wakeup(dev))
