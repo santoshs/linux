@@ -118,6 +118,50 @@ static void gpio_pull(u32 addr, int type)
 	__raw_writeb(data, addr);
 }
 
+static DEFINE_SPINLOCK(io_lock);//for modify register
+
+/*===================*/
+/*  modify register  */
+/*===================*/
+void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
+{
+        unsigned long flags;
+        u8 val;
+        spin_lock_irqsave(&io_lock, flags);
+        val = *(volatile u8 *)addr;
+        val &= ~clear;
+        val |= set;
+        *(volatile u8 *)addr = val;
+        spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register8);
+
+void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
+{
+        unsigned long flags;
+        u16 val;
+        spin_lock_irqsave(&io_lock, flags);
+        val = *(volatile u16 *)addr;
+        val &= ~clear;
+        val |= set;
+        *(volatile u16 *)addr = val;
+        spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register16);
+
+void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
+{
+        unsigned long flags;
+        u32 val;
+        spin_lock_irqsave(&io_lock, flags);
+        val = *(volatile u32 *)addr;
+        val &= ~clear;
+        val |= set;
+        *(volatile u32 *)addr = val;
+        spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register32);
+
 static struct resource smsc9220_resources[] = {
 	{
 		.start	= 0x00080000,

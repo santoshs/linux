@@ -62,6 +62,10 @@ extern void sh73a0_secondary_init(unsigned int cpu);
 extern int sh73a0_boot_secondary(unsigned int cpu);
 extern void sh73a0_smp_prepare_cpus(void);
 
+extern void sh_modify_register8(unsigned int, u8, u8);
+extern void sh_modify_register16(unsigned int, u16, u16);
+extern void sh_modify_register32(unsigned int, u32, u32);
+
 extern unsigned int r8a73734_get_core_count(void);
 extern void r8a73734_secondary_init(unsigned int cpu);
 extern int r8a73734_boot_secondary(unsigned int cpu);
