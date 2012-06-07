@@ -301,10 +301,31 @@ static struct resource i2c2_resources[] = {
 	},
 };
 
-static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
+//ES2.0 change start
+static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
 };
 
+static struct resource i2c3_resources[] = {
+	[0] = {
+		.name	= "IIC3",
+		.start	= 0xe6826000,
+		.end	= 0xe6826425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(187),
+		.end	= gic_spi(187),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+//ES2.0 change stop
+
+
+static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
+	.bus_speed	= 400000,
+};
+//IIC0H
 static struct resource i2c4_resources[] = {
 	[0] = {
 		.name	= "IIC4",
@@ -322,7 +343,7 @@ static struct resource i2c4_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 };
-
+//IIC1H
 static struct resource i2c5_resources_es10[] = {
 	[0] = {
 		.name	= "IIC5",
@@ -356,8 +377,6 @@ static struct resource i2c5_resources_es20[] = {
 	},
 };
 
-
-
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.bus_speed	= 400000,
 };
@@ -375,6 +394,44 @@ static struct resource i2c6_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+
+//ES2.0 change start
+static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
+	.bus_speed	= 400000,
+};
+//IIC2H
+static struct resource i2c7_resources[] = {
+	[0] = {
+		.name	= "IIC7",
+		.start	= 0xe682c000,
+		.end	= 0xe682c425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(128),
+		.end	= gic_spi(128),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
+	.bus_speed	= 400000,
+};
+//IIC3H
+static struct resource i2c8_resources[] = {
+	[0] = {
+		.name	= "IIC8",
+		.start	= 0xe682e000,
+		.end	= 0xe682e425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(181),
+		.end	= gic_spi(181),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+//ES2.0 change end
 
 static struct platform_device i2c0_device = {
 	.name		= "i2c-sh_mobile",
@@ -405,6 +462,18 @@ static struct platform_device i2c2_device = {
 		.platform_data	= &i2c2_platform_data,
 	},
 };
+
+//ES2.0 change start
+static struct platform_device i2c3_device= {
+	.name		= "i2c-sh_mobile",
+	.id		= 3,
+	.resource	= i2c3_resources,
+	.num_resources	= ARRAY_SIZE(i2c3_resources),
+	.dev		= {
+		.platform_data	= &i2c3_platform_data,
+	},
+};
+//ES2.0 change end
 
 static struct platform_device i2c4_device = {
 	.name		= "i2c-sh_mobile",
@@ -445,6 +514,28 @@ static struct platform_device i2c6_device = {
 		.platform_data	= &i2c6_platform_data,
 	},
 };
+
+// ES2.0 change start
+static struct platform_device i2c7_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 7,
+	.resource	= i2c7_resources,
+	.num_resources	= ARRAY_SIZE(i2c7_resources),
+	.dev		= {
+		.platform_data	= &i2c7_platform_data,
+	},
+};
+
+static struct platform_device i2c8_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 8,
+	.resource	= i2c8_resources,
+	.num_resources	= ARRAY_SIZE(i2c8_resources),
+	.dev		= {
+		.platform_data	= &i2c8_platform_data,
+	},
+};
+//ES2.0 change end
 
 /* Transmit sizes and respective CHCR register values */
 enum {
@@ -786,6 +877,7 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&scif6_device,
 };
 
+#if 0
 static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c0_device,
 	&i2c1_device,
@@ -799,20 +891,62 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&smc_netdevice1,
 #endif
 };
-
+#endif
 // HS-- ES10 Specific late devices
 static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
-	&i2c5_device_es10,
+    &i2c0_device,
+    &i2c1_device,
+    &i2c2_device,
+    &i2c4_device,
+    &i2c5_device_es10,
+    &i2c6_device,
+    &dma0_device,
+#ifdef CONFIG_SMECO
+    &smc_netdevice0,
+    &smc_netdevice1,
+#endif
 };
 
 // HS-- ES20 Specific late devices
 static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
-	&i2c5_device_es20,
+    &i2c0_device,
+    &i2c1_device,
+    &i2c2_device,
+    &i2c3_device,
+    &i2c4_device,
+    &i2c5_device_es20,
+    &i2c6_device,
+    &i2c7_device,
+    &i2c8_device,
+    &dma0_device,
+#ifdef CONFIG_SMECO
+    &smc_netdevice0,
+    &smc_netdevice1,
+#endif
 };
 
 void __init r8a73734_add_standard_devices(void)
 {
+
 	platform_add_devices(r8a73734_early_devices,
+			ARRAY_SIZE(r8a73734_early_devices));
+//ES2.0 change start
+
+	if ((system_rev & 0xFF) == 0x00)
+	{
+		platform_add_devices(r8a73734_late_devices_es10,
+				ARRAY_SIZE(r8a73734_late_devices_es10));
+	
+	}
+	else
+	{
+		platform_add_devices(r8a73734_late_devices_es20,
+				ARRAY_SIZE(r8a73734_late_devices_es20)); 	  
+	
+	}
+//ES2.0 change end
+
+/*	platform_add_devices(r8a73734_early_devices,
 			ARRAY_SIZE(r8a73734_early_devices));
 	platform_add_devices(r8a73734_late_devices,
 			ARRAY_SIZE(r8a73734_late_devices));
@@ -828,7 +962,7 @@ void __init r8a73734_add_standard_devices(void)
 		printk("Loading ES10 late devices...\n");
 		platform_add_devices(r8a73734_late_devices_es10,
 			ARRAY_SIZE(r8a73734_late_devices_es10));
-	}
+	} */
 }
 
 #define CCCR	IO_ADDRESS(0xe600101c)
