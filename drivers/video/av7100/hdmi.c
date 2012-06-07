@@ -111,13 +111,11 @@ static int hdcp_chkaesotp(u8 *progged)
 		dev_err(hdmidev, "av7100_conf_prep FAIL\n");
 		return -EFAULT;
 	}
-	
 	/*Write new configuration to AV7100*/
 	if (av7100_conf_w(AV7100_COMMAND_FUSE_AES_KEY, &buf_len, buf,I2C_INTERFACE) != 0) {
 		dev_err(hdmidev, "av7100_conf_w FAIL\n");
 		return -EFAULT;
 	}
-	
 	/*Check result of AESOTP key reading*/
 	if (buf_len == 2) {
 		if (progged) {
@@ -1193,6 +1191,7 @@ void hdmi_event(enum av7100_hdmi_event ev)
 	enum av7100_output_CEA_VESA av7100_output_format;
 	int set_format_result = 0;	
 	u8 oni = 0;
+#if 0
 	u8 hdcpi = 0;
 	u8 hdcps = 0;
 	u8 progged = 0;
@@ -1203,6 +1202,7 @@ void hdmi_event(enum av7100_hdmi_event ev)
 	u8 crc1,crc2,crc3,crc4;
 
 	struct hdcp_loadaesone hdcp_loadaesone;
+#endif
 
 	LOCK_HDMI_EVENTS;
 
@@ -1245,6 +1245,7 @@ void hdmi_event(enum av7100_hdmi_event ev)
 					  return ;
 				        }
 
+#if 0
 					/* Check a secret AES-128 bit in AV8100 */
 					if(hdcp_chkaesotp(&progged)) {
 						key_programmed_flag = 0;
@@ -1329,14 +1330,16 @@ void hdmi_event(enum av7100_hdmi_event ev)
 							return;
 
 					}
-
+#endif
 					
 				}
 	
+#if 0
 				if(selectFormatEdidBased() != 0 ) {
 				   dev_err(hdmidev, "Edid based format selection failed\n");
 				   return ;
 				} 
+#endif
 
 				
 				setHdmiState(AV7100_HDMI_ON);  
