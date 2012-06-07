@@ -21,7 +21,14 @@
 #ifndef __SH_MOBILE_APPMEM_H_
 #define __SH_MOBILE_APPMEM_H_
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_APPMEM_SHAREMANGER
+/*===============================================================*/
+/* include                                                     */
+/*===============================================================*/
+#include <linux/mm.h>
 
+/*===============================================================*/
+/* structure                                                     */
+/*===============================================================*/
 struct appmem_handle {
 	void *memhandle;
 	int   app_id;
@@ -34,6 +41,9 @@ struct appmem_handle {
 	unsigned char    *vaddr;
 	unsigned long    rtaddr;
 	int              ref_count;
+
+	unsigned int     op_apaddr;
+	struct page      **op_pages;
 };
 
 /*===============================================================*/
@@ -55,6 +65,28 @@ extern void sh_mobile_appmem_debugmode(int mode);
 
 #define sh_mobile_appmem_getmemoryhandle(HANDLE)  \
 	((HANDLE) ? ((HANDLE)->memhandle) : (void *)0)
+
+/*===============================================================*/
+/* structure                                                     */
+/*===============================================================*/
+struct rtmem_phys_handle {
+	/* following argument is reserved */
+	struct list_head list;
+
+	int              size;
+	unsigned long    rt_addr;
+	unsigned long    phys_addr;
+};
+
+/*===============================================================*/
+/* external functions                                            */
+/*===============================================================*/
+extern struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
+	int size, unsigned long addr);
+extern void sh_mobile_rtmem_physarea_unregister(
+	struct rtmem_phys_handle *handle);
+extern unsigned long sh_mobile_rtmem_conv_phys2rtmem(unsigned long addr);
+extern unsigned long sh_mobile_rtmem_conv_rt2physmem(unsigned long addr);
 
 #endif
 /* end CONFIG_MISC_R_MOBILE_COMPOSER_APPMEM_SHAREMANGER */

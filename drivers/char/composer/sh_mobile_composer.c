@@ -46,13 +46,13 @@ static int debug;    /* default debug level */
 
 #define   INTERNAL_DEBUG   0	/* enable debug interface        */
 				/*   0: none                     */
-				/*   1: enable debug.            */
-				/*   2: enable debug with trace. */
+				/*   1: enable trace.            */
 
 #define   _TIME_DBG  0		/* generate report processing time. */
 #define   _LOG_DBG   1		/* generate debug log.              */
 #define   _ERR_DBG   2		/* generate error log.              */
 
+/*#define   DEBUG_NO_USE_TIMER      */  /* not use add_timer */
 /*#define   DEBUG_DUMP_IMAGE_ADDRESS*/  /* dump image data */
 
 /******************************************************/
@@ -123,8 +123,18 @@ static int  chk_ioc_start(struct composer_fh *fh);
 
 static void notify_graphics_image_conv(int result, unsigned long user_data);
 static void notify_graphics_image_blend(int result, unsigned long user_data);
+#ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
+static void notify_graphics_image_output_dummy(
+	int result, unsigned long user_data);
+static void notify_graphics_image_blend_dummy(
+	int result, unsigned long user_data);
+static void notify_graphics_image_output(int result, unsigned long user_data);
+#endif
 static void callback_iocs_start(int result, void *user_data);
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void composer_blendoverlay_errorcallback(
+	struct composer_rh *rh);
+static void timeout_queue_process(unsigned long data);
 static void process_composer_queue_callback(struct composer_rh *rh);
 static int  queue_fb_address_mapping(void);
 static void callback_composer_queue(int result, void *user_data);
@@ -135,16 +145,25 @@ static void pm_early_suspend(struct early_suspend *h);
 static void pm_late_resume(struct early_suspend *h);
 #endif
 
+#if INTERNAL_DEBUG >= 1
+static void tracelog_record(int logclass, int line, int ID, int val);
+#endif
+
 /******************************************************/
 /* define local define                                */
 /******************************************************/
 #if INTERNAL_DEBUG >= 2
 #error not supported.
 #endif
-#define TRACE_ENTER(FH, ID)
-#define TRACE_LEAVE(FH, ID)
-#define TRACE_LOG(FH, ID)
-#define TRACE_LOG1(FH, ID, VAL1)
+#define TRACE_ENTER(ID)
+#define TRACE_LEAVE(ID)
+#define TRACE_LOG(ID)
+#define TRACE_LOG1(ID, VAL1)
+
+#if INTERNAL_DEBUG >= 1
+#define INTERNAL_LOG_MSG_SIZE 8192
+#define TRACELOG_SIZE         128
+#endif
 
 #define MAX_OPEN    32
 #define MAX_BUFFER  64
@@ -209,10 +228,45 @@ static void pm_late_resume(struct early_suspend *h);
 #define IDX_CH3LAYER    0x03
 #define IDX_CH4LAYER    0x04
 
+/* define for trace log */
+#if INTERNAL_DEBUG >= 1
+#define SEQID_NOMORE_LOG     65535
+#define ID_TRACE_ENTER       1
+#define ID_TRACE_LEAVE       2
+#define ID_TRACE_LOG         3
+#define ID_TRACE_LOG1        4
+#define FUNC_NONE            0x000
+#define FUNC_OPEN            0x010
+#define FUNC_CLOSE           0x011
+#define FUNC_QUEUE           0x012
+#define FUNC_BLEND           0x013
+#define FUNC_CALLBACK        0x014
+#define FUNC_HDMISET         0x015
+#define FUNC_WQ_CREATE       0x020
+#define FUNC_WQ_DELETE       0x021
+#define FUNC_WQ_BLEND        0x022
+#define FUNC_WQ_OVERLAY      0x023
+#define FUNC_WQ_EXPIRE       0x024
+#define FUNC_WQ_CREATE_HDMI  0x025
+#define FUNC_WQ_DELETE_HDMI  0x026
+
+#undef  TRACE_ENTER
+#undef  TRACE_LEAVE
+#undef  TRACE_LOG
+#undef  TRACE_LOG1
+
+#define TRACE_ENTER(ID)	tracelog_record(ID_TRACE_ENTER, __LINE__, ID, 0);
+#define TRACE_LEAVE(ID)	tracelog_record(ID_TRACE_LEAVE, __LINE__, ID, 0);
+#define TRACE_LOG(ID)	tracelog_record(ID_TRACE_LOG,   __LINE__, ID, 0);
+#define TRACE_LOG1(ID, VAL1) \
+	tracelog_record(ID_TRACE_LOG1, __LINE__, ID, VAL1);
+#endif
+
 /* macros for general error message */
 #if _ERR_DBG >= 2
 #define printk_err2(fmt, arg...) \
 	do { \
+		TRACE_LOG(FUNC_NONE); \
 		if (debug > 1) \
 			printk(KERN_ERR DEV_NAME ":E %s: " \
 				fmt, __func__, ## arg); \
@@ -225,6 +279,7 @@ static void pm_late_resume(struct early_suspend *h);
 #if _ERR_DBG >= 1
 #define printk_err1(fmt, arg...) \
 	do { \
+		TRACE_LOG(FUNC_NONE); \
 		if (debug > 0) \
 			printk(KERN_ERR DEV_NAME ":E %s: " \
 				fmt, __func__, ## arg); \
@@ -235,6 +290,7 @@ static void pm_late_resume(struct early_suspend *h);
 
 #define printk_err(fmt, arg...) \
 	do { \
+		TRACE_LOG(FUNC_NONE); \
 		printk(KERN_ERR DEV_NAME ":E %s: " fmt, __func__, ## arg); \
 	} while (0)
 
@@ -310,7 +366,7 @@ static int                    rtapi_hungup;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 static unsigned long          queue_fb_map_address;
 static unsigned long          queue_fb_map_endaddress;
-static unsigned long          queue_fb_map_RTaddress;
+static struct rtmem_phys_handle *queue_fb_map_handle;
 static DECLARE_WAIT_QUEUE_HEAD(kernel_waitqueue_comp);
 static DEFINE_SEMAPHORE(kernel_queue_sem);
 static LIST_HEAD(kernel_queue_top);
@@ -319,6 +375,16 @@ static struct composer_rh     *current_overlayrequest;
 static int                    overlay_draw_complete;
 #endif
 static struct composer_rh     kernel_request[MAX_KERNELREQ];
+static spinlock_t             irqlock_timer;
+static DEFINE_TIMER(kernel_queue_timer, \
+	timeout_queue_process, 0, 0);
+static struct localwork       expire_kernel_request;
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+static void                   *graphic_handle_hdmi;
+static struct localwork       del_graphic_handle_hdmi;
+static struct localwork       init_graphic_handle_hdmi;
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI */
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static int                    in_early_suspend;
@@ -326,6 +392,17 @@ static int                    in_early_suspend;
 
 static struct localwork       del_graphic_handle;
 static struct localwork       init_graphic_handle;
+
+#if INTERNAL_DEBUG >= 1
+static int         internal_log_seqid = -1;
+static char        *internal_log_msg;
+static int         internal_log_msgsize;
+static int         internal_log_length;
+static int         internal_log_remain;
+static int         log_tracebuf[TRACELOG_SIZE][3];
+static spinlock_t  log_irqlock;
+static int         log_tracebuf_wp;
+#endif
 
 /******************************************************/
 /* local functions                                    */
@@ -341,6 +418,8 @@ static void localwork_init(
 
 static void localworkquue_destroy(struct localworkqueue *wq)
 {
+	unsigned long flags;
+
 	if (wq == NULL) {
 		/* report error */
 		printk_err("invalid argument.\n");
@@ -351,7 +430,7 @@ static void localworkquue_destroy(struct localworkqueue *wq)
 
 		/* wakeup pending thread */
 		printk_dbg2(3, "spinlock\n");
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 
 		while (!list_empty(&wq->top)) {
 			struct list_head *list;
@@ -371,7 +450,7 @@ static void localworkquue_destroy(struct localworkqueue *wq)
 				list_del_init(&work->link);
 			}
 		}
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 
 		wake_up_interruptible_all(&wq->wait);
 
@@ -380,9 +459,10 @@ static void localworkquue_destroy(struct localworkqueue *wq)
 }
 
 
-static inline int localworkquue_thread(void *arg)
+static inline int localworkqueue_thread(void *arg)
 {
 	struct localworkqueue *wq = (struct localworkqueue *)arg;
+	unsigned long flags;
 
 	struct sched_param param = {.sched_priority = THREAD_PRIORITY};
 	sched_setscheduler(current, SCHED_FIFO, &param);
@@ -400,7 +480,7 @@ static inline int localworkquue_thread(void *arg)
 			break;
 
 		printk_dbg2(3, "spinlock\n");
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 		while (!list_empty(&wq->top)) {
 			work = list_first_entry(&wq->top,
 				struct localwork, link);
@@ -408,16 +488,16 @@ static inline int localworkquue_thread(void *arg)
 			printk_dbg2(3, "work:%p\n", work);
 
 			func = work->func;
-			spin_unlock(&wq->lock);
+			spin_unlock_irqrestore(&wq->lock, flags);
 
 			(*func)(work);
 
-			spin_lock(&wq->lock);
+			spin_lock_irqsave(&wq->lock, flags);
 			work->status = 1;
 			list_del_init(&work->link);
 			wake_up_all(&wq->finish);
 		}
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 	}
 
 	DBGLEAVE("\n");
@@ -441,7 +521,7 @@ static struct localworkqueue *localworkqueue_create(char *taskname)
 		init_waitqueue_head(&wq->wait);
 		init_waitqueue_head(&wq->finish);
 
-		wq->task = kthread_run(localworkquue_thread,
+		wq->task = kthread_run(localworkqueue_thread,
 				     wq,
 				     taskname);
 		if (IS_ERR(wq->task)) {
@@ -457,12 +537,13 @@ static struct localworkqueue *localworkqueue_create(char *taskname)
 static int localworkqueue_queue(
 	struct localworkqueue *wq, struct localwork *work)
 {
+	unsigned long flags;
 	int rc;
 	DBGENTER("wq:%p work:%p\n", wq, work);
 	if (wq && work) {
 		rc = 1;
 
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 		if (list_empty(&work->link)) {
 			list_add_tail(&work->link, &wq->top);
 			work->status = 0;
@@ -470,7 +551,7 @@ static int localworkqueue_queue(
 			printk_err2("work %p alredy queued.\n", work);
 			rc = 0;
 		}
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 
 		if (rc)
 			wake_up_interruptible(&wq->wait);
@@ -486,11 +567,12 @@ static int localworkqueue_queue(
 static void localworkqueue_flush(
 	struct localworkqueue *wq, struct localwork *work)
 {
+	unsigned long flags;
 	int rc = 0;
 	DBGENTER("wq:%p work:%p\n", wq, work);
 	if (wq && work) {
 		int wait = 0;
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 		if (work->status) {
 			/* wait is not necessary. */
 			printk_dbg2(3, "work %p finished.\n", work);
@@ -500,7 +582,7 @@ static void localworkqueue_flush(
 			rc = -EINVAL;
 		} else
 			wait = 1;
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 
 		if (wait) {
 			printk_dbg2(3, "wait complete of work %p\n", work);
@@ -1231,7 +1313,7 @@ int update_work_appshare(
 			}
 			app[i] = sh_mobile_appmem_share(appid[i], DEV_NAME);
 			if (app[i] == NULL) {
-				printk_err1("sh_mobile_appmem_share"
+				printk_err("sh_mobile_appmem_share"
 					" return by error\n");
 				rc = CMP_NG;
 			}
@@ -3235,8 +3317,8 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 #if _LOG_DBG > 1
 	unsigned long jiffies_s = jiffies;
-	int prev_state[4];
-#endif
+	int prev_state[MAX_KERNELREQ];
+#endif /* _LOG_DBG > 1 */
 #endif
 	DBGENTER("fh:%p\n", fh);
 
@@ -3272,7 +3354,7 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 #if _LOG_DBG > 1
 	printk_dbg2(3, "actual waiting %d msec",
 		jiffies_to_msecs(jiffies - jiffies_s));
-#endif
+#endif /* _LOG_DBG > 1 */
 #endif
 
 	DBGLEAVE("%d\n", rc);
@@ -3305,7 +3387,7 @@ static int  ioc_waitdraw(struct composer_fh *fh, int *mode)
 		printk_err("unknown mode %d.\n", *mode);
 		rc = -EINVAL;
 	}
-#endif
+#endif /* SH_MOBILE_COMPOSER_WAIT_DRAWEND */
 #endif
 
 	DBGLEAVE("%d\n", rc);
@@ -4742,6 +4824,65 @@ err_exit:
 }
 
 
+#ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
+static void notify_graphics_image_output(int result, unsigned long user_data)
+{
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	struct composer_rh *rh;
+#endif
+	DBGENTER("result:%d user_data:0x%lx\n", result, user_data);
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	/* confirm result code. */
+	if (result < -256) {
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		int i;
+		for (i = 0; i < MAX_KERNELREQ; i++) {
+			rh = &kernel_request[i];
+
+			if (rh->active && rh->data.extlayer_index >= 0) {
+				/* there is pending request. */
+				rh->rh_wqcommon.status = 3;
+				wake_up_interruptible_all(
+					&rh->rh_wqcommon.wait_notify);
+			}
+		}
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
+	} else {
+		rh = (struct composer_rh *) user_data;
+
+		if (result != SMAP_LIB_GRAPHICS_OK) {
+			/* report error */
+			printk_err1("notify_graphics_image_output result:%d\n",
+				result);
+			rh->rh_wqcommon.status = 3;
+		} else {
+			rh->rh_wqcommon.status = 1;
+		}
+
+		/* wakeup waiting task */
+		wake_up_interruptible_all(&rh->rh_wqcommon.wait_notify);
+	}
+#else
+	printk_err1("callback unexpected.");
+#endif
+
+	DBGLEAVE("\n");
+}
+static void notify_graphics_image_output_dummy(
+	int result, unsigned long user_data)
+{
+	/* currently not implemented. */
+	printk_err1("callback unexpected.");
+}
+
+static void notify_graphics_image_blend_dummy(
+	int result, unsigned long user_data)
+{
+	/* currently not implemented. */
+	printk_err1("callback unexpected.");
+}
+#endif
 static void notify_graphics_image_conv(int result, unsigned long user_data)
 {
 	/* currently not implemented. */
@@ -4796,7 +4937,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 				" ignore callback\n", user_data);
 		}
 
-		/* all gaph status set to error */
+		/* all graph status set to error */
 		list_for_each(list, &file_top)
 		{
 			struct composer_fh *fh;
@@ -4954,7 +5095,18 @@ static void dump_screen_grap_delete(screen_grap_delete *arg)
 	printk_dbg1(1, "  handle:%p\n", arg->handle);
 }
 
-
+#ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+static void dump_screen_grap_image_output(screen_grap_image_output *arg)
+{
+	printk_dbg1(1, "screen_grap_image_output\n");
+	printk_dbg1(1, "  handle:%p\n", arg->handle);
+	dump_screen_grap_image_param(&arg->output_image, "output_image");
+	printk_dbg1(1, "  rotate:%d user_data:0x%lx\n",
+		arg->rotate, arg->user_data);
+}
+#endif /*  SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1 */
+#endif
 
 #endif
 
@@ -4964,6 +5116,7 @@ static void work_deletehandle(struct localwork *work)
 	screen_grap_quit   _quit;
 	int                rc;
 
+	TRACE_ENTER(FUNC_WQ_DELETE);
 	DBGENTER("work:%p\n", work);
 
 	if (sem.count != 0) {
@@ -4984,7 +5137,7 @@ static void work_deletehandle(struct localwork *work)
 		rc = screen_graphics_quit(&_quit);
 		if (rc != SMAP_LIB_GRAPHICS_OK) {
 			/* error report */
-			printk_err1("screen_graphics_image_quit "
+			printk_err("screen_graphics_image_quit "
 				"return by %d.\n", rc);
 		}
 
@@ -4994,6 +5147,7 @@ static void work_deletehandle(struct localwork *work)
 		screen_graphics_delete(&_del);
 		graphic_handle = NULL;
 	}
+	TRACE_LEAVE(FUNC_WQ_DELETE);
 	DBGLEAVE("\n");
 }
 
@@ -5003,6 +5157,7 @@ static void work_createhandle(struct localwork *work)
 	screen_grap_initialize  _ini;
 	int  rc;
 
+	TRACE_ENTER(FUNC_WQ_CREATE);
 	DBGENTER("work:%p\n", work);
 
 	if (sem.count != 0) {
@@ -5024,6 +5179,9 @@ static void work_createhandle(struct localwork *work)
 	/* update for screen_grap_new */
 	_new.notify_graphics_image_conv  = notify_graphics_image_conv;
 	_new.notify_graphics_image_blend = notify_graphics_image_blend;
+#ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
+	_new.notify_graphics_image_output = notify_graphics_image_output_dummy;
+#endif
 
 	graphic_handle = screen_graphics_new(&_new);
 
@@ -5054,20 +5212,263 @@ static void work_createhandle(struct localwork *work)
 		printk_dbg1(1, "graphic_handle is NULL\n");
 	}
 finish:
+	TRACE_LEAVE(FUNC_WQ_CREATE);
 	DBGLEAVE("\n");
 }
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void work_expirequeue(struct localwork *work)
+{
+	int i;
+	TRACE_ENTER(FUNC_WQ_EXPIRE);
+	DBGENTER("work:%p\n", work);
+
+	printk_dbg2(3, "down\n");
+	down(&kernel_queue_sem);
+
+	while (!list_empty(&kernel_queue_top)) {
+		struct composer_rh *rh;
+
+		rh = list_first_entry(&kernel_queue_top,
+			struct composer_rh, list);
+
+		printk_err("drop blend request.\n");
+
+		/* remove list */
+		list_del_init(&rh->list);
+
+		/* process callback */
+		up(&kernel_queue_sem);
+
+		composer_blendoverlay_errorcallback(rh);
+
+		printk_dbg2(3, "down\n");
+		down(&kernel_queue_sem);
+	}
+	up(&kernel_queue_sem);
+
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		struct composer_rh *rh = &kernel_request[i];
+
+		if (rh->active) {
+			printk_err("force return request.\n");
+
+			composer_blendoverlay_errorcallback(rh);
+		}
+	}
+
+	TRACE_LEAVE(FUNC_WQ_EXPIRE);
+	DBGLEAVE("\n");
+}
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+static void work_deletehandle_hdmi(struct localwork *work)
+{
+	TRACE_ENTER(FUNC_WQ_DELETE_HDMI);
+	DBGENTER("work:%p\n", work);
+
+	/* currently not implemented. */
+	if (graphic_handle_hdmi) {
+#ifdef CONFIG_MACH_KOTA2
+		/* Kota2 not support graphic output. */
+		graphic_handle_hdmi = NULL;
+#elif SH_MOBILE_COMPOSER_SUPPORT_HDMI <= 1 || \
+	!defined(RT_GRAPHICS_MODE_IMAGE_OUTPUT)
+		/* HDMI type is 1. or RT-API not available. */
+		graphic_handle_hdmi = NULL;
+#else
+		screen_grap_delete _del;
+		screen_grap_quit   _quit;
+		int                rc;
+
+		printk_dbg1(1, "delete_handle %p in PID:%d TGID:%d\n",
+			graphic_handle_hdmi, current->pid, current->tgid);
+
+		if (graphic_handle_hdmi) {
+			_del.handle   = graphic_handle_hdmi;
+			_quit.handle  = graphic_handle_hdmi;
+			_quit.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
+#if _LOG_DBG >= 1
+			dump_screen_grap_quit(&_quit);
+#endif
+			rc = screen_graphics_quit(&_quit);
+			if (rc != SMAP_LIB_GRAPHICS_OK) {
+				/* error report */
+				printk_err("screen_graphics_image_quit "
+					"return by %d.\n", rc);
+			}
+
+#if _LOG_DBG >= 1
+			dump_screen_grap_delete(&_del);
+#endif
+			screen_graphics_delete(&_del);
+			graphic_handle_hdmi = NULL;
+		}
+#endif
+	}
+
+	TRACE_LEAVE(FUNC_WQ_DELETE_HDMI);
+	DBGLEAVE("\n");
+}
+
+static void work_createhandle_hdmi(struct localwork *work)
+{
+	TRACE_ENTER(FUNC_WQ_CREATE_HDMI);
+	DBGENTER("work:%p\n", work);
+
+	/* currently not implemented. */
+	if (rtapi_hungup) {
+		/* report error */
+		printk_err1("graphics system hungup.\n");
+	} else if (graphic_handle_hdmi == NULL) {
+#ifdef CONFIG_MACH_KOTA2
+		/* Kota2 not support graphic output. */
+		graphic_handle_hdmi = NULL;
+#elif SH_MOBILE_COMPOSER_SUPPORT_HDMI <= 1 || \
+	!defined(RT_GRAPHICS_MODE_IMAGE_OUTPUT)
+		/* HDMI type is 1. or RT-API not available. */
+		graphic_handle_hdmi = NULL;
+#else
+		/* screen_graphics_image_output available */
+		screen_grap_new _new;
+		screen_grap_initialize  _ini;
+		int  rc;
+
+		/* update for screen_grap_new */
+		_new.notify_graphics_image_conv  = \
+			notify_graphics_image_conv;
+		_new.notify_graphics_image_blend = \
+			notify_graphics_image_blend_dummy;
+		_new.notify_graphics_image_output = \
+			notify_graphics_image_output;
+		graphic_handle_hdmi = screen_graphics_new(&_new);
+
+		printk_dbg1(1, "screen_graphics_new result:%p "
+			"in PID:%d TGID:%d\n",
+			graphic_handle_hdmi, current->pid, current->tgid);
+
+		if (graphic_handle_hdmi) {
+			_ini.handle   = graphic_handle_hdmi;
+			_ini.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
+#if _LOG_DBG >= 1
+			dump_screen_grap_initialize(&_ini);
+#endif
+			rc = screen_graphics_initialize(&_ini);
+			if (rc != SMAP_LIB_GRAPHICS_OK) {
+				printk_err1("screen_graphics_initialize "
+					"return by %d.\n", rc);
+
+				work_deletehandle_hdmi(work);
+			}
+		} else {
+			/* eror report */
+			printk_err("graphic_handle_hdmi is NULL\n");
+		}
+#endif
+	}
+
+	TRACE_LEAVE(FUNC_WQ_CREATE_HDMI);
+	DBGLEAVE("\n");
+}
+#endif
+
 static void work_overlay(struct localwork *work)
 {
 	struct composer_rh *rh;
+	TRACE_ENTER(FUNC_WQ_OVERLAY);
 	DBGENTER("work:%p\n", work);
 
 	rh = container_of(work, struct composer_rh, rh_wqtask_hdmi);
 
-	/* currently not implemented. */
+#ifdef CONFIG_MACH_KOTA2
+	/* Kota2 not support graphic output. */
 	process_composer_queue_callback(rh);
+#elif SH_MOBILE_COMPOSER_SUPPORT_HDMI <= 1 || \
+	!defined(RT_GRAPHICS_MODE_IMAGE_OUTPUT)
+	/* HDMI type is 1. or RT-API not available. */
+	process_composer_queue_callback(rh);
+#else
+	{
+		int rc;
+		int index;
 
+		index = rh->data.extlayer_index;
+		if (in_early_suspend) {
+			printk_dbg2(1, "suspend state.\n");
+			rc = CMP_NG;
+			goto finish;
+		} else if (graphic_handle_hdmi == NULL) {
+			printk_err1("handle for HDMI not created.\n");
+			rc = CMP_NG;
+			goto finish;
+		} else if (rtapi_hungup) {
+			printk_err1("graphics system hungup.\n");
+			rc = CMP_NG;
+			goto finish;
+		} else if (index < 0 || index > 3) {
+			printk_err1("extlayer_index out of range.\n");
+			rc = CMP_NG;
+			goto finish;
+		} else {
+			screen_grap_image_output _out;
+			struct composer_blendcommon *common;
+
+			/* share common object */
+			common = &rh->rh_wqcommon;
+
+			_out.handle = graphic_handle_hdmi;
+			_out.output_image            =
+				rh->data.layer[index].image;
+			_out.output_image.format     =
+				rh->data.extlayer.image.format;
+			_out.output_image.yuv_format =
+				rh->data.extlayer.image.yuv_format;
+			_out.output_image.yuv_range  =
+				rh->data.extlayer.image.yuv_range;
+			_out.rotate                  =
+				rh->data.extlayer.rotate;
+			_out.user_data = (unsigned long)rh;
+
+#if _LOG_DBG >= 1
+			dump_screen_grap_image_output(&_out);
+#endif
+
+			common->status  = 0;
+			rc = screen_graphics_image_output(&_out);
+			if (rc != SMAP_LIB_GRAPHICS_OK) {
+				printk_err("screen_graphics_image_output "
+					"return by %d.\n", rc);
+
+				rc = CMP_NG;
+				goto finish;
+			}
+
+			/* wait complete */
+			rc = wait_event_interruptible_timeout(
+				common->wait_notify, \
+				common->status != 0, msecs_to_jiffies(500));
+			if (rc < 0) {
+				/* report error */
+				printk_err("unexpectly wait_event "
+					"interrupted by %d .\n", rc);
+			} else if (rc == 0) {
+				/* report error */
+				printk_err1("not detect notify of output.\n");
+			}
+			rc = (common->status == 0) ? CMP_NG : CMP_OK;
+		}
+finish:
+		printk_dbg1(2, "results rc:%d\n", rc);
+		if (rc != CMP_OK) {
+			/* report error */
+			printk_err1("output result is error.\n");
+		}
+
+		/* process callback */
+		process_composer_queue_callback(rh);
+	}
+#endif
+
+	TRACE_LEAVE(FUNC_WQ_OVERLAY);
 	DBGLEAVE("\n");
 	return;
 }
@@ -5090,6 +5491,7 @@ static void work_runblend(struct localwork *work)
 		fh = container_of(work, struct composer_fh, fh_wqtask);
 		common = &fh->fh_wqcommon;
 	}
+	TRACE_ENTER(FUNC_WQ_BLEND);
 	DBGENTER("work:%p\n", work);
 	printk_dbg1(1, "blending handle:%p in PID:%d TGID:%d\n",
 		graphic_handle, current->pid, current->tgid);
@@ -5120,7 +5522,7 @@ static void work_runblend(struct localwork *work)
 
 	rc = screen_graphics_image_blend(common->_blend);
 	if (rc != SMAP_LIB_GRAPHICS_OK) {
-		printk_err1("screen_graphics_image_blend return by %d.\n", rc);
+		printk_err("screen_graphics_image_blend return by %d.\n", rc);
 		rc = CMP_NG;
 		goto finish3;
 	}
@@ -5146,9 +5548,10 @@ finish:
 		rc = CMP_NG;
 	}
 
-	printk_dbg1(2, "work_runblend results rc:%d\n", rc);
+	printk_dbg1(2, "results rc:%d\n", rc);
 
 	common->callback(rc, common->user_data);
+	TRACE_LEAVE(FUNC_WQ_BLEND);
 	DBGLEAVE("\n");
 	return;
 }
@@ -5381,41 +5784,91 @@ static int setidle(struct composer_fh *fh)
 }
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void timeout_queue_process_timerstart(void)
+{
+	unsigned long flags;
+	DBGENTER("\n");
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
+
+	if (kernel_queue_timer.data == 0) {
+		kernel_queue_timer.data    = 1;
+		kernel_queue_timer.expires = jiffies + \
+			msecs_to_jiffies(200);
+
+		spin_unlock_irqrestore(&irqlock_timer, flags);
+
+#if _LOG_DBG > 0
+		if (debug) {
+			/* time out extend to 1 minute. */
+			kernel_queue_timer.expires += \
+				msecs_to_jiffies(5000);
+		}
+#endif
+		printk_dbg2(3, "add timer expires:%u current:%u\n",
+			(int)kernel_queue_timer.expires,
+			(int)jiffies);
+#ifdef DEBUG_NO_USE_TIMER
+		printk_dbg2(3, "ignore add_timer.\n");
+#else
+		add_timer(&kernel_queue_timer);
+#endif
+	} else {
+		/* nothing to do */
+		spin_unlock_irqrestore(&irqlock_timer, flags);
+		printk_dbg2(3, "already start timer\n");
+	}
+
+	DBGLEAVE("\n");
+}
+
+static void timeout_queue_process_timercancel(void)
+{
+	unsigned long flags;
+	DBGENTER("\n");
+
+	if (kernel_queue_timer.data) {
+		printk_dbg2(3, "spinlock\n");
+		spin_lock_irqsave(&irqlock_timer, flags);
+
+		printk_dbg2(3, "cancel timer\n");
+		del_timer(&kernel_queue_timer);
+		kernel_queue_timer.data = 0;
+
+		spin_unlock_irqrestore(&irqlock_timer, flags);
+	}
+
+	if (!list_empty(&kernel_queue_top)) {
+		printk_dbg2(3, "restart timer, there is pending request\n");
+
+		timeout_queue_process_timerstart();
+	}
+
+	DBGLEAVE("\n");
+}
+
 static int  queue_fb_address_mapping(void)
 {
 	int rc = CMP_NG;
 
 	DBGENTER("\n");
 
-	if (queue_fb_map_RTaddress) {
+	if (queue_fb_map_handle) {
 		/* already mapping */
 		printk_dbg2(3, "already mapping finished\n");
 		rc = CMP_OK;
-	} else if (graphic_handle == NULL) {
-		/* currently not open handle */
-		printk_dbg2(3, "not open rt-api handle\n");
 	} else {
-		system_mem_rt_map  map;
+		queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
+			queue_fb_map_endaddress - queue_fb_map_address,
+			queue_fb_map_address);
 
-		map.handle    = graphic_handle;
-		map.phys_addr = queue_fb_map_address;
-		map.map_size  = queue_fb_map_endaddress - queue_fb_map_address;
-		map.rtaddr    = 0;
-
-		printk_dbg1(1, "system_memory_rt_map "
-			"handle:%p phys_addr:0x%x map_size:0x%x\n",
-				map.handle, map.phys_addr, map.map_size);
-
-		rc = system_memory_rt_map(&map);
-		if (rc != SMAP_LIB_MEMORY_OK) {
-			printk_err1("system_memory_rt_map return by %d.\n", rc);
-			rc = CMP_NG;
-		} else {
-			queue_fb_map_RTaddress = map.rtaddr;
-
-			printk_dbg1(2, "framebuffer mapping 0x%lx\n",
-				queue_fb_map_RTaddress);
+		if (queue_fb_map_handle) {
+			printk_dbg1(2, "framebuffer map success.\n");
 			rc = 0;
+		} else {
+			printk_err("can not map framebuffer.\n");
+			rc = CMP_NG;
 		}
 	}
 
@@ -5427,35 +5880,35 @@ static unsigned char *composer_get_RT_address(unsigned char *address)
 {
 	unsigned long p_addr = (unsigned long)address;
 	unsigned char *rt_addr = NULL;
-	int           offset;
 
-	if (queue_fb_map_address <= p_addr &&
-		p_addr < queue_fb_map_endaddress &&
-		queue_fb_map_RTaddress != 0) {
-		offset = p_addr - queue_fb_map_address;
-		rt_addr = (unsigned char *) queue_fb_map_RTaddress + offset;
-	}
+	/* translate physical to RT address */
+	rt_addr = (char *)sh_mobile_rtmem_conv_phys2rtmem(p_addr);
 
-	/* resolve conversioin by RT-API */
 	if (rt_addr == NULL) {
-		system_mem_phy_change_rtaddr adr;
-		int                          rc;
-
-		adr.handle    = graphic_handle;
-		adr.phys_addr = p_addr;
-		adr.rtaddr    = 0;
-
-		printk_dbg1(1, "system_memory_phy_change_rtaddr"
-			"handle:%p phys_addr:0x%x\n",
-				adr.handle, adr.phys_addr);
-
-		rc = system_memory_phy_change_rtaddr(&adr);
-		if (rc != SMAP_LIB_MEMORY_OK) {
-			/* report error */
-			printk_err1("system_memory_phy_change_rtaddr"
-				" return by %d.\n", rc);
+		/* resolve conversioin by RT-API */
+		if (graphic_handle == NULL) {
+			/* currently not open handle */
+			printk_dbg2(3, "not open rt-api handle\n");
 		} else {
-			rt_addr = (unsigned char *)adr.rtaddr;
+			system_mem_phy_change_rtaddr adr;
+			int                          rc;
+
+			adr.handle    = graphic_handle;
+			adr.phys_addr = p_addr;
+			adr.rtaddr    = 0;
+
+			printk_dbg1(1, "system_memory_phy_change_rtaddr"
+				"handle:%p phys_addr:0x%x\n",
+					adr.handle, adr.phys_addr);
+
+			rc = system_memory_phy_change_rtaddr(&adr);
+			if (rc != SMAP_LIB_MEMORY_OK) {
+				/* report error */
+				printk_err("system_memory_phy_change_rtaddr"
+					" return by %d.\n", rc);
+			} else {
+				rt_addr = (unsigned char *)adr.rtaddr;
+			}
 		}
 	}
 
@@ -5463,6 +5916,15 @@ static unsigned char *composer_get_RT_address(unsigned char *address)
 	return rt_addr;
 }
 
+unsigned char *sh_mobile_composer_phy_change_rtaddr(unsigned long p_adr)
+{
+	unsigned char *rt_adr;
+
+	rt_adr = composer_get_RT_address((unsigned char *) p_adr);
+
+	return rt_adr;
+}
+EXPORT_SYMBOL(sh_mobile_composer_phy_change_rtaddr);
 
 static int  composer_covert_queueaddress(screen_grap_image_blend *blend)
 {
@@ -5541,6 +6003,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 {
 	struct composer_rh     *blend_req = NULL;
 
+	TRACE_ENTER(FUNC_BLEND);
 	DBGENTER("fb_physical:0x%lx\n", fb_physical);
 
 	printk_dbg2(3, "down\n");
@@ -5558,20 +6021,23 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 		count = 0;
 		list_for_each(list, &kernel_queue_top) {
 			struct composer_rh *rh;
+			unsigned long phys_addr;
 
 			rh = list_entry(list, struct composer_rh, list);
 			count++;
 
-			if (count > 4) {
+			if (count > MAX_KERNELREQ) {
 				/* avooid for ever loop. */
 				break;
 			}
-			printk_dbg2(3, "list%d: phys addr:%p.\n",
-				count, rh->org_fb_address);
+			phys_addr = sh_mobile_rtmem_conv_rt2physmem(
+			(unsigned long)rh->data.blend.output_image.address);
 
-			if ((unsigned long)rh->org_fb_address >= fb_physical &&
-				(unsigned long)rh->org_fb_address <
-				fb_physical + fb_size)
+			printk_dbg2(3, "list%d: phys addr:0x%lx.\n",
+				count, phys_addr);
+
+			if (phys_addr >= fb_physical &&
+				phys_addr < fb_physical + fb_size)
 				blend_req = rh;
 		}
 
@@ -5633,8 +6099,45 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 	up(&kernel_queue_sem);
 
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	/* confirm that the graphics handle for HDMI need release. */
+	if (graphic_handle_hdmi) {
+		if (blend_req == NULL ||
+			blend_req->data.extlayer_index < 0) {
+			/* queue task. */
+			if (localworkqueue_queue(workqueue,
+				&del_graphic_handle_hdmi)) {
+
+				/* wait work compete. */
+				localworkqueue_flush(workqueue,
+					&del_graphic_handle_hdmi);
+			} else {
+				printk_err("failed to release graphic "
+					"handle for hdmi\n");
+			}
+		}
+	} else {
+		if (blend_req &&
+			blend_req->data.extlayer_index >= 0) {
+			/* queue task. */
+			if (localworkqueue_queue(workqueue,
+				&init_graphic_handle_hdmi)) {
+				/* not wait complete */
+				printk_dbg1(2, "request create graphics "
+					"handle for hdmi\n");
+			} else {
+				printk_err("failed to create graphic "
+					"handle for hdmi\n");
+			}
+		}
+	}
+#endif
+
 	/* blend image */
 	if (blend_req) {
+		/* cancel timer */
+		timeout_queue_process_timercancel();
+
 		if (localworkqueue_queue(workqueue, &blend_req->rh_wqtask)) {
 			printk_dbg2(3, "success to queue requests.\n");
 
@@ -5650,7 +6153,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	/* overlay HDMI image */
-	if (blend_req && blend_req->data.extlayer.image.format != 0) {
+	if (blend_req && blend_req->data.extlayer_index >= 0) {
 		if (localworkqueue_queue(workqueue,
 			&blend_req->rh_wqtask_hdmi)) {
 			printk_dbg2(3, "success to queue hdmi requests.\n");
@@ -5672,10 +6175,53 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	current_overlayrequest = blend_req;
 #endif
 
+	TRACE_LEAVE(FUNC_BLEND);
 	DBGLEAVE("\n");
 	return 0;
 }
 EXPORT_SYMBOL(sh_mobile_composer_blendoverlay);
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+int sh_mobile_composer_hdmiset(int mode)
+{
+	int rc = CMP_OK;
+	TRACE_ENTER(FUNC_HDMISET);
+	DBGENTER("mode:%d\n", mode);
+
+	printk_dbg2(3, "down\n");
+	down(&sem);
+
+	if (mode == 0) {
+		/* confirm that the graphics handle for HDMI need release. */
+		if (graphic_handle_hdmi) {
+			/* queue task. */
+			if (localworkqueue_queue(workqueue,
+				&del_graphic_handle_hdmi)) {
+
+				/* wait work compete. */
+				localworkqueue_flush(workqueue,
+					&del_graphic_handle_hdmi);
+			} else {
+				printk_err("failed to release graphic "
+					"handle for hdmi\n");
+			}
+		}
+
+		if (graphic_handle_hdmi) {
+			printk_dbg2(3, "release graphic handle failed.\n");
+			rc = CMP_NG;
+		}
+		TRACE_LOG1(FUNC_HDMISET, rc);
+	}
+
+	up(&sem);
+
+	DBGLEAVE("rc:%d\n", rc);
+	TRACE_LEAVE(FUNC_HDMISET);
+	return rc;
+}
+EXPORT_SYMBOL(sh_mobile_composer_hdmiset);
+#endif
 
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
 void sh_mobile_composer_notifyrelease(void)
@@ -5714,6 +6260,7 @@ int sh_mobile_composer_queue(
 	int i;
 	int rc = -1;
 	struct composer_rh *rh;
+	TRACE_ENTER(FUNC_QUEUE);
 	DBGENTER("data:%p data_size:%d callback:%p user_data:%p\n",
 		data, data_size, callback, user_data);
 
@@ -5746,6 +6293,10 @@ int sh_mobile_composer_queue(
 		goto err_exit;
 	}
 #endif
+
+	/* cancel timer */
+	timeout_queue_process_timercancel();
+
 	rh = NULL;
 	printk_dbg2(3, "down\n");
 	down(&kernel_queue_sem);
@@ -5770,7 +6321,7 @@ int sh_mobile_composer_queue(
 	rh->user_callback  = callback;
 	rh->user_data      = user_data;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	if (rh->data.extlayer.image.format == 0) {
+	if (rh->data.extlayer_index < 0) {
 		/* not use external layer */
 #endif
 		rh->refcount = 1 + SH_MOBILE_COMPOSER_WAIT_DRAWEND;
@@ -5796,8 +6347,6 @@ int sh_mobile_composer_queue(
 	{
 		screen_grap_image_blend *blend = &rh->data.blend;
 
-		rh->org_fb_address = blend->output_image.address;
-
 		if (composer_covert_queueaddress(blend) != CMP_OK) {
 			printk_err2("address translation failed.");
 			rh->active = 0;
@@ -5813,13 +6362,20 @@ int sh_mobile_composer_queue(
 				(1<<RT_GRAPHICS_COLOR_RGB565)   | \
 				(1<<RT_GRAPHICS_COLOR_RGB888)   | \
 				(1<<RT_GRAPHICS_COLOR_ARGB8888) | \
-				(1<<RT_GRAPHICS_COLOR_YUV420PL);
+				(1<<RT_GRAPHICS_COLOR_YUV420PL) | \
+				(1<<RT_GRAPHICS_COLOR_XRGB8888);
 		int           format;
 		unsigned char *address;
 
+#ifdef RT_GRAPHICS_COLOR_ABGR8888
+		chk_flag |= (1 << RT_GRAPHICS_COLOR_ABGR8888);
+#endif
+#ifdef RT_GRAPHICS_COLOR_XBGR8888
+		chk_flag |= (1 << RT_GRAPHICS_COLOR_XBGR8888);
+#endif
 		format  = blend->output_image.format;
 		address = blend->output_image.address;
-		if (format > RT_GRAPHICS_COLOR_YUV420PL ||
+		if (format > 30 ||
 		    (chk_flag & (1<<format)) == 0) {
 			printk_err("format %d un-expected.\n", format);
 			rh->active = 0;
@@ -5837,7 +6393,7 @@ int sh_mobile_composer_queue(
 
 			format  = rh->data.layer[i].image.format;
 			address = rh->data.layer[i].image.address;
-			if (format > RT_GRAPHICS_COLOR_YUV420PL ||
+			if (format > 30 ||
 			    (chk_flag & (1<<format)) == 0) {
 				printk_err("layer %d format %d un-expected.\n",
 					i, format);
@@ -5861,11 +6417,18 @@ int sh_mobile_composer_queue(
 
 	up(&kernel_queue_sem);
 
+	/* start timer */
+	timeout_queue_process_timerstart();
+
 err_exit:
 	if (rc) {
 		/* error detected. */
+		TRACE_ENTER(FUNC_CALLBACK);
 		callback(user_data, 1);
+		TRACE_LEAVE(FUNC_CALLBACK);
 	}
+
+	TRACE_LEAVE(FUNC_QUEUE);
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
@@ -5875,6 +6438,8 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 {
 	void   (*user_callback)(void*, int);
 	void   *user_data;
+
+	TRACE_ENTER(FUNC_CALLBACK);
 	DBGENTER("rh:%p\n", rh);
 
 	user_callback = NULL;
@@ -5897,9 +6462,11 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 	up(&kernel_queue_sem);
 
 	if (user_callback) {
+		TRACE_LOG(FUNC_CALLBACK);
 		user_callback(user_data, 1);
 		/* process callback */
 	}
+	TRACE_LEAVE(FUNC_CALLBACK);
 	DBGLEAVE("\n");
 }
 
@@ -5909,6 +6476,7 @@ static void callback_composer_queue(int result, void *user_data)
 	struct composer_rh *rh = (struct composer_rh *) user_data;
 	DBGENTER("result:%d user_data:%p\n", result, user_data);
 
+	TRACE_LOG1(FUNC_CALLBACK, result);
 	if (result != CMP_OK) {
 		/* error report */
 		printk_err("composer error %d, %d, %d\n",
@@ -5920,6 +6488,458 @@ static void callback_composer_queue(int result, void *user_data)
 
 	DBGLEAVE("\n");
 }
+
+
+static void timeout_queue_process(unsigned long data)
+{
+	int rc;
+	DBGENTER("data:%ld\n", data);
+
+	printk_err("detect timeout.\n");
+
+	rc = localworkqueue_queue(workqueue,
+		&expire_kernel_request);
+	if (rc == 0) {
+		/* report error */
+		printk_err("can not queue work of expire_kernel_request.\n");
+	}
+
+	DBGLEAVE("\n");
+}
+#endif
+
+#if INTERNAL_DEBUG >= 1
+static void tracelog_record(int logclass, int line, int ID, int val)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&log_irqlock, flags);
+	log_tracebuf[log_tracebuf_wp][0] = (logclass<<24) | (line);
+	log_tracebuf[log_tracebuf_wp][1] = ID;
+	log_tracebuf[log_tracebuf_wp][2] = val;
+	log_tracebuf_wp = (log_tracebuf_wp+1) & (TRACELOG_SIZE-1);
+	spin_unlock_irqrestore(&log_irqlock, flags);
+}
+
+static int tracelog_create_logmessage(char *p, int n)
+{
+	int i, rp;
+	int c;
+	char *p_org = p;
+	unsigned long flags;
+
+	spin_lock_irqsave(&log_irqlock, flags);
+	rp = (log_tracebuf_wp) & (TRACELOG_SIZE-1);
+	for (i = 0; i < TRACELOG_SIZE; i++) {
+		int logclass = log_tracebuf[rp][0]>>24;
+		int logline  = log_tracebuf[rp][0] & 0xffffff;
+		switch (logclass) {
+		case ID_TRACE_ENTER:
+			c = snprintf(p, n, "[0x%03x:ent:%d]",
+				log_tracebuf[rp][1], logline);
+			break;
+		case ID_TRACE_LEAVE:
+			c = snprintf(p, n, "[0x%03x:lev:%d]",
+				log_tracebuf[rp][1], logline);
+			break;
+		case ID_TRACE_LOG:
+			c = snprintf(p, n, "[0x%03x:%d]",
+				log_tracebuf[rp][1], logline);
+			break;
+		case ID_TRACE_LOG1:
+			c = snprintf(p, n, "[0x%03x:%d:%d]",
+				log_tracebuf[rp][1], logline,
+				log_tracebuf[rp][2]);
+			break;
+		default:
+			/* no log message */
+			c = 0;
+			break;
+		}
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		rp = (rp+1) & (TRACELOG_SIZE-1);
+	}
+	spin_unlock_irqrestore(&log_irqlock, flags);
+
+	return p - p_org;
+}
+
+static void internal_debug_create_message(struct composer_fh *fh)
+{
+	char *p = internal_log_msg;
+	int  n  = internal_log_msgsize;
+	int  c;
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	int  i;
+#endif
+	int  log_type  = (internal_log_seqid >> 8) & 0xff;
+	int  log_index =  internal_log_seqid       & 0xff;
+
+	if (p == NULL) {
+		internal_log_seqid = SEQID_NOMORE_LOG;
+		goto err_exit;
+	}
+	/* record sequence */
+	if (internal_log_seqid == -1) {
+		/* set next logtype */
+		internal_log_seqid = 0 << 8;
+	} else if (log_type == 0) {
+		/* log of static variable */
+		if (log_index == 0) {
+			c = snprintf(p, n, "[static]\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+		}
+
+		c = snprintf(p, n, "  semaphore sem:%d\n",
+			sem.count);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		c = snprintf(p, n, "  semaphore kernel_queue_sem:%d\n",
+			kernel_queue_sem.count);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#endif
+		c = snprintf(p, n, "  num_open:%d\n",
+			num_open);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  debug:%d\n",
+			debug);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  rtapi_hungup:%d\n",
+			rtapi_hungup);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		c = snprintf(p, n, "  in_early_suspend:%d\n",
+			in_early_suspend);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#endif
+		c = snprintf(p, n, "  graphic_handle:%p\n",
+			graphic_handle);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  workqueue:%p\n", workqueue);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		if (workqueue) {
+			c = snprintf(p, n, "  ->top:%s\n",
+				list_empty(&workqueue->top) ? "idle" : "busy");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		c = snprintf(p, n, "  fb_map_address\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->physical_address 0x%lx-0x%lx\n",
+			queue_fb_map_address, queue_fb_map_endaddress);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->queue_fb_map_handle %p\n",
+			queue_fb_map_handle);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+		c = snprintf(p, n, "  current_overlayrequest:%p\n",
+			current_overlayrequest);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  overlay_draw_complete:%d\n",
+			overlay_draw_complete);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#endif /* SH_MOBILE_COMPOSER_WAIT_DRAWEND */
+#endif
+		/* set next logtype */
+		internal_log_seqid = 1 << 8;
+	} else if (log_type == 1) {
+		/* log of queue */
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		struct composer_rh *rh;
+
+		if (log_index == 0) {
+			c = snprintf(p, n, "[queue]\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+		}
+
+		if (log_index < MAX_KERNELREQ) {
+			/* set pointer */
+			rh = &kernel_request[log_index];
+		} else {
+			/* clear pointer */
+			rh = NULL;
+		}
+
+		if (rh) {
+			c = snprintf(p, n, "  kernel_request[%d]:%p\n",
+				log_index, rh);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->rh_wqcommon.status:%d\n",
+				rh->rh_wqcommon.status);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->active:%d\n", rh->active);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->user_data:%p\n", rh->user_data);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->user_callback:%p\n",
+				rh->user_callback);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->refcount:%d\n", rh->refcount);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+
+			c = snprintf(p, n, "  ->data\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+			for (i = 0; i < sizeof(rh->data); i++) {
+				unsigned char *_data;
+
+				_data = (unsigned char *)&rh->data;
+				if ((i & 15) == 0) {
+					c = snprintf(p, n, "    ");
+					if (c < n) {
+						p += c;
+						n -= c;
+					}
+				}
+				c = snprintf(p, n, "%02x", _data[i]);
+				if (c < n) {
+					p += c;
+					n -= c;
+				}
+
+				if ((i & 15) == 15)
+					c = snprintf(p, n, "\n");
+				else
+					c = snprintf(p, n, " ");
+
+				if (c < n) {
+					p += c;
+					n -= c;
+				}
+			}
+			if (i & 15) {
+				c = snprintf(p, n, "\n");
+				if (c < n) {
+					p += c;
+					n -= c;
+				}
+			}
+		}
+
+		/* set next logtype */
+		if (rh)
+			internal_log_seqid++;
+		else
+			internal_log_seqid = 2 << 8;
+#else
+		/* set next logtype */
+		internal_log_seqid = 2 << 8;
+#endif
+	} else if (log_type == 2) {
+		/* state of task for local workqueue */
+		if (log_index == 0) {
+			c = snprintf(p, n, "[task]\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+		}
+
+		c = snprintf(p, n, "  del_graphic_handle\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->link:%s\n"
+			"  ->status:%d\n",
+			(list_empty(&del_graphic_handle.link) ? \
+				"idle" : "busy"),
+			del_graphic_handle.status);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  init_graphic_handle\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->link:%s\n"
+			"  ->status:%d\n",
+			(list_empty(&init_graphic_handle.link) ? \
+				"idle" : "busy"),
+			init_graphic_handle.status);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		c = snprintf(p, n, "  del_graphic_handle_hdmi\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->link:%s\n"
+			"  ->status:%d\n",
+			(list_empty(&del_graphic_handle_hdmi.link) ? \
+				"idle" : "busy"),
+			del_graphic_handle_hdmi.status);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  init_graphic_handle_hdmi\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->link:%s\n"
+			"  ->status:%d\n",
+			(list_empty(&init_graphic_handle_hdmi.link) ? \
+				"idle" : "busy"),
+			init_graphic_handle_hdmi.status);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#endif
+		for (i = 0; i < MAX_KERNELREQ; i++) {
+			struct composer_rh *rh = &kernel_request[i];
+
+			c = snprintf(p, n, "  kernel_request[%d]\n", i);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+			c = snprintf(p, n, "    rh_wqtask\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+			c = snprintf(p, n, "    ->link:%s\n"
+				"    ->status:%d\n",
+				(list_empty(&rh->rh_wqtask.link) ? \
+					"idle" : "busy"),
+				rh->rh_wqtask.status);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+			c = snprintf(p, n, "    rh_wqtask_hdmi\n");
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+			c = snprintf(p, n, "    ->link:%s\n"
+				"    ->status:%d\n",
+				(list_empty(&rh->rh_wqtask_hdmi.link) ? \
+					"idle" : "busy"),
+				rh->rh_wqtask_hdmi.status);
+			if (c < n) {
+				p += c;
+				n -= c;
+			}
+		}
+#endif
+
+		/* set next logtype */
+		internal_log_seqid = 3 << 8;
+	} else if (log_type == 3) {
+		/* trace log */
+		c = snprintf(p, n, "[TRACELOG]\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = tracelog_create_logmessage(p, n);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		/* set next logtype */
+		internal_log_seqid = 4<<8;
+	} else {
+		/* end of debug log */
+		internal_log_seqid = SEQID_NOMORE_LOG;
+		p = internal_log_msg;
+	}
+
+err_exit:
+	internal_log_length = p - internal_log_msg;
+	internal_log_remain = internal_log_length;
+}
 #endif
 
 /******************************************************/
@@ -5930,8 +6950,73 @@ static ssize_t core_read(struct file *filp, char __user *buf, \
 {
 	int rc = -EIO;
 #if INTERNAL_DEBUG >= 1
-	rc = -EINVAL; /* not implemented. */
+	struct composer_fh     *fh;
+	char   *msg, *p;
+	int    n,    c;
 #endif
+
+	DBGENTER("filp:%p buf:%p sz:%d off:%p\n", filp, buf, sz, off);
+
+#if INTERNAL_DEBUG >= 1
+	fh = (struct composer_fh *)filp->private_data;
+
+	/* allocate temporary memory. */
+	msg = kmalloc(sz, GFP_KERNEL);
+	if (msg == NULL || internal_log_msg == NULL) {
+		printk_err2("memory allocatioin failed.\n");
+		rc = -ENOMEM;
+		goto err_exit;
+	}
+
+	/* initialize */
+	p = &msg[0];
+	n = sz;
+
+	if (off != NULL && *off == 0) {
+		/* reset sequence number */
+		internal_log_seqid = -1;
+	}
+
+	while (n > 0) {
+		if (internal_log_remain) {
+			/* append message */
+			char *src = internal_log_msg;
+			c = min(n, internal_log_remain);
+			src += internal_log_length - internal_log_remain;
+
+			if (c) {
+				memcpy(p, src, c);
+				internal_log_remain -= c;
+				p                   += c;
+				n                   -= c;
+				continue;
+			}
+		} else if  (internal_log_seqid == SEQID_NOMORE_LOG) {
+			/* no more log */
+			break;
+		} else {
+			/* create message */
+			internal_debug_create_message(fh);
+		}
+	}
+
+	rc = p-msg;
+	if (rc) {
+		if (copy_to_user(buf, msg, rc)) {
+			printk_err2("fail in copy_to_user\n");
+			rc = -EINVAL;
+		} else if (off) {
+			/* increase offset */
+			*off += rc;
+		}
+	}
+err_exit:
+	if (msg) {
+		/* free temporary memory. */
+		kfree(msg);
+	}
+#endif
+	DBGLEAVE("%d\n", rc);
 	return rc;
 }
 
@@ -6131,6 +7216,7 @@ static int core_open(struct inode *inode, struct file *filep)
 	int rc = 0;
 	struct composer_fh *private_fh;
 
+	TRACE_ENTER(FUNC_OPEN);
 	DBGENTER("inode:%p filep:%p\n", inode, filep);
 	printk_dbg2(3, "down\n");
 	down(&sem);
@@ -6204,6 +7290,7 @@ static int core_open(struct inode *inode, struct file *filep)
 		filep->private_data = private_fh;
 	}
 err_exit:
+	TRACE_LEAVE(FUNC_OPEN);
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
@@ -6212,6 +7299,7 @@ static int core_release(struct inode *inode, struct file *filep)
 {
 	struct composer_fh *fh;
 
+	TRACE_ENTER(FUNC_CLOSE);
 	DBGENTER("inode:%p filep:%p\n", inode, filep);
 
 	fh = (struct composer_fh *)filep->private_data;
@@ -6241,6 +7329,7 @@ static int core_release(struct inode *inode, struct file *filep)
 	up(&sem);
 	printk_dbg2(3, "current num of opens:%d\n", num_open);
 
+	TRACE_LEAVE(FUNC_CLOSE);
 	DBGLEAVE("%d\n", 0);
 	return 0;
 }
@@ -6257,6 +7346,14 @@ static void pm_early_suspend(struct early_suspend *h)
 	} else if (graphic_handle) {
 		int rc;
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		if (kernel_queue_timer.data) {
+			/* delete timer */
+			del_timer_sync(&kernel_queue_timer);
+			kernel_queue_timer.data = 0;
+		}
+#endif
+		printk_dbg2(3, "down\n");
 		down(&sem);
 
 		/* flush work. */
@@ -6307,8 +7404,48 @@ static void pm_early_suspend(struct early_suspend *h)
 		printk_dbg2(3, "already release graphic handle\n");
 		/* nothing to do */
 	}
-	printk_dbg2(3, "suspend state:%d graphic_handle:%p\n",
-		in_early_suspend, graphic_handle);
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	printk_dbg2(3, "down\n");
+	down(&sem);
+
+	if (rtapi_hungup && graphic_handle_hdmi) {
+		printk_err("not release graphic handle, "
+			"due to RTAPI hung-up\n");
+	} else if (graphic_handle_hdmi) {
+		int rc;
+
+		/* queue task. */
+		rc = localworkqueue_queue(workqueue,
+			&del_graphic_handle_hdmi);
+		if (rc) {
+			/* wait work compete. */
+			localworkqueue_flush(workqueue,
+				&del_graphic_handle_hdmi);
+		} else {
+			printk_err("failed to release graphic "
+				"handle for hdmi\n");
+		}
+	}
+
+	up(&sem);
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
+#endif
+
+	printk_dbg2(3, "suspend state:%d graphic_handle:%p"
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		"graphic_handle hdmi:%p"
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
+#endif
+		"\n",
+		in_early_suspend, graphic_handle
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		, graphic_handle_hdmi
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
+#endif
+		);
 	/* nothing to do */
 	DBGLEAVE("\n");
 	return;
@@ -6410,6 +7547,10 @@ static int __init sh_mobile_composer_init(void)
 	sema_init(&kernel_queue_sem, 1);
 	init_waitqueue_head(&kernel_waitqueue_comp);
 
+	spin_lock_init(&irqlock_timer);
+	kernel_queue_timer.data = 0;
+	localwork_init(&expire_kernel_request, work_expirequeue);
+
 	/* calcurate PHYSICAL ADDRESS SIZE */
 	{
 		unsigned long size;
@@ -6444,7 +7585,23 @@ static int __init sh_mobile_composer_init(void)
 
 		queue_fb_map_address    = SCREEN_DISPLAY_BUFF_ADDR;
 		queue_fb_map_endaddress = SCREEN_DISPLAY_BUFF_ADDR + size;
-		queue_fb_map_RTaddress  = 0; /* not mapped. */
+		queue_fb_map_handle     = NULL; /* not mapped. */
+	}
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	graphic_handle_hdmi = NULL;
+	localwork_init(&del_graphic_handle_hdmi,  work_deletehandle_hdmi);
+	localwork_init(&init_graphic_handle_hdmi, work_createhandle_hdmi);
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
+#endif
+
+#if INTERNAL_DEBUG >= 1
+	spin_lock_init(&log_irqlock);
+
+	internal_log_msg = kmalloc(INTERNAL_LOG_MSG_SIZE, GFP_KERNEL);
+	if (internal_log_msg) {
+		/* record available memory size */
+		internal_log_msgsize = INTERNAL_LOG_MSG_SIZE;
 	}
 #endif
 
@@ -6487,6 +7644,14 @@ static void __exit sh_mobile_composer_release(void)
 	unregister_early_suspend(&early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	if (kernel_queue_timer.data) {
+		/* delete timer */
+		del_timer_sync(&kernel_queue_timer);
+		kernel_queue_timer.data = 0;
+	}
+#endif
+
 	if (num_open > 0)
 		printk_err("there is 'not close device'.\n");
 
@@ -6499,6 +7664,22 @@ static void __exit sh_mobile_composer_release(void)
 		localworkquue_destroy(workqueue);
 		workqueue = NULL;
 	}
+
+#if INTERNAL_DEBUG >= 1
+	if (internal_log_msg) {
+		/* free memory */
+		kfree(internal_log_msg);
+		internal_log_msgsize = 0;
+	}
+#endif
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	if (queue_fb_map_handle) {
+		/* unmap handle */
+		sh_mobile_rtmem_physarea_unregister(queue_fb_map_handle);
+		queue_fb_map_handle = NULL;
+	}
+#endif
 
 	DBGLEAVE("\n");
 	return;
