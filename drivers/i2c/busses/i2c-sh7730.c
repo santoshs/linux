@@ -917,7 +917,6 @@ static int __devinit sh7730_i2c_probe(struct platform_device *pdev)
 	struct i2cm *id;
 	int size;
 	int ret;
-
 	pd = pdev->dev.platform_data;
 	if (!pd) {
 		dev_err(&pdev->dev, "no platform_data!\n");
@@ -973,8 +972,9 @@ static int __devinit sh7730_i2c_probe(struct platform_device *pdev)
 		ret = PTR_ERR(id->clk);
 		goto out3;
 	}
-
-
+	pm_suspend_ignore_children(&pdev->dev, true);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	/* Get clock rate after clock is enabled */
 	clk_enable(id->clk);
 
@@ -1044,9 +1044,9 @@ static int __devinit sh7730_i2c_probe(struct platform_device *pdev)
 		goto out3;
 	}
 
-	pm_suspend_ignore_children(&pdev->dev, true);
-	pm_runtime_enable(&pdev->dev);
-
+	/*pm_suspend_ignore_children(&pdev->dev, true);
+	pm_runtime_enable(&pdev->dev);*/
+	pm_runtime_put_sync(&pdev->dev);
 	ret = i2c_add_numbered_adapter(&id->adap);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "reg adap failed: %d\n", ret);

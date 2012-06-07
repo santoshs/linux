@@ -1066,7 +1066,6 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *reg;
 	char clk_name[8];
-
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(&pdev->dev, "Get irq error\n");
@@ -1139,14 +1138,16 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 		host->buf_acc = pd->buf_acc;
 	else
 		host->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&host->pd->dev);
 
 	sh_mmcif_sync_reset(host);
 	platform_set_drvdata(pdev, host);
 
-	pm_runtime_enable(&pdev->dev);
+	//pm_runtime_enable(&pdev->dev);
 	host->power = false;
 
-	ret = pm_runtime_resume(&pdev->dev);
+	//ret = pm_runtime_resume(&pdev->dev);
 	if (ret < 0)
 		goto clean_up2;
 
@@ -1179,6 +1180,7 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "driver version %s\n", DRIVER_VERSION);
 	dev_dbg(&pdev->dev, "chip ver H'%04x\n",
 		sh_mmcif_readl(host->addr, MMCIF_CE_VERSION) & 0x0000ffff);
+		pm_runtime_put_sync(&host->pd->dev);
 	return ret;
 
 clean_up3:
