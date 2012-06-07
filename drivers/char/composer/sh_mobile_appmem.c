@@ -28,6 +28,12 @@
 
 #define DEV_NAME      "composer"
 
+#if !defined(RT_MEMORY_MFIWORKRT)
+/* using RT-API is more recent version */
+#define RTAPI_VERSION   2
+#else
+#define RTAPI_VERSION   1
+#endif
 
 /******************************************************/
 /* define local variables for App Memory handling     */
@@ -36,6 +42,7 @@ static int         app_share_initialize;
 static spinlock_t  app_share_lock;
 static LIST_HEAD(app_share_top);
 static int         debug;
+static LIST_HEAD(rt_physaddr_top);
 
 #define printk_dbg(level, fmt, arg...) \
 	do { \
@@ -54,8 +61,8 @@ static int         debug;
 /**************************************************/
 
 /**************************************************/
-/* name : sh_mobile_appmem__init                  */
-/* function: initialize local variable            */
+/* name : sh_mobile_appmem_dump_appshare_list     */
+/* function: dump list of app share.              */
 /**************************************************/
 static void sh_mobile_appmem_dump_appshare_list(void)
 {
@@ -72,9 +79,11 @@ static void sh_mobile_appmem_dump_appshare_list(void)
 		mem = list_entry((void *)list, struct appmem_handle, list);
 
 		printk_dbg(1, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d\n",
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
-			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count);
+			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
+			mem->op_apaddr, mem->op_pages);
 	}
 
 	spin_unlock_irqrestore(&app_share_lock, flags);
@@ -106,6 +115,8 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 	unsigned char *vadr = NULL;
 	unsigned int offset, rt_adr;
 	int  rc;
+	unsigned int op_apaddr = 0;
+	struct page **op_pages = NULL;
 
 	sh_mobile_appmem__init();
 
@@ -119,6 +130,9 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 
 	{
 		system_mem_ap_open  op;
+#if RTAPI_VERSION == 2
+		system_mem_rt_map_pnc  mpnc;
+#endif
 		op.handle      = handle;
 		op.aparea_size = RT_MEMORY_APAREA_SIZE(size);
 		op.cache_kind  = RT_MEMORY_NONCACHE;
@@ -128,7 +142,34 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 				"error: return by %d\n", rc);
 			goto err_exit;
 		}
+#if RTAPI_VERSION == 2
+		mpnc.handle       = handle;
+		mpnc.apaddr       = op.apaddr;
+		mpnc.map_size     = op.aparea_size;
+		mpnc.pages        = op.pages;
+		mpnc.rtcache_kind = RT_MEMORY_RTMAP_WBNC;
+
+		rc = system_memory_rt_map_pnc(&mpnc);
+		if (rc != 0) {
+			system_mem_ap_close clo;
+
+			printk_err("system_memory_rt_map_pnc " \
+				"error: return by %d\n", rc);
+
+			clo.handle = handle;
+			clo.apaddr = op.apaddr;
+			clo.pages  = op.pages;
+			goto err_exit;
+		}
+
+		op_apaddr = op.apaddr;
+		op_pages  = op.pages;
+		memhandle = mpnc.apmem_handle;
+#elif RTAPI_VERSION == 1
 		memhandle = op.apmem_handle;
+#else
+#error
+#endif
 	}
 
 	{
@@ -200,11 +241,16 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		mem->rtaddr    = rt_adr - offset;
 		mem->ref_count = 1;
 
+		mem->op_apaddr = op_apaddr;
+		mem->op_pages  = op_pages;
+
 		printk_dbg(2, "open appshare memory.\n");
 		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d\n",
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
-			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count);
+			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
+			mem->op_apaddr, mem->op_pages);
 
 		spin_lock_irqsave(&app_share_lock, flags);
 		list_add_tail(&mem->list, &app_share_top);
@@ -228,16 +274,38 @@ err_exit:
 			vadr = NULL;
 		}
 		if (memhandle) {
+#if RTAPI_VERSION == 2
+			system_mem_rt_unmap_pnc upnc;
+#endif
 			system_mem_ap_close clo;
 
-			clo.handle       = handle;
+#if RTAPI_VERSION == 2
+			upnc.handle       = handle;
+			upnc.apmem_handle = memhandle;
+			memhandle = NULL;
+			rc = system_memory_rt_unmap_pnc(&upnc);
+			if (rc != 0) {
+				printk_err("system_memory_rt_unmap_pnc " \
+					"error: return by %d\n", rc);
+			}
+
+			clo.handle = handle;
+			clo.apaddr = op_apaddr;
+			clo.pages  = op_pages;
+			op_apaddr = 0;
+			op_pages  = NULL;
+#elif RTAPI_VERSION == 1
+			clo.handle = handle;
 			clo.apmem_handle = memhandle;
+			memhandle = NULL;
+#else
+#error
+#endif
 			rc = system_memory_ap_close(&clo);
 			if (rc != 0) {
 				printk_err("system_memory_ap_close " \
 					"error: return by %d\n", rc);
 			}
-			memhandle = NULL;
 		}
 	}
 	if (handle) {
@@ -270,6 +338,8 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 	unsigned char *vadr = NULL;
 	unsigned int rt_adr;
 	int  rc;
+	unsigned int op_apaddr = 0;
+	struct page **op_pages = NULL;
 
 	sh_mobile_appmem__init();
 
@@ -325,6 +395,10 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 			goto err_exit;
 		}
 		memhandle = area.apmem_handle;
+#if RTAPI_VERSION == 2
+		op_apaddr = area.apaddr;
+		op_pages  = area.pages;
+#endif
 	}
 
 	{
@@ -379,11 +453,16 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		mem->rtaddr    = rt_adr;
 		mem->ref_count = 1;
 
+		mem->op_apaddr = op_apaddr;
+		mem->op_pages  = op_pages;
+
 		printk_dbg(2, "share appshare memory.\n");
 		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d\n",
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
-			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count);
+			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
+			mem->op_apaddr, mem->op_pages);
 
 		spin_lock_irqsave(&app_share_lock, flags);
 		list_add_tail(&mem->list, &app_share_top);
@@ -394,16 +473,38 @@ err_exit:
 	if (mem == NULL) {
 		/* free resources */
 		if (memhandle) {
+#if RTAPI_VERSION == 2
+			system_mem_rt_unmap_pnc upnc;
+#endif
 			system_mem_ap_close clo;
 
+#if RTAPI_VERSION == 2
+			upnc.handle       = handle;
+			upnc.apmem_handle = memhandle;
+			memhandle = NULL;
+			rc = system_memory_rt_unmap_pnc(&upnc);
+			if (rc != 0) {
+				printk_err("system_memory_rt_unmap_pnc " \
+					"error: return by %d\n", rc);
+			}
+
+			clo.handle = handle;
+			clo.apaddr = op_apaddr;
+			clo.pages  = op_pages;
+			op_apaddr = 0;
+			op_pages  = NULL;
+#elif RTAPI_VERSION == 1
 			clo.handle = handle;
 			clo.apmem_handle = memhandle;
+			memhandle = NULL;
+#else
+#error
+#endif
 			rc = system_memory_ap_close(&clo);
 			if (rc != 0) {
 				printk_err("system_memory_ap_close " \
 					"error: return by %d\n", rc);
 			}
-			memhandle = NULL;
 		}
 	}
 	if (handle) {
@@ -622,10 +723,33 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		appmem->size  = 0;
 	}
 	{
+#if RTAPI_VERSION == 2
+		system_mem_rt_unmap_pnc upnc;
+#endif
 		system_mem_ap_close clo;
 
+#if RTAPI_VERSION == 2
+		upnc.handle       = handle;
+		upnc.apmem_handle = appmem->memhandle;
+		appmem->memhandle = NULL;
+		rc = system_memory_rt_unmap_pnc(&upnc);
+		if (rc != 0) {
+			printk_err("system_memory_rt_unmap_pnc " \
+				"error: return by %d\n", rc);
+		}
+
+		clo.handle = handle;
+		clo.apaddr = appmem->op_apaddr;
+		clo.pages  = appmem->op_pages;
+		appmem->op_apaddr = 0;
+		appmem->op_pages  = NULL;
+#elif RTAPI_VERSION == 1
 		clo.handle       = handle;
 		clo.apmem_handle = appmem->memhandle;
+		appmem->memhandle = NULL;
+#else
+#error
+#endif
 		rc = system_memory_ap_close(&clo);
 		if (rc != 0) {
 			printk_err("system_memory_ap_close " \
@@ -633,7 +757,6 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 			rc = -EINVAL;
 			/* fall through, assume close success */
 		}
-		appmem->memhandle = NULL;
 	}
 
 	printk_dbg(2, "free appshare memory.\n");
@@ -665,3 +788,334 @@ void sh_mobile_appmem_debugmode(int mode)
 	debug = mode;
 }
 EXPORT_SYMBOL(sh_mobile_appmem_debugmode);
+
+/**************************************************/
+/* implementation for rt addr/ physical handling  */
+/**************************************************/
+/**************************************************/
+/* name : sh_mobile_appmem_dump_appshare_list     */
+/* function: dump list of app share.              */
+/**************************************************/
+static void sh_mobile_appmem_dump_rt_phys_list(void)
+{
+	unsigned long flags;
+	struct list_head *list;
+
+	printk_dbg(1, "list currently registered physical address.\n");
+	spin_lock_irqsave(&app_share_lock, flags);
+
+	list_for_each(list, &rt_physaddr_top)
+	{
+		struct rtmem_phys_handle *mem = NULL;
+
+		mem = list_entry((void *)list, struct rtmem_phys_handle, list);
+
+		printk_dbg(1, "  phys_addr:0x%lx size:0x%x rtaddr:0x%lx\n",
+			mem->phys_addr, mem->size, mem->rt_addr);
+	}
+
+	spin_unlock_irqrestore(&app_share_lock, flags);
+}
+
+
+/**************************************************/
+/* name : sh_mobile_rtmem_physarea_regist         */
+/* function: map physical memory                  */
+/**************************************************/
+struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
+	int size,
+	unsigned long phys_addr)
+{
+	void *handle = NULL;
+	struct rtmem_phys_handle *mem = NULL;
+	unsigned long rtaddr = 0;
+	int  rc;
+
+	sh_mobile_appmem__init();
+
+	printk_dbg(1, "size:0x%x phys:0x%lx\n", size, phys_addr);
+
+/* map rt-physical address */
+
+	handle = system_memory_info_new();
+	if (handle == NULL) {
+		printk_err("system_memory_info_new error\n");
+		goto err_exit;
+	}
+
+	{
+		system_mem_rt_map  map;
+		map.handle    = handle;
+		map.phys_addr = phys_addr;
+		map.map_size  = size;
+		map.rtaddr    = 0;
+
+		printk_dbg(1, "system_memory_rt_map "
+			"handle:%p phys_addr:0x%x map_size:0x%x\n",
+				map.handle, map.phys_addr, map.map_size);
+
+		rc = system_memory_rt_map(&map);
+		if (rc != SMAP_LIB_MEMORY_OK) {
+			printk_err("system_memory_rt_map return by %d.\n", rc);
+			goto err_exit;
+		}
+		rtaddr = map.rtaddr;
+	}
+
+/* allocate object */
+
+	mem = kmalloc(sizeof(*mem), GFP_KERNEL);
+	if (mem == NULL) {
+		printk_err("kmalloc error\n");
+		goto err_exit;
+	} else {
+		unsigned long flags;
+
+		mem->size      = size;
+		mem->rt_addr   = rtaddr;
+		mem->phys_addr = phys_addr;
+
+		INIT_LIST_HEAD(&mem->list);
+
+		printk_dbg(2, "physical address registered.\n");
+		printk_dbg(2, "  phys_addr:0x%lx size:0x%x rtaddr:0x%lx\n",
+			mem->phys_addr, mem->size, mem->rt_addr);
+
+		spin_lock_irqsave(&app_share_lock, flags);
+		list_add_tail(&mem->list, &rt_physaddr_top);
+		spin_unlock_irqrestore(&app_share_lock, flags);
+	}
+
+err_exit:
+	if (mem == NULL) {
+		/* free resources */
+		if (rtaddr) {
+			system_mem_rt_unmap unmap;
+
+			unmap.handle   = handle;
+			unmap.rtaddr   = rtaddr;
+			unmap.map_size = size;
+
+			printk_dbg(1, "system_memory_rt_unmap "
+				"handle:%p rtaddr:0x%x map_size:0x%x\n",
+				unmap.handle, unmap.rtaddr, unmap.map_size);
+
+			rc = system_memory_rt_unmap(&unmap);
+
+			if (rc != SMAP_LIB_MEMORY_OK) {
+				printk_err("system_memory_rt_unmap "
+					"return by %d.\n", rc);
+			}
+			rtaddr = 0;
+		}
+	}
+	if (handle) {
+		system_mem_info_delete del;
+		del.handle = handle;
+
+		system_memory_info_delete(&del);
+	}
+	if (debug) {
+		/* display debug information. */
+		sh_mobile_appmem_dump_rt_phys_list();
+	}
+	return mem;
+}
+EXPORT_SYMBOL(sh_mobile_rtmem_physarea_register);
+
+
+/**************************************************/
+/* name : sh_mobile_rtmem_physarea_unregist       */
+/* function: unmap physical memory                */
+/**************************************************/
+void sh_mobile_rtmem_physarea_unregister(
+	struct rtmem_phys_handle *_mem)
+{
+	struct rtmem_phys_handle *mem = NULL;
+
+	void *handle = NULL;
+	int  rc;
+
+	printk_dbg(1, "mam:%p\n", _mem);
+
+	sh_mobile_appmem__init();
+
+	mem = NULL;
+
+	/* confirm handle registered */
+	if (_mem) {
+		unsigned long flags;
+		struct list_head *list;
+
+		spin_lock_irqsave(&app_share_lock, flags);
+		list_for_each(list, &rt_physaddr_top)
+		{
+			struct rtmem_phys_handle *tmp = NULL;
+
+			tmp = list_entry((void *)list,
+				struct rtmem_phys_handle, list);
+
+			if (tmp == _mem) {
+				/* handle registered. */
+				mem = tmp;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&app_share_lock, flags);
+	}
+
+	if (mem == NULL) {
+		printk_err("handle not registered.\n");
+		goto err_exit;
+	}
+
+	handle = system_memory_info_new();
+	if (handle == NULL) {
+		printk_err("system_memory_info_new error\n");
+		goto err_exit;
+	}
+
+	list_del_init(&mem->list);
+
+	{
+		system_mem_rt_unmap unmap;
+
+		unmap.handle   = handle;
+		unmap.rtaddr   = mem->rt_addr;
+		unmap.map_size = mem->size;
+
+		printk_dbg(1, "system_memory_rt_unmap "
+			"handle:%p rtaddr:0x%x map_size:0x%x\n",
+			unmap.handle, unmap.rtaddr, unmap.map_size);
+
+		rc = system_memory_rt_unmap(&unmap);
+
+		if (rc != SMAP_LIB_MEMORY_OK) {
+			printk_err("system_memory_rt_unmap "
+				"return by %d.\n", rc);
+		}
+	}
+
+	printk_dbg(2, "physical address unregistered.\n");
+	kfree(mem);
+
+err_exit:
+	if (handle) {
+		system_mem_info_delete del;
+		del.handle = handle;
+
+		system_memory_info_delete(&del);
+	}
+	if (debug) {
+		/* display debug information. */
+		sh_mobile_appmem_dump_rt_phys_list();
+	}
+	return;
+}
+EXPORT_SYMBOL(sh_mobile_rtmem_physarea_unregister);
+
+
+/**************************************************/
+/* name : sh_mobile_rtmem_conv_phys2rtmem         */
+/* function: convert physical to RT address       */
+/**************************************************/
+unsigned long sh_mobile_rtmem_conv_phys2rtmem(
+	unsigned long phys_addr)
+{
+	struct rtmem_phys_handle *mem;
+	unsigned long rt_addr;
+	unsigned long flags;
+	struct list_head *list;
+
+	sh_mobile_appmem__init();
+
+	rt_addr = 0;
+	spin_lock_irqsave(&app_share_lock, flags);
+	list_for_each(list, &rt_physaddr_top)
+	{
+		unsigned long adr_low, adr_high;
+		int  offset;
+
+		mem = list_entry((void *)list,
+			struct rtmem_phys_handle, list);
+
+		adr_low  =           mem->phys_addr;
+		adr_high = adr_low + mem->size;
+		if (adr_low <= phys_addr && phys_addr < adr_high) {
+			offset = phys_addr - adr_low;
+
+			rt_addr = mem->rt_addr + offset;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&app_share_lock, flags);
+
+	if (debug) {
+		/* display debug information. */
+		sh_mobile_appmem_dump_rt_phys_list();
+	}
+	if (rt_addr == 0) {
+		printk_dbg(1, "physical address:0x%lx not registered.\n",
+			phys_addr);
+	} else {
+		printk_dbg(1, "physical address 0x%lx convert to "
+			"RT address 0x%lx\n",
+			phys_addr, rt_addr);
+	}
+
+	return rt_addr;
+}
+EXPORT_SYMBOL(sh_mobile_rtmem_conv_phys2rtmem);
+
+
+/**************************************************/
+/* name : sh_mobile_rtmem_conv_rt2physmem         */
+/* function: convert RT to physical address       */
+/**************************************************/
+unsigned long sh_mobile_rtmem_conv_rt2physmem(
+	unsigned long rt_addr)
+{
+	struct rtmem_phys_handle *mem;
+	unsigned long phys_addr;
+	unsigned long flags;
+	struct list_head *list;
+
+	sh_mobile_appmem__init();
+
+	phys_addr = 0;
+	spin_lock_irqsave(&app_share_lock, flags);
+	list_for_each(list, &rt_physaddr_top)
+	{
+		unsigned long adr_low, adr_high;
+		int  offset;
+
+		mem = list_entry((void *)list,
+			struct rtmem_phys_handle, list);
+
+		adr_low  =           mem->rt_addr;
+		adr_high = adr_low + mem->size;
+		if (adr_low <= rt_addr && rt_addr < adr_high) {
+			offset = rt_addr - adr_low;
+
+			phys_addr = mem->phys_addr + offset;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&app_share_lock, flags);
+
+	if (debug) {
+		/* display debug information. */
+		sh_mobile_appmem_dump_rt_phys_list();
+	}
+	if (phys_addr == 0) {
+		printk_dbg(1, "RT address:0x%lx not registered.\n",
+			phys_addr);
+	} else {
+		printk_dbg(1, "RT address 0x%lx convert to "
+			"physical address 0x%lx\n",
+			rt_addr, phys_addr);
+	}
+
+	return phys_addr;
+}
+EXPORT_SYMBOL(sh_mobile_rtmem_conv_rt2physmem);

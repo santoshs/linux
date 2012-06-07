@@ -397,13 +397,29 @@ struct composer_fh {
 };
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    0
+#ifdef CONFIG_MACH_KOTA2
+/* support HDMI for KOTA2 */
+#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    1
+#else
+/* support HDMI for other */
+#define SH_MOBILE_COMPOSER_SUPPORT_HDMI    3
+#endif
 #define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;
 	screen_grap_layer       layer[4];
+	int                     num_layers;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	screen_grap_layer       extlayer;
+	int                     extlayer_index;
+	struct {
+		struct {
+			unsigned short   format;
+			unsigned short   yuv_format;
+			unsigned short   yuv_range;
+			unsigned short   reserved_for_alignment;
+		} image;
+		int                 rotate;
+	} extlayer;
 #endif
 };
 
@@ -420,7 +436,6 @@ struct composer_rh {
 	int                          refcount;
 
 	struct list_head             list;
-	unsigned char                *org_fb_address;
 };
 
 extern int sh_mobile_composer_queue(
@@ -429,7 +444,12 @@ extern int sh_mobile_composer_queue(
 	void  (*callback)(void *user_data, int result),
 	void   *user_data);
 
+extern unsigned char *sh_mobile_composer_phy_change_rtaddr(
+	unsigned long p_adr);
 extern int sh_mobile_composer_blendoverlay(unsigned long addr);
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+extern int sh_mobile_composer_hdmiset(int mode);
+#endif
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
 extern void sh_mobile_composer_notifyrelease(void);
 #endif
