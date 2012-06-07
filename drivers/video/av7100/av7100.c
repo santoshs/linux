@@ -1095,7 +1095,9 @@ static int write_register_value(u32 uccmd, u8 reg, u8 data)
 {
 	int ret;
 	screen_disp_write_dsi_short write_dsi_s;
+#ifdef AV7100_DSI_COMMAND_USES	
 	screen_disp_param disp_param;
+#endif
         screen_disp_delete disp_delete;
         void *screen_handle;
 
@@ -1105,6 +1107,7 @@ static int write_register_value(u32 uccmd, u8 reg, u8 data)
                 return -EINVAL;
 	}
 
+#ifdef AV7100_DSI_COMMAND_USES	
 	disp_param.handle = screen_handle;
         disp_param.output_mode = RT_DISPLAY_HDMI;
         ret = screen_display_set_parameters(&disp_param);
@@ -1114,7 +1117,7 @@ static int write_register_value(u32 uccmd, u8 reg, u8 data)
                 screen_display_delete(&disp_delete);
 		return -1;
         }
-
+#endif
 
 	write_dsi_s.handle      = screen_handle;
 	write_dsi_s.data_id     = uccmd;
@@ -1143,7 +1146,9 @@ static int firmware_download(u32 uccmd, char *fw_buff, int length)
 {
         int ret;
 	screen_disp_write_dsi_long write_dsi_l;
+#ifdef AV7100_DSI_COMMAND_USES	
 	screen_disp_param disp_param;
+#endif
         screen_disp_delete disp_delete;
         void *screen_handle;
 	
@@ -1153,6 +1158,7 @@ static int firmware_download(u32 uccmd, char *fw_buff, int length)
                 return -EINVAL;
 	}
 
+#ifdef AV7100_DSI_COMMAND_USES	
 	disp_param.handle = screen_handle;
         disp_param.output_mode = RT_DISPLAY_HDMI;
         ret = screen_display_set_parameters(&disp_param);
@@ -1161,6 +1167,7 @@ static int firmware_download(u32 uccmd, char *fw_buff, int length)
                 screen_display_delete(&disp_delete);
 		return -1;
         }
+#endif
 
 	write_dsi_l.handle	 = screen_handle;
 	write_dsi_l.output_mode  = RT_DISPLAY_HDMI;
@@ -1191,7 +1198,9 @@ static int write_uc_command(u8 uccmd, u8 *cmd_buffer, u32 cmd_length)
 {
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_write_dsi_long write_dsi_l;
+#ifdef AV7100_DSI_COMMAND_USES	
 	screen_disp_param disp_param;
+#endif
         screen_disp_delete disp_delete;
         void *screen_handle;
         int ret;
@@ -1201,7 +1210,7 @@ static int write_uc_command(u8 uccmd, u8 *cmd_buffer, u32 cmd_length)
 		                return -EINVAL;
 	}
 
-
+#ifdef AV7100_DSI_COMMAND_USES	
 	disp_param.handle = screen_handle;
         disp_param.output_mode = RT_DISPLAY_HDMI;
         ret = screen_display_set_parameters(&disp_param);
@@ -1210,7 +1219,7 @@ static int write_uc_command(u8 uccmd, u8 *cmd_buffer, u32 cmd_length)
                 screen_display_delete(&disp_delete);
 		return -1;
         }
-
+#endif
 
 	write_dsi_s.handle      = screen_handle;
 	write_dsi_s.data_id     = 0x05;
@@ -1268,7 +1277,9 @@ static int write_uc_command(u8 uccmd, u8 *cmd_buffer, u32 cmd_length)
 static int exec_uc_command(u32 uccmd, enum av7100_command_type command_type)
 {
 	screen_disp_write_dsi_short write_dsi_s;
+#ifdef AV7100_DSI_COMMAND_USES	
 	screen_disp_param disp_param;
+#endif
 	screen_disp_delete disp_delete;
 	void *screen_handle;
 	int ret;
@@ -1277,7 +1288,8 @@ static int exec_uc_command(u32 uccmd, enum av7100_command_type command_type)
 	if(screen_handle == NULL) {
         	return -EINVAL;
 	}
-
+	
+#ifdef AV7100_DSI_COMMAND_USES	
 	disp_param.handle = screen_handle;
         disp_param.output_mode = RT_DISPLAY_HDMI;
         ret = screen_display_set_parameters(&disp_param);
@@ -1286,7 +1298,7 @@ static int exec_uc_command(u32 uccmd, enum av7100_command_type command_type)
                 screen_display_delete(&disp_delete);
 		return -1;
         }
-
+#endif
 
 	write_dsi_s.handle	 = screen_handle;
 	write_dsi_s.output_mode  = RT_DISPLAY_HDMI;
@@ -1312,7 +1324,9 @@ static int exec_uc_command(u32 uccmd, enum av7100_command_type command_type)
 static int read_register_value(u32 cmd, u8 reg, u8 *data)
 {
 	screen_disp_read_dsi_short read_dsi_s;
+#ifdef AV7100_DSI_COMMAND_USES	
 	screen_disp_param disp_param;
+#endif
 	screen_disp_delete disp_delete;
 	void *screen_handle;
 	int ret;
@@ -1323,6 +1337,7 @@ static int read_register_value(u32 cmd, u8 reg, u8 *data)
         	return -EINVAL;
 	}
 
+#ifdef AV7100_DSI_COMMAND_USES	
 	disp_param.handle = screen_handle;
         disp_param.output_mode = RT_DISPLAY_HDMI;
         ret = screen_display_set_parameters(&disp_param);
@@ -1331,7 +1346,7 @@ static int read_register_value(u32 cmd, u8 reg, u8 *data)
                 screen_display_delete(&disp_delete);
 		return -1;
         }
-
+#endif
 
 	read_dsi_s.handle	 = screen_handle;
 	read_dsi_s.output_mode  = RT_DISPLAY_HDMI;
@@ -2272,6 +2287,7 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 	u8 hld;
 	u8 wa;
 	u8 ra;
+	char tempbuff;
 
 	if (!av7100_config) {
 		retval = AV7100_FAIL;
@@ -2322,6 +2338,7 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 	   which is calculated from mod of 0xf is tansfered in the 
 	   last */
 	   
+#if 0
 	temp = nbytes % increment;
 	for (size = 0; size < (nbytes-temp); size = size + increment,
 		index += increment) {
@@ -2393,8 +2410,62 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 				fw_buff[size], av7100_receivetab[size]);
 		}
 	}
+
+#else
+	for (size = 0; size < AV7100_FW_SIZE; size++) {
+		retval = write_single_byte(i2c, AV7100_FIRMWARE_DOWNLOAD_ENTRY, fw_buff[size]);
+		if (retval) {
+			dev_err(av7100dev, "Failed to download the av7100 firmware\n");
+			retval = -EFAULT;
+			UNLOCK_AV7100_HW;
+			goto av7100_download_firmware_out;
+		}
+	}
+	retval = read_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
+	if (retval) {
+		dev_err(av7100dev, "Failed to download the av7100 firmware 2\n");
+		retval = -EFAULT;
+		UNLOCK_AV7100_HW;
+		goto av7100_download_firmware_out;
+	}
+	dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
+
+	tempbuff = 0x00;
+	retval = write_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
+	if (retval) {
+		dev_err(av7100dev, "Failed to download the av7100 firmware 3\n");
+		retval = -EFAULT;
+		UNLOCK_AV7100_HW;
+		goto av7100_download_firmware_out;
+	}
+	dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
+
+#endif
+
+#if 1
+	for(size=0; size<0xffff; size++)
+	{
+		retval = read_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
+		if (retval) {
+			dev_err(av7100dev, "Failed to download the av7100 firmware 3\n");
+			retval = -EFAULT;
+			UNLOCK_AV7100_HW;
+			goto av7100_download_firmware_out;
+		}
+		
+		if ((tempbuff & 0x30) == 0x00) {
+			dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
+			dev_err(av7100dev, "firmware is running\n");
+			break;
+
+		}
+	}
+
+#endif
+
         UNLOCK_AV7100_HW;
 
+#if 0
 	retval = av7100_reg_fw_dl_entry_r(&val);
 	if (retval) {
 		dev_err(av7100dev,
@@ -2415,6 +2486,7 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 	} else {
 		dev_err(av7100dev, ">Fw downloading.... success\n");
 	}
+#endif
 	/* Set to idle mode By closing the Firmware download bit*/
 	av7100_reg_gen_ctrl_w(AV7100_GENERAL_CONTROL_FDL_LOW,
 		AV7100_GENERAL_CONTROL_HLD_LOW,	AV7100_GENERAL_CONTROL_WA_LOW,
