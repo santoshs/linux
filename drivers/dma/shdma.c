@@ -65,7 +65,7 @@ static void chclr_write(struct sh_dmae_chan *sh_dc, u32 data)
 	struct sh_dmae_device *shdev = to_sh_dev(sh_dc);
 
 	__raw_writel(data, shdev->chan_reg +
-		     shdev->pdata->channel[sh_dc->id].chclr_offset);
+		shdev->pdata->channel[sh_dc->id].chclr_offset / sizeof(u32));
 }
 
 static void sh_dmae_writel(struct sh_dmae_chan *sh_dc, u32 data, u32 reg)
