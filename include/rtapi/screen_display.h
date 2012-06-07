@@ -116,14 +116,6 @@ typedef struct
 {
 	void*          handle;
 	unsigned short output_mode;
-	unsigned short key_color;
-	unsigned short alpha;
-} screen_disp_param;
-
-typedef struct
-{
-	void*          handle;
-	unsigned short output_mode;
 	unsigned short dummy;
 	unsigned int   address;
 } screen_disp_get_address;
@@ -215,15 +207,6 @@ typedef struct
 
 typedef struct
 {
-	void*          handle;
-	unsigned short output_mode;
-	unsigned short dummy;
-	unsigned int   address;
-	unsigned int   size;
-} screen_disp_set_address;
-
-typedef struct
-{
 	void* handle;
 } screen_disp_delete;
 
@@ -234,12 +217,6 @@ typedef struct
 extern void* screen_display_new
 (
 	void
-);
-
-/* Set parameters */
-extern int screen_display_set_parameters
-(
-	screen_disp_param* disp_param
 );
 
 /* Get address */
@@ -309,12 +286,6 @@ extern int screen_display_write_dsi_long_packet
 extern int screen_display_set_lcd_if_parameters
 (
 	screen_disp_set_lcd_if_param* set_lcd_if_param
-);
-
-/* Set address  */
-extern int screen_display_set_address
-(
-	screen_disp_set_address* address
 );
 
 /* Delete handle */

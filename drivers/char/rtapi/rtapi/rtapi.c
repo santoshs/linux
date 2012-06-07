@@ -68,7 +68,6 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
 
         /* Screen - Display */
         func.fn_screen_display_new              = fnc->fn_screen_display_new;
-        func.fn_screen_display_set_parameters   = fnc->fn_screen_display_set_parameters;
         func.fn_screen_display_set_lcd_refresh  = fnc->fn_screen_display_set_lcd_refresh;
         func.fn_screen_display_start_lcd        = fnc->fn_screen_display_start_lcd;
         func.fn_screen_display_stop_lcd         = fnc->fn_screen_display_stop_lcd;
@@ -76,13 +75,12 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
         func.fn_screen_display_stop_hdmi        = fnc->fn_screen_display_stop_hdmi;
         func.fn_screen_display_get_address      = fnc->fn_screen_display_get_address;
         func.fn_screen_display_draw             = fnc->fn_screen_display_draw;
-//#MU2DSP222 add -S-
+/* #MU2DSP222 add -S- */
         func.fn_screen_display_read_dsi_short_packet   = fnc->fn_screen_display_read_dsi_short_packet;
-//#MU2DSP222 add -E-
+/* #MU2DSP222 add -E- */
         func.fn_screen_display_write_dsi_short_packet   = fnc->fn_screen_display_write_dsi_short_packet;
         func.fn_screen_display_write_dsi_long_packet    = fnc->fn_screen_display_write_dsi_long_packet;
         func.fn_screen_display_set_lcd_if_parameters    = fnc->fn_screen_display_set_lcd_if_parameters;
-        func.fn_screen_display_set_address      = fnc->fn_screen_display_set_address;
         func.fn_screen_display_delete           = fnc->fn_screen_display_delete;
 
         /* Screen - Graphics */
@@ -90,6 +88,7 @@ int regist_rtapi_function(struct rtapi_regist_func *fnc)
         func.fn_screen_graphics_initialize      = fnc->fn_screen_graphics_initialize;
         func.fn_screen_graphics_image_conversion= fnc->fn_screen_graphics_image_conversion;
         func.fn_screen_graphics_image_blend     = fnc->fn_screen_graphics_image_blend;
+        func.fn_screen_graphics_image_output    = fnc->fn_screen_graphics_image_output;
         func.fn_screen_graphics_quit            = fnc->fn_screen_graphics_quit;
         func.fn_screen_graphics_delete          = fnc->fn_screen_graphics_delete;
 
@@ -529,19 +528,6 @@ void* screen_display_new
 }
 EXPORT_SYMBOL(screen_display_new);
 
-int screen_display_set_parameters
-(
-    screen_disp_param* disp_param
-){
-    int ret = SMAP_LIB_DISPLAY_NG;
-
-    if( func.fn_screen_display_set_parameters ){
-        ret = func.fn_screen_display_set_parameters( disp_param );
-    }
-    return ret;
-}
-EXPORT_SYMBOL(screen_display_set_parameters);
-
 int screen_display_set_lcd_refresh
 (
     screen_disp_set_lcd_refresh* set_lcd_refresh
@@ -633,7 +619,7 @@ int screen_display_draw
 }
 EXPORT_SYMBOL(screen_display_draw);
 
-//#MU2DSP222 add -S-
+/* #MU2DSP222 add -S- */
 int screen_display_read_dsi_short_packet
 (
 	screen_disp_read_dsi_short* read_dsi_s
@@ -645,8 +631,8 @@ int screen_display_read_dsi_short_packet
 	}
 	return ret;
 }
-//#MU2DSP222 add -E-
 EXPORT_SYMBOL(screen_display_read_dsi_short_packet);
+/* #MU2DSP222 add -E- */
 
 int screen_display_write_dsi_short_packet
 (
@@ -686,19 +672,6 @@ int screen_display_set_lcd_if_parameters
     return ret;
 }
 EXPORT_SYMBOL(screen_display_set_lcd_if_parameters);
-
-int screen_display_set_address
-(
-    screen_disp_set_address* address
-){
-    int ret = SMAP_LIB_DISPLAY_NG;
-
-    if( func.fn_screen_display_set_address ){
-        ret = func.fn_screen_display_set_address( address );
-    }
-    return ret;
-}
-EXPORT_SYMBOL(screen_display_set_address);
 
 void screen_display_delete
 (
@@ -763,6 +736,19 @@ int screen_graphics_image_blend
     return ret;
 }
 EXPORT_SYMBOL(screen_graphics_image_blend);
+
+int screen_graphics_image_output
+(
+    screen_grap_image_output* grap_image_output
+){
+    int ret = SMAP_LIB_GRAPHICS_NG;
+
+    if( func.fn_screen_graphics_image_output ){
+        ret = func.fn_screen_graphics_image_output( grap_image_output );
+    }
+    return ret;
+}
+EXPORT_SYMBOL(screen_graphics_image_output);
 
 int screen_graphics_quit
 (
