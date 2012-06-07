@@ -2024,7 +2024,7 @@ else /*ES2.0*/
 if((system_rev & 0xFF) == 0x00) /*ES1.0*/
         gpio_pull(GPIO_PORTCR_ES1(324), GPIO_PULL_UP);
 else /*ES2.0*/
-	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(324), GPIO_PULL_UP);
 
 	}
 

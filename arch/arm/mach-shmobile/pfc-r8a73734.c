@@ -2564,8 +2564,8 @@ static struct pinmux_info r8a73734_pinmux_info_es2 = {          /*ES2*/
 
 void r8a73734_pinmux_init(void)
 {
-if((system_rev & 0xFF) == 0x00)
+if (((system_rev & 0xFFFF) == 0x3E00))  /*ES1.0*/
 	register_pinmux(&r8a73734_pinmux_info);
-else
+else  /*ES2.0*/
 	register_pinmux(&r8a73734_pinmux_info_es2);
 }
