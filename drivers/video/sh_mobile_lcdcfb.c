@@ -55,7 +55,7 @@
 
 #define LCD_BG_BLACK 0x0
 
-#define FB_SH_MOBILE_REFRESH 1
+#define FB_SH_MOBILE_REFRESH 0
 
 #define REFRESH_TIME_MSEC 100
 
@@ -530,7 +530,7 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 	screen_disp_start_hdmi disp_start_hdmi;
 	screen_disp_stop_hdmi disp_stop_hdmi;
 	screen_disp_delete disp_delete;
-	int hdmi_mode = RT_DISPLAY_1920_1080P24;
+	int hdmi_mode = RT_DISPLAY_1280_720P60;
 	int ret;
 
 	if (set_mode->start != SH_FB_HDMI_START &&
@@ -539,7 +539,7 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		return -1;
 	}
 	if (set_mode->format < SH_FB_HDMI_480P60 ||
-	    set_mode->format > SH_FB_HDMI_1080P24) {
+	    set_mode->format > SH_FB_HDMI_576P50A43) {
 		DBG_PRINT("set_mode->format param\n");
 		return -1;
 	}
@@ -547,10 +547,23 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 	hdmi_handle = screen_display_new();
 
 	if (set_mode->start == SH_FB_HDMI_STOP) {
+		if (down_interruptible(&lcd_ext_param[0].sem_lcd)) {
+			printk(KERN_ALERT "down_interruptible failed\n");
+			disp_delete.handle = hdmi_handle;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+
+		sh_mobile_composer_hdmiset(0);
+#endif
+#endif
+
 		disp_stop_hdmi.handle = hdmi_handle;
-		DBG_PRINT("screen_display_stop_hdmi\n");
 		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
 		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
+		up(&lcd_ext_param[0].sem_lcd);
 		sh_mobile_lcdc_refresh(
 			RT_DISPLAY_REFRESH_ON, RT_DISPLAY_LCD1);
 	} else {
@@ -576,6 +589,36 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		case SH_FB_HDMI_1080P24:
 		{
 			hdmi_mode = RT_DISPLAY_1920_1080P24;
+			break;
+		}
+		case SH_FB_HDMI_576P50:
+		{
+			hdmi_mode = RT_DISPLAY_720_576P50;
+			break;
+		}
+		case SH_FB_HDMI_720P50:
+		{
+			hdmi_mode = RT_DISPLAY_1280_720P50;
+			break;
+		}
+		case SH_FB_HDMI_1080P60:
+		{
+			hdmi_mode = RT_DISPLAY_1920_1080P60;
+			break;
+		}
+		case SH_FB_HDMI_1080P50:
+		{
+			hdmi_mode = RT_DISPLAY_1920_1080P50;
+			break;
+		}
+		case SH_FB_HDMI_480P60A43:
+		{
+			hdmi_mode = RT_DISPLAY_720_480P60A43;
+			break;
+		}
+		case SH_FB_HDMI_576P50A43:
+		{
+			hdmi_mode = RT_DISPLAY_720_576P50A43;
 			break;
 		}
 		}
