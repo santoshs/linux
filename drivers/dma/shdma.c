@@ -285,11 +285,18 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	struct sh_desc *desc = tx_to_sh_desc(tx), *chunk, *last = desc, *c;
 	struct sh_dmae_chan *sh_chan = to_sh_chan(tx->chan);
+	struct sh_dmae_slave *param = tx->chan->private;
 	dma_async_tx_callback callback = tx->callback;
 	dma_cookie_t cookie;
 	unsigned long flags;
+	bool power_up;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
+
+	if (list_empty(&sh_chan->ld_queue))
+		power_up = true;
+	else
+		power_up = false;
 
 	cookie = dma_cookie_assign(tx);
 
@@ -320,6 +327,21 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 		desc->hw.sar, desc->hw.tcr, desc->hw.dar);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+
+	if (power_up) {
+		pm_runtime_get_sync(sh_chan->dev);
+
+		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
+
+		if (param) {
+			const struct sh_dmae_slave_config *cfg = param->config;
+
+			dmae_set_dmars(sh_chan, cfg->mid_rid);
+			dmae_set_chcr(sh_chan, cfg->chcr);
+		} else {
+			dmae_init(sh_chan);
+		}
+	}
 
 	return cookie;
 }
@@ -363,8 +385,6 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_slave *param = chan->private;
 	int ret;
 
-	pm_runtime_get_sync(sh_chan->dev);
-
 	/*
 	 * This relies on the guarantee from dmaengine that alloc_chan_resources
 	 * never runs concurrently with itself or free_chan_resources.
@@ -384,11 +404,6 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 		}
 
 		param->config = cfg;
-
-		dmae_set_dmars(sh_chan, cfg->mid_rid);
-		dmae_set_chcr(sh_chan, cfg->chcr);
-	} else {
-		dmae_init(sh_chan);
 	}
 
 	while (sh_chan->descs_allocated < NR_DESCS_PER_CHANNEL) {
@@ -417,7 +432,6 @@ edescalloc:
 etestused:
 efindslave:
 	chan->private = NULL;
-	pm_runtime_put(sh_chan->dev);
 	return ret;
 }
 
@@ -429,7 +443,6 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_desc *desc, *_desc;
 	LIST_HEAD(list);
-	int descs = sh_chan->descs_allocated;
 	unsigned long flags;
 
 	/* Protect against ISR */
@@ -456,9 +469,6 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	sh_chan->descs_allocated = 0;
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
-	if (descs > 0)
-		pm_runtime_put(sh_chan->dev);
 
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);
@@ -694,7 +704,6 @@ static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 						  struct sh_desc, node);
 		desc->partial = (desc->hw.tcr - sh_dmae_readl(sh_chan, TCR)) <<
 			sh_chan->xmit_shift;
-
 	}
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
@@ -779,7 +788,13 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan, bool all
 		     async_tx_test_ack(&desc->async_tx)) || all) {
 			/* Remove from ld_queue list */
 			desc->mark = DESC_IDLE;
+
 			list_move(&desc->node, &sh_chan->ld_free);
+
+			if (list_empty(&sh_chan->ld_queue)) {
+				dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
+				pm_runtime_put(sh_chan->dev);
+			}
 		}
 	}
 
@@ -922,6 +937,11 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 
 		list_splice_init(&sh_chan->ld_queue, &dl);
 
+		if (!list_empty(&dl)) {
+			dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
+			pm_runtime_put(sh_chan->dev);
+		}
+
 		spin_unlock(&sh_chan->desc_lock);
 
 		/* Complete all  */
@@ -1050,7 +1070,7 @@ static int __devinit sh_dmae_chan_probe(struct sh_dmae_device *shdev, int id,
 		return -ENOMEM;
 	}
 
-	/* copy struct dma_device */
+	/* reference struct dma_device */
 	new_sh_chan->common.device = &shdev->common;
 	dma_cookie_init(&new_sh_chan->common);
 
@@ -1430,6 +1450,7 @@ static int sh_dmae_resume(struct device *dev)
 
 		if (param) {
 			const struct sh_dmae_slave_config *cfg = param->config;
+
 			dmae_set_dmars(sh_chan, cfg->mid_rid);
 			dmae_set_chcr(sh_chan, cfg->chcr);
 		} else {
