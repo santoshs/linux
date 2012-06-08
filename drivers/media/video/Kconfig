@@ -845,6 +845,12 @@ config SOC_CAMERA_OV5640
 	depends on SOC_CAMERA && I2C
 	help
 	  This driver supports OV5640 cameras from Omnivision
+	  
+config SOC_CAMERA_IMX081
+	tristate "IMX081 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports IMX081 cameras from Sony
 
 config SOC_CAMERA_PLATFORM
 	tristate "platform camera support"

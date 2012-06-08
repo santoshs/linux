@@ -328,6 +328,9 @@ enum {
 	V4L2_IDENT_OV8820 = 100000,
 	V4L2_IDENT_OV5640 = 100001,
 
+	/* Sony IMX081 */
+	V4L2_IDENT_IMX081 = 100010,
+
 	/* Don't just add new IDs at the end: KEEP THIS LIST ORDERED BY ID! */
 };
 

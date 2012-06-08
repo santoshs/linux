@@ -73,9 +73,8 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 		/* stream ON */
 		tmp = ioread32(priv->base + SH_CSI2_INTSTATE);
 		iowrite32(tmp, priv->base + SH_CSI2_INTSTATE);
-		if (tmp & 0x53) {
+		if (tmp & 0x53)
 			printk(KERN_ALERT "CSI Error(stream)(0x%08X)\n", tmp);
-		}
 
 		if (priv->client->phy == SH_CSI2_PHY_MAIN)
 			tmp = 0;
@@ -93,8 +92,8 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 #endif
 
 		tmp = 0x10;
-		if (priv->client->lanes & 3)
-			tmp |= priv->client->lanes & 3;
+		if (priv->client->lanes & 0xF)
+			tmp |= priv->client->lanes & 0xF;
 		else
 			/* Default - both lanes */
 			tmp |= 3;
@@ -190,12 +189,12 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 #if SH_CSI2_DEBUG
 	if (intstate & (1 << 26)) {
 		if (0 == (priv->vd_s_cnt % 10))
-			printk(KERN_ALERT "VD_S = %d\n",priv->vd_s_cnt);
+			printk(KERN_ALERT "VD_S = %d\n", priv->vd_s_cnt);
 		priv->vd_s_cnt++;
 	}
 	if (intstate & (1 << 25)) {
 		if (0 == (priv->vd_e_cnt % 10))
-			printk(KERN_ALERT "VD_E = %d\n",priv->vd_e_cnt);
+			printk(KERN_ALERT "VD_E = %d\n", priv->vd_e_cnt);
 		priv->vd_e_cnt++;
 	}
 	if (intstate & (1 << 17)) {
@@ -278,7 +277,7 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	void __iomem *intcs_base;
 
 	spin_lock_irqsave(&priv->lock, flags);
-	if(0 != enable) {
+	if (0 != enable) {
 		printk(KERN_ALERT "%s stream on\n", __func__);
 		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
 			dev_name(&priv->pdev->dev), priv)) {
@@ -290,13 +289,13 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
 
 		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite16( ioread16(intcs_base + pdata->ipr) | (pdata->ipr_set),
+		iowrite16(ioread16(intcs_base + pdata->ipr) | (pdata->ipr_set),
 			intcs_base + pdata->ipr);
 		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr);
 		dev_dbg(&priv->pdev->dev,
 			"> IPR(0x%x)=0x04%x, IMCR(0x%x)=0x02%x\n",
-			pdata->ipr, ioread16(intcs_base + pdata->ipr), pdata->imcr,
-			ioread8(intcs_base + pdata->imcr));
+			pdata->ipr, ioread16(intcs_base + pdata->ipr),
+			pdata->imcr, ioread8(intcs_base + pdata->imcr));
 		iounmap(intcs_base);
 
 		priv->strm_on = 1;
