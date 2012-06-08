@@ -2075,8 +2075,9 @@ static void sndp_work_voice_stop(struct work_struct *work)
 static void sndp_work_voice_dev_chg(struct work_struct *work)
 {
 	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = MAX98090_DEV_NONE;
 	struct sndp_work_info	*wp = NULL;
+	u_int			old_dev = SNDP_NO_DEVICE;
+	u_int			new_dev = SNDP_NO_DEVICE;
 
 
 	sndp_log_debug_func("start\n");
@@ -2084,32 +2085,215 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
 
-	/* MAXIM device change */
-	if (wp->new_value != wp->old_value) {
-		ulSetDevice = sndp_get_next_devices(wp->new_value);
-		iRet = max98090_set_device(ulSetDevice, wp->new_value);
+	/* get Device type */
+	old_dev = SNDP_GET_DEVICE_VAL(wp->old_value);
+	new_dev = SNDP_GET_DEVICE_VAL(wp->new_value);
+
+	/* AudioLSI -> BT(SCO) */
+	if ((SNDP_BLUETOOTHSCO != old_dev) && 
+	    (SNDP_BLUETOOTHSCO == new_dev)) {
+		iRet = sndp_work_voice_dev_chg_max98090_to_bt(
+			wp->old_value, wp->new_value);
 		if (ERROR_NONE != iRet)
-			sndp_log_err("maxim set device error (code=%d)\n",
-				     iRet);
-	}
-
-	/* Set to ENABLE/DISABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value))
-		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
-	else
-		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
-
-	if (ERROR_NONE != iRet) {
-		sndp_log_err("max98090_set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ?
-							"ENABLE" : "DISABLE",
-			iRet);
+			sndp_log_err(
+				"max98090 -> BT-SCO error(code=%d)\n", iRet);
+	/* BT(SCO) -> AudioLSI */
+	} else if((SNDP_BLUETOOTHSCO == old_dev) &&
+		  (SNDP_BLUETOOTHSCO != new_dev)) {
+		iRet = sndp_work_voice_dev_chg_bt_to_max98090(
+			wp->old_value, wp->new_value);
+		if (ERROR_NONE != iRet)
+			sndp_log_err(
+				"BT-SCO -> max98090 error(code=%d)\n", iRet);
+	/* AudioLSI -> AudioLSI */
+	} else if((SNDP_BLUETOOTHSCO != old_dev) &&
+		  (SNDP_BLUETOOTHSCO != new_dev)) {
+		iRet = sndp_work_voice_dev_chg_in_max98090(
+			wp->old_value, wp->new_value);
+		if (ERROR_NONE != iRet)
+			sndp_log_err(
+				"max98090 -> max98090 error(code=%d)\n", iRet);
+	/* BT(SCO) -> BT(SCO) */
+	} else {
+		/* Without processing */
 	}
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
 	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Device change AudioLSI -> BT-SCO (IN_CALL)
+          Subfunction of the sndp_work_voice_dev_chg()
+
+   @param[in]	old_value	last PCM value
+   @param[in]	new_value	new PCM value
+   @param[out]	
+
+   @retval	0		Successful
+ */
+static int sndp_work_voice_dev_chg_max98090_to_bt(
+	const u_int old_value,
+	const u_int new_value)
+{
+	int	iRet = ERROR_NONE;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* Set to DISABLE the speaker amp */
+	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(old_value)) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("speaker_amp DISABLE error(code=%d)\n",
+				     iRet);
+	}
+
+	/* stop SCUW */
+	scuw_stop();
+
+	/* stop FSI */
+	fsi_stop();
+
+	/* stop CLKGEN */
+	clkgen_stop();
+
+	/* AudioLSI device all stop */
+	iRet = max98090_set_device(MAX98090_DEV_NONE, SNDP_VALUE_INIT);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("max set device error(code=%d)\n", iRet);
+
+	/* start SCUW */
+	iRet = scuw_start(new_value);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("scuw start error(code=%d)\n", iRet);
+
+	/* start FSI */
+	iRet = fsi_start(new_value);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("fsi start error(code=%d)\n", iRet);
+
+	/* start CLKGEN */
+	iRet = clkgen_start(new_value, 0);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+
+	sndp_log_debug_func("end\n");
+
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief Device change BT-SCO -> AudioLSI (IN_CALL)
+          Subfunction of the sndp_work_voice_dev_chg()
+
+   @param[in]	old_value	last PCM value
+   @param[in]	new_value	new PCM value
+   @param[out]	
+
+   @retval	0		Successful
+ */
+static int sndp_work_voice_dev_chg_bt_to_max98090(
+	const u_int old_value,
+	const u_int new_value)
+{
+	int	iRet = ERROR_NONE;
+	u_long	ulSetDevice = MAX98090_DEV_NONE;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* stop SCUW */
+	scuw_stop();
+
+	/* stop FSI */
+	fsi_stop();
+
+	/* stop CLKGEN */
+	clkgen_stop();
+
+	/* start SCUW */
+	iRet = scuw_start(new_value);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("scuw start error(code=%d)\n", iRet);
+
+	/* start FSI */
+	iRet = fsi_start(new_value);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("fsi start error(code=%d)\n", iRet);
+
+	/* start CLKGEN */
+	iRet = clkgen_start(new_value, 0);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+
+	/* MAXIM device setting */
+	ulSetDevice = sndp_get_next_devices(new_value);
+	iRet = max98090_set_device(ulSetDevice, new_value);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("maxim set device error (code=%d)\n", iRet);
+
+	/* Set to ENABLE the speaker amp */
+	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value)) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("speaker_amp ENABLE error(code=%d)\n",
+				     iRet);
+	}
+
+	sndp_log_debug_func("end\n");
+
+	return ERROR_NONE;
+}
+
+
+/*!
+   @brief Device change AudioLSI -> AudioLSI (IN_CALL)
+          Subfunction of the sndp_work_voice_dev_chg()
+
+   @param[in]	old_value	last PCM value
+   @param[in]	new_value	new PCM value
+   @param[out]	
+
+   @retval	0		Successful
+ */
+static int sndp_work_voice_dev_chg_in_max98090(
+	const u_int old_value,
+	const u_int new_value)
+{
+	int	iRet = ERROR_NONE;
+	u_long	ulSetDevice = MAX98090_DEV_NONE;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* MAXIM device change */
+	if (new_value != old_value) {
+		ulSetDevice = sndp_get_next_devices(new_value);
+		iRet = max98090_set_device(ulSetDevice, new_value);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("maxim set device error (code=%d)\n",
+				     iRet);
+	}
+
+	/* Set to ENABLE/DISABLE the speaker amp */
+	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value))
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
+	else
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
+
+	if (ERROR_NONE != iRet)
+		sndp_log_err("max98090_set_speaker_amp %s error(code=%d)\n",
+			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value)) ?
+			"ENABLE" : "DISABLE", iRet);
+
+	sndp_log_debug_func("end\n");
+
+	return ERROR_NONE;
 }
 
 
@@ -2499,6 +2683,7 @@ static void sndp_watch_stop_fw_cb(u_int uiNop)
 
 	sndp_log_debug_func("end\n");
 }
+
 
 /*!
    @brief wake up callback function
@@ -2965,6 +3150,7 @@ void sndp_path_test_pm_runtime_get_sync(void)
 
 }
 
+
 /* Path test pm_runtime put function */
 void sndp_path_test_pm_runtime_put_sync(void)
 {
@@ -2976,6 +3162,7 @@ void sndp_path_test_pm_runtime_put_sync(void)
 		g_sysc_Base = 0;
 	}
 }
+
 
 /* Path test sndp_init */
 void sndp_path_test_sndp_init(void)
@@ -3033,6 +3220,7 @@ void sndp_path_test_sndp_init(void)
 		printk(KERN_WARNING "ioremap error\n");
 #endif
 }
+
 
 static void sndp_fsi_interrupt(void)
 {

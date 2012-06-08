@@ -675,10 +675,16 @@ static int fsi_dma_init(struct fsi_priv *fsi,
 	param = &io->dma_param;
 	param->dma_dev = NULL;
 
-	if (is_play == 1)
+	dai = fsi_get_dai(substream);
+
+	if (is_play == 1 && dai->id == 0)
 		param->slave_id = SHDMA_SLAVE_FSI2A_TX;
-	else
+	if (is_play == 0 && dai->id == 0)
 		param->slave_id = SHDMA_SLAVE_FSI2A_RX;
+	if (is_play == 1 && dai->id == 1)
+		param->slave_id = SHDMA_SLAVE_FSI2B_TX;
+	if (is_play == 0 && dai->id == 1)
+		param->slave_id = SHDMA_SLAVE_FSI2B_RX;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
@@ -687,7 +693,6 @@ static int fsi_dma_init(struct fsi_priv *fsi,
 		io->dma_chan = dma_request_channel(mask, fsi_dma_filter, param);
 
 	if (!io->dma_chan) {
-		dai = fsi_get_dai(substream);
 		dev_dbg(dai->dev, "dma_request_channel failure.\n");
 		return -ENODEV;
 	}
@@ -1339,7 +1344,10 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	/* chip revision check */
 	/* for ES2.0 */
 	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
-		fsi_master_write(master, FSIDIVA, 0x00020003);
+		if(fsi_is_port_a(fsi))
+			fsi_master_write(master, FSIDIVA, 0x00020003);
+		else
+			fsi_master_write(master, FSIDIVB, 0x00020003);
 		fsi_reg_write(fsi, ACK_RV, 0x00000100);
 		if(0 != is_play)
 			fsi_reg_mask_set(fsi, ACK_MD, 0x00001101, 0x00001101);

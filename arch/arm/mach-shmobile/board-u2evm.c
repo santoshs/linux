@@ -557,8 +557,8 @@ static struct sh_fsi_platform_info fsi_info = {
 static struct resource fsi_resources[] = {
 	[0] = {
 		.name	= "FSI",
-		.start	= 0xEC230000,
-		.end	= 0xEC230500 - 1,
+		.start	= 0xec230000,
+		.end	= 0xec23003f,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
@@ -588,8 +588,8 @@ static struct sh_fsi_platform_info fsi_b_info = {
 static struct resource fsi_b_resources[] = {
 	[0] = {
 		.name	= "FSI",
-		.start	= 0xec240000,
-		.end	= 0xec240500 - 1,
+		.start	= 0xec230040,
+		.end	= 0xec23007f,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {

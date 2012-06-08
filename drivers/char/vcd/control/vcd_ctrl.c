@@ -254,8 +254,7 @@ void vcd_ctrl_stop_call(int call_type)
 	}
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(
-		VCD_CTRL_FUNC_FEATURE_CALL | VCD_CTRL_FUNC_FEATURE_TTY_CTM);
+	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_CALL);
 
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
@@ -293,6 +292,10 @@ void vcd_ctrl_start_tty_ctm(void)
 		vcd_pr_err("tty config error[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
+
+	/* update active status */
+	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_TTY_CTM);
+
 #else /* __VCD_TTY_ENABLE__ */
 	g_vcd_ctrl_result = VCD_ERR_NOT_SUPPORT;
 	goto rtn;
@@ -333,6 +336,10 @@ void vcd_ctrl_stop_tty_ctm(void)
 		vcd_pr_err("tty config error[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_TTY_CTM);
+
 #else /* __VCD_TTY_ENABLE__ */
 	g_vcd_ctrl_result = VCD_ERR_NOT_SUPPORT;
 	goto rtn;

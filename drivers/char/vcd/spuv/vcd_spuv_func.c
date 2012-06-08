@@ -177,45 +177,57 @@ int vcd_spuv_func_control_power_supply(int effective)
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
 		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
-		/* get power domain devices */
-		ret = power_domain_devices(VCD_DRIVER_NAME,
+		if (0 == g_spuv_func_pm_runtime_count) {
+			/* get power domain devices */
+			ret = power_domain_devices(
+				VCD_DRIVER_NAME,
 				g_spuv_func_power_domains,
 				&power_domain_count);
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("get power domain error. ret[%d].\n", ret);
-			goto rtn;
-		}
+			if (VCD_ERR_NONE != ret) {
+				vcd_pr_err(
+					"get power domain error. ret[%d].\n",
+					ret);
+				goto rtn;
+			}
 
-		/* recovery power supply */
-		for (g_spuv_func_pm_runtime_count = 0;
+			/* recovery power supply */
+			for (g_spuv_func_pm_runtime_count = 0;
 			g_spuv_func_pm_runtime_count < power_domain_count;
 			g_spuv_func_pm_runtime_count++) {
-			ret = pm_runtime_get_sync(
+				ret = pm_runtime_get_sync(
 					g_spuv_func_power_domains
 					[g_spuv_func_pm_runtime_count]);
-			if (VCD_ERR_NONE > ret) {
-				vcd_pr_err("pm_runtime_get_sync[%d].\n", ret);
-				goto rtn;
+				if (VCD_ERR_NONE > ret) {
+					vcd_pr_err(
+						"pm_runtime_get_sync[%d].\n",
+						ret);
+					goto rtn;
+				}
 			}
 		}
 
 		/* get clock */
-		g_spuv_func_spuv_clk = clk_get(NULL, "spuv");
-		if (IS_ERR(g_spuv_func_spuv_clk)) {
-			vcd_pr_err("g_spuv_func_spuv_clk[%p].\n",
-				g_spuv_func_spuv_clk);
-			g_spuv_func_spuv_clk = NULL;
-			ret = VCD_ERR_SYSTEM;
-			goto rtn;
+		if (NULL == g_spuv_func_spuv_clk) {
+			g_spuv_func_spuv_clk = clk_get(NULL, "spuv");
+			if (IS_ERR(g_spuv_func_spuv_clk)) {
+				vcd_pr_err("g_spuv_func_spuv_clk[%p].\n",
+					g_spuv_func_spuv_clk);
+				g_spuv_func_spuv_clk = NULL;
+				ret = VCD_ERR_SYSTEM;
+				goto rtn;
+			}
 		}
 
 		/* clock enable */
-		ret = clk_enable(g_spuv_func_spuv_clk);
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("clock enable error. ret[%d].\n", ret);
-			goto rtn;
+		if (!g_spuv_func_is_spuv_clk) {
+			ret = clk_enable(g_spuv_func_spuv_clk);
+			if (VCD_ERR_NONE != ret) {
+				vcd_pr_err("clock enable error. ret[%d].\n",
+					ret);
+				goto rtn;
+			}
+			g_spuv_func_is_spuv_clk = true;
 		}
-		g_spuv_func_is_spuv_clk = true;
 
 		/* cpga spuv module reset */
 #if 0
@@ -558,11 +570,13 @@ int vcd_spuv_func_set_fw(void)
 			read_fw_info.yram_addr[page_number] = page_data_addr;
 			read_fw_info.yram_page_size[page_number] = page_size;
 			read_fw_info.yram_global_size = global_size;
-		}  else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE) {
+		}  else if (
+			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_00) ||
+			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_FF)) {
 			/* read complete */
 			break;
 		} else {
-			vcd_pr_err("unknown memory type. memory_type[%d].\n",
+			vcd_pr_err("unknown memory type. memory_type[0x%x].\n",
 				memory_type);
 			ret = VCD_ERR_SYSTEM;
 			goto rtn;
