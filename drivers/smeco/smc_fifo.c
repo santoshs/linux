@@ -229,20 +229,12 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     {
         /* TODO GLOBAL LOCK: SMC_FIFO_LOCK_RESERVE_HW_SEM(hw_semaphore_id); */
 
-        //uint32_t* start = FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo);
-        //uint32_t* end   = FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo);
-
-        //SMC_SHM_CACHE_INVALIDATE( start, end );
         SMC_SHM_CACHE_INVALIDATE( FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo), FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo) );
     }
 
     write_index = p_fifo->write_index;
     write_cnt   = p_fifo->write_counter;
 
-
-    /* -- SHM READ/WRITE
-    n_in_fifo   = write_index - p_fifo->read_index;
-    */
     read_index = SMC_SHM_READ32( &p_fifo->read_index );
     read_cnt   = SMC_SHM_READ32( &p_fifo->read_counter );
 
@@ -310,7 +302,6 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
                                                     4, &read_cnt,
                                                     4, &n_in_fifo);
 
-
         SMC_TRACE_PRINTF_FIFO_PUT("fifoPtr 0x%08X, data 0x%08X, length %d, flags 0x%08X, itemsInFifo: %d, writecnt: %d, readcnt: %d",
             (uint32_t)p_fifo, (uint32_t)cell->data, cell->length, cell->flags, n_in_fifo, write_cnt, read_cnt);
 
@@ -333,7 +324,6 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     {
         SMC_HW_ARM_MEMORY_SYNC(NULL);
     }
-
 
     SMC_TRACE_PRINTF_FIFO("smc_fifo_put_cell: FIFO 0x%08X put completed in index %d, new write_ind %d, read_ind %d, return 0x%02X",
             (uint32_t)p_fifo, cell_index, write_index, read_index, return_value);
@@ -375,12 +365,6 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
         /* TODO: Global lock
         IPC_FIFO_LOCK_RESERVE_HW_SEM(hw_semaphore_id);
         */
-        /*
-        uint32_t* start = FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo);
-        uint32_t* end   = FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo);
-
-        SMC_SHM_CACHE_INVALIDATE( start, end );
-        */
         SMC_SHM_CACHE_INVALIDATE( FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo), FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo) );
     }
 
@@ -402,7 +386,6 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
                                                4, &write_index,
                                                4, &read_cnt,
                                                4, &write_cnt);
-
         cell->data        = 0;
         cell->length      = 0;
         cell->flags       = 0;
@@ -431,13 +414,6 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
 
         if( use_cache_control )
         {
-            /*
-            uint32_t* start = FIFO_HEADER_GET_START_ADDRESS_CELL( p_fifo, cell_index );
-            uint32_t*   end = FIFO_HEADER_GET_END_ADDRESS_CELL( p_fifo, cell_index );
-
-            SMC_SHM_CACHE_INVALIDATE( start, end );
-            */
-
             SMC_SHM_CACHE_INVALIDATE( FIFO_HEADER_GET_START_ADDRESS_CELL(p_fifo, cell_index), FIFO_HEADER_GET_END_ADDRESS_CELL(p_fifo, cell_index) );
         }
 
@@ -520,17 +496,6 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
                                                     4, &packet_count_left);
         if( use_cache_control )
         {
-            /*
-            uint32_t* startcell = FIFO_HEADER_GET_START_ADDRESS_CELL( p_fifo, cell_index );
-            uint32_t* endcell   = FIFO_HEADER_GET_END_ADDRESS_CELL(p_fifo, cell_index);
-
-            uint32_t* start     = FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo);
-            uint32_t* end       = FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo);
-
-            SMC_SHM_CACHE_CLEAN( ((void*)startcell), ((void*)endcell) );
-            SMC_SHM_CACHE_CLEAN( ((void*)start), ((void*)end) );
-            */
-
             SMC_SHM_CACHE_CLEAN( FIFO_HEADER_GET_START_ADDRESS_CELL(p_fifo, cell_index), FIFO_HEADER_GET_END_ADDRESS_CELL(p_fifo, cell_index) );
             SMC_SHM_CACHE_CLEAN( FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo), FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo) );
         }
@@ -563,12 +528,6 @@ int32_t smc_fifo_peek( smc_fifo_t *p_fifo, uint8_t use_cache_control )
         /* TODO Global lock
         IPC_FIFO_LOCK_RESERVE_HW_SEM(hw_semaphore_id);
         */
-        /*
-        uint32_t* start = FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo);
-        uint32_t* end   = FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo);
-        SMC_SHM_CACHE_INVALIDATE( start, end );
-        */
-
         SMC_SHM_CACHE_INVALIDATE( FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo), FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo) );
     }
 
