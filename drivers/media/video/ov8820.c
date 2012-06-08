@@ -207,13 +207,6 @@ static int
 OV8820_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (id->match.type != V4L2_CHIP_MATCH_I2C_ADDR)
-		return -EINVAL;
-
-	if (id->match.addr != client->addr)
-		return -ENODEV;
 
 	id->ident	= V4L2_IDENT_OV8820;
 	id->revision	= 0;
@@ -234,7 +227,7 @@ static struct v4l2_subdev_core_ops OV8820_subdev_core_ops = {
 	.g_chip_ident	= OV8820_g_chip_ident,
 };
 
-static struct v4l2_subdev_ops OV8820_subdev_ops = {
+struct v4l2_subdev_ops OV8820_subdev_ops = {
 	.core	= &OV8820_subdev_core_ops,
 	.video	= &OV8820_subdev_video_ops,
 };
@@ -259,11 +252,12 @@ OV8820_set_bus_param(struct soc_camera_device *icd,
 	return 0;
 }
 
-static struct soc_camera_ops OV8820_ops = {
+struct soc_camera_ops OV8820_ops = {
 	.query_bus_param	= OV8820_query_bus_param,
 	.set_bus_param		= OV8820_set_bus_param,
 };
 
+#if 0
 static int OV8820_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
@@ -345,3 +339,5 @@ module_exit(OV8820_mod_exit);
 MODULE_DESCRIPTION("Omnivision OV8820 Camera driver");
 MODULE_AUTHOR("Renesas Mobile Corp.");
 MODULE_LICENSE("GPL v2");
+
+#endif

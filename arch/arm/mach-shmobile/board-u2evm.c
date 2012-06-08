@@ -1044,7 +1044,7 @@ static struct platform_device thermal_sensor_device = {
 };
 /* >> End Add for Thermal Sensor driver*/
 
-static int OV8820_power0(struct device *dev, int power_on)
+static int EOSMAIN_power0(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk;
 	int iRet;
@@ -1175,7 +1175,7 @@ static int OV5640_power(struct device *dev, int power_on)
 
 static struct i2c_board_info i2c_cameras[] = {
 	{
-		I2C_BOARD_INFO("OV8820", 0x6C>>1),
+		I2C_BOARD_INFO("EOSCAMERA", 0x1A),
 	},
 	{
 		I2C_BOARD_INFO("OV5640", 0x78>>1),
@@ -1187,8 +1187,8 @@ static struct soc_camera_link camera_links[] = {
 		.bus_id			= 0,
 		.board_info		= &i2c_cameras[0],
 		.i2c_adapter_id	= 1,
-		.module_name	= "OV8820",
-		.power			= OV8820_power0,
+		.module_name	= "EOSCAMERA",
+		.power			= EOSMAIN_power0,
 	},
 	{
 		.bus_id			= 1,
