@@ -47,14 +47,16 @@ Description :  File created
   #if(SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED==TRUE)
 
     // TODO Add Global spinlock
-    #define SMC_HOST_ACCESS_WAKEUP(spinlock)  { __raw_writel(0x00000002, SMC_WPMCIF_EPMU_ACC_CR); \
-                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR); \
+    #define SMC_HOST_ACCESS_WAKEUP(spinlock)  { if( spinlock != NULL ) SMC_LOCK_IRQ( spinlock );            \
+                                                __raw_writel(0x00000002, SMC_WPMCIF_EPMU_ACC_CR);           \
+                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
                                                while (0x00000003 != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {} \
                                               }
 
 
     #define SMC_HOST_ACCESS_SLEEP(spinlock)   { __raw_writel(0x00000000, SMC_WPMCIF_EPMU_ACC_CR);  \
-                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR); \
+                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);          \
+                                               if( spinlock != NULL ) SMC_UNLOCK_IRQ( spinlock );       \
                                               }
 
   #else
