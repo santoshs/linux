@@ -337,7 +337,7 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 			const struct sh_dmae_slave_config *cfg = param->config;
 
 			dmae_set_dmars(sh_chan, cfg->mid_rid);
-			dmae_set_chcr(sh_chan, cfg->chcr);
+			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
 		} else {
 			dmae_init(sh_chan);
 		}
@@ -467,6 +467,7 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 
 	list_splice_init(&sh_chan->ld_free, &list);
 	sh_chan->descs_allocated = 0;
+	sh_chan->chcr = 0;
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
@@ -689,6 +690,7 @@ static int dma_set_runtime_config(struct dma_chan *chan,
 	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
 	struct sh_dmae_slave *param = sh_chan->common.private;
+	const struct sh_dmae_slave_config *cfg;
 	enum dma_slave_buswidth addr_width;
 	u32 maxburst;
 	u32 chcr;
@@ -696,9 +698,6 @@ static int dma_set_runtime_config(struct dma_chan *chan,
 
 	if (!config || !param)
 		return -EINVAL;
-
-	if (dmae_is_busy(sh_chan))
-		return -EBUSY;
 
 	/* Transfer direction */
 	if (config->direction == DMA_MEM_TO_DEV) {
@@ -740,10 +739,11 @@ static int dma_set_runtime_config(struct dma_chan *chan,
 		return -EINVAL;
 	}
 
-	chcr = chcr_read(sh_chan);
+	cfg = param->config;
+	chcr = cfg->chcr;
 	chcr &= ~(pdata->ts_high_mask | pdata->ts_low_mask);
 	chcr |= log2size_to_chcr(sh_chan, l2size);
-	dmae_set_chcr(sh_chan, chcr);
+	sh_chan->chcr = chcr;
 
 	dev_dbg(sh_chan->dev,
 		"configured channel %s for %s, data width %d, "
@@ -1530,7 +1530,7 @@ static int sh_dmae_resume(struct device *dev)
 			const struct sh_dmae_slave_config *cfg = param->config;
 
 			dmae_set_dmars(sh_chan, cfg->mid_rid);
-			dmae_set_chcr(sh_chan, cfg->chcr);
+			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
 		} else {
 			dmae_init(sh_chan);
 		}
