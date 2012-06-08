@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       29   07-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.29, Linux Kernel IRQ handler sequence changed -> IRQ clear set before handler
+
 Version:       28   25-May-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.28, new memory mapping for SHM area (modem<->APE)
@@ -108,7 +112,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.28"
+#define SMC_SW_VERSION  "0.0.29"
 
 #define SMC_ERROR   0
 #define SMC_OK      1

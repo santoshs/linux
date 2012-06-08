@@ -15,6 +15,10 @@
 /*
 Change history:
 
+Version:       14   07-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Resource IRQ handler changed: First clears the interrupt then handles the request
+
 Version:       8    29-Feb-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Linux Kernel SMC timer functions added
@@ -119,8 +123,8 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id )
 {
     smc_signal_handler_t* signal_handler = NULL;
-    smc_signal_t* signal = NULL;
-    int irq_spi = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
+    smc_signal_t*         signal         = NULL;
+    int                   irq_spi        = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
 
@@ -134,6 +138,28 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     if( signal_handler != NULL )
     {
         signal = signal_handler->signal;
+
+        /* Clear IRQ first the handle the request to avoid missing irqs */
+        /* Pull down the IRQ since there is GOP001 used in Modem Side (the peripheral address is given) */
+        if( signal != NULL && signal->peripheral_address != 0 )
+        {
+            /* TODO FIX: The SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM only valid for SPI 193 - 198 */
+            uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
+
+            SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
+            signal->interrupt_id, genios);
+
+            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control() );
+
+                // TODO Use GOP001 STR variable name for CLEAR
+
+            genios |= __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
+
+            __raw_writel( genios, ((void __iomem *)(signal->peripheral_address + 8 )) );
+            __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
+
+            SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
+        }
 
         if( signal_handler->smc_channel != NULL )
         {
@@ -152,9 +178,9 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     }
 
     /* Pull down the IRQ since there is GOP001 used in Modem Side (the peripheral address is given) */
+    /* TODO Clean up
     if( signal != NULL && signal->peripheral_address != 0 )
     {
-        /* TODO FIX: The SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM only valid for SPI 193 - 198 */
         uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
 
         SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
@@ -171,6 +197,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 
         SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
     }
+    */
 
     return IRQ_HANDLED;
 }
