@@ -23,12 +23,6 @@
 
 struct device;
 
-enum dmae_pm_state {
-	DMAE_PM_ESTABLISHED,
-	DMAE_PM_BUSY,
-	DMAE_PM_PENDING,
-};
-
 struct sh_dmae_chan {
 	spinlock_t desc_lock;		/* Descriptor operation lock */
 	struct list_head ld_queue;	/* Link descriptors queue */
@@ -42,7 +36,6 @@ struct sh_dmae_chan {
 	int id;				/* Raw id of this channel */
 	u32 __iomem *base;
 	char dev_id[16];		/* unique name per DMAC of channel */
-	enum dmae_pm_state pm_state;
 };
 
 struct sh_dmae_device {

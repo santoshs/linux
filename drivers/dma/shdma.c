@@ -58,7 +58,6 @@ static LIST_HEAD(sh_dmae_devices);
 static unsigned long sh_dmae_slave_used[BITS_TO_LONGS(SH_DMA_SLAVE_NUMBER)];
 
 static void sh_dmae_chan_ld_cleanup(struct sh_dmae_chan *sh_chan, bool all);
-static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan);
 
 static void chclr_write(struct sh_dmae_chan *sh_dc, u32 data)
 {
@@ -286,17 +285,11 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 {
 	struct sh_desc *desc = tx_to_sh_desc(tx), *chunk, *last = desc, *c;
 	struct sh_dmae_chan *sh_chan = to_sh_chan(tx->chan);
-	struct sh_dmae_slave *param = tx->chan->private;
 	dma_async_tx_callback callback = tx->callback;
 	dma_cookie_t cookie;
-	bool power_up;
+	unsigned long flags;
 
-	spin_lock_irq(&sh_chan->desc_lock);
-
-	if (list_empty(&sh_chan->ld_queue))
-		power_up = true;
-	else
-		power_up = false;
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 	cookie = dma_cookie_assign(tx);
 
@@ -326,40 +319,7 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 		tx->cookie, &last->async_tx, sh_chan->id,
 		desc->hw.sar, desc->hw.tcr, desc->hw.dar);
 
-	if (power_up) {
-		sh_chan->pm_state = DMAE_PM_BUSY;
-
-		pm_runtime_get(sh_chan->dev);
-
-		spin_unlock_irq(&sh_chan->desc_lock);
-
-		pm_runtime_barrier(sh_chan->dev);
-
-		spin_lock_irq(&sh_chan->desc_lock);
-
-		/* Have we been reset, while waiting? */
-		if (sh_chan->pm_state != DMAE_PM_ESTABLISHED) {
-			dev_dbg(sh_chan->dev, "Bring up channel %d\n",
-				sh_chan->id);
-			if (param) {
-				const struct sh_dmae_slave_config *cfg =
-					param->config;
-
-				dmae_set_dmars(sh_chan, cfg->mid_rid);
-				dmae_set_chcr(sh_chan, cfg->chcr);
-			} else {
-				dmae_init(sh_chan);
-			}
-
-			if (sh_chan->pm_state == DMAE_PM_PENDING)
-				sh_chan_xfer_ld_queue(sh_chan);
-			sh_chan->pm_state = DMAE_PM_ESTABLISHED;
-		}
-	} else {
-		sh_chan->pm_state = DMAE_PM_PENDING;
-	}
-
-	spin_unlock_irq(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	return cookie;
 }
@@ -403,6 +363,8 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_slave *param = chan->private;
 	int ret;
 
+	pm_runtime_get_sync(sh_chan->dev);
+
 	/*
 	 * This relies on the guarantee from dmaengine that alloc_chan_resources
 	 * never runs concurrently with itself or free_chan_resources.
@@ -422,6 +384,11 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 		}
 
 		param->config = cfg;
+
+		dmae_set_dmars(sh_chan, cfg->mid_rid);
+		dmae_set_chcr(sh_chan, cfg->chcr);
+	} else {
+		dmae_init(sh_chan);
 	}
 
 	while (sh_chan->descs_allocated < NR_DESCS_PER_CHANNEL) {
@@ -450,6 +417,7 @@ edescalloc:
 etestused:
 efindslave:
 	chan->private = NULL;
+	pm_runtime_put(sh_chan->dev);
 	return ret;
 }
 
@@ -461,6 +429,7 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_desc *desc, *_desc;
 	LIST_HEAD(list);
+	int descs = sh_chan->descs_allocated;
 
 	/* Protect against ISR */
 	spin_lock_irq(&sh_chan->desc_lock);
@@ -486,6 +455,9 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	sh_chan->descs_allocated = 0;
 
 	spin_unlock_irq(&sh_chan->desc_lock);
+
+	if (descs > 0)
+		pm_runtime_put(sh_chan->dev);
 
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);
@@ -721,6 +693,7 @@ static int sh_dmae_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 						  struct sh_desc, node);
 		desc->partial = (desc->hw.tcr - sh_dmae_readl(sh_chan, TCR)) <<
 			sh_chan->xmit_shift;
+
 	}
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
@@ -805,13 +778,7 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan, bool all
 		     async_tx_test_ack(&desc->async_tx)) || all) {
 			/* Remove from ld_queue list */
 			desc->mark = DESC_IDLE;
-
 			list_move(&desc->node, &sh_chan->ld_free);
-
-			if (list_empty(&sh_chan->ld_queue)) {
-				dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
-				pm_runtime_put(sh_chan->dev);
-			}
 		}
 	}
 
@@ -841,14 +808,16 @@ static void sh_dmae_chan_ld_cleanup(struct sh_dmae_chan *sh_chan, bool all)
 		;
 }
 
-/* Called under spin_lock_irq(&sh_chan->desc_lock) */
 static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 {
 	struct sh_desc *desc;
 
+	spin_lock_irq(&sh_chan->desc_lock);
 	/* DMA work check */
-	if (dmae_is_busy(sh_chan))
+	if (dmae_is_busy(sh_chan)) {
+		spin_unlock_irq(&sh_chan->desc_lock);
 		return;
+	}
 
 	/* Find the first not transferred descriptor */
 	list_for_each_entry(desc, &sh_chan->ld_queue, node)
@@ -861,18 +830,14 @@ static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 			dmae_start(sh_chan);
 			break;
 		}
+
+	spin_unlock_irq(&sh_chan->desc_lock);
 }
 
 static void sh_dmae_memcpy_issue_pending(struct dma_chan *chan)
 {
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
-
-	spin_lock_irq(&sh_chan->desc_lock);
-	if (sh_chan->pm_state == DMAE_PM_ESTABLISHED)
-		sh_chan_xfer_ld_queue(sh_chan);
-	else
-		sh_chan->pm_state = DMAE_PM_PENDING;
-	spin_unlock_irq(&sh_chan->desc_lock);
+	sh_chan_xfer_ld_queue(sh_chan);
 }
 
 static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
@@ -956,12 +921,6 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 
 		list_splice_init(&sh_chan->ld_queue, &dl);
 
-		if (!list_empty(&dl)) {
-			dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
-			pm_runtime_put(sh_chan->dev);
-		}
-		sh_chan->pm_state = DMAE_PM_ESTABLISHED;
-
 		spin_unlock(&sh_chan->desc_lock);
 
 		/* Complete all  */
@@ -1015,10 +974,10 @@ static void dmae_do_tasklet(unsigned long data)
 			break;
 		}
 	}
-	/* Next desc */
-	sh_chan_xfer_ld_queue(sh_chan);
 	spin_unlock_irq(&sh_chan->desc_lock);
 
+	/* Next desc */
+	sh_chan_xfer_ld_queue(sh_chan);
 	sh_dmae_chan_ld_cleanup(sh_chan, false);
 }
 
@@ -1086,9 +1045,7 @@ static int __devinit sh_dmae_chan_probe(struct sh_dmae_device *shdev, int id,
 		return -ENOMEM;
 	}
 
-	new_sh_chan->pm_state = DMAE_PM_ESTABLISHED;
-
-	/* reference struct dma_device */
+	/* copy struct dma_device */
 	new_sh_chan->common.device = &shdev->common;
 	dma_cookie_init(&new_sh_chan->common);
 
