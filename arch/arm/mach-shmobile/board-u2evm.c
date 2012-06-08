@@ -1663,7 +1663,20 @@ void __init u2evm_init_irq(void)
 	r8a73734_init_irq();
 }
 
-
+#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
+static int wait_for_coresight_access_lock(u32 base)
+{
+        int retval = -1;
+        int timeout = 512;
+        int i;
+        __raw_writel(0xc5acce55, base + 0xFB0); /* Lock Access */
+        for (i = 0; i < timeout && retval; i++) {
+                if ((__raw_readl(base + 0xFB4) & 2) == 0) retval = 0;
+        }
+        printk("wait_for_coresight_access_lock %d\n", retval);
+        return retval;
+}
+#endif
 
 
 #define IRQC0_CONFIG_00		IO_ADDRESS(0xe61c0180)
@@ -1981,6 +1994,131 @@ else /*ES2.0*/
 	  __raw_writel(0x00020001, SYS_TPIU_STM_BASE + 0x204); // STM Walking ones test mode
 #endif
         }
+
+
+#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
+        if (1) {
+                int i;
+                /*
+                EOS2 Modem STM Trace to SDRAM through ETR -- Configuration in Short
+                ===================================================================
+                SUMMARY OF MODEM STM TRACE FLOW, CONFIGURATION IN REVERSE ORDER:
+                ----------------------------------------------------------------
+                1) Modem   CoreSight / WGEM STM          @ inside WGEM  - Enable traces
+                2) System  CoreSight / SYS Funnel STM    @ 0xE6F 8B 000 - Enable Port #1 "From STM-ATB Modem"
+                3) System  CoreSight / SYS Trace Funnel  @ 0xE6F 84 000 - Enable Port #2 "From Sys-Funnel-STM"
+                4) HostCPU CoreSight / CPU Trace Funnel  @ 0xE6F A4 000 - Enable Port #4 "From Sys-Trace-Funnel"
+                5) HostCPU CoreSight / ETF               @ 0xE6F A1 000 - configure FIFO mode
+                6) HostCPU CoreSight / ETR configuration @ 0xE6F A5 000 - configure Circular buffer mode, SDRAM write buffer size and start address, etc.
+                7) System  CoreSight / SYS-TPIU-STM      @ 0xE6F 8A 000 - set to 32-bit mode to avoid unnecessary stall
+                8) HostCPU CoreSight / CPU-TPIU          @ 0xE6F A3 000 - set to 32-bit mode to avoid unnecessary stall
+                9) System  CoreSight / SYS-TPIU          @ 0xE6F 83 000 - set to 32-bit mode to avoid unnecessary stall
+
+                DETAILED CONFIGURATION REGISTER WRITES:
+                ---------------------------------------
+                */
+
+                __raw_writel(0x0000a501, DBGREG9); /* Key register */
+                __raw_writel(0x0000a501, DBGREG9); /* Key register, must write twice! */
+
+
+                /* <<<<<< - 9 - System CoreSight  / SYS-TPIU     to 32-bit mode >>>>>> */
+
+#define SYS_TPIU_BASE       IO_ADDRESS(0xE6F83000)
+                wait_for_coresight_access_lock(SYS_TPIU_BASE);
+#if 1
+                __raw_writel((1<<(16-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 4-bits wide to avoid stall */
+#else
+                __raw_writel((1<<(32-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
+#endif
+       
+                /* <<<<<< - 8 - HostCPU CoreSight / CPU-TPIU     to 32-bit mode >>>>>> */
+
+#define CPU_TPIU_BASE       IO_ADDRESS(0xE6FA3000)
+                wait_for_coresight_access_lock(CPU_TPIU_BASE);
+#if 1
+                __raw_writel((1<<(16-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 16-bits wide to avoid stall */
+#else
+                __raw_writel((1<<(32-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
+#endif
+                /* <<<<<< - 7 - System CoreSight  / SYS-TPIU-STM to 32-bit mode >>>>>> */
+
+#define SYS_TPIU_STM_BASE       IO_ADDRESS(0xE6F8A000)
+                wait_for_coresight_access_lock(SYS_TPIU_STM_BASE);
+#if 1
+                __raw_writel((1<<(4-1)), SYS_TPIU_STM_BASE + 0x004);    /* Current Port Size 16-bits wide to avoid stall */
+#else
+                __raw_writel((1<<(32-1)), SYS_TPIU_STM_BASE + 0x004);   /* Current Port Size 32-bits wide to avoid stall */
+#endif
+
+                /* <<<<<< - 6 - HostCPU CoreSight / ETR configuration >>>>>>
+                For ARM Specification of this HW block, see CoreSight Trace Memory Controller Technical Reference Manual
+                SW Registers of ETR are same as ETF in different HW configuration
+                */
+
+#define CPU_ETR_BASE       IO_ADDRESS(0xE6FA5000)
+
+                wait_for_coresight_access_lock(CPU_ETR_BASE);
+                __raw_writel(0, CPU_ETR_BASE + 0x020);                  /* CTL Control: 0 */
+                __raw_writel(0, CPU_ETR_BASE + 0x028);                  /* MODE: Circular buffer */
+                __raw_writel(3, CPU_ETR_BASE + 0x304);                  /* FFCR: Formatting enabled */
+
+                __raw_writel(
+                                                (       (3 << 8) |              /*    WrBurstLen, 0 = 1, 1 = 2, ..., 15 = 16     */
+                                                        (0 << 7) |              /*    0 = Single buffer, 1 = ScatterGather       */
+                                                        (0 << 6) |              /*    Reserved      ´                            */
+                                                        (0 << 5) |              /*    CacheCtrlBit3 No write alloc / write alloc */
+                                                        (0 << 4) |              /*    CacheCtrlBit2 No read alloc / read alloc   */
+                                                        (1 << 3) |              /*    CacheCtrlBit1 Non-cacheable  / Cacheable   */
+                                                        (1 << 2) |              /*    CacheCtrlBit0 Non-bufferable / Bufferable  */
+                                                        (1 << 1) |              /*    ProtCtrlBit1  Secure / Non-secure          */
+                                                        (1 << 0)                /*    ProtCtrlBit0  Normal / Privileged          */
+                                                ),
+                                        CPU_ETR_BASE + 0x110); /* AXICTL: Set as commented above */
+
+                __raw_writel(0, CPU_ETR_BASE + 0x034);                  /* BUFWM Buffer Level Water Mark: 0 */
+                __raw_writel(0, CPU_ETR_BASE + 0x018);                  /* RWP RAM Writer Pointer: 0 */
+                __raw_writel(0, CPU_ETR_BASE + 0x03C);                  /* RWP RAM Writer Pointer High: 0 */
+                __raw_writel(0x45801000, CPU_ETR_BASE + 0x118);         /* DBALO Data Buffer Address Low: 0x 4580 10000 */
+                __raw_writel(0, CPU_ETR_BASE + 0x11C);                  /* DBAHI Data Buffer Address High: 0 */
+                __raw_writel(((39*1024*1024  + 764*1024)/ 4), CPU_ETR_BASE + 0x004); /* RSZ RAM Size Register: 39MB + 764 kB */
+                __raw_writel(1, CPU_ETR_BASE + 0x020);                  /* CTL Control: 1 */
+
+                /* <<<<<< - 5 - HostCPU CoreSight / ETF - configuration to FIFO mode >>>>>>
+                For ARM Specification of this HW block, see CoreSight Trace Memory Controller Technical Reference Manual
+                */
+
+#define CPU_ETF_BASE       IO_ADDRESS(0xE6FA1000)
+                wait_for_coresight_access_lock(CPU_ETF_BASE);
+                __raw_writel(0, CPU_ETF_BASE + 0x020);                  /* CTL Control: TraceCaptEn OFF ==> Disabled */
+                __raw_writel(2, CPU_ETF_BASE + 0x028);                  /* MODE: FIFO */
+                __raw_writel(3, CPU_ETF_BASE + 0x304);                  /* FFCR Formatter and Flush Control Register: Formatting enabled */
+                __raw_writel(0, CPU_ETF_BASE + 0x034);                  /* BUFWM Buffer Level Water Mark: 0 */
+                __raw_writel(1, CPU_ETF_BASE + 0x020);                  /* CTL Control: TraceCaptEn ON ==> Running */
+
+                /* <<<<<< - 4 - HostCPU CoreSight / CPU Trace Funnel - Enable Port #3 "From Sys-Trace-Funnel" >>>>>> */
+
+#define CPU_TRACE_FUNNEL_BASE       IO_ADDRESS(0xE6FA4000)
+                wait_for_coresight_access_lock(CPU_TRACE_FUNNEL_BASE);
+                __raw_writel((0x300 | (1<<4)), CPU_TRACE_FUNNEL_BASE + 0x000);  /* Enable only Slave port 4, i.e. From Sys-Trace-Funnel */
+
+                /* <<<<<< - 3 - System CoreSight / SYS Trace Funnel - Enable Port #2 "From Sys-Funnel-STM" >>>>>> */
+
+#define SYS_TRACE_FUNNEL_BASE       IO_ADDRESS(0xE6F84000)
+                wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_BASE);
+                __raw_writel((0x300 | (1<<2)), SYS_TRACE_FUNNEL_BASE + 0x000);  // Enable only Slave port 2, i.e. From Sys-Funnel-STM
+
+                /* <<<<<< - 2 - System CoreSight / SYS Funnel STM - Enable Port #1 "From STM-ATB Modem" >>>>>> */
+
+#define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
+                wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_STM_BASE);
+                __raw_writel((0x300 | (1<<1)), SYS_TRACE_FUNNEL_STM_BASE + 0x000);      /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
+
+                /* <<<<<< - 1 - Modem CoreSight / WGEM STM - Enable traces >>>>>>
+                This happens inside WGEM L2 TCM vector boot code
+                */
+        }
+#endif /* CONFIG_U2_STM_ETR_TO_SDRAM */
 
 	if (1 != stm_select) {
 		/* SDHI1 */

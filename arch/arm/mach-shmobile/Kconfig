@@ -89,6 +89,12 @@ config U2_ES1
 	help
 	  R-Mobile-U2 Engineering Sample 1.0.
 
+config U2_STM_ETR_TO_SDRAM
+	bool "U2 STM ETR to SDRAM"
+	depends on ARCH_R8A73734
+	help
+	  R-Mobile-U2 STM Traces through ETR to SDRAM.
+
 comment "SH-Mobile System Configuration"
 
 menu "Memory configuration"

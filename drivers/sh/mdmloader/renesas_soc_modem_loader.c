@@ -59,6 +59,64 @@ static int all_toc_entries_loaded = 0;
 #define CPG_SMSTPCR5			IO_ADDRESS(0xE6150144)
 #define CPG_SMSTPCR3			IO_ADDRESS(0xE615013C)
 
+/* HostCPU CoreSight ETR for modem STM traces to SDRAM */
+#define CPU_ETR_BASE			IO_ADDRESS(0xE6FA5000)
+#define CPU_ETR_RSZ			(CPU_ETR_BASE + 0x004)
+#define CPU_ETR_STS			(CPU_ETR_BASE + 0x00C)
+#define CPU_ETR_RRD			(CPU_ETR_BASE + 0x010)
+#define CPU_ETR_RRP			(CPU_ETR_BASE + 0x014)
+#define CPU_ETR_RWP                     (CPU_ETR_BASE + 0x018)
+#define CPU_ETR_TRG			(CPU_ETR_BASE + 0x01C)
+#define CPU_ETR_CTL			(CPU_ETR_BASE + 0x020)
+#define CPU_ETR_RWD			(CPU_ETR_BASE + 0x024)
+#define CPU_ETR_MODE			(CPU_ETR_BASE + 0x028)
+#define CPU_ETR_LBUFLEVEL		(CPU_ETR_BASE + 0x02C)
+#define CPU_ETR_CBUFLEVEL		(CPU_ETR_BASE + 0x030)
+#define CPU_ETR_BUFWM			(CPU_ETR_BASE + 0x034)
+#define CPU_ETR_RRPHI			(CPU_ETR_BASE + 0x038)
+#define CPU_ETR_RWPHI			(CPU_ETR_BASE + 0x03C)
+#define CPU_ETR_AXICTL			(CPU_ETR_BASE + 0x110)
+#define CPU_ETR_DBALO			(CPU_ETR_BASE + 0x118)
+#define CPU_ETR_DBAHI			(CPU_ETR_BASE + 0x11C)
+#define CPU_ETR_FFSR			(CPU_ETR_BASE + 0x300)
+#define CPU_ETR_FFCR			(CPU_ETR_BASE + 0x304)
+#define CPU_ETR_PSCR			(CPU_ETR_BASE + 0x308)
+#define CPU_ETR_ITATBMDATA0		(CPU_ETR_BASE + 0xED0)
+#define CPU_ETR_ITATBMCTR2		(CPU_ETR_BASE + 0xED4)
+#define CPU_ETR_ITATBMCTR1		(CPU_ETR_BASE + 0xED8)
+#define CPU_ETR_ITATBMCTR0		(CPU_ETR_BASE + 0xEDC)
+#define CPU_ETR_ITMISCOP0		(CPU_ETR_BASE + 0xEE0)
+#define CPU_ETR_ITTRFLIN		(CPU_ETR_BASE + 0xEE8)
+#define CPU_ETR_ITATBDATA0		(CPU_ETR_BASE + 0xEEC)
+#define CPU_ETR_ITATBCTR2		(CPU_ETR_BASE + 0xEF0)
+#define CPU_ETR_ITATBCTR1		(CPU_ETR_BASE + 0xEF4)
+#define CPU_ETR_ITATBCTR0		(CPU_ETR_BASE + 0xEF8)
+#define CPU_ETR_ItCtrl			(CPU_ETR_BASE + 0xF00)
+#define CPU_ETR_ClaimSet		(CPU_ETR_BASE + 0xFA0)
+#define CPU_ETR_ClaimClear		(CPU_ETR_BASE + 0xFA4)
+#define CPU_ETR_LockAccess		(CPU_ETR_BASE + 0xFB0)
+#define CPU_ETR_LockStatus		(CPU_ETR_BASE + 0xFB4)
+#define CPU_ETR_AuthStatus		(CPU_ETR_BASE + 0xFB8)
+#define CPU_ETR_DevId			(CPU_ETR_BASE + 0xFC8)
+#define CPU_ETR_DevType			(CPU_ETR_BASE + 0xFCC)
+#define CPU_ETR_PeripheralID4		(CPU_ETR_BASE + 0xFD0)
+#define CPU_ETR_PeripheralID5		(CPU_ETR_BASE + 0xFD4)
+#define CPU_ETR_PeripheralID6		(CPU_ETR_BASE + 0xFD8)
+#define CPU_ETR_PeripheralID7		(CPU_ETR_BASE + 0xFDC)
+#define CPU_ETR_PeripheralID0		(CPU_ETR_BASE + 0xFE0)
+#define CPU_ETR_PeripheralID1		(CPU_ETR_BASE + 0xFE4)
+#define CPU_ETR_PeripheralID2		(CPU_ETR_BASE + 0xFE8)
+#define CPU_ETR_PeripheralID3		(CPU_ETR_BASE + 0xFEC)
+#define CPU_ETR_ComponentID0		(CPU_ETR_BASE + 0xFF0)
+#define CPU_ETR_ComponentID1		(CPU_ETR_BASE + 0xFF4)
+#define CPU_ETR_ComponentID2		(CPU_ETR_BASE + 0xFF8)
+#define CPU_ETR_ComponentID3		(CPU_ETR_BASE + 0xFFC)
+
+static uint32_t stm_sdram_base;
+static uint32_t stm_sdram_read_ptr;
+static uint32_t stm_sdram_write_ptr;
+static uint32_t stm_sdram_size;
+
 static void ape5r_modify_register32(unsigned long addr, unsigned long set, unsigned long clear)
 {
   unsigned long data = 0;
@@ -78,8 +136,43 @@ static int __devexit rmc_loader_remove(struct device *dev)
 static ssize_t rmc_loader_read(struct file *file, char __user *buf,
 						size_t len, loff_t *ppos)
 {
-	printk(KERN_ALERT "rmc_loader_read()\n");
-	return 0;
+	size_t retval = 0;
+	void __iomem * remapped_phys_addr=0;
+
+	if (0 == stm_sdram_size) {
+		return -ENOMEM;
+	}
+
+	len = len & ~3; /* Align length to 4-byte boundary */
+
+	stm_sdram_write_ptr = __raw_readl(CPU_ETR_RWP);
+	if (stm_sdram_read_ptr > stm_sdram_write_ptr) {
+		stm_sdram_write_ptr = stm_sdram_base + stm_sdram_size;
+	}
+	
+	if (len + stm_sdram_read_ptr >= stm_sdram_write_ptr) {
+		len = stm_sdram_write_ptr - stm_sdram_read_ptr;
+	}
+
+	if (len) {
+		remapped_phys_addr = ioremap(stm_sdram_read_ptr, len);
+		if (unlikely(!remapped_phys_addr)) {
+			retval = -EFAULT;
+		} else if (unlikely(copy_to_user(/*to_user_ptr*/ buf, /*from_kernel_mem*/ remapped_phys_addr, /*length*/ len))) {
+			retval = -EFAULT;
+		} else {
+			*ppos += len;
+			retval = len;
+			stm_sdram_read_ptr += len;
+			if (stm_sdram_read_ptr >= stm_sdram_base + stm_sdram_size) {
+				stm_sdram_read_ptr = stm_sdram_base;
+			}
+		}
+		if (remapped_phys_addr) {
+			iounmap(remapped_phys_addr);
+		}
+	}
+	return retval;
 }
 
 static int find_next_toc_index(char *ptr)
@@ -278,117 +371,129 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 static int rmc_loader_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
-#if 0
-	printk(KERN_ALERT "rmc_loader_open(), ToDo: Initialize modem to receive boot data\n");
-#else
-	printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data >>\n");
-	ape5r_modify_register32(C4POWCR, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
-    printk(KERN_ALERT "T001 HPSSCLK\n");
-    	__raw_writel(0x03000000, WPMCIF_EPMU_HPSSCLK_CR); /* PLL lock count for PLL5 */
-    printk(KERN_ALERT "T002 PLL5\n");
-	__raw_writel(0x32000100, WPMCIF_EPMU_PLL2_REALLY5_CR); /* PLL5 (PLL2 in EPMU doc) control register */
+	
+	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
+
+		/* Opened for WRITING, i.e. for Loading modem firware image */
+
+		printk(KERN_ALERT "rmc_loader_open(), O_WRONLY Initialize modem to receive boot data >>\n");
+		ape5r_modify_register32(C4POWCR, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
+		printk(KERN_ALERT "T001 HPSSCLK\n");
+	    	__raw_writel(0x03000000, WPMCIF_EPMU_HPSSCLK_CR); /* PLL lock count for PLL5 */
+		printk(KERN_ALERT "T002 PLL5\n");
+		__raw_writel(0x32000100, WPMCIF_EPMU_PLL2_REALLY5_CR); /* PLL5 (PLL2 in EPMU doc) control register */
                                                        /*     bits [31:25] is MULFAC[6:0]           */
                                                        /*     bits [14:8]  is DIVFAC[6:0]           */
                                                        /*     HFCLKC = (MULFAC+1)*?38.4?/(DIVFAC+1) MHz */
                                                        /* Now MULFAC=25 and DIVFAC=1, i.e. HFCLK=38.4*26/2 MHz=499.2MHz */
-    printk(KERN_ALERT "T003 RFCLK\n");
-	__raw_writel(0x30000000, WPMCIF_EPMU_RFCLK_CR); /* RF Clock Control Register (RFCLK_CR)        */
+		printk(KERN_ALERT "T003 RFCLK\n");
+		__raw_writel(0x30000000, WPMCIF_EPMU_RFCLK_CR); /* RF Clock Control Register (RFCLK_CR)        */
                                                        /*     bits [31:26] is RFCLK_DIV[5:0]        */
                                                        /*     RFCLK = HFCLK/(RFCLK_DIV+1)               */
                                                        /* Now RFCLK_DIV=HFCLK/13 = 38.4 MHz          */
                                                        /* RFCLKC divider for 38.4 MHz */
-    printk(KERN_ALERT "T004 OCPBRGWIN1\n");
-
-	__raw_writel(0x40000000,HPB_OCPBRGWIN1_MDM2MEM); /* Configure upper 8 bits of OCP bus for modem */
+		printk(KERN_ALERT "T004 OCPBRGWIN1\n");
+		__raw_writel(0x40000000,HPB_OCPBRGWIN1_MDM2MEM); /* Configure upper 8 bits of OCP bus for modem */
 	                                               /* This should be deferred until we know where to laod modem! */
-    printk(KERN_ALERT "T005 OCPBRGWIN3\n");
-
-	__raw_writel(0x06000000, HPB_OCPBRGWIN3_APE2MDM); /* OCP Bridge Window Reg3: Configure upper 7 bits of modem peripheral OCP address for APE to access */
+		printk(KERN_ALERT "T005 OCPBRGWIN3\n");
+		__raw_writel(0x06000000, HPB_OCPBRGWIN3_APE2MDM); /* OCP Bridge Window Reg3: Configure upper 7 bits of modem peripheral OCP address for APE to access */
                                                             /* FOR APE, range 0xE2000000--0xE3FFFFFF maps to THIS+(0x00000000--0x01FFFFFF). */
                                                             /* So to e.g. for APE to access Modem SCU_AD base address would be */
                                                             /*   0xE3D40000 ==> OCP Bus address 0x07D40000, and */
                                                             /* SCU_AD.CCR.OUTPUT would be mapped like this: */
                                                             /*   0xE3D40410 ==> 0x07D0410            */
 							    
-/* TODO: Should we configure HPB_OCPBRGWIN3_MDM2APE to something away from reset value? */
-/* That would allow modem to access some APE peripherals, maybe Modem can configure that register by itself later... */
+		/* TODO: Should we configure HPB_OCPBRGWIN3_MDM2APE to something away from reset value? */
+		/* That would allow modem to access some APE peripherals, maybe Modem can configure that register by itself later... */
 
-    printk(KERN_ALERT "T006 START\n");
-
-    	__raw_writel(0x00000001, WPMCIF_EPMU_START_CR); /* WGEM3.1 Start bit, 1: Start modem operations */
+		printk(KERN_ALERT "T006 START\n");
+		__raw_writel(0x00000001, WPMCIF_EPMU_START_CR); /* WGEM3.1 Start bit, 1: Start modem operations */
 							/* Reading != 0 confirms Modem Power on sequence is completed */
 							/* NOTE: This is NOT reset to modem! */
 							/* Currently, we assume that power on reset has reset the modem already. */
-    printk(KERN_ALERT "T007 busy-poll START\n");
-
-	while (0x00000000 != __raw_readl(WPMCIF_EPMU_START_CR) ) {
-		/* Wait until WGM is up, should be very quick. */
-	}
-    printk(KERN_ALERT "T008 ACC\n");
-
-	__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
+		printk(KERN_ALERT "T007 busy-poll START\n");
+		while (0x00000000 != __raw_readl(WPMCIF_EPMU_START_CR) ) {
+			/* Wait until WGM is up, should be very quick. */
+		}
+		printk(KERN_ALERT "T008 ACC\n");
+		__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
 							/* NOTE: When ACCREQ is set, modem cannot enter into deep sleep. */
 							/* Once host has completed intended operations, it should clear this bit. */
-	(void) __raw_readl(WPMCIF_EPMU_ACC_CR);		/* Dummy read, make sure write went through to the device... */
-    printk(KERN_ALERT "T009 busy-poll ACC\n");
+		(void) __raw_readl(WPMCIF_EPMU_ACC_CR);		/* Dummy read, make sure write went through to the device... */
+		printk(KERN_ALERT "T009 busy-poll ACC\n");
 
-	while (0x00000003 != __raw_readl(WPMCIF_EPMU_ACC_CR) ) {
-		/* Wait until Access OK, should be very quick. */
-	}
-    printk(KERN_ALERT "T010\n");
+		while (0x00000003 != __raw_readl(WPMCIF_EPMU_ACC_CR) ) {
+			/* Wait until Access OK, should be very quick. */
+		}
+		printk(KERN_ALERT "T010\n");
 
-	ape5r_modify_register32(CPG_SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
+		ape5r_modify_register32(CPG_SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
                                                               /* Supply clocks to OCP2SuperHiWay and OCP2Memory and SuperHiWay2OCP0/1 instances */
                                                               /* bit25: MSTP525=0, IICB0 operates */
                                                               /* bit19: MSTP519=0, O2S operates */
                                                               /* bit18: MSTP519=0, O2M operates */
                                                               /* bit17: MSTP517=0, S2O0 operates */
                                                               /* bit16: MSTP516=0, S2O1 operates */
-#if 0 // For HSI X-Coupling
-        ape5r_modify_register32(CPG_SMSTPCR3, 0, (1<<25));
-                               /* SMSTPCR3 Bit25: MSTP325=0, HSI1 operates */
-#endif
 
 
-// IF I WANT TO RESET MODEM, THIS WILL DO IT:
-// EPMU RES_CR, write 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?	
-	printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data <<\n");
-#endif
+		// IF I WANT TO RESET MODEM, THIS WILL DO IT:
+		// EPMU RES_CR, write 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?	
+		printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data <<\n");
+
+	} else {
+
+		/* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
+
+		printk(KERN_ALERT "rmc_loader_open(), O_RDONLY Dump STM >><< size=0x%x, base=0x%x, wptr=0x%x, rptr=0x%x\n", stm_sdram_size, stm_sdram_base, stm_sdram_write_ptr,
+		stm_sdram_read_ptr);
+
+	}
 	return ret;
 }
 
-static int rmc_loader_release(struct inode *inode, struct file *file)
+static int rmc_loader_flush(struct file *file, fl_owner_t id)
 {
         void __iomem * remapped_mdm_io=0;
 	int retval=0;
 
-	if (all_toc_entries_loaded) {
-#if 0
-		printk(KERN_ALERT "rmc_loader_relase(), ToDo: Release Modem L2 CPU from Prefetch Hold\n");
-#else
-		printk(KERN_ALERT "rmc_loader_relase(), Release Modem L2 CPU from Prefetch Hold >>\n");
-                remapped_mdm_io = ioremap(0xE3D40410,4); 
-                __raw_writel(2, ((void __iomem *)((uint32_t)remapped_mdm_io)));
-//		*(volatile uint32_t *)remapped_mdm_io = 0x2; /* Release Cortex R4 L23 from pre-fetch hold */
+	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
+
+		/* Opened for WRITING, i.e. for Loading modem firware image */
+
+		if (all_toc_entries_loaded) {
+			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
+	                remapped_mdm_io = ioremap(0xE3D40410,4); 
+	                __raw_writel(2, ((void __iomem *)((uint32_t)remapped_mdm_io)));
                                                /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
                                                /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
                                                /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
                                                /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
                                                /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
                                                /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */ 
-                iounmap(remapped_mdm_io);
-		printk(KERN_ALERT "rmc_loader_relase(), Release Modem L2 CPU from Prefetch Hold <<\n");
-#endif
+	                iounmap(remapped_mdm_io);
+		  	toc_ptr = toc_buffer;
+			data_ptr = 0;
+			toc_index = 0;
+			load_ptr = 0;
+			all_toc_entries_loaded = 0;
+			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold <<\n");
+		} else {
+			printk(KERN_ALERT "rmc_loader_flush(), Not all TOC entries loaded, yet >><<.\n");
+			/* retval = -EFAULT; */
+		}
 	} else {
-                printk(KERN_ALERT "rmc_loader_release(), load_ptr=0x%08x\n", (unsigned int)load_ptr);
-		printk(KERN_ALERT "rmc_loader_release(), Not all TOC entries loaded, NOT releasing modem!\n");
-		retval = -EFAULT;
+
+		/* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
+		printk(KERN_ALERT "rmc_loader_flush(), O_RDONLY Dump STM >><<\n");
 	}
-  	toc_ptr = toc_buffer;
-	data_ptr = 0;
-	toc_index = 0;
-	load_ptr = 0;
-	all_toc_entries_loaded = 0;
+
+	return retval;
+}
+
+
+static int rmc_loader_release(struct inode *inode, struct file *file)
+{
+	int retval=0;
 
 	return retval;
 }
@@ -398,6 +503,7 @@ static const struct file_operations rmc_loader_fops = {
 	.read		= rmc_loader_read,
 	.write		= rmc_loader_write,
 	.open		= rmc_loader_open,
+	.flush		= rmc_loader_flush,
 	.release	= rmc_loader_release,
 };
 
@@ -431,6 +537,21 @@ static int __init rmc_loader_init(void)
 		printk(KERN_ALERT "rmc_loader_init() cdev_init/cdev_add failed!\n");
 		return ret;
 	}
+
+#ifdef CONFIG_U2_STM_ETR_TO_SDRAM 
+	stm_sdram_size = 	__raw_readl(CPU_ETR_RSZ) * 4;
+	stm_sdram_base =	__raw_readl(CPU_ETR_DBALO);
+	stm_sdram_write_ptr = 	__raw_readl(CPU_ETR_RWP);
+	stm_sdram_read_ptr =	stm_sdram_base;
+#else
+	stm_sdram_size = 	0;
+	stm_sdram_base =	0;
+	stm_sdram_write_ptr = 	0;
+	stm_sdram_read_ptr =	0;
+#endif		
+	printk(KERN_ALERT "rmc_loader_init() STM SDRAM size=0x%x, base=0x%x, wptr=0x%x, rptr=0x%x\n", stm_sdram_size, stm_sdram_base, stm_sdram_write_ptr,
+		stm_sdram_read_ptr);
+
 
 	pr_info("rmc_loader_init OK\n");
 
