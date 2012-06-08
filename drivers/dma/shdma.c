@@ -430,11 +430,12 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	struct sh_desc *desc, *_desc;
 	LIST_HEAD(list);
 	int descs = sh_chan->descs_allocated;
+	unsigned long flags;
 
 	/* Protect against ISR */
-	spin_lock_irq(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	dmae_halt(sh_chan);
-	spin_unlock_irq(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	/* Now no new interrupts will occur */
 
@@ -449,12 +450,12 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 		chan->private = NULL;
 	}
 
-	spin_lock_irq(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 	list_splice_init(&sh_chan->ld_free, &list);
 	sh_chan->descs_allocated = 0;
 
-	spin_unlock_irq(&sh_chan->desc_lock);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
 	if (descs > 0)
 		pm_runtime_put(sh_chan->dev);
@@ -808,16 +809,14 @@ static void sh_dmae_chan_ld_cleanup(struct sh_dmae_chan *sh_chan, bool all)
 		;
 }
 
+/* Called under spin_lock_irqsave(&sh_chan->desc_lock) */
 static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 {
 	struct sh_desc *desc;
 
-	spin_lock_irq(&sh_chan->desc_lock);
 	/* DMA work check */
-	if (dmae_is_busy(sh_chan)) {
-		spin_unlock_irq(&sh_chan->desc_lock);
+	if (dmae_is_busy(sh_chan))
 		return;
-	}
 
 	/* Find the first not transferred descriptor */
 	list_for_each_entry(desc, &sh_chan->ld_queue, node)
@@ -830,14 +829,16 @@ static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 			dmae_start(sh_chan);
 			break;
 		}
-
-	spin_unlock_irq(&sh_chan->desc_lock);
 }
 
 static void sh_dmae_memcpy_issue_pending(struct dma_chan *chan)
 {
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
+	unsigned long flags;
+
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	sh_chan_xfer_ld_queue(sh_chan);
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 }
 
 static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
@@ -960,8 +961,10 @@ static void dmae_do_tasklet(unsigned long data)
 	struct sh_desc *desc;
 	u32 sar_buf = sh_dmae_readl(sh_chan, SAR);
 	u32 dar_buf = sh_dmae_readl(sh_chan, DAR);
+	unsigned long flags;
 
-	spin_lock_irq(&sh_chan->desc_lock);
+	spin_lock_irqsave(&sh_chan->desc_lock, flags);
+
 	list_for_each_entry(desc, &sh_chan->ld_queue, node) {
 		if (desc->mark == DESC_SUBMITTED &&
 		    ((desc->direction == DMA_DEV_TO_MEM &&
@@ -974,10 +977,12 @@ static void dmae_do_tasklet(unsigned long data)
 			break;
 		}
 	}
-	spin_unlock_irq(&sh_chan->desc_lock);
 
 	/* Next desc */
 	sh_chan_xfer_ld_queue(sh_chan);
+
+	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+
 	sh_dmae_chan_ld_cleanup(sh_chan, false);
 }
 
