@@ -74,7 +74,7 @@ static int suspend_test(int level)
 {
 #ifdef CONFIG_PM_DEBUG
 	if (pm_test_level == level) {
-#ifdef CONFIG_MACH_U2EVM
+#if defined(CONFIG_MACH_U2EVM) && defined(CONFIG_PM_TEST)
 #include <linux/time.h>
 		extern int wait_time;
 		unsigned long wait_time_jiffies = jiffies + (wait_time * HZ);
@@ -82,10 +82,10 @@ static int suspend_test(int level)
 		while ( time_before ( jiffies, wait_time_jiffies ) ) {
 			cpu_relax ( ) ;
 		}
-#else /* !CONFIG_MACH_U2EVM */
+#else
 		printk(KERN_INFO "suspend debug: Waiting for 5 seconds.\n");
 		mdelay(5000);
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_MACH_U2EVM & CONFIG_PM_TEST */
 		return 1;
 	}
 #endif /* !CONFIG_PM_DEBUG */

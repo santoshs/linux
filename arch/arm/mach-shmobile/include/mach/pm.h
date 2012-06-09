@@ -107,9 +107,9 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define POWER_DOMAIN_COUNT_MAX	3
 #define CONFIG_PM_RUNTIME_A3SG
 #define CONFIG_PM_RUNTIME_A3SP
-/* #define CONFIG_PM_RUNTIME_A3R */
-/* #define CONFIG_PM_RUNTIME_A4RM */
-/* #define CONFIG_PM_RUNTIME_A4MP */
+#define CONFIG_PM_RUNTIME_A3R
+#define CONFIG_PM_RUNTIME_A4RM
+#define CONFIG_PM_RUNTIME_A4MP
 
 /*Value of power area (value is appropriate with SWUCR, SPDCR, PSTR registers)*/
 #define POWER_A2SL					BIT(20)
@@ -152,7 +152,7 @@ static inline void for_each_power_device(const char *name,
 static inline void power_domains_get_sync(const char *name) {}
 static inline void power_domains_put_noidle(const char *name) {}
 #ifdef CONFIG_PM_DEBUG
-static inline int control_pdc(int is_enable) ( return 0; )
+static inline int control_pdc(int is_enable) { return 0; }
 static inline int is_pdc_enable(void) { return 0; }
 #endif
 #endif  /*CONFIG_PDC*/
