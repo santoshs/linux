@@ -37,9 +37,7 @@
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
 #include <linux/pmic/pmic.h>
-#ifdef CONFIG_TI_ST
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
-#endif /* CONFIG_TI_ST */
 #include <linux/wl12xx.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <media/sh_mobile_rcu.h>
@@ -105,8 +103,6 @@ static void crashlog_init_tmplog(void);
 #define WLAN_IRQ	GPIO_PORT98
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
-
-#undef ENABLE_WIFI_HS
 
 static void gpio_pull(u32 addr, int type)
 {
@@ -1001,7 +997,6 @@ static struct platform_device u2evm_ion_device = {
 	},
 };
 
-#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
 static unsigned long retry_suspend;
 int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
@@ -1025,6 +1020,48 @@ int plat_kim_resume(struct platform_device *pdev)
    return 0;
 }
 
+/* CWS: Run time CWS detection changes START */
+int Is_wl128x_device_present(void){
+
+  int is_present = 0;
+
+  gpio_request(GPIO_PORT38, NULL);
+  gpio_direction_input(GPIO_PORT38);
+  if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+  {
+    gpio_pull(GPIO_PORTCR_ES1(38), GPIO_PULL_UP);
+  } else {
+    gpio_pull(GPIO_PORTCR_ES2(38), GPIO_PULL_UP);
+  }
+
+  if(gpio_get_value(GPIO_PORT38)){
+        printk("CWS: Wl128x_device High\n");
+  }else{
+        printk("CWS: Wl128x_device Low\n");
+  }
+
+  gpio_request(GPIO_PORT268, NULL);
+  gpio_direction_output(GPIO_PORT268,0);
+  gpio_set_value(GPIO_PORT268, GPIO_HIGH);
+  mdelay(100);
+
+  if(!gpio_get_value(GPIO_PORT38)){
+        is_present = 1;
+        printk("CWS: Wl128x_device is present\n");
+  }else{
+        printk("CWS: Wl128x_device is not present\n");
+  }
+
+  gpio_set_value(GPIO_PORT268, GPIO_LOW);
+  mdelay(5);
+  gpio_free(GPIO_PORT268);
+  gpio_free(GPIO_PORT38);
+
+  return is_present;
+} 
+/* CWS: Run time CWS detection changes END */
+
+
 #define BLUETOOTH_UART_DEV_NAME "/dev/ttySC4"
 
 /* wl128x BT, FM, GPS connectivity chip */
@@ -1047,7 +1084,6 @@ static struct platform_device btwilink_device = {
    .id = -1,
 };
 //120220 TI BTFM end
-#endif /* CONFIG_TI_ST */
 
 /* << Add for Thermal Sensor driver*/
 static struct thermal_sensor_data ths_platdata[] = {
@@ -1516,14 +1552,10 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE
 	&u2evm_ion_device,
 // #endif
-#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
-#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
-#endif
 //120220 TI BTFM
-#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 	&csi20_device,
 	&csi21_device,
@@ -1564,14 +1596,10 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 // #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
 	&u2evm_ion_device,
 // #endif
-#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
-#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
-#endif
 //120220 TI BTFM
-#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 	&csi20_device,
 	&csi21_device,
@@ -1606,19 +1634,16 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&mfis_device,
 	&mipidsi0_device,
 	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
 	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
-#ifdef CONFIG_TI_ST
 //120220 TI BTFM start
-#ifdef ENABLE_WIFI_HS
 	&wl128x_device,
 	&btwilink_device,
-#endif
 //120220 TI BTFM
-#endif /* CONFIG_TI_ST */
 	&thermal_sensor_device,
 	&csi20_device,
 	&csi21_device,
@@ -1630,6 +1655,147 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&camera_devices[1],
 };
 
+
+/* Run time CWS detection changes START */
+
+/* If CWS is notpresent then for different STM muxing options 0, 1, or None, 
+   as given by boot_command_line parameter stm=0/1/n                         */
+
+/* NOTE: Any new entry for non-CWS modules should be made in u2evm_devices_stm_sdhix as well as u2evm_devices_stm_sdhix_no_cws tables as well */
+
+static struct platform_device *u2evm_devices_stm_sdhi1_no_cws[] __initdata = {
+	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
+	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
+	&sh_mmcif_device,
+	&mmcoops_device,
+	&sdhi0_device,
+//	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
+	&fsi_device,
+	&fsi_b_device,
+	&gpio_key_device,
+	&lcdc_device,
+	&mipidsi0_device,
+	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
+	&pcm2pwm_device,
+#ifdef CONFIG_SPI_SH_MSIOF
+	&sh_msiof0_device,
+#endif
+// #ifdef CONFIG_ION_R_MOBILE
+	&u2evm_ion_device,
+// #endif
+//120220 TI BTFM start
+//   &wl128x_device,
+//   &btwilink_device,
+//120220 TI BTFM
+	&thermal_sensor_device,
+	&csi20_device,
+	&csi21_device,
+
+	&rcu0_device,
+	&rcu1_device,
+
+	&camera_devices[0],
+	&camera_devices[1],
+};
+
+static struct platform_device *u2evm_devices_stm_sdhi0_no_cws[] __initdata = {
+	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
+	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
+	&sh_mmcif_device,
+	&mmcoops_device,
+//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
+//&sdhi1_device,
+	&fsi_device,
+	&fsi_b_device,
+	&gpio_key_device,
+	&lcdc_device,
+	&mipidsi0_device,
+	&tpu_devices[TPU_MODULE_0],
+	&pcm2pwm_device,
+#ifdef CONFIG_SPI_SH_MSIOF
+	&sh_msiof0_device,
+#endif
+// #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
+	&u2evm_ion_device,
+// #endif
+//120220 TI BTFM start
+//   &wl128x_device,
+//   &btwilink_device,
+//120220 TI BTFM
+	&thermal_sensor_device,
+	&csi20_device,
+	&csi21_device,
+
+	&rcu0_device,
+	&rcu1_device,
+
+	&camera_devices[0],
+	&camera_devices[1],
+};
+
+static struct platform_device *u2evm_devices_stm_none_no_cws[] __initdata = {
+	&usbhs_func_device,
+#ifdef CONFIG_USB_R8A66597_HCD
+	&usb_host_device,
+#endif
+#ifdef CONFIG_USB_OTG
+	&tusb1211_device,
+#endif
+	&eth_device,
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+	&keysc_device,
+#endif
+	&sh_mmcif_device,
+	&mmcoops_device,
+	&sdhi0_device,
+//&sdhi1_device,
+	&fsi_device,
+	&fsi_b_device,
+	&gpio_key_device,
+	&lcdc_device,
+	&mfis_device,
+	&mipidsi0_device,
+	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
+	&pcm2pwm_device,
+#ifdef CONFIG_SPI_SH_MSIOF
+	&sh_msiof0_device,
+#endif
+	&u2evm_ion_device,
+//120220 TI BTFM start
+//	&wl128x_device,
+//	&btwilink_device,
+//120220 TI BTFM
+	&thermal_sensor_device,
+	&csi20_device,
+	&csi21_device,
+
+	&rcu0_device,
+	&rcu1_device,
+
+	&camera_devices[0],
+	&camera_devices[1],
+};
+/* Run time CWS detection changes END */
 /* I2C */
 
 static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
@@ -1857,12 +2023,15 @@ static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
 	int ci;
-	int stm_select=1;	// Shall tell how to route STM traces.
+	/* Run time CWS detection changes START */
+	int cws_present = 0;
+	int stm_select=-1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
 				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
+    /* Run time CWS detection changes END */
 	if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
 		for (ci=4; cp[ci]; ci++) {
 			if (cp[ci-4] == 's' &&
@@ -1892,16 +2061,24 @@ static void __init u2evm_init(void)
 		*GPIO_DRVCR_SIM2 = 0x0023;
 	}
 
+    /* Run time CWS detection changes START */
+    cws_present = Is_wl128x_device_present();
+    printk("%s\n", cws_present ? "CWS chip exists.": "CWS chip does not exists.");
+    /* Run time CWS detection changes END */
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
 	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
 	/* SCIFB0 */
-	gpio_request(GPIO_FN_SCIFB0_TXD, NULL);
-	gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
-	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
-	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
+    /* Run time CWS detection changes START */
+    if(1 == cws_present){
+		gpio_request(GPIO_FN_SCIFB0_TXD, NULL);
+		gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
+		gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
+		gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
+    }
+    /* Run time CWS detection changes END */
 
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
@@ -2339,20 +2516,40 @@ else /*ES2.0*/
 
 	r8a73734_add_standard_devices();
 
-	switch (stm_select) {
-		case 0:
-			platform_add_devices(u2evm_devices_stm_sdhi0,
-				ARRAY_SIZE(u2evm_devices_stm_sdhi0));
-			break;
-		case 1:
-			platform_add_devices(u2evm_devices_stm_sdhi1,
-				ARRAY_SIZE(u2evm_devices_stm_sdhi1));
-			break;
-		default:
-			platform_add_devices(u2evm_devices_stm_none,
-				ARRAY_SIZE(u2evm_devices_stm_none));
-			break;
+	/* Run time CWS detection changes START */
+	if(1 == cws_present){
+		switch (stm_select) {
+			case 0:
+				platform_add_devices(u2evm_devices_stm_sdhi0,
+					ARRAY_SIZE(u2evm_devices_stm_sdhi0));
+				break;
+			case 1:
+				platform_add_devices(u2evm_devices_stm_sdhi1,
+					ARRAY_SIZE(u2evm_devices_stm_sdhi1));
+				break;
+			default:
+				platform_add_devices(u2evm_devices_stm_none,
+					ARRAY_SIZE(u2evm_devices_stm_none));
+				break;
+		}
+	}else{
+        printk("CWS: within swtich case wl128x_device is not present\n");
+		switch (stm_select) {
+			case 0:
+				platform_add_devices(u2evm_devices_stm_sdhi0_no_cws,
+					ARRAY_SIZE(u2evm_devices_stm_sdhi0_no_cws));
+				break;
+			case 1:
+				platform_add_devices(u2evm_devices_stm_sdhi1_no_cws,
+					ARRAY_SIZE(u2evm_devices_stm_sdhi1_no_cws));
+				break;
+			default:
+				platform_add_devices(u2evm_devices_stm_none_no_cws,
+					ARRAY_SIZE(u2evm_devices_stm_none_no_cws));
+				break;
+		}
 	}
+	/* Run time CWS detection changes END */
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
