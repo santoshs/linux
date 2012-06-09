@@ -71,8 +71,8 @@ NORET_TYPE void panic(const char * fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
-	u8 reg = __raw_readb(0xE6180002);  // read STBCHR2 for debug
-	__raw_writeb((reg | APE_RESETLOG_PANIC_START), 0xE6180002); // write STBCHR2 for debug
+	u8 reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_PANIC_START), STBCHR2); // write STBCHR2 for debug
 	
 	/*
 	 * It's possible to come here directly from a panic-assertion and
@@ -99,6 +99,9 @@ NORET_TYPE void panic(const char * fmt, ...)
 	crash_kexec(NULL);
 
 	kmsg_dump(KMSG_DUMP_PANIC);
+
+	reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_PANIC_END), STBCHR2); // write STBCHR2 for debug
 
 	/*
 	 * Note smp_send_stop is the usual smp shutdown function, which
@@ -153,9 +156,6 @@ NORET_TYPE void panic(const char * fmt, ...)
 	}
 #endif
 	local_irq_enable();
-	reg = __raw_readb(0xE6180002); // read STBCHR2 for debug
-	__raw_writeb((reg | APE_RESETLOG_PANIC_END), 0xE6180002); // write STBCHR2 for debug
-	
 	for (i = 0; ; i += PANIC_TIMER_STEP) {
 		touch_softlockup_watchdog();
 		if (i >= i_next) {
