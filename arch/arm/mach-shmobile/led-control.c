@@ -293,8 +293,8 @@ static void set_color_brightness(int value, unsigned char brightness_reg)
 	mutex_lock(&led_mutex);
 	/* Set LED brightness */
 	ret = wrap_led_i2c_write_data(brightness_reg, (hw_val & 0xff));
-	if (ret)
-		printk(KERN_ERR "Set brightness failed %d\n", ret);
+	/*if (ret)
+		printk(KERN_ERR "Set brightness failed %d\n", ret); */
 	mutex_unlock(&led_mutex);
 }
 
@@ -375,8 +375,8 @@ static void led_colorlight_on_off(unsigned char leds_set_bit,
 	set_reg_val = (get_reg_val & ~leds_set_bit) | (value & leds_set_bit);
 
 	ret = wrap_led_i2c_write_data(0x02, set_reg_val);
-	if (ret)
-		printk(KERN_ERR "Set register failed\n");
+	/*if (ret)
+		printk(KERN_ERR "Set register failed\n");*/
 }
 
 /*
@@ -423,30 +423,30 @@ static ssize_t led_hard_blink_store(struct device *dev,
 	set_baoff_val = (value & 0x000000FF);
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_RED_AUTO_ON_REG, 0);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_GREEN_AUTO_ON_REG, 0);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_BLUE_AUTO_ON_REG, 0);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_RED_AUTO_OFF_REG, set_raoff_val);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_GREEN_AUTO_OFF_REG,
 						set_gaoff_val);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	i2c_err = wrap_led_i2c_write_data(LEDS_BLUE_AUTO_OFF_REG,
 						set_baoff_val);
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	if (!set_grfreq_val) {
 		i2c_err = wrap_led_i2c_write_data(LEDS_GRADATION_CTRL_REG, 0);
@@ -456,8 +456,8 @@ static ssize_t led_hard_blink_store(struct device *dev,
 		i2c_err = wrap_led_i2c_write_data(LEDS_GRADATION_CTRL_REG,
 							set_grfreq_val);
 	}
-	if (i2c_err)
-		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);
+	/*if (i2c_err)
+		printk(KERN_ERR "%s[%d]: I2C error\n", __func__, __LINE__);*/
 
 	mutex_unlock(&led_mutex);
 	return err;
@@ -523,7 +523,8 @@ static s32 wrap_led_i2c_write_data(u8 command, u8 value)
 			break;
 		} else {
 			/* Failed */
-			printk(KERN_ERR "i2c write error %d\n", err);
+			break;
+			/* printk(KERN_ERR "i2c write error %d\n", err); */
 		}
 	}
 	return err;
@@ -551,7 +552,8 @@ static s32 wrap_led_i2c_read_data(u8 command)
 			break;
 		} else {
 			/* Failed */
-			printk(KERN_ERR "i2c read error %d\n", ret_val);
+			break;
+			/* printk(KERN_ERR "i2c read error %d\n", ret_val); */
 		}
 	}
 	return ret_val;

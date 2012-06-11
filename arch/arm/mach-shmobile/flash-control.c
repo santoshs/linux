@@ -285,7 +285,8 @@ static s32 wrap_flash_i2c_write_data(u8 command, u8 value)
 			break;
 		} else {
 			/* Failed */
-			printk(KERN_ERR "i2c write error %d\n", err);
+			break;
+			/* printk(KERN_ERR "i2c write error %d\n", err); */
 		}
 	}
 	return err;
@@ -312,7 +313,8 @@ static s32 wrap_flash_i2c_read_data(u8 command)
 			break;
 		} else {
 			/* Failed */
-			printk(KERN_ERR "i2c read error %d\n", ret_val);
+			break;
+			/* printk(KERN_ERR "i2c read error %d\n", ret_val); */
 		}
 	}
 	return ret_val;
