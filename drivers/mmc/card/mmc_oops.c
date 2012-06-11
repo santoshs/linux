@@ -77,8 +77,6 @@ struct oops_attr {
 	ssize_t (*store)(struct mmcoops_context *, const char *, size_t count);
 };
 
-//extern int ape5r_cmt_stop(void); /* commented temporarily to avoid build error */
-
 #define attr_ro(_name)				\
 static struct oops_attr mmc_oops_##_name =	\
 __ATTR(_name, 0444, show_##_name, NULL)
@@ -367,46 +365,6 @@ static void mmc_panic_mmc_reset(struct mmcoops_context *cxt)
         /* CMD16 - Set the block size */
         sh_mmcif_boot_cmd(host->addr, 0x10400000, BLOCK_SIZE);
 }
-#if 0
-/***/
-static void sh_mmcif_register_dump(struct mmcoops_context *cxt)
-{
-	u32 CMD = 0;
-
-	struct sh_mmcif_host *host = platform_get_drvdata(cxt->pdev);
-	PANIC_DEBUG(KERN_ERR "sh_mmcif_register_dump,*(host->addr):%x\n",*(host->addr));
-
-	CMD = sh_mmcif_readl(host->addr,MMCIF_CE_CMD_SET);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_CMD_SET :    0x%08X\n",CMD);
-	CMD = sh_mmcif_readl(host->addr,MMCIF_CE_ARG);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_ARG :        0x%08X\n",CMD);
-	CMD = sh_mmcif_readl(host->addr,MMCIF_CE_ARG_CMD12);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_ARG_CMD12 :  0x%08X\n",CMD);
-	CMD = sh_mmcif_readl(host->addr,MMCIF_CE_CMD_CTRL);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_CMD_CTRL :   0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_BLOCK_SET);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_BLOCK_SET :  0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_CLK_CTRL);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_CLK_CTRL :   0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_BUF_ACC);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_BUF_ACC :    0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr,MMCIF_CE_RESP_CMD12);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_RESP_CMD12 : 0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_INT);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_INT :        0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr,MMCIF_CE_INT_MASK);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_INT_MASK :   0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_HOST_STS1);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_HOST_STS1 :  0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr,MMCIF_CE_HOST_STS2);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_HOST_STS2 :  0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr,MMCIF_CE_VERSION);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_VERSION :    0x%08X\n",CMD);
-	CMD =sh_mmcif_readl(host->addr, MMCIF_CE_DELAY_SEL);
-	PANIC_DEBUG(KERN_ERR "  MMCIF_CE_DELAY_SEL :  0x%08X\n",CMD);	
-}
-/**/
-#endif
 
 static int __mmc_panic_write(struct mmcoops_context *cxt,
 			     char *buf, unsigned long start)
@@ -566,8 +524,6 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	unsigned long	strlen1 = 0;
 	const char		*pstr2 = NULL;
 	unsigned long	strlen2 = 0;
-
-	//ape5r_cmt_stop();/* commented temporarily to avoid build error */
 
 	if (!card)
 		return;

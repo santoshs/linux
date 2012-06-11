@@ -37,6 +37,16 @@
 #define APE_RESETLOG_TMPLOG_END     0x40
 #define APE_RESETLOG_INIT_COMPLETE  0x80
 
+/* IO_ADDRESS */
+#ifndef IO_ADDRESS
+#define IO_ADDRESS(x)   x
+#endif  
+
+#define STBCHR0		IO_ADDRESS(0xE6180000)
+#define STBCHR1		IO_ADDRESS(0xE6180001)
+#define STBCHR2		IO_ADDRESS(0xE6180002)
+#define STBCHR3		IO_ADDRESS(0xE6180003)
+
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.
  */

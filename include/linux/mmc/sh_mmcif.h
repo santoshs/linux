@@ -121,7 +121,7 @@ static inline int sh_mmcif_boot_cmd_poll(void __iomem *base, unsigned long mask)
 	unsigned long tmp;
 	int cnt;
 
-	for (cnt = 0; cnt < 1000000; cnt++) {
+	for (cnt = 0; cnt < 5000000; cnt++) {
 		tmp = sh_mmcif_readl(base, MMCIF_CE_INT);
 		if (tmp & mask) {
 			sh_mmcif_writel(base, MMCIF_CE_INT, tmp & ~mask);

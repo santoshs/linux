@@ -61,8 +61,8 @@
 #define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x4C801060
 
 #define TMPLOG_ADDRESS 0x4C821200
-#define TMPLOG_SIZE    0x00080000
-#define RMC_LOCAL_VERSION "20120524\n"
+#define TMPLOG_SIZE    0x00040000
+#define RMC_LOCAL_VERSION "20120608\n"
 char *tmplog_nocache_address = NULL;
 
 static void crashlog_r_local_ver_write(void);
@@ -2600,8 +2600,8 @@ struct sys_timer u2evm_timer = {
 
 void u2evm_restart(char mode, const char *cmd)
 {
-	u8 reg = __raw_readb(0xE6180002); // read STBCHR2 for debug
-	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), 0xE6180002); // write STBCHR2 for debug
+	u8 reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
 
 	__raw_writel(0, SBAR2);
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
@@ -2720,8 +2720,8 @@ static void crashlog_reset_log_write()
 	__raw_writel(log_system_head_address, adr + 12);
 	iounmap(adr);
 
-	reg = __raw_readb(0xE6180002); 					/* read STBCHR2  */
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), 0xE6180002);	/* write STBCHR2 */
+	reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* write STBCHR2 */
 }
 
 static void crashlog_init_tmplog(void)
@@ -2732,8 +2732,8 @@ static void crashlog_init_tmplog(void)
 		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
 	}
 
-	//	reg = __raw_readb(0xE6180002);
-	//	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), 0xE6180002); // write STBCHR2 for debug	
+	//	reg = __raw_readb(STBCHR2);
+	//	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR2); // write STBCHR2 for debug	
 
 	return;
 }
