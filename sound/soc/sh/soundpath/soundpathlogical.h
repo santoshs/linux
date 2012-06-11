@@ -204,6 +204,20 @@ static void sndp_watch_stop_fw_cb(u_int uiNop);
 /* Wake up callback function */
 static void sndp_watch_clk_cb(void);
 
+/* Subfunction of the sndp_work_voice_dev_chg() */
+/* AudioLSI -> BT-SCO */
+static int sndp_work_voice_dev_chg_max98090_to_bt(
+	const u_int old_value,
+	const u_int new_value);
+/* BT-SCO -> AudioLSI */
+static int sndp_work_voice_dev_chg_bt_to_max98090(
+	const u_int old_value,
+	const u_int new_value);
+/* AudioLSI ->AudioLSI */
+static int sndp_work_voice_dev_chg_in_max98090(
+	const u_int old_value,
+	const u_int new_value);
+
 /*
  *
  * MACRO Declarations

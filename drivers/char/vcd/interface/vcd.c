@@ -781,7 +781,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	result = vcd_ctrl_get_result();
 
 	if ((system_rev & 0xff) == 0x00)
-		result =  VCD_ERR_NONE;
+		result =  VCD_ERR_NOT_SUPPORT;
 
 	len = snprintf(page, count, "%d\n", result);
 

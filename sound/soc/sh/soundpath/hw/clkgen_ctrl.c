@@ -492,7 +492,7 @@ static void clkgen_playback(const u_int uiValue)
 				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
 			/* 16000 Hz */
 			} else {
-				reg_tbl  = clkgen_reg_tbl_playA_M_16;
+				reg_tbl  = clkgen_reg_tbl_playB_M_16;
 				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_16);
 			}
 		}

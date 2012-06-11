@@ -274,7 +274,8 @@ int vcd_spuv_set_hw_param(void)
 	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK);
 
 	/* set expected response*/
-	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY, 0);
+	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY,
+				VCD_SPUV_HW_PARAMETERS_IND);
 
 	/* flush cache */
 	vcd_spuv_func_cacheflush();
@@ -545,7 +546,8 @@ int vcd_spuv_set_udata(void)
 	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK);
 
 	/* set expected response*/
-	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY, 0);
+	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID_ACK_ONLY,
+				VCD_SPUV_UDATA_REQ);
 
 	/* flush cache */
 	vcd_spuv_func_cacheflush();
@@ -1782,16 +1784,22 @@ static int vcd_spuv_check_result(void)
 	vcd_pr_start_spuv_function();
 
 	if (VCD_SPUV_STATUS_SYSTEM_ERROR & g_vcd_spuv_info.status) {
+		/* update result */
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
 		vcd_pr_if_spuv("V <-- F : TIME OUT.\n");
+		/* update status */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+		/* update result */
 		g_vcd_spuv_info.fw_result = VCD_ERR_FW_TIME_OUT;
 		/* fw stop notification */
 		vcd_ctrl_stop_fw();
 	} else if (VCD_ERR_NONE != g_vcd_spuv_info.fw_result) {
+		/* update status */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+		/* update result */
+		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 		/* fw stop notification */
 		vcd_ctrl_stop_fw();
 	}
