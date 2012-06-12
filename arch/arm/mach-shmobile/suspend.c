@@ -436,6 +436,9 @@ static struct reg_info shwy_regs[] = {
 	PM_SAVE_REG(SHWYSTATSY, SHSTxTM2,   32, ES_REV_ALL),
 	PM_SAVE_REG(SHWYSTATSY, SHSTxATRM1, 32, ES_REV_ALL),
 	PM_SAVE_REG(SHWYSTATSY, SHSTxATRM2, 32, ES_REV_ALL),
+};
+
+struct reg_info shwystatdm_regs[] = {
 /* SHWYSTAT DM */
 	PM_SAVE_REG(SHWYSTATDM, SHSTxCR,    32, ES_REV_ALL),
 	PM_SAVE_REG(SHWYSTATDM, SHSTxIR,    32, ES_REV_ALL),
@@ -467,17 +470,17 @@ static void wakeups_factor(void)
 		pr_debug(PMDBG_PRFX "APE WakeUpFactor Value = 0x%08x \n", dummy);
 		pr_debug(PMDBG_PRFX "APE SysteCPU WakeUpS Mask Value = 0x%08x \n", \
 					__raw_readl(WUPSMSK));
+
+		/* For IRQ0,IRQ1 wakeup factors */
+		if ((dummy & 0x40) != 0)
+			pr_debug(PMDBG_PRFX " Wakeup by IRQ[31:0]: 0x%08x\n", \
+					__raw_readl(ram0_ICSPISR0Phys));
+		else if ((dummy & 0x80) != 0)
+			pr_debug(PMDBG_PRFX " Wakeup by IRQ[63:32]: 0x%08x\n",\
+					__raw_readl(ram0_ICSPISR1Phys));
+		else
+			pr_debug(PMDBG_PRFX "Not wakeup by IRQ wakeup factors.\n");
 	}
-	
-	/* For IRQ0,IRQ1 wakeup factors */
-	if ((dummy & 0x40) != 0)
-		pr_debug(PMDBG_PRFX " Wakeup by IRQ[31:0]: 0x%08x\n", \
-				__raw_readl(ram0_ICSPISR0Phys));
-	else if ((dummy & 0x80) != 0)
-		pr_debug(PMDBG_PRFX " Wakeup by IRQ[63:32]: 0x%08x\n",\
-				__raw_readl(ram0_ICSPISR1Phys));
-	else
-		pr_debug(PMDBG_PRFX "Not wakeup by IRQ wakeup factors.\n");
 }
 
 /*
@@ -559,6 +562,11 @@ static void shwy_regs_save(void)
 	DO_SAVE_REGS(shwy_regs);
 }
 
+void shwystatdm_regs_save(void)
+{
+	DO_SAVE_REGS(shwystatdm_regs);
+}
+
 static void irqx_eventdetectors_regs_restore(void)
 {
 	DO_RESTORE_REGS(irqx_eventdetectors_regs);
@@ -567,6 +575,11 @@ static void irqx_eventdetectors_regs_restore(void)
 static void shwy_regs_restore(void)
 {
 	DO_RESTORE_REGS(shwy_regs);
+}
+
+void shwystatdm_regs_restore(void)
+{
+	DO_RESTORE_REGS(shwystatdm_regs);
 }
 
 /*

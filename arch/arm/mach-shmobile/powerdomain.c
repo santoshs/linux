@@ -94,7 +94,7 @@ static int power_areas_status = 0;
 #endif
 
 static struct drv_pd_mapping_table client_names_es1[] = {
-	/* MFIS		 */	{ "mfis", 				ID_C4 	},
+	/* MFIS		 */	{ "mfis.0", 				ID_C4 	},
 	/* SGX544MP1 */	{ "pvrsrvkm", 			ID_A3SG },
 	/* SY-DMA0 	*/	{ "sh-dma-engine.0", 	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0", 	ID_A3SP },
@@ -103,11 +103,11 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 	/* MSIOF1	*/	{ "spi_sh_msiof.1", 	ID_A3SP },
 	/* MSIOF2	*/	{ "spi_sh_msiof.2", 	ID_A3SP },
 	/* MSIOF3	*/	{ "spi_sh_msiof.3", 	ID_A3SP },
-	/* USB      */	{ "r8a66597_hcd.0",  	ID_A3SP },
+	/* USB      */	{ "r8a66597_hcd.0",  ID_A3SP },
 	/* USB      */	{ "r8a66597_udc.0",  	ID_A3SP },
 	/* USB      */	{ "usb_mass_storage",	ID_A3SP },
 	/* USB      */	{ "android_usb",		ID_A3SP },
-	/* SCIFA0   */	{ "sh-sci.0",       	ID_A3SP },
+	/* SCIFA0   */	{ "sh-sci.0",       	ID_C4 },
 	/* SCIFA1   */	{ "sh-sci.1",      		ID_A3SP },
 	/* SCIFA2   */	{ "sh-sci.2",       	ID_A3SP },
 	/* SCIFA3   */	{ "sh-sci.3",       	ID_A3SP },
@@ -115,6 +115,11 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
+	/* I2C0H    */  { "i2c-sh_mobile.4",    ID_A3SP },
+	/* I2C1H    */  { "i2c-sh_mobile.5",    ID_A3SP },
+    /* I2CM     */  { "i2c-sh7730.6",	    ID_A3SP },
+	/* SDHI0    */  { "renesas_sdhi.0",	    ID_A3SP },
+	/* SDHI1    */  { "renesas_sdhi.1",	    ID_A3SP },
 	/* TPU     */	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
 	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
 	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
@@ -134,7 +139,7 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 };
 
 static struct drv_pd_mapping_table client_names_es2[] = {
-	/* MFIS		 */	{ "mfis", 				ID_C4 	},
+	/* MFIS		 */	{ "mfis.0", 				ID_C4 	},
 	/* SGX544MP1 */	{ "pvrsrvkm", 			ID_A3SG },
 	/* SY-DMA0 	*/	{ "sh-dma-engine.0", 	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0", 	ID_A3SP },
@@ -148,7 +153,7 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 	/* USB      */	{ "r8a66597_udc.0",  	ID_A3SP },
 	/* USB      */	{ "usb_mass_storage",	ID_A3SP },
 	/* USB      */	{ "android_usb",		ID_A3SP },
-	/* SCIFA0   */	{ "sh-sci.0",       	ID_A3SP },
+	/* SCIFA0   */	{ "sh-sci.0",       	ID_C4 },
 	/* SCIFA1   */	{ "sh-sci.1",      		ID_A3SP },
 	/* SCIFA2   */	{ "sh-sci.2",       	ID_A3SP },
 	/* SCIFA3   */	{ "sh-sci.3",       	ID_A3SP },
@@ -156,6 +161,11 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
+	/* I2C0H    */  { "i2c-sh_mobile.4",    ID_A3SP },
+	/* I2C1H    */  { "i2c-sh_mobile.5",    ID_A3SP },
+    /* I2CM     */  { "i2c-sh7730.6",	    ID_A3SP },
+	/* SDHI0    */  { "renesas_sdhi.0",	    ID_A3SP },
+	/* SDHI1    */  { "renesas_sdhi.1",	    ID_A3SP },
 	/* TPU    	*/	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
 	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
 	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
@@ -176,6 +186,21 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 #endif
 
 };
+
+#define POWER_DOMAIN_DEVICE(_pd_dev, _pwr_id, _parent_dev) \
+	static struct platform_device _pd_dev = { \
+		.name = "power-domain", \
+		.id = _pwr_id, \
+		.dev.parent = _parent_dev, \
+	}
+
+/* Define power domain(area) devices (pointer) */
+POWER_DOMAIN_DEVICE(a4rm_device, ID_A4RM, NULL);
+POWER_DOMAIN_DEVICE(a4mp_device, ID_A4MP, NULL);
+/* POWER_DOMAIN_DEVICE(a3r_device,  ID_A3R, &a4rm_device.dev); */
+POWER_DOMAIN_DEVICE(a3r_device,  ID_A3R, NULL);
+POWER_DOMAIN_DEVICE(a3sg_device, ID_A3SG, NULL);
+POWER_DOMAIN_DEVICE(a3sp_device, ID_A3SP, NULL);
 
 /* Function declaration */
 static inline void sort_mapping_table(struct drv_pd_mapping_table *drv_pd_mp_tbl
@@ -383,7 +408,7 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 {
 	unsigned int area = 1 << (to_platform_device(dev)->id);
 	unsigned int mask = 0;
-
+	
 #ifndef CONFIG_PM_RUNTIME_A3SG
 	mask |= POWER_A3SG;
 #endif
@@ -410,6 +435,7 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 #endif
 
 	if (0 != (area & mask)) {
+		pm_runtime_get_noresume(dev);
 		return 0;
 	}
 
@@ -439,6 +465,10 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 	spin_unlock(&pdc_lock);	
 #endif
 
+	if (POWER_A3R == area) {
+		pm_runtime_put_sync(&a4rm_device.dev);
+	}
+
 	return 0;
 }
 
@@ -450,9 +480,14 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
  */
 static int power_domain_driver_runtime_resume(struct device *dev)
 {
+	unsigned int area = 1 << (to_platform_device(dev)->id);
+	if (POWER_A3R == area) {
+		pm_runtime_get_sync(&a4rm_device.dev);
+	}
+	
 #ifdef CONFIG_PM_DEBUG
 	spin_lock(&pdc_lock);
-	power_areas_status |= (1 << to_platform_device(dev)->id);
+	power_areas_status |= area;
 	if (0 == pdc_enable) {
 #ifdef __DEBUG_PDC
 		power_areas_info();
@@ -462,7 +497,7 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 	}
 #endif
 
-	power_status_set(1 << to_platform_device(dev)->id, true);
+	power_status_set(area, true);
 #ifdef __DEBUG_PDC
 	power_areas_info();
 #endif /* __DEBUG_PDC */
@@ -633,19 +668,6 @@ static struct platform_device c4_device = {
 	.id = ID_C4,
 };
 
-#define POWER_DOMAIN_DEVICE(_pd_dev, _pwr_id, _parent_dev) \
-	static struct platform_device _pd_dev = { \
-		.name = "power-domain", \
-		.id = _pwr_id, \
-		.dev.parent = _parent_dev, \
-	}
-
-/* Define power domain(area) devices (pointer) */
-POWER_DOMAIN_DEVICE(a4rm_device, ID_A4RM, NULL);
-POWER_DOMAIN_DEVICE(a4mp_device, ID_A4MP, NULL);
-POWER_DOMAIN_DEVICE(a3r_device,  ID_A3R, &a4rm_device.dev);
-POWER_DOMAIN_DEVICE(a3sg_device, ID_A3SG, NULL);
-POWER_DOMAIN_DEVICE(a3sp_device, ID_A3SP, NULL);
 
 /*************************************************************************/
 static struct platform_device *power_devices[] = {

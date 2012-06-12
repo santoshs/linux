@@ -252,6 +252,8 @@ int __clk_get_rate(struct clk_rate *rate, int clk_state,
 					level = FREQ_LEV_MIN;
 #endif /* SH_CPUFREQ_VERYLOW */
 #ifdef SH_CPUFREQ_OVERDRIVE
+				if (level == FREQ_LEV_MAX)
+					level = FREQ_LEV_HIGH;
 				freq_mode = clk_state * lv_num + level;
 #else /* !SH_CPUFREQ_OVERDRIVE */
 				freq_mode = clk_state * lv_num + level + 1;
@@ -1380,6 +1382,18 @@ next:
 		(freq <= freq_table[FREQ_LEV_MIN].frequency)) {
 		freq = freq_table[FREQ_LEV_MID].frequency;
 		freqs.new = freq_table[FREQ_LEV_MID].frequency;
+	}
+
+	/* not allow OVERDRIVER & VERY LOW in earlysuspend */
+	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
+#ifdef SH_CPUFREQ_OVERDRIVE
+		if (freq == freq_table[FREQ_LEV_MAX].frequency)
+			freq = freq_table[FREQ_LEV_HIGH].frequency;
+#endif /* SH_CPUFREQ_OVERDRIVE */
+#ifdef SH_CPUFREQ_VERYLOW
+		if (freq == freq_table[FREQ_LEV_EXMIN].frequency)
+			freq = freq_table[FREQ_LEV_MIN].frequency;
+#endif /* SH_CPUFREQ_VERYLOW */
 	}
 
 	/*
