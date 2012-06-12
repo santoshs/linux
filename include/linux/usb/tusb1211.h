@@ -27,9 +27,6 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
-
-
-#include <linux/usb/otg.h>
 #include <linux/usb/ulpi.h>
 /*
  * Register Map
@@ -87,7 +84,7 @@ static inline void otg_modify_reg(struct otg_transceiver *otg, u16 clr_mask, u16
 #define USB_SPRDAT	0X013E /*H'E689 013E*/
 #define USB_PHYRD	0x0001
 
-static u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
+static inline u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
 {
 	u16 monreg;
 	otg_io_set_bits(otg, USB_PHYRD, USB_PHYREAD);
@@ -171,7 +168,6 @@ struct tusb1211 {
 #endif
 	struct otg_transceiver	otg;
 	unsigned			init:1;
-	struct timer_list id_timer;
 
 	struct timer_list se0_srp_timer;
 	struct timer_list b_data_pls_timer;
