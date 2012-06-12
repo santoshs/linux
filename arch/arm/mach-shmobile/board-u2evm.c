@@ -25,6 +25,11 @@
 #include <video/sh_mobile_lcdc.h>
 #include <video/sh_mipi_dsi.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
+
+#ifdef CONFIG_PMIC_INTERFACE
+#include <linux/pmic/pmic.h>
+#endif
+
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
 #include <linux/i2c/atmel_mxt_ts.h>
@@ -36,7 +41,6 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
-#include <linux/pmic/pmic.h>
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
 #include <linux/wl12xx.h>
 #include <linux/thermal_sensor/ths_kernel.h>
@@ -698,7 +702,9 @@ static struct platform_device fsi_b_device = {
 	 .debounce_interval=20}
 
 static struct gpio_keys_button gpio_buttons[] = {
+#ifndef CONFIG_PMIC_INTERFACE
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
+#endif
 	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
 	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
 	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
@@ -708,24 +714,28 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-if((system_rev & 0xFF) == 0x00)
-{
-	gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(25), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(26), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
-}
-else
-{
-	gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(25), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(26), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
-}
+	if((system_rev & 0xFF) == 0x00)
+	{
+		#ifndef CONFIG_PMIC_INTERFACE
+			gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
+		#endif
+		gpio_pull(GPIO_PORTCR_ES1(25), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(26), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
+	}
+	else
+	{
+		#ifndef CONFIG_PMIC_INTERFACE
+			gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
+		#endif
+		gpio_pull(GPIO_PORTCR_ES2(25), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(26), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
+	}
 	return 0;
 }
 
@@ -1873,7 +1883,8 @@ static struct tps80031_platform_data tps_platform = {
 };
 
 static struct i2c_board_info __initdata i2c0_devices[] = {
- 	{
+#ifdef CONFIG_PMIC_INTERFACE
+	{
   		I2C_BOARD_INFO("tps80032-power", 0x48),
 		.platform_data = &tps_platform,
   	},
@@ -1887,19 +1898,35 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
   	{
   		I2C_BOARD_INFO("tps80032-jtag", 0x4A),
   	},
+#else
+	{
+		I2C_BOARD_INFO("tps80032", 0x4A),
+		.irq		= irqpin2irq(28),
+		.platform_data	= &tps_platform,
+	},
+#endif
 };
-  
 
-static struct regulator *mxt224_regulator;
+#ifndef CONFIG_PMIC_INTERFACE
+	static struct regulator *mxt224_regulator;
+#endif
 
 static void mxt224_set_power(int on)
 {
+#ifdef CONFIG_PMIC_INTERFACE
 	pmic_set_power_on(E_POWER_VANA_MM);
+#else
+	if (!mxt224_regulator)
+		mxt224_regulator = regulator_get(NULL, "vdd_touch");
+
+	if (mxt224_regulator) {
+		if (on)
+			regulator_enable(mxt224_regulator);
+		else
+			regulator_disable(mxt224_regulator);
+	}
+#endif
 }
-
-
-
-
 
 static int mxt224_read_chg(void)
 {
@@ -2504,7 +2531,12 @@ else /*ES2.0*/
 	gpio_direction_output(GPIO_PORT0, 1);
 	gpio_request(GPIO_PORT28, NULL);
 	gpio_direction_input(GPIO_PORT28);
-	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_EDGE_FALLING);
+
+	#ifdef CONFIG_PMIC_INTERFACE
+		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_EDGE_FALLING);
+	#else
+		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+	#endif
 
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
