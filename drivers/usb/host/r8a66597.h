@@ -143,8 +143,10 @@ struct r8a66597 {
 
 	struct delayed_work	vbus_work;
 #ifdef CONFIG_USB_OTG
+	unsigned dttch:1;
 	struct delayed_work	srp_work;
 	struct delayed_work	hnp_work;
+	struct delayed_work	dttch_work;
 #endif
 	unsigned power:1;
 };

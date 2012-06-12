@@ -1043,6 +1043,9 @@ static void r8a66597_check_syssts(struct r8a66597 *r8a66597, int port,
 __releases(r8a66597->lock)
 __acquires(r8a66597->lock)
 {
+#ifdef CONFIG_USB_OTG
+	struct otg_transceiver *otg = otg_get_transceiver();
+#endif
 	if (syssts == SE0) {
 		r8a66597_write(r8a66597, ~ATTCH, get_intsts_reg(port));
 		r8a66597_bset(r8a66597, ATTCHE, get_intenb_reg(port));
@@ -1051,14 +1054,18 @@ __acquires(r8a66597->lock)
 			r8a66597_bset(r8a66597, HSE, get_syscfg_reg(port));
 		else if (syssts == LS_JSTS)
 			r8a66597_bclr(r8a66597, HSE, get_syscfg_reg(port));
-
-		r8a66597_write(r8a66597, ~DTCH, get_intsts_reg(port));
-		r8a66597_bset(r8a66597, DTCHE, get_intenb_reg(port));
-
+#ifdef CONFIG_USB_OTG
+		schedule_delayed_work(&r8a66597->dttch_work, msecs_to_jiffies(300));
+#else
+		r8a66597_write(r8a66597, ~DTCH, get_intsts_reg(0));
+		r8a66597_bset(r8a66597, DTCHE, get_intenb_reg(0));
+#endif
 		if (r8a66597->bus_suspended)
 			usb_hcd_resume_root_hub(r8a66597_to_hcd(r8a66597));
 	}
-
+#ifdef CONFIG_USB_OTG
+	otg_put_transceiver(otg);
+#endif
 	spin_unlock(&r8a66597->lock);
 	usb_hcd_poll_rh_status(r8a66597_to_hcd(r8a66597));
 	spin_lock(&r8a66597->lock);
@@ -1069,7 +1076,13 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597, int port)
 {
 	u16 speed = get_rh_usb_speed(r8a66597, port);
 	struct r8a66597_root_hub *rh = &r8a66597->root_hub[port];
-
+#ifdef CONFIG_USB_OTG
+	struct otg_transceiver *otg = otg_get_transceiver();
+	if (!r8a66597->dttch) {
+		return;
+	}
+	otg_put_transceiver(otg);
+#endif
 	rh->port &= ~(USB_PORT_STAT_HIGH_SPEED | USB_PORT_STAT_LOW_SPEED);
 	if (speed == HSMODE)
 		rh->port |= USB_PORT_STAT_HIGH_SPEED;
@@ -1757,8 +1770,10 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 			r8a66597_write(r8a66597, ~ATTCH, INTSTS1);
 			r8a66597_bclr(r8a66597, ATTCHE, INTENB1);
 #ifdef CONFIG_USB_OTG
+			r8a66597->dttch = 0;
 			if ((x->state == OTG_STATE_B_WAIT_ACON ||
-				x->state == OTG_STATE_A_WAIT_BCON)) {
+				x->state == OTG_STATE_A_WAIT_BCON) &&
+				(x->port_status & USB_PORT_STAT_CONNECTION)) {
 				r8a66597_bclr(r8a66597, DRPD, SYSCFG0);
 				r8a66597_mdfy(r8a66597, USBRST, USBRST | UACT,
 					get_dvstctr_reg(0));
@@ -1787,7 +1802,9 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 				printk("%s\n", otg_state_string(x->state));
 			} else if (x->state == OTG_STATE_B_HOST) {
 				r8a66597_set_function_controller(r8a66597);
+				x->state = OTG_STATE_B_PERIPHERAL;
 			}
+			x->port_status &= ~USB_PORT_STAT_CONNECTION;
 #endif
 		}
 		if (mask1 & BCHG) {
@@ -2284,6 +2301,15 @@ static void r8a66597_srp_work(struct work_struct *work)
 	otg_put_transceiver(x);
 }
 
+static void r8a66597_dttch_work(struct work_struct *work)
+{
+	struct r8a66597 *r8a66597 =
+			container_of(work, struct r8a66597, dttch_work.work);
+
+	r8a66597_write(r8a66597, ~DTCH, get_intsts_reg(0));
+	r8a66597_bset(r8a66597, DTCHE, get_intenb_reg(0));
+	r8a66597->dttch = 1;
+}
 
 static void r8a66597_hnp_work(struct work_struct *work)
 {
@@ -2311,6 +2337,8 @@ static void r8a66597_hnp_work(struct work_struct *work)
 		otg->state = OTG_STATE_B_HOST;
 	if (otg->state == OTG_STATE_A_WAIT_BCON)
 		otg->state = OTG_STATE_A_HOST;
+
+	otg->flags = 0;
 
 	printk("%s\n", otg_state_string(otg->state));
 	}
@@ -2723,6 +2751,7 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 #ifdef CONFIG_USB_OTG
 	INIT_DELAYED_WORK(&r8a66597->srp_work, r8a66597_srp_work);
 	INIT_DELAYED_WORK(&r8a66597->hnp_work, r8a66597_hnp_work);
+	INIT_DELAYED_WORK(&r8a66597->dttch_work, r8a66597_dttch_work);
 #endif
 
 	/* make sure no interrupts are pending */
