@@ -65,14 +65,21 @@
 static int hwsem_trylock(struct hwspinlock *lock)
 {
 	void __iomem *lock_addr = lock->priv;
+	u32 smsrc;
 
 	__raw_writel(1, lock_addr + SMxxSRC); /* SMGET */
 
 	/*
 	 * Get upper 8 bits and compare to master ID.
 	 * If equal, we have the semaphore, otherwise someone else has it.
+	 *
+	 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
+	 * given a distinct SrcID of the SHwy bus, so master ID matching
+	 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
 	 */
-	return (__raw_readl(lock_addr + SMxxSRC) >> 24) == HWSEM_MASTER_ID;
+	smsrc = (__raw_readl(lock_addr + SMxxSRC) >> 24) & 0xfc;
+
+	return smsrc == HWSEM_MASTER_ID;
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
