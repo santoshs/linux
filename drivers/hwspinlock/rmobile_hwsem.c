@@ -62,12 +62,19 @@
 #define SMxxTIME		0x08
 #define SMxxCNT			0x0C
 
+/*
+ * private data structure for a 'struct hwspinlock' instance
+ */
+struct hwspinlock_private {
+	void __iomem		*sm_base;
+};
+
 static int hwsem_trylock(struct hwspinlock *lock)
 {
-	void __iomem *lock_addr = lock->priv;
+	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
 
-	__raw_writel(1, lock_addr + SMxxSRC); /* SMGET */
+	__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
 
 	/*
 	 * Get upper 8 bits and compare to master ID.
@@ -77,16 +84,16 @@ static int hwsem_trylock(struct hwspinlock *lock)
 	 * given a distinct SrcID of the SHwy bus, so master ID matching
 	 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
 	 */
-	smsrc = (__raw_readl(lock_addr + SMxxSRC) >> 24) & 0xfc;
+	smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
 
 	return smsrc == HWSEM_MASTER_ID;
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
 {
-	void __iomem *lock_addr = lock->priv;
+	struct hwspinlock_private *p = lock->priv;
 
-	__raw_writel(0, lock_addr + SMxxSRC);
+	__raw_writel(0, p->sm_base + SMxxSRC);
 }
 
 static void hwsem_relax(struct hwspinlock *lock)
@@ -105,6 +112,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	struct hwsem_pdata *pdata = pdev->dev.platform_data;
 	struct hwspinlock_device *bank;
 	struct hwspinlock *hwlock;
+	struct hwspinlock_private *priv;
 	struct resource *res;
 	void __iomem *io_base;
 	int i, ret, num_locks;
@@ -134,8 +142,17 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	bank->bank_data = io_base;
 
-	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++)
-		hwlock->priv = io_base + pdata->descs[i].offset;
+	/* allocate (hwspinlock_private * num_locks) */
+	priv = kzalloc(num_locks * sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
+		ret = -ENOMEM;
+		goto kfree_bank;
+	}
+
+	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
+		priv[i].sm_base = io_base + pdata->descs[i].offset;
+		hwlock->priv = &priv[i];
+	}
 
 	ret = hwspin_lock_register(bank, &pdev->dev, &rmobile_hwspinlock_ops,
 				   pdata->base_id, num_locks);
@@ -147,6 +164,8 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	return 0;
 
 reg_fail:
+	kfree(priv);
+kfree_bank:
 	kfree(bank);
 iounmap_base:
 	iounmap(io_base);
@@ -156,6 +175,7 @@ iounmap_base:
 static int __devexit rmobile_hwsem_remove(struct platform_device *pdev)
 {
 	struct hwspinlock_device *bank = platform_get_drvdata(pdev);
+	struct hwspinlock_private *priv = bank->lock[0].priv;
 	void __iomem *io_base = bank->bank_data;
 	int ret;
 
@@ -166,6 +186,7 @@ static int __devexit rmobile_hwsem_remove(struct platform_device *pdev)
 	}
 
 	iounmap(io_base);
+	kfree(priv);
 	kfree(bank);
 	platform_set_drvdata(pdev, NULL);
 
