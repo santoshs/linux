@@ -57,7 +57,8 @@ struct hwspinlock {
  * @ops: platform-specific hwspinlock handlers
  * @base_id: id index of the first lock in this device
  * @num_locks: number of locks in this device
- * @lock: dynamically allocated array of 'struct hwspinlock'
+ * @lock: dynamically allocated array of 'struct hwspinlock' (must be placed
+ *	  at the end of the hwspinlock_device)
  */
 struct hwspinlock_device {
 	struct device *dev;
