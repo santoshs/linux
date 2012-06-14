@@ -1333,8 +1333,7 @@ static int pegasus_probe(struct usb_interface *intf,
 
 	net = alloc_etherdev(sizeof(struct pegasus));
 	if (!net) {
-		dev_err(&intf->dev, "can't allocate %s\n", "device");
-		goto out;
+			goto out;
 	}
 
 	pegasus = netdev_priv(net);
@@ -1476,7 +1475,7 @@ static const struct net_device_ops pegasus_netdev_ops = {
 	.ndo_stop =			pegasus_close,
 	.ndo_do_ioctl =			pegasus_ioctl,
 	.ndo_start_xmit =		pegasus_start_xmit,
-	.ndo_set_multicast_list =	pegasus_set_multicast,
+	.ndo_set_rx_mode =	pegasus_set_multicast,
 	.ndo_get_stats =		pegasus_netdev_stats,
 	.ndo_tx_timeout =		pegasus_tx_timeout,
 	.ndo_change_mtu =		eth_change_mtu,

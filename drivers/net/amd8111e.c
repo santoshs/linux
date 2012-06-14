@@ -1816,7 +1816,7 @@ static const struct net_device_ops amd8111e_netdev_ops = {
 	.ndo_start_xmit		= amd8111e_start_xmit,
 	.ndo_tx_timeout		= amd8111e_tx_timeout,
 	.ndo_get_stats		= amd8111e_get_stats,
-	.ndo_set_multicast_list = amd8111e_set_multicast_list,
+	.ndo_set_rx_mode = amd8111e_set_multicast_list,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= amd8111e_set_mac_address,
 	.ndo_do_ioctl		= amd8111e_ioctl,
@@ -1879,7 +1879,6 @@ static int __devinit amd8111e_probe_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(struct amd8111e_priv));
 	if (!dev) {
-		printk(KERN_ERR "amd8111e: Etherdev alloc failed, exiting.\n");
 		err = -ENOMEM;
 		goto err_free_reg;
 	}

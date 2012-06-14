@@ -2578,7 +2578,7 @@ static const struct net_device_ops atl1c_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_start_xmit		= atl1c_xmit_frame,
 	.ndo_set_mac_address 	= atl1c_set_mac_addr,
-	.ndo_set_multicast_list = atl1c_set_multi,
+	.ndo_set_rx_mode = atl1c_set_multi,
 	.ndo_change_mtu		= atl1c_change_mtu,
 	.ndo_fix_features	= atl1c_fix_features,
 	.ndo_do_ioctl		= atl1c_ioctl,
@@ -2665,7 +2665,6 @@ static int __devinit atl1c_probe(struct pci_dev *pdev,
 	netdev = alloc_etherdev(sizeof(struct atl1c_adapter));
 	if (netdev == NULL) {
 		err = -ENOMEM;
-		dev_err(&pdev->dev, "etherdev alloc failed\n");
 		goto err_alloc_etherdev;
 	}
 

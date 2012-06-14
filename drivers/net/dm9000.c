@@ -1324,7 +1324,7 @@ static const struct net_device_ops dm9000_netdev_ops = {
 	.ndo_stop		= dm9000_stop,
 	.ndo_start_xmit		= dm9000_start_xmit,
 	.ndo_tx_timeout		= dm9000_timeout,
-	.ndo_set_multicast_list	= dm9000_hash_table,
+	.ndo_set_rx_mode	= dm9000_hash_table,
 	.ndo_do_ioctl		= dm9000_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_features	= dm9000_set_features,
@@ -1353,7 +1353,6 @@ dm9000_probe(struct platform_device *pdev)
 	/* Init network device */
 	ndev = alloc_etherdev(sizeof(struct board_info));
 	if (!ndev) {
-		dev_err(&pdev->dev, "could not allocate device.\n");
 		return -ENOMEM;
 	}
 

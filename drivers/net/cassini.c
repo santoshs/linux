@@ -1974,7 +1974,7 @@ static int cas_rx_process_pkt(struct cas *cp, struct cas_rx_comp *rxc,
 	else
 		alloclen = max(hlen, RX_COPY_MIN);
 
-	skb = dev_alloc_skb(alloclen + swivel + cp->crc_size);
+skb = netdev_alloc_skb(cp->dev, alloclen + swivel + cp->crc_size);	
 	if (skb == NULL)
 		return -1;
 
@@ -4909,7 +4909,7 @@ static const struct net_device_ops cas_netdev_ops = {
 	.ndo_stop		= cas_close,
 	.ndo_start_xmit		= cas_start_xmit,
 	.ndo_get_stats 		= cas_get_stats,
-	.ndo_set_multicast_list = cas_set_multicast,
+	.ndo_set_rx_mode = cas_set_multicast,
 	.ndo_do_ioctl		= cas_ioctl,
 	.ndo_tx_timeout		= cas_tx_timeout,
 	.ndo_change_mtu		= cas_change_mtu,
@@ -4949,7 +4949,6 @@ static int __devinit cas_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(*cp));
 	if (!dev) {
-		dev_err(&pdev->dev, "Etherdev alloc failed, aborting\n");
 		err = -ENOMEM;
 		goto err_out_disable_pdev;
 	}

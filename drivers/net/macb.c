@@ -1100,7 +1100,7 @@ static const struct net_device_ops macb_netdev_ops = {
 	.ndo_open		= macb_open,
 	.ndo_stop		= macb_close,
 	.ndo_start_xmit		= macb_start_xmit,
-	.ndo_set_multicast_list	= macb_set_rx_mode,
+	.ndo_set_rx_mode	= macb_set_rx_mode,
 	.ndo_get_stats		= macb_get_stats,
 	.ndo_do_ioctl		= macb_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1131,7 +1131,6 @@ static int __init macb_probe(struct platform_device *pdev)
 	err = -ENOMEM;
 	dev = alloc_etherdev(sizeof(*bp));
 	if (!dev) {
-		dev_err(&pdev->dev, "etherdev alloc failed, aborting.\n");
 		goto err_out;
 	}
 

@@ -151,8 +151,7 @@ struct net_device *alloc_libipw(int sizeof_priv, int monitor)
 
 	dev = alloc_etherdev(sizeof(struct libipw_device) + sizeof_priv);
 	if (!dev) {
-		LIBIPW_ERROR("Unable to allocate network device.\n");
-		goto failed;
+			goto failed;
 	}
 	ieee = netdev_priv(dev);
 

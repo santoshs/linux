@@ -1016,7 +1016,7 @@ static const struct net_device_ops lance_netdev_ops = {
 	.ndo_stop		= lance_close,
 	.ndo_start_xmit		= lance_start_xmit,
 	.ndo_tx_timeout		= lance_tx_timeout,
-	.ndo_set_multicast_list	= lance_set_multicast,
+	.ndo_set_rx_mode	= lance_set_multicast,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
@@ -1053,8 +1053,6 @@ static int __devinit dec_lance_probe(struct device *bdev, const int type)
 
 	dev = alloc_etherdev(sizeof(struct lance_private));
 	if (!dev) {
-		printk(KERN_ERR "%s: Unable to allocate etherdev, aborting.\n",
-			name);
 		ret = -ENOMEM;
 		goto err_out;
 	}

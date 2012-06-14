@@ -522,7 +522,7 @@ static const struct net_device_ops netxen_netdev_ops = {
 	.ndo_start_xmit    = netxen_nic_xmit_frame,
 	.ndo_get_stats	   = netxen_nic_get_stats,
 	.ndo_validate_addr = eth_validate_addr,
-	.ndo_set_multicast_list = netxen_set_multicast_list,
+	.ndo_set_rx_mode = netxen_set_multicast_list,
 	.ndo_set_mac_address    = netxen_nic_set_mac,
 	.ndo_change_mtu	   = netxen_nic_change_mtu,
 	.ndo_tx_timeout	   = netxen_tx_timeout,
@@ -1338,7 +1338,6 @@ netxen_nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	netdev = alloc_etherdev(sizeof(struct netxen_adapter));
 	if(!netdev) {
-		dev_err(&pdev->dev, "failed to allocate net_device\n");
 		err = -ENOMEM;
 		goto err_out_free_res;
 	}

@@ -484,7 +484,6 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(struct tlan_priv));
 	if (dev == NULL) {
-		pr_err("Could not allocate memory for device\n");
 		rc = -ENOMEM;
 		goto err_out_regions;
 	}
@@ -772,7 +771,7 @@ static const struct net_device_ops tlan_netdev_ops = {
 	.ndo_start_xmit		= tlan_start_tx,
 	.ndo_tx_timeout		= tlan_tx_timeout,
 	.ndo_get_stats		= tlan_get_stats,
-	.ndo_set_multicast_list = tlan_set_multicast_list,
+	.ndo_set_rx_mode = tlan_set_multicast_list,
 	.ndo_do_ioctl		= tlan_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,

@@ -245,7 +245,7 @@ static const struct net_device_ops atp_netdev_ops = {
 	.ndo_open		= net_open,
 	.ndo_stop		= net_close,
 	.ndo_start_xmit		= atp_send_packet,
-	.ndo_set_multicast_list = set_rx_mode,
+	.ndo_set_rx_mode = set_rx_mode,
 	.ndo_tx_timeout		= tx_timeout,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -783,7 +783,7 @@ static void net_rx(struct net_device *dev)
 		int pkt_len = (rx_head.rx_count & 0x7ff) - 4;
 		struct sk_buff *skb;
 
-		skb = dev_alloc_skb(pkt_len + 2);
+		skb = netdev_alloc_skb(dev, pkt_len + 2);
 		if (skb == NULL) {
 			printk(KERN_ERR "%s: Memory squeeze, dropping packet.\n",
 				   dev->name);

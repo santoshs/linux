@@ -714,7 +714,7 @@ static const struct net_device_ops sgiseeq_netdev_ops = {
 	.ndo_stop		= sgiseeq_close,
 	.ndo_start_xmit		= sgiseeq_start_xmit,
 	.ndo_tx_timeout		= timeout,
-	.ndo_set_multicast_list	= sgiseeq_set_multicast,
+	.ndo_set_rx_mode	= sgiseeq_set_multicast,
 	.ndo_set_mac_address	= sgiseeq_set_mac_address,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -732,7 +732,6 @@ static int __devinit sgiseeq_probe(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof (struct sgiseeq_private));
 	if (!dev) {
-		printk(KERN_ERR "Sgiseeq: Etherdev alloc failed, aborting.\n");
 		err = -ENOMEM;
 		goto err_out;
 	}

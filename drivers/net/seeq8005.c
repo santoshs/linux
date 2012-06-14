@@ -148,7 +148,7 @@ static const struct net_device_ops seeq8005_netdev_ops = {
 	.ndo_stop		= seeq8005_close,
 	.ndo_start_xmit 	= seeq8005_send_packet,
 	.ndo_tx_timeout		= seeq8005_timeout,
-	.ndo_set_multicast_list = set_multicast_list,
+	.ndo_set_rx_mode = set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -548,7 +548,7 @@ static void seeq8005_rx(struct net_device *dev)
 			struct sk_buff *skb;
 			unsigned char *buf;
 
-			skb = dev_alloc_skb(pkt_len);
+			skb = netdev_alloc_skb(dev, pkt_len);
 			if (skb == NULL) {
 				printk("%s: Memory squeeze, dropping packet.\n", dev->name);
 				dev->stats.rx_dropped++;

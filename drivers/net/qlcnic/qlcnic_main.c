@@ -326,7 +326,7 @@ static const struct net_device_ops qlcnic_netdev_ops = {
 	.ndo_start_xmit    = qlcnic_xmit_frame,
 	.ndo_get_stats	   = qlcnic_get_stats,
 	.ndo_validate_addr = eth_validate_addr,
-	.ndo_set_multicast_list = qlcnic_set_multi,
+	.ndo_set_rx_mode = qlcnic_set_multi,
 	.ndo_set_mac_address    = qlcnic_set_mac,
 	.ndo_change_mtu	   = qlcnic_change_mtu,
 	.ndo_fix_features  = qlcnic_fix_features,
@@ -1393,6 +1393,11 @@ int qlcnic_diag_alloc_res(struct net_device *netdev, int test)
 			qlcnic_enable_int(sds_ring);
 		}
 	}
+
+	if (adapter->diag_test == QLCNIC_LOOPBACK_TEST) {
+		adapter->ahw->loopback_state = 0;
+		qlcnic_linkevent_request(adapter, 1);
+	}
 	set_bit(__QLCNIC_DEV_UP, &adapter->state);
 
 	return 0;
@@ -1559,7 +1564,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	netdev = alloc_etherdev(sizeof(struct qlcnic_adapter));
 	if (!netdev) {
-		dev_err(&pdev->dev, "failed to allocate net_device\n");
 		err = -ENOMEM;
 		goto err_out_free_res;
 	}

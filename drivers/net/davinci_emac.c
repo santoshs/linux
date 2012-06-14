@@ -991,10 +991,10 @@ static irqreturn_t emac_irq(int irq, void *dev_id)
 
 static struct sk_buff *emac_rx_alloc(struct emac_priv *priv)
 {
-	struct sk_buff *skb = dev_alloc_skb(priv->rx_buf_size);
+struct sk_buff *skb = netdev_alloc_skb(priv->ndev, priv->rx_buf_size);
 	if (WARN_ON(!skb))
 		return NULL;
-	skb->dev = priv->ndev;
+//	skb->dev = priv->ndev;
 	skb_reserve(skb, NET_IP_ALIGN);
 	return skb;
 }
@@ -1742,7 +1742,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open		= emac_dev_open,
 	.ndo_stop		= emac_dev_stop,
 	.ndo_start_xmit		= emac_dev_xmit,
-	.ndo_set_multicast_list	= emac_dev_mcast_set,
+	.ndo_set_rx_mode	= emac_dev_mcast_set,
 	.ndo_set_mac_address	= emac_dev_setmac_addr,
 	.ndo_do_ioctl		= emac_devioctl,
 	.ndo_tx_timeout		= emac_dev_tx_timeout,
@@ -1782,7 +1782,6 @@ static int __devinit davinci_emac_probe(struct platform_device *pdev)
 
 	ndev = alloc_etherdev(sizeof(struct emac_priv));
 	if (!ndev) {
-		dev_err(&pdev->dev, "error allocating net_device\n");
 		rc = -ENOMEM;
 		goto free_clk;
 	}

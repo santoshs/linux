@@ -2736,7 +2736,7 @@ static const struct net_device_ops e100_netdev_ops = {
 	.ndo_stop		= e100_close,
 	.ndo_start_xmit		= e100_xmit_frame,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_set_multicast_list	= e100_set_multicast_list,
+	.ndo_set_rx_mode	= e100_set_multicast_list,
 	.ndo_set_mac_address	= e100_set_mac_address,
 	.ndo_change_mtu		= e100_change_mtu,
 	.ndo_do_ioctl		= e100_do_ioctl,
@@ -2753,9 +2753,7 @@ static int __devinit e100_probe(struct pci_dev *pdev,
 	struct nic *nic;
 	int err;
 
-	if (!(netdev = alloc_etherdev(sizeof(struct nic)))) {
-		if (((1 << debug) - 1) & NETIF_MSG_PROBE)
-			pr_err("Etherdev alloc failed, aborting\n");
+if (!(netdev = alloc_etherdev(sizeof(struct nic)))) {
 		return -ENOMEM;
 	}
 

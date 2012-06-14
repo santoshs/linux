@@ -403,7 +403,7 @@ static const struct net_device_ops sis900_netdev_ops = {
 	.ndo_stop		= sis900_close,
 	.ndo_start_xmit		= sis900_start_xmit,
 	.ndo_set_config		= sis900_set_config,
-	.ndo_set_multicast_list	= set_rx_mode,
+	.ndo_set_rx_mode	= set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -1167,7 +1167,7 @@ sis900_init_rx_ring(struct net_device *net_dev)
 	for (i = 0; i < NUM_RX_DESC; i++) {
 		struct sk_buff *skb;
 
-		if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
+if ((skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE)) == NULL) {
 			/* not enough memory for skbuff, this makes a "hole"
 			   on the buffer ring, it is not clear how the
 			   hardware will react to this kind of degenerated
@@ -1770,7 +1770,7 @@ static int sis900_rx(struct net_device *net_dev)
 
 			/* refill the Rx buffer, what if there is not enough
 			 * memory for new socket buffer ?? */
-			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
+			if ((skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE)) == NULL) {	
 				/*
 				 * Not enough memory to refill the buffer
 				 * so we need to recycle the old one so
@@ -1828,7 +1828,7 @@ refill_rx_ring:
 		entry = sis_priv->dirty_rx % NUM_RX_DESC;
 
 		if (sis_priv->rx_skbuff[entry] == NULL) {
-			if ((skb = dev_alloc_skb(RX_BUF_SIZE)) == NULL) {
+		if ((skb = netdev_alloc_skb(net_dev, RX_BUF_SIZE)) == NULL) {		
 				/* not enough memory for skbuff, this makes a
 				 * "hole" on the buffer ring, it is not clear
 				 * how the hardware will react to this kind

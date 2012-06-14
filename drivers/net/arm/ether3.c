@@ -643,7 +643,7 @@ if (next_ptr < RX_START || next_ptr >= RX_END) {
 			if (next_ptr <= this_ptr)
 				length += RX_END - RX_START;
 
-			skb = dev_alloc_skb(length + 2);
+		skb = netdev_alloc_skb(dev, length + 2);	
 			if (skb) {
 				unsigned char *buf;
 
@@ -761,7 +761,7 @@ static const struct net_device_ops ether3_netdev_ops = {
 	.ndo_open		= ether3_open,
 	.ndo_stop		= ether3_close,
 	.ndo_start_xmit		= ether3_sendpacket,
-	.ndo_set_multicast_list	= ether3_setmulticastlist,
+	.ndo_set_rx_mode	= ether3_setmulticastlist,
 	.ndo_tx_timeout		= ether3_timeout,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_change_mtu		= eth_change_mtu,

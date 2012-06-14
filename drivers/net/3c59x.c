@@ -1055,7 +1055,7 @@ static const struct net_device_ops boomrang_netdev_ops = {
 #ifdef CONFIG_PCI
 	.ndo_do_ioctl 		= vortex_ioctl,
 #endif
-	.ndo_set_multicast_list = set_rx_mode,
+	.ndo_set_rx_mode = set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1073,7 +1073,7 @@ static const struct net_device_ops vortex_netdev_ops = {
 #ifdef CONFIG_PCI
 	.ndo_do_ioctl 		= vortex_ioctl,
 #endif
-	.ndo_set_multicast_list = set_rx_mode,
+	.ndo_set_rx_mode = set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1122,7 +1122,6 @@ static int __devinit vortex_probe1(struct device *gendev,
 	dev = alloc_etherdev(sizeof(*vp));
 	retval = -ENOMEM;
 	if (!dev) {
-		pr_err(PFX "unable to allocate etherdev, aborting\n");
 		goto out;
 	}
 	SET_NETDEV_DEV(dev, gendev);
