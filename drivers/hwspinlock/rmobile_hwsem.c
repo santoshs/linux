@@ -1,0 +1,193 @@
+/*
+ * Renesas SH-/R-Mobile bus semaphore driver
+ *
+ * Copyright (C) 2012  Renesas Electronics Corporation
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ */
+
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/pm_runtime.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/hwspinlock.h>
+#include <linux/platform_device.h>
+#include <linux/platform_data/rmobile_hwsem.h>
+
+#include "hwspinlock_internal.h"
+
+/*
+ * Implementation of SH-/R-Mobile bus semaphore without interrupts.
+ * The only masterID we allow is '0x40' to force people to use HPB
+ * bus semaphore for synchronisation between processors rather than
+ * processes on the ARM core.
+ */
+
+/*
+ * Known/available HPB bus semaphores on SH-/R-Mobile SoCs
+ *
+ *               SH-Mobile  SH-Mobile  R-Mobile   R-Mobile   R-Mobile
+ * H'E600_xxxx   G4         AP4        APE5R      A1         U2
+ * -------------------------------------------------------------------
+ *      0x1600   MPSRC      MPSRC      MPSRC      MPSRC      MPSRC
+ *      0x1604   MPACCTL    MPACCTL    MPACCTL    MPACCTL    MPACCTL
+ *
+ *      0x1820   SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx
+ *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   -
+ *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  -
+ *      0x1850   SMCPGAxxx  SMCPGxxx   SMCPGxxx   SMCPGxxx   SMCPGxxx
+ *      0x1860   SMCPGBxxx  -          -          -          -
+ *      0x1870   SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx
+ */
+#define NR_HPB_SEMAPHORES	6
+
+/*
+ * SrcID of the AP-System CPU on the SHwy bus
+ *
+ * Bus semaphore should only be used to synchronise operations between
+ * the Cortex-A9 core(s) and the other CPUs.  Hence forcing the masterID
+ * to a preset value.
+ */
+#define HWSEM_MASTER_ID		0x40
+
+#define MPSRC			0x00
+#define MPACCTL			0x04
+
+#define SMxxSRC			0x00
+#define SMxxERR			0x04
+#define SMxxTIME		0x08
+#define SMxxCNT			0x0C
+
+static int hwsem_trylock(struct hwspinlock *lock)
+{
+	void __iomem *lock_addr = lock->priv;
+
+	__raw_writel(1, lock_addr + SMxxSRC); /* SMGET */
+
+	/*
+	 * Get upper 8 bits and compare to master ID.
+	 * If equal, we have the semaphore, otherwise someone else has it.
+	 */
+	return (__raw_readl(lock_addr + SMxxSRC) >> 24) == HWSEM_MASTER_ID;
+}
+
+static void hwsem_unlock(struct hwspinlock *lock)
+{
+	void __iomem *lock_addr = lock->priv;
+
+	__raw_writel(0, lock_addr + SMxxSRC);
+}
+
+static void hwsem_relax(struct hwspinlock *lock)
+{
+	ndelay(50);
+}
+
+static const struct hwspinlock_ops rmobile_hwspinlock_ops = {
+	.trylock	= hwsem_trylock,
+	.unlock		= hwsem_unlock,
+	.relax		= hwsem_relax,
+};
+
+static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
+{
+	struct hwsem_pdata *pdata = pdev->dev.platform_data;
+	struct hwspinlock_device *bank;
+	struct hwspinlock *hwlock;
+	struct resource *res;
+	void __iomem *io_base;
+	int i, ret, num_locks;
+
+	if (!pdata || !pdata->descs)
+		return -EINVAL;
+
+	if ((pdata->nr_descs == 0) || (pdata->nr_descs > NR_HPB_SEMAPHORES))
+		return -EINVAL;
+
+	num_locks = pdata->nr_descs;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -ENODEV;
+
+	io_base = ioremap(res->start, resource_size(res));
+	if (!io_base)
+		return -ENOMEM;
+
+	/* allocate hwspinlock_device + (hwspinlock * num_locks) */
+	bank = kzalloc(sizeof(*bank) + num_locks * sizeof(*hwlock), GFP_KERNEL);
+	if (!bank) {
+		ret = -ENOMEM;
+		goto iounmap_base;
+	}
+
+	bank->bank_data = io_base;
+
+	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++)
+		hwlock->priv = io_base + pdata->descs[i].offset;
+
+	ret = hwspin_lock_register(bank, &pdev->dev, &rmobile_hwspinlock_ops,
+				   pdata->base_id, num_locks);
+	if (ret)
+		goto reg_fail;
+
+	platform_set_drvdata(pdev, bank);
+
+	return 0;
+
+reg_fail:
+	kfree(bank);
+iounmap_base:
+	iounmap(io_base);
+	return ret;
+}
+
+static int __devexit rmobile_hwsem_remove(struct platform_device *pdev)
+{
+	struct hwspinlock_device *bank = platform_get_drvdata(pdev);
+	void __iomem *io_base = bank->bank_data;
+	int ret;
+
+	ret = hwspin_lock_unregister(bank);
+	if (ret) {
+		dev_err(&pdev->dev, "%s failed: %d\n", __func__, ret);
+		return ret;
+	}
+
+	iounmap(io_base);
+	kfree(bank);
+	platform_set_drvdata(pdev, NULL);
+
+	return 0;
+}
+
+static struct platform_driver rmobile_hwsem_driver = {
+	.probe		= rmobile_hwsem_probe,
+	.remove		= __devexit_p(rmobile_hwsem_remove),
+	.driver		= {
+		.name	= "rmobile_hwsem",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int __init rmobile_hwsem_init(void)
+{
+	return platform_driver_register(&rmobile_hwsem_driver);
+}
+
+/* board init code might need to reserve hwspinlocks for predefined purposes */
+postcore_initcall(rmobile_hwsem_init);
+
+static void __exit rmobile_hwsem_exit(void)
+{
+	platform_driver_unregister(&rmobile_hwsem_driver);
+}
+module_exit(rmobile_hwsem_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("Hardware spinlock driver for SH-/R-Mobile");
+MODULE_AUTHOR("Renesas Electronics Corporation");
