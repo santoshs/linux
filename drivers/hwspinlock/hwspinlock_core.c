@@ -404,7 +404,7 @@ static int __hwspin_lock_request(struct hwspinlock *hwlock)
 {
 	struct device *dev = hwlock->bank->dev;
 	struct hwspinlock *tmp;
-	int ret;
+	int ret = 0;
 
 	/* prevent underlying implementation from being removed */
 	if (!try_module_get(dev->driver->owner)) {
@@ -412,12 +412,14 @@ static int __hwspin_lock_request(struct hwspinlock *hwlock)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_HWSPINLOCK_PM
 	/* notify PM core that power is now needed */
 	ret = pm_runtime_get_sync(dev);
 	if (ret < 0) {
 		dev_err(dev, "%s: can't power on device\n", __func__);
 		return ret;
 	}
+#endif
 
 	/* mark hwspinlock as used, should not fail */
 	tmp = radix_tree_tag_clear(&hwspinlock_tree, hwlock_to_id(hwlock),
@@ -573,10 +575,12 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 		goto out;
 	}
 
+#ifdef CONFIG_HWSPINLOCK_PM
 	/* notify the underlying device that power is not needed */
 	ret = pm_runtime_put(dev);
 	if (ret < 0)
 		goto out;
+#endif
 
 	/* mark this hwspinlock as available */
 	tmp = radix_tree_tag_set(&hwspinlock_tree, hwlock_to_id(hwlock),
