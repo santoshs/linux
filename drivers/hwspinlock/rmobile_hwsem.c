@@ -37,13 +37,16 @@
  *      0x1604   MPACCTL    MPACCTL    MPACCTL    MPACCTL    MPACCTL
  *
  *      0x1820   SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx
- *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   -
- *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  -
+ *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   SMGPSRC0(*)
+ *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMGPSRC1(*)
  *      0x1850   SMCPGAxxx  SMCPGxxx   SMCPGxxx   SMCPGxxx   SMCPGxxx
  *      0x1860   SMCPGBxxx  -          -          -          -
  *      0x1870   SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx
+ *
+ * (*) General purpose semaphore
  */
 #define NR_HPB_SEMAPHORES	6
+#define NR_GP_EXT_SEMAPHORES	32
 
 /*
  * SrcID of the AP-System CPU on the SHwy bus
@@ -67,6 +70,7 @@
  */
 struct hwspinlock_private {
 	void __iomem		*sm_base;
+	void __iomem		*ext_base;
 };
 
 static int hwsem_trylock(struct hwspinlock *lock)
@@ -101,9 +105,82 @@ static void hwsem_relax(struct hwspinlock *lock)
 	ndelay(50);
 }
 
+/*
+ * General purpose semaphore 32-bit extension
+ */
+static int hwsem_ext_trylock(struct hwspinlock *lock)
+{
+	struct hwspinlock_private *p = lock->priv;
+	unsigned long mask, value;
+	int ret = 0;
+
+	if (!hwsem_trylock(lock))
+		return 0;
+
+	/* create mask from local ID */
+	mask = 1 << (lock - &lock->bank->lock[0]);
+
+	/* check to see if software semaphore bit is already set */
+	value = __raw_readl(p->ext_base);
+	if (value & mask)
+		goto out;
+
+	value |= mask;
+	__raw_writel(value, p->ext_base);
+	__raw_readl(p->ext_base); /* defeat write posting */
+	ret = 1;
+
+ out:
+	hwsem_unlock(lock);
+	return ret;
+}
+
+static void hwsem_ext_unlock(struct hwspinlock *lock)
+{
+	struct hwspinlock_private *p = lock->priv;
+	unsigned long expire, mask, value;
+
+	/* try to lock hwspinlock with timeout limit */
+	expire = msecs_to_jiffies(100) + jiffies;
+	for (;;) {
+		if (hwsem_trylock(lock))
+			break;
+
+		if (time_is_before_eq_jiffies(expire))
+			dev_err(lock->bank->dev, "Timedout to lock hwspinlock\n");
+			return;
+
+		hwsem_relax(lock);
+	}
+
+	/* create mask from local ID */
+	mask = 1 << (lock - &lock->bank->lock[0]);
+
+	value = __raw_readl(p->ext_base);
+	if (unlikely((value & mask) == 0)) {
+		dev_warn(lock->bank->dev,
+			 "Trying to unlock hwspinlock %d without lock\n",
+			 hwlock_to_id(lock));
+		goto out;
+	}
+
+	value &= ~mask;
+	__raw_writel(value, p->ext_base);
+	__raw_readl(p->ext_base); /* defeat write posting */
+
+ out:
+	hwsem_unlock(lock);
+}
+
 static const struct hwspinlock_ops rmobile_hwspinlock_ops = {
 	.trylock	= hwsem_trylock,
 	.unlock		= hwsem_unlock,
+	.relax		= hwsem_relax,
+};
+
+static const struct hwspinlock_ops rmobile_hwspinlock_ext_ops = {
+	.trylock	= hwsem_ext_trylock,
+	.unlock		= hwsem_ext_unlock,
 	.relax		= hwsem_relax,
 };
 
@@ -111,16 +188,17 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 {
 	struct hwsem_pdata *pdata = pdev->dev.platform_data;
 	struct hwspinlock_device *bank;
+	const struct hwspinlock_ops *ops;
 	struct hwspinlock *hwlock;
 	struct hwspinlock_private *priv;
 	struct resource *res;
-	void __iomem *io_base;
+	void __iomem *io_base, *ext_base;
 	int i, ret, num_locks;
 
 	if (!pdata || !pdata->descs)
 		return -EINVAL;
 
-	if ((pdata->nr_descs == 0) || (pdata->nr_descs > NR_HPB_SEMAPHORES))
+	if ((pdata->nr_descs == 0) || (pdata->nr_descs > NR_GP_EXT_SEMAPHORES))
 		return -EINVAL;
 
 	num_locks = pdata->nr_descs;
@@ -132,6 +210,21 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	io_base = ioremap(res->start, resource_size(res));
 	if (!io_base)
 		return -ENOMEM;
+
+	ops = &rmobile_hwspinlock_ops;
+	ext_base = NULL;
+
+	/* check to see if general purpose semaphore 32-bit extension is used */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res) {
+		ext_base = ioremap(res->start, resource_size(res));
+		if (!ext_base) {
+			ret = -ENXIO;
+			goto iounmap_base;
+		}
+
+		ops = &rmobile_hwspinlock_ext_ops;
+	}
 
 	/* allocate hwspinlock_device + (hwspinlock * num_locks) */
 	bank = kzalloc(sizeof(*bank) + num_locks * sizeof(*hwlock), GFP_KERNEL);
@@ -151,10 +244,11 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
 		priv[i].sm_base = io_base + pdata->descs[i].offset;
+		priv[i].ext_base = ext_base;
 		hwlock->priv = &priv[i];
 	}
 
-	ret = hwspin_lock_register(bank, &pdev->dev, &rmobile_hwspinlock_ops,
+	ret = hwspin_lock_register(bank, &pdev->dev, ops,
 				   pdata->base_id, num_locks);
 	if (ret)
 		goto reg_fail;
@@ -168,6 +262,8 @@ reg_fail:
 kfree_bank:
 	kfree(bank);
 iounmap_base:
+	if (ext_base)
+		iounmap(ext_base);
 	iounmap(io_base);
 	return ret;
 }
@@ -185,6 +281,8 @@ static int __devexit rmobile_hwsem_remove(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (priv->ext_base)
+		iounmap(priv->ext_base);
 	iounmap(io_base);
 	kfree(priv);
 	kfree(bank);
