@@ -985,7 +985,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]),	/* I2C0 */
 	CLKDEV_DEV_ID("pvrsrvkm", &mstp_clks[MSTP112]),	/* SGX544 */
 	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &mstp_clks[MSTP100]),	/* LCDC0 */
-	CLKDEV_CON_ID("crypt0", &mstp_clks[MSTP228]),	/* Crypt0 */
+	CLKDEV_CON_ID("Crypt1", &mstp_clks[MSTP229]),	/* Crypt1 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &mstp_clks[MSTP218]),	/* DMAC */
 	CLKDEV_DEV_ID("sh-sci.6", &mstp_clks[MSTP216]),	/* SCIFB2 */
 	CLKDEV_DEV_ID("sh-sci.5", &mstp_clks[MSTP207]),	/* SCIFB1 */

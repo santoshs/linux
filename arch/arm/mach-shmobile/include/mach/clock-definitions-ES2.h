@@ -664,7 +664,7 @@ static struct clk_lookup es2_lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &es2_mstp_clks[ES2_MSTP116]),	/* I2C0 */
 	CLKDEV_DEV_ID("pvrsrvkm", &es2_mstp_clks[ES2_MSTP112]),	/* SGX544 */
 	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &es2_mstp_clks[ES2_MSTP100]),	/* LCDC0 */
-	CLKDEV_CON_ID("crypt0", &es2_mstp_clks[ES2_MSTP228]),	/* Crypt0 */
+	CLKDEV_CON_ID("Crypt1", &es2_mstp_clks[ES2_MSTP229]),	/* Crypt1 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &es2_mstp_clks[ES2_MSTP218]),	/* DMAC */
 	CLKDEV_DEV_ID("sh-sci.6", &es2_mstp_clks[ES2_MSTP216]),	/* SCIFB2 */
 	CLKDEV_DEV_ID("sh-sci.5", &es2_mstp_clks[ES2_MSTP207]),	/* SCIFB1 */
