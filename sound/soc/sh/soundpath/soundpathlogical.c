@@ -174,6 +174,10 @@ static struct sndp_work_info g_sndp_work_call_playback_stop;
 static struct sndp_work_info g_sndp_work_call_capture_stop;
 /* VCD_COMMAND_WATCH_STOP_FW process */
 static struct sndp_work_info g_sndp_work_watch_stop_fw;
+/* FM Radio start */
+static struct sndp_work_info g_sndp_work_fm_radio_start;
+/* FM Radio stop */
+static struct sndp_work_info g_sndp_work_fm_radio_stop;
 
 /* for Power control */
 static int g_sndp_power_status = SNDP_POWER_INIT;
@@ -570,6 +574,10 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_call_capture_stop);
 	INIT_WORK(&g_sndp_work_watch_stop_fw.work,
 		  sndp_work_watch_stop_fw);
+	INIT_WORK(&g_sndp_work_fm_radio_start.work,
+		  sndp_work_fm_radio_start);
+	INIT_WORK(&g_sndp_work_fm_radio_stop.work,
+		  sndp_work_fm_radio_stop);
 
 	atomic_set(&g_sndp_watch_clk, 0);
 
@@ -1056,8 +1064,39 @@ static int sndp_soc_put(
 
 	/* Direction check */
 	if (SNDP_PCM_IN == uiDirection) {
+		/* FM Radio stop process */
+		if ((SNDP_VALUE_INIT != uiOldValue) &&
+		    (SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiOldValue))) {
+			/* Wake Lock */
+			sndp_wake_lock(E_LOCK);
+
+			/* Stop Capture running */
+			g_sndp_playrec_flg &= ~E_CAP;
+
+			/* Registered in the work queue for FM Radio stop */
+			g_sndp_work_fm_radio_stop.old_value = uiOldValue;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_radio_stop.work);
+		}
+
+		/* FM Radio start process */
+		if (SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiValue)) {
+			/* Wake Lock */
+			sndp_wake_lock(E_LOCK);
+
+			/* Running Capture */
+			g_sndp_playrec_flg |= E_CAP;
+
+			/* Registered in the work queue for FM Radio start */
+			g_sndp_work_fm_radio_start.new_value = uiValue;
+			queue_work(g_sndp_queue_main,
+					&g_sndp_work_fm_radio_start.work);
+		}
+
 		/* Saving the type of PCM */
 		SET_OLD_VALUE(uiDirection, uiValue);
+		sndp_log_debug_func("end\n");
 		return ERROR_NONE;
 	}
 
@@ -2090,7 +2129,7 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 	new_dev = SNDP_GET_DEVICE_VAL(wp->new_value);
 
 	/* AudioLSI -> BT(SCO) */
-	if ((SNDP_BLUETOOTHSCO != old_dev) && 
+	if ((SNDP_BLUETOOTHSCO != old_dev) &&
 	    (SNDP_BLUETOOTHSCO == new_dev)) {
 		iRet = sndp_work_voice_dev_chg_max98090_to_bt(
 			wp->old_value, wp->new_value);
@@ -2098,7 +2137,7 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 			sndp_log_err(
 				"max98090 -> BT-SCO error(code=%d)\n", iRet);
 	/* BT(SCO) -> AudioLSI */
-	} else if((SNDP_BLUETOOTHSCO == old_dev) &&
+	} else if ((SNDP_BLUETOOTHSCO == old_dev) &&
 		  (SNDP_BLUETOOTHSCO != new_dev)) {
 		iRet = sndp_work_voice_dev_chg_bt_to_max98090(
 			wp->old_value, wp->new_value);
@@ -2106,7 +2145,7 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 			sndp_log_err(
 				"BT-SCO -> max98090 error(code=%d)\n", iRet);
 	/* AudioLSI -> AudioLSI */
-	} else if((SNDP_BLUETOOTHSCO != old_dev) &&
+	} else if ((SNDP_BLUETOOTHSCO != old_dev) &&
 		  (SNDP_BLUETOOTHSCO != new_dev)) {
 		iRet = sndp_work_voice_dev_chg_in_max98090(
 			wp->old_value, wp->new_value);
@@ -2127,11 +2166,11 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 
 /*!
    @brief Device change AudioLSI -> BT-SCO (IN_CALL)
-          Subfunction of the sndp_work_voice_dev_chg()
+	  Subfunction of the sndp_work_voice_dev_chg()
 
    @param[in]	old_value	last PCM value
    @param[in]	new_value	new PCM value
-   @param[out]	
+   @param[out]
 
    @retval	0		Successful
  */
@@ -2189,11 +2228,11 @@ static int sndp_work_voice_dev_chg_max98090_to_bt(
 
 /*!
    @brief Device change BT-SCO -> AudioLSI (IN_CALL)
-          Subfunction of the sndp_work_voice_dev_chg()
+	  Subfunction of the sndp_work_voice_dev_chg()
 
    @param[in]	old_value	last PCM value
    @param[in]	new_value	new PCM value
-   @param[out]	
+   @param[out]
 
    @retval	0		Successful
  */
@@ -2253,11 +2292,11 @@ static int sndp_work_voice_dev_chg_bt_to_max98090(
 
 /*!
    @brief Device change AudioLSI -> AudioLSI (IN_CALL)
-          Subfunction of the sndp_work_voice_dev_chg()
+	  Subfunction of the sndp_work_voice_dev_chg()
 
    @param[in]	old_value	last PCM value
    @param[in]	new_value	new PCM value
-   @param[out]	
+   @param[out]
 
    @retval	0		Successful
  */
@@ -2686,6 +2725,154 @@ static void sndp_watch_stop_fw_cb(u_int uiNop)
 
 
 /*!
+   @brief Work queue function for FM Radio start
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_radio_start(struct work_struct *work)
+{
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* start MAXIM */
+	ulSetDevice = sndp_get_next_devices(wp->new_value);
+	iRet = max98090_set_device(ulSetDevice, wp->new_value);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("maxim set device error (code=%d)\n", iRet);
+		goto start_err;
+	}
+
+	/* Enable the power domain */
+	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
+		iRet = pm_runtime_get_sync(g_sndp_power_domain);
+		/* 0:success 1:active */
+		if (!(0 == iRet || 1 == iRet)) {
+			sndp_log_err("module power on err[iRet=%d]\n", iRet);
+		} else {
+			/* CPG soft reset */
+			fsi_soft_reset();
+		}
+
+		/* FSI master for ES 2.0 over */
+		if ((system_rev & 0xff) >= 0x10)
+			common_set_pll22(wp->new_value, STAT_ON);
+	}
+
+
+	/* start SCUW */
+	iRet = scuw_start(wp->new_value);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("scuw start error(code=%d)\n", iRet);
+		goto start_err;
+	}
+
+	/* start FSI */
+	iRet = fsi_start(wp->new_value);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("fsi start error(code=%d)\n", iRet);
+		goto start_err;
+	}
+
+	/* start CLKGEN */
+	iRet = clkgen_start(wp->new_value, SNDP_NORMAL_RATE);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("clkgen start error(code=%d)\n", iRet);
+		goto start_err;
+	}
+
+	/* Set to ENABLE the speaker amp */
+	if (MAX98090_DEV_PLAYBACK_SPEAKER & ulSetDevice) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_ENABLE);
+		if (ERROR_NONE != iRet) {
+			sndp_log_err("speaker_amp ENABLE error(code=%d)\n",
+				     iRet);
+			goto start_err;
+		}
+	}
+
+start_err:
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for FM Radio stop
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_radio_stop(struct work_struct *work)
+{
+	int			iRet = ERROR_NONE;
+	u_long			ulSetDevice = MAX98090_DEV_NONE;
+	struct sndp_work_info	*wp = NULL;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* Set to DISABLE the speaker amp */
+	iRet = max98090_get_device(&ulSetDevice);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("max98090_get_device error(code=%d)\n", iRet);
+
+	if (MAX98090_DEV_PLAYBACK_SPEAKER & ulSetDevice) {
+		iRet = max98090_set_speaker_amp(MAX98090_SPEAKER_AMP_DISABLE);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("speaker_amp DISABLE error(code=%d)\n",
+				     iRet);
+	}
+
+	/* Init to Capture side */
+	ulSetDevice &= ~SNDP_IN_DEV_ALL;
+
+	/* set Device */
+	iRet = max98090_set_device(ulSetDevice, SNDP_VALUE_INIT);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("max98090_set_device error (code=%d)\n", iRet);
+
+
+	/* Disable the power domain */
+	if (!g_sndp_playrec_flg) {
+		/* stop SCUW */
+		scuw_stop();
+		/* stop FSI */
+		fsi_stop();
+		/* stop CLKGEN */
+		clkgen_stop();
+
+		/* FSI master for ES 2.0 over */
+		if ((system_rev & 0xff) >= 0x10)
+			common_set_pll22(GET_OLD_VALUE(SNDP_PCM_IN), STAT_OFF);
+
+		pm_runtime_put_sync(g_sndp_power_domain);
+	}
+
+	/* Wake Force Unlock */
+	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief wake up callback function
 
    @param[in]	none
@@ -2854,7 +3041,8 @@ static void sndp_maxim_work_start(const int direction)
 	/* PM_RUNTIME */
 	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
 		iRet = pm_runtime_get_sync(g_sndp_power_domain);
-		if (!(0 == iRet || 1 == iRet)) {  // 0:success 1:active
+		/* 0:success 1:active */
+		if (!(0 == iRet || 1 == iRet)) {
 			sndp_log_err("modules power on error(ret=%d)\n", iRet);
 		} else {
 			/* CPG soft reset */

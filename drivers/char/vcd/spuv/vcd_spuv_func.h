@@ -476,15 +476,12 @@
 			iowrite32(set_bit, reg); \
 			pm_release_spinlock(flags); \
 		}
+#include <mach/common.h>
 #define vcd_spuv_func_modify_register(clear_bit, set_bit, reg) \
 		{ \
 			unsigned long flags; \
-			unsigned long tmp; \
 			flags = pm_get_spinlock(); \
-			tmp = ioread32(reg); \
-			tmp &= (~clear_bit); \
-			tmp |= set_bit; \
-			iowrite32(tmp, reg); \
+			sh_modify_register32(reg, clear_bit, set_bit); \
 			pm_release_spinlock(flags); \
 		}
 

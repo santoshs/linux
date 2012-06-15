@@ -384,8 +384,8 @@ enum sndp_device_type {
 	SNDP_AUXDIGITAL = 0x10,		/* AUX_DIGITAL(HDMI) */
 	SNDP_BUILTIN_MIC = 0x20,	/* MIC */
 	SNDP_WIREDHEADPHONE = 0x40,	/* WIRED_HEADPHONE */
-	SNDP_FM_RADIO_RX = 0x80,		/* FM_RADIO_RX */
-	SNDP_FM_RADIO_TX = 0x100,		/* FM_RADIO_TX */
+	SNDP_FM_RADIO_RX = 0x80,	/* FM_RADIO_RX */
+	SNDP_FM_RADIO_TX = 0x100,	/* FM_RADIO_TX */
 };
 
 /* Mode types */
@@ -418,8 +418,8 @@ enum sndp_audio_devices {
 	SNDP_OUT_AUX_DIGITAL = 0x400,
 	SNDP_OUT_ANLG_DOCK_HEADSET = 0x800,
 	SNDP_OUT_DGTL_DOCK_HEADSET = 0x1000,
-	SNDP_OUT_FM_RADIO_RX = 0x2000,
-	SNDP_OUT_FM_RADIO_TX = 0x4000,
+	SNDP_OUT_FM_RADIO_TX = 0x2000,
+	SNDP_OUT_FM_RADIO_RX = 0x4000,
 	/* input devices */
 	SNDP_IN_COMMUNICATION = 0x10000,
 	SNDP_IN_AMBIENT = 0x20000,
@@ -718,8 +718,8 @@ static const struct sndp_pcm_name_suffix device_suffix[] = {
 	{ SNDP_OUT_BLUETOOTH_SCO,		"_Bluetooth"		},
 	{ SNDP_OUT_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},
 	{ SNDP_OUT_AUX_DIGITAL,			"_Hdmi"			},
-	{ SNDP_OUT_FM_RADIO_RX,			"_Fmrx"			},
 	{ SNDP_OUT_FM_RADIO_TX,			"_Fmtx"			},
+	{ SNDP_OUT_FM_RADIO_RX,			"_Fmrx"			},
 	{ SNDP_IN_WIRED_HEADSET,		"_Headset"		},
 	{ SNDP_IN_BUILTIN_MIC,			"_Mic"			},
 	{ SNDP_IN_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},

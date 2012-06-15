@@ -193,6 +193,7 @@ void vcd_start_clkgen(void)
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	invalid argument.
+ * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
  * @retval	others		result of called function.
  */
 int vcd_execute(const struct vcd_execute_command *args)
@@ -691,7 +692,6 @@ rtn:
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
- * @retval	others		result of called function.
  */
 static int vcd_watch_stop_fw(void *arg)
 {
@@ -724,7 +724,6 @@ rtn:
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
- * @retval	others		result of called function.
  */
 static int vcd_watch_start_clkgen(void *arg)
 {
