@@ -917,7 +917,7 @@ static const struct net_device_ops temac_netdev_ops = {
 	.ndo_start_xmit = temac_start_xmit,
 	.ndo_set_mac_address = netdev_set_mac_address,
 	.ndo_validate_addr = eth_validate_addr,
-	//.ndo_set_multicast_list = temac_set_multicast_list,
+	//.ndo_set_rx_mode = temac_set_multicast_list,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = temac_poll_controller,
 #endif
@@ -964,8 +964,7 @@ static int __devinit temac_of_probe(struct platform_device *op)
 	/* Init network device structure */
 	ndev = alloc_etherdev(sizeof(*lp));
 	if (!ndev) {
-		dev_err(&op->dev, "could not allocate device.\n");
-		return -ENOMEM;
+			return -ENOMEM;
 	}
 	ether_setup(ndev);
 	dev_set_drvdata(&op->dev, ndev);

@@ -979,7 +979,7 @@ static const struct net_device_ops r6040_netdev_ops = {
 	.ndo_stop		= r6040_close,
 	.ndo_start_xmit		= r6040_start_xmit,
 	.ndo_get_stats		= r6040_get_stats,
-	.ndo_set_multicast_list = r6040_multicast_list,
+	.ndo_set_rx_mode = r6040_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
@@ -1106,7 +1106,6 @@ static int __devinit r6040_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(struct r6040_private));
 	if (!dev) {
-		dev_err(&pdev->dev, "Failed to allocate etherdev\n");
 		err = -ENOMEM;
 		goto err_out;
 	}

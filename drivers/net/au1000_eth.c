@@ -1010,7 +1010,7 @@ static const struct net_device_ops au1000_netdev_ops = {
 	.ndo_open		= au1000_open,
 	.ndo_stop		= au1000_close,
 	.ndo_start_xmit		= au1000_tx,
-	.ndo_set_multicast_list	= au1000_multicast_list,
+	.ndo_set_rx_mode	= au1000_multicast_list,
 	.ndo_do_ioctl		= au1000_ioctl,
 	.ndo_tx_timeout		= au1000_tx_timeout,
 	.ndo_set_mac_address	= eth_mac_addr,
@@ -1065,7 +1065,6 @@ static int __devinit au1000_probe(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof(struct au1000_private));
 	if (!dev) {
-		dev_err(&pdev->dev, "alloc_etherdev failed\n");
 		err = -ENOMEM;
 		goto err_alloc;
 	}

@@ -1638,7 +1638,6 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
 
 	ndev = alloc_etherdev(sizeof(struct stmmac_priv));
 	if (!ndev) {
-		pr_err("%s: ERROR: allocating the device\n", __func__);
 		ret = -ENOMEM;
 		goto out_unmap;
 	}

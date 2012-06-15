@@ -697,7 +697,7 @@ static const struct net_device_ops rhine_netdev_ops = {
 	.ndo_stop		 = rhine_close,
 	.ndo_start_xmit		 = rhine_start_tx,
 	.ndo_get_stats		 = rhine_get_stats,
-	.ndo_set_multicast_list	 = rhine_set_rx_mode,
+	.ndo_set_rx_mode	 = rhine_set_rx_mode,
 	.ndo_change_mtu		 = eth_change_mtu,
 	.ndo_validate_addr	 = eth_validate_addr,
 	.ndo_set_mac_address 	 = eth_mac_addr,
@@ -786,7 +786,6 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
 	dev = alloc_etherdev(sizeof(struct rhine_private));
 	if (!dev) {
 		rc = -ENOMEM;
-		dev_err(&pdev->dev, "alloc_etherdev failed\n");
 		goto err_out;
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);
@@ -1823,7 +1822,7 @@ static int rhine_rx(struct net_device *dev, int limit)
 			rp->rx_skbuff[entry] = skb;
 			if (skb == NULL)
 				break;	/* Better luck next round. */
-			skb->dev = dev;	/* Mark as being used by this device. */
+
 			rp->rx_skbuff_dma[entry] =
 				pci_map_single(rp->pdev, skb->data,
 					       rp->rx_buf_sz,

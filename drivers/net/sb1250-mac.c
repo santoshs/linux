@@ -2176,7 +2176,7 @@ static const struct net_device_ops sbmac_netdev_ops = {
 	.ndo_open		= sbmac_open,
 	.ndo_stop		= sbmac_close,
 	.ndo_start_xmit		= sbmac_start_tx,
-	.ndo_set_multicast_list	= sbmac_set_rx_mode,
+	.ndo_set_rx_mode	= sbmac_set_rx_mode,
 	.ndo_tx_timeout		= sbmac_tx_timeout,
 	.ndo_do_ioctl		= sbmac_mii_ioctl,
 	.ndo_change_mtu		= sb1250_change_mtu,
@@ -2623,8 +2623,6 @@ static int __devinit sbmac_probe(struct platform_device *pldev)
 	 */
 	dev = alloc_etherdev(sizeof(struct sbmac_softc));
 	if (!dev) {
-		printk(KERN_ERR "%s: unable to allocate etherdev\n",
-		       dev_name(&pldev->dev));
 		err = -ENOMEM;
 		goto out_unmap;
 	}

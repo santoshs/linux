@@ -2049,7 +2049,7 @@ static void happy_meal_rx(struct happy_meal *hp, struct net_device *dev)
 			/* Trim the original skb for the netif. */
 			skb_trim(skb, len);
 		} else {
-			struct sk_buff *copy_skb = dev_alloc_skb(len + 2);
+			struct sk_buff *copy_skb = netdev_alloc_skb(dev, len + 2);
 
 			if (copy_skb == NULL) {
 				drops++;
@@ -2631,7 +2631,7 @@ static const struct net_device_ops hme_netdev_ops = {
 	.ndo_start_xmit		= happy_meal_start_xmit,
 	.ndo_tx_timeout		= happy_meal_tx_timeout,
 	.ndo_get_stats		= happy_meal_get_stats,
-	.ndo_set_multicast_list = happy_meal_set_multicast,
+	.ndo_set_rx_mode = happy_meal_set_multicast,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,

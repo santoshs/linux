@@ -2200,7 +2200,7 @@ static const struct net_device_ops ipg_netdev_ops = {
 	.ndo_stop		= ipg_nic_stop,
 	.ndo_start_xmit		= ipg_nic_hard_start_xmit,
 	.ndo_get_stats		= ipg_nic_get_stats,
-	.ndo_set_multicast_list = ipg_nic_set_multicast_list,
+	.ndo_set_rx_mode = ipg_nic_set_multicast_list,
 	.ndo_do_ioctl		= ipg_ioctl,
 	.ndo_tx_timeout 	= ipg_tx_timeout,
 	.ndo_change_mtu 	= ipg_nic_change_mtu,
@@ -2240,7 +2240,6 @@ static int __devinit ipg_probe(struct pci_dev *pdev,
 	 */
 	dev = alloc_etherdev(sizeof(struct ipg_nic_private));
 	if (!dev) {
-		printk(KERN_ERR "%s: alloc_etherdev failed\n", pci_name(pdev));
 		rc = -ENOMEM;
 		goto err_disable_0;
 	}

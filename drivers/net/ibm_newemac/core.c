@@ -2686,7 +2686,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_open		= emac_open,
 	.ndo_stop		= emac_close,
 	.ndo_get_stats		= emac_stats,
-	.ndo_set_multicast_list	= emac_set_multicast_list,
+	.ndo_set_rx_mode	= emac_set_multicast_list,
 	.ndo_do_ioctl		= emac_ioctl,
 	.ndo_tx_timeout		= emac_tx_timeout,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -2699,7 +2699,7 @@ static const struct net_device_ops emac_gige_netdev_ops = {
 	.ndo_open		= emac_open,
 	.ndo_stop		= emac_close,
 	.ndo_get_stats		= emac_stats,
-	.ndo_set_multicast_list	= emac_set_multicast_list,
+	.ndo_set_rx_mode	= emac_set_multicast_list,
 	.ndo_do_ioctl		= emac_ioctl,
 	.ndo_tx_timeout		= emac_tx_timeout,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -2732,9 +2732,7 @@ static int __devinit emac_probe(struct platform_device *ofdev)
 	err = -ENOMEM;
 	ndev = alloc_etherdev(sizeof(struct emac_instance));
 	if (!ndev) {
-		printk(KERN_ERR "%s: could not allocate ethernet device!\n",
-		       np->full_name);
-		goto err_gone;
+			goto err_gone;
 	}
 	dev = netdev_priv(ndev);
 	dev->ndev = ndev;

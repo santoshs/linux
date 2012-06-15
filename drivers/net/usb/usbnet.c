@@ -1338,7 +1338,6 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	// set up our own records
 	net = alloc_etherdev(sizeof(*dev));
 	if (!net) {
-		dbg ("can't kmalloc dev");
 		goto out;
 	}
 

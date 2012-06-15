@@ -687,7 +687,7 @@ static const struct net_device_ops ltq_eth_netdev_ops = {
 	.ndo_do_ioctl = ltq_etop_ioctl,
 	.ndo_set_mac_address = ltq_etop_set_mac_address,
 	.ndo_validate_addr = eth_validate_addr,
-	.ndo_set_multicast_list = ltq_etop_set_multicast_list,
+	.ndo_set_rx_mode = ltq_etop_set_multicast_list,
 	.ndo_select_queue = ltq_etop_select_queue,
 	.ndo_init = ltq_etop_init,
 	.ndo_tx_timeout = ltq_etop_tx_timeout,
@@ -727,6 +727,10 @@ ltq_etop_probe(struct platform_device *pdev)
 	}
 
 	dev = alloc_etherdev_mq(sizeof(struct ltq_etop_priv), 4);
+	if (!dev) {
+		err = -ENOMEM;
+		goto err_out;
+	}
 	strcpy(dev->name, "eth%d");
 	dev->netdev_ops = &ltq_eth_netdev_ops;
 	dev->ethtool_ops = &ltq_etop_ethtool_ops;

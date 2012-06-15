@@ -4514,7 +4514,7 @@ static const struct net_device_ops sky2_netdev_ops[2] = {
 	.ndo_do_ioctl		= sky2_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= sky2_set_mac_address,
-	.ndo_set_multicast_list	= sky2_set_multicast,
+	.ndo_set_rx_mode	= sky2_set_multicast,
 	.ndo_change_mtu		= sky2_change_mtu,
 	.ndo_fix_features	= sky2_fix_features,
 	.ndo_set_features	= sky2_set_features,
@@ -4531,7 +4531,7 @@ static const struct net_device_ops sky2_netdev_ops[2] = {
 	.ndo_do_ioctl		= sky2_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= sky2_set_mac_address,
-	.ndo_set_multicast_list	= sky2_set_multicast,
+	.ndo_set_rx_mode	= sky2_set_multicast,
 	.ndo_change_mtu		= sky2_change_mtu,
 	.ndo_fix_features	= sky2_fix_features,
 	.ndo_set_features	= sky2_set_features,
@@ -4549,7 +4549,6 @@ static __devinit struct net_device *sky2_init_netdev(struct sky2_hw *hw,
 	struct net_device *dev = alloc_etherdev(sizeof(*sky2));
 
 	if (!dev) {
-		dev_err(&hw->pdev->dev, "etherdev alloc failed\n");
 		return NULL;
 	}
 

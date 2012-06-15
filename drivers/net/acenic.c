@@ -461,7 +461,7 @@ static const struct net_device_ops ace_netdev_ops = {
 	.ndo_tx_timeout		= ace_watchdog,
 	.ndo_get_stats		= ace_get_stats,
 	.ndo_start_xmit		= ace_start_xmit,
-	.ndo_set_multicast_list	= ace_set_multicast_list,
+	.ndo_set_rx_mode	= ace_set_multicast_list,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= ace_set_mac_addr,
 	.ndo_change_mtu		= ace_change_mtu,
@@ -479,9 +479,7 @@ static int __devinit acenic_probe_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(struct ace_private));
 	if (dev == NULL) {
-		printk(KERN_ERR "acenic: Unable to allocate "
-		       "net_device structure!\n");
-		return -ENOMEM;
+			return -ENOMEM;
 	}
 
 	SET_NETDEV_DEV(dev, &pdev->dev);

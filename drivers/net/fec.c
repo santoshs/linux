@@ -1044,7 +1044,7 @@ static void fec_enet_get_drvinfo(struct net_device *ndev,
 	strcpy(info->bus_info, dev_name(&ndev->dev));
 }
 
-static struct ethtool_ops fec_enet_ethtool_ops = {
+static const struct ethtool_ops fec_enet_ethtool_ops = {
 	.get_settings		= fec_enet_get_settings,
 	.set_settings		= fec_enet_set_settings,
 	.get_drvinfo		= fec_enet_get_drvinfo,
@@ -1280,7 +1280,7 @@ static const struct net_device_ops fec_netdev_ops = {
 	.ndo_open		= fec_enet_open,
 	.ndo_stop		= fec_enet_close,
 	.ndo_start_xmit		= fec_enet_start_xmit,
-	.ndo_set_multicast_list = set_multicast_list,
+	.ndo_set_rx_mode = set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_tx_timeout		= fec_timeout,

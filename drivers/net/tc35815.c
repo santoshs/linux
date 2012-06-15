@@ -453,7 +453,7 @@ static struct sk_buff *alloc_rxbuf_skb(struct net_device *dev,
 				       dma_addr_t *dma_handle)
 {
 	struct sk_buff *skb;
-	skb = dev_alloc_skb(RX_BUF_SIZE);
+	skb = netdev_alloc_skb(dev, RX_BUF_SIZE);	
 	if (!skb)
 		return NULL;
 	*dma_handle = pci_map_single(hwdev, skb->data, RX_BUF_SIZE,
@@ -774,7 +774,7 @@ static const struct net_device_ops tc35815_netdev_ops = {
 	.ndo_stop		= tc35815_close,
 	.ndo_start_xmit		= tc35815_send_packet,
 	.ndo_get_stats		= tc35815_get_stats,
-	.ndo_set_multicast_list	= tc35815_set_multicast_list,
+	.ndo_set_rx_mode	= tc35815_set_multicast_list,
 	.ndo_tx_timeout		= tc35815_tx_timeout,
 	.ndo_do_ioctl		= tc35815_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -809,7 +809,6 @@ static int __devinit tc35815_init_one(struct pci_dev *pdev,
 	/* dev zeroed in alloc_etherdev */
 	dev = alloc_etherdev(sizeof(*lp));
 	if (dev == NULL) {
-		dev_err(&pdev->dev, "unable to alloc new ethernet\n");
 		return -ENOMEM;
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);

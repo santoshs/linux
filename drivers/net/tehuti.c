@@ -1103,12 +1103,11 @@ static void bdx_rx_alloc_skbs(struct bdx_priv *priv, struct rxf_fifo *f)
 	ENTER;
 	dno = bdx_rxdb_available(db) - 1;
 	while (dno > 0) {
-		skb = dev_alloc_skb(f->m.pktsz + NET_IP_ALIGN);
+		skb = netdev_alloc_skb(priv->ndev, f->m.pktsz + NET_IP_ALIGN);		
 		if (!skb) {
-			pr_err("NO MEM: dev_alloc_skb failed\n");
+			pr_err("NO MEM: netdev_alloc_skb failed\n");
 			break;
 		}
-		skb->dev = priv->ndev;
 		skb_reserve(skb, NET_IP_ALIGN);
 
 		idx = bdx_rxdb_alloc_elem(db);
@@ -1882,7 +1881,7 @@ static const struct net_device_ops bdx_netdev_ops = {
 	.ndo_start_xmit		= bdx_tx_transmit,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_do_ioctl		= bdx_ioctl,
-	.ndo_set_multicast_list = bdx_setmulti,
+	.ndo_set_rx_mode = bdx_setmulti,
 	.ndo_change_mtu		= bdx_change_mtu,
 	.ndo_set_mac_address	= bdx_set_mac,
 	.ndo_vlan_rx_register	= bdx_vlan_rx_register,
@@ -1999,7 +1998,6 @@ bdx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		ndev = alloc_etherdev(sizeof(struct bdx_priv));
 		if (!ndev) {
 			err = -ENOMEM;
-			pr_err("alloc_etherdev failed\n");
 			goto err_out_iomap;
 		}
 

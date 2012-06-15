@@ -754,8 +754,7 @@ static __devinit struct net_device * rtl8139_init_board (struct pci_dev *pdev)
 	/* dev and priv zeroed in alloc_etherdev */
 	dev = alloc_etherdev (sizeof (*tp));
 	if (dev == NULL) {
-		dev_err(&pdev->dev, "Unable to alloc new net device\n");
-		return ERR_PTR(-ENOMEM);
+			return ERR_PTR(-ENOMEM);
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
@@ -915,7 +914,7 @@ static const struct net_device_ops rtl8139_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= rtl8139_set_mac_address,
 	.ndo_start_xmit		= rtl8139_start_xmit,
-	.ndo_set_multicast_list	= rtl8139_set_rx_mode,
+	.ndo_set_rx_mode	= rtl8139_set_rx_mode,
 	.ndo_do_ioctl		= netdev_ioctl,
 	.ndo_tx_timeout		= rtl8139_tx_timeout,
 #ifdef CONFIG_NET_POLL_CONTROLLER

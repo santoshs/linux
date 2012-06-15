@@ -99,7 +99,7 @@ static const struct net_device_ops mace_netdev_ops = {
 	.ndo_open		= mace_open,
 	.ndo_stop		= mace_close,
 	.ndo_start_xmit		= mace_xmit_start,
-	.ndo_set_multicast_list	= mace_set_multicast,
+	.ndo_set_rx_mode	= mace_set_multicast,
 	.ndo_set_mac_address	= mace_set_address,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -148,7 +148,6 @@ static int __devinit mace_probe(struct macio_dev *mdev, const struct of_device_i
 
 	dev = alloc_etherdev(PRIV_BYTES);
 	if (!dev) {
-		printk(KERN_ERR "MACE: can't allocate ethernet device !\n");
 		rc = -ENOMEM;
 		goto err_release;
 	}

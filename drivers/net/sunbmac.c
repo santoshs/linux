@@ -852,7 +852,7 @@ static void bigmac_rx(struct bigmac *bp)
 			/* Trim the original skb for the netif. */
 			skb_trim(skb, len);
 		} else {
-			struct sk_buff *copy_skb = dev_alloc_skb(len + 2);
+			struct sk_buff *copy_skb = netdev_alloc_skb(bp->dev, len + 2);
 
 			if (copy_skb == NULL) {
 				drops++;
@@ -1076,7 +1076,7 @@ static const struct net_device_ops bigmac_ops = {
 	.ndo_stop		= bigmac_close,
 	.ndo_start_xmit		= bigmac_start_xmit,
 	.ndo_get_stats		= bigmac_get_stats,
-	.ndo_set_multicast_list	= bigmac_set_multicast,
+	.ndo_set_rx_mode	= bigmac_set_multicast,
 	.ndo_tx_timeout		= bigmac_tx_timeout,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,
