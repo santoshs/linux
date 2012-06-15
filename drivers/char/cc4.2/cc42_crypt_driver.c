@@ -874,7 +874,7 @@ int sep_resource_enable(void)
 	printk(KERN_INFO "cc4.2_driver:--------> sep_resource_enable start \n");
 
 	/* get clk object */
-	sep_clk = clk_get(NULL, "crypt0");
+	sep_clk = clk_get(NULL, "Crypt1");
 	if (IS_ERR(sep_clk)) {
 		/* If an error is detected here, I delay handling it by sep_resume(). */
 		printk(KERN_ERR "cc4.2_driver: clk_get() failed\n");
