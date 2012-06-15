@@ -2429,8 +2429,8 @@ reset:
 	}
 
 	common->running = 1;
-	for (i = 0; i < common->nluns; ++i)
-		common->luns[i].unit_attention_data = SS_RESET_OCCURRED;
+	/*for (i = 0; i < common->nluns; ++i)
+		common->luns[i].unit_attention_data = SS_RESET_OCCURRED;*/
 	return rc;
 }
 
@@ -2571,9 +2571,9 @@ static void handle_exception(struct fsg_common *common)
 		 * a waste of time.  Ditto for the INTERFACE_CHANGE and
 		 * CONFIG_CHANGE cases.
 		 */
-		/* for (i = 0; i < common->nluns; ++i) */
-		/*	common->luns[i].unit_attention_data = */
-		/*		SS_RESET_OCCURRED;  */
+		for (i = 0; i < common->nluns; ++i)
+			common->luns[i].unit_attention_data = 
+				SS_RESET_OCCURRED;
 		break;
 
 	case FSG_STATE_CONFIG_CHANGE:
