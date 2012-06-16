@@ -35,7 +35,7 @@
 #include <linux/sh_dma.h>
 #include <mach/r8a73734.h>
 
-#define USE_DMA
+//#define USE_DMA
 
 #define DO_FMT		0x0000
 #define DOFF_CTL	0x0004
@@ -1962,7 +1962,9 @@ static int fsi_remove(struct platform_device *pdev)
 		destroy_workqueue(fsi_wq);
 		fsi_wq = NULL;
 	}
+#ifdef USE_DMA
 	iounmap(sysdma_base_addr);
+#endif
 	iounmap(master->base);
 	kfree(master);
 

@@ -602,6 +602,8 @@ static int max98090_setup(struct i2c_client *client,
 
 #endif	/* __MAX98090_RELEASE_CHECK__ */
 	}
+
+#if 0
 	/* create workqueue for irq */
 	if (NULL == dev->irq_workqueue) {
 		dev->irq_workqueue =
@@ -615,7 +617,7 @@ static int max98090_setup(struct i2c_client *client,
 
 		INIT_WORK(&dev->irq_work, max98090_irq_work_func);
 	}
-
+#endif
 	ret = max98090_switch_dev_register(dev);
 
 	if (0 != ret)
@@ -633,6 +635,7 @@ static int max98090_setup(struct i2c_client *client,
 	if (0 != ret)
 		goto err_setup_r8a73734;
 
+#if 0
 	/* request irq */
 	dev->irq = client->irq;
 	max98090_log_info("client->irq[%d]", client->irq);
@@ -644,6 +647,7 @@ static int max98090_setup(struct i2c_client *client,
 		max98090_log_err("irq request err. ret[%d]", ret);
 		goto err_request_irq;
 	}
+#endif
 
 	/***********************************/
 	/* setup max98090                  */
@@ -675,15 +679,18 @@ static int max98090_setup(struct i2c_client *client,
 err_enable_interrupt:
 err_setup_max97236:
 err_setup_max98090:
+#if 0
 err_request_irq:
+#endif
 err_setup_r8a73734:
 err_max98090_switch_dev_register:
 err_max98090_hook_switch_dev_register:
+#if 0
 err_create_singlethread_workqueue:
 
 	if (dev->irq_workqueue)
 		destroy_workqueue(dev->irq_workqueue);
-
+#endif
 err_proc:
 
 	if (dev->log_entry)
@@ -781,6 +788,7 @@ static int max98090_setup_r8a73734(void)
 			max98090_conf->board);
 
 	if (MAX98090_EVM == max98090_conf->board) {
+#if 0
 		ret = gpio_request(GPIO_PORT29, NULL);
 
 		if (0 != ret)
@@ -791,13 +799,16 @@ static int max98090_setup_r8a73734(void)
 
 		if (0 != ret)
 			goto err_gpio_request;
+#endif
 	} else {
 		iowrite8(0xe0, MAX98090_GPIO_034);
 	}
 
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
+#if 0
 err_gpio_request:
+#endif
 err_enable_vclk4:
 	max98090_log_err("ret[%d]", ret);
 	return ret;
@@ -2928,6 +2939,7 @@ int max98090_set_speaker_amp(const u_int value)
 		return ret;
 	}
 
+#if 0
 	/* set value */
 	if (MAX98090_EVM == max98090_conf->board) {
 		switch (value) {
@@ -2942,7 +2954,7 @@ int max98090_set_speaker_amp(const u_int value)
 			break;
 		}
 	}
-
+#endif
 	max98090_conf->info.speaker_amp = value;
 	max98090_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -3519,7 +3531,9 @@ static int max98090_remove(struct i2c_client *client)
 		input_unregister_device(max98090_conf->input_dev);
 		switch_dev_unregister(&max98090_conf->switch_data.sdev);
 		max98090_disable_vclk4();
+#if 0
 		gpio_free(GPIO_PORT29);
+#endif
 		kfree(max98090_conf);
 	}
 

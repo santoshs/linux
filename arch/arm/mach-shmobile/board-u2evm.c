@@ -46,6 +46,12 @@
 #include <media/sh_mobile_csi2.h>
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
+#include <linux/pmic/pmic-ncp6914.h>
+#include <media/isx012.h>
+
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+#include <linux/i2c/touchkey_i2c.h>
+#endif
 
 #include <linux/mmcoops.h>
 
@@ -496,6 +502,8 @@ static struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+#if 0
+
 /*Config wl12xx platform data*/
 static struct wl12xx_platform_data wlan_pdata = {
    .irq = irqpin2irq(42),
@@ -629,6 +637,8 @@ static struct platform_device sdhi2_device = {
 	.resource	= sdhi2_resources,
 };
 
+#endif
+
 static struct sh_fsi_platform_info fsi_info = {
 	.port_flags = SH_FSI_OUT_SLAVE_MODE |
 	              SH_FSI_IN_SLAVE_MODE	|
@@ -698,10 +708,12 @@ static struct platform_device fsi_b_device = {
 	 .debounce_interval=20}
 
 static struct gpio_keys_button gpio_buttons[] = {
+#if 0
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
 	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
 	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
 	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
+#endif
 	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
 };
@@ -710,10 +722,12 @@ static int gpio_key_enable(struct device *dev)
 {
 if((system_rev & 0xFF) == 0x00)
 {
+#if 0
 	gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(25), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(26), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
+#endif
 	gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
 }
@@ -746,9 +760,12 @@ static struct platform_device gpio_key_device = {
 
 static const struct fb_videomode lcdc0_modes[] = {
 	{
-		.name		= "WVGA",
-		.xres		= 480,
-		.yres		= 864,
+/*		.name		= "WVGA",*/
+/*		.xres		= 480,*/
+/*		.yres		= 800,*/
+		.name		= "qHD",
+		.xres		= 540,
+		.yres		= 960,
 		.left_margin	= 16,
 		.right_margin	= 1000,
 		.hsync_len	= 16,
@@ -997,6 +1014,7 @@ static struct platform_device u2evm_ion_device = {
 	},
 };
 
+#if 0
 //120220 TI BTFM start
 static unsigned long retry_suspend;
 int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
@@ -1020,6 +1038,29 @@ int plat_kim_resume(struct platform_device *pdev)
    return 0;
 }
 
+#define BLUETOOTH_UART_DEV_NAME "/dev/ttySC4"
+
+/* wl128x BT, FM, GPS connectivity chip */
+struct ti_st_plat_data wilink_pdata = {
+   .nshutdown_gpio = GPIO_PORT268,
+   .dev_name = BLUETOOTH_UART_DEV_NAME,
+   .flow_cntrl = 1,
+   .baud_rate = 3000000,
+// .baud_rate = 115200,
+   .suspend = plat_kim_suspend,
+   .resume = plat_kim_resume,
+};
+static struct platform_device wl128x_device = {
+   .name       = "kim",
+   .id     = -1,
+   .dev.platform_data = &wilink_pdata,
+};
+static struct platform_device btwilink_device = {
+   .name = "btwilink",
+   .id = -1,
+};
+//120220 TI BTFM end
+#endif
 /* CWS: Run time CWS detection changes START */
 int Is_wl128x_device_present(void){
 
@@ -1060,30 +1101,6 @@ int Is_wl128x_device_present(void){
   return is_present;
 } 
 /* CWS: Run time CWS detection changes END */
-
-
-#define BLUETOOTH_UART_DEV_NAME "/dev/ttySC4"
-
-/* wl128x BT, FM, GPS connectivity chip */
-struct ti_st_plat_data wilink_pdata = {
-   .nshutdown_gpio = GPIO_PORT268,
-   .dev_name = BLUETOOTH_UART_DEV_NAME,
-   .flow_cntrl = 1,
-   .baud_rate = 3000000,
-// .baud_rate = 115200,
-   .suspend = plat_kim_suspend,
-   .resume = plat_kim_resume,
-};
-static struct platform_device wl128x_device = {
-   .name       = "kim",
-   .id     = -1,
-   .dev.platform_data = &wilink_pdata,
-};
-static struct platform_device btwilink_device = {
-   .name = "btwilink",
-   .id = -1,
-};
-//120220 TI BTFM end
 
 /* << Add for Thermal Sensor driver*/
 static struct thermal_sensor_data ths_platdata[] = {
@@ -1190,65 +1207,9 @@ static int EOSMAIN_power0(struct device *dev, int power_on)
 	return 0;
 }
 
-static int OV5640_power(struct device *dev, int power_on)
+static int dummy_camera_power(struct device *dev, int power_on)
 {
-	struct clk *vclk2_clk;
-	int iRet;
-
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-	printk(KERN_ALERT "%s : IN\n", __func__);
-
-	vclk2_clk = clk_get(NULL, "vclk2_clk");
-	if (IS_ERR(vclk2_clk)) {
-		dev_err(dev, "clk_get(vclk2_clk) failed\n");
-		return -1;
-	}
-
-	if (power_on) {
-		printk(KERN_ALERT "%s : PowerON\n", __func__);
-		sh_csi2_power(dev, power_on);
-
-		gpio_set_value(GPIO_PORT16, 0);
-		mdelay(1);
-		gpio_set_value(GPIO_PORT91, 1);
-
-		gpio_direction_output(GPIO_PORT5, 1); /* VDIG ON */
-		gpio_direction_output(GPIO_PORT3, 1); /* VANA ON */
-		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
-		mdelay(5);
-
-		iRet = clk_set_rate(vclk2_clk,
-			clk_round_rate(vclk2_clk, 24000000));
-		if (0 != iRet) {
-			dev_err(dev,
-			"clk_set_rate(vclk2_clk) failed (ret=%d)\n", iRet);
-		}
-		iRet = clk_enable(vclk2_clk);
-		if (0 != iRet) {
-			dev_err(dev,
-			"clk_enable(vclk2_clk) failed (ret=%d)\n", iRet);
-		}
-
-		mdelay(5);
-		gpio_set_value(GPIO_PORT91, 0);
-		mdelay(1);
-		gpio_set_value(GPIO_PORT16, 1);
-	} else {
-		printk(KERN_ALERT "%s : PowerOFF\n", __func__);
-		gpio_set_value(GPIO_PORT16, 0);		/* assert RESET */
-		mdelay(100);	/* 0ms */
-		clk_disable(vclk2_clk);
-		mdelay(100);	/* 0ms */
-		gpio_set_value(GPIO_PORT91, 0);		/* POWER off */
-		mdelay(100);	/* 0ms */
-
-		gpio_direction_output(GPIO_PORT4, 0); /* VANA OFF SUB */
-		gpio_direction_output(GPIO_PORT3, 0); /* VANA OFF */
-		gpio_direction_output(GPIO_PORT5, 0); /* VDIG OFF */
-		sh_csi2_power(dev, power_on);
-	}
-
-	clk_put(vclk2_clk);
 
 	return 0;
 }
@@ -1258,7 +1219,7 @@ static struct i2c_board_info i2c_cameras[] = {
 		I2C_BOARD_INFO("EOSCAMERA", 0x1A),
 	},
 	{
-		I2C_BOARD_INFO("OV5640", 0x78>>1),
+		I2C_BOARD_INFO("dummy_camera", 0),
 	},
 };
 
@@ -1274,8 +1235,8 @@ static struct soc_camera_link camera_links[] = {
 		.bus_id			= 1,
 		.board_info		= &i2c_cameras[1],
 		.i2c_adapter_id	= 1,
-		.module_name	= "OV5640",
-		.power			= OV5640_power,
+		.module_name	= "dummy_camera",
+		.power			= dummy_camera_power,
 	},
 };
 
@@ -1530,7 +1491,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 #ifdef CONFIG_USB_OTG
 	&tusb1211_device,
 #endif
-	&eth_device,
+//	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
@@ -1544,9 +1505,9 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&lcdc_device,
 	&mfis_device,
 	&mipidsi0_device,
-	&tpu_devices[TPU_MODULE_0],
+//	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
-	&pcm2pwm_device,
+//	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -1554,8 +1515,10 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&u2evm_ion_device,
 // #endif
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
@@ -1576,22 +1539,22 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #ifdef CONFIG_USB_OTG
 	&tusb1211_device,
 #endif
-	&eth_device,
+//	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
 	&mmcoops_device,
-//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
-	&sdhi1_device,
+	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
+//	&sdhi1_device,
 	&fsi_device,
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&mipidsi0_device,
-	&tpu_devices[TPU_MODULE_0],
-	&pcm2pwm_device,
+//	&tpu_devices[TPU_MODULE_0],
+//	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -1599,8 +1562,10 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&u2evm_ion_device,
 // #endif
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
    &wl128x_device,
    &btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
@@ -1621,30 +1586,32 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 #ifdef CONFIG_USB_OTG
 	&tusb1211_device,
 #endif
-	&eth_device,
+//	&eth_device,
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
 	&sh_mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-	&sdhi1_device,
+//	&sdhi1_device,
 	&fsi_device,
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&mipidsi0_device,
-	&tpu_devices[TPU_MODULE_0],
+//	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
-	&pcm2pwm_device,
+//	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
 //120220 TI BTFM start
+#ifdef ENABLE_WIFI_HS
 	&wl128x_device,
 	&btwilink_device,
+#endif
 //120220 TI BTFM
 	&thermal_sensor_device,
 	&csi20_device,
@@ -1890,6 +1857,112 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 };
   
 
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+static struct i2c_board_info i2c_touchkey[];
+
+static void touchkey_init_hw(void)
+{
+	/* To do as follows
+	gpio_request(GPIO_3_TOUCH_INT, "3_TOUCH_INT");
+	setpull(GPIO_3_TOUCH_INT, S3C_GPIO_PULL_NONE);
+	register_interrupt(GPIO_3_TOUCH_INT);
+	gpio_direction_input(GPIO_3_TOUCH_INT);
+
+	i2c_touchkey[0].irq = gpio_to_irq(GPIO_3_TOUCH_INT);
+	irq_set_irq_type(gpio_to_irq(GPIO_3_TOUCH_INT), IRQF_TRIGGER_FALLING);
+	gpio_cfgpin(GPIO_3_TOUCH_INT, S3C_GPIO_SFN(0xf));
+	*/
+#if 0
+	gpio_request(GPIO_PORT104, NULL);
+	gpio_direction_input(GPIO_PORT104);
+	gpio_pull(GPIO_PORTCR(104), GPIO_PULL_UP);
+	i2c_touchkey[0].irq = irqpin2irq(43);
+	irq_set_irq_type(irqpin2irq(43), IRQF_TRIGGER_FALLING);
+#endif
+}
+
+static int touchkey_suspend(void)
+{
+	struct regulator *regulator;
+#if 0
+	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
+	if (IS_ERR(regulator))
+		return 0;
+	if (regulator_is_enabled(regulator))
+		regulator_force_disable(regulator);
+
+	regulator_put(regulator);
+#endif
+	return 1;
+}
+
+static int touchkey_resume(void)
+{
+	struct regulator *regulator;
+#if 0
+	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
+	if (IS_ERR(regulator))
+		return 0;
+	regulator_enable(regulator);
+	regulator_put(regulator);
+#endif
+	return 1;
+}
+
+static int touchkey_power_on(bool on)
+{
+	int ret;
+
+	if (on) {
+		/* To do to power on */		
+	}
+	else {
+		/* To do to power off */		
+	}
+
+	if (on)
+		ret = touchkey_resume();
+	else
+		ret = touchkey_suspend();
+
+	return ret;
+}
+
+static int touchkey_led_power_on(bool on)
+{
+	if (on) {
+		/* To do to led power on */		
+	}
+	else {
+		/* To do to led power off */		
+	}
+	
+	return 1;
+}
+
+static struct touchkey_platform_data touchkey_pdata = {
+	.gpio_sda = NULL,	/* To do to set gpio */
+	.gpio_scl = NULL,	/* To do to set gpio */
+	.gpio_int = NULL,	/* To do to set gpio */
+	.init_platform_hw = touchkey_init_hw,
+	.suspend = touchkey_suspend,
+	.resume = touchkey_resume,
+	.power_on = touchkey_power_on,
+	.led_power_on = touchkey_led_power_on,
+};
+#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
+
+static struct i2c_board_info i2c_touchkey[] = {
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
+	{
+		I2C_BOARD_INFO("sec_touchkey", 0x20),
+		.platform_data = &touchkey_pdata,
+		.irq = irqpin2irq(43),
+	},
+#endif
+};
+
+
 static struct regulator *mxt224_regulator;
 
 static void mxt224_set_power(int on)
@@ -1909,22 +1982,34 @@ static int mxt224_read_chg(void)
 static struct mxt_platform_data mxt224_platform_data = {
 	.x_line		= 19,
 	.y_line		= 11,
-	.x_size		= 864,
+	.x_size		= 800,
 	.y_size		= 480,
 	.blen		= 0x21,
 	.threshold	= 0x28,
 	.voltage	= 1825000,
 	.orient		= MXT_DIAGONAL,
 	.irqflags	= IRQF_TRIGGER_FALLING,
-	.set_pwr	= mxt224_set_power,
+	.set_pwr	= NULL ,//mxt224_set_power,
 	.read_chg	= mxt224_read_chg,
 };
 
 static struct i2c_board_info i2c4_devices[] = {
 	{
-		I2C_BOARD_INFO("atmel_mxt_ts", 0x4b),
+		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
 		.platform_data = &mxt224_platform_data,
 		.irq	= irqpin2irq(32),
+	},
+};
+
+static struct NCP6914_platform_data ncp6914info= {
+	.subpmu_pwron_gpio = GPIO_PORT3,
+};
+
+static struct i2c_board_info i2c9gpio_devices[] = {
+	{
+		I2C_BOARD_INFO("ncp6914", 0x10),//address 20/21
+		.irq	= irqpin2irq(5),
+		.platform_data = &ncp6914info,
 	},
 };
 
@@ -1937,12 +2022,14 @@ static struct i2c_board_info i2cm_devices[] = {
                 I2C_BOARD_INFO("max97236", 0x40),
                 .irq            = irqpin2irq(34),
         },
+#if 0
 	{
 		I2C_BOARD_INFO("led", 0x74),
 	},
 	{
 		I2C_BOARD_INFO("flash", 0x30),
 	},
+#endif
 };
 
 static struct i2c_board_info i2cm_devices_es2[] = {
@@ -2144,6 +2231,9 @@ else /*ES2.0*/
 	gpio_request(GPIO_FN_MMCD0_6, NULL);
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
+	
+	gpio_request(GPIO_PORT29, NULL); //Enabled eMMC LDO
+	gpio_direction_output(GPIO_PORT29, 1);
 
 	if (0 != stm_select) {
 		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used for SD-Card */
@@ -2162,6 +2252,7 @@ else /*ES2.0*/
 	}
 
 	if (1 != stm_select) {
+#if 0
 		/* WLAN enable*/
 		gpio_request(WLAN_GPIO_EN, NULL);
 		gpio_direction_output(WLAN_GPIO_EN, 0);
@@ -2169,6 +2260,7 @@ else /*ES2.0*/
 		/* WLAN OutOfBand IRQ*/
 		gpio_request(WLAN_IRQ, NULL);
 		gpio_direction_input(WLAN_IRQ);
+#endif
 	}
 	
 #if 0
@@ -2481,10 +2573,20 @@ else /*ES2.0*/
 	    irqc_set_chattering(42, 0x01);  /* 1msec */
 	
 	    /*WLAN*/
-	    wl12xx_set_platform_data(&wlan_pdata);
+//	    wl12xx_set_platform_data(&wlan_pdata);
 	}
 
-
+	/* touch key */
+	gpio_request(GPIO_PORT104, NULL);
+	gpio_direction_input(GPIO_PORT104);
+if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+{	
+	gpio_pull(GPIO_PORTCR_ES1(104), GPIO_PULL_UP);
+}
+else /*ES2.0*/
+{
+	gpio_pull(GPIO_PORTCR_ES2(104), GPIO_PULL_UP);
+}
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
@@ -2492,9 +2594,15 @@ else /*ES2.0*/
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
+	/*LCD LDO Enable*/
+	gpio_request(GPIO_PORT89, NULL);
+	gpio_direction_output(GPIO_PORT89, 0);
+
 	/* LCD */
 	gpio_request(GPIO_PORT31, NULL);
-	gpio_direction_output(GPIO_PORT31, 1); /* unreset */
+	gpio_direction_output(GPIO_PORT31, 0); /* reset */
+/*	udelay(50);*/
+/*	gpio_direction_output(GPIO_PORT31, 1);*/ /* unreset */
 
 	/* MIPI-DSI clock setup */
 	__raw_writel(0x2a83900D, DSI0PHYCR);
@@ -2506,15 +2614,18 @@ else /*ES2.0*/
 	gpio_direction_input(GPIO_PORT28);
 	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_EDGE_FALLING);
 
+#if 0
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
 	gpio_direction_input(GPIO_PORT97); /* for IRQ */
 	gpio_request(GPIO_PORT105, NULL);
 	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
-
-	/* Touch */
+#endif	
+		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
 	gpio_direction_output(GPIO_PORT30, 1);
+	
+	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
 if((system_rev & 0xFF) == 0x00) /*ES1.0*/
@@ -2599,22 +2710,12 @@ else /*ES2.0*/
 	struct clk *pll1_div2_clk;
 	int iRet;
 
-	gpio_request(GPIO_PORT5, NULL); /* VDIG */
-	gpio_direction_output(GPIO_PORT5, 0);
-	gpio_request(GPIO_PORT3, NULL); /* VANA */
-	gpio_direction_output(GPIO_PORT3, 0);
-	gpio_request(GPIO_PORT4, NULL); /* VANA-SUB */
-	gpio_direction_output(GPIO_PORT4, 0);
-
-	gpio_request(GPIO_PORT90, NULL); /* PWDNB */
-	gpio_direction_output(GPIO_PORT90, 0);
-	gpio_request(GPIO_PORT20, NULL); /* RESETB */
-	gpio_direction_output(GPIO_PORT20, 0);
-
-	gpio_request(GPIO_PORT91, NULL); /* PWDNB-SUB */
-	gpio_direction_output(GPIO_PORT91, 0);
-	gpio_request(GPIO_PORT16, NULL); /* RESETB-SUB */
-	gpio_direction_output(GPIO_PORT16, 0);
+	gpio_request(GPIO_PORT3, NULL);
+	gpio_direction_output(GPIO_PORT3, 0);	/* CAM_PWR_EN */
+	gpio_request(GPIO_PORT20, NULL);
+	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
+	gpio_request(GPIO_PORT90, NULL);
+	gpio_direction_output(GPIO_PORT90, 0);	/* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -2651,9 +2752,10 @@ else /*ES2.0*/
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 }
 
+#if 0
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 0);
-
+#endif
 	r8a73734_add_standard_devices();
 
 	/* Run time CWS detection changes START */
@@ -2702,6 +2804,9 @@ else /*ES2.0*/
 	crashlog_r_local_ver_write();
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
+	i2c_register_board_info(5, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
+
+	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER

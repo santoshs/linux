@@ -94,10 +94,12 @@ static __init int led_dev_init(void);
 /* Enum for led type */
 enum led_type {
 	LED_BACKLIGHT, /* 0: Lcd-backlight */
+#if 0
 	LED_REDLIGHT, /* 1: 3-color red light */
 	LED_GREENLIGHT, /* 2: 3-color green light */
 	LED_BLUELIGHT, /* 3: 3-color blue light */
 	LED_KEYLIGHT, /* 4: Key backlight */
+#endif
 	LEDS_NUM, /* 5: led_type max num */
 };
 
@@ -566,6 +568,7 @@ static struct led_classdev led_lights[] = {
 		.brightness = LED_FULL,
 		.brightness_set = set_backlight_brightness,
 	},
+#if 0
 	[LED_REDLIGHT] = {
 		.name = "red",
 		.brightness_set = set_red_brightness,
@@ -583,6 +586,7 @@ static struct led_classdev led_lights[] = {
 		.max_brightness = 0xFFFFFF,
 		.brightness_set = set_keylight_brightness,
 	},
+#endif
 };
 
 /*
@@ -618,11 +622,11 @@ static int led_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	gpio_request(GPIO_PORT13, NULL);
 	gpio_direction_output(GPIO_PORT13, 1);
 	udelay(30);
-
+#if 0
 	/* Turn OFF camera and sensor */
 	for (i = 0; i2c_val[i].add != 0xFF; i++)
 		wrap_led_i2c_write_data(i2c_val[i].add, i2c_val[i].val);
-
+#endif
 
 	for (i = 0; i < LEDS_NUM; i++) {
 		ret = led_classdev_register(&client->dev, &led_lights[i]);
