@@ -529,7 +529,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		return;
 
 	/* Only dump oopses if dump_oops is set */
-	if (reason == KMSG_DUMP_OOPS && !dump_oops)
+	if ((reason != (KMSG_DUMP_PANIC || KMSG_DUMP_KEXEC)) && !dump_oops)
 		return;
 
     if (cxt->size < cxt->record_size)

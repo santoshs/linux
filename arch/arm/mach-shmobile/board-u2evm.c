@@ -64,7 +64,7 @@
 
 #define TMPLOG_ADDRESS 0x4C821200
 #define TMPLOG_SIZE    0x00040000
-#define RMC_LOCAL_VERSION "20120608\n"
+#define RMC_LOCAL_VERSION "150612"		// ddmmyy (release time)
 char *tmplog_nocache_address = NULL;
 
 static void crashlog_r_local_ver_write(void);
@@ -2858,12 +2858,17 @@ static void crashlog_r_local_ver_write()
 	void __iomem * adr = 0;
 	void __iomem * adr_bak = 0;
 	char	version_name[CLASHLOG_R_LOCAL_VER_LENGTH];
+	int	revision_version_length;
 	unsigned char i;
 	
 	adr = ioremap(CLASHLOG_R_LOCAL_VER_LOCATE, CLASHLOG_R_LOCAL_VER_LENGTH); 
 	adr_bak = adr;
 	if (adr) 
 	{
+		revision_version_length=strlen(linux_banner);
+
+		snprintf(mmcoops_info.soft_version,CLASHLOG_R_LOCAL_VER_LENGTH,"%s %s",RMC_LOCAL_VERSION,(linux_banner + revision_version_length - 25) );
+
 		strncpy(version_name , RMC_LOCAL_VERSION , CLASHLOG_R_LOCAL_VER_LENGTH);
 
 		for(i=0 ; i<CLASHLOG_R_LOCAL_VER_LENGTH ; i++){
@@ -2950,7 +2955,11 @@ static void crashlog_reset_log_write()
 	iounmap(adr);
 
 	reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* write STBCHR2 */
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* andriod init */
+
+/*Developer option to debug Reset Log*/
+     /*	reg = __raw_readb(STBCHR3);*/
+     /*	__raw_writeb((reg | APE_RESETLOG_DEBUG), STBCHR3);*/
 }
 
 static void crashlog_init_tmplog(void)
@@ -2961,8 +2970,8 @@ static void crashlog_init_tmplog(void)
 		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
 	}
 
-	//	reg = __raw_readb(STBCHR2);
-	//	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR2); // write STBCHR2 for debug	
+	/*	reg = __raw_readb(STBCHR3);*/
+	/*	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR3); */ // write STBCHR3 for debug	
 
 	return;
 }
