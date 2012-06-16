@@ -338,18 +338,9 @@ void st_int_recv(void *disc_data,
 			/* Unknow packet? */
 		default:
 			type = *ptr;
-			if ((type >= ST_MAX_CHANNELS) ||
-					(st_gdata->list[type] == NULL)) {
-				pr_err("chip/interface misbehavior "
-						"dropping frame starting "
-						"with 0x%02x", type);
-				goto done;
-			}
 			st_gdata->rx_skb = alloc_skb(
 					st_gdata->list[type]->max_frame_size,
 					GFP_ATOMIC);
-			if (!st_gdata->rx_skb)
-				goto done;
 			skb_reserve(st_gdata->rx_skb,
 					st_gdata->list[type]->reserve);
 			/* next 2 required for BT only */
@@ -363,7 +354,6 @@ void st_int_recv(void *disc_data,
 		ptr++;
 		count--;
 	}
-done:
 	spin_unlock_irqrestore(&st_gdata->lock, flags);
 	pr_debug("done %s", __func__);
 	return;
@@ -727,10 +717,9 @@ static void st_tty_close(struct tty_struct *tty)
 	 */
 	spin_lock_irqsave(&st_gdata->lock, flags);
 	for (i = ST_BT; i < ST_MAX_CHANNELS; i++) {
-		if (st_gdata->is_registered[i] == true)
+		if (st_gdata->list[i] != NULL)
 			pr_err("%d not un-registered", i);
 		st_gdata->list[i] = NULL;
-		st_gdata->is_registered[i] = false;
 	}
 	st_gdata->protos_registered = 0;
 	spin_unlock_irqrestore(&st_gdata->lock, flags);
