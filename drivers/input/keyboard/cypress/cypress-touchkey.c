@@ -60,8 +60,7 @@ static int touchkey_keycode[5] = { NULL,
 	|| defined(CONFIG_MACH_C1VZW)
 static int touchkey_keycode[3] = { 0, KEY_BACK, KEY_MENU,};
 #else
-//static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
-static int touchkey_keycode[5] = { 0, KEY_MENU, KEY_HOMEPAGE, KEY_BACK, KEY_SEARCH };
+static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
 #endif
 static const int touchkey_count = sizeof(touchkey_keycode) / sizeof(int);
 

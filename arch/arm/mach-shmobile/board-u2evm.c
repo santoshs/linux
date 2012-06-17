@@ -690,7 +690,7 @@ static struct platform_device fsi_b_device = {
 
 
 #define GPIO_KEY(c, g, d) \
-	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
+	{.code=c, .gpio=g, .desc=d, .wakeup=0, .active_low=1,\
 	 .debounce_interval=20}
 
 static struct gpio_keys_button gpio_buttons[] = {
@@ -699,9 +699,12 @@ static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
 	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
 	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
-#endif
 	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
+#endif
+	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT45, "Home"),
+	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT46, "+"),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-"),
 };
 
 static int gpio_key_enable(struct device *dev)
@@ -719,12 +722,17 @@ if((system_rev & 0xFF) == 0x00)
 }
 else
 {
+#if 0
 	gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(25), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(26), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
+#endif
+	gpio_pull(GPIO_PORTCR_ES2(45), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(46), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(47), GPIO_PULL_UP);
 }
 	return 0;
 }
@@ -734,10 +742,11 @@ static struct gpio_keys_platform_data gpio_key_info = {
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
 	.rep		= 0,
 	.enable		= gpio_key_enable,
+	.poll_interval	= 50,
 };
 
 static struct platform_device gpio_key_device = {
-	.name	= "gpio-keys",
+	.name	= "gpio-keys-polled",
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_key_info,
