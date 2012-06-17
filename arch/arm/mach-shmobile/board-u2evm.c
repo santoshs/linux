@@ -1873,15 +1873,12 @@ static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
 	int ci;
-	/* Run time CWS detection changes START */
-	int cws_present = 0;
 	int stm_select=1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
 				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
-    /* Run time CWS detection changes END */
 	if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
 		for (ci=4; cp[ci]; ci++) {
 			if (cp[ci-4] == 's' &&
