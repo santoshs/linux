@@ -1789,12 +1789,14 @@ static struct i2c_board_info i2cm_devices_es2[] = {
                 I2C_BOARD_INFO("max97236", 0x40),
                 .irq            = irqpin2irq(34),
         },
+#if 0
 	{
 	        I2C_BOARD_INFO("led", 0x74),
 	},
 	{
 	        I2C_BOARD_INFO("flash", 0x30),
 	},
+#endif
 	{
 	        I2C_BOARD_INFO("av7100", 0x70),
 	},
