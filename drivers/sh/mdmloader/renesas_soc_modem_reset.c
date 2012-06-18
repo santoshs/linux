@@ -97,7 +97,7 @@ struct rmc_device_node {
 	struct resource 	*res;
 	int			open_count;	/* count the number of openers */
 	atomic_t 		counter;
-	struct mutex 		io_mutex;
+	spinlock_t		io_lock;
 	spinlock_t 		irq_lock;
 };
 
@@ -168,12 +168,12 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 	
 	/* lock the device to allow correctly handling errors
 	 * in resumption */
-	mutex_lock(&dev->io_mutex);
-	
+	spin_lock(&dev->io_lock);
+
 	/* allow opening only once */
 	if (dev->open_count) {
 		retval = -EBUSY;
-		mutex_unlock(&dev->io_mutex);
+		spin_unlock(&dev->io_lock);
 		goto exit;
 	}
 	dev->open_count = 1;
@@ -195,7 +195,7 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 	/* save our object in the file's private structure */
 	file->private_data = dev;
 	atomic_set(&dev->counter, 0);
-	mutex_unlock(&dev->io_mutex);
+	spin_unlock(&dev->io_lock);
 
 exit:
 	return retval;	
@@ -212,10 +212,10 @@ static int rmc_reset_release(struct inode *inode, struct file *file)
 	if (dev == NULL)
 		return -ENODEV;
 
-	mutex_lock(&dev->io_mutex);
+	spin_lock(&dev->io_lock);
 	dev->open_count = 0;
 	cdev_del(&rmc_reset_cdev);
-	mutex_unlock(&dev->io_mutex);
+	spin_unlock(&dev->io_lock);
 
 	return 0;	
 	
@@ -323,7 +323,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 		goto clean_up;
 	}
 
-	mutex_init(&dev->io_mutex);
+	spin_lock_init(&dev->io_lock);
 	spin_lock_init(&dev->irq_lock);
 	pr_info("rmc_reset_probe OK\n");
 
