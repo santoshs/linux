@@ -41,7 +41,9 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
+#ifdef CONFIG_TI_ST
 #include <linux/ti_wilink_st.h> //120220 TI BTFM
+#endif /* CONFIG_TI_ST */
 #include <linux/wl12xx.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <media/sh_mobile_rcu.h>
