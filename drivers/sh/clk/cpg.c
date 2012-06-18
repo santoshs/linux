@@ -395,3 +395,94 @@ int __init sh_clk_div4_reparent_register(struct clk *clks, int nr,
 	return sh_clk_div4_register_ops(clks, nr, table,
 					&sh_clk_div4_reparent_clk_ops);
 }
+
+static int sh_clk_cksel_set_parent(struct clk *clk, struct clk *parent)
+{
+	u32 value;
+	int ret, i;
+
+	if (!clk->parent_table || !clk->parent_num)
+		return -EINVAL;
+
+	/* Search the parent */
+	for (i = 0; i < clk->parent_num; i++)
+		if (clk->parent_table[i] == parent)
+			break;
+
+	if (i == clk->parent_num)
+		return -ENODEV;
+
+	ret = clk_reparent(clk, parent);
+	if (ret < 0)
+		return ret;
+
+	value = __raw_readl(clk->enable_reg) &
+		~(((1 << clk->src_width) - 1) << clk->src_shift);
+
+	__raw_writel(value | (i << clk->src_shift), clk->enable_reg);
+
+	return 0;
+}
+
+static int sh_clk_cksel_enable(struct clk *clk)
+{
+	u32 value;
+
+	/*
+	 * In principle, CKSEL clock is meant for output clock selection,
+	 * and enable/disable operations won't be necessary.  That said,
+	 * exceptions go with various types of CPG designs.
+	 *
+	 * We'll manipulate CKSTP bit only when requested.
+	 */
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value &= ~(1 << clk->enable_bit); /* clear stop bit */
+		__raw_writel(value, clk->enable_reg);
+	}
+	return 0;
+}
+
+static void sh_clk_cksel_disable(struct clk *clk)
+{
+	u32 value;
+
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value |= 1 << clk->enable_bit; /* stop clock */
+		__raw_writel(value, clk->enable_reg);
+	}
+}
+
+static struct sh_clk_ops sh_clk_cksel_clk_ops = {
+	.recalc		= followparent_recalc,
+	.enable		= sh_clk_cksel_enable,
+	.disable	= sh_clk_cksel_disable,
+	.set_parent	= sh_clk_cksel_set_parent,
+};
+
+static int __init sh_clk_cksel_register_ops(struct clk *clks, int nr,
+					    struct sh_clk_ops *ops)
+{
+	struct clk *clkp;
+	int ret = 0;
+	int k;
+
+	for (k = 0; !ret && (k < nr); k++) {
+		clkp = clks + k;
+
+		clkp->ops = ops;
+		ret = clk_register(clkp);
+		if (ret < 0)
+			break;
+
+		ret = sh_clk_init_parent(clkp);
+	}
+
+	return ret;
+}
+
+int __init sh_clk_cksel_register(struct clk *clks, int nr)
+{
+	return sh_clk_cksel_register_ops(clks, nr, &sh_clk_cksel_clk_ops);
+}
