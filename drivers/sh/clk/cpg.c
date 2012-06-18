@@ -252,7 +252,7 @@ static unsigned long sh_clk_div4_recalc(struct clk *clk)
 	clk_rate_table_build(clk, clk->freq_table, table->nr_divisors,
 			     table, &clk->arch_flags);
 
-	idx = (ioread32(clk->mapped_reg) >> clk->enable_bit) & 0x000f;
+	idx = (__raw_readl(clk->enable_reg) >> clk->enable_bit) & 0x000f;
 
 	return clk->freq_table[idx].frequency;
 }
@@ -270,15 +270,15 @@ static int sh_clk_div4_set_parent(struct clk *clk, struct clk *parent)
 	 */
 
 	if (parent->flags & CLK_ENABLE_ON_INIT)
-		value = ioread32(clk->mapped_reg) & ~(1 << 7);
+		value = __raw_readl(clk->enable_reg) & ~(1 << 7);
 	else
-		value = ioread32(clk->mapped_reg) | (1 << 7);
+		value = __raw_readl(clk->enable_reg) | (1 << 7);
 
 	ret = clk_reparent(clk, parent);
 	if (ret < 0)
 		return ret;
 
-	iowrite32(value, clk->mapped_reg);
+	__raw_writel(value, clk->enable_reg);
 
 	/* Rebiuld the frequency table */
 	clk_rate_table_build(clk, clk->freq_table, table->nr_divisors,
@@ -295,10 +295,10 @@ static int sh_clk_div4_set_rate(struct clk *clk, unsigned long rate)
 	if (idx < 0)
 		return idx;
 
-	value = ioread32(clk->mapped_reg);
+	value = __raw_readl(clk->enable_reg);
 	value &= ~(0xf << clk->enable_bit);
 	value |= (idx << clk->enable_bit);
-	iowrite32(value, clk->mapped_reg);
+	__raw_writel(value, clk->enable_reg);
 
 	if (d4t->kick)
 		d4t->kick(clk);
@@ -308,13 +308,13 @@ static int sh_clk_div4_set_rate(struct clk *clk, unsigned long rate)
 
 static int sh_clk_div4_enable(struct clk *clk)
 {
-	iowrite32(ioread32(clk->mapped_reg) & ~(1 << 8), clk->mapped_reg);
+	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << 8), clk->enable_reg);
 	return 0;
 }
 
 static void sh_clk_div4_disable(struct clk *clk)
 {
-	iowrite32(ioread32(clk->mapped_reg) | (1 << 8), clk->mapped_reg);
+	__raw_writel(__raw_readl(clk->enable_reg) | (1 << 8), clk->enable_reg);
 }
 
 static struct sh_clk_ops sh_clk_div4_clk_ops = {
