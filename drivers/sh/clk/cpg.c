@@ -15,15 +15,15 @@
 
 static int sh_clk_mstp32_enable(struct clk *clk)
 {
-	iowrite32(ioread32(clk->mapped_reg) & ~(1 << clk->enable_bit),
-		  clk->mapped_reg);
+	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
+		     clk->enable_reg);
 	return 0;
 }
 
 static void sh_clk_mstp32_disable(struct clk *clk)
 {
-	iowrite32(ioread32(clk->mapped_reg) | (1 << clk->enable_bit),
-		  clk->mapped_reg);
+	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
+		     clk->enable_reg);
 }
 
 static struct sh_clk_ops sh_clk_mstp32_clk_ops = {
