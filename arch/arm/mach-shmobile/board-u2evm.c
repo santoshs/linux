@@ -1140,6 +1140,8 @@ static int EOSMAIN_power0(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk;
 	int iRet;
+	struct soc_camera_link *icl;
+	icl = (struct soc_camera_link *) dev->platform_data;
 
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
 
@@ -1157,8 +1159,15 @@ static int EOSMAIN_power0(struct device *dev, int power_on)
 		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
 		mdelay(5);
 
-		iRet = clk_set_rate(vclk1_clk,
+		if (0 == strcmp(icl->module_name, "OV8820")) {
+			printk(KERN_ALERT "%s : clk 24MHz\n", __func__);
+			iRet = clk_set_rate(vclk1_clk,
 				clk_round_rate(vclk1_clk, 24000000));
+		} else {
+			printk(KERN_ALERT "%s : clk 17.8MHz\n", __func__);
+			iRet = clk_set_rate(vclk1_clk,
+				clk_round_rate(vclk1_clk, 17800000));
+		}
 		if (0 != iRet) {
 			dev_err(dev,
 			"clk_set_rate(vclk1_clk) failed (ret=%d)\n", iRet);
