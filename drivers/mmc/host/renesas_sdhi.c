@@ -1308,18 +1308,7 @@ static struct platform_driver renesas_sdhi_driver = {
 	},
 };
 
-static int __init renesas_sdhi_init(void)
-{
-	return platform_driver_register(&renesas_sdhi_driver);
-}
-
-static void __exit renesas_sdhi_exit(void)
-{
-	platform_driver_unregister(&renesas_sdhi_driver);
-}
-
-module_init(renesas_sdhi_init);
-module_exit(renesas_sdhi_exit);
+module_platform_driver(renesas_sdhi_driver);
 
 MODULE_DESCRIPTION("Renesas SDHI driver");
 MODULE_AUTHOR("Renesas");
