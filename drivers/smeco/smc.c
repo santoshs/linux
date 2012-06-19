@@ -978,7 +978,7 @@ uint8_t smc_send_event(smc_channel_t* channel, SMC_CHANNEL_EVENT event)
     userdata.userdata4 = 0x00000000;
     userdata.userdata5 = 0x00000000;
 
-    SMC_TRACE_PRINTF_DEBUG("smc_send_event: Channel %d: Sending event %d to remote host...", channel->id, event);
+    SMC_TRACE_PRINTF_INFO("smc_send_event: Channel %d: Sending event %d to remote host...", channel->id, event);
 
     return smc_send_ext( channel, (void*)event, 0, &userdata);
 }
@@ -994,7 +994,7 @@ uint8_t smc_send_event_ext(smc_channel_t* channel, SMC_CHANNEL_EVENT event, smc_
     userdata_event.userdata4 = userdata->userdata4;
     userdata_event.userdata5 = userdata->userdata5;
 
-    SMC_TRACE_PRINTF_DEBUG("smc_send_event_ext: Channel %d: Sending event %d to remote host...", channel->id, event);
+    SMC_TRACE_PRINTF_EVENT_SEND("smc_send_event_ext: Channel %d: Sending event %d to remote host...", channel->id, event);
 
     return smc_send_ext( channel, (void*)event, 0, &userdata_event);
 }
@@ -1574,6 +1574,9 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
     channel->smc_instance                  = NULL;
     channel->copy_scheme                   = smc_channel_conf->copy_scheme; /*SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;*/    /* double-copy scheme is default*/
     channel->protocol                      = smc_channel_conf->protocol;
+    channel->stop_counter                  = 0;
+    channel->smc_shm_conf_channel          = NULL;
+
 
         /* Initialize callback functions */
     channel->smc_receive_cb                = (smc_receive_data_callback)smc_channel_conf->smc_receive_data_cb;
@@ -1594,14 +1597,16 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
     }
     else
     {
+        channel->fifo_timer = NULL;
         SMC_TRACE_PRINTF_WARNING("smc_channel_create: timeout for FIFO full check not set");
     }
 
         /*
          * MDBs are created when channel is added to SMC instance and SHM is ready
          */
-    channel->mdb_out  = NULL;
-    channel->mdb_in   = NULL;
+    channel->mdb_out      = NULL;
+    channel->mdb_in       = NULL;
+    channel->smc_mdb_info = NULL;
 
         /* Initialize locks */
     channel->lock_write = smc_lock_create();
@@ -1794,6 +1799,9 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
 
         if( smc_channel->signal_local != NULL )
         {
+            /* Local interrupt has IRQ handler registered */
+            smc_signal_handler_unregister( smc_channel->smc_instance, smc_channel->signal_local, smc_channel );
+
             smc_signal_destroy(smc_channel->signal_local);
         }
 
@@ -2003,18 +2011,18 @@ uint8_t smc_channel_change_priority( smc_t* smc_instance, uint8_t smc_channel_id
  */
 smc_signal_handler_t* smc_signal_handler_get( uint32_t signal_id, uint32_t signal_type )
 {
-    SMC_TRACE_PRINTF_INFO("smc_signal_get: search signal handler for signal id %d, type 0x%08X", signal_id, signal_type);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_get: search signal handler for signal id %d, type 0x%08X", signal_id, signal_type);
 
     for(int i = 0; i < signal_handler_count; i++ )
     {
         if( signal_handler_ptr_array[i]->signal->interrupt_id == signal_id && signal_handler_ptr_array[i]->signal->signal_type == signal_type )
         {
-            SMC_TRACE_PRINTF_INFO("smc_signal_get: return signal handler 0x%08X", (uint32_t)signal_handler_ptr_array[i]);
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_get: return signal handler 0x%08X", (uint32_t)signal_handler_ptr_array[i]);
             return signal_handler_ptr_array[i];
         }
     }
 
-    SMC_TRACE_PRINTF_ASSERT("smc_signal_handler_get: Handler for signal %d type %0x08X not set", signal_id, signal_type);
+    SMC_TRACE_PRINTF_ERROR("smc_signal_handler_get: Handler for signal %d type 0x%08X not set", signal_id, signal_type);
 
     return NULL;
 }
@@ -2023,7 +2031,7 @@ smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, sm
 {
     smc_signal_handler_t* signal_handler = NULL;
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_handler_create_and_add(ch: %d): starts...", (smc_channel!=NULL)?smc_channel->id:-1);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_create_and_add(ch: %d): starts...", (smc_channel!=NULL)?smc_channel->id:-1);
 
     signal_handler = (smc_signal_handler_t*)SMC_MALLOC( sizeof( smc_signal_handler_t ) );
 
@@ -2035,8 +2043,7 @@ smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, sm
 
     smc_signal_add_handler( signal_handler );
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_handler_create_and_add(ch: %d): created 0x%08X",
-       (smc_channel!=NULL)?smc_channel->id:-1, (uint32_t)signal_handler);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_create_and_add(ch: %d): created 0x%08X", (smc_channel!=NULL)?smc_channel->id:-1, (uint32_t)signal_handler);
 
     return signal_handler;
 }
@@ -2048,7 +2055,7 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
     smc_lock_t* local_lock = get_local_lock_signal_handler();
     SMC_LOCK_IRQ( local_lock );
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_add_handler: add handler 0x%08X, current count %d", (uint32_t)signal_handler, signal_handler_count);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_add_handler: add handler 0x%08X, current count %d", (uint32_t)signal_handler, signal_handler_count);
 
     assert( signal_handler!=NULL );
 
@@ -2086,11 +2093,113 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 
     signal_handler_ptr_array[signal_handler_count-1] = signal_handler;
 
-    SMC_TRACE_PRINTF_INFO("smc_signal_add_handler: completed, signal handler count is %d", signal_handler_count);
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_add_handler: completed, signal handler count is %d", signal_handler_count);
 
     SMC_UNLOCK_IRQ( local_lock );
 
     return SMC_OK;
+}
+
+void smc_signal_handler_remove_and_destroy( smc_signal_handler_t* signal_handler )
+{
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_remove_and_destroy: remove handler 0x%08X", (uint32_t)signal_handler );
+
+    if(signal_handler != NULL )
+    {
+        smc_signal_remove_handler( signal_handler );
+
+        SMC_FREE( signal_handler );
+        signal_handler = NULL;
+
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_remove_and_destroy: completed");
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_remove_and_destroy: handler is NULL");
+    }
+}
+
+void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
+{
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: remove handler 0x%08X, current count %d", (uint32_t)signal_handler, signal_handler_count);
+
+    if(signal_handler != NULL )
+    {
+        smc_signal_handler_t** old_ptr_array = NULL;
+
+        uint8_t     handler_found = 0;
+        uint8_t     signal_index  = 0;
+
+        smc_lock_t* local_lock = get_local_lock_signal_handler();
+        SMC_LOCK_IRQ( local_lock );
+
+        /* Check if handler exists */
+        if( signal_handler_ptr_array )
+        {
+            for(int i = 0; i < signal_handler_count; i++ )
+            {
+                if( signal_handler_ptr_array[i]->signal->interrupt_id == signal_handler->signal->interrupt_id &&
+                    signal_handler_ptr_array[i]->signal->signal_type == signal_handler->signal->signal_type )
+                {
+                    SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: Handler for interrupt %d type 0x%08X found from index %d",
+                            signal_handler->signal->interrupt_id, signal_handler->signal->signal_type, i);
+
+                    handler_found = 1;
+                    signal_index  = i;
+                    break;
+                }
+            }
+
+            old_ptr_array = signal_handler_ptr_array;
+        }
+
+        if( handler_found > 0 )
+        {
+
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: handler found, removing from the list...");
+
+            signal_handler_count--;
+
+            if( signal_handler_count > 0 )
+            {
+                signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: handler count is 0, set global list 0x%08X to NULL", (uint32_t)signal_handler_ptr_array);
+                signal_handler_ptr_array = NULL;
+                signal_handler_count = 0;
+                /* The original pointer is freed later */
+            }
+
+            if( old_ptr_array )
+            {
+                uint8_t temp_index = 0;
+
+                for(int i = 0; i < signal_handler_count+1; i++ )
+                {
+                    if( i != signal_index )
+                    {
+                        SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: add existing signal handler from index %d -> %d", i, temp_index);
+                        signal_handler_ptr_array[temp_index] = old_ptr_array[i];
+                        temp_index++;
+                    }
+                }
+
+                SMC_FREE(old_ptr_array);
+                old_ptr_array = NULL;
+            }
+
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: signal handler not found (%d)", handler_found);
+        }
+
+        SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: completed, signal handler count is %d", signal_handler_count);
+
+        SMC_UNLOCK_IRQ( local_lock );
+    }
 }
 
 static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t sync_flag, uint32_t sync_msg )
@@ -2382,8 +2491,8 @@ void smc_instance_dump(smc_t* smc_instance)
         return;
     }
 
-    SMC_TRACE_PRINTF("SMC: ");
-    SMC_TRACE_PRINTF("SMC: Instance: 0x%08X (%s) CPU ID 0x%02X, Remote CPU ID: %d, channel count %d", (uint32_t)smc_instance,
+    SMC_TRACE_PRINTF_ALWAYS("SMC: ");
+    SMC_TRACE_PRINTF_ALWAYS("SMC: Instance: 0x%08X (%s) CPU ID 0x%02X, Remote CPU ID: %d, channel count %d", (uint32_t)smc_instance,
                                                                              smc_instance->is_master?"Master":"Slave",
                                                                              smc_instance->cpu_id_local,
                                                                              smc_instance->cpu_id_remote,
@@ -2391,7 +2500,7 @@ void smc_instance_dump(smc_t* smc_instance)
 
     if( smc_instance->smc_shm_conf )
     {
-        SMC_TRACE_PRINTF("SMC:  - SHM starts from address 0x%08X, size %d, bytes used %d, bytes left %d, Cache control (%s)",
+        SMC_TRACE_PRINTF_ALWAYS("SMC:  - SHM starts from address 0x%08X, size %d, bytes used %d, bytes left %d, Cache control (%s)",
                 (uint32_t)smc_instance->smc_shm_conf->shm_area_start_address,
                 smc_instance->smc_shm_conf->size,
                 (smc_instance->smc_shm_conf->size-smc_instance_get_free_shm(smc_instance)),
@@ -2400,7 +2509,7 @@ void smc_instance_dump(smc_t* smc_instance)
     }
     else
     {
-        SMC_TRACE_PRINTF("SMC:  - <SHM not initialized>");
+        SMC_TRACE_PRINTF_ALWAYS("SMC:  - <SHM not initialized>");
     }
 
     if( smc_instance->smc_channel_list_count > 0 && smc_instance->smc_channel_ptr_array != NULL)
@@ -2416,8 +2525,8 @@ void smc_instance_dump(smc_t* smc_instance)
         {
             smc_channel_t* channel = smc_instance->smc_channel_ptr_array[i];
 
-            SMC_TRACE_PRINTF("SMC:  ");
-            SMC_TRACE_PRINTF("SMC:  - CH %d: priority: 0x%02X, protocol: 0x%02X, %s (0x%08X), Locks W: 0x%08X, R: 0x%08X, MDB: 0x%08X",
+            SMC_TRACE_PRINTF_ALWAYS("SMC:  ");
+            SMC_TRACE_PRINTF_ALWAYS("SMC:  - CH %d: priority: 0x%02X, protocol: 0x%02X, %s (0x%08X), Locks W: 0x%08X, R: 0x%08X, MDB: 0x%08X",
                                                                              channel->id,
                                                                              channel->priority,
                                                                              channel->protocol,
@@ -2427,74 +2536,75 @@ void smc_instance_dump(smc_t* smc_instance)
                                                                              (uint32_t)channel->lock_read,
                                                                              (uint32_t)channel->lock_mdb);
 
+            SMC_TRACE_PRINTF_ALWAYS("SMC:     TX: %s (lock sem counter %d), RX: %s",
+                    SMC_CHANNEL_STATE_SEND_IS_DISABLED(channel->state)?"--DISABLED--":"Enabled",
+                    channel->stop_counter,
+                    SMC_CHANNEL_STATE_RECEIVE_IS_DISABLED(channel->state)?"--DISABLED--":"Enabled");
+
             /* Dump the FIFO SIGNAL and MDB data */
 
             if( channel->fifo_out != NULL )
             {
-                SMC_TRACE_PRINTF("SMC:    - FIFO OUT:");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - FIFO OUT:");
                   smc_fifo_dump( "SMC:        ", channel->fifo_out, mem_offset );
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <FIFO OUT is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <FIFO OUT is not initialized>");
             }
 
             if( channel->signal_remote != NULL )
             {
-                SMC_TRACE_PRINTF("SMC:    - Signal OUT 0x%08X", (uint32_t)channel->signal_remote);
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - Signal OUT 0x%08X", (uint32_t)channel->signal_remote);
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <Signal OUT is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <Signal OUT is not initialized>");
             }
-
 
             if( channel->smc_mdb_info != NULL )
             {
-                //SMC_TRACE_PRINTF("SMC:    - MDB  OUT: 0x%08X", (uint32_t)channel->mdb_out );
-
                 smc_mdb_info_dump( "SMC:    ", channel->smc_mdb_info, mem_offset, TRUE);
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <MDB is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <MDB is not initialized>");
             }
 
-            SMC_TRACE_PRINTF("SMC:  ");
+            SMC_TRACE_PRINTF_ALWAYS("SMC:  ");
 
             if( channel->fifo_in != NULL )
             {
-                SMC_TRACE_PRINTF("SMC:    - FIFO IN:");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - FIFO IN:");
                   smc_fifo_dump( "SMC:        ", channel->fifo_in, mem_offset );
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <FIFO IN  is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <FIFO IN  is not initialized>");
             }
 
             if( channel->signal_local != NULL )
             {
-                SMC_TRACE_PRINTF("SMC:    - Signal IN 0x%08X", (uint32_t)channel->signal_local);
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - Signal IN 0x%08X", (uint32_t)channel->signal_local);
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <Signal IN is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <Signal IN is not initialized>");
             }
 
             if( channel->smc_mdb_info != NULL )
             {
-                //SMC_TRACE_PRINTF("SMC:    - MDB  IN:  0x%08X", (uint32_t)channel->mdb_in );
                 smc_mdb_info_dump( "SMC:    ", channel->smc_mdb_info, mem_offset, FALSE);
             }
             else
             {
-                SMC_TRACE_PRINTF("SMC:    - <MDB is not initialized>");
+                SMC_TRACE_PRINTF_ALWAYS("SMC:    - <MDB is not initialized>");
             }
         }
     }
     else
     {
-        SMC_TRACE_PRINTF("SMC:  - <No SMC Channels initialized>");
+        SMC_TRACE_PRINTF_ALWAYS("SMC:  - <No SMC Channels initialized>");
     }
 }
 
@@ -2528,15 +2638,15 @@ void smc_mdb_info_dump( char* indent, struct _smc_mdb_channel_info_t* smc_mdb_in
             size = smc_mdb_info->total_size_in;
         }
 
-        SMC_TRACE_PRINTF("%s- MDB %s: size %d bytes, SHM offset 0x%08X", indent, (out_mdb==TRUE)?"OUT":"IN", size, (uint32_t)mem_offset);
-        SMC_TRACE_PRINTF("%s    Memory area: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
+        SMC_TRACE_PRINTF_ALWAYS("%s- MDB %s: size %d bytes, SHM offset 0x%08X", indent, (out_mdb==TRUE)?"OUT":"IN", size, (uint32_t)mem_offset);
+        SMC_TRACE_PRINTF_ALWAYS("%s    Memory area: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
                     (uint32_t)(pool), (uint32_t)pool+size,
                     ((uint32_t)pool-mem_offset), ((uint32_t)pool+size-mem_offset));
 
     }
     else
     {
-        SMC_TRACE_PRINTF("%s- <MDB %s is not initialized>", indent, (out_mdb==TRUE)?"OUT":"IN");
+        SMC_TRACE_PRINTF_ALWAYS("%s- <MDB %s is not initialized>", indent, (out_mdb==TRUE)?"OUT":"IN");
     }
 }
 

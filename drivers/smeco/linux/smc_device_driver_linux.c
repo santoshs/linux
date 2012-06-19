@@ -15,8 +15,11 @@
 /*
 Change history:
 
+Version:       14   13-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Code cleanup, SMC status interface function
 
-Version:       3    17-Jan-20112    Heikki Siikaluoma
+Version:       3    17-Jan-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements, test features added
 
@@ -40,7 +43,6 @@ Description :  File created
 #include "smc_linux.h"
 
 #if(SMC_CONTROL==TRUE)
-
   #define SMC_CONF_COUNT_CONTROL  1
 
   extern smc_device_driver_config dev_config_control;
@@ -67,14 +69,8 @@ MODULE_AUTHOR("Renesas Mobile Europe / MeXe");
 MODULE_DESCRIPTION("SMeCo - SMC Network Device Driver");
 MODULE_LICENSE("Dual BSD/GPL");
 
-
 #if( SMCTEST == TRUE )
-
-#if 0 /* Obsolete test invocation method */
-    /*#define SMC_TEST_PHONET_DEVICE  0x70*/   /* Phonet messages to this device are routed to SMC test handler */
-    static uint8_t smc_test_linux_start_by_phonet_msg(uint32_t phonet_msg_len, uint8_t* phonet_msg);
-#endif
-        /*
+        /**
          * For test purposes the smeco.ko can be instantiated in the driver
          * NOTE: In this case there should be no instantiation in the kernel starup
          */
@@ -159,7 +155,6 @@ smc_device_driver_config* smc_device_conf[SMC_DEVICE_DRIVER_CONF_COUNT] =
 
 };
 
-
     /*
      * Device methods implemented by SMC
      */
@@ -170,11 +165,10 @@ uint16_t   smc_net_device_driver_select_queue(struct net_device *device, struct 
 static int smc_net_device_driver_ioctl(struct net_device *device, struct ifreq *ifr, int cmd);
 static int smc_net_device_driver_set_mtu(struct net_device *device, int new_mtu);
 
-
-/*
- * Opens channels and start to communicate with remote.
- * NOTE: The network device should be open.
- */
+    /*
+     * Opens channels and start to communicate with remote.
+     * NOTE: The network device should be open.
+     */
 static int smc_net_device_driver_open_channels(struct net_device* device);
 
     /*
@@ -190,6 +184,12 @@ static const struct net_device_ops smc_net_device_ops =
     .ndo_change_mtu     = smc_net_device_driver_set_mtu,
 };
 
+
+    /*
+     * Prints the current status of the SMC.
+     * Function is invoked from the IOCTL function.
+     */
+static int smc_net_device_print_status( struct net_device* device, smc_device_driver_priv_t* smc_net_dev );
 
 /*
  * Network device configuration getter.
@@ -350,7 +350,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     smc_t*                    smc_instance = NULL;
 
     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: device 0x%08X, protocol 0x%04X, queue %d...", (uint32_t)device, skb->protocol, skb->queue_mapping );
-    SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d):", skb->len);
+    SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
     SMC_TRACE_PRINTF_TRANSMIT_DATA( skb->len , skb->data );
 
     if (skb->len < PHONET_MIN_MTU)
@@ -374,29 +374,39 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     {
         if( skb->queue_mapping < smc_instance->smc_channel_list_count )
         {
-            SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: stop the subqueue to allow queue in upper layer");
-            netif_stop_subqueue(device, skb->queue_mapping);
+            smc_channel_t*  smc_channel = NULL;
+            uint16_t        skb_queue_mapping = skb->queue_mapping;
+
+
+            smc_channel = SMC_CHANNEL_GET(smc_instance,  skb_queue_mapping);
+
+            SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: stop the subqueue %d to allow queue in upper layer", skb_queue_mapping);
+            netif_stop_subqueue(device, skb_queue_mapping);
+
+            SMC_CHANNEL_STATE_SET_SEND_IS_DISABLED( smc_channel->state );
 
             SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
             ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
 
             if( unlikely(ret_val) )
             {
-                SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, SKB TX failed (wakeup the queue)", skb->protocol);
+                SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, SKB TX failed (wakeup the subqueue %d)", skb->protocol, skb_queue_mapping);
 
-                netif_wake_subqueue(device, skb->queue_mapping);
+                netif_wake_subqueue(device, skb_queue_mapping);
+
+                SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
 
                 goto DROP_PACKET;
             }
             else
             {
-                smc_channel_t*  smc_channel = NULL;
+                //smc_channel_t*  smc_channel = NULL;
                 smc_user_data_t userdata;
 
-                SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: send data using SMC 0x%08X channel id %d...", (uint32_t)smc_instance, skb->queue_mapping);
+                SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: send data using SMC 0x%08X subqueue %d...", (uint32_t)smc_instance, skb_queue_mapping);
 
                     /* Select the channel by the Queue */
-                smc_channel = SMC_CHANNEL_GET(smc_instance, skb->queue_mapping );
+                //smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping );
 
                 userdata.flags     = 0x00000000;
                 userdata.userdata1 = 0x00000000;
@@ -422,10 +432,11 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                 if( smc_send_ext(smc_channel, skb->data, skb->len, &userdata) != SMC_OK )
                 {
                     SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, smc_send_ext failed", skb->protocol);
+                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: wake up the subqueue %d to allow message sending", skb_queue_mapping);
 
-                    /* TODO Check if not wakeup the sub queue because of the send failure */
-                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: wake up the subqueue to allow message sending");
-                    netif_wake_subqueue(device, skb->queue_mapping);
+                    netif_wake_subqueue(device, skb_queue_mapping);
+
+                    SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
 
                     goto DROP_PACKET;
                 }
@@ -441,8 +452,10 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                     /*dev_kfree_skb(skb);*/
                     dev_kfree_skb_any(skb);
 
-                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: wake up the subqueue to allow message sending");
-                    netif_wake_subqueue(device, skb->queue_mapping);
+                    SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: wake up the subqueue %d to allow message sending", skb_queue_mapping);
+                    netif_wake_subqueue(device, skb_queue_mapping);
+
+                    SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
 
                     ret_val = SMC_DRIVER_OK;
                     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: Completed by return value %d", ret_val);
@@ -495,34 +508,38 @@ uint16_t smc_net_device_driver_select_queue(struct net_device *device, struct sk
 
 static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* ifr, int cmd)
 {
-    int                       ret_val      = SMC_DRIVER_OK;
+    int                       ret_val      = SMC_DRIVER_ERROR;
     smc_device_driver_priv_t* smc_net_dev  = NULL;
 
     SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: starts device 0x%08X, command %d (0x%08X)...", (uint32_t)device, cmd, cmd);
 
     smc_net_dev = netdev_priv(device);
 
-    if( smc_net_dev && smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_ioctl)
+    /* First handle common commands */
+
+    if( cmd == SIOCDEV_STATUS )
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: delivering to upper layer IOCTL handler...");
-        ret_val = smc_net_dev->smc_dev_config->driver_ioctl(device, ifr, cmd );
+        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_STATUS");
+        ret_val = smc_net_device_print_status(device, smc_net_dev);
     }
     else
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: upper layer does not have IOCTL handler");
-        switch(cmd)
+        if( smc_net_dev && smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_ioctl)
         {
-        /*
-            case SIOCPNGETOBJECT:
+            SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: delivering to upper layer IOCTL handler...");
+            ret_val = smc_net_dev->smc_dev_config->driver_ioctl(device, ifr, cmd );
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: upper layer does not have IOCTL handler");
+
+            switch(cmd)
             {
-                SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCPNGETOBJECT");
-                break;
-            }
-            */
-            default:
-            {
-                SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_ioctl: Unsupported command %d", cmd);
-                break;
+                default:
+                {
+                    SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_ioctl: Unsupported command %d", cmd);
+                    break;
+                }
             }
         }
     }
@@ -635,7 +652,7 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 			}
 			else
 			{
-			    SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, correct device type not found",
+			    SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, unknown device, no action",
 			                        dev!=NULL?dev->name:"<NO NAME>");
 			}
 
@@ -643,9 +660,20 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 		}
 		case NETDEV_DOWN:  /* 0x02 */
 		{
-			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_UP", dev!=NULL?dev->name:"<NO NAME>");
+			SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' NETDEV_DOWN", dev!=NULL?dev->name:"<NO NAME>");
 
-			/* TODO Implement close */
+			if( dev != NULL )
+			{
+			    if( strncmp( dev->name, "smc", 3 ) == 0 )
+			    {
+			        smc_net_device_driver_close( dev );
+			    }
+                else
+                {
+                    SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_DOWN, unknown device, no action",
+                                        dev!=NULL?dev->name:"<NO NAME>");
+                }
+			}
 
 			break;
 		}
@@ -673,8 +701,8 @@ static struct notifier_block smc_device_notifier = {
 
 static int __devinit smc_net_platform_device_probe(struct platform_device* platform_device)
 {
-    int                ret_val = SMC_DRIVER_OK;
-    struct net_device* ndevice = NULL;
+    int                       ret_val  = SMC_DRIVER_OK;
+    struct net_device*        ndevice  = NULL;
     smc_device_driver_config* dev_conf = NULL;
 
     SMC_TRACE_PRINTF_DEBUG("smc_net_platform_device_probe: SMC v.%s: platform device 0x%08X: id %d, name %s num resources %d...",
@@ -810,8 +838,6 @@ static int smc_net_platform_device_remove(struct platform_device* platform_devic
     return ret_val;
 }
 
-
-
 static struct platform_driver smc_platform_device_driver = {
     .probe    = smc_net_platform_device_probe,
     .remove   = smc_net_platform_device_remove,
@@ -821,7 +847,6 @@ static struct platform_driver smc_platform_device_driver = {
     },
 
 };
-
 
 static int __init smc_platform_device_driver_init(void)
 {
@@ -833,7 +858,7 @@ static int __init smc_platform_device_driver_init(void)
     SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_init: register driver...");
     ret_val = platform_driver_register(&smc_platform_device_driver);
 
-     SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_init: register device notifier...");
+    SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_init: register device notifier...");
     register_netdevice_notifier(&smc_device_notifier);
 
 #if( SMCTEST == TRUE )
@@ -869,6 +894,37 @@ static void __exit smc_platform_device_driver_exit(void)
     SMC_TRACE_PRINTF_DEBUG("smc_platform_device_driver_exit: completed");
 }
 
+/*
+ * Prints the current status of the SMC.
+ * Function is invoked from the IOCTL function.
+ */
+static int smc_net_device_print_status( struct net_device* device, smc_device_driver_priv_t* smc_net_dev )
+{
+    int ret_val = SMC_DRIVER_OK;
+
+    SMC_TRACE_PRINTF_ALWAYS("SMC: v.%s: Net Device '%s':", SMC_SW_VERSION, device->name);
+
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets delivered: %8d", device->stats.tx_packets);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets dropped:   %8d", device->stats.tx_dropped);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets received:  %8d", device->stats.rx_packets);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets dropped:   %8d", device->stats.rx_dropped);
+
+
+    /* smc_net_dev->platform_device->name,  */
+
+    if( smc_net_dev->smc_instance != NULL )
+    {
+        smc_instance_dump( smc_net_dev->smc_instance );
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ALWAYS("  SMC instance is NULL");
+    }
+
+    return ret_val;
+}
+
+
 module_init(smc_platform_device_driver_init);
 module_exit(smc_platform_device_driver_exit);
 
@@ -888,42 +944,6 @@ uint8_t smc_test_linux_start(uint16_t test_case_id, uint16_t test_data_input_len
 }
 
 EXPORT_SYMBOL(smc_test_linux_start);
-
-#if 0 /* Obsolete test invocation method */
-static uint8_t smc_test_linux_start_by_phonet_msg(uint32_t phonet_msg_len, uint8_t* phonet_msg)
-{
-    uint8_t ret_val = SMC_OK;
-
-    SMC_TRACE_PRINTF_DEBUG("smc_test_linux_start_by_phonet_msg: data len %d...", phonet_msg_len);
-    SMC_TRACE_PRINTF_DEBUG_DATA( phonet_msg_len , phonet_msg );
-
-    /* Remove the  header 7 bytes */
-
-    if( phonet_msg_len > 7 )
-    {
-        uint32_t counter = 7;
-
-            /* Use just one byte */
-        uint16_t test_case_id  = (uint16_t)phonet_msg[counter++];
-        uint16_t test_data_len = (uint16_t)(phonet_msg_len-counter);
-        uint8_t* test_data     = (uint8_t*)(phonet_msg+counter);
-
-        SMC_TRACE_PRINTF_DEBUG("smc_test_linux_start_by_phonet_msg: smc_test_linux_start: invoke test case 0x%02X with data len %d",
-                test_case_id, test_data_len);
-        ret_val = smc_test_linux_start( test_case_id, test_data_len, test_data);
-
-        SMC_TRACE_PRINTF_DEBUG("smc_test_linux_start_by_phonet_msg: smc_test_linux_start completed by return value 0x%02X", ret_val );
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_DEBUG("smc_test_linux_start_by_phonet_msg: not enough data for the test");
-        ret_val = SMC_ERROR;
-    }
-
-    return ret_val;
-}
-#endif
-
 
 #endif
 

@@ -256,6 +256,8 @@ void smc_signal_destroy( smc_signal_t* signal )
 
     if( signal != NULL )
     {
+        /* Unregister */
+
         if( signal->peripheral_address != 0 && signal->address_remapped==TRUE )
         {
             iounmap( (void*)signal->peripheral_address );
@@ -281,7 +283,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
         if( signal->peripheral_address != 0 )
         {
             uint32_t genios = (1UL << ((signal->interrupt_id-SMC_MODEM_INTGEN_L2_FIRST) + SMC_MODEM_INTGEN_L2_OFFSET));
-            uint32_t counter = 0;
+
             SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
             signal->interrupt_id, genios);
 
@@ -292,18 +294,6 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
             __raw_writel( genios, ((void __iomem *)(signal->peripheral_address+4)) );
 
             __raw_readl( ((void __iomem *)(signal->peripheral_address+4)) );
-
-            /*
-            while(  (__raw_readl((void __iomem *)(signal->peripheral_address+4))&genios) != genios  )
-            {
-                if( counter++ > 0xFFFFFF )
-                {
-                    SMC_TRACE_PRINTF_UI("ERROR: smc_signal_raise: SIGNAL 0x%08X in reg 0x%08X not raised within decent time", genios,
-                            __raw_readl((void __iomem *)(signal->peripheral_address+4)));
-                    break;
-                }
-            }
-            */
 
             SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
         }
@@ -482,6 +472,106 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
     return ret_value;
 }
+
+/**
+ * Unregister signal and remove signal handler.
+ */
+uint8_t smc_signal_handler_unregister( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel )
+{
+    uint8_t               ret_value      = SMC_OK;
+    smc_signal_handler_t* signal_handler = NULL;
+
+    if( signal != NULL )
+    {
+        void*         dev_id       = NULL;
+
+        signal_handler = smc_signal_handler_get(signal->interrupt_id, signal->signal_type);
+
+        if( signal->signal_type == SMC_SIGNAL_TYPE_INTCBB )
+        {
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: signal: 0x%08X: is SMC_SIGNAL_TYPE_INTCBB", (uint32_t)signal);
+
+            free_irq((int)signal->interrupt_id, dev_id);
+
+        }
+        else if( signal->signal_type == SMC_SIGNAL_TYPE_INT_WGM_GENOUT )
+        {
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_WGM_GENOUT", (uint32_t)signal);
+
+            free_irq((int)signal->interrupt_id, dev_id);
+        }
+        else if( signal->signal_type == SMC_SIGNAL_TYPE_INT_RESOURCE )
+        {
+            struct resource*        res             = NULL;
+            struct platform_device* platform_device = NULL;
+
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: signal: 0x%08X: is SMC_SIGNAL_TYPE_INT_RESOURCE", (uint32_t)signal);
+
+            if( smc_instance->smc_parent_ptr != NULL )
+            {
+                SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: parent object 0x%08X found, extract the platform device", smc_instance->smc_parent_ptr);
+                platform_device = (struct platform_device*)smc_instance->smc_parent_ptr;
+            }
+
+            if( platform_device )
+            {
+                int     irq_spi = (int)signal->interrupt_id;
+                int     res_id  = 0;
+                uint8_t found   = FALSE;
+
+
+
+                while( (res = platform_get_resource(platform_device, IORESOURCE_IRQ, res_id)) )
+                {
+                    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: check res id %d where IRQ ID %d...", res_id, res->start);
+
+                    if( (res->start-SMC_APE_IRQ_OFFSET_INTCSYS_SPI) == irq_spi )
+                    {
+                        SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: res id %d: IRQ ID %d match to SPI %d...", res_id, res->start,irq_spi);
+                        found = TRUE;
+                        break;
+                    }
+
+                    res_id++;
+                }
+
+                if( found )
+                {
+                    dev_id    = platform_device;
+
+                    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: found res 0x%08X, IRQ start is %d",
+                            (uint32_t)signal, res, res->start );
+
+                    free_irq( res->start, dev_id );
+                }
+                else
+                {
+                    SMC_TRACE_PRINTF_ERROR("smc_signal_handler_unregister: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: platform_get_resource with irq id %d FAILED", (uint32_t)signal, signal->interrupt_id);
+                }
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_signal_handler_unregister: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: No device, unable to get IRQ %d", (uint32_t)signal, signal->interrupt_id);
+            }
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_signal_handler_unregister: signal: 0x%08X type 0x%08X not supported", (uint32_t)signal, signal->signal_type);
+            ret_value      = SMC_ERROR;
+        }
+
+        if( signal_handler != NULL )
+        {
+            SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: remove signal handler...");
+            smc_signal_handler_remove_and_destroy( signal_handler );
+        }
+    }
+
+    SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_unregister: completed");
+
+    return ret_value;
+}
+
 
 /* =============================================================
  * SMC locking function platform specific implementation
