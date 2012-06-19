@@ -4,7 +4,7 @@
 
 menuconfig SENSOR_SUPPORT
 	bool "Sensor support"
-	default y
+	default n
 	help
 		This option adds the support for sensor driver.
 		You will also need drivers from the following menu to make use of it.
