@@ -787,8 +787,7 @@ static void renesas_sdhi_start_dma(
 		goto force_pio;
 	}
 
-	desc = chan->device->device_prep_slave_sg(chan,
-			data->sg, count, dir, DMA_CTRL_ACK);
+	desc = dmaengine_prep_slave_sg(chan, data->sg, count, dir, DMA_CTRL_ACK);
 	if (desc) {
 		desc->callback = renesas_sdhi_dma_callback;
 		desc->callback_param = host;
@@ -801,7 +800,7 @@ static void renesas_sdhi_start_dma(
 		}
 	} else {
 		dev_err(&host->pdev->dev,
-			"%s(): device_prep_slave_sg error\n", __func__);
+			"%s(): dmaengine_prep_slave_sg error\n", __func__);
 		dmaengine_terminate_all(chan);
 		goto force_pio;
 	}
