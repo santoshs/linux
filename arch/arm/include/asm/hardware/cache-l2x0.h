@@ -75,6 +75,7 @@
 #define L2X0_CACHE_ID_RTL_R2P0          0x4
 #define L2X0_CACHE_ID_RTL_R3P0          0x5
 #define L2X0_CACHE_ID_RTL_R3P1          0x6
+#define L2X0_CACHE_ID_RTL_R3P1_50REL0	0x7
 #define L2X0_CACHE_ID_RTL_R3P2          0x8
 
 #define L2X0_AUX_CTRL_MASK			0xc0000fff

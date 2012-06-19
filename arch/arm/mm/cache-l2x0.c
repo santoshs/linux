@@ -381,7 +381,7 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		 */
 #ifdef CONFIG_CACHE_PL310_PREFETCH_DOUBLE_LINEFILL
 		/* safely available in r3p2 or later */
-		if ((cache_id & L2X0_CACHE_ID_RTL_MASK) >= L2X0_CACHE_ID_RTL_R3P2)
+		if ((cache_id & L2X0_CACHE_ID_RTL_MASK) >= L2X0_CACHE_ID_RTL_R3P1_50REL0)
 			prefetch |= 1 << L2X0_PREFETCH_CTRL_DOUBLE_LINEFILL_SHIFT;
 			/* bit 27 and 23 are left unused for now */
 #endif
