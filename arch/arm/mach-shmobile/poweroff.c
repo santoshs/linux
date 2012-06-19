@@ -92,6 +92,7 @@ void shmobile_pm_stop_peripheral_devices(void)
  */
 static void shmobile_pm_restart(char mode, const char *cmd)
 {
+	u8 reg = 0;
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
@@ -109,6 +110,10 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	setup_mm_for_reboot();
 	/* Clean and invalidate caches */
 	flush_cache_all();
+
+	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_PM_RESTART), STBCHR2); /* write STBCHR2 for debug */
+
 	/* Turn off caching */
 	cpu_proc_fin();
 	/* Push out any further dirty data, and ensure cache is empty */
@@ -125,6 +130,7 @@ static void shmobile_pm_restart(char mode, const char *cmd)
  */
 static void shmobile_pm_poweroff(void)
 {
+	u8 reg;
 	POWEROFF_PRINTK("%s\n", __func__);	
 #if 1
 	/* Disable interrupts first */
@@ -140,6 +146,11 @@ static void shmobile_pm_poweroff(void)
 	cpu_proc_fin();
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
+
+	/* Write STBCHR2 for debug */
+	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2); /* write STBCHR2 for debug */
+
 	/* The architecture specific reboot */
 	#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);

@@ -28,14 +28,20 @@
 #include <asm/memory.h>
 #include <asm/system.h>
 
-// for STBCHR2
-#define APE_RESETLOG_PANIC_START    0x01
-#define APE_RESETLOG_PANIC_END      0x02
-#define APE_RESETLOG_RESET_WATCHER  0x04
-#define APE_RESETLOG_PM_POWEROFF    0x08
-#define APE_RESETLOG_U2EVM_RESTART  0x10
-#define APE_RESETLOG_TMPLOG_END     0x40
-#define APE_RESETLOG_INIT_COMPLETE  0x80
+/* for STBCHR2 */
+#define APE_RESETLOG_PANIC_START         (0x01)
+#define APE_RESETLOG_PANIC_END           (0x02)
+#define APE_RESETLOG_PM_RESTART          (0x04)
+#define APE_RESETLOG_PM_POWEROFF         (0x08)
+#define APE_RESETLOG_U2EVM_RESTART       (0x10)
+#define APE_RESETLOG_RWDT_SOFTWARE_RESET (0x20)
+#define APE_RESETLOG_INIT_COMPLETE       (0x80)
+
+/* for STBCHR3 */
+#define APE_RESETLOG_BOOT1  	(0x01)
+#define APE_RESETLOG_BOOT2  	(0x02)
+#define APE_RESETLOG_DEBUG  	(0x04)
+#define APE_RESETLOG_TMPLOG_END (0x08)
 
 /* IO_ADDRESS */
 #ifndef IO_ADDRESS
