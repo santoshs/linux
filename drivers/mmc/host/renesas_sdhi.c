@@ -358,13 +358,13 @@ static void renesas_sdhi_data_done(
 	struct renesas_sdhi_host *host, struct mmc_command *cmd)
 {
 	struct mmc_data *data = host->data;
-	int dir;
+	enum dma_transfer_direction dir;
 	u32 val;
 
 	if (data) {
 		if (!host->force_pio) {
 			dir = (host->data->flags & MMC_DATA_READ) ?
-				DMA_FROM_DEVICE : DMA_TO_DEVICE;
+				DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
 			dma_unmap_sg(mmc_dev(host->mmc), host->sg_ptr,
 						host->sg_len, dir);
 		}
@@ -729,10 +729,10 @@ static void renesas_sdhi_config_dma(struct renesas_sdhi_host *host,
 	if (burst_size == host->burst_size)
 		return;
 
-	config.direction = DMA_FROM_DEVICE;
+	config.direction = DMA_DEV_TO_MEM;
 	ret = dmaengine_slave_config(host->dma_rx, &config);
 
-	config.direction = DMA_TO_DEVICE;
+	config.direction = DMA_MEM_TO_DEV;
 	ret |= dmaengine_slave_config(host->dma_tx, &config);
 
 	if (ret) {
@@ -750,7 +750,8 @@ static void renesas_sdhi_start_dma(
 	struct renesas_sdhi_host *host, struct mmc_data *data)
 {
 	struct scatterlist *sg = host->sg_ptr, *sg_tmp;
-	int dir, count, i;
+	enum dma_transfer_direction dir;
+	int count, i;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *chan;
 	dma_cookie_t cookie;
@@ -770,10 +771,10 @@ static void renesas_sdhi_start_dma(
 	sdhi_dma_enable(host, true);
 
 	if (data->flags & MMC_DATA_READ) {
-		dir = DMA_FROM_DEVICE;
+		dir = DMA_DEV_TO_MEM;
 		chan = host->dma_rx;
 	} else {
-		dir = DMA_TO_DEVICE;
+		dir = DMA_MEM_TO_DEV;
 		chan = host->dma_tx;
 	}
 
