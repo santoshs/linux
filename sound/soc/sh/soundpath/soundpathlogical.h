@@ -186,6 +186,12 @@ static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
 static void sndp_work_watch_stop_fw(struct work_struct *work);
 
+/* Work queue processing for FM Radio start */
+static void sndp_work_fm_radio_start(struct work_struct *work);
+/* Work queue processing for FM Radio stop */
+static void sndp_work_fm_radio_stop(struct work_struct *work);
+
+
 /* MAXIM start / stop control functions */
 static void sndp_maxim_work_start(const int direction);
 static void sndp_maxim_work_stop(

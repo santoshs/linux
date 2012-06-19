@@ -1960,7 +1960,7 @@ static int vcd_spuv_func_relocation_fw(
 		goto rtn;
 	}
 
-	/* get meram area */
+	/* get size */
 	for (i = 0; i < VCD_SPUV_FUNC_PAGE_SIZE; i++) {
 		if (0 != read_fw_info->pram_page_size[i])
 			fw_size += vcd_spuv_func_ceiling128(
@@ -1972,17 +1972,22 @@ static int vcd_spuv_func_relocation_fw(
 			fw_size += vcd_spuv_func_ceiling128(
 					read_fw_info->yram_page_size[i]);
 	}
+	if (VCD_SPUV_FUNC_FW_BUFFER_SIZE < fw_size)
+		vcd_pr_err("firmware size error[0x%x].\n", fw_size);
+
+	/* get meram area */
 	ret = vcd_spuv_func_get_meram(fw_size);
 	if (0 != ret)
 		vcd_pr_spuv_info("meram not use[%d].\n", ret);
 
 	ret = VCD_ERR_NONE;
 
+	/* relocation set */
 	if (0 != SPUV_FUNC_MERAM_FIRMWARE_BUFFER)
-		/* firmware cop to meram */
+		/* firmware copy to meram */
 		start_addr = SPUV_FUNC_MERAM_FIRMWARE_BUFFER;
 	else
-		/* firmware cop to sdram */
+		/* firmware copy to sdram */
 		start_addr = SPUV_FUNC_SDRAM_FIRMWARE_BUFFER;
 
 
