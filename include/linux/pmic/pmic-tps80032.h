@@ -157,6 +157,14 @@ struct tps80032_irq_data {
 #define HW_REG_PREQ1_RES_ASS_B			0xD8
 #define HW_REG_PREQ1_RES_ASS_C			0xD9
 
+#define HW_REG_PREQ2_RES_ASS_A			0xDA
+#define HW_REG_PREQ2_RES_ASS_B			0xDB
+#define HW_REG_PREQ2_RES_ASS_C			0xDC
+
+#define HW_REG_PREQ3_RES_ASS_A			0xDD
+#define HW_REG_PREQ3_RES_ASS_B			0xDE
+#define HW_REG_PREQ3_RES_ASS_C			0xDF
+
 #define HW_REG_PHOENIX_MSK_TRANSITION	0x20
 
 #define HW_REG_CHARGEUSB_CTRL1			0xE8
@@ -173,6 +181,7 @@ struct tps80032_irq_data {
 #define HW_REG_CONTROLLER_STAT1			0xE3
 #define HW_REG_CONTROLLER_CTRL1			0xE1
 #define HW_REG_CONTROLLER_INT_MASK		0xE0
+#define HW_REG_CHARGERUSB_INT_MASK		0xE5
 #define HW_REG_CHARGERUSB_STATUS_INT1	0xE6
 #define HW_REG_CHARGERUSB_STATUS_INT2	0xE7
 #define HW_REG_CHARGERUSB_CTRL1			0xE8
@@ -206,6 +215,7 @@ struct tps80032_irq_data {
 #define HW_REG_LDO5_CFG_STATE			0x9A
 #define HW_REG_LDO7_CFG_STATE			0xA6
 #define HW_REG_LDOUSB_CFG_STATE			0xA2
+#define HW_REG_LDOLN_CFG_TRANS			0x95
 
 #define HW_REG_CLK32KAO_CFG_TRANS		0xBA
 #define HW_REG_CLK32KAO_CFG_STATE		0xBB
@@ -306,7 +316,7 @@ struct tps80032_irq_data {
 
 #else
 /* If no use BIN */
-#define CONST_TIMER_BATTERY_UPDATE		0x2710
+#define CONST_TIMER_BATTERY_UPDATE		0x03E8
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
 #define CONST_0C_DEGREE					0x0000
@@ -328,14 +338,19 @@ struct tps80032_irq_data {
 #define MSK_INT_SRC_C					0x8A
 #define MSK_DISABLE 					0x00
 #define MSK_CONTROLLER_INT				0x00
+#define MSK_CHARGERUSB_INT				0x06
 #define MSK_PREQ1_ASS_A					0x11
 #define MSK_PREQ1_ASS_B					0xA0
+#define MSK_PREQ2_ASS_A					0x08
+#define MSK_PREQ3_ASS_B					0x80
 #define MSK_TRANSITION					0x00
 #define CONST_INT_ID					0x1C
 #define CONST_X1						0x05A1
 #define CONST_X2						0x0CCC
+#define CONST_LDOLN_CFG_TRANS			0x01
 #define CONST_VAC_CURRENT_LIMIT			0x01	/* 100mA */
 #define CONST_DEF_CURRENT_LIMIT			0x01	/* 100mA */
+#define CONST_VSYSMIN_HI				0x17	/* 3.15 V */
 #define CONST_VOREG						0x05	/* 3.6V */
 #define CONST_VICHRG					0x02	/* 300mA with POP = 1*/
 
