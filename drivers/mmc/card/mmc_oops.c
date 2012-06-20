@@ -77,6 +77,8 @@ struct oops_attr {
 	ssize_t (*store)(struct mmcoops_context *, const char *, size_t count);
 };
 
+extern void rmu2_cmt_stop(void);
+
 #define attr_ro(_name)				\
 static struct oops_attr mmc_oops_##_name =	\
 __ATTR(_name, 0444, show_##_name, NULL)
@@ -529,8 +531,10 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		return;
 
 	/* Only dump oopses if dump_oops is set */
-	if (reason == KMSG_DUMP_OOPS && !dump_oops)
+	if ((reason != (KMSG_DUMP_PANIC || KMSG_DUMP_KEXEC)) && !dump_oops)
 		return;
+
+	rmu2_cmt_stop();
 
     if (cxt->size < cxt->record_size)
         return;

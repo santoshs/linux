@@ -19,6 +19,21 @@
  */
 
 #include <linux/rmu2_rwdt.h>
+#include <asm/io.h>
+
+#define CONFIG_GIC_NS
+#define CONFIG_GIC_NS_CMT
+
+//#define CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_DEBUG
+#include <linux/proc_fs.h>
+
+static struct proc_dir_entry *proc_watch_entry;
+static int start_stop_cmt_watchdog = 0;
+#endif
+
+#define ICD_ISR0 0xF0001080
+#define ICD_IPTR0 0xf0001800
 
 static struct delayed_work *dwork = NULL;
 static struct workqueue_struct *wq = NULL;
@@ -216,7 +231,7 @@ static void rmu2_cmt_start(void)
  * output: none
  * return: none
  */
-static void rmu2_cmt_stop(void)
+void rmu2_cmt_stop(void)
 {
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);	/* Int disable */
@@ -231,6 +246,9 @@ static void rmu2_cmt_stop(void)
  */
 static void rmu2_cmt_clear(void)
 {
+#ifdef CONFIG_RWDT_DEBUG
+	printk(KERN_DEBUG "clear the CMT counter!!\n");
+#endif
 	__raw_writel(0U, CMCNT15);
 }
 
@@ -277,6 +295,25 @@ static void rmu2_cmt_init_irq(void)
 		return;
 	}
 	
+#ifdef CONFIG_GIC_NS
+	{
+#ifdef CONFIG_RMU2_RWDT_30S
+		int i;
+		unsigned int val;
+		i=CMT15_SPI+32;
+		__raw_writel(__raw_readl(ICD_ISR0+4*(int)(i/32)) & ~(1<<(i%32)), ICD_ISR0+4*(int)(i/32));
+		printk(KERN_DEBUG "< %s > ICD_ISR%d = %08x\n",__func__,i,__raw_readl(ICD_ISR0+4*(int)(i/32)));
+
+		//DIST to CPU0 & CPU1
+		val = __raw_readl(ICD_IPTR0+4*(int)(i/4));
+		val = (val & ~(0xff << (8*(int)(i%4)))) | (0x03 << (8*(int)(i%4)));
+		__raw_writel(val, ICD_IPTR0+4*(int)(i/4));
+		printk(KERN_ERR "< %s > ICD_IPTR%d = %08x\n",__func__,i,__raw_readl(ICD_IPTR0+4*(int)(i/4)));
+#endif  /* CONFIG_RMU2_RWDT_30S */
+	}
+#endif  /* CONFIG_GIC_NS */
+
+
 	enable_irq(irq);
 }
 #endif	/* CONFIG_GIC_NS_CMT */
@@ -289,7 +326,7 @@ static void rmu2_cmt_init_irq(void)
  * 			0: sucessful
  *			-EAGAIN: try again
  */
-static int rmu2_rwdt_cntclear(void)
+int rmu2_rwdt_cntclear(void)
 {
 	int ret = 0;
 	unsigned int base;
@@ -311,6 +348,9 @@ static int rmu2_rwdt_cntclear(void)
 	reg8 = __raw_readb(base + RWTCSRA);
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
+#ifdef CONFIG_RWDT_DEBUG
+	printk(KERN_DEBUG "Clear the watchdog counter!!\n");
+#endif
 		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT);
 		return 0;
 	} else {
@@ -376,6 +416,12 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 {
 	int ret;
 
+#ifdef CONFIG_RWDT_DEBUG
+	if ( start_stop_cmt_watchdog == 1) {
+		printk(KERN_DEBUG "Skip to clear RWDT for debug!!\n");
+		return;
+	}
+#endif
 	RWDT_DEBUG( "START < %s >\n", __func__);
 
 	cpg_check_check();
@@ -666,7 +712,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	if (0 <= ret) {
 		ret = rmu2_rwdt_start();
     	if (0 <= ret) {
-			return ret; 
+		return ret; 
 		}
 	}
 
@@ -805,6 +851,44 @@ static struct platform_driver rmu2_rwdt_driver = {
 
 };
 
+#ifdef CONFIG_RWDT_DEBUG
+
+int read_proc(char *buf,char **start,off_t offset,int count,int *eof,void *data )
+{
+	int len=0;
+	len = sprintf(buf,"%x",start_stop_cmt_watchdog);
+
+	return len;
+}
+
+int write_proc(struct file *file,const char __user *buf,unsigned int count,void *data )
+{
+	char buffer[4];
+
+	if(count > sizeof(start_stop_cmt_watchdog))
+		return -EFAULT;
+
+   
+	if(copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	sscanf(buffer,"%x",&start_stop_cmt_watchdog);
+
+	return start_stop_cmt_watchdog;
+}
+
+void create_new_proc_entry(void)
+{
+	proc_watch_entry = create_proc_entry("proc_watch_entry",0666,NULL);
+	if(!proc_watch_entry) {
+	printk(KERN_INFO "Error creating proc entry");
+	return;
+	}
+	proc_watch_entry->read_proc = (read_proc_t *)read_proc ;
+	proc_watch_entry->write_proc =(write_proc_t *)write_proc;
+}
+
+#endif
 /*
  * init routines
  */
@@ -826,6 +910,10 @@ static int __init rmu2_rwdt_init(void)
 		return ret;
 	}
 
+#ifdef CONFIG_RWDT_DEBUG
+	create_new_proc_entry();
+#endif
+
 	return ret;
 }
 
@@ -838,6 +926,9 @@ static void __exit rmu2_rwdt_exit(void)
 	
 	platform_driver_unregister(&rmu2_rwdt_driver);
 	platform_device_unregister(&rmu2_rwdt_dev);
+#ifdef CONFIG_RWDT_DEBUG
+	remove_proc_entry("proc_watch_entry",NULL);
+#endif
 }
 
 /*
@@ -848,10 +939,12 @@ static void __exit rmu2_rwdt_exit(void)
  */
 void rmu2_rwdt_software_reset(void)
 {
-
+	u8 reg = 0;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
 	/* __raw_writeb(0x22, (unsigned long)0xE6180041); */
 
+	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_RWDT_SOFTWARE_RESET), STBCHR2); /* write STBCHR2 for debug */
 	/* execute software reset by setting 0x80000000 to RESCNT2 */
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_PRES_MASK, RESCNT2_PRES_MASK);
 }

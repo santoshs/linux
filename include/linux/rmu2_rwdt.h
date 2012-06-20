@@ -67,7 +67,6 @@
 #endif /* CONFIG_RWDT_DEBUG */
 
 /* register address define */
-#define STBCHR2				IO_ADDRESS(0xE6180002U)
 #define STBCHRB1			IO_ADDRESS(0xE6180041U)
 #define SYSC_RESCNT2		IO_ADDRESS(0xE6188020U)
 #define RWDT_BASE 			IO_ADDRESS(0xE6020000U)
@@ -120,11 +119,11 @@ static inline u32 dec2hex(u32 dec)
 static void cpg_check_init(void);
 static void cpg_check_check(void);
 static void rmu2_cmt_start(void);
-static void rmu2_cmt_stop(void);
+void rmu2_cmt_stop(void);
 static void rmu2_cmt_clear(void);
 static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id);
 static void rmu2_cmt_init_irq(void);
-static int rmu2_rwdt_cntclear(void);
+int rmu2_rwdt_cntclear(void);
 static int rmu2_rwdt_stop(void);
 static void rmu2_rwdt_workfn(struct work_struct *work);
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
