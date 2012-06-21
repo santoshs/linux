@@ -106,7 +106,7 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 
 #define POWER_DOMAIN_COUNT_MAX	3
 #define CONFIG_PM_RUNTIME_A3SG
-#define CONFIG_PM_RUNTIME_A3SP
+/*#define CONFIG_PM_RUNTIME_A3SP*/
 #define CONFIG_PM_RUNTIME_A3R
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
@@ -159,6 +159,8 @@ static inline int is_pdc_enable(void) { return 0; }
 
 #ifdef CONFIG_SUSPEND
 suspend_state_t get_shmobile_suspend_state(void);
+void shwystatdm_regs_save(void);
+void shwystatdm_regs_restore(void);
 #ifdef CONFIG_PM_DEBUG
 int control_systemsuspend(int is_enabled);
 int is_systemsuspend_enable(void);
@@ -170,6 +172,8 @@ static inline int is_systemsuspend_enable(void) { return 0; }
 static inline suspend_state_t get_shmobile_suspend_state(void) { return 0; }
 static inline int control_systemsuspend(int is_enabled) { return 0; }
 static inline int is_systemsuspend_enable(void) { return 0; }
+static inline void shwystatdm_regs_save(void) { return 0;}
+static inline void shwystatdm_regs_restore(void) { return 0;}
 #endif /*CONFIG_SUSPEND*/
 
 
