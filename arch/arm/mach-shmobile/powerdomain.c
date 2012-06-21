@@ -330,6 +330,16 @@ static bool is_power_status_on(unsigned int area)
 }
 
 /*
+ * __to_pdi: get the power domain information of a certain device
+ * @dev: certain device
+ * return: address of power.subsys_data
+ */
+struct power_domain_info *__to_pdi(const struct device *dev)
+{
+	return dev ? dev->power.subsys_data : NULL;
+}
+
+/*
  * power_status_set: turn on or turn off a power area
  * @area: power area that need to set(turn on/off). Its values compose of
  * {POWER_A2SL, ..., POWER_D4}. If other than above values, it will raise panic.
@@ -339,8 +349,6 @@ static bool is_power_status_on(unsigned int area)
  */
 static void power_status_set(unsigned int area, bool on)
 {
-
-
 	int i = 0;
 	u32 reg = (on ? SYSC_SWUCR : SYSC_SPDCR);
 	
@@ -863,16 +871,13 @@ EXPORT_SYMBOL(power_down_count);
  * @name: name of driver that need to run Runtime-PM helper function
  * @iterator: Runtime-PM helper function
  */
-void for_each_power_device(const char *name, int (*iterator)(struct device *))
+void for_each_power_device(const struct device *dev, int (*iterator)(struct device *))
 {
-	struct device *devs[POWER_DOMAIN_COUNT_MAX];
-	size_t cnt;
+	struct power_domain_info *pdi = __to_pdi(dev);
 	unsigned int i;
 
-	(void)power_domain_devices(name, devs, &cnt);
-
-	for (i = 0; i < cnt; i++) {
-		(void)iterator(devs[i]);
+	for (i = 0; i < pdi->cnt; i++) {
+		(void)iterator(pdi->devs[i]);
 	}
 }
 
@@ -882,13 +887,13 @@ void for_each_power_device(const char *name, int (*iterator)(struct device *))
  * @name: driver name that raises request
  * Should be called by Runtime PM framework
  */
-void power_domains_get_sync(const char *name)
+void power_domains_get_sync(const struct device *dev)
 {
 #ifdef __DEBUG_PDC
-	printk(KERN_INFO "[PDC] %s: %s \n", __func__, name);
+	printk(KERN_INFO "[PDC] %s: %s \n", __func__, dev_name(dev));
 #endif /* __DEBUG_PDC */
-	for_each_power_device(name, pm_runtime_get_sync);
-	if (0 == strcmp(name, "pvrsrvkm")) {
+	for_each_power_device(dev, pm_runtime_get_sync);
+	if (0 == strcmp(dev_name(dev), "pvrsrvkm")) {
 		int r = sgx_cpufreq(CPUFREQ_SGXON);
 		if (0 != r) {
 			panic("DVFS SGX on error: %d", r);
@@ -902,18 +907,18 @@ void power_domains_get_sync(const char *name)
  * @name: driver name that raises request
  * Should be called by Runtime PM framework
  */
-void power_domains_put_noidle(const char *name)
+void power_domains_put_noidle(const struct device *dev)
 {
 #ifdef __DEBUG_PDC
-	printk(KERN_INFO "[PDC] %s: %s \n", __func__, name);
+	printk(KERN_INFO "[PDC] %s: %s \n", __func__, dev_name(dev));
 #endif /* __DEBUG_PDC */
-	if (0 == strcmp(name, "pvrsrvkm")) {
+	if (0 == strcmp(dev_name(dev), "pvrsrvkm")) {
 		int r = sgx_cpufreq(CPUFREQ_SGXOFF);
 		if (0 != r) {
 			panic("DVFS SGX off error: %d", r);
 		}
 	}
-	for_each_power_device(name,
+	for_each_power_device(dev,
 		(int (*)(struct device *))pm_runtime_put_noidle);
 }
 
