@@ -1455,6 +1455,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
