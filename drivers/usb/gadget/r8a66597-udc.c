@@ -218,6 +218,7 @@ __acquires(r8a66597->lock)
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
 #ifdef CONFIG_USB_OTG
+#define USB_PORT_STAT_CONNECTION 0x0001
 static void r8a66597_hnp_work(struct work_struct *work) 
 {
 	struct r8a66597 *r8a66597 =
@@ -243,14 +244,13 @@ static void r8a66597_hnp_work(struct work_struct *work)
 			r8a66597_bset(r8a66597, BEMP0, BEMPENB);
 			r8a66597_bset(r8a66597, TRNENSEL, SOFCFG);
 			r8a66597_bset(r8a66597, SIGNE | SACKE, INTENB1);
+			r8a66597_bset(r8a66597, OVRCRE, INTENB1);
 
 			r8a66597_bset(r8a66597, DCFM, SYSCFG0);
 			r8a66597_bset(r8a66597, DRPD, SYSCFG0);
 			r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
 			r8a66597_bset(r8a66597, HSE, SYSCFG0);
 
-			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
-			r8a66597_bset(r8a66597, ATTCHE, INTENB1);
 			if (otg->state == OTG_STATE_B_PERIPHERAL) {
 				otg->state = OTG_STATE_B_WAIT_ACON;
 				mod_timer(&r8a66597->hnp_timer_fail,
@@ -258,6 +258,10 @@ static void r8a66597_hnp_work(struct work_struct *work)
 			} else if (otg->state == OTG_STATE_A_PERIPHERAL) {
 				otg->state = OTG_STATE_A_WAIT_BCON;
 			}
+
+			otg->port_status |= USB_PORT_STAT_CONNECTION;
+			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
+			r8a66597_bset(r8a66597, ATTCHE, INTENB1);
 			printk("%s\n", otg_state_string(otg->state));
 		}
 	otg_put_transceiver(otg);
@@ -1660,11 +1664,17 @@ __acquires(r8a66597->lock)
 	if (ctrl->bRequestType & USB_DIR_IN) {
 		switch (w_index) {
 			case USB_OTG_STATUS_SELECTOR: {
-				otg_status = 0x01;/*1 << USB_OTG_HOST_REQ_FLAG;*/
+				struct otg_transceiver *otg = otg_get_transceiver();
+				if (1 == otg->flags) {
+					otg_status = 0x01;/*1 << USB_OTG_HOST_REQ_FLAG;*/
+				} else {
+					otg_status = 0x00;
+				}
 				memcpy(r8a66597->ep0_req->buf, &otg_status, 1);
 				r8a66597->ep0_req->length = 1;
 				r8a66597->host_request_flag = 1;
 				printk("USB_OTG_STATUS_SELECTOR, send status = %x\n", otg_status);
+				otg_put_transceiver(otg);
 			}
 		}
 	}
