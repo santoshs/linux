@@ -2115,7 +2115,7 @@ static const struct net_device_ops b44_netdev_ops = {
 	.ndo_stop		= b44_close,
 	.ndo_start_xmit		= b44_start_xmit,
 	.ndo_get_stats		= b44_get_stats,
-	.ndo_set_rx_mode = b44_set_rx_mode,
+	.ndo_set_multicast_list = b44_set_rx_mode,
 	.ndo_set_mac_address	= b44_set_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_do_ioctl		= b44_ioctl,
@@ -2142,6 +2142,7 @@ static int __devinit b44_init_one(struct ssb_device *sdev,
 
 	dev = alloc_etherdev(sizeof(*bp));
 	if (!dev) {
+		dev_err(sdev->dev, "Etherdev alloc failed, aborting\n");
 		err = -ENOMEM;
 		goto out;
 	}

@@ -847,6 +847,7 @@ static int smsc9420_alloc_rx_buffer(struct smsc9420_pdata *pd, int index)
 		return -ENOMEM;
 	}
 
+	skb->dev = pd->dev;
 
 	mapping = pci_map_single(pd->pdev, skb_tail_pointer(skb),
 				 PKT_BUF_SZ, PCI_DMA_FROMDEVICE);
@@ -1562,7 +1563,7 @@ static const struct net_device_ops smsc9420_netdev_ops = {
 	.ndo_stop		= smsc9420_stop,
 	.ndo_start_xmit		= smsc9420_hard_start_xmit,
 	.ndo_get_stats		= smsc9420_get_stats,
-	.ndo_set_rx_mode	= smsc9420_set_multicast_list,
+	.ndo_set_multicast_list	= smsc9420_set_multicast_list,
 	.ndo_do_ioctl		= smsc9420_do_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -1593,6 +1594,7 @@ smsc9420_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	dev = alloc_etherdev(sizeof(*pd));
 	if (!dev) {
+		printk(KERN_ERR "ether device alloc failed\n");
 		goto out_disable_pci_device_1;
 	}
 

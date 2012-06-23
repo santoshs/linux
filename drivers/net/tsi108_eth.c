@@ -1553,7 +1553,7 @@ static const struct net_device_ops tsi108_netdev_ops = {
 	.ndo_open		= tsi108_open,
 	.ndo_stop		= tsi108_close,
 	.ndo_start_xmit		= tsi108_send_packet,
-	.ndo_set_rx_mode	= tsi108_set_rx_mode,
+	.ndo_set_multicast_list	= tsi108_set_rx_mode,
 	.ndo_get_stats		= tsi108_get_stats,
 	.ndo_do_ioctl		= tsi108_do_ioctl,
 	.ndo_set_mac_address	= tsi108_set_mac,
@@ -1581,6 +1581,7 @@ tsi108_init_one(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof(struct tsi108_prv_data));
 	if (!dev) {
+		printk("tsi108_eth: Could not allocate a device structure\n");
 		return -ENOMEM;
 	}
 

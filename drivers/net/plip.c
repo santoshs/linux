@@ -1261,6 +1261,7 @@ static void plip_attach (struct parport *port)
 		sprintf(name, "plip%d", unit);
 		dev = alloc_etherdev(sizeof(struct net_local));
 		if (!dev) {
+			printk(KERN_ERR "plip: memory squeeze\n");
 			return;
 		}
 

@@ -1449,7 +1449,7 @@ static const struct net_device_ops bfin_mac_netdev_ops = {
 	.ndo_start_xmit		= bfin_mac_hard_start_xmit,
 	.ndo_set_mac_address	= bfin_mac_set_mac_address,
 	.ndo_tx_timeout		= bfin_mac_timeout,
-	.ndo_set_rx_mode	= bfin_mac_set_multicast_list,
+	.ndo_set_multicast_list	= bfin_mac_set_multicast_list,
 	.ndo_do_ioctl           = bfin_mac_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_change_mtu		= eth_change_mtu,
@@ -1468,6 +1468,7 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
 
 	ndev = alloc_etherdev(sizeof(struct bfin_mac_local));
 	if (!ndev) {
+		dev_err(&pdev->dev, "Cannot allocate net device!\n");
 		return -ENOMEM;
 	}
 

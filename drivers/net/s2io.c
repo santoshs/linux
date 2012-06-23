@@ -7734,7 +7734,7 @@ static const struct net_device_ops s2io_netdev_ops = {
 	.ndo_get_stats	        = s2io_get_stats,
 	.ndo_start_xmit    	= s2io_xmit,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_set_rx_mode = s2io_set_multicast,
+	.ndo_set_multicast_list = s2io_set_multicast,
 	.ndo_do_ioctl	   	= s2io_ioctl,
 	.ndo_set_mac_address    = s2io_set_mac_addr,
 	.ndo_change_mtu	   	= s2io_change_mtu,
@@ -7817,6 +7817,7 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
 	else
 		dev = alloc_etherdev(sizeof(struct s2io_nic));
 	if (dev == NULL) {
+		DBG_PRINT(ERR_DBG, "Device allocation failed\n");
 		pci_disable_device(pdev);
 		pci_release_regions(pdev);
 		return -ENODEV;

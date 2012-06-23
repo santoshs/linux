@@ -649,7 +649,7 @@ static const struct net_device_ops netdev_ops = {
 	.ndo_start_xmit		= start_tx,
 	.ndo_tx_timeout 	= tx_timeout,
 	.ndo_get_stats 		= get_stats,
-	.ndo_set_rx_mode = &set_rx_mode,
+	.ndo_set_multicast_list = &set_rx_mode,
 	.ndo_do_ioctl 		= netdev_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -694,7 +694,8 @@ static int __devinit starfire_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(*np));
 	if (!dev) {
-			return -ENOMEM;
+		printk(KERN_ERR DRV_NAME " %d: cannot alloc etherdev, aborting\n", card_idx);
+		return -ENOMEM;
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);
 

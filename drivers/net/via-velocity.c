@@ -1525,7 +1525,7 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
 	struct rx_desc *rd = &(vptr->rx.ring[idx]);
 	struct velocity_rd_info *rd_info = &(vptr->rx.info[idx]);
 
-	rd_info->skb = netdev_alloc_skb(vptr->dev, vptr->rx.buf_sz + 64);
+	rd_info->skb = dev_alloc_skb(vptr->rx.buf_sz + 64);
 	if (rd_info->skb == NULL)
 		return -ENOMEM;
 
@@ -2633,7 +2633,7 @@ static const struct net_device_ops velocity_netdev_ops = {
 	.ndo_get_stats		= velocity_get_stats,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= eth_mac_addr,
-	.ndo_set_rx_mode	= velocity_set_multi,
+	.ndo_set_multicast_list	= velocity_set_multi,
 	.ndo_change_mtu		= velocity_change_mtu,
 	.ndo_do_ioctl		= velocity_ioctl,
 	.ndo_vlan_rx_add_vid	= velocity_vlan_rx_add_vid,
@@ -2755,7 +2755,8 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
 
 	dev = alloc_etherdev(sizeof(struct velocity_info));
 	if (!dev) {
-			goto out;
+		dev_err(&pdev->dev, "allocate net device failed.\n");
+		goto out;
 	}
 
 	/* Chain it all together */

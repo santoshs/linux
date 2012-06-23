@@ -885,7 +885,7 @@ static const struct net_device_ops ethoc_netdev_ops = {
 	.ndo_do_ioctl = ethoc_ioctl,
 	.ndo_set_config = ethoc_config,
 	.ndo_set_mac_address = ethoc_set_mac_address,
-	.ndo_set_rx_mode = ethoc_set_multicast_list,
+	.ndo_set_multicast_list = ethoc_set_multicast_list,
 	.ndo_change_mtu = ethoc_change_mtu,
 	.ndo_tx_timeout = ethoc_tx_timeout,
 	.ndo_start_xmit = ethoc_start_xmit,
@@ -909,6 +909,7 @@ static int __devinit ethoc_probe(struct platform_device *pdev)
 	/* allocate networking device */
 	netdev = alloc_etherdev(sizeof(struct ethoc));
 	if (!netdev) {
+		dev_err(&pdev->dev, "cannot allocate network device\n");
 		ret = -ENOMEM;
 		goto out;
 	}

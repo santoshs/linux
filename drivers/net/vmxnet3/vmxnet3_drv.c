@@ -2914,7 +2914,7 @@ vmxnet3_probe_device(struct pci_dev *pdev,
 		.ndo_set_features = vmxnet3_set_features,
 		.ndo_get_stats = vmxnet3_get_stats,
 		.ndo_tx_timeout = vmxnet3_tx_timeout,
-		.ndo_set_rx_mode = vmxnet3_set_mc,
+		.ndo_set_multicast_list = vmxnet3_set_mc,
 		.ndo_vlan_rx_register = vmxnet3_vlan_rx_register,
 		.ndo_vlan_rx_add_vid = vmxnet3_vlan_rx_add_vid,
 		.ndo_vlan_rx_kill_vid = vmxnet3_vlan_rx_kill_vid,
@@ -2957,7 +2957,9 @@ vmxnet3_probe_device(struct pci_dev *pdev,
 	       num_tx_queues, num_rx_queues);
 
 	if (!netdev) {
-			return -ENOMEM;
+		printk(KERN_ERR "Failed to alloc ethernet device for adapter "
+			"%s\n",	pci_name(pdev));
+		return -ENOMEM;
 	}
 
 	pci_set_drvdata(pdev, netdev);

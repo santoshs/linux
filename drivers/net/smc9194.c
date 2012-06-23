@@ -832,7 +832,7 @@ static const struct net_device_ops smc_netdev_ops = {
 	.ndo_stop		= smc_close,
 	.ndo_start_xmit    	= smc_wait_to_send_packet,
 	.ndo_tx_timeout	    	= smc_timeout,
-	.ndo_set_rx_mode	= smc_set_multicast_list,
+	.ndo_set_multicast_list	= smc_set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1227,7 +1227,7 @@ static void smc_rcv(struct net_device *dev)
 		if ( status & RS_MULTICAST )
 			dev->stats.multicast++;
 
-		skb = netdev_alloc_skb(dev, packet_length + 5);
+		skb = dev_alloc_skb( packet_length + 5);
 
 		if ( skb == NULL ) {
 			printk(KERN_NOTICE CARDNAME ": Low memory, packet dropped.\n");

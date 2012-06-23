@@ -2852,7 +2852,7 @@ static const struct net_device_ops jme_netdev_ops = {
 	.ndo_do_ioctl		= jme_ioctl,
 	.ndo_start_xmit		= jme_start_xmit,
 	.ndo_set_mac_address	= jme_set_macaddr,
-	.ndo_set_rx_mode	= jme_set_multi,
+	.ndo_set_multicast_list	= jme_set_multi,
 	.ndo_change_mtu		= jme_change_mtu,
 	.ndo_tx_timeout		= jme_tx_timeout,
 	.ndo_vlan_rx_register	= jme_vlan_rx_register,
@@ -2905,6 +2905,7 @@ jme_init_one(struct pci_dev *pdev,
 	 */
 	netdev = alloc_etherdev(sizeof(*jme));
 	if (!netdev) {
+		pr_err("Cannot allocate netdev structure\n");
 		rc = -ENOMEM;
 		goto err_out_release_regions;
 	}

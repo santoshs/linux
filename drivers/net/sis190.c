@@ -1463,7 +1463,9 @@ static struct net_device * __devinit sis190_init_board(struct pci_dev *pdev)
 
 	dev = alloc_etherdev(sizeof(*tp));
 	if (!dev) {
-			rc = -ENOMEM;
+		if (netif_msg_drv(&debug))
+			pr_err("unable to alloc new ethernet\n");
+		rc = -ENOMEM;
 		goto err_out_0;
 	}
 
@@ -1838,7 +1840,7 @@ static const struct net_device_ops sis190_netdev_ops = {
 	.ndo_do_ioctl		= sis190_ioctl,
 	.ndo_start_xmit		= sis190_start_xmit,
 	.ndo_tx_timeout		= sis190_tx_timeout,
-	.ndo_set_rx_mode = sis190_set_rx_mode,
+	.ndo_set_multicast_list = sis190_set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= sis190_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,

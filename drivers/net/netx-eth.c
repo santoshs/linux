@@ -149,7 +149,7 @@ static void netx_eth_receive(struct net_device *ndev)
 	seg = (val & FIFO_PTR_SEGMENT_MASK) >> FIFO_PTR_SEGMENT_SHIFT;
 	len = (val & FIFO_PTR_FRAMELEN_MASK) >> FIFO_PTR_FRAMELEN_SHIFT;
 
-skb = netdev_alloc_skb(ndev, len);	
+	skb = dev_alloc_skb(len);
 	if (unlikely(skb == NULL)) {
 		printk(KERN_NOTICE "%s: Low memory, packet dropped.\n",
 			ndev->name);
@@ -305,7 +305,7 @@ static const struct net_device_ops netx_eth_netdev_ops = {
 	.ndo_stop		= netx_eth_close,
 	.ndo_start_xmit		= netx_eth_hard_start_xmit,
 	.ndo_tx_timeout		= netx_eth_timeout,
-	.ndo_set_rx_mode	= netx_eth_set_multicast_list,
+	.ndo_set_multicast_list	= netx_eth_set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
@@ -382,6 +382,7 @@ static int netx_eth_drv_probe(struct platform_device *pdev)
 
 	ndev = alloc_etherdev(sizeof (struct netx_eth_priv));
 	if (!ndev) {
+		printk("%s: could not allocate device.\n", CARDNAME);
 		ret = -ENOMEM;
 		goto exit;
 	}

@@ -1242,7 +1242,7 @@ static const struct net_device_ops bmac_netdev_ops = {
 	.ndo_open		= bmac_open,
 	.ndo_stop		= bmac_close,
 	.ndo_start_xmit		= bmac_output,
-	.ndo_set_rx_mode	= bmac_set_multicast,
+	.ndo_set_multicast_list	= bmac_set_multicast,
 	.ndo_set_mac_address	= bmac_set_address,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1275,7 +1275,8 @@ static int __devinit bmac_probe(struct macio_dev *mdev, const struct of_device_i
 
 	dev = alloc_etherdev(PRIV_BYTES);
 	if (!dev) {
-			return -ENOMEM;
+		printk(KERN_ERR "BMAC: alloc_etherdev failed, out of memory\n");
+		return -ENOMEM;
 	}
 
 	bp = netdev_priv(dev);

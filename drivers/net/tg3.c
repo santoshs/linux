@@ -14893,7 +14893,7 @@ static const struct net_device_ops tg3_netdev_ops = {
 	.ndo_start_xmit		= tg3_start_xmit,
 	.ndo_get_stats64	= tg3_get_stats64,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_set_rx_mode	= tg3_set_rx_mode,
+	.ndo_set_multicast_list	= tg3_set_rx_mode,
 	.ndo_set_mac_address	= tg3_set_mac_addr,
 	.ndo_do_ioctl		= tg3_ioctl,
 	.ndo_tx_timeout		= tg3_tx_timeout,
@@ -14943,6 +14943,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
 	if (!dev) {
+		dev_err(&pdev->dev, "Etherdev alloc failed, aborting\n");
 		err = -ENOMEM;
 		goto err_out_free_res;
 	}

@@ -1331,7 +1331,7 @@ static const struct net_device_ops ks8695_netdev_ops = {
 	.ndo_tx_timeout		= ks8695_timeout,
 	.ndo_set_mac_address	= ks8695_set_mac,
 	.ndo_validate_addr	= eth_validate_addr,
-	.ndo_set_rx_mode	= ks8695_set_multicast,
+	.ndo_set_multicast_list	= ks8695_set_multicast,
 };
 
 /**
@@ -1361,7 +1361,8 @@ ks8695_probe(struct platform_device *pdev)
 	/* Initialise a net_device */
 	ndev = alloc_etherdev(sizeof(struct ks8695_priv));
 	if (!ndev) {
-			return -ENOMEM;
+		dev_err(&pdev->dev, "could not allocate device.\n");
+		return -ENOMEM;
 	}
 
 	SET_NETDEV_DEV(ndev, &pdev->dev);

@@ -359,7 +359,7 @@ static const struct net_device_ops netdev_ops = {
 	.ndo_open 		= yellowfin_open,
 	.ndo_stop 		= yellowfin_close,
 	.ndo_start_xmit 	= yellowfin_start_xmit,
-	.ndo_set_rx_mode = set_rx_mode,
+	.ndo_set_multicast_list = set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -398,7 +398,8 @@ static int __devinit yellowfin_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(*np));
 	if (!dev) {
-			return -ENOMEM;
+		pr_err("cannot allocate ethernet device\n");
+		return -ENOMEM;
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);
 
@@ -743,10 +744,11 @@ static int yellowfin_init_ring(struct net_device *dev)
 	}
 
 	for (i = 0; i < RX_RING_SIZE; i++) {
-		struct sk_buff *skb = netdev_alloc_skb(dev, yp->rx_buf_sz + 2);
+		struct sk_buff *skb = dev_alloc_skb(yp->rx_buf_sz + 2);
 		yp->rx_skbuff[i] = skb;
 		if (skb == NULL)
 			break;
+		skb->dev = dev;		/* Mark as being used by this device. */
 		skb_reserve(skb, 2);	/* 16 byte align the IP header. */
 		yp->rx_ring[i].addr = cpu_to_le32(pci_map_single(yp->pci_dev,
 			skb->data, yp->rx_buf_sz, PCI_DMA_FROMDEVICE));
@@ -1132,7 +1134,7 @@ static int yellowfin_rx(struct net_device *dev)
 					PCI_DMA_FROMDEVICE);
 				yp->rx_skbuff[entry] = NULL;
 			} else {
-				skb = netdev_alloc_skb(dev, pkt_len + 2);
+				skb = dev_alloc_skb(pkt_len + 2);
 				if (skb == NULL)
 					break;
 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
@@ -1155,10 +1157,11 @@ static int yellowfin_rx(struct net_device *dev)
 	for (; yp->cur_rx - yp->dirty_rx > 0; yp->dirty_rx++) {
 		entry = yp->dirty_rx % RX_RING_SIZE;
 		if (yp->rx_skbuff[entry] == NULL) {
-		struct sk_buff *skb = netdev_alloc_skb(dev, yp->rx_buf_sz + 2);
+			struct sk_buff *skb = dev_alloc_skb(yp->rx_buf_sz + 2);
 			if (skb == NULL)
 				break;				/* Better luck next round. */
 			yp->rx_skbuff[entry] = skb;
+			skb->dev = dev;	/* Mark as being used by this device. */
 			skb_reserve(skb, 2);	/* Align IP on 16 byte boundaries */
 			yp->rx_ring[entry].addr = cpu_to_le32(pci_map_single(yp->pci_dev,
 				skb->data, yp->rx_buf_sz, PCI_DMA_FROMDEVICE));

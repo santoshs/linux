@@ -962,7 +962,8 @@ static int __devinit s6gmac_probe(struct platform_device *pdev)
 	struct mii_bus *mb;
 	dev = alloc_etherdev(sizeof(*pd));
 	if (!dev) {
-			return -ENOMEM;
+		printk(KERN_ERR DRV_PRMT "etherdev alloc failed, aborting.\n");
+		return -ENOMEM;
 	}
 	dev->open = s6gmac_open;
 	dev->stop = s6gmac_stop;

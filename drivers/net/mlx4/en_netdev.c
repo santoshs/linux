@@ -1041,7 +1041,7 @@ static const struct net_device_ops mlx4_netdev_ops = {
 	.ndo_start_xmit		= mlx4_en_xmit,
 	.ndo_select_queue	= mlx4_en_select_queue,
 	.ndo_get_stats		= mlx4_en_get_stats,
-	.ndo_set_rx_mode	= mlx4_en_set_multicast,
+	.ndo_set_multicast_list	= mlx4_en_set_multicast,
 	.ndo_set_mac_address	= mlx4_en_set_mac,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_change_mtu		= mlx4_en_change_mtu,
@@ -1065,6 +1065,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 	dev = alloc_etherdev_mqs(sizeof(struct mlx4_en_priv),
 	    prof->tx_ring_num, prof->rx_ring_num);
 	if (dev == NULL) {
+		mlx4_err(mdev, "Net device allocation failed\n");
 		return -ENOMEM;
 	}
 

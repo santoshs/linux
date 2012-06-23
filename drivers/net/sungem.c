@@ -2956,7 +2956,7 @@ static const struct net_device_ops gem_netdev_ops = {
 	.ndo_stop		= gem_close,
 	.ndo_start_xmit		= gem_start_xmit,
 	.ndo_get_stats		= gem_get_stats,
-	.ndo_set_rx_mode = gem_set_multicast,
+	.ndo_set_multicast_list = gem_set_multicast,
 	.ndo_do_ioctl		= gem_ioctl,
 	.ndo_tx_timeout		= gem_tx_timeout,
 	.ndo_change_mtu		= gem_change_mtu,
@@ -3023,6 +3023,7 @@ static int __devinit gem_init_one(struct pci_dev *pdev,
 
 	dev = alloc_etherdev(sizeof(*gp));
 	if (!dev) {
+		pr_err("Etherdev alloc failed, aborting\n");
 		err = -ENOMEM;
 		goto err_disable_device;
 	}

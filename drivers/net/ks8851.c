@@ -1584,6 +1584,7 @@ static int __devinit ks8851_probe(struct spi_device *spi)
 
 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
 	if (!ndev) {
+		dev_err(&spi->dev, "failed to alloc ethernet device\n");
 		return -ENOMEM;
 	}
 

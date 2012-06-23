@@ -643,7 +643,7 @@ static void pasemi_mac_replenish_rx_ring(const struct net_device *dev,
 		/* Entry in use? */
 		WARN_ON(*buff);
 
-		skb = netdev_alloc_skb(dev, mac->bufsz);
+		skb = dev_alloc_skb(mac->bufsz);
 		skb_reserve(skb, LOCAL_SKB_ALIGN);
 
 		if (unlikely(!skb))
@@ -1719,7 +1719,7 @@ static const struct net_device_ops pasemi_netdev_ops = {
 	.ndo_open		= pasemi_mac_open,
 	.ndo_stop		= pasemi_mac_close,
 	.ndo_start_xmit		= pasemi_mac_start_tx,
-	.ndo_set_rx_mode	= pasemi_mac_set_rx_mode,
+	.ndo_set_multicast_list	= pasemi_mac_set_rx_mode,
 	.ndo_set_mac_address	= pasemi_mac_set_mac_addr,
 	.ndo_change_mtu		= pasemi_mac_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1741,6 +1741,8 @@ pasemi_mac_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	dev = alloc_etherdev(sizeof(struct pasemi_mac));
 	if (dev == NULL) {
+		dev_err(&pdev->dev,
+			"pasemi_mac: Could not allocate ethernet device.\n");
 		err = -ENOMEM;
 		goto out_disable_device;
 	}

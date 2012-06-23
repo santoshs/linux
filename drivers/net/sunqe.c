@@ -435,7 +435,7 @@ static void qe_rx(struct sunqe *qep)
 			dev->stats.rx_length_errors++;
 			dev->stats.rx_dropped++;
 		} else {
-			skb = netdev_alloc_skb(dev, len + 2);	
+			skb = dev_alloc_skb(len + 2);
 			if (skb == NULL) {
 				drops++;
 				dev->stats.rx_dropped++;
@@ -829,7 +829,7 @@ static const struct net_device_ops qec_ops = {
 	.ndo_open		= qe_open,
 	.ndo_stop		= qe_close,
 	.ndo_start_xmit		= qe_start_xmit,
-	.ndo_set_rx_mode	= qe_set_multicast,
+	.ndo_set_multicast_list	= qe_set_multicast,
 	.ndo_tx_timeout		= qe_tx_timeout,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,

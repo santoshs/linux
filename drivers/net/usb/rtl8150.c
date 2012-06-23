@@ -899,7 +899,7 @@ static const struct net_device_ops rtl8150_netdev_ops = {
 	.ndo_do_ioctl		= rtl8150_ioctl,
 	.ndo_start_xmit		= rtl8150_start_xmit,
 	.ndo_tx_timeout 	= rtl8150_tx_timeout,
-	.ndo_set_rx_mode = rtl8150_set_multicast,
+	.ndo_set_multicast_list = rtl8150_set_multicast,
 	.ndo_set_mac_address	= rtl8150_set_mac_address,
 
 	.ndo_change_mtu		= eth_change_mtu,
@@ -915,6 +915,7 @@ static int rtl8150_probe(struct usb_interface *intf,
 
 	netdev = alloc_etherdev(sizeof(rtl8150_t));
 	if (!netdev) {
+		err("Out of memory");
 		return -ENOMEM;
 	}
 

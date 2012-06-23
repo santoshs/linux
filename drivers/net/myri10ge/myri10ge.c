@@ -3794,7 +3794,7 @@ static const struct net_device_ops myri10ge_netdev_ops = {
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_change_mtu		= myri10ge_change_mtu,
 	.ndo_fix_features	= myri10ge_fix_features,
-	.ndo_set_rx_mode = myri10ge_set_multicast_list,
+	.ndo_set_multicast_list = myri10ge_set_multicast_list,
 	.ndo_set_mac_address	= myri10ge_set_mac_address,
 };
 
@@ -3811,7 +3811,8 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	netdev = alloc_etherdev_mq(sizeof(*mgp), MYRI10GE_MAX_SLICES);
 	if (netdev == NULL) {
-			return -ENOMEM;
+		dev_err(dev, "Could not allocate ethernet device\n");
+		return -ENOMEM;
 	}
 
 	SET_NETDEV_DEV(netdev, &pdev->dev);
