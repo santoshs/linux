@@ -442,6 +442,7 @@ enum {
 	ES2_MSTP527,
 	ES2_MSTP526,
 	ES2_MSTP525,
+	ES2_MSTP523,
 	ES2_MSTP522,
 	ES2_MSTP519,
 	ES2_MSTP518,
@@ -562,6 +563,7 @@ static struct clk es2_mstp_clks[ES2_MSTP_NR] = {
 	[ES2_MSTP527] = SH_CLK_MSTP32_EXT(&es2_div4_clks[ES2_DIV4_HP], SMSTPCR5, MSTPSR5, 27, 0),	/* Internal RAM0 */
 	[ES2_MSTP526] = SH_CLK_MSTP32_EXT(&es2_div4_clks[ES2_DIV4_HP], SMSTPCR5, MSTPSR5, 26, 0),	/* Public ROM */
 	[ES2_MSTP525] = SH_CLK_MSTP32_EXT(&es2_div4_clks[ES2_DIV4_HP], SMSTPCR5, MSTPSR5, 25, 0),	/* IICB0 */
+	[ES2_MSTP523] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR5, MSTPSR5, 23, 0), /* PCM2PWM */
 	[ES2_MSTP522] = SH_CLK_MSTP32_EXT(&cp_clk, SMSTPCR5, MSTPSR5, 22, 0),	/* Thermal Sensor */
 	[ES2_MSTP519] = SH_CLK_MSTP32_EXT(&es2_div4_clks[DIV4_], SMSTPCR5, MSTPSR5, 19, 0),	/* O2S */
 	[ES2_MSTP518] = SH_CLK_MSTP32_EXT(&es2_div4_clks[DIV4_], SMSTPCR5, MSTPSR5, 18, 0),	/* O2M */
@@ -664,7 +666,7 @@ static struct clk_lookup es2_lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &es2_mstp_clks[ES2_MSTP116]),	/* I2C0 */
 	CLKDEV_DEV_ID("pvrsrvkm", &es2_mstp_clks[ES2_MSTP112]),	/* SGX544 */
 	CLKDEV_DEV_ID("sh_mobile_lcdc_fb.0", &es2_mstp_clks[ES2_MSTP100]),	/* LCDC0 */
-	CLKDEV_CON_ID("crypt0", &es2_mstp_clks[ES2_MSTP228]),	/* Crypt0 */
+	CLKDEV_CON_ID("Crypt1", &es2_mstp_clks[ES2_MSTP229]),	/* Crypt1 */
 	CLKDEV_DEV_ID("sh-dma-engine.0", &es2_mstp_clks[ES2_MSTP218]),	/* DMAC */
 	CLKDEV_DEV_ID("sh-sci.6", &es2_mstp_clks[ES2_MSTP216]),	/* SCIFB2 */
 	CLKDEV_DEV_ID("sh-sci.5", &es2_mstp_clks[ES2_MSTP207]),	/* SCIFB1 */
@@ -724,4 +726,5 @@ static struct clk_lookup es2_lookups[] = {
 	CLKDEV_CON_ID("dsi1p_clk", &es2_div6_clks[ES2_DIV6_DSI1P]),
 	CLKDEV_CON_ID("dsi1p0_clk", &dsi1p0_clk),
 	CLKDEV_CON_ID("dsi1p1_clk", &dsi1p1_clk),
+	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &es2_mstp_clks[ES2_MSTP523]), /* PCM2PWM */
 };
