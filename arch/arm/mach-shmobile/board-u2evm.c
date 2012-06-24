@@ -700,6 +700,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 #ifndef CONFIG_PMIC_INTERFACE
 	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
 #endif
+#if 0
 	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
 	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
 	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
