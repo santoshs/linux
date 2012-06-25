@@ -237,6 +237,8 @@ static struct platform_device keysc_device = {
 };
 #endif
 
+void (*shmobile_arch_reset)(char mode, const char *cmd);
+
 /* USBHS */
 static int is_vbus_powered(void)
 {
@@ -1841,6 +1843,19 @@ static void irqc_set_chattering(int pin, int timing)
 	val = __raw_readl(reg) & ~0x80ff0000;
 	__raw_writel(val | (timing << 16) | (1 << 31), reg);
 }
+
+#define SBAR2		__io(IO_ADDRESS(0xe6180060))
+#define RESCNT2		__io(IO_ADDRESS(0xe6188020))
+
+void u2evm_restart(char mode, const char *cmd)
+{
+	u8 reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
+
+	__raw_writel(0, SBAR2);
+	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+}
+
  
  
 #define DSI0PHYCR	IO_ADDRESS(0xe615006c)
@@ -1883,7 +1898,7 @@ static void __init u2evm_init(void)
 		*GPIO_DRVCR_SIM1 = 0x0023;
 		*GPIO_DRVCR_SIM2 = 0x0023;
 	}
-
+	shmobile_arch_reset = u2evm_restart;
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -2579,17 +2594,6 @@ struct sys_timer u2evm_timer = {
 	.init	= u2evm_timer_init,
 };
 
-#define SBAR2		__io(IO_ADDRESS(0xe6180060))
-#define RESCNT2		__io(IO_ADDRESS(0xe6188020))
-
-void u2evm_restart(char mode, const char *cmd)
-{
-	u8 reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
-
-	__raw_writel(0, SBAR2);
-	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
-}
 
 static void __init u2evm_reserve(void)
 {
