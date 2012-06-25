@@ -1012,7 +1012,7 @@ static DEFINE_MUTEX(vnet_list_mutex);
 static const struct net_device_ops vnet_ops = {
 	.ndo_open		= vnet_open,
 	.ndo_stop		= vnet_close,
-	.ndo_set_rx_mode	= vnet_set_rx_mode,
+	.ndo_set_multicast_list	= vnet_set_rx_mode,
 	.ndo_set_mac_address	= vnet_set_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_tx_timeout		= vnet_tx_timeout,
@@ -1028,6 +1028,7 @@ static struct vnet * __devinit vnet_new(const u64 *local_mac)
 
 	dev = alloc_etherdev(sizeof(*vp));
 	if (!dev) {
+		pr_err("Etherdev alloc failed, aborting\n");
 		return ERR_PTR(-ENOMEM);
 	}
 

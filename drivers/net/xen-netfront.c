@@ -1196,7 +1196,9 @@ static struct net_device * __devinit xennet_create_dev(struct xenbus_device *dev
 
 	netdev = alloc_etherdev(sizeof(struct netfront_info));
 	if (!netdev) {
-			return ERR_PTR(-ENOMEM);
+		printk(KERN_WARNING "%s> alloc_etherdev failed.\n",
+		       __func__);
+		return ERR_PTR(-ENOMEM);
 	}
 
 	np                   = netdev_priv(netdev);

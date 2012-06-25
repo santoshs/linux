@@ -735,7 +735,7 @@ static void netdev_rx(struct net_device *dev)
 
 		if (status & RXDS_RXGD) {
 			data = ether->rdesc->recv_buf[ether->cur_rx];
-			 skb = netdev_alloc_skb(dev, length + 2);
+			skb = dev_alloc_skb(length+2);
 			if (!skb) {
 				dev_err(&pdev->dev, "get skb buffer error\n");
 				ether->stats.rx_dropped++;
@@ -919,7 +919,7 @@ static const struct net_device_ops w90p910_ether_netdev_ops = {
 	.ndo_stop		= w90p910_ether_close,
 	.ndo_start_xmit		= w90p910_ether_start_xmit,
 	.ndo_get_stats		= w90p910_ether_stats,
-	.ndo_set_rx_mode	= w90p910_ether_set_multicast_list,
+	.ndo_set_multicast_list	= w90p910_ether_set_multicast_list,
 	.ndo_set_mac_address	= w90p910_set_mac_address,
 	.ndo_do_ioctl		= w90p910_ether_ioctl,
 	.ndo_validate_addr	= eth_validate_addr,

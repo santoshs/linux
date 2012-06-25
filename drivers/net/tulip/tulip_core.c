@@ -1290,7 +1290,7 @@ static const struct net_device_ops tulip_netdev_ops = {
 	.ndo_stop		= tulip_close,
 	.ndo_get_stats		= tulip_get_stats,
 	.ndo_do_ioctl 		= private_ioctl,
-	.ndo_set_rx_mode = set_rx_mode,
+	.ndo_set_multicast_list = set_rx_mode,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -1427,6 +1427,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 	/* alloc_etherdev ensures aligned and zeroed private structures */
 	dev = alloc_etherdev (sizeof (*tp));
 	if (!dev) {
+		pr_err("ether device alloc failed, aborting\n");
 		return -ENOMEM;
 	}
 

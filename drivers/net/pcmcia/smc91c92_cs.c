@@ -294,7 +294,7 @@ static const struct net_device_ops smc_netdev_ops = {
 	.ndo_start_xmit		= smc_start_xmit,
 	.ndo_tx_timeout 	= smc_tx_timeout,
 	.ndo_set_config 	= s9k_config,
-	.ndo_set_rx_mode = set_rx_mode,
+	.ndo_set_multicast_list = set_rx_mode,
 	.ndo_do_ioctl		= smc_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
@@ -1500,7 +1500,7 @@ static void smc_rx(struct net_device *dev)
 	struct sk_buff *skb;
 	
 	/* Note: packet_length adds 5 or 6 extra bytes here! */
-skb = netdev_alloc_skb(dev, packet_length+2);
+	skb = dev_alloc_skb(packet_length+2);
 	
 	if (skb == NULL) {
 	    pr_debug("%s: Low memory, packet dropped.\n", dev->name);

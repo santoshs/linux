@@ -203,8 +203,8 @@ void gps_chrdrv_stub_init(void);
 /* time in msec to wait for
  * line discipline to be installed
  */
-#define LDISC_TIME	4000
-#define CMD_RESP_TIME	4000
+#define LDISC_TIME	1000
+#define CMD_RESP_TIME	800
 #define CMD_WR_TIME	5000
 #define MAKEWORD(a, b)  ((unsigned short)(((unsigned char)(a)) \
 	| ((unsigned short)((unsigned char)(b))) << 8))
@@ -370,8 +370,6 @@ struct hci_command {
 #define LL_SLEEP_ACK	0x31
 #define LL_WAKE_UP_IND	0x32
 #define LL_WAKE_UP_ACK	0x33
-
-#define HCILL_SLEEP_MODE_OPCODE 0xFD0C
 
 /* initialize and de-init ST LL */
 long st_ll_init(struct st_data_s *);

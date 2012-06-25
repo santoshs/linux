@@ -8,6 +8,8 @@
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
+#include <linux/i2c-gpio.h>
+#include <linux/gpio.h>
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 
@@ -537,6 +539,23 @@ static struct platform_device i2c8_device = {
 };
 //ES2.0 change end
 
+//GPIO Port number needs to be modified by the respective driver module
+//Udealy=5 will set I2C bus speed to 100k HZ
+
+static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
+      .sda_pin        = GPIO_PORT5,
+      .scl_pin        = GPIO_PORT4,
+      .udelay         = 5,
+};
+
+static struct platform_device i2c0gpio_device = {
+  .name          = "i2c-gpio",
+  .id    = 9,
+  .dev           = {
+         .platform_data  = &i2c0gpio_platform_data,
+  },
+};
+
 /* Transmit sizes and respective CHCR register values */
 enum {
 	XMIT_SZ_8BIT		= 0,
@@ -890,6 +909,7 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 	&i2c4_device,
 	/*&i2c5_device,*/
 	&i2c6_device,
+	&i2c0gpio_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
 	&smc_netdevice0,

@@ -1896,7 +1896,7 @@ static const struct net_device_ops smsc911x_netdev_ops = {
 	.ndo_stop		= smsc911x_stop,
 	.ndo_start_xmit		= smsc911x_hard_start_xmit,
 	.ndo_get_stats		= smsc911x_get_stats,
-	.ndo_set_rx_mode	= smsc911x_set_multicast_list,
+	.ndo_set_multicast_list	= smsc911x_set_multicast_list,
 	.ndo_do_ioctl		= smsc911x_do_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -2133,6 +2133,7 @@ static int __devinit smsc911x_drv_probe(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof(struct smsc911x_data));
 	if (!dev) {
+		pr_warn("Could not allocate device\n");
 		retval = -ENOMEM;
 		goto out_release_io_1;
 	}

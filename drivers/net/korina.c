@@ -1094,7 +1094,7 @@ static const struct net_device_ops korina_netdev_ops = {
 	.ndo_open		= korina_open,
 	.ndo_stop		= korina_close,
 	.ndo_start_xmit		= korina_send_packet,
-	.ndo_set_rx_mode	= korina_multicast_list,
+	.ndo_set_multicast_list	= korina_multicast_list,
 	.ndo_tx_timeout		= korina_tx_timeout,
 	.ndo_do_ioctl		= korina_ioctl,
 	.ndo_change_mtu		= eth_change_mtu,
@@ -1115,6 +1115,7 @@ static int korina_probe(struct platform_device *pdev)
 
 	dev = alloc_etherdev(sizeof(struct korina_private));
 	if (!dev) {
+		printk(KERN_ERR DRV_NAME ": alloc_etherdev failed\n");
 		return -ENOMEM;
 	}
 	SET_NETDEV_DEV(dev, &pdev->dev);

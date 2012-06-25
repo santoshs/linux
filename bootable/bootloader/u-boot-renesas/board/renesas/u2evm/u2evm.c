@@ -91,20 +91,6 @@ int board_init(void)
 	/* CMT1 */
 	outl(inl(SMSTPCR3) & ~(1 << 29), SMSTPCR3); /* MSTP329 */
 
-        /* BT PORTCR settings */
-        outb(0x01, GPIO_PORTCR(37));
-        outb(0xc1, GPIO_PORTCR(38));
-        outb(0x01, GPIO_PORTCR(137));
-        outb(0xc1, GPIO_PORTCR(138));
-
-        /* Wifi PORTCR settings */
-        outb(0x01, GPIO_PORTCR(288)); /* CLK */
-        outb(0xc1, GPIO_PORTCR(289)); /* D0  */
-        outb(0x01, GPIO_PORTCR(290)); /* D1  */
-        outb(0xc1, GPIO_PORTCR(291)); /* D2  */
-        outb(0xc1, GPIO_PORTCR(292)); /* D3  */
-        outb(0xc1, GPIO_PORTCR(293)); /* CMD */
-
 	return 0;
 }
 

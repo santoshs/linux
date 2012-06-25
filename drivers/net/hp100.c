@@ -430,7 +430,7 @@ static const struct net_device_ops hp100_bm_netdev_ops = {
 	.ndo_stop		= hp100_close,
 	.ndo_start_xmit		= hp100_start_xmit_bm,
 	.ndo_get_stats 		= hp100_get_stats,
-	.ndo_set_rx_mode = hp100_set_multicast_list,
+	.ndo_set_multicast_list = hp100_set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -441,7 +441,7 @@ static const struct net_device_ops hp100_netdev_ops = {
 	.ndo_stop		= hp100_close,
 	.ndo_start_xmit		= hp100_start_xmit,
 	.ndo_get_stats 		= hp100_get_stats,
-	.ndo_set_rx_mode = hp100_set_multicast_list,
+	.ndo_set_multicast_list = hp100_set_multicast_list,
 	.ndo_change_mtu		= eth_change_mtu,
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
@@ -2994,6 +2994,7 @@ static int __init hp100_isa_init(void)
 	for (i = 0; i < HP100_DEVICES && hp100_port[i] != -1; ++i) {
 		dev = alloc_etherdev(sizeof(struct hp100_private));
 		if (!dev) {
+			printk(KERN_WARNING "hp100: no memory for network device\n");
 			while (cards > 0)
 				cleanup_dev(hp100_devlist[--cards]);
 

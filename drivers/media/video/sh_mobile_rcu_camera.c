@@ -58,7 +58,7 @@
 
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
-#define PRINT_FOURCC(fourcc) (fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
+#define PRINT_FOURCC(fourcc) ((fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff)
 
 /* register offsets for r8a73734 */
 
@@ -116,113 +116,113 @@
 #define RCEFWCR				0x0228UL
 
 #define RCAPSR_CPKIL		16	/* offset of RCAPSR.CPKIL */
-#define RCAPSR_CSE			1	/* offset of RCAPSR.CSE */
-#define RCAPSR_CE			0	/* offset of RCAPSR.CE */
-#define RCAPCR_MTCM			20	/* offset of RCAPCR.MTCM */
+#define RCAPSR_CSE		1	/* offset of RCAPSR.CSE */
+#define RCAPSR_CE		0	/* offset of RCAPSR.CE */
+#define RCAPCR_MTCM		20	/* offset of RCAPCR.MTCM */
 #define RCAPCR_CTNCP		16	/* offset of RCAPCR.CTNCP */
-#define RCAMCR_OCNT			28	/* offset of RCAMCR.OCNT */
-#define RCAMCR_RPAC			24	/* offset of RCAMCR.RPAC */
-#define RCAMCR_UCON			22	/* offset of RCAMCR.UCON */
+#define RCAMCR_OCNT		28	/* offset of RCAMCR.OCNT */
+#define RCAMCR_RPAC		24	/* offset of RCAMCR.RPAC */
+#define RCAMCR_UCON		22	/* offset of RCAMCR.UCON */
 #define RCAMCR_CMPMD		20	/* offset of RCAMCR.CMPMD */
 #define RCAMCR_E810B		19	/* offset of RCAMCR.E810B */
 #define RCAMCR_E810I		18	/* offset of RCAMCR.E810I */
 #define RCAMCR_RAWTYP		16	/* offset of RCAMCR.RAWTYP */
-#define RCAMCR_VSS2			15	/* offset of RCAMCR.VSS2 */
-#define RCAMCR_HSSM			13	/* offset of RCAMCR.HSSM */
-#define RCAMCR_HSS2			12	/* offset of RCAMCR.HSS2 */
-#define RCAMCR_CFMT			4	/* offset of RCAMCR.CFMT */
-#define RCPICR_IFS			13	/* offset of RCPICR.IFS */
+#define RCAMCR_VSS2		15	/* offset of RCAMCR.VSS2 */
+#define RCAMCR_HSSM		13	/* offset of RCAMCR.HSSM */
+#define RCAMCR_HSS2		12	/* offset of RCAMCR.HSS2 */
+#define RCAMCR_CFMT		4	/* offset of RCAMCR.CFMT */
+#define RCPICR_IFS		13	/* offset of RCPICR.IFS */
 #define RCPICR_DTARY		8	/* offset of RCPICR.DTARY */
 #define RCPICR_CKPOL		2	/* offset of RCPICR.CKPOL */
 #define RCPICR_VDPOL		1	/* offset of RCPICR.VDPOL */
 #define RCPICR_HDPOL		0	/* offset of RCPICR.HDPOL */
 #define RCAMOR_VOFST		16	/* offset of RCAMOR.VOFST */
 #define RCAMOR_HOFST		0	/* offset of RCAMOR.HOFST */
-#define RCPIHCR_STC			16	/* offset of RCPIHCR.STC */
+#define RCPIHCR_STC		16	/* offset of RCPIHCR.STC */
 #define RCPIHCR_ENDC		0	/* offset of RCPIHCR.ENDC */
-#define RCRCNTR_RSS			17	/* offset of RCRCNTR.RSS */
-#define RCRCNTR_RSC			16	/* offset of RCRCNTR.RSC */
-#define RCRCNTR_RS			1	/* offset of RCRCNTR.RS */
-#define RCRCNTR_RC			0	/* offset of RCRCNTR.RC */
-#define RCRCMPR_RSA			16	/* offset of RCRCMPR.RSA */
-#define RCRCMPR_RA			0	/* offset of RCRCMPR.RA */
-#define RCSZR_VFCLP			16	/* offset of RCSZR.VFCLP */
-#define RCSZR_HFCLP			0	/* offset of RCSZR.HFCLP */
-#define RCDWDR_CHDW			0	/* offset of RCDWDR.CHDW */
-#define RCDAYR_CAYR			0	/* offset of RCDAYR.CAYR */
-#define RCDACR_CACR			0	/* offset of RCDACR.CACR */
-#define RCBDSR_CBVS			0	/* offset of RCBDSR.CBVS */
-#define RCFWCR_WLE			31	/* offset of RCFWCR.WLE */
-#define RCFWCR_WLSE			0	/* offset of RCFWCR.WLSE */
-#define RCDOCR_CBE			16	/* offset of RCDOCR.CBE */
-#define RCDOCR_T420			15	/* offset of RCDOCR.T420 */
-#define RCDOCR_H420			12	/* offset of RCDOCR.H420 */
-#define RCDOCR_C1BS			9	/* offset of RCDOCR.C1BS */
-#define RCDOCR_COLS			2	/* offset of RCDOCR.COLS */
-#define RCDOCR_COWS			1	/* offset of RCDOCR.COWS */
-#define RCDOCR_COBS			0	/* offset of RCDOCR.COBS */
-#define RCEIER_DFOE			28	/* offset of RCEIER.DFOE */
+#define RCRCNTR_RSS		17	/* offset of RCRCNTR.RSS */
+#define RCRCNTR_RSC		16	/* offset of RCRCNTR.RSC */
+#define RCRCNTR_RS		1	/* offset of RCRCNTR.RS */
+#define RCRCNTR_RC		0	/* offset of RCRCNTR.RC */
+#define RCRCMPR_RSA		16	/* offset of RCRCMPR.RSA */
+#define RCRCMPR_RA		0	/* offset of RCRCMPR.RA */
+#define RCSZR_VFCLP		16	/* offset of RCSZR.VFCLP */
+#define RCSZR_HFCLP		0	/* offset of RCSZR.HFCLP */
+#define RCDWDR_CHDW		0	/* offset of RCDWDR.CHDW */
+#define RCDAYR_CAYR		0	/* offset of RCDAYR.CAYR */
+#define RCDACR_CACR		0	/* offset of RCDACR.CACR */
+#define RCBDSR_CBVS		0	/* offset of RCBDSR.CBVS */
+#define RCFWCR_WLE		31	/* offset of RCFWCR.WLE */
+#define RCFWCR_WLSE		0	/* offset of RCFWCR.WLSE */
+#define RCDOCR_CBE		16	/* offset of RCDOCR.CBE */
+#define RCDOCR_T420		15	/* offset of RCDOCR.T420 */
+#define RCDOCR_H420		12	/* offset of RCDOCR.H420 */
+#define RCDOCR_C1BS		9	/* offset of RCDOCR.C1BS */
+#define RCDOCR_COLS		2	/* offset of RCDOCR.COLS */
+#define RCDOCR_COWS		1	/* offset of RCDOCR.COWS */
+#define RCDOCR_COBS		0	/* offset of RCDOCR.COBS */
+#define RCEIER_DFOE		28	/* offset of RCEIER.DFOE */
 #define RCEIER_ISPOE		24	/* offset of RCEIER.ISPOE */
 #define RCEIER_EFWFE		23	/* offset of RCEIER.EFWFE */
-#define RCEIER_FWFE			22	/* offset of RCEIER.FWFE */
+#define RCEIER_FWFE		22	/* offset of RCEIER.FWFE */
 #define RCEIER_EVBPE		21	/* offset of RCEIER.EVBPE */
-#define RCEIER_VBPE			20	/* offset of RCEIER.VBPE */
+#define RCEIER_VBPE		20	/* offset of RCEIER.VBPE */
 #define RCEIER_ECDTOFE		17	/* offset of RCEIER.ECDTOFE */
 #define RCEIER_CDTOFE		16	/* offset of RCEIER.CDTOFE */
 #define RCEIER_CPBE2E		13	/* offset of RCEIER.CPBE2E */
 #define RCEIER_CPBE1E		12	/* offset of RCEIER.CPBE1E */
-#define RCEIER_VDE			9	/* offset of RCEIER.VDE */
-#define RCEIER_HDE			8	/* offset of RCEIER.HDE */
-#define RCEIER_EVDE			7	/* offset of RCEIER.EVDE */
+#define RCEIER_VDE		9	/* offset of RCEIER.VDE */
+#define RCEIER_HDE		8	/* offset of RCEIER.HDE */
+#define RCEIER_EVDE		7	/* offset of RCEIER.EVDE */
 #define RCEIER_IGRWE		4	/* offset of RCEIER.IGRWE */
 #define RCEIER_CPSEE		2	/* offset of RCEIER.CPSEE */
-#define RCEIER_CPEE			0	/* offset of RCEIER.CPEE */
-#define RCETCR_DFO			28	/* offset of RCETCR.DFO */
-#define RCETCR_ISPO			24	/* offset of RCETCR.ISPO */
-#define RCETCR_EFWF			23	/* offset of RCETCR.EFWF */
-#define RCETCR_FWF			22	/* offset of RCETCR.FWF */
-#define RCETCR_EVBP			21	/* offset of RCETCR.EVBP */
-#define RCETCR_VBP			20	/* offset of RCETCR.VBP */
+#define RCEIER_CPEE		0	/* offset of RCEIER.CPEE */
+#define RCETCR_DFO		28	/* offset of RCETCR.DFO */
+#define RCETCR_ISPO		24	/* offset of RCETCR.ISPO */
+#define RCETCR_EFWF		23	/* offset of RCETCR.EFWF */
+#define RCETCR_FWF		22	/* offset of RCETCR.FWF */
+#define RCETCR_EVBP		21	/* offset of RCETCR.EVBP */
+#define RCETCR_VBP		20	/* offset of RCETCR.VBP */
 #define RCETCR_ECDTOF		17	/* offset of RCETCR.ECDTOF */
 #define RCETCR_CDTOF		16	/* offset of RCETCR.CDTOF */
 #define RCETCR_CPBE2		13	/* offset of RCETCR.CPBE2 */
 #define RCETCR_CPBE1		12	/* offset of RCETCR.CPBE1 */
-#define RCETCR_VD			9	/* offset of RCETCR.VD */
-#define RCETCR_HD			8	/* offset of RCETCR.HD */
-#define RCETCR_EVD			7	/* offset of RCETCR.EVD */
-#define RCETCR_IGRW			4	/* offset of RCETCR.IGRW */
-#define RCETCR_CPSE			2	/* offset of RCETCR.CPSE */
-#define RCETCR_CPE			0	/* offset of RCETCR.CPE */
+#define RCETCR_VD		9	/* offset of RCETCR.VD */
+#define RCETCR_HD		8	/* offset of RCETCR.HD */
+#define RCETCR_EVD		7	/* offset of RCETCR.EVD */
+#define RCETCR_IGRW		4	/* offset of RCETCR.IGRW */
+#define RCETCR_CPSE		2	/* offset of RCETCR.CPSE */
+#define RCETCR_CPE		0	/* offset of RCETCR.CPE */
 #define RCSTSR_CRSST		25	/* offset of RCSTSR.CRSST */
-#define RCSTSR_CRST			24	/* offset of RCSTSR.CRST */
+#define RCSTSR_CRST		24	/* offset of RCSTSR.CRST */
 #define RCSTSR_CPREQ		9	/* offset of RCSTSR.CPREQ */
 #define RCSTSR_CPACK		8	/* offset of RCSTSR.CPACK */
 #define RCSTSR_CPTSON		1	/* offset of RCSTSR.CPTSON */
 #define RCSTSR_CPTON		0	/* offset of RCSTSR.CPTON */
 #define RCSRTR_ALLRST		0	/* offset of RCSRTR.ALLRST */
-#define RCDSSR_CDSS			0	/* offset of RCDSSR.CDSS */
+#define RCDSSR_CDSS		0	/* offset of RCDSSR.CDSS */
 #define RCDAYR2_CAYR2		0	/* offset of RCDAYR2.CAYR2 */
 #define RCDACR2_CACR2		0	/* offset of RCDACR2.CACR2 */
 #define RCECNTR_CTNCP		4	/* offset of RCECNTR.CTNCP */
-#define RCECNTR_JPG			1	/* offset of RCECNTR.JPG */
+#define RCECNTR_JPG		1	/* offset of RCECNTR.JPG */
 #define RCEDAYR_CAYR		0	/* offset of RCEDAYR.CAYR */
 #define RCEDSSR_CDSS		0	/* offset of RCEDSSR.CDSS */
-#define RCEFWCR_WLE			31	/* offset of RCEFWCR.WLE */
+#define RCEFWCR_WLE		31	/* offset of RCEFWCR.WLE */
 #define RCEFWCR_WLSE		0	/* offset of RCEFWCR.WLSE */
 
-#define SH_RCU_MODE_IMAGE		0x00	/* image capture mode */
-#define SH_RCU_MODE_DATA		0x01	/* data fech mode */
-#define SH_RCU_MODE_ENABLE		0x02	/* data enable fetch mode */
+#define SH_RCU_MODE_IMAGE	0x00	/* image capture mode */
+#define SH_RCU_MODE_DATA	0x01	/* data fech mode */
+#define SH_RCU_MODE_ENABLE	0x02	/* data enable fetch mode */
 
 #define SH_RCU_STREAMING_OFF	0x00	/* streaming OFF */
-#define SH_RCU_STREAMING_ON		0x01	/* streaming ON */
+#define SH_RCU_STREAMING_ON	0x01	/* streaming ON */
 
-#define SH_RCU_RAWTYP_RAW8		0x00	/* RAW8 format */
-#define SH_RCU_RAWTYP_RAW10		0x01	/* RAW10 format */
-#define SH_RCU_RAWTYP_RAW12		0x02	/* RAW12 format */
+#define SH_RCU_RAWTYP_RAW8	0x00	/* RAW8 format */
+#define SH_RCU_RAWTYP_RAW10	0x01	/* RAW10 format */
+#define SH_RCU_RAWTYP_RAW12	0x02	/* RAW12 format */
 
-#define SH_RCU_RPAC_ENHANCE		0x00	/* 16bit Enhancing */
-#define SH_RCU_RPAC_PACKING		0x01	/* Packing(MIPI-CSI2 standerd) */
+#define SH_RCU_RPAC_ENHANCE	0x00	/* 16bit Enhancing */
+#define SH_RCU_RPAC_PACKING	0x01	/* Packing(MIPI-CSI2 standerd) */
 
 /* Transferred to the bus in 4-burst 1-transfer (4QW x 1) units */
 #define SH_RCU_MTCM_SIZE_1		0x00
@@ -447,9 +447,11 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 /* error mask */
 #define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)
+#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | \
+				RCU_RCEIER_DFOE)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE)
+#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | \
+				RCU_RCEIER_DFOE)
 
 
 /*
@@ -556,7 +558,8 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device,
+				vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf;
@@ -606,7 +609,8 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device,
+				vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
@@ -631,7 +635,8 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device,
+				vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
@@ -657,7 +662,8 @@ static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device,
+				vb2_vidq);
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	/* This is for locking debugging only */
@@ -780,7 +786,8 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 
 			if (!list_empty(&pcdev->capture))
 				pcdev->active = &list_entry(pcdev->capture.next,
-						struct sh_mobile_rcu_buffer, queue)->vb;
+						struct sh_mobile_rcu_buffer,
+						queue)->vb;
 			else
 				pcdev->active = NULL;
 
@@ -791,7 +798,8 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				vb->v4l2_buf.sequence = pcdev->sequence++;
 			}
 			vb2_buffer_done(vb,
-				ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
+				ret < 0 ? VB2_BUF_STATE_ERROR : \
+				VB2_BUF_STATE_DONE);
 
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
@@ -1087,8 +1095,8 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	if (yuv_lineskip)
 		rcdocr |= 1 << RCDOCR_T420;	/* output YUV420 */
 
-	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21 ||
-	    icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61) {
+	if ((icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21) ||
+	    (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61)) {
 	    /* swap U, V to change from NV1x->NVx1 */
 		rcdocr |= 1 << RCDOCR_C1BS;
 	}
@@ -1109,7 +1117,8 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	rcu_write(pcdev, RCRCMPR, 0);
 	rcu_write(pcdev, RCBDSR,  0);
 
-	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n", PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
+	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n",
+		PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
 
 	capture_restore(pcdev, rcapsr);
 
@@ -1629,11 +1638,13 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	unsigned int walign, halign;
 	struct v4l2_rect rect;
 
-	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__,
+		PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(dev, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
+		dev_warn(dev, "Format %c%c%c%c not found\n",
+			PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -1707,11 +1718,13 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	int ret;
 	unsigned int walign, halign;
 
-	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__,
+		PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
+		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n",
+			PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -2019,7 +2032,8 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		if (!csi2->driver) {
 			complete(&wait.completion);
 			/* Either too late, or probing failed */
-			bus_unregister_notifier(&platform_bus_type, &wait.notifier);
+			bus_unregister_notifier(&platform_bus_type,
+						&wait.notifier);
 			err = -ENXIO;
 			goto exit_free_clk;
 		}
@@ -2107,7 +2121,7 @@ static int sh_mobile_rcu_resume(struct device *dev)
 static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev)
+	if (NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
@@ -2118,27 +2132,27 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 * to save and restore registers here.
 	 */
 
-	if(NULL == pcdev) {
+	if (NULL == pcdev) {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk)
+	if (NULL != pcdev->iclk)
 		clk_disable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk)
+	if (NULL != pcdev->fclk)
 		clk_disable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk)
+	if (NULL != pcdev->mclk)
 		clk_disable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
@@ -2151,32 +2165,32 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 static int sh_mobile_rcu_runtime_resume(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev)
+	if (NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
 
-	if(NULL == pcdev) {
+	if (NULL == pcdev) {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk)
+	if (NULL != pcdev->iclk)
 		clk_enable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk)
+	if (NULL != pcdev->fclk)
 		clk_enable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk)
+	if (NULL != pcdev->mclk)
 		clk_enable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,

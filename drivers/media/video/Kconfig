@@ -834,18 +834,12 @@ config SOC_CAMERA_TW9910
 	help
 	  This is a tw9910 video driver
 
-config SOC_CAMERA_OV8820
-	tristate "OV8820 support"
+config SOC_CAMERA_ISX012
+	tristate "ISX012 support"
 	depends on SOC_CAMERA && I2C
 	help
-	  This driver supports OV8820 cameras from Omnivision
-
-config SOC_CAMERA_OV5640
-	tristate "OV5640 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports OV5640 cameras from Omnivision
-	  
+	  This driver supports ISX012 cameras from SONY
+  
 config SOC_CAMERA_IMX081
 	tristate "IMX081 support"
 	depends on SOC_CAMERA && I2C

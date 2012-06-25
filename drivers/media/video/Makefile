@@ -84,8 +84,7 @@ obj-$(CONFIG_SOC_CAMERA_OV9640)		+= ov9640.o
 obj-$(CONFIG_SOC_CAMERA_OV9740)		+= ov9740.o
 obj-$(CONFIG_SOC_CAMERA_RJ54N1)		+= rj54n1cb0c.o
 obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
-obj-$(CONFIG_SOC_CAMERA_OV8820)		+= ov8820.o eos_maincam.o
-obj-$(CONFIG_SOC_CAMERA_OV5640)		+= ov5640.o
+obj-$(CONFIG_SOC_CAMERA_ISX012)		+= isx012.o
 obj-$(CONFIG_SOC_CAMERA_IMX081)		+= imx081.o
 
 # And now the v4l2 drivers:

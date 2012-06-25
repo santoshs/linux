@@ -2987,7 +2987,7 @@ static const struct net_device_ops rtl8169_netdev_ops = {
 	.ndo_set_features	= rtl8169_set_features,
 	.ndo_set_mac_address	= rtl_set_mac_address,
 	.ndo_do_ioctl		= rtl8169_ioctl,
-	.ndo_set_rx_mode	= rtl_set_rx_mode,
+	.ndo_set_multicast_list	= rtl_set_rx_mode,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller	= rtl8169_netpoll,
 #endif
@@ -3268,6 +3268,8 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	dev = alloc_etherdev(sizeof (*tp));
 	if (!dev) {
+		if (netif_msg_drv(&debug))
+			dev_err(&pdev->dev, "unable to alloc new ethernet\n");
 		rc = -ENOMEM;
 		goto out;
 	}

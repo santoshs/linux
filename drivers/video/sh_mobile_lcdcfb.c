@@ -46,6 +46,9 @@
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
 
+#include <linux/gpio.h>
+#include <mach/r8a73734.h>
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -132,6 +135,96 @@ static u32 fb_debug;
 	if (fb_debug)		   \
 		printk(KERN_INFO "%s(): " FMT, __func__, ##ARGS)
 
+#if 1 // SSG qHD Display
+struct _s6e39a0x02_cmdset {
+	unsigned char cmd;
+	unsigned char *data;
+	int size;
+};
+#define MIPI_DSI_DCS_LONG_WRITE		(0x39)
+#define MIPI_DSI_DCS_SHORT_WRITE_PARAM	(0x15)
+#define MIPI_DSI_DCS_SHORT_WRITE	(0x05)
+#define MIPI_DSI_DELAY			(0x00)
+#define MIPI_DSI_BLACK			(0x01)
+#define MIPI_DSI_END			(0xFF)
+
+unsigned char data_to_send_01[] = { 0xf0, 0x5a, 0x5a };
+unsigned char data_to_send_02[] = { 0xf1, 0x5a, 0x5a };
+unsigned char data_to_send_03[] = { 0xfc, 0x5a, 0x5a };
+
+unsigned char data_to_send_04[] = { 0xfa, 0x02, 0x58, 0x42, 0x56, 0xaa, 0xc8, 0xae, 0xb5, 0xc1, 0xbe, 0xb4, 0xc0, 0xb2, 0x93, 0x9f, 0x93, 0xa6, 0xad, 0xa2, 0x00, 0xe9, 0x00, 0xdb, 0x01, 0x0f };
+unsigned char data_to_send_05[] = { 0xfa, 0x03 };
+
+unsigned char data_to_send_06[] = { 0xf8, 0x27, 0x27, 0x08, 0x08, 0x4e, 0xaa, 0x5e, 0x8a, 0x10, 0x3f, 0x10, 0x10, 0x00 };
+unsigned char data_to_send_07[] = { 0xf7, 0x03 };
+unsigned char data_to_send_08[] = { 0xb3, 0x63, 0x02, 0xc3, 0x32, 0xff };
+
+unsigned char data_to_send_09[] = { 0xf6, 0x00, 0x84, 0x09 };
+unsigned char data_to_send_10[] = { 0xb0, 0x09 };
+unsigned char data_to_send_11[] = { 0xd5, 0x64 };
+unsigned char data_to_send_12[] = { 0xb0, 0x0b };
+unsigned char data_to_send_13[] = { 0xd5, 0xa4, 0x7e, 0x20 };
+unsigned char data_to_send_14[] = { 0xb0, 0x08 };
+unsigned char data_to_send_15[] = { 0xfd, 0xf8 };
+unsigned char data_to_send_16[] = { 0xb0, 0x01 };
+unsigned char data_to_send_17[] = { 0xf2, 0x07 };
+unsigned char data_to_send_18[] = { 0xb0, 0x04 };
+unsigned char data_to_send_19[] = { 0xf2, 0x4d };
+unsigned char data_to_send_20[] = { 0xb1, 0x01, 0x00, 0x16 };
+unsigned char data_to_send_21[] = { 0xb2, 0x15, 0x15, 0x15, 0x15 };
+unsigned char data_to_send_22[] = { 0x11, 0x00 };	/* Sleep Out */
+
+unsigned char data_to_send_23[] = { 0x2a, 0x00, 0x00, 0x02, 0x57 };
+unsigned char data_to_send_24[] = { 0x2b, 0x00, 0x00, 0x03, 0xff };
+unsigned char data_to_send_25[] = { 0x2c, 0x00 };
+
+unsigned char data_to_send_26[] = { 0x35, 0x00 };
+unsigned char data_to_send_27[] = { 0x2a, 0x00, 0x1e, 0x02, 0x39 };	/* panel size is qHD 540x960 */
+unsigned char data_to_send_28[] = { 0x2b, 0x00, 0x00, 0x03, 0xbf };	/* panel size is qHD 540x960 */
+unsigned char data_to_send_29[] = { 0xd1, 0x8a };
+
+unsigned char data_to_send_30[] = { 0x29, 0x00 };	/* Display On */
+
+struct _s6e39a0x02_cmdset s6e39a0x02_cmdset[]= {
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_01,	sizeof(data_to_send_01)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_02,	sizeof(data_to_send_02)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_03,	sizeof(data_to_send_03)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_04,	sizeof(data_to_send_04)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_05,	sizeof(data_to_send_05)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_06,	sizeof(data_to_send_06)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_07,	sizeof(data_to_send_07)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_08,	sizeof(data_to_send_08)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_09,	sizeof(data_to_send_09)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_10,	sizeof(data_to_send_10)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_11,	sizeof(data_to_send_11)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_12,	sizeof(data_to_send_12)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_13,	sizeof(data_to_send_13)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_14,	sizeof(data_to_send_14)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_15,	sizeof(data_to_send_15)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_16,	sizeof(data_to_send_16)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_17,	sizeof(data_to_send_17)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_18,	sizeof(data_to_send_18)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_19,	sizeof(data_to_send_19)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_20,	sizeof(data_to_send_20)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_21,	sizeof(data_to_send_21)	},
+	{MIPI_DSI_DCS_SHORT_WRITE,	data_to_send_22,	sizeof(data_to_send_22)	},
+	{MIPI_DSI_DELAY,		NULL,			120			},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_23,	sizeof(data_to_send_23)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_24,	sizeof(data_to_send_24)	},
+	{MIPI_DSI_DCS_SHORT_WRITE,	data_to_send_25,	sizeof(data_to_send_25)	},
+	{MIPI_DSI_DELAY,		NULL,			20			},
+	{MIPI_DSI_DCS_SHORT_WRITE,	data_to_send_26,	sizeof(data_to_send_26)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_27,	sizeof(data_to_send_27)	},
+	{MIPI_DSI_DCS_LONG_WRITE,	data_to_send_28,	sizeof(data_to_send_28)	},
+	{MIPI_DSI_DCS_SHORT_WRITE_PARAM,data_to_send_29,	sizeof(data_to_send_29)	},
+	{MIPI_DSI_BLACK,		NULL,			0			},
+	{MIPI_DSI_DCS_SHORT_WRITE,	data_to_send_30,	sizeof(data_to_send_30)	},
+	{MIPI_DSI_END,			NULL,			0			},
+};
+
+#endif
+
+
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
 
@@ -213,6 +306,7 @@ static int display_initialize(int lcd_num)
 	screen_disp_get_address disp_addr;
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_short write_dsi_s;
+	screen_disp_write_dsi_long  write_dsi_l;
 
 	int ret = 0;
 
@@ -245,6 +339,442 @@ static int display_initialize(int lcd_num)
 		return -1;
 	}
 
+#if 1
+
+	gpio_direction_output(GPIO_PORT89, 1);
+	mdelay(25);
+	gpio_direction_output(GPIO_PORT31, 1);
+	mdelay(10);
+
+	// SSG qHD Display
+	printk(KERN_ALERT "S6E39A0X02 qHD LCD Initialize Start\n");
+	if (lcd_ext_param[lcd_num].o_mode == RT_DISPLAY_LCD1) {
+		int loop = 0;
+		while(0 <= loop) {
+			switch(s6e39a0x02_cmdset[loop].cmd){
+			case MIPI_DSI_DCS_LONG_WRITE:
+				printk(KERN_ALERT "S6E39A0X02 LONG Write\n");
+				write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+				write_dsi_l.output_mode	= lcd_ext_param[lcd_num].o_mode;
+				write_dsi_l.data_id	= MIPI_DSI_DCS_LONG_WRITE;
+				write_dsi_l.data_count	= s6e39a0x02_cmdset[loop].size;
+				write_dsi_l.write_data	= s6e39a0x02_cmdset[loop].data;
+				ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
+				printk(KERN_ALERT "S6E39A0X02 SHORT Write with\n");
+				write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+				write_dsi_s.data_id	= MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+				write_dsi_s.reg_address = s6e39a0x02_cmdset[loop].data[0];
+				write_dsi_s.write_data	= s6e39a0x02_cmdset[loop].data[1];
+				write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+				ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "disp_write_dsi_short err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_DCS_SHORT_WRITE:
+				printk(KERN_ALERT "S6E39A0X02 SHORT Write\n");
+				write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+				write_dsi_s.data_id	= MIPI_DSI_DCS_SHORT_WRITE;
+				write_dsi_s.reg_address = s6e39a0x02_cmdset[loop].data[0];
+				write_dsi_s.write_data	= 0x00;
+				write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+				ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "disp_write_dsi_short err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_BLACK:
+			{
+				u32 line_num;
+				u32 line_size = 540*3 + 1;
+				unsigned char *line_data = kmalloc(line_size, GFP_KERNEL);
+				memset(line_data,0,line_size);
+				
+				printk(KERN_ALERT "S6E39A0X02 Black Paint\n");
+				
+				/* 1st line */
+				*line_data = 0x2C;
+				write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+				write_dsi_l.output_mode	= lcd_ext_param[lcd_num].o_mode;
+				write_dsi_l.data_id	= MIPI_DSI_DCS_LONG_WRITE;
+				write_dsi_l.data_count	= line_size;
+				write_dsi_l.write_data	= line_data;
+				ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					kfree(line_data);
+					return -1;
+				}
+				/* 2nd line */
+				*line_data = 0x3C;
+				for (line_num=0; line_num < 959; line_num++) {
+					ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+					if (ret != SMAP_LIB_DISPLAY_OK) {
+						printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+						disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+						screen_display_delete(&disp_delete);
+						kfree(line_data);
+						return -1;
+					}
+				}
+				
+				kfree(line_data);
+				break;
+			}
+			case MIPI_DSI_DELAY:
+				msleep(s6e39a0x02_cmdset[loop].size);
+				break;
+			case MIPI_DSI_END:
+			default:
+				loop = -2;
+				break;
+			}
+			loop++;
+		}
+	}
+	printk(KERN_ALERT "S6E39A0X02 qHD LCD Initialize End\n");
+#endif
+#if 0
+	//SSG Display
+	if (lcd_ext_param[lcd_num].o_mode == RT_DISPLAY_LCD1) {
+	  
+		unsigned char mtp[] 			= {0xf1,0xa5,0xa5};
+		unsigned char level2[] 			= {0xf0,0xa5,0xa5};
+		unsigned char panel_condition[] 	= {0xf8,0x01,0x27,0x27,0x07,0x07,0x54,0x9f,0x63,0x86,0x1a,0x33,0x0d,0x00,0x00};
+		unsigned char display_condition_1[] 	= {0xf2,0x02,0x03,0x1c,0x10,0x10};
+//		unsigned char display_condition_2[] 	= {0xf7,0x00,0x00,0x00};
+		unsigned char display_condition_2[] 	= {0xf7,0x03,0x00,0x00};
+		unsigned char gamma_condition_1[] 	= {0xfa,0x02,0x18,0x08,0x24,0x70,0x6e,0x4e,0xbc,0xc0,0xaf,0xb3,0xb8,0xa5,0xc5,0xc7,0xbb,0x00,0xb9,0x00,0xbb,0x00,0xfc};
+// info from SSG - no different in outcome		unsigned char gamma_condition_1[] 	= {0xfa,0x02,0x31,0x00,0x4f,0x13,0x60,0x01,0xaf,0xcd,0xa6,0xac,0xc7,0x98,0xc4,0xcf,0xb6,0x00,0x74,0x00,0x6b,0x00,0x8a};
+
+		unsigned char etc_condition_1[]		= {0xf6,0x00,0x8e,0x0f};
+		unsigned char etc_condition_3[]		= {0xb5,0x2c,0x12,0x0c,0x0a,0x10,0x0e,0x17,0x13,0x1f,0x1a,0x2a,0x24,0x1f,0x1b,0x1a,0x17,0x2b,0x26,0x22,0x20,0x3a,0x34,0x30,0x2c,0x29,0x26,0x25,0x23,0x21,0x20,0x1e,0x1e};
+		unsigned char etc_condition_4[]		= {0xb6,0x00,0x00,0x11,0x22,0x33,0x44,0x44,0x44,0x55,0x55,0x66,0x66,0x66,0x66,0x66,0x66};
+		unsigned char etc_condition_5[]		= {0xb7,0x2c,0x12,0x0c,0x0a,0x10,0x0e,0x17,0x13,0x1f,0x1a,0x2a,0x24,0x1f,0x1b,0x1a,0x17,0x2b,0x26,0x22,0x20,0x3a,0x34,0x30,0x2c,0x29,0x26,0x25,0x23,0x21,0x20,0x1e,0x1e};
+		unsigned char etc_condition_6[]		= {0xb8,0x00,0x00,0x11,0x22,0x33,0x44,0x44,0x44,0x55,0x55,0x66,0x66,0x66,0x66,0x66,0x66};
+		unsigned char etc_condition_7[]		= {0xb9,0x2c,0x12,0x0c,0x0a,0x10,0x0e,0x17,0x13,0x1f,0x1a,0x2a,0x24,0x1f,0x1b,0x1a,0x17,0x2b,0x26,0x22,0x20,0x3a,0x34,0x30,0x2c,0x29,0x26,0x25,0x23,0x21,0x20,0x1e,0x1e};
+		unsigned char etc_condition_8[]		= {0xba,0x00,0x00,0x11,0x22,0x33,0x44,0x44,0x44,0x55,0x55,0x66,0x66,0x66,0x66,0x66,0x66};
+		unsigned char dynamic_elvss_1[]		= {0xb2,0x10,0x10,0x10,0x10};
+			
+		/* wait 5ms */
+		msleep(5);
+		
+		//MTP key enable
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x3;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = mtp;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		//Level2 key enable
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x3;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = level2;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 2!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		/* wait 1ms */
+		msleep(1);
+	  
+		//Sleep out command
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x05;
+		write_dsi_s.reg_address = 0x11;
+		write_dsi_s.write_data	= 0x00;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err 1!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+
+		
+		/* wait 10ms */
+		msleep(10);
+		
+		//Panel Condition Set
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x0F;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = panel_condition;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 3!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		//Display Condition Set
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x06;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = display_condition_1;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 4!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x04;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = display_condition_2;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 4!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+
+
+		//Gamma Condition Set
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x23;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = gamma_condition_1;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 5!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x15;
+		write_dsi_s.reg_address = 0xFA;
+		write_dsi_s.write_data	= 0x03;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err 2!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		//Etc Condition Set
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x04;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_1;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 6!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x15;
+		write_dsi_s.reg_address = 0xB3;
+		write_dsi_s.write_data	= 0x6C;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err 3!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x21;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_3;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 7!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x11;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_4;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 8!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x21;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_5;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 9!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x11;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_6;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 10!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x21;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_7;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 11!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x11;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = etc_condition_8;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 12!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		//Smart DYNAMIC ELVSS set
+		write_dsi_l.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_l.output_mode = lcd_ext_param[lcd_num].o_mode;
+		write_dsi_l.data_id = 0x39;
+		//write_dsi_l.dummy = NULL;
+		write_dsi_l.data_count = 0x05;
+		//write_dsi_l.dummy2 = NULL;		//#MU2DSP188
+		write_dsi_l.write_data = dynamic_elvss_1;
+		ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_write_dsi_long_packet err 13!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+		
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x15;
+		write_dsi_s.reg_address = 0xB1;
+		write_dsi_s.write_data	= 0x0B;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err 4!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+
+		/* wait 120ms */
+		msleep(120);
+		
+		//Display On command
+		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
+		write_dsi_s.data_id	= 0x05;
+		write_dsi_s.reg_address = 0x29;
+		write_dsi_s.write_data	= 0x00;
+		write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+		ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_write_dsi_short err 5!\n");
+			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+	
+	}
+		
+#endif
+#if 0 
+	//KOTA display
 	if (lcd_ext_param[lcd_num].o_mode == RT_DISPLAY_LCD1) {
 		write_dsi_s.handle	= lcd_ext_param[lcd_num].aInfo;
 		write_dsi_s.data_id	= 0x05;
@@ -300,7 +830,7 @@ static int display_initialize(int lcd_num)
 			return -1;
 		}
 	}
-
+#endif
 	disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
 	screen_display_delete(&disp_delete);
 

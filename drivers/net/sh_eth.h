@@ -23,6 +23,13 @@
 #ifndef __SH_ETH_H__
 #define __SH_ETH_H__
 
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/spinlock.h>
+#include <linux/netdevice.h>
+#include <linux/phy.h>
+
+#include <asm/sh_eth.h>
 
 #define CARDNAME	"sh-eth"
 #define TX_TIMEOUT	(5*HZ)
@@ -30,8 +37,6 @@
 #define RX_RING_SIZE	64	/* Rx ring size */
 #define ETHERSMALL		60
 #define PKT_BUF_SZ		1538
-#define SH_ETH_TSU_TIMEOUT_MS	500
-#define SH_ETH_TSU_CAM_ENTRIES	32
 
 enum {
 	/* E-DMAC registers */
@@ -578,7 +583,8 @@ enum RPADIR_BIT {
 	RPADIR_PADR = 0x0003f,
 };
 
-
+/* RFLR */
+#define RFLR_VALUE 0x1000
 
 /* FDR */
 #define DEFAULT_FDR_INIT	0x00000707
@@ -682,11 +688,6 @@ enum TSU_FWSLC_BIT {
 	TSU_FWSLC_CAMSEL11 = 0x0002, TSU_FWSLC_CAMSEL10 = 0x0001,
 };
 
-/* TSU_VTAGn */
-#define TSU_VTAG_ENABLE		0x80000000
-#define TSU_VTAG_VID_MASK	0x00000fff
-
-
 /*
  * The sh ether Tx buffer descriptors.
  * This structure should be 20 bytes.
@@ -761,7 +762,6 @@ struct sh_eth_private {
 	struct platform_device *pdev;
 	struct sh_eth_cpu_data *cd;
 	const u16 *reg_offset;
-	void __iomem *addr;
 	void __iomem *tsu_addr;
 	dma_addr_t rx_desc_dma;
 	dma_addr_t tx_desc_dma;
@@ -769,7 +769,7 @@ struct sh_eth_private {
 	struct sh_eth_txdesc *tx_ring;
 	struct sk_buff **rx_skbuff;
 	struct sk_buff **tx_skbuff;
-	//struct net_device_stats stats;
+	struct net_device_stats stats;
 	struct timer_list timer;
 	spinlock_t lock;
 	u32 cur_rx, dirty_rx;	/* Producer/consumer ring indices */
@@ -789,8 +789,7 @@ struct sh_eth_private {
 	char post_rx;		/* POST receive */
 	char post_fw;		/* POST forward */
 	struct net_device_stats tsu_stats;	/* TSU forward status */
-	int port;		/* for TSU */
-	int vlan_num_ids;	/* for VLAN tag filter */
+
 	unsigned no_ether_link:1;
 	unsigned ether_link_active_low:1;
 };
@@ -812,7 +811,7 @@ static inline void sh_eth_write(struct net_device *ndev, unsigned long data,
 {
 	struct sh_eth_private *mdp = netdev_priv(ndev);
 
-	iowrite32(data, mdp->addr + mdp->reg_offset[enum_index]);
+	writel(data, ndev->base_addr + mdp->reg_offset[enum_index]);
 }
 
 static inline unsigned long sh_eth_read(struct net_device *ndev,
@@ -820,25 +819,19 @@ static inline unsigned long sh_eth_read(struct net_device *ndev,
 {
 	struct sh_eth_private *mdp = netdev_priv(ndev);
 
-	return ioread32(mdp->addr + mdp->reg_offset[enum_index]);
-}
-
-static inline void *sh_eth_tsu_get_offset(struct sh_eth_private *mdp,
-					  int enum_index)
-{
-	return mdp->tsu_addr + mdp->reg_offset[enum_index];
+	return readl(ndev->base_addr + mdp->reg_offset[enum_index]);
 }
 
 static inline void sh_eth_tsu_write(struct sh_eth_private *mdp,
 				unsigned long data, int enum_index)
 {
-	iowrite32(data, mdp->tsu_addr + mdp->reg_offset[enum_index]);
+	writel(data, mdp->tsu_addr + mdp->reg_offset[enum_index]);
 }
 
 static inline unsigned long sh_eth_tsu_read(struct sh_eth_private *mdp,
 					int enum_index)
 {
-	return ioread32(mdp->tsu_addr + mdp->reg_offset[enum_index]);
+	return readl(mdp->tsu_addr + mdp->reg_offset[enum_index]);
 }
 
 #endif	/* #ifndef __SH_ETH_H__ */

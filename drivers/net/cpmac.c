@@ -1099,7 +1099,7 @@ static const struct net_device_ops cpmac_netdev_ops = {
 	.ndo_stop		= cpmac_stop,
 	.ndo_start_xmit		= cpmac_start_xmit,
 	.ndo_tx_timeout		= cpmac_tx_timeout,
-	.ndo_set_rx_mode	= cpmac_set_multicast_list,
+	.ndo_set_multicast_list	= cpmac_set_multicast_list,
 	.ndo_do_ioctl		= cpmac_ioctl,
 	.ndo_set_config		= cpmac_config,
 	.ndo_change_mtu		= eth_change_mtu,
@@ -1144,6 +1144,7 @@ static int __devinit cpmac_probe(struct platform_device *pdev)
 	dev = alloc_etherdev_mq(sizeof(*priv), CPMAC_QUEUES);
 
 	if (!dev) {
+		printk(KERN_ERR "cpmac: Unable to allocate net_device\n");
 		return -ENOMEM;
 	}
 

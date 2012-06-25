@@ -612,7 +612,7 @@ static void xemaclite_rx_handler(struct net_device *dev)
 	u32 len;
 
 	len = ETH_FRAME_LEN + ETH_FCS_LEN;
-	skb = netdev_alloc_skb(dev, len + ALIGNMENT);
+	skb = dev_alloc_skb(len + ALIGNMENT);
 	if (!skb) {
 		/* Couldn't get memory. */
 		dev->stats.rx_dropped++;
@@ -1131,7 +1131,8 @@ static int __devinit xemaclite_of_probe(struct platform_device *ofdev)
 	/* Create an ethernet device instance */
 	ndev = alloc_etherdev(sizeof(struct net_local));
 	if (!ndev) {
-			return -ENOMEM;
+		dev_err(dev, "Could not allocate network device\n");
+		return -ENOMEM;
 	}
 
 	dev_set_drvdata(dev, ndev);
