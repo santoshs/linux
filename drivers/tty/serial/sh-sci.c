@@ -1504,6 +1504,8 @@ static unsigned int sci_scbrr_calc(unsigned int algo_id, unsigned int bps,
 		return (((freq * 2) + 16 * bps) / (16 * bps) - 1);
 	case SCBRR_ALGO_4:
 		return (((freq * 2) + 16 * bps) / (32 * bps) - 1);
+	case SCBRR_ALGO_4_BIS:
+		return (((freq * 2) + 13 * bps) / (26 * bps) - 1);
 	case SCBRR_ALGO_5:
 		return (((freq * 1000 / 32) / bps) - 1);
 	}
@@ -1558,6 +1560,12 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		smr_val |= 0x30;
 	if (termios->c_cflag & CSTOPB)
 		smr_val |= 0x08;
+
+	if(s->cfg->scbrr_algo_id == SCBRR_ALGO_4_BIS)
+	{
+                               smr_val &= ~(7 << 8);
+                               smr_val |= 4 << 8; //sampling rate 1/13
+        }
 
 	uart_update_timeout(port, termios->c_cflag, baud);
 

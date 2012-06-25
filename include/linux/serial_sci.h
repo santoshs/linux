@@ -13,6 +13,7 @@ enum {
 	SCBRR_ALGO_2,		/* ((clk + 16 * bps) / (32 * bps) - 1) */
 	SCBRR_ALGO_3,		/* (((clk * 2) + 16 * bps) / (16 * bps) - 1) */
 	SCBRR_ALGO_4,		/* (((clk * 2) + 16 * bps) / (32 * bps) - 1) */
+	SCBRR_ALGO_4_BIS,	/* (((clk * 2) + 13 * bps) / (26 * bps) - 1) */
 	SCBRR_ALGO_5,		/* (((clk * 1000 / 32) / bps) - 1) */
 };
 
