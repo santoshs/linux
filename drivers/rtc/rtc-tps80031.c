@@ -29,6 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
 
