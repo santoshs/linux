@@ -29,7 +29,7 @@
  */
 
 /* FSI format */
-static u_int g_clkgen_rate = 0;
+static u_int g_clkgen_rate = 0x0;
 
 /* CLKGEN Control functions table */
 static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
@@ -93,7 +93,7 @@ static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  NULL              },
 	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    NULL              },
 	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           NULL              },
-	{ SNDP_CAPTURE_FMRX_NORMAL,                         clkgen_capture    },
+	{ SNDP_CAPTURE_FMRX_NORMAL,                         clkgen_playback   },
 	{ SNDP_CAPTURE_FMRX_RINGTONE,                       NULL              },
 	{ SNDP_CAPTURE_FMRX_INCALL,                         NULL              },
 	{ SNDP_CAPTURE_FMRX_INCOMMUNICATION,                NULL              },
@@ -244,8 +244,8 @@ static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL0,	 0x00000002, 0, 0 }, /* VOTIM(PortA) */
 	{ CLKG_TIMSEL1,	 0x00000200, 0, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSISEL,	 0x00000011, 0, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
-					      * CSELA 1:Select FSIAOBT/FSIAOLR */
+	{ CLKG_FSISEL,	 0x00000011, 0, 0 }, /* CSELSPV 01:Sel FSIAOBT/FSIAOLR
+					      * CSELA 1:Sel FSIAOBT/FSIAOLR */
 };
 #endif
 
@@ -253,12 +253,12 @@ static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
 static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_FSIBCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
@@ -271,8 +271,8 @@ static struct common_reg_table clkgen_reg_tbl_voicecallB_S[] = {
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000012, 0, 0 }, /* CSELSPV 01:Select FSIAOBT/FSIAOLR
-					      * CSELB 1:Select FSIAOBT/FSIAOLR */
+	{ CLKG_FSISEL,	 0x00000012, 0, 0 }, /* CSELSPV 01:Sel FSIAOBT/FSIAOLR
+					      * CSELB 1:Sel FSIAOBT/FSIAOLR */
 };
 #endif
 

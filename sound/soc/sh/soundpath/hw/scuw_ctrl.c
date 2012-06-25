@@ -77,9 +77,9 @@ static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
 	/*   1 : Initialization */
 	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 },
 	/* 010 : 2 channel */
-	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0, 0 },
+	{ SCUW_FSIIF_ADINRW0,	0x00000001,	0, 0 },
 	/* 010 : 2 channel */
-	{ SCUW_FSIIF_ADINRR1,	0x00000002,	0, 0 },
+	{ SCUW_FSIIF_ADINRR1,	0x00000001,	0, 0 },
 	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
 	{ SCUW_FSIIF_WADCR0,	0x00000019,	0, 0 },
 	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
@@ -100,7 +100,7 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	/*   0: SEL5 output data, clock supply to IIR0 halted */
 	{ SCUW_SEL_SELCR6,	0x00000000,	0, 0 },
 	/*   0: SEL6 output data, clock supply to DVU0 halted */
-	{ SCUW_SEL_SELCR7,	0x00000003,	0, 0 },
+	{ SCUW_SEL_SELCR7,	0x00000000,	0, 0 },
 	/*   0: SEL7 output data */
 	{ SCUW_SEL_SELCR15,	0x00000000,	0, 0 },
 	/*   1 : FSI-IF operates. */
@@ -153,7 +153,7 @@ int scuw_start(const u_int uiValue)
 		reg_tbl  = scuw_reg_tbl_voicecallA;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallA);
 	/* BLUETOOTHSCO */
-	} else if (false != (dev & SNDP_BLUETOOTHSCO)){
+	} else if (false != (dev & SNDP_BLUETOOTHSCO)) {
 		reg_tbl  = scuw_reg_tbl_voicecallB;
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB);
 	/* FM_RADIO_RX */

@@ -91,7 +91,7 @@ static struct ctrl_func_tbl g_fsi_func_tbl[] = {
 	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  NULL           },
 	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    NULL           },
 	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           NULL           },
-	{ SNDP_CAPTURE_FMRX_NORMAL,                         fsi_capture    },
+	{ SNDP_CAPTURE_FMRX_NORMAL,                         fsi_playback   },
 	{ SNDP_CAPTURE_FMRX_RINGTONE,                       NULL           },
 	{ SNDP_CAPTURE_FMRX_INCALL,                         NULL           },
 	{ SNDP_CAPTURE_FMRX_INCOMMUNICATION,                NULL           },
@@ -121,6 +121,8 @@ static struct common_reg_table fsi_reg_tbl_voicecallA_M[] = {
 	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
+	/* Clears the reset(PortA) */
+	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 #endif
 
@@ -151,14 +153,16 @@ static struct common_reg_table fsi_reg_tbl_voicecallB_M[] = {
 	{ FSI_FSIDIVB,				0x000C0003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Master, DOIS:Master, 16.01kHz(4.098M/256) */
 	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001111,	0, 0 },
-	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
+	/* LRM:Clock inverted, BRM:Clock not inverted */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00001000,	0, 0 },
+	/* 24bits, PCM format, MONO */
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
+	/* 24bits, PCM format, MONO */
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
+	/* Clears the reset(PortB) */
+	{ FSI_ACK_RST,				0x00000010,	0, 0x00000010 },
 };
 #endif
 
@@ -169,12 +173,12 @@ static struct common_reg_table fsi_reg_tbl_voicecallB_S[] = {
 	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
 	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
+	/* LRS:Clock inverted, BRS:Clock not inverted */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000010,	0, 0 },
+	/* 24bits, PCM format, MONO */
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
+	/* 24bits, PCM format, MONO */
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
@@ -194,6 +198,8 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
+	/* Clears the reset(PortA) */
+	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
 /* Table for Playback(PortA, FSI slave) */
@@ -228,6 +234,8 @@ static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
+	/* Clears the reset(PortB) */
+	{ FSI_ACK_RST,				0x00000010,	0, 0x00000010 },
 };
 
 /* Table for Playback(PortB, FSI slave) */
@@ -260,6 +268,8 @@ static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
 	{ FSI_DI_FMT,	0x00000030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
+	/* Clears the reset(PortA) */
+	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
 /* Table for Capture(PortA, FSI slave) */
@@ -292,6 +302,8 @@ static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
 	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
+	/* Clears the reset(PortB) */
+	{ FSI_ACK_RST,				0x00000010,	0, 0x00000010 },
 };
 
 /* Table for Capture(PortB, FSI slave) */
@@ -638,109 +650,109 @@ void fsi_reg_dump(const u_int uiValue)
 	u_long portb_base;
 	sndp_log_reg_dump("===== FSI Registers Dump Start =====\n");
 
-	if (false == ((SNDP_GET_DEVICE_VAL(uiValue)) & SNDP_BLUETOOTHSCO)) {
-		sndp_log_reg_dump("\n<PortA>\n");
-		sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DO_FMT),
-				(g_fsi_Base + FSI_DO_FMT));
-		sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DOFF_CTL),
-				(g_fsi_Base + FSI_DOFF_CTL));
-		sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DOFF_ST),
-				(g_fsi_Base + FSI_DOFF_ST));
-		sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DI_FMT),
-				(g_fsi_Base + FSI_DI_FMT));
-		sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DIFF_CTL),
-				(g_fsi_Base + FSI_DIFF_CTL));
-		sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_DIFF_ST),
-				(g_fsi_Base + FSI_DIFF_ST));
-		sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_ACK_MD),
-				(g_fsi_Base + FSI_ACK_MD));
-		sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_ACK_RV),
-				(g_fsi_Base + FSI_ACK_RV));
+	sndp_log_reg_dump("\n<PortA>\n");
+	sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DO_FMT),
+			(g_fsi_Base + FSI_DO_FMT));
+	sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DOFF_CTL),
+			(g_fsi_Base + FSI_DOFF_CTL));
+	sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DOFF_ST),
+			(g_fsi_Base + FSI_DOFF_ST));
+	sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DI_FMT),
+			(g_fsi_Base + FSI_DI_FMT));
+	sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DIFF_CTL),
+			(g_fsi_Base + FSI_DIFF_CTL));
+	sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_DIFF_ST),
+			(g_fsi_Base + FSI_DIFF_ST));
+	sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_ACK_MD),
+			(g_fsi_Base + FSI_ACK_MD));
+	sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_ACK_RV),
+			(g_fsi_Base + FSI_ACK_RV));
 /*		sndp_log_reg_dump("DIDT       [%08X][%08lX]\n",
 				ioread32(g_fsi_Base + FSI_DIDT),
 				(g_fsi_Base + FSI_DIDT)); */
 /*		sndp_log_reg_dump("DODT       [%08X][%08lX]\n",
 				ioread32(g_fsi_Base + FSI_DODT),
 				(g_fsi_Base + FSI_DODT)); */
-		sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_MUTE_ST),
-				(g_fsi_Base + FSI_MUTE_ST));
-		sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_OUT_DMAC),
-				(g_fsi_Base + FSI_OUT_DMAC));
-		sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_OUT_SEL),
-				(g_fsi_Base + FSI_OUT_SEL));
-		sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_OUT_SPST),
-				(g_fsi_Base + FSI_OUT_SPST));
-		sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_IN_DMAC),
-				(g_fsi_Base + FSI_IN_DMAC));
-		sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
-				ioread32(g_fsi_Base + FSI_IN_SEL),
-				(g_fsi_Base + FSI_IN_SEL));
-	} else {
-		portb_base = g_fsi_Base + FSI_PORTB_OFFSET;
+	sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_MUTE_ST),
+			(g_fsi_Base + FSI_MUTE_ST));
+	sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_OUT_DMAC),
+			(g_fsi_Base + FSI_OUT_DMAC));
+	sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_OUT_SEL),
+			(g_fsi_Base + FSI_OUT_SEL));
+	sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_OUT_SPST),
+			(g_fsi_Base + FSI_OUT_SPST));
+	sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_IN_DMAC),
+			(g_fsi_Base + FSI_IN_DMAC));
+	sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
+			ioread32(g_fsi_Base + FSI_IN_SEL),
+			(g_fsi_Base + FSI_IN_SEL));
 
-		sndp_log_reg_dump("\n<PortB>\n");
-		sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DO_FMT),
-				(portb_base + FSI_DO_FMT));
-		sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DOFF_CTL),
-				(portb_base + FSI_DOFF_CTL));
-		sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DOFF_ST),
-				(portb_base + FSI_DOFF_ST));
-		sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DI_FMT),
-				(portb_base + FSI_DI_FMT));
-		sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DIFF_CTL),
-				(portb_base + FSI_DIFF_CTL));
-		sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DIFF_ST),
-				(portb_base + FSI_DIFF_ST));
-		sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_ACK_MD),
-				(portb_base + FSI_ACK_MD));
-		sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_ACK_RV),
-				(portb_base + FSI_ACK_RV));
-/*		sndp_log_reg_dump("DIDT       [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DIDT),
-				(portb_base + FSI_DIDT)); */
-/*		sndp_log_reg_dump("DODT       [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_DODT),
-				(portb_base + FSI_DODT)); */
-		sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_MUTE_ST),
-				(portb_base + FSI_MUTE_ST));
-		sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_OUT_DMAC),
-				(portb_base + FSI_OUT_DMAC));
-		sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_OUT_SEL),
-				(portb_base + FSI_OUT_SEL));
-		sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_OUT_SPST),
-				(portb_base + FSI_OUT_SPST));
-		sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_IN_DMAC),
-				(portb_base + FSI_IN_DMAC));
-		sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
-				ioread32(portb_base + FSI_IN_SEL),
-				(portb_base + FSI_IN_SEL));
-	}
+	portb_base = g_fsi_Base + FSI_PORTB_OFFSET;
+
+	sndp_log_reg_dump("\n<PortB>\n");
+	sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DO_FMT),
+			(portb_base + FSI_DO_FMT));
+	sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DOFF_CTL),
+			(portb_base + FSI_DOFF_CTL));
+	sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DOFF_ST),
+			(portb_base + FSI_DOFF_ST));
+	sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DI_FMT),
+			(portb_base + FSI_DI_FMT));
+	sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DIFF_CTL),
+			(portb_base + FSI_DIFF_CTL));
+	sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DIFF_ST),
+			(portb_base + FSI_DIFF_ST));
+	sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_ACK_MD),
+			(portb_base + FSI_ACK_MD));
+	sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_ACK_RV),
+			(portb_base + FSI_ACK_RV));
+/*	sndp_log_reg_dump("DIDT       [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DIDT),
+			(portb_base + FSI_DIDT)); */
+/*	sndp_log_reg_dump("DODT       [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_DODT),
+			(portb_base + FSI_DODT)); */
+	sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_MUTE_ST),
+			(portb_base + FSI_MUTE_ST));
+	sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_OUT_DMAC),
+			(portb_base + FSI_OUT_DMAC));
+	sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_OUT_SEL),
+			(portb_base + FSI_OUT_SEL));
+	sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_OUT_SPST),
+			(portb_base + FSI_OUT_SPST));
+	sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_IN_DMAC),
+			(portb_base + FSI_IN_DMAC));
+	sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
+			ioread32(portb_base + FSI_IN_SEL),
+			(portb_base + FSI_IN_SEL));
+
+	sndp_log_reg_dump("\n<Common>\n");
 	sndp_log_reg_dump("TMR_CTL    [%08X][%08lX]\n",
 			ioread32(g_fsi_Base + FSI_TMR_CTL),
 			(g_fsi_Base + FSI_TMR_CTL));

@@ -63,13 +63,20 @@ config SND_FSI_DA7210
 	  FSI - DA7210 unit
 
 config SND_FSI_MAX98090
-#	bool "FSI-MAX98090 sound support"
 	tristate "FSI-MAX98090 sound support"
 	depends on SND_SOC_SH4_FSI && I2C
 	select SND_SOC_MAX98090
 	help
 	  This option enables generic sound support for the
 	  FSI - MAX98090 unit
+
+config SND_FSI_WM1811
+	tristate "FSI-WM1811 sound support"
+	depends on SND_SOC_SH4_FSI && I2C
+	select SND_SOC_WM1811
+	help
+	  This option enables generic sound support for the
+	  FSI - wm1811 unit
 
 config SND_FSI_HDMI
 	tristate "FSI-HDMI sound support"

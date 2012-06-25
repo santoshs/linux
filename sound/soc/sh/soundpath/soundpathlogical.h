@@ -32,10 +32,6 @@ extern void fsi_set_trigger_stop(
 extern void fsi_set_run_time(
 	void *sndp_fsi_suspend,
 	void *sndp_fsi_resume);
-/* MAXIM DAI functions */
-#if 0
-extern max98090_ctl_dai_func_t g_max98090_ctrl_dai_func;
-#endif
 
 extern void fsi_set_slave(const bool slave);
 
@@ -126,19 +122,6 @@ static snd_pcm_uframes_t sndp_fsi_pointer(
 static int sndp_fsi_suspend(struct device *dev);
 static int sndp_fsi_resume(struct device *dev);
 
-/* MAXIM control functions */
-#if 0	/* TODO */
-static int sndp_maxim_startup(
-	struct snd_pcm_substream *substream,
-	struct snd_soc_dai *dai);
-static void sndp_maxim_shutdown(
-	struct snd_pcm_substream *substream,
-	struct snd_soc_dai *dai);
-static int sndp_maxim_hw_params(
-	struct snd_pcm_substream *substream,
-	struct snd_pcm_hw_params *params,
-	struct snd_soc_dai *dai);
-#endif	/* TODO */
 
 /* PATH Switchging / Back-out control functions */
 static void sndp_path_switching(const u_int uiValue);
@@ -164,13 +147,13 @@ static void sndp_work_voice_dev_chg(struct work_struct *work);
 static void sndp_work_normal_dev_chg(struct work_struct *work);
 
 /* Work queue processing for Playback start */
-static void sndp_work_maxim_play_start(struct work_struct *work);
+static void sndp_work_play_start(struct work_struct *work);
 /* Work queue processing for Capture start */
-static void sndp_work_maxim_capture_start(struct work_struct *work);
+static void sndp_work_capture_start(struct work_struct *work);
 /* Work queue processing for Playback stop */
-static void sndp_work_maxim_play_stop(struct work_struct *work);
+static void sndp_work_play_stop(struct work_struct *work);
 /* Work queue processing for Capture stop */
-static void sndp_work_maxim_capture_stop(struct work_struct *work);
+static void sndp_work_capture_stop(struct work_struct *work);
 
 /* Work queue processing for Start during a call playback */
 static void sndp_work_call_playback_start(struct work_struct *work);
@@ -186,9 +169,15 @@ static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
 static void sndp_work_watch_stop_fw(struct work_struct *work);
 
-/* MAXIM start / stop control functions */
-static void sndp_maxim_work_start(const int direction);
-static void sndp_maxim_work_stop(
+/* Work queue processing for FM Radio start */
+static void sndp_work_fm_radio_start(struct work_struct *work);
+/* Work queue processing for FM Radio stop */
+static void sndp_work_fm_radio_stop(struct work_struct *work);
+
+
+/* SoundPath start / stop control functions */
+static void sndp_work_start(const int direction);
+static void sndp_work_stop(
 	struct work_struct *work,
 	const int direction);
 
@@ -206,15 +195,15 @@ static void sndp_watch_clk_cb(void);
 
 /* Subfunction of the sndp_work_voice_dev_chg() */
 /* AudioLSI -> BT-SCO */
-static int sndp_work_voice_dev_chg_max98090_to_bt(
+static int sndp_work_voice_dev_chg_audioic_to_bt(
 	const u_int old_value,
 	const u_int new_value);
 /* BT-SCO -> AudioLSI */
-static int sndp_work_voice_dev_chg_bt_to_max98090(
+static int sndp_work_voice_dev_chg_bt_to_audioic(
 	const u_int old_value,
 	const u_int new_value);
 /* AudioLSI ->AudioLSI */
-static int sndp_work_voice_dev_chg_in_max98090(
+static int sndp_work_voice_dev_chg_in_audioic(
 	const u_int old_value,
 	const u_int new_value);
 
@@ -286,8 +275,8 @@ static int sndp_work_voice_dev_chg_in_max98090(
 /* Process ID, when mode change by soc_put. */
 enum sndp_proc_e {
 	SNDP_PROC_NO			= 0x0000, /* No action               */
-	SNDP_PROC_SHUTDOWN		= 0x0001, /* HW Shutdown(FSI, MAXIM) */
-	SNDP_PROC_MAXIM_START		= 0x0002, /* MAXIM setting           */
+	SNDP_PROC_SHUTDOWN		= 0x0001, /* HW Shutdown(FSI)        */
+	SNDP_PROC_START			= 0x0002, /* Soundpath setting       */
 	SNDP_PROC_CALL_START		= 0x0004, /* Call on                 */
 	SNDP_PROC_CALL_STOP		= 0x0008, /* Disconnect              */
 	SNDP_PROC_WATCH_STOP_FW		= 0x0010, /* Stop watch VCD          */
@@ -334,12 +323,17 @@ enum sndp_stop_trigger_condition {
 	SNDP_STOP_TRIGGER_VOICE		= 0x00020000,
 };
 
+/* Port kind */
+enum sndp_port_kind {
+	SNDP_PCM_PORTA,
+	SNDP_PCM_PORTB,
+};
+
 /* Function pointer typedef declarations */
 typedef int (*sndp_dai_startup)(struct snd_pcm_substream *,
 				struct snd_soc_dai *);
 typedef void (*sndp_dai_shutdown_fsi)(struct snd_pcm_substream *,
 				      struct snd_soc_dai *);
-typedef void (*sndp_dai_shutdown_maxim)(struct snd_soc_dai *, u_int);
 typedef int (*sndp_dai_trigger)(struct snd_pcm_substream *,
 				int,
 				struct snd_soc_dai *);
@@ -357,9 +351,6 @@ struct sndp_dai_func {
 	sndp_dai_set_fmt	fsi_set_fmt;
 	sndp_dai_hw_params	fsi_hw_params;
 	sndp_pointer		fsi_pointer;
-	sndp_dai_startup	maxim_startup;
-	sndp_dai_shutdown_maxim	maxim_shutdown;
-	sndp_dai_hw_params	maxim_hw_params[SNDP_PCM_DIRECTION_MAX];
 };
 
 /* ARGs table */
@@ -367,9 +358,6 @@ struct sndp_arg {
 	struct snd_pcm_substream	*fsi_substream;
 	struct snd_soc_dai		*fsi_dai;
 	struct snd_pcm_hw_params	fsi_params;
-	struct snd_pcm_substream	*maxim_substream;
-	struct snd_soc_dai		*maxim_dai;
-	struct snd_pcm_hw_params	maxim_params;
 };
 
 /* Stop processing table */

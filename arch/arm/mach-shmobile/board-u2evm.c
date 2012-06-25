@@ -637,7 +637,7 @@ static struct resource fsi_resources[] = {
 	[0] = {
 		.name	= "FSI",
 		.start	= 0xec230000,
-		.end	= 0xec23003f,
+		.end	= 0xec230500 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
@@ -659,16 +659,16 @@ static struct platform_device fsi_device = {
 static struct sh_fsi_platform_info fsi_b_info = {
 	.port_flags = SH_FSI_BRM_INV		|
 		       SH_FSI_LRM_INV		|
-		       SH_FSI_OFMT(MONO)	|
-		       SH_FSI_IFMT(MONO),
+		       SH_FSI_OFMT(I2S)	|
+		       SH_FSI_IFMT(I2S),
 	.always_slave	= 1,
 };
 
 static struct resource fsi_b_resources[] = {
 	[0] = {
 		.name	= "FSI",
-		.start	= 0xec230040,
-		.end	= 0xec23007f,
+		.start	= 0xec230000,
+		.end	= 0xec230500 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
@@ -1744,6 +1744,10 @@ static struct i2c_board_info i2cm_devices[] = {
                 I2C_BOARD_INFO("max97236", 0x40),
                 .irq            = irqpin2irq(34),
         },
+        {
+                I2C_BOARD_INFO("wm1811", 0x1a),
+                .irq            = irqpin2irq(24),
+        },
 #if 0
 	{
 		I2C_BOARD_INFO("led", 0x74),
@@ -1754,7 +1758,7 @@ static struct i2c_board_info i2cm_devices[] = {
 #endif
 };
 #if 0
-static struct i2c_board_info i2cm_devices_es2[] = {
+i2c_board_info i2cm_devices_es2[] = {
         {
                 I2C_BOARD_INFO("max98090", 0x10),
                 .irq            = irqpin2irq(34),
