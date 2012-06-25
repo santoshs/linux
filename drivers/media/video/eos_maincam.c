@@ -55,11 +55,9 @@ static const struct EOS_datafmt EOS_colour_fmts[] = {
 /* camera device settings */
 extern struct soc_camera_ops OV8820_ops;
 extern struct v4l2_subdev_ops OV8820_subdev_ops;
-const char OV8820_module_name[] = "OV8820";
 #ifdef CONFIG_SOC_CAMERA_IMX081
 extern struct soc_camera_ops IMX081_ops;
 extern struct v4l2_subdev_ops IMX081_subdev_ops;
-const char IMX081_module_name[] = "IMX081";
 #endif
 
 static struct EOS *
@@ -146,7 +144,6 @@ static int EOS_probe(struct i2c_client *client,
 			priv->width = 640;
 			priv->height = 480;
 			priv->fmt = &EOS_colour_fmts[0];
-			icl->module_name = OV8820_module_name;
 			ret = 0;
 
 		} else {
@@ -163,10 +160,9 @@ static int EOS_probe(struct i2c_client *client,
 		priv->width = 640;
 		priv->height = 480;
 		priv->fmt = &EOS_colour_fmts[0];
-		icl->module_name = IMX081_module_name;
+		ret = 0;
 		if (csi_info)
 			csi_info->clients->lanes = 0xF;
-		ret = 0;
 	}
 #endif
 
