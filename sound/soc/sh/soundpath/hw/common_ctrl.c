@@ -591,14 +591,6 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 			/* FSICKCR enable 38 divide */
 			iowrite32(0x00001065, fsickcr);
-
-			/* FM Radio */
-			if (false != (dev & SNDP_FM_RADIO_RX)) {
-				/* PortA */
-				fsickcr = CPG_FSIACKCR;
-				/* FSICKCR enable 38 divide */
-				iowrite32(0x00001065, fsickcr);
-			}
 		} else {
 			/* Pll22 enable 64 divide */
 			/* FSICKCR enable 25 divide */
@@ -613,16 +605,7 @@ void common_set_pll22(const u_int uiValue, int stat)
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 			/* FSICKCR disable */
-			iowrite32(0x00000100, fsickcr);
-
-			/* FM Radio */
-			if (false != (dev & SNDP_FM_RADIO_RX)) {
-				/* PortA */
-				fsickcr = CPG_FSIACKCR;
-				/* FSICKCR disable */
-				iowrite32(0x00000100, fsickcr);
-			}
-
+			iowrite32(0x00001065, fsickcr);
 			/* Pll22 disable */
 			iomodify32(0x00000010, 0, CPG_PLLECR);
 		}

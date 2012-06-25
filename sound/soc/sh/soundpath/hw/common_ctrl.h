@@ -45,7 +45,7 @@
 #define GPIO_FSI2CR		(g_common_ulClkGpioRegBase + 0x0144)
 
 #ifdef SOUND_TEST
-#define	CPG_SUBCKCR		(g_common_ulSrstRegBase + 0x00000080)
+	CPG_SUBCKCR		(g_common_ulSrstRegBase + 0x00000080)
 #endif
 
 #define FSI_PHY_BASE		(0xEC230000)
