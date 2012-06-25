@@ -134,6 +134,9 @@ static struct clk fsibck_clk = { };
 /* Constant divider */
 static unsigned long const_div_recalc(struct clk *clk)
 {
+	if(clk->name=="zb30_clk")
+	printk("SBSC(Zb3_clk) frequency at boot up is::%lu\n", clk->parent->rate / (int)(clk->priv));
+
 	return clk->parent->rate / (int)(clk->priv);
 }
 

@@ -56,6 +56,8 @@ struct clk {
 	struct clk_mapping	*mapping;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned int		nr_freqs;
+
+	unsigned char		*name; // For displaying zb30_clk frequency
 };
 
 #define CLK_ENABLE_ON_INIT	(1 << 0)
