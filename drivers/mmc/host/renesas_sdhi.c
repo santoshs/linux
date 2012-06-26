@@ -332,8 +332,7 @@ static void renesas_sdhi_pio_irq(struct renesas_sdhi_host *host)
 		return;
 	}
 
-	sg_virt = kmap_atomic(sg_page(host->sg_ptr), KM_BIO_SRC_IRQ) +
-			host->sg_ptr->offset;
+	sg_virt = kmap_atomic(sg_page(host->sg_ptr)) + host->sg_ptr->offset;
 	buf = (unsigned short *)(sg_virt + host->sg_off);
 
 	count = host->sg_ptr->length - host->sg_off;
@@ -348,7 +347,7 @@ static void renesas_sdhi_pio_irq(struct renesas_sdhi_host *host)
 
 	host->sg_off += count;
 
-	kunmap_atomic(sg_virt - host->sg_ptr->offset, KM_BIO_SRC_IRQ);
+	kunmap_atomic(sg_virt - host->sg_ptr->offset);
 
 	if (host->sg_off == host->sg_ptr->length)
 		renesas_sdhi_next_sg(host);
