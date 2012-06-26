@@ -57,15 +57,16 @@ Description :  File created
 #define SMC_TRACE_MDB_ENABLED
 #define SMC_TRACE_SIGNALS_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
+#define SMC_TRACE_EVENT_SEND_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
 #define SMC_TRACE_LOCK_ENABLED
 #define SMC_TRACE_TRANSMIT_ENABLED
+#define SMC_TRACE_TRANSMIT_DATA_ENABLED
 #define SMC_TRACE_RECEIVE_ENABLED
 #define SMC_TRACE_SEND_PACKET_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_TIMER_ENABLED
 */
-
 
 /**
  * ----------- R&D Trace macros begin ---------------
@@ -115,6 +116,14 @@ Description :  File created
   #define SMC_TRACE_PRINTF_TIMER_DATA( length, data )
 #endif
 
+#ifdef SMC_TRACE_EVENT_SEND_ENABLED
+  #define SMC_TRACE_PRINTF_EVENT_SEND(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"EVENT: send:" __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_EVENT_SEND_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_EVENT_SEND(...)
+  #define SMC_TRACE_PRINTF_EVENT_SEND_DATA( length, data )
+#endif
+
 #ifdef SMC_TRACE_EVENT_RECEIVED_ENABLED
   #define SMC_TRACE_PRINTF_EVENT_RECEIVED(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"EVENT: recv:" __VA_ARGS__ )
   #define SMC_TRACE_PRINTF_EVENT_RECEIVED_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
@@ -158,7 +167,12 @@ Description :  File created
 
 #ifdef SMC_TRACE_TRANSMIT_ENABLED
   #define SMC_TRACE_PRINTF_TRANSMIT(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"XMIT: " __VA_ARGS__ )
-  #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+
+  #ifdef SMC_TRACE_TRANSMIT_DATA_ENABLED
+      #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+      #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data )
+  #endif
 #else
   #define SMC_TRACE_PRINTF_TRANSMIT(...)
   #define SMC_TRACE_PRINTF_TRANSMIT_DATA( length, data )

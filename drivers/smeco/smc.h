@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       30   08-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.30
+
 Version:       29   07-Jun-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.29, Linux Kernel IRQ handler sequence changed -> IRQ clear set before handler
@@ -112,7 +116,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.29"
+#define SMC_SW_VERSION  "0.0.30"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -179,6 +183,7 @@ Description :  File created
 #define SMC_CHANNEL_STATE_RECEIVE_DISABLED  0x00000010      /* If set the channel does not receive any data (data is buffered to MDB)*/
 #define SMC_CHANNEL_STATE_MDB_OUT_OF_MEM    0x00000020      /* If set the channel's OUT MDB is out of memory*/
 #define SMC_CHANNEL_STATE_FIFO_FULL         0x00000040      /* If set the channel's out FIFO is FULL */
+#define SMC_CHANNEL_STATE_SEND_DISABLED     0x00000080      /* If set the channel does not send any data (upper layer tx buffers are stopped )*/
 
     /* Defines the flags to be set before SMC send is possible */
 #define SMC_CHANNEL_STATE_READY_TO_SEND     (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
@@ -189,13 +194,11 @@ Description :  File created
 #define SMC_SYNC_MSG_FIFO_REQ               0x108F1F0       /* Synchronization request  message put in the FIFO */
 #define SMC_SYNC_MSG_FIFO_RESP              0xF1F0104       /* Synchronization response message put in the FIFO */
 
-
     /*
      * Copy Scheme bits
      */
 #define SMC_COPY_SCHEME_COPY_IN_SEND        0x01
 #define SMC_COPY_SCHEME_COPY_IN_RECEIVE     0x02
-
 
 #define SMC_COPY_SCHEME_SEND_IS_COPY( bits )     (((bits)&SMC_COPY_SCHEME_COPY_IN_SEND)==SMC_COPY_SCHEME_COPY_IN_SEND)
 #define SMC_COPY_SCHEME_RECEIVE_IS_COPY( bits )  (((bits)&SMC_COPY_SCHEME_COPY_IN_RECEIVE)==SMC_COPY_SCHEME_COPY_IN_RECEIVE)
@@ -206,19 +209,19 @@ Description :  File created
     /*
      * SMC Channel state bit read/set/clear macros
      */
-#define SMC_CHANNEL_STATE_IS_READY_TO_SEND( state )     (((state)&SMC_CHANNEL_STATE_READY_TO_SEND)==SMC_CHANNEL_STATE_READY_TO_SEND)
+#define SMC_CHANNEL_STATE_IS_READY_TO_SEND( state )          (((state)&SMC_CHANNEL_STATE_READY_TO_SEND)==SMC_CHANNEL_STATE_READY_TO_SEND)
 
-#define SMC_CHANNEL_STATE_IS_SYNCHRONIZED( state )      (((state)&SMC_CHANNEL_STATE_SYNCHRONIZED)==SMC_CHANNEL_STATE_SYNCHRONIZED)
-#define SMC_CHANNEL_STATE_SET_SYNCHRONIZED( state )     ((state) |= SMC_CHANNEL_STATE_SYNCHRONIZED)
-#define SMC_CHANNEL_STATE_CLEAR_SYNCHRONIZED( state )   ((state) &= ~SMC_CHANNEL_STATE_SYNCHRONIZED)
+#define SMC_CHANNEL_STATE_IS_SYNCHRONIZED( state )           (((state)&SMC_CHANNEL_STATE_SYNCHRONIZED)==SMC_CHANNEL_STATE_SYNCHRONIZED)
+#define SMC_CHANNEL_STATE_SET_SYNCHRONIZED( state )          ((state) |= SMC_CHANNEL_STATE_SYNCHRONIZED)
+#define SMC_CHANNEL_STATE_CLEAR_SYNCHRONIZED( state )        ((state) &= ~SMC_CHANNEL_STATE_SYNCHRONIZED)
 
-#define SMC_CHANNEL_STATE_IS_SYNC_SENT( state )         (((state)&SMC_CHANNEL_STATE_SYNC_MSG_SENT)==SMC_CHANNEL_STATE_SYNC_MSG_SENT)
-#define SMC_CHANNEL_STATE_SET_SYNC_SENT( state )        ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_SENT)
-#define SMC_CHANNEL_STATE_CLEAR_SYNC_SENT( state )      ((state) &= ~SMC_CHANNEL_STATE_SYNC_MSG_SENT)
+#define SMC_CHANNEL_STATE_IS_SYNC_SENT( state )              (((state)&SMC_CHANNEL_STATE_SYNC_MSG_SENT)==SMC_CHANNEL_STATE_SYNC_MSG_SENT)
+#define SMC_CHANNEL_STATE_SET_SYNC_SENT( state )             ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_SENT)
+#define SMC_CHANNEL_STATE_CLEAR_SYNC_SENT( state )           ((state) &= ~SMC_CHANNEL_STATE_SYNC_MSG_SENT)
 
-#define SMC_CHANNEL_STATE_IS_SYNC_RECEIVED( state )     (((state)&SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)==SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
-#define SMC_CHANNEL_STATE_SET_SYNC_RECEIVED( state )    ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
-#define SMC_CHANNEL_STATE_CLEAR_SYNC_RECEIVED( state )  ((state) &= ~SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
+#define SMC_CHANNEL_STATE_IS_SYNC_RECEIVED( state )          (((state)&SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)==SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
+#define SMC_CHANNEL_STATE_SET_SYNC_RECEIVED( state )         ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
+#define SMC_CHANNEL_STATE_CLEAR_SYNC_RECEIVED( state )       ((state) &= ~SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED)
 
 #define SMC_CHANNEL_STATE_IS_SHM_CONFIGURED( state )         (((state)&SMC_CHANNEL_STATE_SHM_CONFIGURED)==SMC_CHANNEL_STATE_SHM_CONFIGURED)
 #define SMC_CHANNEL_STATE_SET_SHM_CONFIGURED( state )        ((state) |= SMC_CHANNEL_STATE_SHM_CONFIGURED)
@@ -235,6 +238,10 @@ Description :  File created
 #define SMC_CHANNEL_STATE_IS_FIFO_FULL( state )              (((state)&SMC_CHANNEL_STATE_FIFO_FULL)==SMC_CHANNEL_STATE_FIFO_FULL)
 #define SMC_CHANNEL_STATE_SET_FIFO_FULL( state )             ((state) |= SMC_CHANNEL_STATE_FIFO_FULL)
 #define SMC_CHANNEL_STATE_CLEAR_FIFO_FULL( state )           ((state) &= ~SMC_CHANNEL_STATE_FIFO_FULL)
+
+#define SMC_CHANNEL_STATE_SEND_IS_DISABLED( state )          (((state)&SMC_CHANNEL_STATE_SEND_DISABLED)==SMC_CHANNEL_STATE_SEND_DISABLED)
+#define SMC_CHANNEL_STATE_SET_SEND_IS_DISABLED( state )      ((state) |= SMC_CHANNEL_STATE_SEND_DISABLED)
+#define SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( state )    ((state) &= ~SMC_CHANNEL_STATE_SEND_DISABLED)
 
     /*
      * SMC Macros for common usage
@@ -446,9 +453,12 @@ void                  smc_signal_destroy               ( smc_signal_t* signal );
 uint8_t               smc_signal_raise                 ( smc_signal_t* signal );
 uint8_t               smc_signal_acknowledge           ( smc_signal_t* signal );
 uint8_t               smc_signal_handler_register      ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
+uint8_t               smc_signal_handler_unregister    ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
 smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
 uint8_t               smc_signal_add_handler           ( smc_signal_handler_t* signal_handler );
 smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uint32_t signal_type );
+void                  smc_signal_handler_remove_and_destroy( smc_signal_handler_t* signal_handler );
+void                  smc_signal_remove_handler        ( smc_signal_handler_t* signal_handler );
 
 
     /*

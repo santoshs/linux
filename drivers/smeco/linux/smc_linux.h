@@ -123,7 +123,8 @@ typedef struct _smc_device_driver_priv_t
 #include "linux/if.h"
 
 #define SIOCDEV_SEND_DATA     (SIOCDEVPRIVATE + 0x04)
-#define SIOCDEV_RUN_TEST      (SIOCDEVPRIVATE + 0x05)
+#define SIOCDEV_RUN_TEST      (SIOCDEVPRIVATE + 0x05)       /* Run SMC tests (valid only when test module is built in)*/
+#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Return the status of the specified device*/
 
 struct ifreq_smc
 {

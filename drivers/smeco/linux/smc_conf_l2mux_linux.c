@@ -56,8 +56,6 @@ static inline smc_lock_t* get_local_lock_smc_start_stop(void)
     return g_local_lock_smc_start_stop;
 }
 
-
-
 /*
  * Callback functions for SMC
  */
@@ -66,11 +64,9 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                                       const struct _smc_user_data_t* userdata,
                                                       const struct _smc_channel_t* channel);
 
-//static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata);
 static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
 static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
-
 
 static smc_conf_t* smc_device_create_conf_l2mux(void);
 
@@ -78,8 +74,6 @@ static int      l2mux_net_device_driver_ioctl(struct net_device* device, struct 
 static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device, struct sk_buff *skb );
 static int      l2mux_modify_send_data( struct sk_buff *skb, smc_user_data_t* smc_user_data );
 static void     l2mux_layer_device_driver_setup(struct net_device* dev);
-
-
 
 /*
  * The one and only L2MUX device configuration
@@ -153,9 +147,6 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
     int                  i                       = 0;
 
         /* Select the SMC configuration */
-        /* TODO Set configuration master name in the network device  */
-    //char* smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2;
-
     char* smc_cpu_name = NULL;
     uint8_t asic_version = smc_asic_version_get();
 
@@ -167,9 +158,6 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
     {
         smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
     }
-
-    /* TODO Check the CPU version */
-    //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
 
     SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X (PM Host Access Req %s)", smc_cpu_name, asic_version,
             SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
@@ -318,6 +306,8 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                 smc_net_dev = netdev_priv( device );
 
+                device->stats.rx_packets++;
+
                 SMC_UNLOCK( channel->lock_read );
                 /*
                  * Critical section ends
@@ -338,15 +328,6 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: completed");
 }
-
-/*
-static void* smc_allocator_callback_l2mux(smc_channel_t* smc_channel, uint32_t size, uint32_t userdata)
-{
-    SMC_TRACE_PRINTF_DEBUG("smc_allocator_callback_l2mux: SMC channel 0x%08X, size %d (NOT IMPLEMENTED)", (uint32_t)smc_channel, size);
-
-    return NULL;
-}
-*/
 
 static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data)
 {
@@ -389,6 +370,8 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                 queue = netdev_get_tx_queue(device, queue_ind);
                 netif_tx_stop_queue(queue);
 
+                SMC_CHANNEL_STATE_SET_SEND_IS_DISABLED( smc_channel->state );
+
                 //netif_tx_stop_all_queues(device);
             }
             else
@@ -427,8 +410,7 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                     queue = netdev_get_tx_queue(device, queue_ind);
                     netif_tx_start_queue(queue);
 
-                    //netif_tx_start_all_queues(device);
-                    // void netif_tx_wake_queue(struct netdev_queue *dev_queue);
+                    SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
                 }
                 else
                 {
@@ -438,7 +420,7 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
             }
             else
             {
-                SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channels %d lock counter is %d, not starting queues", smc_channel->id, smc_channel->stop_counter);
+                SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channels %d lock counter is %d, not starting queue %d", smc_channel->id, smc_channel->stop_counter, smc_channel->protocol);
             }
 
             SMC_UNLOCK( local_lock );
@@ -460,11 +442,9 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_l2mux_event_handler: channel id %d: SMC_VERSION_INFO_REMOTE, version is 0x%08X -> v.%s, local version: 0x%08X -> v.%s",
                     smc_channel->id, version, str_version, version_local, str_version_local);
 
-
             SMC_TRACE_PRINTF_STARTUP("Channel %d version info: local v.%s, remote v.%s", smc_channel->id,str_version_local, str_version);
 
             /* TODO Implement version compare and decide if it is possible to communicate */
-
 
             SMC_FREE( str_version );
 
