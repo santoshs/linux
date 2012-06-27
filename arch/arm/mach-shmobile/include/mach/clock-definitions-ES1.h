@@ -187,7 +187,7 @@ static unsigned long pll0_recalc(struct clk *clk)
 
 	if (__raw_readl(PLLECR) & (1 << (8 + 0)))
 		mult = ((__raw_readl(PLL0CR) >> 24) & 0x3f) + 1;
-
+	printk("System-CPU(Z-clock) frequency at boot up is %lu\n",(clk->parent->rate * mult));
 	return clk->parent->rate * mult;
 }
 
