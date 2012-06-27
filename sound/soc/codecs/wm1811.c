@@ -1258,7 +1258,7 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 					WM1811_HEADSET_MIC_ENABLE);
 			}
 		}
-		ret = wm1811_write(0x0001, pm);
+/*		ret = wm1811_write(0x0001, pm); */
 		ret = wm1811_write(0x001A, mute_vol);
 	} else {
 		/* nothing to do. */
