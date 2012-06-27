@@ -135,7 +135,7 @@ static u32 fb_debug;
 	if (fb_debug)		   \
 		printk(KERN_INFO "%s(): " FMT, __func__, ##ARGS)
 
-#if 1 // SSG qHD Display
+#if 0 // SSG qHD Display /******/
 struct _s6e39a0x02_cmdset {
 	unsigned char cmd;
 	unsigned char *data;
@@ -339,7 +339,7 @@ static int display_initialize(int lcd_num)
 		return -1;
 	}
 
-#if 1
+#if 0
 
 	gpio_direction_output(GPIO_PORT89, 1);
 	mdelay(25);

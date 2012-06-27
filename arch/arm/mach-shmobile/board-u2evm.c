@@ -2313,19 +2313,6 @@ else /*ES2.0*/
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
-	/*LCD LDO Enable*/
-	gpio_request(GPIO_PORT89, NULL);
-	gpio_direction_output(GPIO_PORT89, 0);
-
-	/* LCD */
-	gpio_request(GPIO_PORT31, NULL);
-	gpio_direction_output(GPIO_PORT31, 0); /* reset */
-/*	udelay(50);*/
-/*	gpio_direction_output(GPIO_PORT31, 1);*/ /* unreset */
-
-	/* MIPI-DSI clock setup */
-	__raw_writel(0x2a83900D, DSI0PHYCR);
-
 	/* PMIC */
 	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
 	gpio_direction_output(GPIO_PORT0, 1);
