@@ -217,7 +217,7 @@ static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
+	.scbrr_algo_id	= SCBRR_ALGO_4_BIS,
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(108), gic_spi(108),
 			    gic_spi(108), gic_spi(108) },
