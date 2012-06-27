@@ -85,6 +85,7 @@ static struct clk es2_zb30_clk = {	/* ZB3 Implementation not needed, ZB30=ZB3 */
 	.parent = &es2_ddr_clk,
 	.ops = &const_div_clk_ops,
 	.priv = (void *)2,
+	.name = "zb30_clk", // For displaying zb30_clk frequency
 };
 
 static struct clk es2_ddr_div2_clk = {
