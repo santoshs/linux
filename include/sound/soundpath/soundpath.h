@@ -58,7 +58,6 @@ SOUNDPATH_NO_EXTERN atomic_t g_sndp_watch_clk;
 
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
-	struct snd_soc_dai_driver *max98090_dai_driver,
 	struct snd_soc_platform_driver *fsi_soc_platform);
 
 SOUNDPATH_NO_EXTERN void sndp_exit(void);
@@ -384,8 +383,8 @@ enum sndp_device_type {
 	SNDP_AUXDIGITAL = 0x10,		/* AUX_DIGITAL(HDMI) */
 	SNDP_BUILTIN_MIC = 0x20,	/* MIC */
 	SNDP_WIREDHEADPHONE = 0x40,	/* WIRED_HEADPHONE */
-	SNDP_FM_RADIO_RX = 0x80,		/* FM_RADIO_RX */
-	SNDP_FM_RADIO_TX = 0x100,		/* FM_RADIO_TX */
+	SNDP_FM_RADIO_RX = 0x80,	/* FM_RADIO_RX */
+	SNDP_FM_RADIO_TX = 0x100,	/* FM_RADIO_TX */
 };
 
 /* Mode types */
@@ -418,8 +417,8 @@ enum sndp_audio_devices {
 	SNDP_OUT_AUX_DIGITAL = 0x400,
 	SNDP_OUT_ANLG_DOCK_HEADSET = 0x800,
 	SNDP_OUT_DGTL_DOCK_HEADSET = 0x1000,
-	SNDP_OUT_FM_RADIO_RX = 0x2000,
-	SNDP_OUT_FM_RADIO_TX = 0x4000,
+	SNDP_OUT_FM_RADIO_TX = 0x2000,
+	SNDP_OUT_FM_RADIO_RX = 0x4000,
 	/* input devices */
 	SNDP_IN_COMMUNICATION = 0x10000,
 	SNDP_IN_AMBIENT = 0x20000,
@@ -698,6 +697,33 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
  ***  For AudioLSI interface                          **
  ** ************************************************** *
  */
+/* use AudioLsi information */
+struct sndp_codec_info {
+	int (*set_device)(const u_long device, const u_int pcm_value);
+	int (*get_device)(u_long *device);
+	int (*set_volum)(const u_long device, const u_int volume);
+	int (*get_volume)(const u_long device, u_int *volume);
+	int (*set_mute)(const u_int mute);
+	int (*get_mute)(u_int *mute);
+	int (*set_speaker_amp)(const u_int value);
+	void (*set_soc_controls)(struct snd_kcontrol_new *controls,
+				u_int array_size);
+
+	u_long out_dev_all;
+	u_long in_dev_all;
+	u_long dev_none;
+	u_long dev_playback_speaker;
+	u_long dev_playback_earpiece;
+	u_long dev_playback_headphones;
+	u_long dev_capture_mic;
+	u_long dev_capture_headset_mic;
+	u_int codec_valume;
+	u_int mute_enable;
+	u_int mute_disable;
+	u_int speaker_enable;
+	u_int speaker_disable;
+};
+
 /* PCM name suffix table */
 struct sndp_pcm_name_suffix {
 	const u_int key;
@@ -709,7 +735,6 @@ struct sndp_pcm_name_suffix {
 #define SNDP_IN_PCM_SUFFIX	"AndroidCapture"
 
 /* Device name */
-/* COMMENT: Debaisuha, korede zenbu? */
 static const struct sndp_pcm_name_suffix device_suffix[] = {
 	{ SNDP_OUT_EARPIECE,			"_Earpiece"		},
 	{ SNDP_OUT_SPEAKER,			"_Speaker"		},
@@ -718,8 +743,8 @@ static const struct sndp_pcm_name_suffix device_suffix[] = {
 	{ SNDP_OUT_BLUETOOTH_SCO,		"_Bluetooth"		},
 	{ SNDP_OUT_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},
 	{ SNDP_OUT_AUX_DIGITAL,			"_Hdmi"			},
-	{ SNDP_OUT_FM_RADIO_RX,			"_Fmrx"			},
 	{ SNDP_OUT_FM_RADIO_TX,			"_Fmtx"			},
+	{ SNDP_OUT_FM_RADIO_RX,			"_Fmrx"			},
 	{ SNDP_IN_WIRED_HEADSET,		"_Headset"		},
 	{ SNDP_IN_BUILTIN_MIC,			"_Mic"			},
 	{ SNDP_IN_BLUETOOTH_SCO_HEADSET,	"_Bluetooth"		},

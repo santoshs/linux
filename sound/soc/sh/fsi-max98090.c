@@ -26,10 +26,13 @@
 #include <sound/soc-dapm.h>
 
 #include <sound/sh_fsi.h>
-/* #include <../sound/soc/codecs/max98090.h> */
+#include <sound/soundpath/max98090_extern.h>
 #include <sound/soundpath/soundpath.h>
 
-extern struct snd_soc_dai_driver max98090_dai_driver[];
+extern struct sndp_codec_info g_sndp_codec_info;
+extern void max98090_set_soc_controls(
+	struct snd_kcontrol_new *controls,
+	u_int array_size);
 
 static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
@@ -61,9 +64,39 @@ static struct platform_device *fsi_snd_device;
 static int __init fsi_max98090_init(void)
 {
 	int ret = -ENOMEM;
-printk(KERN_INFO "@@ %s\n", __func__);
 
-	ret = sndp_init(fsi_soc_dai, max98090_dai_driver, &fsi_soc_platform);
+	/* Set AudioLsi information */
+	g_sndp_codec_info.set_device =	max98090_set_device;
+	g_sndp_codec_info.get_device =	max98090_get_device;
+	g_sndp_codec_info.set_volum =  max98090_set_volume;
+	g_sndp_codec_info.get_volume = max98090_get_volume;
+	g_sndp_codec_info.set_mute = max98090_set_mute;
+	g_sndp_codec_info.get_mute = max98090_get_mute;
+	g_sndp_codec_info.set_speaker_amp = max98090_set_speaker_amp;
+	g_sndp_codec_info.set_soc_controls = max98090_set_soc_controls;
+
+	g_sndp_codec_info.out_dev_all = (MAX98090_DEV_PLAYBACK_SPEAKER	|
+					 MAX98090_DEV_PLAYBACK_EARPIECE |
+					 MAX98090_DEV_PLAYBACK_HEADPHONES);
+	g_sndp_codec_info.in_dev_all = (MAX98090_DEV_CAPTURE_MIC |
+					MAX98090_DEV_CAPTURE_HEADSET_MIC);
+	g_sndp_codec_info.dev_none = MAX98090_DEV_NONE;
+	g_sndp_codec_info.dev_playback_speaker = MAX98090_DEV_PLAYBACK_SPEAKER;
+	g_sndp_codec_info.dev_playback_earpiece =
+					MAX98090_DEV_PLAYBACK_EARPIECE;
+	g_sndp_codec_info.dev_playback_headphones =
+					MAX98090_DEV_PLAYBACK_HEADPHONES;
+	g_sndp_codec_info.dev_capture_mic = MAX98090_DEV_CAPTURE_MIC;
+	g_sndp_codec_info.dev_capture_headset_mic =
+					MAX98090_DEV_CAPTURE_HEADSET_MIC;
+
+	g_sndp_codec_info.codec_valume = MAX98090_VOLUMEL5;
+	g_sndp_codec_info.mute_enable = MAX98090_MUTE_ENABLE;
+	g_sndp_codec_info.mute_disable = MAX98090_MUTE_DISABLE;
+	g_sndp_codec_info.speaker_enable = MAX98090_SPEAKER_AMP_ENABLE;
+	g_sndp_codec_info.speaker_disable = MAX98090_SPEAKER_AMP_DISABLE;
+
+	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform);
 	if (ret)
 		goto out;
 
@@ -78,7 +111,6 @@ printk(KERN_INFO "@@ %s\n", __func__);
 		platform_device_put(fsi_snd_device);
 
 out:
-printk(KERN_INFO "@@ %s [%d]\n", __func__, ret);
 	return ret;
 
 }

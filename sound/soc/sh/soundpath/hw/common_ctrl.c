@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 #include <sound/soundpath/common_extern.h>
 #include "common_ctrl.h"
+#include <mach/common.h>
 
 
 /*
@@ -48,6 +49,7 @@ static u_int g_clock_flag;
 
    @retval	none
  */
+#if 0
 void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg)
 {
 	/* Local variable declaration */
@@ -58,7 +60,7 @@ void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg)
 	uiTmp |= uiSet;
 	iowrite32(uiTmp, (void __iomem *)uiReg);
 }
-
+#endif
 
 /*!
    @brief Registers ioremap for Common/CLKGEN/FSI/SCUW
@@ -365,10 +367,10 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 
 /*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
 				/* Soft Reset */
-				iomodify32(0, 0x01000000, CPG_SRCR2);
+				sh_modify_register32((u_int)CPG_SRCR2, (u32)0, (u32)0x01000000);
 				udelay(62);
 				/* CLKGEN operates */
-				iomodify32(0x01000000, 0, CPG_SRCR2);
+				sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
 /*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
 
 				g_clock_flag |= SNDP_CLK_CLKGEN;
@@ -402,17 +404,17 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 
 /*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
 				/* Soft Reset */
-				iomodify32(0, 0x10000000, CPG_SRCR3);
+				sh_modify_register32(CPG_SRCR3, 0, 0x10000000);
 				udelay(62);
 				/* FSI operates */
-				iomodify32(0x10000000, 0, CPG_SRCR3);
+				sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
 /*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
 
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
 				reg = ioread32(CPG_SUBCKCR);
 				if (reg & (1 << 11)) {
-					iomodify32(0x00000800, 0, CPG_SUBCKCR);
+					sh_modify_register32(CPG_SUBCKCR, 0x00000800, 0);
 				reg = ioread32(CPG_SUBCKCR);
 				}
 #endif /* SOUND_TEST */
@@ -447,10 +449,10 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 
 /*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
 				/* Soft Reset */
-				iomodify32(0, 0x04000000, CPG_SRCR3);
+				sh_modify_register32(CPG_SRCR3, 0, 0x04000000);
 				udelay(62);
 				/* SCUW operates */
-				iomodify32(0x04000000, 0, CPG_SRCR3);
+				sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
 /*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
 
 				g_clock_flag |= SNDP_CLK_SCUW;
@@ -509,19 +511,22 @@ void common_set_register(
 		} else if (0 != reg_tbl[i].uiClrbit) {
 			/* CLKGEN */
 			if (SNDP_HW_CLKGEN == drv)
-				iomodify32(reg_tbl[i].uiClrbit,
-					   reg_tbl[i].uiValue,
-					   (g_clkgen_Base + reg_tbl[i].uiReg));
+				sh_modify_register32(
+					(g_clkgen_Base + reg_tbl[i].uiReg),
+					reg_tbl[i].uiClrbit,
+					reg_tbl[i].uiValue);
 			/* FSI */
 			else if (SNDP_HW_FSI == drv)
-				iomodify32(reg_tbl[i].uiClrbit,
-					   reg_tbl[i].uiValue,
-					   (g_fsi_Base + reg_tbl[i].uiReg));
+				sh_modify_register32(
+					(g_fsi_Base + reg_tbl[i].uiReg),
+					reg_tbl[i].uiClrbit,
+					reg_tbl[i].uiValue);
 			/* SCUW */
 			else
-				iomodify32(reg_tbl[i].uiClrbit,
-					   reg_tbl[i].uiValue,
-					   (g_scuw_Base + reg_tbl[i].uiReg));
+				sh_modify_register32(
+					(g_scuw_Base + reg_tbl[i].uiReg),
+					reg_tbl[i].uiClrbit,
+					reg_tbl[i].uiValue);
 		/* Register setting */
 		} else {
 			/* CLKGEN */
@@ -578,7 +583,7 @@ void common_set_pll22(const u_int uiValue, int stat)
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 			/* Pll22 enable 66 divide */
 			iowrite32(0x41000000, CPG_PLL22CR);
-			iomodify32(0, 0x00000010, CPG_PLLECR);
+			sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
 
 			for (cnt = 0; cnt < 10; cnt++) {
 				if (!(0x1000 & ioread32(CPG_PLLECR)))
@@ -591,12 +596,20 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 			/* FSICKCR enable 38 divide */
 			iowrite32(0x00001065, fsickcr);
+
+			/* FM Radio */
+			if (false != (dev & SNDP_FM_RADIO_RX)) {
+				/* PortA */
+				fsickcr = CPG_FSIACKCR;
+				/* FSICKCR enable 38 divide */
+				iowrite32(0x00001065, fsickcr);
+			}
 		} else {
 			/* Pll22 enable 64 divide */
 			/* FSICKCR enable 25 divide */
 			/*
 			 * iowrite32(0x39000000, CPG_PLL22CR);
-			 * iomodify32(0, 0x00000010, CPG_PLLECR);
+			 * sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
 			 * iowrite32(0x00001058, fsickcr);
 			 */
 		}
@@ -605,9 +618,18 @@ void common_set_pll22(const u_int uiValue, int stat)
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 			/* FSICKCR disable */
-			iowrite32(0x00001065, fsickcr);
+			iowrite32(0x00000100, fsickcr);
+
+			/* FM Radio */
+			if (false != (dev & SNDP_FM_RADIO_RX)) {
+				/* PortA */
+				fsickcr = CPG_FSIACKCR;
+				/* FSICKCR disable */
+				iowrite32(0x00000100, fsickcr);
+			}
+
 			/* Pll22 disable */
-			iomodify32(0x00000010, 0, CPG_PLLECR);
+			sh_modify_register32(CPG_PLLECR, 0x00000010, 0);
 		}
 	}
 
