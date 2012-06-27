@@ -327,7 +327,7 @@ extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
 /* overdrive mode enable flag */
-/* #define SH_CPUFREQ_OVERDRIVE	1 */
+#define SH_CPUFREQ_OVERDRIVE	1
 
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
