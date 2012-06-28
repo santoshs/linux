@@ -1273,7 +1273,8 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		if (error)
 			break;
 		info->fix = sh_mobile_lcdc_fix;
-		info->fix.line_length = info->var.xres * (cfg->bpp / 8);
+		info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
+			* (cfg->bpp / 8);
 
 		/* 4kbyte align */
 		ulLCM = LCM(info->fix.line_length, 0x1000);
