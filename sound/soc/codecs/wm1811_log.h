@@ -39,6 +39,9 @@
 #define AUDIO_LSI_DRV_NAME              "wm1811drv"
 #define WM1811_LOG_LEVEL                "log_level"
 #define WM1811_DUMP_REG                 "dump_reg"
+#define WM1811_TUNE_REG                 "tune_reg"
+#define WM1811_PATH_SET                 "path_set"
+
 #define WM1811_LOG_NO_PRINT             (0x00)
 #define WM1811_LOG_ERR_PRINT            (0x01)
 #define WM1811_LOG_PROC_PRINT           (0x02)
