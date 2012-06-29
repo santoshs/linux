@@ -817,6 +817,10 @@ static struct platform_device lcdc_device = {
 	},
 };
 
+static struct platform_device lcd_device = {
+	.name		= "s6e39a0x02",
+};
+
 static struct resource mfis_resources[] = {
 	[0] = {
 		.name   = "MFIS",
@@ -1390,6 +1394,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&lcd_device,
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
@@ -1431,6 +1436,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&lcd_device,
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
@@ -1472,6 +1478,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&lcd_device,
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
