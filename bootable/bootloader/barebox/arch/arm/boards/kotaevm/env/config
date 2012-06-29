@@ -3,7 +3,7 @@
 # use 'dhcp' to do dhcp in barebox and in kernel
 # use 'none' if you want to skip kernel ip autoconfiguration
 autoboot_timeout=1
-bootargs="console=ttySC0,115200 vmalloc=448M" 
+bootargs="console=ttySC0,115200 vmalloc=448M overdrive=true" 
 
 # or set your networking parameters here
 eth0.ipaddr=192.168.10.100
