@@ -242,10 +242,29 @@ static struct platform_device keysc_device = {
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
-/* USBHS */
-static int is_vbus_powered(void)
-{
-	return 1; /* always powered */
+static int is_vbus_powered(void) {
+	int val = 0;
+	int val1 = 0;
+	int count = 10;
+
+	/* Extract bit VBSTS in INTSTS0 register */
+	val = __raw_readw(IO_ADDRESS(0xE6890040)) & 0x80;
+
+	while (--count){
+		msleep(1);
+		val1 = __raw_readw(IO_ADDRESS(0xE6890040)) & 0x80;
+		if (val != val1)
+		{
+			count = 10;
+			val = val1;
+		}
+	}
+
+	printk ("Value of Status register INTSTS0: %x \n", __raw_readw(IO_ADDRESS(0xE6890040)));
+	printk("VBUS val = %d\n", val1);
+
+	return val1>>7;
+
 }
 
 #define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
