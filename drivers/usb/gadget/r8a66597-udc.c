@@ -37,6 +37,8 @@
 
 #include <asm/dma.h>
 #include <mach/hardware.h>
+#include <mach/pm.h>
+#include <linux/pm.h>
 
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/otg.h>
@@ -49,6 +51,13 @@
 #define DRIVER_VERSION	"2009-08-18"
 
 #define DMA_ADDR_INVALID  (~(dma_addr_t)0)
+
+/* #define UDC_LOG */
+#ifdef  UDC_LOG
+#define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define udc_log(fmt, ...) 
+#endif 
 
 static const char udc_name[] = "r8a66597_udc";
 static const char usbhs_dma_name[] = "USBHS-DMA1";
@@ -64,6 +73,8 @@ static const char *r8a66597_ep_name[] = {
 };
 #endif
 
+
+static int powerup = 0;
 
 static void disable_controller(struct r8a66597 *r8a66597);
 static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req);
@@ -262,7 +273,8 @@ static void r8a66597_hnp_work(struct work_struct *work)
 			otg->port_status |= USB_PORT_STAT_CONNECTION;
 			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
 			r8a66597_bset(r8a66597, ATTCHE, INTENB1);
-			printk("%s\n", otg_state_string(otg->state));
+			udc_log("%s\n", otg_state_string(otg->state));
+	
 		}
 	otg_put_transceiver(otg);
 }
@@ -304,7 +316,7 @@ static void r8a66597_charger_work(struct work_struct *work)
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, charger_work.work);
 	u16 syssts0;
-
+	udc_log("%s: IN\n", __func__);
 	syssts0 = r8a66597_read(r8a66597, SYSSTS0);
 	dev_info(r8a66597_to_dev(r8a66597),
 		 "Charging port detected (%04x)\n", syssts0);
@@ -331,24 +343,15 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		otg->state = OTG_STATE_B_IDLE;
 		r8a66597->gadget.b_hnp_enable = 0;
 	}
-	printk ("%s\n", otg_state_string(otg->state));
+	udc_log ("%s\n", otg_state_string(otg->state));
 	otg_put_transceiver(otg);
 #endif
-	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
-	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
-		if (is_vbus_powered && r8a66597->charger_detected) {
-			r8a66597->old_vbus = 0;
-			goto vbus_disconnect;
-		}
-		if (!is_vbus_powered)
-			wake_unlock(&r8a66597->wake_lock);
-		return;
-	}
-	r8a66597->old_vbus = is_vbus_powered;
-
-	if (is_vbus_powered) {
+	udc_log("%s: IN\n", __func__);
+	if (!powerup){ 
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
+		powerup = 1; 
+		udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
@@ -359,6 +362,45 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		r8a66597_bset(r8a66597, USBE, SYSCFG0);
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
 
+		r8a66597_bset(r8a66597, CTRE, INTENB0);
+		r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
+		r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
+	}
+	
+	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
+	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
+		if (is_vbus_powered && r8a66597->charger_detected) {
+			r8a66597->old_vbus = 0;
+			goto vbus_disconnect;
+		}
+		if (!is_vbus_powered)
+			wake_unlock(&r8a66597->wake_lock);
+		udc_log("%s: return\n", __func__);
+		return;
+	}
+	r8a66597->old_vbus = is_vbus_powered;
+
+	if (is_vbus_powered) {
+		if (!powerup){ 
+			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
+			r8a66597_clk_enable(r8a66597);
+			powerup = 1; 
+			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+
+
+			if (r8a66597->pdata->module_start)
+				r8a66597->pdata->module_start();
+
+			/* start clock */
+			r8a66597_write(r8a66597, bwait, SYSCFG1);
+			r8a66597_bset(r8a66597, HSE, SYSCFG0);
+			r8a66597_bset(r8a66597, USBE, SYSCFG0);
+			r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+
+			r8a66597_bset(r8a66597, CTRE, INTENB0);
+			r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
+			r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
+		}
 		r8a66597_usb_connect(r8a66597);
 		r8a66597->vbus_active = 1;
 		pm_runtime_put(r8a66597_to_dev(r8a66597)); 
@@ -382,9 +424,14 @@ vbus_disconnect:
 
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
+		if (powerup){ 
+			r8a66597_clk_disable(r8a66597);
+			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			powerup = 0;
+			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 
-		r8a66597_clk_disable(r8a66597);
-		pm_runtime_put(r8a66597_to_dev(r8a66597));
+		}
+
 		wake_unlock(&r8a66597->wake_lock);
 	}
 }
@@ -393,7 +440,8 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 
-	wake_lock(&r8a66597->wake_lock);
+	if (!wake_lock_active(&r8a66597->wake_lock))
+		wake_lock(&r8a66597->wake_lock);
 	r8a66597->charger_detected = 0;
 #ifdef CONFIG_USB_OTG
 	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(200));
@@ -1673,7 +1721,7 @@ __acquires(r8a66597->lock)
 				memcpy(r8a66597->ep0_req->buf, &otg_status, 1);
 				r8a66597->ep0_req->length = 1;
 				r8a66597->host_request_flag = 1;
-				printk("USB_OTG_STATUS_SELECTOR, send status = %x\n", otg_status);
+				udc_log("USB_OTG_STATUS_SELECTOR, send status = %x\n", otg_status);
 				otg_put_transceiver(otg);
 			}
 		}
@@ -1883,7 +1931,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		if (otg->state == OTG_STATE_A_SUSPEND) {
 			otg->state = OTG_STATE_A_PERIPHERAL;
 		}
-		printk ("%s\n", otg_state_string(otg->state));
+		udc_log ("%s\n", otg_state_string(otg->state));
 #endif
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
@@ -2407,6 +2455,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 {
 	struct r8a66597 *r8a66597 = the_controller;
 	int retval;
+	u16 bwait = 0;
 
 	if (!driver
 			|| driver->speed != USB_SPEED_HIGH
@@ -2457,11 +2506,28 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 
 		/* do not pull up D+ line, unless explicitly requested so */
 		r8a66597->pullup_requested = 0;
+		if (powerup){
+			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
+			bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
+			if (r8a66597->pdata->module_start)
+				r8a66597->pdata->module_start();
 
-		if (r8a66597->pdata->is_vbus_powered()) {
-			wake_lock(&r8a66597->wake_lock);
-			schedule_delayed_work(&r8a66597->vbus_work, 0);
+			/* start clock */
+			r8a66597_write(r8a66597, bwait, SYSCFG1);
+			r8a66597_bset(r8a66597, HSE, SYSCFG0);
+			r8a66597_bset(r8a66597, USBE, SYSCFG0);
+			r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+
+			r8a66597_bset(r8a66597, CTRE, INTENB0);
+			r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
+			r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
+			if (r8a66597->pdata->is_vbus_powered()) {
+				if (!wake_lock_active(&r8a66597->wake_lock)) 
+					wake_lock(&r8a66597->wake_lock);
+				schedule_delayed_work(&r8a66597->vbus_work, 0);
+			}
 		}
+		
 	} else {
 		init_controller(r8a66597);
 		r8a66597_bset(r8a66597, VBSE, INTENB0);
@@ -2514,8 +2580,12 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus) {
-		r8a66597_clk_disable(r8a66597);
-		pm_runtime_put(r8a66597_to_dev(r8a66597));
+		if (powerup){ 
+			r8a66597_clk_disable(r8a66597);
+			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			powerup = 0;
+			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+		}
 	}
 #endif
 
@@ -2584,8 +2654,12 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
 		if (!r8a66597->pdata->vbus_irq) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put(r8a66597_to_dev(r8a66597));
+			if (powerup){ 
+				r8a66597_clk_disable(r8a66597);
+				pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+				powerup = 0; 
+				udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+			}
 		}
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
@@ -2703,10 +2777,13 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
-		//if (!r8a66597->pdata->vbus_irq) {
+		if (!powerup){
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
-		//}
+			powerup = 1;
+			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+		}
+				
 	}
 #endif
 
@@ -2774,10 +2851,14 @@ clean_up3:
 clean_up2:
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		//if (!r8a66597->pdata->vbus_irq) {
+		if (powerup){ 
 			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put(r8a66597_to_dev(r8a66597));
-		//}
+			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			powerup = 0; 
+			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+
+		}
+		
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
@@ -2799,11 +2880,63 @@ clean_up:
 	return ret;
 }
 
+
+#ifdef CONFIG_PM
+static int r8a66597_udc_suspend(struct device *dev)
+{
+	struct r8a66597 *r8a66597 = the_controller;
+	unsigned long flags = 0;
+	udc_log("%s: IN\n", __func__);
+
+	if (delayed_work_pending(&r8a66597->charger_work))
+			cancel_delayed_work_sync(&r8a66597->charger_work);
+	if (delayed_work_pending(&r8a66597->vbus_work))
+			cancel_delayed_work_sync(&r8a66597->vbus_work);
+	if(!powerup)
+		return 0;
+	if (r8a66597->vbus_active){
+		spin_lock_irqsave(&r8a66597->lock, flags);
+		r8a66597_usb_disconnect(r8a66597);
+		spin_unlock_irqrestore(&r8a66597->lock, flags);
+		r8a66597->vbus_active = 0;
+		/* stop clock */
+		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
+		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
+		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
+
+		if (r8a66597->pdata->module_stop)
+			r8a66597->pdata->module_stop();
+	}
+	r8a66597_clk_disable(r8a66597);
+	pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+	powerup = 0;
+	udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+	
+	return 0;
+}
+
+static int r8a66597_udc_resume(struct device *dev)
+{
+	struct r8a66597 *r8a66597 = the_controller;
+	schedule_delayed_work(&r8a66597->vbus_work,0);
+	return 0;
+}
+#else
+#define r8a66597_udc_suspend	NULL
+#define r8a66597_udc_resume		NULL
+#endif	/* CONFIG_PM */
+
+static struct dev_pm_ops r8a66597_udc_pm_ops = {
+	.suspend	= &r8a66597_udc_suspend,
+	.resume		= &r8a66597_udc_resume
+};
+
 /*-------------------------------------------------------------------------*/
 static struct platform_driver r8a66597_driver = {
 	.remove =	__exit_p(r8a66597_remove),
 	.driver		= {
 		.name =	(char *) udc_name,
+		.pm	= &r8a66597_udc_pm_ops,
 	},
 };
 MODULE_ALIAS("platform:r8a66597_udc");

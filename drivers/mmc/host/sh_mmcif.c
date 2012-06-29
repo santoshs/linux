@@ -35,6 +35,13 @@
 #define DRIVER_NAME	"sh_mmcif"
 #define DRIVER_VERSION	"2010-04-28"
 
+/* #define SHMMCIF_LOG */
+#ifdef  SHMMCIF_LOG
+#define shmmcif_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define shmmcif_log(fmt, ...) 
+#endif 
+
 /* CE_CMD_SET */
 #define CMD_MASK		0x3f000000
 #define CMD_SET_RTYP_NO		((0 << 23) | (0 << 22))
@@ -953,20 +960,24 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			}
 		}
 		if (host->power) {
-			pm_runtime_put(&host->pd->dev);
+			shmmcif_log("%s: power down \n", __func__); 
+			pm_runtime_put_sync(&host->pd->dev);
 			host->power = false;
 		}
 		host->state = STATE_IDLE;
+		shmmcif_log("sh_mmcif_set_ios end \n"); 
 		return;
 	}
-
+	
+	if (!host->power) {
+		shmmcif_log("%s: power up \n", __func__); 
+		pm_runtime_get_sync(&host->pd->dev);
+		host->power = true;
+	}
+		
 	if (ios->clock) {
 		clk_enable(host->hclk);
-		if (!host->power) {
-			pm_runtime_get_sync(&host->pd->dev);
-			host->power = true;
-			sh_mmcif_sync_reset(host);
-		}
+		sh_mmcif_sync_reset(host);
 		sh_mmcif_clock_control(host, ios->clock);
 		clk_disable(host->hclk);
 	}
@@ -1104,6 +1115,11 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 		ret = PTR_ERR(host->hclk);
 		goto clean_up1;
 	}
+	
+	pm_runtime_enable(&pdev->dev); 
+	shmmcif_log("%s: power up \n", __func__);
+	pm_runtime_get_sync(&pdev->dev); 
+
 	clk_enable(host->hclk);
 	host->clk = clk_get_rate(host->hclk);
 	host->pd = pdev;
@@ -1138,18 +1154,11 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 		host->buf_acc = pd->buf_acc;
 	else
 		host->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&host->pd->dev);
 
 	sh_mmcif_sync_reset(host);
 	platform_set_drvdata(pdev, host);
 
-	//pm_runtime_enable(&pdev->dev);
 	host->power = false;
-
-	//ret = pm_runtime_resume(&pdev->dev);
-	if (ret < 0)
-		goto clean_up2;
 
 	mmc_add_host(mmc);
 
@@ -1169,7 +1178,7 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 				if (irq >= 0)
 					free_irq(irq, host);
 			}
-			goto clean_up3;
+			goto clean_up2;
 		}
 	}
 
@@ -1180,15 +1189,14 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "driver version %s\n", DRIVER_VERSION);
 	dev_dbg(&pdev->dev, "chip ver H'%04x\n",
 		sh_mmcif_readl(host->addr, MMCIF_CE_VERSION) & 0x0000ffff);
-		pm_runtime_put_sync(&host->pd->dev);
+		shmmcif_log("%s: power down OK\n", __func__); 
+		pm_runtime_put_sync(&pdev->dev); 
 	return ret;
 
-clean_up3:
-	mmc_remove_host(mmc);
-	pm_runtime_suspend(&pdev->dev);
 clean_up2:
-	pm_runtime_disable(&pdev->dev);
-	clk_disable(host->hclk);
+	mmc_remove_host(mmc);
+	shmmcif_log("%s: power down (clean) \n", __func__); 
+	pm_runtime_put_sync(&pdev->dev); 
 clean_up1:
 	mmc_free_host(mmc);
 clean_up:
@@ -1201,7 +1209,7 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 {
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
 	int i, irq;
-
+	shmmcif_log("%s: power up \n", __func__); 
 	pm_runtime_get_sync(&pdev->dev);
 	clk_enable(host->hclk);
 
@@ -1221,6 +1229,7 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 
 	clk_disable(host->hclk);
 	mmc_free_host(host->mmc);
+	shmmcif_log("%s: power down \n", __func__);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
@@ -1232,7 +1241,7 @@ static int sh_mmcif_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-
+	shmmcif_log("%s: In\n", __func__);
 	return mmc_suspend_host(host->mmc);
 }
 
@@ -1240,7 +1249,7 @@ static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-
+	shmmcif_log("%s: In\n", __func__);
 	return mmc_resume_host(host->mmc);
 }
 #else
