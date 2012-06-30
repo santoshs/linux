@@ -106,7 +106,7 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 
 #define POWER_DOMAIN_COUNT_MAX	3
 #define CONFIG_PM_RUNTIME_A3SG
-/*#define CONFIG_PM_RUNTIME_A3SP*/
+#define CONFIG_PM_RUNTIME_A3SP
 #define CONFIG_PM_RUNTIME_A3R
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
@@ -128,15 +128,20 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define POWER_NONE					0
 
 #ifdef CONFIG_PDC
+struct power_domain_info {
+	struct device *devs[POWER_DOMAIN_COUNT_MAX];
+	size_t cnt;
+};
 int power_domain_devices(const char *drv_name,
 		struct device **dev, size_t *dev_cnt);
 
 u64 power_down_count(unsigned int powerdomain);
 
-void for_each_power_device(const char *name,
+void for_each_power_device(const struct device *dev,
 		int (*iterator)(struct device *));
-void power_domains_get_sync(const char *name);
-void power_domains_put_noidle(const char *name);
+void power_domains_get_sync(const struct device *dev);
+void power_domains_put_noidle(const struct device *dev);
+struct power_domain_info *__to_pdi(const struct device *dev);
 #ifdef CONFIG_PM_DEBUG
 int control_pdc(int is_enable);
 int is_pdc_enable(void);
@@ -147,10 +152,10 @@ static inline int power_domain_devices(const char *drv_name,
 
 static inline u64 power_down_count(unsigned int powerdomain) { return 0; }
 
-static inline void for_each_power_device(const char *name,
+static inline void for_each_power_device(const struct device *dev,
 		int (*iterator)(struct device *)) {}
-static inline void power_domains_get_sync(const char *name) {}
-static inline void power_domains_put_noidle(const char *name) {}
+static inline void power_domains_get_sync(const struct device *dev) {}
+static inline void power_domains_put_noidle(const struct device *dev) {}
 #ifdef CONFIG_PM_DEBUG
 static inline int control_pdc(int is_enable) { return 0; }
 static inline int is_pdc_enable(void) { return 0; }

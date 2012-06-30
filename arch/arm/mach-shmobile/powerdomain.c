@@ -94,8 +94,8 @@ static int power_areas_status = 0;
 #endif
 
 static struct drv_pd_mapping_table client_names_es1[] = {
-	/* MFIS		 */	{ "mfis.0", 				ID_C4 	},
-	/* SGX544MP1 */	{ "pvrsrvkm", 			ID_A3SG },
+	/* MFIS		 */	{ "mfis.0", 			ID_C4 	},
+	/* SGX544MP1 */	{ "pvrsrvkm", 		ID_A3SG },
 	/* SY-DMA0 	*/	{ "sh-dma-engine.0", 	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0", 	ID_A3SP },
 	/* MMCIF.0	*/	{ "sh_mmcif.0", 		ID_A3SP },
@@ -103,26 +103,32 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 	/* MSIOF1	*/	{ "spi_sh_msiof.1", 	ID_A3SP },
 	/* MSIOF2	*/	{ "spi_sh_msiof.2", 	ID_A3SP },
 	/* MSIOF3	*/	{ "spi_sh_msiof.3", 	ID_A3SP },
-	/* USB      */	{ "r8a66597_hcd.0",  ID_A3SP },
+	/* USB      */	{ "r8a66597_hcd.0",   ID_A3SP },
 	/* USB      */	{ "r8a66597_udc.0",  	ID_A3SP },
 	/* USB      */	{ "usb_mass_storage",	ID_A3SP },
 	/* USB      */	{ "android_usb",		ID_A3SP },
 	/* SCIFA0   */	{ "sh-sci.0",       	ID_C4 },
-	/* SCIFA1   */	{ "sh-sci.1",      		ID_A3SP },
+	/* SCIFA1   */	{ "sh-sci.1",      	ID_A3SP },
 	/* SCIFA2   */	{ "sh-sci.2",       	ID_A3SP },
 	/* SCIFA3   */	{ "sh-sci.3",       	ID_A3SP },
+	/* SCIFB0   */	{ "sh-sci.4",      	ID_A3SP },
+	/* SCIFB1   */	{ "sh-sci.5",       	ID_A3SP },
+	/* SCIFB2   */	{ "sh-sci.6",       	ID_A3SP },
+	/* SCIFB3   */	{ "sh-sci.7",       	ID_C4	},
 	/* I2C0 	*/	{ "i2c-sh_mobile.0", 	ID_A3SP },
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
-	/* I2C0H    */  { "i2c-sh_mobile.4",    ID_A3SP },
-	/* I2C1H    */  { "i2c-sh_mobile.5",    ID_A3SP },
+	/* I2C0H    */  { "i2c-sh_mobile.4",   ID_A3SP },
+	/* I2C1H    */  { "i2c-sh_mobile.5",   ID_A3SP },
     /* I2CM     */  { "i2c-sh7730.6",	    ID_A3SP },
-	/* SDHI0    */  { "renesas_sdhi.0",	    ID_A3SP },
-	/* SDHI1    */  { "renesas_sdhi.1",	    ID_A3SP },
+	/* I2C2H    */  { "i2c-sh_mobile.7",   ID_A3SP },
+	/* I2C3H    */  { "i2c-sh_mobile.8",   ID_A3SP },
+	/* SDHI0    */  { "renesas_sdhi.0",	ID_A3SP },
+	/* SDHI1    */  { "renesas_sdhi.1",	ID_A3SP },
+	/* SDHI2    */  { "renesas_sdhi.2",	ID_A3SP },
 	/* TPU     */	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
-	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
-	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
+	/* HSI	 	*/	{ "sh_hsi.0", 		ID_A3SP },
 	/* MFI      */	{ "av-domain",  	    ID_A3R 	},
 	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A4MP },
 
@@ -139,8 +145,8 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 };
 
 static struct drv_pd_mapping_table client_names_es2[] = {
-	/* MFIS		 */	{ "mfis.0", 				ID_C4 	},
-	/* SGX544MP1 */	{ "pvrsrvkm", 			ID_A3SG },
+	/* MFIS		 */	{ "mfis.0", 			ID_C4 	},
+	/* SGX544MP1 */	{ "pvrsrvkm", 		ID_A3SG },
 	/* SY-DMA0 	*/	{ "sh-dma-engine.0", 	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0", 	ID_A3SP },
 	/* MMCIF.0	*/	{ "sh_mmcif.0", 		ID_A3SP },
@@ -154,25 +160,31 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 	/* USB      */	{ "usb_mass_storage",	ID_A3SP },
 	/* USB      */	{ "android_usb",		ID_A3SP },
 	/* SCIFA0   */	{ "sh-sci.0",       	ID_C4 },
-	/* SCIFA1   */	{ "sh-sci.1",      		ID_A3SP },
+	/* SCIFA1   */	{ "sh-sci.1",      	ID_A3SP },
 	/* SCIFA2   */	{ "sh-sci.2",       	ID_A3SP },
 	/* SCIFA3   */	{ "sh-sci.3",       	ID_A3SP },
+	/* SCIFB0   */	{ "sh-sci.4",      	ID_A3SP },
+	/* SCIFB1   */	{ "sh-sci.5",       	ID_A3SP },
+	/* SCIFB2   */	{ "sh-sci.6",       	ID_A3SP },
+	/* SCIFB3   */	{ "sh-sci.7",       	ID_C4	},
 	/* I2C0 	*/	{ "i2c-sh_mobile.0", 	ID_A3SP },
 	/* I2C1     */	{ "i2c-sh_mobile.1",  	ID_A3SP },
 	/* I2C2     */	{ "i2c-sh_mobile.2",  	ID_A3SP },
 	/* I2C3     */	{ "i2c-sh_mobile.3",  	ID_A3SP },
-	/* I2C0H    */  { "i2c-sh_mobile.4",    ID_A3SP },
-	/* I2C1H    */  { "i2c-sh_mobile.5",    ID_A3SP },
+	/* I2C0H    */  { "i2c-sh_mobile.4",   ID_A3SP },
+	/* I2C1H    */  { "i2c-sh_mobile.5",   ID_A3SP },
     /* I2CM     */  { "i2c-sh7730.6",	    ID_A3SP },
-	/* SDHI0    */  { "renesas_sdhi.0",	    ID_A3SP },
-	/* SDHI1    */  { "renesas_sdhi.1",	    ID_A3SP },
+	/* I2C2H    */  { "i2c-sh_mobile.7",   ID_A3SP },
+	/* I2C3H    */  { "i2c-sh_mobile.8",   ID_A3SP },
+	/* SDHI0    */  { "renesas_sdhi.0",	ID_A3SP },
+	/* SDHI1    */  { "renesas_sdhi.1",	ID_A3SP },
+	/* SDHI2    */  { "renesas_sdhi.2",	ID_A3SP },
 	/* TPU    	*/	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
-	/* HSI	 	*/	{ "sh_hsi.0", 			ID_A3SP },
-	/* SCIFB0	*/	{ "sh-sci.8", 			ID_A3SP },
+	/* HSI	 	*/	{ "sh_hsi.0", 		ID_A3SP },
 	/* MFI      */	{ "av-domain",  	    ID_A3R 	},
 	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A4MP },
-	/* SPUV/VOCODER	*/	{ "vcd", 			ID_A4MP },
-	/* SPUV/VOCODER	*/	{ "vcd", 			ID_A4RM },
+	/* SPUV/VOCODER	*/	{ "vcd", 		ID_A4MP },
+	/* SPUV/VOCODER	*/	{ "vcd", 		ID_A4RM },
 	/* PCM2PWM 	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
 
 #if 0
@@ -192,6 +204,7 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 		.name = "power-domain", \
 		.id = _pwr_id, \
 		.dev.parent = _parent_dev, \
+		.dev.power.subsys_data = NULL, \
 	}
 
 /* Define power domain(area) devices (pointer) */
@@ -330,6 +343,16 @@ static bool is_power_status_on(unsigned int area)
 }
 
 /*
+ * __to_pdi: get the power domain information of a certain device
+ * @dev: certain device
+ * return: address of power.subsys_data
+ */
+struct power_domain_info *__to_pdi(const struct device *dev)
+{
+	return dev ? dev->power.subsys_data : NULL;
+}
+
+/*
  * power_status_set: turn on or turn off a power area
  * @area: power area that need to set(turn on/off). Its values compose of
  * {POWER_A2SL, ..., POWER_D4}. If other than above values, it will raise panic.
@@ -339,8 +362,6 @@ static bool is_power_status_on(unsigned int area)
  */
 static void power_status_set(unsigned int area, bool on)
 {
-
-
 	int i = 0;
 	u32 reg = (on ? SYSC_SWUCR : SYSC_SPDCR);
 	
@@ -863,16 +884,13 @@ EXPORT_SYMBOL(power_down_count);
  * @name: name of driver that need to run Runtime-PM helper function
  * @iterator: Runtime-PM helper function
  */
-void for_each_power_device(const char *name, int (*iterator)(struct device *))
+void for_each_power_device(const struct device *dev, int (*iterator)(struct device *))
 {
-	struct device *devs[POWER_DOMAIN_COUNT_MAX];
-	size_t cnt;
+	struct power_domain_info *pdi = __to_pdi(dev);
 	unsigned int i;
 
-	(void)power_domain_devices(name, devs, &cnt);
-
-	for (i = 0; i < cnt; i++) {
-		(void)iterator(devs[i]);
+	for (i = 0; i < pdi->cnt; i++) {
+		(void)iterator(pdi->devs[i]);
 	}
 }
 
@@ -882,13 +900,13 @@ void for_each_power_device(const char *name, int (*iterator)(struct device *))
  * @name: driver name that raises request
  * Should be called by Runtime PM framework
  */
-void power_domains_get_sync(const char *name)
+void power_domains_get_sync(const struct device *dev)
 {
 #ifdef __DEBUG_PDC
-	printk(KERN_INFO "[PDC] %s: %s \n", __func__, name);
+	printk(KERN_INFO "[PDC] %s: %s \n", __func__, dev_name(dev));
 #endif /* __DEBUG_PDC */
-	for_each_power_device(name, pm_runtime_get_sync);
-	if (0 == strcmp(name, "pvrsrvkm")) {
+	for_each_power_device(dev, pm_runtime_get_sync);
+	if (0 == strcmp(dev_name(dev), "pvrsrvkm")) {
 		int r = sgx_cpufreq(CPUFREQ_SGXON);
 		if (0 != r) {
 			panic("DVFS SGX on error: %d", r);
@@ -902,18 +920,18 @@ void power_domains_get_sync(const char *name)
  * @name: driver name that raises request
  * Should be called by Runtime PM framework
  */
-void power_domains_put_noidle(const char *name)
+void power_domains_put_noidle(const struct device *dev)
 {
 #ifdef __DEBUG_PDC
-	printk(KERN_INFO "[PDC] %s: %s \n", __func__, name);
+	printk(KERN_INFO "[PDC] %s: %s \n", __func__, dev_name(dev));
 #endif /* __DEBUG_PDC */
-	if (0 == strcmp(name, "pvrsrvkm")) {
+	if (0 == strcmp(dev_name(dev), "pvrsrvkm")) {
 		int r = sgx_cpufreq(CPUFREQ_SGXOFF);
 		if (0 != r) {
 			panic("DVFS SGX off error: %d", r);
 		}
 	}
-	for_each_power_device(name,
+	for_each_power_device(dev,
 		(int (*)(struct device *))pm_runtime_put_noidle);
 }
 
