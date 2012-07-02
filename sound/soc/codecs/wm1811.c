@@ -507,6 +507,7 @@ err_setup_proc:
 static int wm1811_setup_r8a73734(void)
 {
 	int ret = 0;
+	int reg = 0;
 	wm1811_log_efunc("");
 	ret = wm1811_enable_vclk4();
 
@@ -514,7 +515,9 @@ static int wm1811_setup_r8a73734(void)
 		goto err_enable_vclk4;
 
 	iowrite8(0xe0, WM1811_GPIO_024);
-	iowrite8(0xe0, WM1811_GPIO_034);
+	iowrite8(0xd0, WM1811_GPIO_034);	/* 0xe0(IE) -> 0xd0(OE) */
+	reg = ioread32(0xE6054004);
+	iowrite32((reg | 0x04), 0xE6054004);	/* modify GPIO034: Hi */
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
