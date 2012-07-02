@@ -32,6 +32,8 @@
 #include <asm/system.h>
 #include <mach/pm.h>
 
+#define OVERDRIVE_CMDLINE "overdrive=true"
+#define OVERDRIVE_FREQ	1456000
 #ifdef pr_fmt
 #undef pr_fmt
 #define pr_fmt(fmt) "[DFS] - " fmt
@@ -43,7 +45,9 @@
 #define pr_log(fmt, ...)
 #endif /*   */
 /* #define CPUFREQ_TEST_MODE	1 */
-
+#ifndef SH_CPUFREQ_OVERDRIVE
+#define SH_CPUFREQ_OVERDRIVE	1
+#endif
 /* MAIN Table */
 enum cpu_freq_level {
 	FREQ_LEV_MAX = 0,
@@ -70,7 +74,11 @@ enum clock_state {
 #define FREQ_TRANSITION_LATENCY  (CONFIG_SH_TRANSITION_LATENCY * NSEC_PER_USEC)
 /* PLL0 */
 #define PLL0_RATIO_MIN	35
+#ifdef SH_CPUFREQ_OVERDRIVE
 #define PLL0_RATIO_MAX	56
+#else
+#define PLL0_RATIO_MAX	46
+#endif /* SH_CPUFREQ_OVERDRIVE */
 #define PLL0_MAIN_CLK	26000
 
 #define MAX_ZS_DIVRATE	DIV1_6
@@ -106,18 +114,22 @@ struct shmobile_cpuinfo	the_cpuinfo;
 /* ES1.0 */
 static struct cpufreq_frequency_table main_freqtbl_es1_x[] = {
 	{.index = 0, .frequency = 988000}, /* max		*/
-	{.index = 1, .frequency = 494000}, /* mid		*/
-	{.index = 2, .frequency = 247000}, /* low		*/
+#ifdef SH_CPUFREQ_OVERDRIVE
+	{.index = 1, .frequency = CPUFREQ_ENTRY_INVALID},
+#endif
+	{.index = 2, .frequency = 494000}, /* mid		*/
+	{.index = 3, .frequency = 247000}, /* low		*/
 #ifdef SH_CPUFREQ_VERYLOW
-	{.index = 3, .frequency = 164666}, /* extra low	*/
+	{.index = 4, .frequency = 164666}, /* extra low	*/
 #endif /* SH_CPUFREQ_VERYLOW */
-	{.index = 4, .frequency =  CPUFREQ_TABLE_END}
+	{.index = 5, .frequency =  CPUFREQ_TABLE_END}
 };
 
 /* ES2.0 */
 static struct cpufreq_frequency_table main_freqtbl_es2_x[] = {
 #ifdef SH_CPUFREQ_OVERDRIVE
-	{.index = 0, .frequency = 1456000},	/* max			*/
+	{.index = 0, .frequency = 1456000},
+#endif
 	{.index = 1, .frequency = 1196000},	/* high			*/
 	{.index = 2, .frequency =  598000},	/* mid			*/
 	{.index = 3, .frequency =  299000},	/* low			*/
@@ -125,15 +137,6 @@ static struct cpufreq_frequency_table main_freqtbl_es2_x[] = {
 	{.index = 4, .frequency =  199333},	/* extra low	*/
 #endif /* SH_CPUFREQ_VERYLOW */
 	{.index = 5, .frequency =  CPUFREQ_TABLE_END}
-#else /* !SH_CPUFREQ_OVERDRIVE */
-	{.index = 0, .frequency = 1196000},	/* max			*/
-	{.index = 1, .frequency =  598000},	/* mid			*/
-	{.index = 2, .frequency =  299000},	/* low			*/
-#ifdef SH_CPUFREQ_VERYLOW
-	{.index = 3, .frequency =  199333},	/* extra low	*/
-#endif /* SH_CPUFREQ_VERYLOW */
-	{.index = 4, .frequency =  CPUFREQ_TABLE_END}
-#endif /* SH_CPUFREQ_OVERDRIVE */
 };
 
 /* divrate table */
@@ -147,6 +150,9 @@ static int main_divtable[] = {
 	, DIV1_6
 #endif /* SH_CPUFREQ_VERYLOW */
 };
+
+static int log_freq_change = 0;
+module_param(log_freq_change, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 /*
  * __to_freq_level: convert from frequency to frequency level
@@ -316,6 +322,7 @@ static void __notify_all_cpu(unsigned int fold, unsigned int fnew, int flag)
  */
 static void __update_policy(void)
 {
+#if 0
 	struct cpufreq_policy policy;
 	const char *gov = "conservative";
 	int i = 0;
@@ -335,6 +342,7 @@ static void __update_policy(void)
 				(void)cpufreq_update_policy(i);
 		}
 	}
+#endif
 }
 
 /*
@@ -372,7 +380,7 @@ int __set_rate(unsigned int freq)
 	}
 
 	/* change PLL0 if need */
-	if ((__to_freq_level(freq) == FREQ_LEV_MAX) &&
+	if ((freq == OVERDRIVE_FREQ) &&
 		(pm_get_pll_ratio(PLL0) != pllratio)) {
 		ret = pm_set_pll_ratio(PLL0, pllratio);
 		if (ret) {
@@ -394,9 +402,10 @@ int __set_rate(unsigned int freq)
 		pr_err("%s()[%d]: error<%d>! set divrate<0x%x>\n",
 			__func__, __LINE__, ret, div_rate);
 	} else {
-		pr_info("SYS-CPU<%d> clk[%uKHz->%uKHz]\n",
+		/*pr_info("SYS-CPU<%d> clk[%uKHz->%uKHz]\n",
 			((target_cpu >= 0) ? target_cpu : smp_processor_id()),
 			the_cpuinfo.freq, freq);
+		*/
 		the_cpuinfo.freq = freq;
 
 		/* update all cpus with new frequency */
@@ -1435,8 +1444,11 @@ next:
 	}
 
 	spin_unlock(&the_cpuinfo.lock);
-	pr_log("%s()[%d]: CPU<%d> target<%u>, set<%u>/end, ret<%d>\n",
-		__func__, __LINE__, policy->cpu, target_freq, freq, ret);
+	/* pr_info("CPU<%d> frequency chage<%u>, set<%u>/end, ret<%d>\n",
+		policy->cpu, target_freq, freq, ret); */
+	if ((freq == the_cpuinfo.freq) && log_freq_change)
+		pr_info("SYS-CPU<%d> clk[%uKHz->%uKHz]\n", policy->cpu,
+			freqs.old, freq);
 
 	return ret;
 }
@@ -1474,10 +1486,6 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		return -EINVAL;
 
 	if (shmobile_chip_rev() <= ES_REV_1_0) {
-#ifdef SH_CPUFREQ_OVERDRIVE
-		/* ES1.x does not support OVERDRIVE mode */
-		return -ENOTSUPP;
-#endif /* SH_CPUFREQ_OVERDRIVE */
 		freq_table = main_freqtbl_es1_x;
 	} else if (shmobile_chip_rev() >= ES_REV_2_0) {
 		freq_table = main_freqtbl_es2_x;
@@ -1501,6 +1509,9 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		policy->cur = the_cpuinfo.freq;
 		policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 		policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
+		/* policy sharing between dual CPUs */
+		cpumask_copy(policy->cpus, &cpu_present_map);
+		policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 		pr_log("%s()[%d]: init cpufreq driver/end, current freq<%u>\n",
 			__func__, __LINE__, the_cpuinfo.freq);
 		return ret;
@@ -1508,16 +1519,6 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 #ifdef CONFIG_EARLYSUSPEND
 	register_early_suspend(&shmobile_cpufreq_suspend);
 #endif /* CONFIG_EARLYSUSPEND */
-	if (ret < 0)
-		pr_err("%s()[%d]: error<%d>! can not set PLL0 ratio<%u>",
-			__func__, __LINE__,	ret, stc_val);
-
-	stc_val = pm_get_pll_ratio(PLL0);
-	if ((stc_val < PLL0_RATIO_MIN) || (stc_val > PLL0_RATIO_MAX)) {
-		pr_err("%s()[%d]: error<%d>! STC<0x%x> supported out-of-range\n",
-			__func__, __LINE__,	-EINVAL, stc_val);
-		return -EINVAL;
-	}
 	the_cpuinfo.clk_state = MODE_NORMAL;
 	the_cpuinfo.scaling_locked = 0;
 	the_cpuinfo.highspeed.used = false;
@@ -1540,6 +1541,9 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	policy->cur = the_cpuinfo.freq;
 	policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 	policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
+	/* policy sharing between dual CPUs */
+	cpumask_copy(policy->cpus, &cpu_present_map);
+	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	the_cpuinfo.policy = policy;
 	init_flag--;
 
@@ -1575,6 +1579,13 @@ static int __init shmobile_cpu_init(void)
 {
 	int ret = 0;
 
+#ifdef SH_CPUFREQ_OVERDRIVE
+	/*
+	 * user may enable overdrive mode via command line (overdrive=true)
+	 */
+	if (!strstr(&boot_command_line[0], OVERDRIVE_CMDLINE))
+		main_freqtbl_es2_x[0].frequency = main_freqtbl_es2_x[1].frequency;
+#endif
 	ret = pm_setup_clock();
 	if (ret)
 		return ret;
