@@ -456,6 +456,7 @@ CPU0_SYSTEMSUSPEND:
 	NOP
 #endif /* CONFIG_PM_SECURE_HAL_DUMMY */
 	
+#if 0
 	/*--------------------------------------*/
 	/* Remove cluster						*/
 	/*--------------------------------------*/
@@ -481,6 +482,7 @@ CPU0_SYSTEMSUSPEND:
 	MCR		p15, 0, r4, c1, c0, 1 /* Write the ACTLR */
 	ISB
 SUSPEND_REMOVE_CLUSTER_SKIP:
+#endif
 
 #ifdef VMALLOC_EXPAND
 	
@@ -853,7 +855,7 @@ ENTRY(restore_arm_register_pa)
 	STR		r5, [r6, #SCU_INVALL] 
 		/* Invalidate the duplicate tag */
 	DSB
-	MCR		p15, 0, r10, c1, c0, 1 
+	MCR		p15, 0, r10, c1, c0, 1
 		/* Auxiliary Control Register(set SMP bit) */
 	ISB
 	MCR		p15, 0, r11, c1, c0, 0 
@@ -892,15 +894,15 @@ ENTRY(restore_arm_register_va)
 #ifdef CONFIG_PM_SECURE_HAL_DUMMY
 	LDMIA	r0!, {r4-r11}
 #else
-	LDMIA	r0!, {r4-r9}
+	LDMIA	r0!, {r4-r8}
 #endif
 	MCR	p15, 0, r4, c12, c0, 0 /* Vector Base Address Register */
 	MCR	p15, 0, r5, c7, c4, 0 /* Physical Address Register */
 	MCR	p15, 0, r6, c13, c0, 2 /* User Read/Write Thread ID Register */
 	MCR	p15, 0, r7, c13, c0, 3/* User Read-only Thread ID Register */
 	MCR	p15, 0, r8, c13, c0, 4 /* Privileged Only ThreadID Register */
-	MCR	p15, 2, r9, c0, c0, 0 /* Cache Size Selection Register */
 #ifdef CONFIG_PM_SECURE_HAL_DUMMY
+	MCR	p15, 2, r9, c0, c0, 0 /* Cache Size Selection Register */
 	MCR p15, 0, r10, c1, c0, 2 /* Coprocessor Access Control Register */
 	MCR p15, 0, r11, c15, c0, 0 /* Power Control Register */
 #endif
