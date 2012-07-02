@@ -7,6 +7,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/hwspinlock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
@@ -2502,6 +2503,10 @@ else /*ES2.0*/
 				ARRAY_SIZE(u2evm_devices_stm_none));
 			break;
 	}
+
+	r8a73734_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
+	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
+	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));

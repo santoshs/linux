@@ -421,6 +421,22 @@ enum {
 	SHDMA_SLAVE_PCM2PWM_TX,
 };
 
+/* System-wide ID number for HPB semaphores (supposed to start with zero) */
+enum {
+	SMGPIO, SMCPG, SMSYSC,
+
+	/* General-purpose bus semaphores */
+	SMGP000, SMGP001, SMGP002, SMGP003, SMGP004, SMGP005, SMGP006, SMGP007,
+	SMGP008, SMGP009, SMGP010, SMGP011, SMGP012, SMGP013, SMGP014, SMGP015,
+	SMGP016, SMGP017, SMGP018, SMGP019, SMGP020, SMGP021, SMGP022, SMGP023,
+	SMGP024, SMGP025, SMGP026, SMGP027, SMGP028, SMGP029, SMGP030, SMGP031,
+};
+
+struct hwspinlock;
+extern struct hwspinlock *r8a73734_hwlock_gpio;
+extern struct hwspinlock *r8a73734_hwlock_cpg;
+extern struct hwspinlock *r8a73734_hwlock_sysc;
+
 #endif /* __ASSEMBLY__*/
 
 #if 0

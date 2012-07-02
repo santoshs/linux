@@ -37,6 +37,7 @@
 
 #include <asm/dma.h>
 #include <mach/hardware.h>
+#include <mach/pm.h>
 
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/otg.h>
@@ -127,6 +128,7 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
+	suppress_clocks_change(0);
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 }
@@ -137,6 +139,7 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 	clk_disable(r8a66597->clk_dmac);
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(0);
+	unsuppress_clocks_change();
 }
 
 static int r8a66597_clk_get(struct r8a66597 *r8a66597,

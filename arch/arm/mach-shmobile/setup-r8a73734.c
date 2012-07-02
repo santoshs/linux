@@ -3,6 +3,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/platform_device.h>
+#include <linux/platform_data/rmobile_hwsem.h>
 #include <linux/serial_sci.h>
 #include <linux/sh_timer.h>
 #include <linux/i2c/i2c-sh_mobile.h>
@@ -902,6 +903,101 @@ static struct platform_device smc_netdevice1 =
 };
 #endif // CONFIG_SMECO
 
+/* Bus Semaphores 0 */
+static struct hwsem_desc r8a73734_hwsem0_descs[] = {
+	HWSEM(SMGPIO, 0x20),
+	HWSEM(SMCPG, 0x50),
+	HWSEM(SMSYSC, 0x70),
+};
+
+static struct hwsem_pdata r8a73734_hwsem0_platform_data = {
+	.base_id	= SMGPIO,
+	.descs		= r8a73734_hwsem0_descs,
+	.nr_descs	= ARRAY_SIZE(r8a73734_hwsem0_descs),
+};
+
+static struct resource r8a73734_hwsem0_resources[] = {
+	{
+		.start  = 0xe6001800,
+		.end    = 0xe600187f,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device hwsem0_device = {
+	.name		= "rmobile_hwsem",
+	.id		= 0,
+	.resource	= r8a73734_hwsem0_resources,
+	.num_resources	= ARRAY_SIZE(r8a73734_hwsem0_resources),
+	.dev		= {
+		.platform_data	= &r8a73734_hwsem0_platform_data,
+	},
+};
+
+/*
+ * These three HPB semaphores will be requested at board-init timing,
+ * and globally available (even for out-of-tree loadable modules).
+ *
+ * You don't have to call hwspin_lock_request_specific() each time
+ * before acquiring these hwspinlock instances.
+ */
+struct hwspinlock *r8a73734_hwlock_gpio;
+struct hwspinlock *r8a73734_hwlock_cpg;
+struct hwspinlock *r8a73734_hwlock_sysc;
+EXPORT_SYMBOL(r8a73734_hwlock_gpio);
+EXPORT_SYMBOL(r8a73734_hwlock_cpg);
+EXPORT_SYMBOL(r8a73734_hwlock_sysc);
+
+/* Bus Semaphores 1 */
+static struct hwsem_desc r8a73734_hwsem1_descs[] = {
+	HWSEM(SMGP000, 0x30), HWSEM(SMGP001, 0x30),
+	HWSEM(SMGP002, 0x30), HWSEM(SMGP003, 0x30),
+	HWSEM(SMGP004, 0x30), HWSEM(SMGP005, 0x30),
+	HWSEM(SMGP006, 0x30), HWSEM(SMGP007, 0x30),
+	HWSEM(SMGP008, 0x30), HWSEM(SMGP009, 0x30),
+	HWSEM(SMGP010, 0x30), HWSEM(SMGP011, 0x30),
+	HWSEM(SMGP012, 0x30), HWSEM(SMGP013, 0x30),
+	HWSEM(SMGP014, 0x30), HWSEM(SMGP015, 0x30),
+	HWSEM(SMGP016, 0x30), HWSEM(SMGP017, 0x30),
+	HWSEM(SMGP018, 0x30), HWSEM(SMGP019, 0x30),
+	HWSEM(SMGP020, 0x30), HWSEM(SMGP021, 0x30),
+	HWSEM(SMGP022, 0x30), HWSEM(SMGP023, 0x30),
+	HWSEM(SMGP024, 0x30), HWSEM(SMGP025, 0x30),
+	HWSEM(SMGP026, 0x30), HWSEM(SMGP027, 0x30),
+	HWSEM(SMGP028, 0x30), HWSEM(SMGP029, 0x30),
+	HWSEM(SMGP030, 0x30), HWSEM(SMGP031, 0x30),
+};
+
+static struct hwsem_pdata r8a73734_hwsem1_platform_data = {
+	.base_id	= SMGP000,
+	.descs		= r8a73734_hwsem1_descs,
+	.nr_descs	= ARRAY_SIZE(r8a73734_hwsem1_descs),
+};
+
+static struct resource r8a73734_hwsem1_resources[] = {
+	{
+		.start  = 0xe6001800,
+		.end    = 0xe600187f,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = 0x47fbfc00,	/* software bit extension */
+		.end    = 0x47fbfc03,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device hwsem1_device = {
+	.name		= "rmobile_hwsem",
+	.id		= 1,
+	.resource	= r8a73734_hwsem1_resources,
+	.num_resources	= ARRAY_SIZE(r8a73734_hwsem1_resources),
+	.dev		= {
+		.platform_data	= &r8a73734_hwsem1_platform_data,
+	},
+};
+
+
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt10_device,
 	&cmt11_device,
@@ -944,6 +1040,8 @@ static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
     &smc_netdevice0,
     &smc_netdevice1,
 #endif
+    &hwsem0_device,
+    &hwsem1_device,
 };
 
 // HS-- ES20 Specific late devices
@@ -964,6 +1062,8 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
     &smc_netdevice0,
     &smc_netdevice1,
 #endif
+   &hwsem0_device,
+   &hwsem1_device,
 };
 
 void __init r8a73734_add_standard_devices(void)
