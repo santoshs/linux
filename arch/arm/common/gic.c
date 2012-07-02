@@ -33,6 +33,9 @@
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
 
+#define CONFIG_GIC_NS
+#define CONFIG_GIC_NS_CMT
+
 static DEFINE_SPINLOCK(irq_controller_lock);
 
 /* Address of GIC 0 CPU interface */
@@ -289,6 +292,12 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	for (i = 32; i < gic_irqs; i += 16)
 		writel_relaxed(0, base + GIC_DIST_CONFIG + i * 4 / 16);
 
+#ifdef CONFIG_GIC_NS
+#define GIC_DIST_ISR                    0x080
+	for (i = 32; i < gic_irqs; i += 32)
+		writel_relaxed(0xffffffff, base + GIC_DIST_ISR + i * 4 / 32);
+#endif
+
 	/*
 	 * Set all global interrupts to this CPU only.
 	 */
@@ -324,7 +333,11 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 		set_irq_flags(i, IRQF_VALID | IRQF_PROBE);
 	}
 
+#ifdef CONFIG_GIC_NS
+	writel_relaxed(3, base + GIC_DIST_CTRL);
+#else
 	writel_relaxed(1, base + GIC_DIST_CTRL);
+#endif
 }
 
 static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
@@ -332,6 +345,13 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 	void __iomem *dist_base = gic->dist_base;
 	void __iomem *base = gic->cpu_base;
 	int i;
+
+#ifdef CONFIG_GIC_NS
+	for (i = 0; i < 32; i += 32)
+		writel_relaxed(0xffffffff, dist_base + GIC_DIST_ISR + i * 4 / 32);
+		i=0;    //SWI 0 is Secure->FIQ
+		writel_relaxed(0xfffffffe, dist_base + GIC_DIST_ISR + i * 4 / 32);
+#endif
 
 	/*
 	 * Deal with the banked PPI and SGI interrupts - disable all
@@ -347,7 +367,11 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 		writel_relaxed(0xa0a0a0a0, dist_base + GIC_DIST_PRI + i * 4 / 4);
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
+#ifdef CONFIG_GIC_NS
+	writel_relaxed(0x1F, base + GIC_CPU_CTRL);
+#else
 	writel_relaxed(1, base + GIC_CPU_CTRL);
+#endif
 }
 
 void __init gic_init(unsigned int gic_nr, unsigned int irq_start,
@@ -398,6 +422,11 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	dsb();
 
 	/* this always happens on GIC0 */
+#ifdef CONFIG_GIC_NS
+	writel_relaxed((map << 16) | irq | (1<<15), gic_data[0].dist_base + GIC_DIST_SOFTINT);
+#else
 	writel_relaxed(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
+#endif
+
 }
 #endif

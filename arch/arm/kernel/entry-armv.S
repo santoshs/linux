@@ -28,6 +28,9 @@
 #include "entry-header.S"
 #include <asm/entry-macro-multi.S>
 
+#define CONFIG_GIC_NS
+#define CONFIG_GIC_NS_CMT
+
 /*
  * Interrupt handling.  Preserves r7, r8, r9
  */
@@ -76,6 +79,12 @@ __irq_invalid:
 	inv_entry BAD_IRQ
 	b	common_invalid
 ENDPROC(__irq_invalid)
+#ifdef CONFIG_GIC_NS
+__fiq_invalid:
+	inv_entry BAD_IRQ
+	b       common_invalid
+ENDPROC(__fiq_invalid)
+#endif
 
 __und_invalid:
 	inv_entry BAD_UNDEFINSTR
@@ -1077,6 +1086,49 @@ ENDPROC(vector_\name)
 1:
 	.endm
 
+#ifdef CONFIG_GIC_NS
+	.macro  vector_stub_fiq, name, mode, correction=0
+	.align  5
+
+vector_\name:
+	.if \correction
+	sub     lr, lr, #\correction
+	.endif
+
+	@
+	@ Save r0, lr_<exception> (parent PC) and spsr_<exception>
+	@ (parent CPSR)
+	@
+	stmia   sp, {r0, lr}            @ save r0, lr
+	mrs     lr, spsr
+	str     lr, [sp, #8]            @ save spsr
+
+	@
+	@ Prepare for SVC32 mode.  IRQs remain disabled.
+	@
+	cpsid   if
+	mrs     r0, cpsr
+	eor     r0, r0, #(\mode ^ SVC_MODE | PSR_ISETSTATE)
+	msr     spsr_cxsf, r0
+
+	@
+	@ the branch table must immediately follow this code
+	@
+	and     lr, lr, #0x0f
+ THUMB( adr     r0, 1f                  )
+ THUMB( ldr     lr, [r0, lr, lsl #2]  )
+ 	mov     r0, sp
+ ARM(   ldr     lr, [pc, lr, lsl #2]    )
+	movs    pc, lr                  @ branch to handler in SVC mode
+ENDPROC(vector_\name)
+
+	.align  2
+	@ handler addresses follow this label
+1:
+	.endm
+#endif
+
+
 	.globl	__stubs_start
 __stubs_start:
 /*
@@ -1170,7 +1222,29 @@ __stubs_start:
 	.long	__und_invalid			@  e
 	.long	__und_invalid			@  f
 
+#ifdef CONFIG_GIC_NS
+  /*
+   * FIQ dispatcher
+   */
+          vector_stub_fiq fiq, FIQ_MODE, 4
+	.long   __fiq_invalid                   @  0  (USR_26 / USR_32)
+	.long   __fiq_invalid                   @  1  (FIQ_26 / FIQ_32)
+	.long   __fiq_invalid                   @  2  (IRQ_26 / IRQ_32)
+	.long   __fiq_invalid                   @  3  (SVC_26 / SVC_32)
+	.long   __fiq_invalid                   @  4
+	.long   __fiq_invalid                   @  5
+	.long   __fiq_invalid                   @  6
+	.long   __fiq_invalid                   @  7
+	.long   __fiq_invalid                   @  8
+	.long   __fiq_invalid                   @  9
+	.long   __fiq_invalid                   @  a
+	.long   __fiq_invalid                   @  b
+	.long   __fiq_invalid                   @  c
+	.long   __fiq_invalid                   @  d
+	.long   __fiq_invalid                   @  e
+	.long   __fiq_invalid                   @  f
 	.align	5
+#else
 
 /*=============================================================================
  * Undefined FIQs
@@ -1185,6 +1259,7 @@ __stubs_start:
 vector_fiq:
 	disable_fiq
 	subs	pc, lr, #4
+#endif
 
 /*=============================================================================
  * Address exception handler

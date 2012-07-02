@@ -343,6 +343,7 @@ config RMU2_RWDT
 	  1. Select RWDT counter overflow time
 	     You can select only one. If you select two or more values,
 	     it decides to the nether choices most.
+	     NOTE: When RMU2_RWDT_30S is selected RMU2_RWDT_CMT_OVF will be set to 25000[25sec].
 
 	  2. Set time interval to clear timer in RWDT [msec]
 	     Set time interval to clear timer in RWDT between 1 to half of overflow time [msec].
@@ -496,7 +497,7 @@ config RMU2_RWDT_CMT_OVF
 	default 15000		if  RMU2_RWDT_15S
 	default 20000		if  RMU2_RWDT_20S 
 	default 25000		if  RMU2_RWDT_25S
-	default 30000		if  RMU2_RWDT_30S
+	default 25000		if  RMU2_RWDT_30S
 	default 35000		if  RMU2_RWDT_35S
 	default 40000		if  RMU2_RWDT_40S
 	default 45000		if  RMU2_RWDT_45S
