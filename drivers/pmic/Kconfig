@@ -1,17 +1,16 @@
 menuconfig PMIC_INTERFACE
-	bool "PowerManagement IC interface support"
-	default y
+	tristate "PowerManagement IC interface support"
 	help
 	  This enables support for the PowerManagement IC interface.
 
 if PMIC_INTERFACE
 config USB_OTG_INTERFACE
 	bool "USB-OTG IC interface support"
-	default y
+	default m
 
 config PMIC_TPS80032_POW
 	bool "TPS80032 Power Department Support"
-	default y
+	default m
 
 endif # PMIC_INTERFACE
 

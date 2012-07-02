@@ -40,7 +40,6 @@
 #include <mach/common.h>
 #include <linux/jiffies.h>
 #include <linux/input.h>
-#include <linux/kthread.h>
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 
@@ -60,12 +59,6 @@ static short BAT_VOLT_THRESHOLD[100];
 static struct input_dev *button_dev;
 static u8 key_count = 0;
 static u8 clk_state[3] = {0};
-static int num_current = 0;
-static int num_vbat[5];
-static int num_volt = 0;
-static wait_queue_head_t tps80032_bat_event;
-static struct task_struct *tps80032_bat_thread = NULL;
-static atomic_t bat_run = ATOMIC_INIT(0);
 
 struct tps80032_data {
 	struct device *dev;
@@ -77,7 +70,6 @@ struct tps80032_data {
 	int bat_over_temp;
 	int bat_capacity;
 	int bat_presence;
-	int bat_current;
 	int en_charger;
 	int cin_limit;
 	int vbus_det;
@@ -2665,7 +2657,8 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 
 	/*Correct the result */
 	result = ((ret_MSB & 0x0F)<<8) | ret_LSB;
-	
+	result = (833000 - (338 * result))/1000;
+
 disable:
 	/*Disable GPAD */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x01);
@@ -2815,390 +2808,6 @@ int tps80032_calc_bat_capacity(struct i2c_client *client)
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return soc;
 }
-/*
- * tps80032_calc_bat_current: calculate the battery current now
- * @client: The I2C client device.
- * return:
- *        > 0: Battery capacity
- *        = 0: Error occurs
- */
-static int tps80032_calc_bat_current(struct i2c_client *client)
-{
-	int ret = 0;
-	int count_timer =  0;
-	int cc_offset_lsb;
-	int cc_offset_msb;
-	int Iacc = 0;
-	int Iavg = 0;
-	int cc_sample_cntr_lsb = 0;
-	int cc_sample_cntr_mid = 0;
-	int cc_sample_cntr_msb = 0;
-	int cc_accum_lsb = 0;
-	int cc_accum_mid1 = 0;
-	int cc_accum_mid2 = 0;
-	int cc_accum_msb = 0;
-	long cc_offset = 0;
-	long temp1 = 0;
-	long temp2 = 0;
-	long cc_sample_cntr = 0;
-	long cc_sample_cntr0 = 0;
-	long cc_sample_cntr1 = 0;
-	long cc_accum = 0;
-	u32 cc_accum0 = 0;
-	u32 cc_accum1 = 0;
-	u8 	reg_val = 0;
-	
-
-	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-	
-	/* Mask interrupt line of GG */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_MSK_STS_B, 0xC0);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* Clear GG interrupt status */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* Wait for 20 microS */
-	udelay(20);
-	
-	/* Unmask interrupt line of GG */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_MSK_STS_B, 0x40);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-
-	/* Enable Gas Gaue */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0xA0);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* CC_pause to 1*/
-	reg_val = 0x01;
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* Set integration period is 62.5 ms */
-	reg_val = 0x41;
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* perform calibration of the ADC */
-	reg_val |= MSK_BIT_1;
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/*Enable analog updating to regisiter*/
-	reg_val &= (~MSK_BIT_0);
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/*Wait for calibration end */
-	while (count_timer <= CONST_WAIT_TIME_CURRENT) {
-		msleep(1);
-
-		/*Read the value of FG_REG_00*/
-		ret = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_00);
-		if (0 > ret) {
-			PMIC_DEBUG_MSG(">>> %s % d error(%d)\n", __func__, __LINE__, ret);
-		} else {
-			/*Check whether CC_CAL_EN self-clears or not*/
-			if((ret & MSK_BIT_1) == 0) {
-				/* Clear interrupt GG */
-				ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
-				break;
-			} else  {
-				count_timer++;
-			}
-		}
-	}
-	
-	if (CONST_WAIT_TIME_CURRENT < count_timer) {
-		/* Time out */
-		PMIC_DEBUG_MSG("%s: measurement GG failed err=%d\n",__func__,ret);
-		Iavg = -1;
-		goto disable;
-	}
-	
-	cc_offset_lsb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_08);
-	if( cc_offset_lsb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_offset_lsb);
-		goto disable;
-	}
-	
-	cc_offset_msb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_09);
-	if( cc_offset_msb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_offset_msb);
-		goto disable;
-	}
-	
-	cc_offset_msb &= 0x03;
-	
-	cc_offset = ((long) cc_offset_msb) << 8 | ((long) cc_offset_lsb);
-	
-	ret = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_00);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	reg_val = ret | MSK_BIT_2;
-	
-	/* reset CC_OFFSET, CC_SAMPLE_CNTRx and CC_ACCUMx register*/
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* run the conversion*/
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, reg_val & (~MSK_BIT_0));
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	msleep(1000);
-	
-	/* stop the conversion */
-	ret = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_00);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, (ret | MSK_BIT_0));
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* read the sample counter */
-	cc_sample_cntr_lsb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_01);
-	if( cc_sample_cntr_lsb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_sample_cntr_lsb);
-		goto disable;
-	}
-	
-	cc_sample_cntr_mid = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_02);
-	if( cc_sample_cntr_mid < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_sample_cntr_mid);
-		goto disable;
-	}
-	
-	cc_sample_cntr_msb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_03);
-	if( cc_sample_cntr_msb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_sample_cntr_msb);
-		goto disable;
-	}
-	
-	cc_sample_cntr0 = (long)(cc_sample_cntr_lsb | (cc_sample_cntr_mid << 8) | (cc_sample_cntr_msb<<16));
-	
-	/* read the accumulator register */
-	cc_accum_lsb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_04);
-	if( cc_accum_lsb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_lsb);
-		goto disable;
-	}
-	
-	cc_accum_mid1 = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_05);
-	if( cc_accum_mid1 < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_mid1);
-		goto disable;
-	}
-	
-	cc_accum_mid2 = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_06);
-	if( cc_accum_mid2 < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_mid2);
-		goto disable;
-	}
-	
-	cc_accum_msb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_07);
-	if( cc_accum_msb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_msb);
-		goto disable;
-	}
-	
-	cc_accum0 = (u32)(cc_accum_lsb | (cc_accum_mid1<<8) | (cc_accum_mid2<<16) | (cc_accum_msb << 24));
-	
-	
-	/* run the conversion for the second value */
-	ret = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_00);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, (ret & (~MSK_BIT_0)));
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	msleep(1000);
-	
-	/* stop the conversion */
-	ret = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_00);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	ret = i2c_smbus_write_byte_data(client, HW_REG_FG_REG_00, (ret | MSK_BIT_0));
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* read the sample counter */
-	cc_sample_cntr_lsb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_01);
-	if( cc_sample_cntr_lsb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_sample_cntr_lsb);
-		goto disable;
-	}
-	
-	cc_sample_cntr_mid = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_02);
-	if( cc_sample_cntr_mid < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__,cc_sample_cntr_mid);
-		goto disable;
-	}
-	
-	cc_sample_cntr_msb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_03);
-	if( cc_sample_cntr_msb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_sample_cntr_msb);
-		goto disable;
-	}
-	
-	cc_sample_cntr1 = (long) (cc_sample_cntr_lsb | (cc_sample_cntr_mid <<8) | (cc_sample_cntr_msb<<16));
-	
-	/* read the accumulator register */
-	cc_accum_lsb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_04);
-	if( cc_accum_lsb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_lsb);
-		goto disable;
-	}
-	
-	cc_accum_mid1 = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_05);
-	if( cc_accum_mid1 < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_mid1);
-		goto disable;
-	}
-	
-	cc_accum_mid2 = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_06);
-	if( cc_accum_mid2 < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_mid2);
-		goto disable;
-	}
-	
-	cc_accum_msb = i2c_smbus_read_byte_data(client, HW_REG_FG_REG_07);
-	if( cc_accum_msb < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, cc_accum_msb);
-		goto disable;
-	}
-	
-	cc_accum1 = (u32) (cc_accum_lsb | (cc_accum_mid1 << 8) | (cc_accum_mid2 << 16) | (cc_accum_msb << 24));
-	
-	/* Mask interrupt line of GG */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_MSK_STS_B, 0xC0);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* Clear GG interrupt status */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}
-	
-	/* Wait for 20 microS */
-	udelay(20);
-	
-	/* disable the Gas Gauge : TOGGLE1 set the bit6 FGDITHR to 1 and the bit4 FGR: enable the GASGAUGE */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x50);
-	if( ret < 0) {
-		PMIC_DEBUG_MSG(">>> %s(), line % d, error(%d)\n", __func__, __LINE__, ret);
-		goto disable;
-	}	
-
-	
-	/* compute the current */
-	cc_sample_cntr = cc_sample_cntr1 - cc_sample_cntr0;
-	cc_offset = cc_offset * cc_sample_cntr;
-	cc_accum = cc_accum1 - cc_accum0;
-	
-	if(cc_accum < 0) {
-		cc_accum = - cc_accum; 
-	}
-	
-	temp1 = 20 * 32768;
-	temp2 = 62000000/temp1;  
-
-	Iacc = cc_accum * temp2;
-	
-	temp1 = ((cc_sample_cntr * 1000) / (4 * 4));  
-	Iavg = Iacc / temp1;
-
-disable:
-	/* Mask interrupt line of GG */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_MSK_STS_B, 0xC0);
-	/* Clear interrupt GG */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
-	/* Disable Gas Gaue */
-	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x50);
-
-	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-	return Iavg;
-}
-
-
-/*
- * tps80032_battery_thread: start thread to measure the battery current
- * @ptr: 
- * return: 0
- */
-static int tps80032_battery_thread(void *ptr)
-{
-	struct i2c_client *client = (struct i2c_client *)ptr;
-	struct tps80032_data *data = i2c_get_clientdata(client);
-	int ret = 0;
-		
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(tps80032_bat_event, atomic_read(&bat_run));
-		
-		ret = tps80032_calc_bat_current(client);
-		if(ret < 0) {
-			data->bat_current = 0;
-		} else {
-			data->bat_current = ret;
-		}
-		
-		atomic_set(&bat_run, 0);
-	}
-	return 0;
-}
-
 
 /*
  * tps80032_bat_update: update all battery information
@@ -3281,13 +2890,12 @@ void tps80032_bat_update(struct tps80032_data *data)
 		ret = tps80032_gpadc_correct_voltage(data, ret);
 	}
 
-	num_vbat[num_volt] = ret;
-	
-	/* Increase value of VBAT */
-	num_volt++;
-	if (5 == num_volt) {
-		data->bat_volt = (num_vbat[0] + num_vbat[1] + num_vbat[2] + num_vbat[3] + num_vbat[4])/5;
-		num_volt = 0;
+	if ((0 != data->en_charger) && (-1 != ret))  {
+		/* Update battery voltage */
+		data->bat_volt = ret;
+	} else if (((old_data > ret) ||(0 == old_data)) && (-1 != ret)) {
+		/* Update battery voltage */
+		data->bat_volt = ret;
 	}
 
 	/* check the change of battery capacity */
@@ -3336,13 +2944,6 @@ void tps80032_bat_update(struct tps80032_data *data)
 	/* Notify if there have any change */
 	if (0 != notify) {
 		pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
-	}
-	/* Update battery current every 10second */
-	num_current++;
-	if (10 == num_current) {
-		atomic_set(&bat_run, 1);
-		wake_up_interruptible(&tps80032_bat_event);
-		num_current = 0;	
 	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
@@ -3414,7 +3015,6 @@ static void tps80032_update_work(struct work_struct *work)
 static void tps80032_int_chrg_work(struct work_struct *work)
 {
 	int ret = 0;
-	int ret_stat = 0;
 	int val = 0;
 	struct tps80032_data *data = container_of(work, struct tps80032_data, int_chrg_work);
 
@@ -3436,20 +3036,18 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 	} else {
 		/* If battery voltage is not over-volt */
 		/* Check the state of charger */
-		ret_stat = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
-		if (0 > ret_stat) {
+		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+		if (0 > ret) {
 			return;
 		}
 		
-		/* If charger is present */
-		if (0 != (ret_stat & (MSK_BIT_2 | MSK_BIT_3))) {
+		if (0 != (ret & (MSK_BIT_2 | MSK_BIT_3))) {
 			ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
 			if (0 > ret) {
 				return;
 			}
 			
-			/* Charger is disabled by over-voltage and not over-temp */
-			if ((0 == (ret & MSK_BIT_4)) && (0 == (ret_stat & MSK_BIT_0))) {
+			if (0 == (ret & MSK_BIT_4)) {
 				/* Enable charger */
 				val = ret | MSK_BIT_4;
 				ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
@@ -3482,7 +3080,6 @@ static void tps80032_chrg_ctrl_work(struct work_struct *work)
 	int ret_stat1 = 0;
 	int ret_ctrl = 0;
 	int ret_sts = 0;
-	int ret_ovp = 0;
 	struct tps80032_data *data = container_of(work, struct tps80032_data, chrg_ctrl_work);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
@@ -3496,12 +3093,6 @@ static void tps80032_chrg_ctrl_work(struct work_struct *work)
 	/* Read status of charger */
 	ret_ctrl = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
 	if (0 > ret) {
-		return;
-	}
-	
-	/* Check status of battery voltage */
-	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
-	if (0 > ret_ovp) {
 		return;
 	}
 	
@@ -3527,9 +3118,9 @@ static void tps80032_chrg_ctrl_work(struct work_struct *work)
 			return;
 		}
 	} else {
-		/* Battery temperature is not over-temp and not over-volt */
+		/* Battery temperature is not over-temp */
 		/* Charger is present and charger is disable*/
-		if ((0 != (ret_stat1 & (MSK_BIT_2 | MSK_BIT_3))) && (0 == (ret_ctrl & MSK_BIT_4)) && (0 == (ret_ovp & MSK_BIT_3))) {
+		if ((0 != (ret_stat1 & (MSK_BIT_2 | MSK_BIT_3))) && (0 == (ret_ctrl & MSK_BIT_4))) {
 			/* Enable charger */
 			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl | MSK_BIT_4));
 			if (0 > ret) {
@@ -3572,7 +3163,6 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 	int ret;
 	int ret_stat1;
 	int ret_ctrl1;
-	int ret_ovp;
 	struct tps80032_data *data = container_of(work, struct tps80032_data, vac_charger_work);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
@@ -3589,12 +3179,6 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 		return;
 	}
 	
-	/* Check status of battery voltage */
-	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
-	if (0 > ret_ovp) {
-		return;
-	}
-	
 	/* Check VAC_DET bit value */
 	if (0 != (ret_stat1 & MSK_BIT_3)) {
 		/* If VAC charger is present */
@@ -3605,17 +3189,8 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 			return;
 		}
 		
-		/* Select charge source */
-		ret_ctrl1 = ret_ctrl1 | MSK_BIT_3;
-		
-		/* If battery is not over-temp and over-volt */
-		if ((0 == (ret_stat1 & MSK_BIT_0)) && (0 == (ret_ovp & MSK_BIT_3))) {
-			/* Enable charger */
-			ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
-		} else {
-			/* Do not enable charger */
-		}
-		
+		/* Enable charger and select charge source */
+		ret_ctrl1 = ret_ctrl1 | MSK_BIT_3 | MSK_BIT_4;
 		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
 		if (0 > ret) {
 			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
@@ -3630,16 +3205,8 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 			return;
 		}
 		
-		/* Select charge source is USB */
-		ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_3);
-		
-		/* If battery is not over-temp and over-volt */
-		if ((0 == (ret_stat1 & MSK_BIT_0)) && (0 == (ret_ovp & MSK_BIT_3))) {
-			/* Enable charger */
-			ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
-		} else {
-			/* Do not enable charger */
-		}
+		/* Enable charger and select charge source */
+		ret_ctrl1 = (ret_ctrl1 | MSK_BIT_4) & (~MSK_BIT_3);
 		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
 		if (0 > ret) {
 			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
@@ -3717,7 +3284,7 @@ static int tps80032_get_usb_online(struct device *dev)
 static int tps80032_get_bat_status(struct device *dev)
 {
 	int ret = 0;
-	int ret_cap, ret_charger, ret_bat, ret_en_charger, ret_ovp;
+	int ret_cap, ret_charger, ret_bat, ret_en_charger;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tps80032_data *data = i2c_get_clientdata(client);
 
@@ -3727,7 +3294,6 @@ static int tps80032_get_bat_status(struct device *dev)
 	ret_charger = data->charger;
 	ret_bat = data->bat_presence;
 	ret_en_charger = data->en_charger;
-	ret_ovp = data->bat_over_volt;
 
 	if (0 > ret_cap) {
 		/* return UNKNOWN status */
@@ -3738,7 +3304,7 @@ static int tps80032_get_bat_status(struct device *dev)
 	} else if (0 == ret_en_charger) {
 		/* return DISCHARGING status */
 		ret = POWER_SUPPLY_STATUS_DISCHARGING;
-	} else if (((1 == ret_charger) && (0 == ret_bat)) || (1 == ret_ovp))  {
+	} else if ((1 == ret_charger) && (0 == ret_bat))  {
 		/* return NOT_CHARGING status */
 		ret = POWER_SUPPLY_STATUS_NOT_CHARGING;
 	} else if (1 == ret_en_charger){
@@ -3922,29 +3488,6 @@ static int tps80032_get_bat_capacity_level(struct device *dev)
 
 
 /*
- * tps80032_get_bat_current_now: get battery current now
- * @dev: The struct which handles the TPS80032 driver.
- * return:
- *        > 0: the remaining capacity in percent unit.
- *        = 0: Error occurs
- */
-static int tps80032_get_bat_current_now(struct device *dev)
-{
-	int ret;
-	struct i2c_client *client = to_i2c_client(dev);
-	struct tps80032_data *data = i2c_get_clientdata(client);
-
-	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-	
-	/* Do something */
-	ret = data->bat_current;
-	
-	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-	return ret;
-}
-
-
-/*
  * tps80032_get_bat_voltage: get the battery voltage
  * @dev: The struct which handles the TPS80032 driver.
  * return:
@@ -4033,13 +3576,7 @@ static int tps80032_correct_temp(int temp)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* change temperature unit from 0.1K to 0.1C */
-	if ((901 <= temp) && (2506 >= temp)) {
-		ret = (7800 - 3 * temp) / 10;
-	} else if (901  > temp) {
-		ret = (15400 - 6 * temp) / 10;
-	} else if (2506 < temp) {
-		ret = (10100 - 6 * temp) / 10;
-	}
+	ret = temp;
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;	
@@ -4146,7 +3683,6 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 	int ret = 0;
 	int ret_stat1 = 0;
 	int ret_ctrl1 = 0;
-	int ret_ovp = 0;
 	int val_limit = 0;
 
 	struct i2c_client *client = to_i2c_client(dev);
@@ -4223,21 +3759,9 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 				return ret;
 			}
 			
+			/* Enable charger */
 			/* Select charger source is VBUS */
-			ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_3);
-			
-			/* Check battery is over-temp or over-volt */
-			ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
-			if (0 > ret_ovp) {
-				return ret;
-			}
-			
-			if ((0 == (ret_ovp & MSK_BIT_3)) && (0 == (ret_stat1 & MSK_BIT_0))) {
-				/* Enable charger */
-				ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
-			} else {
-				/* Do not enable charger */
-			}
+			ret_ctrl1 = (ret_ctrl1 | MSK_BIT_4) & (~MSK_BIT_3);
 			
 			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
 			if (0 > ret) {
@@ -4551,7 +4075,6 @@ static struct pmic_battery_ops tps80032_power_battery_ops = {
 	.get_bat_capacity_level = tps80032_get_bat_capacity_level,
 	.get_bat_temperature = tps80032_get_bat_temperature,
 	.get_bat_voltage = tps80032_get_bat_voltage,
-	.get_bat_current_now = tps80032_get_bat_current_now,
 	.get_bat_time_to_empty = NULL,
 	.get_bat_time_to_full = NULL,
 	.stop_charging = tps80032_stop_charging,
@@ -4614,44 +4137,25 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 	int ret = 0;
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
+	/* Turn on SMPS4 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_ON));
+	if (0 > ret) {
+		return ret;
+	}
+
 	/* Set default voltage (1.8V) for LDO7 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO7_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
 	if (0 > ret) {
 		return ret;
 	}
-	
 	/* Assign SMSP1 (VCORE) and SMPS5 (VCORE_RF) into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_A, MSK_PREQ1_ASS_A);
 	if (0 > ret) {
 		return ret;
 	}
 
-	/* Assign LDO6 and LDOLN into Group1 */
+	/* Assign LDO6 and LDON into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_B, MSK_PREQ1_ASS_B);
-	if (0 > ret) {
-		return ret;
-	}
-	
-	/* Assign LDOLN into Group3 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ3_RES_ASS_B, MSK_PREQ3_ASS_B);
-	if (0 > ret) {
-		return ret;
-	}
-	
-	/* Set state "OFF" in mode "SLEEP" for LDOLN */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDOLN_CFG_TRANS, CONST_LDOLN_CFG_TRANS);
-	if (0 > ret) {
-		return ret;
-	}
-	
-	/* Turn off SMPS4 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_OFF));
-	if (0 > ret) {
-		return ret;
-	}
-	
-	/* Assign SMPS4 into Group2 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ2_RES_ASS_A, MSK_PREQ2_ASS_A);
 	if (0 > ret) {
 		return ret;
 	}
@@ -4676,9 +4180,7 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 int tps80032_init_battery_hw(struct tps80032_data *data)
 {
 	int ret = 0;
-	int ret_stat = 0;
-	int ret_ovp = 0;
-	int val = 0;
+	int val;
 	int charger_stat;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
@@ -4694,12 +4196,6 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 	if (0 > ret) {
 		return ret;
 	}
-	/* Setting for low voltage limitation */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_VSYSMIN_HI_THRESHOLD, CONST_VSYSMIN_HI);
-	if (0 > ret) {
-		return ret;
-	}
-	
 	/* Enable Charge current termination interrupt */
 	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL1);
 	if (0 > ret) {
@@ -4728,18 +4224,12 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 		return ret;
 	}
 	
-	/* Check status of battery voltage */
-	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
-	if (0 > ret_ovp) {
-		return ret_ovp;
-	}
-	
 	/* Enable charger if charger is present at the boot up of driver */
-	ret_stat = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
-	if (0 > ret_stat) {
-		return ret_stat;
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret) {
+		return ret;
 	} else {
-		charger_stat = ret_stat & (MSK_BIT_2 | MSK_BIT_3);
+		charger_stat = ret & (MSK_BIT_2 | MSK_BIT_3);
 		data->vbus_det = charger_stat & MSK_BIT_2;
 		data->vac_det = charger_stat & MSK_BIT_3;
 		if (0 != charger_stat) {
@@ -4749,15 +4239,8 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 				return ret;
 			}
 			
-			/* If battery is not over-temp and over-volt */
-			if ((0 == (ret_stat & MSK_BIT_0)) && (0 == (ret_ovp & MSK_BIT_3))) {
-				/* Enable charger */
-				val = ret | MSK_BIT_4;
-			} else {
-				/* Do not enable charger */
-			}
-			
 			/* Set source charge */
+			val = ret | MSK_BIT_4;
 			if (0 == (charger_stat & MSK_BIT_3)) {
 				/* If VAC Charger is not present */
 				val = val & (~MSK_BIT_3);
@@ -4776,7 +4259,7 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, CONST_DEF_CURRENT_LIMIT);
 			if (0 > ret) {
 				PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
-				return ret;
+				return;
 			}
 			
 		} else {
@@ -4856,11 +4339,6 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 	
 	/* Mask value for CONTROLLER_INT register */
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_INT_MASK, MSK_CONTROLLER_INT);
-	if (0 > ret) {
-		return ret;
-	}
-	/* Mask value for CHARGERUSB_INT register */
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_INT_MASK, MSK_CHARGERUSB_INT);
 	if (0 > ret) {
 		return ret;
 	}
@@ -5085,7 +4563,6 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 	data->cin_limit = 0;
 	data->vbus_det = 0;
 	data->vac_det = 0;
-	data->bat_current = 0;
 
 	while (count < RESOURCE_COUNTER_MAX) {
 		data->rscounter[count] = 0;
@@ -5288,16 +4765,6 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
-	/* Init thread to update battery current */
-	init_waitqueue_head(&tps80032_bat_event);
-	tps80032_bat_thread = kthread_run(tps80032_battery_thread, (void *)client, "tps80032_bat_thread");
-	if(NULL == tps80032_bat_thread)
-	{
-		ret = -ENOMEM;
-		PMIC_ERROR_MSG("%s:%d tps80032_bat_thread failed err=%d\n",__func__,__LINE__,ret);
-		goto err_request_irq;
-	}
-	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 
@@ -5321,13 +4788,6 @@ err_device_USB_register:
  */
 static int tps80032_battery_remove(struct i2c_client *client)
 {
-	/* Stop thread update battery current */
-	if(tps80032_bat_thread != NULL)
-	{
-		 kthread_stop(tps80032_bat_thread);
-		 tps80032_bat_thread = NULL;
-	}
-	
 	pmic_battery_unregister_correct_func();
 	pmic_battery_device_unregister(&client->dev);
 	usb_otg_pmic_device_unregister(&client->dev);
