@@ -391,7 +391,9 @@ static int sh_clk_cksel_set_parent(struct clk *clk, struct clk *parent)
 	ret = clk_reparent(clk, parent);
 	if (ret < 0)
 		return ret;
-
+	if (!clk->enable_reg){
+		return 0;
+	}
 	value = __raw_readl(clk->enable_reg) &
 		~(((1 << clk->src_width) - 1) << clk->src_shift);
 

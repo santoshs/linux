@@ -805,6 +805,65 @@ static int sh7730_i2c_master_xfer(struct i2c_adapter *adap,
 	pm_runtime_get_sync(adap->dev.parent);
 	clk_enable(id->clk);
 
+	/* Initial value */
+	{
+		unsigned char iccr1 = read_ICCR1(id->iobase);
+		struct i2c_sh_mobile_platform_data *pd;
+		pd = id->adap.dev.parent->platform_data;
+
+		/* Transfer Clock Select */
+		{
+			unsigned char mc=0;
+			unsigned long module_clk=0;
+			unsigned long div=0;
+
+
+			module_clk = clk_get_rate(id->clk);
+
+			div = module_clk / pd->bus_speed;
+
+			if (60 >= div)
+				mc = CR1_CKS_MC0060;
+			else if (76 >= div)
+				mc = CR1_CKS_MC0076;
+			else if (92 >= div)
+				mc = CR1_CKS_MC0092;
+			else if (108 >= div)
+				mc = CR1_CKS_MC0108;
+			else if (120 >= div)
+				mc = CR1_CKS_MC0120;
+			else if (168 >= div)
+				mc = CR1_CKS_MC0168;
+			else if (252 >= div)
+				mc = CR1_CKS_MC0252;
+			else if (300 >= div)
+				mc = CR1_CKS_MC0300;
+			else if (240 >= div)
+				mc = CR1_CKS_MC0240;
+			else if (304 >= div)
+				mc = CR1_CKS_MC0304;
+			else if (368 >= div)
+				mc = CR1_CKS_MC0368;
+			else if (432 >= div)
+				mc = CR1_CKS_MC0432;
+			else if (480 >= div)
+				mc = CR1_CKS_MC0480;
+			else if (672 >= div)
+				mc = CR1_CKS_MC0672;
+			else if (1008 >= div)
+				mc = CR1_CKS_MC1008;
+			else
+				mc = CR1_CKS_MC1200;
+
+			iccr1 = set_CR1_CKS(mc, iccr1);
+		}
+
+		/* This module is enabled for transfer operations. */
+		iccr1 = set_CR1_ICE(BIT_SET, iccr1);
+
+		write_ICCR1(iccr1, id->iobase);
+	}
+
 	iccr2 = read_ICCR2(id->iobase);
 
 	/* Test the status of the SCL and SDA lines. */
@@ -1044,8 +1103,6 @@ static int __devinit sh7730_i2c_probe(struct platform_device *pdev)
 		goto out3;
 	}
 
-	/*pm_suspend_ignore_children(&pdev->dev, true);
-	pm_runtime_enable(&pdev->dev);*/
 	pm_runtime_put_sync(&pdev->dev);
 	ret = i2c_add_numbered_adapter(&id->adap);
 	if (ret < 0) {

@@ -1080,10 +1080,10 @@ int renesas_sdhi_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	int ret = mmc_suspend_host(host->mmc);
-	//if (!host->dynamic_clock) {
+	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
 		pm_runtime_put_sync(dev);
-	//}
+	}
 
 	return ret;
 }
