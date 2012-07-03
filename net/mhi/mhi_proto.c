@@ -106,19 +106,6 @@ mhi_skb_send(
 		skb_orphan(skb);
 		netif_rx_ni(skb);
 	} else {
-
-		if ((proto == MHI_L3_XFILE) || (proto == MHI_L3_LOW_PRIO_TEST))
-		{
-		   skb->priority = 1; /* Low prio */
-		}
-		else if ((proto == MHI_L3_AUDIO) || (proto == MHI_L3_TEST_PRIO) || (proto == MHI_L3_HIGH_PRIO_TEST))
-		{
-		   skb->priority = 6;	/* high prio */
-		}
-		else
-		{
-		   skb->priority = 0;	/* medium prio */
-		}
 		err = dev_queue_xmit(skb);
 	}
 

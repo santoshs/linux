@@ -28,9 +28,6 @@
 #define MHI_L3_MHDP_UL		0x08
 #define MHI_L3_AUX_HOST		0x09
 #define MHI_L3_THERMAL		0xC1
-#define MHI_L3_HIGH_PRIO_TEST	0xFD
-#define MHI_L3_MED_PRIO_TEST	0xFE
-#define MHI_L3_LOW_PRIO_TEST	0xFF
 
 /* 256 possible protocols */
 #define MHI_L3_NPROTO		256
