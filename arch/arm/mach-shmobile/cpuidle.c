@@ -51,7 +51,7 @@ static int shmobile_cpuidle_init(void)
 	struct cpuidle_device *dev;
 	struct cpuidle_driver *drv = &shmobile_cpuidle_driver;
 	unsigned int cpu;
-	int i;
+	int i, ret;
 
 	for (i = 0; i < CPUIDLE_STATE_MAX; i++)
 		drv->states[i].enter = shmobile_cpuidle_enter;
@@ -59,14 +59,22 @@ static int shmobile_cpuidle_init(void)
 	if (shmobile_cpuidle_setup)
 		shmobile_cpuidle_setup(drv);
 
-	cpuidle_register_driver(drv);
+	ret = cpuidle_register_driver(drv);
+	if (ret) {
+		pr_err("CPUidle driver registration failed\n");
+		return ret;
+	}
 
 	for_each_possible_cpu(cpu) {
 		dev = &per_cpu(shmobile_cpuidle_dev, cpu);
 		dev->cpu = cpu;
 
 		dev->state_count = drv->state_count;
-		cpuidle_register_device(dev);
+		ret = cpuidle_register_device(dev);
+		if (ret) {
+			pr_err("CPU%u: CPUidle device registration failed\n", cpu);
+			return ret;
+		}
 	}
 
 	return 0;
