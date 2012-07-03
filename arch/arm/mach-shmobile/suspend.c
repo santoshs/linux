@@ -632,6 +632,55 @@ static void shmobile_suspend_end(void)
 #endif
 }
 
+
+/* I2CDVM */
+#define ICCRDVM			__io(0xE60A0004)
+#define ICTMC1DVM1		__io(0xE60A102C)
+#define ICTMC2DVM1		__io(0xE60A1030)
+#define ICTMCWDVM1		__io(0xE60A1034)
+#define ICICDVM1		__io(0xE60A1004)
+#define ICACEDVM1		__io(0xE60A1028)
+#define ICIMSKDVM1		__io(0xE60A1024)
+#define ICATFRDVM1		__io(0xE60A103C)
+#define ICVCONDVM1		__io(0xE60A1020)
+#define ICATSET1DVM1	__io(0xE60A1040)
+#define ICASTARTDVM1	__io(0xE60A1038)
+/* I2CDVM COM */
+#define ICATD00DVM12	__io(0xE60A1100)
+#define ICATD01DVM12	__io(0xE60A1104)
+#define ICATD02DVM12	__io(0xE60A1108)
+#define ICATD00DVM13	__io(0xE60A1150)
+#define ICATD01DVM13	__io(0xE60A1154)
+#define ICATD02DVM13	__io(0xE60A1158)
+#define SRCR4			__io(0xE61580BC)
+
+static void do_iicdvm_setting(void)
+{
+	pr_debug("Setting IICDVM\n");
+	__raw_writeb(0x80,ICCRDVM);
+	__raw_writeb(0x00,ICTMC1DVM1);
+	__raw_writeb(0x00,ICTMC2DVM1);
+	__raw_writeb(0x01,ICTMCWDVM1);
+	__raw_writeb(0x03,ICICDVM1);
+	__raw_writeb(0x90,ICACEDVM1);
+	__raw_writeb(0x00,ICIMSKDVM1);
+	__raw_writeb(0x00,ICATFRDVM1);
+	__raw_writeb(0x10,ICVCONDVM1);
+	__raw_writeb(0x02,ICATSET1DVM1);
+
+	pr_debug("Set IICDVM communication data\n");
+	__raw_writeb(0xFE,ICATD00DVM12);
+	__raw_writeb(0xFE,ICATD00DVM13);
+	__raw_writeb(0xFF,ICATD01DVM12);
+	__raw_writeb(0xFF,ICATD01DVM13);
+	__raw_writeb(0xFF,ICATD02DVM12);
+	__raw_writeb(0xFF,ICATD02DVM13);
+
+	pr_debug("Set IICDVM start transmission\n");
+	__raw_writeb(0x80,ICASTARTDVM1);
+}
+
+
 static int shmobile_suspend(void)
 {
 	int locked;
@@ -695,6 +744,9 @@ static int shmobile_suspend(void)
 			, ram0FRQCRAMask); 
 	pm_writel((es < ES_REV_2_0)?POWERDOWN_FRQCRA_ES1:POWERDOWN_FRQCRA_ES2
 			, ram0FRQCRADown); 
+
+	if (es <= ES_REV_2_1)
+		do_iicdvm_setting();
 
 	/*
 	 * do cpu suspend ...
