@@ -106,7 +106,7 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 
 #define POWER_DOMAIN_COUNT_MAX	3
 #define CONFIG_PM_RUNTIME_A3SG
-/*#define CONFIG_PM_RUNTIME_A3SP*/
+#define CONFIG_PM_RUNTIME_A3SP
 #define CONFIG_PM_RUNTIME_A3R
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
