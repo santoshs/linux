@@ -34,7 +34,7 @@ static int shmobile_cpuidle_enter(struct cpuidle_device *dev,
 	return index;
 }
 
-static struct cpuidle_device shmobile_cpuidle_dev;
+static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_dev);
 static struct cpuidle_driver shmobile_cpuidle_driver = {
 	.name			= "shmobile_cpuidle",
 	.owner			= THIS_MODULE,
@@ -48,8 +48,9 @@ void (*shmobile_cpuidle_setup)(struct cpuidle_driver *drv);
 
 static int shmobile_cpuidle_init(void)
 {
-	struct cpuidle_device *dev = &shmobile_cpuidle_dev;
+	struct cpuidle_device *dev;
 	struct cpuidle_driver *drv = &shmobile_cpuidle_driver;
+	unsigned int cpu;
 	int i;
 
 	for (i = 0; i < CPUIDLE_STATE_MAX; i++)
@@ -60,8 +61,13 @@ static int shmobile_cpuidle_init(void)
 
 	cpuidle_register_driver(drv);
 
-	dev->state_count = drv->state_count;
-	cpuidle_register_device(dev);
+	for_each_possible_cpu(cpu) {
+		dev = &per_cpu(shmobile_cpuidle_dev, cpu);
+		dev->cpu = cpu;
+
+		dev->state_count = drv->state_count;
+		cpuidle_register_device(dev);
+	}
 
 	return 0;
 }
