@@ -1387,6 +1387,30 @@ static struct platform_device rcu1_device = {
 	},
 };
 
+static struct resource mdm_reset_resources[] = {
+	[0] = {
+		.name	= "MODEM_RESET",
+		.start	= 0xE6190000,
+		.end	= 0xE61900FF,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(219),  // EPMU_int1
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device mdm_reset_device = {
+	.name		= "rmc_wgm_reset_int",
+	.id		= 0,
+	/*.dev		= {
+		.platform_data	= &sdhi0_info,
+	},*/
+	.num_resources	= ARRAY_SIZE(mdm_reset_resources),
+	.resource	= mdm_reset_resources,
+};
+
+
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
 
@@ -1413,6 +1437,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
@@ -1454,6 +1479,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
@@ -1495,6 +1521,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&mfis_device,
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
+	&mdm_reset_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
