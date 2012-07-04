@@ -66,12 +66,6 @@ struct sci_port {
 	/* Platform configuration */
 	struct plat_sci_port	*cfg;
 
-	/* Port enable callback */
-	void			(*enable)(struct uart_port *port);
-
-	/* Port disable callback */
-	void			(*disable)(struct uart_port *port);
-
 	/* Break timer */
 	struct timer_list	break_timer;
 	int			break_flag;
@@ -119,6 +113,29 @@ static inline struct sci_port *
 to_sci_port(struct uart_port *uart)
 {
 	return container_of(uart, struct sci_port, port);
+}
+
+static void sci_port_enable(struct sci_port *sci_port)
+{
+    if (!sci_port->port.dev)
+        return;
+
+    pm_runtime_get_sync(sci_port->port.dev);
+
+    clk_enable(sci_port->iclk);
+    sci_port->port.uartclk = clk_get_rate(sci_port->iclk);
+    clk_enable(sci_port->fclk);
+}
+
+static void sci_port_disable(struct sci_port *sci_port)
+{
+    if (!sci_port->port.dev)
+        return;
+
+    clk_disable(sci_port->fclk);
+    clk_disable(sci_port->iclk);
+
+    pm_runtime_put_sync(sci_port->port.dev);
 }
 
 #if defined(CONFIG_CONSOLE_POLL) || defined(CONFIG_SERIAL_SH_SCI_CONSOLE)
@@ -577,8 +594,7 @@ static void sci_break_timer(unsigned long data)
 {
 	struct sci_port *port = (struct sci_port *)data;
 
-	if (port->enable)
-		port->enable(&port->port);
+	sci_port_enable(port);
 
 	if (sci_rxd_in(&port->port) == 0) {
 		port->break_flag = 1;
@@ -590,8 +606,7 @@ static void sci_break_timer(unsigned long data)
 	} else
 		port->break_flag = 0;
 
-	if (port->disable)
-		port->disable(&port->port);
+	sci_port_disable(port);
 }
 
 static int sci_handle_errors(struct uart_port *port)
@@ -854,27 +869,6 @@ static int sci_notifier(struct notifier_block *self,
 	}
 
 	return NOTIFY_OK;
-}
-
-static void sci_clk_enable(struct uart_port *port)
-{
-	struct sci_port *sci_port = to_sci_port(port);
-
-	pm_runtime_get_sync(port->dev);
-
-	clk_enable(sci_port->iclk);
-	sci_port->port.uartclk = clk_get_rate(sci_port->iclk);
-	clk_enable(sci_port->fclk);
-}
-
-static void sci_clk_disable(struct uart_port *port)
-{
-	struct sci_port *sci_port = to_sci_port(port);
-
-	clk_disable(sci_port->fclk);
-	clk_disable(sci_port->iclk);
-
-	pm_runtime_put_sync(port->dev);
 }
 
 static int sci_request_irq(struct sci_port *port)
@@ -1461,9 +1455,6 @@ static int sci_startup(struct uart_port *port)
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
 
-	if (s->enable)
-		s->enable(port);
-
 	ret = sci_request_irq(s);
 	if (unlikely(ret < 0))
 		return ret;
@@ -1488,8 +1479,6 @@ static void sci_shutdown(struct uart_port *port)
 	sci_free_dma(port);
 	sci_free_irq(s);
 
-	if (s->disable)
-		s->disable(port);
 }
 
 static unsigned int sci_scbrr_calc(unsigned int algo_id, unsigned int bps,
@@ -1538,8 +1527,7 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	if (likely(baud && port->uartclk))
 		t = sci_scbrr_calc(s->cfg->scbrr_algo_id, baud, port->uartclk);
 
-	if (s->enable)
-		s->enable(port);
+	sci_port_enable(s);
 
 	do {
 		status = sci_in(port, SCxSR);
@@ -1615,8 +1603,22 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	if ((termios->c_cflag & CREAD) != 0)
 		sci_start_rx(port);
 
-	if (s->disable)
-		s->disable(port);
+	sci_port_disable(s);
+}
+
+static void sci_pm(struct uart_port *port, unsigned int state,
+     unsigned int oldstate)
+{
+    struct sci_port *sci_port = to_sci_port(port);
+
+    switch (state) {
+    case 3:
+        sci_port_disable(sci_port);
+        break;
+    default:
+        sci_port_enable(sci_port);
+        break;
+    }
 }
 
 static const char *sci_type(struct uart_port *port)
@@ -1740,6 +1742,7 @@ static struct uart_ops sci_uart_ops = {
 	.startup	= sci_startup,
 	.shutdown	= sci_shutdown,
 	.set_termios	= sci_set_termios,
+	.pm  		= sci_pm,
 	.type		= sci_type,
 	.release_port	= sci_release_port,
 	.request_port	= sci_request_port,
@@ -1795,8 +1798,6 @@ static int __devinit sci_init_single(struct platform_device *dev,
 		if (IS_ERR(sci_port->fclk))
 			sci_port->fclk = NULL;
 
-		sci_port->enable = sci_clk_enable;
-		sci_port->disable = sci_clk_disable;
 		port->dev = &dev->dev;
 
 		pm_runtime_enable(&dev->dev);
@@ -1845,9 +1846,6 @@ static void serial_console_write(struct console *co, const char *s,
 	struct uart_port *port = &sci_port->port;
 	unsigned short bits;
 
-	if (sci_port->enable)
-		sci_port->enable(port);
-
 	uart_console_write(port, s, count, serial_console_putchar);
 
 	/* wait until fifo is empty and last bit has been transmitted */
@@ -1855,8 +1853,6 @@ static void serial_console_write(struct console *co, const char *s,
 	while ((sci_in(port, SCxSR) & bits) != bits)
 		cpu_relax();
 
-	if (sci_port->disable)
-		sci_port->disable(port);
 }
 
 static int __devinit serial_console_setup(struct console *co, char *options)
@@ -1888,9 +1884,7 @@ static int __devinit serial_console_setup(struct console *co, char *options)
 	if (unlikely(ret != 0))
 		return ret;
 
-	if (sci_port->enable)
-		sci_port->enable(port);
-
+	
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
