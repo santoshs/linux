@@ -63,14 +63,6 @@
 
 #define DRIVER_NAME			"twl"
 
-#if defined(CONFIG_TWL4030_BCI_BATTERY) || \
-	defined(CONFIG_TWL4030_BCI_BATTERY_MODULE) || \
-	defined(CONFIG_TWL6030_BCI_BATTERY) || \
-	defined(CONFIG_TWL6030_BCI_BATTERY_MODULE)
-#define twl_has_bci()		true
-#else
-#define twl_has_bci()		false
-#endif
 #if defined(CONFIG_KEYBOARD_TWL4030) || defined(CONFIG_KEYBOARD_TWL4030_MODULE)
 #define twl_has_keypad()	true
 #else
@@ -130,7 +122,8 @@
 #define twl_has_codec()	false
 #endif
 
-#if defined(CONFIG_CHARGER_TWL4030) || defined(CONFIG_CHARGER_TWL4030_MODULE)
+#if defined(CONFIG_CHARGER_TWL4030) || defined(CONFIG_CHARGER_TWL4030_MODULE) || \
+    defined(CONFIG_CHARGER_TWL6030) || defined(CONFIG_CHARGER_TWL6030_MODULE)
 #define twl_has_bci()	true
 #else
 #define twl_has_bci()	false
@@ -747,8 +740,7 @@ add_children(struct twl4030_platform_data *pdata, unsigned irq_base,
 		if (IS_ERR(child))
 			return PTR_ERR(child);
 	}
-	if (twl_has_bci() && pdata->bci &&
-	    (features & TWL6030_CLASS)) {
+	if (twl_has_bci() && pdata->bci && twl_class_is_6030()) {
 		child = add_child(1, "twl6030_bci",
 				pdata->bci, sizeof(*pdata->bci),
 				false,
