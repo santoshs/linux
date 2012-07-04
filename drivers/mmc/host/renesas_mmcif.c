@@ -822,6 +822,25 @@ static void sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 	cmd->error = ret;
 }
 
+static void sh_mmcif_wait_transfer_end(struct sh_mmcif_host *host,
+				       struct mmc_request *mrq)
+{
+	struct mmc_data *data = mrq->data;
+	long time;
+
+	if (data->flags == MMC_DATA_READ)
+		sh_mmcif_bitset(host, MMCIF_CE_INT_MASK, MASK_MBUFRE);
+	else
+		sh_mmcif_bitset(host, MMCIF_CE_INT_MASK, MASK_MDTRANE);
+
+	time = wait_for_completion_interruptible_timeout(&host->intr_wait,
+							 host->timeout);
+	if (time <= 0 || host->sd_error) {
+		data->error = sh_mmcif_error_manage(host);
+		data->bytes_xfered = 0;
+	}
+}
+
 static void sh_mmcif_stop_cmd(struct sh_mmcif_host *host,
 			      struct mmc_request *mrq)
 {
@@ -912,8 +931,12 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	sh_mmcif_start_cmd(host, mrq);
 	host->data = NULL;
 
-	if (!mrq->cmd->error && mrq->stop)
-		sh_mmcif_stop_cmd(host, mrq);
+	if (!mrq->cmd->error) {
+		if (mrq->stop)
+			sh_mmcif_stop_cmd(host, mrq);
+		else if (mrq->data)
+			sh_mmcif_wait_transfer_end(host, mrq);
+	}
 
 	clk_disable(host->hclk);
 
