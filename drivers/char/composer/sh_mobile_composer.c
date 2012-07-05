@@ -6366,7 +6366,7 @@ int sh_mobile_composer_queue(
 	}
 
 	/* address translation */
-	{
+	if (rh->data.use_gpu_composition) {
 		screen_grap_image_blend *blend = &rh->data.blend;
 
 		if (composer_convert_queueaddress(blend) != CMP_OK) {

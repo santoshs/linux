@@ -423,6 +423,7 @@ struct cmp_request_queuedata {
 		int                 rotate;
 	} extlayer;
 #endif
+	int                     use_gpu_composition;
 };
 
 /* request queue handle */
