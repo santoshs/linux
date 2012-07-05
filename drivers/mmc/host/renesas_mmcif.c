@@ -1164,7 +1164,6 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	else
 		host->buf_acc = BUF_ACC_ATYP; /* with swapped byte-wise */
 
-	sh_mmcif_sync_reset(host);
 	platform_set_drvdata(pdev, host);
 
 	pm_runtime_enable(&pdev->dev);
@@ -1173,6 +1172,8 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	ret = pm_runtime_resume(&pdev->dev);
 	if (ret < 0)
 		goto clean_up2;
+
+	sh_mmcif_sync_reset(host);
 
 	sh_mmcif_writel(host->addr, MMCIF_CE_INT_MASK, MASK_ALL);
 
