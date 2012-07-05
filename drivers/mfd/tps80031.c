@@ -890,7 +890,17 @@ static int __devinit tps80031_irq_init(struct tps80031 *tps80031, int irq,
 	/* Clear watch dog interrupt status in status */
 	tps80031->prev_cont_stat1 &= ~(1 << 4);
 
-	tps80031->irq_base = irq_base;
+	/* TODO: We want specific IRQ numbers allocated for now */
+	ret = irq_alloc_descs(/*-1*/irq_base, irq_base, TPS80031_INT_NR, -1);
+	if (ret <= 0) {
+		dev_err(tps80031->dev, "unable to allocate %u irqs: %d\n",
+			TPS80031_INT_NR, ret);
+		if (ret == 0)
+			ret = -EINVAL;
+		return ret;
+	}
+
+	tps80031->irq_base = ret;
 
 	tps80031->irq_chip.name = "tps80031";
 	tps80031->irq_chip.irq_enable = tps80031_irq_enable;
@@ -909,11 +919,14 @@ static int __devinit tps80031_irq_init(struct tps80031 *tps80031, int irq,
 #endif
 	}
 
+	dev_info(tps80031->dev, "Providing IRQ%u-%u\n",
+		 tps80031->irq_base, tps80031->irq_base + TPS80031_INT_NR - 1);
+
 	ret = request_threaded_irq(irq, NULL, tps80031_irq, IRQF_ONESHOT,
 				"tps80031", tps80031);
 	/* register the isr for the secondary interrupt */
 	if (!ret)
-		ret = request_threaded_irq(irq_base + TPS80031_INT_CHRG_CTRL,
+		ret = request_threaded_irq(tps80031->irq_base + TPS80031_INT_CHRG_CTRL,
 				NULL, tps80031_charge_control_irq,
 				IRQF_ONESHOT, "80031_chg_ctl", tps80031);
 	if (!ret) {
@@ -1107,8 +1120,10 @@ static int tps80031_i2c_remove(struct i2c_client *client)
 	struct tps80031 *tps80031 = i2c_get_clientdata(client);
 	int i;
 
-	if (client->irq)
+	if (client->irq) {
 		free_irq(client->irq, tps80031);
+		irq_free_descs(tps80031->irq_base, TPS80031_INT_NR);
+	}
 
 	if (tps80031->gpio.owner != NULL)
 		if (gpiochip_remove(&tps80031->gpio) < 0)
@@ -1189,9 +1204,12 @@ static int __devinit tps80031_i2c_probe(struct i2c_client *client,
 		mutex_init(&tps->lock);
 	}
 
+	/*
+	 * The nested interrupt machinery must be initialised before any
+	 * other device to ensure that the interrupts are available.
+	 */
 	if (client->irq) {
-		ret = tps80031_irq_init(tps80031, client->irq,
-					pdata->irq_base);
+		ret = tps80031_irq_init(tps80031, client->irq, pdata->irq_base);
 		if (ret) {
 			dev_err(&client->dev, "IRQ init failed: %d\n", ret);
 			goto fail;
