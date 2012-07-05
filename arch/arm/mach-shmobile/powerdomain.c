@@ -610,10 +610,30 @@ static unsigned int c4_power_down_sel(void)
  */
 static void set_c4_power_down_sel(unsigned int condition)
 {
+	unsigned int pll = 0;
 	if (0 != (condition & ~C4_POWER_DOWN_SEL_ALL)) {
 		panic("C4 power down condition invalid argument: 0%08x", condition);
 	}
 	__raw_writel(condition, __io(SYSC_PDNSEL));
+
+	__raw_writel(0x000000A4, __io(0xE6180214));	/* SYSC.EXMSKCNT1.X1ON */
+	__raw_writel(0x00000100, __io(0xE6180234));	/* SYSC.APSCSTP */
+	__raw_writel(0x00000030, __io(0xE618004C));	/* SYSC.C4POWCR */
+	__raw_writel(0x00000001, __io(0xE6180264));	/* SYSC.WUPSCR.C4CLRWU */
+	__raw_writel(0x0000000C, __io(0xE6180254));	/* SYSC.PDNSEL */
+	__raw_writel(0x002F0000, __io(0xE618024C));	/* SYSC.SYCKENMSK */
+
+	/* PLL0STPCR */
+	pll = 0x00080000;
+	__raw_writel(pll, __io(0xE61500F0));	/* PLL0STPCR */
+
+	/* PLL1STPCR */
+	pll = 0x00010000;
+	__raw_writel(pll, __io(0xE61500C8));	/* PLL1STPCR */
+
+	/* PLL3STPCR */
+	pll = 0x00010000;
+	__raw_writel(pll, __io(0xE61500FC));	/* PLL3STPCR */
 }
 
 /*
