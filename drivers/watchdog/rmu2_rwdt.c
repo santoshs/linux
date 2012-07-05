@@ -178,6 +178,9 @@ static void cpg_check_check(void)
 		for (addr = 0xE6150440U; addr <= 0xE615047CU; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",addr,__raw_readl(addr));
 		}
+		for (addr = 0xE6150490U; addr <= 0xE615049CU; addr += 4U) {
+			printk(KERN_EMERG " %08x=%08x\n",addr,__raw_readl(addr));
+		}
 		
 		panic("Bus timeout occurred!!");
 	} else if ((0x3fff3fffU != (val0 & 0x3fff3fffU)) || 

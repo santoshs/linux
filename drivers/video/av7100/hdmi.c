@@ -441,7 +441,8 @@ static int selectFormatEdidBased(void) {
    u8 len=128;
    u8 data[128];	
    u8 data1[128];
-
+   enum av7100_output_CEA_VESA outputFormat;
+   
    memset(&config, 0, sizeof(union av7100_configuration));
 
    /* Obtain Block 0 of CEA 865E EDID extension */
@@ -492,11 +493,29 @@ static int selectFormatEdidBased(void) {
       dev_err(hdmidev, "av7100_conf_get video input FAIL\n");
       return AV7100_FAIL;
    }
+   #if 0
    /* Configure additional parameters that are not set by output dep */
-   config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB565;
-   config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_VIDEO_MODE;
-   config.video_input_format.nb_data_lane = 4;
+   /* config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB565;*/
+   config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB888;
+   /* config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_VIDEO_MODE; */
+   config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_COMMAND_MODE;
+   /*config.video_input_format.nb_data_lane = 4;*/
+   config.video_input_format.nb_data_lane = 3;
    config.video_input_format.master_clock_freq = clk_get_rate(clk_get(NULL, "vclk5_clk"));
+   #endif
+   
+   if((outputFormat == 2) || (outputFormat == 3) || (outputFormat == 8) || (outputFormat == 9) ){
+		printk("Wipro:Setting pixel_format to RGB888 and data lanes to 3\n");
+		config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB888;
+		config.video_input_format.nb_data_lane = 3;
+	}else{
+		printk("Wipro:Setting pixel_format to RGB565 and data lanes to 4\n");
+		config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB565;
+		config.video_input_format.nb_data_lane = 4;
+	}
+	//config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_COMMAND_MODE;
+	config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_VIDEO_MODE;
+	config.video_input_format.master_clock_freq = clk_get_rate(clk_get(NULL, "vclk5_clk")); 
 
    if (av7100_conf_prep(AV7100_COMMAND_VIDEO_INPUT_FORMAT, &config)) {
       dev_err(hdmidev, "av7100_conf_get video input FAIL\n");
@@ -765,53 +784,72 @@ static ssize_t store_info(struct device *dev,struct device_attribute *attr,char 
 	if(((strcmp(buf1,"[video_output_format]")) == 0)){
 		outputFormat = atoi(buf2);
 	}
+	printk("wipro: select format is %d\n",outputFormat);
 	
 	/* if passed in output format is not one of the supported formats*/
+	if(outputFormat)
+	{
 	
-	if((outputFormat != 2) && (outputFormat != 3) &&
-	   (outputFormat != 4) && (outputFormat != 6) &&
-	   (outputFormat != 7) && (outputFormat != 8) &&
-	   (outputFormat != 9) && (outputFormat != 10) &&
-	   (outputFormat != 11) && (outputFormat != 13)){
-		outputFormat = 3; 
+		if((outputFormat != 2) && (outputFormat != 3) &&
+		   (outputFormat != 4) && (outputFormat != 6) &&
+		   (outputFormat != 7) && (outputFormat != 8) &&
+		   (outputFormat != 9) && (outputFormat != 10) &&
+		   (outputFormat != 11) && (outputFormat != 13)){
+
+			outputFormat = 3; 
+		}
+		
+		memset(&config, 0, sizeof(union av7100_configuration));
+	
+		/* Prepare output format */
+	
+		config.video_output_format.video_output_cea_vesa = outputFormat;
+	
+		if(av7100_conf_prep(AV7100_COMMAND_VIDEO_OUTPUT_FORMAT, &config) != 0){
+			dev_err(hdmidev, "av7100_conf_prep video output FAIL\n");
+			return AV7100_FAIL ;
+		}
+	
+		memset(&config, 0, sizeof(union av7100_configuration));
+	
+		if(av7100_conf_get(AV7100_COMMAND_VIDEO_INPUT_FORMAT, &config) != 0) {
+			dev_err(hdmidev, "av7100_conf_get video input FAIL\n");
+			return 0;
+		}
+	
+		if((outputFormat == 2) || (outputFormat == 3) || (outputFormat == 8) || (outputFormat == 9) ){
+			printk("Wipro:Setting pixel_format to RGB888 and data lanes to 3\n");
+			config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB888;
+			config.video_input_format.nb_data_lane = 3;
+		}else{
+			printk("Wipro:Setting pixel_format to RGB565 and data lanes to 4\n");
+			config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB565;
+			config.video_input_format.nb_data_lane = 4;
+		}
+		config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_VIDEO_MODE;
+		config.video_input_format.master_clock_freq = clk_get_rate(clk_get(NULL, "vclk5_clk")); 
+	
+		/* Prepare input format */
+	
+		if(av7100_conf_prep(AV7100_COMMAND_VIDEO_INPUT_FORMAT, &config) != 0){
+			dev_err(hdmidev, "av7100_conf_prep video input FAIL\n");
+			return AV7100_FAIL ;
+		}
+	
+		if (av7100_conf_w(AV7100_COMMAND_VIDEO_INPUT_FORMAT, NULL, NULL, I2C_INTERFACE) != 0) {
+			dev_err(hdmidev, "av7100_conf_w video input FAIL\n");
+			return AV7100_FAIL ;
+		}
 	}
-	
-	
-	memset(&config, 0, sizeof(union av7100_configuration));
-	
-	/* Prepare output format */
-	
-	config.video_output_format.video_output_cea_vesa = outputFormat;
-	
-	if(av7100_conf_prep(AV7100_COMMAND_VIDEO_OUTPUT_FORMAT, &config) != 0){
-		dev_err(hdmidev, "av7100_conf_prep video output FAIL\n");
-		return AV7100_FAIL ;
+	else
+	{
+		printk("wipro: pattern generator is opted\n");
+		if(av7100_conf_w(AV7100_COMMAND_PATTERNGENERATOR, NULL, NULL, I2C_INTERFACE) != 0) 
+		{
+			dev_err(hdmidev, "av7100_conf_w pattern FAIL\n");
+			return 0;
+		}
 	}
-	
-	memset(&config, 0, sizeof(union av7100_configuration));
-	
-	if(av7100_conf_get(AV7100_COMMAND_VIDEO_INPUT_FORMAT, &config) != 0) {
-		dev_err(hdmidev, "av7100_conf_get video input FAIL\n");
-		return 0;
-	}
-	
-	config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB565;
-	config.video_input_format.dsi_input_mode = AV7100_HDMI_DSI_VIDEO_MODE;
-	config.video_input_format.nb_data_lane = 4;
-	config.video_input_format.master_clock_freq = clk_get_rate(clk_get(NULL, "vclk5_clk")); 
-	
-	/* Prepare input format */
-	
-	if(av7100_conf_prep(AV7100_COMMAND_VIDEO_INPUT_FORMAT, &config) != 0){
-		dev_err(hdmidev, "av7100_conf_prep video input FAIL\n");
-		return AV7100_FAIL ;
-	}
-	
-	if (av7100_conf_w(AV7100_COMMAND_VIDEO_INPUT_FORMAT, NULL, NULL, I2C_INTERFACE) != 0) {
-		dev_err(hdmidev, "av7100_conf_w video input FAIL\n");
-		return AV7100_FAIL ;
-	}
-	
 	if(av7100_conf_w(AV7100_COMMAND_VIDEO_OUTPUT_FORMAT,NULL,NULL,I2C_INTERFACE) != 0){
 		dev_err(hdmidev, "av7100_conf_w output FAIL\n");
 		return AV7100_FAIL;       
@@ -886,7 +924,7 @@ ssize_t down_load(struct device *dev, struct device_attribute *attr,
 		u8 stby;
 
 		clk = clk_get(NULL, "vclk5_clk");
-		clk_set_rate(clk, clk_round_rate(clk, 36000000));
+		clk_set_rate(clk, clk_round_rate(clk, 26000000));
 
 		clk_enable(clk);
 		clk_put(clk);
@@ -1211,7 +1249,7 @@ void hdmi_event(enum av7100_hdmi_event ev)
 	/* Set event */
 	switch (ev) {
 	case AV7100_HDMI_EVENT_HDMI_PLUGIN:	
-				#if 1
+				
 				status = av7100_status_get();
 				/* Just download only when plugging in for first time 
 				   after power up */
@@ -1334,7 +1372,7 @@ void hdmi_event(enum av7100_hdmi_event ev)
 					
 				}
 	
-#if 0
+#if 1
 				if(selectFormatEdidBased() != 0 ) {
 				   dev_err(hdmidev, "Edid based format selection failed\n");
 				   return ;
@@ -1342,12 +1380,13 @@ void hdmi_event(enum av7100_hdmi_event ev)
 #endif
 
 				
-				setHdmiState(AV7100_HDMI_ON);  
-				#endif
 				plugedin_state = 1; 
+				setHdmiState(AV7100_HDMI_ON);  
 				
 				switch_set_state(&s_dev,1);
 				events |= events_mask & HDMI_EVENT_HDMI_PLUGIN;
+				printk("Sending Plugin state uevent\n");
+	  		        kobject_uevent(kobj, KOBJ_CHANGE);
 				printk("HDMI cable Plugged In \n");
       
 		break;
@@ -1358,6 +1397,8 @@ void hdmi_event(enum av7100_hdmi_event ev)
                 setHdmiState(AV7100_HDMI_OFF); 
 		        switch_set_state(&s_dev,0);
 		        events |= events_mask & HDMI_EVENT_HDMI_PLUGOUT;
+			printk("Sending Plugout state event\n");
+		        kobject_uevent(kobj, KOBJ_CHANGE);
                         printk("HDMI cable Plugged Out\n");
 		break;
 

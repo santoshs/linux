@@ -32,7 +32,7 @@
 #include <video/hdmi.h>
 #include "av7100_fw.h"
 #include <rtapi/screen_display.h>
-#include <rtapi/screen_common.h>
+//#include <rtapi/screen_common.h>
 
 #define AV7100_INT_EVENT 0x1
 #define AV7100_TIMER_INT_EVENT 0x2
@@ -40,7 +40,7 @@
 #define AV7100_TIMER_INTERRUPT_POLLING_TIME 250
 
 #define GPIO_AV7100_RSTN	        GPIO_PORT8	
-#define AV7100_MASTER_CLOCK_TIMING	0x3
+#define AV7100_MASTER_CLOCK_TIMING	0x1
 #define AV7100_ON_TIME			1
 #define AV7100_DENC_OFF_TIME		0
 #define AV7100_HDMI_OFF_TIME		3
@@ -236,7 +236,7 @@ struct av7100_cea av7100_all_cea[29] = {
 	"-",	0,	0,	0,	0,	0},/*Settings to be define*/
 { "7  CEA 16       1920x1080p @ 60 Hz   ",
 	16,	1125,	1080,	36,	5,
-	0,	"+",	1980,	1280,	440,	40,	10,	133650000,
+	0,	"+",	2200,	1920,	440,	40,	10,	133650000,
 	"+",	0,	0,	0,	0,	0},/*Settings to be define*/
 { "8  CEA 17-18    720x576p @ 50 Hz     ",
 	17,	625,	576,	44,	5,
@@ -722,7 +722,7 @@ static int av7100_config_video_output_dep(enum av7100_output_CEA_VESA
 	union av7100_configuration config;
 	/* video input */
 	config.video_input_format.dsi_input_mode =
-		AV7100_HDMI_DSI_COMMAND_MODE;
+		AV7100_HDMI_DSI_VIDEO_MODE;
 	config.video_input_format.input_pixel_format = AV7100_INPUT_PIX_RGB888;
 	config.video_input_format.total_horizontal_pixel =
 		av7100_all_cea[output_format].htotale;
@@ -2338,7 +2338,7 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 	   which is calculated from mod of 0xf is tansfered in the 
 	   last */
 	   
-#if 0
+
 	temp = nbytes % increment;
 	for (size = 0; size < (nbytes-temp); size = size + increment,
 		index += increment) {
@@ -2410,62 +2410,8 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 				fw_buff[size], av7100_receivetab[size]);
 		}
 	}
-
-#else
-	for (size = 0; size < AV7100_FW_SIZE; size++) {
-		retval = write_single_byte(i2c, AV7100_FIRMWARE_DOWNLOAD_ENTRY, fw_buff[size]);
-		if (retval) {
-			dev_err(av7100dev, "Failed to download the av7100 firmware\n");
-			retval = -EFAULT;
-			UNLOCK_AV7100_HW;
-			goto av7100_download_firmware_out;
-		}
-	}
-	retval = read_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
-	if (retval) {
-		dev_err(av7100dev, "Failed to download the av7100 firmware 2\n");
-		retval = -EFAULT;
-		UNLOCK_AV7100_HW;
-		goto av7100_download_firmware_out;
-	}
-	dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
-
-	tempbuff = 0x00;
-	retval = write_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
-	if (retval) {
-		dev_err(av7100dev, "Failed to download the av7100 firmware 3\n");
-		retval = -EFAULT;
-		UNLOCK_AV7100_HW;
-		goto av7100_download_firmware_out;
-	}
-	dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
-
-#endif
-
-#if 1
-	for(size=0; size<0xffff; size++)
-	{
-		retval = read_single_byte(i2c, AV7100_GENERAL_CONTROL, &tempbuff);
-		if (retval) {
-			dev_err(av7100dev, "Failed to download the av7100 firmware 3\n");
-			retval = -EFAULT;
-			UNLOCK_AV7100_HW;
-			goto av7100_download_firmware_out;
-		}
-		
-		if ((tempbuff & 0x30) == 0x00) {
-			dev_err(av7100dev, "GENERAL_CONTROL=0x%02x\n", tempbuff);
-			dev_err(av7100dev, "firmware is running\n");
-			break;
-
-		}
-	}
-
-#endif
-
         UNLOCK_AV7100_HW;
 
-#if 0
 	retval = av7100_reg_fw_dl_entry_r(&val);
 	if (retval) {
 		dev_err(av7100dev,
@@ -2486,7 +2432,7 @@ int av7100_download_firmware(char *fw_buff, int nbytes,
 	} else {
 		dev_err(av7100dev, ">Fw downloading.... success\n");
 	}
-#endif
+        dev_err(av7100dev,"Set AV7100_GENERAL_CONTROL_FDL_LOW and AV7100_GENERAL_CONTROL_HLD_LOW \n");
 	/* Set to idle mode By closing the Firmware download bit*/
 	av7100_reg_gen_ctrl_w(AV7100_GENERAL_CONTROL_FDL_LOW,
 		AV7100_GENERAL_CONTROL_HLD_LOW,	AV7100_GENERAL_CONTROL_WA_LOW,
@@ -4101,7 +4047,8 @@ static int __devinit av7100_probe(struct i2c_client *i2cClient,
 	 
 	/* MIPI HDMI */
 	/* Port request for Master clock for AV7100 */
-	ret = gpio_request(GPIO_PORT219, NULL); 
+	
+	ret = gpio_request(GPIO_FN_VIO_CKO5, NULL);
 	if (ret)
 		goto err_gpio_request_mclk;
 
