@@ -149,7 +149,6 @@ config SHMOBILE_TIMER_HZ
 
 config SH_TIMER_CMT
 	bool "CMT timer driver"
-	default y
 	help
 	  This enables build of the CMT timer driver.
 
