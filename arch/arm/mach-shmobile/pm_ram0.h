@@ -74,7 +74,7 @@
 #define	fsSetClockSystemSuspend		0x320 /* Set clock */
 #ifdef VMALLOC_EXPAND
 #define	fsSystemSuspendCPU0PA		0x100 /* System Suspend for CPU0 with MMU off */
-#define	fsCoreStandbyPA				0x360 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA				0x480 /* CoreStandby function with MMU off */
 #define	fsDisableMMU				0x20 /* Disable MMU function */
 #define	fsSystemSuspendCPU1PA		0x120 /* System Suspend for CPU1 with MMU off */
 #endif /* VMALLOC_EXPAND */
@@ -308,8 +308,13 @@
 #define	ram0SetClockFrqcrd					\
 (ram0SetClockFrqcrb + 0x4)
 
-#define	ram0DramPasrSettingArea0			\
+#define	ram0CPU0SpinLock					\
 (ram0SetClockFrqcrd + 0x4)
+#define	ram0CPU1SpinLock					\
+(ram0CPU0SpinLock + 0x4)
+
+#define	ram0DramPasrSettingArea0			\
+(ram0CPU1SpinLock + 0x4)
 #define	ram0DramPasrSettingArea1			\
 (ram0DramPasrSettingArea0 + 0x4)
 #define	ram0SaveSdmracr0a					\
@@ -416,8 +421,13 @@
 #define	ram0SetClockFrqcrdPhys				\
 (ram0SetClockFrqcrbPhys		+ 0x4)
 
+#define	ram0CPU0SpinLockPhys					\
+(ram0SetClockFrqcrdPhys + 0x4)
+#define	ram0CPU1SpinLockPhys					\
+(ram0CPU0SpinLockPhys + 0x4)
+
 #define	ram0DramPasrSettingArea0Phys		\
-(ram0SetClockFrqcrdPhys			+ 0x4)
+(ram0CPU1SpinLockPhys			+ 0x4)
 #define	ram0DramPasrSettingArea1Phys		\
 (ram0DramPasrSettingArea0Phys	+ 0x4)
 #define	ram0SaveSdmracr0aPhys				\
