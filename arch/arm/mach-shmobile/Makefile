@@ -67,4 +67,4 @@ obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
 #obj-y	+= flash-control.o
 
 # RAM Defragmentation
-obj-$(CONFIG_MACH_U2EVM)	+= ramdefrag/
+obj-$(CONFIG_ARCH_R8A73734)	+= ramdefrag/

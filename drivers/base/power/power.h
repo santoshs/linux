@@ -80,6 +80,6 @@ static inline void wakeup_sysfs_remove(struct device *dev) {}
 
 #endif
 
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 extern int has_wake_lock_no_expire(int type);
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */

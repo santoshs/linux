@@ -14,13 +14,13 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
 #include <mach/pm.h>
 extern void jump_systemsuspend(void);
 #endif /* CONFIG_SUSPEND */
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */
 
 
 int platform_cpu_kill(unsigned int cpu)
@@ -30,7 +30,7 @@ int platform_cpu_kill(unsigned int cpu)
 
 void platform_cpu_die(unsigned int cpu)
 {
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 
 #ifdef CONFIG_SUSPEND
 	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM) {
@@ -43,7 +43,7 @@ void platform_cpu_die(unsigned int cpu)
 	}
 #endif /* CONFIG_SUSPEND */
 
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {
 		/*
 		 * here's the WFI
