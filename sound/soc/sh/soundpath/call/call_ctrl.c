@@ -43,13 +43,15 @@ static struct call_pcm_info g_call_pcm_info[SNDP_PCM_DIRECTION_MAX];
 static enum call_status g_status;
 /* Uplink status */
 static bool g_call_play_uplink;
-/* Dummy record flag */
+/* Dummy play/record flag */
 static bool g_call_dummy_rec;
+static bool g_call_dummy_play;
 /* Callback Pointer */
 static callback_func g_call_sndp_stop_fw;
 
 /* Work queue */
 struct workqueue_struct	*g_call_queue_in;
+struct workqueue_struct	*g_call_queue_out;
 
 /* Temporary area information(Play) */
 static u8 g_call_playback_buff[VCD_PLAYBACK_BUFFER_SIZE];
@@ -59,11 +61,14 @@ static long g_call_playback_len;
 static u8 g_call_record_buff[VCD_RECORD_BUFFER_SIZE];
 static long g_call_record_len;
 static long g_call_dummy_record_len;
+static long g_call_dummy_play_len;
 
 #ifdef DEBUG
 static bool g_call_cb_debug[SNDP_PCM_DIRECTION_MAX] = { true, true };
 #endif
 
+/* Firmware abnormality state */
+extern int g_sndp_stream_route;
 
 /*!
    @brief Speech + Playback Start function
@@ -171,6 +176,14 @@ void call_playback_stop(void)
 #ifdef DEBUG
 	g_call_cb_debug[SNDP_PCM_OUT] = true;
 #endif
+
+	/* Dummy status check */
+	if (g_call_dummy_play) {
+		g_call_dummy_play = false;
+		wake_up_interruptible(&g_call_wait_out);
+		sndp_log_debug("DUMMY_PLAY OFF [%02x]\n", g_call_dummy_play);
+		return;
+	}
 
 	/* Stop speech playback */
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_STOP_PLAYBACK\n");
@@ -374,6 +387,8 @@ int call_regist_watch(callback_func callback, callback_func_clk callback_clk)
  */
 void call_change_dummy_rec(void)
 {
+	sndp_log_debug_func("start\n");
+
 	/* Dummy rec ON */
 	g_call_dummy_rec = true;
 	g_call_dummy_record_len = g_call_record_len;
@@ -382,6 +397,33 @@ void call_change_dummy_rec(void)
 	/* If Record status ON */
 	if (REC_STATUS & g_status)
 		g_status &= ~REC_STATUS;
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Play dummy change function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+void call_change_dummy_play(void)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Dummy rec ON */
+	g_call_dummy_play = true;
+	g_call_dummy_play_len = g_call_playback_len;
+	queue_work(g_call_queue_out, &g_call_work_out);
+
+	/* If Record status ON */
+	if (PLAY_STATUS & g_status)
+		g_status &= ~PLAY_STATUS;
+
+	sndp_log_debug_func("end\n");
 }
 
 
@@ -433,6 +475,13 @@ int call_create_workque(void)
 		return -ENOMEM;
 	}
 
+	/* create work queue */
+	g_call_queue_out = create_singlethread_workqueue("sndp_queue_out");
+	if (NULL == g_call_queue_out) {
+		sndp_log_err("out queue create error.\n");
+		return -ENOMEM;
+	}
+
 	sndp_log_debug_func("end\n");
 	return ERROR_NONE;
 }
@@ -454,6 +503,12 @@ void call_destroy_workque(void)
 	if (NULL != g_call_queue_in) {
 		destroy_workqueue(g_call_queue_in);
 		g_call_queue_in = NULL;
+	}
+
+	/* destroy work queue */
+	if (NULL != g_call_queue_out) {
+		destroy_workqueue(g_call_queue_out);
+		g_call_queue_out = NULL;
 	}
 
 	sndp_log_debug_func("end\n");
@@ -550,6 +605,16 @@ static void call_playback_data_set(void)
 	struct call_pcm_info	*pcm_info = &g_call_pcm_info[SNDP_PCM_OUT];
 	int			next_pd_side = pcm_info->next_pd_side;
 	struct snd_pcm_runtime	*runtime;
+
+	/* If firmware is abnormality */
+	if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
+		sndp_log_debug("Firmware is abnormality");
+		memset((void *)g_call_play_data_addr[DATA_SIDE_0],
+			'\0', VCD_PLAYBACK_BUFFER_SIZE);
+		memset((void *)g_call_play_data_addr[DATA_SIDE_1],
+			'\0', VCD_PLAYBACK_BUFFER_SIZE);
+		return;
+	}
 
 	/* If Playback status OFF */
 	if (!(PLAY_STATUS & g_status)) {
@@ -948,4 +1013,87 @@ static void call_work_dummy_rec(struct work_struct *work)
 	/* sndp_log_debug_func("end\n"); */
 }
 
+
+/**
+ * @brief queue out proc.
+ *
+ * @param[in]   *work   work struct.
+ *
+ * @retval none.
+ */
+static void call_work_dummy_play(struct work_struct *work)
+{
+	long wait_ret;
+	long call_playback_len = 0;
+	struct call_pcm_info	*pcm_info = &g_call_pcm_info[SNDP_PCM_OUT];
+	struct snd_pcm_runtime	*runtime;
+
+//	sndp_log_debug_func("start\n");
+
+	if (NULL != work) {
+		wait_ret = wait_event_interruptible_timeout(
+			g_call_wait_out,
+			!(g_call_dummy_play),
+			msecs_to_jiffies(CALL_WAIT_TIME));
+
+		// Status check
+		if ((!(g_call_dummy_play)) || (0 != wait_ret)) {
+			sndp_log_debug("status %d \n", g_call_dummy_play);
+			return;
+		}
+	}
+
+	if (NULL == g_call_substream[SNDP_PCM_OUT]->runtime) {
+		sndp_log_info("runtime is NULL\n");
+		return;
+	}
+
+	runtime = g_call_substream[SNDP_PCM_OUT]->runtime;
+
+	if (NULL == runtime->dma_area) {
+		sndp_log_info("dma_area is NULL\n");
+		return;
+	}
+
+	if (0 < g_call_dummy_play_len) {
+//		pcm_info->period = 0;
+		pcm_info->byte_offset = g_call_dummy_play_len;
+		call_playback_len = g_call_dummy_play_len;
+		g_call_dummy_play_len = 0;
+	}
+
+	if ((VCD_PLAYBACK_BUFFER_SIZE - call_playback_len) <=
+		(pcm_info->buffer_len - pcm_info->byte_offset)) {
+		pcm_info->byte_offset += VCD_PLAYBACK_BUFFER_SIZE;
+
+		if (VCD_PLAYBACK_BUFFER_SIZE >
+			(pcm_info->buffer_len - pcm_info->byte_offset)) {
+			g_call_playback_len =
+				pcm_info->buffer_len - pcm_info->byte_offset;
+
+			pcm_info->byte_offset += g_call_playback_len;
+		}
+	} else {
+		pcm_info->byte_offset +=
+			(pcm_info->buffer_len - pcm_info->byte_offset);
+	}
+
+	if ((0 < call_playback_len) ||
+		(pcm_info->byte_offset >=
+			(pcm_info->period_len * (pcm_info->period + 1)))) {
+
+		pcm_info->period =
+			pcm_info->byte_offset / pcm_info->period_len;
+		if (runtime->periods == pcm_info->period) {
+			pcm_info->period = 0;
+			pcm_info->byte_offset = 0;
+		}
+		snd_pcm_period_elapsed(g_call_substream[SNDP_PCM_OUT]);
+	}
+
+	if (g_call_dummy_play) {
+		queue_work(g_call_queue_out, &g_call_work_out);
+	}
+//	sndp_log_debug_func("end\n");
+}
 

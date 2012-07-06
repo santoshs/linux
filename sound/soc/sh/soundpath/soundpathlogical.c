@@ -124,6 +124,7 @@ static struct sndp_dai_func g_sndp_dai_func = {
 	.fsi_set_fmt		= NULL,
 	.fsi_hw_params		= NULL,
 	.fsi_pointer		= NULL,
+	.fsi_hw_free		= NULL,
 };
 
 /* Main Process table */
@@ -184,7 +185,7 @@ static int g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 static int g_sndp_playrec_flg = E_IDLE;
 
 /* Routing type of the stream, in during a call */
-static int g_sndp_stream_route = E_ROUTE_NORMAL;
+int g_sndp_stream_route = SNDP_ROUTE_NORMAL;
 
 /* for Stop Trigger conditions */
 u_int g_sndp_stop_trigger_condition[SNDP_PCM_DIRECTION_MAX];
@@ -217,6 +218,7 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 };
 #endif
 
+static int g_call_playback_stop;
 
 /*!
    @brief Print Log informs of data receiving
@@ -475,7 +477,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct proc_dir_entry	*entry = NULL;
 	struct proc_dir_entry	*reg_dump_entry = NULL;
 
-
 	sndp_log_debug_func("start\n");
 
 	/* Main Process table init */
@@ -610,11 +611,13 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	g_sndp_dai_func.fsi_set_fmt = fsi_port_dai_driver->ops->set_fmt;
 	g_sndp_dai_func.fsi_hw_params = fsi_port_dai_driver->ops->hw_params;
 	g_sndp_dai_func.fsi_pointer = fsi_soc_platform->ops->pointer;
+	g_sndp_dai_func.fsi_hw_free = fsi_soc_platform->ops->hw_free;
 
 	fsi_port_dai_driver[SNDP_PCM_PORTA].ops = &sndp_fsi_dai_ops;
 	fsi_port_dai_driver[SNDP_PCM_PORTB].ops = &sndp_fsi_dai_ops;
 
 	fsi_soc_platform->ops->pointer = sndp_fsi_pointer;
+	fsi_soc_platform->ops->hw_free = sndp_fsi_hw_free;
 	fsi_set_run_time(sndp_fsi_suspend, sndp_fsi_resume);
 
 	/* SoC control */
@@ -873,7 +876,7 @@ static int sndp_proc_reg_dump_write(
 		if ((SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) &&
 		    (SNDP_MODE_INCALL ==
 			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
-			(!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
+			(!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
 			scuw_reg_dump();
 		else
 			sndp_log_reg_dump("SCUW register is not ready.\n");
@@ -1433,9 +1436,6 @@ static void sndp_fsi_shutdown(
 	struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-	long	iRet = 0;
-
-
 	sndp_log_debug_func("start\n");
 
 	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
@@ -1452,14 +1452,6 @@ static void sndp_fsi_shutdown(
 	    (SNDP_PCM_IN != substream->stream)) {
 		return;
 	}
-
-	/* Check the waiting processing of TRIGGER STOP */
-	iRet = wait_event_interruptible_timeout(
-		g_sndp_stop_wait, !SNDP_STOP_TRIGGER_CHECK(substream->stream),
-		msecs_to_jiffies(SNDP_WAIT_MAX));
-
-	/* Initialize the trigger stop processing flag */
-	SNDP_STOP_TRIGGER_INIT_SET(substream->stream);
 
 	sndp_log_debug("val set\n");
 
@@ -1492,7 +1484,7 @@ static int sndp_fsi_trigger(
 	struct sndp_stop	*stop;
 	struct sndp_arg		*arg;
 	char			cPcm[SNDP_PCM_NAME_MAX_LEN];
-
+	struct snd_pcm_runtime	*runtime = substream->runtime;
 
 	sndp_log_debug_func("start\n");
 
@@ -1528,6 +1520,11 @@ static int sndp_fsi_trigger(
 				GET_OLD_VALUE(substream->stream), cPcm);
 			sndp_log_info("PCM: %s [0x%08X]\n",
 				cPcm, GET_OLD_VALUE(substream->stream));
+
+			sndp_log_debug("buffer_size %ld  period_size %ld  "
+				"periods %d  frame_bits %d\n",
+				runtime->buffer_size, runtime->period_size,
+				runtime->periods, runtime->frame_bits);
 
 			/* Wake Lock */
 			sndp_wake_lock(E_LOCK);
@@ -1670,13 +1667,16 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 	/* During a call */
 	} else {
 		/* VCD is dead */
-		if ((E_ROUTE_PLAY_CHANGED & g_sndp_stream_route) &&
+		if ((SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) &&
 		    (SNDP_PCM_OUT == substream->stream)) {
 			iRet = g_sndp_dai_func.fsi_pointer(substream);
 
 		/* VCD is alive */
 		} else {
-			iRet = call_pcmdata_pointer(substream);
+			if (g_call_playback_stop)
+				iRet = 0;
+			else
+				iRet = call_pcmdata_pointer(substream);
 		}
 	}
 
@@ -1684,6 +1684,26 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 	return iRet;
 }
 
+static int sndp_fsi_hw_free( struct snd_pcm_substream *substream )
+{
+	int			ret;
+
+	sndp_log_debug_func("start\n");
+
+	ret = wait_event_interruptible_timeout(
+		g_sndp_stop_wait, !SNDP_STOP_TRIGGER_CHECK(substream->stream),
+		msecs_to_jiffies(SNDP_WAIT_MAX));
+
+	SNDP_STOP_TRIGGER_INIT_SET(substream->stream);
+
+	sndp_log_debug("TRIGGER_STOP had been waiting to complete.\n");
+
+	ret = g_sndp_dai_func.fsi_hw_free( substream );
+
+	sndp_log_debug_func("end\n");
+
+	return ret;
+}
 
 /*!
    @brief During a call trigger function
@@ -1765,6 +1785,11 @@ static void sndp_call_trigger(
 
 		/* For during a call playback */
 		if (SNDP_PCM_OUT == substream->stream) {
+			if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)
+				fsi_set_trigger_stop(substream, false);
+			else
+				g_call_playback_stop = true;
+
 			/*
 			 * Status change
 			 * (from SNDP_STAT_IN_CALL_PLAY to SNDP_STAT_IN_CALL)
@@ -2410,9 +2435,9 @@ static void sndp_work_call_playback_start(struct work_struct *work)
 
 	if (ERROR_NONE != iRet) {
 		/* Switching path of the sound during a Call + Playback */
-		if (!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
+		if (!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
 			sndp_path_switching(GET_OLD_VALUE(SNDP_PCM_OUT));
-			g_sndp_stream_route |= E_ROUTE_PLAY_CHANGED;
+			g_sndp_stream_route |= SNDP_ROUTE_PLAY_CHANGED;
 		}
 	}
 
@@ -2444,9 +2469,9 @@ static void sndp_work_call_capture_start(struct work_struct *work)
 
 	if (ERROR_NONE != iRet) {
 		/* Dummy capture start */
-		if (!(E_ROUTE_CAP_DUMMY & g_sndp_stream_route)) {
+		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route)) {
 			call_change_dummy_rec();
-			g_sndp_stream_route |= E_ROUTE_CAP_DUMMY;
+			g_sndp_stream_route |= SNDP_ROUTE_CAP_DUMMY;
 		}
 	}
 
@@ -2472,15 +2497,16 @@ static void sndp_work_call_playback_stop(struct work_struct *work)
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
 
-	/* Back-out path of the sound during a Call + Playback */
-	if (E_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
-		fsi_set_trigger_stop(&(wp->stop.fsi_substream), false);
-		sndp_path_backout(GET_OLD_VALUE(SNDP_PCM_OUT));
-		g_sndp_stream_route &= ~E_ROUTE_PLAY_CHANGED;
-	}
-
 	/* Call + Playback stop request */
 	call_playback_stop();
+
+	/* Back-out path of the sound during a Call + Playback */
+	if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
+		sndp_path_backout(GET_OLD_VALUE(SNDP_PCM_OUT));
+		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_CHANGED;
+	}
+
+	g_call_playback_stop = false;
 
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
@@ -2509,9 +2535,9 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 
 	sndp_log_debug_func("start\n");
 
-	if (E_ROUTE_CAP_DUMMY & g_sndp_stream_route) {
+	if (SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route) {
 		/* Dummy capture stop */
-		g_sndp_stream_route &= ~E_ROUTE_CAP_DUMMY;
+		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
 	}
 
 	/* Call + Capture stop request */
@@ -2522,7 +2548,7 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 					~SNDP_STOP_TRIGGER_CAPTURE;
 
 	/* If the state already NORMAL Playback side */
-	if ((!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&
+	if ((!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&
 	    (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(in_old_val)) &&
 	    (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(out_old_val))) {
 
@@ -2581,21 +2607,20 @@ static void sndp_work_watch_stop_fw(struct work_struct *work)
 {
 	sndp_log_debug_func("start\n");
 
-	/* During a Call + Playback */
-	if (SNDP_STAT_IN_CALL_PLAY == GET_SNDP_STATUS(SNDP_PCM_OUT)) {
-		/* Switching path of the sound during a Call + Playback */
-		if (!(E_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
-			sndp_path_switching(GET_OLD_VALUE(SNDP_PCM_OUT));
-			g_sndp_stream_route |= E_ROUTE_PLAY_CHANGED;
-		}
-	}
-
 	/* During a Call + Capture */
 	if (SNDP_STAT_IN_CALL_CAP == GET_SNDP_STATUS(SNDP_PCM_IN)) {
 		/* Dummy capture start */
-		if (!(E_ROUTE_CAP_DUMMY & g_sndp_stream_route)) {
+		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route)) {
 			call_change_dummy_rec();
-			g_sndp_stream_route |= E_ROUTE_CAP_DUMMY;
+			g_sndp_stream_route |= SNDP_ROUTE_CAP_DUMMY;
+		}
+	}
+
+	/* During a Call + Playback */
+	if (SNDP_STAT_IN_CALL_PLAY == GET_SNDP_STATUS(SNDP_PCM_OUT)) {
+		/* Switching path of the sound during a Call + Playback */
+		if (!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
+			call_change_dummy_play();
 		}
 	}
 
@@ -2974,9 +2999,15 @@ static void sndp_work_start(const int direction)
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
 		sndp_log_debug("fsi_dai_startup\n");
-		iRet = g_sndp_dai_func.fsi_startup(
+		if (false == (SNDP_GET_DEVICE_VAL(uiValue) & SNDP_BLUETOOTHSCO)) {
+			iRet = g_sndp_dai_func.fsi_startup(
 				g_sndp_main[direction].arg.fsi_substream,
 				g_sndp_main[direction].arg.fsi_dai);
+		} else {
+			iRet = fsi_dai_startup_bt(
+				g_sndp_main[direction].arg.fsi_substream,
+				g_sndp_main[direction].arg.fsi_dai);
+		}
 		if (ERROR_NONE != iRet) {
 			sndp_log_err("fsi_dai_startup error(code=%d)\n", iRet);
 			return;
@@ -3043,9 +3074,6 @@ static void sndp_work_start(const int direction)
 		if (ERROR_NONE != iRet)
 			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
 	}
-
-	sndp_log_info("buffer_size %ld  period_size %ld  periods %d\n",
-		runtime->buffer_size, runtime->period_size, runtime->periods);
 
 	sndp_log_debug_func("end\n");
 }
