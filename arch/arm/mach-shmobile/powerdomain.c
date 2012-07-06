@@ -52,20 +52,6 @@
 #define SYSC_PSTR					0xE6180080
 #define SYSC_PDNSEL					0xE6180254
 
-/* Power ID (be appropriate with bits order on SWUCR, SPDCR, PSTR registers) */
-#define ID_A2SL					20
-#define ID_A3SM					19
-#define ID_A3SG					18
-#define ID_A3SP					17
-#define ID_C4					16
-#define ID_A2RI					15
-#define ID_A2RV					14
-#define ID_A3R					13
-#define ID_A4RM					12
-#define ID_A4MP					8
-#define ID_A4LC					6
-#define ID_D4					1
-
 #define C4_POWER_DOWN_SEL_ALL		0x0000001F
 #define PSTR_POLLING_INTERVAL_US	10
 #define PSTR_POLLING_COUNT_MAX		50

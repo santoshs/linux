@@ -127,6 +127,20 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define POWER_ALL					0x001FF142
 #define POWER_NONE					0
 
+/* Power ID (be appropriate with bits order on SWUCR, SPDCR, PSTR registers) */
+#define ID_A2SL					20
+#define ID_A3SM					19
+#define ID_A3SG					18
+#define ID_A3SP					17
+#define ID_C4					16
+#define ID_A2RI					15
+#define ID_A2RV					14
+#define ID_A3R					13
+#define ID_A4RM					12
+#define ID_A4MP					8
+#define ID_A4LC					6
+#define ID_D4					1
+
 #ifdef CONFIG_PDC
 struct power_domain_info {
 	struct device *devs[POWER_DOMAIN_COUNT_MAX];
@@ -177,8 +191,8 @@ static inline int is_systemsuspend_enable(void) { return 0; }
 static inline suspend_state_t get_shmobile_suspend_state(void) { return 0; }
 static inline int control_systemsuspend(int is_enabled) { return 0; }
 static inline int is_systemsuspend_enable(void) { return 0; }
-static inline void shwystatdm_regs_save(void) { return 0;}
-static inline void shwystatdm_regs_restore(void) { return 0;}
+static inline void shwystatdm_regs_save(void) {}
+static inline void shwystatdm_regs_restore(void) { }
 #endif /*CONFIG_SUSPEND*/
 
 
