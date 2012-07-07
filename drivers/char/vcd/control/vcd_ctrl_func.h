@@ -30,14 +30,15 @@
  * enum declaration
  */
 enum VCD_CTRL_FUNC_FEATURE {
-	VCD_CTRL_FUNC_FEATURE_NONE	= 0x00000000,
-	VCD_CTRL_FUNC_FEATURE_VCD	= 0x00000001,
-	VCD_CTRL_FUNC_FEATURE_HW_PARAM	= 0x00000002,
-	VCD_CTRL_FUNC_FEATURE_CALL	= 0x00000004,
-	VCD_CTRL_FUNC_FEATURE_TTY_CTM	= 0x00000008,
-	VCD_CTRL_FUNC_FEATURE_RECORD	= 0x00000010,
-	VCD_CTRL_FUNC_FEATURE_PLAYBACK	= 0x00000020,
-	VCD_CTRL_FUNC_FEATURE_ERROR	= 0x10000000
+	VCD_CTRL_FUNC_FEATURE_NONE		= 0x00000000,
+	VCD_CTRL_FUNC_FEATURE_VCD		= 0x00000001,
+	VCD_CTRL_FUNC_FEATURE_HW_PARAM		= 0x00000002,
+	VCD_CTRL_FUNC_FEATURE_CALL		= 0x00000004,
+	VCD_CTRL_FUNC_FEATURE_TTY_CTM		= 0x00000008,
+	VCD_CTRL_FUNC_FEATURE_RECORD		= 0x00000010,
+	VCD_CTRL_FUNC_FEATURE_PLAYBACK		= 0x00000020,
+	VCD_CTRL_FUNC_FEATURE_AMHAL_STOP	= 0x40000000,
+	VCD_CTRL_FUNC_FEATURE_ERROR		= 0x80000000
 };
 
 enum VCD_CTRL_FUNC_COMMAND {
@@ -77,6 +78,7 @@ enum VCD_CTRL_FUNC_COMMAND {
 extern void vcd_ctrl_func_initialize(void);
 extern int vcd_ctrl_func_check_sequence(unsigned int command);
 extern int vcd_ctrl_func_convert_result(int result);
+extern int vcd_ctrl_func_check_stop_vcd_need(void);
 extern unsigned int vcd_ctrl_func_get_active_feature(void);
 extern void vcd_ctrl_func_set_active_feature(unsigned int feature);
 extern void vcd_ctrl_func_unset_active_feature(unsigned int feature);

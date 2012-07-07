@@ -19,11 +19,6 @@
 /*
  * constant definition
  */
-/* call type */
-#define VCD_CTRL_CALL_CS	0
-#define VCD_CTRL_CALL_1KHZ	1
-#define VCD_CTRL_CALL_PCM	2
-#define VCD_CTRL_CALL_VIF	3
 
 /* vcd status */
 #define VCD_CTRL_STATUS_STANDBY			\
