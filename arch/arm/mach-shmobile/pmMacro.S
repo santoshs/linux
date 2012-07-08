@@ -23,6 +23,14 @@
 /* Macro List: 								*/
 /*					PM_Spin_Lock			*/
 /*					PM_Spin_Unlock			*/
+/*					CPU0_SpinLock_Get		*/
+/*					CPU0_SpinLock_Release	*/
+/*					CPU1_SpinLock_Get		*/
+/*					CPU1_SpinLock_Release	*/
+/*					CPU0_SpinLock_Get_Phys	*/
+/*					CPU0_SpinLock_Release_Phys*/
+/*					CPU1_SpinLock_Get_Phys	*/
+/*					CPU1_SpinLock_Release_Phys*/
 /********************************************/
 
 
@@ -66,6 +74,260 @@
 	STR		r4, [r5]
 	DSB
 	/* SEV */
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU0_SpinLock_Get */
+/*	Over View: Get CPU0 SpinLock */
+/*===========================*/
+	.macro CPU0_SpinLock_Get
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x0
+	BNE		4f
+1:
+	LDR		r8, =ram0CPU1SpinLock
+	MOV		r10, #2 /* check count */
+2:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU1 Flag check */
+	BNE		1b
+	SUBS	r10, r10, #1
+	BNE		2b
+
+	LDR		r8, =ram0CPU0SpinLock
+	MOV		r10, #1
+	STR		r10, [r8] /* CPU0 Flag set */
+	DSB
+	MOV		r10, #2 /* check count */
+
+	LDR		r8, =ram0CPU1SpinLock
+3:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU1 Flag check */
+	LDRNE	r8, =ram0CPU0SpinLock
+	MOVNE	r10, #0
+	STRNE	r10, [r8] /* CPU0 Flag clear */
+	BNE		1b
+
+	SUBS	r10, r10, #1
+	BNE		3b
+
+4:
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU0_SpinLock_Release */
+/*	Over View: Release CPU0 SpinLock */
+/*===========================*/
+	.macro CPU0_SpinLock_Release
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x0
+	BNE		4f
+	
+	LDR		r8, =ram0CPU0SpinLock
+	MOV		r9, #0
+	STR		r9, [r8]
+
+4:
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU1_SpinLock_Get */
+/*	Over View: Get CPU1 SpinLock */
+/*===========================*/
+	.macro CPU1_SpinLock_Get
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x1
+	BNE		4f
+
+1:
+	LDR		r8, =ram0CPU0SpinLock
+	MOV		r10, #3 /* check count */
+2:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU0 Flug check */
+	BNE		1b
+	SUBS	r10, r10, #1
+	BNE		2b
+
+	LDR		r8, =ram0CPU1SpinLock
+	MOV		r10, #1
+	STR		r10, [r8] /* CPU1 Flag set */
+	DSB
+	MOV		r10, #2 /* check count */
+
+	LDR		r8, =ram0CPU0SpinLock
+3:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU0 Flag check */
+	LDRNE	r8, =ram0CPU1SpinLock
+	MOVNE	r10, #0
+	STRNE	r10, [r8] /* CPU1 Flag clear */
+	BNE		1b
+
+	SUBS	r10, r10, #1
+	BNE		3b
+
+4:
+#endif
+	.endm
+
+
+/*======================================================================*/
+/*	Name:CPU1_SpinLock_Release											*/
+/*	Over View: Release CPU1 SpinLock 									*/
+/*======================================================================*/
+	.macro CPU1_SpinLock_Release
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x1
+	BNE		4f
+
+	LDR		r8, =ram0CPU1SpinLock
+	MOV		r9, #0
+	STR		r9, [r8]
+
+4:
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU0_SpinLock_Get_Phys */
+/*	Over View: Get CPU0 SpinLock */
+/*===========================*/
+	.macro CPU0_SpinLock_Get_Phys
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x0
+	BNE		4f
+1:
+	LDR		r8, =ram0CPU1SpinLockPhys
+	MOV		r10, #2 /* check count */
+2:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU1 Flag check */
+	BNE		1b
+	SUBS	r10, r10, #1
+	BNE		2b
+
+	LDR		r8, =ram0CPU0SpinLockPhys
+	MOV		r10, #1
+	STR		r10, [r8] /* CPU0 Flag set */
+	DSB
+	MOV		r10, #2 /* check count */
+
+	LDR		r8, =ram0CPU1SpinLockPhys
+3:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU1 Flag check */
+	LDRNE	r8, =ram0CPU0SpinLockPhys
+	MOVNE	r10, #0
+	STRNE	r10, [r8] /* CPU0 Flag clear */
+	BNE		1b
+
+	SUBS	r10, r10, #1
+	BNE		3b
+
+4:
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU0_SpinLock_Release_Phys */
+/*	Over View: Release CPU0 SpinLock */
+/*===========================*/
+	.macro CPU0_SpinLock_Release_Phys
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x0
+	BNE		4f
+	
+	LDR		r8, =ram0CPU0SpinLockPhys
+	MOV		r9, #0
+	STR		r9, [r8]
+
+4:
+#endif
+	.endm
+
+
+/*===========================*/
+/*	Name:CPU1_SpinLock_Get_Phys */
+/*	Over View: Get CPU1 SpinLock */
+/*===========================*/
+	.macro CPU1_SpinLock_Get_Phys
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x1
+	BNE		4f
+
+1:
+	LDR		r8, =ram0CPU0SpinLockPhys
+	MOV		r10, #3 /* check count */
+2:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU0 Flug check */
+	BNE		1b
+	SUBS	r10, r10, #1
+	BNE		2b
+
+	LDR		r8, =ram0CPU1SpinLockPhys
+	MOV		r10, #1
+	STR		r10, [r8] /* CPU1 Flag set */
+	DSB
+	MOV		r10, #2 /* check count */
+
+	LDR		r8, =ram0CPU0SpinLockPhys
+3:
+	LDR		r9, [r8]
+	CMP		r9, #0 /* CPU0 Flag check */
+	LDRNE	r8, =ram0CPU1SpinLockPhys
+	MOVNE	r10, #0
+	STRNE	r10, [r8] /* CPU1 Flag clear */
+	BNE		1b
+
+	SUBS	r10, r10, #1
+	BNE		3b
+
+4:
+#endif
+	.endm
+
+
+/*======================================================================*/
+/*	Name:CPU1_SpinLock_Release_Phys											*/
+/*	Over View: Release CPU1 SpinLock 									*/
+/*======================================================================*/
+	.macro CPU1_SpinLock_Release_Phys
+#ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x1
+	BNE		4f
+
+	LDR		r8, =ram0CPU1SpinLockPhys
+	MOV		r9, #0
+	STR		r9, [r8]
+
+4:
 #endif
 	.endm
 

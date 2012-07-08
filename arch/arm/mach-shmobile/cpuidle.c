@@ -267,7 +267,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
+#ifdef CORESTANDBY_DFS
 		corestandby_cpufreq();
+#endif
 		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
 	} else {
 #if DISPLAY_LOG
@@ -454,6 +456,9 @@ static int shmobile_init_cpuidle(void)
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
 		return -EIO;
 	}
+
+	__raw_writel((unsigned long)0x0, __io(ram0CPU0SpinLock));
+	__raw_writel((unsigned long)0x0, __io(ram0CPU1SpinLock));
 
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
