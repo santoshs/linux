@@ -29,9 +29,9 @@
 #include <linux/async.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 #include <linux/wakelock.h>
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */
 
 #include "../base.h"
 #include "power.h"
@@ -1011,7 +1011,7 @@ int dpm_suspend(pm_message_t state)
 		put_device(dev);
 		if (async_error)
 			break;
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 		error = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
 #ifndef CONFIG_PM_TEST
 		if (error)
@@ -1020,7 +1020,7 @@ int dpm_suspend(pm_message_t state)
 		if (error && (ignore_wakelock == 0))
 			break;
 #endif /* CONFIG_PM_TEST */
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();

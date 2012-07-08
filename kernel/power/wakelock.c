@@ -269,7 +269,7 @@ static void suspend_backoff(void)
 			  msecs_to_jiffies(SUSPEND_BACKOFF_INTERVAL));
 }
 
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 int has_wake_lock_no_expire(int type)
 {
 	int locked = 0;
@@ -289,7 +289,7 @@ int has_wake_lock_no_expire(int type)
 	spin_unlock_irqrestore(&list_lock, irqflags);
 	return locked;
 }
-#endif /* CONFIG_MACH_U2EVM */
+#endif /* CONFIG_ARCH_R8A73734 */
 
 static void suspend(struct work_struct *work)
 {

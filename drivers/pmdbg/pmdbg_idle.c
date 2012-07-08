@@ -74,9 +74,9 @@ static int monitor_cmd(char*, int);
 static int suppress_cmd(char*, int);
 static int wakelock_cmd(char*, int);
 
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 extern int has_wake_lock_no_expire(int type);
-#endif /*CONFIG_MACH_U2EVM*/
+#endif /*CONFIG_ARCH_R8A73734*/
 
 static int idle_init(void);
 static void idle_exit(void);
@@ -308,12 +308,12 @@ int wakelock_cmd(char *para, int size)
 	int ret = 0;
 	FUNC_MSG_IN;
 
-#ifdef CONFIG_MACH_U2EVM
+#ifdef CONFIG_ARCH_R8A73734
 	ret = has_wake_lock_no_expire(WAKE_LOCK_IDLE);
 	if (ret == 0){
 		MSG_INFO("No active idle wakelock");
 	}
-#else /*!CONFIG_MACH_U2EVM*/
+#else /*!CONFIG_ARCH_R8A73734*/
 	ret = has_wake_lock(WAKE_LOCK_IDLE);
 	if (ret == 0){
 		MSG_INFO("No active idle wakelock");
@@ -321,7 +321,7 @@ int wakelock_cmd(char *para, int size)
 	else{
 		MSG_INFO("Has active idle wakelock");
 	}
-#endif /*CONFIG_MACH_U2EVM*/
+#endif /*CONFIG_ARCH_R8A73734*/
 	
 	FUNC_MSG_RET(0);
 }
