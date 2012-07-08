@@ -135,7 +135,7 @@ static u32 fb_debug;
 	if (fb_debug)		   \
 		printk(KERN_INFO "%s(): " FMT, __func__, ##ARGS)
 
-#if 0 // SSG qHD Display /******/
+#if 1 // SSG qHD Display /******/
 struct _s6e39a0x02_cmdset {
 	unsigned char cmd;
 	unsigned char *data;
@@ -1594,6 +1594,10 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 		screen_display_stop_hdmi(&disp_stop_hdmi);
 	}
 #endif
+/* 20120622 */
+	gpio_direction_output(GPIO_PORT89, 0);
+	gpio_direction_output(GPIO_PORT31, 0);
+
 	up(&sh_mobile_sem_hdmi);
 
 	disp_delete.handle = suspend_handle;
@@ -1623,6 +1627,123 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 			screen_display_start_lcd(&disp_start_lcd);
 		}
 	}
+
+/* 20120622 */
+	gpio_direction_output(GPIO_PORT89, 1);
+	mdelay(25);
+	gpio_direction_output(GPIO_PORT31, 1);
+	mdelay(10);
+
+	lcd_num = 0;
+
+	// SSG qHD Display
+	printk(KERN_ALERT "S6E39A0X02 qHD LCD Initialize Start\n");
+	if (lcd_ext_param[lcd_num].o_mode == RT_DISPLAY_LCD1) {
+		int loop = 0;
+		int ret = 0;
+		screen_disp_write_dsi_short write_dsi_s;
+		screen_disp_write_dsi_long  write_dsi_l;
+
+		while(0 <= loop) {
+			switch(s6e39a0x02_cmdset[loop].cmd){
+			case MIPI_DSI_DCS_LONG_WRITE:
+				printk(KERN_ALERT "S6E39A0X02 LONG Write\n");
+				write_dsi_l.handle	= suspend_handle;
+				write_dsi_l.output_mode	= lcd_ext_param[lcd_num].o_mode;
+				write_dsi_l.data_id	= MIPI_DSI_DCS_LONG_WRITE;
+				write_dsi_l.data_count	= s6e39a0x02_cmdset[loop].size;
+				write_dsi_l.write_data	= s6e39a0x02_cmdset[loop].data;
+				ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
+				printk(KERN_ALERT "S6E39A0X02 SHORT Write with\n");
+				write_dsi_s.handle	= suspend_handle;
+				write_dsi_s.data_id	= MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+				write_dsi_s.reg_address = s6e39a0x02_cmdset[loop].data[0];
+				write_dsi_s.write_data	= s6e39a0x02_cmdset[loop].data[1];
+				write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+				ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "disp_write_dsi_short err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_DCS_SHORT_WRITE:
+				printk(KERN_ALERT "S6E39A0X02 SHORT Write\n");
+				write_dsi_s.handle	= suspend_handle;
+				write_dsi_s.data_id	= MIPI_DSI_DCS_SHORT_WRITE;
+				write_dsi_s.reg_address = s6e39a0x02_cmdset[loop].data[0];
+				write_dsi_s.write_data	= 0x00;
+				write_dsi_s.output_mode = lcd_ext_param[lcd_num].o_mode;
+				ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "disp_write_dsi_short err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					return -1;
+				}
+				break;
+			case MIPI_DSI_BLACK:
+			{
+				u32 line_num;
+				u32 line_size = 540*3 + 1;
+				unsigned char *line_data = kmalloc(line_size, GFP_KERNEL);
+				memset(line_data,0,line_size);
+				
+				printk(KERN_ALERT "S6E39A0X02 Black Paint\n");
+				
+				/* 1st line */
+				*line_data = 0x2C;
+				write_dsi_l.handle	= suspend_handle;
+				write_dsi_l.output_mode	= lcd_ext_param[lcd_num].o_mode;
+				write_dsi_l.data_id	= MIPI_DSI_DCS_LONG_WRITE;
+				write_dsi_l.data_count	= line_size;
+				write_dsi_l.write_data	= line_data;
+				ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+				if (ret != SMAP_LIB_DISPLAY_OK) {
+					printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+					disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+					screen_display_delete(&disp_delete);
+					kfree(line_data);
+					return -1;
+				}
+				/* 2nd line */
+				*line_data = 0x3C;
+				for (line_num=0; line_num < 959; line_num++) {
+					ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+					if (ret != SMAP_LIB_DISPLAY_OK) {
+						printk(KERN_ALERT "screen_display_write_dsi_long_packet err 1!\n");
+						disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
+						screen_display_delete(&disp_delete);
+						kfree(line_data);
+						return -1;
+					}
+				}
+				
+				kfree(line_data);
+				break;
+			}
+			case MIPI_DSI_DELAY:
+				msleep(s6e39a0x02_cmdset[loop].size);
+				break;
+			case MIPI_DSI_END:
+			default:
+				loop = -2;
+				break;
+			}
+			loop++;
+		}
+	}
+	printk(KERN_ALERT "S6E39A0X02 qHD LCD Initialize End\n");
+
 #if 0
 	if (sh_mobile_v4l2_display_getstateHDMI(&format, &bg_color) == 0) {
 		disp_start_hdmi.handle = suspend_handle;
