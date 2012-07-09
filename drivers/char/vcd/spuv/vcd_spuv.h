@@ -221,7 +221,19 @@ enum VCD_SPUV_VALIDITY {
  * structure declaration
  */
 struct vcd_spuv_workqueue {
-	struct work_struct work;
+	struct list_head top;
+	spinlock_t lock;
+	wait_queue_head_t wait;
+	wait_queue_head_t finish;
+	struct task_struct *task;
+};
+
+struct vcd_spuv_work;
+
+struct vcd_spuv_work {
+	struct list_head link;
+	void (*func)(struct vcd_spuv_work *work);
+	int status;
 };
 
 struct vcd_spuv_info {
@@ -278,14 +290,22 @@ static int vcd_spuv_set_irq(int validity);
 static irqreturn_t vcd_spuv_irq_handler(int irq, void *dev_id);
 
 /* Queue functions */
+static void vcd_spuv_work_initialize(
+	struct vcd_spuv_work *work, void (*func)(struct vcd_spuv_work *));
+static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq);
+static inline int vcd_spuv_workqueue_thread(void *arg);
+static struct vcd_spuv_workqueue *vcd_spuv_workqueue_create(char *taskname);
+static void vcd_spuv_workqueue_enqueue(
+	struct vcd_spuv_workqueue *wq, struct vcd_spuv_work *work);
 int vcd_spuv_create_queue(void);
 void vcd_spuv_destroy_queue(void);
 static void vcd_spuv_set_schedule(void);
-static void vcd_spuv_interrupt_ack(struct work_struct *work);
-static void vcd_spuv_interrupt_req(struct work_struct *work);
-static void vcd_spuv_rec_trigger(struct work_struct *work);
-static void vcd_spuv_play_trigger(struct work_struct *work);
-static void vcd_spuv_system_error(struct work_struct *work);
+static void vcd_spuv_interrupt_ack(struct vcd_spuv_work *work);
+static void vcd_spuv_interrupt_req(struct vcd_spuv_work *work);
+static void vcd_spuv_rec_trigger(struct vcd_spuv_work *work);
+static void vcd_spuv_play_trigger(struct vcd_spuv_work *work);
+static void vcd_spuv_system_error(struct vcd_spuv_work *work);
+static int vcd_spuv_is_log_enable(unsigned int msg);
 static void vcd_spuv_interface_log(unsigned int msg);
 
 /* FW info functions */

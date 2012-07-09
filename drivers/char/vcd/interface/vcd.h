@@ -129,6 +129,7 @@ static void vcd_config_tty_ctm(void);
 static void vcd_set_udata(void);
 static void vcd_get_status(void);
 
+static int vcd_set_call_mode(void *arg);
 static int vcd_start_record(void *arg);
 static int vcd_stop_record(void *arg);
 static int vcd_start_playback(void *arg);

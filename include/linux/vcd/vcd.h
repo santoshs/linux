@@ -35,7 +35,8 @@
  * enum declaration
  */
 enum VCD_COMMAND {
-	VCD_COMMAND_START_RECORD = 0,
+	VCD_COMMAND_SET_CALL_MODE = 0,
+	VCD_COMMAND_START_RECORD,
 	VCD_COMMAND_STOP_RECORD,
 	VCD_COMMAND_START_PLAYBACK,
 	VCD_COMMAND_STOP_PLAYBACK,
@@ -45,6 +46,13 @@ enum VCD_COMMAND {
 	VCD_COMMAND_WATCH_START_CLKGEN,
 
 	VCD_COMMAND_MAX
+};
+
+enum VCD_CALL_TYPE {
+	VCD_CALL_TYPE_CS = 0,
+	VCD_CALL_TYPE_1KHZ,
+	VCD_CALL_TYPE_PCM_LB,
+	VCD_CALL_TYPE_VIF_LB
 };
 
 enum VCD_RECORD_MODE {
@@ -59,6 +67,11 @@ enum VCD_PLAYBACK_MODE {
 	VCD_PLAYBACK_MODE_2
 };
 
+enum VCD_LOOPBACK_MODE {
+	VCD_LOOPBACK_MODE_INTERFACE = 0,
+	VCD_LOOPBACK_MODE_PCM,
+};
+
 
 /*
  * structure declaration
@@ -66,6 +79,11 @@ enum VCD_PLAYBACK_MODE {
 struct vcd_execute_command {
 	unsigned int command;
 	void *arg;
+};
+
+struct vcd_call_option {
+	unsigned int call_type;
+	unsigned int loopback_mode;
 };
 
 struct vcd_record_option {
@@ -95,7 +113,13 @@ struct vcd_playback_buffer_info {
 /*
  * prototype declaration
  */
+
+/* for sound */
 extern int vcd_execute(const struct vcd_execute_command *args);
+/* for audio ic */
+extern int vcd_execute_test_call(const struct vcd_execute_command *args);
+
+
 
 #endif	/* __KERNEL__ */
 #endif	/* __VCD_H__ */

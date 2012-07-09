@@ -53,6 +53,10 @@ static struct vcd_execute_func vcd_func_table[] = {
 	{ VCD_COMMAND_WATCH_START_CLKGEN,	vcd_watch_start_clkgen	}
 };
 
+static struct vcd_execute_func vcd_loopback_func_table[] = {
+	{ VCD_COMMAND_SET_CALL_MODE,		vcd_set_call_mode	},
+};
+
 /*
  * file object
  */
@@ -193,6 +197,7 @@ void vcd_start_clkgen(void)
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	invalid argument.
+ * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
  * @retval	others		result of called function.
  */
 int vcd_execute(const struct vcd_execute_command *args)
@@ -241,6 +246,66 @@ rtn:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(vcd_execute);
+
+
+/**
+ * @brief	VCD test call execute function.
+ *
+ * @param[in]	args	pointer of command information
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	invalid argument.
+ * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
+ * @retval	others		result of called function.
+ */
+int vcd_execute_test_call(const struct vcd_execute_command *args)
+{
+	int ret = VCD_ERR_NONE;
+	int loop_count = 0;
+
+	/* semaphore start */
+	down(&g_vcd_semaphore);
+
+	/* check system_rev */
+	if ((system_rev & 0xff) == 0x00) {
+		vcd_pr_err("system_rev[%x].\n", system_rev);
+		ret = VCD_ERR_NOT_SUPPORT;
+		goto rtn;
+	}
+
+	/* check parameter */
+	if (NULL == args) {
+		vcd_pr_start_if_user("args[%p].\n", args);
+		vcd_pr_err("parameter error. args[%p].\n", args);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	vcd_pr_start_if_user("args->command[%d].\n", args->command);
+
+	/* function switcher */
+	for (loop_count = 0; loop_count < VCD_COMMAND_MAX; loop_count++) {
+		if (vcd_loopback_func_table[loop_count].command
+							== args->command) {
+			/* execute private function */
+			ret =
+			vcd_loopback_func_table[loop_count].func(args->arg);
+			goto rtn;
+		}
+	}
+
+	vcd_pr_err("parameter error. args->command[%d].\n", args->command);
+	ret = VCD_ERR_PARAM;
+
+rtn:
+	vcd_pr_end_if_user("ret[%d] args->command[%d].\n", ret, args->command);
+
+	/* semaphore end */
+	up(&g_vcd_semaphore);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(vcd_execute_test_call);
 
 
 /* ========================================================================= */
@@ -296,13 +361,6 @@ static void vcd_stop_vcd(void)
 
 	/* execute control function */
 	vcd_ctrl_stop_vcd();
-
-	/* close notification */
-	vcd_stop_fw();
-
-	/* initialize variable */
-	g_vcd_complete_buffer	= NULL;
-	g_vcd_beginning_buffer	= NULL;
 
 	vcd_pr_end_interface_function();
 }
@@ -449,6 +507,63 @@ static void vcd_get_status(void)
 	vcd_ctrl_get_status();
 
 	vcd_pr_end_interface_function();
+}
+
+
+/**
+ * @brief	set call mode function.
+ *
+ * @param[in]	arg	pointer of notify function.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_set_call_mode(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_call_option option = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_audio("V <-- A : VCD_COMMAND_SET_CALL_MODE.\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&option, arg, sizeof(option));
+	vcd_pr_interface_info("option.call_type[%d].\n", option.call_type);
+	vcd_pr_interface_info("option.loopback_mode[%d].\n",
+					option.loopback_mode);
+
+	if ((VCD_CALL_TYPE_CS > option.call_type) ||
+		(VCD_CALL_TYPE_VIF_LB  < option.call_type)) {
+		vcd_pr_err("parameter error. option.call_type[%d].\n",
+						option.call_type);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	if ((VCD_LOOPBACK_MODE_INTERFACE > option.loopback_mode) ||
+		(VCD_LOOPBACK_MODE_PCM  < option.loopback_mode)) {
+		vcd_pr_err("parameter error. option.loopback_mode[%d].\n",
+						option.loopback_mode);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	/* register call type */
+	g_vcd_debug_call_type = option.call_type;
+
+	/* register loopback mode */
+	g_vcd_debug_mode = option.loopback_mode;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -691,7 +806,6 @@ rtn:
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
- * @retval	others		result of called function.
  */
 static int vcd_watch_stop_fw(void *arg)
 {
@@ -724,7 +838,6 @@ rtn:
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
- * @retval	others		result of called function.
  */
 static int vcd_watch_start_clkgen(void *arg)
 {
@@ -785,7 +898,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 
 	len = snprintf(page, count, "%d\n", result);
 
-	vcd_pr_if_amhal("V --> A : [%x].\n", result);
+	vcd_pr_if_amhal("V --> A : [%d].\n", result);
 
 	vcd_pr_end_if_user("result[%d].\n", result);
 
@@ -1036,9 +1149,9 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 		"filp[%p],buffer[%p],len[%ld],data[%p].\n",
 		filp, buffer, len, data);
 
-#ifndef __DEBUG__
+#ifndef __VCD_DEBUG__
 	goto rtn;
-#endif /* __DEBUG__ */
+#endif /* __VCD_DEBUG__ */
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
@@ -1167,16 +1280,16 @@ debug:
 		vcd_ctrl_dump_dsp0_registers();
 		break;
 	case VCD_DEBUG_SET_CS_CALL_MODE:
-		g_vcd_debug_call_type = 0;
+		g_vcd_debug_call_type = VCD_CALL_TYPE_CS;
 		break;
 	case VCD_DEBUG_SET_1KHZ_TONE_MODE:
-		g_vcd_debug_call_type = 1;
+		g_vcd_debug_call_type = VCD_CALL_TYPE_1KHZ;
 		break;
 	case VCD_DEBUG_SET_PCM_LOOPBACK_MODE:
-		g_vcd_debug_call_type = 2;
+		g_vcd_debug_call_type = VCD_CALL_TYPE_PCM_LB;
 		break;
 	case VCD_DEBUG_SET_VIF_LOOPBACK_MODE:
-		g_vcd_debug_call_type = 3;
+		g_vcd_debug_call_type = VCD_CALL_TYPE_VIF_LB;
 		break;
 	case VCD_DEBUG_SET_MODE_0:
 		g_vcd_debug_mode = 0;

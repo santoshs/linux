@@ -24,6 +24,11 @@
 #define VCD_SPUV_FUNC_DISABLE	0
 #define VCD_SPUV_FUNC_ENABLE	1
 
+/* firmware location */
+#define VCD_SPUV_FUNC_LOCATE_SDRAM	0
+#define VCD_SPUV_FUNC_LOCATE_MERAM	1
+
+/* spuv use power domain */
 #define VCD_SPUV_FUNC_POWER_DOMAIN_MAX		2
 
 /* spuv if time out value*/
@@ -172,6 +177,7 @@
 #define SPUV_FUNC_DSPIO_PHY		0xECBC0000
 
 /* MERAM */
+#define SPUV_FUNC_MERAM_MAX_SIZE	0xE1000
 #define SPUV_FUNC_MERAM_TOP_PHY		0xED000000
 #define SPUV_FUNC_MERAM_PHY_ADDR	g_spuv_func_meram_physical_addr
 #define SPUV_FUNC_MERAM_FIRMWARE_BUFFER	g_spuv_func_meram_logical_addr
@@ -476,15 +482,12 @@
 			iowrite32(set_bit, reg); \
 			pm_release_spinlock(flags); \
 		}
+#include <mach/common.h>
 #define vcd_spuv_func_modify_register(clear_bit, set_bit, reg) \
 		{ \
 			unsigned long flags; \
-			unsigned long tmp; \
 			flags = pm_get_spinlock(); \
-			tmp = ioread32(reg); \
-			tmp &= (~clear_bit); \
-			tmp |= set_bit; \
-			iowrite32(tmp, reg); \
+			sh_modify_register32(reg, clear_bit, set_bit); \
 			pm_release_spinlock(flags); \
 		}
 
@@ -514,6 +517,8 @@ struct vcd_spuv_func_read_fw_info {
 	unsigned int pram_global_size;
 	unsigned int xram_global_size;
 	unsigned int yram_global_size;
+
+	unsigned int page_location[VCD_SPUV_FUNC_PAGE_SIZE];
 
 	unsigned int pram_page_size[VCD_SPUV_FUNC_PAGE_SIZE];
 	unsigned int xram_page_size[VCD_SPUV_FUNC_PAGE_SIZE];
@@ -566,7 +571,7 @@ extern void vcd_spuv_func_release_firmware(void);
 extern void vcd_spuv_func_dsp_core_reset(void);
 
 extern void vcd_spuv_func_send_msg(int *param, int length);
-extern void vcd_spuv_func_send_ack(void);
+extern void vcd_spuv_func_send_ack(int is_log_enable);
 extern void vcd_spuv_func_get_fw_request(void);
 
 /* Synchronous conversion functions */

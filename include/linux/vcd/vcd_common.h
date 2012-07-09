@@ -53,10 +53,10 @@ extern unsigned int g_vcd_log_level;
 #define VCD_LOG_NONE			0x00000000
 #define VCD_LOG_ERROR			0x00000001
 #define VCD_LOG_IF			0x00000002
-#define VCD_LOG_USER_IF			0x00000004
-#define VCD_LOG_SPUV_IF			0x00000004
-#define VCD_LOG_STATUS_CHANGE		0x00000008
-#define VCD_LOG_LEVEL_UPPER		0x0000000F
+#define VCD_LOG_STATUS_CHANGE		0x00000004
+#define VCD_LOG_LEVEL_UPPER		0x00000007
+#define VCD_LOG_USER_IF			0x00000008
+#define VCD_LOG_SPUV_IF			0x00000008
 #define VCD_LOG_INTERFACE_INFO		0x00000010
 #define VCD_LOG_CONTROL_INFO		0x00000020
 #define VCD_LOG_SPUV_INFO		0x00000040
@@ -67,6 +67,10 @@ extern unsigned int g_vcd_log_level;
 #define VCD_LOG_CONTROL_FUNCTION	0x00002000
 #define VCD_LOG_SPUV_FUNCTION		0x00004000
 #define VCD_LOG_REGISTERS_DUMP		0x00008000
+#define VCD_LOG_ON_SYSTEM_INFO_IND	0x00100000
+#define VCD_LOG_ON_UDATA_IND		0x00200000
+#define VCD_LOG_ON_TRIGGER_REC_IND	0x00400000
+#define VCD_LOG_ON_TRIGGER_PLAY_IND	0x00800000
 #define VCD_LOG_LEVEL_CONDITION_LOCK	0x40000000
 #define VCD_LOG_LEVEL_LOCK		0x80000000
 
@@ -118,6 +122,20 @@ extern unsigned int g_vcd_log_level;
 				tv.tv_sec, \
 				tv.tv_usec, \
 				__func__, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_audio(fmt, ...) \
+		if (g_vcd_log_level & VCD_LOG_IF) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [VCD IF - AUDIO] : " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
 				##__VA_ARGS__); \
 		}
 
@@ -270,6 +288,70 @@ extern unsigned int g_vcd_log_level;
 
 	#define vcd_pr_spuv_info(fmt, ...) \
 		if (g_vcd_log_level & VCD_LOG_SPUV_INFO) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [info ] %s: " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				__func__, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_system_info_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
+			(g_vcd_log_level & VCD_LOG_ON_SYSTEM_INFO_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [info ] %s: " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				__func__, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_udata_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
+			(g_vcd_log_level & VCD_LOG_ON_UDATA_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [info ] %s: " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				__func__, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_trigger_rec_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
+			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_REC_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [info ] %s: " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				__func__, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_trigger_play_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
+			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_PLAY_IND)) { \
 			struct timeval tv; \
 			do_gettimeofday(&tv); \
 			pr_alert( \
@@ -436,9 +518,14 @@ extern unsigned int g_vcd_log_level;
 	#define vcd_pr_always(fmt, ...)				{}
 	#define vcd_pr_always_err(fmt, ...)			{}
 	#define vcd_pr_err(fmt, ...)				{}
+	#define vcd_pr_if_audio(fmt, ...)			{}
 	#define vcd_pr_if_sound(fmt, ...)			{}
 	#define vcd_pr_if_amhal(fmt, ...)			{}
 	#define vcd_pr_if_spuv(fmt, ...)			{}
+	#define vcd_pr_if_spuv_system_info_ind(fmt, ...)	{}
+	#define vcd_pr_if_spuv_udata_ind(fmt, ...)		{}
+	#define vcd_pr_if_spuv_trigger_rec_ind(fmt, ...)	{}
+	#define vcd_pr_if_spuv_trigger_play_ind(fmt, ...)	{}
 	#define vcd_pr_start_if_user(fmt, ...)			{}
 	#define vcd_pr_end_if_user(fmt, ...)			{}
 	#define vcd_pr_start_if_spuv(fmt, ...)			{}

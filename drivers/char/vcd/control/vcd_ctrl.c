@@ -59,6 +59,9 @@ void vcd_ctrl_start_vcd(void)
 {
 	vcd_pr_start_control_function();
 
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+
 	/* check sequence */
 	g_vcd_ctrl_result =
 		vcd_ctrl_func_check_sequence(VCD_CTRL_FUNC_START_VCD);
@@ -98,6 +101,9 @@ rtn:
 void vcd_ctrl_stop_vcd(void)
 {
 	vcd_pr_start_control_function();
+
+	/* update active status */
+	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
 
 	/* check sequence */
 	g_vcd_ctrl_result =
@@ -192,13 +198,13 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	}
 
 	/* execute spuv function */
-	if (VCD_CTRL_CALL_CS == call_type)
+	if (VCD_CALL_TYPE_CS == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_call();
-	else if (VCD_CTRL_CALL_1KHZ == call_type)
+	else if (VCD_CALL_TYPE_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_1khz_tone();
-	else if (VCD_CTRL_CALL_PCM == call_type)
+	else if (VCD_CALL_TYPE_PCM_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_pcm_loopback(mode);
-	else if (VCD_CTRL_CALL_VIF == call_type)
+	else if (VCD_CALL_TYPE_VIF_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_bbif_loopback(mode);
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -239,13 +245,13 @@ void vcd_ctrl_stop_call(int call_type)
 	}
 
 	/* execute spuv function */
-	if (VCD_CTRL_CALL_CS == call_type)
+	if (VCD_CALL_TYPE_CS == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
-	else if (VCD_CTRL_CALL_1KHZ == call_type)
+	else if (VCD_CALL_TYPE_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_1khz_tone();
-	else if (VCD_CTRL_CALL_PCM == call_type)
+	else if (VCD_CALL_TYPE_PCM_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_pcm_loopback();
-	else if (VCD_CTRL_CALL_VIF == call_type)
+	else if (VCD_CALL_TYPE_VIF_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_bbif_loopback();
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -567,11 +573,18 @@ int vcd_ctrl_stop_record(void)
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("stop record error[%d].\n", ret);
 		/* update result */
-		g_vcd_ctrl_result = VCD_ERR_NONE;
+		ret = VCD_ERR_NONE;
 	}
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_RECORD);
+
+	/* check need stop vcd */
+	ret = vcd_ctrl_func_check_stop_vcd_need();
+	if (VCD_ERR_NONE == ret)
+		vcd_ctrl_stop_vcd();
+	else
+		ret = VCD_ERR_NONE;
 
 rtn:
 	vcd_pr_end_control_function("ret[%d].\n", ret);
@@ -645,11 +658,18 @@ int vcd_ctrl_stop_playback(void)
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_err("stop playback error[%d].\n", ret);
 		/* update result */
-		g_vcd_ctrl_result = VCD_ERR_NONE;
+		ret = VCD_ERR_NONE;
 	}
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(VCD_CTRL_FUNC_FEATURE_PLAYBACK);
+
+	/* check need stop vcd */
+	ret = vcd_ctrl_func_check_stop_vcd_need();
+	if (VCD_ERR_NONE == ret)
+		vcd_ctrl_stop_vcd();
+	else
+		ret = VCD_ERR_NONE;
 
 rtn:
 	vcd_pr_end_control_function("ret[%d].\n", ret);
@@ -745,6 +765,8 @@ void vcd_ctrl_play_trigger(void)
  */
 void vcd_ctrl_stop_fw(void)
 {
+	int ret = VCD_ERR_NONE;
+
 	vcd_pr_start_control_function();
 
 	/* update feature */
@@ -752,6 +774,11 @@ void vcd_ctrl_stop_fw(void)
 
 	/* notification fw stop */
 	vcd_stop_fw();
+
+	/* check need stop vcd */
+	ret = vcd_ctrl_func_check_stop_vcd_need();
+	if (VCD_ERR_NONE == ret)
+		vcd_ctrl_stop_vcd();
 
 	vcd_pr_end_control_function();
 	return;

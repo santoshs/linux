@@ -93,12 +93,15 @@ static int vcd_spuv_func_meram_ioremap(unsigned int addr, unsigned int size);
 static void vcd_spuv_func_meram_iounmap(void);
 #endif /* __VCD_MERAM_ENABLE__ */
 static void vcd_spuv_func_calc_ram(
-		const unsigned int start_addr,
+		const unsigned int start_addr_meram,
+		const unsigned int start_addr_sdram,
 		const unsigned int global_size,
 		const unsigned int *page_size,
+		const unsigned int *page_location,
 		const unsigned int page_num,
 		struct vcd_spuv_func_fw_info *ram_info,
-		unsigned int *next_addr);
+		unsigned int *next_addr_meram,
+		unsigned int *next_addr_sdram);
 static void vcd_spuv_func_reg_firmware(void);
 static int vcd_spuv_func_conv_global_size(const unsigned int global_size);
 static void vcd_spuv_func_dsp_full_reset(void);
@@ -175,7 +178,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
+		vcd_pr_spuv_debug("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		if (0 == g_spuv_func_pm_runtime_count) {
 			/* get power domain devices */
@@ -275,7 +278,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
+		vcd_pr_spuv_debug("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		/* initialize */
 		g_spuv_func_pm_runtime_count = 0;
@@ -315,7 +318,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 	if (VCD_SPUV_FUNC_ENABLE == effective) {
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_info("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
+		vcd_pr_spuv_debug("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
 
 		/* a4mp */
 		if (!(0x00000100 & reg)) {
@@ -724,15 +727,16 @@ rtn:
 /**
  * @brief	send ack message function.
  *
- * @param	none.
+ * @param	int is_log_enable	output log on/off.
  *
  * @retval	none.
  */
-void vcd_spuv_func_send_ack(void)
+void vcd_spuv_func_send_ack(int is_log_enable)
 {
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_if_spuv("V --> F : ACK.\n");
+	if (VCD_SPUV_FUNC_ENABLE == is_log_enable)
+		vcd_pr_if_spuv("V --> F : ACK.\n");
 
 	/* set arm_msg_it */
 	vcd_spuv_func_modify_register(0,
@@ -767,8 +771,8 @@ void vcd_spuv_func_get_fw_request(void)
 
 	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM0, read_addr);
 	vcd_spuv_func_register(SPUV_FUNC_RW_32_COM1, length);
-	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM0[%08x].\n", read_addr);
-	vcd_pr_spuv_info("SPUV_FUNC_RW_32_COM1[%08x].\n", length);
+	vcd_pr_spuv_debug("SPUV_FUNC_RW_32_COM0[%08x].\n", read_addr);
+	vcd_pr_spuv_debug("SPUV_FUNC_RW_32_COM1[%08x].\n", length);
 
 	flags = pm_get_spinlock();
 
@@ -828,8 +832,10 @@ void vcd_spuv_func_end_wait(void)
 {
 	vcd_pr_start_spuv_function();
 
-	g_spuv_func_is_completion = true;
-	wake_up_interruptible(&g_vcd_spuv_wait);
+	if (false == g_spuv_func_is_completion) {
+		g_spuv_func_is_completion = true;
+		wake_up_interruptible(&g_vcd_spuv_wait);
+	}
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1948,9 +1954,13 @@ static int vcd_spuv_func_relocation_fw(
 {
 	int ret = VCD_ERR_NONE;
 	int i = 0;
-	unsigned int fw_size = 0;
-	unsigned int start_addr = 0;
-	unsigned int next_addr  = 0;
+	unsigned int temp_fw_size = 0;
+	unsigned int meram_size = 0;
+	unsigned int fw_page_size[VCD_SPUV_FUNC_PAGE_SIZE] = {0};
+	unsigned int start_addr_meram = 0;
+	unsigned int start_addr_sdram = 0;
+	unsigned int next_addr_meram = 0;
+	unsigned int next_addr_sdram = 0;
 
 	vcd_pr_start_spuv_function("read_fw_info[%p].\n", read_fw_info);
 
@@ -1960,66 +1970,140 @@ static int vcd_spuv_func_relocation_fw(
 		goto rtn;
 	}
 
-	/* get meram area */
+	/* get size */
 	for (i = 0; i < VCD_SPUV_FUNC_PAGE_SIZE; i++) {
-		if (0 != read_fw_info->pram_page_size[i])
-			fw_size += vcd_spuv_func_ceiling128(
-					read_fw_info->pram_page_size[i]);
-		if (0 != read_fw_info->xram_page_size[i])
-			fw_size += vcd_spuv_func_ceiling128(
-					read_fw_info->xram_page_size[i]);
-		if (0 != read_fw_info->yram_page_size[i])
-			fw_size += vcd_spuv_func_ceiling128(
-					read_fw_info->yram_page_size[i]);
+		/* pram */
+		fw_page_size[i] += vcd_spuv_func_ceiling128(
+				read_fw_info->pram_page_size[i]);
+		/* xram */
+		fw_page_size[i] += vcd_spuv_func_ceiling128(
+				read_fw_info->xram_page_size[i]);
+		/* yram */
+		fw_page_size[i] += vcd_spuv_func_ceiling128(
+				read_fw_info->yram_page_size[i]);
 	}
-	ret = vcd_spuv_func_get_meram(fw_size);
-	if (0 != ret)
-		vcd_pr_spuv_info("meram not use[%d].\n", ret);
 
-	ret = VCD_ERR_NONE;
+	/* get meram size */
+	for (i = 0; i < VCD_SPUV_FUNC_PAGE_SIZE; i++) {
+		temp_fw_size += fw_page_size[i];
+#ifdef __VCD_DIVISION_ARRANGEMENT_FW__
+		if (SPUV_FUNC_MERAM_MAX_SIZE < temp_fw_size)
+			break;
+#endif
+		read_fw_info->page_location[i] = VCD_SPUV_FUNC_LOCATE_MERAM;
+		meram_size = temp_fw_size;
+	}
 
-	if (0 != SPUV_FUNC_MERAM_FIRMWARE_BUFFER)
-		/* firmware cop to meram */
-		start_addr = SPUV_FUNC_MERAM_FIRMWARE_BUFFER;
-	else
-		/* firmware cop to sdram */
-		start_addr = SPUV_FUNC_SDRAM_FIRMWARE_BUFFER;
+	/* get meram area */
+	if (0 != meram_size) {
+		ret = vcd_spuv_func_get_meram(meram_size);
+		if (0 != ret) {
+			vcd_pr_spuv_info("meram not use[%d].\n", ret);
+			memset((void *)read_fw_info->page_location,
+				0, (sizeof(int) * VCD_SPUV_FUNC_PAGE_SIZE));
+		}
+		ret = VCD_ERR_NONE;
+	}
 
-
+	/* set start address */
+	start_addr_meram = SPUV_FUNC_MERAM_FIRMWARE_BUFFER;
+	start_addr_sdram = SPUV_FUNC_SDRAM_FIRMWARE_BUFFER;
 
 	/* calculation ram base address */
 	/* xram */
 	vcd_spuv_func_calc_ram(
-		start_addr,
+		start_addr_meram,
+		start_addr_sdram,
 		read_fw_info->xram_global_size,
 		read_fw_info->xram_page_size,
+		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_xram_info),
-		&next_addr);
-	start_addr = next_addr;
+		&next_addr_meram,
+		&next_addr_sdram);
+	start_addr_meram = next_addr_meram;
+	start_addr_sdram = next_addr_sdram;
 	/* pram */
 	vcd_spuv_func_calc_ram(
-		start_addr,
+		start_addr_meram,
+		start_addr_sdram,
 		read_fw_info->pram_global_size,
 		read_fw_info->pram_page_size,
+		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_pram_info),
-		&next_addr);
-	start_addr = next_addr;
+		&next_addr_meram,
+		&next_addr_sdram);
+	start_addr_meram = next_addr_meram;
+	start_addr_sdram = next_addr_sdram;
 	/* yram */
 	vcd_spuv_func_calc_ram(
-		start_addr,
+		start_addr_meram,
+		start_addr_sdram,
 		read_fw_info->yram_global_size,
 		read_fw_info->yram_page_size,
+		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_yram_info),
-		&next_addr);
+		&next_addr_meram,
+		&next_addr_sdram);
 
 	/* save global size */
 	g_spuv_func_pram_info.global_size = read_fw_info->pram_global_size;
 	g_spuv_func_xram_info.global_size = read_fw_info->xram_global_size;
 	g_spuv_func_yram_info.global_size = read_fw_info->yram_global_size;
 
+	for (i = 0; i < VCD_SPUV_FUNC_PAGE_SIZE; i++) {
+		if (0 == g_spuv_func_pram_info.page_size[i])
+			break;
+		vcd_pr_spuv_info("-----\n");
+		vcd_pr_spuv_info(
+			"pram_info.base_addr        [%02d][0x%08x].\n",
+			i, g_spuv_func_pram_info.base_addr[i]);
+		vcd_pr_spuv_info(
+			"pram_info.reg_addr         [%02d][0x%08x].\n",
+			i, g_spuv_func_pram_info.reg_addr[i]);
+		vcd_pr_spuv_info(
+			"pram_info.reg_addr_physcal [%02d][0x%08x].\n",
+			i, g_spuv_func_pram_info.reg_addr_physcal[i]);
+		vcd_pr_spuv_info(
+			"pram_info.page_size        [%02d][0x%08x].\n",
+			i, g_spuv_func_pram_info.page_size[i]);
+		vcd_pr_spuv_info("-----\n");
+		vcd_pr_spuv_info(
+			"xram_info.base_addr        [%02d][0x%08x].\n",
+			i, g_spuv_func_xram_info.base_addr[i]);
+		vcd_pr_spuv_info(
+			"xram_info.reg_addr         [%02d][0x%08x].\n",
+			i, g_spuv_func_xram_info.reg_addr[i]);
+		vcd_pr_spuv_info(
+			"xram_info.reg_addr_physcal [%02d][0x%08x].\n",
+			i, g_spuv_func_xram_info.reg_addr_physcal[i]);
+		vcd_pr_spuv_info(
+			"xram_info.page_size        [%02d][0x%08x].\n",
+			i, g_spuv_func_xram_info.page_size[i]);
+		vcd_pr_spuv_info("-----\n");
+		vcd_pr_spuv_info(
+			"yram_info.base_addr        [%02d][0x%08x].\n",
+			i, g_spuv_func_yram_info.base_addr[i]);
+		vcd_pr_spuv_info(
+			"yram_info.reg_addr         [%02d][0x%08x].\n",
+			i, g_spuv_func_yram_info.reg_addr[i]);
+		vcd_pr_spuv_info(
+			"yram_info.reg_addr_physcal [%02d][0x%08x].\n",
+			i, g_spuv_func_yram_info.reg_addr_physcal[i]);
+		vcd_pr_spuv_info(
+			"yram_info.page_size        [%02d][0x%08x].\n",
+			i, g_spuv_func_yram_info.page_size[i]);
+	}
+	vcd_pr_spuv_info("-----\n");
+	vcd_pr_spuv_info("pram_info.global_size      [0x%08x].\n",
+					g_spuv_func_pram_info.global_size);
+	vcd_pr_spuv_info("xram_info.global_size      [0x%08x].\n",
+					g_spuv_func_xram_info.global_size);
+	vcd_pr_spuv_info("yram_info.global_size      [0x%08x].\n",
+					g_spuv_func_yram_info.global_size);
+	vcd_pr_spuv_info("-----\n");
 
 	/* set cache to spuv register */
 	vcd_spuv_func_reg_firmware();
@@ -2215,43 +2299,64 @@ static void vcd_spuv_func_meram_iounmap(void)
 /**
  * @brief	calculation address function.
  *
- * @param[in]	start_addr	base address.
- * @param[in]	global_size	global area size.
- * @param[in]	page_size	each size on page 0-15 for ram.
- * @param[in]	page_num	page num.
- * @param[out]	ram_info	dsp ram info.
- * @param[out]	next_addr	next base address.
+ * @param[in]	start_addr_meram	meram base address.
+ * @param[in]	start_addr_sdram	sdram base address.
+ * @param[in]	global_size		global area size.
+ * @param[in]	page_size		each size on page 0-15 for ram.
+ * @param[in]	page_location		each location on page 0-15.
+ * @param[in]	page_num		page num.
+ * @param[out]	ram_info		dsp ram info.
+ * @param[out]	next_addr_meram		next meram base address.
+ * @param[out]	next_addr_sdram		next sdram address.
  *
  * @retval	none.
  */
 static void vcd_spuv_func_calc_ram(
-		const unsigned int start_addr,
+		const unsigned int start_addr_meram,
+		const unsigned int start_addr_sdram,
 		const unsigned int global_size,
 		const unsigned int *page_size,
+		const unsigned int *page_location,
 		const unsigned int page_num,
 		struct vcd_spuv_func_fw_info *ram_info,
-		unsigned int *next_addr)
+		unsigned int *next_addr_meram,
+		unsigned int *next_addr_sdram)
 {
 	int i = 0;
 
 	vcd_pr_start_spuv_function();
 
-	if ((NULL == page_size) || (NULL == ram_info) || (NULL == next_addr)) {
+	if ((NULL == page_size) || (NULL == page_location) ||
+		(NULL == ram_info) || (NULL == next_addr_meram) ||
+		(NULL == next_addr_sdram)) {
 		vcd_pr_err("parameter error.\n");
 		goto rtn;
 	}
 
-	/* calculation ram base address */
-	/* page 0 */
-	if (0 != page_size[0]) {
-		ram_info->base_addr[0] = start_addr;
-		ram_info->reg_addr[0]  = start_addr;
-		ram_info->page_size[0] =
-			vcd_spuv_func_ceiling128(page_size[0]);
+	/* page 0 - page 15 */
+	for (i = 0; i < page_num; i++) {
+		if (0 == page_size[i])
+			break;
 
-		/* page 1 - page 15 */
-		for (i = 1; i < page_num; i++) {
-			if (0 != page_size[i]) {
+		if (0 == i) {
+			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i]) {
+				ram_info->base_addr[i] = start_addr_meram;
+				ram_info->reg_addr[i] = start_addr_meram;
+				ram_info->page_size[i] =
+					vcd_spuv_func_ceiling128(page_size[i]);
+				*next_addr_meram =
+					ram_info->base_addr[i] +
+					vcd_spuv_func_ceiling128(page_size[i]);
+			} else {
+				ram_info->base_addr[i] = start_addr_sdram;
+				ram_info->reg_addr[i] = start_addr_sdram;
+				ram_info->page_size[i] =
+					vcd_spuv_func_ceiling128(page_size[i]);
+				*next_addr_sdram = ram_info->base_addr[i] +
+					vcd_spuv_func_ceiling128(page_size[i]);
+			}
+		} else {
+			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i]) {
 				ram_info->base_addr[i] =
 					ram_info->base_addr[i-1] +
 					vcd_spuv_func_ceiling128(
@@ -2262,18 +2367,40 @@ static void vcd_spuv_func_calc_ram(
 				ram_info->page_size[i] =
 					vcd_spuv_func_ceiling128(
 						page_size[i]);
+				*next_addr_meram = ram_info->base_addr[i] +
+					vcd_spuv_func_ceiling128(page_size[i]);
 			} else {
-				break;
+				if (VCD_SPUV_FUNC_LOCATE_MERAM ==
+						page_location[i-1]) {
+					ram_info->base_addr[i] =
+						start_addr_sdram + global_size;
+					ram_info->reg_addr[i] =
+						start_addr_sdram;
+					ram_info->page_size[i] =
+						vcd_spuv_func_ceiling128(
+							page_size[i]);
+				} else {
+					ram_info->base_addr[i] =
+						ram_info->base_addr[i-1] +
+						vcd_spuv_func_ceiling128(
+							page_size[i-1]);
+					ram_info->reg_addr[i] =
+						ram_info->base_addr[i] -
+						global_size;
+					ram_info->page_size[i] =
+						vcd_spuv_func_ceiling128(
+							page_size[i]);
+				}
+				*next_addr_sdram = ram_info->base_addr[i] +
+					vcd_spuv_func_ceiling128(page_size[i]);
 			}
 		}
-		*next_addr = ram_info->base_addr[i - 1] +
-				vcd_spuv_func_ceiling128(page_size[i-1]);
 	}
 
 	/* calculation logical to physcal */
 	for (i = 0; i < page_num; i++) {
 		if (0 != ram_info->reg_addr[i]) {
-			if (0 != SPUV_FUNC_MERAM_FIRMWARE_BUFFER)
+			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i])
 				ram_info->reg_addr_physcal[i] =
 				vcd_spuv_func_meram_logical_to_physical(
 				ram_info->reg_addr[i]);

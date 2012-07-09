@@ -21,7 +21,7 @@
  * global variable declaration
  */
 unsigned int g_vcd_ctrl_active_feature;
-
+DEFINE_SPINLOCK(g_vcd_ctrl_lock);
 
 /* ========================================================================= */
 /* Control internal public functions                                         */
@@ -84,10 +84,12 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	case VCD_CTRL_FUNC_STOP_VCD:
 		if (!(VCD_CTRL_FUNC_FEATURE_VCD & feature)) {
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		} else if ((VCD_CTRL_FUNC_FEATURE_CALL & feature) ||
-			(VCD_CTRL_FUNC_FEATURE_RECORD & feature) ||
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)) {
+		} else if (VCD_CTRL_FUNC_FEATURE_CALL & feature) {
 			ret = VCD_ERR_BUSY;
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & feature) ||
+			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)) {
+			/* hold */
+			ret = VCD_ERR_ALREADY_EXECUTION;
 		}
 		break;
 	case VCD_CTRL_FUNC_HW_PARAM:
@@ -99,6 +101,8 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_CALL & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
+		else if (VCD_CTRL_FUNC_FEATURE_AMHAL_STOP & feature)
+			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_STOP_CALL:
 		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
@@ -173,8 +177,8 @@ rtn:
  *
  * @param[in]	result	data sources.
  *
- * @retval	0	successful.
- * @retval	others	input data.
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	others		input data.
  */
 int vcd_ctrl_func_convert_result(int result)
 {
@@ -189,6 +193,39 @@ int vcd_ctrl_func_convert_result(int result)
 	return ret;
 }
 
+
+/**
+ * @brief	check stop vcd need function.
+ *
+ * @param	none.
+ *
+ * @retval	VCD_ERR_NONE	need 'stop vcd'.
+ * @retval	VCD_ERR_BUSY	not need 'stop vcd'.
+ */
+int vcd_ctrl_func_check_stop_vcd_need(void)
+{
+	int ret = VCD_ERR_BUSY;
+	unsigned int feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
+	vcd_pr_start_control_function();
+
+	feature = vcd_ctrl_func_get_active_feature();
+
+	if (VCD_CTRL_FUNC_FEATURE_AMHAL_STOP & feature) {
+		if (VCD_CTRL_FUNC_FEATURE_ERROR & feature)
+			/* for vcd_ctrl_stop_fw */
+			ret = VCD_ERR_NONE;
+		else if ((!(VCD_CTRL_FUNC_FEATURE_RECORD & feature)) &&
+			(!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)))
+			/* for vcd_ctrl_stop_record/playback */
+			ret = VCD_ERR_NONE;
+	}
+
+	vcd_pr_end_control_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
 /* ========================================================================= */
 /* Driver status functions                                                   */
 /* ========================================================================= */
@@ -202,10 +239,17 @@ int vcd_ctrl_func_convert_result(int result)
  */
 unsigned int vcd_ctrl_func_get_active_feature(void)
 {
+	unsigned int feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
+	spin_lock(&g_vcd_ctrl_lock);
 	vcd_pr_start_control_function();
-	vcd_pr_end_control_function("active feature[0x%08x].\n",
-		g_vcd_ctrl_active_feature);
-	return g_vcd_ctrl_active_feature;
+
+	feature = g_vcd_ctrl_active_feature;
+
+	vcd_pr_end_control_function("active feature[0x%08x].\n", feature);
+
+	spin_unlock(&g_vcd_ctrl_lock);
+	return feature;
 }
 
 
@@ -218,6 +262,8 @@ unsigned int vcd_ctrl_func_get_active_feature(void)
  */
 void vcd_ctrl_func_set_active_feature(unsigned int feature)
 {
+	spin_lock(&g_vcd_ctrl_lock);
+
 	vcd_pr_start_control_function("feature[0x%08x].\n", feature);
 
 	vcd_pr_status_change("active feature[0x%08x] -> [0x%08x].\n",
@@ -226,6 +272,9 @@ void vcd_ctrl_func_set_active_feature(unsigned int feature)
 	g_vcd_ctrl_active_feature = g_vcd_ctrl_active_feature | feature;
 
 	vcd_pr_end_control_function();
+
+	spin_unlock(&g_vcd_ctrl_lock);
+
 	return;
 }
 
@@ -239,6 +288,8 @@ void vcd_ctrl_func_set_active_feature(unsigned int feature)
  */
 void vcd_ctrl_func_unset_active_feature(unsigned int feature)
 {
+	spin_lock(&g_vcd_ctrl_lock);
+
 	vcd_pr_start_control_function("feature[0x%08x].\n", feature);
 
 	vcd_pr_status_change("active feature[0x%08x] -> [0x%08x].\n",
@@ -247,5 +298,8 @@ void vcd_ctrl_func_unset_active_feature(unsigned int feature)
 	g_vcd_ctrl_active_feature = g_vcd_ctrl_active_feature & ~feature;
 
 	vcd_pr_end_control_function();
+
+	spin_unlock(&g_vcd_ctrl_lock);
+
 	return;
 }
