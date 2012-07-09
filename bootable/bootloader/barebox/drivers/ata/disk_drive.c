@@ -54,12 +54,51 @@ struct partition_entry {
 /** one for all */
 #define SECTOR_SIZE 512
 
+/* max lba of drive */
+#define DISK_LBA_MAX 0xFFFFFFFF
+
+/* BEGIN: CR722: Apply GPT */
+/**
+ * Description of GPT header
+ */
+struct gpt_header {
+	uint64_t signature;
+	uint32_t revision;
+	uint32_t header_size;
+	uint32_t header_crc32;
+	uint32_t reserved;
+	uint64_t my_lba;
+	uint64_t alternate_lba;
+	uint64_t first_usable_lba;
+	uint64_t last_usable_lba;
+	uint8_t  disk_guid[16];
+	uint64_t partition_entry_lba;
+	uint32_t number_of_partition_entries;
+	uint32_t size_of_partition_entry;
+	uint32_t partition_entry_array_crc32;
+	uint8_t  reserved2[SECTOR_SIZE - 92];
+} __attribute__ ((packed));
+
+
+/**
+ * Description of GPT partition entry array
+ */
+struct gpt_entry_array {
+	uint8_t  partition_type_guid[16];
+	uint8_t  unique_partition_guid[16];
+	uint64_t starting_lba;
+	uint64_t ending_lba;
+	uint64_t attributes;
+	uint8_t  partition_name[72];
+} __attribute__ ((packed));
+
 /**
  * Guess the size of the disk, based on the partition table entries
  * @param dev device to create partitions for
  * @param table partition table
  * @return size in sectors
  */
+ /* END: CR722: Apply GPT */
 #ifdef CONFIG_ATA_BIOS
 static unsigned long disk_guess_size(struct device_d *dev, struct partition_entry *table)
 {
@@ -86,6 +125,117 @@ static unsigned long disk_guess_size(struct device_d *dev, struct partition_entr
 }
 #endif
 
+/* BEGIN: CR722: Apply GPT */
+/**
+ * Check GPT entry information
+ * @param g_entry GPT entry information
+ * @return partition size
+ */
+static uint64_t disk_check_gpt_entry(struct device_d *dev, struct gpt_entry_array* g_entry)
+{
+	int i;
+	uint64_t partition_size;
+
+	/* check partition type GUID */
+	for (i = 0; i < 16; i++) {
+		if (g_entry->partition_type_guid[i] != 0x00) {
+			break;
+		}
+	}
+
+	if (16 <= i) {
+		dev_dbg(dev, "partition type guid is 0x00\n");
+		return 0;
+	}
+
+	/* check starting LBA */
+	if (DISK_LBA_MAX < g_entry->starting_lba) {
+		dev_warn(dev, "Warning: starting LBA is over\n");
+		return 0;
+	}
+
+	/* check partition size */
+    partition_size = (g_entry->ending_lba + 1) - g_entry->starting_lba;
+	if ((DISK_LBA_MAX * SECTOR_SIZE) < partition_size) {
+		dev_warn(dev, "Warning: partition size is over\n");
+		return 0;
+	}
+
+	return partition_size;
+}
+
+/**
+ * Guess the size of the disk, based on the partition table entries (partition type:GPT)
+ * @param dev device to create partitions for
+ * @return size in sectors
+ */
+#ifdef CONFIG_ATA_BIOS
+static uint64_t disk_guess_size_gpt(struct device_d *dev)
+{
+	uint64_t total_size = 0;
+	int i;
+	int rc;
+	int entry_num;
+	int sub_index;
+	uint8_t *sector = NULL;
+	uint8_t *sector2 = NULL;
+	uint64_t partition_size;
+	struct ata_interface *intf = dev->platform_data;
+	struct gpt_header *g_header;
+	struct gpt_entry_array *g_entry;
+
+	/* read GPT header */
+	sector = xmalloc(SECTOR_SIZE);
+	rc = intf->read(dev, 1, 1, sector);
+	if (rc != 0) {
+		dev_err(dev, "Failed to read GPT Header (%d)\n", rc);
+		total_size = DISK_LBA_MAX;
+		goto on_error;
+	}
+	g_header = (struct gpt_header*)&(sector[0]);
+    
+	/* get number of the entry information in 1LBA */
+	entry_num = SECTOR_SIZE / g_header->size_of_partition_entry;
+
+	/* get size of each partition */
+	for (i = 0; i < g_header->number_of_partition_entries; i++) {
+		/* read entry information */
+		sub_index = i % entry_num;
+		if (0 == sub_index) {
+			free(sector2);
+			sector2 = xmalloc(SECTOR_SIZE);
+			rc = intf->read(dev, (i / entry_num) + 2, 1, sector2);
+			if (rc != 0) {
+				dev_err(dev, "Failed to read GPT entry information (%d)\n", rc);
+				total_size = DISK_LBA_MAX;
+				goto on_error;
+			}
+			g_entry = (struct gpt_entry_array*)&(sector2[0]);
+		}
+
+		/* check entry information */
+		partition_size = disk_check_gpt_entry(dev, &g_entry[sub_index]);
+		if (0 == partition_size) {
+			continue;
+		}
+
+		/* update total size */
+		total_size += partition_size;
+	}
+
+	if (DISK_LBA_MAX < total_size) {
+		dev_warn(dev, "Warning: Size limited\n");
+		total_size = DISK_LBA_MAX;
+	}
+
+	on_error:
+	free(sector);
+	free(sector2);
+
+	return total_size;
+}
+#endif
+/* END: CR722: Apply GPT */
 
 /**
  * Register extended partitions found on the drive
@@ -135,6 +285,7 @@ static int disk_register_extended_partitions(struct device_d *dev, struct partit
 
 	return 0;
 }
+
 
 
 /**
@@ -220,6 +371,86 @@ static int disk_register_partitions(struct device_d *dev, struct partition_entry
 	return 0;
 }
 
+/* BEGIN: CR722: Apply GPT */
+
+/**
+ * Register partitions found on the drive (partition type:GPT)
+ * @param dev device to create partitions for
+ * @return 0 on success
+ */
+static int disk_register_partitions_gpt(struct device_d *dev)
+{
+	int i;
+	int rc;
+	int entry_num;
+	int sub_index;
+	uint8_t *sector = NULL;
+	uint8_t *sector2 = NULL;
+	uint64_t partition_size;
+	struct ata_interface *intf = dev->platform_data;
+	struct gpt_header *g_header;
+	struct gpt_entry_array *g_entry;
+	char drive_name[16];
+	char partition_name[19];
+
+	/* read GPT header */
+	sector = xmalloc(SECTOR_SIZE);
+	rc = intf->read(dev, 1, 1, sector);
+	if (rc != 0) {
+		dev_err(dev, "Failed to read GPT Header (%d)\n", rc);
+		goto on_error;
+	}
+	g_header = (struct gpt_header*)&(sector[0]);
+
+	/* get number of the entry information in 1LBA */
+	entry_num = SECTOR_SIZE / g_header->size_of_partition_entry;
+
+	/* create partition */
+	for (i = 0; i < g_header->number_of_partition_entries; i++)	{
+		sprintf(drive_name, "%s%d", dev->name, dev->id);
+		sprintf(partition_name, "%s%d.%d", dev->name, dev->id, i);
+
+		/* read entry information */
+		sub_index = i % entry_num;
+		if (sub_index == 0) {
+			free(sector2);
+			sector2 = xmalloc(SECTOR_SIZE);
+			rc = intf->read(dev, (i / entry_num) + 2, 1, sector2);
+			if (rc != 0) {
+				dev_err(dev, "Failed to read GPT entry information %s (%d)\n", partition_name, rc);
+				goto on_error;
+			}
+			g_entry = (struct gpt_entry_array*)&(sector2[0]);
+		}
+
+		/* check entry information */
+		partition_size = disk_check_gpt_entry(dev, &g_entry[sub_index]);
+		if (0 == partition_size) {
+			continue;
+		}
+
+		/* create partition */
+		dev_dbg(dev, "Registering partition %s to drive %s\n",
+			partition_name, drive_name);
+		dev_dbg(dev, "    starting_lba %lld\n", g_entry[sub_index].starting_lba);
+		dev_dbg(dev, "    ending_lba   %lld\n", g_entry[sub_index].ending_lba);
+
+		rc = devfs_add_partition(drive_name,
+			g_entry[sub_index].starting_lba * SECTOR_SIZE,
+			partition_size * SECTOR_SIZE,
+			DEVFS_PARTITION_FIXED, partition_name);
+		if (rc != 0) {
+			dev_err(dev, "Failed to register partition %s (%d)\n", partition_name, rc);
+		}
+	}
+
+	on_error:
+	free(sector);
+	free(sector2);
+
+	return 0;
+}
+/* END: CR722: Apply GPT */
 
 struct ata_block_device {
 	struct block_device blk;
@@ -259,6 +490,9 @@ static int disk_probe(struct device_d *dev)
 {
 	uint8_t *sector;
 	int rc;
+	/* BEGIN: CR722: Apply GPT */
+	int gpt_enable = 0;
+	/* END: CR722: Apply GPT */
 	struct ata_interface *intf = dev->platform_data;
 	struct ata_block_device *atablk = xzalloc(sizeof(*atablk));
 	sector = xmalloc(SECTOR_SIZE);
@@ -269,7 +503,18 @@ static int disk_probe(struct device_d *dev)
 		rc = -ENODEV;
 		goto on_error;
 	}
-
+	/* BEGIN: CR722: Apply GPT */
+	if(sector[450] == 0xee)
+	{
+		gpt_enable = 1;
+		printf("\nGPT dectect! \n ");
+	}
+	else{
+		gpt_enable = 0;
+		printf("\nMBR dectect! \n ");
+	}
+	/* END: CR722: Apply GPT */
+		
 	/*
 	 * BIOS based disks needs special handling. Not the driver can
 	 * enumerate the hardware, the BIOS did it already. To show the user
@@ -287,8 +532,13 @@ static int disk_probe(struct device_d *dev)
 	/* On x86, BIOS based disks are coming without a valid .size field */
 	if (dev->size == 0) {
 		/* guess the size of this drive if not otherwise given */
-		dev->size = disk_guess_size(dev,
-			(struct partition_entry*)&sector[446]) * SECTOR_SIZE;
+		if(gpt_enable){
+			dev->size = disk_guess_size_gpt(dev) * SECTOR_SIZE;
+		}
+		else{
+			dev->size = disk_guess_size(dev,
+				(struct partition_entry*)&sector[446]) * SECTOR_SIZE;
+		}
 		dev_info(dev, "Drive size guessed to %u kiB\n", dev->size / 1024);
 	}
 #endif
@@ -305,8 +555,12 @@ static int disk_probe(struct device_d *dev)
 		goto on_error;
 	}
 
-
-	rc = disk_register_partitions(dev, (struct partition_entry*)&sector[446]);
+	if(gpt_enable){
+		rc = disk_register_partitions_gpt(dev);
+	}
+	else{
+		rc = disk_register_partitions(dev, (struct partition_entry*)&sector[446]);
+	}
 
 on_error:
 	free(sector);
