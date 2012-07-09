@@ -3,14 +3,17 @@
  * Excised from init/main.c
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
-#include <linux/clk.h>
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/timex.h>
 #include <linux/smp.h>
-#include <linux/err.h>
 
+#ifdef EOS_PF_BOGO_MIPS_FIX_REQUIRED
+#include <linux/clk.h>
+#include <linux/err.h>
+unsigned long lpj_zclk;
+#endif
 unsigned long lpj_fine;
 unsigned long preset_lpj;
 static int __init lpj_setup(char *str)
@@ -30,7 +33,6 @@ __setup("lpj=", lpj_setup);
  */
 #define DELAY_CALIBRATION_TICKS			((HZ < 100) ? 1 : (HZ/100))
 #define MAX_DIRECT_CALIBRATION_RETRIES		5
-#define EOS_PF_BOGO_MIPS_FIX_REQUIRED		100
 
 static unsigned long __cpuinit calibrate_delay_direct(void)
 {
@@ -266,8 +268,7 @@ void __cpuinit calibrate_delay(void)
 	 * be used only to calculate BogoMIPS value
 	*/
 	struct clk *clk_z;
-	unsigned long lpj_zclk;
-	
+
 	clk_z = clk_get(NULL, "z_clk");
 
 	if (!IS_ERR(clk_z)) {

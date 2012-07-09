@@ -1035,10 +1035,17 @@ static int c_show(struct seq_file *m, void *v)
 		 * online processors, looking for lines beginning with
 		 * "processor".  Give glibc what it expects.
 		 */
+#ifdef EOS_PF_BOGO_MIPS_FIX_REQUIRED		
+		seq_printf(m, "processor\t: %d\n", i);
+		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n\n",
+			   (lpj_zclk / (500000UL/HZ)),
+			   (lpj_zclk / (5000UL/HZ)) % 100);
+#else		
 		seq_printf(m, "processor\t: %d\n", i);
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n\n",
 			   per_cpu(cpu_data, i).loops_per_jiffy / (500000UL/HZ),
 			   (per_cpu(cpu_data, i).loops_per_jiffy / (5000UL/HZ)) % 100);
+#endif			   
 	}
 #else /* CONFIG_SMP */
 	seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
