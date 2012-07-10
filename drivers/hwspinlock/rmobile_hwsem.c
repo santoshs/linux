@@ -106,27 +106,51 @@ static void hwsem_relax(struct hwspinlock *lock)
 }
 
 /*
- * General purpose semaphore 32-bit extension
+ * General purpose semaphore - Software semaphore extension
+ *
+ * In accordance with an original HPB bus semaphore, software semaphore
+ * extension consists of:
+ *
+ *  - 32-bit used per single software semaphore
+ *
+ *  - SMSRC[7:0] to indicate the SrcID of the CPU that acquired the semaphore;
+ *    its position is tentative and configurable by 'EXTxxSRC_SHIFT'
+ *
+ * Format of Software semaphore:
+ *
+ * EXTxxSRC_SHIFT = 24
+ * -------------------
+ *  31            24 23            16 15             8  7             0
+ * +----------------+----------------+----------------+----------------+
+ * |   SMSRC[7:0]   |                |                |                |
+ * +----------------+----------------+----------------+----------------+
+ *
+ * EXTxxSRC_SHIFT = 0
+ * -------------------
+ *  31            24 23            16 15             8  7             0
+ * +----------------+----------------+----------------+----------------+
+ * |                |                |                |   SMSRC[7:0]   |
+ * +----------------+----------------+----------------+----------------+
+ *
  */
+#define EXTxxSRC_SHIFT	24
+
 static int hwsem_ext_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long mask, value;
+	unsigned long extsrc;
 	int ret = 0;
 
 	if (!hwsem_trylock(lock))
 		return 0;
 
-	/* create mask from local ID */
-	mask = 1 << (lock - &lock->bank->lock[0]);
-
-	/* check to see if software semaphore bit is already set */
-	value = __raw_readl(p->ext_base);
-	if (value & mask)
+	/* check to see if a software semaphore is already acquired */
+	extsrc = __raw_readl(p->ext_base);
+	if (extsrc)
 		goto out;
 
-	value |= mask;
-	__raw_writel(value, p->ext_base);
+	extsrc = HWSEM_MASTER_ID << EXTxxSRC_SHIFT;
+	__raw_writel(extsrc, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 	ret = 1;
 
@@ -138,7 +162,7 @@ static int hwsem_ext_trylock(struct hwspinlock *lock)
 static void hwsem_ext_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long expire, mask, value;
+	unsigned long expire, extsrc;
 
 	/* try to lock hwspinlock with timeout limit */
 	expire = msecs_to_jiffies(100) + jiffies;
@@ -147,25 +171,37 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 			break;
 
 		if (time_is_before_eq_jiffies(expire))
-			dev_err(lock->bank->dev, "Timedout to lock hwspinlock\n");
+			dev_err(lock->bank->dev,
+				"Timedout to lock hwspinlock to unlock %d\n",
+				hwlock_to_id(lock));
 			return;
 
 		hwsem_relax(lock);
 	}
 
-	/* create mask from local ID */
-	mask = 1 << (lock - &lock->bank->lock[0]);
-
-	value = __raw_readl(p->ext_base);
-	if (unlikely((value & mask) == 0)) {
+	extsrc = __raw_readl(p->ext_base) >> EXTxxSRC_SHIFT;
+	if (unlikely(extsrc == 0)) {
 		dev_warn(lock->bank->dev,
-			 "Trying to unlock hwspinlock %d without lock\n",
+			 "Trying to unlock sw semaphore %d without lock\n",
 			 hwlock_to_id(lock));
 		goto out;
 	}
+	if (unlikely(extsrc != HWSEM_MASTER_ID)) {
+		dev_err(lock->bank->dev,
+			 "Trying to unlock sw semaphore %d not for ARM (%08lx)\n",
+			 hwlock_to_id(lock), extsrc);
+		dump_stack();
 
-	value &= ~mask;
-	__raw_writel(value, p->ext_base);
+		/*
+		 * It's a sign of bug, and should be fixed in the caller.
+		 *
+		 * Even if it's so, however, AP-System CPU is the master
+		 * processor in the system and this software semaphore is
+		 * supposed to be unlocked, anyway.
+		 */
+	}
+
+	__raw_writel(0, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 
  out:
@@ -214,7 +250,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	ops = &rmobile_hwspinlock_ops;
 	ext_base = NULL;
 
-	/* check to see if general purpose semaphore 32-bit extension is used */
+	/* check to see if general purpose with semaphore extension is used */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		ext_base = ioremap(res->start, resource_size(res));
@@ -244,7 +280,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
 		priv[i].sm_base = io_base + pdata->descs[i].offset;
-		priv[i].ext_base = ext_base;
+		priv[i].ext_base = ext_base + sizeof(u32) * i;
 		hwlock->priv = &priv[i];
 	}
 
