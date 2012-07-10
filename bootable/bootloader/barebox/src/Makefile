@@ -983,11 +983,22 @@ CLEAN_FILES +=	barebox System.map include/generated/barebox_default_env.h \
 		.tmp_kallsyms* barebox_default_env barebox.ldr Doxyfile.version
 
 # Directories & files removed with 'make mrproper'
+ifeq ($(KBUILD_OUTPUT),)
 MRPROPER_DIRS  += include/config include/asm include2 usr/include
 MRPROPER_FILES += .config .config.old .version .old_version \
                   include/generated/autoconf.h include/generated/version.h      \
                   include/generated/utsrelease.h include/config.h           \
+				  barebox.map \
 		  Module.symvers tags TAGS cscope*
+else
+MRPROPER_DIRS  += include/config include/asm include2 usr/include \
+					arch commands common drivers fs include lib net scripts
+MRPROPER_FILES += .config .config.old .version .old_version \
+                  include/generated/autoconf.h include/generated/version.h      \
+                  include/generated/utsrelease.h include/config.h           \
+                  barebox.map Makefile \
+		  Module.symvers tags TAGS cscope*
+endif
 
 # clean - Delete most, but leave enough to build external modules
 #

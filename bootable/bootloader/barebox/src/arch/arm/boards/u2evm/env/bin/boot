@@ -1,0 +1,20 @@
+#!/bin/sh
+
+. /env/config
+
+get_partition
+bootpart=$?
+
+if [ -n $bootpart ]; then
+	if [ $bootpart = 1 ]; then 
+		bootargs="${bootargs} androidboot.mode=normal_mode"
+	fi
+	if [ $bootpart = 12 ]; then 
+		bootargs="${bootargs} androidboot.mode=factory_mode1"
+	fi
+	if [ $bootpart = 13 ]; then 
+		bootargs="${bootargs} androidboot.mode=factory_mode2"
+	fi
+fi
+
+auto_boot

@@ -26,31 +26,57 @@
 
 #define STBCHRB2	(0xE6180042)
 
-static int do_get_disk(struct command *cmdtp, int argc, char *argv[])
+static int do_auto_boot(struct command *cmdtp, int argc, char *argv[])
 {
-	unsigned char ret;
-	ret = readb(STBCHRB2);
-	printf("STBCHRB2 value: 0x%x\n", ret);
-	ret = ret >> 6;
-	printf("drive name: disk%d\n", ret);
-		
-	return ret;
+	char drive[64];
+	
+#ifndef CONFIG_U2EVM_SECURITY
+	unsigned char disk, part, tmp;
+	char boot_cmd[32];
+	/* Read STBCHRB2 */
+	tmp = readb(STBCHRB2);
+	
+	/* Get disk info */
+	disk = tmp >> 6;
+	
+	/* Get part info */
+	part = tmp & ~(0xC0);
+	part = part - 1;	/* Modify for STBCHRB2 one-based partition */
+	
+	printf("Clear STBCHRB2\n");
+	run_command("set_stbchrb2 0x00",0);
+	
+	/* Run boot command */
+	sprintf(drive, "disk%d.%d", disk, part);
+	sprintf(boot_cmd, "booti dev/%s", drive);
+	printf("Boot from dev/%s\n", drive);
+	
+	run_command(boot_cmd, 0);
+#else
+	/* Add a partition on SDRAM for booting */
+	sprintf(drive, "addpart /dev/mem 20M@0x%x(boot)", CONFIG_U2EVM_SECURITY_IMG_ADDRS);
+	run_command(drive, 0);
+	
+	/* Run boot command */
+	printf("Boot from address 0x%x ...\n", CONFIG_U2EVM_SECURITY_IMG_ADDRS);
+	run_command("booti /dev/mem.boot", 0);
+#endif /* CONFIG_U2EVM_SECURITY */
+
+	return 0;
 }
 
-BAREBOX_CMD_START(get_disk)
-	.cmd		= do_get_disk,
-	.usage		= "Get disk drive to branch",
+BAREBOX_CMD_START(auto_boot)
+	.cmd		= do_auto_boot,
+	.usage		= "Do auto booting ...",
 BAREBOX_CMD_END
 
 static int do_get_partition(struct command *cmdtp, int argc, char *argv[])
 {
 	unsigned char ret;
 	ret = readb(STBCHRB2);
-	printf("STBCHRB2 value: 0x%x\n", ret);
 	ret = ret & ~(0xC0);
 	ret = ret - 1;	/* Modify for STBCHRB2 one-based partition */
-	printf("Partition name: %d\n", ret);
-	
+
 	return ret;
 }
 
@@ -65,13 +91,7 @@ static int do_set_stbchrb2(struct command *cmdtp, int argc, char *argv[])
 	unsigned char temp;
 	
 	temp = (char) simple_strtol(argv[1], NULL, 16);
-	printf("Input value: %d\n", temp);
-	ret = readb(STBCHRB2);
-	printf("Current value: 0x%x\n", ret);
 	writeb(temp, STBCHRB2);
-	ret = readb(STBCHRB2);
-	printf("New value: 0x%x\n", ret);
-	
 	
 	return 0;
 }

@@ -15,6 +15,6 @@
  # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  # MA  02110-1301, USA.
  
-obj-$(CONFIG_MACH_DO_LOWLEVEL_INIT) += kota_lowlevel_init.o
-obj-$(CONFIG_MACH_KOTAEVM) += board_kotaevm.o
+obj-$(CONFIG_MACH_DO_LOWLEVEL_INIT) += u2_lowlevel_init.o
+obj-$(CONFIG_MACH_U2EVM) += board_u2evm.o
  
