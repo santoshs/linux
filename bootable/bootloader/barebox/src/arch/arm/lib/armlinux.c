@@ -42,6 +42,7 @@
 #include <asm/barebox-arm.h>
 #include <asm/armlinux.h>
 #include <asm/system.h>
+#include <asm/io.h>
 
 static struct tag *params;
 static int armlinux_architecture = 0;
@@ -268,6 +269,9 @@ int do_booti_linux (struct boot_img_hdr *hdr)
 	printf ("\nStarting kernel ...\n\n");
 	shutdown_barebox();
 
+	/* Save Barebox process complete info */
+	writeb(0x02, 0xE6180003);
+	
 	kernel(0, armlinux_architecture, armlinux_bootparams);
 
 	return -1;

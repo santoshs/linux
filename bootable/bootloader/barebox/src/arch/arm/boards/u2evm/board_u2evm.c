@@ -33,8 +33,8 @@
 #define SD0CKCR			(CPG_BASE + 0x0074)
 
 /* Environment partition */
-#define ENV_PATTITON_ADDRESS (unsigned long long)(0x0000000000000200)
-#define ENV_PATTITON_SIZE (0x3FC00)	/* 255 Kbytes */
+#define ENV_PATTITON_ADDRESS (unsigned long long)(0x00000000002A4800)
+#define ENV_PATTITON_SIZE (0x40000)	/* 256 Kbytes */
 
 /*
 * Init scifa, mmc, sdcard

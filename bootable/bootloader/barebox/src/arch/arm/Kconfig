@@ -31,8 +31,8 @@ menu "System Type"
 choice
 	prompt "ARM system type"
 
-config ARCH_KOTAEVM
-	bool "Renesas R-Mobile KOTAEVM"
+config ARCH_U2EVM
+	bool "R-Mobile U2EVM"
 	select CPU_32v7
 	
 config ARCH_AT91
@@ -86,7 +86,7 @@ source arch/arm/mach-nomadik/Kconfig
 source arch/arm/mach-omap/Kconfig
 source arch/arm/mach-s3c24xx/Kconfig
 source arch/arm/mach-versatile/Kconfig
-source arch/arm/mach-kotaevm/Kconfig
+source arch/arm/mach-u2evm/Kconfig
 
 config ARM_ASM_UNIFIED
 	bool

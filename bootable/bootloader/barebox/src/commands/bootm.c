@@ -586,6 +586,7 @@ static int do_booti(struct command *cmdtp, int argc, char *argv[])
 		goto err_out;
 	}
 	/* kernel */
+	printf("Extract kernel...\n");
 	if(read_padding(fd, hdr->page_size, sizeof(struct boot_img_hdr))) goto err_out;
 	if (read(fd, (void*) hdr->kernel_addr, hdr->kernel_size) < 0) {
 		printf("booti: failed to read kernel: %s\n", errno_str());
@@ -593,6 +594,7 @@ static int do_booti(struct command *cmdtp, int argc, char *argv[])
 	}
 	
 	/* ramdisk */
+	printf("Extract ramdisk...\n");
 	if(read_padding(fd, hdr->page_size, hdr->kernel_size)) goto err_out;
 	if (read(fd, (void*) hdr->ramdisk_addr, hdr->ramdisk_size) < 0) {
 		printf("booti: failed to read ramdisk: %s\n", errno_str());
