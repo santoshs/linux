@@ -981,8 +981,8 @@ static struct resource r8a73734_hwsem1_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.start  = 0x47fbfc00,	/* software bit extension */
-		.end    = 0x47fbfc03,
+		.start  = 0xe63c0000,	/* software bit extension */
+		.end    = 0xe63c007f,
 		.flags  = IORESOURCE_MEM,
 	},
 };

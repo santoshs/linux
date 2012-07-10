@@ -131,6 +131,9 @@ int __hwspin_trylock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 		return -EBUSY;
 	}
 
+	if (mode == HWLOCK_NOSPIN)
+		spin_unlock(&hwlock->lock);
+
 	/*
 	 * We can be sure the other core's memory operations
 	 * are observable to us only _after_ we successfully take
@@ -228,6 +231,8 @@ EXPORT_SYMBOL_GPL(__hwspin_lock_timeout);
  */
 void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
+	int ret;
+
 	BUG_ON(!hwlock);
 	BUG_ON(!flags && mode == HWLOCK_IRQSTATE);
 
@@ -245,6 +250,11 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 	 */
 	mb();
 
+	if (mode == HWLOCK_NOSPIN) {
+		ret = spin_trylock(&hwlock->lock);
+		BUG_ON(!ret);
+	}
+
 	hwlock->bank->ops->unlock(hwlock);
 
 	/* Undo the spin_trylock{_irq, _irqsave} called while locking */
@@ -256,6 +266,26 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 		spin_unlock(&hwlock->lock);
 }
 EXPORT_SYMBOL_GPL(__hwspin_unlock);
+
+u32 __hwspin_get_hwlock_id(struct hwspinlock *hwlock, int mode, unsigned long *flags)
+{
+	int ret;
+	unsigned int id;
+	
+	if (mode == HWLOCK_NOSPIN) {
+		ret = spin_trylock(&hwlock->lock);
+		BUG_ON(!ret);
+	}
+	
+	id = hwlock->bank->ops->get_lock_id(hwlock);
+	
+	if (mode == HWLOCK_NOSPIN) {
+		spin_unlock(&hwlock->lock);
+	}
+	
+	return id;
+}
+EXPORT_SYMBOL_GPL(__hwspin_get_hwlock_id);
 
 static int hwspin_lock_register_single(struct hwspinlock *hwlock, int id)
 {
@@ -374,6 +404,7 @@ int hwspin_lock_unregister(struct hwspinlock_device *bank)
 {
 	struct hwspinlock *hwlock, *tmp;
 	int i;
+
 	for (i = 0; i < bank->num_locks; i++) {
 		hwlock = &bank->lock[i];
 

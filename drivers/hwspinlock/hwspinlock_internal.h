@@ -37,6 +37,7 @@ struct hwspinlock_ops {
 	int (*trylock)(struct hwspinlock *lock);
 	void (*unlock)(struct hwspinlock *lock);
 	void (*relax)(struct hwspinlock *lock);
+	u32  (*get_lock_id)(struct hwspinlock *lock);
 };
 
 /**
