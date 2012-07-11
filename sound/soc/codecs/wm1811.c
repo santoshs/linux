@@ -78,6 +78,8 @@
 #define WM1811_GPIO_BASE	IO_ADDRESS(0xE6050000)
 #define WM1811_GPIO_024		(WM1811_GPIO_BASE + 0x0018)/* EAR_SEND_END */
 #define WM1811_GPIO_034		(WM1811_GPIO_BASE + 0x0022)/* CODEC_LDO_EN */
+#define WM1811_GPIO_063_032DSR	(WM1811_GPIO_BASE + 0x4104)/* PORTL063_032DSR*/
+
 
 #define WM1811_CONFIG_INIT		"/etc/audio_lsi_driver/"
 #define WM1811_EXTENSION		".conf"
@@ -177,6 +179,8 @@ struct wm1811_priv {
 	struct proc_dir_entry *path_entry;  /**< config path entry. */
 	struct proc_dir_entry *proc_parent; /**< proc parent. */
 	struct snd_soc_codec *codec;
+	/* pcm */
+	u_int pcm_mode;                     /**< pcm mode. */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -204,7 +208,6 @@ static int wm1811_conv_device_info(const u_long device,
 
 static int wm1811_check_device(const u_long device);
 
-static int wm1811_set_device_active(const struct wm1811_info new_device);
 static int wm1811_set_speaker_device(const u_int cur_dev,
 				const u_int new_dev);
 static int wm1811_set_earpiece_device(const u_int cur_dev,
@@ -351,6 +354,7 @@ static int wm1811_enable_vclk4(void)
 	struct clk *main_clk = NULL;
 	struct clk *vclk4_clk = NULL;
 	wm1811_log_efunc("");
+
 	ret = gpio_request(GPIO_FN_VIO_CKO4, NULL);
 
 	if (0 != ret) {
@@ -397,8 +401,10 @@ static int wm1811_enable_vclk4(void)
 	}
 
 	clk_put(vclk4_clk);
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
+
 err_gpio_request:
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
@@ -435,7 +441,6 @@ static int wm1811_setup(struct i2c_client *client,
 
 	if (0 != ret)
 		goto err_wm1811_hooksw_dev_register;
-
 
 	/***********************************/
 	/* setup r8a73734                  */
@@ -479,6 +484,9 @@ static int wm1811_setup(struct i2c_client *client,
 	if (0 != ret)
 		goto err_setup_wm1811;
 
+	/* set default pcm mode */
+	dev->pcm_mode = SNDP_MODE_INIT;
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -507,7 +515,6 @@ err_setup_proc:
 static int wm1811_setup_r8a73734(void)
 {
 	int ret = 0;
-	int reg = 0;
 	wm1811_log_efunc("");
 	ret = wm1811_enable_vclk4();
 
@@ -516,8 +523,7 @@ static int wm1811_setup_r8a73734(void)
 
 	iowrite8(0xe0, WM1811_GPIO_024);
 	iowrite8(0xd0, WM1811_GPIO_034);	/* 0xe0(IE) -> 0xd0(OE) */
-	reg = ioread32(0xE6054004);
-	iowrite32((reg | 0x04), 0xE6054004);	/* modify GPIO034: Hi */
+	iowrite32(0x04, WM1811_GPIO_063_032DSR);/* modify GPIO034: Hi */
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -554,6 +560,7 @@ static int wm1811_switch_dev_register(struct wm1811_priv *dev)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
+
 	dev->switch_data.sdev.name = "h2w";
 	dev->switch_data.sdev.state = 0;
 	dev->switch_data.state = 0;
@@ -578,6 +585,7 @@ static int wm1811_hooksw_dev_register(struct i2c_client *client,
 {
 	int ret = 0;
 	wm1811_log_efunc("");
+
 	dev->input_dev = input_allocate_device();
 	dev->input_dev->name = "wm1811";
 	dev->input_dev->id.bustype = BUS_I2C;
@@ -586,10 +594,12 @@ static int wm1811_hooksw_dev_register(struct i2c_client *client,
 	__set_bit(EV_KEY, dev->input_dev->evbit);
 	__set_bit(KEY_MEDIA, dev->input_dev->keybit);
 	ret = input_register_device(dev->input_dev);
+
 	if (0 != ret) {
 		input_free_device(dev->input_dev);
 		wm1811_log_err("ret[%d]", ret);
 	}
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -867,32 +877,6 @@ static int wm1811_check_device(const u_long device)
 }
 
 /*!
-  @brief active the device.
-
-  @param[i] new_device  device information.
-
-  @return function results.
-*/
-static int wm1811_set_device_active(const struct wm1811_info new_device)
-{
-	int ret = 0;
-	u_int val = 0;
-	wm1811_log_efunc("new_device.raw_device[%ld]",
-			new_device.raw_device);
-
-#if 0
-	if (0 != new_device.raw_device)
-		/* device enabled */
-	else
-		/* device disabled */
-#endif
-	/* wm1811_log_info("not supported yet."); */
-
-	wm1811_log_rfunc("ret[%d] val[0x%02X]", ret, val);
-	return ret;
-}
-
-/*!
   @brief change state of speaker device.
 
   @param[i] cur_dev  cureent device state.
@@ -908,7 +892,6 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 	u_short vol = 0;
 	u_short vol_p = 0;
 	u_short pm = 0;
-
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1195,7 +1178,7 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 		ret = wm1811_read(0x0001, &pm);
 		if (WM1811_ENABLE == new_dev) {
 			/* mic on */
-			mute_vol = 0x11F;
+			mute_vol = 0x112;
 			if (WM1811_BIAS_VMID_ENABLE & pm)
 				pm |= WM1811_MIC_ENABLE;
 			else {
@@ -1219,6 +1202,7 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 	} else {
 		/* nothing to do. */
 	}
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -1243,7 +1227,7 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 		ret = wm1811_read(0x0001, &pm);
 		if (WM1811_ENABLE == new_dev) {
 			/* headset mic on */
-			mute_vol = 0x11F;
+			mute_vol = 0x112;
 			if (WM1811_BIAS_VMID_ENABLE & pm)
 				pm |= WM1811_HEADSET_MIC_ENABLE;
 			else {
@@ -1728,6 +1712,7 @@ static int wm1811_read_config(char *pcm_name, char *pcm_path)
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
+
 err:
 	kfree(device);
 
@@ -1744,6 +1729,11 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 	char pcm_buf[SNDP_PCM_NAME_MAX_LEN] = {'\0'};
 	struct wm1811_info new_device = wm1811_conf->info;
 	static int audio_on = WM1811_DISABLE;
+	u_int pcm_mode = 0;
+	u_int aif1_rate = 0;
+	u_int fll1_control2 = 0;
+	u_int fll1_control4 = 0;
+	u_int fll1_control5 = 0;
 	wm1811_log_efunc("device[%ld]", device);
 
 	ret = wm1811_check_device(device);
@@ -1772,7 +1762,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		/***********************************/
 		ret = wm1811_write(0x0000, 0x0000);
 
-#if 1
 		/*****************************************************/
 		/* General Purpose Input/Output (GPIO) Configuration */
 		/*****************************************************/
@@ -1787,82 +1776,66 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		ret = wm1811_write(0x0738, 0x07DE);
 		ret = wm1811_write(0x0739, 0xDBED);
 		ret = wm1811_write(0x0740, 0x0000);
-#else
-		/*****************************************************/
-		/* General Purpose Input/Output (GPIO) Configuration */
-		/*****************************************************/
-		/* GPIO 1 - Set to GPIO (LRCLK1 used instead of ADCLRCLK1) */
-		ret = wm1811_write(0x0700, 0x8101);
-#endif
+	}
 
+	/* get pcm mode type */
+	pcm_mode = SNDP_GET_MODE_VAL(pcm_value);
+
+	if (wm1811_conf->pcm_mode != pcm_mode) {
+		wm1811_conf->pcm_mode = pcm_mode;
 		/***********************************/
-		/* Analogue Configuration          */
+		/* Disable Clocking/FLL1/AIF1      */
 		/***********************************/
-		/* MICBIAS1 1.8V */
-		ret = wm1811_write(0x003D, 0x0033);
+		/* AIF1CLK Disable */
+		ret = wm1811_write(0x0200, 0x0010);
 
-		/* MICBIAS2 2.6V */
-		ret = wm1811_write(0x003E, 0x003F);
+		/* FLL1 Disable */
+		ret = wm1811_write(0x0220, 0x0000);
 
-#if 1
-		ret = wm1811_write(0x0039, 0x01E4);
-#else
-		/* Enable VMID soft start (fast), */
-		/* Start-up Bias Current Enabled */
-		ret = wm1811_write(0x0039, 0x01E4);
-#endif
+		/* AIF1 Disable */
+		ret = wm1811_write(0x0208, 0x0000);
 
-		/* Enable bias generator, Enable VMID */
-		ret = wm1811_write(0x0001, 0x0003);
+		if (SNDP_MODE_INCALL == pcm_mode) {
+			/* SNDP_MODE_INCALL */
+			/* AIF1 Sample Rate = 16.0 kHz, */
+			/* AIF1CLK/Fs ratio = 256 (Default Register Value) */
+			aif1_rate = 0x0033;
 
-		/* INSERT_DELAY_MS [50] */
-		mdelay(50);
+			/* FLL1: (LR / REF_DIV[1]) * (N[48] + */
+			/* THETA[0]/LAMBDA) */
+			/* * FRATIO[1] / OUTDIV[24] */
+			/* OUTDIV=23(/24), FRATIO=0(x1) */
+			fll1_control2 = 0x1700;
 
-		/***********************************/
-		/* Analogue Input Configuration    */
-		/***********************************/
-		/* Enable IN1L Input PGA, Enable IN2R Input PGA, */
-		/* Enable Left Input Mixer (MIXINL), */
-		/* Enable Right Input Mixer (MIXINR) */
-		ret = wm1811_write(0x0002, 0x6370);
+			/* N=48 */
+			fll1_control4 = 0x0600;
 
-		/* Connect IN1LN to IN1L PGA, Connect IN1LP to IN1L PGA */
-		/* Connect IN2RN to IN2R PGA, Connect IN2RP to IN2R PGA */
-		ret = wm1811_write(0x0028, 0x003D);
+			/* BYP=0, non-free, REF_DIV=0(/1), SRC=3(BCLK1) */
+			fll1_control5 = 0x0003;
+		} else {
+			/* SNDP_MODE_NORMAL/SNDP_MODE_RING/SNDP_MODE_INCOMM */
+			/* AIF1 Sample Rate = 44.1 kHz, */
+			/* AIF1CLK/Fs ratio = 256 (Default Register Value) */
+			aif1_rate = 0x0073;
 
-		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
-		ret = wm1811_write(0x0029, 0x002F);
+			/* FLL1: (LR / REF_DIV[1]) * (N[128] + */
+			/* THETA[0]/LAMBDA) */
+			/* * FRATIO[16] / OUTDIV[8] */
+			/* OUTDIV=7(/8), FRATIO=100(x16) */
+			fll1_control2 = 0x0704;
 
-		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
-		ret = wm1811_write(0x002A, 0x012F);
+			/* N=128 */
+			fll1_control4 = 0x1000;
 
-		/***********************************/
-		/* Path Configuration              */
-		/***********************************/
-		/* Enable DAC1 (Left), Enable DAC1 (Right), */
-		ret = wm1811_write(0x0005, 0x0303);
-
-		/* Enable ADC (Left), Enable ADC (Right) */
-		ret = wm1811_write(0x0004, 0x0303);
-
-		/* Enable the AIF1 (Left) to DAC 1 (Left) mixer path */
-		ret = wm1811_write(0x0601, 0x0001);
-
-		/* Enable the AIF1 (Right) to DAC 1 (Right) mixer path */
-		ret = wm1811_write(0x0602, 0x0001);
-
-		/* Enable ADC (Left) to AIF1 Timeslot 0 ADC (Left) Path */
-		ret = wm1811_write(0x0606, 0x0002);
-
-		/* Enable ADC (Right) to AIF1 Timeslot 0 ADC (Right) Path */
-		ret = wm1811_write(0x0607, 0x0002);
+			/* BYP=0, non-free, REF_DIV=0(/1), SRC=2(LRCLK) */
+			fll1_control5 = 0x0002;
+		}
 
 		/***********************************/
 		/* Clocking                        */
 		/***********************************/
-		/* AIF1 Sample Rate = 44.1 kHz, */
-		/* AIF1CLK/Fs ratio = 256 (Default Register Value) */
-		ret = wm1811_write(0x0210, 0x0073);
+		/* AIF1 Sample Rate, AIF1CLK/Fs */
+		ret = wm1811_write(0x0210, aif1_rate);
 
 		/* AIF2 Sample Rate = 48.0 kHz, */
 		/* AIF2CLK/Fs ratio = 256 (Default Register Value) */
@@ -1881,19 +1854,17 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		/***********************************/
 		/* FFL1                            */
 		/***********************************/
-		/* FLL1: (LR / REF_DIV[1]) * (N[128] + THETA[0]/LAMBDA) */
-		/* * FRATIO[16] / OUTDIV[8] */
-		/* OUTDIV=7(/8), FRATIO=100(x16) */
-		ret = wm1811_write(0x0221, 0x0704);
+		/* FLL1: (LR / REF_DIV[1]) * (N + THETA[0]/LAMBDA) */
+		ret = wm1811_write(0x0221, fll1_control2);
 
 		/* THETA=0 */
 		ret = wm1811_write(0x0222, 0x0000);
 
-		/* N=128 */
-		ret = wm1811_write(0x0223, 0x1000);
+		/* N */
+		ret = wm1811_write(0x0223, fll1_control4);
 
-		/* BYP=0, non-free, REF_DIV=0(/1), SRC=2(LRCLK) */
-		ret = wm1811_write(0x0224, 0x0002);
+		/* BYP=0, non-free, REF_DIV=0(/1), SRC */
+		ret = wm1811_write(0x0224, fll1_control5);
 
 		/* FLL_ENA=1, FLL_OSC_ENA=0 */
 		ret = wm1811_write(0x0220, 0x0001);
@@ -1936,10 +1907,70 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 
 		/* AIF2CLK_SRC=3(FLL2), INV=0, DIV=/1, AIF2CLK=enable */
 		ret = wm1811_write(0x0204, 0x0019);
+	}
+
+	if (WM1811_DISABLE == audio_on) {
+		/***********************************/
+		/* Analogue Configuration          */
+		/***********************************/
+		/* MICBIAS1 1.8V */
+		ret = wm1811_write(0x003D, 0x0033);
+
+		/* MICBIAS2 2.6V */
+		ret = wm1811_write(0x003E, 0x003F);
+
+		/* Enable VMID soft start (fast), */
+		/* Start-up Bias Current Enabled */
+		ret = wm1811_write(0x0039, 0x01E4);
+
+		/* Enable bias generator, Enable VMID */
+		ret = wm1811_write(0x0001, 0x0003);
+
+		/* INSERT_DELAY_MS [50] */
+		mdelay(50);
+
+		/***********************************/
+		/* Analogue Input Configuration    */
+		/***********************************/
+		/* Enable IN1L Input PGA, Enable IN2R Input PGA, */
+		/* Enable Left Input Mixer (MIXINL), */
+		/* Enable Right Input Mixer (MIXINR) */
+		ret = wm1811_write(0x0002, 0x6370);
+
+		/* Connect IN1LN to IN1L PGA, Connect IN1LP to IN1L PGA */
+		/* Connect IN2RN to IN2R PGA, Connect IN2RP to IN2R PGA */
+		ret = wm1811_write(0x0028, 0x003D);
+
+		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
+		ret = wm1811_write(0x0029, 0x003F);
+
+		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
+		ret = wm1811_write(0x002A, 0x01BF);
+
+		/***********************************/
+		/* Path Configuration              */
+		/***********************************/
+		/* Enable DAC1 (Left), Enable DAC1 (Right), */
+		ret = wm1811_write(0x0005, 0x0303);
+
+		/* Enable ADC (Left), Enable ADC (Right) */
+		ret = wm1811_write(0x0004, 0x0303);
+
+		/* Enable the AIF1 (Left) to DAC 1 (Left) mixer path */
+		ret = wm1811_write(0x0601, 0x0001);
+
+		/* Enable the AIF1 (Right) to DAC 1 (Right) mixer path */
+		ret = wm1811_write(0x0602, 0x0001);
+
+		/* Enable ADC (Left) to AIF1 Timeslot 0 ADC (Left) Path */
+		ret = wm1811_write(0x0606, 0x0002);
+
+		/* Enable ADC (Right) to AIF1 Timeslot 0 ADC (Right) Path */
+		ret = wm1811_write(0x0607, 0x0002);
+
 		/***********************************/
 		/* Path Set Enable                 */
 		/***********************************/
-
 		/* Enable bias generator, Enable VMID, */
 		/* Enable HPOUT1 (Left) and Enable HPOUT1 (Right) */
 		/* input stages */
@@ -1980,8 +2011,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 	if (0 != ret)
 		goto err_set_device;
 
-
-
 	if (WM1811_DISABLE == audio_on) {
 		/***********************************/
 		/* Unmutes                         */
@@ -1999,10 +2028,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 
 	}
 
-	ret = wm1811_set_device_active(new_device);
-		if (0 != ret)
-			goto err_set_device;
-
 	if (pcm_value != WM1811_DISABLE_CONFIG &&
 		pcm_value != WM1811_DISABLE_CONFIG_SUB) {
 		memset(pcm_buf, '\0', sizeof(pcm_buf));
@@ -2014,6 +2039,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 	wm1811_conf->info = new_device;
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
+
 err_set_device:
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
@@ -2196,8 +2222,8 @@ int wm1811_dump_registers(void)
 			if (0 > ret)
 				goto err_i2c_read;
 
-			wm1811_log_debug("ret[%d] addr[0x%02X] val[0x%02X]",
-					ret, i, val);
+			wm1811_log_debug("ret[%d]R%d addr[0x%02X] val[0x%02X]",
+					ret, i, i, val);
 		}
 	}
 
@@ -2417,7 +2443,7 @@ static struct snd_soc_dai_driver wm1811_dai_driver[] = {
 			.formats = SNDRV_PCM_FMTBIT_S16_LE },
 		.capture = {
 			.stream_name = "Capture",
-			.channels_min = 2,
+			.channels_min = 1,
 			.channels_max = 2,
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE },
@@ -2461,7 +2487,6 @@ static int wm1811_i2c_probe(struct i2c_client *client,
 {
 	int ret = 0;
 	struct wm1811_priv *dev = NULL;
-
 	wm1811_log_efunc("client[0x%p] id->driver_data[%ld]",
 			client, id->driver_data);
 
