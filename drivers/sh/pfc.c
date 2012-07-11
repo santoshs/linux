@@ -19,6 +19,7 @@
 #include <linux/irq.h>
 #include <linux/bitops.h>
 #include <linux/gpio.h>
+#include <linux/hwspinlock.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>
 
@@ -510,6 +511,9 @@ static int pinmux_config_gpio(struct pinmux_info *gpioc, unsigned gpio,
 }
 
 static DEFINE_SPINLOCK(gpio_lock);
+static struct hwspinlock *gpio_hwlock;
+
+#define HWLOCK_TIMEOUT	1000 /* in msecs */
 
 static struct pinmux_info *chip_to_pinmux(struct gpio_chip *chip)
 {
@@ -520,7 +524,7 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
 	struct pinmux_data_reg *dummy;
-	unsigned long flags;
+	unsigned long flags = 0;
 	int i, ret, pinmux_type;
 
 	ret = -EINVAL;
@@ -528,7 +532,10 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 	if (!gpioc)
 		goto err_out;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT, &flags);
+	else
+		spin_lock_irqsave(&gpio_lock, flags);
 
 	if ((gpioc->gpios[offset].flags & PINMUX_FLAG_TYPE) != PINMUX_TYPE_NONE)
 		goto err_unlock;
@@ -557,7 +564,10 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 	ret = 0;
  err_unlock:
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&gpio_lock, flags);
  err_out:
 	return ret;
 }
@@ -570,6 +580,11 @@ static void sh_gpio_free(struct gpio_chip *chip, unsigned offset)
 
 	if (!gpioc)
 		return;
+
+	/*
+	 * pinmux_config_gpio(GPIO_CFG_FREE) doesn't touch the hardware,
+	 * so we don't need hwspinlock locked.  Just use gpio_lock.
+	 */
 
 	spin_lock_irqsave(&gpio_lock, flags);
 
@@ -626,12 +641,20 @@ static int pinmux_direction(struct pinmux_info *gpioc,
 static int sh_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
-	unsigned long flags;
+	unsigned long flags = 0;
 	int ret;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT, &flags);
+	else
+		spin_lock_irqsave(&gpio_lock, flags);
+
 	ret = pinmux_direction(gpioc, offset, PINMUX_TYPE_INPUT);
-	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&gpio_lock, flags);
 
 	return ret;
 }
@@ -652,13 +675,22 @@ static int sh_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 				    int value)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
-	unsigned long flags;
+	unsigned long flags = 0;
 	int ret;
 
 	sh_gpio_set_value(gpioc, offset, value);
-	spin_lock_irqsave(&gpio_lock, flags);
+
+	if (gpio_hwlock)
+		hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT, &flags);
+	else
+		spin_lock_irqsave(&gpio_lock, flags);
+
 	ret = pinmux_direction(gpioc, offset, PINMUX_TYPE_OUTPUT);
-	spin_unlock_irqrestore(&gpio_lock, flags);
+
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&gpio_lock, flags);
 
 	return ret;
 }
@@ -768,4 +800,12 @@ int unregister_pinmux(struct pinmux_info *pip)
 	pr_info("%s deregistering\n", pip->name);
 	pfc_iounmap(pip);
 	return gpiochip_remove(&pip->chip);
+}
+
+void pinmux_hwspinlock_init(struct hwspinlock *hwlock)
+{
+	gpio_hwlock = hwlock;
+
+	pr_info("Registered hwspinlock id %d as gpio_hwlock\n",
+		hwspin_lock_get_id(hwlock));
 }
