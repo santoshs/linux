@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/system_standby.h
  *     This file is RT-domain standby function.
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2011-2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2

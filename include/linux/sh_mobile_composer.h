@@ -192,6 +192,8 @@ struct cmp_layaddr {
 	_IO(IOC_SH_MOBILE_COMP_MAGIC, 0x1b)
 #define CMP_IOC_WAITDRAW \
 	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1c, int)
+#define CMP_IOCS_FBADDR \
+	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1d, unsigned long [2])
 
 
 /*******************/

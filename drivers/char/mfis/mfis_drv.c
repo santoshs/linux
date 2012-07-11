@@ -1,20 +1,21 @@
 /*
- * This file is MFIS driver function.
+ * mfis_drv.c
+ *	 This file is MFIS driver function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License
+ * it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include <linux/kernel.h>
@@ -36,15 +37,15 @@
 #include <mach/pm.h>
 #endif
 
-static struct clk *mfi_clk_data;
+static struct clk *mfis_clk_data;
 static struct clk *clk_data;
 static struct semaphore a3r_power_sem;
 
 #if EARLYSUSPEND_STANDBY
 #include <linux/earlysuspend.h>
 #include <mach/irqs.h>
-#define	GIC_MFI			(126)
-#define	IRQ_MFI			(gic_spi(GIC_MFI))
+#define	GIC_MFIS			(126)
+#define	IRQ_MFIS			(gic_spi(GIC_MFIS))
 #define	REG_SYSC_PSTR		((unsigned long)0xE6180080)
 #define	REG_CPGA_MSTPSR0	((unsigned long)0xE6150030)
 #define	POWER_A3R		((unsigned long)0x00002000)
@@ -80,25 +81,23 @@ static unsigned long			standby_work_stop_flag;
 static void mfis_standby_work_entry(int reset_flag)
 {
 #if CYCLE_STANDBY
-	if( reset_flag )
-	{
+	if (reset_flag) {
 		standby_work_stop_flag = 0;
 	}
 
-	if( !standby_work_stop_flag )
-	{
+	if (!standby_work_stop_flag) {
 		if (down_interruptible(&mfis_sem)) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 			return;
 		}
-		
+
 		standby_work_on = 1;
-		
+
 		queue_delayed_work(
 			mfis_wq,
 			&standby_work,
 			msecs_to_jiffies(STANDBY_RETRY_INTERVAL));
-		
+
 		up(&mfis_sem);
 	}
 #endif /* CYCLE_STANDBY */
@@ -109,19 +108,18 @@ static void mfis_standby_work_entry(int reset_flag)
 static void mfis_standby_work_cancel(void)
 {
 #if CYCLE_STANDBY
-	
+
 	standby_work_stop_flag = 1;
-	
-	if (standby_work_on)
-	{
+
+	if (standby_work_on) {
 		if (down_interruptible(&mfis_sem)) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 			return;
 		}
-		
+
 		cancel_delayed_work_sync(&standby_work);
 		standby_work_on = 0;
-		
+
 		up(&mfis_sem);
 	}
 #endif /* CYCLE_STANDBY */
@@ -135,17 +133,14 @@ static void mfis_standby_work(struct work_struct *work)
 	int ret;
 
 	standby_work_on = 0;
-	
+
 	ret = mfis_drv_suspend();
-	if (ret != 0)
-	{
+	if (ret != 0) {
 		mfis_standby_work_entry(0);
-	}
-	else
-	{
+	} else {
 		eco_mode_flag = 1;
 	}
-	
+
 	return;
 }
 #endif /* CYCLE_STANDBY */
@@ -162,16 +157,15 @@ static int mfis_suspend_noirq(struct device *dev)
 #endif
 
 #if EARLYSUSPEND_STANDBY
-	if( !early_suspend_phase_flag )
-	{
+	if (!early_suspend_phase_flag) {
 		mfis_standby_work_cancel();
 
 		eco_mode_flag = 0;
 	}
 #endif /* EARLYSUSPEND_STANDBY */
 
-	if(down_interruptible(&a3r_power_sem)) {
-		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n",__func__);
+	if (down_interruptible(&a3r_power_sem)) {
+		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
 		return -1;
 	}
 
@@ -179,12 +173,11 @@ static int mfis_suspend_noirq(struct device *dev)
 	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
 		dev_name = domain_name;
 		ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
-		if (((early_suspend_phase_flag)&&(1==atomic_read(&dev_img->power.usage_count))) || (!early_suspend_phase_flag)) {
+		if (((early_suspend_phase_flag) && (1 == atomic_read(&dev_img->power.usage_count))) || (!early_suspend_phase_flag)) {
 #endif /* EARLYSUSPEND_STANDBY */
 			ret = system_rt_standby();
 			if (ret == SMAP_LIB_STANDBY_OK) {
-			}
-			else {
+			} else {
 				up(&a3r_power_sem);
 				return -1;
 			}
@@ -192,15 +185,13 @@ static int mfis_suspend_noirq(struct device *dev)
 			dev_name = domain_name;
 			ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
 			if (!ret) {
-				ret = 	pm_runtime_put_sync(dev_img);
+				ret = pm_runtime_put_sync(dev_img);
 				if (!ret) {
-				}
-				else {
+				} else {
 					up(&a3r_power_sem);
 					return -1;
 				}
-			}
-			else {
+			} else {
 				up(&a3r_power_sem);
 				return -1;
 			}
@@ -208,12 +199,11 @@ static int mfis_suspend_noirq(struct device *dev)
 
 			ret = pm_runtime_put_sync(dev);
 			if (!ret) {
-			}
-			else {
+			} else {
 				up(&a3r_power_sem);
 				return -1;
 			}
-			clk_disable(mfi_clk_data);
+			clk_disable(mfis_clk_data);
 			clk_disable(clk_data);
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 		}
@@ -237,13 +227,13 @@ static int mfis_resume_noirq(struct device *dev)
 	size_t dev_cnt;
 #endif
 
-	if(down_interruptible(&a3r_power_sem)) {
-		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n",__func__);
+	if (down_interruptible(&a3r_power_sem)) {
+		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
 		return -1;
 	}
 
 #if EARLYSUSPEND_STANDBY
-	if ( CLOCK_TLB_IC_OC == ( inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC ) ) {
+	if (CLOCK_TLB_IC_OC == (inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 #endif /* EARLYSUSPEND_STANDBY */
 		clk_enable(clk_data);
 
@@ -252,10 +242,10 @@ static int mfis_resume_noirq(struct device *dev)
 			up(&a3r_power_sem);
 			return -1;
 		}
-		clk_enable(mfi_clk_data);
-	
+		clk_enable(mfis_clk_data);
+
 #if RTPM_PF_CUSTOM
-		dev_name = domain_name;	
+		dev_name = domain_name;
 		ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
 		if (!ret) {
 			ret = pm_runtime_get_sync(dev_img);
@@ -263,8 +253,7 @@ static int mfis_resume_noirq(struct device *dev)
 				up(&a3r_power_sem);
 				return -1;
 			}
-		}
-		else {
+		} else {
 			up(&a3r_power_sem);
 			return -1;
 		}
@@ -272,8 +261,7 @@ static int mfis_resume_noirq(struct device *dev)
 
 		ret = system_rt_active();
 		if (ret == SMAP_LIB_STANDBY_OK) {
-		}
-		else {
+		} else {
 			up(&a3r_power_sem);
 			return -1;
 		}
@@ -297,12 +285,9 @@ static void mfis_drv_early_suspend(struct early_suspend *h)
 	early_suspend_phase_flag = 1;
 
 	ret = mfis_suspend_noirq(p_tbl->dev);
-	if (ret != 0)
-	{
+	if (ret != 0) {
 		mfis_standby_work_entry(1);
-	}
-	else
-	{
+	} else {
 		eco_mode_flag = 1;
 	}
 
@@ -334,7 +319,7 @@ static void mfis_drv_late_resume(struct early_suspend *h)
 
 static int mfis_drv_probe(struct platform_device *pdev)
 {
-	
+
 	int ret = -1;
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
@@ -348,54 +333,53 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	late_resume_phase_flag = 0;
 	eco_mode_flag = 0;
 #endif /* EARLYSUSPEND_STANDBY */
-	
+
 	clk_data = clk_get(NULL, "mp_clk");
 	if (IS_ERR(clk_data)) {
 		pr_err("cannot get clock \"%s\"\n", "mp_clk");
 		return PTR_ERR(clk_data);
 	}
 	clk_enable(clk_data);
-	
+
 	pm_runtime_enable(&pdev->dev);
 
-	mfi_clk_data = clk_get(NULL, "mfis");
-	if (IS_ERR(mfi_clk_data)) {
+	mfis_clk_data = clk_get(NULL, "mfis");
+	if (IS_ERR(mfis_clk_data)) {
 		pr_err("cannot get clock \"%s\"\n", "mfis");
-		return PTR_ERR(mfi_clk_data);
+		return PTR_ERR(mfis_clk_data);
 	}
-	clk_enable(mfi_clk_data);
+	clk_enable(mfis_clk_data);
 
 #if RTPM_PF_CUSTOM
-	dev_name = domain_name;	
+	dev_name = domain_name;
 	ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
 	if (!ret) {
 		ret = pm_runtime_get_sync(dev_img);
 		if (0 > ret) {
 			return -1;
 		}
-	}
-	else {
+	} else {
 		return -1;
 	}
-	
+
 #endif
-	
+
 	ret = pm_runtime_get_sync(&pdev->dev);
 	if (0 > ret) {
 		return -1;
 	}
-	
-	sema_init(&a3r_power_sem,1);
-	
+
+	sema_init(&a3r_power_sem, 1);
+
 #if CYCLE_STANDBY
 	mfis_wq = create_singlethread_workqueue("mfis_wq");
-	
+
 	INIT_DELAYED_WORK(&standby_work, mfis_standby_work);
-	
+
 	standby_work_on = 0;
 	standby_work_stop_flag = 0;
 #endif /* CYCLE_STANDBY */
-	
+
 #if EARLYSUSPEND_STANDBY
 	p_tbl = kzalloc(sizeof(*p_tbl), GFP_KERNEL);
 	if (p_tbl == NULL) {
@@ -404,7 +388,7 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, p_tbl);
 
-	sema_init(&mfis_sem,1);
+	sema_init(&mfis_sem, 1);
 	p_tbl->dev						= &pdev->dev;
 	p_tbl->early_suspend.level		= (EARLY_SUSPEND_LEVEL_DISABLE_FB + 1);
 	p_tbl->early_suspend.suspend	= mfis_drv_early_suspend;
@@ -437,34 +421,33 @@ static int mfis_drv_remove(struct platform_device *pdev)
 #endif /* EARLYSUSPEND_STANDBY */
 
 #if RTPM_PF_CUSTOM
-	dev_name = domain_name;	
+	dev_name = domain_name;
 	ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
 	if (!ret) {
-		ret = 	pm_runtime_put_sync(dev_img);
+		ret = pm_runtime_put_sync(dev_img);
 		if (!ret) {
-		}
-		else {
+		} else {
 			return -1;
 		}
 	}
-	
+
 #endif
 
 	pm_runtime_disable(&pdev->dev);
 
-	clk_disable(mfi_clk_data);
-	clk_put(mfi_clk_data);
+	clk_disable(mfis_clk_data);
+	clk_put(mfis_clk_data);
 
 	clk_disable(clk_data);
 	clk_put(clk_data);
-	
+
 #if CYCLE_STANDBY
 	destroy_workqueue(mfis_wq);
 #endif /* CYCLE_STANDBY */
-	
+
 #if RTPM_PF_CUSTOM
 	return ret;
-#else 
+#else
 	return 0;
 #endif
 
@@ -477,7 +460,7 @@ int mfis_drv_suspend(void)
 	int ret = 0;
 
 	if (down_interruptible(&mfis_sem)) {
-		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 		return -1;
 	}
 
@@ -492,7 +475,7 @@ int mfis_drv_suspend(void)
 	}
 
 	up(&mfis_sem);
-	
+
 	return ret;
 }
 EXPORT_SYMBOL(mfis_drv_suspend);
@@ -503,11 +486,11 @@ int mfis_drv_resume(void)
 	int ret = 0;
 
 	if (down_interruptible(&mfis_sem)) {
-		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n",__func__);
+		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 		return -1;
 	}
 
-	if ( CLOCK_TLB_IC_OC == ( inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC ) ) {
+	if (CLOCK_TLB_IC_OC == (inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		late_resume_phase_flag = 1;
@@ -518,7 +501,7 @@ int mfis_drv_resume(void)
 	}
 
 	up(&mfis_sem);
-	
+
 	return ret;
 }
 EXPORT_SYMBOL(mfis_drv_resume);
@@ -540,8 +523,7 @@ EXPORT_SYMBOL(mfis_drv_resume);
 void mfis_drv_eco_suspend(void)
 {
 #if EARLYSUSPEND_STANDBY
-	if( eco_mode_flag )
-	{
+	if (eco_mode_flag) {
 		mfis_drv_suspend();
 	}
 #endif /* EARLYSUSPEND_STANDBY */
@@ -582,8 +564,12 @@ static void __exit mfis_drv_adap_exit(void)
 	platform_driver_unregister(&mfis_driver);
 }
 
-module_init(mfis_drv_adap_init);
+
+/* module_init(mfis_drv_adap_init); */
+arch_initcall(mfis_drv_adap_init);
 module_exit(mfis_drv_adap_exit);
+
+
 
 MODULE_DESCRIPTION("SuperH Mobile MFIS driver");
 MODULE_AUTHOR("Renesas Electronics Corporation.");
