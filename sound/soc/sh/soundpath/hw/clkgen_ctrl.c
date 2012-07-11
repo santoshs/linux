@@ -226,12 +226,12 @@ static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_SPUVCOM,	 0x00213401, 0, 0 }, /* 2ch, 128fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_TIMSEL0,	 0x00000002, 0, 0 }, /* VOTIM(PortA) */
 	{ CLKG_TIMSEL1,	 0x00000200, 0, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSIACOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_FSIACOM,	 0x00213401, 0, 0 }, /* 2ch, 128fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000011, 0, 0 }, /* SPUV / PortA Enable */
