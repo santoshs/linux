@@ -728,4 +728,8 @@ static struct clk_lookup es2_lookups[] = {
 	CLKDEV_CON_ID("dsi1p0_clk", &dsi1p0_clk),
 	CLKDEV_CON_ID("dsi1p1_clk", &dsi1p1_clk),
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &es2_mstp_clks[ES2_MSTP523]), /* PCM2PWM */
+
+	#ifdef CONFIG_USB_R8A66597_HCD
+	CLKDEV_DEV_ID("r8a66597_hcd.0", &es2_mstp_clks[MSTP322]), /* USBHS */
+	#endif
 };
