@@ -423,7 +423,7 @@ static struct sh_mmcif_plat_data sh_mmcif_plat = {
 			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
 			  MMC_CAP_NONREMOVABLE,
 	.dma		= &sh_mmcif_dma,
-	.max_clk	= 25000000,
+	.max_clk	= 26000000,
 };
 
 static struct resource sh_mmcif_resources[] = {
