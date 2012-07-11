@@ -157,6 +157,14 @@ struct tps80032_irq_data {
 #define HW_REG_PREQ1_RES_ASS_B			0xD8
 #define HW_REG_PREQ1_RES_ASS_C			0xD9
 
+#define HW_REG_PREQ2_RES_ASS_A			0xDA
+#define HW_REG_PREQ2_RES_ASS_B			0xDB
+#define HW_REG_PREQ2_RES_ASS_C			0xDC
+
+#define HW_REG_PREQ3_RES_ASS_A			0xDD
+#define HW_REG_PREQ3_RES_ASS_B			0xDE
+#define HW_REG_PREQ3_RES_ASS_C			0xDF
+
 #define HW_REG_PHOENIX_MSK_TRANSITION	0x20
 
 #define HW_REG_CHARGEUSB_CTRL1			0xE8
@@ -172,7 +180,10 @@ struct tps80032_irq_data {
 #define HW_REG_INT_MSK_STS_C			0xD8
 #define HW_REG_CONTROLLER_STAT1			0xE3
 #define HW_REG_CONTROLLER_CTRL1			0xE1
+#define HW_REG_CONTROLLER_CTRL2			0xDA
 #define HW_REG_CONTROLLER_INT_MASK		0xE0
+#define HW_REG_CONTROLLER_VSEL_COMP		0xDB
+#define HW_REG_CHARGERUSB_INT_MASK		0xE5
 #define HW_REG_CHARGERUSB_STATUS_INT1	0xE6
 #define HW_REG_CHARGERUSB_STATUS_INT2	0xE7
 #define HW_REG_CHARGERUSB_CTRL1			0xE8
@@ -180,6 +191,7 @@ struct tps80032_irq_data {
 #define HW_REG_CHARGERUSB_CINLIMIT		0xEE
 #define HW_REG_CHARGERUSB_VOREG     	0xEC
 #define HW_REG_CHARGERUSB_VICHRG     	0xED
+#define HW_REG_CHARGERUSB_VICHRG_PC    	0xDE
 #define HW_REG_CHARGERUSB_VSYSREG		0xDC
 #define HW_REG_USB_ID_INT_SRC			0x0F
 #define HW_REG_USB_ID_CTRL_SET			0x06
@@ -200,6 +212,7 @@ struct tps80032_irq_data {
 
 #define HW_REG_PHOENIX_DEV_ON			0x25
 #define HW_REG_VSYSMIN_HI_THRESHOLD 	0x24
+#define HW_REG_VBATMIN_HI_THRESHOLD 	0x26
 
 #define HW_REG_SMPS4_CFG_STATE			0x42
 #define HW_REG_LDO1_CFG_STATE 			0x9E
@@ -241,6 +254,7 @@ struct tps80032_irq_data {
 #define HW_REG_LDO5_CFG_TRANS			0x99
 #define HW_REG_LDO6_CFG_TRANS			0x91
 #define HW_REG_LDO7_CFG_TRANS			0xA5
+#define HW_REG_LDOLN_CFG_TRANS			0x95
 
 #define HW_REG_FG_REG_00				0xC0
 #define HW_REG_FG_REG_01				0xC1
@@ -306,7 +320,8 @@ struct tps80032_irq_data {
 
 #else
 /* If no use BIN */
-#define CONST_TIMER_BATTERY_UPDATE		0x2710
+#define CONST_TIMER_BATTERY_UPDATE		0x1388
+#define CONST_BATTERY_CURRENT_UPDATE	250
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
 #define CONST_0C_DEGREE					0x0000
@@ -328,16 +343,29 @@ struct tps80032_irq_data {
 #define MSK_INT_SRC_C					0x8A
 #define MSK_DISABLE 					0x00
 #define MSK_CONTROLLER_INT				0x00
+#define MSK_CHARGERUSB_INT				0x06
 #define MSK_PREQ1_ASS_A					0x11
 #define MSK_PREQ1_ASS_B					0xA0
+#define MSK_PREQ2_ASS_A					0x08
+#define MSK_PREQ3_ASS_B					0x80
 #define MSK_TRANSITION					0x00
+#define MSK_GPADC						0x0E
+#define MSK_GG_ENABLE					0xA0
+#define MSK_GG_DISABLE					0x50
 #define CONST_INT_ID					0x1C
 #define CONST_X1						0x05A1
 #define CONST_X2						0x0CCC
+#define CONST_LDOLN_CFG_TRANS			0x01
+#define CONST_LDO6_CFG_TRANS			0x01
 #define CONST_VAC_CURRENT_LIMIT			0x01	/* 100mA */
-#define CONST_DEF_CURRENT_LIMIT			0x01	/* 100mA */
-#define CONST_VOREG						0x05	/* 3.6V */
-#define CONST_VICHRG					0x02	/* 300mA with POP = 1*/
+#define CONST_DEF_CURRENT_LIMIT			0x09	/* 500mA */
+#define CONST_VBATMIN_HI				0x19	/* 3.25 V */
+#define CONST_VSYSMIN_HI				0x17	/* 3.15 V */
+#define CONST_VOREG						0x0D	/* 3.76V */
+#define CONST_VICHRG					0x03	/* 400mA with POP = 1*/
+#define CONST_VICHRG_PC					0x03	/* 400mA */
+#define CONST_VSEL_COMP					0x1F
+#define CONST_HPB_WAIT					200
 
 /* Define interrupt bit for interrupt register */
 #define MSK_CONTROLLER_STAT_MVAC_DET		0

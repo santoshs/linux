@@ -76,25 +76,48 @@ static int hwsem_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
-	__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
+	
+	/*Check if the semaphore is open*/
+	smsrc = __raw_readl(p->sm_base + SMxxSRC) >> 24;
+	
+	if(smsrc == 0 ) {
+		__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
 
-	/*
-	 * Get upper 8 bits and compare to master ID.
-	 * If equal, we have the semaphore, otherwise someone else has it.
-	 *
-	 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
-	 * given a distinct SrcID of the SHwy bus, so master ID matching
-	 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
-	 */
-	smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
-
-	return smsrc == HWSEM_MASTER_ID;
+		/*
+		 * Get upper 8 bits and compare to master ID.
+		 * If equal, we have the semaphore, otherwise someone else has it.
+		 *
+		 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
+		 * given a distinct SrcID of the SHwy bus, so master ID matching
+		 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
+		 */
+		smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
+		return smsrc == HWSEM_MASTER_ID;
+	} else {
+		printk(">>>>>>%s: Cannot get HW semaphore\n", __func__);
+		return 0;
+	}
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
+
 	__raw_writel(0, p->sm_base + SMxxSRC);
+}
+/*
+ *  hwsem_get_lock_id: Get HW semaphore ID
+ *  return:
+ *      0x00: Open state
+ *		0x01: AP Realtime side
+ *		0x40: AP System side
+ *		0x93: Baseband side
+ */
+static u32 hwsem_get_lock_id(struct hwspinlock *lock)
+{
+	struct hwspinlock_private *p = lock->priv;
+	
+	return (__raw_readl(p->sm_base + SMxxSRC) >> 24);
 }
 
 static void hwsem_relax(struct hwspinlock *lock)
@@ -108,26 +131,24 @@ static void hwsem_relax(struct hwspinlock *lock)
 static int hwsem_ext_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long mask, value;
+	unsigned long value;
 	int ret = 0;
 
-	
 	if (!hwsem_trylock(lock))
 		return 0;
 
-	/* create mask from local ID */
-	mask = 1 << (lock - &lock->bank->lock[0]);
-
 	/* check to see if software semaphore bit is already set */
 	value = __raw_readl(p->ext_base);
-	if (value & mask)
+	
+	if (value & 0xff)
 		goto out;
-
-	value |= mask;
+		
+	value |= HWSEM_MASTER_ID;
+	
 	__raw_writel(value, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 	ret = 1;
-
+	
  out:
 	hwsem_unlock(lock);
 	return ret;
@@ -137,6 +158,7 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 	unsigned long expire, mask, value;
+
 	/* try to lock hwspinlock with timeout limit */
 	expire = msecs_to_jiffies(100) + jiffies;
 	for (;;) {
@@ -144,21 +166,31 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 			break;
 
 		if (time_is_before_eq_jiffies(expire))
-			dev_err(lock->bank->dev, "Timedout to lock hwspinlock\n");
+			dev_err(lock->bank->dev, "Timeout to lock hwspinlock\n");
 			return;
 
 		hwsem_relax(lock);
 	}
 
-	/* create mask from local ID */
-	mask = 1 << (lock - &lock->bank->lock[0]);
-
+	mask = 0xff;
+	
 	value = __raw_readl(p->ext_base);
 	if (unlikely((value & mask) == 0)) {
 		dev_warn(lock->bank->dev,
 			 "Trying to unlock hwspinlock %d without lock\n",
 			 hwlock_to_id(lock));
 		goto out;
+	}
+	
+	if (unlikely((value & mask) != HWSEM_MASTER_ID)) {
+		dev_err(lock->bank->dev,
+			 "Trying to unlock hwspinlock %d not for ARM (%08lx)\n",
+			 hwlock_to_id(lock), value);
+		/*
+		 * Even if it's not for ARM, a general purpose semaphore
+		 * has been taken successfully, so we're going to unlock
+		 * this software semaphore anyway.
+		 */
 	}
 
 	value &= ~mask;
@@ -169,16 +201,39 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 	hwsem_unlock(lock);
 }
 
+/*
+ *  hwsem_ext_get_lock_id: Get SW semaphore ID
+ *  return:
+ *      0x00: Open state
+ *		0x01: AP Realtime side
+ *		0x40: AP System side
+ *		0x93: Baseband side
+ */
+static u32 hwsem_ext_get_lock_id(struct hwspinlock *lock)
+{
+	struct hwspinlock_private *p = lock->priv;
+	unsigned long value;
+
+	/* check to see if software semaphore bit is already set */
+	value = __raw_readl(p->ext_base);
+
+	value = value & 0xff;
+
+	return value;
+}
+
 static const struct hwspinlock_ops rmobile_hwspinlock_ops = {
-	.trylock	= hwsem_trylock,
-	.unlock		= hwsem_unlock,
-	.relax		= hwsem_relax,
+	.trylock		= hwsem_trylock,
+	.unlock			= hwsem_unlock,
+	.relax			= hwsem_relax,
+	.get_lock_id	= hwsem_get_lock_id,
 };
 
 static const struct hwspinlock_ops rmobile_hwspinlock_ext_ops = {
-	.trylock	= hwsem_ext_trylock,
-	.unlock		= hwsem_ext_unlock,
-	.relax		= hwsem_relax,
+	.trylock		= hwsem_ext_trylock,
+	.unlock			= hwsem_ext_unlock,
+	.relax			= hwsem_relax,
+	.get_lock_id	= hwsem_ext_get_lock_id,
 };
 
 static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
@@ -199,7 +254,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	num_locks = pdata->nr_descs;
-
+	
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
@@ -210,6 +265,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	ops = &rmobile_hwspinlock_ops;
 	ext_base = NULL;
+
 	/* check to see if general-purpose bus semaphore extension is used */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
@@ -218,8 +274,10 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 			ret = -ENXIO;
 			goto iounmap_base;
 		}
+
 		ops = &rmobile_hwspinlock_ext_ops;
-		}
+	}
+
 	/* allocate hwspinlock_device + (hwspinlock * num_locks) */
 	bank = kzalloc(sizeof(*bank) + num_locks * sizeof(*hwlock), GFP_KERNEL);
 	if (!bank) {
@@ -238,14 +296,15 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
 		priv[i].sm_base = io_base + pdata->descs[i].offset;
-		priv[i].ext_base = ext_base;
+		priv[i].ext_base = ext_base + sizeof(u32) * i;
 		hwlock->priv = &priv[i];
 	}
+
 	ret = hwspin_lock_register(bank, &pdev->dev, ops,
 				   pdata->base_id, num_locks);
 	if (ret)
 		goto reg_fail;
-
+		
 	platform_set_drvdata(pdev, bank);
 
 	return 0;

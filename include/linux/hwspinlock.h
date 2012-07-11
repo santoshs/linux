@@ -25,6 +25,7 @@
 /* hwspinlock mode argument */
 #define HWLOCK_IRQSTATE	0x01	/* Disable interrupts, save state */
 #define HWLOCK_IRQ	0x02	/* Disable interrupts, don't save state */
+#define HWLOCK_NOSPIN	0x03	/* Hold hwspinlock but without spinlock */
 
 struct hwspinlock;
 struct hwspinlock_device;
@@ -71,6 +72,7 @@ int __hwspin_lock_timeout(struct hwspinlock *, unsigned int, int,
 							unsigned long *);
 int __hwspin_trylock(struct hwspinlock *, int, unsigned long *);
 void __hwspin_unlock(struct hwspinlock *, int, unsigned long *);
+u32 __hwspin_get_hwlock_id(struct hwspinlock *, int, unsigned long *);
 
 #else /* !CONFIG_HWSPINLOCK */
 
@@ -116,9 +118,14 @@ int __hwspin_trylock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 }
 
 static inline
-void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
+u32 __hwspin_get_hwlock_id(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
 	return 0;
+}
+
+static inline
+void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
+{
 }
 
 static inline int hwspin_lock_get_id(struct hwspinlock *hwlock)
@@ -167,6 +174,21 @@ int hwspin_trylock_irqsave(struct hwspinlock *hwlock, unsigned long *flags)
 static inline int hwspin_trylock_irq(struct hwspinlock *hwlock)
 {
 	return __hwspin_trylock(hwlock, HWLOCK_IRQ, NULL);
+}
+
+static inline int hwspin_trylock_nospin(struct hwspinlock *hwlock)
+{
+	return __hwspin_trylock(hwlock, HWLOCK_NOSPIN, NULL);
+}
+
+static inline u32 hwspin_get_lock_id(struct hwspinlock *hwlock)
+{
+	return __hwspin_get_hwlock_id(hwlock, HWLOCK_IRQ, NULL);
+}
+
+static inline u32 hwspin_get_lock_id_nospin(struct hwspinlock *hwlock)
+{
+	return __hwspin_get_hwlock_id(hwlock, HWLOCK_NOSPIN, NULL);
 }
 
 /**
@@ -236,6 +258,12 @@ int hwspin_lock_timeout_irq(struct hwspinlock *hwlock, unsigned int to)
 	return __hwspin_lock_timeout(hwlock, to, HWLOCK_IRQ, NULL);
 }
 
+static inline
+int hwspin_lock_timeout_nospin(struct hwspinlock *hwlock, unsigned int to)
+{
+	return __hwspin_lock_timeout(hwlock, to, HWLOCK_NOSPIN, NULL);
+}
+
 /**
  * hwspin_lock_timeout() - lock an hwspinlock with timeout limit
  * @hwlock: the hwspinlock to be locked
@@ -293,6 +321,11 @@ static inline void hwspin_unlock_irqrestore(struct hwspinlock *hwlock,
 static inline void hwspin_unlock_irq(struct hwspinlock *hwlock)
 {
 	__hwspin_unlock(hwlock, HWLOCK_IRQ, NULL);
+}
+
+static inline void hwspin_unlock_nospin(struct hwspinlock *hwlock)
+{
+	__hwspin_unlock(hwlock, HWLOCK_NOSPIN, NULL);
 }
 
 /**
