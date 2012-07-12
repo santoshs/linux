@@ -35,6 +35,9 @@ extern void fsi_set_run_time(
 
 extern void fsi_set_slave(const bool slave);
 
+extern int fsi_dai_startup_bt(
+		struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai);
 
 /*
  *
@@ -121,7 +124,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(
 	struct snd_pcm_substream *substream);
 static int sndp_fsi_suspend(struct device *dev);
 static int sndp_fsi_resume(struct device *dev);
-
+static int sndp_fsi_hw_free(struct snd_pcm_substream *substream );
 
 /* PATH Switchging / Back-out control functions */
 static void sndp_path_switching(const u_int uiValue);
@@ -308,13 +311,6 @@ enum sndp_play_rec_state {
 	E_CAP,			/* Running Capture process  */
 };
 
-/* Routing type of the stream, in during a call */
-enum sndp_stream_route_type {
-	E_ROUTE_NORMAL = 0,	/* Normal route */
-	E_ROUTE_PLAY_CHANGED,	/* Playback path, switched to the FSI */
-	E_ROUTE_CAP_DUMMY,	/* Started the dummy recording */
-};
-
 /* Stop trigger conditions */
 enum sndp_stop_trigger_condition {
 	SNDP_STOP_TRIGGER_INIT		= 0x00000000,
@@ -342,6 +338,7 @@ typedef int (*sndp_dai_hw_params)(struct snd_pcm_substream *,
 				  struct snd_soc_dai *);
 typedef snd_pcm_uframes_t (*sndp_pointer)(struct snd_pcm_substream *substream);
 typedef int (*sndp_dai_set_fmt)(struct snd_soc_dai *, u_int);
+typedef int (*sndp_hw_free)(struct snd_pcm_substream *);
 
 /* Function table */
 struct sndp_dai_func {
@@ -351,6 +348,7 @@ struct sndp_dai_func {
 	sndp_dai_set_fmt	fsi_set_fmt;
 	sndp_dai_hw_params	fsi_hw_params;
 	sndp_pointer		fsi_pointer;
+	sndp_hw_free		fsi_hw_free;
 };
 
 /* ARGs table */
