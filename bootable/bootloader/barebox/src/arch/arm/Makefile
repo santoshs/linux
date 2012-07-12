@@ -52,7 +52,7 @@ machine-$(CONFIG_ARCH_NETX)		:= netx
 machine-$(CONFIG_ARCH_OMAP)		:= omap
 machine-$(CONFIG_ARCH_S3C24xx)		:= s3c24xx
 machine-$(CONFIG_ARCH_VERSATILE)	:= versatile
-machine-$(CONFIG_ARCH_KOTAEVM)	:= kotaevm
+machine-$(CONFIG_ARCH_U2EVM)	:= u2evm
 
 # Board directory name.  This list is sorted alphanumerically
 # by CONFIG_* macro name.
@@ -107,7 +107,7 @@ board-$(CONFIG_MACH_GUF_CUPID)			:= guf-cupid
 board-$(CONFIG_MACH_MINI2440)			:= mini2440
 board-$(CONFIG_MACH_VERSATILEPB)		:= versatile
 board-$(CONFIG_MACH_TX25)			:= karo-tx25
-board-$(CONFIG_MACH_KOTAEVM)		:= kotaevm
+board-$(CONFIG_MACH_U2EVM)		:= u2evm
 
 machdirs := $(patsubst %,arch/arm/mach-%/,$(machine-y))
 

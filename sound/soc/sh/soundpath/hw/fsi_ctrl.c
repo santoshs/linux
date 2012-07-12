@@ -133,8 +133,8 @@ static struct common_reg_table fsi_reg_tbl_voicecallA_S[] = {
 	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
 	{ FSI_ACK_MD,	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0, 0 },
+	/* LRS:Clock not inverted, BRS:Clock not inverted */
+	{ FSI_ACK_RV,	0x00000000,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
 	{ FSI_DO_FMT,	0x00000030,	0, 0 },
 	/* 24bits,	PCM format,	I2S */
@@ -176,9 +176,9 @@ static struct common_reg_table fsi_reg_tbl_voicecallB_S[] = {
 	/* LRS:Clock inverted, BRS:Clock not inverted */
 	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000010,	0, 0 },
 	/* 24bits, PCM format, MONO */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00100010,	0, 0 },
 	/* 24bits, PCM format, MONO */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000000,	0, 0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00100010,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
 };

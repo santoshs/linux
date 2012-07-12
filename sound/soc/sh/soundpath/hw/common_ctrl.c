@@ -561,7 +561,7 @@ void common_set_pll22(const u_int uiValue, int stat)
 {
 	/* Local variable declaration */
 	u_int dev, fsickcr;
-	int cnt;
+	int cnt, pll22val, fsival;
 
 	sndp_log_debug_func("start\n");
 
@@ -581,8 +581,16 @@ void common_set_pll22(const u_int uiValue, int stat)
 	if (STAT_ON == stat) {
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+			if (false == (dev & SNDP_BLUETOOTHSCO)) {
+				pll22val = 0x41000000;
+				fsival = 0x00001065;
+			} else {
+				pll22val = 0x3A000000;
+				fsival = 0x00001046;
+			}
+
 			/* Pll22 enable 66 divide */
-			iowrite32(0x41000000, CPG_PLL22CR);
+			iowrite32(pll22val, CPG_PLL22CR);
 			sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
 
 			for (cnt = 0; cnt < 10; cnt++) {
@@ -595,14 +603,14 @@ void common_set_pll22(const u_int uiValue, int stat)
 				sndp_log_err("CPG_PLLECR is not available.\n");
 
 			/* FSICKCR enable 38 divide */
-			iowrite32(0x00001065, fsickcr);
+			iowrite32(fsival, fsickcr);
 
 			/* FM Radio */
 			if (false != (dev & SNDP_FM_RADIO_RX)) {
 				/* PortA */
 				fsickcr = CPG_FSIACKCR;
 				/* FSICKCR enable 38 divide */
-				iowrite32(0x00001065, fsickcr);
+				iowrite32(fsival, fsickcr);
 			}
 		} else {
 			/* Pll22 enable 64 divide */

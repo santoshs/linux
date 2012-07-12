@@ -89,10 +89,10 @@ static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_CAPTURE_HEADSET_RINGTONE,                    clkgen_capture    },
 	{ SNDP_CAPTURE_HEADSET_INCALL,                      NULL              },
 	{ SNDP_CAPTURE_HEADSET_INCOMMUNICATION,             clkgen_capture    },
-	{ SNDP_CAPTURE_BLUETOOTH_NORMAL,                    NULL              },
-	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  NULL              },
-	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    NULL              },
-	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           NULL              },
+	{ SNDP_CAPTURE_BLUETOOTH_NORMAL,                    clkgen_capture    },
+	{ SNDP_CAPTURE_BLUETOOTH_RINGTONE,                  clkgen_capture    },
+	{ SNDP_CAPTURE_BLUETOOTH_INCALL,                    clkgen_voicecall  },
+	{ SNDP_CAPTURE_BLUETOOTH_INCOMMUNICATION,           clkgen_capture    },
 	{ SNDP_CAPTURE_FMRX_NORMAL,                         clkgen_playback   },
 	{ SNDP_CAPTURE_FMRX_RINGTONE,                       NULL              },
 	{ SNDP_CAPTURE_FMRX_INCALL,                         NULL              },
@@ -226,12 +226,12 @@ static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_SPUVCOM,	 0x00213401, 0, 0 }, /* 2ch, 128fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_TIMSEL0,	 0x00000002, 0, 0 }, /* VOTIM(PortA) */
 	{ CLKG_TIMSEL1,	 0x00000200, 0, 0 }, /* REC TIM1(PortA) */
-	{ CLKG_FSIACOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 16kHz,
+	{ CLKG_FSIACOM,	 0x00213401, 0, 0 }, /* 2ch, 128fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000011, 0, 0 }, /* SPUV / PortA Enable */

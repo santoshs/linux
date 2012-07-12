@@ -86,12 +86,14 @@ static void call_watch_stop_fw_cb(void);
 
 /* Work queue process function */
 static void call_work_dummy_rec(struct work_struct *work);
+static void call_work_dummy_play(struct work_struct *work);
 
 /* Work queue initialization function */
 static DECLARE_WORK(g_call_work_in, call_work_dummy_rec);
+static DECLARE_WORK(g_call_work_out, call_work_dummy_play);
 
 /* Wait queue initialization function */
 static DECLARE_WAIT_QUEUE_HEAD(g_call_wait_in);
-
+static DECLARE_WAIT_QUEUE_HEAD(g_call_wait_out);
 
 #endif /* __CALL_CTRL_H__ */

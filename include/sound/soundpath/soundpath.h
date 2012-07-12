@@ -373,6 +373,13 @@ struct ctrl_func_tbl {
 	void		(*func)(const u_int);
 };
 
+/* Routing type of the stream, in during a call */
+enum sndp_stream_route_type {
+	SNDP_ROUTE_NORMAL = 0,     /* Normal route */
+	SNDP_ROUTE_PLAY_CHANGED,   /* Playback path, switched to the FSI */
+	SNDP_ROUTE_CAP_DUMMY,      /* Started the dummy recording */
+};
+
 /* Device type */
 enum sndp_device_type {
 	SNDP_NO_DEVICE = 0,
