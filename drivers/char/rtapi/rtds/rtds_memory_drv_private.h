@@ -1,8 +1,8 @@
 /*
- * drivers/char/rtapi/include/screen_common.h
- *     This file is common definition of screen function.
+ * rtds_memory_drv_private.h
+ *	 RT domain shared memory driver function file.
  *
- * Copyright (C) 2011 Renesas Electronics Corporation
+ * Copyright (C) 2012 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,9 +18,12 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __SCREEN_COMMON_H__
-#define __SCREEN_COMMON_H__
+#ifndef __RTDS_MEMORY_DRV_PRIVATE_H__
+#define __RTDS_MEMORY_DRV_PRIVATE_H__
 
-#define	SCREEN_DISPLAY_BUFF_ADDR	0x48CC3000
 
-#endif	/* __SCREEN_COMMON_H__ */
+#define KERNEL_ADDRESS_MASK(addr)	((addr&0x07FFFFFF)|0x80000000)
+#define RTDS_MEM_FLUSH_CACHE_SIZE	(1024*40)	   /* Size of the cache */
+
+#endif /* __RTDS_MEMORY_DRV_PRIVATE_H__ */
+

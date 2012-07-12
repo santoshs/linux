@@ -36,21 +36,19 @@
 /****************************/
 /* Struction				*/
 /****************************/
-typedef struct
-{
-    void			*handle;
-    unsigned long	powerarea_name;
+typedef struct {
+	void			*handle;
+	unsigned long	powerarea_name;
 } system_pmg_param;
 
-typedef struct
-{
-    void			*handle;
+typedef struct {
+	void			*handle;
 } system_pmg_delete;
 
 /****************************/
 /* Prototype Declaration	*/
 /****************************/
-extern void* system_pwmng_new
+extern void *system_pwmng_new
 (
 	void
 );
