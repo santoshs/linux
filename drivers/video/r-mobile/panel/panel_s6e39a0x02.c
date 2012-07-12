@@ -28,6 +28,7 @@
 
 #include <rtapi/screen_display.h>
 #include <linux/backlight.h>
+#include <linux/lcd.h>
 
 /*#define S6E39A0X02_BRIGHTNESS_LINER */
 /*#define S6E39A0X02_USE_PANEL_INIT */
@@ -291,6 +292,122 @@ static const struct _s6e39a0x02_cmdset resume_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, data_29, sizeof(data_29) },
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
+
+static struct lcd_device *registed_ld;
+
+enum lcdfreq_level_idx {
+	LEVEL_NORMAL,		/* 60Hz */
+	LEVEL_LOW,		/* 40Hz */
+	LCDFREQ_LEVEL_END
+};
+
+struct lcdfreq_info {
+	enum lcdfreq_level_idx	level;	/* Current level */
+	struct mutex		lock;	/* Lock for change frequency */
+	struct device		*dev;	/* Hold device of LCD */
+};
+
+static struct lcdfreq_info lcdfreq_info_data;
+
+static int lcdfreq_lock(struct device *dev)
+{
+	int ret;
+	/* set freq 40Hz */
+	printk(KERN_ALERT "set freq NOT SUPPORTED(40Hz)\n");
+	return ret;
+}
+
+static int lcdfreq_lock_free(struct device *dev)
+{
+	int ret;
+	/* set freq 60Hz */
+	printk(KERN_ALERT "set freq NOT SUPPORTED(60Hz)\n");
+	return ret;
+}
+
+
+static ssize_t level_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk(KERN_DEBUG "%s\n", __func__);
+	return sprintf(buf, "%d\n", lcdfreq_info_data.level);
+}
+
+static ssize_t level_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int value;
+	int ret;
+
+	printk(KERN_DEBUG "%s\n", __func__);
+
+	mutex_lock(&lcdfreq_info_data.lock);
+
+	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+
+	printk(KERN_DEBUG "\t%s :: value=%d\n", __func__, value);
+
+	if (value >= LCDFREQ_LEVEL_END) {
+		count = -EINVAL;
+		goto out;
+	}
+
+	if (value)
+		ret = lcdfreq_lock(dev);
+	else
+		ret = lcdfreq_lock_free(dev);
+
+	if (ret) {
+		printk(KERN_ALERT "%s fail\n", __func__);
+		count = -EINVAL;
+		goto out;
+	}
+
+	lcdfreq_info_data.level = value;
+out:
+	mutex_unlock(&lcdfreq_info_data.lock);
+
+	return count;
+}
+
+static DEVICE_ATTR(level, S_IRUGO|S_IWUSR, level_show, level_store);
+
+static struct attribute *lcdfreq_attributes[] = {
+	&dev_attr_level.attr,
+	NULL,
+};
+
+static struct attribute_group lcdfreq_attr_group = {
+	.name = "lcdfreq",
+	.attrs = lcdfreq_attributes,
+};
+
+static int s6e39a0x02_lcd_frequency_register(struct device *dev)
+{
+	struct lcdfreq_info *lcdfreq = NULL;
+	int ret;
+
+	printk(KERN_DEBUG "%s\n", __func__);
+
+	memset(&lcdfreq_info_data, 0, sizeof(lcdfreq_info_data));
+
+	lcdfreq = &lcdfreq_info_data;
+	lcdfreq->dev = dev;
+	lcdfreq->level = LEVEL_NORMAL;
+
+
+	mutex_init(&lcdfreq->lock);
+
+	ret = sysfs_create_group(&dev->kobj, &lcdfreq_attr_group);
+	if (ret < 0) {
+		printk(KERN_ALERT "fail to add sysfs entries, %d\n", __LINE__);
+		return ret;
+	}
+
+	printk(KERN_DEBUG "%s is done\n", __func__);
+
+	return 0;
+}
 
 static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 				   const struct _s6e39a0x02_cmdset *cmdset)
@@ -776,8 +893,23 @@ static int s6e39a0x02_panel_resume(void)
 
 static struct fb_panel_info s6e39a0x02_panel_info(void)
 {
-	/* register device for backlight control */
-	s6e39a0x02_backlight_device_register();
+	static int initialized;
+	if (!initialized) {
+		/* register device for LCD */
+		registed_ld = lcd_device_register("s6e39a0x02",
+							NULL, NULL, NULL);
+		if (!registed_ld) {
+			printk(KERN_ALERT "registed_ld is null!\n");
+			return r_mobile_info;
+		}
+		/* register sysfs for LCD frequency control */
+		s6e39a0x02_lcd_frequency_register(&(registed_ld->dev));
+
+		/* register device for backlight control */
+		s6e39a0x02_backlight_device_register();
+
+		initialized = 1;
+	}
 	return r_mobile_info;
 }
 
