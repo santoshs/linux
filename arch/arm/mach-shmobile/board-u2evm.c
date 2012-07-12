@@ -1414,6 +1414,83 @@ static struct platform_device mdm_reset_device = {
 	.resource	= mdm_reset_resources,
 };
 
+static struct resource stm_res[] = {
+	[0] = {
+		.name	= "stm_ctrl",
+		.start	= 0xe6f89000,
+		.end	= 0xe6f89fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.name	= "stm_ports",
+		.start	= 0xe9000000,
+		.end	= 0xe9000fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[2] = {
+		.name	= "funnel",
+		.start	= 0xe6f8b000,
+		.end	= 0xe6f8bfff,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device stm_device = {
+	.name = "stm",
+	.num_resources	= ARRAY_SIZE(stm_res),
+	.resource	= stm_res,
+};
+
+static struct resource etr_res[] = {
+	[0] = {
+		.name	= "etr_ctrl",
+		.start	= 0xe6fa5000,
+		.end	= 0xe6fa5fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.name	= "fun_gen",
+		.start	= 0xe6f84000,
+		.end	= 0xe6f84fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[2] = {
+		.name	= "fun_ca9",
+		.start	= 0xe6fA4000,
+		.end	= 0xe6fA4fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[3] = {
+		.name	= "etf_ca9",
+		.start	= 0xe6fA1000,
+		.end	= 0xe6fA1fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[4] = {
+		.name	= "ctics",
+		.start	= 0xe6fa2000,
+		.end	= 0xe6fa2fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[5] = {
+		.name	= "cti0",
+		.start	= 0xe6fb8000,
+		.end	= 0xe6fb8fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[6] = {
+		.name	= "cti_irq",
+		.start	= gic_spi(79),
+		.end	= gic_spi(80),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device etr_device = {
+	.name = "etr",
+	.num_resources	= ARRAY_SIZE(etr_res),
+	.resource	= etr_res,
+};
 
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
@@ -1459,6 +1536,8 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+	&stm_device,
+	&etr_device,
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -1502,6 +1581,8 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+	&stm_device,
+	&etr_device,
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -1543,6 +1624,8 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+	&stm_device,
+	&etr_device,
 };
 
 /* I2C */

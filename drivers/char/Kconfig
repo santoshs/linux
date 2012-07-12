@@ -638,5 +638,20 @@ config MSM_SMD_PKT
 #
 source "drivers/char/cc4.2/Kconfig"
 
+config TTY_STM
+	tristate "TTY driver for ARM's System Trace Macrocell"
+	depends on ARM
+	default n
+	help
+	  ARM STM is a device which exports traces other STPv2 link
+
+config TTY_ETR
+	tristate "TTY driver for ARM's Embedded Trace Router"
+	depends on ARM
+	default n
+	help
+	  ARM ETR is a device to move traces around the system
+
+
 endmenu
 
