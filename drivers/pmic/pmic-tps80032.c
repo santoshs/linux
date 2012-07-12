@@ -4137,25 +4137,50 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 	int ret = 0;
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	/* Turn on SMPS4 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_ON));
-	if (0 > ret) {
-		return ret;
-	}
-
 	/* Set default voltage (1.8V) for LDO7 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO7_CFG_VOLTAGE, tps80032_check_ldo_voltage_valid(E_LDO_VOLTAGE_1_8000V));
 	if (0 > ret) {
 		return ret;
 	}
+	
 	/* Assign SMSP1 (VCORE) and SMPS5 (VCORE_RF) into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_A, MSK_PREQ1_ASS_A);
 	if (0 > ret) {
 		return ret;
 	}
 
-	/* Assign LDO6 and LDON into Group1 */
+	/* Assign LDO6 and LDOLN into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_B, MSK_PREQ1_ASS_B);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Assign LDOLN into Group3 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ3_RES_ASS_B, MSK_PREQ3_ASS_B);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Set state "OFF" in mode "SLEEP" for LDOLN */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDOLN_CFG_TRANS, CONST_LDOLN_CFG_TRANS);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Set state "OFF" in mode "SLEEP" for LDO6 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO6_CFG_TRANS, CONST_LDO6_CFG_TRANS);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Turn off SMPS4 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_OFF));
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Assign SMPS4 into Group2 */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ2_RES_ASS_A, MSK_PREQ2_ASS_A);
 	if (0 > ret) {
 		return ret;
 	}
