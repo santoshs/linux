@@ -39,7 +39,6 @@
 #include <rtapi/system_memory.h>
 
 #include <linux/sh_mobile_composer.h>
-#include <video/sh_mobile_lcdc.h>
 
 static int debug;    /* default debug level */
 
