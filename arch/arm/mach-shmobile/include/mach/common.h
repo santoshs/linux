@@ -2,6 +2,7 @@
 #define __ARCH_MACH_COMMON_H
 
 extern void shmobile_earlytimer_init(void);
+extern void shmobile_calibrate_delay_early(void);
 extern struct sys_timer shmobile_timer;
 struct twd_local_timer;
 extern void shmobile_setup_console(void);
