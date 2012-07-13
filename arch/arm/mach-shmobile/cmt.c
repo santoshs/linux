@@ -412,6 +412,7 @@ static struct clock_event_device cmt_timer_global_evt;
 static int __init cmt_timer_init_single(struct cmt_clock_event_device *cmt,
 					struct cmt_timer_config *cfg)
 {
+	unsigned long remap_offset;
 	int ret = -ENXIO;
 
 	if (!cfg->cks_table || !cfg->cks_num) {
@@ -423,22 +424,25 @@ static int __init cmt_timer_init_single(struct cmt_clock_event_device *cmt,
 		goto err0;
 	}
 
+	if (cmclke) {
+		remap_offset = 0;
+		cmt->ops = &cmt_32bit_ops;
+	} else if (cmstr) {
+		remap_offset = 0x10;
+		cmt->ops = &cmt_16bit_ops;
+	} else {
+		pr_err("unknown CMT type, rejected\n");
+		goto err0;
+	}
+
 	/* map memory, let mapbase point to our channel */
-	cmt->base = ioremap(cfg->res[0].start, resource_size(&cfg->res[0]));
+	cmt->base = ioremap(cfg->res[0].start - remap_offset,
+			    resource_size(&cfg->res[0]) + remap_offset);
 	if (!cmt->base) {
 		pr_err("failed to remap I/O memory\n");
 		goto err0;
 	}
 	cmt->irq = cfg->res[1].start;
-
-	if (cmclke) {
-		cmt->ops = &cmt_32bit_ops;
-	} else if (cmstr) {
-		cmt->ops = &cmt_16bit_ops;
-	} else {
-		pr_err("unknown CMT type, rejected\n");
-		goto err1;
-	}
 
 	/* get hold of clock */
 	cmt->clk = clk_get_sys(cfg->name, NULL);
