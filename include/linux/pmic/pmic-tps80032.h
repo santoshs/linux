@@ -204,6 +204,7 @@ struct tps80032_irq_data {
 #define HW_REG_SMPS4_CFG_STATE			0x42
 #define HW_REG_LDO1_CFG_STATE 			0x9E
 #define HW_REG_LDO5_CFG_STATE			0x9A
+#define HW_REG_LDO6_CFG_STATE			0x92
 #define HW_REG_LDO7_CFG_STATE			0xA6
 #define HW_REG_LDOUSB_CFG_STATE			0xA2
 
@@ -329,7 +330,7 @@ struct tps80032_irq_data {
 #define MSK_DISABLE 					0x00
 #define MSK_CONTROLLER_INT				0x00
 #define MSK_PREQ1_ASS_A					0x11
-#define MSK_PREQ1_ASS_B					0xA0
+#define MSK_PREQ1_ASS_B					0x80
 #define MSK_TRANSITION					0x00
 #define CONST_INT_ID					0x1C
 #define CONST_X1						0x05A1
