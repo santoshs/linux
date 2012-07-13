@@ -138,7 +138,6 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
-	suppress_clocks_change(0);
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 }
@@ -149,7 +148,6 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 	clk_disable(r8a66597->clk_dmac);
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(0);
-	unsuppress_clocks_change();
 }
 
 static int r8a66597_clk_get(struct r8a66597 *r8a66597,
@@ -1282,6 +1280,8 @@ __acquires(r8a66597->lock)
 	req->req.complete(&ep->ep, &req->req);
 	spin_lock(&ep->r8a66597->lock);
 
+	unsuppress_clocks_change();
+
 	if (restart) {
 		req = get_request_from_ep(ep);
 		if (ep->desc)
@@ -1505,6 +1505,8 @@ static void start_dma(struct r8a66597 *r8a66597,
 
 	if (req->req.length == 0)
 		return;
+
+	suppress_clocks_change(0);
 
 	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
 
