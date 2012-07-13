@@ -14,6 +14,7 @@
  *   CMCNT/CMCOR must be used as a 32-bit counter
  * - RCLK-synchronous counter start/stop mode is not supported
  */
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -432,10 +433,8 @@ static int __init cmt_timer_init_single(struct cmt_clock_event_device *cmt,
 
 	if (cmclke) {
 		cmt->ops = &cmt_32bit_ops;
-		pr_info("%s@0x%p probed with CMCLKE\n", cfg->name, cmt->base);
 	} else if (cmstr) {
 		cmt->ops = &cmt_16bit_ops;
-		pr_info("%s@0x%p probed with CMSTR\n", cfg->name, cmt->base);
 	} else {
 		pr_err("unknown CMT type, rejected\n");
 		goto err1;
@@ -465,6 +464,10 @@ static int __init cmt_timer_init_single(struct cmt_clock_event_device *cmt,
 	}
 
 	cmt->cfg = cfg;
+
+	pr_info("%s 0x%p probed with %s\n",
+		cfg->name, cmt->base, cmclke ? "CMCLKE" : "CMSTR");
+
 	return 0;
 
  err1:
@@ -496,12 +499,12 @@ int __init cmt_clockevent_init(struct cmt_timer_config *cfg, int num,
 	/* remap I/O memory for a shared register, CMSTR or CMCLKE */
 	if (cmclke_base) {
 		cmclke = ioremap(cmclke_base, 4);
-		pr_info("cmt: CMCLKE %lx mapped to %p\n", cmclke_base, cmclke);
+		pr_info("CMCLKE 0x%lx mapped to 0x%p\n", cmclke_base, cmclke);
 	} else if (cmstr_base) {
 		cmstr = ioremap(cmstr_base, 4);
-		pr_info("cmt: CMSTR %lx mapped to %p\n", cmstr_base, cmstr);
+		pr_info("CMSTR 0x%lx mapped to 0x%p\n", cmstr_base, cmstr);
 	} else {
-		pr_err("cmt: failed to get I/O memory to a shared register\n");
+		pr_err("failed to get I/O memory to a shared register\n");
 		goto out_free;
 	}
 
