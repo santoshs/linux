@@ -3,7 +3,6 @@
  *     This file is screen display function.
  *
  * Copyright (C) 2011-2012 Renesas Electronics Corporation
-
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,7 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
- 
+
 #ifndef __SCREEN_DISPLAY_H__
 #define __SCREEN_DISPLAY_H__
 
@@ -65,6 +64,16 @@
 #define RT_DISPLAY_ROTATE_270			(4)
 /* #MU2DSP582 mod -E- */
 
+/* #MU2DSP860 -S- */
+/* Reseption mode */
+#define RT_DISPLAY_RECEPTION_OFF		(1)
+#define RT_DISPLAY_RECEPTION_ON			(2)
+
+/* DSI mode */
+#define RT_DISPLAY_SEND_MODE_LP			(1)
+#define RT_DISPLAY_SEND_MODE_HS			(2)
+/* #MU2DSP860 -E- */
+
 /** RT I/F Return code */
 #define SMAP_LIB_DISPLAY_OK				(0)
 #define SMAP_LIB_DISPLAY_NG				(-1)
@@ -74,14 +83,14 @@
 /****************************************/
 /* Structure				*/
 /****************************************/
-typedef struct
-{
-	unsigned int VCLKCR3; 
+typedef struct {
+	/* unsigned int VCLKCR3		#MU2DSP860 */;
 	unsigned int DSITCKCR;
 	unsigned int DSI0PCKCR;
 	unsigned int DSI0PHYCR;
 	unsigned int SYSCONF;
 	unsigned int TIMSET0;
+	unsigned int TIMSET1;		/* #MU2DSP860 */
 	unsigned int DSICTRL;
 	unsigned int VMCTR1;
 	unsigned int VMCTR2;
@@ -103,8 +112,7 @@ typedef struct
 
 #ifndef _SCREEN_RECT_TYPE_
 #define _SCREEN_RECT_TYPE_
-typedef struct
-{
+typedef struct {
 	unsigned short x;
 	unsigned short y;
 	unsigned short width;
@@ -112,17 +120,15 @@ typedef struct
 } screen_rect;
 #endif
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void          *handle;
 	unsigned short output_mode;
 	unsigned short dummy;
 	unsigned int   address;
 } screen_disp_get_address;
 
-typedef struct
-{
-	void*            handle;
+typedef struct {
+	void            *handle;
 	unsigned short   output_mode;
 	unsigned short   format;
 	screen_rect      draw_rect;
@@ -133,88 +139,90 @@ typedef struct
 /* #MU2DSP582 mod -E- */
 } screen_disp_draw;
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void          *handle;
 	unsigned short output_mode;
 } screen_disp_start_lcd;
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void          *handle;
 	unsigned short output_mode;
 } screen_disp_stop_lcd;
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void          *handle;
 	unsigned short output_mode;
 	unsigned short refresh_mode;
 } screen_disp_set_lcd_refresh;
 
-typedef struct
-{
-	void*        handle;
+typedef struct {
+	void        *handle;
 	unsigned int format;
 	unsigned int background_color;
 } screen_disp_start_hdmi;
 
-typedef struct
-{
-	void* handle;
+typedef struct {
+	void *handle;
 } screen_disp_stop_hdmi;
 
 /* #MU2DSP222 add -S- */
-typedef struct
-{
-	void*         handle;
+typedef struct {
+	void         *handle;
 	unsigned short output_mode;
 	unsigned short dummy;
 	unsigned char data_id;
 	unsigned char reg_address;
 	unsigned char	write_data;
 	unsigned char	data_count;
-	unsigned char*	read_data;
+	unsigned char	*read_data;
 } screen_disp_read_dsi_short;
 /* #MU2DSP222 add -E- */
 
-typedef struct
-{
-	void*         handle;
+typedef struct {
+	void         *handle;
 	unsigned short output_mode;	/* #MU2DSP188 */
 	unsigned char data_id;
 	unsigned char reg_address;
 	unsigned char write_data;
+	unsigned char reception_mode;	/* #MU2DSP860 */
 } screen_disp_write_dsi_short;
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void          *handle;
 	unsigned short output_mode;	/* #MU2DSP188 */
 	unsigned char  data_id;
 	unsigned char  dummy;
 	unsigned short data_count;
 	unsigned short dummy2;		/* #MU2DSP188 */
-	unsigned char* write_data;
+	unsigned char *write_data;
+	unsigned char reception_mode;	/* #MU2DSP860 */
+	unsigned char send_mode;		/* #MU2DSP860 */
 } screen_disp_write_dsi_long;
 
-typedef struct
-{
-	void*               handle;
-	screen_disp_lcd_if* lcd_if_param;
-	screen_disp_lcd_if* lcd_if_param_mask;
+typedef struct {
+	void               *handle;
+	screen_disp_lcd_if *lcd_if_param;
+	screen_disp_lcd_if *lcd_if_param_mask;
 } screen_disp_set_lcd_if_param;
 
 typedef struct
 {
-	void* handle;
+	void*          handle;
+	unsigned short output_mode;
+	unsigned short dummy;
+	unsigned int   address;
+	unsigned int   size;
+} screen_disp_set_address;
+
+typedef struct {
+	void *handle;
 } screen_disp_delete;
 
 /****************************************/
-/* function				*/
+/* function								*/
 /****************************************/
 /* Create handle */
-extern void* screen_display_new
+extern void *screen_display_new
 (
 	void
 );
@@ -286,6 +294,12 @@ extern int screen_display_write_dsi_long_packet
 extern int screen_display_set_lcd_if_parameters
 (
 	screen_disp_set_lcd_if_param* set_lcd_if_param
+);
+
+/* Set address  */
+extern int screen_display_set_address
+(
+	screen_disp_set_address* address
 );
 
 /* Delete handle */

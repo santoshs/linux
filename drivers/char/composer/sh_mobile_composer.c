@@ -36,7 +36,6 @@
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 #include <rtapi/screen_graphics.h>
-#include <rtapi/screen_common.h>
 #include <rtapi/system_memory.h>
 
 #include <linux/sh_mobile_composer.h>
@@ -136,7 +135,6 @@ static void composer_blendoverlay_errorcallback(
 	struct composer_rh *rh);
 static void timeout_queue_process(unsigned long data);
 static void process_composer_queue_callback(struct composer_rh *rh);
-static int  queue_fb_address_mapping(void);
 static void callback_composer_queue(int result, void *user_data);
 #endif
 
@@ -172,6 +170,9 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define MAX_KERNELREQ 4
 
 #define THREAD_PRIORITY  (MAX_RT_PRIO-1)
+
+/* define for error threshold */
+#define RTAPI_FATAL_ERROR_THRESHOLD  (-256)
 
 #define DEV_NAME      "composer"
 
@@ -242,6 +243,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define FUNC_BLEND           0x013
 #define FUNC_CALLBACK        0x014
 #define FUNC_HDMISET         0x015
+#define FUNC_NOTIFY          0x016
 #define FUNC_WQ_CREATE       0x020
 #define FUNC_WQ_DELETE       0x021
 #define FUNC_WQ_BLEND        0x022
@@ -3393,6 +3395,44 @@ static int  ioc_waitdraw(struct composer_fh *fh, int *mode)
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
+static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
+{
+	int rc = 0;
+	DBGENTER("fh:%p addr:%p\n", fh, addr);
+	printk_dbg2(3, "arg addr:0x%lx size:0x%lx\n", *addr, *(addr+1));
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	if (queue_fb_map_handle) {
+		printk_err("already configure fbaddr.\n");
+		rc = -EBUSY;
+	} else {
+		unsigned long fb_addr = *addr;
+		unsigned long fb_size = *(addr+1);
+
+		queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
+			fb_size, fb_addr);
+
+		if (queue_fb_map_handle) {
+			printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
+				"map success.\n",                 \
+				fb_addr, fb_addr + fb_size - 1);
+
+			queue_fb_map_address    = fb_addr;
+			queue_fb_map_endaddress = fb_addr + fb_size;
+
+			rc = 0;
+		} else {
+			printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
+				fb_addr, fb_addr + fb_size - 1);
+
+			rc = -EINVAL;
+		}
+	}
+#endif
+
+	DBGLEAVE("%d\n", rc);
+	return rc;
+}
 
 static int  chk_ioc_supportpixfmt(struct composer_fh *fh, \
 	struct cmp_lay_supportpixfmt *arg)
@@ -4834,7 +4874,7 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 	/* confirm result code. */
-	if (result < -256) {
+	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		int i;
 		for (i = 0; i < MAX_KERNELREQ; i++) {
@@ -4896,7 +4936,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 	DBGENTER("result:%d user_data:0x%lx\n", result, user_data);
 
 	/* confirm result code. */
-	if (result < -256) {
+	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 		struct list_head *list;
 		int    match = 0;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
@@ -5201,12 +5241,6 @@ static void work_createhandle(struct localwork *work)
 
 			work_deletehandle(work);
 		}
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		if (rc == 0) {
-			/* map physical address */
-			queue_fb_address_mapping();
-		}
-#endif
 	} else {
 		/* eror report */
 		printk_dbg1(1, "graphic_handle is NULL\n");
@@ -5848,33 +5882,6 @@ static void timeout_queue_process_timercancel(void)
 	DBGLEAVE("\n");
 }
 
-static int  queue_fb_address_mapping(void)
-{
-	int rc = CMP_NG;
-
-	DBGENTER("\n");
-
-	if (queue_fb_map_handle) {
-		/* already mapping */
-		printk_dbg2(3, "already mapping finished\n");
-		rc = CMP_OK;
-	} else {
-		queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
-			queue_fb_map_endaddress - queue_fb_map_address,
-			queue_fb_map_address);
-
-		if (queue_fb_map_handle) {
-			printk_dbg1(2, "framebuffer map success.\n");
-			rc = 0;
-		} else {
-			printk_err("can not map framebuffer.\n");
-			rc = CMP_NG;
-		}
-	}
-
-	DBGLEAVE("%d\n", rc);
-	return  rc;
-}
 
 static unsigned char *composer_get_RT_address(unsigned char *address)
 {
@@ -6002,6 +6009,9 @@ static void composer_blendoverlay_errorcallback(
 int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 {
 	struct composer_rh     *blend_req = NULL;
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	int hdmi_queue = 0;
+#endif
 
 	TRACE_ENTER(FUNC_BLEND);
 	DBGENTER("fb_physical:0x%lx\n", fb_physical);
@@ -6104,6 +6114,10 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	if (graphic_handle_hdmi) {
 		if (blend_req == NULL ||
 			blend_req->data.extlayer_index < 0) {
+
+			printk_dbg2(3, "down\n");
+			down(&sem);
+
 			/* queue task. */
 			if (localworkqueue_queue(workqueue,
 				&del_graphic_handle_hdmi)) {
@@ -6115,6 +6129,8 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 				printk_err("failed to release graphic "
 					"handle for hdmi\n");
 			}
+
+			up(&sem);
 		}
 	} else {
 		if (blend_req &&
@@ -6141,6 +6157,16 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 		if (localworkqueue_queue(workqueue, &blend_req->rh_wqtask)) {
 			printk_dbg2(3, "success to queue requests.\n");
 
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+			if (blend_req->data.extlayer_index >= 0) {
+				if (localworkqueue_queue(workqueue,
+					&blend_req->rh_wqtask_hdmi)) {
+					/* set queue flag for hdmi */
+					hdmi_queue = 1;
+				}
+			}
+#endif
+
 			/* wait task complete */
 			localworkqueue_flush(workqueue, &blend_req->rh_wqtask);
 		} else {
@@ -6153,22 +6179,11 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	/* overlay HDMI image */
-	if (blend_req && blend_req->data.extlayer_index >= 0) {
-		if (localworkqueue_queue(workqueue,
-			&blend_req->rh_wqtask_hdmi)) {
-			printk_dbg2(3, "success to queue hdmi requests.\n");
-
-			/* overlay no need wait complete. */
-			/* temporally wait comple.        */
-			localworkqueue_flush(workqueue,
-				&blend_req->rh_wqtask_hdmi);
-		} else {
-			printk_err("can not queue requests.");
-
-			/* process callback */
-			composer_blendoverlay_errorcallback(blend_req);
-			blend_req = NULL;
-		}
+	if (hdmi_queue) {
+		/* overlay no need wait complete. */
+		/* temporally wait comple.        */
+		localworkqueue_flush(workqueue,
+			&blend_req->rh_wqtask_hdmi);
 	}
 #endif
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
@@ -6227,6 +6242,7 @@ EXPORT_SYMBOL(sh_mobile_composer_hdmiset);
 void sh_mobile_composer_notifyrelease(void)
 {
 	struct composer_rh *rh = current_overlayrequest;
+	TRACE_ENTER(FUNC_NOTIFY);
 	DBGENTER("\n");
 
 	overlay_draw_complete = 1;
@@ -6247,6 +6263,7 @@ void sh_mobile_composer_notifyrelease(void)
 		wake_up(&kernel_waitqueue_comp);
 	}
 	DBGLEAVE("\n");
+	TRACE_LEAVE(FUNC_NOTIFY);
 }
 EXPORT_SYMBOL(sh_mobile_composer_notifyrelease);
 #endif
@@ -6293,6 +6310,11 @@ int sh_mobile_composer_queue(
 		goto err_exit;
 	}
 #endif
+	if (queue_fb_map_handle == NULL) {
+		printk_dbg2(2, "frame buffer not assigned.\n");
+		/* nothing to do */
+		goto err_exit;
+	}
 
 	/* cancel timer */
 	timeout_queue_process_timercancel();
@@ -6642,6 +6664,16 @@ static void internal_debug_create_message(struct composer_fh *fh)
 			p += c;
 			n -= c;
 		}
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		c = snprintf(p, n, "  graphic_handle_hdmi:%p\n",
+			graphic_handle_hdmi);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+#endif
+#endif
 		c = snprintf(p, n, "  workqueue:%p\n", workqueue);
 		if (c < n) {
 			p += c;
@@ -6840,6 +6872,20 @@ static void internal_debug_create_message(struct composer_fh *fh)
 			n -= c;
 		}
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		c = snprintf(p, n, "  expire_kernel_request\n");
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
+		c = snprintf(p, n, "  ->link:%s\n"
+			"  ->status:%d\n",
+			(list_empty(&expire_kernel_request.link) ? \
+				"idle" : "busy"),
+			expire_kernel_request.status);
+		if (c < n) {
+			p += c;
+			n -= c;
+		}
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		c = snprintf(p, n, "  del_graphic_handle_hdmi\n");
 		if (c < n) {
@@ -7187,6 +7233,9 @@ static long core_ioctl(struct file *filep, \
 		break;
 	case CMP_IOC_WAITDRAW:
 		rc = ioc_waitdraw(fh, parg);
+		break;
+	case CMP_IOCS_FBADDR:
+		rc = ioc_setfbaddr(fh, parg);
 		break;
 	default:
 		printk_err2("invalid cmd 0x%x\n", cmd);
@@ -7551,42 +7600,10 @@ static int __init sh_mobile_composer_init(void)
 	kernel_queue_timer.data = 0;
 	localwork_init(&expire_kernel_request, work_expirequeue);
 
-	/* calcurate PHYSICAL ADDRESS SIZE */
-	{
-		unsigned long size;
-		unsigned long ulLCM;
-		unsigned long gcd;
-
-		/* one line size. */
-		size = SH_MLCD_WIDTH * 4;
-
-		/* calculate Greatest common divisor */
-		{
-			unsigned long x, y;
-			x = size;
-			y = 0x1000;
-			while (y != 0) {
-				unsigned long r = x % y;
-				x = y;
-				y = r;
-			}
-			gcd = x;
-		}
-
-		/* calculate Least common multiple */
-		if (gcd == 0)
-			ulLCM = 0;
-		else
-			ulLCM = (size / gcd) * 0x1000;
-
-		/* round up */
-		size = (size * SH_MLCD_HEIGHT + (ulLCM - 1)) / ulLCM;
-		size *= ulLCM * 2;
-
-		queue_fb_map_address    = SCREEN_DISPLAY_BUFF_ADDR;
-		queue_fb_map_endaddress = SCREEN_DISPLAY_BUFF_ADDR + size;
-		queue_fb_map_handle     = NULL; /* not mapped. */
-	}
+	/* initialize mapping information */
+	queue_fb_map_address    = 0;
+	queue_fb_map_endaddress = 0;
+	queue_fb_map_handle     = NULL; /* not mapped. */
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	graphic_handle_hdmi = NULL;

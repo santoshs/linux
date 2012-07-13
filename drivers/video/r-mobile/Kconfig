@@ -1,0 +1,35 @@
+config FB_SH_MOBILE_LCDC
+        tristate "SuperH Mobile LCDC framebuffer support"
+        depends on FB && (SUPERH || ARCH_SHMOBILE) && HAVE_CLK
+        select FB_SYS_FILLRECT
+        select FB_SYS_COPYAREA
+        select FB_SYS_IMAGEBLIT
+        select FB_SYS_FOPS
+        select FB_DEFERRED_IO
+        select FB_BACKLIGHT
+        select SH_MIPI_DSI if SH_LCD_MIPI_DSI
+        ---help---
+          Frame buffer driver for the on-chip SH-Mobile LCD controller.
+
+choice
+        depends on FB_SH_MOBILE_LCDC
+        prompt "panel select"
+        default FB_R_MOBILE_KOTA
+        help
+          Selected panel
+
+config FB_R_MOBILE_KOTA
+        boolean "KOTA PANEL"
+
+config FB_R_MOBILE_S6E39A0X02
+        boolean "S6E39A0X02 PANEL"
+
+endchoice
+
+config FB_SH_MOBILE_DOUBLE_BUF
+        bool "SuperH Mobile double buffer support"
+        depends on FB_SH_MOBILE_LCDC
+        default y
+        help
+          SuperH Mobile LCDC framebuffer support double buffer.
+

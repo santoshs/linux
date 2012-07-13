@@ -28,12 +28,6 @@
 
 #define DEV_NAME      "composer"
 
-#if !defined(RT_MEMORY_MFIWORKRT)
-/* using RT-API is more recent version */
-#define RTAPI_VERSION   2
-#else
-#define RTAPI_VERSION   1
-#endif
 
 /******************************************************/
 /* define local variables for App Memory handling     */
@@ -130,9 +124,8 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 
 	{
 		system_mem_ap_open  op;
-#if RTAPI_VERSION == 2
 		system_mem_rt_map_pnc  mpnc;
-#endif
+
 		op.handle      = handle;
 		op.aparea_size = RT_MEMORY_APAREA_SIZE(size);
 		op.cache_kind  = RT_MEMORY_NONCACHE;
@@ -142,7 +135,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 				"error: return by %d\n", rc);
 			goto err_exit;
 		}
-#if RTAPI_VERSION == 2
+
 		mpnc.handle       = handle;
 		mpnc.apaddr       = op.apaddr;
 		mpnc.map_size     = op.aparea_size;
@@ -165,11 +158,6 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		op_apaddr = op.apaddr;
 		op_pages  = op.pages;
 		memhandle = mpnc.apmem_handle;
-#elif RTAPI_VERSION == 1
-		memhandle = op.apmem_handle;
-#else
-#error
-#endif
 	}
 
 	{
@@ -274,12 +262,9 @@ err_exit:
 			vadr = NULL;
 		}
 		if (memhandle) {
-#if RTAPI_VERSION == 2
 			system_mem_rt_unmap_pnc upnc;
-#endif
 			system_mem_ap_close clo;
 
-#if RTAPI_VERSION == 2
 			upnc.handle       = handle;
 			upnc.apmem_handle = memhandle;
 			memhandle = NULL;
@@ -294,13 +279,6 @@ err_exit:
 			clo.pages  = op_pages;
 			op_apaddr = 0;
 			op_pages  = NULL;
-#elif RTAPI_VERSION == 1
-			clo.handle = handle;
-			clo.apmem_handle = memhandle;
-			memhandle = NULL;
-#else
-#error
-#endif
 			rc = system_memory_ap_close(&clo);
 			if (rc != 0) {
 				printk_err("system_memory_ap_close " \
@@ -395,10 +373,8 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 			goto err_exit;
 		}
 		memhandle = area.apmem_handle;
-#if RTAPI_VERSION == 2
 		op_apaddr = area.apaddr;
 		op_pages  = area.pages;
-#endif
 	}
 
 	{
@@ -473,12 +449,9 @@ err_exit:
 	if (mem == NULL) {
 		/* free resources */
 		if (memhandle) {
-#if RTAPI_VERSION == 2
 			system_mem_rt_unmap_pnc upnc;
-#endif
 			system_mem_ap_close clo;
 
-#if RTAPI_VERSION == 2
 			upnc.handle       = handle;
 			upnc.apmem_handle = memhandle;
 			memhandle = NULL;
@@ -493,13 +466,6 @@ err_exit:
 			clo.pages  = op_pages;
 			op_apaddr = 0;
 			op_pages  = NULL;
-#elif RTAPI_VERSION == 1
-			clo.handle = handle;
-			clo.apmem_handle = memhandle;
-			memhandle = NULL;
-#else
-#error
-#endif
 			rc = system_memory_ap_close(&clo);
 			if (rc != 0) {
 				printk_err("system_memory_ap_close " \
@@ -723,12 +689,9 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		appmem->size  = 0;
 	}
 	{
-#if RTAPI_VERSION == 2
 		system_mem_rt_unmap_pnc upnc;
-#endif
 		system_mem_ap_close clo;
 
-#if RTAPI_VERSION == 2
 		upnc.handle       = handle;
 		upnc.apmem_handle = appmem->memhandle;
 		appmem->memhandle = NULL;
@@ -743,13 +706,6 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		clo.pages  = appmem->op_pages;
 		appmem->op_apaddr = 0;
 		appmem->op_pages  = NULL;
-#elif RTAPI_VERSION == 1
-		clo.handle       = handle;
-		clo.apmem_handle = appmem->memhandle;
-		appmem->memhandle = NULL;
-#else
-#error
-#endif
 		rc = system_memory_ap_close(&clo);
 		if (rc != 0) {
 			printk_err("system_memory_ap_close " \

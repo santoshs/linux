@@ -52,7 +52,6 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 /*Main display*/
 #define SH_MLCD_WIDTH		540
 #define SH_MLCD_HEIGHT		960
-
 #define SH_MLCD_TRCOLOR		0
 #define SH_MLCD_REPLACECOLOR	0
 #define SH_MLCD_RECTX		0
@@ -61,7 +60,6 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 /*Sub display*/
 #define SH_SLCD_WIDTH		480
 #define SH_SLCD_HEIGHT		864
-
 #define SH_SLCD_TRCOLOR		0
 #define SH_SLCD_REPLACECOLOR	0
 #define SH_SLCD_RECTX		0
@@ -131,6 +129,21 @@ struct fb_hdmi_set_mode {
 	unsigned int format;
 };
 
+struct fb_panel_func {
+	int (*panel_init)(unsigned int mem_size);
+	int (*panel_suspend)(void);
+	int (*panel_resume)(void);
+	struct fb_panel_info (*panel_info)(void);
+};
+
+struct fb_panel_info {
+	unsigned int pixel_width;
+	unsigned int pixel_height;
+	unsigned int size_width;
+	unsigned int size_height;
+	unsigned int buff_address;
+};
+
 #define IOC_SH_MOBILE_FB_MAGIC 'S'
 
 #define SH_MOBILE_FB_HDMI_SET \
@@ -142,6 +155,8 @@ extern int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
 				     unsigned short output_mode);
 extern int sh_mobile_lcdc_refresh(unsigned short set_state,
 				  unsigned short output_mode);
+
+extern struct fb_panel_func r_mobile_panel_func(int panel);
 
 /*extern struct semaphore   sh_mobile_sem_hdmi;*/
 
