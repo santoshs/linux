@@ -6,6 +6,9 @@
  * Copyright (C) 2009 Nokia Corporation.
  * Alexander Shishkin
  *
+ * Copyright (C) 2012 Renesas Mobile.
+ * Philippe Gobaille
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
@@ -164,6 +167,145 @@
 #define etb_lock(t) do { etb_writel((t), 0, CSMR_LOCKACCESS); } while (0)
 #define etb_unlock(t) \
 	do { etb_writel((t), UNLOCK_MAGIC, CSMR_LOCKACCESS); } while (0)
+
+/* CoreSight System Trace Macrocell TRM ARM DDI 0444B */
+#define STM_G_DMTS	0x00	/* data, marked with timestamp, guaranteed */
+#define STM_G_DM	0x08	/* data, marked, guaranteed */
+#define STM_G_DTS	0x10	/* data, timestamp, guaranteed */
+#define STM_G_D		0x18	/* data, guaranteed */
+#define STM_G_FLAGTS	0x60	/* flag with timestamp, guaranteed */
+#define STM_G_FLAG	0x68	/* flag, guaranteed */
+#define STM_G_TRIGTS	0x70	/* trigger with timestamp, guaranteed */
+#define STM_G_TRIG	0x78	/* trigger, guaranteed */
+#define STM_I_DMTS	0x80	/* data, marked with timestamp, invariant */
+#define STM_I_DM	0x88	/* data, marked, invariant */
+#define STM_I_DTS	0x90	/* data, timestamp, invariant */
+#define STM_I_D		0x98	/* data, invariant */
+#define STM_I_FLAGTS 	0xE0	/* flag with timestamp, invariant */
+#define STM_I_FLAG	0xE8	/* flag, invariant */
+#define STM_I_TRIGTS 	0xF0	/* trigger with timestamp, invariant */
+#define STM_I_TRIG	0xF8	/* trigger, invariant */
+#define STM_PORT_SIZE	0x100
+
+#define STM_SPER	0xE00	/* Stimulus Port Enable */
+#define STM_SPTER	0xE20	/* Stimulus Port Trigger Enable */
+#define STM_PRIVMASKR	0xE40	/* Trace Privilege */
+#define STM_SPSCR	0xE60	/* Stimulus Port Select Configuration */
+#define STM_SPMSCR	0xE64	/* Stimulus Port Master Select Configuration */
+#define STM_SPOVERRIDER	0xE68	/* Stimulus Port Override */
+#define STM_SPMOVERRIDER 0xE6C	/* Stimulus Port Master Override */
+#define STM_SPTRIGCSR	0xE70	/* Stimulus Port Trigger Control and Status */
+#define STM_TCSR	0xE80	/* Trace Control and Status */
+#define STM_TCSR_EN	1
+#define STM_TCSR_BUSY	(1 << 23)
+#define STM_TCSR_TRACEID_MSK (~(0x7F << 16))
+#define STM_TSSTIMR	0xE84	/* Timestamp Stimulus */
+#define STM_TSFREQR	0xE8C	/* Timestamp Frequency */
+#define STM_SYNCR	0xE90	/* Synchronization Control */
+#define STM_AUXCR	0xE94	/* Auxiliary Control */
+
+/* CoreSight Trace Memory Controller, ARM DDI 0461B */
+#define TMC_RSZ		0x004	/* RAM Size */
+#define TMC_STS		0x00C	/* Status */
+#define TMC_STS_RDY	(1 << 2)
+
+#define TMC_RRD		0x010	/* RAM Read Data */
+#define TMC_RRP		0x014	/* RAM Read Pointer */
+#define TMC_RWP		0x018	/* RAM Write Pointer */
+#define TMC_TRG		0x01C	/* Trigger Counter */
+#define TMC_CTL		0x020	/* Control */
+#define TMC_CTL_EN	1
+
+#define TMC_RWD		0x024	/* RAM Write Data */
+#define TMC_MODE	0x028	/* Mode */
+#define TMC_MODE_FIFOHW	2
+#define TMC_MODE_FIFOSW	1
+#define TMC_MODE_CIRC	0
+
+#define TMC_LBUFLEVEL	0x02C	/* Latched Buffer Fill Level */
+#define TMC_CBUFLEVEL	0x030	/* Current Buffer Fill Level */
+#define TMC_BUFWM	0x034	/* Buffer Level Water Mark */
+#define TMC_RRPHI	0x038	/* RAM Read Pointer High */
+#define TMC_RWPHI	0x03C	/* RAM Write Pointer High */
+#define TMC_AXICTL	0x110	/* AXI Control */
+#define	TMC_AXI_BURST_BIT	8
+#define	TMC_AXI_SGT_BIT		7
+#define	TMC_AXI_WR_ALLOC_BIT	5
+#define	TMC_AXI_RD_ALLOC_BIT	4
+#define	TMC_AXI_CACHEABLE_BIT	3
+#define	TMC_AXI_BUFFERABLE_BIT	2
+#define	TMC_AXI_NOSECU_BIT	1
+#define	TMC_AXI_PRIVILEGED_BIT	0
+
+#define TMC_DBALO	0x118	/* Data Buffer Address Low */
+#define TMC_DBAHI	0x11C	/* Data Buffer Address High */
+#define TMC_FFSR	0x300	/* Formatter and Flush Status */
+#define TMC_FFCR	0x304	/* Formatter and Flush Control */
+#define TMC_FFCR_ENFT	1
+#define TMC_FFCR_ENTI	(1 << 1)
+#define TMC_FFCR_FONFIIN	(1 << 4)
+#define TMC_FFCR_FONTRIGEVT	(1 << 5)
+#define TMC_FFCR_FLUSHMAN	(1 << 6)
+#define TMC_FFCR_TRIGONTRIGIN	(1 << 8)
+#define TMC_FFCR_TRIGONTRIGEVT	(1 << 9)
+#define TMC_FFCR_TRIGONFI	(1 << 10)
+#define TMC_FFCR_STOPONFI	(1 << 12)
+#define TMC_FFCR_STOPONTRIGEVT	(1 << 13)
+#define TMC_FFCR_DRAINBUF	(1 << 14)
+#define TMC_PSCR	0x308	/* Periodic Synchronization Counter */
+#define TMC_CLAIMSET	0xFA0	/* Claim Tag Set */
+#define TMC_CLAIMCLR	0xFA4	/* Claim Tag Clear */
+
+/* CoreSight Components Technical Reference Manual, ARM DDI 0314H */
+#define CSTF_CTL	0x000	/* Funnel Control */
+#define CSTF_PRIO	0x004	/* Priority Control */
+#define CSTF_PRIO_SET(reg,port,pri) \
+	do {__raw_writel((__raw_readl(reg + CSTF_PRIO) & ~(7 << ((port)*3))) | ((pri) << ((port)*3)),reg + CSTF_PRIO); } while (0)
+
+#define CSTF_PORT_ENABLE(reg,port) \
+	do {	unsigned int en = __raw_readl(reg + CSTF_CTL); \
+		__raw_writel(en | (1 << (port)), reg + CSTF_CTL); } while (0)
+#define CSTF_PORT_DISABLE(reg,port) \
+	do {	unsigned int en = __raw_readl(reg + CSTF_CTL); \
+		__raw_writel(en & ~(1 << (port)), reg + CSTF_CTL); } while (0)
+
+/* Cross Trigger Interface */
+#define	CTI_CONTROL	0x000	/* CTI Control */
+#define CTI_CONTROL_GLBEN 1
+#define	CTI_INTACK	0x010	/* CTI Interrupt Acknowledge */
+#define	CTI_APPSET	0x014	/* CTI Application Trigger Set */
+#define	CTI_APPCLEAR	0x018	/* CTI Application Trigger Clear */
+#define	CTI_APPPULSE	0x01C	/* CTI Application Pulse */
+#define	CTI_INEN0	0x020	/* CTI Trigger to Channel 0 Enable */
+#define	CTI_INEN1	0x024	/* CTI Trigger to Channel 1 Enable */
+#define	CTI_INEN2	0x028	/* CTI Trigger to Channel 2 Enable */
+#define	CTI_INEN3	0x02C	/* CTI Trigger to Channel 3 Enable */
+#define	CTI_INEN4	0x030	/* CTI Trigger to Channel 4 Enable */
+#define	CTI_INEN5	0x034	/* CTI Trigger to Channel 5 Enable */
+#define	CTI_INEN6	0x038	/* CTI Trigger to Channel 6 Enable */
+#define	CTI_INEN7	0x03C	/* CTI Trigger to Channel 7 Enable */
+#define	CTI_OUTEN0	0x0A0	/* CTI Trigger to Channel 0 Enable */
+#define	CTI_OUTEN1	0x0A4	/* CTI Trigger to Channel 1 Enable */
+#define	CTI_OUTEN2	0x0A8	/* CTI Trigger to Channel 2 Enable */
+#define	CTI_OUTEN3	0x0AC	/* CTI Trigger to Channel 3 Enable */
+#define	CTI_OUTEN4	0x0B0	/* CTI Trigger to Channel 4 Enable */
+#define	CTI_OUTEN5	0x0B4	/* CTI Trigger to Channel 5 Enable */
+#define	CTI_OUTEN6	0x0B8	/* CTI Trigger to Channel 6 Enable */
+#define	CTI_OUTEN7	0x0BC	/* CTI Trigger to Channel 7 Enable */
+#define	CTI_TRIGINSTATUS  0x130	/* CTI Trigger In Status */
+#define	CTI_TRIGOUTSTATUS 0x134	/* CTI Trigger Out Status */
+#define	CTI_CHINSTATUS	0x138	/* CTI Channel In Status */
+#define	CTI_CHOUTSTATUS	0x13C	/* CTI Channel Out Status */
+#define	CTI_GATE	0x140	/* CTI Channel Gate */
+#define	CTI_ASICCTL	0x144	/* External Multiplexor Control */
+#define	CTI_ITCHINACK	0xEDC
+#define	CTI_ITTRIGINACK	0xEE0
+#define	CTI_ITCHOUT	0xEE4
+#define	CTI_ITTRIGOUT	0xEE8
+#define	CTI_ITCHOUTACK	0xEEC
+#define	CTI_ITTRIGOUTACK 0xEF0
+#define	CTI_ITCHIN	0xEF4
+#define	CTI_ITTRIGIN	0xEF8
 
 #endif /* __ASM_HARDWARE_CORESIGHT_H */
 
