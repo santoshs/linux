@@ -48,6 +48,9 @@
 #define PNADDR_BROADCAST	0xFC
 #define PNPORT_RESOURCE_ROUTING	0
 
+/* define object for multicast */
+#define PNOBJECT_MULTICAST	0x20
+
 /* Values for PNPIPE_ENCAP option */
 #define PNPIPE_ENCAP_NONE	0
 #define PNPIPE_ENCAP_IP		1
