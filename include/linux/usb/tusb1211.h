@@ -161,6 +161,10 @@ static inline u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
 
 #define TUSB1211_ID_POLL_TIME 500
 
+struct tusb1211_platform_data {
+	void (*module_start)(void);
+};
+
 struct tusb1211 {
 	spinlock_t	lock;
 #ifdef CONFIG_HAVE_CLK
@@ -168,6 +172,7 @@ struct tusb1211 {
 #endif
 	struct otg_transceiver	otg;
 	unsigned			init:1;
+	struct tusb1211_platform_data *pdata;
 
 	struct timer_list se0_srp_timer;
 	struct timer_list b_data_pls_timer;
