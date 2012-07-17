@@ -1471,13 +1471,6 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003101);
 		else
 			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003110);
-
-#define DBG_GPIO_BASE	IO_ADDRESS(0xE6050000)
-#define DBG_FSIBISLD	(DBG_GPIO_BASE + 0x210A)
-	printk("GPIO_FN_FSIBISLD[0x%02d]\n", ioread8(DBG_FSIBISLD));
-	iowrite8(0x21, DBG_FSIBISLD);
-	printk("GPIO_FN_FSIBISLD[0x%02d]\n", ioread8(DBG_FSIBISLD));
-
 	/*for ES1.0 */
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
