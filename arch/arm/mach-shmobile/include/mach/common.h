@@ -13,7 +13,7 @@ struct cpuidle_device;
 extern void (*shmobile_cpuidle_modes[])(void);
 extern void (*shmobile_cpuidle_setup)(struct cpuidle_device *dev);
 
-extern void shmobile_clocksource_init(void);
+extern void (*shmobile_clocksource_init)(void);
 extern void shmobile_clockevent_init(void);
 
 extern void sh7367_init_irq(void);

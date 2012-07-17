@@ -2581,7 +2581,7 @@ else /*ES2.0*/
 #define CMCOR3		IO_ADDRESS(0xe6130318)
 #define CMCLKE		IO_ADDRESS(0xe6131000)
 
-static DEFINE_SPINLOCK(cmt_lock);
+extern spinlock_t	sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
 
 int read_current_timer(unsigned long *timer_val)
 {
@@ -2603,9 +2603,9 @@ static int __init setup_current_timer(void)
 	do_div(lpj, HZ);
 	lpj_fine = lpj;
 
-	spin_lock_irqsave(&cmt_lock, flags);
+	spin_lock_irqsave(&sh_cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 
 	__raw_writel(0, CMSTR3);
 	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
