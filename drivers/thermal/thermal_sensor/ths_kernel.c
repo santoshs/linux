@@ -33,6 +33,8 @@
  * return: 
  * 		-EINVAL (-22): invalid argument
  *		-ENXIO   (-6): Thermal Sensor device is IDLE state
+ *		-EACCES (-13): Permission denied due to driver in suspend state
+ *		0			 : Get current temperature successfully
  */
  
 int ths_get_cur_temp(unsigned int ths_id, int *cur_temp)

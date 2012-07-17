@@ -34,6 +34,7 @@
 #include <linux/delay.h>
 #include <mach/r8a73734.h>
 #include <mach/pm.h>
+#include <linux/hwspinlock.h>
 
 
 #include "ths_user.h"
@@ -50,6 +51,7 @@
 
 #define RESCNT			 IO_ADDRESS(0xE618801C)	/* Reset control register */
 #define TRESV			 0x00000008				/* Temperature sensor reset enable bit */
+#define HPB_TIMEOUT		1						/* Timeout value 1 msec */
 
 struct thermal_sensor *ths;
 int suspend_state = FALSE;
@@ -113,12 +115,9 @@ int __ths_get_cur_temp(unsigned int ths_id, int *cur_temp)
 	ctemp     = get_register_32(THSSR(ths_id)) & CTEMP_MASK;
 	*cur_temp = ctemp * 5 - 65; 
 	
-	THS_DEBUG_MSG("%s end (Normal case) <<<\n", __func__);
+	THS_DEBUG_MSG("%s end <<<\n", __func__);
 	
-	return 0;
 ths_error:
-	
-	THS_DEBUG_MSG("%s end (Error case) <<<\n", __func__);
 	
 	return ret;
 }
@@ -130,7 +129,7 @@ ths_error:
  * return: 
  *		0			 : set new operation mode successfully
  *		-EINVAL	(-22): invalid argument
-  *		-EACCES (-13): Permission denied
+ *		-EACCES (-13): Permission denied
  */
  
 int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
@@ -178,9 +177,9 @@ int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
 	
 	mutex_unlock(&ths->sensor_mutex);
 	
-ths_error:
-
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
+	
+ths_error:
 	
 	return ret;
 }
@@ -193,7 +192,7 @@ ths_error:
  *		E_NORMAL_2 (1): is equivalent to NORMAL 2 mode.
  *		E_IDLE     (2): is equivalent to IDLE mode
  *		-EINVAL  (-22): invalid argument (ths_id is different from 0 and 1)
-  *		-EACCES  (-13): Permission denied
+ *		-EACCES  (-13): Permission denied
  */
 
 int __ths_get_op_mode(unsigned int ths_id)
@@ -223,7 +222,7 @@ int __ths_get_op_mode(unsigned int ths_id)
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 	
 ths_error:
-
+	
 	return ret;
 }
 
@@ -237,12 +236,15 @@ static void ths_enable_reset_signal(void)
 {
 	unsigned int value;
 	
+	THS_DEBUG_MSG(">>> %s start\n", __func__);
+	
 	/* Enable reset signal */
 	value  = __raw_readl(RESCNT);
 	value &= ~TRESV;
 	value |= TRESV;
 	__raw_writel(value, RESCNT);
-
+	
+	THS_DEBUG_MSG("%s end <<<\n", __func__);
 }
 
 /*
@@ -252,11 +254,11 @@ static void ths_enable_reset_signal(void)
  */
  
 static void ths_initialize_hardware(void)
-{	
-	int cur_temp = 0;
-
+{
+	int ret = 0;
+	
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
-
+	
 	/* Disable chattering restraint function */
 	set_register_32(FILONOFF0_RW_32B, FILONOFF_CHATTERING_DI);
 	set_register_32(FILONOFF1_RW_32B, FILONOFF_CHATTERING_DI);
@@ -282,8 +284,21 @@ static void ths_initialize_hardware(void)
 	/* Enable all interrupts in THS0 and only INTDT3 in THS1 */
 	set_register_32(ENR_RW_32B, TJ13_EN | TJ03_EN | TJ02_EN | TJ01_EN | TJ00_EN);
 	
+	/* Loop until getting the lock */
+	for (;;) {
+		/* Take the lock, spin for 1 msec if it's already taken */
+		ret = hwspin_lock_timeout(r8a73734_hwlock_sysc, HPB_TIMEOUT);
+		if (0 == ret) {
+			THS_DEBUG_MSG(">>>\n %s Get lock in waiting loop successfully\n", __func__);
+			break;
+		}
+	}
+	
 	/* Enable temperature sensor reset request in SYSC */
 	ths_enable_reset_signal();
+	
+	/* Release the lock */
+	hwspin_unlock(r8a73734_hwlock_sysc);
 	
 	/* Set thresholds  (reset and raising interrupts) for THS0 and THS1 */
 	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX | CTEMP0_HEX);
@@ -296,20 +311,20 @@ static void ths_initialize_hardware(void)
 	udelay(300);	/* 300us */
 	
 	/* Get current temperature here to judge which Tj will be monitored (Tj0/1/2) */
-	__ths_get_cur_temp(0, &cur_temp);
+	__ths_get_cur_temp(0, &ret);
 	
-	THS_DEBUG_MSG("cur_temp:%d \n", cur_temp);
+	THS_DEBUG_MSG("Current temp:%d \n", ret);
 	
-	if (cur_temp <= CTEMP0_DEC) {
+	if (ret <= CTEMP0_DEC) {
 		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK | TJ00INT_MSK, TJ01INT_MSK);
-	} else if ((CTEMP0_DEC < cur_temp) && (cur_temp <= CTEMP1_DEC)) {
+	} else if ((CTEMP0_DEC < ret) && (ret <= CTEMP1_DEC)) {
 		/* Mask Tj3, Tj2; Un-mask Tj1, Tj0 to monitor Tj1, Tj0 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK, TJ00INT_MSK | TJ01INT_MSK);
-	} else if ((cur_temp > CTEMP1_DEC) && (cur_temp <= CTEMP2_DEC)) {
+	} else if ((ret > CTEMP1_DEC) && (ret <= CTEMP2_DEC)) {
 		/* Mask Tj3; Un-mask Tj2, Tj1, Tj0 to monitor Tj2, Tj1, Tj0 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK, TJ00INT_MSK | TJ01INT_MSK | TJ02INT_MSK);
-	} else if (cur_temp >= CTEMP2_DEC) {
+	} else if (ret > CTEMP2_DEC) {
 		/* Mask Tj3, Tj1; Un-mask Tj0, Tj2 to monitor Tj0, Tj2 */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ01INT_MSK, TJ00INT_MSK | TJ02INT_MSK);
 	}
@@ -566,6 +581,7 @@ static int ths_start_module(struct platform_device *pdev)
 	char clk_name[50];
 
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
+	
 	snprintf(clk_name, sizeof(clk_name), "thermal_sensor.%d", pdev->id);
 	ths->clk = clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(ths->clk)) {
@@ -663,14 +679,17 @@ static int __devinit ths_probe(struct platform_device *pdev)
 	ret = ths_start_module(pdev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Error! Can not start Thermal Sensor module\n");
-		goto error_3;
+		goto error_4;
 	}
-
+	
 	/* Initialize the operation of Thermal Sensor device */
 	ths_initialize_hardware();
 	
 	THS_DEBUG_MSG("%s end (Normal case) <<<\n", __func__);
 	return 0;
+
+error_4:
+	free_irq(platform_get_irq(pdev, 0), pdev);
 error_3:
 	mutex_destroy(&ths->sensor_mutex);
 	iounmap(ths->iomem_base);
@@ -697,13 +716,13 @@ static int __devexit ths_remove(struct platform_device *pdev)
 {	
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	
-	misc_deregister(&ths_user);
-	iounmap(ths->iomem_base);
-	free_irq(platform_get_irq(pdev, 0), pdev);
-	platform_set_drvdata(pdev, NULL);
-	mutex_destroy(&ths->sensor_mutex);
-	kfree(ths);
 	ths_stop_module(pdev);
+	free_irq(platform_get_irq(pdev, 0), pdev);
+	mutex_destroy(&ths->sensor_mutex);
+	iounmap(ths->iomem_base);
+	platform_set_drvdata(pdev, NULL);
+	kfree(ths);
+	misc_deregister(&ths_user);
 	
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
