@@ -20,11 +20,13 @@
 
 #include <linux/rmu2_rwdt.h>
 #include <asm/io.h>
+#include <linux/hwspinlock.h>
+#include <mach/r8a73734.h>
 
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
 
-//#define CONFIG_RWDT_DEBUG
+// #define CONFIG_RWDT_DEBUG
 #ifdef CONFIG_RWDT_DEBUG
 #include <linux/proc_fs.h>
 
@@ -532,6 +534,7 @@ static int rmu2_rwdt_start(void)
 	u8 reg8;
 	u16 clockSelect;
 	u32 reg32;
+	int hwlock;
 
 	RWDT_DEBUG( "START < %s >\n", __func__);
 
@@ -544,13 +547,21 @@ static int rmu2_rwdt_start(void)
 	}
 	base = r->start;
 	cpu_num = DEFAULT_CPU_NUMBER;
-
+	
+	for(;;){
+		hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+		if(0 == hwlock)
+			break;
+	}
 	/* set 11 to SYSC RESCNT2 RWD0A for selecting soft power on reset */
 #ifdef CONFIG_RMU2_RWDT_REBOOT_ENABLE
 	rmu2_modify_register32(SYSC_RESCNT2, 0x00000000, RESCNT2_RWD0A_MASK);
 #else	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_RWD0A_MASK, 0x00000000);
 #endif	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
+
+	hwspin_unlock(r8a73734_hwlock_sysc);
+	
 	/* module stop release */
 	clk_enable(rmu2_rwdt_clk);
 	
@@ -943,13 +954,23 @@ static void __exit rmu2_rwdt_exit(void)
 void rmu2_rwdt_software_reset(void)
 {
 	u8 reg = 0;
+	int hwlock;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
 	/* __raw_writeb(0x22, (unsigned long)0xE6180041); */
 
 	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_RWDT_SOFTWARE_RESET), STBCHR2); /* write STBCHR2 for debug */
 	/* execute software reset by setting 0x80000000 to RESCNT2 */
+	
+	for(;;){
+		hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+		if(0 == hwlock)
+			RWDT_DEBUG(">>> %s Get lock in loop successfully\n", __func__);
+			break;
+	}
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_PRES_MASK, RESCNT2_PRES_MASK);
+	
+	hwspin_unlock(r8a73734_hwlock_sysc);
 }
 
 module_init(rmu2_rwdt_init);
