@@ -383,6 +383,12 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	pn_skb_get_dst_sockaddr(skb, &sa);
 
+	/* check if this is multicasted */
+	if (pn_sockaddr_get_object(&sa) == PNOBJECT_MULTICAST) {
+		pn_deliver_sock_broadcast(net, skb);
+		goto out;
+	}
+
 	/* check if this is broadcasted */
 	if (pn_sockaddr_get_addr(&sa) == PNADDR_BROADCAST) {
 		pn_deliver_sock_broadcast(net, skb);
