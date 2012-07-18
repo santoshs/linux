@@ -1073,13 +1073,13 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_early_devices));
 //ES2.0 change start
 
-	if ((system_rev & 0xFF) == 0x00)
+	if((system_rev & 0xFFFF) == 0x3E00)
 	{
 		platform_add_devices(r8a73734_late_devices_es10,
 				ARRAY_SIZE(r8a73734_late_devices_es10));
 	
 	}
-	else
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		platform_add_devices(r8a73734_late_devices_es20,
 				ARRAY_SIZE(r8a73734_late_devices_es20)); 	  

@@ -6,7 +6,8 @@ void __init r8a73734_clock_init(void)
 	/* quirks - can be removed once fixed in the boot software */
 	__raw_writel(0x6100, VCLKCR3);	/* main clock, x1/1 */
 
-	if (((system_rev & 0xFFFF) == 0x3E10)) {
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 	__raw_writel(0x000000D, DSI1PCKCR);
 	__raw_writel(0x00000105, SLIMBCKCR);
 	__raw_writel(0x00000005, SPUACKCR);
@@ -34,7 +35,8 @@ void __init r8a73734_clock_init(void)
 			mpc_clk.parent = &mp_clk;
 		else
 			mp_clk.flags = 0;
-	} else {
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 		/* detect System-CPU clock parent */
 		if (__raw_readl(PLLECR) & (1 << 8)) {	/* PLL0ST */
 			es2_div4_clks[ES2_DIV4_Z].parent = &pll0_clk;
@@ -66,7 +68,8 @@ void __init r8a73734_clock_init(void)
 	if (((system_rev & 0xFFFF) == 0x3E00)) {
 		clk_register(&fsiack_clk);
 		clk_register(&fsibck_clk);
-	} else {
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 		clk_register(&es2_fsiack_clk);
 		clk_register(&es2_fsibck_clk);
 	}
@@ -76,7 +79,7 @@ void __init r8a73734_clock_init(void)
 
 	sh_clk_cksel_register(&pll2_cksel_clk, 1);
 
-	if ((system_rev & 0xFFFF) == 0x3E10)
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		sh_clk_cksel_register(&pll22_cksel_clk, 1);
 
 	clk_register(&pll0_clk);
@@ -86,7 +89,7 @@ void __init r8a73734_clock_init(void)
 	clk_register(&pll1_div13_clk);
 	clk_register(&pll2_clk);
 
-	if ((system_rev & 0xFFFF) == 0x3E10)
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		clk_register(&pll22_clk);
 
 	clk_register(&pll3_clk);
@@ -116,7 +119,8 @@ void __init r8a73734_clock_init(void)
 		sh_clk_cksel_register(&vclk3_cksel_clk, 1);
 		clk_register(&vclk3_pdiv_clk);
 		sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
-	} else {
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 		/* common divider following pll1 and pll3 */
 		sh_clk_div4_register(es2_div4_clks, ES2_DIV4_NR,
 				     &common_div4_table);
@@ -148,7 +152,8 @@ void __init r8a73734_clock_init(void)
 	clk_register(&dsi0p1_clk);
 	clk_register(&dsi0p_clk);
 
-	if ((system_rev & 0xFFFF) == 0x3E10) {
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 		sh_clk_cksel_register(&dsi1p0_cksel_clk, 1);
 		sh_clk_cksel_register(&dsi1p1_cksel_clk, 1);
 		clk_register(&dsi1p0_clk);
@@ -179,7 +184,8 @@ void __init r8a73734_clock_init(void)
 
 		sh_clk_mstp32_register(mstp_clks, MSTP_NR);
 		clkdev_add_table(lookups, ARRAY_SIZE(lookups));
-	} else {
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
 		sh_clk_cksel_register(&es2_mp_clk, 1);
 
 		sh_clk_cksel_register(&es2_mpc_clk, 1);

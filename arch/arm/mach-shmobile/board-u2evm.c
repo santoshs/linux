@@ -736,7 +736,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-	if((system_rev & 0xFF) == 0x00)
+	if((system_rev & 0xFFFF) == 0x3E00)
 	{
 		#ifndef CONFIG_PMIC_INTERFACE
 			gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
@@ -747,7 +747,7 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
 	}
-	else
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		#ifndef CONFIG_PMIC_INTERFACE
 			gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
@@ -1958,7 +1958,7 @@ static void __init u2evm_init(void)
 	printk("stm_select=%d\n", stm_select);
 
 	r8a73734_pinmux_init();
-	if((system_rev & 0xFF) != 0x00)      /*ES1_ECR0208*/
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 #define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
 #define GPIO_DRVCR_SIM1	((volatile ushort *)(0xE6050000ul + 0x8192))
@@ -1997,7 +1997,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYOUT5, NULL);
 	gpio_request(GPIO_FN_KEYOUT6, NULL);
 
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
 {	
 	gpio_pull(GPIO_PORTCR_ES1(44), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
@@ -2007,7 +2007,7 @@ if((system_rev & 0xFF) == 0x00) /*ES1.0*/
 	gpio_pull(GPIO_PORTCR_ES1(96), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(97), GPIO_PULL_UP);
 }
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 {
 	gpio_pull(GPIO_PORTCR_ES2(44), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(45), GPIO_PULL_UP);
@@ -2148,9 +2148,9 @@ else /*ES2.0*/
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
         gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
-else /*ES2.0*/
+else if((system_rev & 0xFFFF>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
 
 	}
@@ -2160,9 +2160,9 @@ else /*ES2.0*/
 //        gpio_request(GPIO_PORT324, NULL);
 //        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
         gpio_pull(GPIO_PORTCR_ES1(324), GPIO_PULL_UP);
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(324), GPIO_PULL_UP);
 
 	}
@@ -2364,11 +2364,11 @@ else /*ES2.0*/
 	/* touch key */
 	gpio_request(GPIO_PORT104, NULL);
 	gpio_direction_input(GPIO_PORT104);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
 {	
 	gpio_pull(GPIO_PORTCR_ES1(104), GPIO_PULL_UP);
 }
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 {
 	gpio_pull(GPIO_PORTCR_ES2(104), GPIO_PULL_UP);
 }
@@ -2405,9 +2405,9 @@ else /*ES2.0*/
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
 	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
 
 	/* USBHS */
@@ -2471,11 +2471,11 @@ else /*ES2.0*/
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if ((system_rev & 0xFF) == 0x00)
+	if((system_rev & 0xFFFF) == 0x3E00)
 	{
 		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 	}
-	else
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
 		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
@@ -2514,8 +2514,7 @@ else /*ES2.0*/
 	/* Camera ES version convert */
 	camera_links[0].priv = &csi20_info;
 	camera_links[1].priv = &csi21_info;
-	if (0x00003E00 == system_rev) {
-		/* ES1.0 */
+	if((system_rev & 0xFFFF) == 0x3E00) {
 		printk(KERN_ALERT "Camera ISP ES version switch (ES1)\n");
 		csi21_device.resource = csi21_resources_es1;
 		csi21_device.num_resources = ARRAY_SIZE(csi21_resources_es1);
@@ -2525,7 +2524,7 @@ else /*ES2.0*/
 		rcu1_device.resource = rcu1_resources_es1;
 		rcu1_device.num_resources = ARRAY_SIZE(rcu1_resources_es1);
 		sh_mobile_rcu1_info.mod_name = sh_mobile_rcu0_info.mod_name;
-	} else
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 }
 
@@ -2557,9 +2556,9 @@ else /*ES2.0*/
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 #if 0
-        if (0x00003E00 == system_rev) {
+        if((system_rev & 0xFFFF) == 0x3E00) {
             i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-        } else {
+        } else if(((system_rev & 0xFFFF)>>4) >= 0x3E1) {
             i2c_register_board_info(6, i2cm_devices_es2, ARRAY_SIZE(i2cm_devices_es2));
         }
 #endif
