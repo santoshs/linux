@@ -1874,6 +1874,7 @@ retry_open:
 				/* Don't let /dev/console block */
 				filp->f_flags |= O_NONBLOCK;
 				noctty = 1;
+                                /* In AT Console Mode driver must send interrupt for Ctrl+C */
 				goto got_driver;
 			}
 		}
@@ -1967,10 +1968,11 @@ got_driver:
 	mutex_lock(&tty_mutex);
 	tty_lock();
 	spin_lock_irq(&current->sighand->siglock);
-	if (!noctty &&
+	/* To enable Ctrl+C in AT Mode on SSG */
+	/* if (!noctty &&
 	    current->signal->leader &&
 	    !current->signal->tty &&
-	    tty->session == NULL)
+	    tty->session == NULL) */
 		__proc_set_tty(current, tty);
 	spin_unlock_irq(&current->sighand->siglock);
 	tty_unlock();
