@@ -250,6 +250,25 @@ static struct platform_device scif6_device = {
 	},
 };
 
+/* SCIFB3 - New channel Implementation for ES2.0*/
+static struct plat_sci_port scif7_platform_data = {
+        .mapbase        = 0xe6470000,
+        .flags          = UPF_BOOT_AUTOCONF | UPF_IOREMAP,
+        .scscr          = SCSCR_RE | SCSCR_TE,
+        .scbrr_algo_id  = SCBRR_ALGO_4,
+        .type           = PORT_SCIFB,
+        .irqs           = { gic_spi(117), gic_spi(117),
+                            gic_spi(117), gic_spi(117) },
+};
+
+static struct platform_device scif7_device = {
+        .name           = "sh-sci",
+        .id             = 7,
+        .dev            = {
+        	.platform_data  = &scif7_platform_data,
+        },
+};
+
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
 };
@@ -640,34 +659,44 @@ static const struct sh_dmae_slave_config r8a73734_dmae_slaves[] = {
 		.mid_rid	= 0x2e,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF4_TX,
-		.addr		= 0xe6c20020,
+		.addr		= 0xe6c20040,
 		.chcr		= CHCR_TX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x3d,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF4_RX,
-		.addr		= 0xe6c20024,
+		.addr		= 0xe6c20060,
 		.chcr		= CHCR_RX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x3e,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF5_TX,
-		.addr		= 0xe6c30020,
+		.addr		= 0xe6c30040,
 		.chcr		= CHCR_TX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x19,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF5_RX,
-		.addr		= 0xe6c30024,
+		.addr		= 0xe6c30060,
 		.chcr		= CHCR_RX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x1a,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF6_TX,
-		.addr		= 0xe6ce0020,
+		.addr		= 0xe6ce0040,
 		.chcr		= CHCR_TX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x1d,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCIF6_RX,
-		.addr		= 0xe6ce0024,
+		.addr		= 0xe6ce0060,
 		.chcr		= CHCR_RX(XMIT_SZ_8BIT),
 		.mid_rid	= 0x1e,
+	},{
+		.slave_id	= SHDMA_SLAVE_SCIF7_TX,
+		.addr		= 0xe6470040,
+		.chcr		= CHCR_TX(XMIT_SZ_8BIT),
+		.mid_rid	= 0x35,
+	},{
+		.slave_id	= SHDMA_SLAVE_SCIF7_RX,
+		.addr		= 0xe6470060,
+		.chcr		= CHCR_RX(XMIT_SZ_8BIT),
+		.mid_rid	= 0x36,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
 		.addr		= 0xee100030,
