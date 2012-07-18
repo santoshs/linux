@@ -1415,6 +1415,7 @@ static struct platform_device mdm_reset_device = {
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
 
 static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
+	
 	&usbhs_func_device,
 #ifdef CONFIG_USB_R8A66597_HCD
 	&usb_host_device,
@@ -1457,6 +1458,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
+	
 	&usbhs_func_device,
 #ifdef CONFIG_USB_R8A66597_HCD
 	&usb_host_device,
@@ -1470,7 +1472,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #endif
 	&sh_mmcif_device,
 	&mmcoops_device,
-	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
+//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 //	&sdhi1_device,
 	&fsi_device,
 	&fsi_b_device,
@@ -1499,6 +1501,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
+	
 	&usbhs_func_device,
 #ifdef CONFIG_USB_R8A66597_HCD
 	&usb_host_device,
