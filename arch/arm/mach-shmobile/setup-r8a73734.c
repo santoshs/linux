@@ -1,5 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/clk.h>
+#include <linux/clocksource.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/platform_device.h>
@@ -7,6 +9,8 @@
 #include <linux/serial_sci.h>
 #include <linux/sh_timer.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <asm/sched_clock.h>
+#include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/r8a73734.h>
 #include <linux/i2c-gpio.h>
@@ -26,36 +30,6 @@ static struct sh_timer_clock cmt1_cks_table[] = {
 	[6] = CKS("r_clk", 128),
 	[7] = CKS("r_clk", 1),
 	/* Pseudo 32KHz/1 is omitted */
-};
-
-static struct sh_timer_config cmt10_platform_data = {
-	.name			= "CMT10",
-	.channel_offset		= 0x1000 - 0,
-	.timer_bit		= 0,
-	.clocksource_rating	= 125,
-	.cks_table	= cmt1_cks_table,
-	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 3,
-	.cmcsr_init	= 0x108, /* Free-running, debug */
-};
-
-static struct resource cmt10_resources[] = {
-	{
-		.name	= "CMT10",
-		.start	= 0xe6130000,
-		.end	= 0xe6131003,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device cmt10_device = {
-	.name		= "sh_cmt",
-	.id		= 10,
-	.dev		= {
-			.platform_data	= &cmt10_platform_data,
-	},
-	.resource	= cmt10_resources,
-	.num_resources	= ARRAY_SIZE(cmt10_resources),
 };
 
 static struct sh_timer_config cmt11_platform_data = {
@@ -999,7 +973,6 @@ static struct platform_device hwsem1_device = {
 
 
 static struct platform_device *r8a73734_early_devices[] __initdata = {
-	&cmt10_device,
 	&cmt11_device,
 	&cmt12_device,
 	&scif0_device,
@@ -1066,6 +1039,121 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
    &hwsem1_device,
 };
 
+/* CMT10 clocksource */
+#define CMCLKE	0xe6131000
+#define CMSTR0	0xe6130000
+#define CMCSR0	0xe6130010
+#define CMCNT0	0xe6130014
+#define CMCOR0	0xe6130018
+
+/* CMT14 sched_clock */
+#define CMSTR4	0xe6130400
+#define CMCSR4	0xe6130410
+#define CMCNT4	0xe6130414
+#define CMCOR4	0xe6130418
+
+extern spinlock_t sh_cmt_lock;	/* arch/arm/mach-shmobile/sh_cmt.c */
+
+static struct clk *cmt10_clk;
+static DEFINE_CLOCK_DATA(cd);
+
+unsigned long long notrace sched_clock(void)
+{
+	u32 cyc = __raw_readl(CMCNT4);
+	return cyc_to_sched_clock(&cd, cyc, (u32)~0);
+}
+
+static void notrace cmt_update_sched_clock(void)
+{
+	u32 cyc = __raw_readl(CMCNT4);
+	update_sched_clock(&cd, cyc, (u32)~0);
+}
+
+static void cmt10_start(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 0), CMCLKE);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+
+	/* stop */
+	__raw_writel(0, CMSTR0);
+
+	/* setup */
+	__raw_writel(0, CMCNT0);
+	__raw_writel(0x10b, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
+	__raw_writel(0xffffffff, CMCOR0);
+	while (__raw_readl(CMCNT0) != 0)
+		cpu_relax();
+
+	/* start */
+	__raw_writel(1, CMSTR0);
+}
+
+static void cmt10_stop(void)
+{
+	unsigned long flags;
+
+	__raw_writel(0, CMSTR0);
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) & ~(1 << 0), CMCLKE);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+}
+
+void clocksource_mmio_suspend(struct clocksource *cs)
+{
+	cmt10_stop();
+	clk_disable(cmt10_clk);
+}
+
+void clocksource_mmio_resume(struct clocksource *cs)
+{
+	clk_enable(cmt10_clk);
+	cmt10_start();
+}
+
+static void r8a73734_clocksource_init(void)
+{
+	static struct clk *cp_clk, *r_clk;
+	unsigned long flags, rate;
+
+	/* Set up CMT14 for sched_clock - running forever */
+	clk_enable(clk_get_sys("sh_cmt.14", NULL));
+	r_clk = clk_get(NULL, "r_clk");
+	clk_enable(r_clk);
+	rate = clk_get_rate(r_clk);
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 4), CMCLKE);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+
+	__raw_writel(0, CMSTR4);
+
+	__raw_writel(0, CMCNT4);
+	__raw_writel(0x10f, CMCSR4); /* Free-running, DBGIVD, RCLK/1 */
+	__raw_writel(0xffffffff, CMCOR4);
+	while (__raw_readl(CMCNT4) != 0)
+		cpu_relax();
+
+	__raw_writel(1, CMSTR4);
+
+	init_sched_clock(&cd, cmt_update_sched_clock, 32, rate);
+
+	/* Set up CMT10 for clocksource - get halted during suspend */
+	cmt10_clk = clk_get_sys("sh_cmt.10", NULL);
+	clk_enable(cmt10_clk);
+	cp_clk = clk_get(NULL, "cp_clk");
+	clk_enable(cp_clk);
+	rate = clk_get_rate(cp_clk);
+
+	cmt10_start();
+
+	clocksource_mmio_init(__io(CMCNT0), "cmt10", rate, 125, 32,
+			      clocksource_mmio_readl_up);
+}
+
 void __init r8a73734_add_standard_devices(void)
 {
 
@@ -1128,10 +1216,12 @@ void __init r8a73734_add_early_devices(void)
 {
 	system_rev = __raw_readl(__io(CCCR));
 
+	shmobile_clocksource_init = r8a73734_clocksource_init;
+
 	early_platform_add_devices(r8a73734_early_devices,
 			ARRAY_SIZE(r8a73734_early_devices));
 
 #ifdef CONFIG_SH_TIMER_CMT_ARM
-	sh_cmt_register_devices(r8a73734_early_devices, 1 + NR_CPUS);
+	sh_cmt_register_devices(r8a73734_early_devices, NR_CPUS);
 #endif
 }

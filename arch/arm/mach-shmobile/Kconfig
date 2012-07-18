@@ -33,6 +33,8 @@ config ARCH_R8A73734
 	select SH_CLK_CPG
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	select ARM_GIC
+	select CLKSRC_MMIO
+	select HAVE_SCHED_CLOCK
 
 comment "SH-Mobile Board Type"
 
