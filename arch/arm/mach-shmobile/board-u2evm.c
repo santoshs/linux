@@ -416,12 +416,34 @@ static struct sh_mmcif_dma sh_mmcif_dma = {
 	},
 };
 
+static void mmcif_set_pwr(struct platform_device *pdev, int state)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
+	gpio_set_value(GPIO_PORT227, 1);
+	printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
+#endif
+}
+
+static void mmcif_down_pwr(struct platform_device *pdev)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
+	gpio_set_value(GPIO_PORT227, 0);
+	printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
+#endif
+
+}
+
+
 static struct sh_mmcif_plat_data sh_mmcif_plat = {
 	.sup_pclk	= 0,
 	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
 	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
 			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
 			  MMC_CAP_NONREMOVABLE,
+	.set_pwr	= mmcif_set_pwr,
+	.down_pwr	= mmcif_down_pwr,
 	.dma		= &sh_mmcif_dma,
 	.max_clk	= 26000000,
 };
@@ -473,7 +495,20 @@ static struct platform_device mmcoops_device = {
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
-	;
+#ifdef CONFIG_PMIC_INTERFACE
+	if(state)
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		pmic_set_power_on(E_POWER_VIO_SD);
+		pmic_set_power_on(E_POWER_VMMC);
+	}
+	else
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		pmic_set_power_off(E_POWER_VIO_SD);
+		pmic_set_power_off(E_POWER_VMMC);
+	}
+#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)
@@ -2447,6 +2482,10 @@ else /*ES2.0*/
 	/* touch key */
 	gpio_request(GPIO_PORT104, NULL);
 	gpio_direction_input(GPIO_PORT104);
+	/* emmc */
+	gpio_request(GPIO_PORT227, NULL);
+	gpio_direction_output(GPIO_PORT227, 1);
+
 if((system_rev & 0xFF) == 0x00) /*ES1.0*/
 {	
 	gpio_pull(GPIO_PORTCR_ES1(104), GPIO_PULL_UP);
