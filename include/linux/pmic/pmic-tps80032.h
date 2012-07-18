@@ -157,6 +157,14 @@ struct tps80032_irq_data {
 #define HW_REG_PREQ1_RES_ASS_B			0xD8
 #define HW_REG_PREQ1_RES_ASS_C			0xD9
 
+#define HW_REG_PREQ2_RES_ASS_A			0xDA
+#define HW_REG_PREQ2_RES_ASS_B			0xDB
+#define HW_REG_PREQ2_RES_ASS_C			0xDC
+
+#define HW_REG_PREQ3_RES_ASS_A			0xDD
+#define HW_REG_PREQ3_RES_ASS_B			0xDE
+#define HW_REG_PREQ3_RES_ASS_C			0xDF
+
 #define HW_REG_PHOENIX_MSK_TRANSITION	0x20
 
 #define HW_REG_CHARGEUSB_CTRL1			0xE8
@@ -204,6 +212,7 @@ struct tps80032_irq_data {
 #define HW_REG_SMPS4_CFG_STATE			0x42
 #define HW_REG_LDO1_CFG_STATE 			0x9E
 #define HW_REG_LDO5_CFG_STATE			0x9A
+#define HW_REG_LDO6_CFG_STATE			0x92
 #define HW_REG_LDO7_CFG_STATE			0xA6
 #define HW_REG_LDOUSB_CFG_STATE			0xA2
 
@@ -241,6 +250,7 @@ struct tps80032_irq_data {
 #define HW_REG_LDO5_CFG_TRANS			0x99
 #define HW_REG_LDO6_CFG_TRANS			0x91
 #define HW_REG_LDO7_CFG_TRANS			0xA5
+#define HW_REG_LDOLN_CFG_TRANS			0x95
 
 #define HW_REG_FG_REG_00				0xC0
 #define HW_REG_FG_REG_01				0xC1
@@ -329,11 +339,15 @@ struct tps80032_irq_data {
 #define MSK_DISABLE 					0x00
 #define MSK_CONTROLLER_INT				0x00
 #define MSK_PREQ1_ASS_A					0x11
-#define MSK_PREQ1_ASS_B					0xA0
+#define MSK_PREQ1_ASS_B					0x80
+#define MSK_PREQ2_ASS_A					0x08
+#define MSK_PREQ3_ASS_B					0x80
 #define MSK_TRANSITION					0x00
 #define CONST_INT_ID					0x1C
 #define CONST_X1						0x05A1
 #define CONST_X2						0x0CCC
+#define CONST_LDOLN_CFG_TRANS			0x01
+#define CONST_LDO6_CFG_TRANS			0x01
 #define CONST_VAC_CURRENT_LIMIT			0x01	/* 100mA */
 #define CONST_DEF_CURRENT_LIMIT			0x01	/* 100mA */
 #define CONST_VOREG						0x05	/* 3.6V */
