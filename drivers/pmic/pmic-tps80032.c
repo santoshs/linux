@@ -558,6 +558,51 @@ exit:
 }
 
 /*
+ * tps80032_set_ldo6_power_state: change power state for LDO6
+ * @dev: an i2c client
+ * @pstate: The power state.
+ * return:
+ * 			=0: change successful
+ * 			<0: change failed
+ */
+static int tps80032_set_ldo6_power_state(struct device *dev, int pstate)
+{
+	int ret;
+	int val;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps80032_data *data = i2c_get_clientdata(client);
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	mutex_lock(&data->ldo6_lock);
+	ret = tps80032_check_state_valid(pstate);
+	if (0 > ret) {
+		goto exit;
+	}
+
+	pstate = ret; /* pstate now contains value corresponding to register value. */
+
+	ret = i2c_smbus_read_byte_data(client, HW_REG_LDO6_CFG_STATE);
+	if (0 > ret) {
+		goto exit;
+	}
+
+	if (pstate != (ret & MSK_POWER_STATE)) {
+		val = ret & (~MSK_POWER_STATE);
+		val |= pstate;
+		ret = i2c_smbus_write_byte_data(client, HW_REG_LDO6_CFG_STATE, val);
+	} else {
+		ret = 0;	/* Nothing to do */
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+
+exit:
+	mutex_unlock(&data->ldo6_lock);
+	return ret;
+}
+
+/*
  * tps80032_set_ldo7_power_state: change power state for LDO7
  * @dev: an i2c client
  * @pstate: The power state.
@@ -629,7 +674,6 @@ static int tps80032_set_power_on(struct device *dev, int resource)
 			case E_POWER_VDIG_RF:
 			case E_POWER_VDDR:
 			case E_POWER_VMIPI:
-			case E_POWER_VMMC:
 			case E_POWER_ALL:
 				ret = -ENOTSUPP;
 				break;
@@ -638,6 +682,9 @@ static int tps80032_set_power_on(struct device *dev, int resource)
 				break;
 			case E_POWER_VIO_SD:
 				ret = tps80032_set_ldo1_power_state(dev, E_POWER_ON);
+				break;
+			case E_POWER_VMMC:
+				ret = tps80032_set_ldo6_power_state(dev, E_POWER_ON);
 				break;
 			case E_POWER_VANA_MM:
 				ret = tps80032_set_ldo5_power_state(dev, E_POWER_ON);
@@ -689,7 +736,6 @@ static int tps80032_set_power_off(struct device *dev, int resource)
 			case E_POWER_VDIG_RF:
 			case E_POWER_VDDR:
 			case E_POWER_VMIPI:
-			case E_POWER_VMMC:
 			case E_POWER_ALL:
 				ret = - ENOTSUPP;
 				break;
@@ -701,6 +747,9 @@ static int tps80032_set_power_off(struct device *dev, int resource)
 				break;
 			case E_POWER_VANA_MM:
 				ret = tps80032_set_ldo5_power_state(dev, E_POWER_OFF);
+				break;
+			case E_POWER_VMMC:
+				ret = tps80032_set_ldo6_power_state(dev, E_POWER_OFF);
 				break;
 			case E_POWER_VUSIM1:
 				ret = tps80032_set_ldo7_power_state(dev, E_POWER_OFF);
@@ -4149,7 +4198,7 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 		return ret;
 	}
 
-	/* Assign LDO6 and LDOLN into Group1 */
+	/* Assign LDON into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_B, MSK_PREQ1_ASS_B);
 	if (0 > ret) {
 		return ret;
