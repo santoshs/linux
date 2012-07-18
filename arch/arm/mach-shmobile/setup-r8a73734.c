@@ -391,6 +391,7 @@ static struct resource i2c7_resources[] = {
 	},
 };
 
+#ifndef CONFIG_PN544_NFC
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 	.bus_speed	= 400000,
 };
@@ -408,6 +409,7 @@ static struct resource i2c8_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+#endif
 //ES2.0 change end
 
 static struct platform_device i2c0_device = {
@@ -503,6 +505,7 @@ static struct platform_device i2c7_device = {
 	},
 };
 
+#ifndef CONFIG_PN544_NFC
 static struct platform_device i2c8_device = {
 	.name		= "i2c-sh_mobile",
 	.id		= 8,
@@ -512,6 +515,7 @@ static struct platform_device i2c8_device = {
 		.platform_data	= &i2c8_platform_data,
 	},
 };
+#endif
 //ES2.0 change end
 
 //GPIO Port number needs to be modified by the respective driver module
@@ -1027,7 +1031,9 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
     &i2c5_device_es20,
     &i2c6_device,
     &i2c7_device,
+#ifndef CONFIG_PN544_NFC
     &i2c8_device,
+#endif
     &i2c0gpio_device,
     &i2c1gpio_device,
     &dma0_device,

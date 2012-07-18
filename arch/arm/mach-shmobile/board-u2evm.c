@@ -58,6 +58,11 @@
 
 #include <linux/mmcoops.h>
 
+#ifdef CONFIG_PN544_NFC
+#include <linux/i2c-gpio.h>
+#include <linux/nfc/pn544.h> 
+#endif
+
 #define CLASHLOG_R_LOCAL_VER_LOCATE		0x4C801000
 #define CLASHLOG_R_LOCAL_VER_LENGTH       	32
 
@@ -1422,6 +1427,45 @@ static struct platform_device rcu1_device = {
 	},
 };
 
+#ifdef CONFIG_PN544_NFC  
+
+#define NFC_EN_GPIO         GPIO_PORT12
+#define NFC_IRQ_GPIO        GPIO_PORT13
+#define NFC_FIRM_GPIO       GPIO_PORT101
+#define NFC_I2C_SDA_GPIO	GPIO_PORT274      
+#define NFC_I2C_SCL_GPIO	GPIO_PORT273
+#define NFC_I2C_BUS_ID		(8) 
+
+static struct i2c_gpio_platform_data pn544_i2c_gpio_data = {
+	.sda_pin = NFC_I2C_SDA_GPIO,
+	.scl_pin =  NFC_I2C_SCL_GPIO,
+ 	.udelay = 1,  
+};
+
+static struct platform_device pn544_i2c_gpio_device = {
+ 	.name = "i2c-gpio",
+ 	.id = NFC_I2C_BUS_ID,
+ 	.dev = {
+	.platform_data  = &pn544_i2c_gpio_data,
+	},
+};
+
+static struct pn544_i2c_platform_data pn544_pdata = {
+ 	.irq_gpio 	= NFC_IRQ_GPIO,
+ 	.ven_gpio = NFC_EN_GPIO,
+ 	.firm_gpio = NFC_FIRM_GPIO,
+};
+ 
+static struct i2c_board_info pn544_info[] __initdata = {
+{
+	I2C_BOARD_INFO("pn544", 0x2b),
+	.irq = irqpin2irq(NFC_IRQ_GPIO),
+	.platform_data = &pn544_pdata,
+ 	},
+};
+
+#endif
+
 static struct resource mdm_reset_resources[] = {
 	[0] = {
 		.name	= "MODEM_RESET",
@@ -1489,6 +1533,9 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -1531,6 +1578,9 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -1571,6 +1621,9 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 /* I2C */
@@ -2609,6 +2662,9 @@ else /*ES2.0*/
 
 	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
 	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+#ifdef CONFIG_PN544_NFC
+	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
+#endif
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
