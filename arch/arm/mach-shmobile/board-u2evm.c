@@ -2545,6 +2545,10 @@ else /*ES2.0*/
 	gpio_request(GPIO_FN_FSIBOLR, "sound");
 	gpio_request(GPIO_FN_FSIBOSLD, "sound");
 
+	gpio_request(GPIO_PORT24, NULL);
+	gpio_direction_input(GPIO_PORT24);
+	gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_DOWN);
+
 #ifdef CONFIG_CACHE_L2X0
 	/*
 	 * [30] Early BRESP enable

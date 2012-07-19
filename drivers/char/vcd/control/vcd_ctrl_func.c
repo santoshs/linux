@@ -107,26 +107,6 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	case VCD_CTRL_FUNC_STOP_CALL:
 		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature)
-			ret = VCD_ERR_BUSY;
-		break;
-	case VCD_CTRL_FUNC_START_TTY_CTM:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature)) {
-			ret = VCD_ERR_NOT_ACTIVE;
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & feature) ||
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)) {
-			ret = VCD_ERR_BUSY;
-		} else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature) {
-			ret = VCD_ERR_ALREADY_EXECUTION;
-		}
-		break;
-	case VCD_CTRL_FUNC_STOP_TTY_CTM:
-		if (!(VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature))
-			ret = VCD_ERR_ALREADY_EXECUTION;
-		break;
-	case VCD_CTRL_FUNC_CONFIG_TTY_CTM:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
-			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_SET_UDATA:
 		if (!(VCD_CTRL_FUNC_FEATURE_VCD & feature))
@@ -137,8 +117,6 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_RECORD & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature)
-			ret = VCD_ERR_BUSY;
 		break;
 	case VCD_CTRL_FUNC_STOP_RECORD:
 		if (!(VCD_CTRL_FUNC_FEATURE_RECORD & feature))
@@ -149,8 +127,6 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
-		else if (VCD_CTRL_FUNC_FEATURE_TTY_CTM & feature)
-			ret = VCD_ERR_BUSY;
 		break;
 	case VCD_CTRL_FUNC_STOP_PLAYBACK:
 		if (!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature))

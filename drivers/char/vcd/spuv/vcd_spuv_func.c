@@ -72,9 +72,11 @@ static struct device *g_spuv_func_power_domains
 			[VCD_SPUV_FUNC_POWER_DOMAIN_MAX];
 int g_spuv_func_pm_runtime_count;
 struct clk *g_spuv_func_spuv_clk;
+struct clk *g_spuv_func_clkgen_clk;
 #endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 bool g_spuv_func_is_spuv_clk;
+bool g_spuv_func_is_clkgen_clk;
 
 bool g_spuv_func_is_completion;
 
@@ -209,7 +211,30 @@ int vcd_spuv_func_control_power_supply(int effective)
 			}
 		}
 
-		/* get clock */
+		/* clkgen get clock */
+		if (NULL == g_spuv_func_clkgen_clk) {
+			g_spuv_func_clkgen_clk = clk_get(NULL, "clkgen");
+			if (IS_ERR(g_spuv_func_clkgen_clk)) {
+				vcd_pr_err("g_spuv_func_clkgen_clk[%p].\n",
+					g_spuv_func_clkgen_clk);
+				g_spuv_func_clkgen_clk = NULL;
+				ret = VCD_ERR_SYSTEM;
+				goto rtn;
+			}
+		}
+
+		/* clkgen clock enable */
+		if (!g_spuv_func_is_clkgen_clk) {
+			ret = clk_enable(g_spuv_func_clkgen_clk);
+			if (VCD_ERR_NONE != ret) {
+				vcd_pr_err("clock enable error. ret[%d].\n",
+					ret);
+				goto rtn;
+			}
+			g_spuv_func_is_clkgen_clk = true;
+		}
+
+		/* spuv get clock */
 		if (NULL == g_spuv_func_spuv_clk) {
 			g_spuv_func_spuv_clk = clk_get(NULL, "spuv");
 			if (IS_ERR(g_spuv_func_spuv_clk)) {
@@ -221,7 +246,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 			}
 		}
 
-		/* clock enable */
+		/* spuv clock enable */
 		if (!g_spuv_func_is_spuv_clk) {
 			ret = clk_enable(g_spuv_func_spuv_clk);
 			if (VCD_ERR_NONE != ret) {
@@ -266,6 +291,15 @@ int vcd_spuv_func_control_power_supply(int effective)
 			clk_put(g_spuv_func_spuv_clk);
 		}
 
+		/* clkgen clock */
+		if (NULL != g_spuv_func_clkgen_clk) {
+			/* clock disable */
+			if (g_spuv_func_is_clkgen_clk)
+				clk_disable(g_spuv_func_clkgen_clk);
+			/* put clock */
+			clk_put(g_spuv_func_clkgen_clk);
+		}
+
 		/* release power supply */
 		for (loop_count = 0;
 			loop_count < g_spuv_func_pm_runtime_count;
@@ -284,6 +318,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 		g_spuv_func_pm_runtime_count = 0;
 		g_spuv_func_spuv_clk = NULL;
 		g_spuv_func_is_spuv_clk = false;
+		g_spuv_func_clkgen_clk = NULL;
+		g_spuv_func_is_clkgen_clk = false;
 	}
 
 rtn:
@@ -736,7 +772,7 @@ void vcd_spuv_func_send_ack(int is_log_enable)
 	vcd_pr_start_spuv_function();
 
 	if (VCD_SPUV_FUNC_ENABLE == is_log_enable)
-		vcd_pr_if_spuv("V --> F : ACK.\n");
+		vcd_pr_if_spuv("V -> F : ACK\n");
 
 	/* set arm_msg_it */
 	vcd_spuv_func_modify_register(0,

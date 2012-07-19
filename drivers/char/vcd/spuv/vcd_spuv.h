@@ -62,9 +62,6 @@
 #define VCD_SPUV_BBIF_LOOPBACK_STOP_REQ		0x1C
 #define VCD_SPUV_TRACE_SELECT_REQ		0x1D
 #define VCD_SPUV_UDATA_REQ			0x1E
-#define VCD_SPUV_TTY_CTM_START_REQ		0x40
-#define VCD_SPUV_TTY_CTM_STOP_REQ		0x41
-#define VCD_SPUV_TTY_CTM_CONFIG_REQ		0x42
 
 /* spuv fw message length (to spuv) */
 #define VCD_SPUV_HW_PARAMETERS_LENGTH		5
@@ -82,9 +79,6 @@
 #define VCD_SPUV_BBIF_LOOPBACK_START_LENGTH	3
 #define VCD_SPUV_BBIF_LOOPBACK_STOP_LENGTH	2
 #define VCD_SPUV_TRACE_SELECT_LENGTH		3
-#define VCD_SPUV_TTY_CTM_START_LENGTH		6
-#define VCD_SPUV_TTY_CTM_STOP_LENGTH		2
-#define VCD_SPUV_TTY_CTM_CONFIG_LENGTH		4
 #define VCD_SPUV_UDATA_LENGTH			3
 
 /* spuv fw message id (from spuv) */
@@ -108,95 +102,80 @@
 #define VCD_SPUV_BBIF_LOOPBACK_STOP_CNF		0x2C
 #define VCD_SPUV_TRACE_SELECT_CNF		0x2D
 #define VCD_SPUV_UDATA_IND			0x2E
-#define VCD_SPUV_TTY_CTM_START_CNF		0x50
-#define VCD_SPUV_TTY_CTM_STOP_CNF		0x51
-#define VCD_SPUV_TTY_CTM_CONFIG_CNF		0x52
 
 /* spuv fw message log */
 #define VCD_SPUV_HW_PARAMETERS_IND_LOG		\
-		"V --> F : SPUV_HW_PARAMETERS_IND.\n"
+		"V -> F : SPUV_HW_PARAMETERS_IND\n"
 #define VCD_SPUV_ACTIVE_REQ_LOG			\
-		"V --> F : SPUV_ACTIVE_REQ.\n"
+		"V -> F : SPUV_ACTIVE_REQ\n"
 #define VCD_SPUV_SPEECH_START_REQ_LOG		\
-		"V --> F : SPUV_SPEECH_START_REQ.\n"
+		"V -> F : SPUV_SPEECH_START_REQ\n"
 #define VCD_SPUV_SPEECH_STOP_REQ_LOG		\
-		"V --> F : SPUV_SPEECH_STOP_REQ.\n"
+		"V -> F : SPUV_SPEECH_STOP_REQ\n"
 #define VCD_SPUV_VOICE_RECORDING_START_REQ_LOG	\
-		"V --> F : SPUV_VOICE_RECORDING_START_REQ.\n"
+		"V -> F : SPUV_VOICE_RECORDING_START_REQ\n"
 #define VCD_SPUV_VOICE_RECORDING_STOP_REQ_LOG	\
-		"V --> F : SPUV_VOICE_RECORDING_STOP_REQ.\n"
+		"V -> F : SPUV_VOICE_RECORDING_STOP_REQ\n"
 #define VCD_SPUV_VOICE_PLAYING_START_REQ_LOG	\
-		"V --> F : SPUV_VOICE_PLAYING_START_REQ.\n"
+		"V -> F : SPUV_VOICE_PLAYING_START_REQ\n"
 #define VCD_SPUV_VOICE_PLAYING_STOP_REQ_LOG	\
-		"V --> F : SPUV_VOICE_PLAYING_STOP_REQ.\n"
+		"V -> F : SPUV_VOICE_PLAYING_STOP_REQ\n"
 #define VCD_SPUV_1KHZ_TONE_START_REQ_LOG	\
-		"V --> F : SPUV_1KHZ_TONE_START_REQ.\n"
+		"V -> F : SPUV_1KHZ_TONE_START_REQ\n"
 #define VCD_SPUV_1KHZ_TONE_STOP_REQ_LOG		\
-		"V --> F : SPUV_1KHZ_TONE_STOP_REQ.\n"
+		"V -> F : SPUV_1KHZ_TONE_STOP_REQ\n"
 #define VCD_SPUV_PCM_LOOPBACK_START_REQ_LOG	\
-		"V --> F : SPUV_PCM_LOOPBACK_START_REQ.\n"
+		"V -> F : SPUV_PCM_LOOPBACK_START_REQ\n"
 #define VCD_SPUV_PCM_LOOPBACK_STOP_REQ_LOG	\
-		"V --> F : SPUV_PCM_LOOPBACK_STOP_REQ.\n"
+		"V -> F : SPUV_PCM_LOOPBACK_STOP_REQ\n"
 #define VCD_SPUV_BBIF_LOOPBACK_START_REQ_LOG	\
-		"V --> F : SPUV_BBIF_LOOPBACK_START_REQ.\n"
+		"V -> F : SPUV_BBIF_LOOPBACK_START_REQ\n"
 #define VCD_SPUV_BBIF_LOOPBACK_STOP_REQ_LOG	\
-		"V --> F : SPUV_BBIF_LOOPBACK_STOP_REQ.\n"
+		"V -> F : SPUV_BBIF_LOOPBACK_STOP_REQ\n"
 #define VCD_SPUV_TRACE_SELECT_REQ_LOG		\
-		"V --> F : SPUV_TRACE_SELECT_REQ.\n"
+		"V -> F : SPUV_TRACE_SELECT_REQ\n"
 #define VCD_SPUV_UDATA_REQ_LOG			\
-		"V --> F : SPUV_UDATA_REQ.\n"
-#define VCD_SPUV_TTY_CTM_START_REQ_LOG		\
-		"V --> F : SPUV_TTY_CTM_START_REQ.\n"
-#define VCD_SPUV_TTY_CTM_STOP_REQ_LOG		\
-		"V --> F : SPUV_TTY_CTM_STOP_REQ.\n"
-#define VCD_SPUV_TTY_CTM_CONFIG_REQ_LOG		\
-		"V --> F : SPUV_TTY_CTM_CONFIG_REQ.\n"
+		"V -> F : SPUV_UDATA_REQ\n"
 #define VCD_SPUV_BOOT_COMPLETE_IND_LOG		\
-		"V <-- F : SPUV_BOOT_COMPLETE_IND.\n"
+		"V <- F : SPUV_BOOT_COMPLETE_IND\n"
 #define VCD_SPUV_SYSTEM_ERROR_IND_LOG		\
-		"V <-- F : SPUV_SYSTEM_ERROR_IND.\n"
+		"V <- F : SPUV_SYSTEM_ERROR_IND\n"
 #define VCD_SPUV_SYSTEM_INFO_IND_LOG		\
-		"V <-- F : SPUV_SYSTEM_INFO_IND.\n"
+		"V <- F : SPUV_SYSTEM_INFO_IND\n"
 #define VCD_SPUV_TRIGGER_PLAY_IND_LOG		\
-		"V <-- F : SPUV_TRIGGER_PLAY_IND.\n"
+		"V <- F : SPUV_TRIGGER_PLAY_IND\n"
 #define VCD_SPUV_TRIGGER_REC_IND_LOG		\
-		"V <-- F : SPUV_TRIGGER_REC_IND.\n"
+		"V <- F : SPUV_TRIGGER_REC_IND\n"
 #define VCD_SPUV_ACTIVE_CNF_LOG			\
-		"V <-- F : SPUV_ACTIVE_CNF.\n"
+		"V <- F : SPUV_ACTIVE_CNF\n"
 #define VCD_SPUV_SPEECH_START_CNF_LOG		\
-		"V <-- F : SPUV_SPEECH_START_CNF.\n"
+		"V <- F : SPUV_SPEECH_START_CNF\n"
 #define VCD_SPUV_SPEECH_STOP_CNF_LOG		\
-		"V <-- F : SPUV_SPEECH_STOP_CNF.\n"
+		"V <- F : SPUV_SPEECH_STOP_CNF\n"
 #define VCD_SPUV_VOICE_RECORDING_START_CNF_LOG	\
-		"V <-- F : SPUV_VOICE_RECORDING_START_CNF.\n"
+		"V <- F : SPUV_VOICE_RECORDING_START_CNF\n"
 #define VCD_SPUV_VOICE_RECORDING_STOP_CNF_LOG	\
-		"V <-- F : SPUV_VOICE_RECORDING_STOP_CNF.\n"
+		"V <- F : SPUV_VOICE_RECORDING_STOP_CNF\n"
 #define VCD_SPUV_VOICE_PLAYING_START_CNF_LOG	\
-		"V <-- F : SPUV_VOICE_PLAYING_START_CNF.\n"
+		"V <- F : SPUV_VOICE_PLAYING_START_CNF\n"
 #define VCD_SPUV_VOICE_PLAYING_STOP_CNF_LOG	\
-		"V <-- F : SPUV_VOICE_PLAYING_STOP_CNF.\n"
+		"V <- F : SPUV_VOICE_PLAYING_STOP_CNF\n"
 #define VCD_SPUV_1KHZ_TONE_START_CNF_LOG	\
-		"V <-- F : SPUV_1KHZ_TONE_START_CNF.\n"
+		"V <- F : SPUV_1KHZ_TONE_START_CNF\n"
 #define VCD_SPUV_1KHZ_TONE_STOP_CNF_LOG		\
-		"V <-- F : SPUV_1KHZ_TONE_STOP_CNF.\n"
+		"V <- F : SPUV_1KHZ_TONE_STOP_CNF\n"
 #define VCD_SPUV_PCM_LOOPBACK_START_CNF_LOG	\
-		"V <-- F : SPUV_PCM_LOOPBACK_START_CNF.\n"
+		"V <- F : SPUV_PCM_LOOPBACK_START_CNF\n"
 #define VCD_SPUV_PCM_LOOPBACK_STOP_CNF_LOG	\
-		"V <-- F : SPUV_PCM_LOOPBACK_STOP_CNF.\n"
+		"V <- F : SPUV_PCM_LOOPBACK_STOP_CNF\n"
 #define VCD_SPUV_BBIF_LOOPBACK_START_CNF_LOG	\
-		"V <-- F : SPUV_BBIF_LOOPBACK_START_CNF.\n"
+		"V <- F : SPUV_BBIF_LOOPBACK_START_CNF\n"
 #define VCD_SPUV_BBIF_LOOPBACK_STOP_CNF_LOG	\
-		"V <-- F : SPUV_BBIF_LOOPBACK_STOP_CNF.\n"
+		"V <- F : SPUV_BBIF_LOOPBACK_STOP_CNF\n"
 #define VCD_SPUV_TRACE_SELECT_CNF_LOG		\
-		"V <-- F : SPUV_TRACE_SELECT_CNF.\n"
+		"V <- F : SPUV_TRACE_SELECT_CNF\n"
 #define VCD_SPUV_UDATA_IND_LOG			\
-		"V <-- F : SPUV_UDATA_IND.\n"
-#define VCD_SPUV_TTY_CTM_START_CNF_LOG		\
-		"V <-- F : SPUV_TTY_CTM_START_CNF.\n"
-#define VCD_SPUV_TTY_CTM_STOP_CNF_LOG		\
-		"V <-- F : SPUV_TTY_CTM_STOP_CNF.\n"
-#define VCD_SPUV_TTY_CTM_CONFIG_CNF_LOG		\
-		"V <-- F : SPUV_TTY_CTM_CONFIG_CNF.\n"
+		"V <- F : SPUV_UDATA_IND\n"
 
 /* spuv fw result */
 #define VCD_SPUV_FW_RESULT_SUCCESS		0
@@ -238,6 +217,7 @@ struct vcd_spuv_work {
 
 struct vcd_spuv_info {
 	unsigned int status;
+	unsigned int irq_status;
 	unsigned int wait_fw_if_id;
 	unsigned int wait_fw_msg_id;
 	int fw_result;
@@ -264,9 +244,6 @@ int vcd_spuv_stop_vcd(void);
 int vcd_spuv_set_hw_param(void);
 int vcd_spuv_start_call(void);
 int vcd_spuv_stop_call(void);
-int vcd_spuv_start_tty_ctm(void);
-int vcd_spuv_stop_tty_ctm(void);
-int vcd_spuv_config_tty_ctm(void);
 int vcd_spuv_set_udata(void);
 int vcd_spuv_start_record(struct vcd_record_option *option);
 int vcd_spuv_stop_record(void);

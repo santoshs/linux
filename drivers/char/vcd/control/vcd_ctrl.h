@@ -41,8 +41,6 @@
 			VCD_CTRL_STATUS_STARTED_CALL_RECORD_PLAYBACK
 #define VCD_CTRL_STATUS_CALL_RECORD_PLAYBACK	\
 			VCD_CTRL_STATUS_STARTED_CALL_RECORD_PLAYBACK
-#define VCD_CTRL_STATUS_TTY_CTM			\
-			VCD_CTRL_STATUS_STARTED_TTY_CTM
 #define VCD_CTRL_STATUS_ERROR			\
 			VCD_CTRL_STATUS_ERROR_OCCURS
 
@@ -62,7 +60,6 @@ enum VCD_CTRL_STATUS {
 	VCD_CTRL_STATUS_STARTED_RECORD_PLAYBACK,
 	VCD_CTRL_STATUS_STARTED_CALL,
 	VCD_CTRL_STATUS_STARTED_CALL_RECORD_PLAYBACK,
-	VCD_CTRL_STATUS_STARTED_TTY_CTM,
 };
 
 
@@ -87,9 +84,6 @@ void vcd_ctrl_stop_vcd(void);
 void vcd_ctrl_set_hw_param(void);
 void vcd_ctrl_start_call(int call_type, int mode);
 void vcd_ctrl_stop_call(int call_type);
-void vcd_ctrl_start_tty_ctm(void);
-void vcd_ctrl_stop_tty_ctm(void);
-void vcd_ctrl_config_tty_ctm(void);
 void vcd_ctrl_set_udata(void);
 void vcd_ctrl_get_status(void);
 int vcd_ctrl_get_result(void);

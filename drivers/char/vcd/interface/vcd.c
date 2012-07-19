@@ -421,60 +421,6 @@ static void vcd_stop_call(void)
 
 
 /**
- * @brief	start tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_start_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_start_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
- * @brief	stop tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_stop_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_stop_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
- * @brief	config tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_config_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_config_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
  * @brief	set udata function.
  *
  * @param	none.
@@ -525,7 +471,7 @@ static int vcd_set_call_mode(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_audio("V <-- A : VCD_COMMAND_SET_CALL_MODE.\n");
+	vcd_pr_if_audio("V <- A : VCD_COMMAND_SET_CALL_MODE\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -583,7 +529,7 @@ static int vcd_start_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_RECORD.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_RECORD\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -637,7 +583,7 @@ static int vcd_stop_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_RECORD.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_RECORD\n");
 
 	/* initialize variable */
 	g_vcd_complete_buffer	= NULL;
@@ -666,7 +612,7 @@ static int vcd_start_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_PLAYBACK.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_PLAYBACK\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -720,7 +666,7 @@ static int vcd_stop_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_PLAYBACK.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_PLAYBACK\n");
 
 	/* initialize variable */
 	g_vcd_beginning_buffer	= NULL;
@@ -748,7 +694,7 @@ static int vcd_get_record_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_RECORD_BUFFER.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_RECORD_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -781,7 +727,7 @@ static int vcd_get_playback_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_PLAYBACK_BUFFER.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -813,7 +759,7 @@ static int vcd_watch_stop_fw(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_STOP_FW.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_STOP_FW\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -845,7 +791,7 @@ static int vcd_watch_start_clkgen(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_START_CLKGEN.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_START_CLKGEN\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -898,7 +844,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 
 	len = snprintf(page, count, "%d\n", result);
 
-	vcd_pr_if_amhal("V --> A : [%d].\n", result);
+	vcd_pr_if_amhal("V -> A : [%d]\n", result);
 
 	vcd_pr_end_if_user("result[%d].\n", result);
 
@@ -979,18 +925,6 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	case VCD_PROC_IF_STOP_CALL:
 		vcd_pr_if_amhal(VCD_PROC_IF_STOP_CALL_LOG);
 		vcd_stop_call();
-		break;
-	case VCD_PROC_IF_START_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_TTY_CTM_LOG);
-		vcd_start_tty_ctm();
-		break;
-	case VCD_PROC_IF_STOP_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_TTY_CTM_LOG);
-		vcd_stop_tty_ctm();
-		break;
-	case VCD_PROC_IF_CONFIG_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_CONFIG_TTY_CTM_LOG);
-		vcd_config_tty_ctm();
 		break;
 	case VCD_PROC_IF_SET_UDATA:
 		vcd_pr_if_amhal(VCD_PROC_IF_SET_UDATA_LOG);
