@@ -120,6 +120,7 @@ struct renesas_sdhi_host {
 	unsigned long bus_shift;
 
 	/* current state */
+	u8 sdio_irq_enabled;
 	u8 bus_width;
 	u8 power_mode;
 	u8 app_mode;
@@ -987,6 +988,11 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 {
 	struct renesas_sdhi_host *host = mmc_priv(mmc);
 	u32 val;
+
+	if (host->sdio_irq_enabled == enable)
+		return;
+
+	host->sdio_irq_enabled = enable;
 
 	if (enable) {
 		clk_enable(host->clk);
