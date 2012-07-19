@@ -582,18 +582,24 @@ static void sh_gpio_free(struct gpio_chip *chip, unsigned offset)
 		return;
 
 	/*
-	 * pinmux_config_gpio(GPIO_CFG_FREE) doesn't touch the hardware,
-	 * so we don't need hwspinlock locked.  Just use gpio_lock.
+	 * Albeit pinmux_config_gpio(GPIO_CFG_FREE) does not access to
+	 * GPIO registers, we have to use gpio_hwlock if it's available
+	 * for synchronization between processes on the ARM core.
 	 */
-
-	spin_lock_irqsave(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT, &flags);
+	else
+		spin_lock_irqsave(&gpio_lock, flags);
 
 	pinmux_type = gpioc->gpios[offset].flags & PINMUX_FLAG_TYPE;
 	pinmux_config_gpio(gpioc, offset, pinmux_type, GPIO_CFG_FREE);
 	gpioc->gpios[offset].flags &= ~PINMUX_FLAG_TYPE;
 	gpioc->gpios[offset].flags |= PINMUX_TYPE_NONE;
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&gpio_lock, flags);
 }
 
 static int pinmux_direction(struct pinmux_info *gpioc,
