@@ -518,6 +518,20 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		host->connect = status & SDHI_INFO_CD ? 1 : 0;
 	}
 
+// PMIC Start: Will effect the PMIC power source on insertion /deletion of Card after Boot-Up
+	if (host->connect) {
+		clk_enable(host->clk);
+		renesas_sdhi_power(host, 1);
+		clk_disable(host->clk);
+		host->power_mode = MMC_POWER_UP;
+	} else {
+		clk_enable(host->clk);
+		renesas_sdhi_power(host, 0);
+		clk_disable(host->clk);
+		host->power_mode = MMC_POWER_OFF;
+	}
+//PMIC End
+
 	sdhi_reset(host);
 
 	if (!IS_ERR_OR_NULL(host->mrq)) {
@@ -969,7 +983,13 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 			ret = -EINVAL;
 			goto err4;
 		}
-		host->connect = pdata->get_cd(pdev);
+
+// PMIC Start: Disable the Power source if card not available. Will happen at board boot-up
+		if (!(host->connect = pdata->get_cd(pdev))) {
+			if (pdata->set_pwr)
+				pdata->set_pwr(pdev, 0);
+		}
+// PMIC End
 		host->dynamic_clock = 1;
 	} else if (host->pdata->caps &
 			(MMC_CAP_NEEDS_POLL | MMC_CAP_NONREMOVABLE)) {
@@ -1030,6 +1050,10 @@ err5:
 	renesas_sdhi_release_dma(host);
 err4:
 	pm_runtime_disable(&pdev->dev);
+// PMIC Start: Disable the Power source if card not available. Will happen if transfer IRQ is not functinal
+	if (pdata->set_pwr)
+		pdata->set_pwr(pdev, 0);
+// PMIC End
 err3:
 	iounmap(host->base);
 err2:
