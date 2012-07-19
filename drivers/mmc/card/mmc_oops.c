@@ -34,6 +34,8 @@
 
 #include "../../staging/android/logger.h"
 
+#define EMMC_NO_WRITE
+
 #define BLOCK_SIZE		512UL
 #define RECORD_SIZE		8
 
@@ -511,6 +513,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		enum kmsg_dump_reason reason, const char *s1, unsigned long l1,
 		const char *s2, unsigned long l2)
 {
+#ifndef EMMC_NO_WRITE
 	struct mmcoops_context *cxt = container_of(dumper,
 			struct mmcoops_context, dump);
 	struct mmc_card *card = cxt->card;
@@ -669,6 +672,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	enable_irq(platform_get_irq(cxt->pdev, 1));
 	mmc_release_host(card->host);
 	printk("mmc_oops dump complete %s\n", mmc_hostname(card->host));
+#endif //EMMC_NO_WRITE
 }
 
 static int match_card(struct mmcoops_context *cxt, struct mmc_card *card)
