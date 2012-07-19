@@ -458,11 +458,11 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	/* sdio */
 	if (!status) {
 		sdio_status = sdhi_read16(host, SDHI_SDIO_INFO);
-		sdhi_write16(host, SDHI_SDIO_INFO, 0);
-		if (sdio_status & SDHI_SDIO_IOIRQ) {
+		if (sdio_status & SDHI_SDIO_IOIRQ)
 			mmc_signal_sdio_irq(mmc);
-			goto end;
-		}
+		else
+			sdhi_write16(host, SDHI_SDIO_INFO, 0); /* just in case */
+		goto end;
 	}
 
 	if (status & SDHI_INFO_DETECT) {
@@ -1005,6 +1005,7 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 		val |= SDHI_SDIO_IOIRQ;
 		sdhi_write16(host, SDHI_SDIO_MODE, 0x0000);
 		sdhi_write16(host, SDHI_SDIO_INFO_MASK, val);
+		sdhi_write16(host, SDHI_SDIO_INFO, 0);
 		clk_disable(host->clk);
 	}
 }
