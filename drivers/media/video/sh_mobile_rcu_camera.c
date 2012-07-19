@@ -52,13 +52,37 @@
 
 #include <media/videobuf2-memops.h>
 
+#define	RCU_USE_MERAM	(0)
+#if RCU_USE_MERAM
+
+ #define RCU_MERAM_ACTST1 (0x50)
+
+ #define RCU_MERAM_CTRL   (0x00)
+ #define RCU_MERAM_BSIZE  (0x04)
+ #define RCU_MERAM_MCNF   (0x08)
+ #define RCU_MERAM_SSARA  (0x10)
+ #define RCU_MERAM_SSARB  (0x14)
+ #define RCU_MERAM_SBSIZE (0x18)
+
+ #define RCU_MERAM_CH	  (36)
+ #define RCU_MERAM_BUFF	  (1824)
+ #define RCU_MERAM_FRAMEA (0)
+ #define RCU_MERAM_FRAMEB (1)
+
+ #define RCU_MERAM_MAX_BUF (32)
+ #define RCU_MERAM_CONTI_BUF (4)
+ #define RCU_MERAM_BLOCK (0)
+#endif
+
 /* alignment */
+#define ALIGNxK(size,x)		(((size) + (x*0x400-1)) & ~(x*0x400-1))
 #define ALIGN32(size)		(((size) + 31) & ~31)
 #define ALIGN4(size)		(((size) +  3) &  ~3)
+#define ALIGN8(size)		(((size) +  7) &  ~7)
 
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
-#define PRINT_FOURCC(fourcc) ((fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff)
+#define PRINT_FOURCC(fourcc) (fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
 
 /* register offsets for r8a73734 */
 
@@ -116,113 +140,113 @@
 #define RCEFWCR				0x0228UL
 
 #define RCAPSR_CPKIL		16	/* offset of RCAPSR.CPKIL */
-#define RCAPSR_CSE		1	/* offset of RCAPSR.CSE */
-#define RCAPSR_CE		0	/* offset of RCAPSR.CE */
-#define RCAPCR_MTCM		20	/* offset of RCAPCR.MTCM */
+#define RCAPSR_CSE			1	/* offset of RCAPSR.CSE */
+#define RCAPSR_CE			0	/* offset of RCAPSR.CE */
+#define RCAPCR_MTCM			20	/* offset of RCAPCR.MTCM */
 #define RCAPCR_CTNCP		16	/* offset of RCAPCR.CTNCP */
-#define RCAMCR_OCNT		28	/* offset of RCAMCR.OCNT */
-#define RCAMCR_RPAC		24	/* offset of RCAMCR.RPAC */
-#define RCAMCR_UCON		22	/* offset of RCAMCR.UCON */
+#define RCAMCR_OCNT			28	/* offset of RCAMCR.OCNT */
+#define RCAMCR_RPAC			24	/* offset of RCAMCR.RPAC */
+#define RCAMCR_UCON			22	/* offset of RCAMCR.UCON */
 #define RCAMCR_CMPMD		20	/* offset of RCAMCR.CMPMD */
 #define RCAMCR_E810B		19	/* offset of RCAMCR.E810B */
 #define RCAMCR_E810I		18	/* offset of RCAMCR.E810I */
 #define RCAMCR_RAWTYP		16	/* offset of RCAMCR.RAWTYP */
-#define RCAMCR_VSS2		15	/* offset of RCAMCR.VSS2 */
-#define RCAMCR_HSSM		13	/* offset of RCAMCR.HSSM */
-#define RCAMCR_HSS2		12	/* offset of RCAMCR.HSS2 */
-#define RCAMCR_CFMT		4	/* offset of RCAMCR.CFMT */
-#define RCPICR_IFS		13	/* offset of RCPICR.IFS */
+#define RCAMCR_VSS2			15	/* offset of RCAMCR.VSS2 */
+#define RCAMCR_HSSM			13	/* offset of RCAMCR.HSSM */
+#define RCAMCR_HSS2			12	/* offset of RCAMCR.HSS2 */
+#define RCAMCR_CFMT			4	/* offset of RCAMCR.CFMT */
+#define RCPICR_IFS			13	/* offset of RCPICR.IFS */
 #define RCPICR_DTARY		8	/* offset of RCPICR.DTARY */
 #define RCPICR_CKPOL		2	/* offset of RCPICR.CKPOL */
 #define RCPICR_VDPOL		1	/* offset of RCPICR.VDPOL */
 #define RCPICR_HDPOL		0	/* offset of RCPICR.HDPOL */
 #define RCAMOR_VOFST		16	/* offset of RCAMOR.VOFST */
 #define RCAMOR_HOFST		0	/* offset of RCAMOR.HOFST */
-#define RCPIHCR_STC		16	/* offset of RCPIHCR.STC */
+#define RCPIHCR_STC			16	/* offset of RCPIHCR.STC */
 #define RCPIHCR_ENDC		0	/* offset of RCPIHCR.ENDC */
-#define RCRCNTR_RSS		17	/* offset of RCRCNTR.RSS */
-#define RCRCNTR_RSC		16	/* offset of RCRCNTR.RSC */
-#define RCRCNTR_RS		1	/* offset of RCRCNTR.RS */
-#define RCRCNTR_RC		0	/* offset of RCRCNTR.RC */
-#define RCRCMPR_RSA		16	/* offset of RCRCMPR.RSA */
-#define RCRCMPR_RA		0	/* offset of RCRCMPR.RA */
-#define RCSZR_VFCLP		16	/* offset of RCSZR.VFCLP */
-#define RCSZR_HFCLP		0	/* offset of RCSZR.HFCLP */
-#define RCDWDR_CHDW		0	/* offset of RCDWDR.CHDW */
-#define RCDAYR_CAYR		0	/* offset of RCDAYR.CAYR */
-#define RCDACR_CACR		0	/* offset of RCDACR.CACR */
-#define RCBDSR_CBVS		0	/* offset of RCBDSR.CBVS */
-#define RCFWCR_WLE		31	/* offset of RCFWCR.WLE */
-#define RCFWCR_WLSE		0	/* offset of RCFWCR.WLSE */
-#define RCDOCR_CBE		16	/* offset of RCDOCR.CBE */
-#define RCDOCR_T420		15	/* offset of RCDOCR.T420 */
-#define RCDOCR_H420		12	/* offset of RCDOCR.H420 */
-#define RCDOCR_C1BS		9	/* offset of RCDOCR.C1BS */
-#define RCDOCR_COLS		2	/* offset of RCDOCR.COLS */
-#define RCDOCR_COWS		1	/* offset of RCDOCR.COWS */
-#define RCDOCR_COBS		0	/* offset of RCDOCR.COBS */
-#define RCEIER_DFOE		28	/* offset of RCEIER.DFOE */
+#define RCRCNTR_RSS			17	/* offset of RCRCNTR.RSS */
+#define RCRCNTR_RSC			16	/* offset of RCRCNTR.RSC */
+#define RCRCNTR_RS			1	/* offset of RCRCNTR.RS */
+#define RCRCNTR_RC			0	/* offset of RCRCNTR.RC */
+#define RCRCMPR_RSA			16	/* offset of RCRCMPR.RSA */
+#define RCRCMPR_RA			0	/* offset of RCRCMPR.RA */
+#define RCSZR_VFCLP			16	/* offset of RCSZR.VFCLP */
+#define RCSZR_HFCLP			0	/* offset of RCSZR.HFCLP */
+#define RCDWDR_CHDW			0	/* offset of RCDWDR.CHDW */
+#define RCDAYR_CAYR			0	/* offset of RCDAYR.CAYR */
+#define RCDACR_CACR			0	/* offset of RCDACR.CACR */
+#define RCBDSR_CBVS			0	/* offset of RCBDSR.CBVS */
+#define RCFWCR_WLE			31	/* offset of RCFWCR.WLE */
+#define RCFWCR_WLSE			0	/* offset of RCFWCR.WLSE */
+#define RCDOCR_CBE			16	/* offset of RCDOCR.CBE */
+#define RCDOCR_T420			15	/* offset of RCDOCR.T420 */
+#define RCDOCR_H420			12	/* offset of RCDOCR.H420 */
+#define RCDOCR_C1BS			9	/* offset of RCDOCR.C1BS */
+#define RCDOCR_COLS			2	/* offset of RCDOCR.COLS */
+#define RCDOCR_COWS			1	/* offset of RCDOCR.COWS */
+#define RCDOCR_COBS			0	/* offset of RCDOCR.COBS */
+#define RCEIER_DFOE			28	/* offset of RCEIER.DFOE */
 #define RCEIER_ISPOE		24	/* offset of RCEIER.ISPOE */
 #define RCEIER_EFWFE		23	/* offset of RCEIER.EFWFE */
-#define RCEIER_FWFE		22	/* offset of RCEIER.FWFE */
+#define RCEIER_FWFE			22	/* offset of RCEIER.FWFE */
 #define RCEIER_EVBPE		21	/* offset of RCEIER.EVBPE */
-#define RCEIER_VBPE		20	/* offset of RCEIER.VBPE */
+#define RCEIER_VBPE			20	/* offset of RCEIER.VBPE */
 #define RCEIER_ECDTOFE		17	/* offset of RCEIER.ECDTOFE */
 #define RCEIER_CDTOFE		16	/* offset of RCEIER.CDTOFE */
 #define RCEIER_CPBE2E		13	/* offset of RCEIER.CPBE2E */
 #define RCEIER_CPBE1E		12	/* offset of RCEIER.CPBE1E */
-#define RCEIER_VDE		9	/* offset of RCEIER.VDE */
-#define RCEIER_HDE		8	/* offset of RCEIER.HDE */
-#define RCEIER_EVDE		7	/* offset of RCEIER.EVDE */
+#define RCEIER_VDE			9	/* offset of RCEIER.VDE */
+#define RCEIER_HDE			8	/* offset of RCEIER.HDE */
+#define RCEIER_EVDE			7	/* offset of RCEIER.EVDE */
 #define RCEIER_IGRWE		4	/* offset of RCEIER.IGRWE */
 #define RCEIER_CPSEE		2	/* offset of RCEIER.CPSEE */
-#define RCEIER_CPEE		0	/* offset of RCEIER.CPEE */
-#define RCETCR_DFO		28	/* offset of RCETCR.DFO */
-#define RCETCR_ISPO		24	/* offset of RCETCR.ISPO */
-#define RCETCR_EFWF		23	/* offset of RCETCR.EFWF */
-#define RCETCR_FWF		22	/* offset of RCETCR.FWF */
-#define RCETCR_EVBP		21	/* offset of RCETCR.EVBP */
-#define RCETCR_VBP		20	/* offset of RCETCR.VBP */
+#define RCEIER_CPEE			0	/* offset of RCEIER.CPEE */
+#define RCETCR_DFO			28	/* offset of RCETCR.DFO */
+#define RCETCR_ISPO			24	/* offset of RCETCR.ISPO */
+#define RCETCR_EFWF			23	/* offset of RCETCR.EFWF */
+#define RCETCR_FWF			22	/* offset of RCETCR.FWF */
+#define RCETCR_EVBP			21	/* offset of RCETCR.EVBP */
+#define RCETCR_VBP			20	/* offset of RCETCR.VBP */
 #define RCETCR_ECDTOF		17	/* offset of RCETCR.ECDTOF */
 #define RCETCR_CDTOF		16	/* offset of RCETCR.CDTOF */
 #define RCETCR_CPBE2		13	/* offset of RCETCR.CPBE2 */
 #define RCETCR_CPBE1		12	/* offset of RCETCR.CPBE1 */
-#define RCETCR_VD		9	/* offset of RCETCR.VD */
-#define RCETCR_HD		8	/* offset of RCETCR.HD */
-#define RCETCR_EVD		7	/* offset of RCETCR.EVD */
-#define RCETCR_IGRW		4	/* offset of RCETCR.IGRW */
-#define RCETCR_CPSE		2	/* offset of RCETCR.CPSE */
-#define RCETCR_CPE		0	/* offset of RCETCR.CPE */
+#define RCETCR_VD			9	/* offset of RCETCR.VD */
+#define RCETCR_HD			8	/* offset of RCETCR.HD */
+#define RCETCR_EVD			7	/* offset of RCETCR.EVD */
+#define RCETCR_IGRW			4	/* offset of RCETCR.IGRW */
+#define RCETCR_CPSE			2	/* offset of RCETCR.CPSE */
+#define RCETCR_CPE			0	/* offset of RCETCR.CPE */
 #define RCSTSR_CRSST		25	/* offset of RCSTSR.CRSST */
-#define RCSTSR_CRST		24	/* offset of RCSTSR.CRST */
+#define RCSTSR_CRST			24	/* offset of RCSTSR.CRST */
 #define RCSTSR_CPREQ		9	/* offset of RCSTSR.CPREQ */
 #define RCSTSR_CPACK		8	/* offset of RCSTSR.CPACK */
 #define RCSTSR_CPTSON		1	/* offset of RCSTSR.CPTSON */
 #define RCSTSR_CPTON		0	/* offset of RCSTSR.CPTON */
 #define RCSRTR_ALLRST		0	/* offset of RCSRTR.ALLRST */
-#define RCDSSR_CDSS		0	/* offset of RCDSSR.CDSS */
+#define RCDSSR_CDSS			0	/* offset of RCDSSR.CDSS */
 #define RCDAYR2_CAYR2		0	/* offset of RCDAYR2.CAYR2 */
 #define RCDACR2_CACR2		0	/* offset of RCDACR2.CACR2 */
 #define RCECNTR_CTNCP		4	/* offset of RCECNTR.CTNCP */
-#define RCECNTR_JPG		1	/* offset of RCECNTR.JPG */
+#define RCECNTR_JPG			1	/* offset of RCECNTR.JPG */
 #define RCEDAYR_CAYR		0	/* offset of RCEDAYR.CAYR */
 #define RCEDSSR_CDSS		0	/* offset of RCEDSSR.CDSS */
-#define RCEFWCR_WLE		31	/* offset of RCEFWCR.WLE */
+#define RCEFWCR_WLE			31	/* offset of RCEFWCR.WLE */
 #define RCEFWCR_WLSE		0	/* offset of RCEFWCR.WLSE */
 
-#define SH_RCU_MODE_IMAGE	0x00	/* image capture mode */
-#define SH_RCU_MODE_DATA	0x01	/* data fech mode */
-#define SH_RCU_MODE_ENABLE	0x02	/* data enable fetch mode */
+#define SH_RCU_MODE_IMAGE		0x00	/* image capture mode */
+#define SH_RCU_MODE_DATA		0x01	/* data fech mode */
+#define SH_RCU_MODE_ENABLE		0x02	/* data enable fetch mode */
 
 #define SH_RCU_STREAMING_OFF	0x00	/* streaming OFF */
-#define SH_RCU_STREAMING_ON	0x01	/* streaming ON */
+#define SH_RCU_STREAMING_ON		0x01	/* streaming ON */
 
-#define SH_RCU_RAWTYP_RAW8	0x00	/* RAW8 format */
-#define SH_RCU_RAWTYP_RAW10	0x01	/* RAW10 format */
-#define SH_RCU_RAWTYP_RAW12	0x02	/* RAW12 format */
+#define SH_RCU_RAWTYP_RAW8		0x00	/* RAW8 format */
+#define SH_RCU_RAWTYP_RAW10		0x01	/* RAW10 format */
+#define SH_RCU_RAWTYP_RAW12		0x02	/* RAW12 format */
 
-#define SH_RCU_RPAC_ENHANCE	0x00	/* 16bit Enhancing */
-#define SH_RCU_RPAC_PACKING	0x01	/* Packing(MIPI-CSI2 standerd) */
+#define SH_RCU_RPAC_ENHANCE		0x00	/* 16bit Enhancing */
+#define SH_RCU_RPAC_PACKING		0x01	/* Packing(MIPI-CSI2 standerd) */
 
 /* Transferred to the bus in 4-burst 1-transfer (4QW x 1) units */
 #define SH_RCU_MTCM_SIZE_1		0x00
@@ -266,6 +290,11 @@ struct sh_mobile_rcu_dev {
 
 	unsigned int irq;
 	void __iomem *base;
+#if RCU_USE_MERAM
+	void __iomem *base_meram;
+	void __iomem *base_meram_ch;
+	int meram_frame;
+#endif
 	unsigned long video_limit;
 
 	spinlock_t lock;		/* Protects video buffer lists */
@@ -281,6 +310,10 @@ struct sh_mobile_rcu_dev {
 	unsigned int output_mode:2;
 	unsigned int streaming:1;
 	unsigned int output_offset;
+	unsigned int output_pack;
+#if RCU_USE_MERAM
+	unsigned int output_meram;
+#endif
 
 	struct clk *iclk;
 	struct clk *fclk;
@@ -333,7 +366,29 @@ static u32 rcu_read(struct sh_mobile_rcu_dev *priv, unsigned long reg_offs)
 {
 	return ioread32(priv->base + reg_offs);
 }
+#if RCU_USE_MERAM
+static void meram_write(struct sh_mobile_rcu_dev *priv,
+		      unsigned long reg_offs, u32 data)
+{
+	iowrite32(data, priv->base_meram + reg_offs);
+}
 
+static u32 meram_read(struct sh_mobile_rcu_dev *priv, unsigned long reg_offs)
+{
+	return ioread32(priv->base_meram + reg_offs);
+}
+
+static void meram_ch_write(struct sh_mobile_rcu_dev *priv,
+		      unsigned long reg_offs, u32 data)
+{
+	iowrite32(data, priv->base_meram_ch + reg_offs);
+}
+
+static u32 meram_ch_read(struct sh_mobile_rcu_dev *priv, unsigned long reg_offs)
+{
+	return ioread32(priv->base_meram_ch + reg_offs);
+}
+#endif
 static int sh_mobile_rcu_soft_reset(struct sh_mobile_rcu_dev *pcdev)
 {
 	int i, success = 0;
@@ -433,6 +488,12 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 /* depacking-fifo was overflow */
 #define RCU_RCETCR_DFO		(1 << RCETCR_DFO)
 
+#define RCU_RCETCR_CPE		(1 << RCETCR_CPE)
+
+#define RCU_RCETCR_ISPO		(1 << RCETCR_ISPO)
+
+#define RCU_RCETCR_CDTOF	(1 << RCETCR_CDTOF)
+
 /* continuous capture mode (if set) */
 #define RCU_RCAPCR_CTNCP	(1 << RCAPCR_CTNCP)
 /* one-frame capture end interrupt */
@@ -444,14 +505,17 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 /* output of one frame is completed to ISP module. */
 #define RCU_RCEIER_ISPOE	(1 << RCEIER_ISPOE)
 
+#define RCU_RCEIER_CDTOFE	(1 << RCEIER_CDTOFE)
+
 /* error mask */
-#define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO)
+#define RCU_RCETCR_MASK_MEM_ISP	(RCU_RCETCR_CPE | RCU_RCETCR_VBP | RCU_RCETCR_DFO | RCU_RCETCR_CDTOF)
+#define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO | RCU_RCETCR_CDTOF)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | \
-				RCU_RCEIER_DFOE)
+#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | \
-				RCU_RCEIER_DFOE)
+#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
+/* interrupt enable mask */
+#define RCU_RCEIER_MASK_MEM_ISP	(RCU_RCEIER_ISPOE | RCU_RCEIER_MASK_MEM)
 
 
 /*
@@ -464,7 +528,9 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 	u32 status, rcamcr, rceier;
 	int ret = 0;
 	struct soc_camera_device *icd = pcdev->icd;
-
+#if RCU_USE_MERAM
+//	unsigned int meram_tmp = 0;
+#endif
 	/*
 	 * The hardware is _very_ picky about this sequence. Especially
 	 * the RCU_RCETCR_MAGIC value. It seems like we need to acknowledge
@@ -472,8 +538,10 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 	 */
 	if (SH_RCU_OUTPUT_MEM == pcdev->output_mode)
 		rceier = RCU_RCEIER_MASK_MEM;
-	else
+	else if (SH_RCU_OUTPUT_ISP == pcdev->output_mode)
 		rceier = RCU_RCEIER_MASK;
+	else
+		rceier = RCU_RCEIER_MASK_MEM_ISP;
 
 	rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) & ~rceier);
 	status = rcu_read(pcdev, RCETCR);
@@ -494,6 +562,12 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		dev_err(pcdev->icd->dev.parent,
 			"Error interrupt occurred! RCETCR=0x%08X\n", status);
 		sh_mobile_rcu_soft_reset(pcdev);
+#if RCU_USE_MERAM
+		if (SH_RCU_OUTPUT_MERAM == pcdev->output_meram) {
+			meram_ch_write(pcdev, RCU_MERAM_CTRL,
+				meram_ch_read(pcdev, RCU_MERAM_CTRL) | 0x60);
+		}
+#endif
 		ret = -EIO;
 	}
 
@@ -508,6 +582,10 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		rcu_write(pcdev, RCAMCR, rcamcr |
 			(SH_RCU_OUTPUT_ISP << RCAMCR_OCNT));
 
+		if (rcu_read(pcdev, RCDAYR))
+			dev_geo(pcdev->icd->dev.parent,
+				"NULL Write RCETCR[%08x],RCDAYR[%08x]\n",
+				status, rcu_read(pcdev, RCDAYR));
 		rcu_write(pcdev, RCDAYR, 0);
 		rcu_write(pcdev, RCDACR, 0);
 		rcu_write(pcdev, RCFWCR, 0);
@@ -518,19 +596,52 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 			pcdev->active) ||
 			(SH_RCU_OUTPUT_MEM == pcdev->output_mode &&
 			pcdev->active)) {
-		/* set output mode */
-		/*
-		 * When there is not an active buffer,
-		 * output mode is set in SH_RCU_OUTPUT_MEM_ISP.
-		 * Therefore output mode is set again.
-		 */
-		rcamcr = rcu_read(pcdev, RCAMCR);
-		rcamcr = rcamcr & ~(3 << RCAMCR_OCNT);
-		rcu_write(pcdev, RCAMCR, rcamcr |
-			(pcdev->output_mode << RCAMCR_OCNT));
-
 		phys_addr_top = pcdev->active->v4l2_planes[0].m.userptr;
+#if RCU_USE_MERAM
+		if (SH_RCU_OUTPUT_MERAM == pcdev->output_meram) {
+//			meram_tmp =
+//				ALIGNxK(rcu_read(pcdev, RCDWDR) * icd->user_height,RCU_MERAM_CONTI_BUF);
+//			meram_tmp /= 0x400 * RCU_MERAM_CONTI_BUF;
+//			meram_ch_write(pcdev, RCU_MERAM_BSIZE,
+//				((meram_tmp - 1) << 16)
+//					| (0x400 * RCU_MERAM_CONTI_BUF - 1));
+//			meram_tmp = RCU_MERAM_CONTI_BUF
+//				* (1 << RCU_MERAM_BLOCK);
+//			if (RCU_MERAM_MAX_BUF < (meram_tmp * 2)) {
+//				dev_err(pcdev->icd->dev.parent,
+//					"%s:meram error CONTI[%d],BLOCK[%d]\n",
+//					__func__, RCU_MERAM_CONTI_BUF,
+//					RCU_MERAM_BLOCK);
+//				return -1;
+//			}
+//			meram_tmp = RCU_MERAM_MAX_BUF / meram_tmp - 1;
+//			meram_ch_write(pcdev, RCU_MERAM_MCNF,
+//				(meram_tmp << 16));
+//			meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
+//						0x400 * RCU_MERAM_CONTI_BUF);
+			if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
+				meram_ch_write(pcdev, RCU_MERAM_SSARA,
+					phys_addr_top);
+				phys_addr_top = 0xE0000000
+					| ((RCU_MERAM_CH - 36) << 27);
+				pcdev->meram_frame = RCU_MERAM_FRAMEB;
+			} else {
+				meram_ch_write(pcdev, RCU_MERAM_SSARB,
+					phys_addr_top);
+				phys_addr_top = 0xE4000000
+					| ((RCU_MERAM_CH - 36) << 27);
+				pcdev->meram_frame = RCU_MERAM_FRAMEA;
+			}
+//			meram_ch_write(pcdev, RCU_MERAM_CTRL,
+//				(RCU_MERAM_BUFF << 16) | 0x70A
+//					| (RCU_MERAM_BLOCK << 28));
+		}
+#endif
 		rcu_write(pcdev, RCDAYR, phys_addr_top);
+		if(!ret)
+			dev_geo(pcdev->icd->dev.parent,"set RCDAYR[%08x][%08x]\n",
+				phys_addr_top,
+				pcdev->active->v4l2_planes[0].m.userptr);
 
 		if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
 			if (SH_RCU_OUTPUT_OFFSET_32B == pcdev->output_offset)
@@ -543,6 +654,16 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		} else {
 			rcu_write(pcdev, RCDACR, 0);
 		}
+		/* set output mode */
+		/*
+		 * When there is not an active buffer,
+		 * output mode is set in SH_RCU_OUTPUT_MEM_ISP.
+		 * Therefore output mode is set again.
+		 */
+		rcamcr = rcu_read(pcdev, RCAMCR);
+		rcamcr = rcamcr & ~(3 << RCAMCR_OCNT);
+		rcu_write(pcdev, RCAMCR, rcamcr |
+			(pcdev->output_mode << RCAMCR_OCNT));
 
 		rcu_write(pcdev, RCFWCR, 0);
 
@@ -558,8 +679,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device,
-				vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf;
@@ -609,8 +729,7 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device,
-				vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
@@ -624,7 +743,8 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 
 	if (!pcdev->active) {
 		pcdev->active = vb;
-		if (SH_RCU_STREAMING_ON == pcdev->streaming) {
+		if ((SH_RCU_STREAMING_ON == pcdev->streaming) &&
+			(SH_RCU_OUTPUT_MEM == pcdev->output_mode)) {
 			/* restart capture */
 			sh_mobile_rcu_capture(pcdev);
 		}
@@ -635,8 +755,7 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device,
-				vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
@@ -662,8 +781,7 @@ static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device,
-				vb2_vidq);
+			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	/* This is for locking debugging only */
@@ -680,7 +798,9 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 	unsigned long flags;
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	int ret = 0;
-
+#if RCU_USE_MERAM
+	unsigned int meram_tmp = 0;
+#endif
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	spin_lock_irqsave(&pcdev->lock, flags);
@@ -699,6 +819,35 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 
 	pcdev->streaming = SH_RCU_STREAMING_ON;
 	rcu_write(pcdev, RCEIER, 0);
+
+#if RCU_USE_MERAM
+	if (SH_RCU_OUTPUT_MERAM == pcdev->output_meram) {
+		dev_geo(pcdev->icd->dev.parent, "%s:meram start\n", __func__);
+		meram_write(pcdev, RCU_MERAM_ACTST1,
+			(1 << (RCU_MERAM_CH - 32)));
+		meram_tmp =
+			ALIGNxK(rcu_read(pcdev, RCDWDR) * icd->user_height,RCU_MERAM_CONTI_BUF);
+		meram_tmp /= 0x400 * RCU_MERAM_CONTI_BUF;
+		meram_ch_write(pcdev, RCU_MERAM_BSIZE,
+			((meram_tmp - 1) << 16)
+				| (0x400 * RCU_MERAM_CONTI_BUF - 1));
+		meram_tmp = RCU_MERAM_CONTI_BUF * (1 << RCU_MERAM_BLOCK);
+		if (RCU_MERAM_MAX_BUF < (meram_tmp * 2)) {
+			dev_err(pcdev->icd->dev.parent,
+				"%s:meram error CONTI[%d],BLOCK[%d]\n",
+				__func__, RCU_MERAM_CONTI_BUF, RCU_MERAM_BLOCK);
+			return -1;
+		}
+		meram_tmp = RCU_MERAM_MAX_BUF / meram_tmp - 1;
+		meram_ch_write(pcdev, RCU_MERAM_MCNF, (meram_tmp << 16));
+		meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
+			0x400 * RCU_MERAM_CONTI_BUF);
+		meram_ch_write(pcdev, RCU_MERAM_CTRL,
+			(RCU_MERAM_BUFF << 16) | 0x70A
+				| (RCU_MERAM_BLOCK << 28));
+	}
+#endif
+
 	sh_mobile_rcu_capture(pcdev);
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
@@ -706,7 +855,8 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0,
 				video, s_stream, 1);
 	if (ret) {
-		printk(KERN_ALERT "%s :Error v4l2_device_call_until_err(%d)\n",
+		dev_err(pcdev->icd->dev.parent,
+			"%s :Error v4l2_device_call_until_err(%d)\n",
 				__func__, ret);
 	}
 
@@ -728,7 +878,7 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video, s_stream, 0);
 	if (ret) {
-		printk(KERN_ALERT "%s :Error v4l2_device_call_until_err(%d)\n",
+		dev_err(pcdev->icd->dev.parent, "%s :Error v4l2_device_call_until_err(%d)\n",
 				__func__, ret);
 	}
 
@@ -741,6 +891,12 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
+#if RCU_USE_MERAM
+	if (SH_RCU_OUTPUT_MERAM == pcdev->output_meram) {
+		meram_ch_write(pcdev, RCU_MERAM_CTRL, 0x60);
+		dev_geo(pcdev->icd->dev.parent, "%s:meram stop\n", __func__);
+	}
+#endif
 	return sh_mobile_rcu_soft_reset(pcdev);
 }
 
@@ -762,32 +918,44 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 	struct vb2_buffer *vb;
 	int ret;
 	unsigned long flags;
+	u32 regRCETCR, regRCDAYR;
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
 	/* stream on */
 	if (SH_RCU_STREAMING_ON == pcdev->streaming) {
 
+		regRCETCR = rcu_read(pcdev, RCETCR);
+		regRCDAYR = rcu_read(pcdev, RCDAYR);
 		vb = pcdev->active;
 
 		/* ISP output */
 		/* Memory and ISP output mode (Active buffer doesn't exist.) */
-		if ((SH_RCU_OUTPUT_ISP     == pcdev->output_mode) ||
-		    (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode && !vb)) {
+		if ((SH_RCU_OUTPUT_ISP == pcdev->output_mode)
+			|| (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode
+				&& !regRCDAYR)) {
 			sh_mobile_rcu_capture(pcdev);
 
 		/* Memory and ISP output mode (Active buffer exists.) */
 		/* Memory output (Active buffer exists.) */
-		} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode ||
-				vb) ||
-				(SH_RCU_OUTPUT_MEM == pcdev->output_mode ||
-				vb)) {
+		} else if (((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
+			&& (regRCDAYR)
+			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP))
+			|| (SH_RCU_OUTPUT_MEM == pcdev->output_mode && vb)) {
+#if RCU_USE_MERAM
+			if (SH_RCU_OUTPUT_MERAM == pcdev->output_meram) {
+				meram_ch_write(pcdev, RCU_MERAM_CTRL,
+					meram_ch_read(pcdev, RCU_MERAM_CTRL)
+					| 0x20);
+				dev_geo(pcdev->icd->dev.parent,"%s:meram clear\n", __func__);
+			}
+#endif
+
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
 				pcdev->active = &list_entry(pcdev->capture.next,
-						struct sh_mobile_rcu_buffer,
-						queue)->vb;
+						struct sh_mobile_rcu_buffer, queue)->vb;
 			else
 				pcdev->active = NULL;
 
@@ -798,11 +966,13 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				vb->v4l2_buf.sequence = pcdev->sequence++;
 			}
 			vb2_buffer_done(vb,
-				ret < 0 ? VB2_BUF_STATE_ERROR : \
-				VB2_BUF_STATE_DONE);
+				ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
 
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
+			dev_err(pcdev->icd->dev.parent,
+				"%s:error sequence RCETCR[%08x],RCDAYR[%08x]\n",
+				__func__, regRCETCR, regRCDAYR);
 		}
 	} else {
 		rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
@@ -898,9 +1068,32 @@ static void sh_mobile_rcu_set_rect(struct soc_camera_device *icd)
 		rcdwdr = ALIGN32(icd->user_width);
 
 	} else {
-		bytes_per_line = sh_mobile_rcu_bytes_per_line(
-				icd->user_width,
-				icd->current_fmt->host_fmt, pcdev);
+		if (SH_RCU_OUTPUT_ENHANCING == pcdev->output_pack)
+			bytes_per_line = sh_mobile_rcu_bytes_per_line(
+				icd->user_width, icd->current_fmt->host_fmt,
+				pcdev);
+		else
+		{
+			struct soc_mbus_pixelfmt l_mf[2] = {{
+				.fourcc			= V4L2_PIX_FMT_SBGGR10,
+				.name			= "Bayer 10 BGGR",
+				.bits_per_sample	= 10,
+				.packing		= SOC_MBUS_PACKING_NONE,
+				.order			= SOC_MBUS_ORDER_LE,
+			},{
+				.fourcc			= V4L2_PIX_FMT_SBGGR12,
+				.name			= "Bayer 12 BGGR",
+				.bits_per_sample	= 12,
+				.packing		= SOC_MBUS_PACKING_NONE,
+				.order			= SOC_MBUS_ORDER_LE,
+			}};
+			if (V4L2_PIX_FMT_SBGGR10 == icd->current_fmt->host_fmt->fourcc)
+				bytes_per_line =
+					ALIGN8(soc_mbus_bytes_per_line(icd->user_width, &l_mf[0]));
+			else
+				bytes_per_line =
+					ALIGN8(soc_mbus_bytes_per_line(icd->user_width, &l_mf[1]));
+		}
 
 		if (bytes_per_line < 0)
 			rcdwdr = ALIGN4(icd->user_width * 2);
@@ -999,7 +1192,10 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 
 	/* setting RCAMCR */
 	rcamcr |= pcdev->image_mode << RCAMCR_CFMT;
-	rcamcr |= pcdev->output_mode << RCAMCR_OCNT;
+	if(SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
+		rcamcr |= SH_RCU_OUTPUT_ISP << RCAMCR_OCNT;
+	else
+		rcamcr |= pcdev->output_mode << RCAMCR_OCNT;
 
 	yuv_lineskip = 0;
 	switch (icd->current_fmt->host_fmt->fourcc) {
@@ -1014,7 +1210,9 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	case V4L2_PIX_FMT_SGRBG10:
 	case V4L2_PIX_FMT_SRGGB10:
 		rcamcr |= SH_RCU_RAWTYP_RAW10 << RCAMCR_RAWTYP;
-		rcamcr |= SH_RCU_RPAC_ENHANCE << RCAMCR_RPAC;
+		rcamcr |= (pcdev->output_pack ?
+				(SH_RCU_RPAC_PACKING << RCAMCR_RPAC) :
+				(SH_RCU_RPAC_ENHANCE << RCAMCR_RPAC));
 		switch (cam->code) {
 		case V4L2_MBUS_FMT_SBGGR8_1X8:
 		case V4L2_MBUS_FMT_SGBRG8_1X8:
@@ -1032,7 +1230,9 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	case V4L2_PIX_FMT_SGRBG12:
 	case V4L2_PIX_FMT_SRGGB12:
 		rcamcr |= SH_RCU_RAWTYP_RAW12 << RCAMCR_RAWTYP;
-		rcamcr |= SH_RCU_RPAC_ENHANCE << RCAMCR_RPAC;
+		rcamcr |= (pcdev->output_pack ?
+				(SH_RCU_RPAC_PACKING << RCAMCR_RPAC) :
+				(SH_RCU_RPAC_ENHANCE << RCAMCR_RPAC));
 		break;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
@@ -1095,8 +1295,8 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	if (yuv_lineskip)
 		rcdocr |= 1 << RCDOCR_T420;	/* output YUV420 */
 
-	if ((icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21) ||
-	    (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61)) {
+	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21 ||
+	    icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61) {
 	    /* swap U, V to change from NV1x->NVx1 */
 		rcdocr |= 1 << RCDOCR_C1BS;
 	}
@@ -1117,8 +1317,7 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 	rcu_write(pcdev, RCRCMPR, 0);
 	rcu_write(pcdev, RCBDSR,  0);
 
-	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n",
-		PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
+	dev_dbg(icd->dev.parent, "S_FMT successful for %c%c%c%c %ux%u\n", PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
 
 	capture_restore(pcdev, rcapsr);
 
@@ -1638,13 +1837,11 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	unsigned int walign, halign;
 	struct v4l2_rect rect;
 
-	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__,
-		PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(dev, "Format %c%c%c%c not found\n",
-			PRINT_FOURCC(pixfmt));
+		dev_warn(dev, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -1718,13 +1915,11 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	int ret;
 	unsigned int walign, halign;
 
-	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__,
-		PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(icd->dev.parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n",
-			PRINT_FOURCC(pixfmt));
+		dev_warn(icd->dev.parent, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -1869,6 +2064,14 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 	case V4L2_CID_SET_OUTPUT_OFFSET:
 		pcdev->output_offset = ctrl->value;
 		return 0;
+	case V4L2_CID_SET_OUTPUT_PACK:
+		pcdev->output_pack = ctrl->value;
+		return 0;
+#if RCU_USE_MERAM
+	case V4L2_CID_SET_OUTPUT_MERAM:
+		pcdev->output_meram = ctrl->value;
+		return 0;
+#endif
 	}
 	return -ENOIOCTLCMD;
 }
@@ -1964,10 +2167,32 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 
 	pcdev->irq = irq;
 	pcdev->base = base;
+#if RCU_USE_MERAM
+	base = ioremap_nocache(0xE5500000, 0x100);
+	if (!base) {
+		err = -ENXIO;
+		dev_err(&pdev->dev, "Unable to ioremap MERAM registers.\n");
+		goto exit_kfree;
+	}
+	pcdev->base_meram = base;
+
+	base = ioremap_nocache(0xE5500400 + (RCU_MERAM_CH * 0x20), 0x20);
+	if (!base) {
+		err = -ENXIO;
+		dev_err(&pdev->dev, "Unable to ioremap MERAM registers.\n");
+		goto exit_kfree;
+	}
+	pcdev->base_meram_ch = base;
+#endif
 	pcdev->video_limit = 0; /* only enabled if second resource exists */
 	pcdev->image_mode = SH_RCU_MODE_DATA;
 	pcdev->output_mode = SH_RCU_OUTPUT_ISP;
 	pcdev->output_offset = SH_RCU_OUTPUT_OFFSET_32B;
+	pcdev->output_pack = SH_RCU_OUTPUT_ENHANCING;
+#if RCU_USE_MERAM
+	pcdev->output_meram = SH_RCU_OUTPUT_SDRAM;
+	pcdev->meram_frame = RCU_MERAM_FRAMEA;
+#endif
 	pcdev->streaming = SH_RCU_STREAMING_OFF;
 
 	pcdev->iclk = clk_get(NULL, "icb");
@@ -2032,8 +2257,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		if (!csi2->driver) {
 			complete(&wait.completion);
 			/* Either too late, or probing failed */
-			bus_unregister_notifier(&platform_bus_type,
-						&wait.notifier);
+			bus_unregister_notifier(&platform_bus_type, &wait.notifier);
 			err = -ENXIO;
 			goto exit_free_clk;
 		}
@@ -2121,7 +2345,7 @@ static int sh_mobile_rcu_resume(struct device *dev)
 static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if (NULL == dev)
+	if(NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
@@ -2132,27 +2356,27 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 * to save and restore registers here.
 	 */
 
-	if (NULL == pcdev) {
+	if(NULL == pcdev) {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if (NULL != pcdev->iclk)
+	if(NULL != pcdev->iclk)
 		clk_disable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if (NULL != pcdev->fclk)
+	if(NULL != pcdev->fclk)
 		clk_disable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if (NULL != pcdev->mclk)
+	if(NULL != pcdev->mclk)
 		clk_disable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
@@ -2165,32 +2389,32 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 static int sh_mobile_rcu_runtime_resume(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if (NULL == dev)
+	if(NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
 
-	if (NULL == pcdev) {
+	if(NULL == pcdev) {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if (NULL != pcdev->iclk)
+	if(NULL != pcdev->iclk)
 		clk_enable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if (NULL != pcdev->fclk)
+	if(NULL != pcdev->fclk)
 		clk_enable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if (NULL != pcdev->mclk)
+	if(NULL != pcdev->mclk)
 		clk_enable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->dev.parent,

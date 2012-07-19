@@ -28,6 +28,85 @@
 #include <media/v4l2-chip-ident.h>
 
 #include <mach/r8a73734.h>
+#include <media/sh_mobile_csi2.h>
+
+int OV5640_power(struct device *dev, int power_on)
+{
+	struct clk *vclk2_clk;
+	int iRet;
+
+	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
+	printk(KERN_ALERT "%s : IN\n", __func__);
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s : PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
+
+		gpio_set_value(GPIO_PORT16, 0);
+		mdelay(1);
+		gpio_set_value(GPIO_PORT91, 1);
+
+		gpio_direction_output(GPIO_PORT5, 1); /* VDIG ON */
+		gpio_direction_output(GPIO_PORT3, 1); /* VANA ON */
+		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
+		mdelay(5);
+
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+			"clk_set_rate(vclk2_clk) failed (ret=%d)\n", iRet);
+		}
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev,
+			"clk_enable(vclk2_clk) failed (ret=%d)\n", iRet);
+		}
+
+		mdelay(10);
+		gpio_set_value(GPIO_PORT91, 0);
+		mdelay(2);
+		gpio_set_value(GPIO_PORT16, 1);
+	} else {
+		printk(KERN_ALERT "%s : PowerOFF\n", __func__);
+		gpio_set_value(GPIO_PORT16, 0);		/* assert RESET */
+		mdelay(1);	/* 0ms */
+		clk_disable(vclk2_clk);
+		mdelay(1);	/* 0ms */
+		gpio_set_value(GPIO_PORT91, 0);		/* POWER off */
+		mdelay(1);	/* 0ms */
+
+		gpio_direction_output(GPIO_PORT4, 0); /* VANA OFF SUB */
+		gpio_direction_output(GPIO_PORT3, 0); /* VANA OFF */
+		gpio_direction_output(GPIO_PORT5, 0); /* VDIG OFF */
+		sh_csi2_power(dev, power_on);
+	}
+
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+
+int OV5640_l_reset(void *handle, int reset)
+{
+	if (!reset) {
+		printk(KERN_ALERT "%s: reset\n",__func__);
+		OV5640_power(NULL, 0);
+		sh_csi2__l_reset(handle,0);
+		mdelay(20);
+		sh_csi2__l_reset(handle,1);
+		mdelay(1);
+		OV5640_power(NULL, 1);
+		mdelay(20);
+	}
+	return 0;
+}
 
 struct OV5640_datafmt {
 	enum v4l2_mbus_pixelcode	code;

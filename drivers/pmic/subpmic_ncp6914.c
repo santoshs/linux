@@ -272,24 +272,31 @@ static int
 _NCP6914_i2c_send(struct i2c_client *client, const u8 * data, int len)
 {
 	int ret = 0;
+	int retry = 10;
 
 	if (len <= 0) {
 		printk(KERN_ERR "%s(): invalid length %d", __func__, len);
 		return -EINVAL;
 	}
 
-	ret = i2c_master_send(client, data, len);
+	while(0 < retry)
+	{
+		ret = i2c_master_send(client, data, len);
 
-	if (ret < 0) {
-		printk(KERN_ERR "Failed to send %d bytes to NCP6914 [errno=%d]",
-			len, ret);
-	} else if (ret != len) {
-		printk(
-			KERN_ERR "Failed to send exactly %d bytes to NCP6914 (send %d)",
-			len, ret);
-		ret = -EIO;
-	} else {
-		ret = 0;
+		if (ret < 0) {
+			printk(KERN_ERR "Failed to send %d bytes to NCP6914 [errno=%d]",
+				len, ret);
+		} else if (ret != len) {
+			printk(
+				KERN_ERR "Failed to send exactly %d bytes to NCP6914 (send %d)",
+				len, ret);
+			ret = -EIO;
+		} else {
+			ret = 0;
+			break;
+		}
+		retry--;
+		printk(KERN_ALERT "Retry %d\n",10-retry);
 	}
 	return ret;
 }

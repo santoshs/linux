@@ -16,10 +16,16 @@
 
 #define SH_RCU_OUTPUT_MEM			0x00	/* Memory output */
 #define SH_RCU_OUTPUT_ISP			0x01	/* ISP output (default) */
-#define SH_RCU_OUTPUT_MEM_ISP		0x03	/* Memory and ISP output */
+#define SH_RCU_OUTPUT_MEM_ISP			0x03	/* Memory and ISP output */
 
 #define SH_RCU_OUTPUT_OFFSET_OFF		(0)
 #define SH_RCU_OUTPUT_OFFSET_32B		(1)
+
+#define SH_RCU_OUTPUT_ENHANCING			(0)
+#define SH_RCU_OUTPUT_PACKING			(1)
+
+#define SH_RCU_OUTPUT_SDRAM			(0)
+#define SH_RCU_OUTPUT_MERAM			(1)
 
 struct device;
 
