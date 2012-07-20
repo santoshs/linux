@@ -49,11 +49,13 @@ struct sh_csi2_pdata {
 	unsigned char imcr_set;
 	void*	priv;
 	char *cmod_name;
+	int (*local_reset)(void*, int);
 };
 
 struct device;
 struct v4l2_device;
 
 void sh_csi2_power(struct device *dev, int power_on);
+int sh_csi2__l_reset(void *handle, int reset);
 
 #endif

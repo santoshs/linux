@@ -324,11 +324,17 @@ enum {
 	/* module upd64083: just ident 64083 */
 	V4L2_IDENT_UPD64083 = 64083,
 
-	/* SONY ISX012 */
-	V4L2_IDENT_ISX012 = 100000,
+	/* Omnivision */
+	V4L2_IDENT_OV8820 = 100000,
+	V4L2_IDENT_OV5640 = 100001,
 
-	/* Sony IMX081 */
+	/* Sony */
 	V4L2_IDENT_IMX081 = 100010,
+	V4L2_IDENT_IMX175 = 100011,
+	V4L2_IDENT_ISX012 = 100012,
+
+	/* Samsung S5K6AAFX13 */
+	V4L2_IDENT_S5K6AAFX13 = 100020,
 
 	/* Don't just add new IDs at the end: KEEP THIS LIST ORDERED BY ID! */
 };
