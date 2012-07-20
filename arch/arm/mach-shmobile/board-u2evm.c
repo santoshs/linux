@@ -58,6 +58,11 @@
 
 #include <linux/mmcoops.h>
 
+#ifdef CONFIG_PN544_NFC
+#include <linux/i2c-gpio.h>
+#include <linux/nfc/pn544.h> 
+#endif
+
 #define CLASHLOG_R_LOCAL_VER_LOCATE		0x4C801000
 #define CLASHLOG_R_LOCAL_VER_LENGTH       	32
 
@@ -771,7 +776,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-	if((system_rev & 0xFF) == 0x00)
+	if((system_rev & 0xFFFF) == 0x3E00)
 	{
 		#ifndef CONFIG_PMIC_INTERFACE
 			gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
@@ -782,7 +787,7 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
 	}
-	else
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		#ifndef CONFIG_PMIC_INTERFACE
 			gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
@@ -1422,6 +1427,45 @@ static struct platform_device rcu1_device = {
 	},
 };
 
+#ifdef CONFIG_PN544_NFC  
+
+#define NFC_EN_GPIO         GPIO_PORT12
+#define NFC_IRQ_GPIO        GPIO_PORT13
+#define NFC_FIRM_GPIO       GPIO_PORT101
+#define NFC_I2C_SDA_GPIO	GPIO_PORT274      
+#define NFC_I2C_SCL_GPIO	GPIO_PORT273
+#define NFC_I2C_BUS_ID		(8) 
+
+static struct i2c_gpio_platform_data pn544_i2c_gpio_data = {
+	.sda_pin = NFC_I2C_SDA_GPIO,
+	.scl_pin =  NFC_I2C_SCL_GPIO,
+ 	.udelay = 1,  
+};
+
+static struct platform_device pn544_i2c_gpio_device = {
+ 	.name = "i2c-gpio",
+ 	.id = NFC_I2C_BUS_ID,
+ 	.dev = {
+	.platform_data  = &pn544_i2c_gpio_data,
+	},
+};
+
+static struct pn544_i2c_platform_data pn544_pdata = {
+ 	.irq_gpio 	= NFC_IRQ_GPIO,
+ 	.ven_gpio = NFC_EN_GPIO,
+ 	.firm_gpio = NFC_FIRM_GPIO,
+};
+ 
+static struct i2c_board_info pn544_info[] __initdata = {
+{
+	I2C_BOARD_INFO("pn544", 0x2b),
+	.irq = irqpin2irq(NFC_IRQ_GPIO),
+	.platform_data = &pn544_pdata,
+ 	},
+};
+
+#endif
+
 static struct resource mdm_reset_resources[] = {
 	[0] = {
 		.name	= "MODEM_RESET",
@@ -1568,6 +1612,9 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&camera_devices[1],
 	&stm_device,
 	&etr_device,
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
@@ -1612,6 +1659,9 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&camera_devices[1],
 	&stm_device,
 	&etr_device,
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -1654,6 +1704,9 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&camera_devices[1],
 	&stm_device,
 	&etr_device,
+#ifdef CONFIG_PN544_NFC
+        &pn544_i2c_gpio_device,
+#endif
 };
 
 /* I2C */
@@ -2086,7 +2139,7 @@ static void __init u2evm_init(void)
 	printk("stm_select=%d\n", stm_select);
 
 	r8a73734_pinmux_init();
-	if((system_rev & 0xFF) != 0x00)      /*ES1_ECR0208*/
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 #define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
 #define GPIO_DRVCR_SIM1	((volatile ushort *)(0xE6050000ul + 0x8192))
@@ -2125,7 +2178,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYOUT5, NULL);
 	gpio_request(GPIO_FN_KEYOUT6, NULL);
 
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
 {	
 	gpio_pull(GPIO_PORTCR_ES1(44), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
@@ -2135,7 +2188,7 @@ if((system_rev & 0xFF) == 0x00) /*ES1.0*/
 	gpio_pull(GPIO_PORTCR_ES1(96), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES1(97), GPIO_PULL_UP);
 }
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 {
 	gpio_pull(GPIO_PORTCR_ES2(44), GPIO_PULL_UP);
 	gpio_pull(GPIO_PORTCR_ES2(45), GPIO_PULL_UP);
@@ -2276,9 +2329,9 @@ else /*ES2.0*/
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
         gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
-else /*ES2.0*/
+else if((system_rev & 0xFFFF>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
 
 	}
@@ -2288,9 +2341,9 @@ else /*ES2.0*/
 //        gpio_request(GPIO_PORT324, NULL);
 //        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
         gpio_pull(GPIO_PORTCR_ES1(324), GPIO_PULL_UP);
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(324), GPIO_PULL_UP);
 
 	}
@@ -2496,11 +2549,15 @@ else /*ES2.0*/
 	gpio_request(GPIO_PORT227, NULL);
 	gpio_direction_output(GPIO_PORT227, 1);
 
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+
+
+
+if((system_rev & 0xFFFF) == 0x3E00)
+
 {	
 	gpio_pull(GPIO_PORTCR_ES1(104), GPIO_PULL_UP);
 }
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 {
 	gpio_pull(GPIO_PORTCR_ES2(104), GPIO_PULL_UP);
 }
@@ -2537,9 +2594,9 @@ else /*ES2.0*/
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+if((system_rev & 0xFFFF) == 0x3E00)
 	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
-else /*ES2.0*/
+else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
 
 	/* USBHS */
@@ -2603,11 +2660,11 @@ else /*ES2.0*/
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if ((system_rev & 0xFF) == 0x00)
+	if((system_rev & 0xFFFF) == 0x3E00)
 	{
 		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 	}
-	else
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
 		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
@@ -2646,8 +2703,7 @@ else /*ES2.0*/
 	/* Camera ES version convert */
 	camera_links[0].priv = &csi20_info;
 	camera_links[1].priv = &csi21_info;
-	if (0x00003E00 == system_rev) {
-		/* ES1.0 */
+	if((system_rev & 0xFFFF) == 0x3E00) {
 		printk(KERN_ALERT "Camera ISP ES version switch (ES1)\n");
 		csi21_device.resource = csi21_resources_es1;
 		csi21_device.num_resources = ARRAY_SIZE(csi21_resources_es1);
@@ -2657,7 +2713,7 @@ else /*ES2.0*/
 		rcu1_device.resource = rcu1_resources_es1;
 		rcu1_device.num_resources = ARRAY_SIZE(rcu1_resources_es1);
 		sh_mobile_rcu1_info.mod_name = sh_mobile_rcu0_info.mod_name;
-	} else
+	} else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 }
 
@@ -2689,9 +2745,9 @@ else /*ES2.0*/
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 #if 0
-        if (0x00003E00 == system_rev) {
+        if((system_rev & 0xFFFF) == 0x3E00) {
             i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-        } else {
+        } else if(((system_rev & 0xFFFF)>>4) >= 0x3E1) {
             i2c_register_board_info(6, i2cm_devices_es2, ARRAY_SIZE(i2cm_devices_es2));
         }
 #endif
@@ -2702,6 +2758,9 @@ else /*ES2.0*/
 
 	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
 	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+#ifdef CONFIG_PN544_NFC
+	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
+#endif
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
@@ -2713,7 +2772,7 @@ else /*ES2.0*/
 #define CMCOR3		IO_ADDRESS(0xe6130318)
 #define CMCLKE		IO_ADDRESS(0xe6131000)
 
-static DEFINE_SPINLOCK(cmt_lock);
+extern spinlock_t	sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
 
 int read_current_timer(unsigned long *timer_val)
 {
@@ -2735,9 +2794,9 @@ static int __init setup_current_timer(void)
 	do_div(lpj, HZ);
 	lpj_fine = lpj;
 
-	spin_lock_irqsave(&cmt_lock, flags);
+	spin_lock_irqsave(&sh_cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 
 	__raw_writel(0, CMSTR3);
 	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */

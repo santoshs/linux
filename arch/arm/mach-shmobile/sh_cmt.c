@@ -27,7 +27,6 @@
 #include <linux/irq.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-#include <linux/clocksource.h>
 #include <linux/clockchips.h>
 #include <linux/sh_timer.h>
 #include <linux/slab.h>
@@ -50,11 +49,10 @@ struct sh_cmt_priv {
 	unsigned clk_enabled:1;
 };
 
-static struct clocksource shmobile_cs;
 static struct clock_event_device shmobile_ced;
-static struct platform_device *sh_cmt_devices[1 + NR_CPUS];
+static struct platform_device *sh_cmt_devices[NR_CPUS];
 
-static DEFINE_SPINLOCK(sh_cmt_lock);
+DEFINE_SPINLOCK(sh_cmt_lock);
 
 #define CMCLKE	-2 /* shared register */
 #define CMSTR	0x00 /* channel register */
@@ -276,76 +274,6 @@ static void sh_cmt_stop(struct sh_cmt_priv *p)
 	sh_cmt_disable(p);
 }
 
-static struct sh_cmt_priv *cs_to_sh_cmt(struct clocksource *cs)
-{
-	return (struct sh_cmt_priv *)cs->priv;
-}
-
-static cycle_t sh_cmt_clocksource_read(struct clocksource *cs)
-{
-	struct sh_cmt_priv *p = cs_to_sh_cmt(cs);
-
-	return sh_cmt_read(p, CMCNT);
-}
-
-static int sh_cmt_clocksource_enable(struct clocksource *cs)
-{
-	int ret;
-	struct sh_cmt_priv *p = cs_to_sh_cmt(cs);
-
-	ret = sh_cmt_start(p);
-	if (!ret)
-		__clocksource_updatefreq_hz(cs, p->rate);
-	return ret;
-}
-
-static void sh_cmt_clocksource_disable(struct clocksource *cs)
-{
-	sh_cmt_stop(cs_to_sh_cmt(cs));
-}
-
-static void sh_cmt_clocksource_resume(struct clocksource *cs)
-{
-	sh_cmt_start(cs_to_sh_cmt(cs));
-}
-
-static struct clocksource *clocksource_sh_cmt;
-
-static int sh_cmt_register_clocksource(struct sh_cmt_priv *p,
-				       const char *name, unsigned long rating,
-				       struct clocksource *cs)
-{
-	cs->priv = p;
-	cs->name = name;
-	cs->rating = rating;
-	cs->read = sh_cmt_clocksource_read;
-	cs->enable = sh_cmt_clocksource_enable;
-	cs->disable = sh_cmt_clocksource_disable;
-	cs->suspend = sh_cmt_clocksource_disable;
-	cs->resume = sh_cmt_clocksource_resume;
-	cs->mask = CLOCKSOURCE_MASK(sizeof(unsigned long) * 8);
-	cs->flags = CLOCK_SOURCE_IS_CONTINUOUS;
-
-	clocksource_sh_cmt = cs;
-
-	dev_info(&p->pdev->dev, "used as clock source\n");
-
-	/* Register with dummy 1 Hz value, gets updated in ->enable() */
-	clocksource_register_hz(cs, 1);
-	return 0;
-}
-
-unsigned long long notrace sched_clock(void)
-{
-	/* TODO: sched_clock is not available before earlytimer starts */
-	if (!clocksource_sh_cmt)
-		return 0;
-
-	return clocksource_cyc2ns(clocksource_sh_cmt->read(clocksource_sh_cmt),
-				  clocksource_sh_cmt->mult,
-				  clocksource_sh_cmt->shift);
-}
-
 static struct sh_cmt_priv *ced_to_sh_cmt(struct clock_event_device *ced)
 {
 	return (struct sh_cmt_priv *)ced->priv;
@@ -549,7 +477,7 @@ static int __devinit sh_cmt_probe(struct platform_device *pdev)
 
 static int __devexit sh_cmt_remove(struct platform_device *pdev)
 {
-	return -EBUSY; /* cannot unregister clockevent and clocksource */
+	return -EBUSY; /* cannot unregister clockevent */
 }
 
 static struct platform_driver sh_cmt_device_driver = {
@@ -582,26 +510,11 @@ void sh_cmt_register_devices(struct platform_device **devs, int num)
 {
 	int i;
 
-	if (num > NR_CPUS + 1)
+	if (num > NR_CPUS)
 		return;
 
 	for (i = 0; i < num; i++)
 		sh_cmt_devices[i] = devs[i];
-}
-
-void shmobile_clocksource_init(void)
-{
-	struct platform_device *pdev;
-	struct sh_cmt_priv *p;
-	struct sh_timer_config *cfg;
-
-	/* Assume that the first CMT device is meant for clocksource */
-	pdev = sh_cmt_devices[0];
-	p = platform_get_drvdata(pdev);
-	cfg = pdev->dev.platform_data;
-
-	sh_cmt_register_clocksource(p, dev_name(&pdev->dev),
-				    cfg->clocksource_rating, &shmobile_cs);
 }
 
 void shmobile_clockevent_init(void)
@@ -610,7 +523,7 @@ void shmobile_clockevent_init(void)
 	struct sh_cmt_priv *p;
 	struct sh_timer_config *cfg;
 
-	pdev = sh_cmt_devices[1];
+	pdev = sh_cmt_devices[0];
 	p = platform_get_drvdata(pdev);
 	cfg = pdev->dev.platform_data;
 
@@ -629,7 +542,7 @@ int __cpuinit cmt_timer_setup(struct clock_event_device *clk)
 	if (cpu < 1)
 		return 0;
 
-	pdev = sh_cmt_devices[1 + cpu];
+	pdev = sh_cmt_devices[cpu];
 	p = platform_get_drvdata(pdev);
 
 	clk->name = dev_name(&p->pdev->dev);
