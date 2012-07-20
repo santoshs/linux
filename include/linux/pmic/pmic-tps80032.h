@@ -290,6 +290,11 @@ struct tps80032_irq_data {
 #define	CLK32KG  						(1)
 #define	CLK32KAUDIO 					(2)
 
+#define	RT_CPU_SIDE		 				(0x01)
+#define	SYS_CPU_SIDE		 			(0x40)
+#define	BB_CPU_SIDE		 				(0x93)
+
+
 /*
  * Define the contain non-volatile value
  */
@@ -321,7 +326,6 @@ struct tps80032_irq_data {
 #else
 /* If no use BIN */
 #define CONST_TIMER_BATTERY_UPDATE		0x1388
-#define CONST_BATTERY_CURRENT_UPDATE	250
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
 #define CONST_0C_DEGREE					0x0000
