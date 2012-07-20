@@ -21,6 +21,9 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 
+#include <linux/earlysuspend.h>
+
+
 /* Version */
 #define MXT_VER_20		20
 #define MXT_VER_21		21
@@ -259,7 +262,13 @@ struct mxt_data {
 	unsigned int irq;
 	unsigned int max_x;
 	unsigned int max_y;
+	struct early_suspend early_suspend;
 };
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void mxt_ts_early_suspend(struct early_suspend *h);
+static void mxt_ts_late_resume(struct early_suspend *h);
+#endif
 
 static bool mxt_object_readable(unsigned int type)
 {
@@ -1191,6 +1200,12 @@ static int __devinit mxt_probe(struct i2c_client *client,
 	if (error)
 		goto err_unregister_device;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	data->early_suspend.suspend = mxt_ts_early_suspend;
+	data->early_suspend.resume = mxt_ts_late_resume;
+	register_early_suspend(&data->early_suspend);
+#endif
 	return 0;
 
 err_unregister_device:
@@ -1211,7 +1226,7 @@ err_free_mem:
 static int __devexit mxt_remove(struct i2c_client *client)
 {
 	struct mxt_data *data = i2c_get_clientdata(client);
-
+	unregister_early_suspend(&data->early_suspend);
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 
 	if (data->pdata->set_pwr)
@@ -1226,7 +1241,7 @@ static int __devexit mxt_remove(struct i2c_client *client)
 }
 
 #ifdef CONFIG_PM
-static int mxt_suspend(struct device *dev)
+static int mxt_suspend(struct device *dev, pm_message_t mesg)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
@@ -1239,6 +1254,8 @@ static int mxt_suspend(struct device *dev)
 
 	mutex_unlock(&input_dev->mutex);
 
+	data->pdata->set_pwr(0);
+
 	return 0;
 }
 
@@ -1247,6 +1264,8 @@ static int mxt_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
+
+	data->pdata->set_pwr(1);
 
 	/* Soft reset */
 	mxt_write_object(data, MXT_GEN_COMMAND_T6,
@@ -1270,6 +1289,23 @@ static const struct dev_pm_ops mxt_pm_ops = {
 };
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void mxt_ts_early_suspend(struct early_suspend *h)
+{
+	struct mxt_data *ts;
+	ts = container_of(h, struct mxt_data, early_suspend);
+	mxt_suspend(&ts->client->dev,PMSG_SUSPEND);
+}
+
+static void mxt_ts_late_resume(struct early_suspend *h)
+{
+	struct mxt_data *ts;
+	ts = container_of(h, struct mxt_data, early_suspend);
+	mxt_resume(&ts->client->dev);
+}
+#endif
+
+
 static const struct i2c_device_id mxt_id[] = {
 	{ "qt602240_ts", 0 },
 	{ "atmel_mxt_ts", 0 },
@@ -1282,8 +1318,8 @@ static struct i2c_driver mxt_driver = {
 	.driver = {
 		.name	= "atmel_mxt_ts",
 		.owner	= THIS_MODULE,
-#ifdef CONFIG_PM
-		.pm	= &mxt_pm_ops,
+#if (!defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_PM))
+	.pm = &mxt_pm_ops,
 #endif
 	},
 	.probe		= mxt_probe,

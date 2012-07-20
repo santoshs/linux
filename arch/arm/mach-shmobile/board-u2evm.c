@@ -1868,7 +1868,17 @@ static struct i2c_board_info i2c_touchkey[] = {
 static void mxt224_set_power(int on)
 {
 #ifdef CONFIG_PMIC_INTERFACE
-	pmic_set_power_on(E_POWER_VANA_MM);
+//	pmic_set_power_on(E_POWER_VANA_MM);
+	if(on)
+	{
+		gpio_set_value(GPIO_PORT29, 1);
+		gpio_set_value(GPIO_PORT30, 1);
+	}
+	else
+	{
+		gpio_set_value(GPIO_PORT29, 0 );
+		gpio_set_value(GPIO_PORT30, 0 );		
+	}
 #else
 	if (!mxt224_regulator)
 		mxt224_regulator = regulator_get(NULL, "vdd_touch");
@@ -1897,7 +1907,7 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.voltage	= 1825000,
 	.orient		= MXT_DIAGONAL,
 	.irqflags	= IRQF_TRIGGER_FALLING,
-	.set_pwr	= NULL ,//mxt224_set_power,
+	.set_pwr	= mxt224_set_power,
 	.read_chg	= mxt224_read_chg,
 };
 
