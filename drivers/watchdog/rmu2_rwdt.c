@@ -206,7 +206,7 @@ static void rmu2_cmt_start(void)
 {
 	unsigned long flags;
 	
-	RWDT_DEBUG( "START < %s >\n", __func__);
+	printk(KERN_DEBUG "START < %s >\n", __func__);
 	RWDT_DEBUG( "< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
 	RWDT_DEBUG( "< %s >CMSTR15=%08x\n", __func__, __raw_readl(CMSTR15));
 	RWDT_DEBUG( "< %s >CMCSR15=%08x\n", __func__, __raw_readl(CMCSR15));
@@ -238,9 +238,17 @@ static void rmu2_cmt_start(void)
  */
 void rmu2_cmt_stop(void)
 {
+	unsigned long flags;
+
+	printk(KERN_DEBUG "START < %s >\n", __func__);
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);	/* Int disable */
 	__raw_writel(0U, CMCNT15);
+	__raw_writel(0, CMSTR15);
+
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) & ~(1<<5), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
 }
 
 /*
@@ -251,9 +259,8 @@ void rmu2_cmt_stop(void)
  */
 static void rmu2_cmt_clear(void)
 {
-#ifdef CONFIG_RWDT_DEBUG
-	printk(KERN_DEBUG "clear the CMT counter!!\n");
-#endif
+	printk(KERN_DEBUG "START < %s >\n", __func__);
+
 	__raw_writel(0U, CMCNT15);
 }
 
@@ -781,6 +788,7 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 	
 #ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_clear();
+	rmu2_cmt_stop();
 #endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
@@ -822,6 +830,7 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 	RWDT_DEBUG( "START < %s >\n", __func__);
 	
 #ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_start();
 	rmu2_cmt_clear();
 #endif	/* CONFIG_GIC_NS_CMT */
 
