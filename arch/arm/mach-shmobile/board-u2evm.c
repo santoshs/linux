@@ -499,6 +499,8 @@ static struct platform_device mmcoops_device = {
 	},
 };
 
+#define MSEL3CR		IO_ADDRESS(0xE6058020)
+
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
 #ifdef CONFIG_PMIC_INTERFACE
@@ -507,10 +509,13 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
 		pmic_set_power_on(E_POWER_VIO_SD);
 		pmic_set_power_on(E_POWER_VMMC);
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+
 	}
 	else
 	{
 		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 		pmic_set_power_off(E_POWER_VIO_SD);
 		pmic_set_power_off(E_POWER_VMMC);
 	}
@@ -1559,7 +1564,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #endif
 	&sh_mmcif_device,
 	&mmcoops_device,
-	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
+//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 //	&sdhi1_device,
 	&fsi_device,
 	&fsi_b_device,
@@ -2241,7 +2246,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 
 	/* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
 
-#define MSEL3CR		IO_ADDRESS(0xE6058020)
+
 	__raw_writel(__raw_readl(MSEL3CR) | (1<<27), MSEL3CR); /* ES2.0: SIM powers */
 
 	if (-1 != stm_select) {	
