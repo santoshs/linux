@@ -174,15 +174,15 @@ static int pmic_battery_get_property(struct power_supply *psy,
 		else
 			val->intval = 0;
 		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if(battery_dev->ops->get_bat_voltage)
-			val->intval = pmic_correct_voltage(battery_dev->ops->get_bat_voltage(battery_dev->pdev[E_BATTERY_VOLTAGE_NOW]));
+	case POWER_SUPPLY_PROP_TEMP_HPA:
+		if(battery_dev->ops->get_hpa_temperature)
+			val->intval = pmic_correct_temperature(battery_dev->ops->get_hpa_temperature(battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE]));
 		else
 			val->intval = 0;
 		break;
-	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		if(battery_dev->ops->get_bat_current_now)
-			val->intval = battery_dev->ops->get_bat_current_now(battery_dev->pdev[E_BATTERY_CURRENT_NOW]);
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		if(battery_dev->ops->get_bat_voltage)
+			val->intval = pmic_correct_voltage(battery_dev->ops->get_bat_voltage(battery_dev->pdev[E_BATTERY_VOLTAGE_NOW]));
 		else
 			val->intval = 0;
 		break;
@@ -246,8 +246,8 @@ static enum power_supply_property pmic_battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_TEMP_HPA,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_CURRENT_NOW,
 };
 
 static enum power_supply_property pmic_usb_props[] = {
@@ -311,11 +311,11 @@ int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *op
 		if(ops->get_bat_temperature){
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
 		}
+		if(ops->get_hpa_temperature){
+			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
+		}
 		if(ops->get_bat_voltage){
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
-		}
-		if(ops->get_bat_current_now){
-			battery_dev->pdev[E_BATTERY_CURRENT_NOW] = dev;
 		}
 		if(ops->stop_charging){
 			battery_dev->pdev[E_BATTERY_STOP] = dev;
@@ -382,15 +382,14 @@ int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *op
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
 			battery_dev->ops->get_bat_temperature = ops->get_bat_temperature;
 		}
+		if(ops->get_hpa_temperature){
+			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
+			battery_dev->ops->get_hpa_temperature = ops->get_hpa_temperature;
+		}
 		if(ops->get_bat_voltage){
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
 			battery_dev->ops->get_bat_voltage = ops->get_bat_voltage;
 		}
-		if(ops->get_bat_current_now){
-			battery_dev->pdev[E_BATTERY_CURRENT_NOW] = dev;
-			battery_dev->ops->get_bat_current_now = ops->get_bat_current_now;
-		}
-	
 		if(ops->stop_charging){
 			battery_dev->pdev[E_BATTERY_STOP] = dev;
 			battery_dev->ops->stop_charging = ops->stop_charging;
