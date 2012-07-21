@@ -64,6 +64,10 @@ static int num_vbat[5];
 static int num_volt = 0;
 struct hwspinlock *r8a73734_hwlock_pmic;
 
+static wait_queue_head_t tps80032_modem_reset_event;
+static struct task_struct *tps80032_modem_reset_thread = NULL;
+static atomic_t modem_reset_handing = ATOMIC_INIT(0);
+
 struct tps80032_data {
 	struct device *dev;
 	int device;
@@ -152,6 +156,7 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock, unsigned int ti
 
 	return ret;
 }
+
 /**
  * tps80032_force_release_hwsem() - force to release hw semaphore
  * @hwsem_id: Hardware semaphore ID
@@ -160,7 +165,7 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock, unsigned int ti
  *		0x93: Baseband side
  * return: void
  */
-void tps80032_force_release_hwsem(u8 hwsem_id)
+static void tps80032_force_release_hwsem(u8 hwsem_id)
 {
 	void * ptr;
 	u32 value = 0;
@@ -270,6 +275,95 @@ void tps80032_force_release_hwsem(u8 hwsem_id)
 		 */
 		ndelay(50);
 	}
+}
+
+/*
+ * tps80032_force_release_swsem() - force to release sw semaphore
+ * @swsem_id: Software semaphore ID
+		0x01: AP Realtime side
+ *		0x40: AP System side
+ *		0x93: Baseband side
+ * return: void
+ */
+static void tps80032_force_release_swsem(u8 swsem_id)
+{
+	u32 lock_id;
+	unsigned long expire = msecs_to_jiffies(10) + jiffies;
+	
+	/*Check input swsem_id*/
+	switch(swsem_id)
+	{
+		case RT_CPU_SIDE:
+		case SYS_CPU_SIDE:
+		case BB_CPU_SIDE:
+			break;
+			
+		default:
+			return;
+	}
+	
+	/* Check which CPU (Real time or Baseband or System) is using SW sem*/
+	lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
+	
+	PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
+	
+	if(lock_id != swsem_id) {
+		return;
+	}
+	
+	for (;;) {
+		
+		/* Try to force to unlock SW sem*/
+		hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
+		if(lock_id == 0) {
+			PMIC_ERROR_MSG(">>>>%s: Forcing to release SW sem from ID (0x%x) is successful\n", __func__, swsem_id);
+			break;
+		}
+		
+		/*
+		 * Cannot force to unlock SW sem, try again
+		 */
+		if (time_is_before_eq_jiffies(expire)) {
+			PMIC_ERROR_MSG(">>>>%s: Fail to release HW sem from ID (0x%x)\n", __func__, swsem_id);
+			return;
+		}
+
+		/*
+		 * Wait 100 nanosecond for another round
+		 */
+		ndelay(100);
+	}
+	
+}
+
+/*
+ * tps80032_handle_modem_reset: Handle modem reset
+ * return: void
+ */
+void tps80032_handle_modem_reset()
+{
+	atomic_set(&modem_reset_handing, 1);
+	wake_up_interruptible(&tps80032_modem_reset_event);
+}
+EXPORT_SYMBOL(tps80032_handle_modem_reset);
+
+/*
+ * tps80032_modem_reset: start thread to handle modem reset
+ * @ptr: 
+ * return: 0
+ */
+static int tps80032_modem_thread(void *ptr)
+{
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(tps80032_modem_reset_event, atomic_read(&modem_reset_handing));
+		
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		tps80032_force_release_swsem(BB_CPU_SIDE);
+		
+		atomic_set(&modem_reset_handing, 0);
+	}
+	return 0;
 }
 
 /*
@@ -423,7 +517,6 @@ static void tps80032_interrupt_work(struct work_struct *work)
 	int sts_c = 0;
 	int ret = 0;
 	int i = 0;
-	u32 lock_id;
 	
 	struct tps80032_data *data = container_of(work, struct tps80032_data, interrupt_work);
 
@@ -452,28 +545,8 @@ static void tps80032_interrupt_work(struct work_struct *work)
 	/*HPB lock*/
 	ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (ret < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (ret < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return;
 	}
 	
 	/* Read status interrupt B */
@@ -2601,35 +2674,14 @@ int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 	int ret_trim1, ret_trim2, ret_trim3, ret_trim4;
 	int sign_trim1, sign_trim2;
 	int result;
-	u32 lock_id;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	/*HPB lock*/
 	result = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (result < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			result = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (result < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return -EBUSY;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return -EBUSY;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return -EBUSY;
 	}
 	
 	ret_trim1 = i2c_smbus_read_byte_data(data->client_jtag, HW_REG_GPADC_TRIM1);
@@ -2710,34 +2762,14 @@ int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 	int ret_trim1, ret_trim2, ret_trim3, ret_trim4, ret_trim5, ret_trim6;
 	int sign_trim1, sign_trim2, sign_trim5, sign_trim6;
 	int offset, gain, result;
-	u32 lock_id;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	/*HPB lock*/
 	result = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (result < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			result = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (result < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return -EBUSY;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return -EBUSY;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return -EBUSY;
 	}
 	
 	ret_trim1 = i2c_smbus_read_byte_data(data->client_jtag, HW_REG_GPADC_TRIM1);
@@ -2848,28 +2880,8 @@ int tps80032_read_hpa_temp(struct i2c_client *client)
 	/*HPB lock*/
 	ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (ret < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (ret < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return -EBUSY;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return -EBUSY;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return -EBUSY;
 	}
 
 	/*Enable GPADC_SW_EOC interrupt*/
@@ -2992,35 +3004,14 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 	int count_timer = 0;
 	int ret_MSB, ret_LSB;
 	u8 val;
-	u32 lock_id;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/*HPB lock*/
 	ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (ret < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (ret < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return -EBUSY;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return -EBUSY;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return -EBUSY;
 	}
 
 	/*Enable GPADC_SW_EOC interrupt*/
@@ -3042,7 +3033,7 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
-	
+
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, MSK_GPADC);
 	if (0 > ret) {
@@ -3140,35 +3131,14 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 	int ret, count_timer = 0;
 	int ret_MSB, ret_LSB;
 	int val;
-	u32 lock_id;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/*HPB lock*/
 	ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (ret < 0) {
-		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
-		
-		/*Force clear HW sem*/
-		tps80032_force_release_hwsem(BB_CPU_SIDE);
-		
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
-		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
-		
-		if(lock_id != SYS_CPU_SIDE)
-		{
-			/*HPB force unlock*/
-			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-			
-			ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
-			if (ret < 0) {
-				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-				return -EBUSY;
-			}
-		} else {
-			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
-			return -EBUSY;
-		}
+		PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+		return -EBUSY;
 	}
 
 	/*Enable GPADC_SW_EOC interrupt*/
@@ -3197,7 +3167,7 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
-	
+
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, MSK_GPADC);
 	if (0 > ret) {
@@ -3392,7 +3362,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 		ret = tps80032_gpadc_correct_voltage(data, ret);
 	}
 
-	if (-1 != ret) {
+	if (0 < ret) {
 		num_vbat[num_volt] = ret;
 		/* Increase value of VBAT */
 		num_volt++;
@@ -3954,12 +3924,6 @@ static int tps80032_get_bat_temperature(struct device *dev)
 
 	ret = data->bat_temp;
 
-	if (0 > ret) {
-		ret = 0;
-	} else {
-		/* Do nothing */
-	}
-
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
@@ -4148,15 +4112,13 @@ static int tps80032_correct_temp(int temp)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* change temperature unit from 0.1K to 0.1C */
-	if (temp < 1) {
-		ret = 0;
-	} else if (temp < 901) {
+	if ((0 < temp) && (temp < 901)) {
 		ret = (10100 - 6 * temp)/10;
 	} else if (temp < 2507) {
 		ret = (7800 - 3 * temp)/10;
 	} else {
 		ret = (15400 - 6 * temp)/10;
-    }
+	}
 	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;	
@@ -5462,6 +5424,17 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
 	
+	/* Init thread to handle modem reset */
+	init_waitqueue_head(&tps80032_modem_reset_event);
+	tps80032_modem_reset_thread = kthread_run(tps80032_modem_thread, NULL, "tps80032_modem_reset_thread");
+	if(NULL == tps80032_modem_reset_thread)
+	{
+		ret = -ENOMEM;
+		PMIC_ERROR_MSG("%s:%d tps80032_modem_reset_thread failed\n",__func__,__LINE__);
+		goto err_request_irq;
+	}
+	
+	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 
@@ -5485,6 +5458,14 @@ err_device_USB_register:
  */
 static int tps80032_battery_remove(struct i2c_client *client)
 {
+	
+	/* Stop thread handling modem reset */
+	if(tps80032_modem_reset_thread != NULL)
+	{
+		 kthread_stop(tps80032_modem_reset_thread);
+		 tps80032_modem_reset_thread = NULL;
+	}
+	
 	pmic_battery_unregister_correct_func();
 	pmic_battery_device_unregister(&client->dev);
 	usb_otg_pmic_device_unregister(&client->dev);

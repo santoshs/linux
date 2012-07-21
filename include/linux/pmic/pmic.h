@@ -351,6 +351,7 @@ extern int pmic_read(struct device *dev, u8 addr, uint8_t *val);
 extern int pmic_reads(struct device *dev, u8 addr, int len, u8* val);
 extern int pmic_write(struct device *dev, u8 addr, u8 val);
 extern int pmic_writes(struct device *dev, u8 addr, int len, u8* val);
+extern void tps80032_handle_modem_reset(void);
 #ifdef PMIC_PT_TEST_ENABLE
 int pmic_read_battery_status(int property);
 #endif

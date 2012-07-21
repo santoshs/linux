@@ -42,6 +42,7 @@
 #include <linux/scatterlist.h>
 #include <mach/common.h>
 #include <mach/r8a73734.h>
+#include <linux/pmic/pmic.h>
 
 
 
@@ -258,6 +259,9 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 	
+	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
+	tps80032_handle_modem_reset();
+
 	/* Clear Event factor by setting corresponding bit in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
 	__raw_writel(curent_value | INT_FACCLR_MODEM_RESET_SET_MASK, WPMCIF_EPMU_INT_FACCLR);
