@@ -279,6 +279,9 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	spin_lock_irqsave(&priv->lock, flags);
 	if (0 != enable) {
 		printk(KERN_ALERT "%s stream on\n", __func__);
+		if (pdata->local_reset)
+			pdata->local_reset(priv, 1);
+
 		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
 			dev_name(&priv->pdev->dev), priv)) {
 			dev_err(&priv->pdev->dev,
@@ -308,6 +311,9 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 		priv->strm_on = 0;
 
 		free_irq(priv->irq, priv);
+
+		if (pdata->local_reset)
+			pdata->local_reset(priv, 0);
 	}
 	spin_unlock_irqrestore(&priv->lock, flags);
 	return 0;
@@ -549,6 +555,10 @@ void sh_csi2_power(struct device *dev, int power_on)
 	struct soc_camera_link *icl;
 	struct sh_csi2_pdata *csi_info;
 	int ret;
+	if (!dev) {
+		printk(KERN_ALERT "%s :not device\n", __func__);
+		return;
+	}
 	icl = (struct soc_camera_link *) dev->platform_data;
 	csi_info = (struct sh_csi2_pdata *) icl->priv;
 
@@ -600,6 +610,21 @@ void sh_csi2_power(struct device *dev, int power_on)
 	}
 	clk_put(csi_clk);
 	clk_put(meram_clk);
+}
+
+int sh_csi2__l_reset(void *handle, int reset)
+{
+	struct sh_csi2 *priv = (struct sh_csi2 *)handle;
+	u32 reg_vcdt = 0;
+	if (reset) {
+		reg_vcdt = ioread32(priv->base + SH_CSI2_VCDT);
+		sh_csi2_hwinit(priv);
+		iowrite32(reg_vcdt, priv->base + SH_CSI2_VCDT);
+		sh_csi2_stream(priv, 1);
+	} else {
+		sh_csi2_stream(priv, 0);
+	}
+	return 0;
 }
 
 module_init(sh_csi2_init);

@@ -50,7 +50,8 @@
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
 #include <linux/pmic/pmic-ncp6914.h>
-#include <media/isx012.h>
+#include <media/imx175.h>
+#include <media/s5k6aafx13.h>
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/i2c/touchkey_i2c.h>
@@ -1112,85 +1113,12 @@ static struct platform_device thermal_sensor_device = {
 };
 /* >> End Add for Thermal Sensor driver*/
 
-static int EOSMAIN_power0(struct device *dev, int power_on)
-{
-	struct clk *vclk1_clk;
-	int iRet;
-
-	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-
-	vclk1_clk = clk_get(NULL, "vclk1_clk");
-	if (IS_ERR(vclk1_clk)) {
-		dev_err(dev, "clk_get(vclk1_clk) failed\n");
-		return -1;
-	}
-
-	if (power_on) {
-		printk(KERN_ALERT "%s : PowerON\n", __func__);
-		sh_csi2_power(dev, power_on);
-		gpio_direction_output(GPIO_PORT5, 1); /* VDIG ON */
-		gpio_direction_output(GPIO_PORT3, 1); /* VANA ON */
-		gpio_direction_output(GPIO_PORT4, 1); /* VANA ON SUB */
-		mdelay(5);
-
-		iRet = clk_set_rate(vclk1_clk,
-				clk_round_rate(vclk1_clk, 24000000));
-		if (0 != iRet) {
-			dev_err(dev,
-			"clk_set_rate(vclk1_clk) failed (ret=%d)\n", iRet);
-		}
-
-		iRet = clk_enable(vclk1_clk);
-		if (0 != iRet) {
-			dev_err(dev,
-			"clk_enable(vclk1_clk) failed (ret=%d)\n", iRet);
-		}
-
-		mdelay(100);	/* 0ms */
-		gpio_set_value(GPIO_PORT20, 0);		/* assert RESET */
-		mdelay(100);	/* 0ms */
-		gpio_set_value(GPIO_PORT90, 1);		/* turn on POWER */
-		mdelay(100);	/* 1ms */
-		gpio_set_value(GPIO_PORT20, 1);		/* deassert RESET */
-		mdelay(100);	/* 20ms */
-
-		gpio_set_value(GPIO_PORT16, 0);		/* assert RESET SUB */
-		mdelay(100);	/* 0ms */
-		gpio_set_value(GPIO_PORT91, 1);		/* POWER off SUB */
-		mdelay(100);	/* 0ms */
-	} else {
-		printk(KERN_ALERT "%s : PowerOFF\n", __func__);
-		gpio_set_value(GPIO_PORT20, 0);		/* assert RESET */
-		mdelay(100);	/* 0ms */
-		clk_disable(vclk1_clk);
-		mdelay(100);	/* 0ms */
-		gpio_set_value(GPIO_PORT90, 0);		/* POWER off */
-		mdelay(100);	/* 0ms */
-
-		gpio_direction_output(GPIO_PORT4, 0); /* VANA OFF SUB */
-		gpio_direction_output(GPIO_PORT3, 0); /* VANA OFF */
-		gpio_direction_output(GPIO_PORT5, 0); /* VDIG OFF */
-		sh_csi2_power(dev, power_on);
-	}
-
-	clk_put(vclk1_clk);
-
-	return 0;
-}
-
-static int dummy_camera_power(struct device *dev, int power_on)
-{
-	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-
-	return 0;
-}
-
 static struct i2c_board_info i2c_cameras[] = {
 	{
-		I2C_BOARD_INFO("EOSCAMERA", 0x1A),
+		I2C_BOARD_INFO("IMX175", 0x1A),
 	},
 	{
-		I2C_BOARD_INFO("dummy_camera", 0),
+		I2C_BOARD_INFO("S5K6AAFX13", 0x3C), // 0x78(3C), 0x5A(2D), 0x45
 	},
 };
 
@@ -1199,15 +1127,15 @@ static struct soc_camera_link camera_links[] = {
 		.bus_id			= 0,
 		.board_info		= &i2c_cameras[0],
 		.i2c_adapter_id	= 1,
-		.module_name	= "EOSCAMERA",
-		.power			= EOSMAIN_power0,
+		.module_name	= "IMX175",
+		.power			= IMX175_power,
 	},
 	{
 		.bus_id			= 1,
 		.board_info		= &i2c_cameras[1],
 		.i2c_adapter_id	= 1,
-		.module_name	= "dummy_camera",
-		.power			= dummy_camera_power,
+		.module_name	= "S5K6AAFX13",
+		.power			= S5K6AAFX13_power,
 	},
 };
 
@@ -1231,7 +1159,7 @@ static struct platform_device camera_devices[] = {
 static struct sh_csi2_client_config csi20_clients[] = {
 	{
 		.phy		= SH_CSI2_PHY_MAIN,
-		.lanes		= 3,
+		.lanes		= 0xF,
 		.channel	= 0,
 		.pdev		= &camera_devices[0],
 	},
@@ -1276,7 +1204,7 @@ static struct platform_device csi20_device = {
 static struct sh_csi2_client_config csi21_clients[] = {
 	{
 		.phy		= SH_CSI2_PHY_SUB,
-		.lanes		= 3,
+		.lanes		= 1,
 		.channel	= 0,
 		.pdev		= &camera_devices[1],
 	},
@@ -2474,7 +2402,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
                 __raw_writel(
                                                 (       (3 << 8) |              /*    WrBurstLen, 0 = 1, 1 = 2, ..., 15 = 16     */
                                                         (0 << 7) |              /*    0 = Single buffer, 1 = ScatterGather       */
-                                                        (0 << 6) |              /*    Reserved      ´                            */
+                                                        (0 << 6) |              /*    Reserved                                   */
                                                         (0 << 5) |              /*    CacheCtrlBit3 No write alloc / write alloc */
                                                         (0 << 4) |              /*    CacheCtrlBit2 No read alloc / read alloc   */
                                                         (1 << 3) |              /*    CacheCtrlBit1 Non-cacheable  / Cacheable   */
