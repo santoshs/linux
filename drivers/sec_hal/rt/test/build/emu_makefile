@@ -1,0 +1,86 @@
+# /* ************************************************************************* **
+# **                               Renesas                                     **
+# ** ************************************************************************* */
+#
+# /* *************************** COPYRIGHT INFORMATION *********************** **
+# ** This program contains proprietary information that is a trade secret of   **
+# ** Renesas and also is protected as an unpublished work under                **
+# ** applicable Copyright laws. Recipient is to retain this program in         **
+# ** confidence and is not permitted to use or make copies thereof other than  **
+# ** as permitted in a written agreement with Renesas.                         **
+# **                                                                           **
+# ** Copyright (C) 2011 Renesas Electronics Corp.                              **
+# ** All rights reserved.                                                      **
+# ** ************************************************************************* */
+
+# DESCRIPTION: Emulation build/test makefile.
+#              Preferred use from cmd line: make -f emu_makefile test
+
+
+# Emulation sources. hw dispatcher impl. in sec_bridge_tz.S
+#
+SRCS_LIST = $(wildcard ../../src/*.c)
+SRCS_EXCLUDE = ../../src/sec_dispatch.c
+SRCS = $(filter-out $(SRCS_EXCLUDE),$(SRCS_LIST))
+OBJS = $(addprefix ../../obj/,$(notdir $(SRCS:.c=.o)))
+INCS = $(wildcard ../../inc/*.h)
+
+
+# Common definions for all test targets.
+#
+CC = gcc
+CFLAGS += -Wall -DPUBLIC_ENVIRONMENT -DSEC_HAL_TEST_ISOLATION
+# For debugging
+CFLAGS += -DDEBUG -DSEC_HAL_TRACE_TO_STDOUT -g -O0
+
+
+# Sanity check. Main test target, includes almost all subsystems.
+# Also implements its own 'test' dispatcher.
+#
+TEST_SANITY_SRCS = ../src/sec_hal_test_alloc.c ../src/sec_hal_test_sanity.c ../src/sec_hal_test_dispatcher.c
+TEST_SANITY_OBJS = $(addprefix ../obj/,$(notdir $(TEST_SANITY_SRCS:.c=.o)))
+TEST_SANITY_INCS = $(wildcard ../inc/*.h)
+
+
+# Rest of the GENERIC MAKEFILE stuff.
+#
+../../obj/%.o: ../../src/%.c $(INCS)
+	$(CC) $(CFLAGS) -c  $< -o $@ -I../../src -I../../inc -I../inc
+
+../obj/%.o: ../src/%.c $(INCS)
+	$(CC) $(CFLAGS) -c $< -o $@ -I../../src -I../../inc -I../inc
+
+.PHONY: default
+default: all
+
+.PHONY: createdirs
+createdirs:
+	mkdir -p ../../obj
+	mkdir -p ../../lib
+	mkdir -p ../obj
+	mkdir -p ../bin
+
+.PHONY: sec_hal
+sec_hal: createdirs $(OBJS)
+	$(AR) cru ../../lib/libsec_hal.a $(OBJS)
+
+.PHONY: sec_hal_test_sanity
+sec_hal_test_sanity: sec_hal $(TEST_SANITY_OBJS)
+	$(CC) -o ../bin/sec_hal_test_sanity $(TEST_SANITY_OBJS) -L../../lib -lsec_hal
+
+.PHONY: all
+all: sec_hal_test_sanity
+
+.PHONY: clean
+clean:
+	$(RM) -r ../../obj ../../lib ../obj ../bin
+	$(RM) core.*
+
+.PHONY: test_sanity
+test_sanity: sec_hal_test_sanity
+	../bin/sec_hal_test_sanity
+	@echo "======> SANITY OK <======"
+
+.PHONY: test
+test: test_sanity
+	@echo "======> ALL OK <======"
