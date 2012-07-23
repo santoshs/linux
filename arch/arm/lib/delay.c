@@ -65,7 +65,7 @@ static void __timer_udelay(unsigned long usecs)
 void __init register_current_timer_delay(struct delay_timer *timer)
 {
 	if (!delay_calibrated) {
-		pr_info("Switching to timer-based delay loop\n");
+		pr_info("Switching to timer-based delay loop (freq=%lu)\n", timer->freq);
 		delay_timer			= timer;
 		lpj_fine			= (timer->freq + HZ/2) / HZ;
 		loops_per_jiffy			= lpj_fine;
