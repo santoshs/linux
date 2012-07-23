@@ -295,7 +295,6 @@ struct tps80032_irq_data {
 #define	SYS_CPU_SIDE		 			(0x40)
 #define	BB_CPU_SIDE		 				(0x93)
 
-
 /*
  * Define the contain non-volatile value
  */
@@ -370,7 +369,7 @@ struct tps80032_irq_data {
 #define CONST_VICHRG					0x03	/* 400mA with POP = 1*/
 #define CONST_VICHRG_PC					0x03	/* 400mA */
 #define CONST_VSEL_COMP					0x1F
-#define CONST_HPB_WAIT					200
+#define CONST_HPB_WAIT					25
 
 /* Define interrupt bit for interrupt register */
 #define MSK_CONTROLLER_STAT_MVAC_DET		0
