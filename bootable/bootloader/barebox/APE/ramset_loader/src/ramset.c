@@ -124,7 +124,9 @@ uint32_t ramset_main(cb_register_func  ramset_cb_register_func, cb_pbrom_uart_pr
         set_ramset_callback(ramset_cb_register_func);
     }
     /* The register initialization is written here. */
+    #ifdef __INTEGRITY_CHECK_ENABLE__
     SBSC_Init();
+    #endif /* __INTEGRITY_CHECK_ENABLE__ */
     SYSC_Soft_Power_On_Reset();
 
     return 0;
