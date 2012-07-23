@@ -93,4 +93,12 @@ extern void r8a7373_add_standard_devices(void);
 extern void r8a7373_clock_init(void);
 extern void r8a7373_pinmux_init(void);
 
+extern unsigned int r8a7373_get_core_count(void);
+extern int r8a7373_platform_cpu_kill(unsigned int cpu);
+extern int r8a7373_platform_cpu_die(unsigned int cpu);
+extern void r8a7373_secondary_init(unsigned int cpu);
+extern int r8a7373_boot_secondary(unsigned int cpu);
+extern void r8a7373_smp_prepare_cpus(void);
+extern void r8a7373_register_twd(void);
+
 #endif /* __ARCH_MACH_COMMON_H */

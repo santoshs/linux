@@ -895,6 +895,9 @@ void __init r8a7373_add_standard_devices(void)
 			ARRAY_SIZE(r8a7373_late_devices));
 }
 
+/* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
+void __init __weak r8a7373_register_twd(void) { }
+
 /* CMT10 clocksource */
 #define CMCLKE	0xe6131000
 #define CMSTR0	0xe6130000
