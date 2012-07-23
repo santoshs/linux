@@ -36,6 +36,12 @@
 #define POFFFLAG	0x80
 #define STBCHRB2		IO_ADDRESS(0xE6180042)
 
+/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
+/* SDRAM address for NVM */
+#define NVM_BOOTFLAG_ADDRESS		0x47FBFF80
+#define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
+#define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
+/* END: CR1040: Clean up source code which accesses the eMMC directly */
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
@@ -94,6 +100,24 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 {
 	u8 reg = 0;
 	POWEROFF_PRINTK("%s\n", __func__);
+	/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
+    char* bootflag_address = NULL;
+	unsigned char flag = 0xA5;
+
+	if(cmd == NULL) {
+	 /* copy cmd = NULL to SDRAM */
+		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+		strncpy((void *)bootflag_address, "", 0x01);
+		strncpy((void *)bootflag_address, "" , BOOTFLAG_SIZE);	    
+	}
+	else {
+	   	/* copy cmd to SDRAM */
+		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+		strncpy((void *)bootflag_address, &flag, 0x01);
+		strncpy((void *)bootflag_address + 0x01, cmd , BOOTFLAG_SIZE - 0x01);
+	}
+	/* END: CR1040: Clean up source code which accesses the eMMC directly */
+	
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
