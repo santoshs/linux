@@ -1,6 +1,7 @@
 /*
  *  Sysfs interface for the universal power supply monitor class
  *
+ *  Copyright © 2012  Renesas Mobile Corporation
  *  Copyright © 2007  David Woodhouse <dwmw2@infradead.org>
  *  Copyright © 2007  Anton Vorontsov <cbou@mail.ru>
  *  Copyright © 2004  Szabolcs Gyurko
@@ -161,6 +162,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity_level),
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_ambient),
+	POWER_SUPPLY_ATTR(temp_hpa),
 	POWER_SUPPLY_ATTR(time_to_empty_now),
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
 	POWER_SUPPLY_ATTR(time_to_full_now),

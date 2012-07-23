@@ -70,6 +70,7 @@ struct tps80032_data {
 	int charger;
 	int bat_volt;
 	int bat_temp;
+	int hpa_temp;
 	int bat_over_volt;
 	int bat_over_temp;
 	int bat_capacity;
@@ -2876,6 +2877,159 @@ exit:
 }
 
 /*
+ * tps80032_read_hpa_temp: read the HPA temperature
+ * @client: The I2C client device.
+ * return:
+ *        > 0: Battery temperature
+ *        = 0: Error occurs
+ */
+int tps80032_read_hpa_temp(struct i2c_client *client)
+{
+	int result = 0;
+	int ret;
+	int count_timer = 0;
+	int ret_MSB, ret_LSB;
+	int val;
+	u32 lock_id;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	/*HPB lock*/
+	ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
+	if (ret < 0) {
+		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
+		
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		
+		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
+		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
+		
+		if(lock_id != SYS_CPU_SIDE)
+		{
+			/*HPB force unlock*/
+			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+			
+			ret = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
+			if (ret < 0) {
+				PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+				return -EBUSY;
+			}
+		} else {
+			PMIC_ERROR_MSG("%s:lock is already taken. Terminate processing\n", __func__);
+			return -EBUSY;
+		}
+	}
+
+	/*Enable GPADC_SW_EOC interrupt*/
+	ret = i2c_smbus_read_byte_data(client, HW_REG_INT_MSK_STS_B);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+	val = (ret & 0x9F);
+	ret = i2c_smbus_write_byte_data(client, HW_REG_INT_MSK_STS_B, val);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+	
+	/*Set 5V scaler and other internal ADC reference */
+	ret = i2c_smbus_write_byte_data(client, HW_REG_GPADC_CTRL, 0x6B);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+	
+	/*Enable GPADC */
+	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, MSK_GPADC);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+
+
+
+	/*Select TEMP measurement channel */
+	ret = i2c_smbus_write_byte_data(client, HW_REG_GPSELECT_ISB, 0x04);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+	
+	msleep(20);
+
+	/*Start GPADC */
+	ret = i2c_smbus_write_byte_data(client, HW_REG_CTRL_P1, 0x08);
+	if (0 > ret) {
+		result = ret;
+		goto exit;
+	}
+
+	/*Wait for ADC interrupt */
+	while (count_timer <= CONST_WAIT_TIME) {
+		schedule();
+
+		/* Check ADC interrupt bit */
+		ret = i2c_smbus_read_byte_data(client, HW_REG_INT_STS_B);
+		if (0 > ret) {
+			result = ret;
+			goto disable;
+		} else if (0 != (ret & MSK_BIT_5)) {
+			/* Conversion finished */
+			/* Clear interrupt source B */
+			ret = i2c_smbus_write_byte_data(client, HW_REG_INT_STS_B, MSK_DISABLE);
+			if (0 > ret) {
+				result = ret;
+				goto disable;
+			}
+			break;
+		} else {
+			count_timer++;
+			/* Do nothing */
+		}
+	}
+
+	if (CONST_WAIT_TIME < count_timer) {
+		/* Time out */
+		PMIC_DEBUG_MSG("%s: measurement conversion failed\n",__func__);
+		result =  -1;
+		goto disable;
+	}
+
+	/*Read the VBAT conversion result */
+	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_MSB);
+	if (0 > ret) {
+		result = ret;
+		goto disable;
+	} else {
+		ret_MSB = ret;
+	}
+
+	ret = i2c_smbus_read_byte_data(client, HW_REG_GPCH0_LSB);
+	if (0 > ret) {
+		result = ret;
+		goto disable;
+	} else {
+		ret_LSB = ret;
+	}
+
+	/*Correct the result */
+	result = ((ret_MSB & 0x0F)<<8) | ret_LSB;
+	
+disable:
+	/*Disable GPADC */
+	i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, 0x01);
+
+exit:
+	/*HPB unlock*/
+	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+	
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return result;
+}
+
+/*
  * tps80032_read_bat_temp: read the battery temperature
  * @client: The I2C client device.
  * return:
@@ -2939,9 +3093,6 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
-
-
-
 	
 
 	/*Enable GPADC */
@@ -3098,9 +3249,6 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
-
-
-
 	
 
 	/*Enable GPADC */
@@ -3355,6 +3503,18 @@ void tps80032_bat_update(struct tps80032_data *data)
 		notify = 1;
 	}
 
+	/* Read the HPA temperature */
+	ret = tps80032_read_hpa_temp(data->client_battery);
+
+	/* Correct the HPA temp */
+	if (0 < ret) {
+		ret = tps80032_gpadc_correct_temp(data, ret);
+	}
+
+	if (0 < ret) {
+		data->hpa_temp = ret;
+	}
+	
 	/* Notify if there have any change */
 	if (0 != notify) {
 		pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
@@ -3858,6 +4018,26 @@ static int tps80032_get_bat_temperature(struct device *dev)
 }
 
 /*
+ * tps80032_get_hpa_temperature: get the HPA temperature
+ * @dev: The struct which handles the TPS80032 driver.
+ * return:
+ *        > 0: the HPA temperature
+ */
+static int tps80032_get_hpa_temperature(struct device *dev)
+{
+	int ret;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps80032_data *data = i2c_get_clientdata(client);
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	ret = data->hpa_temp;
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return ret;
+}
+
+/*
  * tps80032_get_bat_capacity: get the remaining capacity in percent unit
  * @dev: The struct which handles the TPS80032 driver.
  * return:
@@ -3930,9 +4110,6 @@ static int tps80032_get_bat_capacity_level(struct device *dev)
 	return ret;
 
 }
-
-
-
 
 
 /*
@@ -4543,6 +4720,7 @@ static struct pmic_battery_ops tps80032_power_battery_ops = {
 	.get_bat_capacity = tps80032_get_bat_capacity,
 	.get_bat_capacity_level = tps80032_get_bat_capacity_level,
 	.get_bat_temperature = tps80032_get_bat_temperature,
+	.get_hpa_temperature = tps80032_get_hpa_temperature,
 	.get_bat_voltage = tps80032_get_bat_voltage,
 	.get_bat_time_to_empty = NULL,
 	.get_bat_time_to_full = NULL,
@@ -5158,6 +5336,7 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 	data->charger = 0;
 	data->bat_volt = 0;
 	data->bat_temp = 0;
+	data->hpa_temp = 0;
 	data->bat_over_volt = 0;
 	data->bat_over_temp = 0;
 	data->bat_capacity = 0;
@@ -5335,11 +5514,6 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
-
-
-
-
-
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 

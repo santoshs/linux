@@ -188,6 +188,7 @@ enum {
 	E_BATTERY_CAPACITY_LEVEL,
 	E_BATTERY_TECHNOLOGY,
 	E_BATTERY_TEMPERATURE,
+	E_BATTERY_HPA_TEMPERATURE,
 	E_BATTERY_VOLTAGE_NOW,
 	E_BATTERY_STOP,
 	E_BATTERY_TERMINATE,
@@ -301,6 +302,7 @@ struct pmic_battery_ops {
 	int (*get_bat_capacity)(struct device *dev);
 	int (*get_bat_capacity_level)(struct device *dev);
 	int (*get_bat_temperature)(struct device *dev);
+	int (*get_hpa_temperature)(struct device *dev);
 	int (*get_bat_voltage)(struct device *dev);
 	int (*get_bat_time_to_empty)(struct device *dev);
 	int (*get_bat_time_to_full)(struct device *dev);

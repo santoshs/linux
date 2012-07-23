@@ -174,12 +174,21 @@ static int pmic_battery_get_property(struct power_supply *psy,
 		else
 			val->intval = 0;
 		break;
+	case POWER_SUPPLY_PROP_TEMP_HPA:
+		if(battery_dev->ops->get_hpa_temperature)
+			val->intval = pmic_correct_temperature(battery_dev->ops->get_hpa_temperature(battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE]));
+		else
+			val->intval = 0;
+		break;
+
+
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if(battery_dev->ops->get_bat_voltage)
 			val->intval = pmic_correct_voltage(battery_dev->ops->get_bat_voltage(battery_dev->pdev[E_BATTERY_VOLTAGE_NOW]));
 		else
 			val->intval = 0;
 		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -240,6 +249,7 @@ static enum power_supply_property pmic_battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_TEMP_HPA,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
 
@@ -303,6 +313,9 @@ int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *op
 		}
 		if(ops->get_bat_temperature){
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
+		}
+		if(ops->get_hpa_temperature){
+			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
 		}
 		if(ops->get_bat_voltage){
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
@@ -371,6 +384,10 @@ int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *op
 		if(ops->get_bat_temperature){
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
 			battery_dev->ops->get_bat_temperature = ops->get_bat_temperature;
+		}
+		if(ops->get_hpa_temperature){
+			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
+			battery_dev->ops->get_hpa_temperature = ops->get_hpa_temperature;
 		}
 		if(ops->get_bat_voltage){
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
