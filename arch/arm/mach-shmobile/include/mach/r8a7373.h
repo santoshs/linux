@@ -2,6 +2,7 @@
 #define __ASM_R8A7373_H__
 
 #include <linux/platform_device.h>
+#include <linux/pm_clock.h>
 
 /* Pin Function Controller:
  * GPIO_FN_xx - GPIO used to select pin function and MSEL switch

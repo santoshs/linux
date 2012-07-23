@@ -1995,7 +1995,7 @@ static struct pinmux_irq pinmux_irqs[] = {
 static struct resource r8a7373_pfc_resources[] = {
 	[0] = {
 		.start	= 0xe6050000,
-		.end	= 0xe6077203,
+		.end	= 0xe6076214 - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
