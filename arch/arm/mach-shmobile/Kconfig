@@ -41,6 +41,14 @@ config ARCH_R8A7779
 	select ARM_GIC
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 
+config ARCH_R8A7373
+	bool "R-Mobile U2 (R8A7373)"
+	select CPU_V7
+	select SH_CLK_CPG
+	select ARM_GIC
+	select ARCH_WANT_OPTIONAL_GPIOLIB
+	select CLKSRC_MMIO
+
 comment "SH-Mobile Board Type"
 
 config MACH_G3EVM
@@ -100,6 +108,12 @@ config MACH_MARZEN
 	depends on ARCH_R8A7779
 	select ARCH_REQUIRE_GPIOLIB
 
+config MACH_U2EVM
+	bool "U2EVM board"
+	depends on ARCH_R8A7373
+	select ARCH_REQUIRE_GPIOLIB
+	select SH_LCD_MIPI_DSI
+
 comment "SH-Mobile System Configuration"
 
 config CPU_HAS_INTEVT
@@ -114,6 +128,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
+	default "0x50000000" if MACH_U2EVM
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -127,6 +142,7 @@ config MEMORY_SIZE
 	default "0x20000000" if MACH_AG5EVM || MACH_BONITO
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
+	default "0x30000000" if MACH_U2EVM
 	default "0x04000000"
 	help
 	  This sets the default memory size assumed by your kernel. It can

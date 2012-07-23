@@ -85,4 +85,12 @@ extern int r8a7779_boot_secondary(unsigned int cpu);
 extern void r8a7779_smp_prepare_cpus(void);
 extern void r8a7779_register_twd(void);
 
+/* r8a7373 */
+extern void r8a7373_init_irq(void);
+extern void r8a7373_map_io(void);
+extern void r8a7373_add_early_devices(void);
+extern void r8a7373_add_standard_devices(void);
+extern void r8a7373_clock_init(void);
+extern void r8a7373_pinmux_init(void);
+
 #endif /* __ARCH_MACH_COMMON_H */
