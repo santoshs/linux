@@ -1,0 +1,75 @@
+/*	boot_init.c
+ *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
+ */
+
+#include "common.h"
+#include "cpg.h"
+#include "gpio.h"
+#include "sbsc.h"
+#include "boot_init.h"
+
+
+/**
+ * Boot_Init - HW initial setting for Boot
+ * @return None
+ */
+void Boot_Init(void)
+{
+	/* Stop supplying clock to all modules from RT-CPU */
+	*CPG_RMSTPCR0 = CPG_RMSTPCR0_DATA;	
+	*CPG_RMSTPCR1 = CPG_RMSTPCR1_DATA;	
+	*CPG_RMSTPCR2 = CPG_RMSTPCR2_DATA;
+	*CPG_RMSTPCR3 = CPG_MSTPCR_DFT_DATA;
+	*CPG_RMSTPCR4 = CPG_RMSTPCR4_DATA;
+	*CPG_RMSTPCR5 = CPG_RMSTPCR5_DATA;
+	if (CHIP_VERSION() >= CHIP_RMU2_ES20){
+		*CPG_RMSTPCR6 = CPG_MSTPCR_DFT_DATA;
+	}
+	
+	
+	*CPG_SMSTPCR0 = CPG_SMSTPCR0_DATA;	
+	*CPG_SMSTPCR1 = CPG_SMSTPCR1_DATA; 
+	*CPG_SMSTPCR2 = CPG_SMSTPCR2_DATA;
+	*CPG_SMSTPCR3 = CPG_MSTPCR_DFT_DATA;
+	*CPG_SMSTPCR4 = CPG_SMSTPCR4_DATA;
+	*CPG_SMSTPCR5 = CPG_SMSTPCR5_DATA;	
+	if (CHIP_VERSION() >= CHIP_RMU2_ES20){
+		*CPG_SMSTPCR6 = CPG_MSTPCR_DFT_DATA;
+	}
+
+	*CPG_MMSTPCR0 = CPG_MMSTPCR0_DATA;
+	*CPG_MMSTPCR1 = CPG_MSTPCR_DFT_DATA;
+	*CPG_MMSTPCR2 = CPG_MMSTPCR2_DATA;
+	*CPG_MMSTPCR3 = CPG_MSTPCR_DFT_DATA;
+	*CPG_MMSTPCR4 = CPG_MMSTPCR4_DATA;
+	*CPG_MMSTPCR5 = CPG_MMSTPCR5_DATA;
+	if (CHIP_VERSION() >= CHIP_RMU2_ES20){
+		*CPG_MMSTPCR6 = CPG_MSTPCR_DFT_DATA;
+	}
+
+	*HPB_SMGPIOTIME = HPB_SMGPIOTIME_DATA;
+	*HPB_SMCPGATIME = HPB_SMCPGATIME_DATA;
+	*HPB_SMSYSCTIME = HPB_SMSYSCTIME_DATA;
+
+	/* Supply clock to IIC0 */
+	*CPG_SMSTPCR1 &= ~CPG_SMSTPCR1_IIC0;	/* MSTP116 */
+	
+	/* Supply clock to SCIFA0 */
+	*CPG_SMSTPCR2 &= ~CPG_SMSTPCR2_SCIFA0;	/* MSTP204 */
+	
+	/* Supply clock to SDHI0 */
+	*CPG_SMSTPCR3 &= ~CPG_SMSTPCR3_SDHI0;	/* MSTP314 */
+		
+	/* Supply clock to MMC0 */
+	*CPG_SMSTPCR3 &= ~CPG_SMSTPCR3_MMCIF;	/* MSTP315 */
+	
+	/* Supply clock to CMT1 */
+	*CPG_SMSTPCR3 &= ~CPG_SMSTPCR3_CMT1;	/* MSTP329 */
+	
+	/* SD card */	
+	/* IO power supply control of terminal SDHI when SD is transmitted */
+	*GPIO_MSEL3CR |= GPIO_MSEL3CR_BOOT;
+}

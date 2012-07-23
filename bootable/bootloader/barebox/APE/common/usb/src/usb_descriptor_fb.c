@@ -1,0 +1,337 @@
+/* usb_descriptor.c 
+ *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
+ */
+
+
+#define ID_VENDER 					0x18d1    // USB Descriptor(DEVICE Descriptor) idVender
+#define ID_PRODUCT					0x0001    // USB Descriptor(DEVICE Descriptor) idProduct
+#define MANUFACT_STR_LENGTH			0x10    // USB Descriptor(Manufacturer String) bLength
+#define MANUFACT_STR_DESC_TYPE		0x03    // USB Descriptor(Manufacturer String) bDescriptorType
+#define PRODUCT_STR_LENGTH			0x42    // USB Descriptor(Product String) bLength
+#define PRODUCT_STR_DESC_TYPE		0x03    // USB Descriptor(Product String) bDescriptorType
+
+#define SERIAL_STR_LENGTH			0x10    // USB Descriptor(Product String) bLength
+#define SERIAL_STR_DESC_TYPE		0x03    // USB Descriptor(Product String) bDescriptorType
+
+
+
+// USB Descriptor(Manufacturer String) Manufacturer
+#define MANUFACT_STR            'R' ,0x00,'e' ,0x00, 'n' ,0x00,'e' ,0x00, \
+                                's' ,0x00,'a' ,0x00, 's' ,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00
+
+// USB Descriptor(Product String) Product
+#define PRODUCT_STR             'E' ,0x00,'O' ,0x00, 'S' ,0x00,'_' ,0x00, \
+                                'F' ,0x00,'a' ,0x00, 's' ,0x00,'t' ,0x00, \
+                                'b' ,0x00,'o' ,0x00, 'o' ,0x00,'t' ,0x00, \
+                                ' ' ,0x00,'P' ,0x00, 'r' ,0x00,'o' ,0x00, \
+                                't' ,0x00,'o' ,0x00, 'c' ,0x00,'o' ,0x00, \
+                                'l' ,0x00,' ' ,0x00, 'D' ,0x00,'o' ,0x00, \
+                                'w' ,0x00,'n' ,0x00, 'l' ,0x00,'o' ,0x00, \
+                                'a' ,0x00,'d' ,0x00, 'e' ,0x00,'r' ,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00
+                               
+// USB Descriptor(Manufacturer String) Manufacturer
+#define SERIAL_STR              'R' ,0x00,'M' ,0x00, 'C' ,0x00,' ' ,0x00, \
+                                'E' ,0x00,'O' ,0x00, 'S' ,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00, 0x00,0x00,0x00,0x00, \
+                                0x00,0x00,0x00,0x00
+
+const unsigned char gDeviceDescriptor[] = {
+        /* device descriptor */
+        0x12,                                /* bLength                */
+        0x01,                                /* bDescriptorType        */
+        0x00,                                /* bcdUSB(L)              */
+        0x02,                                /* bcdUSB(H)              */
+		0x02,                                /* bDeviceClass           */
+        0x00,                                /* bDeviceSubClass        */
+        0x00,                                /* bDeviceProtocol        */
+        0x40,                                /* bMaxPacketSize0        */
+        ID_VENDER & 0xFF,                    /* idVendor(L)            */
+        (ID_VENDER >> 8) & 0xFF,             /* idVendor(H)            */
+        ID_PRODUCT & 0xFF,                   /* idProduct(L)           */
+        (ID_PRODUCT >> 8) & 0xFF,            /* idProduct(H)           */
+        0x00,                                /* bcdDevice(L)           */
+        0x00,                                /* bcdDevice(H)           */
+        0x01,                                /* iManufacturer          */
+        0x02,                                /* iProduct               */
+        0x03,                                /* iSerialNumber          */
+        0x01,                                /* bNumConfigurations     */
+};
+
+const unsigned char gConfigDescriptor[] = {
+        /* config descriptor */
+        0x09,                                /* bLength                */
+        0x02,                                /* bDescriptorType        */
+        0x30,                                /* wTotalLength(L)        */
+        0x00,                                /* wTotalLength(H)        */
+        0x02,                                /* bNumInterfaces         */
+        0x01,                                /* bConfigurationValue    */
+        0x00,                                /* iConfiguration         */
+        0xC0,                                /* bmAttributes           */
+        0x01,                                /* bMaxPower              */
+
+        /* interface descriptor(1:Data Class Interface) */
+        0x09,                                /* bLength                */
+        0x04,                                /* bDescriptorType        */
+        0x00,                                /* bInterfaceNumber       */
+        0x00,                                /* bAlternateSetting      */
+        0x02,                                /* bNumEndpoints          */
+        0xff,            					 /* bInterfaceClass        */
+        0x42,        						 /* bInterfaceSubClass     */
+        0x03,        						 /* bInterfaceProtocol     */
+        0x02,                                /* iInterface             */
+       
+        /* endpoint descriptor(Bulk-IN) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x81,                                /* bEndpointAddress       */
+        0x02,                                /* bmAttributes           */
+        0x0040 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0040 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x02,                                /* bInterval              */
+
+        /* endpoint descriptor(Bulk-OUT) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x02,                                /* bEndpointAddress       */
+        0x02,                                /* bmAttributes           */
+        0x0200 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0200 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x02,                                /* bInterval              */
+       
+        /* interface descriptor(0:Communication Class Interface) */
+        0x09,                                /* bLength                */
+        0x04,                                /* bDescriptorType        */
+        0x01,                                /* bInterfaceNumber       */
+        0x00,                                /* bAlternateSetting      */
+        0x01,                                /* bNumEndpoints          */
+        0x02,                                /* bInterfaceClass        */
+        0x02,                                /* bInterfaceSubClass     */
+        0x01,                                /* bInterfaceProtocol     */
+        0x01,                                /* iInterface             */
+       
+        /* endpoint desctiptor(Interrupt-IN) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x83,                                /* bEndpointAddress       */
+        0x03,                                /* bmAttributes           */
+        0x0010 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0010 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x08,                                /* bInterval              */
+};
+
+const unsigned char gLangID[] = {
+        /* language id */
+        0x04,                                /* bLength                */
+        0x03,                                /* bDescriptorType        */
+        0x09,                                /* US English             */
+        0x04,                                /* US English             */
+};
+
+const unsigned char gManufacturerString[] = {
+        /* manufacturer string */
+        MANUFACT_STR_LENGTH,                /* bLength                */
+        MANUFACT_STR_DESC_TYPE,                /* bDescriptorType        */
+        MANUFACT_STR,                        /* Manufacturer           */
+};
+
+const unsigned char gProductString[] = {
+        /* product string */
+        PRODUCT_STR_LENGTH,                    /* bLength                */
+        PRODUCT_STR_DESC_TYPE,                 /* bDescriptorType        */
+        PRODUCT_STR,                           /* Product                */
+};
+
+const unsigned char gSerialString[] = {
+        /* manufacturer string */
+        SERIAL_STR_LENGTH,                     /* bLength                */
+        SERIAL_STR_DESC_TYPE,                  /* bDescriptorType        */
+        SERIAL_STR,                            /* Manufacturer           */
+};
+
+const unsigned char gDeviceQualifier[] = {
+        /* device qualifier */
+        0x0A,                                /* bLength                */
+        0x06,                                /* bDescriptorType        */
+        0x00,                                /* bcdUSB(L)              */
+        0x02,                                /* bcdUSB(H)              */
+        0xff,                                /* bDeviceClass           */
+        0xff,                                /* bDeviceSubClass        */
+        0xff,                                /* bDeviceProtocol        */
+        0x40,                                /* bMaxPacketSize0        */
+        0x01,                                /* bNumConfigurations     */
+        0x00,                                /* bReserved              */
+};
+
+const unsigned char gOtherSpeedCfgQualifier[] = {
+        /* other speed config qualifier */
+        0x09,                                /* bLength                */
+        0x02,                                /* bDescriptorType        */
+        0x43,                                /* wTotalLength(L)        */
+        0x00,                                /* wTotalLength(H)        */
+        0x02,                                /* bNumInterfaces         */
+        0x01,                                /* bConfigurationValue    */
+        0x00,                                /* iConfiguration         */
+        0xC0,                                /* bmAttributes           */
+        0x01,                                /* bMaxPower              */
+
+        /* interface descriptor(0:Communication Class Interface) */
+        0x09,                                /* bLength                */
+        0x04,                                /* bDescriptorType        */
+        0x00,                                /* bInterfaceNumber       */
+        0x00,                                /* bAlternateSetting      */
+        0x01,                                /* bNumEndpoints          */
+        0x02,                                /* bInterfaceClass        */
+        0x02,                                /* bInterfaceSubClass     */
+        0x01,                                /* bInterfaceProtocol     */
+        0x01,                                /* iInterface             */
+
+        /* Header Functional Descriptor */
+        0x05,                                /* bFunctionLength        */
+        0x24,                                /* bDescriptorType        */
+        0x00,                                /* bDescriptorSubtype     */
+        0x0110 & 0xFF,                        /* bcdCDC(Low byte)       */
+        (0x0110 >> 8) & 0xFF,                /* bcdCDC(Hi byte)        */
+
+        /* Abstract Control Management Functional Descriptor */
+        0x04,                                /* bFunctionLength        */
+        0x24,                                /* bDescriptorType        */
+        0x02,                                /* bDescriptorSubtype     */
+        0x00,                                /* bmCapabilities         */
+
+        /* Union Functional Descriptor */
+        0x05,                                /* bFunctionLength        */
+        0x24,                                /* bDescriptorType        */
+        0x06,                                /* bDescriptorSubtype     */
+        0x00,                                /* bMasterInterface       */
+        0x01,                                /* bSlaveInterface0       */
+
+        /* Call Management Functional Descriptor */
+        0x05,                                /* bFunctionLength        */
+        0x24,                                /* bDescriptorType        */
+        0x01,                                /* bDescriptorSubtype     */
+        0x03,                                /* bmCapabilities         */
+        0x01,                                /* bDataInterface         */
+
+        /* endpoint desctiptor(Interrupt-IN) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x83,                                /* bEndpointAddress       */
+        0x03,                                /* bmAttributes           */
+        0x0010 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0010 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x10,                                /* bInterval              */
+
+        /* interface descriptor(1:Data Class Interface) */
+        0x09,                                /* bLength                */
+        0x04,                                /* bDescriptorType        */
+        0x01,                                /* bInterfaceNumber       */
+        0x00,                                /* bAlternateSetting      */
+        0x02,                                /* bNumEndpoints          */
+        0x0A,                                /* bInterfaceClass        */
+        0x00,                                /* bInterfaceSubClass     */
+        0x00,                                /* bInterfaceProtocol     */
+        0x02,                                /* iInterface             */
+
+        /* endpoint descriptor(Bulk-IN) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x81,                                /* bEndpointAddress       */
+        0x02,                                /* bmAttributes           */
+        0x0040 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0040 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x02,                                /* bInterval              */
+
+        /* endpoint descriptor(Bulk-OUT) */
+        0x07,                                /* bLength                */
+        0x05,                                /* bDescriptorType        */
+        0x02,                                /* bEndpointAddress       */
+        0x02,                                /* bmAttributes           */
+        0x0040 & 0xFF,                        /* wMaxPacketSize(L)      */
+        (0x0040 >> 8) & 0xFF,                /* wMaxPacketSize(H)      */
+        0x02,                                /* bInterval              */
+};
