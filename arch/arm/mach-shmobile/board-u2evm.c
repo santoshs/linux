@@ -64,16 +64,16 @@
 #include <linux/nfc/pn544.h> 
 #endif
 
-#define CLASHLOG_R_LOCAL_VER_LOCATE		0x4C801000
+#define CLASHLOG_R_LOCAL_VER_LOCATE		0x44801000
 #define CLASHLOG_R_LOCAL_VER_LENGTH       	32
 
-#define CRASHLOG_KMSG_LOCATE			0x4C801020
-#define CRASHLOG_LOGCAT_MAIN_LOCATE		0x4C801030
-#define CRASHLOG_LOGCAT_EVENT_LOCATE	0x4C801040
-#define CRASHLOG_LOGCAT_RADIO_LOCATE	0x4C801050
-#define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x4C801060
+#define CRASHLOG_KMSG_LOCATE			0x44801020
+#define CRASHLOG_LOGCAT_MAIN_LOCATE		0x44801030
+#define CRASHLOG_LOGCAT_EVENT_LOCATE	0x44801040
+#define CRASHLOG_LOGCAT_RADIO_LOCATE	0x44801050
+#define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x44801060
 
-#define TMPLOG_ADDRESS 0x4C821200
+#define TMPLOG_ADDRESS 0x44821200
 #define TMPLOG_SIZE    0x00040000
 #define RMC_LOCAL_VERSION "150612"		// ddmmyy (release time)
 char *tmplog_nocache_address = NULL;
@@ -2903,8 +2903,8 @@ static void crashlog_reset_log_write()
 	__raw_writel(log_system_head_address, adr + 12);
 	iounmap(adr);
 
-	reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* andriod init */
+	/*reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);*/	/* andriod init */
 
 /*Developer option to debug Reset Log*/
      /*	reg = __raw_readb(STBCHR3);*/
