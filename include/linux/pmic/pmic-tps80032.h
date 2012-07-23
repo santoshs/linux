@@ -291,6 +291,11 @@ struct tps80032_irq_data {
 #define	CLK32KG  						(1)
 #define	CLK32KAUDIO 					(2)
 
+#define	RT_CPU_SIDE		 				(0x01)
+#define	SYS_CPU_SIDE		 			(0x40)
+#define	BB_CPU_SIDE		 				(0x93)
+
+
 /*
  * Define the contain non-volatile value
  */

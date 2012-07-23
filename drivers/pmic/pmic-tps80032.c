@@ -53,12 +53,6 @@
 #define PMIC_ERROR_MSG(...) while(0)
 #endif
 
-
-struct hwspinlock_private {
-	void __iomem		*sm_base;
-	void __iomem		*ext_base;
-};
-
 static void __iomem *virt_addr   = NULL;
 static struct timer_list bat_timer;
 static void tps80032_battery_timer_handler(unsigned long data);
@@ -156,6 +150,125 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock, unsigned int ti
 	}
 
 	return ret;
+}
+/**
+ * tps80032_force_release_hwsem() - force to release hw semaphore
+ * @hwsem_id: Hardware semaphore ID
+		0x01: AP Realtime side
+ *		0x40: AP System side
+ *		0x93: Baseband side
+ * return: void
+ */
+void tps80032_force_release_hwsem(u8 hwsem_id)
+{
+	void * ptr;
+	u32 value = 0;
+	unsigned long expire = msecs_to_jiffies(5) + jiffies;
+	
+	/*Check input hwsem_id*/
+	switch(hwsem_id)
+	{
+		case RT_CPU_SIDE:
+		case SYS_CPU_SIDE:
+		case BB_CPU_SIDE:
+			break;
+			
+		default:
+			return;
+	}
+	
+	ptr = ioremap(0xe6001830, 4);
+	value = ioread32(ptr);
+	iounmap(ptr);
+	
+	PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using HW semaphore\n", __func__, value >> 24);
+	
+	if( (value >> 24) != hwsem_id ) {
+		return;
+	}
+	
+	/*enable master access*/
+	ptr = ioremap(0xE6001604, 4);
+	for (;;) {
+		
+		/* Try to enable master access */
+		iowrite32(0xC0000000, ptr);
+		value = ioread32(ptr);
+		if (value == 0xC0000000) {
+			iounmap(ptr);
+			break;
+		}
+
+		/*
+		 * Cannot enable master access, try again
+		 */
+		if (time_is_before_eq_jiffies(expire)) {
+			iounmap(ptr);
+			return;
+		}
+
+		/*
+		 * Wait 50 nanosecond for another round
+		 */
+		ndelay(50);
+	}
+	
+	/*Force clear HW sem*/
+	expire = msecs_to_jiffies(5) + jiffies;
+	
+	ptr = ioremap(0xe6001830, 4);
+	for (;;) {
+		
+		/* Try to force clear HW sem */
+		iowrite32(0, ptr);
+		value = ioread32(ptr);
+		if (value == 0x0) {
+			iounmap(ptr);
+			PMIC_ERROR_MSG(">>>>%s: Forcing to release HW sem from ID (0x%x) is successful\n", __func__, hwsem_id);
+			break;
+		}
+
+		/*
+		 * Cannot force clear HW sem, try again
+		 */
+		if (time_is_before_eq_jiffies(expire)) {
+			iounmap(ptr);
+			PMIC_ERROR_MSG(">>>>%s: Fail to release HW sem from ID (0x%x)\n", __func__, hwsem_id);
+			break;
+		}
+
+		/*
+		 * Wait 50 nanosecond for another round
+		 */
+		ndelay(50);
+	}
+	
+	/*Disable master access*/
+	expire = msecs_to_jiffies(5) + jiffies;
+	ptr = ioremap(0xE6001604, 4);
+	for (;;) {
+		
+		/* Try to disable master access */
+		iowrite32(0, ptr);
+		value = ioread32(ptr);
+		if (value == 0x0) {
+			iounmap(ptr);
+			break;
+		}
+
+		/*
+		 * Cannot disable master access, try again
+		 */
+		if (time_is_before_eq_jiffies(expire)) {
+			iounmap(ptr);
+			return;
+		}
+
+		/*
+		 * Wait 50 nanosecond for another round
+		 */
+		ndelay(50);
+	}
 }
 
 /*
@@ -340,10 +453,13 @@ static void tps80032_interrupt_work(struct work_struct *work)
 	if (ret < 0) {
 		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
 		
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
 		
-		if(lock_id != 0x40)
+		if(lock_id != SYS_CPU_SIDE)
 		{
 			/*HPB force unlock*/
 			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
@@ -2542,10 +2658,13 @@ int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 	if (result < 0) {
 		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
 		
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
 		
-		if(lock_id != 0x40)
+		if(lock_id != SYS_CPU_SIDE)
 		{
 			/*HPB force unlock*/
 			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
@@ -2647,11 +2766,13 @@ int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 	result = tps80032_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
 	if (result < 0) {
 		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
 		
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
 		
-		if(lock_id != 0x40)
+		if(lock_id != SYS_CPU_SIDE)
 		{
 			/*HPB force unlock*/
 			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
@@ -2777,10 +2898,13 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 	if (ret < 0) {
 		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
 		
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
 		
-		if(lock_id != 0x40)
+		if(lock_id != SYS_CPU_SIDE)
 		{
 			/*HPB force unlock*/
 			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
@@ -2815,6 +2939,10 @@ int tps80032_read_bat_temp(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
+
+
+
+	
 
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, MSK_GPADC);
@@ -2922,10 +3050,13 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 	if (ret < 0) {
 		PMIC_ERROR_MSG("%s:lock is already taken\n", __func__);
 		
+		/*Force clear HW sem*/
+		tps80032_force_release_hwsem(BB_CPU_SIDE);
+		
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		PMIC_ERROR_MSG(">>>>%s: ID (0x%x) is using SW semaphore\n", __func__, lock_id);
 		
-		if(lock_id != 0x40)
+		if(lock_id != SYS_CPU_SIDE)
 		{
 			/*HPB force unlock*/
 			hwspin_unlock_nospin(r8a73734_hwlock_pmic);
@@ -2967,6 +3098,10 @@ int tps80032_read_bat_volt(struct i2c_client *client)
 		result = ret;
 		goto exit;
 	}
+
+
+
+	
 
 	/*Enable GPADC */
 	ret = i2c_smbus_write_byte_data(client, HW_REG_TOGGLE1, MSK_GPADC);
@@ -3795,6 +3930,10 @@ static int tps80032_get_bat_capacity_level(struct device *dev)
 	return ret;
 
 }
+
+
+
+
 
 /*
  * tps80032_get_bat_voltage: get the battery voltage
@@ -5196,6 +5335,10 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
+
+
+
+
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
