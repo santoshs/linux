@@ -889,10 +889,37 @@ void __init r8a7373_add_standard_devices(void)
 	l2x0_init(IOMEM(0xf0100000), 0x4c440000, 0x820f0fff);
 #endif
 
+	r8a7373_pm_init();
+
+	r8a7373_init_pm_domain(&r8a7373_a3sg);
+	r8a7373_init_pm_domain(&r8a7373_a3sp);
+	r8a7373_init_pm_domain(&r8a7373_a3r);
+	r8a7373_init_pm_domain(&r8a7373_a4rm);
+	r8a7373_init_pm_domain(&r8a7373_a4mp);
+
+	r8a7373_pm_add_subdomain(&r8a7373_a4rm, &r8a7373_a3r);
+
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 	platform_add_devices(r8a7373_late_devices,
 			ARRAY_SIZE(r8a7373_late_devices));
+
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c0_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c1_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c2_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c3_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c4_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c5_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c6_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c7_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &dma0_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif1_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif2_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif3_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif4_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif5_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif6_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sg, &sgx_device);
 }
 
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */

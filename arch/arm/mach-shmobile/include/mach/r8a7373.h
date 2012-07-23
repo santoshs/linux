@@ -2,6 +2,7 @@
 #define __ASM_R8A7373_H__
 
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_clock.h>
 
 /* Pin Function Controller:
@@ -371,6 +372,37 @@ enum {
 /* IRQC interrupts are located at Linux IRQ 512-575 */
 #define R8A7373_IRQC_BASE	512
 #define R8A7373_IRQC_IRQ(irq)	((irq) + R8A7373_IRQC_BASE)
+
+/* Power domain */
+struct r8a7373_pm_domain {
+	struct generic_pm_domain genpd;
+	struct dev_power_governor *gov;
+	unsigned int bit_shift;
+	bool debug;
+};
+
+static inline struct r8a7373_pm_domain *to_r8a7373_pd(struct generic_pm_domain *d)
+{
+	return container_of(d, struct r8a7373_pm_domain, genpd);
+}
+
+#ifdef CONFIG_PM
+extern struct r8a7373_pm_domain r8a7373_a3sg;
+extern struct r8a7373_pm_domain r8a7373_a3sp;
+extern struct r8a7373_pm_domain r8a7373_a3r;
+extern struct r8a7373_pm_domain r8a7373_a4rm;
+extern struct r8a7373_pm_domain r8a7373_a4mp;
+
+extern void r8a7373_init_pm_domain(struct r8a7373_pm_domain *r8a7373_pd);
+extern void r8a7373_add_device_to_domain(struct r8a7373_pm_domain *r8a7373_pd,
+					 struct platform_device *pdev);
+extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
+				     struct r8a7373_pm_domain *r8a7373_sd);
+#else
+#define r8a7373_init_pm_domain(pd, flgas) do { } while (0)
+#define r8a7373_add_device_to_domain(pd, pdev) do { } while (0)
+#define r8a7373_pm_add_subdomain(pd, sd) do { } while (0)
+#endif /* CONFIG_PM */
 
 /* hardware spinlock global IDs */
 enum {

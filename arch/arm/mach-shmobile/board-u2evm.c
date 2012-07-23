@@ -838,6 +838,12 @@ static void __init u2evm_init(void)
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &mmcif_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &sdhi0_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &sdhi1_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &sdhi2_device);
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &tpu3_device);
+
 	pm_clk_remove(&mmcif_device.dev, NULL);
 	pm_clk_remove(&sdhi0_device.dev, NULL);
 	pm_clk_remove(&sdhi1_device.dev, NULL);
