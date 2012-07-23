@@ -3445,7 +3445,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 		ret = tps80032_gpadc_correct_voltage(data, ret);
 	}
 
-	if (-1 != ret) {
+	if (0 < ret) {
 		num_vbat[num_volt] = ret;
 		/* Increase value of VBAT */
 		num_volt++;
@@ -3494,7 +3494,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 		ret = tps80032_gpadc_correct_temp(data, ret);
 	}
 
-	if (ret > 0) {
+	if (0 < ret) {
 		data->bat_temp = ret;
 	}
 
@@ -4007,12 +4007,6 @@ static int tps80032_get_bat_temperature(struct device *dev)
 
 	ret = data->bat_temp;
 
-	if (0 > ret) {
-		ret = 0;
-	} else {
-		/* Do nothing */
-	}
-
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
@@ -4201,18 +4195,16 @@ static int tps80032_correct_temp(int temp)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* change temperature unit from 0.1K to 0.1C */
-	if (temp < 1) {
-		ret = 0;
-	} else if (temp < 901) {
+	if ((0 < temp) && (temp < 901)) {
 		ret = (10100 - 6 * temp)/10;
 	} else if (temp < 2507) {
 		ret = (7800 - 3 * temp)/10;
 	} else {
 		ret = (15400 - 6 * temp)/10;
-    }
-	
+	}
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-	return ret;	
+	return ret;
 }
 
 
@@ -5514,6 +5506,7 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
+	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 
