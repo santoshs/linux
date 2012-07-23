@@ -25,6 +25,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
@@ -38,6 +39,7 @@
 #include <asm/dma.h>
 #include <mach/hardware.h>
 #include <mach/pm.h>
+#include <mach/r8a73734.h>
 #include <linux/pm.h>
 
 #ifdef CONFIG_USB_OTG
@@ -2737,6 +2739,9 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ioremap error.\n");
 		goto clean_up;
 	}
+	/*TUSB1211 CS*/
+	gpio_request(GPIO_PORT130, NULL);
+	gpio_direction_output(GPIO_PORT130, 1);
 
 	/* initialize ucd */
 	r8a66597 = kzalloc(sizeof(struct r8a66597), GFP_KERNEL);
@@ -2898,8 +2903,13 @@ static int r8a66597_udc_suspend(struct device *dev)
 			cancel_delayed_work_sync(&r8a66597->charger_work);
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
-	if(!powerup)
+
+	gpio_direction_output(GPIO_PORT130, 0);
+	clk_disable(clk_get(NULL, "vclk3_clk"));
+
+	if(!powerup) 
 		return 0;
+
 	if (r8a66597->vbus_active){
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
@@ -2924,6 +2934,8 @@ static int r8a66597_udc_suspend(struct device *dev)
 static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
+	clk_enable(clk_get(NULL, "vclk3_clk"));
+	gpio_direction_output(GPIO_PORT130, 1);
 	schedule_delayed_work(&r8a66597->vbus_work,0);
 	return 0;
 }
