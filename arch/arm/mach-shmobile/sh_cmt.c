@@ -296,7 +296,7 @@ static void sh_cmt_clock_event_start(struct sh_cmt_priv *p, int periodic)
 	ced->shift = 32;
 	ced->mult = div_sc(p->rate, NSEC_PER_SEC, ced->shift);
 	ced->max_delta_ns = clockevent_delta2ns(p->max_match_value, ced);
-	ced->min_delta_ns = clockevent_delta2ns(1200, ced);
+	ced->min_delta_ns = clockevent_delta2ns(0x1F, ced);
 
 	if (periodic)
 		sh_cmt_write(p, CMCOR, ((p->rate + HZ/2) / HZ) - 1);
