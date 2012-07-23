@@ -322,7 +322,6 @@ struct tps80032_irq_data {
 #else
 /* If no use BIN */
 #define CONST_TIMER_BATTERY_UPDATE		0x1388
-#define CONST_BATTERY_CURRENT_UPDATE	250
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
 #define CONST_0C_DEGREE					0x0000
