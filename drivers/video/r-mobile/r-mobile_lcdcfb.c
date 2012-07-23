@@ -52,8 +52,6 @@
 
 #include <rtapi/screen_display.h>
 
-#define LCD_BG_BLACK 0x0
-
 #define FB_SH_MOBILE_REFRESH 0
 
 #define REFRESH_TIME_MSEC 100
@@ -66,6 +64,9 @@
 #define FB_SH_MOBILE_HDMI 1
 
 #define CHAN_NUM 2
+
+#define FB_HDMI_STOP  0
+#define FB_HDMI_START 1
 
 #define PALETTE_NR 16
 #define SIDE_B_OFFSET 0x1000
@@ -117,6 +118,8 @@ struct sh_mobile_lcdc_ext_param {
 	unsigned short mfis_err_flag;
 	unsigned short rotate;
 	struct fb_panel_func panel_func;
+	struct fb_hdmi_func hdmi_func;
+	unsigned short hdmi_flag;
 };
 
 struct sh_mobile_lcdc_ext_param lcd_ext_param[CHAN_NUM];
@@ -454,10 +457,8 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 {
 
 	void *hdmi_handle;
-	screen_disp_start_hdmi disp_start_hdmi;
 	screen_disp_stop_hdmi disp_stop_hdmi;
 	screen_disp_delete disp_delete;
-	int hdmi_mode = RT_DISPLAY_1280_720P60;
 	int ret;
 
 	if (set_mode->start != SH_FB_HDMI_START &&
@@ -471,13 +472,9 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		return -1;
 	}
 
-	hdmi_handle = screen_display_new();
-
 	if (set_mode->start == SH_FB_HDMI_STOP) {
 		if (down_interruptible(&lcd_ext_param[0].sem_lcd)) {
 			printk(KERN_ALERT "down_interruptible failed\n");
-			disp_delete.handle = hdmi_handle;
-			screen_display_delete(&disp_delete);
 			return -1;
 		}
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
@@ -486,91 +483,29 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		sh_mobile_composer_hdmiset(0);
 #endif
 #endif
-
+		hdmi_handle = screen_display_new();
 		disp_stop_hdmi.handle = hdmi_handle;
 		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
 		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
+		disp_delete.handle = hdmi_handle;
+		screen_display_delete(&disp_delete);
+		lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
 		up(&lcd_ext_param[0].sem_lcd);
 		sh_mobile_lcdc_refresh(
 			RT_DISPLAY_REFRESH_ON, RT_DISPLAY_LCD1);
 	} else {
 		sh_mobile_lcdc_refresh(
 			RT_DISPLAY_REFRESH_OFF, RT_DISPLAY_LCD1);
-
-		switch (set_mode->format) {
-		case SH_FB_HDMI_480P60:
-		{
-			hdmi_mode = RT_DISPLAY_720_480P60;
-			break;
-		}
-		case SH_FB_HDMI_720P60:
-		{
-			hdmi_mode = RT_DISPLAY_1280_720P60;
-			break;
-		}
-		case SH_FB_HDMI_1080I60:
-		{
-			hdmi_mode = RT_DISPLAY_1920_1080I60;
-			break;
-		}
-		case SH_FB_HDMI_1080P24:
-		{
-			hdmi_mode = RT_DISPLAY_1920_1080P24;
-			break;
-		}
-		case SH_FB_HDMI_576P50:
-		{
-			hdmi_mode = RT_DISPLAY_720_576P50;
-			break;
-		}
-		case SH_FB_HDMI_720P50:
-		{
-			hdmi_mode = RT_DISPLAY_1280_720P50;
-			break;
-		}
-		case SH_FB_HDMI_1080P60:
-		{
-			hdmi_mode = RT_DISPLAY_1920_1080P60;
-			break;
-		}
-		case SH_FB_HDMI_1080P50:
-		{
-			hdmi_mode = RT_DISPLAY_1920_1080P50;
-			break;
-		}
-		case SH_FB_HDMI_480P60A43:
-		{
-			hdmi_mode = RT_DISPLAY_720_480P60A43;
-			break;
-		}
-		case SH_FB_HDMI_576P50A43:
-		{
-			hdmi_mode = RT_DISPLAY_720_576P50A43;
-			break;
-		}
-		}
-
-		disp_start_hdmi.handle = hdmi_handle;
-		disp_start_hdmi.format = hdmi_mode;
-		disp_start_hdmi.background_color = LCD_BG_BLACK;
-		DBG_PRINT("screen_display_start_hdmi handle = %x\n",
-			  (unsigned int)disp_start_hdmi.handle);
-		DBG_PRINT("screen_display_start_hdmi format = %d\n",
-			  disp_start_hdmi.format);
-		DBG_PRINT("screen_display_start_hdmi background_color = %x\n",
-			  disp_start_hdmi.background_color);
-
-		ret = screen_display_start_hdmi(&disp_start_hdmi);
-		DBG_PRINT("screen_display_start_hdmi return = %d\n", ret);
-
-		if (ret != SMAP_LIB_DISPLAY_OK) {
-			printk(KERN_ALERT "screen_display_start_hdmi ERR%d\n"
-			       , ret);
+		if (lcd_ext_param[0].hdmi_func.hdmi_set) {
+			ret = lcd_ext_param[0].hdmi_func.hdmi_set(
+				set_mode->format);
+			if (ret) {
+				printk(KERN_ALERT " error\n");
+				return -1;
+			}
+			lcd_ext_param[0].hdmi_flag = FB_HDMI_START;
 		}
 	}
-
-	disp_delete.handle = hdmi_handle;
-	screen_display_delete(&disp_delete);
 
 	return 0;
 }
@@ -907,7 +842,6 @@ static int sh_mobile_lcdc_set_bpp(struct fb_var_screeninfo *var, int bpp)
 static int sh_mobile_lcdc_suspend(struct device *dev)
 {
 	int lcd_num;
-	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	void *suspend_handle;
 #if FB_SH_MOBILE_REFRESH
@@ -946,22 +880,12 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 				}
 			}
 #endif
-			disp_draw.handle = suspend_handle;
-			disp_draw.output_mode = lcd_ext_param[lcd_num].o_mode;
-			disp_draw.draw_rect.x = lcd_ext_param[lcd_num].rect_x;
-			disp_draw.draw_rect.y = lcd_ext_param[lcd_num].rect_y;
-			disp_draw.draw_rect.width =
-				lcd_ext_param[lcd_num].rect_width;
-			disp_draw.draw_rect.height =
-				lcd_ext_param[lcd_num].rect_height;
 			if (lcd_ext_param[lcd_num].draw_bpp == 16) {
-				disp_draw.format = RT_DISPLAY_FORMAT_RGB565;
 				memset((void *)lcd_ext_param[lcd_num].vir_addr
 				       , 0, lcd_ext_param[lcd_num].mem_size);
 			} else {
 				int i;
 				unsigned int *cpy_address;
-				disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
 				cpy_address =
 					(unsigned int *)
 					lcd_ext_param[lcd_num].vir_addr;
@@ -971,9 +895,6 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 					*cpy_address++ = 0xFF000000;
 				}
 			}
-			disp_draw.buffer_offset = 0;
-			disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
-			screen_display_draw(&disp_draw);
 
 			if (lcd_ext_param[lcd_num].panel_func.panel_suspend) {
 				lcd_ext_param[lcd_num].
@@ -984,6 +905,12 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 		}
 	}
 
+#if FB_SH_MOBILE_HDMI
+	if (lcd_ext_param[0].hdmi_flag == FB_HDMI_START) {
+		if (lcd_ext_param[0].hdmi_func.hdmi_suspend)
+			lcd_ext_param[0].hdmi_func.hdmi_suspend();
+	}
+#endif
 	up(&sh_mobile_sem_hdmi);
 
 	disp_delete.handle = suspend_handle;
@@ -1007,6 +934,13 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 
 		}
 	}
+
+#if FB_SH_MOBILE_HDMI
+	if (lcd_ext_param[0].hdmi_flag == FB_HDMI_START) {
+		if (lcd_ext_param[0].hdmi_func.hdmi_resume)
+			lcd_ext_param[0].hdmi_func.hdmi_resume();
+	}
+#endif
 
 	up(&sh_mobile_sem_hdmi);
 
@@ -1194,7 +1128,8 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			lcd_ext_param[i].delay_flag = 0;
 			lcd_ext_param[i].refresh_on = 0;
 			lcd_ext_param[i].phy_addr = panel_info.buff_address;
-			if (SH_MLCD_HEIGHT > SH_MLCD_WIDTH) {
+			if (lcd_ext_param[i].rect_height
+			    > lcd_ext_param[i].rect_width) {
 				lcd_ext_param[i].rotate
 					= RT_DISPLAY_ROTATE_270;
 			} else {
@@ -1358,6 +1293,11 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			 (int) info->var.yres,
 			 ch->cfg.bpp);
 
+		if (lcd_ext_param[i].panel_func.panel_probe) {
+			lcd_ext_param[i].
+				panel_func.panel_probe(info);
+		}
+
 		lcd_ext_param[i].aInfo = NULL;
 		lcd_ext_param[i].lcd_type = ch->cfg.chan;
 		lcd_ext_param[i].draw_bpp = ch->cfg.bpp;
@@ -1365,6 +1305,9 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	}
 
 	sema_init(&sh_mobile_sem_hdmi, 1);
+
+	lcd_ext_param[0].hdmi_func = r_mobile_hdmi_func();
+	lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
 
 	fb_debug = 0;
 
@@ -1406,6 +1349,12 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 
 		if (!info || !info->device)
 			continue;
+
+		if (lcd_ext_param[i].panel_func.panel_remove) {
+			lcd_ext_param[i].
+				panel_func.panel_remove(info);
+		}
+
 
 #ifdef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
 		if (lcd_ext_param[i].vir_addr != 0)
