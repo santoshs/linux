@@ -1,0 +1,140 @@
+# ############################################################################
+# #    Copyright © Renesas Mobile Corporation 2010 . All rights reserved     #
+# ############################################################################
+# #                                                                          #
+# # This material, including documentation and any related source code and   #
+# # information, is protected by copyright controlled by Renesas. All rights #
+# # are reserved. Copying, including reproducing, storing, adapting,         #
+# # translating and modifying, including decompiling or reverse engineering, #
+# # any or all of this material requires the prior written consent           #
+# # of Renesas. This material also contains confidential information,        #
+# # which may not be disclosed to others without the prior written consent   #
+# # of Renesas.                                                              #
+# #                                                                          #
+# ############################################################################
+
+if [ ! -z "`echo $0 | grep defaults.source$`" ]; then
+    echo "This script should be sourced!"
+    exit -1
+fi
+
+#
+# Examples only! Refer to your product releasing team for the actual values.
+#
+
+#
+# Default path settings
+#
+
+
+if [ -z "${SIGN_PRODUCT_PATH:-}" ]; then
+    echo "ERROR: -productpath not given. Exiting..."
+    exit -1;
+fi
+
+export SIGN_INI_FILES=${SIGN_PRODUCT_PATH}/ini
+export SIGN_INPUT_FILES=${SIGN_PRODUCT_PATH}/input
+export SIGN_OUTPUT_FILES=${SIGN_PRODUCT_PATH}/output
+
+#
+# Source settings from product's environment configuration 
+#
+
+source ${SIGN_INI_FILES}/${PRODUCT}.env.source
+
+#
+# Default parameter settings
+#
+if [ -z "${SIGN_TOOL_PATH:-}" ]; then
+    export SIGN_TOOL_PATH=./bin
+fi
+
+if [ -z "${OPERATOR_VARIANT:-}" ]; then
+    export OPERATOR_VARIANT=0x12345678
+fi
+
+if [ -z "${IMEI_SVN:-}" ]; then
+    export IMEI_SVN=01
+fi
+
+if [ -z "${PRODUCTION_MODE:-}" ]; then
+    export PRODUCTION_MODE=0
+fi
+
+if [ -z "${TARGET_PLATFORM:-}" ]; then
+    echo "ERROR: HW engine not defined. Exiting..."
+    exit -1;
+fi
+
+if [ -z "${FORM_FACTOR:-}" ]; then
+    echo "ERROR: HW type not defined. Exiting..."
+    exit -1;
+fi
+
+if [ -z "${BOOT_SOURCE:-}" ]; then
+    echo "ERROR: Boot mode not defined. Exiting..."
+    exit -1;
+fi
+
+if [ -z "${UPDATE_METHOD:-}" ]; then
+    export UPDATE_METHOD=
+fi
+
+if [ -z "${SIGNING_SUPPORT:-}" ]; then
+    export SIGNING_SUPPORT=TRUE
+fi
+
+if [ -z "${PRODUCT_CONFIG_ID_SECURE_EMMC:-}" ]; then
+    export PRODUCT_CONFIG_ID_SECURE_EMMC=0x00000001
+fi
+
+if [ -z "${PRODUCT_CONFIG_ID_PUBLIC_EMMC:-}" ]; then
+    export PRODUCT_CONFIG_ID_PUBLIC_EMMC=0x00000000
+fi
+
+if [ -z "${PRODUCT_CONFIG_ID_SECURE_FLASHING:-}" ]; then
+    export PRODUCT_CONFIG_ID_SECURE_FLASHING=0x00000001
+fi
+
+if [ -z "${PRODUCT_CONFIG_ID_PUBLIC_FLASHING:-}" ]; then
+    export PRODUCT_CONFIG_ID_PUBLIC_FLASHING=0x00000000
+fi
+
+
+if [ -z "${PRODUCT_ID:-}" ]; then
+    export PRODUCT_ID=1330464068
+fi
+
+if [ -z "${OFFLINE_MODE:-}" ] ; then
+
+    if [ -z "${SIGN_SERVER:-}" ]; then
+        echo "ERROR: Infra server(s) not defined. Exiting..."
+        exit -1;
+    fi
+
+    if [ -z "${SIGN_SERVER_RETRY:-}" ]; then
+        export SIGN_SERVER_RETRY=2
+    fi
+else
+    export SIGN_SERVER=
+    export SIGN_SERVER_RETRY=    
+
+    if [ -z "${OFFLINE_KEY_DIRECTORY:-}" ]; then
+        export OFFLINE_KEY_DIRECTORY=./offline/keys
+    fi
+
+    if [ -z "${OFFLINE_ISSW:-}" ]; then
+        export OFFLINE_ISSW=./offline/issw/${BOOT_SOURCE}.ISSW.online.signed
+    fi
+
+    if [ ! -r "${OFFLINE_ISSW}" ] ; then
+        echo "ERROR: Can't read file ${OFFLINE_ISSW}, Exiting..."
+        exit -1;
+    fi
+
+    if [ -z "${OFFLINE_RKH:-}" ] ; then
+        echo "NOTE: RKH not defined, using value 231c9059"
+        export OFFLINE_RKH=231c9059
+    fi
+fi
+
