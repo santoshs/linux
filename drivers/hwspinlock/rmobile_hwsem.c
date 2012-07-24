@@ -133,7 +133,7 @@ static void hwsem_relax(struct hwspinlock *lock)
  * +----------------+----------------+----------------+----------------+
  *
  */
-#define EXTxxSRC_SHIFT	24
+#define EXTxxSRC_SHIFT	0
 
 static int hwsem_ext_trylock(struct hwspinlock *lock)
 {
