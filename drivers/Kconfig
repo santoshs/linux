@@ -136,4 +136,6 @@ source "drivers/thermal/thermal_sensor/Kconfig"
 
 source "drivers/sensor/Kconfig"
 
+source "drivers/sec_hal/Kconfig"
+
 endmenu

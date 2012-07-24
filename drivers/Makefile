@@ -131,3 +131,4 @@ obj-$(CONFIG_SMECO)		+= smeco/
 obj-$(CONFIG_THERMAL_SENSOR) += thermal/thermal_sensor/
 
 obj-$(CONFIG_PM_DEBUG)	+= pmdbg/
+obj-$(CONFIG_ARM_SEC_HAL) += sec_hal/

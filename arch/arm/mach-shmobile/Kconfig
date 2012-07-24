@@ -173,6 +173,15 @@ config MUX_STM_TO_SDHI1
 
 endmenu
 
+menu "SH-Mobile TrustZone Configuration"
+config ARM_TZ
+	bool "ARM trustzone (TZ) Configuration."
+        default n
+#       depends ARM
+        ---help---
+        ARM trustzone (TZ) Configuration.
+endmenu
+
 menu "SH-Mobile CPUFreq Setting"
 config SHMOBILE_CPUFREQ
 	bool "SH-Mobile has CPUFreq support"

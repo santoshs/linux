@@ -39,6 +39,7 @@
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
+#include <asm/io.h>
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -56,6 +57,17 @@ enum ipi_msg_type {
 	IPI_CPU_BACKTRACE,
 };
 
+#ifdef CONFIG_ARM_TZ
+static void flush_l2_cache(void)
+{
+  #define L2_CLEAN_BY_WAY 0xF01007BC
+  
+  __raw_writel(0x0000FFFF, L2_CLEAN_BY_WAY);
+  while ((__raw_readl(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0) {
+    ;
+  }
+}
+#endif
 static unsigned int skip_secondary_calibrate;
 
 int __cpuinit __cpu_up(unsigned int cpu)
@@ -112,6 +124,9 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	__cpuc_flush_dcache_area(&secondary_data, sizeof(secondary_data));
 	outer_clean_range(__pa(&secondary_data), __pa(&secondary_data + 1));
 
+#ifdef CONFIG_ARM_TZ
+        flush_l2_cache(); // W/A Flush all-cache data to DRAM for 2nd-CPU MMU tables.
+#endif
 	/*
 	 * Now bring the CPU into our world.
 	 */

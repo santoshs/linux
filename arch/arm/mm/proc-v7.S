@@ -355,7 +355,7 @@ __v7_setup:
 	orrlt	r10, r10, #1 << 11		@ set bit #11
 	mcrlt	p15, 0, r10, c15, c0, 1		@ write diagnostic register
 #endif
-
+#ifndef CONFIG_ARM_TZ
 #ifdef CONFIG_CPU_DCACHE_PREFETCH
 	/*
 	 * TODO: This should be disabled for all r0, r1 and r2 revisions
@@ -377,6 +377,7 @@ __v7_setup:
 	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
 	orr	r10, r10, #1 << 1		@ set L2 prefetch hint enable bit
 	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
+#endif
 #endif
 #endif
 

@@ -1,0 +1,127 @@
+;==========================================================
+;	Lauterbach script for EOS2 EVM
+;==========================================================
+ENTRY &kernelpath &extraopts
+;&ramsize=0x30000000
+&ramsize=0x20000000
+;&ramsize=0x2B368000
+&physramaddr=0x50000000
+
+
+&striproot="/renesas/ou_rme/home/heikkiny/wa/EOS2_env/Linux-Kernel"
+&sourceroot="Y:\wa\mpsw_wa\security\heikkiny\EOS2_env\Linux-Kernel"
+
+;--------------------------------------------------
+; RESET debugger
+;--------------------------------------------------
+SYS.Down
+Break.Delete		; remove any breakpoints
+MAP.RESet		; reset debuggers memory mapping
+sYmbol.RESet		; remove any symbols
+MMU.RESet		; reset debuggers MMU
+
+;--------------------------------------------------
+; INIT debugger
+;--------------------------------------------------
+SYS.CPU CORTEXA9MPCORE 
+SYS.Config.corenumber 2
+SYS.Config debugaccessport 1
+CORE.Assign 1 2
+SYS.MultiCore COREBASE EAPB:0x80030000 EAPB:0x80032000
+
+SYS.JtagClock 16MHz
+;SYS.Option.ResBreak on
+;SYS.Option.TRST on
+SYS.Option.EnReset off
+SYS.Option.DBGACK off
+;SYS.Option WaitReset ON
+TrOnchip.Set DABORT OFF ; used by linux for page miss
+TrOnchip.Set PABORT OFF ; used by linux for page miss
+TrOnchip.Set UNDEF  OFF ; used by linux for fpu detect
+SYS.Option MMUSPACES ON ; enable space ids to virtual addresses
+SYS.Up
+
+;Register.Reset
+;SETUP.IMASKASM ON ; lock interrupts while single stepping mode
+
+;--------------------------------------------------
+; CONF gui, visible at startup
+;--------------------------------------------------
+SYStem
+Register
+Data.List
+Break.List
+Break.Select.Program AUTO	; Program break -> auto
+
+
+;--------------------------------------------------
+; LOAD symbols from elf
+;--------------------------------------------------
+data.load.elf  &sourceroot/vmlinux /NOCODE /strippart "&striproot" /sourcepath &sourceroot
+sYmbol.CLEANUP
+
+
+;--------------------------------------------------
+; MMU CONF
+;--------------------------------------------------
+MMU.FORMAT LINUX swapper_pg_dir 0xC0000000--(0xC0000000+&ramsize-1) &physramaddr
+
+;MMU.Create 0xC0000000--(0xC0000000+&ramsize-1) &physramaddr
+;MMU.COMMON 0xC0000000--0xFFFFFFFF
+;MMU.TableWalk ON
+;MMU.ON
+;MMU.SCAN ALL 
+
+; prepare debugger translation
+TRANSlation.Create 0xC0000000--(0xC0000000+&ramsize-1) &physramaddr	; map kernel pages at RAM start
+TRANSlation.COMMON 0xC0000000--0xFFFFFFFF				; common area for kernel and processes
+TRANSlation.TableWalk ON       ; debugger uses a table walk to decode virtual addresses
+TRANSlation.ON                 ; switch on debugger(!) address translation
+
+
+;--------------------------------------------------
+; LINUX awareness
+;--------------------------------------------------
+TASK.CONFIG c:/T32/linux.t32			; Load Linux awareness
+MENU.ReProgram c:/T32/linux.men		; Load Linux menu
+HELP.FILTER.Add rtoslinux		; Add linux awareness manual to help filter
+TASK.sYmbol.Option MMUSCAN OFF		; not necessary with tablewalk
+
+; switch on symbol autoloader
+sYmbol.AutoLoad.CHECKLINUX "do "+os.ppd()+"/opt/t32/autoload "
+
+; Group kernel area to display with red bar
+GROUP.Create "kernel" 0xC0000000--0xFFFFFFFF /RED
+
+
+;--------------------------------------------------
+; BREAKs
+;--------------------------------------------------
+; Setup break points in linux kernel to ease debugging
+Break.Set start_kernel /Program /ONCHIP
+Break.Set \\vmlinux\panic\panic /Program
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
