@@ -56,6 +56,7 @@
 #define WPMCIF_EPMU_START_CR		(WPMCIF_EPMU_BASE + 0x0000)
 #define WPMCIF_EPMU_ACC_CR		(WPMCIF_EPMU_BASE + 0x0004)
 #define WPMCIF_EPMU_RES_CR		(WPMCIF_EPMU_BASE + 0x0008)
+#define WPMCIF_EPMU_RES_FAC		(WPMCIF_EPMU_BASE + 0x000C)
 #define WPMCIF_EPMU_PLL2_REALLY5_CR	(WPMCIF_EPMU_BASE + 0x0020)
 #define WPMCIF_EPMU_RFCLK_CR		(WPMCIF_EPMU_BASE + 0x0024)
 #define WPMCIF_EPMU_HPSSCLK_CR		(WPMCIF_EPMU_BASE + 0x0028)
@@ -63,6 +64,7 @@
 #define WPMCIF_EPMU_INT_FAC		(WPMCIF_EPMU_BASE + 0x00CC)
 #define WPMCIF_EPMU_INT_FACMSK		(WPMCIF_EPMU_BASE + 0x00D4)
 #define WPMCIF_EPMU_INT_FACCLR		(WPMCIF_EPMU_BASE + 0x00C8)
+#define WPMCIF_EPMU_INT_MONREG		(WPMCIF_EPMU_BASE + 0x00E4)
 
 /* define for INT_FACMSK register */
 #define INT_FACMSK_MODEM_RESET_CLEAR_MASK 	0xFFFFFF7F
@@ -84,9 +86,11 @@
 #define CPG_SMSTPCR5			IO_ADDRESS(0xE6150144)
 #define CPG_SMSTPCR3			IO_ADDRESS(0xE615013C)
 
+#define SWRESET   1
+
 static dev_t 		rmc_reset_dev;
 static struct 		cdev rmc_reset_cdev;
-static int 			rmc_mdm_reset_char_major;		/* char major number */
+static int 		rmc_mdm_reset_char_major;	/* char major number */
 static struct class *rmc_mdm_reset_char_class; 		/* char class during class_create */
 
 
@@ -111,22 +115,6 @@ char devname[] = "rmc_mdm_reset";
 static ssize_t rmc_reset_read(struct file *file, char *buf, size_t len, 
 				loff_t *ppos)
 {
-/*	struct rmc_device_node *dev = file->private_data;
-	int retval = 0;
-
-	printk(KERN_DEBUG "rmc_reset_read \n");
-	
-	if (dev == NULL)
-		return -ENODEV;
-		
-	
-	wait_event_interruptible(read_wait_queue,
-					atomic_read(&dev->counter));
-	len = 1;
-	if (copy_to_user(buf, 1, len))
-		return -EFAULT;
-	
-	return len;*/
 	printk(KERN_ALERT "rmc_reset_read()\n");
 	return 0;
 }
@@ -134,9 +122,51 @@ static ssize_t rmc_reset_read(struct file *file, char *buf, size_t len,
 static ssize_t rmc_reset_write(struct file *file, const char __user *buf,
 						size_t len, loff_t *ppos)
 {
-	
 	printk(KERN_ALERT "rmc_reset_write()\n");
 	return 0;
+}
+
+
+static long rmc_reset_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
+{
+	struct rmc_device_node *dev = file->private_data;
+	unsigned long curent_value = 0;
+
+	if (!dev->open_count) {
+		return -ENODEV;
+	}
+
+	switch (cmd) {
+
+	case SWRESET:
+		printk(KERN_ALERT "Modem-boot request modem reset()\n");
+
+		curent_value = __raw_readl(WPMCIF_EPMU_ACC_CR);
+		if (curent_value != 0x00000003){
+			__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
+		}
+
+		while (0x00000003 != __raw_readl(WPMCIF_EPMU_ACC_CR) ) {
+			/* Wait until Access OK, should be very quick. */
+		}
+
+		/*Setting WRES bit will assert WGM_Recover_Req signal to modem*/
+		__raw_writel(0x00000001, WPMCIF_EPMU_RES_CR);
+
+		/* Clear WRES bit other wise WGM_Recover_Req will be assert again */
+		__raw_writel(0x00000000, WPMCIF_EPMU_RES_CR);
+
+		pr_info("open WPMCIF_EPMU_INT_MONREG =0x%08lx \n",curent_value);//tmp monreg
+
+	break;
+
+	default:
+		pr_info("Wrong request only SW RESET is authorized \n");
+	break;
+	}
+	return 0;
+
 }
 
 static unsigned int rmc_reset_poll(struct file *file, poll_table *wait)
@@ -146,13 +176,10 @@ static unsigned int rmc_reset_poll(struct file *file, poll_table *wait)
 
 	printk(KERN_ALERT " %s : %d\n", __func__ , atomic_read(&dev->counter));
 	wait_event_interruptible(dev->wait, atomic_read(&dev->counter));
-
-	printk(KERN_ALERT " %s : %d\n", __func__ , atomic_read(&dev->counter));
-
 	if (atomic_read(&dev->counter))
 		mask = POLLIN | POLLRDNORM;
 
-	printk(KERN_ALERT " %s :poll end: %x/%d\n", __func__ , mask, atomic_read(&dev->counter));
+	printk(KERN_ALERT " %s :poll end: %d\n", __func__ , atomic_read(&dev->counter));
 	atomic_set(&dev->counter, 0);
 	return mask;	
 		
@@ -199,8 +226,7 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 	spin_unlock(&dev->io_lock);
 
 exit:
-	return retval;	
-	
+	return retval;
 }
 
 
@@ -218,8 +244,7 @@ static int rmc_reset_release(struct inode *inode, struct file *file)
 	cdev_del(&rmc_reset_cdev);
 	spin_unlock(&dev->io_lock);
 
-	return 0;	
-	
+	return 0;
 }
 
 
@@ -229,6 +254,7 @@ static const struct file_operations rmc_reset_fops = {
 	.write		= rmc_reset_write,
 	.open		= rmc_reset_open,
 	.release	= rmc_reset_release,
+	.unlocked_ioctl	= rmc_reset_ioctl,
 	.poll		= rmc_reset_poll,
 };
 
