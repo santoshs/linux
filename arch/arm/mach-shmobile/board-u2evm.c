@@ -867,7 +867,7 @@ static void __init u2evm_reserve(void)
 MACHINE_START(U2EVM, "u2evm")
 	.reserve	= u2evm_reserve,
 	.map_io		= r8a7373_map_io,
-	.init_early	= r8a7373_add_early_devices,
+	.init_early	= r8a7373_init_early,
 	.nr_irqs	= NR_IRQS_LEGACY,
 	.init_irq	= r8a7373_init_irq,
 	.handle_irq	= gic_handle_irq,

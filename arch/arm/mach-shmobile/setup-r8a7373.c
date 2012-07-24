@@ -849,7 +849,7 @@ static struct platform_device sgx_device = {
 	.num_resources	= ARRAY_SIZE(sgx_resources),
 };
 
-static struct platform_device *r8a7373_early_devices[] __initdata = {
+static struct platform_device *r8a7373_devices[] __initdata = {
 	&scif0_device,
 	&scif1_device,
 	&scif2_device,
@@ -858,9 +858,6 @@ static struct platform_device *r8a7373_early_devices[] __initdata = {
 	&scif5_device,
 	&scif6_device,
 	&scif7_device,
-};
-
-static struct platform_device *r8a7373_late_devices[] __initdata = {
 	&i2c0_device,
 	&i2c1_device,
 	&i2c2_device,
@@ -899,10 +896,7 @@ void __init r8a7373_add_standard_devices(void)
 
 	r8a7373_pm_add_subdomain(&r8a7373_a4rm, &r8a7373_a3r);
 
-	platform_add_devices(r8a7373_early_devices,
-			ARRAY_SIZE(r8a7373_early_devices));
-	platform_add_devices(r8a7373_late_devices,
-			ARRAY_SIZE(r8a7373_late_devices));
+	platform_add_devices(r8a7373_devices, ARRAY_SIZE(r8a7373_devices));
 
 	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c0_device);
 	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c1_device);
@@ -1077,15 +1071,9 @@ static void __init r8a7373_timer_init(void)
 
 #define CCCR		0xe600101c
 
-void __init r8a7373_add_early_devices(void)
+void __init r8a7373_init_early(void)
 {
 	system_rev = __raw_readl(IOMEM(CCCR));
-
-	early_platform_add_devices(r8a7373_early_devices,
-			ARRAY_SIZE(r8a7373_early_devices));
-
-	/* setup early console here as well */
-	shmobile_setup_console();
 
 	/* override timer setup with soc-specific code */
 	shmobile_timer.init = r8a7373_timer_init;
