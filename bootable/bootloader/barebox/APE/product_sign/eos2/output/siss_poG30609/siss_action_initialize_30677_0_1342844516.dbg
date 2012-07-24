@@ -1,0 +1,42 @@
+log.c          131 :f7edb6c0:=====> sec_log_set_debug_fp
+*** Security Infrastructure Signer ***
+(C)opyright 2011 Renesas Mobile Europe, all rights reserved
+Version 2012w23 (Linux)
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    3790:f7edb6c0:<===== _open_debug_file (SEC_RET_OK)
+siss/siss.c    571 :f7edb6c0:Linux version of siss running
+siss/siss.c    614 :f7edb6c0:server string now 'ousec001.rmad.renesasmobile.com:5000'
+siss/siss.c    180 :f7edb6c0:=====> _store_server
+siss/siss.c    181 :f7edb6c0:str = 'ousec001.rmad.renesasmobile.com:5000'
+siss/siss.c    189 :f7edb6c0:Stored server: 'ousec001.rmad.renesasmobile.com' : '5000'
+siss/siss.c    190 :f7edb6c0:<===== _store_server (SEC_RET_OK)
+siss/siss.c    647 :f7edb6c0:Server 'ousec001.rmad.renesasmobile.com' at port '5000' at index 0 (valid: yes)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 1 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 2 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 3 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 4 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 5 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 6 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 7 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 8 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 9 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 10 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 11 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 12 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 13 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 14 (valid: no)
+siss/siss.c    647 :f7edb6c0:Server '' at port '0' at index 15 (valid: no)
+siss/siss.c    721 :f7edb6c0:Parameters have been parsed
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    119 :f7edb6c0:siss/siss.c
+siss/siss.c    795 :f7edb6c0:<===== main (SEC_RET_INFRA_CONNECTION_FAILED)
+siss/siss.c    2964:f7edb6c0:=====> _siss_exit
+siss/siss.c    2966:f7edb6c0:Disabling logging

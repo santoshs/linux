@@ -1,0 +1,16 @@
+*** Security Infrastructure Signer ***
+(C)opyright 2011 Renesas Mobile Europe, all rights reserved
+Version 2012w23 (Linux)
+secinfralib 0x010B0200
+Debug directory /home/u/chanvu/eos/BIZEN_for_SSG/12w29_D3/Tag7/scripts/../android/kernel/bootable/bootloader/barebox/APE/product_sign/eos2/output/siss_poG30609/ already exists, reusing it
+Debugging has been enabled to /home/u/chanvu/eos/BIZEN_for_SSG/12w29_D3/Tag7/scripts/../android/kernel/bootable/bootloader/barebox/APE/product_sign/eos2/output/siss_poG30609/siss_action_initialize_30677_0_1342844516.dbg
+ONLINE mode
+Attempting to connect to security server 'ousec001.rmad.renesasmobile.com:5000'
+WARNING: Connection failed!
+Attempting to connect again after 10 seconds (2 more attempt(s) remaining before giving up)
+Attempting to connect to security server 'ousec001.rmad.renesasmobile.com:5000'
+WARNING: Connection failed!
+Attempting to connect again after 10 seconds (1 more attempt(s) remaining before giving up)
+Attempting to connect to security server 'ousec001.rmad.renesasmobile.com:5000'
+WARNING: Connection failed!
+ERROR: Unable to connect to any given security server and no more attempts remaining.

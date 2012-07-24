@@ -1,0 +1,23 @@
+[keys]
+#test_protected_data_key_priv_pem
+0x4B445054 = OFFLINE_KEY_TEMPLATE/OFFLINE_PROTECTED_DATA_2048bit_key.pem
+#test_secure_mode_key_priv_pem 
+0x4B4D5354 = OFFLINE_KEY_TEMPLATE/OFFLINE_SECURE_MODE_2048bit_key.pem
+#test_sw_key_priv_pem
+0x4B575354 = OFFLINE_KEY_TEMPLATE/OFFLINE_PRODUCT_SW_2048bit_key.pem
+#fw_transfer_key_priv_pem
+0x4B545746 = OFFLINE_KEY_TEMPLATE/OFFLINE_FW_TRANSFER_2048bit_key.pem
+#ic_key_pub_pem
+0x594B4349 = OFFLINE_KEY_TEMPLATE/OFFLINE_IC_2048bit_key.pem
+#cc_key_pub_pem
+0x594B4343 = OFFLINE_KEY_TEMPLATE/OFFLINE_CC_2048bit_key.pem
+#infra_auth_key_pub_pem
+0x41464E49 = OFFLINE_KEY_TEMPLATE/OFFLINE_INFRA_AUTH_2048bit_key.pem
+#simlock_key_pub_pem
+0x4B4D4953 = OFFLINE_KEY_TEMPLATE/OFFLINE_SIMLOCK_2048bit_key.pem
+#protected_data_key_pub_pem
+0x4B4F5250 = OFFLINE_KEY_TEMPLATE/OFFLINE_PROTECTED_DATA_2048bit_key.pem
+#secure_wd_key_pub_pem
+0x4B445753 = OFFLINE_KEY_TEMPLATE/OFFLINE_SECURE_WD_2048bit_key.pem
+
+[offline]
