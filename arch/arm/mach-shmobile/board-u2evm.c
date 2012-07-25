@@ -357,22 +357,10 @@ static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
 };
 
-static int gpio_key_enable(struct device *dev)
-{
-	gpio_pull_up(GPIO_PORTCR(24));
-	gpio_pull_up(GPIO_PORTCR(25));
-	gpio_pull_up(GPIO_PORTCR(26));
-	gpio_pull_up(GPIO_PORTCR(27));
-	gpio_pull_up(GPIO_PORTCR(1));
-	gpio_pull_up(GPIO_PORTCR(2));
-	return 0;
-}
-
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
 	.rep		= 0,
-	.enable		= gpio_key_enable,
 };
 
 static struct platform_device gpio_key_device = {
@@ -717,6 +705,14 @@ static void __init u2evm_init(void)
 	gpio_pull_up(GPIO_PORTCR(48));
 	gpio_pull_up(GPIO_PORTCR(96));
 	gpio_pull_up(GPIO_PORTCR(97));
+
+	/* gpio_key */
+	gpio_pull_up(GPIO_PORTCR(24));
+	gpio_pull_up(GPIO_PORTCR(25));
+	gpio_pull_up(GPIO_PORTCR(26));
+	gpio_pull_up(GPIO_PORTCR(27));
+	gpio_pull_up(GPIO_PORTCR(1));
+	gpio_pull_up(GPIO_PORTCR(2));
 
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
