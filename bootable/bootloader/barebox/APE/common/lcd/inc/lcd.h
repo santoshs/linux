@@ -43,9 +43,7 @@
 #define LCD_VRAM_MAX_LEN		(LCD_DISP_STRIDE * LCD_DISP_YMAX)
 #define LCD_RGB888_ONE_PIXEL		(3)
 
-/* BEGIN: CR994: Re-allocate SDRAM to reserve more free memory */
-#define LCD_VRAM_BUFF_RGB		(0x5C000000) /* Frame Buffer */
-/* END: CR994: Re-allocate SDRAM to reserve more free memory */
+#define LCD_VRAM_BUFF_RGB		(0x4CF00000)
 
 #define LCD_FONT_MAX			(0x60)
 
