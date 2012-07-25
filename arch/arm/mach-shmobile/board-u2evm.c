@@ -344,17 +344,17 @@ static struct platform_device keysc_device = {
 };
 
 /* GPIO-KEY */
-#define GPIO_KEY(c, g, d) \
-	{ .code = c, .gpio = g, .desc = d, .wakeup = 1, .active_low = 1, \
+#define GPIO_KEY(c, g, d, w) \
+	{ .code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1, \
 	  .debounce_interval = 20 }
 
 static struct gpio_keys_button gpio_buttons[] = {
-	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
-	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
-	GPIO_KEY(KEY_HOME, GPIO_PORT26, "Home"),
-	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
-	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
+	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power", 1),
+	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu", 1),
+	GPIO_KEY(KEY_HOME, GPIO_PORT26, "Home", 1),
+	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back", 1),
+	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+", 0),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-", 0),
 };
 
 static struct gpio_keys_platform_data gpio_key_info = {
