@@ -46,6 +46,8 @@
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	54
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	95
 
+#define R_MOBILE_IRQNO		33
+
 #define LCD_DSITCKCR		0x00000007
 #define LCD_DSI0PCKCR		0x00000313
 #define LCD_DSI0PHYCR		0x2A80000E
@@ -218,7 +220,8 @@ static unsigned char last_gamma_table[] = {
 	0xc1, 0xbe, 0xb4, 0xc0, 0xb2, 0x93, 0x9f, 0x93, 0xa6,
 	0xad, 0xa2, 0x00, 0xe9, 0x00, 0xdb, 0x01, 0x0f };
 static struct backlight_device *registed_bd;
-static int in_suspend;
+static int is_backlight_enabled;
+static int is_backlight_called;
 
 #ifdef S6E39A0X02_USE_PANEL_INIT
 static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
@@ -294,6 +297,7 @@ static const struct _s6e39a0x02_cmdset resume_cmdset[] = {
 };
 
 static struct lcd_device *registed_ld;
+static struct fb_info *common_fb_info;
 
 enum lcdfreq_level_idx {
 	LEVEL_NORMAL,		/* 60Hz */
@@ -389,24 +393,52 @@ static int s6e39a0x02_lcd_frequency_register(struct device *dev)
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
+	/* register device for LCD */
+	registed_ld = lcd_device_register("s6e39a0x02",
+						dev, NULL, NULL);
+	if (IS_ERR(registed_ld)) {
+		printk(KERN_ALERT "registed_ld is null!\n");
+		return PTR_ERR(registed_ld);
+	}
+
 	memset(&lcdfreq_info_data, 0, sizeof(lcdfreq_info_data));
 
 	lcdfreq = &lcdfreq_info_data;
-	lcdfreq->dev = dev;
+	lcdfreq->dev = &(registed_ld->dev);
 	lcdfreq->level = LEVEL_NORMAL;
 
 
 	mutex_init(&lcdfreq->lock);
 
-	ret = sysfs_create_group(&dev->kobj, &lcdfreq_attr_group);
+	ret = sysfs_create_group(&lcdfreq->dev->kobj, &lcdfreq_attr_group);
 	if (ret < 0) {
 		printk(KERN_ALERT "fail to add sysfs entries, %d\n", __LINE__);
+
+		/* uregister device for LCD */
+		lcd_device_unregister(registed_ld);
+		registed_ld = NULL;
+
 		return ret;
 	}
 
 	printk(KERN_DEBUG "%s is done\n", __func__);
 
 	return 0;
+}
+
+static void s6e39a0x02_lcd_frequency_unregister(void)
+{
+	printk(KERN_DEBUG "%s\n", __func__);
+
+	if (registed_ld) {
+		sysfs_remove_group(&lcdfreq_info_data.dev->kobj,
+						&lcdfreq_attr_group);
+		mutex_destroy(&lcdfreq->lock);
+		lcd_device_unregister(registed_ld);
+	}
+
+	printk(KERN_DEBUG "%s is done\n", __func__);
+
 }
 
 static int s6e39a0x02_panel_cmdset(void *lcd_handle,
@@ -536,7 +568,7 @@ static int s6e39a0x02_update_gamma_ctl(int gamma)
 	int ret;
 
 	printk(KERN_DEBUG "s6e39a0x02_update_gamma_ctrl gamma:%d\n", gamma);
-	if (in_suspend) {
+	if (!is_backlight_enabled) {
 		printk(KERN_DEBUG "s6e39a0x02_update_gamma_ctrl rejected\n");
 		return 0;
 	}
@@ -608,6 +640,8 @@ static int set_brightness(struct backlight_device *bd)
 {
 	int ret = 0, brightness = bd->props.brightness;
 
+	is_backlight_called = 1;
+
 	if (brightness < MIN_BRIGHTNESS ||
 		brightness > bd->props.max_brightness) {
 		printk(KERN_WARNING "lcd brightness should be %d to %d.\n",
@@ -629,11 +663,15 @@ static const struct backlight_ops s6e39a0x02_backlight_ops  = {
 	.update_status = set_brightness,
 };
 
-static int s6e39a0x02_backlight_device_register(void)
+static int s6e39a0x02_backlight_device_register(struct device *dev)
 {
 	struct backlight_device *bd;
+
+	is_backlight_enabled = 0;
+	is_backlight_called = 0;
+
 	bd = backlight_device_register("s6e39a0x02-bl",
-		NULL, NULL, &s6e39a0x02_backlight_ops, NULL);
+		dev, NULL, &s6e39a0x02_backlight_ops, NULL);
 	if (IS_ERR(bd)) {
 		printk(KERN_ERR "backlight_device_register err\n");
 		return PTR_ERR(bd);
@@ -645,6 +683,14 @@ static int s6e39a0x02_backlight_device_register(void)
 	printk(KERN_INFO "s6e39a0x02 Backlight Driver Initialized\n");
 
 	return 0;
+}
+
+static void s6e39a0x02_backlight_device_unregister(void)
+{
+	if (registed_bd)
+		backlight_device_unregister(registed_bd);
+
+	printk(KERN_INFO "s6e39a0x02 Backlight Driver Terminated\n");
 }
 
 static int s6e39a0x02_panel_init(unsigned int mem_size)
@@ -659,7 +705,6 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 
 	printk(KERN_INFO "s6e39a0x02_panel_init\n");
 
-	in_suspend = 0;
 	screen_handle =  screen_display_new();
 
 
@@ -682,6 +727,7 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
+	set_lcd_if_param.port_no		= R_MOBILE_IRQNO;
 	set_lcd_if_param.lcd_if_param		= &r_mobile_lcd_if_param;
 	set_lcd_if_param.lcd_if_param_mask	= &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
@@ -745,6 +791,11 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
+	/* update gamma table at last changed */
+	is_backlight_enabled = 1;
+	if (registed_bd && is_backlight_called)
+		registed_bd->ops->update_status(registed_bd);
+
 	return 0;
 }
 
@@ -756,7 +807,7 @@ static int s6e39a0x02_panel_suspend(void)
 	screen_disp_delete disp_delete;
 
 	printk(KERN_INFO "s6e39a0x02_panel_suspend\n");
-	in_suspend = 1;
+	is_backlight_enabled = 0;
 
 
 	screen_handle =  screen_display_new();
@@ -795,6 +846,7 @@ static int s6e39a0x02_panel_resume(void)
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_start_lcd start_lcd;
+	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	int ret;
 
@@ -841,33 +893,26 @@ static int s6e39a0x02_panel_resume(void)
 	msleep(17);
 
 	/* update gamma table at last changed */
-	in_suspend = 0;
+	is_backlight_enabled = 1;
 	if (registed_bd)
 		registed_bd->ops->update_status(registed_bd);
 
 	/* Memory clean */
-	{
-		screen_disp_draw disp_draw;
-
-		disp_draw.handle = screen_handle;
-		disp_draw.output_mode = RT_DISPLAY_LCD1;
-		disp_draw.draw_rect.x = 0;
-		disp_draw.draw_rect.y = 0;
-		disp_draw.draw_rect.width =
-			R_MOBILE_M_PANEL_PIXEL_WIDTH;
-		disp_draw.draw_rect.height =
-			R_MOBILE_M_PANEL_PIXEL_HEIGHT;
-		disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
-		disp_draw.buffer_offset = 0;
-		disp_draw.rotate = RT_DISPLAY_ROTATE_0;
-
-		ret = screen_display_draw(&disp_draw);
-		if (ret != SMAP_LIB_DISPLAY_OK) {
-			printk(KERN_ALERT "screen_display_draw err!\n");
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			return -1;
-		}
+	disp_draw.handle = screen_handle;
+	disp_draw.output_mode = RT_DISPLAY_LCD1;
+	disp_draw.draw_rect.x = 0;
+	disp_draw.draw_rect.y = 0;
+	disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
+	disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+	disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+	disp_draw.buffer_offset = 0;
+	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
+	ret = screen_display_draw(&disp_draw);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "screen_display_draw err!\n");
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
 	}
 
 	/* Display on */
@@ -891,25 +936,36 @@ static int s6e39a0x02_panel_resume(void)
 	return 0;
 }
 
+static int s6e39a0x02_panel_probe(struct fb_info *info)
+{
+	int ret;
+
+	common_fb_info = info;
+
+	/* register sysfs for LCD frequency control */
+	ret = s6e39a0x02_lcd_frequency_register(info->dev);
+	if (ret < 0)
+		return ret;
+
+	/* register device for backlight control */
+	ret = s6e39a0x02_backlight_device_register(info->dev);
+
+	return ret;
+}
+
+static int s6e39a0x02_panel_remove(struct fb_info *info)
+{
+	/* unregister device for backlight control */
+	s6e39a0x02_backlight_device_unregister();
+
+	/* unregister sysfs for LCD frequency control */
+	s6e39a0x02_lcd_frequency_unregister();
+
+	return 0;
+}
+
 static struct fb_panel_info s6e39a0x02_panel_info(void)
 {
-	static int initialized;
-	if (!initialized) {
-		/* register device for LCD */
-		registed_ld = lcd_device_register("s6e39a0x02",
-							NULL, NULL, NULL);
-		if (!registed_ld) {
-			printk(KERN_ALERT "registed_ld is null!\n");
-			return r_mobile_info;
-		}
-		/* register sysfs for LCD frequency control */
-		s6e39a0x02_lcd_frequency_register(&(registed_ld->dev));
-
-		/* register device for backlight control */
-		s6e39a0x02_backlight_device_register();
-
-		initialized = 1;
-	}
 	return r_mobile_info;
 }
 
@@ -926,6 +982,8 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 		panel_func.panel_init    = s6e39a0x02_panel_init;
 		panel_func.panel_suspend = s6e39a0x02_panel_suspend;
 		panel_func.panel_resume  = s6e39a0x02_panel_resume;
+		panel_func.panel_probe   = s6e39a0x02_panel_probe;
+		panel_func.panel_remove  = s6e39a0x02_panel_remove;
 		panel_func.panel_info    = s6e39a0x02_panel_info;
 	}
 

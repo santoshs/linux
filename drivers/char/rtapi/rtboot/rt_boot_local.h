@@ -32,16 +32,19 @@
 /* Screen information */
 #define SCREEN0_HEIGHT		(960)
 #define SCREEN0_WIDTH		(540)
+#define SCREEN0_STRIDE		(544)
 #define SCREEN0_MODE		(1)
 #define SCREEN1_HEIGHT		(0)
 #define SCREEN1_WIDTH		(0)
+#define SCREEN1_STRIDE		(0)
 #define SCREEN1_MODE		(0)
 
 
 struct screen_info {
 	unsigned short	height;
 	unsigned short	width;
-	unsigned long	mode;
+	unsigned short	stride;
+	unsigned short	mode;
 };
 
 void	do_ioremap_register(void);
