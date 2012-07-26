@@ -93,6 +93,7 @@ typedef struct {
 /* AppDomain shared memory info table*/
 typedef struct {
 	struct list_head	list_head;		/* Manager list info */
+	struct list_head	list_head_mpro;	/* Manager list info */
 	unsigned long		event;			/* Request event to Mpro*/
 	unsigned long		memory_size;	/* Memory size */
 	unsigned long		app_cache;		/* Cache type of App domain side */

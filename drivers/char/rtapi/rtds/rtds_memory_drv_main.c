@@ -67,7 +67,6 @@ struct list_head			g_rtds_memory_list_rcv_event;
 static unsigned int			g_rtds_memory_mpro_startup_flag = RTDS_MEM_MPRO_INACTIVE;
 spinlock_t					g_rtds_memory_lock_create_mem;
 struct list_head			g_rtds_memory_list_create_mem;
-struct semaphore			g_rtds_memory_send_cmd_sem;
 struct list_head			g_rtds_memory_list_mpro;
 struct semaphore			g_rtds_memory_mpro_sem;
 spinlock_t					g_rtds_memory_lock_mpro;
@@ -318,14 +317,14 @@ long rtds_memory_drv_ioctl(
 		break;
 
 	case IOCTL_MEM_CMD_WR_GET_MEMSIZE:
-		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_CLOSE_MEMORY\n");
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_GET_MEMSIZE\n");
 
 		/* Get App shared memory size */
 		ret = rtds_memory_ioctl_get_memsize((void __user *)ioctl_data.data, ioctl_data.data_size);
 		break;
 
 	case IOCTL_MEM_CMD_WR_GET_PAGESINFO:
-		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_CLOSE_MEMORY\n");
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_GET_PAGESINFO\n");
 
 		/* Get memory of page descriptor */
 		ret = rtds_memory_ioctl_get_pagesinfo((void __user *)ioctl_data.data, ioctl_data.data_size);
@@ -528,7 +527,6 @@ int rtds_memory_init_module(
 
 	/* Initialise semapore */
 	init_MUTEX(&g_rtds_memory_apmem_rttrig_sem);
-	init_MUTEX(&g_rtds_memory_send_cmd_sem);
 	init_MUTEX_LOCKED(&g_rtds_memory_mpro_sem);
 	init_MUTEX(&g_rtds_memory_shared_mem);
 	init_MUTEX(&g_rtds_memory_phy_mem);

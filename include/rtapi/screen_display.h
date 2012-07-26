@@ -55,6 +55,9 @@
 #define	RT_DISPLAY_720_480P60A43		(13)
 #define	RT_DISPLAY_720_576P50A43		(14)
 /* #MU2DSP582 mod -E- */
+/* #MU2DSP939 mod -S- */
+#define RT_DISPLAY_USE_IF_PARAM			(99)
+/* #MU2DSP939 mod -E- */
 
 /* #MU2DSP582 mod -S- */
 /* Rotation type */
@@ -73,6 +76,11 @@
 #define RT_DISPLAY_SEND_MODE_LP			(1)
 #define RT_DISPLAY_SEND_MODE_HS			(2)
 /* #MU2DSP860 -E- */
+
+/* #MU2DSP939 add -S- */
+#define RT_DISPLAY_PROGRESSIVE			(1)
+#define RT_DISPLAY_INTERLACE			(2)
+/* #MU2DSP939 add -E- */
 
 /** RT I/F Return code */
 #define SMAP_LIB_DISPLAY_OK				(0)
@@ -201,18 +209,64 @@ typedef struct {
 
 typedef struct {
 	void               *handle;
+	unsigned int		port_no;	/* #MU2DSP949 */
 	screen_disp_lcd_if *lcd_if_param;
 	screen_disp_lcd_if *lcd_if_param_mask;
 } screen_disp_set_lcd_if_param;
 
-typedef struct
-{
-	void*          handle;
+typedef struct {
+	void           *handle;
 	unsigned short output_mode;
 	unsigned short dummy;
 	unsigned int   address;
 	unsigned int   size;
 } screen_disp_set_address;
+
+/* #MU2DSP939 add -S- */
+typedef struct {
+	unsigned short videoH;
+	unsigned short videoV;
+	unsigned short pixelH;
+	unsigned short pixelV;
+} screen_disp_aspect;
+
+typedef struct {
+	unsigned int MLDHCNR;
+	unsigned int MLDHSYNR;
+	unsigned int MLDHAJR;
+	unsigned int MLDVLNR;
+	unsigned int MLDVSYNR;
+	unsigned int MLDVLNR_B;
+	unsigned int MLDVSYNR_B;
+	unsigned int MLDIVSNR;
+	unsigned int MLDMT1R;
+	unsigned int MLDMT1R_B;
+	unsigned int MLDDCKPAT1R;
+	unsigned int MLDDCKPAT2R;
+	unsigned int LDDCKR;
+	unsigned int SYSCONF;
+	unsigned int TIMSET0;
+	unsigned int TIMSET1;
+	unsigned int DSICTRL;
+	unsigned int VMCTR1;
+	unsigned int VMCTR2;
+	unsigned int VMLEN1;
+	unsigned int VMLEN2;
+	unsigned int VMLEN3;
+	unsigned int VMLEN4;
+	unsigned int DTCTR;	
+	unsigned int PLL2CR;
+	unsigned int DSI1PCKCR;
+	unsigned int DSI1PHYCR;
+} screen_disp_hdmi_if;
+
+typedef struct {
+	void					*handle;
+	unsigned int			ipmode;
+	screen_disp_aspect		*aspect;
+	screen_disp_hdmi_if		*hdmi_if_param;
+} screen_disp_set_hdmi_if_param;
+/* #MU2DSP939 add -E- */
 
 typedef struct {
 	void *handle;
@@ -300,6 +354,12 @@ extern int screen_display_set_lcd_if_parameters
 extern int screen_display_set_address
 (
 	screen_disp_set_address* address
+);
+
+/* Set HDMI parameters */
+int screen_display_set_hdmi_if_parameters
+(
+	screen_disp_set_hdmi_if_param *set_hdmi_if_param
 );
 
 /* Delete handle */
