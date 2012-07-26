@@ -123,13 +123,11 @@ typedef struct {
 
 #ifdef __INTEGRITY_CHECK_ENABLE__
 /* Security */
-/* BEGIN: CR994: Re-allocate SDRAM to reserve more free memory */
-#define CERTIFICATE_ADDRESS 						(0x5C100000)
-#define CERTIFICATE_ADDRESS2	 					(0x5C101000)
+#define CERTIFICATE_ADDRESS 						(0x4E000000)
+#define CERTIFICATE_ADDRESS2	 					(0x4D000000)
 #define CERTIFICATE_SIZE 							(0x800)		/* 2KBs */
 #define CERTIFICATE_NONE 							(0xFFFFFFFFFFFFFFFFull)
-#define SECOND_MODULE_ADDRESS 						(0x60000000)
-/* END: CR994: Re-allocate SDRAM to reserve more free memory */
+#define SECOND_MODULE_ADDRESS 						(0x4E000800)
 #endif /* __INTEGRITY_CHECK_ENABLE__ */
 
 /* Function Prototypes */
