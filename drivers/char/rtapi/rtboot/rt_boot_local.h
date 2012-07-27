@@ -30,9 +30,9 @@
 #define RT_BOOT_SIZE		(0xb00)
 
 /* Screen information */
-#define SCREEN0_HEIGHT		(864)
-#define SCREEN0_WIDTH		(480)
-#define SCREEN0_STRIDE		(480)
+#define SCREEN0_HEIGHT		(960)
+#define SCREEN0_WIDTH		(540)
+#define SCREEN0_STRIDE		(544)
 #define SCREEN0_MODE		(1)
 #define SCREEN1_HEIGHT		(0)
 #define SCREEN1_WIDTH		(0)
