@@ -51,6 +51,11 @@ static struct semaphore a3r_power_sem;
 #define	POWER_A3R		((unsigned long)0x00002000)
 #define	CLOCK_TLB_IC_OC	((unsigned long)0xE0000000)
 
+/* #MU2SYS921 */
+#ifndef ID_A3R
+#define ID_A3R 13
+#endif
+
 struct mfis_early_suspend_tbl {
 	struct device *dev;
 	struct early_suspend early_suspend;
@@ -152,8 +157,9 @@ static int mfis_suspend_noirq(struct device *dev)
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img;
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
+	unsigned int i;									/* #MU2SYS921 */
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -172,8 +178,28 @@ static int mfis_suspend_noirq(struct device *dev)
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
 		dev_name = domain_name;
-		ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
-		if (((early_suspend_phase_flag) && (1 == atomic_read(&dev_img->power.usage_count))) || (!early_suspend_phase_flag)) {
+
+		/* #MU2SYS921 Start */
+		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
+		if(!ret) {
+		} else {
+			up(&a3r_power_sem);
+			return -1;
+		}
+
+		for(i=0; i < dev_cnt; i++) {
+			if (ID_A3R == to_platform_device(dev_img[i])->id) {
+				break;
+			}
+		}
+
+		if( i >= dev_cnt ) {
+			up(&a3r_power_sem);
+			return -1;
+		}
+		/* #MU2SYS921 End */
+
+		if (((early_suspend_phase_flag)&&(1==atomic_read(&dev_img[i]->power.usage_count))) || (!early_suspend_phase_flag)) {
 #endif /* EARLYSUSPEND_STANDBY */
 			ret = system_rt_standby();
 			if (ret == SMAP_LIB_STANDBY_OK) {
@@ -183,14 +209,16 @@ static int mfis_suspend_noirq(struct device *dev)
 			}
 #if RTPM_PF_CUSTOM
 			dev_name = domain_name;
-			ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
+			ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 			if (!ret) {
-				ret = pm_runtime_put_sync(dev_img);
-				if (!ret) {
-				} else {
-					up(&a3r_power_sem);
-					return -1;
-				}
+				for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
+					ret = 	pm_runtime_put_sync(dev_img[i]);			/* #MU2SYS921 */
+					if (!ret) {
+					} else {
+						up(&a3r_power_sem);
+						return -1;
+					}
+				}														/* #MU2SYS921 */
 			} else {
 				up(&a3r_power_sem);
 				return -1;
@@ -223,8 +251,9 @@ static int mfis_resume_noirq(struct device *dev)
 
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img;
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
+	unsigned int i;									/* #MU2SYS921 */
 #endif
 
 	if (down_interruptible(&a3r_power_sem)) {
@@ -246,13 +275,15 @@ static int mfis_resume_noirq(struct device *dev)
 
 #if RTPM_PF_CUSTOM
 		dev_name = domain_name;
-		ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
+		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 		if (!ret) {
-			ret = pm_runtime_get_sync(dev_img);
-			if (0 > ret) {
-				up(&a3r_power_sem);
-				return -1;
-			}
+			for (i=0; i<dev_cnt; i++){								/* #MU2SYS921 */
+				ret = pm_runtime_get_sync(dev_img[i]);				/* #MU2SYS921 */
+				if (0 > ret) {
+					up(&a3r_power_sem);
+					return -1;
+				}
+			}														/* #MU2SYS921 */
 		} else {
 			up(&a3r_power_sem);
 			return -1;
@@ -324,8 +355,9 @@ static int mfis_drv_probe(struct platform_device *pdev)
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img;
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
+	unsigned int i;									/* #MU2SYS921 */
 #endif
 #if EARLYSUSPEND_STANDBY
 	struct mfis_early_suspend_tbl *p_tbl;
@@ -352,12 +384,14 @@ static int mfis_drv_probe(struct platform_device *pdev)
 
 #if RTPM_PF_CUSTOM
 	dev_name = domain_name;
-	ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
+	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 	if (!ret) {
-		ret = pm_runtime_get_sync(dev_img);
-		if (0 > ret) {
-			return -1;
-		}
+		for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
+			ret = pm_runtime_get_sync(dev_img[i]);				/* #MU2SYS921 */
+			if (0 > ret) {
+				return -1;
+			}
+		}														/* #MU2SYS921 */
 	} else {
 		return -1;
 	}
@@ -410,8 +444,9 @@ static int mfis_drv_remove(struct platform_device *pdev)
 	int ret = -1;
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img;
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
+	unsigned int i;									/* #MU2SYS921 */
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -422,13 +457,15 @@ static int mfis_drv_remove(struct platform_device *pdev)
 
 #if RTPM_PF_CUSTOM
 	dev_name = domain_name;
-	ret = power_domain_devices(dev_name, &dev_img, &dev_cnt);
+	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 	if (!ret) {
-		ret = pm_runtime_put_sync(dev_img);
-		if (!ret) {
-		} else {
-			return -1;
-		}
+		for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
+			ret = 	pm_runtime_put_sync(dev_img[i]);			/* #MU2SYS921 */
+			if (!ret) {
+			} else {
+				return -1;
+			}
+		}														/* #MU2SYS921 */
 	}
 
 #endif

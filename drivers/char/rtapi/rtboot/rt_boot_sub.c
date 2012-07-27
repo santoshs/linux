@@ -335,9 +335,11 @@ static int set_screen_data(unsigned int disp_addr)
 	}
 	screen[0].height = SCREEN0_HEIGHT;
 	screen[0].width  = SCREEN0_WIDTH;
+	screen[0].stride = SCREEN0_STRIDE;
 	screen[0].mode   = SCREEN0_MODE;
 	screen[1].height = SCREEN1_HEIGHT;
 	screen[1].width  = SCREEN1_WIDTH;
+	screen[1].stride = SCREEN1_STRIDE;
 	screen[1].mode   = SCREEN1_MODE;
 
 	memcpy_toio(addr, &screen, sizeof(screen));

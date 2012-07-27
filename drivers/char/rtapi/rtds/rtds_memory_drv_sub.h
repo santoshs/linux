@@ -22,16 +22,16 @@
 
 /* ******************************* CONSTANTS ******************************** */
 /* CACHE Parameters */
-#define RTDS_MEM_CACHE_MASK		(0xFFFFFFB3)
-#define RTDS_MEM_WRITE_BACK		(0xC)
-#define RTDS_MEM_WRITE_THROUGH	(0x8)
-#define RTDS_MEM_NONCACHE		(0x0)
-#define RTDS_MEM_BUF_NONCACHE	(0x4)
+#define RTDS_MEM_CACHE_MASK		(~L_PTE_MT_MASK)
+#define RTDS_MEM_WRITE_BACK		(L_PTE_MT_WRITEBACK)
+#define RTDS_MEM_WRITE_THROUGH	(L_PTE_MT_WRITETHROUGH)
+#define RTDS_MEM_NONCACHE		(L_PTE_MT_BUFFERABLE)
+#define RTDS_MEM_BUF_NONCACHE	(L_PTE_MT_WRITEALLOC)
 
-#define RTDS_MEMORY_PROTECT_WB	(0x183 | RTDS_MEM_WRITE_BACK)
-#define RTDS_MEMORY_PROTECT_WT	(0x183 | RTDS_MEM_WRITE_THROUGH)
-#define RTDS_MEMORY_PROTECT_NC	(0x183 | RTDS_MEM_NONCACHE)
-#define RTDS_MEMORY_PROTECT_NCB	(0x183 | RTDS_MEM_BUF_NONCACHE)
+#define RTDS_MEMORY_PROTECT_WB	((PAGE_KERNEL & RTDS_MEM_CACHE_MASK) | RTDS_MEM_WRITE_BACK)
+#define RTDS_MEMORY_PROTECT_WT	((PAGE_KERNEL & RTDS_MEM_CACHE_MASK) | RTDS_MEM_WRITE_THROUGH)
+#define RTDS_MEMORY_PROTECT_NC	((PAGE_KERNEL & RTDS_MEM_CACHE_MASK) | RTDS_MEM_NONCACHE)
+#define RTDS_MEMORY_PROTECT_NCB	((PAGE_KERNEL & RTDS_MEM_CACHE_MASK) | RTDS_MEM_BUF_NONCACHE)
 
 /* triger identifier */
 enum {
@@ -110,7 +110,7 @@ typedef struct {
 	struct list_head	queue_header;	/* queue head */
 	unsigned int		mem_size;		/* Memory size */
 	struct page			*page;			/* page descriptor */
-	unsigned int		app_addr;		/* App address */
+	unsigned long		app_addr;		/* App address */
 	unsigned long		app_cache;		/* App cahce type */
 	struct page			**pages;		/* page descriptor */
 	struct task_struct	*task_info;		/* Task info */
@@ -309,7 +309,8 @@ void rtds_memory_drv_close_vma(
 
 int rtds_memory_create_page_frame(
 	unsigned int	page_num,
-	struct page		**pages
+	struct page		**pages,
+	rtds_memory_create_queue	*create_list
 );
 
 void rtds_memory_do_unmap(
@@ -324,7 +325,8 @@ void rtds_memory_flush_mmu(
 
 void rtds_memory_free_page_frame(
 	unsigned int		page_num,
-	struct page			**pages
+	struct page			**pages,
+	rtds_memory_create_queue	*create_list
 );
 
 int rtds_memory_do_map(
@@ -434,5 +436,14 @@ void rtds_memory_close_apmem(
 	unsigned int		app_addr,
 	unsigned int		mem_size
 );
+
+void rtds_memory_leak_check_page_frame(
+		void
+);
+
+void rtds_memory_leak_check_mpro(
+		void
+);
+
 
 #endif /* __RTDS_MEMORY_DRV_SUB_H__ */

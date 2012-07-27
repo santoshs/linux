@@ -486,8 +486,11 @@ int screen_display_start_hdmi(screen_disp_start_hdmi *start_hdmi)
 		 (RT_DISPLAY_1920_1080P60	!= start_hdmi->format) &&
 		 (RT_DISPLAY_1920_1080P50	!= start_hdmi->format) &&
 		 (RT_DISPLAY_720_480P60A43	!= start_hdmi->format) &&
-		 (RT_DISPLAY_720_576P50A43	!= start_hdmi->format))
+		 (RT_DISPLAY_720_576P50A43	!= start_hdmi->format) &&
 /* #MU2DSP582 mod -E- */
+/* #MU2DSP939 add -S- */
+		 (RT_DISPLAY_USE_IF_PARAM	!= start_hdmi->format))
+/* #MU2DSP939 add -E- */
 	   ) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] \n",
@@ -616,8 +619,8 @@ int screen_display_read_dsi_short_packet(screen_disp_read_dsi_short *read_dsi_s)
 /*	if (NULL == read_dsi_s->handle) */
 	if ((NULL == read_dsi_s->handle) ||
 		((RT_DISPLAY_LCD1 != read_dsi_s->output_mode) &&
-		(RT_DISPLAY_LCD2  != read_dsi_s->output_mode) &&	/* #MU2DSP852 add */
-		(RT_DISPLAY_HDMI  != read_dsi_s->output_mode))
+		 (RT_DISPLAY_LCD2 != read_dsi_s->output_mode) &&	/* #MU2DSP852 add */
+		 (RT_DISPLAY_HDMI != read_dsi_s->output_mode))
 	   ) {
 /* #MU2DSP582 mod -E- */
 		MSG_ERROR(
@@ -699,8 +702,8 @@ int screen_display_write_dsi_short_packet(screen_disp_write_dsi_short *write_dsi
 /*	if (NULL == write_dsi_s->handle) */
 	if ((NULL == write_dsi_s->handle) ||
 		((RT_DISPLAY_LCD1 != write_dsi_s->output_mode) &&
-		(RT_DISPLAY_LCD2  != write_dsi_s->output_mode) &&	/* #MU2DSP852 add */
-		(RT_DISPLAY_HDMI  != write_dsi_s->output_mode))
+		 (RT_DISPLAY_LCD2 != write_dsi_s->output_mode) &&	/* #MU2DSP852 add */
+		 (RT_DISPLAY_HDMI != write_dsi_s->output_mode))
 	   ) {
 /* #MU2DSP582 mod -E- */
 		MSG_ERROR(
@@ -988,38 +991,40 @@ EXPORT_SYMBOL(screen_display_write_dsi_long_packet);
 int screen_display_set_lcd_if_parameters(screen_disp_set_lcd_if_param *set_lcd_if_param)
 {
 	int result;
-	iccom_drv_cmd_data      cmd_array[2];
+	iccom_drv_cmd_data      cmd_array[3];
 	iccom_drv_send_cmd_array_param iccom_send_cmd_array;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 	if (NULL == set_lcd_if_param) {
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
-	MSG_MED("[RTAPIK]    |aInfo            [0x%08X]\n", (unsigned int)set_lcd_if_param->handle);
-	MSG_MED("[RTAPIK]    |aSetRegisterData [0x%08X]\n", (unsigned int)set_lcd_if_param->lcd_if_param);
-	MSG_MED("[RTAPIK]    |aMaskRegisterData[0x%08X]\n", (unsigned int)set_lcd_if_param->lcd_if_param_mask);
+	MSG_MED("[RTAPIK]    |handle            [0x%08X]\n", (unsigned int)set_lcd_if_param->handle);
+	MSG_MED("[RTAPIK]    |lcd_if_param      [0x%08X]\n", (unsigned int)set_lcd_if_param->lcd_if_param);
+	MSG_MED("[RTAPIK]    |lcd_if_param_mask [0x%08X]\n", (unsigned int)set_lcd_if_param->lcd_if_param_mask);
 
 	if ((NULL == set_lcd_if_param->handle) ||
 		(NULL == set_lcd_if_param->lcd_if_param) ||
 		(NULL == set_lcd_if_param->lcd_if_param_mask)
 	   ) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] aInfo NULL error\n",
+		"[RTAPIK] ERR|[%d] address NULL error\n",
 		__LINE__);
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-	cmd_array[0].size	= sizeof(screen_disp_lcd_if);
-	cmd_array[0].data	= (unsigned int *)set_lcd_if_param->lcd_if_param;
+	cmd_array[0].size	= sizeof(unsigned int);
+	cmd_array[0].data	= (unsigned int *)&(set_lcd_if_param->port_no);
 	cmd_array[1].size	= sizeof(screen_disp_lcd_if);
-	cmd_array[1].data	= (unsigned int *)set_lcd_if_param->lcd_if_param_mask;
+	cmd_array[1].data	= (unsigned int *)set_lcd_if_param->lcd_if_param;
+	cmd_array[2].size	= sizeof(screen_disp_lcd_if);
+	cmd_array[2].data	= (unsigned int *)set_lcd_if_param->lcd_if_param_mask;
 
 	iccom_send_cmd_array.handle          = ((screen_disp_handle *)set_lcd_if_param->handle)->handle;
 	iccom_send_cmd_array.task_id         = TASK_DISPLAY;
 	iccom_send_cmd_array.function_id     = EVENT_DISPLAY_SETLCDIFPARAMETERS;
 	iccom_send_cmd_array.send_mode       = ICCOM_DRV_SYNC;
-	iccom_send_cmd_array.send_num        = 2;
-	iccom_send_cmd_array.send_data = cmd_array;
+	iccom_send_cmd_array.send_num        = sizeof(cmd_array)/sizeof(cmd_array[0]);
+	iccom_send_cmd_array.send_data       = cmd_array;
 	iccom_send_cmd_array.recv_size       = 0;
 	iccom_send_cmd_array.recv_data       = NULL;
 
@@ -1049,8 +1054,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 	system_mem_rt_map       sys_rt_map;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
-	if (NULL == address)
-	{
+	if (NULL == address) {
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 	MSG_MED("[RTAPIK]    |handle       [0x%08X]\n", (unsigned int)address->handle);
@@ -1062,8 +1066,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 		 (RT_DISPLAY_LCD1 != address->output_mode) ||
 		 (0 == address->address) ||
 		 (0 == address->size)
-		)
-	{
+		) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] param error\n", __LINE__);
 		return SMAP_LIB_DISPLAY_PARAERR;
@@ -1074,8 +1077,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 	sys_rt_map.map_size  = address->size;
 
 	result = system_memory_rt_map(&sys_rt_map);
-	if (SMAP_LIB_MEMORY_OK != result)
-	{
+	if (SMAP_LIB_MEMORY_OK != result) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] system_memory_rt_map() ret = [%d]\n",
 		__LINE__,
@@ -1083,8 +1085,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 		return result;
 	}
 
-	if (0 == sys_rt_map.rtaddr)
-	{
+	if (0 == sys_rt_map.rtaddr) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] rtaddr NULL\n", __LINE__);
 		return SMAP_LIB_DISPLAY_NG;
@@ -1105,8 +1106,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 	iccom_send_cmd_array.recv_data       = NULL;
 
 	result = iccom_drv_send_command_array(&iccom_send_cmd_array);
-	if (SMAP_OK != result)
-	{
+	if (SMAP_OK != result) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] iccom_drv_send_command_array() ret = [%d]\n",
 		__LINE__,
@@ -1123,6 +1123,67 @@ int screen_display_set_address(screen_disp_set_address *address)
 	return SMAP_LIB_DISPLAY_OK;
 }
 EXPORT_SYMBOL(screen_display_set_address);
+
+/* #MU2DSP939 add -S- */
+int screen_display_set_hdmi_if_parameters(screen_disp_set_hdmi_if_param *set_hdmi_if_param)
+{
+	int result;
+	iccom_drv_cmd_data      cmd_array[3];
+	iccom_drv_send_cmd_array_param iccom_send_cmd_array;
+
+	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	if (NULL == set_hdmi_if_param) {
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+	MSG_MED("[RTAPIK]    |handle          [0x%08X]\n", (unsigned int)set_hdmi_if_param->handle);
+	MSG_MED("[RTAPIK]    |ipmode          [%d]\n", set_hdmi_if_param->ipmode);
+	MSG_MED("[RTAPIK]    |aspect          [0x%08X]\n", (unsigned int)set_hdmi_if_param->aspect);
+	MSG_MED("[RTAPIK]    |hdmi_if_param   [0x%08X]\n", (unsigned int)set_hdmi_if_param->hdmi_if_param);
+
+	if ((NULL == set_hdmi_if_param->handle) ||
+		(NULL == set_hdmi_if_param->aspect) ||
+		(NULL == set_hdmi_if_param->hdmi_if_param)
+	   ) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] address NULL error\n",
+		__LINE__);
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+
+	cmd_array[0].size	= sizeof(set_hdmi_if_param->ipmode);
+	cmd_array[0].data	= (unsigned int *)&(set_hdmi_if_param->ipmode);
+	cmd_array[1].size	= sizeof(screen_disp_aspect);
+	cmd_array[1].data	= (unsigned int *)set_hdmi_if_param->aspect;
+	cmd_array[2].size	= sizeof(screen_disp_hdmi_if);
+	cmd_array[2].data	= (unsigned int *)set_hdmi_if_param->hdmi_if_param;
+
+	iccom_send_cmd_array.handle          = ((screen_disp_handle *)set_hdmi_if_param->handle)->handle;
+	iccom_send_cmd_array.task_id         = TASK_DISPLAY2;
+	iccom_send_cmd_array.function_id     = EVENT_DISPLAY_SETHDMIIFPARAMETERS;
+	iccom_send_cmd_array.send_mode       = ICCOM_DRV_SYNC;
+	iccom_send_cmd_array.send_num        = sizeof(cmd_array)/sizeof(cmd_array[0]);
+	iccom_send_cmd_array.send_data       = cmd_array;
+	iccom_send_cmd_array.recv_size       = 0;
+	iccom_send_cmd_array.recv_data       = NULL;
+
+	result = iccom_drv_send_command_array(&iccom_send_cmd_array);
+	if (SMAP_OK != result) {
+			MSG_ERROR(
+			"[RTAPIK] ERR|[%d] iccom_drv_send_command_array() ret = [%d]\n",
+			__LINE__,
+			result);
+			return result;
+	}
+
+	MSG_HIGH(
+	"[RTAPIK] OUT|[%s][%d] ret = [%d]\n",
+	__func__,
+	__LINE__,
+	SMAP_LIB_DISPLAY_OK);
+	return SMAP_LIB_DISPLAY_OK;
+}
+EXPORT_SYMBOL(screen_display_set_hdmi_if_parameters);
+/* #MU2DSP939 add -E- */
 
 void screen_display_delete(screen_disp_delete *disp_delete)
 {

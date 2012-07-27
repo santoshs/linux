@@ -704,7 +704,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 
 	/* Output(C0) */
 	if (NULL != grap_blend->output_image.address_c0) {
-		if (NULL != grap_blend->output_image.apmem_handle) {
+		if (NULL != grap_blend->output_image.apmem_handle_c0) {
 			ap_get_apmem_id.handle       = grap_blend->handle;
 			ap_get_apmem_id.apmem_handle = grap_blend->output_image.apmem_handle_c0;
 
@@ -735,7 +735,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 
 	/* Output(C1) */
 	if (NULL != grap_blend->output_image.address_c1) {
-		if (NULL != grap_blend->output_image.apmem_handle) {
+		if (NULL != grap_blend->output_image.apmem_handle_c1) {
 			ap_get_apmem_id.handle       = grap_blend->handle;
 			ap_get_apmem_id.apmem_handle = grap_blend->output_image.apmem_handle_c1;
 

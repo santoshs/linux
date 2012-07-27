@@ -121,6 +121,7 @@ long iccom_ioctl(
 		if (!access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd))) {
 			MSG_ERROR("[ICCOMK]ERR| parameter error.\n");
 			ret = SMAP_PARA_NG;
+			goto out;
 		}
 	}
 
@@ -364,6 +365,7 @@ long iccom_ioctl(
 			break;
 		}
 	}
+out:
 	MSG_MED("[ICCOMK]OUT|[%s] ret = %d\n", __func__, ret);
 	return ret;
 }
@@ -473,7 +475,7 @@ int iccom_init_module(
 
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	/* initialize standby function */
-	iccom_rtctl_initilize();
+	ret = iccom_rtctl_initilize();
 	if (0 != ret) {
 		MSG_ERROR("[ICCOMK]ERR| iccom_rtctl_initialize failed ret[%d]\n", ret);
 		ret = misc_deregister(&g_iccom_device);
