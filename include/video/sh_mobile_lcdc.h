@@ -133,6 +133,8 @@ struct fb_panel_func {
 	int (*panel_init)(unsigned int mem_size);
 	int (*panel_suspend)(void);
 	int (*panel_resume)(void);
+	int (*panel_probe)(struct fb_info *info);
+	int (*panel_remove)(struct fb_info *info);
 	struct fb_panel_info (*panel_info)(void);
 };
 
@@ -142,6 +144,12 @@ struct fb_panel_info {
 	unsigned int size_width;
 	unsigned int size_height;
 	unsigned int buff_address;
+};
+
+struct fb_hdmi_func {
+	int (*hdmi_set)(unsigned int format);
+	int (*hdmi_suspend)(void);
+	int (*hdmi_resume)(void);
 };
 
 #define IOC_SH_MOBILE_FB_MAGIC 'S'
@@ -157,6 +165,7 @@ extern int sh_mobile_lcdc_refresh(unsigned short set_state,
 				  unsigned short output_mode);
 
 extern struct fb_panel_func r_mobile_panel_func(int panel);
+extern struct fb_hdmi_func r_mobile_hdmi_func(void);
 
 /*extern struct semaphore   sh_mobile_sem_hdmi;*/
 

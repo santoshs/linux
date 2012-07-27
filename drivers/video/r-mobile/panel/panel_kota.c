@@ -39,6 +39,8 @@
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	48
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	87
 
+#define R_MOBILE_IRQNO		33
+
 #define LCD_DSITCKCR		0x00000007
 #define LCD_DSI0PCKCR		0x00000014
 #define LCD_DSI0PHYCR		0x2A83800D
@@ -147,12 +149,13 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 	LCD_MASK_MLDDCKPAT2R
 };
 
-static int kota_dsi_startsetting(void)
+static int kota_dsi_startsetting(int draw_flag)
 {
 
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_write_dsi_long write_dsi_l;
+	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	unsigned char ubSendData044[] = {0x44, 0x03, 0x2C};
 	unsigned char ubSendData035[] = {0x35, 0x00 };
@@ -236,6 +239,25 @@ static int kota_dsi_startsetting(void)
 		return -1;
 	}
 
+	if (draw_flag) {
+		disp_draw.handle = screen_handle;
+		disp_draw.output_mode = RT_DISPLAY_LCD1;
+		disp_draw.draw_rect.x = 0;
+		disp_draw.draw_rect.y = 0;
+		disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
+		disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+		disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+		disp_draw.buffer_offset = 0;
+		disp_draw.rotate = RT_DISPLAY_ROTATE_270;
+		ret = screen_display_draw(&disp_draw);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "screen_display_draw err!\n");
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
+	}
+
 	write_dsi_s.handle      = screen_handle;
 	write_dsi_s.data_id     = 0x05;
 	write_dsi_s.reg_address = 0x29;
@@ -276,6 +298,7 @@ static int kota_panel_init(unsigned int mem_size)
 	gpio_direction_output(GPIO_PORT31, 1);
 
 	set_lcd_if_param.handle = screen_handle;
+	set_lcd_if_param.port_no = R_MOBILE_IRQNO;
 	set_lcd_if_param.lcd_if_param = &r_mobile_lcd_if_param;
 	set_lcd_if_param.lcd_if_param_mask = &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
@@ -311,7 +334,7 @@ static int kota_panel_init(unsigned int mem_size)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
-	ret = kota_dsi_startsetting();
+	ret = kota_dsi_startsetting(0);
 
 	return ret;
 }
@@ -362,7 +385,7 @@ static int kota_panel_resume(void)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
-	ret = kota_dsi_startsetting();
+	ret = kota_dsi_startsetting(1);
 
 	return ret;
 }
@@ -388,6 +411,8 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 		panel_func.panel_suspend = kota_panel_suspend;
 		panel_func.panel_resume  = kota_panel_resume;
 		panel_func.panel_info    = kota_panel_info;
+		panel_func.panel_probe   = NULL;
+		panel_func.panel_remove  = NULL;
 	}
 
 	return panel_func;

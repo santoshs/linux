@@ -39,7 +39,6 @@
 #include <rtapi/system_memory.h>
 
 #include <linux/sh_mobile_composer.h>
-#include <video/sh_mobile_lcdc.h>
 
 static int debug;    /* default debug level */
 
@@ -55,7 +54,7 @@ static int debug;    /* default debug level */
 /*#define   DEBUG_DUMP_IMAGE_ADDRESS*/  /* dump image data */
 
 /******************************************************/
-/* define protptype                                   */
+/* define prototype                                   */
 /******************************************************/
 static ssize_t core_read(struct file *filp, char __user *buf, \
 		size_t sz, loff_t *off);
@@ -5933,7 +5932,7 @@ unsigned char *sh_mobile_composer_phy_change_rtaddr(unsigned long p_adr)
 }
 EXPORT_SYMBOL(sh_mobile_composer_phy_change_rtaddr);
 
-static int  composer_covert_queueaddress(screen_grap_image_blend *blend)
+static int  composer_convert_queueaddress(screen_grap_image_blend *blend)
 {
 	unsigned char *rt_addr, *phys_addr;
 	int rc = CMP_NG;
@@ -6366,10 +6365,10 @@ int sh_mobile_composer_queue(
 	}
 
 	/* address translation */
-	{
+	if (rh->data.use_gpu_composition) {
 		screen_grap_image_blend *blend = &rh->data.blend;
 
-		if (composer_covert_queueaddress(blend) != CMP_OK) {
+		if (composer_convert_queueaddress(blend) != CMP_OK) {
 			printk_err2("address translation failed.");
 			rh->active = 0;
 			goto err_exit;
