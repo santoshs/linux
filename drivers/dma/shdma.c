@@ -541,7 +541,7 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	spin_unlock_irq(&sh_chan->desc_lock);
 
 	if (descs > 0)
-		pm_runtime_put(sh_chan->dev);
+		pm_runtime_put_sync(sh_chan->dev);
 
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);

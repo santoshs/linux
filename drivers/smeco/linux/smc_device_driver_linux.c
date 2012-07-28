@@ -838,12 +838,43 @@ static int smc_net_platform_device_remove(struct platform_device* platform_devic
     return ret_val;
 }
 
+#ifdef CONFIG_PM
+static int smc_platform_device_driver_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	
+	__raw_writel(0x00000001, 0xe61c2414); //PORT_SET
+	__raw_writel(0x00000002, 0xe61c1980); //CONFIG_0 - 1 = low level detect, 2 = high level detect
+	__raw_writel(0x00000001, 0xe61c1888); //WAKEN_SET0
+	
+	return 0;
+}
+
+static int smc_platform_device_driver_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	
+	__raw_writel(0x00000000, 0xe61c1980); //CONFIG_02 - Disable Interrupt
+	__raw_writel(0x00000001, 0xe61c1884); //WAKEN_STS0 - Disable WakeUp Request Enable
+
+	return 0;
+}
+
+static const struct dev_pm_ops smc_platform_device_driver_pm_ops = {
+	.suspend	= smc_platform_device_driver_suspend,
+	.resume		= smc_platform_device_driver_resume,
+};
+#endif
+
 static struct platform_driver smc_platform_device_driver = {
     .probe    = smc_net_platform_device_probe,
     .remove   = smc_net_platform_device_remove,
     .driver   = {
         .name = SMC_PLATFORM_DRIVER_NAME,
         .owner = THIS_MODULE,
+#ifdef CONFIG_PM
+		.pm	= &smc_platform_device_driver_pm_ops,
+#endif
     },
 
 };
