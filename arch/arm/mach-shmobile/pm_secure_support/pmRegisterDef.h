@@ -409,7 +409,7 @@
 #define CONFIG_12		0x01B0
 #define CONFIG_13		0x01B4
 #define CONFIG_14		0x01B8
-#define CONFIG_15		0x003C
+#define CONFIG_15		0x01BC
 #define CONFIG_16		0x01C0
 #define CONFIG_17		0x01C4
 #define CONFIG_18		0x01C8

@@ -40,7 +40,10 @@ Description :  File created
 #include "smc.h"
 #include "smc_trace.h"
 #include <linux/random.h>
+#include <linux/wakelock.h>
 #include <asm/io.h>
+
+
 
     /* INTC-BB interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id );
@@ -49,10 +52,27 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 
 static smc_lock_t* g_local_lock_sleep_control           = NULL;
 
+static struct wake_lock* wakelock;
+static uint8_t wake_lock_initialized = FALSE;
+
 static inline smc_lock_t* get_local_lock_sleep_control(void)
 {
     if( g_local_lock_sleep_control == NULL ) g_local_lock_sleep_control = smc_lock_create();
     return g_local_lock_sleep_control;
+}
+
+static inline struct wake_lock* get_wake_lock()
+{
+    if( wakelock==NULL )
+    {
+        SMC_TRACE_PRINTF_ALWAYS("get_wake_lock: initialize");
+        wakelock = (struct wake_lock*)SMC_MALLOC( sizeof( struct wake_lock ) );
+
+        wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, "smc_wakelock");
+        wake_lock_initialized = TRUE;
+     }
+
+    return wakelock;
 }
 
 /* =============================================================
@@ -126,6 +146,8 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     smc_signal_t*         signal         = NULL;
     int                   irq_spi        = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
+    wake_lock( get_wake_lock() );
+
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: %d -> SPI %d, Device 0x%08X", irq, irq_spi, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
@@ -198,6 +220,9 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
     }
     */
+
+//	wake_unlock( get_wake_lock() );
+	wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(2000) );
 
     return IRQ_HANDLED;
 }
@@ -434,7 +459,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                 else
                 {
                     SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: request_irq SUCCESS", (uint32_t)signal);
-                }
+                }                
             }
             else
             {
