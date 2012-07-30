@@ -109,25 +109,6 @@ static irqreturn_t tusb_id_irq(int irq, void *_tusb1211)
 static struct class *tusb_class;
 static struct tusb1211 *xceiver;
 
-static void usbhs_module_reset(struct tusb1211 *tusb)
-{
-	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
-	__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
-	udelay(50); /* wait for at least one EXTALR cycle */
-	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
-	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
-
-	/* wait for SuspendM bit being cleared by hardware */
-	while (!(otg_read_reg(&tusb->otg, PHYFUNCTR) & (1 << 14))) /* SUSMON */
-			;
-
-	otg_io_set_bits(&tusb->otg, PRESET, PHYFUNCTR);
-	while (otg_read_reg(&tusb->otg, PHYFUNCTR) & (1 << 13))
-			;
-	otg_io_set_bits(&tusb->otg, IDPUUP, PHYOTGCTR);
-	msleep(50);
-}
-
 static void usb_host_port_power(struct tusb1211 *tusb)
 {
 #ifdef CONFIG_REGULATOR_TPS80031
@@ -143,7 +124,7 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 #ifdef CONFIG_PMIC_INTERFACE 
 		disable_irq_nosync(595);
 #endif
-		usbhs_module_reset(tusb);
+		tusb->pdata->module_start();
 		otg_io_set_bits(&tusb->otg, USBE, SYSCFG);
 
 		otg_io_set_bits(&tusb->otg, BEMPE | NRDYE | BRDYE, INTENB0);
@@ -180,7 +161,7 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 #ifdef CONFIG_USB_OTG_INTERFACE
 		pmic_set_vbus(0);
 #endif
-			usbhs_module_reset(tusb);
+		tusb->pdata->module_start();
 #ifdef CONFIG_MFD_TPS80031
 		enable_irq(602);
 #endif
@@ -1042,6 +1023,7 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 	tusb->otg.set_suspend = tusb1211_set_suspend;
 
 	tusb->otg.dev = &pdev->dev;
+	tusb->pdata = pdev->dev.platform_data;
 	otg_set_transceiver(&tusb->otg);
 
 	tusb->vbus_enable = 0;

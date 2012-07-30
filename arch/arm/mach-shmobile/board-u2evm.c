@@ -63,6 +63,9 @@
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h> 
 #endif
+#ifdef CONFIG_USB_OTG
+#include <linux/usb/tusb1211.h>
+#endif
 
 #define CLASHLOG_R_LOCAL_VER_LOCATE		0x4C801000
 #define CLASHLOG_R_LOCAL_VER_LENGTH       	32
@@ -390,6 +393,10 @@ static struct platform_device usb_host_device = {
 #endif /*CONFIG_USB_R8A66597_HCD*/
 #ifdef CONFIG_USB_OTG
 /*TUSB1211 OTG*/
+static struct tusb1211_platform_data tusb1211_data = {
+	.module_start = usbhs_module_reset,
+};
+
 static struct resource tusb1211_resource[] = {
 	[0] = {
 		.name	= "tusb1211_resource",
@@ -407,6 +414,9 @@ static struct resource tusb1211_resource[] = {
 static struct platform_device tusb1211_device = {
 	.name = "tusb1211_driver",
 	.id = 0,
+	.dev = {
+		.platform_data = &tusb1211_data,
+	},
 	.num_resources = ARRAY_SIZE (tusb1211_resource),
 	.resource = tusb1211_resource,
 };
