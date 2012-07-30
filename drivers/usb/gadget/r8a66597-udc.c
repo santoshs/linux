@@ -1282,8 +1282,6 @@ __acquires(r8a66597->lock)
 	req->req.complete(&ep->ep, &req->req);
 	spin_lock(&ep->r8a66597->lock);
 
-	unsuppress_clocks_change();
-
 	if (restart) {
 		req = get_request_from_ep(ep);
 		if (ep->desc)
@@ -1507,8 +1505,6 @@ static void start_dma(struct r8a66597 *r8a66597,
 
 	if (req->req.length == 0)
 		return;
-
-	suppress_clocks_change(0);
 
 	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
 
