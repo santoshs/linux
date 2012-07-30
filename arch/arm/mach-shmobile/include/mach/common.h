@@ -70,5 +70,6 @@ extern unsigned int r8a73734_get_core_count(void);
 extern void r8a73734_secondary_init(unsigned int cpu);
 extern int r8a73734_boot_secondary(unsigned int cpu);
 extern void r8a73734_smp_prepare_cpus(void);
-
+extern int r8a73734_smp_cpu_die (unsigned int cpu);
+extern int shmobile_platform_cpu_die(unsigned int cpu);
 #endif /* __ARCH_MACH_COMMON_H */
