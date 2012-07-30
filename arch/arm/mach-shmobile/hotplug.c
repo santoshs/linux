@@ -18,7 +18,7 @@
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
 #include <mach/pm.h>
-extern void jump_systemsuspend(void);
+#include <mach/common.h>
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
 
@@ -38,7 +38,8 @@ void platform_cpu_die(unsigned int cpu)
 		 * cpu state is "shutdown mode" will transition
 		 * in this function.
 		 */
-		jump_systemsuspend();
+		//jump_systemsuspend();
+		shmobile_platform_cpu_die(cpu);
 		return;
 	}
 #endif /* CONFIG_SUSPEND */

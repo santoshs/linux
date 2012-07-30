@@ -28,6 +28,9 @@
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
 #include <mach/r8a73734.h>
+#include <linux/suspend.h>
+#include <mach/pm.h>
+#include <linux/errno.h>
 
 #define WUPCR		IO_ADDRESS(0xe6151010)
 #define SRESCR		IO_ADDRESS(0xe6151018)
@@ -130,3 +133,14 @@ void __init r8a73734_smp_prepare_cpus(void)
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (0 * 8));
 }
+extern void jump_systemsuspend(void);
+int r8a73734_smp_cpu_die (unsigned int cpu)
+{
+	// Disable gic cpu_if
+        __raw_writel(0, IO_ADDRESS (0xf0000100 + GIC_CPU_CTRL));
+ 
+        //Cpu state is "shutdown mode" will transition in this function.
+        jump_systemsuspend();
+	return 0;
+}
+
