@@ -53,7 +53,6 @@
 #define PMIC_ERROR_MSG(...) while(0)
 #endif
 
-static void __iomem *virt_addr   = NULL;
 static struct timer_list bat_timer;
 static void tps80032_battery_timer_handler(unsigned long data);
 static short BAT_VOLT_THRESHOLD[100];
@@ -5247,6 +5246,51 @@ err_free_dev:
 }
 
 /*
+ * tps80032_init_usb_id: Init value for USB ID interrupt
+ * return: void
+ */
+void tps80032_init_usb_id(void)
+{
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	struct tps80032_irq_data tps80032_irqs_tmp[] = {
+		[TPS80032_INT_PWRON]			= TPS80032_IRQ(A, 0),
+		[TPS80032_INT_RPWRON]			= TPS80032_IRQ(A, 1),
+		[TPS80032_INT_SYS_VLOW]			= TPS80032_IRQ(A, 2),
+		[TPS80032_INT_RTC_ALARM]		= TPS80032_IRQ(A, 3),
+		[TPS80032_INT_RTC_PERIOD]		= TPS80032_IRQ(A, 4),
+		[TPS80032_INT_HOT_DIE]			= TPS80032_IRQ(A, 5),
+		[TPS80032_INT_VXX_SHORT]		= TPS80032_IRQ(A, 6),
+		[TPS80032_INT_SPDURATION]		= TPS80032_IRQ(A, 7),
+		[TPS80032_INT_WATCHDOG]			= TPS80032_IRQ(B, 0),
+		[TPS80032_INT_BAT]				= TPS80032_IRQ(B, 1),
+		[TPS80032_INT_SIM]				= TPS80032_IRQ(B, 2),
+		[TPS80032_INT_MMC]				= TPS80032_IRQ(B, 3),
+		[TPS80032_INT_RES]				= TPS80032_IRQ(B, 4),
+		[TPS80032_INT_GPADC_RT]			= TPS80032_IRQ(B, 5),
+		[TPS80032_INT_GPADC_SW2_EOC]	= TPS80032_IRQ(B, 6),
+		[TPS80032_INT_CC_AUTOCAL]		= TPS80032_IRQ(B, 7),
+		[TPS80032_INT_ID_WKUP]			= TPS80032_IRQ(C, 0),
+		[TPS80032_INT_VBUSS_WKUP]		= TPS80032_IRQ(C, 1),
+		[TPS80032_INT_ID]				= TPS80032_IRQ(C, 2),
+		[TPS80032_INT_VBUS]				= TPS80032_IRQ(C, 3),
+		[TPS80032_INT_CHRG_CTRL]		= TPS80032_IRQ(C, 4),
+		[TPS80032_INT_EXT_CHRG]			= TPS80032_IRQ(C, 5),
+		[TPS80032_INT_INT_CHRG]			= TPS80032_IRQ(C, 6),
+		[TPS80032_INT_RES2]				= TPS80032_IRQ(C, 7),
+		[TPS80032_INT_BAT_TEMP_OVRANGE]	= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MBAT_TEMP,	BAT_TEMP),
+		[TPS80032_INT_BAT_REMOVED]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MBAT_REMOVED,	BAT_REMOVED),
+		[TPS80032_INT_VBUS_DET]			= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MVBUS_DET,	VBUS_DET),
+		[TPS80032_INT_VAC_DET]			= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MVAC_DET,	VAC_DET),
+		[TPS80032_INT_FAULT_WDG]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL,	MFAULT_WDG,	FAULT_WDG),
+		[TPS80032_INT_LINCH_GATED]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MLINCH_GATED,	LINCH_GATED),
+	};
+	
+	memcpy (&tps80032_irqs[0].mask_reg, &tps80032_irqs_tmp[0].mask_reg, sizeof (struct tps80032_irq_data)*13);
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+/*
  * tps80032_power_probe: probe function for power supply management
  * @client: The I2C client device.
  * @id: The I2C ID.
@@ -5334,13 +5378,16 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 
 	i2c_set_clientdata(client, data);
 
-	/*
+#ifdef PMIC_NON_VOLATILE_ENABLE
 	virt_addr = ioremap(MAP_BASE_NV + MAP_BASE_PMIC_NV, MAP_SIZE_PMIC_NV);
 	if (!virt_addr) {
 		ret = -ENOMEM;
 		goto err_ioremap_virt;
 	}
-	*/
+	
+	/* Init value for USB ID interrupt */
+	tps80032_init_usb_id();
+#endif
 
 	/* Register into PMIC interface */
 	ret = pmic_device_register(&client->dev,&tps80032_power_ops);
@@ -5379,7 +5426,9 @@ err_init_input_event:
 err_device_register:
 	iounmap(virt_addr);
 	virt_addr = NULL;
-/*err_ioremap_virt: */
+#ifdef PMIC_NON_VOLATILE_ENABLE
+err_ioremap_virt:
+#endif
 	destroy_workqueue(data->queue);
 err_workqueue_alloc:
 	kfree(data);
