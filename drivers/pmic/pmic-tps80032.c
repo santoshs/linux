@@ -4773,13 +4773,7 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 	if (0 > ret) {
 		return ret;
 	}
-	
-	/* Set state "OFF" in mode "SLEEP" for LDO6 */
-	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDO6_CFG_TRANS, CONST_LDO6_CFG_TRANS);
-	if (0 > ret) {
-		return ret;
-	}
-	
+
 	/* Turn off SMPS4 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_SMPS4_CFG_STATE, tps80032_check_state_valid(E_POWER_OFF));
 	if (0 > ret) {
@@ -5395,8 +5389,9 @@ err_workqueue_alloc:
 static int tps80032_power_remove(struct i2c_client *client)
 {
 	struct tps80032_data *data = i2c_get_clientdata(client);
+	struct tps80032_platform_data *pdata = client->dev.platform_data;
 
-	gpio_free(GPIO_PORT28);		/* free GPIO_PORT28 */
+	gpio_free(pdata->pin_gpio);		/* free GPIO_PORT28 */
 	free_irq(pint2irq(CONST_INT_ID),data);	/* free interrupt */
 	pmic_device_unregister(&client->dev);
 	destroy_workqueue(data->queue);

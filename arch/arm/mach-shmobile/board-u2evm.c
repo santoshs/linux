@@ -29,6 +29,7 @@
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
+#include <linux/pmic/pmic-tps80032.h>
 #endif
 
 #include <linux/mfd/tps80031.h>
@@ -115,6 +116,8 @@ static void crashlog_init_tmplog(void);
 	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
+#define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 static void gpio_pull(u32 addr, int type)
 {
@@ -1705,15 +1708,17 @@ static struct tps80031_rtc_platform_data rtc_data = {
 		.platform_data = &rtc_data,	\
 	}
 
-static struct tps80031_subdev_info tps80031_devs[] = {
+static struct tps80032_subdev_info tps80032_devs[] = {
 	TPS_RTC(),
 	TPS_REG(LDO5, ldo5),
 };
 
-static struct tps80031_platform_data tps_platform = {
-	.num_subdevs	= ARRAY_SIZE(tps80031_devs),
-	.subdevs	= tps80031_devs,
-	.irq_base	= ENT_TPS80031_IRQ_BASE,
+static struct tps80032_platform_data tps_platform = {
+	.pin_gpio	= GPIO_PORT28,
+	.pin_gpio_fn	= GPIO_PORT28,
+	.num_subdevs	= ARRAY_SIZE(tps80032_devs),
+	.subdevs	= tps80032_devs,
+	.irq_base	= ENT_TPS80032_IRQ_BASE,
 };
 
 static struct i2c_board_info __initdata i2c0_devices[] = {

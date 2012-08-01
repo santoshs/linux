@@ -60,6 +60,8 @@ struct tps80032_subdev_info {
 };
 
 struct tps80032_platform_data {
+	unsigned pin_gpio;
+	unsigned pin_gpio_fn;
 	int num_subdevs;
 	struct tps80032_subdev_info *subdevs;
 	int irq_base;
@@ -68,20 +70,6 @@ struct tps80032_platform_data {
 struct tps80032_rtc_platform_data {
 	int irq;
 	struct rtc_time time;
-};
-
-enum {
-	SLAVE_ID0 = 0,
-	SLAVE_ID1 = 1,
-	SLAVE_ID2 = 2,
-	SLAVE_ID3 = 3,
-};
-
-enum {
-	I2C_ID0_ADDR = 0x12,
-	I2C_ID1_ADDR = 0x48,
-	I2C_ID2_ADDR = 0x49,
-	I2C_ID3_ADDR = 0x4A,
 };
 
 enum {
