@@ -41,3 +41,8 @@ obj-$(CONFIG_SND_FSI_MAX98090)  += snd-soc-fsi-max98090.o
 obj-$(CONFIG_SND_FSI_WM1811)    += snd-soc-fsi-wm1811.o
 obj-$(CONFIG_SND_FSI_HDMI)	+= snd-soc-fsi-hdmi.o
 obj-$(CONFIG_SND_SIU_MIGOR)	+= snd-soc-migor.o
+
+snd-soc-audio-test-wm1811-objs	:= soundpath/TP/audio_test_r8a73734/audio_test_wm1811.o \
+									soundpath/TP/audio_test_r8a73734/audio_test_wrap_wm1811.o
+
+obj-$(CONFIG_SND_SOC_AUDIO_TEST_WM1811)	+= snd-soc-audio-test-wm1811.o

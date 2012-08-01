@@ -33,6 +33,10 @@ config SND_SOC_SH4_SIU
 	select SH_DMAE
 	select FW_LOADER
 
+config SND_SOC_AUDIO_TEST_WM1811
+	tristate
+        default m
+
 ##
 ## Boards
 ##
