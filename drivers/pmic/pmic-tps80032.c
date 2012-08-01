@@ -2722,7 +2722,7 @@ int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 	int offset, gain;
 	int ret_trim1, ret_trim2, ret_trim3, ret_trim4;
 	int sign_trim1, sign_trim2;
-	int result;
+	int result = 0;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
@@ -2784,8 +2784,10 @@ int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 
 	gain = 1 + ((d2 - d1) / (CONST_X2 - CONST_X1));
 	offset = d1 - (gain - 1) * CONST_X1;
-
-	result = (temp - offset) / gain;
+	
+	if (0 != gain) {
+		result = (temp - offset) / gain;
+	}
 	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -2810,7 +2812,8 @@ int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 	int ret_temp1, ret_temp2;
 	int ret_trim1, ret_trim2, ret_trim3, ret_trim4, ret_trim5, ret_trim6;
 	int sign_trim1, sign_trim2, sign_trim5, sign_trim6;
-	int offset, gain, result;
+	int offset, gain;
+	int result = 0;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
@@ -2898,7 +2901,9 @@ int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 	gain = 1 + ((d2 - d1) / (CONST_X2 - CONST_X1));
 	offset = d1 - (gain - 1) * CONST_X1;
 
-	result = (volt - offset) / gain;
+	if (0 != gain) {
+		result = (volt - offset) / gain;
+	}
 
 exit:
 	/*HPB unlock*/
