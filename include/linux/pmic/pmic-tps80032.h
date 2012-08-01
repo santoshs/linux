@@ -27,6 +27,8 @@
 /* Define for use Non_volatile value */
 /* #define PMIC_NON_VOLATILE_ENABLE */
 
+static void __iomem *virt_addr = NULL;
+
 #define PINT_IRQ_BASE		512
 #define pint2irq(bit)		(PINT_IRQ_BASE + (bit))
 
@@ -144,7 +146,7 @@ struct tps80032_irq_data {
  * Define the address of the bin file which contain non-volatile value
  */
 
-#define MAP_BASE_NV 					0x5FC00000
+#define MAP_BASE_NV 					0x4C800000
 #define MAP_BASE_PMIC_NV 				0x0010800
 #define MAP_SIZE_PMIC_NV 				1280
 #define get_map_data(base,offset) 		__raw_readb(base + offset)
@@ -298,39 +300,64 @@ struct tps80032_irq_data {
 /*
  * Define the contain non-volatile value
  */
-
+ 
+ 
 #ifdef PMIC_NON_VOLATILE_ENABLE
-#define MSK_GET_INT_SRC					get_map_data(virt_addr, 0x0F)
-#define MSK_GET_EXT_DEVICE				get_map_data(virt_addr, 0x0E)
-#define MSK_INT_SRC_A					get_map_data(virt_addr, 0x10)
-#define MSK_INT_SRC_B					get_map_data(virt_addr, 0x11)
-#define MSK_INT_SRC_C					get_map_data(virt_addr, 0x12)
-
+/* If use BIN */
 #define CONST_TIMER_BATTERY_UPDATE		(get_map_data(virt_addr, 0x00) | (get_map_data(virt_addr, 0x01) << 8))
-#define CONST_0C_DEGREE					(get_map_data(virt_addr, 0x03) | (get_map_data(virt_addr, 0x04) << 8))
 #define CONST_WAIT_TIME					get_map_data(virt_addr, 0x02)
-
-#define THR_BAT_FULL					get_map_data(virt_addr, 0x0A)
-#define THR_BAT_HIGH					get_map_data(virt_addr, 0x0B)
-#define THR_BAT_NORMAL					get_map_data(virt_addr, 0x0C)
-#define THR_BAT_LOW						get_map_data(virt_addr, 0x0D)
-
-#define CONST_CONVERT_VOLT				(get_map_data(virt_addr, 0x05) | (get_map_data(virt_addr, 0x06) << 8))
-#define CONST_CONVERT_TEMP				(get_map_data(virt_addr, 0x07) | (get_map_data(virt_addr, 0x08) << 8))
-#define CONST_BAT_MIN					get_map_data(virt_addr, 0x09)
-#define CONST_INT_ID					get_map_data(virt_addr, 0x13)
-
-#define CONST_X1						(get_map_data(virt_addr, 0x14) | (get_map_data(virt_addr, 0x15) << 8))
-#define CONST_X2						(get_map_data(virt_addr, 0x16) | (get_map_data(virt_addr, 0x17) << 8))
+#define CONST_WAIT_TIME_CURRENT			get_map_data(virt_addr, 0x03)
+#define CONST_0C_DEGREE					(get_map_data(virt_addr, 0x04) | (get_map_data(virt_addr, 0x05) << 8))
+#define CONST_CONVERT_VOLT				(get_map_data(virt_addr, 0x06) | (get_map_data(virt_addr, 0x07) << 8))
+#define CONST_BAT_MIN					get_map_data(virt_addr, 0x08)
+#define THR_BAT_FULL					get_map_data(virt_addr, 0x09)
+#define THR_BAT_HIGH					get_map_data(virt_addr, 0x0A)
+#define THR_BAT_NORMAL					get_map_data(virt_addr, 0x0B)
+#define THR_BAT_LOW						get_map_data(virt_addr, 0x0C)
+#define MSK_GET_EXT_DEVICE				get_map_data(virt_addr, 0x0D)
+#define MSK_GET_INT_SRC_A				get_map_data(virt_addr, 0x0E)
+#define MSK_GET_INT_SRC_C				get_map_data(virt_addr, 0x0F)
+#define MSK_INT_LINE_A					get_map_data(virt_addr, 0x10)
+#define MSK_INT_LINE_B					get_map_data(virt_addr, 0x11)
+#define MSK_INT_LINE_C					get_map_data(virt_addr, 0x12)
+#define MSK_INT_SRC_A					get_map_data(virt_addr, 0x13)
+#define MSK_INT_SRC_B					get_map_data(virt_addr, 0x14)
+#define MSK_INT_SRC_C					get_map_data(virt_addr, 0x15)
+#define MSK_DISABLE 					get_map_data(virt_addr, 0x16)
+#define MSK_CONTROLLER_INT				get_map_data(virt_addr, 0x17)
+#define MSK_CHARGERUSB_INT				get_map_data(virt_addr, 0x18)
+#define MSK_PREQ1_ASS_A					get_map_data(virt_addr, 0x19)
+#define MSK_PREQ1_ASS_B					get_map_data(virt_addr, 0x1A)
+#define MSK_PREQ2_ASS_A					get_map_data(virt_addr, 0x1B)
+#define MSK_PREQ3_ASS_B					get_map_data(virt_addr, 0x1C)
+#define MSK_TRANSITION					get_map_data(virt_addr, 0x1D)
+#define MSK_GPADC						get_map_data(virt_addr, 0x1E)
+#define MSK_GG_ENABLE					get_map_data(virt_addr, 0x1F)
+#define MSK_GG_DISABLE					get_map_data(virt_addr, 0x20)
+#define CONST_INT_ID					get_map_data(virt_addr, 0x21)
+#define CONST_X1						(get_map_data(virt_addr, 0x22) | (get_map_data(virt_addr, 0x23) << 8))
+#define CONST_X2						(get_map_data(virt_addr, 0x24) | (get_map_data(virt_addr, 0x25) << 8))
+#define CONST_LDOLN_CFG_TRANS			get_map_data(virt_addr, 0x26)
+#define CONST_LDO6_CFG_TRANS			get_map_data(virt_addr, 0x27)
+#define CONST_VAC_CURRENT_LIMIT			get_map_data(virt_addr, 0x28)
+#define CONST_DEF_CURRENT_LIMIT			get_map_data(virt_addr, 0x29)
+#define CONST_VBATMIN_HI				get_map_data(virt_addr, 0x2A)
+#define CONST_VSYSMIN_HI				get_map_data(virt_addr, 0x2B)
+#define CONST_VOREG						get_map_data(virt_addr, 0x2C)
+#define CONST_VICHRG					get_map_data(virt_addr, 0x2D)
+#define CONST_VICHRG_PC					get_map_data(virt_addr, 0x2E)
+#define CONST_VSEL_COMP					get_map_data(virt_addr, 0x2F)
+#define CONST_HPB_WAIT					get_map_data(virt_addr, 0x30)
+#define CONST_BATTERY_CURRENT_UPDATE	get_map_data(virt_addr, 0x31)
 
 #else
 /* If no use BIN */
 #define CONST_TIMER_BATTERY_UPDATE		0x1388
+#define CONST_BATTERY_CURRENT_UPDATE	250
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
 #define CONST_0C_DEGREE					0x0000
 #define CONST_CONVERT_VOLT				0x03E8
-#define CONST_CONVERT_TEMP				0x0AAA
 #define CONST_BAT_MIN					0x01
 #define THR_BAT_FULL					0x64
 #define THR_BAT_HIGH					0x46
@@ -370,6 +397,7 @@ struct tps80032_irq_data {
 #define CONST_VICHRG_PC					0x03	/* 400mA */
 #define CONST_VSEL_COMP					0x1F
 #define CONST_HPB_WAIT					25
+#endif
 
 /* Define interrupt bit for interrupt register */
 #define MSK_CONTROLLER_STAT_MVAC_DET		0
@@ -385,42 +413,10 @@ struct tps80032_irq_data {
 #define BIT_CONTROLLER_STAT1_VAC_DET		3
 #define BIT_CONTROLLER_STAT1_FAULT_WDG		4
 #define BIT_CONTROLLER_STAT1_LINCH_GATED	6
-#endif
+
 
 #define RESOURCE_COUNTER_MAX			13
 
-static const struct tps80032_irq_data tps80032_irqs[] = {
-
-	[TPS80032_INT_PWRON]			= TPS80032_IRQ(A, 0),
-	[TPS80032_INT_RPWRON]			= TPS80032_IRQ(A, 1),
-	[TPS80032_INT_SYS_VLOW]			= TPS80032_IRQ(A, 2),
-	[TPS80032_INT_RTC_ALARM]		= TPS80032_IRQ(A, 3),
-	[TPS80032_INT_RTC_PERIOD]		= TPS80032_IRQ(A, 4),
-	[TPS80032_INT_HOT_DIE]			= TPS80032_IRQ(A, 5),
-	[TPS80032_INT_VXX_SHORT]		= TPS80032_IRQ(A, 6),
-	[TPS80032_INT_SPDURATION]		= TPS80032_IRQ(A, 7),
-	[TPS80032_INT_WATCHDOG]			= TPS80032_IRQ(B, 0),
-	[TPS80032_INT_BAT]				= TPS80032_IRQ(B, 1),
-	[TPS80032_INT_SIM]				= TPS80032_IRQ(B, 2),
-	[TPS80032_INT_MMC]				= TPS80032_IRQ(B, 3),
-	[TPS80032_INT_RES]				= TPS80032_IRQ(B, 4),
-	[TPS80032_INT_GPADC_RT]			= TPS80032_IRQ(B, 5),
-	[TPS80032_INT_GPADC_SW2_EOC]	= TPS80032_IRQ(B, 6),
-	[TPS80032_INT_CC_AUTOCAL]		= TPS80032_IRQ(B, 7),
-	[TPS80032_INT_ID_WKUP]			= TPS80032_IRQ(C, 0),
-	[TPS80032_INT_VBUSS_WKUP]		= TPS80032_IRQ(C, 1),
-	[TPS80032_INT_ID]				= TPS80032_IRQ(C, 2),
-	[TPS80032_INT_VBUS]				= TPS80032_IRQ(C, 3),
-	[TPS80032_INT_CHRG_CTRL]		= TPS80032_IRQ(C, 4),
-	[TPS80032_INT_EXT_CHRG]			= TPS80032_IRQ(C, 5),
-	[TPS80032_INT_INT_CHRG]			= TPS80032_IRQ(C, 6),
-	[TPS80032_INT_RES2]				= TPS80032_IRQ(C, 7),
-	[TPS80032_INT_BAT_TEMP_OVRANGE]	= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MBAT_TEMP,	BAT_TEMP),
-	[TPS80032_INT_BAT_REMOVED]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MBAT_REMOVED,	BAT_REMOVED),
-	[TPS80032_INT_VBUS_DET]			= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MVBUS_DET,	VBUS_DET),
-	[TPS80032_INT_VAC_DET]			= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MVAC_DET,	VAC_DET),
-	[TPS80032_INT_FAULT_WDG]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL,	MFAULT_WDG,	FAULT_WDG),
-	[TPS80032_INT_LINCH_GATED]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MLINCH_GATED,	LINCH_GATED),
-};
+static struct tps80032_irq_data tps80032_irqs[13];
 
 #endif
