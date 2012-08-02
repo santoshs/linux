@@ -34,8 +34,6 @@
 
 #include "../../staging/android/logger.h"
 
-#define EMMC_NO_WRITE
-
 #define BLOCK_SIZE		512UL
 #define RECORD_SIZE		8
 
@@ -57,10 +55,13 @@ static struct mmcoops_context {
 	struct device		*mmc_dev;
 	struct platform_device	*pdev;
 	unsigned long		start;
+	unsigned long		start_ddr;
 	unsigned long		size;
 	unsigned long		record_size;
 	unsigned long		kmsg_size;
 	logcat_st		logcat[4];
+	unsigned long		kmsg_size_ddr;
+	logcat_st		logcat_ddr[4];
 	unsigned long		next_record;
 	unsigned long		max_record;
 	char			*virt_addr;
@@ -349,6 +350,7 @@ struct sh_mmcif_host {
 	u32 buf_acc;
 };
 
+#ifdef CONFIG_CRASHLOG_EMMC
 static void mmc_panic_mmc_reset(struct mmcoops_context *cxt)
 {
 	struct sh_mmcif_host *host = platform_get_drvdata(cxt->pdev);
@@ -407,7 +409,30 @@ static int __mmc_panic_write(struct mmcoops_context *cxt,
 
 	return 0;
 }
+#endif //CONFIG_CRASHLOG_EMMC
 
+#ifdef CONFIG_CRASHLOG_DDR
+static void mmc_panic_write_ddr(char *buf, unsigned long start,unsigned long offset)
+{
+	void __iomem * adr = 0;
+	void __iomem * adr_bak = 0;
+	unsigned int cnt;
+
+	start += (offset * BLOCK_SIZE);
+	adr = ioremap(start, BLOCK_SIZE);
+	adr_bak = adr;
+	if (adr)
+	{
+		for(cnt=0 ; cnt < BLOCK_SIZE ; cnt++){
+			__raw_writeb(*buf, adr);
+			adr++;
+			buf++;
+		}
+		iounmap(adr_bak);
+	}
+}
+#endif //CONFIG_CRASHLOG_DDR
+#ifdef CONFIG_CRASHLOG_EMMC
 static void mmc_panic_write(struct mmcoops_context *cxt,
 			    char *buf, unsigned long start)
 {
@@ -430,6 +455,7 @@ static void mmc_panic_write(struct mmcoops_context *cxt,
 		mmc_panic_mmc_reset(cxt);
 	}
 }
+#endif //CONFIG_CRASHLOG_EMMC
 
 #define add_to_buf(_base, _count, _src, _size)	\
 do {						\
@@ -456,7 +482,7 @@ static void disable_clock(void)
 {
 	__raw_writel(__raw_readl(SMSTPCR3) | (1 << MMCREG), SMSTPCR3);
 }
-
+#ifdef CONFIG_CRASHLOG_EMMC
 static void mmc_log_write(	struct mmcoops_context *cxt,
 								unsigned long	offset,
 								unsigned long	emmc_log_size,
@@ -505,6 +531,53 @@ static void mmc_log_write(	struct mmcoops_context *cxt,
 	
 	return;
 }
+#endif //CONFIG_CRASHLOG_EMMC
+#ifdef CONFIG_CRASHLOG_DDR
+static void mmc_log_write_ddr(	struct mmcoops_context *cxt,
+								unsigned long	offset,
+								unsigned long	emmc_log_size,
+								const char *s1,
+								unsigned long 	l1,
+								const char *s2,
+								unsigned long 	l2)
+{
+	int	i = 0;
+	unsigned long l1_cpy, l2_cpy;
+	
+	{
+		unsigned long max_size = emmc_log_size * BLOCK_SIZE;
+		if (l2 > max_size) {
+			s2 += l2 - max_size;
+			l2 = max_size;
+			l1 = 0;
+		} else if (l1 + l2 > max_size) {
+			s1 += l1 + l2 - max_size;
+			l1 = max_size - l2;
+		}
+	}
+	for (i = 1; i < emmc_log_size + 1; i++) {
+		if (l1 >= BLOCK_SIZE) {
+			l1_cpy = BLOCK_SIZE;
+			l2_cpy = 0;
+		} else {
+			l1_cpy = l1;
+			l2_cpy = min(l2, BLOCK_SIZE - l1_cpy);
+			if(BLOCK_SIZE > l1_cpy + l2_cpy)
+				memset(cxt->virt_addr, '\0', BLOCK_SIZE);
+		}
+
+		memcpy(cxt->virt_addr, s1 , l1_cpy);
+		memcpy(cxt->virt_addr + l1_cpy, s2, l2_cpy);
+		mmc_panic_write_ddr(cxt->virt_addr, cxt->start_ddr, offset + i);
+		l1 -= l1_cpy;
+		s1 += l1_cpy;
+		l2 -= l2_cpy;
+		s2 += l2_cpy;
+	}
+	
+	return;
+}
+#endif //CONFIG_CRASHLOG_DDR
 
 
 static unsigned char dump_cnt = 0;
@@ -513,7 +586,6 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		enum kmsg_dump_reason reason, const char *s1, unsigned long l1,
 		const char *s2, unsigned long l2)
 {
-#ifndef EMMC_NO_WRITE
 	struct mmcoops_context *cxt = container_of(dumper,
 			struct mmcoops_context, dump);
 	struct mmc_card *card = cxt->card;
@@ -524,6 +596,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	size_t		w_off = 0;	
 	size_t		size = 0;
 	unsigned long	offset = 0;
+	unsigned long	offset_ddr = 0;
 	unsigned char *pbuf = NULL;
 	const char		*pstr1 = NULL;
 	unsigned long	strlen1 = 0;
@@ -559,9 +632,9 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	disable_irq(platform_get_irq(cxt->pdev, 1));
 
 	clock_enabled = enable_clock_if_disabled();
-
+#ifdef CONFIG_CRASHLOG_EMMC
 	mmc_panic_mmc_reset(cxt);
-
+#endif //CONFIG_CRASHLOG_EMMC
 	/* Record ((cxt->record-size * 2) kbytes)
 	 * +--------------------------------------------+
 	 * | counter (4 bytes)				| [ Header ]
@@ -619,14 +692,25 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		add_to_buf(cxt->virt_addr, count, &sec, sizeof(sec));
 		add_to_buf(cxt->virt_addr, count, &nsec, sizeof(nsec));
 	}
+#ifdef CONFIG_CRASHLOG_EMMC
 	mmc_panic_write(cxt, cxt->virt_addr, cxt->start +
 			(cxt->next_record * cxt->record_size));
+#endif //CONFIG_CRASHLOG_EMMC
+#ifdef CONFIG_CRASHLOG_DDR
+	mmc_panic_write_ddr(cxt->virt_addr, cxt->start_ddr, 0);
+#endif //CONFIG_CRASHLOG_DDR
 
 	/* kmsg is written in emmc */
+#ifdef CONFIG_CRASHLOG_EMMC
 	mmc_log_write( cxt, 0, cxt->kmsg_size, s1, l1, s2, l2);
+#endif
+#ifdef CONFIG_CRASHLOG_DDR
+	mmc_log_write_ddr( cxt, 0, cxt->kmsg_size_ddr, s1, l1, s2, l2);
+#endif //CONFIG_CRASHLOG_DDR
 
 	/* logcat is written in emmc */
 	offset = cxt->kmsg_size;
+	offset_ddr = cxt->kmsg_size_ddr;
 	for(loop_cnt = 0; loop_cnt < 4; loop_cnt++){
 		get_logcat_bufinfo(cxt->logcat[loop_cnt].name, &pbuf, &w_off, &head, &size);
 		if(NULL != pbuf){
@@ -642,24 +726,33 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 				strlen2 = w_off;
 			}
 			
+#ifdef CONFIG_CRASHLOG_EMMC
 			mmc_log_write( cxt, offset, cxt->logcat[loop_cnt].log_size,
 							  pstr1, strlen1, pstr2, strlen2);
+#endif //CONFIG_CRASHLOG_EMMC
+#ifdef CONFIG_CRASHLOG_DDR
+			mmc_log_write_ddr( cxt, offset_ddr, cxt->logcat_ddr[loop_cnt].log_size,
+							  pstr1, strlen1, pstr2, strlen2);
+#endif //CONFIG_CRASHLOG_DDR
 			
 			offset += cxt->logcat[loop_cnt].log_size;
+			offset_ddr += cxt->logcat_ddr[loop_cnt].log_size;
 		}
 		else
 		{
 			printk(KERN_ERR "mmc_oops logcat get buf memory failed [%s]\n",cxt->logcat[loop_cnt].name);
 			offset += cxt->logcat[loop_cnt].log_size;
+			offset_ddr += cxt->logcat_ddr[loop_cnt].log_size;
 		}
 	}
-
+#ifdef CONFIG_CRASHLOG_EMMC
 	count = BLOCK_SIZE - sizeof(cxt->next_counter);
 	memset(cxt->virt_addr, '\0', BLOCK_SIZE);
 	add_to_buf(cxt->virt_addr, count, &cxt->next_counter,
 		   sizeof(cxt->next_counter));
 	mmc_panic_write(cxt, cxt->virt_addr, cxt->start +
 			((cxt->next_record + 1) * cxt->record_size) - 1);
+#endif //CONFIG_CRASHLOG_EMMC
 
 	cxt->next_record = (cxt->next_record + 1) % cxt->max_record;
 
@@ -672,7 +765,6 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	enable_irq(platform_get_irq(cxt->pdev, 1));
 	mmc_release_host(card->host);
 	printk("mmc_oops dump complete %s\n", mmc_hostname(card->host));
-#endif //EMMC_NO_WRITE
 }
 
 static int match_card(struct mmcoops_context *cxt, struct mmc_card *card)
@@ -747,6 +839,7 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 	cxt->mmc_dev = &pdata->pdev->dev;
 	cxt->pdev = pdata->pdev;
 	cxt->start = pdata->start;
+	cxt->start_ddr = pdata->start_ddr;
 	cxt->size = pdata->size;
 
 	cxt->next_counter = 0;
@@ -768,6 +861,20 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 	cxt->logcat[3].name = LOGGER_LOG_EVENTS;
 	cxt->logcat[3].log_size = pdata->logcat_events_size;
 
+	cxt->kmsg_size_ddr = pdata->kmsg_size_ddr;
+	
+	cxt->logcat_ddr[0].name = LOGGER_LOG_MAIN;
+	cxt->logcat_ddr[0].log_size = pdata->logcat_main_size_ddr;
+
+	cxt->logcat_ddr[1].name = LOGGER_LOG_SYSTEM;
+	cxt->logcat_ddr[1].log_size = pdata->logcat_system_size_ddr;
+
+	cxt->logcat_ddr[2].name = LOGGER_LOG_RADIO;
+	cxt->logcat_ddr[2].log_size = pdata->logcat_radio_size_ddr;
+
+	cxt->logcat_ddr[3].name = LOGGER_LOG_EVENTS;
+	cxt->logcat_ddr[3].log_size = pdata->logcat_events_size_ddr;
+	
 	/* FIXME how to get the given mmc deivce instead of bind/unbind */
 	err = mmc_register_driver(&mmc_driver);
 	if (err)

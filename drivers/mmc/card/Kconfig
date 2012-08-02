@@ -72,6 +72,30 @@ config MMC_OOPS
 	  buffer in a MMC sectors where it can be read back at some
 	  later point.
 
+if MMC_OOPS
+
+menu "Crashlog Memory Storage Selection"
+ 
+choice
+        prompt "Select Crashlog Memory Storage: "
+        default CRASHLOG_DDR
+ 
+config CRASHLOG_DDR
+        bool "DDR"
+        help
+          Select DDR memory for storing crash logs.
+ 
+config CRASHLOG_EMMC
+        bool "EMMC"
+        help
+          Select EMMC memory for storing crash logs.
+ 
+endchoice
+ 
+endmenu
+
+endif # MMC_OOPS
+
 config MMC_TEST
 	tristate "MMC host test driver"
 	help
