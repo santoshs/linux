@@ -102,16 +102,6 @@
 #define CKSCR		0xe61500c0
 #define SEQMON		0xe6150108
 #define VREFCR		0xe61500ec
-#define WUPCR		0xe6151010
-#define SRESCR		0xe6151018
-#define PCLKCR		0xe6151020
-#define SCPUSTR		0xe6151040
-#define CPU0RFR		0xe6151104
-#define CPU1RFR		0xe6151114
-#define SPCTR		0xe61501a4
-#define SPCMMR		0xe61501ac
-#define SPCDMR		0xe61501b0
-#define LPMR		0xe6150200
 
 #define EXSTMON2	0xe6180088
 

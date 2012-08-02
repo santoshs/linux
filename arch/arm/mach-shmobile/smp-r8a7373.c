@@ -28,12 +28,7 @@
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
 
-#define WUPCR		IOMEM(0xe6151010)
-#define SRESCR		IOMEM(0xe6151018)
-#define SCPUSTR		IOMEM(0xe6151040)
-#define SBAR		IOMEM(0xe6180020)
-#define SBAR2		IOMEM(0xe6180060)
-#define APARMBAREA	IOMEM(0xe6f10020)
+#include "pm-r8a7373.h"
 
 static void __iomem *scu_base_addr(void)
 {
@@ -88,7 +83,12 @@ int r8a7373_platform_cpu_die(unsigned int cpu)
 	/* disable gic cpu_if */
 	__raw_writel(0, IOMEM(0xf0000100 + GIC_CPU_CTRL));
 
+#if defined(CONFIG_SUSPEND) || defined(CONFIG_CPU_IDLE)
+	r8a7373_enter_core_standby();
+	return 0;
+#else
 	return 1;
+#endif
 }
 
 void __cpuinit r8a7373_secondary_init(unsigned int cpu)
@@ -103,10 +103,10 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	/* enable cache coherency */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));
 
-	if (((__raw_readl(SCPUSTR) >> (4 * cpu)) & 3) == 3)
-		__raw_writel(1 << cpu, WUPCR);	/* wake up */
+	if (((__raw_readl(IOMEM(SCPUSTR)) >> (4 * cpu)) & 3) == 3)
+		__raw_writel(1 << cpu, IOMEM(WUPCR));	/* wake up */
 	else
-		__raw_writel(1 << cpu, SRESCR);	/* reset */
+		__raw_writel(1 << cpu, IOMEM(SRESCR));	/* reset */
 
 	return 0;
 }
@@ -117,11 +117,11 @@ void __init r8a7373_smp_prepare_cpus(void)
 
 	scu_enable(scu_base_addr());
 
-	__raw_writel(0, SBAR2);
+	__raw_writel(0, IOMEM(SBAR2));
 
 	/* Map the reset vector (in headsmp.S) */
-	__raw_writel(0, APARMBAREA);      /* 4k */
-	__raw_writel(__pa(shmobile_secondary_vector), SBAR);
+	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
+	__raw_writel(__pa(shmobile_secondary_vector), IOMEM(SBAR));
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));

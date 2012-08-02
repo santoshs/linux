@@ -16,19 +16,18 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <asm/suspend.h>
+#include <asm/smp_plat.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
+
+#include "pm-r8a7373.h"
 
 /* #define DEBUG_A3SG */
 /* #define DEBUG_A3SP */
 /* #define DEBUG_A3R */
 /* #define DEBUG_A4RM */
 /* #define DEBUG_A4MP */
-
-/* SYSC */
-#define SPDCR		0xe6180008
-#define SWUCR		0xe6180014
-#define PSTR		0xe6180080
 
 #define PSTR_RETRIES 100
 #define PSTR_DELAY_US 10
@@ -207,12 +206,21 @@ static void r8a7373_suspend_init(void)
 static void r8a7373_suspend_init(void) {}
 #endif /* CONFIG_SUSPEND */
 
-#ifdef CONFIG_CPU_IDLE
-static void r8a7373_enter_core_standby(void)
+#if defined(CONFIG_SUSPEND) || defined(CONFIG_CPU_IDLE)
+void r8a7373_enter_core_standby(void)
 {
-	cpu_do_idle();
-}
+	unsigned int cpu;
+	void __iomem *addr;
 
+	cpu = cpu_logical_map(smp_processor_id());
+	addr = IOMEM(cpu ? RAM0_WAKEUP_ADDR1 : RAM0_WAKEUP_ADDR0);
+	__raw_writel(__pa(r8a7373_resume_core_standby), addr);
+
+	cpu_suspend(0, r8a7373_do_idle_core_standby);
+}
+#endif
+
+#ifdef CONFIG_CPU_IDLE
 static void r8a7373_cpuidle_setup(struct cpuidle_driver *drv)
 {
 	struct cpuidle_state *state;
@@ -239,6 +247,14 @@ static void r8a7373_cpuidle_init(void) {}
 
 void __init r8a7373_pm_init(void)
 {
+#if defined(CONFIG_SUSPEND) || defined(CONFIG_CPU_IDLE)
+	memcpy(IOMEM(RAM0_VECTOR_ADDR),
+			r8a7373_common_vector, r8a7373_common_vector_size);
+	__raw_writel(0, IOMEM(SBAR2));
+	__raw_writel(0, IOMEM(APARMBAREA));
+	__raw_writel(RAM0_VECTOR_ADDR, IOMEM(SBAR));
+#endif
+
 	r8a7373_suspend_init();
 	r8a7373_cpuidle_init();
 }
