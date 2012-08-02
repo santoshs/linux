@@ -867,6 +867,8 @@ static struct sh_mobile_lcdc_info lcdc_info = {
 			.width	= 44,
 			.height	= 79,
 		},
+		.panelreset_gpio = GPIO_PORT31,
+		.paneldsi_irq = 33,
 	},
 };
 

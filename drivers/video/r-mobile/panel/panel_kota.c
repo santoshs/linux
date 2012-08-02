@@ -22,7 +22,6 @@
 #include <linux/delay.h>
 
 #include <linux/gpio.h>
-#include <mach/r8a73734.h>
 
 #include <video/sh_mobile_lcdc.h>
 
@@ -39,7 +38,17 @@
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	48
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	87
 
-#define R_MOBILE_IRQNO		33
+
+/* pixclock = 1000000 / DCF */
+#define R_MOBILE_M_PANEL_PIXCLOCK	19230
+
+/* timing */
+#define R_MOBILE_M_PANEL_LEFT_MARGIN	8
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	496
+#define R_MOBILE_M_PANEL_HSYNC_LEN	8
+#define R_MOBILE_M_PANEL_UPPER_MARGIN	4
+#define R_MOBILE_M_PANEL_LOWER_MARGIN	4
+#define R_MOBILE_M_PANEL_VSYNC_LEN	2
 
 #define LCD_DSITCKCR		0x00000007
 #define LCD_DSI0PCKCR		0x00000014
@@ -55,11 +64,11 @@
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
 #define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x003C007C
-#define LCD_MLDHSYNR		0x0001007A
+/* #define LCD_MLDHCNR		0x003C007C */
+/* #define LCD_MLDHSYNR		0x0001007A */
 #define LCD_MLDHAJR		0x00000000
-#define LCD_MLDVLNR		0x0360036A
-#define LCD_MLDVSYNR		0x00020364
+/* #define LCD_MLDVLNR		0x0360036A */
+/* #define LCD_MLDVSYNR		0x00020364 */
 #define LCD_MLDMT1R		0x0400000B
 #define LCD_LDDCKR		0x0001007C
 #define LCD_MLDDCKPAT1R		0x00000000
@@ -79,11 +88,11 @@
 #define LCD_MASK_VMLEN3		0xFFFFFFFF
 #define LCD_MASK_VMLEN4		0xFFFF0000
 #define LCD_MASK_DTCTR		0x00000002
-#define LCD_MASK_MLDHCNR	0x000001FF
-#define LCD_MASK_MLDHSYNR	0x000F01FF
+#define LCD_MASK_MLDHCNR	0x07FF07FF
+#define LCD_MASK_MLDHSYNR	0x001F07FF
 #define LCD_MASK_MLDHAJR	0x07070707
-#define LCD_MASK_MLDVLNR	0x07FF07FF
-#define LCD_MASK_MLDVSYNR	0x000F07FF
+#define LCD_MASK_MLDVLNR	0x1FFF1FFF
+#define LCD_MASK_MLDVSYNR	0x001F1FFF
 #define LCD_MASK_MLDMT1R	0x1F03FCCF
 #define LCD_MASK_LDDCKR		0x0007007F
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
@@ -95,32 +104,35 @@ static struct fb_panel_info r_mobile_info = {
 	.size_width    = R_MOBILE_M_PANEL_SIZE_WIDTH,
 	.size_height   = R_MOBILE_M_PANEL_SIZE_HEIGHT,
 	.buff_address  = R_MOBILE_M_BUFF_ADDR,
+	.pixclock      = R_MOBILE_M_PANEL_PIXCLOCK,
+	.left_margin   = R_MOBILE_M_PANEL_LEFT_MARGIN,
+	.right_margin  = R_MOBILE_M_PANEL_RIGHT_MARGIN,
+	.upper_margin  = R_MOBILE_M_PANEL_UPPER_MARGIN,
+	.lower_margin  = R_MOBILE_M_PANEL_LOWER_MARGIN,
+	.hsync_len     = R_MOBILE_M_PANEL_HSYNC_LEN,
+	.vsync_len     = R_MOBILE_M_PANEL_VSYNC_LEN,
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param = {
-	LCD_DSITCKCR,
-	LCD_DSI0PCKCR,
-	LCD_DSI0PHYCR,
-	LCD_SYSCONF,
-	LCD_TIMSET0,
-	LCD_TIMSET1,
-	LCD_DSICTRL,
-	LCD_VMCTR1,
-	LCD_VMCTR2,
-	LCD_VMLEN1,
-	LCD_VMLEN2,
-	LCD_VMLEN3,
-	LCD_VMLEN4,
-	LCD_DTCTR,
-	LCD_MLDHCNR,
-	LCD_MLDHSYNR,
-	LCD_MLDHAJR,
-	LCD_MLDVLNR,
-	LCD_MLDVSYNR,
-	LCD_MLDMT1R,
-	LCD_LDDCKR,
-	LCD_MLDDCKPAT1R,
-	LCD_MLDDCKPAT2R
+	.DSITCKCR    = LCD_DSITCKCR,
+	.DSI0PCKCR   = LCD_DSI0PCKCR,
+	.DSI0PHYCR   = LCD_DSI0PHYCR,
+	.SYSCONF     = LCD_SYSCONF,
+	.TIMSET0     = LCD_TIMSET0,
+	.TIMSET1     = LCD_TIMSET1,
+	.DSICTRL     = LCD_DSICTRL,
+	.VMCTR1      = LCD_VMCTR1,
+	.VMCTR2      = LCD_VMCTR2,
+	.VMLEN1      = LCD_VMLEN1,
+	.VMLEN2      = LCD_VMLEN2,
+	.VMLEN3      = LCD_VMLEN3,
+	.VMLEN4      = LCD_VMLEN4,
+	.DTCTR       = LCD_DTCTR,
+	.MLDHAJR     = LCD_MLDHAJR,
+	.MLDMT1R     = LCD_MLDMT1R,
+	.LDDCKR      = LCD_LDDCKR,
+	.MLDDCKPAT1R = LCD_MLDDCKPAT1R,
+	.MLDDCKPAT2R = LCD_MLDDCKPAT2R
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
@@ -148,6 +160,10 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 	LCD_MASK_MLDDCKPAT1R,
 	LCD_MASK_MLDDCKPAT2R
 };
+
+static unsigned int reset_gpio;
+
+static unsigned int irq_portno;
 
 static int kota_dsi_startsetting(int draw_flag)
 {
@@ -286,19 +302,43 @@ static int kota_panel_init(unsigned int mem_size)
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
 	int ret;
+	unsigned int tmp;
 
 	screen_handle =  screen_display_new();
 
 	/* LCD panel reset */
-	gpio_direction_output(GPIO_PORT31, 0);
+	gpio_direction_output(reset_gpio, 0);
 
 	/* wait 1ms */
 	msleep(1);
 
-	gpio_direction_output(GPIO_PORT31, 1);
+	gpio_direction_output(reset_gpio, 1);
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_WIDTH + R_MOBILE_M_PANEL_HSYNC_LEN;
+	tmp += R_MOBILE_M_PANEL_LEFT_MARGIN;
+	tmp += R_MOBILE_M_PANEL_RIGHT_MARGIN;
+	tmp /= 8; /* HTCN */
+	tmp |= (R_MOBILE_M_PANEL_PIXEL_WIDTH / 8) << 16; /* HDCN */
+	r_mobile_lcd_if_param.MLDHCNR = tmp;
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_WIDTH + R_MOBILE_M_PANEL_RIGHT_MARGIN;
+	tmp /= 8; /* HSYNP */
+	tmp |= (R_MOBILE_M_PANEL_HSYNC_LEN / 8) << 16; /* HSYNW */
+	r_mobile_lcd_if_param.MLDHSYNR = tmp;
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_HEIGHT + R_MOBILE_M_PANEL_VSYNC_LEN;
+	tmp += R_MOBILE_M_PANEL_UPPER_MARGIN;
+	tmp += R_MOBILE_M_PANEL_LOWER_MARGIN; /* VTLN */
+	tmp |= R_MOBILE_M_PANEL_PIXEL_HEIGHT << 16; /* VDLN */
+	r_mobile_lcd_if_param.MLDVLNR = tmp;
+
+	/* VSYNP */
+	tmp = R_MOBILE_M_PANEL_PIXEL_HEIGHT + R_MOBILE_M_PANEL_LOWER_MARGIN;
+	tmp |= R_MOBILE_M_PANEL_VSYNC_LEN << 16; /* VSYNW */
+	r_mobile_lcd_if_param.MLDVSYNR = tmp;
 
 	set_lcd_if_param.handle = screen_handle;
-	set_lcd_if_param.port_no = R_MOBILE_IRQNO;
+	set_lcd_if_param.port_no = irq_portno;
 	set_lcd_if_param.lcd_if_param = &r_mobile_lcd_if_param;
 	set_lcd_if_param.lcd_if_param_mask = &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
@@ -355,7 +395,7 @@ static int kota_panel_suspend(void)
 	screen_display_delete(&disp_delete);
 
 	/* LCD panel reset */
-	gpio_direction_output(GPIO_PORT31, 0);
+	gpio_direction_output(reset_gpio, 0);
 
 	return 0;
 }
@@ -371,12 +411,12 @@ static int kota_panel_resume(void)
 	screen_handle =  screen_display_new();
 
 	/* LCD panel reset */
-	gpio_direction_output(GPIO_PORT31, 0);
+	gpio_direction_output(reset_gpio, 0);
 
 	/* wait 1ms */
 	msleep(1);
 
-	gpio_direction_output(GPIO_PORT31, 1);
+	gpio_direction_output(reset_gpio, 1);
 
 	disp_start_lcd.handle = screen_handle;
 	disp_start_lcd.output_mode = RT_DISPLAY_LCD1;
@@ -397,6 +437,17 @@ static struct fb_panel_info kota_panel_info(void)
 
 }
 
+static int kota_panel_probe(struct fb_info *info,
+			    struct fb_panel_hw_info hw_info)
+{
+
+	reset_gpio = hw_info.gpio_reg;
+	irq_portno = hw_info.dsi_irq;
+
+	return 0;
+}
+
+
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -411,7 +462,7 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 		panel_func.panel_suspend = kota_panel_suspend;
 		panel_func.panel_resume  = kota_panel_resume;
 		panel_func.panel_info    = kota_panel_info;
-		panel_func.panel_probe   = NULL;
+		panel_func.panel_probe   = kota_panel_probe;
 		panel_func.panel_remove  = NULL;
 	}
 

@@ -117,6 +117,8 @@ struct sh_mobile_lcdc_chan_cfg {
 	int num_cfg;
 	struct sh_mobile_lcdc_lcd_size_cfg lcd_size_cfg;
 	struct sh_mobile_lcdc_board_cfg board_cfg;
+	unsigned long panelreset_gpio;
+	unsigned long paneldsi_irq;
 };
 
 struct sh_mobile_lcdc_info {
@@ -129,11 +131,17 @@ struct fb_hdmi_set_mode {
 	unsigned int format;
 };
 
+struct fb_panel_hw_info {
+	unsigned int gpio_reg;
+	unsigned int dsi_irq;
+};
+
 struct fb_panel_func {
 	int (*panel_init)(unsigned int mem_size);
 	int (*panel_suspend)(void);
 	int (*panel_resume)(void);
-	int (*panel_probe)(struct fb_info *info);
+	int (*panel_probe)(struct fb_info *info,
+			   struct fb_panel_hw_info hw_info);
 	int (*panel_remove)(struct fb_info *info);
 	struct fb_panel_info (*panel_info)(void);
 };
@@ -144,6 +152,13 @@ struct fb_panel_info {
 	unsigned int size_width;
 	unsigned int size_height;
 	unsigned int buff_address;
+	unsigned int pixclock;
+	unsigned int left_margin;
+	unsigned int right_margin;
+	unsigned int upper_margin;
+	unsigned int lower_margin;
+	unsigned int hsync_len;
+	unsigned int vsync_len;
 };
 
 struct fb_hdmi_func {
