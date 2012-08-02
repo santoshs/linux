@@ -23,10 +23,14 @@
 #include <linux/hwspinlock.h>
 #include <mach/r8a73734.h>
 
+/*JB added */
+#include <linux/delay.h>
+/*JB added */
+
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
 
-// #define CONFIG_RWDT_DEBUG
+//#define CONFIG_RWDT_DEBUG
 #ifdef CONFIG_RWDT_DEBUG
 #include <linux/proc_fs.h>
 
@@ -204,7 +208,7 @@ static void cpg_check_check(void)
  */
 static void rmu2_cmt_start(void)
 {
-	unsigned long flags;
+	unsigned long flags, wrflg, i = 0;
 	
 	printk(KERN_DEBUG "START < %s >\n", __func__);
 	RWDT_DEBUG( "< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
@@ -216,11 +220,20 @@ static void rmu2_cmt_start(void)
 	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1<<5), CMCLKE);
 	spin_unlock_irqrestore(&cmt_lock, flags);
-	
+/*JB need to check Counter input clock is input more for more than 2 cycles before accessing CMSTR15 */
+/* input clock is RCLK/128, 2 clock cycles is 7.8ms */
+	mdelay(8);
+/*end JB added */	
 	__raw_writel(0, CMSTR15);
+	__raw_writel(0U, CMCNT15);//JB Moved
 	__raw_writel(0x000001a6U, CMCSR15);	/* Int enable, 32bits operation */
-	__raw_writel(0U, CMCNT15);
 	__raw_writel(dec2hex(CMT_OVF), CMCOR15);
+/* JB added */
+	do{
+	    wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
+	    i++;	  
+	} while (wrflg != 0x00 && i < 0xffffffff);
+/*end JB */
 	__raw_writel(1, CMSTR15);
 
 	RWDT_DEBUG( "< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
@@ -238,14 +251,25 @@ static void rmu2_cmt_start(void)
  */
 void rmu2_cmt_stop(void)
 {
-	unsigned long flags;
+	unsigned long flags, wrflg, i = 0;;
 
 	printk(KERN_DEBUG "START < %s >\n", __func__);
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);	/* Int disable */
 	__raw_writel(0U, CMCNT15);
 	__raw_writel(0, CMSTR15);
+	
+/* JB added */
+	do{
+	    wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
+	    i++;	  
+	} while (wrflg != 0x00 && i < 0xffffffff);
+/*end JB */
 
+/* JB more than 3 clock cycles have to pass since last register access before CMT is idle state */
+/* input clock is RCLK/128, 3 clock cycles is 11.7ms */
+/* CMT has to be in idle state to stop the Counter Input clock */
+	mdelay(12);
 	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) & ~(1<<5), CMCLKE);
 	spin_unlock_irqrestore(&cmt_lock, flags);
@@ -259,9 +283,20 @@ void rmu2_cmt_stop(void)
  */
 static void rmu2_cmt_clear(void)
 {
+	int wrflg, i = 0;
 	printk(KERN_DEBUG "START < %s >\n", __func__);
 
-	__raw_writel(0U, CMCNT15);
+/* JB added */
+	__raw_writel(0, CMSTR15); //Stop counting - being paranoid about CNT register access, stop count before modifying the count value
+
+	__raw_writel(0U, CMCNT15); //Clear the count value
+	
+	do{
+	    wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
+	    i++;	  
+	} while (wrflg != 0x00 && i < 0xffffffff);
+	__raw_writel(1, CMSTR15);//Enable counting again, now that the CNT value is valid
+/* End JB added */
 }
 
 /*
