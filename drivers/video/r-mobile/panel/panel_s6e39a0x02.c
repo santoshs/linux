@@ -22,7 +22,6 @@
 #include <linux/delay.h>
 
 #include <linux/gpio.h>
-#include <mach/r8a73734.h>
 
 #include <video/sh_mobile_lcdc.h>
 
@@ -30,8 +29,10 @@
 #include <linux/backlight.h>
 #include <linux/lcd.h>
 
+#include <linux/platform_device.h>
+
 /*#define S6E39A0X02_BRIGHTNESS_LINER */
-/*#define S6E39A0X02_USE_PANEL_INIT */
+/*#define S6E39A0X02_USE_PANEL_INIT*/
 
 #include "s6e39a0x02_gamma.h"
 
@@ -46,7 +47,17 @@
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	54
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	95
 
-#define R_MOBILE_IRQNO		33
+
+/* pixclock = 1000000 / DCF */
+#define R_MOBILE_M_PANEL_PIXCLOCK	19230
+
+/* timing */
+#define R_MOBILE_M_PANEL_LEFT_MARGIN	8
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	496
+#define R_MOBILE_M_PANEL_HSYNC_LEN	8
+#define R_MOBILE_M_PANEL_UPPER_MARGIN	4
+#define R_MOBILE_M_PANEL_LOWER_MARGIN	4
+#define R_MOBILE_M_PANEL_VSYNC_LEN	2
 
 #define LCD_DSITCKCR		0x00000007
 #define LCD_DSI0PCKCR		0x00000313
@@ -62,11 +73,11 @@
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
 #define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x003C007C
-#define LCD_MLDHSYNR		0x0001007A
+/* #define LCD_MLDHCNR		0x003C007C */
+/* #define LCD_MLDHSYNR		0x0001007A */
 #define LCD_MLDHAJR		0x00000000
-#define LCD_MLDVLNR		0x0360036A
-#define LCD_MLDVSYNR		0x00020364
+/* #define LCD_MLDVLNR		0x0360036A */
+/* #define LCD_MLDVSYNR		0x00020364 */
 #define LCD_MLDMT1R		0x0400000B
 #define LCD_LDDCKR		0x0001007C
 #define LCD_MLDDCKPAT1R		0x00000000
@@ -86,11 +97,11 @@
 #define LCD_MASK_VMLEN3		0xFFFFFFFF
 #define LCD_MASK_VMLEN4		0xFFFF0000
 #define LCD_MASK_DTCTR		0x00000002
-#define LCD_MASK_MLDHCNR	0x000001FF
-#define LCD_MASK_MLDHSYNR	0x000F01FF
+#define LCD_MASK_MLDHCNR	0x07FF07FF
+#define LCD_MASK_MLDHSYNR	0x001F07FF
 #define LCD_MASK_MLDHAJR	0x07070707
-#define LCD_MASK_MLDVLNR	0x07FF07FF
-#define LCD_MASK_MLDVSYNR	0x000F07FF
+#define LCD_MASK_MLDVLNR	0x1FFF1FFF
+#define LCD_MASK_MLDVSYNR	0x001F1FFF
 #define LCD_MASK_MLDMT1R	0x1F03FCCF
 #define LCD_MASK_LDDCKR		0x0007007F
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
@@ -106,33 +117,36 @@ struct fb_panel_info r_mobile_info = {
 	.pixel_height	= R_MOBILE_M_PANEL_PIXEL_HEIGHT,
 	.size_width	= R_MOBILE_M_PANEL_SIZE_WIDTH,
 	.size_height	= R_MOBILE_M_PANEL_SIZE_HEIGHT,
-	.buff_address	= R_MOBILE_M_BUFF_ADDR
+	.buff_address	= R_MOBILE_M_BUFF_ADDR,
+	.pixclock      = R_MOBILE_M_PANEL_PIXCLOCK,
+	.left_margin   = R_MOBILE_M_PANEL_LEFT_MARGIN,
+	.right_margin  = R_MOBILE_M_PANEL_RIGHT_MARGIN,
+	.upper_margin  = R_MOBILE_M_PANEL_UPPER_MARGIN,
+	.lower_margin  = R_MOBILE_M_PANEL_LOWER_MARGIN,
+	.hsync_len     = R_MOBILE_M_PANEL_HSYNC_LEN,
+	.vsync_len     = R_MOBILE_M_PANEL_VSYNC_LEN,
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param = {
-	LCD_DSITCKCR,
-	LCD_DSI0PCKCR,
-	LCD_DSI0PHYCR,
-	LCD_SYSCONF,
-	LCD_TIMSET0,
-	LCD_TIMSET1,
-	LCD_DSICTRL,
-	LCD_VMCTR1,
-	LCD_VMCTR2,
-	LCD_VMLEN1,
-	LCD_VMLEN2,
-	LCD_VMLEN3,
-	LCD_VMLEN4,
-	LCD_DTCTR,
-	LCD_MLDHCNR,
-	LCD_MLDHSYNR,
-	LCD_MLDHAJR,
-	LCD_MLDVLNR,
-	LCD_MLDVSYNR,
-	LCD_MLDMT1R,
-	LCD_LDDCKR,
-	LCD_MLDDCKPAT1R,
-	LCD_MLDDCKPAT2R
+	.DSITCKCR    = LCD_DSITCKCR,
+	.DSI0PCKCR   = LCD_DSI0PCKCR,
+	.DSI0PHYCR   = LCD_DSI0PHYCR,
+	.SYSCONF     = LCD_SYSCONF,
+	.TIMSET0     = LCD_TIMSET0,
+	.TIMSET1     = LCD_TIMSET1,
+	.DSICTRL     = LCD_DSICTRL,
+	.VMCTR1      = LCD_VMCTR1,
+	.VMCTR2      = LCD_VMCTR2,
+	.VMLEN1      = LCD_VMLEN1,
+	.VMLEN2      = LCD_VMLEN2,
+	.VMLEN3      = LCD_VMLEN3,
+	.VMLEN4      = LCD_VMLEN4,
+	.DTCTR       = LCD_DTCTR,
+	.MLDHAJR     = LCD_MLDHAJR,
+	.MLDMT1R     = LCD_MLDMT1R,
+	.LDDCKR      = LCD_LDDCKR,
+	.MLDDCKPAT1R = LCD_MLDDCKPAT1R,
+	.MLDDCKPAT2R = LCD_MLDDCKPAT2R
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
@@ -160,6 +174,10 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 	LCD_MASK_MLDDCKPAT1R,
 	LCD_MASK_MLDDCKPAT2R
 };
+
+static unsigned int reset_gpio;
+static unsigned int irq_portno;
+static unsigned int power_gpio;
 
 struct _s6e39a0x02_cmdset {
 	unsigned char cmd;
@@ -702,32 +720,44 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_delete disp_delete;
 	int ret;
+	unsigned int tmp;
 
-	printk(KERN_INFO "s6e39a0x02_panel_init\n");
+	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
 
-
 	/* GPIO control */
-	gpio_request(GPIO_PORT31, NULL);
-	gpio_request(GPIO_PORT89, NULL);
-	gpio_request(GPIO_PORT33, NULL);
-#ifdef S6E39A0X02_USE_PANEL_INIT
-	gpio_direction_output(GPIO_PORT31, 1);
-	msleep(10);
-	gpio_direction_output(GPIO_PORT31, 0);
-	msleep(1);
+	gpio_request(reset_gpio, NULL);
+	gpio_request(power_gpio, NULL);
 
-	gpio_direction_output(GPIO_PORT89, 1);
-	msleep(25);
-	gpio_direction_output(GPIO_PORT31, 1);
-	msleep(10);
-#endif
-	gpio_direction_input(GPIO_PORT33);
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_WIDTH + R_MOBILE_M_PANEL_HSYNC_LEN;
+	tmp += R_MOBILE_M_PANEL_LEFT_MARGIN;
+	tmp += R_MOBILE_M_PANEL_RIGHT_MARGIN;
+	tmp /= 8; /* HTCN */
+	tmp |= (R_MOBILE_M_PANEL_PIXEL_WIDTH / 8) << 16; /* HDCN */
+	r_mobile_lcd_if_param.MLDHCNR = tmp;
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_WIDTH + R_MOBILE_M_PANEL_RIGHT_MARGIN;
+	tmp /= 8; /* HSYNP */
+	tmp |= (R_MOBILE_M_PANEL_HSYNC_LEN / 8) << 16; /* HSYNW */
+	r_mobile_lcd_if_param.MLDHSYNR = tmp;
+
+	tmp = R_MOBILE_M_PANEL_PIXEL_HEIGHT + R_MOBILE_M_PANEL_VSYNC_LEN;
+	tmp += R_MOBILE_M_PANEL_UPPER_MARGIN;
+	tmp += R_MOBILE_M_PANEL_LOWER_MARGIN; /* VTLN */
+	tmp |= R_MOBILE_M_PANEL_PIXEL_HEIGHT << 16; /* VDLN */
+	r_mobile_lcd_if_param.MLDVLNR = tmp;
+
+	/* VSYNP */
+	tmp = R_MOBILE_M_PANEL_PIXEL_HEIGHT + R_MOBILE_M_PANEL_LOWER_MARGIN;
+	tmp |= R_MOBILE_M_PANEL_VSYNC_LEN << 16; /* VSYNW */
+	r_mobile_lcd_if_param.MLDVSYNR = tmp;
+
 
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
-	set_lcd_if_param.port_no		= R_MOBILE_IRQNO;
+	set_lcd_if_param.port_no		= irq_portno;
 	set_lcd_if_param.lcd_if_param		= &r_mobile_lcd_if_param;
 	set_lcd_if_param.lcd_if_param_mask	= &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
@@ -806,7 +836,7 @@ static int s6e39a0x02_panel_suspend(void)
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
 
-	printk(KERN_INFO "s6e39a0x02_panel_suspend\n");
+	printk(KERN_INFO "%s\n", __func__);
 	is_backlight_enabled = 0;
 
 
@@ -830,9 +860,9 @@ static int s6e39a0x02_panel_suspend(void)
 	screen_display_stop_lcd(&disp_stop_lcd);
 
 	/* GPIO control */
-	gpio_direction_output(GPIO_PORT31, 0);
+	gpio_direction_output(reset_gpio, 0);
 	msleep(10);
-	gpio_direction_output(GPIO_PORT89, 0);
+	gpio_direction_output(power_gpio, 0);
 	msleep(25);
 
 	disp_delete.handle = screen_handle;
@@ -850,21 +880,19 @@ static int s6e39a0x02_panel_resume(void)
 	screen_disp_delete disp_delete;
 	int ret;
 
-	printk(KERN_INFO "s6e39a0x02_panel_resume\n");
+	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
 
 	/* GPIO control */
-	gpio_direction_output(GPIO_PORT31, 1);
+	gpio_direction_output(reset_gpio, 1);
 	msleep(10);
-	gpio_direction_output(GPIO_PORT31, 0);
+	gpio_direction_output(reset_gpio, 0);
 	msleep(1);
 
-	gpio_direction_output(GPIO_PORT89, 1);
+	gpio_direction_output(power_gpio, 1);
 	msleep(25);
-	gpio_direction_output(GPIO_PORT31, 1);
-	msleep(10);
-	gpio_direction_input(GPIO_PORT33);
+	gpio_direction_output(reset_gpio, 1);
 
 	/* 120ms wait */
 	msleep(120);
@@ -936,9 +964,33 @@ static int s6e39a0x02_panel_resume(void)
 	return 0;
 }
 
-static int s6e39a0x02_panel_probe(struct fb_info *info)
+static int s6e39a0x02_panel_probe(struct fb_info *info,
+			    struct fb_panel_hw_info hw_info)
 {
+	struct platform_device *pdev;
+	struct resource *res_power_gpio;
 	int ret;
+
+	printk(KERN_INFO "%s\n", __func__);
+
+	reset_gpio = hw_info.gpio_reg;
+	irq_portno = hw_info.dsi_irq;
+
+	/* fb parent device info to platform_device */
+	pdev = to_platform_device(info->device);
+
+	/* get resource info from platform_device */
+	res_power_gpio	= platform_get_resource_byname(pdev,
+							IORESOURCE_IO,
+							"panel_power_port");
+	if (!res_power_gpio) {
+		printk(KERN_ALERT "panel_power_port is NULL!!\n");
+		return -ENODEV;
+	}
+	power_gpio	= res_power_gpio->start;
+	printk(KERN_INFO "GPIO_PORT%d : for panel power\n", power_gpio);
+	printk(KERN_INFO "GPIO_PORT%d : for panel reset\n", reset_gpio);
+	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
 
 	common_fb_info = info;
 
@@ -955,6 +1007,8 @@ static int s6e39a0x02_panel_probe(struct fb_info *info)
 
 static int s6e39a0x02_panel_remove(struct fb_info *info)
 {
+	printk(KERN_INFO "%s\n", __func__);
+
 	/* unregister device for backlight control */
 	s6e39a0x02_backlight_device_unregister();
 
@@ -966,6 +1020,8 @@ static int s6e39a0x02_panel_remove(struct fb_info *info)
 
 static struct fb_panel_info s6e39a0x02_panel_info(void)
 {
+	printk(KERN_INFO "%s\n", __func__);
+
 	return r_mobile_info;
 }
 
@@ -973,6 +1029,8 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
 	struct fb_panel_func panel_func;
+
+	printk(KERN_INFO "%s\n", __func__);
 
 	memset(&panel_func, 0, sizeof(struct fb_panel_func));
 
