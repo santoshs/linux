@@ -328,11 +328,28 @@ static int cmt_timer_set_next_event(unsigned long delta,
 				    struct clock_event_device *evt)
 {
 	struct cmt_clock_event_device *cmt = __this_cpu_ptr(percpu_evt);
-	u32 cmcnt;
+	unsigned long flags;
+	u32 cmcnt, next;
 
-	cmcnt = __raw_readl(cmt->base + CMCNT);
-	__raw_writel(cmcnt + delta, cmt->base + CMCOR);
-	return 0;
+	local_irq_save(flags);
+
+	next = __raw_readl(cmt->base + CMCNT) + delta;
+	__raw_writel(next, cmt->base + CMCOR);
+
+	/*
+	 * After writing a value to CMCOR, two cycles of Counter input
+	 * clock (RCLK or MAIN CLOCK 1/2) are necessary before the value
+	 * gets reflected in the LSI's actual operation.
+	 */
+	cmcnt = __raw_readl(cmt->base + CMCNT); /* defeat write posting */
+
+	local_irq_restore(flags);
+
+	/*
+	 * Make sure that a new value set-up into CMCOR register is ahead
+	 * of current CMCNT value, at least by (2 + 1) ticks.
+	 */
+	return ((int)(next - (cmcnt + 2 + 1)) < 0) ? -ETIME : 0;
 }
 
 static irqreturn_t cmt_timer_interrupt(int irq, void *dev_id)
@@ -341,12 +358,6 @@ static irqreturn_t cmt_timer_interrupt(int irq, void *dev_id)
 	struct clock_event_device *evt = cmt->evt;
 
 	if (likely(cmt_ack(cmt))) {
-		/*
-		 * TODO: We have to clear CMF bit and resume CMCNT operation
-		 * first, otherwise there is a possibility that CMCNT operation
-		 * will stop, even if clockevent is operating with one-shot
-		 * operating mode, though.
-		 */
 		evt->event_handler(evt);
 		return IRQ_HANDLED;
 	}
@@ -368,7 +379,7 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 	evt->irq = cmt->irq;
 	evt->cpumask = cpumask_of(cpu);
 
-	clockevents_config_and_register(evt, cmt->rate, 0xf, 0xffffffff);
+	clockevents_config_and_register(evt, cmt->rate, 0xf, 0x7fffffff);
 
 	cmt->evt = evt;
 
