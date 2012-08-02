@@ -487,9 +487,11 @@ SYSTEMSUSPEND_RESTORE_CPU1:
 	ORR		r6, r6, r4
 	STR		r6, [r5]
 	DSB
-	STR		pc, [r7]
+	ADR		r4, SUSPEND_WAKEUP_CPU1_NO_VMALLOC_EXPAND
+	STR		r4, [r7]
 	WFI
 	NOP
+SUSPEND_WAKEUP_CPU1_NO_VMALLOC_EXPAND:
 	MOV		r4,	#0x0300
 	LDR		r5, =SCU_PWRST_ADDR
 	LDR		r6, [r5]
@@ -1812,7 +1814,8 @@ ENTRY(setclock_systemsuspend)
 	LDREQ	r9, =FRQCRB_ZFC_MASK
 	BICEQ	r6, r6, r9
 	STR		r6, [r5]
-	
+
+#if 0
 	/* 
 	 * Backup CPG.FRQCRD 
 	 * Clear the FRQCRD.ZB30FC[3:0] if FRQCRD.ZB30SEL == 0
@@ -1827,6 +1830,7 @@ ENTRY(setclock_systemsuspend)
 	LDREQ	r9, =FRQCRB_ZB30FC_MASK
 	BICEQ	r6, r6, r9
 	STR		r6, [r5]
+#endif
 SETCLOCK_BACKUP_CLOCK_SETTING_SKIP:
 
 	/*
@@ -2079,12 +2083,14 @@ ENTRY(start_wfi)
 	STMFD	sp!, {r4-r11, lr}
 
 	/* Get PM SpinLock						*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		STRWFI_ES_2_2_AFTER_GET1_SKIP
 	PM_Spin_Lock
-#else
+	B	STRWFI_GET1_END
+STRWFI_ES_2_2_AFTER_GET1_SKIP:
 	CPU0_SpinLock_Get
 	CPU1_SpinLock_Get
-#endif
+STRWFI_GET1_END:
 
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
@@ -2138,22 +2144,26 @@ STRWFI_ZCLKCNG_SKIP:
 #endif
 
 	/* Release PM SpinLock					*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		STRWFI_ES_2_2_AFTER_REL1_SKIP
 	PM_Spin_Unlock
-#else
+	B	STRWFI_REL1_END
+STRWFI_ES_2_2_AFTER_REL1_SKIP:
 	CPU0_SpinLock_Release
 	CPU1_SpinLock_Release
-#endif
+STRWFI_REL1_END:
 
 	WFI		/* Transition to the WFI standby state */
 
 	/* Get PM SpinLock						*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		STRWFI_ES_2_2_AFTER_GET2_SKIP
 	PM_Spin_Lock
-#else
+	B	STRWFI_GET2_END
+STRWFI_ES_2_2_AFTER_GET2_SKIP:
 	CPU0_SpinLock_Get
 	CPU1_SpinLock_Get
-#endif
+STRWFI_GET2_END:
 
 	/* Resotre Z clk setting				*/
 	/* r0: CPU number						*/
@@ -2194,12 +2204,15 @@ STRWFI_ZCLKRESTORE_SKIP:
 #endif
 
 	/* Release PM SpinLock					*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		STRWFI_ES_2_2_AFTER_REL2_SKIP
 	PM_Spin_Unlock
-#else
+	B	STRWFI_REL2_END
+STRWFI_ES_2_2_AFTER_REL2_SKIP:
 	CPU0_SpinLock_Release
 	CPU1_SpinLock_Release
-#endif
+STRWFI_REL2_END:
+
 	LDMFD	sp!, {r4-r11, pc}
 .pool
 ENDPROC(start_wfi)
@@ -2295,9 +2308,11 @@ ENTRY(systemsuspend_cpu1_pa)
 	ORR		r6, r6, r4
 	STR		r6, [r5]
 	DSB
-	STR		pc, [r7]
+	ADR		r4, CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND
+	STR		r4, [r7]
 	WFI
 	NOP
+CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	MOV		r4,	#0x0300
 	LDR		r5, =SCU_PWRST_ADDRPhys
 	LDR		r6, [r5]
@@ -2335,12 +2350,14 @@ ENDPROC(systemsuspend_cpu1_pa)
 ENTRY(corestandby_pa)
 
 	/* Get PM SpinLock				*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		CORESTANDBY_ES_2_2_AFTER_GET1_SKIP
 	PM_Spin_Lock
-#else
+	B	CORESTANDBY_GET1_END
+CORESTANDBY_ES_2_2_AFTER_GET1_SKIP:
 	CPU0_SpinLock_Get_Phys
 	CPU1_SpinLock_Get_Phys
-#endif
+CORESTANDBY_GET1_END:
 
 #ifndef CORESTANDBY_A2SL
 	/*------------------------------------------*/
@@ -2436,12 +2453,14 @@ CORESTANDBY_CLKCHG_EXIT:
 #endif /* !CORESTANDBY_A2SL */
 
 	/* Release PM SpinLock				*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		CORESTANDBY_ES_2_2_AFTER_REL1_SKIP
 	PM_Spin_Unlock
-#else
+	B	CORESTANDBY_REL1_END
+CORESTANDBY_ES_2_2_AFTER_REL1_SKIP:
 	CPU0_SpinLock_Release_Phys
 	CPU1_SpinLock_Release_Phys
-#endif
+CORESTANDBY_REL1_END:
 
 	/*------------------------------------------*/
 	/* CPU power down */
@@ -2477,12 +2496,14 @@ CORESTANDBY_WAKEUP:
 	NOP
 
 	/* Get PM SpinLock				*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		CORESTANDBY_ES_2_2_AFTER_GET2_SKIP
 	PM_Spin_Lock
-#else
+	B	CORESTANDBY_GET2_END
+CORESTANDBY_ES_2_2_AFTER_GET2_SKIP:
 	CPU0_SpinLock_Get_Phys
 	CPU1_SpinLock_Get_Phys
-#endif
+CORESTANDBY_GET2_END:
 
 	/* Turn on PLL0 */
 	LDR		r4, =CPG_PLLECRPhys
@@ -2548,12 +2569,14 @@ CORESTANDBY_ZCLKRESTORE_SKIP:
 #endif /* !CORESTANDBY_A2SL */
 
 	/* Release PM SpinLock				*/
-#if 0
+	PM_ES2_2_And_After
+	BEQ		CORESTANDBY_ES_2_2_AFTER_REL2_SKIP
 	PM_Spin_Unlock
-#else
+	B	CORESTANDBY_REL2_END
+CORESTANDBY_ES_2_2_AFTER_REL2_SKIP:
 	CPU0_SpinLock_Release_Phys
 	CPU1_SpinLock_Release_Phys
-#endif
+CORESTANDBY_REL2_END:
 
 	/* Invalidate L1 D-cache		*/
 	L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */

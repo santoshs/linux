@@ -31,6 +31,7 @@
 /*					CPU0_SpinLock_Release_Phys*/
 /*					CPU1_SpinLock_Get_Phys	*/
 /*					CPU1_SpinLock_Release_Phys*/
+/*					PM_ES2_2_And_After*/
 /********************************************/
 
 
@@ -331,4 +332,17 @@
 #endif
 	.endm
 
+
+/*==========================================*/
+/*	Name: PM_ES2_2_And_After */
+/*	Overview: Get PM PM_ES2_2_And_After */
+/*==========================================*/
+	.macro PM_ES2_2_And_After
+	MRC		p15, 0, r7, c1, c0, 0	/* System Control Register */
+	TST		r7, #0x1
+	LDRNE	r4, =ram0ES_2_2_AndAfter
+	LDREQ	r4, =ram0ES_2_2_AndAfterPhys
+	LDR 	r4, [r4]
+	CMP		r4, #0x0
+	.endm
 
