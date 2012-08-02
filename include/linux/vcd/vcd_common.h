@@ -132,7 +132,7 @@ extern unsigned int g_vcd_log_level;
 			pr_alert( \
 				"[%5ld.%06ld] " \
 				VCD_DRIVER_NAME \
-				" : [VCD IF - AUDIO] : " \
+				" : [VCD - AUDIO] : " \
 				fmt, \
 				tv.tv_sec, \
 				tv.tv_usec, \
@@ -146,7 +146,7 @@ extern unsigned int g_vcd_log_level;
 			pr_alert( \
 				"[%5ld.%06ld] " \
 				VCD_DRIVER_NAME \
-				" : [VCD IF - SOUND] : " \
+				" : [VCD - SOUND] : " \
 				fmt, \
 				tv.tv_sec, \
 				tv.tv_usec, \
@@ -160,7 +160,7 @@ extern unsigned int g_vcd_log_level;
 			pr_alert( \
 				"[%5ld.%06ld] " \
 				VCD_DRIVER_NAME \
-				" : [VCD IF - AMHAL] : " \
+				" : [VCD - AMHAL] : " \
 				fmt, \
 				tv.tv_sec, \
 				tv.tv_usec, \
@@ -174,7 +174,67 @@ extern unsigned int g_vcd_log_level;
 			pr_alert( \
 				"[%5ld.%06ld] " \
 				VCD_DRIVER_NAME \
-				" : [VCD IF - SPUV ] : " \
+				" : [VCD - SPUV ] : " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_system_info_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_IF) && \
+			(g_vcd_log_level & VCD_LOG_ON_SYSTEM_INFO_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [VCD - SPUV ] : " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_udata_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_IF) && \
+			(g_vcd_log_level & VCD_LOG_ON_UDATA_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [VCD - SPUV ] : " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_trigger_rec_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_IF) && \
+			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_REC_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [VCD - SPUV ] : " \
+				fmt, \
+				tv.tv_sec, \
+				tv.tv_usec, \
+				##__VA_ARGS__); \
+		}
+
+	#define vcd_pr_if_spuv_trigger_play_ind(fmt, ...) \
+		if ((g_vcd_log_level & VCD_LOG_IF) && \
+			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_PLAY_IND)) { \
+			struct timeval tv; \
+			do_gettimeofday(&tv); \
+			pr_alert( \
+				"[%5ld.%06ld] " \
+				VCD_DRIVER_NAME \
+				" : [VCD - SPUV ] : " \
 				fmt, \
 				tv.tv_sec, \
 				tv.tv_usec, \
@@ -288,70 +348,6 @@ extern unsigned int g_vcd_log_level;
 
 	#define vcd_pr_spuv_info(fmt, ...) \
 		if (g_vcd_log_level & VCD_LOG_SPUV_INFO) { \
-			struct timeval tv; \
-			do_gettimeofday(&tv); \
-			pr_alert( \
-				"[%5ld.%06ld] " \
-				VCD_DRIVER_NAME \
-				" : [info ] %s: " \
-				fmt, \
-				tv.tv_sec, \
-				tv.tv_usec, \
-				__func__, \
-				##__VA_ARGS__); \
-		}
-
-	#define vcd_pr_if_spuv_system_info_ind(fmt, ...) \
-		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
-			(g_vcd_log_level & VCD_LOG_ON_SYSTEM_INFO_IND)) { \
-			struct timeval tv; \
-			do_gettimeofday(&tv); \
-			pr_alert( \
-				"[%5ld.%06ld] " \
-				VCD_DRIVER_NAME \
-				" : [info ] %s: " \
-				fmt, \
-				tv.tv_sec, \
-				tv.tv_usec, \
-				__func__, \
-				##__VA_ARGS__); \
-		}
-
-	#define vcd_pr_if_spuv_udata_ind(fmt, ...) \
-		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
-			(g_vcd_log_level & VCD_LOG_ON_UDATA_IND)) { \
-			struct timeval tv; \
-			do_gettimeofday(&tv); \
-			pr_alert( \
-				"[%5ld.%06ld] " \
-				VCD_DRIVER_NAME \
-				" : [info ] %s: " \
-				fmt, \
-				tv.tv_sec, \
-				tv.tv_usec, \
-				__func__, \
-				##__VA_ARGS__); \
-		}
-
-	#define vcd_pr_if_spuv_trigger_rec_ind(fmt, ...) \
-		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
-			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_REC_IND)) { \
-			struct timeval tv; \
-			do_gettimeofday(&tv); \
-			pr_alert( \
-				"[%5ld.%06ld] " \
-				VCD_DRIVER_NAME \
-				" : [info ] %s: " \
-				fmt, \
-				tv.tv_sec, \
-				tv.tv_usec, \
-				__func__, \
-				##__VA_ARGS__); \
-		}
-
-	#define vcd_pr_if_spuv_trigger_play_ind(fmt, ...) \
-		if ((g_vcd_log_level & VCD_LOG_SPUV_INFO) && \
-			(g_vcd_log_level & VCD_LOG_ON_TRIGGER_PLAY_IND)) { \
 			struct timeval tv; \
 			do_gettimeofday(&tv); \
 			pr_alert( \

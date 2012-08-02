@@ -390,144 +390,6 @@ int vcd_spuv_stop_call(void)
 
 
 /**
- * @brief	start tty/ctm function.
- *
- * @param	none.
- *
- * @retval	VCD_ERR_NONE	successful.
- * @retval	others		result of called function.
- */
-int vcd_spuv_start_tty_ctm(void)
-{
-	int ret = VCD_ERR_NONE;
-	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-
-	vcd_pr_start_spuv_function();
-
-	/* set status */
-	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK |
-				VCD_SPUV_STATUS_WAIT_REQ);
-
-	/* set expected response*/
-	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
-				VCD_SPUV_TTY_CTM_START_CNF);
-
-	/* flush cache */
-	vcd_spuv_func_cacheflush();
-
-	/* set parameter */
-	param[0] = VCD_SPUV_INTERFACE_ID;
-	param[1] = VCD_SPUV_TTY_CTM_START_REQ;
-#if 0
-	param[2] = 0;
-	param[3] = 0;
-	param[4] = 0;
-	param[5] = 0;
-#endif
-
-	/* output msg log */
-	vcd_spuv_interface_log(param[1]);
-
-	/* send message */
-	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_START_LENGTH);
-
-	/* check result */
-	ret = vcd_spuv_check_result();
-
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
-}
-
-
-/**
- * @brief	stop tty/ctm function.
- *
- * @param	none.
- *
- * @retval	VCD_ERR_NONE	successful.
- * @retval	others		result of called function.
- */
-int vcd_spuv_stop_tty_ctm(void)
-{
-	int ret = VCD_ERR_NONE;
-	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-
-	vcd_pr_start_spuv_function();
-
-	/* set status */
-	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK |
-				VCD_SPUV_STATUS_WAIT_REQ);
-
-	/* set expected response*/
-	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
-				VCD_SPUV_TTY_CTM_STOP_CNF);
-
-	/* set parameter */
-	param[0] = VCD_SPUV_INTERFACE_ID;
-	param[1] = VCD_SPUV_TTY_CTM_STOP_REQ;
-
-	/* output msg log */
-	vcd_spuv_interface_log(param[1]);
-
-	/* send message */
-	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_STOP_LENGTH);
-
-	/* check result */
-	ret = vcd_spuv_check_result();
-
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
-}
-
-
-/**
- * @brief	config tty/ctm function.
- *
- * @param	none.
- *
- * @retval	VCD_ERR_NONE	successful.
- * @retval	others		result of called function.
- */
-int vcd_spuv_config_tty_ctm(void)
-{
-	int ret = VCD_ERR_NONE;
-	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
-
-	vcd_pr_start_spuv_function();
-
-	/* set status */
-	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK |
-				VCD_SPUV_STATUS_WAIT_REQ);
-
-	/* set expected response*/
-	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
-				VCD_SPUV_TTY_CTM_CONFIG_CNF);
-
-	/* flush cache */
-	vcd_spuv_func_cacheflush();
-
-	/* set parameter */
-	param[0] = VCD_SPUV_INTERFACE_ID;
-	param[1] = VCD_SPUV_TTY_CTM_CONFIG_REQ;
-	param[2] = proc_param[0];
-	param[3] = proc_param[1];
-
-	/* output msg log */
-	vcd_spuv_interface_log(param[1]);
-
-	/* send message */
-	vcd_spuv_func_send_msg(param, VCD_SPUV_TTY_CTM_CONFIG_LENGTH);
-
-	/* check result */
-	ret = vcd_spuv_check_result();
-
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
-}
-
-
-/**
  * @brief	set udata function.
  *
  * @param	none.
@@ -1164,11 +1026,16 @@ static int vcd_spuv_set_irq(int validity)
 		vcd_pr_spuv_debug("execute request_irq().\n");
 		ret = request_irq(VCD_SPUV_SPI_NO, vcd_spuv_irq_handler,
 				0, "SPU2V DSP", NULL);
+		if (VCD_ERR_NONE == ret)
+			g_vcd_spuv_info.irq_status = VCD_SPUV_ENABLE;
 		break;
 	case VCD_SPUV_DISABLE:
 		/* Unbind SPUV interrupt */
-		vcd_pr_spuv_debug("execute free_irq().\n");
-		free_irq(VCD_SPUV_SPI_NO, NULL);
+		if (VCD_SPUV_ENABLE == g_vcd_spuv_info.irq_status) {
+			vcd_pr_spuv_debug("execute free_irq().\n");
+			free_irq(VCD_SPUV_SPI_NO, NULL);
+			g_vcd_spuv_info.irq_status = VCD_SPUV_DISABLE;
+		}
 		break;
 	default:
 		/* unlikely circumstance */
@@ -1537,7 +1404,7 @@ static void vcd_spuv_interrupt_ack(struct vcd_spuv_work *work)
 	/* set schedule */
 	vcd_spuv_set_schedule();
 
-	vcd_pr_if_spuv("V <-- F : ACK.\n");
+	vcd_pr_if_spuv("V <- F : ACK\n");
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
@@ -1825,15 +1692,6 @@ static void vcd_spuv_interface_log(unsigned int msg)
 	case VCD_SPUV_UDATA_REQ:
 		vcd_pr_if_spuv(VCD_SPUV_UDATA_REQ_LOG);
 		break;
-	case VCD_SPUV_TTY_CTM_START_REQ:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_START_REQ_LOG);
-		break;
-	case VCD_SPUV_TTY_CTM_STOP_REQ:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_STOP_REQ_LOG);
-		break;
-	case VCD_SPUV_TTY_CTM_CONFIG_REQ:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_CONFIG_REQ_LOG);
-		break;
 	case VCD_SPUV_BOOT_COMPLETE_IND:
 		vcd_pr_if_spuv(VCD_SPUV_BOOT_COMPLETE_IND_LOG);
 		break;
@@ -1893,15 +1751,6 @@ static void vcd_spuv_interface_log(unsigned int msg)
 		break;
 	case VCD_SPUV_UDATA_IND:
 		vcd_pr_if_spuv_udata_ind(VCD_SPUV_UDATA_IND_LOG);
-		break;
-	case VCD_SPUV_TTY_CTM_START_CNF:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_START_CNF_LOG);
-		break;
-	case VCD_SPUV_TTY_CTM_STOP_CNF:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_STOP_CNF_LOG);
-		break;
-	case VCD_SPUV_TTY_CTM_CONFIG_CNF:
-		vcd_pr_if_spuv(VCD_SPUV_TTY_CTM_CONFIG_CNF_LOG);
 		break;
 	default:
 		vcd_pr_if_spuv("unkown msg[%x].\n", msg);
@@ -2046,7 +1895,7 @@ static int vcd_spuv_check_result(void)
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
-		vcd_pr_if_spuv("V <-- F : TIME OUT.\n");
+		vcd_pr_if_spuv("V <- F : TIME OUT\n");
 		vcd_pr_err("firmware time out occured.\n");
 		/* update status */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);

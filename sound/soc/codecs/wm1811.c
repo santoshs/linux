@@ -75,12 +75,6 @@
 
 #define WM1811_HEADSET_MIC_ENABLE	0x0020
 
-#define WM1811_GPIO_BASE	IO_ADDRESS(0xE6050000)
-#define WM1811_GPIO_024		(WM1811_GPIO_BASE + 0x0018)/* EAR_SEND_END */
-#define WM1811_GPIO_034		(WM1811_GPIO_BASE + 0x0022)/* CODEC_LDO_EN */
-#define WM1811_GPIO_063_032DSR	(WM1811_GPIO_BASE + 0x4104)/* PORTL063_032DSR*/
-
-
 #define WM1811_CONFIG_INIT		"/etc/audio_lsi_driver/"
 #define WM1811_EXTENSION		".conf"
 #define WM1811_LEN_MAX_ONELINE		(80)
@@ -468,7 +462,7 @@ static int wm1811_setup(struct i2c_client *client,
 	dev->irq = client->irq;
 	wm1811_log_info("client->irq[%d]", client->irq);
 	ret = request_irq(client->irq, &wm1811_irq_handler,
-			  (IRQF_DISABLED | IRQF_TRIGGER_FALLING),
+			  (IRQF_DISABLED | IRQF_TRIGGER_RISING),
 			  client->name, NULL);
 
 	if (0 != ret) {
@@ -521,13 +515,26 @@ static int wm1811_setup_r8a73734(void)
 	if (0 != ret)
 		goto err_enable_vclk4;
 
-	iowrite8(0xe0, WM1811_GPIO_024);
-	iowrite8(0xd0, WM1811_GPIO_034);	/* 0xe0(IE) -> 0xd0(OE) */
-	iowrite32(0x04, WM1811_GPIO_063_032DSR);/* modify GPIO034: Hi */
+	/* CODEC_LDO_EN */
+	ret = gpio_request(GPIO_PORT34, NULL);
+
+	if (0 != ret) {
+		wm1811_log_err("gpio_request() ret[%d]", ret);
+		goto err_gpio_request;
+	}
+
+	ret = gpio_direction_output(GPIO_PORT34, 1);
+
+	if (0 != ret) {
+		wm1811_log_err("gpio_direction_output() ret[%d]", ret);
+		goto gpio_direction_output;
+	}
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
+gpio_direction_output:
+err_gpio_request:
 err_enable_vclk4:
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
@@ -1736,6 +1743,12 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 	u_int fll1_control5 = 0;
 	wm1811_log_efunc("device[%ld]", device);
 
+	if ((WM1811_DEV_NONE != device) &&
+		(0 == gpio_get_value(GPIO_PORT34))) {
+		/* CODEC_LDO_EN : wm1811 Power ON */
+		gpio_set_value(GPIO_PORT34, 1);
+	}
+
 	ret = wm1811_check_device(device);
 
 	if (0 != ret) {
@@ -1765,13 +1778,12 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		/*****************************************************/
 		/* General Purpose Input/Output (GPIO) Configuration */
 		/*****************************************************/
-		/* GPIO 1 - Set to GPIO (Microphone Detect IRQ output) */
-		ret = wm1811_write(0x0700, 0x0005);
-		/* ret = wm1811_write(0x0700, 0x0003); */
+		/* GPIO 1 - Set to GPIO (output, pull-down, active high */
+		/* Microphone Detect IRQ output) */
+		ret = wm1811_write(0x0700, 0x2005);
 
 		ret = wm1811_write(0x00D0, 0x0B01);
 		ret = wm1811_write(0x00D1, 0x0040);
-		/* ret = wm1811_write(0x00D2, 0x0001); */
 
 		ret = wm1811_write(0x0738, 0x07DE);
 		ret = wm1811_write(0x0739, 0xDBED);
@@ -2034,6 +2046,15 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		sndp_pcm_name_generate(pcm_value, pcm_buf);
 		wm1811_log_info("PCM: %s [0x%08X]\n", pcm_buf, pcm_value);
 		wm1811_read_config(pcm_buf, wm1811_configration_path);
+	}
+
+	if ((WM1811_DEV_NONE == device) &&
+		(1 == gpio_get_value(GPIO_PORT34))) {
+		/* Mic Detect Disable */
+		ret = wm1811_write(0x00D0, 0x0B00);
+		/* CODEC_LDO_EN : wm1811 Power OFF */
+		gpio_set_value(GPIO_PORT34, 0);
+		audio_on = WM1811_DISABLE;
 	}
 
 	wm1811_conf->info = new_device;

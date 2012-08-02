@@ -1583,10 +1583,7 @@ static int fsi_dai_hw_params(struct snd_pcm_substream *substream,
 
 	fsi_clk_ctrl(fsi, 1);
 
-	/* if slave mode, set_rate is not needed */
-	if (!fsi_is_master_mode(fsi, is_play))
-		return 0;
-
+	/* clock stop */
 	fsi_clk_disable(master);
 
 	return 0;
