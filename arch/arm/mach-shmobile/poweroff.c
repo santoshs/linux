@@ -107,8 +107,8 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	if(cmd == NULL) {
 	 /* copy cmd = NULL to SDRAM */
 		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
-		strncpy((void *)bootflag_address, "", 0x01);
-		strncpy((void *)bootflag_address, "" , BOOTFLAG_SIZE);	    
+		strncpy((void *)bootflag_address, &flag, 0x01);
+		strncpy((void *)bootflag_address + 0x01, "" , BOOTFLAG_SIZE - 0x01);	    
 	}
 	else {
 	   	/* copy cmd to SDRAM */
