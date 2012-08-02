@@ -42,6 +42,7 @@
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
+#include <linux/vibrator.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
@@ -1001,6 +1002,20 @@ static struct platform_device	tpu_devices[] = {
 	},
 };
 
+static struct vibrator_port_info vibrator_platdata = {
+	.pcm2pwm_port	= GPIO_PORT228 ,
+	.vibrator_port	= GPIO_PORT226 ,
+	.tpu_port	= GPIO_PORT36 ,
+};
+
+static struct platform_device vibrator_device = {
+        .name           = "vibrator-renesas-sh_mobile",
+        .id             = -1,
+        .dev            = {
+                .platform_data  = &vibrator_platdata,
+        },       
+};
+
 /* PCM2PWM */
 static struct resource pcm2pwm_resource = {
 	.name	= "pcm2pwm_map",
@@ -1527,6 +1542,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
@@ -1574,6 +1590,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
@@ -1621,6 +1638,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device,
 //	&pcm2pwm_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
