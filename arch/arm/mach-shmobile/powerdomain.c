@@ -35,12 +35,15 @@
 #include <linux/pm_runtime.h>
 #include <mach/pm.h>
 #include <mach/common.h>
+#include <linux/notifier.h>
+#include <linux/cpufreq.h>
 
 #endif /*POWER_DOMAIN_H*/
 
 #undef __io
 #define __io	IO_ADDRESS
 /* #define __DEBUG_PDC */
+/* #define __DEBUG_PDWAIT */
 
 /******************************************************************************
  * SYSC accessor
@@ -51,10 +54,24 @@
 #define SYSC_WUPSMSK				0xE618002C
 #define SYSC_PSTR					0xE6180080
 #define SYSC_PDNSEL					0xE6180254
+#define SBSC_SDPDCR0A				0xFE400058
 
 #define C4_POWER_DOWN_SEL_ALL		0x0000001F
 #define PSTR_POLLING_INTERVAL_US	10
 #define PSTR_POLLING_COUNT_MAX		50
+
+#define HIGH_THRESHOLD	(1000000)
+#define DELAYED_TIME_IN_US	(200*1000)
+#define CPU0_ID 			0
+struct workqueue_struct *pdwait_wq = NULL;
+static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
+static struct mutex pdwait_mutex;
+static unsigned int pdwait_judge_count = 0;
+static bool a2ri_status_old = 0;
+static bool a2rv_status_old = 0;
+static bool a2ri_status_new = 0;
+static bool a2rv_status_new = 0;
+static bool suspend_state 	= 0;
 
 /******************************************************************************
  * Declaration 
@@ -207,6 +224,7 @@ static inline void sort_mapping_table(struct drv_pd_mapping_table *drv_pd_mp_tbl
 static int get_power_area_index(struct drv_pd_mapping_table *drv_pd_mp_tbl,
 							int arr_size, const char *drv_name);
 static void power_status_set(unsigned int area, bool on);
+static int power_domain_driver_suspend(struct device *dev);
 static int power_domain_driver_resume(struct device *dev);
 static int power_domain_driver_runtime_suspend(struct device *dev);
 static int power_domain_driver_runtime_resume(struct device *dev);
@@ -219,6 +237,7 @@ static int c4_power_domain_driver_probe(struct device *dev);
 static int power_domain_driver_init(void);
 static void set_c4_power_down_sel(unsigned int);
 static bool is_power_status_on(unsigned int);
+static void pdwait_judge(void);
 #ifdef __DEBUG_PDC
 static void power_areas_info(void);
 #endif /* __DEBUG_PDC */
@@ -389,6 +408,23 @@ static void power_status_set(unsigned int area, bool on)
 /* Common power domain(area) driver for supported areas (other C4 than area) */
 
 /*
+ * power_domain_driver_suspend: implement for ->suspend_noirq()
+ * 							callback function of power domain(area) driver
+ * @dev: device of power domain(area)
+ * return: always return 0 (because it is template of callback function)
+ */
+static int power_domain_driver_suspend(struct device *dev)
+{
+	if (0 == suspend_state){
+		cancel_delayed_work_sync(&pdwait_work);
+		suspend_state = 1;
+	}
+	return 0;
+}
+ 
+ /* Common power domain(area) driver for supported areas (other C4 than area) */
+
+/*
  * power_domain_driver_resume: implement for ->resume_noirq()
  * 							callback function of power domain(area) driver
  * @dev: device of power domain(area)
@@ -396,12 +432,18 @@ static void power_status_set(unsigned int area, bool on)
  */
 static int power_domain_driver_resume(struct device *dev)
 {
+	int delay = 0;
 	int r = pm_runtime_resume(dev);
 
 	if (0 < r) {
 		(void)pr_notice("%s resume notice: %d\n", dev_name(dev), r);
 	}
 
+	delay = usecs_to_jiffies(DELAYED_TIME_IN_US);
+	if (1 == suspend_state){
+		queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
+		suspend_state = 0;
+	}
 	return 0;
 }
 
@@ -458,10 +500,33 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 	}
 #endif
 
+#ifdef CONFIG_PM_HAS_SECURE
+	if (POWER_A3SP == area) {
+#if 1
+		(void)sec_hal_pm_a3sp_state_request(false);
+#else
+		int ret = sec_hal_pm_a3sp_state_request(false);
+		printk(KERN_INFO "[PDC] sec_hal_pm_a3sp_state_request = %x\n", ret); // return 0
+#endif
+		a3sp_power_down_count++;
+	} else {
+		power_status_set(area, false);
+	}
+#else 
 	power_status_set(area, false);
 
 	if (POWER_A3SP == area) {
 		a3sp_power_down_count++;
+	}
+#endif /* CONFIG_PM_HAS_SECURE */
+
+	if (POWER_A3SG == area) {
+		pdwait_judge_count--;	
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] A3SG = OFF\n");
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+#endif
+		pdwait_judge();
 	}
 
 #ifdef __DEBUG_PDC
@@ -504,7 +569,29 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 	}
 #endif
 
+#ifdef CONFIG_PM_HAS_SECURE
+	if (POWER_A3SP == area) {
+#if 1
+		(void)sec_hal_pm_a3sp_state_request(true);
+#else
+		int ret = sec_hal_pm_a3sp_state_request(true);
+		printk(KERN_INFO "[PDC] sec_hal_pm_a3sp_state_request = %x\n", ret); // return 0
+#endif
+	} else {
+		power_status_set(area, true);
+	}
+#else
 	power_status_set(area, true);
+#endif /* CONFIG_PM_HAS_SECURE */
+
+	if (POWER_A3SG == area) {
+		pdwait_judge_count++;
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] A3SG = ON\n");
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+#endif
+		pdwait_judge();
+	}
 #ifdef __DEBUG_PDC
 	power_areas_info();
 #endif /* __DEBUG_PDC */
@@ -549,6 +636,7 @@ static int power_domain_driver_remove(struct device *dev)
  */
 
 static struct dev_pm_ops power_domain_driver_pm_ops = {
+	.suspend_noirq		= &power_domain_driver_suspend,
 	.resume_noirq		= &power_domain_driver_resume,
 	.runtime_suspend	= &power_domain_driver_runtime_suspend,
 	.runtime_resume		= &power_domain_driver_runtime_resume
@@ -596,30 +684,10 @@ static unsigned int c4_power_down_sel(void)
  */
 static void set_c4_power_down_sel(unsigned int condition)
 {
-	unsigned int pll = 0;
 	if (0 != (condition & ~C4_POWER_DOWN_SEL_ALL)) {
 		panic("C4 power down condition invalid argument: 0%08x", condition);
 	}
 	__raw_writel(condition, __io(SYSC_PDNSEL));
-
-	__raw_writel(0x000000A4, __io(0xE6180214));	/* SYSC.EXMSKCNT1.X1ON */
-	__raw_writel(0x00000100, __io(0xE6180234));	/* SYSC.APSCSTP */
-	__raw_writel(0x00000030, __io(0xE618004C));	/* SYSC.C4POWCR */
-	__raw_writel(0x00000001, __io(0xE6180264));	/* SYSC.WUPSCR.C4CLRWU */
-	__raw_writel(0x0000000C, __io(0xE6180254));	/* SYSC.PDNSEL */
-	__raw_writel(0x002F0000, __io(0xE618024C));	/* SYSC.SYCKENMSK */
-
-	/* PLL0STPCR */
-	pll = 0x00080000;
-	__raw_writel(pll, __io(0xE61500F0));	/* PLL0STPCR */
-
-	/* PLL1STPCR */
-	pll = 0x00010000;
-	__raw_writel(pll, __io(0xE61500C8));	/* PLL1STPCR */
-
-	/* PLL3STPCR */
-	pll = 0x00010000;
-	__raw_writel(pll, __io(0xE61500FC));	/* PLL3STPCR */
 }
 
 /*
@@ -719,6 +787,130 @@ static struct platform_device *power_devices[] = {
 	&a3sg_device	/* bit 18 (ID_A3SG)*/
 };
 
+static void pdwait_judge()
+{
+	void __iomem *reg = NULL;
+	u32 reg_val = 0;
+	u32 mask = 0x00FFFFFF;
+	u32 pdwait = 0x08000000;
+#ifdef __DEBUG_PDWAIT 
+	printk(KERN_INFO "[PDC] pdwait_judge() \n");
+#endif
+
+	reg = ioremap(SBSC_SDPDCR0A, 4);
+	reg_val = __raw_readl(reg);
+#ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "[PDC] SBSC_SDPDCR0A current pdwait = 0x%08x \n", reg_val);
+#endif
+	if (pdwait_judge_count > 0){
+		pdwait = 0xFF000000;
+	}
+
+	if (pdwait != (reg_val & ~mask)){
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] new pdwait for setting = 0x%08x \n", pdwait);
+#endif
+		__raw_writel(pdwait | (reg_val & mask), reg);
+	}
+	iounmap(reg);
+#ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "\n");
+#endif
+}
+
+int pdc_cpufreq_transition(struct notifier_block *block, unsigned long state, 
+								void *data)
+{
+	if (state == CPUFREQ_POSTCHANGE) {
+		struct cpufreq_freqs *freqs = data;
+		if (freqs->cpu == CPU0_ID){
+			if (freqs && (freqs->new > HIGH_THRESHOLD) && (freqs->old < HIGH_THRESHOLD)) {
+				/* frequency change upper HIGH_THRESHOLD = 1 GHz */
+				pdwait_judge_count++;
+#ifdef __DEBUG_PDWAIT
+				printk(KERN_INFO "[PDC] Z clock goes > 1 GHz \n");
+				printk(KERN_INFO "[PDC] freqs->old = %d \n", freqs->old);
+				printk(KERN_INFO "[PDC] freqs->new = %d \n", freqs->new);
+				printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+#endif
+			} else if (freqs && (freqs->new < HIGH_THRESHOLD) && (freqs->old > HIGH_THRESHOLD)){
+				/* frequency change under HIGH_THRESHOLD = 1 GHz */
+				pdwait_judge_count--;
+#ifdef __DEBUG_PDWAIT
+				printk(KERN_INFO "[PDC] Z clock goes < 1 GHz \n");
+				printk(KERN_INFO "[PDC] freqs->old = %d \n", freqs->old);
+				printk(KERN_INFO "[PDC] freqs->new = %d \n", freqs->new);
+				printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+#endif
+			}
+			
+			pdwait_judge();
+		}
+	}
+	
+	return NOTIFY_OK;
+}
+
+static void pdwait_work_fnc(struct work_struct *work)
+{
+	int delay = usecs_to_jiffies(DELAYED_TIME_IN_US);
+	u32 pstr_val;
+#ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "[PDC] workqueue function \n");
+#endif
+	mutex_lock(&pdwait_mutex);
+
+	a2ri_status_old = a2ri_status_new;
+	a2rv_status_old = a2rv_status_new;
+	
+	pstr_val = __raw_readl(__io(SYSC_PSTR));
+
+	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);		
+	if (a2ri_status_new && (a2ri_status_new != a2ri_status_old)){
+		/* A2RI change OFF -> ON */
+		pdwait_judge_count++;
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+		printk(KERN_INFO "[PDC] A2RI change from %s -> %s\n", a2ri_status_old ? "ON" : "OFF", a2ri_status_new ? "ON" : "OFF");
+#endif
+	} else if (!a2ri_status_new && (a2ri_status_new != a2ri_status_old)){
+		/* A2RI change ON -> OFF */
+		pdwait_judge_count--;
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+		printk(KERN_INFO "[PDC] A2RI change from %s -> %s\n", a2ri_status_old ? "ON" : "OFF", a2ri_status_new ? "ON" : "OFF");
+#endif
+	}
+	
+	a2rv_status_new = ((pstr_val & POWER_A2RV) == POWER_A2RV);		
+	if (a2rv_status_new && (a2rv_status_new != a2rv_status_old)){
+		/* A2RV change OFF -> ON */
+		pdwait_judge_count++;
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n", a2rv_status_old ? "ON" : "OFF", a2rv_status_new ? "ON" : "OFF");
+#endif
+	} else if (!a2rv_status_new && (a2rv_status_new != a2rv_status_old)){
+		/* A2RV change ON -> OFF */
+		pdwait_judge_count--;
+#ifdef __DEBUG_PDWAIT
+		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n", a2rv_status_old ? "ON" : "OFF", a2rv_status_new ? "ON" : "OFF");
+#endif
+	}
+#ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+#endif
+	pdwait_judge();
+
+	queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
+	mutex_unlock(&pdwait_mutex);
+}
+
+static struct notifier_block pdc_cpufreq_nb = {
+	.notifier_call = pdc_cpufreq_transition,
+};
+
 /* 
  * power_domain_driver_init: initial function of power domain(area) driver
  * return:	0 all device is registered successfully
@@ -728,7 +920,8 @@ static int __init power_domain_driver_init(void)
 {
 	int ret = 0;
 	int i;
-	int j;
+	int j;	
+	int delay = 0;
 
 #ifdef CONFIG_PM_DEBUG
 	pdc_enable = 1;
@@ -741,6 +934,25 @@ static int __init power_domain_driver_init(void)
 #ifdef CONFIG_PM_RUNTIME_A4RM
 	power_a4rm_mask = POWER_A4RM;
 #endif
+	ret = cpufreq_register_notifier(&pdc_cpufreq_nb,
+			CPUFREQ_TRANSITION_NOTIFIER);
+	if (0 != ret) {
+		return ret;
+	}
+
+	/* Z clock > 1GHz, A3SG, A2RI, A2RV ON at boot time */
+	pdwait_judge_count = 4;
+	mutex_init(&pdwait_mutex);	
+	a2ri_status_old = 1;
+	a2ri_status_new = 1;
+	a2rv_status_old = 1;
+	a2rv_status_new = 1;
+	suspend_state 	= 0;
+
+	pdwait_wq = alloc_ordered_workqueue("pdwait_wq", 0);
+	INIT_DELAYED_WORK(&pdwait_work, pdwait_work_fnc);
+	delay = usecs_to_jiffies(DELAYED_TIME_IN_US);
+	queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
 
 	ret = platform_driver_register(&power_domain_driver);
 	if (0 != ret) {
@@ -959,7 +1171,11 @@ int control_pdc(int is_enable)
 			power_status_set(POWER_A4MP, true);
 		}
 		if (0 == (power_areas_status & POWER_A3SP)) {
+#ifdef CONFIG_PM_HAS_SECURE
+			(void)sec_hal_pm_a3sp_state_request(true);
+#else
 			power_status_set(POWER_A3SP, true);
+#endif /* CONFIG_PM_HAS_SECURE */
 		}
 		if (0 == (power_areas_status & POWER_A3SG)) {
 			power_status_set(POWER_A3SG, true);
@@ -977,7 +1193,11 @@ int control_pdc(int is_enable)
 			power_status_set(POWER_A4MP, false);
 		}		
 		if (0 == (power_areas_status & POWER_A3SP)) {
+#ifdef CONFIG_PM_HAS_SECURE
+			(void)sec_hal_pm_a3sp_state_request(false);
+#else
 			power_status_set(POWER_A3SP, false);
+#endif /* CONFIG_PM_HAS_SECURE */
 		}		
 		if (0 == (power_areas_status & POWER_A3SG)) {
 			power_status_set(POWER_A3SG, false);
