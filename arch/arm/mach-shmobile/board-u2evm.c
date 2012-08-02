@@ -1002,6 +1002,11 @@ static struct platform_device	tpu_devices[] = {
 };
 
 /* PCM2PWM */
+static struct pcm2pwm_port_info pcm2pwm_platdata = {
+	.port_func	= GPIO_FN_PWMO,
+	.func_name	= "PWMO",
+};
+
 static struct resource pcm2pwm_resource = {
 	.name	= "pcm2pwm_map",
 	.start	= 0xEC380000,
@@ -1012,6 +1017,9 @@ static struct platform_device pcm2pwm_device = {
 	.name			= "pcm2pwm-renesas-sh_mobile",
 
 	.id				= 1,
+	.dev	= {
+		.platform_data = &pcm2pwm_platdata,
+	},
 	.num_resources 	= 1,
 	.resource		= &pcm2pwm_resource,
 };
