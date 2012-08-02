@@ -116,7 +116,7 @@ cb_pbrom_uart_printf g_pbrom_uart_printf = 0;
 uint32_t ramset_main(cb_register_func  ramset_cb_register_func, cb_pbrom_uart_printf ramset_cb_pbrom_uart_printf)
 {
     g_pbrom_uart_printf = ramset_cb_pbrom_uart_printf;
-
+	ulong value = 0;
     /* Null check */
     if( g_pbrom_uart_printf != NULL)
     {
@@ -124,11 +124,19 @@ uint32_t ramset_main(cb_register_func  ramset_cb_register_func, cb_pbrom_uart_pr
         set_ramset_callback(ramset_cb_register_func);
     }
     /* The register initialization is written here. */
-    #ifdef __INTEGRITY_CHECK_ENABLE__
+#ifdef __INTEGRITY_CHECK_ENABLE__
     SBSC_Init();
-    #endif /* __INTEGRITY_CHECK_ENABLE__ */
+#endif /* __INTEGRITY_CHECK_ENABLE__ */
     SYSC_Soft_Power_On_Reset();
-
+	/* Turn on A3R */
+	*SYS_SWUCR = SYS_SPDCR_A3R;
+	while(1)
+	{
+		value = *SYS_SWUCR;
+		if(value == 0x00000000)
+			break;
+	}	
+	
     return 0;
 }
 
