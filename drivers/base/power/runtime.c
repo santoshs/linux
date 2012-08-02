@@ -427,7 +427,9 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 		}
 #ifdef CONFIG_PDC
 		if (pdi) {
+			spin_unlock(&dev->power.lock);
 			power_domains_put_noidle(dev);
+			spin_lock(&dev->power.lock);
 		}
 #endif /* CONFIG_PDC */
 	}
@@ -452,7 +454,9 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 
 #ifdef CONFIG_PDC
 	if (pdi) {
+		spin_unlock(&dev->power.lock);
 		for_each_power_device(dev, pm_runtime_suspend);
+		spin_lock(&dev->power.lock);
 	}
 #endif /* CONFIG_PDC */
 	
@@ -558,7 +562,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 			spin_unlock(&dev->parent->power.lock);
 #ifdef CONFIG_PDC
 			if (pdi) {
+				spin_unlock(&dev->power.lock);
 				power_domains_get_sync(dev);
+				spin_lock(&dev->power.lock);
 			}
 #endif /* CONFIG_PDC */
 			goto no_callback;	/* Assume success. */
@@ -613,7 +619,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	if (dev->power.no_callbacks){
 #ifdef CONFIG_PDC
 		if (pdi) {
+			spin_unlock(&dev->power.lock);
 			power_domains_get_sync(dev);
+			spin_lock(&dev->power.lock);
 		}
 #endif /* CONFIG_PDC */
 		goto no_callback;	/* Assume success. */
@@ -622,7 +630,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	__update_runtime_status(dev, RPM_RESUMING);
 #ifdef CONFIG_PDC
 		if (pdi) {
-			power_domains_get_sync(dev); 
+			spin_unlock(&dev->power.lock);
+			power_domains_get_sync(dev);
+			spin_lock(&dev->power.lock);
 		}
 #endif /* CONFIG_PDC */
 	
@@ -643,7 +653,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 		pm_runtime_cancel_pending(dev);
 #ifdef CONFIG_PDC
 		if (pdi) {
+			spin_unlock(&dev->power.lock);
 			power_domains_put_noidle(dev);
+			spin_lock(&dev->power.lock);
 		}
 #endif /* CONFIG_PDC */
 	} else {
@@ -668,7 +680,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 
 #ifdef CONFIG_PDC
 	if (pdi) {
+		spin_unlock(&dev->power.lock);
 		for_each_power_device(dev, pm_runtime_idle);
+		spin_lock(&dev->power.lock);
 	}
 #endif /* CONFIG_PDC */
 
