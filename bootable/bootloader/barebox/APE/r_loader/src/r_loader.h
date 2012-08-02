@@ -77,8 +77,8 @@ typedef enum {
 #define TABLE1_SDRAM_ADDR_ES1			(0x47BE0000)	/* First address in SDRAM */
 #define TABLE1_SDRAM_ADDR_ES2			(0x4C800000)	/* First address in SDRAM */
 
-#define SPU_SEC_ADDR					(0x28E000ULL)	/* Sector of SPU bin in flash memory */
-#define SPU_SEC_SIZE					(3072)			/* Number of sectors */
+#define SPU_SEC_ADDR					(0x2A3C00ULL)	/* Sector of SPU bin in flash memory */
+#define SPU_SEC_SIZE					(14336)			/* Number of sectors */
 #define SPU_SDRAM_ADDR_ES1				(0x47800000)	/* First address in SDRAM */
 #define SPU_SDRAM_ADDR_ES2				(0x4C000000)	/* First address in SDRAM */
 
@@ -123,11 +123,11 @@ typedef struct {
 
 #ifdef __INTEGRITY_CHECK_ENABLE__
 /* Security */
-#define CERTIFICATE_ADDRESS 						(0x4E000000)
-#define CERTIFICATE_ADDRESS2	 					(0x4D000000)
+#define CERTIFICATE_ADDRESS 						(0x5C400000)
+#define CERTIFICATE_ADDRESS2	 					(0x5C401000)
 #define CERTIFICATE_SIZE 							(0x800)		/* 2KBs */
 #define CERTIFICATE_NONE 							(0xFFFFFFFFFFFFFFFFull)
-#define SECOND_MODULE_ADDRESS 						(0x4E000800)
+#define SECOND_MODULE_ADDRESS 						(0x60000000)
 #endif /* __INTEGRITY_CHECK_ENABLE__ */
 
 /* Function Prototypes */
