@@ -14,7 +14,8 @@
 #include "log_output.h"
 #include "r_loader_boot_matrix.h"
 
-#define EMMC_NO_WRITE
+/* #define STORE_CRASHLOG_EMMC */
+#define STORE_CRASHLOG_DDR
 
 /* Structure of emmc boot log (44 bytes) */
 typedef struct __boot_log__{
@@ -44,6 +45,9 @@ typedef struct __boot_log__{
 #define MAX_LOG_NUM 								((ulong)(1024))	
 #define LOG_START_OFFSET 							((uint64)(0x00000000515EB800))
 #define LOG_NUM_OFFSET 								LOG_START_OFFSET + (sizeof(BOOT_LOG) * MAX_LOG_NUM)
+
+#define LOG_START_OFFSET_DDR						((uint64)(0x00000000448E5800))
+#define LOG_NUM_OFFSET_DDR							((volatile ulong *)(LOG_START_OFFSET_DDR + (sizeof(BOOT_LOG) * MAX_LOG_NUM)))
 
 /* Function Prototypes */
 RC Save_Boot_Log_To_eMMC(ulong line_num, RC return_val, uchar branch_mode);
