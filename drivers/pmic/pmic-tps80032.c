@@ -603,11 +603,15 @@ static void tps80032_interrupt_work(struct work_struct *work)
 	}
 	
 	if (0 != (MSK_BIT_4 & sts_c)) {
+#ifdef PMIC_FUELGAUGE_ENABLE
 		/* interrupt source relate to charge controller */
 		queue_work(data->queue,&data->chrg_ctrl_work);
+#endif
 	}  else if (0 != (MSK_BIT_6 & sts_c)) {
+#ifdef PMIC_FUELGAUGE_ENABLE
 		/* interrupt source relate to internal charge */
 		queue_work(data->queue,&data->int_chrg_work);
+#endif
 	} else if ((0 != (MSK_BIT_0 & sts_c)) || (0 != (MSK_BIT_2 & sts_c))) {
 		/* interrupt source relate to external device */
 		queue_work(data->queue,&data->ext_work);
@@ -621,9 +625,11 @@ static void tps80032_interrupt_work(struct work_struct *work)
 		}
 	} 
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	/* Notify when hava an interrupt signal */
 	pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
-
+#endif
+	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return;
 
@@ -3558,17 +3564,23 @@ void tps80032_bat_update(struct tps80032_data *data)
 		/* Read the state of battery temperature is over or not */
 		if (0 == (ret & MSK_BIT_0)) {
 			if (1 == data->bat_over_temp) {
+#ifdef PMIC_CHARGE_ENABLE
 				/* Enable charger */
 				tps80032_en_charger(data);
+#endif
 				/* Update status of battery over-temp */
 				data->bat_over_temp = 0;
+#ifdef PMIC_CHARGE_ENABLE
 				/* Restore setting for charging */
 				tps80032_save_charger_setting(data->client_battery, 1);
+#endif
 			}
 		} else {
 			if (0 == data->bat_over_temp) {
+#ifdef PMIC_CHARGE_ENABLE
 				/* Disable charger */
 				tps80032_disable_charger(data);
+#endif
 				/* Update status of battery over-temp */
 				data->bat_over_temp = 1;
 			}
@@ -3781,6 +3793,7 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 	
 	if (0 != (ret & MSK_BIT_3)) {
 		/* If battery voltage is over-volt */
+#ifdef PMIC_CHARGE_ENABLE
 		/* Read the value of current limit setting before disable charger */
 		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT);
 		if (0 > ret) {
@@ -3799,12 +3812,14 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 		if (0 > ret) {
 			return;
 		}
+#endif
 		/* Update battery over-volt status */
 		data->bat_over_volt = 1;
 	} else if (1 == data->bat_over_volt) {
 		/* If battery voltage is not over-volt */
 		/* Update battery over-volt status */
 		data->bat_over_volt = 0;
+#ifdef PMIC_CHARGE_ENABLE
 		/* Check the state of charger */
 		ret_stat = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
 		if (0 > ret_stat) {
@@ -3833,6 +3848,7 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 				/* Do nothing */
 			}
 		}
+#endif
 	}
 	
 	/* call bat_updat function */
@@ -3864,7 +3880,9 @@ static void tps80032_chrg_ctrl_work(struct work_struct *work)
 		
 	if (data->vac_det != (ret_stat1 & MSK_BIT_3)) {
 		/* interrupt source relate to external charger */
+#ifdef PMIC_CHARGE_ENABLE
 		queue_work(data->queue,&data->vac_charger_work);
+#endif
 		/* Update status of VAC_DET */
 		data->vac_det = ret_stat1 & MSK_BIT_3;
 	}
@@ -4297,6 +4315,7 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
+#ifdef PMIC_CHARGE_ENABLE
 	if (( 1 != stop) && (0 != stop)) {
 		/* Return error */
 		return -EINVAL;
@@ -4338,7 +4357,7 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 			}
 		}
 	}
-
+#endif
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 }
@@ -4475,7 +4494,7 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 	struct tps80032_data *data = i2c_get_clientdata(client);
 	
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
+#ifdef PMIC_CHARGE_ENABLE
 	if ((0 != chrg_state) && (1 != chrg_state)) {
 		return -EINVAL;
 	}
@@ -4575,6 +4594,7 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 		}
 	}
 	
+#endif
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 }
@@ -4767,6 +4787,7 @@ static int tps80032_writes(struct device *dev, u8 addr, int len, u8 *val)
 	return ret;
 }
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 /*
  * tps80032_get_temp_status: read the current temperature of battery
  * @dev: The struct which handles the TPS80032 driver.
@@ -4791,6 +4812,7 @@ static int tps80032_get_temp_status(struct device *dev)
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
+#endif
 
 #ifdef PMIC_PT_TEST_ENABLE
 
@@ -4847,13 +4869,19 @@ static struct pmic_device_ops tps80032_power_ops = {
 	.force_power_off = tps80032_force_power_off,
 	.get_ext_device = tps80032_get_ext_device,
 	.read_register = tps80032_read_register,
+#ifdef PMIC_FUELGAUGE_ENABLE
 	.set_current_limit = tps80032_set_current_limit,
+#else
+	.set_current_limit = NULL,
+#endif
 	.clk32k_enable = tps80032_clk32k_enable,
 	.read = tps80032_read,
 	.reads = tps80032_reads,
 	.write = tps80032_write,
 	.writes = tps80032_writes,
+#ifdef PMIC_FUELGAUGE_ENABLE
 	.get_temp_status = tps80032_get_temp_status,
+#endif
 #ifdef PMIC_PT_TEST_ENABLE
 	.get_batt_status = tps80032_get_batt_status,
 #endif
@@ -4864,6 +4892,7 @@ static struct usb_otg_pmic_device_ops tps80032_vbus_ops = {
 	.set_vbus = tps80032_set_vbus,
 };
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 /* struct tps80032_power_battery_ops */
 static struct pmic_battery_ops tps80032_power_battery_ops = {
 	.get_usb_online = tps80032_get_usb_online,
@@ -4890,6 +4919,7 @@ struct battery_correct_ops tps80032_correct_ops = {
 	.correct_temp_func = tps80032_correct_temp,
 	.correct_voltage_func = tps80032_correct_voltage,
 };
+#endif
 
 /*
  * tps80032_power_suspend: power suppend event
@@ -4901,8 +4931,10 @@ static int tps80032_power_suspend(struct device *dev)
 {	
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, data->client_power->name, data->client_power->addr);
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
+#endif
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 }
@@ -4920,8 +4952,10 @@ static int tps80032_power_resume(struct device *dev)
 	
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, client->name,client->addr);
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	queue_work(data->queue,&data->resume_work);
 	queue_work(data->queue,&data->int_chrg_work);
+#endif
 	queue_work(data->queue,&data->ext_work);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
@@ -5130,6 +5164,7 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 	if (0 > ret) {
 		return ret;
 	}
+#ifdef PMIC_CHARGE_ENABLE
 	/* Check status of battery voltage */
 	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
 	if (0 > ret_ovp) {
@@ -5195,7 +5230,7 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 			}
 		}
 	}
-
+#endif
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
@@ -5510,11 +5545,13 @@ static int tps80032_power_probe(struct i2c_client *client, const struct i2c_devi
 
 	/* init work queue */
 	INIT_WORK(&data->interrupt_work, tps80032_interrupt_work);
+#ifdef PMIC_FUELGAUGE_ENABLE
 	INIT_WORK(&data->resume_work, tps80032_resume_work);
 	INIT_WORK(&data->update_work, tps80032_update_work);
 	INIT_WORK(&data->vac_charger_work, tps80032_vac_charger_work);
 	INIT_WORK(&data->int_chrg_work, tps80032_int_chrg_work);
 	INIT_WORK(&data->chrg_ctrl_work, tps80032_chrg_ctrl_work);
+#endif
 	INIT_WORK(&data->ext_work, tps80032_ext_work);
 
 	i2c_set_clientdata(client, data);
@@ -5617,12 +5654,14 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 	data->client_battery = client;
 	i2c_set_clientdata(client, data);
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	/* Init hardware configuration*/
 	ret = tps80032_init_battery_hw(data);
 	if (0 > ret) {
 		PMIC_ERROR_MSG("%s:%d tps80032_init_battery_hw failed err=%d\n",__func__,__LINE__,ret);
 		goto err_init_hw;
 	}
+#endif
 	
 	/* Register into USB OTG VBUS interface */
 	ret = usb_otg_pmic_device_register(&client->dev,&tps80032_vbus_ops);
@@ -5631,19 +5670,23 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 		goto err_device_USB_register;
 	}
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	/* Register battery device */
 	ret = pmic_battery_device_register(&client->dev, &tps80032_power_battery_ops);
 	if (0 > ret) {
 		PMIC_ERROR_MSG("%s:%d pmic_battery_device_register failed err=%d\n",__func__,__LINE__,ret);
 		goto err_battery_device_register;
 	}
+#endif
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	/* Register correct device */
 	ret = pmic_battery_register_correct_func(&tps80032_correct_ops);
 	if (0 > ret) {
 		PMIC_ERROR_MSG("%s:%d pmic_battery_register_correct_func failed err=%d\n",__func__,__LINE__,ret);
 		goto err_correct_device_register;
 	}
+#endif
 
 	/* Init IRQ*/
 	ret = tps80032_init_irq(data, client->irq, IRQPIN_IRQ_BASE + 64);
@@ -5652,12 +5695,14 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 		goto err_request_irq;
 	}
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	tps80032_init_timer(data);
 	bat_timer.expires  = jiffies + msecs_to_jiffies(CONST_TIMER_BATTERY_UPDATE);
 	add_timer(&bat_timer);
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
+#endif
 
 	/* Init thread to handle modem reset */
 	init_waitqueue_head(&tps80032_modem_reset_event);
@@ -5675,11 +5720,13 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 
 err_request_irq:
 	free_irq(pint2irq(CONST_INT_ID),data);
+#ifdef PMIC_FUELGAUGE_ENABLE
 err_init_hw:
 	pmic_battery_unregister_correct_func();
 err_correct_device_register:
 	pmic_battery_device_unregister(&client->dev);
 err_battery_device_register:
+#endif
 	usb_otg_pmic_device_unregister(&client->dev);
 err_device_USB_register:
 	return ret;
@@ -5701,8 +5748,11 @@ static int tps80032_battery_remove(struct i2c_client *client)
 		 tps80032_modem_reset_thread = NULL;
 	}
 
+#ifdef PMIC_FUELGAUGE_ENABLE
 	pmic_battery_unregister_correct_func();
 	pmic_battery_device_unregister(&client->dev);
+#endif
+
 	usb_otg_pmic_device_unregister(&client->dev);
 	return 0;
 }

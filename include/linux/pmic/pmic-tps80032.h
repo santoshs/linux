@@ -26,6 +26,8 @@
 /* #define PMIC_DEBUG_ENABLE */
 /* Define for use Non_volatile value */
 /* #define PMIC_NON_VOLATILE_ENABLE */
+#define PMIC_CHARGE_ENABLE
+#define PMIC_FUELGAUGE_ENABLE
 
 #define PINT_IRQ_BASE		512
 #define pint2irq(bit)		(PINT_IRQ_BASE + (bit))
