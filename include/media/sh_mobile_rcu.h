@@ -27,12 +27,22 @@
 #define SH_RCU_OUTPUT_SDRAM			(0)
 #define SH_RCU_OUTPUT_MERAM			(1)
 
+#define SH_RCU_OUTPUT_ISP_FULL			(0x00)
+#define SH_RCU_OUTPUT_ISP_THINNED_AVERAGE	(0x09)
+#define SH_RCU_OUTPUT_ISP_THINNED		(0x0B)
+
+#define SH_RCU_LED_ON				(1)
+#define SH_RCU_LED_OFF				(0)
+#define SH_RCU_LED_MODE_NORM			(0)
+#define SH_RCU_LED_MODE_PRE			(1)
+
 struct device;
 
 struct sh_mobile_rcu_info {
 	unsigned long flags;
 	struct device *csi2_dev;
 	char *mod_name;
+	int (*led)(int, int);
 };
 
 #endif /* __ASM_SH_MOBILE_RCU_H__ */
