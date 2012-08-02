@@ -1206,6 +1206,12 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 		ret = wm1811_write(0x0001, pm);
 		ret = wm1811_write(0x0018, mute_vol);
 		ret = wm1811_write(0x001B, mute_vol);
+
+		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
+		ret = wm1811_write(0x0029, 0x0030);
+
+		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
+		ret = wm1811_write(0x002A, 0x0180);
 	} else {
 		/* nothing to do. */
 	}
@@ -1252,8 +1258,14 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 					WM1811_HEADSET_MIC_ENABLE);
 			}
 		}
-/*		ret = wm1811_write(0x0001, pm); */
 		ret = wm1811_write(0x001A, mute_vol);
+
+		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
+		ret = wm1811_write(0x0029, 0x0000);
+
+		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
+		ret = wm1811_write(0x002A, 0x0030);
+
 	} else {
 		/* nothing to do. */
 	}
@@ -1958,12 +1970,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 		/* Connect IN1LN to IN1L PGA, Connect IN1LP to IN1L PGA */
 		/* Connect IN2RN to IN2R PGA, Connect IN2RP to IN2R PGA */
 		ret = wm1811_write(0x0028, 0x003D);
-
-		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
-		ret = wm1811_write(0x0029, 0x003F);
-
-		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
-		ret = wm1811_write(0x002A, 0x01BF);
 
 		/***********************************/
 		/* Path Configuration              */

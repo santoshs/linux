@@ -9,7 +9,7 @@
 #ifndef __WM1811_H__
 #define __WM1811_H__
 
-#define WM1811_CACHE_SIZE 1570
+#define WM1811_CACHE_SIZE 1865
 
 struct wm1811_access_mask {
 	unsigned short readable;   /* Mask of readable bits */
