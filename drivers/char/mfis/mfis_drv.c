@@ -51,11 +51,6 @@ static struct semaphore a3r_power_sem;
 #define	POWER_A3R		((unsigned long)0x00002000)
 #define	CLOCK_TLB_IC_OC	((unsigned long)0xE0000000)
 
-/* #MU2SYS921 */
-#ifndef ID_A3R
-#define ID_A3R 13
-#endif
-
 struct mfis_early_suspend_tbl {
 	struct device *dev;
 	struct early_suspend early_suspend;
