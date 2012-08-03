@@ -399,7 +399,7 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 	setup_irq(evt->irq, &cmt->irqaction);
 	irq_set_affinity(evt->irq, cpumask_of(cpu));
 
-	pr_info("%s used for clock events", cmt->cfg->name);
+	pr_info("%s used for clock events\n", cmt->cfg->name);
 }
 
 static int __cpuinit cmt_timer_setup(struct clock_event_device *evt)
@@ -487,8 +487,9 @@ static int __init cmt_timer_init_single(struct cmt_clock_event_device *cmt,
 
 	cmt->cfg = cfg;
 
-	pr_info("%s 0x%p probed with %s\n",
-		cfg->name, cmt->base, cmclke ? "CMCLKE" : "CMSTR");
+	pr_info("%s 0x%p probed with %s, cks=%d, min_delta_ticks=%ld\n",
+		cfg->name, cmt->base, cmclke ? "CMCLKE" : "CMSTR",
+		cfg->cks, cfg->cks_table[cfg->cks].min_delta_ticks);
 
 	return 0;
 
