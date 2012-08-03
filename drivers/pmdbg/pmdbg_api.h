@@ -143,7 +143,7 @@ static struct pmdbg_cmd _name##_pmdbg_cmd = {	\
 	
 #define PMDBG_ATTR(_name) \
 static struct kobj_attribute _name##_mod_attr = 	\
-		__ATTR(_name, 0666, _name##_mod_show, _name##_mod_store);
+		__ATTR(_name, 0644, _name##_mod_show, _name##_mod_store);
 
 #define MOD_OBJ(_name)		_name##_pmdbg_mod
 #define DECLARE_MOD(_name)		extern struct pmdbg_mod MOD_OBJ(_name)
