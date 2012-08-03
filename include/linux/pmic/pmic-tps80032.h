@@ -177,6 +177,7 @@ struct tps80032_irq_data {
 #define HW_REG_CHARGERUSB_STATUS_INT1	0xE6
 #define HW_REG_CHARGERUSB_STATUS_INT2	0xE7
 #define HW_REG_CHARGERUSB_CTRL1			0xE8
+#define HW_REG_CHARGERUSB_CTRL2			0xE9
 #define HW_REG_CHARGERUSB_CTRL3			0xEA
 #define HW_REG_CHARGERUSB_CINLIMIT		0xEE
 #define HW_REG_CHARGERUSB_VOREG     	0xEC
@@ -344,7 +345,7 @@ struct tps80032_irq_data {
 #define CONST_BATTERY_CURRENT_UPDATE	250
 #define CONST_WAIT_TIME					0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
-#define CONST_0C_DEGREE					0x0000
+#define CONST_0C_DEGREE					2566	/* 0 degree */
 #define CONST_CONVERT_VOLT				0x03E8
 #define CONST_BAT_MIN					0x01
 #define THR_BAT_FULL					0x64
@@ -378,12 +379,13 @@ struct tps80032_irq_data {
 #define CONST_LDO6_CFG_TRANS			0x01
 #define CONST_VAC_CURRENT_LIMIT			0x01	/* 100mA */
 #define CONST_DEF_CURRENT_LIMIT			0x09	/* 500mA */
-#define CONST_VBATMIN_HI				0x19	/* 3.25 V */
+#define CONST_VBATMIN_HI				0x1C	/* 3.4 V */
 #define CONST_VSYSMIN_HI				0x17	/* 3.15 V */
-#define CONST_VOREG						0x0D	/* 3.76V */
-#define CONST_VICHRG					0x03	/* 400mA with POP = 1*/
-#define CONST_VICHRG_PC					0x03	/* 400mA */
-#define CONST_VSEL_COMP					0x1F
+#define CONST_VOREG						0x23	/* 4.20V */
+#define CONST_VICHRG					0x02	/* 300mA with POP = 1*/
+#define CONST_VICHRG_PC					0x00	/* 100mA */
+#define CONST_VSEL_COMP					0x58
+#define CONST_CHRG_CTRL2				0x01
 #define CONST_HPB_WAIT					25
 #endif
 

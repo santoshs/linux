@@ -619,10 +619,10 @@ static void tps80032_interrupt_work(struct work_struct *work)
 			return;
 		}
 	} 
-	
+
 	/* Notify when hava an interrupt signal */
 	pmic_power_supply_changed(E_USB_STATUS_CHANGED|E_BATTERY_STATUS_CHANGED);
-	
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return;
 
@@ -2926,7 +2926,6 @@ int tps80032_read_hpa_temp(struct i2c_client *client)
 	int count_timer = 0;
 	int ret_MSB, ret_LSB;
 	int val;
-	u32 lock_id;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
@@ -3341,6 +3340,193 @@ int tps80032_calc_bat_capacity(struct i2c_client *client)
 }
 
 /*
+ * tps80032_disable_charger: disable charger when something wrong happended
+ * @data: 
+ * return: 0
+ */
+static int tps80032_disable_charger(struct tps80032_data *data)
+{
+	int ret = 0;
+	int ret_ctrl = 0;
+	
+	/* Read charger controller register */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret_ctrl = ret;
+	
+	/* Read the value of current limit setting before disable charger */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT);
+	if (0 > ret) {
+		return ret;
+	} else {
+		data->cin_limit = ret;
+	}
+	
+	/* Disable charger */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl & (~(MSK_BIT_4 | MSK_BIT_5))));
+	if (0 > ret) {
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
+ * tps80032_en_charger: enable charger when something wrong happended
+ * @data: 
+ * return: 0
+ */
+static int tps80032_en_charger(struct tps80032_data *data)
+{
+	int ret = 0;
+	int ret_ctrl = 0;
+	int ret_stat1 = 0;
+	int ret_ovp = 0;
+	
+	/* Read charger controller register */
+	ret_ctrl = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret_ctrl) {
+		return ret_ctrl;
+	}
+	
+	/* Check if interrupt source */
+	ret_stat1 = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret_stat1) {
+		return ret_stat1;
+	}
+	
+	/* Check status of battery voltage */
+	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
+	if (0 > ret_ovp) {
+		return ret_ovp;
+	}
+	
+	/* Charger is present and charger is disable*/
+	if ((0 != (ret_stat1 & (MSK_BIT_2 | MSK_BIT_3))) && (0 == (ret_ctrl & MSK_BIT_4)) && (0 == (ret_ovp & MSK_BIT_3))) {
+		/* Enable charger */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl | MSK_BIT_4));
+		if (0 > ret) {
+			return ret;
+		}
+		/* Enable EN_LINCH */
+		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+		if (0 > ret) {
+			return ret;
+		}
+			
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret | MSK_BIT_5);
+		if (0 > ret) {
+			return ret;
+		}
+	}
+	
+	return 0;
+}
+
+/*
+ * tps80032_save_charger_setting: restore the charger setting for enable charger before disable charger
+ * @client: The I2C client device.
+ * @state: The state of charger.
+ * 			0: new charger is plugged
+ * 			1: restore the setting for current limit
+ * return:
+ * 	= 0: normal operation
+ * 	< 0: error occurs
+ */
+static int tps80032_save_charger_setting(struct i2c_client *client, int state)
+{
+	int ret_ctrl;
+	int ret;
+	
+	/* Select charge source */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	ret_ctrl = ret;
+	
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	if (0 != (ret & MSK_BIT_2)) {
+		/* Charger source is USB charger */
+		ret_ctrl = ret_ctrl & (~MSK_BIT_3);
+	} else {
+		/* Charger source is AC charger */
+		ret_ctrl = ret_ctrl | MSK_BIT_3;
+	}
+	
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Setting for constant voltage (CV) for full-charge phase */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_VOREG, CONST_VOREG);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Setting for constant current (CC) for full-charge phase */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_VICHRG, CONST_VICHRG);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	/* Setting for constant current (CC) for pre-charge phase */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_VICHRG_PC, CONST_VICHRG_PC);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	if (1 == state) {
+		/* Set current limit */
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, data->cin_limit);
+		if (0 > ret) {
+			return ret;
+		}
+	} else {
+		/* Current limit is set after */
+	}
+	
+	/* Enable Charge current termination interrupt */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL1);
+	if (0 > ret) {
+		return ret;
+	}
+
+	ret |= MSK_BIT_4;
+
+	/* Set 1 to TERM bit at CHARGERUSB_CTRL1 (0xE8) register */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL1, ret);
+	if (0 > ret) {
+		return ret;
+	}
+
+	/* Enable charge one feature */
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL3);
+	if (0 > ret) {
+		return ret;
+	}
+
+	ret &= (~MSK_BIT_6);
+
+	/* Set 0 to CHARGE_ONCE bit at CHARGERUSB_CTRL3 (0xEA) register */	
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL3, ret);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	return 0;
+}
+
+/*
  * tps80032_bat_update: update all battery information
  * @data: The struct which handles the TPS80032 data.
  * return: void
@@ -3375,9 +3561,21 @@ void tps80032_bat_update(struct tps80032_data *data)
 
 		/* Read the state of battery temperature is over or not */
 		if (0 == (ret & MSK_BIT_0)) {
-			data->bat_over_temp = 0;
+			if (1 == data->bat_over_temp) {
+				/* Enable charger */
+				tps80032_en_charger(data);
+				/* Update status of battery over-temp */
+				data->bat_over_temp = 0;
+				/* Restore setting for charging */
+				tps80032_save_charger_setting(data->client_battery, 1);
+			}
 		} else {
-			data->bat_over_temp = 1;
+			if (0 == data->bat_over_temp) {
+				/* Disable charger */
+				tps80032_disable_charger(data);
+				/* Update status of battery over-temp */
+				data->bat_over_temp = 1;
+			}
 		}
 	}
 	
@@ -3562,6 +3760,7 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 {
 	int ret = 0;
 	int ret_stat = 0;
+	int ret_sts = 0;
 	int val = 0;
 	struct tps80032_data *data = container_of(work, struct tps80032_data, int_chrg_work);
 
@@ -3573,15 +3772,43 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 		return;
 	}
 	
+	/* If charge full */
+	ret_sts = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT2);
+	if (0 > ret_sts) {
+		return;
+	}
+	
+	/* If battery is full */
+	if (0 != (ret_sts & MSK_BIT_1)) {
+		/* Do nothing - disable auto by HW */
+	}
+	
 	if (0 != (ret & MSK_BIT_3)) {
 		/* If battery voltage is over-volt */
+		/* Read the value of current limit setting before disable charger */
+		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT);
+		if (0 > ret) {
+			return;
+		} else {
+			data->cin_limit = ret;
+		}
+		
 		/* Disable charger */
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, MSK_DISABLE);
+		ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
 		if (0 > ret) {
 			return;
 		}
-	} else {
+		
+		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret & (~(MSK_BIT_4)));
+		if (0 > ret) {
+			return;
+		}
+		/* Update battery over-volt status */
+		data->bat_over_volt = 1;
+	} else if (1 == data->bat_over_volt) {
 		/* If battery voltage is not over-volt */
+		/* Update battery over-volt status */
+		data->bat_over_volt = 0;
 		/* Check the state of charger */
 		ret_stat = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
 		if (0 > ret_stat) {
@@ -3598,11 +3825,14 @@ static void tps80032_int_chrg_work(struct work_struct *work)
 			/* Charger is disabled by over-voltage and not over-temp */
 			if ((0 == (ret & MSK_BIT_4)) && (0 == (ret_stat & MSK_BIT_0))) {
 				/* Enable charger */
-				val = ret | MSK_BIT_4 | MSK_BIT_5;
+				val = ret | MSK_BIT_4;
 				ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
 				if (0 > ret) {
 					return;
 				}
+				
+				/* Restore the setting for charging */
+				tps80032_save_charger_setting(data->client_battery, 1);
 			} else {
 				/* Do nothing */
 			}
@@ -3625,11 +3855,7 @@ static void tps80032_int_chrg_work(struct work_struct *work)
  */
 static void tps80032_chrg_ctrl_work(struct work_struct *work)
 {
-	int ret = 0;
 	int ret_stat1 = 0;
-	int ret_ctrl = 0;
-	int ret_sts = 0;
-	int ret_ovp = 0;
 	struct tps80032_data *data = container_of(work, struct tps80032_data, chrg_ctrl_work);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
@@ -3639,54 +3865,7 @@ static void tps80032_chrg_ctrl_work(struct work_struct *work)
 	if (0 > ret_stat1) {
 		return;
 	}
-	
-	/* Read status of charger */
-	ret_ctrl = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
-	if (0 > ret) {
-		return;
-	}
-	
-	/* Check status of battery voltage */
-	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
-	if (0 > ret_ovp) {
-		return;
-	}
-	
-	/* If charge full */
-	ret_sts = i2c_smbus_read_byte_data(data->client_battery, HW_REG_LINEAR_CHRG_STS);
-	if (0 > ret_sts) {
-		return;
-	}
-	
-	if (0 != (ret_sts & MSK_BIT_5)) {
-		/* Disable charger */
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl & (~MSK_BIT_4)));
-		if (0 > ret) {
-			return;
-		}
-	}
-	
-	/* If battery temperature is over-temp state */
-	if (0 != (ret_stat1 & MSK_BIT_0)) {
-		/* Disable charger */
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl & (~MSK_BIT_4)));
-		if (0 > ret) {
-			return;
-		}
-	} else {
-		/* Battery temperature is not over-temp and not over-volt */
-		/* Charger is present and charger is disable*/
-		if ((0 != (ret_stat1 & (MSK_BIT_2 | MSK_BIT_3))) && (0 == (ret_ctrl & MSK_BIT_4)) && (0 == (ret_ovp & MSK_BIT_3))) {
-			/* Enable charger */
-			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, (ret_ctrl | MSK_BIT_4));
-			if (0 > ret) {
-				return;
-			}
-		} else {
-			/* Do nothing */
-		}
-	}
-	
+		
 	if (data->vac_det != (ret_stat1 & MSK_BIT_3)) {
 		/* interrupt source relate to external charger */
 		queue_work(data->queue,&data->vac_charger_work);
@@ -3759,24 +3938,20 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 		if ((0 == (ret_stat1 & MSK_BIT_0)) && (0 == (ret_ovp & MSK_BIT_3))) {
 			/* Enable charger */
 			ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
+			
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+			if (0 > ret) {
+				PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+				return;
+			}
+			
+			/* Restore the setting for charging */
+			tps80032_save_charger_setting(data->client_battery, 0);
 		} else {
 			/* Do not enable charger */
 		}
-		
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
-		if (0 > ret) {
-			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
-			return;
-		}
 	} else if ((0 != (ret_stat1 & MSK_BIT_2))) {
 		/* If VAC charger is not present and USB charger is present */
-		/* Set previous value of current limit for USB charger */
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, data->cin_limit);
-		if (0 > ret) {
-			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
-			return;
-		}
-		
 		/* Select charge source is USB */
 		ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_3);
 		
@@ -3784,18 +3959,21 @@ static void tps80032_vac_charger_work(struct work_struct *work)
 		if ((0 == (ret_stat1 & MSK_BIT_0)) && (0 == (ret_ovp & MSK_BIT_3))) {
 			/* Enable charger */
 			ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
+			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+			if (0 > ret) {
+				PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+				return;
+			}
+
+			/* Restore the setting for charging */
+			tps80032_save_charger_setting(data->client_battery, 1);
 		} else {
 			/* Do not enable charger */
-		}
-		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
-		if (0 > ret) {
-			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
-			return;
 		}
 	} else {
 		/* If both VAC charger and USB charger are not present */
 		/* Disable charger */
-		ret_ctrl1 = ret_ctrl1 & (~MSK_BIT_4);
+		ret_ctrl1 = ret_ctrl1 & (~(MSK_BIT_4));
 		ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
 		if (0 > ret) {
 			PMIC_DEBUG_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
@@ -3926,7 +4104,7 @@ static int tps80032_get_bat_health(struct device *dev)
 	} else if (1 == ret_overtemp) {
 		/* return OVERHEAT health  */
 		ret = POWER_SUPPLY_HEALTH_OVERHEAT;
-	} else if (CONST_0C_DEGREE >= ret_temp) {
+	} else if (CONST_0C_DEGREE <= ret_temp) {
 		/* return COLD health */
 		ret = POWER_SUPPLY_HEALTH_COLD;
 	} else {
@@ -4117,7 +4295,9 @@ static int tps80032_get_bat_voltage(struct device *dev)
 static int tps80032_stop_charging(struct device *dev,int stop)
 {
 	int ret, cal;
+	int ret_cur_limit;
 	struct i2c_client *client = to_i2c_client(dev);
+	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
@@ -4127,7 +4307,6 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 	} else {
 		/* read the current value of CONTROLLER_CTRL1 register */
 		ret = i2c_smbus_read_byte_data(client, HW_REG_CONTROLLER_CTRL1);
-
 		if (0 > ret) {
 			return ret;
 		} else if (((1 == stop) && (0 != (ret & MSK_BIT_4)))
@@ -4136,7 +4315,16 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 		} else {
 			if (0 == stop) {
 				/* Disable charger */
-				cal  = ret & (~MSK_BIT_4);
+				cal  = ret & (~(MSK_BIT_4));
+				
+				/* Read the value of current limit setting before disable charger */
+				ret_cur_limit = i2c_smbus_read_byte_data(client, HW_REG_CHARGERUSB_CINLIMIT);
+				if (0 > ret_cur_limit) {
+					return ret_cur_limit;
+				} else {
+					data->cin_limit = ret_cur_limit;
+				}
+				
 			} else {
 				/* Enable charger */
 				cal = ret | MSK_BIT_4;
@@ -4144,14 +4332,19 @@ static int tps80032_stop_charging(struct device *dev,int stop)
 
 			/* write the new value of EN_CHARGER bit */
 			ret = i2c_smbus_write_byte_data(client, HW_REG_CONTROLLER_CTRL1, cal);
-			
 			if (0 > ret) {
 				return ret;
 			}
+			
+			if (1 == stop) {
+				/* Restore setting for charging */
+				tps80032_save_charger_setting(client, 1);
+			}
 		}
-		PMIC_DEBUG_MSG("%s end <<<\n", __func__);
-		return 0;
 	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return 0;
 }
 
 /*
@@ -4286,7 +4479,7 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 	struct tps80032_data *data = i2c_get_clientdata(client);
 	
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-	
+
 	if ((0 != chrg_state) && (1 != chrg_state)) {
 		return -EINVAL;
 	}
@@ -4368,13 +4561,15 @@ static int tps80032_set_current_limit(struct device *dev, int chrg_state, int ch
 			if ((0 == (ret_ovp & MSK_BIT_3)) && (0 == (ret_stat1 & MSK_BIT_0))) {
 				/* Enable charger */
 				ret_ctrl1 = ret_ctrl1 | MSK_BIT_4;
+				ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
+				if (0 > ret) {
+					return ret;
+				}
+
+				/* Restore setting for charging */
+				tps80032_save_charger_setting(data->client_battery, 0);
 			} else {
 				/* Do not enable charger */
-			}
-			
-			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret_ctrl1);
-			if (0 > ret) {
-				return ret;
 			}
 			
 		} else {
@@ -4709,6 +4904,7 @@ struct battery_correct_ops tps80032_correct_ops = {
 static int tps80032_power_suspend(struct device *dev)
 {	
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, data->client_power->name, data->client_power->addr);
+
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
@@ -4760,7 +4956,7 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 		return ret;
 	}
 
-	/* Assign LDON into Group1 */
+	/* Assign LDOLN into Group1 */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_PREQ1_RES_ASS_B, MSK_PREQ1_ASS_B);
 	if (0 > ret) {
 		return ret;
@@ -4859,14 +5055,14 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 		return ret;
 	}
 	
-	/* Set 50mV for DLIN */
-	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_VSEL_COMP);
+	/* Setting for CONTROLLER_VSEL_COMP register */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_VSEL_COMP, CONST_VSEL_COMP);
 	if (0 > ret) {
 		return ret;
 	}
 	
-	ret = ret & CONST_VSEL_COMP;
-	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_VSEL_COMP, ret);
+	/* Setting for HW_REG_CHARGERUSB_CTRL2 register */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CTRL2, CONST_CHRG_CTRL2);
 	if (0 > ret) {
 		return ret;
 	}
@@ -4932,13 +5128,12 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 	if (0 > ret) {
 		return ret;
 	}
-	
 	/* Check status of battery voltage */
 	ret_ovp = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CHARGERUSB_STATUS_INT1);
 	if (0 > ret_ovp) {
 		return ret_ovp;
 	}
-	
+
 	/* Enable charger if charger is present at the boot up of driver */
 	ret_stat = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_STAT1);
 	if (0 > ret_stat) {
@@ -4977,17 +5172,6 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 				return ret;
 			}
 			
-			/* Enable EN_LINCH */
-			ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1);
-			if (0 > ret) {
-				return ret;
-			}
-			
-			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, ret | MSK_BIT_5);
-			if (0 > ret) {
-				return ret;
-			}
-			
 			/* Set default setting for current limit */
 			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CHARGERUSB_CINLIMIT, CONST_DEF_CURRENT_LIMIT);
 			if (0 > ret) {
@@ -5002,13 +5186,14 @@ int tps80032_init_battery_hw(struct tps80032_data *data)
 				return ret;
 			}
 			/* Disable charger */
-			val = ret & (~(MSK_BIT_4 | MSK_BIT_5));
+			val = ret & (~(MSK_BIT_4));
 			ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_CONTROLLER_CTRL1, val);
 			if (0 > ret) {
 				return ret;
 			}
 		}
 	}
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
@@ -5508,21 +5693,21 @@ static int tps80032_battery_probe(struct i2c_client *client, const struct i2c_de
 		PMIC_ERROR_MSG("%s:%d pmic_battery_register_correct_func failed err=%d\n",__func__,__LINE__,ret);
 		goto err_correct_device_register;
 	}
-	
+
 	/* Init IRQ*/
 	ret = tps80032_init_irq(data, client->irq, IRQPIN_IRQ_BASE + 64);
 	if (0 > ret) {
 		PMIC_ERROR_MSG("%s:%d tps80032_init_irq failed err=%d\n",__func__,__LINE__,ret);
 		goto err_request_irq;
 	}
-	
+
 	tps80032_init_timer(data);
 	bat_timer.expires  = jiffies + msecs_to_jiffies(CONST_TIMER_BATTERY_UPDATE);
 	add_timer(&bat_timer);
 
 	/* Run bat_work() to update all battery information firstly */
 	queue_work(data->queue, &data->chrg_ctrl_work);
-	
+
 	/* Init thread to handle modem reset */
 	init_waitqueue_head(&tps80032_modem_reset_event);
 	tps80032_modem_reset_thread = kthread_run(tps80032_modem_thread, NULL, "tps80032_modem_reset_thread");
@@ -5564,7 +5749,7 @@ static int tps80032_battery_remove(struct i2c_client *client)
 		 kthread_stop(tps80032_modem_reset_thread);
 		 tps80032_modem_reset_thread = NULL;
 	}
-	
+
 	pmic_battery_unregister_correct_func();
 	pmic_battery_device_unregister(&client->dev);
 	usb_otg_pmic_device_unregister(&client->dev);
