@@ -26,6 +26,8 @@
 /* #define PMIC_DEBUG_ENABLE */
 /* Define for use Non_volatile value */
 /* #define PMIC_NON_VOLATILE_ENABLE */
+#define PMIC_CHARGE_ENABLE
+#define PMIC_FUELGAUGE_ENABLE
 
 static void __iomem *virt_addr = NULL;
 
