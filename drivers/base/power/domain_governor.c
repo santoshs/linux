@@ -14,6 +14,7 @@
 
 #ifdef CONFIG_PM_RUNTIME
 
+#ifdef CONFIG_PM_RUNTIME_DOMAIN_GOVERNOR
 static int dev_update_qos_constraint(struct device *dev, void *data)
 {
 	s64 *constraint_ns_p = data;
@@ -222,6 +223,13 @@ static bool default_power_down_ok(struct dev_pm_domain *pd)
 	genpd->max_off_time_ns = min_off_time_ns - genpd->power_on_latency_ns;
 	return true;
 }
+
+#else /* !CONFIG_PM_RUNTIME_DOMAIN_GOVERNOR */
+
+#define default_stop_ok		NULL
+#define default_power_down_ok	NULL
+
+#endif /* !CONFIG_PM_RUNTIME_DOMAIN_GOVERNOR */
 
 static bool always_on_power_down_ok(struct dev_pm_domain *domain)
 {
