@@ -24,6 +24,8 @@
 #include <asm/cacheflush.h>
 #include <mach/pm.h>
 
+#include <linux/hwspinlock.h>
+#include <mach/r8a73734.h>
 /* PLL2CR */
 #define PLL2CR		IO_ADDRESS(0xE615002C)
 #define PLL2CE_XOE	0x1
@@ -34,7 +36,7 @@
 
 /* Power Off Mode Setting */
 #define POFFFLAG	0x80
-#define STBCHRB2		IO_ADDRESS(0xE6180042)
+#define STBCHRB2	IO_ADDRESS(0xE6180042)
 
 /* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
 /* SDRAM address for NVM */
@@ -99,6 +101,7 @@ void shmobile_pm_stop_peripheral_devices(void)
 static void shmobile_pm_restart(char mode, const char *cmd)
 {
 	u8 reg = 0;
+	int hwlock;
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
     char* bootflag_address = NULL;
@@ -109,15 +112,19 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
 		strncpy((void *)bootflag_address, "", 0x01);
 		strncpy((void *)bootflag_address, "" , BOOTFLAG_SIZE);	    
-	}
-	else {
+	} else {
 	   	/* copy cmd to SDRAM */
 		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
 		strncpy((void *)bootflag_address, &flag, 0x01);
 		strncpy((void *)bootflag_address + 0x01, cmd , BOOTFLAG_SIZE - 0x01);
 	}
 	/* END: CR1040: Clean up source code which accesses the eMMC directly */
-	
+    /* Check to make sure that SYSC hwspinlock has been requested successfully */
+	if(NULL == r8a73734_hwlock_sysc) {
+		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	}
+	/* Lock SMSYSC hwspinlock with 1ms timeout */
+	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
@@ -155,8 +162,15 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 static void shmobile_pm_poweroff(void)
 {
 	u8 reg;
-	POWEROFF_PRINTK("%s\n", __func__);	
+	int hwlock;
+	POWEROFF_PRINTK("%s\n", __func__);
+	/* Check to make sure that SYSC hwspinlock has been requested successfully */
+	if(NULL == r8a73734_hwlock_sysc) {
+		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	}
 #if 1
+    /* Lock SMSYSC hwspinlock with 1ms timeout */
+	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
 	/* Disable interrupts first */
 	local_irq_disable();
 	local_fiq_disable();
