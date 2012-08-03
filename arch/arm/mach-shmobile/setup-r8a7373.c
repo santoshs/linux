@@ -993,14 +993,14 @@ static void __init cmt_clocksource_init(void)
 }
 
 static struct cmt_timer_clock cmt1_cks_table[] = {
-	[0] = CKS("cp_clk", 8),
-	[1] = CKS("cp_clk", 32),
-	[2] = CKS("cp_clk", 128),
-	[3] = CKS("cp_clk", 1),
-	[4] = CKS("r_clk", 8),
-	[5] = CKS("r_clk", 32),
-	[6] = CKS("r_clk", 128),
-	[7] = CKS("r_clk", 1),
+	[0] = CKS("cp_clk", 8, 512),
+	[1] = CKS("cp_clk", 32, 128),
+	[2] = CKS("cp_clk", 128, 32),
+	[3] = CKS("cp_clk", 1, 4096), /* 0x1000 <=> 315 usecs */
+	[4] = CKS("r_clk", 8, 8),
+	[5] = CKS("r_clk", 32, 8),
+	[6] = CKS("r_clk", 128, 8),
+	[7] = CKS("r_clk", 1, 8), /* 0x8 <=> 244 usecs */
 	/* Pseudo 32KHz/1 is omitted */
 };
 
@@ -1015,7 +1015,7 @@ static struct cmt_timer_config cmt1_timers[2] = {
 		.timer_bit	= 1,
 		.cks_table	= cmt1_cks_table,
 		.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-		.cks		= 7,
+		.cks		= 3,
 		.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 	},
 	[1] = {
@@ -1027,7 +1027,7 @@ static struct cmt_timer_config cmt1_timers[2] = {
 		.timer_bit	= 2,
 		.cks_table	= cmt1_cks_table,
 		.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-		.cks		= 7,
+		.cks		= 3,
 		.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
 	},
 };
