@@ -369,6 +369,7 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 {
 	struct cmt_clock_event_device *cmt = __this_cpu_ptr(percpu_evt);
 	unsigned int cpu = smp_processor_id();
+	unsigned long min_delta;
 
 	evt->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
 	evt->set_mode = cmt_timer_set_mode;
@@ -379,7 +380,13 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 	evt->irq = cmt->irq;
 	evt->cpumask = cpumask_of(cpu);
 
-	clockevents_config_and_register(evt, cmt->rate, 0xf, 0x7fffffff);
+	min_delta = cmt->cfg->cks_table[cmt->cfg->cks].min_delta_ticks;
+	if (min_delta < 4) {
+		pr_err("Error, min_delta_ticks is not right, load 0x1f...\n");
+		min_delta = 0x1f;
+	}
+
+	clockevents_config_and_register(evt, cmt->rate, min_delta, 0x7fffffff);
 
 	cmt->evt = evt;
 

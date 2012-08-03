@@ -79,9 +79,11 @@
 struct cmt_timer_clock {
 	const char *name;
 	unsigned int divisor;
+	unsigned long min_delta_ticks;
 };
 
-#define CKS(_name, _divisor)	{ .name = _name, .divisor = _divisor }
+#define CKS(_name, _divisor, _min_delta)	\
+	{ .name = _name, .divisor = _divisor, .min_delta_ticks = _min_delta}
 
 struct cmt_timer_config {
 	struct resource res[2];
