@@ -198,7 +198,7 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_TYPE_CS == call_type)
+	if (VCD_CALL_TYPE_CALL == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_call();
 	else if (VCD_CALL_TYPE_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_1khz_tone();
@@ -245,7 +245,7 @@ void vcd_ctrl_stop_call(int call_type)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_TYPE_CS == call_type)
+	if (VCD_CALL_TYPE_CALL == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
 	else if (VCD_CALL_TYPE_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_1khz_tone();
@@ -1012,6 +1012,139 @@ void vcd_ctrl_dump_dsp0_registers(void)
 
 	/* execute spuv function */
 	vcd_spuv_dump_dsp0_registers();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump memories function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_memories(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_memories();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump pram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_pram0_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_pram0_memory();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump xram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_xram0_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_xram0_memory();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump yram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_yram0_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_yram0_memory();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump dspio memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_dspio_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_dspio_memory();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump sdram static area memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_sdram_static_area_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_sdram_static_area_memory();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump fw static buffer memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_fw_static_buffer_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_fw_static_buffer_memory();
 
 	vcd_pr_end_control_function();
 	return;

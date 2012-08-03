@@ -120,5 +120,12 @@ void vcd_ctrl_dump_voiceif_registers(void);
 void vcd_ctrl_dump_intcvo_registers(void);
 void vcd_ctrl_dump_spuv_registers(void);
 void vcd_ctrl_dump_dsp0_registers(void);
+void vcd_ctrl_dump_memories(void);
+void vcd_ctrl_dump_pram0_memory(void);
+void vcd_ctrl_dump_xram0_memory(void);
+void vcd_ctrl_dump_yram0_memory(void);
+void vcd_ctrl_dump_dspio_memory(void);
+void vcd_ctrl_dump_sdram_static_area_memory(void);
+void vcd_ctrl_dump_fw_static_buffer_memory(void);
 
 #endif /* __VCD_CTRL_H__ */
