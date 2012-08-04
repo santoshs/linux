@@ -30,6 +30,13 @@ enum pcm2pwm_request_state {
 	START_PCM2PWM,
 };
 
+/* Port information */
+struct pcm2pwm_port_info {
+	const int port_func;
+	const char *func_name;
+};
+
+
 extern int pcm2pwm_open(void);
 extern int pcm2pwm_close(void);
 extern int pcm2pwm_enable(enum pcm2pwm_request_state state,

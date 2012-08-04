@@ -91,8 +91,8 @@ struct pcm2pwm_device {
 	struct clk		*clk_supply;
 	u16			*base_address;
 	enum pcm2pwm_state	state;
-	const int 		port_func;
-	const char 		*func_name;
+        int			port_func;
+	char 			*func_name;
 };
 
 struct pcm2pwm_dma_device {
@@ -128,8 +128,6 @@ static struct pcm2pwm_device pcm2pwm_platdevice = {
 	.base_address = NULL,
 	.state = PCM2PWM_CLOSE,
 	.extal1_clk = NULL,
-	.port_func = GPIO_FN_PWMO,
-	.func_name = "PWMO",
 };
 
 struct pcm2pwm_dma_device pcm2pwm_dma_dev = {
@@ -146,7 +144,7 @@ static struct wake_lock pcm2pwm_wakelock;
 static int pcm2pwm_suspend_state;
 static struct mutex pcm2pwm_mutex;
 static struct work_struct dma_work;
-
+static struct pcm2pwm_port_info* pinfo;
 /*
  * pcm2pwm_pf_probe:
  * @pdev: pointer to structure platform_device
@@ -156,6 +154,12 @@ static struct work_struct dma_work;
 static int pcm2pwm_pf_probe(struct platform_device *pdev)
 {
 	pcm2pwm_platdevice.pdev = pdev;
+	pinfo = pdev->dev.platform_data; 
+
+	pcm2pwm_platdevice.port_func = pinfo->port_func ;
+	pcm2pwm_platdevice.func_name = pinfo->func_name ;
+
+	
 	pm_runtime_enable(&pdev->dev);
 	return 0;
 }
