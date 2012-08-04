@@ -28,6 +28,7 @@
 #include <linux/kthread.h>
 #include <linux/tpu_pwm.h>
 #include <linux/pcm2pwm.h>
+#include <linux/vibrator.h>
 #include "../../../drivers/staging/android/timed_output.h"
 
 /****************************  MACRO   ************************************/
@@ -60,10 +61,17 @@
 	printk(KERN_ERR "%s(%d):" msg, __func__, __LINE__, ## __VA_ARGS__)
 /*************************** FUNCTION PROTOTYPE  ****************************/
 static int __init init_vibrator(void);
+static void __exit exit_vibrator(void);
+static int __devinit vibrator_probe(struct platform_device *pdev);
+static int __devexit vibrator_remove(struct platform_device *pdev);
+
+
+
 static void vibrator_enable(struct timed_output_dev *sdev, int timeout);
 static int vib_get_time(struct timed_output_dev *sdev);
 static enum hrtimer_restart vib_timer_function(struct hrtimer *timer);
 static int vibrate_control_thread(void *arg);
+static struct vibrator_port_info *pinfo;
 
 struct vibrator_single_request {
 	struct list_head node;
@@ -71,6 +79,16 @@ struct vibrator_single_request {
 	int request_state;
 	int timeout;
 };
+
+static struct platform_driver vibrator_platform_driver = {
+	.probe   = vibrator_probe,
+	.remove  = __devexit_p(vibrator_remove),
+	.driver    = {
+		.name  = "vibrator-renesas-sh_mobile",
+		.owner = THIS_MODULE,
+	},
+};
+
 
 enum vibration_state {
 	NO_VIBRATE,	/* Status when there is no operation of DC motor */
@@ -240,49 +258,51 @@ static void vibrator_enable(struct timed_output_dev *sdev, int timeout)
 	0: if no error
 	other value if error
 */
-static int __init init_vibrator(void)
+static int __devinit vibrator_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct task_struct *vib_thread;
+	
+	pinfo = pdev->dev.platform_data ;
 	/* Initializing vibrator device object */
 	vib_device.name = "vibrator";
 	vib_device.enable = vibrator_enable;
 	vib_device.get_time = vib_get_time;
 #if !defined(VIB_PCM2PWM) /* use TPU driver */
-	ret = gpio_request(GPIO_PORT36, NULL);
+	ret = gpio_request(pinfo->tpu_port, NULL);
 	if (ret) {
-		VIB_LOG("request GPIO_PORT36 error\n");
+		VIB_LOG("request pinfo->tpu_port error\n");
 		return ret;
 	}
 
-	ret = gpio_direction_output(GPIO_PORT36, LOW);
+	ret = gpio_direction_output(pinfo->tpu_port, LOW);
 	if (ret) {
-		VIB_LOG("set direction GPIO_PORT36 error\n");
+		VIB_LOG("set direction pinfo->tpu_port error\n");
 		return ret;
 	}
 #else /* Use PCM2PWM driver */
-	ret = gpio_request(GPIO_PORT228, NULL);
+	ret = gpio_request(pinfo->pcm2pwm_port, NULL);
 	if (ret) {
-		VIB_LOG("request GPIO_PORT228 error\n");
+		VIB_LOG("request pinfo->pcm2pwm_port error\n");
 		return ret;
 	}
 
-	ret = gpio_direction_output(GPIO_PORT228, LOW);
+	ret = gpio_direction_output(pinfo->pcm2pwm_port, LOW);
 	if (ret) {
-		VIB_LOG("set direction GPIO_PORT228 error\n");
+		VIB_LOG("set direction pinfo->pcm2pwm_port error\n");
 		return ret;
 	}
 #endif /* !defined(VIB_PCM2PWM) */
 
-	ret = gpio_request(GPIO_PORT226, NULL);
+	ret = gpio_request(pinfo->vibrator_port, NULL);
 	if (ret) {
-		VIB_LOG("request GPIO_PORT226 error\n");
+		VIB_LOG("request pinfo->vibrator_port error\n");
 		return ret;
 	}
 
-	ret = gpio_direction_output(GPIO_PORT226, LOW);
+	ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 	if (ret) {
-		VIB_LOG("set direction GPIO_PORT226 error\n");
+		VIB_LOG("set direction pinfo->vibrator_port error\n");
 		return ret;
 	}
 
@@ -452,7 +472,7 @@ static int vibrate_control_thread(void *arg)
 			} else if ((TURN_OFF == vib_state)
 				&& (NO_VIBRATE == request->request_state)) {
 				hrtimer_cancel(&vib_timer);
-				ret = gpio_direction_output(GPIO_PORT226, LOW);
+				ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -486,7 +506,7 @@ static int vibrate_control_thread(void *arg)
 					break;
 				}
 
-				ret = gpio_direction_output(GPIO_PORT226, HIGH);
+				ret = gpio_direction_output(pinfo->vibrator_port, HIGH);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -659,7 +679,7 @@ static int vibrate_control_thread(void *arg)
 		kfree(request);
 	}
 
-	ret = gpio_direction_output(GPIO_PORT226, LOW);
+	ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 	if (ret) {
 		VIB_LOG("gpio_direction_output\n");
 	}
@@ -790,7 +810,7 @@ static int vibrate_control_thread(void *arg)
 			} else if ((TURN_OFF == vib_state)
 				&& (NO_VIBRATE == request->request_state)) {
 				hrtimer_cancel(&vib_timer);
-				ret = gpio_direction_output(GPIO_PORT226, LOW);
+				ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -822,7 +842,7 @@ static int vibrate_control_thread(void *arg)
 					break;
 				}
 
-				ret = gpio_direction_output(GPIO_PORT226, HIGH);
+				ret = gpio_direction_output(pinfo->vibrator_port, HIGH);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -987,7 +1007,7 @@ static int vibrate_control_thread(void *arg)
 		kfree(request);
 	}
 
-	ret = gpio_direction_output(GPIO_PORT226, LOW);
+	ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 	if (ret) {
 		VIB_LOG("gpio_direction_output\n");
 	}
@@ -1114,7 +1134,7 @@ static int vibrate_control_thread(void *arg)
 			} else if ((TURN_OFF == vib_state)
 				&& (NO_VIBRATE == request->request_state)) {
 				hrtimer_cancel(&vib_timer);
-				ret = gpio_direction_output(GPIO_PORT226, LOW);
+				ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -1146,7 +1166,7 @@ static int vibrate_control_thread(void *arg)
 					break;
 				}
 
-				ret = gpio_direction_output(GPIO_PORT226, HIGH);
+				ret = gpio_direction_output(pinfo->vibrator_port, HIGH);
 				if (ret) {
 					VIB_LOG("gpio_direction_output\n");
 					kfree(request);
@@ -1311,7 +1331,7 @@ static int vibrate_control_thread(void *arg)
 		kfree(request);
 	}
 
-	ret = gpio_direction_output(GPIO_PORT226, LOW);
+	ret = gpio_direction_output(pinfo->vibrator_port, LOW);
 	if (ret) {
 		VIB_LOG("gpio_direction_output\n");
 	}
@@ -1321,7 +1341,40 @@ static int vibrate_control_thread(void *arg)
 
 #endif
 
-device_initcall_sync(init_vibrator);
+static int __devexit vibrator_remove(struct platform_device *pdev)
+{
+
+	return 0;
+}
+
+static int __init init_vibrator(void)
+{
+	int ret = 0;
+
+
+	/* Register platform driver */
+
+	ret = platform_driver_register(&vibrator_platform_driver);
+	if (ret) {
+		printk(KERN_ERR "[PWM ERR - tpu_init] can't register TPU driver\n");
+	}
+
+	return ret;
+}
+
+/*
+* tpu_exit : Unregister TPU driver and destroy work queue.
+* return   : None
+*/
+static void __exit exit_vibrator(void)
+{
+	
+	platform_driver_unregister(&vibrator_platform_driver);
+}
+
+//device_initcall_sync(init_vibrator);
+module_init(init_vibrator);
+module_exit(exit_vibrator);
 
 MODULE_AUTHOR("Renesas Mobile");
 MODULE_DESCRIPTION("timed output vibrator device");
