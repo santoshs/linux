@@ -38,7 +38,8 @@
 #define CPG_FRQCRB_BOOTCLK			(0x90231350)
 #define CPG_PLL0CR_STC				(0x1E000000)	/* Multiplication Ratio : x31 */
 #define CPG_PLL1CR_STC				(0x17100000)	/* Multiplication Ratio : x48 */
-#define CPG_MPCKCR_CKSEL_EXTAL2	(0x00000080)
+#define CPG_MPCKCR_CKSEL_PLL1_48MHz	(0x0000000C)
+
 
 
 /**
@@ -124,5 +125,5 @@ void SetUsbBootClock(void)
 {
 	SetBootClock();
 
-	*CPG_MPCKCR |= CPG_MPCKCR_CKSEL_EXTAL2;
+	*CPG_MPCKCR |= CPG_MPCKCR_CKSEL_PLL1_48MHz;
 }
