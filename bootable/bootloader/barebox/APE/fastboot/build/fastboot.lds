@@ -10,15 +10,14 @@ ENTRY(_start)
 
 MEMORY
 {
-
-    rom(rx)		: o = 0xED0C1300, l = 0x00020000
-    ram(rwx)	: o = 0xED0E1300, l = 0x00010000
-    stack(rwx)	: o = 0xED0F1300, l = 0x00020000
+    rom(rx)        : o = 0xE5650000, l = 0x00040000
+    ram(w)         : o = 0xE5690000, l = 0x00040000
+    stack(w)       : o = 0xE56D0000, l = 0x0003E000
 }
 
 SECTIONS
 {
-	.text 0xED0C1300: 
+	.text 0xE5650000: 
 	{
 		fb_boot.o
 		*(.text)
