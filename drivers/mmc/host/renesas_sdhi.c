@@ -944,7 +944,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		goto err1;
 	}
 	host->hclk = clk_get_rate(host->clk);
-
+	clk_enable(host->clk);
 	host->base = ioremap(res->start, resource_size(res));
 	if (!host->base) {
 		ret = -ENOMEM;
@@ -1042,7 +1042,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s base at 0x%08lx clock rate %u MHz\n",
 		 mmc_hostname(host->mmc), (unsigned long)res->start,
 		 host->hclk / 1000000);
-
+	clk_disable(host->clk);
 	return 0;
 
 err5:
