@@ -39,7 +39,12 @@ RC Save_Boot_Log_To_eMMC(ulong line_num, RC return_val, uchar branch_mode)
 {
 	RC ret;
 	ulong num, offset;
+#ifdef STORE_CRASHLOG_EMMC
 	uint64 log_pos = 0;
+#endif /* STORE_CRASHLOG_EMMC */
+#ifdef STORE_CRASHLOG_DDR
+	void *log_pos_ddr = 0;
+#endif /* STORE_CRASHLOG_DDR */
 	RTC_TIME timer;
 	
 	/* Clear boot log */
@@ -83,15 +88,22 @@ RC Save_Boot_Log_To_eMMC(ulong line_num, RC return_val, uchar branch_mode)
 	log_info.stbchr2 = *STBCHR2;
 	log_info.stbchr3 = *STBCHR3;
 	
+#ifdef STORE_CRASHLOG_EMMC
 	/* Read number of log entry */
 	/* The number of log entry can by reset to 0 by flashing boot_log_num_zero.bin to eMMC */
-#ifndef EMMC_NO_WRITE
 	ret = Flash_Access_Read((uchar *)(&num), sizeof(ulong), (uint64)(LOG_NUM_OFFSET), UNUSED);
 	if (FLASH_ACCESS_SUCCESS != ret) {
 		PRINTF("FAIL read number of log entry at 0x%x - ret=%d\n", (ulong)LOG_NUM_OFFSET, ret);
 		return R_LOADER_ERR_FLASH;
 	}
-#endif //EMMC_NO_WRITE
+#else
+#ifdef STORE_CRASHLOG_DDR
+	num = *LOG_NUM_OFFSET_DDR;
+#else
+	num = 0;
+#endif /* STORE_CRASHLOG_DDR */
+#endif /* STORE_CRASHLOG_EMMC */
+	
 	offset = num; 
 	
 	/* Reset */
@@ -101,32 +113,37 @@ RC Save_Boot_Log_To_eMMC(ulong line_num, RC return_val, uchar branch_mode)
 	} 
 	
 	/* Ring buffer, reset position if exceed MAX_LOG_NUM */
-	if (MAX_LOG_NUM < offset) {
-		offset = div_mode(offset, MAX_LOG_NUM);
+	if (MAX_LOG_NUM <= offset) {
+		offset %= MAX_LOG_NUM;
 	}
-	
+#ifdef STORE_CRASHLOG_EMMC
 	log_pos = LOG_START_OFFSET + (offset * sizeof(BOOT_LOG));
-	
-#ifndef EMMC_NO_WRITE
+#endif /* STORE_CRASHLOG_EMMC */
+#ifdef STORE_CRASHLOG_DDR
+	log_pos_ddr = LOG_START_OFFSET_DDR + (void *)(offset * sizeof(BOOT_LOG));
+#endif /* STORE_CRASHLOG_DDR */
+
+#ifdef STORE_CRASHLOG_EMMC
 	/* Write boot log entry */
 	ret = Flash_Access_Write((uchar *)(&log_info), sizeof(BOOT_LOG), (uint64)(log_pos), UNUSED);
 	if (ret != FLASH_ACCESS_SUCCESS) {
 		PRINTF("FAIL write log entry to 0x%x - ret=0x%x; num_ent=%d\n", (ulong)log_pos, ret, num);
 		return R_LOADER_ERR_FLASH;
 	}
-#endif //EMMC_NO_WRITE
+#endif /* STORE_CRASHLOG_EMMC */
+#ifdef STORE_CRASHLOG_DDR
+	memcpy(log_pos_ddr, (&log_info), sizeof(BOOT_LOG));
+#endif /* STORE_CRASHLOG_DDR */
 	
+#ifdef STORE_CRASHLOG_EMMC
 #ifdef _R_LOADER_BOOT_LOG_WRITE_CHECK_
 	/* Read boot log entry for checking */
 	BOOT_LOG check_log;
-#ifndef EMMC_NO_WRITE
 	ret = Flash_Access_Read((uchar *)(&check_log), sizeof(BOOT_LOG), (uint64)(log_pos), UNUSED);
 	if (FLASH_ACCESS_SUCCESS != ret) {
 		PRINTF("FAIL read boot log for checking at 0x%x - ret=%d\n", (ulong)log_pos, ret);
 		return R_LOADER_ERR_FLASH;
 	}
-#endif //EMMC_NO_WRITE
-
 	uchar item_write;
 	uchar item_read;
 	ulong index = 0;
@@ -140,18 +157,22 @@ RC Save_Boot_Log_To_eMMC(ulong line_num, RC return_val, uchar branch_mode)
 		index++;
 	}
 #endif
+#endif /* STORE_CRASHLOG_EMMC */
 	
 	/* Update number of log entry */
 	num++;
 	
+#ifdef STORE_CRASHLOG_EMMC
 	/* Write number of log entry */
-#ifndef EMMC_NO_WRITE
 	ret = Flash_Access_Write((uchar *)(&num), sizeof(ulong), (uint64)(LOG_NUM_OFFSET), UNUSED);
 	if (ret != FLASH_ACCESS_SUCCESS) {
 		PRINTF("FAIL write number of entry to 0x%x - ret=0x%x\n", LOG_NUM_OFFSET, ret);
 		return R_LOADER_ERR_FLASH;
 	}
-#endif //EMMC_NO_WRITE
+#endif /* STORE_CRASHLOG_EMMC */
+#ifdef STORE_CRASHLOG_DDR
+	*LOG_NUM_OFFSET_DDR = num;
+#endif /* STORE_CRASHLOG_DDR */
 	
 	/* Print boot log info */
 	PRINTF("Boot Log Info [%d/%d/%d - %d:%d:%d]\n", log_info.month, log_info.day, log_info.year, log_info.hour, log_info.minute, log_info.second);
