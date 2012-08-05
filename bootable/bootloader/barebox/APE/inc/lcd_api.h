@@ -46,6 +46,31 @@
 
 #define BMP_HEADER 0x4D42
 
+
+/*****************************************************************************
+; LCD Logo
+******************************************************************************/
+
+/* LCD Message Position */
+#define LOC_X									30		/* Upper X */
+#define LOC_Y									250		/* Upper Y */
+#define LOC_Y_1									650		/* Lower Y 1 */
+#define LOC_Y_2									710		/* Lower Y 2 */
+#define LOC_Y_3									770		/* Lower Y 3 */
+
+/* LCD Logo */
+#define LOGO_WIDTH								480		/* Logo width */
+#define	LOGO_HIGH								132		/* Logo high */
+#define	LOGO_X									0		/* X position of logo */
+#define	LOGO_Y									366		/* Y position of logo */
+
+/* R-loader compile option */
+/* BEGIN: CR722: Apply GPT */
+#define LOGO_RAM_ADDR 							(0x5C200000)				/* SDRAM address */
+#define LOGO_eMMC_ADDR							((*STBCHRB1 & STBCHRB1_BOOT_PARTITION2_USED) == 0 ? (uint64)(0xF0000000000C7800ull): (uint64)(0xE0000000000C7800ull))
+#define LOGO_BUFF_SIZE 							(0x38800)					/* 226 KB */
+/* END: CR722: Apply GPT */
+
 /*****************************************************************************
 ; API Prototypes
 ******************************************************************************/
