@@ -639,7 +639,8 @@ RC r_loader_select_module(void)
 		return branch_mode;
 	}
 	PRINTF("FAIL There is no module matched in MLT\n");
-	return R_LOADER_ERR_LOAD_MLT;
+	*STBCHRB2 = ((uchar)(module_load_table.info[MODULE_BRANCH_MODE_BOOTLOADER].stbchrb2));
+	return MODULE_BRANCH_MODE_BOOTLOADER;
 }
 
 /**
