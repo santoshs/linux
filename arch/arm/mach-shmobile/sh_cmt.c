@@ -41,7 +41,6 @@ struct sh_cmt_priv {
 	unsigned int irq;
 	struct platform_device *pdev;
 
-	unsigned long max_match_value;
 	unsigned long rate;
 	spinlock_t lock;
 	struct clock_event_device *ced;
@@ -71,7 +70,7 @@ static inline unsigned long sh_cmt_read(struct sh_cmt_priv *p, int reg_nr)
 	else
 		offs = reg_nr;
 
-	return ioread32(base + offs);
+	return __raw_readl(base + offs);
 }
 
 static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
@@ -86,7 +85,7 @@ static inline void sh_cmt_write(struct sh_cmt_priv *p, int reg_nr,
 	else
 		offs = reg_nr;
 
-	iowrite32(value, base + offs);
+	__raw_writel(value, base + offs);
 	return;
 }
 
@@ -231,18 +230,27 @@ static void sh_cmt_disable(struct sh_cmt_priv *p)
 	sh_cmt_clk_disable(p);
 }
 
-static void __sh_cmt_set_next(struct sh_cmt_priv *p, unsigned long delta)
+static int sh_cmt_set_next(struct sh_cmt_priv *p, unsigned long delta)
 {
-	sh_cmt_write(p, CMCOR, sh_cmt_read(p, CMCNT) + delta);
-}
-
-static void sh_cmt_set_next(struct sh_cmt_priv *p, unsigned long delta)
-{
+	unsigned long curr, next;
 	unsigned long flags;
+	int ret;
 
-	spin_lock_irqsave(&p->lock, flags);
-	__sh_cmt_set_next(p, delta);
-	spin_unlock_irqrestore(&p->lock, flags);
+	local_irq_save(flags);
+
+	next = sh_cmt_read(p, CMCNT) + delta;
+	sh_cmt_write(p, CMCOR, next);
+	sh_cmt_read(p, CMCOR); /* defeat write posting */
+
+	curr = sh_cmt_read(p, CMCNT);
+
+	local_irq_restore(flags);
+
+	ret = (int)(next - curr) < 0 ? -ETIME : 0;
+	if (ret == -ETIME)
+		pr_warn("*** sh_cmt_set_next returning -ETIME...  next=0x%08lx "
+			"curr=0x%08lx delta=0x%08lx\n", next, curr, delta);
+	return ret;
 }
 
 static irqreturn_t sh_cmt_interrupt(int irq, void *dev_id)
@@ -279,6 +287,9 @@ static struct sh_cmt_priv *ced_to_sh_cmt(struct clock_event_device *ced)
 	return (struct sh_cmt_priv *)ced->priv;
 }
 
+#define MIN_DELTA_TICKS		0x1000
+#define MAX_DELTA_TICKS		0x3fffffff
+
 static void sh_cmt_clock_event_start(struct sh_cmt_priv *p, int periodic)
 {
 	struct clock_event_device *ced = p->ced;
@@ -291,17 +302,14 @@ static void sh_cmt_clock_event_start(struct sh_cmt_priv *p, int periodic)
 
 	sh_cmt_start(p);
 
-	/* TODO: calculate good shift from rate and counter bit width */
-
-	ced->shift = 32;
-	ced->mult = div_sc(p->rate, NSEC_PER_SEC, ced->shift);
-	ced->max_delta_ns = clockevent_delta2ns(p->max_match_value, ced);
-	ced->min_delta_ns = clockevent_delta2ns(0x1F, ced);
+	clockevents_calc_mult_shift(ced, p->rate, 5);
+	ced->max_delta_ns = clockevent_delta2ns(MAX_DELTA_TICKS, ced);
+	ced->min_delta_ns = clockevent_delta2ns(MIN_DELTA_TICKS, ced);
 
 	if (periodic)
 		sh_cmt_write(p, CMCOR, ((p->rate + HZ/2) / HZ) - 1);
 	else
-		sh_cmt_write(p, CMCOR, p->max_match_value);
+		sh_cmt_write(p, CMCOR, MAX_DELTA_TICKS);
 }
 
 static void sh_cmt_clock_event_mode(enum clock_event_mode mode,
@@ -342,8 +350,7 @@ static int sh_cmt_clock_event_next(unsigned long delta,
 {
 	struct sh_cmt_priv *p = ced_to_sh_cmt(ced);
 
-	sh_cmt_set_next(p, delta);
-	return 0;
+	return sh_cmt_set_next(p, delta);
 }
 
 static void sh_cmt_register_clockevent(struct sh_cmt_priv *p,
@@ -439,7 +446,6 @@ static int sh_cmt_setup(struct sh_cmt_priv *p, struct platform_device *pdev)
 
 	p->overflow_bit = 0x8000;
 	p->clear_bits = ~0xc000;
-	p->max_match_value = ~0;
 
 	spin_lock_init(&p->lock);
 
