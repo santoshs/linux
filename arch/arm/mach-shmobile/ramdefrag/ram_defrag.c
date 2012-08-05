@@ -34,8 +34,33 @@
 #else
 	#define DEFRAG_PRINTK(fmt, arg...)
 #endif
-const unsigned int max_banks = 0x0C;
-const unsigned int max_page_in_bank = 0x4000;
+
+#define SDRAM_START			0x40000000
+#define SDRAM_END			0x7FFFFFFF
+#define BANK_SIZE			0x04000000
+
+#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
+#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0)  \
+							? ((INUSED_RANGE / BANK_SIZE) + 1) \
+							: (INUSED_RANGE / BANK_SIZE))
+
+#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
+#define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
+							? (UNUSED_BANKS_START - CONFIG_MEMORY_START) \
+							: 0 )
+
+#define SDRAM_SIZE 			((SDRAM_END - SDRAM_START) + 1)
+#define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
+#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
+
+#define USED_BANKS_MASK(nr) (~(0xFFFF0000 | (0xFFFF << (nr))))
+
+const unsigned int max_unused_banks = MAX_UNUSED_BANKS;
+const unsigned int max_pages_in_bank = MAX_PAGES_IN_BANK;
+const unsigned int number_pages_skip = NUMBER_PAGES_SKIP;
+const unsigned int used_banks = USED_BANKS;
+
 
 /*
  * get_ram_banks_status: Get status of RAM banks
@@ -56,24 +81,27 @@ unsigned int get_ram_banks_status(void)
 	unsigned int begin;
 	unsigned int end;
 	unsigned int status;
+	struct page* start_page_check;
 	i = 0;
 	j = 0;
 	begin = 0;
 	end = 0;
 	status = 0xFFFFFFFF;
 	DEFRAG_PRINTK("%s\n", __func__);
-	for (i = 0; i < max_banks; i++) {
-		begin = i * max_page_in_bank;
-		end = ((i + 1) * max_page_in_bank) - 1;
+	/* start checking */
+	start_page_check = mem_map + number_pages_skip/PAGE_SIZE;
+	for (i = 0; i < max_unused_banks; i++) {
+		begin = i * max_pages_in_bank;
+		end = ((i + 1) * max_pages_in_bank) - 1;
 		for (j = begin; j <= end; j++) {
-			if (page_check(mem_map + j) == 1)
+			if (page_check(start_page_check + j) == 1)
 				break;
 		}
 		if (j > end)
 			status &= ~(1 << i);
 	}
-	/* Bank 0 to Bank 3 are used as default */
-	status = (status << 4) | 0x0F;
+	
+	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
 	return status;
 }
 EXPORT_SYMBOL_GPL(get_ram_banks_status);
