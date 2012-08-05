@@ -10,16 +10,16 @@
 
 /************* Include Files ****************/
 
-#include "/home/buildsys/Android-security/git_EOS2_PF/BIZEN/src/APE/common/cc42/inc/VOS6/VOS_API/DX_VOS_Mem.h"
+#include "DX_VOS_Mem.h"
 #ifndef CRYS_NO_GLOBAL_DATA
-#include "/home/buildsys/Android-security/git_EOS2_PF/BIZEN/src/APE/common/cc42/inc/VOS6/VOS_API/DX_VOS_Sem.h"
+#include "DX_VOS_Sem.h"
 #else
 #define DX_VOS_SemCreate(semId, type, semName)	CRYS_OK
 #define DX_VOS_SemDelete(semId)	CRYS_OK
 #endif
-#include "/home/buildsys/Android-security/git_EOS2_PF/BIZEN/src/APE/common/cc42/inc/CRYS/CRYS/COMMON/inc/CRYS_COMMON_error.h"
-#include "/home/buildsys/Android-security/git_EOS2_PF/BIZEN/src/APE/common/cc42/inc/CRYS/CRYS_API/inc/CRYS.h"
-#include "/home/buildsys/Android-security/git_EOS2_PF/BIZEN/src/APE/common/cc42/inc/CRYS/LLF_COMMON/inc/LLF_COMMON.h"
+#include "CRYS_COMMON_error.h"
+#include "CRYS.h"
+#include "LLF_COMMON.h"
 
 /************************ Defines **********************************/
 
@@ -62,25 +62,25 @@ DxVosSem SemPkaId;
  * @return CRYSError_t - On success CRYS_OK.
  */
 
-/* CRYSError_t CRYS_COMMON_Init(DxUint32_t param )
- {*/
+CRYSError_t CRYS_COMMON_Init(DxUint32_t param )
+ {
    /* FUNCTION DECLERATIONS */
 
-//	 CRYSError_t Error2 = CRYS_OK;
+	 CRYSError_t Error2 = CRYS_OK;
 
-//	 #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE	|| !defined(CRYS_NO_GLOBAL_DATA)
-//	 DxChar_t StringName[10];
-//	 #endif
+	 #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE	|| !defined(CRYS_NO_GLOBAL_DATA)
+	 DxChar_t StringName[10];
+	 #endif
 
    /* FUNCTION LOGIC */
-/*#ifndef CRYS_SEP_SIDE_WORK_MODE
-   #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE*/	/*Only if there is some HW Engine*/
+   #ifndef CRYS_SEP_SIDE_WORK_MODE
+   #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE	/*Only if there is some HW Engine*/
 
    /* ............ creating the semaphores that the modules use .......... */
    /* -------------------------------------------------------------------- */
 
    /* creating the Hardware access semaphore (all modules besides PKA semaphore) */
-/*   DX_VOS_MemSet(StringName,0,sizeof(StringName));
+   DX_VOS_MemSet(StringName,0,sizeof(StringName));
    DX_VOS_FastMemCpy(StringName,"HW",sizeof("HW"));
    Error2 = DX_VOS_SemCreate( &SemHwAccessId , DX_VOS_SEM_FREE , StringName );
 
@@ -89,18 +89,18 @@ DxVosSem SemPkaId;
       return CRYS_COMMON_INIT_HW_SEM_CREATION_FAILURE;
 
    #endif
-*/
+
    /* creating the RND access semaphore  */
-  /* DX_VOS_MemSet(StringName,0,sizeof(StringName));
+   DX_VOS_MemSet(StringName,0,sizeof(StringName));
    DX_VOS_FastMemCpy(StringName,"RND",sizeof("RND"));
    Error2 = DX_VOS_SemCreate( &SemRndId , DX_VOS_SEM_FREE , StringName );
 
    if( Error2 != CRYS_OK )
 
       return CRYS_COMMON_INIT_HW_SEM_CREATION_FAILURE;
-*/
+
    /* creating the PKA access semaphore  */
-  /* #if (LLF_PKI_ENGINE_TYPE == CRYS_DEFS_CC6_PKA_ENGINE_TYPE)
+   #if (LLF_PKI_ENGINE_TYPE == CRYS_DEFS_CC6_PKA_ENGINE_TYPE)
    DX_VOS_MemSet(StringName,0,sizeof(StringName));
    DX_VOS_FastMemCpy(StringName,"PKA",sizeof("PKA"));
    Error2 = DX_VOS_SemCreate( &SemPkaId , DX_VOS_SEM_FREE , StringName );
@@ -109,13 +109,13 @@ DxVosSem SemPkaId;
 
       return CRYS_COMMON_INIT_HW_SEM_CREATION_FAILURE;
    #endif
-#endif //CRYS_SEP_SIDE_WORK_MODE
+   #endif //CRYS_SEP_SIDE_WORK_MODE
    Error2 = LLF_COMMON_Init(param ,DX_NULL);
 
    return Error2;
 
- }*//* END OF CRYS_COMMON_Init */
-//#ifndef CRYS_SEP_SIDE_WORK_MODE
+ }/* END OF CRYS_COMMON_Init */
+#ifndef CRYS_SEP_SIDE_WORK_MODE
 /* ------------------------------------------------------------
  **
  * @brief This function terminates the CRYS COMMON module .
@@ -125,20 +125,20 @@ DxVosSem SemPkaId;
  * @return CRYSError_t - On success CRYS_OK.
  */
 
-/* CRYSError_t CRYS_COMMON_Terminate(void )
- {*/
+CRYSError_t CRYS_COMMON_Terminate(void )
+ {
    /* FUNCTION DECLERATIONS */
 
-//	 CRYSError_t Error2 = CRYS_OK;
+	 CRYSError_t Error2 = CRYS_OK;
    /* FUNCTION LOGIC */
-/*
-   #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE*/	/*Only if there is some HW Engine*/
+
+   #if !CRYS_DEFS_ALL_ENGINES_SW_TYPE	/*Only if there is some HW Engine*/
 
    /* ............ creating the semaphores that the module uses .......... */
    /* -------------------------------------------------------------------- */
 
    /* creating the Hardware access semaphore */
-/*   Error2 =  DX_VOS_SemDelete (SemHwAccessId);
+   Error2 =  DX_VOS_SemDelete (SemHwAccessId);
 
    if( Error2 != CRYS_OK )
 
@@ -155,6 +155,6 @@ DxVosSem SemPkaId;
 
    return Error2;
 
- }*//* END OF CRYS_COMMON_Init */
+ }/* END OF CRYS_COMMON_Init */
 
-//#endif
+#endif
