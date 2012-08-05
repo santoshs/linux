@@ -48,8 +48,8 @@
 #define CHIP_VER_REG_CCCR	((volatile ulong*)0xE600101C)
 #define CHIP_RMU2_ES10		(0x00003E00)
 #define CHIP_RMU2_ES20		(0x00003E10)
-#define CHIP_RMU2_ES21		(0x00003E11)
-#define CHIP_RMU2_ES22		(0x00003E12)
+#define CHIP_RMU2_ES201		(0x00003E11)
+#define CHIP_RMU2_ES202		(0x00003E12)
 
 /* Write protection area */
 #define EMMC_PROTECT_AREA_ST 	(0x10000)	/* eMMC write protection area start sector address */
