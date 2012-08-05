@@ -61,7 +61,7 @@
 /* Size of code	*/
 #define	fsArmVector					0x80 /* ARM Vector */
 #define	fsCoreStandby				0xE0 /* Core Standby */
-#define	fsSystemSuspend				0x200 /* System Suspend */
+#define	fsSystemSuspend				0x170 /* System Suspend */
 #define	fsSaveArmRegister			0x1C0 /* Save ARM register */
 #define	fsRestoreArmRegisterPA		0x80 /* Restore ARM register (PA) */
 #define	fsRestoreArmRegisterVA		0x100/* Restore ARM register VA) */
@@ -69,14 +69,14 @@
 #define	fsRestoreArmCommonRegister	0x1C0 /* Restore ARM common register */
 #define	fsSaveCommonRegister		0xE0 /* Save common register */
 #define	fsRestoreCommonRegister		0x100 /* Restore common register */
-#define	fsSysPowerDown				0x240 /* power down */
-#define	fsSysPowerUp				0x300 /* power up */
-#define	fsSetClockSystemSuspend		0x320 /* Set clock */
+#define	fsSysPowerDown				0x250 /* power down */
+#define	fsSysPowerUp				0x2C4 /* power up */
+#define	fsSetClockSystemSuspend		0x1C4 /* Set clock */
 #ifdef VMALLOC_EXPAND
-#define	fsSystemSuspendCPU0PA		0x100 /* System Suspend for CPU0 with MMU off */
-#define	fsCoreStandbyPA				0x480 /* CoreStandby function with MMU off */
+#define	fsSystemSuspendCPU0PA		0x090 /* System Suspend for CPU0 with MMU off */
+#define	fsCoreStandbyPA				0x5C0 /* CoreStandby function with MMU off */
 #define	fsDisableMMU				0x20 /* Disable MMU function */
-#define	fsSystemSuspendCPU1PA		0x120 /* System Suspend for CPU1 with MMU off */
+#define	fsSystemSuspendCPU1PA		0xE4 /* System Suspend for CPU1 with MMU off */
 #endif /* VMALLOC_EXPAND */
 
 /*--------------------------------------------------*/
@@ -308,8 +308,12 @@
 #define	ram0SetClockFrqcrd					\
 (ram0SetClockFrqcrb + 0x4)
 
-#define	ram0CPU0SpinLock					\
+/* Errata(ECR0285) */
+#define	ram0ES_2_2_AndAfter				\
 (ram0SetClockFrqcrd + 0x4)
+
+#define	ram0CPU0SpinLock					\
+(ram0ES_2_2_AndAfter + 0x4)
 #define	ram0CPU1SpinLock					\
 (ram0CPU0SpinLock + 0x4)
 
@@ -322,9 +326,21 @@
 #define	ram0SaveSdmracr1a					\
 (ram0SaveSdmracr0a + 0x4)
 
+/* SPI Status Registers */
+#define	ram0_ICSPISR0				\
+(ram0SaveSdmracr1a + 0x4)			
+#define	 ram0_ICSPISR1				\
+(ram0_ICSPISR0 + 0x4)
+/*FRQCRA mask*/
+#define	ram0FRQCRAMask				\
+(ram0_ICSPISR1 + 0x4)
+/*FRQCRA Down*/
+#define	ram0FRQCRADown				\
+(ram0FRQCRAMask + 0x4)
+
 #ifdef __EXTAL1_INFO__
 #define	ram0SaveEXMSKCNT1_suspend 	\
-(ram0SaveSdmracr1a + 0x4)
+(ram0FRQCRADown + 0x4)
 #define	ram0SaveAPSCSTP_suspend 	\
 (ram0SaveEXMSKCNT1_suspend + 0x4)
 #define	ram0SaveSYCKENMSK_suspend 	\
@@ -359,7 +375,7 @@
 (ram0SavePSTR_resume + 0x4)
 #else
 #define	ram0SystemSuspendRestoreCPU0	\
-(ram0SaveSdmracr1a + 0x4)
+(ram0FRQCRADown + 0x4)
 #endif
 
 /*Restore point after enable MMU for System Suspend with CPU1*/
@@ -371,20 +387,7 @@
 /*Restore point after enable MMU for CoreStandby with CPU1*/
 #define	ram0CoreStandbyRestoreCPU1			\
 (ram0CoreStandbyRestoreCPU0 + 0x4)
-/*FRQCRA mask*/
-#define	ram0FRQCRAMask			\
-(ram0CoreStandbyRestoreCPU1 + 0x4)
-/*FRQCRA mask*/
-#define	ram0FRQCRADown			\
-(ram0FRQCRAMask + 0x4)
-
 #endif /* VMALLOC_EXPAND */
-
-/* SPI Status Registers */
-#define	ram0_ICSPISR0		\
-(ram0FRQCRADown + 0x4)			
-#define	 ram0_ICSPISR1						\
-(ram0_ICSPISR0 + 0x4)
 
 /* Backup area Phys			*/
 #define	ram0CommonSettingPhys				ram0BackupPhys
@@ -421,8 +424,13 @@
 #define	ram0SetClockFrqcrdPhys				\
 (ram0SetClockFrqcrbPhys		+ 0x4)
 
-#define	ram0CPU0SpinLockPhys					\
+/* Errata(ECR0285) */
+#define	ram0ES_2_2_AndAfterPhys				\
 (ram0SetClockFrqcrdPhys + 0x4)
+
+#define	ram0CPU0SpinLockPhys					\
+(ram0ES_2_2_AndAfterPhys + 0x4)
+
 #define	ram0CPU1SpinLockPhys					\
 (ram0CPU0SpinLockPhys + 0x4)
 
@@ -435,9 +443,22 @@
 #define	ram0SaveSdmracr1aPhys				\
 (ram0SaveSdmracr0aPhys			+ 0x4)
 
+/* SPI Status Registers */
+#define	ram0_ICSPISR0Phys				\
+(ram0SaveSdmracr1aPhys + 0x4)			
+#define	 ram0_ICSPISR1Phys				\
+(ram0_ICSPISR0Phys + 0x4)
+
+/*FRQCRA mask*/
+#define	ram0FRQCRAMaskPhys				\
+(ram0_ICSPISR1Phys + 0x4)
+/*FRQCRA mask*/
+#define	ram0FRQCRADownPhys				\
+(ram0FRQCRAMaskPhys + 0x4)
+
 #ifdef __EXTAL1_INFO__
 #define	ram0SaveEXMSKCNT1Phys_suspend 	\
-(ram0SaveSdmracr1aPhys + 0x4)
+(ram0FRQCRADownPhys + 0x4)
 #define	ram0SaveAPSCSTPPhys_suspend 	\
 (ram0SaveEXMSKCNT1Phys_suspend + 0x4)
 #define	ram0SaveSYCKENMSKPhys_suspend 	\
@@ -472,7 +493,7 @@
 (ram0SavePSTRPhys_resume + 0x4)
 #else
 #define	ram0SystemSuspendRestoreCPU0Phys	\
-(ram0SaveSdmracr1aPhys + 0x4)
+(ram0FRQCRADownPhys + 0x4)
 #endif
 
 /* Restore point after enable MMU for System Sleep with CPU1 */
@@ -484,23 +505,8 @@
 /* Restore point after enable MMU for CoreStandby with CPU1 */
 #define	ram0CoreStandbyRestoreCPU1Phys		\
 (ram0CoreStandbyRestoreCPU0Phys + 0x4)
-/*FRQCRA mask*/
-#define	ram0FRQCRAMaskPhys			\
-(ram0CoreStandbyRestoreCPU1Phys + 0x4)
-/*FRQCRA mask*/
-#define	ram0FRQCRADownPhys			\
-(ram0FRQCRAMaskPhys + 0x4)
 
 #endif /*VMALLOC_EXPAND*/
-
-/* SPI Status Registers */
-#define	ram0_ICSPISR0Phys		\
-(ram0FRQCRADownPhys + 0x4)			
-#define	 ram0_ICSPISR1Phys					\
-(ram0_ICSPISR0Phys + 0x4)
-
-
-
 /*---------------------------------------------------------------------------*/
 /* Offset of CPU register buckup area */
 /* Defining the offset of allocated memory area. */
