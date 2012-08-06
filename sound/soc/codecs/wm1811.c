@@ -1741,10 +1741,16 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 	u_int fll1_control2 = 0;
 	u_int fll1_control4 = 0;
 	u_int fll1_control5 = 0;
+	struct clk *vclk4_clk = NULL;
 	wm1811_log_efunc("device[%ld]", device);
 
 	if ((WM1811_DEV_NONE != device) &&
 		(0 == gpio_get_value(GPIO_PORT34))) {
+		wm1811_log_info("CODEC_LDO_EN : wm1811 Power ON");
+		/* vclk4 enable */
+		vclk4_clk = clk_get(NULL, "vclk4_clk");
+		clk_enable(vclk4_clk);
+		clk_put(vclk4_clk);
 		/* CODEC_LDO_EN : wm1811 Power ON */
 		gpio_set_value(GPIO_PORT34, 1);
 	}
@@ -2050,10 +2056,16 @@ int wm1811_set_device(const u_long device, const u_int pcm_value)
 
 	if ((WM1811_DEV_NONE == device) &&
 		(1 == gpio_get_value(GPIO_PORT34))) {
+		wm1811_log_info("CODEC_LDO_EN : wm1811 Power OFF");
 		/* Mic Detect Disable */
 		ret = wm1811_write(0x00D0, 0x0B00);
 		/* CODEC_LDO_EN : wm1811 Power OFF */
 		gpio_set_value(GPIO_PORT34, 0);
+		/* vclk4 disable */
+		vclk4_clk = clk_get(NULL, "vclk4_clk");
+		clk_disable(vclk4_clk);
+		clk_put(vclk4_clk);
+
 		audio_on = WM1811_DISABLE;
 	}
 
