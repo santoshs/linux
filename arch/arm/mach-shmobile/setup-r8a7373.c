@@ -837,6 +837,11 @@ static struct platform_device hwsem1_device = {
 
 static struct resource sgx_resources[] = {
 	{
+		.start	= 0xfd000000,
+		.end	= 0xfd00bfff,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
 		.start	= gic_spi(92),
 		.flags	= IORESOURCE_IRQ,
 	},
