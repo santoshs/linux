@@ -129,8 +129,6 @@ void r_loader_main(void)
 #endif /* __INTEGRITY_CHECK_ENABLE__ */
 
 	if(branch_mode != MODULE_BRANCH_MODE_UPDATER)	{
-		/* Copy table from flash memory to SDRAM */
-		r_loader_copy_table_to_RAM();
 		/* Copy SPU bin from flash memory to SDRAM */
 		r_loader_copy_SPU_to_RAM();
 	}
@@ -357,7 +355,7 @@ RC r_loader_load_module(RC branch_mode)
 		/* Display branching module to LCD */
 #ifdef __RL_LCD_ENABLE__
 		LCD_Print(30, 650, inf);
-				
+		LCD_Draw_Cmode();				
 #endif	/* __RL_LCD_ENABLE__ */
 	}
 
@@ -639,7 +637,8 @@ RC r_loader_select_module(void)
 		return branch_mode;
 	}
 	PRINTF("FAIL There is no module matched in MLT\n");
-	return R_LOADER_ERR_LOAD_MLT;
+	*STBCHRB2 = ((uchar)(module_load_table.info[MODULE_BRANCH_MODE_BOOTLOADER].stbchrb2));
+	return MODULE_BRANCH_MODE_BOOTLOADER;
 }
 
 /**
@@ -707,38 +706,6 @@ RC Detect_Key_Input(ulong *key)
 	
 	/* Timeout error */
 	return R_LOADER_ERR_KEY;
-}
-
-/**
- * r_loader_copy_table_to_RAM - Copy register table
- * @return R_LOADER_SUCCESS   : Successful
- *         R_LOADER_ERR_FLASH : Flash access error
- */
-RC r_loader_copy_table_to_RAM(void)
-{
-	PRINTF("Copy Tuneup value from eMMC to RAM\n");
-
-	RC ret = FLASH_ACCESS_SUCCESS;
-	uint64 src_addr;
-	ulong  dst_addr;
-	ulong size;
-
-	/* Copy register table1(tuneup_value.bin) to SDRAM */
-	if (CHIP_VERSION() == CHIP_RMU2_ES10) {
-		dst_addr = TABLE1_SDRAM_ADDR_ES1;
-	} else {
-		dst_addr = TABLE1_SDRAM_ADDR_ES2;
-	}
-	
-	size = (TABLE1_SEC_SIZE * SECTOR_LENGTH);
-	src_addr = (TABLE1_SEC_ADDR * SECTOR_LENGTH);
-
-	ret = Flash_Access_Read((uchar *)(dst_addr), (ulong)(size), (uint64 )(src_addr), UNUSED);
-	if (ret != FLASH_ACCESS_SUCCESS){
-		PRINTF("FAIL eMMC to read Tuneup value - ret=%d\n", ret);
-		return R_LOADER_ERR_FLASH;
-	}
-	return R_LOADER_SUCCESS;
 }
 
 /**
@@ -823,6 +790,7 @@ void LCD_DisplayWarning(const char* info)
 {
 #ifdef __RL_LCD_ENABLE__
 	LCD_Print(30, 650, info);
+	LCD_Draw_Cmode();
 #endif	/* __RL_LCD_ENABLE__ */
 	/* This code below can't be reached*/
 	while(1){};
@@ -881,8 +849,7 @@ RC r_loader_save_NVM_bootflag(void)
 	uchar flag;
 
 	memcpy(&flag, (void*)BOOTFLAG_SDRAM_ADDR, BOOTFLAG_SDRAM_OFFSET);
-
-	if(flag == 0xA5) {
+	if(flag == 0xA5){ 
 		/* Save boot flags */
 		ret = Flash_Access_Write((uchar *)(BOOTFLAG_SDRAM_ADDR + BOOTFLAG_SDRAM_OFFSET), BOOTFLAG_SIZE, BOOTFLAG_ADDR, UNUSED);
 		if (ret != FLASH_ACCESS_SUCCESS)

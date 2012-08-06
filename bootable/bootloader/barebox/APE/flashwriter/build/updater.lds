@@ -11,14 +11,14 @@ ENTRY(_start)
 
 MEMORY
 {
-    rom(rx)        : o = 0xED0C1300, l = 0x00040000
-    ram(w)         : o = 0xED101300, l = 0x00040000
-    stack(w)       : o = 0xED141300, l = 0x0003E000
+    rom(rx)        : o = 0xE5650000, l = 0x00040000
+    ram(w)         : o = 0xE5690000, l = 0x00040000
+    stack(w)       : o = 0xE56D0000, l = 0x0003E000
 }
 
 SECTIONS
 {
-	.text 0xED0C1300 : {
+	.text 0xE5650000 : {
 		flw_boot.o(.text)
 		*(.text)
 		 *(.rodata)
@@ -48,5 +48,5 @@ SECTIONS
 		__bss_end = . ;
 	} > ram
 
-	__stack = 0xED141300;
+	__stack = 0xE570E000;
 }

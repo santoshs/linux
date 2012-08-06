@@ -17,7 +17,7 @@
 void SYSC_Power_Supply(void)
 {
 	ulong value = 0;
-	*SYS_SWUCR = 0x01FFF140;
+	*SYS_SWUCR = 0x01FFD140;
 	while(1)
 	{
 		value = *SYS_SWUCR;

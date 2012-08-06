@@ -13,16 +13,16 @@ ENTRY(_start)
 MEMORY
 {
 
-    rom(rx)        : o = 0xED050000, l = 0x00030000
-    ram(w)         : o = 0xED080000, l = 0x00020000
-    stack(w)       : o = 0xED0A0000, l = 0x00020000
-    stack_boot(w)  : o = 0xED0C0000, l = 0x00000100
-    vectors(rx)    : o = 0xED0C0100, l = 0x00001000
+    rom(rx)        : o = 0xE55D0000, l = 0x00030000
+    ram(w)         : o = 0xE5600000, l = 0x00020000
+    stack(w)       : o = 0xE5620000, l = 0x00020000
+    stack_boot(w)  : o = 0xE5640000, l = 0x00000100
+    vectors(rx)    : o = 0xE5640100, l = 0x00001000
 }
 
 SECTIONS
 {
-	.text 0xED050000 : {
+	.text 0xE55D0000 : {
 		r_loader_boot.o
 		__vector_tbl_start = . ;
 		r_loader_vectors.o(.text)
@@ -57,8 +57,8 @@ SECTIONS
 		__bss_end = . ;
 	} > ram
 
-	__stack      = 0xED0C0000 ;
-	__stack_boot = 0xED0C0100 ;
+	__stack      = 0xE5640000 ;
+	__stack_boot = 0xE5640100 ;
 
 	.vector : {
 		__vector_start = . ;
