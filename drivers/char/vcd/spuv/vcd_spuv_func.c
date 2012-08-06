@@ -52,7 +52,10 @@ unsigned int g_spuv_func_voiceif_register_top;
 unsigned int g_spuv_func_intcvo_register_top;
 unsigned int g_spuv_func_spuv_register_top;
 unsigned int g_spuv_func_dsp0_register_top;
+unsigned int g_spuv_func_pram_base_top;
 unsigned int g_spuv_func_xram_base_top;
+unsigned int g_spuv_func_yram_base_top;
+unsigned int g_spuv_func_dspioram_base_top;
 
 unsigned int g_spuv_func_meram_physical_addr;
 unsigned int g_spuv_func_meram_logical_addr;
@@ -282,6 +285,26 @@ int vcd_spuv_func_control_power_supply(int effective)
 			SPUV_FUNC_RW_32_CRMU_VOICEIF);
 
 	} else {
+		/* cpga spuv module reset */
+#if 0
+		sh73a0_get_cpg_hpb_sem_with_lock(flags);
+#endif
+		vcd_spuv_func_modify_register(
+			0,
+			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+			SPUV_FUNC_RW_32_CPG_SRCR2);
+		udelay(62);
+		vcd_spuv_func_modify_register(
+			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+			0,
+			SPUV_FUNC_RW_32_CPG_SRCR2);
+		while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
+				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
+			cpu_relax();
+#if 0
+		sh73a0_put_cpg_hpb_sem_with_lock(flags);
+#endif
+
 		/* spuv clock */
 		if (NULL != g_spuv_func_spuv_clk) {
 			/* clock disable */
@@ -896,7 +919,7 @@ int vcd_spuv_func_ioremap(void)
 
 	vcd_pr_start_spuv_function();
 
-	if ((system_rev & 0xff) == 0x00)
+	if ((system_rev & 0xFFFF) == 0x3E00)
 		g_spuv_func_sdram_static_area_top_phy =
 			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1;
 	else
@@ -1002,13 +1025,46 @@ int vcd_spuv_func_ioremap(void)
 		goto rtn;
 	}
 
+	/* ioremap pram0 */
+	g_spuv_func_pram_base_top =
+		(unsigned int)ioremap_nocache(
+			SPUV_FUNC_PRAM0_PHY,
+			SPUV_FUNC_DATA_RAM_SIZE);
+	if (g_spuv_func_pram_base_top == 0) {
+		vcd_pr_err("error ioremap pram0.\n");
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
 	/* ioremap xram0 */
 	g_spuv_func_xram_base_top =
 		(unsigned int)ioremap_nocache(
 			SPUV_FUNC_XRAM0_PHY,
 			SPUV_FUNC_DATA_RAM_SIZE);
-	if (g_spuv_func_dsp0_register_top == 0) {
+	if (g_spuv_func_xram_base_top == 0) {
 		vcd_pr_err("error ioremap xram0.\n");
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* ioremap yram0 */
+	g_spuv_func_yram_base_top =
+		(unsigned int)ioremap_nocache(
+			SPUV_FUNC_YRAM0_PHY,
+			SPUV_FUNC_DATA_RAM_SIZE);
+	if (g_spuv_func_yram_base_top == 0) {
+		vcd_pr_err("error ioremap yram0.\n");
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* ioremap dspioram */
+	g_spuv_func_dspioram_base_top =
+		(unsigned int)ioremap_nocache(
+			SPUV_FUNC_DSPIO_PHY,
+			SPUV_FUNC_DATA_RAM_SIZE);
+	if (g_spuv_func_dspioram_base_top == 0) {
+		vcd_pr_err("error ioremap dspioram.\n");
 		ret = VCD_ERR_SYSTEM;
 		goto rtn;
 	}
@@ -1084,10 +1140,28 @@ void vcd_spuv_func_iounmap(void)
 		g_spuv_func_dsp0_register_top = 0;
 	}
 
+	/* ioremap pram0 */
+	if (0 != g_spuv_func_pram_base_top) {
+		iounmap((void *)g_spuv_func_pram_base_top);
+		g_spuv_func_pram_base_top = 0;
+	}
+
 	/* ioremap xram0 */
 	if (0 != g_spuv_func_xram_base_top) {
 		iounmap((void *)g_spuv_func_xram_base_top);
 		g_spuv_func_xram_base_top = 0;
+	}
+
+	/* ioremap yram0 */
+	if (0 != g_spuv_func_yram_base_top) {
+		iounmap((void *)g_spuv_func_yram_base_top);
+		g_spuv_func_yram_base_top = 0;
+	}
+
+	/* ioremap dspioram */
+	if (0 != g_spuv_func_dspioram_base_top) {
+		iounmap((void *)g_spuv_func_dspioram_base_top);
+		g_spuv_func_dspioram_base_top = 0;
 	}
 
 	vcd_pr_end_spuv_function();
@@ -1968,6 +2042,304 @@ void vcd_spuv_func_dump_dsp0_registers(void)
 		ioread32(SPUV_FUNC_RW_32_GADDR_CTRL_Y),
 		SPUV_FUNC_RW_32_GADDR_CTRL_Y);
 
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump pram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_pram0_memory(void)
+{
+	void  *buffer;
+	unsigned long flags;
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	buffer = vmalloc(SPUV_FUNC_DATA_RAM_SIZE);
+
+	flags = pm_get_spinlock();
+
+	memcpy(buffer, (void *)g_spuv_func_pram_base_top,
+		SPUV_FUNC_DATA_RAM_SIZE);
+
+	pm_release_spinlock(flags);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/pram0_memory.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)buffer,
+		SPUV_FUNC_DATA_RAM_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vfree(buffer);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump xram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_xram0_memory(void)
+{
+	void  *buffer;
+	unsigned long flags;
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	buffer = vmalloc(SPUV_FUNC_DATA_RAM_SIZE);
+
+	flags = pm_get_spinlock();
+
+	memcpy(buffer, (void *)g_spuv_func_xram_base_top,
+		SPUV_FUNC_DATA_RAM_SIZE);
+
+	pm_release_spinlock(flags);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/xram0_memory.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)buffer,
+		SPUV_FUNC_DATA_RAM_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vfree(buffer);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump pram0 memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_yram0_memory(void)
+{
+	void  *buffer;
+	unsigned long flags;
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	buffer = vmalloc(SPUV_FUNC_DATA_RAM_SIZE);
+
+	flags = pm_get_spinlock();
+
+	memcpy(buffer, (void *)g_spuv_func_yram_base_top,
+		SPUV_FUNC_DATA_RAM_SIZE);
+
+	pm_release_spinlock(flags);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/yram0_memory.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)buffer,
+		SPUV_FUNC_DATA_RAM_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vfree(buffer);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump dspio memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_dspio_memory(void)
+{
+	void  *buffer;
+	unsigned long flags;
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	buffer = vmalloc(SPUV_FUNC_DATA_RAM_SIZE);
+
+	flags = pm_get_spinlock();
+
+	memcpy(buffer, (void *)g_spuv_func_dspioram_base_top,
+		SPUV_FUNC_DATA_RAM_SIZE);
+
+	pm_release_spinlock(flags);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/dspio_memory.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)buffer,
+		SPUV_FUNC_DATA_RAM_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vfree(buffer);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump sdram static area memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_sdram_static_area_memory(void)
+{
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/sdram_static_area.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)g_spuv_func_sdram_static_area_top,
+		SPUV_FUNC_SDRAM_AREA_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump firm ware static buffer memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_fw_static_buffer_memory(void)
+{
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/fw_static_buffer.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)g_spuv_func_fw_static_buffer,
+		VCD_SPUV_FUNC_FW_BUFFER_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }

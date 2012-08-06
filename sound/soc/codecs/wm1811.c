@@ -82,7 +82,7 @@
 #define WM1811_DUMP_REG_MAX		(0xffffffff)
 #define WM1811_DISABLE_CONFIG		(0xff000004)
 #define WM1811_DISABLE_CONFIG_SUB	(0x00000000)
-#define WM1811_MAX_PATH_LENGTH		(128)
+#define WM1811_MAX_PATH_LENGTH		(4096)
 
 #define WM1811_MICD_INIT	0x0
 #define	WM1811_MICD_STS		0x1
@@ -286,6 +286,7 @@ static u_int wm1811_log_level = WM1811_LOG_NO_PRINT;
 static struct wm1811_priv *wm1811_conf;
 
 static char wm1811_configration_path[WM1811_MAX_PATH_LENGTH];
+static char wm1811_configration_fullpath[WM1811_MAX_PATH_LENGTH];
 
 /*!
   @brief i2c driver data.
@@ -1700,22 +1701,19 @@ static int wm1811_close_file(struct file *config_filp)
 static int wm1811_read_config(char *pcm_name, char *pcm_path)
 {
 	int ret = 0;
-	char *device = NULL;
 	char buf[81] = {'\0'};
-	u_int count = 0;
 	u_int check = 0;
 	struct file *config_filp = NULL;
 	wm1811_log_efunc("");
 
-	count = strlen(pcm_name);
-	device = kmalloc(count + WM1811_MAX_PATH_LENGTH, GFP_KERNEL);
-	memset(device, 0, count + WM1811_MAX_PATH_LENGTH);
+	memset(wm1811_configration_fullpath,
+		'\0', sizeof(wm1811_configration_fullpath));
 
-	strcat(device, pcm_path);
-	strcat(device, pcm_name);
-	strcat(device, WM1811_EXTENSION);
+	strcat(wm1811_configration_fullpath, pcm_path);
+	strcat(wm1811_configration_fullpath, pcm_name);
+	strcat(wm1811_configration_fullpath, WM1811_EXTENSION);
 
-	ret = wm1811_open_file(device, &config_filp);
+	ret = wm1811_open_file(wm1811_configration_fullpath, &config_filp);
 
 	if (0 != ret)
 		goto err;
@@ -1725,16 +1723,12 @@ static int wm1811_read_config(char *pcm_name, char *pcm_path)
 		wm1811_set_config(buf);
 	} while (0 == check);
 
-	kfree(device);
-
 	wm1811_close_file(config_filp);
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
 err:
-	kfree(device);
-
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }

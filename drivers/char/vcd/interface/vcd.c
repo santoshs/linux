@@ -209,7 +209,7 @@ int vcd_execute(const struct vcd_execute_command *args)
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		ret = VCD_ERR_NOT_SUPPORT;
 		goto rtn;
@@ -267,7 +267,7 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		ret = VCD_ERR_NOT_SUPPORT;
 		goto rtn;
@@ -485,7 +485,7 @@ static int vcd_set_call_mode(void *arg)
 	vcd_pr_interface_info("option.loopback_mode[%d].\n",
 					option.loopback_mode);
 
-	if ((VCD_CALL_TYPE_CS > option.call_type) ||
+	if ((VCD_CALL_TYPE_CALL > option.call_type) ||
 		(VCD_CALL_TYPE_VIF_LB  < option.call_type)) {
 		vcd_pr_err("parameter error. option.call_type[%d].\n",
 						option.call_type);
@@ -494,7 +494,7 @@ static int vcd_set_call_mode(void *arg)
 	}
 
 	if ((VCD_LOOPBACK_MODE_INTERFACE > option.loopback_mode) ||
-		(VCD_LOOPBACK_MODE_PCM  < option.loopback_mode)) {
+		(VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode)) {
 		vcd_pr_err("parameter error. option.loopback_mode[%d].\n",
 						option.loopback_mode);
 		ret = VCD_ERR_PARAM;
@@ -839,7 +839,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* execute control function */
 	result = vcd_ctrl_get_result();
 
-	if ((system_rev & 0xff) == 0x00)
+	if ((system_rev & 0xFFFF) == 0x3E00)
 		result =  VCD_ERR_NOT_SUPPORT;
 
 	len = snprintf(page, count, "%d\n", result);
@@ -876,7 +876,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		goto rtn;
 	}
@@ -1213,8 +1213,36 @@ debug:
 		/* execute control function */
 		vcd_ctrl_dump_dsp0_registers();
 		break;
-	case VCD_DEBUG_SET_CS_CALL_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_CS;
+	case VCD_DEBUG_DUMP_MEMORIES:
+		/* execute control function */
+		vcd_ctrl_dump_memories();
+		break;
+	case VCD_DEBUG_DUMP_PRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_pram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_XRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_xram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_YRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_yram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_DSPIO_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_dspio_memory();
+		break;
+	case VCD_DEBUG_DUMP_SDRAM_STATIC_AREA_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_sdram_static_area_memory();
+		break;
+	case VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_fw_static_buffer_memory();
+		break;
+	case VCD_DEBUG_SET_CALL_MODE:
+		g_vcd_debug_call_type = VCD_CALL_TYPE_CALL;
 		break;
 	case VCD_DEBUG_SET_1KHZ_TONE_MODE:
 		g_vcd_debug_call_type = VCD_CALL_TYPE_1KHZ;

@@ -592,5 +592,11 @@ extern void vcd_spuv_func_dump_voiceif_registers(void);
 extern void vcd_spuv_func_dump_intcvo_registers(void);
 extern void vcd_spuv_func_dump_spuv_registers(void);
 extern void vcd_spuv_func_dump_dsp0_registers(void);
+extern void vcd_spuv_func_dump_pram0_memory(void);
+extern void vcd_spuv_func_dump_xram0_memory(void);
+extern void vcd_spuv_func_dump_yram0_memory(void);
+extern void vcd_spuv_func_dump_dspio_memory(void);
+extern void vcd_spuv_func_dump_sdram_static_area_memory(void);
+extern void vcd_spuv_func_dump_fw_static_buffer_memory(void);
 
 #endif /* __VCD_SPUV_FUNC_H__ */
