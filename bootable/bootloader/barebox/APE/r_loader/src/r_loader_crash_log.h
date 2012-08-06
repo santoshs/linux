@@ -38,7 +38,7 @@
 #define RESET_LOG_COUNTER_ADDRESS (LOG_NUM_OFFSET + 4) 
 
 /* Physical Address list on SDRAM. used to handshake with Android. */
-#define BASE_ADDRESS             (0x4C801020)
+#define BASE_ADDRESS             (0x44801020)
 
 #define KMSG_BASE_ADDRESS        (BASE_ADDRESS)
 #define KMSG_LOGBUF_ADDRESS      ((volatile ulong *)(KMSG_BASE_ADDRESS))
@@ -70,7 +70,7 @@
 #define LOGCAT_SYSTEM_WOFF_ADDRESS   ((volatile ulong *)(LOGCAT_SYSTEM_BASE_ADDRESS + 0x08))
 #define LOGCAT_SYSTEM_HEAD_ADDRESS   ((volatile ulong *)(LOGCAT_SYSTEM_BASE_ADDRESS + 0x0C))
 
-#define TMPLOG_BASE_ADDRESS          (0x4C821200)
+#define TMPLOG_BASE_ADDRESS          (0x44801200)
 
 /* Address check. if addr is on SDRAM */
 #define SDRAM_AREA_START (0x40000000)
@@ -86,6 +86,7 @@
 /* for STBCHR3 */
 #define APE_RESETLOG_DEBUG         (0x04)
 #define APE_RESETLOG_TMPLOG_END    (0x08)
+#define APE_RESETLOG_TRACELOG      (0x10)
 
 typedef enum {
 	type_kmsg = 0,

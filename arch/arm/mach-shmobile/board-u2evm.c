@@ -59,7 +59,7 @@
 #endif
 
 #include <linux/mmcoops.h>
-
+#include <asm/io.h>
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h> 
@@ -77,10 +77,12 @@
 #define CRASHLOG_LOGCAT_RADIO_LOCATE	0x44801050
 #define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x44801060
 
-#define TMPLOG_ADDRESS 0x44821200
-#define TMPLOG_SIZE    0x00040000
 #define RMC_LOCAL_VERSION "150612"		// ddmmyy (release time)
+#ifndef CONFIG_IRQ_TRACE
+#define TMPLOG_ADDRESS 0x44801200
+#define TMPLOG_SIZE    0x00040000
 char *tmplog_nocache_address = NULL;
+#endif
 
 static void crashlog_r_local_ver_write(void);
 static void crashlog_reset_log_write(void);
@@ -2921,8 +2923,8 @@ static void crashlog_reset_log_write()
 	__raw_writel(log_system_head_address, adr + 12);
 	iounmap(adr);
 
-	/*reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);*/	/* andriod init */
+	reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* andriod init */
 
 /*Developer option to debug Reset Log*/
      /*	reg = __raw_readb(STBCHR3);*/
@@ -2931,6 +2933,7 @@ static void crashlog_reset_log_write()
 
 static void crashlog_init_tmplog(void)
 {
+#ifndef CONFIG_IRQ_TRACE
 	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_SIZE, "tmplog-nocache"))
 	{
 		tmplog_nocache_address = (char *)ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_SIZE);
@@ -2939,7 +2942,24 @@ static void crashlog_init_tmplog(void)
 
 	/*	reg = __raw_readb(STBCHR3);*/
 	/*	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR3); */ // write STBCHR3 for debug	
+#else
+	void __iomem * adr = 0;
+	void __iomem * tmp = 0;
+	u8 	reg = 0;
 
+	if(tmplog_nocache_address == 0) {
+		/* Request Trace Log Memory region for I/O remapping */
+		request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE, "tmplog-nocache");
+		tmp = ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE);
+		for(adr=tmp; adr<(tmp+TMPLOG_TOTAL_SIZE); adr+=4) {
+			__raw_writel((unsigned int)adr+0x10000000, adr);
+		}
+		tmplog_nocache_address = (char *)tmp;
+	}
+	reg = __raw_readb(STBCHR3);
+	/* Set bit APE_RESETLOG_TRACELOG of STBCHR3 for tracelog */
+	__raw_writeb((reg | APE_RESETLOG_TRACELOG), STBCHR3);
+#endif /* CONFIG_IRQ_TRACE */
 	return;
 }
 

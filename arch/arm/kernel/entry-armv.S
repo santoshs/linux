@@ -160,6 +160,10 @@ ENDPROC(__und_invalid)
 	.align	5
 __dabt_svc:
 	svc_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffc1
+	bl save_data_svc_in
+#endif
 
 	@
 	@ get ready to re-enable interrupts if appropriate
@@ -209,6 +213,10 @@ ENDPROC(__dabt_svc)
 	.align	5
 __irq_svc:
 	svc_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffc3
+	bl save_data_svc_in
+#endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	trace_hardirqs_off
@@ -238,6 +246,78 @@ __irq_svc:
  UNWIND(.fnend		)
 ENDPROC(__irq_svc)
 
+#ifdef  CONFIG_IRQ_TRACE
+save_data_svc:	#r7 psr
+	MRC     p15, 0, r8, c0, c0, 5                   /* Read MPIDR, MP affinty register*/
+	UBFX    r8, r8, #0x0, #0x2                      /* Extract the CPUID Field      */
+
+	LDR     r9, =tmplog_nocache_address
+	LDR     r11, [r9]
+	CMP     r11, #0x0
+	MOVEQ   pc, lr
+
+	CMP     r8, #0x0
+	MOVEQ   r8, r11
+	ADDNE   r8, r11, #TMPLOG_SIZE_PERCPU
+
+	LDR	r9, [r8]
+	ADD	r9, r9, #1
+	CMP	r9, #TMPLOG_ENTRIES_PERCPU
+	MOVHS	r9, #1
+	STR	r9, [r8]
+	ADD	r8, r8, r9, lsl #5
+
+	LDR	r9, = CMCNT3
+	LDR	r9, [r9]
+	MOV	r10, #0xffffffcd
+	ldr	r11, [sp, #S_LR]			@ top of the stack
+	mov	r12, sp
+	STMIA	r8!, {r9,r10,r11,r12}		@save current_timer, lr, pc, sp
+	ldr	r9, [sp, #S_PC]			@ return address
+	mov	r12, r10
+	ldr	r10, [sp, #S_PSR]			@ return address
+	mov	r11, r7
+	STMIA	r8!, {r9,r10,r11,r12}		@save pc psr(onstack?) rpsr sp
+	mov	pc, lr
+
+save_data_svc_in: 
+	MRC     p15, 0, r8, c0, c0, 5                   /* Read MPIDR, MP affinty register*/
+	UBFX    r8, r8, #0x0, #0x2                      /* Extract the CPUID Field      */
+
+	LDR     r9, =tmplog_nocache_address
+	LDR     r11, [r9]
+	CMP     r11, #0x0
+	MOVEQ   pc, lr
+
+	CMP     r8, #0x0
+	MOVEQ   r8, r11
+	ADDNE   r8, r11, #TMPLOG_SIZE_PERCPU
+
+	LDR	r9, [r8]
+	ADD	r9, r9, #1
+	CMP	r9, #TMPLOG_ENTRIES_PERCPU
+	MOVHS	r9, #1
+	STR	r9, [r8]
+	ADD	r8, r8, r9, lsl #5
+
+	LDR	r9, = CMCNT3
+	LDR	r9, [r9]
+#	MOV	r10, #0xffffffc1
+	ldr	r11, [sp, #S_LR]			@ top of the stack
+	mov	r12, sp
+	STMIA	r8!, {r9,r10,r11,r12}		@save current_timer, lr, pc, sp
+	ldr	r9, [sp, #S_PC]			@ return address
+	mov	r12, r10
+	ldr	r10, [sp, #S_PSR]			@ return address
+	mov	r11, r10
+	STMIA	r8!, {r9,r10,r11,r12}		@save pc psr(onstack?) rpsr sp
+	mov	pc, lr
+
+.global	tmplog_nocache_address
+tmplog_nocache_address:
+	.word	0
+#endif
+
 	.ltorg
 
 #ifdef CONFIG_PREEMPT
@@ -259,6 +339,10 @@ __und_svc:
 	svc_entry 64
 #else
 	svc_entry
+#endif
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffc5
+	bl save_data_svc_in
 #endif
 
 	@
@@ -299,6 +383,10 @@ ENDPROC(__und_svc)
 	.align	5
 __pabt_svc:
 	svc_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffc7
+	bl save_data_svc_in
+#endif
 
 	@
 	@ re-enable interrupts if appropriate
@@ -409,6 +497,10 @@ ENDPROC(__pabt_svc)
 	.align	5
 __dabt_usr:
 	usr_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffd1
+	bl save_data_svc_in
+#endif
 	kuser_cmpxchg_check
 
 	@
@@ -442,6 +534,10 @@ ENDPROC(__dabt_usr)
 	.align	5
 __irq_usr:
 	usr_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffd3
+	bl save_data_svc_in
+#endif
 	kuser_cmpxchg_check
 
 #ifdef CONFIG_IRQSOFF_TRACER
@@ -475,6 +571,10 @@ ENDPROC(__irq_usr)
 	.align	5
 __und_usr:
 	usr_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffd5
+	bl save_data_svc_in
+#endif
 
 	@
 	@ fall through to the emulation code, which returns using r9 if
@@ -691,6 +791,10 @@ ENDPROC(__und_usr_unknown)
 	.align	5
 __pabt_usr:
 	usr_entry
+#ifdef  CONFIG_IRQ_TRACE
+	MOV	r10, #0xffffffd7
+	bl save_data_svc_in
+#endif
 
 	mov	r0, r2			@ pass address of aborted instruction.
 #ifdef MULTI_PABORT
