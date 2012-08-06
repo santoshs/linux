@@ -1203,6 +1203,14 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		/* Default Y virtual resolution is 2x panel size */
 		info->var.width = panel_info.size_width;
 		info->var.height = panel_info.size_height;
+		info->var.pixclock = panel_info.pixclock;
+		info->var.left_margin = panel_info.left_margin;
+		info->var.right_margin = panel_info.right_margin;
+		info->var.upper_margin = panel_info.upper_margin;
+		info->var.lower_margin = panel_info.lower_margin;
+		info->var.hsync_len = panel_info.hsync_len;
+		info->var.vsync_len = panel_info.vsync_len;
+
 		info->var.activate = FB_ACTIVATE_NOW;
 		error = sh_mobile_lcdc_set_bpp(&info->var, cfg->bpp);
 		if (error)
@@ -1277,6 +1285,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 
 	for (i = 0; i < j; i++) {
 		struct sh_mobile_lcdc_chan *ch = priv->ch + i;
+		struct fb_panel_hw_info hw_info;
 
 		info = ch->info;
 
@@ -1294,8 +1303,10 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			 ch->cfg.bpp);
 
 		if (lcd_ext_param[i].panel_func.panel_probe) {
-			lcd_ext_param[i].
-				panel_func.panel_probe(info);
+			hw_info.gpio_reg = ch->cfg.panelreset_gpio;
+			hw_info.dsi_irq  = ch->cfg.paneldsi_irq;
+			lcd_ext_param[i].panel_func.
+				panel_probe(info, hw_info);
 		}
 
 		lcd_ext_param[i].aInfo = NULL;
