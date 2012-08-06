@@ -365,13 +365,19 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 				 */
 				ulTmpNextDev |=
 				g_sndp_codec_info.dev_capture_headset_mic;
-			} else {
+			} else if (!(SNDP_BLUETOOTHSCO & uiDev)) {
 				/*
-				 * [OUT]Dosn't include the Headset,
+				 * [OUT]Dosn't include the Headset, (not BT)
 				 * [IN]Built-in MIC
 				 */
 				ulTmpNextDev |=
 					g_sndp_codec_info.dev_capture_mic;
+			} else {
+				/*
+				 * [OUT]Bluetooth SCO,
+				 * [IN]Bluetooth SCO
+				 */
+				/* No process */
 			}
 		}
 	/* INPUT side */
@@ -601,7 +607,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto ioremap_err;
 
 	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xff) >= 0x10)
+	if ((system_rev & 0xffff) >= 0x3E10)
 		common_set_fsi2cr(STAT_ON);
 
 	/* Replaced of function pointers. */
@@ -1311,13 +1317,25 @@ static int sndp_soc_put_capture_mute(
 static int sndp_fsi_suspend(struct device *dev)
 {
 	int	iRet = ERROR_NONE;
-
+	u_int	iInDev = SNDP_NO_DEVICE;
+	u_int	iOutDev = SNDP_NO_DEVICE;
 
 	sndp_log_info("start\n");
 
-	/* Otherwise only IN_CALL, for processing */
-	if (SNDP_MODE_INCALL !=
-		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
+	/* Device get from old_value */
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_IN))
+		iInDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_IN));
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_OUT))
+		iOutDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT));
+
+	sndp_log_debug("InDev[0x%08X] OutDev[0x%08X]\n",
+			iInDev, iOutDev);
+
+	/* Otherwise only IN_CALL, for processing and Other than FM playback */
+	if ((SNDP_MODE_INCALL !=
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
+	    ((!(SNDP_FM_RADIO_RX & iInDev)) &&
+	     (!(SNDP_FM_RADIO_RX & iOutDev)))) {
 		if (SNDP_POWER_SUSPEND != g_sndp_power_status) {
 			/*
 			 * Transition to SUSPEND,
@@ -1327,6 +1345,7 @@ static int sndp_fsi_suspend(struct device *dev)
 				iRet = g_sndp_codec_info.set_device(
 					g_sndp_codec_info.dev_none,
 					SNDP_VALUE_INIT);
+				sndp_log_debug("set_device all 0\n");
 				if (ERROR_NONE != iRet)
 					sndp_log_err(
 						"set device error(code=%d)\n",
@@ -1355,13 +1374,25 @@ static int sndp_fsi_resume(struct device *dev)
 {
 	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
-
+	u_int	iInDev = SNDP_NO_DEVICE;
+	u_int	iOutDev = SNDP_NO_DEVICE;
 
 	sndp_log_info("start\n");
 
-	/* Otherwise only IN_CALL, for processing */
-	if (SNDP_MODE_INCALL !=
-		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) {
+	/* Device get from old_value */
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_IN))
+		iInDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_IN));
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_OUT))
+		iOutDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT));
+
+	sndp_log_debug("InDev[0x%08X] OutDev[0x%08X]\n",
+			iInDev, iOutDev);
+
+	/* Otherwise only IN_CALL, for processing and Other than FM playback */
+	if ((SNDP_MODE_INCALL !=
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
+	    ((!(SNDP_FM_RADIO_RX & iInDev)) &&
+	     (!(SNDP_FM_RADIO_RX & iOutDev)))) {
 		if (SNDP_POWER_RESUME != g_sndp_power_status) {
 			/* Transition to RESUME, status of Audio Lsi */
 			ulSetDevice =
@@ -1371,6 +1402,8 @@ static int sndp_fsi_resume(struct device *dev)
 				iRet = g_sndp_codec_info.set_device(
 						ulSetDevice,
 						GET_OLD_VALUE(SNDP_PCM_OUT));
+				sndp_log_debug("set_device 0x%08lX\n",
+						ulSetDevice);
 				if (ERROR_NONE != iRet)
 					sndp_log_err(
 						"set device error(code=%d)\n",
@@ -1684,7 +1717,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 	return iRet;
 }
 
-static int sndp_fsi_hw_free( struct snd_pcm_substream *substream )
+static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 {
 	int			ret;
 
@@ -1698,7 +1731,7 @@ static int sndp_fsi_hw_free( struct snd_pcm_substream *substream )
 
 	sndp_log_debug("TRIGGER_STOP had been waiting to complete.\n");
 
-	ret = g_sndp_dai_func.fsi_hw_free( substream );
+	ret = g_sndp_dai_func.fsi_hw_free(substream);
 
 	sndp_log_debug_func("end\n");
 
@@ -1865,7 +1898,7 @@ static void sndp_work_voice_start(struct work_struct *work)
 	sndp_log_debug_func("start\n");
 
 	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xff) >= 0x10)
+	if ((system_rev & 0xffff) >= 0x3E10)
 		common_set_fsi2cr(STAT_OFF);
 
 	/* To get a work queue structure */
@@ -1971,13 +2004,23 @@ static void sndp_work_voice_stop(struct work_struct *work)
 	/* stop CLKGEN */
 	clkgen_stop();
 
+	/* AudioLSI device all stop */
+	if (NULL != g_sndp_codec_info.set_device) {
+		iRet = g_sndp_codec_info.set_device(
+				g_sndp_codec_info.dev_none,
+				SNDP_VALUE_INIT);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("set device error (code=%d)\n",
+				     iRet);
+	}
+
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
 
 	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xff) >= 0x10)
+	if ((system_rev & 0xffff) >= 0x3E10)
 		common_set_fsi2cr(STAT_ON);
 
 	/* Wake Force Unlock */
@@ -2692,7 +2735,7 @@ static void sndp_work_fm_radio_start(struct work_struct *work)
 		}
 
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xff) >= 0x10)
+		if ((system_rev & 0xffff) >= 0x3E10)
 			common_set_pll22(wp->new_value, STAT_ON);
 	}
 
@@ -2802,7 +2845,7 @@ static void sndp_work_fm_radio_stop(struct work_struct *work)
 		clkgen_stop();
 
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xff) >= 0x10)
+		if ((system_rev & 0xffff) >= 0x3E10)
 			common_set_pll22(GET_OLD_VALUE(SNDP_PCM_IN), STAT_OFF);
 
 		pm_runtime_put_sync(g_sndp_power_domain);
@@ -2954,8 +2997,6 @@ static void sndp_work_start(const int direction)
 	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int	uiValue;
-	struct snd_pcm_runtime *runtime =
-		g_sndp_main[direction].arg.fsi_substream->runtime;
 
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
@@ -2988,7 +3029,7 @@ static void sndp_work_start(const int direction)
 			fsi_soft_reset();
 		}
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xff) >= 0x10)
+		if ((system_rev & 0xffff) >= 0x3E10)
 			common_set_pll22(uiValue, STAT_ON);
 	}
 
@@ -3162,7 +3203,7 @@ static void sndp_work_stop(
 		clkgen_stop();
 
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xff) >= 0x10)
+		if ((system_rev & 0xffff) >= 0x3E10)
 			common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
 
 		pm_runtime_put_sync(g_sndp_power_domain);

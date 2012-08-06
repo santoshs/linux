@@ -478,7 +478,7 @@ static void fsi_playback(const u_int uiValue)
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_playA_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
 		/* FSI master for ES 2.0 over */
@@ -489,7 +489,7 @@ static void fsi_playback(const u_int uiValue)
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_captureB_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
 		/* FSI master for ES 2.0 over */
@@ -500,7 +500,7 @@ static void fsi_playback(const u_int uiValue)
 	/* FM_RADIO_TX */
 	} else {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_playB_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_S);
 		/* FSI master for ES 2.0 over */
@@ -516,7 +516,7 @@ static void fsi_playback(const u_int uiValue)
 	/* Add setting for FM_RADIO_RX */
 	if (false != (dev & SNDP_FM_RADIO_RX)) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_playA_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
 		/* FSI master for ES 2.0 over */
@@ -573,7 +573,7 @@ static void fsi_capture(const u_int uiValue)
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_captureA_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_S);
 		/* FSI master for ES 2.0 over */
@@ -584,7 +584,7 @@ static void fsi_capture(const u_int uiValue)
 	/* FM_RADIO_RX */
 	} else {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = fsi_reg_tbl_captureB_S;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
 		/* FSI master for ES 2.0 over */

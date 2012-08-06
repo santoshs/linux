@@ -438,7 +438,7 @@ static void clkgen_playback(const u_int uiValue)
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			/* 44100 Hz */
 			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
 				reg_tbl  = clkgen_reg_tbl_playA_M_44;
@@ -463,7 +463,7 @@ static void clkgen_playback(const u_int uiValue)
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = clkgen_reg_tbl_playBA_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_M);
 		/* FSI master for ES 2.0 over */
@@ -474,7 +474,7 @@ static void clkgen_playback(const u_int uiValue)
 	/* BLUETOOTHSCO, FM_RADIO_TX */
 	} else {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			/* 44100 Hz */
 			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
 				reg_tbl  = clkgen_reg_tbl_playB_M_44;
@@ -545,7 +545,7 @@ static void clkgen_capture(const u_int uiValue)
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl  = clkgen_reg_tbl_captureA_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
 		/* FSI master for ES 2.0 over */
@@ -556,7 +556,7 @@ static void clkgen_capture(const u_int uiValue)
 	/* FM_RADIO_RX */
 	} else {
 		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xff) < 0x10) {
+		if ((system_rev & 0xffff) < 0x3E10) {
 			reg_tbl = clkgen_reg_tbl_captureB_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_M);
 		/* FSI master for ES 2.0 over */

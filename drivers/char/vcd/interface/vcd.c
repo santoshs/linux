@@ -209,7 +209,7 @@ int vcd_execute(const struct vcd_execute_command *args)
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		ret = VCD_ERR_NOT_SUPPORT;
 		goto rtn;
@@ -267,7 +267,7 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		ret = VCD_ERR_NOT_SUPPORT;
 		goto rtn;
@@ -421,60 +421,6 @@ static void vcd_stop_call(void)
 
 
 /**
- * @brief	start tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_start_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_start_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
- * @brief	stop tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_stop_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_stop_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
- * @brief	config tty/ctm function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_config_tty_ctm(void)
-{
-	vcd_pr_start_interface_function();
-
-	/* execute control function */
-	vcd_ctrl_config_tty_ctm();
-
-	vcd_pr_end_interface_function();
-}
-
-
-/**
  * @brief	set udata function.
  *
  * @param	none.
@@ -525,7 +471,7 @@ static int vcd_set_call_mode(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_audio("V <-- A : VCD_COMMAND_SET_CALL_MODE.\n");
+	vcd_pr_if_audio("V <- A : VCD_COMMAND_SET_CALL_MODE\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -539,7 +485,7 @@ static int vcd_set_call_mode(void *arg)
 	vcd_pr_interface_info("option.loopback_mode[%d].\n",
 					option.loopback_mode);
 
-	if ((VCD_CALL_TYPE_CS > option.call_type) ||
+	if ((VCD_CALL_TYPE_CALL > option.call_type) ||
 		(VCD_CALL_TYPE_VIF_LB  < option.call_type)) {
 		vcd_pr_err("parameter error. option.call_type[%d].\n",
 						option.call_type);
@@ -548,7 +494,7 @@ static int vcd_set_call_mode(void *arg)
 	}
 
 	if ((VCD_LOOPBACK_MODE_INTERFACE > option.loopback_mode) ||
-		(VCD_LOOPBACK_MODE_PCM  < option.loopback_mode)) {
+		(VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode)) {
 		vcd_pr_err("parameter error. option.loopback_mode[%d].\n",
 						option.loopback_mode);
 		ret = VCD_ERR_PARAM;
@@ -583,7 +529,7 @@ static int vcd_start_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_RECORD.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_RECORD\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -637,7 +583,7 @@ static int vcd_stop_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_RECORD.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_RECORD\n");
 
 	/* initialize variable */
 	g_vcd_complete_buffer	= NULL;
@@ -666,7 +612,7 @@ static int vcd_start_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_START_PLAYBACK.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_PLAYBACK\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -720,7 +666,7 @@ static int vcd_stop_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_STOP_PLAYBACK.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_PLAYBACK\n");
 
 	/* initialize variable */
 	g_vcd_beginning_buffer	= NULL;
@@ -748,7 +694,7 @@ static int vcd_get_record_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_RECORD_BUFFER.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_RECORD_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -781,7 +727,7 @@ static int vcd_get_playback_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_GET_PLAYBACK_BUFFER.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -813,7 +759,7 @@ static int vcd_watch_stop_fw(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_STOP_FW.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_STOP_FW\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -845,7 +791,7 @@ static int vcd_watch_start_clkgen(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <-- S : VCD_COMMAND_WATCH_START_CLKGEN.\n");
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_START_CLKGEN\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -893,12 +839,12 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* execute control function */
 	result = vcd_ctrl_get_result();
 
-	if ((system_rev & 0xff) == 0x00)
+	if ((system_rev & 0xFFFF) == 0x3E00)
 		result =  VCD_ERR_NOT_SUPPORT;
 
 	len = snprintf(page, count, "%d\n", result);
 
-	vcd_pr_if_amhal("V --> A : [%d].\n", result);
+	vcd_pr_if_amhal("V -> A : [%d]\n", result);
 
 	vcd_pr_end_if_user("result[%d].\n", result);
 
@@ -930,7 +876,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	down(&g_vcd_semaphore);
 
 	/* check system_rev */
-	if ((system_rev & 0xff) == 0x00) {
+	if ((system_rev & 0xFFFF) == 0x3E00) {
 		vcd_pr_err("system_rev[%x].\n", system_rev);
 		goto rtn;
 	}
@@ -979,18 +925,6 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	case VCD_PROC_IF_STOP_CALL:
 		vcd_pr_if_amhal(VCD_PROC_IF_STOP_CALL_LOG);
 		vcd_stop_call();
-		break;
-	case VCD_PROC_IF_START_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_TTY_CTM_LOG);
-		vcd_start_tty_ctm();
-		break;
-	case VCD_PROC_IF_STOP_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_TTY_CTM_LOG);
-		vcd_stop_tty_ctm();
-		break;
-	case VCD_PROC_IF_CONFIG_TTY_CTM:
-		vcd_pr_if_amhal(VCD_PROC_IF_CONFIG_TTY_CTM_LOG);
-		vcd_config_tty_ctm();
 		break;
 	case VCD_PROC_IF_SET_UDATA:
 		vcd_pr_if_amhal(VCD_PROC_IF_SET_UDATA_LOG);
@@ -1279,8 +1213,36 @@ debug:
 		/* execute control function */
 		vcd_ctrl_dump_dsp0_registers();
 		break;
-	case VCD_DEBUG_SET_CS_CALL_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_CS;
+	case VCD_DEBUG_DUMP_MEMORIES:
+		/* execute control function */
+		vcd_ctrl_dump_memories();
+		break;
+	case VCD_DEBUG_DUMP_PRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_pram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_XRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_xram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_YRAM0_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_yram0_memory();
+		break;
+	case VCD_DEBUG_DUMP_DSPIO_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_dspio_memory();
+		break;
+	case VCD_DEBUG_DUMP_SDRAM_STATIC_AREA_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_sdram_static_area_memory();
+		break;
+	case VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_fw_static_buffer_memory();
+		break;
+	case VCD_DEBUG_SET_CALL_MODE:
+		g_vcd_debug_call_type = VCD_CALL_TYPE_CALL;
 		break;
 	case VCD_DEBUG_SET_1KHZ_TONE_MODE:
 		g_vcd_debug_call_type = VCD_CALL_TYPE_1KHZ;

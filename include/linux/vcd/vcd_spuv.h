@@ -54,9 +54,6 @@ extern int vcd_spuv_stop_vcd(void);
 extern int vcd_spuv_set_hw_param(void);
 extern int vcd_spuv_start_call(void);
 extern int vcd_spuv_stop_call(void);
-extern int vcd_spuv_start_tty_ctm(void);
-extern int vcd_spuv_stop_tty_ctm(void);
-extern int vcd_spuv_config_tty_ctm(void);
 extern int vcd_spuv_set_udata(void);
 extern int vcd_spuv_start_record(struct vcd_record_option *option);
 extern int vcd_spuv_stop_record(void);
@@ -85,6 +82,12 @@ extern void vcd_spuv_dump_voiceif_registers(void);
 extern void vcd_spuv_dump_intcvo_registers(void);
 extern void vcd_spuv_dump_spuv_registers(void);
 extern void vcd_spuv_dump_dsp0_registers(void);
-
+extern void vcd_spuv_dump_memories(void);
+extern void vcd_spuv_dump_pram0_memory(void);
+extern void vcd_spuv_dump_xram0_memory(void);
+extern void vcd_spuv_dump_yram0_memory(void);
+extern void vcd_spuv_dump_dspio_memory(void);
+extern void vcd_spuv_dump_sdram_static_area_memory(void);
+extern void vcd_spuv_dump_fw_static_buffer_memory(void);
 
 #endif /* __VCD_SPUV_H__ */

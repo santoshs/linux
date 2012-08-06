@@ -26,27 +26,21 @@
 #define VCD_PROC_BUF_SIZE	32
 
 #define VCD_PROC_IF_GET_MSG_BUFFER_LOG		\
-		"V <-- A : '0'  - GET_MSG_BUFFER.\n"
+		"V <- A : '0'  - GET_MSG_BUFFER\n"
 #define VCD_PROC_IF_START_VCD_LOG		\
-		"V <-- A : '1'  - START_VCD.\n"
+		"V <- A : '1'  - START_VCD\n"
 #define VCD_PROC_IF_STOP_VCD_LOG		\
-		"V <-- A : '2'  - STOP_VCD.\n"
+		"V <- A : '2'  - STOP_VCD\n"
 #define VCD_PROC_IF_SET_HW_PARAM_LOG		\
-		"V <-- A : '3'  - SET_HW_PARAM.\n"
+		"V <- A : '3'  - SET_HW_PARAM\n"
 #define VCD_PROC_IF_START_CALL_LOG		\
-		"V <-- A : '4'  - START_CALL.\n"
+		"V <- A : '4'  - START_CALL\n"
 #define VCD_PROC_IF_STOP_CALL_LOG		\
-		"V <-- A : '5'  - STOP_CALL.\n"
-#define VCD_PROC_IF_START_TTY_CTM_LOG		\
-		"V <-- A : '6'  - START_TTY_CTM.\n"
-#define VCD_PROC_IF_STOP_TTY_CTM_LOG		\
-		"V <-- A : '7'  - STOP_TTY_CTM.\n"
-#define VCD_PROC_IF_CONFIG_TTY_CTM_LOG		\
-		"V <-- A : '8'  - CONFIG_TTY_CTM.\n"
+		"V <- A : '5'  - STOP_CALL\n"
 #define VCD_PROC_IF_SET_UDATA_LOG		\
-		"V <-- A : '9'  - SET_UDATA.\n"
+		"V <- A : '9'  - SET_UDATA\n"
 #define VCD_PROC_IF_GET_STATUS_LOG		\
-		"V <-- A : '10' - GET_STATUS.\n"
+		"V <- A : '10' - GET_STATUS\n"
 
 
 /*
@@ -64,9 +58,9 @@ enum VCD_PROC_IF {
 	VCD_PROC_IF_SET_HW_PARAM,
 	VCD_PROC_IF_START_CALL,
 	VCD_PROC_IF_STOP_CALL,
-	VCD_PROC_IF_START_TTY_CTM,
-	VCD_PROC_IF_STOP_TTY_CTM,
-	VCD_PROC_IF_CONFIG_TTY_CTM,
+	VCD_PROC_IF_RESERVE_0,
+	VCD_PROC_IF_RESERVE_1,
+	VCD_PROC_IF_RESERVE_2,
 	VCD_PROC_IF_SET_UDATA,
 	VCD_PROC_IF_GET_STATUS
 };
@@ -81,7 +75,14 @@ enum VCD_DEBUG_COMMAND {
 	VCD_DEBUG_DUMP_INTCVO_REGISTERS,
 	VCD_DEBUG_DUMP_SPUV_REGISTERS,
 	VCD_DEBUG_DUMP_DSP0_REGISTERS,
-	VCD_DEBUG_SET_CS_CALL_MODE,
+	VCD_DEBUG_DUMP_MEMORIES,
+	VCD_DEBUG_DUMP_PRAM0_MEMORY,
+	VCD_DEBUG_DUMP_XRAM0_MEMORY,
+	VCD_DEBUG_DUMP_YRAM0_MEMORY,
+	VCD_DEBUG_DUMP_DSPIO_MEMORY,
+	VCD_DEBUG_DUMP_SDRAM_STATIC_AREA_MEMORY,
+	VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY,
+	VCD_DEBUG_SET_CALL_MODE,
 	VCD_DEBUG_SET_1KHZ_TONE_MODE,
 	VCD_DEBUG_SET_PCM_LOOPBACK_MODE,
 	VCD_DEBUG_SET_VIF_LOOPBACK_MODE,
@@ -123,9 +124,6 @@ static void vcd_stop_vcd(void);
 static void vcd_set_hw_param(void);
 static void vcd_start_call(void);
 static void vcd_stop_call(void);
-static void vcd_start_tty_ctm(void);
-static void vcd_stop_tty_ctm(void);
-static void vcd_config_tty_ctm(void);
 static void vcd_set_udata(void);
 static void vcd_get_status(void);
 
