@@ -427,7 +427,7 @@ static struct platform_device lcdc_device = {
 	.num_resources	= ARRAY_SIZE(lcdc_resources),
 	.resource	= lcdc_resources,
 	.dev	= {
-		.platform_data  = &lcdc_info,
+		.platform_data = &lcdc_info,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
 	},
 };
@@ -435,14 +435,14 @@ static struct platform_device lcdc_device = {
 /* MIPI-DSI0 */
 static struct resource mipidsi0_resources[] = {
 	[0] = {
-		.start  = 0xfeab0000,
-		.end    = 0xfeab3fff,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xfeab0000,
+		.end	= 0xfeab3fff,
+		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start  = 0xfeab4000,
-		.end    = 0xfeab7fff,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xfeab4000,
+		.end	= 0xfeab7fff,
+		.flags	= IORESOURCE_MEM,
 	},
 };
 
@@ -461,7 +461,7 @@ static int sh_mipi_set_dot_clock(struct platform_device *pdev,
 	}
 
 	if (enable) {
-		clk_set_rate(pck, clk_round_rate(pck,  24000000));
+		clk_set_rate(pck, clk_round_rate(pck, 24000000));
 		clk_enable(pck);
 	} else {
 		clk_disable(pck);
@@ -490,10 +490,10 @@ static struct sh_mipi_dsi_info mipidsi0_info = {
 };
 
 static struct platform_device mipidsi0_device = {
-	.name           = "sh-mipi-dsi",
-	.num_resources  = ARRAY_SIZE(mipidsi0_resources),
-	.resource       = mipidsi0_resources,
-	.id             = 0,
+	.name		= "sh-mipi-dsi",
+	.num_resources	= ARRAY_SIZE(mipidsi0_resources),
+	.resource	= mipidsi0_resources,
+	.id		= 0,
 	.dev	= {
 		.platform_data	= &mipidsi0_info,
 	},
@@ -506,23 +506,23 @@ static struct led_renesas_tpu_config tpu3_info = {
 	.pin_gpio	= GPIO_PORT39,
 	.channel_offset	= 0x00d0,
 	.timer_bit	= 3,
-	.max_brightness = LED_FULL,
+	.max_brightness	= LED_FULL,
 	.init_brightness = LED_FULL,
 	.refresh_rate	= 2000,
 };
 
 static struct resource tpu3_resources[] = {
 	[0] = {
-		.start  = 0xe66000d0,
-		.end    = 0xe66000ff,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xe66000d0,
+		.end	= 0xe66000ff,
+		.flags	= IORESOURCE_MEM,
 	},
 };
 
 static struct platform_device tpu3_device = {
 	.name		= "leds-renesas-tpu",
-	.num_resources  = ARRAY_SIZE(tpu3_resources),
-	.resource       = tpu3_resources,
+	.num_resources	= ARRAY_SIZE(tpu3_resources),
+	.resource	= tpu3_resources,
 	.id		= 3,
 	.dev		= {
 		.platform_data	= &tpu3_info,
@@ -569,7 +569,7 @@ static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
 			.consumer_supplies = tps80031_##_id##_supply,	\
 			.supply_regulator = _supply_reg,		\
 		},							\
-		.init_uV =  _init_uV * 1000,				\
+		.init_uV = _init_uV * 1000,				\
 		.init_enable = _init_enable,				\
 		.init_apply = _init_apply,				\
 		.flags = _flags,					\
@@ -592,9 +592,9 @@ static struct tps80031_rtc_platform_data rtc_data = {
 
 #define TPS_REG(_id, _data)				\
 	{						\
-		.id	 = TPS80031_ID_##_id,		\
-		.name   = "tps80031-regulator",		\
-		.platform_data  = &pdata_##_data,	\
+		.id	= TPS80031_ID_##_id,		\
+		.name	= "tps80031-regulator",		\
+		.platform_data = &pdata_##_data,	\
 	}
 
 #define TPS_RTC()				\
@@ -770,7 +770,7 @@ static void __init u2evm_init(void)
 	/* FIXME - start DSIP clock without .set_dot_clock help */
 	dsip_clk = clk_get_sys("sh-mipi-dsi.0", "dsip_clk");
 	if (!IS_ERR(dsip_clk)) {
-		clk_set_rate(dsip_clk, clk_round_rate(dsip_clk,  24000000));
+		clk_set_rate(dsip_clk, clk_round_rate(dsip_clk, 24000000));
 		clk_enable(dsip_clk);
 		clk_put(dsip_clk);
 	}

@@ -700,37 +700,37 @@ static const struct sh_dmae_channel r8a7373_dmae_channels[] = {
 static const unsigned int ts_shift[] = TS_SHIFT;
 
 static struct sh_dmae_pdata r8a7373_dmae_platform_data = {
-	.slave          = r8a7373_dmae_slaves,
-	.slave_num      = ARRAY_SIZE(r8a7373_dmae_slaves),
-	.channel        = r8a7373_dmae_channels,
-	.channel_num    = ARRAY_SIZE(r8a7373_dmae_channels),
-	.ts_low_shift   = 3,
-	.ts_low_mask    = 0x18,
-	.ts_high_shift  = (20 - 2),     /* 2 bits for shifted low TS */
-	.ts_high_mask   = 0x00300000,
-	.ts_shift       = ts_shift,
-	.ts_shift_num   = ARRAY_SIZE(ts_shift),
-	.dmaor_init     = DMAOR_DME,
+	.slave		= r8a7373_dmae_slaves,
+	.slave_num	= ARRAY_SIZE(r8a7373_dmae_slaves),
+	.channel	= r8a7373_dmae_channels,
+	.channel_num	= ARRAY_SIZE(r8a7373_dmae_channels),
+	.ts_low_shift	= 3,
+	.ts_low_mask	= 0x18,
+	.ts_high_shift	= (20 - 2),     /* 2 bits for shifted low TS */
+	.ts_high_mask	= 0x00300000,
+	.ts_shift	= ts_shift,
+	.ts_shift_num	= ARRAY_SIZE(ts_shift),
+	.dmaor_init	= DMAOR_DME,
 };
 
 static struct resource r8a7373_dmae_resources[] = {
 	{
 		/* Registers including DMAOR and channels including DMARSx */
-		.start  = 0xfe000020,
-		.end    = 0xfe008a00 - 1,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xfe000020,
+		.end	= 0xfe008a00 - 1,
+		.flags	= IORESOURCE_MEM,
 	},
 	{
 		/* DMA error IRQ */
-		.start  = gic_spi(167),
-		.end    = gic_spi(167),
-		.flags  = IORESOURCE_IRQ,
+		.start	= gic_spi(167),
+		.end	= gic_spi(167),
+		.flags	= IORESOURCE_IRQ,
 	},
 	{
 		/* IRQ for channels 0-17 */
-		.start  = gic_spi(147),
-		.end    = gic_spi(164),
-		.flags  = IORESOURCE_IRQ,
+		.start	= gic_spi(147),
+		.end	= gic_spi(164),
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
@@ -759,9 +759,9 @@ static struct hwsem_pdata r8a7373_hwsem0_platform_data = {
 
 static struct resource r8a7373_hwsem0_resources[] = {
 	{
-		.start  = 0xe6001800,
-		.end    = 0xe600187f,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xe6001800,
+		.end	= 0xe600187f,
+		.flags	= IORESOURCE_MEM,
 	},
 };
 
@@ -814,14 +814,14 @@ static struct hwsem_pdata r8a7373_hwsem1_platform_data = {
 
 static struct resource r8a7373_hwsem1_resources[] = {
 	{
-		.start  = 0xe6001800,
-		.end    = 0xe600187f,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xe6001800,
+		.end	= 0xe600187f,
+		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start  = 0xe63c0000, /* software extension base */
-		.end    = 0xe63c007f,
-		.flags  = IORESOURCE_MEM,
+		.start	= 0xe63c0000, /* software extension base */
+		.end	= 0xe63c007f,
+		.flags	= IORESOURCE_MEM,
 	},
 };
 
@@ -837,8 +837,8 @@ static struct platform_device hwsem1_device = {
 
 static struct resource sgx_resources[] = {
 	{
-		.start  = gic_spi(92),
-		.flags  = IORESOURCE_IRQ,
+		.start	= gic_spi(92),
+		.flags	= IORESOURCE_IRQ,
 	},
 };
 
