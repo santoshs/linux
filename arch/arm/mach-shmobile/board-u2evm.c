@@ -871,6 +871,8 @@ static struct sh_mobile_lcdc_info lcdc_info = {
 			.width	= 44,
 			.height	= 79,
 		},
+		.panelreset_gpio = GPIO_PORT31,
+		.paneldsi_irq = 33,
 	},
 };
 
@@ -884,6 +886,12 @@ static struct resource lcdc_resources[] = {
 	[1] = {
 		.start	= intcs_evt2irq(0x580),
 		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.name	= "panel_power_port",
+		.start	= GPIO_PORT89,
+		.end	= GPIO_PORT89,
+		.flags	= IORESOURCE_IO,
 	},
 };
 
