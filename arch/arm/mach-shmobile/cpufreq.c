@@ -29,10 +29,13 @@
 #include <linux/earlysuspend.h>
 #include <linux/slab.h>
 
+
 #include <asm/system.h>
 #include <mach/pm.h>
 
-#define OVERDRIVE_CMDLINE "overdrive=true"
+/* #define OVERDRIVE_DEFAULT	1 */
+#define ENABLE_OVERDRIVE_CMDLINE "overdrive=true"
+#define DISABLE_OVERDRIVE_CMDLINE "overdrive=false"
 #define OVERDRIVE_FREQ	1456000
 #ifdef pr_fmt
 #undef pr_fmt
@@ -45,20 +48,14 @@
 #define pr_log(fmt, ...)
 #endif /*   */
 /* #define CPUFREQ_TEST_MODE	1 */
-#ifndef SH_CPUFREQ_OVERDRIVE
-#define SH_CPUFREQ_OVERDRIVE	1
-#endif
+
 /* MAIN Table */
 enum cpu_freq_level {
 	FREQ_LEV_MAX = 0,
-#ifdef SH_CPUFREQ_OVERDRIVE
 	FREQ_LEV_HIGH,
-#endif /* SH_CPUFREQ_OVERDRIVE */
 	FREQ_LEV_MID,
 	FREQ_LEV_MIN,
-#ifdef SH_CPUFREQ_VERYLOW
 	FREQ_LEV_EXMIN,
-#endif /* SH_CPUFREQ_VERYLOW */
 	FREQ_LEV_NUM
 };
 
@@ -92,7 +89,6 @@ struct cpufreq_resource {
 struct shmobile_cpuinfo {
 	struct cpufreq_resource upper_lowspeed;
 	struct cpufreq_resource highspeed;
-	struct cpufreq_policy *policy;
 	unsigned int freq;
 	unsigned int req_rate[CONFIG_NR_CPUS];
 	unsigned int limit_maxfrq;
@@ -106,52 +102,46 @@ struct shmobile_cpuinfo {
 #ifdef CONFIG_PM_DEBUG
 int cpufreq_enabled = 1;
 #endif /* CONFIG_PM_DEBUG */
-static int target_cpu = -1;
+extern u_int sys_rev;
 #ifndef CPUFREQ_TEST_MODE
 static
 #endif /* CPUFREQ_TEST_MODE */
 struct shmobile_cpuinfo	the_cpuinfo;
 /* ES1.0 */
-static struct cpufreq_frequency_table main_freqtbl_es1_x[] = {
+static struct cpufreq_frequency_table
+main_freqtbl_es1_x[] = {
 	{.index = 0, .frequency = 988000}, /* max		*/
-#ifdef SH_CPUFREQ_OVERDRIVE
-	{.index = 1, .frequency = CPUFREQ_ENTRY_INVALID},
-#endif
+	{.index = 1, .frequency = 988000}, /* max		*/
 	{.index = 2, .frequency = 494000}, /* mid		*/
 	{.index = 3, .frequency = 247000}, /* low		*/
-#ifdef SH_CPUFREQ_VERYLOW
-	{.index = 4, .frequency = 164666}, /* extra low	*/
-#endif /* SH_CPUFREQ_VERYLOW */
-	{.index = 5, .frequency =  CPUFREQ_TABLE_END}
-};
-
-/* ES2.0 */
-static struct cpufreq_frequency_table main_freqtbl_es2_x[] = {
-#ifdef SH_CPUFREQ_OVERDRIVE
+	{.index = 4, .frequency =  CPUFREQ_TABLE_END}
+},
+main_freqtbl_es2_x[] = {
 	{.index = 0, .frequency = 1456000},
-#endif
 	{.index = 1, .frequency = 1196000},	/* high			*/
 	{.index = 2, .frequency =  598000},	/* mid			*/
 	{.index = 3, .frequency =  299000},	/* low			*/
 #ifdef SH_CPUFREQ_VERYLOW
 	{.index = 4, .frequency =  199333},	/* extra low	*/
+#else
+	{.index = 4, .frequency =  299000},	/* low			*/
 #endif /* SH_CPUFREQ_VERYLOW */
 	{.index = 5, .frequency =  CPUFREQ_TABLE_END}
-};
+},
+*freq_table = NULL;
 
 /* divrate table */
 static int main_divtable[] = {
-#ifdef SH_CPUFREQ_OVERDRIVE
 	DIV1_1, DIV1_1, DIV1_2, DIV1_4
-#else /* !SH_CPUFREQ_OVERDRIVE */
-	DIV1_1, DIV1_2, DIV1_4
-#endif /* SH_CPUFREQ_OVERDRIVE */
 #ifdef SH_CPUFREQ_VERYLOW
 	, DIV1_6
+#else
+	, DIV1_4
 #endif /* SH_CPUFREQ_VERYLOW */
 };
 
-static int log_freq_change = 0;
+static unsigned int bk_cpufreq = 0;
+static int log_freq_change;
 module_param(log_freq_change, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 /*
@@ -165,16 +155,12 @@ module_param(log_freq_change, int, S_IRUGO | S_IWUSR | S_IWGRP);
  */
 static int __to_freq_level(unsigned int freq)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
-	int idx = 0;
+	int idx = -1;
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table)
-		return -EINVAL;
+	for (idx = 0; freq_table[idx].frequency != CPUFREQ_TABLE_END; idx++)
+		if (freq_table[idx].frequency == freq)
+			break;
 
-	cpufreq_frequency_table_target(the_cpuinfo.policy, freq_table,
-		freq, CPUFREQ_RELATION_H, &idx);
 	pr_log("%s()[%d]: got frequency level<%u>\n", __func__, __LINE__, idx);
 	return idx;
 }
@@ -202,10 +188,6 @@ static int __to_div_rate(unsigned int freq)
  * __clk_get_rate: get the set of clocks
  *
  * Argument:
- *		@clk_state: clock state
- *		@sgx_type: power state of SGX
- *		@freq: current frequency
- *
  * Return:
  *     address of element of array clocks_div_data
  *     NULL: if input parameters are invaid
@@ -213,13 +195,14 @@ static int __to_div_rate(unsigned int freq)
 #ifndef CPUFREQ_TEST_MODE
 static
 #endif /* CPUFREQ_TEST_MODE */
-int __clk_get_rate(struct clk_rate *rate, int clk_state,
-	int sgx_type, unsigned int freq)
+int __clk_get_rate(struct clk_rate *rate)
 {
 	int level = (int)FREQ_LEV_MAX;
 	int freq_mode = 0;
 	int lv_num = FREQ_LEV_NUM;
-	int sgx_num = CPUFREQ_SGXNUM;
+
+	int clk_state = the_cpuinfo.clk_state;
+	unsigned int freq = the_cpuinfo.freq;
 	int ret = 0;
 
 	/* Check for invalid parameters */
@@ -229,11 +212,6 @@ int __clk_get_rate(struct clk_rate *rate, int clk_state,
 			__func__, __LINE__);
 		return -EINVAL;
 	}
-
-	if ((shmobile_chip_rev() < ES_REV_2_0) &&
-		((sgx_type < 0) || (sgx_type >= CPUFREQ_SGXNUM)))
-		return -EINVAL;
-
 	level = __to_freq_level(freq);
 	if (FREQ_LEV_NUM == level) {
 		/* Invalid frequency level */
@@ -247,23 +225,18 @@ int __clk_get_rate(struct clk_rate *rate, int clk_state,
 		freq_mode = 0;
 	} else {
 		/* ES1.x */
-		if (shmobile_chip_rev() < ES_REV_2_0) {
-			freq_mode = clk_state * sgx_num * lv_num +
-				sgx_type * lv_num + level + 1;
+		if (sys_rev <= ES_REV_1_0) {
+			if (level == FREQ_LEV_MAX)
+				level = level + 1;
+			freq_mode = (lv_num - 2) * clk_state + level;
 		} else {
 			/* ES2.x */
 			if (MODE_EARLY_SUSPEND == clk_state) {
-#ifdef SH_CPUFREQ_VERYLOW
 				if (level == FREQ_LEV_EXMIN)
 					level = FREQ_LEV_MIN;
-#endif /* SH_CPUFREQ_VERYLOW */
-#ifdef SH_CPUFREQ_OVERDRIVE
 				if (level == FREQ_LEV_MAX)
 					level = FREQ_LEV_HIGH;
 				freq_mode = clk_state * lv_num + level;
-#else /* !SH_CPUFREQ_OVERDRIVE */
-				freq_mode = clk_state * lv_num + level + 1;
-#endif /* SH_CPUFREQ_OVERDRIVE */
 			} else {
 				freq_mode = clk_state * lv_num + level + 1;
 			}
@@ -312,40 +285,6 @@ static void __notify_all_cpu(unsigned int fold, unsigned int fnew, int flag)
 }
 
 /*
- * __update_policy: update policy for all online except current one
- *
- * Argument:
- *		None
- *
- * Return:
- *		none
- */
-static void __update_policy(void)
-{
-#if 0
-	struct cpufreq_policy policy;
-	const char *gov = "conservative";
-	int i = 0;
-	
-	/* suspend mode, only CPU0 alive */
-	if (the_cpuinfo.clk_state == MODE_SUSPEND)
-		return;
-	
-	/* notify all others about frequency change, reuqest them allocmem
-	 * update current frequency
-	 */
-	for (i = 0; i < num_online_cpus(); i++) {
-		if (!cpufreq_get_policy(&policy, i)) {
-			/* only conservative governor */
-			if (!strcmp(gov, policy.governor->name) &&
-				(target_cpu != i))
-				(void)cpufreq_update_policy(i);
-		}
-	}
-#endif
-}
-
-/*
  * __set_rate: set SYS-CPU frequency
  *`
  * Argument:
@@ -362,26 +301,27 @@ int __set_rate(unsigned int freq)
 {
 	int div_rate = (int)DIV1_1;
 	int pllratio = PLLx38;
+	int freq_old = 0;
 	int ret = 0;
 
+	/* not allow higher frequency in emergency case(temp high) */
+	freq = min(freq, the_cpuinfo.limit_maxfrq);
 	if (freq == the_cpuinfo.freq) {
 		pr_log("%s()[%d]: frequency not changed, ret<%d>\n",
 			__func__, __LINE__, ret);
 		return ret;
 	}
-
+	freq_old = the_cpuinfo.freq;
 	/* for overdrive mode, pll0 is x56, other is x46 */
-	if (shmobile_chip_rev() >= ES_REV_2_0) {
-#ifdef SH_CPUFREQ_OVERDRIVE
-		pllratio = PLLx56;
-#else /* !SH_CPUFREQ_OVERDRIVE */
-		pllratio = PLLx46;
-#endif /* SH_CPUFREQ_OVERDRIVE */
+	if (sys_rev >= ES_REV_2_0) {
+		if (OVERDRIVE_FREQ == freq)
+			pllratio = PLLx56;
+		else
+			pllratio = PLLx46;
 	}
 
 	/* change PLL0 if need */
-	if ((freq == OVERDRIVE_FREQ) &&
-		(pm_get_pll_ratio(PLL0) != pllratio)) {
+	if (pm_get_pll_ratio(PLL0) != pllratio) {
 		ret = pm_set_pll_ratio(PLL0, pllratio);
 		if (ret) {
 			pr_err("%s()[%d]: error<%d>! set pll0 ratio<%d>\n",
@@ -402,19 +342,53 @@ int __set_rate(unsigned int freq)
 		pr_err("%s()[%d]: error<%d>! set divrate<0x%x>\n",
 			__func__, __LINE__, ret, div_rate);
 	} else {
-		/*pr_info("SYS-CPU<%d> clk[%uKHz->%uKHz]\n",
-			((target_cpu >= 0) ? target_cpu : smp_processor_id()),
-			the_cpuinfo.freq, freq);
-		*/
 		the_cpuinfo.freq = freq;
-
-		/* update all cpus with new frequency */
-		__update_policy();
+		__notify_all_cpu(freq_old, freq, CPUFREQ_POSTCHANGE);
 	}
 
 	return ret;
 }
 
+/*
+ * __set_all_clocks: set SYS-CPU frequency and other clocks
+ *`
+ * Argument:
+ *		@freq: the SYS frequency will be set
+ *
+ * Return:
+ *     0: setting is normal
+ *     negative: operation fail
+ */
+static inline int __set_all_clocks(unsigned int z_freq)
+{
+	int ret = 0;
+	struct clk_rate rate;
+
+	if ((MODE_EARLY_SUSPEND == the_cpuinfo.clk_state)
+		&& (sys_rev >= ES_REV_2_0)) {
+		if (z_freq == freq_table[FREQ_LEV_MAX].frequency)
+			z_freq = freq_table[FREQ_LEV_HIGH].frequency;
+#ifdef SH_CPUFREQ_VERYLOW
+		if (z_freq == freq_table[FREQ_LEV_EXMIN].frequency)
+			z_freq = freq_table[FREQ_LEV_MIN].frequency;
+#endif
+	}
+
+	ret = __set_rate(z_freq);
+	if (ret) {
+		pr_log("%s()[%d]: error, __set_rate(), ret<%d>\n",
+			__func__, __LINE__, ret);
+		return ret;
+	}
+	ret = __clk_get_rate(&rate);
+	if (0 == ret) {
+		ret = pm_set_clocks(rate);
+		if (ret)
+			pr_log("%s()[%d]: error, pm_set_clocks(), ret<%d>\n",
+				__func__, __LINE__, ret);
+	}
+	return ret;
+}
 /*
  * start_cpufreq: start dynamic frequency scaling, the SYS-CPU frequency
  * is changed automatically based on the system load.
@@ -440,11 +414,7 @@ void start_cpufreq(void)
 		the_cpuinfo.highspeed.used = false;
 
 	spin_unlock(&the_cpuinfo.lock);
-	/* start governor */
-	if (!the_cpuinfo.highspeed.used) {
-		/* update all cpus with new frequency */
-		__update_policy();
-	}
+
 	pr_log("%s()[%d]: start scaling/end, cpufreq flag<%d>,\n",
 		__func__, __LINE__, the_cpuinfo.highspeed.used);
 }
@@ -463,9 +433,6 @@ EXPORT_SYMBOL(start_cpufreq);
  */
 int stop_cpufreq(void)
 {
-	struct clk_rate clk_div;
-	struct cpufreq_frequency_table *freq_table = NULL;
-	unsigned int freq_old = 0;
 	unsigned int freq_new = 0;
 	int ret = 0;
 
@@ -479,18 +446,11 @@ int stop_cpufreq(void)
 		__func__, __LINE__, the_cpuinfo.highspeed.used);
 	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -ENOMEM;
-	}
 	/*
 	 * emergency case, CPU is hot or system going to suspend,
 	 * we do not allow user to change frequency now
 	 */
-	if ((the_cpuinfo.limit_maxfrq != freq_table[FREQ_LEV_MAX].frequency) ||
-		(MODE_SUSPEND == the_cpuinfo.clk_state)) {
+	if (MODE_SUSPEND == the_cpuinfo.clk_state) {
 		spin_unlock(&the_cpuinfo.lock);
 		pr_err("%s()[%d] can not change frequency right now!\n",
 			__func__, __LINE__);
@@ -503,35 +463,26 @@ int stop_cpufreq(void)
 		 * skip setting hardware if the current SYS-CPU freq is
 		 * MAX already
 		 */
-		if (__to_freq_level(the_cpuinfo.freq) == FREQ_LEV_MAX) {
+		if (the_cpuinfo.freq == the_cpuinfo.limit_maxfrq) {
 			atomic_inc(&the_cpuinfo.highspeed.usage_count);
 			spin_unlock(&the_cpuinfo.lock);
 			return ret;
 		}
 
-		freq_old = the_cpuinfo.freq;
-		freq_new = freq_table[FREQ_LEV_MAX].frequency;
-		ret = __set_rate(freq_new);
+		freq_new = the_cpuinfo.limit_maxfrq;
+		ret = __set_all_clocks(freq_new);
 		if (ret < 0) {
-			pr_err("%s()[%d]: error<%d>! set cpu frequency[%u]\n",
+			pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
 				__func__, __LINE__, ret, freq_new);
 			the_cpuinfo.highspeed.used = false;
 			spin_unlock(&the_cpuinfo.lock);
 			return ret;
-		} else {
-			__notify_all_cpu(freq_old, freq_new,
-				CPUFREQ_POSTCHANGE);
-
-			ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-				the_cpuinfo.sgx_flg, freq_new);
-			if (!ret)
-				ret = pm_set_clocks(clk_div);
 		}
 	}
 
 	atomic_inc(&the_cpuinfo.highspeed.usage_count);
 	spin_unlock(&the_cpuinfo.lock);
-	pr_log("%s()[%d]: stop scaling[cnd:%d]/end,cpufreq flag<%d>, ret<%d>\n",
+	pr_log("%s()[%d]: stop scaling[cnt:%d]/end,cpufreq flag<%d>, ret<%d>\n",
 		__func__, __LINE__,
 		atomic_read(&the_cpuinfo.highspeed.usage_count),
 		the_cpuinfo.highspeed.used, ret);
@@ -552,9 +503,6 @@ EXPORT_SYMBOL(stop_cpufreq);
  */
 void disable_dfs_mode_min(void)
 {
-	struct clk_rate clk_div;
-	struct cpufreq_frequency_table *freq_table = NULL;
-	unsigned int freq_old = 0;
 	unsigned int freq_new = 0;
 	int ret = 0;
 #ifdef CONFIG_PM_DEBUG
@@ -567,52 +515,29 @@ void disable_dfs_mode_min(void)
 		__func__, __LINE__, the_cpuinfo.upper_lowspeed.used);
 	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		goto end;
-	}
 	/*
 	 * emergency case, CPU is hot, we do not allow user to change
 	 * frequency now
 	 */
 	if (the_cpuinfo.limit_maxfrq <= freq_table[FREQ_LEV_MIN].frequency) {
-		spin_unlock(&the_cpuinfo.lock);
 		pr_err("%s()[%d] CPU hot, can not change frequency right now!\n",
 			__func__, __LINE__);
-		goto end;
-	}
-
-	if (!atomic_read(&the_cpuinfo.upper_lowspeed.usage_count)) {
+	} else if (!atomic_read(&the_cpuinfo.upper_lowspeed.usage_count)) {
 		the_cpuinfo.upper_lowspeed.used = true;
-		if (__to_freq_level(the_cpuinfo.freq) >= FREQ_LEV_MIN) {
-			freq_old = the_cpuinfo.freq;
+		if (the_cpuinfo.freq <= freq_table[FREQ_LEV_MIN].frequency) {
 			freq_new = freq_table[FREQ_LEV_MID].frequency;
-
-			ret = __set_rate(freq_new);
+			ret = __set_all_clocks(freq_new);
 			if (ret < 0) {
-				pr_err("%s()[%d]: error<%d>! set cpu frequency[%u]\n",
+				pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
 					__func__, __LINE__, ret, freq_new);
 				the_cpuinfo.upper_lowspeed.used = false;
 				spin_unlock(&the_cpuinfo.lock);
-				goto end;
-			} else {
-				__notify_all_cpu(freq_old, freq_new,
-					CPUFREQ_POSTCHANGE);
-
-				ret = __clk_get_rate(&clk_div,
-					the_cpuinfo.clk_state,
-					the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-				if (!ret)
-					ret = pm_set_clocks(clk_div);
+				return;
 			}
 		}
 	}
-
 	atomic_inc(&the_cpuinfo.upper_lowspeed.usage_count);
 	spin_unlock(&the_cpuinfo.lock);
-end:
 	pr_log("%s()[%d]: disable low-level(MIN)/end, upper lowspeed<%d>\n",
 		__func__, __LINE__, the_cpuinfo.upper_lowspeed.used);
 }
@@ -661,7 +586,6 @@ EXPORT_SYMBOL(enable_dfs_mode_min);
  */
 int corestandby_cpufreq(void)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
 	int idx = CORESTB_CPUFREQ;
 	int ret = 0;
 
@@ -673,13 +597,6 @@ int corestandby_cpufreq(void)
 #endif /* CONFIG_PM_DEBUG */
 	/* pr_log("%s()[%d]: cpufreq standby/begin\n", __func__, __LINE__); */
 	spin_lock(&the_cpuinfo.lock);
-
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -EINVAL;
-	}
 
 	if (atomic_read(&the_cpuinfo.highspeed.usage_count)) {
 		spin_unlock(&the_cpuinfo.lock);
@@ -728,9 +645,6 @@ EXPORT_SYMBOL(corestandby_cpufreq);
  */
 int suspend_cpufreq(void)
 {
-	struct clk_rate clk_div;
-	struct cpufreq_frequency_table *freq_table = NULL;
-	unsigned int freq_old = 0;
 	unsigned int freq_new = 0;
 	int ret = 0;
 
@@ -743,12 +657,6 @@ int suspend_cpufreq(void)
 	pr_log("%s()[%d]: suspend cpufreq/begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -EINVAL;
-	}
 	/*
 	 * emergency case, CPU is hot, we do not allow user to change
 	 * frequency now
@@ -761,30 +669,13 @@ int suspend_cpufreq(void)
 	}
 
 	the_cpuinfo.clk_state = MODE_SUSPEND;
-	freq_old = the_cpuinfo.freq;
 	/* Get the clock value for suspend state */
 	freq_new = freq_table[SUSPEND_CPUFREQ].frequency;
 	/* Change SYS-CPU frequency */
-	ret = __set_rate(freq_new);
+	ret = __set_all_clocks(freq_new);
 	if (ret < 0) {
-		pr_err("%s()[%d]: error<%d>! set cpu frequency[%u]\n",
+		pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
 			__func__, __LINE__, ret, freq_new);
-		spin_unlock(&the_cpuinfo.lock);
-		return -ETIMEDOUT;
-	}
-	/* notify to the system */
-	__notify_all_cpu(freq_old, freq_new,
-		CPUFREQ_POSTCHANGE);
-
-	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-		the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-	if (!ret) {
-		ret = pm_set_clocks(clk_div);
-		if (ret < 0) {
-			pr_err("%s()[%d]: error<%d>! set clocks\n",
-				__func__, __LINE__, ret);
-			ret = -ETIMEDOUT;
-		}
 	}
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: suspend cpufreq/end, ret<%d>\n",
@@ -805,9 +696,6 @@ EXPORT_SYMBOL(suspend_cpufreq);
  */
 int resume_cpufreq(void)
 {
-	struct clk_rate clk_div;
-	struct cpufreq_frequency_table *freq_table = NULL;
-	unsigned int freq_old = 0;
 	unsigned int freq_new = 0;
 	int ret = 0;
 
@@ -818,44 +706,20 @@ int resume_cpufreq(void)
 	}
 #endif /* CONFIG_PM_DEBUG */
 	pr_log("%s()[%d]: resume from suspend/begin\n", __func__, __LINE__);
-	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -EINVAL;
-	}
+	spin_lock(&the_cpuinfo.lock);
 
 	/* change to earlysuspend mode */
 	the_cpuinfo.clk_state = MODE_EARLY_SUSPEND;
-
-	if ((the_cpuinfo.highspeed.used) &&
-		(the_cpuinfo.limit_maxfrq >=
-		freq_table[FREQ_LEV_MAX].frequency)) {
-		freq_old = the_cpuinfo.freq;
+	freq_new = the_cpuinfo.freq;
+	if (the_cpuinfo.highspeed.used)
 		freq_new = freq_table[FREQ_LEV_MAX].frequency;
-		ret = __set_rate(freq_new);
-		if (ret < 0) {
-			pr_err("%s()[%d]: error<%d>! set cpu frequency<%u>/end\n",
-				__func__, __LINE__, ret, freq_new);
-			spin_unlock(&the_cpuinfo.lock);
-			return -ETIMEDOUT;
-		}
-		/* notify to the system about the frequency change */
-		__notify_all_cpu(freq_old, freq_new,
-			CPUFREQ_POSTCHANGE);
-	}
 
-	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-		the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-	if (!ret) {
-		ret = pm_set_clocks(clk_div);
-		if (ret < 0) {
-			pr_err("%s()[%d]: error<%d>! set clocks/end\n",
-				__func__, __LINE__, ret);
-			ret = -ETIMEDOUT;
-		}
+	ret = __set_all_clocks(freq_new);
+	if (ret < 0) {
+		pr_err("%s()[%d]: error<%d>! __set_all_clocks<%u>/end\n",
+				__func__, __LINE__, ret, freq_new);
+		ret = -ETIMEDOUT;
 	}
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: resume from suspend/end, ret<%d>\n",
@@ -912,6 +776,16 @@ void control_dfs_scaling(bool enabled)
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 	the_cpuinfo.scaling_locked = (enabled) ? 0 : 1;
+	if (enabled) {
+		the_cpuinfo.scaling_locked = 0;
+		if (bk_cpufreq > freq_table[FREQ_LEV_HIGH].frequency)
+			__set_all_clocks(freq_table[FREQ_LEV_MAX].frequency);
+		else if (bk_cpufreq < freq_table[FREQ_LEV_MIN].frequency)
+			__set_all_clocks(freq_table[FREQ_LEV_EXMIN].frequency);
+	} else {
+		bk_cpufreq = the_cpuinfo.freq;
+		the_cpuinfo.scaling_locked = 1;
+	}
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: end/scaling_locked<%d>\n", __func__, __LINE__,
 		the_cpuinfo.scaling_locked);
@@ -933,6 +807,7 @@ int suppress_clocks_change(bool set_max)
 	struct clk_rate clk_div;
 	int ret = 0;
 
+	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 #ifdef CONFIG_PM_DEBUG
 	if (!cpufreq_enabled) {
 		/* runtime disabled */
@@ -941,22 +816,23 @@ int suppress_clocks_change(bool set_max)
 #endif /* CONFIG_PM_DEBUG */
 	spin_lock(&the_cpuinfo.lock);
 	if (set_max) {
-		ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-				the_cpuinfo.sgx_flg, the_cpuinfo.freq);
+		ret = __clk_get_rate(&clk_div);
 		if (ret) {
 			spin_unlock(&the_cpuinfo.lock);
 			return ret;
 		}
 		/* restore to max */
-			clk_div.zs_clk = MAX_ZS_DIVRATE;
-			clk_div.hp_clk = MAX_HP_DIVRATE;
-
+		clk_div.zs_clk = MAX_ZS_DIVRATE;
+		clk_div.hp_clk = MAX_HP_DIVRATE;
 		ret = pm_set_clocks(clk_div);
-		if (!ret)
-			ret = pm_disable_clock_change(ZSCLK | HPCLK);
 	}
+
+	if (!ret)
+		ret = pm_disable_clock_change(ZSCLK | HPCLK);
+
 	spin_unlock(&the_cpuinfo.lock);
 
+	pr_log("%s()[%d]: end\n", __func__, __LINE__);
 	return ret;
 }
 EXPORT_SYMBOL(suppress_clocks_change);
@@ -973,9 +849,9 @@ EXPORT_SYMBOL(suppress_clocks_change);
  */
 void unsuppress_clocks_change(void)
 {
-	struct clk_rate clk_div;
 	int ret = 0;
 
+	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 #ifdef CONFIG_PM_DEBUG
 	if (!cpufreq_enabled) {
 		/* runtime disabled */
@@ -983,22 +859,17 @@ void unsuppress_clocks_change(void)
 	}
 #endif /* CONFIG_PM_DEBUG */
 	spin_lock(&the_cpuinfo.lock);
-	ret = pm_enable_clock_change(ZSCLK | HPCLK);	
+	ret = pm_enable_clock_change(ZSCLK | HPCLK);
 	/* restore to normal operation */
 	if (!ret) {
-	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-			the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-	if (ret) {
-		spin_unlock(&the_cpuinfo.lock);
-			pr_err("%s()[%d]: __clk_get_rate fail\n",
-				__func__, __LINE__);
-		return;
-	}
-
-	ret = pm_set_clocks(clk_div);
+		ret = __set_all_clocks(the_cpuinfo.freq);
+		if (ret < 0)
+			pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
+				__func__, __LINE__, ret, the_cpuinfo.freq);
 	}
 
 	spin_unlock(&the_cpuinfo.lock);
+	pr_log("%s()[%d]: end\n", __func__, __LINE__);
 }
 EXPORT_SYMBOL(unsuppress_clocks_change);
 
@@ -1014,9 +885,6 @@ EXPORT_SYMBOL(unsuppress_clocks_change);
  */
 int limit_max_cpufreq(int max)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
-
-	struct clk_rate clk_div;
 	int ret = 0;
 
 #ifdef CONFIG_PM_DEBUG
@@ -1028,37 +896,9 @@ int limit_max_cpufreq(int max)
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -EINVAL;
-	}
-
 	switch (max) {
 	case LIMIT_NONE:
 		the_cpuinfo.limit_maxfrq = freq_table[FREQ_LEV_MAX].frequency;
-		/*
-		 * user may call stop before
-		 */
-		if (the_cpuinfo.highspeed.used) {
-			ret = __set_rate(the_cpuinfo.limit_maxfrq);
-			if (ret) {
-			spin_unlock(&the_cpuinfo.lock);
-			return ret;
-		}
-			ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-			the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-
-			if (!ret) {
-				ret = pm_set_clocks(clk_div);
-				if (ret)
-					pr_log("[%s](%d) error! ret:%d",
-						__func__, __LINE__,	ret);
-			}
-
-			goto set_end;
-		}
 		break;
 	case LIMIT_MID:
 		the_cpuinfo.limit_maxfrq = freq_table[FREQ_LEV_MID].frequency;
@@ -1067,35 +907,21 @@ int limit_max_cpufreq(int max)
 		the_cpuinfo.limit_maxfrq = freq_table[FREQ_LEV_MIN].frequency;
 		break;
 	default:
+		spin_unlock(&the_cpuinfo.lock);
 		return -EINVAL;
 	}
 
-	/*
-	 * current frequency may upper limitation
-	 */
-	if (the_cpuinfo.limit_maxfrq < the_cpuinfo.freq) {
-		ret = __set_rate(the_cpuinfo.limit_maxfrq);
-		if (ret) {
-			spin_unlock(&the_cpuinfo.lock);
-			return ret;
-		}
+	if (the_cpuinfo.highspeed.used ||
+		(the_cpuinfo.limit_maxfrq < the_cpuinfo.freq)
+		|| bk_cpufreq >= the_cpuinfo.limit_maxfrq) {
+		ret = __set_all_clocks(the_cpuinfo.limit_maxfrq);
+		if (ret < 0)
+			pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
+				__func__, __LINE__, ret, the_cpuinfo.limit_maxfrq);
+	} else
+		pr_err("%s()[%d]: Frequency is not change(%u)\n",
+				__func__, __LINE__, the_cpuinfo.freq);
 
-		ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-			the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-
-		if (!ret) {
-			ret = pm_set_clocks(clk_div);
-			if (ret < 0)
-				pr_log("[%s](%d) pm_set_clocks() err ret:%d",
-					__func__, __LINE__,	ret);
-		}
-	} else {
-		pr_log("%s()[%d]: max<%u>, curr<%u> not change\n",
-			__func__, __LINE__, the_cpuinfo.limit_maxfrq,
-			the_cpuinfo.freq);
-	}
-
-set_end:
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: end\n", __func__, __LINE__);
 	return ret;
@@ -1116,36 +942,36 @@ EXPORT_SYMBOL(limit_max_cpufreq);
 int control_cpufreq(int is_enable)
 {
 	int ret = 0;
-	
-	if(!is_enable) {
-		if(!cpufreq_enabled) {
+
+	if (!is_enable) {
+		if (!cpufreq_enabled) {
 			pr_log("%s()[%d]: cpufreq is disabled already\n",
 			__func__, __LINE__);
 			return 0;
 		}
-		
+
 		ret = stop_cpufreq();
-		if(ret) {
-			pr_err("%s()[%d]: error<%d>! stop_cpufreq \n",
+		if (ret) {
+			pr_err("%s()[%d]: error<%d>! stop_cpufreq\n",
 				__func__, __LINE__, ret);
 			return ret;
 		}
-		
+
 		spin_lock(&the_cpuinfo.lock);
 		cpufreq_enabled = 0;
 		spin_unlock(&the_cpuinfo.lock);
 		pr_log("%s()[%d]: cpufreq is disabled\n", __func__, __LINE__);
 	} else {
-		if(cpufreq_enabled) {
+		if (cpufreq_enabled) {
 			pr_log("%s()[%d]: cpufreq is enabled already\n",
 				__func__, __LINE__);
 			return ret;
 		} else {
 			spin_lock(&the_cpuinfo.lock);
 			cpufreq_enabled = 1;
-			spin_unlock(&the_cpuinfo.lock);	
-			
-			start_cpufreq();		
+			spin_unlock(&the_cpuinfo.lock);
+
+			start_cpufreq();
 			pr_log("%s()[%d]: cpufreq is enabled\n",
 				__func__, __LINE__);
 		}
@@ -1187,7 +1013,6 @@ static
 #endif /* CPUFREQ_TEST_MODE */
 void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 {
-	struct clk_rate clk_div;
 	int ret = 0;
 
 #ifdef CONFIG_PM_DEBUG
@@ -1200,17 +1025,10 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 	spin_lock(&the_cpuinfo.lock);
 
 	the_cpuinfo.clk_state = MODE_EARLY_SUSPEND;
-	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-		the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-
-	if (!ret) {
-		ret = pm_set_clocks(clk_div);
-		if (ret < 0)
-			pr_log("[%s](%d) pm_set_clocks() err ret:%d",
-				__func__, __LINE__,	ret);
-	} else {
-		pr_err("[%s](%d) __clk_get_rate() err", __func__, __LINE__);
-	}
+	ret = __set_all_clocks(the_cpuinfo.freq);
+	if (ret < 0)
+		pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
+			__func__, __LINE__, ret, the_cpuinfo.freq);
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: end\n", __func__, __LINE__);
 }
@@ -1230,8 +1048,8 @@ static
 #endif /* CPUFREQ_TEST_MODE */
 void shmobile_cpufreq_late_resume(struct early_suspend *h)
 {
-	struct clk_rate clk_div;
 	int ret = 0;
+	unsigned int freq_new = 0;
 
 #ifdef CONFIG_PM_DEBUG
 	if (!cpufreq_enabled) {
@@ -1242,18 +1060,19 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 	pr_log("%s()[%d]: begin\n", __func__, __LINE__);
 	spin_lock(&the_cpuinfo.lock);
 	the_cpuinfo.clk_state = MODE_NORMAL;
-	ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-		the_cpuinfo.sgx_flg, the_cpuinfo.freq);
 
-	if (!ret) {
-		ret = pm_set_clocks(clk_div);
-		if (ret < 0) {
-			pr_log("[%s](%d) pm_set_clocks() err ret:%d",
-				__func__, __LINE__, ret);
-		}
-	} else {
-		pr_err("[%s](%d) __clk_get_rate() err", __func__, __LINE__);
-	}
+	if (the_cpuinfo.highspeed.used ||
+		(bk_cpufreq > freq_table[FREQ_LEV_HIGH].frequency))
+		freq_new = freq_table[FREQ_LEV_MAX].frequency;
+	else if (bk_cpufreq < freq_table[FREQ_LEV_MIN].frequency)
+		freq_new = freq_table[FREQ_LEV_EXMIN].frequency;
+	else
+		freq_new = the_cpuinfo.freq;
+	
+	ret = __set_all_clocks(freq_new);
+	if (ret < 0)
+		pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
+			__func__, __LINE__, ret, the_cpuinfo.freq);
 	spin_unlock(&the_cpuinfo.lock);
 	pr_log("%s()[%d]: end\n", __func__, __LINE__);
 }
@@ -1281,13 +1100,6 @@ static
 #endif /* CPUFREQ_TEST_MODE */
 int shmobile_cpufreq_verify(struct cpufreq_policy *policy)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
-
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(the_cpuinfo.policy->cpu);
-	if (!freq_table)
-		return -EINVAL;
-
 	return cpufreq_frequency_table_verify(policy, freq_table);
 }
 
@@ -1328,13 +1140,11 @@ static
 int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	unsigned int target_freq, unsigned int relation)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
-	struct cpufreq_freqs freqs;
-	struct clk_rate clk_div;
 	struct cpufreq_frequency_table *ptr = NULL;
+	unsigned int old_freq = 0;
 	unsigned int freq = ~0;
-	int ret = 0;
 	int seleted_level = 0;
+	int ret = 0;
 	int cpu = 0;
 
 #ifdef CONFIG_PM_DEBUG
@@ -1345,72 +1155,38 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 #endif /* CONFIG_PM_DEBUG */
 	/* pr_log("%s()[%d]: CPU<%d> target<%u>/begin\n", __func__, __LINE__,
 		policy->cpu, target_freq); */
-	spin_lock(&the_cpuinfo.lock);
 
-	/* get the frequency table */
-	freq_table = cpufreq_frequency_get_table(policy->cpu);
-	if (!freq_table) {
-		spin_unlock(&the_cpuinfo.lock);
-		return -EINVAL;
-	}
+	spin_lock(&the_cpuinfo.lock);
 
 	the_cpuinfo.req_rate[policy->cpu] = target_freq;
 	/* only reduce the CPU frequency if all CPUs need to reduce */
 	for_each_online_cpu(cpu) {
 		if (cpu != policy->cpu)
-			target_freq = max(the_cpuinfo.req_rate[cpu],
-				target_freq);
+			target_freq = max(the_cpuinfo.req_rate[cpu], target_freq);
 	}
 
-	freqs.cpu = policy->cpu;
-	freqs.old = the_cpuinfo.freq;
-	seleted_level = FREQ_LEV_NUM - 1;
-	if (shmobile_chip_rev() <= ES_REV_1_0) {
-#ifdef SH_CPUFREQ_VERYLOW
-		/* verrylow must not be set in ES1.x */
+	old_freq = the_cpuinfo.freq;
+	if (sys_rev <= ES_REV_1_0)
 		seleted_level = FREQ_LEV_NUM - 2;
-#endif /* SH_CPUFREQ_VERYLOW */
-	}
+	else
+		seleted_level = FREQ_LEV_NUM - 1;
 
 	while (seleted_level > FREQ_LEV_MAX) {
 		ptr = &freq_table[seleted_level - 1];
-		freq = freq_table[seleted_level].frequency;
-		if (target_freq <= ptr->frequency * DOWN_THRESHOLD / 100)
-			goto next;
+		if (target_freq <= (ptr->frequency * DOWN_THRESHOLD / 100))
+			break;
 		seleted_level--;
 	}
 
-	if (target_freq < freq_table[FREQ_LEV_MAX].frequency) {
-		freq = the_cpuinfo.freq;
-		goto next;
-	}
+	freq = freq_table[seleted_level].frequency;
 
-	freq = freq_table[FREQ_LEV_MAX].frequency;
-next:
 	if ((the_cpuinfo.upper_lowspeed.used) &&
 		(freq <= freq_table[FREQ_LEV_MIN].frequency)) {
 		freq = freq_table[FREQ_LEV_MID].frequency;
-		freqs.new = freq_table[FREQ_LEV_MID].frequency;
 	}
 
-	/* not allow OVERDRIVER & VERY LOW in earlysuspend */
-	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
-#ifdef SH_CPUFREQ_OVERDRIVE
-		if (freq == freq_table[FREQ_LEV_MAX].frequency)
-			freq = freq_table[FREQ_LEV_HIGH].frequency;
-#endif /* SH_CPUFREQ_OVERDRIVE */
-#ifdef SH_CPUFREQ_VERYLOW
-		if (freq == freq_table[FREQ_LEV_EXMIN].frequency)
-			freq = freq_table[FREQ_LEV_MIN].frequency;
-#endif /* SH_CPUFREQ_VERYLOW */
-	}
 
-	/*
-	 * user set max frequency level but we still not change the
-	 * main frequency table so we skip here
-	 */
 	if ((the_cpuinfo.freq == freq) ||
-		(freq > the_cpuinfo.limit_maxfrq) ||
 		(the_cpuinfo.highspeed.used) ||
 		(the_cpuinfo.scaling_locked ||
 		(MODE_SUSPEND == the_cpuinfo.clk_state))) {
@@ -1420,27 +1196,13 @@ next:
 		return ret;
 	}
 
-	target_cpu = policy->cpu;
-	ret = __set_rate(freq);
-	target_cpu = -1;
+	ret = __set_all_clocks(freq);
+	bk_cpufreq = the_cpuinfo.freq;
 	if (ret < 0) {
-		pr_err("%s()[%d]: error<%d>! set cpu frequency<%u>/end\n",
+		pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
 		__func__, __LINE__, ret, freq);
 		spin_unlock(&the_cpuinfo.lock);
 		return ret;
-	}
-
-	/* only do when frequency is really changed */
-	if (freq == the_cpuinfo.freq) {
-		__notify_all_cpu(freqs.old, freq,
-			CPUFREQ_POSTCHANGE);
-		ret = __clk_get_rate(&clk_div, the_cpuinfo.clk_state,
-			the_cpuinfo.sgx_flg, the_cpuinfo.freq);
-		if (!ret)
-			ret = pm_set_clocks(clk_div);
-
-		pr_log("%s()[%d]: pm_set_clocks(), ret<%d>\n",
-			__func__, __LINE__, ret);
 	}
 
 	spin_unlock(&the_cpuinfo.lock);
@@ -1448,7 +1210,7 @@ next:
 		policy->cpu, target_freq, freq, ret); */
 	if ((freq == the_cpuinfo.freq) && log_freq_change)
 		pr_info("SYS-CPU<%d> clk[%uKHz->%uKHz]\n", policy->cpu,
-			freqs.old, freq);
+			old_freq, freq);
 
 	return ret;
 }
@@ -1468,9 +1230,7 @@ static
 #endif /* CPUFREQ_TEST_MODE */
 int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 {
-	struct cpufreq_frequency_table *freq_table = NULL;
 	unsigned int freq = 0;
-	unsigned int stc_val = 0;
 	static unsigned int init_flag = 1;
 	int i = 0;
 	int ret = 0;
@@ -1485,13 +1245,14 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	if (!policy)
 		return -EINVAL;
 
-	if (shmobile_chip_rev() <= ES_REV_1_0) {
+	/* init frequency table */
+	if (sys_rev == ES_REV_1_0)
 		freq_table = main_freqtbl_es1_x;
-	} else if (shmobile_chip_rev() >= ES_REV_2_0) {
+	else if (sys_rev >= ES_REV_2_0)
 		freq_table = main_freqtbl_es2_x;
-	} else {
+	else
 		return -ENOTSUPP;
-	}
+
 
 	/* for other governors which are used frequency table */
 	cpufreq_frequency_table_get_attr(freq_table, policy->cpu);
@@ -1544,8 +1305,8 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	/* policy sharing between dual CPUs */
 	cpumask_copy(policy->cpus, &cpu_present_map);
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
-	the_cpuinfo.policy = policy;
 	init_flag--;
+	log_freq_change = 0;
 
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
 		pr_info("[%d]:%8u KHz", i, freq_table[i].frequency);
@@ -1554,7 +1315,6 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		__func__, __LINE__, ret);
 	return ret;
 }
-
 static struct cpufreq_driver shmobile_cpufreq_driver = {
 	.flags		= CPUFREQ_STICKY,
 	.verify		= shmobile_cpufreq_verify,
@@ -1579,13 +1339,17 @@ static int __init shmobile_cpu_init(void)
 {
 	int ret = 0;
 
-#ifdef SH_CPUFREQ_OVERDRIVE
-	/*
-	 * user may enable overdrive mode via command line (overdrive=true)
-	 */
-	if (!strstr(&boot_command_line[0], OVERDRIVE_CMDLINE))
+#ifdef OVERDRIVE_DEFAULT /* The overdrive mode IS supported by default */
+	/* users can disable by command "overdrive=false" */
+	if (strstr(&boot_command_line[0], DISABLE_OVERDRIVE_CMDLINE))
 		main_freqtbl_es2_x[0].frequency = main_freqtbl_es2_x[1].frequency;
-#endif
+#else /* the overdrive mode IS NOT supported by default */
+	/* users can enable by command "overdrive=true" */
+	if (strstr(&boot_command_line[0], ENABLE_OVERDRIVE_CMDLINE))
+		main_freqtbl_es2_x[0].frequency = OVERDRIVE_FREQ;
+	else
+		main_freqtbl_es2_x[0].frequency = main_freqtbl_es2_x[1].frequency;
+#endif /* OVERDRIVE_DEFAULT */
 	ret = pm_setup_clock();
 	if (ret)
 		return ret;
