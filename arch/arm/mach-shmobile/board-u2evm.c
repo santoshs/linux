@@ -317,6 +317,10 @@ static struct r8a66597_platdata usbhs_func_data = {
 #else
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 #endif
+	.pin_gpio_1_fn 	= GPIO_PORT130,
+	.pin_gpio_1 	= GPIO_PORT130,
+	.pin_gpio_2_fn	= GPIO_PORT131,
+	.pin_gpio_2		= GPIO_PORT131,
 };
 
 static struct resource usbhs_resources[] = {

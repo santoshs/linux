@@ -1501,6 +1501,8 @@ static void start_dma(struct r8a66597 *r8a66597,
 	if (req->req.length == 0)
 		return;
 
+	suppress_clocks_change (0);
+
 	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
 
 	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_SAR(ch));
@@ -2661,6 +2663,7 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	iounmap(r8a66597->dma_reg);
 	free_irq(platform_get_irq(pdev, 0), r8a66597);
 	free_irq(platform_get_irq(pdev, 1), r8a66597);
+	gpio_free(r8a66597->pdata->pin_gpio_1_fn);
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
@@ -2742,9 +2745,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ioremap error.\n");
 		goto clean_up;
 	}
-	/*TUSB1211 CS*/
-	gpio_request(GPIO_PORT130, NULL);
-	gpio_direction_output(GPIO_PORT130, 1);
 
 	/* initialize ucd */
 	r8a66597 = kzalloc(sizeof(struct r8a66597), GFP_KERNEL);
@@ -2818,6 +2818,10 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request_irq error (%d)\n", ret);
 		goto clean_up3;
 	}
+	
+	/*TUSB1211 CS*/
+	gpio_request(r8a66597->pdata->pin_gpio_1_fn, NULL);
+	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
 
 	INIT_LIST_HEAD(&r8a66597->gadget.ep_list);
 	r8a66597->gadget.ep0 = &r8a66597->ep[0].ep;
@@ -2908,7 +2912,7 @@ static int r8a66597_udc_suspend(struct device *dev)
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
-	gpio_direction_output(GPIO_PORT130, 0);
+	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
 	clk_disable(clk_get(NULL, "vclk3_clk"));
 
 	if(!powerup) 
@@ -2939,7 +2943,7 @@ static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
 	clk_enable(clk_get(NULL, "vclk3_clk"));
-	gpio_direction_output(GPIO_PORT130, 1);
+	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
 	schedule_delayed_work(&r8a66597->vbus_work,0);
 	return 0;
 }
