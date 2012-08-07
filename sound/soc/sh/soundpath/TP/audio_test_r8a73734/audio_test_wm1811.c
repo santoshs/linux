@@ -816,7 +816,7 @@ static int audio_test_proc_stop_tone(void)
 	/* Stop TestTone mode              */
 	/***********************************/
 	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_type = VCD_CALL_TYPE_CS;
+	option.call_type = VCD_CALL_TYPE_CALL;
 	cmd.arg = &option;
 	ret = vcd_execute_test_call(&cmd);
 	if (0 != ret) {
@@ -902,7 +902,7 @@ static int audio_test_proc_start_pcm_loopback(u_int fsi_port, u_int vqa_val,
 		AUDIO_TEST_DRV_STATE_OFF == delay_val) {
 		option.loopback_mode = VCD_LOOPBACK_MODE_PCM;
 	} else {
-		option.loopback_mode = VCD_LOOPBACK_MODE_PCM;
+		option.loopback_mode = VCD_LOOPBACK_MODE_DELAY;
 	}
 	cmd.arg = &option;
 	ret = vcd_execute_test_call(&cmd);
@@ -950,7 +950,7 @@ static int audio_test_proc_stop_pcm_loopback(void)
 	/* Stop PCM loopback mode          */
 	/***********************************/
 	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_type = VCD_CALL_TYPE_CS;
+	option.call_type = VCD_CALL_TYPE_CALL;
 	cmd.arg = &option;
 	ret = vcd_execute_test_call(&cmd);
 	if (0 != ret) {
