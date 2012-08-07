@@ -1004,6 +1004,24 @@ static struct platform_device hwsem1_device = {
 	},
 };
 
+static struct resource sgx_resources[] = {
+	{
+		.start = 0xfd000000,
+		.end = 0xfd00bfff,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = gic_spi(92),
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sgx_device = {
+	.name = "pvrsrvkm",
+	.id = -1,
+	.resource = sgx_resources,
+	.num_resources = ARRAY_SIZE(sgx_resources),
+};
 
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt11_device,
@@ -1048,6 +1066,7 @@ static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
 #endif
     &hwsem0_device,
     &hwsem1_device,
+    &sgx_device,
 };
 
 // HS-- ES20 Specific late devices
@@ -1072,6 +1091,7 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
 #endif
    &hwsem0_device,
    &hwsem1_device,
+   &sgx_device,
 };
 
 /* CMT10 clocksource */
