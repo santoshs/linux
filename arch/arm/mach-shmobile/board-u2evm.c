@@ -78,7 +78,7 @@
 #define CRASHLOG_LOGCAT_RADIO_LOCATE	0x44801050
 #define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x44801060
 
-#define TMPLOG_ADDRESS 0x44821200
+#define TMPLOG_ADDRESS 0x44801200
 #define TMPLOG_SIZE    0x00040000
 #define RMC_LOCAL_VERSION "150612"		// ddmmyy (release time)
 char *tmplog_nocache_address = NULL;
@@ -503,10 +503,16 @@ static struct mmcoops_platform_data mmcoops_info = {
 	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
 	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
 	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
+	.kmsg_size_ddr			= MMCOOPS_KMSG_SIZE_DDR,
+	.logcat_main_size_ddr	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
+	.logcat_system_size_ddr	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
+	.logcat_radio_size_ddr	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
+	.logcat_events_size_ddr	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
 	.local_version	= MMCOOPS_LOCAL_VERSION,
 	.soft_version	= RMC_LOCAL_VERSION,
 	/*512 byte blocks */
 	.start		= MMCOOPS_START_OFFSET,
+	.start_ddr	= MMCOOPS_START_OFFSET_DDR,
 	.size		= MMCOOPS_LOG_SIZE
 };
 
@@ -2963,8 +2969,8 @@ static void crashlog_reset_log_write()
 	__raw_writel(log_system_head_address, adr + 12);
 	iounmap(adr);
 
-	/*reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);*/	/* andriod init */
+	reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* andriod init */
 
 /*Developer option to debug Reset Log*/
      /*	reg = __raw_readb(STBCHR3);*/
