@@ -49,6 +49,9 @@
 
 #define ENT_TPS80031_IRQ_BASE	(R8A7373_IRQC_BASE + 64)
 
+#define SRCR2		0xe61580b0
+#define SRCR3		0xe61580b8
+
 /* Ether */
 static struct resource smsc9220_resources[] = {
 	{
@@ -81,6 +84,67 @@ static struct platform_device eth_device = {
 static struct regulator_consumer_supply dummy_supplies[] = {
 	REGULATOR_SUPPLY("vddvario", "smsc911x.0"),
 	REGULATOR_SUPPLY("vdd33a", "smsc911x.0"),
+};
+
+/* USBHS */
+static void usbhs_module_reset(void)
+{
+	unsigned long flags;
+
+	hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 1000, &flags);
+
+	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC0 */
+	__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+
+	udelay(50); /* wait for at least one EXTALR cycle */
+
+	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
+	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+
+	hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+}
+
+static struct r8a66597_platdata usbhs_func_data = {
+	.module_start	= usbhs_module_reset,
+	.module_stop	= usbhs_module_reset,
+	.on_chip	= 1,
+	.buswait	= 5,
+	.max_bufnum	= 0xff,
+	.dmac		= 1,
+};
+
+static struct resource usbhs_resources[] = {
+	[0] = {
+		.start	= 0xe6890000,
+		.end	= 0xe6890150 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(87) /* USBULPI */,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.name	= "dmac",
+		.start	= 0xe68a0000,
+		.end	= 0xe68a0064 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[3] = {
+		.start	= gic_spi(85) /* USBHSDMAC1 */,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device usbhs_func_device = {
+	.name	= "r8a66597_udc",
+	.id	= 0,
+	.dev = {
+		.dma_mask		= NULL,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+		.platform_data		= &usbhs_func_data,
+	},
+	.num_resources	= ARRAY_SIZE(usbhs_resources),
+	.resource	= usbhs_resources,
 };
 
 /* MMCIF */
@@ -530,6 +594,7 @@ static struct platform_device tpu3_device = {
 };
 
 static struct platform_device *u2evm_devices[] __initdata = {
+	&usbhs_func_device,
 	&eth_device,
 	&keysc_device,
 	&mmcif_device,
@@ -834,6 +899,7 @@ static void __init u2evm_init(void)
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 
+	r8a7373_add_device_to_domain(&r8a7373_a3sp, &usbhs_func_device);
 	r8a7373_add_device_to_domain(&r8a7373_a3sp, &mmcif_device);
 	r8a7373_add_device_to_domain(&r8a7373_a3sp, &sdhi0_device);
 	r8a7373_add_device_to_domain(&r8a7373_a3sp, &sdhi1_device);
