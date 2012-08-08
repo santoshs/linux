@@ -72,7 +72,7 @@ static void Save_Reset_Log_To_Memory(BOOT_LOG *boot_log, unsigned int boot_log_o
 		if(boot_log->stbchr2 & APE_RESETLOG_PANIC_END) {
 			return;
 		}
-	}
+	}else return;
 	
 #ifdef STORE_CRASHLOG_EMMC
 	ret = Flash_Access_Read((uchar* )&reset_log_offset, sizeof(unsigned int), RESET_LOG_COUNTER_ADDRESS, UNUSED);
@@ -473,13 +473,14 @@ static RC Write_Logs_To_DDR(volatile ulong ddr_addr, const char *s1, ulong l1,co
  */
 static void Save_Temporary_Log_To_eMMC(BOOT_LOG *boot_log)
 {
+#ifdef STORE_CRASHLOG_EMMC
 	/* Dump temp log */
 	do {
 		if((boot_log->stbchr3 & APE_RESETLOG_TMPLOG_END) == APE_RESETLOG_TMPLOG_END) {
 			Flash_Access_Write((uchar *)TMPLOG_BASE_ADDRESS, RESET_TMPLOG_SIZE, RESET_TMPLOG_ADDRESS, UNUSED);
 		}
 	} while(0);
-	
+#endif	//STORE_CRASHLOG_EMMC	
 	return;
 }
 
