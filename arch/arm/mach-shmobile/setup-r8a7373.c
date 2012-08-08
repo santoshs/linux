@@ -65,6 +65,7 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 void __init r8a7373_map_io(void)
 {
 	iotable_init(r8a7373_io_desc, ARRAY_SIZE(r8a7373_io_desc));
+	init_consistent_dma_size(8 << 20);
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 	sec_debug_init();
 #endif
