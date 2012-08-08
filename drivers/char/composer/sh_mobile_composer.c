@@ -263,6 +263,63 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 	tracelog_record(ID_TRACE_LOG1, __LINE__, ID, VAL1);
 #endif
 
+/* define for bind_buffer function. */
+#define COMPOSER_INFO_ID_SHIFT_TO_IDX  24
+#define COMPOSER_INFO_ID_SHIFT_TO_ID   16
+
+/* define for update_work_appshare function. */
+#define UPDATE_WORK_APPSHARE_DELAYINIT 1
+
+/* define for chk_ioc_viewlay function. */
+#define CHK_IOC_VIEWLAY_NOINDEX        -1
+
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+/* define for ioc_waitdraw function. (only used for debug). */
+#define IOC_WAITDRAW_INIT     0
+#define IOC_WAITDRAW_WAIT     1
+#define IOC_WAITDRAW_WAITTIME 200
+#endif
+
+/* define for chk_ioc_viewlay function. */
+#define CHK_IOC_VIEWLAY_INPUTLAYER       0x001
+#define CHK_IOC_VIEWLAY_VALIDLAYSIZE     0x010
+#define CHK_IOC_VIEWLAY_VALIDCROPSIZE    0x020
+#define CHK_IOC_VIEWLAY_VALIDCROPPOS     0x040
+#define CHK_IOC_VIEWLAY_VALIDCOMPOSESIZE 0x080
+#define CHK_IOC_VIEWLAY_VALIDCOMPOSEPOS  0x100
+
+/* define for chk_ioc_layaddr function. */
+#define CHK_IOC_LAYADDR_NOPIXFMT   -1
+
+/* define for sh_mobile_composer_blendoverlay function. */
+#define KERNEL_QUEUE_INVALID_NUM_THRESHOLD 2
+
+/* define for sh_mobile_composer_queue function. */
+#define KERNEL_QUEUE_MAXID_PIXEL_FORMAT    30
+
+#if INTERNAL_DEBUG >= 1
+/* define for tracelog_record function. */
+#define TRACELOG_RECORD_VALUE0_SHIFT_TO_LOGCLASS  24
+#endif
+
+/* define for core_ioctl function. */
+#define CORE_IOCTL_MAX_ARG_LENGTH     64
+
+/* define for notify */
+#define RTAPI_NOTIFY_RESULT_ERROR     3
+#define RTAPI_NOTIFY_RESULT_NORMAL    1
+#define RTAPI_NOTIFY_RESULT_UNDEFINED 0
+
+/* define for time-out */
+#define LOCK_BUFFER_WAITTIME           2        /* sec  */
+#define SETBUSY_WAITTIME               2        /* sec  */
+#define IOC_WAITCOMP_WAITTIME          200      /* msec */
+#define WORK_OVERLAY_WAITTIME          500      /* msec */
+#define WORK_RUNBLEND_WAITTIME         1        /* sec  */
+#define KERNEL_QUEUE_TIMER_WAITTIME        200  /* msec */
+#define KERNEL_QUEUE_TIMER_WAITTIME_DEBUG 5000  /* msec */
+
+
 /* macros for general error message */
 #if _ERR_DBG >= 2
 #define printk_err2(fmt, arg...) \
@@ -380,6 +437,7 @@ static spinlock_t             irqlock_timer;
 static DEFINE_TIMER(kernel_queue_timer, \
 	timeout_queue_process, 0, 0);
 static struct localwork       expire_kernel_request;
+static struct localwork       register_rtmemory;
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void                   *graphic_handle_hdmi;
@@ -413,7 +471,7 @@ static void localwork_init(
 {
 	INIT_LIST_HEAD(&work->link);
 	work->func = func;
-	work->status = 0;
+	work->status = false;
 }
 
 
@@ -447,7 +505,7 @@ static void localworkquue_destroy(struct localworkqueue *wq)
 			}
 			if (work) {
 				printk_dbg2(3, "localwork pending: %p\n", work);
-				work->status = 1;
+				work->status = true;
 				list_del_init(&work->link);
 			}
 		}
@@ -494,7 +552,7 @@ static inline int localworkqueue_thread(void *arg)
 			(*func)(work);
 
 			spin_lock_irqsave(&wq->lock, flags);
-			work->status = 1;
+			work->status = true;
 			list_del_init(&work->link);
 			wake_up_all(&wq->finish);
 		}
@@ -542,15 +600,15 @@ static int localworkqueue_queue(
 	int rc;
 	DBGENTER("wq:%p work:%p\n", wq, work);
 	if (wq && work) {
-		rc = 1;
+		rc = true;
 
 		spin_lock_irqsave(&wq->lock, flags);
 		if (list_empty(&work->link)) {
 			list_add_tail(&work->link, &wq->top);
-			work->status = 0;
+			work->status = false;
 		} else {
 			printk_err2("work %p alredy queued.\n", work);
-			rc = 0;
+			rc = false;
 		}
 		spin_unlock_irqrestore(&wq->lock, flags);
 
@@ -559,7 +617,7 @@ static int localworkqueue_queue(
 	} else {
 		/* set error code */
 		printk_err("invalid argument.\n");
-		rc = 0;
+		rc = false;
 	}
 	DBGLEAVE("%d\n", rc);
 	return rc;
@@ -572,7 +630,7 @@ static void localworkqueue_flush(
 	int rc = 0;
 	DBGENTER("wq:%p work:%p\n", wq, work);
 	if (wq && work) {
-		int wait = 0;
+		int wait = false;
 		spin_lock_irqsave(&wq->lock, flags);
 		if (work->status) {
 			/* wait is not necessary. */
@@ -582,13 +640,13 @@ static void localworkqueue_flush(
 			printk_dbg2(3, "work %p not queued\n", work);
 			rc = -EINVAL;
 		} else
-			wait = 1;
+			wait = true;
 		spin_unlock_irqrestore(&wq->lock, flags);
 
 		if (wait) {
 			printk_dbg2(3, "wait complete of work %p\n", work);
 			wait_event( \
-				wq->finish, work->status != 0);
+				wq->finish, work->status != false);
 		}
 	} else {
 		/* set error code */
@@ -666,7 +724,7 @@ static struct composer_fh *allocate_device(void)
 		callback_iocs_start,
 		fh);
 
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < COMPOSER_NUM_INOUT_BUFFER; i++) {
 		struct composer_info     *fh_info   = &fh->fh_info[i];
 		struct composer_buffer   *fh_buffer = &fh->fh_buffer_id0[i];
 
@@ -703,7 +761,7 @@ static void  free_device(struct composer_fh *fh)
 		[IDX_CH3LAYER]  = FH_STATUS_CH3LAYER,
 		[IDX_CH4LAYER]  = FH_STATUS_CH4LAYER
 	};
-	static const  int level[5] = {
+	static const  int level[] = {
 		[IDX_OUTPLANE]  = CMP_OUT_PLANE,
 		[IDX_CH1LAYER]  = CMP_CH1_LAYER,
 		[IDX_CH2LAYER]  = CMP_CH2_LAYER,
@@ -807,7 +865,8 @@ static int  bind_buffer(struct composer_fh *fh, int idx, int id)
 	printk_dbg2(3, "info->buffer: %p\n", info->buffer);
 
 	/* set bind to buffer */
-	info->id       = (idx<<24) | (id<<16) | 0x0;
+	info->id       = (idx << COMPOSER_INFO_ID_SHIFT_TO_IDX) |
+		(id << COMPOSER_INFO_ID_SHIFT_TO_ID) | 0x0;
 	info->buffer   = buf;
 
 	/* lock buffer. */
@@ -850,7 +909,7 @@ static int  release_buffer(struct composer_fh *fh, int level)
 {
 	struct composer_info   *info;
 	struct composer_buffer *buffer;
-	struct appmem_handle   *app[3];
+	struct appmem_handle   *app[COMPOSER_NUM_MEMORY_BLOCK];
 	int                  info_id;
 	int           i;
 	int           idx;
@@ -966,7 +1025,7 @@ static int  lock_buffer(struct composer_fh *fh, int level)
 			rc = wait_event_interruptible_timeout(
 				fh->fh_wait,
 				buffer->buf_sem.count > 0,
-				2 * HZ);
+				LOCK_BUFFER_WAITTIME * HZ);
 
 			if (rc < 0) {
 				printk_err2("buffer lock interrupted.\n");
@@ -974,7 +1033,7 @@ static int  lock_buffer(struct composer_fh *fh, int level)
 				goto err_exit;
 			}
 		}
-	} while ((int)(jiffies - start_jiffies) < 2 * HZ);
+	} while ((int)(jiffies - start_jiffies) < LOCK_BUFFER_WAITTIME * HZ);
 
 	if (retval) {
 		printk_dbg2(3, "can not lock_buffer.\n");
@@ -1095,7 +1154,7 @@ static void allfile_status_set(struct composer_buffer *buffer, int status)
 static int update_work_linebytes(
 	struct composer_grapdata *grap, int idx, struct composer_buffer *buffer)
 {
-	int c[3], v[3];
+	int c[COMPOSER_NUM_MEMORY_BLOCK], v[COMPOSER_NUM_MEMORY_BLOCK];
 	int w;
 	int rc = CMP_NG;
 
@@ -1236,7 +1295,7 @@ int update_work_appshare(
 
 	if ((buffer->buf_id & BUF_ID_FLG_PIXFMT) == 0) {
 		printk_dbg2(2, "CMP_IOCS_PIXFMT not specified.\n");
-		rc = 1;
+		rc = UPDATE_WORK_APPSHARE_DELAYINIT;
 		goto err_exit;
 	}
 
@@ -1253,14 +1312,15 @@ int update_work_appshare(
 	}
 
 	{
-		void *app[3] = {NULL, NULL, NULL};
-		int  appid[3], appoffset[3], appopen_flag;
+		void *app[COMPOSER_NUM_MEMORY_BLOCK] = {NULL, NULL, NULL};
+		int  appid[COMPOSER_NUM_MEMORY_BLOCK],
+			appoffset[COMPOSER_NUM_MEMORY_BLOCK], appopen_flag;
 
 /***************************/
 /* pickup-informatin       */
 /***************************/
 		/* copy previous created APP-Share */
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < COMPOSER_NUM_MEMORY_BLOCK; i++) {
 			if (info->id & fh_status_translate_app[i]) {
 				info->id  &= ~fh_status_translate_app[i];
 				app[i] = info->appinfo[i];
@@ -1288,7 +1348,7 @@ int update_work_appshare(
 /***************************/
 /* app-share close.        */
 /***************************/
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < COMPOSER_NUM_MEMORY_BLOCK; i++) {
 			int app_rc = 0;
 			if (app[i]) {
 				app_rc = sh_mobile_appmem_free(app[i]);
@@ -1307,7 +1367,7 @@ int update_work_appshare(
 /***************************/
 /* app-share open.        */
 /***************************/
-		for (i = 0; i < 3; i++) {
+		for (i = 0; i < COMPOSER_NUM_MEMORY_BLOCK; i++) {
 			if ((appopen_flag & (1<<i)) == 0) {
 				/* to next buffer */
 				continue;
@@ -1325,7 +1385,7 @@ int update_work_appshare(
 /***************************/
 		if (rc != CMP_OK) {
 			/* app share close by error */
-			for (i = 0; i < 3; i++) {
+			for (i = 0; i < COMPOSER_NUM_MEMORY_BLOCK; i++) {
 				int app_rc = 0;
 				if (app[i]) {
 					app_rc = sh_mobile_appmem_free(app[i]);
@@ -1340,7 +1400,7 @@ int update_work_appshare(
 			}
 		} else {
 			/* record open result */
-			for (i = 0; i < 3; i++) {
+			for (i = 0; i < COMPOSER_NUM_MEMORY_BLOCK; i++) {
 				if (app[i]) {
 					/* record app share flag */
 					info->id  |= fh_status_translate_app[i];
@@ -1572,9 +1632,9 @@ static int update_grap_arguments(struct composer_fh *fh)
 {
 	struct composer_grapdata *grap   = &fh->grap_data;
 	int                      nBuffer = 0;
-	struct composer_info     *info[5];
-	struct composer_buffer   *buf[5];
-	int                      bufidx[5];
+	struct composer_info     *info[COMPOSER_NUM_INOUT_BUFFER];
+	struct composer_buffer   *buf[COMPOSER_NUM_INOUT_BUFFER];
+	int                      bufidx[COMPOSER_NUM_INOUT_BUFFER];
 
 	int                      i;
 	int                      rc;
@@ -1596,7 +1656,7 @@ static int update_grap_arguments(struct composer_fh *fh)
 			continue;
 		}
 
-		if (nBuffer >= 5) {
+		if (nBuffer >= COMPOSER_NUM_INOUT_BUFFER) {
 			/* report error */
 			printk_err("nBuffer %d out of valid range\n", nBuffer);
 		}
@@ -1913,7 +1973,7 @@ static int  iocs_alpha(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d alpha:%d\n", arg->level, arg->alpha);
 
 	/* check argument */
-	rc = chk_ioc_alpha(fh, arg, 1);
+	rc = chk_ioc_alpha(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -1970,7 +2030,7 @@ static int  iocg_alpha(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d alpha:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_alpha(fh, arg, 0);
+	rc = chk_ioc_alpha(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2020,7 +2080,7 @@ static int  iocs_keycolor(struct composer_fh *fh, \
 		arg->level, arg->keycolor);
 
 	/* check argument */
-	rc = chk_ioc_keycolor(fh, arg, 1);
+	rc = chk_ioc_keycolor(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2077,7 +2137,7 @@ static int  iocg_keycolor(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d keycolor:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_keycolor(fh, arg, 0);
+	rc = chk_ioc_keycolor(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2126,7 +2186,7 @@ static int  iocs_laysize(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:%d y:%d\n", arg->level, arg->x, arg->y);
 
 	/* check argument */
-	rc = chk_ioc_laysize(fh, arg, 1);
+	rc = chk_ioc_laysize(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2191,7 +2251,7 @@ static int  iocg_laysize(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:- y:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_laysize(fh, arg, 0);
+	rc = chk_ioc_laysize(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2241,7 +2301,7 @@ static int  iocs_pixfmt(struct composer_fh *fh, \
 		arg->level, arg->pixfmt, arg->colorspace);
 
 	/* check argument */
-	rc = chk_ioc_pixfmt(fh, arg, 1);
+	rc = chk_ioc_pixfmt(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2302,7 +2362,7 @@ static int  iocg_pixfmt(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d fmt:- col:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_pixfmt(fh, arg, 0);
+	rc = chk_ioc_pixfmt(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2351,7 +2411,7 @@ static int  iocs_cropsize(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:%d y:%d\n", arg->level, arg->x, arg->y);
 
 	/* check argument */
-	rc = chk_ioc_cropsize(fh, arg, 1, NULL);
+	rc = chk_ioc_cropsize(fh, arg, true, NULL);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2412,7 +2472,7 @@ static int  iocg_cropsize(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:- y:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_cropsize(fh, arg, 0, NULL);
+	rc = chk_ioc_cropsize(fh, arg, false, NULL);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2461,7 +2521,7 @@ static int  iocs_croppos(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:%d y:%d\n", arg->level, arg->x, arg->y);
 
 	/* check argument */
-	rc = chk_ioc_croppos(fh, arg, 1, NULL);
+	rc = chk_ioc_croppos(fh, arg, true, NULL);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2522,7 +2582,7 @@ static int  iocg_croppos(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:- y:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_croppos(fh, arg, 0, NULL);
+	rc = chk_ioc_croppos(fh, arg, false, NULL);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2571,7 +2631,7 @@ static int  iocs_pos(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:%d y:%d\n", arg->level, arg->x, arg->y);
 
 	/* check argument */
-	rc = chk_ioc_pos(fh, arg, 1);
+	rc = chk_ioc_pos(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2629,7 +2689,7 @@ static int  iocg_pos(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:- y:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_pos(fh, arg, 0);
+	rc = chk_ioc_pos(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2678,7 +2738,7 @@ static int  iocs_size(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:%d y:%d\n", arg->level, arg->x, arg->y);
 
 	/* check argument */
-	rc = chk_ioc_size(fh, arg, 1);
+	rc = chk_ioc_size(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2736,7 +2796,7 @@ static int  iocg_size(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d x:- y:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_size(fh, arg, 0);
+	rc = chk_ioc_size(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2792,7 +2852,7 @@ static int  iocs_viewlay(struct composer_fh *fh, \
 		, arg->pos_x, arg->pos_y, arg->compose_x, arg->compose_y);
 
 	/* check argument */
-	rc = chk_ioc_viewlay(fh, arg, -1);
+	rc = chk_ioc_viewlay(fh, arg, CHK_IOC_VIEWLAY_NOINDEX);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2908,7 +2968,7 @@ static int  iocs_backcolor(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d col:0x%x\n", arg->level, arg->backcolor);
 
 	/* check argument */
-	rc = chk_ioc_backcolor(fh, arg, 1);
+	rc = chk_ioc_backcolor(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -2965,7 +3025,7 @@ static int  iocg_backcolor(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d col:-\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_backcolor(fh, arg, 0);
+	rc = chk_ioc_backcolor(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -3023,7 +3083,7 @@ static int  iocs_layaddr(struct composer_fh *fh, \
 			arg->app_id_c1, arg->offset_c1);
 
 	/* check argument */
-	rc = chk_ioc_layaddr(fh, arg, 1);
+	rc = chk_ioc_layaddr(fh, arg, true);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -3078,7 +3138,7 @@ static int  iocs_layaddr(struct composer_fh *fh, \
 
 		rc = update_work_appshare(info, buffer);
 
-		if (rc == 1) {
+		if (rc == UPDATE_WORK_APPSHARE_DELAYINIT) {
 			printk_dbg2(3, "app share not mapped.");
 			/* app-share will be mapped CMP_IOCS_START. */
 
@@ -3120,7 +3180,7 @@ static int  iocg_layaddr(struct composer_fh *fh, \
 	printk_dbg2(3, "arg level:%d\n", arg->level);
 
 	/* check argument */
-	rc = chk_ioc_layaddr(fh, arg, 0);
+	rc = chk_ioc_layaddr(fh, arg, false);
 	if (rc != 0) {
 		/* return by error */
 		goto err_exit;
@@ -3189,7 +3249,7 @@ static int  ioc_start(struct composer_fh *fh)
 	localworkqueue_flush(workqueue, &fh->fh_wqtask);
 
 	/* check app-shrea need to create. */
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < COMPOSER_NUM_INOUT_BUFFER; i++) {
 		struct composer_info   *info   = &fh->fh_info[i];
 		struct composer_buffer *buffer = info->buffer;
 
@@ -3301,15 +3361,15 @@ static int  ioc_issuspend(struct composer_fh *fh)
 static int  wait_condition_for_ioc_waitcomp(void)
 {
 	int i;
-	int rc = 0;
+	int rc = false;
 	for (i = 0; i < MAX_KERNELREQ; i++) {
 		struct composer_rh *rh = &kernel_request[i];
 		if (rh->active) {
-			rc = 1;
+			rc = true;
 			break;
 		}
 	}
-	return (rc == 0);
+	return (rc == false);
 }
 #endif
 static int  ioc_waitcomp(struct composer_fh *fh)
@@ -3331,7 +3391,8 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 	prev_state[3] = kernel_request[3].active;
 #endif
 	rc = wait_event_timeout(kernel_waitqueue_comp,
-		wait_condition_for_ioc_waitcomp(), msecs_to_jiffies(100));
+		wait_condition_for_ioc_waitcomp(),
+		msecs_to_jiffies(IOC_WAITCOMP_WAITTIME));
 
 #if _LOG_DBG > 1
 	printk_dbg2(3, "%d %d %d %d\n",
@@ -3368,20 +3429,21 @@ static int  ioc_waitdraw(struct composer_fh *fh, int *mode)
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
-	if (*mode == 0) {
+	if (*mode == IOC_WAITDRAW_INIT) {
 		/* clear flag */
-		overlay_draw_complete = 0;
-	} else if (*mode == 1) {
+		overlay_draw_complete = false;
+	} else if (*mode == IOC_WAITDRAW_WAIT) {
 		/* wait set flag */
 		rc = wait_event_timeout(kernel_waitqueue_comp,
-			overlay_draw_complete != 0, msecs_to_jiffies(200));
+			overlay_draw_complete != false,
+			msecs_to_jiffies(IOC_WAITDRAW_WAITTIME));
 
 		if (rc == 0) {
 			printk_err("fail to wait draw complete.\n");
 			rc = -EBUSY;
 		} else {
 			/* wait success before timeout */
-			overlay_draw_complete = 0;
+			overlay_draw_complete = false;
 			rc = 0;
 		}
 	} else {
@@ -3408,23 +3470,32 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 		unsigned long fb_addr = *addr;
 		unsigned long fb_size = *(addr+1);
 
-		queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
-			fb_size, fb_addr);
+		queue_fb_map_address    = fb_addr;
+		queue_fb_map_endaddress = fb_addr + fb_size;
 
-		if (queue_fb_map_handle) {
-			printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
-				"map success.\n",                 \
-				fb_addr, fb_addr + fb_size - 1);
+		/* queue task. */
+		rc = localworkqueue_queue(workqueue,
+			&register_rtmemory);
+		if (rc) {
+			/* wait work compete. */
+			localworkqueue_flush(workqueue,
+				&register_rtmemory);
 
-			queue_fb_map_address    = fb_addr;
-			queue_fb_map_endaddress = fb_addr + fb_size;
+			if (queue_fb_map_handle == NULL) {
+				/* set error flag */
+				rc = false;
+			}
+		}
 
-			rc = 0;
-		} else {
-			printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
-				fb_addr, fb_addr + fb_size - 1);
+		if (rc == false) {
+			printk_err("failed to register FB address\n");
+			queue_fb_map_address    = 0;
+			queue_fb_map_endaddress = 0;
 
 			rc = -EINVAL;
+		} else {
+			/* no error */
+			rc = 0;
 		}
 	}
 #endif
@@ -3441,13 +3512,13 @@ static int  chk_ioc_supportpixfmt(struct composer_fh *fh, \
 
 	switch (arg->level) {
 	case CMP_OUT_PLANE:
-		flag = 0;
+		flag = false;
 		break;
 	case CMP_CH1_LAYER:
 	case CMP_CH2_LAYER:
 	case CMP_CH3_LAYER:
 	case CMP_CH4_LAYER:
-		flag = 1;
+		flag = true;
 		break;
 	default:
 		printk_err2("argument level 0x%x invalid.\n", arg->level);
@@ -3608,7 +3679,7 @@ static int  chk_ioc_keycolor(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of keycolor */
 		goto pass_exit;
 	}
@@ -3675,7 +3746,7 @@ static int  chk_ioc_laysize(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -3740,7 +3811,7 @@ static int  chk_ioc_pixfmt(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -3822,7 +3893,7 @@ static int  chk_ioc_cropsize(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -3919,7 +3990,7 @@ static int  chk_ioc_croppos(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -4016,7 +4087,7 @@ static int  chk_ioc_pos(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -4147,7 +4218,7 @@ static int  chk_ioc_size(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -4274,7 +4345,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	case CMP_CH2_LAYER:
 	case CMP_CH3_LAYER:
 	case CMP_CH4_LAYER:
-		flag = 0x1;
+		flag = CHK_IOC_VIEWLAY_INPUTLAYER;
 		break;
 	default:
 		printk_err2("argument level 0x%x invalid.\n", arg->level);
@@ -4303,13 +4374,13 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 
 		/* set laysize needed. */
 
-		chk1 = (VIEW_MASK(arg->data_x) == 0) ? 1 : 0;
-		chk2 = (VIEW_MASK(arg->data_y) == 0) ? 1 : 0;
+		chk1 = (VIEW_MASK(arg->data_x) == 0) ? true : false;
+		chk2 = (VIEW_MASK(arg->data_y) == 0) ? true : false;
 		need_init_flag = ((buffer->buf_id & BUF_ID_FLG_LAYSIZE) \
-				!= BUF_ID_FLG_LAYSIZE) ? 1 : 0;
+				!= BUF_ID_FLG_LAYSIZE) ? true : false;
 
 		if (chk1 || chk2) {
-			flag |= (0x10);
+			flag |= (CHK_IOC_VIEWLAY_VALIDLAYSIZE);
 			if (chk1 && chk2) {
 				/* no need initialize */
 			} else if (need_init_flag) {
@@ -4320,13 +4391,13 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 		}
 
 		/* set cropsize needed. */
-		chk1 = (VIEW_MASK(arg->cropsize_x) == 0) ? 1 : 0;
-		chk2 = (VIEW_MASK(arg->cropsize_y) == 0) ? 1 : 0;
+		chk1 = (VIEW_MASK(arg->cropsize_x) == 0) ? true : false;
+		chk2 = (VIEW_MASK(arg->cropsize_y) == 0) ? true : false;
 		need_init_flag = ((buffer->buf_id & BUF_ID_FLG_CROPSIZE) \
-				!= BUF_ID_FLG_CROPSIZE) ? 1 : 0;
+				!= BUF_ID_FLG_CROPSIZE) ? true : false;
 
 		if (chk1 || chk2) {
-			flag |= (0x20);
+			flag |= (CHK_IOC_VIEWLAY_VALIDCROPSIZE);
 			if (chk1 && chk2) {
 				/* no need initialize */
 			} else if (need_init_flag) {
@@ -4335,7 +4406,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 				goto err_exit;
 			}
 
-			if ((flag & 0x10) == 0 && \
+			if ((flag & CHK_IOC_VIEWLAY_VALIDLAYSIZE) == 0 && \
 				(buffer->buf_id & BUF_ID_FLG_LAYSIZE) \
 				!= BUF_ID_FLG_LAYSIZE) {
 				rc = CMP_NG_VIEWLAY1;
@@ -4345,12 +4416,12 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 		}
 
 		/* set croppos needed. */
-		chk1 = (VIEW_MASK(arg->croppos_x) == 0) ? 1 : 0;
-		chk2 = (VIEW_MASK(arg->croppos_y) == 0) ? 1 : 0;
+		chk1 = (VIEW_MASK(arg->croppos_x) == 0) ? true : false;
+		chk2 = (VIEW_MASK(arg->croppos_y) == 0) ? true : false;
 		need_init_flag = ((buffer->buf_id & BUF_ID_FLG_CROPPOS) \
-				!= BUF_ID_FLG_CROPPOS) ? 1 : 0;
+				!= BUF_ID_FLG_CROPPOS) ? true : false;
 		if (chk1 || chk2) {
-			flag |= (0x40);
+			flag |= (CHK_IOC_VIEWLAY_VALIDCROPPOS);
 			if (chk1 && chk2) {
 				/* no need initialize */
 			} else if (need_init_flag) {
@@ -4358,7 +4429,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 				printk_err2("CMP_IOCS_CROPPOS not performed.");
 				goto err_exit;
 			}
-			if ((flag & 0x10) == 0 && \
+			if ((flag & CHK_IOC_VIEWLAY_VALIDLAYSIZE) == 0 && \
 				(buffer->buf_id & BUF_ID_FLG_LAYSIZE) \
 				!= BUF_ID_FLG_LAYSIZE) {
 				rc = CMP_NG_VIEWLAY1;
@@ -4368,13 +4439,13 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 		}
 
 		/* set size needed. */
-		chk1 = (VIEW_MASK(arg->compose_x) == 0) ? 1 : 0;
-		chk2 = (VIEW_MASK(arg->compose_y) == 0) ? 1 : 0;
+		chk1 = (VIEW_MASK(arg->compose_x) == 0) ? true : false;
+		chk2 = (VIEW_MASK(arg->compose_y) == 0) ? true : false;
 		need_init_flag = ((buffer->buf_id & BUF_ID_FLG_SIZE) \
-				!= BUF_ID_FLG_SIZE) ? 1 : 0;
+				!= BUF_ID_FLG_SIZE) ? true : false;
 
 		if (chk1 || chk2) {
-			flag |= (0x80);
+			flag |= (CHK_IOC_VIEWLAY_VALIDCOMPOSESIZE);
 			if (chk1 && chk2) {
 				/* no need initialize */
 			} else if (need_init_flag) {
@@ -4385,13 +4456,13 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 		}
 
 		/* set pos needed. */
-		chk1 = (VIEW_MASK(arg->pos_x) == 0) ? 1 : 0;
-		chk2 = (VIEW_MASK(arg->pos_y) == 0) ? 1 : 0;
+		chk1 = (VIEW_MASK(arg->pos_x) == 0) ? true : false;
+		chk2 = (VIEW_MASK(arg->pos_y) == 0) ? true : false;
 		need_init_flag = ((buffer->buf_id & BUF_ID_FLG_POS) \
-				!= BUF_ID_FLG_POS) ? 1 : 0;
+				!= BUF_ID_FLG_POS) ? true : false;
 
 		if (chk1 || chk2) {
-			flag |= (0x100);
+			flag |= (CHK_IOC_VIEWLAY_VALIDCOMPOSEPOS);
 			if (chk1 && chk2) {
 				/* no need initialize */
 			} else if (need_init_flag) {
@@ -4403,7 +4474,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	}
 
 	/* create laysize parameter */
-	if (flag & 0x10) {
+	if (flag & CHK_IOC_VIEWLAY_VALIDLAYSIZE) {
 		if (VIEW_MASK(arg->data_x)) {
 			/* set argument from previous configuration. */
 			arg->data_x = buffer->data_x;
@@ -4422,7 +4493,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	}
 
 	/* create croppos parameter */
-	if (flag & 0x40) {
+	if (flag & CHK_IOC_VIEWLAY_VALIDCROPPOS) {
 		if (VIEW_MASK(arg->croppos_x)) {
 			/* set argument from previous configuration. */
 			arg->croppos_x = buffer->crop_pos_x;
@@ -4437,7 +4508,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	}
 
 	/* create cropsize parameter */
-	if (flag & 0x20) {
+	if (flag & CHK_IOC_VIEWLAY_VALIDCROPSIZE) {
 		if (VIEW_MASK(arg->cropsize_x)) {
 			/* set argument from previous configuration. */
 			arg->cropsize_x = buffer->crop_size_x;
@@ -4452,7 +4523,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	}
 
 	/* create size parameter */
-	if (flag & 0x80) {
+	if (flag & CHK_IOC_VIEWLAY_VALIDCOMPOSESIZE) {
 		if (VIEW_MASK(arg->compose_x)) {
 			/* set argument from previous configuration. */
 			arg->compose_x = buffer->size_x;
@@ -4467,7 +4538,7 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 	}
 
 	/* create size parameter */
-	if (flag & 0x100) {
+	if (flag & CHK_IOC_VIEWLAY_VALIDCOMPOSEPOS) {
 		if (VIEW_MASK(arg->pos_x)) {
 			/* set argument from previous configuration. */
 			arg->pos_x = buffer->pos_x;
@@ -4481,28 +4552,39 @@ static int  chk_ioc_viewlay(struct composer_fh *fh, \
 		pos.y = arg->pos_y;
 	}
 
-	if ((flag & 0x010) && chk_ioc_laysize(fh, &laysize, 1) != 0) {
+	if ((flag & CHK_IOC_VIEWLAY_VALIDLAYSIZE) &&
+		chk_ioc_laysize(fh, &laysize, true) != 0) {
 		rc = CMP_NG_VIEWLAY1;
 		goto err_exit;
 	}
 
-	if ((flag & 0x020) && chk_ioc_cropsize(fh, &cropsize, 1, &laysize)
+	if ((flag & CHK_IOC_VIEWLAY_VALIDCROPSIZE) &&
+		chk_ioc_cropsize(fh, &cropsize, true, &laysize)
 		!= 0) {
 		rc = CMP_NG_VIEWLAY2;
 		goto err_exit;
 	}
 
-	if ((flag & 0x040) && chk_ioc_croppos(fh, &croppos, 1, &laysize) != 0) {
+	if ((flag & CHK_IOC_VIEWLAY_VALIDCROPPOS) &&
+		chk_ioc_croppos(fh, &croppos, true, &laysize) != 0) {
 		rc = CMP_NG_VIEWLAY3;
 		goto err_exit;
 	}
 
-	if ((flag & 0x081) == 0x081 && chk_ioc_size(fh, &size, 1) != 0) {
+	if ((flag &
+		(CHK_IOC_VIEWLAY_VALIDCOMPOSESIZE | CHK_IOC_VIEWLAY_INPUTLAYER)
+		) ==
+		(CHK_IOC_VIEWLAY_VALIDCOMPOSESIZE | CHK_IOC_VIEWLAY_INPUTLAYER)
+		&& chk_ioc_size(fh, &size, true) != 0) {
 		rc = CMP_NG_VIEWLAY4;
 		goto err_exit;
 	}
 
-	if ((flag & 0x101) == 0x101 && chk_ioc_pos(fh, &pos, 1) != 0) {
+	if ((flag &
+		(CHK_IOC_VIEWLAY_VALIDCOMPOSEPOS | CHK_IOC_VIEWLAY_INPUTLAYER)
+		) ==
+		(CHK_IOC_VIEWLAY_VALIDCOMPOSEPOS | CHK_IOC_VIEWLAY_INPUTLAYER)
+		&& chk_ioc_pos(fh, &pos, true) != 0) {
 		rc = CMP_NG_VIEWLAY5;
 		goto err_exit;
 	}
@@ -4534,7 +4616,7 @@ static int  chk_ioc_backcolor(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of keycolor */
 		goto pass_exit;
 	}
@@ -4576,7 +4658,7 @@ static int  chk_ioc_layaddr(struct composer_fh *fh, \
 		goto err_exit;
 	}
 
-	if (set_flag == 0) {
+	if (set_flag == false) {
 		/* skip parameter check of laysize */
 		goto pass_exit;
 	}
@@ -4599,7 +4681,7 @@ static int  chk_ioc_layaddr(struct composer_fh *fh, \
 	} else {
 		printk_dbg2(2, "pixel format not specified."
 			" ignore parameter check of set adr.\n");
-		target_pixfmt = -1;
+		target_pixfmt = CHK_IOC_LAYADDR_NOPIXFMT;
 	}
 
 	if (target_x != 0 && target_y != 0 && target_pixfmt >= 0) {
@@ -4683,8 +4765,10 @@ static int  chk_ioc_start(struct composer_fh *fh)
 			| BUF_ID_FLG_LAYSIZE | BUF_ID_FLG_POS | BUF_ID_FLG_SIZE
 	};
 
-	static unsigned int src_pos_x[5],  src_pos_y[5];
-	static unsigned int src_size_w[5], src_size_h[5];
+	static unsigned int src_pos_x[COMPOSER_NUM_INOUT_BUFFER],
+		src_pos_y[COMPOSER_NUM_INOUT_BUFFER];
+	static unsigned int src_size_w[COMPOSER_NUM_INOUT_BUFFER],
+		src_size_h[COMPOSER_NUM_INOUT_BUFFER];
 	int    resize_idx;
 
 	/* check open */
@@ -4694,7 +4778,7 @@ static int  chk_ioc_start(struct composer_fh *fh)
 		goto err_exit;
 	}
 
-	for (i = 1; i < 5; i++) {
+	for (i = 1; i < COMPOSER_NUM_INOUT_BUFFER; i++) {
 		if ((fh->fh_status & fh_status_translate[i]) == 0) {
 			/* input layer not open */
 			continue;
@@ -4706,14 +4790,14 @@ static int  chk_ioc_start(struct composer_fh *fh)
 		/* find out usrable input layer */
 		break;
 	}
-	if (i == 5) {
+	if (i == COMPOSER_NUM_INOUT_BUFFER) {
 		printk_dbg2(2, "does not open CMP_CH*_LAYER\n");
 		rc = CMP_NG_OPEN_IN;
 		goto err_exit;
 	}
 
 	/* check parameter */
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < COMPOSER_NUM_INOUT_BUFFER; i++) {
 		unsigned int crop_x, crop_y, crop_w, crop_h;
 		struct composer_info   *info;
 		struct composer_buffer *buf;
@@ -4782,7 +4866,7 @@ static int  chk_ioc_start(struct composer_fh *fh)
 
 	/* check destination size */
 	resize_idx = -1;
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < COMPOSER_NUM_INOUT_BUFFER; i++) {
 		unsigned int dst_x, dst_y, dst_w, dst_h;
 
 		struct composer_info   *info;
@@ -4881,7 +4965,8 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 
 			if (rh->active && rh->data.extlayer_index >= 0) {
 				/* there is pending request. */
-				rh->rh_wqcommon.status = 3;
+				rh->rh_wqcommon.status =
+					RTAPI_NOTIFY_RESULT_ERROR;
 				wake_up_interruptible_all(
 					&rh->rh_wqcommon.wait_notify);
 			}
@@ -4894,9 +4979,9 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 			/* report error */
 			printk_err1("notify_graphics_image_output result:%d\n",
 				result);
-			rh->rh_wqcommon.status = 3;
+			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_ERROR;
 		} else {
-			rh->rh_wqcommon.status = 1;
+			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_NORMAL;
 		}
 
 		/* wakeup waiting task */
@@ -4937,13 +5022,13 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 	/* confirm result code. */
 	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 		struct list_head *list;
-		int    match = 0;
+		int    match = false;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 		int    i;
 #endif
 
 		/* record RT-API hung-up */
-		rtapi_hungup = 1;
+		rtapi_hungup = true;
 
 		list_for_each(list, &file_top)
 		{
@@ -4954,7 +5039,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 				&fh->fh_wqcommon);
 
 			if (user_data == (unsigned long)&fh->fh_wqcommon) {
-				match = 1;
+				match = true;
 				break;
 			}
 		}
@@ -4966,7 +5051,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 				&rh->rh_wqcommon);
 
 			if (user_data == (unsigned long)&rh->rh_wqcommon) {
-				match = 1;
+				match = true;
 				break;
 			}
 		}
@@ -4984,7 +5069,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 			fh = list_entry(list, struct composer_fh, \
 				fh_filelist);
 
-			fh->fh_wqcommon.status = 3;
+			fh->fh_wqcommon.status = RTAPI_NOTIFY_RESULT_ERROR;
 			wake_up_interruptible_all(&fh->fh_wqcommon.wait_notify);
 		}
 
@@ -4993,7 +5078,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 		for (i = 0; i < MAX_KERNELREQ; i++) {
 			struct composer_rh *rh = &kernel_request[i];
 
-			rh->rh_wqcommon.status = 3;
+			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_ERROR;
 			wake_up_interruptible_all(&rh->rh_wqcommon.wait_notify);
 		}
 #endif
@@ -5004,9 +5089,9 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 
 	if (result != SMAP_LIB_GRAPHICS_OK) {
 		printk_err1("notify_graphics_image_blend result:%d\n", result);
-		common->status = 3;
+		common->status = RTAPI_NOTIFY_RESULT_ERROR;
 	} else {
-		common->status = 1;
+		common->status = RTAPI_NOTIFY_RESULT_NORMAL;
 	}
 	/* wakeup waiting task */
 	wake_up_interruptible_all(&common->wait_notify);
@@ -5425,11 +5510,14 @@ static void work_overlay(struct localwork *work)
 		int index;
 
 		index = rh->data.extlayer_index;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 		if (in_early_suspend) {
 			printk_dbg2(1, "suspend state.\n");
 			rc = CMP_NG;
 			goto finish;
-		} else if (graphic_handle_hdmi == NULL) {
+		}
+#endif
+		if (graphic_handle_hdmi == NULL) {
 			printk_err1("handle for HDMI not created.\n");
 			rc = CMP_NG;
 			goto finish;
@@ -5437,7 +5525,7 @@ static void work_overlay(struct localwork *work)
 			printk_err1("graphics system hungup.\n");
 			rc = CMP_NG;
 			goto finish;
-		} else if (index < 0 || index > 3) {
+		} else if (index < 0 || index > (rh->data.num_layers - 1)) {
 			printk_err1("extlayer_index out of range.\n");
 			rc = CMP_NG;
 			goto finish;
@@ -5465,7 +5553,7 @@ static void work_overlay(struct localwork *work)
 			dump_screen_grap_image_output(&_out);
 #endif
 
-			common->status  = 0;
+			common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 			rc = screen_graphics_image_output(&_out);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
 				printk_err("screen_graphics_image_output "
@@ -5477,8 +5565,9 @@ static void work_overlay(struct localwork *work)
 
 			/* wait complete */
 			rc = wait_event_interruptible_timeout(
-				common->wait_notify, \
-				common->status != 0, msecs_to_jiffies(500));
+				common->wait_notify,
+				common->status != RTAPI_NOTIFY_RESULT_UNDEFINED,
+				msecs_to_jiffies(WORK_OVERLAY_WAITTIME));
 			if (rc < 0) {
 				/* report error */
 				printk_err("unexpectly wait_event "
@@ -5487,7 +5576,13 @@ static void work_overlay(struct localwork *work)
 				/* report error */
 				printk_err1("not detect notify of output.\n");
 			}
-			rc = (common->status == 0) ? CMP_NG : CMP_OK;
+
+			if (common->status == RTAPI_NOTIFY_RESULT_NORMAL) {
+				rc = CMP_OK;
+			} else {
+				printk_err1("callback result is error.\n");
+				rc = CMP_NG;
+			}
 		}
 finish:
 		printk_dbg1(2, "results rc:%d\n", rc);
@@ -5505,6 +5600,24 @@ finish:
 	DBGLEAVE("\n");
 	return;
 }
+
+static void work_register_rtmemory(struct localwork *work)
+{
+	unsigned long fb_addr = queue_fb_map_address;
+	unsigned long fb_size = queue_fb_map_endaddress - queue_fb_map_address;
+
+	queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
+		fb_size, fb_addr);
+
+	if (queue_fb_map_handle) {
+		printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
+			"map success.\n",                 \
+			fb_addr, fb_addr + fb_size - 1);
+	} else {
+		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
+			fb_addr, fb_addr + fb_size - 1);
+	}
+}
 #endif
 
 static void work_runblend(struct localwork *work)
@@ -5516,7 +5629,7 @@ static void work_runblend(struct localwork *work)
 		It's necessary to make the task registered with work,
 		should be a definition of the following structure.
 
-		struct <work_task structur> {
+		struct <work_task structure> {
 			struct localwork             fh_wqtask;
 			struct composer_blendcommon  fh_wqcommon;
 		*****************************************************/
@@ -5529,7 +5642,7 @@ static void work_runblend(struct localwork *work)
 	printk_dbg1(1, "blending handle:%p in PID:%d TGID:%d\n",
 		graphic_handle, current->pid, current->tgid);
 
-	common->status  = 0;
+	common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (in_early_suspend) {
 		printk_dbg2(1, "suspend state.\n");
@@ -5561,8 +5674,9 @@ static void work_runblend(struct localwork *work)
 	}
 
 	rc = wait_event_interruptible_timeout(
-		common->wait_notify, \
-		common->status != 0, 1 * HZ);
+		common->wait_notify,
+		common->status != RTAPI_NOTIFY_RESULT_UNDEFINED,
+		WORK_RUNBLEND_WAITTIME * HZ);
 	if (rc < 0) {
 		/* report error */
 		printk_err("unexpectly wait_event interrupted by %d .\n", rc);
@@ -5570,16 +5684,16 @@ static void work_runblend(struct localwork *work)
 		/* report error */
 		printk_err1("not detect notify of blending.\n");
 	}
-	rc = (common->status == 0) ? CMP_NG : CMP_OK;
 
-finish3:
-finish:
-	(*common->_blend).handle = NULL;
-
-	if (common->status != 1) {
+	if (common->status == RTAPI_NOTIFY_RESULT_NORMAL) {
+		rc = CMP_OK;
+	} else {
 		printk_err1("callback result is error.\n");
 		rc = CMP_NG;
 	}
+finish3:
+finish:
+	(*common->_blend).handle = NULL;
 
 	printk_dbg1(2, "results rc:%d\n", rc);
 
@@ -5651,8 +5765,8 @@ static int  setbusy(struct composer_fh *fh)
 	int rc, i;
 	int lock_flag;
 	unsigned long          start_jiffies;
-	struct composer_buffer *buffer[5];
-	struct composer_info   *info[5];
+	struct composer_buffer *buffer[COMPOSER_NUM_INOUT_BUFFER];
+	struct composer_info   *info[COMPOSER_NUM_INOUT_BUFFER];
 	int                    nBuffer;
 
 	static const int fh_status_translate[] = {
@@ -5725,7 +5839,7 @@ static int  setbusy(struct composer_fh *fh)
 				event_rc = wait_event_interruptible_timeout(
 					fh->fh_wait,
 					buffer[i]->buf_sem.count > 0,
-					2 * HZ);
+					SETBUSY_WAITTIME * HZ);
 
 				if (event_rc < 0) {
 					printk_err2("buffer lock interrupted "
@@ -5739,7 +5853,8 @@ static int  setbusy(struct composer_fh *fh)
 			}
 			/* may be previous busy buffer free */
 		}
-	} while (rc != 0 && (int)(jiffies - start_jiffies) < 2 * HZ);
+	} while (rc != 0 &&
+		(int)(jiffies - start_jiffies) < SETBUSY_WAITTIME * HZ);
 
 	printk_dbg2(3, "lock result: %d (0x%x)\n", rc, lock_flag);
 
@@ -5755,8 +5870,8 @@ static int  setbusy(struct composer_fh *fh)
 
 #if _LOG_DBG >= 2
 	if (2 < debug) {
-		int semaphore_count[5];
-		int buffer_id[5];
+		int semaphore_count[COMPOSER_NUM_INOUT_BUFFER];
+		int buffer_id[COMPOSER_NUM_INOUT_BUFFER];
 
 		memset(semaphore_count, 0, sizeof(semaphore_count));
 		memset(buffer_id,      0, sizeof(buffer_id));
@@ -5825,18 +5940,16 @@ static void timeout_queue_process_timerstart(void)
 	printk_dbg2(3, "spinlock\n");
 	spin_lock_irqsave(&irqlock_timer, flags);
 
-	if (kernel_queue_timer.data == 0) {
-		kernel_queue_timer.data    = 1;
+	if (!timer_pending(&kernel_queue_timer)) {
 		kernel_queue_timer.expires = jiffies + \
-			msecs_to_jiffies(200);
-
-		spin_unlock_irqrestore(&irqlock_timer, flags);
+			msecs_to_jiffies(KERNEL_QUEUE_TIMER_WAITTIME);
 
 #if _LOG_DBG > 0
 		if (debug) {
 			/* time out extend to 1 minute. */
 			kernel_queue_timer.expires += \
-				msecs_to_jiffies(5000);
+				msecs_to_jiffies(
+					KERNEL_QUEUE_TIMER_WAITTIME_DEBUG);
 		}
 #endif
 		printk_dbg2(3, "add timer expires:%u current:%u\n",
@@ -5849,9 +5962,10 @@ static void timeout_queue_process_timerstart(void)
 #endif
 	} else {
 		/* nothing to do */
-		spin_unlock_irqrestore(&irqlock_timer, flags);
 		printk_dbg2(3, "already start timer\n");
 	}
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
 
 	DBGLEAVE("\n");
 }
@@ -5861,16 +5975,15 @@ static void timeout_queue_process_timercancel(void)
 	unsigned long flags;
 	DBGENTER("\n");
 
-	if (kernel_queue_timer.data) {
-		printk_dbg2(3, "spinlock\n");
-		spin_lock_irqsave(&irqlock_timer, flags);
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
 
+	if (timer_pending(&kernel_queue_timer)) {
 		printk_dbg2(3, "cancel timer\n");
 		del_timer(&kernel_queue_timer);
-		kernel_queue_timer.data = 0;
-
-		spin_unlock_irqrestore(&irqlock_timer, flags);
 	}
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
 
 	if (!list_empty(&kernel_queue_top)) {
 		printk_dbg2(3, "restart timer, there is pending request\n");
@@ -5939,14 +6052,14 @@ static int  composer_convert_queueaddress(screen_grap_image_blend *blend)
 	int i;
 
 	int                     num_layer;
-	screen_grap_image_param * layer[5];
+	screen_grap_image_param * layer[COMPOSER_NUM_INPUT_GRAP_LAYER + 1];
 
 	DBGENTER("blend:%p\n", blend);
 
 	num_layer = 1;
 	layer[0] = &blend->output_image;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < COMPOSER_NUM_INPUT_GRAP_LAYER; i++) {
 		if (blend->input_layer[i] == NULL)
 			break;
 
@@ -5989,7 +6102,7 @@ static int  composer_convert_queueaddress(screen_grap_image_blend *blend)
 		}
 	}
 	/* all of address translation successed. */
-	rc = 0;
+	rc = CMP_OK;
 err_exit:
 	DBGLEAVE("\n");
 	return rc;
@@ -6009,7 +6122,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 {
 	struct composer_rh     *blend_req = NULL;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	int hdmi_queue = 0;
+	int hdmi_queue = false;
 #endif
 
 	TRACE_ENTER(FUNC_BLEND);
@@ -6082,7 +6195,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 			printk_dbg2(3, "list %p is removed.\n", blend_req);
 
 			list_del_init(&blend_req->list);
-		} else if (count >= 2) {
+		} else if (count >= KERNEL_QUEUE_INVALID_NUM_THRESHOLD) {
 			printk_err("address 0x%lx is not found in list\n",
 				fb_physical);
 
@@ -6161,7 +6274,7 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 				if (localworkqueue_queue(workqueue,
 					&blend_req->rh_wqtask_hdmi)) {
 					/* set queue flag for hdmi */
-					hdmi_queue = 1;
+					hdmi_queue = true;
 				}
 			}
 #endif
@@ -6205,7 +6318,7 @@ int sh_mobile_composer_hdmiset(int mode)
 	printk_dbg2(3, "down\n");
 	down(&sem);
 
-	if (mode == 0) {
+	if (mode == CMP_HDMISET_STOP) {
 		/* confirm that the graphics handle for HDMI need release. */
 		if (graphic_handle_hdmi) {
 			/* queue task. */
@@ -6244,7 +6357,7 @@ void sh_mobile_composer_notifyrelease(void)
 	TRACE_ENTER(FUNC_NOTIFY);
 	DBGENTER("\n");
 
-	overlay_draw_complete = 1;
+	overlay_draw_complete = true;
 	if (rh) {
 #if _LOG_DBG >= 1
 		if (rh->refcount != 1) {
@@ -6326,7 +6439,7 @@ int sh_mobile_composer_queue(
 			list_empty(&kernel_request[i].list)) {
 			printk_dbg2(3, "use request buffer index:%d\n", i);
 			rh = &kernel_request[i];
-			rh->active = 1;
+			rh->active = true;
 			break;
 		}
 	}
@@ -6357,7 +6470,7 @@ int sh_mobile_composer_queue(
 	{
 		screen_grap_image_blend *blend = &rh->data.blend;
 		blend->handle = NULL;
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < COMPOSER_NUM_INPUT_GRAP_LAYER; i++) {
 			if (blend->input_layer[i])
 				blend->input_layer[i] = &rh->data.layer[i];
 		}
@@ -6370,7 +6483,7 @@ int sh_mobile_composer_queue(
 
 		if (composer_convert_queueaddress(blend) != CMP_OK) {
 			printk_err2("address translation failed.");
-			rh->active = 0;
+			rh->active = false;
 			goto err_exit;
 		}
 	}
@@ -6396,35 +6509,35 @@ int sh_mobile_composer_queue(
 #endif
 		format  = blend->output_image.format;
 		address = blend->output_image.address;
-		if (format > 30 ||
+		if (format > KERNEL_QUEUE_MAXID_PIXEL_FORMAT ||
 		    (chk_flag & (1<<format)) == 0) {
 			printk_err("format %d un-expected.\n", format);
-			rh->active = 0;
+			rh->active = false;
 			goto err_exit;
 		}
 		if (address == NULL) {
 			printk_err2("address NULL un-expected.\n");
-			rh->active = 0;
+			rh->active = false;
 			goto err_exit;
 		}
 
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < COMPOSER_NUM_INPUT_GRAP_LAYER; i++) {
 			if (blend->input_layer[i] == NULL)
 				break;
 
 			format  = rh->data.layer[i].image.format;
 			address = rh->data.layer[i].image.address;
-			if (format > 30 ||
+			if (format > KERNEL_QUEUE_MAXID_PIXEL_FORMAT ||
 			    (chk_flag & (1<<format)) == 0) {
 				printk_err("layer %d format %d un-expected.\n",
 					i, format);
-				rh->active = 0;
+				rh->active = false;
 				goto err_exit;
 			}
 			if (address == NULL) {
 				printk_err2("layer %d address NULL "
 					"un-expected.\n", i);
-				rh->active = 0;
+				rh->active = false;
 				goto err_exit;
 			}
 		}
@@ -6475,7 +6588,7 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 		user_callback = rh->user_callback;
 		user_data     = rh->user_data;
 		rh->user_callback = NULL;
-		rh->active = 0;
+		rh->active = false;
 
 		/* wake-up waiting thread */
 		wake_up(&kernel_waitqueue_comp);
@@ -6499,9 +6612,13 @@ static void callback_composer_queue(int result, void *user_data)
 
 	TRACE_LOG1(FUNC_CALLBACK, result);
 	if (result != CMP_OK) {
+		int suspend_flag = -1;
 		/* error report */
+#ifdef CONFIG_HAS_EARLYSUSPEND
+		suspend_flag = in_early_suspend;
+#endif
 		printk_err("composer error %d, %d, %d\n",
-			in_early_suspend,
+			suspend_flag,
 			(graphic_handle == NULL),
 			rtapi_hungup);
 	}
@@ -6520,7 +6637,7 @@ static void timeout_queue_process(unsigned long data)
 
 	rc = localworkqueue_queue(workqueue,
 		&expire_kernel_request);
-	if (rc == 0) {
+	if (rc == false) {
 		/* report error */
 		printk_err("can not queue work of expire_kernel_request.\n");
 	}
@@ -6535,7 +6652,9 @@ static void tracelog_record(int logclass, int line, int ID, int val)
 	unsigned long flags;
 
 	spin_lock_irqsave(&log_irqlock, flags);
-	log_tracebuf[log_tracebuf_wp][0] = (logclass<<24) | (line);
+	log_tracebuf[log_tracebuf_wp][0] =
+		(logclass<<TRACELOG_RECORD_VALUE0_SHIFT_TO_LOGCLASS) |
+		(line);
 	log_tracebuf[log_tracebuf_wp][1] = ID;
 	log_tracebuf[log_tracebuf_wp][2] = val;
 	log_tracebuf_wp = (log_tracebuf_wp+1) & (TRACELOG_SIZE-1);
@@ -6552,7 +6671,8 @@ static int tracelog_create_logmessage(char *p, int n)
 	spin_lock_irqsave(&log_irqlock, flags);
 	rp = (log_tracebuf_wp) & (TRACELOG_SIZE-1);
 	for (i = 0; i < TRACELOG_SIZE; i++) {
-		int logclass = log_tracebuf[rp][0]>>24;
+		int logclass = log_tracebuf[rp][0]>>
+			TRACELOG_RECORD_VALUE0_SHIFT_TO_LOGCLASS;
 		int logline  = log_tracebuf[rp][0] & 0xffffff;
 		switch (logclass) {
 		case ID_TRACE_ENTER:
@@ -6596,6 +6716,13 @@ static void internal_debug_create_message(struct composer_fh *fh)
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 	int  i;
 #endif
+	/* about internal_log_seqid */
+	/*  bit7-0:  reserved for index number of same log type */
+	/*  bit15-8: reserved for log type.                     */
+	/*  there is define of special value                    */
+	/*     -1: need initialize before begin create message. */
+	/*  65535: no more message .                            */
+
 	int  log_type  = (internal_log_seqid >> 8) & 0xff;
 	int  log_index =  internal_log_seqid       & 0xff;
 
@@ -7112,7 +7239,7 @@ static long core_ioctl(struct file *filep, \
 	int dir = _IOC_DIR(cmd);
 	int sz  = _IOC_SIZE(cmd);
 	struct composer_fh *fh;
-	static unsigned long _arg_area[64];
+	static unsigned long _arg_area[CORE_IOCTL_MAX_ARG_LENGTH];
 	void   *parg;
 
 	DBGENTER("filep:%p cmd:0x%x arg:0x%lx\n", filep, cmd, arg);
@@ -7386,7 +7513,7 @@ static int core_release(struct inode *inode, struct file *filep)
 static void pm_early_suspend(struct early_suspend *h)
 {
 	DBGENTER("h:%p\n", h);
-	in_early_suspend = 1;
+	in_early_suspend = true;
 
 	if (rtapi_hungup && graphic_handle) {
 		printk_err("not release graphic handle, "
@@ -7395,10 +7522,9 @@ static void pm_early_suspend(struct early_suspend *h)
 		int rc;
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		if (kernel_queue_timer.data) {
+		if (timer_pending(&kernel_queue_timer)) {
 			/* delete timer */
 			del_timer_sync(&kernel_queue_timer);
-			kernel_queue_timer.data = 0;
 		}
 #endif
 		printk_dbg2(3, "down\n");
@@ -7538,7 +7664,7 @@ static void pm_late_resume(struct early_suspend *h)
 		printk_dbg2(3, "already create graphic handle\n");
 		/* nothing to do */
 	}
-	in_early_suspend = 0;
+	in_early_suspend = false;
 	up(&sem);
 	printk_dbg2(3, "suspend state:%d graphic_handle:%p\n",
 		in_early_suspend, graphic_handle);
@@ -7596,13 +7722,14 @@ static int __init sh_mobile_composer_init(void)
 	init_waitqueue_head(&kernel_waitqueue_comp);
 
 	spin_lock_init(&irqlock_timer);
-	kernel_queue_timer.data = 0;
 	localwork_init(&expire_kernel_request, work_expirequeue);
 
 	/* initialize mapping information */
 	queue_fb_map_address    = 0;
 	queue_fb_map_endaddress = 0;
 	queue_fb_map_handle     = NULL; /* not mapped. */
+
+	localwork_init(&register_rtmemory,   work_register_rtmemory);
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	graphic_handle_hdmi = NULL;
@@ -7636,7 +7763,7 @@ static int __init sh_mobile_composer_init(void)
 		goto err_exit;
 	}
 #ifdef CONFIG_HAS_EARLYSUSPEND
-	in_early_suspend = 0;
+	in_early_suspend = false;
 	register_early_suspend(&early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
@@ -7661,10 +7788,9 @@ static void __exit sh_mobile_composer_release(void)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	if (kernel_queue_timer.data) {
+	if (timer_pending(&kernel_queue_timer)) {
 		/* delete timer */
 		del_timer_sync(&kernel_queue_timer);
-		kernel_queue_timer.data = 0;
 	}
 #endif
 

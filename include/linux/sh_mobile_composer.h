@@ -268,6 +268,14 @@ struct cmp_layaddr {
 #include <rtapi/screen_graphics.h>
 #include <media/sh_mobile_appmem.h>
 
+/********************/
+/* define constant  */
+#define CMP_HDMISET_STOP              0
+
+#define COMPOSER_NUM_MEMORY_BLOCK     3
+#define COMPOSER_NUM_INPUT_GRAP_LAYER 4
+#define COMPOSER_NUM_INOUT_BUFFER     5
+
 struct composer_bufer;
 struct appshare_list;
 struct composer_fh;
@@ -326,12 +334,11 @@ struct composer_buffer {
 	unsigned int        app_size_c1;
 };
 
-
 struct composer_info {
 	struct bufferlink wqlink;
 	unsigned int      id;
 	struct composer_buffer *buffer;
-	struct appmem_handle  *appinfo[3];
+	struct appmem_handle  *appinfo[COMPOSER_NUM_MEMORY_BLOCK];
 };
 
 struct composer_blendcommon {
@@ -348,24 +355,24 @@ struct composer_grapdata {
 	/* rt-api arguments. */
 	screen_grap_image_blend _blend;
 
-	screen_grap_layer       _in[4];
+	screen_grap_layer       _in[COMPOSER_NUM_INPUT_GRAP_LAYER];
 
 	/* work: temporally generate information. */
 	/* --- for stride --- */
-	int          work_linebyte[5];
-	int          work_linebyte_c0[5];
-	int          work_linebyte_c1[5];
-	int          work_pixelsize[5];
-	int          work_pixelsize_c0[5];
-	int          work_pixelsize_c1[5];
+	int          work_linebyte[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_linebyte_c0[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_linebyte_c1[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_pixelsize[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_pixelsize_c0[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_pixelsize_c1[COMPOSER_NUM_INOUT_BUFFER];
 	/* --- for crop and size --- */
-	int          work_rect_x[5];
-	int          work_rect_y[5];
-	int          work_rect_w[5];
-	int          work_rect_h[5];
+	int          work_rect_x[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_rect_y[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_rect_w[COMPOSER_NUM_INOUT_BUFFER];
+	int          work_rect_h[COMPOSER_NUM_INOUT_BUFFER];
 	/* --- for address --- */
-	unsigned int work_base[5];
-	void         *work_point[5];
+	unsigned int work_base[COMPOSER_NUM_INOUT_BUFFER];
+	void         *work_point[COMPOSER_NUM_INOUT_BUFFER];
 };
 
 struct localworkqueue {
@@ -392,9 +399,9 @@ struct composer_fh {
 	struct semaphore         fh_sem;
 	rwlock_t                 fh_rwlock;
 	wait_queue_head_t        fh_wait;
-	struct composer_info     fh_info[5];
+	struct composer_info     fh_info[COMPOSER_NUM_INOUT_BUFFER];
 	int                      fh_status;
-	struct composer_buffer   fh_buffer_id0[5];
+	struct composer_buffer   fh_buffer_id0[COMPOSER_NUM_INOUT_BUFFER];
 	struct composer_grapdata grap_data;
 };
 
@@ -409,7 +416,7 @@ struct composer_fh {
 #define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;
-	screen_grap_layer       layer[4];
+	screen_grap_layer       layer[COMPOSER_NUM_INPUT_GRAP_LAYER];
 	int                     num_layers;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	int                     extlayer_index;
