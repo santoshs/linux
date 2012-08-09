@@ -16,6 +16,9 @@ static unsigned short g_epnum2pipe[MAX_PIPE_NO+1];     // EP number to PIPE numb
 
 static void delay_10us( void );
 
+#define PIPE2TRE         (*((volatile unsigned short *)(gUSB_BaseAddr + 0x94)))   /* PIPE2 Transaction counter enable register */
+#define PIPEnTRE_TRCLR      0x0100  //Transaction counter clear
+#define PIPEnTRE_TRENB      0x0200  //Transaction counter enable
 
 /**
  * UsbF_Init
@@ -38,6 +41,10 @@ long UsbF_Init( USBF_CB func, int useHiSpeed )
     }
 	// for DMA
 	USB_SET_PAT(USBDMA_DMAOR, DME);
+
+	PIPE2TRE |= PIPEnTRE_TRCLR; // Transaction counter clear
+	PIPE2TRE &= ~PIPEnTRE_TRENB; // Transaction counter disable
+
     return (USBF_E_OK);
 }
 

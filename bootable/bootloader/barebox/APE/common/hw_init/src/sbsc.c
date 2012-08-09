@@ -223,8 +223,8 @@ void SBSC_Init_390Mhz(void)
 	while (1)
 	{
 		work = *SBSC_SDPCRA;
-		work &= SBSC_SDPCRA_DATA_CKELV;
-		if (work == SBSC_SDPCRA_DATA_CKELV)
+		work &= SBSC_SDPCRA_DATA;
+		if (work == SBSC_SDPCRA_DATA)
 		{
 			break;
 		}
@@ -293,7 +293,7 @@ void SBSC_Init_390Mhz(void)
 	*SBSC_SDCR0A     |= SBSC_SDCR0A_RFSH;
 
 	*SBSC_ZQCCRA      = SBSC_ZQCCRA_DATA;
-	*SBSC_SDPDCR0A	  = SBSC_SDPDCR0A_PDWAIT;	
+	*SBSC_SDPDCR0A	  = SBSC_SDPDCR0A_PDWAIT;
 	
 	*SBSC_SDPTCR0A &= ~SBSC_SDPTCR_SCR_FP;	/* Disable Secure Protect for Debug */
 	*SBSC_SDPTCR1A &= ~SBSC_SDPTCR_SCR_FP;	/* Disable Secure Protect for Debug */
@@ -375,6 +375,21 @@ void SBSC_Init_520Mhz(void)
 
 	/* Set PLL3 = 1040 Mhz*/
 	*CPG_PLL3CR  = CPG_PLL3CR_1040MHZ;
+	
+	/* ZB clock 1/32 */
+	*CPG_FRQCRD = CPG_FRQCRD_DIV32;
+	*CPG_FRQCRB |= CPG_FRQCRB_KICK;
+	/* Wait FRQCRB KICK bit is 0 - EOS */
+	while (1)
+	{
+		work = *CPG_FRQCRB;
+		work &= CPG_FRQCRB_KICK;
+		if (work == 0)
+		{
+			break;
+		}
+	}
+	
 	*CPG_PLLECR |= CPG_PLLECR_PLL3E;
 	/* Wait PLL3 status on */
 	while (1)
@@ -387,22 +402,9 @@ void SBSC_Init_520Mhz(void)
 		}
 	}
 
-	/* ZB clock 1/32 */
-	*CPG_FRQCRD = CPG_FRQCRD_DIV32;
-	
-	*CPG_FRQCRB |= CPG_FRQCRB_KICK;
-	/* Wait FRQCRB KICK bit is 0 - EOS */
-	while (1)
-	{
-		work = *CPG_FRQCRB;
-		work &= CPG_FRQCRB_KICK;
-		if (work == 0)
-		{
-			break;
-		}
-	}
-
 	*SBSC_SDPHYTCR1 = SBSC_SDPHYTCR1_DATA;
+	*SBSC_SDPHYTCR2 = SBSC_SDPHYTCR2_DATA;
+	*SBSC_SDPHYTCR3 = SBSC_SDPHYTCR3_DATA;
 	*SBSC_SDCR0A    = SBSC_SDCR0A_DATA;
 	*SBSC_SDCR1A    = SBSC_SDCR1A_DATA;
 	*SBSC_SDWCRC0A  = SBSC_SDWCRC0A_DATA_520;
@@ -421,8 +423,8 @@ void SBSC_Init_520Mhz(void)
 	while (1)
 	{
 		work = *SBSC_SDPCRA;
-		work &= SBSC_SDPCRA_DATA_CKELV;
-		if (work == SBSC_SDPCRA_DATA_CKELV)
+		work &= SBSC_SDPCRA_DATA;
+		if (work == SBSC_SDPCRA_DATA)
 		{
 			break;
 		}
@@ -457,7 +459,7 @@ void SBSC_Init_520Mhz(void)
 		}
 		
 		*SBSC_SDMRACR0A   = SBSC_SDMRACR0A_ZQ_CAL;
-		*SBSC_SDMRA_04000 = SBSC_SDMRA_DONE;
+		*SBSC_SDMRA_24000 = SBSC_SDMRA_DONE;
 		*SBSC_SDGENCNTA   = SBSC_SDGENCNTA_1US;
 		
 		/* Wait until SDGENCNTA counter becomes 0 */
@@ -469,7 +471,7 @@ void SBSC_Init_520Mhz(void)
 				break;
 			}
 		}
-		
+		*SBSC_SDMRA_34000 = SBSC_SDMRA_DONE;	//added
 		*SBSC_SDMRACR0A   = SBSC_SDMRACR0A_MR1_SET;
 		*SBSC_SDMRA_00000 = SBSC_SDMRA_DONE;
 		*SBSC_SDMRACR0A   = SBSC_SDMRACR0A_DATA1;
@@ -488,8 +490,8 @@ void SBSC_Init_520Mhz(void)
 	*SBSC_RTCSRA      = SBSC_RTCSRA_DATA;
 	*SBSC_SDCR0A     |= SBSC_SDCR0A_RFSH;
 
-	*SBSC_ZQCCRA      = SBSC_ZQCCRA_DATA;
-	*SBSC_SDPDCR0A	  = SBSC_SDPDCR0A_PDWAIT;	
+	*SBSC_ZQCCRA      = SBSC_ZQCCRA_DISABLE;
+	*SBSC_SDPDCR0A	  = SBSC_SDPDCR0A_PDWAIT;
 	
 	*SBSC_SDPTCR0A &= ~SBSC_SDPTCR_SCR_FP;	/* Disable Secure Protect for Debug */
 	*SBSC_SDPTCR1A &= ~SBSC_SDPTCR_SCR_FP;	/* Disable Secure Protect for Debug */
@@ -512,7 +514,7 @@ void SBSC_Init_520Mhz(void)
 			break;
 		}
 	}
-	
+
 	/* Set PLL3 = 1040 Mhz*/
 	*CPG_PLL3CR  = CPG_PLL3CR_1040MHZ;
 	
@@ -527,7 +529,7 @@ void SBSC_Init_520Mhz(void)
 			break;
 		}
 	}
-	
+
 	/* ZB3 = 1/2 * PLL3 = 520 Mhz */
 	*CPG_FRQCRD = CPG_FRQCRD_DIV2;
 	*CPG_FRQCRB |= CPG_FRQCRB_KICK;
