@@ -82,15 +82,7 @@ void r_loader_main(void)
 
 	/* Clear RWDT */
 	WDT_CLEAR();
-	
-	/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
-	/* Save bootflag */
-	if(SYSC_SWReset_Flag() == TRUE) {
-		PRINTF("r_loader_save_NVM_bootflag \n");
-		r_loader_save_NVM_bootflag();
-	}
-	/* END: CR1040: Clean up source code which accesses the eMMC directly */
-	
+
 	/* Branching decision or Power OFF */
 	branch_mode = r_loader_select_module();
 	if(0 > branch_mode)	{
@@ -129,6 +121,8 @@ void r_loader_main(void)
 #endif /* __INTEGRITY_CHECK_ENABLE__ */
 
 	if(branch_mode != MODULE_BRANCH_MODE_UPDATER)	{
+		/* Copy table from flash memory to SDRAM */
+		r_loader_copy_table_to_RAM();
 		/* Copy SPU bin from flash memory to SDRAM */
 		r_loader_copy_SPU_to_RAM();
 	}
@@ -139,29 +133,29 @@ void r_loader_main(void)
 		CPG_2nd_Setting();
 		/* Temporally fix for PM */
 		SYSC_PM_Fix();
-	}
-	//BEGIN: STM is enabled in Deep Sleep
-	ulong pstr_bak;
-	ulong volatile val;
-	
-	pstr_bak = *((volatile ulong *) 0xE6180080);	/* backup PSTR */
-	*((volatile ulong *) 0xE6180014) = 0x01FFF153;	/* all power on */
-	while (1) {val = *((volatile ulong *) 0xE6180014); if (val == 0) break;}
+		//BEGIN: STM is enabled in Deep Sleep
+		ulong pstr_bak;
+		ulong volatile val;
+		
+		pstr_bak = *((volatile ulong *) 0xE6180080);	/* backup PSTR */
+		*((volatile ulong *) 0xE6180014) = 0x01FFF153;	/* all power on */
+		while (1) {val = *((volatile ulong *) 0xE6180014); if (val == 0) break;}
 
-	*((volatile ulong *) 0xE6151180) = 0x01fc3330;
-	*((volatile ulong *) 0xE61900C0) = 0x0000800B;
-	*((volatile ulong *) 0xE618801C) = 0x90Cff300;
-	*((volatile ulong *) 0xE61800C0) = 0x01FFF951;
+		*((volatile ulong *) 0xE6151180) = 0x01fc3330;
+		*((volatile ulong *) 0xE61900C0) = 0x0000800B;
+		*((volatile ulong *) 0xE618801C) = 0x90Cff300;
+		*((volatile ulong *) 0xE61800C0) = 0x01FFF951;
 
-	*((volatile ulong *) 0xE6180008) = (0x01FFF153 & ~pstr_bak); /* power down except pstr_bak */
-	while (1) {
-		val = *((volatile ulong *) 0xE6180008);
-		if (val == 0) break;
+		*((volatile ulong *) 0xE6180008) = (0x01FFF153 & ~pstr_bak); /* power down except pstr_bak */
+		while (1) {
+			val = *((volatile ulong *) 0xE6180008);
+			if (val == 0) break;
+		}
+		
+		//For ASIC bug
+		*((volatile ulong *) 0xE61900C0) = 0x0000800B;
+		//END: STM is enabled in Deep Sleep
 	}
-	
-	//For ASIC bug
-	*((volatile ulong *) 0xE61900C0) = 0x0000800B;
-	//END: STM is enabled in Deep Sleep
 	
 	if(matrix_info.charger == CHRG_NONE)
 	{
@@ -507,7 +501,7 @@ RC r_loader_select_module(void)
 	RC branch_mode = MODULE_BRANCH_MODE_BOOTLOADER;
 	ulong key;
 	uchar boot_flags[BOOTFLAG_SIZE];
-	
+	uchar flag;
 	/* Update Boot matrix */
 	ret = boot_matrix_update();
 	if (BOOT_LOG_OK != ret)	{
@@ -602,15 +596,16 @@ RC r_loader_select_module(void)
 	default:
 		PRINTF("No key input\n");break;
 	}
-
-	/* Get boot flags (non volatile memory area) */
-	ret = Flash_Access_Read(boot_flags, BOOTFLAG_SIZE, BOOTFLAG_ADDR, UNUSED);
-	if (ret != FLASH_ACCESS_SUCCESS)
-	{
-		PRINTF("Fail eMMC to read non-volatile boot flag - ret=%d\n", ret);
-		return R_LOADER_ERR_FLASH;
-	}
 	
+/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
+	memcpy(&flag, (void*)BOOTFLAG_SDRAM_ADDR, BOOTFLAG_SDRAM_OFFSET);
+	if(flag == 0xA5){
+		memcpy(&boot_flags, (void*)BOOTFLAG_ADDR, BOOTFLAG_SIZE);
+		/* Clear boot flags */
+		memset((void *)BOOTFLAG_SDRAM_ADDR, 0x00, BOOTFLAG_SDRAM_SIZE);
+	}
+/* END: CR1040: Clean up source code which accesses the eMMC directly */
+
 	/* Check MD3 pin status (battery > 3.4V) */
 	if((*RESCNT & MD3_HIGH) == MD3_HIGH) {
 		branch_mode = r_loader_bootflags_lookup(MODE_STRING_FACTORY2);
@@ -706,6 +701,38 @@ RC Detect_Key_Input(ulong *key)
 	
 	/* Timeout error */
 	return R_LOADER_ERR_KEY;
+}
+
+/**
+ * r_loader_copy_table_to_RAM - Copy register table
+ * @return R_LOADER_SUCCESS   : Successful
+ *         R_LOADER_ERR_FLASH : Flash access error
+ */
+RC r_loader_copy_table_to_RAM(void)
+{
+	PRINTF("Copy Tuneup value from eMMC to RAM\n");
+
+	RC ret = FLASH_ACCESS_SUCCESS;
+	uint64 src_addr;
+	ulong  dst_addr;
+	ulong size;
+
+	/* Copy register table1(tuneup_value.bin) to SDRAM */
+	if (CHIP_VERSION() == CHIP_RMU2_ES10) {
+		dst_addr = TABLE1_SDRAM_ADDR_ES1;
+	} else {
+		dst_addr = TABLE1_SDRAM_ADDR_ES2;
+	}
+	
+	size = (TABLE1_SEC_SIZE * SECTOR_LENGTH);
+	src_addr = (TABLE1_SEC_ADDR * SECTOR_LENGTH);
+
+	ret = Flash_Access_Read((uchar *)(dst_addr), (ulong)(size), (uint64 )(src_addr), UNUSED);
+	if (ret != FLASH_ACCESS_SUCCESS){
+		PRINTF("FAIL eMMC to read Tuneup value - ret=%d\n", ret);
+		return R_LOADER_ERR_FLASH;
+	}
+	return R_LOADER_SUCCESS;
 }
 
 /**
@@ -835,31 +862,3 @@ RC r_loader_keymap_lookup(ulong key)
 	return R_LOADER_ERR_LOAD_MLT;
 	
 }
-
-/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
-/**
- * r_loader_save_NVM_bootflag; save boot flag from SDRAM to eMMC 
- * @return R_LOADER_SUCCESS:   Successful
- *		   R_LOADER_ERR_FLASH: Flash access error	
- */
-
-RC r_loader_save_NVM_bootflag(void)
-{
-	RC ret;
-	uchar flag;
-
-	memcpy(&flag, (void*)BOOTFLAG_SDRAM_ADDR, BOOTFLAG_SDRAM_OFFSET);
-	if(flag == 0xA5){ 
-		/* Save boot flags */
-		ret = Flash_Access_Write((uchar *)(BOOTFLAG_SDRAM_ADDR + BOOTFLAG_SDRAM_OFFSET), BOOTFLAG_SIZE, BOOTFLAG_ADDR, UNUSED);
-		if (ret != FLASH_ACCESS_SUCCESS)
-		{
-			return R_LOADER_ERR_FLASH;
-		}
-
-		/* Clear boot flags */
-		memset((void *)BOOTFLAG_SDRAM_ADDR, 0x00, BOOTFLAG_SDRAM_SIZE);
-	}
-	return R_LOADER_SUCCESS;
-}
-/* END: CR1040: Clean up source code which accesses the eMMC directly */
