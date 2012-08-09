@@ -26,6 +26,21 @@
 #include "pmCachemaintenance.S"
 
 	.align	5
+ENTRY(corestandby_pa_physical)
+	.word	0
+END(corestandby_pa_physical)
+
+	.align	5
+ENTRY(systemsuspend_cpu0_pa_physical)
+	.word	0
+END(systemsuspend_cpu0_pa_physical)
+
+	.align	5
+ENTRY(systemsuspend_cpu1_pa_physical)
+	.word	0
+END(systemsuspend_cpu1_pa_physical)
+
+	.align	5
 
 /********************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -61,8 +76,8 @@ ENTRY(start_corestandby)
 	/* Set SYS boot address Register values at this point are */
 	/*--------------------------------------------------------------*/
 	LDR		r4, =SBAR
-	LDR		r6, =ram0BasePhys /* Load RAM0 physical address */
-	BIC	r7, r6, #0x3 /* Set RAM0 physical address & clear BTMD[1:0] */
+	LDR		r6, =ram1BasePhys /* Load RAM1 physical address */
+	BIC	r7, r6, #0x3 /* Set RAM1 physical address & clear BTMD[1:0] */
 	STR		r7, [r4]
 
 	/*------------------------------------------*/
@@ -76,11 +91,10 @@ ENTRY(start_corestandby)
 	ISB
 
 	/*--------------------------------------*/
-	/* Jump to CoreStandby() on RAM0		*/
+	/* Jump to CoreStandby() on SDRAM		*/
 	/*--------------------------------------*/
-	LDR		r4, =ram0CoreStandby
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call CoreStandby() */
+	B		corestandby /* Call CoreStandby() */
 	NOP
 
 	/*------------------------------------------*/
@@ -134,12 +148,10 @@ ENTRY(jump_systemsuspend)
 	MCR 	p15, 0, r4, c3, c0, 0
 
 	/*------------------------------------------*/
-	/* Jump to systemsuspend() on RAM0			*/
-	/* r4: systemsuspend() address on RAM0		*/
+	/* Jump to systemsuspend() on SDRAM			*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0SystemSuspend
 	MOV		lr, pc
-	MOV		pc, r4					/* Call systemsuspend()		*/
+	B		systemsuspend		/* Call systemsuspend()		*/
 	NOP
 
 	/*------------------------------------------*/
@@ -155,7 +167,7 @@ ENDPROC(jump_systemsuspend)
 
 /********************************************************************/
 /* Vector table */
-/* This function is running on RAM0	 (Inter connect RAM0) */
+/* This function is running on RAM1	 (Inter connect RAM1) */
 /* After modification of this function, please check the offset. */
 /* Enter with: */
 /********************************************************************/
@@ -196,7 +208,7 @@ ENDPROC(ArmVector)
 
 /*****************************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
-/* This function is running on RAM0 */
+/* This function is running on SDRAM */
 /* After modification of this function, please check the offset. */
 /* Enter with: */
 /* 	r0 = this pointer */
@@ -221,17 +233,15 @@ ENTRY(corestandby)
 	LDREQ	r0, =ram0Cpu0RegisterArea /* r0: Backup area for CPU0 */
 	LDRNE	r0, =ram0Cpu1RegisterArea /* r0: Backup area for CPU1 */
 	LDR		r0, [r0]
-	LDR		r4, =ram0SaveArmRegister
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call save_arm_register() */
+	B		save_arm_register
 	NOP
 #ifdef CORESTANDBY_A2SL
 	/*------------------------------------------*/
 	/* Save Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0SaveCommonRegister
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call save_common_register() */
+	B		save_common_register
 	NOP
 #endif
 
@@ -250,8 +260,9 @@ ENTRY(corestandby)
 	/*------------------------------------------*/
 	/* Disable MMU							*/
 	/*------------------------------------------*/
-	LDR	r0, =ram0CoreStandbyPAPhys /* Jump point to corestandby_pa non-MMU*/
-	LDR		r4, =ram0DisableMMU
+	/* Jump point to corestandby_pa non-MMU */
+	LDR		r0, corestandby_pa_physical
+	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
 
@@ -271,9 +282,9 @@ CORESTANDBY_RESTORE:
 	LDREQ	r0, =ram0Cpu0RegisterArea
 	LDRNE	r0, =ram0Cpu1RegisterArea
 	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call restore_arm_register_va */
+	/* Call restore_arm_register_va */
+	B		restore_arm_register_va
 	NOP
 
 	LDMFD	sp!, {r4-r11,pc}
@@ -282,7 +293,7 @@ ENDPROC(corestandby)
 
 /****************************************************************************/
 /* Transition to System Suspend(A3SM Power Off)								*/
-/* This function is running on RAM0											*/
+/* This function is running on SDRAM											*/
 /* Enter with:																*/
 /* 	r0 = this pointer														*/
 /* 	lr = Address of return point 											*/
@@ -312,9 +323,8 @@ CPU0_SYSTEMSUSPEND:
 	/*--------------------------------------*/
 	LDR		r0, =ram0Cpu0RegisterArea	/* r0: backup area 				*/
 	LDR		r0, [r0]
-	LDR		r4, =ram0SaveArmCommonRegister
 	MOV		lr, pc
-	MOV		pc, r4					/* Call save_arm_common_register()	*/
+	B		save_arm_common_register	/* Call save_arm_common_register()	*/
 	NOP
 
 	/*--------------------------------------*/
@@ -322,20 +332,16 @@ CPU0_SYSTEMSUSPEND:
 	/*--------------------------------------*/
 	LDR		r0, =ram0Cpu0RegisterArea	/* r0: backup area 				*/
 	LDR		r0, [r0]
-	LDR		r4, =ram0SaveArmRegister
 	MOV		lr, pc
-	MOV		pc, r4					/* Call save_arm_register()			*/
+	B		save_arm_register	/* Call save_arm_register() */
 	NOP
 
 	/*--------------------------------------*/
 	/* Save Common registers				*/
 	/*--------------------------------------*/
-	LDR		r4, =ram0SaveCommonRegister
 	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call save_common_register() */
+	B		save_common_register		/* Call save_common_register() */
 	NOP
-
-#ifdef VMALLOC_EXPAND
 
 	ADR		r4, SYSTEMSUSPEND_RESTORE_CPU0
 	LDR		r0, =ram0SystemSuspendRestoreCPU0
@@ -345,8 +351,8 @@ CPU0_SYSTEMSUSPEND:
 	/* Disable MMU							*/
 	/*--------------------------------------*/
 	/* Set jump point after disable MMU to systemsuspend_cpu0_pa */
-	LDR		r0, =ram0SystemSuspendCPU0PAPhys
-	LDR		r4, =ram0DisableMMU
+	LDR		r0, systemsuspend_cpu0_pa_physical
+	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4		/* Call disablemmu() */
 	NOP
 
@@ -363,9 +369,8 @@ SYSTEMSUSPEND_RESTORE_CPU0:
 	/*------------------------------*/
 	LDR		r0, =ram0Cpu0RegisterArea
 	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call restore_arm_register_va */
+	B		restore_arm_register_va		/* Call restore_arm_register_va */
 	NOP
 
 	/*------------------------------*/
@@ -373,68 +378,9 @@ SYSTEMSUSPEND_RESTORE_CPU0:
 	/*------------------------------*/
 	LDR		r0, =ram0Cpu0RegisterArea
 	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmCommonRegister
 	MOV		lr, pc		/* lr: Return address	*/
-	MOV		pc, r4		/* Call restore_arm_register_va	*/
+	B		restore_arm_common_register		/* Call restore_arm_common_register	*/
 	NOP
-
-
-#else /*!VMALLOC_EXPAND*/
-
-	/*------------------*/
-	/* Sys power down	*/
-	/*------------------*/
-	LDR		r4, =ram0SysPowerDown
-	MOV		lr, pc
-	MOV		pc, r4		/* Call sys_powerdown	*/
-	NOP
-
-	/*------------------*/
-	/* Sys power up		*/
-	/*------------------*/
-	LDR		r4, =ram0SysPowerUpPhys
-	MOV		lr, pc
-	MOV		pc, r4		/* Call sys_powerup		*/
-	NOP
-
-	/*--------------------------------------*/
-	/* Restore Common registers	(MMU off)	*/
-	/*--------------------------------------*/
-	LDR		r4, =ram0RestoreCommonRegisterPhys
-	MOV		lr, pc		/* lr: Return address	*/
-	MOV		pc, r4		/* Call restore_common_register() */
-	NOP
-
-	/*----------------------------------*/
-	/* Restore ARM registers (MMU off)	*/
-	/*----------------------------------*/
-	LDR		r0, =ram0MmuSetting0Phys
-	LDR		r4, =ram0RestoreArmRegisterPAPhys
-	MOV		lr, pc		/* lr: Return address 	*/
-	MOV		pc, r4		/* Call restore_arm_register_pa() */
-	NOP
-
-	/*----------------------------------*/
-	/* Restore ARM registers			*/
-	/*----------------------------------*/
-	LDR		r0, =ram0Cpu0RegisterArea
-	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmRegisterVA
-	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call restore_arm_register_va */
-	NOP
-
-	/*------------------------------*/
-	/* Restore ARM common registers	*/
-	/*------------------------------*/
-	LDR		r0, =ram0Cpu0RegisterArea
-	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmCommonRegister
-	MOV		lr, pc		/* lr: Return address	*/
-	MOV		pc, r4	/* Call restore_arm_common_register	*/
-	NOP
-
-#endif /*VMALLOC_EXPAND*/
 
 	B		SYSTEMSUSPEND_EXIT
 
@@ -448,11 +394,9 @@ CPU1_SYSTEMSUSPEND:
 	/*----------------------*/
 	LDR		r0, =ram0Cpu1RegisterArea	/* r0: backup area */
 	LDR		r0, [r0]
-	LDR		r4, =ram0SaveArmRegister
 	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call save_arm_register()	*/
+	B		save_arm_register		/* Call save_arm_register()	*/
 	NOP
-#ifdef VMALLOC_EXPAND
 
 	ADR		r4, SYSTEMSUSPEND_RESTORE_CPU1
 	LDR		r0, =ram0SystemSuspendRestoreCPU1
@@ -462,8 +406,8 @@ CPU1_SYSTEMSUSPEND:
 	/* Disable MMU			*/
 	/*----------------------*/
 	/* Set jumpt point after disable MMU to systemsuspend_cpu1_pa */
-	LDR		r0, =ram0SystemSuspendCPU1PAPhys
-	LDR		r4, =ram0DisableMMU
+	LDR		r0, systemsuspend_cpu1_pa_physical
+	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4		/* Call disablemmu()	*/
 	NOP
 
@@ -475,54 +419,13 @@ SYSTEMSUSPEND_RESTORE_CPU1:
 	DSB
 	ISB
 
-#else /*!VMALLOC_EXPAND*/
-
-	/*--------------------------*/
-	/* CPU power down			*/
-	/*--------------------------*/
-	LDR		r7, =ram0WakeupCodeAddr1
-	MOV		r4, #0x0300
-	LDR		r5, =SCU_PWRST_ADDR
-	LDR		r6, [r5]
-	ORR		r6, r6, r4
-	STR		r6, [r5]
-	DSB
-	ADR		r4, SUSPEND_WAKEUP_CPU1_NO_VMALLOC_EXPAND
-	STR		r4, [r7]
-	WFI
-	NOP
-SUSPEND_WAKEUP_CPU1_NO_VMALLOC_EXPAND:
-	MOV		r4,	#0x0300
-	LDR		r5, =SCU_PWRST_ADDR
-	LDR		r6, [r5]
-	BIC		r6, r6, r4
-	STR		r6, [r5]
-	DSB
-
-	/*------------------------------------------*/
-	/* Invalidate L1 D-cache					*/
-	/*------------------------------------------*/
-	L1_DataCacheInvalidateSW	/* L1 D-Cache Invalidate */
-
-	/*------------------------------------------*/
-	/* Restore ARM registers					*/
-	/*------------------------------------------*/
-	LDR		r0, =ram0MmuSetting1Phys
-	LDR		r4, =ram0RestoreArmRegisterPAPhys
-	MOV		lr, pc	/* lr: Return address	*/
-	MOV		pc, r4	/* Call restore_arm_register_pa() */
-	NOP
-
-#endif /*VMALLOC_EXPAND*/
-
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
 	/*------------------------------------------*/
 	LDR		r0, =ram0Cpu1RegisterArea
 	LDR		r0, [r0]
-	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call restore_arm_register_va */
+	B		restore_arm_register_va		/* Call restore_arm_register_va */
 	NOP
 
 SYSTEMSUSPEND_EXIT:
@@ -535,7 +438,7 @@ ENDPROC(systemsuspend)
 
 /****************************************/
 /* Save ARM register					*/
-/* This function is running on RAM0		*/
+/* This function is running on SDRAM	*/
 /* Enter with: 							*/
 /* 	r0:backup area						*/
 /* 	lr:return address					*/
@@ -682,7 +585,7 @@ ENDPROC(save_arm_register)
 
 /****************************************************************/
 /* Restore ARM register(running in MMU disable) */
-/* This function is running on RAM0 */
+/* This function is running on SDRAM */
 /* After modification of this function, please check the offset.*/
 /* Enter with: */
 /*	r0:backup area */
@@ -729,7 +632,7 @@ ENDPROC(restore_arm_register_pa)
 
 /****************************************************************/
 /* Restore ARM register(running in MMU enable) */
-/* This function is running on RAM0 */
+/* This function is running on SDRAM */
 /* After modification of this function, please check the offset.*/
 /* Enter with: */
 /*	r0:backup area  */
@@ -818,7 +721,7 @@ ENDPROC(restore_arm_register_va)
 
 /********************************************************************/
 /* Save arm common register											*/
-/* This function is running on RAM0									*/
+/* This function is running on SDRAM								*/
 /* After modification of this function, please check the offset.	*/
 /*																	*/
 /* Enter with: 														*/
@@ -965,7 +868,7 @@ ENDPROC(save_arm_common_register)
 
 /********************************************************************/
 /* Restore ARM common register										*/
-/* This function is running on RAM0									*/
+/* This function is running on SDRAM								*/
 /* After modification of this function, please check the offset.	*/
 /*																	*/
 /* Enter with: 														*/
@@ -1135,7 +1038,7 @@ ENDPROC(restore_arm_common_register)
 
 /********************************************************************/
 /* Save common register												*/
-/* This function is running on RAM0									*/
+/* This function is running on SDRAM								*/
 /* After modification of this function, please check the offset.	*/
 /*																	*/
 /* Enter with: 														*/
@@ -1234,7 +1137,7 @@ ENDPROC(save_common_register)
 
 /********************************************************************/
 /* Restore common register											*/
-/* This function is running on RAM0									*/
+/* This function is running on SDRAM								*/
 /* After modification of this function, please check the offset.	*/
 /*																	*/
 /* Enter with: 														*/
@@ -1351,7 +1254,7 @@ ENDPROC(restore_common_register)
 
 /************************************************************************/
 /* system(A3SM) power down												*/
-/* This function is running on RAM0										*/
+/* This function is running on SDRAM									*/
 /* After modification of this function, please check the offset.		*/
 /*																		*/
 /* Enter with: 															*/
@@ -1359,7 +1262,6 @@ ENDPROC(restore_common_register)
 /************************************************************************/
 	.align	5
 ENTRY(sys_powerdown)
-#ifdef VMALLOC_EXPAND
 
 	/*------------------------------*/
 	/* Save wakeup code address		*/
@@ -1367,25 +1269,6 @@ ENTRY(sys_powerdown)
 	LDR		r4, =ram0WakeupCodeAddr0Phys
 	STR		lr, [r4]	/* Save wakeup code address	*/
 
-#else /*!VMALLOC_EXPAND*/
-	/*------------------------------*/
-	/* Save wakeup code address		*/
-	/*------------------------------*/
-
-	LDR		r4, =ram0WakeupCodeAddr0
-	STR		lr, [r4]	/* Save wakeup code address	*/
-
-	/*------------------------------*/
-	/* Disable MMU					*/
-	/*------------------------------*/
-	MRC		p15, 0, r4, c1, c0, 0	/* Read Control register */
-	BIC		r4, r4, #0x1			/* Clear M bit	*/
-	ISB
-	/* Write Control register (Disable MMU) */
-	MCR		p15, 0, r4, c1, c0, 0
-	ISB
-
-#endif /*VMALLOC_EXPAND*/
 	/*------------------------------*/
 	/* Disable L2 cache				*/
 	/*------------------------------*/
@@ -1462,10 +1345,9 @@ SKIP_PASR_DRAM_AREA1:
 	/*--------------------------------------*/
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
-	LDR		r4, =ram0SetClockSystemSuspendPhys
 	MOV		r0, #0x0	/* Target(r0):Powerdown(0x0)	*/
 	MOV		lr, pc	/* lr: Return address	*/
-	MOV		pc, r4 	/* Call setclock_systemsuspend()*/
+	B		setclock_systemsuspend 	/* Call setclock_systemsuspend()*/
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
@@ -1564,7 +1446,7 @@ ENDPROC(sys_powerdown)
 
 /********************************************/
 /*	system(A3SM) power up					*/
-/* This function is running on RAM0			*/
+/* This function is running on SDRAM		*/
 /* Enter with: 								*/
 /* 	lr = Address of return point 			*/
 /********************************************/
@@ -1670,10 +1552,9 @@ SYSPU_TURNON_PLL0_SKIP:
 	/*--------------------------------------*/
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
-	LDR		r4, =ram0SetClockSystemSuspendPhys
 	MOV		r0, #0x1		/* Target(r0):Wakeup(0x1) */
 	MOV		lr, pc		/* lr: Return address */
-	MOV		pc, r4		/* Call setclock_systemsuspend() */
+	B		setclock_systemsuspend		/* Call setclock_systemsuspend() */
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
@@ -1775,7 +1656,7 @@ ENDPROC(sys_powerup)
 
 /********************************************************************/
 /* Change the division ratio of clocks 								*/
-/* This function is running on RAM0									*/
+/* This function is running on SDRAM								*/
 /* After modification of this function, please check the offset.	*/
 /*																	*/
 /* Enter with: 														*/
@@ -2222,7 +2103,7 @@ ENDPROC(start_wfi)
 
 /************************************************************/
 /* Disable MMU */
-/* This function is running on RAM0 */
+/* This function is running on RAM1 */
 /* Enter with: */
 /*	r0 = Physical address of jump point after disabling MMU */
 /************************************************************/
@@ -2242,7 +2123,7 @@ ENDPROC(disablemmu)
 
 /****************************************************************/
 /* Transition to System Sleep(A3SM Power Off) (CPU0 MMU OFF)	*/
-/* This function is running on RAM0								*/
+/* This function is running on SDRAM							*/
 /*																*/
 /****************************************************************/
 .align	5
@@ -2251,27 +2132,22 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Sys power down							*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0SysPowerDownPhys
 	MOV		lr, pc
-	MOV		pc, r4				/* Call sys_powerdown				*/
+	B		sys_powerdown				/* Call sys_powerdown				*/
 	NOP
-	NOP
-	
+
 	/*------------------------------------------*/
 	/* Sys power up								*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0SysPowerUpPhys
 	MOV		lr, pc
-	MOV		pc, r4				/* Call sys_powerup					*/
+	B		sys_powerup				/* Call sys_powerup					*/
 	NOP
-
 
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0RestoreCommonRegisterPhys
 	MOV		lr, pc				/* lr: Return address				*/
-	MOV		pc, r4				/* Call restore_common_register()	*/
+	B		restore_common_register				/* Call restore_common_register()	*/
 	NOP
 
 	/*--------------------------------------------------------------*/
@@ -2282,9 +2158,8 @@ ENTRY(systemsuspend_cpu0_pa)
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting0Phys
-	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	MOV		lr, pc				/* lr: Return address				*/
-	MOV		pc, r4				/* Call restore_arm_register_pa()	*/
+	B		restore_arm_register_pa				/* Call restore_arm_register_pa()	*/
 	NOP
 
 .pool
@@ -2292,7 +2167,7 @@ ENDPROC(systemsuspend_cpu0_pa)
 
 /****************************************************************/
 /* Transition to System Sleep(A3SM Power Off) (CPU1 MMU OFF)	*/
-/* This function is running on RAM0								*/
+/* This function is running on SDRAM							*/
 /*																*/
 /****************************************************************/
 .align	5
@@ -2332,9 +2207,8 @@ CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting1Phys
-	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	MOV		lr, pc
-	MOV		pc, r4						/* Call restore_arm_register_pa()	*/
+	B		restore_arm_register_pa						/* Call restore_arm_register_pa()	*/
 	NOP
 
 .pool
@@ -2343,7 +2217,7 @@ ENDPROC(systemsuspend_cpu1_pa)
 
 /********************************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) (MMU OFF) */
-/* This function is running on RAM0 */
+/* This function is running on SDRAM */
 /* Enter with: */
 /********************************************************************/
 .align	5
@@ -2585,9 +2459,8 @@ CORESTANDBY_REL2_END:
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram0RestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call restore_common_register() */
+	B		restore_common_register
 	NOP
 #endif /* CORESTANDBY_A2SL */
 	/*------------------------------------------*/
@@ -2603,12 +2476,10 @@ CORESTANDBY_REL2_END:
 	LDRNE	r1, =ram0CoreStandbyRestoreCPU1Phys
 	LDR		r1, [r1]
 
-	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call restore_arm_register_pa() */
+	B		restore_arm_register_pa /* Call restore_arm_register_pa()	*/
 	NOP
 
 .pool
 ENDPROC(corestandby_pa)
-
 

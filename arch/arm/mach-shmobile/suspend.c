@@ -46,7 +46,7 @@
 #define DO_SAVE_REGS(array)		do_save_regs(array, ARRAY_SIZE(array))
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
-#define RAM0_ARM_VECT			ram0ArmVectorPhys
+#define RAM1_ARM_VECT			ram1BasePhys
 #define PMDBG_PRFX				"PM-DBG: "
 
 enum {
@@ -806,8 +806,8 @@ static int shmobile_suspend_prepare_late(void)
 	/* backup sys boot address */
 	save_sbar_val = __raw_readl(__io(SBAR));
 
-	/* set RAM0 vector */
-	__raw_writel(RAM0_ARM_VECT, __io(SBAR));
+	/* set RAM1 vector */
+	__raw_writel(RAM1_ARM_VECT, __io(SBAR));
 
 	return 0;
 }
