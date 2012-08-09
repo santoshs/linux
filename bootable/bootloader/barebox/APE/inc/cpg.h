@@ -247,13 +247,19 @@ typedef enum {
 #define HPB_SMCPGATIME		((volatile ulong *)(HPB_BASE + 0x1858))
 #define HPB_SMSYSCTIME		((volatile ulong *)(HPB_BASE + 0x1878))
 
+/* CMOD register address */
+#define SPU2A_CMOD		((volatile ulong *)(0xEC8FE200))
 
 /* HPB register setting value */
-#define HPB_HPBCTRL1_DATA		(0x0FFF0FFF)
+#define HPB_HPBCTRL1_DATA		(0x0FFF1FFF)
 #define HPB_HPBCTRL2_DATA		(0x0FFFFFFF)
 #define HPB_HPBCTRL4_DATA		(0x0FFF00FF)
-#define HPB_HPBCTRL5_DATA		(0x00000000)
-#define HPB_HPBCTRL7_DATA		(0xFFFFFFFF)
+#define HPB_HPBCTRL5_DATA		(0xFFFF0000)
+#define HPB_HPBCTRL7_DATA 		(0xFFFFFFFF)
+
+/* CMOD register setting value */
+#define SPU2A_CMOD_DATA 		(0x02000000)
+
 /* Semaphore time-out is supposed to be 100us */
 #define HPB_SMGPIOTIME_DATA		(0x00000514)
 #define HPB_SMCMT2TIME_DATA		(0x00000514)

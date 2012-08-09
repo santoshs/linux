@@ -133,6 +133,13 @@ void r_loader_main(void)
 		CPG_2nd_Setting();
 		/* Temporally fix for PM */
 		SYSC_PM_Fix();
+		/* DMS */
+		*HPB_HPBCTRL1 = HPB_HPBCTRL1_DATA;
+		*HPB_HPBCTRL2 = HPB_HPBCTRL2_DATA;
+		*HPB_HPBCTRL4 = HPB_HPBCTRL4_DATA;
+		*HPB_HPBCTRL5 = HPB_HPBCTRL5_DATA;
+		*HPB_HPBCTRL7 = HPB_HPBCTRL7_DATA;
+		*SPU2A_CMOD |= SPU2A_CMOD_DATA;
 		//BEGIN: STM is enabled in Deep Sleep
 		ulong pstr_bak;
 		ulong volatile val;
