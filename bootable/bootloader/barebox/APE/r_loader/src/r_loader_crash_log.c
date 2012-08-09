@@ -475,7 +475,10 @@ static void Save_Temporary_Log_To_eMMC(BOOT_LOG *boot_log)
 {
 	/* Dump temp log */
 	do {
-		if((boot_log->stbchr3 & APE_RESETLOG_TMPLOG_END) == APE_RESETLOG_TMPLOG_END) {
+		if(((boot_log->stbchr3 & APE_RESETLOG_TMPLOG_END) == APE_RESETLOG_TMPLOG_END) ||
+			(((boot_log->stbchr3 & APE_RESETLOG_TRACELOG) == APE_RESETLOG_TRACELOG) /* If Trace Log bit enabled */
+				&& ((boot_log->boot_matrix.srstfr & SRSTFR_RCWD0) == SRSTFR_RCWD0))) /* If Reset due to Watchdog */
+		{ 
 			Flash_Access_Write((uchar *)TMPLOG_BASE_ADDRESS, RESET_TMPLOG_SIZE, RESET_TMPLOG_ADDRESS, UNUSED);
 		}
 	} while(0);

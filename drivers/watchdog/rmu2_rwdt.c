@@ -30,7 +30,7 @@
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
 
-//#define CONFIG_RWDT_DEBUG
+/*#define CONFIG_RWDT_DEBUG*/
 #ifdef CONFIG_RWDT_DEBUG
 #include <linux/proc_fs.h>
 
@@ -471,6 +471,21 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 #endif
 	RWDT_DEBUG( "START < %s >\n", __func__);
 
+#ifdef CONFIG_IRQ_TRACE
+	{
+		unsigned int val;
+		/* Get Time Stamp value */
+		val = __raw_readl(CMCNT3);
+		printk(KERN_DEBUG "< %s > CMTCNT3=%08x\n",__func__,val);
+	
+		if(smp_processor_id())
+			/* Store Time Stamp value in CPU1 Time Stamp location in History Information Area */
+			__raw_writel(val, (tmplog_nocache_address + TMPLOG_SIZE_PERCPU + TMPLOG_TIME_OFFSET));
+		else
+			/* Store Time Stamp value in CPU0 Time Stamp location in History Information Area */
+			__raw_writel(val, (tmplog_nocache_address + TMPLOG_TIME_OFFSET));
+	}
+#endif /* CONFIG_IRQ_TRACE */
 	cpg_check_check();
 
 #ifdef CONFIG_GIC_NS_CMT

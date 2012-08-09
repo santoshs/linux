@@ -104,6 +104,7 @@
 /* for STBCHR3 */
 #define APE_RESETLOG_DEBUG         (0x04)
 #define APE_RESETLOG_TMPLOG_END    (0x08)
+#define APE_RESETLOG_TRACELOG      (0x10)
 
 typedef enum {
 	type_kmsg = 0,
