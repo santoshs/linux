@@ -32,6 +32,8 @@ static struct list_head g_iccom_list_recv;		  /* queue header */
 static spinlock_t g_iccom_lock_recv_list;		  /* spinlock for receive */
 static spinlock_t g_iccom_lock_fatal;			  /* spinlock for fatal */
 extern struct completion g_iccom_async_completion;  /* completion for asynchronous */
+extern spinlock_t			g_iccom_lock_handle_list;
+extern struct list_head		g_iccom_list_handle;
 
 /******************************************************************************/
 /* Function   : iccom_create_handle											  */
@@ -43,6 +45,8 @@ iccom_drv_handle *iccom_create_handle(
 	iccom_drv_handle   *handle;
 	struct completion  *completion;
 	unsigned int		alloc_size;
+	iccom_handle_list	*handle_list;
+	unsigned long		flag;
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	/* calculate allocation size */
@@ -71,6 +75,20 @@ iccom_drv_handle *iccom_create_handle(
 	} else {
 		MSG_ERROR("[ICCOMK]ERR| handle allocate error.\n");
 	}
+
+	handle_list = kmalloc(sizeof(*handle_list), GFP_KERNEL);
+	if (NULL == handle_list) {
+		MSG_ERROR("[ICCOMK]ERR| handle list allocate error.\n");
+		memset(handle, 0, alloc_size);
+		kfree(handle);
+	} else {
+		handle_list->handle = handle;
+
+		spin_lock_irqsave(&g_iccom_lock_handle_list, flag);
+		list_add_tail(&handle_list->list, &g_iccom_list_handle);
+		spin_unlock_irqrestore(&g_iccom_lock_handle_list, flag);
+	}
+
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return handle;
 }
@@ -83,9 +101,23 @@ void iccom_destroy_handle(
 	iccom_drv_handle   *handle
 )
 {
+	iccom_handle_list	*handle_list;
+	unsigned long		flag;
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
-	memset(handle, 0, sizeof(*handle));
-	kfree(handle);
+	spin_lock_irqsave(&g_iccom_lock_handle_list, flag);
+	list_for_each_entry(handle_list, &g_iccom_list_handle, list) {
+		if (handle_list->handle == handle) {
+			MSG_MED("[ICCOMK]INF|list[0x%08x] handle[0x%08x]\n", 
+			(unsigned int)handle_list->handle, (unsigned int)handle);
+			list_del(&handle_list->list);
+			kfree(handle_list);
+			memset(handle, 0, sizeof(*handle));
+			kfree(handle);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&g_iccom_lock_handle_list, flag);
+
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
@@ -274,4 +306,52 @@ int iccom_get_fatal(
 	}
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return ret;
+}
+
+/******************************************************************************/
+/* Function   : iccom_leak_check												*/
+/* Description: check memory leak												*/
+/******************************************************************************/
+void iccom_leak_check(
+	iccom_drv_handle	*handle
+)
+{
+	iccom_recv_queue	*recv_queue;
+	iccom_recv_queue	*next_queue;
+	unsigned long		flag;
+
+	if (NULL == handle) {
+		MSG_MED("[ICCOMK]INF|handle is NULL\n");
+		return;
+	}
+
+	MSG_MED("[ICCOMK]INF|handle->recv_data[0x%08x]\n", (unsigned int)handle->recv_data);
+	if (NULL != handle->recv_data) {
+		kfree(handle->recv_data);
+		handle->recv_data = NULL;
+	}
+
+	MSG_MED("[ICCOMK]INF|handle->async_recv_status[0x%08x]\n", (unsigned int)handle->async_recv_status);
+	if (0 == (handle->async_recv_status & ICCOM_ASYNC_RECV_CANCEL))
+		handle->async_recv_status |= ICCOM_ASYNC_RECV_CANCEL;
+
+	spin_lock_irqsave(&g_iccom_lock_recv_list, flag);
+	/* search the list */
+	list_for_each_entry_safe(recv_queue, next_queue, &g_iccom_list_recv, queue_header) {
+		MSG_MED("[ICCOMK]INF|queue[0x%08x]queue->comp[0x%08x]comp[0x%08x]\n",
+			(unsigned int)recv_queue,
+			(unsigned int)recv_queue->completion,
+			(unsigned int)handle->async_completion);
+		MSG_MED("[ICCOMK]INF|rcv_data[0x%08x]rcv_size[0x%08x]\n",
+			(unsigned int)recv_queue->recv_data,
+			(unsigned int)recv_queue->recv_size);
+		if (handle->async_completion == recv_queue->completion) {
+			kfree(recv_queue->recv_data);
+			list_del(&recv_queue->queue_header);
+			kfree(recv_queue);
+		}
+	}
+	spin_unlock_irqrestore(&g_iccom_lock_recv_list, flag);
+
+	return;
 }

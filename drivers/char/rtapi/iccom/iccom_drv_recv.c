@@ -153,6 +153,7 @@ int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param *recv_par
 	iccom_recv_queue *recv_queue;
 	iccom_recv_data *cmd_data;
 	unsigned long recv_size = 0;
+	int	error;
 
 	if (NULL == recv_param) {
 		MSG_ERROR("[ICCOMK]ERR|[%s] Parameter Error! recv_param is NULL.\n", __func__);
@@ -182,7 +183,8 @@ int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param *recv_par
 		async_recv_status = &drv_handle->async_recv_status;
 	}
 
-	wait_for_completion(async_completion);
+	error = wait_for_completion_killable(async_completion);
+	MSG_MED("[ICCOMK]INF|[%s] async completion result[%d]\n", __func__, error);
 
 	/* get receive queue */
 	ret_code = iccom_get_recv_queue(async_completion, &recv_queue);
@@ -241,6 +243,9 @@ int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param *recv_par
 		recv_param->recv_size		= recv_size;
 		recv_param->recv_data		= (unsigned char *)cmd_data + sizeof(iccom_recv_data);
 		ret_code					= recv_queue->eicr_result;			/* SMAP_OK */
+
+		((iccom_drv_handle *)cmd_data->msg_header.handle)->recv_data = (void *)cmd_data;
+		MSG_MED("[ICCOMK]INF|[%s] rcv_buf_addr[0x%08x].\n", __func__, (unsigned int)cmd_data);
 		goto out1;
 	}
 

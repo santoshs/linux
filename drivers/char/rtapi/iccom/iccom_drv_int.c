@@ -38,6 +38,8 @@ static iccom_recv_data_err  g_iccom_recv_data_err;  /* receive data (memory allo
 extern iccom_recv_data_info g_iccom_recv_info;
 extern unsigned char	*g_iccom_command_area;
 extern spinlock_t		g_iccom_lock_iicr;
+extern spinlock_t			g_iccom_lock_handle_list;
+extern struct list_head		g_iccom_list_handle;
 
 /* MACRO */
 #define GET_STATIC_RECV_AREA(x)														\
@@ -100,6 +102,9 @@ void iccom_read_command(
 	iccom_recv_data	  *p_recv_head;
 	struct completion *p_completion;
 	int				  result_code = SMAP_OK;
+	iccom_handle_list	*tmp_p = NULL;
+	iccom_handle_list	*handle_list = NULL;
+	unsigned long		flag;
 
 	MSG_MED("[ICCOMK]IN |[%s] cmd_posi = 0x%08x,data_posi = 0x%08x\n", __func__, (unsigned int)cmd_posi, (unsigned int)data_posi);
 	/* calculate address of command transfer area */
@@ -158,18 +163,36 @@ void iccom_read_command(
 		}
 		if (ICCOMEICR_DATA_BTM == (ICCOMEICR_DATA_BTM & data_posi)) {
 			p_recv_head = (iccom_recv_data *)g_iccom_recv_info.recv_data;
+
+			spin_lock_irqsave(&g_iccom_lock_handle_list, flag);
+			list_for_each_entry(handle_list, &g_iccom_list_handle, list) {
+				if (handle_list->handle == p_recv_head->msg_header.handle) {
+					tmp_p = handle_list;
+					break;
+				}
+			}
+			spin_unlock_irqrestore(&g_iccom_lock_handle_list, flag);
+
+			if (NULL == tmp_p) {
+				MSG_ERROR("[ICCOMK]ERR| ICCOM handle does not exist.\n");
+				/* handle error */
+				ret = SMAP_NG;
+				break;
+			}
+
 			/* set completion information */
 			if (ICCOM_DRV_SYNC == p_recv_head->msg_header.send_mode) {
 				p_completion = ((iccom_drv_handle *)p_recv_head->msg_header.handle)->sync_completion;
 			} else {
 				p_completion = ((iccom_drv_handle *)p_recv_head->msg_header.handle)->async_completion;
 			}
+
 			if (NULL == p_completion) {
-				MSG_ERROR("[ICCOMK]ERR| ICCOM handle does not exist.\n");
-				/* handle error */
+				MSG_ERROR("[ICCOMK]ERR| completion is illegal.\n");
 				ret = SMAP_NG;
 				break;
 			}
+
 			/* put data to receive queue */
 			ret = iccom_put_recv_queue(p_completion,
 									result_code,
@@ -356,9 +379,8 @@ irqreturn_t iccom_iccomeicr_int(
 			iccom_rtctl_set_rt_fatal_error();
 #endif
 			iccom_read_fatal(cmd_posi);
-		}
-		/* event responce */
-		else{
+		} else {
+			/* event responce */
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 			if (ICCOMEICR_INIT_COMP == (eicr & ICCOMEICR_INIT_COMP)) {
 				MSG_LOW("[ICCOMK]   |active complete\n");

@@ -73,6 +73,7 @@ typedef struct {
 	struct completion	*async_completion;	/* completion information for asynchronous receive */
 	iccom_callback_info	kernel_cb_info;		/* callback information */
 	unsigned long		async_recv_status;	/* asynchronous receive status */
+	void				*recv_data;			/* receive data */
 } iccom_drv_handle;
 
 /* command information */
@@ -134,6 +135,10 @@ typedef struct {
 	iccom_recv_data		recv_data[ICCOM_ERROR_DATA_AREA_MAX];   /* receive data information */
 } iccom_recv_data_err;
 
+typedef struct {
+	struct list_head	list;	/* queue header */
+	void				*handle;
+} iccom_handle_list;
 
 /**** prototype ****/
 iccom_drv_handle *iccom_create_handle(
@@ -239,6 +244,10 @@ int iccom_copy_to_command_area(
 	void				*from_addr,
 	unsigned long		size,
 	int					type
+);
+
+void iccom_leak_check(
+	iccom_drv_handle	*handle
 );
 
 #endif /* __ICCOM_DRV_PRIVATE_H__ */
