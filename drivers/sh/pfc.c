@@ -575,7 +575,7 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 static void sh_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
-	unsigned long flags;
+	unsigned long flags = 0;
 	int pinmux_type;
 
 	if (!gpioc)
