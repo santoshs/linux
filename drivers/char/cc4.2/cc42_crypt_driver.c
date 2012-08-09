@@ -58,9 +58,9 @@
 #include "cc42_crypt_driver_api.h"
 
 /* To Enable debug print */
-//#define CC42_DEBUG_PRINT
+//#define ENABLE_CC42_DEBUG_PRINT
 
-#ifdef CC42_DEBUG_PRINT
+#ifdef ENABLE_CC42_DEBUG_PRINT
 #define CC42_DEBUG_PRINT(...) printk(__VA_ARGS__ )
 #else
 #define CC42_DEBUG_PRINT(...)
