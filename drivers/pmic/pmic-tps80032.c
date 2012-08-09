@@ -5301,6 +5301,7 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 		return ret;
 	}
 
+#ifdef CONFIG_USB_OTG
 	/* Setting for USB ID interrupt */
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDOUSB_CFG_STATE, 0x01);
 	if (0 > ret) {
@@ -5326,6 +5327,13 @@ int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 	if (0 > ret) {
 		return ret;
 	}
+#else
+	/* Turn off LDOUSB */
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_LDOUSB_CFG_STATE, 0x00);
+	if (0 > ret) {
+		return ret;
+	}
+#endif
 	
 	/* Clear all interrupt source */
 	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_INT_STS_A, MSK_DISABLE);
