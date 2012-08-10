@@ -52,8 +52,6 @@
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
 #include <linux/pmic/pmic-ncp6914.h>
-#include <media/imx175.h>
-#include <media/s5k6aafx13.h>
 
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/i2c/touchkey_i2c.h>
@@ -1172,6 +1170,361 @@ static struct platform_device thermal_sensor_device = {
 };
 /* >> End Add for Thermal Sensor driver*/
 
+int IMX175_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+
+	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
+		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+		mdelay(10);
+		/* 10ms */
+
+		subPMIC_PowerOn(0x0);
+
+		/* CAM_CORE_1V2  On */
+		subPMIC_PinOnOff(0x0, 1);
+		mdelay(1);
+		/* CAM_AVDD_2V8  On */
+		subPMIC_PinOnOff(0x4, 1);
+		mdelay(1);
+		/* VT_DVDD_1V5   On */
+		subPMIC_PinOnOff(0x1, 1);
+		mdelay(1);
+		/* 5M_AF_2V8 On */
+		subPMIC_PinOnOff(0x3, 1);
+		mdelay(1);
+		/* CAM_VDDIO_1V8 On */
+		subPMIC_PinOnOff(0x2, 1);
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		udelay(50);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 12000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(150);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		clk_disable(vclk2_clk);
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		mdelay(20);
+		/* 20ms */
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
+		clk_disable(vclk1_clk);
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(1);
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+		clk_disable(vclk2_clk);
+		mdelay(1);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+
+		/* CAM_VDDIO_1V8 Off */
+		subPMIC_PinOnOff(0x2, 0);
+		mdelay(1);
+		/* VT_DVDD_1V5   Off */
+		subPMIC_PinOnOff(0x1, 0);
+		mdelay(1);
+		/* CAM_AVDD_2V8  Off */
+		subPMIC_PinOnOff(0x4, 0);
+		mdelay(1);
+		/* CAM_CORE_1V2  Off */
+		subPMIC_PinOnOff(0x0, 0);
+		mdelay(1);
+
+		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+
+#define CAM_FLASH_ENSET     (GPIO_PORT99)
+#define CAM_FLASH_FLEN      (GPIO_PORT100)
+int main_cam_led(int light, int mode)
+{
+	u32 iRet = 0;
+	int i = 0, num = 0;
+
+	switch (light) {
+	case SH_RCU_LED_ON:
+		gpio_request(CAM_FLASH_ENSET, "camacq");
+		gpio_request(CAM_FLASH_FLEN, "camacq");
+
+		//spin_lock(&bl_ctrl_lock);
+		if (mode == SH_RCU_LED_MODE_PRE) // temp, torch mode
+			{
+			/* initailize flash IC */
+			gpio_direction_output(CAM_FLASH_ENSET, 0);
+			gpio_direction_output(CAM_FLASH_FLEN, 0);
+			mdelay(1);
+			// to enter a shutdown mode
+			/* set to movie mode */
+			for (i = 0; i < 3; i++) {
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 1);
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 0);
+			}
+			gpio_direction_output(CAM_FLASH_ENSET, 1);
+		} else {
+			// CamacqTraceErr("WINGI AAAAAAAAAAAAAAAAAAA");
+			/* initailize flash IC */
+			gpio_direction_output(CAM_FLASH_ENSET, 0);
+			gpio_direction_output(CAM_FLASH_FLEN, 0);
+			mdelay(1);
+			// to enter a shutdown mode
+			// FLEN high
+			gpio_direction_output(CAM_FLASH_FLEN, 1);
+			udelay(100);
+			/* set to movie mode */
+			for (i = 0; i < 4; i++) {
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 1);
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 0);
+			}
+			gpio_direction_output(CAM_FLASH_ENSET, 1);
+			mdelay(1);
+		}
+		gpio_free(CAM_FLASH_ENSET);
+		gpio_free(CAM_FLASH_FLEN);
+		//spin_unlock(&bl_ctrl_lock);
+		break;
+	case SH_RCU_LED_OFF: {
+		gpio_request(CAM_FLASH_ENSET, "ledflash");
+		gpio_request(CAM_FLASH_FLEN, "ledflash");
+		/* initailize falsh IC */
+		gpio_direction_output(CAM_FLASH_ENSET, 0);
+		gpio_direction_output(CAM_FLASH_FLEN, 0);
+		mdelay(1);
+		// to enter a shutdown mode
+		gpio_free(CAM_FLASH_ENSET);
+		gpio_free(CAM_FLASH_FLEN);
+	}
+		break;
+	default:
+		printk(KERN_ALERT "%s:not case %d",__func__, light);
+		return -1;
+		break;
+	}
+	return 0;
+}
+
+int S5K6AAFX13_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+	unsigned long mclk_info = 0;
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+
+		sh_csi2_power(dev, power_on);
+		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+
+		subPMIC_PowerOn(0x0);
+
+//		/* CAM_CORE_1V2  On */
+//		subPMIC_PinOnOff(0x0, 1);
+//		mdelay(10);
+		/* CAM_AVDD_2V8  On */
+		subPMIC_PinOnOff(0x4, 1);
+		mdelay(10);
+		/* VT_DVDD_1V5   On */
+		subPMIC_PinOnOff(0x1, 1);
+
+		mdelay(10);
+		/* CAM_VDDIO_1V8 On */
+		subPMIC_PinOnOff(0x2, 1);
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(10);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+//		mdelay(150);
+//		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+//		clk_disable(vclk2_clk);
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		mdelay(20);
+		/* 20ms */
+
+		/* 5M_AF_2V8 On */
+		subPMIC_PinOnOff(0x3, 1);
+		mdelay(20);
+		clk_disable(vclk1_clk);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	}
+	else
+	{
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(1);
+
+		clk_disable(vclk2_clk);
+
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 Off */
+		subPMIC_PinOnOff(0x2, 0);
+		mdelay(1);
+		/* VT_DVDD_1V5   Off */
+		subPMIC_PinOnOff(0x1, 0);
+		mdelay(1);
+		/* CAM_AVDD_2V8  Off */
+		subPMIC_PinOnOff(0x4, 0);
+		mdelay(1);
+		/* CAM_CORE_1V2  Off */
+//		subPMIC_PinOnOff(0x0, 0);
+//		mdelay(1);
+
+		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+
 static struct i2c_board_info i2c_cameras[] = {
 	{
 		I2C_BOARD_INFO("IMX175", 0x1A),
@@ -1322,6 +1675,7 @@ static struct sh_mobile_rcu_info sh_mobile_rcu0_info = {
 	.flags		= 0,
 	.csi2_dev	= &csi20_device.dev,
 	.mod_name	= "rcu0",
+	.led		= main_cam_led,
 };
 
 static struct resource rcu0_resources[] = {
