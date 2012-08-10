@@ -236,8 +236,6 @@ EXPORT_SYMBOL_GPL(__hwspin_lock_timeout);
  */
 void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
-	int ret;
-
 	BUG_ON(!hwlock);
 	BUG_ON(!flags && mode == HWLOCK_IRQSTATE);
 
@@ -255,19 +253,8 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 	 */
 	mb();
 
-	/*
-	 * If the hwlock instance is being locked with "no spinlock" mode,
-	 * this spin_trylock() must be taken immediately, without any exeption.
-	 * If it failed, it's a bug.
-	 */
-	if (mode == HWLOCK_NOSPIN) {
-		ret = spin_trylock(&hwlock->lock);
-		if (!ret) {
-			pr_err("Can't lock a spinlock back! (in NOSPIN mode)\n");
-			dump_stack();
-			return;
-		}
-	}
+	if (mode == HWLOCK_NOSPIN)
+		spin_lock(&hwlock->lock);
 
 	hwlock->bank->ops->unlock(hwlock);
 
