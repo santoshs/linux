@@ -63,7 +63,7 @@
 #include <asm/io.h>
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
-#include <linux/nfc/pn544.h> 
+#include <linux/nfc/pn544.h>
 #endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
@@ -89,7 +89,7 @@ char *tmplog_nocache_address = NULL;
 
 static void crashlog_r_local_ver_write(void);
 static void crashlog_reset_log_write(void);
-static void crashlog_init_tmplog(void); 
+static void crashlog_init_tmplog(void);
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -287,13 +287,29 @@ static int is_vbus_powered(void) {
 
 #define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
 
+#define LOCK_TIME_OUT_MS 1
 static void usbhs_module_reset(void)
 {
-	__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
-	__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+	unsigned long flags;
+	int ret; 
+ 
+	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, LOCK_TIME_OUT_MS, &flags);
+	if (ret < 0) {
+		printk("Can't lock hwlock_cpg\n");
+	} else {
+		__raw_writel(__raw_readl(SRCR2) | (1 << 14), SRCR2); /* USBHS-DMAC */
+		__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+	}
 	udelay(50); /* wait for at least one EXTALR cycle */
-	__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
-	__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, LOCK_TIME_OUT_MS, &flags);
+	if (ret < 0) {
+		printk("Can't lock hwlock_cpg\n");
+	} else {
+		__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
+		__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+	}
 
 	/* wait for SuspendM bit being cleared by hardware */
 	while (!(__raw_readw(PHYFUNCTR) & (1 << 14))) /* SUSMON */
