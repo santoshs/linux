@@ -1501,7 +1501,6 @@ static void start_dma(struct r8a66597 *r8a66597,
 	if (req->req.length == 0)
 		return;
 
-	suppress_clocks_change (0);
 
 	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
 
