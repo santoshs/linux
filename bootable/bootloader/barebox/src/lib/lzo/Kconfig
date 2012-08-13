@@ -1,6 +1,0 @@
-config LZO_DECOMPRESS
-	bool
-
-config LZO_COMPRESS
-	bool
-

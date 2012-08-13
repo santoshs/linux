@@ -1,2 +1,0 @@
-config DRIVER_NET_SMC911X
-	default y
