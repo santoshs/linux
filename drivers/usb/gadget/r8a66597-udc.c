@@ -140,6 +140,11 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
+	if (!r8a66597->phy_active) {
+		clk_enable(clk_get(NULL, "vclk3_clk"));
+		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
+		r8a66597->phy_active = 1;
+	}
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 }
@@ -148,6 +153,11 @@ static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
+	if (r8a66597->phy_active) {
+		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
+		clk_disable(clk_get(NULL, "vclk3_clk"));
+		r8a66597->phy_active = 0;
+	}
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(0);
 }
@@ -2784,6 +2794,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->timer.data = (unsigned long)r8a66597;
 	r8a66597->reg = reg;
 	r8a66597->dma_reg = dma_reg;
+	r8a66597->phy_active = 1;
 
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
