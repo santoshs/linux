@@ -188,9 +188,11 @@
 #define MSTP408		0x00000100	/* Module Stop bit 408(MFIM) */
 
 #define MSTPST527 0x08000000 /* Module Stop Status 527(Internal RAM0)*/
+#define MSTPST528 0x10000000 /* Module Stop Status 528(Internal RAM1)*/
 #define MSTPST529 0x20000000 /* Module Stop Status 529(Secure RAM) */
 
 #define MSTP527 0x08000000 /* Module Stop bit 527(Internal RAM0)*/
+#define MSTP528 0x10000000 /* Module Stop bit 528(Internal RAM1)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
 /* System-CPU Power Status Register (ES1.0)*/

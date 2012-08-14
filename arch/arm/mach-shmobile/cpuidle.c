@@ -383,6 +383,9 @@ EXPORT_SYMBOL(is_cpuidle_enable);
  *		0: successful
  *		-EIO: failed ioremap, or failed registering a CPU's idle PM
  */
+extern int	corestandby_pa_physical;
+extern int	systemsuspend_cpu0_pa_physical;
+extern int	systemsuspend_cpu1_pa_physical;
 static int shmobile_init_cpuidle(void)
 {
 	struct cpuidle_device *device;
@@ -396,9 +399,9 @@ static int shmobile_init_cpuidle(void)
 
 	/* Chip revision */
 	chip_rev = shmobile_chip_rev();
-	
-	/* Internal RAM0 Module Clock ON */
+
 	spin_lock_irqsave(&clock_lock, flags);
+	/* Internal RAM0 Module Clock ON */
 	if (chip_rev < ES_REV_2_0) {
 		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 		if (0 != (mstpsr5_val & MSTPST527)) {
@@ -418,7 +421,15 @@ static int shmobile_init_cpuidle(void)
 				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
 		}
-		
+	}
+	/* Internal RAM1 Module Clock ON */
+	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+	if (0 != (mstpsr5_val & MSTPST528)) {
+		smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+		__raw_writel((smstpcr5_val & (~MSTP528)), CPG_SMSTPCR5);
+		do {
+			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		} while (mstpsr5_val & MSTPST528);
 	}
 	spin_unlock_irqrestore(&clock_lock, flags);
 	/* Allocate CPU0 back up area */
@@ -469,7 +480,9 @@ static int shmobile_init_cpuidle(void)
 	if (chip_rev <= ES_REV_2_1)
 		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
 	else 
-		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+		/* __raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter)); */
+		/* Temp. revised due to Errata(ECR0285) was not fixed??? */
+		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */
@@ -477,76 +490,17 @@ static int shmobile_init_cpuidle(void)
 
 	__raw_writel((unsigned long)0x0, __io(APARMBAREA)); /* 4k */
 #endif
-	/* Copy the source code internal RAM0 */
-	(void)memcpy((void *)ram0ArmVector,
+	/* Copy the source code internal RAM1 */
+	(void)memcpy((void *)ram1ArmVector,
 				(void *)&ArmVector,
 				fsArmVector);
-
-	(void)memcpy((void *)ram0CoreStandby,
-				(void *)&corestandby,
-				fsCoreStandby);
-
-	(void)memcpy((void *)ram0SystemSuspend,
-				(void *)&systemsuspend,
-				fsSystemSuspend);
-
-	(void)memcpy((void *)ram0SaveArmRegister,
-				(void *)&save_arm_register,
-				fsSaveArmRegister);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterPA,
-				(void *)&restore_arm_register_pa,
-				fsRestoreArmRegisterPA);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterVA,
-				(void *)&restore_arm_register_va,
-				fsRestoreArmRegisterVA);
-
-	(void)memcpy((void *)ram0SaveArmCommonRegister,
-				(void *)&save_arm_common_register,
-				fsSaveArmCommonRegister);
-
-	(void)memcpy((void *)ram0RestoreArmCommonRegister,
-				(void *)&restore_arm_common_register,
-				fsRestoreArmCommonRegister);
-
-	(void)memcpy((void *)ram0SaveCommonRegister,
-				(void *)&save_common_register,
-				fsSaveCommonRegister);
-
-	(void)memcpy((void *)ram0RestoreCommonRegister,
-				(void *)&restore_common_register,
-				fsRestoreCommonRegister);
-
-	(void)memcpy((void *)ram0SysPowerDown,
-				(void *)&sys_powerdown,
-				fsSysPowerDown);
-
-	(void)memcpy((void *)ram0SysPowerUp,
-				(void *)&sys_powerup,
-				fsSysPowerUp);
-
-	(void)memcpy((void *)ram0SetClockSystemSuspend,
-				(void *)&setclock_systemsuspend,
-				fsSetClockSystemSuspend);
-
-#ifdef VMALLOC_EXPAND
-	(void)memcpy((void *)ram0SystemSuspendCPU0PA,
-				(void *)&systemsuspend_cpu0_pa,
-				fsSystemSuspendCPU0PA);
-
-	(void)memcpy((void *)ram0CoreStandbyPA,
-				(void *)&corestandby_pa,
-				fsCoreStandbyPA);
-
-	(void)memcpy((void *)ram0DisableMMU,
+	(void)memcpy((void *)ram1DisableMMU,
 				(void *)&disablemmu,
 				fsDisableMMU);
 
-	(void)memcpy((void *)ram0SystemSuspendCPU1PA,
-				(void *)&systemsuspend_cpu1_pa,
-				fsSystemSuspendCPU1PA);
-#endif /* VMALLOC_EXPAND */
+	corestandby_pa_physical = (int)virt_to_phys(&corestandby_pa);
+	systemsuspend_cpu0_pa_physical = (int)virt_to_phys(&systemsuspend_cpu0_pa);
+	systemsuspend_cpu1_pa_physical = (int)virt_to_phys(&systemsuspend_cpu1_pa);
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
