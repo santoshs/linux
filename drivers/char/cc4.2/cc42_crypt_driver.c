@@ -42,6 +42,8 @@
 #include <linux/clk.h>
 #include <mach/r8a73734.h>
 #include <linux/wakelock.h>
+#include <linux/hwspinlock.h>
+#include <mach/common.h>
 #if defined(DX_DEBUG_RAR_SUPPORT) || defined(DX_RAR_SUPPORT)
 #include <linux/rar/memrar.h>
 #include <linux/rar/rar_register.h>
@@ -66,6 +68,10 @@
 #else
 #define CC42_DEBUG_PRINT(...)
 #endif
+
+/*1000ms is given to ensure success in 
+acquiring HPB Semaphore*/
+#define LOCK_TIME_OUT_MS 1000
 
 /*--------------------------------------------
 	GLOBAL variables
@@ -1132,7 +1138,9 @@ void Chip_HwInit(void)
 	//
 	*******************************************/
 	/* system module-stop control/status register(s) 2 */
-	volatile u32 i, *pSRCR2, *smstpcr2, *mstpsr2 = 0 ;
+	volatile u32 i,cc42Reset, *pSRCR2, *smstpcr2, *mstpsr2 = 0 ;
+	int ret_status = 0;
+	unsigned long flags;
 
 	smstpcr2 = (u32 *)IO_ADDRESS(0xE6150138) ;
 	mstpsr2 = (u32 *)IO_ADDRESS(0xe6150040) ;
@@ -1155,16 +1163,53 @@ void Chip_HwInit(void)
 	/* reset CC4.2 from system domain */
 	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
 
+	/* Acquire HPB Semaphore lock */
+	CC42_DEBUG_PRINT("\n cc4.2_driver: Requesting HPB Semaphore \n");
+	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
+										LOCK_TIME_OUT_MS, &flags);
+	if(ret_status == 0)
+	{
 	/*  generate a reset pulse like
 	//     ______
 	// ____|    |___________ */
 
-	__raw_writel(0, pSRCR2);
-	mdelay(10);
-	__raw_writel(1, pSRCR2);
-	mdelay(40);
-	__raw_writel(0, pSRCR2);
-	mdelay(10);
+		cc42Reset = __raw_readl(pSRCR2);
+		cc42Reset &= (~(1<<29)); /* CC4.2 module is set*/
+		__raw_writel(cc42Reset, pSRCR2);
+		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+	}
+	else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-I");
+	}
+	udelay(10);
+	
+	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
+										LOCK_TIME_OUT_MS, &flags);
+	if(ret_status == 0)
+	{
+		cc42Reset = __raw_readl(pSRCR2);
+		cc42Reset |= (1<<29); /* CC4.2 module is being reset*/
+		__raw_writel(cc42Reset, pSRCR2);
+		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+	}
+	else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-II");
+	}
+	udelay(40);
+	
+	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
+										LOCK_TIME_OUT_MS, &flags);
+	if(ret_status == 0)
+	{
+		cc42Reset = __raw_readl(pSRCR2);
+		cc42Reset &= (~(1<<29)); /* CC4.2 module is set*/
+		__raw_writel(cc42Reset, pSRCR2);
+		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+	}
+	else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-III");
+	}	
+	udelay(10);
 
 	/* reset CC4.2 chip/hw */
 	iowrite32(0x1234, sep_context.reg_addr+0xbec);
