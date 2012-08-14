@@ -52,6 +52,8 @@
 #define RESCNT			 IO_ADDRESS(0xE618801C)	/* Reset control register */
 #define TRESV			 0x00000008				/* Temperature sensor reset enable bit */
 #define HPB_TIMEOUT		1						/* Timeout value 1 msec */
+#define ANALOG_WAIT		63						/* Rounded delay time of 62.5usec (2cycles of RCLK (32KHz)
+													 for actual analog reflected */
 
 struct thermal_sensor *ths;
 int suspend_state = FALSE;
@@ -164,6 +166,7 @@ int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
 		break;
 	case E_IDLE:		/* Set THS#ths_id to Idle operation */
 		modify_register_32(THSCR(ths_id), THIDLE1 | THIDLE0, 0);
+		udelay(ANALOG_WAIT);	/* Wait for actual analog reflected */
 		break;
 	default:
 		dev_err(&ths->pdev->dev, "Thermal Sensor operation mode is invalid.\n");
