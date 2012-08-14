@@ -34,6 +34,7 @@ extern void vog_mipi_dsi_reg_set( u1 u1t_lcd_mode );
 extern void vog_mipi_dsi_reg_get( u1* ptt_lcd_mode );
 extern void vog_mipi_dsi_tr_lpacket( u1 u1t_data_type, u2 u2t_data_cnt, u1* ptt_data, u1 u1t_tr_speed );
 extern void vog_mipi_dsi_draw_cmode( u4 addr );
+extern void vog_mipi_dsi_read_packet( u1 u1t_data_type, u1 u1t_data_address, u2 u2t_data_cnt, u1* ptt_data );
 
 
 #endif /* __H_MIPI_DSI_DRV_ */

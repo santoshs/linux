@@ -441,6 +441,108 @@ void vog_mipi_dsi_tr_lpacket( u1 u1t_data_type, u2 u2t_data_cnt, u1* ptt_data, u
 	return;
 
 }
+
+/*************************************************************************************************/
+/* function : vog_mipi_dsi_read_packet                                                           */
+/* parameter: u1 u1t_data_type, u1 u1t_data0, u1 u1t_data1                                       */
+/* return   : void                                                                               */
+/* outline  : Read packet specified size.                                                        */
+/*************************************************************************************************/
+void vog_mipi_dsi_read_packet( u1 u1t_data_type, u1 u1t_data_address, u2 u2t_data_cnt, u1* ptt_data )
+{
+	u4 fifo_read = 0;
+	u2 dcnt = 0;
+	u1 data0 = 0;
+	u1 data1 = 0;
+	u1 dtt = 0;
+
+	if( u2t_data_cnt < 1 )
+	{
+		return;
+	}
+	/* set max response */
+	dtt = 0x37;		/* Set Maximum Return Packet Size */
+	data0 = u2t_data_cnt & 0xff;
+	data1 = u2t_data_cnt >> 8;
+	/* data reception on */
+	(*(VU4 *)( U4S_CMRCTR_ADDR + u4s_dsi_offset )) = 0x00040000;
+	/* DCS Set Maximum Return Packet Size */
+	(*(VU4 *)( U4S_CMTSRTCTR_ADDR + u4s_dsi_offset )) = (
+		  ( 0 << 30 ) 				/* SVC[30:31] */
+		| ( dtt << 24 )				/* DT [24:29] */
+		| ( data0 << 16 )			/* SD1[16:23] */
+		| ( data1 << 8 )			/* SD0[ 8:15] */
+		| ( 1 )					/* HSSEL[0]  */
+		);
+	/* Command Mode Transmision Short Packet Request Register */
+	(*(VU4 *)( U4S_CMTSRTREQ_ADDR + u4s_dsi_offset )) = 0x00000001;		/* transmit command-packet */
+	while( ((*(VU4 *)( U4S_CMTSRTREQ_ADDR + u4s_dsi_offset)) & 0x00000001) == 0x00000001 );
+
+	/* issue read command */
+	data0 = u1t_data_address;
+	data1 = 0;
+	dtt = u1t_data_type;
+	/* Command Mode Transmission Short Packet Control Register */
+	(*(VU4 *)( U4S_CMTSRTCTR_ADDR + u4s_dsi_offset )) = (
+		  ( 0 << 30 ) 				/* SVC[30:31] */
+		| ( dtt << 24 )				/* DT [24:29] */
+		| ( data0 << 16 )			/* SD1[16:23] */
+		| ( data1 << 8 )			/* SD0[ 8:15] */
+		| ( 1 )					/* HSSEL[0]  */
+		);
+
+	/* data reception on */
+	(*(VU4 *)( U4S_CMRCTR_ADDR + u4s_dsi_offset )) = 0x00040000;
+
+	/* Command Mode Transmision Short Packet Request Register */
+	(*(VU4 *)( U4S_CMTSRTREQ_ADDR + u4s_dsi_offset )) = 0x00000001;		/* transmit command-packet */
+	while( ((*(VU4 *)( U4S_CMTSRTREQ_ADDR + u4s_dsi_offset)) & 0x00000001) == 0x00000001 );
+
+	/* wait for data receive */
+	while( !((*((VU4 *)( U4S_CMRCTR_ADDR + u4s_dsi_offset ))) & 0x70) );
+
+	/* check first byte */
+	fifo_read = *(VU4 *)( U4S_CMRHEAD_ADDR + u4s_dsi_offset );
+	/* response 1 byte */
+	if( ((fifo_read & 0xff) == 0x21) || ((fifo_read & 0xff) == 0x11) )
+	{
+		*ptt_data = (fifo_read >> 8) & 0xff;
+	}
+	/* response 2 bytes */
+	else if( ((fifo_read & 0xff) == 0x22) || ((fifo_read & 0xff) == 0x12) )
+	{
+		*ptt_data = (fifo_read >> 8) & 0xff;
+		if( u2t_data_cnt > 1 )
+		{
+			*(ptt_data + 1) = (fifo_read >> 16) & 0xff;
+		}
+	}
+	/* response 3 bytes or more */
+	else if( ((fifo_read & 0xff) == 0x1a) || ((fifo_read & 0xff) == 0x1c) )
+	{
+		for( dcnt = 0; dcnt < u2t_data_cnt; dcnt++ )
+		{
+			/* read at every 4bytes */
+			int wt = dcnt % 4;
+			if( !wt )
+			{
+				/* wait for data */
+				while( !(*((VU4 *)( U4S_CMRCTR_ADDR + u4s_dsi_offset )) & 0x0f) );
+				fifo_read = *(VU4 *)( U4S_CMRDAT_ADDR + u4s_dsi_offset );
+			}
+			*( ptt_data + dcnt ) = (fifo_read >> (wt * 8)) & 0xff;
+		}
+	}
+	else
+	{
+		/* Unknown code */
+	}
+	/* clear reception */
+	*(VU4 *)( U4S_CMRCTR_ADDR + u4s_dsi_offset ) = 0;
+
+	return;
+}
+
 #if 1
 void vog_mipi_dsi_draw_cmode( u4 addr )
 {

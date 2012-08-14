@@ -32,9 +32,10 @@
 #include <linux/platform_device.h>
 
 /*#define S6E39A0X02_BRIGHTNESS_LINER */
-/*#define S6E39A0X02_USE_PANEL_INIT*/
+#define S6E39A0X02_USE_PANEL_INIT
 
 #include "s6e39a0x02_gamma.h"
+#include "panel_s6e39a0x02.h"
 
 /* framebuffer address */
 #define R_MOBILE_M_BUFF_ADDR		0x4BC00000
@@ -187,6 +188,8 @@ struct _s6e39a0x02_cmdset {
 #define MIPI_DSI_DCS_LONG_WRITE		(0x39)
 #define MIPI_DSI_DCS_SHORT_WRITE_PARAM	(0x15)
 #define MIPI_DSI_DCS_SHORT_WRITE	(0x05)
+#define MIPI_DSI_SET_MAX_RETURN_PACKET	(0x37)
+#define MIPI_DSI_DCS_READ		(0x06)
 #define MIPI_DSI_DELAY			(0x00)
 #define MIPI_DSI_BLACK			(0x01)
 #define MIPI_DSI_END			(0xFF)
@@ -240,6 +243,7 @@ static unsigned char last_gamma_table[] = {
 static struct backlight_device *registed_bd;
 static int is_backlight_enabled;
 static int is_backlight_called;
+static int is_dsi_read_enabled;
 
 #ifdef S6E39A0X02_USE_PANEL_INIT
 static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
@@ -711,6 +715,65 @@ static void s6e39a0x02_backlight_device_unregister(void)
 	printk(KERN_INFO "s6e39a0x02 Backlight Driver Terminated\n");
 }
 
+int s6e39a0x02_dsi_read(int id, int reg, int len, char *buf)
+{
+	void *screen_handle;
+	screen_disp_write_dsi_short write_dsi_s;
+	screen_disp_read_dsi_short read_dsi_s;
+	screen_disp_delete disp_delete;
+	int ret;
+
+	printk(KERN_INFO "%s\n", __func__);
+
+	if (!is_dsi_read_enabled) {
+		printk(KERN_ALERT "sequence error!!\n");
+		return -EINVAL;
+	}
+
+	if ((len <= 0) || (len > 60) || (buf == NULL)) {
+		printk(KERN_ALERT "argument error!!\n");
+		return -EINVAL;
+	}
+
+	screen_handle =  screen_display_new();
+
+	/* Set maximum return packet size  */
+	write_dsi_s.handle		= screen_handle;
+	write_dsi_s.output_mode	= RT_DISPLAY_LCD1;
+	write_dsi_s.data_id		= MIPI_DSI_SET_MAX_RETURN_PACKET;
+	write_dsi_s.reg_address	= len;
+	write_dsi_s.write_data		= 0x00;
+	write_dsi_s.reception_mode	= RT_DISPLAY_RECEPTION_ON;
+	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "disp_write_dsi_short err!\n");
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
+	}
+
+	/* DSI read */
+	read_dsi_s.handle		= screen_handle;
+	read_dsi_s.output_mode		= RT_DISPLAY_LCD1;
+	read_dsi_s.data_id		= id;
+	read_dsi_s.reg_address		= reg;
+	read_dsi_s.write_data		= 0;
+	read_dsi_s.data_count		= len;
+	read_dsi_s.read_data		= &buf[0];
+	ret = screen_display_read_dsi_short_packet(&read_dsi_s);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "disp_dsi_read err! ret = %d\n", ret);
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
+	}
+
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+	return 0;
+}
+
 static int s6e39a0x02_panel_init(unsigned int mem_size)
 {
 	void *screen_handle;
@@ -721,7 +784,9 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	screen_disp_delete disp_delete;
 	int ret;
 	unsigned int tmp;
-
+#ifdef S6E39A0X02_USE_PANEL_INIT
+	unsigned char read_data[60];
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
@@ -791,15 +856,38 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
+	is_dsi_read_enabled = 1;
 
 #ifdef S6E39A0X02_USE_PANEL_INIT
-	/* Transmit DSI command peculiar to a panel */
-	ret = s6e39a0x02_panel_cmdset(screen_handle, initialize_cmdset);
-	if (ret != 0) {
-		printk(KERN_ALERT "s6e39a0x02_panel_cmdset err!\n");
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
+	memset(read_data , 0, sizeof(read_data));
+
+	/*Read Display Power Mode*/
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0x0A, 1, &read_data[0]);
+	printk(KERN_DEBUG "read_data(0x0A) = %02X\n", read_data[0]);
+	if ((ret == 0) && ((read_data[0] & 0x10) == 0x10)) {
+		printk(KERN_INFO "RDDPM is Sleep out mode!!\n");
+	} else {
+		printk(KERN_INFO "Panel initialization!!\n");
+
+		gpio_direction_output(reset_gpio, 1);
+		msleep(10);
+		gpio_direction_output(reset_gpio, 0);
+		msleep(1);
+
+		gpio_direction_output(power_gpio, 1);
+		msleep(25);
+		gpio_direction_output(reset_gpio, 1);
+
+		msleep(100);
+
+		/* Transmit DSI command peculiar to a panel */
+		ret = s6e39a0x02_panel_cmdset(screen_handle, initialize_cmdset);
+		if (ret != 0) {
+			printk(KERN_ALERT "s6e39a0x02_panel_cmdset err!\n");
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			return -1;
+		}
 	}
 #endif
 
@@ -854,6 +942,8 @@ static int s6e39a0x02_panel_suspend(void)
 	/* 120ms wait */
 	msleep(120);
 
+	is_dsi_read_enabled = 0;
+
 	/* Stop a display to LCD */
 	disp_stop_lcd.handle		= screen_handle;
 	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
@@ -907,6 +997,7 @@ static int s6e39a0x02_panel_resume(void)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
+	is_dsi_read_enabled = 1;
 
 	/* Draw display */
 	ret = s6e39a0x02_panel_cmdset(screen_handle, resume_cmdset);
@@ -993,6 +1084,7 @@ static int s6e39a0x02_panel_probe(struct fb_info *info,
 	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
 
 	common_fb_info = info;
+	is_dsi_read_enabled = 0;
 
 	/* register sysfs for LCD frequency control */
 	ret = s6e39a0x02_lcd_frequency_register(info->dev);
