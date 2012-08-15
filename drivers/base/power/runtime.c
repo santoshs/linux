@@ -688,6 +688,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 				spin_lock(&dev->power.lock);
 			}
 #endif /* CONFIG_PDC */
+			retval = 1;
 			goto no_callback;	/* Assume success. */
 		}
 		spin_unlock(&dev->parent->power.lock);
@@ -793,7 +794,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	}
 	wake_up_all(&dev->power.wait_queue);
 
-	if (!retval)
+	if (retval >= 0)
 		rpm_idle(dev, RPM_ASYNC);
 
  out:
