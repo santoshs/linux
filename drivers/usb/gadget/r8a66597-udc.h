@@ -181,6 +181,7 @@ struct r8a66597 {
 	unsigned charger_detected:1;
 	unsigned pullup_requested:1;
 	unsigned vbus_active:1;
+	unsigned phy_active:1;
 
 	struct delayed_work	vbus_work;
 	struct delayed_work	charger_work;
