@@ -48,5 +48,7 @@ extern void vcd_complete_buffer(void);
 extern void vcd_beginning_buffer(void);
 extern void vcd_stop_fw(void);
 extern void vcd_start_clkgen(void);
+extern void vcd_voip_ul_callback(unsigned int buf_size);
+extern void vcd_voip_dl_callback(unsigned int buf_size);
 
 #endif /* __VCD_INTERFACE_H__ */

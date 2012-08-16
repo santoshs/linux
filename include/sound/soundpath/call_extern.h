@@ -26,6 +26,17 @@
 #define CALL_CTRL_NO_EXTERN	extern
 #endif
 
+/* Vocoder status */
+enum call_status {
+	IDLE_STATUS		= 0x00,
+	CALL_STATUS		= 0x01,
+	PLAY_STATUS		= 0x02,
+	REC_STATUS		= 0x04,
+	PLAY_INCOMM_STATUS	= 0x08,
+	REC_INCOMM_STATUS	= 0x10
+};
+
+
 typedef void (*callback_func)(u_int);
 typedef void (*callback_func_clk)(void);
 
@@ -48,6 +59,17 @@ CALL_CTRL_NO_EXTERN void call_playback_stop(void);
 CALL_CTRL_NO_EXTERN int call_record_start(struct snd_pcm_substream *substream);
 /* Speech + Record Stop function */
 CALL_CTRL_NO_EXTERN void call_record_stop(void);
+
+/* Voip(Playback) Start function */
+CALL_CTRL_NO_EXTERN int call_playback_incomm_start(
+        struct snd_pcm_substream *substream);
+/* Voip(Playback) Stop function */
+CALL_CTRL_NO_EXTERN void call_playback_incomm_stop(void);
+/* Voip(Record) Start function */
+CALL_CTRL_NO_EXTERN int call_record_incomm_start(struct snd_pcm_substream *substream);
+/* Voip(Record) Stop function */
+CALL_CTRL_NO_EXTERN void call_record_incomm_stop(void);
+
 /* Speech + Playback/Record buffer offset return function */
 CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_pcmdata_pointer(
 	struct snd_pcm_substream *substream);
@@ -67,6 +89,8 @@ CALL_CTRL_NO_EXTERN int call_read_play_uplink_state(void);
 CALL_CTRL_NO_EXTERN int call_create_workque(void);
 /* Destroy work queue function */
 CALL_CTRL_NO_EXTERN void call_destroy_workque(void);
+/* Void get buffer function */
+CALL_CTRL_NO_EXTERN void call_get_incomm_buffer(void);
 
 #endif /* __CALL_EXTERN_H__ */
 

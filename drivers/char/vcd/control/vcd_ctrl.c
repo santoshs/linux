@@ -23,7 +23,9 @@
  * global variable declaration
  */
 int g_vcd_ctrl_result;
-
+unsigned int g_vcd_ctrl_call_type;
+unsigned int g_vcd_record_mode;
+unsigned int g_vcd_playback_mode;
 /* ========================================================================= */
 /* For AMHAL functions                                                       */
 /* ========================================================================= */
@@ -198,13 +200,15 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_TYPE_CALL == call_type)
+	if (VCD_CALL_KIND_CALL == call_type) {
+		/* get call type (CS/VoIP) */
+		g_vcd_ctrl_call_type = vcd_spuv_get_call_type();
 		g_vcd_ctrl_result = vcd_spuv_start_call();
-	else if (VCD_CALL_TYPE_1KHZ == call_type)
+	} else if (VCD_CALL_KIND_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_1khz_tone();
-	else if (VCD_CALL_TYPE_PCM_LB == call_type)
+	else if (VCD_CALL_KIND_PCM_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_pcm_loopback(mode);
-	else if (VCD_CALL_TYPE_VIF_LB == call_type)
+	else if (VCD_CALL_KIND_VIF_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_start_bbif_loopback(mode);
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -245,13 +249,16 @@ void vcd_ctrl_stop_call(int call_type)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_TYPE_CALL == call_type)
+	if (VCD_CALL_KIND_CALL == call_type) {
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
-	else if (VCD_CALL_TYPE_1KHZ == call_type)
+
+		/* init call type */
+		g_vcd_ctrl_call_type = 0;
+	} else if (VCD_CALL_KIND_1KHZ == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_1khz_tone();
-	else if (VCD_CALL_TYPE_PCM_LB == call_type)
+	else if (VCD_CALL_KIND_PCM_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_pcm_loopback();
-	else if (VCD_CALL_TYPE_VIF_LB == call_type)
+	else if (VCD_CALL_KIND_VIF_LB == call_type)
 		g_vcd_ctrl_result = vcd_spuv_stop_bbif_loopback();
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -400,11 +407,15 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 		goto rtn;
 	}
 
-	/* execute spuv function */
-	ret = vcd_spuv_start_record(option);
-	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("start record error[%d].\n", ret);
-		goto rtn;
+	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+		/* execute spuv function */
+		ret = vcd_spuv_start_record(option);
+		if (VCD_ERR_NONE != ret) {
+			vcd_pr_err("start record error[%d].\n", ret);
+			goto rtn;
+		}
+	} else {
+		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -438,11 +449,17 @@ int vcd_ctrl_stop_record(void)
 		goto rtn;
 	}
 
-	/* execute spuv function */
-	ret = vcd_spuv_stop_record();
-	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("stop record error[%d].\n", ret);
-		/* update result */
+	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+		/* execute spuv function */
+		ret = vcd_spuv_stop_record();
+		if (VCD_ERR_NONE != ret) {
+			vcd_pr_err("stop record error[%d].\n", ret);
+			/* update result */
+			ret = VCD_ERR_NONE;
+		}
+	} else {
+		/* clear record mode */
+		g_vcd_record_mode = 0;
 		ret = VCD_ERR_NONE;
 	}
 
@@ -485,11 +502,15 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 		goto rtn;
 	}
 
-	/* execute spuv function */
-	ret = vcd_spuv_start_playback(option);
-	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("start playback error[%d].\n", ret);
-		goto rtn;
+	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+		/* execute spuv function */
+		ret = vcd_spuv_start_playback(option);
+		if (VCD_ERR_NONE != ret) {
+			vcd_pr_err("start playback error[%d].\n", ret);
+			goto rtn;
+		}
+	} else {
+		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -523,11 +544,17 @@ int vcd_ctrl_stop_playback(void)
 		goto rtn;
 	}
 
-	/* execute spuv function */
-	ret = vcd_spuv_stop_playback();
-	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("stop playback error[%d].\n", ret);
-		/* update result */
+	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+		/* execute spuv function */
+		ret = vcd_spuv_stop_playback();
+		if (VCD_ERR_NONE != ret) {
+			vcd_pr_err("stop playback error[%d].\n", ret);
+			/* update result */
+			ret = VCD_ERR_NONE;
+		}
+	} else {
+		/* clear playback mode */
+		g_vcd_playback_mode = 0;
 		ret = VCD_ERR_NONE;
 	}
 
@@ -584,6 +611,44 @@ void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info)
 }
 
 
+/**
+ * @brief	get VoIP UL buffer function.
+ *
+ * @param[out]	info	pointer of VoIP UL buffer info structure.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_get_voip_ul_buffer(info);
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	get VoIP DL buffer function.
+ *
+ * @param[out]	info	pointer of VoIP DL buffer info structure.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_get_voip_dl_buffer(info);
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
 /* ========================================================================= */
 /* For spuv functions                                                        */
 /* ========================================================================= */
@@ -597,10 +662,40 @@ void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info)
  */
 void vcd_ctrl_rec_trigger(void)
 {
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+	unsigned int buf_size = 0;
+
 	vcd_pr_start_control_function();
 
-	/* notification buffer update */
-	vcd_complete_buffer();
+	active_feature = vcd_ctrl_func_get_active_feature();
+
+	/* VoIP UL path route */
+	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
+		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
+		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
+			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
+			/* VoIP + Playback */
+			vcd_spuv_voip_ul_playback(g_vcd_playback_mode);
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
+			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
+			/* VoIP + Record */
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
+			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
+			/* VoIP + Playback + Record */
+		} else {
+			/* VoIP only */
+			vcd_spuv_voip_ul(&buf_size);
+		}
+		/* update VoIP UL buffer ID */
+		vcd_spuv_update_voip_ul_buffer_id();
+		/* notification buffer update */
+		vcd_voip_ul_callback(buf_size);
+	} else { /* Normal record route */
+		if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+			/* notification buffer update */
+			vcd_complete_buffer();
+		}
+	}
 
 	vcd_pr_end_control_function();
 	return;
@@ -616,10 +711,42 @@ void vcd_ctrl_rec_trigger(void)
  */
 void vcd_ctrl_play_trigger(void)
 {
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+	unsigned int buf_size = 0;
+
 	vcd_pr_start_control_function();
 
-	/* notification buffer update */
-	vcd_beginning_buffer();
+	active_feature = vcd_ctrl_func_get_active_feature();
+
+	/* VoIP DL path route */
+	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
+		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
+		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
+			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
+			/* VoIP + Playback */
+			vcd_spuv_voip_dl_playback(g_vcd_playback_mode);
+			/* notification buffer update */
+			vcd_beginning_buffer();
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
+			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
+			/* VoIP + Record */
+		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
+			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
+			/* VoIP + Playback + Record */
+		} else {
+			/* VoIP only */
+			vcd_spuv_voip_dl(&buf_size);
+		}
+		/* update VoIP DL buffer ID */
+		vcd_spuv_update_voip_dl_buffer_id();
+		/* notification buffer update */
+		vcd_voip_dl_callback(buf_size);
+	} else { /* Normal playback route */
+		if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
+			/* notification buffer update */
+			vcd_beginning_buffer();
+		}
+	}
 
 	vcd_pr_end_control_function();
 	return;

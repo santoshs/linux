@@ -63,6 +63,7 @@
 #define VCD_SPUV_HW_PARAMETERS_LENGTH		5
 #define VCD_SPUV_ACTIVE_LENGTH			2
 #define VCD_SPUV_SPEECH_START_LENGTH		3
+#define VCD_SPUV_VOIP_SPEECH_START_LENGTH	8
 #define VCD_SPUV_SPEECH_STOP_LENGTH		2
 #define VCD_SPUV_VOICE_RECORDING_START_LENGTH	7
 #define VCD_SPUV_VOICE_RECORDING_STOP_LENGTH	2
@@ -248,6 +249,17 @@ int vcd_spuv_start_playback(struct vcd_playback_option *option);
 int vcd_spuv_stop_playback(void);
 void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
 void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info);
+void vcd_spuv_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
+void vcd_spuv_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
+void vcd_spuv_init_record_buffer_id(void);
+void vcd_spuv_init_playback_buffer_id(void);
+int vcd_spuv_get_call_type(void);
+void vcd_spuv_voip_ul(unsigned int *buf_size);
+void vcd_spuv_voip_dl(unsigned int *buf_size);
+void vcd_spuv_voip_ul_playback(unsigned int mode);
+void vcd_spuv_voip_dl_playback(unsigned int mode);
+void vcd_spuv_update_voip_ul_buffer_id(void);
+void vcd_spuv_update_voip_dl_buffer_id(void);
 
 int vcd_spuv_start_1khz_tone(void);
 int vcd_spuv_stop_1khz_tone(void);

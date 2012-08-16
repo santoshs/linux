@@ -42,7 +42,6 @@ static struct vcd_spuv_work       g_vcd_spuv_rec_trigger;
 static struct vcd_spuv_work       g_vcd_spuv_play_trigger;
 static struct vcd_spuv_work       g_vcd_spuv_system_error;
 
-
 /* ========================================================================= */
 /* Internal public functions                                                 */
 /* ========================================================================= */
@@ -169,6 +168,7 @@ int vcd_spuv_start_vcd(void)
 	vcd_pr_start_spuv_function();
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
+
 
 	/* set power supply */
 	ret = vcd_spuv_func_control_power_supply(
@@ -315,6 +315,7 @@ int vcd_spuv_start_call(void)
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
 	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+	int param_num = VCD_SPUV_SPEECH_START_LENGTH;
 
 	vcd_pr_start_spuv_function();
 
@@ -333,12 +334,34 @@ int vcd_spuv_start_call(void)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_SPEECH_START_REQ;
 	param[2] = proc_param[0];
+	if (VCD_CALL_TYPE_VOIP == proc_param[0]) {
+		param[3] = 0;
+		param[4] = ((vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0) >> 16) &
+			0x0000FFFF);
+		param[5] = (vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0) & 0x0000FFFF);
+		param[6] = ((vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0) >> 16) &
+			0x0000FFFF);
+		param[7] = (vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0) & 0x0000FFFF);
+
+		/* set parameter num */
+		param_num = VCD_SPUV_VOIP_SPEECH_START_LENGTH;
+		/* initialize VoIP buffer ID */
+		vcd_spuv_func_init_voip_ul_buffer_id();
+		vcd_spuv_func_init_voip_dl_buffer_id();
+		/* SRC initialize */
+		/* 44.1kHz[T.B.D]proc_param[1] */ /* 16kHz[T.B.D] */
+		vcd_spuv_func_resampler_init(7, 3);
+	}
 
 	/* output msg log */
 	vcd_spuv_interface_log(param[1]);
 
 	/* send message */
-	vcd_spuv_func_send_msg(param, VCD_SPUV_SPEECH_START_LENGTH);
+	vcd_spuv_func_send_msg(param, param_num);
 
 	/* check result */
 	ret = vcd_spuv_check_result();
@@ -701,6 +724,211 @@ void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info)
 
 
 /**
+ * @brief	get VoIP UL buffer function.
+ *
+ * @param	info	buffer information.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info)
+{
+	vcd_pr_start_spuv_function("info[%p].\n", info);
+
+	/* set buffer address */
+	info->voip_ul_buffer[0] =
+		(unsigned int *)SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0;
+	info->voip_ul_buffer[1] =
+		(unsigned int *)SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	get VoIP DL buffer function.
+ *
+ * @param	info	buffer information.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info)
+{
+	vcd_pr_start_spuv_function("info[%p].\n", info);
+
+	/* set buffer address */
+	info->voip_dl_buffer[0] =
+		(unsigned int *)SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0;
+	info->voip_dl_buffer[1] =
+		(unsigned int *)SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize record buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_init_record_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_init_record_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize playback buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_init_playback_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_init_playback_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set VoIP UL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_update_voip_ul_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_set_voip_ul_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set VoIP DL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_update_voip_dl_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_set_voip_dl_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL function.
+ *
+ * @param[out]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_voip_ul(unsigned int *buf_size)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_voip_ul(buf_size);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL function.
+ *
+ * @param[out]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_voip_dl(unsigned int *buf_size)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_voip_dl(buf_size);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL playback function.
+ *
+ * @param	mode	playback mode
+ *
+ * @retval	none.
+ */
+void vcd_spuv_voip_ul_playback(unsigned int mode)
+{
+	vcd_pr_start_spuv_function("mode[%d].\n", mode);
+
+	if (VCD_PLAYBACK_MODE_0 == mode) {
+		/* nop */
+		vcd_spuv_func_voip_ul_playback_mode0();
+	} else if (VCD_PLAYBACK_MODE_1 == mode) {
+		/* overwrite playback data */
+		vcd_spuv_func_voip_ul_playback_mode1();
+	} else {
+		/* overwrite no voice data */
+		vcd_spuv_func_voip_ul_playback_mode2();
+	}
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL playback function.
+ *
+ * @param	mode	playback mode
+ *
+ * @retval	none.
+ */
+void vcd_spuv_voip_dl_playback(unsigned int mode)
+{
+	vcd_pr_start_spuv_function("mode[%d].\n", mode);
+
+	if (VCD_PLAYBACK_MODE_0 == mode) {
+		/* mixing "DL voice data" and "playback data" */
+		vcd_spuv_func_voip_dl_playback_mode0();
+	} else if (VCD_PLAYBACK_MODE_1 == mode) {
+		/* overwrite no voice data */
+		vcd_spuv_func_voip_dl_playback_mode1();
+	} else {
+		/* overwrite playback data */
+		vcd_spuv_func_voip_dl_playback_mode2();
+	}
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+/**
  * @brief	start 1khz tone function.
  *
  * @param	none.
@@ -954,6 +1182,37 @@ int vcd_spuv_set_trace_select(void)
 	vcd_pr_start_spuv_function();
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
+}
+
+
+/**
+ * @brief	get call type function.
+ *
+ * @param	none.
+ *
+ * @retval	call_type	call type (CS/VoIP).
+ */
+int vcd_spuv_get_call_type(void)
+{
+	int call_type = VCD_CALL_TYPE_CS;
+	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+
+	vcd_pr_start_spuv_function();
+
+	/* flush cache */
+	vcd_spuv_func_cacheflush();
+
+	if (VCD_CALL_TYPE_CS == *proc_param) {
+		call_type = VCD_CALL_TYPE_CS;
+	} else if (VCD_CALL_TYPE_VOIP == *proc_param) {
+		call_type = VCD_CALL_TYPE_VOIP;
+	} else {
+		/* [T.B.D] */
+		vcd_pr_err("Unknown call type[%d].\n", *proc_param);
+		call_type = VCD_CALL_TYPE_CS;
+	}
+	vcd_pr_end_spuv_function("call_type[%d].\n", call_type);
+	return call_type;
 }
 
 

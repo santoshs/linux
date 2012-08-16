@@ -31,12 +31,14 @@
 DEFINE_SEMAPHORE(g_vcd_semaphore);
 void (*g_vcd_complete_buffer)(void);
 void (*g_vcd_beginning_buffer)(void);
+void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
+void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
 void (*g_vcd_stop_fw)(void);
 void (*g_vcd_start_clkgen)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level;
 
-int g_vcd_debug_call_type;
+int g_vcd_debug_call_kind;
 int g_vcd_debug_mode;
 
 /*
@@ -50,7 +52,11 @@ static struct vcd_execute_func vcd_func_table[] = {
 	{ VCD_COMMAND_GET_RECORD_BUFFER,	vcd_get_record_buffer	},
 	{ VCD_COMMAND_GET_PLAYBACK_BUFFER,	vcd_get_playback_buffer	},
 	{ VCD_COMMAND_WATCH_STOP_FW,		vcd_watch_stop_fw	},
-	{ VCD_COMMAND_WATCH_START_CLKGEN,	vcd_watch_start_clkgen	}
+	{ VCD_COMMAND_WATCH_START_CLKGEN,	vcd_watch_start_clkgen	},
+	{ VCD_COMMAND_GET_VOIP_UL_BUFFER,	vcd_get_voip_ul_buffer	},
+	{ VCD_COMMAND_GET_VOIP_DL_BUFFER,	vcd_get_voip_dl_buffer	},
+	{ VCD_COMMAND_SET_VOIP_CALLBACK,	vcd_set_voip_callback	}
+
 };
 
 static struct vcd_execute_func vcd_loopback_func_table[] = {
@@ -139,6 +145,44 @@ void vcd_beginning_buffer(void)
 
 	if (NULL != g_vcd_beginning_buffer)
 		g_vcd_beginning_buffer();
+
+	vcd_pr_end_interface_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL buffer write complete function.
+ *
+ * @param[in]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_voip_ul_callback(unsigned int buf_size)
+{
+	vcd_pr_start_interface_function("buf_size[%d].\n", buf_size);
+
+	if (NULL != g_vcd_voip_ul_callback)
+		g_vcd_voip_ul_callback(buf_size);
+
+	vcd_pr_end_interface_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL buffer read start function.
+ *
+ * @param[in]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_voip_dl_callback(unsigned int buf_size)
+{
+	vcd_pr_start_interface_function("buf_size[%d].\n", buf_size);
+
+	if (NULL != g_vcd_voip_dl_callback)
+		g_vcd_voip_dl_callback(buf_size);
 
 	vcd_pr_end_interface_function();
 	return;
@@ -396,7 +440,7 @@ static void vcd_start_call(void)
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_start_call(g_vcd_debug_call_type, g_vcd_debug_mode);
+	vcd_ctrl_start_call(g_vcd_debug_call_kind, g_vcd_debug_mode);
 
 	vcd_pr_end_interface_function();
 }
@@ -414,7 +458,7 @@ static void vcd_stop_call(void)
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_stop_call(g_vcd_debug_call_type);
+	vcd_ctrl_stop_call(g_vcd_debug_call_kind);
 
 	vcd_pr_end_interface_function();
 }
@@ -481,14 +525,14 @@ static int vcd_set_call_mode(void *arg)
 	}
 
 	memcpy(&option, arg, sizeof(option));
-	vcd_pr_interface_info("option.call_type[%d].\n", option.call_type);
+	vcd_pr_interface_info("option.call_kind[%d].\n", option.call_kind);
 	vcd_pr_interface_info("option.loopback_mode[%d].\n",
 					option.loopback_mode);
 
-	if ((VCD_CALL_TYPE_CALL > option.call_type) ||
-		(VCD_CALL_TYPE_VIF_LB  < option.call_type)) {
-		vcd_pr_err("parameter error. option.call_type[%d].\n",
-						option.call_type);
+	if ((VCD_CALL_KIND_CALL > option.call_kind) ||
+		(VCD_CALL_KIND_VIF_LB  < option.call_kind)) {
+		vcd_pr_err("parameter error. option.call_kind[%d].\n",
+						option.call_kind);
 		ret = VCD_ERR_PARAM;
 		goto rtn;
 	}
@@ -502,7 +546,7 @@ static int vcd_set_call_mode(void *arg)
 	}
 
 	/* register call type */
-	g_vcd_debug_call_type = option.call_type;
+	g_vcd_debug_call_kind = option.call_kind;
 
 	/* register loopback mode */
 	g_vcd_debug_mode = option.loopback_mode;
@@ -738,6 +782,106 @@ static int vcd_get_playback_buffer(void *arg)
 
 	/* execute control function */
 	vcd_ctrl_get_playback_buffer(arg);
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	get VoIP UL buffer function.
+ *
+ * @param[out]	arg	pointer of VoIP UL buffer info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ * @retval	others		result of called function.
+ */
+static int vcd_get_voip_ul_buffer(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	/* execute control function */
+	vcd_ctrl_get_voip_ul_buffer(arg);
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	get VoIP DL buffer function.
+ *
+ * @param[out]	arg	pointer of VoIP DL buffer info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ * @retval	others		result of called function.
+ */
+static int vcd_get_voip_dl_buffer(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	/* execute control function */
+	vcd_ctrl_get_voip_dl_buffer(arg);
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set VoIP callback function.
+ *
+ * @param[in]	arg	pointer of VoIP callback option structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ * @retval	others		result of called function.
+ */
+static int vcd_set_voip_callback(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_voip_callback option = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&option, arg, sizeof(option));
+
+	g_vcd_voip_ul_callback = option.voip_ul_callback;
+	g_vcd_voip_dl_callback = option.voip_dl_callback;
 
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);
@@ -1242,16 +1386,16 @@ debug:
 		vcd_ctrl_dump_fw_static_buffer_memory();
 		break;
 	case VCD_DEBUG_SET_CALL_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_CALL;
+		g_vcd_debug_call_kind = VCD_CALL_KIND_CALL;
 		break;
 	case VCD_DEBUG_SET_1KHZ_TONE_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_1KHZ;
+		g_vcd_debug_call_kind = VCD_CALL_KIND_1KHZ;
 		break;
 	case VCD_DEBUG_SET_PCM_LOOPBACK_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_PCM_LB;
+		g_vcd_debug_call_kind = VCD_CALL_KIND_PCM_LB;
 		break;
 	case VCD_DEBUG_SET_VIF_LOOPBACK_MODE:
-		g_vcd_debug_call_type = VCD_CALL_TYPE_VIF_LB;
+		g_vcd_debug_call_kind = VCD_CALL_KIND_VIF_LB;
 		break;
 	case VCD_DEBUG_SET_MODE_0:
 		g_vcd_debug_mode = 0;

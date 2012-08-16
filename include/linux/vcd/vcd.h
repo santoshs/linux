@@ -44,15 +44,18 @@ enum VCD_COMMAND {
 	VCD_COMMAND_GET_PLAYBACK_BUFFER,
 	VCD_COMMAND_WATCH_STOP_FW,
 	VCD_COMMAND_WATCH_START_CLKGEN,
+	VCD_COMMAND_GET_VOIP_UL_BUFFER,
+	VCD_COMMAND_GET_VOIP_DL_BUFFER,
+	VCD_COMMAND_SET_VOIP_CALLBACK,
 
 	VCD_COMMAND_MAX
 };
 
-enum VCD_CALL_TYPE {
-	VCD_CALL_TYPE_CALL = 0,
-	VCD_CALL_TYPE_1KHZ,
-	VCD_CALL_TYPE_PCM_LB,
-	VCD_CALL_TYPE_VIF_LB
+enum VCD_CALL_KIND {
+	VCD_CALL_KIND_CALL = 0,
+	VCD_CALL_KIND_1KHZ,
+	VCD_CALL_KIND_PCM_LB,
+	VCD_CALL_KIND_VIF_LB
 };
 
 enum VCD_RECORD_MODE {
@@ -83,7 +86,7 @@ struct vcd_execute_command {
 };
 
 struct vcd_call_option {
-	unsigned int call_type;
+	unsigned int call_kind;
 	unsigned int loopback_mode;
 };
 
@@ -105,6 +108,20 @@ struct vcd_playback_buffer_info {
 	unsigned int *playback_buffer[2];
 };
 
+struct vcd_voip_ul_buffer_info {
+	unsigned int *voip_ul_buffer[2];
+};
+
+struct vcd_voip_dl_buffer_info {
+	unsigned int *voip_dl_buffer[2];
+};
+
+struct vcd_voip_callback {
+	void *voip_ul_callback;
+	void *voip_dl_callback;
+};
+
+typedef void (*vcd_voip_callback) (unsigned int buf_size);
 
 /*
  * table declaration

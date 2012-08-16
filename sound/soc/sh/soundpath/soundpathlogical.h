@@ -137,6 +137,13 @@ static void sndp_call_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
+/* Trigger process for VoIP */
+static void sndp_incomm_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value);
+
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
 
@@ -167,6 +174,15 @@ static void sndp_work_call_playback_stop(struct work_struct *work);
 /* Work queue processing for Stop during a call capture */
 static void sndp_work_call_capture_stop(struct work_struct *work);
 
+/* Work queue processing for Start during a playback incommunication */
+static void sndp_work_call_playback_incomm_start(struct work_struct *work);
+/* Work queue function for Start during a capture incommunication */
+static void sndp_work_call_capture_incomm_start(struct work_struct *work);
+/* Work queue function for Stop during a playback incommunication */
+static void sndp_work_call_playback_incomm_stop(struct work_struct *work);
+/* Work queue function for Stop during a capture incommunication */
+static void sndp_work_call_capture_incomm_stop(struct work_struct *work);
+
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
@@ -177,12 +193,24 @@ static void sndp_work_fm_radio_start(struct work_struct *work);
 /* Work queue processing for FM Radio stop */
 static void sndp_work_fm_radio_stop(struct work_struct *work);
 
+/* Work queue processing for playback incommunication start */
+static void sndp_work_play_incomm_start(struct work_struct *work);
+/* Work queue processing for playback incommunication stop */
+static void sndp_work_play_incomm_stop(struct work_struct *work);
+/* Work queue processing for capture incommunication start */
+static void sndp_work_capture_incomm_start(struct work_struct *work);
+/* Work queue processing for capture incommunication stop */
+static void sndp_work_capture_incomm_stop(struct work_struct *work);
 
 /* SoundPath start / stop control functions */
+/* Normal */
 static void sndp_work_start(const int direction);
 static void sndp_work_stop(
 	struct work_struct *work,
 	const int direction);
+/* Incommunication */
+static void sndp_work_incomm_start(const u_int new_value);
+static void sndp_work_incomm_stop(void);
 
 /* Voice stop and Normal device change */
 /* (Post-processing of this sndp_work_call_capture_stop()) */
@@ -284,6 +312,8 @@ enum sndp_proc_e {
 	SNDP_PROC_CALL_STOP		= 0x0008, /* Disconnect              */
 	SNDP_PROC_WATCH_STOP_FW		= 0x0010, /* Stop watch VCD          */
 	SNDP_PROC_DEV_CHANGE		= 0x0020, /* Device change for call  */
+	SNDP_PROC_INCOMM_START		= 0x0040, /* incommunication start   */
+	SNDP_PROC_INCOMM_STOP		= 0x0080, /* incommunication stop    */
 };
 
 /* Status */

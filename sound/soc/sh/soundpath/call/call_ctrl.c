@@ -39,8 +39,20 @@ static struct snd_pcm_substream *g_call_substream[SNDP_PCM_DIRECTION_MAX];
 /* Data information for Playback and Capture */
 static struct call_pcm_info g_call_pcm_info[SNDP_PCM_DIRECTION_MAX];
 
+/* Playback incommunication buf address from Vocoder */
+static u_int g_call_play_incomm_data_addr[DATA_SIDE_MAX] = {0, 0};
+/* Record incommunication buf address from Vocoder */
+static u_int g_call_rec_incomm_data_addr[DATA_SIDE_MAX] = {0, 0};
+/* Stream information from linux kernel */
+static struct snd_pcm_substream *g_call_incomm_substream[SNDP_PCM_DIRECTION_MAX];
+/* Data information for Playback and Capture */
+static struct call_pcm_info g_call_incomm_pcm_info[SNDP_PCM_DIRECTION_MAX] = {
+	{ next_pd_side : DATA_SIDE_0, },
+	{ next_pd_side : DATA_SIDE_0, },
+};
+
 /* Call status */
-static enum call_status g_status;
+enum call_status g_status = IDLE_STATUS;
 /* Uplink status */
 static bool g_call_play_uplink;
 /* Dummy play/record flag */
@@ -57,15 +69,25 @@ struct workqueue_struct	*g_call_queue_out;
 static u8 g_call_playback_buff[VCD_PLAYBACK_BUFFER_SIZE];
 static long g_call_playback_len;
 
+/* Temporary area information(Incomm Play) */
+static u8 g_call_playback_incomm_buff[4096];
+static long g_call_playback_incomm_len;
+
 /* Temporary area information(Rec) */
 static u8 g_call_record_buff[VCD_RECORD_BUFFER_SIZE];
 static long g_call_record_len;
 static long g_call_dummy_record_len;
 static long g_call_dummy_play_len;
 
+/* Temporary area information(Incomm Rec) */
+static u8 g_call_record_incomm_buff[4096];
+static long g_call_record_incomm_len;
+
 #ifdef DEBUG
 static bool g_call_cb_debug[SNDP_PCM_DIRECTION_MAX] = { true, true };
 #endif
+
+static bool g_call_incomm_cb[SNDP_PCM_DIRECTION_MAX] = { true, true };
 
 /* Firmware abnormality state */
 extern int g_sndp_stream_route;
@@ -307,6 +329,107 @@ void call_record_stop(void)
 	sndp_log_debug_func("end\n");
 }
 
+/*!
+   @brief Voip(Playback) Start function
+
+   @param[in]	substream	PCM substream structure
+   @param[out]	none
+
+   @retval	none
+ */
+int call_playback_incomm_start(struct snd_pcm_substream *substream)
+{
+	int                             ret = ERROR_NONE;
+
+	sndp_log_debug_func("start\n");
+
+	/* Voip data information initialize */
+	call_incomm_pcm_info_init(substream, PLAY_INCOMM_STATUS);
+
+	/* Status update */
+	g_status |= PLAY_INCOMM_STATUS;
+
+	sndp_log_debug_func("end\n");
+	return ret;
+}
+
+/*!
+   @brief Void(Playback) Stop function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+void call_playback_incomm_stop(void)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Status update */
+	g_status &= ~PLAY_INCOMM_STATUS;
+
+#ifdef DEBUG
+	g_call_incomm_cb[SNDP_PCM_OUT] = true;
+#endif
+
+	/* If cross Vocoder callback, Data information clear */
+	g_call_playback_incomm_len = 0;
+	g_call_incomm_pcm_info[SNDP_PCM_OUT].byte_offset = 0;
+	g_call_incomm_pcm_info[SNDP_PCM_OUT].next_pd_side = DATA_SIDE_0;
+
+	sndp_log_debug_func("end\n");
+}
+
+/*!
+   @brief Voip(Record) Start function
+
+   @param[in]	substream	PCM substream structure
+   @param[out]	none
+
+   @retval	none
+ */
+int call_record_incomm_start(struct snd_pcm_substream *substream)
+{
+	int                             ret = ERROR_NONE;
+
+	sndp_log_debug_func("start\n");
+
+	/* Record information clear */
+	call_incomm_pcm_info_init(substream, REC_INCOMM_STATUS);
+
+	/* Status update */
+	g_status |= REC_INCOMM_STATUS;
+
+	sndp_log_debug_func("end\n");
+	return ret;
+}
+
+/*!
+   @brief Voip(Record) Stop function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+void call_record_incomm_stop(void)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Status update */
+	g_status &= ~REC_INCOMM_STATUS;
+
+#ifdef DEBUG
+	g_call_incomm_cb[SNDP_PCM_IN] = true;
+#endif
+
+	/* If cross Vocoder callback, Data information clear */
+	g_call_record_incomm_len = 0;
+	g_call_incomm_pcm_info[SNDP_PCM_IN].byte_offset = 0;
+	g_call_incomm_pcm_info[SNDP_PCM_OUT].next_pd_side = DATA_SIDE_0;
+	
+	sndp_log_debug_func("end\n");
+}
 
 /*!
    @brief Speech + Playback/Record buffer offset return function
@@ -346,6 +469,7 @@ int call_regist_watch(callback_func callback, callback_func_clk callback_clk)
 {
 	/* Local variable declaration */
 	int ret = ERROR_NONE;
+	struct vcd_voip_callback voip_callback;
 
 	sndp_log_debug_func("start\n");
 
@@ -358,22 +482,35 @@ int call_regist_watch(callback_func callback, callback_func_clk callback_clk)
 			       (void *)call_watch_stop_fw_cb);
 	if (ERROR_NONE > ret) {
 		sndp_log_err("Error COMMAND_WATCH_STOP_FW(code=%d)\n", ret);
-		ret = -EPERM;
-	} else {
-		/* Set callback for Vocoder */
-		sndp_log_debug(
-			"vcd_execute() cmd=VCD_COMMAND_WATCH_START_CLKGEN\n");
-		ret = call_vcd_execute((int)VCD_COMMAND_WATCH_START_CLKGEN,
-				       (void *)callback_clk);
-		if (ERROR_NONE > ret) {
-			sndp_log_err(
-			"Error VCD_COMMAND_WATCH_START_CLKGEN(code=%d)\n", ret);
-			ret = -EPERM;
-		}
+		return -EPERM;
+	}
+
+	/* Set callback for Vocoder */
+	sndp_log_debug(
+		"vcd_execute() cmd=VCD_COMMAND_WATCH_START_CLKGEN\n");
+	ret = call_vcd_execute((int)VCD_COMMAND_WATCH_START_CLKGEN,
+			       (void *)callback_clk);
+	if (ERROR_NONE > ret) {
+		sndp_log_err(
+		"Error VCD_COMMAND_WATCH_START_CLKGEN(code=%d)\n", ret);
+		return -EPERM;
+	}
+
+	/* Set Incomm for Vocoder */
+	voip_callback.voip_ul_callback = call_record_incomm_cb;
+	voip_callback.voip_dl_callback = call_playback_incomm_cb;
+
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_SET_VOIP_CALLBACK\n");
+	ret = call_vcd_execute((int)VCD_COMMAND_SET_VOIP_CALLBACK,
+		        (void *)&voip_callback);
+	if (ERROR_NONE > ret) {
+		sndp_log_err(
+		"Error VCD_COMMAND_SET_VOIP_CALLBACK(code=%d)\n", ret);
+		return -EPERM;
 	}
 
 	sndp_log_debug_func("end\n");
-	return ret;
+	return ERROR_NONE;
 }
 
 
@@ -841,6 +978,222 @@ static void call_record_data_set(void)
 						DATA_SIDE_1 : DATA_SIDE_0;
 }
 
+/*!
+   @brief Playback incommunication Data set function
+
+   @param[in]	buffer size
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_playback_incomm_data_set(unsigned int buf_size)
+{
+	/* Local variable declaration */
+	long			call_playback_len = 0;
+	struct call_pcm_info	*pcm_info = &g_call_incomm_pcm_info[SNDP_PCM_OUT];
+	int			next_pd_side = pcm_info->next_pd_side;
+	struct snd_pcm_runtime	*runtime;
+
+	/* If process had been driver closed. */
+	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]->runtime) {
+		sndp_log_info("runtime is NULL\n");
+		return;
+	}
+
+	runtime = g_call_incomm_substream[SNDP_PCM_OUT]->runtime;
+
+	if (NULL == runtime->dma_area) {
+		sndp_log_info("dma_area is NULL\n");
+		return;
+	}
+
+	/* Copy the data from temporary area. */
+	if (0 < g_call_playback_incomm_len) {
+		/* Set data */
+		memcpy((void *)g_call_play_incomm_data_addr[next_pd_side],
+		       (void *)g_call_playback_incomm_buff,
+		       g_call_playback_incomm_len);
+
+		/* Clear temporary area. */
+		memset(g_call_playback_incomm_buff, '\0', g_call_playback_incomm_len);
+		/* Clear temporary information. */
+		pcm_info->period = 0;
+		pcm_info->byte_offset = g_call_playback_incomm_len;
+		call_playback_len = g_call_playback_incomm_len;
+		g_call_playback_incomm_len = 0;
+	}
+
+	/* Set data, If Buffer <= Data */
+	if ((buf_size - call_playback_len) <=
+		(pcm_info->buffer_len - pcm_info->byte_offset)) {
+		/* Set data */
+		memcpy((void *)(g_call_play_incomm_data_addr[next_pd_side] +
+							call_playback_len),
+			runtime->dma_area + pcm_info->byte_offset,
+			buf_size - call_playback_len);
+
+		/* Offset update */
+		pcm_info->byte_offset += buf_size;
+
+		/* If Buffer > Data */
+		if (buf_size >
+			(pcm_info->buffer_len - pcm_info->byte_offset)) {
+			/*
+			 * Length of the temporary area
+			 * to update information.
+			 */
+			g_call_playback_incomm_len =
+				pcm_info->buffer_len - pcm_info->byte_offset;
+
+			/* Copy the data to temporary area. */
+			memcpy((void *)g_call_playback_incomm_buff,
+				runtime->dma_area + pcm_info->byte_offset,
+				g_call_playback_incomm_len);
+
+			/* Offset update */
+			pcm_info->byte_offset += g_call_playback_len;
+		}
+	/* Set data, If Buffer > Data */
+	} else {
+		/* 0 padding */
+		memset((void *)(g_call_play_incomm_data_addr[next_pd_side] +
+							call_playback_len),
+			'\0',
+			buf_size - call_playback_len);
+
+		/* Set data */
+		memcpy((void *)(g_call_play_incomm_data_addr[next_pd_side] +
+							call_playback_len),
+			runtime->dma_area + pcm_info->byte_offset,
+			pcm_info->buffer_len - pcm_info->byte_offset);
+
+		/* Offset update */
+		pcm_info->byte_offset +=
+			(pcm_info->buffer_len - pcm_info->byte_offset);
+	}
+
+	/* If it reaches the period of data */
+	if ((0 < call_playback_len) ||
+	    (pcm_info->byte_offset >=
+		(pcm_info->period_len * (pcm_info->period + 1)))) {
+
+		/* Period update */
+		pcm_info->period =
+			pcm_info->byte_offset / pcm_info->period_len;
+
+		if (runtime->periods == pcm_info->period) {
+			/* Update again, the period */
+			pcm_info->period = 0;
+			pcm_info->byte_offset = 0;
+		}
+
+		/* Notification period to ALSA */
+		snd_pcm_period_elapsed(g_call_incomm_substream[SNDP_PCM_OUT]);
+	}
+
+	/* Set next position */
+	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
+						DATA_SIDE_1 : DATA_SIDE_0;
+}
+
+
+/*!
+   @brief Record incommunication Data set function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_record_incomm_data_set(unsigned int buf_size)
+{
+	/* Local variable declaration */
+	struct call_pcm_info	*pcm_info = &g_call_incomm_pcm_info[SNDP_PCM_IN];
+	int			next_pd_side = pcm_info->next_pd_side;
+	struct snd_pcm_runtime	*runtime;
+
+	/* If process had been driver closed. */
+	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]->runtime) {
+		sndp_log_info("runtime is NULL\n");
+		return;
+	}
+
+	runtime = g_call_incomm_substream[SNDP_PCM_IN]->runtime;
+
+	if (NULL == runtime->dma_area) {
+		sndp_log_info("dma_area is NULL\n");
+		return;
+	}
+
+	/* Get data, If Buffer >= Data */
+	if ((g_call_record_incomm_len + buf_size) <=
+		(pcm_info->buffer_len - pcm_info->byte_offset)) {
+		/* Copy the data from temporary area. */
+		if (0 < g_call_record_incomm_len) {
+			/* Get data */
+			memcpy((runtime->dma_area + pcm_info->byte_offset),
+			       (void *)g_call_record_incomm_buff,
+			       g_call_record_incomm_len);
+
+			/* Clear temporary area and information. */
+			memset(g_call_record_incomm_buff, '\0', g_call_record_incomm_len);
+			g_call_record_incomm_len = 0;
+		}
+
+		/* Get data */
+		memcpy((void *)(runtime->dma_area +
+				pcm_info->byte_offset +
+				g_call_record_incomm_len),
+		       (void *)g_call_rec_incomm_data_addr[next_pd_side],
+		       buf_size);
+
+		/* Offset update */
+		pcm_info->byte_offset += (g_call_record_incomm_len + buf_size);
+	/* Get data, If Buffer < Data */
+	} else {
+		/* Get data */
+		memcpy((void *)(runtime->dma_area + pcm_info->byte_offset),
+		       (void *)g_call_rec_incomm_data_addr[next_pd_side],
+		       pcm_info->buffer_len - pcm_info->byte_offset);
+
+		/* Offset update */
+		pcm_info->byte_offset +=
+			(pcm_info->buffer_len - pcm_info->byte_offset);
+
+		/* Length of the temporary area to update information. */
+		g_call_record_incomm_len = buf_size -
+			(pcm_info->buffer_len - pcm_info->byte_offset);
+
+		/* Copy the data to temporary area. */
+		memcpy(g_call_record_incomm_buff,
+		       (void *)(g_call_rec_incomm_data_addr[next_pd_side] +
+			       (pcm_info->buffer_len - pcm_info->byte_offset)),
+		       g_call_record_incomm_len);
+	}
+
+	/* If it reaches the period of data */
+	if ((0 < g_call_record_incomm_len) ||
+	    (pcm_info->byte_offset >=
+		(pcm_info->period_len * (pcm_info->period + 1)))) {
+
+		/* Period update */
+		pcm_info->period =
+			pcm_info->byte_offset / pcm_info->period_len;
+
+		if (runtime->periods == pcm_info->period) {
+			/* Update again, the period */
+			pcm_info->period = 0;
+			pcm_info->byte_offset = 0;
+		}
+
+		/* Notification period to ALSA */
+		snd_pcm_period_elapsed(g_call_incomm_substream[SNDP_PCM_IN]);
+	}
+
+	/* Set next position */
+	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
+						DATA_SIDE_1 : DATA_SIDE_0;
+}
 
 /*!
    @brief Speech + Playback Callback function
@@ -883,6 +1236,53 @@ static void call_record_cb(void)
 	call_record_data_set();
 }
 
+/*!
+   @brief Playback incommunication Callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_playback_incomm_cb(unsigned int buf_size)
+{
+	if (g_call_incomm_cb[SNDP_PCM_OUT]) {
+		sndp_log_info("first call for vocoder\n");
+		g_call_incomm_pcm_info[SNDP_PCM_OUT].next_pd_side = DATA_SIDE_0;
+		g_call_incomm_cb[SNDP_PCM_OUT] = false;
+	}
+
+	if (g_status & PLAY_INCOMM_STATUS)
+		/* Data set */
+		call_playback_incomm_data_set(buf_size);
+	else
+		/* Dummy */
+		call_playback_incomm_dummy(buf_size);
+}
+
+/*!
+   @brief Record incommunication Callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_record_incomm_cb(unsigned int buf_size)
+{
+	if (g_call_incomm_cb[SNDP_PCM_IN]) {
+		sndp_log_info("first call for vocoder\n");
+		g_call_incomm_pcm_info[SNDP_PCM_IN].next_pd_side = DATA_SIDE_0;
+		g_call_incomm_cb[SNDP_PCM_IN] = false;
+	}
+
+	if (g_status & REC_INCOMM_STATUS)
+		/* Data get */
+		call_record_incomm_data_set(buf_size);
+	else
+		/* Dummy */
+		call_record_incomm_dummy(buf_size);
+}
 
 /*!
    @brief VCD_COMMAND_WATCH_STOP_FW callback function
@@ -1097,3 +1497,140 @@ static void call_work_dummy_play(struct work_struct *work)
 //	sndp_log_debug_func("end\n");
 }
 
+
+/**
+   @brief Dummy playback incommunication Data set function
+
+   @param[in]	buffer size
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_playback_incomm_dummy(unsigned int buf_size)
+{
+	struct call_pcm_info	*pcm_info = &g_call_incomm_pcm_info[SNDP_PCM_OUT];
+	int			next_pd_side = pcm_info->next_pd_side;
+
+//	sndp_log_debug_func("start\n");
+
+	memset((void *)g_call_play_incomm_data_addr[next_pd_side],
+		'\0',
+		buf_size);
+
+	/* Set next position */
+	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
+						DATA_SIDE_1 : DATA_SIDE_0;
+
+//	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Dummy record incommunication Data set function
+
+   @param[in]	buffer size
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_record_incomm_dummy(unsigned int buf_size)
+{
+	struct call_pcm_info	*pcm_info = &g_call_incomm_pcm_info[SNDP_PCM_IN];
+
+//	sndp_log_debug_func("start\n");
+
+	/* Set next position */
+	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
+						DATA_SIDE_1 : DATA_SIDE_0;
+
+	/* sndp_log_debug_func("end\n"); */
+}
+
+
+/*!
+   @brief Void get buffer function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	0		Successful
+   @retval	-EPERM		Not ready
+ */
+void call_get_incomm_buffer(void)
+{
+	/* Local variable declaration */
+	int                             ret = ERROR_NONE;
+	struct vcd_voip_ul_buffer_info	vcd_voip_ul_buf;
+	struct vcd_voip_dl_buffer_info	vcd_voip_dl_buf;
+
+	sndp_log_debug_func("start\n");
+
+	/* Get Voip UL buffer */
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
+	ret = call_vcd_execute((int)VCD_COMMAND_GET_VOIP_UL_BUFFER,
+				(void *)&vcd_voip_ul_buf);
+	if (ERROR_NONE != ret)
+		sndp_log_err("Error COMMAND_GET_VOIP_UL_BUFFER(code=%d)\n",
+			     ret);
+
+	/* Data pointer setting */
+	g_call_play_incomm_data_addr[DATA_SIDE_0] =
+		(u_int)vcd_voip_dl_buf.voip_dl_buffer[DATA_SIDE_0];
+	g_call_play_incomm_data_addr[DATA_SIDE_1] =
+		(u_int)vcd_voip_dl_buf.voip_dl_buffer[DATA_SIDE_1];
+
+	/* Get Voip DL buffer */
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
+	ret = call_vcd_execute((int)VCD_COMMAND_GET_VOIP_DL_BUFFER,
+				(void *)&vcd_voip_dl_buf);
+	if (ERROR_NONE != ret)
+		sndp_log_err("Error COMMAND_GET_VOIP_DL_BUFFER(code=%d)\n",
+			     ret);
+
+	/* Data pointer setting */
+	g_call_rec_incomm_data_addr[DATA_SIDE_0] =
+		(u_int)vcd_voip_ul_buf.voip_ul_buffer[DATA_SIDE_0];
+	g_call_rec_incomm_data_addr[DATA_SIDE_1] =
+		(u_int)vcd_voip_ul_buf.voip_ul_buffer[DATA_SIDE_1];
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief PCM information initialization function
+
+   @param[in]	substream	PCM substream structure
+   @param[in]	kind		Direction(playback/capture)
+   @param[out]	none
+
+   @retval	none
+ */
+static void call_incomm_pcm_info_init(
+	struct snd_pcm_substream *substream,
+	enum call_status kind)
+{
+	/* Local variable declaration */
+	int			direction;
+	struct snd_pcm_runtime	*runtime = substream->runtime;
+
+	sndp_log_debug_func("start\n");
+
+	direction = (PLAY_STATUS == kind) ? SNDP_PCM_OUT : SNDP_PCM_IN;
+
+	/* Set substream */
+	g_call_incomm_substream[direction] = substream;
+
+	/* Pcm information clear */
+	g_call_incomm_pcm_info[direction].buffer_len =
+		runtime->buffer_size * runtime->frame_bits / 8;
+
+	g_call_incomm_pcm_info[direction].byte_offset = 0;
+
+	g_call_incomm_pcm_info[direction].period_len =
+		frames_to_bytes(runtime, runtime->period_size);
+
+	g_call_incomm_pcm_info[direction].period = 0;
+
+	sndp_log_debug_func("end\n");
+}
