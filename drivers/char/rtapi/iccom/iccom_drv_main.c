@@ -45,6 +45,8 @@
 
 static struct miscdevice g_iccom_device;					/* device driver information */
 static struct task_struct *g_iccom_async_resp_task;			/* task information */
+spinlock_t				g_iccom_lock_handle_list;
+struct list_head		g_iccom_list_handle;
 
 /**** prototype ****/
 static int  iccom_open(struct inode*, struct file*);
@@ -89,9 +91,15 @@ int iccom_close(
 	struct file		*fp
 )
 {
+	iccom_drv_handle	*drv_handle;
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
+
+	drv_handle = (iccom_drv_handle *)(fp->private_data);
+	iccom_leak_check(drv_handle);
+
 	/* release a ICCOM handle */
 	iccom_destroy_handle(fp->private_data);
+
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return SMAP_OK;
 }
@@ -233,6 +241,8 @@ long iccom_ioctl(
 				ret = iccom_recv_command_async(&handle,
 												&ioctl_param.recv_async);
 				if (SMAP_OK == ret) {
+					MSG_MED("[ICCOMK]INF| handle->recv_data[0x%08x].\n",
+							(unsigned int)((iccom_drv_handle *)handle)->recv_data);
 					/* copy receive data information to user area */
 					if (copy_to_user((void __user *)arg, &ioctl_param.recv_async, sizeof(ioctl_param.recv_async))) {
 						MSG_ERROR("[ICCOMK]ERR| output data copy.\n");
@@ -250,6 +260,9 @@ long iccom_ioctl(
 		/* copy receive data */
 		case ICCOM_CMD_GET_RECV_DATA:
 			{
+				iccom_drv_handle	*handle;
+
+				handle = fp->private_data;
 				/* set receive data information */
 				if (copy_from_user(&ioctl_param.get_data, (void __user *) arg, sizeof(ioctl_param.get_data))) {
 					MSG_ERROR("[ICCOMK]ERR| ioctl copy error.\n");
@@ -266,6 +279,8 @@ long iccom_ioctl(
 				}
 				/* release command data */
 				iccom_recv_complete(ioctl_param.get_data.recv_data);
+				MSG_MED("[ICCOMK]INF| handle->recv_data[0x%08x].\n", (unsigned int)handle->recv_data);
+				handle->recv_data = NULL;
 			}
 			break;
 		/* get process ID of asynchronous thread */
@@ -472,6 +487,11 @@ int iccom_init_module(
 		MSG_ERROR("[ICCOMK]ERR| misc_register failed ret[%d]\n", ret);
 		return SMAP_NG;
 	}
+
+	spin_lock_init(&g_iccom_lock_handle_list);
+
+	memset(&g_iccom_list_handle, 0, sizeof(g_iccom_list_handle));
+	INIT_LIST_HEAD(&g_iccom_list_handle);
 
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	/* initialize standby function */
