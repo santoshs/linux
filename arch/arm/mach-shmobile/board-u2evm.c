@@ -2995,7 +2995,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #ifdef CONFIG_SPI_SH_MSIOF
 	/* enable MSIOF0 */
 	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
-	gpio_request(GPIO_FN_MSIOF0_TSYNC, NULL);
+	gpio_request(GPIO_FN_MSIOF0_SYNC, NULL);
 	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
