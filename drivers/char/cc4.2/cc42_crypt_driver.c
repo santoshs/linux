@@ -56,6 +56,7 @@
 #include "cc42_crypt_driver_hw_defs.h"
 #include "cc42_crypt_driver_config.h"
 #include "cc42_crypt_driver_api.h"
+//#include "sec_hal_pm.h"
 
 /* To Enable debug print */
 //#define ENABLE_CC42_DEBUG_PRINT
@@ -94,7 +95,6 @@ static const struct file_operations sep_file_operarions;
  sep power down counter initialized to 0.
 */
 static unsigned long long sep_power_down_counter = 0;
-int get_AES_secret_key(void);
 
 /* context of the device */
 struct device_context   sep_context;
@@ -624,16 +624,6 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_free_dma_table_data_handler end\n"
 return error;
 }
 
-
-/*
-  This function generates AES secret key
-*/
-int get_AES_secret_key()
-{
-	int error = 0;
-
-	return error;
-}
 /*
   This function is a common suspend processing
 */
@@ -677,6 +667,7 @@ end_function:
 static int sep_resume(struct device *dev)
 {
 	int error = 0;
+	//int sec_hal_error = 0;
 	unsigned long long count = 0;
 	
 	/*----------------------------
@@ -716,14 +707,17 @@ static int sep_resume(struct device *dev)
 	if (sep_power_down_counter != count) {
 		/* to update the sep power down counter */
 		sep_power_down_counter = count;
-		error = get_AES_secret_key();
-		if (error) {
-			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: get_AES_secret_key failed\n");
-			goto end_function;
+		/* Commented : sec_hal_pm_public_cc42_key_init function is failing.
+		Calling this API results in Instability on Secure side*/ 
+		/*sec_hal_error = sec_hal_pm_public_cc42_key_init();
+		if (sec_hal_error) {
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: \
+			sec_hal_pm_public_cc42_key_init failed with error %d\n", error);
 		}
 		else {
-			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: get_AES_secret_key succeeded \n");
-		}
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: \
+			sec_hal_pm_public_cc42_key_init succeeded \n");
+		}*/
 	}
 
 	
