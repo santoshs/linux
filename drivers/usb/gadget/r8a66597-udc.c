@@ -345,7 +345,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, vbus_work.work);
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
-	int is_vbus_powered;
+	int is_vbus_powered, ret;
 	unsigned long flags;
 #ifdef CONFIG_USB_OTG
 	struct otg_transceiver *otg = otg_get_transceiver();
@@ -411,9 +411,17 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		}
 		r8a66597_usb_connect(r8a66597);
 		r8a66597->vbus_active = 1;
+		
 		//pm_runtime_put(r8a66597_to_dev(r8a66597)); 
 		schedule_delayed_work(&r8a66597->charger_work,
 				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
+		
+		ret = stop_cpufreq ();
+		if (ret) {
+			printk ("%s()[%d]: error<%d>! stop_cpufreq\n",
+				__func__, __LINE__, ret);
+			return;
+		}
 	} else {
 vbus_disconnect:
 		if (delayed_work_pending(&r8a66597->charger_work))
@@ -422,6 +430,10 @@ vbus_disconnect:
 		if (!powerup){ 
 			powerup = 1;
 		}
+
+		start_cpufreq ();		
+		printk ("%s()[%d]: start_cpufreq\n", __func__, __LINE__);
+
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
