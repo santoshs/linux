@@ -177,18 +177,23 @@ static void iic_wr(struct sh_mobile_i2c_data *pd, int offs, unsigned char data)
 	if (offs == ICIC)
 		data |= pd->icic;
 
-	iowrite8(data, pd->reg + offs);
+	writeb_relaxed(data, pd->reg + offs);
 }
 
 static unsigned char iic_rd(struct sh_mobile_i2c_data *pd, int offs)
 {
-	return ioread8(pd->reg + offs);
+	return readb_relaxed(pd->reg + offs);
 }
 
 static void iic_set_clr(struct sh_mobile_i2c_data *pd, int offs,
 			unsigned char set, unsigned char clr)
 {
 	iic_wr(pd, offs, (iic_rd(pd, offs) | set) & ~clr);
+}
+
+static void iic_sync(struct sh_mobile_i2c_data *pd)
+{
+	readb_relaxed(pd->reg + ICSR); /* defeat write posting */
 }
 
 static u32 sh_mobile_i2c_iccl(unsigned long count_khz, u32 tLOW, u32 tf, int offset)
@@ -295,6 +300,7 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 
 	/* Disable channel */
 	iic_set_clr(pd, ICCR, 0, ICCR_ICE);
+	iic_sync(pd);
 
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);
@@ -489,8 +495,8 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 		wake_up(&pd->wait);
 	}
 
-	/* defeat write posting to avoid spurious WAIT interrupts */
-	iic_rd(pd, ICSR);
+	/* get I/O synced to avoid spurious WAIT interrupts */
+	iic_sync(pd);
 
 	return IRQ_HANDLED;
 }
