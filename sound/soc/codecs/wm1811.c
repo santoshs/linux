@@ -72,8 +72,11 @@
 #define WM1811_HEADPHONE_VOL		0x0030
 
 #define WM1811_MIC_ENABLE		0x0010
+#define WM1811_MIXINL_MIC_ENA		0x0030
+#define WM1811_MIXINR_MIC_ENA		0x0180
 
 #define WM1811_HEADSET_MIC_ENABLE	0x0020
+#define WM1811_MIXINR_HEADSET_MIC_ENA	0x0030
 
 #define WM1811_CONFIG_INIT		"/etc/audio_lsi_driver/"
 #define WM1811_EXTENSION		".conf"
@@ -1007,7 +1010,7 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 			hp_out2_mix = 0x0;
 			oe &= ~WM1811_EARPEACE_VOL;
 			if (~(WM1811_BIAS_VMID_ENABLE |
-				WM1811_EARPEACE_VOL) & pm) {
+				WM1811_EARPEACE_ENABLE) & pm) {
 				pm &= ~WM1811_EARPEACE_ENABLE;
 			} else {
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
@@ -1072,93 +1075,94 @@ static int wm1811_set_headphone_device(const u_int cur_dev,
 	u_short dac1_to_mixout = 0;
 	u_short dcs_ena = 0;
 	u_short analog_hp = 0;
+	u_short mix_out_vol = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
 		/* update device conf */
+		ret = wm1811_read(0x0001, &pm);
+		ret = wm1811_read(0x0003, &oe);
+		ret = wm1811_read(0x0033, &mix_out_vol);
 		if (WM1811_ENABLE == new_dev) {
-			/* update device conf */
-			ret = wm1811_read(0x0001, &pm);
-			ret = wm1811_read(0x0003, &oe);
-			if (WM1811_ENABLE == new_dev) {
-				/* earpiece on */
-				cp_dyn_pwr = 0x5;
-				hpout1_dly = 0x22;
-				charge_pump = 0x9F25;
-				dac1_to_mixout = 0x1;
-				dcs_ena = 0x33;
-				analog_hp = 0xEE;
-				oe |= WM1811_HEADPHONE_VOL;
-				if (WM1811_BIAS_VMID_ENABLE & pm)
-					pm |= WM1811_HEADPHONE_ENABLE;
-				else {
-					pm |= (WM1811_BIAS_VMID_ENABLE |
-						WM1811_HEADPHONE_ENABLE);
-				}
-			} else {
-				/* earpiece off */
-				cp_dyn_pwr = 0x4;
-				hpout1_dly = 0x0;
-				charge_pump = 0x1F25;
-				dac1_to_mixout = 0x0;
-				dcs_ena = 0;
-				analog_hp = 0;
-				oe &= ~WM1811_HEADPHONE_VOL;
-				if (~(WM1811_BIAS_VMID_ENABLE |
-					WM1811_HEADPHONE_ENABLE) & pm) {
-					pm &= ~WM1811_HEADPHONE_ENABLE;
-				} else {
-					pm &= ~(WM1811_BIAS_VMID_ENABLE |
-						WM1811_HEADPHONE_ENABLE);
-				}
-			}
 			/* headphone on */
-			/* Enable Class W, Class W Envelope Tracking = AIF1 */
-			ret = wm1811_write(0x0051, cp_dyn_pwr);
-
-			/* Enable bias generator, Enable VMID, */
-			/* Enable HPOUT1 (Left) and Enable HPOUT1 (Right) */
-			/* input stages */
-			ret = wm1811_write(0x0001, pm);
-
-			/* Enable HPOUT1 (Left) and HPOUT1 (Right) */
-			/* intermediate stages */
-			ret = wm1811_write(0x0060, hpout1_dly);
-
-			/* Enable Charge Pump */
-			ret = wm1811_write(0x004C, charge_pump);
-
-			/* INSERT_DELAY_MS [15]->[25] */
-			mdelay(25);
-
-			/* Enable AIF1 DAC (Left) Path, */
-			/* Enable AIF1 DAC (Right) Path */
-			/* Select DAC1 (Left) to Left Headphone Output PGA */
-			/* (HPOUT1LVOL) path */
-			ret = wm1811_write(0x002D, dac1_to_mixout);
-
-			/* Select DAC1 (Right) to Right Headphone Output */
-			/* PGA (HPOUT1RVOL) path */
-			ret = wm1811_write(0x002E, dac1_to_mixout);
-
-			/* Enable Left Output Mixer (MIXOUTL), */
-			/* Enable Right Output Mixer (MIXOUTR)*/
-			ret = wm1811_write(0x0003, oe);
-
-			/* Enable DC Servo and trigger start-up mode on */
-			/* left and right channels */
-			ret = wm1811_write(0x0054, dcs_ena);
-
-			/* INSERT_DELAY_MS [250] */
-			mdelay(250);
-
-			/* Enable HPOUT1 (Left) and HPOUT1 (Right) */
-			/* intermediate and output stages. Remove clamps */
-			ret = wm1811_write(0x0060, analog_hp);
-
+			cp_dyn_pwr = 0x5;
+			hpout1_dly = 0x22;
+			charge_pump = 0x9F25;
+			dac1_to_mixout = 0x1;
+			dcs_ena = 0x33;
+			analog_hp = 0xEE;
+			oe |= WM1811_HEADPHONE_VOL;
+			if (WM1811_BIAS_VMID_ENABLE & pm)
+				pm |= WM1811_HEADPHONE_ENABLE;
+			else {
+				pm |= (WM1811_BIAS_VMID_ENABLE |
+					WM1811_HEADPHONE_ENABLE);
+			}
 		} else {
 			/* headphone off */
+			cp_dyn_pwr = 0x4;
+			hpout1_dly = 0x0;
+			charge_pump = 0x1F25;
+			dcs_ena = 0;
+			analog_hp = 0;
+			if (0x0000 == mix_out_vol) {
+				/* earpiece disable */
+				oe &= ~WM1811_HEADPHONE_VOL;
+				dac1_to_mixout = 0x0;
+			} else {
+				/* earpiece enable */
+				dac1_to_mixout = 0x1;
+			}
+			if (~(WM1811_BIAS_VMID_ENABLE |
+				WM1811_HEADPHONE_ENABLE) & pm) {
+				pm &= ~WM1811_HEADPHONE_ENABLE;
+			} else {
+				pm &= ~(WM1811_BIAS_VMID_ENABLE |
+					WM1811_HEADPHONE_ENABLE);
+			}
 		}
+		/* Enable Class W, Class W Envelope Tracking = AIF1 */
+		ret = wm1811_write(0x0051, cp_dyn_pwr);
+
+		/* Enable bias generator, Enable VMID, */
+		/* Enable HPOUT1 (Left) and Enable HPOUT1 (Right) */
+		/* input stages */
+		ret = wm1811_write(0x0001, pm);
+
+		/* Enable HPOUT1 (Left) and HPOUT1 (Right) */
+		/* intermediate stages */
+		ret = wm1811_write(0x0060, hpout1_dly);
+
+		/* Enable Charge Pump */
+		ret = wm1811_write(0x004C, charge_pump);
+
+		/* INSERT_DELAY_MS [15]->[25] */
+		mdelay(25);
+
+		/* Enable AIF1 DAC (Left) Path, */
+		/* Enable AIF1 DAC (Right) Path */
+		/* Select DAC1 (Left) to Left Headphone Output PGA */
+		/* (HPOUT1LVOL) path */
+		ret = wm1811_write(0x002D, dac1_to_mixout);
+
+		/* Select DAC1 (Right) to Right Headphone Output */
+		/* PGA (HPOUT1RVOL) path */
+		ret = wm1811_write(0x002E, dac1_to_mixout);
+
+		/* Enable Left Output Mixer (MIXOUTL), */
+		/* Enable Right Output Mixer (MIXOUTR)*/
+		ret = wm1811_write(0x0003, oe);
+
+		/* Enable DC Servo and trigger start-up mode on */
+		/* left and right channels */
+		ret = wm1811_write(0x0054, dcs_ena);
+
+		/* INSERT_DELAY_MS [250] */
+		mdelay(250);
+
+		/* Enable HPOUT1 (Left) and HPOUT1 (Right) */
+		/* intermediate and output stages. Remove clamps */
+		ret = wm1811_write(0x0060, analog_hp);
 	} else {
 		/* nothing to do. */
 	}
@@ -1180,10 +1184,14 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 	int ret = 0;
 	u_short mute_vol = 0;
 	u_short pm = 0;
+	u_short mixin_l = 0;
+	u_short mixin_r = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
 		ret = wm1811_read(0x0001, &pm);
+		ret = wm1811_read(0x0029, &mixin_l);
+		ret = wm1811_read(0x002A, &mixin_r);
 		if (WM1811_ENABLE == new_dev) {
 			/* mic on */
 			mute_vol = 0x112;
@@ -1193,6 +1201,8 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 				pm |= (WM1811_BIAS_VMID_ENABLE |
 					WM1811_MIC_ENABLE);
 			}
+			mixin_l |= WM1811_MIXINL_MIC_ENA;
+			mixin_r |= WM1811_MIXINR_MIC_ENA;
 		} else {
 			/* mic off */
 			mute_vol = 0x19F;
@@ -1203,16 +1213,16 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
 					WM1811_MIC_ENABLE);
 			}
+			mixin_l &= ~WM1811_MIXINL_MIC_ENA;
+			mixin_r &= ~WM1811_MIXINR_MIC_ENA;
 		}
 		ret = wm1811_write(0x0001, pm);
 		ret = wm1811_write(0x0018, mute_vol);
 		ret = wm1811_write(0x001B, mute_vol);
-
 		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
-		ret = wm1811_write(0x0029, 0x0030);
-
+		ret = wm1811_write(0x0029, mixin_l);
 		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
-		ret = wm1811_write(0x002A, 0x0180);
+		ret = wm1811_write(0x002A, mixin_r);
 	} else {
 		/* nothing to do. */
 	}
@@ -1235,10 +1245,15 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 	int ret = 0;
 	u_short mute_vol = 0;
 	u_short pm = 0;
+	u_short mixin_l = 0;
+	u_short mixin_r = 0;
+	u_short aif1_control = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
 		ret = wm1811_read(0x0001, &pm);
+		ret = wm1811_read(0x0029, &mixin_l);
+		ret = wm1811_read(0x002A, &mixin_r);
 		if (WM1811_ENABLE == new_dev) {
 			/* headset mic on */
 			mute_vol = 0x112;
@@ -1248,6 +1263,9 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 				pm |= (WM1811_BIAS_VMID_ENABLE |
 					WM1811_HEADSET_MIC_ENABLE);
 			}
+			mixin_l = 0x0000;
+			mixin_r |= WM1811_MIXINR_HEADSET_MIC_ENA;
+			aif1_control = 0xC010;
 		} else {
 			/* headset mic off */
 			mute_vol = 0x19F;
@@ -1258,15 +1276,16 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
 					WM1811_HEADSET_MIC_ENABLE);
 			}
+			/* mixin_l update none. */
+			mixin_r &= ~WM1811_MIXINR_HEADSET_MIC_ENA;
+			aif1_control = 0x4010;
 		}
+		ret = wm1811_write(0x0300, aif1_control);
 		ret = wm1811_write(0x001A, mute_vol);
-
 		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
-		ret = wm1811_write(0x0029, 0x0000);
-
+		ret = wm1811_write(0x0029, mixin_l);
 		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
-		ret = wm1811_write(0x002A, 0x0030);
-
+		ret = wm1811_write(0x002A, mixin_r);
 	} else {
 		/* nothing to do. */
 	}

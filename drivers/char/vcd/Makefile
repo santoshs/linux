@@ -15,6 +15,7 @@ vcd-objs	+= ./control/vcd_ctrl.o
 vcd-objs	+= ./control/vcd_ctrl_func.o
 vcd-objs	+= ./spuv/vcd_spuv.o
 vcd-objs	+= ./spuv/vcd_spuv_func.o
+vcd-objs	+= ./spuv/sh_resampler_core.o
 
 obj-y		+= vcd.o
 

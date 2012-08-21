@@ -77,7 +77,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_INIT][SNDP_MODE_INCALL]  =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
-	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_START,
+	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
 	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_START,
 							SNDP_STAT_NOT_CHG},
@@ -85,7 +85,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
-	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM] =	{SNDP_PROC_START,
+	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM] =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
 	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_START,
 							SNDP_STAT_NORMAL},
@@ -93,7 +93,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
-	[SNDP_MODE_RING][SNDP_MODE_INCOMM]   =	{SNDP_PROC_START,
+	[SNDP_MODE_RING][SNDP_MODE_INCOMM]   =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
 	[SNDP_MODE_INCALL][SNDP_MODE_NORMAL] =	{SNDP_PROC_CALL_STOP |
 						 SNDP_PROC_START,
@@ -104,15 +104,18 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 	[SNDP_MODE_INCALL][SNDP_MODE_INCALL] =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_INCALL][SNDP_MODE_INCOMM] =	{SNDP_PROC_CALL_STOP |
-						 SNDP_PROC_START,
+						 SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL] =	{SNDP_PROC_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL] =	{SNDP_PROC_INCOMM_STOP |
+						 SNDP_PROC_START,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_INCOMM_STOP |
+						 SNDP_PROC_START,
 							SNDP_STAT_RINGTONE},
-	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_INCOMM_STOP |
+						 SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
-	[SNDP_MODE_INCOMM][SNDP_MODE_INCOMM] =	{SNDP_PROC_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_INCOMM] =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 };
 
@@ -165,6 +168,24 @@ static struct sndp_work_info g_sndp_work_watch_stop_fw;
 static struct sndp_work_info g_sndp_work_fm_radio_start;
 /* FM Radio stop */
 static struct sndp_work_info g_sndp_work_fm_radio_stop;
+/* Start during a playback incommunication */
+static struct sndp_work_info g_sndp_work_call_playback_incomm_start;
+/* Start during a capture incommunication */
+static struct sndp_work_info g_sndp_work_call_capture_incomm_start;
+/* Stop during a playback incommunication */
+static struct sndp_work_info g_sndp_work_call_playback_incomm_stop;
+/* Stop during a capture incommunication */
+static struct sndp_work_info g_sndp_work_call_capture_incomm_stop;
+
+/* Playback incommunication start */
+static struct sndp_work_info g_sndp_work_play_incomm_start;
+/* Playback incommunication stop */
+static struct sndp_work_info g_sndp_work_play_incomm_stop;
+/* Capture incommunication start */
+static struct sndp_work_info g_sndp_work_capture_incomm_start;
+/* Capture incommunication stop */
+static struct sndp_work_info g_sndp_work_capture_incomm_stop;
+
 
 /* for Power control */
 static int g_sndp_power_status = SNDP_POWER_INIT;
@@ -183,6 +204,7 @@ static int g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 
 /* Running state of the Playback or Capture */
 static int g_sndp_playrec_flg = E_IDLE;
+static int g_sndp_incomm_playrec_flg = E_IDLE;
 
 /* Routing type of the stream, in during a call */
 int g_sndp_stream_route = SNDP_ROUTE_NORMAL;
@@ -219,6 +241,8 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 #endif
 
 static int g_call_playback_stop;
+
+extern enum call_status g_status;
 
 /*!
    @brief Print Log informs of data receiving
@@ -562,9 +586,27 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_fm_radio_start);
 	INIT_WORK(&g_sndp_work_fm_radio_stop.work,
 		  sndp_work_fm_radio_stop);
+	INIT_WORK(&g_sndp_work_play_incomm_start.work,
+		  sndp_work_play_incomm_start);
+	INIT_WORK(&g_sndp_work_play_incomm_stop.work,
+		  sndp_work_play_incomm_stop);
+	INIT_WORK(&g_sndp_work_capture_incomm_start.work,
+		  sndp_work_capture_incomm_start);
+	INIT_WORK(&g_sndp_work_capture_incomm_stop.work,
+		  sndp_work_capture_incomm_stop);
+	INIT_WORK(&g_sndp_work_call_playback_incomm_start.work,
+		  sndp_work_call_playback_incomm_start);
+	INIT_WORK(&g_sndp_work_call_capture_incomm_start.work,
+		  sndp_work_call_capture_incomm_start);
+	INIT_WORK(&g_sndp_work_call_playback_incomm_stop.work,
+		  sndp_work_call_playback_incomm_stop);
+	INIT_WORK(&g_sndp_work_call_capture_incomm_stop.work,
+		  sndp_work_call_capture_incomm_stop);
 
 	atomic_set(&g_sndp_watch_clk, 0);
 
+	/* Get buffer for incommunication */
+	call_get_incomm_buffer();
 	/*
 	 * VCD_COMMAND_WATCH_STOP_FW registration
 	 */
@@ -879,13 +921,14 @@ static int sndp_proc_reg_dump_write(
 
 	/* for SCUW */
 	if ((REG_DUMP_ALL == ulIn) || (REG_DUMP_SCUW & ulIn)) {
-		if ((SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) &&
-		    (SNDP_MODE_INCALL ==
-			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) &&
-			(!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
-			scuw_reg_dump();
-		else
-			sndp_log_reg_dump("SCUW register is not ready.\n");
+		if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) ||
+			(SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT)))) {
+			if ((SNDP_PCM_DIRECTION_MAX != g_sndp_now_direction) &&
+				(!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)))
+				scuw_reg_dump();
+			else
+				sndp_log_reg_dump("SCUW register is not ready.\n");
+		}
 	}
 
 	g_sndp_log_level &= ~LOG_BIT_REG_DUMP | log_level_back;
@@ -1027,7 +1070,8 @@ static int sndp_soc_put(
 	}
 
 	/* Direction check */
-	if (SNDP_PCM_IN == uiDirection) {
+	if ((SNDP_PCM_IN == uiDirection) &&
+	    (SNDP_MODE_INCOMM != uiMode)) {
 		/* FM Radio stop process */
 		if ((SNDP_VALUE_INIT != uiOldValue) &&
 		    (SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiOldValue))) {
@@ -1066,7 +1110,8 @@ static int sndp_soc_put(
 
 	/* for Register dump debug */
 	g_sndp_now_direction =
-	(SNDP_MODE_INCALL == uiMode) ? SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
+		((SNDP_MODE_INCALL == uiMode) || (SNDP_MODE_INCOMM == uiMode)) ?
+		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
 	/* Processing for each process */
 	/* SNDP_PROC_CALL_STOP */
@@ -1084,6 +1129,27 @@ static int sndp_soc_put(
 			queue_work(g_sndp_queue_main,
 				   &g_sndp_work_voice_stop.work);
 		}
+	}
+
+	/* Processing for each process */
+	if (uiProcess & SNDP_PROC_INCOMM_STOP) {
+
+			/* Wake Lock */
+			sndp_wake_lock(E_LOCK);
+
+			if (SNDP_PCM_OUT == uiDirection) {
+				/* Registered in the work queue for play incomm stop */
+				g_sndp_work_play_incomm_stop.old_value = uiOldValue;
+
+				queue_work(g_sndp_queue_main,
+					   &g_sndp_work_play_incomm_stop.work);
+			} else {
+				/* Registered in the work queue for capture incomm stop */
+				g_sndp_work_capture_incomm_stop.old_value = uiOldValue;
+
+				queue_work(g_sndp_queue_main,
+					   &g_sndp_work_capture_incomm_stop.work);
+			}
 	}
 
 	/* SNDP_PROC_CALL_START */
@@ -1107,6 +1173,43 @@ static int sndp_soc_put(
 		/* Registered in the work queue for call start */
 		g_sndp_work_voice_start.new_value = uiValue;
 		queue_work(g_sndp_queue_main, &g_sndp_work_voice_start.work);
+	}
+
+	if (uiProcess & SNDP_PROC_INCOMM_START) {
+		if (((SNDP_PCM_OUT == uiDirection) &&
+		     (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN)))) ||
+		    ((SNDP_PCM_IN == uiDirection) &&
+		     (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))))) {
+
+			/* Enable the power domain */
+			iRet = pm_runtime_get_sync(g_sndp_power_domain);
+			if (!(0 == iRet || 1 == iRet)) {  /* 0:success 1:active */
+				sndp_log_err("modules power on error[iRet=%d]\n",
+					     iRet);
+
+				/* Revert the status */
+				sndp_print_status_change(GET_SNDP_STATUS(uiDirection),
+							 uiSaveStatus);
+				SET_SNDP_STATUS(uiDirection, uiSaveStatus);
+				return iRet;
+			}
+		}
+		/* Wake Lock */
+		sndp_wake_lock(E_LOCK);
+
+		if (SNDP_PCM_OUT == uiDirection) {
+			/* Registered in the work queue for play incomm stop */
+			g_sndp_work_play_incomm_start.new_value = uiValue;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_play_incomm_start.work);
+		} else {
+			/* Registered in the work queue for capture incomm stop */
+			g_sndp_work_capture_incomm_start.new_value = uiValue;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_capture_incomm_start.work);
+		}
 	}
 
 	/* SNDP_PROC_START */
@@ -1513,7 +1616,6 @@ static int sndp_fsi_trigger(
 	struct snd_soc_dai *dai)
 {
 	int			iRet = ERROR_NONE;
-	bool			trigger_normal = true;
 	struct sndp_stop	*stop;
 	struct sndp_arg		*arg;
 	char			cPcm[SNDP_PCM_NAME_MAX_LEN];
@@ -1537,13 +1639,24 @@ static int sndp_fsi_trigger(
 	/* Initialize the cycle counter */
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
-	/* Checking whether a call */
-	if (SNDP_MODE_INCALL ==
-		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream)))
-		trigger_normal = false;
-
-	/* MM Playback or MM Capture process route */
-	if (trigger_normal) {
+	/* Checking Mode */
+	switch (SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) {
+	case SNDP_MODE_INCALL:
+		/* Call process route */
+		sndp_call_trigger(substream,
+				  cmd,
+				  dai,
+				  GET_OLD_VALUE(substream->stream));
+		break;
+	case SNDP_MODE_INCOMM:
+		/* VoIP process route */
+		sndp_incomm_trigger(substream,
+				  cmd,
+				  dai,
+				  GET_OLD_VALUE(substream->stream));
+		break;
+	default:
+		/* MM Playback or MM Capture process route */
 		switch (cmd) {
 		case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
 			sndp_log_info("#Trigger start[MM]\n");
@@ -1619,12 +1732,6 @@ static int sndp_fsi_trigger(
 			sndp_log_debug("playback trigger none.\n");
 			break;
 		}
-	/* Call process route */
-	} else {
-		sndp_call_trigger(substream,
-				  cmd,
-				  dai,
-				  GET_OLD_VALUE(substream->stream));
 	}
 
 	sndp_log_debug_func("end[%s %s]\n",
@@ -1864,6 +1971,122 @@ static void sndp_call_trigger(
 			(SNDP_STOP_TRIGGER_CAPTURE | SNDP_STOP_TRIGGER_VOICE);
 			queue_work(g_sndp_queue_main,
 				   &g_sndp_work_call_capture_stop.work);
+		}
+		break;
+
+	default:
+		sndp_log_debug("Trigger none.\n");
+		break;
+	}
+
+	sndp_log_debug_func("end[%s %s]\n",
+		(SNDP_PCM_OUT == substream->stream) ?
+					"PLAYBACK" : "CAPTURE",
+		(SNDRV_PCM_TRIGGER_START == cmd) ?
+					"TRIGGER_START" : "TRIGGER_STOP");
+}
+
+
+/*!
+   @brief During a VoIP trigger function
+
+   @param[in]	substream	PCM substream structure
+   @param[in]	cmd		Trigger command type
+				(SNDRV_PCM_TRIGGER_START/
+				 SNDRV_PCM_TRIGGER_STOP)
+   @param[in]	dai		Digital audio interface structure
+   @param[in]	value		PCM value
+
+   @retval	none
+ */
+static void sndp_incomm_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value)
+{
+	char			cPcm[SNDP_PCM_NAME_MAX_LEN];
+	struct snd_pcm_runtime	*runtime = substream->runtime;
+
+	sndp_log_debug_func("start\n");
+
+	/* Branch processing for each command (TRIGGER_START/TRIGGER_STOP) */
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
+		/* Display the name of PCM */
+		sndp_pcm_name_generate(
+			GET_OLD_VALUE(substream->stream), cPcm);
+		sndp_log_info("PCM: %s [0x%08X]\n",
+			cPcm, GET_OLD_VALUE(substream->stream));
+
+		sndp_log_debug("buffer_size %ld  period_size %ld  "
+			"periods %d  frame_bits %d\n",
+			runtime->buffer_size, runtime->period_size,
+			runtime->periods, runtime->frame_bits);
+
+		sndp_log_debug("call_%s_incomm_start\n",
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
+
+		/* Wake Lock */
+		sndp_wake_lock(E_LOCK);
+
+		/* For during a call playback */
+		if (SNDP_PCM_OUT == substream->stream) {
+			/*
+			 * To register a work queue to start processing
+			 * during a playback incommunication
+			 */
+			g_sndp_work_call_playback_incomm_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_playback_incomm_start.work);
+
+		/* For during a call capture */
+		} else {
+			/*
+			 * To register a work queue to start processing
+			 * during a capture incommunication
+			 */
+			g_sndp_work_call_capture_incomm_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_capture_incomm_start.work);
+		}
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
+		sndp_log_debug("call_%s_incomm_stop\n",
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
+
+		/* For during a playback incommunication */
+		if (SNDP_PCM_OUT == substream->stream) {
+			/*
+			 * To register a work queue to stop processing
+			 * during a call playback
+			 */
+			g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+						SNDP_STOP_TRIGGER_PLAYBACK;
+
+			g_sndp_work_call_playback_incomm_stop.stop.fsi_substream =
+								*substream;
+
+			g_sndp_work_call_playback_incomm_stop.stop.fsi_dai =
+								*dai;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_playback_incomm_stop.work);
+
+		/* For during a capture incommunication */
+		} else {
+			/* To register a work queue to stop */
+			/* processing During a call capture */
+			g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
+						SNDP_STOP_TRIGGER_CAPTURE;
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_call_capture_incomm_stop.work);
 		}
 		break;
 
@@ -2455,6 +2678,303 @@ static void sndp_work_capture_stop(struct work_struct *work)
 
 
 /*!
+   @brief Work queue function for SoundPath Setting(Playback incommunication)
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_play_incomm_start(struct work_struct *work)
+{
+	int			ret = ERROR_NONE;
+	u_long			set_device = g_sndp_codec_info.dev_none;
+	struct sndp_work_info	*wp = NULL;
+
+	sndp_log_debug_func("start\n");
+
+	/* Running Playback */
+	g_sndp_incomm_playrec_flg |= E_PLAY;
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* device change */
+	set_device = sndp_get_next_devices(wp->new_value);
+	if (NULL != g_sndp_codec_info.set_device) {
+		ret = g_sndp_codec_info.set_device(
+				set_device,
+				wp->new_value);
+		if (ERROR_NONE != ret)
+			sndp_log_err("set device error (code=%d)\n", ret);
+	}
+
+	if (!(E_CAP & g_sndp_incomm_playrec_flg)) {
+		/* To register a work queue to start processing Playback */
+		sndp_work_incomm_start(wp->new_value);
+	} 
+
+	/* Set to ENABLE the speaker amp */
+	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) {
+		if (NULL != g_sndp_codec_info.set_speaker_amp) {
+			ret = g_sndp_codec_info.set_speaker_amp(
+				g_sndp_codec_info.speaker_enable);
+			if (ERROR_NONE != ret) {
+				sndp_log_err(
+					"speaker_amp ENABLE error(code=%d)\n",
+					ret);
+			}
+		}
+	}
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for SoundPath Stop(Playback incommunication)
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_play_incomm_stop(struct work_struct *work)
+{
+	int			ret = ERROR_NONE;
+	u_long			set_device = g_sndp_codec_info.dev_none;
+	struct sndp_work_info	*wp = NULL;
+
+	sndp_log_debug_func("start\n");
+
+	/* Stop Playback runnning */
+	g_sndp_incomm_playrec_flg &= ~E_PLAY;
+
+	if (!g_sndp_incomm_playrec_flg) {
+		wp = container_of((void *)work, struct sndp_work_info, work);
+
+		/* To register a work queue to stop processing Playback */
+		sndp_work_incomm_stop();
+	}
+
+	if (NULL != g_sndp_codec_info.get_device) {
+		ret = g_sndp_codec_info.get_device(&set_device);
+		if (ERROR_NONE != ret)
+			sndp_log_err("get_device error(code=%d)\n", ret);
+	}
+	
+	/* Init to Playback side */
+	set_device &= ~g_sndp_codec_info.out_dev_all;
+
+	/* set Device */
+	if (NULL != g_sndp_codec_info.set_device) {
+		ret = g_sndp_codec_info.set_device(
+				set_device,
+				SNDP_VALUE_INIT);
+		if (ERROR_NONE != ret)
+			sndp_log_err("set_device error (code=%d)\n", ret);
+	}
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for SoundPath Setting(Capture incommunication)
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_capture_incomm_start(struct work_struct *work)
+{
+	int			ret = ERROR_NONE;
+	u_long			set_device = g_sndp_codec_info.dev_none;
+	struct sndp_work_info	*wp = NULL;
+
+	sndp_log_debug_func("start\n");
+
+	/* Running Capture */
+	g_sndp_incomm_playrec_flg |= E_CAP;
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* device change */
+	set_device = sndp_get_next_devices(wp->new_value);
+	if (NULL != g_sndp_codec_info.set_device) {
+		ret = g_sndp_codec_info.set_device(
+				set_device,
+				wp->new_value);
+		if (ERROR_NONE != ret)
+			sndp_log_err("set device error (code=%d)\n", ret);
+	}
+
+	if (!(E_PLAY & g_sndp_incomm_playrec_flg)) {
+		/* To register a work queue to start processing Capture */
+		sndp_work_incomm_start(wp->new_value);
+	}
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for SoundPath Stop(Capture incommunication)
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_capture_incomm_stop(struct work_struct *work)
+{
+	int			ret = ERROR_NONE;
+	u_long			set_device = g_sndp_codec_info.dev_none;
+	struct sndp_work_info	*wp = NULL;
+
+	sndp_log_debug_func("start\n");
+
+	/* Stop Capture running */
+	g_sndp_incomm_playrec_flg &= ~E_CAP;
+
+	if (!g_sndp_incomm_playrec_flg) {
+		wp = container_of((void *)work, struct sndp_work_info, work);
+
+		/* To register a work queue to stop processing Playback */
+		sndp_work_incomm_stop();
+	}
+
+	if (NULL != g_sndp_codec_info.get_device) {
+		ret = g_sndp_codec_info.get_device(&set_device);
+		if (ERROR_NONE != ret)
+			sndp_log_err("get_device error(code=%d)\n", ret);
+	}
+	
+	/* Init to Capture side */
+	set_device &= ~g_sndp_codec_info.in_dev_all;
+
+	/* set Device */
+	if (NULL != g_sndp_codec_info.set_device) {
+		ret = g_sndp_codec_info.set_device(
+				set_device,
+				SNDP_VALUE_INIT);
+		if (ERROR_NONE != ret)
+			sndp_log_err("set_device error (code=%d)\n", ret);
+	}
+
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_CAPTURE;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Incommunication Start
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_incomm_start(const u_int new_value)
+{
+	int	ret = ERROR_NONE;
+
+	sndp_log_debug_func("start\n");
+
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xffff) >= 0x3E10)
+		common_set_fsi2cr(STAT_OFF);
+
+	/* start SCUW */
+	ret = scuw_start(new_value);
+	if (ERROR_NONE != ret) {
+		sndp_log_err("scuw start error(code=%d)\n", ret);
+		goto start_err;
+	}
+
+	/* start FSI */
+	ret = fsi_start(new_value);
+	if (ERROR_NONE != ret) {
+		sndp_log_err("fsi start error(code=%d)\n", ret);
+		goto start_err;
+	}
+
+	wait_event_interruptible_timeout(
+		g_watch_clk_queue, atomic_read(&g_sndp_watch_clk),
+		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
+	atomic_set(&g_sndp_watch_clk, 0);
+
+	/* start CLKGEN */
+	ret = clkgen_start(new_value, 0);
+	if (ERROR_NONE != ret) {
+		sndp_log_err("clkgen start error(code=%d)\n", ret);
+		goto start_err;
+	}
+
+start_err:
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Incommunication Stop
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_incomm_stop(void)
+{
+	int	ret = ERROR_NONE;
+
+	sndp_log_debug_func("start\n");
+
+	/* stop SCUW */
+	scuw_stop();
+
+	/* stop FSI */
+	fsi_stop();
+
+	/* stop CLKGEN */
+	clkgen_stop();
+
+	/* Disable the power domain */
+	ret = pm_runtime_put_sync(g_sndp_power_domain);
+	if (ERROR_NONE != ret)
+		sndp_log_debug("modules power off iRet=%d\n", ret);
+
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xffff) >= 0x3E10)
+		common_set_fsi2cr(STAT_ON);
+
+	/* Wake Force Unlock */
+	sndp_wake_lock(E_FORCE_UNLOCK);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief Work queue function for Start during a call playback
 
    @param[in]	work	work queue structure
@@ -2551,6 +3071,9 @@ static void sndp_work_call_playback_stop(struct work_struct *work)
 
 	g_call_playback_stop = false;
 
+	if (IDLE_STATUS == g_status)
+		sndp_wake_lock(E_UNLOCK);
+
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
 					~SNDP_STOP_TRIGGER_PLAYBACK;
@@ -2586,6 +3109,9 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 	/* Call + Capture stop request */
 	call_record_stop();
 
+	if (IDLE_STATUS == g_status)
+		sndp_wake_lock(E_UNLOCK);
+
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
 					~SNDP_STOP_TRIGGER_CAPTURE;
@@ -2609,6 +3135,119 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 		/* Wake up main process */
 		wake_up_interruptible(&g_sndp_stop_wait);
 	}
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Start during a playback incommunication
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_call_playback_incomm_start(struct work_struct *work)
+{
+	struct sndp_work_info	*wp = NULL;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/*  Playback incommunication start request */
+	call_playback_incomm_start(wp->save_substream);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Start during a capture incommunication
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_call_capture_incomm_start(struct work_struct *work)
+{
+	struct sndp_work_info	*wp = NULL;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* Capture incommunication start request */
+	call_record_incomm_start(wp->save_substream);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Stop during a playback incommunication
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_call_playback_incomm_stop(struct work_struct *work)
+{
+	struct sndp_work_info	*wp = NULL;
+
+
+	sndp_log_debug_func("start\n");
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* Playback incommunication stop request */
+	call_playback_incomm_stop();
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Stop during a capture incommunication
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_call_capture_incomm_stop(struct work_struct *work)
+{
+	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
+	u_int out_old_val = GET_OLD_VALUE(SNDP_PCM_OUT);
+
+
+	sndp_log_debug_func("start\n");
+
+
+	/* Capture incommunication stop request */
+	call_record_stop();
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_CAPTURE;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
 
 	sndp_log_debug_func("end\n");
 }

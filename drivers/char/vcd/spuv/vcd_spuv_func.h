@@ -139,6 +139,11 @@
 /* fw static buffer size */
 #define VCD_SPUV_FUNC_FW_BUFFER_SIZE		0x00800000
 
+/* mixing parameter */
+#define	VCD_SPUV_FUNC_FR10_MIX_MAX		60
+#define	VCD_SPUV_FUNC_FR10_MIX_MAX_VAL		32767
+#define	VCD_SPUV_FUNC_FR10_MIX_MIN_VAL		-32768
+
 /* sdram static area */
 #define SPUV_FUNC_SDRAM_AREA_SIZE		0x800000
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1	0x47800000
@@ -168,6 +173,34 @@
 			SPUV_FUNC_SDRAM_AREA_TOP + 0x00186000)
 #define SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1	( \
 			SPUV_FUNC_SDRAM_AREA_TOP + 0x00186280)
+#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00187000)
+#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00187800)
+#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00188000)
+#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00188800)
+#define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189000)
+#define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189280)
+#define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189800)
+#define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189A80)
+#define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A000)
+#define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A280)
+#define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A800)
+#define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018AA80)
+#define SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018B000)
+#define SPUV_FUNC_SDRAM_VOIP_MIXING_BUFFER	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018C000)
 
 /* spuv physical memory configuration mapping */
 #define SPUV_FUNC_DATA_RAM_SIZE		0x00040000
@@ -504,6 +537,17 @@ enum VCD_SPUV_FUNC_GLOBAL_AREA_SIZE {
 	VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW	= (256 * 1024),
 };
 
+enum VCD_SPUV_FUNC_SAMPLING_RATE {
+	VCD_SPUV_FUNC_SAMPLING_RATE_8KHZ = 0,
+	VCD_SPUV_FUNC_SAMPLING_RATE_11KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_12KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_16KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_22KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_24KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_32KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_44KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_48KHZ,
+};
 /*
  * structure declaration
  */
@@ -584,6 +628,31 @@ extern void vcd_spuv_func_iounmap(void);
 extern int vcd_spuv_func_get_fw_buffer(void);
 extern void vcd_spuv_func_free_fw_buffer(void);
 
+/* SRC functions */
+extern int vcd_spuv_func_resampler_init(int alsa_rate, int spuv_rate);
+extern int vcd_spuv_func_resampler_close(void);
+
+extern void vcd_spuv_func_voip_ul(unsigned int *buf_size);
+extern void vcd_spuv_func_voip_ul_playback_mode0(void);
+extern void vcd_spuv_func_voip_ul_playback_mode1(void);
+extern void vcd_spuv_func_voip_ul_playback_mode2(void);
+
+extern void vcd_spuv_func_voip_dl(unsigned int *buf_size);
+extern void vcd_spuv_func_voip_dl_playback_mode0(void);
+extern void vcd_spuv_func_voip_dl_playback_mode1(void);
+extern void vcd_spuv_func_voip_dl_playback_mode2(void);
+
+extern void vcd_spuv_func_init_playback_buffer_id(void);
+extern void vcd_spuv_func_init_record_buffer_id(void);
+
+extern void vcd_spuv_func_init_voip_ul_buffer_id(void);
+extern void vcd_spuv_func_init_voip_dl_buffer_id(void);
+
+extern void vcd_spuv_func_set_plaback_buffer_id(void);
+extern void vcd_spuv_func_set_record_buffer_id(void);
+
+extern void vcd_spuv_func_set_voip_ul_buffer_id(void);
+extern void vcd_spuv_func_set_voip_dl_buffer_id(void);
 /* Register dump functions */
 extern void vcd_spuv_func_dump_cpg_registers(void);
 extern void vcd_spuv_func_dump_crmu_registers(void);

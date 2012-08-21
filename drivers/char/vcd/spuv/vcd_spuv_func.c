@@ -36,7 +36,7 @@
 
 #include "linux/vcd/vcd_common.h"
 #include "vcd_spuv_func.h"
-
+#include "sh_resampler.h"
 
 /*
  * global variable declaration
@@ -59,6 +59,16 @@ unsigned int g_spuv_func_dspioram_base_top;
 
 unsigned int g_spuv_func_meram_physical_addr;
 unsigned int g_spuv_func_meram_logical_addr;
+
+unsigned int g_spuv_func_playback_buffer_id;
+unsigned int g_spuv_func_record_buffer_id;
+unsigned int g_spuv_func_voip_ul_buffer_id;
+unsigned int g_spuv_func_voip_dl_buffer_id;
+
+unsigned int g_spuv_func_alsa_sampling_rate;/* [T.B.D] */
+unsigned int g_spuv_func_spuv_sampling_rate;/* [T.B.D] */
+int g_spuv_func_alsa_buf_size;
+int g_spuv_func_spuv_buf_size;
 
 #ifdef __VCD_MERAM_ENABLE__
 system_mem_meram_alloc g_spuv_func_meram_alloc;
@@ -110,6 +120,19 @@ static void vcd_spuv_func_calc_ram(
 static void vcd_spuv_func_reg_firmware(void);
 static int vcd_spuv_func_conv_global_size(const unsigned int global_size);
 static void vcd_spuv_func_dsp_full_reset(void);
+
+static int vcd_spuv_func_resampler_resample(
+	short *out_buf, int out_buf_size, int out_rate,
+	short *in_buf, int in_buf_size, int in_rate);
+
+static void vcd_spuv_func_mixing(
+	short *mixing_data, short *fwd_data,
+	short *rcv_data, int sample_num);
+static unsigned int vcd_spuv_func_get_plaback_buffer_id(void);
+static unsigned int vcd_spuv_func_get_record_buffer_id(void);
+static unsigned int vcd_spuv_func_get_voip_ul_buffer_id(void);
+static unsigned int vcd_spuv_func_get_voip_dl_buffer_id(void);
+
 
 /* ========================================================================= */
 /* Internal public functions                                                 */
@@ -1204,6 +1227,166 @@ rtn:
 }
 
 
+/* ========================================================================= */
+/* SRC functions                                                          */
+/* ========================================================================= */
+
+/**
+ * @brief	get resample buffer size function.
+ *
+ * @param	rate		sampling rate.
+ *
+ * @retval	res_buf_size	resample buffer size.
+ */
+static const int vcd_spuv_func_get_resample_buf_size[9] = {
+	320, 441, 480, 640, 882, 960, 1280, 1764, 1920
+};
+
+
+/**
+ * @brief	get resample mode function.
+ *
+ * @param	res_type	up resample or down resample.
+ *
+ * @retval	res_mode	resample mode.
+ */
+static const int vcd_spuv_func_get_resample_mode[9][9] = {
+	/* OUT      8    11    12    16 */
+			/*      22    24    32    44    48 */
+	/* IN */
+	/*  8 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 11 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 12 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 16 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, VCD2ALSA, VCD2ALSA_48,},
+	/* 22 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 24 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 32 */{0xFF, 0xFF, 0xFF, 0xFF,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 44 */{0xFF, 0xFF, 0xFF, ALSA2VCD,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
+	/* 48 */{0xFF, 0xFF, 0xFF, ALSA_482VCD,
+				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,}
+};
+
+
+/**
+ * @brief	initialize resampler function.
+ *
+ * @param[in]	alsa_rate	ALSA sampling rate.
+ * @param[in]	spuv_rate	SPUV sampling rate.
+ *
+ * @retval	ret	initialize resampler return value.
+ */
+int vcd_spuv_func_resampler_init(int alsa_rate, int spuv_rate)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function(
+		"alsa_rate[%d], spuv_rate[%d].\n",
+		alsa_rate, spuv_rate);
+
+	/* save sampling rate */
+	g_spuv_func_alsa_sampling_rate = alsa_rate;
+	g_spuv_func_spuv_sampling_rate = spuv_rate;
+
+	if (0x01000000 & g_vcd_log_level)
+		/* 44.1KHz */
+		g_spuv_func_alsa_sampling_rate =
+			VCD_SPUV_FUNC_SAMPLING_RATE_44KHZ;
+	else if (0x02000000 & g_vcd_log_level)
+		/* 48KHz */
+		g_spuv_func_alsa_sampling_rate =
+			VCD_SPUV_FUNC_SAMPLING_RATE_48KHZ;
+
+	/* get buffer size */
+	g_spuv_func_alsa_buf_size =
+		vcd_spuv_func_get_resample_buf_size
+		[g_spuv_func_alsa_sampling_rate];
+	g_spuv_func_spuv_buf_size =
+		vcd_spuv_func_get_resample_buf_size
+		[g_spuv_func_spuv_sampling_rate];
+
+	vcd_pr_spuv_debug(
+		"alsa_buf_size[%d] spuv_buf_size[%d].\n",
+		g_spuv_func_alsa_buf_size, g_spuv_func_spuv_buf_size);
+
+	/* initialize resampler */
+	ret = sh_resampler_init(
+		(g_spuv_func_alsa_buf_size/2),
+		(g_spuv_func_spuv_buf_size/2));
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	close resampler function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	close resampler return value.
+ */
+int vcd_spuv_func_resampler_close(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function();
+
+	ret = sh_resampler_close();
+
+	/* clear sampling rate */
+	g_spuv_func_alsa_sampling_rate = 0;
+	g_spuv_func_spuv_sampling_rate = 0;
+
+	/* clear buffer size */
+	g_spuv_func_alsa_buf_size = 0;
+	g_spuv_func_spuv_buf_size = 0;
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	resample function.
+ *
+ * @param[out]	out_buf		pointer to output buffer.
+ * @param[in]	in_buf		pointer to input buffer.
+ * @param[in]	in_rate		input sampling rate.
+ * @param[in]	out_rate	output sampling rate.
+ *
+ * @retval	res_size	number of samples available in buffer_out.
+ */
+static int vcd_spuv_func_resampler_resample(
+	short *out_buf, int out_buf_size, int out_rate,
+	short *in_buf, int in_buf_size, int in_rate)
+{
+	int res_size = 0;
+	int mode = 0;
+
+	vcd_pr_start_spuv_function(
+		"out_buf[%p], out_buf_size[%d], out_rate[%d] in_buf[%p], in_buf_size[%d], in_rate[%d].\n",
+		out_buf, out_buf_size, out_rate,
+		in_buf, in_buf_size, in_rate);
+
+	mode = vcd_spuv_func_get_resample_mode[in_rate][out_rate];
+	vcd_pr_spuv_debug("@@@@@mode[%d].@@@@@\n", mode);
+
+	res_size = sh_resampler_resample(out_buf, out_buf_size,
+			in_buf, in_buf_size, mode);
+
+	vcd_pr_end_spuv_function("res_size[%d].\n", res_size);
+	return res_size;
+}
+
+
 /**
  * @brief	free fw buffer function.
  *
@@ -1219,6 +1402,557 @@ void vcd_spuv_func_free_fw_buffer(void)
 		/* free buffer */
 		vfree(g_spuv_func_fw_static_buffer);
 	}
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL function.
+ *
+ * @param[out]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_ul(unsigned int *buf_size)
+{
+	int ret = 0;
+	unsigned int voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0;
+	unsigned int voip_ul_tmp_buf = SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0;
+	unsigned int voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0;
+	unsigned int voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (0x0f000000 & g_vcd_log_level) { /* VoIP Loopback [SRC] */
+		/* check VoIP DL buffer ID */
+		if (1 == vcd_spuv_func_get_voip_ul_buffer_id()) {
+			voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
+			voip_ul_tmp_buf = SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1;
+		}
+		if (1 == vcd_spuv_func_get_voip_dl_buffer_id()) {
+			voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1;
+			voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1;
+		}
+
+		/* overwrite */
+		ret = vcd_spuv_func_resampler_resample(
+			(short *)voip_dl_buf, (g_spuv_func_alsa_buf_size/2),
+			g_spuv_func_alsa_sampling_rate,
+			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+			g_spuv_func_spuv_sampling_rate);
+	} else {
+		/* check VoIP DL buffer ID */
+		if (1 == vcd_spuv_func_get_voip_ul_buffer_id()) {
+			voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
+			voip_ul_tmp_buf = SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1;
+		}
+
+		/* resample */
+		ret = vcd_spuv_func_resampler_resample(
+			(short *)voip_ul_buf, (g_spuv_func_alsa_buf_size/2),
+			g_spuv_func_alsa_sampling_rate,
+			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+			g_spuv_func_spuv_sampling_rate);
+	}
+
+	*buf_size = (unsigned int)g_spuv_func_alsa_buf_size;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL + playback mode0 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_ul_playback_mode0(void)
+{
+	unsigned int buf_size = 0;
+	vcd_pr_start_spuv_function();
+
+	/* same VoIP UL */
+	vcd_spuv_func_voip_ul(&buf_size);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL + playback mode1 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_ul_playback_mode1(void)
+{
+	unsigned int voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0;
+	unsigned int playback_buf = SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (1 == vcd_spuv_func_get_voip_ul_buffer_id())
+		voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
+	if (1 == vcd_spuv_func_get_plaback_buffer_id())
+		playback_buf = SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1;
+
+	/* overwrite playback data (xxxbyte) */
+	memcpy((void *)voip_ul_buf, (void *)playback_buf,
+		g_spuv_func_alsa_sampling_rate);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP UL + playback mode2 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_ul_playback_mode2(void)
+{
+	unsigned int voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (1 == vcd_spuv_func_get_voip_ul_buffer_id())
+		voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
+
+	/* overwrite playback data (xxxbyte) */
+	memset((void *)voip_ul_buf, 0x0, g_spuv_func_alsa_sampling_rate);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL function.
+ *
+ * @param[out]	buf_size	buffer size.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_dl(unsigned int *buf_size)
+{
+	int ret = 0;
+	unsigned int voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0;
+	unsigned int voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	/* check VoIP DL buffer ID */
+	if (1 == vcd_spuv_func_get_voip_dl_buffer_id()) {
+		voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1;
+		voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1;
+	}
+
+	/* resample */
+	ret = vcd_spuv_func_resampler_resample(
+		(short *)voip_dl_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+		g_spuv_func_spuv_sampling_rate,
+		(short *)voip_dl_buf, (g_spuv_func_alsa_buf_size/2),
+		g_spuv_func_alsa_sampling_rate);
+
+	*buf_size = (unsigned int)g_spuv_func_alsa_buf_size;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL + playback mode0 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_dl_playback_mode0(void)
+{
+	int ret = 0;
+	unsigned int voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0;
+	unsigned int voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0;
+	unsigned int playback_buf = SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0;
+	unsigned int voip_playback_buf = SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (1 == vcd_spuv_func_get_voip_dl_buffer_id()) {
+		voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1;
+		voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1;
+	}
+	if (1 == vcd_spuv_func_get_plaback_buffer_id()) {
+		playback_buf = SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1;
+		voip_playback_buf = SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1;
+	}
+
+	/* rate change playback data */
+	ret = vcd_spuv_func_resampler_resample(
+		(short *)voip_playback_buf, g_spuv_func_spuv_buf_size,
+		g_spuv_func_spuv_sampling_rate,
+		(short *)playback_buf, g_spuv_func_alsa_buf_size,
+		g_spuv_func_alsa_sampling_rate);
+
+	/* rate change DL data */
+	ret = vcd_spuv_func_resampler_resample(
+		(short *)voip_dl_tmp_buf, g_spuv_func_spuv_buf_size,
+		g_spuv_func_spuv_sampling_rate,
+		(short *)voip_dl_buf, g_spuv_func_alsa_buf_size,
+		g_spuv_func_alsa_sampling_rate);
+
+	/* mixing "DL voice data" and "playback data" */
+	vcd_spuv_func_mixing(
+		(short *)voip_dl_tmp_buf,
+		(short *)voip_playback_buf,
+		(short *)voip_dl_tmp_buf,
+		g_spuv_func_spuv_buf_size);
+
+	/* update playback buffer ID */
+	vcd_spuv_func_set_plaback_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL + playback mode1 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_dl_playback_mode1(void)
+{
+	unsigned int voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (1 == vcd_spuv_func_get_voip_dl_buffer_id())
+		voip_dl_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1;
+
+	/* overwrite playback data (xxxbyte) */
+	memset((void *)voip_dl_tmp_buf, 0x0, g_spuv_func_spuv_buf_size);
+
+	/* update playback buffer ID */
+	vcd_spuv_func_set_plaback_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	VoIP DL + playback mode2 function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_voip_dl_playback_mode2(void)
+{
+	unsigned int voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0;
+	unsigned int voip_playback_buf = SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	if (1 == vcd_spuv_func_get_voip_dl_buffer_id())
+		voip_dl_buf = SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1;
+	if (1 == vcd_spuv_func_get_plaback_buffer_id())
+		voip_playback_buf = SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1;
+
+	/* overwrite playback data (xxxbyte) */
+	memcpy((void *)voip_dl_buf, (void *)voip_playback_buf,
+		g_spuv_func_spuv_sampling_rate);
+
+	/* update playback buffer ID */
+	vcd_spuv_func_set_plaback_buffer_id();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief data mixing function.
+ *
+ * @param[out]  *mixing_data  output buffer
+ * @param[in]   *fwd_data     UL data buffer
+ * @param[in]   *rcv_data     DL data buffer
+ * @param[in]   sample_num    sampling num
+ *
+ * @retval     none
+ */
+static void vcd_spuv_func_mixing
+(short *mixing_data, short *fwd_data, short *rcv_data, int sample_num)
+{
+	int temp = 0;
+	int cnt  = 0;
+
+	vcd_pr_start_spuv_function();
+
+	if (NULL == mixing_data) {
+		vcd_pr_err("output buffer is NULL.\n");
+		return;
+	}
+
+	if (NULL == fwd_data)
+		fwd_data = (short *)SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER;
+
+	if (NULL == rcv_data)
+		rcv_data = (short *)SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER;
+
+	for (cnt = 0; cnt < sample_num; cnt++) {
+		temp = ((*fwd_data) + (*rcv_data)) *
+			VCD_SPUV_FUNC_FR10_MIX_MAX / 100;
+
+		if (VCD_SPUV_FUNC_FR10_MIX_MAX_VAL < temp)
+			temp = VCD_SPUV_FUNC_FR10_MIX_MAX_VAL;
+		else if (VCD_SPUV_FUNC_FR10_MIX_MIN_VAL > temp)
+			temp = VCD_SPUV_FUNC_FR10_MIX_MIN_VAL;
+		else
+			/* nop */
+
+		*mixing_data = (short)temp;
+
+		fwd_data++;
+		rcv_data++;
+		mixing_data++;
+	}
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize playback buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_init_playback_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_spuv_func_playback_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize record buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_init_record_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_spuv_func_record_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	get playback buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	playback buffer ID.
+ */
+static unsigned int vcd_spuv_func_get_plaback_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function("ret[%d].\n", g_spuv_func_playback_buffer_id);
+
+	return g_spuv_func_playback_buffer_id;
+}
+
+
+/**
+ * @brief	get record buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	record buffer ID.
+ */
+static unsigned int vcd_spuv_func_get_record_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function("ret[%d].\n", g_spuv_func_record_buffer_id);
+
+	return g_spuv_func_record_buffer_id;
+}
+
+
+/**
+ * @brief	set playback buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_plaback_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	if (0 ==  vcd_spuv_func_get_plaback_buffer_id())
+		g_spuv_func_playback_buffer_id = 1;
+	else
+		g_spuv_func_playback_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set record buffer ID function. (for VoIP)
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_record_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	if (0 ==  vcd_spuv_func_get_record_buffer_id())
+		g_spuv_func_record_buffer_id = 1;
+	else
+		g_spuv_func_record_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize VoIP UL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_init_voip_ul_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_spuv_func_voip_ul_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize VoIP DL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_init_voip_dl_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_spuv_func_voip_dl_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	get VoIP UL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	VoIP UL buffer ID.
+ */
+static unsigned int vcd_spuv_func_get_voip_ul_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function("ret[%d].\n", g_spuv_func_voip_ul_buffer_id);
+
+	return g_spuv_func_voip_ul_buffer_id;
+}
+
+
+/**
+ * @brief	get VoIP DL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	VoIP DL buffer ID.
+ */
+static unsigned int vcd_spuv_func_get_voip_dl_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function("ret[%d].\n", g_spuv_func_voip_dl_buffer_id);
+
+	return g_spuv_func_voip_dl_buffer_id;
+}
+
+
+/**
+ * @brief	set VoIP UL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_voip_ul_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	if (0 ==  g_spuv_func_voip_ul_buffer_id)
+		g_spuv_func_voip_ul_buffer_id = 1;
+	else
+		g_spuv_func_voip_ul_buffer_id = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set VoIP DL buffer ID function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_voip_dl_buffer_id(void)
+{
+	vcd_pr_start_spuv_function();
+
+	if (0 ==  g_spuv_func_voip_dl_buffer_id)
+		g_spuv_func_voip_dl_buffer_id = 1;
+	else
+		g_spuv_func_voip_dl_buffer_id = 0;
 
 	vcd_pr_end_spuv_function();
 	return;

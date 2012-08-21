@@ -95,6 +95,8 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option);
 int vcd_ctrl_stop_playback(void);
 void vcd_ctrl_get_record_buffer(struct vcd_record_buffer_info *info);
 void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info);
+void vcd_ctrl_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
+void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 
 /* For spuv functions */
 void vcd_ctrl_rec_trigger(void);

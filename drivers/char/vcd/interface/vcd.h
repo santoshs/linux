@@ -116,6 +116,8 @@ void vcd_complete_buffer(void);
 void vcd_beginning_buffer(void);
 void vcd_stop_fw(void);
 void vcd_start_clkgen(void);
+void vcd_voip_ul_callback(unsigned int buf_size);
+void vcd_voip_dl_callback(unsigned int buf_size);
 
 /* Internal functions */
 static void vcd_get_msg_buffer(void);
@@ -136,6 +138,9 @@ static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_stop_fw(void *arg);
 static int vcd_watch_start_clkgen(void *arg);
+static int vcd_get_voip_ul_buffer(void *arg);
+static int vcd_get_voip_dl_buffer(void *arg);
+static int vcd_set_voip_callback(void *arg);
 
 /* Proc functions */
 static int vcd_read_exec_proc(char *page, char **start, off_t offset,
