@@ -106,11 +106,11 @@ static unsigned long gpio_read_raw_reg(void __iomem *mapped_reg,
 {
 	switch (reg_width) {
 	case 8:
-		return ioread8(mapped_reg);
+		return readb_relaxed(mapped_reg);
 	case 16:
-		return ioread16(mapped_reg);
+		return readw_relaxed(mapped_reg);
 	case 32:
-		return ioread32(mapped_reg);
+		return readl_relaxed(mapped_reg);
 	}
 
 	BUG();
@@ -123,13 +123,13 @@ static void gpio_write_raw_reg(void __iomem *mapped_reg,
 {
 	switch (reg_width) {
 	case 8:
-		iowrite8(data, mapped_reg);
+		writeb_relaxed(data, mapped_reg);
 		return;
 	case 16:
-		iowrite16(data, mapped_reg);
+		writew_relaxed(data, mapped_reg);
 		return;
 	case 32:
-		iowrite32(data, mapped_reg);
+		writel_relaxed(data, mapped_reg);
 		return;
 	}
 
