@@ -30,51 +30,20 @@ Description :  File created
 #ifndef SMC_TRACE_PLATFORM_H
 #define SMC_TRACE_PLATFORM_H
 
-#define RD_TRACE_SEND1(...)
-#define RD_TRACE_SEND2(...)
-#define RD_TRACE_SEND3(...)
+//#if( SMC_TRACES_PRINTF==TRUE )
+#ifdef SMC_APE_RDTRACE_ENABLED
 
-
-#define SMC_TRACE_GROUP_COUNT  2
-
-//uint32_t smc_trace_activation[SMC_TRACE_GROUP_COUNT] = { 0x00000000, 0x00000000 };
-
-#define SMC_TRACE_GROUP_FIFO              0x00000001
-
-//#define SMC_TRACE_GROUP_ACTIVATE(group)   if( group < SMC_TRACE_GROUP_COUNT ) { smc_trace_activation[group] |= trace_id; }
-
-#if( SMC_TRACES_PRINTF==TRUE )
-    /* Experimental for RD trace activation to Linux Kernel */
-
-    /* Test IDs for group 0 */
-    /* TODO Implement groups */
-
-    #define TRA_SMC_FIFO_PUT  0x00000001
-
-    /*
-        RD_TRACE_SEND5(TRA_SMC_FIFO_PUT, 4, &p_fifo,
-                                         4, &cell->data,
-                                         4, &cell->length,
-                                         4, &cell->flags,
-                                         4, &n_in_fifo);
-
-        RD_TRACE_SEND4(TRA_SMC_FIFO_PUT_STATISTICS, 4, &p_fifo,
-                                                    4, &write_cnt,
-                                                    4, &read_cnt,
-                                                    4, &n_in_fifo);
-
-    */
-
-#define RD_TRACE_SEND4(trace_id, sz1, ptr1, sz2, ptr2, sz3, ptr3, sz4, ptr4)
-
-#define RD_TRACE_SEND5(trace_id, sz1, ptr1, sz2, ptr2, sz3, ptr3, sz4, ptr4, sz5, ptr5)
+    /* Experimental for RD runtime trace activation to Linux Kernel */
+    #include "smc_trace_rdtrace.h"
 
 
 #else
-    /* No traces */
-#define RD_TRACE_SEND4(...)
-#define RD_TRACE_SEND5(...)
-
+        /* No traces */
+    #define RD_TRACE_SEND1(...)
+    #define RD_TRACE_SEND2(...)
+    #define RD_TRACE_SEND3(...)
+    #define RD_TRACE_SEND4(...)
+    #define RD_TRACE_SEND5(...)
 #endif
 
 
@@ -104,6 +73,7 @@ Description :  File created
 
 #if( SMC_TRACES_PRINTF==TRUE )
   #define SMC_TRACE_PRINTF(...)                printk(KERNEL_DEBUG_LEVEL __VA_ARGS__ )
+  //#define SMC_TRACE_PRINTF(trace, ...)       printk(KERNEL_DEBUG_LEVEL "%s\n" trace, ##__VA_ARGS__ )
   #define SMC_TRACE_PRINTF_DATA(length, data)  smc_printf_data_linux_kernel( length, data )
 #else
   #define SMC_TRACE_PRINTF(...)

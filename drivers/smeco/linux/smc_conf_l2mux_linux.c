@@ -346,15 +346,16 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
         case SMC_STOP_SEND:
         {
             struct net_device* device     = NULL;
-            smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
+            //smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
 
-            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_STOP_SEND", smc_channel->id);
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_STOP_SEND: queue protocol %d", smc_channel->id, smc_channel->protocol);
 
-            SMC_LOCK( local_lock );
+            SMC_LOCK( smc_channel->lock_tx_queue );
 
+            /* TODO Check if the stop counter is required
             assert( smc_channel->stop_counter < 0xFF );
-
             smc_channel->stop_counter++;
+            */
 
                 /* Get the net device and close */
             device = dev_config_l2mux.device_driver_priv->net_dev;
@@ -368,11 +369,10 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
 
                 /* Get the QUEUE and stop it */
                 queue = netdev_get_tx_queue(device, queue_ind);
-                netif_tx_stop_queue(queue);
+                //netif_tx_stop_queue(queue);
+                netif_stop_subqueue(device, queue_ind);
 
                 SMC_CHANNEL_STATE_SET_SEND_IS_DISABLED( smc_channel->state );
-
-                //netif_tx_stop_all_queues(device);
             }
             else
             {
@@ -380,22 +380,24 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                 assert(0);
             }
 
-            SMC_UNLOCK( local_lock );
+            SMC_UNLOCK( smc_channel->lock_tx_queue );
 
             break;
         }
         case SMC_RESUME_SEND:
         {
             struct net_device* device     = NULL;
-            smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
+            //smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
 
-            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_RESUME_SEND", smc_channel->id);
+            SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_RESUME_SEND: queue protocol %d", smc_channel->id, smc_channel->protocol);
 
-            SMC_LOCK( local_lock );
+            SMC_LOCK( smc_channel->lock_tx_queue );
 
+            /* TODO Check if stop counter is required
             if( smc_channel->stop_counter > 0 ) smc_channel->stop_counter--;
-
             if( smc_channel->stop_counter==0 )
+            */
+            if( TRUE )
             {
                     /* Get the net device and close */
                 device = dev_config_l2mux.device_driver_priv->net_dev;
@@ -408,7 +410,8 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                     SMC_TRACE_PRINTF_DEBUG("smc_event_callback_l2mux: channel id %d: netif_tx_start_queue %d...", smc_channel->id, queue_ind);
 
                     queue = netdev_get_tx_queue(device, queue_ind);
-                    netif_tx_start_queue(queue);
+                    //netif_tx_start_queue(queue);
+                    netif_wake_subqueue(device, queue_ind);
 
                     SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
                 }
@@ -423,7 +426,7 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                 SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channels %d lock counter is %d, not starting queue %d", smc_channel->id, smc_channel->stop_counter, smc_channel->protocol);
             }
 
-            SMC_UNLOCK( local_lock );
+            SMC_UNLOCK( smc_channel->lock_tx_queue );
 
             break;
         }

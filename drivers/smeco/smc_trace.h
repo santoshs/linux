@@ -64,7 +64,9 @@ Description :  File created
 #define SMC_TRACE_TRANSMIT_DATA_ENABLED
 #define SMC_TRACE_RECEIVE_ENABLED
 #define SMC_TRACE_SEND_PACKET_ENABLED
+#define SMC_TRACE_SEND_PACKET_DATA_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
+#define SMC_TRACE_RECEIVE_PACKET_DATA_ENABLED
 #define SMC_TRACE_TIMER_ENABLED
 */
 
@@ -188,7 +190,12 @@ Description :  File created
 
 #ifdef SMC_TRACE_SEND_PACKET_ENABLED
   #define SMC_TRACE_PRINTF_SEND_PACKET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SEND: " __VA_ARGS__ )
-  #define SMC_TRACE_PRINTF_SEND_PACKET_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+
+  #ifdef SMC_TRACE_SEND_PACKET_DATA_ENABLED
+    #define SMC_TRACE_PRINTF_SEND_PACKET_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+    #define SMC_TRACE_PRINTF_SEND_PACKET_DATA( length, data )
+  #endif
 #else
   #define SMC_TRACE_PRINTF_SEND_PACKET(...)
   #define SMC_TRACE_PRINTF_SEND_PACKET_DATA( length, data )
@@ -196,7 +203,12 @@ Description :  File created
 
 #ifdef SMC_TRACE_RECEIVE_PACKET_ENABLED
   #define SMC_TRACE_PRINTF_RECEIVE_PACKET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"RECV: " __VA_ARGS__ )
-  #define SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+
+  #ifdef SMC_TRACE_RECEIVE_PACKET_DATA_ENABLED
+    #define SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+    #define SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA( length, data )
+  #endif
 #else
   #define SMC_TRACE_PRINTF_RECEIVE_PACKET(...)
   #define SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA( length, data )

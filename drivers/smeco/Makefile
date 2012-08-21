@@ -30,6 +30,12 @@ E_CFLAGS   += -DSMC_TRACES_PRINTF=FALSE
 E_CFLAGS   += -DSMC_TRACES_PRINTF_KERN_ALERT=FALSE
 endif
 
+ifeq ($(CONFIG_SMECO_RUNTIME_TRACES_ENABLED),y)
+E_CFLAGS   += -DSMC_RUNTIME_TRACES_ENABLED=TRUE
+else
+E_CFLAGS   += -DSMC_RUNTIME_TRACES_ENABLED=FALSE
+endif
+
   #
   # SMC control configuration
   #
@@ -73,6 +79,7 @@ smeco-objs += smc_mdb.o
 smeco-objs += smc_memory_mgmt.o
 smeco-objs += ./linux/smc_impl_linux.o
 smeco-objs += ./linux/smc_device_driver_linux.o
+smeco-objs += ./linux/smc_trace_platform.o
 
 ifeq ($(CONFIG_SMECO_CONTROL),y)
 smeco-objs += ./linux/smc_conf_control_linux.o

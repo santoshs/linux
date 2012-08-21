@@ -243,7 +243,7 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
         fifo_cell = &p_fifo->cell[cell_index];
 
         SMC_TRACE_PRINTF_FIFO("smc_fifo_put_cell: FIFO 0x%08X: data to cell_index %d (0x%08X), write_index = %d, read index = %d",
-                (uint32_t)p_fifo, cell_index, (uint32_t)fifo_cell, write_index , read_index);
+                (uint32_t)p_fifo, cell_index, (uint32_t)fifo_cell, write_index, read_index);
 
         SMC_SHM_WRITE32( &fifo_cell->data,      cell->data );
         SMC_SHM_WRITE32( &fifo_cell->length,    cell->length );
@@ -262,7 +262,14 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
             write_index = 0;
         }
 
-        write_cnt++;
+        if( write_cnt < 0xFFFFFFFF)
+        {
+            write_cnt++;
+        }
+        else
+        {
+            write_cnt = 0;
+        }
 
         SMC_SHM_WRITE32( &p_fifo->write_index, write_index );
         SMC_SHM_WRITE32( &p_fifo->write_counter, write_cnt );
@@ -421,12 +428,10 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
 
         }   /* If NULL read and no assert --> normal proceed but SMC read function handles the NULL item */
 
-
             /*
              * Reset fifo cell item values to verify
              * that data is updated correctly when put a new item
              */
-
         SMC_SHM_WRITE32( &fifo_cell->data  ,  0 );
         SMC_SHM_WRITE32( &fifo_cell->length, -1 );
         SMC_SHM_WRITE32( &fifo_cell->flags ,  0 );
@@ -440,7 +445,15 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
 
         read_index++;
         packet_count_left--;
-        read_cnt++;
+
+        if( read_cnt < 0xFFFFFFFF )
+        {
+            read_cnt++;
+        }
+        else
+        {
+            read_cnt = 0;
+        }
 
         RD_TRACE_SEND5(TRA_SMC_FIFO_GET, 4, &p_fifo,
                                          4, &cell->data,
@@ -477,12 +490,12 @@ int32_t smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t us
         }
     }
 
+    /* TODO Global lock release
     if( use_cache_control )
     {
-        /* TODO Global lock release
         IPC_FIFO_LOCK_RELEASE_HW_SEM(hw_semaphore_id);
-        */
     }
+    */
 
     return packet_count_left;
 }
@@ -521,12 +534,12 @@ int32_t smc_fifo_peek( smc_fifo_t *p_fifo, uint8_t use_cache_control )
             (uint32_t)p_fifo, items_in_fifo, write_ind, p_fifo->read_index, p_fifo->length, SMC_FIFO_LENGTH_MULTIPLIER);
 
 
+    /* TODO Global LOCK release
     if( use_cache_control )
     {
-        /* TODO Global LOCK release
         IPC_FIFO_LOCK_RELEASE_HW_SEM(hw_semaphore_id);
-        */
     }
+    */
 
     return items_in_fifo;
 }
@@ -550,21 +563,38 @@ void smc_fifo_dump(char* indent, smc_fifo_t* p_fifo, int32_t mem_offset )
 {
     if( p_fifo != NULL )
     {
+        uint32_t* address = 0x00000000;
+
         SMC_TRACE_PRINTF_ALWAYS("%sFIFO: 0x%08X, Size %d, SHM offset 0x%08X", indent,
                 (uint32_t)p_fifo, p_fifo->length,
                 (uint32_t)mem_offset);
 
-
-        SMC_TRACE_PRINTF_ALWAYS("%s  Header write: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
+        SMC_TRACE_PRINTF_ALWAYS("%s  Header write: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X): write index %d, write counter %d", indent,
                     (uint32_t)(FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo)), (uint32_t)FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo),
-                    ((uint32_t)FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo)-mem_offset), ((uint32_t)FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo)-mem_offset));
+                    ((uint32_t)FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo)-mem_offset), ((uint32_t)FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo)-mem_offset),
+                    p_fifo->write_index, p_fifo->write_counter);
 
-        SMC_TRACE_PRINTF_ALWAYS("%s  Header read : 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
+        address = FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo);
+
+        SMC_TRACE_PRINTF_ALWAYS("%s          data: 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X", indent,
+                                                    *address,     *(address+1), *(address+2), *(address+3),
+                                                    *(address+4), *(address+5), *(address+6), *(address+7));
+
+
+        SMC_TRACE_PRINTF_ALWAYS("%s   Header read: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X): read index %d, read counter %d", indent,
                 (uint32_t)FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo), (uint32_t)FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo),
                 ((uint32_t)FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo)-mem_offset),
-                ((uint32_t)FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo)-mem_offset));
+                ((uint32_t)FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo)-mem_offset),
+                p_fifo->read_index, p_fifo->read_counter);
 
-        SMC_TRACE_PRINTF_ALWAYS("%s  Data area   : 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
+        address = FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo);
+
+        SMC_TRACE_PRINTF_ALWAYS("%s          data: 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X", indent,
+                                                    *address,     *(address+1), *(address+2), *(address+3),
+                                                    *(address+4), *(address+5), *(address+6), *(address+7));
+
+
+        SMC_TRACE_PRINTF_ALWAYS("%sCell data area: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X)", indent,
                 (uint32_t)FIFO_HEADER_GET_START_ADDRESS_CELL(p_fifo, 0),
                 (uint32_t)FIFO_HEADER_GET_END_ADDRESS_CELL(p_fifo, p_fifo->length-1),
                 ((uint32_t)FIFO_HEADER_GET_START_ADDRESS_CELL(p_fifo, 0)-mem_offset),
