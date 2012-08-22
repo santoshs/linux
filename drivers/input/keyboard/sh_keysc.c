@@ -83,9 +83,9 @@ static unsigned long sh_keysc_read(struct sh_keysc_priv *p, int reg_nr)
 	case A_KYSCDRL:
 	case A_KYSCDRH:
 	case A_KYSCDNUM:
-		return ioread32(p->iomem_base + (reg_nr << 2));
+		return readl_relaxed(p->iomem_base + (reg_nr << 2));
 	}
-	return ioread16(p->iomem_base + (reg_nr << 2));
+	return readw_relaxed(p->iomem_base + (reg_nr << 2));
 }
 
 static void sh_keysc_write(struct sh_keysc_priv *p, int reg_nr,
@@ -97,10 +97,10 @@ static void sh_keysc_write(struct sh_keysc_priv *p, int reg_nr,
 	case A_KYSCDRL:
 	case A_KYSCDRH:
 	case A_KYSCDNUM:
-		iowrite32(value, p->iomem_base + (reg_nr << 2));
+		writel_relaxed(value, p->iomem_base + (reg_nr << 2));
 		return;
 	}
-	iowrite16(value, p->iomem_base + (reg_nr << 2));
+	writew_relaxed(value, p->iomem_base + (reg_nr << 2));
 }
 
 static void sh_keysc_level_mode(struct sh_keysc_priv *p,
@@ -110,6 +110,7 @@ static void sh_keysc_level_mode(struct sh_keysc_priv *p,
 
 	sh_keysc_write(p, KYOUTDR, 0);
 	sh_keysc_write(p, KYCR2, KYCR2_IRQ_LEVEL | (keys_set << 8));
+	sh_keysc_read(p, KYCR2); /* defeat write posting */
 
 	if (pdata->kycr2_delay)
 		udelay(pdata->kycr2_delay);
