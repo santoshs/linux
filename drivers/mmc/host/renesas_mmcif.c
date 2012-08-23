@@ -200,13 +200,13 @@ struct sh_mmcif_host {
 static inline void sh_mmcif_bitset(struct sh_mmcif_host *host,
 					unsigned int reg, u32 val)
 {
-	writel(val | readl(host->addr + reg), host->addr + reg);
+	__raw_writel(val | __raw_readl(host->addr + reg), host->addr + reg);
 }
 
 static inline void sh_mmcif_bitclr(struct sh_mmcif_host *host,
 					unsigned int reg, u32 val)
 {
-	writel(~val & readl(host->addr + reg), host->addr + reg);
+	__raw_writel(~val & __raw_readl(host->addr + reg), host->addr + reg);
 }
 
 static void mmcif_dma_complete(void *arg)
