@@ -73,9 +73,9 @@ static u32 sh_msiof_read(struct sh_msiof_spi_priv *p, int reg_offs)
 	switch (reg_offs) {
 	case TSCR:
 	case RSCR:
-		return ioread16(p->mapbase + reg_offs);
+		return readw_relaxed(p->mapbase + reg_offs);
 	default:
-		return ioread32(p->mapbase + reg_offs);
+		return readl_relaxed(p->mapbase + reg_offs);
 	}
 }
 
@@ -85,10 +85,10 @@ static void sh_msiof_write(struct sh_msiof_spi_priv *p, int reg_offs,
 	switch (reg_offs) {
 	case TSCR:
 	case RSCR:
-		iowrite16(value, p->mapbase + reg_offs);
+		writew_relaxed(value, p->mapbase + reg_offs);
 		break;
 	default:
-		iowrite32(value, p->mapbase + reg_offs);
+		writel_relaxed(value, p->mapbase + reg_offs);
 		break;
 	}
 }
