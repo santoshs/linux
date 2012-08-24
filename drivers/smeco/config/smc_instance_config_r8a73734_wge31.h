@@ -58,6 +58,10 @@ Description :  File created
 #endif
 
 
+#define SMC_EOS_ASIC_ES10   0x10
+#define SMC_EOS_ASIC_ES20   0x20
+
+
     /* =============================================================================
      * SMC specific configurations for EOS2 ES1.0/ES2.0
      */
@@ -161,21 +165,67 @@ Description :  File created
     /* Modem side offset */
 #define SMC_CONF_SHM_OFFSET_TO_MODEM                (-1*0x38000000)
 
-/*
- *  Peripheral addresses and configurations
- *  TODO Make configuration product specific --> e.g SH R8A73734
+/* =================================================
+ * Peripheral addresses and configurations
+ *
  */
 
 
-    /* Modem side peripherals */
+    /*
+     * Modem side peripherals
+     */
 #define SMC_MODEM_INTGEN_L2_OFFSET                   16
 #define SMC_MODEM_INTGEN_L2_FIRST                    35          /* C2_L2_CPU_Int_Gen_Ch0 */
 #define SMC_PERIPHERAL_ADDRESS_MODEM_GOP_INTGEN_1    0x07C00040
 
-    /* APE side peripherals */
+
+    /*
+     * APE side peripherals
+     */
 #define SMC_ADDRESS_APE_OFFSET_TO_MODEM              0xDC000000
 
 #define SMC_APE_IRQ_OFFSET_INTCSYS_SPI               32         /* INTC-SYS SPI ID starts from 32 -> 255 */
 #define SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM            193        /* TODO Valid only with SPI 193-198 (NOT 221 and 222)*/
+
+#define SMC_APE_IRQ_OFFSET_IRQ_SPI                   512        /* APE IRQ offset (#define IRQPIN_IRQ_BASE 512 in irqs.h )*/
+
+
+#define SMC_WPMCIF_EPMU_BASE                         0xE6190000
+#define SMC_WPMCIF_EPMU_ACC_CR                       (SMC_WPMCIF_EPMU_BASE + 0x0004)    /* Used for checking that modem is up */
+    /* Register values of the EPMU ACC CR */
+#define SMC_WPMCIF_EPMU_ACC_CR_MODEM_SLEEP_REQ       0x00000000
+#define SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_REQ      0x00000002
+#define SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK       0x00000003
+
+#define SMC_HPB_BASE                                 0xE6000000                         /* Used to retrieve EOS2 ASIC version */
+#define SMC_CCCR                                     (SMC_HPB_BASE + 0x101C)
+
+#if( SMC_RUNTIME_TRACES_ENABLED == TRUE )
+#define SMC_APE_RDTRACE_ENABLED     /* If defined, APE handles runtime trace activation for modem stype rdtraces */
+#else
+#undef SMC_APE_RDTRACE_ENABLED
+#endif
+
+
+#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM         /* If defined uses ext irq in modem side (modem wakes APE)*/
+
+/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */     /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
+
+#if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
+
+    /* Configuration for Modem and APE*/
+
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_REGISTER_HANDLER  FALSE
+
+    //#define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID             0       /*  */
+    //#define SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE           SMC_SIGNAL_TYPE_INT_IRQC
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID             65       /*  */
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE           SMC_SIGNAL_TYPE_INT_WGM_GENOUT
+
+    #define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC       3000
+
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID_FROM_MODEM  0        /* Genio to wakeup APE */
+
+#endif
 
 #endif

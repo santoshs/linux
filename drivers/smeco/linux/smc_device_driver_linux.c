@@ -15,9 +15,17 @@
 /*
 Change history:
 
+Version:       17   13-Aug-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Power manager features merged to one baseline
+
+Version:       15   19-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Code cleanup
+
 Version:       14   13-Jun-2012     Heikki Siikaluoma
 Status:        draft
-Description :  Code cleanup, SMC status interface function
+Description :  Code cleanup, SMC status interface function, XMIT function queue mapping fix (MHDP channel)
 
 Version:       3    17-Jan-2012     Heikki Siikaluoma
 Status:        draft
@@ -65,7 +73,7 @@ Description :  File created
   #define SMC_CONF_COUNT_L2MUX  0
 #endif
 
-MODULE_AUTHOR("Renesas Mobile Europe / MeXe");
+MODULE_AUTHOR("Renesas Mobile Europe / Heikki Siikaluoma <heikki.siikaluoma@renesasmobile.com>");
 MODULE_DESCRIPTION("SMeCo - SMC Network Device Driver");
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -81,7 +89,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 
     /**
      * IRQ Resources from the R-Mobile HW Manual
-     * Index of array is the bit in the Modem --> TODO Check
+     * Index of array is the bit in the Modem
      */
     static struct resource smc_resources[] =
     {
@@ -236,6 +244,10 @@ static int smc_net_device_driver_open_channels(struct net_device* device)
 
             smc_priv->smc_instance = smc_instance_create_ext(smc_instance_conf, smc_priv->platform_device);
 
+    #ifdef SMC_WAKEUP_USE_EXTERNAL_IRQ_APE
+            smc_register_wakeup_irq( smc_priv->smc_instance, SMC_APE_WAKEUP_EXTERNAL_IRQ_ID, SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE );
+    #endif
+
             if( smc_priv->smc_instance != NULL )
             {
                 SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open_channels: SMC priv 0x%08X: SMC instance 0x%08X created", (uint32_t)smc_priv, (uint32_t)smc_priv->smc_instance);
@@ -366,100 +378,107 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
         goto DROP_PACKET;
     }
 
-    smc_net_dev = netdev_priv(device);
-
+    smc_net_dev  = netdev_priv(device);
     smc_instance = smc_net_dev->smc_instance;
 
-    if( smc_instance != NULL )
+    if (smc_instance != NULL)
     {
-        if( skb->queue_mapping < smc_instance->smc_channel_list_count )
+        if (skb->queue_mapping < smc_instance->smc_channel_list_count)
         {
             smc_channel_t*  smc_channel = NULL;
             uint16_t        skb_queue_mapping = skb->queue_mapping;
 
-
             smc_channel = SMC_CHANNEL_GET(smc_instance,  skb_queue_mapping);
 
-            SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: stop the subqueue %d to allow queue in upper layer", skb_queue_mapping);
-            netif_stop_subqueue(device, skb_queue_mapping);
+                /* Prevent the remote side to wake up the queue during the send */
+            // TODO CHECK IF NEEDED (IRQ): SMC_LOCK( smc_channel->lock_tx_queue );
 
-            SMC_CHANNEL_STATE_SET_SEND_IS_DISABLED( smc_channel->state );
-
-            SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
-            ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
-
-            if( unlikely(ret_val) )
+            if (!SMC_CHANNEL_STATE_SEND_IS_DISABLED( smc_channel->state ))
             {
-                SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, SKB TX failed (wakeup the subqueue %d)", skb->protocol, skb_queue_mapping);
+                uint8_t drop_packet = 0;
 
-                netif_wake_subqueue(device, skb_queue_mapping);
+                SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: stop the subqueue %d to allow queue in upper layer", skb_queue_mapping);
+                netif_stop_subqueue(device, skb_queue_mapping);
 
-                SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
+                SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
+                ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
 
-                goto DROP_PACKET;
-            }
-            else
-            {
-                //smc_channel_t*  smc_channel = NULL;
-                smc_user_data_t userdata;
-
-                SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: send data using SMC 0x%08X subqueue %d...", (uint32_t)smc_instance, skb_queue_mapping);
-
-                    /* Select the channel by the Queue */
-                //smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping );
-
-                userdata.flags     = 0x00000000;
-                userdata.userdata1 = 0x00000000;
-                userdata.userdata2 = 0x00000000;
-                userdata.userdata3 = 0x00000000;
-                userdata.userdata4 = 0x00000000;
-                userdata.userdata5 = 0x00000000;
-
-                if(skb_shinfo(skb)->nr_frags != 0)
+                if (unlikely(ret_val))
                 {
-                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: FRAGMENTS NOT HANDLED");
-                }
-
-                if( smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_modify_send_data )
-                {
-                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
-                    smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
-                }
-
-                /* TODO Check fragmentation */
-                /* DPRINTK("NB_FRAGS = %d total size: %d frags size: %d\n", skb_shinfo(skb)->nr_frags, skb->len, skb->data_len); */
-
-                if( smc_send_ext(smc_channel, skb->data, skb->len, &userdata) != SMC_OK )
-                {
-                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, smc_send_ext failed", skb->protocol);
-                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: wake up the subqueue %d to allow message sending", skb_queue_mapping);
-
-                    netif_wake_subqueue(device, skb_queue_mapping);
-
-                    SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
-
-                    goto DROP_PACKET;
+                    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, SKB TX failed (wakeup the subqueue %d)", skb->protocol, skb_queue_mapping);
+                    // TODO CHECK IF NEEDED (IRQ) SMC_UNLOCK( smc_channel->lock_tx_queue );
+                    drop_packet = 1;
                 }
                 else
                 {
-                        /* Update statistics */
-                    device->stats.tx_packets++;
-                    device->stats.tx_bytes += skb->len;
+                    smc_user_data_t userdata;
 
-                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: Free the SKB ANY 0x%08X...", (uint32_t)skb);
+                    SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: send data using SMC 0x%08X subqueue %d...", (uint32_t)smc_instance, skb_queue_mapping);
 
-                        /* Free the message data */
-                    /*dev_kfree_skb(skb);*/
-                    dev_kfree_skb_any(skb);
+                    userdata.flags     = 0x00000000;
+                    userdata.userdata1 = 0x00000000;
+                    userdata.userdata2 = 0x00000000;
+                    userdata.userdata3 = 0x00000000;
+                    userdata.userdata4 = 0x00000000;
+                    userdata.userdata5 = 0x00000000;
 
+                    if (skb_shinfo(skb)->nr_frags != 0)
+                    {
+                        SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: FRAGMENTS NOT HANDLED");
+                    }
+
+                    if (smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_modify_send_data)
+                    {
+                        SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
+                        smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
+                    }
+
+                    /* TODO Check fragmentation */
+                    /* DPRINTK("NB_FRAGS = %d total size: %d frags size: %d\n", skb_shinfo(skb)->nr_frags, skb->len, skb->data_len); */
+
+                    // TODO CHECK IF NEEDED (IRQ): SMC_UNLOCK( smc_channel->lock_tx_queue );
+
+                    if (smc_send_ext(smc_channel, skb->data, skb->len, &userdata) != SMC_OK)
+                    {
+                        SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: protocol %d, smc_send_ext failed", skb->protocol);
+                        drop_packet = 1;
+                    }
+                    else
+                    {
+                            /* Update statistics */
+                        device->stats.tx_packets++;
+                        device->stats.tx_bytes += skb->len;
+
+                        SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: Free the SKB ANY 0x%08X...", (uint32_t)skb);
+
+                            /* Free the message data */
+                        dev_kfree_skb_any(skb);
+
+                        drop_packet = 0;
+                        ret_val = SMC_DRIVER_OK;
+                        SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: Completed by return value %d", ret_val);
+                    }
+                }
+
+                    /* Wake up the queue only if it is not stopped by remote */
+                if( !SMC_CHANNEL_STATE_SEND_IS_DISABLED( smc_channel->state ) )
+                {
                     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: wake up the subqueue %d to allow message sending", skb_queue_mapping);
                     netif_wake_subqueue(device, skb_queue_mapping);
-
-                    SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
-
-                    ret_val = SMC_DRIVER_OK;
-                    SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: Completed by return value %d", ret_val);
                 }
+
+                if( drop_packet == 1 )
+                {
+                    goto DROP_PACKET;
+                }
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: SMC channel %d for queue %d TX is disabled", smc_channel->id, skb_queue_mapping);
+
+                // TODO CHECK IF NEEDED (IRQ): SMC_UNLOCK( smc_channel->lock_tx_queue );
+
+                goto DROP_PACKET;
             }
         }
         else
@@ -480,7 +499,7 @@ DROP_PACKET:
     SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: Packet dropped");
 
     device->stats.tx_dropped++;
-    dev_kfree_skb(skb);
+    dev_kfree_skb_any(skb);
 
     return ret_val;
 }
@@ -521,6 +540,22 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
     {
         SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_STATUS");
         ret_val = smc_net_device_print_status(device, smc_net_dev);
+    }
+    else if( cmd==SIOCDEV_TRACE )
+    {
+#ifdef SMC_APE_RDTRACE_ENABLED
+        struct ifreq_smc_trace* if_req_smc_trace = (struct ifreq_smc_trace *)ifr;
+
+        SMC_TRACE_PRINTF_ALWAYS("smc_net_device_driver_ioctl: Trace command invoked: Trace group id 0x%08X, activate=%s",
+                if_req_smc_trace->if_trace_group_id, if_req_smc_trace->if_trace_group_activate?"TRUE":"FALSE");
+
+        smc_rd_trace_group_activate(if_req_smc_trace->if_trace_group_id, if_req_smc_trace->if_trace_group_activate);
+
+        ret_val      = SMC_DRIVER_OK;
+#else
+        SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_ioctl: Runtime trace activation not supported (cmd: SIOCDEV_TRACE 0x%04X)", cmd);
+        ret_val      = SMC_DRIVER_ERROR;
+#endif
     }
     else
     {
@@ -841,30 +876,31 @@ static int smc_net_platform_device_remove(struct platform_device* platform_devic
 #ifdef CONFIG_PM
 static int smc_platform_device_driver_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	
-	__raw_writel(0x00000001, 0xe61c2414); //PORT_SET
-	__raw_writel(0x00000002, 0xe61c1980); //CONFIG_0 - 1 = low level detect, 2 = high level detect
-	__raw_writel(0x00000001, 0xe61c1888); //WAKEN_SET0
-	
-	return 0;
+    struct platform_device *pdev = to_platform_device(dev);
+
+    __raw_writel(0x00000001, 0xe61c2414); /* PORT_SET */
+    __raw_writel(0x00000002, 0xe61c1980); /* CONFIG_0 - 1 = low level detect, 2 = high level detect */
+    __raw_writel(0x00000001, 0xe61c1888); /* WAKEN_SET0 */
+
+    return 0;
 }
 
 static int smc_platform_device_driver_resume(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	
-	__raw_writel(0x00000000, 0xe61c1980); //CONFIG_02 - Disable Interrupt
-	__raw_writel(0x00000001, 0xe61c1884); //WAKEN_STS0 - Disable WakeUp Request Enable
+    struct platform_device *pdev = to_platform_device(dev);
 
-	return 0;
+    __raw_writel(0x00000000, 0xe61c1980); /* CONFIG_02 - Disable Interrupt */
+    __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */
+
+    return 0;
 }
 
 static const struct dev_pm_ops smc_platform_device_driver_pm_ops = {
-	.suspend	= smc_platform_device_driver_suspend,
-	.resume		= smc_platform_device_driver_resume,
+    .suspend    = smc_platform_device_driver_suspend,
+    .resume     = smc_platform_device_driver_resume,
 };
 #endif
+
 
 static struct platform_driver smc_platform_device_driver = {
     .probe    = smc_net_platform_device_probe,
@@ -873,7 +909,7 @@ static struct platform_driver smc_platform_device_driver = {
         .name = SMC_PLATFORM_DRIVER_NAME,
         .owner = THIS_MODULE,
 #ifdef CONFIG_PM
-		.pm	= &smc_platform_device_driver_pm_ops,
+        .pm = &smc_platform_device_driver_pm_ops,
 #endif
     },
 
@@ -935,10 +971,10 @@ static int smc_net_device_print_status( struct net_device* device, smc_device_dr
 
     SMC_TRACE_PRINTF_ALWAYS("SMC: v.%s: Net Device '%s':", SMC_SW_VERSION, device->name);
 
-    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets delivered: %8d", device->stats.tx_packets);
-    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets dropped:   %8d", device->stats.tx_dropped);
-    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets received:  %8d", device->stats.rx_packets);
-    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets dropped:   %8d", device->stats.rx_dropped);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets delivered: %8d", (int)device->stats.tx_packets);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - TX packets dropped:   %8d", (int)device->stats.tx_dropped);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets received:  %8d", (int)device->stats.rx_packets);
+    SMC_TRACE_PRINTF_ALWAYS("SMC:   - RX packets dropped:   %8d", (int)device->stats.rx_dropped);
 
 
     /* smc_net_dev->platform_device->name,  */

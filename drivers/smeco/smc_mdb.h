@@ -49,6 +49,7 @@ Description :  File created
 #define SMC_MDB_IN  0
 #define SMC_MDB_OUT 1
 
+/* TODO CLEAN UP
 #if TLSF_USE_REF
     #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  malloc_ex(size, pool)
     #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      free_ex(ptr, pool)
@@ -56,6 +57,7 @@ Description :  File created
     #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  tlsf_malloc(pool, size)
     #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      tlsf_free(pool, ptr)
 #endif
+*/
 
 typedef struct _smc_mdb_channel_info_t
 {

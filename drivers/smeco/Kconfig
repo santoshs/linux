@@ -18,7 +18,7 @@ config SMECO_CONTROL
 
 if SMECO_CONTROL
 config SMECO_CONTROL_USE_PHONET
-    boolean "Use Phonet protocl in SMC Control"
+    boolean "Use Phonet protocol in SMC Control"
     default y
      ---help---
 	If this is selected the SMC control uses phonet protocol for communication
@@ -41,6 +41,12 @@ if SMECO_TRACES_ENABLED
 		 ---help---
 		If this is selected the SMC traces are printed in KERN_ALERT mode
 endif
+
+config SMECO_RUNTIME_TRACES_ENABLED
+	boolean "Activate SMeCo / SMC runtime R&D traces"
+	default n
+	---help---
+	If this is selected the SMC runtime traces are enabled and can be activated using IOCTL
 
 config SMECO_TEST
 	tristate "SMeCo SMC Test Features"

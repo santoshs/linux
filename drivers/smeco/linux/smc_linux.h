@@ -122,9 +122,12 @@ typedef struct _smc_device_driver_priv_t
 
 #include "linux/if.h"
 
+/* SIOCDEVPRIVATE = 0x89F0 */
+
 #define SIOCDEV_SEND_DATA     (SIOCDEVPRIVATE + 0x04)
 #define SIOCDEV_RUN_TEST      (SIOCDEVPRIVATE + 0x05)       /* Run SMC tests (valid only when test module is built in)*/
-#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Return the status of the specified device*/
+#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Return the status of the specified device (val 0x89F6) */
+#define SIOCDEV_TRACE         (SIOCDEVPRIVATE + 0x07)
 
 struct ifreq_smc
 {
@@ -149,5 +152,20 @@ struct ifreq_smc_test
     uint8_t* if_test_data;
     uint32_t if_test_result;
 };
+
+struct ifreq_smc_trace
+{
+    union
+    {
+      char ifrn_name[IFNAMSIZ];        /* if name, e.g. "smc0" */
+    } ifr_ifrn;
+
+    uint32_t if_trace_group_id;
+    uint8_t  if_trace_group_activate;
+
+};
+
+
+void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t signal_type );
 
 #endif

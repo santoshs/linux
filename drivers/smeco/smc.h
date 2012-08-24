@@ -14,6 +14,18 @@
 /*
 Change history:
 
+Version:       34   13-Aug-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.34
+
+Version:       32   29-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.32
+
+Version:       31   19-Jun-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.31, Modem core dump transfer support
+
 Version:       30   08-Jun-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.30
@@ -116,14 +128,16 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.30"
+#define SMC_SW_VERSION  "0.0.34"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
 
     /* Additional SMC error return values */
-#define SMC_ERROR_BUFFER_FULL  2
-#define SMC_ERROR_NOT_READY    3
+#define SMC_ERROR_BUFFER_FULL      2
+#define SMC_ERROR_NOT_READY        3
+#define SMC_ERROR_FIFO_FULL        4
+#define SMC_ERROR_MDB_OUT_OF_MEM   5
 
 
 #include "smc_conf.h"
@@ -131,19 +145,22 @@ Description :  File created
 #include "smc_memory_mgmt.h"
 
 
+#define SMC_XTILESS_CORE_DUMP_ENABLED
+#define SMC_MODEM_WAKEUP_WAIT_TIMEOUT         0 /* 0x2000 */ /* Timeout to wait the modem to wake up, continues even if modem is not up, if 0, waits forever */
+
+
     /*
      * SMC internal configuration values
      */
-#define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX    20
+#define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      20
 
     /*
      * SMC Channel Common Priorities
      */
-#define SMC_CHANNEL_PRIORITY_HIGHEST        0x00
-#define SMC_CHANNEL_PRIORITY_DEFAULT        0x7F
-#define SMC_CHANNEL_PRIORITY_LOWEST         0xFF
+#define SMC_CHANNEL_PRIORITY_HIGHEST          0x00
+#define SMC_CHANNEL_PRIORITY_DEFAULT          0x7F
+#define SMC_CHANNEL_PRIORITY_LOWEST           0xFF
 
-    /* TODO Make this channel specific and configurable */
 #define SMC_TIMER_PERIOD_FIFO_FULL_CHECK_USEC 500   /* 500 usec period */
 
     /*
@@ -197,8 +214,8 @@ Description :  File created
     /*
      * Copy Scheme bits
      */
-#define SMC_COPY_SCHEME_COPY_IN_SEND        0x01
-#define SMC_COPY_SCHEME_COPY_IN_RECEIVE     0x02
+#define SMC_COPY_SCHEME_COPY_IN_SEND             0x01
+#define SMC_COPY_SCHEME_COPY_IN_RECEIVE          0x02
 
 #define SMC_COPY_SCHEME_SEND_IS_COPY( bits )     (((bits)&SMC_COPY_SCHEME_COPY_IN_SEND)==SMC_COPY_SCHEME_COPY_IN_SEND)
 #define SMC_COPY_SCHEME_RECEIVE_IS_COPY( bits )  (((bits)&SMC_COPY_SCHEME_COPY_IN_RECEIVE)==SMC_COPY_SCHEME_COPY_IN_RECEIVE)
@@ -321,6 +338,7 @@ typedef struct _smc_channel_t
     smc_lock_t*                         lock_write;                      /* Lock for write operations */
     smc_lock_t*                         lock_read;                       /* Lock for read operations  */
     smc_lock_t*                         lock_mdb;                        /* Lock for MDB operations  */
+    smc_lock_t*                         lock_tx_queue;                   /* Lock for TX queue control operations */
 
     uint8_t*                            mdb_out;                         /* MDB OUT area */
     uint8_t*                            mdb_in;                          /* MDB IN  area  */
@@ -341,6 +359,7 @@ typedef struct _smc_channel_t
     uint8_t                             fifo_buffer_item_count;          /* Count of items in the FIFO buffer */
     uint8_t                             fifo_buffer_flushing;            /* Flag indicating that the buffer flush is ongoing*/
     uint8_t                             protocol;
+    uint8_t                             fill;
 
 } smc_channel_t;
 
@@ -411,6 +430,8 @@ uint8_t               smc_initialize( smc_conf_t* smc_instance_conf );
 
 void                  smc_channel_free_ptr_local(const smc_channel_t* smc_channel, void* ptr, smc_user_data_t* userdata);
 
+void                  smc_fifo_poll( const smc_channel_t* smc_channel );
+
     /*
      * Structure holding signal handler information.
      */
@@ -459,7 +480,7 @@ uint8_t               smc_signal_add_handler           ( smc_signal_handler_t* s
 smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uint32_t signal_type );
 void                  smc_signal_handler_remove_and_destroy( smc_signal_handler_t* signal_handler );
 void                  smc_signal_remove_handler        ( smc_signal_handler_t* signal_handler );
-
+void                  smc_signal_dump                  ( char* indent, smc_signal_t* signal );
 
     /*
      * SMC Local Locking function prototypes.

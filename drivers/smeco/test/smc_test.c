@@ -276,6 +276,7 @@ static uint8_t smc_test_case_function_signal( uint8_t* test_input_data, uint16_t
         switch(test_case)
         {
             case 0x00:
+            case 0x02:
             {
                 smc_signal_t* signal = NULL;
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_signal: Create signal 0x%02X (%d), type 0x%08X...", signal_id, signal_id, signal_type);
@@ -285,6 +286,17 @@ static uint8_t smc_test_case_function_signal( uint8_t* test_input_data, uint16_t
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_signal: Raising signal 0x%08X...", (uint32_t)signal);
 
                 test_status = smc_signal_raise( signal );
+
+                if( test_case == 0x02 )
+                {
+                    volatile uint32_t delay = 2000;
+
+                    while(delay > 0 ) delay--;
+
+                    smc_signal_acknowledge( signal );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_signal: Acknowledged signal 0x%08X...", (uint32_t)signal);
+                }
 
                 smc_signal_destroy( signal );
 
@@ -514,10 +526,14 @@ uint8_t smc_test_case_function_remote_event( uint8_t* test_input_data, uint16_t 
         uint8_t channel_id      = test_input_data[0];
         SMC_CHANNEL_EVENT event = (SMC_CHANNEL_EVENT)test_input_data[1];
 
-            /* Expecting that the SMC instance is created */
-        smc_t* smc = get_smc_instance_1(TRUE, 0x00);
+        uint8_t smc_instance_id = 0x00;
 
-        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_remote_event: Sending event %d to remote using channel %d", test_input_data[1], test_input_data[0]);
+            /* Expecting that the SMC instance is created */
+        //smc_t* smc = get_smc_instance_1(TRUE, 0x00);
+
+        smc_t* smc = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_remote_event: Sending event %d to remote using SMC instance %d channel %d", test_input_data[1], smc_instance_id, test_input_data[0]);
 
         test_status = smc_send_event( smc_channel_get(smc, channel_id), event);
 

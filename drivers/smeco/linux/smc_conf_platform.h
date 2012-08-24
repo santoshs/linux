@@ -34,30 +34,26 @@ Description :  File created
 #include <asm/signal.h>
 
 
-    // EOS2 registers
-    // TODO Use own Include file
-    //
-#define HPB_BASE    0xE6000000
-#define CCCR        (HPB_BASE + 0x101C)
-
-#define SMC_WPMCIF_EPMU_BASE        0xE6190000
-#define SMC_WPMCIF_EPMU_ACC_CR      (SMC_WPMCIF_EPMU_BASE + 0x0004)
-
 #ifdef SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED
   #if(SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED==TRUE)
 
-    // TODO Add Global spinlock
-    #define SMC_HOST_ACCESS_WAKEUP(spinlock)  { if( spinlock != NULL ) SMC_LOCK_IRQ( spinlock );            \
-                                                __raw_writel(0x00000002, SMC_WPMCIF_EPMU_ACC_CR);           \
-                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
-                                               while (0x00000003 != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {} \
-                                              }
+    #define SMC_HOST_ACCESS_WAKEUP(spinlock, timeout)  { uint32_t timer = 0;                                          \
+                                                         if( spinlock != NULL ) SMC_LOCK_IRQ( spinlock );             \
+                                                         __raw_writel(SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_REQ, SMC_WPMCIF_EPMU_ACC_CR);           \
+                                                         (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
+                                                         while (SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {  \
+                                                             if(timeout > 0 && ++timer >= timeout ) {                 \
+                                                                 SMC_TRACE_PRINTF_WARNING("SMC_HOST_ACCESS_WAKEUP: modem not woken up"); \
+                                                                 break;                                               \
+                                                             }                                                        \
+                                                         }                                                            \
+                                                       }
 
 
-    #define SMC_HOST_ACCESS_SLEEP(spinlock)   { __raw_writel(0x00000000, SMC_WPMCIF_EPMU_ACC_CR);  \
-                                               (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);          \
-                                               if( spinlock != NULL ) SMC_UNLOCK_IRQ( spinlock );       \
-                                              }
+    #define SMC_HOST_ACCESS_SLEEP(spinlock)            { __raw_writel(SMC_WPMCIF_EPMU_ACC_CR_MODEM_SLEEP_REQ, SMC_WPMCIF_EPMU_ACC_CR);  \
+                                                        (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);          \
+                                                        if( spinlock != NULL ) SMC_UNLOCK_IRQ( spinlock );  \
+                                                       }
 
   #else
     #define SMC_HOST_ACCESS_WAKEUP(spinlock)
@@ -67,13 +63,11 @@ Description :  File created
   #error "SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED --- NOT DEFINED"
 #endif
 
-#define SMC_EOS_ASIC_ES10   0x10
-#define SMC_EOS_ASIC_ES20   0x20
-
 #define SMC_SIGNAL_TYPE_INTGEN         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x01)  /* 0x03000001 */
 #define SMC_SIGNAL_TYPE_INTCBB         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x02)  /* 0x03000002 */
 #define SMC_SIGNAL_TYPE_INT_WGM_GENOUT (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x04)  /* 0x03000004 */
 #define SMC_SIGNAL_TYPE_INT_RESOURCE   (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x06)  /* 0x03000006 */
+#define SMC_SIGNAL_TYPE_INT_IRQC       (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x07)  /* 0x03000007 */
 
     /*
      * Data type for SMC signals
@@ -90,11 +84,11 @@ typedef struct _smc_signal_t
 
 typedef struct
 {
-  volatile uint32_t OUTPUT;        /* output := <>              input := output */
-  volatile uint32_t SET;           /* output := output OR <>    input := None   */
-  volatile uint32_t CLEAR;         /* output := output AND ~<>  input := None   */
-  volatile uint32_t TOGGLE;        /* output := output XOR <>   input := None   */
-} GOP001_STR;
+  volatile uint32_t output;        /* output := <>              input := output */
+  volatile uint32_t set;           /* output := output OR <>    input := None   */
+  volatile uint32_t clear;         /* output := output AND ~<>  input := None   */
+  volatile uint32_t toggle;        /* output := output XOR <>   input := None   */
+} smc_gop001_t;
 
 
 /*
@@ -104,11 +98,13 @@ typedef struct
 #include <asm/irq.h>
 
 #define SMC_SHM_IOREMAP( address, size )                        ioremap( (long unsigned int)address, size )
+#define SMC_SHM_IOUNMAP( address )                              iounmap( (long unsigned int)address )
 
 #define SMC_HW_ARM_MEMORY_SYNC(startaddress)
 
 #define SMC_SHM_WRITE32( target_address, value )                 __raw_writel( value, ((void __iomem *)(target_address)) )
 #define SMC_SHM_READ32( source_address )                         __raw_readl( ((void __iomem *)source_address) )
+#define SMC_SHM_READ8( source_address )                         (__raw_readl( ((void __iomem *)source_address) )&0xFF)
 
 #define SMC_SHM_CACHE_INVALIDATE( start_address, end_address )
 #define SMC_SHM_CACHE_CLEAN( start_address, end_address )        { __raw_readl( ((void __iomem *)(start_address)) ); __raw_readl( ((void __iomem *)(end_address)) );  }

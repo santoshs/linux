@@ -126,7 +126,7 @@ Description :  File created
 #define SMC_TEST_RD_TRACE_PREFIX                        "SMC_TEST:"
 
 #define SMC_TEST_TRACE_PRINTF                           SMC_TRACE_PRINTF_ALWAYS
-#define SMC_TEST_TRACE_PRINTF_DATA(length, data)        SMC_TRACE_PRINTF_DATA(length, data)
+#define SMC_TEST_TRACE_PRINTF_DATA(length, data)        SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)
 
 
 #define SMC_TEST_TRACE_PRINTF_INFO(...)                 SMC_TEST_TRACE_PRINTF( SMC_TEST_RD_TRACE_PREFIX"INFO:" __VA_ARGS__ )
