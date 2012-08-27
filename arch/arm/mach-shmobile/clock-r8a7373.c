@@ -956,11 +956,11 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
 	CLKDEV_DEV_ID("renesas_sdhi.2", &mstp_clks[MSTP312]), /* SDHI2 */
 	CLKDEV_DEV_ID("tpu-renesas-sh_mobile.0", &mstp_clks[MSTP304]), /* TPU0 */
-	CLKDEV_DEV_ID("i2c-sh_mobile.7", &mstp_clks[MSTP427]), /* IIC3H */
-	CLKDEV_DEV_ID("i2c-sh_mobile.6", &mstp_clks[MSTP426]), /* IIC2H */
+	CLKDEV_DEV_ID("i2c-sh_mobile.8", &mstp_clks[MSTP427]), /* IIC3H */
+	CLKDEV_DEV_ID("i2c-sh_mobile.7", &mstp_clks[MSTP426]), /* IIC2H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP425]), /* IIC1H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP424]), /* IIC0H */
-	CLKDEV_DEV_ID("i2c-sh7730.8", &mstp_clks[MSTP412]), /* IICM */
+	CLKDEV_DEV_ID("i2c-sh7730.6", &mstp_clks[MSTP412]), /* IICM */
 	CLKDEV_DEV_ID("i2c-sh_mobile.3", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]), /* PCM2PWM */
