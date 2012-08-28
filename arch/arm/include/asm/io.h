@@ -48,7 +48,7 @@
 /* Similar macro needs to be enabled/disabled in kernel/arch/arm/kernel/entry-header.S */
 /*#define CONFIG_IRQ_TRACE*/
 #ifdef CONFIG_IRQ_TRACE
-#define TMPLOG_ADDRESS 	0x44821200
+#define TMPLOG_ADDRESS 	0x44801200
 /* Total 256kB Trace Log Size */
 #define TMPLOG_TOTAL_SIZE 	0x00040000
 /* TMPLOG_SIZE_PERCPU = (TMPLOG_TOTAL_SIZE / 2) = 128kB per CPU */
