@@ -159,6 +159,15 @@
 /* Frequency control register D	*/
 #define CPG_FRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E4)
 
+
+/******************************************/
+/* XTAL though mode				*/
+/*****************************************/
+#define CPG_LPCKCRPhys		0xE6151024
+#define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR_26MHz	0x00000002
+
+
 /* Frequency control register A	*/
 #define CPG_FRQCRA	CPG_FRQCRABase
 /* Frequency control register B	*/
@@ -258,12 +267,14 @@
 #define A3SP_ON		0x00020000
 
 #ifdef __EXTAL1_INFO__
-#define EXMSKCNT1Phys	(BaseSyscPhys + 0x0214)		/*EXTAL1 Mask Count Register (EXMSKCNT1)*/
-#define APSCSTPPhys		(BaseSyscPhys + 0x0234)		/*EXTAL1 Clock Stop Control Register (APSCSTP)*/
-#define SYCKENMSKPhys	(BaseSyscPhys + 0x024C)		/*EXTAL1 Control Register (SYCKENMSK)*/
-#define C4POWCRPhys		(BaseSyscPhys + 0x004C)		/*C4 Area Power Control Register (C4POWCR)*/
-//#define PDNSEL	(BaseSyscPhys + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
-//#define PSTR		(BaseSyscPhys + 0x0080)		/*Power Status Register (PSTR)*/
+/* EXTAL1 Mask Count Register (EXMSKCNT1) */
+#define EXMSKCNT1Phys	(BaseSyscPhys + 0x0214)
+/* EXTAL1 Clock Stop Control Register (APSCSTP) */
+#define APSCSTPPhys		(BaseSyscPhys + 0x0234)
+/* EXTAL1 Control Register (SYCKENMSK) */
+#define SYCKENMSKPhys	(BaseSyscPhys + 0x024C)
+/* C4 Area Power Control Register (C4POWCR) */
+#define C4POWCRPhys		(BaseSyscPhys + 0x004C)
 #endif
 /********************************************/
 /* HPBC Register							*/
@@ -362,12 +373,12 @@
 #define POWER_D(Dn)(1 << 22)
 /* Only use of Save VFP-D32 */
 #define POWER_VSTMIA(cc, Rn, Dd, N)		\
-	.word(cc << 28) | (Rn << 16) |(POWER_DN(Dd) << 12) | ((N) * 2) |	\
-		(POWER_D(Dd)) | (0x0CA00B00)
+	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+		 ((N) * 2) | (POWER_D(Dd)) | (0x0CA00B00))
 /* Only use of Restore VFP-D32 */
 #define POWER_VLDMIA(cc, Rn, Dd, N)		\
-	.word(cc << 28) | (Rn << 16) |(POWER_DN(Dd) << 12) | ((N) * 2) |	\
-		(POWER_D(Dd)) | (0x0CB00B00)
+	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+		 ((N) * 2) | (POWER_D(Dd)) | (0x0CB00B00))
 
 /*
  * ********************************************************************

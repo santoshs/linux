@@ -39,6 +39,7 @@
 #define PM_STATE_NOTIFY_WAKEUP			4
 #define PM_STATE_NOTIFY_SUSPEND			5
 #define PM_STATE_NOTIFY_RESUME			6
+#define PM_STATE_NOTIFY_SLEEP_LOWFREQ2	7
 struct pm_state_notify {
 	struct list_head link;
 	const char *name;
@@ -56,7 +57,9 @@ struct pm_state_notify_confirm {
 	const char *name;
 	unsigned int (*confirm)(void);
 };
-
+extern int	corestandby_pa_physical;
+extern int	systemsuspend_cpu0_pa_physical;
+extern int	systemsuspend_cpu1_pa_physical;
 extern int start_corestandby(void);
 extern void ArmVector(void);
 extern void corestandby(void);
@@ -72,6 +75,7 @@ extern void sys_powerdown(void);
 extern void sys_powerup(void);
 extern void setclock_systemsuspend(void);
 extern void start_wfi(void);
+extern void start_wfi2(void);
 extern void disablemmu(void);
 extern void systemsuspend_cpu0_pa(void);
 extern void systemsuspend_cpu1_pa(void);
