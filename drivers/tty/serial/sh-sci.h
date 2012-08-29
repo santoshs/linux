@@ -349,6 +349,7 @@ SCIF_FNS(SCLSR,  0x00,  0)
 
 /* Modified here on May 19, 2011 */
 SCIF_FNS(SCPCR,  0x30, 16)
+SCIF_FNS(SCPDR,  0x34, 16)
 /*end modified*/
 
 #elif defined(CONFIG_CPU_SUBTYPE_SH7723) ||\
