@@ -132,7 +132,7 @@
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
 	CMP		r4, #0x0
 	BNE		4f
-	
+
 	LDR		r8, =ram0CPU0SpinLock
 	MOV		r9, #0
 	STR		r9, [r8]
@@ -186,10 +186,10 @@
 	.endm
 
 
-/*======================================================================*/
-/*	Name:CPU1_SpinLock_Release											*/
-/*	Over View: Release CPU1 SpinLock 									*/
-/*======================================================================*/
+/*==========================================*/
+/*	Name:CPU1_SpinLock_Release */
+/*	Over View: Release CPU1 SpinLock */
+/*==========================================*/
 	.macro CPU1_SpinLock_Release
 #ifdef CONFIG_PM_SMP
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
@@ -259,7 +259,7 @@
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
 	CMP		r4, #0x0
 	BNE		4f
-	
+
 	LDR		r8, =ram0CPU0SpinLockPhys
 	MOV		r9, #0
 	STR		r9, [r8]
@@ -314,8 +314,8 @@
 
 
 /*======================================================================*/
-/*	Name:CPU1_SpinLock_Release_Phys											*/
-/*	Over View: Release CPU1 SpinLock 									*/
+/*	Name:CPU1_SpinLock_Release_Phys	*/
+/*	Over View: Release CPU1 SpinLock */
 /*======================================================================*/
 	.macro CPU1_SpinLock_Release_Phys
 #ifdef CONFIG_PM_SMP

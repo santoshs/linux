@@ -23,14 +23,14 @@
 #include <mach/vmalloc.h>
 #include <mach/r8a73734.h>
 
-#define 	__EXTAL1_INFO__
+#define __EXTAL1_INFO__
 
 #undef CONFIG_PM_SMP
 #if (defined(CONFIG_SMP) && (CONFIG_NR_CPUS > 1))
 #define CONFIG_PM_SMP
 #endif
 
-#ifndef		CONFIG_PM_SMP
+#ifndef	CONFIG_PM_SMP
 #define		CORESTANDBY_A2SL /* CORESTANDBY_A2SL */
 #endif
 
@@ -161,7 +161,7 @@
 
 /* SPI Status Registers */
 #define	ram0_ICSPISR0				\
-(ram0SaveSdmracr1a + 0x4)			
+(ram0SaveSdmracr1a + 0x4)
 #define	 ram0_ICSPISR1				\
 (ram0_ICSPISR0 + 0x4)
 /*FRQCRA mask*/
@@ -172,30 +172,30 @@
 (ram0FRQCRAMask + 0x4)
 
 #ifdef __EXTAL1_INFO__
-#define	ram0SaveEXMSKCNT1_suspend 	\
+#define	ram0SaveEXMSKCNT1_suspend	\
 (ram0FRQCRADown + 0x4)
-#define	ram0SaveAPSCSTP_suspend 	\
+#define	ram0SaveAPSCSTP_suspend		\
 (ram0SaveEXMSKCNT1_suspend + 0x4)
-#define	ram0SaveSYCKENMSK_suspend 	\
+#define	ram0SaveSYCKENMSK_suspend	\
 (ram0SaveAPSCSTP_suspend + 0x4)
-#define	ram0SaveC4POWCR_suspend 	\
+#define	ram0SaveC4POWCR_suspend		\
 (ram0SaveSYCKENMSK_suspend + 0x4)
-#define	ram0SavePDNSEL_suspend 		\
+#define	ram0SavePDNSEL_suspend		\
 (ram0SaveC4POWCR_suspend + 0x4)
-#define	ram0SavePSTR_suspend 		\
+#define	ram0SavePSTR_suspend		\
 (ram0SavePDNSEL_suspend + 0x4)
 
-#define	ram0SaveEXMSKCNT1_resume 	\
+#define	ram0SaveEXMSKCNT1_resume	\
 (ram0SavePSTR_suspend + 0x4)
-#define	ram0SaveAPSCSTP_resume 		\
+#define	ram0SaveAPSCSTP_resume		\
 (ram0SaveEXMSKCNT1_resume + 0x4)
-#define	ram0SaveSYCKENMSK_resume 	\
+#define	ram0SaveSYCKENMSK_resume	\
 (ram0SaveAPSCSTP_resume + 0x4)
-#define	ram0SaveC4POWCR_resume 		\
+#define	ram0SaveC4POWCR_resume		\
 (ram0SaveSYCKENMSK_resume + 0x4)
-#define	ram0SavePDNSEL_resume 		\
+#define	ram0SavePDNSEL_resume		\
 (ram0SaveC4POWCR_resume + 0x4)
-#define	ram0SavePSTR_resume 		\
+#define	ram0SavePSTR_resume			\
 (ram0SavePDNSEL_resume + 0x4)
 
 #endif
@@ -275,7 +275,7 @@
 
 /* SPI Status Registers */
 #define	ram0_ICSPISR0Phys				\
-(ram0SaveSdmracr1aPhys + 0x4)			
+(ram0SaveSdmracr1aPhys + 0x4)
 #define	 ram0_ICSPISR1Phys				\
 (ram0_ICSPISR0Phys + 0x4)
 
@@ -287,30 +287,30 @@
 (ram0FRQCRAMaskPhys + 0x4)
 
 #ifdef __EXTAL1_INFO__
-#define	ram0SaveEXMSKCNT1Phys_suspend 	\
+#define	ram0SaveEXMSKCNT1Phys_suspend	\
 (ram0FRQCRADownPhys + 0x4)
-#define	ram0SaveAPSCSTPPhys_suspend 	\
+#define	ram0SaveAPSCSTPPhys_suspend		\
 (ram0SaveEXMSKCNT1Phys_suspend + 0x4)
-#define	ram0SaveSYCKENMSKPhys_suspend 	\
+#define	ram0SaveSYCKENMSKPhys_suspend	\
 (ram0SaveAPSCSTPPhys_suspend + 0x4)
-#define	ram0SaveC4POWCRPhys_suspend 	\
+#define	ram0SaveC4POWCRPhys_suspend		\
 (ram0SaveSYCKENMSKPhys_suspend + 0x4)
-#define	ram0SavePDNSELPhys_suspend 		\
+#define	ram0SavePDNSELPhys_suspend		\
 (ram0SaveC4POWCRPhys_suspend + 0x4)
-#define	ram0SavePSTRPhys_suspend 		\
+#define	ram0SavePSTRPhys_suspend		\
 (ram0SavePDNSELPhys_suspend + 0x4)
 
-#define	ram0SaveEXMSKCNT1Phys_resume 	\
+#define	ram0SaveEXMSKCNT1Phys_resume	\
 (ram0SavePSTRPhys_suspend + 0x4)
-#define	ram0SaveAPSCSTPPhys_resume 		\
+#define	ram0SaveAPSCSTPPhys_resume		\
 (ram0SaveEXMSKCNT1Phys_resume + 0x4)
-#define	ram0SaveSYCKENMSKPhys_resume 	\
+#define	ram0SaveSYCKENMSKPhys_resume	\
 (ram0SaveAPSCSTPPhys_resume + 0x4)
-#define	ram0SaveC4POWCRPhys_resume 		\
+#define	ram0SaveC4POWCRPhys_resume		\
 (ram0SaveSYCKENMSKPhys_resume + 0x4)
-#define	ram0SavePDNSELPhys_resume 		\
+#define	ram0SavePDNSELPhys_resume		\
 (ram0SaveC4POWCRPhys_resume + 0x4)
-#define	ram0SavePSTRPhys_resume 		\
+#define	ram0SavePSTRPhys_resume			\
 (ram0SavePDNSELPhys_resume + 0x4)
 #endif
 
@@ -361,6 +361,6 @@
 #define CPUSTATUS_RUN				0x0
 #define CPUSTATUS_WFI				0x1
 #define CPUSTATUS_SHUTDOWN			0x3
-
+#define CPUSTATUS_WFI2				0x4
 #endif /* __PM_RAM0_H__ */
 

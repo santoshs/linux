@@ -32,7 +32,7 @@
 #include "pm_ram0.h"
 #include "pmRegisterDef.h"
 
-#define SHMOBILE_MAX_STATES	3
+#define SHMOBILE_MAX_STATES	4
 
 
 #define DISPLAY_LOG 0
@@ -239,6 +239,45 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 }
 
 /*
+ * shmobile_enter_wfi_lowfreq2: executes idle PM for a CPU-WFI(low-freq2) state
+ * @dev: the target CPU
+ * @state: the state
+ * return:
+ *		int: the idle duration
+ */
+static int shmobile_enter_wfi_lowfreq2(struct cpuidle_device *dev,
+				struct cpuidle_state *state)
+{
+	struct timeval beforeTime, afterTime;
+	int idle_time;
+
+	local_fiq_disable();
+
+	do_gettimeofday(&beforeTime);
+
+	/* Sleep State Notify */
+	if (!state_notify_confirm())
+		state_notify(PM_STATE_NOTIFY_SLEEP_LOWFREQ2);
+
+	/* Transition to WFI standby with low-frequency-2 setting	*/
+	start_wfi2();
+
+	/* WakeUp State Notify */
+	if (!state_notify_confirm())
+		state_notify(PM_STATE_NOTIFY_WAKEUP);
+
+	do_gettimeofday(&afterTime);
+
+	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
+				+ (afterTime.tv_usec - beforeTime.tv_usec);
+
+	local_irq_enable();
+	local_fiq_enable();
+
+	return idle_time;
+}
+
+/*
  * shmobile_enter_corestandby: executes idle PM for a CPU - CoreStandby state
  * @dev: the target CPU
  * @state: the state
@@ -335,6 +374,7 @@ int control_cpuidle(int is_enable)
 			/* Make sure that only WFI state is running */
 			device->states[1].enter = shmobile_enter_wfi;
 			device->states[2].enter = shmobile_enter_wfi;
+			device->states[3].enter = shmobile_enter_wfi;
 		}
 		is_enable_cpuidle = is_enable;
 		break;
@@ -347,7 +387,8 @@ int control_cpuidle(int is_enable)
 			/* Restore to original CPU's idle PM */
 			device->state_count = SHMOBILE_MAX_STATES;
 			device->states[1].enter = shmobile_enter_wfi_lowfreq;
-			device->states[2].enter = shmobile_enter_corestandby;
+			device->states[2].enter = shmobile_enter_wfi_lowfreq2;
+			device->states[3].enter = shmobile_enter_corestandby;
 		}
 		is_enable_cpuidle = is_enable;
 		break;
@@ -383,9 +424,6 @@ EXPORT_SYMBOL(is_cpuidle_enable);
  *		0: successful
  *		-EIO: failed ioremap, or failed registering a CPU's idle PM
  */
-extern int	corestandby_pa_physical;
-extern int	systemsuspend_cpu0_pa_physical;
-extern int	systemsuspend_cpu1_pa_physical;
 static int shmobile_init_cpuidle(void)
 {
 	struct cpuidle_device *device;
@@ -416,7 +454,8 @@ static int shmobile_init_cpuidle(void)
 		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
 			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529))), CPG_SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
+							, CPG_SMSTPCR5);
 			do {
 				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
@@ -451,9 +490,9 @@ static int shmobile_init_cpuidle(void)
 						ram0Cpu1RegisterArea);
 
 	/* Initialize SpinLock setting */
-	if (chip_rev < ES_REV_2_0 )
+	if (chip_rev < ES_REV_2_0)
 		cpuidle_spinlock = 0x47BDF000;
-	else 
+	else
 		cpuidle_spinlock = 0x44000000;
 
 	map = ioremap_nocache(cpuidle_spinlock,
@@ -479,9 +518,7 @@ static int shmobile_init_cpuidle(void)
 	/* Errata(ECR0285) */
 	if (chip_rev <= ES_REV_2_1)
 		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
-	else 
-		/* __raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter)); */
-		/* Temp. revised due to Errata(ECR0285) was not fixed??? */
+	else
 		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
 
 #ifndef CONFIG_PM_SMP
@@ -499,8 +536,10 @@ static int shmobile_init_cpuidle(void)
 				fsDisableMMU);
 
 	corestandby_pa_physical = (int)virt_to_phys(&corestandby_pa);
-	systemsuspend_cpu0_pa_physical = (int)virt_to_phys(&systemsuspend_cpu0_pa);
-	systemsuspend_cpu1_pa_physical = (int)virt_to_phys(&systemsuspend_cpu1_pa);
+	systemsuspend_cpu0_pa_physical =
+			(int)virt_to_phys(&systemsuspend_cpu0_pa);
+	systemsuspend_cpu1_pa_physical =
+			(int)virt_to_phys(&systemsuspend_cpu1_pa);
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
@@ -526,13 +565,21 @@ static int shmobile_init_cpuidle(void)
 		device->states[1].target_residency = 1;
 		device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
 
-		/* CoreStandby state */
-		strcpy(device->states[2].name, "CoreStandby");
-		strcpy(device->states[2].desc, "Core Standby");
-		device->states[2].enter = shmobile_enter_corestandby;
-		device->states[2].exit_latency = 300;
-		device->states[2].target_residency = 500;
+		/* WFI(low-freq2) state */
+		strcpy(device->states[2].name, "WFI(low-freq2)");
+		strcpy(device->states[2].desc, "Wait for interrupt(low-freq2)");
+		device->states[2].enter = shmobile_enter_wfi_lowfreq2;
+		device->states[2].exit_latency = 200;
+		device->states[2].target_residency = 100;
 		device->states[2].flags = CPUIDLE_FLAG_TIME_VALID;
+
+		/* CoreStandby state */
+		strcpy(device->states[3].name, "CoreStandby");
+		strcpy(device->states[3].desc, "Core Standby");
+		device->states[3].enter = shmobile_enter_corestandby;
+		device->states[3].exit_latency = 300;
+		device->states[3].target_residency = 500;
+		device->states[3].flags = CPUIDLE_FLAG_TIME_VALID;
 
 		if (cpuidle_register_device(device)) {
 			printk(KERN_ERR "shmobile_init_cpuidle: "
