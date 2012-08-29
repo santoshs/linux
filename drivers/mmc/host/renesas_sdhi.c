@@ -702,7 +702,7 @@ static void renesas_sdhi_dma_callback(void *arg)
 }
 
 static void renesas_sdhi_config_dma(struct renesas_sdhi_host *host,
-				    unsigned int length)
+				    unsigned int length, unsigned int offset)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	struct dma_slave_config config;
@@ -710,12 +710,12 @@ static void renesas_sdhi_config_dma(struct renesas_sdhi_host *host,
 
 	config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
 	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
-	if (length % 32 == 0) {
+	if ((length % 32 == 0) && (offset % 32 == 0)) {
 		burst_size = 32;
 		config.src_maxburst = 16;
 		config.dst_maxburst = 16;
 		pdata->set_dma(host->pdev, 32);
-	} else if (length % 16 == 0) {
+	} else if ((length % 16 == 0) && (offset % 16 == 0)) {
 		burst_size = 16;
 		config.src_maxburst = 8;
 		config.dst_maxburst = 8;
@@ -779,7 +779,7 @@ static void renesas_sdhi_start_dma(
 	}
 
 	if (host->pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
-		renesas_sdhi_config_dma(host, sg->length);
+		renesas_sdhi_config_dma(host, sg->length, sg->offset);
 
 	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir);
 	if (count <= 0) {
