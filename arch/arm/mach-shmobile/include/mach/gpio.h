@@ -52,12 +52,12 @@ static inline void gpio_pull_off(unsigned long reg)
 
 static inline void gpio_pull_up(unsigned long reg)
 {
-	__raw_writeb((__raw_readb(reg) & 0xf) | 0xe0, reg);
+	__raw_writeb((__raw_readb(reg) & 0x3f) | 0xc0, reg);
 }
 
 static inline void gpio_pull_down(unsigned long reg)
 {
-	__raw_writeb((__raw_readb(reg) & 0xf) | 0xa0, reg);
+	__raw_writeb((__raw_readb(reg) & 0x3f) | 0x80, reg);
 }
 
 #endif /* __ASM_ARCH_GPIO_H */
