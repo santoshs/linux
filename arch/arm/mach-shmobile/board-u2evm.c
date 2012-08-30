@@ -2530,6 +2530,20 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
+	if((system_rev & 0xFF) == 0x00) /*ES1.0*/
+	{
+		gpio_pull(GPIO_PORTCR_ES1(138), GPIO_PULL_UP); /* RX PU */
+		gpio_pull(GPIO_PORTCR_ES1(137), GPIO_PULL_DOWN); /* TX PD */
+		gpio_pull(GPIO_PORTCR_ES1(38), GPIO_PULL_UP); /* CTS PU */
+		gpio_pull(GPIO_PORTCR_ES1(37), GPIO_PULL_DOWN); /* RTS PD */
+	} else
+	{
+		gpio_pull(GPIO_PORTCR_ES2(138), GPIO_PULL_UP); /* RX PU */
+		gpio_pull(GPIO_PORTCR_ES2(137), GPIO_PULL_DOWN); /* TX PD */
+		gpio_pull(GPIO_PORTCR_ES2(38), GPIO_PULL_UP); /* CTS PU */
+		gpio_pull(GPIO_PORTCR_ES2(37), GPIO_PULL_DOWN); /* RTS PD */
+	}
+
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
 	gpio_request(GPIO_FN_KEYIN0, NULL);

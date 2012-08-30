@@ -294,10 +294,26 @@ static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 #elif defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
 static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
+	struct sci_port *sport = dev_get_drvdata(port->dev);
 	u16 scipcr = 0;
-	scipcr = sci_in(port, SCPCR);
+	
+	if (sport->cfg->rts_ctrl)
+		return;
+
 	if (cflag & CRTSCTS)
-		sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+	{
+		/* Set RTS to low only at first initialization */
+		/* to avoid frame losses after deep sleep */
+		if (sport->cfg->rts_ctrl == 0) {
+			scipcr = sci_in(port, SCPCR);
+			sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+			sport->cfg->rts_ctrl = 1;
+		} else
+		{
+			scipcr = sci_in(port, SCPCR);
+			sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+		}
+	}
 }
 /*end modified */
 
@@ -1225,6 +1241,11 @@ static void sci_start_tx(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
 	unsigned short ctrl;
+	
+	/* Wake BT chip before sending a frame */	
+	if(s->cfg->exit_lpm_cb) {
+		s->cfg->exit_lpm_cb(port);
+	}
 
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
@@ -2042,10 +2063,24 @@ err_unreg:
 
 static int sci_suspend(struct device *dev)
 {
-	struct sci_port *sport = dev_get_drvdata(dev);
+ 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data;
 
 	if (sport)
+	{
+		if (sport->cfg->rts_ctrl)
+		{
+			/* Set RTS to high before going in deep sleep mode */
+			data = sci_in(port, SCPCR);
+			sci_out(port, SCPCR,  data | 0x0010);
+
+			data = sci_in(port, SCPDR);
+			sci_out(port, SCPDR,  data | 0x0010);
+		}
+
 		uart_suspend_port(&sci_uart_driver, &sport->port);
+	}
 
 	return 0;
 }
@@ -2053,9 +2088,22 @@ static int sci_suspend(struct device *dev)
 static int sci_resume(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data;
 
-	if (sport)
+	if (sport) {
 		uart_resume_port(&sci_uart_driver, &sport->port);
+
+		if (sport->cfg->rts_ctrl)
+		{
+			/* Set RTS to low after the resume */
+			data = sci_in(port, SCPDR);
+			sci_out(port, SCPDR,  data & 0xFFEF);
+
+			data = sci_in(port, SCPCR);
+			sci_out(port, SCPCR,  data & 0xFFEF);
+		}
+	}
 
 	return 0;
 }
