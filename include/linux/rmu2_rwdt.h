@@ -36,7 +36,7 @@
 
 /* define macro declaration for IOCTL command numbers */
 #define RWDT_MAGIC	'r'
-#define IOCTL_RWDT_SOFT_RESET	_IO(RWDT_MAGIC,1)
+#define IOCTL_RWDT_SOFT_RESET	_IO(RWDT_MAGIC, 1)
 
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -61,19 +61,19 @@
 #endif	/* IO_ADDRESS */
 
 #ifdef CONFIG_RWDT_DEBUG
-#define RWDT_DEBUG(fmt,...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
+#define RWDT_DEBUG(fmt, ...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
 #else /* CONFIG_RWDT_DEBUG */
-#define RWDT_DEBUG(fmt,...)
+#define RWDT_DEBUG(fmt, ...)
 #endif /* CONFIG_RWDT_DEBUG */
 
 /* register address define */
 #define STBCHRB1			IO_ADDRESS(0xE6180041U)
 #define SYSC_RESCNT2		IO_ADDRESS(0xE6188020U)
-#define RWDT_BASE 			IO_ADDRESS(0xE6020000U)
-#define REG_SIZE 			0xCU
+#define RWDT_BASE			IO_ADDRESS(0xE6020000U)
+#define REG_SIZE			0xCU
 #define RWTCNT				0x0U
-#define RWTCSRA 			0x4U
-#define RWTCSRB 			0x8U
+#define RWTCSRA				0x4U
+#define RWTCSRB				0x8U
 
 /* register mask define */
 #define RESCSR_HEADER		0xA5A5A500U
@@ -95,9 +95,9 @@
 #define CONFIG_GIC_NS_CMT
 
 /* Macro definition */
-#define CPG_CHECK_REG 		IO_ADDRESS(0xE61503D0U)
-#define CPG_CHECK_STATUS 	IO_ADDRESS(0xE61503DCU)
-#define CPG_CHECK_MODULES 	IO_ADDRESS(0xE6150440U)
+#define CPG_CHECK_REG		IO_ADDRESS(0xE61503D0U)
+#define CPG_CHECK_STATUS	IO_ADDRESS(0xE61503DCU)
+#define CPG_CHECK_MODULES	IO_ADDRESS(0xE6150440U)
 
 #ifdef CONFIG_GIC_NS_CMT
 #define CMSTR15				IO_ADDRESS(0xE6130500U)
@@ -108,7 +108,7 @@
 #define CMT15_SPI			98U
 
 /* FIQ handle excecute panic before RWDT request CPU reset system */
-#define CMT_OVF				((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
+#define CMT_OVF		((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
 
 static inline u32 dec2hex(u32 dec)
 {
@@ -136,5 +136,6 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state);
 static int rmu2_rwdt_resume(struct platform_device *pdev);
 static int __init rmu2_rwdt_init(void);
 static void __exit rmu2_rwdt_exit(void);
+void rmu2_rwdt_software_reset(void);
 
 #endif  /* _LINUX_RWDT_H */
