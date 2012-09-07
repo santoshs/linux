@@ -1249,8 +1249,12 @@ static int mxt_suspend(struct device *dev, pm_message_t mesg)
 
 	mutex_lock(&input_dev->mutex);
 
+	disable_irq(data->irq);
+	
 	if (input_dev->users)
 		mxt_stop(data);
+
+	
 
 	mutex_unlock(&input_dev->mutex);
 
@@ -1266,6 +1270,7 @@ static int mxt_resume(struct device *dev)
 	struct input_dev *input_dev = data->input_dev;
 
 	data->pdata->set_pwr(1);
+	msleep(22);
 
 	/* Soft reset */
 	mxt_write_object(data, MXT_GEN_COMMAND_T6,
@@ -1277,7 +1282,7 @@ static int mxt_resume(struct device *dev)
 
 	if (input_dev->users)
 		mxt_start(data);
-
+	enable_irq(data->irq);
 	mutex_unlock(&input_dev->mutex);
 
 	return 0;
