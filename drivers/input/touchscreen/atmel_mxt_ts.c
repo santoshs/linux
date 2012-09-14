@@ -1282,6 +1282,7 @@ static int mxt_resume(struct device *dev)
 
 	if (input_dev->users)
 		mxt_start(data);
+
 	enable_irq(data->irq);
 	mutex_unlock(&input_dev->mutex);
 

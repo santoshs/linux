@@ -607,6 +607,12 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_warning("%s: unexpected %s status %d\n",
 				__func__, ep->name, req->status);
 		/* FALL THROUGH */
+
+		if (-ECONNRESET == req->status) {
+			/* Do not want transmission to start.
+			 Temp Fix for UE crash*/
+			break;
+		}
 	case 0:
 		/* normal completion */
 		gs_start_tx(port);

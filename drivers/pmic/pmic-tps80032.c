@@ -3543,7 +3543,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 	int notify = 0;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
+	
 	/* Update all battery information */
 	/* Read the state of USB charger */
 	old_data = data->charger;
@@ -4976,6 +4976,7 @@ static int tps80032_power_resume(struct device *dev)
 int tps80032_init_power_hw(struct tps80032_data *data)
 {
 	int ret = 0;
+	int val = 0;
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Set default voltage (1.8V) for LDO7 */
@@ -5026,6 +5027,19 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 		return ret;
 	}
 
+	/* Configure VRTC is standard power mode */
+	ret = i2c_smbus_read_byte_data(data->client_power, HW_REG_BBSPOR_CFG);
+	if (0 > ret) {
+		return ret;
+	}
+	
+	val = ret & (~MSK_BIT_6);
+	
+	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_BBSPOR_CFG, val);
+	if (0 > ret) {
+		return ret;
+	}
+	
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }

@@ -221,6 +221,7 @@ struct tps80032_irq_data {
 #define HW_REG_CLK32KAUDIO_CFG_TRANS	0xC0
 #define HW_REG_CLK32KAUDIO_CFG_STATE	0xC1
 
+#define HW_REG_BBSPOR_CFG				0xE6
 
 #define HW_REG_GPADC_TRIM1				0xCD
 #define HW_REG_GPADC_TRIM2				0xCE

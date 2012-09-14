@@ -371,10 +371,33 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 static int rmc_loader_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
+	volatile unsigned int data;
 	
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
 
 		/* Opened for WRITING, i.e. for Loading modem firware image */
+
+		{
+#define DBGREG1		IO_ADDRESS(0xE6100020)
+
+			/* data = __raw_readl(DBGREG1); */
+
+			if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
+			{
+				/* printk("ES2.02 on later\n"); */
+				/* if ((data & (1 << 29))) */
+				{
+					printk("EPMU DBGMD_CR 1\n");
+					__raw_writel(0x00008001, 0xE61900C0);
+				}
+
+			} else {
+				/* printk("ES2.01 on earlier\n"); */
+				printk("EPMU DBGMD_CR B\n");
+				__raw_writel(0x0000800B, 0xE61900C0);
+			}
+		
+		}
 
 		printk(KERN_ALERT "rmc_loader_open(), O_WRONLY Initialize modem to receive boot data >>\n");
 		ape5r_modify_register32(C4POWCR, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
@@ -405,6 +428,14 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 							    
 		/* TODO: Should we configure HPB_OCPBRGWIN3_MDM2APE to something away from reset value? */
 		/* That would allow modem to access some APE peripherals, maybe Modem can configure that register by itself later... */
+
+                printk(KERN_ALERT "T005b HPSSCLK\n");
+		data = __raw_readl(WPMCIF_EPMU_HPSSCLK_CR);
+		data &= 0x0000FFFF;
+		data |= 0x05140000;
+                __raw_writel(data, WPMCIF_EPMU_HPSSCLK_CR);
+                data = __raw_readl(WPMCIF_EPMU_HPSSCLK_CR); 
+
 
 		printk(KERN_ALERT "T006 START\n");
 		__raw_writel(0x00000001, WPMCIF_EPMU_START_CR); /* WGEM3.1 Start bit, 1: Start modem operations */

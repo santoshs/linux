@@ -108,7 +108,7 @@ acm_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	/* .bFirstInterface =	DYNAMIC, */
-	.bInterfaceCount = 	2,	// control + data
+	.bInterfaceCount =	2,   /*  control + data */
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
 	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
@@ -134,7 +134,7 @@ static struct usb_interface_descriptor acm_data_interface_desc = {
 	.bNumEndpoints =	2,
 	.bInterfaceClass =	USB_CLASS_CDC_DATA,
 	.bInterfaceSubClass =	0,
-	.bInterfaceProtocol =	0,
+	.bInterfaceProtocol =	0xff,
 	/* .iInterface = DYNAMIC */
 };
 

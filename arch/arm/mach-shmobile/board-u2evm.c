@@ -2484,30 +2484,78 @@ static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
 	int ci;
+	int pub_stm_select=-1;
 	int stm_select=-1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
 				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
-	if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
-		for (ci=4; cp[ci]; ci++) {
-			if (cp[ci-4] == 's' &&
-			    cp[ci-3] == 't' &&
-			    cp[ci-2] == 'm' &&
-			    cp[ci-1] == '=') {
-				switch (cp[ci]) {
-					case '0': stm_select =  0; break;
-					case '1': stm_select =  1; break;
-					default:  stm_select = -1; break;
-				}
-				break;
+
+	/* For case that Secure ISSW has selected debug mode already! */
+#define DBGREG1		IO_ADDRESS(0xE6100020)
+	{
+		volatile uint32_t val;
+		
+		val = __raw_readl(DBGREG1);
+		if ((val & (1 << 29)) == 0) {
+			stm_select = -1;
+		} else {
+			if ((val & (1 << 20)) == 0) {
+				stm_select = 0;
+			} else {
+				stm_select = 1;
 			}
 		}
 	}
-	printk("stm_select=%d\n", stm_select);
+
+	printk("sec stm_select=%d\n", stm_select);
+
+	pub_stm_select = stm_select;
+	if (stm_select >= 0) { /* Only if Secure side allows debugging */
+		if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
+			for (ci=4; cp[ci]; ci++) {
+				if (cp[ci-4] == 's' &&
+				    cp[ci-3] == 't' &&
+				    cp[ci-2] == 'm' &&
+				    cp[ci-1] == '=') {
+					switch (cp[ci]) {
+						case '0': pub_stm_select =  0; break;
+						case '1': pub_stm_select =  1; break;
+						default:  pub_stm_select = -1; stm_select = -1; break;
+					}
+					break;
+ 				}
+ 			}
+ 		}
+ 	}
+
+	printk("pub_stm_select=%d\n", pub_stm_select);
 
 	r8a73734_pinmux_init();
+
+#ifdef CONFIG_ARM_TZ
+	if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
+	{
+#else
+	if(0) /* Without TZ, kernel may override also on ES2.02 and onwards */
+	{
+#endif
+		printk("ES2.02 on later with TZ enabled\n");
+		pub_stm_select = 0; /* Can't override secure side by public side any more */
+	} else {
+		printk("ES2.01 or earlier or TZ disabled\n");
+		if (stm_select != pub_stm_select) {
+			stm_select = pub_stm_select;
+			pub_stm_select = 1; /* Override secure side by public side */
+		} else {
+			pub_stm_select = 0; /* Both secure and public agree. No need to change HW setup */
+		}
+	}
+
+	printk("final stm_select=%d\n", stm_select);
+
+
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 #define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
@@ -2741,19 +2789,22 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif
 
 #define DBGREG9		IO_ADDRESS(0xE6100040)
-	  __raw_writel(0x0000a501, DBGREG9); /* Key register */
-	  __raw_writel(0x0000a501, DBGREG9); /* Key register, must write twice! */
+	  if (pub_stm_select) {
+		  __raw_writel(0x0000a501, DBGREG9); /* Key register */
+		  __raw_writel(0x0000a501, DBGREG9); /* Key register, must write twice! */
+	  }
+
 
           for(i=0; i<0x10; i++);
 
-#define DBGREG1		IO_ADDRESS(0xE6100020)
-	  if (1 == stm_select) {
+/* #define DBGREG1		IO_ADDRESS(0xE6100020) */ /* Defined already above */
+	  if ((1 == stm_select) && pub_stm_select) {
           __raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
 		// Set   STMSEL[0], i.e. select SDHI1/STM*_2 as output/in port for STM
 	  }
-	  
-	  if (0 == stm_select) {
+
+	  if ((0 == stm_select) && pub_stm_select) {
           __raw_writel((__raw_readl(DBGREG1) & 0xFFCFFFFF), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
 		// Clear STMSEL[0], i.e. select SDHI0/STM*_1 as output/in port for STM

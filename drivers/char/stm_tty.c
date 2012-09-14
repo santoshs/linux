@@ -43,6 +43,25 @@ void __iomem *stm_prt_reg;
 static struct tty_driver *g_stm_tty_driver;
 static struct stm_port *stm_table[STM_TTY_MINORS];
 
+static int is_debug_enabled(void)
+{
+#define DBGREG1		IO_ADDRESS(0xE6100020)
+	volatile uint32_t val;
+		
+	val = __raw_readl(DBGREG1);
+	if ((val & (1 << 29)) == 0) {
+		return 0; /* Debug is disabled */
+	} else {
+		return 1; /* Debug is enabled */
+	}
+
+}
+
+static int is_debug_disabled(void)
+{
+	return (!(is_debug_enabled));
+}
+
 static int stm_tty_open(struct tty_struct * tty, struct file * filp)
 {
 	int index;
@@ -271,6 +290,7 @@ static int __exit stm_remove(struct platform_device *pd)
 	unsigned i;
 	unsigned int tscr;
 	printk(KERN_EMERG "### stm_tty_remove\n");
+
 	/* Disable STM */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr & ~STM_TCSR_EN, stm_ctrl + STM_TCSR);
@@ -297,6 +317,12 @@ static struct platform_driver stm_pdriver = {
 static int __init stm_tty_init(void)
 {
 	int ret;
+
+	if (is_debug_disabled()) {
+		ret = -ENOMEM;
+		g_stm_tty_driver = NULL;
+		goto err_alloc_tty_driver_failed;
+	}
 
 	g_stm_tty_driver = alloc_tty_driver(STM_TTY_MINORS);
 	if (!g_stm_tty_driver) {
@@ -339,12 +365,16 @@ static void  __exit stm_tty_exit(void)
 {
 	int ret;
 
+	if (is_debug_disabled()) {
+		goto no_debug_exit;
+	}
 	ret = tty_unregister_driver(g_stm_tty_driver);
 	if (ret < 0) {
 		printk(KERN_ERR "stm_tty_remove: tty_unregister_driver failed, %d\n", ret);
 	} else {
 		put_tty_driver(g_stm_tty_driver);
 	}
+no_debug_exit:
 	g_stm_tty_driver = NULL;
 }
 
