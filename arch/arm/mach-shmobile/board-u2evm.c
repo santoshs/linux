@@ -953,12 +953,12 @@ static struct sh_mobile_lcdc_info lcdc_info = {
 static struct resource lcdc_resources[] = {
 	[0] = {
 		.name	= "LCDC",
-		.start	= 0xfe940000,
-		.end	= 0xfe943fff,
+		.start	= 0xe61c0000,
+		.end	= 0xe61c2fff,
 		.flags	= IORESOURCE_MEM,
 	},
 	[1] = {
-		.start	= intcs_evt2irq(0x580),
+		.start	= gic_spi(64),
 		.flags	= IORESOURCE_IRQ,
 	},
 	[2] = {
