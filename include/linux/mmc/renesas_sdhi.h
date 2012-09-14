@@ -12,7 +12,6 @@
 #define RENESAS_SDHI_H
 
 #include <linux/platform_device.h>
-#include <linux/sh_dma.h>
 
 /* flags */
 #define RENESAS_SDHI_WP_DISABLE		0x01	/* Disable WriteProtect check */
@@ -26,18 +25,14 @@
 #define RENESAS_SDHI_SIGNAL_V330	0x10
 #define RENESAS_SDHI_SIGNAL_V180	0x11
 
-struct renesas_sdhi_dma {
-	struct sh_dmae_slave chan_tx;
-	struct sh_dmae_slave chan_rx;
-};
-
 struct renesas_sdhi_platdata {
 	unsigned long		caps;
 	unsigned long		flags;
 	u32			ocr;
 
 	/* DMA */
-	struct renesas_sdhi_dma	*dma;
+	unsigned int		slave_id_tx;
+	unsigned int		slave_id_rx;
 	u16			dma_en_val;	/* default:0x0002 */
 	u16			dma_alignment;	/* default:2 */
 	u32			dma_min_size;	/* default:8 */

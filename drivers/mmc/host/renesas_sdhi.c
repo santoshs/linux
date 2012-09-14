@@ -15,6 +15,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/sh_dma.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/workqueue.h>
@@ -140,6 +141,8 @@ struct renesas_sdhi_host {
 
 	/* DMA support */
 	bool			force_pio;
+	struct sh_dmae_slave	dma_slave_tx;
+	struct sh_dmae_slave	dma_slave_rx;
 	struct dma_chan		*dma_tx;
 	struct dma_chan		*dma_rx;
 	u32			burst_size;
@@ -648,9 +651,15 @@ static bool renesas_sdhi_filter(struct dma_chan *chan, void *arg)
 static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
+	struct sh_dmae_slave *tx, *rx;
 
-	if (!pdata->dma)
+	if (!pdata->slave_id_tx || !pdata->slave_id_rx)
 		return;
+
+	tx = &host->dma_slave_tx;
+	tx->slave_id = pdata->slave_id_tx;
+	rx = &host->dma_slave_rx;
+	rx->slave_id = pdata->slave_id_rx;
 
 	if (!host->dma_tx && !host->dma_rx) {
 		dma_cap_mask_t mask;
@@ -659,7 +668,7 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 		dma_cap_set(DMA_SLAVE, mask);
 
 		host->dma_tx = dma_request_channel(mask,
-			renesas_sdhi_filter, &pdata->dma->chan_tx);
+				renesas_sdhi_filter, tx);
 		dev_dbg(&host->pdev->dev, "%s: TX: got channel %p\n",
 				__func__, host->dma_tx);
 
@@ -667,7 +676,7 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 			return;
 
 		host->dma_rx = dma_request_channel(mask,
-			renesas_sdhi_filter, &pdata->dma->chan_rx);
+				renesas_sdhi_filter, rx);
 		dev_dbg(&host->pdev->dev, "%s: RX: got channel %p\n",
 					__func__, host->dma_rx);
 
