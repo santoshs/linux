@@ -63,6 +63,10 @@
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h>
 #endif
+#if defined(CONFIG_SAMSUNG_MHL)
+#include "board_mhl_sii8332.c"
+#include <linux/sii8332_platform.h>
+#endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
@@ -278,7 +282,11 @@ static int is_vbus_powered(void) {
 
 	printk ("Value of Status register INTSTS0: %x \n", __raw_readw(IO_ADDRESS(0xE6890040)));
 	printk("VBUS val = %d\n", val1);
-
+//Chaitanya
+	#if defined(CONFIG_SAMSUNG_MHL)
+	isvbus_powered_mhl(val1);
+	#endif 
+//Chaitanya
 	return val1>>7;
 
 }
@@ -2393,11 +2401,19 @@ i2c_board_info i2cm_devices_es2[] = {
 	        I2C_BOARD_INFO("flash", 0x30),
 	},
 #endif
-	{
-	        I2C_BOARD_INFO("av7100", 0x70),
-	},
+//	{
+//	        I2C_BOARD_INFO("av7100", 0x70),
+//	},
 };
 #endif
+
+
+static struct platform_device *gpio_i2c_devices[] __initdata = {
+#if defined(CONFIG_SAMSUNG_MHL)
+	&mhl_i2c_gpio_device,
+#endif	
+};
+
 static struct map_desc u2evm_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -3188,6 +3204,10 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
         } else if(((system_rev & 0xFFFF)>>4) >= 0x3E1) {
             i2c_register_board_info(6, i2cm_devices_es2, ARRAY_SIZE(i2cm_devices_es2));
         }
+#endif	
+platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
+#if defined (CONFIG_SAMSUNG_MHL)
+	board_mhl_init();
 #endif
 	crashlog_r_local_ver_write();
 	crashlog_reset_log_write();

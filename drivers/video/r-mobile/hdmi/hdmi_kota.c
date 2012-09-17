@@ -26,7 +26,7 @@
 
 #define LCD_BG_BLACK 0x0
 
-static screen_disp_aspect aspect[9] = {
+static screen_disp_aspect aspect[10] = {
 	{ 16, 9, 32, 27 }, /* 720x480p60 */
 	{ 16, 9, 1, 1 },   /* 1280x720p60 */
 	{ 16, 9, 1, 1 },   /* 1920x1080p60 */
@@ -36,9 +36,10 @@ static screen_disp_aspect aspect[9] = {
 	{ 4, 3, 8, 9 },    /* 720x480p60 4:3 */
 	{ 4, 3, 16, 15 },  /* 720x576p50 4:3 */
 	{ 16, 9, 1, 1 },   /* 1920x1080i60 */
+	{ 16, 9, 1, 1 },   /* 1920x1080P24 */
 };
 
-static screen_disp_hdmi_if hdmi_if[9] = {
+static screen_disp_hdmi_if hdmi_if[10] = {
 	{/* 720x480p60 */
 		0x005A006B, 0x0007005C, 0x00020600,
 		0x01E0020D, 0x000601EA,
@@ -129,6 +130,17 @@ static screen_disp_hdmi_if hdmi_if[9] = {
 		0x1051003E, 0x00C00038, 0x16800000, 0x023200FC, 0, 0,
 		0x00000006, 0x19100000, 0x00001011, 0x2A83800F
 	},/* 1920x1080i60 */
+	{/* 1920x1080p24 */
+		0x00F00157, 0x00050135, 0x00060406,
+		0x04380465, 0x00050220,
+		0x021C0232, 0x0005043C,
+		0, 0x0400008B, 0x0400008B,
+		0, 0, 0x00010040,
+		0x00003F07, 0x50006454, 0x000B0113, 0x00000001,
+		0x0002003E, 0x00C00018, 0x16800000, 0x0143058F, 0, 0,
+		0x00000006, 0x19100000, 0x00001006, 0x2A838004
+	},/* 1920x1080p24 */
+
 };
 
 
@@ -206,6 +218,14 @@ static int kota_hdmi_set(unsigned int format)
 		disp_start_hdmi.format = RT_DISPLAY_USE_IF_PARAM;
 		hdmi_if_param.aspect = &aspect[8];
 		hdmi_if_param.hdmi_if_param = &hdmi_if[8];
+		break;
+	}
+	case SH_FB_HDMI_1080P24:
+	{
+		printk("%s resolution 1080P 24Hz \n",__func__);
+		disp_start_hdmi.format = RT_DISPLAY_USE_IF_PARAM;
+		hdmi_if_param.aspect = &aspect[9];
+		hdmi_if_param.hdmi_if_param = &hdmi_if[9];
 		break;
 	}
 	}
