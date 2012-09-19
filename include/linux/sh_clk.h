@@ -186,4 +186,6 @@ int sh_clk_cksel_register(struct clk *clks, int nr);
 #define SH_CLK_SEL		SH_CLK_CKSEL
 #define sh_clk_sel_register	sh_clk_cksel_register
 
+extern spinlock_t sh_clock_lock;
+
 #endif /* __SH_CLOCK_H */
