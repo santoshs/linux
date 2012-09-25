@@ -49,6 +49,8 @@ Description :  File created
 #define SMC_MALLOC_IRQ(size) kmalloc(size, GFP_ATOMIC)
 #define SMC_FREE(p)        kfree(p)
 
+#define SMC_SLEEP_MS(time_ms)  msleep(time_ms)
+
 #ifndef CHAR_BIT
     #define CHAR_BIT       8
 #endif

@@ -52,6 +52,8 @@ Description :  File created
 #include "smc_memory_mgmt.h"
 
 
+struct _smc_channel_t;
+
 /**
  * Configuration structure for one logical SMC Channel.
  */
@@ -76,7 +78,7 @@ typedef struct
 
     uint8_t           protocol;
     uint16_t          fifo_full_check_timeout_usec;     /* Timeout in microseconds for timer to check if FIFO full situation is over */
-
+    uint8_t           trace_features;                   /* Slave  Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
 } smc_channel_conf_t;
 
 
@@ -111,7 +113,6 @@ typedef struct _smc_instance_conf_channel_t
     uint32_t mdb_size_master;         /* Size of the MDB for data from master to slave */
     uint32_t mdb_size_slave;          /* Size of the MDB for data from slave to master */
 
-
         /*
          * Signal configuration for master side
          */
@@ -120,9 +121,6 @@ typedef struct _smc_instance_conf_channel_t
 
     uint32_t signal_id_master_from_slave;           /* Master is waiting the signal */
     uint32_t signal_type_master_from_slave;
-
-    // TODO Clean: uint32_t signal_id_to_master;     /* ID of the signal from slave to master - master is waiting signal */
-    // TODO Clean uint32_t signal_type_to_master;   /* Type of the signal from slave to master  */
 
         /*
          * Signal configuration in slave side
@@ -142,6 +140,12 @@ typedef struct _smc_instance_conf_channel_t
     uint8_t  priority;
     uint8_t  copy_scheme_master;                    /* Copy scheme used in the master */
     uint8_t  copy_scheme_slave;                     /* Copy scheme used in the slave */
+    uint8_t  trace_features_master;                 /* Master Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
+
+    uint8_t  trace_features_slave;                  /* Slave  Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
+    uint8_t  fill3;
+    uint8_t  fill2;
+    uint8_t  fill1;
 
 } smc_instance_conf_channel_t;
 
@@ -160,18 +164,39 @@ typedef struct _smc_instance_conf_t
         /* Share memory configuration */
     uint8_t  shm_use_cache_control_master;  /* Master cache control */
     uint8_t  shm_use_cache_control_slave;   /* Slave cache control */
-
-    uint8_t  shm_cache_line_len_master;
-    uint8_t  shm_cache_line_len_slave;
+    uint8_t  shm_cache_line_len_master;     /* Master cache line length */
+    uint8_t  shm_cache_line_len_slave;      /* Slave cache line length */
 
     SMC_SHM_OFFSET_TYPE shm_memory_offset_type_master_to_slave; /* Offset type in master point of view */
     uint32_t shm_cpu_memory_offset;                             /* Offset between master and slave */
 
-    uint8_t  channel_config_count;
     smc_instance_conf_channel_t* channel_config_array;
+    uint8_t  channel_config_count;
+    uint8_t  fill3;
+    uint8_t  fill2;
+    uint8_t  fill1;
 
 } smc_instance_conf_t;
 
+
+/*
+ * SMC channel runtime configuration for fixed configuration
+ * This can be used only by using other channel.
+ */
+typedef struct _smc_channel_runtime_fixed_conf_t
+{
+    uint32_t  channel_id;        /* Target channel */
+
+    int32_t   fifo_in_size;      /* Sender takes care that this means target channels IN FIFO */
+    int32_t   fifo_out_size;     /* Sender takes care that this means target channels OUT FIFO */
+
+    uint32_t  shm_start_address; /* Shared memory start address for the channel */
+    uint32_t  shm_size;          /* Max SHM size for the channel*/
+
+    uint32_t  mdb_in_size;       /* Sender takes care that this means target channels IN MDB */
+    uint32_t  mdb_out_size;      /* Sender takes care that this means target channels OUT MDB */
+
+} smc_channel_runtime_fixed_conf_t;
 
 /*
  * SMC instance configuration API functions.
@@ -191,6 +216,33 @@ smc_conf_t*          smc_conf_create_from_instance_conf( char* smc_cpu_name, smc
 smc_channel_conf_t*  smc_channel_conf_create_from_instance_conf( smc_instance_conf_channel_t* smc_instance_conf_channel, uint8_t is_master );
 
 smc_instance_conf_t* smc_instance_conf_get_from_list(smc_instance_conf_t* smc_instance_conf_array, int config_count, char* smc_user_name, char* smc_name);
+
+smc_channel_runtime_fixed_conf_t*  smc_channel_runtime_fixes_conf_create( void );
+
+/* =====================================================
+ * Runtime configuration functions.
+ *
+ * These functions have device specific implementations (android/linux kernel/modem)
+ */
+uint8_t              smc_conf_request_initiate ( struct _smc_channel_t* channel );
+uint8_t              smc_conf_request_received ( struct _smc_channel_t* channel, uint32_t configuration_id, uint32_t configuration_value );
+void                 smc_conf_response_received( struct _smc_channel_t* channel, uint32_t configuration_id, uint32_t configuration_value_requested, uint32_t configuration_response_value );
+
+/*
+ * These configuration functions have common implementation in the smc_conf.c
+ */
+uint8_t              smc_shm_conf_request_received ( struct _smc_channel_t* channel, int32_t fifo_out_size, int32_t fifo_in_size, uint32_t mdb_start_address, uint32_t mdb_size );
+void                 smc_shm_conf_response_received( struct _smc_channel_t* channel, int32_t fifo_out_size, int32_t fifo_in_size, uint32_t mdb_start_address, uint32_t mdb_size );
+
+
+/*
+ * Runtime configuration features
+ */
+
+#define SMC_RUNTIME_CONFIG_ID_APE_WAKEUP_EVENT_SENSE   0x00000001
+#define SMC_RUNTIME_CONFIG_ID_APE_WAKEUP_LOCK_TIME_MS  0x00000002
+
+
 
 #endif /* EOF */
 

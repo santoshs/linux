@@ -51,18 +51,19 @@ typedef struct _smc_rdtrace_group_t
 #define SMC_TRACE_ID_MASK             0x0FFFFFFF
 
     /* Trace groups available */
-#define SMC_TRACE_GROUP               0x00000001    /* 0 */
-#define SMC_TRACE_GROUP_MSG_SEND      0x00000002    /* 1 */
-#define SMC_TRACE_GROUP_MSG_RECEIVE   0x00000004
-#define SMC_TRACE_GROUP_EVENT         0x00000008
-#define SMC_TRACE_GROUP_IRQ           0x00000010
-#define SMC_TRACE_GROUP_FIFO          0x00000020
-#define SMC_TRACE_GROUP_FIFO_STAT     0x00000040
-#define SMC_TRACE_GROUP_LOCK          0x00000080
-#define SMC_TRACE_GROUP_L2MUX         0x00000100
-#define SMC_TRACE_GROUP_L2MUX_DL      0x00000200
-#define SMC_TRACE_GROUP_L2MUX_UL      0x00000400
-
+#define SMC_TRACE_GROUP               0x00000001    /*  0 */
+#define SMC_TRACE_GROUP_MSG_SEND      0x00000002    /*  1 */
+#define SMC_TRACE_GROUP_MSG_RECEIVE   0x00000004    /*  2 */
+#define SMC_TRACE_GROUP_EVENT         0x00000008    /*  3 */
+#define SMC_TRACE_GROUP_IRQ           0x00000010    /*  4 */
+#define SMC_TRACE_GROUP_FIFO          0x00000020    /*  5 */
+#define SMC_TRACE_GROUP_FIFO_STAT     0x00000040    /*  6 */
+#define SMC_TRACE_GROUP_LOCK          0x00000080    /*  7 */
+#define SMC_TRACE_GROUP_L2MUX         0x00000100    /*  8 */
+#define SMC_TRACE_GROUP_L2MUX_DL      0x00000200    /*  9 */
+#define SMC_TRACE_GROUP_L2MUX_UL      0x00000400    /* 10 */
+#define SMC_TRACE_GROUP_PING          0x00000800    /* 11 */
+#define SMC_TRACE_GROUP_COUNT         12            /* <== Remember to update when adding new groups */
 
 /* Trace IDs (same as used in modem) */
 
@@ -76,6 +77,8 @@ typedef struct _smc_rdtrace_group_t
 #define TRA_SMC_MESSAGE_RECV          0x20000000
 #define TRA_SMC_MESSAGE_RECV_TO_CB    0x20000001
 #define TRA_SMC_MESSAGE_RECV_END      0x20000002
+#define TRA_SMC_CONFIG_REQ_RECV       0x20000003
+#define TRA_SMC_CONFIG_RESP_RECV      0x20000004
 
 #define TRA_SMC_EVENT_SEND            0x30000000
 #define TRA_SMC_EVENT_RECV            0x30000001
@@ -85,6 +88,8 @@ typedef struct _smc_rdtrace_group_t
 #define TRA_SMC_SIGNAL_INTGEN         0x40000002
 #define TRA_SMC_SIGNAL_INTGEN_OUT     0x40000003
 #define TRA_SMC_SIGNAL_GOP001         0x40000004
+#define TRA_SMC_SIGNAL_WAKEUP         0x40000005
+#define TRA_SMC_SIGNAL_WAKEUP_CLEAR   0x40000006
 
 #define TRA_SMC_FIFO_INIT             0x50000000
 #define TRA_SMC_FIFO_PUT              0x50000001
@@ -94,13 +99,19 @@ typedef struct _smc_rdtrace_group_t
 #define TRA_SMC_FIFO_PUT_STATISTICS   0x60000000
 #define TRA_SMC_FIFO_GET_STATISTICS   0x60000001
 
+// L2MUX traces not in APE
+
+#define TRA_SMC_PING_SEND_REQ         0xB0000000
+#define TRA_SMC_PING_RECV_REQ         0xB0000001
+#define TRA_SMC_PING_SEND_RESP        0xB0000002
+#define TRA_SMC_PING_RECV_RESP        0xB0000003
+
+
 // 0x00000000 + (0x01<<group_id)
 
 #define SMC_TRACE_ID_TO_GROUP_INDEX( trace_id )          ( ((uint8_t)(trace_id>>28))&0xF )
 #define SMC_TRACE_ID_TO_GROUP_ID( trace_id )             (  0x00000000 + ( 0x01 << SMC_TRACE_ID_TO_GROUP_INDEX(trace_id) ) )
 #define SMC_TRACE_GROUP_IS_ACTIVATED( trace_group_id )   ( (get_smc_trace_activation_group(0)&trace_group_id)==trace_group_id )
-
-#define SMC_TRACE_GROUP_COUNT         7
 
 
 #define RD_TRACE_SEND1(trace_id, sz1, ptr1)              if( SMC_TRACE_GROUP_IS_ACTIVATED( SMC_TRACE_ID_TO_GROUP_ID(trace_id)) ) { smc_rd_trace_send1(trace_id, ptr1); }
@@ -110,8 +121,7 @@ typedef struct _smc_rdtrace_group_t
 #define RD_TRACE_SEND5(trace_id, sz1, ptr1, sz2, ptr2, sz3, ptr3, sz4, ptr4, sz5, ptr5) if( SMC_TRACE_GROUP_IS_ACTIVATED( SMC_TRACE_ID_TO_GROUP_ID( trace_id )) ) { smc_rd_trace_send5(trace_id, ptr1, ptr2, ptr3, ptr4, ptr5); }
 
 uint32_t get_smc_trace_activation_group(uint8_t bit_group_id);
-
-void smc_rd_trace_group_activate(uint32_t trace_group_id, uint8_t activate);
+uint32_t smc_rd_trace_group_activate(uint32_t trace_group_id, uint8_t activate);
 
 void smc_rd_trace_send1(uint32_t trace_id, uint32_t* ptr1);
 void smc_rd_trace_send2(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2);

@@ -81,7 +81,9 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-            .fifo_full_check_timeout_usec_slave  = 500
+            .fifo_full_check_timeout_usec_slave  = 500,
+            .trace_features_master         = SMC_TRACE_HISTORY_NONE,
+            .trace_features_slave          = SMC_TRACE_HISTORY_NONE
      },
      {
              .name                = "ETH_P_MHI",
@@ -113,16 +115,28 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-             .fifo_full_check_timeout_usec_slave  = 500
+             .fifo_full_check_timeout_usec_slave  = 500,
+             .trace_features_master         = (SMC_TRACE_HISTORY_MESSAGE_SEND+SMC_TRACE_HISTORY_MESSAGE_RECEIVE),
+             .trace_features_slave          = (SMC_TRACE_HISTORY_MESSAGE_SEND+SMC_TRACE_HISTORY_MESSAGE_RECEIVE)
      },
 
      {
              .name                = "ETH_P_MHDP",
              .protocol            = SMC_L2MUX_QUEUE_3_MHDP,
+
+
              .fifo_size_master    = 300,
              .fifo_size_slave     = 400,
              .mdb_size_master     = 1024*1024,
              .mdb_size_slave      = 1024*1024,
+
+             /* New MHDP channel configuration from after sw 12w45 (approximately)
+              * To support 100 x 16kB burst of data
+             .fifo_size_master    = 200,
+             .fifo_size_slave     = 200,
+             .mdb_size_master     = 1024*1600,
+             .mdb_size_slave      = 1024*1600,
+             */
 
                  /*
                   * Master side signal configuration
@@ -146,7 +160,9 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND),         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-             .fifo_full_check_timeout_usec_slave  = 500
+             .fifo_full_check_timeout_usec_slave  = 500,
+             .trace_features_master         = SMC_TRACE_HISTORY_NONE,
+             .trace_features_slave          = SMC_TRACE_HISTORY_NONE
      }
 };
 

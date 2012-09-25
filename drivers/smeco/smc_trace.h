@@ -68,11 +68,31 @@ Description :  File created
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_DATA_ENABLED
 #define SMC_TRACE_TIMER_ENABLED
+#define SMC_TRACE_RUNTIME_CONF_SHM_ENABLED
+#define SMC_TRACE_LOOPBACK_ENABLED
+#define SMC_TRACE_LOOPBACK_DATA_ENABLED
 */
+
+
+
 
 /**
  * ----------- R&D Trace macros begin ---------------
  */
+
+#ifdef SMC_TRACE_LOOPBACK_ENABLED
+  #define SMC_TRACE_PRINTF_LOOPBACK(...)               SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"LOOPBACK: " __VA_ARGS__)
+
+  #ifdef SMC_TRACE_LOOPBACK_DATA_ENABLED
+    #define SMC_TRACE_PRINTF_LOOPBACK_DATA(length, data) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+    #define SMC_TRACE_PRINTF_LOOPBACK_DATA(length, data)
+  #endif
+#else
+  #define SMC_TRACE_PRINTF_LOOPBACK(...)
+  #define SMC_TRACE_PRINTF_LOOPBACK_DATA(length, data)
+#endif
+
 
 #ifdef SMC_TRACE_VERSION_INFO_ENABLED
   #define SMC_TRACE_PRINTF_VERSION(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX" " __VA_ARGS__ )
@@ -212,6 +232,13 @@ Description :  File created
 #else
   #define SMC_TRACE_PRINTF_RECEIVE_PACKET(...)
   #define SMC_TRACE_PRINTF_RECEIVE_PACKET_DATA( length, data )
+#endif
+
+
+#ifdef SMC_TRACE_RUNTIME_CONF_SHM_ENABLED
+  #define SMC_TRACE_PRINTF_RUNTIME_CONF_SHM(...)       SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"CONF: " __VA_ARGS__)
+#else
+  #define SMC_TRACE_PRINTF_RUNTIME_CONF_SHM(...)
 #endif
 
 

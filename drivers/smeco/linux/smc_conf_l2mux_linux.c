@@ -68,7 +68,7 @@ static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EV
 
 static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
 
-static smc_conf_t* smc_device_create_conf_l2mux(void);
+static smc_conf_t* smc_device_create_conf_l2mux(char* device_name);
 
 static int      l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq* ifr, int cmd);
 static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device, struct sk_buff *skb );
@@ -139,7 +139,7 @@ smc_t* get_smc_instance_l2mux( void )
 /*
  * Creates configuration for SMC between CA9 and MODEM
  */
-static smc_conf_t* smc_device_create_conf_l2mux(void)
+static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
 {
     smc_conf_t*          smc_conf                = NULL;
     smc_channel_conf_t*  smc_channel_conf        = NULL;
@@ -159,8 +159,9 @@ static smc_conf_t* smc_device_create_conf_l2mux(void)
         smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
     }
 
-    SMC_TRACE_PRINTF_STARTUP("L2MUX configuration '%s' for ASIC version 0x%02X (PM Host Access Req %s)", smc_cpu_name, asic_version,
-            SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX configuration '%s' for ASIC version 0x%02X", device_name, smc_cpu_name, asic_version );
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': PM Host Access Req %s", device_name, SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': APE Wakeup interrupt sense 0x%02X", device_name, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE);
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -249,12 +250,9 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X (0x%08X)...",
                         (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
 
-
-                /* TODO Cache control */
-
                 memcpy( skb_data_buffer, data, data_length);
 
-                /* Ensure the cache cleanup */
+                    /* Ensure the cache cleanup */
                 SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux clean 0x%08X->0x%08X (len %d)",
                         (uint32_t)skb_data_buffer, (uint32_t)(skb_data_buffer+data_length), data_length );
 

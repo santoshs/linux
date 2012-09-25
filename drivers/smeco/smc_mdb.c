@@ -767,8 +767,8 @@ void   tlsf_destroy(void *pool);
 
 static __inline__ void* tlsf_malloc(void *pool, size_t bytes);
 
-static __inline__ void* tlsf_memalign(tlsf_pool pool, size_t align, size_t bytes);
-static __inline__ void* tlsf_realloc(tlsf_pool pool, void* ptr, size_t size);
+/*TODO Cleanup static __inline__ void* tlsf_memalign(tlsf_pool pool, size_t align, size_t bytes);*/
+/*TODO Cleanup static __inline__ void* tlsf_realloc(tlsf_pool pool, void* ptr, size_t size);*/
 
 // TODO CLEAN UP void  tlsf_free(void *pool, void *ptr);
 static __inline__ void  tlsf_free(void *pool, void *ptr);
@@ -1263,6 +1263,7 @@ static __inline__ void block_trim_free(pool_t* pool, block_header_t* block, size
 	}
 }
 
+#if 0 /* TODO Cleanup */
 /* Trim any trailing block space off the end of a used block, return to pool. */
 static __inline__ void block_trim_used(pool_t* pool, block_header_t* block, size_t size)
 {
@@ -1293,6 +1294,7 @@ static __inline__ block_header_t* block_trim_free_leading(pool_t* pool, block_he
 
 	return remaining_block;
 }
+#endif
 
 static __inline__ block_header_t* block_locate_free(pool_t* pool, size_t size)
 {
@@ -1582,6 +1584,7 @@ static __inline__ void* tlsf_malloc(void *tlsf, size_t size)
 	return block_prepare_used(pool, block, adjust);
 }
 
+#if 0 /* TODO Cleanup */
 static __inline__ void* tlsf_memalign(tlsf_pool tlsf, size_t align, size_t size)
 {
 	pool_t* pool = TLSF_CAST(pool_t*, tlsf);
@@ -1632,8 +1635,8 @@ static __inline__ void* tlsf_memalign(tlsf_pool tlsf, size_t align, size_t size)
 
 	return block_prepare_used(pool, block, adjust);
 }
+#endif
 
-// TODO CLEAN UP void tlsf_free(void *tlsf, void *ptr)
 static __inline__ void tlsf_free(void *tlsf, void *ptr)
 {
 	if(ptr)
@@ -1650,6 +1653,8 @@ static __inline__ void tlsf_free(void *tlsf, void *ptr)
 	}
 }
 
+
+#if 0 /*TODO Cleanup */
 /*
 ** The TLSF block information provides us with enough information to
 ** provide a reasonably intelligent implementation of realloc, growing or
@@ -1718,6 +1723,8 @@ static __inline__ void* tlsf_realloc(tlsf_pool tlsf, void* ptr, size_t size)
 
 	return p;
 }
+#endif
+
 
 #endif // TLSF_USE_REF
 

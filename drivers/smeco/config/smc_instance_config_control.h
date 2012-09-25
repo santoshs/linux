@@ -81,7 +81,10 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-            .fifo_full_check_timeout_usec_slave  = 500
+            .fifo_full_check_timeout_usec_slave  = 500,
+
+            .trace_features_master         = SMC_TRACE_HISTORY_NONE,
+            .trace_features_slave          = SMC_TRACE_HISTORY_NONE
      }
 };
 

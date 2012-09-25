@@ -114,6 +114,10 @@ static uint8_t smc_test_case_function_timer( uint8_t* test_input_data, uint16_t 
 
 static uint8_t smc_test_case_function_misc( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t test_input_data_len );
+
+static uint8_t smc_test_case_function_loopback( uint8_t* test_input_data, uint16_t test_input_data_len );
+
     /* ========================================================
      * SMC Test Case functions
      * First index is 0x00
@@ -132,6 +136,8 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_function_shm,                     /* 0x08 */
     smc_test_case_function_timer,                   /* 0x09 */
     smc_test_case_function_misc,                    /* 0x0A */
+    smc_test_case_function_ping,                    /* 0x0B */
+    smc_test_case_function_loopback,                /* 0x0C */
     0
 };
 
@@ -447,35 +453,6 @@ static smc_channel_conf_t* smc_test_case_create_channel_conf_1(uint8_t is_master
     return smc_channel_conf_1;
 }
 
-/*
-static smc_channel_conf_t* smc_test_case_create_channel_conf_2(uint8_t is_master)
-{
-    smc_channel_conf_t* smc_channel_conf_2 = smc_channel_conf_create();
-
-        // Set channel configuration
-    smc_channel_conf_2->priority      = SMC_CHANNEL_PRIORITY_LOWEST;
-
-    if( is_master )
-    {
-        // Set channel configuration
-        smc_channel_conf_2->fifo_size_in  = 30;
-        smc_channel_conf_2->fifo_size_out = 40;
-        smc_channel_conf_2->mdb_size_in   = 150*1024;
-        smc_channel_conf_2->mdb_size_out  = 200*1024;
-    }
-    else
-    {
-        // Set channel configuration
-        smc_channel_conf_2->fifo_size_in  = 40;
-        smc_channel_conf_2->fifo_size_out = 30;
-        smc_channel_conf_2->mdb_size_in   = 200*1024;
-        smc_channel_conf_2->mdb_size_out  = 150*1024;
-    }
-
-    return smc_channel_conf_2;
-}
-*/
-
 static uint8_t* smc_test_case_create_shm_conf_local( smc_conf_t* smc_conf, uint8_t* shm_mem_start_addr )
 {
     uint8_t* shm_address = NULL;
@@ -550,6 +527,79 @@ uint8_t smc_test_case_function_remote_event( uint8_t* test_input_data, uint16_t 
 
     return test_status;
 }
+
+static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status             = SMC_ERROR;
+    uint16_t test_input_len_required = 1;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint8_t channel_id      = test_input_data[0];
+        uint8_t smc_instance_id = 0x00;                 /* TODO Take instance id into use */
+
+        smc_t* smc = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d using SMC instance %d ", channel_id, smc_instance_id );
+
+        test_status = smc_channel_send_ping( smc_channel_get(smc, channel_id), TRUE );
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d completed", channel_id);
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: completed with return value 0x%02X", test_status);
+
+    return test_status;
+}
+
+static uint8_t smc_test_case_function_loopback( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status             = SMC_ERROR;
+    uint16_t test_input_len_required = 9;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint8_t        data_index      = 0;
+        uint8_t        channel_id      = test_input_data[data_index++];
+
+        uint8_t        smc_instance_id = 0x00;                 /* TODO Take instance id into use */
+        smc_channel_t* smc_channel     = NULL;
+        smc_t*         smc             = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+        uint32_t       lb_data_len     = 0;
+        uint32_t       lb_rounds       = 0;
+
+        lb_data_len = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
+        data_index += 4;
+
+        lb_rounds   = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
+        data_index += 4;
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Starting loopback in channel %d using SMC instance %d: Message len %d, rounds %d", channel_id, smc_instance_id, lb_data_len, lb_rounds);
+
+        smc_channel = smc_channel_get(smc, channel_id);
+
+        test_status = smc_send_loopback_data_message( smc_channel, lb_data_len, lb_rounds );
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Loopback test in channel %d completed", smc_channel->id);
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: completed with return value 0x%02X", test_status);
+
+    return test_status;
+}
+
 
 smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id)
 {
@@ -808,7 +858,7 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
                     uint8_t test_case_data[6];
                     uint32_t shm_address = 0x00000000;
 
-                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_smc_instance: Test case 0x%02X, Startimg SMC instance 1 0x%08X in remote side", (uint32_t)g_smc_instance1);
+                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_smc_instance: Test case 0x%02X, Startimg SMC instance 1 0x%08X in remote side", test_case, (uint32_t)g_smc_instance1);
 
                         /* Get the SHM and send to the remote */
                     shm_address = (uint32_t)g_smc_instance1->smc_shm_conf->shm_area_start_address;
@@ -831,7 +881,7 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
                         SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_smc_instance: smc_test_handler_send_message to L1 FAILED");
                     }
 
-                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_smc_instance: Test case 0x%02X, SMC instance 1 started in remote");
+                    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_smc_instance: Test case 0x%02X, SMC instance 1 started in remote", test_case);
 
                     test_status = SMC_OK;
                 }

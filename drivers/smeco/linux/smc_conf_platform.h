@@ -78,6 +78,9 @@ typedef struct _smc_signal_t
     uint32_t signal_type;
     uint32_t peripheral_address;
     uint8_t  address_remapped;
+    uint8_t  event_sense;
+    uint8_t  fill2;
+    uint8_t  fill1;
 
 } smc_signal_t;
 
@@ -98,7 +101,7 @@ typedef struct
 #include <asm/irq.h>
 
 #define SMC_SHM_IOREMAP( address, size )                        ioremap( (long unsigned int)address, size )
-#define SMC_SHM_IOUNMAP( address )                              iounmap( (long unsigned int)address )
+#define SMC_SHM_IOUNMAP( address )                              iounmap( (void __iomem *)address )
 
 #define SMC_HW_ARM_MEMORY_SYNC(startaddress)
 

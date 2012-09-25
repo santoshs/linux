@@ -53,7 +53,8 @@ typedef int ( *upper_layer_net_device_driver_ioctl )( struct net_device* device,
     /* Queue selection handler function for upper layers */
 typedef uint16_t ( *upper_layer_net_device_driver_select_queue )( struct net_device *device, struct sk_buff *skb );
 
-    /* SKB packet and SMC user data modification function for upper layer
+    /*
+     * SKB packet and SMC user data modification function for upper layer
      * This is called right before sending data to other CPU
      */
 
@@ -62,15 +63,7 @@ typedef int (* upper_layer_modify_send_data )( struct sk_buff *skb, smc_user_dat
 typedef void (* upper_layer_device_driver_setup )(struct net_device* dev);
 
     /* SMC Configuration creation function prototype */
-typedef smc_conf_t* ( *smc_device_create_conf )(void);
-
-
-    /*
-     * Private IO Control commands
-     * #define SIOCDEVPRIVATE   0x89F0 to 89FF (Max +15)
-     * #define SIOCPROTOPRIVATE 0x89E0 to 89EF
-     */
-/*#define SIOCPNGETOBJECT     (SIOCPROTOPRIVATE + 0)*/
+typedef smc_conf_t* ( *smc_device_create_conf )( char* device_name );
 
 
     /*
@@ -116,56 +109,11 @@ typedef struct _smc_device_driver_priv_t
 } smc_device_driver_priv_t;
 
 
-/*
- * Net device driver interface request structure for commands
- */
-
-#include "linux/if.h"
-
-/* SIOCDEVPRIVATE = 0x89F0 */
-
-#define SIOCDEV_SEND_DATA     (SIOCDEVPRIVATE + 0x04)
-#define SIOCDEV_RUN_TEST      (SIOCDEVPRIVATE + 0x05)       /* Run SMC tests (valid only when test module is built in)*/
-#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Return the status of the specified device (val 0x89F6) */
-#define SIOCDEV_TRACE         (SIOCDEVPRIVATE + 0x07)
-
-struct ifreq_smc
-{
-    union
-    {
-      char ifrn_name[IFNAMSIZ];        /* if name, e.g. "smc0" */
-    } ifr_ifrn;
-
-    uint32_t if_data_len;
-    uint8_t* if_data;
-};
-
-struct ifreq_smc_test
-{
-    union
-    {
-      char ifrn_name[IFNAMSIZ];        /* if name, e.g. "smc0" */
-    } ifr_ifrn;
-
-    uint32_t if_test_case;
-    uint32_t if_test_data_len;
-    uint8_t* if_test_data;
-    uint32_t if_test_result;
-};
-
-struct ifreq_smc_trace
-{
-    union
-    {
-      char ifrn_name[IFNAMSIZ];        /* if name, e.g. "smc0" */
-    } ifr_ifrn;
-
-    uint32_t if_trace_group_id;
-    uint8_t  if_trace_group_activate;
-
-};
-
-
 void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t signal_type );
+
+    /* Wakeup IRQ sense setup, function implemented in net device module */
+void smc_set_ape_wakeup_irq_sense( uint8_t irq_sense );
+
+#include "smc_linux_ioctl.h"
 
 #endif

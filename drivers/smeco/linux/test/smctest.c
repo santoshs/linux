@@ -34,11 +34,11 @@ Description :  File created, Linux Kernel specific code added
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
 
-MODULE_AUTHOR("Renesas Mobile Europe / MeXe");
+MODULE_AUTHOR("Renesas Mobile Europe / Heikki Siikaluoma <heikki.siikaluoma@renesasmobile.com>");
 MODULE_DESCRIPTION("SMeCo/SMC Test Application");
 MODULE_LICENSE("Dual BSD/GPL");
 
-#define VERSION "0.0.3"
+#define VERSION "0.0.4"
 
 #define SMC_TEST_PASSED  1
 #define SMC_TEST_FAILED  0

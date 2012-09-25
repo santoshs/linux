@@ -39,6 +39,7 @@ Description :  File created
 
 #include "smc.h"
 #include "smc_trace.h"
+#include "smc_linux.h"
 #include <linux/random.h>
 #include <linux/wakelock.h>
 #include <asm/io.h>
@@ -58,11 +59,11 @@ static inline smc_lock_t* get_local_lock_sleep_control(void)
     return g_local_lock_sleep_control;
 }
 
-static inline struct wake_lock* get_wake_lock()
+static inline struct wake_lock* get_wake_lock(void)
 {
     if( wakelock==NULL )
     {
-        SMC_TRACE_PRINTF_ALWAYS("get_wake_lock: initialize");
+        SMC_TRACE_PRINTF_DEBUG("get_wake_lock: initialize");
         wakelock = (struct wake_lock*)SMC_MALLOC( sizeof( struct wake_lock ) );
 
         wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, "smc_wakelock");
@@ -91,28 +92,10 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout_wakeup(int irq, void *
     wake_lock( get_wake_lock() );
     SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout_wakeup: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
-    /* TODO Check lock --> Create common lock to smc.c */
-
     RD_TRACE_SEND2(TRA_SMC_IRQ_START, 4, &irq,
                                       4, &signal_type );
 
-
-    /* TODO Unlock if locked */
-    /*
-    assert( signal_handler != NULL );
-
-    if( signal_handler->smc_channel != NULL )
-    {
-        smc_channel_interrupt_handler( signal_handler->smc_channel );
-
-        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d) handled", (uint32_t)irq, irq);
-    }
-    else
-    {
-        SMC_TRACE_PRINTF_WARNING("smc_linux_interrupt_handler_int_genout: No channel initialized for IRQ: 0x%02X (%d)", (uint32_t)irq, irq);
-    }
-
-    */
+    /* Nothing to do her currently */
 
     RD_TRACE_SEND2(TRA_SMC_IRQ_END, 4, &irq,
                                     4, &signal_type );
@@ -124,10 +107,8 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout_wakeup(int irq, void *
 
 void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t signal_type)
 {
-
 #if(SMC_APE_WAKEUP_EXTERNAL_IRQ_REGISTER_HANDLER==TRUE)
 
-    //uint32_t      signal_id    = 0;     // EXT
     int           result       = 0;
     const char*   device_name  = NULL;
     void*         dev_id       = NULL;
@@ -146,7 +127,6 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
     {
         irq_offset = SMC_APE_IRQ_OFFSET_IRQ_SPI;
     }
-
 
     SMC_TRACE_PRINTF_SIGNAL("smc_register_wakeup_irq: signal: 0x%08X", (uint32_t)signal);
 
@@ -218,7 +198,6 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
 
 void smc_init_external_wakeup_irqc( smc_t* smc_instance )
 {
-
     #define SMC_PRI_STS0         0xE61C2410     /* Status i Event Generator block 2 */
 
     #define SMC_PRI_SET0         0xE61C2414     /* Event Generator block 2 */
@@ -270,8 +249,6 @@ void smc_init_external_wakeup_irqc( smc_t* smc_instance )
     SMC_SHM_READ32(SMC_WAKEN_SET0);
     reg_val = SMC_SHM_READ32(SMC_WAKEN_STS0);
 
-
-
     // -------
 
     reg_val = SMC_SHM_READ32(SMC_WUPMMSK);
@@ -297,6 +274,7 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
 
+    signal_type = signal_type;  /* Suppress warning */
 
     RD_TRACE_SEND2(TRA_SMC_IRQ_START, 4, &irq,
                                       4, &signal_type );
@@ -340,6 +318,8 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
     SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X", (uint32_t)irq, irq, (uint32_t)dev_id);
 
     /* TODO Check lock --> Create common lock to smc.c */
+
+    signal_type = signal_type;  /* Suppress warning */
 
     RD_TRACE_SEND2(TRA_SMC_IRQ_START, 4, &irq,
                                       4, &signal_type );
@@ -387,7 +367,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     /* TODO Check lock --> Create common lock to smc.c */
 
         /* Get the appropriate signal from array */
-    signal_handler = smc_signal_handler_get( (uint32_t)irq_spi, SMC_SIGNAL_TYPE_INT_RESOURCE );
+    signal_handler = smc_signal_handler_get( (uint32_t)irq_spi, signal_type );
 
     /* TODO Unlock if locked */
 
@@ -407,13 +387,6 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
             signal->interrupt_id, genios);
 
             SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT );
-
-            /*
-                // TODO Use GOP001 STR variable name for CLEAR --> Clean up
-            genios |= __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
-            __raw_writel( genios, ((void __iomem *)(signal->peripheral_address + 8 )) );
-            __raw_readl( ((void __iomem *)signal->peripheral_address + 8) );
-            */
 
             genios |= SMC_SHM_READ32( &gop001->clear );
             SMC_SHM_WRITE32( &gop001->clear, genios );
@@ -454,13 +427,14 @@ smc_signal_t* smc_signal_create( uint32_t signal_id, uint32_t signal_type )
 
     signal->interrupt_id       = signal_id;
     signal->signal_type        = signal_type;
+    signal->event_sense        = SMC_SIGNAL_SENSE_RISING_EDGE;
     signal->peripheral_address = 0;
     signal->address_remapped   = FALSE;
 
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTGEN ||
         signal->signal_type == SMC_SIGNAL_TYPE_INT_RESOURCE )
     {
-        /* TODO Peripheral address configurable */
+            /* TODO Peripheral address configurable */
         uint32_t p_address = SMC_PERIPHERAL_ADDRESS_MODEM_GOP_INTGEN_1+SMC_ADDRESS_APE_OFFSET_TO_MODEM ;
 
         signal->peripheral_address = (uint32_t)ioremap(p_address, sizeof(smc_gop001_t));
@@ -536,14 +510,6 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 
             SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT );
 
-            /*
-                // TODO Use GOP001 STR variable names
-
-            genios |= __raw_readl( ((void __iomem *)(signal->peripheral_address+4)) );
-            __raw_writel( genios, ((void __iomem *)(signal->peripheral_address+4)) );
-            __raw_readl( ((void __iomem *)(signal->peripheral_address+4)) );
-                */
-
             genios |= SMC_SHM_READ32( &gop001->set );
             SMC_SHM_WRITE32( &gop001->set, genios );
             SMC_SHM_READ32( &gop001->set );
@@ -552,20 +518,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 
             return ret_value;
         }
-        /* TODO Clean up
-        else
-        {
-            SMC_TRACE_PRINTF_ERROR("smc_signal_raise: signal: 0x%08X, SMC_SIGNAL_TYPE_INTGEN, invalid peripheral address NULL",
-                    (uint32_t)signal);
-        }
-        */
     }
-    /* TODO Cleanup
-    else
-    {
-        SMC_TRACE_PRINTF_ERROR("smc_signal_raise: Signal type 0x%08X NOT IMPLEMENTED", signal->signal_type);
-     }
-     */
 
     SMC_TRACE_PRINTF_ERROR("smc_signal_raise: Signal type 0x%08X FAILED", signal->signal_type);
 
@@ -682,7 +635,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                 flags = IRQF_DISABLED;
 
                 device_name  = dev_name(&platform_device->dev);
-                dev_id    = platform_device;
+                dev_id       = platform_device;
 
                 result = request_irq( res->start, smc_linux_interrupt_handler_int_resource, flags, device_name, dev_id );
 
@@ -695,40 +648,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                     SMC_TRACE_PRINTF_SIGNAL("smc_signal_handler_register: signal: SMC_SIGNAL_TYPE_INT_RESOURCE 0x%08X: request_irq SUCCESS", (uint32_t)signal);
                 }
 
-
-
-                /*
-                { // DEBUGGING WAKEUP
-
-                uint32_t wupsysmsk = SMC_SHM_READ32(0xE618002C);
-                SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: WUPSMSK=0x%08X", wupsysmsk);
-
-                //wupsysmsk = 0xFFFFFFFF;
-                //SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: set WUPSMSK=0x%08X...", wupsysmsk);
-                //SMC_SHM_WRITE32(0xE618002C, wupsysmsk);
-                //wupsysmsk = SMC_SHM_READ32(0xE618002C);
-
-                //SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: WUPSMSK is now 0x%08X", wupsysmsk);
-
-
-                uint32_t WUPSCR = SMC_SHM_READ32(0xE6180264);
-
-                SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: WUPSCR is 0x%08X", WUPSCR);
-
-                WUPSCR = 0xFFFFFFFF;
-
-                SMC_SHM_WRITE32(0xE6180264, WUPSCR);
-                WUPSCR = SMC_SHM_READ32(0xE6180264);
-
-                SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: WUPSMSK is now 0x%08X", wupsysmsk);
-
-                SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: enable_irq_wake %d", res->start);
-                //SMC_TRACE_PRINTF_ALWAYS("smc_signal_handler_register: WUPSFAC=0x%08X WUPSMSK=0x%08X", SMC_SHM_READ32(0xE6180098), SMC_SHM_READ32(0xE618002C));
-                }   // EOF DEBUGGING
-                */
-
                 enable_irq_wake(res->start);
-                //device_init_wakeup(&platform_device->dev, 1);
             }
             else
             {
@@ -955,18 +875,14 @@ smc_timer_t* smc_timer_create( uint32_t timer_usec )
 
 uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint32_t timer_data )
 {
-    uint8_t ret_val  = SMC_OK;
-
+    uint8_t       ret_val = SMC_OK;
     unsigned long period  = (timer->period_us * HZ)/(1000*1000);
-    //unsigned long jiff    = jiffies;
 
     timer->timer_data = timer_data;
 
     if( timer->smc_timer_list == NULL )
     {
         SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
-        //struct timer_list tmr_lst = TIMER_INITIALIZER( timer_cb, (jiff + period), ((uint32_t)timer) );
-        //timer->smc_timer_list = &tmr_lst;
 
         timer->smc_timer_list = (struct timer_list*)SMC_MALLOC( sizeof(struct timer_list) );
         timer->smc_timer_list->data     = (unsigned long)timer;
@@ -977,8 +893,6 @@ uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint3
         init_timer( timer->smc_timer_list );
 
         add_timer( timer->smc_timer_list );
-
-        //wait_event_interruptible(data->wait, !data->loops);
     }
     else
     {
@@ -1121,6 +1035,141 @@ uint16_t smc_asic_version_get(void)
     return cpu_version;
 }
 
+/* ================================================================
+ * Runtime  configuration handling
+ */
+
+static uint8_t g_smc_instance_config_send = FALSE;
+
+uint8_t smc_conf_request_initiate( smc_channel_t* channel )
+{
+    uint8_t ret_val = SMC_ERROR;
+
+    SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d...",  channel->id);
+
+    if( !g_smc_instance_config_send )
+    {
+        SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: send SMC instance config using channel %d...",  channel->id);
+
+#if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
+        /* Send the APE wakeup sense request to have falling edge event */
+
+        smc_channel_send_config(channel, SMC_RUNTIME_CONFIG_ID_APE_WAKEUP_EVENT_SENSE, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE, FALSE );
+#endif
+
+        g_smc_instance_config_send = TRUE;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_conf_request_initiate: send SMC instance config already initialized");
+    }
+
+#ifdef SMC_CHANNEL_ID_FOR_CONFIGURATION
+
+    if( channel->id == SMC_CHANNEL_ID_FOR_CONFIGURATION )
+    {
+        smc_t* smc_instance = channel->smc_instance;
+
+        SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d is used to configure others (count %d)", channel->id, smc_instance->smc_channel_list_count-1);
+
+        ret_val = SMC_OK;
+
+        for(int i = 0; i < smc_instance->smc_channel_list_count; i++ )
+        {
+            if( i != SMC_CHANNEL_ID_FOR_CONFIGURATION )
+            {
+                smc_channel_t* channel_to_config = SMC_CHANNEL_GET(smc_instance, i);
+
+                SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d configures channel %d...", channel->id, channel_to_config->id);
+
+                if( smc_channel_send_fixed_config(channel, channel_to_config) != SMC_OK )
+                {
+                    ret_val = SMC_ERROR;
+                    SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d configuration to channel %d FAILED", channel->id, channel_to_config->id);
+                }
+            }
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d, no configuration channel defined", channel->id);
+        ret_val = SMC_OK;
+    }
+#else
+    SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_conf_request_initiate: channel %d, there is no configuration channel defined", channel->id);
+#endif
+
+    /* Last parameters that are not depended on any fixed value*/
+
+
+    /* This function is deprecated: smc_channel_send_config_shm( channel, FALSE ); */
+
+
+    SMC_TRACE_PRINTF_DEBUG("smc_conf_request_initiate: channel %d completed",  channel->id);
+
+    return ret_val;
+}
+
+void smc_channel_fixed_config_response( smc_channel_t* smc_channel, smc_channel_t* smc_channel_target, smc_user_data_t* userdata_resp )
+{
+    SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_channel_fixed_config_response: channel %d configuration response received, configuration %s and status 0x%08X",  smc_channel_target->id, (userdata_resp->userdata4==SMC_OK)?"OK":"FAILED", userdata_resp->userdata3);
+
+    if( userdata_resp->userdata4 == SMC_OK )
+    {
+        if( userdata_resp->userdata3 == SMC_FIXED_CONFIG_NO_CHANGES )
+        {
+            SMC_TRACE_PRINTF_STARTUP("Channel %d configuration negotiated, no changes in remote host", smc_channel_target->id, userdata_resp->userdata3);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_STARTUP("Channel %d configuration negotiated, remote host changed:%s%s%s%s%s%s", smc_channel_target->id,
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_FIFO_IN)==SMC_FIXED_CONFIG_CHANGE_FIFO_IN)?" [FIFO in]":"",
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_FIFO_OUT)==SMC_FIXED_CONFIG_CHANGE_FIFO_OUT)?" [FIFO out]":"",
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_SHM_START)==SMC_FIXED_CONFIG_CHANGE_SHM_START)?" [SHM start]":"",
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_SHM_SIZE)==SMC_FIXED_CONFIG_CHANGE_SHM_SIZE)?" [SHM size]":"",
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_MDB_IN)==SMC_FIXED_CONFIG_CHANGE_MDB_IN)?" [MDB in]":"",
+                    ((userdata_resp->userdata3&SMC_FIXED_CONFIG_CHANGE_MDB_OUT)==SMC_FIXED_CONFIG_CHANGE_MDB_OUT)?" [MDB out]":"");
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("Channel %d configuration negotiation failed", smc_channel_target->id );
+    }
+
+}
+
+
+/*
+ * Configuration request received from the remote CPU.
+ * Only one configuration is received.
+ */
+uint8_t smc_conf_request_received( smc_channel_t* channel, uint32_t configuration_id, uint32_t configuration_value)
+{
+    uint8_t ret_val = SMC_ERROR;
+
+    SMC_TRACE_PRINTF_DEBUG("smc_conf_request_received: channel %d, config ID = 0x%08X, value = 0x%08X",  channel->id, configuration_id, configuration_value);
+
+    return ret_val;
+}
+
+void smc_conf_response_received( smc_channel_t* channel, uint32_t configuration_id, uint32_t configuration_value_requested, uint32_t configuration_response_value )
+{
+    SMC_TRACE_PRINTF_DEBUG("smc_conf_response_received: channel %d, requesete config ID = 0x%08X to 0x%08X, response = 0x%08X",  channel->id, configuration_id, configuration_value_requested, configuration_response_value);
+
+
+    if( configuration_id == SMC_RUNTIME_CONFIG_ID_APE_WAKEUP_EVENT_SENSE )
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_conf_response_received: channel %d, config 0x%08X: SMC_RUNTIME_CONFIG_ID_APE_WAKEUP_EVENT_SENSE %s by remote",
+                channel->id, configuration_id, (configuration_response_value==SMC_OK)?"ACCEPTED":"REJECTED");
+
+        if( configuration_response_value==SMC_OK )
+        {
+            smc_set_ape_wakeup_irq_sense( (uint8_t)(configuration_value_requested&0xFF) );
+        }
+
+    }
+
+}
 
 
 /* EOF */

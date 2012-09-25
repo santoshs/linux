@@ -54,14 +54,21 @@ smc_rdtrace_t trace_smc_send[2] =
 
 char* var_smc_receive[4]    = {"channelId","msgPtr","msgLength","userdata"};
 char* var_smc_receive_cb[5] = {"channelId","msgPtr","translatedMsgPtr","msgLength", "userdata"};
+char* var_smc_receive_conf_req[3]    = {"channelId","configurationId","configurationValue"};
+char* var_smc_receive_conf_resp[3]    = {"channelId","configurationId","configurationResponse"};
 uint32_t var_size_smc_receive[4] = {0xFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
 uint32_t var_size_smc_receive_cb[5] = {0xFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
+
+uint32_t var_size_smc_receive_conf[3] = {0xFF,0xFFFFFFFF,0xFFFFFFFF};
+
 
 smc_rdtrace_t trace_smc_receive[3] =
 {
     { TRA_SMC_MESSAGE_RECV,       "Recv",               "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive, &var_size_smc_receive },
     { TRA_SMC_MESSAGE_RECV_TO_CB, "Recv: put callback", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive_cb, &var_size_smc_receive_cb },
-    { TRA_SMC_MESSAGE_RECV_END,   "Recv: end",          "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive, &var_size_smc_receive }
+    { TRA_SMC_MESSAGE_RECV_END,   "Recv: end",          "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive, &var_size_smc_receive },
+    { TRA_SMC_CONFIG_REQ_RECV,    "Recv: configuration request",  "%s%s; %s:%d; %s:0x%08X; %s:0x%08X\n", &var_smc_receive_conf_req, &var_size_smc_receive_conf },
+    { TRA_SMC_CONFIG_RESP_RECV,   "Recv: configuration response", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X\n", &var_smc_receive_conf_resp, &var_size_smc_receive_conf }
 };
 
 
@@ -103,6 +110,7 @@ smc_rdtrace_t trace_smc_fifo[4] =
     { TRA_SMC_FIFO_GET_EMPTY, "fifo get empty", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d; %s:%d\n", &var_smc_fifo_get_empty, &var_size_fifo_put_get }
 };
 
+
 char* var_smc_fifo_stat[4] = {"fifoPtr","writeCount","readCount","itemsInFifo"};
 uint32_t var_size_smc_fifo_stat[4] = {0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
 
@@ -113,6 +121,23 @@ smc_rdtrace_t trace_smc_fifo_stat[2] =
 };
 
 
+char* var_smc_ping[1] = {"channelId"};
+char* var_smc_ping_req[2] = {"channelId", "replyVar"};
+uint32_t var_size_smc_ping[1] = {0xFF};
+uint32_t var_size_smc_ping_req[2] = {0xFF, 0xFFFFFFFF};
+
+smc_rdtrace_t trace_smc_ping[4] =
+{
+    { TRA_SMC_PING_SEND_REQ,  "Ping send req",  "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_RECV_REQ,  "Ping recv req",  "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_SEND_RESP, "Ping send resp", "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_RECV_RESP, "Ping recv resp", "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req }
+};
+
+
+/*
+ * Trace groups for SMC
+ */
 smc_rdtrace_group_t  trace_group_smc[SMC_TRACE_GROUP_COUNT] =
 {
     {SMC_TRACE_GROUP,             "SMC:",           &trace_smc},
@@ -121,7 +146,12 @@ smc_rdtrace_group_t  trace_group_smc[SMC_TRACE_GROUP_COUNT] =
     {SMC_TRACE_GROUP_EVENT,       "SMC:",           &trace_smc_event},
     {SMC_TRACE_GROUP_IRQ,         "SMC:",           &trace_smc_irq},
     {SMC_TRACE_GROUP_FIFO,        "SMC FIFO:",      &trace_smc_fifo},
-    {SMC_TRACE_GROUP_FIFO_STAT,   "SMC FIFO STAT:", &trace_smc_fifo_stat}
+    {SMC_TRACE_GROUP_FIFO_STAT,   "SMC FIFO STAT:", &trace_smc_fifo_stat},
+    {SMC_TRACE_GROUP_LOCK,        "SMC:",           NULL},                  /* Not used in APE */
+    {SMC_TRACE_GROUP_L2MUX,       "SMC:",           NULL},                  /* Not used in APE */
+    {SMC_TRACE_GROUP_L2MUX_DL,    "SMC:",           NULL},                  /* Not used in APE */
+    {SMC_TRACE_GROUP_L2MUX_UL,    "SMC:",           NULL},                  /* Not used in APE */
+    {SMC_TRACE_GROUP_PING,        "SMC:",           &trace_smc_ping}
 };
 
 
@@ -130,21 +160,28 @@ static uint32_t smc_trace_activation_group_0 = 0x00000000;
 
 uint32_t get_smc_trace_activation_group(uint8_t bit_group_id)
 {
-    /* TODO Add some more bit groups if required */
-
     return smc_trace_activation_group_0;
 }
 
-void smc_rd_trace_group_activate(uint32_t trace_group_id, uint8_t activate)
+uint32_t smc_rd_trace_group_activate(uint32_t trace_group_id, uint8_t activate)
 {
-    if( activate )
+    if( activate == 0x01 )
     {
+            /* Activate traces */
         smc_trace_activation_group_0 |= trace_group_id;
     }
-    else
+    else if( activate == 0x00 )
     {
+            /* Deactivate traces */
         smc_trace_activation_group_0 &= ~trace_group_id;
     }
+    else if( activate == 0x03 )
+    {
+            /* Deactivate traces */
+        smc_trace_activation_group_0 = 0x00000000;
+    }
+
+    return smc_trace_activation_group_0;
 }
 
 void smc_rd_trace_send1(uint32_t trace_id, uint32_t* ptr1)

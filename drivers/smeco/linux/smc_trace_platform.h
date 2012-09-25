@@ -72,8 +72,8 @@ Description :  File created
 
 
 #if( SMC_TRACES_PRINTF==TRUE )
-  #define SMC_TRACE_PRINTF(...)                printk(KERNEL_DEBUG_LEVEL __VA_ARGS__ )
-  //#define SMC_TRACE_PRINTF(trace, ...)       printk(KERNEL_DEBUG_LEVEL "%s\n" trace, ##__VA_ARGS__ )
+  //#define SMC_TRACE_PRINTF(...)                printk(KERNEL_DEBUG_LEVEL __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF(format, arg...)     printk(KERNEL_DEBUG_LEVEL format "\n",## arg )
   #define SMC_TRACE_PRINTF_DATA(length, data)  smc_printf_data_linux_kernel( length, data )
 #else
   #define SMC_TRACE_PRINTF(...)
@@ -81,7 +81,11 @@ Description :  File created
 #endif
 
     /* Show UI traces */
-#define SMC_TRACE_PRINTF_UI(...)                   printk(KERN_ALERT __VA_ARGS__ )
-#define SMC_TRACE_PRINTF_ALWAYS(...)               printk(KERN_ALERT __VA_ARGS__ )
+//#define SMC_TRACE_PRINTF_UI(...)                   printk(KERN_ALERT __VA_ARGS__ )
+//#define SMC_TRACE_PRINTF_ALWAYS(...)               printk(KERN_ALERT __VA_ARGS__ )
+
+#define SMC_TRACE_PRINTF_UI(format, arg...)        printk(KERN_ALERT format "\n",## arg )
+#define SMC_TRACE_PRINTF_ALWAYS(format, arg...)    printk(KERN_ALERT format "\n",## arg )
+
 #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data) smc_printf_data_linux_kernel( length, data )
 #endif

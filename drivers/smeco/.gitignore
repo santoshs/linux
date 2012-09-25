@@ -1,0 +1,10 @@
+MakeSMC.mak
+android
+Android.mk
+jni
+libs
+modem
+obj
+smc_mon.ti
+test/MakeTEST.mak
+test/smc_test_mon.ti
