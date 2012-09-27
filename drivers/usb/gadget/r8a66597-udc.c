@@ -28,6 +28,7 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/sh_clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/err.h>
 #include <linux/slab.h>
@@ -138,10 +139,17 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 #ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
+	struct clk *uclk;
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
 	if (!r8a66597->phy_active) {
-		clk_enable(clk_get(NULL, "vclk3_clk"));
+		uclk = clk_get(NULL, "vclk3_clk");
+		if (IS_ERR(uclk)) {
+			udc_log("%s() cannot get vclk3_clk\n", __func__);
+			return;
+		}
+		if (!uclk->usecount)
+			clk_enable(uclk);
 		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
 		r8a66597->phy_active = 1;
 	}
@@ -151,11 +159,18 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 
 static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
+	struct clk *uclk;
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
 	if (r8a66597->phy_active) {
 		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
-		clk_disable(clk_get(NULL, "vclk3_clk"));
+		uclk = clk_get(NULL, "vclk3_clk");
+		if (IS_ERR(uclk)) {
+			udc_log("%s() cannot get vclk3_clk\n", __func__);
+			return;
+		}
+		if (uclk->usecount)
+			clk_disable(uclk);
 		r8a66597->phy_active = 0;
 	}
 	if (r8a66597->pdata->clk_enable)
@@ -2926,6 +2941,7 @@ clean_up:
 static int r8a66597_udc_suspend(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
+	struct clk *uclk;
 	unsigned long flags = 0;
 	udc_log("%s: IN\n", __func__);
 
@@ -2935,7 +2951,13 @@ static int r8a66597_udc_suspend(struct device *dev)
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
 	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
-	clk_disable(clk_get(NULL, "vclk3_clk"));
+	uclk = clk_get(NULL, "vclk3_clk");
+	if (IS_ERR(uclk)) {
+		dev_err(dev, "cannot get vclk3_clk\n");
+		return PTR_ERR(uclk);
+	}
+	if (uclk->usecount)
+		clk_disable(uclk);
 
 	if(!powerup) 
 		return 0;
@@ -2964,7 +2986,14 @@ static int r8a66597_udc_suspend(struct device *dev)
 static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	clk_enable(clk_get(NULL, "vclk3_clk"));
+	struct clk *uclk;
+	uclk = clk_get(NULL, "vclk3_clk");
+	if (IS_ERR(uclk)) {
+		dev_err(dev, "cannot get vclk3_clk\n");
+		return PTR_ERR(uclk);
+	}
+	if (!uclk->usecount)
+		clk_enable(uclk);
 	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
 	schedule_delayed_work(&r8a66597->vbus_work,0);
 	return 0;

@@ -331,8 +331,8 @@ static void dmae_set_desc_mem(struct sh_dmae_chan *sh_chan,
 static void dmae_rpt_start(struct sh_dmae_chan *sh_chan)
 {
 	u32 chcr = sh_dmae_readl(sh_chan, CHCR);
-	/* Start descriptor repeat mode with DPB = 0 */
-	chcr |= CHCR_DE | CHCR_IE | CHCR_DSIE;
+	/* Start descriptor repeat mode with DPB = 1 */
+	chcr |= CHCR_DE | CHCR_IE | CHCR_DSIE | CHCR_DPB;
 	sh_dmae_writel(sh_chan, chcr, CHCR);
 }
 
@@ -657,6 +657,7 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	sh_dmae_writel(sh_chan, chcrb, CHCRB);
 
 	/* Update the descriptor count DCNT */
+	chcrb &= ~CHCRB_DCNT_MASK;
 	chcrb |= (chunks - 1) << CHCRB_DCNT_SHIFT;
 	sh_dmae_writel(sh_chan, chcrb, CHCRB);
 

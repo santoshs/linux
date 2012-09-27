@@ -395,6 +395,7 @@ enum {
 	ES2_MSTP215,
 	ES2_MSTP214,
 	ES2_MSTP213,
+	ES2_MSTP209,
 	ES2_MSTP208,
 	ES2_MSTP207,
 	ES2_MSTP206,
@@ -512,6 +513,7 @@ static struct clk es2_mstp_clks[ES2_MSTP_NR] = {
 	[ES2_MSTP215] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 15, 0),	/* MSIOF3 */
 	[ES2_MSTP214] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 14, 0),	/* USB-DMAC */
 	[ES2_MSTP213] = SH_CLK_MSTP32_EXT(&es2_div4_clks[ES2_DIV4_HP], SMSTPCR2, MSTPSR2, 13, 0),	/* MFIS */
+	[ES2_MSTP209] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 9, 0),        /* MSIOF4 */
 	[ES2_MSTP208] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 8, 0),	/* MSIOF1 */
 	[ES2_MSTP207] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 7, 0),	/* SCIFB1 */
 	[ES2_MSTP206] = SH_CLK_MSTP32_EXT(&es2_mp_clk, SMSTPCR2, MSTPSR2, 6, 0),	/* SCIFB0 */
@@ -663,6 +665,10 @@ static struct clk_lookup es2_lookups[] = {
 /* sound add */
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &es2_mstp_clks[ES2_MSTP001]),	/* I2C2 */
 	CLKDEV_DEV_ID("spi_sh_msiof.0", &es2_mstp_clks[ES2_MSTP000]),	/* MSIOF0 */
+	CLKDEV_DEV_ID("spi_sh_msiof.1", &es2_mstp_clks[ES2_MSTP208]),   /* MSIOF1 */
+	CLKDEV_DEV_ID("spi_sh_msiof.2", &es2_mstp_clks[ES2_MSTP205]),   /* MSIOF2 */
+	CLKDEV_DEV_ID("spi_sh_msiof.3", &es2_mstp_clks[ES2_MSTP215]),   /* MSIOF3 */
+	CLKDEV_DEV_ID("spi_sh_msiof.4", &es2_mstp_clks[ES2_MSTP209]),   /* MSIOF4 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &es2_mstp_clks[ES2_MSTP118]),	/* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &es2_mstp_clks[ES2_MSTP116]),	/* I2C0 */
 	CLKDEV_DEV_ID("pvrsrvkm", &es2_mstp_clks[ES2_MSTP112]),	/* SGX544 */

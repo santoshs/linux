@@ -108,6 +108,7 @@ struct sh_dmae_pdata {
 #define DPBASE_SEL  0x00000001
 #define DPBASE_SHIFT  0x60  /* By using 6 descriptors per channel */
 #define CHCRB_DRST  (1 << 15)
+#define CHCRB_DCNT_MASK  0xff000000
 #define CHCRB_DCNT_SHIFT  (24)
 #define CHCRB_DPTR_MASK  0x00ff0000
 #define CHCRB_DPTR_SHIFT 16
