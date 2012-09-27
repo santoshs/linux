@@ -190,7 +190,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_s.reception_mode = RT_DISPLAY_RECEPTION_ON;
 	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_short_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -206,7 +207,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_s.reception_mode = RT_DISPLAY_RECEPTION_ON;
 	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_short_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -220,7 +222,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_s.reception_mode = RT_DISPLAY_RECEPTION_ON;
 	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_short_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -235,7 +238,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_l.send_mode = RT_DISPLAY_SEND_MODE_HS;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_long err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_long_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -249,7 +253,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_l.send_mode = RT_DISPLAY_SEND_MODE_HS;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_long err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_long_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -268,7 +273,7 @@ static int kota_dsi_startsetting(int draw_flag)
 		disp_draw.rotate = RT_DISPLAY_ROTATE_270;
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
-			printk(KERN_ALERT "screen_display_draw err!\n");
+			r_mobile_fb_err_msg(ret, "screen_display_draw");
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
 			return -1;
@@ -283,7 +288,8 @@ static int kota_dsi_startsetting(int draw_flag)
 	write_dsi_s.reception_mode = RT_DISPLAY_RECEPTION_ON;
 	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_write_dsi_short err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_write_dsi_short_packet");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -344,7 +350,8 @@ static int kota_panel_init(unsigned int mem_size)
 	set_lcd_if_param.lcd_if_param_mask = &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_set_lcd_if_parameters err!\n");
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_set_lcd_if_parameters");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -357,7 +364,7 @@ static int kota_panel_init(unsigned int mem_size)
 	set_address.size = mem_size;
 	ret = screen_display_set_address(&set_address);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "screen_display_set_address err!\n");
+		r_mobile_fb_err_msg(ret, "screen_display_set_address");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -367,7 +374,7 @@ static int kota_panel_init(unsigned int mem_size)
 	start_lcd.output_mode = RT_DISPLAY_LCD1;
 	ret = screen_display_start_lcd(&start_lcd);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_start_lcd err!\n");
+		r_mobile_fb_err_msg(ret, "screen_display_start_lcd");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -386,12 +393,15 @@ static int kota_panel_suspend(void)
 	void *screen_handle;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
+	int ret;
 
 	screen_handle =  screen_display_new();
 
 	disp_stop_lcd.handle = screen_handle;
 	disp_stop_lcd.output_mode = RT_DISPLAY_LCD1;
-	screen_display_stop_lcd(&disp_stop_lcd);
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+                r_mobile_fb_err_msg(ret, "screen_display_stop_lcd");
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
@@ -422,7 +432,9 @@ static int kota_panel_resume(void)
 
 	disp_start_lcd.handle = screen_handle;
 	disp_start_lcd.output_mode = RT_DISPLAY_LCD1;
-	screen_display_start_lcd(&disp_start_lcd);
+	ret = screen_display_start_lcd(&disp_start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		r_mobile_fb_err_msg(ret, "screen_display_start_lcd");
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);

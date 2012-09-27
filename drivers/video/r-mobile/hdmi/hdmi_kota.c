@@ -234,9 +234,8 @@ static int kota_hdmi_set(unsigned int format)
 	hdmi_if_param.ipmode = RT_DISPLAY_PROGRESSIVE;
 	ret = screen_display_set_hdmi_if_parameters(&hdmi_if_param);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT
-		       "screen_display_set_hdmi_if_parameters ERR%d\n"
-		       , ret);
+		r_mobile_fb_err_msg(ret,
+				    "screen_display_set_hdmi_if_parameters");
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -247,8 +246,7 @@ static int kota_hdmi_set(unsigned int format)
 	disp_start_hdmi.background_color = LCD_BG_BLACK;
 	ret = screen_display_start_hdmi(&disp_start_hdmi);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "screen_display_start_hdmi ERR%d\n"
-		       , ret);
+		r_mobile_fb_err_msg(ret, "screen_display_start_hdmi");
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
@@ -265,10 +263,14 @@ static int kota_hdmi_suspend(void)
 	void *hdmi_handle;
 	screen_disp_stop_hdmi disp_stop_hdmi;
 	screen_disp_delete disp_delete;
+	int ret;
 
 	hdmi_handle = screen_display_new();
 	disp_stop_hdmi.handle = hdmi_handle;
-	screen_display_stop_hdmi(&disp_stop_hdmi);
+	ret = screen_display_stop_hdmi(&disp_stop_hdmi);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		r_mobile_fb_err_msg(ret, "screen_display_stop_hdmi");
+
 	disp_delete.handle = hdmi_handle;
 	screen_display_delete(&disp_delete);
 
@@ -281,12 +283,16 @@ static int kota_hdmi_resume(void)
 	void *hdmi_handle;
 	screen_disp_start_hdmi disp_start_hdmi;
 	screen_disp_delete disp_delete;
+	int ret;
 
 	hdmi_handle = screen_display_new();
 	disp_start_hdmi.handle = hdmi_handle;
 	disp_start_hdmi.format = RT_DISPLAY_USE_IF_PARAM;
 	disp_start_hdmi.background_color = LCD_BG_BLACK;
-	screen_display_start_hdmi(&disp_start_hdmi);
+	ret = screen_display_start_hdmi(&disp_start_hdmi);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		r_mobile_fb_err_msg(ret, "screen_display_start_hdmi");
+
 	disp_delete.handle = hdmi_handle;
 	screen_display_delete(&disp_delete);
 

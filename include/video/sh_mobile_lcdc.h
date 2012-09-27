@@ -190,6 +190,8 @@ extern int sh_mobile_lcdc_refresh(unsigned short set_state,
 extern struct fb_panel_func r_mobile_panel_func(int panel);
 extern struct fb_hdmi_func r_mobile_hdmi_func(void);
 
+extern void r_mobile_fb_err_msg(int value, char *func_name);
+
 /*extern struct semaphore   sh_mobile_sem_hdmi;*/
 
 #endif /* __ASM_SH_MOBILE_LCDC_H__ */

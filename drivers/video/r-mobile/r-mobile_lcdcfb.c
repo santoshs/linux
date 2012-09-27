@@ -163,6 +163,31 @@ static u32 fb_debug;
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
 
+void r_mobile_fb_err_msg(int value, char *func_name)
+{
+
+	switch (value) {
+	case -1:
+		printk(KERN_INFO "FB %s ret = -1 SMAP_LIB_DISPLAY_NG\n",
+		       func_name);
+		break;
+	case -2:
+		printk(KERN_INFO "FB %s ret = -2 SMAP_LIB_DISPLAY_PARAERR\n",
+		       func_name);
+		break;
+	case -3:
+		printk(KERN_INFO "FB %s ret = -3 SMAP_LIB_DISPLAY_SEQERR\n",
+		       func_name);
+		break;
+	default:
+		printk(KERN_INFO "FB %s ret = %d unknown RT-API error\n",
+		       func_name, value);
+		break;
+	}
+
+	return;
+}
+
 static void vsync_work_func(struct work_struct *work)
 {
 	char buf[64];
@@ -423,9 +448,8 @@ static void refresh_work(struct work_struct *work)
 		disp_refresh.refresh_mode = RT_DISPLAY_REFRESH_ON;
 		ret = screen_display_set_lcd_refresh(&disp_refresh);
 		if (ret != SMAP_LIB_DISPLAY_OK)
-			printk(KERN_ALERT "display_set_lcd_refresh ON ERR%d\n"
-			       , ret);
-
+			r_mobile_fb_err_msg(ret,
+					    "screen_display_set_lcd_refresh");
 		DBG_PRINT("screen_display_set_lcd_refresh ON\n");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
@@ -494,6 +518,9 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 				ret = screen_display_set_lcd_refresh(
 					&disp_refresh);
 				if (ret != SMAP_LIB_DISPLAY_OK) {
+					r_mobile_fb_err_msg(
+						ret,
+						"screen_display_set_lcd_refresh");
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
 					up(&lcd_ext_param[i].sem_lcd);
@@ -551,6 +578,8 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		hdmi_handle = screen_display_new();
 		disp_stop_hdmi.handle = hdmi_handle;
 		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
+		if (ret != SMAP_LIB_DISPLAY_OK)
+			r_mobile_fb_err_msg(ret, "screen_display_stop_hdmi");
 		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
@@ -695,6 +724,9 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 				ret = screen_display_set_lcd_refresh(
 					&disp_refresh);
 				if (ret != SMAP_LIB_DISPLAY_OK) {
+					r_mobile_fb_err_msg(
+						ret,
+						"screen_display_set_lcd_refresh");
 					up(&lcd_ext_param[lcd_num].sem_lcd);
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
@@ -747,6 +779,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		ret = screen_display_draw(&disp_draw);
 		DBG_PRINT("screen_display_draw return %d\n", ret);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
+			r_mobile_fb_err_msg(ret, "screen_display_draw");
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -777,6 +810,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 #endif
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
+			r_mobile_fb_err_msg(ret, "screen_display_draw");
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
