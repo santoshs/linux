@@ -21,6 +21,10 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/sched.h>
+#include <linux/semaphore.h>
+#include <linux/kthread.h>
+#include <linux/completion.h>
 #include <linux/mfis.h>
 #include <system_memory.h>
 #include <log_kernel.h>
@@ -37,6 +41,67 @@
 #define	POWER_A3R		((unsigned long)0x00002000)
 
 static int output_state;
+
+
+static int  iccom_wq_system_mem_rt_map_thread(void *param)
+{
+	struct	iccom_wq_system_mem_rt_map*	rtmap	= (struct iccom_wq_system_mem_rt_map*)param;
+	struct	completion					comp;
+
+	MSG_HIGH("[RTAPIK] IN |[%s], pid=%d\n", __func__, (int)current->pid );
+
+	rtmap->result = system_memory_rt_map(rtmap->sys_rt_map);
+
+	/* Check result */
+	if (SMAP_LIB_MEMORY_OK != rtmap->result) {
+		MSG_ERROR("[RTAPIK] ERR|[%s][%d] system_memory_rt_map() ret = [%d], 0x%08x -> 0x%08x\n",
+			 __func__, __LINE__, rtmap->result, rtmap->sys_rt_map->phys_addr, rtmap->sys_rt_map->rtaddr );
+
+		/* release semaphore */
+		up(&rtmap->sem);
+		return	0;
+	}
+
+	/* release semaphore */
+	up(&rtmap->sem);
+
+	/* Wait infinite */
+	init_completion(&comp);
+	wait_for_completion(&comp);
+
+	MSG_ERROR("[RTAPIK] ERR|[%s][%d] illigal LEAVED!!!!\n", __func__, __LINE__ );
+	return	0;
+}
+
+
+static int iccom_wq_system_mem_rt_map(system_mem_rt_map* sys_rt_map)
+{
+	static struct task_struct *			rtmap_thread;
+	struct	iccom_wq_system_mem_rt_map	rtmap;
+
+	MSG_HIGH("[RTAPIK] IN |[%s], pid=%d\n", __func__, (int)current->pid );
+
+	/* Initialize struct member */
+	rtmap.sys_rt_map	= sys_rt_map;
+	rtmap.result		= SMAP_LIB_MEMORY_NG;
+	sema_init(&rtmap.sem, 0);
+
+	rtmap_thread	= kthread_run(iccom_wq_system_mem_rt_map_thread, &rtmap, "iccom_rtmap");
+	if (NULL == rtmap_thread) {
+		MSG_ERROR( "[RTAPIK] ERR|[%s][%d] kthread_run() ret=%d\n",
+			__func__, __LINE__, (int)rtmap_thread );
+		return	SMAP_LIB_MEMORY_NG;
+	}
+
+	/* wait completion */
+	down(&rtmap.sem);
+
+	MSG_HIGH("[RTAPIK] OUT|[%s][%d] result=%d, 0x%08x -> 0x%08x\n",
+		__func__, __LINE__,
+		rtmap.result, sys_rt_map->phys_addr, sys_rt_map->rtaddr);
+	return	rtmap.result;
+}
+
 
 void screen_display_request(void *user_data, int result, int func_id,
 							 unsigned char *addr, int length)
@@ -1076,7 +1141,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 	sys_rt_map.phys_addr = address->address;
 	sys_rt_map.map_size  = address->size;
 
-	result = system_memory_rt_map(&sys_rt_map);
+	result = iccom_wq_system_mem_rt_map( &sys_rt_map );
 	if (SMAP_LIB_MEMORY_OK != result) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] system_memory_rt_map() ret = [%d]\n",

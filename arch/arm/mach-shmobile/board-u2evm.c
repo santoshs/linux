@@ -1524,6 +1524,9 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		mdelay(1);
 
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
 		clk_disable(vclk2_clk);
 
 		mdelay(1);

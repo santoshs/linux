@@ -33,6 +33,7 @@
 #define CPG_FRQCRB		(CPG_BASE + 0x0004)
 #define CPG_ZBCKCR		(CPG_BASE + 0x0010)
 #define CPG_FRQCRD		(CPG_BASE + 0x00E4)
+#define CPG_PLLECR		(CPG_BASE + 0x00D0)
 #define CPG_PLL0CR		(CPG_BASE + 0x00D8)
 #define CPG_PLL1CR		(CPG_BASE + 0x0028)
 #define CPG_PLL2CR		(CPG_BASE + 0x002C)
@@ -77,7 +78,6 @@ struct clk_hw_info {
  ******************************************************************************/
 static DEFINE_SPINLOCK(freq_change_lock);
 static DEFINE_SPINLOCK(zs_change_lock);
-u_int sys_rev;
 static struct clk_hw_info __clk_hw_info_es1_x[] = {
 	[I_CLK] = {
 		.mask_bit	= 0xf,
@@ -842,7 +842,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.z_clk = DIV1_2,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
+		.zx_clk = DIV1_24,
 		.hp_clk = DIV1_24,
 		.zs_clk = DIV1_24,
 		.zb_clk = DIV1_6,
@@ -1007,7 +1007,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.z_clk = DIV1_4,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
+		.zx_clk = DIV1_24,
 		.hp_clk = DIV1_24,
 		.zs_clk = DIV1_24,
 		.zb_clk = DIV1_6,
@@ -1157,15 +1157,16 @@ int cpg_set_pll(int pll, unsigned int val)
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
 	unsigned int addr = CPG_PLL0CR;
+	int timeout = 500;
 
-	if (sys_rev >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		if ((pll != PLL0) || ((val != PLLx56) && (val != PLLx46))) {
 			/* support PLL0 only */
 			pr_err("%s()[%d]: PLL<%d>, ratio<%d> not supported, ret<%d>\n",
 				__func__, __LINE__, pll, val, -EINVAL);
 			return -EINVAL;
 		}
-	} else if (sys_rev >= ES_REV_1_0) {
+	} else if (shmobile_chip_rev() >= ES_REV_1_0) {
 		if ((pll != PLL0) || (val != PLLx38)) {
 			/* support PLL0 only */
 			pr_err("%s()[%d]: PLL<%d>, ratio<%d> not supported, ret<%d>\n",
@@ -1184,6 +1185,14 @@ int cpg_set_pll(int pll, unsigned int val)
 		pr_log("%s()[%d]: set PLL<%d>, reg<0x%x>\n", __func__, __LINE__,
 			pll, pllcr);
 		__raw_writel(pllcr, __io(IO_ADDRESS(addr)));
+		/* wait for status bit set */
+		while (--timeout) {
+			if (__raw_readl(CPG_PLLECR) & (1 << 8))
+				break;
+			ndelay(1000);
+		}
+
+		return (timeout <= 0) ? -ETIMEDOUT : 0;
 	}
 	return 0;
 }
@@ -1325,7 +1334,7 @@ int cpg_get_freq(struct clk_rate *rates)
 	rates->zb_clk = __match_div_rate(ZB_CLK,
 		HW_TO_DIV(zbckcr, ZB_CLK));
 
-	if (sys_rev >= ES_REV_2_0)
+	if (shmobile_chip_rev() >= ES_REV_2_0)
 		rates->m5_clk = __match_div_rate(M5_CLK,
 			HW_TO_DIV(frqcra, M5_CLK));
 	else
@@ -1349,7 +1358,7 @@ int cpg_get_freq(struct clk_rate *rates)
 		return -EINVAL;
 	}
 
-	if (sys_rev >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		if (rates->m5_clk < 0) {
 			pr_err("%s()[%d]: error<%d>! invalid setting value\n",
 				__func__, __LINE__, -EINVAL);
@@ -1416,7 +1425,7 @@ int cpg_set_freqval(int clk, int div)
 	reg |= DIV_TO_HW(clk, div);
 
 	/* ES2.x, the ZB3SL SEL is used */
-	if ((sys_rev >= ES_REV_2_0) && (clk == ZB3_CLK)) {
+	if ((shmobile_chip_rev() >= ES_REV_2_0) && (clk == ZB3_CLK)) {
 		zb3rate = cpg_get_pll(PLL3);
 		zb3rate *= 26/(__div(div));
 
@@ -1482,7 +1491,7 @@ int cpg_get_freqval(int clk, int *div)
 	} else if ((clk == Z_CLK) || (clk == ZTR_CLK) || (clk == ZT_CLK)
 		|| (clk == ZX_CLK) || (clk == HP_CLK) || (clk == ZS_CLK)) {
 		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRB), clk);
-	} else if ((sys_rev >= ES_REV_2_0) &&
+	} else if ((shmobile_chip_rev() >= ES_REV_2_0) &&
 		(clk == M5_CLK)) {
 		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
 	} else {
@@ -1521,15 +1530,19 @@ int cpg_get_freqval(int clk, int *div)
  */
 int cpg_set_sbsc_freq(int div)
 {
-#if 0
 	unsigned int reg = 0;
 	unsigned int zb3rate = 0;
+	unsigned int ckscr = 0;
 
+	/* limit */
+	if (ES_REV_2_2 > shmobile_chip_rev())
+		return 0;
+#if 0
 	reg = __raw_readl(CPG_FRQCRD);
 	reg &= ~0x1f;
 	reg |= DIV_TO_HW(ZB3_CLK, div);
 	/* ES2.x, the ZB3SL SEL is used */
-	if (sys_rev >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		zb3rate = cpg_get_pll(PLL3);
 		zb3rate *= 26/(__div(div));
 
@@ -1539,15 +1552,13 @@ int cpg_set_sbsc_freq(int div)
 			reg &= ~BIT(15);
 
 		/* unlock ZB30SEL */
-		if (sys_rev <= ES_REV_2_1) {
-			u_int ckscr = __raw_readl(CPG_CKSCR);
-			__raw_writel(BIT(14) | ckscr, CPG_CKSCR);
-		}
+		ckscr = __raw_readl(CPG_CKSCR);
+		__raw_writel(BIT(14) | ckscr, CPG_CKSCR);
 	}
 	pr_log("%s()[%d]: FRQCRD[0x%8x]\n", __func__, __LINE__, reg);
-		__raw_writel(reg, CPG_FRQCRD);
+	__raw_writel(reg, CPG_FRQCRD);
 
-	if (sys_rev >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		/* set and wait for KICK bit changed */
 		if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
 			pr_err("%s()[%d]: error! set kick bit\n",
@@ -1597,18 +1608,6 @@ int cpg_set_freq(const struct clk_rate rates)
 		goto done;
 	}
 
-	if (sys_rev >= ES_REV_2_0) {
-		if (curr_rates.pll0 != rates.pll0) {
-			ret = cpg_set_pll(PLL0, rates.pll0);
-			if (0 > ret) {
-				pr_err("%s()[%d]: error<%d>! set pll<%d>, STC<0x%x>\n",
-					__func__, __LINE__, ret, PLL0,
-					rates.pll0);
-				goto done;
-			}
-		}
-	}
-
 	/* change FRQCR(A/B) ? */
 	if ((curr_rates.i_clk != rates.i_clk)
 		|| (curr_rates.zg_clk != rates.zg_clk)
@@ -1635,12 +1634,7 @@ int cpg_set_freq(const struct clk_rate rates)
 		frq_change = 1;
 		zs_change = 1;
 	}
-#if 0
-	/* change M5 (ES2 only) */
-	if ((sys_rev >= ES_REV_2_0) &&
-		(curr_rates.m5_clk != rates.m5_clk))
-		frq_change = 1;
-#endif
+
 	/* change ZB clock ? */
 	if (curr_rates.zb_clk != rates.zb_clk)
 		zb_change = 1;
@@ -1664,7 +1658,7 @@ int cpg_set_freq(const struct clk_rate rates)
 		reg |= DIV_TO_HW(M1_CLK, rates.m1_clk);
 		reg |= DIV_TO_HW(M3_CLK, rates.m3_clk);
 
-		if (sys_rev >= ES_REV_2_0)
+		if (shmobile_chip_rev() >= ES_REV_2_0)
 			reg |= DIV_TO_HW(M5_CLK, curr_rates.m5_clk);
 
 		/* apply setting */
@@ -1703,7 +1697,8 @@ int cpg_set_freq(const struct clk_rate rates)
 			pr_err("%s()[%d]: error<%d>! set kick bit\n",
 				__func__, __LINE__, ret);
 			if (zs_change)
-				spin_unlock_irqrestore(&zs_change_lock, zsflags);
+				spin_unlock_irqrestore(&zs_change_lock,
+				zsflags);
 			goto done;
 		}
 
@@ -1739,9 +1734,8 @@ int pm_setup_clock(void)
 	unsigned long flags;
 
 	spin_lock_irqsave(&freq_change_lock, flags);
-	sys_rev = shmobile_chip_rev();
 
-	if (sys_rev >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
 	} else {
@@ -1769,10 +1763,8 @@ int pm_setup_clock(void)
 int pm_set_clocks(const struct clk_rate rates)
 {
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return 0;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	return cpg_set_freq(rates);
 }
@@ -1796,12 +1788,10 @@ int pm_set_clock_mode(int mode)
 	int ret = 0;
 
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return ret;
-	}
 #endif /* CONFIG_PM_DEBUG */
-	if (sys_rev >= ES_REV_2_0)
+	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
 	else
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
@@ -1837,12 +1827,10 @@ int pm_get_clock_mode(int mode, struct clk_rate *rate)
 {
 	int size = 0;
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return 0;
-	}
 #endif /* CONFIG_PM_DEBUG */
-	if (sys_rev >= ES_REV_2_0)
+	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
 	else
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
@@ -1870,10 +1858,8 @@ EXPORT_SYMBOL(pm_get_clock_mode);
 int pm_set_syscpu_frequency(int div)
 {
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return 0;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	return cpg_set_freqval(Z_CLK, div);
 }
@@ -1895,10 +1881,8 @@ unsigned int pm_get_syscpu_frequency(void)
 	int pll0 = 0;
 
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return ret;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	ret = cpg_get_freqval(Z_CLK, &div);
 	if (!ret) {
@@ -1932,10 +1916,8 @@ int pm_disable_clock_change(int clk)
 	int ret = 0;
 
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return ret;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&freq_change_lock, flags);
 	/* support ZS/HP only */
@@ -1972,10 +1954,8 @@ int pm_enable_clock_change(int clk)
 	int ret = 0;
 
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return ret;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&freq_change_lock, flags);
 	/* support ZS/HP only */
@@ -2014,10 +1994,8 @@ EXPORT_SYMBOL(pm_enable_clock_change);
 int pm_set_pll_ratio(int pll, unsigned int val)
 {
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return 0;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	return cpg_set_pll(pll, val);
 }
@@ -2052,10 +2030,8 @@ unsigned long pm_get_spinlock(void)
 {
 	unsigned long flag;
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return 0;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	spin_lock_irqsave(&zs_change_lock, flag);
 	return flag;
@@ -2074,10 +2050,8 @@ EXPORT_SYMBOL(pm_get_spinlock);
 void pm_release_spinlock(unsigned long flag)
 {
 #ifdef CONFIG_PM_DEBUG
-	if (!is_cpufreq_enable()) {
-		/* runtime disabled */
+	if (!is_cpufreq_enable())
 		return;
-	}
 #endif /* CONFIG_PM_DEBUG */
 	spin_unlock_irqrestore(&zs_change_lock, flag);
 }

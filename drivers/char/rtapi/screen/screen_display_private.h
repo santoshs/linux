@@ -32,7 +32,12 @@ typedef struct {
 	void *rtds_mem_handle;
 } screen_disp_handle;
 
-
+struct iccom_wq_system_mem_rt_map
+{
+	struct semaphore	sem;
+	system_mem_rt_map*	sys_rt_map;
+	int					result;
+};
 
 #endif /* __SCREEN_OVERLAY_PRIVATE_H__ */
 

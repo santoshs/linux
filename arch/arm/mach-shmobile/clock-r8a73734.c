@@ -10,10 +10,8 @@ void __init r8a73734_clock_init(void)
 	{
 	__raw_writel(0x000000D, DSI1PCKCR);
 	__raw_writel(0x00000105, SLIMBCKCR);
-	__raw_writel(0x00000005, SPUACKCR);
 	__raw_writel(0x00324534, FRQCRA);
-	__raw_writel(0x00000080, SD2CKCR);
-	__raw_writel(0x00000003, SPUVCKCR);
+	__raw_writel(0x00000180, SD2CKCR);
 	}
 
 	if (((system_rev & 0xFFFF) == 0x3E00)) {

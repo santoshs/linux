@@ -382,6 +382,7 @@ extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
 extern int pm_get_clock_mode(const int mode, struct clk_rate *rate);
 extern int pm_set_syscpu_frequency(int div);
+extern unsigned int pm_get_syscpu_frequency(void);
 extern int pm_set_pll_ratio(int pll, unsigned int val);
 extern int pm_get_pll_ratio(int pll);
 extern int pm_setup_clock(void);
@@ -407,11 +408,12 @@ static inline int control_cpufreq(int is_enable) { return 0; }
 static inline int is_cpufreq_enable(void) { return 0; }
 #endif
 /* Internal API for CPUFreq driver only */
-static inline int pm_set_clocks(const struct clk_rate *clk_div) { return 0; }
+static inline int pm_set_clocks(const struct clk_rate clk_div) { return 0; }
 static inline int pm_set_clock_mode(const int mode) { return 0; }
 static inline int pm_get_clock_mode(const int mode, struct clk_rate *rate)
 {return 0; }
 static inline int pm_set_syscpu_frequency(int div) { return 0; }
+static inline unsigned int pm_get_syscpu_frequency(void) { return 0; }
 static inline int pm_set_pll_ratio(int pll, unsigned int val)
 {return -EINVAL; }
 static inline int pm_get_pll_ratio(int pll) { return -EINVAL; }
