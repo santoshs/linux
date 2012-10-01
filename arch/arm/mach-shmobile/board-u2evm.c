@@ -53,6 +53,11 @@
 #include <media/v4l2-subdev.h>
 #include <linux/pmic/pmic-ncp6914.h>
 
+#include <linux/sysfs.h>
+#include <linux/proc_fs.h>
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+#include <linux/tsu6712.h>
+#endif
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/i2c/touchkey_i2c.h>
 #endif
@@ -748,10 +753,10 @@ static struct platform_device sdhi2_device = {
 
 static struct sh_fsi_platform_info fsi_info = {
 	.port_flags = SH_FSI_OUT_SLAVE_MODE |
-	              SH_FSI_IN_SLAVE_MODE	|
-		          SH_FSI_BRS_INV		|
-		          SH_FSI_OFMT(I2S)		|
-		          SH_FSI_IFMT(I2S),
+		SH_FSI_IN_SLAVE_MODE	|
+		SH_FSI_BRS_INV		|
+		SH_FSI_OFMT(I2S)	|
+		SH_FSI_IFMT(I2S),
 };
 
 static struct resource fsi_resources[] = {
@@ -810,9 +815,15 @@ static struct platform_device fsi_b_device = {
 
 
 
+#ifdef CONFIG_KEYBOARD_GPIO_POLLED
 #define GPIO_KEY(c, g, d) \
 	{.code=c, .gpio=g, .desc=d, .wakeup=0, .active_low=1,\
 	 .debounce_interval=20}
+#else
+#define GPIO_KEY(c, g, d) \
+	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
+	 .debounce_interval=20}
+#endif
 
 static struct gpio_keys_button gpio_buttons[] = {
 #ifndef CONFIG_PMIC_INTERFACE
@@ -825,9 +836,15 @@ static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
 #endif
+#ifdef CONFIG_MACH_U2EVM_SR_REV031
+	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT18, "Home"),
+	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
+#else
 	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT45, "Home"),
 	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT46, "+"),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-"),
+#endif
 };
 
 static int gpio_key_enable(struct device *dev)
@@ -862,11 +879,17 @@ static struct gpio_keys_platform_data gpio_key_info = {
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
 	.rep		= 0,
 	.enable		= gpio_key_enable,
+#ifdef CONFIG_KEYBOARD_GPIO_POLLED
 	.poll_interval	= 50,
+#endif
 };
 
 static struct platform_device gpio_key_device = {
+#ifdef CONFIG_KEYBOARD_GPIO_POLLED
 	.name	= "gpio-keys-polled",
+#else
+	.name	= "gpio-keys",
+#endif
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_key_info,
@@ -1159,6 +1182,29 @@ static struct platform_device u2evm_ion_device = {
 	},
 };
 
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+#define TSU6712_ADDRESS (0x4A >> 1)
+#define GPIO_MUS_INT 41
+
+static struct tsu6712_platform_data tsu6712_pdata = {
+};
+#endif
+static struct i2c_board_info __initdata i2c3_devices[] = {
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+    {
+		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
+			.platform_data = &tsu6712_pdata,
+			.irq            = irqpin2irq(GPIO_MUS_INT),
+    },
+#endif
+#if defined(CONFIG_CHARGER_SMB328A)
+    {
+		I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
+/*			.platform_data = &tsu6712_pdata,*/
+/*            .irq            = irqpin2irq(GPIO_CHG_INT),*/
+    },
+#endif
+};
 /* << Add for Thermal Sensor driver*/
 static struct thermal_sensor_data ths_platdata[] = {
 	/* THS0 */
@@ -3033,6 +3079,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
 	#endif
 
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+   gpio_request(GPIO_PORT97, NULL);
+   gpio_direction_input(GPIO_PORT97);
+   gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
+#endif
 #if 0
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
@@ -3200,6 +3251,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
+	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 #if 0
         if((system_rev & 0xFFFF) == 0x3E00) {

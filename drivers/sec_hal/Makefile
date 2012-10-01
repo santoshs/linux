@@ -25,6 +25,7 @@ $(NAME)-y                 := sec_hal_dev.o
 $(NAME)-y                 += rt/src/sec_hal_rt.o
 $(NAME)-y                 += rt/src/sec_msg.o
 $(NAME)-y                 += rt/src/sec_hal_pm.o
+$(NAME)-y                 += rt/src/sec_hal_cmn.o
 
 ifeq ($(CONFIG_ARM_SEC_HAL_TEST_DISPATCHER),y) # select test dispatcher.
 $(NAME)-y                 += rt/test/src/sec_hal_test_dispatcher.o

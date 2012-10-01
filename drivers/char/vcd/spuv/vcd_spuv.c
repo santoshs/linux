@@ -41,6 +41,8 @@ static struct vcd_spuv_workqueue  *g_vcd_spuv_notify_queue;
 static struct vcd_spuv_work       g_vcd_spuv_rec_trigger;
 static struct vcd_spuv_work       g_vcd_spuv_play_trigger;
 static struct vcd_spuv_work       g_vcd_spuv_system_error;
+static struct vcd_spuv_work       g_vcd_spuv_udata_ind;
+
 
 /* ========================================================================= */
 /* Internal public functions                                                 */
@@ -81,6 +83,25 @@ void vcd_spuv_iounmap(void)
 	vcd_pr_start_spuv_function();
 
 	vcd_spuv_func_iounmap();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize register function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_init_register(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_set_hpb_register();
+	vcd_spuv_func_set_cpg_register();
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -146,10 +167,56 @@ int vcd_spuv_get_msg_buffer(void)
 	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
 		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER - SPUV_FUNC_SDRAM_AREA_TOP);
 
-	vcd_spuv_func_cacheflush();
+	vcd_spuv_func_cacheflush(
+		SPUV_FUNC_SDRAM_PROC_MSG_BUFFER,
+		(PAGE_SIZE*2));
 
 	vcd_pr_end_spuv_function("buf_addr[%d].\n", buf_addr);
 	return buf_addr;
+}
+
+
+/**
+ * @brief	get asyncrnous return area function.
+ *
+ * @param	none.
+ *
+ * @retval	buf_addr	msg buffer physical address.
+ */
+int vcd_spuv_get_async_area(void)
+{
+	int buf_addr = 0;
+
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_initialize();
+
+	buf_addr = (int)__get_free_pages(GFP_KERNEL, 1);
+
+	vcd_pr_end_spuv_function("buf_addr lo[0x%08x] buf_addr ph[0x%08x].\n",
+		buf_addr, (unsigned int)__pa(buf_addr));
+	return buf_addr;
+}
+
+
+/**
+ * @brief	get asyncrnous return area function.
+ *
+ * @param	adr	asyncrnous address.
+ *
+ * @retval	ret	result.
+ */
+int vcd_spuv_free_async_area(unsigned int adr)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function();
+
+	if (0 != adr)
+		free_pages((unsigned long)adr, 1);
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -203,6 +270,9 @@ int vcd_spuv_start_vcd(void)
 	vcd_spuv_set_wait_fw_info(VCD_SPUV_INTERFACE_ID,
 				VCD_SPUV_BOOT_COMPLETE_IND);
 
+	/* register dump */
+	vcd_spuv_dump_registers();
+
 	/* core reset */
 	vcd_spuv_func_dsp_core_reset();
 
@@ -246,6 +316,9 @@ int vcd_spuv_stop_vcd()
 	if (VCD_ERR_NONE != ret)
 		vcd_pr_err("power supply error[%d].\n", ret);
 
+	/* ending on clkgen is notified */
+	vcd_ctrl_stop_clkgen();
+
 	vcd_spuv_func_release_firmware();
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
@@ -279,7 +352,7 @@ int vcd_spuv_set_hw_param(void)
 				VCD_SPUV_HW_PARAMETERS_IND);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush();
+	vcd_spuv_func_cacheflush((unsigned int)proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -328,7 +401,7 @@ int vcd_spuv_start_call(void)
 				VCD_SPUV_SPEECH_START_CNF);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush();
+	vcd_spuv_func_cacheflush((unsigned int)proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -352,10 +425,22 @@ int vcd_spuv_start_call(void)
 		/* initialize VoIP buffer ID */
 		vcd_spuv_func_init_voip_ul_buffer_id();
 		vcd_spuv_func_init_voip_dl_buffer_id();
+
+		/* patch start */
+		proc_param[1] = 44100;
+		proc_param[2] = 44100;
+		/* patch end */
+
 		/* SRC initialize */
-		/* 44.1kHz[T.B.D]proc_param[1] */ /* 16kHz[T.B.D] */
-		vcd_spuv_func_resampler_init(7, 3);
+		/* UL : proc_param[1], DL : proc_param[2], spuv : 16kHz */
+		vcd_spuv_func_resampler_init(
+			proc_param[1],
+			proc_param[2],
+			16000);
 	}
+
+	/* wait path set */
+	vcd_ctrl_wait_path();
 
 	/* output msg log */
 	vcd_spuv_interface_log(param[1]);
@@ -436,7 +521,7 @@ int vcd_spuv_set_udata(void)
 				VCD_SPUV_UDATA_REQ);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush();
+	vcd_spuv_func_cacheflush((unsigned int)proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -1037,6 +1122,10 @@ int vcd_spuv_start_pcm_loopback(int mode)
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_PCM_LOOPBACK_START_REQ;
 	param[2] = mode;
+	if (VCD_LOOPBACK_MODE_DELAY == mode)
+		param[3] = VCD_SPUV_LOOPBACK_DELAY_500;
+	else
+		param[3] = VCD_SPUV_LOOPBACK_DELAY_0;
 
 	/* output msg log */
 	vcd_spuv_interface_log(param[1]);
@@ -1200,14 +1289,17 @@ int vcd_spuv_get_call_type(void)
 	vcd_pr_start_spuv_function();
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush();
+	vcd_spuv_func_cacheflush((unsigned int)proc_param, PAGE_SIZE);
+	if (0x03000000 & g_vcd_log_level)/* VoIP Loopback [SRC] */
+		*proc_param = VCD_CALL_TYPE_VOIP;
 
 	if (VCD_CALL_TYPE_CS == *proc_param) {
 		call_type = VCD_CALL_TYPE_CS;
 	} else if (VCD_CALL_TYPE_VOIP == *proc_param) {
 		call_type = VCD_CALL_TYPE_VOIP;
+	} else if (VCD_CALL_TYPE_VOLTE == *proc_param) {
+		call_type = VCD_CALL_TYPE_VOLTE;
 	} else {
-		/* [T.B.D] */
 		vcd_pr_err("Unknown call type[%d].\n", *proc_param);
 		call_type = VCD_CALL_TYPE_CS;
 	}
@@ -1323,7 +1415,7 @@ static irqreturn_t vcd_spuv_irq_handler(int irq, void *dev_id)
 	unsigned int aintsts = 0;
 	unsigned int ieventc = 0;
 
-	vcd_pr_start_spuv_function("irq[%d],dev_id[%p].\n", irq, dev_id);
+	vcd_pr_start_irq_function("irq[%d],dev_id[%p].\n", irq, dev_id);
 
 	/* interrupt masked */
 	vcd_spuv_func_set_register(
@@ -1350,18 +1442,18 @@ static irqreturn_t vcd_spuv_irq_handler(int irq, void *dev_id)
 
 	/* entry queue */
 	if (VCD_SPUV_AINT_ACK & aintsts) {
-		vcd_pr_spuv_debug("interrupt Ack.\n");
+		vcd_pr_irq_debug("interrupt Ack.\n");
 		vcd_spuv_workqueue_enqueue(g_vcd_spuv_work_queue,
 					&g_vcd_spuv_interrupt_ack);
 	}
 
 	if (VCD_SPUV_AINT_REQ & aintsts) {
-		vcd_pr_spuv_debug("interrupt Req.\n");
+		vcd_pr_irq_debug("interrupt Req.\n");
 		vcd_spuv_workqueue_enqueue(g_vcd_spuv_work_queue,
 					&g_vcd_spuv_interrupt_req);
 	}
 
-	vcd_pr_end_spuv_function("return IRQ_HANDLED.\n");
+	vcd_pr_end_irq_function("return IRQ_HANDLED.\n");
 	return IRQ_HANDLED;
 }
 
@@ -1549,13 +1641,13 @@ static void vcd_spuv_workqueue_enqueue(
 
 	if (wq && work) {
 		spin_lock_irqsave(&wq->lock, flags);
-	        if (!test_and_set_bit(
+		if (!test_and_set_bit(
 			WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 			if (!list_empty(&work->link))
-				vcd_pr_err("Violation of sequence rule of fw. type1.\n");
+				vcd_pr_err("sequence violation. type1.\n");
 			list_add_tail(&work->link, &wq->top);
 		} else {
-			vcd_pr_err("Violation of sequence rule of fw. type2.\n");
+			vcd_pr_err("sequence violation. type2.\n");
 		}
 		spin_unlock_irqrestore(&wq->lock, flags);
 		wake_up_interruptible(&wq->wait);
@@ -1608,6 +1700,8 @@ int vcd_spuv_create_queue(void)
 						vcd_spuv_play_trigger);
 		vcd_spuv_work_initialize(&g_vcd_spuv_system_error,
 						vcd_spuv_system_error);
+		vcd_spuv_work_initialize(&g_vcd_spuv_udata_ind,
+						vcd_spuv_udata_ind);
 	}
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
@@ -1671,7 +1765,7 @@ static void vcd_spuv_interrupt_ack(void)
 	/* set schedule */
 	vcd_spuv_set_schedule();
 
-	vcd_pr_if_spuv("V <- F : ACK\n");
+	vcd_pr_if_spuv("[VCD <- SPUV ] : ACK\n");
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
@@ -1707,6 +1801,10 @@ static void vcd_spuv_interrupt_req(void)
 	int is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
 	unsigned int *fw_req = (int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
 	unsigned int spuv_status = VCD_SPUV_STATUS_NONE;
+	unsigned int *latest_sys_info =
+		(unsigned int *)SPUV_FUNC_SDRAM_SYSTEM_INFO_BUFFER;
+	unsigned int *rcv_msg_buf =
+		(unsigned int *)(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER + PAGE_SIZE);
 
 	vcd_pr_start_spuv_function();
 
@@ -1735,16 +1833,55 @@ static void vcd_spuv_interrupt_req(void)
 	case VCD_SPUV_SYSTEM_ERROR_IND:
 		/* status update */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+		/* copy SYSTEM_INFO_IND data length */
+		rcv_msg_buf[0] = latest_sys_info[0];
+		/* copy latest SYSTEM_INFO_IND data to MSG_BUFFER */
+		if (0 < rcv_msg_buf[0])
+			memcpy(
+				(void *)&rcv_msg_buf[1],
+				(void *)&latest_sys_info[1],
+				(sizeof(unsigned int) * rcv_msg_buf[0])
+			);
+
+		/* notify SYSTEM_ERROR_IND */
 		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
 						&g_vcd_spuv_system_error);
 		break;
 	case VCD_SPUV_SYSTEM_INFO_IND:
-		vcd_pr_spuv_info("system info length[%d].\n", fw_req[2]);
-		for (i = 3; i < (fw_req[2] + 3); i++)
+		/* copy SYSTEM_INFO_IND data length */
+		latest_sys_info[0] = fw_req[2];
+		/* copy latest SYSTEM_INFO_IND data */
+		if (0 < latest_sys_info[0])
+			memcpy(
+				(void *)&latest_sys_info[1],
+				(void *)&fw_req[3],
+				(sizeof(unsigned int) * latest_sys_info[0])
+			);
+		/* SYSTEM_INFO_IND data length output */
+		vcd_pr_spuv_info(
+			"system info length[%d].\n",
+			latest_sys_info[0]
+		);
+		/* SYSTEM_INFO_IND data output */
+		for (i = 0; i < latest_sys_info[0]; i++)
 			vcd_pr_spuv_debug(
-				"system info[%d][%x].\n", i, fw_req[i]);
+				"system info[%d][%x].\n",
+				i, latest_sys_info[1+i]
+			);
 		break;
 	case VCD_SPUV_UDATA_IND:
+		/* copy UDATA_IND data length */
+		rcv_msg_buf[0] = fw_req[2];
+		/* copy UDATA_IND data */
+		if (0 < rcv_msg_buf[0])
+			memcpy(
+				(void *)&rcv_msg_buf[1],
+				(void *)&fw_req[3],
+				(sizeof(unsigned int) * rcv_msg_buf[0])
+			);
+		/* notify UDATA_IND */
+		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
+						&g_vcd_spuv_udata_ind);
 		break;
 	case VCD_SPUV_TRIGGER_REC_IND:
 		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
@@ -1857,6 +1994,28 @@ static void vcd_spuv_system_error(void)
 
 	/* notification fw stop */
 	vcd_ctrl_stop_fw();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	queue out UDATA function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_spuv_udata_ind(void)
+{
+	vcd_pr_start_spuv_function();
+
+	/* set schedule */
+	vcd_spuv_set_schedule();
+
+	/* notification fw stop */
+	vcd_ctrl_udata_ind();
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -2053,7 +2212,7 @@ static void vcd_spuv_set_wait_fw_info(unsigned int fw_id, unsigned int msg_id)
 
 
 /**
- * @brief	stop playback function.
+ * @brief	check wait fw information function.
  *
  * @param	fw_id	interface id.
  * @param	msg_id	message id.
@@ -2069,12 +2228,16 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
 
 	if (VCD_SPUV_BOOT_COMPLETE_IND == msg_id) {
 		if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
-		(g_vcd_spuv_info.wait_fw_msg_id != msg_id)) {
+				(g_vcd_spuv_info.wait_fw_msg_id != msg_id)) {
 			g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 		}
 	} else if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
-		(g_vcd_spuv_info.wait_fw_msg_id != msg_id) ||
-		(VCD_SPUV_FW_RESULT_SUCCESS != result)) {
+			(g_vcd_spuv_info.wait_fw_msg_id != msg_id) ||
+			(VCD_SPUV_FW_RESULT_SUCCESS != result)) {
+		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
+	}
+
+	if (VCD_ERR_NONE != g_vcd_spuv_info.fw_result) {
 		vcd_pr_err(
 			"Expect:fw_id[0x%08x]msg_id[0x%08x].\n",
 			g_vcd_spuv_info.wait_fw_if_id,
@@ -2082,7 +2245,6 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
 		vcd_pr_err(
 			"Result:fw_id[0x%08x]msg_id[0x%08x]result[0x%08x].\n",
 			fw_id, msg_id, result);
-		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	}
 
 	vcd_pr_end_spuv_function();
@@ -2168,7 +2330,7 @@ static int vcd_spuv_check_result(void)
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
-		vcd_pr_if_spuv("V <- F : TIME OUT\n");
+		vcd_pr_if_spuv("[VCD <- SPUV ] : TIME OUT\n");
 		vcd_pr_err("firmware time out occured.\n");
 		/* update status */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
@@ -2230,6 +2392,7 @@ void vcd_spuv_dump_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
+	vcd_spuv_func_dump_hpb_registers();
 	vcd_spuv_func_dump_cpg_registers();
 	vcd_spuv_func_dump_crmu_registers();
 	vcd_spuv_func_dump_gtu_registers();
@@ -2237,6 +2400,24 @@ void vcd_spuv_dump_registers(void)
 	vcd_spuv_func_dump_intcvo_registers();
 	vcd_spuv_func_dump_spuv_registers();
 	vcd_spuv_func_dump_dsp0_registers();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump HPB registers function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_dump_hpb_registers(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_dump_hpb_registers();
 
 	vcd_pr_end_spuv_function();
 	return;

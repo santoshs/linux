@@ -1,23 +1,23 @@
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** Copyright (C) 2010-2012 Renesas Electronics Corp.                         **
-** All rights reserved.                                                      **
-** ************************************************************************* */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** Copyright (C) 2010-2012 Renesas Electronics Corp.                       **
+** All rights reserved.                                                    **
+** *********************************************************************** */
 #ifndef SEC_HAL_CMN_H
 #define SEC_HAL_CMN_H
 
-/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS ****************** */
-/* Component level, constant, visible to all, macro defs                     */
-/* ************************************************************************* */
+/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS **************** */
+/* Component level, constant, visible to all, macro defs                   */
+/* *********************************************************************** */
 #ifndef FALSE
 #define FALSE 0
 #endif /* FALSE */
@@ -33,8 +33,8 @@
 
 
 
-/* component level, changes according to env, visible to all, macros         */
-/* ************************************************************************* */
+/* component level, changes according to env, visible to all, macros       */
+/* *********************************************************************** */
 #if (defined SEC_HAL_MSG_BYTE_ORDER)
 #error !!Byte order macro already defined!!
 #else
@@ -56,7 +56,8 @@
 #endif /* SEC_HAL_TEST_ISOLATION */
 #endif
 
-#if (defined SEC_HAL_MEM_CACHE_CLEAN_FUNC || defined SEC_HAL_MEM_CACHE_FLUSH_FUNC)
+#if (defined SEC_HAL_MEM_CACHE_CLEAN_FUNC || \
+     defined SEC_HAL_MEM_CACHE_FLUSH_FUNC)
 #error !!Memory cache macros already defined!!
 #else
 #ifdef SEC_HAL_TEST_ISOLATION
@@ -79,7 +80,7 @@
 #error !!RAM msg area start address already defined!!
 #else
 
-#define SEC_HAL_MEM_RAM_MSG_AREA_ADDR_START               SEC_HAL_MEM_RAM_ADDR_START
+#define SEC_HAL_MEM_RAM_MSG_AREA_ADDR_START SEC_HAL_MEM_RAM_ADDR_START
 #endif
 
 #if (defined SEC_HAL_MEM_RAM_MSG_AREA_SIZE)
@@ -90,5 +91,5 @@
 
 unsigned long sec_hal_virt_to_icram_phys(unsigned long virt_addr);
 
-/* ******************************** END ************************************ */
+/* ******************************** END ********************************** */
 #endif /* SEC_HAL_CMN_H */

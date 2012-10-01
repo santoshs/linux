@@ -44,13 +44,15 @@
 /*
  * prototype declaration
  */
-extern void vcd_ctrl_get_msg_buffer(void);
-extern void vcd_ctrl_start_vcd(void);
-extern void vcd_ctrl_stop_vcd(void);
-extern void vcd_ctrl_set_hw_param(void);
-extern void vcd_ctrl_start_call(int call_type, int mode);
-extern void vcd_ctrl_stop_call(int call_type);
-extern void vcd_ctrl_set_udata(void);
+extern int vcd_ctrl_get_msg_buffer(void);
+extern int vcd_ctrl_get_async_area(void);
+extern int vcd_ctrl_free_async_area(unsigned int adr);
+extern int vcd_ctrl_start_vcd(void);
+extern int vcd_ctrl_stop_vcd(void);
+extern int vcd_ctrl_set_hw_param(void);
+extern int vcd_ctrl_start_call(int call_type, int mode);
+extern int vcd_ctrl_stop_call(int call_type);
+extern int vcd_ctrl_set_udata(void);
 extern void vcd_ctrl_get_status(void);
 extern int vcd_ctrl_get_result(void);
 
@@ -66,7 +68,10 @@ extern void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 extern void vcd_ctrl_rec_trigger(void);
 extern void vcd_ctrl_play_trigger(void);
 extern void vcd_ctrl_stop_fw(void);
+extern void vcd_ctrl_udata_ind(void);
 extern void vcd_ctrl_start_clkgen(void);
+extern void vcd_ctrl_stop_clkgen(void);
+extern void vcd_ctrl_wait_path(void);
 
 extern int vcd_ctrl_suspend(void);
 extern int vcd_ctrl_resume(void);
@@ -77,6 +82,7 @@ extern int vcd_ctrl_remove(void);
 
 extern void vcd_ctrl_dump_status(void);
 extern void vcd_ctrl_dump_registers(void);
+extern void vcd_ctrl_dump_hpb_registers(void);
 extern void vcd_ctrl_dump_cpg_registers(void);
 extern void vcd_ctrl_dump_crmu_registers(void);
 extern void vcd_ctrl_dump_gtu_registers(void);

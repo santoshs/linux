@@ -645,7 +645,6 @@ uint32_t sec_hal_pm_coma_cpu_off(void);
  *                              SEC_HAL_RES_FAIL error if operation failed.
  */
 uint32_t sec_hal_pm_poweroff(void);
-
 /* ******************************** END ************************************ */
 
 #endif /* SEC_HAL_RT_H */

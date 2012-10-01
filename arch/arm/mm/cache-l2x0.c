@@ -320,6 +320,10 @@ static void l2x0_disable(void)
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
+#ifdef CONFIG_ARM_SEC_HAL
+uint32_t sec_hal_pm_l2_enable(uint32_t spinlock_phys_addr);
+#endif /* CONFIG_ARM_SEC_HAL */
+
 void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
@@ -329,6 +333,11 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	const char *type;
 
 	l2x0_base = base;
+
+#ifdef CONFIG_ARM_SEC_HAL
+    /* share spinlock between public-secure worlds. */
+    sec_hal_pm_l2_enable(virt_to_phys(&l2x0_lock));
+#endif /* CONFIG_ARM_SEC_HAL */
 
 	l2x0_cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
 	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);

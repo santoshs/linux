@@ -187,12 +187,14 @@ void __exit max98090_exit(void);
 
   @param[i] device     value of device ID.
   @param[i] pcm_value  value of pcm.
+  @param[i] power      not used.
 
   @return function results.
 
   @see MAX98090_DEV_VAL.
 */
-int max98090_set_device(const u_long device, const u_int pcm_value);
+int max98090_set_device(const u_long device, const u_int pcm_value,
+	u_int power);
 
 /*!
   @brief get device setting.

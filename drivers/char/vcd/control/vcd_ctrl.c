@@ -35,9 +35,9 @@ unsigned int g_vcd_playback_mode;
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_get_msg_buffer(void)
+int vcd_ctrl_get_msg_buffer(void)
 {
 	vcd_pr_start_control_function();
 
@@ -46,7 +46,47 @@ void vcd_ctrl_get_msg_buffer(void)
 
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	get asyncrnous return area function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_get_async_area(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_get_async_area();
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	get asyncrnous return area function.
+ *
+ * @param	adr	asyncrnous address.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_free_async_area(unsigned int adr)
+{
+	vcd_pr_start_control_function("adr[0x%08x].\n", adr);
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_free_async_area(adr);
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
 }
 
 
@@ -55,9 +95,9 @@ void vcd_ctrl_get_msg_buffer(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_start_vcd(void)
+int vcd_ctrl_start_vcd(void)
 {
 	vcd_pr_start_control_function();
 
@@ -79,7 +119,12 @@ void vcd_ctrl_start_vcd(void)
 	g_vcd_ctrl_result = vcd_spuv_start_vcd();
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
 		vcd_pr_err("start vcd error[%d].\n", g_vcd_ctrl_result);
+
+#ifdef __VCD_PROC_IF_ENABLE__
+		/* update result */
 		g_vcd_ctrl_result = VCD_ERR_SYSTEM;
+#endif /* __VCD_PROC_IF_ENABLE__ */
+
 		goto rtn;
 	}
 
@@ -89,7 +134,7 @@ void vcd_ctrl_start_vcd(void)
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
@@ -98,9 +143,9 @@ rtn:
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_stop_vcd(void)
+int vcd_ctrl_stop_vcd(void)
 {
 	vcd_pr_start_control_function();
 
@@ -124,8 +169,10 @@ void vcd_ctrl_stop_vcd(void)
 		vcd_pr_control_info("vcd_spuv_stop_vcd[%d].\n",
 			g_vcd_ctrl_result);
 
+#ifdef __VCD_PROC_IF_ENABLE__
 	/* update result */
 	g_vcd_ctrl_result = VCD_ERR_NONE;
+#endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
 	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_NONE);
@@ -133,7 +180,7 @@ void vcd_ctrl_stop_vcd(void)
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
@@ -142,9 +189,9 @@ rtn:
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_set_hw_param(void)
+int vcd_ctrl_set_hw_param(void)
 {
 	vcd_pr_start_control_function();
 
@@ -172,19 +219,19 @@ void vcd_ctrl_set_hw_param(void)
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
 /**
  * @brief	start call function.
  *
- * @param	call_type	cs/1khz tone/pcm loopback/vif loopback.
+ * @param	call_kind	cs/1khz tone/pcm loopback/vif loopback.
  * @param	mode		loopback mode.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_start_call(int call_type, int mode)
+int vcd_ctrl_start_call(int call_kind, int mode)
 {
 	vcd_pr_start_control_function();
 
@@ -200,15 +247,15 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_KIND_CALL == call_type) {
+	if (VCD_CALL_KIND_CALL == call_kind) {
 		/* get call type (CS/VoIP) */
 		g_vcd_ctrl_call_type = vcd_spuv_get_call_type();
 		g_vcd_ctrl_result = vcd_spuv_start_call();
-	} else if (VCD_CALL_KIND_1KHZ == call_type)
+	} else if (VCD_CALL_KIND_1KHZ == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_start_1khz_tone();
-	else if (VCD_CALL_KIND_PCM_LB == call_type)
+	else if (VCD_CALL_KIND_PCM_LB == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_start_pcm_loopback(mode);
-	else if (VCD_CALL_KIND_VIF_LB == call_type)
+	else if (VCD_CALL_KIND_VIF_LB == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_start_bbif_loopback(mode);
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -219,21 +266,24 @@ void vcd_ctrl_start_call(int call_type, int mode)
 	/* update active status */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_CALL);
 
+	/* notification fw stop */
+	vcd_start_fw();
+
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
 /**
  * @brief	stop call function.
  *
- * @param	call_type	cs/1khz tone/pcm loopback/vif loopback.
+ * @param	call_kind	cs/1khz tone/pcm loopback/vif loopback.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_stop_call(int call_type)
+int vcd_ctrl_stop_call(int call_kind)
 {
 	vcd_pr_start_control_function();
 
@@ -249,16 +299,16 @@ void vcd_ctrl_stop_call(int call_type)
 	}
 
 	/* execute spuv function */
-	if (VCD_CALL_KIND_CALL == call_type) {
+	if (VCD_CALL_KIND_CALL == call_kind) {
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
 
 		/* init call type */
 		g_vcd_ctrl_call_type = 0;
-	} else if (VCD_CALL_KIND_1KHZ == call_type)
+	} else if (VCD_CALL_KIND_1KHZ == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_stop_1khz_tone();
-	else if (VCD_CALL_KIND_PCM_LB == call_type)
+	else if (VCD_CALL_KIND_PCM_LB == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_stop_pcm_loopback();
-	else if (VCD_CALL_KIND_VIF_LB == call_type)
+	else if (VCD_CALL_KIND_VIF_LB == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_stop_bbif_loopback();
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
@@ -272,7 +322,7 @@ void vcd_ctrl_stop_call(int call_type)
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
@@ -281,9 +331,9 @@ rtn:
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-void vcd_ctrl_set_udata(void)
+int vcd_ctrl_set_udata(void)
 {
 	vcd_pr_start_control_function();
 
@@ -308,7 +358,7 @@ void vcd_ctrl_set_udata(void)
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
-	return;
+	return g_vcd_ctrl_result;
 }
 
 
@@ -783,6 +833,25 @@ void vcd_ctrl_stop_fw(void)
 
 
 /**
+ * @brief	UDATA notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_udata_ind(void)
+{
+	vcd_pr_start_control_function();
+
+	/* notification fw stop */
+	vcd_udata_ind();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
  * @brief	start clkgen timing notification function.
  *
  * @param	none.
@@ -795,6 +864,44 @@ void vcd_ctrl_start_clkgen(void)
 
 	/* notification start clkgen timing */
 	vcd_start_clkgen();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	stop clkgen timing notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_stop_clkgen(void)
+{
+	vcd_pr_start_control_function();
+
+	/* notification stop clkgen timing */
+	vcd_stop_clkgen();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	wait set path function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_wait_path(void)
+{
+	vcd_pr_start_control_function();
+
+	/* wait set path */
+	vcd_wait_path();
 
 	vcd_pr_end_control_function();
 	return;
@@ -927,6 +1034,9 @@ int vcd_ctrl_probe(void)
 	vcd_ctrl_func_initialize();
 	g_vcd_ctrl_result = VCD_ERR_NONE;
 
+	/* register initialize */
+	vcd_spuv_init_register();
+
 rtn:
 	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
@@ -1006,6 +1116,25 @@ void vcd_ctrl_dump_registers(void)
 
 	/* execute spuv function */
 	vcd_spuv_dump_registers();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump HPB registers function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_hpb_registers(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_hpb_registers();
 
 	vcd_pr_end_control_function();
 	return;

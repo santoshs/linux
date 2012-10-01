@@ -42,8 +42,9 @@ enum VCD_COMMAND {
 	VCD_COMMAND_STOP_PLAYBACK,
 	VCD_COMMAND_GET_RECORD_BUFFER,
 	VCD_COMMAND_GET_PLAYBACK_BUFFER,
-	VCD_COMMAND_WATCH_STOP_FW,
-	VCD_COMMAND_WATCH_START_CLKGEN,
+	VCD_COMMAND_WATCH_FW,
+	VCD_COMMAND_WATCH_CLKGEN,
+	VCD_COMMAND_WAIT_PATH,
 	VCD_COMMAND_GET_VOIP_UL_BUFFER,
 	VCD_COMMAND_GET_VOIP_DL_BUFFER,
 	VCD_COMMAND_SET_VOIP_CALLBACK,
@@ -108,6 +109,20 @@ struct vcd_playback_buffer_info {
 	unsigned int *playback_buffer[2];
 };
 
+struct vcd_watch_fw_info {
+	void *start_fw;
+	void *stop_fw;
+};
+
+struct vcd_watch_clkgen_info {
+	void *start_clkgen;
+	void *stop_clkgen;
+};
+
+struct vcd_wait_path_info {
+	void *wait_path;
+};
+
 struct vcd_voip_ul_buffer_info {
 	unsigned int *voip_ul_buffer[2];
 };
@@ -134,6 +149,7 @@ typedef void (*vcd_voip_callback) (unsigned int buf_size);
 
 /* for sound */
 extern int vcd_execute(const struct vcd_execute_command *args);
+
 /* for audio ic */
 extern int vcd_execute_test_call(const struct vcd_execute_command *args);
 

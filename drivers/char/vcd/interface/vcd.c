@@ -19,10 +19,14 @@
 #include <linux/semaphore.h>
 #include <linux/miscdevice.h>
 #include <linux/mm.h>
+#include <linux/poll.h>
+#include <linux/sched.h>
+#include <linux/workqueue.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"
 #include "vcd.h"
+#include "libvcd.h"
 
 
 /*
@@ -33,10 +37,16 @@ void (*g_vcd_complete_buffer)(void);
 void (*g_vcd_beginning_buffer)(void);
 void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
 void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
+void (*g_vcd_start_fw)(void);
 void (*g_vcd_stop_fw)(void);
 void (*g_vcd_start_clkgen)(void);
+void (*g_vcd_stop_clkgen)(void);
+void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level;
+
+struct vcd_async_wait  g_vcd_async_wait;
+struct libvcd_status_async_map *g_vcd_status_async_map;
 
 int g_vcd_debug_call_kind;
 int g_vcd_debug_mode;
@@ -51,8 +61,9 @@ static struct vcd_execute_func vcd_func_table[] = {
 	{ VCD_COMMAND_STOP_PLAYBACK,		vcd_stop_playback	},
 	{ VCD_COMMAND_GET_RECORD_BUFFER,	vcd_get_record_buffer	},
 	{ VCD_COMMAND_GET_PLAYBACK_BUFFER,	vcd_get_playback_buffer	},
-	{ VCD_COMMAND_WATCH_STOP_FW,		vcd_watch_stop_fw	},
-	{ VCD_COMMAND_WATCH_START_CLKGEN,	vcd_watch_start_clkgen	},
+	{ VCD_COMMAND_WATCH_FW,			vcd_watch_fw		},
+	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen	},
+	{ VCD_COMMAND_WAIT_PATH,		vcd_set_wait_path	},
 	{ VCD_COMMAND_GET_VOIP_UL_BUFFER,	vcd_get_voip_ul_buffer	},
 	{ VCD_COMMAND_GET_VOIP_DL_BUFFER,	vcd_get_voip_dl_buffer	},
 	{ VCD_COMMAND_SET_VOIP_CALLBACK,	vcd_set_voip_callback	}
@@ -61,6 +72,7 @@ static struct vcd_execute_func vcd_func_table[] = {
 
 static struct vcd_execute_func vcd_loopback_func_table[] = {
 	{ VCD_COMMAND_SET_CALL_MODE,		vcd_set_call_mode	},
+	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen	}
 };
 
 /*
@@ -70,8 +82,8 @@ static const struct file_operations vcd_fops = {
 	.owner		= THIS_MODULE,
 	.read		= NULL,
 	.write		= NULL,
-	.poll		= NULL,
-	.unlocked_ioctl	= NULL,
+	.poll		= vcd_fops_poll,
+	.unlocked_ioctl	= vcd_fops_ioctl,
 	.open		= vcd_fops_open,
 	.release	= vcd_fops_release,
 	.mmap		= vcd_fops_mmap,
@@ -190,6 +202,25 @@ void vcd_voip_dl_callback(unsigned int buf_size)
 
 
 /**
+ * @brief	fw start notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_start_fw(void)
+{
+	vcd_pr_start_if_user();
+
+	if (NULL != g_vcd_start_fw)
+		g_vcd_start_fw();
+
+	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
  * @brief	fw stop notification function.
  *
  * @param	none.
@@ -200,6 +231,8 @@ void vcd_stop_fw(void)
 {
 	vcd_pr_start_if_user();
 
+	vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR);
+
 	if (NULL != g_vcd_stop_fw)
 		g_vcd_stop_fw();
 
@@ -207,6 +240,58 @@ void vcd_stop_fw(void)
 	g_vcd_beginning_buffer = NULL;
 
 	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
+ * @brief	UDATA notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_udata_ind(void)
+{
+	vcd_pr_start_if_user();
+
+	vcd_async_notify(LIBVCD_CB_TYPE_UDATA);
+
+	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
+ * @brief	async notification function.
+ *
+ * @param	cb_type	callback type.
+ *
+ * @retval	none.
+ */
+static void vcd_async_notify(unsigned int cb_type)
+{
+	struct libvcd_status_async_info *async_info = NULL;
+
+	vcd_pr_start_interface_function("cb_type[%d].\n", cb_type);
+
+	if (NULL == g_vcd_status_async_map)
+		goto rtn;
+
+	if ((LIBVCD_CB_TYPE_SYSTEM_ERROR == cb_type)	||
+	(LIBVCD_CB_TYPE_UDATA == cb_type)		||
+	(LIBVCD_CB_TYPE_VCD_END == cb_type)) {
+		async_info = &g_vcd_status_async_map->status[cb_type];
+		async_info->result = abs(0);
+		async_info->pre_write = true;
+		atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_OK);
+		wake_up_interruptible(&g_vcd_async_wait.read_q);
+	} else {
+		vcd_pr_err("unknown cb_type[%d].\n", cb_type);
+	}
+
+rtn:
+	vcd_pr_end_interface_function();
 	return;
 }
 
@@ -229,6 +314,43 @@ void vcd_start_clkgen(void)
 	return;
 }
 
+
+/**
+ * @brief	stop clkgen timing notification function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_stop_clkgen(void)
+{
+	vcd_pr_start_if_user();
+
+	if (NULL != g_vcd_stop_clkgen)
+		g_vcd_stop_clkgen();
+
+	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
+ * @brief	wait path function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_wait_path(void)
+{
+	vcd_pr_start_if_user();
+
+	if (NULL != g_vcd_wait_path)
+		g_vcd_wait_path();
+
+	vcd_pr_end_if_user();
+	return;
+}
 
 /* ========================================================================= */
 /* External public functions                                                 */
@@ -361,16 +483,64 @@ EXPORT_SYMBOL_GPL(vcd_execute_test_call);
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_get_msg_buffer(void)
+static int vcd_get_msg_buffer(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_get_msg_buffer();
+	ret = vcd_ctrl_get_msg_buffer();
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	get asyncrnous return area function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_get_async_area(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function();
+
+	/* execute control function */
+	ret = vcd_ctrl_get_async_area();
+
+	g_vcd_status_async_map = (struct libvcd_status_async_map *)ret;
+
+	vcd_pr_end_interface_function("ret[0x%08x].\n",
+			(unsigned int)__pa(ret));
+	return __pa(ret);
+}
+
+
+/**
+ * @brief	free asyncrnous return area function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_free_async_area(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function();
+
+	/* execute control function */
+	ret = vcd_ctrl_free_async_area((unsigned int)&g_vcd_status_async_map);
+
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -379,16 +549,19 @@ static void vcd_get_msg_buffer(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_start_vcd(void)
+static int vcd_start_vcd(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_start_vcd();
+	ret = vcd_ctrl_start_vcd();
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -397,16 +570,19 @@ static void vcd_start_vcd(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_stop_vcd(void)
+static int vcd_stop_vcd(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_stop_vcd();
+	ret = vcd_ctrl_stop_vcd();
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -415,16 +591,19 @@ static void vcd_stop_vcd(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_set_hw_param(void)
+static int vcd_set_hw_param(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_set_hw_param();
+	ret = vcd_ctrl_set_hw_param();
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -433,16 +612,19 @@ static void vcd_set_hw_param(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_start_call(void)
+static int vcd_start_call(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_start_call(g_vcd_debug_call_kind, g_vcd_debug_mode);
+	ret = vcd_ctrl_start_call(g_vcd_debug_call_kind, g_vcd_debug_mode);
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -451,16 +633,19 @@ static void vcd_start_call(void)
  *
  * @param	none.
  *
- * @retval	none.
+ * @retval	ret	result.
  */
-static void vcd_stop_call(void)
+static int vcd_stop_call(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_stop_call(g_vcd_debug_call_kind);
+	ret = vcd_ctrl_stop_call(g_vcd_debug_call_kind);
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -471,14 +656,17 @@ static void vcd_stop_call(void)
  *
  * @retval	none.
  */
-static void vcd_set_udata(void)
+static int vcd_set_udata(void)
 {
+	int ret = 0;
+
 	vcd_pr_start_interface_function();
 
 	/* execute control function */
-	vcd_ctrl_set_udata();
+	ret = vcd_ctrl_set_udata();
 
-	vcd_pr_end_interface_function();
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
 }
 
 
@@ -515,7 +703,7 @@ static int vcd_set_call_mode(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_audio("V <- A : VCD_COMMAND_SET_CALL_MODE\n");
+	vcd_pr_if_audio("[VCD <- AUDIO] : VCD_COMMAND_SET_CALL_MODE\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -573,7 +761,7 @@ static int vcd_start_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_RECORD\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_START_RECORD\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -627,7 +815,7 @@ static int vcd_stop_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_RECORD\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_STOP_RECORD\n");
 
 	/* initialize variable */
 	g_vcd_complete_buffer	= NULL;
@@ -656,7 +844,7 @@ static int vcd_start_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_START_PLAYBACK\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_START_PLAYBACK\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -710,7 +898,7 @@ static int vcd_stop_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_STOP_PLAYBACK\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_STOP_PLAYBACK\n");
 
 	/* initialize variable */
 	g_vcd_beginning_buffer	= NULL;
@@ -738,7 +926,7 @@ static int vcd_get_record_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_RECORD_BUFFER\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_RECORD_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -771,7 +959,7 @@ static int vcd_get_playback_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -804,7 +992,7 @@ static int vcd_get_voip_ul_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -837,7 +1025,7 @@ static int vcd_get_voip_dl_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -890,20 +1078,21 @@ rtn:
 
 
 /**
- * @brief	watch stop fw function.
+ * @brief	watch fw function.
  *
- * @param[in]	arg	pointer of notify function.
+ * @param[in]	arg	pointer of notify info structure.
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
  */
-static int vcd_watch_stop_fw(void *arg)
+static int vcd_watch_fw(void *arg)
 {
 	int ret = VCD_ERR_NONE;
+	struct vcd_watch_fw_info info = {0};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_STOP_FW\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_STOP_FW\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -912,8 +1101,11 @@ static int vcd_watch_stop_fw(void *arg)
 		goto rtn;
 	}
 
+	memcpy(&info, arg, sizeof(info));
+
 	/* register notify function */
-	g_vcd_stop_fw = arg;
+	g_vcd_start_fw = info.start_fw;
+	g_vcd_stop_fw = info.stop_fw;
 
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);
@@ -922,20 +1114,21 @@ rtn:
 
 
 /**
- * @brief	watch start clkgen function.
+ * @brief	watch clkgen function.
  *
- * @param[in]	arg	pointer of notify function.
+ * @param[in]	arg	pointer of notify info structure.
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	parameter error.
  */
-static int vcd_watch_start_clkgen(void *arg)
+static int vcd_watch_clkgen(void *arg)
 {
 	int ret = VCD_ERR_NONE;
+	struct vcd_watch_clkgen_info info = {0};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound("V <- S : VCD_COMMAND_WATCH_START_CLKGEN\n");
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_CLKGEN\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -944,8 +1137,46 @@ static int vcd_watch_start_clkgen(void *arg)
 		goto rtn;
 	}
 
+	memcpy(&info, arg, sizeof(info));
+
 	/* register notify function */
-	g_vcd_start_clkgen = arg;
+	g_vcd_start_clkgen = info.start_clkgen;
+	g_vcd_stop_clkgen = info.stop_clkgen;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set wait path function.
+ *
+ * @param[in]	arg	pointer of notify info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_set_wait_path(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_wait_path_info info = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WAIT_PATH\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&info, arg, sizeof(info));
+
+	/* register notify function */
+	g_vcd_wait_path = info.wait_path;
 
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);
@@ -978,6 +1209,13 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* semaphore start */
 	down(&g_vcd_semaphore);
 
+#if defined __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__
+	/* exec_proc is enable */
+#else
+	/* exec_proc is disable */
+	goto rtn;
+#endif /* __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__ */
+
 	vcd_pr_start_if_user();
 
 	/* execute control function */
@@ -988,9 +1226,16 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 
 	len = snprintf(page, count, "%d\n", result);
 
-	vcd_pr_if_amhal("V -> A : [%d]\n", result);
+	vcd_pr_if_amhal("[VCD -> AMHAL] : [%d]\n", result);
 
 	vcd_pr_end_if_user("result[%d].\n", result);
+
+#if defined __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__
+	/* exec_proc is enable */
+#else
+	/* exec_proc is disable */
+rtn:
+#endif /* __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__ */
 
 	/* semaphore end */
 	up(&g_vcd_semaphore);
@@ -1018,6 +1263,13 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 
 	/* semaphore start */
 	down(&g_vcd_semaphore);
+
+#if defined __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__
+	/* exec_proc is enable */
+#else
+	/* exec_proc is disable */
+	goto rtn;
+#endif /* __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__ */
 
 	/* check system_rev */
 	if ((system_rev & 0xFFFF) == 0x3E00) {
@@ -1080,12 +1332,12 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 		break;
 	default:
 		vcd_pr_err("write number failed.\n");
-		goto rtn;
+		break;
 	}
 
-rtn:
 	vcd_pr_end_if_user("len[%ld].\n", len);
 
+rtn:
 	/* semaphore end */
 	up(&g_vcd_semaphore);
 
@@ -1274,6 +1526,8 @@ static int vcd_debug_execute(unsigned int command)
 	struct vcd_playback_option playback_option = {0};
 	struct vcd_record_buffer_info record_buf_info = { {0} };
 	struct vcd_playback_buffer_info playback_buf_info = { {0} };
+	struct vcd_watch_fw_info watch_fw_info = {0};
+	struct vcd_watch_clkgen_info watch_clkgen_info = {0};
 	unsigned int temp_log_level = VCD_LOG_NONE;
 
 	vcd_pr_start_interface_function("command[%d].\n", command);
@@ -1303,8 +1557,15 @@ static int vcd_debug_execute(unsigned int command)
 	case VCD_COMMAND_GET_PLAYBACK_BUFFER:
 		args.arg = &playback_buf_info;
 		break;
-	case VCD_COMMAND_WATCH_STOP_FW:
-		args.arg = vcd_debug_watch_fw;
+	case VCD_COMMAND_WATCH_FW:
+		watch_fw_info.start_fw = vcd_debug_watch_start_fw;
+		watch_fw_info.stop_fw = vcd_debug_watch_stop_fw;
+		args.arg = &watch_fw_info;
+		break;
+	case VCD_COMMAND_WATCH_CLKGEN:
+		watch_clkgen_info.start_clkgen = vcd_debug_watch_start_clkgen;
+		watch_clkgen_info.stop_clkgen = vcd_debug_watch_stop_clkgen;
+		args.arg = &watch_fw_info;
 		break;
 	default:
 		/* check debug commands */
@@ -1328,6 +1589,10 @@ debug:
 	case VCD_DEBUG_DUMP_REGISTERS:
 		/* execute control function */
 		vcd_ctrl_dump_registers();
+		break;
+	case VCD_DEBUG_DUMP_HPB_REGISTERS:
+		/* execute control function */
+		vcd_ctrl_dump_hpb_registers();
 		break;
 	case VCD_DEBUG_DUMP_CPG_REGISTERS:
 		/* execute control function */
@@ -1452,13 +1717,55 @@ static void vcd_debug_beginning_buffer(void)
 
 
 /**
+ * @brief	firmware start notify debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_debug_watch_start_fw(void)
+{
+	vcd_pr_start_interface_function();
+	vcd_pr_end_interface_function();
+}
+
+
+/**
  * @brief	firmware stop notify debug function.
  *
  * @param	none.
  *
  * @retval	none.
  */
-static void vcd_debug_watch_fw(void)
+static void vcd_debug_watch_stop_fw(void)
+{
+	vcd_pr_start_interface_function();
+	vcd_pr_end_interface_function();
+}
+
+
+/**
+ * @brief	clkgen start notify debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_debug_watch_start_clkgen(void)
+{
+	vcd_pr_start_interface_function();
+	vcd_pr_end_interface_function();
+}
+
+
+/**
+ * @brief	clkgen stop notify debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_debug_watch_stop_clkgen(void)
 {
 	vcd_pr_start_interface_function();
 	vcd_pr_end_interface_function();
@@ -1607,6 +1914,10 @@ static int vcd_probe(void)
 		vcd_pr_always_err("vcd_create_proc_entry error.\n");
 		goto ctrl_remove;
 	}
+
+	/* init async responce */
+	init_waitqueue_head(&g_vcd_async_wait.read_q);
+	atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_NG);
 
 	goto rtn;
 
@@ -1808,10 +2119,139 @@ static int vcd_fops_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	int ret = VCD_ERR_NONE;
 
+	vcd_pr_start_interface_function();
+
 	ret = remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 			vma->vm_end - vma->vm_start, vma->vm_page_prot);
 
+	vcd_pr_end_interface_function("ret [%d]\n", ret);
 	return ret;
+}
+
+
+/**
+ * @brief	file operations ioctl function.
+ *
+ * @param	fp	file struct.
+ * @param	cmd	command type.
+ * @param	arg	user parameter.
+ *
+ * @retval	ret	result.
+ */
+static long vcd_fops_ioctl
+(struct file *fp, unsigned int cmd, unsigned long arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vocoder_ioctl_message msg;
+
+	/* semaphore start */
+	down(&g_vcd_semaphore);
+
+	vcd_pr_start_interface_function();
+
+	switch (cmd) {
+	case VCD_IOCTL_GET_MSG_BUF:
+		vcd_pr_if_amhal(VCD_PROC_IF_GET_MSG_BUFFER_LOG);
+		/* parameter copy */
+		ret = copy_from_user(&msg.param, (void __user *)arg,
+				sizeof(msg.param));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_from_user failed.\n", cmd);
+			goto rtn;
+		}
+		vcd_pr_interface_debug("msg.param.addr = [0x%08x]\n",
+				msg.param.addr);
+		ret = vcd_get_msg_buffer();
+		ret = copy_to_user((void __user *)arg,
+				&ret, sizeof(int));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_to_user failed.\n", cmd);
+			goto rtn;
+		}
+		break;
+	case VCD_IOCTL_START_VCD:
+		vcd_pr_if_amhal(VCD_PROC_IF_START_VCD_LOG);
+		ret = vcd_start_vcd();
+		break;
+	case VCD_IOCTL_STOP_VCD:
+		vcd_pr_if_amhal(VCD_PROC_IF_STOP_VCD_LOG);
+		ret = vcd_stop_vcd();
+		/* stop async thread */
+		vcd_async_notify(LIBVCD_CB_TYPE_VCD_END);
+		break;
+	case VCD_IOCTL_SET_HW_PARAM:
+		vcd_pr_if_amhal(VCD_PROC_IF_SET_HW_PARAM_LOG);
+		ret = vcd_set_hw_param();
+		break;
+	case VCD_IOCTL_START_CALL:
+		vcd_pr_if_amhal(VCD_PROC_IF_START_CALL_LOG);
+		ret = vcd_start_call();
+		break;
+	case VCD_IOCTL_STOP_CALL:
+		vcd_pr_if_amhal(VCD_PROC_IF_STOP_CALL_LOG);
+		ret = vcd_stop_call();
+		break;
+	case VCD_IOCTL_UDATA:
+		vcd_pr_if_amhal(VCD_PROC_IF_SET_UDATA_LOG);
+		ret = vcd_set_udata();
+		break;
+	case VCD_IOCTL_GET_ASYNC_MEM:
+		ret = copy_from_user(&msg.param,
+				(void __user *)arg, sizeof(msg.param));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_from_user failed.\n", cmd);
+			goto rtn;
+		}
+		vcd_pr_interface_debug("msg.param.addr = [0x%08x]\n",
+				msg.param.addr);
+		ret = vcd_get_async_area();
+		ret = copy_to_user((void __user *)arg, &ret, sizeof(int));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_to_user failed.\n", cmd);
+			goto rtn;
+		}
+		break;
+	case VCD_IOCTL_FREE_ASYNC_MEM:
+		ret = vcd_free_async_area();
+		g_vcd_status_async_map = NULL;
+		break;
+	default:
+		vcd_pr_err("parameter error. cmd[%d].\n", cmd);
+		break;
+	}
+
+rtn:
+	/* semaphore end */
+	up(&g_vcd_semaphore);
+
+	vcd_pr_end_interface_function();
+	return ret;
+}
+
+
+/**
+ * @brief	file operations poll function.
+ *
+ * @param	fp	file struct.
+ * @param	wait	poll_table_struct.
+ *
+ * @retval	retmask	result.
+ */
+static unsigned int vcd_fops_poll
+(struct file *fp, struct poll_table_struct *wait)
+{
+	unsigned int	retmask = 0;
+
+	vcd_pr_start_interface_function();
+
+	poll_wait(fp, &g_vcd_async_wait.read_q, wait);
+	if (VCD_POLL_READ_OK == atomic_read(&g_vcd_async_wait.readable)) {
+		retmask |= (POLLIN | POLLRDNORM);
+		atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_NG);
+	}
+
+	vcd_pr_end_interface_function();
+	return retmask;
 }
 
 

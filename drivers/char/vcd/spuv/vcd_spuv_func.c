@@ -22,6 +22,7 @@
 #include <linux/vmalloc.h>
 #ifdef __VCD_POWERDOMAIN_ENABLE__
 #include <mach/pm.h>
+#include <linux/hwspinlock.h>
 #endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 #include <linux/fs.h>
@@ -65,9 +66,11 @@ unsigned int g_spuv_func_record_buffer_id;
 unsigned int g_spuv_func_voip_ul_buffer_id;
 unsigned int g_spuv_func_voip_dl_buffer_id;
 
-unsigned int g_spuv_func_alsa_sampling_rate;/* [T.B.D] */
-unsigned int g_spuv_func_spuv_sampling_rate;/* [T.B.D] */
-int g_spuv_func_alsa_buf_size;
+unsigned int g_spuv_func_alsa_ul_sampling_rate;
+unsigned int g_spuv_func_alsa_dl_sampling_rate;
+unsigned int g_spuv_func_spuv_sampling_rate;
+int g_spuv_func_alsa_ul_buf_size;
+int g_spuv_func_alsa_dl_buf_size;
 int g_spuv_func_spuv_buf_size;
 
 #ifdef __VCD_MERAM_ENABLE__
@@ -121,6 +124,8 @@ static void vcd_spuv_func_reg_firmware(void);
 static int vcd_spuv_func_conv_global_size(const unsigned int global_size);
 static void vcd_spuv_func_dsp_full_reset(void);
 
+static int vcd_spuv_func_get_resample_buf_size(int rate);
+static int vcd_spuv_func_get_resample_mode(int in_rate, int out_rate);
 static int vcd_spuv_func_resampler_resample(
 	short *out_buf, int out_buf_size, int out_rate,
 	short *in_buf, int in_buf_size, int in_rate);
@@ -160,23 +165,25 @@ void vcd_spuv_func_initialize(void)
 /**
  * @brief	cache flush function.
  *
- * @param	none.
+ * @param[in]	start_addr	cache start logical address.
+ * @param[in]	size		cache size.
  *
  * @retval	none.
  */
-void vcd_spuv_func_cacheflush(void)
+void vcd_spuv_func_cacheflush(unsigned int start_addr, unsigned int size)
 {
 	int buf_addr = 0;
 
-	vcd_pr_start_spuv_function();
+	vcd_pr_start_spuv_function("start_addr[0x%08x], size[%d].\n",
+		start_addr, size);
 
 	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
-		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER - SPUV_FUNC_SDRAM_AREA_TOP);
+		(start_addr - SPUV_FUNC_SDRAM_AREA_TOP);
 
-	dmac_flush_range((void *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER,
-		(void *)(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER + PAGE_SIZE));
+	dmac_flush_range((void *)start_addr,
+		(void *)(start_addr + size));
 	outer_flush_range((unsigned long)buf_addr,
-		(unsigned long)(buf_addr + PAGE_SIZE));
+		(unsigned long)(buf_addr + size));
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -197,6 +204,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 {
 	int ret = VCD_ERR_NONE;
 	int loop_count = 0;
+	unsigned long flags;
 	unsigned int hpbctrl2 = 0;
 	size_t power_domain_count = 0;
 
@@ -218,6 +226,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 				vcd_pr_err(
 					"get power domain error. ret[%d].\n",
 					ret);
+				/* update result */
+				ret = VCD_ERR_POWER_DOMAIN;
 				goto rtn;
 			}
 
@@ -244,7 +254,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 				vcd_pr_err("g_spuv_func_clkgen_clk[%p].\n",
 					g_spuv_func_clkgen_clk);
 				g_spuv_func_clkgen_clk = NULL;
-				ret = VCD_ERR_SYSTEM;
+				/* update result */
+				ret = VCD_ERR_SET_CLK;
 				goto rtn;
 			}
 		}
@@ -255,6 +266,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 			if (VCD_ERR_NONE != ret) {
 				vcd_pr_err("clock enable error. ret[%d].\n",
 					ret);
+				/* update result */
+				ret = VCD_ERR_SET_CLK;
 				goto rtn;
 			}
 			g_spuv_func_is_clkgen_clk = true;
@@ -267,7 +280,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 				vcd_pr_err("g_spuv_func_spuv_clk[%p].\n",
 					g_spuv_func_spuv_clk);
 				g_spuv_func_spuv_clk = NULL;
-				ret = VCD_ERR_SYSTEM;
+				/* update result */
+				ret = VCD_ERR_SET_CLK;
 				goto rtn;
 			}
 		}
@@ -278,30 +292,38 @@ int vcd_spuv_func_control_power_supply(int effective)
 			if (VCD_ERR_NONE != ret) {
 				vcd_pr_err("clock enable error. ret[%d].\n",
 					ret);
+				/* update result */
+				ret = VCD_ERR_SET_CLK;
 				goto rtn;
 			}
 			g_spuv_func_is_spuv_clk = true;
 		}
 
 		/* cpga spuv module reset */
-#if 0
-		sh73a0_get_cpg_hpb_sem_with_lock(flags);
-#endif
-		vcd_spuv_func_modify_register(
-			0,
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
-		udelay(62);
-		vcd_spuv_func_modify_register(
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			0,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
-		while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
-				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
-			cpu_relax();
-#if 0
-		sh73a0_put_cpg_hpb_sem_with_lock(flags);
-#endif
+		ret = hwspin_lock_timeout_irqsave(
+				r8a73734_hwlock_cpg,
+				VCD_SPUV_FUNC_MAX_LOCK_TIME,
+				&flags);
+		if (ret < 0) {
+			vcd_pr_err("can't lock hwlock_cpg. ret[%d].\n", ret);
+			/* update result */
+			ret = VCD_ERR_HWSPINLOCK_TIME_OUT;
+			goto rtn;
+		} else {
+			vcd_spuv_func_modify_register(
+				0,
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+				SPUV_FUNC_RW_32_CPG_SRCR2);
+			udelay(62);
+			vcd_spuv_func_modify_register(
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+				0,
+				SPUV_FUNC_RW_32_CPG_SRCR2);
+			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
+					ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
+				cpu_relax();
+			hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+		}
 
 		vcd_spuv_func_set_register(
 			VCD_SPUV_FUNC_CRMU_VOICEIF_ON,
@@ -309,24 +331,28 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 	} else {
 		/* cpga spuv module reset */
-#if 0
-		sh73a0_get_cpg_hpb_sem_with_lock(flags);
-#endif
-		vcd_spuv_func_modify_register(
-			0,
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
-		udelay(62);
-		vcd_spuv_func_modify_register(
-			VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-			0,
-			SPUV_FUNC_RW_32_CPG_SRCR2);
-		while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
-				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
-			cpu_relax();
-#if 0
-		sh73a0_put_cpg_hpb_sem_with_lock(flags);
-#endif
+		ret = hwspin_lock_timeout_irqsave(
+				r8a73734_hwlock_cpg,
+				VCD_SPUV_FUNC_MAX_LOCK_TIME,
+				&flags);
+		if (ret < 0) {
+			vcd_pr_err("can't lock hwlock_cpg. ret[%d].\n", ret);
+			ret = VCD_ERR_HWSPINLOCK_TIME_OUT;
+		} else {
+			vcd_spuv_func_modify_register(
+				0,
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+				SPUV_FUNC_RW_32_CPG_SRCR2);
+			udelay(62);
+			vcd_spuv_func_modify_register(
+				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
+				0,
+				SPUV_FUNC_RW_32_CPG_SRCR2);
+			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
+					ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
+				cpu_relax();
+			hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+		}
 
 		/* spuv clock */
 		if (NULL != g_spuv_func_spuv_clk) {
@@ -663,7 +689,7 @@ int vcd_spuv_func_set_fw(void)
 		} else {
 			vcd_pr_err("unknown memory type. memory_type[0x%x].\n",
 				memory_type);
-			ret = VCD_ERR_SYSTEM;
+			ret = VCD_ERR_NOMEMORY;
 			goto rtn;
 		}
 
@@ -818,7 +844,7 @@ void vcd_spuv_func_send_ack(int is_log_enable)
 	vcd_pr_start_spuv_function();
 
 	if (VCD_SPUV_FUNC_ENABLE == is_log_enable)
-		vcd_pr_if_spuv("V -> F : ACK\n");
+		vcd_pr_if_spuv("[VCD -> SPUV ] : ACK\n");
 
 	/* set arm_msg_it */
 	vcd_spuv_func_modify_register(0,
@@ -870,6 +896,58 @@ void vcd_spuv_func_get_fw_request(void)
 	}
 
 	pm_release_spinlock(flags);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set hpb register function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_hpb_register(void)
+{
+	vcd_pr_start_spuv_function();
+
+	/* if ((system_rev & 0xFFFF) <= 0x3E12) { */
+		vcd_spuv_func_modify_register(
+			VCD_SPUV_FUNC_HPBCTRL2_DMSENMRAM,
+			0,
+			SPUV_FUNC_RW_32_HPB_HPBCTRL2);
+
+	/* } */
+	if ((system_rev & 0xFFFF) <= 0x3E10) {
+		vcd_spuv_func_modify_register(
+			VCD_SPUV_FUNC_HPBCTRL2_DMSENMSH,
+			0,
+			SPUV_FUNC_RW_32_HPB_HPBCTRL2);
+	}
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	set cpg register function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_set_cpg_register(void)
+{
+	vcd_pr_start_spuv_function();
+
+	/* if ((system_rev & 0xFFFF) <= 0x3E12) { */
+		vcd_spuv_func_modify_register(0,
+			VCD_SPUV_FUNC_MPMODE_MPSWMSK,
+			SPUV_FUNC_RW_32_CPG_MPMODE);
+	/* } */
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1228,39 +1306,45 @@ rtn:
 
 
 /* ========================================================================= */
-/* SRC functions                                                          */
+/* SRC functions                                                             */
 /* ========================================================================= */
 
+
 /**
- * @brief	get resample buffer size function.
+ * @brief	resample information table.
  *
- * @param	rate		sampling rate.
+ * @param	none
  *
- * @retval	res_buf_size	resample buffer size.
+ * @retval	sampling rate / buffer size
  */
-static const int vcd_spuv_func_get_resample_buf_size[9] = {
-	320, 441, 480, 640, 882, 960, 1280, 1764, 1920
+static const int vcd_spuv_func_resample_table
+[VCD_SPUV_FUNC_RESAMPLE_TABLE_MAX][VCD_SPUV_FUNC_SAMPLING_RATE_MAX] = {
+	/* sampling rate */
+	{8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000},
+	/* buffer size */
+	{ 320,   441,   480,   640,   882,   960,  1280,  1764,  1920}
 };
 
 
 /**
- * @brief	get resample mode function.
+ * @brief	resample mode information.
  *
- * @param	res_type	up resample or down resample.
+ * @param	none
  *
- * @retval	res_mode	resample mode.
+ * @retval	resampling mode.
  */
-static const int vcd_spuv_func_get_resample_mode[9][9] = {
+static const int vcd_spuv_func_resample_mode
+[VCD_SPUV_FUNC_SAMPLING_RATE_MAX][VCD_SPUV_FUNC_SAMPLING_RATE_MAX] = {
 	/* OUT      8    11    12    16 */
 			/*      22    24    32    44    48 */
 	/* IN */
-	/*  8 */{0xFF, 0xFF, 0xFF, 0xFF,
+	/*  8 */{0xFF, 0xFF, 0xFF, ALSA_8_2_VCD_16,
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
 	/* 11 */{0xFF, 0xFF, 0xFF, 0xFF,
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
 	/* 12 */{0xFF, 0xFF, 0xFF, 0xFF,
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 16 */{0xFF, 0xFF, 0xFF, 0xFF,
+	/* 16 */{VCD_16_2_ALSA_8, 0xFF, 0xFF, 0xFF,
 				0xFF, 0xFF, 0xFF, VCD2ALSA, VCD2ALSA_48,},
 	/* 22 */{0xFF, 0xFF, 0xFF, 0xFF,
 				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
@@ -1276,49 +1360,130 @@ static const int vcd_spuv_func_get_resample_mode[9][9] = {
 
 
 /**
+ * @brief	get resample buffer size function.
+ *
+ * @param	rate		sampling rate.
+ *
+ * @retval	res_buf_size	resample buffer size.
+ */
+static int vcd_spuv_func_get_resample_buf_size(int rate)
+{
+	int i = 0;
+	int buf_size = 0;
+
+	vcd_pr_start_spuv_function("rate[%d].\n", rate);
+
+	for (i = 0; i < VCD_SPUV_FUNC_SAMPLING_RATE_MAX; i++) {
+		if (rate == vcd_spuv_func_resample_table
+			[VCD_SPUV_FUNC_RESAMPLE_TABLE_SAMPLING_RATE][i]) {
+			buf_size = vcd_spuv_func_resample_table
+				[VCD_SPUV_FUNC_RESAMPLE_TABLE_BUFFER_SIZE][i];
+			break;
+		}
+	}
+
+	vcd_pr_end_spuv_function("buf_size[%d].\n", buf_size);
+	return buf_size;
+}
+
+
+/**
+ * @brief	get resample mode function.
+ *
+ * @param	in_rate		input sampling rate.
+ * @param	out_rate	output sampling rate.
+ *
+ * @retval	res_mode	resample mode.
+ */
+static int vcd_spuv_func_get_resample_mode(int in_rate, int out_rate)
+{
+	int i = 0;
+	int in = 0;
+	int out = 0;
+	int mode = 0;
+
+	vcd_pr_start_spuv_function("in_rate[%d], out_rate[%d].\n"
+		, in_rate, out_rate);
+
+	for (i = 0; i < 9; i++) {
+		if (in_rate == vcd_spuv_func_resample_table
+			[VCD_SPUV_FUNC_RESAMPLE_TABLE_SAMPLING_RATE][i])
+			in = i;
+		if (out_rate == vcd_spuv_func_resample_table
+			[VCD_SPUV_FUNC_RESAMPLE_TABLE_SAMPLING_RATE][i])
+			out = i;
+	}
+
+	mode = vcd_spuv_func_resample_mode[in][out];
+
+	vcd_pr_end_spuv_function("mode[%d].\n", mode);
+	return mode;
+};
+
+
+/**
  * @brief	initialize resampler function.
  *
- * @param[in]	alsa_rate	ALSA sampling rate.
+ * @param[in]	alsa ul_rate	UL ALSA sampling rate.
+ * @param[in]	alsa dl_rate	DL ALSA sampling rate.
  * @param[in]	spuv_rate	SPUV sampling rate.
  *
  * @retval	ret	initialize resampler return value.
  */
-int vcd_spuv_func_resampler_init(int alsa_rate, int spuv_rate)
+int vcd_spuv_func_resampler_init(
+	int alsa_ul_rate, int alsa_dl_rate, int spuv_rate)
 {
 	int ret = 0;
+	int alsa_buf_size = 0;
 
 	vcd_pr_start_spuv_function(
-		"alsa_rate[%d], spuv_rate[%d].\n",
-		alsa_rate, spuv_rate);
+		"alsa_ul_rate[%d], alsa_dl_rate[%d], spuv_rate[%d].\n",
+		alsa_ul_rate, alsa_dl_rate, spuv_rate);
 
 	/* save sampling rate */
-	g_spuv_func_alsa_sampling_rate = alsa_rate;
+	g_spuv_func_alsa_ul_sampling_rate = alsa_ul_rate;
+	g_spuv_func_alsa_dl_sampling_rate = alsa_dl_rate;
 	g_spuv_func_spuv_sampling_rate = spuv_rate;
 
-	if (0x01000000 & g_vcd_log_level)
+	if (0x01000000 & g_vcd_log_level) {
 		/* 44.1KHz */
-		g_spuv_func_alsa_sampling_rate =
-			VCD_SPUV_FUNC_SAMPLING_RATE_44KHZ;
-	else if (0x02000000 & g_vcd_log_level)
+		g_spuv_func_alsa_ul_sampling_rate = 44100;
+		g_spuv_func_alsa_dl_sampling_rate = 44100;
+	} else if (0x02000000 & g_vcd_log_level) {
 		/* 48KHz */
-		g_spuv_func_alsa_sampling_rate =
-			VCD_SPUV_FUNC_SAMPLING_RATE_48KHZ;
+		g_spuv_func_alsa_ul_sampling_rate = 48000;
+		g_spuv_func_alsa_dl_sampling_rate = 48000;
+	}
 
-	/* get buffer size */
-	g_spuv_func_alsa_buf_size =
-		vcd_spuv_func_get_resample_buf_size
-		[g_spuv_func_alsa_sampling_rate];
+	/* get alsa buffer size */
+	g_spuv_func_alsa_ul_buf_size =
+	vcd_spuv_func_get_resample_buf_size(g_spuv_func_alsa_ul_sampling_rate);
+	g_spuv_func_alsa_dl_buf_size =
+	vcd_spuv_func_get_resample_buf_size(g_spuv_func_alsa_dl_sampling_rate);
+
+	/* get spuv buffer size */
 	g_spuv_func_spuv_buf_size =
-		vcd_spuv_func_get_resample_buf_size
-		[g_spuv_func_spuv_sampling_rate];
+	vcd_spuv_func_get_resample_buf_size(g_spuv_func_spuv_sampling_rate);
 
 	vcd_pr_spuv_debug(
-		"alsa_buf_size[%d] spuv_buf_size[%d].\n",
-		g_spuv_func_alsa_buf_size, g_spuv_func_spuv_buf_size);
+		"alsa_ul_buf_size[%d], "
+		"alsa_dl_buf_size[%d], "
+		"spuv_buf_size[%d].\n",
+		g_spuv_func_alsa_ul_buf_size,
+		g_spuv_func_alsa_dl_buf_size,
+		g_spuv_func_spuv_buf_size);
+
+	/* check large buffer size. */
+	if (g_spuv_func_alsa_ul_buf_size < g_spuv_func_alsa_dl_buf_size)
+		alsa_buf_size = g_spuv_func_alsa_dl_buf_size;
+	else
+		alsa_buf_size = g_spuv_func_alsa_ul_buf_size;
+
+	vcd_pr_spuv_debug("alsa_buf_size[%d].\n", alsa_buf_size);
 
 	/* initialize resampler */
 	ret = sh_resampler_init(
-		(g_spuv_func_alsa_buf_size/2),
+		(alsa_buf_size/2),
 		(g_spuv_func_spuv_buf_size/2));
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
@@ -1342,11 +1507,13 @@ int vcd_spuv_func_resampler_close(void)
 	ret = sh_resampler_close();
 
 	/* clear sampling rate */
-	g_spuv_func_alsa_sampling_rate = 0;
+	g_spuv_func_alsa_ul_sampling_rate = 0;
+	g_spuv_func_alsa_dl_sampling_rate = 0;
 	g_spuv_func_spuv_sampling_rate = 0;
 
 	/* clear buffer size */
-	g_spuv_func_alsa_buf_size = 0;
+	g_spuv_func_alsa_ul_buf_size = 0;
+	g_spuv_func_alsa_dl_buf_size = 0;
 	g_spuv_func_spuv_buf_size = 0;
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
@@ -1372,11 +1539,12 @@ static int vcd_spuv_func_resampler_resample(
 	int mode = 0;
 
 	vcd_pr_start_spuv_function(
-		"out_buf[%p], out_buf_size[%d], out_rate[%d] in_buf[%p], in_buf_size[%d], in_rate[%d].\n",
+		"out_buf[%p], out_buf_size[%d], out_rate[%d], "
+		"in_buf[%p], in_buf_size[%d], in_rate[%d].\n",
 		out_buf, out_buf_size, out_rate,
 		in_buf, in_buf_size, in_rate);
 
-	mode = vcd_spuv_func_get_resample_mode[in_rate][out_rate];
+	mode = vcd_spuv_func_get_resample_mode(in_rate, out_rate);
 	vcd_pr_spuv_debug("@@@@@mode[%d].@@@@@\n", mode);
 
 	res_size = sh_resampler_resample(out_buf, out_buf_size,
@@ -1425,7 +1593,7 @@ void vcd_spuv_func_voip_ul(unsigned int *buf_size)
 
 	vcd_pr_start_spuv_function();
 
-	if (0x0f000000 & g_vcd_log_level) { /* VoIP Loopback [SRC] */
+	if (0x03000000 & g_vcd_log_level) { /* VoIP Loopback [SRC] */
 		/* check VoIP DL buffer ID */
 		if (1 == vcd_spuv_func_get_voip_ul_buffer_id()) {
 			voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
@@ -1438,12 +1606,12 @@ void vcd_spuv_func_voip_ul(unsigned int *buf_size)
 
 		/* overwrite */
 		ret = vcd_spuv_func_resampler_resample(
-			(short *)voip_dl_buf, (g_spuv_func_alsa_buf_size/2),
-			g_spuv_func_alsa_sampling_rate,
+			(short *)voip_dl_buf, (g_spuv_func_alsa_ul_buf_size/2),
+			g_spuv_func_alsa_ul_sampling_rate,
 			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
 			g_spuv_func_spuv_sampling_rate);
 	} else {
-		/* check VoIP DL buffer ID */
+		/* check VoIP UL buffer ID */
 		if (1 == vcd_spuv_func_get_voip_ul_buffer_id()) {
 			voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
 			voip_ul_tmp_buf = SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1;
@@ -1451,13 +1619,13 @@ void vcd_spuv_func_voip_ul(unsigned int *buf_size)
 
 		/* resample */
 		ret = vcd_spuv_func_resampler_resample(
-			(short *)voip_ul_buf, (g_spuv_func_alsa_buf_size/2),
-			g_spuv_func_alsa_sampling_rate,
+			(short *)voip_ul_buf, (g_spuv_func_alsa_ul_buf_size/2),
+			g_spuv_func_alsa_ul_sampling_rate,
 			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
 			g_spuv_func_spuv_sampling_rate);
 	}
 
-	*buf_size = (unsigned int)g_spuv_func_alsa_buf_size;
+	*buf_size = (unsigned int)g_spuv_func_alsa_ul_buf_size;
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1505,7 +1673,7 @@ void vcd_spuv_func_voip_ul_playback_mode1(void)
 
 	/* overwrite playback data (xxxbyte) */
 	memcpy((void *)voip_ul_buf, (void *)playback_buf,
-		g_spuv_func_alsa_sampling_rate);
+		g_spuv_func_alsa_ul_buf_size);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1529,7 +1697,7 @@ void vcd_spuv_func_voip_ul_playback_mode2(void)
 		voip_ul_buf = SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1;
 
 	/* overwrite playback data (xxxbyte) */
-	memset((void *)voip_ul_buf, 0x0, g_spuv_func_alsa_sampling_rate);
+	memset((void *)voip_ul_buf, 0x0, g_spuv_func_alsa_ul_buf_size);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1561,10 +1729,10 @@ void vcd_spuv_func_voip_dl(unsigned int *buf_size)
 	ret = vcd_spuv_func_resampler_resample(
 		(short *)voip_dl_tmp_buf, (g_spuv_func_spuv_buf_size/2),
 		g_spuv_func_spuv_sampling_rate,
-		(short *)voip_dl_buf, (g_spuv_func_alsa_buf_size/2),
-		g_spuv_func_alsa_sampling_rate);
+		(short *)voip_dl_buf, (g_spuv_func_alsa_dl_buf_size/2),
+		g_spuv_func_alsa_dl_sampling_rate);
 
-	*buf_size = (unsigned int)g_spuv_func_alsa_buf_size;
+	*buf_size = (unsigned int)g_spuv_func_alsa_dl_buf_size;
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1601,15 +1769,15 @@ void vcd_spuv_func_voip_dl_playback_mode0(void)
 	ret = vcd_spuv_func_resampler_resample(
 		(short *)voip_playback_buf, g_spuv_func_spuv_buf_size,
 		g_spuv_func_spuv_sampling_rate,
-		(short *)playback_buf, g_spuv_func_alsa_buf_size,
-		g_spuv_func_alsa_sampling_rate);
+		(short *)playback_buf, g_spuv_func_alsa_dl_buf_size,
+		g_spuv_func_alsa_dl_sampling_rate);
 
 	/* rate change DL data */
 	ret = vcd_spuv_func_resampler_resample(
 		(short *)voip_dl_tmp_buf, g_spuv_func_spuv_buf_size,
 		g_spuv_func_spuv_sampling_rate,
-		(short *)voip_dl_buf, g_spuv_func_alsa_buf_size,
-		g_spuv_func_alsa_sampling_rate);
+		(short *)voip_dl_buf, g_spuv_func_alsa_dl_buf_size,
+		g_spuv_func_alsa_dl_sampling_rate);
 
 	/* mixing "DL voice data" and "playback data" */
 	vcd_spuv_func_mixing(
@@ -1964,6 +2132,26 @@ void vcd_spuv_func_set_voip_dl_buffer_id(void)
 /* ========================================================================= */
 
 /**
+ * @brief	dump HPB registers function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_hpb_registers(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_registers_dump("HPBCTRL2     [%08x][0x%08x].\n",
+		ioread32(SPUV_FUNC_RW_32_HPB_HPBCTRL2),
+		SPUV_FUNC_RW_32_HPB_HPBCTRL2);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
  * @brief	dump CPG registers function.
  *
  * @param	none.
@@ -1973,6 +2161,9 @@ void vcd_spuv_func_set_voip_dl_buffer_id(void)
 void vcd_spuv_func_dump_cpg_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("VCLKCR1      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_VCLKCR1),
@@ -2004,6 +2195,9 @@ void vcd_spuv_func_dump_cpg_registers(void)
 	vcd_pr_registers_dump("HSICKCR      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CPG_HSICKCR),
 		SPUV_FUNC_RW_32_CPG_HSICKCR);
+	vcd_pr_registers_dump("MPMODE       [%08x][0x%08x].\n",
+		ioread32(SPUV_FUNC_RW_32_CPG_MPMODE),
+		SPUV_FUNC_RW_32_CPG_MPMODE);
 	vcd_pr_registers_dump("MSTPSR0      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_CPG_MSTPSR0),
 		SPUV_FUNC_RO_32_CPG_MSTPSR0);
@@ -2113,6 +2307,7 @@ void vcd_spuv_func_dump_cpg_registers(void)
 		ioread32(SPUV_FUNC_RW_32_CPG_CKSCR),
 		SPUV_FUNC_RW_32_CPG_CKSCR);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2129,6 +2324,9 @@ void vcd_spuv_func_dump_crmu_registers(void)
 {
 	vcd_pr_start_spuv_function();
 
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
+
 	vcd_pr_registers_dump("CRMU_GTU     [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CRMU_GTU),
 		SPUV_FUNC_RW_32_CRMU_GTU);
@@ -2139,6 +2337,7 @@ void vcd_spuv_func_dump_crmu_registers(void)
 		ioread32(SPUV_FUNC_RW_32_CRMU_INTCVO),
 		SPUV_FUNC_RW_32_CRMU_INTCVO);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2154,6 +2353,9 @@ void vcd_spuv_func_dump_crmu_registers(void)
 void vcd_spuv_func_dump_gtu_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("SEL_20_PLS   [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_SEL_20_PLS),
@@ -2207,6 +2409,7 @@ void vcd_spuv_func_dump_gtu_registers(void)
 		ioread32(SPUV_FUNC_RW_32_PC_RL_VL),
 		SPUV_FUNC_RW_32_PC_RL_VL);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2222,6 +2425,9 @@ void vcd_spuv_func_dump_gtu_registers(void)
 void vcd_spuv_func_dump_voiceif_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("UL1_BUF      [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RO_32_UL1_BUF),
@@ -2278,6 +2484,7 @@ void vcd_spuv_func_dump_voiceif_registers(void)
 		ioread32(SPUV_FUNC_RO_32_U5_P_LT),
 		SPUV_FUNC_RO_32_U5_P_LT);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2293,6 +2500,9 @@ void vcd_spuv_func_dump_voiceif_registers(void)
 void vcd_spuv_func_dump_intcvo_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("DINTEN       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DINTEN),
@@ -2349,6 +2559,7 @@ void vcd_spuv_func_dump_intcvo_registers(void)
 		ioread32(SPUV_FUNC_RO_32_SHITSTAT),
 		SPUV_FUNC_RO_32_SHITSTAT);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2364,6 +2575,9 @@ void vcd_spuv_func_dump_intcvo_registers(void)
 void vcd_spuv_func_dump_spuv_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("CCTL         [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_CCTL),
@@ -2555,6 +2769,7 @@ void vcd_spuv_func_dump_spuv_registers(void)
 		ioread32(SPUV_FUNC_RW_32_GCLK_CTRL),
 		SPUV_FUNC_RW_32_GCLK_CTRL);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2570,6 +2785,9 @@ void vcd_spuv_func_dump_spuv_registers(void)
 void vcd_spuv_func_dump_dsp0_registers(void)
 {
 	vcd_pr_start_spuv_function();
+
+	if (!(g_vcd_log_level & VCD_LOG_REGISTERS_DUMP))
+		goto rtn;
 
 	vcd_pr_registers_dump("DSPRST       [%08x][0x%08x].\n",
 		ioread32(SPUV_FUNC_RW_32_DSPRST),
@@ -2776,6 +2994,7 @@ void vcd_spuv_func_dump_dsp0_registers(void)
 		ioread32(SPUV_FUNC_RW_32_GADDR_CTRL_Y),
 		SPUV_FUNC_RW_32_GADDR_CTRL_Y);
 
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }

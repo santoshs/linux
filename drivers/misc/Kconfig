@@ -19,6 +19,10 @@ menuconfig MISC_DEVICES
 	  If you say N, all options in this submenu will be skipped and disabled.
 
 if MISC_DEVICES
+config USB_SWITCH_TSU6712
+	bool "MUIC TSU6712"
+	help
+	  MUIC TSU6712
 
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"

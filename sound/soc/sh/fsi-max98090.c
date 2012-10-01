@@ -96,6 +96,9 @@ static int __init fsi_max98090_init(void)
 	g_sndp_codec_info.speaker_enable = MAX98090_SPEAKER_AMP_ENABLE;
 	g_sndp_codec_info.speaker_disable = MAX98090_SPEAKER_AMP_DISABLE;
 
+	g_sndp_codec_info.power_on = 1;
+	g_sndp_codec_info.power_off = 0;
+
 	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform);
 	if (ret)
 		goto out;
@@ -117,7 +120,7 @@ out:
 
 static void __exit fsi_max98090_exit(void)
 {
-/*	sndp_exit(); */
+	sndp_exit();
 	platform_device_unregister(fsi_snd_device);
 }
 

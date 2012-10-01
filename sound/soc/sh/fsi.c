@@ -1499,7 +1499,7 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 	reg = is_play ? DO_FMT : DI_FMT;
 	fmt = is_play ? SH_FSI_GET_OFMT(flags) : SH_FSI_GET_IFMT(flags);
 
-	fsi_reg_write(fsi, reg, 0x00100010);
+	fsi_reg_write(fsi, reg, 0x00100000);
 
 	/* irq clear */
 	fsi_irq_disable(fsi, is_play);

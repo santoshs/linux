@@ -92,6 +92,9 @@ static int __init fsi_wm1811_init(void)
 	g_sndp_codec_info.speaker_enable = WM1811_SPEAKER_AMP_ENABLE;
 	g_sndp_codec_info.speaker_disable = WM1811_SPEAKER_AMP_DISABLE;
 
+	g_sndp_codec_info.power_on = WM1811_POWER_ON;
+	g_sndp_codec_info.power_off = WM1811_POWER_OFF;
+
 	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform);
 	if (ret)
 		goto out;
@@ -113,7 +116,7 @@ out:
 
 static void __exit fsi_wm1811_exit(void)
 {
-/*	sndp_exit(); */
+	sndp_exit();
 	platform_device_unregister(fsi_snd_device);
 }
 

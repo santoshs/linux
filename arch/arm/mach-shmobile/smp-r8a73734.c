@@ -28,6 +28,7 @@
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
 #include <mach/r8a73734.h>
+
 #include <linux/suspend.h>
 #include <mach/pm.h>
 #include <linux/errno.h>
@@ -39,16 +40,16 @@
 #define SBAR2		IO_ADDRESS(0xe6180060)
 #define APARMBAREA	IO_ADDRESS(0xe6f10020)
 
+#define BOOT_ADDR	0xE63A3000
+static DEFINE_SPINLOCK(scu_lock);
 static void __iomem *scu_base_addr(void)
 {
 	return __io(IO_ADDRESS(0xf0000000));
 }
 
-static DEFINE_SPINLOCK(scu_lock);
-static unsigned long tmp;
-
 static void modify_scu_cpu_psr(unsigned long set, unsigned long clr)
 {
+	unsigned long tmp;
 	void __iomem *scu_base = scu_base_addr();
 
 	spin_lock(&scu_lock);
@@ -59,6 +60,29 @@ static void modify_scu_cpu_psr(unsigned long set, unsigned long clr)
 
 	/* disable cache coherency after releasing the lock */
 	__raw_writel(tmp, scu_base + 8);
+}
+
+static void rewrite_boot_entry(unsigned long entry)
+{
+	void __iomem *boot_code;
+	static struct clk *ram_clk;
+
+	__raw_writel(0, __io(SBAR2));
+	/* map the reset vector (in headsmp.S) */
+	__raw_writel(0, __io(APARMBAREA));	/* 4k */
+	if ((system_rev & 0xff) < 0x10) {
+		ram_clk = clk_get(NULL, "internal_ram0");
+		clk_enable(ram_clk);
+		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
+		r8a73734_secondary_vector_addr = entry;
+		memcpy(boot_code, r8a73734_secondary_vector,
+				r8a73734_secondary_vector_sz);
+		__raw_writel(BOOT_ADDR, __io(SBAR));
+		iounmap(boot_code);
+		clk_put(ram_clk);
+	} else {
+		__raw_writel(entry, __io(SBAR));
+	}
 }
 
 unsigned int __init r8a73734_get_core_count(void)
@@ -89,6 +113,13 @@ void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 
 int __cpuinit r8a73734_boot_secondary(unsigned int cpu)
 {
+#ifndef CONFIG_ARM_TZ
+	/* must be sure */
+	if (!(get_shmobile_suspend_state() & PM_SUSPEND_MEM)) {
+		pr_debug("prepare boot entry for CPU<%d>\n", cpu);
+		rewrite_boot_entry(__pa(shmobile_secondary_vector));
+	}
+#endif
 	/* enable cache coherency */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));
 
@@ -97,50 +128,29 @@ int __cpuinit r8a73734_boot_secondary(unsigned int cpu)
 	else
 		__raw_writel(1 << cpu, __io(SRESCR));	/* reset */
 
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	return 0;
 }
-
-#define BOOT_ADDR	0xe63a3000
-extern void r8a73734_secondary_vector(void);
-extern unsigned long r8a73734_secondary_vector_addr;
-extern unsigned long r8a73734_secondary_vector_sz;
 
 void __init r8a73734_smp_prepare_cpus(void)
 {
-	void __iomem *boot_code;
-	static struct clk *ram_clk;
-
 	scu_enable(scu_base_addr());
-
-	__raw_writel(0, __io(SBAR2));
-
-	/* Map the reset vector (in headsmp.S) */
-	__raw_writel(0, __io(APARMBAREA));      /* 4k */
-	if ((system_rev & 0xff) < 0x10) {
-		ram_clk = clk_get(NULL, "internal_ram0");
-		clk_enable(ram_clk);
-		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
-		r8a73734_secondary_vector_addr = __pa(shmobile_secondary_vector);
-		memcpy(boot_code, r8a73734_secondary_vector,
-				r8a73734_secondary_vector_sz);
-		__raw_writel(BOOT_ADDR, __io(SBAR));
-		iounmap(boot_code);
-		clk_put(ram_clk);
-	} else {
-		__raw_writel(__pa(shmobile_secondary_vector), __io(SBAR));
-	}
-
+	rewrite_boot_entry(__pa(shmobile_secondary_vector));
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (0 * 8));
 }
-extern void jump_systemsuspend(void);
-int r8a73734_smp_cpu_die (unsigned int cpu)
+
+int r8a73734_smp_cpu_die(unsigned int cpu)
 {
-	// Disable gic cpu_if
-        __raw_writel(0, IO_ADDRESS (0xf0000100 + GIC_CPU_CTRL));
- 
-        //Cpu state is "shutdown mode" will transition in this function.
-        jump_systemsuspend();
-	return 0;
+	pr_debug("smp-r8a73734: smp_cpu_die is called\n");
+	/* disable gic cpu_if */
+	__raw_writel(0, IO_ADDRESS(0xf0000100 + GIC_CPU_CTRL));
+	return 1;
 }
 
+int r8a73734_smp_cpu_kill(unsigned int cpu)
+{
+	modify_scu_cpu_psr(3 << (cpu * 8), 0);
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	return 1;
+}

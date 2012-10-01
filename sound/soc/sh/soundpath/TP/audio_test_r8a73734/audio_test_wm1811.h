@@ -59,7 +59,8 @@
 #define AUDIO_TEST_LOG_BYTE_LOW(sw)	((sw) & 0x0000000f)
 
 #define AUDIO_TEST_GET_PROCESS_TIME(tv)	do_gettimeofday(&tv)
-#define __PRN_LSI__
+#define __PRN_AUDIO_TEST__
+#define __PRN_AUDIO_TEST_ADD_TIME__
 
 /*---------------------------------------------------------------------------*/
 /* structure declaration                                                     */
@@ -100,19 +101,22 @@ extern u_int audio_test_log_level;
 /*---------------------------------------------------------------------------*/
 /* prototype declaration                                                     */
 /*---------------------------------------------------------------------------*/
+int audio_test_ic_read(const u_short addr, u_short *value);
+int audio_test_ic_write(const u_short addr, const u_short value);
 int audio_test_ic_set_device(const u_long device);
+int audio_test_ic_clear_device(void);
 int audio_test_ic_get_device(u_long *device);
 int audio_test_ic_set_volume(const u_long device, const u_int volume);
 int audio_test_ic_get_volume(const u_long device, u_int *volume);
 void audio_test_cnv_input_device(u_int device_type, u_long *device);
 void audio_test_cnv_output_device(u_int device_type, u_long *device);
 void audio_test_cnv_volume(u_int volume_type, u_int *volume);
-void audio_test_cnv_oe(u_int device_type, u_int LR_type, u_int *oe);
+void audio_test_cnv_oe(u_int device_type, u_int LR_type, u_short *oe);
 
 /*---------------------------------------------------------------------------*/
 /* inline function implementation                                            */
 /*---------------------------------------------------------------------------*/
-#ifdef __PRN_LSI__
+#ifdef __PRN_AUDIO_TEST__
 
 #define audio_test_log_reg_dump(fmt, ...)                                    \
 do {                                                                         \
@@ -124,7 +128,7 @@ do {                                                                         \
 } while (0)
 
 
-#ifdef __PRN_ADD_TIME__
+#ifdef __PRN_AUDIO_TEST_ADD_TIME__
 
 #define audio_test_log_err(fmt, ...)                                         \
 do {                                                                         \
@@ -217,7 +221,7 @@ do {                                                                         \
 } while (0)
 
 
-#else /* != __PRN_ADD_TIME__ */
+#else /* != __PRN_AUDIO_TEST_ADD_TIME__ */
 
 
 #define audio_test_log_err(fmt, ...)                                         \
@@ -290,8 +294,8 @@ do {                                                                         \
 	}                                                                    \
 } while (0)
 
-#endif  /* __PRN_ADD_TIME__ */
-#else   /* != __PRN_LSI__ */
+#endif  /* __PRN_AUDIO_TEST_ADD_TIME__ */
+#else   /* != __PRN_AUDIO_TEST__ */
 
 #define audio_test_log_reg_dump(fmt, ...)       do { } while (0)
 #define audio_test_log_err(fmt, ...)            do { } while (0)
@@ -300,6 +304,6 @@ do {                                                                         \
 #define audio_test_log_efunc(fmt, ...)          do { } while (0)
 #define audio_test_log_rfunc(fmt, ...)          do { } while (0)
 
-#endif	/* __PRN_LSI__ */
+#endif	/* __PRN_AUDIO_TEST__ */
 
 #endif  /* __AUDIO_TEST_WM1811_H__ */

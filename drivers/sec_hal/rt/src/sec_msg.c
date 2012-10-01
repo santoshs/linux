@@ -1,17 +1,17 @@
 
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** All rights reserved. Company confidential.                                **
-* ************************************************************************** */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** All rights reserved. Company confidential.                              **
+* ************************************************************************ */
 /*
  *
  * Implements secure message interface. Byte order handling is not yet
@@ -25,11 +25,11 @@
 #include "sec_serv_api.h"
 #include "sec_hal_rt_cmn.h"
 
-//#include <linux/stdlib.h>
+/* #include <linux/stdlib.h> */
 #include <linux/string.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-//#include <linustdio.h>
+/* #include <linustdio.h> */
 #ifdef SECURE_ENVIRONMENT
 
 #include <string.h>
@@ -61,14 +61,17 @@ void sec_env_free(void *mem)
 #define NULL (void*)0
 #endif /* NULL */
 
-unsigned long sec_hal_mem_msg_area_memcpy(void *dst, const void *src, unsigned long sz);
+unsigned long sec_hal_mem_msg_area_memcpy(void *dst, const void *src,
+                                          unsigned long sz);
 void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
 void  sec_hal_mem_msg_area_free(void *virt_addr);
-unsigned long sec_hal_mem_msg_area_write(void *dst, const void *src,	unsigned long sz);
-unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,	unsigned long sz);
+unsigned long sec_hal_mem_msg_area_write(void *dst, const void *src,
+                                         unsigned long sz);
+unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,
+                                        unsigned long sz);
 
 #define sec_memcpy      sec_hal_mem_msg_area_memcpy
-//#define sec_memcpy  memcpy
+/* #define sec_memcpy  memcpy */
 #define sec_calloc      sec_hal_mem_msg_area_calloc
 #define sec_free        sec_hal_mem_msg_area_free
 #define sec_msgwrite      sec_hal_mem_msg_area_write
@@ -84,6 +87,11 @@ unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,	unsigned lon
 #define sec_free        free
 
 #endif
+
+/* PM start */
+#undef printk
+#define printk(fmt, ...) 0
+/* PM end */
 
 /*!
  * Secure message element header type
@@ -115,7 +123,8 @@ typedef void* (*cb_calloc)(uint32_t n, uint32_t size);
 typedef void  (*cb_free)(void *ptr);
 
 
-static inline sec_msg_elem_t *_sec_msg_elem_get(const sec_msg_handle_t *handle);
+static inline sec_msg_elem_t *_sec_msg_elem_get(
+                    const sec_msg_handle_t *handle);
 
 static sec_msg_status_t _sec_msg_elem_data_read(cb_memcpy f_ptr,
                                                 sec_msg_handle_t *handle,
@@ -152,7 +161,8 @@ static inline uint32_t _sec_msg_align(uint32_t size)
  * @retval sec_msg_elem_t *             Element at current position.
  *
  */
-static inline sec_msg_elem_t *_sec_msg_elem_get(const sec_msg_handle_t *handle)
+static inline sec_msg_elem_t *_sec_msg_elem_get(
+                    const sec_msg_handle_t *handle)
 {
   sec_msg_elem_t *elem =
       (sec_msg_elem_t *)((uint8_t *)handle->msg + handle->offset);
@@ -212,8 +222,6 @@ printk("sec api sec_msg_elem_data_write in \n");
 		printk("  Bad address null pointer \n");
               return SEC_MSG_STATUS_NULL_PTR;
     }
-    printk(" handle 0x%x Msg info msg hex:%x offs:%d msgsz:%d byte order 0x%x obj id 0x%x version 0x%x \n",
-		handle, handle->msg,handle->offset,handle->msg->size,handle->msg->byte_order,handle->msg->object_id,handle->msg->version);
   if ((uint8_t *)handle->msg + handle->offset >=
       (uint8_t *)handle->msg + handle->msg->size)
     {
@@ -235,11 +243,13 @@ printk("sec api sec_msg_elem_data_write in \n");
       printk("param out of range \n");
       return SEC_MSG_STATUS_PARAM_OUT_OF_RANGE;
     }
-    printk(" element 0x%x elem data 0x%x  len 0x%x elm id 0x%x \n",elem,elem_data, write_length, param_id );
- // elem->size = write_length;
-  // elem->elem_id = param_id;
-      iowrite16(write_length,&elem->size);
-     iowrite8(param_id, &elem->elem_id);	  
+
+	/* PM start */
+   elem->size = write_length;
+   elem->elem_id = param_id;
+   /* iowrite16(write_length,&elem->size); */
+   /* iowrite8(param_id, &elem->elem_id); */
+	/* PM end */
   switch (write_length)
     {
 #ifdef SECURE_ENVIRONMENT
@@ -261,8 +271,8 @@ printk("sec api sec_msg_elem_data_write in \n");
       (*f_ptr)(elem_data, data, write_length);
       break;
     }
-  //  printk(" using iowrite32 \n");
-   // iowrite32((*(uint32_t *)data),elem_data);
+  /*  printk(" using iowrite32 \n"); */
+   /* iowrite32((*(uint32_t *)data),elem_data); */
   handle->offset += sizeof(sec_msg_elem_t) + _sec_msg_align(elem->size);
 #if 0
   ptemp = handle->msg;
@@ -399,7 +409,7 @@ sec_msg_t *_sec_msg_alloc(cb_calloc f_ptr,
          printk(" sec_msg_alloc null \n");
          return NULL;
     }
-   printk("sec_msg_alloc size=%d sec_msg_t=%d msg_size=%d  msg_addr 0x%X \n",size,sizeof(sec_msg_t),msg_size,msg );	
+
  #if 0   
   msg->byte_order = byte_order;
   msg->version = msg_version;
@@ -426,17 +436,6 @@ sec_msg_t *_sec_msg_alloc(cb_calloc f_ptr,
 	__raw_writel(0x00,(msg+0));
 	__raw_writel(22,(msg+0));
 
-
-	printk("Nagasri called sec_msg_alloc calcrd %d \n",__raw_readl(msg+0));
-	printk("Nagasri called sec_msg_alloc calcru %u \n",__raw_readl(msg+0));
-
-	printk("Nagasri called sec_msg_alloc calcpoid %d \n",(uint32_t *)(msg+0));
-	printk("Nagasri called sec_msg_alloc calcpoiu %u \n",(uint32_t *)(msg+0));
-
-
-
-printk("Nagasri called sec_msg_alloc calc handle sz=%d off sz=%d \n",sizeof(*(handle->msg)),handle->offset);
-printk("Nagasri called sec_msg_alloc out");
 #endif
 
   return msg;
@@ -576,7 +575,8 @@ sec_msg_status_t sec_msg_param_write(sec_msg_handle_t *handle,
                                      const uint16_t data_length,
                                      const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(&sec_msgwrite, handle, data, data_length, param_id);
+  return _sec_msg_elem_data_write(&sec_msgwrite, handle,
+                                  data, data_length, param_id);
 }
 sec_msg_status_t _sec_msg_param_write(cb_memcpy f_ptr,
                                       sec_msg_handle_t *handle,
@@ -591,42 +591,48 @@ sec_msg_status_t sec_msg_param_write8(sec_msg_handle_t *handle,
                                       const uint8_t data,
                                       const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data, sizeof(uint8_t), param_id);
+  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data,
+                                  sizeof(uint8_t), param_id);
 }
 
 sec_msg_status_t sec_msg_param_write16(sec_msg_handle_t *handle,
                                        const uint16_t data,
                                        const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data, sizeof(uint16_t), param_id);
+  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data,
+                                  sizeof(uint16_t), param_id);
 }
 
 sec_msg_status_t sec_msg_param_write32(sec_msg_handle_t *handle,
                                        const uint32_t data,
                                        const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data, sizeof(uint32_t), param_id);
+  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data,
+                                  sizeof(uint32_t), param_id);
 }
 sec_msg_status_t _sec_msg_param_write32(cb_memcpy f_ptr,
                                         sec_msg_handle_t *handle,
                                         const uint32_t data,
                                         const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(f_ptr, handle, &data, sizeof(uint32_t), param_id);
+  return _sec_msg_elem_data_write(f_ptr, handle, &data,
+                                  sizeof(uint32_t), param_id);
 }
 
 sec_msg_status_t sec_msg_param_write64(sec_msg_handle_t *handle,
                                        const uint64_t data,
                                        const uint8_t param_id)
 {
-  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data, sizeof(uint64_t), param_id);
+  return _sec_msg_elem_data_write(&sec_msgwrite, handle, &data,
+                                  sizeof(uint64_t), param_id);
 }
 
 sec_msg_status_t sec_msg_param_ptr_read(sec_msg_handle_t *handle,
                                         void **data_ptr,
                                         uint16_t *data_length)
 {
-  return _sec_msg_elem_data_read(&sec_msgread, handle, 0, (void *)data_ptr, data_length);
+  return _sec_msg_elem_data_read(&sec_msgread, handle, 0,
+                                 (void *)data_ptr, data_length);
 }
 
 sec_msg_status_t sec_msg_param_read(sec_msg_handle_t *handle,
@@ -645,22 +651,29 @@ sec_msg_status_t _sec_msg_param_read(cb_memcpy f_ptr,
 
 sec_msg_status_t sec_msg_param_read8(sec_msg_handle_t *handle, uint8_t *param)
 {
-  return _sec_msg_elem_data_read(&sec_msgread, handle, sizeof(uint8_t), (void *)param, NULL);
+  return _sec_msg_elem_data_read(&sec_msgread, handle,
+                                 sizeof(uint8_t), (void *)param, NULL);
 }
 
-sec_msg_status_t sec_msg_param_read16(sec_msg_handle_t *handle, uint16_t *param)
+sec_msg_status_t sec_msg_param_read16(sec_msg_handle_t *handle,
+                                      uint16_t *param)
 {
-  return _sec_msg_elem_data_read(&sec_msgread, handle, sizeof(uint16_t), (void *)param, NULL);
+  return _sec_msg_elem_data_read(&sec_msgread, handle,
+                                 sizeof(uint16_t), (void *)param, NULL);
 }
 
-sec_msg_status_t sec_msg_param_read32(sec_msg_handle_t *handle, uint32_t *param)
+sec_msg_status_t sec_msg_param_read32(sec_msg_handle_t *handle,
+                                      uint32_t *param)
 {
-  return _sec_msg_elem_data_read(&sec_msgread, handle, sizeof(uint32_t), (void *)param, NULL);
+  return _sec_msg_elem_data_read(&sec_msgread, handle,
+                                 sizeof(uint32_t), (void *)param, NULL);
 }
 
-sec_msg_status_t sec_msg_param_read64(sec_msg_handle_t *handle, uint64_t *param)
+sec_msg_status_t sec_msg_param_read64(sec_msg_handle_t *handle,
+                                      uint64_t *param)
 {
-  return _sec_msg_elem_data_read(&sec_msgread, handle, sizeof(uint64_t), (void *)param, NULL);
+  return _sec_msg_elem_data_read(&sec_msgread, handle,
+                                 sizeof(uint64_t), (void *)param, NULL);
 }
 
 sec_msg_t *sec_msg_alloc(sec_msg_handle_t *handle,
@@ -669,7 +682,8 @@ sec_msg_t *sec_msg_alloc(sec_msg_handle_t *handle,
                          uint8_t msg_version,
                          uint8_t byte_order)
 {
-  return _sec_msg_alloc(&sec_calloc, handle, size, object_id, msg_version, byte_order);
+  return _sec_msg_alloc(&sec_calloc, handle, size,
+                        object_id, msg_version, byte_order);
 }
 
 sec_msg_status_t sec_msg_free(sec_msg_t *msg)

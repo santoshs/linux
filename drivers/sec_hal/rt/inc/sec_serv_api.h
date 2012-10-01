@@ -1,17 +1,17 @@
 
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** All rights reserved. Company confidential.                                **
-* ************************************************************************** */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** All rights reserved. Company confidential.                              **
+* ************************************************************************ */
 
 #if defined _SEC_SERV_API_H_
 #error "Multiply included"
@@ -103,6 +103,12 @@ typedef uint32_t sec_serv_status_t;
  */
 #define SEC_PROT_TYPE_LIST                      0x00000001
 #define SEC_PROT_TYPE_DATA                      0x00000002
+
+/*
+ * Spinlock types
+ */
+#define L2_SPINLOCK_TYPE_DEFAULT                0x00000001
+
 
 #ifndef SECURE_ENVIRONMENT
 

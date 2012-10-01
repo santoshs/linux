@@ -4,11 +4,13 @@
 extern struct sys_timer shmobile_timer;
 extern void shmobile_setup_console(void);
 extern void shmobile_secondary_vector(void);
+extern int shmobile_platform_cpu_kill(unsigned int cpu);
+extern int shmobile_platform_cpu_die(unsigned int cpu);
 struct clk;
 extern int clk_init(void);
 extern void shmobile_handle_irq_intc(struct pt_regs *);
 extern void shmobile_handle_irq_gic(struct pt_regs *);
-extern struct platform_suspend_ops shmobile_suspend_ops;
+extern const struct platform_suspend_ops shmobile_suspend_ops;
 struct cpuidle_device;
 extern void (*shmobile_cpuidle_modes[])(void);
 extern void (*shmobile_cpuidle_setup)(struct cpuidle_device *dev);
@@ -70,6 +72,9 @@ extern unsigned int r8a73734_get_core_count(void);
 extern void r8a73734_secondary_init(unsigned int cpu);
 extern int r8a73734_boot_secondary(unsigned int cpu);
 extern void r8a73734_smp_prepare_cpus(void);
-extern int r8a73734_smp_cpu_die (unsigned int cpu);
-extern int shmobile_platform_cpu_die(unsigned int cpu);
+extern int r8a73734_smp_cpu_die(unsigned int cpu);
+extern int r8a73734_smp_cpu_kill(unsigned int cpu);
+extern void r8a73734_secondary_vector(void);
+extern unsigned long r8a73734_secondary_vector_addr;
+extern unsigned long r8a73734_secondary_vector_sz;
 #endif /* __ARCH_MACH_COMMON_H */

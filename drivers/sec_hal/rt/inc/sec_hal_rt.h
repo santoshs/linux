@@ -1,22 +1,22 @@
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** Copyright (C) 2010-2012 Renesas Electronics Corp.                         **
-** All rights reserved.                                                      **
-** ************************************************************************* */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** Copyright (C) 2010-2012 Renesas Electronics Corp.                       **
+** All rights reserved.                                                    **
+** *********************************************************************** */
 #ifndef SEC_HAL_RT_H
 #define SEC_HAL_RT_H
 
 
-/* ************************ HEADER (INCLUDE) SECTION *********************** */
+/* ************************ HEADER (INCLUDE) SECTION ********************* */
 #ifdef __KERNEL__
 #include <linux/types.h>
 #else
@@ -24,7 +24,7 @@
 #endif
 #include "sec_hal_res.h"
 
-/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS ****************** */
+/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS **************** */
 /* Size of key info */
 #define SEC_HAL_KEY_INFO_SIZE                 32
 
@@ -53,7 +53,7 @@
 #define SEC_HAL_TYPE_PROT_DATA                2
 
 
-/* ********************** STRUCTURES, TYPE DEFINITIONS ********************* */
+/* ********************** STRUCTURES, TYPE DEFINITIONS ******************* */
 /*!
  * This type defines the structure for key info.
  */
@@ -111,9 +111,9 @@ typedef struct
  *
  * @param prot_data_id          protected data id. If the first argument is
  *                                      SEC_HAL_TYPE_PROT_ID_LIST,
- *                              then this parameter defines which group's data
- *                              ID list is requested. If the first argument is
- *                                      SEC_HAL_TYPE_PROT_DATA,
+ *                              then this parameter defines which group's
+ *                              data ID list is requested. If the first
+ *                               argument is SEC_HAL_TYPE_PROT_DATA,
  *                              then this parameter contains the data ID of
  *                              the requested data.
  *
@@ -121,9 +121,9 @@ typedef struct
  *                              If the first argument is
  *                                       SEC_HAL_TYPE_PROT_ID_LIST,
  *                               then the protected data should be a list of
- *                               32-bit data IDs that belong to the data group
- *                               defined in the second argument. If the first
- *                               argument is
+ *                               32-bit data IDs that belong to the data
+ *                               group defined in the second argument.
+ *                               If the first argument is
  *                                      SEC_HAL_TYPE_PROT_DATA,
  *                               then the protected data should contain
  *                               the protected data object.
@@ -142,7 +142,7 @@ typedef uint32_t (*sec_hal_data_alloc_handler_cb)(
 
 /*!
  * This type defines a callback function that must provide protected data
- * specific de-allocation services for Security HAL. Used as installed service,
+ * specific de-allocation services. Used as installed service,
  * i.e. client of this API will implement and install.
  *
  *
@@ -152,9 +152,9 @@ typedef uint32_t (*sec_hal_data_alloc_handler_cb)(
  *
  * @param prot_data_id[in]      protected data id. If the first argument is
  *                                      SEC_HAL_TYPE_PROT_ID_LIST,
- *                              then this parameter defines which group's data
- *                              ID list is requested. If the first argument is
- *                                      SEC_HAL_TYPE_PROT_DATA,
+ *                              then this parameter defines which group's
+ *                              data ID list is requested. If the
+ *                              first argument is SEC_HAL_TYPE_PROT_DATA,
  *                              then this parameter contains the data ID of
  *                              the requested data.
  *
@@ -193,7 +193,7 @@ typedef uint32_t (*sec_hal_rt_rpc_handler)(
 #define SEC_HAL_RPC_PROT_DATA_ALLOC            0x8000000E
 #define SEC_HAL_RPC_TRACE                      0x8000000F
 
-/* ************************** FUNCTION PROTOTYPES ************************** */
+/* ************************** FUNCTION PROTOTYPES ************************ */
 /*!
  * This function can be used to initialize the Security HAL. If successfully
  * executed then secure timer expiration value is received as an output.
@@ -227,7 +227,7 @@ uint32_t sec_hal_rt_install_rpc_handler(
 		sec_hal_rt_rpc_handler virt_func_ptr_in);
 
 /*!
- * This function can be used to retrieve key information from the secure side.
+ * This function is used to retrieve key information from the secure side.
  * Key information contains data which can be used to create valid
  * certificates.
  *
@@ -278,15 +278,15 @@ uint32_t sec_hal_rt_key_info_get(
  * @param cert_size             Size of the certificate buffer.
  * 
  * @param data_ptr              Optional output parameter. The caller of
- *                              the function reserves a buffer for one pointer
- *                              and this function writes a pointer to the data
+ *                              the function reserves a buffer for pointer
+ *                              and this function writes a pointer
  *                              to that buffer. The actual data depends
- *                              on the use case. As an example, the data could
- *                              be a pointer to a SW image, if an SW image
- *                              certificate is registered using this function.
- *                              However, currently there are no use cases for
- *                              this parameter, so data_ptr can always be set
- *                              to NULL.
+ *                              on the use case. For example, the data could
+ *                              be a pointer to a SW image, if SW image
+ *                              certificate is registered using this
+ *                              function. However, currently there are no
+ *                              use cases for this parameter, so
+ *                              data_ptr can always be set to NULL.
  *
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
@@ -306,7 +306,7 @@ uint32_t sec_hal_rt_cert_register(
  *
  * Difference to the 'sec_hal_cert_register' is that the certificate,
  * or the data, does not need to remain in SDRAM after registration.
- * Certificate is checked only when registered, not later on in periodic checks.
+ * Certificate is checked when registered, not later on in periodic checks.
  * Thus SW certificates cannot be registered with this function.
  *
  *
@@ -320,14 +320,16 @@ uint32_t sec_hal_rt_cert_register(
  *
  * @param data_size             Size of the actual data in SDRAM.
  *
- * @param data_ptr              Optional output parameter. With this parameter
- *                              additional information about the content of the
- *                              certificate can be passed back to the caller.
- *                              Can be NULL if the caller does not want or
- *                              need the additional information. Usually this
- *                              parameter will be the OBJ_ID of the registered
- *                              certificate. Minimum of four byte space needed
- *                              if this parameter is provided.
+ * @param data_ptr              Optional output parameter. With this
+ *                              parameter additional information
+ *                              about the certificate content can be
+ *                              passed back to the caller. Can be NULL
+ *                              if the caller does not want or need the
+ *                              additional information. Usually this
+ *                              parameter will be the OBJ_ID of the
+ *                              registered certificate. Minimum of four
+ *                              byte space needed if this parameter is
+ *                              provided.
  *
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
@@ -364,7 +366,8 @@ uint32_t sec_hal_rt_mac_address_get(
  * 
  * @pre                         sec_hal_init - function called successfully.
  * 
- * @param imei                  Pointer to a struct where the IMEI is written.
+ * @param imei                  Pointer to a struct where the IMEI is
+ *                              written.
  * 
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
@@ -385,18 +388,18 @@ uint32_t sec_hal_rt_imei_get(
  *                              The bit 1 stand for the level 2 and so on.
  *
  * @param unlock_codes          Pointer to a buffer which contains the unlock
- *                              codes separated with NUL character. The number
- *                              of bits in the first parameter should describe
- *                              which unlock codes are to be used for unlocking.
- *                              for example, if second and fourth levels are
- *                              to be opened, then first parameter should be:
- *                                      0x0A
+ *                              codes separated with NULL character. The
+ *                              number of bits in the first parameter should
+ *                              describe which unlock codes are used for
+ *                              unlocking. for example, if second and fourth
+ *                              levels are to be opened, then first parameter
+ *                              should be: 0x0A
  *                              and the buffer could contain the following:
  *                                      'ONE\0TWO\0THREE\0FOUR\0'
- *                              then only levels two and four would be unlocked,
- *                              assuming that the unlock codes were right ones.
- *                              If the first and second(this) parameter do not
- *                              match, then SEC_HAL_RES_PARAM_ERROR is returned.
+ *                              then only levels 2 and 4 would be unlocked,
+ *                              assuming that the unlock codes were correct.
+ *                              If the first and second parameter do not
+ *                              match, SEC_HAL_RES_PARAM_ERROR is returned.
  *
  * @param post_lock_level_status Status of the SIM lock levels after this
  *                              operation, as a bitmask.
@@ -414,7 +417,7 @@ uint32_t sec_hal_rt_simlock_levels_open(
  * This function can be used to open a SIM lock level when the user
  * has entered the unlock code. If the the given unlock code was right then
  * the return value will be SEC_HAL_RES_OK, and SIM lock status is updated.
- * If the unlock code was wrong then the return value will be SEC_HAL_RES_FAIL.
+ * If the unlock code is wrong then SEC_HAL_RES_FAIL is returned.
  * 
  * 
  * @pre                         sec_hal_init - function called successfully.
@@ -442,10 +445,11 @@ uint32_t sec_hal_rt_simlock_level_open(
  * @param lock_level_status     Pointer to a variable where the SIM lock
  *                              level status is stored.
  *                              The bit 0 (least significant bit) of the SIM
- *                              lock level status shows the status of level 1,
- *                              bit 1 shows the status of level 2 and so on.
- *                              If the value of bit is '1', the lock level is
- *                              closed. If value of bit is '0', the lock level
+ *                              lock level status shows the status of level
+ *                              1, bit 1 shows the status of level 2 and so
+ *                              on. If the value of bit is '1', the lock
+ *                              level is closed. If value of bit is '0',
+ *                              the lock level
  *                              is open. As an example, 0x00000009 means that
  *                              lock levels 1 and 4 are closed and all
  *                              the other lock levels are open.
@@ -458,7 +462,7 @@ uint32_t sec_hal_rt_simlock_level_status_get(
 		uint32_t* user_lock_level_status_out);
 
 /*!
- * This function can be used to get the size of the device authentication data.
+ * This function is used to get the size of the device authentication data.
  * 
  * 
  * @pre                         sec_hal_init - function called successfully.
@@ -469,8 +473,8 @@ uint32_t sec_hal_rt_simlock_level_status_get(
  *                              the input authentication data.
  *                              The size of the buffer is: input_data_size.
  *
- * @param auth_data_size        Pointer to a variable where
- *                              the output authentication data size is stored.
+ * @param auth_data_size        Pointer to a variable where the output
+ *                              authentication data size is stored.
  *
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
@@ -494,7 +498,8 @@ uint32_t sec_hal_rt_auth_data_size_get(
  *                              the input authentication data.
  *                              The size of the buffer is: input_data_size.
  *
- * @param auth_data_size        The size of the requested authentication data.
+ * @param auth_data_size        The size of the requested authentication
+ *                              data.
  *
  * @param auth_data             Pointer to a buffer where
  *                              the device authentication data is written.
@@ -600,7 +605,7 @@ uint32_t sec_hal_rt_memcpy(
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
  */
-uint32_t sec_hal_rt_multicore_enable();
+uint32_t sec_hal_rt_multicore_enable(void);
 
 
 /*!
@@ -622,7 +627,8 @@ uint32_t sec_hal_rt_multicore_enable();
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t sec_hal_pm_coma_entry (uint32_t mode, uint32_t wakeup_address, uint32_t pll0, uint32_t zclk);
+uint32_t sec_hal_pm_coma_entry (uint32_t mode, uint32_t wakeup_address,
+                                uint32_t pll0, uint32_t zclk);
 
 /*!
  * This function can be used to send coma cpu off event to the secure
@@ -646,7 +652,7 @@ uint32_t sec_hal_pm_coma_cpu_off(void);
  */
 uint32_t sec_hal_pm_poweroff(void);
 
-/* ******************************** END ************************************ */
+/* ******************************** END ********************************** */
 
 #endif /* SEC_HAL_RT_H */
 

@@ -1,17 +1,17 @@
 
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** All rights reserved. Company confidential.                                **
-* ************************************************************************** */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** All rights reserved. Company confidential.                              **
+* ************************************************************************ */
 /*
  *  Secure message interface.
  *
@@ -75,7 +75,8 @@ typedef uint32_t sec_msg_status_t;
 /*!
  * Callback used for copying data to client.
  */
-typedef unsigned long (*cb_memcpy)(void *dst, const void *src, unsigned long sz);
+typedef unsigned long (*cb_memcpy)(void *dst, const void *src,
+                                   unsigned long sz);
 
 
 /*!
@@ -387,7 +388,7 @@ sec_msg_status_t sec_msg_param_write64(sec_msg_handle_t *handle,
  * @param[in,out] param_ptr
  *      Read pointer.
  * @param[in,out] data_length
- *      Byte length of data within element will be written here by the function.
+ *      Byte length of data within element
  *
  * @retval sec_msg_status_t
  *      Status of the operation.

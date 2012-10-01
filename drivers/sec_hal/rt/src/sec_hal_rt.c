@@ -1,20 +1,23 @@
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** Copyright (C) 2010-2012 Renesas Electronics Corp.                         **
-** All rights reserved.                                                      **
-** ************************************************************************* */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** Copyright (C) 2010-2012 Renesas Electronics Corp.                       **
+** All rights reserved.                                                    **
+** *********************************************************************** */
 
 
-/* ************************ HEADER (INCLUDE) SECTION *********************** */
+/* ************************ HEADER (INCLUDE) SECTION ********************* */
+
+/*#define SEC_HAL_TRACE_LOCAL_ENABLE*/
+
 #include "sec_hal_rt.h"
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_rt_trace.h"
@@ -30,11 +33,11 @@
 #endif /* SEC_HAL_TEST_ISOLATION */
 
 
-/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS ****************** */
+/* ***************** MACROS, CONSTANTS, COMPILATION FLAGS **************** */
 #ifdef LOCAL_DISP_FUNC
 #error !!Local dispatcher function already defined!!
 #else /* LOCAL_DISP_FUNC */
-#define LOCAL_DISP_FUNC sec_dispatcher
+#define LOCAL_DISP_FUNC pub2sec_dispatcher
 #endif /* LOCAL_DISP_FUNC */
 
 #ifdef LOCAL_DEFAULT_DISP_FLAGS
@@ -65,18 +68,18 @@
 #error !!copy to client already defined, aborting!!
 #else /* LOCAL_CPY_TO_CLIENT_FUNC */
 #ifndef SEC_HAL_TEST_ISOLATION
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : copy_to_userspace
 ** Description        : copy content to userspace, to user page.
 ** Parameters         :
 ** Return value       : number of bytes left uncopied.
-** ***************************************************************************/
+** *************************************************************************/
 static unsigned long copy_to_userspace(
 		void* dst,
 		const void* src,
 		unsigned long sz)
 {
-	return !copy_to_user((void __user *)dst, src, sz);
+	return copy_to_user((void __user *)dst, src, sz);
 }
 #define LOCAL_CPY_TO_CLIENT_FUNC    copy_to_userspace
 #define LOCAL_CPY_TO_CLIENT_FUNCPTR &copy_to_userspace
@@ -104,15 +107,16 @@ const char* k_sec_hal_simlock_empty_code = "EMPTY";
 
 
 
-/* ****************************** CODE SECTION ***************************** */
-/* ****************************************************************************
+/* ****************************** CODE SECTION *************************** */
+/* **************************************************************************
 ** Function name      : sec_hal_rt_init
 ** Description        : initialize global/local resources.
-** Parameters         : OUT/--- uint32_t *virt_wdt_upd_out, secure wdt expiration timeout value.
+** Parameters         : OUT/--- uint32_t *virt_wdt_upd_out
+**                      secure wdt expiration timeout value.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_init(
 		uint32_t *virt_wdt_upd_out)
 {
@@ -174,14 +178,15 @@ uint32_t sec_hal_rt_init(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_install_rpc_handler
 ** Description        : install rpc function to TZ.
-** Parameters         : IN/--- sec_hal_rt_rpc_handler virt_func_ptr_in, virtual callback function address.
+** Parameters         : IN/--- sec_hal_rt_rpc_handler virt_func_ptr_in
+**                      virtual callback function address.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_install_rpc_handler(
 		sec_hal_rt_rpc_handler virt_func_ptr_in)
 {
@@ -263,14 +268,14 @@ uint32_t sec_hal_rt_install_rpc_handler(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_key_info_get
 ** Description        : request key information from the TZ side.
 ** Parameters         : OUT/--- sec_hal_key_info_t *key_info
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_key_info_get(
 		sec_hal_key_info_t *user_key_info_out)
 {
@@ -364,7 +369,7 @@ uint32_t sec_hal_rt_key_info_get(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_cert_register
 ** Description        : register given certificate on TZ side.
 ** Parameters         : IN/--- void *cert
@@ -373,7 +378,7 @@ uint32_t sec_hal_rt_key_info_get(
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_cert_register(
 		void *user_cert_in,
 		uint32_t user_cert_size_in,
@@ -474,7 +479,7 @@ uint32_t sec_hal_rt_cert_register(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_data_cert_register
 ** Description        : register given data certificate on TZ side,
 **                      temporary data certificate.
@@ -486,7 +491,7 @@ uint32_t sec_hal_rt_cert_register(
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_data_cert_register(
 		void *user_cert_in,
 		uint32_t user_cert_size_in,
@@ -567,19 +572,20 @@ uint32_t sec_hal_rt_data_cert_register(
 	else
 	{
 		/* ensure that certificate and data are fully in RAM memory */
-		SEC_HAL_MEM_CACHE_CLEAN_FUNC(user_cert_in, user_cert_size_in);
-		SEC_HAL_MEM_CACHE_CLEAN_FUNC(user_data_in, user_data_size_in);
+        SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_cert_in, user_cert_size_in);
+        SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_data_in, user_data_size_in);
 
 		/* write content to the input msg */
 		sec_msg_param_write32(
 				&in_handle,
-				(uint32_t)virt_to_phys(user_cert_in),
+				(uint32_t)virt_to_phys(kernel_cert_in),
 				SEC_MSG_PARAM_ID_NONE);
 		sec_msg_param_write32(
 				&in_handle,
-				(uint32_t)virt_to_phys(user_data_in),
+				(uint32_t)virt_to_phys(kernel_data_in),
 				SEC_MSG_PARAM_ID_NONE);
-		sec_msg_param_write32(&in_handle, user_data_size_in, SEC_MSG_PARAM_ID_NONE);
+		sec_msg_param_write32(&in_handle,
+								user_data_size_in, SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
 		ssa_disp_status = LOCAL_DISP_FUNC(
@@ -605,7 +611,8 @@ uint32_t sec_hal_rt_data_cert_register(
 		{
 			sec_msg_status = sec_msg_param_read32(&out_handle, &obj_id);
 			if (SEC_MSG_STATUS_OK != sec_msg_status ||
-				LOCAL_CPY_TO_CLIENT_FUNC(user_id_ptr_out, (void*)&obj_id, sizeof(uint32_t)))
+				LOCAL_CPY_TO_CLIENT_FUNC(user_id_ptr_out, (void*)&obj_id,
+										sizeof(uint32_t)))
 			{
 				SEC_HAL_TRACE_INT("read&copy failed! sec_msg_status", sec_msg_status)
 				sec_hal_status = SEC_HAL_RES_FAIL;
@@ -623,14 +630,14 @@ uint32_t sec_hal_rt_data_cert_register(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_mac_address_get
-** Description        : store requested MAC address on given userspace address.
+** Description        : store requested MAC address on given userspace addr
 ** Parameters         : IN/--- sec_hal_mac_address_t *mac_addr
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_mac_address_get(
 		uint32_t user_index_in,
 		sec_hal_mac_address_t *user_mac_addr_out)
@@ -729,14 +736,14 @@ uint32_t sec_hal_rt_mac_address_get(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_imei_get
 ** Description        : stores device's IMEI code to the given address.
 ** Parameters         : IN/--- sec_hal_imei_t *imei
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_imei_get(sec_hal_imei_t *user_imei_out)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
@@ -830,7 +837,7 @@ uint32_t sec_hal_rt_imei_get(sec_hal_imei_t *user_imei_out)
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_simlock_levels_open
 ** Description        : opens all simlock levels with given codes.
 ** Parameters         : IN/--- char levels_mask
@@ -839,7 +846,7 @@ uint32_t sec_hal_rt_imei_get(sec_hal_imei_t *user_imei_out)
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_simlock_levels_open(
 		uint32_t user_levels_mask_in,
 		void* user_unlock_codes_in,
@@ -871,12 +878,13 @@ uint32_t sec_hal_rt_simlock_levels_open(
 	}
 	if (NULL == user_post_lock_level_status_out)
 	{
-		SEC_HAL_TRACE_EXIT_INFO("!!null user_post_lock_level_status_out ptr, aborting!!")
+		SEC_HAL_TRACE_EXIT_INFO("!!null user_post_lock_level_status_out ptr!!")
 		return SEC_HAL_RES_PARAM_ERROR;
 	}
 
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
-	msg_data_size = sec_msg_param_size(SEC_HAL_MAX_SIMLOCK_CODE_LENGTH)*LOCAL_DEFAULT_SIMLOCK_LEVEL_COUNT;
+	msg_data_size = sec_msg_param_size(SEC_HAL_MAX_SIMLOCK_CODE_LENGTH) \
+                    *LOCAL_DEFAULT_SIMLOCK_LEVEL_COUNT;
 	in_msg = sec_msg_alloc(
 				&in_handle,
 				msg_data_size,
@@ -983,7 +991,7 @@ uint32_t sec_hal_rt_simlock_levels_open(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_simlock_level_open
 ** Description        : opens specific simlock level with the given code.
 ** Parameters         : IN/--- char *unlock_code
@@ -991,7 +999,7 @@ uint32_t sec_hal_rt_simlock_levels_open(
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_simlock_level_open(
 		char *user_unlock_code_in,
 		uint8_t user_lock_level_in)
@@ -1084,14 +1092,14 @@ uint32_t sec_hal_rt_simlock_level_open(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_simlock_level_status_get
 ** Description        : retrieves device simlock levels state from TZ.
 ** Parameters         : OUT/--- uint32_t *lock_level_status
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_simlock_level_status_get(
 		uint32_t *user_lock_level_status_out)
 {
@@ -1185,7 +1193,7 @@ uint32_t sec_hal_rt_simlock_level_status_get(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_auth_data_size_get
 ** Description        : retrieves device authentication data size from TZ.
 ** Parameters         : IN/--- uint32_t input_data_size
@@ -1194,7 +1202,7 @@ uint32_t sec_hal_rt_simlock_level_status_get(
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_auth_data_size_get(
 		void* user_input_data_in,
 		uint32_t user_input_data_size_in,
@@ -1307,7 +1315,7 @@ uint32_t sec_hal_rt_auth_data_size_get(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_auth_data_get
 ** Description        : retrieves device authentication data from TZ side.
 ** Parameters         : IN/--- uint32_t input_data_size
@@ -1317,7 +1325,7 @@ uint32_t sec_hal_rt_auth_data_size_get(
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_auth_data_get(
 		void *user_input_data_in,
 		uint32_t user_input_data_size_in,
@@ -1360,7 +1368,8 @@ uint32_t sec_hal_rt_auth_data_get(
 	SEC_HAL_TRACE("user_input_data_size_in: %d", user_input_data_size_in);
 
     kernel_input_data_in = kmalloc(user_input_data_size_in, GFP_KERNEL);
-    copy_from_user( kernel_input_data_in, user_input_data_in, user_input_data_size_in );
+    copy_from_user( kernel_input_data_in, user_input_data_in,
+                    user_input_data_size_in );
 	SEC_HAL_TRACE("kernel_input_data_in: 0x%x", kernel_input_data_in);
 
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
@@ -1449,14 +1458,15 @@ uint32_t sec_hal_rt_auth_data_get(
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_periodic_integrity_check
 ** Description        : makes a periodic check of SW cert protected files.
-** Parameters         : OUT/--- uint32_t *sec_exp_time, timeout for next period
+** Parameters         : OUT/--- uint32_t *sec_exp_time
+**                      timeout for next period
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
@@ -1550,13 +1560,13 @@ uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_selftest
 ** Description        : check if selftest was a success, or not.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_selftest(void)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
@@ -1632,13 +1642,13 @@ uint32_t sec_hal_rt_selftest(void)
 }
 
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_public_cc42_key_init
 ** Description        : transmit public cc42 key init event to TZ.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_public_cc42_key_init(void)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
@@ -1713,14 +1723,15 @@ uint32_t sec_hal_rt_public_cc42_key_init(void)
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_a3sp_state_info
 ** Description        : transmit&receives public cc42 key init event to TZ.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
-uint32_t sec_hal_rt_a3sp_state_info(uint32_t request_in, uint32_t *virt_allowed_out)
+** *************************************************************************/
+uint32_t sec_hal_rt_a3sp_state_info(uint32_t request_in,
+                                    uint32_t *virt_allowed_out)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
 	uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
@@ -1803,14 +1814,15 @@ uint32_t sec_hal_rt_a3sp_state_info(uint32_t request_in, uint32_t *virt_allowed_
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_memcpy
 ** Description        : transmit memcpy request to TZ.
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
-uint32_t sec_hal_rt_memcpy(void* phys_dst_in, void* phys_src_in, uint32_t size_in)
+** *************************************************************************/
+uint32_t sec_hal_rt_memcpy(void* phys_dst_in, void* phys_src_in,
+                           uint32_t size_in)
 {
 	uint32_t sec_hal_status = SEC_HAL_RES_OK;
 	uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
@@ -1901,13 +1913,13 @@ uint32_t sec_hal_rt_memcpy(void* phys_dst_in, void* phys_src_in, uint32_t size_i
 	return sec_hal_status;
 }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_rt_multicore_enable
 ** Description        : call SEC_SERV_MULTICORE_ENABLE from secure side
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 uint32_t sec_hal_rt_multicore_enable(void)
 {
     uint32_t sec_hal_status = SEC_HAL_RES_OK;
@@ -1979,4 +1991,4 @@ uint32_t sec_hal_rt_multicore_enable(void)
     return sec_hal_status;
 }
 
-/* ******************************** END ************************************ */
+/* ******************************** END ********************************** */

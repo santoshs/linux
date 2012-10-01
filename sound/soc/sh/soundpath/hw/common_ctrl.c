@@ -21,6 +21,9 @@
 #include <sound/soundpath/common_extern.h>
 #include "common_ctrl.h"
 #include <mach/common.h>
+#include <mach/r8a73734.h>
+#include <linux/hwspinlock.h>
+
 
 
 /*
@@ -347,7 +350,8 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 {
 	/* Local variable declaration */
 	struct clk *clk;
-/*	unsigned long flags; */
+	unsigned long flags;
+	int ret;
 #ifdef SOUND_TEST
 	u_int reg;
 #endif
@@ -365,13 +369,18 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-/*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > ret)
+					sndp_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32((u_int)CPG_SRCR2, (u32)0, (u32)0x01000000);
 				udelay(62);
 				/* CLKGEN operates */
 				sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
-/*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
+
+				if (0 <= ret)
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_CLKGEN;
 			}
@@ -402,13 +411,18 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-/*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > ret)
+					sndp_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32(CPG_SRCR3, 0, 0x10000000);
 				udelay(62);
 				/* FSI operates */
 				sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
-/*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
+
+				if (0 <= ret)
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
@@ -447,13 +461,18 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-/*				ape5r_get_cpg_hpb_sem_with_lock(flags); */
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > ret)
+					sndp_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32(CPG_SRCR3, 0, 0x04000000);
 				udelay(62);
 				/* SCUW operates */
 				sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
-/*				ape5r_put_cpg_hpb_sem_with_lock(flags); */
+
+				if (0 <= ret)
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_SCUW;
 			}
@@ -561,7 +580,8 @@ void common_set_pll22(const u_int uiValue, int stat)
 {
 	/* Local variable declaration */
 	u_int dev, fsickcr;
-	int cnt, pll22val, fsival;
+	int cnt, pll22val, fsival, ret;
+	unsigned long flags;
 
 	sndp_log_debug_func("start\n");
 
@@ -589,6 +609,10 @@ void common_set_pll22(const u_int uiValue, int stat)
 				fsival = 0x00001046;
 			}
 
+			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+			if (0 > ret)
+				sndp_log_err("Can't lock cpg\n");
+
 			/* Pll22 enable 66 divide */
 			iowrite32(pll22val, CPG_PLL22CR);
 			sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
@@ -612,6 +636,10 @@ void common_set_pll22(const u_int uiValue, int stat)
 				/* FSICKCR enable 38 divide */
 				iowrite32(fsival, fsickcr);
 			}
+
+			if (0 <= ret)
+				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+
 		} else {
 			/* Pll22 enable 64 divide */
 			/* FSICKCR enable 25 divide */
@@ -625,6 +653,11 @@ void common_set_pll22(const u_int uiValue, int stat)
 	} else {
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+
+			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+			if (0 > ret)
+				sndp_log_err("Can't lock cpg\n");
+
 			/* FSICKCR disable */
 			iowrite32(0x00000100, fsickcr);
 
@@ -638,6 +671,10 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 			/* Pll22 disable */
 			sh_modify_register32(CPG_PLLECR, 0x00000010, 0);
+
+			if (0 <= ret)
+				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+
 		}
 	}
 
@@ -655,12 +692,23 @@ void common_set_pll22(const u_int uiValue, int stat)
  */
 void common_set_fsi2cr(int stat)
 {
+	/* Local variable declaration */
+	int ret;
+	unsigned long flags;
+
 	sndp_log_debug_func("start\n");
+
+	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_gpio, 10, &flags);
+	if (0 > ret)
+		sndp_log_err("Can't lock cpg\n");
 
 	if (STAT_ON == stat)
 		iowrite16(0x0300, GPIO_FSI2CR);
 	else
 		iowrite16(0x0000, GPIO_FSI2CR);
+
+	if (0 <= ret)
+		hwspin_unlock_irqrestore(r8a73734_hwlock_gpio, &flags);
 
 	sndp_log_debug_func("end\n");
 }

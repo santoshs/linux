@@ -706,8 +706,6 @@ int rtds_memory_map_shared_memory(
 		vm_area->vm_ops = &g_rtds_memory_vm_ops;
 	}
 
-	vm_area->vm_private_data = map_data->mem_table;
-
 	switch (map_data->mapping_flag) {
 	case RTDS_MEM_MAPPING_APMEM:
 
@@ -2245,8 +2243,8 @@ int rtds_memory_unmap_pnc_mpro(
 			MSG_LOW("[RTDSK]   |pid[%d]\n", (u32)entry_check_mem_table->task_info->pid);
 			MSG_LOW("[RTDSK]   |tgid[%d]\n", (u32)entry_check_mem_table->task_info->tgid);
 			MSG_LOW("[RTDSK]   |---\n");
-			if(address == entry_check_mem_table->app_addr) {
-				if((entry_check_mem_table->task_info->tgid == current->tgid) ||
+			if (address == entry_check_mem_table->app_addr) {
+				if ((entry_check_mem_table->task_info->tgid == current->tgid) ||
 					(entry_check_mem_table->task_info->flags & PF_EXITPIDONE)) {
 					MSG_LOW("[RTDSK]   |current tgid[%d]\n", (u32)current->tgid);
 					proc_cnt--;
@@ -2685,7 +2683,6 @@ void rtds_memory_drv_close_vma(
 )
 {
 	rtds_memory_app_memory_table	*mem_table;
-	rtds_memory_app_memory_table	*tmp = NULL;
 	int								ret;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
@@ -2694,7 +2691,6 @@ void rtds_memory_drv_close_vma(
 	MSG_MED("[RTDSK]   |vm_end  [0x%08X]\n", (u32)vm_area->vm_end);
 	MSG_MED("[RTDSK]   |vm_flags[0x%08X]\n", (u32)vm_area->vm_flags);
 	MSG_MED("[RTDSK]   |vm_pgoff[0x%08X]\n", (u32)vm_area->vm_pgoff);
-	MSG_MED("[RTDSK]   |vm_private_data[0x%08X]\n", (u32)vm_area->vm_private_data);
 
 	MSG_MED("[RTDSK]   |---cuurent task info---\n");
 	MSG_MED("[RTDSK]   |state[0x%08X]\n", (u32)current->state);
@@ -2728,45 +2724,35 @@ void rtds_memory_drv_close_vma(
 	/* check process status */
 	if (current->flags & PF_EXITING) {
 
+		/* check mpro space */
 		down(&g_rtds_memory_shared_mem);
 		list_for_each_entry(mem_table, &g_rtds_memory_list_shared_mem, list_head) {
-			if (mem_table == vm_area->vm_private_data) {
-				MSG_MED("[RTDSK]   |Shared list is found.\n");
-				tmp = mem_table;
+			MSG_MED("[RTDSK]   |state[0x%08X]\n", (u32)mem_table->task_info->state);
+			MSG_MED("[RTDSK]   |flags[0x%08X]\n", (u32)mem_table->task_info->flags);
+			if ((mem_table->task_info->tgid == current->tgid) &&
+				(mem_table->app_addr == vm_area->vm_start)) {
+				up(&g_rtds_memory_shared_mem);
+				switch (mem_table->event) {
+				case RTDS_MEM_MAP_PNC_EVENT:
+				case RTDS_MEM_UNMAP_PNC_EVENT:
+					ret = rtds_memory_unmap_pnc_mpro(mem_table->app_addr, mem_table->apmem_id);
+					MSG_MED("[RTDSK]   |result rtds_memory_unmap_pnc_mpro [%d]\n", ret);
+					break;
+				default:
+					ret = rtds_memory_unmap_mpro(mem_table->rt_wb_addr, mem_table->memory_size);
+					MSG_MED("[RTDSK]   |result rtds_memory_unmap_mpro [%d]\n", ret);
+					break;
+				}
+				down(&g_rtds_memory_shared_mem);
 				break;
 			}
 		}
 		up(&g_rtds_memory_shared_mem);
 
-		if (tmp) {
-			/* check if current process is forked */
-			if (tmp->task_info->tgid != current->tgid) {
-				MSG_MED("[RTDSK]   |current_tgid[%d],memtable_tgid[%d]\n",
-						current->tgid, tmp->task_info->tgid);
-				goto out;
-			}
-
-			/* Unmap mpro space */
-			MSG_LOW("[RTDSK]   |event [%ld]\n", tmp->event);
-			switch (tmp->event) {
-			case RTDS_MEM_MAP_PNC_EVENT:
-			case RTDS_MEM_UNMAP_PNC_EVENT:
-				ret = rtds_memory_unmap_pnc_mpro(tmp->app_addr, tmp->apmem_id);
-				break;
-			default:
-				ret = rtds_memory_unmap_mpro(tmp->rt_wb_addr, tmp->memory_size);
-				break;
-			}
-
-			MSG_MED("[RTDSK]   |result unmap mpro space[%d]\n", ret);
-			rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
-
-		} else {
-			rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
-		}
+		/* check page frame */
+		rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
 	}
 
-out:
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return;
 
@@ -2800,8 +2786,8 @@ void rtds_memory_close_apmem(
 		if ((current->tgid == entry_p->task_info->tgid) && (app_addr == entry_p->app_addr)) {
 			MSG_MED("[RTDSK]   |create list is found.\n");
 			MSG_MED("[RTDSK]   |addr[0x%08X]\n", (u32)entry_p->app_addr);
-			MSG_MED("[RTDSK]   |pid[0x%08X]\n", (u32)entry_p->task_info->pid);
-			MSG_MED("[RTDSK]   |tgid[0x%08X]\n", (u32)entry_p->task_info->tgid);
+			MSG_MED("[RTDSK]   |pid[%d]\n", (u32)entry_p->task_info->pid);
+			MSG_MED("[RTDSK]   |tgid[%d]\n", (u32)entry_p->task_info->tgid);
 			MSG_MED("[RTDSK]   |page[0x%08X]\n", (u32)entry_p->page);
 			MSG_MED("[RTDSK]   |pages[0x%08X]\n", (u32)entry_p->pages);
 			temp_p = entry_p;
@@ -4168,7 +4154,7 @@ void rtds_memory_leak_check_page_frame(
 				}
 			}
 			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
-			MSG_LOW("[RTDSK]   |page frame leak is found.proc_cnt[%d]\n",proc_cnt);
+			MSG_LOW("[RTDSK]   |page frame leak is found.proc_cnt[%d]\n", proc_cnt);
 
 			if (!proc_cnt) {
 				rtds_memory_free_page_frame(RTDS_MEM_GET_PAGE_NUM(this_p->mem_size),

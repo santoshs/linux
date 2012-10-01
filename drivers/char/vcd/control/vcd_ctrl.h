@@ -78,13 +78,15 @@ enum VCD_CTRL_STATUS {
  */
 
 /* For AMHAL functions */
-void vcd_ctrl_get_msg_buffer(void);
-void vcd_ctrl_start_vcd(void);
-void vcd_ctrl_stop_vcd(void);
-void vcd_ctrl_set_hw_param(void);
-void vcd_ctrl_start_call(int call_type, int mode);
-void vcd_ctrl_stop_call(int call_type);
-void vcd_ctrl_set_udata(void);
+int vcd_ctrl_get_msg_buffer(void);
+int vcd_ctrl_get_async_area(void);
+int vcd_ctrl_free_async_area(unsigned int adr);
+int vcd_ctrl_start_vcd(void);
+int vcd_ctrl_stop_vcd(void);
+int vcd_ctrl_set_hw_param(void);
+int vcd_ctrl_start_call(int call_type, int mode);
+int vcd_ctrl_stop_call(int call_type);
+int vcd_ctrl_set_udata(void);
 void vcd_ctrl_get_status(void);
 int vcd_ctrl_get_result(void);
 
@@ -102,7 +104,9 @@ void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 void vcd_ctrl_rec_trigger(void);
 void vcd_ctrl_play_trigger(void);
 void vcd_ctrl_stop_fw(void);
+void vcd_ctrl_udata_ind(void);
 void vcd_ctrl_start_clkgen(void);
+void vcd_ctrl_stop_clkgen(void);
 
 /* Driver functions */
 int vcd_ctrl_suspend(void);
@@ -115,6 +119,7 @@ int vcd_ctrl_remove(void);
 /* Dump functions */
 void vcd_ctrl_dump_status(void);
 void vcd_ctrl_dump_registers(void);
+void vcd_ctrl_dump_hpb_registers(void);
 void vcd_ctrl_dump_cpg_registers(void);
 void vcd_ctrl_dump_crmu_registers(void);
 void vcd_ctrl_dump_gtu_registers(void);

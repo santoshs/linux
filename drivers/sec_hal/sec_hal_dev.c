@@ -1,23 +1,25 @@
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                             Renesas                                     **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** Copyright (C) 2012 Renesas Electronics Corp.                              **
-** All rights reserved.                                                      **
-** ************************************************************************* */
+/* ************************* COPYRIGHT INFORMATION *********************** **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** Copyright (C) 2012 Renesas Electronics Corp.                            **
+** All rights reserved.                                                    **
+** *********************************************************************** */
+
 #include "sec_hal_rt.h"
-#include "sec_hal_rt_cmn.h" /* TBDL: consider removing, should not be visible here. */
-#include "sec_msg.h" /* TBDL: consider removing, should not be visible here. */
+#include "sec_hal_rt_cmn.h" /* TBDL: consider removing */
+#include "sec_msg.h" /* TBDL: consider removing, should not be here. */
 #include "sec_hal_rt_trace.h"
 #include "sec_hal_dev_ioctl.h"
 #include "sec_hal_dev_info.h"
+#include "sec_hal_cmn.h"
 #include "sec_hal_mdm.h"
 #include "sec_hal_pm.h"
 #include "sec_hal_sdtoc.h"
@@ -38,15 +40,20 @@
 #include <linux/sched.h>
 #include <linux/poll.h>
 #include <linux/platform_device.h>
-#include <linux/interrupt.h> /* This can be removed later, test for memory protection interrupt */
+#include <linux/interrupt.h> /* This can be removed later,
+                    test for memory protection interrupt */
 #include <asm/io.h>
 
+/* PM start */
+#undef printk
+#define printk(fmt, ...) 0
+/* PM end */
 
 
 
-/* ****************************************************************************
+/* ********************************************************************
  * LOCAL MACROS, static constants.
- * ***************************************************************************/
+ * *******************************************************************/
 #define FALSE 0
 #define TRUE  1
 #define DEFAULT_WDT_VALUE 60000
@@ -58,9 +65,11 @@ void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
 
 const char* k_module_name;
 
-/* ****************************************************************************
+unsigned long icram_offset; /* offset between phys and virt addresses */
+
+/* **********************************************************************
  * MEM ALLOC information, defined here so that one spinlock can protect all.
- * ***************************************************************************/
+ * *********************************************************************/
 struct mem_alloc_info
 {
 	void* virt_addr;	/* the start address of the message area */
@@ -73,13 +82,10 @@ struct mem_msg_area
 	void* virt_baseptr;        /* stores ioremap output */
 	unsigned long phys_start;  /* phys start addr */
 	unsigned long phys_size;   /* phys size */
-	unsigned long offset;      /* offset between physical and virtual addresses */
-	uint32_t * valist_ptr;  /* pointer for valist data */
-	uint32_t * valist_ptr_ptr;  /* pointer pointer */
-	uint32_t valist_size; /* size for valist data */
 	/* blocks to-be-allocated for out & in msgs */
 	struct mem_alloc_info msg_blocks[BLOCKCOUNT];
 };
+
 
 static inline void mem_msg_area_clear(struct mem_msg_area *ptr)
 {
@@ -101,11 +107,9 @@ static inline void mem_msg_area_clear(struct mem_msg_area *ptr)
 
 
 
-
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
-/* ****************************************************************************
+/* **********************************************************************
  * RPC related data structures
- * ***************************************************************************/
+ * *********************************************************************/
 typedef struct
 {
 	struct list_head list;
@@ -124,8 +128,8 @@ static int rpcq_init(
 	return 0;
 }
 
-/* ****************************************************************************
- * ***************************************************************************/
+/* **********************************************************************
+ * *********************************************************************/
 static int _rpcq_add(
 		struct list_head* lst,
 		sd_ioctl_params_t* param_in)
@@ -148,8 +152,8 @@ static int rpcq_add_wakeup(
 	return 0;
 }
 
-/* ****************************************************************************
- * ***************************************************************************/
+/* **********************************************************************
+ * *********************************************************************/
 static int _rpcq_get(
 		struct list_head* lst,
 		sd_ioctl_params_t* param_out)
@@ -178,21 +182,18 @@ static int rpcq_get_wait(
 {
 	return wait_event_interruptible(q->waitq, _rpcq_get(&q->list_head, item));
 }
-#endif /* CONFIG_ARM_SEC_HAL_RPC_HANDLER */
 
 
-/* ****************************************************************************
+/* **********************************************************************
  * STATIC WRITABLE data of the device, the only 'global' writable data.
- * ***************************************************************************/
+ * *********************************************************************/
 struct cli_dev_data
 {
 	struct class* class;
 	struct cdev cdev;
 	struct semaphore sem;
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
 	rpc_queue_t rpc_read_waitq;
 	rpc_queue_t rpc_write_waitq;
-#endif /* CONFIG_ARM_SEC_HAL_RPC_HANDLER */
 	unsigned int wdt_upd; /* initial wdt value, received in rt_init */
 	struct mem_msg_area icram0; /* memory (icram0) allocation information */
 } g_cli_dev_data =
@@ -206,12 +207,12 @@ SEC_HAL_TRACE_DEF_GLOBALS; /* for tracing, used only with debug builds. */
 g_icram_mem_init_done = 0;
 
 
-/* ****************************************************************************
+/* **********************************************************************
  * CLIENT INTERFACE RELATED FUNCTIONS.
- * ***************************************************************************/
-/* ----------------------------------------------------------------------------
+ * *********************************************************************/
+/* ----------------------------------------------------------------------
  * sec_hal_cli_open : allocate handle specific resources
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int sec_hal_cli_open(
 		struct inode *inode,
 		struct file *filp)
@@ -237,9 +238,9 @@ static int sec_hal_cli_open(
 	SEC_HAL_TRACE_EXIT
 	return 0;
 }
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_cli_release :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int sec_hal_cli_release(
 		struct inode *inode,
 		struct file *filp)
@@ -250,9 +251,9 @@ static int sec_hal_cli_release(
 }
 
 static const int k_param_sz = sizeof(sd_ioctl_params_t);
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_cli_ioctl : IO control, make bi-directional sync operations.
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static long sec_hal_cli_ioctl(
 		struct file *filp,
 		unsigned int cmd,
@@ -285,7 +286,8 @@ static long sec_hal_cli_ioctl(
 	{
 		case SD_INIT:
 		{
-			if(!access_ok(VERIFY_WRITE, (unsigned int __user*)input.param0, sizeof(unsigned int)) ||
+			if(!access_ok(VERIFY_WRITE, (unsigned int __user*)input.param0,
+				sizeof(unsigned int)) ||
 				put_user(dev->wdt_upd, (unsigned int __user*)input.param0))
 			{
 				SEC_HAL_TRACE("wdt_value copy not ok, aborting!")
@@ -299,7 +301,8 @@ static long sec_hal_cli_ioctl(
 		case SD_EXIT:{SEC_HAL_TRACE("EXIT - NOP") ret = 0;}break;
 		case SD_KEY_INFO:
 		{
-			if(!access_ok(VERIFY_WRITE, (void __user *)input.param0, sizeof(sec_hal_key_info_t)))
+			if(!access_ok(VERIFY_WRITE, (void __user *)input.param0,
+				sizeof(sec_hal_key_info_t)))
 			{
 				SEC_HAL_TRACE("keyinfo not ok, aborting!")
 				ret = -EFAULT;
@@ -343,7 +346,8 @@ static long sec_hal_cli_ioctl(
 				SEC_HAL_TRACE("data not ok, aborting!")
 				ret = -EFAULT;
 			}
-			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param4, sizeof(uint32_t)))
+			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param4,
+					sizeof(uint32_t)))
 			{
 				SEC_HAL_TRACE("obj_id ptr not ok, aborting!")
 				ret = -EFAULT;
@@ -367,7 +371,8 @@ static long sec_hal_cli_ioctl(
 				SEC_HAL_TRACE("mac_addr_index out-of-bounds, aborting!")
 				ret = -EFAULT;
 			}
-			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param1, SEC_HAL_MAC_SIZE))
+			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param1,
+					SEC_HAL_MAC_SIZE))
 			{
 				SEC_HAL_TRACE("mac_addr not ok, aborting!")
 				ret = -EFAULT;
@@ -382,7 +387,8 @@ static long sec_hal_cli_ioctl(
 		}break;
 		case SD_IMEI_GET:
 		{
-			if(!access_ok(VERIFY_WRITE, (void __user*)input.param0, SEC_HAL_MAX_IMEI_SIZE))
+			if(!access_ok(VERIFY_WRITE, (void __user*)input.param0,
+				SEC_HAL_MAX_IMEI_SIZE))
 			{
 				SEC_HAL_TRACE("imei not ok, aborting!")
 				ret = -EFAULT;
@@ -395,7 +401,10 @@ static long sec_hal_cli_ioctl(
 			}
 		}break;
 		case SD_RAT_BAND_GET:{SEC_HAL_TRACE("!!RAT_BAND - NOT IMPL.!!")}break;
-		case SD_PP_FLAGS_COUNT_GET:{SEC_HAL_TRACE("!!PP_FLAGS_COUNT - NOT IMPL.!!")}break;
+		case SD_PP_FLAGS_COUNT_GET:
+		{
+			SEC_HAL_TRACE("!!PP_FLAGS_COUNT - NOT IMPL.!!")
+		}break;
 		case SD_PP_FLAGS_GET:{SEC_HAL_TRACE("!!PP_FLAGS - NOT IMPL.!!")}break;
 		case SD_SL_LEVELS_OPEN:
 		{
@@ -404,7 +413,8 @@ static long sec_hal_cli_ioctl(
 				SEC_HAL_TRACE("unlock_codes not ok, aborting!")
 				ret = -EFAULT;
 			}
-			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param2, sizeof(uint32_t)))
+			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param2,
+					sizeof(uint32_t)))
 			{
 				SEC_HAL_TRACE("post_status ptr not ok, aborting!")
 				ret = -EFAULT;
@@ -463,7 +473,8 @@ static long sec_hal_cli_ioctl(
 				SEC_HAL_TRACE("input_data not ok, aborting!")
 				ret = -EFAULT;
 			}
-			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param2, sizeof(uint32_t)))
+			else if(!access_ok(VERIFY_WRITE, (void __user*)input.param2,
+					sizeof(uint32_t)))
 			{
 				SEC_HAL_TRACE("auth_data_size ptr not ok, aborting!")
 				ret = -EFAULT;
@@ -548,14 +559,14 @@ static long sec_hal_cli_ioctl(
 	return ret; /* directly return API definitions */
 }
 
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
+
 #define RPC_SUCCESS 0x00
 #define RPC_FAILURE 0x01
 void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
 void  sec_hal_mem_msg_area_free(void *virt_addr);
-/* ****************************************************************************
+/* **********************************************************************
  * RPC HANDLER
- * ***************************************************************************/
+ * *********************************************************************/
 static uint32_t rpc_handler(
 		uint32_t id,
 		uint32_t p1,
@@ -564,12 +575,14 @@ static uint32_t rpc_handler(
 		uint32_t p4)
 {
 	uint32_t ret = 0x00;
+	uint32_t size;
 	struct cli_dev_data* dev = &g_cli_dev_data;
+	void *kernel_data_ptr;
 	sd_ioctl_params_t params = {id, p1, p2, p3, p4};
 
 	SEC_HAL_TRACE_ENTRY
 
-	switch(id) /* pre-ipc step for callbacks that are handled internally by hal.*/
+	switch(id) /* pre-ipc step for callbacks*/
 	{
 		case SEC_HAL_RPC_ALLOC:
 		{
@@ -606,13 +619,28 @@ static uint32_t rpc_handler(
 			if (ret_msg && SEC_HAL_RES_OK == params.reserved1)
 			{
 				/* ensure that the prot_data is in SDRAM memory */
-				SEC_HAL_MEM_CACHE_CLEAN_FUNC((void __user*)params.param3, params.param4);
+				if(NULL != params.param3 && NULL != params.param4)
+				{
+					size = params.param4;
+					/* ensure that the prot_data is in SDRAM memory */
+					kernel_data_ptr = kmalloc(params.param4, GFP_KERNEL);
+					copy_from_user( kernel_data_ptr, params.param3, size );
+					SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_data_ptr, size);
+					SEC_HAL_TRACE("kernel_data_ptr: 0x%x", kernel_data_ptr);
+				}
+				else
+				{
+					SEC_HAL_TRACE("Allocated data is null!");
+					size = 0;
+				}
 			}
-			sec_msg_param_write32(&ret_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE);
-			sec_msg_param_write32(&ret_handle, params.param4, SEC_MSG_PARAM_ID_NONE);
-			sec_msg_param_write32(&ret_handle, params.param3, SEC_MSG_PARAM_ID_NONE);
-			SEC_HAL_TRACE_EXIT_INFO("data_size == %u", params.param4);
-			return (uint32_t) ret_msg;
+			sec_msg_param_write32(&ret_handle, params.reserved1,
+				SEC_MSG_PARAM_ID_NONE);
+			sec_msg_param_write32(&ret_handle, size, SEC_MSG_PARAM_ID_NONE);
+			sec_msg_param_write32(&ret_handle, virt_to_phys(kernel_data_ptr),
+            SEC_MSG_PARAM_ID_NONE);
+			SEC_HAL_TRACE_EXIT_INFO("data_size == %u", size);
+			return (uint32_t) SEC_HAL_MEM_VIR2PHY_FUNC(ret_msg);
 		}break;
 		case SEC_HAL_RPC_PROT_DATA_FREE: /*NOP*/ break;
 		default: break;
@@ -622,9 +650,9 @@ static uint32_t rpc_handler(
 	return RPC_SUCCESS;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_rpc_read : read content from rpc queque.
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static ssize_t sec_hal_rpc_read(
 		struct file *filp,
 		char __user* buf,
@@ -654,9 +682,9 @@ static ssize_t sec_hal_rpc_read(
 	return (k_param_sz-cnt);
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_rpc_write : write content to rpc queque.
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static ssize_t sec_hal_rpc_write(
 		struct file *filp,
 		const char *buf,
@@ -682,25 +710,21 @@ static ssize_t sec_hal_rpc_write(
 	return (k_param_sz-cnt);
 }
 
-#endif /* CONFIG_ARM_SEC_HAL_RPC_HANDLER */
-/* ----------------------------------------------------------------------------
- * --------------------------------------------------------------------------*/
+
 static struct file_operations k_sec_hal_fops = {
 	.owner = THIS_MODULE,
 	.open = &sec_hal_cli_open,
 	.release = &sec_hal_cli_release,
 	.unlocked_ioctl = &sec_hal_cli_ioctl,
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
 	.read = &sec_hal_rpc_read,
 	.write = &sec_hal_rpc_write,
-#endif  /*CONFIG_ARM_SEC_HAL_RPC_HANDLER*/
 	.llseek = &no_llseek,
 };
 
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * add_attach_cdev :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int add_attach_cdev(
 		struct cdev* dev,
 		struct file_operations* fops,
@@ -723,9 +747,9 @@ static int add_attach_cdev(
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * detach_del_cdev :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static void detach_del_cdev(
 		struct cdev* dev,
 		struct class* cls)
@@ -738,9 +762,9 @@ static void detach_del_cdev(
 	SEC_HAL_TRACE_EXIT
 }
 
-/* ----------------------------------------------------------------------------
- * sec_hal_setup_cdev_init : allocate & initialize cdev node related structures.
- * --------------------------------------------------------------------------*/
+/* ----------------------------------------------------------------------
+ * sec_hal_setup_cdev_init : allocate & initialize cdev node
+ * --------------------------------------------------------------------*/
 static int sec_hal_cdev_init(
 		struct cli_dev_data *dev_data)
 {
@@ -775,10 +799,8 @@ static int sec_hal_cdev_init(
 	/* all ok, store heap data to argument struct. */
 	sema_init(&dev_data->sem, CONFIG_NR_CPUS);
 	dev_data->class = cls;
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
 	rpcq_init(&dev_data->rpc_read_waitq);
 	rpcq_init(&dev_data->rpc_write_waitq);
-#endif /* CONFIG_ARM_SEC_HAL_RPC_HANDLER */
 
 	SEC_HAL_TRACE_EXIT
 	return ret;
@@ -790,9 +812,9 @@ e1:	unregister_chrdev_region(MAJOR(devno), 1);
 }
 
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_cdev_exit : release cdevs related resources
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static void sec_hal_cdev_exit(
 		struct cli_dev_data *dev_data)
 {
@@ -810,15 +832,15 @@ static void sec_hal_cdev_exit(
 
 
 
-/* ****************************************************************************
+/* **********************************************************************
  * ICRAM ALLOCATION RELATED FUNCTIONS
- * ***************************************************************************/
+ * *********************************************************************/
 #if (!defined(BLOCKCOUNT) && !BLOCKCOUNT)
 #error !!local macro not defined, can cause div by zero exception!!
 #endif
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_init :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 int sec_hal_mem_msg_area_init()
 {
 	int ret = 0;
@@ -842,16 +864,17 @@ int sec_hal_mem_msg_area_init()
 #ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
 	msg_area->virt_baseptr = kmalloc(size, GFP_KERNEL);
 #else
-	msg_area->virt_baseptr = ioremap_nocache(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE));
+	msg_area->virt_baseptr = \
+    ioremap_nocache(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE));
 #endif /* CONFIG_ARM_SEC_HAL_TEST_DISPATCHER */
     SEC_HAL_TRACE("msg_area->virt_baseptr 0x%x",msg_area->virt_baseptr)
 	msg_area->phys_start = UL(ICRAM1_ADDRESS);
     SEC_HAL_TRACE("msg_area->phys_start 0x%x",msg_area->phys_start)
 	msg_area->phys_size = UL(ICRAM1_SIZE);
     SEC_HAL_TRACE("msg_area->phys_size 0x%x",msg_area->phys_size)
-	msg_area->offset = msg_area->virt_baseptr - msg_area->phys_start;
-    SEC_HAL_TRACE("msg_area->offset 0x%x",msg_area->offset)
-	msg_area->valist_size = 20;
+    icram_offset = msg_area->virt_baseptr - msg_area->phys_start;
+    SEC_HAL_TRACE("icram_offset 0x%x",icram_offset)
+
 
 	if(NULL == msg_area->virt_baseptr)
 	{
@@ -871,21 +894,6 @@ int sec_hal_mem_msg_area_init()
 		msg_area->msg_blocks[index].allocated = FALSE;
 	}
 
-    msg_area->valist_ptr_ptr = sec_hal_mem_msg_area_calloc(1,4);
-	if(NULL == msg_area->valist_ptr_ptr)
-	{
-	       printk("msg_area->valist_ptr_ptr is bad \n");
-		ret = -EINVAL;
-		goto e2;
-	}
-
-    msg_area->valist_ptr = sec_hal_mem_msg_area_calloc(1,20);
-	if(NULL == msg_area->valist_ptr)
-	{
-	       printk("msg_area->valist_ptr is bad \n");
-		ret = -EINVAL;
-		goto e2;
-	}
     g_icram_mem_init_done=1;
 	SEC_HAL_TRACE_EXIT
 	return ret;
@@ -896,11 +904,12 @@ e1: MEM_MSG_AREA_CLEAR(msg_area); /* leave mem struct as 'unallocated' */
 	return ret;
 }
 
-EXPORT_SYMBOL(sec_hal_mem_msg_area_init); /* made available for other kernel entities */
+ /* made available for other kernel entities */
+EXPORT_SYMBOL(sec_hal_mem_msg_area_init);
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_exit :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 void sec_hal_mem_msg_area_exit(
 		struct mem_msg_area *msg_area)
 {
@@ -914,9 +923,9 @@ void sec_hal_mem_msg_area_exit(
 }
 
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_memcpy : simple memcpy
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 unsigned long sec_hal_mem_msg_area_memcpy(
 		void *dst,
 		const void *src,
@@ -945,7 +954,10 @@ unsigned long sec_hal_mem_msg_area_write(
 	while (sz--)
     {
         printk("0x%x ",*src8);
-        iowrite8(*src8++,dst++);
+		/* PM start */
+		*(char*)dst++ = *src8++;
+		/* iowrite8(*src8++,dst++); */
+		/* PM end */
         tmp++;
     }
     printk("Data size was %d", tmp);
@@ -963,16 +975,19 @@ unsigned long sec_hal_mem_msg_area_read(
 	__u8* src8 = (__u8*)src;
 	SEC_HAL_TRACE_ENTRY;
          printk(" sec_hal_mem_msg_area_read \n");
-	 
-	while (sz--){*dst8++ =  ioread8(src8++);}
+	
+	/* PM start */
+	while (sz--){*dst8++ =  *src8++;}
+	/* while (sz--){*dst8++ =  ioread8(src8++);} */
+	/* PM end */
 
 	SEC_HAL_TRACE_EXIT;
 	return (unsigned long)dst;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_memset : simple memset for ZI purposes.
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static inline void sec_hal_mem_msg_area_memset(
 		void *buff,
 		unsigned char data,
@@ -982,9 +997,9 @@ static inline void sec_hal_mem_msg_area_memset(
 	while(cnt > 0){ *ptr++ = data; cnt--; }
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_calloc : used by sec_hal_rt
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 void* sec_hal_mem_msg_area_calloc(
 		unsigned int n,
 		unsigned int sz)
@@ -1060,9 +1075,9 @@ void* sec_hal_mem_msg_area_calloc(
 	return virt_addr; /* return allocated(or not) memory address */
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_mem_msg_area_free : used by sec_hal_rt
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 void sec_hal_mem_msg_area_free(
 		void *virt_addr)
 {
@@ -1114,7 +1129,8 @@ static void print_access(void * memory_ptr)
    printk("Tried to access 0x%x \n",memory_ptr");
 }
 
-void memory_protection_irq_handler(int irq, void *dev_id, struct pt_regs *regs)
+void memory_protection_irq_handler(int irq, void *dev_id,
+                                   struct pt_regs *regs)
 {
    /* This variables are static because they need to be 
     * accessible (through pointers) to the bottom half routine.
@@ -1139,12 +1155,12 @@ void memory_protection_irq_handler(int irq, void *dev_id, struct pt_regs *regs)
 }
 #endif
 
-/* ****************************************************************************
+/* **********************************************************************
  * PLATFORM DEVICE FRAMEWORK RELATED FUNCTIONS.
- * ***************************************************************************/
-/* ----------------------------------------------------------------------------
+ * *********************************************************************/
+/* ----------------------------------------------------------------------
  * sec_hal_platform_device_probe :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int sec_hal_platform_device_probe(
 		struct platform_device *plat_dev)
 {
@@ -1176,17 +1192,16 @@ static int sec_hal_platform_device_probe(
 	if(ret){goto e1;}
 #endif /* CONFIG_ARM_SEC_HAL_RT_INIT */
 
-#ifdef CONFIG_ARM_SEC_HAL_RPC_HANDLER
 	ret = sec_hal_rt_install_rpc_handler(&rpc_handler);
 	if(ret){goto e1;}
-#endif /* CONFIG_ARM_SEC_HAL_RPC_HANDLER */
 
 	ret = sec_hal_cdev_init(&g_cli_dev_data);
 	if(ret){goto e2;}
 
     /* Init sdtoc memory area */
 #ifdef CONFIG_ARM_SEC_HAL_SDTOC
-	if(plat_dev && NULL == (mem = platform_get_resource(plat_dev, IORESOURCE_MEM, 1)))
+	if(plat_dev && NULL == (mem = \
+		platform_get_resource(plat_dev, IORESOURCE_MEM, 1)))
 	{
 		SEC_HAL_TRACE_EXIT_INFO("faulty arguments, aborting!")
 		return -ENOMEM;
@@ -1212,9 +1227,9 @@ e0:
 	return ret;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_platform_device_remove :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int sec_hal_platform_device_remove(
 		struct platform_device *plat_dev)
 {
@@ -1227,43 +1242,43 @@ static int sec_hal_platform_device_remove(
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_platform_device_shutdown :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static void sec_hal_platform_device_shutdown(
 		struct platform_device *plat_dev)
 {
 	SEC_HAL_TRACE_ENTRY
-	// TBDL
+	/* TBDL */
 	SEC_HAL_TRACE_EXIT
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_platform_device_suspend :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int sec_hal_platform_device_suspend(
 		struct platform_device *plat_dev,
 		pm_message_t state)
 {
 	SEC_HAL_TRACE_ENTRY
-	// TBDL
+	/* TBDL */
 	SEC_HAL_TRACE_EXIT
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_platform_device_resume :
- * --------------------------------------------------------------------------*/
+ * ---------------------------------------------------------------------*/
 static int sec_hal_platform_device_resume(struct platform_device *plat_dev)
 {
 	SEC_HAL_TRACE_ENTRY
-	// TBDL
+	/* TBDL */
 	SEC_HAL_TRACE_EXIT
 	return 0;
 }
 
-/* ----------------------------------------------------------------------------
- * --------------------------------------------------------------------------*/
+/* ----------------------------------------------------------------------
+ * --------------------------------------------------------------------*/
 static struct platform_driver k_sec_hal_platform_device_driver =
 {
 	.probe    = sec_hal_platform_device_probe,
@@ -1277,68 +1292,45 @@ static struct platform_driver k_sec_hal_platform_device_driver =
 
 
 
-/* ****************************************************************************
+/* **********************************************************************
  * EXPORTs, Modem Boot
- * ***************************************************************************/
-/* ----------------------------------------------------------------------------
+ * *********************************************************************/
+/* ----------------------------------------------------------------------
  * sec_hal_mdm_memcpy : copy data to a certain kind of protected memory.
- * --------------------------------------------------------------------------*/
-uint32_t sec_hal_mdm_memcpy(
-		void* phys_dst,
-		void* phys_src,
-		uint32_t size)
+ * --------------------------------------------------------------------*/
+/* ***********************************************************************
+ * EXPORTs, Modem Boot
+ * ***********************************************************************/
+/* ------------------------------------------------------------------------
+ * sec_hal_mdm_memcpy : copy data to a certain kind of protected memory.
+ * -----------------------------------------------------------------------*/
+uint32_t
+sec_hal_mdm_memcpy(uint32_t phys_dst,
+           	   uint32_t phys_src,
+           	   uint32_t size)
 {
-	uint32_t ret;
-	struct cli_dev_data* dev = &g_cli_dev_data;
-
-	SEC_HAL_TRACE_ENTRY
-
-	if(down_interruptible(&dev->sem))
-	{
-		SEC_HAL_TRACE("interrupted, restart syscall")
-		return SEC_HAL_MDM_RES_FAIL;
-	}
-
-	ret = sec_hal_rt_memcpy(phys_dst, phys_src, size);
-
-	up(&dev->sem);
-
-	SEC_HAL_TRACE_EXIT
-	return ret;
+    return sec_hal_memcpy(phys_dst, phys_src, size);
 }
-EXPORT_SYMBOL(sec_hal_mdm_memcpy); /* made available for other kernel entities */
+/* made available for other kernel entities */
+EXPORT_SYMBOL(sec_hal_mdm_memcpy);
 
-/* ----------------------------------------------------------------------------
- * sec_hal_mdm_authenticate : authenticate memory content with SW cert.
- * --------------------------------------------------------------------------*/
-uint32_t sec_hal_mdm_authenticate(
-		void* phys_addr,
-		uint32_t size)
+/* ----------------------------------------------------------------------
+ * sec_authenticate : authenticate memory content with SW cert.
+ * --------------------------------------------------------------------*/
+uint32_t
+sec_hal_mdm_authenticate(uint32_t cert_phys_addr,
+                         uint32_t cert_size,
+                         uint32_t *objid)
 {
-	uint32_t ret;
-	struct cli_dev_data* dev = &g_cli_dev_data;
-
-	SEC_HAL_TRACE_ENTRY
-
-	if(down_interruptible(&dev->sem))
-	{
-		SEC_HAL_TRACE("interrupted, restart syscall")
-		return SEC_HAL_MDM_RES_FAIL;
-	}
-
-	ret = sec_hal_rt_cert_register(phys_to_virt((phys_addr_t)phys_addr), size, NULL);
-
-	up(&dev->sem);
-
-	SEC_HAL_TRACE_EXIT
-	return ret;
+    return sec_hal_authenticate(cert_phys_addr, cert_size, objid);
 }
-EXPORT_SYMBOL(sec_hal_mdm_authenticate); /* made available for other kernel entities */
+/* made available for other kernel entities */
+EXPORT_SYMBOL(sec_hal_mdm_authenticate);
 
 
-/* ****************************************************************************
+/* **********************************************************************
  * MODULE INIT & EXIT
- * ***************************************************************************/
+ * *********************************************************************/
 #ifdef CONFIG_ARM_SEC_HAL_BUILTIN_PLATDEV
 	static struct resource k_sec_hal_resources[] =
 	{
@@ -1369,9 +1361,9 @@ EXPORT_SYMBOL(sec_hal_mdm_authenticate); /* made available for other kernel enti
 		&k_sec_hal_chardevice,
 	};
 #endif
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_driver_init :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static int __init sec_hal_driver_init(void)
 {
 	int ret = 0;
@@ -1389,9 +1381,9 @@ static int __init sec_hal_driver_init(void)
 	return ret;
 }
 
-/* ----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------
  * sec_hal_driver_exit :
- * --------------------------------------------------------------------------*/
+ * --------------------------------------------------------------------*/
 static void __exit sec_hal_driver_exit(void)
 {
 	SEC_HAL_TRACE_ENTRY
@@ -1400,10 +1392,13 @@ static void __exit sec_hal_driver_exit(void)
 
 	SEC_HAL_TRACE_EXIT
 }
-module_init(sec_hal_driver_init);
+/* PM start */
+/* module_init(sec_hal_driver_init); */
 module_exit(sec_hal_driver_exit);
+pure_initcall(sec_hal_driver_init);
+/* PM end */
 
 MODULE_AUTHOR("Renesas Mobile Corporation");
-MODULE_DESCRIPTION("Device driver for accessing ARM TRUSTZONE during runtime");
+MODULE_DESCRIPTION("Device driver for ARM TRUSTZONE access");
 MODULE_LICENSE("Proprietary");
 

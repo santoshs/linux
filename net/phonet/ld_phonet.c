@@ -160,9 +160,18 @@ error:
 static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct ld_phonet *ld_pn;
+	u8 *ptr;
 
 	BUG_ON(dev == NULL);
 	ld_pn = netdev_priv(dev);
+
+	ptr = skb_push(skb, 6);
+	ptr[0] = 0xdd;
+	ptr[1] = 0x7f;
+	ptr[2] = 0x21;
+	ptr[3] = 0x9a;
+	ptr[4] = skb->data[10];
+	ptr[5] = skb->data[11];
 
 	if (ld_pn->link_up == true) {
 		skb_queue_tail(&ld_pn->head, skb);

@@ -62,15 +62,24 @@ struct audio_test_ioctl_cmd {
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration                                         */
 /*---------------------------------------------------------------------------*/
-#define IOCTL_SETDEVICE		_IOW(AUDIO_TEST_IOC_MAGIC, 1, struct audio_test_ioctl_cmd)
-#define IOCTL_STARTLOOP		_IOW(AUDIO_TEST_IOC_MAGIC, 2, struct audio_test_ioctl_cmd)
-#define IOCTL_STOPLOOP		_IOW(AUDIO_TEST_IOC_MAGIC, 3, struct audio_test_ioctl_cmd)
-#define IOCTL_DETECTJACK	_IOR(AUDIO_TEST_IOC_MAGIC, 4, struct audio_test_ioctl_cmd)
-#define IOCTL_DETECTKEY		_IOR(AUDIO_TEST_IOC_MAGIC, 5, struct audio_test_ioctl_cmd)
-#define IOCTL_STARTTONE		_IOW(AUDIO_TEST_IOC_MAGIC, 6, struct audio_test_ioctl_cmd)
-#define IOCTL_STOPTONE		_IOW(AUDIO_TEST_IOC_MAGIC, 7, struct audio_test_ioctl_cmd)
-#define IOCTL_STARTPCMLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 8, struct audio_test_ioctl_cmd)
-#define IOCTL_STOPPCMLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 9, struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_SETDEVICE	_IOW(AUDIO_TEST_IOC_MAGIC, 1, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STARTSCUWLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 2, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STOPSCUWLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 3, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_DETECTJACK	_IOR(AUDIO_TEST_IOC_MAGIC, 4, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_DETECTKEY	_IOR(AUDIO_TEST_IOC_MAGIC, 5, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STARTTONE	_IOW(AUDIO_TEST_IOC_MAGIC, 6, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STOPTONE	_IOW(AUDIO_TEST_IOC_MAGIC, 7, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STARTSPUVLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 8, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STOPSPUVLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 9, \
+					struct audio_test_ioctl_cmd)
 
 /*---------------------------------------------------------------------------*/
 /* enum declaration                                                          */

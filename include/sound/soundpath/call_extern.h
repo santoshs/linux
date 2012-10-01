@@ -36,9 +36,18 @@ enum call_status {
 	REC_INCOMM_STATUS	= 0x10
 };
 
+CALL_CTRL_NO_EXTERN enum call_status g_status;
+CALL_CTRL_NO_EXTERN atomic_t g_call_watch_start_fw;
 
-typedef void (*callback_func)(u_int);
-typedef void (*callback_func_clk)(void);
+typedef void (*callback_func)(void);
+
+struct call_vcd_callback {
+	callback_func	 callback_start_fw;
+	callback_func	 callback_stop_fw;
+	callback_func	 callback_start_clk;
+	callback_func	 callback_stop_clk;
+	callback_func	 callback_wait_path;
+};
 
 /* Call initialization function */
 CALL_CTRL_NO_EXTERN void call_init(
@@ -76,8 +85,7 @@ CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_pcmdata_pointer(
 /* VOCODER Set VQA mode function */
 CALL_CTRL_NO_EXTERN int call_set_vqa(u_int value);
 /* VOCODER Set Callback function for VCD Watch function */
-CALL_CTRL_NO_EXTERN int call_regist_watch(
-			callback_func callback, callback_func_clk callback_clk);
+CALL_CTRL_NO_EXTERN int call_regist_watch(struct call_vcd_callback *func);
 /* Record dummy change function */
 CALL_CTRL_NO_EXTERN void call_change_dummy_rec(void);
 CALL_CTRL_NO_EXTERN void call_change_dummy_play(void);
@@ -91,6 +99,8 @@ CALL_CTRL_NO_EXTERN int call_create_workque(void);
 CALL_CTRL_NO_EXTERN void call_destroy_workque(void);
 /* Void get buffer function */
 CALL_CTRL_NO_EXTERN void call_get_incomm_buffer(void);
+/* VoIP buffer offset return function */
+CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_incomm_pcmdata_pointer(struct snd_pcm_substream *substream);
 
 #endif /* __CALL_EXTERN_H__ */
 

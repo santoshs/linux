@@ -1472,6 +1472,7 @@ static inline void sci_free_dma(struct uart_port *port)
 static int sci_startup(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
+	unsigned long flags;
 	int ret;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
@@ -1482,8 +1483,10 @@ static int sci_startup(struct uart_port *port)
 
 	sci_request_dma(port);
 
+	spin_lock_irqsave(&port->lock, flags);
 	sci_start_tx(port);
 	sci_start_rx(port);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	return 0;
 }
@@ -1491,11 +1494,14 @@ static int sci_startup(struct uart_port *port)
 static void sci_shutdown(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
+	unsigned long flags;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
 
+	spin_lock_irqsave(&port->lock, flags);
 	sci_stop_rx(port);
 	sci_stop_tx(port);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	sci_free_dma(port);
 	sci_free_irq(s);
@@ -1865,7 +1871,21 @@ static void serial_console_write(struct console *co, const char *s,
 {
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
-	unsigned short bits;
+	unsigned short bits, ctrl;
+	unsigned long flags;
+	int locked = 1;
+
+	local_irq_save(flags);
+	if (port->sysrq)
+		locked = 0;
+	else if (oops_in_progress)
+		locked = spin_trylock(&port->lock);
+	else
+		spin_lock(&port->lock);
+
+	/* first save the SCSCR then disable the interrupts */
+	ctrl = sci_in(port, SCSCR);
+	sci_out(port, SCSCR, sci_port->cfg->scscr);
 
 	uart_console_write(port, s, count, serial_console_putchar);
 
@@ -1874,6 +1894,12 @@ static void serial_console_write(struct console *co, const char *s,
 	while ((sci_in(port, SCxSR) & bits) != bits)
 		cpu_relax();
 
+	/* restore the SCSCR */
+	sci_out(port, SCSCR, ctrl);
+
+	if (locked)
+		spin_unlock(&port->lock);
+	local_irq_restore(flags);
 }
 
 static int __devinit serial_console_setup(struct console *co, char *options)

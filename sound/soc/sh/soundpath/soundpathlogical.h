@@ -18,6 +18,7 @@
 #define __SOUNDPATHLOGICAL_H__
 
 #include <linux/kernel.h>
+#include <linux/vcd/vcd.h>
 
 /*
  *
@@ -124,7 +125,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(
 	struct snd_pcm_substream *substream);
 static int sndp_fsi_suspend(struct device *dev);
 static int sndp_fsi_resume(struct device *dev);
-static int sndp_fsi_hw_free(struct snd_pcm_substream *substream );
+static int sndp_fsi_hw_free(struct snd_pcm_substream *substream);
 
 /* PATH Switchging / Back-out control functions */
 static void sndp_path_switching(const u_int uiValue);
@@ -218,11 +219,20 @@ static void sndp_after_of_work_call_capture_stop(
 	const u_int iInValue,
 	const u_int iOutValue);
 
-/* Watch stop Firmware notification callback function */
-static void sndp_watch_stop_fw_cb(u_int uiNop);
+/* Watch start Firmware notification callback function */
+static void sndp_watch_start_fw_cb(void);
 
-/* Wake up callback function */
-static void sndp_watch_clk_cb(void);
+/* Watch stop Firmware notification callback function */
+static void sndp_watch_stop_fw_cb(void);
+
+/* Wake up start clkgen callback function */
+static void sndp_watch_start_clk_cb(void);
+
+/* Wake up stop clkgen callback function */
+static void sndp_watch_stop_clk_cb(void);
+
+/* Wake up wait path callback function */
+static void sndp_wait_path_cb(void);
 
 /* Subfunction of the sndp_work_voice_dev_chg() */
 /* AudioLSI -> BT-SCO */
@@ -264,17 +274,17 @@ static int sndp_work_voice_dev_chg_in_audioic(
 }
 
 /* for informs of data receiving */
-#define LOG_INIT_CYCLE_COUNT(stream)	g_sndp_log_cycle_counter[stream] = 0
+#define LOG_INIT_CYCLE_COUNT(stream)	(g_sndp_log_cycle_counter[stream] = 0)
 #define LOG_GET_CYCLE_COUNT_MAX()	(g_sndp_log_level >> 16)
 
 /* SoundDriver Status SET/GET */
 #define SET_SNDP_STATUS(stream, set_status)	\
 	g_sndp_main[stream].status = set_status
-#define GET_SNDP_STATUS(stream)		g_sndp_main[stream].status
+#define GET_SNDP_STATUS(stream)		(g_sndp_main[stream].status)
 
 /* Old value (PCM) SET/GET */
-#define SET_OLD_VALUE(stream, value)	g_sndp_main[stream].old_value = value
-#define GET_OLD_VALUE(stream)		g_sndp_main[stream].old_value
+#define SET_OLD_VALUE(stream, value)	(g_sndp_main[stream].old_value = value)
+#define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
 
 /* For Stop trigger conditions */
 #define SNDP_STOP_TRIGGER_CHECK(idx)					\
@@ -417,7 +427,12 @@ struct sndp_work_info {
 };
 
 /* Wait queue for start voice process wake up */
-static DECLARE_WAIT_QUEUE_HEAD(g_watch_clk_queue);
+static DECLARE_WAIT_QUEUE_HEAD(g_watch_start_clk_queue);
+static atomic_t g_sndp_watch_start_clk;
+
+/* Wait queue for stop voice process wake up */
+static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
+static atomic_t g_sndp_watch_stop_clk;
 
 /* SOUND_TEST */
 #ifdef SOUND_TEST

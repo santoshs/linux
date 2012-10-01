@@ -2548,7 +2548,8 @@ err:
 /*------------------------------------*/
 /* for public function		*/
 /*------------------------------------*/
-int max98090_set_device(const u_long device, const u_int pcm_value)
+int max98090_set_device(const u_long device, const u_int pcm_value,
+	u_int power)
 {
 	int ret = 0;
 

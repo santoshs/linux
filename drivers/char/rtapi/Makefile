@@ -23,6 +23,7 @@ ifneq ($(KERNELRELEASE),)
 obj-y   += ./rtboot/
 obj-y	+= ./iccom/
 obj-y	+= ./rtds/
+obj-y	+= ./rcvry/
 rtapi-objs	+= ./screen/screen_display.o
 rtapi-objs	+= ./screen/screen_graphics.o
 rtapi-objs	+= ./system/system_memory.o

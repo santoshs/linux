@@ -1,20 +1,20 @@
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
+/* *********************************************************************** **
+**                               Renesas                                   **
+** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** Copyright (C) 2010-2012 Renesas Electronics Corp.                         **
-** All rights reserved.                                                      **
-** ************************************************************************* */
+/* *************************** COPYRIGHT INFORMATION ********************* **
+** This program contains proprietary information that is a trade secret of **
+** Renesas and also is protected as an unpublished work under              **
+** applicable Copyright laws. Recipient is to retain this program in       **
+** confidence and is not permitted to use or make copies thereof other than**
+** as permitted in a written agreement with Renesas.                       **
+**                                                                         **
+** Copyright (C) 2010-2012 Renesas Electronics Corp.                       **
+** All rights reserved.                                                    **
+** *********************************************************************** */
 
 
-/* ************************ HEADER (INCLUDE) SECTION *********************** */
+/* ************************ HEADER (INCLUDE) SECTION ********************* */
 #include "sec_hal_rt.h"
 #include "sec_hal_sdtoc.h"
 #include "sdtoc_data.h"
@@ -41,7 +41,7 @@
 
 SECURED_DATA_TOC_ENTRY * sdtoc_root =NULL;
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_sdtoc_area_init
 ** Description        : sets the sdtoc_root
 ** Parameters         : IN/--- struct mem_msg_area *msg_area
@@ -50,7 +50,7 @@ SECURED_DATA_TOC_ENTRY * sdtoc_root =NULL;
 ** Return value       : int
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 
 int sec_hal_sdtoc_area_init(unsigned long start, unsigned long size)
     {
@@ -66,15 +66,15 @@ int sec_hal_sdtoc_area_init(unsigned long start, unsigned long size)
     
     }
 
-/* ****************************************************************************
+/* **************************************************************************
 ** Function name      : sec_hal_sdtoc_read
 ** Description        : read data from toc to the given address.
-** Parameters         : IN/--- uint32_t *input_data, object id for reading the toc
-                        IN/--- void *output_data, pointer for returning read data
+** Parameters         : IN/--- uint32_t *input_data, object id for reading toc
+                        IN/--- void *output_data, pointer for read data
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** ***************************************************************************/
+** *************************************************************************/
 
 uint32_t sec_hal_sdtoc_read(uint32_t *input_data, void *output_data)
 {
@@ -99,7 +99,8 @@ uint32_t sec_hal_sdtoc_read(uint32_t *input_data, void *output_data)
         else
         {
             data_ptr = (char *) sdtoc_get_payload(object_id,&toc_item_size);
-            if ( toc_item_size == 0 || copy_to_user(output_data, data_ptr, toc_item_size) )
+            if ( toc_item_size == 0 ||
+                 copy_to_user(output_data, data_ptr, toc_item_size) )
             {
                 sec_hal_status = SEC_HAL_RES_FAIL;
             }
@@ -116,10 +117,12 @@ void * sdtoc_get_payload(const uint32_t object_id, uint32_t * const p_length)
 
   void * rv = 0;
   uint32_t sdtoc_index;
-/*  SECURED_DATA_TOC_ENTRY * sdtoc_root = (SECURED_DATA_TOC_ENTRY *)SDTOC_ROOT;*/
+/* SECURED_DATA_TOC_ENTRY * sdtoc_root = \
+(SECURED_DATA_TOC_ENTRY *)SDTOC_ROOT;*/
 
-/*    SECURED_DATA_TOC_ENTRY * sdtoc_root = (SECURED_DATA_TOC_ENTRY *) phys_to_virt((phys_addr_t)SDTOC_ROOT);*/
-/*    sdtoc_root = (SECURED_DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ROOT,
+/* SECURED_DATA_TOC_ENTRY * sdtoc_root = \
+(SECURED_DATA_TOC_ENTRY *) phys_to_virt((phys_addr_t)SDTOC_ROOT);*/
+/* sdtoc_root = (SECURED_DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ROOT,
 0x4000);*/
 
     if(sdtoc_root == NULL)
@@ -149,5 +152,5 @@ void * sdtoc_get_payload(const uint32_t object_id, uint32_t * const p_length)
   return rv;
 }
 
-/* ******************************** END ************************************ */
+/* ******************************** END ********************************** */
 

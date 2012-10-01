@@ -28,6 +28,7 @@
 #include <mach/pm.h>
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
+#include <linux/cpu.h>
 
 #include "pm_ram0.h"
 #include "pmRegisterDef.h"
@@ -419,6 +420,56 @@ EXPORT_SYMBOL(is_cpuidle_enable);
 #endif
 
 /*
+ * cpuidle_coupled_cpu_notify - notifier called during hotplug transitions
+ * @nfb: notifier block
+ * @action: hotplug transition
+ * @hcpu: target cpu number
+ *
+ * Called when a cpu is brought on or offline using hotplug.
+ * updates the CPU's status appropriately
+ */
+static int __cpuinit
+cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+{
+	unsigned long flags;
+	int cpu = (unsigned long)hcpu;
+
+	switch (action) {
+	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
+		spin_lock_irqsave(&clock_lock, flags);
+		if (cpu)
+			__raw_writel((unsigned long)CPUSTATUS_RUN
+						, __io(ram0Cpu1Status));
+		else
+			__raw_writel((unsigned long)CPUSTATUS_RUN
+						, __io(ram0Cpu0Status));
+		spin_unlock_irqrestore(&clock_lock, flags);
+		break;
+	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
+		spin_lock_irqsave(&clock_lock, flags);
+		if (cpu)
+			__raw_writel((unsigned long)CPUSTATUS_SHUTDOWN
+						, __io(ram0Cpu1Status));
+		else
+			__raw_writel((unsigned long)CPUSTATUS_SHUTDOWN
+						, __io(ram0Cpu0Status));
+		spin_unlock_irqrestore(&clock_lock, flags);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __cpuinitdata cpu_nfb = {
+	.notifier_call = cpu_callback
+};
+
+
+/*
  * shmobile_init_cpuidle: Initialization of CPU's idle PM
  * return:
  *		0: successful
@@ -586,6 +637,12 @@ static int shmobile_init_cpuidle(void)
 				"Failed registering\n");
 			return -EIO;
 		}
+	}
+
+	/* Register hotplug notifier. */
+	if (0 != register_cpu_notifier(&cpu_nfb)) {
+		printk(KERN_ERR "shmobile_init_cpuidle: "
+			"Failed registering CPUhotplug\n");
 	}
 
 	return 0;

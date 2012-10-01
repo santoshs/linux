@@ -227,6 +227,10 @@ EXPORT_SYMBOL(g_sndp_codec_info);
 /* pointer receive log cycle counter */
 u_int g_sndp_log_cycle_counter[SNDP_PCM_DIRECTION_MAX];
 
+/* for wait path */
+DECLARE_WAIT_QUEUE_HEAD(g_sndp_start_call_queue);
+u_int g_sndp_start_call_wait;
+
 #if defined(DEBUG) && defined(__PRN_SNDP__)
 /* Status */
 static const struct sndp_pcm_name_suffix status_list[] = {
@@ -241,8 +245,6 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 #endif
 
 static int g_call_playback_stop;
-
-extern enum call_status g_status;
 
 /*!
    @brief Print Log informs of data receiving
@@ -509,6 +511,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	sndp_log_debug_func("start\n");
 
+	g_sndp_power_domain = NULL;
 	/* Main Process table init */
 	for (iCnt = 0; iCnt < SNDP_PCM_DIRECTION_MAX; iCnt++) {
 		memset(&g_sndp_main[iCnt].arg, 0, sizeof(struct sndp_arg));
@@ -603,7 +606,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	INIT_WORK(&g_sndp_work_call_capture_incomm_stop.work,
 		  sndp_work_call_capture_incomm_stop);
 
-	atomic_set(&g_sndp_watch_clk, 0);
+	atomic_set(&g_sndp_watch_start_clk, 0);
+	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	/* Get buffer for incommunication */
 	call_get_incomm_buffer();
@@ -728,7 +732,10 @@ add_control_err:	TODO
 workque_create_err:
 	remove_proc_entry(SNDP_DRV_NAME, NULL);
 power_domain_err:
-	pm_runtime_disable(g_sndp_power_domain);
+	if (g_sndp_power_domain) {
+		pm_runtime_disable(g_sndp_power_domain);
+		g_sndp_power_domain = NULL;
+	}
 mkproc_err:
 	return iRet;
 
@@ -749,7 +756,10 @@ void sndp_exit(void)
 	common_iounmap();
 
 	/* RuntimePM */
-	pm_runtime_disable(g_sndp_power_domain);
+	if (g_sndp_power_domain) {
+		pm_runtime_disable(g_sndp_power_domain);
+		g_sndp_power_domain = NULL;
+	}
 
 	/* Proc entry remove */
 	if (NULL != g_sndp_parent)
@@ -1071,7 +1081,8 @@ static int sndp_soc_put(
 
 	/* Direction check */
 	if ((SNDP_PCM_IN == uiDirection) &&
-	    (SNDP_MODE_INCOMM != uiMode)) {
+	    (SNDP_MODE_INCOMM != uiMode) &&
+	    (SNDP_MODE_INCOMM != old_mode)) {
 		/* FM Radio stop process */
 		if ((SNDP_VALUE_INIT != uiOldValue) &&
 		    (SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiOldValue))) {
@@ -1117,8 +1128,7 @@ static int sndp_soc_put(
 	/* SNDP_PROC_CALL_STOP */
 	if (uiProcess & SNDP_PROC_CALL_STOP) {
 		/* Call + Recording is not running */
-		if (SNDP_MODE_INCALL !=
-			SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) {
+		if (!(g_status & REC_STATUS)) {
 
 			/* Wake Lock */
 			sndp_wake_lock(E_LOCK);
@@ -1447,7 +1457,8 @@ static int sndp_fsi_suspend(struct device *dev)
 			if (NULL != g_sndp_codec_info.set_device) {
 				iRet = g_sndp_codec_info.set_device(
 					g_sndp_codec_info.dev_none,
-					SNDP_VALUE_INIT);
+					SNDP_VALUE_INIT,
+					g_sndp_codec_info.power_off);
 				sndp_log_debug("set_device all 0\n");
 				if (ERROR_NONE != iRet)
 					sndp_log_err(
@@ -1504,7 +1515,8 @@ static int sndp_fsi_resume(struct device *dev)
 			if (NULL != g_sndp_codec_info.set_device) {
 				iRet = g_sndp_codec_info.set_device(
 						ulSetDevice,
-						GET_OLD_VALUE(SNDP_PCM_OUT));
+						GET_OLD_VALUE(SNDP_PCM_OUT),
+						g_sndp_codec_info.power_on);
 				sndp_log_debug("set_device 0x%08lX\n",
 						ulSetDevice);
 				if (ERROR_NONE != iRet)
@@ -1799,13 +1811,10 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 {
 	snd_pcm_uframes_t	iRet = 0;
 
-	/* Not in a call */
-	if (SNDP_MODE_INCALL !=
+	if (SNDP_MODE_INCALL ==
 		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) {
-		iRet = g_sndp_dai_func.fsi_pointer(substream);
+		/* Not in a call */
 
-	/* During a call */
-	} else {
 		/* VCD is dead */
 		if ((SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) &&
 		    (SNDP_PCM_OUT == substream->stream)) {
@@ -1818,6 +1827,18 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 			else
 				iRet = call_pcmdata_pointer(substream);
 		}
+	} else if (SNDP_MODE_INCOMM ==
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(substream->stream))) {
+		if (((SNDP_PCM_OUT == substream->stream) &&
+			(g_status & PLAY_INCOMM_STATUS)) ||
+			((SNDP_PCM_IN == substream->stream) &&
+			(g_status & REC_INCOMM_STATUS)))
+			iRet = call_incomm_pcmdata_pointer(substream);
+		else
+			iRet = 0;
+	} else {
+		/* During a call */
+		iRet = g_sndp_dai_func.fsi_pointer(substream);
 	}
 
 	sndp_log_data_rcv_indicator(substream->stream, iRet);
@@ -2120,6 +2141,9 @@ static void sndp_work_voice_start(struct work_struct *work)
 
 	sndp_log_debug_func("start\n");
 
+	/* Initialization of the firmware starting notice receiving flag */
+	atomic_set(&g_call_watch_start_fw, 0);
+
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xffff) >= 0x3E10)
 		common_set_fsi2cr(STAT_OFF);
@@ -2132,7 +2156,8 @@ static void sndp_work_voice_start(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				ulSetDevice,
-				wp->new_value);
+				wp->new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet) {
 			sndp_log_err("set device error (code=%d)\n", iRet);
 			goto start_err;
@@ -2154,9 +2179,9 @@ static void sndp_work_voice_start(struct work_struct *work)
 	}
 
 	wait_event_interruptible_timeout(
-		g_watch_clk_queue, atomic_read(&g_sndp_watch_clk),
+		g_watch_start_clk_queue, atomic_read(&g_sndp_watch_start_clk),
 		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
-	atomic_set(&g_sndp_watch_clk, 0);
+	atomic_set(&g_sndp_watch_start_clk, 0);
 
 	/* start CLKGEN */
 	iRet = clkgen_start(wp->new_value, 0);
@@ -2180,6 +2205,8 @@ static void sndp_work_voice_start(struct work_struct *work)
 	}
 
 start_err:
+	g_sndp_start_call_wait = 1;
+	wake_up_interruptible(&g_sndp_start_call_queue);
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -2231,7 +2258,8 @@ static void sndp_work_voice_stop(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				g_sndp_codec_info.dev_none,
-				SNDP_VALUE_INIT);
+				SNDP_VALUE_INIT,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n",
 				     iRet);
@@ -2367,7 +2395,8 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				g_sndp_codec_info.dev_none,
-				SNDP_VALUE_INIT);
+				SNDP_VALUE_INIT,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n",
 				     iRet);
@@ -2443,7 +2472,8 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				ulSetDevice,
-				new_value);
+				new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n",
 				     iRet);
@@ -2493,7 +2523,8 @@ static int sndp_work_voice_dev_chg_in_audioic(
 		if (NULL != g_sndp_codec_info.set_device) {
 			iRet = g_sndp_codec_info.set_device(
 					ulSetDevice,
-					new_value);
+					new_value,
+					g_sndp_codec_info.power_on);
 			if (ERROR_NONE != iRet)
 				sndp_log_err("set device error (code=%d)\n",
 					     iRet);
@@ -2546,7 +2577,8 @@ static void sndp_work_normal_dev_chg(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				ulSetDevice,
-				wp->new_value);
+				wp->new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n", iRet);
 	}
@@ -2692,6 +2724,7 @@ static void sndp_work_play_incomm_start(struct work_struct *work)
 	struct sndp_work_info	*wp = NULL;
 
 	sndp_log_debug_func("start\n");
+	/* Standby restraint */
 
 	/* Running Playback */
 	g_sndp_incomm_playrec_flg |= E_PLAY;
@@ -2704,7 +2737,8 @@ static void sndp_work_play_incomm_start(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		ret = g_sndp_codec_info.set_device(
 				set_device,
-				wp->new_value);
+				wp->new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set device error (code=%d)\n", ret);
 	}
@@ -2770,7 +2804,8 @@ static void sndp_work_play_incomm_stop(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		ret = g_sndp_codec_info.set_device(
 				set_device,
-				SNDP_VALUE_INIT);
+				SNDP_VALUE_INIT,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set_device error (code=%d)\n", ret);
 	}
@@ -2813,7 +2848,8 @@ static void sndp_work_capture_incomm_start(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		ret = g_sndp_codec_info.set_device(
 				set_device,
-				wp->new_value);
+				wp->new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set device error (code=%d)\n", ret);
 	}
@@ -2866,7 +2902,8 @@ static void sndp_work_capture_incomm_stop(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		ret = g_sndp_codec_info.set_device(
 				set_device,
-				SNDP_VALUE_INIT);
+				SNDP_VALUE_INIT,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set_device error (code=%d)\n", ret);
 	}
@@ -2916,9 +2953,9 @@ static void sndp_work_incomm_start(const u_int new_value)
 	}
 
 	wait_event_interruptible_timeout(
-		g_watch_clk_queue, atomic_read(&g_sndp_watch_clk),
+		g_watch_start_clk_queue, atomic_read(&g_sndp_watch_start_clk),
 		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
-	atomic_set(&g_sndp_watch_clk, 0);
+	atomic_set(&g_sndp_watch_start_clk, 0);
 
 	/* start CLKGEN */
 	ret = clkgen_start(new_value, 0);
@@ -2928,6 +2965,8 @@ static void sndp_work_incomm_start(const u_int new_value)
 	}
 
 start_err:
+	g_sndp_start_call_wait = 1;
+	wake_up_interruptible(&g_sndp_start_call_queue);
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -2948,6 +2987,11 @@ static void sndp_work_incomm_stop(void)
 	int	ret = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
+
+	wait_event_interruptible_timeout(
+		g_watch_stop_clk_queue, atomic_read(&g_sndp_watch_stop_clk),
+		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
+	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	/* stop SCUW */
 	scuw_stop();
@@ -2975,6 +3019,26 @@ static void sndp_work_incomm_stop(void)
 
 
 /*!
+   @brief Switching path of the sound during a Call + Playback
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+void sndp_call_playback_normal(void)
+{
+	sndp_log_debug_func("start\n");
+
+	if (!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
+		sndp_path_switching(GET_OLD_VALUE(SNDP_PCM_OUT));
+		g_sndp_stream_route |= SNDP_ROUTE_PLAY_CHANGED;
+	}
+
+	sndp_log_debug_func("end\n");
+}
+
+/*!
    @brief Work queue function for Start during a call playback
 
    @param[in]	work	work queue structure
@@ -2996,13 +3060,9 @@ static void sndp_work_call_playback_start(struct work_struct *work)
 	/* Call + Playback start request */
 	iRet = call_playback_start(wp->save_substream);
 
-	if (ERROR_NONE != iRet) {
+	if (ERROR_NONE != iRet)
 		/* Switching path of the sound during a Call + Playback */
-		if (!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
-			sndp_path_switching(GET_OLD_VALUE(SNDP_PCM_OUT));
-			g_sndp_stream_route |= SNDP_ROUTE_PLAY_CHANGED;
-		}
-	}
+		sndp_call_playback_normal();
 
 	sndp_log_debug_func("end\n");
 }
@@ -3232,15 +3292,11 @@ static void sndp_work_call_playback_incomm_stop(struct work_struct *work)
  */
 static void sndp_work_call_capture_incomm_stop(struct work_struct *work)
 {
-	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
-	u_int out_old_val = GET_OLD_VALUE(SNDP_PCM_OUT);
-
-
 	sndp_log_debug_func("start\n");
 
 
 	/* Capture incommunication stop request */
-	call_record_stop();
+	call_record_incomm_stop();
 
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
@@ -3264,12 +3320,19 @@ static void sndp_work_call_capture_incomm_stop(struct work_struct *work)
 static void sndp_regist_watch(void)
 {
 	int	iRet = ERROR_NONE;
+	struct call_vcd_callback	func;
 
 
 	sndp_log_debug_func("start\n");
 
-	/* VCD command execution (VCD_COMMAND_WATCH_STOP_FW) */
-	iRet = call_regist_watch(sndp_watch_stop_fw_cb, sndp_watch_clk_cb);
+	/* Standby restraint */
+	func.callback_start_fw = sndp_watch_start_fw_cb;
+	func.callback_stop_fw = sndp_watch_stop_fw_cb;
+	func.callback_start_clk = sndp_watch_start_clk_cb;
+	func.callback_stop_clk = sndp_watch_stop_clk_cb;
+	func.callback_wait_path = sndp_wait_path_cb;
+
+	iRet = call_regist_watch(&func);
 	if (ERROR_NONE  != iRet)
 		sndp_log_err("VCD watch command set error(code=%d)\n", iRet);
 
@@ -3311,16 +3374,61 @@ static void sndp_work_watch_stop_fw(struct work_struct *work)
 
 
 /*!
-   @brief Watch stop Firmware notification callback function
+   @brief Watch start Firmware notification callback function
 
-   @param[in]	uiNop	Not used
+   @param[in]	none
    @param[out]	none
 
    @retval	none
  */
-static void sndp_watch_stop_fw_cb(u_int uiNop)
+static void sndp_watch_start_fw_cb(void)
 {
-	sndp_log_debug_func("start uiNop[%d]\n", uiNop);
+	sndp_log_debug_func("start\n");
+	sndp_log_debug("FW was started <incall or incommunication>\n");
+
+	atomic_set(&g_call_watch_start_fw, 1);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Wait set path notification callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_wait_path_cb(void)
+{
+	sndp_log_debug_func("start\n");
+
+	/*
+	 * Registered in the work queue for
+	 * VCD_COMMAND_WAIT_PATH process
+	 */
+	wait_event_interruptible(g_sndp_start_call_queue,
+				g_sndp_start_call_wait);
+
+	g_sndp_start_call_wait = 0;
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Watch stop Firmware notification callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_watch_stop_fw_cb(void)
+{
+	sndp_log_debug_func("start\n");
+	sndp_log_debug("VCD is close <incall or incommunication>\n");
 
 	/*
 	 * Registered in the work queue for
@@ -3357,7 +3465,8 @@ static void sndp_work_fm_radio_start(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				ulSetDevice,
-				wp->new_value);
+				wp->new_value,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n", iRet);
 	}
@@ -3468,7 +3577,8 @@ static void sndp_work_fm_radio_stop(struct work_struct *work)
 	if (NULL != g_sndp_codec_info.set_device) {
 		iRet = g_sndp_codec_info.set_device(
 				ulSetDevice,
-				SNDP_VALUE_INIT);
+				SNDP_VALUE_INIT,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set_device error (code=%d)\n",
 				     iRet);
@@ -3498,19 +3608,38 @@ static void sndp_work_fm_radio_stop(struct work_struct *work)
 
 
 /*!
-   @brief wake up callback function
+   @brief wake up start clkgen callback function
 
    @param[in]	none
    @param[out]	none
 
    @retval	none
  */
-static void sndp_watch_clk_cb(void)
+static void sndp_watch_start_clk_cb(void)
 {
 	sndp_log_debug_func("start\n");
 
-	atomic_set(&g_sndp_watch_clk, 1);
-	wake_up_interruptible(&g_watch_clk_queue);
+	atomic_set(&g_sndp_watch_start_clk, 1);
+	wake_up_interruptible(&g_watch_start_clk_queue);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief wake up stop clkgen callback function
+
+   @param[in]	none
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_watch_stop_clk_cb(void)
+{
+	sndp_log_debug_func("start\n");
+
+	atomic_set(&g_sndp_watch_stop_clk, 1);
+	wake_up_interruptible(&g_watch_stop_clk_queue);
 
 	sndp_log_debug_func("end\n");
 }
@@ -3648,7 +3777,8 @@ static void sndp_work_start(const int direction)
 		if (NULL != g_sndp_codec_info.set_device) {
 			iRet = g_sndp_codec_info.set_device(
 					ulSetDevice,
-					uiValue);
+					uiValue,
+					g_sndp_codec_info.power_on);
 			if (ERROR_NONE != iRet) {
 				sndp_log_err("set device error (code=%d)\n",
 					     iRet);
@@ -3829,7 +3959,8 @@ static void sndp_work_stop(
 		if (NULL != g_sndp_codec_info.set_device) {
 			iRet = g_sndp_codec_info.set_device(
 					ulSetDevice,
-					SNDP_VALUE_INIT);
+					SNDP_VALUE_INIT,
+					g_sndp_codec_info.power_on);
 			if (ERROR_NONE != iRet)
 				sndp_log_err("set_device error (code=%d)\n",
 					     iRet);
@@ -3906,7 +4037,10 @@ static void sndp_after_of_work_call_capture_stop(
 	/* device change */
 	ulSetDevice = sndp_get_next_devices(iOutValue);
 	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(ulSetDevice, iOutValue);
+		iRet = g_sndp_codec_info.set_device(
+				ulSetDevice,
+				iOutValue,
+				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != iRet)
 			sndp_log_err("set device error (code=%d)\n", iRet);
 	}

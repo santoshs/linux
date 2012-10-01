@@ -46,8 +46,12 @@
  */
 extern void vcd_complete_buffer(void);
 extern void vcd_beginning_buffer(void);
+extern void vcd_start_fw(void);
 extern void vcd_stop_fw(void);
+extern void vcd_udata_ind(void);
 extern void vcd_start_clkgen(void);
+extern void vcd_stop_clkgen(void);
+extern void vcd_wait_path(void);
 extern void vcd_voip_ul_callback(unsigned int buf_size);
 extern void vcd_voip_dl_callback(unsigned int buf_size);
 

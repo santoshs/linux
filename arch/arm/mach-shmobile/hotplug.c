@@ -13,6 +13,8 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/delay.h>
+#include <asm/cacheflush.h>
 
 #ifdef CONFIG_ARCH_R8A73734
 #ifdef CONFIG_SUSPEND
@@ -22,28 +24,53 @@
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
 
-
+static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
-	return 1;
+#ifndef CONFIG_ARM_TZ
+	int cnt = 0;
+	/* this will be executed on alive cpu,
+	 * and it must be executed after the victim has been finished
+	 */
+	for (cnt = 0; cnt < 1000; cnt++) {
+		if (cpumask_test_cpu(cpu, &dead_cpus))
+			return shmobile_platform_cpu_kill(cpu);
+
+		mdelay(1);
+	}
+#endif /* CONFIG_ARM_TZ */
+	return 0;
 }
 
 void platform_cpu_die(unsigned int cpu)
 {
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARM_TZ
+	int ret = 0;
+#endif
+	flush_cache_all();
+	dsb();
 
+	/* notify platform_cpu_kill() that hardware shutdown is finished */
+	cpumask_set_cpu(cpu, &dead_cpus);
+#ifdef CONFIG_ARCH_R8A73734
+	if (!shmobile_platform_cpu_die(cpu))
+		return;
 #ifdef CONFIG_SUSPEND
-	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM) {
+	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM)
 		/*
 		 * cpu state is "shutdown mode" will transition
 		 * in this function.
 		 */
-		//jump_systemsuspend();
-		shmobile_platform_cpu_die(cpu);
-		return;
-	}
+		return (void)jump_systemsuspend();
 #endif /* CONFIG_SUSPEND */
-
+#ifdef CONFIG_ARM_TZ
+#if 0
+		ret = sec_hal_pm_coma_entry(
+			4, __pa(shmobile_secondary_vector), 0, 0);
+		if (ret)
+			pr_alert("platform_cpu_die():fail<%d>\n", ret);
+#endif
+#endif /* CONFIG_ARM_TZ */
 #endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {
 		/*
@@ -58,6 +85,7 @@ void platform_cpu_die(unsigned int cpu)
 
 int platform_cpu_disable(unsigned int cpu)
 {
+	cpumask_clear_cpu(cpu, &dead_cpus);
 	/*
 	 * we don't allow CPU 0 to be shutdown (it is still too special
 	 * e.g. clock tick interrupts)

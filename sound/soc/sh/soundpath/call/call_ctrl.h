@@ -42,6 +42,12 @@ enum call_data_side {
 	DATA_SIDE_MAX
 };
 
+enum call_dummy_play_info {
+	CALL_DUMMY_PLAY_YET = 0,
+	CALL_DUMMY_PLAY,
+	CALL_DUMMY_PLAY_FW
+};
+
 /* Data information */
 struct call_pcm_info {
 	int		next_pd_side;
@@ -91,6 +97,9 @@ static void call_playback_incomm_data_set(unsigned int buf_size);
 /* Capture incommunication data reaping function */
 static void call_record_incomm_data_set(unsigned int buf_size);
 
+/* play dummy(before start fw) change function */
+static void call_change_dummy_play_before_fw(void);
+
 /* Callback for Playback */
 static void call_playback_cb(void);
 /* Callback for Capture */
@@ -99,11 +108,11 @@ static void call_record_cb(void);
 static void call_playback_incomm_cb(unsigned int buf_size);
 /* Callback for Capture incommunication */
 static void call_record_incomm_cb(unsigned int buf_size);
-/* Callback for Voice call end */
-static void call_watch_stop_fw_cb(void);
 
 /* Work queue process function */
 static void call_work_dummy_rec(struct work_struct *work);
+static bool call_work_play_wait_event(struct work_struct *work);
+static void call_work_before_start_fw(struct work_struct *work);
 static void call_work_dummy_play(struct work_struct *work);
 
 /* Dummy playback incommunication data setting function */

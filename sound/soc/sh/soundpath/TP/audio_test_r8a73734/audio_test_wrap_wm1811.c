@@ -30,6 +30,7 @@
 #include <sound/soundpath/TP/audio_test_extern.h>
 #include "audio_test_wm1811.h"
 
+#include <sound/soundpath/soundpath.h>
 #include <sound/soundpath/wm1811_extern.h>
 
 /*---------------------------------------------------------------------------*/
@@ -65,9 +66,9 @@
 #define AUDIO_TEST_OE_HEADPHONE_ENABLE_L	(0x0200)/**< HPOUT1L_ENA. */
 #define AUDIO_TEST_OE_HEADPHONE_ENABLE_R	(0x0100)/**< HPOUT1R_ENA. */
 #define AUDIO_TEST_OE_HEADPHONE_ENABLE_LR	(0x0300)/**< HPOUT1LR_ENA. */
-#define AUDIO_TEST_OE_EARPIECE_ENABLE_L		(0x0400)/**< HPOUT2_ENA. */
-#define AUDIO_TEST_OE_EARPIECE_ENABLE_R		(0x0400)/**< HPOUT2_ENA. */
-#define AUDIO_TEST_OE_EARPIECE_ENABLE_LR	(0x0400)/**< HPOUT2_ENA. */
+#define AUDIO_TEST_OE_EARPIECE_ENABLE_L		(0x0800)/**< HPOUT2_ENA. */
+#define AUDIO_TEST_OE_EARPIECE_ENABLE_R		(0x0800)/**< HPOUT2_ENA. */
+#define AUDIO_TEST_OE_EARPIECE_ENABLE_LR	(0x0800)/**< HPOUT2_ENA. */
 #define AUDIO_TEST_OE_OTHER			(0x0037)/**< Othrer bit. */
 
 /*---------------------------------------------------------------------------*/
@@ -120,6 +121,54 @@
 /* for public function                */
 /*------------------------------------*/
 /*!
+  @brief	Call read() of AudioIC.
+
+  @param	addr [i] Register address.
+  @param	value [o] Register value.
+
+  @return	Function results.
+
+  @note		.
+*/
+int audio_test_ic_read(const u_short addr, u_short *value)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	ret = wm1811_read(addr, value);
+	if (0 <= ret) {
+		audio_test_log_info("ret[%d]", ret);
+		ret = 0;
+	}
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Call write() of AudioIC.
+
+  @param	addr [i] Register address.
+  @param	value [i] Register value.
+
+  @return	Function results.
+
+  @note		.
+*/
+int audio_test_ic_write(const u_short addr, const u_short value)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	ret = wm1811_write(addr, value);
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
   @brief	Call set_device() of AudioIC.
 
   @param	device [i] Device bit.
@@ -134,7 +183,29 @@ int audio_test_ic_set_device(const u_long device)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_set_device(device, 0);
+	ret = wm1811_set_device(device, SNDP_PLAYBACK_SPEAKER_INCALL,
+				WM1811_POWER_ON);
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Call set_device() of AudioIC to clear.
+
+  @param	.
+
+  @return	Function results.
+
+  @note		.
+*/
+int audio_test_ic_clear_device(void)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	ret = wm1811_set_device(WM1811_DEV_NONE, 0x00000000, WM1811_POWER_ON);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -355,7 +426,7 @@ void audio_test_cnv_volume(u_int volume_type, u_int *volume)
 
   @note		.
 */
-void audio_test_cnv_oe(u_int device_type, u_int LR_type, u_int *oe)
+void audio_test_cnv_oe(u_int device_type, u_int LR_type, u_short *oe)
 {
 	u_int oe_other = 0;
 

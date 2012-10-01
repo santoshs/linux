@@ -190,9 +190,9 @@ config SHMOBILE_CPUFREQ
 	default n
 
 config SH_TRANSITION_LATENCY
-	int "Transition Latency (ms)"
-	range 10 1000
-	default "50"
+	int "Transition Latency (micro second)"
+	range 500 9000
+	default "500"
 	depends on SHMOBILE_CPUFREQ
 	help
 	  Transition latency between each sampling.
@@ -236,14 +236,18 @@ config PM_HAS_SECURE
 	depends on ARCH_SHMOBILE
 	help
 	  This enables PM support for Secure OS.
-	  
-config PM_SECURE_HAL_DUMMY
-	default n
-	depends on PM_HAS_SECURE
-	bool "Dummy SEC HAL function for PM"
+
+config HOTPLUG_ARCH_R8A73734
+	default y
+	bool "Support CPU Hotplug for R-MobileU2"
+	depends on HOTPLUG_CPU
 	help
-	  Dummy SEC HAL function for PM
+	  This CPU Hotplug for R-MobileU2
 
 source "drivers/sh/Kconfig"
+
+config MACH_U2EVM_SR_REV031
+	bool "New borad version V0.3.1"
+	default n
 
 endif

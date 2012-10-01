@@ -113,6 +113,14 @@ enum WM1811_SPEAKER_AMP_VAL {
 	WM1811_SPEAKER_AMP_ENABLE	/**< speaker amp enable. */
 };
 
+/*!
+  @brief device power state value.
+*/
+enum WM1811_POWER_VAL {
+	WM1811_POWER_OFF = 0,	/**< wm1811 PowerOFF. */
+	WM1811_POWER_ON		/**< wm1811 PowerON. */
+};
+
 /*---------------------------------------------------------------------------*/
 /* structure declaration                                                     */
 /*---------------------------------------------------------------------------*/
@@ -166,12 +174,14 @@ void __exit wm1811_exit(void);
 
   @param[i] device     value of device ID.
   @param[i] pcm_value  value of pcm.
+  @param[i] power      value of power state.
 
   @return function results.
 
   @see WM1811_DEV_VAL.
 */
-int wm1811_set_device(const u_long device, const u_int pcm_value);
+int wm1811_set_device(const u_long device, const u_int pcm_value,
+	u_int power);
 
 /*!
   @brief get device setting.

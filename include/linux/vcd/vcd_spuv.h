@@ -46,9 +46,12 @@
  */
 extern int vcd_spuv_ioremap(void);
 extern void vcd_spuv_iounmap(void);
+extern void vcd_spuv_init_register(void);
 extern int vcd_spuv_get_fw_buffer(void);
 extern void vcd_spuv_free_fw_buffer(void);
 extern int vcd_spuv_get_msg_buffer(void);
+extern int vcd_spuv_get_async_area(void);
+extern int vcd_spuv_free_async_area(unsigned int adr);
 extern int vcd_spuv_start_vcd(void);
 extern int vcd_spuv_stop_vcd(void);
 extern int vcd_spuv_set_hw_param(void);
@@ -86,6 +89,7 @@ extern void vcd_spuv_destroy_queue(void);
 
 extern void vcd_spuv_dump_status(void);
 extern void vcd_spuv_dump_registers(void);
+extern void vcd_spuv_dump_hpb_registers(void);
 extern void vcd_spuv_dump_cpg_registers(void);
 extern void vcd_spuv_dump_crmu_registers(void);
 extern void vcd_spuv_dump_gtu_registers(void);

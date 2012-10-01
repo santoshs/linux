@@ -57,12 +57,15 @@
 #define FILTERx2b_LG 292
 #define FILTERx3_LG 162
 #define FILTERx3b_LG 26
+#define FILTERx3c_LG 300
+#define FILTERx3d_LG 121
+#define FILTERx3e_LG 59
 #define FILTERx4_LG 53
 #define FILTERx4b_LG 39
 #define FILTERx5_LG 41
 #define FILTERx7_LG 70
 #define FILTERx7b_LG 24
-#define FILTERx3c_LG 300
+
 
 #define FILTER_MAX_LG FILTERx3c_LG
 
@@ -187,6 +190,34 @@ short x3c[FILTERx3c_LG] = {
 		39, 30, -7, -42, -44, -8, 41, 66, 43, -21, -93,
 		-140, -142, -109, -61, -24, 1};
 
+short x3d[FILTERx3d_LG] = {
+		-10, -1, 28, 82, 142, 172, 145, 62, -35, -91,
+		-70, 7, 80, 87, 18, -72, -107, -50, 58, 126,
+		89, -33, -139, -133, -6, 141, 179, 60, -128,
+		-223, -128, 95, 260, 209, -37, -281, -301,
+		-49, 281, 399, 168, -250, -499, -326, 175,
+		595, 533, -39, -683, -814, -197, 758, 1231,
+		631, -815, -2014, -1655, 850, 4785, 8387,
+		9842, 8387, 4785, 850, -1655, -2014, -815,
+		631, 1231, 758, -197, -814, -683, -39, 533,
+		595, 175, -326, -499, -250, 168, 399, 281,
+		-49, -301, -281, -37, 209, 260, 95, -128,
+		-223, -128, 60, 179, 141, -6, -133, -139,
+		-33, 89, 126, 58, -50, -107, -72, 18, 87,
+		80, 7, -70, -91, -35, 62, 145, 172, 142,
+		82, 28, -1, -10};
+
+short x3e[FILTERx3e_LG] = {
+		40, -80, -178, -249, -211, -51, 145, 237,
+		133, -112, -314, -282, 7, 359, 474, 194,
+		-328, -688, -521, 163, 896, 1031, 247,
+		-1072, -1931, -1293, 1189, 4790, 7982,
+		9255, 7982, 4790, 1189, -1293, -1931,
+		-1072, 247, 1031, 896, 163, -521, -688,
+		-328, 194, 474, 359, 7, -282, -314, -112,
+		133, 237, 145, -51, -211, -249, -178,
+		-80, 40};
+
 
 short x4[FILTERx4_LG] = {
 		81, 44, 23, -24, -90, -155, -192, -175, -90,
@@ -230,34 +261,33 @@ short x7b[FILTERx7b_LG] = {
 		4028, 3445, 2692, 1884, 1131, 518, 90,
 		-151, -235, -214, -197};
 
-int    ptrdelay1_p;
-short *pdelaystart1_p;
-int    ptrdelay2_p;
-short *pdelaystart2_p;
-int    ptrdelay3_p;
-short *pdelaystart3_p;
-int    ptrdelay4_p;
-short *pdelaystart4_p;
+int		alsa2vcd_ptrdelay1_p;
+short  *alsa2vcd_pdelaystart1_p;
+int		alsa2vcd_ptrdelay2_p;
+short  *alsa2vcd_pdelaystart2_p;
+int		alsa2vcd_ptrdelay3_p;
+short  *alsa2vcd_pdelaystart3_p;
+int		alsa2vcd_ptrdelay4_p;
+short  *alsa2vcd_pdelaystart4_p;
 
-int    d_ptrdelay1_p;
-short	 *d_pdelaystart1_p;
-int    d_ptrdelay2_p;
-short  *d_pdelaystart2_p;
-int    d_ptrdelay3_p;
-short *d_pdelaystart3_p;
-int   d_ptrdelay4_p;
-short *d_pdelaystart4_p;
+int		vcd2alsa_ptrdelay1_p;
+short  *vcd2alsa_pdelaystart1_p;
+int		vcd2alsa_ptrdelay2_p;
+short  *vcd2alsa_pdelaystart2_p;
+int		vcd2alsa_ptrdelay3_p;
+short  *vcd2alsa_pdelaystart3_p;
+int		vcd2alsa_ptrdelay4_p;
+short  *vcd2alsa_pdelaystart4_p;
 
+short	alsa2vcd_delay1_ap[2*(FILTER_MAX_LG+1)];
+short	alsa2vcd_delay2_ap[2*(FILTER_MAX_LG+1)];
+short	alsa2vcd_delay3_ap[2*(FILTER_MAX_LG+1)];
+short	alsa2vcd_delay4_ap[2*(FILTER_MAX_LG+1)];
 
-short delay1_ap[2*(FILTER_MAX_LG+1)];
-short delay2_ap[2*(FILTER_MAX_LG+1)];
-short delay3_ap[2*(FILTER_MAX_LG+1)];
-short delay4_ap[2*(FILTER_MAX_LG+1)];
-
-short d_delay1_ap[2*(FILTER_MAX_LG+1)];
-short d_delay2_ap[2*(FILTER_MAX_LG+1)];
-short d_delay3_ap[2*(FILTER_MAX_LG+1)];
-short d_delay4_ap[2*(FILTER_MAX_LG+1)];
+short	vcd2alsa_delay1_ap[2*(FILTER_MAX_LG+1)];
+short	vcd2alsa_delay2_ap[2*(FILTER_MAX_LG+1)];
+short	vcd2alsa_delay3_ap[2*(FILTER_MAX_LG+1)];
+short	vcd2alsa_delay4_ap[2*(FILTER_MAX_LG+1)];
 
 
 short *sh_resampler_in_stage_1;
@@ -314,16 +344,16 @@ int sh_resampler_size_out4;
 
 
 int sh_resampler_init(
-		int input_buffer_alsa_side,
-		int input_buffer_vcd_side
+		int input_buffer_alsa_size,
+		int input_buffer_vcd_size
 		)
 {
 	/* Init the FIR stuctures */
 	sh_resampler_fir_init();
 
 	/* Upsampling */
-	sh_resampler_size_in1	= input_buffer_vcd_side*UPSAMPLE_3;
-	sh_resampler_size_out1	= input_buffer_vcd_side*UPSAMPLE_3;
+	sh_resampler_size_in1	= input_buffer_vcd_size*UPSAMPLE_3;
+	sh_resampler_size_out1	= input_buffer_vcd_size*UPSAMPLE_3;
 
 	sh_resampler_size_in2	= sh_resampler_size_out1/UPSAMPLE_2;
 	sh_resampler_size_out2	= sh_resampler_size_in2*UPSAMPLE_3;
@@ -374,8 +404,8 @@ int sh_resampler_init(
 			sh_resampler_size_out4*sizeof(short), GFP_KERNEL);
 
 	/* Downsampling */
-	sh_resampler_size_d_in1		= input_buffer_alsa_side*UPSAMPLE_2;
-	sh_resampler_size_d_out1	= input_buffer_alsa_side*UPSAMPLE_2;
+	sh_resampler_size_d_in1		= input_buffer_alsa_size*UPSAMPLE_2;
+	sh_resampler_size_d_out1	= input_buffer_alsa_size*UPSAMPLE_2;
 
 	sh_resampler_size_d_in2		= sh_resampler_size_d_out1/UPSAMPLE_3;
 	sh_resampler_size_d_out2	= sh_resampler_size_d_in2*UPSAMPLE_4;
@@ -426,6 +456,7 @@ int sh_resampler_init(
 		)	{
 		return SH_RESAMPLER_ERR_9;
 	}
+
 
 
 	return SH_RESAMPLER_NO_ERR;
@@ -524,8 +555,8 @@ int sh_resampler_resample(
 				sh_resampler_size_d_out1,
 				&x2[0],
 				FILTERx2_LG,
-				d_pdelaystart1_p,
-				&d_ptrdelay1_p, 0, UPSAMPLE_2) != 0) {
+				alsa2vcd_pdelaystart1_p,
+				&alsa2vcd_ptrdelay1_p, 0, UPSAMPLE_2) != 0) {
 			error = SH_RESAMPLER_ERR_1;
 		}
 		for (i = 0; i < sh_resampler_size_d_in2; i++)	{
@@ -555,8 +586,8 @@ int sh_resampler_resample(
 				sh_resampler_size_d_out2,
 				&x4[0],
 				FILTERx4_LG,
-				d_pdelaystart2_p,
-				&d_ptrdelay2_p, 0, UPSAMPLE_4) != 0) {
+				alsa2vcd_pdelaystart2_p,
+				&alsa2vcd_ptrdelay2_p, 0, UPSAMPLE_4) != 0) {
 				error = SH_RESAMPLER_ERR_2;
 		}
 		for (i = 0; i < sh_resampler_size_d_in3; i++)	{
@@ -583,8 +614,8 @@ int sh_resampler_resample(
 				sh_resampler_size_d_out3,
 				&x4[0],
 				FILTERx4_LG,
-				d_pdelaystart3_p,
-				&d_ptrdelay3_p, 0, UPSAMPLE_4) != 0) {
+				alsa2vcd_pdelaystart3_p,
+				&alsa2vcd_ptrdelay3_p, 0, UPSAMPLE_4) != 0) {
 			error = SH_RESAMPLER_ERR_3;
 		}
 		for (i = 0; i < sh_resampler_size_d_in4; i++)	{
@@ -611,8 +642,8 @@ int sh_resampler_resample(
 				sh_resampler_size_d_out4,
 				&x5[0],
 				FILTERx5_LG,
-				d_pdelaystart4_p,
-				&d_ptrdelay4_p , 0, UPSAMPLE_5) != 0) {
+				alsa2vcd_pdelaystart4_p,
+				&alsa2vcd_ptrdelay4_p , 0, UPSAMPLE_5) != 0) {
 			error = SH_RESAMPLER_ERR_4;
 		}
 
@@ -643,10 +674,10 @@ int sh_resampler_resample(
 				sh_resampler_in_stage_1,
 				sh_resampler_out_stage_1,
 				sh_resampler_size_out1,
-				&x3c[0],
-				FILTERx3c_LG,
-				pdelaystart1_p,
-				&ptrdelay1_p, 0, UPSAMPLE_3) != 0)
+				&x3e[0],
+				FILTERx3e_LG,
+				vcd2alsa_pdelaystart1_p,
+				&vcd2alsa_ptrdelay1_p, 0, UPSAMPLE_3) != 0)
 			error = SH_RESAMPLER_ERR_5;
 
 
@@ -677,8 +708,8 @@ int sh_resampler_resample(
 				sh_resampler_size_out2,
 				&x3b[0],
 				FILTERx3b_LG,
-				pdelaystart2_p,
-				&ptrdelay2_p, 0, UPSAMPLE_3) != 0)
+				vcd2alsa_pdelaystart2_p,
+				&vcd2alsa_ptrdelay2_p, 0, UPSAMPLE_3) != 0)
 			error = SH_RESAMPLER_ERR_6;
 
 
@@ -705,10 +736,10 @@ int sh_resampler_resample(
 				sh_resampler_in_stage_3,
 				sh_resampler_out_stage_3,
 				sh_resampler_size_out3,
-				&x7[0],
-				FILTERx7_LG,
-				pdelaystart3_p,
-				&ptrdelay3_p, 0, UPSAMPLE_7) != 0)
+				&x7b[0],
+				FILTERx7b_LG,
+				vcd2alsa_pdelaystart3_p,
+				&vcd2alsa_ptrdelay3_p, 0, UPSAMPLE_7) != 0)
 			error = SH_RESAMPLER_ERR_7;
 
 
@@ -735,8 +766,8 @@ int sh_resampler_resample(
 				sh_resampler_size_out4,
 				&x7b[0],
 				FILTERx7b_LG,
-				pdelaystart4_p,
-				&ptrdelay4_p, 0, UPSAMPLE_7) != 0)
+				vcd2alsa_pdelaystart4_p,
+				&vcd2alsa_ptrdelay4_p, 0, UPSAMPLE_7) != 0)
 			error = SH_RESAMPLER_ERR_8;
 
 
@@ -770,10 +801,10 @@ int sh_resampler_resample(
 				input_buffer,
 				sh_resampler_out_stage_1,
 				sh_resampler_size_out1,
-				&x3c[0],
-				FILTERx3c_LG,
-				d_pdelaystart1_p,
-				&d_ptrdelay1_p, 0, 1) != 0) {
+				&x3e[0],
+				FILTERx3e_LG,
+				alsa2vcd_pdelaystart1_p,
+				&alsa2vcd_ptrdelay1_p, 0, 1) != 0) {
 			error = SH_RESAMPLER_ERR_1;
 		}
 		/* Downsampling of 3 */
@@ -795,10 +826,10 @@ int sh_resampler_resample(
 				sh_resampler_in_stage_1,
 				output_buffer,
 				sh_resampler_size_out1,
-				&x3c[0],
-				FILTERx3c_LG,
-				pdelaystart1_p,
-				&ptrdelay1_p, 0, 1) != 0)
+				&x3e[0],
+				FILTERx3e_LG,
+				vcd2alsa_pdelaystart1_p,
+				&vcd2alsa_ptrdelay1_p, 0, 1) != 0)
 			error = SH_RESAMPLER_ERR_1;
 
 		for (i = 0; i < sh_resampler_size_out1; i++)	{
@@ -827,8 +858,8 @@ int sh_resampler_resample(
 				(int)input_buffer_size*UPSAMPLE_2,
 				&x2b[0],
 				FILTERx2b_LG,
-				pdelaystart1_p,
-				&ptrdelay1_p, 0, 1) != 0)
+				alsa2vcd_pdelaystart1_p,
+				&alsa2vcd_ptrdelay1_p, 0, 1) != 0)
 			error = SH_RESAMPLER_ERR_1;
 
 		for (i = 0; i < (int)input_buffer_size*UPSAMPLE_2; i++)	{
@@ -849,8 +880,8 @@ int sh_resampler_resample(
 				input_buffer_size,
 				&x2b[0],
 				FILTERx2b_LG,
-				d_pdelaystart1_p,
-				&d_ptrdelay1_p, 0, 1) != 0) {
+				vcd2alsa_pdelaystart1_p,
+				&vcd2alsa_ptrdelay1_p, 0, 1) != 0) {
 			error = SH_RESAMPLER_ERR_1;
 		}
 		/* Downsampling of 2 */
@@ -873,46 +904,46 @@ int sh_resampler_resample(
 
 int sh_resampler_fir_init(void)
 {
-   int i;
+	int i;
 
-   ptrdelay1_p		= 0;
-   pdelaystart1_p	= &delay1_ap[0];
+	alsa2vcd_ptrdelay1_p		= 0;
+	alsa2vcd_pdelaystart1_p	= &alsa2vcd_delay1_ap[0];
 
-	ptrdelay2_p		= 0;
-   pdelaystart2_p	= &delay2_ap[0];
+	alsa2vcd_ptrdelay2_p		= 0;
+	alsa2vcd_pdelaystart2_p	= &alsa2vcd_delay2_ap[0];
 
-   ptrdelay3_p		= 0;
-   pdelaystart3_p	= &delay3_ap[0];
+	alsa2vcd_ptrdelay3_p		= 0;
+	alsa2vcd_pdelaystart3_p	= &alsa2vcd_delay3_ap[0];
 
-   ptrdelay4_p		= 0;
-   pdelaystart4_p	= &delay4_ap[0];
+	alsa2vcd_ptrdelay4_p		= 0;
+	alsa2vcd_pdelaystart4_p	= &alsa2vcd_delay4_ap[0];
 
-   d_ptrdelay1_p		= 0;
-   d_pdelaystart1_p		= &d_delay1_ap[0];
+	vcd2alsa_ptrdelay1_p		= 0;
+	vcd2alsa_pdelaystart1_p	= &vcd2alsa_delay1_ap[0];
 
-   d_ptrdelay2_p		= 0;
-   d_pdelaystart2_p		= &d_delay2_ap[0];
+	vcd2alsa_ptrdelay2_p		= 0;
+	vcd2alsa_pdelaystart2_p	= &vcd2alsa_delay2_ap[0];
 
-   d_ptrdelay3_p		= 0;
-   d_pdelaystart3_p		= &d_delay3_ap[0];
+	vcd2alsa_ptrdelay3_p		= 0;
+	vcd2alsa_pdelaystart3_p	= &vcd2alsa_delay3_ap[0];
 
-   d_ptrdelay4_p		= 0;
-   d_pdelaystart4_p		= &d_delay4_ap[0];
+	vcd2alsa_ptrdelay4_p		= 0;
+	vcd2alsa_pdelaystart4_p	= &vcd2alsa_delay4_ap[0];
 
-   for (i = 0; i < 2*(FILTER_MAX_LG+1); i++)	{
-		pdelaystart1_p[i] = 0;
-		pdelaystart2_p[i] = 0;
-		pdelaystart3_p[i] = 0;
-		pdelaystart4_p[i] = 0;
+	for (i = 0; i < 2*(FILTER_MAX_LG+1); i++)	{
+		alsa2vcd_pdelaystart1_p[i] = 0;
+		alsa2vcd_pdelaystart2_p[i] = 0;
+		alsa2vcd_pdelaystart3_p[i] = 0;
+		alsa2vcd_pdelaystart4_p[i] = 0;
 
-		d_pdelaystart1_p[i] = 0;
-		d_pdelaystart2_p[i] = 0;
-		d_pdelaystart3_p[i] = 0;
-		d_pdelaystart4_p[i] = 0;
-   }
+		vcd2alsa_pdelaystart1_p[i] = 0;
+		vcd2alsa_pdelaystart2_p[i] = 0;
+		vcd2alsa_pdelaystart3_p[i] = 0;
+		vcd2alsa_pdelaystart4_p[i] = 0;
+	}
 
 
-   return 0;
+	return 0;
 }
 
 
@@ -934,39 +965,52 @@ void sh_resampler_zeropadd(
 }
 
 int omxSP_FIR_Direct_S16_poly(
-     const short *pSrc,
-     short *pDst,
-     int sampLen,
-     const short *pTapsQ15,
-     int tapsLen,
-     short *pDelayLine,
-     int *pDelayLineIndex,
-     int offset,
-     int step
- )
- {
-    unsigned long     Count;
-    int  Result = 0;
+	const short *pSrc,
+	short *pDst,
+	int sampLen,
+	const short *pTapsQ15,
+	int tapsLen,
+	short *pDelayLine,
+	int *pDelayLineIndex,
+	int offset,
+	int step
+)
+{
+	int  Count;
+
+	int index;
+	unsigned long offset_loc;
+	long accum;
+	short *pDelayCurrent;
 
 
-    for (Count = 0; Count < (unsigned long)sampLen; Count++)	{
-	Result = omxSP_FIROne_Direct_S16_poly(
-							pSrc[Count],
-							&(pDst[Count]),
-							pTapsQ15,
-							tapsLen,
-							pDelayLine,
-							pDelayLineIndex,
-							Count,
-							step
-							);
+	for (Count = 0; Count < (int)sampLen; Count++)	{
+		/* Input parameter check */
+		/* Update local pos of the offset */
+		offset_loc = Count%step;
 
-	if (Result != 0)
-		return Result;
-    }
+		/* Update the delay state */
+		pDelayCurrent = &pDelayLine[*pDelayLineIndex];
 
-    return 0;
- }
+		/* Copy input to current delay line position */
+		pDelayCurrent[0] = pDelayCurrent[tapsLen] = pSrc[Count];
+
+		accum = 0;
+		for (index = offset_loc; index < (int) tapsLen; index += step)
+			accum += (long)pTapsQ15[index] * pDelayCurrent[index];
+
+		if (--(*pDelayLineIndex) < 0)
+			*pDelayLineIndex = tapsLen - 1;
+
+
+		/* Store the result */
+		accum = armSatAdd_S32(accum, 16384);
+		*(pDst+Count) = (short)(accum >> 15);
+
+	}
+
+	return 0;
+}
 
 
 /**
@@ -1039,28 +1083,28 @@ int omxSP_FIROne_Direct_S16_poly(
 	long accum;
 	short *pDelayCurrent;
 
-    /* Input parameter check */
-    /* Update local pos of the offset */
-    offset_loc = offset%step;
+	/* Input parameter check */
+	/* Update local pos of the offset */
+	offset_loc = offset%step;
 
-    /* Update the delay state */
-    pDelayCurrent = &pDelayLine[*pDelayLineIndex];
+	/* Update the delay state */
+	pDelayCurrent = &pDelayLine[*pDelayLineIndex];
 
-    /* Copy input to current delay line position */
-    pDelayCurrent[0] = pDelayCurrent[tapsLen] = val;
+	/* Copy input to current delay line position */
+	pDelayCurrent[0] = pDelayCurrent[tapsLen] = val;
 
-    accum = 0;
-    for (index = offset_loc; index < (unsigned long)tapsLen; index = index+step)
-	accum += (long)pTapsQ15[index] * (long)pDelayCurrent[index];
+	accum = 0;
+	for (index = offset_loc; index < (unsigned long)tapsLen; index += step)
+		accum += (long)pTapsQ15[index] * (long)pDelayCurrent[index];
 
-    if (--(*pDelayLineIndex) < 0)
-	*pDelayLineIndex = tapsLen - 1;
+	if (--(*pDelayLineIndex) < 0)
+		*pDelayLineIndex = tapsLen - 1;
 
 
-    /* Store the result */
-    *pResult = (short)armSatRoundLeftShift_S32(accum, -15);
-    return 0;
- }
+	/* Store the result */
+	*pResult = (short)armSatRoundLeftShift_S32(accum, -15);
+	return 0;
+}
 
 
 
@@ -1082,17 +1126,17 @@ int omxSP_FIROne_Direct_S16_poly(
 
 long armSatRoundLeftShift_S32(long Value, int Shift)
 {
-    int i;
+	int i;
 
-    if (Shift < 0)    {
-	Shift = -Shift;
-	Value = armSatAdd_S32(Value, (1 << (Shift - 1)));
-	Value = Value >> Shift;
-    }	else	{
+	if (Shift < 0)    {
+		Shift = -Shift;
+		Value = armSatAdd_S32(Value, (1 << (Shift - 1)));
+		Value = Value >> Shift;
+	}	else	{
 	for (i = 0; i < Shift; i++)
 		Value = armSatAdd_S32(Value, Value);
-    }
-    return Value;
+	}
+	return Value;
 }
 
 /***********************************************************************/
@@ -1116,12 +1160,12 @@ long armSatRoundLeftShift_S32(long Value, int Shift)
 
 long armSatAdd_S32(long Value1, long Value2)
 {
-    long Result;
+	long Result;
 
-    Result = Value1 + Value2;
+	Result = Value1 + Value2;
 
-    if ((Value1^Value2) >= 0)	{
-	/*Same sign*/
+	if ((Value1^Value2) >= 0)	{
+		/*Same sign*/
 	if ((Result^Value1) >= 0)	{
 		/*Result has not saturated*/
 		return	Result;
@@ -1134,8 +1178,8 @@ long armSatAdd_S32(long Value1, long Value2)
 	return	SH_RESAMPLER_MIN_S32;
 	}
 	}
-    }	else	{
-    return	Result;
-    }
+	}	else	{
+	return	Result;
+	}
 
 }

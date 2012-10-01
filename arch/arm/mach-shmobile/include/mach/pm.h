@@ -57,9 +57,9 @@ struct pm_state_notify_confirm {
 	const char *name;
 	unsigned int (*confirm)(void);
 };
-extern int	corestandby_pa_physical;
-extern int	systemsuspend_cpu0_pa_physical;
-extern int	systemsuspend_cpu1_pa_physical;
+extern int corestandby_pa_physical;
+extern int systemsuspend_cpu0_pa_physical;
+extern int systemsuspend_cpu1_pa_physical;
 extern int start_corestandby(void);
 extern void ArmVector(void);
 extern void corestandby(void);
@@ -80,6 +80,9 @@ extern void disablemmu(void);
 extern void systemsuspend_cpu0_pa(void);
 extern void systemsuspend_cpu1_pa(void);
 extern void corestandby_pa(void);
+extern void jump_systemsuspend(void);
+extern int has_wake_lock_no_expire(int type);
+extern void shmobile_suspend_udelay(unsigned int delay_time);
 
 #ifdef CONFIG_CPU_IDLE
 void register_pm_state_notify(struct pm_state_notify *h);
@@ -91,6 +94,8 @@ unsigned int state_notify(int state);
 #ifdef CONFIG_PM_DEBUG
 extern int control_cpuidle(int is_enable);
 extern int is_cpuidle_enable(void);
+extern void request_suspend_state(suspend_state_t state);
+extern suspend_state_t get_suspend_state(void);
 #endif /* CONFIG_PM_DEBUG */
 #else /*!CONFIG_CPU_IDLE*/
 static inline void register_pm_state_notify(struct pm_state_notify *h) {}
@@ -195,7 +200,7 @@ static inline int is_systemsuspend_enable(void) { return 0; }
 static inline suspend_state_t get_shmobile_suspend_state(void) { return 0; }
 static inline int control_systemsuspend(int is_enabled) { return 0; }
 static inline int is_systemsuspend_enable(void) { return 0; }
-static inline void shwystatdm_regs_save(void) {}
+static inline void shwystatdm_regs_save(void) { }
 static inline void shwystatdm_regs_restore(void) { }
 #endif /*CONFIG_SUSPEND*/
 

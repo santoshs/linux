@@ -54,8 +54,6 @@ enum sndp_wake_lock_kind {
 #define SOUNDPATH_NO_EXTERN		extern
 #endif
 
-SOUNDPATH_NO_EXTERN atomic_t g_sndp_watch_clk;
-
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct snd_soc_platform_driver *fsi_soc_platform);
@@ -66,6 +64,7 @@ SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
 SOUNDPATH_NO_EXTERN void sndp_set_portb_start(bool flag);
 
 SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
+SOUNDPATH_NO_EXTERN  void sndp_call_playback_normal(void);
 
 SOUNDPATH_NO_EXTERN struct workqueue_struct	*g_sndp_queue_main;
 SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait;
@@ -273,8 +272,10 @@ do {									\
 } while (0)
 
 #define sndp_log_dump(fmt, ...)						\
+do {									\
 	(g_sndp_log_level & LOG_BIT_DMESG) ?				\
-		pr_err(fmt, ##__VA_ARGS__) : pr_alert(fmt, ##__VA_ARGS__)
+		pr_err(fmt, ##__VA_ARGS__) : pr_alert(fmt, ##__VA_ARGS__)\
+} while (0)
 
 #ifdef DEBUG_FUNC
 
@@ -706,7 +707,8 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
  */
 /* use AudioLsi information */
 struct sndp_codec_info {
-	int (*set_device)(const u_long device, const u_int pcm_value);
+	int (*set_device)(const u_long device, const u_int pcm_value,
+		u_int power);
 	int (*get_device)(u_long *device);
 	int (*set_volum)(const u_long device, const u_int volume);
 	int (*get_volume)(const u_long device, u_int *volume);
@@ -729,6 +731,9 @@ struct sndp_codec_info {
 	u_int mute_disable;
 	u_int speaker_enable;
 	u_int speaker_disable;
+
+	u_int power_on;
+	u_int power_off;
 };
 
 /* PCM name suffix table */

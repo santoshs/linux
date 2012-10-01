@@ -20,6 +20,9 @@
  * constant definition
  */
 
+/* hwspin_lock time out value*/
+#define VCD_SPUV_FUNC_MAX_LOCK_TIME		(62)
+
 /* spuv effective invalidity */
 #define VCD_SPUV_FUNC_DISABLE	0
 #define VCD_SPUV_FUNC_ENABLE	1
@@ -136,6 +139,13 @@
 /* soft ware reset register (SRCR2) */
 #define VCD_SPUV_FUNC_SRCR2_SPU2V_RESET		0x00100000
 
+/* HPB HPBCTRL2 register set bit */
+#define VCD_SPUV_FUNC_HPBCTRL2_DMSENMSH		0x00000800
+#define VCD_SPUV_FUNC_HPBCTRL2_DMSENMRAM	0x00008000
+
+/* CPG MPMODE set bit */
+#define VCD_SPUV_FUNC_MPMODE_MPSWMSK		0x00000080
+
 /* fw static buffer size */
 #define VCD_SPUV_FUNC_FW_BUFFER_SIZE		0x00800000
 
@@ -158,49 +168,51 @@
 #define SPUV_FUNC_SDRAM_FIRMWARE_READ_BUFFER	( \
 			SPUV_FUNC_SDRAM_AREA_TOP + 0x00000000)
 #define SPUV_FUNC_SDRAM_PROC_MSG_BUFFER		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00180000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00780000)
 #define SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00181000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00782000)
 #define SPUV_FUNC_SDRAM_SPUV_SEND_MSG_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00182000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00783000)
 #define SPUV_FUNC_SDRAM_FW_RESULT_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00183000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00784000)
+#define SPUV_FUNC_SDRAM_SYSTEM_INFO_BUFFER	( \
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00786000)
 #define SPUV_FUNC_SDRAM_RECORD_BUFFER_0		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00185000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00787000)
 #define SPUV_FUNC_SDRAM_RECORD_BUFFER_1		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00185280)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00787280)
 #define SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00186000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00788000)
 #define SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00186280)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00788280)
 #define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00187000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00789000)
 #define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00187800)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x00789800)
 #define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00188000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078A000)
 #define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00188800)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078A800)
 #define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B000)
 #define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189280)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B280)
 #define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189800)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B800)
 #define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00189A80)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078BA80)
 #define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C000)
 #define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A280)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C280)
 #define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018A800)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C800)
 #define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018AA80)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078CA80)
 #define SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018B000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078D000)
 #define SPUV_FUNC_SDRAM_VOIP_MIXING_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0018C000)
+			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078E000)
 
 /* spuv physical memory configuration mapping */
 #define SPUV_FUNC_DATA_RAM_SIZE		0x00040000
@@ -210,7 +222,7 @@
 #define SPUV_FUNC_DSPIO_PHY		0xECBC0000
 
 /* MERAM */
-#define SPUV_FUNC_MERAM_MAX_SIZE	0xE1000
+#define SPUV_FUNC_MERAM_MAX_SIZE	0xBB800
 #define SPUV_FUNC_MERAM_TOP_PHY		0xED000000
 #define SPUV_FUNC_MERAM_PHY_ADDR	g_spuv_func_meram_physical_addr
 #define SPUV_FUNC_MERAM_FIRMWARE_BUFFER	g_spuv_func_meram_logical_addr
@@ -235,6 +247,7 @@
 #define SPUV_FUNC_RW_32_CPG_SPUACKCR	(SPUV_FUNC_CPG_REG_TOP + 0x00000084)
 #define SPUV_FUNC_RW_32_CPG_SPUVCKCR	(SPUV_FUNC_CPG_REG_TOP + 0x00000094)
 #define SPUV_FUNC_RW_32_CPG_HSICKCR	(SPUV_FUNC_CPG_REG_TOP + 0x0000008C)
+#define SPUV_FUNC_RW_32_CPG_MPMODE	(SPUV_FUNC_CPG_REG_TOP + 0x000000CC)
 #define SPUV_FUNC_RO_32_CPG_MSTPSR0	(SPUV_FUNC_CPG_REG_TOP + 0x00000030)
 #define SPUV_FUNC_RO_32_CPG_MSTPSR1	(SPUV_FUNC_CPG_REG_TOP + 0x00000038)
 #define SPUV_FUNC_RO_32_CPG_MSTPSR2	(SPUV_FUNC_CPG_REG_TOP + 0x00000040)
@@ -547,7 +560,15 @@ enum VCD_SPUV_FUNC_SAMPLING_RATE {
 	VCD_SPUV_FUNC_SAMPLING_RATE_32KHZ,
 	VCD_SPUV_FUNC_SAMPLING_RATE_44KHZ,
 	VCD_SPUV_FUNC_SAMPLING_RATE_48KHZ,
+	VCD_SPUV_FUNC_SAMPLING_RATE_MAX,
 };
+
+enum VCD_SPUV_FUNC_RESAMPLE_TABLE {
+	VCD_SPUV_FUNC_RESAMPLE_TABLE_SAMPLING_RATE = 0,
+	VCD_SPUV_FUNC_RESAMPLE_TABLE_BUFFER_SIZE,
+	VCD_SPUV_FUNC_RESAMPLE_TABLE_MAX,
+};
+
 /*
  * structure declaration
  */
@@ -607,7 +628,8 @@ extern unsigned int g_spuv_func_dsp0_register_top;
  */
 /* Internal public functions */
 extern void vcd_spuv_func_initialize(void);
-extern void vcd_spuv_func_cacheflush(void);
+extern void vcd_spuv_func_cacheflush(unsigned int start_addr,
+	unsigned int size);
 extern int vcd_spuv_func_control_power_supply(int effective);
 extern int vcd_spuv_func_check_power_supply(void);
 extern int vcd_spuv_func_set_fw(void);
@@ -618,6 +640,8 @@ extern void vcd_spuv_func_send_msg(int *param, int length);
 extern void vcd_spuv_func_send_ack(int is_log_enable);
 extern void vcd_spuv_func_get_fw_request(void);
 
+extern void vcd_spuv_func_set_hpb_register(void);
+extern void vcd_spuv_func_set_cpg_register(void);
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);
 extern void vcd_spuv_func_end_wait(void);
@@ -629,7 +653,8 @@ extern int vcd_spuv_func_get_fw_buffer(void);
 extern void vcd_spuv_func_free_fw_buffer(void);
 
 /* SRC functions */
-extern int vcd_spuv_func_resampler_init(int alsa_rate, int spuv_rate);
+extern int vcd_spuv_func_resampler_init
+(int alsa_ul_rate, int alsa_dl_rate, int spuv_rate);
 extern int vcd_spuv_func_resampler_close(void);
 
 extern void vcd_spuv_func_voip_ul(unsigned int *buf_size);
@@ -654,6 +679,7 @@ extern void vcd_spuv_func_set_record_buffer_id(void);
 extern void vcd_spuv_func_set_voip_ul_buffer_id(void);
 extern void vcd_spuv_func_set_voip_dl_buffer_id(void);
 /* Register dump functions */
+extern void vcd_spuv_func_dump_hpb_registers(void);
 extern void vcd_spuv_func_dump_cpg_registers(void);
 extern void vcd_spuv_func_dump_crmu_registers(void);
 extern void vcd_spuv_func_dump_gtu_registers(void);
