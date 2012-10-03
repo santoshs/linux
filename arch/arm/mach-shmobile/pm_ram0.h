@@ -60,7 +60,23 @@
 
 /* Size of code	*/
 #define	fsArmVector					0x80 /* ARM Vector */
+#define	fsCoreStandby				0x0 /* Core Standby */
+#define	fsSystemSuspend				0x0 /* System Suspend */
+#define	fsSaveArmRegister			0x0 /* Save ARM register */
+#define	fsRestoreArmRegisterPA		0x60 /* Restore ARM register (PA) */
+#define	fsRestoreArmRegisterVA		0x0/* Restore ARM register VA) */
+#define	fsSaveArmCommonRegister		0x0 /* Save ARM common register */
+#define	fsRestoreArmCommonRegister	0x0 /* Restore ARM common register */
+#define	fsSaveCommonRegister		0x0 /* Save common register */
+#define	fsRestoreCommonRegister		0x100 /* Restore common register */
+#define	fsSysPowerDown				0x240 /* power down */
+#define	fsSysPowerUp				0x2C0 /* power up */
+#define	fsSetClockSystemSuspend		0x160 /* Set clock */
+
+#define	fsSystemSuspendCPU0PA		0x80 /* System Suspend for CPU0 with MMU off */
+#define	fsCoreStandbyPA				0x5C0 /* CoreStandby function with MMU off */
 #define	fsDisableMMU				0x20 /* Disable MMU function */
+#define	fsSystemSuspendCPU1PA		0xE0 /* System Suspend for CPU1 with MMU off */
 
 /*--------------------------------------------------*/
 /* Offset of RAM1 area */
@@ -69,25 +85,178 @@
 /* Offset to the ARM Vector */
 #define		hoArmVector						\
 0x0
+/* Offset to the Core Standby function */
+#define		hoCoreStandby					\
+(hoArmVector + fsArmVector)
+/* Offset to the System Suspend function */
+#define		hoSystemSuspend					\
+(hoCoreStandby + fsCoreStandby)
+/* Offset to the Save ARM register function */
+#define		hoSaveArmRegister				\
+(hoSystemSuspend + fsSystemSuspend)
+/* Offset to the Restore ARM register function(PA) */
+#define		hoRestoreArmRegisterPA			\
+(hoSaveArmRegister + fsSaveArmRegister)
+/* Offset to the Restore ARM register function(VA) */
+#define		hoRestoreArmRegisterVA			\
+(hoRestoreArmRegisterPA + fsRestoreArmRegisterPA)
+/* Offset to the Save ARM common register function */
+#define		hoSaveArmCommonRegister			\
+(hoRestoreArmRegisterVA + fsRestoreArmRegisterVA)
+/* Offset to the Restore ARM common register function */
+#define		hoRestoreArmCommonRegister		\
+(hoSaveArmCommonRegister + fsSaveArmCommonRegister)
+/* Offset to the Save common register function */
+#define		hoSaveCommonRegister			\
+(hoRestoreArmCommonRegister + fsRestoreArmCommonRegister)
+/* Offset to the Restore common register function */
+#define		hoRestoreCommonRegister			\
+(hoSaveCommonRegister + fsSaveCommonRegister)
+/* Offset to the power down function */
+#define		hoSysPowerDown					\
+(hoRestoreCommonRegister + fsRestoreCommonRegister)
+/* Offset to the power up function */
+#define		hoSysPowerUp					\
+(hoSysPowerDown + fsSysPowerDown)
+/* Offset to the Set clock function */
+#define		hoSetClockSystemSuspend			\
+(hoSysPowerUp + fsSysPowerUp)
+
+
+/* Offset to the System Suspend for CPU 0 function with MMU off */
+#define		hoSystemSuspendCPU0PA			\
+(hoSetClockSystemSuspend + fsSetClockSystemSuspend)
+/* Offset to the Core Standby function with MMU off */
+#define		hoCoreStandbyPA					\
+(hoSystemSuspendCPU0PA + fsSystemSuspendCPU0PA)
 /* Offset to the Disable MMU function */
 #define		hoDisableMMU					\
-(hoArmVector + fsArmVector)
+(hoCoreStandbyPA + fsCoreStandbyPA)
+/* Offset to the System Suspend for CPU 1 function with MMU off */
+#define		hoSystemSuspendCPU1PA			\
+(hoDisableMMU + fsDisableMMU)
+
+
+
+
+/*--------------------------------------------------------------------------*/
+/* Address of RAM0 area */
+/* function area				(RAM0:0xE63A2000-0xE63A54FF) */
+/* backup area					(RAM0:0xE63A5500-0xE63A56FF) */
+/* SBSC clock change			(RAM0:0xE63A5700-0xE63A5AFF) */
+/*--------------------------------------------------------------------------*/
+/* Address of function */
 
 /* Address of function (Virt)	*/
 /* Address of ARM Vector function */
 #define		ram1ArmVector					\
 (ram1Base + hoArmVector)
+/* Address of Core Standby function */
+#define		ram1CoreStandby					\
+(ram1Base + hoCoreStandby)
+/* Address of System Suspend function */
+#define		ram1SystemSuspend				\
+(ram1Base + hoSystemSuspend)
+/* Address of Save ARM register function */
+#define		ram1SaveArmRegister				\
+(ram1Base + hoSaveArmRegister)
+/* Address of Restore ARM register function(PA) */
+#define		ram1RestoreArmRegisterPA		\
+(ram1Base + hoRestoreArmRegisterPA)
+/* Address of Restore ARM register function(VA) */
+#define		ram1RestoreArmRegisterVA		\
+(ram1Base + hoRestoreArmRegisterVA)
+/* Address of Save ARM common register function */
+#define		ram1SaveArmCommonRegister		\
+(ram1Base + hoSaveArmCommonRegister)
+/* Address of Restore ARM common register function */
+#define		ram1RestoreArmCommonRegister	\
+(ram1Base + hoRestoreArmCommonRegister)
+/* Address of Save common register function */
+#define		ram1SaveCommonRegister			\
+(ram1Base + hoSaveCommonRegister)
+/* Address of Restore common register function */
+#define		ram1RestoreCommonRegister		\
+(ram1Base + hoRestoreCommonRegister)
+/* Address of System power down function */
+#define		ram1SysPowerDown				\
+(ram1Base + hoSysPowerDown)
+/* Address of System power up function */
+#define		ram1SysPowerUp					\
+(ram1Base + hoSysPowerUp)
+/* Address of Set clock function */
+#define		ram1SetClockSystemSuspend		\
+(ram1Base + hoSetClockSystemSuspend)
+
+
+/* Address of System Suspend for CPU 0 function with MMU off */
+#define	ram1SystemSuspendCPU0PA				\
+(ram1Base + hoSystemSuspendCPU0PA)
+/* Address of Core Standby function with MMU off */
+#define	ram1CoreStandbyPA					\
+(ram1Base + hoCoreStandbyPA)
 /* Address of Disable MMU function */
 #define		ram1DisableMMU					\
 (ram1Base + hoDisableMMU)
+/* Address of System Suspend for CPU 1 function with MMU off */
+#define	ram1SystemSuspendCPU1PA				\
+(ram1Base + hoSystemSuspendCPU1PA)
 
 /* Address of function (Phys)	*/
 /* Address of ARM Vector function */
 #define		ram1ArmVectorPhys					\
 (ram1BasePhys + hoArmVector)
-/* Address of Disable MMU function */
-#define		ram1DisableMMUPhys					\
+/* Address of Core Standby function */
+#define	ram1CoreStandbyPhys					\
+(ram1BasePhys + hoCoreStandby)
+/* Address of System Suspend function */
+#define	ram1SystemSuspendPhys				\
+(ram1BasePhys + hoSystemSuspend)
+/* Address of Save ARM register function */
+#define	ram1SaveArmRegisterPhys				\
+(ram1BasePhys + hoSaveArmRegister)
+/* Address of Restore ARM register function(PA) */
+#define	ram1RestoreArmRegisterPAPhys		\
+(ram1BasePhys + hoRestoreArmRegisterPA)
+/* Address of Restore ARM register function(VA) */
+#define	ram1RestoreArmRegisterVAPhys		\
+(ram1BasePhys + hoRestoreArmRegisterVA)
+/* Address of Save ARM common register function */
+#define	ram1SaveArmCommonRegisterPhys		\
+(ram1BasePhys + hoSaveArmCommonRegister)
+/* Address of Restore ARM common register function */
+#define	ram1RestoreArmCommonRegisterPhys	\
+(ram1BasePhys + hoRestoreArmCommonRegister)
+/* Address of Save common register function */
+#define	ram1SaveCommonRegisterPhys			\
+(ram1BasePhys + hoSaveCommonRegister)
+/* Address of Restore common register function */
+#define	ram1RestoreCommonRegisterPhys		\
+(ram1BasePhys + hoRestoreCommonRegister)
+/* Address of System power down function */
+#define	ram1SysPowerDownPhys				\
+(ram1BasePhys + hoSysPowerDown)
+/* Address of System power up function */
+#define	ram1SysPowerUpPhys					\
+(ram1BasePhys + hoSysPowerUp)
+/* Address of Set clock function */
+#define	ram1SetClockSystemSuspendPhys		\
+(ram1BasePhys + hoSetClockSystemSuspend)
+
+
+/* Address of System Suspend for CPU 0 function with MMU off */
+#define	ram1SystemSuspendCPU0PAPhys			\
+(ram1BasePhys + hoSystemSuspendCPU0PA)
+/* Address of Core Standby function with MMU off */
+#define	ram1CoreStandbyPAPhys				\
+(ram1BasePhys + hoCoreStandbyPA)
+/* Address of Disable MMU function			*/
+#define	ram1DisableMMUPhys					\
 (ram1BasePhys + hoDisableMMU)
+/* Address of System Suspend for CPU 1 function with MMU off */
+#define	ram1SystemSuspendCPU1PAPhys			\
+(ram1BasePhys + hoSystemSuspendCPU1PA)
+
 
 
 /*--------------------------------------------------*/
@@ -161,7 +330,7 @@
 
 /* SPI Status Registers */
 #define	ram0_ICSPISR0				\
-(ram0SaveSdmracr1a + 0x4)
+(ram0SaveSdmracr1a + 0x4)			
 #define	 ram0_ICSPISR1				\
 (ram0_ICSPISR0 + 0x4)
 /*FRQCRA mask*/
@@ -172,30 +341,30 @@
 (ram0FRQCRAMask + 0x4)
 
 #ifdef __EXTAL1_INFO__
-#define	ram0SaveEXMSKCNT1_suspend	\
+#define	ram0SaveEXMSKCNT1_suspend 	\
 (ram0FRQCRADown + 0x4)
-#define	ram0SaveAPSCSTP_suspend		\
+#define	ram0SaveAPSCSTP_suspend 	\
 (ram0SaveEXMSKCNT1_suspend + 0x4)
-#define	ram0SaveSYCKENMSK_suspend	\
+#define	ram0SaveSYCKENMSK_suspend 	\
 (ram0SaveAPSCSTP_suspend + 0x4)
-#define	ram0SaveC4POWCR_suspend		\
+#define	ram0SaveC4POWCR_suspend 	\
 (ram0SaveSYCKENMSK_suspend + 0x4)
-#define	ram0SavePDNSEL_suspend		\
+#define	ram0SavePDNSEL_suspend 		\
 (ram0SaveC4POWCR_suspend + 0x4)
-#define	ram0SavePSTR_suspend		\
+#define	ram0SavePSTR_suspend 		\
 (ram0SavePDNSEL_suspend + 0x4)
 
-#define	ram0SaveEXMSKCNT1_resume	\
+#define	ram0SaveEXMSKCNT1_resume 	\
 (ram0SavePSTR_suspend + 0x4)
-#define	ram0SaveAPSCSTP_resume		\
+#define	ram0SaveAPSCSTP_resume 		\
 (ram0SaveEXMSKCNT1_resume + 0x4)
-#define	ram0SaveSYCKENMSK_resume	\
+#define	ram0SaveSYCKENMSK_resume 	\
 (ram0SaveAPSCSTP_resume + 0x4)
-#define	ram0SaveC4POWCR_resume		\
+#define	ram0SaveC4POWCR_resume 		\
 (ram0SaveSYCKENMSK_resume + 0x4)
-#define	ram0SavePDNSEL_resume		\
+#define	ram0SavePDNSEL_resume 		\
 (ram0SaveC4POWCR_resume + 0x4)
-#define	ram0SavePSTR_resume			\
+#define	ram0SavePSTR_resume 		\
 (ram0SavePDNSEL_resume + 0x4)
 
 #endif

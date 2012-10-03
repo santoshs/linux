@@ -197,6 +197,8 @@
 #define STM_SPTRIGCSR	0xE70	/* Stimulus Port Trigger Control and Status */
 #define STM_TCSR	0xE80	/* Trace Control and Status */
 #define STM_TCSR_EN	1
+#define STM_TCSR_TSEN	(1 << 1)
+#define STM_TCSR_SYNCEN	(1 << 2)
 #define STM_TCSR_BUSY	(1 << 23)
 #define STM_TCSR_TRACEID_MSK (~(0x7F << 16))
 #define STM_TSSTIMR	0xE84	/* Timestamp Stimulus */

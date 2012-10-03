@@ -3543,7 +3543,7 @@ void tps80032_bat_update(struct tps80032_data *data)
 	int notify = 0;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-	
+
 	/* Update all battery information */
 	/* Read the state of USB charger */
 	old_data = data->charger;
@@ -4933,12 +4933,45 @@ struct battery_correct_ops tps80032_correct_ops = {
  */
 static int tps80032_power_suspend(struct device *dev)
 {	
+	int ret = 0;
+	int val = 0;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct tps80032_data *data = i2c_get_clientdata(client);
+	
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n", __func__, data->client_power->name, data->client_power->addr);
 
 #ifdef PMIC_FUELGAUGE_ENABLE
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
 #endif
+
+	/* Disable GPADC */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_TOGGLE1, 0x11);
+	if (0 > ret) {
+		/* Do nothing */
+		PMIC_ERROR_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+	}
+
+	/* Disable GPADC_VREF */
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_GPADC_CTRL, 0x00);
+	if (0 > ret) {
+		/* Do nothing */
+		PMIC_ERROR_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+	}
+
+	ret = i2c_smbus_read_byte_data(data->client_battery, HW_REG_GPADC_CTRL2);
+	if (0 > ret) {
+		/* Do nothing */
+		PMIC_ERROR_MSG("%s: i2c_smbus_read_byte_data failed err=%d\n",__func__,ret);
+	}
+
+	val = ret & 0xF3;
+	ret = i2c_smbus_write_byte_data(data->client_battery, HW_REG_GPADC_CTRL2, val);
+	if (0 > ret) {
+		/* Do nothing */
+		PMIC_ERROR_MSG("%s: i2c_smbus_write_byte_data failed err=%d\n",__func__,ret);
+	}
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 }
@@ -4977,6 +5010,7 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 {
 	int ret = 0;
 	int val = 0;
+	
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Set default voltage (1.8V) for LDO7 */
@@ -5032,14 +5066,14 @@ int tps80032_init_power_hw(struct tps80032_data *data)
 	if (0 > ret) {
 		return ret;
 	}
-	
+
 	val = ret & (~MSK_BIT_6);
-	
+
 	ret = i2c_smbus_write_byte_data(data->client_power, HW_REG_BBSPOR_CFG, val);
 	if (0 > ret) {
 		return ret;
 	}
-	
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
@@ -5492,7 +5526,6 @@ err_free_dev:
  */
 void tps80032_init_usb_id(void)
 {
-	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	struct tps80032_irq_data tps80032_irqs_tmp[] = {
 		[TPS80032_INT_PWRON]			= TPS80032_IRQ(A, 0),
 		[TPS80032_INT_RPWRON]			= TPS80032_IRQ(A, 1),
@@ -5525,6 +5558,8 @@ void tps80032_init_usb_id(void)
 		[TPS80032_INT_FAULT_WDG]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL,	MFAULT_WDG,	FAULT_WDG),
 		[TPS80032_INT_LINCH_GATED]		= TPS80032_IRQ_SEC(C, 4, CHRG_CTRL, MLINCH_GATED,	LINCH_GATED),
 	};
+	
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 	
 	memcpy (&tps80032_irqs[0].mask_reg, &tps80032_irqs_tmp[0].mask_reg, sizeof (struct tps80032_irq_data)*13);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);

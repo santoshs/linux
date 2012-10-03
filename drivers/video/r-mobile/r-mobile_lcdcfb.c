@@ -760,6 +760,7 @@ static int sh_mobile_mmap(struct fb_info *info, struct vm_area_struct *vma)
 static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 				  struct fb_info *info)
 {
+
 	switch (var->bits_per_pixel) {
 	case 16: /* RGB 565 */
 		var->red.offset    = 11;
@@ -785,6 +786,9 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 
 	}
+	// setting var->yres_virtual to info->var.yres_virtual if they are not same.
+	if(var->yres_virtual != info->var.yres_virtual)
+		var->yres_virtual =info->var.yres_virtual;
 	return 0;
 
 }

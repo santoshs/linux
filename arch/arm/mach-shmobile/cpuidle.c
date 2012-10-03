@@ -587,10 +587,73 @@ static int shmobile_init_cpuidle(void)
 				fsDisableMMU);
 
 	corestandby_pa_physical = (int)virt_to_phys(&corestandby_pa);
-	systemsuspend_cpu0_pa_physical =
-			(int)virt_to_phys(&systemsuspend_cpu0_pa);
-	systemsuspend_cpu1_pa_physical =
-			(int)virt_to_phys(&systemsuspend_cpu1_pa);
+	systemsuspend_cpu0_pa_physical = (int)virt_to_phys(&systemsuspend_cpu0_pa);
+	systemsuspend_cpu1_pa_physical = (int)virt_to_phys(&systemsuspend_cpu1_pa);
+
+#if 0
+	(void)memcpy((void *)ram0CoreStandby,
+				(void *)&corestandby,
+				fsCoreStandby);
+
+	(void)memcpy((void *)ram0SystemSuspend,
+				(void *)&systemsuspend,
+				fsSystemSuspend);
+
+	(void)memcpy((void *)ram0SaveArmRegister,
+				(void *)&save_arm_register,
+				fsSaveArmRegister);
+#endif
+	(void)memcpy((void *)ram1RestoreArmRegisterPA,
+				(void *)&restore_arm_register_pa,
+				fsRestoreArmRegisterPA);
+
+#if 0
+	(void)memcpy((void *)ram0RestoreArmRegisterVA,
+				(void *)&restore_arm_register_va,
+				fsRestoreArmRegisterVA);
+
+	(void)memcpy((void *)ram0SaveArmCommonRegister,
+				(void *)&save_arm_common_register,
+				fsSaveArmCommonRegister);
+
+	(void)memcpy((void *)ram0RestoreArmCommonRegister,
+				(void *)&restore_arm_common_register,
+				fsRestoreArmCommonRegister);
+
+	(void)memcpy((void *)ram0SaveCommonRegister,
+				(void *)&save_common_register,
+				fsSaveCommonRegister);
+#endif
+
+	(void)memcpy((void *)ram1RestoreCommonRegister,
+				(void *)&restore_common_register,
+				fsRestoreCommonRegister);
+
+	(void)memcpy((void *)ram1SysPowerDown,
+				(void *)&sys_powerdown,
+				fsSysPowerDown);
+
+	(void)memcpy((void *)ram1SysPowerUp,
+				(void *)&sys_powerup,
+				fsSysPowerUp);
+
+	(void)memcpy((void *)ram1SetClockSystemSuspend,
+				(void *)&setclock_systemsuspend,
+				fsSetClockSystemSuspend);
+
+
+	(void)memcpy((void *)ram1SystemSuspendCPU0PA,
+				(void *)&systemsuspend_cpu0_pa,
+				fsSystemSuspendCPU0PA);
+
+	(void)memcpy((void *)ram1CoreStandbyPA,
+				(void *)&corestandby_pa,
+				fsCoreStandbyPA);
+
+	(void)memcpy((void *)ram1SystemSuspendCPU1PA,
+				(void *)&systemsuspend_cpu1_pa,
+				fsSystemSuspendCPU1PA);
+
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);

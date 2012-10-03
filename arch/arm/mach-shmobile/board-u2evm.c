@@ -1244,6 +1244,7 @@ static struct platform_device thermal_sensor_device = {
 };
 /* >> End Add for Thermal Sensor driver*/
 
+/* CAM0 Power function */
 int IMX175_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk, *vclk2_clk;
@@ -1266,7 +1267,8 @@ int IMX175_power(struct device *dev, int power_on)
 	if (power_on) {
 		printk(KERN_ALERT "%s PowerON\n", __func__);
 		sh_csi2_power(dev, power_on);
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
+
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
@@ -1376,7 +1378,7 @@ int IMX175_power(struct device *dev, int power_on)
 		subPMIC_PinOnOff(0x0, 0);
 		mdelay(1);
 
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
 	}
@@ -1459,6 +1461,7 @@ int main_cam_led(int light, int mode)
 	return 0;
 }
 
+/* CAM1 Power function */
 int S5K6AAFX13_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk, *vclk2_clk;
@@ -1481,7 +1484,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 		printk(KERN_ALERT "%s PowerON\n", __func__);
 
 		sh_csi2_power(dev, power_on);
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
@@ -1575,6 +1578,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 
 		clk_disable(vclk2_clk);
 
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
 		mdelay(1);
 
 		/* CAM_VDDIO_1V8 Off */
@@ -1590,7 +1594,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 //		subPMIC_PinOnOff(0x0, 0);
 //		mdelay(1);
 
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
 
@@ -1934,57 +1938,6 @@ static struct platform_device stm_device = {
 	.resource	= stm_res,
 };
 
-static struct resource etr_res[] = {
-	[0] = {
-		.name	= "etr_ctrl",
-		.start	= 0xe6fa5000,
-		.end	= 0xe6fa5fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.name	= "fun_gen",
-		.start	= 0xe6f84000,
-		.end	= 0xe6f84fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[2] = {
-		.name	= "fun_ca9",
-		.start	= 0xe6fA4000,
-		.end	= 0xe6fA4fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[3] = {
-		.name	= "etf_ca9",
-		.start	= 0xe6fA1000,
-		.end	= 0xe6fA1fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[4] = {
-		.name	= "ctics",
-		.start	= 0xe6fa2000,
-		.end	= 0xe6fa2fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[5] = {
-		.name	= "cti0",
-		.start	= 0xe6fb8000,
-		.end	= 0xe6fb8fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[6] = {
-		.name	= "cti_irq",
-		.start	= gic_spi(79),
-		.end	= gic_spi(80),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device etr_device = {
-	.name = "etr",
-	.num_resources	= ARRAY_SIZE(etr_res),
-	.resource	= etr_res,
-};
-
 /* THREE optional u2evm_devices pointer lists for initializing the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
 
@@ -2031,7 +1984,6 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&camera_devices[0],
 	&camera_devices[1],
 	&stm_device,
-	&etr_device,
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
 #endif
@@ -2080,7 +2032,6 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&camera_devices[0],
 	&camera_devices[1],
 	&stm_device,
-	&etr_device,
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
 #endif
@@ -2126,8 +2077,6 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
-	&stm_device,
-	&etr_device,
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
 #endif
@@ -2576,7 +2525,7 @@ static void __init u2evm_init(void)
 
 	printk("sec stm_select=%d\n", stm_select);
 
-	pub_stm_select = stm_select;
+	/* pub_stm_select = stm_select;*/
 	if (stm_select >= 0) { /* Only if Secure side allows debugging */
 		if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
 			for (ci=4; cp[ci]; ci++) {
@@ -2707,8 +2656,37 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
 	
-	gpio_request(GPIO_PORT29, NULL); //Enabled eMMC LDO
-	gpio_direction_output(GPIO_PORT29, 1);
+	/* Disable GPIO Enable at initialization */
+	
+	// MHL enable
+	gpio_request(GPIO_PORT102, NULL);
+	gpio_direction_output(GPIO_PORT102, 0);
+	
+	// NFC Enable
+	gpio_request(GPIO_PORT12, NULL);
+	gpio_direction_output(GPIO_PORT12, 0);
+	
+	// WLAN Enable
+	gpio_request(GPIO_PORT260, NULL);
+	gpio_direction_output(GPIO_PORT260, 0);
+	
+	// BT Enable
+	gpio_request(GPIO_PORT268, NULL);
+	gpio_direction_output(GPIO_PORT268, 0);
+	
+	// GPS Enable
+	gpio_request(GPIO_PORT11, NULL);
+	gpio_direction_output(GPIO_PORT11, 0);
+	
+	// MAIN MIC LDO Enable
+	gpio_request(GPIO_PORT8, NULL);
+	gpio_direction_output(GPIO_PORT8, 0);
+	
+	// Sensor LDO Enable
+	gpio_request(GPIO_PORT9, NULL);
+	gpio_direction_output(GPIO_PORT9, 0);
+	
+	/* End */
 
 	if (0 != stm_select) {
 		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used for SD-Card */
@@ -3041,10 +3019,10 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 
 	}
 
-	/* touch key */
+	/* touch key Interupt */
 	gpio_request(GPIO_PORT104, NULL);
 	gpio_direction_input(GPIO_PORT104);
-	/* emmc */
+	/* emmc ldo enable*/
 	gpio_request(GPIO_PORT227, NULL);
 	gpio_direction_output(GPIO_PORT227, 1);
 

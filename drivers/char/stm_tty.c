@@ -22,6 +22,7 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
+#include <linux/clk.h>
 #include <asm/hardware/coresight.h>
 
 MODULE_DESCRIPTION("STM TTY Driver");
@@ -230,6 +231,15 @@ static int __devinit stm_probe(struct platform_device *pd)
 {
 	unsigned i;
 	unsigned int tscr;
+	struct clk *clk;
+	unsigned long rate;
+
+	clk = clk_get(NULL, "cp_clk");
+	if (clk) {
+		rate = clk_get_rate(clk);
+	} else
+		rate = 13000000;
+	dev_info(&pd->dev, "clk %p %ld\n", clk, rate);
 
 	stm_ctrl = remap(pd, 0);
 	if (!stm_ctrl) {
@@ -249,7 +259,12 @@ static int __devinit stm_probe(struct platform_device *pd)
 	__raw_writel(UNLOCK_MAGIC, fun + CSMR_LOCKACCESS);
 	CSTF_PORT_DISABLE(fun,0);
 	CSTF_PRIO_SET(fun,0,0);
+	/* Re-enable Funnel */
+	CSTF_PORT_ENABLE(fun,0);
+	__raw_writel(0, fun + CSMR_LOCKACCESS);
 
+	/* Unlock STM, STM is not relocked to allow STP synchronization writes to STM_SYNCR */
+	__raw_writel(UNLOCK_MAGIC, stm_ctrl + CSMR_LOCKACCESS);
 	/* Disable STM for configuration */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr & ~STM_TCSR_EN, stm_ctrl + STM_TCSR);
@@ -262,17 +277,17 @@ static int __devinit stm_probe(struct platform_device *pd)
 			return -ENXIO;
 		}
 	};
-
-	/* set channel id in STMTCSR */
-	tscr = __raw_readl(stm_ctrl + STM_TCSR);
-	__raw_writel((tscr & STM_TCSR_TRACEID_MSK)|STM_TCSR_TRACEID, stm_ctrl + STM_TCSR);
+	/* set timestamp clock */
+	__raw_writel(rate, stm_ctrl + STM_TSFREQR);
+	/* enable all 32 stimulus ports, 8 are used by APE and 2 by SPUV */
+	__raw_writel(0xffffffff, stm_ctrl + STM_SPER);
+	__raw_writel(0x400,stm_ctrl + STM_SYNCR);
+	/* Control settings in STMTCSR */
+	tscr = STM_TCSR_TSEN|STM_TCSR_SYNCEN|STM_TCSR_TRACEID;
+	__raw_writel(tscr, stm_ctrl + STM_TCSR);
 	/* Re-enable STM */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr | STM_TCSR_EN, stm_ctrl + STM_TCSR);
-
-	/* Re-enable Funnel */
-	CSTF_PORT_ENABLE(fun,0);
-	__raw_writel(0, fun + CSMR_LOCKACCESS);
 
 	for (i = 0; i < STM_TTY_MINORS; ++i) {
 		struct device   *tty_dev;

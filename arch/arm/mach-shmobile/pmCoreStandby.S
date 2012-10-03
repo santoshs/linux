@@ -260,7 +260,7 @@ ENTRY(corestandby)
 	/* Disable MMU							*/
 	/*------------------------------------------*/
 	/* Jump point to corestandby_pa non-MMU */
-	LDR		r0, corestandby_pa_physical
+	LDR		r0, =ram1CoreStandbyPAPhys 
 	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
@@ -350,7 +350,7 @@ CPU0_SYSTEMSUSPEND:
 	/* Disable MMU							*/
 	/*--------------------------------------*/
 	/* Set jump point after disable MMU to systemsuspend_cpu0_pa */
-	LDR		r0, systemsuspend_cpu0_pa_physical
+	LDR		r0, =ram1SystemSuspendCPU0PAPhys
 	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4		/* Call disablemmu() */
 	NOP
@@ -405,7 +405,7 @@ CPU1_SYSTEMSUSPEND:
 	/* Disable MMU			*/
 	/*----------------------*/
 	/* Set jumpt point after disable MMU to systemsuspend_cpu1_pa */
-	LDR		r0, systemsuspend_cpu1_pa_physical
+	LDR		r0, =ram1SystemSuspendCPU1PAPhys
 	LDR		r4, =ram1DisableMMU
 	MOV		pc, r4		/* Call disablemmu()	*/
 	NOP
@@ -1352,9 +1352,10 @@ SKIP_PASR_DRAM_AREA1:
 	/*--------------------------------------*/
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
+	LDR		r4, =ram1SetClockSystemSuspendPhys
 	MOV		r0, #0x0	/* Target(r0):Powerdown(0x0)	*/
 	MOV		lr, pc	/* lr: Return address	*/
-	B setclock_systemsuspend /* Call setclock_systemsuspend() */
+	MOV		pc, r4 	/* Call setclock_systemsuspend()*/
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
@@ -1559,9 +1560,10 @@ SYSPU_TURNON_PLL0_SKIP:
 	/*--------------------------------------*/
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
+	LDR		r4, =ram1SetClockSystemSuspendPhys
 	MOV		r0, #0x1		/* Target(r0):Wakeup(0x1) */
 	MOV		lr, pc		/* lr: Return address */
-	B setclock_systemsuspend /* Call setclock_systemsuspend() */
+	MOV		pc, r4		/* Call setclock_systemsuspend() */
 	NOP
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
@@ -2271,24 +2273,27 @@ ENDPROC(disablemmu)
 ENTRY(systemsuspend_cpu0_pa)
 
 	/*------------------------------------------*/
-	/* Sys power down	*/
+	/* Sys power down							*/
 	/*------------------------------------------*/
+	LDR		r4, =ram1SysPowerDownPhys
 	MOV		lr, pc
-	B		sys_powerdown	/* Call sys_powerdown */
+	MOV		pc, r4				/* Call sys_powerdown				*/
 	NOP
 
 	/*------------------------------------------*/
-	/* Sys power up			*/
+	/* Sys power up								*/
 	/*------------------------------------------*/
+	LDR		r4, =ram1SysPowerUpPhys
 	MOV		lr, pc
-	B		sys_powerup		/* Call sys_powerup */
+	MOV		pc, r4				/* Call sys_powerup					*/
 	NOP
 
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	MOV		lr, pc		/* lr: Return address */
-	B restore_common_register /* Call restore_common_register() */
+	LDR		r4, =ram1RestoreCommonRegisterPhys
+	MOV		lr, pc				/* lr: Return address				*/
+	MOV		pc, r4				/* Call restore_common_register()	*/
 	NOP
 
 	/*--------------------------------------------------------------*/
@@ -2299,16 +2304,18 @@ ENTRY(systemsuspend_cpu0_pa)
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting0Phys
-	MOV		lr, pc		/* lr: Return address */
-	B restore_arm_register_pa /* Call restore_arm_register_pa() */
+	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	MOV		lr, pc				/* lr: Return address				*/
+	MOV		pc, r4				/* Call restore_arm_register_pa()	*/
 	NOP
 
 .pool
 ENDPROC(systemsuspend_cpu0_pa)
 
 /****************************************************************/
-/* Transition to System Sleep(A3SM Power Off) (CPU1 MMU OFF) */
-/* This function is running on SDRAM */
+/* Transition to System Sleep(A3SM Power Off) (CPU1 MMU OFF)	*/
+/* This function is running on SDRAM							*/
+/*																*/
 /****************************************************************/
 .align	5
 ENTRY(systemsuspend_cpu1_pa)
@@ -2347,8 +2354,9 @@ CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting1Phys
+	LDR		r4, =ram1RestoreArmRegisterPAPhys
 	MOV		lr, pc
-	B restore_arm_register_pa /* Call restore_arm_register_pa() */
+	MOV		pc, r4						/* Call restore_arm_register_pa()	*/
 	NOP
 
 .pool
@@ -2570,8 +2578,9 @@ CORESTANDBY_REL2_END:
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
+	LDR		r4, =ram1RestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
-	B		restore_common_register
+	MOV		pc, r4 /* Call restore_common_register() */
 	NOP
 #endif /* CORESTANDBY_A2SL */
 	/*------------------------------------------*/
@@ -2587,8 +2596,9 @@ CORESTANDBY_REL2_END:
 	LDRNE	r1, =ram0CoreStandbyRestoreCPU1Phys
 	LDR		r1, [r1]
 
+	LDR		r4, =ram1RestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
-	B restore_arm_register_pa /* Call restore_arm_register_pa() */
+	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
 
 .pool

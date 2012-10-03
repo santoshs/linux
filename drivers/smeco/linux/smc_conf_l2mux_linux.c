@@ -218,14 +218,15 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         else
         {
             struct sk_buff *skb = NULL;
-
             /* ========================================
              * Critical section begins
              *
              */
             SMC_LOCK( channel->lock_read );
 
-            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
+		skb = netdev_alloc_skb(device,
+					data_length+SMC_L2MUX_HEADER_SIZE + 26);
+		skb_reserve(skb, 26);
 
             if( unlikely(!skb) )
             {

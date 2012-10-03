@@ -13,6 +13,8 @@
 #include <linux/io.h>
 #include <linux/sh_clk.h>
 
+static unsigned char dms_MP_SHwy;
+#define HPBCTRL2	IO_ADDRESS(0xE6001018)
 static int sh_clk_mstp32_enable(struct clk *clk)
 {
 	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
@@ -24,9 +26,21 @@ static int sh_clk_mstp32_enable(struct clk *clk)
 
 static void sh_clk_mstp32_disable(struct clk *clk)
 {
+ /*Disabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
+	if ((system_rev & 0xFFFF) < 0x3E11)
+		if ((__raw_readl(HPBCTRL2) & (1 << 11))) {
+			__raw_writel((__raw_readl(HPBCTRL2) & ~(1 << 11)),
+						HPBCTRL2);
+				dms_MP_SHwy = 1;
+			   }
 	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
 		     clk->enable_reg);
-	/* Unlike enabling case, we don't have to confirm the bit set */
+	/*Doing the MSTP status bit check only for SPU2A,SPU2V clocks*/
+	if (clk->enable_reg == 0xE6150138 && ((clk->enable_bit == 20)
+			|| (clk->enable_bit == 23))) {
+		while (!(__raw_readl(clk->status_reg) & (1 << clk->enable_bit)))
+			cpu_relax();
+		}
 }
 
 static struct clk_ops sh_clk_mstp32_clk_ops = {
@@ -430,6 +444,13 @@ static void sh_clk_cksel_disable(struct clk *clk)
 		value |= 1 << clk->enable_bit; /* stop clock */
 		__raw_writel(value, clk->enable_reg);
 	}
+ /*Enabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
+	if ((system_rev & 0xFFFF) < 0x3E11)
+		if (1 == dms_MP_SHwy) {
+			__raw_writel((__raw_readl(HPBCTRL2) | (1 << 11)),
+						HPBCTRL2);
+			dms_MP_SHwy = 0;
+		}
 }
 
 static struct clk_ops sh_clk_cksel_clk_ops = {

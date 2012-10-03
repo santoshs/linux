@@ -528,6 +528,11 @@ static void r8a66597_wait_pbusy(struct r8a66597 *r8a66597, u16 pipenum)
 	u16 tmp;
 	int i = 0;
 
+	tmp = control_reg_get(r8a66597, pipenum);
+	if ((tmp & PBUSY) == 0) {
+		return;
+	}
+
 	do {
 		tmp = control_reg_get(r8a66597, pipenum);
 		if (i++ > 1000000) {	/* 1 msec */
@@ -687,6 +692,12 @@ static void r8a66597_change_curpipe(struct r8a66597 *r8a66597, u16 pipenum,
 		loop = pipenum;
 	}
 	r8a66597_mdfy(r8a66597, loop, mask, fifosel);
+
+	tmp = r8a66597_read(r8a66597, fifosel);
+	if ((tmp & mask) == loop) {
+		return;
+	}
+	/* end JB added */
 
 	do {
 		tmp = r8a66597_read(r8a66597, fifosel);
@@ -1085,8 +1096,9 @@ static void start_packet_write(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
-	u16 tmp;
+	u16 tmp, intenb0, nrdyenb, fifosel, mask, loop;
 	u16 pipenum = ep->pipenum;
+	int i = 0;
 
 	if (!req->req.buf)
 		dev_warn(r8a66597_to_dev(r8a66597),
@@ -1108,11 +1120,75 @@ static void start_packet_write(struct r8a66597_ep *ep,
 			else
 				irq_packet_write(ep, req);
 		} else {
+#if 0
 			pipe_change(r8a66597, pipenum);
 			disable_irq_nrdy(r8a66597, pipenum);
 			pipe_start(r8a66597, ep->pipenum);
 			enable_irq_nrdy(r8a66597, pipenum);
 			start_dma(r8a66597, ep, req);
+#endif
+
+			/*pipe_change(r8a66597, pipenum);*/
+
+		      fifosel = r8a66597_read(r8a66597, ep->fifosel);
+
+		      if (ep->use_dma)
+				r8a66597_write(r8a66597,
+				fifosel & ~DREQE, ep->fifosel);
+
+		      if (!pipenum) {
+				mask = ISEL | CURPIPE;
+				loop = 0;
+		      } else {
+				mask = CURPIPE;
+				loop = pipenum;
+		      }
+
+		      fifosel &= (~mask);
+		      fifosel |= loop;
+
+		      fifosel |= mbw_value(r8a66597);
+
+		      if (ep->use_dma)
+				fifosel |= DREQE;
+
+		      r8a66597_write(r8a66597, fifosel, ep->fifosel);
+
+		      tmp = r8a66597_read(r8a66597, ep->fifosel);
+		      if ((tmp & mask) != loop) {
+				do {
+					tmp = r8a66597_read(r8a66597,
+						ep->fifosel);
+					if (i++ > 1000000) {
+						dev_err(
+						r8a66597_to_dev(r8a66597),
+				"r8a66597: register%x,loop %x is timeout\n",
+					fifosel, loop);
+					break;
+				}
+			    ndelay(1);
+			} while ((tmp & mask) != loop);
+		      }
+
+		      intenb0 = r8a66597_read(r8a66597, INTENB0);
+		      r8a66597_write(r8a66597,
+				intenb0 & ~(BEMPE | NRDYE | BRDYE),
+				INTENB0);
+		      nrdyenb = r8a66597_read(r8a66597, NRDYENB);
+		      r8a66597_write(r8a66597,
+			nrdyenb & ~(1 << pipenum), NRDYENB);
+		      r8a66597_write(r8a66597, intenb0, INTENB0);
+
+		      pipe_start(r8a66597, ep->pipenum);
+
+		      r8a66597_write(r8a66597,
+					intenb0 & ~(BEMPE | NRDYE | BRDYE),
+					INTENB0);
+		      r8a66597_write(r8a66597,
+			nrdyenb | (1 << pipenum), NRDYENB);
+		      r8a66597_write(r8a66597, intenb0, INTENB0);
+		      start_dma(r8a66597, ep, req);
+		      /* JB end register accesses */
 		}
 	}
 }
@@ -1678,7 +1754,8 @@ static void irq_pipe_ready(struct r8a66597 *r8a66597, u16 status, u16 enb)
 	}
 }
 
-static void irq_pipe_empty(struct r8a66597 *r8a66597, u16 status, u16 enb)
+static void irq_pipe_empty(struct r8a66597 *r8a66597, u16 status,
+				u16 enb, u16 intenb0)
 {
 	u16 tmp;
 	u16 check;
@@ -1699,9 +1776,31 @@ static void irq_pipe_empty(struct r8a66597 *r8a66597, u16 status, u16 enb)
 				r8a66597_write(r8a66597, ~check, BEMPSTS);
 				tmp = control_reg_get(r8a66597, pipenum);
 				if ((tmp & INBUFM) == 0) {
+					control_reg_set_pid(
+					r8a66597, pipenum, PID_NAK);
+					r8a66597_write(
+					r8a66597,
+					(intenb0 & ~(BEMPE | NRDYE | BRDYE)),
+					INTENB0);
+					r8a66597_write(
+					r8a66597, (enb & (~(1 << pipenum))),
+					BEMPENB);
+					r8a66597_bclr(
+					r8a66597, (1 << pipenum), BRDYENB);
+					r8a66597_bclr(
+					r8a66597, (1 << pipenum), NRDYENB);
+					r8a66597_write(
+					r8a66597, intenb0, INTENB0);
+					/*pipe_stop(r8a66597, pipenum);*/
+					/*moved to before register accesses */
+					/*control_reg_set_pid(
+					r8a66597, pipenum, PID_NAK);*/
+					r8a66597_wait_pbusy(r8a66597, pipenum);
+#if 0
 					disable_irq_empty(r8a66597, pipenum);
 					pipe_irq_disable(r8a66597, pipenum);
 					pipe_stop(r8a66597, pipenum);
+#endif
 					ep = r8a66597->pipenum2ep[pipenum];
 					req = get_request_from_ep(ep);
 					if (!list_empty(&ep->queue))
@@ -2063,13 +2162,14 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 
 	mask0 = intsts0 & intenb0;
 	if (mask0) {
+#if 0
 		brdysts = r8a66597_read(r8a66597, BRDYSTS);
 		nrdysts = r8a66597_read(r8a66597, NRDYSTS);
 		bempsts = r8a66597_read(r8a66597, BEMPSTS);
 		brdyenb = r8a66597_read(r8a66597, BRDYENB);
 		nrdyenb = r8a66597_read(r8a66597, NRDYENB);
 		bempenb = r8a66597_read(r8a66597, BEMPENB);
-
+#endif
 		if (mask0 & VBINT) {
 			r8a66597_write(r8a66597,  0xffff & ~VBINT,
 					INTSTS0);
@@ -2085,6 +2185,7 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 		}
 		if (intsts0 & DVST)
 			irq_device_state(r8a66597);
+#if 0
 #ifdef CONFIG_USB_OTG
 		if ((intsts0 & BRDY) && (intenb0 & BRDYE)
 				&& (brdysts & brdyenb) && (!role))
@@ -2100,6 +2201,32 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 				&& (bempsts & bempenb))
 			irq_pipe_empty(r8a66597, bempsts, bempenb);
 #endif
+#endif
+
+#ifdef CONFIG_USB_OTG
+		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!role)) {
+			brdysts = r8a66597_read(r8a66597, BRDYSTS);
+			brdyenb = r8a66597_read(r8a66597, BRDYENB);
+			irq_pipe_ready(r8a66597, brdysts, brdyenb);
+		}
+		if ((intsts0 & BEMP) && (intenb0 & BEMPE) && (!role)) {
+			bempenb = r8a66597_read(r8a66597, BEMPENB);
+			bempsts = r8a66597_read(r8a66597, BEMPSTS);
+			irq_pipe_empty(r8a66597, bempsts, bempenb, intenb0);
+		}
+#else	/* CONFIG_USB_OTG */
+		if ((intsts0 & BRDY) && (intenb0 & BRDYE)) {
+			brdysts = r8a66597_read(r8a66597, BRDYSTS);
+			brdyenb = r8a66597_read(r8a66597, BRDYENB);
+			irq_pipe_ready(r8a66597, brdysts, brdyenb);
+		}
+		if ((intsts0 & BEMP) && (intenb0 & BEMPE)) {
+			bempenb = r8a66597_read(r8a66597, BEMPENB);
+			bempsts = r8a66597_read(r8a66597, BEMPSTS);
+			irq_pipe_empty(r8a66597, bempsts, bempenb, intenb0);
+		}
+#endif
+
 		if (intsts0 & CTRT)
 			irq_control_stage(r8a66597);
 		if (intsts0 & RESM) {
@@ -2130,9 +2257,9 @@ static void dma_write_complete(struct r8a66597 *r8a66597,
 	if (req->req.zero && !(req->req.actual % ep->ep.maxpacket)) {
 		/* Send zero-packet by irq_packet_write(). */
 		tmp = control_reg_get(r8a66597, ep->pipenum);
-		if (tmp & BSTS)
+		if (tmp & BSTS) {
 			irq_packet_write(ep, req);
-		else
+		} else
 			enable_irq_ready(r8a66597, ep->pipenum);
 	} else {
 		/* To confirm the end of transmit */
@@ -2894,6 +3021,9 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	if (r8a66597->ep0_req == NULL)
 		goto clean_up4;
 	r8a66597->ep0_req->complete = nop_completion;
+
+	r8a66597_write(r8a66597, TRCLR, PIPE2TRE);
+	r8a66597_bset(r8a66597, TRENB, PIPE2TRE);
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
 	pm_runtime_put(r8a66597_to_dev(r8a66597)); 

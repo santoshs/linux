@@ -277,6 +277,7 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 	clk_enable(pd->clk);
 
 	/* Enable channel and configure rx ack */
+	iic_wr(pd, ICCR, 1);
 	iic_set_clr(pd, ICCR, ICCR_ICE, 0);
 
 	/* Mask all interrupts */
@@ -294,7 +295,7 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 	iic_wr(pd, ICIC, 0);
 
 	/* Disable channel */
-	iic_set_clr(pd, ICCR, 0, ICCR_ICE);
+	iic_wr(pd, ICCR, 0);
 
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);

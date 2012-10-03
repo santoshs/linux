@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #include <asm/gpio.h>
 
@@ -607,10 +608,51 @@ static int __devexit i2c_gpio_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int i2c_gpio_pm_suspend(struct device *dev)
+{
+	struct i2c_gpio_platform_data *pdata;
+
+	if (!dev)
+		return -ENXIO;
+
+	pdata = dev->platform_data;
+	if (!pdata)
+		return -ENXIO;
+
+	setb_port_n_CR(pdata->sda_pin, 0x00);
+	setb_port_n_CR(pdata->scl_pin, 0x00);
+
+	pm_runtime_put_sync(dev);
+
+	return 0;
+}
+
+static int i2c_gpio_pm_resume(struct device *dev)
+{
+	struct i2c_gpio_platform_data *pdata;
+
+	if (!dev)
+		return -ENXIO;
+
+	pdata = dev->platform_data;
+	if (!pdata)
+		return -ENXIO;
+
+	pm_runtime_get_sync(dev);
+
+	return 0;
+}
+
+static const struct dev_pm_ops i2c_gpio_dev_pm_ops = {
+	.suspend	= i2c_gpio_pm_suspend,
+	.resume		= i2c_gpio_pm_resume,
+};
+
 static struct platform_driver i2c_gpio_driver = {
 	.driver		= {
 		.name	= "i2c-gpio",
 		.owner	= THIS_MODULE,
+		.pm	= &i2c_gpio_dev_pm_ops,
 	},
 	.probe		= i2c_gpio_probe,
 	.remove		= __devexit_p(i2c_gpio_remove),

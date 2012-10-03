@@ -2336,6 +2336,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	return ret;
 
 err_set_device:
+	wm1811_conf->info = new_device;
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
 }
