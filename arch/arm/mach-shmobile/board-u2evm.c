@@ -148,14 +148,19 @@ static struct platform_device usbhs_func_device = {
 };
 
 /* MMCIF */
-static struct sh_mmcif_dma renesas_mmcif_dma = {
-	.chan_priv_rx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
-	},
-	.chan_priv_tx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
-	},
-};
+static void mmcif_set_pwr(struct platform_device *pdev, int state)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	pmic_set_power_on(E_POWER_VMMC);
+#endif
+}
+
+static void mmcif_down_pwr(struct platform_device *pdev)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	pmic_set_power_off(E_POWER_VMMC);
+#endif
+}
 
 static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.sup_pclk	= 0,
@@ -163,7 +168,10 @@ static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
 			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
 			  MMC_CAP_NONREMOVABLE,
-	.dma		= &renesas_mmcif_dma,
+	.set_pwr	= mmcif_set_pwr,
+	.down_pwr	= mmcif_down_pwr,
+	.slave_id_tx	= SHDMA_SLAVE_MMCIF0_TX,
+	.slave_id_rx	= SHDMA_SLAVE_MMCIF0_RX,
 	.max_clk	= 26000000,
 };
 
@@ -232,20 +240,12 @@ static void sdhi0_set_dma(struct platform_device *pdev, int size)
 	__raw_writew(val2, ext_acc);
 }
 
-static struct renesas_sdhi_dma sdhi0_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_RX,
-	}
-};
-
 static struct renesas_sdhi_platdata sdhi0_info = {
 	.caps		= 0,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN |
-			  RENESAS_SDHI_DMA_SLAVE_CONFIG,
-	.dma		= &sdhi0_dma,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE
+				| RENESAS_SDHI_DMA_SLAVE_CONFIG,
+	.slave_id_tx	= SHDMA_SLAVE_SDHI0_TX,
+	.slave_id_rx	= SHDMA_SLAVE_SDHI0_RX,
 	.set_pwr	= sdhi0_set_pwr,
 	.detect_irq	= R8A7373_IRQC_IRQ(50),
 	.detect_msec	= 0,
@@ -282,19 +282,19 @@ static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 	;
 }
 
-static struct renesas_sdhi_dma sdhi1_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
-	}
-};
+#define SDHI1_VOLTAGE (MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 \
+			| MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 \
+			| MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 \
+			| MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
+			| MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 \
+			| MMC_VDD_34_35 | MMC_VDD_35_36)
 
 static struct renesas_sdhi_platdata sdhi1_info = {
-	.caps		= MMC_CAP_NONREMOVABLE | MMC_CAP_SDIO_IRQ,
-	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
-	.dma		= &sdhi1_dma,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD \
+				| MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+	.slave_id_tx	= SHDMA_SLAVE_SDHI1_TX,
+	.slave_id_rx	= SHDMA_SLAVE_SDHI1_RX,
 	.set_pwr	= sdhi1_set_pwr,
 };
 
@@ -327,19 +327,12 @@ static void sdhi2_set_pwr(struct platform_device *pdev, int state)
 	;
 }
 
-static struct renesas_sdhi_dma sdhi2_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
-	}
-};
-
 static struct renesas_sdhi_platdata sdhi2_info = {
-	.caps		= MMC_CAP_NONREMOVABLE | MMC_CAP_SDIO_IRQ,
-	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
-	.dma		= &sdhi2_dma,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD \
+				| MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+	.slave_id_tx	= SHDMA_SLAVE_SDHI2_TX,
+	.slave_id_rx	= SHDMA_SLAVE_SDHI2_RX,
 	.set_pwr	= sdhi2_set_pwr,
 };
 
