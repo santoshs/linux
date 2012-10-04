@@ -1468,6 +1468,22 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 #endif
 		info->device = &pdev->dev;
 		info->par = &priv->ch[i];
+
+		if (cfg->bpp == 16) {
+			memset((void *)lcd_ext_param[i].vir_addr
+			       , 0, lcd_ext_param[i].mem_size);
+		} else {
+			int size;
+			unsigned int *cpy_address;
+			cpy_address =
+				(unsigned int *)
+				lcd_ext_param[i].vir_addr;
+			for (size = 0;
+			     size < lcd_ext_param[i].mem_size / 4;
+			     size++) {
+				*cpy_address++ = 0xFF000000;
+			}
+		}
 	}
 
 	if (error)

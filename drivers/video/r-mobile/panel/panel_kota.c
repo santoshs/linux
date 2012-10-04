@@ -383,7 +383,7 @@ static int kota_panel_init(unsigned int mem_size)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
-	ret = kota_dsi_startsetting(0);
+	ret = kota_dsi_startsetting(1);
 
 	return ret;
 }
