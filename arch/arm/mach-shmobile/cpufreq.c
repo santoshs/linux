@@ -313,6 +313,7 @@ int __set_rate(unsigned int freq)
 		return ret;
 	}
 	freq_old = the_cpuinfo.freq;
+#if 0
 	/* for overdrive mode, pll0 is x56, other is x46 */
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		if (OVERDRIVE_FREQ == freq)
@@ -320,7 +321,7 @@ int __set_rate(unsigned int freq)
 		else
 			pllratio = PLLx46;
 	}
-
+#endif
 	div_rate = __to_div_rate(freq);
 	if (div_rate < 0) {
 		pr_err("%s()[%d]: error<%d>! frequency not support\n",
@@ -329,7 +330,18 @@ int __set_rate(unsigned int freq)
 	}
 
 	ret = pm_set_syscpu_frequency(div_rate);
-	if (!ret) {
+	if (ret) {
+		pr_err("%s()[%d]: error<%d>! set divrate<0x%x>\n",
+			__func__, __LINE__, ret, div_rate);
+	} else {
+		/* for overdrive mode, pll0 is x56, other is x46 */
+		if (shmobile_chip_rev() >= ES_REV_2_0) {
+			if (OVERDRIVE_FREQ == freq)
+				pllratio = PLLx56;
+			else
+				pllratio = PLLx46;
+		}
+
 		/* change PLL0 if need */
 		if (pm_get_pll_ratio(PLL0) != pllratio) {
 			ret = pm_set_pll_ratio(PLL0, pllratio);
@@ -342,9 +354,6 @@ int __set_rate(unsigned int freq)
 
 		the_cpuinfo.freq = freq;
 		__notify_all_cpu(freq_old, freq, CPUFREQ_POSTCHANGE);
-	} else {
-		pr_err("%s()[%d]: error<%d>! set divrate<0x%x>\n",
-			__func__, __LINE__, ret, div_rate);
 	}
 
 	return ret;
