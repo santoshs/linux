@@ -188,6 +188,23 @@ void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
 }
 EXPORT_SYMBOL_GPL(sh_modify_register32);
 
+/*===================*/
+/*  get board rev */
+/*===================*/
+static unsigned int u2_board_rev;
+unsigned int u2_get_board_rev()
+{
+	return u2_board_rev;
+}
+EXPORT_SYMBOL_GPL(u2_get_board_rev);
+
+static int u2_read_board_rev(char *page, char **start, off_t off,
+					int count, int *eof, void *data)
+{
+	count = snprintf(page, count, "%x", u2_board_rev);
+	return count;
+}
+
 static struct resource smsc9220_resources[] = {
 	{
 		.start	= 0x00080000,
@@ -814,37 +831,26 @@ static struct platform_device fsi_b_device = {
 };
 
 
+#define GPIO_KEY(c, g, d, w) \
+	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
+	 .debounce_interval = 20}
 
-#ifdef CONFIG_KEYBOARD_GPIO_POLLED
-#define GPIO_KEY(c, g, d) \
-	{.code=c, .gpio=g, .desc=d, .wakeup=0, .active_low=1,\
-	 .debounce_interval=20}
-#else
-#define GPIO_KEY(c, g, d) \
-	{.code=c, .gpio=g, .desc=d, .wakeup=1, .active_low=1,\
-	 .debounce_interval=20}
+static struct gpio_keys_button gpio_buttons_polled[] = {
+#ifndef CONFIG_PMIC_INTERFACE
+	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
 #endif
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT45, "Home",  0),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT46, "+",     0),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-",     0),
+};
 
 static struct gpio_keys_button gpio_buttons[] = {
 #ifndef CONFIG_PMIC_INTERFACE
-	GPIO_KEY(KEY_POWER, GPIO_PORT24, "Power"),
+	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
 #endif
-#if 0
-	GPIO_KEY(KEY_MENU, GPIO_PORT25, "Menu"),
-	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT26, "Home"),
-	GPIO_KEY(KEY_BACK, GPIO_PORT27, "Back"),
-	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
-#endif
-#ifdef CONFIG_MACH_U2EVM_SR_REV031
-	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT18, "Home"),
-	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT1, "+"),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2, "-"),
-#else
-	GPIO_KEY(KEY_HOMEPAGE, GPIO_PORT45, "Home"),
-	GPIO_KEY(KEY_VOLUMEUP, GPIO_PORT46, "+"),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-"),
-#endif
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
 };
 
 static int gpio_key_enable(struct device *dev)
@@ -874,25 +880,34 @@ static int gpio_key_enable(struct device *dev)
 	return 0;
 }
 
+static struct gpio_keys_platform_data gpio_key_polled_info = {
+	.buttons	= gpio_buttons_polled,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.rep		= 0,
+	.enable		= gpio_key_enable,
+	.poll_interval	= 50,
+};
+
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
 	.rep		= 0,
 	.enable		= gpio_key_enable,
-#ifdef CONFIG_KEYBOARD_GPIO_POLLED
-	.poll_interval	= 50,
-#endif
 };
 
 static struct platform_device gpio_key_device = {
-#ifdef CONFIG_KEYBOARD_GPIO_POLLED
-	.name	= "gpio-keys-polled",
-#else
 	.name	= "gpio-keys",
-#endif
 	.id	= -1,
 	.dev	= {
 		.platform_data	= &gpio_key_info,
+	},
+};
+
+static struct platform_device gpio_key_polled_device = {
+	.name	= "gpio-keys-polled",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_key_polled_info,
 	},
 };
 
@@ -2499,6 +2514,8 @@ static void __init u2evm_init(void)
 	char *cp=&boot_command_line[0];
 	int ci;
 	int pub_stm_select=-1;
+	struct platform_device **p_dev;
+	int p_dev_cnt;
 	int stm_select=-1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
@@ -2581,6 +2598,24 @@ static void __init u2evm_init(void)
 		*GPIO_DRVCR_SIM2 = 0x0023;
 	}
 	shmobile_arch_reset = u2evm_restart;
+
+	/* set board version */
+	u2_board_rev = 0;
+	gpio_request(GPIO_PORT75, NULL);
+	gpio_direction_input(GPIO_PORT75);
+	u2_board_rev |= gpio_get_value(GPIO_PORT75) << 3;
+	gpio_request(GPIO_PORT74, NULL);
+	gpio_direction_input(GPIO_PORT74);
+	u2_board_rev |= gpio_get_value(GPIO_PORT74) << 2;
+	gpio_request(GPIO_PORT73, NULL);
+	gpio_direction_input(GPIO_PORT73);
+	u2_board_rev |= gpio_get_value(GPIO_PORT73) << 1;
+	gpio_request(GPIO_PORT72, NULL);
+	gpio_direction_input(GPIO_PORT72);
+	u2_board_rev |= gpio_get_value(GPIO_PORT72);
+
+	create_proc_read_entry("board_revision", 0400, NULL,
+					u2_read_board_rev, NULL);
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -3211,18 +3246,29 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 
 	switch (stm_select) {
 		case 0:
-			platform_add_devices(u2evm_devices_stm_sdhi0,
-				ARRAY_SIZE(u2evm_devices_stm_sdhi0));
+			p_dev = u2evm_devices_stm_sdhi0;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_sdhi0);
 			break;
 		case 1:
-			platform_add_devices(u2evm_devices_stm_sdhi1,
-				ARRAY_SIZE(u2evm_devices_stm_sdhi1));
+			p_dev = u2evm_devices_stm_sdhi1;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_sdhi1);
 			break;
 		default:
-			platform_add_devices(u2evm_devices_stm_none,
-				ARRAY_SIZE(u2evm_devices_stm_none));
+			p_dev = u2evm_devices_stm_none;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_none);
 			break;
 	}
+
+	if (u2_board_rev < 3) {
+		int i;
+		for (i = 0; i < p_dev_cnt; i++) {
+			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
+				p_dev[i] = &gpio_key_polled_device;
+				break;
+			}
+		}
+	}
+	platform_add_devices(p_dev, p_dev_cnt);
 
 	r8a73734_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
 	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
