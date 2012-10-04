@@ -59,7 +59,7 @@
 #define	saveCpuRegisterAreaSize				0x660
 
 /* Size of code	*/
-#define	fsArmVector					0x80 /* ARM Vector */
+#define	fsArmVector					0x100 /* ARM Vector */
 #define	fsCoreStandby				0x0 /* Core Standby */
 #define	fsSystemSuspend				0x0 /* System Suspend */
 #define	fsSaveArmRegister			0x0 /* Save ARM register */
@@ -387,6 +387,9 @@
 /*Restore point after enable MMU for CoreStandby with CPU1*/
 #define	ram0CoreStandbyRestoreCPU1			\
 (ram0CoreStandbyRestoreCPU0 + 0x4)
+/* Do ZQ Calibration or not */
+#define	ram0ZQCalib		\
+(ram0CoreStandbyRestoreCPU1 + 0x4)
 
 /* Backup area Phys			*/
 #define	ram0CommonSettingPhys				ram0BackupPhys
@@ -503,6 +506,9 @@
 /* Restore point after enable MMU for CoreStandby with CPU1 */
 #define	ram0CoreStandbyRestoreCPU1Phys		\
 (ram0CoreStandbyRestoreCPU0Phys + 0x4)
+/* Do ZQ Calibration or not */
+#define	ram0ZQCalibPhys		\
+(ram0CoreStandbyRestoreCPU1Phys + 0x4)
 
 /*---------------------------------------------------------------------------*/
 /* Offset of CPU register buckup area */

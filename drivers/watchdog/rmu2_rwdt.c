@@ -39,10 +39,31 @@ static int start_stop_cmt_watchdog;
 #define ICD_IPTR0 0xf0001800
 
 static struct delayed_work *dwork;
+static struct delayed_work *dwork_wa_zq;
 static struct workqueue_struct *wq;
+static struct workqueue_struct *wq_wa_zq;
 static struct clk *rmu2_rwdt_clk;
 static unsigned long cntclear_time;
+static unsigned long cntclear_time_wa_zq;
 static int stop_func_flg;
+static int wa_zq_flg;
+
+#define STBCHRB3 0xE6180043
+
+/* SBSC register address */
+#define SBSC_BASE		(0xFE000000U)
+#define SBSC_SDMRACR1A		ioremap(SBSC_BASE + 0x400088, 0x4)
+#define SBSC_SDMRA_28200	ioremap(SBSC_BASE + 0x528200, 0x4)
+#define SBSC_SDMRA_38200	ioremap(SBSC_BASE + 0x538200, 0x4)
+#define SBSC_SDMRA_DONE		(0x00000000)
+#define SBSC_SDMRACR1A_ZQ	(0x0000560A)
+
+/* CPG register address */
+#define CPG_BASE		(0xE6150000U)
+#define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
+
+#define CONFIG_RMU2_RWDT_ZQ_CALIB		(500)
+
 
 /*
  * Modify register
@@ -429,6 +450,10 @@ static int rmu2_rwdt_stop(void)
 
 	cancel_delayed_work_sync(dwork);
 	flush_workqueue(wq);
+	if (wa_zq_flg) {
+		cancel_delayed_work_sync(dwork_wa_zq);
+		flush_workqueue(wq_wa_zq);
+	}
 
 	/* set 0 to RWTCSRA TME for stopping timer */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -445,6 +470,18 @@ static int rmu2_rwdt_stop(void)
 	stop_func_flg = 0;
 
 	return ret;
+}
+
+/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
+static void rmu2_rwdt_workfn_zq_wa(struct work_struct *work)
+{
+	__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
+	__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
+	RWDT_DEBUG("< %s > CPG_PLL3CR 0x%8x\n",
+			__func__, __raw_readl(CPG_PLL3CR));
+
+	if (0 == stop_func_flg)	/* do not execute while stop()*/
+		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);
 }
 
 /*
@@ -672,6 +709,8 @@ static int rmu2_rwdt_start(void)
 
 	/* start soft timer */
 	queue_delayed_work(wq, dwork, cntclear_time);
+	if (wa_zq_flg)
+		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);
 
 	/* set 1 to RWTCSRA TME for starting timer */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -731,6 +770,38 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 
 	stop_func_flg = 0;
 
+	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
+	wa_zq_flg = 0;
+	reg8 = __raw_readb(STBCHRB3);
+	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+		wa_zq_flg = 1;
+		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
+		__raw_writel(SBSC_SDMRACR1A_ZQ, SBSC_SDMRACR1A);
+		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
+		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
+		cntclear_time_wa_zq =
+				msecs_to_jiffies(CONFIG_RMU2_RWDT_ZQ_CALIB);
+
+		wq_wa_zq = alloc_workqueue("rmu2_rwdt_queue_wa_zq",
+					WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+		if (NULL == wq_wa_zq) {
+			ret = -ENOMEM;
+			printk(KERN_ERR
+			"< %s > ret = %d alloc_workqueue err\n", __func__, ret);
+			goto create_workqueue_err;
+		}
+
+		dwork_wa_zq = kzalloc(sizeof(*dwork_wa_zq), GFP_KERNEL);
+		if (NULL == dwork_wa_zq) {
+			ret = -ENOMEM;
+			printk(KERN_ERR
+				"< %s > ret = %d dwork_wa_zq kzalloc err\n",
+				__func__, ret);
+			goto dwork_err;
+		}
+		INIT_DELAYED_WORK(dwork_wa_zq, rmu2_rwdt_workfn_zq_wa);
+	}
+
 	if (1U > num_online_cpus()) {
 		ret = -ENXIO;
 		printk(KERN_ERR
@@ -745,7 +816,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	if (NULL == wq) {
 		ret = -ENOMEM;
 		printk(KERN_ERR
-		"< %s > ret = %d create_workqueue err\n", __func__, ret);
+		"< %s > ret = %d alloc_workqueue err\n", __func__, ret);
 		goto create_workqueue_err;
 	}
 
@@ -782,9 +853,15 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	}
 
 	kfree(dwork);
+	if (wa_zq_flg)
+		kfree(dwork_wa_zq);
 dwork_err:
 	flush_workqueue(wq);
 	destroy_workqueue(wq);
+	if (wa_zq_flg) {
+		flush_workqueue(wq_wa_zq);
+		destroy_workqueue(wq_wa_zq);
+	}
 create_workqueue_err:
 num_online_cpus_err:
 	clk_put(rmu2_rwdt_clk);
@@ -811,6 +888,10 @@ static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
 #endif	/* CONFIG_GIC_NS_CMT */
 	kfree(dwork);
 	destroy_workqueue(wq);
+	if (wa_zq_flg) {
+		kfree(dwork_wa_zq);
+		destroy_workqueue(wq_wa_zq);
+	}
 
 	return 0;
 }
@@ -857,6 +938,10 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 
 	cancel_delayed_work_sync(dwork);
 	flush_workqueue(wq);
+	if (wa_zq_flg) {
+		cancel_delayed_work_sync(dwork_wa_zq);
+		flush_workqueue(wq_wa_zq);
+	}
 
 	return 0;
 }
@@ -902,6 +987,8 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 
 	/* start soft timer */
 	queue_delayed_work(wq, dwork, cntclear_time);
+	if (wa_zq_flg)
+		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);
 
 	return 0;
 }
@@ -1032,7 +1119,7 @@ void rmu2_rwdt_software_reset(void)
 	hwspin_unlock(r8a73734_hwlock_sysc);
 }
 
-module_init(rmu2_rwdt_init);
+subsys_initcall(rmu2_rwdt_init);
 module_exit(rmu2_rwdt_exit);
 
 MODULE_AUTHOR("Renesas Mobile Corp.");

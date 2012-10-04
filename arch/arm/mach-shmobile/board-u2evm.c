@@ -2509,6 +2509,48 @@ void u2evm_restart(char mode, const char *cmd)
  
 #define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 
+#define STBCHRB3		0xE6180043
+/* SBSC register address */
+#define SBSC_BASE		(0xFE000000U)
+#define SBSC_SDMRACR1A		ioremap(SBSC_BASE + 0x400088, 0x4)
+#define SBSC_SDMRA_28200	ioremap(SBSC_BASE + 0x528200, 0x4)
+#define SBSC_SDMRA_38200	ioremap(SBSC_BASE + 0x538200, 0x4)
+#define SBSC_SDMRA_DONE		(0x00000000)
+#define SBSC_SDMRACR1A_ZQ	(0x0000560A)
+/* CPG register address */
+#define CPG_BASE		(0xE6150000U)
+#define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
+#define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
+#define CPG_PLL3CR_1040MHZ	(0x27000000)
+#define CPG_PLLECR_PLL3ST	(0x00000800)
+static void SBSC_Init_520Mhz(void)
+{
+	unsigned long work;
+
+	printk(KERN_ALERT "START < %s >\n", __func__);
+
+	/* Check PLL3 status */
+	work = __raw_readl(CPG_PLLECR);
+	if (!(work & CPG_PLLECR_PLL3ST)) {
+		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
+		return;
+	}
+
+	/* Set PLL3 = 1040 Mhz*/
+	__raw_writel(CPG_PLL3CR_1040MHZ, CPG_PLL3CR);
+
+	/* Wait PLL3 status on */
+	while (1) {
+		work = __raw_readl(CPG_PLLECR);
+		work &= CPG_PLLECR_PLL3ST;
+		if (work == CPG_PLLECR_PLL3ST)
+			break;
+	}
+
+	/* Dummy read */
+	__raw_readl(SBSC_SDMRACR1A);
+}
+
 static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
@@ -2522,6 +2564,20 @@ static void __init u2evm_init(void)
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
 				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
+
+	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
+	u8 reg8 = __raw_readb(STBCHRB3);
+	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
+		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
+				__func__, __raw_readl(CPG_PLL3CR));
+		SBSC_Init_520Mhz();
+		__raw_writel(SBSC_SDMRACR1A_ZQ, SBSC_SDMRACR1A);
+		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
+		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
+		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
+				__func__, __raw_readl(CPG_PLL3CR));
+	}
 
 	/* For case that Secure ISSW has selected debug mode already! */
 #define DBGREG1		IO_ADDRESS(0xE6100020)

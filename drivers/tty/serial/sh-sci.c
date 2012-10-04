@@ -2097,12 +2097,16 @@ static int sci_suspend(struct device *dev)
 	{
 		if (sport->cfg->rts_ctrl)
 		{
+			sci_port_enable(sport);
+
 			/* Set RTS to high before going in deep sleep mode */
 			data = sci_in(port, SCPCR);
 			sci_out(port, SCPCR,  data | 0x0010);
 
 			data = sci_in(port, SCPDR);
 			sci_out(port, SCPDR,  data | 0x0010);
+
+			sci_port_disable(sport);
 		}
 
 		uart_suspend_port(&sci_uart_driver, &sport->port);
@@ -2122,12 +2126,16 @@ static int sci_resume(struct device *dev)
 
 		if (sport->cfg->rts_ctrl)
 		{
+			sci_port_enable(sport);
+
 			/* Set RTS to low after the resume */
 			data = sci_in(port, SCPDR);
 			sci_out(port, SCPDR,  data & 0xFFEF);
 
 			data = sci_in(port, SCPCR);
 			sci_out(port, SCPCR,  data & 0xFFEF);
+
+			sci_port_disable(sport);
 		}
 	}
 

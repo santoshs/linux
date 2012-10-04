@@ -689,8 +689,9 @@ static void call_console_drivers(unsigned start, unsigned end)
 	start_print = start;
 	while (cur_index != end) {
 		if (msg_level < 0 && ((end - cur_index) > 2)) {
-			/* strip log prefix */
-			cur_index += log_prefix(&LOG_BUF(cur_index), &msg_level, NULL);
+			/* strip log prefix : This changes has been made
+			keep the dmesg and console out to be same.*/
+			log_prefix(&LOG_BUF(cur_index), &msg_level, NULL);
 			start_print = cur_index;
 		}
 		while (cur_index != end) {
@@ -967,22 +968,23 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				/* Copy original log prefix */
 				int i;
 
-				if (printk_buf[0] == '<') {
-					emit_log_char(this_cpu + '0');
-				} else {
-					emit_log_char(printk_buf[0]);
-				}
-
-				for (i = 1; i < plen; i++)
+				/* add "<log_level>" part in log buffer */
+				for (i = 0; i < 3; i++)
 					emit_log_char(printk_buf[i]);
-				printed_len += plen;
-			} else {
-				/* Add log prefix */
-				/*emit_log_char('<');*/
+				/* addition of cpu id in the log buffer */
 				emit_log_char(this_cpu + '0');
+				/* add rest of the trace to log buffer*/
+				for (i = 3; i < plen; i++)
+					emit_log_char(printk_buf[i]);
+				/* update the printed len for cpu id */
+				printed_len += (plen + 1);
+			} else {
+				/* Add log prefix : "<loglevel>cpuid" */
+				emit_log_char('<');
 				emit_log_char(current_log_level + '0');
 				emit_log_char('>');
-				printed_len += 3;
+				emit_log_char(this_cpu + '0');
+				printed_len += 4;
 			}
 
 			if (printk_time) {
@@ -1016,7 +1018,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	 * Try to acquire and then immediately release the
 	 * console semaphore. The release will do all the
 	 * actual magic (print out buffers, wake up klogd,
-	 * etc). 
+	 * etc).
 	 *
 	 * The console_trylock_for_printk() function
 	 * will release 'logbuf_lock' regardless of whether it

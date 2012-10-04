@@ -314,8 +314,12 @@
 /****************************************/
 /* PASR SETTINGS						*/
 /****************************************/
-#define	SdramMrwCmd0Phys 0xFE520000	/* Physical address of MRW area 0*/
-#define	SdramMrwCmd1Phys 0xFE538000	/* Physical address of MRW area 1*/
+/* Physical address of MRW area 0 (SDMRACR0)*/
+#define	SdramMrwCmd0Phys 0xFE520000
+/* Physical address of MRW area 1 (SDMRACR1)*/
+#define	SdramMrwCmd1Phys 0xFE538000
+/* Physical address of MRW area 1 (SDMRACR0)*/
+#define	SdramMrwCmd1SDMRACR0Phys 0xFE530000
 /* SDRAM mode register address command register 0A*/
 #define	SDMRACR0A	        0xFE400084
 /* SDRAM mode register address command register 1A*/
@@ -530,3 +534,13 @@
 #define SHBADDR07		0x0704
 #define SHBMSKR07		0x0708
 #define SHBSIZER07		0x070C
+
+/*
+ * ********************************************************************
+ * LPDDR2 ZQ Calibration Issue WA
+ * ********************************************************************
+ */
+#define	SdramZQCalib1Phys 0xFE528200
+#define	SdramZQCalib2Phys 0xFE538200
+#define STBCHRB3Phys 0xE6180043
+#define STBCHRB3_bit7 0x80

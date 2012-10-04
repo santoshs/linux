@@ -752,7 +752,9 @@ static int shmobile_suspend(void)
 	 * do cpu suspend ...
 	 */
 	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...\n\n", __func__);
+	pm_writel(1, ram0ZQCalib);
 	jump_systemsuspend();
+	pm_writel(0, ram0ZQCalib);
 
 	wakeups_factor();
 	/* Restore IP registers */
@@ -939,6 +941,7 @@ static int __init shmobile_suspend_init(void)
 	suspend_set_ops(&shmobile_suspend_ops);
 
 	shmobile_suspend_state = PM_SUSPEND_ON;
+	pm_writel(0, ram0ZQCalib);
 
 	return 0;
 }

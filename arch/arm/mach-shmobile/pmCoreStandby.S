@@ -193,6 +193,30 @@ WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 	MCR	p15, 0, r0, c8, c7, 0 /* Invalidate entire unified TLB */
 	ISB
 
+	/*------------------------------------------*/
+	/* LPDDR2 ZQ Calibration Issue WA			*/
+	/*------------------------------------------*/
+	LDR r0, =ram0ZQCalibPhys
+	LDR r1, [r0]
+	CMP r1, #0
+	BEQ		SKIP_ZQ_CALIBRATION_WA
+
+	LDR 	r4, =STBCHRB3Phys
+	LDR		r5, =STBCHRB3_bit7
+	LDRB	r6, [r4]
+	AND		r6, r6, r5
+	CMP		r6, #0	/* 0: one-SDRAM, skip WA */
+	BEQ		SKIP_ZQ_CALIBRATION_WA
+	/* write 0x00000000 to the address 0xFE528200 */
+	LDR 	r4, =SdramZQCalib1Phys
+	LDR		r5, =0
+	STR		r5, [r4]
+	/* write 0x00000000 to the address 0xFE538200 */
+	LDR 	r4, =SdramZQCalib2Phys
+	LDR		r5, =0
+	STR		r5, [r4]
+SKIP_ZQ_CALIBRATION_WA:
+
 	/* Jump to wakeup code	*/
 	MRC		p15, 0, r1, c0, c0, 5
 	UBFX	r2, r1, #0x0, #0x2 /* Extract the CPU ID field */
@@ -1310,16 +1334,16 @@ SYSPD_CLEANINVALIDATE_LOOP:
 
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
-	LDR	r4, =ram0DramPasrSettingArea0Phys
-	LDR	r5, [r4]	/* r5 = PASR setting area 0*/
-	CMP	r5, #0x0	/* if there is no self block bit then*/
-	BEQ	SKIP_PASR_DRAM_AREA0	/* skip*/
 	LDR	r6, =SDMRACR0A
 	LDR	r7, [r6]				/* r7 = SDMRACR0A*/
 	LDR	r8, =OPMA_MASK
 	AND	r9, r7, r8		/* r9 = SDMRACR0A.OP[15:8], MA[7:0]*/
 	LDR	r4, =ram0SaveSdmracr0aPhys
 	STR	r9, [r4]		/* Save SDMRACR0A.OP[15:8], MA[7:0]*/
+	LDR	r4, =ram0DramPasrSettingArea0Phys
+	LDR	r5, [r4]	/* r5 = PASR setting area 0*/
+	CMP	r5, #0x0	/* if there is no self block bit then*/
+	BEQ	SKIP_PASR_DRAM_AREA0	/* skip*/
 	BIC	r7, r7, r8		/* Clear SDMRACR0A.OP[15:8], MA[7:0]*/
 	ORR	r7, r7, r5		/* Set SDMRACR0A.OP[15:8], MA[7:0]*/
 	STR	r7, [r6]		/* Write SDMRACR0A*/
@@ -1333,16 +1357,13 @@ SKIP_PASR_DRAM_AREA0:
 	LDR	r5, [r4]		/* r5 = PASR setting area 1*/
 	CMP	r5, #0x0		/* if there is no self block bit then*/
 	BEQ	SKIP_PASR_DRAM_AREA1	/* skip*/
-	LDR	r6, =SDMRACR1A
-	LDR	r7, [r6]		/* r7 = SDMRACR1A*/
+	LDR	r6, =SDMRACR0A
+	LDR	r7, [r6]		/* r7 = SDMRACR0A*/
 	LDR	r8, =OPMA_MASK
-	AND	r9, r7, r8		/* r9 = SDMRACR1A.OP[15:8], MA[7:0]*/
-	LDR	r4, =ram0SaveSdmracr1aPhys
-	STR	r9, [r4]		/* Save SDMRACR1A.OP[15:8], MA[7:0]*/
-	BIC	r7, r7, r8		/* Clear SDMRACR1A.OP[15:8], MA[7:0]*/
-	ORR	r7, r7, r5		/* Set SDMRACR1A.OP[15:8], MA[7:0]*/
-	STR	r7, [r6]		/* Write SDMRACR1A*/
-	LDR	r4, =SdramMrwCmd1Phys /* Load address of MRW area 1*/
+	BIC	r7, r7, r8		/* Clear SDMRACR0A.OP[15:8], MA[7:0]*/
+	ORR	r7, r7, r5		/* Set SDMRACR0A.OP[15:8], MA[7:0]*/
+	STR	r7, [r6]		/* Write SDMRACR0A*/
+	LDR	r4, =SdramMrwCmd1SDMRACR0Phys /* Load address of MRW area 1*/
 	MOV	r6, #0x0
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
@@ -1582,12 +1603,6 @@ SYSPU_TURNON_PLL0_SKIP:
 	LDR	r8, =SdramMrwCmd0Phys	/* Load address of MRW area 0*/
 	MOV	r9, #0x0
 	STR	r9, [r8]			/* MRW (release PASR)*/
-	LDR	r4, =ram0SaveSdmracr0aPhys
-	LDR	r5, [r4]
-	MOV	r8, #MA_MASK
-	BIC	r7, r7, r8			/* Clear SDMRACR0A.MA[7:0]*/
-	ORR	r7, r7, r5
-	STR	r7, [r6]			/* Restore SDMRACR0A	*/
 SKIP_RELEASE_PASR_DRAM_AREA0:
 
 	/*Release PASR setting for DRAM area 1*/
@@ -1595,21 +1610,23 @@ SKIP_RELEASE_PASR_DRAM_AREA0:
 	LDR	r5, [r4]	/* r5 = PASR setting*/
 	CMP	r5, #0x0	/* if there is no self block bit then*/
 	BEQ	SKIP_RELEASE_PASR_DRAM_AREA1 /* skip*/
-	LDR	r6, =SDMRACR1A
-	LDR	r7, [r6]			/* r7 = SDMRACR1A*/
+	LDR	r6, =SDMRACR0A
+	LDR	r7, [r6]			/* r7 = SDMRACR0A*/
 	MOV	r8, #OP_MASK
-	BIC	r7, r7, r8			/* Clear SDMRACR1A.OP[15:8]*/
-	STR r7, [r6]			/* Write SDMRACR1A*/
-	LDR	r8, =SdramMrwCmd1Phys	/* Load address of MRW area 1*/
+	BIC	r7, r7, r8			/* Clear SDMRACR0A.OP[15:8]*/
+	STR r7, [r6]			/* Write SDMRACR0A*/
+	LDR	r8, =SdramMrwCmd1SDMRACR0Phys	/* Load address of MRW area 1*/
 	MOV	r9, #0x0
 	STR	r9, [r8]	/* MRW (release PASR) for area 1*/
-	LDR	r4, =ram0SaveSdmracr1aPhys
-	LDR	r5, [r4]
-	MOV	r8, #MA_MASK
-	BIC	r7, r7, r8			/* Clear SDMRACR1A.MA[7:0]*/
-	ORR	r7, r7, r5
-	STR	r7, [r6]			/* Restore SDMRACR1A	*/
 SKIP_RELEASE_PASR_DRAM_AREA1:
+	LDR	r6, =SDMRACR0A
+	LDR	r7, [r6]			/* r7 = SDMRACR0A*/
+	LDR	r4, =ram0SaveSdmracr0aPhys
+	LDR	r5, [r4]
+	LDR	r8, =OPMA_MASK
+	BIC	r7, r7, r8			/* Clear SDMRACR0A.MA/OP*/
+	ORR	r7, r7, r5
+	STR	r7, [r6]			/* Restore SDMRACR0A	*/
 
 	/*----------------------------------*/
 	/* Invalidate L2 cache				*/
