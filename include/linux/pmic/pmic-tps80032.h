@@ -19,7 +19,7 @@
  */
 
 #include <linux/rtc.h>
- 
+
 #ifndef _LINUX_PMIC_TPS80032_H
 #define _LINUX_PMIC_TPS80032_H
 
@@ -29,19 +29,17 @@
 #define PMIC_CHARGE_ENABLE
 #define PMIC_FUELGAUGE_ENABLE
 
-static void __iomem *virt_addr = NULL;
-
 #define PINT_IRQ_BASE		512
 #define pint2irq(bit)		(PINT_IRQ_BASE + (bit))
 
 #define IRQPIN_IRQ_BASE		512
 #define irqpin2irq(nr)		(IRQPIN_IRQ_BASE + (nr))
 
-#define TPS80032_IRQ(_reg, _mask)	\
-	{							\
-		.mask_reg = (MSK_INT_LINE_##_reg) -	\
+#define TPS80032_IRQ(_reg, _mask)\
+	{\
+		.mask_reg = (MSK_INT_LINE_##_reg) -\
 				MSK_INT_LINE_A,	\
-		.mask_mask = (_mask),				\
+		.mask_mask = (_mask),\
 	}
 
 #define TPS80032_IRQ_SEC(_reg, _mask, _pint, _sint_mask_bit, _sint_sts_bit) \
@@ -54,7 +52,7 @@ static void __iomem *virt_addr = NULL;
 		.mask_sec_int_reg = HW_REG_CONTROLLER_INT_MASK,	\
 		.int_mask_bit = MSK_CONTROLLER_STAT_##_sint_mask_bit,	\
 		.int_sec_sts_reg = HW_REG_CONTROLLER_STAT1,		\
-		.int_sts_bit = BIT_CONTROLLER_STAT1_##_sint_sts_bit		\
+		.int_sts_bit = BIT_CONTROLLER_STAT1_##_sint_sts_bit	\
 	}
 
 struct tps80032_subdev_info {
@@ -114,88 +112,92 @@ enum {
 
 enum {
 	USB_SDP_FULL_SPEED = 0,
-    USB_SDP_HIGH_SPEED,
-    USB_CDP_FULL_SPEED,
-    USB_CDP_HIGH_SPEED,
-    USB_DCP,
+	USB_SDP_HIGH_SPEED,
+	USB_CDP_FULL_SPEED,
+	USB_CDP_HIGH_SPEED,
+	USB_DCP,
 };
 
 struct tps80032_irq_data {
-	u8	mask_reg;
-	u8	mask_mask;
-	u8	is_sec_int;
-	u8	parent_int;
-	u8	mask_sec_int_reg;
-	u8	int_mask_bit;
-	u8	int_sec_sts_reg;
-	u8	int_sts_bit;
+	u8 mask_reg;
+	u8 mask_mask;
+	u8 is_sec_int;
+	u8 parent_int;
+	u8 mask_sec_int_reg;
+	u8 int_mask_bit;
+	u8 int_sec_sts_reg;
+	u8 int_sts_bit;
 };
 
 
 /*
  * Define the address of the bin file which contain non-volatile value
  */
+#ifdef PMIC_NON_VOLATILE_ENABLE
+static void __iomem *virt_addr;
 
-#define MAP_BASE_NV 					0x4C800000
-#define MAP_BASE_PMIC_NV 				0x0010800
-#define MAP_SIZE_PMIC_NV 				1280
-#define get_map_data(base,offset) 		__raw_readb(base + offset)
+#define MAP_BASE_NV				0x4C800000
+#define MAP_BASE_PMIC_NV			0x0010800
+#define MAP_SIZE_PMIC_NV			1280
+#define get_map_data(base, offset)		__raw_readb(base + offset)
+#endif
 
 /*
  * Define the contanst value of HW register address
  */
 
-#define HW_REG_PREQ1_RES_ASS_A			0xD7
-#define HW_REG_PREQ1_RES_ASS_B			0xD8
-#define HW_REG_PREQ1_RES_ASS_C			0xD9
+#define HW_REG_PREQ1_RES_ASS_A				0xD7
+#define HW_REG_PREQ1_RES_ASS_B				0xD8
+#define HW_REG_PREQ1_RES_ASS_C				0xD9
 
-#define HW_REG_PREQ2_RES_ASS_A			0xDA
-#define HW_REG_PREQ2_RES_ASS_B			0xDB
-#define HW_REG_PREQ2_RES_ASS_C			0xDC
+#define HW_REG_PREQ2_RES_ASS_A				0xDA
+#define HW_REG_PREQ2_RES_ASS_B				0xDB
+#define HW_REG_PREQ2_RES_ASS_C				0xDC
 
-#define HW_REG_PREQ3_RES_ASS_A			0xDD
-#define HW_REG_PREQ3_RES_ASS_B			0xDE
-#define HW_REG_PREQ3_RES_ASS_C			0xDF
+#define HW_REG_PREQ3_RES_ASS_A				0xDD
+#define HW_REG_PREQ3_RES_ASS_B				0xDE
+#define HW_REG_PREQ3_RES_ASS_C				0xDF
 
-#define HW_REG_PHOENIX_MSK_TRANSITION	0x20
+#define HW_REG_PHOENIX_MSK_TRANSITION			0x20
 
-#define HW_REG_CHARGEUSB_CTRL1			0xE8
-#define HW_REG_CHARGEUSB_VSYSREG		0xDC
+#define HW_REG_CHARGEUSB_CTRL1				0xE8
+#define HW_REG_CHARGEUSB_VSYSREG			0xDC
 #define HW_REG_INT_STS_C				0xD2
 #define HW_REG_INT_STS_B				0xD1
 #define HW_REG_INT_STS_A				0xD0
-#define HW_REG_INT_MSK_LINE_STS_A		0xD3
-#define HW_REG_INT_MSK_LINE_STS_B		0xD4
-#define HW_REG_INT_MSK_LINE_STS_C		0xD5
-#define HW_REG_INT_MSK_STS_A			0xD6
-#define HW_REG_INT_MSK_STS_B			0xD7
-#define HW_REG_INT_MSK_STS_C			0xD8
-#define HW_REG_CONTROLLER_STAT1			0xE3
-#define HW_REG_CONTROLLER_CTRL1			0xE1
-#define HW_REG_CONTROLLER_CTRL2			0xDA
-#define HW_REG_CONTROLLER_INT_MASK		0xE0
-#define HW_REG_CONTROLLER_VSEL_COMP		0xDB
-#define HW_REG_CHARGERUSB_INT_MASK		0xE5
-#define HW_REG_CHARGERUSB_STATUS_INT1	0xE6
-#define HW_REG_CHARGERUSB_STATUS_INT2	0xE7
-#define HW_REG_CHARGERUSB_CTRL1			0xE8
-#define HW_REG_CHARGERUSB_CTRL2			0xE9
-#define HW_REG_CHARGERUSB_CTRL3			0xEA
-#define HW_REG_CHARGERUSB_CINLIMIT		0xEE
-#define HW_REG_CHARGERUSB_VOREG     	0xEC
-#define HW_REG_CHARGERUSB_VICHRG     	0xED
-#define HW_REG_CHARGERUSB_VICHRG_PC    	0xDE
-#define HW_REG_CHARGERUSB_VSYSREG		0xDC
-#define HW_REG_USB_ID_INT_SRC			0x0F
-#define HW_REG_USB_ID_CTRL_SET			0x06
-#define HW_REG_USB_ID_INT_LATCH_CLR		0x11
-#define HW_REG_USB_ID_EN_LO_SET			0x12
-#define HW_REG_USB_ID_EN_HI_SET			0x14
+#define HW_REG_INT_MSK_LINE_STS_A			0xD3
+#define HW_REG_INT_MSK_LINE_STS_B			0xD4
+#define HW_REG_INT_MSK_LINE_STS_C			0xD5
+#define HW_REG_INT_MSK_STS_A				0xD6
+#define HW_REG_INT_MSK_STS_B				0xD7
+#define HW_REG_INT_MSK_STS_C				0xD8
+#define HW_REG_CONTROLLER_STAT1				0xE3
+#define HW_REG_CONTROLLER_CTRL1				0xE1
+#define HW_REG_CONTROLLER_CTRL2				0xDA
+#define HW_REG_CONTROLLER_INT_MASK			0xE0
+#define HW_REG_CONTROLLER_VSEL_COMP			0xDB
+#define HW_REG_CHARGERUSB_INT_MASK			0xE5
+#define HW_REG_CHARGERUSB_STATUS_INT1			0xE6
+#define HW_REG_CHARGERUSB_STATUS_INT2			0xE7
+#define HW_REG_CHARGERUSB_CTRL1				0xE8
+#define HW_REG_CHARGERUSB_CTRL2				0xE9
+#define HW_REG_CHARGERUSB_CTRL3				0xEA
+#define HW_REG_CHARGERUSB_CINLIMIT			0xEE
+#define HW_REG_CHARGERUSB_CTRLLIMIT1			0xEF
+#define HW_REG_CHARGERUSB_CTRLLIMIT2			0xF0
+#define HW_REG_CHARGERUSB_VOREG				0xEC
+#define HW_REG_CHARGERUSB_VICHRG			0xED
+#define HW_REG_CHARGERUSB_VICHRG_PC			0xDE
+#define HW_REG_CHARGERUSB_VSYSREG			0xDC
+#define HW_REG_USB_ID_INT_SRC				0x0F
+#define HW_REG_USB_ID_CTRL_SET				0x06
+#define HW_REG_USB_ID_INT_LATCH_CLR			0x11
+#define HW_REG_USB_ID_EN_LO_SET				0x12
+#define HW_REG_USB_ID_EN_HI_SET				0x14
 #define HW_REG_MISC1					0xE4
 #define HW_REG_MISC2					0xE5
 #define HW_REG_TOGGLE1					0x90
-#define HW_REG_LINEAR_CHRG_STS			0xDE
-#define HW_REG_BBSPOR_CFG			0xE6
+#define HW_REG_LINEAR_CHRG_STS				0xDE
 
 #define HW_REG_GPSELECT_ISB				0x35
 #define HW_REG_CTRL_P1					0x36
@@ -204,24 +206,24 @@ struct tps80032_irq_data {
 #define HW_REG_GPCH0_MSB				0x3C
 #define HW_REG_GPCH0_LSB				0x3B
 
-#define HW_REG_PHOENIX_DEV_ON			0x25
-#define HW_REG_VSYSMIN_HI_THRESHOLD 	0x24
-#define HW_REG_VBATMIN_HI_THRESHOLD 	0x26
+#define HW_REG_PHOENIX_DEV_ON				0x25
+#define HW_REG_VSYSMIN_HI_THRESHOLD			0x24
+#define HW_REG_VBATMIN_HI_THRESHOLD			0x26
 
-#define HW_REG_SMPS4_CFG_STATE			0x42
-#define HW_REG_LDO1_CFG_STATE 			0x9E
-#define HW_REG_LDO5_CFG_STATE			0x9A
-#define HW_REG_LDO6_CFG_STATE			0x92
-#define HW_REG_LDO7_CFG_STATE			0xA6
-#define HW_REG_LDOUSB_CFG_STATE			0xA2
+#define HW_REG_SMPS4_CFG_STATE				0x42
+#define HW_REG_LDO1_CFG_STATE				0x9E
+#define HW_REG_LDO5_CFG_STATE				0x9A
+#define HW_REG_LDO6_CFG_STATE				0x92
+#define HW_REG_LDO7_CFG_STATE				0xA6
+#define HW_REG_LDOUSB_CFG_STATE				0xA2
 
-#define HW_REG_CLK32KAO_CFG_TRANS		0xBA
-#define HW_REG_CLK32KAO_CFG_STATE		0xBB
-#define HW_REG_CLK32KG_CFG_TRANS		0xBD
-#define HW_REG_CLK32KG_CFG_STATE		0xBE
-#define HW_REG_CLK32KAUDIO_CFG_TRANS	0xC0
-#define HW_REG_CLK32KAUDIO_CFG_STATE	0xC1
-
+#define HW_REG_CLK32KAO_CFG_TRANS			0xBA
+#define HW_REG_CLK32KAO_CFG_STATE			0xBB
+#define HW_REG_CLK32KG_CFG_TRANS			0xBD
+#define HW_REG_CLK32KG_CFG_STATE			0xBE
+#define HW_REG_CLK32KAUDIO_CFG_TRANS			0xC0
+#define HW_REG_CLK32KAUDIO_CFG_STATE			0xC1
+#define HW_REG_BBSPOR_CFG				0xE6
 
 #define HW_REG_GPADC_TRIM1				0xCD
 #define HW_REG_GPADC_TRIM2				0xCE
@@ -230,26 +232,26 @@ struct tps80032_irq_data {
 #define HW_REG_GPADC_TRIM5				0xD1
 #define HW_REG_GPADC_TRIM6				0xD2
 
-#define HW_REG_LDO1_CFG_VOLTAGE			0x9F
-#define HW_REG_LDO2_CFG_VOLTAGE			0x87
-#define HW_REG_LDO4_CFG_VOLTAGE			0x8B
-#define HW_REG_LDO5_CFG_VOLTAGE			0x9B
-#define HW_REG_LDO6_CFG_VOLTAGE			0x93
-#define HW_REG_LDO7_CFG_VOLTAGE			0xA7
+#define HW_REG_LDO1_CFG_VOLTAGE				0x9F
+#define HW_REG_LDO2_CFG_VOLTAGE				0x87
+#define HW_REG_LDO4_CFG_VOLTAGE				0x8B
+#define HW_REG_LDO5_CFG_VOLTAGE				0x9B
+#define HW_REG_LDO6_CFG_VOLTAGE				0x93
+#define HW_REG_LDO7_CFG_VOLTAGE				0xA7
 
-#define HW_REG_SMPS1_CFG_TRANS			0x53
-#define HW_REG_SMPS2_CFG_TRANS			0x59
-#define HW_REG_SMPS3_CFG_TRANS			0x65
-#define HW_REG_SMPS4_CFG_TRANS			0x41
-#define HW_REG_SMPS5_CFG_TRANS			0x47
-#define HW_REG_LDO1_CFG_TRANS			0x9D
-#define HW_REG_LDO2_CFG_TRANS			0x85
-#define HW_REG_LDO3_CFG_TRANS			0x8D
-#define HW_REG_LDO4_CFG_TRANS			0x89
-#define HW_REG_LDO5_CFG_TRANS			0x99
-#define HW_REG_LDO6_CFG_TRANS			0x91
-#define HW_REG_LDO7_CFG_TRANS			0xA5
-#define HW_REG_LDOLN_CFG_TRANS			0x95
+#define HW_REG_SMPS1_CFG_TRANS				0x53
+#define HW_REG_SMPS2_CFG_TRANS				0x59
+#define HW_REG_SMPS3_CFG_TRANS				0x65
+#define HW_REG_SMPS4_CFG_TRANS				0x41
+#define HW_REG_SMPS5_CFG_TRANS				0x47
+#define HW_REG_LDO1_CFG_TRANS				0x9D
+#define HW_REG_LDO2_CFG_TRANS				0x85
+#define HW_REG_LDO3_CFG_TRANS				0x8D
+#define HW_REG_LDO4_CFG_TRANS				0x89
+#define HW_REG_LDO5_CFG_TRANS				0x99
+#define HW_REG_LDO6_CFG_TRANS				0x91
+#define HW_REG_LDO7_CFG_TRANS				0xA5
+#define HW_REG_LDOLN_CFG_TRANS				0x95
 
 #define HW_REG_FG_REG_00				0xC0
 #define HW_REG_FG_REG_01				0xC1
@@ -266,14 +268,14 @@ struct tps80032_irq_data {
  * Define the mask value from bit 0 to bit 7
  */
 
-#define MSK_BIT_0						0x01
-#define MSK_BIT_1						0x02
-#define MSK_BIT_2						0x04
-#define MSK_BIT_3						0x08
-#define MSK_BIT_4						0x10
-#define MSK_BIT_5						0x20
-#define MSK_BIT_6						0x40
-#define MSK_BIT_7						0x80
+#define MSK_BIT_0					0x01
+#define MSK_BIT_1					0x02
+#define MSK_BIT_2					0x04
+#define MSK_BIT_3					0x08
+#define MSK_BIT_4					0x10
+#define MSK_BIT_5					0x20
+#define MSK_BIT_6					0x40
+#define MSK_BIT_7					0x80
 
 #define MSK_POWER_STATE					0x03
 #define MSK_POWER_VOLTAGE				0x1F
@@ -281,115 +283,130 @@ struct tps80032_irq_data {
 #define TPS80032_STATE_ON				(1)
 #define TPS80032_STATE_OFF				(0)
 
-#define	CLK32KAO 						(0)
-#define	CLK32KG  						(1)
-#define	CLK32KAUDIO 					(2)
+#define CLK32KAO					(0)
+#define CLK32KG						(1)
+#define CLK32KAUDIO					(2)
 
-#define	RT_CPU_SIDE		 				(0x01)
-#define	SYS_CPU_SIDE		 			(0x40)
-#define	BB_CPU_SIDE		 				(0x93)
+#define RT_CPU_SIDE					(0x01)
+#define SYS_CPU_SIDE					(0x40)
+#define BB_CPU_SIDE					(0x93)
 
 /*
  * Define the contain non-volatile value
  */
- 
- 
+
+
 #ifdef PMIC_NON_VOLATILE_ENABLE
 /* If use BIN */
-#define CONST_TIMER_BATTERY_UPDATE		(get_map_data(virt_addr, 0x00) | (get_map_data(virt_addr, 0x01) << 8))
-#define CONST_WAIT_TIME					get_map_data(virt_addr, 0x02)
-#define CONST_WAIT_TIME_CURRENT			get_map_data(virt_addr, 0x03)
-#define CONST_0C_DEGREE					(get_map_data(virt_addr, 0x04) | (get_map_data(virt_addr, 0x05) << 8))
-#define CONST_CONVERT_VOLT				(get_map_data(virt_addr, 0x06) | (get_map_data(virt_addr, 0x07) << 8))
-#define CONST_BAT_MIN					get_map_data(virt_addr, 0x08)
-#define THR_BAT_FULL					get_map_data(virt_addr, 0x09)
-#define THR_BAT_HIGH					get_map_data(virt_addr, 0x0A)
-#define THR_BAT_NORMAL					get_map_data(virt_addr, 0x0B)
-#define THR_BAT_LOW						get_map_data(virt_addr, 0x0C)
-#define MSK_GET_EXT_DEVICE				get_map_data(virt_addr, 0x0D)
-#define MSK_GET_INT_SRC_A				get_map_data(virt_addr, 0x0E)
-#define MSK_GET_INT_SRC_C				get_map_data(virt_addr, 0x0F)
-#define MSK_INT_LINE_A					get_map_data(virt_addr, 0x10)
-#define MSK_INT_LINE_B					get_map_data(virt_addr, 0x11)
-#define MSK_INT_LINE_C					get_map_data(virt_addr, 0x12)
-#define MSK_INT_SRC_A					get_map_data(virt_addr, 0x13)
-#define MSK_INT_SRC_B					get_map_data(virt_addr, 0x14)
-#define MSK_INT_SRC_C					get_map_data(virt_addr, 0x15)
-#define MSK_DISABLE 					get_map_data(virt_addr, 0x16)
-#define MSK_CONTROLLER_INT				get_map_data(virt_addr, 0x17)
-#define MSK_CHARGERUSB_INT				get_map_data(virt_addr, 0x18)
-#define MSK_PREQ1_ASS_A					get_map_data(virt_addr, 0x19)
-#define MSK_PREQ1_ASS_B					get_map_data(virt_addr, 0x1A)
-#define MSK_PREQ2_ASS_A					get_map_data(virt_addr, 0x1B)
-#define MSK_PREQ3_ASS_B					get_map_data(virt_addr, 0x1C)
-#define MSK_TRANSITION					get_map_data(virt_addr, 0x1D)
-#define MSK_GPADC						get_map_data(virt_addr, 0x1E)
-#define MSK_GG_ENABLE					get_map_data(virt_addr, 0x1F)
-#define MSK_GG_DISABLE					get_map_data(virt_addr, 0x20)
-#define CONST_INT_ID					get_map_data(virt_addr, 0x21)
-#define CONST_X1						(get_map_data(virt_addr, 0x22) | (get_map_data(virt_addr, 0x23) << 8))
-#define CONST_X2						(get_map_data(virt_addr, 0x24) | (get_map_data(virt_addr, 0x25) << 8))
-#define CONST_LDOLN_CFG_TRANS			get_map_data(virt_addr, 0x26)
-#define CONST_LDO6_CFG_TRANS			get_map_data(virt_addr, 0x27)
-#define CONST_VAC_CURRENT_LIMIT			get_map_data(virt_addr, 0x28)
-#define CONST_DEF_CURRENT_LIMIT			get_map_data(virt_addr, 0x29)
-#define CONST_VBATMIN_HI				get_map_data(virt_addr, 0x2A)
-#define CONST_VSYSMIN_HI				get_map_data(virt_addr, 0x2B)
-#define CONST_VOREG						get_map_data(virt_addr, 0x2C)
-#define CONST_VICHRG					get_map_data(virt_addr, 0x2D)
-#define CONST_VICHRG_PC					get_map_data(virt_addr, 0x2E)
-#define CONST_VSEL_COMP					get_map_data(virt_addr, 0x2F)
-#define CONST_HPB_WAIT					get_map_data(virt_addr, 0x30)
+#define CONST_TIMER_UPDATE		(get_map_data(virt_addr, 0x00)\
+					| (get_map_data(virt_addr, 0x01) << 8))
+
+#define CONST_WAIT_TIME			get_map_data(virt_addr, 0x02)
+#define CONST_WAIT_TIME_CURRENT		get_map_data(virt_addr, 0x03)
+#define CONST_0C_DEGREE			(get_map_data(virt_addr, 0x04)\
+					| (get_map_data(virt_addr, 0x05) << 8))
+
+#define CONST_CONVERT_VOLT		(get_map_data(virt_addr, 0x06)\
+					| (get_map_data(virt_addr, 0x07) << 8))
+
+#define CONST_BAT_MIN			get_map_data(virt_addr, 0x08)
+#define THR_BAT_FULL			get_map_data(virt_addr, 0x09)
+#define THR_BAT_HIGH			get_map_data(virt_addr, 0x0A)
+#define THR_BAT_NORMAL			get_map_data(virt_addr, 0x0B)
+#define THR_BAT_LOW			get_map_data(virt_addr, 0x0C)
+#define MSK_GET_EXT_DEVICE		get_map_data(virt_addr, 0x0D)
+#define MSK_GET_INT_SRC_A		get_map_data(virt_addr, 0x0E)
+#define MSK_GET_INT_SRC_C		get_map_data(virt_addr, 0x0F)
+#define MSK_INT_LINE_A			get_map_data(virt_addr, 0x10)
+#define MSK_INT_LINE_B			get_map_data(virt_addr, 0x11)
+#define MSK_INT_LINE_C			get_map_data(virt_addr, 0x12)
+#define MSK_INT_SRC_A			get_map_data(virt_addr, 0x13)
+#define MSK_INT_SRC_B			get_map_data(virt_addr, 0x14)
+#define MSK_INT_SRC_C			get_map_data(virt_addr, 0x15)
+#define MSK_DISABLE			get_map_data(virt_addr, 0x16)
+#define MSK_CONTROLLER_INT		get_map_data(virt_addr, 0x17)
+#define MSK_CHARGERUSB_INT		get_map_data(virt_addr, 0x18)
+#define MSK_PREQ1_ASS_A			get_map_data(virt_addr, 0x19)
+#define MSK_PREQ1_ASS_B			get_map_data(virt_addr, 0x1A)
+#define MSK_PREQ2_ASS_A			get_map_data(virt_addr, 0x1B)
+#define MSK_PREQ3_ASS_B			get_map_data(virt_addr, 0x1C)
+#define MSK_TRANSITION			get_map_data(virt_addr, 0x1D)
+#define MSK_GPADC			get_map_data(virt_addr, 0x1E)
+#define MSK_GG_ENABLE			get_map_data(virt_addr, 0x1F)
+#define MSK_GG_DISABLE			get_map_data(virt_addr, 0x20)
+#define CONST_INT_ID			get_map_data(virt_addr, 0x21)
+#define CONST_X1			(get_map_data(virt_addr, 0x22)\
+					| (get_map_data(virt_addr, 0x23) << 8))
+
+#define CONST_X2			(get_map_data(virt_addr, 0x24)\
+					| (get_map_data(virt_addr, 0x25) << 8))
+
+#define CONST_LDOLN_CFG_TRANS		get_map_data(virt_addr, 0x26)
+#define CONST_LDO6_CFG_TRANS		get_map_data(virt_addr, 0x27)
+#define CONST_VAC_CURRENT_LIMIT		get_map_data(virt_addr, 0x28)
+#define CONST_DEF_CURRENT_LIMIT		get_map_data(virt_addr, 0x29)
+#define CONST_VBATMIN_HI		get_map_data(virt_addr, 0x2A)
+#define CONST_VSYSMIN_HI		get_map_data(virt_addr, 0x2B)
+#define CONST_VOREG			get_map_data(virt_addr, 0x2C)
+#define CONST_VICHRG			get_map_data(virt_addr, 0x2D)
+#define CONST_VICHRG_PC			get_map_data(virt_addr, 0x2E)
+#define CONST_VSEL_COMP			get_map_data(virt_addr, 0x2F)
+#define CONST_HPB_WAIT			get_map_data(virt_addr, 0x30)
 #define CONST_BATTERY_CURRENT_UPDATE	get_map_data(virt_addr, 0x31)
+#define CONST_CHRG_CTRL2		get_map_data(virt_addr, 0x32)
+#define CONST_CTRLLIMIT1		get_map_data(virt_addr, 0x33)
+#define CONST_CTRLLIMIT2		get_map_data(virt_addr, 0x34)
 
 #else
 /* If no use BIN */
-#define CONST_TIMER_BATTERY_UPDATE		0x1388
-#define CONST_BATTERY_CURRENT_UPDATE	250
-#define CONST_WAIT_TIME					0x05
+#define CONST_TIMER_UPDATE			0x1388
+#define CONST_BATTERY_CURRENT_UPDATE		250
+#define CONST_WAIT_TIME				0x05
 #define CONST_WAIT_TIME_CURRENT			0xFF
-#define CONST_0C_DEGREE					2566	/* 0 degree */
-#define CONST_CONVERT_VOLT				0x03E8
-#define CONST_BAT_MIN					0x01
-#define THR_BAT_FULL					0x64
-#define THR_BAT_HIGH					0x46
-#define THR_BAT_NORMAL					0x0F
-#define THR_BAT_LOW						0x05
-#define MSK_GET_EXT_DEVICE				0x0E
-#define MSK_GET_INT_SRC_A				0xFF
-#define MSK_GET_INT_SRC_C				0x7F
-#define MSK_INT_LINE_A					0x44
-#define MSK_INT_LINE_B					0xFF
-#define MSK_INT_LINE_C					0x8A
-#define MSK_INT_SRC_A					0x44
-#define MSK_INT_SRC_B					0x8F
-#define MSK_INT_SRC_C					0x8A
-#define MSK_DISABLE 					0x00
-#define MSK_CONTROLLER_INT				0x00
-#define MSK_CHARGERUSB_INT				0x06
-#define MSK_PREQ1_ASS_A					0x11
-#define MSK_PREQ1_ASS_B					0x80
-#define MSK_PREQ2_ASS_A					0x08
-#define MSK_PREQ3_ASS_B					0x80
-#define MSK_TRANSITION					0x00
-#define MSK_GPADC						0x0E
-#define MSK_GG_ENABLE					0xA0
-#define MSK_GG_DISABLE					0x50
-#define CONST_INT_ID					0x1C
-#define CONST_X1						0x05A1
-#define CONST_X2						0x0CCC
+#define CONST_0C_DEGREE				2566	/* 0 degree */
+#define CONST_CONVERT_VOLT			0x03E8
+#define CONST_BAT_MIN				0x01
+#define THR_BAT_FULL				0x64
+#define THR_BAT_HIGH				0x46
+#define THR_BAT_NORMAL				0x0F
+#define THR_BAT_LOW				0x05
+#define MSK_GET_EXT_DEVICE			0x0E
+#define MSK_GET_INT_SRC_A			0xFF
+#define MSK_GET_INT_SRC_C			0x7F
+#define MSK_INT_LINE_A				0x44
+#define MSK_INT_LINE_B				0xFF
+#define MSK_INT_LINE_C				0x8A
+#define MSK_INT_SRC_A				0x44
+#define MSK_INT_SRC_B				0x8F
+#define MSK_INT_SRC_C				0x8A
+#define MSK_DISABLE				0x00
+#define MSK_CONTROLLER_INT			0x00
+#define MSK_CHARGERUSB_INT			0x06
+#define MSK_PREQ1_ASS_A				0x11
+#define MSK_PREQ1_ASS_B				0x80
+#define MSK_PREQ2_ASS_A				0x08
+#define MSK_PREQ3_ASS_B				0x80
+#define MSK_TRANSITION				0x00
+#define MSK_GPADC				0x0E
+#define MSK_GG_ENABLE				0xA0
+#define MSK_GG_DISABLE				0x50
+#define CONST_CTRLLIMIT1			0x23
+#define CONST_CTRLLIMIT2			0x0E
+#define CONST_INT_ID				0x1C
+#define CONST_X1				0x05A1
+#define CONST_X2				0x0CCC
 #define CONST_LDOLN_CFG_TRANS			0x01
 #define CONST_LDO6_CFG_TRANS			0x01
 #define CONST_VAC_CURRENT_LIMIT			0x01	/* 100mA */
 #define CONST_DEF_CURRENT_LIMIT			0x09	/* 500mA */
-#define CONST_VBATMIN_HI				0x1C	/* 3.4 V */
-#define CONST_VSYSMIN_HI				0x17	/* 3.15 V */
-#define CONST_VOREG						0x23	/* 4.20V */
-#define CONST_VICHRG					0x02	/* 300mA with POP = 1*/
-#define CONST_VICHRG_PC					0x00	/* 100mA */
-#define CONST_VSEL_COMP					0x58
-#define CONST_CHRG_CTRL2				0x01
-#define CONST_HPB_WAIT					25
+#define CONST_VBATMIN_HI			0x1C	/* 3.4 V */
+#define CONST_VSYSMIN_HI			0x17	/* 3.15 V */
+#define CONST_VOREG				0x23	/* 4.20V */
+#define CONST_VICHRG				0x02	/* 300mA with POP = 1*/
+#define CONST_VICHRG_PC				0x00	/* 100mA */
+#define CONST_VSEL_COMP				0x58
+#define CONST_CHRG_CTRL2			0x01
+#define CONST_HPB_WAIT				25
 #endif
 
 /* Define interrupt bit for interrupt register */

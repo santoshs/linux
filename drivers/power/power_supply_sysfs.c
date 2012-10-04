@@ -162,7 +162,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity_level),
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_ambient),
+#ifdef CONFIG_PMIC_BAT_INTERFACE
 	POWER_SUPPLY_ATTR(temp_hpa),
+#endif
 	POWER_SUPPLY_ATTR(time_to_empty_now),
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
 	POWER_SUPPLY_ATTR(time_to_full_now),
@@ -273,8 +275,9 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 		ret = power_supply_show_property(dev, attr, prop_buf);
 		if (ret == -ENODEV || ret == -ENODATA) {
-			/* When a battery is absent, we expect -ENODEV. Don't abort;
-			   send the uevent with at least the the PRESENT=0 property */
+			/* When a battery is absent, we expect -ENODEV.
+			 * Don't abort; Send the uevent with at least the
+			 * the PRESENT=0 property */
 			ret = 0;
 			continue;
 		}
@@ -294,7 +297,8 @@ int power_supply_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 		dev_dbg(dev, "prop %s=%s\n", attrname, prop_buf);
 
-		ret = add_uevent_var(env, "POWER_SUPPLY_%s=%s", attrname, prop_buf);
+		ret = add_uevent_var(env, "POWER_SUPPLY_%s=%s",
+					attrname, prop_buf);
 		kfree(attrname);
 		if (ret)
 			goto out;
