@@ -47,16 +47,6 @@
 #define R8A66597_MAX_BUFNUM	0x4F
 #define R8A66597_MAX_DMA_CHANNELS	2
 
-#define is_bulk_pipe(pipenum)	\
-	((pipenum >= R8A66597_BASE_PIPENUM_BULK) && \
-	 (pipenum < (R8A66597_BASE_PIPENUM_BULK + R8A66597_MAX_NUM_BULK)))
-#define is_interrupt_pipe(pipenum)	\
-	((pipenum >= R8A66597_BASE_PIPENUM_INT) && \
-	 (pipenum < (R8A66597_BASE_PIPENUM_INT + R8A66597_MAX_NUM_INT)))
-#define is_isoc_pipe(pipenum)	\
-	((pipenum >= R8A66597_BASE_PIPENUM_ISOC) && \
-	 (pipenum < (R8A66597_BASE_PIPENUM_ISOC + R8A66597_MAX_NUM_ISOC)))
-
 struct r8a66597_pipe_info {
 	u16	pipe;
 	u16	epnum;
@@ -335,9 +325,6 @@ static inline u16 get_xtal_from_pdata(struct r8a66597_platdata *pdata)
 #define get_pipectr_addr(pipenum)	(PIPE1CTR + (pipenum - 1) * 2)
 #define get_pipetre_addr(pipenum) (PIPE1TRE + (pipenum - 1) * 4)
 #define get_pipetrn_addr(pipenum) (PIPE1TRN + (pipenum - 1) * 4)
-
-#define check_bulk_or_isoc(pipenum) ((pipenum >= 1 && pipenum <= 5))
-#define check_interrupt(pipenum)  ((pipenum >= 6 && pipenum <= 9))
 
 #define enable_irq_ready(r8a66597, pipenum)	\
 	enable_pipe_irq(r8a66597, pipenum, BRDYENB)

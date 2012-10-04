@@ -866,7 +866,7 @@ static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 	else
 		ep->pipectr = get_pipectr_addr(pipenum);
 
-	if (check_bulk_or_isoc(pipenum)) {
+	if (usb_endpoint_xfer_bulk(desc) || usb_endpoint_xfer_isoc(desc)) {
 		ep->pipetre = get_pipetre_addr(pipenum);
 		ep->pipetrn = get_pipetrn_addr(pipenum);
 	} else {
@@ -1422,7 +1422,7 @@ static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
 	int ch;
 
 	/* Check transfer type */
-	if (!is_bulk_pipe(ep->pipenum))
+	if (!usb_endpoint_xfer_bulk(ep->desc))
 		return -EIO;
 
 	/* Check buffer alignment */
