@@ -570,7 +570,7 @@ static int shmobile_init_cpuidle(void)
 	if (chip_rev <= ES_REV_2_1)
 		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
 	else
-		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
+		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */

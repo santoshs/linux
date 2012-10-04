@@ -41,18 +41,23 @@
 /*==========================================*/
 	.macro PM_Spin_Lock
 #ifdef CONFIG_PM_SMP
+	MRC	p15, 0, r8, c0, c0, 5	/* Read MPIDR */
 	MOV		r4, #0x1
+	ADD		r4, r4, r8 /* Different value for each CPU */
+
 	MRC		p15, 0, r7, c1, c0, 0	/* System Control Register */
 	TST		r7, #0x1
 	LDRNE	r5, =ram0SpinLockVA
 	LDREQ	r5, =ram0SpinLockPAPhys
 	LDR		r5, [r5]
+
 1:
 	LDREX	r6, [r5]
 	CMP		r6, #0x0
 	/* WFENE */
 	STREXEQ	r6, r4, [r5]
-	CMPEQ	r6, #0x0
+	LDR		r6, [r5]
+	CMPEQ	r6, r4
 	BNE		1b
 	DMB
 #endif
