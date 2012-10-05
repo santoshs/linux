@@ -102,6 +102,7 @@ struct shmobile_cpuinfo {
 #ifdef CONFIG_PM_DEBUG
 int cpufreq_enabled = 1;
 #endif /* CONFIG_PM_DEBUG */
+static unsigned int sys_rev;
 #ifndef CPUFREQ_TEST_MODE
 static
 #endif /* CPUFREQ_TEST_MODE */
@@ -905,7 +906,8 @@ int limit_max_cpufreq(int max)
 		ret = __set_all_clocks(the_cpuinfo.limit_maxfrq);
 		if (ret < 0)
 			pr_err("%s()[%d]: error<%d>! __set_all_clocks(%u)\n",
-			__func__, __LINE__, ret, the_cpuinfo.limit_maxfrq);
+				__func__, __LINE__, ret,
+				the_cpuinfo.limit_maxfrq);
 	} else
 		pr_err("%s()[%d]: Frequency is not change(%u)\n",
 			__func__, __LINE__, the_cpuinfo.freq);
@@ -1144,8 +1146,8 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	/* only reduce the CPU frequency if all CPUs need to reduce */
 	for_each_online_cpu(cpu) {
 		if (cpu != policy->cpu)
-			target_freq =
-				max(the_cpuinfo.req_rate[cpu], target_freq);
+			target_freq = max(the_cpuinfo.req_rate[cpu],
+				target_freq);
 	}
 
 	old_freq = the_cpuinfo.freq;
@@ -1270,6 +1272,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 
 	/* the max frequency is set at boot time */
 	freq = freq_table[0].frequency;
+
 	/*
 	 * loader had set the frequency to MAX, already.
 	 */
@@ -1288,6 +1291,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	cpumask_copy(policy->cpus, &cpu_present_map);
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	init_flag--;
+	bk_cpufreq = 0;
 	log_freq_change = 0;
 	bk_cpufreq = 0;
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
@@ -1321,18 +1325,19 @@ static int __init shmobile_cpu_init(void)
 {
 	int ret = 0;
 
+	sys_rev = shmobile_chip_rev();
 #ifdef OVERDRIVE_DEFAULT /* The overdrive mode IS supported by default */
 	/* users can disable by command "overdrive=false" */
 	if (strstr(&boot_command_line[0], DISABLE_OVERDRIVE_CMDLINE))
 		main_freqtbl_es2_x[0].frequency =
-						main_freqtbl_es2_x[1].frequency;
+			main_freqtbl_es2_x[1].frequency;
 #else /* the overdrive mode IS NOT supported by default */
 	/* users can enable by command "overdrive=true" */
 	if (strstr(&boot_command_line[0], ENABLE_OVERDRIVE_CMDLINE))
 		main_freqtbl_es2_x[0].frequency = OVERDRIVE_FREQ;
 	else
 		main_freqtbl_es2_x[0].frequency =
-						main_freqtbl_es2_x[1].frequency;
+			main_freqtbl_es2_x[1].frequency;
 #endif /* OVERDRIVE_DEFAULT */
 	ret = pm_setup_clock();
 	if (ret)
@@ -1343,4 +1348,187 @@ static int __init shmobile_cpu_init(void)
 
 	return ret;
 }
+
+
+static inline struct attribute *find_attr_by_name(struct attribute **attr,
+				const char *name)
+{
+	while ((attr) && (*attr)) {
+		if (strcmp(name, (*attr)->name) == 0)
+			return *attr;
+		attr++;
+	}
+
+	return NULL;
+}
+/*
+ * show_available_freqs - show available frequencies
+ */
+static ssize_t show_available_freqs(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	unsigned int prev = 0;
+	ssize_t count = 0;
+	int i = 0;
+
+	for (i = 0; (freq_table[i].frequency != CPUFREQ_TABLE_END); i++) {
+		if (freq_table[i].frequency == prev)
+			continue;
+		count += sprintf(&buf[count], "%d ", freq_table[i].frequency);
+		prev = freq_table[i].frequency;
+	}
+	count += sprintf(&buf[count], "\n");
+
+	return count;
+}
+
+static struct {
+	const char *target;
+	const char *alias;
+} attr_mapping[] = {
+	{"scaling_max_freq", "cpufreq_max_limit"},
+	{"scaling_min_freq", "cpufreq_min_limit"}
+};
+
+/*
+ * cpufreq_max_limit/cpufreq_min_limit - show max/min frequencies
+ * this handler is used for both MAX/MIN limit
+ */
+static ssize_t show_freq(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	unsigned int ret = -EINVAL;
+	struct cpufreq_policy new_policy;
+	struct kobj_type *ktype = NULL;
+	struct attribute *att = NULL;
+	int i = 0;
+
+	ret = cpufreq_get_policy(&new_policy, 0);
+	if (ret)
+		return -EINVAL;
+
+	ktype = get_ktype(&new_policy.kobj);
+	if (!ktype)
+		return -EINVAL;
+
+	for (i = 0; i < ARRAY_SIZE(attr_mapping); i++) {
+		if (strcmp(attr->attr.name, attr_mapping[i].alias) == 0) {
+			att = find_attr_by_name(ktype->default_attrs,
+				attr_mapping[i].target);
+			if (att && ktype->sysfs_ops &&
+				ktype->sysfs_ops->show)
+					return ktype->sysfs_ops->show(
+							&new_policy.kobj,
+							att, buf);
+		}
+	}
+
+	return -EINVAL;
+}
+
+/*
+ * cpufreq_max_limit/cpufreq_min_limit - store max/min frequencies
+ * this handler is used for both MAX/MIN limit
+ */
+static ssize_t store_freq(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cpufreq_policy *new_policy = NULL;
+	struct kobj_type *ktype = NULL;
+	struct attribute *att = NULL;
+	int ret = -EINVAL;
+	int i = 0;
+	int freq = 0;
+
+	new_policy = cpufreq_cpu_get(0);
+	if (!new_policy) {
+		pr_err("fail to get policy\n");
+		goto end;
+	}
+
+	if (sscanf(buf, "%d", &freq) != 1) {
+		pr_err("fail to get param\n");
+		goto end;
+	}
+
+	/* restore original setting? */
+	if (freq == -1) {
+		struct cpufreq_frequency_table *ftable = NULL;
+
+		ftable = cpufreq_frequency_get_table(0);
+		if (!ftable) {
+			pr_err("fail to get frequency table\n");
+			goto end;
+		}
+
+		ret = cpufreq_frequency_table_cpuinfo(new_policy, ftable);
+		if (ret) {
+			pr_err("fail to update policy\n");
+			goto end;
+		}
+
+		/* this must be set for cpufreq_update_policy() */
+		if (strcmp(attr->attr.name, "cpufreq_max_limit") == 0)
+			new_policy->user_policy.max = new_policy->max;
+		else if (strcmp(attr->attr.name, "cpufreq_min_limit") == 0)
+			new_policy->user_policy.min = new_policy->min;
+		else
+			goto end;
+
+		ret = cpufreq_update_policy(0);
+		goto end;
+	}
+
+	ktype = get_ktype(&new_policy->kobj);
+	if (!ktype)
+		goto end;
+
+	for (i = 0; i < ARRAY_SIZE(attr_mapping); i++) {
+		if (strcmp(attr->attr.name, attr_mapping[i].alias) == 0) {
+			att = find_attr_by_name(ktype->default_attrs,
+				attr_mapping[i].target);
+			if (att && ktype->sysfs_ops &&
+				ktype->sysfs_ops->store)
+					ret = ktype->sysfs_ops->store(
+						&new_policy->kobj,
+						att, buf, count);
+			break;
+		}
+	}
+
+end:
+	return ret ? ret : count;
+}
+
+static struct kobj_attribute cpufreq_table_attribute =
+	__ATTR(cpufreq_table, 0444, show_available_freqs, NULL);
+static struct kobj_attribute max_limit_attribute =
+	__ATTR(cpufreq_max_limit, 0644, show_freq, store_freq);
+static struct kobj_attribute min_limit_attribute =
+	__ATTR(cpufreq_min_limit, 0644, show_freq, store_freq);
+/*
+ * Create a group of attributes so that we can create and destroy them all
+ * at once.
+ */
+static struct attribute *attrs[] = {
+	&min_limit_attribute.attr,
+	&max_limit_attribute.attr,
+	&cpufreq_table_attribute.attr,
+	NULL,	/* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static int __init shmobile_sysfs_init(void)
+{
+	/* Create the files associated with power kobject */
+	return sysfs_create_group(power_kobj, &attr_group);
+}
+
 module_init(shmobile_cpu_init);
+late_initcall(shmobile_sysfs_init);
+
