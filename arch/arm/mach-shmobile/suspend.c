@@ -32,7 +32,11 @@
 #include <linux/delay.h>
 
 #include <linux/wakelock.h>
+#ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
+#else /*CONFIG_PM_HAS_SECURE*/
+#include "pm_ram0_tz.h"
+#endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
 
 #include <mach/ram_defrag.h>
@@ -46,7 +50,12 @@
 #define DO_SAVE_REGS(array)		do_save_regs(array, ARRAY_SIZE(array))
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
-#define RAM1_ARM_VECT			ram1BasePhys
+#ifndef CONFIG_PM_HAS_SECURE
+#define RAM_ARM_VECT                   ram1BasePhys
+#else /*CONFIG_PM_HAS_SECURE*/
+#define RAM_ARM_VECT                   ram0ArmVectorPhys
+#endif /*CONFIG_PM_HAS_SECURE*/
+
 #define PMDBG_PRFX				"PM-DBG: "
 
 enum {
@@ -684,6 +693,10 @@ static void do_iicdvm_setting(void)
 static int shmobile_suspend(void)
 {
 	int locked;
+#ifdef CONFIG_PM_HAS_SECURE
+       unsigned int sec_hal_ret_cpu0;
+       unsigned int sec_hal_ret_cpu1;
+#endif /* CONFIG_PM_HAS_SECURE*/
 	unsigned int bankState;
 	unsigned int workBankState2Area;
 	unsigned int dramPasrSettingsArea0;
@@ -697,7 +710,7 @@ static int shmobile_suspend(void)
 	/* check cpu#1 power down */
 	if (core_shutdown_status(1) != 3) {
 		not_core_shutdown = 1;
-		/*udelay(1000);*/
+		shmobile_suspend_udelay(1000);  /*udelay(1000);*/
 		barrier();
 		if (core_shutdown_status(1) != 3)
 			return -EBUSY;
@@ -752,11 +765,25 @@ static int shmobile_suspend(void)
 	 * do cpu suspend ...
 	 */
 	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...\n\n", __func__);
+	#ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(1, ram0ZQCalib);
+	#endif 	/*CONFIG_PM_HAS_SECURE*/
 	jump_systemsuspend();
+	#ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
-
+	#endif 	/*CONFIG_PM_HAS_SECURE*/
 	wakeups_factor();
+#ifdef CONFIG_PM_HAS_SECURE
+       sec_hal_ret_cpu0 = __raw_readl(ram0SecHalReturnCpu0);
+       pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU0: 0x%08x\n", \
+                                       __func__, sec_hal_ret_cpu0);
+#ifdef CONFIG_PM_SMP
+       sec_hal_ret_cpu1 = __raw_readl(ram0SecHalReturnCpu1);
+       pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU1: 0x%08x\n", \
+                                       __func__, sec_hal_ret_cpu1);
+#endif
+#endif /*CONFIG_PM_HAS_SECURE*/
+
 	/* Restore IP registers */
 	shwy_regs_restore();
 	irqx_eventdetectors_regs_restore();
@@ -809,7 +836,7 @@ static int shmobile_suspend_prepare_late(void)
 	save_sbar_val = __raw_readl(__io(SBAR));
 
 	/* set RAM1 vector */
-	__raw_writel(RAM1_ARM_VECT, __io(SBAR));
+	__raw_writel(RAM_ARM_VECT, __io(SBAR));
 
 	return 0;
 }
@@ -910,8 +937,11 @@ static int __init shmobile_suspend_init(void)
 	int i;
 	void __iomem *virt;
 	volatile struct base_map *tbl = map;
+#ifdef CONFIG_PM_DEBUG
+       log_wakeupfactor = 1;
+#else /*CONFIG_PM_DEBUG*/
 	log_wakeupfactor = 0;
-	
+#endif /*CONFIG_PM_DEBUG*/
 	pr_debug(PMDBG_PRFX "%s: initialize\n", __func__);
 
 	/* Get chip revision */
@@ -925,14 +955,12 @@ static int __init shmobile_suspend_init(void)
 		}
 		virt = ioremap_nocache(tbl->phys, tbl->size);
 		if (!virt) {
-			pr_emerg(PMDBG_PRFX "%s: ioremap failed. base 0x%lx\n", \
-					__func__, tbl->phys);
+			pr_emerg(PMDBG_PRFX "%s: ioremap failed. base 0x%lx\n", __func__, tbl->phys);
 			*tbl++;
 			continue;
 		}
 		tbl->base = (unsigned long)virt;
-		pr_debug(PMDBG_PRFX "%s: ioremap phys 0x%lx, virt 0x%lx, size %d\n", \
-				__func__, tbl->phys, tbl->base, tbl->size);
+		pr_debug(PMDBG_PRFX "%s: ioremap phys 0x%lx, virt 0x%lx, size %d\n", __func__, tbl->phys, tbl->base, tbl->size);
 		*tbl++;
 	}
 
@@ -941,8 +969,50 @@ static int __init shmobile_suspend_init(void)
 	suspend_set_ops(&shmobile_suspend_ops);
 
 	shmobile_suspend_state = PM_SUSPEND_ON;
+#ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
+#endif 	/*CONFIG_PM_HAS_SECURE*/
 
 	return 0;
 }
 arch_initcall(shmobile_suspend_init);
+static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
+24, 1, 1, 48, 1, 1, 1, 1};
+
+/* PLL0 control register */
+#define CPG_PLL0CR     IO_ADDRESS(0xE61500D8)
+/* PLL Circuit 0 Multiplication Ratio mask */
+#define PLL0CR_STC_MASK        0x3F000000
+
+void shmobile_suspend_udelay(unsigned int delay_time)
+{
+       unsigned int i;
+       unsigned int mul_ratio = 1;
+       unsigned int div_ratio = 1;
+       unsigned int zfc_val = 1;
+
+       if (__raw_readl(CPG_PLLECR) & CPG_PLL0ST)
+               mul_ratio = ((__raw_readl(CPG_PLL0CR) & PLL0CR_STC_MASK) \
+                                       >> 24) + 1;
+
+       if (__raw_readl(CPG_FRQCRB) & FRQCRB_ZSEL_BIT) {
+               zfc_val = (__raw_readl(CPG_FRQCRB) & FRQCRB_ZFC_MASK) \
+                                       >> 24;
+               div_ratio = division_ratio[zfc_val];
+
+               if (div_ratio == 1) {
+                       printk(KERN_ALERT "Abnormal Zclk div_rate, as 1/%d. ", \
+                                       zfc_val);
+                       printk(KERN_ALERT "Skip delay processing\n");
+                       return;
+               }
+       }
+
+       /* get loop time for delay */
+       i = delay_time * (26 * mul_ratio) / 8 / div_ratio;
+
+       while (i > 0)
+               i--;
+}
+EXPORT_SYMBOL(shmobile_suspend_udelay);
+

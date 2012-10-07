@@ -322,6 +322,22 @@ static void l2x0_disable(void)
 
 #ifdef CONFIG_ARM_SEC_HAL
 uint32_t sec_hal_pm_l2_enable(uint32_t spinlock_phys_addr);
+#define L2_CLEAN_BY_WAY 0xF01007BC
+int flush_l2_cache_internal(void)
+{
+	unsigned long flags;
+	
+	spin_lock_irqsave(&l2x0_lock, flags);
+  
+ // __raw_writel(0x0000FFFF, L2_CLEAN_BY_WAY);
+ //while ((__raw_readl(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0) {
+    writel_relaxed(0x0000FFFF, L2_CLEAN_BY_WAY);
+  while ((readl_relaxed(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0)
+    ;
+	spin_unlock_irqrestore(&l2x0_lock, flags);
+	return 1;
+}
+EXPORT_SYMBOL(flush_l2_cache_internal);
 #endif /* CONFIG_ARM_SEC_HAL */
 
 void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)

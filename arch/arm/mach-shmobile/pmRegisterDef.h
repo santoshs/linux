@@ -22,7 +22,11 @@
 /* IMPLEMENTATION DEFINED - definitions relating to Cortex-A9	*/
 /****************************************************************/
 
+#ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
+#else /*CONFIG_PM_HAS_SECURE*/
+#include "pm_ram0_tz.h"
+#endif /*CONFIG_PM_HAS_SECURE*/
 
 #ifndef CONFIG_PM_SMP
 #define APARMBAREA IO_ADDRESS(0xe6f10020)
@@ -180,8 +184,10 @@
 #define CPU1_WUP			0x02		/* CPU1 Wake Up bit*/
 /* RT module stop control register 4		*/
 #define CPG_RMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0120)
+#define CPG_RMSTPCR4		(CPG_FRQCRABase + 0x0120)
 /* System module stop control register 4	*/
 #define CPG_SMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0140)
+#define CPG_SMSTPCR4		(CPG_FRQCRABase + 0x0140)
 
 /* Module stop status register 5 */
 #define CPG_MSTPSR5	(CPG_FRQCRABase + 0x003C)
@@ -214,6 +220,7 @@
 #define CPG_PLL0E	0x1	/* PLL0 Enable (0:turn off, 1:turn on) */
 #define CPG_PLL0ST	0x100	/* PLL0 status (0:turned off, 1:turned on)*/
 /*System-CPU PERIPHCLK Control Register*/
+#define CPG_PCLKCRPhys		0xE6151020
 #define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
 #define FRQCRA_ES1_MASK			0x00FFFFF0
@@ -242,10 +249,16 @@
 /* RWDT Register							*/
 /********************************************/
 #define BaseRwdtPhys				0xE6020000
+#define BaseRwdt					IO_ADDRESS(0xE6020000)
+
 /* RCLK watchdog timer counter	*/
 #define RWTCNTPhys	(BaseRwdtPhys + 0x0000)
 /* RCLK watchdog timer control/status Register	*/
 #define RWDTCSRAPhys	(BaseRwdtPhys + 0x0004)
+/* RCLK watchdog timer counter	*/
+#define RWTCNT			(BaseRwdt + 0x0000)
+/* RCLK watchdog timer control/status Register	*/
+#define RWDTCSRA		(BaseRwdt + 0x0004)
 #define RWTCNT_CLEAR	0x5A5A0000	/* RWDTCNT clear value	*/
 
 /********************************************/
@@ -275,6 +288,15 @@
 #define SYCKENMSKPhys	(BaseSyscPhys + 0x024C)
 /* C4 Area Power Control Register (C4POWCR) */
 #define C4POWCRPhys		(BaseSyscPhys + 0x004C)
+#define PDNSELPhys		(BaseSyscPhys + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
+#define PSTRPhys		(BaseSyscPhys + 0x0080)		/*Power Status Register (PSTR)*/
+
+#define EXMSKCNT1		(BaseSysc + 0x0214)		/*EXTAL1 Mask Count Register (EXMSKCNT1)*/
+#define APSCSTP			(BaseSysc + 0x0234)		/*EXTAL1 Clock Stop Control Register (APSCSTP)*/
+#define SYCKENMSK		(BaseSysc + 0x024C)		/*EXTAL1 Control Register (SYCKENMSK)*/
+#define C4POWCR			(BaseSysc + 0x004C)		/*C4 Area Power Control Register (C4POWCR)*/
+#define PDNSEL			(BaseSysc + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
+#define PSTR			(BaseSysc + 0x0080)		/*Power Status Register (PSTR)*/
 #endif
 /********************************************/
 /* HPBC Register							*/
@@ -407,6 +429,8 @@
 /* SPI Status Registers	*/
 #define ICSPISR0		0xF0001D04	/*SPI Status Registers */
 #define ICSPISR1		0xF0001D08	/*SPI Status Registers	*/
+#define ICSPISR0Phys		0xF0001D04	/*SPI Status Registers */
+#define ICSPISR1Phys		0xF0001D08	/*SPI Status Registers	*/
 
 /* Register information of IRQC Event Detectors */
 /* IRQx Configuration register */
@@ -544,3 +568,10 @@
 #define	SdramZQCalib2Phys 0xFE538200
 #define STBCHRB3Phys 0xE6180043
 #define STBCHRB3_bit7 0x80
+
+/******************************************/
+/* XTAL though mode				*/
+/*****************************************/
+#define CPG_LPCKCRPhys		0xE6151024
+#define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR_PLLOFF	0x00000004

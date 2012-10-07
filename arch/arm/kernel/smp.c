@@ -59,14 +59,16 @@ enum ipi_msg_type {
 };
 
 #ifdef CONFIG_ARM_TZ
+int flush_l2_cache_internal(void);
 static void flush_l2_cache(void)
 {
-  #define L2_CLEAN_BY_WAY 0xF01007BC
+  //#define L2_CLEAN_BY_WAY 0xF01007BC
   
-  __raw_writel(0x0000FFFF, L2_CLEAN_BY_WAY);
-  while ((__raw_readl(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0) {
-    ;
-  }
+  //__raw_writel(0x0000FFFF, L2_CLEAN_BY_WAY);
+  //while ((__raw_readl(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0) {
+  //  ;
+  //}
+	flush_l2_cache_internal();
 }
 #endif
 static unsigned int skip_secondary_calibrate;

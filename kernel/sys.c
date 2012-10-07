@@ -54,6 +54,10 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
+#ifdef CONFIG_PM_HAS_SECURE
+#include "../drivers/sec_hal/rt/inc/sec_hal_rt.h"
+#endif
+
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a,b)	(-EINVAL)
 #endif
@@ -374,9 +378,15 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+#ifdef CONFIG_PM_HAS_SECURE
+    uint32_t ret;
+#endif
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();
+#ifdef CONFIG_PM_HAS_SECURE
+    ret = sec_hal_pm_poweroff();
+#endif
 	disable_nonboot_cpus();
 	syscore_shutdown();
 	printk(KERN_EMERG "Power down.\n");

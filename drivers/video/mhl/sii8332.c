@@ -83,7 +83,7 @@ static int minverticalrate;
 static int maxverticalrate;
 static struct mhl_tx *mhlglobal;
 static int count = 0;
-static int resumed = 0;
+static int resumed = 1;
 static const struct file_operations hdmi_fops = {
 	.owner =    THIS_MODULE,
 	.open =     hdmi_open,
@@ -729,11 +729,12 @@ void isvbus_powered_mhl(int val)
 	printk( "%s val = %d \n",__func__,val);
 	if (val > 0) {
 	printk("calling resume \n");
-	if(!resumed);
+	if(!resumed)
 	mhl_resume(mhlglobal);
 	}
 	else {
 	printk("calling suspend \n");
+	if(resumed)
 	mhl_suspend(mhlglobal);
 	}
 }
@@ -1178,6 +1179,7 @@ u8 int4status;
 		count ++;
 		if(count > 5) {
 			printk(" %s calling suspend \n",__func__);
+			if(resumed)
 			mhl_suspend(mhlglobal);
 			}
 	}      
@@ -6202,11 +6204,11 @@ static int __devinit simgC8_probe(struct i2c_client *client, const struct i2c_de
 	mutex_init(&mhl->cbus_cmd_lock);
 	mutex_init(&mhl->pdata->mhl_status_lock);
   	mhl->client = client;
-/*	mhl->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	mhl->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	mhl->early_suspend.suspend = mhl_early_suspend;
 	mhl->early_suspend.resume = mhl_late_resume;
 	register_early_suspend(&mhl->early_suspend);
-*/
+
 	i2c_set_clientdata(client, mhl);
 	init_waitqueue_head(&mhl->cbus_hanler_wq);  
 	init_waitqueue_head(&mhl->avi_control_wq);  
@@ -6288,13 +6290,14 @@ static int mhl_resume(struct mhl_tx *mhl)
 //	struct i2c_client *client = to_i2c_client(dev);
 //	struct mhl_tx *mhl = i2c_get_clientdata(client);
 	//printk("%s irq : %d \n",__func__,mhl->pdata->irq);
-	resumed = 1;
+	
 	sii9234_power_onoff(1);
 	sii9234_reset();
 	mhl->pdata->status.op_status = NO_MHL_STATUS;
 	hw_resst(mhl->pdata);
 	enable_irq_wake(mhl->pdata->irq);
 	queue_work(mhl->avi_control_wqs, &mhl->avi_control_work);
+	resumed = 1;
 	return 0;
 }
 #else
@@ -6305,16 +6308,20 @@ static int mhl_resume(struct mhl_tx *mhl)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mhl_early_suspend(struct early_suspend *h)
 {
-	struct mhl_tx *mhl;
+/*	struct mhl_tx *mhl;
 	mhl = container_of(h, struct mhl_tx, early_suspend);
-//	mhl_suspend(&mhl->client->dev,PMSG_SUSPEND);
+	mhl_suspend(&mhl->client->dev,PMSG_SUSPEND);*/
+	if(resumed)
+		mhl_suspend(mhlglobal);
 }
 
 static void mhl_late_resume(struct early_suspend *h)
 {
-	struct mhl_tx *mhl;
+/*	struct mhl_tx *mhl;
 	mhl = container_of(h, struct mhl_tx, early_suspend);
-//	mhl_resume(&mhl->client->dev);
+//	mhl_resume(&mhl->client->dev);*/
+	if(!resumed)
+		mhl_resume(mhlglobal);
 }
 #endif
 

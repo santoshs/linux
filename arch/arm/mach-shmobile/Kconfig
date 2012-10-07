@@ -231,7 +231,7 @@ config PDC
 	  This enables build of PDC driver.
 	  
 config PM_HAS_SECURE
-	default n
+	default y
 	bool "Support Secure OS by Power Management"
 	depends on ARCH_SHMOBILE
 	help

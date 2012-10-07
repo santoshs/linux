@@ -29,14 +29,26 @@
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
-
+#ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
+#else /*CONFIG_PM_HAS_SECURE*/
+#include "pm_ram0_tz.h"
+#endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
-
+#ifndef CONFIG_PM_HAS_SECURE
 #define SHMOBILE_MAX_STATES	4
-
+#else /*CONFIG_PM_HAS_SECURE*/
+#define SHMOBILE_MAX_STATES    2
+#endif /*CONFIG_PM_HAS_SECURE*/
 
 #define DISPLAY_LOG 0
+#ifdef CONFIG_PM_HAS_SECURE
+static int sec_hal_fail_cpu0 = 0;
+module_param(sec_hal_fail_cpu0, int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+static int sec_hal_fail_cpu1 = 0;
+module_param(sec_hal_fail_cpu1, int, S_IRUGO | S_IWUSR | S_IWGRP);
+#endif /*CONFIG_PM_HAS_SECURE*/
 
 
 spinlock_t clock_lock;
@@ -174,9 +186,9 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
-
+#endif
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -195,8 +207,9 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
-
+#endif
 	return idle_time;
 }
 
@@ -212,9 +225,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
-
+#endif
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -234,8 +247,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
-
+#endif
 	return idle_time;
 }
 
@@ -251,9 +265,9 @@ static int shmobile_enter_wfi_lowfreq2(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
-
+#endif
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -273,8 +287,9 @@ static int shmobile_enter_wfi_lowfreq2(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
-
+#endif
 	return idle_time;
 }
 
@@ -291,14 +306,15 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 	long wakelock;
-
+	int sec_ret = 0;
+	int cpuid = smp_processor_id();
 #if DISPLAY_LOG
 	int cpuid = smp_processor_id();
 	printk(KERN_INFO "Standby IN  %d\n", cpuid);
 #endif
-
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_disable();
-
+#endif
 	do_gettimeofday(&beforeTime);
 
 	/* Core Standby wakelock check */
@@ -310,7 +326,27 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 #ifdef CORESTANDBY_DFS
 		corestandby_cpufreq();
 #endif
+#ifdef CONFIG_PM_HAS_SECURE
+               if (cpuid == 0)
+                       __raw_writel(0,ram0SecHalReturnCpu0);
+               else
+                       __raw_writel(0,ram0SecHalReturnCpu1);
+#endif /*CONFIG_PM_HAS_SECURE*/
+
 		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
+#ifdef CONFIG_PM_HAS_SECURE
+               if (cpuid == 0)
+                       sec_ret = __raw_readl(ram0SecHalReturnCpu0);
+               else
+                       sec_ret = __raw_readl(ram0SecHalReturnCpu1);
+               if (sec_ret){
+                       if (cpuid == 0)
+                               sec_hal_fail_cpu0++;
+                       else
+                               sec_hal_fail_cpu1++;
+               }
+#endif /*CONFIG_PM_HAS_SECURE*/
+
 	} else {
 #if DISPLAY_LOG
 		printk(KERN_INFO "Core-Standby %d (WAKELOCK)", cpuid);
@@ -331,8 +367,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
 	local_fiq_enable();
-
+#endif
 #if DISPLAY_LOG
 	printk(KERN_INFO "Standby OUT %d IDLE=0x%x\n", cpuid, idle_time);
 #endif
@@ -374,8 +411,10 @@ int control_cpuidle(int is_enable)
 			device->state_count = SHMOBILE_MAX_STATES_DEBUG;
 			/* Make sure that only WFI state is running */
 			device->states[1].enter = shmobile_enter_wfi;
+#ifndef CONFIG_PM_HAS_SECURE
 			device->states[2].enter = shmobile_enter_wfi;
 			device->states[3].enter = shmobile_enter_wfi;
+#endif /*CONFIG_PM_HAS_SECURE*/
 		}
 		is_enable_cpuidle = is_enable;
 		break;
@@ -387,9 +426,14 @@ int control_cpuidle(int is_enable)
 			device = &per_cpu(shmobile_cpuidle_device, cpu);
 			/* Restore to original CPU's idle PM */
 			device->state_count = SHMOBILE_MAX_STATES;
+#ifndef CONFIG_PM_HAS_SECURE
 			device->states[1].enter = shmobile_enter_wfi_lowfreq;
 			device->states[2].enter = shmobile_enter_wfi_lowfreq2;
 			device->states[3].enter = shmobile_enter_corestandby;
+#else /*CONFIG_PM_HAS_SECURE*/
+                       device->states[1].enter = shmobile_enter_corestandby;
+#endif /*CONFIG_PM_HAS_SECURE*/
+
 		}
 		is_enable_cpuidle = is_enable;
 		break;
@@ -512,6 +556,7 @@ static int shmobile_init_cpuidle(void)
 			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
 		}
 	}
+#ifndef CONFIG_PM_HAS_SECURE
 	/* Internal RAM1 Module Clock ON */
 	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 	if (0 != (mstpsr5_val & MSTPST528)) {
@@ -521,6 +566,7 @@ static int shmobile_init_cpuidle(void)
 			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
 		} while (mstpsr5_val & MSTPST528);
 	}
+#endif
 	spin_unlock_irqrestore(&clock_lock, flags);
 	/* Allocate CPU0 back up area */
 	cpu0BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
@@ -557,27 +603,41 @@ static int shmobile_init_cpuidle(void)
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
 		return -EIO;
 	}
-
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel((unsigned long)0x0, __io(ram0CPU0SpinLock));
 	__raw_writel((unsigned long)0x0, __io(ram0CPU1SpinLock));
+       /* Errata(ECR0285) */
+       if (chip_rev <= ES_REV_2_1)
+               __raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
+       else
+               __raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+#endif
 
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
 	__raw_writel((unsigned long)0x0, __io(ram0CpuClock));
 
-	/* Errata(ECR0285) */
-	if (chip_rev <= ES_REV_2_1)
-		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
-	else
-		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+#ifdef CONFIG_PM_HAS_SECURE
+       /* Initialize sec_hal allocation */
+       sec_hal_pm_coma_entry_init();
+
+       /* Initialize internal setting */
+       __raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
+                                       __io(ram0SecHalCommaEntry));
+       __raw_writel((unsigned long)0x0, __io(ram0ZClockFlag));
+#endif
+
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, __io(SBAR2));
+#endif
 
 	__raw_writel((unsigned long)0x0, __io(APARMBAREA)); /* 4k */
 #endif
+#ifndef CONFIG_PM_HAS_SECURE
 	/* Copy the source code internal RAM1 */
 	(void)memcpy((void *)ram1ArmVector,
 				(void *)&ArmVector,
@@ -587,10 +647,50 @@ static int shmobile_init_cpuidle(void)
 				fsDisableMMU);
 
 	corestandby_pa_physical = (int)virt_to_phys(&corestandby_pa);
-	systemsuspend_cpu0_pa_physical = (int)virt_to_phys(&systemsuspend_cpu0_pa);
-	systemsuspend_cpu1_pa_physical = (int)virt_to_phys(&systemsuspend_cpu1_pa);
+       systemsuspend_cpu0_pa_physical =
+                       (int)virt_to_phys(&systemsuspend_cpu0_pa);
+       systemsuspend_cpu1_pa_physical =
+                       (int)virt_to_phys(&systemsuspend_cpu1_pa);
+       (void)memcpy((void *)ram1RestoreArmRegisterPA,
+                               (void *)&restore_arm_register_pa,
+                               fsRestoreArmRegisterPA);
+       (void)memcpy((void *)ram1RestoreCommonRegister,
+                               (void *)&restore_common_register,
+                               fsRestoreCommonRegister);
 
-#if 0
+       (void)memcpy((void *)ram1SysPowerDown,
+                               (void *)&sys_powerdown,
+                               fsSysPowerDown);
+
+       (void)memcpy((void *)ram1SysPowerUp,
+                               (void *)&sys_powerup,
+                               fsSysPowerUp);
+
+       (void)memcpy((void *)ram1SetClockSystemSuspend,
+                               (void *)&setclock_systemsuspend,
+                              fsSetClockSystemSuspend);
+
+       (void)memcpy((void *)ram1SystemSuspendCPU0PA,
+                               (void *)&systemsuspend_cpu0_pa,
+                               fsSystemSuspendCPU0PA);
+
+       (void)memcpy((void *)ram1CoreStandbyPA,
+                               (void *)&corestandby_pa,
+                               fsCoreStandbyPA);
+
+       (void)memcpy((void *)ram1SystemSuspendCPU1PA,
+                               (void *)&systemsuspend_cpu1_pa,
+                               fsSystemSuspendCPU1PA);
+#else /*CONFIG_PM_HAS_SECURE*/
+       /* Copy the source code internal RAM0 */
+       (void)memcpy((void *)ram0ArmVector,
+                               (void *)&ArmVector,
+                               fsArmVector);
+
+       (void)memcpy((void *)ram0WfiVector,
+                               (void *)&WfiVector,
+                               fsWfiVector);
+
 	(void)memcpy((void *)ram0CoreStandby,
 				(void *)&corestandby,
 				fsCoreStandby);
@@ -602,12 +702,11 @@ static int shmobile_init_cpuidle(void)
 	(void)memcpy((void *)ram0SaveArmRegister,
 				(void *)&save_arm_register,
 				fsSaveArmRegister);
-#endif
-	(void)memcpy((void *)ram1RestoreArmRegisterPA,
+
+	(void)memcpy((void *)ram0RestoreArmRegisterPA,
 				(void *)&restore_arm_register_pa,
 				fsRestoreArmRegisterPA);
 
-#if 0
 	(void)memcpy((void *)ram0RestoreArmRegisterVA,
 				(void *)&restore_arm_register_va,
 				fsRestoreArmRegisterVA);
@@ -620,43 +719,22 @@ static int shmobile_init_cpuidle(void)
 				(void *)&restore_arm_common_register,
 				fsRestoreArmCommonRegister);
 
-	(void)memcpy((void *)ram0SaveCommonRegister,
-				(void *)&save_common_register,
-				fsSaveCommonRegister);
-#endif
-
-	(void)memcpy((void *)ram1RestoreCommonRegister,
-				(void *)&restore_common_register,
-				fsRestoreCommonRegister);
-
-	(void)memcpy((void *)ram1SysPowerDown,
+	(void)memcpy((void *)ram0SysPowerDown,
 				(void *)&sys_powerdown,
 				fsSysPowerDown);
 
-	(void)memcpy((void *)ram1SysPowerUp,
+	(void)memcpy((void *)ram0SysPowerUp,
 				(void *)&sys_powerup,
 				fsSysPowerUp);
 
-	(void)memcpy((void *)ram1SetClockSystemSuspend,
+	(void)memcpy((void *)ram0SetClockSystemSuspend,
 				(void *)&setclock_systemsuspend,
 				fsSetClockSystemSuspend);
-
-
-	(void)memcpy((void *)ram1SystemSuspendCPU0PA,
-				(void *)&systemsuspend_cpu0_pa,
-				fsSystemSuspendCPU0PA);
-
-	(void)memcpy((void *)ram1CoreStandbyPA,
-				(void *)&corestandby_pa,
-				fsCoreStandbyPA);
-
-	(void)memcpy((void *)ram1SystemSuspendCPU1PA,
-				(void *)&systemsuspend_cpu1_pa,
-				fsSystemSuspendCPU1PA);
-
+#endif /*CONFIG_PM_HAS_SECURE*/
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
+       printk(KERN_INFO "[%s] No. idle state: %d\n", __func__, SHMOBILE_MAX_STATES);
 
 	for_each_possible_cpu(count) {
 		device = &per_cpu(shmobile_cpuidle_device, count);
@@ -670,7 +748,7 @@ static int shmobile_init_cpuidle(void)
 		device->states[0].exit_latency = 1;
 		device->states[0].target_residency = 1;
 		device->states[0].flags = CPUIDLE_FLAG_TIME_VALID;
-
+#ifndef CONFIG_PM_HAS_SECURE
 		/* WFI(low-freq) state */
 		strcpy(device->states[1].name, "WFI(low-freq)");
 		strcpy(device->states[1].desc, "Wait for interrupt(low-freq)");
@@ -694,6 +772,15 @@ static int shmobile_init_cpuidle(void)
 		device->states[3].exit_latency = 300;
 		device->states[3].target_residency = 500;
 		device->states[3].flags = CPUIDLE_FLAG_TIME_VALID;
+#else /* CONFIG_PM_HAS_SECURE*/
+               /* CoreStandby state */
+               strcpy(device->states[1].name, "CoreStandby");
+               strcpy(device->states[1].desc, "Core Standby");
+               device->states[1].enter = shmobile_enter_corestandby;
+               device->states[1].exit_latency = 400;
+               device->states[1].target_residency = 500;
+               device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
+#endif /* CONFIG_PM_HAS_SECURE*/
 
 		if (cpuidle_register_device(device)) {
 			printk(KERN_ERR "shmobile_init_cpuidle: "
@@ -708,7 +795,15 @@ static int shmobile_init_cpuidle(void)
 			"Failed registering CPUhotplug\n");
 	}
 
+#ifdef CONFIG_PM_HAS_SECURE
+       /*Set LPCKCR to mode 3 (PLL0 off & main lock is used)*/
+       __raw_writel((unsigned long)CPG_LPCKCR_PLLOFF, __io(CPG_LPCKCR));
+       printk(KERN_INFO "[%s] CPG_LPCKCR (0x%8x): 0x%8x", __func__, \
+               CPG_LPCKCR, __raw_readl(__io(CPG_LPCKCR)));
+#endif /* CONFIG_PM_HAS_SECURE*/
+
 	return 0;
 }
+
 device_initcall(shmobile_init_cpuidle);
 

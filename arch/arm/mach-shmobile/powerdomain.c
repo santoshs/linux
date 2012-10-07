@@ -134,6 +134,7 @@ static struct drv_pd_mapping_table client_names_es1[] = {
 	/* HSI	 	*/	{ "sh_hsi.0", 		ID_A3SP },
 	/* MFI      */	{ "av-domain",  	    ID_A3R 	},
 	/* FSI2/ALSA */	{ "snd-soc-fsi", 		ID_A4MP },
+	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
 
 #if 0
 	/* The following device is used for test purpose only */
@@ -189,6 +190,7 @@ static struct drv_pd_mapping_table client_names_es2[] = {
 	/* SPUV/VOCODER	*/	{ "vcd", 		ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd", 		ID_A4RM },
 	/* PCM2PWM 	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
+	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
 
 #if 0
 	/* The following device is used for test purpose only */

@@ -24,6 +24,11 @@
 #include <mach/r8a73734.h>
 #include <linux/io.h>
 
+#ifdef CONFIG_PM_HAS_SECURE
+#include "../../../../../drivers/sec_hal/rt/inc/sec_hal_rt.h"
+#include "../../../../../drivers/sec_hal/exports/sec_hal_pm.h"
+#endif
+
 /*
  * PM state interface
  */
@@ -62,6 +67,7 @@ extern int systemsuspend_cpu0_pa_physical;
 extern int systemsuspend_cpu1_pa_physical;
 extern int start_corestandby(void);
 extern void ArmVector(void);
+extern void WfiVector(void);
 extern void corestandby(void);
 extern void systemsuspend(void);
 extern void save_arm_register(void);
@@ -206,11 +212,13 @@ static inline void shwystatdm_regs_restore(void) { }
 
 
 #ifdef CONFIG_PM_HAS_SECURE
-extern uint32_t sec_hal_power_off(void);
+#if 0
+extern uint32_t sec_hal_pm_poweroff(void);
 extern uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 	uint32_t wakeup_address, uint32_t context_save_address);
+#endif
 #else /* !CONFIG_PM_HAS_SECURE*/
-static inline uint32_t sec_hal_power_off(void) { return 0; }
+static inline uint32_t sec_hal_pm_poweroff(void) { return 0; }
 static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 	uint32_t wakeup_address, uint32_t context_save_address) { return 0; }
 #endif /*CONFIG_PM_HAS_SECURE*/

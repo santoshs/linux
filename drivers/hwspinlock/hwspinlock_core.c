@@ -231,7 +231,6 @@ EXPORT_SYMBOL_GPL(__hwspin_lock_timeout);
  */
 void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
-	int ret;
 
 	BUG_ON(!hwlock);
 	BUG_ON(!flags && mode == HWLOCK_IRQSTATE);
@@ -250,11 +249,8 @@ void __hwspin_unlock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 	 */
 	mb();
 
-	if (mode == HWLOCK_NOSPIN) {
-		ret = spin_trylock(&hwlock->lock);
-		BUG_ON(!ret);
-	}
-
+	if (mode == HWLOCK_NOSPIN)
+		spin_lock(&hwlock->lock);
 	hwlock->bank->ops->unlock(hwlock);
 
 	/* Undo the spin_trylock{_irq, _irqsave} called while locking */

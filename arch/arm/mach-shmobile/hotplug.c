@@ -64,12 +64,10 @@ void platform_cpu_die(unsigned int cpu)
 		return (void)jump_systemsuspend();
 #endif /* CONFIG_SUSPEND */
 #ifdef CONFIG_ARM_TZ
-#if 0
 		ret = sec_hal_pm_coma_entry(
 			4, __pa(shmobile_secondary_vector), 0, 0);
 		if (ret)
 			pr_alert("platform_cpu_die():fail<%d>\n", ret);
-#endif
 #endif /* CONFIG_ARM_TZ */
 #endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {

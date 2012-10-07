@@ -165,9 +165,10 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 		if (hwsem_trylock(lock))
 			break;
 
-		if (time_is_before_eq_jiffies(expire))
+		if (time_is_before_eq_jiffies(expire)){
 			dev_err(lock->bank->dev, "Timeout to lock hwspinlock\n");
 			return;
+		}
 
 		hwsem_relax(lock);
 	}

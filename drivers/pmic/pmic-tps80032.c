@@ -143,7 +143,7 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock,
 	for (;;) {
 		/* Try to take the hwspinlock */
 		ret = hwspin_trylock_nospin(hwlock);
-		if (ret != -EBUSY)
+		if (ret == 0)
 			break;
 
 		/*
@@ -6095,6 +6095,13 @@ static int __init tps80032_power_init(void)
 	int ret;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	/*Initialize hw spinlock*/
+	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000);
+	if (r8a73734_hwlock_pmic == NULL) {
+		PMIC_ERROR_MSG(
+		"Unable to register hw spinlock for pmic driver\n");
+		return -EIO;
+	}
 
 	ret = i2c_add_driver(&tps80032_power_driver);
 	if (0 != ret) {
@@ -6120,14 +6127,6 @@ static int __init tps80032_power_init(void)
 		goto err_jtag_driver;
 	}
 
-	/*Initialize hw spinlock*/
-	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000);
-	if (r8a73734_hwlock_pmic == NULL) {
-		PMIC_ERROR_MSG("Unable to register hw spinlock"
-				"for pmic driver\n");
-		ret = -EIO;
-		goto err_jtag_driver;
-	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 
@@ -6140,6 +6139,7 @@ err_dvs_driver:
 err_battery_driver:
 	i2c_del_driver(&tps80032_power_driver);
 err_power_driver:
+	hwspin_lock_free(r8a73734_hwlock_pmic);
 	return ret;
 }
 
