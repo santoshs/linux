@@ -300,9 +300,7 @@ void machine_shutdown(void)
 void machine_halt(void)
 {
 	uint32_t ret;
-        #ifdef CONFIG_PM_HAS_SECURE
 	ret = sec_hal_pm_poweroff();
-        #endif
 	machine_shutdown();
 	while (1);
 }
@@ -310,9 +308,8 @@ void machine_halt(void)
 void machine_power_off(void)
 {
 	uint32_t ret;
-        #ifdef CONFIG_PM_HAS_SECURE
 	ret = sec_hal_pm_poweroff();
-        #endif
+
 	machine_shutdown();
 	if (pm_power_off)
 		pm_power_off();
@@ -322,9 +319,8 @@ void machine_restart(char *cmd)
 {
 
 	uint32_t ret;
-        #ifdef CONFIG_PM_HAS_SECURE
 	ret = sec_hal_pm_poweroff();
-        #endif
+
 	machine_shutdown();
 
 	arm_pm_restart(reboot_mode, cmd);

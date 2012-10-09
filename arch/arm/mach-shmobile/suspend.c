@@ -32,11 +32,13 @@
 #include <linux/delay.h>
 
 #include <linux/wakelock.h>
+
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
 #else /*CONFIG_PM_HAS_SECURE*/
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
+
 #include "pmRegisterDef.h"
 
 #include <mach/ram_defrag.h>
@@ -51,9 +53,9 @@
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
 #ifndef CONFIG_PM_HAS_SECURE
-#define RAM_ARM_VECT                   ram1BasePhys
+#define RAM_ARM_VECT			ram1BasePhys
 #else /*CONFIG_PM_HAS_SECURE*/
-#define RAM_ARM_VECT                   ram0ArmVectorPhys
+#define RAM_ARM_VECT			ram0ArmVectorPhys
 #endif /*CONFIG_PM_HAS_SECURE*/
 
 #define PMDBG_PRFX				"PM-DBG: "
@@ -694,8 +696,8 @@ static int shmobile_suspend(void)
 {
 	int locked;
 #ifdef CONFIG_PM_HAS_SECURE
-       unsigned int sec_hal_ret_cpu0;
-       unsigned int sec_hal_ret_cpu1;
+	unsigned int sec_hal_ret_cpu0;
+	unsigned int sec_hal_ret_cpu1;
 #endif /* CONFIG_PM_HAS_SECURE*/
 	unsigned int bankState;
 	unsigned int workBankState2Area;
@@ -710,7 +712,7 @@ static int shmobile_suspend(void)
 	/* check cpu#1 power down */
 	if (core_shutdown_status(1) != 3) {
 		not_core_shutdown = 1;
-		shmobile_suspend_udelay(1000);  /*udelay(1000);*/
+		shmobile_suspend_udelay(1000);	/*udelay(1000);*/
 		barrier();
 		if (core_shutdown_status(1) != 3)
 			return -EBUSY;
@@ -765,25 +767,25 @@ static int shmobile_suspend(void)
 	 * do cpu suspend ...
 	 */
 	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...\n\n", __func__);
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(1, ram0ZQCalib);
-	#endif 	/*CONFIG_PM_HAS_SECURE*/
+#endif 	/*CONFIG_PM_HAS_SECURE*/
 	jump_systemsuspend();
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
-	#endif 	/*CONFIG_PM_HAS_SECURE*/
+#endif 	/*CONFIG_PM_HAS_SECURE*/
+
 	wakeups_factor();
 #ifdef CONFIG_PM_HAS_SECURE
-       sec_hal_ret_cpu0 = __raw_readl(ram0SecHalReturnCpu0);
-       pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU0: 0x%08x\n", \
-                                       __func__, sec_hal_ret_cpu0);
+	sec_hal_ret_cpu0 = __raw_readl(ram0SecHalReturnCpu0);
+	pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU0: 0x%08x\n", \
+					__func__, sec_hal_ret_cpu0);
 #ifdef CONFIG_PM_SMP
-       sec_hal_ret_cpu1 = __raw_readl(ram0SecHalReturnCpu1);
-       pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU1: 0x%08x\n", \
-                                       __func__, sec_hal_ret_cpu1);
+	sec_hal_ret_cpu1 = __raw_readl(ram0SecHalReturnCpu1);
+	pr_debug(PMDBG_PRFX "%s: SEC HAL return CPU1: 0x%08x\n", \
+					__func__, sec_hal_ret_cpu1);
 #endif
 #endif /*CONFIG_PM_HAS_SECURE*/
-
 	/* Restore IP registers */
 	shwy_regs_restore();
 	irqx_eventdetectors_regs_restore();
@@ -938,10 +940,11 @@ static int __init shmobile_suspend_init(void)
 	void __iomem *virt;
 	volatile struct base_map *tbl = map;
 #ifdef CONFIG_PM_DEBUG
-       log_wakeupfactor = 1;
+	log_wakeupfactor = 1;
 #else /*CONFIG_PM_DEBUG*/
 	log_wakeupfactor = 0;
 #endif /*CONFIG_PM_DEBUG*/
+
 	pr_debug(PMDBG_PRFX "%s: initialize\n", __func__);
 
 	/* Get chip revision */

@@ -29,19 +29,22 @@
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
+
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
 #else /*CONFIG_PM_HAS_SECURE*/
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
+
 #ifndef CONFIG_PM_HAS_SECURE
 #define SHMOBILE_MAX_STATES	4
 #else /*CONFIG_PM_HAS_SECURE*/
-#define SHMOBILE_MAX_STATES    2
+#define SHMOBILE_MAX_STATES	2
 #endif /*CONFIG_PM_HAS_SECURE*/
 
 #define DISPLAY_LOG 0
+
 #ifdef CONFIG_PM_HAS_SECURE
 static int sec_hal_fail_cpu0 = 0;
 module_param(sec_hal_fail_cpu0, int, S_IRUGO | S_IWUSR | S_IWGRP);
@@ -49,7 +52,6 @@ module_param(sec_hal_fail_cpu0, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int sec_hal_fail_cpu1 = 0;
 module_param(sec_hal_fail_cpu1, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #endif /*CONFIG_PM_HAS_SECURE*/
-
 
 spinlock_t clock_lock;
 
@@ -308,6 +310,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	long wakelock;
 	int sec_ret = 0;
 	int cpuid = smp_processor_id();
+
 #if DISPLAY_LOG
 	int cpuid = smp_processor_id();
 	printk(KERN_INFO "Standby IN  %d\n", cpuid);
@@ -431,9 +434,9 @@ int control_cpuidle(int is_enable)
 			device->states[2].enter = shmobile_enter_wfi_lowfreq2;
 			device->states[3].enter = shmobile_enter_corestandby;
 #else /*CONFIG_PM_HAS_SECURE*/
-                       device->states[1].enter = shmobile_enter_corestandby;
-#endif /*CONFIG_PM_HAS_SECURE*/
 
+			device->states[1].enter = shmobile_enter_corestandby;
+#endif /*CONFIG_PM_HAS_SECURE*/
 		}
 		is_enable_cpuidle = is_enable;
 		break;
@@ -603,31 +606,31 @@ static int shmobile_init_cpuidle(void)
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
 		return -EIO;
 	}
+
 #ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel((unsigned long)0x0, __io(ram0CPU0SpinLock));
 	__raw_writel((unsigned long)0x0, __io(ram0CPU1SpinLock));
-       /* Errata(ECR0285) */
-       if (chip_rev <= ES_REV_2_1)
-               __raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
-       else
-               __raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+	/* Errata(ECR0285) */
+	if (chip_rev <= ES_REV_2_1)
+		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
+	else
+		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
 #endif
-
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
 	__raw_writel((unsigned long)0x0, __io(ram0CpuClock));
 
 #ifdef CONFIG_PM_HAS_SECURE
-       /* Initialize sec_hal allocation */
-       sec_hal_pm_coma_entry_init();
 
-       /* Initialize internal setting */
-       __raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
-                                       __io(ram0SecHalCommaEntry));
-       __raw_writel((unsigned long)0x0, __io(ram0ZClockFlag));
+	/* Initialize sec_hal allocation */
+	sec_hal_pm_coma_entry_init();
+
+	/* Initialize internal setting */
+	__raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
+					__io(ram0SecHalCommaEntry));
+	__raw_writel((unsigned long)0x0, __io(ram0ZClockFlag));
 #endif
-
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */
@@ -748,6 +751,7 @@ static int shmobile_init_cpuidle(void)
 		device->states[0].exit_latency = 1;
 		device->states[0].target_residency = 1;
 		device->states[0].flags = CPUIDLE_FLAG_TIME_VALID;
+
 #ifndef CONFIG_PM_HAS_SECURE
 		/* WFI(low-freq) state */
 		strcpy(device->states[1].name, "WFI(low-freq)");
@@ -773,15 +777,15 @@ static int shmobile_init_cpuidle(void)
 		device->states[3].target_residency = 500;
 		device->states[3].flags = CPUIDLE_FLAG_TIME_VALID;
 #else /* CONFIG_PM_HAS_SECURE*/
-               /* CoreStandby state */
-               strcpy(device->states[1].name, "CoreStandby");
-               strcpy(device->states[1].desc, "Core Standby");
-               device->states[1].enter = shmobile_enter_corestandby;
-               device->states[1].exit_latency = 400;
-               device->states[1].target_residency = 500;
-               device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
-#endif /* CONFIG_PM_HAS_SECURE*/
 
+		/* CoreStandby state */
+		strcpy(device->states[1].name, "CoreStandby");
+		strcpy(device->states[1].desc, "Core Standby");
+		device->states[1].enter = shmobile_enter_corestandby;
+		device->states[1].exit_latency = 400;
+		device->states[1].target_residency = 500;
+		device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
+#endif /* CONFIG_PM_HAS_SECURE*/
 		if (cpuidle_register_device(device)) {
 			printk(KERN_ERR "shmobile_init_cpuidle: "
 				"Failed registering\n");
@@ -794,14 +798,12 @@ static int shmobile_init_cpuidle(void)
 		printk(KERN_ERR "shmobile_init_cpuidle: "
 			"Failed registering CPUhotplug\n");
 	}
-
 #ifdef CONFIG_PM_HAS_SECURE
-       /*Set LPCKCR to mode 3 (PLL0 off & main lock is used)*/
-       __raw_writel((unsigned long)CPG_LPCKCR_PLLOFF, __io(CPG_LPCKCR));
-       printk(KERN_INFO "[%s] CPG_LPCKCR (0x%8x): 0x%8x", __func__, \
-               CPG_LPCKCR, __raw_readl(__io(CPG_LPCKCR)));
+	/*Set LPCKCR to mode 3 (PLL0 off & main lock is used)*/
+	__raw_writel((unsigned long)CPG_LPCKCR_PLLOFF, __io(CPG_LPCKCR));
+	printk(KERN_INFO "[%s] CPG_LPCKCR (0x%8x): 0x%8x", __func__, \
+		CPG_LPCKCR, __raw_readl(__io(CPG_LPCKCR)));
 #endif /* CONFIG_PM_HAS_SECURE*/
-
 	return 0;
 }
 

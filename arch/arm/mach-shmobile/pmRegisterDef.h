@@ -559,6 +559,13 @@
 #define SHBMSKR07		0x0708
 #define SHBSIZER07		0x070C
 
+/******************************************/
+/* XTAL though mode				*/
+/*****************************************/
+#define CPG_LPCKCRPhys		0xE6151024
+#define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR_PLLOFF	0x00000004
+
 /*
  * ********************************************************************
  * LPDDR2 ZQ Calibration Issue WA
