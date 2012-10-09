@@ -43,6 +43,11 @@ static inline int irq_to_gpio(unsigned int irq)
 	return -ENOSYS;
 }
 
+extern void gpio_direction_none_port(int gpio);
+extern void gpio_pull_off_port(int gpio);
+extern void gpio_pull_up_port(int gpio);
+extern void gpio_pull_down_port(int gpio);
+
 #endif /* CONFIG_GPIOLIB */
 
 #endif /* __ASM_ARCH_GPIO_H */

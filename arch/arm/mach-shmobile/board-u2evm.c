@@ -205,6 +205,35 @@ static int u2_read_board_rev(char *page, char **start, off_t off,
 	return count;
 }
 
+void gpio_direction_none_port(int gpio)
+{
+
+	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0xcf,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_direction_none_port);
+
+void gpio_pull_off_port(int gpio)
+{
+	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_off_port);
+
+void gpio_pull_up_port(int gpio)
+{
+	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0xc0,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_up_port);
+
+void gpio_pull_down_port(int gpio)
+{
+	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0x80,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_down_port);
+
 static struct resource smsc9220_resources[] = {
 	{
 		.start	= 0x00080000,
