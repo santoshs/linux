@@ -52,8 +52,8 @@ enum ion_heap_type {
 enum ion_heap_ids {
 	ION_HEAP_SYSTEM_ID,
 	ION_HEAP_SYSTEM_CONTIG_ID,
+	ION_HEAP_CAMERA_ID,
 	ION_HEAP_VIDEO_ID,
-	ION_HEAP_CAMERA_ID = ION_HEAP_VIDEO_ID,
 };
 
 #ifdef __KERNEL__
