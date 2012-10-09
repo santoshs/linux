@@ -89,8 +89,10 @@ int __hwspin_trylock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
 	int ret;
 
-	BUG_ON(!hwlock);
-	BUG_ON(!flags && mode == HWLOCK_IRQSTATE);
+	if (!hwlock)
+		return -EINVAL;
+	if ((!flags) && (mode == HWLOCK_IRQSTATE))
+		return -EINVAL;
 
 	/*
 	 * This spin_lock{_irq, _irqsave} serves three purposes:
@@ -188,7 +190,7 @@ int __hwspin_lock_timeout(struct hwspinlock *hwlock, unsigned int to,
 	for (;;) {
 		/* Try to take the hwspinlock */
 		ret = __hwspin_trylock(hwlock, mode, flags);
-		if (ret != -EBUSY)
+		if ((ret != -EBUSY) || (ret != -EINVAL))
 			break;
 
 		/*
