@@ -602,18 +602,17 @@ void common_set_pll22(const u_int uiValue, int stat)
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 			if (false == (dev & SNDP_BLUETOOTHSCO)) {
-				pll22val = 0x41000000;
-				fsival = 0x00001065;
+				pll22val = 0x44000000;
+				fsival = 0x00001047;
 			} else {
-				pll22val = 0x3A000000;
-				fsival = 0x00001046;
+				pll22val = 0x44000000;
+				fsival = 0x00001047;
 			}
 
 			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
 
-			/* Pll22 enable 66 divide */
 			iowrite32(pll22val, CPG_PLL22CR);
 			sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
 

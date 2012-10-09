@@ -88,6 +88,11 @@
 # define CR_TDM		0x4
 # define CR_TDM_D	0x5
 
+#define DO_FMT_BWS(param) ((param) << 20)
+#define BWS_24	0x0
+#define BWS_16	0x1
+#define BWS_20	0x2
+
 /* DOFF_CTL */
 /* DIFF_CTL */
 #define IRQ_HALF	0x00100000
@@ -128,10 +133,10 @@
 
 #define FSI_FMTS (SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S16_LE)
 
-#define SYSDMA_BASE				0xFE000000
+#define SYSDMA_BASE		0xFE000000
 #define SYSDMA_RESOURSE_SIZE	0xA000
-#define SYSDMA_SAR_BASE			0x8000
-#define SYSDMA_DAR_BASE			0x8004
+#define SYSDMA_SAR_BASE		0x8000
+#define SYSDMA_DAR_BASE		0x8004
 #define SYSDMA_ADRR_INTERVAL	0x80
 /************************************************************************
 
@@ -1350,14 +1355,14 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	/* for ES2.0 */
 	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
 		if(fsi_is_port_a(fsi))
-			fsi_master_write(master, FSIDIVA, 0x00020003);
+			fsi_master_write(master, FSIDIVA, 0x00490003);
 		else
-			fsi_master_write(master, FSIDIVB, 0x00020003);
+			fsi_master_write(master, FSIDIVB, 0x00490003);
 		fsi_reg_write(fsi, ACK_RV, 0x00000100);
 		if(0 != is_play)
-			fsi_reg_mask_set(fsi, ACK_MD, 0x00001101, 0x00001101);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x00007701, 0x00004001);
 		else
-			fsi_reg_mask_set(fsi, ACK_MD, 0x00001110, 0x00001110);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x00007710, 0x00004010);
 	/*for ES1.0 */
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
@@ -1390,21 +1395,25 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 	case SH_FSI_FMT_MONO:
 		msg = "MONO";
 		data = CR_FMT(CR_MONO);
+		data |= DO_FMT_BWS(BWS_16);
 		io->chan = 1;
 		break;
 	case SH_FSI_FMT_MONO_DELAY:
 		msg = "MONO Delay";
 		data = CR_FMT(CR_MONO_D);
+		data |= DO_FMT_BWS(BWS_16);
 		io->chan = 1;
 		break;
 	case SH_FSI_FMT_PCM:
 		msg = "PCM";
 		data = CR_FMT(CR_PCM);
+		data |= DO_FMT_BWS(BWS_16);
 		io->chan = 2;
 		break;
 	case SH_FSI_FMT_I2S:
 		msg = "I2S";
 		data = CR_FMT(CR_I2S);
+		data |= DO_FMT_BWS(BWS_16);
 		io->chan = 2;
 		break;
 	case SH_FSI_FMT_TDM:
@@ -1412,12 +1421,14 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 		io->chan = is_play ?
 			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
 		data = CR_FMT(CR_TDM) | (io->chan - 1);
+		data |= DO_FMT_BWS(BWS_16);
 		break;
 	case SH_FSI_FMT_TDM_DELAY:
 		msg = "TDM Delay";
 		io->chan = is_play ?
 			SH_FSI_GET_CH_O(flags) : SH_FSI_GET_CH_I(flags);
 		data = CR_FMT(CR_TDM_D) | (io->chan - 1);
+		data |= DO_FMT_BWS(BWS_16);
 		break;
 	default:
 		dev_err(dai->dev, "unknown format.\n");
@@ -1463,14 +1474,14 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 	/* for ES2.0 */
 	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
 
-		fsi_master_write(master, FSIDIVB, 0x006B0003);
+		fsi_master_write(master, FSIDIVB, 0x00DB0003);
 
 		fsi_reg_write(fsi, ACK_RV, 0x00000000);
 
 		if(0 != is_play)
-			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003101);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00004001);
 		else
-			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003110);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00004010);
 	/*for ES1.0 */
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);

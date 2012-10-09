@@ -189,13 +189,13 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVA,	0x00020003,	0, 0 },
+	{ FSI_FSIDIVA,	0x00490003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ FSI_ACK_MD,	0x00001101,	0, 0 },
+	{ FSI_ACK_MD,	0x00004001,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DO_FMT,	0x00000030,	0, 0 },
+	{ FSI_DO_FMT,	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
 	/* Clears the reset(PortA) */
@@ -225,13 +225,13 @@ static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVB,				0x00020003,	0, 0 },
+	{ FSI_FSIDIVB,				0x00490003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001101,	0, 0 },
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00004001,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
+	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
 	/* Clears the reset(PortB) */
@@ -259,13 +259,13 @@ static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVA,	0x00020003,	0, 0 },
+	{ FSI_FSIDIVA,	0x00490003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ FSI_ACK_MD,	0x00001110,	0, 0 },
+	{ FSI_ACK_MD,	0x00004001,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0, 0 },
+	{ FSI_DI_FMT,	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
 	/* Clears the reset(PortA) */
@@ -293,13 +293,13 @@ static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
 	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
-	{ FSI_FSIDIVB,				0x00020003,	0, 0 },
+	{ FSI_FSIDIVB,				0x00490003,	0, 0 },
 	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
 	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001110,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00004001,	0, 0 },
 	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
+	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
 	/* Clears the reset(PortB) */
