@@ -423,9 +423,9 @@ enum {
 	SHDMA_SLAVE_PCM2PWM_TX,
 };
 
-/* System-wide ID number for HPB semaphores (supposed to start with zero) */
+/* System-wide ID number for HPB semaphores */
 enum {
-	SMGPIO, SMCPG, SMSYSC,
+	SMINVALID, SMGPIO, SMCPG, SMSYSC,
 
 	/* General-purpose bus semaphores */
 	SMGP000, SMGP001, SMGP002, SMGP003, SMGP004, SMGP005, SMGP006, SMGP007,

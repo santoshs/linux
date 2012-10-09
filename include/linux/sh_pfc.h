@@ -129,6 +129,9 @@ struct pinmux_info {
 int register_pinmux(struct pinmux_info *pip);
 int unregister_pinmux(struct pinmux_info *pip);
 
+struct hwspinlock;
+void pinmux_hwspinlock_init(struct hwspinlock *hwlock);
+
 /* helper macro for port */
 #define PORT_1(fn, pfx, sfx) fn(pfx, sfx)
 
