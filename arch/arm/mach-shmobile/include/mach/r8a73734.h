@@ -458,4 +458,5 @@ extern struct hwspinlock *r8a73734_hwlock_sysc;
 #define IO_ADDRESS(x)	(x)
 #endif
 
+#define SMGP100_DFS_ZS	SMGP100
 #endif /* __ASM_R8A73734_H__ */
