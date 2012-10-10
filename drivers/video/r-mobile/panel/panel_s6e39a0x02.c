@@ -38,7 +38,7 @@
 #include "panel_s6e39a0x02.h"
 
 /* framebuffer address */
-#define R_MOBILE_M_BUFF_ADDR		0x4BC00000
+#define R_MOBILE_M_BUFF_ADDR		0x57E00000
 
 /* panel pixel */
 #define R_MOBILE_M_PANEL_PIXEL_WIDTH	540
@@ -1072,7 +1072,7 @@ static int s6e39a0x02_panel_probe(struct fb_info *info,
 
 	/* get resource info from platform_device */
 	res_power_gpio	= platform_get_resource_byname(pdev,
-							IORESOURCE_IO,
+							IORESOURCE_MEM,
 							"panel_power_port");
 	if (!res_power_gpio) {
 		printk(KERN_ALERT "panel_power_port is NULL!!\n");
