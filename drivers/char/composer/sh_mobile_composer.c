@@ -411,6 +411,7 @@ static  struct early_suspend    early_suspend = {
 	.suspend	= pm_early_suspend,
 	.resume		= pm_late_resume,
 };
+static  int composer_prohibited_count;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 static struct composer_buffer local_buffer[MAX_BUFFER];
@@ -3348,6 +3349,11 @@ static int  ioc_issuspend(struct composer_fh *fh)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (in_early_suspend) {
 		printk_dbg2(3, "now suspend state\n");
+		rc = 0;
+	}
+	if (composer_prohibited_count) {
+		printk_dbg2(3, "composition prohibited count(%d)\n", \
+			composer_prohibited_count);
 		rc = 0;
 	}
 #endif
@@ -6298,6 +6304,12 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	if (!in_early_suspend && composer_prohibited_count > 0) {
+		/* decrement count of composer prohibited count */
+		composer_prohibited_count--;
+	}
+#endif
 	TRACE_LEAVE(FUNC_BLEND);
 	DBGLEAVE("\n");
 	return 0;
@@ -7491,6 +7503,7 @@ static void pm_early_suspend(struct early_suspend *h)
 {
 	DBGENTER("h:%p\n", h);
 	in_early_suspend = true;
+	composer_prohibited_count = 1;
 
 	if (rtapi_hungup && graphic_handle) {
 		printk_err("not release graphic handle, "
