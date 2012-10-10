@@ -1037,6 +1037,9 @@ int vcd_ctrl_probe(void)
 	/* register initialize */
 	vcd_spuv_init_register();
 
+	/* ipc semaphore initialize */
+	vcd_spuv_ipc_semaphore_init();
+
 rtn:
 	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;

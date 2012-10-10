@@ -239,6 +239,7 @@ struct vcd_spuv_info {
 int vcd_spuv_ioremap(void);
 void vcd_spuv_iounmap(void);
 void vcd_spuv_init_register(void);
+void vcd_spuv_ipc_semaphore_init(void);
 int vcd_spuv_get_fw_buffer(void);
 void vcd_spuv_free_fw_buffer(void);
 int vcd_spuv_get_msg_buffer(void);

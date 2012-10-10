@@ -918,6 +918,11 @@ enum VCD_CALL_TYPE {
 	VCD_CALL_TYPE_VOLTE = 2,
 };
 
+enum VCD_SEMAPHORE {
+	VCD_SEMAPHORE_RELEASE = 0,
+	VCD_SEMAPHORE_TAKE = 1,
+};
+
 
 /*
  * structure declaration
