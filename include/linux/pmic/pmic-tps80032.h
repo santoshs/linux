@@ -377,11 +377,11 @@ static void __iomem *virt_addr;
 #define MSK_INT_LINE_B				0xFF
 #define MSK_INT_LINE_C				0x8A
 #define MSK_INT_SRC_A				0x44
-#define MSK_INT_SRC_B				0x8F
+#define MSK_INT_SRC_B				0xFF
 #define MSK_INT_SRC_C				0x8A
 #define MSK_DISABLE				0x00
-#define MSK_CONTROLLER_INT			0x00
-#define MSK_CHARGERUSB_INT			0x06
+#define MSK_CONTROLLER_INT			0x2C
+#define MSK_CHARGERUSB_INT			0x16
 #define MSK_PREQ1_ASS_A				0x11
 #define MSK_PREQ1_ASS_B				0x80
 #define MSK_PREQ2_ASS_A				0x08
