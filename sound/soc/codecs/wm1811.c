@@ -2072,9 +2072,9 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 			fll1_control5 = 0x0003;
 		} else {
 			/* SNDP_MODE_NORMAL/SNDP_MODE_RING/SNDP_MODE_INCOMM */
-			/* AIF1 Sample Rate = 44.1 kHz, */
+			/* AIF1 Sample Rate = 48 kHz, */
 			/* AIF1CLK/Fs ratio = 256 (Default Register Value) */
-			aif1_rate = 0x0073;
+			aif1_rate = 0x0083;
 
 			/* FLL1: (LR / REF_DIV[1]) * (N[128] + */
 			/* THETA[0]/LAMBDA) */
