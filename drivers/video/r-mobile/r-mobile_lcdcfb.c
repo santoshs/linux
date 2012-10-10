@@ -511,6 +511,17 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 }
 #endif
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void notify_drawcomplete_to_composer(void)
+{
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+	sh_mobile_composer_notifyrelease();
+#endif
+}
+#else /* CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
+#define notify_drawcomplete_to_composer()      /* do nothing */
+#endif /* CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
+
 static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 				     struct fb_info *info)
 {
@@ -537,11 +548,14 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			break;
 	}
 	lcd_num = i;
-	if (lcd_num >= CHAN_NUM)
+	if (lcd_num >= CHAN_NUM) {
+		notify_drawcomplete_to_composer();
 		return -EINVAL;
+	}
 
 	if (down_interruptible(&lcd_ext_param[lcd_num].sem_lcd)) {
 		printk(KERN_ALERT "down_interruptible failed\n");
+		notify_drawcomplete_to_composer();
 		return -ERESTARTSYS;
 	}
 
@@ -551,6 +565,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		ret = display_initialize(lcd_num);
 		if (ret == -1) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
+			notify_drawcomplete_to_composer();
 			return -EIO;
 		} else if (ret == -2)
 			printk(KERN_ALERT "nothing MFI driver\n");
@@ -584,6 +599,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 					up(&lcd_ext_param[lcd_num].sem_lcd);
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
+					notify_drawcomplete_to_composer();
 					return -EIO;
 				}
 				lcd_ext_param[lcd_num].refresh_on = 0;
@@ -633,6 +649,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
+			notify_drawcomplete_to_composer();
 			return -EIO;
 		}
 #else
@@ -662,6 +679,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
+			notify_drawcomplete_to_composer();
 			return -EIO;
 		}
 #endif
@@ -684,6 +702,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 
 	up(&lcd_ext_param[lcd_num].sem_lcd);
 
+	notify_drawcomplete_to_composer();
 	return 0;
 }
 

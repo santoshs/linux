@@ -277,7 +277,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 /* define for ioc_waitdraw function. (only used for debug). */
 #define IOC_WAITDRAW_INIT     0
 #define IOC_WAITDRAW_WAIT     1
-#define IOC_WAITDRAW_WAITTIME 200
+#define IOC_WAITDRAW_WAITTIME 300
 #endif
 
 /* define for chk_ioc_viewlay function. */
@@ -429,7 +429,6 @@ static DECLARE_WAIT_QUEUE_HEAD(kernel_waitqueue_comp);
 static DEFINE_SEMAPHORE(kernel_queue_sem);
 static LIST_HEAD(kernel_queue_top);
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
-static struct composer_rh     *current_overlayrequest;
 static int                    overlay_draw_complete;
 #endif
 static struct composer_rh     kernel_request[MAX_KERNELREQ];
@@ -6298,9 +6297,6 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 			&blend_req->rh_wqtask_hdmi);
 	}
 #endif
-#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
-	current_overlayrequest = blend_req;
-#endif
 
 	TRACE_LEAVE(FUNC_BLEND);
 	DBGLEAVE("\n");
@@ -6353,27 +6349,14 @@ EXPORT_SYMBOL(sh_mobile_composer_hdmiset);
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
 void sh_mobile_composer_notifyrelease(void)
 {
-	struct composer_rh *rh = current_overlayrequest;
 	TRACE_ENTER(FUNC_NOTIFY);
 	DBGENTER("\n");
 
 	overlay_draw_complete = true;
-	if (rh) {
-#if _LOG_DBG >= 1
-		if (rh->refcount != 1) {
-			/* error report */
-			printk_err1("buffer refcount not 1. current:%d",
-				rh->refcount);
-		}
-#endif
-		current_overlayrequest = NULL;
 
-		/* process callback */
-		process_composer_queue_callback(rh);
-	} else {
-		/* wake-up waiting thread */
-		wake_up(&kernel_waitqueue_comp);
-	}
+	/* wake-up waiting thread */
+	wake_up(&kernel_waitqueue_comp);
+
 	DBGLEAVE("\n");
 	TRACE_LEAVE(FUNC_NOTIFY);
 }
@@ -6458,11 +6441,11 @@ int sh_mobile_composer_queue(
 	if (rh->data.extlayer_index < 0) {
 		/* not use external layer */
 #endif
-		rh->refcount = 1 + SH_MOBILE_COMPOSER_WAIT_DRAWEND;
+		rh->refcount = 1;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	} else {
 		/* use external layer */
-		rh->refcount = 2 + SH_MOBILE_COMPOSER_WAIT_DRAWEND;
+		rh->refcount = 2;
 	}
 #endif
 
@@ -6832,12 +6815,6 @@ static void internal_debug_create_message(struct composer_fh *fh)
 			n -= c;
 		}
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
-		c = snprintf(p, n, "  current_overlayrequest:%p\n",
-			current_overlayrequest);
-		if (c < n) {
-			p += c;
-			n -= c;
-		}
 		c = snprintf(p, n, "  overlay_draw_complete:%d\n",
 			overlay_draw_complete);
 		if (c < n) {

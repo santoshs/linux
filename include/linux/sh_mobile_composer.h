@@ -413,7 +413,7 @@ struct composer_fh {
 /* support HDMI for other */
 #define SH_MOBILE_COMPOSER_SUPPORT_HDMI    3
 #endif
-#define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
+#define SH_MOBILE_COMPOSER_WAIT_DRAWEND    1
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;
 	screen_grap_layer       layer[COMPOSER_NUM_INPUT_GRAP_LAYER];
