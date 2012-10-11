@@ -2512,9 +2512,6 @@ void u2evm_restart(char mode, const char *cmd)
 #define STBCHRB3		0xE6180043
 /* SBSC register address */
 #define SBSC_BASE		(0xFE000000U)
-#define SBSC_SDMRACR1A		ioremap(SBSC_BASE + 0x400088, 0x4)
-#define SBSC_SDMRA_28200	ioremap(SBSC_BASE + 0x528200, 0x4)
-#define SBSC_SDMRA_38200	ioremap(SBSC_BASE + 0x538200, 0x4)
 #define SBSC_SDMRA_DONE		(0x00000000)
 #define SBSC_SDMRACR1A_ZQ	(0x0000560A)
 /* CPG register address */
@@ -2523,6 +2520,8 @@ void u2evm_restart(char mode, const char *cmd)
 #define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
 #define CPG_PLL3CR_1040MHZ	(0x27000000)
 #define CPG_PLLECR_PLL3ST	(0x00000800)
+static void __iomem *sbsc_sdmracr1a;
+
 static void SBSC_Init_520Mhz(void)
 {
 	unsigned long work;
@@ -2548,7 +2547,7 @@ static void SBSC_Init_520Mhz(void)
 	}
 
 	/* Dummy read */
-	__raw_readl(SBSC_SDMRACR1A);
+	__raw_readl(sbsc_sdmracr1a);
 }
 
 static void __init u2evm_init(void)
@@ -2564,6 +2563,8 @@ static void __init u2evm_init(void)
 				// -1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 				//  0 = SDHI0 used for STM traces. SD-Card not enabled.
 				//  1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
+	void __iomem *sbsc_sdmra_28200 = 0;
+	void __iomem *sbsc_sdmra_38200 = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	u8 reg8 = __raw_readb(STBCHRB3);
@@ -2571,12 +2572,25 @@ static void __init u2evm_init(void)
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(CPG_PLL3CR));
-		SBSC_Init_520Mhz();
-		__raw_writel(SBSC_SDMRACR1A_ZQ, SBSC_SDMRACR1A);
-		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
-		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
+			SBSC_Init_520Mhz();
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
+		} else {
+			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
+		}
 		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(CPG_PLL3CR));
+		if(sbsc_sdmracr1a)
+			iounmap(sbsc_sdmracr1a);
+		if(sbsc_sdmra_28200)
+			iounmap(sbsc_sdmra_28200);
+		if(sbsc_sdmra_38200)
+			iounmap(sbsc_sdmra_38200);
 	}
 
 	/* For case that Secure ISSW has selected debug mode already! */

@@ -52,9 +52,9 @@ static int wa_zq_flg;
 
 /* SBSC register address */
 #define SBSC_BASE		(0xFE000000U)
-#define SBSC_SDMRACR1A		ioremap(SBSC_BASE + 0x400088, 0x4)
-#define SBSC_SDMRA_28200	ioremap(SBSC_BASE + 0x528200, 0x4)
-#define SBSC_SDMRA_38200	ioremap(SBSC_BASE + 0x538200, 0x4)
+static void __iomem *sbsc_sdmra_28200;
+static void __iomem *sbsc_sdmra_38200;
+
 #define SBSC_SDMRA_DONE		(0x00000000)
 #define SBSC_SDMRACR1A_ZQ	(0x0000560A)
 
@@ -475,8 +475,8 @@ static int rmu2_rwdt_stop(void)
 /* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 static void rmu2_rwdt_workfn_zq_wa(struct work_struct *work)
 {
-	__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
-	__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
+	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 	RWDT_DEBUG("< %s > CPG_PLL3CR 0x%8x\n",
 			__func__, __raw_readl(CPG_PLL3CR));
 
@@ -735,6 +735,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	u8 reg8;
 	u32 reg32;
 	struct resource *r;
+	void __iomem *sbsc_sdmracr1a = 0;
 
 	RWDT_DEBUG("START < %s >\n", __func__);
 
@@ -774,32 +775,46 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	wa_zq_flg = 0;
 	reg8 = __raw_readb(STBCHRB3);
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
-		wa_zq_flg = 1;
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
-		__raw_writel(SBSC_SDMRACR1A_ZQ, SBSC_SDMRACR1A);
-		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_28200);
-		__raw_writel(SBSC_SDMRA_DONE, SBSC_SDMRA_38200);
-		cntclear_time_wa_zq =
-				msecs_to_jiffies(CONFIG_RMU2_RWDT_ZQ_CALIB);
 
-		wq_wa_zq = alloc_workqueue("rmu2_rwdt_queue_wa_zq",
-					WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
-		if (NULL == wq_wa_zq) {
-			ret = -ENOMEM;
-			printk(KERN_ERR
-			"< %s > ret = %d alloc_workqueue err\n", __func__, ret);
-			goto create_workqueue_err;
-		}
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
+			wa_zq_flg = 1;
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 
-		dwork_wa_zq = kzalloc(sizeof(*dwork_wa_zq), GFP_KERNEL);
-		if (NULL == dwork_wa_zq) {
-			ret = -ENOMEM;
-			printk(KERN_ERR
-				"< %s > ret = %d dwork_wa_zq kzalloc err\n",
-				__func__, ret);
-			goto dwork_err;
+			if (sbsc_sdmracr1a) {
+				iounmap(sbsc_sdmracr1a);
+				sbsc_sdmracr1a = 0;
+			}
+
+			cntclear_time_wa_zq =
+					msecs_to_jiffies(CONFIG_RMU2_RWDT_ZQ_CALIB);
+			wq_wa_zq = alloc_workqueue("rmu2_rwdt_queue_wa_zq",
+						WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+			if (NULL == wq_wa_zq) {
+				ret = -ENOMEM;
+				printk(KERN_ERR
+				"< %s > ret = %d alloc_workqueue err\n", __func__, ret);
+				goto create_workqueue_err;
+			}
+
+			dwork_wa_zq = kzalloc(sizeof(*dwork_wa_zq), GFP_KERNEL);
+			if (NULL == dwork_wa_zq) {
+				ret = -ENOMEM;
+				printk(KERN_ERR
+					"< %s > ret = %d dwork_wa_zq kzalloc err\n",
+					__func__, ret);
+				goto dwork_err;
+			}
+			INIT_DELAYED_WORK(dwork_wa_zq, rmu2_rwdt_workfn_zq_wa);
+		} else {
+			RWDT_DEBUG("%s: ioremap failed.\n", __func__);
+			goto ioremap_err;
 		}
-		INIT_DELAYED_WORK(dwork_wa_zq, rmu2_rwdt_workfn_zq_wa);
 	}
 
 	if (1U > num_online_cpus()) {
@@ -866,6 +881,15 @@ create_workqueue_err:
 num_online_cpus_err:
 	clk_put(rmu2_rwdt_clk);
 clk_get_err:
+ioremap_err:
+	if (sbsc_sdmra_28200) {
+		iounmap(sbsc_sdmra_28200);
+		sbsc_sdmra_28200 = 0;
+	}
+	if (sbsc_sdmra_38200) {
+		iounmap(sbsc_sdmra_38200);
+		sbsc_sdmra_38200 = 0;
+	}
 
 	return ret;
 }
@@ -891,6 +915,14 @@ static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
 	if (wa_zq_flg) {
 		kfree(dwork_wa_zq);
 		destroy_workqueue(wq_wa_zq);
+		if (sbsc_sdmra_28200) {
+			iounmap(sbsc_sdmra_28200);
+			sbsc_sdmra_28200 = 0;
+		}
+		if (sbsc_sdmra_38200) {
+			iounmap(sbsc_sdmra_38200);
+			sbsc_sdmra_38200 = 0;
+		}
 	}
 
 	return 0;

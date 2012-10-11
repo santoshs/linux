@@ -89,8 +89,8 @@ static void sh_mobile_appmem_dump_appshare_list(void)
 /**************************************************/
 static void sh_mobile_appmem__init(void)
 {
-	if (app_share_initialize == 0) {
-		app_share_initialize = 1;
+	if (app_share_initialize == false) {
+		app_share_initialize = true;
 		spin_lock_init(&app_share_lock);
 	}
 }
@@ -130,7 +130,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		op.aparea_size = RT_MEMORY_APAREA_SIZE(size);
 		op.cache_kind  = RT_MEMORY_NONCACHE;
 		rc = system_memory_ap_open(&op);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_open " \
 				"error: return by %d\n", rc);
 			goto err_exit;
@@ -143,7 +143,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		mpnc.rtcache_kind = RT_MEMORY_RTMAP_WBNC;
 
 		rc = system_memory_rt_map_pnc(&mpnc);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			system_mem_ap_close clo;
 
 			printk_err("system_memory_rt_map_pnc " \
@@ -166,7 +166,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		aloc.alloc_size   = size;
 		aloc.apmem_handle = memhandle;
 		rc = system_memory_ap_alloc(&aloc);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_open " \
 				"error: return by %d\n", rc);
 			goto err_exit;
@@ -181,7 +181,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		apmem_ofs.apmem_handle = memhandle;
 		apmem_ofs.apmem_apaddr = (unsigned int)vadr;
 		rc = system_memory_ap_share_mem_offset(&apmem_ofs);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem_offset " \
 			"error: return by %d\n", rc);
 			goto err_exit;
@@ -197,7 +197,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		adr.apmem_handle = memhandle;
 		adr.apmem_apaddr = (unsigned int)vadr;
 		rc = system_memory_ap_change_rtaddr(&adr);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_change_rtaddr " \
 			"error: return by %d\n", rc);
 			goto err_exit;
@@ -255,7 +255,7 @@ err_exit:
 			fre.apmem_handle = memhandle;
 			fre.apmem_apaddr = (unsigned int)vadr;
 			rc = system_memory_ap_free(&fre);
-			if (rc != 0) {
+			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_free " \
 					"error: return by %d\n", rc);
 			}
@@ -269,7 +269,7 @@ err_exit:
 			upnc.apmem_handle = memhandle;
 			memhandle = NULL;
 			rc = system_memory_rt_unmap_pnc(&upnc);
-			if (rc != 0) {
+			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_rt_unmap_pnc " \
 					"error: return by %d\n", rc);
 			}
@@ -280,7 +280,7 @@ err_exit:
 			op_apaddr = 0;
 			op_pages  = NULL;
 			rc = system_memory_ap_close(&clo);
-			if (rc != 0) {
+			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_close " \
 					"error: return by %d\n", rc);
 			}
@@ -339,7 +339,7 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 			if (appid == tmp->app_id) {
 				/* already handle created. */
 
-				tmp->ref_count = tmp->ref_count + 1;
+				tmp->ref_count++;
 
 				mem = tmp;
 				break;
@@ -367,7 +367,7 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		area.handle = handle;
 		area.apmem_id = appid;
 		rc = system_memory_ap_share_area(&area);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_area " \
 				"error: return by %d\n", rc);
 			goto err_exit;
@@ -384,7 +384,7 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		mem.apmem_handle = memhandle;
 		mem.apmem_offset = 0;
 		rc = system_memory_ap_share_mem(&mem);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem " \
 				"error: return by %d\n", rc);
 			goto err_exit;
@@ -400,7 +400,7 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		adr.apmem_handle = memhandle;
 		adr.apmem_apaddr = (unsigned int)vadr;
 		rc = system_memory_ap_change_rtaddr(&adr);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem_offset " \
 				"error: return by %d\n", rc);
 			goto err_exit;
@@ -456,7 +456,7 @@ err_exit:
 			upnc.apmem_handle = memhandle;
 			memhandle = NULL;
 			rc = system_memory_rt_unmap_pnc(&upnc);
-			if (rc != 0) {
+			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_rt_unmap_pnc " \
 					"error: return by %d\n", rc);
 			}
@@ -467,7 +467,7 @@ err_exit:
 			op_apaddr = 0;
 			op_pages  = NULL;
 			rc = system_memory_ap_close(&clo);
-			if (rc != 0) {
+			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_close " \
 					"error: return by %d\n", rc);
 			}
@@ -545,9 +545,16 @@ unsigned long sh_mobile_appmem_getRTaddress(\
 		rtaddr.apmem_handle = appmem->memhandle;
 		rtaddr.apmem_apaddr = (unsigned long)vadr;
 		rc = system_memory_ap_change_rtaddr(&rtaddr);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_change_rtaddr " \
 				"error: return by %d\n", rc);
+#if SMAP_LIB_MEMORY_OK != 0
+			/* set error flag */
+			rc = -1;
+		} else {
+			/* clear error flag */
+			rc = 0;
+#endif
 		}
 		system_memory_info_delete(&del);
 	}
@@ -608,7 +615,7 @@ unsigned char *sh_mobile_appmem_getaddress(\
 		mem.apmem_handle = appmem->memhandle;
 		mem.apmem_offset = offset;
 		rc = system_memory_ap_share_mem(&mem);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem " \
 				"error: return by %d\n", rc);
 		} else {
@@ -679,7 +686,7 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		fre.apmem_handle = appmem->memhandle;
 		fre.apmem_apaddr = (unsigned int)appmem->vaddr + appmem->offset;
 		rc = system_memory_ap_free(&fre);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_free " \
 				"error: return by %d\n", rc);
 			rc = -EINVAL;
@@ -696,7 +703,7 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		upnc.apmem_handle = appmem->memhandle;
 		appmem->memhandle = NULL;
 		rc = system_memory_rt_unmap_pnc(&upnc);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_rt_unmap_pnc " \
 				"error: return by %d\n", rc);
 		}
@@ -707,7 +714,7 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		appmem->op_apaddr = 0;
 		appmem->op_pages  = NULL;
 		rc = system_memory_ap_close(&clo);
-		if (rc != 0) {
+		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_close " \
 				"error: return by %d\n", rc);
 			rc = -EINVAL;
