@@ -38,7 +38,7 @@
 #define DISPLAY_LOG 0
 
 
-spinlock_t clock_lock;
+static DEFINE_SPINLOCK(clock_lock);
 
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
 

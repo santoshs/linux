@@ -1267,6 +1267,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	the_cpuinfo.scaling_locked = 0;
 	the_cpuinfo.highspeed.used = false;
 	the_cpuinfo.upper_lowspeed.used = false;
+	spin_lock_init(&the_cpuinfo.lock);
 	atomic_set(&the_cpuinfo.highspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.upper_lowspeed.usage_count, 0);
 
