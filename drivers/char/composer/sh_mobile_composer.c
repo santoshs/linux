@@ -354,13 +354,16 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define NUM_OF_COMPOSER_PROHIBITE_AT_RESUME   0
 #endif
 /* macros for general error message */
+#define printk_lowerr(fmt, arg...) \
+	printk(KERN_ERR DEV_NAME ":E %s: " fmt, \
+				__func__, ## arg);
+
 #if _ERR_DBG >= 2
 #define printk_err2(fmt, arg...) \
 	do { \
 		TRACE_LOG(FUNC_NONE); \
 		if (debug > 1) \
-			printk(KERN_ERR DEV_NAME ":E %s: " \
-				fmt, __func__, ## arg); \
+			printk_lowerr(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_err2(fmt, arg...)
@@ -372,8 +375,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 	do { \
 		TRACE_LOG(FUNC_NONE); \
 		if (debug > 0) \
-			printk(KERN_ERR DEV_NAME ":E %s: " \
-				fmt, __func__, ## arg); \
+			printk_lowerr(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_err1(fmt, arg...)
@@ -382,16 +384,19 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_err(fmt, arg...) \
 	do { \
 		TRACE_LOG(FUNC_NONE); \
-		printk(KERN_ERR DEV_NAME ":E %s: " fmt, __func__, ## arg); \
+		printk_lowerr(fmt, ## arg); \
 	} while (0)
 
 /* macros for general log message */
+#define printk_lowdbg(fmt, arg...) \
+	printk(KERN_INFO DEV_NAME ": %s: " fmt, \
+				__func__, ## arg);
+
 #if _LOG_DBG >= 2
 #define printk_dbg2(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_dbg2(level, fmt, arg...)
@@ -402,8 +407,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_dbg1(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_dbg1(level, fmt, arg...)
@@ -412,8 +416,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_dbg(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 
 #define DBGENTER(fmt, arg...) printk_dbg2(2, "in  "  fmt, ## arg)
@@ -4970,6 +4973,77 @@ err_exit:
 	return rc;
 }
 
+#if _LOG_DBG >= 1
+static const char *get_RTAPImsg_memory(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_MEMORY_OK:
+		msg = "SMAP_LIB_MEMORY_OK";
+		break;
+	case SMAP_LIB_MEMORY_NG:
+		msg = "SMAP_LIB_MEMORY_NG";
+		break;
+	case SMAP_LIB_MEMORY_PARA_NG:
+		msg = "SMAP_LIB_MEMORY_PARA_NG";
+		break;
+	case SMAP_LIB_MEMORY_NO_MEMORY:
+		msg = "SMAP_LIB_MEMORY_NO_MEMORY";
+		break;
+	}
+	return msg;
+}
+
+static const char *get_RTAPImsg_graphics(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_GRAPHICS_OK:
+		msg = "SMAP_LIB_GRAPHICS_OK";
+		break;
+	case SMAP_LIB_GRAPHICS_NG:
+		msg = "SMAP_LIB_GRAPHICS_NG";
+		break;
+	case SMAP_LIB_GRAPHICS_PARAERR:
+		msg = "SMAP_LIB_GRAPHICS_PARAERR";
+		break;
+	case SMAP_LIB_GRAPHICS_SEQERR:
+		msg = "SMAP_LIB_GRAPHICS_SEQERR";
+		break;
+	case SMAP_LIB_GRAPHICS_MEMERR:
+		msg = "SMAP_LIB_GRAPHICS_MEMERR";
+		break;
+	case SMAP_LIB_GRAPHICS_INUSE:
+		msg = "SMAP_LIB_GRAPHICS_INUSE";
+		break;
+	}
+	return msg;
+}
+
+static const char *get_RTAPImsg_display(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_DISPLAY_OK:
+		msg = "SMAP_LIB_DISPLAY_OK";
+		break;
+	case SMAP_LIB_DISPLAY_NG:
+		msg = "SMAP_LIB_DISPLAY_NG";
+		break;
+	case SMAP_LIB_DISPLAY_PARAERR:
+		msg = "SMAP_LIB_DISPLAY_PARAERR";
+		break;
+	case SMAP_LIB_DISPLAY_SEQERR:
+		msg = "SMAP_LIB_DISPLAY_SEQERR";
+		break;
+	}
+	return msg;
+}
+#else
+#define get_RTAPImsg_memory(X)   ""
+#define get_RTAPImsg_graphics(X) ""
+#define get_RTAPImsg_display(X)  ""
+#endif
 
 #ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
 static void notify_graphics_image_output(int result, unsigned long user_data)
@@ -4984,6 +5058,10 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		int i;
+#endif
+		printk_err("notify_graphics_image_output result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		for (i = 0; i < MAX_KERNELREQ; i++) {
 			rh = &kernel_request[i];
 
@@ -5001,8 +5079,9 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 
 		if (result != SMAP_LIB_GRAPHICS_OK) {
 			/* report error */
-			printk_err1("notify_graphics_image_output result:%d\n",
-				result);
+			printk_err("notify_graphics_image_output "
+				"result:%d %s\n",
+				result, get_RTAPImsg_graphics(result));
 			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_ERROR;
 		} else {
 			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_NORMAL;
@@ -5058,6 +5137,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 		int    i;
 #endif
+		printk_err("notify_graphics_image_blend result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
 
 		/* record RT-API hung-up */
 		rtapi_hungup = true;
@@ -5120,7 +5201,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 	}
 
 	if (result != SMAP_LIB_GRAPHICS_OK) {
-		printk_err1("notify_graphics_image_blend result:%d\n", result);
+		printk_err("notify_graphics_image_blend result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
 		common->status = RTAPI_NOTIFY_RESULT_ERROR;
 	} else {
 		common->status = RTAPI_NOTIFY_RESULT_NORMAL;
@@ -5133,8 +5215,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 #if _LOG_DBG >= 1
 static void dump_screen_grap_initialize(screen_grap_initialize *arg)
 {
-	printk_dbg1(1, "screen_grap_initialize\n");
-	printk_dbg1(1, "  handle:%p mode:%ld\n", arg->handle, arg->mode);
+	printk_lowdbg("screen_grap_initialize\n");
+	printk_lowdbg("  handle:%p mode:%ld\n", arg->handle, arg->mode);
 }
 
 #if defined(CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE) || \
@@ -5155,8 +5237,8 @@ static void dump_address_data_to_string(
 static void dump_screen_grap_image_param(
 	screen_grap_image_param * arg, char *name)
 {
-	printk_dbg1(1, " screen_grap_image_param[%s]\n", name);
-	printk_dbg1(1, "  width:%d height:%d stride:%d stride_c:%d "
+	printk_lowdbg(" screen_grap_image_param[%s]\n", name);
+	printk_lowdbg("  width:%d height:%d stride:%d stride_c:%d "
 		"format:%d yuv_format:%d yuv_range:%d "
 		"address:(%p, %p) address_c0(%p, %p) address_c1(%p, %p)\n",
 		arg->width, arg->height, arg->stride, arg->stride_c,
@@ -5175,30 +5257,30 @@ static void dump_screen_grap_image_param(
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address;
-		printk_dbg1(2, "data in address");
+		printk_lowdbg("data in address");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 	if (arg->apmem_handle_c0 && arg->address_c0) {
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address_c0;
-		printk_dbg1(2, "data in address_c0\n");
+		printk_lowdbg("data in address_c0\n");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 	if (arg->apmem_handle_c1 && arg->address_c1) {
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address_c1;
-		printk_dbg1(2, "data in address_c1\n");
+		printk_lowdbg("data in address_c1\n");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 #endif
@@ -5212,22 +5294,29 @@ static void dump_screen_grap_layer(screen_grap_layer *arg, char *_name)
 		/* layer not opened */
 		return;
 	}
-	printk_dbg1(1, " screen_grap_layer[%s]\n", _name);
+	printk_lowdbg(" screen_grap_layer[%s]\n", _name);
 	sprintf(name, "%s.image", _name);
 	dump_screen_grap_image_param(&arg->image, name);
-	printk_dbg1(1, " %s.rect(x:%d y:%d width:%d height:%d) "
-		"alpha:%d rotate:%d mirror:%d key_color:0x%lx\n",
+	printk_lowdbg(" %s.rect(x:%d y:%d width:%d height:%d) "
+		"alpha:%d rotate:%d mirror:%d key_color:0x%lx "
+#ifdef RT_GRAPHICS_PREMULTI_OFF
+		"premultiplied:%d alpha_coef:%d "
+#endif
+		"\n",
 		name,
 		arg->rect.x, arg->rect.y, arg->rect.width, arg->rect.height,
-		arg->alpha, arg->rotate, arg->mirror, arg->key_color);
+		arg->alpha, arg->rotate, arg->mirror, arg->key_color
+#ifdef RT_GRAPHICS_PREMULTI_OFF
+		, arg->premultiplied, arg->alpha_coef
+#endif
+		);
 }
 
 static void dump_screen_grap_image_blend(screen_grap_image_blend *arg)
 {
-	printk_dbg1(1, "screen_grap_image_blend\n");
+	printk_lowdbg("screen_grap_image_blend\n");
 
-	printk_dbg1(1,
-		"  handle:%p input_layer:(%p %p %p %p) "
+	printk_lowdbg("  handle:%p input_layer:(%p %p %p %p) "
 		"background_color:0x%lx user_data:0x%lx\n",
 		arg->handle, arg->input_layer[0], arg->input_layer[1],
 		arg->input_layer[2], arg->input_layer[3],
@@ -5241,29 +5330,43 @@ static void dump_screen_grap_image_blend(screen_grap_image_blend *arg)
 
 static void dump_screen_grap_quit(screen_grap_quit *arg)
 {
-	printk_dbg1(1, "screen_grap_quit\n");
-	printk_dbg1(1, "  handle:%p mode:%ld\n", arg->handle, arg->mode);
+	printk_lowdbg("screen_grap_quit\n");
+	printk_lowdbg("  handle:%p mode:%ld\n", arg->handle, arg->mode);
 }
 
 static void dump_screen_grap_delete(screen_grap_delete *arg)
 {
-	printk_dbg1(1, "screen_grap_delete\n");
-	printk_dbg1(1, "  handle:%p\n", arg->handle);
+	printk_lowdbg("screen_grap_delete\n");
+	printk_lowdbg("  handle:%p\n", arg->handle);
 }
 
 #ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
 static void dump_screen_grap_image_output(screen_grap_image_output *arg)
 {
-	printk_dbg1(1, "screen_grap_image_output\n");
-	printk_dbg1(1, "  handle:%p\n", arg->handle);
+	printk_lowdbg("screen_grap_image_output\n");
+	printk_lowdbg("  handle:%p\n", arg->handle);
 	dump_screen_grap_image_param(&arg->output_image, "output_image");
-	printk_dbg1(1, "  rotate:%d user_data:0x%lx\n",
+	printk_lowdbg("  rotate:%d user_data:0x%lx\n",
 		arg->rotate, arg->user_data);
 }
 #endif /*  SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1 */
 #endif
 
+static void dump_screen_disp_set_address(screen_disp_set_address *arg)
+{
+	printk_lowdbg("screen_disp_set_address\n");
+	printk_lowdbg("  handle:%p output_mode:%d address:0x%x size:0x%x\n",
+		arg->handle,  arg->output_mode, arg->address, arg->size);
+}
+
+static void dump_system_mem_phy_change_rtaddr(
+	system_mem_phy_change_rtaddr *arg)
+{
+	printk_lowdbg("system_memory_phy_change_rtaddr"
+		" handle:%p phys_addr:0x%x\n",
+		arg->handle, arg->phys_addr);
+}
 #endif
 
 static void work_deletehandle(struct localwork *work)
@@ -5288,17 +5391,23 @@ static void work_deletehandle(struct localwork *work)
 		_quit.handle  = graphic_handle;
 		_quit.mode = RT_GRAPHICS_MODE_IMAGE_BLEND;
 #if _LOG_DBG >= 1
-		dump_screen_grap_quit(&_quit);
+		if (3 <= debug)
+			dump_screen_grap_quit(&_quit);
 #endif
 		rc = screen_graphics_quit(&_quit);
 		if (rc != SMAP_LIB_GRAPHICS_OK) {
 			/* error report */
-			printk_err("screen_graphics_image_quit "
-				"return by %d.\n", rc);
+			printk_err("screen_graphics_quit "
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+			dump_screen_grap_quit(&_quit);
+#endif
 		}
 
 #if _LOG_DBG >= 1
-		dump_screen_grap_delete(&_del);
+		if (3 <= debug)
+			dump_screen_grap_delete(&_del);
 #endif
 		screen_graphics_delete(&_del);
 		graphic_handle = NULL;
@@ -5351,13 +5460,17 @@ static void work_createhandle(struct localwork *work)
 		_ini.handle   = graphic_handle;
 		_ini.mode = RT_GRAPHICS_MODE_IMAGE_BLEND;
 #if _LOG_DBG >= 1
-		dump_screen_grap_initialize(&_ini);
+		if (3 <= debug)
+			dump_screen_grap_initialize(&_ini);
 #endif
 		rc = screen_graphics_initialize(&_ini);
 		if (rc != SMAP_LIB_GRAPHICS_OK) {
-			printk_err1("screen_graphics_initialize "
-				"return by %d.\n", rc);
-
+			printk_err("screen_graphics_initialize "
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+			dump_screen_grap_initialize(&_ini);
+#endif
 			work_deletehandle(work);
 		}
 	} else {
@@ -5441,17 +5554,23 @@ static void work_deletehandle_hdmi(struct localwork *work)
 			_quit.handle  = graphic_handle_hdmi;
 			_quit.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
 #if _LOG_DBG >= 1
-			dump_screen_grap_quit(&_quit);
+			if (3 <= debug)
+				dump_screen_grap_quit(&_quit);
 #endif
 			rc = screen_graphics_quit(&_quit);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
 				/* error report */
-				printk_err("screen_graphics_image_quit "
-					"return by %d.\n", rc);
+				printk_err("screen_graphics_quit "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				dump_screen_grap_quit(&_quit);
+#endif
 			}
 
 #if _LOG_DBG >= 1
-			dump_screen_grap_delete(&_del);
+			if (3 <= debug)
+				dump_screen_grap_delete(&_del);
 #endif
 			screen_graphics_delete(&_del);
 			graphic_handle_hdmi = NULL;
@@ -5507,14 +5626,28 @@ static void work_createhandle_hdmi(struct localwork *work)
 			_ini.handle   = graphic_handle_hdmi;
 			_ini.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
 #if _LOG_DBG >= 1
-			dump_screen_grap_initialize(&_ini);
+			if (3 <= debug)
+				dump_screen_grap_initialize(&_ini);
 #endif
 			rc = screen_graphics_initialize(&_ini);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
-				printk_err1("screen_graphics_initialize "
-					"return by %d.\n", rc);
+				screen_grap_delete _del;
+				_del.handle   = graphic_handle_hdmi;
 
-				work_deletehandle_hdmi(work);
+				printk_err1("screen_graphics_initialize "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				if (1 <= debug)
+					dump_screen_grap_initialize(&_ini);
+#endif
+
+#if _LOG_DBG >= 1
+				if (3 <= debug)
+					dump_screen_grap_delete(&_del);
+#endif
+				screen_graphics_delete(&_del);
+				graphic_handle_hdmi = NULL;
 			}
 		} else {
 			/* eror report */
@@ -5589,14 +5722,19 @@ static void work_overlay(struct localwork *work)
 			_out.user_data = (unsigned long)rh;
 
 #if _LOG_DBG >= 1
-			dump_screen_grap_image_output(&_out);
+			if (3 <= debug)
+				dump_screen_grap_image_output(&_out);
 #endif
 
 			common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 			rc = screen_graphics_image_output(&_out);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
 				printk_err("screen_graphics_image_output "
-					"return by %d.\n", rc);
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				dump_screen_grap_image_output(&_out);
+#endif
 
 				rc = CMP_NG;
 				goto finish;
@@ -5620,6 +5758,9 @@ static void work_overlay(struct localwork *work)
 				rc = CMP_OK;
 			} else {
 				printk_err1("callback result is error.\n");
+#if _ERR_DBG >= 1
+				dump_screen_grap_image_output(&_out);
+#endif
 				rc = CMP_NG;
 			}
 		}
@@ -5851,12 +5992,17 @@ static void work_runblend(struct localwork *work)
 	(*common->_blend).handle = graphic_handle;
 
 #if _LOG_DBG >= 1
-	dump_screen_grap_image_blend(common->_blend);
+	if (3 <= debug)
+		dump_screen_grap_image_blend(common->_blend);
 #endif
 
 	rc = screen_graphics_image_blend(common->_blend);
 	if (rc != SMAP_LIB_GRAPHICS_OK) {
-		printk_err("screen_graphics_image_blend return by %d.\n", rc);
+		printk_err("screen_graphics_image_blend return by %d %s.\n",
+			rc, get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+		dump_screen_grap_image_blend(common->_blend);
+#endif
 		rc = CMP_NG;
 		goto finish3;
 	}
@@ -5877,6 +6023,9 @@ static void work_runblend(struct localwork *work)
 		rc = CMP_OK;
 	} else {
 		printk_err1("callback result is error.\n");
+#if _ERR_DBG >= 1
+		dump_screen_grap_image_blend(common->_blend);
+#endif
 		rc = CMP_NG;
 	}
 finish3:
@@ -5907,7 +6056,8 @@ static void callback_iocs_start(int result, void *user_data)
 	DBGENTER("result:%d user_data:%p\n", result, user_data);
 
 #if _LOG_DBG >= 2
-	dump_screen_grap_image_param(&fh->grap_data._blend.output_image,
+	if (4 <= debug)
+		dump_screen_grap_image_param(&fh->grap_data._blend.output_image,
 		"output_image");
 #endif
 
@@ -6266,6 +6416,11 @@ static int second_fb_register_rtmemory(unsigned long *args)
 			addr.address     = fb_addr;
 			addr.size        = fb_size;
 
+#if _LOG_DBG >= 1
+			if (3 <= debug)
+				dump_screen_disp_set_address(&addr);
+#endif
+
 			rc = screen_display_set_address(&addr);
 
 			del.handle = handle;
@@ -6273,8 +6428,12 @@ static int second_fb_register_rtmemory(unsigned long *args)
 
 			if (rc != SMAP_LIB_DISPLAY_OK) {
 				/* report error */
-				printk_err1("screen_display_set_address "
-					"return by %d.\n", rc);
+				printk_err("screen_display_set_address "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_display(rc));
+#if _ERR_DBG >= 1
+				dump_screen_disp_set_address(&addr);
+#endif
 				goto err_exit;
 			}
 		}
@@ -6608,15 +6767,20 @@ static unsigned char *composer_get_RT_address(unsigned char *address)
 			adr.phys_addr = p_addr;
 			adr.rtaddr    = 0;
 
-			printk_dbg1(1, "system_memory_phy_change_rtaddr"
-				"handle:%p phys_addr:0x%x\n",
-					adr.handle, adr.phys_addr);
+#if _LOG_DBG >= 1
+			if (3 <= debug)
+				dump_system_mem_phy_change_rtaddr(&adr);
+#endif
 
 			rc = system_memory_phy_change_rtaddr(&adr);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				/* report error */
 				printk_err("system_memory_phy_change_rtaddr"
-					" return by %d.\n", rc);
+					" return by %d %s.\n", rc,
+					get_RTAPImsg_memory(rc));
+#if _ERR_DBG >= 1
+				dump_system_mem_phy_change_rtaddr(&adr);
+#endif
 			} else {
 				rt_addr = (unsigned char *)adr.rtaddr;
 			}

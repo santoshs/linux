@@ -28,6 +28,7 @@
 
 #define DEV_NAME      "composer"
 
+#define DEBUG_RTAPI_ARGUMENT 1
 
 /******************************************************/
 /* define local variables for App Memory handling     */
@@ -38,17 +39,139 @@ static LIST_HEAD(app_share_top);
 static int         debug;
 static LIST_HEAD(rt_physaddr_top);
 
+#define printk_lowdbg(fmt, arg...) \
+	printk(KERN_INFO DEV_NAME ": %s: " fmt, \
+				__func__, ## arg);
+
 #define printk_dbg(level, fmt, arg...) \
 	do { \
 		if (level <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 
 #define printk_err(fmt, arg...) \
 	do { \
 		printk(KERN_ERR DEV_NAME ":E %s: " fmt, __func__, ## arg); \
 	} while (0)
+
+/**************************************************/
+/* implementation for dump arguments of RT-API.   */
+/**************************************************/
+#if DEBUG_RTAPI_ARGUMENT
+static const char *get_RTAPImsg_memory(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_MEMORY_OK:
+		msg = "SMAP_LIB_MEMORY_OK";
+		break;
+	case SMAP_LIB_MEMORY_NG:
+		msg = "SMAP_LIB_MEMORY_NG";
+		break;
+	case SMAP_LIB_MEMORY_PARA_NG:
+		msg = "SMAP_LIB_MEMORY_PARA_NG";
+		break;
+	case SMAP_LIB_MEMORY_NO_MEMORY:
+		msg = "SMAP_LIB_MEMORY_NO_MEMORY";
+		break;
+	}
+	return msg;
+}
+#else
+#define get_RTAPImsg_memory(X) ""
+#endif
+
+#if DEBUG_RTAPI_ARGUMENT
+static void dump_system_memory_ap_open(system_mem_ap_open *op)
+{
+	printk_lowdbg("system_memory_ap_open "
+		"handle:%p aparea_size:0%x cache_kind:%d\n",
+		op->handle, op->aparea_size, op->cache_kind);
+}
+
+static void dump_system_memory_rt_map_pnc(system_mem_rt_map_pnc *mpnc)
+{
+	printk_lowdbg("system_memory_rt_map_pnc "
+		"handle:%p apaddr:0%x map_size:0x%x "
+		"pages:%p rtcache_kind:%d\n",
+		mpnc->handle, mpnc->apaddr, mpnc->map_size,
+		mpnc->pages, mpnc->rtcache_kind);
+}
+
+static void dump_system_memory_ap_close(system_mem_ap_close *clo)
+{
+	printk_lowdbg("system_memory_ap_close "
+		"handle:%p apaddr:0%x pages:%p\n",
+		clo->handle, clo->apaddr, clo->pages);
+}
+
+static void dump_system_memory_ap_alloc(system_mem_ap_alloc *aloc)
+{
+	printk_lowdbg("system_memory_ap_alloc "
+		"handle:%p apaddr:0%x apmem_handle:%p\n",
+		aloc->handle, aloc->alloc_size, aloc->apmem_handle);
+}
+
+static void dump_system_memory_ap_share_mem_offset(
+	system_mem_ap_share_mem_offset * ofs)
+{
+	printk_lowdbg("system_memory_ap_share_mem_offset "
+		"handle:%p apmem_handle:%p apmem_apaddr:0x%x\n",
+		ofs->handle, ofs->apmem_handle, ofs->apmem_apaddr);
+}
+
+static void dump_system_memory_ap_change_rtaddr(
+	system_mem_ap_change_rtaddr * adr)
+{
+	printk_lowdbg("system_memory_ap_change_rtaddr "
+		"handle:%p cache_kind:%d, "
+		"apmem_handle:%p apmem_apaddr:0x%x\n",
+		adr->handle, adr->cache_kind,
+		adr->apmem_handle, adr->apmem_apaddr);
+}
+
+static void dump_system_memory_ap_free(system_mem_ap_free *fre)
+{
+	printk_lowdbg("system_memory_ap_free "
+		"handle:%p apmem_handle:%p apmem_apaddr:0x%x\n",
+		fre->handle, fre->apmem_handle, fre->apmem_apaddr);
+}
+
+static void dump_system_memory_rt_unmap_pnc(system_mem_rt_unmap_pnc *upnc)
+{
+	printk_lowdbg("system_memory_rt_unmap_pnc "
+		"handle:%p apmem_handle:%p\n",
+		upnc->handle, upnc->apmem_handle);
+}
+
+static void dump_system_memory_ap_share_area(system_mem_ap_share_area *area)
+{
+	printk_lowdbg("system_memory_ap_share_area "
+		"handle:%p apmem_id:%d\n",
+		area->handle, area->apmem_id);
+}
+
+static void dump_system_memory_ap_share_mem(system_mem_ap_share_mem *mem)
+{
+	printk_lowdbg("system_memory_ap_share_mem "
+		"handle:%p apmem_handle:%p\n",
+		mem->handle, mem->apmem_handle);
+}
+
+static void dump_system_memory_rt_map(system_mem_rt_map *map)
+{
+	printk_lowdbg("system_memory_rt_map "
+		"handle:%p phys_addr:0x%x map_size:0x%x\n",
+		map->handle, map->phys_addr, map->map_size);
+}
+
+static void dump_system_memory_rt_unmap(system_mem_rt_unmap *umap)
+{
+	printk_lowdbg("system_memory_rt_unmap "
+		"handle:%p rtaddr:0x%x map_size:0x%x\n",
+		umap->handle, umap->rtaddr, umap->map_size);
+}
+#endif /* DEBUG_RTAPI_ARGUMENT */
 
 /**************************************************/
 /* implementation for app memory handling         */
@@ -127,12 +250,17 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		system_mem_rt_map_pnc  mpnc;
 
 		op.handle      = handle;
-		op.aparea_size = RT_MEMORY_APAREA_SIZE(size);
+		op.aparea_size = RT_MEMORY_APAREA_SIZE(
+			RT_MEMORY_APMEM_SIZE(size));
 		op.cache_kind  = RT_MEMORY_NONCACHE;
 		rc = system_memory_ap_open(&op);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_open " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_open(&op);
+#endif
 			goto err_exit;
 		}
 
@@ -147,11 +275,24 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 			system_mem_ap_close clo;
 
 			printk_err("system_memory_rt_map_pnc " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_rt_map_pnc(&mpnc);
+#endif
 
 			clo.handle = handle;
 			clo.apaddr = op.apaddr;
 			clo.pages  = op.pages;
+			rc = system_memory_ap_close(&clo);
+			if (rc != SMAP_LIB_MEMORY_OK) {
+				printk_err("system_memory_ap_close " \
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_ap_close(&clo);
+#endif
+			}
 			goto err_exit;
 		}
 
@@ -167,8 +308,12 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		aloc.apmem_handle = memhandle;
 		rc = system_memory_ap_alloc(&aloc);
 		if (rc != SMAP_LIB_MEMORY_OK) {
-			printk_err("system_memory_ap_open " \
-				"error: return by %d\n", rc);
+			printk_err("system_memory_ap_alloc " \
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_alloc(&aloc);
+#endif
 			goto err_exit;
 		}
 		vadr = (unsigned char *)aloc.apmem_apaddr;
@@ -183,7 +328,11 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		rc = system_memory_ap_share_mem_offset(&apmem_ofs);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem_offset " \
-			"error: return by %d\n", rc);
+			"error: return by %d %s\n", rc,
+			get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_share_mem_offset(&apmem_ofs);
+#endif
 			goto err_exit;
 		}
 		offset = apmem_ofs.apmem_offset;
@@ -199,7 +348,11 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		rc = system_memory_ap_change_rtaddr(&adr);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_change_rtaddr " \
-			"error: return by %d\n", rc);
+			"error: return by %d %s\n", rc,
+			get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_change_rtaddr(&adr);
+#endif
 			goto err_exit;
 		}
 		rt_adr = adr.apmem_rtaddr;
@@ -257,7 +410,11 @@ err_exit:
 			rc = system_memory_ap_free(&fre);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_free " \
-					"error: return by %d\n", rc);
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_ap_free(&fre);
+#endif
 			}
 			vadr = NULL;
 		}
@@ -271,7 +428,11 @@ err_exit:
 			rc = system_memory_rt_unmap_pnc(&upnc);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_rt_unmap_pnc " \
-					"error: return by %d\n", rc);
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_rt_unmap_pnc(&upnc);
+#endif
 			}
 
 			clo.handle = handle;
@@ -282,7 +443,11 @@ err_exit:
 			rc = system_memory_ap_close(&clo);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_close " \
-					"error: return by %d\n", rc);
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_ap_close(&clo);
+#endif
 			}
 		}
 	}
@@ -369,7 +534,11 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		rc = system_memory_ap_share_area(&area);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_area " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_share_area(&area);
+#endif
 			goto err_exit;
 		}
 		memhandle = area.apmem_handle;
@@ -386,7 +555,11 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		rc = system_memory_ap_share_mem(&mem);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_share_mem(&mem);
+#endif
 			goto err_exit;
 		}
 		vadr = (unsigned char *)mem.apmem_apaddr;
@@ -401,8 +574,12 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		adr.apmem_apaddr = (unsigned int)vadr;
 		rc = system_memory_ap_change_rtaddr(&adr);
 		if (rc != SMAP_LIB_MEMORY_OK) {
-			printk_err("system_memory_ap_share_mem_offset " \
-				"error: return by %d\n", rc);
+			printk_err("system_memory_ap_change_rtaddr " \
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_change_rtaddr(&adr);
+#endif
 			goto err_exit;
 		}
 		rt_adr = adr.apmem_rtaddr;
@@ -458,7 +635,11 @@ err_exit:
 			rc = system_memory_rt_unmap_pnc(&upnc);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_rt_unmap_pnc " \
-					"error: return by %d\n", rc);
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_rt_unmap_pnc(&upnc);
+#endif
 			}
 
 			clo.handle = handle;
@@ -469,7 +650,11 @@ err_exit:
 			rc = system_memory_ap_close(&clo);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_ap_close " \
-					"error: return by %d\n", rc);
+					"error: return by %d %s\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_ap_close(&clo);
+#endif
 			}
 		}
 	}
@@ -547,7 +732,11 @@ unsigned long sh_mobile_appmem_getRTaddress(\
 		rc = system_memory_ap_change_rtaddr(&rtaddr);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_change_rtaddr " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_change_rtaddr(&rtaddr);
+#endif
 #if SMAP_LIB_MEMORY_OK != 0
 			/* set error flag */
 			rc = -1;
@@ -617,7 +806,11 @@ unsigned char *sh_mobile_appmem_getaddress(\
 		rc = system_memory_ap_share_mem(&mem);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_share_mem " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_share_mem(&mem);
+#endif
 		} else {
 			/* update vadr */
 			vadr = (unsigned char *)mem.apmem_apaddr;
@@ -688,7 +881,11 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		rc = system_memory_ap_free(&fre);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_free " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_free(&fre);
+#endif
 			rc = -EINVAL;
 			/* fall through, assume memory free */
 		}
@@ -705,7 +902,11 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		rc = system_memory_rt_unmap_pnc(&upnc);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_rt_unmap_pnc " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_rt_unmap_pnc(&upnc);
+#endif
 		}
 
 		clo.handle = handle;
@@ -716,7 +917,11 @@ int sh_mobile_appmem_free(struct appmem_handle *appmem)
 		rc = system_memory_ap_close(&clo);
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_ap_close " \
-				"error: return by %d\n", rc);
+				"error: return by %d %s\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_ap_close(&clo);
+#endif
 			rc = -EINVAL;
 			/* fall through, assume close success */
 		}
@@ -855,7 +1060,11 @@ struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
 
 		rc = system_memory_rt_map(&map);
 		if (rc != SMAP_LIB_MEMORY_OK) {
-			printk_err("system_memory_rt_map return by %d.\n", rc);
+			printk_err("system_memory_rt_map return by %d %s.\n",
+				rc, get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_rt_map(&map);
+#endif
 			goto err_exit;
 		}
 		rtaddr = map.rtaddr;
@@ -903,7 +1112,11 @@ err_exit:
 
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				printk_err("system_memory_rt_unmap "
-					"return by %d.\n", rc);
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+				dump_system_memory_rt_unmap(&unmap);
+#endif
 			}
 			rtaddr = 0;
 		}
@@ -991,7 +1204,11 @@ void sh_mobile_rtmem_physarea_unregister(
 
 		if (rc != SMAP_LIB_MEMORY_OK) {
 			printk_err("system_memory_rt_unmap "
-				"return by %d.\n", rc);
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_memory(rc));
+#if DEBUG_RTAPI_ARGUMENT
+			dump_system_memory_rt_unmap(&unmap);
+#endif
 		}
 	}
 
