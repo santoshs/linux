@@ -14,6 +14,12 @@
 #include <linux/socket.h>
 
 #include <net/sock.h>
+#define ACTIVATE_L2MUX_STAT
+
+#ifdef ACTIVATE_L2MUX_STAT
+#include <linux/list.h>
+#include <linux/time.h>
+#endif /* ACTIVATE_L2MUX_STAT */
 
 
 /* Official L3 protocol IDs */
@@ -44,6 +50,32 @@ struct l2muxhdr {
 	__u8	l3_len[3];
 	__u8	l3_prot;
 } __attribute__((packed));
+
+#ifdef ACTIVATE_L2MUX_STAT
+
+enum l2mux_direction {
+	UPLINK_DIR = 0,
+	DOWNLINK_DIR,
+};
+
+enum l2mux_trace_state {
+	ON = 0,
+	OFF,
+	KERNEL,
+};
+
+
+struct l2muxstat {
+	unsigned l3pid;
+	unsigned l3len;
+	enum l2mux_direction dir;
+	struct timeval time_val;
+	struct list_head list;
+	unsigned int stat_counter;
+};
+
+#endif /* ACTIVATE_L2MUX_STAT */
+
 
 #define L2MUX_HDR_SIZE  (sizeof(struct l2muxhdr))
 
