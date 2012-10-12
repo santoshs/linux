@@ -72,6 +72,9 @@ struct semaphore			g_rtds_memory_mpro_sem;
 spinlock_t					g_rtds_memory_lock_mpro;
 struct list_head			g_rtds_memory_list_shared_mem;
 struct semaphore			g_rtds_memory_shared_mem;
+struct list_head			g_rtds_memory_list_map_rtmem;
+spinlock_t					g_rtds_memory_lock_map_rtmem;
+struct list_head			g_rtds_memory_list_reg_phymem;
 struct semaphore			g_rtds_memory_phy_mem;
 
 /*******************************************************************************
@@ -510,17 +513,22 @@ int rtds_memory_init_module(
 	memset(&g_rtds_memory_list_create_mem, 0, sizeof(g_rtds_memory_list_create_mem));
 	memset(&g_rtds_memory_list_mpro, 0, sizeof(g_rtds_memory_list_mpro));
 	memset(&g_rtds_memory_list_shared_mem, 0, sizeof(g_rtds_memory_list_shared_mem));
+	memset(&g_rtds_memory_list_map_rtmem, 0, sizeof(g_rtds_memory_list_map_rtmem));
+	memset(&g_rtds_memory_list_reg_phymem, 0, sizeof(g_rtds_memory_list_reg_phymem));
 
 	INIT_LIST_HEAD(&g_rtds_memory_list_rcv_event);
 	INIT_LIST_HEAD(&g_rtds_memory_list_create_mem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_mpro);
 	INIT_LIST_HEAD(&g_rtds_memory_list_shared_mem);
+	INIT_LIST_HEAD(&g_rtds_memory_list_map_rtmem);
+	INIT_LIST_HEAD(&g_rtds_memory_list_reg_phymem);
 
 	/* Initialise spin_lock */
 	spin_lock_init(&g_rtds_memory_lock_recv_queue);
 	spin_lock_init(&g_rtds_memory_lock_cache_all);
 	spin_lock_init(&g_rtds_memory_lock_create_mem);
 	spin_lock_init(&g_rtds_memory_lock_mpro);
+	spin_lock_init(&g_rtds_memory_lock_map_rtmem);
 
 	/* Initialise completion */
 	init_completion(&g_rtds_memory_completion);

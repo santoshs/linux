@@ -117,6 +117,7 @@ typedef struct {
 } rtds_memory_create_queue;
 
 typedef struct {
+	struct list_head	list_header;
 	unsigned long   phy_addr;
 	unsigned long   map_size;
 	unsigned long   rt_addr;

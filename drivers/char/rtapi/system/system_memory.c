@@ -1920,8 +1920,11 @@ int system_memory_reg_phymem(
 	case SMAP_OK:
 		ret_code = SMAP_LIB_MEMORY_OK;
 		break;
-	default:
+	case SMAP_PARA_NG:
 		ret_code = SMAP_LIB_MEMORY_PARA_NG;
+		break;
+	default:
+		ret_code += RT_MEMORY_SYSTEM_ERR;
 		MSG_ERROR("[RTAPIK]ERR|[%s]rtds_memory_drv_reg_phymem ret_code = %d\n", __func__, ret_code);
 		break;
 	}

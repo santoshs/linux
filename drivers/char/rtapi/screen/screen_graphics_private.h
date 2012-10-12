@@ -24,14 +24,13 @@
 
 #define GET_RT_CACHE_ADDRESS(addr) \
 ( \
-	((0x80000000UL <= (unsigned long)addr) \
-	  && (0x88000000UL >  (unsigned long)addr)) \
+	((0x8E000000UL <= (unsigned long)addr) \
+	  && (0x96000000UL >  (unsigned long)addr)) \
 	? \
-	(unsigned char *)(((unsigned long)addr & 0x07FFFFFF) | 0x88000000) \
+	(unsigned char *)((unsigned long)addr - 0x0C000000) \
 	: \
 	addr \
 )
-
 
 typedef struct {
 	void *handle;
