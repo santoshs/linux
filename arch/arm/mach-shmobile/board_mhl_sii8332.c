@@ -115,8 +115,6 @@ extern void sii9234_power_onoff(bool on)
 		/*s3c_gpio_setpull(GPIO_HDMI_HPD, S3C_GPIO_PULL_NONE);*/
 		gpio_set_value(GPIO_MHL_EN, 1);
 
-		udelay(1000);
-
 //		gpio_set_value(GPIO_MHL_EN, 0);
 
 		/* todo: configure pull for i2c pad*/
