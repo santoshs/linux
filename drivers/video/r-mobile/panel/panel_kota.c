@@ -263,6 +263,7 @@ static int kota_dsi_startsetting(int draw_flag)
 		disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
 		disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
 		disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+		disp_draw.buffer_id = RT_DISPLAY_BUFFER_A;
 		disp_draw.buffer_offset = 0;
 		disp_draw.rotate = RT_DISPLAY_ROTATE_270;
 		ret = screen_display_draw(&disp_draw);
@@ -351,6 +352,7 @@ static int kota_panel_init(unsigned int mem_size)
 
 	set_address.handle = screen_handle;
 	set_address.output_mode = RT_DISPLAY_LCD1;
+	set_address.buffer_id = RT_DISPLAY_BUFFER_A;
 	set_address.address = R_MOBILE_M_BUFF_ADDR;
 	set_address.size = mem_size;
 	ret = screen_display_set_address(&set_address);

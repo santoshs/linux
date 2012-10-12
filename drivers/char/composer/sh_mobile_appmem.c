@@ -798,6 +798,42 @@ struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
 
 	printk_dbg(1, "size:0x%x phys:0x%lx\n", size, phys_addr);
 
+/* confirm already mapped. */
+	{
+		unsigned long flags;
+		struct list_head *list;
+
+		rc = false;
+		spin_lock_irqsave(&app_share_lock, flags);
+		list_for_each(list, &rt_physaddr_top)
+		{
+			unsigned long adr_low, adr_high;
+			struct rtmem_phys_handle *info;
+
+			info = list_entry((void *)list,
+				struct rtmem_phys_handle, list);
+
+			adr_low  =           info->phys_addr;
+			adr_high = adr_low + info->size;
+
+			if ((adr_low < phys_addr + size) &&
+				(adr_high > phys_addr)) {
+				/* this memory block has collision. */
+				printk_dbg(1, "found collision: 0x%lx-0x%lx\n",
+					adr_low, adr_high);
+				rc = true;
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&app_share_lock, flags);
+
+		if (rc) {
+			printk_err("register 0x%lx has collision not mapped.\n",
+				phys_addr);
+			goto err_exit;
+		}
+	}
+
 /* map rt-physical address */
 
 	handle = system_memory_info_new();
