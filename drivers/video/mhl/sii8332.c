@@ -81,6 +81,8 @@ int mhl_plugedin_state = 0;
 static int outputformat;
 static int minverticalrate;
 static int maxverticalrate;
+static int minhorizontalrate;
+static int maxhorizontalrate;
 static struct mhl_tx *mhlglobal;
 static int count = 0;
 static int resumed = 1;
@@ -3149,16 +3151,18 @@ static bool ParseDetailedTiming(struct mhl_tx *mhl, u8 DetailedTimingOffset, u8 
 				////printk("Monitor Range Limits:\n\n");
 
 				i = 0;
-				//printk("Min Vertical Rate in Hz: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
 				minverticalrate = (int) edidBlockData[DetailedTimingOffset + 5 + i++];
-				//printk("Max Vertical Rate in Hz: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
+				printk("Min Vertical Rate in Hz: %d\n", minverticalrate); //
 				maxverticalrate = (int) edidBlockData[DetailedTimingOffset + 5 + i++];
-				//printk("Min Horizontal Rate in Hz: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
-				//printk("Max Horizontal Rate in Hz: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
-				//printk("Max Supported pixel clock rate in MHz/10: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
-				//printk("Tag for secondary timing formula (00h=not used): %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
-				//printk("Min Vertical Rate in Hz %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i]); //
-				////printk("\n");
+				printk("Max Vertical Rate in Hz: %d\n", maxverticalrate); //
+				minhorizontalrate = (int) edidBlockData[DetailedTimingOffset + 5 + i++];
+				printk("Min Horizontal Rate in Hz: %d\n", minhorizontalrate); //
+				maxhorizontalrate = (int) edidBlockData[DetailedTimingOffset + 5 + i++];
+				printk("Max Horizontal Rate in Hz: %d\n", maxhorizontalrate); //
+				printk("Max Supported pixel clock rate in MHz/10: %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
+				printk("Tag for secondary timing formula (00h=not used): %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i++]); //
+				printk("Min Vertical Rate in Hz %d\n", (int) edidBlockData[DetailedTimingOffset + 5 + i]); //
+				printk("\n");
 			}
 		}
 
@@ -6205,11 +6209,11 @@ static int __devinit simgC8_probe(struct i2c_client *client, const struct i2c_de
 	mutex_init(&mhl->cbus_cmd_lock);
 	mutex_init(&mhl->pdata->mhl_status_lock);
   	mhl->client = client;
-	mhl->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+/*	mhl->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	mhl->early_suspend.suspend = mhl_early_suspend;
 	mhl->early_suspend.resume = mhl_late_resume;
 	register_early_suspend(&mhl->early_suspend);
-
+*/
 	i2c_set_clientdata(client, mhl);
 	init_waitqueue_head(&mhl->cbus_hanler_wq);  
 	init_waitqueue_head(&mhl->avi_control_wq);  
@@ -6223,7 +6227,7 @@ static int __devinit simgC8_probe(struct i2c_client *client, const struct i2c_de
 	* MIPI HDMI 
 	* Port request for Master clock for MHL */
 	
-	ret = gpio_request(GPIO_FN_VIO_CKO5, NULL);
+//	ret = gpio_request(GPIO_FN_VIO_CKO5, NULL);
 	
 	
 
@@ -6309,20 +6313,16 @@ static int mhl_resume(struct mhl_tx *mhl)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mhl_early_suspend(struct early_suspend *h)
 {
-/*	struct mhl_tx *mhl;
+	struct mhl_tx *mhl;
 	mhl = container_of(h, struct mhl_tx, early_suspend);
-	mhl_suspend(&mhl->client->dev,PMSG_SUSPEND);*/
-	if(resumed)
-		mhl_suspend(mhlglobal);
+//	mhl_suspend(&mhl->client->dev,PMSG_SUSPEND);
 }
 
 static void mhl_late_resume(struct early_suspend *h)
 {
-/*	struct mhl_tx *mhl;
+	struct mhl_tx *mhl;
 	mhl = container_of(h, struct mhl_tx, early_suspend);
-//	mhl_resume(&mhl->client->dev);*/
-	if(!resumed)
-		mhl_resume(mhlglobal);
+//	mhl_resume(&mhl->client->dev);
 }
 #endif
 
