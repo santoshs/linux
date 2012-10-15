@@ -73,20 +73,18 @@ extern struct semaphore		g_rtds_memory_mpro_sem;					/* Semaphore(Mpro) */
 
 extern struct list_head		g_rtds_memory_list_shared_mem;
 extern struct semaphore		g_rtds_memory_shared_mem;
+extern struct list_head		g_rtds_memory_list_reg_phymem;
 extern struct semaphore		g_rtds_memory_phy_mem;
 
 static struct vm_operations_struct	g_rtds_memory_vm_ops = {
 			.close = rtds_memory_drv_close_vma,
 };
 
-static rtds_memory_phymem_table phy_mem   = {
-	.phy_addr	   = 0,
-	.map_size	   = 0,
-	.rt_addr		= 0
-};
-
 extern struct list_head	g_rtds_memory_list_create_mem;
 extern spinlock_t		g_rtds_memory_lock_create_mem;
+
+extern struct list_head	g_rtds_memory_list_map_rtmem;
+extern spinlock_t		g_rtds_memory_lock_map_rtmem;
 
 /**** prototype ****/
 static unsigned long rtds_memory_tablewalk(unsigned long virt_addr);
@@ -617,24 +615,93 @@ int rtds_memory_open_shared_rtmem(
 	unsigned long				*rt_addr
 )
 {
-	int ret_code = SMAP_OK;
+	int							ret_code = RTDS_MEM_ERR_MAPPING;
+	unsigned long				flag;
+	rtds_memory_rtmem_table		*rtmem_table = NULL;
+	rtds_memory_rtmem_table		*entry_p = NULL;
+	rtds_memory_rtmem_table		*temp_p = NULL;
+
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |phy_addr[0x%08X]\n", (u32)phy_addr);
 	MSG_MED("[RTDSK]   |map_size[%d]\n", map_size);
 
-	map_data->cache_kind	= cache;
-	map_data->data_ent		= false;
-	map_data->mapping_flag	= RTDS_MEM_MAPPING_RTMEM;
+	spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
 
-	down_write(&current->mm->mmap_sem);
-	*rt_addr = do_mmap_pgoff(fp, 0, map_size, PROT_READ|PROT_WRITE,
-			MAP_SHARED, phy_addr >> PAGE_SHIFT);
-	up_write(&current->mm->mmap_sem);
-
-	if (0 != (*rt_addr & RTDS_MEM_ADDR_ERR)) {
-		ret_code = RTDS_MEM_ERR_MAPPING;
+	/* Search and entry list */
+	list_for_each_entry(entry_p, &g_rtds_memory_list_map_rtmem, list_head) {
+		MSG_LOW("[RTDSK]   |current->tgid[%d], tgid[%d]\n", (u32)current->tgid, (u32)entry_p->tgid);
+		if (current->tgid == entry_p->tgid) {
+			rtmem_table = entry_p;
+			rtmem_table->open_count++;
+			*rt_addr = rtmem_table->rt_addr;
+			break;
+		}
 	}
 
+	MSG_LOW("[RTDSK]   |temp entry_p[0x%08X]\n", (u32)rtmem_table);
+	spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+
+	if (NULL == rtmem_table) {
+
+		rtmem_table = kmalloc(sizeof(*rtmem_table), GFP_KERNEL);
+		if (NULL == rtmem_table) {
+			MSG_ERROR("[RTDSK]ERR|kmalloc failed.\n");
+			goto out;
+		}
+
+		map_data->cache_kind	= cache;
+		map_data->data_ent		= true;
+		map_data->mapping_flag	= RTDS_MEM_MAPPING_RTMEM;
+
+		ret_code = rtds_memory_do_map(fp, rt_addr, (unsigned long)map_size, (phy_addr >> PAGE_SHIFT));
+		if (SMAP_OK != ret_code) {
+			kfree(rtmem_table);
+			goto out;
+		}
+
+		spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
+
+		/* Search and entry list */
+		list_for_each_entry(entry_p, &g_rtds_memory_list_map_rtmem, list_head) {
+			MSG_LOW("[RTDSK]   |current->tgid[%d], tgid[%d]\n", (u32)current->tgid, (u32)entry_p->tgid);
+			if (current->tgid == entry_p->tgid) {
+				temp_p = entry_p;
+				rtmem_table->rt_addr = *rt_addr;
+				temp_p->open_count++;
+				*rt_addr = temp_p->rt_addr;
+				break;
+			}
+		}
+
+		MSG_LOW("[RTDSK]   |temp entry_p[0x%08X]\n", (u32)temp_p);
+
+		if (NULL == temp_p) {
+
+			memset(rtmem_table, 0, sizeof(rtds_memory_rtmem_table));
+			rtmem_table->tgid		= current->tgid;
+			rtmem_table->rt_addr	= *rt_addr;
+			rtmem_table->open_count	= 1;
+			list_add_tail(&rtmem_table->list_head, &g_rtds_memory_list_map_rtmem);
+
+			spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+
+		} else {
+
+			spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+
+			MSG_LOW("[RTDSK]   |RT domain has been already mapped.\n");
+			rtds_memory_do_unmap(rtmem_table->rt_addr, (unsigned long)map_size);
+			kfree(rtmem_table);
+		}
+	}
+
+	MSG_MED("[RTDSK]   |rtmem_table             [0x%08X]\n", (u32)rtmem_table);
+	MSG_MED("[RTDSK]   |rtmem_table->tgid       [%d]\n", (u32)rtmem_table->tgid);
+	MSG_MED("[RTDSK]   |rtmem_table->rt_addr    [0x%08X]\n", (u32)rtmem_table->rt_addr);
+	MSG_MED("[RTDSK]   |rtmem_table->open_count [%d]\n", (u32)rtmem_table->open_count);
+	ret_code = SMAP_OK;
+
+out:
 	MSG_MED("[RTDSK]   |rt_addr[0x%08X]\n", (u32)*rt_addr);
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
@@ -654,13 +721,50 @@ int rtds_memory_close_shared_rtmem(
 )
 {
 	int ret_code = SMAP_OK;
+	unsigned long				flag;
+	rtds_memory_rtmem_table		*rtmem_table = NULL;
+	rtds_memory_rtmem_table		*temp_p = NULL;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |address[0x%08X]\n", (u32)address);
 	MSG_MED("[RTDSK]   |map_size[%d]\n", map_size);
 
-	rtds_memory_do_unmap(address, (unsigned long)map_size);
+	spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
 
+	if (0 != list_empty(&g_rtds_memory_list_map_rtmem)) {
+		spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+		MSG_ERROR("[RTDSK]ERR|List is empty.\n");
+		goto out;
+	}
+
+	/* Search and entry list */
+	list_for_each_entry(rtmem_table, &g_rtds_memory_list_map_rtmem, list_head) {
+		if ((address == rtmem_table->rt_addr) &&
+			(current->tgid == rtmem_table->tgid)) {
+			MSG_MED("[RTDSK]   |rtmem_table             [0x%08X]\n", (u32)rtmem_table);
+			MSG_MED("[RTDSK]   |rtmem_table->tgid       [%d]\n", (u32)rtmem_table->tgid);
+			MSG_MED("[RTDSK]   |rtmem_table->rt_addr    [0x%08X]\n", (u32)rtmem_table->rt_addr);
+			MSG_MED("[RTDSK]   |rtmem_table->open_count [%d]\n", (u32)rtmem_table->open_count);
+			temp_p = rtmem_table;
+
+			rtmem_table->open_count--;
+			if (0 == rtmem_table->open_count) {
+				list_del(&rtmem_table->list_head);
+				spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+				kfree(rtmem_table);
+				rtds_memory_do_unmap(address, (unsigned long)map_size);
+				spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
+			}
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+
+	if (NULL == temp_p)
+		MSG_ERROR("[RTDSK]ERR| List is not found.\n");
+
+out:
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
 }
@@ -2177,9 +2281,9 @@ int rtds_memory_map_pnc_mpro(
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		down(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
+		ret_code = mem_table->error_code;
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
-		ret_code = mem_table->error_code;
 		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
@@ -2683,6 +2787,8 @@ void rtds_memory_drv_close_vma(
 )
 {
 	rtds_memory_app_memory_table	*mem_table;
+	rtds_memory_rtmem_table			*rtmem_table;
+	unsigned long					flag;
 	int								ret;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
@@ -2751,6 +2857,17 @@ void rtds_memory_drv_close_vma(
 
 		/* check page frame */
 		rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
+
+		/* check map_rtmem list */
+		spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
+		list_for_each_entry(rtmem_table, &g_rtds_memory_list_map_rtmem, list_head) {
+			if (current->tgid == rtmem_table->tgid) {
+				list_del(&rtmem_table->list_head);
+				kfree(rtmem_table);
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
 	}
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
@@ -3023,7 +3140,7 @@ int rtds_memory_do_map(
 							pgoff);
 	up_write(&current->mm->mmap_sem);
 
-	MSG_MED("[RTDSK]   |do_mmap_pgoff_addr [0x%08X]\n", (u32)addr);
+	MSG_MED("[RTDSK]   |do_mmap_pgoff_addr [0x%08X]\n", (u32)*addr);
 
 	/* Address check(PAGE alignment) */
 	if ((0 != (*addr & RTDS_MEM_ADDR_ERR)) || (0 == *addr)) {
@@ -3954,11 +4071,28 @@ int rtds_memory_reg_kernel_phymem(
 	MSG_MED("[RTDSK]   |rt_addr [0x%08X]\n", (u32)rt_addr);
 
 	down(&g_rtds_memory_phy_mem);
-	phymem_table = &phy_mem;
-	memset(phymem_table, 0, sizeof(*phymem_table));
+	list_for_each_entry(phymem_table, &g_rtds_memory_list_reg_phymem, list_header) {
+		if ((phymem_table->phy_addr <= phy_addr) &&
+			(phy_addr < (phymem_table->phy_addr + phymem_table->map_size))) {
+			ret_code = SMAP_PARA_NG;
+			goto out;
+		}
+	}
+
+	phymem_table = kmalloc(sizeof(rtds_memory_phymem_table), GFP_KERNEL);
+	if (NULL == phymem_table) {
+		MSG_ERROR("[RTDSK]ERR| kmalloc() failed\n");
+		ret_code = SMAP_MEMORY;
+		goto out;
+	}
+
 	phymem_table->phy_addr	= phy_addr;
 	phymem_table->map_size	= map_size;
 	phymem_table->rt_addr	= rt_addr;
+
+	list_add_tail(&phymem_table->list_header, &g_rtds_memory_list_reg_phymem);
+
+out:
 	up(&g_rtds_memory_phy_mem);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
@@ -3981,37 +4115,27 @@ int rtds_memory_unreg_kernel_phymem(
 ){
 	int ret_code = SMAP_OK;
 	rtds_memory_phymem_table *phymem_table = NULL;
-	rtds_memory_phymem_table *tmp_phymem_table = NULL;
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |phy_addr[0x%08X]\n", (u32)phy_addr);
 	MSG_MED("[RTDSK]   |map_size[%d]\n", (u32)map_size);
 	MSG_MED("[RTDSK]   |rt_addr [0x%08X]\n", (u32)rt_addr);
 
 	down(&g_rtds_memory_phy_mem);
-	tmp_phymem_table = &phy_mem;
-	if (phy_addr == tmp_phymem_table->phy_addr) {
-		phymem_table = tmp_phymem_table;
-		MSG_LOW("[RTDSK]   |phymem exist.\n");
+	list_for_each_entry(phymem_table, &g_rtds_memory_list_reg_phymem, list_header) {
+		if ((phymem_table->phy_addr == phy_addr) &&
+			(phymem_table->map_size == map_size) &&
+			(phymem_table->rt_addr == rt_addr)) {
+				list_del(&phymem_table->list_header);
+				kfree(phymem_table);
+				goto out;
+		}
 	}
-	if (NULL == phymem_table) {
-		up(&g_rtds_memory_phy_mem);
-		MSG_HIGH("[RTDSK]   |phymem info. not found.\n");
-		goto out;
-	}
-	if ((map_size != phymem_table->map_size) ||
-		(rt_addr != phymem_table->rt_addr)) {
-		up(&g_rtds_memory_phy_mem);
-		ret_code = SMAP_PARA_NG;
-		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-		MSG_LOW("[RTDSK]   |map_size[0x%08X] phymem_table->map_size[0x%08X]\n", (u32)map_size, (u32)phymem_table->map_size);
-		MSG_LOW("[RTDSK]   |rt_addr [0x%08X] phymem_table->rt_addr [0x%08X]\n", (u32)rt_addr,  (u32)phymem_table->rt_addr);
-		goto out;
-	}
-	phymem_table->phy_addr	= 0;
-	phymem_table->map_size	= 0;
-	phymem_table->rt_addr	= 0;
-	up(&g_rtds_memory_phy_mem);
+
+	ret_code = SMAP_PARA_NG;
+	MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+
 out:
+	up(&g_rtds_memory_phy_mem);
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
 }
@@ -4035,11 +4159,12 @@ int rtds_memory_change_kernel_phymem_address(
 	MSG_MED("[RTDSK]   |phy_addr[0x%08X]\n", (u32)phy_addr);
 
 	down(&g_rtds_memory_phy_mem);
-	tmp_phymem_table = &phy_mem;
-	if ((phy_addr >= tmp_phymem_table->phy_addr) &&
-		(phy_addr < (tmp_phymem_table->phy_addr + tmp_phymem_table->map_size))) {
-		phymem_table = tmp_phymem_table;
-		MSG_LOW("[RTDSK]   |phy_addr OK");
+	list_for_each_entry(tmp_phymem_table, &g_rtds_memory_list_reg_phymem, list_header) {
+		if ((phy_addr >= tmp_phymem_table->phy_addr) &&
+			(phy_addr < (tmp_phymem_table->phy_addr + tmp_phymem_table->map_size))) {
+			phymem_table = tmp_phymem_table;
+			break;
+		}
 	}
 	if (NULL == phymem_table) {
 		up(&g_rtds_memory_phy_mem);
@@ -4047,7 +4172,7 @@ int rtds_memory_change_kernel_phymem_address(
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		goto out;
 	}
-	*rt_addr	= phymem_table->rt_addr + (phy_addr - phymem_table->phy_addr);
+	*rt_addr = phymem_table->rt_addr + (phy_addr - phymem_table->phy_addr);
 	up(&g_rtds_memory_phy_mem);
 
 	MSG_MED("[RTDSK]   |rt_addr [0x%08X]\n", (u32)*rt_addr);
