@@ -755,6 +755,10 @@ int acm_bind_config(struct usb_configuration *c, u8 port_num)
 
 		acm_iad_descriptor.iFunction = status;
 	}
+	if (port_num == 0) /* make the first ACM instance as a modem device */
+		acm_data_interface_desc.bInterfaceProtocol = 0x00;
+	else if (port_num == 1) /* make the second ACM instance as a serial comm. device */
+		acm_data_interface_desc.bInterfaceProtocol = 0xFF;
 
 	/* allocate and initialize one new instance */
 	acm = kzalloc(sizeof *acm, GFP_KERNEL);
