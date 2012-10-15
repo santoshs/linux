@@ -642,6 +642,7 @@ extern void vcd_spuv_func_get_fw_request(void);
 
 extern void vcd_spuv_func_set_hpb_register(void);
 extern void vcd_spuv_func_set_cpg_register(void);
+
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);
 extern void vcd_spuv_func_end_wait(void);

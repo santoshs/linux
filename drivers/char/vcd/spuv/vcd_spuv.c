@@ -427,10 +427,15 @@ int vcd_spuv_start_call(void)
 
 		/* SRC initialize */
 		/* UL : proc_param[1], DL : proc_param[2], spuv : 16kHz */
-		vcd_spuv_func_resampler_init(
+		ret = vcd_spuv_func_resampler_init(
 			proc_param[1],
 			proc_param[2],
 			16000);
+		if (VCD_ERR_NONE != ret) {
+			/* close resampler */
+			vcd_spuv_func_resampler_close();
+			goto rtn;
+		}
 	}
 
 	/* wait path set */
@@ -444,7 +449,11 @@ int vcd_spuv_start_call(void)
 
 	/* check result */
 	ret = vcd_spuv_check_result();
-
+	if ((VCD_ERR_NONE != ret) && (VCD_CALL_TYPE_VOIP == proc_param[0])) {
+		/* close resampler */
+		vcd_spuv_func_resampler_close();
+	}
+rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -485,6 +494,9 @@ int vcd_spuv_stop_call(void)
 
 	/* check result */
 	ret = vcd_spuv_check_result();
+
+	/* close resampler */
+	vcd_spuv_func_resampler_close();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
