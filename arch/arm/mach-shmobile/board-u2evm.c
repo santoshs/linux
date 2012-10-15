@@ -2617,6 +2617,8 @@ static void __init u2evm_init(void)
  		}
  	}
 
+	if (-1 == pub_stm_select) stm_select = -1;
+
 	printk("pub_stm_select=%d\n", pub_stm_select);
 
 	r8a73734_pinmux_init();
