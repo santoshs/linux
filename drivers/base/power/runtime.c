@@ -8,7 +8,7 @@
  *
  * This file is released under the GPLv2.
  */
- 
+
 #include <linux/sched.h>
 #include <linux/pm_runtime.h>
 #include "power.h"
@@ -85,7 +85,8 @@ static void pm_runtime_cancel_pending(struct device *dev)
 }
 
 /*
- * pm_runtime_autosuspend_expiration - Get a device's autosuspend-delay expiration time.
+ * pm_runtime_autosuspend_expiration - Get a device's autosuspend-delay
+ * expiration time.
  * @dev: Device to handle.
  *
  * Compute the autosuspend-delay expiration time based on the device's
@@ -459,7 +460,7 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 		spin_lock(&dev->power.lock);
 	}
 #endif /* CONFIG_PDC */
-	
+
  out:
 	dev_dbg(dev, "%s returns %d\n", __func__, retval);
 
@@ -554,7 +555,8 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	 * the resume will actually succeed.
 	 */
 	if (dev->power.no_callbacks && !parent && dev->parent) {
-		spin_lock_nested(&dev->parent->power.lock, SINGLE_DEPTH_NESTING);
+		spin_lock_nested(&dev->parent->power.lock, \
+					SINGLE_DEPTH_NESTING);
 		if (dev->parent->power.disable_depth > 0
 		    || dev->parent->power.ignore_children
 		    || dev->parent->power.runtime_status == RPM_ACTIVE) {
@@ -616,7 +618,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	}
  skip_parent:
 
-	if (dev->power.no_callbacks){
+	if (dev->power.no_callbacks) {
 #ifdef CONFIG_PDC
 		if (pdi) {
 			spin_unlock(&dev->power.lock);
@@ -626,7 +628,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 #endif /* CONFIG_PDC */
 		goto no_callback;	/* Assume success. */
 	}
-	
+
 	__update_runtime_status(dev, RPM_RESUMING);
 #ifdef CONFIG_PDC
 		if (pdi) {
@@ -635,7 +637,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 			spin_lock(&dev->power.lock);
 		}
 #endif /* CONFIG_PDC */
-	
+
 	if (dev->pwr_domain)
 		callback = dev->pwr_domain->ops.runtime_resume;
 	else if (dev->type && dev->type->pm)
@@ -917,7 +919,7 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 
 	if (status != RPM_ACTIVE && status != RPM_SUSPENDED)
 		return -EINVAL;
-	
+
 #ifdef CONFIG_PDC
 	(void)power_domain_devices(dev_name(dev), power_devs, &power_dev_cnt);
 #endif /* CONFIG_PDC */
@@ -963,7 +965,7 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 		if (error)
 			goto out;
 	}
-	
+
 #ifdef CONFIG_PDC
 	for (i = 0; i < power_dev_cnt; i++) {
 		pm_runtime_get_noresume(power_devs[i]);
@@ -971,9 +973,8 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 		if (RPM_ACTIVE != power_devs[i]->power.runtime_status) {
 			spin_unlock_irqrestore(&dev->power.lock, flags);
 
-			for (; 0 <= i; i--) {
+			for (; 0 <= i; i--)
 				pm_runtime_put(power_devs[i]);
-			}
 
 			if (parent) {
 				atomic_dec(&parent->power.child_count);
@@ -995,9 +996,8 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 
 #ifdef CONFIG_PDC
 	if (notify_power_dev) {
-		for (i = 0; i < power_dev_cnt; i++) {
+		for (i = 0; i < power_dev_cnt; i++)
 			(void)pm_runtime_put(power_devs[i]);
-		}
 	}
 #endif /* CONFIG_PDC */
 
@@ -1163,23 +1163,23 @@ void pm_runtime_enable(struct device *dev)
 
 	spin_lock_irqsave(&dev->power.lock, flags);
 #ifdef CONFIG_PDC
-		if (dev->power.disable_depth > 0) {
-			dev->power.disable_depth--;
-			if (!dev->power.subsys_data) {
-				pdi = kzalloc(sizeof(*pdi), GFP_KERNEL);
-				if (!pdi) {
-					dev_err(dev, "Not enough memory fo runtime PM data.\n");
-					spin_unlock_irqrestore(&dev->power.lock, flags);
-					return;
-				}			
-				(void)power_domain_devices(dev_name(dev), pdi->devs, &pdi->cnt);
-				if (pdi->cnt !=0) {
-					dev->power.subsys_data = pdi;
-				} else {
-					kfree(pdi);
-				}
+	if (dev->power.disable_depth > 0) {
+		dev->power.disable_depth--;
+		if (!dev->power.subsys_data) {
+			pdi = kzalloc(sizeof(*pdi), GFP_KERNEL);
+			if (!pdi) {
+				dev_err(dev, "Not enough memory for runtime PM data.\n");
+				spin_unlock_irqrestore(&dev->power.lock, flags);
+				return;
 			}
+			(void)power_domain_devices(dev_name(dev), \
+						pdi->devs, &pdi->cnt);
+			if (pdi->cnt != 0)
+				dev->power.subsys_data = pdi;
+			else
+				kfree(pdi);
 		}
+	}
 #else
 	if (dev->power.disable_depth > 0)
 		dev->power.disable_depth--;
