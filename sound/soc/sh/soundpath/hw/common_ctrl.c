@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 #include <sound/soundpath/common_extern.h>
 #include "common_ctrl.h"
+#include "scuw_ctrl.h"
 #include <mach/common.h>
 #include <mach/r8a73734.h>
 #include <linux/hwspinlock.h>
@@ -178,6 +179,20 @@ static int scuw_ioremap(void)
 		return -ENOMEM;
 	}
 
+	/* Get SCUW(CPUFIFO2) Logical Address */
+	g_scuw_Base_CPUFIFO2 =
+		(u_long)ioremap_nocache(SCUW_PHY_BASE_CPUFIFO2,
+					SUCW_MAP_LEN_CPUFIFO2);
+	if (0 >= g_scuw_Base_CPUFIFO2) {
+		sndp_log_err("error scuw(CPUFIFO2) ioremap failed\n");
+		/* Release SCUW Logical Address */
+		iounmap((void *)g_scuw_Base);
+		g_scuw_Base = 0;
+		iounmap((void *)g_scuw_Base_FFD);
+		g_scuw_Base_FFD = 0;
+		return -ENOMEM;
+	}
+
 	/* Successfull all */
 	return ERROR_NONE;
 }
@@ -285,6 +300,11 @@ static void scuw_iounmap(void)
 	if (0 < g_scuw_Base_FFD) {
 		iounmap((void *)g_scuw_Base_FFD);
 		g_scuw_Base_FFD = 0;
+	}
+	/* Release SCUW Logical Address to CPUFIFO2 */
+	if (0 < g_scuw_Base_CPUFIFO2) {
+		iounmap((void *)g_scuw_Base_CPUFIFO2);
+		g_scuw_Base_CPUFIFO2 = 0;
 	}
 }
 
@@ -514,6 +534,7 @@ void common_set_register(
 {
 	/* Local variable declaration */
 	int	i;
+	int addr;
 
 	sndp_log_debug_func("start\n");
 
@@ -549,17 +570,32 @@ void common_set_register(
 		/* Register setting */
 		} else {
 			/* CLKGEN */
-			if (SNDP_HW_CLKGEN == drv)
+			if (SNDP_HW_CLKGEN == drv) {
 				iowrite32(reg_tbl[i].uiValue,
 					  (g_clkgen_Base + reg_tbl[i].uiReg));
 			/* FSI */
-			else if (SNDP_HW_FSI == drv)
+			} else if (SNDP_HW_FSI == drv) {
 				iowrite32(reg_tbl[i].uiValue,
 					  (g_fsi_Base + reg_tbl[i].uiReg));
 			/* SCUW */
-			else
-				iowrite32(reg_tbl[i].uiValue,
-					  (g_scuw_Base + reg_tbl[i].uiReg));
+			} else {
+				if ((SCUW_FFDIR_FFD <= reg_tbl[i].uiReg) &&
+				    (reg_tbl[i].uiReg <= SCUW_DEVCR_FFD)) {
+					addr = reg_tbl[i].uiReg -
+							SCUW_PHY_BASE_FFD;
+					iowrite32(reg_tbl[i].uiValue,
+						  (g_scuw_Base_FFD + addr));
+				} else if ((SCUW_CF2IR <= reg_tbl[i].uiReg) &&
+					   (reg_tbl[i].uiReg <= SCUW_CF2EVCR)) {
+					addr = reg_tbl[i].uiReg -
+							SCUW_PHY_BASE_CPUFIFO2;
+					iowrite32(reg_tbl[i].uiValue,
+						(g_scuw_Base_CPUFIFO2 + addr));
+				} else {
+					iowrite32(reg_tbl[i].uiValue,
+						(g_scuw_Base + reg_tbl[i].uiReg));
+				}
+			}
 		}
 	}
 
@@ -676,6 +712,10 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 		}
 	}
+
+	sndp_log_info("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));
+	sndp_log_info("CPG_FSIACKCR[0x%08x]\n", ioread32(CPG_FSIACKCR));
+	sndp_log_info("CPG_FSIBCKCR[0x%08x]\n", ioread32(CPG_FSIBCKCR));
 
 	sndp_log_debug_func("end\n");
 }

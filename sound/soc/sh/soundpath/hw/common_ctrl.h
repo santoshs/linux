@@ -64,6 +64,12 @@
 #define SCUW_REG_MAX_FFD	(0x00020)
 /* SCUW FFD physical address mapped size. */
 #define SUCW_MAP_LEN_FFD	(SCUW_REG_MAX_FFD + 4)
+/* SCUW FFD physical address top. */
+#define SCUW_PHY_BASE_CPUFIFO2	(0xEC768000)
+/* SCUW FFD physical address offset size. */
+#define SCUW_REG_MAX_CPUFIFO2	(0x00020)
+/* SCUW FFD physical address mapped size. */
+#define SUCW_MAP_LEN_CPUFIFO2	(SCUW_REG_MAX_CPUFIFO2 + 4)
 
 #define CLKGEN_PHY_BASE		(0xEC270000)
 #define CLKGEN_REG_MAX		(0x0098)

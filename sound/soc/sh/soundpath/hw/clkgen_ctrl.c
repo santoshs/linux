@@ -179,8 +179,8 @@ static struct common_reg_table clkgen_reg_tbl_playBA_M[] = {
 static struct common_reg_table clkgen_reg_tbl_playBA_S[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000003, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR
+	{ CLKG_TIMSEL1,	 0x04000200, 0, 0x04000200 }, /* REC TIM1(PortA) */
+	{ CLKG_FSISEL,	 0x00200003, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR
 					      * 1:Select FSIBOBT/FSIBOLR */
 };
 

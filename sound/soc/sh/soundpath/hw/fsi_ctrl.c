@@ -188,13 +188,13 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 /*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
-	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	/* Divider clock 1 / 73 (112.125 / 73 = 1.53MHz) */
 	{ FSI_FSIDIVA,	0x00490003,	0, 0 },
-	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	/* 32 fs, 16bit/fs, DIIS:Slave, DOIS:Master, 47.998kHz(1.53M/32) */
 	{ FSI_ACK_MD,	0x00004001,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ FSI_ACK_RV,	0x00000100,	0, 0 },
-	/* 24bits, PCM format, I2S */
+	/* 16bits, PCM format, I2S */
 	{ FSI_DO_FMT,	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
@@ -224,13 +224,13 @@ static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 /*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
-	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	/* Divider clock 1 / 73 (112.125 / 73 = 1.53MHz) */
 	{ FSI_FSIDIVB,				0x00490003,	0, 0 },
-	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
+	/* 32 fs, 16bit/fs, DIIS:Slave, DOIS:Master, 47.998kHz(1.53M/32) */
 	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00004001,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
-	/* 24bits, PCM format, I2S */
+	/* 16bits, PCM format, I2S */
 	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
@@ -258,13 +258,13 @@ static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
 /*	  Reg		Value		D  C */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
-	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	/* Divider clock 1 / 73 (112.125 / 73 = 1.53MHz) */
 	{ FSI_FSIDIVA,	0x00490003,	0, 0 },
-	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ FSI_ACK_MD,	0x00004001,	0, 0 },
+	/* 32 fs, 16bit/fs, DIIS:Master, DOIS:Slave, 47.998kHz(1.53M/32) */
+	{ FSI_ACK_MD,	0x00004010,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ FSI_ACK_RV,	0x00000100,	0, 0 },
-	/* 24bits, PCM format, I2S */
+	/* 32bits, PCM format, I2S */
 	{ FSI_DI_FMT,	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,	0x00001111,	0, 0 },
@@ -292,13 +292,13 @@ static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
 /*	  Reg					Value		D  C */
 	/* Bus clock(MP clock) */
 	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
-	/* Divider clock 1 / 2 (22.5789 / 2 = 11.2895MHz) */
+	/* Divider clock 1 / 73 (112.125 / 73 = 1.53MHz) */
 	{ FSI_FSIDIVB,				0x00490003,	0, 0 },
-	/* 256 fs, 64bit/fs, DIIS:Slave, DOIS:Master, 44.099kHz(11.29M/256) */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00001110,	0, 0 },
+	/* 32 fs, 16bit/fs, DIIS:Master, DOIS:Slave, 47.998kHz(1.53/32) */
+	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00004010,	0, 0 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00004001,	0, 0 },
-	/* 24bits, PCM format, I2S */
+	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
+	/* 16bits, PCM format, I2S */
 	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00100030,	0, 0 },
 	/* MUTE OFF */
 	{ FSI_MUTE,				0x00001111,	0, 0 },
@@ -468,6 +468,8 @@ static void fsi_playback(const u_int uiValue)
 	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
+	u_long	diff_st_reg	= g_fsi_Base + FSI_PORTB_OFFSET + FSI_DIFF_ST;
+	u_int	wait_cnt = 0;
 
 	sndp_log_debug_func("start\n");
 
@@ -523,6 +525,18 @@ static void fsi_playback(const u_int uiValue)
 		} else {
 			reg_tbl  = fsi_reg_tbl_playA_M;
 			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
+
+			wait_cnt = FSI_DIFF_ST_WAIT_COUNT;
+			while (wait_cnt--) {
+				if (FSI_DIFF_ST_WAIT_SIZE <
+				((0x0000ff00 & ioread32(diff_st_reg)) >> 8))
+					break;
+
+				udelay(FSI_DIFF_ST_WAIT_TIME);
+			}
+
+			sndp_log_info("OUT FSI_DIFF_ST[0x%08x] wait_cnt[%d]\n",
+				ioread32(diff_st_reg), wait_cnt);
 		}
 
 		/* Register setting function call */

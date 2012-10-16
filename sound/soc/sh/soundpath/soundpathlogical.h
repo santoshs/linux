@@ -39,6 +39,9 @@ extern void fsi_set_slave(const bool slave);
 extern int fsi_dai_startup_bt(
 		struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai);
+extern int fsi_dai_trigger_in_fm(
+		struct snd_pcm_substream *substream,
+		int cmd, struct snd_soc_dai *dai);
 
 /*
  *
@@ -145,6 +148,13 @@ static void sndp_incomm_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
+/* Trigger process for fm */
+static void sndp_fm_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value);
+
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
 
@@ -184,6 +194,16 @@ static void sndp_work_call_playback_incomm_stop(struct work_struct *work);
 /* Work queue function for Stop during a capture incommunication */
 static void sndp_work_call_capture_incomm_stop(struct work_struct *work);
 
+
+/* Work queue processing for Start during a fm playback */
+static void sndp_work_fm_playback_start(struct work_struct *work);
+/* Work queue processing for Start during a fm capture */
+static void sndp_work_fm_capture_start(struct work_struct *work);
+/* Work queue processing for Stop during a fm playback */
+static void sndp_work_fm_playback_stop(struct work_struct *work);
+/* Work queue processing for Stop during a fm capture */
+static void sndp_work_fm_capture_stop(struct work_struct *work);
+
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
@@ -212,6 +232,11 @@ static void sndp_work_stop(
 /* Incommunication */
 static void sndp_work_incomm_start(const u_int new_value);
 static void sndp_work_incomm_stop(void);
+/* SoundPath start / stop control functions */
+static void sndp_fm_work_start(const int direction);
+static void sndp_fm_work_stop(
+	struct work_struct *work,
+	const int direction);
 
 /* Voice stop and Normal device change */
 /* (Post-processing of this sndp_work_call_capture_stop()) */
