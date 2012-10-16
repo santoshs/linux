@@ -44,6 +44,7 @@
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 #include <linux/hwspinlock.h>
+#include <linux/ctype.h>
 
 
 #ifdef PMIC_DEBUG_ENABLE
@@ -59,11 +60,16 @@
 static struct timer_list bat_timer;
 static void tps80032_battery_timer_handler(unsigned long data);
 static short BAT_VOLT_THRESHOLD[100];
+static int LDO_VOLT_VALUE[24];
+static int LDO_STATE_REG[7];
+static int LDO_VOLT_REG[7];
 static struct input_dev *button_dev;
 static u8 key_count;
 static u8 clk_state[3] = {0};
 static int num_vbat[5];
 static int num_volt;
+static int state_sleep[7];
+static int volt_sleep[7];
 struct hwspinlock *r8a73734_hwlock_pmic;
 
 static wait_queue_head_t tps80032_modem_reset_event;
@@ -74,6 +80,8 @@ static void tps80032_int_chrg_work(void);
 static void tps80032_vac_charger_work(void);
 static void tps80032_interrupt_work(void);
 static void tps80032_ext_work(void);
+static struct class *power_ctrl_class;
+static struct device_type power_ctrl_dev_type;
 
 struct tps80032_data {
 	struct device *dev;
@@ -127,6 +135,577 @@ struct tps80032_data {
 
 
 static struct tps80032_data *data;
+/* Declare variable for LDO SysFS control */
+struct power_ctrl control_ldo[RESOURCE_POWER_CTRL_PROP_MAX];
+static struct device_attribute power_ctrl_attrs[];
+static const struct attribute_group *power_ctrl_attr_groups[];
+static struct attribute_group power_ctrl_attr_group;
+static struct attribute *__power_ctrl_attrs[];
+
+#define POWER_CTRL_ATTR(_name)				\
+{							\
+	.attr = { .name = #_name },			\
+	.show = power_ctrl_show_property,		\
+	.store = power_ctrl_store_property,		\
+}
+
+static enum power_ctrl_property pmic_power_props[] = {
+	POWER_CTRL_PROP_STATE,
+	POWER_CTRL_PROP_STATE_SLEEP,
+	POWER_CTRL_PROP_VOLTAGE,
+	POWER_CTRL_PROP_VOLTAGE_SLEEP,
+};
+
+/*
+ * power_ctrl_show_property:
+ * input: void
+ * return: void
+ */
+static ssize_t power_ctrl_show_property(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct power_ctrl *pwctrl = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_ctrl_attrs;
+	union power_ctrl_propval value;
+
+	static char *state_text[] = {
+		"UNKNOWN", "ON", "OFF"
+	};
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	ret = pwctrl->get_property(pwctrl, off, &value);
+
+	if (0 > ret) {
+		PMIC_ERROR_MSG("Driver has no data for `%s' property\n",
+				attr->attr.name);
+		return ret;
+	}
+
+	if ((POWER_CTRL_PROP_STATE == off)
+		|| (POWER_CTRL_PROP_STATE_SLEEP == off))
+		return sprintf(buf, "%s\n", state_text[value.intval]);
+
+	if (POWER_CTRL_PROP_VOLTAGE == off)
+		return sprintf(buf, "%dmV\n", value.intval);
+
+	if ((POWER_CTRL_PROP_VOLTAGE_SLEEP == off)
+		&& (0 != value.intval))
+		return sprintf(buf, "%dmV\n", value.intval);
+	else if (POWER_CTRL_PROP_VOLTAGE_SLEEP == off)
+		return sprintf(buf, "%s\n", state_text[value.intval]);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return sprintf(buf, "%d\n", value.intval);
+}
+
+/*
+ * power_ctrl_store_property:
+ */
+static ssize_t power_ctrl_store_property(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int ret = 0;
+	struct power_ctrl *pwctrl = dev_get_drvdata(dev);
+	const ptrdiff_t off = attr - power_ctrl_attrs;
+	union power_ctrl_propval value;
+	long long_val;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	ret = kstrtol(buf, 10, &long_val);
+	if (ret < 0)
+		return ret;
+
+	value.intval = long_val;
+
+	ret = pwctrl->set_property(pwctrl, off, &value);
+	if (ret < 0)
+		return ret;
+
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return count;
+}
+
+/*
+ * power_ctrl_attr_is_visible:
+ */
+static mode_t power_ctrl_attr_is_visible(struct kobject *kobj,
+					struct attribute *attr, int attrno)
+
+{
+	struct device *dev = container_of(kobj, struct device, kobj);
+	struct power_ctrl *pwctrl = dev_get_drvdata(dev);
+	mode_t mode = S_IRUSR | S_IRGRP | S_IROTH;
+	int i;
+	int property;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	for (i = 0; i < pwctrl->num_properties; i++) {
+		property = pwctrl->properties[i];
+
+		if (property == attrno) {
+			if (pwctrl->property_is_writeable &&
+			pwctrl->property_is_writeable(pwctrl, property) > 0)
+				mode |= S_IWUSR;
+
+			return mode;
+		}
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return 0;
+}
+
+static char *kstruprdup(const char *str, gfp_t gfp)
+{
+	char *ret, *ustr;
+
+	ustr = ret = kmalloc(strlen(str) + 1, gfp);
+
+	if (!ret)
+		return NULL;
+
+	while (*str)
+		*ustr++ = toupper(*str++);
+
+	*ustr = 0;
+
+	return ret;
+}
+
+/*
+ * power_ctrl_uevent: get all ldo information
+ * @dev: The device struct.
+ * @env: kobj uevent environment.
+ * return:
+ *        = 0: Normal operation
+ */
+int power_ctrl_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	struct device_attribute *attr;
+	char *line;
+	int ret = 0, j;
+	char *prop_buf;
+	char *attrname;
+	struct power_ctrl *pwctrl = dev_get_drvdata(dev);
+
+	ret = add_uevent_var(env, "POWER_CTRL_NAME=%s", pwctrl->name);
+	if (ret)
+		return ret;
+
+	prop_buf = (char *)get_zeroed_page(GFP_KERNEL);
+	if (!prop_buf)
+		return -ENOMEM;
+
+	for (j = 0; j < pwctrl->num_properties; j++) {
+
+		attr = &power_ctrl_attrs[pwctrl->properties[j]];
+
+		ret = power_ctrl_show_property(dev, attr, prop_buf);
+		if (ret == -ENODEV || ret == -ENODATA) {
+			ret = 0;
+			continue;
+		}
+
+		if (ret < 0)
+			goto out;
+
+		line = strchr(prop_buf, '\n');
+		if (line)
+			*line = 0;
+
+		attrname = kstruprdup(attr->attr.name, GFP_KERNEL);
+		if (!attrname) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		ret = add_uevent_var(env, "POWER_CTRL_%s=%s",
+					attrname, prop_buf);
+		kfree(attrname);
+		if (ret)
+			goto out;
+	}
+
+out:
+	free_page((unsigned long)prop_buf);
+
+	return ret;
+}
+
+/*
+ * power_ctrl_dev_release: Release ldo control device
+ * @dev: Device structure.
+ * return: void
+ */
+static void power_ctrl_dev_release(struct device *dev)
+{
+	pr_debug("device: '%s': %s\n", dev_name(dev), __func__);
+	kfree(dev);
+}
+
+/*
+ * power_ctrl_register: register ldo control device
+ * @parent: Parent device structure.
+ * @lctl: The ldo control structure.
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+static int power_ctrl_register(struct device *parent, struct power_ctrl *lctl)
+{
+	struct device *dev;
+	int rc;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	device_initialize(dev);
+
+	dev->class = power_ctrl_class;
+	dev->type = &power_ctrl_dev_type;
+	dev->parent = parent;
+	dev->release = power_ctrl_dev_release;
+	dev_set_drvdata(dev, lctl);
+	lctl->dev = dev;
+
+	rc = kobject_set_name(&dev->kobj, "%s", lctl->name);
+	if (rc)
+		goto kobject_set_name_failed;
+
+	rc = device_add(dev);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return rc;
+
+kobject_set_name_failed:
+	put_device(dev);
+	return rc;
+}
+/*
+ * power_ctrl_unregister: deregister ldo control device
+ * @lctl: The ldo control structure.
+ * return:
+ *        = 0: Normal operation
+ *        < 0: Error occurs
+ */
+static void power_ctrl_unregister(struct power_ctrl *lctl)
+{
+	device_unregister(lctl->dev);
+}
+
+
+/*
+ * tps80032_ldo_get_volt: get the current voltage value of LDO resource
+ * input:
+ *        ldo: the LDO resource
+ * return:
+ *        > 0: the current voltage
+ */
+static int tps80032_ldo_get_volt(int ldo)
+{
+	int ret = 0;
+
+	/* Read the current state of LDO */
+	ret = I2C_READ(data->client_power, LDO_VOLT_REG[ldo-1]);
+
+	if (0 <= ret)
+		ret = (ret & (MSK_BIT_0 | MSK_BIT_1 | MSK_BIT_2
+					| MSK_BIT_3 | MSK_BIT_4));
+	return LDO_VOLT_VALUE[ret - 1];
+}
+
+/*
+ * tps80032_ldo_set_volt: se new voltage value for LDO resource
+ * input: void
+ *        ldo: the LDO resource
+ * return:
+ *        = 0: Success
+ *        < 0: Error occurs
+ */
+static int tps80032_ldo_set_volt(int ldo, int volt)
+{
+	int ret = 0;
+	int n = 0;
+	int in_volt = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	n = volt / 100 - 10;
+	in_volt = volt - 937 - 99 * n;
+
+	switch (ldo) {
+	case 1:
+		ret = pmic_set_voltage(E_POWER_VIO_SD, in_volt);
+		break;
+	case 2:
+		ret = pmic_set_voltage(E_POWER_VDIG_RF, in_volt);
+		break;
+	case 4:
+		ret = pmic_set_voltage(E_POWER_VMIPI, in_volt);
+		break;
+	case 5:
+		ret = pmic_set_voltage(E_POWER_VANA_MM, in_volt);
+		break;
+	case 6:
+		ret = pmic_set_voltage(E_POWER_VMMC, in_volt);
+		break;
+	case 7:
+		ret = pmic_set_voltage(E_POWER_VUSIM1, in_volt);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return ret;
+}
+
+/*
+ * tps80032_ldo_get_state: get the current state of LDO resource
+ * input: void
+ *        ldo: the LDO resource
+ * return:
+ *        = 1: State ON
+ *        = 2: State OFF
+ *        = 0: State UNKNOWN
+ */
+static int tps80032_ldo_get_state(int ldo)
+{
+	int ret = 0;
+
+	/* Read the current voltage of LDO */
+	ret = I2C_READ(data->client_power, LDO_STATE_REG[ldo-1]);
+
+	if (0 > ret)
+		return 0;
+	if (0 == (ret & (MSK_BIT_0 | MSK_BIT_1)))
+		return 2;
+	else
+		return 1;
+}
+
+/*
+ * tps80032_ldo_set_state: set the new state for LDO resource
+ * input: void
+ *        ldo: the LDO resource
+ * return:
+ *        = 0: Success
+ *        < 0: Error occurs
+ */
+static int tps80032_ldo_set_state(int ldo, int state)
+{
+	int ret = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
+	switch (ldo) {
+	case 1:
+		if (0 == state)
+			ret = pmic_set_power_off(E_POWER_VIO_SD);
+		else
+			ret = pmic_set_power_on(E_POWER_VIO_SD);
+		break;
+	case 5:
+		if (0 == state)
+			ret = pmic_set_power_off(E_POWER_VANA_MM);
+		else
+			ret = pmic_set_power_on(E_POWER_VANA_MM);
+		break;
+	case 6:
+		if (0 == state)
+			ret = pmic_set_power_off(E_POWER_VMMC);
+		else
+			ret = pmic_set_power_on(E_POWER_VMMC);
+		break;
+	case 7:
+		if (0 == state)
+			ret = pmic_set_power_off(E_POWER_VUSIM1);
+		else
+			ret = pmic_set_power_on(E_POWER_VUSIM1);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return ret;
+}
+
+/*
+ * tps80032_ldo_get_state_sleep: Get state of LDO before entering sleep mode
+ * input: void
+ * return:
+ *        = 1: State ON
+ *        = 2: State OFF
+ *        = 0: State UNKNOWN
+ */
+static int tps80032_ldo_get_state_sleep(int ldo)
+{
+	int ret;
+
+	/* Get the state of LDO before entering sleep mode */
+	ret = state_sleep[ldo - 1];
+
+	return ret;
+}
+
+/*
+ * tps80032_ldo_get_volt_sleep: Get voltage of LDO before entering sleep mode
+ * input: void
+ * return:
+ *        > 0: the current voltage
+ */
+static int tps80032_ldo_get_volt_sleep(int ldo)
+{
+	int ret;
+
+	/* Get the voltage of LDO before entering sleep mode */
+	ret = volt_sleep[ldo - 1];
+
+	return ret;
+}
+
+/*
+ * tps80032_power_get_property
+ */
+static int tps80032_power_get_property(struct power_ctrl *pctl,
+				enum power_ctrl_property pcp,
+				union power_ctrl_propval *val)
+{
+	int ldo_ctrl = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	if (0 == (strcmp(pctl->name, "ldo1")))
+		ldo_ctrl = 1;
+	else if (0 == (strcmp(pctl->name, "ldo2")))
+		ldo_ctrl = 2;
+	else if (0 == (strcmp(pctl->name, "ldo3")))
+		ldo_ctrl = 3;
+	else if (0 == (strcmp(pctl->name, "ldo4")))
+		ldo_ctrl = 4;
+	else if (0 == (strcmp(pctl->name, "ldo5")))
+		ldo_ctrl = 5;
+	else if (0 == (strcmp(pctl->name, "ldo6")))
+		ldo_ctrl = 6;
+	else if (0 == (strcmp(pctl->name, "ldo7")))
+		ldo_ctrl = 7;
+
+	switch (pcp) {
+	case POWER_CTRL_PROP_STATE:
+		val->intval = tps80032_ldo_get_state(ldo_ctrl);
+		break;
+	case POWER_CTRL_PROP_STATE_SLEEP:
+		val->intval = tps80032_ldo_get_state_sleep(ldo_ctrl);
+		break;
+	case POWER_CTRL_PROP_VOLTAGE:
+		val->intval = tps80032_ldo_get_volt(ldo_ctrl);
+		break;
+	case POWER_CTRL_PROP_VOLTAGE_SLEEP:
+		val->intval = tps80032_ldo_get_volt_sleep(ldo_ctrl);
+		break;
+	default:
+		val->intval = 0;
+		break;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return 0;
+}
+
+/*
+ * tps80032_power_set_property
+ */
+static int tps80032_power_set_property(struct power_ctrl *pctl,
+			enum power_ctrl_property pcp,
+			const union power_ctrl_propval *val)
+{
+	int ret = 0;
+	int ldo_ctrl = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	if (0 == (strcmp(pctl->name, "ldo1")))
+		ldo_ctrl = 1;
+	else if (0 == (strcmp(pctl->name, "ldo2")))
+		ldo_ctrl = 2;
+	else if (0 == (strcmp(pctl->name, "ldo4")))
+		ldo_ctrl = 4;
+	else if (0 == (strcmp(pctl->name, "ldo5")))
+		ldo_ctrl = 5;
+	else if (0 == (strcmp(pctl->name, "ldo6")))
+		ldo_ctrl = 6;
+	else if (0 == (strcmp(pctl->name, "ldo7")))
+		ldo_ctrl = 7;
+
+	switch (pcp) {
+	case POWER_CTRL_PROP_STATE:
+		if ((val->intval == 0) || (val->intval == 1))
+			ret = tps80032_ldo_set_state(ldo_ctrl, val->intval);
+		break;
+	case POWER_CTRL_PROP_VOLTAGE:
+		if ((val->intval > 999) && (val->intval < 3301))
+			ret = tps80032_ldo_set_volt(ldo_ctrl, val->intval);
+		break;
+	default:
+		ret = -EPERM;
+		break;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return ret;
+}
+
+/*
+ * tps80032_power_is_writeable
+ */
+static int tps80032_power_is_writeable(struct power_ctrl *pctl,
+				enum power_ctrl_property pcp)
+{
+	int ldo_ctrl = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	if (0 == (strcmp(pctl->name, "ldo1")))
+		ldo_ctrl = 1;
+	else if (0 == (strcmp(pctl->name, "ldo2")))
+		ldo_ctrl = 2;
+	else if (0 == (strcmp(pctl->name, "ldo3")))
+		ldo_ctrl = 3;
+	else if (0 == (strcmp(pctl->name, "ldo4")))
+		ldo_ctrl = 4;
+	else if (0 == (strcmp(pctl->name, "ldo5")))
+		ldo_ctrl = 5;
+	else if (0 == (strcmp(pctl->name, "ldo6")))
+		ldo_ctrl = 6;
+	else if (0 == (strcmp(pctl->name, "ldo7")))
+		ldo_ctrl = 7;
+
+	switch (pcp) {
+	case POWER_CTRL_PROP_STATE:
+		if ((1 == ldo_ctrl) || (5 == ldo_ctrl)
+			|| (6 == ldo_ctrl) || (7 == ldo_ctrl))
+			return 1;
+		else
+			return 0;
+	case POWER_CTRL_PROP_VOLTAGE:
+		if (3 == ldo_ctrl)
+			return 0;
+		else
+			return 1;
+	default:
+		break;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return 0;
+}
+
 /*
  * tps80032_get_hw_sem_timeout() - lock an hwspinlock with timeout limit
  * @hwlock: the hwspinlock to be locked
@@ -402,7 +981,7 @@ static void tps80032_battery_timer_handler(unsigned long data)
 
 	/* Start timer to update battery info */
 	queue_work(pdata->queue, &pdata->update_work);
-	bat_timer.expires  = jiffies + msecs_to_jiffies(CONST_TIMER_UPDATE);
+	bat_timer.expires = jiffies + msecs_to_jiffies(CONST_TIMER_UPDATE);
 	add_timer(&bat_timer);
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
@@ -4827,6 +5406,57 @@ struct battery_correct_ops tps80032_correct_ops = {
 #endif
 
 /*
+ * tps80032_ldo_get_volt_sleep: get the LODs voltage before entering sleep mode
+ * input: void
+ * return: void
+ */
+static void tps80032_ldo_get_volt_suspend(void)
+{
+	int ret = 0;
+	int i = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	/* Read LDO voltage registers */
+	for (i = 0; i < 7; i++) {
+		ret = I2C_READ(data->client_power, LDO_VOLT_REG[i]);
+		if (0 <= ret)
+			ret = (ret & (MSK_BIT_0 | MSK_BIT_1 | MSK_BIT_2
+					| MSK_BIT_3 | MSK_BIT_4));
+		volt_sleep[i] = LDO_VOLT_VALUE[ret - 1];
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+/*
+ * tps80032_ldo_get_state_sleep: get the LODs state before entering sleep mode
+ * input: void
+ * return: void
+ */
+static void tps80032_ldo_get_state_suspend(void)
+{
+	int ret = 0;
+	int i = 0;
+
+	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+	/* Read LDO state registers */
+	for (i = 0; i < 7; i++) {
+		ret = I2C_READ(data->client_power, LDO_STATE_REG[i]);
+		if (0 > ret)
+			state_sleep[i] = 0;
+		else if (0 == (ret & (MSK_BIT_0 | MSK_BIT_1)))
+			state_sleep[i] = 2;
+		else
+			state_sleep[i] = 1;
+	}
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
+}
+
+
+/*
  * tps80032_power_suspend: power suppend event
  * @dev: The device struct.
  * return:
@@ -4846,6 +5476,9 @@ static int tps80032_power_suspend(struct device *dev)
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
 #endif
+	/* Get status of LDO before entering sleep mode */
+	tps80032_ldo_get_state_suspend();
+	tps80032_ldo_get_volt_suspend();
 
 	/* Disable GPADC */
 	ret = I2C_WRITE(data->client_battery, HW_REG_TOGGLE1, 0x11);
@@ -5523,6 +6156,13 @@ static int tps80032_power_probe(struct i2c_client *client,
 {
 	int ret = 0;
 	int count = 0;
+	int i = 0;
+	int j = 0;
+	char *ldo_name[] = {
+			"ldo1", "ldo2", "ldo3", "ldo4",
+			"ldo5", "ldo6", "ldo7"
+			};
+
 	struct tps80032_platform_data *pdata = client->dev.platform_data;
 
 	PMIC_DEBUG_MSG(">>>%s: name=%s addr=0x%x\n",
@@ -5583,6 +6223,34 @@ static int tps80032_power_probe(struct i2c_client *client,
 		count = count + 1;
 	}
 
+	/* Init value for LDO SysFs control */
+	for (i = 0; i < 7; i++) {
+		state_sleep[i] = 0;
+		volt_sleep[i] = 0;
+	}
+
+	LDO_STATE_REG[0] = HW_REG_LDO1_CFG_STATE;
+	LDO_STATE_REG[1] = HW_REG_LDO2_CFG_STATE;
+	LDO_STATE_REG[2] = HW_REG_LDO3_CFG_STATE;
+	LDO_STATE_REG[3] = HW_REG_LDO4_CFG_STATE;
+	LDO_STATE_REG[4] = HW_REG_LDO5_CFG_STATE;
+	LDO_STATE_REG[5] = HW_REG_LDO6_CFG_STATE;
+	LDO_STATE_REG[6] = HW_REG_LDO7_CFG_STATE;
+	LDO_VOLT_REG[0] = HW_REG_LDO1_CFG_VOLTAGE;
+	LDO_VOLT_REG[1] = HW_REG_LDO2_CFG_VOLTAGE;
+	LDO_VOLT_REG[2] = HW_REG_LDO3_CFG_VOLTAGE;
+	LDO_VOLT_REG[3] = HW_REG_LDO4_CFG_VOLTAGE;
+	LDO_VOLT_REG[4] = HW_REG_LDO5_CFG_VOLTAGE;
+	LDO_VOLT_REG[5] = HW_REG_LDO6_CFG_VOLTAGE;
+	LDO_VOLT_REG[6] = HW_REG_LDO7_CFG_VOLTAGE;
+
+	/* Init value for LDO_VOLT_VALUE struct */
+	for (i = 0; i < 24; i++)
+		if (0 == i)
+			LDO_VOLT_VALUE[i] = 1000;
+		else
+			LDO_VOLT_VALUE[i] = LDO_VOLT_VALUE[i-1] + 100;
+
 	data->dev = &client->dev;
 
 	/* Set client power */
@@ -5641,6 +6309,21 @@ static int tps80032_power_probe(struct i2c_client *client,
 		goto err_init_hw;
 	}
 
+	/*Initililaze all ldo power domain*/
+	for (i = 0; i < RESOURCE_POWER_CTRL_PROP_MAX; i++) {
+		control_ldo[i].properties = pmic_power_props;
+		control_ldo[i].num_properties = ARRAY_SIZE(pmic_power_props);
+		control_ldo[i].get_property = tps80032_power_get_property;
+		control_ldo[i].name = ldo_name[i];
+		control_ldo[i].set_property = tps80032_power_set_property;
+		control_ldo[i].property_is_writeable =
+					tps80032_power_is_writeable;
+
+		ret = power_ctrl_register(&client->dev, &control_ldo[i]);
+		if (ret)
+			goto err_init_power_contrl;
+	}
+
 	/* Register input event */
 	ret = tps80032_register_intput_event();
 	if (ret) {
@@ -5652,8 +6335,11 @@ static int tps80032_power_probe(struct i2c_client *client,
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return 0;
 
-err_init_hw:
 err_init_input_event:
+	for (j = 0; j < i; j++)
+		power_ctrl_unregister(&control_ldo[j]);
+err_init_hw:
+err_init_power_contrl:
 	pmic_device_unregister(&client->dev);
 err_device_register:
 #ifdef PMIC_NON_VOLATILE_ENABLE
@@ -5677,6 +6363,11 @@ static int tps80032_power_remove(struct i2c_client *client)
 {
 	struct tps80032_data *data = i2c_get_clientdata(client);
 	struct tps80032_platform_data *pdata = client->dev.platform_data;
+	int i = 0;
+
+	/*Release ldo power control*/
+	for (i = 0; i < RESOURCE_POWER_CTRL_PROP_MAX; i++)
+		power_ctrl_unregister(&control_ldo[i]);
 
 	gpio_free(pdata->pin_gpio);		/* free GPIO_PORT28 */
 	free_irq(pint2irq(CONST_INT_ID), data);	/* free interrupt */
@@ -5891,6 +6582,43 @@ static int tps80032_jtag_probe(struct i2c_client *client,
 	return 0;
 }
 
+/* Init value for LDO SysFS control */
+static struct device_attribute power_ctrl_attrs[] = {
+	POWER_CTRL_ATTR(state),
+	POWER_CTRL_ATTR(state_sleep),
+	POWER_CTRL_ATTR(voltage),
+	POWER_CTRL_ATTR(voltage_sleep),
+};
+
+static struct attribute_group power_ctrl_attr_group = {
+	.attrs = __power_ctrl_attrs,
+	.is_visible = power_ctrl_attr_is_visible,
+};
+
+static struct attribute *
+	__power_ctrl_attrs[ARRAY_SIZE(power_ctrl_attrs) + 1];
+
+static const struct attribute_group *power_ctrl_attr_groups[] = {
+	&power_ctrl_attr_group,
+	NULL,
+};
+
+/*
+ * power_ctrl_init_attrs: initialize attribute for all ldo
+ * @dev_type: Device type.
+ * return: void
+ */
+void power_ctrl_init_attrs(struct device_type *dev_type)
+{
+	int i;
+
+	dev_type->groups = power_ctrl_attr_groups;
+
+	for (i = 0; i < ARRAY_SIZE(power_ctrl_attrs); i++)
+		__power_ctrl_attrs[i] = &power_ctrl_attrs[i].attr;
+}
+
+
 /*
  * tps80032_jtag_remove: remove function for Jtag driver
  * @client: The I2C client device.
@@ -5981,6 +6709,7 @@ static int __init tps80032_power_init(void)
 	int ret;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
+
 	/*Initialize hw spinlock*/
 	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000);
 	if (r8a73734_hwlock_pmic == NULL) {
@@ -5988,6 +6717,16 @@ static int __init tps80032_power_init(void)
 		"Unable to register hw spinlock for pmic driver\n");
 		return -EIO;
 	}
+
+	power_ctrl_class = class_create(THIS_MODULE, "power_control");
+	if (power_ctrl_class == NULL) {
+		PMIC_ERROR_MSG("Unable to create ldo_control class\n");
+		ret = -EIO;
+		goto err_power_ctrl_class;
+	}
+
+	power_ctrl_class->dev_uevent = power_ctrl_uevent;
+	power_ctrl_init_attrs(&power_ctrl_dev_type);
 
 	ret = i2c_add_driver(&tps80032_power_driver);
 	if (0 != ret) {
@@ -6013,7 +6752,6 @@ static int __init tps80032_power_init(void)
 		goto err_jtag_driver;
 	}
 
-
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 
 	return 0;
@@ -6025,6 +6763,8 @@ err_dvs_driver:
 err_battery_driver:
 	i2c_del_driver(&tps80032_power_driver);
 err_power_driver:
+	class_destroy(power_ctrl_class);
+err_power_ctrl_class:
 	hwspin_lock_free(r8a73734_hwlock_pmic);
 	return ret;
 }
@@ -6040,6 +6780,7 @@ static void __exit tps80032_power_exit(void)
 	i2c_del_driver(&tps80032_battery_driver);
 	i2c_del_driver(&tps80032_dvs_driver);
 	i2c_del_driver(&tps80032_jtag_driver);
+	class_destroy(power_ctrl_class);
 	hwspin_lock_free(r8a73734_hwlock_pmic);
 }
 
