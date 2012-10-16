@@ -197,9 +197,12 @@ int __hwspin_lock_timeout(struct hwspinlock *hwlock, unsigned int to,
 		 * The lock is already taken, let's check if the user wants
 		 * us to try again
 		 */
-		if (time_is_before_eq_jiffies(expire))
+		if (time_is_before_eq_jiffies(expire)) {
+			dev_err(hwlock->bank->dev,
+				"Timed out to lock hwspinlock %d in %d msecs\n",
+				hwlock_to_id(hwlock), to);
 			return -ETIMEDOUT;
-
+		}
 		/*
 		 * Allow platform-specific relax handlers to prevent
 		 * hogging the interconnect (no sleeping, though)
@@ -382,7 +385,7 @@ int hwspin_lock_register(struct hwspinlock_device *bank, struct device *dev,
 
 reg_failed:
 	while (--i >= 0)
-		hwspin_lock_unregister_single(i);
+		hwspin_lock_unregister_single(base_id + i);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(hwspin_lock_register);

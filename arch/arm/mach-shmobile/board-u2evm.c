@@ -865,6 +865,9 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
 	}
 	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
@@ -876,6 +879,9 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
 	}
 	return 0;
 }
@@ -2634,6 +2640,12 @@ static void __init u2evm_init(void)
 	printk("pub_stm_select=%d\n", pub_stm_select);
 
 	r8a73734_pinmux_init();
+	r8a73734_add_standard_devices();
+
+	r8a73734_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
+	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
+	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	pinmux_hwspinlock_init(r8a73734_hwlock_gpio);
 
 #ifdef CONFIG_ARM_TZ
 	if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
@@ -3312,7 +3324,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 0);
 #endif
-	r8a73734_add_standard_devices();
 
 	switch (stm_select) {
 		case 0:
@@ -3339,10 +3350,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		}
 	}
 	platform_add_devices(p_dev, p_dev_cnt);
-
-	r8a73734_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
-	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
-	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
