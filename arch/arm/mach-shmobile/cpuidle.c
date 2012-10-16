@@ -53,7 +53,7 @@ static int sec_hal_fail_cpu1 = 0;
 module_param(sec_hal_fail_cpu1, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #endif /*CONFIG_PM_HAS_SECURE*/
 
-spinlock_t clock_lock;
+static DEFINE_SPINLOCK(clock_lock);
 
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
 
