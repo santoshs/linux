@@ -407,6 +407,7 @@ static void __iomem *virt_addr;
 #define CONST_VSEL_COMP				0x58
 #define CONST_CHRG_CTRL2			0x01
 #define CONST_HPB_WAIT				25
+#define CONST_I2C_RETRY				3
 #endif
 
 /* Define interrupt bit for interrupt register */
