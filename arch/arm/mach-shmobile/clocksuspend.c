@@ -333,7 +333,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 		.addr = __io(CPG_FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
-		.mask_bit	= 0x1bf,
+		.mask_bit	= 0x3f,
 		.shift_bit	= 0,
 		.div_val = {
 			[DIV1_1] = -1,
@@ -657,7 +657,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 		.addr = __io(CPG_FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
-		.mask_bit	= 0x1bf,
+		.mask_bit	= 0x3f,
 		.shift_bit	= 0,
 		.div_val = {
 			[DIV1_1] = -1,
@@ -1331,10 +1331,10 @@ int cpg_get_freq(struct clk_rate *rates)
 		HW_TO_DIV(frqcrb, HP_CLK));
 	rates->zs_clk = __match_div_rate(ZS_CLK,
 		HW_TO_DIV(frqcrb, ZS_CLK));
-	rates->zb_clk = __match_div_rate(ZB_CLK,
-		HW_TO_DIV(zbckcr, ZB_CLK));
-
-	if (shmobile_chip_rev() >= ES_REV_2_0)
+	/* rates->zb_clk = __match_div_rate(ZB_CLK,
+		HW_TO_DIV(zbckcr, ZB_CLK)); */
+	rates->zb_clk = 0; /* do not read ZB */
+	if (sys_rev >= ES_REV_2_0)
 		rates->m5_clk = __match_div_rate(M5_CLK,
 			HW_TO_DIV(frqcra, M5_CLK));
 	else
@@ -1705,13 +1705,13 @@ int cpg_set_freq(const struct clk_rate rates)
 		if (zs_change)
 			spin_unlock_irqrestore(&zs_change_lock, zsflags);
 	}
-
+#if 0
 	/* change ZB clock ? */
 	if (zb_change) {
 		reg = DIV_TO_HW(ZB_CLK, rates.zb_clk);
 		__raw_writel(reg, CPG_ZBCKCR);
 	}
-
+#endif
 	/* change ZB3 clock ? */
 	if (zb3_change) {
 		if (cpg_set_sbsc_freq((int)rates.zb3_clk)) {
