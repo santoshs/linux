@@ -2164,10 +2164,33 @@ static struct tps80032_subdev_info tps80032_devs[] = {
 	TPS_RTC(),
 	TPS_REG(LDO5, ldo5),
 };
+#define PORTCR0			IO_ADDRESS(0xE6050000)
+#define PORTCR28		IO_ADDRESS(0xE605001C)
+#define PORTCR35		IO_ADDRESS(0xE6050023)
+#define PORTCR141		IO_ADDRESS(0xE605108D)
+#define PORTCR202		IO_ADDRESS(0xE60520CA)
 
+static u8 tps80032_get_portcr_value(u32 addr)
+{
+	return __raw_readb(addr);
+}
+
+static void tps80032_set_portcr_value(u8 value, u32 addr)
+{
+	__raw_writeb(value, addr);
+}
 static struct tps80032_platform_data tps_platform = {
-	.pin_gpio	= GPIO_PORT28,
-	.pin_gpio_fn	= GPIO_PORT28,
+	.pin_gpio	= {GPIO_PORT0, GPIO_PORT28,
+				GPIO_PORT35, GPIO_PORT141,
+				GPIO_PORT202},
+	.pin_gpio_fn	= {GPIO_PORT0, GPIO_PORT28,
+				GPIO_PORT35, GPIO_PORT141,
+				GPIO_PORT202},
+	.portcr		= {PORTCR0, PORTCR28,
+					PORTCR35, PORTCR141,
+					PORTCR202},
+	.get_portcr_value = tps80032_get_portcr_value,
+	.set_portcr_value = tps80032_set_portcr_value,
 	.num_subdevs	= ARRAY_SIZE(tps80032_devs),
 	.subdevs	= tps80032_devs,
 	.irq_base	= ENT_TPS80032_IRQ_BASE,
