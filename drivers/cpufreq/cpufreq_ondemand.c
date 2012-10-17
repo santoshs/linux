@@ -30,7 +30,7 @@
 
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
-#define DEF_SAMPLING_DOWN_FACTOR		(1)
+#define DEF_SAMPLING_DOWN_FACTOR		(20)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
 #define MICRO_FREQUENCY_UP_THRESHOLD		(95)
@@ -51,6 +51,13 @@
 #define MIN_SAMPLING_RATE_RATIO			(2)
 
 static unsigned int min_sampling_rate;
+
+#define ENABLE_SAMPLING_CHANGE	1
+#ifdef ENABLE_SAMPLING_CHANGE
+static unsigned int dfs_low_flag;
+static unsigned int init_flag;
+static struct mutex sampling_mutex;
+#endif /* ENABLE_SAMPLING_CHANGE */
 
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
@@ -264,7 +271,18 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
+#ifdef ENABLE_SAMPLING_CHANGE
+	mutex_lock(&sampling_mutex);
+	if (dfs_low_flag != 1)
+		dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
+	else {
+		mutex_unlock(&sampling_mutex);
+		return -EPERM;
+	}
+	mutex_unlock(&sampling_mutex);
+#else /* ENABLE_SAMPLING_CHANGE */
 	dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
+#endif /* ENABLE_SAMPLING_CHANGE */
 	return count;
 }
 
@@ -305,14 +323,31 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 
 	if (ret != 1 || input > MAX_SAMPLING_DOWN_FACTOR || input < 1)
 		return -EINVAL;
-	dbs_tuners_ins.sampling_down_factor = input;
 
+#ifdef ENABLE_SAMPLING_CHANGE
+	mutex_lock(&sampling_mutex);
+	if (dfs_low_flag != 1) {
+		dbs_tuners_ins.sampling_down_factor = input;
+		/* Reset down sampling multiplier in case it was active */
+		for_each_online_cpu(j) {
+			struct cpu_dbs_info_s *dbs_info;
+			dbs_info = &per_cpu(od_cpu_dbs_info, j);
+			dbs_info->rate_mult = 1;
+		}
+	} else {
+		mutex_unlock(&sampling_mutex);
+		return -EPERM;
+	}
+	mutex_unlock(&sampling_mutex);
+#else /* ENABLE_SAMPLING_CHANGE */
+	dbs_tuners_ins.sampling_down_factor = input;
 	/* Reset down sampling multiplier in case it was active */
 	for_each_online_cpu(j) {
 		struct cpu_dbs_info_s *dbs_info;
 		dbs_info = &per_cpu(od_cpu_dbs_info, j);
 		dbs_info->rate_mult = 1;
 	}
+#endif /* ENABLE_SAMPLING_CHANGE */
 	return count;
 }
 
@@ -391,6 +426,40 @@ static struct attribute_group dbs_attr_group = {
 };
 
 /************************** sysfs end ************************/
+int samplrate_downfact_change(unsigned int sampl_rate,
+			unsigned int down_factor, unsigned int flag)
+{
+#ifdef ENABLE_SAMPLING_CHANGE
+	unsigned int j;
+
+	if ((down_factor > MAX_SAMPLING_DOWN_FACTOR) || (down_factor < 1))
+		return -EINVAL;
+
+	mutex_lock(&sampling_mutex);
+	dbs_tuners_ins.sampling_rate = max(sampl_rate, min_sampling_rate);
+	dfs_low_flag = flag;
+	if (dbs_tuners_ins.sampling_down_factor != down_factor) {
+		dbs_tuners_ins.sampling_down_factor = down_factor;
+		/* Reset down sampling multiplier in case it was active */
+		for_each_online_cpu(j) {
+			struct cpu_dbs_info_s *dbs_info;
+			dbs_info = &per_cpu(od_cpu_dbs_info, j);
+			dbs_info->rate_mult = 1;
+		}
+	}
+	mutex_unlock(&sampling_mutex);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(samplrate_downfact_change);
+
+void samplrate_downfact_get(unsigned int *sampl_rate,
+				unsigned int *down_factor)
+{
+	*sampl_rate = dbs_tuners_ins.sampling_rate;
+	*down_factor = dbs_tuners_ins.sampling_down_factor;
+}
+EXPORT_SYMBOL(samplrate_downfact_get);
 
 static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 {
@@ -673,9 +742,17 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			/* Bring kernel and HW constraints together */
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
+#ifdef ENABLE_SAMPLING_CHANGE
+			if (0 == init_flag)
+				dbs_tuners_ins.sampling_rate =
+					max(min_sampling_rate,
+					latency * LATENCY_MULTIPLIER);
+			init_flag = 1;
+#else
 			dbs_tuners_ins.sampling_rate =
 				max(min_sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
+#endif /* ENABLE_SAMPLING_CHANGE */
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
 		}
 		mutex_unlock(&dbs_mutex);
@@ -717,6 +794,11 @@ static int __init cpufreq_gov_dbs_init(void)
 	u64 idle_time;
 	int cpu = get_cpu();
 
+#ifdef ENABLE_SAMPLING_CHANGE
+	mutex_init(&sampling_mutex);
+	dfs_low_flag = 0;
+	init_flag = 0;
+#endif /* ENABLE_SAMPLING_CHANGE */
 	idle_time = get_cpu_idle_time_us(cpu, &wall);
 	put_cpu();
 	if (idle_time != -1ULL) {
