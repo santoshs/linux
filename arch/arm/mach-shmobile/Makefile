@@ -69,3 +69,5 @@ obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
 
 # RAM Defragmentation
 obj-$(CONFIG_ARCH_R8A73734)	+= ramdefrag/
+# crashlog
+obj-y += crashlog.o
