@@ -37,16 +37,16 @@ static void smc_fifo_put_test_sample( fifo_test_sample_t *s );
 static void smc_fifo_get_test_sample( fifo_test_sample_t *s );
 
 
-fifo_test_sample_t test_sample[ MAX_SAMPLES ];
-int test_samples;
-int test_sample_in;
-int test_sample_out;
+fifo_test_sample_t smc_test_sample[ MAX_SAMPLES ];
+int smc_test_samples;
+int smc_test_sample_in;
+int smc_test_sample_out;
 
 
     // Test case functions
 static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd);
 
-SMC_TEST_CREATE_FIFO( test_fifo, MAX_FIFO_SIZE );
+SMC_TEST_CREATE_FIFO( smc_test_fifo, MAX_FIFO_SIZE );
 
 uint8_t smc_test_case_function_fifo( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
@@ -110,40 +110,40 @@ static void smc_fifo_make_test_sample( fifo_test_sample_t *s )
 
 static void smc_fifo_init_test_samples( void )
 {
-    test_samples    = 0;
-    test_sample_in  = 0;
-    test_sample_out = 0;
+    smc_test_samples    = 0;
+    smc_test_sample_in  = 0;
+    smc_test_sample_out = 0;
 }
 
 static void smc_fifo_put_test_sample( fifo_test_sample_t *s )
 {
-    assert( test_samples <= MAX_SAMPLES );
+    assert( smc_test_samples <= MAX_SAMPLES );
 
-    test_sample[test_sample_in].ptr    = s->ptr;
-    test_sample[test_sample_in].length = s->length;
-    test_sample[test_sample_in].flags  = s->flags;
+    smc_test_sample[smc_test_sample_in].ptr    = s->ptr;
+    smc_test_sample[smc_test_sample_in].length = s->length;
+    smc_test_sample[smc_test_sample_in].flags  = s->flags;
 
-    ++test_samples;
+    ++smc_test_samples;
 
-    if ( ++test_sample_in == MAX_SAMPLES )
+    if ( ++smc_test_sample_in == MAX_SAMPLES )
     {
-        test_sample_in = 0;
+        smc_test_sample_in = 0;
     }
 }
 
 static void smc_fifo_get_test_sample( fifo_test_sample_t *s )
 {
-    assert( test_samples > 0 );
+    assert( smc_test_samples > 0 );
 
-    s->ptr    = test_sample[test_sample_out].ptr;
-    s->length = test_sample[test_sample_out].length;
-    s->flags  = test_sample[test_sample_out].flags;
+    s->ptr    = smc_test_sample[smc_test_sample_out].ptr;
+    s->length = smc_test_sample[smc_test_sample_out].length;
+    s->flags  = smc_test_sample[smc_test_sample_out].flags;
 
-    --test_samples;
+    --smc_test_samples;
 
-    if ( ++test_sample_out == MAX_SAMPLES )
+    if ( ++smc_test_sample_out == MAX_SAMPLES )
     {
-        test_sample_out = 0;
+        smc_test_sample_out = 0;
     }
 }
 
@@ -162,8 +162,8 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
         int32_t fifo_count = 0;
 
         SMC_TEST_TRACE_PRINTF_INFO( "====================================================================");
-        SMC_TEST_TRACE_PRINTF_INFO( "FIFO: INIT 0x%08X len %d ", (uint32_t)test_fifo, fifo_len );
-        smc_fifo_init_out( test_fifo, fifo_len, FALSE );
+        SMC_TEST_TRACE_PRINTF_INFO( "FIFO: INIT 0x%08X len %d ", (uint32_t)smc_test_fifo, fifo_len );
+        smc_fifo_init_out( smc_test_fifo, fifo_len, FALSE );
 
         /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: init_test_samples..." );*/
 
@@ -197,7 +197,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
 
                     SMC_TEST_TRACE_PRINTF_INFO( "FIFO: PUT > 0x%08X: %4d flags: 0x%08X", (uint32_t)s.ptr, s.length, s.flags );
 
-                    ret = smc_fifo_put_ext( test_fifo, (uint32_t)(s.ptr), s.length, (uint32_t)s.flags );
+                    ret = smc_fifo_put_ext( smc_test_fifo, (uint32_t)(s.ptr), s.length, (uint32_t)s.flags );
 
                     if( ret == SMC_FIFO_ERROR_FIFO_FULL )
                     {
@@ -214,7 +214,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
             {
                 /* get */
                 SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET <-- (case %d, fifo size %d, fill %d)", test_case, fifo_len, fill );
-                fifo_count = smc_fifo_peek( test_fifo, FALSE );
+                fifo_count = smc_fifo_peek( smc_test_fifo, FALSE );
 
                 if ( fifo_count > 0 )
                 {
@@ -226,7 +226,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
 
                     /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET FROM FIFO (count %d, fifo size %d)...", fifo_count, fifo_len);*/
 
-                    smc_fifo_get( test_fifo, (uint32_t*)&(s.ptr), &(s.length), (uint32_t*)&(s.flags));
+                    smc_fifo_get( smc_test_fifo, (uint32_t*)&(s.ptr), &(s.length), (uint32_t*)&(s.flags));
 
                     SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET < 0x%08X: %4d flags: 0x%08X", (uint32_t)s.ptr, s.length, s.flags );
 
@@ -245,7 +245,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
 
             /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: Read until empty..." );*/
 
-            fifo_count = smc_fifo_peek( test_fifo, FALSE );
+            fifo_count = smc_fifo_peek( smc_test_fifo, FALSE );
 
             while( fifo_count > 0 )
             {
@@ -257,7 +257,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
 
                 /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET FROM FIFO (count %d, fifo size %d)...", fifo_count, fifo_len);*/
 
-                smc_fifo_get( test_fifo, (uint32_t*)&(s.ptr), &(s.length), (uint32_t*)&(s.flags));
+                smc_fifo_get( smc_test_fifo, (uint32_t*)&(s.ptr), &(s.length), (uint32_t*)&(s.flags));
 
                 SMC_TEST_TRACE_PRINTF_INFO( "FIFO: GET < 0x%08X: %4d flags: 0x%08X", (uint32_t)s.ptr, s.length, s.flags );
 
@@ -267,7 +267,7 @@ static int smc_start_fifo_test_single_cpu(int iFifoLenStart, int iFifoLenEnd)
                     return SMC_ERROR;
                 }
 
-                fifo_count = smc_fifo_peek( test_fifo, FALSE );
+                fifo_count = smc_fifo_peek( smc_test_fifo, FALSE );
             }
 
             /*SMC_TEST_TRACE_PRINTF_INFO( "FIFO: Read empty, check that fill is zero.." );*/

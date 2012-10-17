@@ -36,6 +36,9 @@ Description :  File created
  */
 
 #ifdef SMECO_MODEM
+
+  #define SMC_CPU_NAME    "Modem"
+
     /* Modem ES10/ES20 definitions from makefile */
 
   #if defined EOS2_ASIC && (EOS2_ASIC == EOS2_ASIC_ES10)
@@ -45,7 +48,11 @@ Description :  File created
   #endif
 
 #elif( defined(SMECO_LINUX_KERNEL) )
-    /* APE Linux Kernel ES10/ES20 definitions from kernel config + makefile */
+
+  #define SMC_CPU_NAME    "APE"
+
+
+  /* APE Linux Kernel ES10/ES20 definitions from kernel config + makefile */
 
   #ifdef SMC_CONFIG_USE_EOS2_ES10
       #define SMC_IN_EOS2_ES10
@@ -90,7 +97,7 @@ Description :  File created
 //#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x43FFFFFF
 
 #define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44001000
-#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x44800FFF
+#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x44800FFF     /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
@@ -100,7 +107,14 @@ Description :  File created
     /* SHM Area for L2MUX */
 #define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
 #define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)
-#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1024*4 + 1024*512)    /* 4.5MB */
+#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1856*2 + 1024*256*4 + 1024*30)    /* 4.5MB */
+
+
+#define SMC_CHANNEL_ID_FOR_CONFIGURATION                     0   /* Channel to used for configure others (FIFO, SHM), if not defined, no config.
+                                                                    FIFO+SHM configuration of this channel is not allowed to change without parallel changes to the other device
+                                                                    Currently only first channel (0) is supported.
+                                                                    The master (APE) only initiate the runtime configuration and its config is used
+                                                                  */
 
 
 #ifdef SMC_IN_EOS2_ES10
@@ -201,7 +215,7 @@ Description :  File created
 #define SMC_CCCR                                     (SMC_HPB_BASE + 0x101C)
 
 #if( SMC_RUNTIME_TRACES_ENABLED == TRUE )
-#define SMC_APE_RDTRACE_ENABLED     /* If defined, APE handles runtime trace activation for modem stype rdtraces */
+#define SMC_APE_RDTRACE_ENABLED         /* If defined, APE handles runtime trace activation for modem stype rdtraces */
 #else
 #undef SMC_APE_RDTRACE_ENABLED
 #endif
@@ -213,19 +227,34 @@ Description :  File created
 
 #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
 
-    /* Configuration for Modem and APE*/
-
+        /* Configuration for Modem and APE*/
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID                65                                /* IRQ ID in the APE side */
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE              SMC_SIGNAL_TYPE_INT_WGM_GENOUT
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE_DEFAULT     SMC_SIGNAL_SENSE_RISING_EDGE      /* Default value if the configuration negotiation fails */
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE             SMC_SIGNAL_SENSE_FALLING_EDGE     /* SMC_SIGNAL_SENSE_FALLING_EDGE / SMC_SIGNAL_SENSE_RISING_EDGE */
+    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID_FROM_MODEM     0                                 /* Modem side interrupt genio to wakeup APE */
     #define SMC_APE_WAKEUP_EXTERNAL_IRQ_REGISTER_HANDLER  FALSE
 
-    //#define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID             0       /*  */
-    //#define SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE           SMC_SIGNAL_TYPE_INT_IRQC
-    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID             65       /*  */
-    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_TYPE           SMC_SIGNAL_TYPE_INT_WGM_GENOUT
+    #define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC          2000
 
-    #define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC       3000
+    #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  { SMC_VERSION_TO_INT(0,0,36), SMC_VERSION_REQUIREMENT_LEVEL_WARNING, "Modem->APE wakeup signal polarity change" }
+    #define SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37 { SMC_VERSION_TO_INT(0,0,37), SMC_VERSION_REQUIREMENT_LEVEL_ASSERT, "MHDP Channel Shared Memory size change" }
 
-    #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID_FROM_MODEM  0        /* Genio to wakeup APE */
+#else
+    #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  {0,0,""}
 
-#endif
+#endif /* #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) ) */
 
-#endif
+
+    /*
+     * SMC Version requirements
+     */
+
+#define SMC_VERSION_REQUIREMENT_ARRAY  SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY, SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37
+#define SMC_VERSION_REQUIREMENT_COUNT  2
+
+//#define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM       /* If defined, the message is buffered when out of MDB memory */
+
+#endif  /* #ifndef SMC_INSTANCE_CONFIG_R8A73734_WGE31_H */
+
+/* EOF */

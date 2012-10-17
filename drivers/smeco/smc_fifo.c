@@ -564,10 +564,14 @@ void smc_fifo_dump(char* indent, smc_fifo_t* p_fifo, int32_t mem_offset )
     if( p_fifo != NULL )
     {
         uint32_t* address = 0x00000000;
+        int32_t   fifo_unread = p_fifo->write_index-p_fifo->read_index;
 
-        SMC_TRACE_PRINTF_ALWAYS("%sFIFO: 0x%08X, Size %d, SHM offset 0x%08X", indent,
+        if( fifo_unread < 0 ) fifo_unread *= -1;
+
+        SMC_TRACE_PRINTF_ALWAYS("%sFIFO: 0x%08X, Size %d, SHM offset 0x%08X, uses %d bytes of SHM, %d unread items", indent,
                 (uint32_t)p_fifo, p_fifo->length,
-                (uint32_t)mem_offset);
+                (uint32_t)mem_offset, smc_fifo_calculate_required_shared_mem( p_fifo->length ),
+                fifo_unread);
 
         SMC_TRACE_PRINTF_ALWAYS("%s  Header write: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X): write index %d, write counter %d", indent,
                     (uint32_t)(FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo)), (uint32_t)FIFO_HEADER_GET_END_ADDRESS_WRITE(p_fifo),

@@ -6,6 +6,7 @@ SMECO_PATH := drivers/smeco
 U_INCLUDE  := -I$(SMECO_PATH)
 U_INCLUDE  += -I$(SMECO_PATH)/linux
 U_INCLUDE  += -I$(SMECO_PATH)/config
+U_INCLUDE  += -I$(SMECO_PATH)/config/EOS2
 E_CFLAGS   := -DSMECO_LINUX_KERNEL
 
   # Check if test modules included

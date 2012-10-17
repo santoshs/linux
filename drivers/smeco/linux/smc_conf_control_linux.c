@@ -29,7 +29,8 @@ Description :  File created
 #include "smc_trace.h"
 
 #include "smc_linux.h"
-#include "smc_instance_config_control.h"
+// TODO Cleanup #include "smc_instance_config_control.h"
+#include "smc_config_control.h"
 
 #if( SMC_CONTROL_USE_PHONET == TRUE)
   #include <linux/phonet.h>
@@ -62,7 +63,7 @@ static void* smc_allocator_callback_control(smc_channel_t* smc_channel, uint32_t
 static void  smc_event_callback_control(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
 
-static smc_conf_t* smc_device_create_conf_control(void);
+static smc_conf_t* smc_device_create_conf_control(char* device_name);
 
 static int      smc_control_net_device_driver_ioctl(struct net_device* device, struct ifreq* ifr, int cmd);
 static uint16_t smc_control_net_device_driver_select_queue( struct net_device *device, struct sk_buff *skb );
@@ -121,7 +122,7 @@ smc_instance_conf_t* smc_instance_conf_get_control( char* smc_user_name, char* c
 /*
  * Creates configuration for SMC between CA9 and MODEM
  */
-static smc_conf_t* smc_device_create_conf_control(void)
+static smc_conf_t* smc_device_create_conf_control(char* device_name)
 {
     smc_conf_t*          smc_conf                = NULL;
     smc_channel_conf_t*  smc_channel_conf        = NULL;
@@ -141,7 +142,7 @@ static smc_conf_t* smc_device_create_conf_control(void)
         smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
     }
 
-    SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%04X", smc_cpu_name, asic_version);
+    SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
 
     smc_instance_conf = smc_instance_conf_get_control( SMC_CONFIG_USER_CONTROL, smc_cpu_name );
 

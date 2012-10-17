@@ -30,12 +30,13 @@ Description :  File created
 #ifndef SMC_TRACE_PLATFORM_H
 #define SMC_TRACE_PLATFORM_H
 
-//#if( SMC_TRACES_PRINTF==TRUE )
+/*#define SMC_APE_LINUX_KERNEL_STM*/    /* If defined, the SMC traces are routed to STM -> Ntrace */
+
+
 #ifdef SMC_APE_RDTRACE_ENABLED
-
-    /* Experimental for RD runtime trace activation to Linux Kernel */
+    #error "APE Trace flag enabled - please disable"
+    /* RD runtime trace activation to Linux Kernel */
     #include "smc_trace_rdtrace.h"
-
 
 #else
         /* No traces */
@@ -65,23 +66,58 @@ Description :  File created
 #define SMC_TRACE_SIGNALS_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
 #define SMC_TRACE_FIFO_GET_ENABLED
+#define SMC_TRACE_FIFO_PUT_ENABLED
 #define SMC_TRACE_LOCK_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
 */
 
 
-#if( SMC_TRACES_PRINTF==TRUE )
-  #define SMC_TRACE_PRINTF(...)                printk(KERNEL_DEBUG_LEVEL __VA_ARGS__ )
-  //#define SMC_TRACE_PRINTF(trace, ...)       printk(KERNEL_DEBUG_LEVEL "%s\n" trace, ##__VA_ARGS__ )
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+  #define SMC_TRACE_PRINTF(format, arg...)         smc_printk( format,## arg )
+  #define SMC_TRACE_PRINTF_DATA(length, data)      smc_printf_data_linux_kernel_stm( length, data )
+
+  #define SMC_TRACE_PRINTF_STM(format, arg...)     smc_printk( "SMC: "format,## arg )
+  #define SMC_TRACE_PRINTF_DATA_STM(prefix_text, data, length, max_print_len)  smc_printk_data(prefix_text, data, length, max_print_len)
+#elif( SMC_TRACES_PRINTF==TRUE )
+
+  #define SMC_TRACE_PRINTF(format, arg...)     printk(KERNEL_DEBUG_LEVEL format "\n",## arg )
   #define SMC_TRACE_PRINTF_DATA(length, data)  smc_printf_data_linux_kernel( length, data )
+  #define SMC_TRACE_PRINTF_STM(format, arg...)
+  #define SMC_TRACE_PRINTF_DATA_STM(prefix_text, data, length, max_print_len)
 #else
   #define SMC_TRACE_PRINTF(...)
+  #define SMC_TRACE_PRINTF_STM(...)
   #define SMC_TRACE_PRINTF_DATA(length, data)
+  #define SMC_TRACE_PRINTF_DATA_STM(prefix_text, data, length, max_print_len)
 #endif
 
     /* Show UI traces */
-#define SMC_TRACE_PRINTF_UI(...)                   printk(KERN_ALERT __VA_ARGS__ )
-#define SMC_TRACE_PRINTF_ALWAYS(...)               printk(KERN_ALERT __VA_ARGS__ )
-#define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data) smc_printf_data_linux_kernel( length, data )
+//#define SMC_TRACE_PRINTF_UI(...)                   printk(KERN_ALERT __VA_ARGS__ )
+//#define SMC_TRACE_PRINTF_ALWAYS(...)               printk(KERN_ALERT __VA_ARGS__ )
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+  #define SMC_TRACE_PRINTF_UI(format, arg...)        printk(KERN_ALERT format "\n",## arg ); smc_printk( format,## arg )
+#else
+  #define SMC_TRACE_PRINTF_UI(format, arg...)        printk(KERN_ALERT format "\n",## arg )
+#endif
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+  #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        smc_printk( format,## arg )
+  #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg ); smc_printk( format,## arg )
+  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        printk(KERN_ALERT format,## arg )
+  #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg )
+  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)     smc_printf_data_linux_kernel( length, data )
+#endif
+
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+  void smc_printk(const char *fmt, ...);
+  void smc_vprintk(const char *fmt, va_list args);
+  void smc_printk_data(const char* prefix_text, const uint8_t* data, int data_len, int max_print_len);
+#endif /* #ifdef SMC_APE_LINUX_KERNEL_STM */
+
 #endif

@@ -36,7 +36,7 @@ Description :  File created
 
 
 #if( SMC_L2MUX_IF == TRUE )
-    #include "./modem/smc_conf_l2mux_modem.h"
+    #include "../modem/smc_conf_l2mux_modem.h"
 #endif
 
 #endif

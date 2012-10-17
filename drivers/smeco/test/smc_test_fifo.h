@@ -38,9 +38,9 @@ typedef struct
 
 
 #define SMC_TEST_CREATE_FIFO( name, length )       \
-uint8_t _##name##_fifoa_[ sizeof(smc_fifo_t) +     \
+uint8_t _##name##_smc_fifoa_[ sizeof(smc_fifo_t) +     \
 (length)*sizeof(smc_fifo_cell_t) ];                \
-smc_fifo_t *name = (smc_fifo_t *)_##name##_fifoa_
+smc_fifo_t *name = (smc_fifo_t *)_##name##_smc_fifoa_
 
 uint8_t smc_test_case_function_fifo( uint8_t* test_input_data, uint16_t test_input_data_len );
 
