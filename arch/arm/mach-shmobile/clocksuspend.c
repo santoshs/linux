@@ -1334,18 +1334,18 @@ int cpg_get_freq(struct clk_rate *rates)
 	/* rates->zb_clk = __match_div_rate(ZB_CLK,
 		HW_TO_DIV(zbckcr, ZB_CLK)); */
 	rates->zb_clk = 0; /* do not read ZB */
-	if (sys_rev >= ES_REV_2_0)
-		rates->m5_clk = __match_div_rate(M5_CLK,
-			HW_TO_DIV(frqcra, M5_CLK));
-	else
-		rates->m5_clk = DIV1_1; /* dummy one */
-
-	if ((frqcrd & FRQCRD_ZB30SEL) != 0)
-		rates->zb3_clk = __match_div_rate(ZB3_CLK,
-			HW_TO_DIV(frqcrd, ZB3_CLK));
-	else
-		rates->zb3_clk = DIV1_2;
-	/* verify again */
+        if (shmobile_chip_rev() >= ES_REV_2_0)
+                 rates->m5_clk = __match_div_rate(M5_CLK,
+                        HW_TO_DIV(frqcra, M5_CLK));
+        else
+                 rates->m5_clk = DIV1_1; /* dummy one */
+    
+        if ((frqcrd & FRQCRD_ZB30SEL) != 0)
+                 rates->zb3_clk = __match_div_rate(ZB3_CLK,
+                        HW_TO_DIV(frqcrd, ZB3_CLK));
+        else
+                 rates->zb3_clk = DIV1_2;
+            /* verify again */	
 	if ((rates->i_clk < 0) || (rates->zg_clk < 0)
 		|| (rates->b_clk < 0) || (rates->m1_clk < 0)
 		|| (rates->m3_clk < 0) || (rates->z_clk < 0)
