@@ -62,7 +62,8 @@
 #include <linux/i2c/touchkey_i2c.h>
 #endif
 
-#include <linux/mmcoops.h>
+
+#include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
 #include <asm/io.h>
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
@@ -75,8 +76,6 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-
-#include <mach/crashlog.h>
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)

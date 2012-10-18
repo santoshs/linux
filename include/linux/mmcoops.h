@@ -8,6 +8,7 @@
 #define __MMCOOPS_H
 
 #include <linux/platform_device.h>
+#include <mach/crashlog.h>
 
 #define MMCOOPS_RECORD_CNT			3
 #define MMCOOPS_HEADER_SIZE			1
@@ -53,7 +54,7 @@ struct mmcoops_platform_data {
 	unsigned long		logcat_radio_size_ddr;
 	unsigned long		logcat_events_size_ddr;
 	u32			local_version;
-	char			soft_version[32];
+	char			soft_version[CRASHLOG_R_LOCAL_VER_LENGTH];
 };
 
 #endif
