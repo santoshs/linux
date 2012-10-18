@@ -25,6 +25,10 @@
 #include <linux/mutex.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+
 #ifdef CONFIG_THS_DEBUG_ENABLE
 #define THS_DEBUG_MSG(...) printk(KERN_INFO __VA_ARGS__)
 #define THS_ERROR_MSG(...) printk(KERN_ERR __VA_ARGS__)
@@ -37,17 +41,18 @@ enum mode;
 
 /* Define structure, enum */
 struct thermal_sensor {
-	void __iomem 				*iomem_base;	/* The base address of Thermal Sensor module */
+	void __iomem 			*iomem_base;	/* The base address of Thermal Sensor module */
 	struct platform_device  	*pdev;
-	struct mutex sensor_mutex;
-	struct device 				*dev;
-	struct work_struct 			tj0_work;
-	struct work_struct 			tj1_work;
-	struct work_struct 			tj2_work;
+	struct mutex 			sensor_mutex;
+	struct device 			*dev;
+	struct work_struct 		tj0_work;
+	struct work_struct 		tj1_work;
+	struct work_struct 		tj2_work;
 	struct workqueue_struct 	*queue;
-	struct thermal_sensor_data  pdata[2];
-	int ths_irq;
-	struct clk * clk;
+	struct thermal_sensor_data  	pdata[2];
+	int 				ths_irq;
+	struct clk 			*clk;
+	struct early_suspend 		early_suspend;
 };
 
 /* Common functions is used by kernel and user interface */
