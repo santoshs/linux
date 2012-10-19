@@ -2762,14 +2762,28 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
 	
 	/* Disable GPIO Enable at initialization */
-	
+
 	// MHL enable
-	gpio_request(GPIO_PORT102, NULL);
-	gpio_direction_output(GPIO_PORT102, 0);
+	/*gpio_request(GPIO_PORT102, NULL);
+	gpio_direction_output(GPIO_PORT102, 0);*/
 	
+	// ===== CWS GPIO =====
+	
+	// GPS Reset
+	gpio_request(GPIO_PORT10, NULL);
+	gpio_direction_output(GPIO_PORT10, 0);
+	
+	// GPS Enable
+	gpio_request(GPIO_PORT11, NULL);
+	gpio_direction_output(GPIO_PORT11, 0);
+
 	// NFC Enable
 	gpio_request(GPIO_PORT12, NULL);
 	gpio_direction_output(GPIO_PORT12, 0);
+
+	// NFC Firmware
+	gpio_request(GPIO_PORT101, NULL);
+	gpio_direction_output(GPIO_PORT101, 0);
 	
 	// WLAN Enable
 	gpio_request(GPIO_PORT260, NULL);
@@ -2778,11 +2792,13 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	// BT Enable
 	gpio_request(GPIO_PORT268, NULL);
 	gpio_direction_output(GPIO_PORT268, 0);
-	
+
 	// GPS Enable
-	gpio_request(GPIO_PORT11, NULL);
-	gpio_direction_output(GPIO_PORT11, 0);
+	/*gpio_request(GPIO_PORT11, NULL);
+	gpio_direction_output(GPIO_PORT11, 0);*/
 	
+	// ===== Misc GPIO =====
+
 	// MAIN MIC LDO Enable
 	gpio_request(GPIO_PORT8, NULL);
 	gpio_direction_output(GPIO_PORT8, 0);
@@ -2790,7 +2806,15 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	// Sensor LDO Enable
 	gpio_request(GPIO_PORT9, NULL);
 	gpio_direction_output(GPIO_PORT9, 0);
+
+	// LCD TE
+	gpio_request(GPIO_PORT33, NULL);
+	gpio_direction_output(GPIO_PORT33, 0);
 	
+	// MHL enable
+	gpio_request(GPIO_PORT102, NULL);
+	gpio_direction_output(GPIO_PORT102, 0);
+
 	/* End */
 
 	if (0 != stm_select) {
