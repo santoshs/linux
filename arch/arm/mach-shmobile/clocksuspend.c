@@ -1732,6 +1732,8 @@ done:
 int pm_setup_clock(void)
 {
 	unsigned long flags;
+	unsigned int zbckcr = 0;
+	unsigned int cnt_zb = 1000;/*Wait 1ms*/
 
 	spin_lock_irqsave(&freq_change_lock, flags);
 
@@ -1745,6 +1747,21 @@ int pm_setup_clock(void)
 
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;
+
+	/* stop ZB-Phy */
+	while (cnt_zb--) {
+		zbckcr = __raw_readl(CPG_ZBCKCR);
+		if (zbckcr & BIT(8)) {
+			pr_info("ZB-Phy stopped, ZBCKCR<0x%08x>\n", zbckcr);
+			break;
+		}
+		zbckcr |= BIT(8);
+		__raw_writel(zbckcr, CPG_ZBCKCR);
+		udelay(1);
+	}
+	if (!cnt_zb)
+		pr_err("fail to stop ZB-Phy, ZBCKCR<0x%08x>\n", zbckcr);
+
 	spin_unlock_irqrestore(&freq_change_lock, flags);
 
 	return 0;
