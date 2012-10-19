@@ -34,7 +34,8 @@
 #include <linux/input.h>
 #include <linux/power_supply.h>
 #include <linux/spa_power.h>
-#include <linux/switch.h> 
+#include <linux/switch.h> /* Chayan */
+#include <linux/ctype.h>
 
 /* TSU6712 I2C registers */
 #define TSU6712_REG_DEVID		0x01
@@ -126,12 +127,15 @@
 #define	ADC_CARDOCK		0x1d
 #define ADC_OPEN		0x1f
 
-static struct switch_dev s_dev = {
+/* Chayan */
+struct switch_dev switch_dev = {
         .name = "tsu6712",
         .state = 0
 };
+/* Chayan */
 
 static int state;
+char at_isi_switch_buf[1000] = {0};
 
 struct tsu6712_usbsw {
 	struct i2c_client		*client;
@@ -157,7 +161,7 @@ enum {
 
 static struct tsu6712_usbsw *local_usbsw;
 static enum cable_type_t set_cable_status;
-
+int KERNEL_LOG;
 
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 #define MHL_DEVICE 2
@@ -170,7 +174,8 @@ int get_cable_type(void)
 }
 EXPORT_SYMBOL(get_cable_type);
 
-static int tsu6712_write_reg(struct i2c_client *client,        u8 reg, u8 data)/*reg no,data*/
+/* reg no,data */
+static int tsu6712_write_reg(struct i2c_client *client, u8 reg, u8 data)
 {
        int ret = 0;
        u8 buf[2];
@@ -293,13 +298,13 @@ static void tsu6712_usb_cb(bool attached)
    {	
       printk("USB attached : send switch state 100");
 	state = 100;
-      switch_set_state(&s_dev,100); 
+	switch_set_state(&switch_dev, 100); /* Chayan */
    }
    else
    {
       printk("USB detached : send switch state 101");
 	state = 101;
-      switch_set_state(&s_dev,101); 
+	switch_set_state(&switch_dev, 101); /* Chayan */
    }
 
    printk("%s : %d", __func__,__LINE__);
@@ -358,13 +363,13 @@ static void tsu6712_uart_cb(bool attached)
    {	
       printk("UART attached : send switch state 200");
 	state = 200;
-      switch_set_state(&s_dev,200); 
+	switch_set_state(&switch_dev, 200); /* Chayan */
    }
    else
    {
       printk("UART detached : send switch state 201");
 	state = 201;
-      switch_set_state(&s_dev,201);
+	switch_set_state(&switch_dev, 201); /* Chayan */
    }
    printk("%s : %d", __func__,__LINE__);
 /*   if(attached==true)
@@ -497,11 +502,9 @@ static ssize_t tsu6712_show_device_type(struct device *dev,
 	int value;
 
 	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	printk("value = %d", value);
-//	return snprintf(buf, 2, "%d\n", value);
+/*	return snprintf(buf, 2, "%d\n", value); */
 	return snprintf(buf, 4, "%d\n", state);
 }
 
@@ -586,16 +589,164 @@ static DEVICE_ATTR(device_type, S_IRUGO, tsu6712_show_device_type, NULL);
 static DEVICE_ATTR(switch, S_IRUGO | S_IWUSR,
 		tsu6712_show_manualsw, tsu6712_set_manualsw);
 
+/* AT-ISI Separation ends */
+
+/* AT-ISI Separation Starts */
+
+#define	SWITCH_AT	103
+#define	SWITCH_ISI	104
+
+static ssize_t set_manualsw(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	if (0 == strncmp(buf, "switch at", 9))
+		switch_set_state(&switch_dev, SWITCH_AT);
+
+	if (0 == strncmp(buf, "switch isi", 9))
+		switch_set_state(&switch_dev, SWITCH_ISI);
+
+	return count;
+}
+
+
+/* AT-ISI Separation starts */
+extern int stop_isi;
+char at_isi_mode[100] = {0};
+
+static ssize_t ld_show_mode(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	strcpy(buf, at_isi_mode);
+	printk("LD MODE from TSU %s\n", at_isi_mode);
+	return 3;
+}
+
+static ssize_t ld_show_manualsw(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+ssize_t ld_set_manualsw(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	printk(" ld_set_manualsw invoked\n");
+	if (0 == strncmp(buf, "switch at", 9)) {
+		printk(" ld_set_manualsw switch at\n");
+		memset((char *)at_isi_mode, 0, 100);
+		strcpy((char *)at_isi_mode, "at");
+		switch_set_state(&switch_dev, SWITCH_AT);
+
+		stop_isi = 1;
+	}
+	if (0 == strncmp(buf, "switch isi", 10)) {
+		printk(" ld_set_manualsw switch isi\n");
+		memset((char *)at_isi_mode, 0, 100);
+		strcpy((char *)at_isi_mode, "isi");
+		switch_set_state(&switch_dev, SWITCH_ISI);
+		stop_isi = 0;
+	}
+	return count;
+}
+
+static ssize_t ld_show_switch_buf(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	strcpy(buf, at_isi_switch_buf);
+	printk("BUF from TSU %s\n", at_isi_switch_buf);
+	return strlen(at_isi_switch_buf);
+}
+
+
+ssize_t ld_set_switch_buf(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int ret = 0;
+	int error = 0;
+	char *ptr = NULL;
+	int i = 0;
+	char temp[100];
+
+	/* If UART is not connected ignore this sysfs access*/
+	if (200 != state)
+		return 0;
+
+	memset(temp, 0, 100);
+	for (i = 0; i < count; i++)
+		temp[i] = toupper(buf[i]);
+
+	strncat((char *)at_isi_switch_buf, temp, count);
+
+	if (at_isi_switch_buf) {
+		if (strstr(at_isi_switch_buf, "\r\n"))
+			printk("###WIPRO### r n\n");
+		else if (strstr(at_isi_switch_buf, "\t\n"))
+			printk("###WIPRO### t n\n");
+		else if (strstr(at_isi_switch_buf, "\n"))
+			printk("###WIPRO### n\n");
+	}
+
+	ptr = strstr("AT+ATSTART" , at_isi_switch_buf);
+	if (NULL == ptr) {
+		ptr = strstr("AT+ISISTART", at_isi_switch_buf);
+		if (NULL == ptr)
+			error = 1;
+	}
+
+	ptr = strstr(at_isi_switch_buf, "AT+ATSTART");
+	if (NULL != ptr) {
+		printk("ld_set_switch_buf : switch at");
+		KERNEL_LOG = 0;
+		ld_set_manualsw(NULL, NULL, "switch at", 9);
+		memset(at_isi_switch_buf, 0, 1000);
+		error = 0;
+	} else {
+		ptr = strstr(at_isi_switch_buf, "AT+ISISTART");
+		if (NULL != ptr) {
+			printk("ld_set_switch_buf : switch isi");
+			KERNEL_LOG = 0;
+			ld_set_manualsw(NULL, NULL, "switch isi", 10);
+			memset(at_isi_switch_buf, 0, 1000);
+			error = 0;
+		}
+	}
+
+	if (error != 0) {
+		count = -1;
+		memset(at_isi_switch_buf, 0, 1000);
+	}
+	return count;
+}
+/* AT-ISI Separation starts */
+static DEVICE_ATTR(at_isi_switch, S_IRUGO | S_IWUSR,
+		ld_show_manualsw, ld_set_manualsw);
+
+static DEVICE_ATTR(at_isi_mode, S_IRUGO | S_IWUSR,
+		ld_show_mode, NULL);
+
+static DEVICE_ATTR(at_isi_switch_buf, S_IRUGO | S_IWUSR,
+		ld_show_switch_buf, ld_set_switch_buf);
+
 static struct attribute *tsu6712_attributes[] = {
 	&dev_attr_control.attr,
 	&dev_attr_device_type.attr,
 	&dev_attr_switch.attr,
+	&dev_attr_at_isi_switch.attr,	/* AT-ISI Separation */
+	&dev_attr_at_isi_mode,		/* AT-ISI Separation */
+	&dev_attr_at_isi_switch_buf,	/* AT-ISI Separation */
 	NULL
 };
+
 
 static const struct attribute_group tsu6712_group = {
 	.attrs = tsu6712_attributes,
 };
+/* AT-ISI Separation Ends */
+
 
 void tsu6712_otg_set_autosw_pda(void)
 {
@@ -603,8 +754,7 @@ void tsu6712_otg_set_autosw_pda(void)
 	int ret;
 	struct i2c_client *client = local_usbsw->client;
 	dev_info(&client->dev, "%s\n", __func__);
-	tsu6712_write_reg(client,
-						TSU6712_REG_CTRL, 0x1E);
+	tsu6712_write_reg(client, TSU6712_REG_CTRL, 0x1E);
 }
 EXPORT_SYMBOL(tsu6712_otg_set_autosw_pda);
 
@@ -1196,7 +1346,7 @@ static int tsu6712_resume(struct i2c_client *client)
 /* add for tsu6712_irq_thread i2c error during wakeup */
 	tsu6712_check_dev(usbsw);
 
-	tsu6712_read_reg(client,TSU6712_REG_INT1,&value);
+	tsu6712_read_reg(client, TSU6712_REG_INT1, &value);
 
 	/* device detection */
 	mutex_lock(&usbsw->mutex);
@@ -1225,15 +1375,18 @@ static struct i2c_driver tsu6712_i2c_driver = {
 
 static int __init tsu6712_init(void)
 {
+	/* Chayan */
 	int ret;
-    ret = switch_dev_register(&s_dev);
+	ret = switch_dev_register(&switch_dev);
     if(ret)
        printk("TSU6712: switch_dev_register failed\n");
+	/* Chayan */
+	 strcpy(at_isi_mode, "at");
 	return i2c_add_driver(&tsu6712_i2c_driver);
 }
 static void __exit tsu6712_exit(void)
 {
-	switch_dev_unregister(&s_dev); 
+	switch_dev_unregister(&switch_dev); /* Chayan */
 	i2c_del_driver(&tsu6712_i2c_driver);
 }
 

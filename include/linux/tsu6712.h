@@ -38,18 +38,21 @@ enum {
 };
 
 enum cable_type_t{
-   CABLE_TYPE_USB,
-   CABLE_TYPE_AC,
-   CABLE_TYPE_NONE
+	CABLE_TYPE_USB,
+	CABLE_TYPE_AC,
+	CABLE_TYPE_NONE
 };
 
 extern void tsu6712_manual_switching(int path);
 extern void tsu6712_otg_detach(void);
 extern void tsu6712_otg_set_autosw_pda(void);
 extern int get_cable_type(void);
+extern ssize_t ld_set_switch_buf(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count);
 
 struct tsu6712_platform_data{
-    void (*cfg_gpio) (void);
+	void (*cfg_gpio) (void);
 	void (*otg_cb) (bool attached);
 	void (*usb_cb) (bool attached);
 	void (*uart_cb) (bool attached);
