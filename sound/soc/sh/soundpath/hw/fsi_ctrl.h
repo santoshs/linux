@@ -96,6 +96,10 @@
 /* PortA offset to PortB  */
 #define FSI_PORTB_OFFSET	(0x0040)
 
+/* Waiting for the Start PortA at FM */
+#define FSI_DIFF_ST_WAIT_TIME	(200)	/* us */
+#define FSI_DIFF_ST_WAIT_COUNT	(10)	/* loop	*/
+#define FSI_DIFF_ST_WAIT_SIZE	(64)	/* samples */
 
 /*
  * STRUCTURE Definitions

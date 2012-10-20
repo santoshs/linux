@@ -20,6 +20,7 @@
 #include <sound/soundpath/common_extern.h>
 #include <sound/soundpath/scuw_extern.h>
 #include "scuw_ctrl.h"
+#include "common_ctrl.h"
 #include <mach/common.h>
 
 /*
@@ -95,14 +96,33 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 /*        Reg			Val		D  C */
 	/* 110: FSI-IF read port 1 data (from FSI2) */
 	{ SCUW_SEL_SELCR0,	0x00000006,	0, 0 },
-	/*  00: SEL0 output data, clock supply to MIX0 halted */
-	{ SCUW_SEL_SELCR5,	0x00000000,	0, 0 },
-	/*   0: SEL5 output data, clock supply to IIR0 halted */
-	{ SCUW_SEL_SELCR6,	0x00000000,	0, 0 },
+	/* 100: FFD data */
+	{ SCUW_SEL_SELCR1,	0x00000004,	0, 0 },
+	{ SCUW_SEL_SELCR4,	0x00000006,	0, 0 },
+	/*  01: MIX0 output data, clock supply to MIX0 operated */
+	{ SCUW_SEL_SELCR5,	0x00000001,	0, 0 },
+	/*   1: IIR0 output data, clock supply to IIR0 operated */
+	{ SCUW_SEL_SELCR6,	0x00000001,	0, 0 },
 	/*   0: SEL6 output data, clock supply to DVU0 halted */
 	{ SCUW_SEL_SELCR7,	0x00000000,	0, 0 },
+	{ SCUW_SEL_SELCR8,	0x00000001,	0, 0 },
+	{ SCUW_SEL_SELCR9,	0x00000000,	0, 0 },
+	{ SCUW_SEL_SELCR10,	0x00000000,	0, 0 },
+	/*   001: SEL10 output data */
+	{ SCUW_SEL_SELCR13,	0x00000001,	0, 0 },
 	/*   0: SEL7 output data */
 	{ SCUW_SEL_SELCR15,	0x00000000,	0, 0 },
+
+	/*  010: MIX0 system D and SEL5 */
+	{ SCUW_SW_SRC0,	0x00000002,	0, 0 },
+
+	{ SCUW_MSTP0,		0x00000001,	0, 0 },
+	{ SCUW_SWRSR_SRC0,	0x00000000,	0, 0 },
+	{ SCUW_SWRSR_SRC0,	0x00000001,	0, 0 },
+	{ SCUW_SRCIR_SRC0,	0x00000001,	0, 0 },
+	{ SCUW_SRCBR_SRC0,	0x00000001,	0, 0 },
+	{ SCUW_SRCIR_SRC0,	0x00000000,	0, 0 },
+
 	/*   1 : FSI-IF operates. */
 	{ SCUW_MSTP1,		0x00000001,	0, 0 },
 	/*   0 : Reset the FSI IF. */
@@ -121,6 +141,118 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	{ SCUW_FSIIF_RADCR1,	0x00000018,	0, 0 },
 	/*   0 : Processing State */
 	{ SCUW_FSIIF_FSIIR,	0x00000000,	0, 0 },
+
+	/*   1 : FFD operates. */
+	{ SCUW_MSTP2,		0x00000001,	0, 0 },
+	/*   0 : Reset the FIFO. */
+	{ SCUW_SWRSR_FFD,	0x00000000,	0, 0 },
+	/*   1 : FIFO enters the operating state. */
+	{ SCUW_SWRSR_FFD,	0x00000001,	0, 0 },
+	/*   1 : Initialization (sets the initial setting of other registers) */
+	{ SCUW_FFDIR_FFD,	0x00000001,	0, 0 },
+	/*   0010 : 2 channel */
+	{ SCUW_FDAIR_FFD,	0x00000002,	0, 0 },
+	/*   01: Using sampling rate timing (Async Mode) */
+	{ SCUW_FFDPR_FFD,	0x00000001,	0, 0 },
+	/* 0002 : 64 data. */
+	{ SCUW_DRQSR_FFD,	0x00000002,	0, 0 },
+	/*   1 : Enables interrupt. */
+	{ SCUW_DEVMR_FFD,	0x00000000,	0, 0 },
+	/*   1 : Enable DMA request */
+	{ SCUW_DMACR_FFD,	0x00000001,	0, 0 },
+	/*   0 : Processing State */
+	{ SCUW_FFDIR_FFD,	0x00000000,	0, 0 },
+	/*   1 : Boot the data request */
+	{ SCUW_FFDBR_FFD,	0x00000001,	0, 0 },
+
+	/*   1 : FIFO2 operates. */
+	{ SCUW_MSTP3,		0x00000004,	0, 0 },
+	/*   0 : Reset FIFO. */
+	{ SCUW_SWRSR_CF2,	0x00000000,	0, 0 },
+	/*   1 : FIFO enters the operating state. */
+	{ SCUW_SWRSR_CF2,	0x00000001,	0, 0 },
+	/*   1 : Initialization (sets the initial setting of other registers) */
+	{ SCUW_CF2IR,		0x00000001,	0, 0 },
+	/*   0010 : 2 channel */
+	{ SCUW_CF2AIR,		0x00000002,	0, 0 },
+	/*   01: Using sampling rate timing (Async Mode) */
+	{ SCUW_CF2PR,		0x00000001,	0, 0 },
+	/* 0001 : 128 data. */
+	{ SCUW_CF2RQSR,		0x00000001,	0, 0 },
+	/*   1 : Enables interrupt. */
+	{ SCUW_CF2EVMR,		0x00000000,	0, 0 },
+	/*   1 : Enable DMA request */
+	{ SCUW_DMACR_CF2,	0x00000001,	0, 0 },
+	/*   0 : Processing State */
+	{ SCUW_CF2IR,		0x00000000,	0, 0 },
+
+	/*   0: Resets the MIX. */
+	{ SCUW_SWRSR_MIX0,	0x00000000,	0, 0 },
+	/*   1: Operating state. */
+	{ SCUW_SWRSR_MIX0,	0x00000001,	0, 0 },
+	/*   1 : Initialization (sets the initial setting of other registers) */
+	{ SCUW_MIXIR_MIX0,	0x00000001,	0, 0 },
+	{ SCUW_ADINR_MIX0,	0x00000002,	0, 0 },
+	{ SCUW_MIXMR_MIX0,	0x00000000,	0, 0 },
+	{ SCUW_MVPDR_MIX0,	0x00000000,	0, 0 },
+	{ SCUW_MDBER_MIX0,	0x00000000,	0, 0 },
+	/* 182:0.0038681205 times */
+	{ SCUW_MDBAR_MIX0,	0x00000000,	0, 0 },
+	/* Mute */
+	{ SCUW_MDBBR_MIX0,	0x000003FF,	0, 0 },
+	/* Mute */
+	{ SCUW_MDBCR_MIX0,	0x000003FF,	0, 0 },
+	/* 1 times */
+	{ SCUW_MDBDR_MIX0,	0x00000000,	0, 0 },
+	{ SCUW_MDBER_MIX0,	0x00000001,	0, 0 },
+	{ SCUW_MIXIR_MIX0,	0x00000000,	0, 0 },
+
+	/*   0: Resets the MIX. */
+	{ SCUW_SWRSR_MIX1,	0x00000000,	0, 0 },
+	/*   1: Operating state. */
+	{ SCUW_SWRSR_MIX1,	0x00000001,	0, 0 },
+	/*   1 : Initialization (sets the initial setting of other registers) */
+	{ SCUW_MIXIR_MIX1,	0x00000001,	0, 0 },
+	{ SCUW_ADINR_MIX1,	0x00000002,	0, 0 },
+	{ SCUW_MIXMR_MIX1,	0x00000000,	0, 0 },
+	{ SCUW_MVPDR_MIX1,	0x00000000,	0, 0 },
+	/* 1 times */
+	{ SCUW_MDBER_MIX1,	0x00000000,	0, 0 },
+	/* 0.0038681205 times */
+	{ SCUW_MDBAR_MIX1,	0x00000182,	0, 0 },
+	/* Mute */
+	{ SCUW_MDBBR_MIX1,	0x000003FF,	0, 0 },
+	/* Mute */
+	{ SCUW_MDBCR_MIX1,	0x000003FF,	0, 0 },
+	/* Mute */
+	{ SCUW_MDBDR_MIX1,	0x000003FF,	0, 0 },
+	/* 1 times */
+	{ SCUW_MDBER_MIX1,	0x00000001,	0, 0 },
+	{ SCUW_MIXIR_MIX1,	0x00000000,	0, 0 },
+
+	/* Set state to reset */
+	{ SCUW_SWRSR_IIR0,	0x00000000,	0, 0 },
+	/* Set state from reset to operation */
+	{ SCUW_SWRSR_IIR0,	0x00000001,	0, 0 },
+	/* Set state to initialization */
+	{ SCUW_IIRIR_IIR0,	0x00000001,	0, 0 },
+	/* Set channel to 2ch */
+	{ SCUW_ADINR_IIR0,	0x00000002,	0, 0 },
+	/* Enable channel 0 and 1 */
+	{ SCUW_IIRCR_IIR0,	0x00000003,	0, 0 },
+	/* 1/2/3 bands are not used */
+	{ SCUW_FILTR_IIR0,	0x00000000,	0, 0 },
+	/* Enable pre-scale and post-scale */
+	{ SCUW_SCLCR_IIR0,	0x00000001,	0, 0 },
+	/* Set pre-Gain value to 1 times(0dB) */
+	{ SCUW_PGVSR_IIR0,	0x00100000,	0, 0 },
+	/* Set pre-scale value to 1 times(0dB) */
+	{ SCUW_S0VSR_IIR0,	0x00100000,	0, 0 },
+	/* Set post-scale value to 256 times */
+	{ SCUW_S1VSR_IIR0,	0x00000400,	0, 0 },
+	/* Set state from initialization to processing */
+	{ SCUW_IIRIR_IIR0,	0x00000000,	0, 0 }
+
 };
 
 
@@ -217,18 +349,39 @@ void scuw_reg_dump(void)
 	sndp_log_reg_dump("SCUW_SEL_SELCR0     [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR0),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR0)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR1),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR1)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR2     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR2),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR2)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR4     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR4),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR4)));
 	sndp_log_reg_dump("SCUW_SEL_SELCR5     [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR5),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR5)));
 	sndp_log_reg_dump("SCUW_SEL_SELCR6     [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR6),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR6)));
-	sndp_log_reg_dump("SCUW_SEL_SELCR7    [%08lX] = %08X\n",
+	sndp_log_reg_dump("SCUW_SEL_SELCR7     [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR7),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR7)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR8     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR8),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR8)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR9     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR9),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR9)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR10    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR10),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR10)));
 	sndp_log_reg_dump("SCUW_SEL_SELCR12    [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR12),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR12)));
+	sndp_log_reg_dump("SCUW_SEL_SELCR13    [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SEL_SELCR13),
+			ioread32((g_scuw_Base + SCUW_SEL_SELCR13)));
 	sndp_log_reg_dump("SCUW_SEL_SELCR15    [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SEL_SELCR15),
 			ioread32((g_scuw_Base + SCUW_SEL_SELCR15)));
@@ -265,6 +418,178 @@ void scuw_reg_dump(void)
 	sndp_log_reg_dump("SCUW_FSIIF_RADCR1   [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_FSIIF_RADCR1),
 			ioread32((g_scuw_Base + SCUW_FSIIF_RADCR1)));
+
+	sndp_log_reg_dump("SCUW_SW_SRC0        [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SW_SRC0),
+			ioread32((g_scuw_Base + SCUW_SW_SRC0)));
+	sndp_log_reg_dump("SCUW_SW_SRC1        [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SW_SRC1),
+			ioread32((g_scuw_Base + SCUW_SW_SRC1)));
+
+	sndp_log_reg_dump("SCUW_SWRSR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SWRSR_SRC0),
+			ioread32((g_scuw_Base + SCUW_SWRSR_SRC0)));
+	sndp_log_reg_dump("SCUW_SRCIR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SRCIR_SRC0),
+			ioread32((g_scuw_Base + SCUW_SRCIR_SRC0)));
+	sndp_log_reg_dump("SCUW_EVMSR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_EVMSR_SRC0),
+			ioread32((g_scuw_Base + SCUW_EVMSR_SRC0)));
+	sndp_log_reg_dump("SCUW_EVSTR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_EVSTR_SRC0),
+			ioread32((g_scuw_Base + SCUW_EVSTR_SRC0)));
+	sndp_log_reg_dump("SCUW_EVCLR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_EVCLR_SRC0),
+			ioread32((g_scuw_Base + SCUW_EVCLR_SRC0)));
+	sndp_log_reg_dump("SCUW_ADINR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_ADINR_SRC0),
+			ioread32((g_scuw_Base + SCUW_ADINR_SRC0)));
+	sndp_log_reg_dump("SCUW_SRCBR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SRCBR_SRC0),
+			ioread32((g_scuw_Base + SCUW_SRCBR_SRC0)));
+	sndp_log_reg_dump("SCUW_IFSCR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_IFSCR_SRC0),
+			ioread32((g_scuw_Base + SCUW_IFSCR_SRC0)));
+	sndp_log_reg_dump("SCUW_IFSVR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_IFSVR_SRC0),
+			ioread32((g_scuw_Base + SCUW_IFSVR_SRC0)));
+	sndp_log_reg_dump("SCUW_SRCCR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SRCCR_SRC0),
+			ioread32((g_scuw_Base + SCUW_SRCCR_SRC0)));
+	sndp_log_reg_dump("SCUW_MNFSR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MNFSR_SRC0),
+			ioread32((g_scuw_Base + SCUW_MNFSR_SRC0)));
+	sndp_log_reg_dump("SCUW_BFSSR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_BFSSR_SRC0),
+			ioread32((g_scuw_Base + SCUW_BFSSR_SRC0)));
+	sndp_log_reg_dump("SCUW_SC2SR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SC2SR_SRC0),
+			ioread32((g_scuw_Base + SCUW_SC2SR_SRC0)));
+	sndp_log_reg_dump("SCUW_WATSR_SRC0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_WATSR_SRC0),
+			ioread32((g_scuw_Base + SCUW_WATSR_SRC0)));
+
+	sndp_log_reg_dump("SCUW_SWRSR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SWRSR_SRC1),
+			ioread32((g_scuw_Base + SCUW_SWRSR_SRC1)));
+	sndp_log_reg_dump("SCUW_SRCIR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SRCIR_SRC1),
+			ioread32((g_scuw_Base + SCUW_SRCIR_SRC1)));
+	sndp_log_reg_dump("SCUW_ADINR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_ADINR_SRC1),
+			ioread32((g_scuw_Base + SCUW_ADINR_SRC1)));
+	sndp_log_reg_dump("SCUW_IFSCR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_IFSCR_SRC1),
+			ioread32((g_scuw_Base + SCUW_IFSCR_SRC1)));
+	sndp_log_reg_dump("SCUW_IFSVR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_IFSVR_SRC1),
+			ioread32((g_scuw_Base + SCUW_IFSVR_SRC1)));
+	sndp_log_reg_dump("SCUW_SRCCR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_SRCCR_SRC1),
+			ioread32((g_scuw_Base + SCUW_SRCCR_SRC1)));
+	sndp_log_reg_dump("SCUW_MNFSR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MNFSR_SRC1),
+			ioread32((g_scuw_Base + SCUW_MNFSR_SRC1)));
+	sndp_log_reg_dump("SCUW_BFSSR_SRC1     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_BFSSR_SRC1),
+			ioread32((g_scuw_Base + SCUW_BFSSR_SRC1)));
+
+	sndp_log_reg_dump("SCUW_MSTP0          [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MSTP0),
+			ioread32((g_scuw_Base + SCUW_MSTP0)));
+	sndp_log_reg_dump("SCUW_MSTP1          [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MSTP1),
+			ioread32((g_scuw_Base + SCUW_MSTP1)));
+	sndp_log_reg_dump("SCUW_MSTP2          [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MSTP2),
+			ioread32((g_scuw_Base + SCUW_MSTP2)));
+	sndp_log_reg_dump("SCUW_MSTP3          [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MSTP3),
+			ioread32((g_scuw_Base + SCUW_MSTP3)));
+
+	sndp_log_reg_dump("SCUW_MIXIR_MIX0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MIXIR_MIX0),
+			ioread32((g_scuw_Base + SCUW_MIXIR_MIX0)));
+	sndp_log_reg_dump("SCUW_ADINR_MIX0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_ADINR_MIX0),
+			ioread32((g_scuw_Base + SCUW_ADINR_MIX0)));
+	sndp_log_reg_dump("SCUW_MIXBR_MIX0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MIXBR_MIX0),
+			ioread32((g_scuw_Base + SCUW_MIXBR_MIX0)));
+	sndp_log_reg_dump("SCUW_MIXMR_MIX0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MIXMR_MIX0),
+			ioread32((g_scuw_Base + SCUW_MIXMR_MIX0)));
+	sndp_log_reg_dump("SCUW_MVPDR_MIX0     [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_MVPDR_MIX0),
+			ioread32((g_scuw_Base + SCUW_MVPDR_MIX0)));
+
+	sndp_log_reg_dump("SCUW_DMACR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_DMACR_FFD),
+			ioread32((g_scuw_Base + SCUW_DMACR_FFD)));
+	sndp_log_reg_dump("SCUW_FFDIR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_FFDIR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_FFDIR_FFD -
+				SCUW_PHY_BASE_FFD)));
+	sndp_log_reg_dump("SCUW_FDAIR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_FDAIR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_FDAIR_FFD -
+				SCUW_PHY_BASE_FFD)));
+	sndp_log_reg_dump("SCUW_DRQSR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_DRQSR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_DRQSR_FFD -
+				SCUW_PHY_BASE_FFD)));
+	sndp_log_reg_dump("SCUW_FFDPR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_FFDPR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_FFDPR_FFD -
+				SCUW_PHY_BASE_FFD)));
+	sndp_log_reg_dump("SCUW_FFDBR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_FFDBR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_FFDBR_FFD -
+				SCUW_PHY_BASE_FFD)));
+	sndp_log_reg_dump("SCUW_DEVMR_FFD      [%08lX] = %08X\n",
+			(g_scuw_Base_FFD + SCUW_DEVMR_FFD - SCUW_PHY_BASE_FFD),
+			ioread32((g_scuw_Base_FFD +
+				SCUW_DEVMR_FFD -
+				SCUW_PHY_BASE_FFD)));
+
+	sndp_log_reg_dump("SCUW_DMACR_CF2      [%08lX] = %08X\n",
+			(g_scuw_Base + SCUW_DMACR_CF2),
+			ioread32((g_scuw_Base + SCUW_DMACR_CF2)));
+	sndp_log_reg_dump("SCUW_CF2IR          [%08lX] = %08X\n",
+			(g_scuw_Base_CPUFIFO2 + SCUW_CF2IR -
+					SCUW_PHY_BASE_CPUFIFO2),
+			ioread32((g_scuw_Base_CPUFIFO2 +
+				SCUW_CF2IR -
+				SCUW_PHY_BASE_CPUFIFO2)));
+	sndp_log_reg_dump("SCUW_CF2AIR         [%08lX] = %08X\n",
+			(g_scuw_Base_CPUFIFO2 + SCUW_CF2AIR -
+						SCUW_PHY_BASE_CPUFIFO2),
+			ioread32((g_scuw_Base_CPUFIFO2 +
+				SCUW_CF2AIR -
+				SCUW_PHY_BASE_CPUFIFO2)));
+	sndp_log_reg_dump("SCUW_CF2RQSR        [%08lX] = %08X\n",
+			(g_scuw_Base_CPUFIFO2 + SCUW_CF2RQSR -
+						SCUW_PHY_BASE_CPUFIFO2),
+			ioread32((g_scuw_Base_CPUFIFO2 +
+				SCUW_CF2RQSR -
+				SCUW_PHY_BASE_CPUFIFO2)));
+	sndp_log_reg_dump("SCUW_CF2PR          [%08lX] = %08X\n",
+			(g_scuw_Base_CPUFIFO2 + SCUW_CF2PR -
+						SCUW_PHY_BASE_CPUFIFO2),
+			ioread32((g_scuw_Base_CPUFIFO2 +
+				SCUW_CF2PR -
+				SCUW_PHY_BASE_CPUFIFO2)));
+	sndp_log_reg_dump("SCUW_CF2EVMR        [%08lX] = %08X\n",
+			(g_scuw_Base_CPUFIFO2 + SCUW_CF2EVMR -
+						SCUW_PHY_BASE_CPUFIFO2),
+			ioread32((g_scuw_Base_CPUFIFO2 +
+				SCUW_CF2EVMR -
+				SCUW_PHY_BASE_CPUFIFO2)));
 
 	sndp_log_reg_dump("==== SCUW REGISTER DUMP END ====\n");
 }

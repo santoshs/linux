@@ -162,6 +162,14 @@ static struct sndp_work_info g_sndp_work_call_capture_start;
 static struct sndp_work_info g_sndp_work_call_playback_stop;
 /* Stop during a call capture */
 static struct sndp_work_info g_sndp_work_call_capture_stop;
+/* Start during a fm playback */
+static struct sndp_work_info g_sndp_work_fm_playback_start;
+/* Start during a fm capture */
+static struct sndp_work_info g_sndp_work_fm_capture_start;
+/* Stop during a fm playback */
+static struct sndp_work_info g_sndp_work_fm_playback_stop;
+/* Stop during a fm capture */
+static struct sndp_work_info g_sndp_work_fm_capture_stop;
 /* VCD_COMMAND_WATCH_STOP_FW process */
 static struct sndp_work_info g_sndp_work_watch_stop_fw;
 /* FM Radio start */
@@ -245,6 +253,7 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 #endif
 
 static int g_call_playback_stop;
+static int g_fm_playback_stop;
 
 /*!
    @brief Print Log informs of data receiving
@@ -583,6 +592,14 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_call_playback_stop);
 	INIT_WORK(&g_sndp_work_call_capture_stop.work,
 		  sndp_work_call_capture_stop);
+	INIT_WORK(&g_sndp_work_fm_playback_start.work,
+		  sndp_work_fm_playback_start);
+	INIT_WORK(&g_sndp_work_fm_capture_start.work,
+		  sndp_work_fm_capture_start);
+	INIT_WORK(&g_sndp_work_fm_playback_stop.work,
+		  sndp_work_fm_playback_stop);
+	INIT_WORK(&g_sndp_work_fm_capture_stop.work,
+		  sndp_work_fm_capture_stop);
 	INIT_WORK(&g_sndp_work_watch_stop_fw.work,
 		  sndp_work_watch_stop_fw);
 	INIT_WORK(&g_sndp_work_fm_radio_start.work,
@@ -1080,6 +1097,50 @@ static int sndp_soc_put(
 	}
 
 	/* Direction check */
+	if (SNDP_PCM_OUT == uiDirection) {
+		/* FM Radio stop process */
+		if ((SNDP_VALUE_INIT != uiOldValue) &&
+		    (SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiOldValue)) &&
+		    (!(SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiValue)))) {
+			g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
+
+			/* Wake Lock */
+			sndp_wake_lock(E_LOCK);
+
+			/* Stop Capture running */
+			g_sndp_playrec_flg &= ~E_PLAY;
+
+			/* Registered in the work queue for FM Radio stop */
+			g_sndp_work_fm_radio_stop.old_value = uiOldValue;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_radio_stop.work);
+		}
+
+		/* FM Radio start process */
+		if ((SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiValue)) &&
+		    !(SNDP_FM_RADIO_RX & SNDP_GET_DEVICE_VAL(uiOldValue))) {
+			g_sndp_now_direction = SNDP_PCM_OUT;
+
+			/* Wake Lock */
+			sndp_wake_lock(E_LOCK);
+
+			/* Running Capture */
+			g_sndp_playrec_flg |= E_PLAY;
+
+			/* Registered in the work queue for FM Radio start */
+			g_sndp_work_fm_radio_start.new_value = uiValue;
+			queue_work(g_sndp_queue_main,
+					&g_sndp_work_fm_radio_start.work);
+
+			/* Saving the type of PCM */
+			SET_OLD_VALUE(uiDirection, uiValue);
+			sndp_log_debug_func("end\n");
+			return ERROR_NONE;
+		}
+	}
+
+	/* Direction check */
 	if ((SNDP_PCM_IN == uiDirection) &&
 	    (SNDP_MODE_INCOMM != uiMode) &&
 	    (SNDP_MODE_INCOMM != old_mode)) {
@@ -1138,6 +1199,8 @@ static int sndp_soc_put(
 
 			queue_work(g_sndp_queue_main,
 				   &g_sndp_work_voice_stop.work);
+
+			g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 		}
 	}
 
@@ -1164,6 +1227,9 @@ static int sndp_soc_put(
 
 	/* SNDP_PROC_CALL_START */
 	if (uiProcess & SNDP_PROC_CALL_START) {
+		/* for Register dump debug */
+		g_sndp_now_direction = SNDP_PCM_OUT;
+
 		/* Enable the power domain */
 		iRet = pm_runtime_get_sync(g_sndp_power_domain);
 		if (!(0 == iRet || 1 == iRet)) {  /* 0:success 1:active */
@@ -1668,81 +1734,94 @@ static int sndp_fsi_trigger(
 				  GET_OLD_VALUE(substream->stream));
 		break;
 	default:
-		/* MM Playback or MM Capture process route */
-		switch (cmd) {
-		case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
-			sndp_log_info("#Trigger start[MM]\n");
+		if (SNDP_FM_RADIO_RX &
+		    SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(substream->stream))) {
+			sndp_fm_trigger(substream,
+					  cmd,
+					  dai,
+					  GET_OLD_VALUE(substream->stream));
+		} else {
+			/* MM Playback or MM Capture process route */
+			switch (cmd) {
+			case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
+				sndp_log_info("#Trigger start[MM]\n");
 
-			/* Display the name of PCM */
-			sndp_pcm_name_generate(
-				GET_OLD_VALUE(substream->stream), cPcm);
-			sndp_log_info("PCM: %s [0x%08X]\n",
-				cPcm, GET_OLD_VALUE(substream->stream));
+				/* Display the name of PCM */
+				sndp_pcm_name_generate(
+					GET_OLD_VALUE(substream->stream), cPcm);
+				sndp_log_info("PCM: %s [0x%08X]\n",
+					cPcm, GET_OLD_VALUE(substream->stream));
 
-			sndp_log_debug("buffer_size %ld  period_size %ld  "
-				"periods %d  frame_bits %d\n",
-				runtime->buffer_size, runtime->period_size,
-				runtime->periods, runtime->frame_bits);
+				sndp_log_debug("buff_size %ld  period_size %ld"
+						"periods %d  frame_bits %d\n",
+						runtime->buffer_size,
+						runtime->period_size,
+						runtime->periods,
+						runtime->frame_bits);
 
-			/* Wake Lock */
-			sndp_wake_lock(E_LOCK);
+				/* Wake Lock */
+				sndp_wake_lock(E_LOCK);
 
-			/* A work queue processing to register TRIGGER_START */
-			if (SNDP_PCM_OUT == substream->stream) {
-				queue_work(g_sndp_queue_main,
-					   &g_sndp_work_play_start.work);
+				/* A work queue processing */
+				if (SNDP_PCM_OUT == substream->stream) {
+					queue_work(g_sndp_queue_main,
+						&g_sndp_work_play_start.work);
 
-				/* for Register dump debug */
-				g_sndp_now_direction = SNDP_PCM_OUT;
-			} else {
-				queue_work(g_sndp_queue_main,
-					&g_sndp_work_capture_start.work);
+					/* for Register dump debug */
+					g_sndp_now_direction = SNDP_PCM_OUT;
+				} else {
+					queue_work(g_sndp_queue_main,
+						&g_sndp_work_capture_start.work);
 
-				/* for Register dump debug */
-				g_sndp_now_direction = SNDP_PCM_IN;
-			}
-			break;
+					/* for Register dump debug */
+					g_sndp_now_direction = SNDP_PCM_IN;
+				}
+				break;
 
-		case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
-			sndp_log_info("#Trigger stop[MM]\n");
+			case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
+				sndp_log_info("#Trigger stop[MM]\n");
 
-			arg = &g_sndp_main[substream->stream].arg;
-			/* FSI trigger stop process */
-			fsi_set_trigger_stop(arg->fsi_substream, false);
+				arg = &g_sndp_main[substream->stream].arg;
+				/* FSI trigger stop process */
+				fsi_set_trigger_stop(arg->fsi_substream,
+						     false);
 
-			/* Init register dump log flag for debug */
-			g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
+				/* Init register dump log flag for debug */
+				g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 
-			/* A work queue processing to register TRIGGER_STOP */
-			if (SNDP_PCM_OUT == substream->stream) {
-				g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+				/* A work queue processing */
+				if (SNDP_PCM_OUT == substream->stream) {
+					g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
 						SNDP_STOP_TRIGGER_PLAYBACK;
 
-				stop = &g_sndp_work_play_stop.stop;
+					stop = &g_sndp_work_play_stop.stop;
 
-				stop->fsi_substream = *arg->fsi_substream;
+					stop->fsi_substream =
+							*arg->fsi_substream;
 
-				stop->fsi_dai =	*arg->fsi_dai;
+					stop->fsi_dai = *arg->fsi_dai;
 
-				queue_work(g_sndp_queue_main,
-					   &g_sndp_work_play_stop.work);
-			} else {
-				g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
+					queue_work(g_sndp_queue_main,
+						&g_sndp_work_play_stop.work);
+				} else {
+					g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
 						SNDP_STOP_TRIGGER_CAPTURE;
 
-				stop = &g_sndp_work_capture_stop.stop;
+					stop = &g_sndp_work_capture_stop.stop;
 
-				stop->fsi_substream = *arg->fsi_substream;
+					stop->fsi_substream =
+							*arg->fsi_substream;
 
-				stop->fsi_dai = *arg->fsi_dai;
+					stop->fsi_dai = *arg->fsi_dai;
 
-				queue_work(g_sndp_queue_main,
-					&g_sndp_work_capture_stop.work);
+					queue_work(g_sndp_queue_main,
+						&g_sndp_work_capture_stop.work);
+				}
+				break;
+			default:
+				sndp_log_debug("playback trigger none.\n");
+				break;
 			}
-			break;
-		default:
-			sndp_log_debug("playback trigger none.\n");
-			break;
 		}
 	}
 
@@ -1992,6 +2071,117 @@ static void sndp_call_trigger(
 			(SNDP_STOP_TRIGGER_CAPTURE | SNDP_STOP_TRIGGER_VOICE);
 			queue_work(g_sndp_queue_main,
 				   &g_sndp_work_call_capture_stop.work);
+		}
+		break;
+
+	default:
+		sndp_log_debug("Trigger none.\n");
+		break;
+	}
+
+	sndp_log_debug_func("end[%s %s]\n",
+		(SNDP_PCM_OUT == substream->stream) ?
+					"PLAYBACK" : "CAPTURE",
+		(SNDRV_PCM_TRIGGER_START == cmd) ?
+					"TRIGGER_START" : "TRIGGER_STOP");
+}
+
+
+/*!
+   @brief During a fm trigger function
+
+   @param[in]	substream	PCM substream structure
+   @param[in]	cmd		Trigger command type
+				(SNDRV_PCM_TRIGGER_START/
+				 SNDRV_PCM_TRIGGER_STOP)
+   @param[in]	dai		Digital audio interface structure
+   @param[in]	value		PCM value
+
+   @retval	none
+ */
+static void sndp_fm_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value)
+{
+	struct snd_pcm_runtime	*runtime = substream->runtime;
+
+	sndp_log_debug_func("start\n");
+
+	/* Branch processing for each command (TRIGGER_START/TRIGGER_STOP) */
+	switch (cmd) {
+	case SNDRV_PCM_TRIGGER_START:	/* TRIGGER_START */
+		sndp_log_debug("fm_%s_start\n",
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
+
+		/* Wake Lock */
+		sndp_wake_lock(E_LOCK);
+
+		/* For during a fm playback */
+		if (SNDP_PCM_OUT == substream->stream) {
+
+			sndp_log_debug("buffer_size %ld  period_size %ld  "
+				"periods %d  frame_bits %d\n",
+				runtime->buffer_size, runtime->period_size,
+				runtime->periods, runtime->frame_bits);
+			/*
+			 * To register a work queue to start processing
+			 * during a fm playback
+			 */
+			g_sndp_work_fm_playback_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_playback_start.work);
+
+		/* For during a fm capture */
+		} else {
+
+			g_sndp_work_fm_capture_start.save_substream =
+								substream;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_capture_start.work);
+		}
+		break;
+	case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
+		sndp_log_debug("fm_%s_stop\n",
+				(SNDP_PCM_OUT == substream->stream) ?
+						"playback" : "record");
+
+		/* For during a fm playback */
+		if (SNDP_PCM_OUT == substream->stream) {
+			if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)
+				fsi_set_trigger_stop(substream, false);
+			else
+				g_fm_playback_stop = true;
+
+			/*
+			 * To register a work queue to stop processing
+			 * during a fm playback
+			 */
+			g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
+						SNDP_STOP_TRIGGER_PLAYBACK;
+
+			g_sndp_work_fm_playback_stop.stop.fsi_substream =
+								*substream;
+
+			g_sndp_work_fm_playback_stop.stop.fsi_dai = *dai;
+
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_playback_stop.work);
+
+		/* For during a fm capture */
+		} else {
+
+			/* To register a work queue to stop */
+			/* processing During a fm capture */
+			g_sndp_stop_trigger_condition[SNDP_PCM_IN] |=
+			(SNDP_STOP_TRIGGER_CAPTURE);
+			queue_work(g_sndp_queue_main,
+				   &g_sndp_work_fm_capture_stop.work);
 		}
 		break;
 
@@ -3201,6 +3391,110 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 
 
 /*!
+   @brief Work queue function for Start during a fm playback
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_playback_start(struct work_struct *work)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Running Playback */
+	g_sndp_playrec_flg |= E_PLAY;
+
+	/* To register a work queue to start processing Playback */
+	sndp_fm_work_start(SNDP_PCM_OUT);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Start during a fm capture
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_capture_start(struct work_struct *work)
+{
+
+	sndp_log_debug_func("start\n");
+
+	/* Running Capture */
+	g_sndp_playrec_flg |= E_CAP;
+
+	/* To register a work queue to start processing Capture */
+	sndp_fm_work_start(SNDP_PCM_IN);
+
+	sndp_log_debug_func("end\n");
+
+}
+
+
+/*!
+   @brief Work queue function for Stop during a fm playback
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_playback_stop(struct work_struct *work)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Stop Playback runnning */
+	g_sndp_playrec_flg &= ~E_PLAY;
+
+	/* To register a work queue to stop processing Playback */
+	sndp_fm_work_stop(work, SNDP_PCM_OUT);
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
+					~SNDP_STOP_TRIGGER_PLAYBACK;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief Work queue function for Stop during a fm capture
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_fm_capture_stop(struct work_struct *work)
+{
+	sndp_log_debug_func("start\n");
+
+	/* Stop Capture running */
+	g_sndp_playrec_flg &= ~E_CAP;
+
+	/* To register a work queue to stop processing Capture */
+	sndp_fm_work_stop(work, SNDP_PCM_IN);
+
+	/* Reset a Trigger stop status flag */
+	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
+					~SNDP_STOP_TRIGGER_CAPTURE;
+
+	/* Wake up main process */
+	wake_up_interruptible(&g_sndp_stop_wait);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief Work queue function for Start during a playback incommunication
 
    @param[in]	work	work queue structure
@@ -3983,6 +4277,64 @@ static void sndp_work_stop(
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
 
 	sndp_log_debug_func("end\n");
+}
+
+
+/*!
+   @brief SoundPath Start and HardWare Parameter settings
+
+   @param[in]	direction	SNDP_PCM_OUT/SNDP_PCM_IN
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_fm_work_start(const int direction)
+{
+	int	iRet = ERROR_NONE;
+	u_int	uiValue;
+
+	/* FSI Trigger in FM radio start */
+	if (NULL != fsi_dai_trigger_in_fm) {
+		sndp_log_debug("fsi_dai_trigger_in_fm start\n");
+		iRet = fsi_dai_trigger_in_fm(
+				g_sndp_main[direction].arg.fsi_substream,
+				SNDRV_PCM_TRIGGER_START,
+				g_sndp_main[direction].arg.fsi_dai);
+		if (ERROR_NONE != iRet)
+			sndp_log_err("fsi_trigger_in_fm error(code=%d)\n",
+				     iRet);
+	}
+}
+
+
+/*!
+   @brief SoundPath Stop
+
+   @param[in]	work		work queue structure
+   @param[in]	direction	SNDP_PCM_OUT/SNDP_PCM_IN
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_fm_work_stop(
+	struct work_struct *work,
+	const int direction)
+{
+	u_int	uiValue;
+	struct sndp_work_info	*wp = NULL;
+
+	/* To get a work queue structure */
+	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	uiValue = GET_OLD_VALUE(direction);
+
+	/* FSI Trigger stop */
+	if (NULL != fsi_dai_trigger_in_fm) {
+		sndp_log_debug("fsi_dai_trigger_in_fm stop\n");
+		fsi_dai_trigger_in_fm(&(wp->stop.fsi_substream),
+					    SNDRV_PCM_TRIGGER_STOP,
+					    &(wp->stop.fsi_dai));
+	}
 }
 
 
