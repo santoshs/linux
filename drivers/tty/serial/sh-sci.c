@@ -1578,8 +1578,8 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	if(s->cfg->scbrr_algo_id == SCBRR_ALGO_4_BIS)
 	{
-                               smr_val &= ~(7 << 8);
-                               smr_val |= 4 << 8; //sampling rate 1/13
+		smr_val &= ~(7 << 8);
+		smr_val |= 4 << 8;
         }
 
 	uart_update_timeout(port, termios->c_cflag, baud);

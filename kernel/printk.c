@@ -44,6 +44,9 @@
 
 #include <asm/uaccess.h>
 
+#if defined (CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
 /*
  * Architectures can override it:
  */
@@ -201,9 +204,14 @@ void __init setup_log_buf(int early)
 	char *new_log_buf;
 	int free;
 
-	if (!new_log_buf_len)
+	if (!new_log_buf_len) {
+#if defined(CONFIG_SEC_DEBUG)
+		//{{ Mark for GetLog
+		sec_getlog_supply_kloginfo(__log_buf);
+		//}} Mark for GetLog
+#endif
 		return;
-
+}
 	if (early) {
 		unsigned long mem;
 
@@ -240,6 +248,12 @@ void __init setup_log_buf(int early)
 	con_start -= offset;
 	log_end -= offset;
 	spin_unlock_irqrestore(&logbuf_lock, flags);
+
+#if defined(CONFIG_SEC_DEBUG)
+		//{{ Mark for GetLog
+		sec_getlog_supply_kloginfo(__log_buf);
+		//}} Mark for GetLog
+#endif
 
 	pr_info("log_buf_len: %d\n", log_buf_len);
 	pr_info("early log buf free: %d(%d%%)\n",
@@ -758,6 +772,21 @@ static int printk_time = 0;
 #endif
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
+#if defined(CONFIG_PRINTK_CPU_ID)
+static int printk_cpu_id = 1;
+#else
+static int printk_cpu_id = 0;
+#endif
+module_param_named(cpu, printk_cpu_id, bool, S_IRUGO | S_IWUSR);
+
+#if defined(CONFIG_PRINTK_PID)
+static int printk_pid = 1;
+#else
+static int printk_pid;
+#endif
+module_param_named(pid, printk_pid, bool, S_IRUGO | S_IWUSR);
+
+
 /* Check if we have any console registered that can be called early in boot. */
 static int have_callable_console(void)
 {
@@ -999,6 +1028,30 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
+
+				for (tp = tbuf; tp < tbuf + tlen; tp++)
+					emit_log_char(*tp);
+				printed_len += tlen;
+			}
+
+			if (printk_cpu_id) {
+				/* Add the cpu id */
+				char tbuf[10], *tp;
+				unsigned tlen;
+
+				tlen = sprintf(tbuf, "c%u ", printk_cpu);
+
+				for (tp = tbuf; tp < tbuf + tlen; tp++)
+					emit_log_char(*tp);
+				printed_len += tlen;
+			}
+
+			if (printk_pid) {
+				/* Add the current process id */
+				char tbuf[10], *tp;
+				unsigned tlen;
+
+				tlen = sprintf(tbuf, "%6u ", current->pid);
 
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
