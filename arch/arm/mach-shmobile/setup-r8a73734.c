@@ -1004,6 +1004,54 @@ static struct platform_device hwsem1_device = {
 	},
 };
 
+static struct hwsem_desc r8a73734_hwsem2_descs[] = {
+	HWSEM(SMGP100, 0x40), HWSEM(SMGP101, 0x40),
+	HWSEM(SMGP102, 0x40), HWSEM(SMGP103, 0x40),
+	HWSEM(SMGP104, 0x40), HWSEM(SMGP105, 0x40),
+	HWSEM(SMGP106, 0x40), HWSEM(SMGP107, 0x40),
+	HWSEM(SMGP108, 0x40), HWSEM(SMGP109, 0x40),
+	HWSEM(SMGP110, 0x40), HWSEM(SMGP111, 0x40),
+	HWSEM(SMGP112, 0x40), HWSEM(SMGP113, 0x40),
+	HWSEM(SMGP114, 0x40), HWSEM(SMGP115, 0x40),
+	HWSEM(SMGP116, 0x40), HWSEM(SMGP117, 0x40),
+	HWSEM(SMGP118, 0x40), HWSEM(SMGP119, 0x40),
+	HWSEM(SMGP120, 0x40), HWSEM(SMGP121, 0x40),
+	HWSEM(SMGP122, 0x40), HWSEM(SMGP123, 0x40),
+	HWSEM(SMGP124, 0x40), HWSEM(SMGP125, 0x40),
+	HWSEM(SMGP126, 0x40), HWSEM(SMGP127, 0x40),
+	HWSEM(SMGP128, 0x40), HWSEM(SMGP129, 0x40),
+	HWSEM(SMGP130, 0x40), HWSEM(SMGP131, 0x40),
+};
+
+static struct hwsem_pdata r8a73734_hwsem2_platform_data = {
+	.base_id	= SMGP100,
+	.descs		= r8a73734_hwsem2_descs,
+	.nr_descs	= ARRAY_SIZE(r8a73734_hwsem2_descs),
+};
+
+static struct resource r8a73734_hwsem2_resources[] = {
+	{
+		.start  = 0xe6001800,
+		.end    = 0xe600187f,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
+		.start  = 0x47fbfe00,	/* software bit extension */
+		.end    = 0x47fbfe7f,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device hwsem2_device = {
+	.name		= "rmobile_hwsem",
+	.id		= 2,
+	.resource	= r8a73734_hwsem2_resources,
+	.num_resources	= ARRAY_SIZE(r8a73734_hwsem2_resources),
+	.dev		= {
+		.platform_data	= &r8a73734_hwsem2_platform_data,
+	},
+};
+
 static struct resource sgx_resources[] = {
 	{
 		.start = 0xfd000000,
@@ -1066,6 +1114,7 @@ static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
 #endif
     &hwsem0_device,
     &hwsem1_device,
+    &hwsem2_device,
     &sgx_device,
 };
 
@@ -1091,6 +1140,7 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
 #endif
    &hwsem0_device,
    &hwsem1_device,
+   &hwsem2_device,
    &sgx_device,
 };
 

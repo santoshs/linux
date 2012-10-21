@@ -22,7 +22,7 @@
 #include <linux/err.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
-
+#include <linux/hwspinlock.h>
 #include <linux/io.h>
 
 #include <mach/r8a73734.h>
@@ -51,7 +51,7 @@ static struct {
 } the_clock;
 
 /* #define SHM_CLK_TEST_MODE	1 */
-/* #define CLKSUS_DEBUG_ENABLE	1 */
+#define CLKSUS_DEBUG_ENABLE	1
 #ifdef pr_fmt
 #undef pr_fmt
 #define pr_fmt(fmt) "[CLK] - " fmt
@@ -77,7 +77,7 @@ struct clk_hw_info {
  * PM APIs *********************************************************************
  ******************************************************************************/
 static DEFINE_SPINLOCK(freq_change_lock);
-static DEFINE_SPINLOCK(zs_change_lock);
+static DEFINE_SPINLOCK(zs_lock);
 static struct clk_hw_info __clk_hw_info_es1_x[] = {
 	[I_CLK] = {
 		.mask_bit	= 0xf,
@@ -1019,6 +1019,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 static
 #endif
 struct clk_rate *__shmobile_freq_modes;
+static struct hwspinlock *sem_lock;
 #define DIV_TO_HW(clk, div)	\
 	(__clk_hw_info[clk].div_val[div] << __clk_hw_info[clk].shift_bit)
 /*
@@ -1418,7 +1419,7 @@ int cpg_set_freqval(int clk, int div)
 
 	/* need to ensure ZS-phy is permissed to change */
 	if (clk == ZS_CLK)
-		spin_lock_irqsave(&zs_change_lock, zsflags);
+		spin_lock_irqsave(&zs_lock, zsflags);
 
 	reg = __raw_readl(info->addr);
 	reg &= ~(info->mask_bit << info->shift_bit);
@@ -1441,7 +1442,7 @@ int cpg_set_freqval(int clk, int div)
 	__raw_writel(reg, info->addr);
 	/* ZS change */
 	if (clk == ZS_CLK)
-		spin_unlock_irqrestore(&zs_change_lock, zsflags);
+		spin_unlock_irqrestore(&zs_lock, zsflags);
 
 	/* need KICK bit */
 	if ((clk != ZB_CLK) && (clk != ZB3_CLK)) {
@@ -1652,18 +1653,7 @@ int cpg_set_freq(const struct clk_rate rates)
 				__func__, __LINE__, ret);
 			goto done;
 		}
-		reg = DIV_TO_HW(I_CLK, rates.i_clk);
-		reg |= DIV_TO_HW(ZG_CLK, rates.zg_clk);
-		reg |= DIV_TO_HW(B_CLK, rates.b_clk);
-		reg |= DIV_TO_HW(M1_CLK, rates.m1_clk);
-		reg |= DIV_TO_HW(M3_CLK, rates.m3_clk);
 
-		if (shmobile_chip_rev() >= ES_REV_2_0)
-			reg |= DIV_TO_HW(M5_CLK, curr_rates.m5_clk);
-
-		/* apply setting */
-		__raw_writel(reg, CPG_FRQCRA);
-		pr_log("%s()[%d]: Set FRQCRA[0x%x]\n", __func__, __LINE__, reg);
 		/* not change Z-Phy, use the current one */
 		reg = DIV_TO_HW(Z_CLK, curr_rates.z_clk);
 		/* apply new setting */
@@ -1681,8 +1671,17 @@ int cpg_set_freq(const struct clk_rate rates)
 
 		/* change ZS */
 		if (zs_change) {
-			spin_lock_irqsave(&zs_change_lock, zsflags);
-			reg |= DIV_TO_HW(ZS_CLK, rates.zs_clk);
+			spin_lock_irqsave(&zs_lock, zsflags);
+			/* try to get the lock, timout:2ms */
+			ret = hwspin_lock_timeout_nospin(sem_lock, 2);
+			if (!ret) {
+				reg |= DIV_TO_HW(ZS_CLK, rates.zs_clk);
+			} else {
+				pr_err("%s()[%d]: fail to get hwsem\n",
+					__func__, __LINE__);
+				spin_unlock_irqrestore(&zs_lock, zsflags);
+				goto done;
+			}
 		} else {
 			/* keep current ZS-Phy */
 			reg |= DIV_TO_HW(ZS_CLK, curr_rates.zs_clk);
@@ -1690,20 +1689,38 @@ int cpg_set_freq(const struct clk_rate rates)
 
 		/* apply setting */
 		__raw_writel(reg, CPG_FRQCRB);
-		pr_log("%s()[%d]: Set KICK - FRQCRB[0x%x]\n",
-			__func__, __LINE__, reg);
+
+		reg = DIV_TO_HW(I_CLK, rates.i_clk);
+		reg |= DIV_TO_HW(ZG_CLK, rates.zg_clk);
+		reg |= DIV_TO_HW(B_CLK, rates.b_clk);
+		reg |= DIV_TO_HW(M1_CLK, rates.m1_clk);
+		reg |= DIV_TO_HW(M3_CLK, rates.m3_clk);
+
+		if (shmobile_chip_rev() >= ES_REV_2_0)
+			reg |= DIV_TO_HW(M5_CLK, curr_rates.m5_clk);
+
+		/* apply setting */
+		__raw_writel(reg, CPG_FRQCRA);
+		pr_log("%s()[%d]: FRQCR[A/B]=0x%08X/0x%08X]\n",
+			__func__, __LINE__, __raw_readl(CPG_FRQCRA),
+			__raw_readl(CPG_FRQCRB));
 		/* set and wait for KICK bit changed */
 		if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
-			pr_err("%s()[%d]: error<%d>! set kick bit\n",
-				__func__, __LINE__, ret);
-			if (zs_change)
-				spin_unlock_irqrestore(&zs_change_lock,
-				zsflags);
+			pr_err("%s()[%d]: error! set kick bit\n",
+				__func__, __LINE__);
+			if (zs_change) {
+				if (!ret)
+					hwspin_unlock_nospin(sem_lock);
+				spin_unlock_irqrestore(&zs_lock, zsflags);
+			}
 			goto done;
 		}
 
-		if (zs_change)
-			spin_unlock_irqrestore(&zs_change_lock, zsflags);
+		if (zs_change) {
+			if (!ret)
+				hwspin_unlock_nospin(sem_lock);
+			spin_unlock_irqrestore(&zs_lock, zsflags);
+		}
 	}
 #if 0
 	/* change ZB clock ? */
@@ -1720,6 +1737,8 @@ int cpg_set_freq(const struct clk_rate rates)
 		}
 	}
 done:
+	if (zs_change)
+		pr_log("%s()[%d]: zs-phy changed\n", __func__, __LINE__);
 	spin_unlock_irqrestore(&freq_change_lock, flags);
 	pr_log("%s()[%d]: frequency changed, ret<%d>\n",
 		__func__, __LINE__, ret);
@@ -1745,6 +1764,13 @@ int pm_setup_clock(void)
 
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;
+
+	sem_lock = hwspin_lock_request_specific(SMGP100_DFS_ZS);
+	if (!sem_lock) {
+		pr_err("Error! fail to get semaphore, disable ZS change\n");
+		the_clock.zs_disabled_cnt = ~0;
+	}
+
 	spin_unlock_irqrestore(&freq_change_lock, flags);
 
 	return 0;
@@ -2033,7 +2059,7 @@ unsigned long pm_get_spinlock(void)
 	if (!is_cpufreq_enable())
 		return 0;
 #endif /* CONFIG_PM_DEBUG */
-	spin_lock_irqsave(&zs_change_lock, flag);
+	spin_lock_irqsave(&zs_lock, flag);
 	return flag;
 }
 EXPORT_SYMBOL(pm_get_spinlock);
@@ -2053,6 +2079,6 @@ void pm_release_spinlock(unsigned long flag)
 	if (!is_cpufreq_enable())
 		return;
 #endif /* CONFIG_PM_DEBUG */
-	spin_unlock_irqrestore(&zs_change_lock, flag);
+	spin_unlock_irqrestore(&zs_lock, flag);
 }
 EXPORT_SYMBOL(pm_release_spinlock);
