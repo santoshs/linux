@@ -51,7 +51,7 @@ static struct {
 } the_clock;
 
 /* #define SHM_CLK_TEST_MODE	1 */
-/* #define CLKSUS_DEBUG_ENABLE	1 */
+#define CLKSUS_DEBUG_ENABLE	1
 #ifdef pr_fmt
 #undef pr_fmt
 #define pr_fmt(fmt) "[CLK] - " fmt
