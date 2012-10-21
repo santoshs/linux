@@ -5798,6 +5798,7 @@ static irqreturn_t mhl_irq_thread(int irq, void *data)
 	ret = I2C_ReadByte(mhl->pdata, PAGE_3, 0x21, &int4status);
 	if(ret<0){
 		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
+		mutex_unlock(&mhl->i2c_lock);
 		goto exit_func;
 	}       
 	mutex_unlock(&mhl->i2c_lock);  	
