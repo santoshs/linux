@@ -2807,8 +2807,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* Disable GPIO Enable at initialization */
 	
 	// MHL enable
-	gpio_request(GPIO_PORT102, NULL);
-	gpio_direction_output(GPIO_PORT102, 0);
+//	gpio_request(GPIO_PORT102, NULL);
+//	gpio_direction_output(GPIO_PORT102, 0);
 	
 	// NFC Enable
 	gpio_request(GPIO_PORT12, NULL);
