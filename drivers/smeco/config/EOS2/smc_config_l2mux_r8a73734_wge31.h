@@ -1,5 +1,7 @@
 /*
-*   Common SMC instance configuration for L2MUX
+*   Common SMC configuration for L2MUX:
+*   This configuration file is for SMC between EOS2 devices APE R8A73734 and Modem WGE3.1
+*
 *   Copyright © Renesas Mobile Corporation 2012. All rights reserved
 *
 *   This material, including documentation and any related source code
@@ -15,7 +17,7 @@
 /*
 Change history:
 
-Version:       1    11-Jan-2012     Heikki Siikaluoma
+Version:       1    27-Sep-2012     Heikki Siikaluoma
 Status:        draft
 Description :  File created
 -------------------------------------------------------------------------------
@@ -25,22 +27,13 @@ Description :  File created
 #ifndef SMC_INSTANCE_CONFIG_L2MUX_H
 #define SMC_INSTANCE_CONFIG_L2MUX_H
 
-#define SMC_CONFIG_USER_L2MUX                        "L2MUX"
-
 #define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 #define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 
 
 #define SMC_CONF_COUNT_L2MUX                         2
-
 #define SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2            3
-
-#define SMC_L2MUX_QUEUE_COUNT        3
-
-    /* L2MUX Queue mapping for protocols */
-#define SMC_L2MUX_QUEUE_1_PHONET     0
-#define SMC_L2MUX_QUEUE_2_MHI        1
-#define SMC_L2MUX_QUEUE_3_MHDP       2
+#define SMC_L2MUX_QUEUE_COUNT                        3
 
 
 
@@ -82,8 +75,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
             .fifo_full_check_timeout_usec_slave  = 500,
-            .trace_features_master         = SMC_TRACE_HISTORY_NONE,
-            .trace_features_slave          = SMC_TRACE_HISTORY_NONE
+            .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+            .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
      },
      {
              .name                = "ETH_P_MHI",
@@ -116,8 +109,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
-             .trace_features_master         = (SMC_TRACE_HISTORY_MESSAGE_SEND+SMC_TRACE_HISTORY_MESSAGE_RECEIVE),
-             .trace_features_slave          = (SMC_TRACE_HISTORY_MESSAGE_SEND+SMC_TRACE_HISTORY_MESSAGE_RECEIVE)
+             .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
      },
 
      {
@@ -127,8 +120,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
              .fifo_size_master    = 300,
              .fifo_size_slave     = 400,
-             .mdb_size_master     = 1024*1024,
-             .mdb_size_slave      = 1024*1024,
+             .mdb_size_master     = 1024*1600,          /* Master to slave MDB (Typically UL) */
+             .mdb_size_slave      = 1024*1600,          /* Slave to master MDB (Typically DL) */
 
              /* New MHDP channel configuration from after sw 12w45 (approximately)
               * To support 100 x 16kB burst of data
@@ -161,8 +154,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND),         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
-             .trace_features_master         = SMC_TRACE_HISTORY_NONE,
-             .trace_features_slave          = SMC_TRACE_HISTORY_NONE
+             .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
      }
 };
 
@@ -177,6 +170,12 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
         .user_name                    = SMC_CONFIG_USER_L2MUX,
         .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10,
+
+        .master_cpu_version_major     = 1,
+        .master_cpu_version_minor     = 0,
+        .slave_cpu_version_major      = 1,
+        .slave_cpu_version_minor      = 0,
+
         .shm_start_address            = SMC_CONF_L2MUX_SHM_START_ES10,
         .shm_size                     = SMC_CONF_L2MUX_SHM_SIZE_ES10,
         .shm_use_cache_control_master = TRUE,
@@ -193,6 +192,12 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
         .user_name                    = SMC_CONFIG_USER_L2MUX,
         .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
+
+        .master_cpu_version_major     = 2,
+        .master_cpu_version_minor     = 0,
+        .slave_cpu_version_major      = 2,
+        .slave_cpu_version_minor      = 0,
+
         .shm_start_address            = SMC_CONF_L2MUX_SHM_START_ES20,
         .shm_size                     = SMC_CONF_L2MUX_SHM_SIZE_ES20,
         .shm_use_cache_control_master = TRUE,
@@ -204,8 +209,5 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
         .channel_config_array         = smc_instance_conf_l2mux_channels,
     }
 };
-
-smc_instance_conf_t* smc_instance_conf_get_l2mux( char* smc_user_name, char* config_name );
-
 
 #endif

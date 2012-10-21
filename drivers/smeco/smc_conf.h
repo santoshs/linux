@@ -46,8 +46,8 @@ Description :  File created
 #define SMC_CONF_H
 
     /* Product configurations */
-#include "smc_instance_config_r8a73734_wge31.h"
 
+#include "smc_instance_config.h"
 #include "smc_conf_platform.h"    /* Platform specific configuration header */
 #include "smc_memory_mgmt.h"
 
@@ -131,9 +131,6 @@ typedef struct _smc_instance_conf_channel_t
     uint32_t signal_id_slave_from_master;           /* Slave is waiting the signal */
     uint32_t signal_type_slave_from_master;
 
-    // TODO Clean uint32_t signal_id_to_slave;      /* ID of the signal from master to slave - slave is waiting signal */
-    // TODO Clean uint32_t signal_type_to_slave;    /* Type of the signal from master to slave */
-
     uint16_t fifo_full_check_timeout_usec_master;
     uint16_t fifo_full_check_timeout_usec_slave;
 
@@ -152,10 +149,15 @@ typedef struct _smc_instance_conf_channel_t
 
 typedef struct _smc_instance_conf_t
 {
-    char*    name;                  /* Unique name of the configuration */
-    char*    user_name;             /* Name of the SMC user (e.g. L2MUX) */
-    char*    master_name;           /* Master CPU name */
-    char*    slave_name;            /* Slave CPU name */
+    char*    name;                      /* Unique name of the configuration */
+    char*    user_name;                 /* Name of the SMC user (e.g. L2MUX) */
+    char*    master_name;               /* Master CPU name */
+    char*    slave_name;                /* Slave CPU name */
+
+    uint16_t master_cpu_version_major;
+    uint16_t master_cpu_version_minor;
+    uint16_t slave_cpu_version_major;
+    uint16_t slave_cpu_version_minor;
 
     uint32_t shm_start_address;
     uint32_t shm_start_address_offset;

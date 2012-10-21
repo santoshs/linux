@@ -382,6 +382,8 @@ uint8_t smc_shm_conf_request_received( smc_channel_t* channel, int32_t fifo_out_
 
     int32_t offset =  (int32_t)channel->smc_instance->smc_shm_conf->remote_cpu_memory_offset;
 
+    offset = offset;
+
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_request_received: channel %d: Remote requests: fifo_out_size: %d, fifo_in_size: %d, mdb_start_address 0x%08X, mdb_size: %d",
             channel->id, fifo_out_size, fifo_in_size, mdb_start_address, mdb_size);
 
@@ -398,6 +400,8 @@ uint8_t smc_shm_conf_request_received( smc_channel_t* channel, int32_t fifo_out_
 void smc_shm_conf_response_received( smc_channel_t* channel, int32_t fifo_out_size, int32_t fifo_in_size, uint32_t mdb_start_address, uint32_t mdb_size )
 {
     int32_t offset =  (int32_t)channel->smc_instance->smc_shm_conf->remote_cpu_memory_offset;
+
+    offset = offset;
 
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_response_received: channel %d: Remote responses: fifo_out_size: %d, fifo_in_size: %d, mdb_start_address 0x%08X, mdb_size: %d",
             channel->id, fifo_out_size, fifo_in_size, mdb_start_address, mdb_size);

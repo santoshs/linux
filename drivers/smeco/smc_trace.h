@@ -71,9 +71,9 @@ Description :  File created
 #define SMC_TRACE_RUNTIME_CONF_SHM_ENABLED
 #define SMC_TRACE_LOOPBACK_ENABLED
 #define SMC_TRACE_LOOPBACK_DATA_ENABLED
+#define SMC_TRACE_HISTORY_ENABLED
+#define SMC_TRACE_FIFO_BUFFER_ENABLED
 */
-
-
 
 
 /**
@@ -241,9 +241,29 @@ Description :  File created
   #define SMC_TRACE_PRINTF_RUNTIME_CONF_SHM(...)
 #endif
 
+#ifdef SMC_TRACE_HISTORY_ENABLED
+  #define SMC_TRACE_PRINTF_HISTORY(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"HISTORY: " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_HISTORY_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_HISTORY(...)
+  #define SMC_TRACE_PRINTF_HISTORY_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_FIFO_BUFFER_ENABLED
+  #define SMC_TRACE_PRINTF_FIFO_BUFFER(...)               SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"FIFO_BUFFER: " __VA_ARGS__)
+
+  #ifdef SMC_TRACE_FIFO_BUFFER_ENABLED_ENABLED
+    #define SMC_TRACE_PRINTF_FIFO_BUFFER_DATA(length, data) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+    #define SSMC_TRACE_PRINTF_FIFO_BUFFER_DATA(length, data)
+  #endif
+#else
+  #define SMC_TRACE_PRINTF_FIFO_BUFFER(...)
+  #define SMC_TRACE_PRINTF_FIFO_BUFFER_DATA(length, data)
+#endif
 
 #ifdef SMC_TRACE_ERROR_ENABLED
-  #define SMC_TRACE_PRINTF_ERROR(...)                 SMC_TRACE_PRINTF_ALWAYS( SMC_RD_TRACE_PREFIX"ERR:  " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_ERROR(...)                 SMC_TRACE_PRINTF_ALWAYS_ERROR( SMC_RD_TRACE_PREFIX"ERR:  " __VA_ARGS__ )
   #define SMC_TRACE_PRINTF_ERROR_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
 #else
   #define SMC_TRACE_PRINTF_ERROR(...)
@@ -277,6 +297,8 @@ Description :  File created
 #else
   #define SMC_TRACE_PRINTF_ASSERT(...)
 #endif
+
+#define SMC_TRACE_PRINTF_CRASH_INFO(...)                 SMC_TRACE_PRINTF_ALWAYS( __VA_ARGS__ )
 
 #endif /* EOF */
 

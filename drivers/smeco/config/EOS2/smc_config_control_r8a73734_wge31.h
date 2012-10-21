@@ -22,8 +22,8 @@ Description :  File created
 */
 #endif
 
-#ifndef SMC_INSTANCE_CONFIG_CONTROL_H
-#define SMC_INSTANCE_CONFIG_CONTROL_H
+#ifndef SMC_CONFIG_CONTROL_R8A73734_WGE31_H
+#define SMC_CONFIG_CONTROL_R8A73734_WGE31_H
 
 
 /*
@@ -31,17 +31,13 @@ Description :  File created
  * NOTE: The channel configuration are currently the same
  */
 
-#define SMC_CONFIG_USER_CONTROL                      "SMC_CONTROL"
 #define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 #define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
-
 
 
 #define SMC_CONF_COUNT_CONTROL          2
 
 #define SMC_CONF_CHANNEL_COUNT_CONTROL  1
-
-
 
 
 /**
@@ -83,8 +79,8 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
             .fifo_full_check_timeout_usec_slave  = 500,
 
-            .trace_features_master         = SMC_TRACE_HISTORY_NONE,
-            .trace_features_slave          = SMC_TRACE_HISTORY_NONE
+            .trace_features_master         = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
+            .trace_features_slave          = SMC_TRACE_HISTORY_DATA_TYPE_NONE
      }
 };
 
@@ -101,6 +97,12 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
         .user_name                    = SMC_CONFIG_USER_CONTROL,
         .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10,
+
+        .master_cpu_version_major     = 1,
+        .master_cpu_version_minor     = 0,
+        .slave_cpu_version_major      = 1,
+        .slave_cpu_version_minor      = 0,
+
         .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES10,
         .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES10,
         .shm_use_cache_control_master = FALSE,
@@ -118,6 +120,12 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
         .user_name                    = SMC_CONFIG_USER_CONTROL,
         .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
+
+        .master_cpu_version_major     = 2,
+        .master_cpu_version_minor     = 0,
+        .slave_cpu_version_major      = 2,
+        .slave_cpu_version_minor      = 0,
+
         .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES20,
         .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES20,
         .shm_use_cache_control_master = FALSE,
@@ -129,8 +137,6 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
         .channel_config_array         = smc_instance_conf_control_channels,
     }
 };
-
-smc_instance_conf_t* smc_instance_conf_get_control( char* smc_user_name, char* config_name );
 
 
 #endif

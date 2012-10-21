@@ -1,5 +1,8 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+*   Common SMC instance configuration file.
+*   This file includes the configuration files for different products
+*
+*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -14,16 +17,25 @@
 /*
 Change history:
 
-Version:       1    19-Oct-2011     Heikki Siikaluoma
+Version:       1    27-Sep-2012     Heikki Siikaluoma
 Status:        draft
 Description :  File created
 -------------------------------------------------------------------------------
 */
 #endif
 
+#ifndef SMC_INSTANCE_CONFIG_H
+#define SMC_INSTANCE_CONFIG__H
 
-#ifndef SMC_CONF_MEMORY_H
-#define SMC_CONF_MEMORY_H
 
+#define SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS       0 /* 5 */   /* Timeout in milliseconds to wait the modem to wake up. If 0, waits forever */
 
-#endif /* EOF */
+    /*
+     * Product specific SMC instance header files
+     *
+     * TODO THE PRODUCT SPECIFIC BUILD FLAG NEEDED
+     */
+
+#include "smc_instance_config_r8a73734_wge31.h"
+
+#endif

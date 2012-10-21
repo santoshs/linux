@@ -43,29 +43,32 @@ Description :  File created
 #include <linux/jiffies.h>
 
   /* Linux kernel specific definitions */
-#define TRUE              -1
-#define FALSE              0
-#define SMC_MALLOC(size)     kmalloc(size, GFP_KERNEL)
-#define SMC_MALLOC_IRQ(size) kmalloc(size, GFP_ATOMIC)
-#define SMC_FREE(p)        kfree(p)
+#define TRUE                   -1
+#define FALSE                  0
+#define SMC_MALLOC(size)       kmalloc(size, GFP_KERNEL)
+#define SMC_MALLOC_IRQ(size)   kmalloc(size, GFP_ATOMIC)
+#define SMC_FREE(p)            kfree(p)
+
+#define SMC_SLEEP_MS(time_ms)  msleep(time_ms)
+
+#define SMC_TIMESTAMP_GET      0
 
 #define SMC_SLEEP_MS(time_ms)  msleep(time_ms)
 
 #ifndef CHAR_BIT
-    #define CHAR_BIT       8
+    #define CHAR_BIT           8
 #endif
 
 #ifndef NULL
-    #define NULL           0x00000000
+    #define NULL               0x00000000
 #endif
 
 #ifndef SMCTEST
-    #define SMCTEST        FALSE
+    #define SMCTEST            FALSE
 #endif
 
 
-
-#define assert( param )    BUG_ON( !(param) )
+#define assert( param )        BUG_ON( !(param) )
 
 uint32_t rand(void);
 

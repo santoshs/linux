@@ -386,7 +386,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
             SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
             signal->interrupt_id, genios);
 
-            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT );
+            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS );
 
             genios |= SMC_SHM_READ32( &gop001->clear );
             SMC_SHM_WRITE32( &gop001->clear, genios );
@@ -508,7 +508,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
             RD_TRACE_SEND2(TRA_SMC_SIGNAL_INTGEN, 4, &signal,
                                                   4, &signal->interrupt_id );
 
-            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT );
+            SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS );
 
             genios |= SMC_SHM_READ32( &gop001->set );
             SMC_SHM_WRITE32( &gop001->set, genios );
@@ -850,6 +850,16 @@ smc_semaphore_t* smc_semaphore_create( void )
     return sem;
 }
 
+void smc_semaphore_destroy( smc_semaphore_t* semaphore )
+{
+    SMC_TRACE_PRINTF_INFO("smc_semaphore_destroy: semaphore 0x%08X...", (uint32_t)semaphore);
+
+    if( semaphore != NULL )
+    {
+        SMC_FREE( semaphore );
+    }
+}
+
 
 /* =============================================================
  * SMC timer functions platform specific implementations
@@ -1004,6 +1014,40 @@ void smc_printf_data_linux_kernel(int length, uint8_t* data)
     }
 }
 
+#ifdef SMC_APE_LINUX_KERNEL_STM
+
+void smc_printf_data_linux_kernel_stm(int length, uint8_t* data)
+{
+    int i = 0;
+    int row_len = 16;
+
+    /* TODO Fix the line break between bytes seen in Ntrace*/
+    //smc_printk("\n");
+
+    for( i = 0; i < length; i++ )
+    {
+        if(i%row_len == 0)
+        {
+            smc_printk("0x%02X", data[i]);
+        }
+        else
+        {
+            smc_printk(" 0x%02X", data[i]);
+        }
+
+        /*
+        if( i > 0 && ( i%(row_len) == (row_len-1) || i >= length-1 ))
+        {
+            smc_printk("\n");
+        }
+        */
+    }
+}
+
+
+#endif /* #ifdef SMC_APE_LINUX_KERNEL_STM */
+
+
 /*
  * SMC initialization function if called.
  */
@@ -1118,7 +1162,7 @@ void smc_channel_fixed_config_response( smc_channel_t* smc_channel, smc_channel_
     {
         if( userdata_resp->userdata3 == SMC_FIXED_CONFIG_NO_CHANGES )
         {
-            SMC_TRACE_PRINTF_STARTUP("Channel %d configuration negotiated, no changes in remote host", smc_channel_target->id, userdata_resp->userdata3);
+            SMC_TRACE_PRINTF_STARTUP("Channel %d configuration negotiated, no changes in remote host", smc_channel_target->id);
         }
         else
         {
@@ -1170,6 +1214,97 @@ void smc_conf_response_received( smc_channel_t* channel, uint32_t configuration_
     }
 
 }
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+
+static smc_lock_t* g_local_lock_smc_trace = NULL;
+
+static inline smc_lock_t* get_local_lock_smc_trace(void)
+{
+    if( g_local_lock_smc_trace == NULL ) g_local_lock_smc_trace = smc_lock_create();
+    return g_local_lock_smc_trace;
+}
+
+extern uint32_t u2evm_ape_stm_ch77;
+
+void smc_vprintk(const char *fmt, va_list args)
+{
+    if(u2evm_ape_stm_ch77)
+    {
+        char printk_buf[1024];
+        int printed_len = 0;
+        char *bptr = NULL;
+
+        smc_lock_t* local_lock = get_local_lock_smc_trace();
+
+        SMC_LOCK( local_lock );
+
+        printed_len += vscnprintf(printk_buf + printed_len, sizeof(printk_buf) - printed_len, fmt, args);
+
+        *(volatile char *)(u2evm_ape_stm_ch77 + 0x18) = 0x20; /* ASCII Printf Identifier */
+
+        bptr = printk_buf;
+
+        while(printed_len >= 4)
+        {
+            *(volatile long *)(u2evm_ape_stm_ch77 + 0x18) = *(volatile long *)bptr;
+            bptr += 4;
+            printed_len -= 4;
+        }
+
+        while(printed_len > 0)
+        {
+            *(volatile char *)(u2evm_ape_stm_ch77 + 0x18) = *(volatile char *)bptr;
+            bptr++;
+            printed_len--;
+        }
+
+        *(volatile char *)(u2evm_ape_stm_ch77 + 0x00) = 0x00; /* timestamp and closure */
+
+        SMC_UNLOCK( local_lock );
+    }
+}
+
+void smc_printk(const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    smc_vprintk(fmt, args);
+    va_end(args);
+}
+
+void smc_printk_data(const char* prefix_text, const uint8_t* data, int data_len, int max_print_len)
+{
+    if( data != NULL )
+    {
+        int data_index = 0;
+
+        while( (data_len - data_index) >= 10 )
+        {
+            smc_printk("%s %04d:  0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X,0x%02X",
+                    prefix_text,
+                    data_index,
+                    data[data_index],
+                    data[data_index+1],
+                    data[data_index+2],
+                    data[data_index+3],
+                    data[data_index+4],
+                    data[data_index+5],
+                    data[data_index+6],
+                    data[data_index+7],
+                    data[data_index+8],
+                    data[data_index+9]
+                    );
+
+            data_index += 10;
+
+            if( data_index >= max_print_len ) break;
+        }
+    }
+}
+
+#endif  /* #ifdef SMC_APE_LINUX_KERNEL_STM */
 
 
 /* EOF */

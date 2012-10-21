@@ -31,7 +31,7 @@ Description :  File created
 #include "smc_test.h"
 
 #if(SMC_L2MUX_IF==TRUE)
-#include "smc_instance_config_l2mux.h"  /* For testing configuration management */
+#include "smc_config_l2mux.h"  /* For testing configuration management */
 
 #ifdef SMECO_MODEM
 #include "smc_conf_l2mux_modem.h"
@@ -53,6 +53,8 @@ Description :  File created
 
 #include "pn.h"
 #include "pn_name.h"
+
+#include "smc.h"
 
 #elif (MEXE_TARGET_IMAGE == MEXE_TARGET_IMAGE_L1)
 
@@ -898,6 +900,38 @@ uint8_t smc_test_case_function_smc_instance( uint8_t* test_input_data, uint16_t 
 
                 break;
             }
+            case 0x06:
+            {
+                smc_t*  smc_instance = NULL;
+                uint8_t channel_id  = 0;
+
+                SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_smc_instance: Test case 0x%02X, Send crash message to the remote CPU...", test_case);
+
+#if( (SMC_L2MUX_IF==TRUE) )
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: get L2MUX SMC instance...");
+                smc_instance = get_smc_instance_l2mux();
+#else
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: L2MUX SMC instance not available");
+#endif
+                if( smc_instance != NULL )
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: send crash info...");
+
+                    test_status = smc_send_crash_indication( SMC_CHANNEL_GET( smc_instance, channel_id ), "assertion failed: smc_test.c, 920" );
+
+                    if( test_status == SMC_OK )
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_smc_instance: send NULL crash info...");
+                        test_status = smc_send_crash_indication( SMC_CHANNEL_GET( smc_instance, channel_id ), NULL );
+                    }
+                }
+                else
+                {
+                    test_status = SMC_ERROR;
+                }
+
+                break;
+            }
             case 0xFD:
             {
                 uint8_t test_input[4];
@@ -1194,19 +1228,16 @@ uint8_t smc_test_handler_send_message(uint16_t test_case_id, uint8_t* test_input
  */
 uint8_t smc_test_handler_send_message(uint16_t test_case_id, uint8_t* test_input_data, uint16_t test_input_data_len)
 {
-    uint8_t return_value = SMC_ERROR;
-
-
+    uint8_t  return_value = SMC_ERROR;
     uint16_t message_length = 0;
+    //uint8_t  media = 0x00;
+    uint8_t  receiver_device_id  = PN_DEV_MODEM_HOST_2;  /* Mexe Test Server is in L2*/
+    //uint8_t  sender_device_id  = 0x00;
 
-    uint8_t media = 0x00;
-    uint8_t receiver_device_id  = PN_DEV_MODEM_HOST_2;  /* Mexe Test Server is in L2*/
-    uint8_t sender_device_id  = 0x00;
 
-    uint8_t resource_id = 0x00;        /* Mexe Test Server */
-    uint8_t receiver_object = 0x00;
-    uint8_t sender_object = 0x00;
-    uint8_t tid = 0x00;
+    //uint8_t  receiver_object = 0x00;
+    //uint8_t  sender_object = 0x00;
+    //uint8_t  tid = 0x00;
 
 #if(MEXE_TARGET_IMAGE == MEXE_TARGET_IMAGE_L2)
     /* ====================================================
@@ -1292,9 +1323,7 @@ Warning: No constant is defined for this value
         SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_message: Phonet message 0x%08X send failed", pn_message);
         SMC_FREE( pn_message );
         return_value = SMC_ERROR;
-
     }
-
 
 #elif(MEXE_TARGET_IMAGE == MEXE_TARGET_IMAGE_L1)
 
@@ -1303,9 +1332,9 @@ Warning: No constant is defined for this value
      */
 
     uint8_t* message = NULL;
+    uint8_t  resource_id = 0x00;        /* Mexe Test Server */
 
-    sender_device_id  = PN_DEV_MODEM_HOST_3;
-
+    //sender_device_id  = PN_DEV_MODEM_HOST_3;
 
     mmsgr_msg_send(resource_id, (MMSGR_ISI_MSG_STR*)message);
 #endif
@@ -1369,6 +1398,8 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
         SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: SMC configuration 0x%08X created, creating instance...", (uint32_t)smc_conf );
 
         smc_instance = smc_instance_create(smc_conf);
+
+        smc_instance = smc_instance;
 
         SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: SMC instance created");
 

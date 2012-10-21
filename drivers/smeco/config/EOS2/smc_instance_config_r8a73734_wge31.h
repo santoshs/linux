@@ -36,6 +36,9 @@ Description :  File created
  */
 
 #ifdef SMECO_MODEM
+
+  #define SMC_CPU_NAME    "Modem"
+
     /* Modem ES10/ES20 definitions from makefile */
 
   #if defined EOS2_ASIC && (EOS2_ASIC == EOS2_ASIC_ES10)
@@ -45,7 +48,11 @@ Description :  File created
   #endif
 
 #elif( defined(SMECO_LINUX_KERNEL) )
-    /* APE Linux Kernel ES10/ES20 definitions from kernel config + makefile */
+
+  #define SMC_CPU_NAME    "APE"
+
+
+  /* APE Linux Kernel ES10/ES20 definitions from kernel config + makefile */
 
   #ifdef SMC_CONFIG_USE_EOS2_ES10
       #define SMC_IN_EOS2_ES10
@@ -100,7 +107,7 @@ Description :  File created
     /* SHM Area for L2MUX */
 #define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
 #define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)
-#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1600*2 + 1024*256*4 + 1024*20)    /* 4.5MB */
+#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1856*2 + 1024*256*4 + 1024*30)    /* 4.5MB */
 
 
 #define SMC_CHANNEL_ID_FOR_CONFIGURATION                     0   /* Channel to used for configure others (FIFO, SHM), if not defined, no config.
@@ -230,8 +237,24 @@ Description :  File created
 
     #define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC          2000
 
+    #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  { SMC_VERSION_TO_INT(0,0,36), SMC_VERSION_REQUIREMENT_LEVEL_WARNING, "Modem->APE wakeup signal polarity change" }
+    #define SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37 { SMC_VERSION_TO_INT(0,0,37), SMC_VERSION_REQUIREMENT_LEVEL_ASSERT, "MHDP Channel Shared Memory size change" }
+
+#else
+    #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  {0,0,""}
+
 #endif /* #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) ) */
 
 
+    /*
+     * SMC Version requirements
+     */
 
-#endif
+#define SMC_VERSION_REQUIREMENT_ARRAY  SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY, SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37
+#define SMC_VERSION_REQUIREMENT_COUNT  2
+
+//#define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM       /* If defined, the message is buffered when out of MDB memory */
+
+#endif  /* #ifndef SMC_INSTANCE_CONFIG_R8A73734_WGE31_H */
+
+/* EOF */

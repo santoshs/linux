@@ -28,17 +28,15 @@ Description :  File created
 #include "smc.h"
 #include "smc_trace.h"
 
-
-//#if( SMC_TRACES_PRINTF==TRUE )
 #ifdef SMC_APE_RDTRACE_ENABLED
-
 
 char* var_smc_init[1] = {"osTaskId"};
 uint32_t var_size_smc_init[1] = {0xFFFF};
-    /* Trace group: SMC_TRACE_GROUP */
+
+/* Trace group: SMC_TRACE_GROUP */
 smc_rdtrace_t trace_smc[3] =
 {
-    { TRA_SMC_INIT, "initialize", "%s%s; %s:%d\n", &var_smc_init, &var_size_smc_init },
+    { TRA_SMC_INIT, "initialize", "%s%s; %s:%d", &var_smc_init, &var_size_smc_init },
     { TRA_SMC_CHANNEL_IN_SYNC, "channel is synchronized with remote", "%s%s; ", NULL, NULL },
     { TRA_SMC_CHANNEL_VERSION_INFO, "channel version info", "%s%s; ", NULL, NULL }
 };
@@ -47,8 +45,8 @@ char* var_smc_send[4] = {"channelId","msgPtr","msgLength","userdata"};
 uint32_t var_size_smc_send[4] = {0xFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF};
 smc_rdtrace_t trace_smc_send[2] =
 {
-    { TRA_SMC_MESSAGE_SEND,     "Send",      "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_send, &var_size_smc_send },
-    { TRA_SMC_MESSAGE_SEND_END, "Send: end", "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_send, &var_size_smc_send }
+    { TRA_SMC_MESSAGE_SEND,     "Send",      "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X", &var_smc_send, &var_size_smc_send },
+    { TRA_SMC_MESSAGE_SEND_END, "Send: end", "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X", &var_smc_send, &var_size_smc_send }
 };
 
 
@@ -64,11 +62,11 @@ uint32_t var_size_smc_receive_conf[3] = {0xFF,0xFFFFFFFF,0xFFFFFFFF};
 
 smc_rdtrace_t trace_smc_receive[3] =
 {
-    { TRA_SMC_MESSAGE_RECV,       "Recv",               "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive, &var_size_smc_receive },
-    { TRA_SMC_MESSAGE_RECV_TO_CB, "Recv: put callback", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive_cb, &var_size_smc_receive_cb },
-    { TRA_SMC_MESSAGE_RECV_END,   "Recv: end",          "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X\n", &var_smc_receive, &var_size_smc_receive },
-    { TRA_SMC_CONFIG_REQ_RECV,    "Recv: configuration request",  "%s%s; %s:%d; %s:0x%08X; %s:0x%08X\n", &var_smc_receive_conf_req, &var_size_smc_receive_conf },
-    { TRA_SMC_CONFIG_RESP_RECV,   "Recv: configuration response", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X\n", &var_smc_receive_conf_resp, &var_size_smc_receive_conf }
+    { TRA_SMC_MESSAGE_RECV,       "Recv",               "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X", &var_smc_receive, &var_size_smc_receive },
+    { TRA_SMC_MESSAGE_RECV_TO_CB, "Recv: put callback", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X", &var_smc_receive_cb, &var_size_smc_receive_cb },
+    { TRA_SMC_MESSAGE_RECV_END,   "Recv: end",          "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:0x%08X", &var_smc_receive, &var_size_smc_receive },
+    { TRA_SMC_CONFIG_REQ_RECV,    "Recv: configuration request",  "%s%s; %s:%d; %s:0x%08X; %s:0x%08X", &var_smc_receive_conf_req, &var_size_smc_receive_conf },
+    { TRA_SMC_CONFIG_RESP_RECV,   "Recv: configuration response", "%s%s; %s:%d; %s:0x%08X; %s:0x%08X", &var_smc_receive_conf_resp, &var_size_smc_receive_conf }
 };
 
 
@@ -76,8 +74,8 @@ char* var_smc_event[2] = {"channelId","eventId"};
 uint32_t var_size_smc_event[2] = {0xFF,0xFFFFFFFF};
 smc_rdtrace_t trace_smc_event[2] =
 {
-    { TRA_SMC_EVENT_SEND, "Event send", "%s%s; %s:%d; %s:0x%08X\n", &var_smc_event, &var_size_smc_event },
-    { TRA_SMC_EVENT_RECV, "Event recv", "%s%s; %s:%d; %s:0x%08X\n", &var_smc_event, &var_size_smc_event }
+    { TRA_SMC_EVENT_SEND, "Event send", "%s%s; %s:%d; %s:0x%08X", &var_smc_event, &var_size_smc_event },
+    { TRA_SMC_EVENT_RECV, "Event recv", "%s%s; %s:%d; %s:0x%08X", &var_smc_event, &var_size_smc_event }
 };
 
 
@@ -86,11 +84,11 @@ char* var_smc_signal[2] = {"signalPtr","signalId"};
 uint32_t var_size_smc_irq[2] = {0xFFFFFFFF,0xFFFFFFFF};
 smc_rdtrace_t trace_smc_irq[5] =
 {
-    { TRA_SMC_IRQ_START,         "IRQ:Start",        "%s%s; %s:%d; %s:0x%08X\n", &var_smc_irq,    &var_size_smc_irq },
-    { TRA_SMC_IRQ_END,           "IRQ:End",          "%s%s; %s:%d; %s:0x%08X\n", &var_smc_irq,    &var_size_smc_irq },
-    { TRA_SMC_SIGNAL_INTGEN,     "Signal:IntGen",    "%s%s; %s:0x%08X; %s:%d\n", &var_smc_signal, &var_size_smc_irq },
-    { TRA_SMC_SIGNAL_INTGEN_OUT, "Signal:IntGenOut", "%s%s; %s:0x%08X; %s:%d\n", &var_smc_signal, &var_size_smc_irq },
-    { TRA_SMC_SIGNAL_GOP001,     "Signal:GOP001",    "%s%s; %s:0x%08X; %s:%d\n", &var_smc_signal, &var_size_smc_irq }
+    { TRA_SMC_IRQ_START,         "IRQ:Start",        "%s%s; %s:%d; %s:0x%08X", &var_smc_irq,    &var_size_smc_irq },
+    { TRA_SMC_IRQ_END,           "IRQ:End",          "%s%s; %s:%d; %s:0x%08X", &var_smc_irq,    &var_size_smc_irq },
+    { TRA_SMC_SIGNAL_INTGEN,     "Signal:IntGen",    "%s%s; %s:0x%08X; %s:%d", &var_smc_signal, &var_size_smc_irq },
+    { TRA_SMC_SIGNAL_INTGEN_OUT, "Signal:IntGenOut", "%s%s; %s:0x%08X; %s:%d", &var_smc_signal, &var_size_smc_irq },
+    { TRA_SMC_SIGNAL_GOP001,     "Signal:GOP001",    "%s%s; %s:0x%08X; %s:%d", &var_smc_signal, &var_size_smc_irq }
 };
 
 
@@ -104,10 +102,10 @@ char* var_smc_fifo_get_empty[5]  = {"fifoPtr","readIndex","writeIndex","readCoun
 
 smc_rdtrace_t trace_smc_fifo[4] =
 {
-    { TRA_SMC_FIFO_INIT,      "initialize",     "%s%s; %s:%d;\n", &var_smc_fifo_init, &var_size_smc_fifo_init },
-    { TRA_SMC_FIFO_PUT,       "fifo put",       "%s%s; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X; %s:%d\n", &var_smc_fifo_put, &var_size_fifo_put_get },
-    { TRA_SMC_FIFO_GET,       "fifo get",       "%s%s; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X; %s:%d\n", &var_smc_fifo_get, &var_size_fifo_put_get },
-    { TRA_SMC_FIFO_GET_EMPTY, "fifo get empty", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d; %s:%d\n", &var_smc_fifo_get_empty, &var_size_fifo_put_get }
+    { TRA_SMC_FIFO_INIT,      "initialize",     "%s%s; %s:%d;", &var_smc_fifo_init, &var_size_smc_fifo_init },
+    { TRA_SMC_FIFO_PUT,       "fifo put",       "%s%s; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X; %s:%d", &var_smc_fifo_put, &var_size_fifo_put_get },
+    { TRA_SMC_FIFO_GET,       "fifo get",       "%s%s; %s:0x%08X; %s:0x%08X; %s:%d; %s:0x%08X; %s:%d", &var_smc_fifo_get, &var_size_fifo_put_get },
+    { TRA_SMC_FIFO_GET_EMPTY, "fifo get empty", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d; %s:%d", &var_smc_fifo_get_empty, &var_size_fifo_put_get }
 };
 
 
@@ -116,8 +114,8 @@ uint32_t var_size_smc_fifo_stat[4] = {0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFF
 
 smc_rdtrace_t trace_smc_fifo_stat[2] =
 {
-    { TRA_SMC_FIFO_PUT_STATISTICS, "fifo put stat", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d\n", &var_smc_fifo_stat, &var_size_smc_fifo_stat },
-    { TRA_SMC_FIFO_GET_STATISTICS, "fifo get stat", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d\n", &var_smc_fifo_stat, &var_size_smc_fifo_stat }
+    { TRA_SMC_FIFO_PUT_STATISTICS, "fifo put stat", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d", &var_smc_fifo_stat, &var_size_smc_fifo_stat },
+    { TRA_SMC_FIFO_GET_STATISTICS, "fifo get stat", "%s%s; %s:0x%08X; %s:%d; %s:%d; %s:%d", &var_smc_fifo_stat, &var_size_smc_fifo_stat }
 };
 
 
@@ -128,10 +126,21 @@ uint32_t var_size_smc_ping_req[2] = {0xFF, 0xFFFFFFFF};
 
 smc_rdtrace_t trace_smc_ping[4] =
 {
-    { TRA_SMC_PING_SEND_REQ,  "Ping send req",  "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
-    { TRA_SMC_PING_RECV_REQ,  "Ping recv req",  "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
-    { TRA_SMC_PING_SEND_RESP, "Ping send resp", "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req },
-    { TRA_SMC_PING_RECV_RESP, "Ping recv resp", "%s%s; %s:%d; %s:0x%08X;\n", &var_smc_ping_req, &var_size_smc_ping_req }
+    { TRA_SMC_PING_SEND_REQ,  "Ping send req",  "%s%s; %s:%d; %s:0x%08X;", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_RECV_REQ,  "Ping recv req",  "%s%s; %s:%d; %s:0x%08X;", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_SEND_RESP, "Ping send resp", "%s%s; %s:%d; %s:0x%08X;", &var_smc_ping_req, &var_size_smc_ping_req },
+    { TRA_SMC_PING_RECV_RESP, "Ping recv resp", "%s%s; %s:%d; %s:0x%08X;", &var_smc_ping_req, &var_size_smc_ping_req }
+};
+
+
+char* var_smc_loopback[5] = {"channelId","dataPtr","dataLength","loopbackCnt","loopbackLeft"};
+uint32_t var_size_smc_loopback[5] = {0xFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF };
+
+smc_rdtrace_t trace_smc_loopback[3] =
+{
+    { TRA_SMC_LOOPBACK_START,     "start",         "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:%d; %s:%d;", &var_smc_loopback, &var_size_smc_loopback },
+    { TRA_SMC_LOOPBACK_SEND_RESP, "send response", "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:%d; %s:%d;", &var_smc_loopback, &var_size_smc_loopback },
+    { TRA_SMC_LOOPBACK_SEND_REQ,  "send request",  "%s%s; %s:%d; %s:0x%08X; %s:%d; %s:%d; %s:%d;", &var_smc_loopback, &var_size_smc_loopback }
 };
 
 
@@ -151,7 +160,8 @@ smc_rdtrace_group_t  trace_group_smc[SMC_TRACE_GROUP_COUNT] =
     {SMC_TRACE_GROUP_L2MUX,       "SMC:",           NULL},                  /* Not used in APE */
     {SMC_TRACE_GROUP_L2MUX_DL,    "SMC:",           NULL},                  /* Not used in APE */
     {SMC_TRACE_GROUP_L2MUX_UL,    "SMC:",           NULL},                  /* Not used in APE */
-    {SMC_TRACE_GROUP_PING,        "SMC:",           &trace_smc_ping}
+    {SMC_TRACE_GROUP_PING,        "SMC:",           &trace_smc_ping},
+    {SMC_TRACE_GROUP_LOOPBACK,    "SMC LOOPBACK:",  &trace_smc_loopback}
 };
 
 
@@ -192,7 +202,7 @@ void smc_rd_trace_send1(uint32_t trace_id, uint32_t* ptr1)
     {
         smc_rdtrace_t trace = group.trace_item_array[trace_id&SMC_TRACE_ID_MASK];
 
-        printk(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
+        SMC_RD_TRACE_PRINTK(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
                trace.trace_var_name_array[0], SMC_SHM_READ32(ptr1)&(trace.trace_var_size_array[0]) );
 
     }
@@ -206,7 +216,7 @@ void smc_rd_trace_send2(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2)
     {
         smc_rdtrace_t trace = group.trace_item_array[trace_id&SMC_TRACE_ID_MASK];
 
-        printk(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
+        SMC_RD_TRACE_PRINTK(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
                trace.trace_var_name_array[0], SMC_SHM_READ32(ptr1)&(trace.trace_var_size_array[0]),
                trace.trace_var_name_array[1], SMC_SHM_READ32(ptr2)&(trace.trace_var_size_array[1]));
     }
@@ -220,7 +230,7 @@ void smc_rd_trace_send3(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint3
     {
         smc_rdtrace_t trace = group.trace_item_array[trace_id&SMC_TRACE_ID_MASK];
 
-        printk(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
+        SMC_RD_TRACE_PRINTK(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
                trace.trace_var_name_array[0], SMC_SHM_READ32(ptr1)&(trace.trace_var_size_array[0]),
                trace.trace_var_name_array[1], SMC_SHM_READ32(ptr2)&(trace.trace_var_size_array[1]),
                trace.trace_var_name_array[2], SMC_SHM_READ32(ptr3)&(trace.trace_var_size_array[2]));
@@ -235,7 +245,7 @@ void smc_rd_trace_send4(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint3
     {
         smc_rdtrace_t trace = group.trace_item_array[trace_id&SMC_TRACE_ID_MASK];
 
-        printk(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
+        SMC_RD_TRACE_PRINTK(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
                trace.trace_var_name_array[0], SMC_SHM_READ32(ptr1)&(trace.trace_var_size_array[0]),
                trace.trace_var_name_array[1], SMC_SHM_READ32(ptr2)&(trace.trace_var_size_array[1]),
                trace.trace_var_name_array[2], SMC_SHM_READ32(ptr3)&(trace.trace_var_size_array[2]),
@@ -252,7 +262,7 @@ void smc_rd_trace_send5(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint3
             {
                 smc_rdtrace_t trace = group.trace_item_array[trace_id&SMC_TRACE_ID_MASK];
 
-                printk(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
+                SMC_RD_TRACE_PRINTK(trace.trace_var_format_str, group.trace_group_text, trace.trace_text,
                        trace.trace_var_name_array[0], SMC_SHM_READ32(ptr1)&(trace.trace_var_size_array[0]),
                        trace.trace_var_name_array[1], SMC_SHM_READ32(ptr2)&(trace.trace_var_size_array[1]),
                        trace.trace_var_name_array[2], SMC_SHM_READ32(ptr3)&(trace.trace_var_size_array[2]),
@@ -260,5 +270,6 @@ void smc_rd_trace_send5(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint3
                        trace.trace_var_name_array[4], SMC_SHM_READ32(ptr5)&(trace.trace_var_size_array[4]));
             }
 }
+
 
 #endif

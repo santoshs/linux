@@ -60,10 +60,11 @@ typedef struct _smc_rdtrace_group_t
 #define SMC_TRACE_GROUP_FIFO_STAT     0x00000040    /*  6 */
 #define SMC_TRACE_GROUP_LOCK          0x00000080    /*  7 */
 #define SMC_TRACE_GROUP_L2MUX         0x00000100    /*  8 */
-#define SMC_TRACE_GROUP_L2MUX_DL      0x00000200    /*  9 */
-#define SMC_TRACE_GROUP_L2MUX_UL      0x00000400    /* 10 */
-#define SMC_TRACE_GROUP_PING          0x00000800    /* 11 */
-#define SMC_TRACE_GROUP_COUNT         12            /* <== Remember to update when adding new groups */
+#define SMC_TRACE_GROUP_L2MUX_DL      0x00000200    /*  9 0x9 */
+#define SMC_TRACE_GROUP_L2MUX_UL      0x00000400    /* 10 0xA */
+#define SMC_TRACE_GROUP_PING          0x00000800    /* 11 0xB */
+#define SMC_TRACE_GROUP_LOOPBACK      0x00001000    /* 12 0xC */
+#define SMC_TRACE_GROUP_COUNT         13            /* <== Remember to update when adding new groups */
 
 /* Trace IDs (same as used in modem) */
 
@@ -107,6 +108,11 @@ typedef struct _smc_rdtrace_group_t
 #define TRA_SMC_PING_RECV_RESP        0xB0000003
 
 
+#define TRA_SMC_LOOPBACK_START        0xC0000000
+#define TRA_SMC_LOOPBACK_SEND_RESP    0xC0000001
+#define TRA_SMC_LOOPBACK_SEND_REQ     0xC0000002
+
+
 // 0x00000000 + (0x01<<group_id)
 
 #define SMC_TRACE_ID_TO_GROUP_INDEX( trace_id )          ( ((uint8_t)(trace_id>>28))&0xF )
@@ -128,6 +134,12 @@ void smc_rd_trace_send2(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2);
 void smc_rd_trace_send3(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint32_t* ptr3);
 void smc_rd_trace_send4(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint32_t* ptr3, uint32_t* ptr4);
 void smc_rd_trace_send5(uint32_t trace_id, uint32_t* ptr1, uint32_t* ptr2, uint32_t* ptr3, uint32_t* ptr4, uint32_t* ptr5);
+
+#ifdef SMC_APE_LINUX_KERNEL_STM
+  #define SMC_RD_TRACE_PRINTK smc_printk
+#else
+  #define SMC_RD_TRACE_PRINTK printk
+#endif
 
 #endif
 /* EOF */

@@ -29,7 +29,8 @@ Description :  File created
 #include "smc_trace.h"
 
 #include "smc_linux.h"
-#include "smc_instance_config_control.h"
+// TODO Cleanup #include "smc_instance_config_control.h"
+#include "smc_config_control.h"
 
 #if( SMC_CONTROL_USE_PHONET == TRUE)
   #include <linux/phonet.h>

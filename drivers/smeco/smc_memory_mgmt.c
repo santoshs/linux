@@ -36,7 +36,6 @@ Description :  File created
 #include "smc_fifo.h"
 #include "smc.h"
 #include "smc_conf.h"
-#include "smc_conf_memory.h"
 #include "smc_memory_mgmt.h"
 
 

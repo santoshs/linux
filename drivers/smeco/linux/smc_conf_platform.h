@@ -25,6 +25,21 @@ Description :  File created
 #ifndef SMC_CONF_PLATFORM_H
 #define SMC_CONF_PLATFORM_H
 
+/*#define SMC_HISTORY_DATA_COLLECTION_ENABLED*/
+
+#define SMC_SEND_USE_SEMAPHORE
+
+
+//#define SMC_LOCK_TX_BUFFER                    SMC_LOCK
+#define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
+
+//#define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK
+#define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK_IRQ
+
+#define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      10
+
+#define SMC_FREE_LOCAL_PTR_OS_NOT_NEEDED
+
     /* ===============================================
      * Define Linux Kernel Specific data types for SMC
      */
@@ -43,8 +58,11 @@ Description :  File created
                                                          (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
                                                          while (SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {  \
                                                              if(timeout > 0 && ++timer >= timeout ) {                 \
-                                                                 SMC_TRACE_PRINTF_WARNING("SMC_HOST_ACCESS_WAKEUP: modem not woken up"); \
+                                                                 SMC_TRACE_PRINTF_ERROR("SMC_HOST_ACCESS_WAKEUP: modem not woken up in %d ms", timeout); \
                                                                  break;                                               \
+                                                             }                                                        \
+                                                             else if( timeout > 0 ) {                                 \
+                                                                 SMC_SLEEP_MS(1);                                     \
                                                              }                                                        \
                                                          }                                                            \
                                                        }
@@ -68,6 +86,10 @@ Description :  File created
 #define SMC_SIGNAL_TYPE_INT_WGM_GENOUT (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x04)  /* 0x03000004 */
 #define SMC_SIGNAL_TYPE_INT_RESOURCE   (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x06)  /* 0x03000006 */
 #define SMC_SIGNAL_TYPE_INT_IRQC       (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x07)  /* 0x03000007 */
+
+
+#define SMC_SEMAPHORE_WAIT( smc_semaphore )
+#define SMC_SEMAPHORE_POST( smc_semaphore )
 
     /*
      * Data type for SMC signals
