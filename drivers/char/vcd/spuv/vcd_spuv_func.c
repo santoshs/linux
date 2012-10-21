@@ -20,9 +20,9 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
+#include <linux/hwspinlock.h>
 #ifdef __VCD_POWERDOMAIN_ENABLE__
 #include <mach/pm.h>
-#include <linux/hwspinlock.h>
 #endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 #include <linux/fs.h>
@@ -30,6 +30,7 @@
 #include <linux/stat.h>
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
+#include <mach/r8a73734.h>
 
 #ifdef __VCD_MERAM_ENABLE__
 #include "rtapi/system_memory.h"
@@ -91,6 +92,9 @@ struct clk *g_spuv_func_spuv_clk;
 struct clk *g_spuv_func_clkgen_clk;
 #endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
+static int g_vcd_spuv_func_ipc_sem_flag;
+static struct hwspinlock *g_vcd_spuv_func_sem_lock;
+
 bool g_spuv_func_is_spuv_clk;
 bool g_spuv_func_is_clkgen_clk;
 
@@ -102,6 +106,7 @@ static DECLARE_WAIT_QUEUE_HEAD(g_vcd_spuv_wait);
 /*
  * static prototype declaration
  */
+static void vcd_spuv_func_ipc_semaphore(int effective);
 static int vcd_spuv_func_relocation_fw(
 		struct vcd_spuv_func_read_fw_info *firmware_info);
 static int vcd_spuv_func_get_meram(unsigned int fw_size);
@@ -185,6 +190,33 @@ void vcd_spuv_func_cacheflush(unsigned int start_addr, unsigned int size)
 	outer_flush_range((unsigned long)buf_addr,
 		(unsigned long)(buf_addr + size));
 
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	for IPC semaphore init function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_ipc_semaphore_init(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_vcd_spuv_func_sem_lock = hwspin_lock_request_specific(SMGP101_VCD);
+
+	if (NULL == g_vcd_spuv_func_sem_lock) {
+		vcd_pr_err("fail to get semaphore.\n");
+		goto rtn;
+	}
+
+	/* get semaphore for ipc  */
+	vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_TAKE);
+
+rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -329,7 +361,14 @@ int vcd_spuv_func_control_power_supply(int effective)
 			VCD_SPUV_FUNC_CRMU_VOICEIF_ON,
 			SPUV_FUNC_RW_32_CRMU_VOICEIF);
 
+		/* release semaphore for ipc  */
+		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_RELEASE);
+
 	} else {
+
+		/* get semaphore for ipc  */
+		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_TAKE);
+
 		/* cpga spuv module reset */
 		ret = hwspin_lock_timeout_irqsave(
 				r8a73734_hwlock_cpg,
@@ -478,6 +517,10 @@ int vcd_spuv_func_control_power_supply(int effective)
 			g_spuv_func_is_spuv_clk = true;
 
 		}
+
+		/* release semaphore for ipc  */
+		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_RELEASE);
+
 	} else {
 		/* it dares not to drop. */
 	}
@@ -3301,6 +3344,46 @@ rtn:
 /* ========================================================================= */
 /* Internal functions                                                        */
 /* ========================================================================= */
+
+/**
+ * @brief	for IPC semaphore function.
+ *
+ * @param	effective.
+ *
+ * @retval	none.
+ */
+static void vcd_spuv_func_ipc_semaphore(int effective)
+{
+	int sem = 0;
+
+	vcd_pr_start_spuv_function("effective[%d].\n", effective);
+
+	if (g_vcd_spuv_func_ipc_sem_flag == effective)
+		goto rtn;
+
+	if (NULL == g_vcd_spuv_func_sem_lock)
+		goto rtn;
+
+	if (VCD_SEMAPHORE_TAKE == effective) {
+		/* take semaphore for IPC */
+		sem = hwspin_trylock_nospin(g_vcd_spuv_func_sem_lock);
+		if (!sem) {
+			vcd_pr_spuv_debug("take semaphore for IPC.\n");
+			g_vcd_spuv_func_ipc_sem_flag = VCD_SEMAPHORE_TAKE;
+		} else {
+			vcd_pr_err("hwspin_trylock_nospin fail[%d].\n", sem);
+		}
+	} else {
+		/* release semaphore for IPC */
+		hwspin_unlock_nospin(g_vcd_spuv_func_sem_lock);
+		vcd_pr_spuv_debug("release semaphore for IPC.\n");
+		g_vcd_spuv_func_ipc_sem_flag = VCD_SEMAPHORE_RELEASE;
+	}
+
+rtn:
+	vcd_pr_end_spuv_function();
+	return;
+}
 
 /**
  * @brief	relocation fw

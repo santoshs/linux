@@ -109,6 +109,24 @@ void vcd_spuv_init_register(void)
 
 
 /**
+ * @brief	for IPC semaphore init function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_ipc_semaphore_init(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_ipc_semaphore_init();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
  * @brief	get firmware buffer function.
  *
  * @param	none.

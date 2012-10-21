@@ -630,6 +630,7 @@ extern unsigned int g_spuv_func_dsp0_register_top;
 extern void vcd_spuv_func_initialize(void);
 extern void vcd_spuv_func_cacheflush(unsigned int start_addr,
 	unsigned int size);
+extern void vcd_spuv_func_ipc_semaphore_init(void);
 extern int vcd_spuv_func_control_power_supply(int effective);
 extern int vcd_spuv_func_check_power_supply(void);
 extern int vcd_spuv_func_set_fw(void);
@@ -642,6 +643,7 @@ extern void vcd_spuv_func_get_fw_request(void);
 
 extern void vcd_spuv_func_set_hpb_register(void);
 extern void vcd_spuv_func_set_cpg_register(void);
+
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);
 extern void vcd_spuv_func_end_wait(void);

@@ -47,6 +47,7 @@
 extern int vcd_spuv_ioremap(void);
 extern void vcd_spuv_iounmap(void);
 extern void vcd_spuv_init_register(void);
+extern void vcd_spuv_ipc_semaphore_init(void);
 extern int vcd_spuv_get_fw_buffer(void);
 extern void vcd_spuv_free_fw_buffer(void);
 extern int vcd_spuv_get_msg_buffer(void);
