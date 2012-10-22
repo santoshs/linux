@@ -129,6 +129,34 @@ struct tps80032_irq_data {
 	u8 int_sts_bit;
 };
 
+union power_ctrl_propval {
+	int intval;
+	const char *strval;
+};
+
+enum power_ctrl_property {
+	POWER_CTRL_PROP_STATE = 0,
+	POWER_CTRL_PROP_STATE_SLEEP,
+	POWER_CTRL_PROP_VOLTAGE,
+	POWER_CTRL_PROP_VOLTAGE_SLEEP,
+};
+
+struct power_ctrl {
+	const char *name;
+	enum power_ctrl_property *properties;
+	size_t num_properties;
+
+	int (*get_property)(struct power_ctrl *pctl,
+				enum power_ctrl_property pcp,
+				union power_ctrl_propval *val);
+	int (*set_property)(struct power_ctrl *pctl,
+				enum power_ctrl_property pcp,
+				const union power_ctrl_propval *val);
+	int (*property_is_writeable)(struct power_ctrl *pctl,
+				enum power_ctrl_property pcp);
+
+	struct device *dev;
+};
 
 /*
  * Define the address of the bin file which contain non-volatile value
@@ -212,6 +240,9 @@ static void __iomem *virt_addr;
 
 #define HW_REG_SMPS4_CFG_STATE				0x42
 #define HW_REG_LDO1_CFG_STATE				0x9E
+#define HW_REG_LDO2_CFG_STATE				0x86
+#define HW_REG_LDO3_CFG_STATE				0x8E
+#define HW_REG_LDO4_CFG_STATE				0x8A
 #define HW_REG_LDO5_CFG_STATE				0x9A
 #define HW_REG_LDO6_CFG_STATE				0x92
 #define HW_REG_LDO7_CFG_STATE				0xA6
@@ -234,6 +265,7 @@ static void __iomem *virt_addr;
 
 #define HW_REG_LDO1_CFG_VOLTAGE				0x9F
 #define HW_REG_LDO2_CFG_VOLTAGE				0x87
+#define HW_REG_LDO3_CFG_VOLTAGE				0x8F
 #define HW_REG_LDO4_CFG_VOLTAGE				0x8B
 #define HW_REG_LDO5_CFG_VOLTAGE				0x9B
 #define HW_REG_LDO6_CFG_VOLTAGE				0x93
@@ -426,6 +458,7 @@ static void __iomem *virt_addr;
 
 
 #define RESOURCE_COUNTER_MAX			13
+#define RESOURCE_POWER_CTRL_PROP_MAX		7
 
 static struct tps80032_irq_data tps80032_irqs[13];
 
