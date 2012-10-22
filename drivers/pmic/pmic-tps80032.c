@@ -3593,6 +3593,12 @@ static int tps80032_read_hpa_temp(struct i2c_client *client)
 		ret_MSB = ret;
 	}
 
+	if (0x10 == ret_MSB) {
+		PMIC_ERROR_MSG("%s: collision occurs.", __func__);
+		result = -EAGAIN;
+		goto exit;
+	}
+
 	ret = I2C_READ(client, HW_REG_GPCH0_LSB);
 	if (0 > ret) {
 		result = ret;
@@ -3703,6 +3709,12 @@ static int tps80032_read_bat_temp(struct i2c_client *client)
 		goto disable;
 	} else {
 		ret_MSB = ret;
+	}
+
+	if (0x10 == ret_MSB) {
+		PMIC_ERROR_MSG("%s: collision occurs.", __func__);
+		result = -EAGAIN;
+		goto exit;
 	}
 
 	ret = I2C_READ(client, HW_REG_GPCH0_LSB);
@@ -3819,6 +3831,12 @@ static int tps80032_read_bat_volt(struct i2c_client *client)
 		goto disable;
 	} else {
 		ret_MSB = ret;
+	}
+
+	if (0x10 == ret_MSB) {
+		PMIC_ERROR_MSG("%s: collision occurs.", __func__);
+		result = -EAGAIN;
+		goto exit;
 	}
 
 	ret = I2C_READ(client, HW_REG_GPCH0_LSB);
