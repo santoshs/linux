@@ -1000,7 +1000,7 @@ static struct resource lcdc_resources[] = {
 		.name	= "panel_power_port",
 		.start	= GPIO_PORT89,
 		.end	= GPIO_PORT89,
-		.flags	= IORESOURCE_IO,
+		.flags	= IORESOURCE_MEM,
 	},
 };
 
@@ -1198,11 +1198,13 @@ static struct platform_device sh_msiof0_device = {
 };
 #endif
 
-#define ION_HEAP_VIDEO_SIZE	(SZ_32M - SZ_2M)
-#define ION_HEAP_VIDEO_ADDR	(0x48000000 + (SZ_32M - SZ_2M))
+#define ION_HEAP_CAMERA_SIZE	(SZ_16M + SZ_2M)
+#define ION_HEAP_CAMERA_ADDR	0x48800000
+#define ION_HEAP_VIDEO_SIZE	(SZ_16M + SZ_2M)
+#define ION_HEAP_VIDEO_ADDR	0x56C00000
 
 static struct ion_platform_data u2evm_ion_data = {
-	.nr = 3,
+	.nr = 4,
 	.heaps = {
 		{
 			.type = ION_HEAP_TYPE_SYSTEM,
@@ -1216,8 +1218,15 @@ static struct ion_platform_data u2evm_ion_data = {
 		},
 		{
 			.type = ION_HEAP_TYPE_CARVEOUT,
+			.id = ION_HEAP_CAMERA_ID,
+			.name = "camera",
+			.base = ION_HEAP_CAMERA_ADDR,
+			.size = ION_HEAP_CAMERA_SIZE,
+		},
+		{
+			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_HEAP_VIDEO_ID,
-			.name = "video-cam",
+			.name = "video",
 			.base = ION_HEAP_VIDEO_ADDR,
 			.size = ION_HEAP_VIDEO_SIZE,
 		},

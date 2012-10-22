@@ -147,6 +147,14 @@ typedef struct {
 	rtds_memory_mpro_control		*mpro_control;	/* Mpro info */
 } rtds_memory_drv_data;
 
+/* rtmem map table*/
+typedef struct {
+	struct list_head	list_head;		/* Manager list info */
+	pid_t				tgid;			/* thread group leader process ID  */
+	unsigned long		rt_addr;		/* rtmem logical address (AppDomain) */
+	unsigned long		open_count;		/* rtmem open count */
+} rtds_memory_rtmem_table;
+
 /* ******************************* PROTOTYPE ******************************** */
 
 int rtds_memory_drv_open(

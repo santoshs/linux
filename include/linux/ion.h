@@ -52,8 +52,8 @@ enum ion_heap_type {
 enum ion_heap_ids {
 	ION_HEAP_SYSTEM_ID,
 	ION_HEAP_SYSTEM_CONTIG_ID,
+	ION_HEAP_CAMERA_ID,
 	ION_HEAP_VIDEO_ID,
-	ION_HEAP_CAMERA_ID = ION_HEAP_VIDEO_ID,
 };
 
 #ifdef __KERNEL__
@@ -363,5 +363,12 @@ struct ion_custom_data {
  * passes appropriate userdata for that ioctl
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
+
+/**
+ * R-Mobile custom ioctl
+ */
+enum {
+	R_MOBILE_ION_RT_MAP,
+};
 
 #endif /* _LINUX_ION_H */
