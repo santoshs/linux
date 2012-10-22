@@ -81,6 +81,17 @@ enum clock_state {
 #define MAX_ZS_DIVRATE	DIV1_6
 #define MAX_HP_DIVRATE	DIV1_12
 
+#define FREQ_MIN_UPPER_LIMIT 299000
+#define SAMPLING_RATE_DEF 50000
+#define SAMPLING_RATE_LOW 500000
+#define SAMPLING_DOWN_FACTOR_DEF 20
+#define SAMPLING_DOWN_FACTOR_LOW 1
+
+#define INIT_STATE	1
+#define BACK_UP_STATE	2
+#define NORMAL_STATE	3
+#define STOP_STATE	4
+
 struct cpufreq_resource {
 	bool used;
 	atomic_t usage_count;
@@ -142,6 +153,7 @@ static int main_divtable[] = {
 
 static unsigned int bk_cpufreq;
 static int log_freq_change;
+static int sampling_flag = INIT_STATE;
 module_param(log_freq_change, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 /*
@@ -359,7 +371,39 @@ int __set_rate(unsigned int freq)
 
 	return ret;
 }
+static inline void __change_sampling_values(void)
+{
+	int ret = 0;
+	static unsigned int downft = SAMPLING_DOWN_FACTOR_DEF;
+	static unsigned int samrate = SAMPLING_RATE_DEF;
 
+	if (STOP_STATE == sampling_flag)
+		return;
+	if (INIT_STATE == sampling_flag) {
+		samplrate_downfact_change(SAMPLING_RATE_DEF,
+					SAMPLING_DOWN_FACTOR_DEF,
+					0);
+		sampling_flag = NORMAL_STATE;
+	}
+	if ((the_cpuinfo.clk_state == MODE_EARLY_SUSPEND &&
+		the_cpuinfo.freq <= FREQ_MIN_UPPER_LIMIT) ||
+		the_cpuinfo.clk_state == MODE_SUSPEND) {
+		if (NORMAL_STATE == sampling_flag) {/* Backup old values */
+			samplrate_downfact_get(&samrate, &downft);
+			sampling_flag = BACK_UP_STATE;
+		}
+		ret = samplrate_downfact_change(SAMPLING_RATE_LOW,
+				SAMPLING_DOWN_FACTOR_LOW, 1);
+	} else { /* Need to restore the previous values if any */
+		if (BACK_UP_STATE == sampling_flag) {
+			sampling_flag = NORMAL_STATE;
+			ret = samplrate_downfact_change(samrate, downft, 0);
+		}
+	}
+	if (ret)
+		pr_err("%s()[%d]: error, samplrate_downfact_change(),"
+			"ret<%d>\n", __func__, __LINE__, ret);
+}
 /*
  * __set_all_clocks: set SYS-CPU frequency and other clocks
  *`
@@ -391,6 +435,7 @@ static inline int __set_all_clocks(unsigned int z_freq)
 			__func__, __LINE__, ret);
 		return ret;
 	}
+	__change_sampling_values();
 	ret = __clk_get_rate(&rate);
 	if (0 == ret) {
 		ret = pm_set_clocks(rate);
@@ -1294,7 +1339,6 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	init_flag--;
 	bk_cpufreq = 0;
 	log_freq_change = 0;
-	bk_cpufreq = 0;
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
 		pr_info("[%d]:%8u KHz", i, freq_table[i].frequency);
 
@@ -1311,6 +1355,29 @@ static struct cpufreq_driver shmobile_cpufreq_driver = {
 	.name		= "shmobile"
 };
 
+static int shmobile_policy_changed_notifier(struct notifier_block *nb,
+			unsigned long type, void *data)
+{
+	struct cpufreq_policy *policy;
+
+	if (CPUFREQ_NOTIFY != type)
+		return 0;
+	policy = (struct cpufreq_policy *)data;
+	if (policy)
+		if (0 == strcmp(policy->governor->name, "ondemand")) {
+			if (STOP_STATE != sampling_flag)
+				return 0;
+			/* when governor is changed from non-ondemand */
+			sampling_flag = INIT_STATE;
+			__change_sampling_values();
+		} else {
+			sampling_flag = STOP_STATE;
+		}
+	return 0;
+}
+static struct notifier_block policy_notifier = {
+	.notifier_call = shmobile_policy_changed_notifier,
+};
 /*
  * shmobile_cpu_init: register the cpufreq driver with the cpufreq
  * governor driver.
@@ -1346,7 +1413,10 @@ static int __init shmobile_cpu_init(void)
 
 	pr_log("%s()[%d]: register cpufreq driver\n", __func__, __LINE__);
 	ret = cpufreq_register_driver(&shmobile_cpufreq_driver);
-
+	if (ret)
+		return ret;
+	ret = cpufreq_register_notifier(&policy_notifier,
+					CPUFREQ_POLICY_NOTIFIER);
 	return ret;
 }
 

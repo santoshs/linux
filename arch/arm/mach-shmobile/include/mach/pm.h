@@ -370,6 +370,18 @@ extern void arm_machine_flush_console(void);
 /* overdrive mode enable flag */
 #define SH_CPUFREQ_OVERDRIVE	1
 
+#ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND
+extern int samplrate_downfact_change(unsigned int sampl_rate,
+			unsigned int down_factor, unsigned int flag);
+extern void samplrate_downfact_get(unsigned int *sampl_rate,
+				unsigned int *down_factor);
+#else
+static inline int samplrate_downfact_change(unsigned int sampl_rate,
+			unsigned int down_factor, unsigned int flag)
+{ return 0; }
+static inline void samplrate_downfact_get(unsigned int *sampl_rate,
+				unsigned int *down_factor) {}
+#endif
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
 extern void start_cpufreq(void);
