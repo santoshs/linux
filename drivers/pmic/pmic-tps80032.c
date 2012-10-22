@@ -3568,6 +3568,8 @@ static int tps80032_read_hpa_temp(struct i2c_client *client)
 disable:
 	/*Disable GPADC */
 	I2C_WRITE(client, HW_REG_TOGGLE1, 0x01);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL, 0x00);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL2, 0x00);
 
 exit:
 	/*HPB unlock*/
@@ -3678,6 +3680,8 @@ static int tps80032_read_bat_temp(struct i2c_client *client)
 disable:
 	/*Disable GPADC */
 	I2C_WRITE(client, HW_REG_TOGGLE1, 0x01);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL, 0x00);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL2, 0x00);
 
 exit:
 	/*HPB unlock*/
@@ -3793,6 +3797,8 @@ static int tps80032_read_bat_volt(struct i2c_client *client)
 disable:
 	/*Disable GPADC */
 	I2C_WRITE(client, HW_REG_TOGGLE1, 0x01);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL, 0x00);
+	I2C_WRITE(client, HW_REG_GPADC_CTRL2, 0x00);
 
 exit:
 	/*HPB unlock*/
