@@ -56,6 +56,7 @@
 #define PMIC_ERROR_MSG(...) printk(KERN_ERR __VA_ARGS__)
 #define I2C_READ i2c_smbus_read_byte_data
 #define I2C_WRITE i2c_smbus_write_byte_data
+#define I2C_WRITE_BLOCK i2c_smbus_write_i2c_block_data
 
 static struct timer_list bat_timer;
 static void tps80032_battery_timer_handler(unsigned long data);
@@ -1115,47 +1116,75 @@ static void tps80032_interrupt_work(void)
 	int sts_c = 0;
 	int ret = 0;
 	int i = 0;
+	int i2c_try = 1;
+	u8 reg[3] = {0};
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
+	reg[0] = MSK_DISABLE;
+	reg[1] = MSK_DISABLE;
+	reg[2] = MSK_DISABLE;
+
 	/* Define the interrupt source */
 	/* Read status interrupt A */
-	ret = I2C_READ(data->client_battery, HW_REG_INT_STS_A);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: I2C_READ failed err=%d\n",
-			__func__, ret);
-		return;
-	}
+	do {
+		ret = I2C_READ(data->client_battery, HW_REG_INT_STS_A);
+		if (0 > ret) {
+			i2c_try++;
+			msleep_interruptible(1);
+		}
+	} while ((0 > ret) && (i2c_try <= CONST_I2C_RETRY));
 
-	/* Update value of interrupt register A */
-	sts_a = ret & MSK_GET_INT_SRC_A;
+	/* If can NOT read I2C */
+	if (CONST_I2C_RETRY < i2c_try)
+		PMIC_ERROR_MSG("ERROR: %s can not read interrupt source A\n",
+				__func__);
+
+	/* If can read I2C - Update value of interrupt register A */
+	if (0 <= ret)
+		sts_a = ret & MSK_GET_INT_SRC_A;
+
+	/* Reset value for I2C retry in error case */
+	i2c_try = 1;
 
 	/* Read status interrupt C */
-	ret = I2C_READ(data->client_battery, HW_REG_INT_STS_C);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: I2C_READ failed err=%d\n",
-			__func__, ret);
-		return;
-	}
+	do {
+		ret = I2C_READ(data->client_battery, HW_REG_INT_STS_C);
+		if (0 > ret) {
+			i2c_try++;
+			msleep_interruptible(1);
+		}
+	} while ((0 > ret) && (i2c_try <= CONST_I2C_RETRY));
 
-	/* Update value of interrupt register C */
-	sts_c = ret & MSK_GET_INT_SRC_C;
+	/* If can NOT read I2C */
+	if (CONST_I2C_RETRY < i2c_try)
+		PMIC_ERROR_MSG("ERROR: %s can not read interrupt source C\n",
+				__func__);
 
-	/* Clear interrupt source A */
-	ret = I2C_WRITE(data->client_battery, HW_REG_INT_STS_A, MSK_DISABLE);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: I2C_WRITE failed err=%d\n",
-			__func__, ret);
-		return;
-	}
+	/* If can read I2C - Update value of interrupt register C */
+	if (0 <= ret)
+		sts_c = ret & MSK_GET_INT_SRC_C;
 
-	/* Clear interrupt source C */
-	ret = I2C_WRITE(data->client_battery, HW_REG_INT_STS_C, MSK_DISABLE);
-	if (0 > ret) {
-		PMIC_DEBUG_MSG("%s: I2C_WRITE failed err=%d\n",
-			__func__, ret);
-		return;
-	}
+	/* Reset value for I2C retry in error case */
+	i2c_try = 1;
+
+	/* Clear interrupt sources */
+	do {
+		ret = I2C_WRITE_BLOCK(data->client_battery, HW_REG_INT_STS_A,
+				3, reg);
+		if (0 > ret) {
+			i2c_try++;
+			msleep_interruptible(1);
+		}
+	} while ((0 > ret) && (i2c_try <= CONST_I2C_RETRY));
+
+	/* If can NOT write I2C */
+	if (CONST_I2C_RETRY < i2c_try)
+		PMIC_ERROR_MSG("ERROR: %s can not clear interrupt sources\n",
+				__func__);
+
+	/* Reset value for I2C retry in error case */
+	i2c_try = 1;
 
 	/* Process interrupt source */
 	/* interrupt source relate to RTC */
@@ -1193,10 +1222,20 @@ static void tps80032_interrupt_work(void)
 		handle_nested_irq(data->irq_base + TPS80032_INT_ID_WKUP);
 		handle_nested_irq(data->irq_base + TPS80032_INT_ID);
 		/* Clear interrupt for USB ID */
-		ret = I2C_WRITE(data->client_battery,
+		do {
+			ret = I2C_WRITE(data->client_battery,
 				HW_REG_USB_ID_INT_LATCH_CLR, (~MSK_DISABLE));
-		if (0 > ret)
-			return;
+			if (0 > ret) {
+				i2c_try++;
+				msleep_interruptible(1);
+			}
+		} while ((0 > ret) && (i2c_try <= CONST_I2C_RETRY));
+
+		/* If can NOT write I2C */
+		if (CONST_I2C_RETRY < i2c_try)
+			PMIC_ERROR_MSG(
+				"ERROR: %s can not clear USB ID interrupt\n",
+					__func__);
 	}
 
 #ifdef CONFIG_PMIC_BAT_INTERFACE
