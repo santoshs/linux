@@ -26,13 +26,14 @@
 #include <video/sh_mobile_lcdc.h>
 
 #include <rtapi/screen_display.h>
+#include <rtapi/system_pwmng.h>
 #include <linux/backlight.h>
 #include <linux/lcd.h>
 
 #include <linux/platform_device.h>
 
 /*#define S6E39A0X02_BRIGHTNESS_LINER */
-#define S6E39A0X02_USE_PANEL_INIT
+#define S6E39A0X02_POWAREA_MNG_ENABLE
 
 #include "s6e39a0x02_gamma.h"
 #include "panel_s6e39a0x02.h"
@@ -245,7 +246,6 @@ static int is_backlight_enabled;
 static int is_backlight_called;
 static int is_dsi_read_enabled;
 
-#ifdef S6E39A0X02_USE_PANEL_INIT
 static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_01, sizeof(data_01) },
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_02, sizeof(data_02) },
@@ -281,7 +281,6 @@ static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_BLACK,                 NULL,    0               },
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
-#endif
 
 static const struct _s6e39a0x02_cmdset resume_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_01, sizeof(data_01) },
@@ -455,7 +454,7 @@ static void s6e39a0x02_lcd_frequency_unregister(void)
 	if (registed_ld) {
 		sysfs_remove_group(&lcdfreq_info_data.dev->kobj,
 						&lcdfreq_attr_group);
-		mutex_destroy(&lcdfreq->lock);
+		mutex_destroy(&lcdfreq_info_data.lock);
 		lcd_device_unregister(registed_ld);
 	}
 
@@ -782,18 +781,53 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	screen_disp_set_address set_address;
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_delete disp_delete;
+
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+#endif
+
 	int ret;
 	unsigned int tmp;
-#ifdef S6E39A0X02_USE_PANEL_INIT
 	unsigned char read_data[60];
-#endif
 	printk(KERN_INFO "%s\n", __func__);
 
-	screen_handle =  screen_display_new();
+	screen_handle = screen_display_new();
+
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	printk(KERN_INFO "Start A4LC power area\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+		return -1;
+	}
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
 
 	/* GPIO control */
 	gpio_request(reset_gpio, NULL);
 	gpio_request(power_gpio, NULL);
+
+	gpio_direction_output(reset_gpio, 1);
+	msleep(10);
+	gpio_direction_output(reset_gpio, 0);
+	msleep(1);
+
+	gpio_direction_output(power_gpio, 1);
+	msleep(25);
+	gpio_direction_output(reset_gpio, 1);
+
+	msleep(100);
 
 
 	tmp = R_MOBILE_M_PANEL_PIXEL_WIDTH + R_MOBILE_M_PANEL_HSYNC_LEN;
@@ -859,39 +893,30 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	}
 	is_dsi_read_enabled = 1;
 
-#ifdef S6E39A0X02_USE_PANEL_INIT
-	memset(read_data , 0, sizeof(read_data));
+	/* Read ID1 */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDA, 1, &read_data[0]);
+	if (ret == 0)
+		printk(KERN_DEBUG "read_data(0xDA) = %02X\n", read_data[0]);
 
-	/*Read Display Power Mode*/
-	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0x0A, 1, &read_data[0]);
-	printk(KERN_DEBUG "read_data(0x0A) = %02X\n", read_data[0]);
-	if ((ret == 0) && ((read_data[0] & 0x10) == 0x10)) {
-		printk(KERN_INFO "RDDPM is Sleep out mode!!\n");
-	} else {
-		printk(KERN_INFO "Panel initialization!!\n");
+	/* Read ID2 */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDB, 1, &read_data[0]);
+	if (ret == 0)
+		printk(KERN_DEBUG "read_data(0xDB) = %02X\n", read_data[0]);
 
-		gpio_direction_output(reset_gpio, 1);
-		msleep(10);
-		gpio_direction_output(reset_gpio, 0);
-		msleep(1);
+	/* Read ID3 */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDC, 1, &read_data[0]);
+	if (ret == 0)
+		printk(KERN_DEBUG "read_data(0xDC) = %02X\n", read_data[0]);
 
-		gpio_direction_output(power_gpio, 1);
-		msleep(25);
-		gpio_direction_output(reset_gpio, 1);
 
-		msleep(100);
-
-		/* Transmit DSI command peculiar to a panel */
-		ret = s6e39a0x02_panel_cmdset(screen_handle, initialize_cmdset);
-		if (ret != 0) {
-			printk(KERN_ALERT "s6e39a0x02_panel_cmdset err!\n");
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			return -1;
-		}
+	/* Transmit DSI command peculiar to a panel */
+	ret = s6e39a0x02_panel_cmdset(screen_handle, initialize_cmdset);
+	if (ret != 0) {
+		printk(KERN_ALERT "s6e39a0x02_panel_cmdset err!\n");
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
 	}
-#endif
-
 	/* Display on */
 	write_dsi_s.handle		= screen_handle;
 	write_dsi_s.output_mode		= RT_DISPLAY_LCD1;
@@ -925,6 +950,13 @@ static int s6e39a0x02_panel_suspend(void)
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
 
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_end_notify;
+	system_pmg_delete pmg_delete;
+#endif
+
+	int ret = 0;
 	printk(KERN_INFO "%s\n", __func__);
 	is_backlight_enabled = 0;
 
@@ -959,6 +991,25 @@ static int s6e39a0x02_panel_suspend(void)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	printk(KERN_INFO "End A4LC power area\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_end_notify.handle		= system_handle;
+	powarea_end_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_end_notify(&powarea_end_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_end_notify err!\n");
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+		return -1;
+	}
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
+
 	return 0;
 }
 
@@ -971,9 +1022,33 @@ static int s6e39a0x02_panel_resume(void)
 	screen_disp_delete disp_delete;
 	int ret;
 
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
+
+#ifdef S6E39A0X02_POWAREA_MNG_ENABLE
+	printk(KERN_INFO "Start A4LC power area\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+		return -1;
+	}
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
 
 	/* GPIO control */
 	gpio_direction_output(reset_gpio, 1);
