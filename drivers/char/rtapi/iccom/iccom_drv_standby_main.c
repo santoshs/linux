@@ -366,10 +366,25 @@ int rtctl_change_rt_state_standby(void)
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
 				inl(CPGA_MSTPSR0));
 
-	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
-		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
-			inl(CPGA_MSTPSR0));
-	}
+//	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
+//		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
+//			inl(CPGA_MSTPSR0));
+//	}
+
+	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , CPGA_RMSTPCR2);
+	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__ ,
+				inl(CPGA_MSTPSR2));
+	inl(CPGA_RMSTPCR2);
+	inl(CPGA_RMSTPCR2);
+	reg_mstpsr = inl(CPGA_MSTPSR2);
+	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR2_SET);
+	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
+				inl(CPGA_MSTPSR2));
+
+//	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
+//		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
+//			inl(CPGA_MSTPSR2));
+//	}
 
 	status_rt_now = RTCTL_STS_STANDBY ;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
@@ -458,6 +473,12 @@ int rtctl_change_rt_state_active(void)
 	inl(CPGA_RMSTPCR0);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
 				inl(CPGA_MSTPSR0));
+
+	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, CPGA_RMSTPCR2);
+	inl(CPGA_RMSTPCR2);
+	inl(CPGA_RMSTPCR2);
+	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
+				inl(CPGA_MSTPSR2));
 
 	MSG_MED("[ICCOMK]   |[%s] : rtctl_intcs_mask_in_active()\n", __func__);
 	rtctl_intcs_mask_in_active();

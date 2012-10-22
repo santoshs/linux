@@ -36,7 +36,8 @@
 #define RTCTL_A3R_STATE						(0x2000)		/* PSTR(power domain area to multimedia IPs) */
 #define RTCTL_RT_CLOCK_STOP					(0x200)			/* RESCNT */
 /* CPG */
-#define RTCTL_RT_MOD_STPSR0_SET				(0xE0000000)	/* RMSTPCR */
+#define RTCTL_RT_MOD_STPSR0_SET				(0xE0420000)	/* RMSTPCR0 */
+#define RTCTL_RT_MOD_STPSR2_SET				(0x00002000)	/* RMSTPCR2 */
 /* MFIS common */
 #define MFIS_INIT_REG						(0xFFFFFFFF)
 /* MFIS(GSR) */
