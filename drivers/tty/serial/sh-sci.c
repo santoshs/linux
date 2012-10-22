@@ -117,25 +117,25 @@ to_sci_port(struct uart_port *uart)
 
 static void sci_port_enable(struct sci_port *sci_port)
 {
-    if (!sci_port->port.dev)
-        return;
+	if (!sci_port->port.dev)
+		return;
 
-    pm_runtime_get_sync(sci_port->port.dev);
+	pm_runtime_get_sync(sci_port->port.dev);
 
-    clk_enable(sci_port->iclk);
-    sci_port->port.uartclk = clk_get_rate(sci_port->iclk);
-    clk_enable(sci_port->fclk);
+	clk_enable(sci_port->iclk);
+	sci_port->port.uartclk = clk_get_rate(sci_port->iclk);
+	clk_enable(sci_port->fclk);
 }
 
 static void sci_port_disable(struct sci_port *sci_port)
 {
-    if (!sci_port->port.dev)
-        return;
+	if (!sci_port->port.dev)
+		return;
 
-    clk_disable(sci_port->fclk);
-    clk_disable(sci_port->iclk);
+	clk_disable(sci_port->fclk);
+	clk_disable(sci_port->iclk);
 
-    pm_runtime_put_sync(sci_port->port.dev);
+	pm_runtime_put_sync(sci_port->port.dev);
 }
 
 #if defined(CONFIG_CONSOLE_POLL) || defined(CONFIG_SERIAL_SH_SCI_CONSOLE)
@@ -272,11 +272,11 @@ static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 	}
 }
 #elif defined(CONFIG_CPU_SUBTYPE_SH7757) || \
-      defined(CONFIG_CPU_SUBTYPE_SH7763) || \
-      defined(CONFIG_CPU_SUBTYPE_SH7780) || \
-      defined(CONFIG_CPU_SUBTYPE_SH7785) || \
-      defined(CONFIG_CPU_SUBTYPE_SH7786) || \
-      defined(CONFIG_CPU_SUBTYPE_SHX3)
+	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+	defined(CONFIG_CPU_SUBTYPE_SH7780) || \
+	defined(CONFIG_CPU_SUBTYPE_SH7785) || \
+	defined(CONFIG_CPU_SUBTYPE_SH7786) || \
+	defined(CONFIG_CPU_SUBTYPE_SHX3)
 static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
 	if (!(cflag & CRTSCTS))
@@ -296,22 +296,20 @@ static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
 	struct sci_port *sport = dev_get_drvdata(port->dev);
 	u16 scipcr = 0;
-	
+
 	if (sport->cfg->rts_ctrl)
 		return;
 
-	if (cflag & CRTSCTS)
-	{
+	if (cflag & CRTSCTS) {
 		/* Set RTS to low only at first initialization */
 		/* to avoid frame losses after deep sleep */
 		if (sport->cfg->rts_ctrl == 0) {
 			scipcr = sci_in(port, SCPCR);
-			sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+			sci_out(port, SCPCR,  scipcr & 0xFFEF);/*Set RTS = 0*/
 			sport->cfg->rts_ctrl = 1;
-		} else
-		{
+		} else {
 			scipcr = sci_in(port, SCPCR);
-			sci_out(port, SCPCR,  scipcr & 0xFFEF); /* Set RTS = 0 */
+			sci_out(port, SCPCR,  scipcr & 0xFFEF);/*Set RTS = 0*/
 		}
 	}
 }
@@ -326,9 +324,9 @@ static inline void sci_init_pins(struct uart_port *port, unsigned int cflag)
 #endif
 
 #if defined(CONFIG_CPU_SUBTYPE_SH7760) || \
-    defined(CONFIG_CPU_SUBTYPE_SH7780) || \
-    defined(CONFIG_CPU_SUBTYPE_SH7785) || \
-    defined(CONFIG_CPU_SUBTYPE_SH7786)
+	defined(CONFIG_CPU_SUBTYPE_SH7780) || \
+	defined(CONFIG_CPU_SUBTYPE_SH7785) || \
+	defined(CONFIG_CPU_SUBTYPE_SH7786)
 static int scif_txfill(struct uart_port *port)
 {
 	return sci_in(port, SCTFDR) & 0xff;
@@ -1241,11 +1239,11 @@ static void sci_start_tx(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
 	unsigned short ctrl;
-	
-	/* Wake BT chip before sending a frame */	
-	if(s->cfg->exit_lpm_cb) {
+
+	/* Wake BT chip before sending a frame */
+	if (s->cfg->exit_lpm_cb)
 		s->cfg->exit_lpm_cb(port);
-	}
+
 
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
@@ -1636,15 +1634,15 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 static void sci_pm(struct uart_port *port, unsigned int state,
      unsigned int oldstate)
 {
-    struct sci_port *sci_port = to_sci_port(port);
+	struct sci_port *sci_port = to_sci_port(port);
 
-    switch (state) {
-    case 3:
-        sci_port_disable(sci_port);
-        break;
-    default:
-        sci_port_enable(sci_port);
-        break;
+	switch (state) {
+	case 3:
+	sci_port_disable(sci_port);
+	break;
+	default:
+	sci_port_enable(sci_port);
+	break;
     }
 }
 
@@ -1869,6 +1867,7 @@ static void serial_console_putchar(struct uart_port *port, int ch)
 static void serial_console_write(struct console *co, const char *s,
 				 unsigned count)
 {
+#if 0
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
 	unsigned short bits, ctrl;
@@ -1900,6 +1899,7 @@ static void serial_console_write(struct console *co, const char *s,
 	if (locked)
 		spin_unlock(&port->lock);
 	local_irq_restore(flags);
+#endif
 }
 
 static int __devinit serial_console_setup(struct console *co, char *options)
