@@ -45,7 +45,7 @@ enum {
 
 enum {
 	E_SMPS_VOLTAGE_0_0000V = 0, /* 0.0000V */
-	E_SMPS_VOLTAGE_0_6000V,	  	/* 0.6000V */
+	E_SMPS_VOLTAGE_0_6000V,     /* 0.6000V */
 	E_SMPS_VOLTAGE_0_6125V,     /* 0.6125V */
 	E_SMPS_VOLTAGE_0_6250V,     /* 0.6250V */
 	E_SMPS_VOLTAGE_0_6375V,     /* 0.6375V */
@@ -136,39 +136,41 @@ enum {
 };
 
 enum {
-	E_POWER_OFF = 0x00,
-	E_POWER_ON = 0x01,       /*E_POWER_ON  must be 0x01*/
-	E_POWER_RESERVED = 0x02, /* don't care */
-	E_POWER_SLEEP= 0x04,     /*E_POWER_SLEEP  must be 0x04*/
+	E_POWER_OFF      = 0x00,
+	E_POWER_ON       = 0x01,		/*E_POWER_ON  must be 0x01*/
+	E_POWER_RESERVED = 0x02,		/* don't care */
+	E_POWER_SLEEP    = 0x04,		/*E_POWER_SLEEP  must be 0x04*/
 };
 
 enum {
-	E_PMODE_OFF = 0, 	 /* Disable */
-	E_SMPS_PMODE_AUTO,   /* Auto Mode (PWM/PFM) */
-	E_SMPS_PMODE_FORCE,  /* Force PWM Mode */
-	E_LDO_PMODE_AMS,     /* AMS Mode (Sleep/Active) */
-	E_LDO_PMODE_ACTIVE,  /* Active Mode */
+	E_PMODE_OFF = 0,	/* Disable */
+	E_SMPS_PMODE_AUTO,	/* Auto Mode (PWM/PFM) */
+	E_SMPS_PMODE_FORCE,	/* Force PWM Mode */
+	E_LDO_PMODE_AMS,	/* AMS Mode (Sleep/Active) */
+	E_LDO_PMODE_ACTIVE,	/* Active Mode */
 };
 
 enum {
-	E_DEVICE_NONE                =0x1,		/* Not Connect */
-	E_DEVICE_DEDICATEDCHARGER    =0x2,		/* Dedicated Charger */
-	E_DEVICE_CHARGINGDOWNSTREAM  =0x4,		/* Charging Downstream */
-	E_DEVICE_HOSTPC              =0x8,		/* Standard Downstream */
-	E_DEVICE_CHARGER5WIRETYPE2   =0x10,		/* Charger 5wire/Type2 */
-	E_DEVICE_CHARGER5WIRETYPE1   =0x20,		/* Charger 5wire/Type1 */
-	E_DEVICE_ACA_ADEVICERID_A    =0x40,		/* ACA A-device(RID_A)/Standard Downstream */
-	E_DEVICE_PHONEPOWEREDACCESARY=0x80,		/* Phone Powered Accesary/HEADSET_Stereo */
-	E_DEVICE_ACA_ADEVICERID_B    =0x100,	/* ACA A-device(RID_B) */
-	E_DEVICE_ACA_ADEVICERID_C    =0x200,	/* ACA A-device(RID_C) */
-	E_DEVICE_STEREO              =0x400,	/* Stereo(+MIC) */
-	E_DEVICE_STEREOANDCHARGER    =0x800,	/* Stereo(+CHARGE) */
-	E_DEVICE_MONORAL             =0x1000,	/* Monoral(+MIC) */
-	E_DEVICE_MONORALANDCHARGER   =0x2000,	/* Monoral(+CHARGE) */
-	E_DEVICE_BUTTON_ON           =0x4000,	/* Call Control Button Pressed */
-	E_DEVICE_USBOTG_HOST         =0x8000,	/* USB OTG Host */
-	E_DEVICE_RESERVE1            =0x10000,	/* Reserved1 */
-	E_DEVICE_UNKNOWN             =0x40000,	/* Unidentified device */
+	E_DEVICE_NONE                 = 0x1,	/* Not Connect */
+	E_DEVICE_DEDICATEDCHARGER     = 0x2,	/* Dedicated Charger */
+	E_DEVICE_CHARGINGDOWNSTREAM   = 0x4,	/* Charging Downstream */
+	E_DEVICE_HOSTPC               = 0x8,	/* Standard Downstream */
+	E_DEVICE_CHARGER5WIRETYPE2    = 0x10,	/* Charger 5wire/Type2 */
+	E_DEVICE_CHARGER5WIRETYPE1    = 0x20,	/* Charger 5wire/Type1 */
+	E_DEVICE_ACA_ADEVICERID_A     = 0x40,
+				/* ACA A-device(RID_A)/Standard Downstream */
+	E_DEVICE_PHONEPOWEREDACCESARY = 0x80,
+				/* Phone Powered Accesary/HEADSET_Stereo */
+	E_DEVICE_ACA_ADEVICERID_B     = 0x100,	/* ACA A-device(RID_B) */
+	E_DEVICE_ACA_ADEVICERID_C     = 0x200,	/* ACA A-device(RID_C) */
+	E_DEVICE_STEREO               = 0x400,	/* Stereo(+MIC) */
+	E_DEVICE_STEREOANDCHARGER     = 0x800,	/* Stereo(+CHARGE) */
+	E_DEVICE_MONORAL              = 0x1000,	/* Monoral(+MIC) */
+	E_DEVICE_MONORALANDCHARGER    = 0x2000,	/* Monoral(+CHARGE) */
+	E_DEVICE_BUTTON_ON            = 0x4000,	/* Control Button Pressed */
+	E_DEVICE_USBOTG_HOST          = 0x8000,	/* USB OTG Host */
+	E_DEVICE_RESERVE1             = 0x10000,/* Reserved1 */
+	E_DEVICE_UNKNOWN              = 0x40000,/* Unidentified device */
 };
 
 enum {
@@ -196,25 +198,25 @@ enum {
 
 
 enum {
-	E_AC_STATUS_CHANGED      = 0x1,  /* AC power supply has been changed. */
-	E_USB_STATUS_CHANGED     = 0x2,  /* USB power supply has been changed. */
-	E_BATTERY_STATUS_CHANGED = 0x4,  /* Battery state has been changed. */
+	E_AC_STATUS_CHANGED      = 0x1,  /* AC power supply has been changed */
+	E_USB_STATUS_CHANGED     = 0x2,  /* USB power supply has been changed */
+	E_BATTERY_STATUS_CHANGED = 0x4,  /* Battery state has been changed */
 };
 
 enum {
-	E_IFMODE_USB1    =0x2,  /* USB Common1 */
+	E_IFMODE_USB1 = 0x2,  /* USB Common1 */
 };
 
 #ifdef PMIC_PT_TEST_ENABLE
 enum {
-	E_BATT_PROP_ONLINE			= 0x1,
-	E_BATT_PROP_STATUS			= 0x2,
-	E_BATT_PROP_HEALTH			= 0x4,
-	E_BATT_PROP_PRESENT			= 0x8,
+	E_BATT_PROP_ONLINE		= 0x1,
+	E_BATT_PROP_STATUS		= 0x2,
+	E_BATT_PROP_HEALTH		= 0x4,
+	E_BATT_PROP_PRESENT		= 0x8,
 	E_BATT_PROP_TECHNOLOGY		= 0x10,
 	E_BATT_PROP_CAPACITY		= 0x20,
-	E_BATT_PROP_VOLTAGE			= 0x40,
-	E_BATT_PROP_TEMP			= 0x80,
+	E_BATT_PROP_VOLTAGE		= 0x40,
+	E_BATT_PROP_TEMP		= 0x80,
 };
 
 struct pmic_time {
@@ -232,17 +234,19 @@ struct pmic_time {
  *
  * For these PMIC methods the device parameter is the physical device
  * on whatever bus holds the hardware (I2C, Platform, SPI, etc), which
- * was passed to pmic_device_register(). 
+ * was passed to pmic_device_register().
  */
 struct pmic_device_ops {
 	int (*set_power_on)(struct device *dev, int resource);
 	int (*set_power_off)(struct device *dev, int resource);
 	int (*set_voltage)(struct device *dev, int resource, int voltage);
-	int (*set_power_mode)(struct device *dev, int resource, int pstate, int pmode);
+	int (*set_power_mode)(struct device *dev, int resource,
+					int pstate, int pmode);
 	void (*force_power_off)(struct device *dev, int resource);
 	int (*get_ext_device)(struct device *dev);
 	int (*read_register)(struct device *dev, int slave, u8 addr);
-	int (*set_current_limit)(struct device *dev, int chrg_state, int chrg_type);
+	int (*set_current_limit)(struct device *dev,
+					int chrg_state, int chrg_type);
 	int (*clk32k_enable)(u8 clk_res, u8 state);
 	int (*read)(struct device *dev, u8 addr);
 	int (*reads)(struct device *dev, u8 addr, int len, u8 *val);
@@ -256,12 +260,12 @@ struct pmic_device_ops {
 
 /*
  * struct pmic_wait_queue
- * @unmask:	unmask bit - A device driver can select an external device which 
- *                           wants to detect the connection.For example, You should 
- *                           write a code as follows if you want to detect Stereo(+MIC)
- *                           or Monoral(+MIC) device connection.
+ * @unmask:	unmask bit - A device driver can select an external device which
+ *                    wants to detect the connection.For example, You should
+ *                    write a code as follows if you want to detect Stereo(+MIC)
+ *                    or Monoral(+MIC) device connection.
  *
- *                              queue->unmask = E_DEVICE_STEREO | E_DEVICE_MONORAL;
+ *                    queue->unmask = E_DEVICE_STEREO | E_DEVICE_MONORAL;
  *
  * @list:	list_head for doubly-linked list
  * @work:	entry of workqueue
@@ -279,7 +283,7 @@ struct pmic_wait_queue {
  *
  * For these USB OTG PMIC methods the device parameter is the physical device
  * on whatever bus holds the hardware (I2C, Platform, SPI, etc), which
- * was passed to usb_otg_pmic_device_register(). 
+ * was passed to usb_otg_pmic_device_register().
  */
 struct usb_otg_pmic_device_ops {
 	int (*set_vbus) (struct device *dev, int enable);
@@ -291,7 +295,7 @@ struct usb_otg_pmic_device_ops {
  *
  * For these PMIC battery methods the device parameter is the physical device
  * on whatever bus holds the hardware (I2C, Platform, SPI, etc), which
- * was passed to pmic_battery_device_register(). 
+ * was passed to pmic_battery_device_register().
  */
 struct pmic_battery_ops {
 	int (*get_usb_online)(struct device *dev);
@@ -306,15 +310,16 @@ struct pmic_battery_ops {
 	int (*get_bat_voltage)(struct device *dev);
 	int (*get_bat_time_to_empty)(struct device *dev);
 	int (*get_bat_time_to_full)(struct device *dev);
-	int (*stop_charging)(struct device *dev,int stop);
+	int (*stop_charging)(struct device *dev, int stop);
 };
 
 /*
  * struct battery_correct_ops
  *
- * For these PMIC battery correct methods the device parameter is the physical device
+ * For these PMIC battery correct methods the device parameter is
+ * the physical device
  * on whatever bus holds the hardware (I2C, Platform, SPI, etc), which
- * was passed to pmic_battery_register_correct_func(). 
+ * was passed to pmic_battery_register_correct_func().
  */
 struct battery_correct_ops {
 	int (*correct_capacity_func)(int cap);
@@ -325,9 +330,11 @@ struct battery_correct_ops {
 	int (*correct_time_to_full_func)(int ttf);
 };
 
-extern int pmic_device_register(struct device *dev, struct pmic_device_ops *ops);
+extern int pmic_device_register(struct device *dev,
+		struct pmic_device_ops *ops);
 extern int pmic_device_unregister(struct device *dev);
-extern int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *ops);
+extern int pmic_battery_device_register(struct device *dev,
+		struct pmic_battery_ops *ops);
 extern int pmic_battery_device_unregister(struct device *dev);
 extern void pmic_add_wait_queue(struct pmic_wait_queue *queue);
 extern void pmic_ext_device_changed(int device);
@@ -339,10 +346,11 @@ extern int pmic_set_power_off(int resource);
 extern void pmic_force_power_off(int resource);
 extern int pmic_set_voltage(int resource, int voltage);
 extern int pmic_set_power_mode(int resource, int pstate, int pmode);
-extern int pmic_battery_register_correct_func( struct battery_correct_ops *ops );
-extern void pmic_battery_unregister_correct_func( void );
+extern int pmic_battery_register_correct_func(struct battery_correct_ops *ops);
+extern void pmic_battery_unregister_correct_func(void);
 extern int pmic_set_vbus(int enable);
-extern int usb_otg_pmic_device_register(struct device *dev,struct usb_otg_pmic_device_ops *ops);
+extern int usb_otg_pmic_device_register(struct device *dev,
+		struct usb_otg_pmic_device_ops *ops);
 extern int usb_otg_pmic_device_unregister(struct device *dev);
 extern int pmic_read_register(int slave, u8 addr);
 extern int pmic_set_current_limit(int chrg_state, int chrg_type);

@@ -22,7 +22,7 @@
 
 #include <linux/slab.h>
 #include <linux/pmic/pmic.h>
-#include <asm/io.h>
+#include <linux/io.h>
 
 static LIST_HEAD(driver_work_list);
 static DEFINE_SPINLOCK(pmic_lock);
@@ -32,7 +32,7 @@ struct pmic_device {
 	struct pmic_device_ops *ops;
 };
 
-static struct pmic_device *pmic_dev = NULL;
+static struct pmic_device *pmic_dev;
 
 
 /*
@@ -46,10 +46,9 @@ static struct pmic_device *pmic_dev = NULL;
 int pmic_set_power_on(int resource)
 {
 	int ret;
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_on)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_on))
 		return -ENODEV;
-	}
-	
+
 	ret = pmic_dev->ops->set_power_on(pmic_dev->dev.parent, resource);
 	return ret;
 }
@@ -65,10 +64,9 @@ EXPORT_SYMBOL_GPL(pmic_set_power_on);
 int pmic_set_power_off(int resource)
 {
 	int ret;
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_off)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_off))
 		return -ENODEV;
-	}
-	
+
 	ret = pmic_dev->ops->set_power_off(pmic_dev->dev.parent, resource);
 	return ret;
 }
@@ -83,11 +81,10 @@ EXPORT_SYMBOL_GPL(pmic_set_power_off);
  */
 void pmic_force_power_off(int resource)
 {
-	
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->force_power_off)) {
+
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->force_power_off))
 		printk(KERN_ERR "%s: error -ENODEV\n", __func__);
-	}
-	
+
 	pmic_dev->ops->force_power_off(pmic_dev->dev.parent, resource);
 }
 EXPORT_SYMBOL_GPL(pmic_force_power_off);
@@ -101,13 +98,13 @@ EXPORT_SYMBOL_GPL(pmic_force_power_off);
  *         <0: error
  */
 int pmic_set_voltage(int resource, int voltage)
-{	
+{
 	int ret;
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_voltage)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_voltage))
 		return -ENODEV;
-	}
-	
-	ret = pmic_dev->ops->set_voltage(pmic_dev->dev.parent, resource, voltage);
+
+	ret = pmic_dev->ops->set_voltage(pmic_dev->dev.parent,
+					resource, voltage);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_voltage);
@@ -124,11 +121,11 @@ EXPORT_SYMBOL_GPL(pmic_set_voltage);
 int pmic_set_power_mode(int resource, int pstate, int pmode)
 {
 	int ret;
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_mode)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_power_mode))
 		return -ENODEV;
-	}
-	
-	ret = pmic_dev->ops->set_power_mode(pmic_dev->dev.parent, resource, pstate, pmode);
+
+	ret = pmic_dev->ops->set_power_mode(pmic_dev->dev.parent,
+					resource, pstate, pmode);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_power_mode);
@@ -144,12 +141,11 @@ EXPORT_SYMBOL_GPL(pmic_set_power_mode);
 int pmic_get_ext_device(void)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->get_ext_device)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->get_ext_device))
 		return E_DEVICE_NONE;
-	}
-	
+
 	ret = pmic_dev->ops->get_ext_device(pmic_dev->dev.parent);
-	
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_get_ext_device);
@@ -165,17 +161,17 @@ EXPORT_SYMBOL_GPL(pmic_get_ext_device);
 int pmic_set_current_limit(int chrg_state, int chrg_type)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_current_limit)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->set_current_limit))
 		ret = -ENODEV;
-	}
 
-	ret = pmic_dev->ops->set_current_limit(pmic_dev->dev.parent, chrg_state, chrg_type);
+	ret = pmic_dev->ops->set_current_limit(pmic_dev->dev.parent,
+					chrg_state, chrg_type);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_current_limit);
 
 /*
- * pmic_clk32k_enable: Turn oscillation clock to ON/OFF  
+ * pmic_clk32k_enable: Turn oscillation clock to ON/OFF
  * @clk_res: Clock resource id: CLK32KAO(0), CLK32KG(1), CLK32KAUDIO(2)
  * @state: Clock status: TPS80032_STATE_ON(1), TPS80032_STATE_OFF(0)
  * return:
@@ -185,9 +181,8 @@ EXPORT_SYMBOL_GPL(pmic_set_current_limit);
 int pmic_clk32k_enable(u8 clk_res, u8 state)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->clk32k_enable)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->clk32k_enable))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->clk32k_enable(clk_res, state);
 	return ret;
@@ -205,9 +200,8 @@ EXPORT_SYMBOL_GPL(pmic_clk32k_enable);
 int pmic_read_register(int slave, u8 addr)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read_register)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read_register))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->read_register(pmic_dev->dev.parent, slave, addr);
 
@@ -227,17 +221,16 @@ EXPORT_SYMBOL_GPL(pmic_read_register);
 int pmic_read(struct device *dev, u8 addr, uint8_t *val)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->read))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->read(dev, addr);
 	if (0 <= ret) {
 		*val = ret;
 		return 0;
-	} else {
+	} else
 		return ret;
-	}
+
 }
 EXPORT_SYMBOL_GPL(pmic_read);
 
@@ -255,17 +248,16 @@ EXPORT_SYMBOL_GPL(pmic_read);
 int pmic_reads(struct device *dev, u8 addr, int len, u8* val)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->reads)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->reads))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->reads(dev, addr, len, val);
 
-	if (0 <= ret) {
+	if (0 <= ret)
 		return 0;
-	} else {
+	else
 		return ret;
-	}
+
 }
 EXPORT_SYMBOL_GPL(pmic_reads);
 
@@ -281,17 +273,16 @@ EXPORT_SYMBOL_GPL(pmic_reads);
 int pmic_write(struct device *dev, u8 addr, u8 value)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->write)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->write))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->write(dev, addr, value);
 
-	if (0 <= ret) {
+	if (0 <= ret)
 		return 0;
-	} else {
+	else
 		return ret;
-	}
+
 }
 EXPORT_SYMBOL_GPL(pmic_write);
 
@@ -308,17 +299,16 @@ EXPORT_SYMBOL_GPL(pmic_write);
 int pmic_writes(struct device *dev, u8 addr, int len, u8 *value)
 {
 	int ret;
-	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->writes)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->writes))
 		ret = -ENODEV;
-	}
 
 	ret = pmic_dev->ops->writes(dev, addr, len, value);
 
-	if (0 <= ret) {
+	if (0 <= ret)
 		return 0;
-	} else {
+	else
 		return ret;
-	}
+
 }
 EXPORT_SYMBOL_GPL(pmic_writes);
 
@@ -332,18 +322,19 @@ EXPORT_SYMBOL_GPL(pmic_writes);
 int pmic_get_temp_status(void)
 {
 	int ret;
-	if (pmic_dev && pmic_dev->ops && pmic_dev->ops->get_temp_status) {
+	if (pmic_dev && pmic_dev->ops && pmic_dev->ops->get_temp_status)
 		ret = pmic_dev->ops->get_temp_status(pmic_dev->dev.parent);
-	} else {
+	else
 		ret = -ENODEV;
-	}
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_get_temp_status);
 
 
 /*
- * pmic_add_wait_queue: add a pmic_wait_queue object to double linked list of PMIC driver
+ * pmic_add_wait_queue: add a pmic_wait_queue object to double
+ * linked list of PMIC driver
  * @queue: pmic_wait_queue structure object
  * return: void
  */
@@ -367,14 +358,15 @@ void pmic_ext_device_changed(int device)
 	struct list_head *p;
 	if (pmic_dev) {
 		spin_lock(&pmic_lock);
-		list_for_each(p,&driver_work_list) {
-			queue = list_entry(p,struct pmic_wait_queue,list);
-			if(device & queue->unmask){
-				if(queue->work_queue) {
-					queue_work(queue->work_queue,&queue->work);
-				} else {
+		list_for_each(p, &driver_work_list) {
+			queue = list_entry(p, struct pmic_wait_queue, list);
+			if (device & queue->unmask) {
+				if (queue->work_queue)
+					queue_work(queue->work_queue,
+								&queue->work);
+				else
 					schedule_work(&queue->work);
-				}
+
 			}
 		}
 		spin_unlock(&pmic_lock);
@@ -394,9 +386,8 @@ EXPORT_SYMBOL_GPL(pmic_ext_device_changed);
 int pmic_read_battery_status(int property)
 {
 	int ret;
-	if(!(pmic_dev && pmic_dev->ops && pmic_dev->ops->get_batt_status)) {
+	if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->get_batt_status))
 		return -ENODEV;
-	}
 
 	ret = pmic_dev->ops->get_batt_status(pmic_dev->dev.parent, property);
 
@@ -414,7 +405,7 @@ EXPORT_SYMBOL_GPL(pmic_read_battery_status);
  *        = 0: Registration is successful
  *        < 0: Registration is failed
  */
-int pmic_device_register(struct device *dev,struct pmic_device_ops *ops)
+int pmic_device_register(struct device *dev, struct pmic_device_ops *ops)
 {
 	int ret;
 
@@ -434,9 +425,9 @@ int pmic_device_register(struct device *dev,struct pmic_device_ops *ops)
 	pmic_dev->dev.parent = dev;
 
 	ret = device_register(&pmic_dev->dev);
-	if (ret < 0) {
+	if (ret < 0)
 		goto err_device_register_failed;
-	}
+
 	return ret;
 
 err_device_register_failed:
@@ -459,13 +450,13 @@ int pmic_device_unregister(struct device *dev)
 	struct list_head *p;
 
 	spin_lock(&pmic_lock);
-	list_for_each(p,&driver_work_list){
-		queue = list_entry(p,struct pmic_wait_queue,list);
-		if(queue->work_queue) {
+	list_for_each(p, &driver_work_list) {
+		queue = list_entry(p, struct pmic_wait_queue, list);
+		if (queue->work_queue)
 			flush_workqueue(queue->work_queue);
-		} else {
+		else
 			flush_scheduled_work();
-		}
+
 		list_del(&queue->list);
 		kfree(queue);
 	}

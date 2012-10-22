@@ -32,14 +32,14 @@ static DEFINE_MUTEX(battery_mutex);
 struct pmic_battery_device {
 	int depth;
 	struct device dev;
-	struct device* pdev[E_BATTERY_TERMINATE];
+	struct device *pdev[E_BATTERY_TERMINATE];
 	struct pmic_battery_ops *ops;
 	struct power_supply usb;
 	struct power_supply battery;
 	struct battery_correct_ops *correct_ops;
 };
 
-static	struct pmic_battery_device *battery_dev=NULL;
+static struct pmic_battery_device *battery_dev;
 
 void pmic_power_supply_changed(int status)
 {
@@ -52,52 +52,52 @@ EXPORT_SYMBOL_GPL(pmic_power_supply_changed);
 
 static int pmic_correct_status(int status)
 {
-	int retval=0;
+	int retval = 0;
 
-	if( battery_dev->correct_ops && battery_dev->correct_ops->correct_status_func) {
+	if (battery_dev->correct_ops
+		&& battery_dev->correct_ops->correct_status_func)
 		retval = battery_dev->correct_ops->correct_status_func(status);
-	}
-	else {
+	else
 		retval = status + 0;	 /* Nothing to do */
-	}
+
 	return retval;
 }
 
 static int pmic_correct_capacity(int cap)
 {
-	int retval=0;
+	int retval = 0;
 
-	if( battery_dev->correct_ops && battery_dev->correct_ops->correct_capacity_func) {
+	if (battery_dev->correct_ops
+		&& battery_dev->correct_ops->correct_capacity_func)
 		retval = battery_dev->correct_ops->correct_capacity_func(cap);
-	}
-	else {
+	else
 		retval = cap + 0;	 /* Nothing to do */
-	}
+
 	return retval;
 }
 
 static int pmic_correct_temperature(int temp)
 {
-	int retval=0;
-	
-	if( battery_dev->correct_ops && battery_dev->correct_ops->correct_temp_func) {
-		 retval = battery_dev->correct_ops->correct_temp_func( temp );
-	}
-	else {
+	int retval = 0;
+
+	if (battery_dev->correct_ops
+		&& battery_dev->correct_ops->correct_temp_func)
+		retval = battery_dev->correct_ops->correct_temp_func(temp);
+	else
 		retval = temp + 0;	 /* Nothing to do */
-	}
+
 	return retval;
 }
 
 static int pmic_correct_voltage(int vol)
 {
-	int retval=0;
-	if( battery_dev->correct_ops && battery_dev->correct_ops->correct_voltage_func) {
-		 retval = battery_dev->correct_ops->correct_voltage_func( vol );
-	}
-	else {
+	int retval = 0;
+	if (battery_dev->correct_ops
+		&& battery_dev->correct_ops->correct_voltage_func)
+		retval = battery_dev->correct_ops->correct_voltage_func(vol);
+	else
 		retval = vol + 0;	 /* Nothing to do */
-	}
+
 	return retval;
 }
 
@@ -112,8 +112,9 @@ static int pmic_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if(battery_dev->ops->get_usb_online)
-			val->intval = battery_dev->ops->get_usb_online(battery_dev->pdev[E_BATTERY_USB_ONLINE]);
+		if (battery_dev->ops->get_usb_online)
+			val->intval = battery_dev->ops->get_usb_online(
+				battery_dev->pdev[E_BATTERY_USB_ONLINE]);
 		break;
 	default:
 		ret = -EINVAL;
@@ -133,58 +134,72 @@ static int pmic_battery_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if(battery_dev->ops->get_bat_status)
-			val->intval = pmic_correct_status(battery_dev->ops->get_bat_status(battery_dev->pdev[E_BATTERY_STATUS]));
+		if (battery_dev->ops->get_bat_status)
+			val->intval = pmic_correct_status(
+				battery_dev->ops->get_bat_status(
+					battery_dev->pdev[E_BATTERY_STATUS]));
 		else
 			val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
-		if(battery_dev->ops->get_bat_health)
-			val->intval = battery_dev->ops->get_bat_health(battery_dev->pdev[E_BATTERY_HEALTH]);
+		if (battery_dev->ops->get_bat_health)
+			val->intval = battery_dev->ops->get_bat_health(
+				battery_dev->pdev[E_BATTERY_HEALTH]);
 		else
 			val->intval = POWER_SUPPLY_HEALTH_UNKNOWN;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		if(battery_dev->ops->get_bat_present)
-			val->intval = battery_dev->ops->get_bat_present(battery_dev->pdev[E_BATTERY_PRESENT]);
+		if (battery_dev->ops->get_bat_present)
+			val->intval = battery_dev->ops->get_bat_present(
+				battery_dev->pdev[E_BATTERY_PRESENT]);
 		else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
-		if(battery_dev->ops->get_bat_technology)
-			val->intval = battery_dev->ops->get_bat_technology(battery_dev->pdev[E_BATTERY_TECHNOLOGY]);
+		if (battery_dev->ops->get_bat_technology)
+			val->intval = battery_dev->ops->get_bat_technology(
+				battery_dev->pdev[E_BATTERY_TECHNOLOGY]);
 		else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		if(battery_dev->ops->get_bat_capacity)
-			val->intval = pmic_correct_capacity(battery_dev->ops->get_bat_capacity(battery_dev->pdev[E_BATTERY_CAPACITY]));
+		if (battery_dev->ops->get_bat_capacity)
+			val->intval = pmic_correct_capacity(
+				battery_dev->ops->get_bat_capacity(
+					battery_dev->pdev[E_BATTERY_CAPACITY]));
 		else
 			val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
-		if(battery_dev->ops->get_bat_capacity_level)
-			val->intval = battery_dev->ops->get_bat_capacity_level(battery_dev->pdev[E_BATTERY_CAPACITY_LEVEL]);
+		if (battery_dev->ops->get_bat_capacity_level)
+			val->intval = battery_dev->ops->get_bat_capacity_level(
+				battery_dev->pdev[E_BATTERY_CAPACITY_LEVEL]);
 		else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		if(battery_dev->ops->get_bat_temperature)
-			val->intval = pmic_correct_temperature(battery_dev->ops->get_bat_temperature(battery_dev->pdev[E_BATTERY_TEMPERATURE]));
+		if (battery_dev->ops->get_bat_temperature)
+			val->intval = pmic_correct_temperature(
+				battery_dev->ops->get_bat_temperature(
+				battery_dev->pdev[E_BATTERY_TEMPERATURE]));
 		else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_TEMP_HPA:
-		if(battery_dev->ops->get_hpa_temperature)
-			val->intval = pmic_correct_temperature(battery_dev->ops->get_hpa_temperature(battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE]));
+		if (battery_dev->ops->get_hpa_temperature)
+			val->intval = pmic_correct_temperature(
+				battery_dev->ops->get_hpa_temperature(
+				battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE]));
 		else
 			val->intval = 0;
 		break;
 
 
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		if(battery_dev->ops->get_bat_voltage)
-			val->intval = pmic_correct_voltage(battery_dev->ops->get_bat_voltage(battery_dev->pdev[E_BATTERY_VOLTAGE_NOW]));
+		if (battery_dev->ops->get_bat_voltage)
+			val->intval =
+			pmic_correct_voltage(battery_dev->ops->get_bat_voltage(
+				battery_dev->pdev[E_BATTERY_VOLTAGE_NOW]));
 		else
 			val->intval = 0;
 		break;
@@ -199,24 +214,23 @@ static int pmic_battery_get_property(struct power_supply *psy,
 
 
 static int pmic_battery_set_property(struct power_supply *psy,
-				       enum power_supply_property psp,
-				       const union power_supply_propval *val)
+				enum power_supply_property psp,
+				const union power_supply_propval *val)
 {
-	int ret=0;
+	int ret = 0;
 	struct pmic_battery_device *battery_dev = container_of(psy,
 		struct pmic_battery_device, battery);
-	
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		switch(val->intval){
+		switch (val->intval) {
 		case 0:
 		case 1:
-			if(battery_dev->ops->stop_charging){
-				ret = battery_dev->ops->stop_charging(battery_dev->pdev[E_BATTERY_STOP],val->intval);
-			}
-			else{
+			if (battery_dev->ops->stop_charging)
+				ret = battery_dev->ops->stop_charging(
+				battery_dev->pdev[E_BATTERY_STOP], val->intval);
+			else
 				ret = -ENODEV;
-			}
 			break;
 		default:
 			ret = -EINVAL;
@@ -231,7 +245,7 @@ static int pmic_battery_set_property(struct power_supply *psy,
 }
 
 static int pmic_battery_property_is_writeable(struct power_supply *psy,
-						enum power_supply_property psp)
+				enum power_supply_property psp)
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -257,143 +271,153 @@ static enum power_supply_property pmic_usb_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-int pmic_battery_register_correct_func( struct battery_correct_ops *ops )
+int pmic_battery_register_correct_func(struct battery_correct_ops *ops)
 {
 	int ret = 0;
-	if(!battery_dev){
+	if (!battery_dev)
 		ret = -ENODEV;
-	}
-	else{
+	else
 		battery_dev->correct_ops = ops;
-	}
+
 	return ret;
 }
 EXPORT_SYMBOL(pmic_battery_register_correct_func);
 
 void pmic_battery_unregister_correct_func(void)
 {
-	if(battery_dev){
+	if (battery_dev)
 		battery_dev->correct_ops = NULL;
-	}
 }
 EXPORT_SYMBOL(pmic_battery_unregister_correct_func);
 
-int pmic_battery_device_register(struct device *dev, struct pmic_battery_ops *ops)
+int pmic_battery_device_register(struct device *dev,
+			struct pmic_battery_ops *ops)
 {
-	int ret=0;
+	int ret = 0;
 	mutex_lock(&battery_mutex);
-	if(!battery_dev){
+	if (!battery_dev) {
 		battery_dev = kzalloc(sizeof(*battery_dev), GFP_KERNEL);
 		if (!battery_dev) {
 			ret = -ENOMEM;
 			goto err_device_alloc_failed;
 		}
 		dev_set_name(&battery_dev->dev, "pmic_battery%d", 0);
-		
-		if(ops->get_usb_online){
+
+		if (ops->get_usb_online)
 			battery_dev->pdev[E_BATTERY_USB_ONLINE] = dev;
-		}
-		if(ops->get_bat_status){
+
+		if (ops->get_bat_status)
 			battery_dev->pdev[E_BATTERY_STATUS] = dev;
-		}
-		if(ops->get_bat_health){
+
+		if (ops->get_bat_health)
 			battery_dev->pdev[E_BATTERY_HEALTH] = dev;
-		}
-		if(ops->get_bat_present){
+
+		if (ops->get_bat_present)
 			battery_dev->pdev[E_BATTERY_PRESENT] = dev;
-		}
-		if(ops->get_bat_technology){
+
+		if (ops->get_bat_technology)
 			battery_dev->pdev[E_BATTERY_TECHNOLOGY] = dev;
-		}
-		if(ops->get_bat_capacity){
+
+		if (ops->get_bat_capacity)
 			battery_dev->pdev[E_BATTERY_CAPACITY] = dev;
-		}
-		if(ops->get_bat_capacity_level){
+
+		if (ops->get_bat_capacity_level)
 			battery_dev->pdev[E_BATTERY_CAPACITY_LEVEL] = dev;
-		}
-		if(ops->get_bat_temperature){
+
+		if (ops->get_bat_temperature)
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
-		}
-		if(ops->get_hpa_temperature){
+
+		if (ops->get_hpa_temperature)
 			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
-		}
-		if(ops->get_bat_voltage){
+
+		if (ops->get_bat_voltage)
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
-		}
-		if(ops->stop_charging){
+
+		if (ops->stop_charging)
 			battery_dev->pdev[E_BATTERY_STOP] = dev;
-		}
+
 		battery_dev->ops = ops;
 		battery_dev->depth = 0;
-		
+
 		ret = device_register(&battery_dev->dev);
-		if(ret)
+		if (ret)
 			goto err_kalloc_bat;
 
 		battery_dev->battery.properties = pmic_battery_props;
-		battery_dev->battery.num_properties = ARRAY_SIZE(pmic_battery_props);
+		battery_dev->battery.num_properties =
+					ARRAY_SIZE(pmic_battery_props);
 		battery_dev->battery.get_property = pmic_battery_get_property;
 		battery_dev->battery.name = "battery";
 		battery_dev->battery.type = POWER_SUPPLY_TYPE_BATTERY;
-		battery_dev->battery.set_property	= pmic_battery_set_property;
-		battery_dev->battery.property_is_writeable = pmic_battery_property_is_writeable;
-		
+		battery_dev->battery.set_property	=
+					pmic_battery_set_property;
+		battery_dev->battery.property_is_writeable =
+					pmic_battery_property_is_writeable;
+
 		battery_dev->usb.properties = pmic_usb_props;
 		battery_dev->usb.num_properties = ARRAY_SIZE(pmic_usb_props);
 		battery_dev->usb.get_property = pmic_usb_get_property;
 		battery_dev->usb.name = "usb";
 		battery_dev->usb.type = POWER_SUPPLY_TYPE_USB;
 
-		ret = power_supply_register(&battery_dev->dev, &battery_dev->usb);
-		if(ret)
+		ret = power_supply_register(&battery_dev->dev,
+						&battery_dev->usb);
+		if (ret)
 			goto err_usb_failed;
 
-		ret = power_supply_register(&battery_dev->dev, &battery_dev->battery);
-		if(ret)
+		ret = power_supply_register(&battery_dev->dev,
+						&battery_dev->battery);
+		if (ret)
 			goto err_battery_failed;
-	}
-	else{
-		if(ops->get_usb_online){
+	} else {
+		if (ops->get_usb_online) {
 			battery_dev->pdev[E_BATTERY_USB_ONLINE] = dev;
 			battery_dev->ops->get_usb_online = ops->get_usb_online;
 		}
-		if(ops->get_bat_status){
+		if (ops->get_bat_status) {
 			battery_dev->pdev[E_BATTERY_STATUS] = dev;
 			battery_dev->ops->get_bat_status = ops->get_bat_status;
 		}
-		if(ops->get_bat_health){
+		if (ops->get_bat_health) {
 			battery_dev->pdev[E_BATTERY_HEALTH] = dev;
 			battery_dev->ops->get_bat_health = ops->get_bat_health;
 		}
-		if(ops->get_bat_present){
+		if (ops->get_bat_present) {
 			battery_dev->pdev[E_BATTERY_PRESENT] = dev;
-			battery_dev->ops->get_bat_present = ops->get_bat_present;
+			battery_dev->ops->get_bat_present =
+						ops->get_bat_present;
 		}
-		if(ops->get_bat_technology){
+		if (ops->get_bat_technology) {
 			battery_dev->pdev[E_BATTERY_TECHNOLOGY] = dev;
-			battery_dev->ops->get_bat_technology = ops->get_bat_technology;
+			battery_dev->ops->get_bat_technology =
+						ops->get_bat_technology;
 		}
-		if(ops->get_bat_capacity){
+		if (ops->get_bat_capacity) {
 			battery_dev->pdev[E_BATTERY_CAPACITY] = dev;
-			battery_dev->ops->get_bat_capacity = ops->get_bat_capacity;
+			battery_dev->ops->get_bat_capacity =
+						ops->get_bat_capacity;
 		}
-		if(ops->get_bat_capacity_level){
+		if (ops->get_bat_capacity_level) {
 			battery_dev->pdev[E_BATTERY_CAPACITY_LEVEL] = dev;
-			battery_dev->ops->get_bat_capacity_level = ops->get_bat_capacity_level;
+			battery_dev->ops->get_bat_capacity_level =
+						ops->get_bat_capacity_level;
 		}
-		if(ops->get_bat_temperature){
+		if (ops->get_bat_temperature) {
 			battery_dev->pdev[E_BATTERY_TEMPERATURE] = dev;
-			battery_dev->ops->get_bat_temperature = ops->get_bat_temperature;
+			battery_dev->ops->get_bat_temperature =
+						ops->get_bat_temperature;
 		}
-		if(ops->get_hpa_temperature){
+		if (ops->get_hpa_temperature) {
 			battery_dev->pdev[E_BATTERY_HPA_TEMPERATURE] = dev;
-			battery_dev->ops->get_hpa_temperature = ops->get_hpa_temperature;
+			battery_dev->ops->get_hpa_temperature =
+						ops->get_hpa_temperature;
 		}
-		if(ops->get_bat_voltage){
+		if (ops->get_bat_voltage) {
 			battery_dev->pdev[E_BATTERY_VOLTAGE_NOW] = dev;
-			battery_dev->ops->get_bat_voltage = ops->get_bat_voltage;
+			battery_dev->ops->get_bat_voltage =
+						ops->get_bat_voltage;
 		}
-		if(ops->stop_charging){
+		if (ops->stop_charging) {
 			battery_dev->pdev[E_BATTERY_STOP] = dev;
 			battery_dev->ops->stop_charging = ops->stop_charging;
 		}
@@ -423,7 +447,7 @@ int pmic_battery_device_unregister(struct device *dev)
 {
 	mutex_lock(&battery_mutex);
 	battery_dev->depth--;
-	if(battery_dev->depth <= 0){
+	if (battery_dev->depth <= 0) {
 		power_supply_unregister(&battery_dev->usb);
 		power_supply_unregister(&battery_dev->battery);
 		device_unregister(&battery_dev->dev);

@@ -80,6 +80,8 @@ config PMIC_BAT_INTERFACE
 	default y
 	help
 	  This enables support for the PowerManagement IC battery interface.
+	  This feature support all battery info for Android framework.
+	  It depend on Power supply class support config.
 
 config BATTERY_DS2760
 	tristate "DS2760 battery driver (HP iPAQ & others)"

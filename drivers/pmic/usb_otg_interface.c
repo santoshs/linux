@@ -19,7 +19,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA  02110-1301, USA.
  */
- 
+
 #include <linux/slab.h>
 #include <linux/pmic/pmic.h>
 
@@ -35,7 +35,7 @@ static struct usb_otg_pmic_device *usb_otg_pmic_dev;
 
 /*
  * pmic_set_vbus: enable or disable 5V USB OTG VBUS power supply
- * @enable: 
+ * @enable:
  *          enable = 1: enable 5V VBUS power supply
  *          enable = 0: disable 5V VBUS power supply
  * return:
@@ -45,12 +45,13 @@ static struct usb_otg_pmic_device *usb_otg_pmic_dev;
 int pmic_set_vbus(int enable)
 {
 	int ret;
-	if(!(usb_otg_pmic_dev && usb_otg_pmic_dev->ops && usb_otg_pmic_dev->ops->set_vbus)) {
+	if (!(usb_otg_pmic_dev && usb_otg_pmic_dev->ops
+		&& usb_otg_pmic_dev->ops->set_vbus))
 		return -ENODEV;
-	}
-	
-	ret = usb_otg_pmic_dev->ops->set_vbus(usb_otg_pmic_dev->dev.parent, enable);
-	
+
+	ret = usb_otg_pmic_dev->ops->set_vbus(usb_otg_pmic_dev->dev.parent,
+					enable);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(pmic_set_vbus);
@@ -63,7 +64,8 @@ EXPORT_SYMBOL_GPL(pmic_set_vbus);
  *        = 0: Registration is successful
  *        < 0: Registration is failed
  */
-int usb_otg_pmic_device_register(struct device *dev,struct usb_otg_pmic_device_ops *ops)
+int usb_otg_pmic_device_register(struct device *dev,
+			struct usb_otg_pmic_device_ops *ops)
 {
 	int ret;
 
@@ -83,10 +85,9 @@ int usb_otg_pmic_device_register(struct device *dev,struct usb_otg_pmic_device_o
 	usb_otg_pmic_dev->dev.parent = dev;
 
 	ret = device_register(&usb_otg_pmic_dev->dev);
-	if (ret < 0) {
+	if (ret < 0)
 		goto err_device_register_failed;
-	}
-	
+
 	return ret;
 
 err_device_register_failed:
@@ -98,8 +99,9 @@ err_device_register_already:
 EXPORT_SYMBOL_GPL(usb_otg_pmic_device_register);
 
 /*
- * usb_otg_pmic_device_unregister: unregister a usb_otg device from this interface
- * @dev: The struct which handles the device is registered to usb_otg interface.
+ * usb_otg_pmic_device_unregister: unregister a usb_otg device
+ * from this interface
+ * @dev: The struct which handles the device is registered to usb_otg interface
  * return:
  *        = 0: Unregistration is successful
  */
