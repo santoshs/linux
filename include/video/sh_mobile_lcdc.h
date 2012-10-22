@@ -68,6 +68,10 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 #define SH_FB_HDMI_START	1
 #define SH_FB_HDMI_STOP		2
 
+#define SH_FB_VSYNC_OFF		0
+#define SH_FB_VSYNC_ON		1
+
+
 enum {	SH_FB_HDMI_480P60,
 	SH_FB_HDMI_720P60,
 	SH_FB_HDMI_1080I60,
@@ -171,6 +175,10 @@ struct fb_hdmi_func {
 
 #define SH_MOBILE_FB_HDMI_SET \
 	_IOW(IOC_SH_MOBILE_FB_MAGIC, 0x00, struct fb_hdmi_set_mode)
+
+#define SH_MOBILE_FB_ENABLEVSYNC \
+	_IOW(IOC_SH_MOBILE_FB_MAGIC, 0x01, __u32)
+
 
 extern int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 				     unsigned short output_mode);

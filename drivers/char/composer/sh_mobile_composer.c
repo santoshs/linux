@@ -40,6 +40,9 @@
 
 #include <linux/sh_mobile_composer.h>
 
+#include <rtapi/screen_display.h>
+#include <linux/fb.h>
+
 static int debug;    /* default debug level */
 
 #define   INTERNAL_DEBUG   0	/* enable debug interface        */
@@ -130,8 +133,11 @@ static void notify_graphics_image_output(int result, unsigned long user_data);
 #endif
 static void callback_iocs_start(int result, void *user_data);
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static int composer_set_address(
+	unsigned int id, unsigned long addr, unsigned long size);
 static void composer_blendoverlay_errorcallback(
 	struct composer_rh *rh);
+static void timeout_queue_process_timercancel(void);
 static void timeout_queue_process(unsigned long data);
 static void process_composer_queue_callback(struct composer_rh *rh);
 static void callback_composer_queue(int result, void *user_data);
@@ -243,6 +249,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define FUNC_CALLBACK        0x014
 #define FUNC_HDMISET         0x015
 #define FUNC_NOTIFY          0x016
+#define FUNC_DRAWDISP        0x017
 #define FUNC_WQ_CREATE       0x020
 #define FUNC_WQ_DELETE       0x021
 #define FUNC_WQ_BLEND        0x022
@@ -261,6 +268,10 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define TRACE_LOG(ID)	tracelog_record(ID_TRACE_LOG,   __LINE__, ID, 0);
 #define TRACE_LOG1(ID, VAL1) \
 	tracelog_record(ID_TRACE_LOG1, __LINE__, ID, VAL1);
+#endif
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#define USE_FB_INDEX    0
 #endif
 
 /* define for bind_buffer function. */
@@ -313,21 +324,46 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 /* define for time-out */
 #define LOCK_BUFFER_WAITTIME           2        /* sec  */
 #define SETBUSY_WAITTIME               2        /* sec  */
-#define IOC_WAITCOMP_WAITTIME          200      /* msec */
+#define IOC_WAITCOMP_WAITTIME          300      /* msec */
 #define WORK_OVERLAY_WAITTIME          500      /* msec */
 #define WORK_RUNBLEND_WAITTIME         1        /* sec  */
-#define KERNEL_QUEUE_TIMER_WAITTIME        200  /* msec */
+#define KERNEL_QUEUE_TIMER_WAITTIME        300  /* msec */
 #define KERNEL_QUEUE_TIMER_WAITTIME_DEBUG 5000  /* msec */
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+/* define for work_dispdraw function. */
+#define WORK_DISPDRAW_INVALID_YOFFSET  -1
 
+/* define for index of fb_offset_info. */
+#define FB_OFFSET_INFO_OFFSET    0
+#define FB_OFFSET_INFO_YLINE     1
+
+/* define for index of reserve */
+#define FB_RESERVE_OFFSET        0
+#define FB_RESERVE_BUFFERID      1
+#define BUFFERID_A               0
+#define BUFFERID_B               0x12345678
+
+/* define for target display */
+#define FB_SCREEN_BUFFERID0      0
+#define FB_SCREEN_BUFFERID1      1
+#endif
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#define NUM_OF_COMPOSER_PROHIBITE_AT_START    0
+#define NUM_OF_COMPOSER_PROHIBITE_AT_RESUME   0
+#endif
 /* macros for general error message */
+#define printk_lowerr(fmt, arg...) \
+	printk(KERN_ERR DEV_NAME ":E %s: " fmt, \
+				__func__, ## arg);
+
 #if _ERR_DBG >= 2
 #define printk_err2(fmt, arg...) \
 	do { \
 		TRACE_LOG(FUNC_NONE); \
 		if (debug > 1) \
-			printk(KERN_ERR DEV_NAME ":E %s: " \
-				fmt, __func__, ## arg); \
+			printk_lowerr(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_err2(fmt, arg...)
@@ -339,8 +375,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 	do { \
 		TRACE_LOG(FUNC_NONE); \
 		if (debug > 0) \
-			printk(KERN_ERR DEV_NAME ":E %s: " \
-				fmt, __func__, ## arg); \
+			printk_lowerr(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_err1(fmt, arg...)
@@ -349,16 +384,19 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_err(fmt, arg...) \
 	do { \
 		TRACE_LOG(FUNC_NONE); \
-		printk(KERN_ERR DEV_NAME ":E %s: " fmt, __func__, ## arg); \
+		printk_lowerr(fmt, ## arg); \
 	} while (0)
 
 /* macros for general log message */
+#define printk_lowdbg(fmt, arg...) \
+	printk(KERN_INFO DEV_NAME ": %s: " fmt, \
+				__func__, ## arg);
+
 #if _LOG_DBG >= 2
 #define printk_dbg2(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_dbg2(level, fmt, arg...)
@@ -369,8 +407,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_dbg1(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 #else
 #define printk_dbg1(level, fmt, arg...)
@@ -379,8 +416,7 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define printk_dbg(level, fmt, arg...) \
 	do { \
 		if ((level)+2 <= debug) \
-			printk(KERN_INFO DEV_NAME ": %s: " fmt, \
-				__func__, ## arg); \
+			printk_lowdbg(fmt, ## arg); \
 	} while (0)
 
 #define DBGENTER(fmt, arg...) printk_dbg2(2, "in  "  fmt, ## arg)
@@ -411,7 +447,7 @@ static  struct early_suspend    early_suspend = {
 	.suspend	= pm_early_suspend,
 	.resume		= pm_late_resume,
 };
-static  int composer_prohibited_count;
+static int composer_prohibited_count = NUM_OF_COMPOSER_PROHIBITE_AT_START;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 static struct composer_buffer local_buffer[MAX_BUFFER];
@@ -423,12 +459,21 @@ static struct localworkqueue  *workqueue;
 static void                   *graphic_handle;
 static int                    rtapi_hungup;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static struct localwork       display_draw;
+static struct localworkqueue  *workqueue_display;
+static int                    fb_count_display;
+static int                    fb_offset_info[2][2];
+static struct fb_info         *fb_info;
 static unsigned long          queue_fb_map_address;
 static unsigned long          queue_fb_map_endaddress;
 static struct rtmem_phys_handle *queue_fb_map_handle;
+static unsigned long          queue_fb_map_address2;
+static unsigned long          queue_fb_map_endaddress2;
+static struct rtmem_phys_handle *queue_fb_map_handle2;
 static DECLARE_WAIT_QUEUE_HEAD(kernel_waitqueue_comp);
 static DEFINE_SEMAPHORE(kernel_queue_sem);
 static LIST_HEAD(kernel_queue_top);
+static int                    queue_data_complete;
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
 static int                    overlay_draw_complete;
 #endif
@@ -437,7 +482,6 @@ static spinlock_t             irqlock_timer;
 static DEFINE_TIMER(kernel_queue_timer, \
 	timeout_queue_process, 0, 0);
 static struct localwork       expire_kernel_request;
-static struct localwork       register_rtmemory;
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void                   *graphic_handle_hdmi;
@@ -3363,10 +3407,14 @@ static int  ioc_issuspend(struct composer_fh *fh)
 }
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-static int  wait_condition_for_ioc_waitcomp(void)
+static int  wait_condition_for_ioc_waitcomp(void *fh)
 {
 	int i;
 	int rc = false;
+
+	if (fh && queue_data_complete == false)
+		return false;
+
 	for (i = 0; i < MAX_KERNELREQ; i++) {
 		struct composer_rh *rh = &kernel_request[i];
 		if (rh->active) {
@@ -3396,7 +3444,7 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 	prev_state[3] = kernel_request[3].active;
 #endif
 	rc = wait_event_timeout(kernel_waitqueue_comp,
-		wait_condition_for_ioc_waitcomp(),
+		wait_condition_for_ioc_waitcomp(fh),
 		msecs_to_jiffies(IOC_WAITCOMP_WAITTIME));
 
 #if _LOG_DBG > 1
@@ -3422,6 +3470,8 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 	printk_dbg2(3, "actual waiting %d msec",
 		jiffies_to_msecs(jiffies - jiffies_s));
 #endif /* _LOG_DBG > 1 */
+
+	queue_data_complete = false;
 #endif
 
 	DBGLEAVE("%d\n", rc);
@@ -3468,40 +3518,12 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 	printk_dbg2(3, "arg addr:0x%lx size:0x%lx\n", *addr, *(addr+1));
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	if (queue_fb_map_handle) {
-		printk_err("already configure fbaddr.\n");
-		rc = -EBUSY;
-	} else {
+	{
 		unsigned long fb_addr = *addr;
 		unsigned long fb_size = *(addr+1);
 
-		queue_fb_map_address    = fb_addr;
-		queue_fb_map_endaddress = fb_addr + fb_size;
-
-		/* queue task. */
-		rc = localworkqueue_queue(workqueue,
-			&register_rtmemory);
-		if (rc) {
-			/* wait work compete. */
-			localworkqueue_flush(workqueue,
-				&register_rtmemory);
-
-			if (queue_fb_map_handle == NULL) {
-				/* set error flag */
-				rc = false;
-			}
-		}
-
-		if (rc == false) {
-			printk_err("failed to register FB address\n");
-			queue_fb_map_address    = 0;
-			queue_fb_map_endaddress = 0;
-
-			rc = -EINVAL;
-		} else {
-			/* no error */
-			rc = 0;
-		}
+		rc = composer_set_address(FB_SCREEN_BUFFERID0,
+			fb_addr, fb_size);
 	}
 #endif
 
@@ -4951,6 +4973,77 @@ err_exit:
 	return rc;
 }
 
+#if _LOG_DBG >= 1
+static const char *get_RTAPImsg_memory(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_MEMORY_OK:
+		msg = "SMAP_LIB_MEMORY_OK";
+		break;
+	case SMAP_LIB_MEMORY_NG:
+		msg = "SMAP_LIB_MEMORY_NG";
+		break;
+	case SMAP_LIB_MEMORY_PARA_NG:
+		msg = "SMAP_LIB_MEMORY_PARA_NG";
+		break;
+	case SMAP_LIB_MEMORY_NO_MEMORY:
+		msg = "SMAP_LIB_MEMORY_NO_MEMORY";
+		break;
+	}
+	return msg;
+}
+
+static const char *get_RTAPImsg_graphics(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_GRAPHICS_OK:
+		msg = "SMAP_LIB_GRAPHICS_OK";
+		break;
+	case SMAP_LIB_GRAPHICS_NG:
+		msg = "SMAP_LIB_GRAPHICS_NG";
+		break;
+	case SMAP_LIB_GRAPHICS_PARAERR:
+		msg = "SMAP_LIB_GRAPHICS_PARAERR";
+		break;
+	case SMAP_LIB_GRAPHICS_SEQERR:
+		msg = "SMAP_LIB_GRAPHICS_SEQERR";
+		break;
+	case SMAP_LIB_GRAPHICS_MEMERR:
+		msg = "SMAP_LIB_GRAPHICS_MEMERR";
+		break;
+	case SMAP_LIB_GRAPHICS_INUSE:
+		msg = "SMAP_LIB_GRAPHICS_INUSE";
+		break;
+	}
+	return msg;
+}
+
+static const char *get_RTAPImsg_display(int rc)
+{
+	const char *msg = "unknown RT-API error";
+	switch (rc) {
+	case SMAP_LIB_DISPLAY_OK:
+		msg = "SMAP_LIB_DISPLAY_OK";
+		break;
+	case SMAP_LIB_DISPLAY_NG:
+		msg = "SMAP_LIB_DISPLAY_NG";
+		break;
+	case SMAP_LIB_DISPLAY_PARAERR:
+		msg = "SMAP_LIB_DISPLAY_PARAERR";
+		break;
+	case SMAP_LIB_DISPLAY_SEQERR:
+		msg = "SMAP_LIB_DISPLAY_SEQERR";
+		break;
+	}
+	return msg;
+}
+#else
+#define get_RTAPImsg_memory(X)   ""
+#define get_RTAPImsg_graphics(X) ""
+#define get_RTAPImsg_display(X)  ""
+#endif
 
 #ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
 static void notify_graphics_image_output(int result, unsigned long user_data)
@@ -4965,6 +5058,10 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		int i;
+#endif
+		printk_err("notify_graphics_image_output result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		for (i = 0; i < MAX_KERNELREQ; i++) {
 			rh = &kernel_request[i];
 
@@ -4982,8 +5079,9 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 
 		if (result != SMAP_LIB_GRAPHICS_OK) {
 			/* report error */
-			printk_err1("notify_graphics_image_output result:%d\n",
-				result);
+			printk_err("notify_graphics_image_output "
+				"result:%d %s\n",
+				result, get_RTAPImsg_graphics(result));
 			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_ERROR;
 		} else {
 			rh->rh_wqcommon.status = RTAPI_NOTIFY_RESULT_NORMAL;
@@ -5012,6 +5110,14 @@ static void notify_graphics_image_blend_dummy(
 	printk_err1("callback unexpected.");
 }
 #endif
+#ifdef RT_GRAPHICS_MODE_IMAGE_EDIT
+static void notify_graphics_image_edit_dummy(
+	int result, unsigned long user_data)
+{
+	/* currently not implemented. */
+	printk_err1("callback unexpected.");
+}
+#endif
 static void notify_graphics_image_conv(int result, unsigned long user_data)
 {
 	/* currently not implemented. */
@@ -5031,6 +5137,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 		int    i;
 #endif
+		printk_err("notify_graphics_image_blend result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
 
 		/* record RT-API hung-up */
 		rtapi_hungup = true;
@@ -5093,7 +5201,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 	}
 
 	if (result != SMAP_LIB_GRAPHICS_OK) {
-		printk_err1("notify_graphics_image_blend result:%d\n", result);
+		printk_err("notify_graphics_image_blend result:%d %s\n",
+			result, get_RTAPImsg_graphics(result));
 		common->status = RTAPI_NOTIFY_RESULT_ERROR;
 	} else {
 		common->status = RTAPI_NOTIFY_RESULT_NORMAL;
@@ -5106,8 +5215,8 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 #if _LOG_DBG >= 1
 static void dump_screen_grap_initialize(screen_grap_initialize *arg)
 {
-	printk_dbg1(1, "screen_grap_initialize\n");
-	printk_dbg1(1, "  handle:%p mode:%ld\n", arg->handle, arg->mode);
+	printk_lowdbg("screen_grap_initialize\n");
+	printk_lowdbg("  handle:%p mode:%ld\n", arg->handle, arg->mode);
 }
 
 #if defined(CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE) || \
@@ -5128,8 +5237,8 @@ static void dump_address_data_to_string(
 static void dump_screen_grap_image_param(
 	screen_grap_image_param * arg, char *name)
 {
-	printk_dbg1(1, " screen_grap_image_param[%s]\n", name);
-	printk_dbg1(1, "  width:%d height:%d stride:%d stride_c:%d "
+	printk_lowdbg(" screen_grap_image_param[%s]\n", name);
+	printk_lowdbg("  width:%d height:%d stride:%d stride_c:%d "
 		"format:%d yuv_format:%d yuv_range:%d "
 		"address:(%p, %p) address_c0(%p, %p) address_c1(%p, %p)\n",
 		arg->width, arg->height, arg->stride, arg->stride_c,
@@ -5148,30 +5257,30 @@ static void dump_screen_grap_image_param(
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address;
-		printk_dbg1(2, "data in address");
+		printk_lowdbg("data in address");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 	if (arg->apmem_handle_c0 && arg->address_c0) {
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address_c0;
-		printk_dbg1(2, "data in address_c0\n");
+		printk_lowdbg("data in address_c0\n");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 	if (arg->apmem_handle_c1 && arg->address_c1) {
 		int i;
 		char msg[256];
 		const unsigned char *ptr = arg->address_c1;
-		printk_dbg1(2, "data in address_c1\n");
+		printk_lowdbg("data in address_c1\n");
 		for (i = 0; i < 256; i += 16) {
 			dump_address_data_to_string(&msg[0], ptr+i);
-			printk_dbg1(2, "  %s\n", msg);
+			printk_lowdbg("  %s\n", msg);
 		}
 	}
 #endif
@@ -5185,22 +5294,29 @@ static void dump_screen_grap_layer(screen_grap_layer *arg, char *_name)
 		/* layer not opened */
 		return;
 	}
-	printk_dbg1(1, " screen_grap_layer[%s]\n", _name);
+	printk_lowdbg(" screen_grap_layer[%s]\n", _name);
 	sprintf(name, "%s.image", _name);
 	dump_screen_grap_image_param(&arg->image, name);
-	printk_dbg1(1, " %s.rect(x:%d y:%d width:%d height:%d) "
-		"alpha:%d rotate:%d mirror:%d key_color:0x%lx\n",
+	printk_lowdbg(" %s.rect(x:%d y:%d width:%d height:%d) "
+		"alpha:%d rotate:%d mirror:%d key_color:0x%lx "
+#ifdef RT_GRAPHICS_PREMULTI_OFF
+		"premultiplied:%d alpha_coef:%d "
+#endif
+		"\n",
 		name,
 		arg->rect.x, arg->rect.y, arg->rect.width, arg->rect.height,
-		arg->alpha, arg->rotate, arg->mirror, arg->key_color);
+		arg->alpha, arg->rotate, arg->mirror, arg->key_color
+#ifdef RT_GRAPHICS_PREMULTI_OFF
+		, arg->premultiplied, arg->alpha_coef
+#endif
+		);
 }
 
 static void dump_screen_grap_image_blend(screen_grap_image_blend *arg)
 {
-	printk_dbg1(1, "screen_grap_image_blend\n");
+	printk_lowdbg("screen_grap_image_blend\n");
 
-	printk_dbg1(1,
-		"  handle:%p input_layer:(%p %p %p %p) "
+	printk_lowdbg("  handle:%p input_layer:(%p %p %p %p) "
 		"background_color:0x%lx user_data:0x%lx\n",
 		arg->handle, arg->input_layer[0], arg->input_layer[1],
 		arg->input_layer[2], arg->input_layer[3],
@@ -5214,29 +5330,43 @@ static void dump_screen_grap_image_blend(screen_grap_image_blend *arg)
 
 static void dump_screen_grap_quit(screen_grap_quit *arg)
 {
-	printk_dbg1(1, "screen_grap_quit\n");
-	printk_dbg1(1, "  handle:%p mode:%ld\n", arg->handle, arg->mode);
+	printk_lowdbg("screen_grap_quit\n");
+	printk_lowdbg("  handle:%p mode:%ld\n", arg->handle, arg->mode);
 }
 
 static void dump_screen_grap_delete(screen_grap_delete *arg)
 {
-	printk_dbg1(1, "screen_grap_delete\n");
-	printk_dbg1(1, "  handle:%p\n", arg->handle);
+	printk_lowdbg("screen_grap_delete\n");
+	printk_lowdbg("  handle:%p\n", arg->handle);
 }
 
 #ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
 static void dump_screen_grap_image_output(screen_grap_image_output *arg)
 {
-	printk_dbg1(1, "screen_grap_image_output\n");
-	printk_dbg1(1, "  handle:%p\n", arg->handle);
+	printk_lowdbg("screen_grap_image_output\n");
+	printk_lowdbg("  handle:%p\n", arg->handle);
 	dump_screen_grap_image_param(&arg->output_image, "output_image");
-	printk_dbg1(1, "  rotate:%d user_data:0x%lx\n",
+	printk_lowdbg("  rotate:%d user_data:0x%lx\n",
 		arg->rotate, arg->user_data);
 }
 #endif /*  SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1 */
 #endif
 
+static void dump_screen_disp_set_address(screen_disp_set_address *arg)
+{
+	printk_lowdbg("screen_disp_set_address\n");
+	printk_lowdbg("  handle:%p output_mode:%d address:0x%x size:0x%x\n",
+		arg->handle,  arg->output_mode, arg->address, arg->size);
+}
+
+static void dump_system_mem_phy_change_rtaddr(
+	system_mem_phy_change_rtaddr *arg)
+{
+	printk_lowdbg("system_memory_phy_change_rtaddr"
+		" handle:%p phys_addr:0x%x\n",
+		arg->handle, arg->phys_addr);
+}
 #endif
 
 static void work_deletehandle(struct localwork *work)
@@ -5261,17 +5391,23 @@ static void work_deletehandle(struct localwork *work)
 		_quit.handle  = graphic_handle;
 		_quit.mode = RT_GRAPHICS_MODE_IMAGE_BLEND;
 #if _LOG_DBG >= 1
-		dump_screen_grap_quit(&_quit);
+		if (3 <= debug)
+			dump_screen_grap_quit(&_quit);
 #endif
 		rc = screen_graphics_quit(&_quit);
 		if (rc != SMAP_LIB_GRAPHICS_OK) {
 			/* error report */
-			printk_err("screen_graphics_image_quit "
-				"return by %d.\n", rc);
+			printk_err("screen_graphics_quit "
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+			dump_screen_grap_quit(&_quit);
+#endif
 		}
 
 #if _LOG_DBG >= 1
-		dump_screen_grap_delete(&_del);
+		if (3 <= debug)
+			dump_screen_grap_delete(&_del);
 #endif
 		screen_graphics_delete(&_del);
 		graphic_handle = NULL;
@@ -5311,6 +5447,9 @@ static void work_createhandle(struct localwork *work)
 #ifdef RT_GRAPHICS_MODE_IMAGE_OUTPUT
 	_new.notify_graphics_image_output = notify_graphics_image_output_dummy;
 #endif
+#ifdef RT_GRAPHICS_MODE_IMAGE_EDIT
+	_new.notify_graphics_image_edit = notify_graphics_image_edit_dummy;
+#endif
 
 	graphic_handle = screen_graphics_new(&_new);
 
@@ -5321,13 +5460,17 @@ static void work_createhandle(struct localwork *work)
 		_ini.handle   = graphic_handle;
 		_ini.mode = RT_GRAPHICS_MODE_IMAGE_BLEND;
 #if _LOG_DBG >= 1
-		dump_screen_grap_initialize(&_ini);
+		if (3 <= debug)
+			dump_screen_grap_initialize(&_ini);
 #endif
 		rc = screen_graphics_initialize(&_ini);
 		if (rc != SMAP_LIB_GRAPHICS_OK) {
-			printk_err1("screen_graphics_initialize "
-				"return by %d.\n", rc);
-
+			printk_err("screen_graphics_initialize "
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+			dump_screen_grap_initialize(&_ini);
+#endif
 			work_deletehandle(work);
 		}
 	} else {
@@ -5411,17 +5554,23 @@ static void work_deletehandle_hdmi(struct localwork *work)
 			_quit.handle  = graphic_handle_hdmi;
 			_quit.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
 #if _LOG_DBG >= 1
-			dump_screen_grap_quit(&_quit);
+			if (3 <= debug)
+				dump_screen_grap_quit(&_quit);
 #endif
 			rc = screen_graphics_quit(&_quit);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
 				/* error report */
-				printk_err("screen_graphics_image_quit "
-					"return by %d.\n", rc);
+				printk_err("screen_graphics_quit "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				dump_screen_grap_quit(&_quit);
+#endif
 			}
 
 #if _LOG_DBG >= 1
-			dump_screen_grap_delete(&_del);
+			if (3 <= debug)
+				dump_screen_grap_delete(&_del);
 #endif
 			screen_graphics_delete(&_del);
 			graphic_handle_hdmi = NULL;
@@ -5463,6 +5612,10 @@ static void work_createhandle_hdmi(struct localwork *work)
 			notify_graphics_image_blend_dummy;
 		_new.notify_graphics_image_output = \
 			notify_graphics_image_output;
+#ifdef RT_GRAPHICS_MODE_IMAGE_EDIT
+		_new.notify_graphics_image_edit = \
+			notify_graphics_image_edit_dummy;
+#endif
 		graphic_handle_hdmi = screen_graphics_new(&_new);
 
 		printk_dbg1(1, "screen_graphics_new result:%p "
@@ -5473,14 +5626,28 @@ static void work_createhandle_hdmi(struct localwork *work)
 			_ini.handle   = graphic_handle_hdmi;
 			_ini.mode = RT_GRAPHICS_MODE_IMAGE_OUTPUT;
 #if _LOG_DBG >= 1
-			dump_screen_grap_initialize(&_ini);
+			if (3 <= debug)
+				dump_screen_grap_initialize(&_ini);
 #endif
 			rc = screen_graphics_initialize(&_ini);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
-				printk_err1("screen_graphics_initialize "
-					"return by %d.\n", rc);
+				screen_grap_delete _del;
+				_del.handle   = graphic_handle_hdmi;
 
-				work_deletehandle_hdmi(work);
+				printk_err1("screen_graphics_initialize "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				if (1 <= debug)
+					dump_screen_grap_initialize(&_ini);
+#endif
+
+#if _LOG_DBG >= 1
+				if (3 <= debug)
+					dump_screen_grap_delete(&_del);
+#endif
+				screen_graphics_delete(&_del);
+				graphic_handle_hdmi = NULL;
 			}
 		} else {
 			/* eror report */
@@ -5555,14 +5722,19 @@ static void work_overlay(struct localwork *work)
 			_out.user_data = (unsigned long)rh;
 
 #if _LOG_DBG >= 1
-			dump_screen_grap_image_output(&_out);
+			if (3 <= debug)
+				dump_screen_grap_image_output(&_out);
 #endif
 
 			common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 			rc = screen_graphics_image_output(&_out);
 			if (rc != SMAP_LIB_GRAPHICS_OK) {
 				printk_err("screen_graphics_image_output "
-					"return by %d.\n", rc);
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+				dump_screen_grap_image_output(&_out);
+#endif
 
 				rc = CMP_NG;
 				goto finish;
@@ -5586,6 +5758,9 @@ static void work_overlay(struct localwork *work)
 				rc = CMP_OK;
 			} else {
 				printk_err1("callback result is error.\n");
+#if _ERR_DBG >= 1
+				dump_screen_grap_image_output(&_out);
+#endif
 				rc = CMP_NG;
 			}
 		}
@@ -5606,22 +5781,171 @@ finish:
 	return;
 }
 
-static void work_register_rtmemory(struct localwork *work)
+static void work_remotecall(struct localwork *work)
 {
-	unsigned long fb_addr = queue_fb_map_address;
-	unsigned long fb_size = queue_fb_map_endaddress - queue_fb_map_address;
+	struct composer_rr *rr;
 
-	queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
-		fb_size, fb_addr);
+	DBGENTER("work:%p\n", work);
 
-	if (queue_fb_map_handle) {
-		printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
-			"map success.\n",                 \
-			fb_addr, fb_addr + fb_size - 1);
-	} else {
-		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
-			fb_addr, fb_addr + fb_size - 1);
+	rr = container_of(work, struct composer_rr, rr_wqtask);
+
+	printk_dbg2(3, "rr->function:%p rr->args:0x%lx,0x%lx\n",
+		rr->remote, rr->args[0], rr->args[1]);
+
+	if (rr->remote) {
+		/* do remote function call */
+		rr->remote(&rr->args[0]);
 	}
+}
+
+static void work_dispdraw(struct localwork *work)
+{
+	struct fb_var_screeninfo vInfo;
+	int                      res;
+	struct composer_rh       *blend_req = NULL;
+	int                      y_offset   = WORK_DISPDRAW_INVALID_YOFFSET;
+	int                      bufferid   = FB_SCREEN_BUFFERID0;
+
+	/* argument is not used. */
+	DBGENTER("work:%p\n", work);
+	TRACE_ENTER(FUNC_DRAWDISP);
+
+	printk_dbg2(3, "down\n");
+	down(&kernel_queue_sem);
+
+	/* update address of output_image */
+	if (!list_empty(&kernel_queue_top)) {
+		blend_req = list_first_entry(&kernel_queue_top,
+				struct composer_rh, list);
+	}
+	up(&kernel_queue_sem);
+
+	if (blend_req) {
+		unsigned long rt_addr;
+		int           offset = 0;
+		int           lane   = 0;
+
+		printk_dbg2(3, "need_blend:%d\n", blend_req->need_blend);
+
+		if (blend_req->need_blend == false) {
+			unsigned long phys_addr;
+
+			/* no need blending, but layer[0] has updated image. */
+
+			rt_addr   = (unsigned long) \
+				blend_req->data.layer[0].image.address;
+
+			phys_addr = sh_mobile_rtmem_conv_rt2physmem(rt_addr);
+
+			printk_dbg2(3, "queue_fb_map_handle2:%p phys_addr:0x%lx "
+				"queue_fb_map_address2:0x%lx queue_fb_map_endaddress2:0x%lx\n",
+					queue_fb_map_handle2, phys_addr,
+					queue_fb_map_address2, queue_fb_map_endaddress2);
+
+			if (queue_fb_map_handle2 != NULL &&
+				queue_fb_map_address2 <= phys_addr &&
+				phys_addr < queue_fb_map_endaddress2) {
+				/* set output_image address is not necessary. */
+
+				offset = phys_addr - queue_fb_map_address2;
+				if (offset < fb_offset_info[1]\
+[FB_OFFSET_INFO_OFFSET]) {
+					/* select lane 0 of
+					   second frame buffer */
+					lane = 0;
+				} else {
+					/* select lane 1 of
+					   second frame buffer */
+					lane = 1;
+				}
+				y_offset = fb_offset_info[lane]\
+[FB_OFFSET_INFO_YLINE];
+				bufferid = FB_SCREEN_BUFFERID1;
+			} else {
+				/* set output_image address is necessary. */
+				blend_req->need_blend = true;
+			}
+		}
+
+		printk_dbg2(3, "need_blend:%d bufferid:%d y_offset:%d\n",
+			blend_req->need_blend, bufferid, y_offset);
+
+		if (blend_req->need_blend) {
+			/* set output_image address. */
+
+			lane = fb_count_display & 1;
+			offset = fb_offset_info[lane][FB_OFFSET_INFO_OFFSET];
+
+			/* get RT address of queue_fb_map_address. */
+			rt_addr = queue_fb_map_handle->rt_addr;
+
+			rt_addr += blend_req->data.output_image_offset;
+
+			blend_req->data.blend.output_image.address = \
+				(unsigned char *) (rt_addr + offset);
+
+			y_offset = fb_offset_info[lane][FB_OFFSET_INFO_YLINE];
+
+			printk_dbg2(3, "y_offset:%d\n", y_offset);
+		}
+	}
+
+	/* confirm valid condition. */
+	if (fb_info == NULL || y_offset == WORK_DISPDRAW_INVALID_YOFFSET) {
+		if (blend_req) {
+			printk_err("invalid condition, ignore request.\n");
+			printk_dbg1(1, "fb_info: %p y_offset:%d\n",
+				fb_info, y_offset);
+
+			printk_dbg2(3, "down\n");
+			down(&kernel_queue_sem);
+
+			list_del_init(&blend_req->list);
+
+			up(&kernel_queue_sem);
+
+			/* cancel timer */
+			timeout_queue_process_timercancel();
+
+			composer_blendoverlay_errorcallback(blend_req);
+
+			blend_req = NULL;
+		}
+	}
+
+	if (blend_req) {
+		lock_fb_info(fb_info);
+
+		vInfo = fb_info->var;
+
+		vInfo.xoffset = 0;
+		vInfo.yoffset = y_offset;
+
+#ifdef RT_DISPLAY_BUFFER_B
+		if (bufferid == FB_SCREEN_BUFFERID0) {
+			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_A;
+		} else {
+			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_B;
+		}
+#endif
+
+		res = fb_pan_display(fb_info, &vInfo);
+		unlock_fb_info(fb_info);
+		if (res != 0) {
+			printk_err("fb_pan_display failed (Y Offset: %d,"
+				" Error: %d)\n", y_offset, res);
+		}
+
+		if (bufferid == FB_SCREEN_BUFFERID1) {
+			/* notify complete */
+			process_composer_queue_callback(blend_req);
+		}
+	}
+	fb_count_display++;
+
+	TRACE_LEAVE(FUNC_DRAWDISP);
+	DBGLEAVE("\n");
+	return;
 }
 #endif
 
@@ -5668,12 +5992,17 @@ static void work_runblend(struct localwork *work)
 	(*common->_blend).handle = graphic_handle;
 
 #if _LOG_DBG >= 1
-	dump_screen_grap_image_blend(common->_blend);
+	if (3 <= debug)
+		dump_screen_grap_image_blend(common->_blend);
 #endif
 
 	rc = screen_graphics_image_blend(common->_blend);
 	if (rc != SMAP_LIB_GRAPHICS_OK) {
-		printk_err("screen_graphics_image_blend return by %d.\n", rc);
+		printk_err("screen_graphics_image_blend return by %d %s.\n",
+			rc, get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+		dump_screen_grap_image_blend(common->_blend);
+#endif
 		rc = CMP_NG;
 		goto finish3;
 	}
@@ -5694,6 +6023,9 @@ static void work_runblend(struct localwork *work)
 		rc = CMP_OK;
 	} else {
 		printk_err1("callback result is error.\n");
+#if _ERR_DBG >= 1
+		dump_screen_grap_image_blend(common->_blend);
+#endif
 		rc = CMP_NG;
 	}
 finish3:
@@ -5724,7 +6056,8 @@ static void callback_iocs_start(int result, void *user_data)
 	DBGENTER("result:%d user_data:%p\n", result, user_data);
 
 #if _LOG_DBG >= 2
-	dump_screen_grap_image_param(&fh->grap_data._blend.output_image,
+	if (4 <= debug)
+		dump_screen_grap_image_param(&fh->grap_data._blend.output_image,
 		"output_image");
 #endif
 
@@ -5937,6 +6270,419 @@ static int setidle(struct composer_fh *fh)
 }
 
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void get_fb_info(void)
+{
+	struct fb_info *info;
+	int    res = 0;
+
+	info = registered_fb[USE_FB_INDEX];
+
+	if (info) {
+		lock_fb_info(info);
+		if (!try_module_get(info->fbops->owner)) {
+			res = -ENODEV;
+		} else {
+			if (info->fbops->fb_open) {
+				res = info->fbops->fb_open(info, 0);
+				if (res)
+					module_put(info->fbops->owner);
+			}
+		}
+		unlock_fb_info(info);
+
+		if (res == 0) {
+			unsigned long offset;
+			int           linelength;
+			int           quotient, remainder;
+
+			fb_info = info;
+			linelength = fb_info->fix.line_length;
+
+			/* set page 0 offset */
+			fb_offset_info[0][FB_OFFSET_INFO_OFFSET] = 0;
+			fb_offset_info[0][FB_OFFSET_INFO_YLINE] = \
+				0 / linelength;
+
+			/* set page 1 offset */
+			offset = fb_info->var.reserved[FB_RESERVE_OFFSET];
+			if (offset * 2 != fb_info->fix.smem_len) {
+				/* error report */
+				printk_err("FB memory size "
+					"should be double.\n");
+			}
+			fb_offset_info[1][FB_OFFSET_INFO_OFFSET] = offset;
+			fb_offset_info[1][FB_OFFSET_INFO_YLINE] = \
+				offset / linelength;
+
+			quotient  = offset / linelength;
+			remainder = offset % linelength;
+
+			if (offset & 0xFFF)
+				printk_err("framebuffer not aligned 4K.\n");
+
+			if (remainder)
+				printk_err("xoffset is not 0.\n");
+
+			printk_dbg2(3, "lane0 offset:%d yline:%d\n",
+				fb_offset_info[0][FB_OFFSET_INFO_OFFSET],
+				fb_offset_info[0][FB_OFFSET_INFO_YLINE]);
+			printk_dbg2(3, "lane1 offset:%d yline:%d\n",
+				fb_offset_info[1][FB_OFFSET_INFO_OFFSET],
+				fb_offset_info[1][FB_OFFSET_INFO_YLINE]);
+		}
+	} else {
+		/* error report */
+		printk_err("FB device %d not found.\n", USE_FB_INDEX);
+	}
+
+	return;
+}
+
+static void release_fb_info(void)
+{
+	if (fb_info) {
+		lock_fb_info(fb_info);
+		if (fb_info->fbops->fb_release != NULL)
+			fb_info->fbops->fb_release(fb_info, 0);
+
+		module_put(fb_info->fbops->owner);
+		unlock_fb_info(fb_info);
+
+		fb_info = NULL;
+	}
+}
+
+static int first_fb_register_rtmemory(unsigned long *args)
+{
+	unsigned long fb_addr = args[0];
+	unsigned long fb_size = args[1];
+
+	get_fb_info();
+
+	if (fb_info == NULL) {
+		printk_err("can not open FB driver\n");
+		goto err_exit;
+	}
+
+	/* ignore ioctl() parameters */
+	printk_dbg1(3, "framebuffer 0x%lx-0x%lx is not used.\n",
+		fb_addr, fb_addr + fb_size - 1);
+
+	fb_addr = fb_info->fix.smem_start;
+	fb_size = fb_info->fix.smem_len;
+	printk_dbg1(3, "framebuffer 0x%lx-0x%lx is used.\n",
+		fb_addr, fb_addr + fb_size - 1);
+
+	queue_fb_map_handle = sh_mobile_rtmem_physarea_register(
+		fb_size, fb_addr);
+
+	if (queue_fb_map_handle) {
+		printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
+			"map success.\n",                 \
+			fb_addr, fb_addr + fb_size - 1);
+	} else {
+		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
+			fb_addr, fb_addr + fb_size - 1);
+
+		/* release fb_info */
+		release_fb_info();
+	}
+
+err_exit:
+	return 0;
+}
+
+static int second_fb_register_rtmemory(unsigned long *args)
+{
+#ifdef RT_DISPLAY_BUFFER_B
+	unsigned long fb_addr = args[0];
+	unsigned long fb_size = args[1];
+
+	/* register address */
+	{
+		void                    *handle;
+		screen_disp_set_address addr;
+		screen_disp_delete      del;
+		int                     rc;
+
+		handle = screen_display_new();
+		if (handle == NULL) {
+			/* report error */
+			printk_err("display_handle is NULL\n");
+		} else {
+			addr.handle      = handle;
+			addr.output_mode = RT_DISPLAY_LCD1;
+			addr.buffer_id   = RT_DISPLAY_BUFFER_B;
+			addr.address     = fb_addr;
+			addr.size        = fb_size;
+
+#if _LOG_DBG >= 1
+			if (3 <= debug)
+				dump_screen_disp_set_address(&addr);
+#endif
+
+			rc = screen_display_set_address(&addr);
+
+			del.handle = handle;
+			screen_display_delete(&del);
+
+			if (rc != SMAP_LIB_DISPLAY_OK) {
+				/* report error */
+				printk_err("screen_display_set_address "
+					"return by %d %s.\n", rc,
+					get_RTAPImsg_display(rc));
+#if _ERR_DBG >= 1
+				dump_screen_disp_set_address(&addr);
+#endif
+				goto err_exit;
+			}
+		}
+	}
+
+	/* ignore ioctl() parameters */
+	printk_dbg1(3, "framebuffer 0x%lx-0x%lx is used.\n",
+		fb_addr, fb_addr + fb_size - 1);
+
+	queue_fb_map_handle2 = sh_mobile_rtmem_physarea_register(
+		fb_size, fb_addr);
+
+	if (queue_fb_map_handle2) {
+		printk_dbg1(2, "framebuffer 0x%lx-0x%lx " \
+			"map success.\n",                 \
+			fb_addr, fb_addr + fb_size - 1);
+	} else {
+		/* there is no API to unregister the address of 
+		   screen_display_set_address. */
+		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
+			fb_addr, fb_addr + fb_size - 1);
+	}
+#else
+	/* nothing to do */
+	printk_dbg1(1, "RT-API not support buffer ID.\n");
+#endif
+err_exit:;
+
+	return 0;
+}
+
+
+static int composer_set_address(
+	unsigned int id, unsigned long addr, unsigned long size)
+{
+	int rc = 0;
+	struct composer_rr *handle = NULL;
+
+	printk_dbg2(3, "down\n");
+	down(&sem);
+
+	/* confirm already configured. */
+	if (id == FB_SCREEN_BUFFERID0) {
+		if (queue_fb_map_handle) {
+			printk_err2("id 0 already configure.\n");
+			rc = -EBUSY;
+			/* free resource performed,
+			   when all composer handle closed. */
+			goto err_exit;
+		}
+	} else if (id == FB_SCREEN_BUFFERID1) {
+		if (queue_fb_map_handle &&
+			size != \
+			(queue_fb_map_endaddress - queue_fb_map_address)) {
+			printk_err("size 0x%lx is not same "
+				"FB driver's information.\n", size);
+			rc = -EINVAL;
+			goto err_exit;
+		}
+		if (queue_fb_map_handle2) {
+			printk_err2("id 1 already configure.\n");
+			rc = -EBUSY;
+			/* currenty, free resource is not safely. */
+			goto err_exit;
+		}
+	} else {
+		printk_err2("argument id:%d not valid.\n", id);
+		rc = -EINVAL;
+		goto err_exit;
+	}
+
+	handle = kmalloc(sizeof(*handle), GFP_KERNEL);
+	if (!handle) {
+		printk_err("kmalloc failed.\n");
+		rc = -ENOMEM;
+		goto err_exit;
+	}
+
+	/* initialize handle */
+	memset(handle, 0, sizeof(*handle));
+	localwork_init(&handle->rr_wqtask, work_remotecall);
+	handle->args[0] = addr;
+	handle->args[1] = size;
+	if (id == FB_SCREEN_BUFFERID0) {
+		/* register function for id = 0 */
+		handle->remote  = first_fb_register_rtmemory;
+	} else {
+		/* register function for id = 1 */
+		handle->remote  = second_fb_register_rtmemory;
+	}
+
+	/* queue task. */
+	rc = localworkqueue_queue(workqueue, &handle->rr_wqtask);
+	if (rc) {
+		/* wait work compete. */
+		localworkqueue_flush(workqueue, &handle->rr_wqtask);
+
+		if (id == FB_SCREEN_BUFFERID0) {
+			if (queue_fb_map_handle == NULL) {
+				/* set error flag */
+				rc = -EINVAL;
+			} else {
+				/* set no error flag and record address. */
+				queue_fb_map_address    = addr;
+				queue_fb_map_endaddress = addr + size;
+				rc = 0;
+			}
+		} else {
+			if (queue_fb_map_handle2 == NULL) {
+				/* set error flag */
+				rc = -EINVAL;
+			} else {
+				/* set no error flag and record address. */
+				queue_fb_map_address2    = addr;
+				queue_fb_map_endaddress2 = addr + size;
+				rc = 0;
+			}
+		}
+	} else {
+		printk_err("failed to request remote function call\n");
+		rc = -EINVAL;
+	}
+err_exit:
+	if (handle) {
+		/* free temporary memory. */
+		kfree(handle);
+	}
+	up(&sem);
+	return rc;
+}
+
+static int fb_unregister_rtmemory(unsigned long *args)
+{
+	switch(args[0]) {
+	case FB_SCREEN_BUFFERID0:
+		if (queue_fb_map_handle) {
+			sh_mobile_rtmem_physarea_unregister(
+				queue_fb_map_handle);
+			queue_fb_map_handle = NULL;
+		}
+		if (fb_info) {
+			/* if all handle is closed,
+			   then release fb_handle. */
+			release_fb_info();
+		}
+		break;
+	case FB_SCREEN_BUFFERID1:
+		if (queue_fb_map_handle2) {
+			sh_mobile_rtmem_physarea_unregister(
+				queue_fb_map_handle2);
+			queue_fb_map_handle2 = NULL;
+		}
+		break;
+	}
+	return 0;
+}
+
+static int composer_unset_address(unsigned int id)
+{
+	int rc = 0;
+	struct composer_rr *handle = NULL;
+
+	/* currently not acquire semaphore.         */
+	/* because core_release already acqurie it. */
+
+	/* confirm already configured. */
+	switch (id)
+	{
+	case FB_SCREEN_BUFFERID0:
+	case FB_SCREEN_BUFFERID1:
+		break;
+	default:
+		/*error report */
+		printk_err2("argument id:%d not valid.\n", id);
+		rc = -EINVAL;
+		goto err_exit;
+	}
+
+	handle = kmalloc(sizeof(*handle), GFP_KERNEL);
+	if (!handle) {
+		printk_err("kmalloc failed.\n");
+		rc = -ENOMEM;
+		goto err_exit;
+	}
+
+	/* initialize handle */
+	memset(handle, 0, sizeof(*handle));
+	localwork_init(&handle->rr_wqtask, work_remotecall);
+	handle->remote  = fb_unregister_rtmemory;
+	handle->args[0] = id;
+
+	/* queue task. */
+	rc = localworkqueue_queue(workqueue, &handle->rr_wqtask);
+	if (rc) {
+		/* wait work compete. */
+		localworkqueue_flush(workqueue, &handle->rr_wqtask);
+
+		if (id == FB_SCREEN_BUFFERID0) {
+			if (queue_fb_map_handle != NULL) {
+				/* set error flag */
+				rc = -EINVAL;
+			} else if (fb_info != NULL) {
+				/* set error flag */
+				rc = -EINVAL;
+			} else {
+				/* set no error flag and reset address. */
+				queue_fb_map_address    = 0;
+				queue_fb_map_endaddress = 0;
+				rc = 0;
+			}
+		} else {
+			if (queue_fb_map_handle2 != NULL) {
+				/* set error flag */
+				rc = -EINVAL;
+			} else {
+				/* set no error flag and record address. */
+				queue_fb_map_address2    = 0;
+				queue_fb_map_endaddress2 = 0;
+				rc = 0;
+			}
+		}
+	} else {
+		printk_err("failed to request remote function call\n");
+		rc = -EINVAL;
+	}
+err_exit:
+	if (handle) {
+		/* free temporary memory. */
+		kfree(handle);
+	}
+	return rc;
+}
+
+int sh_mobile_composer_register_gpu_buffer(
+	unsigned long address, unsigned long size)
+{
+	int rc;
+
+	DBGENTER("address:0x%lx size:0x%lx\n", address, size);
+
+	rc = composer_set_address(FB_SCREEN_BUFFERID1,
+		address, size);
+
+	DBGLEAVE("%d\n", rc);
+
+	return rc;
+}
+EXPORT_SYMBOL(sh_mobile_composer_register_gpu_buffer);
+
 static void timeout_queue_process_timerstart(void)
 {
 	unsigned long flags;
@@ -6021,15 +6767,20 @@ static unsigned char *composer_get_RT_address(unsigned char *address)
 			adr.phys_addr = p_addr;
 			adr.rtaddr    = 0;
 
-			printk_dbg1(1, "system_memory_phy_change_rtaddr"
-				"handle:%p phys_addr:0x%x\n",
-					adr.handle, adr.phys_addr);
+#if _LOG_DBG >= 1
+			if (3 <= debug)
+				dump_system_mem_phy_change_rtaddr(&adr);
+#endif
 
 			rc = system_memory_phy_change_rtaddr(&adr);
 			if (rc != SMAP_LIB_MEMORY_OK) {
 				/* report error */
 				printk_err("system_memory_phy_change_rtaddr"
-					" return by %d.\n", rc);
+					" return by %d %s.\n", rc,
+					get_RTAPImsg_memory(rc));
+#if _ERR_DBG >= 1
+				dump_system_mem_phy_change_rtaddr(&adr);
+#endif
 			} else {
 				rt_addr = (unsigned char *)adr.rtaddr;
 			}
@@ -6057,12 +6808,11 @@ static int  composer_convert_queueaddress(screen_grap_image_blend *blend)
 	int i;
 
 	int                     num_layer;
-	screen_grap_image_param * layer[COMPOSER_NUM_INPUT_GRAP_LAYER + 1];
+	screen_grap_image_param * layer[COMPOSER_NUM_INPUT_GRAP_LAYER];
 
 	DBGENTER("blend:%p\n", blend);
 
-	num_layer = 1;
-	layer[0] = &blend->output_image;
+	num_layer = 0;
 
 	for (i = 0; i < COMPOSER_NUM_INPUT_GRAP_LAYER; i++) {
 		if (blend->input_layer[i] == NULL)
@@ -6137,91 +6887,16 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	down(&kernel_queue_sem);
 
 	if (!list_empty(&kernel_queue_top)) {
-		struct composer_rh     *rh;
-		struct list_head       *list;
-		int                    count;
-		int                    fb_size;
-
-		fb_size = (queue_fb_map_endaddress-queue_fb_map_address)/2;
-
-		/* search last list entry */
-		count = 0;
-		list_for_each(list, &kernel_queue_top) {
-			struct composer_rh *rh;
-			unsigned long phys_addr;
-
-			rh = list_entry(list, struct composer_rh, list);
-			count++;
-
-			if (count > MAX_KERNELREQ) {
-				/* avooid for ever loop. */
-				break;
-			}
-			phys_addr = sh_mobile_rtmem_conv_rt2physmem(
-			(unsigned long)rh->data.blend.output_image.address);
-
-			printk_dbg2(3, "list%d: phys addr:0x%lx.\n",
-				count, phys_addr);
-
-			if (phys_addr >= fb_physical &&
-				phys_addr < fb_physical + fb_size)
-				blend_req = rh;
-		}
+		blend_req = list_first_entry(&kernel_queue_top,
+				struct composer_rh, list);
 
 		printk_dbg2(3, "found overlay request: %p.\n", blend_req);
 
-		/* remove not recently request. */
-		if (blend_req) {
-			while (!list_empty(&kernel_queue_top)) {
+		list_del_init(&blend_req->list);
 
-				/* get first entry */
-				rh = list_first_entry(&kernel_queue_top,
-					struct composer_rh, list);
-
-				if (rh == blend_req)
-					break;
-
-				/* remove old request. */
-				printk_err("remove request "
-					"that is not processing.\n");
-				printk_dbg2(3, "list %p is removed.\n", rh);
-
-				list_del_init(&rh->list);
-
-				/* process callback */
-				up(&kernel_queue_sem);
-
-				composer_blendoverlay_errorcallback(rh);
-
-				printk_dbg2(3, "down\n");
-				down(&kernel_queue_sem);
-			}
-			/* remove list */
-			printk_dbg2(3, "list %p is removed.\n", blend_req);
-
-			list_del_init(&blend_req->list);
-		} else if (count >= KERNEL_QUEUE_INVALID_NUM_THRESHOLD) {
-			printk_err("address 0x%lx is not found in list\n",
-				fb_physical);
-
-			while (!list_empty(&kernel_queue_top)) {
-
-				rh = list_first_entry(&kernel_queue_top,
-					struct composer_rh, list);
-
-				/* remove list */
-				printk_dbg2(3, "list %p is removed.\n", rh);
-
-				list_del_init(&rh->list);
-
-				/* process callback */
-				up(&kernel_queue_sem);
-
-				composer_blendoverlay_errorcallback(rh);
-
-				printk_dbg2(3, "down\n");
-				down(&kernel_queue_sem);
-			}
+		if (!list_empty(&kernel_queue_top)) {
+			/* report information */
+			printk_dbg2(3, "detect delay of composition.\n");
 		}
 	}
 	up(&kernel_queue_sem);
@@ -6266,11 +6941,22 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 	}
 #endif
 
-	/* blend image */
-	if (blend_req) {
-		/* cancel timer */
-		timeout_queue_process_timercancel();
+	if (blend_req == NULL) {
+		printk_err("not found blend request.\n");
+		goto pass_exit;
+	}
 
+	/* cancel timer */
+	timeout_queue_process_timercancel();
+
+	/* blend image */
+	if (blend_req->need_blend == false) {
+		/* no need blending. */
+		printk_dbg2(3, "skip blend and output.\n");
+
+		blend_req = NULL;
+		goto pass_exit;
+	} else {
 		if (localworkqueue_queue(workqueue, &blend_req->rh_wqtask)) {
 			printk_dbg2(3, "success to queue requests.\n");
 
@@ -6303,6 +6989,8 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 			&blend_req->rh_wqtask_hdmi);
 	}
 #endif
+
+pass_exit:
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (!in_early_suspend && composer_prohibited_count > 0) {
@@ -6460,6 +7148,8 @@ int sh_mobile_composer_queue(
 		rh->refcount = 2;
 	}
 #endif
+	/* set flag */
+	rh->need_blend = (rh->data.num_layers != 0) ? true : false;
 
 	/* initialize pointer */
 	{
@@ -6503,15 +7193,9 @@ int sh_mobile_composer_queue(
 		chk_flag |= (1 << RT_GRAPHICS_COLOR_XBGR8888);
 #endif
 		format  = blend->output_image.format;
-		address = blend->output_image.address;
 		if (format > KERNEL_QUEUE_MAXID_PIXEL_FORMAT ||
 		    (chk_flag & (1<<format)) == 0) {
 			printk_err("format %d un-expected.\n", format);
-			rh->active = false;
-			goto err_exit;
-		}
-		if (address == NULL) {
-			printk_err2("address NULL un-expected.\n");
 			rh->active = false;
 			goto err_exit;
 		}
@@ -6550,11 +7234,40 @@ int sh_mobile_composer_queue(
 	timeout_queue_process_timerstart();
 
 err_exit:
+	queue_data_complete = true;
+
 	if (rc) {
 		/* error detected. */
 		TRACE_ENTER(FUNC_CALLBACK);
 		callback(user_data, 1);
 		TRACE_LEAVE(FUNC_CALLBACK);
+
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+		/* set draw complete flag to wakeup tasks. */
+		overlay_draw_complete = true;
+#endif
+		printk_err("request failed.\n");
+
+		/* wake-up waiting thread */
+		wake_up(&kernel_waitqueue_comp);
+	} else {
+		/* wait previous request complete. */
+		localworkqueue_flush(workqueue_display,
+			&display_draw);
+
+		/* request to drawdisplay */
+		if (localworkqueue_queue(workqueue_display,
+			&display_draw)) {
+			/* success */
+			/* do not wait task compete. */
+		} else {
+			/* error */
+			printk_err("previous operation not finished.\n");
+			/* this error indicate that timeout will detect. */
+		}
+#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
+		sh_mobile_composer_notifyrelease();
+#endif
 	}
 
 	TRACE_LEAVE(FUNC_QUEUE);
@@ -7489,6 +8202,20 @@ static int core_release(struct inode *inode, struct file *filep)
 				printk_err2("can not delete handle.\n");
 			}
 		}
+
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+		printk_dbg2(3, "relase FB related resource "     \
+			"fb_info(%p) queue_fb_map_handle(%p)\n", \
+			fb_info, queue_fb_map_handle);
+		if (queue_fb_map_handle) {
+			/* unmap handle */
+			if (composer_unset_address(FB_SCREEN_BUFFERID0)) {
+				/* only report error */
+				printk_err2("error in "
+					"composer_unset_address.\n");
+			}
+		}
+#endif
 	}
 	up(&sem);
 	printk_dbg2(3, "current num of opens:%d\n", num_open);
@@ -7503,7 +8230,7 @@ static void pm_early_suspend(struct early_suspend *h)
 {
 	DBGENTER("h:%p\n", h);
 	in_early_suspend = true;
-	composer_prohibited_count = 1;
+	composer_prohibited_count = NUM_OF_COMPOSER_PROHIBITE_AT_RESUME;
 
 	if (rtapi_hungup && graphic_handle) {
 		printk_err("not release graphic handle, "
@@ -7696,6 +8423,16 @@ static int __init sh_mobile_composer_init(void)
 
 	/* initialize request queue. */
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	/* create workqueue */
+	workqueue_display = localworkqueue_create("sh_mobile_cmpfb");
+	if (workqueue_display == NULL) {
+		printk_err("fail to create_singlethread_workqueue");
+		ret = -ENOMEM;
+		goto err_exit;
+	}
+	localwork_init(&display_draw,  work_dispdraw);
+	fb_info = NULL;
+
 	memset(&kernel_request, 0, sizeof(kernel_request));
 	INIT_LIST_HEAD(&kernel_queue_top);
 	for (i = 0; i < MAX_KERNELREQ; i++) {
@@ -7719,7 +8456,9 @@ static int __init sh_mobile_composer_init(void)
 	queue_fb_map_endaddress = 0;
 	queue_fb_map_handle     = NULL; /* not mapped. */
 
-	localwork_init(&register_rtmemory,   work_register_rtmemory);
+	queue_fb_map_address2    = 0;
+	queue_fb_map_endaddress2 = 0;
+	queue_fb_map_handle2     = NULL; /* not mapped. */
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	graphic_handle_hdmi = NULL;
@@ -7792,6 +8531,12 @@ static void __exit sh_mobile_composer_release(void)
 
 	/* release all resources */
 	/* destroy workqueue */
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	if (workqueue_display) {
+		localworkquue_destroy(workqueue_display);
+		workqueue_display = NULL;
+	}
+#endif
 	if (workqueue) {
 		localworkquue_destroy(workqueue);
 		workqueue = NULL;
@@ -7810,6 +8555,11 @@ static void __exit sh_mobile_composer_release(void)
 		/* unmap handle */
 		sh_mobile_rtmem_physarea_unregister(queue_fb_map_handle);
 		queue_fb_map_handle = NULL;
+	}
+	if (queue_fb_map_handle2) {
+		/* unmap handle */
+		sh_mobile_rtmem_physarea_unregister(queue_fb_map_handle2);
+		queue_fb_map_handle2 = NULL;
 	}
 #endif
 

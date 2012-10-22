@@ -413,7 +413,7 @@ struct composer_fh {
 /* support HDMI for other */
 #define SH_MOBILE_COMPOSER_SUPPORT_HDMI    3
 #endif
-#define SH_MOBILE_COMPOSER_WAIT_DRAWEND    1
+#define SH_MOBILE_COMPOSER_WAIT_DRAWEND    0
 struct cmp_request_queuedata {
 	screen_grap_image_blend blend;
 	screen_grap_layer       layer[COMPOSER_NUM_INPUT_GRAP_LAYER];
@@ -431,6 +431,7 @@ struct cmp_request_queuedata {
 	} extlayer;
 #endif
 	int                     use_gpu_composition;
+	int                     output_image_offset;
 };
 
 /* request queue handle */
@@ -444,6 +445,7 @@ struct composer_rh {
 		(void *user_data, int result);
 	void                         *user_data;
 	int                          refcount;
+	int                          need_blend;
 
 	struct list_head             list;
 };
@@ -456,6 +458,8 @@ extern int sh_mobile_composer_queue(
 
 extern unsigned char *sh_mobile_composer_phy_change_rtaddr(
 	unsigned long p_adr);
+extern int sh_mobile_composer_register_gpu_buffer(
+	unsigned long address, unsigned long size);
 extern int sh_mobile_composer_blendoverlay(unsigned long addr);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 extern int sh_mobile_composer_hdmiset(int mode);
@@ -463,6 +467,13 @@ extern int sh_mobile_composer_hdmiset(int mode);
 #if SH_MOBILE_COMPOSER_WAIT_DRAWEND
 extern void sh_mobile_composer_notifyrelease(void);
 #endif
+
+/* request remote function handle */
+struct composer_rr {
+	struct localwork               rr_wqtask;
+	int    (*remote)(unsigned long *args);
+	unsigned long                  args[4];
+};
 #endif
 /* end CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
 

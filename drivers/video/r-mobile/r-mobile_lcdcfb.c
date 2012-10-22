@@ -45,6 +45,7 @@
 /*#include <media/sh_mobile_overlay.h>*/
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
+#include <linux/module.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -76,6 +77,23 @@
 #include <linux/sh_mobile_composer.h>
 #endif
 
+#define FB_DRM_NUMBER		0x12345678
+
+#define IRQ_BIT_NUM		0
+
+#define IRQC10_BASE		0x1400
+#define IRQC10_INTREQ_STS0	(IRQC10_BASE + 0x000)
+#define IRQC10_INTEN_STS0	(IRQC10_BASE + 0x004)
+#define IRQC10_INTEN_SET0	(IRQC10_BASE + 0x008)
+#define IRQC10_WAKEN_STS0	(IRQC10_BASE + 0x080)
+#define IRQC10_WAKEN_SET0	(IRQC10_BASE + 0x088)
+#define IRQC10_CONFIG		(IRQC10_BASE + 0x180 + (0x04 * IRQ_BIT_NUM))
+
+#define IRQC_CPORT0_BASE	 0x2000
+#define IRQC_CPORT0_STS0	(IRQC_CPORT0_BASE + 0x000)
+
+unsigned int irqc_baseaddr;
+
 struct sh_mobile_lcdc_priv;
 struct sh_mobile_lcdc_chan {
 	struct sh_mobile_lcdc_priv *lcdc;
@@ -92,7 +110,7 @@ struct sh_mobile_lcdc_priv {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend    early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-
+	int irq;
 };
 
 struct sh_mobile_lcdc_ext_param {
@@ -130,13 +148,59 @@ struct semaphore   sh_mobile_sem_hdmi;
 struct workqueue_struct *sh_mobile_wq;
 #endif
 
+struct workqueue_struct *sh_vsync_wq;
+struct kobject *vsync_kobj;
+struct work_struct vsync_work;
+
+
 static u32 fb_debug;
 #define DBG_PRINT(FMT, ARGS...)	      \
-	if (fb_debug)		   \
-		printk(KERN_INFO "%s(): " FMT, __func__, ##ARGS)
+	do { \
+		if (fb_debug)						\
+			printk(KERN_INFO "%s(): " FMT, __func__, ##ARGS); \
+	} while (0)
 
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
+
+static void vsync_work_func(struct work_struct *work)
+{
+	char buf[64];
+	char *envp[2];
+
+	snprintf(buf, sizeof(buf), "VSYNC=%llu",
+		 ktime_to_ns(ktime_get()));
+	envp[0] = buf;
+	envp[1] = NULL;
+
+	kobject_uevent_env(vsync_kobj, KOBJ_CHANGE, envp);
+
+	return;
+}
+
+static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
+{
+
+	int intreq_sts;
+	int loop_num = 10000;
+
+	intreq_sts = __raw_readl(irqc_baseaddr + IRQC10_INTREQ_STS0)
+		& (0x1 << IRQ_BIT_NUM);
+
+	if (intreq_sts) {
+		queue_work(sh_vsync_wq, &vsync_work);
+
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC_CPORT0_STS0);
+		do {
+			intreq_sts = __raw_readl(irqc_baseaddr
+						 + IRQC10_INTREQ_STS0)
+				& (0x1 << IRQ_BIT_NUM);
+		} while (intreq_sts && loop_num--);
+	}
+
+	return IRQ_HANDLED;
+}
 
 static int sh_mobile_lcdc_setcolreg(u_int regno,
 				    u_int red, u_int green, u_int blue,
@@ -417,8 +481,9 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 			if (lcd_ext_param[i].aInfo != NULL) {
 				ret = mfis_drv_resume();
 				if (ret != 0) {
-					printk(KERN_ALERT "##mfis_drv_resume"
-					       " ERR%d\n", ret);
+					printk(KERN_ALERT
+					       "##mfis_drv_resume ERR%d\n",
+					       ret);
 				}
 				screen_handle = screen_display_new();
 				disp_refresh.handle = screen_handle;
@@ -511,17 +576,48 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 }
 #endif
 
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-static void notify_drawcomplete_to_composer(void)
+static int sh_mobile_fb_sync_set(int vsyncval)
 {
-#if SH_MOBILE_COMPOSER_WAIT_DRAWEND
-	sh_mobile_composer_notifyrelease();
-#endif
-}
-#else /* CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
-#define notify_drawcomplete_to_composer()      /* do nothing */
-#endif /* CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
 
+	int ret;
+
+	if (vsyncval != SH_FB_VSYNC_OFF && vsyncval != SH_FB_VSYNC_ON)
+		return -1;
+
+	if (vsyncval == SH_FB_VSYNC_ON) {
+		if (lcd_ext_param[0].aInfo == NULL) {
+			ret = display_initialize(0);
+			if (ret == -1) {
+				printk(KERN_ALERT
+				       "err sync display_initialize\n");
+				return -1;
+			} else if (ret == -2) {
+				printk(KERN_ALERT "nothing MFI driver\n");
+				return -1;
+			}
+		}
+
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC_CPORT0_STS0);
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC10_INTEN_SET0);
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC10_WAKEN_SET0);
+
+		__raw_writel(__raw_readl(irqc_baseaddr + IRQC10_CONFIG)
+			     | 0x00000002, irqc_baseaddr + IRQC10_CONFIG);
+	} else {
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC10_INTEN_STS0);
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC10_WAKEN_STS0);
+		__raw_writel(0x1 << IRQ_BIT_NUM,
+			     irqc_baseaddr + IRQC_CPORT0_STS0);
+	}
+
+	return 0;
+
+}
 static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 				     struct fb_info *info)
 {
@@ -537,6 +633,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	void *screen_handle;
+	unsigned short set_buff_id;
 #if FB_SH_MOBILE_REFRESH
 	screen_disp_set_lcd_refresh disp_refresh;
 #endif
@@ -548,16 +645,19 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			break;
 	}
 	lcd_num = i;
-	if (lcd_num >= CHAN_NUM) {
-		notify_drawcomplete_to_composer();
+	if (lcd_num >= CHAN_NUM)
 		return -EINVAL;
-	}
 
 	if (down_interruptible(&lcd_ext_param[lcd_num].sem_lcd)) {
 		printk(KERN_ALERT "down_interruptible failed\n");
-		notify_drawcomplete_to_composer();
 		return -ERESTARTSYS;
 	}
+
+	/* DRM */
+	if (var->reserved[1] == FB_DRM_NUMBER)
+		set_buff_id = RT_DISPLAY_BUFFER_B;
+	else
+		set_buff_id = RT_DISPLAY_BUFFER_A;
 
 	/* Set the source address for the next refresh */
 
@@ -565,7 +665,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		ret = display_initialize(lcd_num);
 		if (ret == -1) {
 			up(&lcd_ext_param[lcd_num].sem_lcd);
-			notify_drawcomplete_to_composer();
 			return -EIO;
 		} else if (ret == -2)
 			printk(KERN_ALERT "nothing MFI driver\n");
@@ -599,7 +698,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 					up(&lcd_ext_param[lcd_num].sem_lcd);
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
-					notify_drawcomplete_to_composer();
 					return -EIO;
 				}
 				lcd_ext_param[lcd_num].refresh_on = 0;
@@ -621,6 +719,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.draw_rect.height =
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
+		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = new_pan_offset;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
@@ -640,6 +739,8 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		DBG_PRINT("screen_display_draw draw_rect.height %d\n",
 			  disp_draw.draw_rect.height);
 		DBG_PRINT("screen_display_draw format %d\n", disp_draw.format);
+		DBG_PRINT("screen_display_draw buffer_id %d\n",
+			  disp_draw.buffer_id);
 		DBG_PRINT("screen_display_draw buffer_offset %d\n",
 			  disp_draw.buffer_offset);
 		DBG_PRINT("screen_display_draw rotate %d\n", disp_draw.rotate);
@@ -649,7 +750,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
-			notify_drawcomplete_to_composer();
 			return -EIO;
 		}
 #else
@@ -669,6 +769,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.draw_rect.height =
 			lcd_ext_param[lcd_num].rect_height;
 		disp_draw.format = set_format;
+		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = 0;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
@@ -679,7 +780,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
-			notify_drawcomplete_to_composer();
 			return -EIO;
 		}
 #endif
@@ -702,7 +802,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 
 	up(&lcd_ext_param[lcd_num].sem_lcd);
 
-	notify_drawcomplete_to_composer();
 	return 0;
 }
 
@@ -713,6 +812,8 @@ static int sh_mobile_ioctl(struct fb_info *info, unsigned int cmd,
 #if FB_SH_MOBILE_HDMI
 	struct fb_hdmi_set_mode hdmi_set;
 #endif
+	int vsyncval;
+
 	switch (cmd) {
 	case FBIO_WAITFORVSYNC:
 		retval = 0;
@@ -738,6 +839,23 @@ static int sh_mobile_ioctl(struct fb_info *info, unsigned int cmd,
 			break;
 		}
 #endif
+	case SH_MOBILE_FB_ENABLEVSYNC:
+		if (arg == 0) {
+			retval = -EINVAL;
+			break;
+		}
+		if (get_user(vsyncval, (int *)arg)) {
+			printk(KERN_ALERT "get_user failed\n");
+			retval = -EFAULT;
+			break;
+		}
+		if (sh_mobile_fb_sync_set(vsyncval)) {
+			retval = -EINVAL;
+			break;
+		} else {
+			retval = 0;
+			break;
+		}
 	default:
 		retval = -ENOIOCTLCMD;
 		break;
@@ -779,7 +897,6 @@ static int sh_mobile_mmap(struct fb_info *info, struct vm_area_struct *vma)
 static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 				  struct fb_info *info)
 {
-
 	switch (var->bits_per_pixel) {
 	case 16: /* RGB 565 */
 		var->red.offset    = 11;
@@ -805,9 +922,6 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 
 	}
-	// setting var->yres_virtual to info->var.yres_virtual if they are not same.
-	if(var->yres_virtual != info->var.yres_virtual)
-		var->yres_virtual =info->var.yres_virtual;
 	return 0;
 
 }
@@ -1102,7 +1216,11 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
+	i = platform_get_irq(pdev, 0);
+	if (!res || i < 0) {
+		dev_err(&pdev->dev, "cannot get platform resources\n");
+		return -ENOENT;
+	}
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		dev_err(&pdev->dev, "cannot allocate device data\n");
@@ -1114,9 +1232,23 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	pdata = pdev->dev.platform_data;
 
+	error = request_irq(i, sh_mobile_lcdc_irq, 0,
+			    dev_name(&pdev->dev), priv);
+	if (error) {
+		dev_err(&pdev->dev, "unable to request irq\n");
+		goto err0;
+	}
+
+	priv->irq = i;
+
+	/* irq base address */
+	irqc_baseaddr =  res->start;
+
 #if FB_SH_MOBILE_REFRESH
 	sh_mobile_wq = create_singlethread_workqueue("sh_mobile_lcd");
 #endif
+
+	sh_vsync_wq = create_workqueue("sh_vsync_lcd");
 
 	j = 0;
 	for (i = 0; i < ARRAY_SIZE(pdata->ch); i++) {
@@ -1246,6 +1378,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		ulLCM = LCM(info->fix.line_length, 0x1000);
 		info->fix.smem_len = RoundUpToMultiple(
 			info->fix.line_length*info->var.yres, ulLCM);
+		info->var.reserved[0] = info->fix.smem_len;
 		info->fix.smem_len *= 2;
 
 		info->var.yres_virtual = info->fix.smem_len
@@ -1343,7 +1476,12 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	lcd_ext_param[0].hdmi_func = r_mobile_hdmi_func();
 	lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
 
+	vsync_kobj = &priv->ch[0].lcdc->dev->kobj;
+
+	INIT_WORK(&vsync_work, vsync_work_func);
+
 	fb_debug = 0;
+
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	priv->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
@@ -1373,6 +1511,8 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 #if FB_SH_MOBILE_REFRESH
 	destroy_workqueue(sh_mobile_wq);
 #endif
+
+	destroy_workqueue(sh_vsync_wq);
 
 	for (i = 0; i < ARRAY_SIZE(priv->ch); i++)
 		if (priv->ch[i].info->dev)
@@ -1406,6 +1546,9 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 		fb_dealloc_cmap(&info->cmap);
 		framebuffer_release(info);
 	}
+
+	if (priv->irq)
+		free_irq(priv->irq, priv);
 
 	kfree(priv);
 	return 0;

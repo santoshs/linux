@@ -20,6 +20,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/err.h>
 #include <linux/ion.h>
 #include <linux/platform_device.h>
@@ -28,7 +29,7 @@
 #include "../ion_priv.h"
 
 struct rt_heap {
-	unsigned int	id;
+	unsigned int	type;
 	unsigned int	base;
 	unsigned int	size;
 	void		*rtaddr;
@@ -114,8 +115,7 @@ static long r_mobile_ion_map_rtmem_all(void)
 	void *rtaddr;
 
 	for (i = 0; i < num_heaps; i++) {
-		if (rt_heaps[i].id == ION_HEAP_VIDEO_ID ||
-		    rt_heaps[i].id == ION_HEAP_CAMERA_ID) {
+		if (rt_heaps[i].type == ION_HEAP_TYPE_CARVEOUT) {
 			rtaddr = r_mobile_ion_map_rtmem(rt_heaps[i].base,
 							rt_heaps[i].size);
 			if (IS_ERR_OR_NULL(rtaddr))
@@ -131,8 +131,7 @@ static void r_mobile_ion_unmap_rtmem_all(void)
 	int i;
 
 	for (i = 0; i < num_heaps; i++) {
-		if (rt_heaps[i].id == ION_HEAP_VIDEO_ID ||
-		    rt_heaps[i].id == ION_HEAP_CAMERA_ID) {
+		if (rt_heaps[i].type == ION_HEAP_TYPE_CARVEOUT) {
 			r_mobile_ion_unmap_rtmem(rt_heaps[i].base,
 						 rt_heaps[i].size,
 						 rt_heaps[i].rtaddr);
@@ -198,9 +197,8 @@ static int r_mobile_ion_probe(struct platform_device *pdev)
 		}
 		ion_device_add_heap(idev, heaps[i]);
 
-		if (heap_data->id == ION_HEAP_VIDEO_ID ||
-		    heap_data->id == ION_HEAP_CAMERA_ID) {
-			rt_heaps[i].id   = heap_data->id;
+		rt_heaps[i].type = heap_data->type;
+		if (heap_data->type == ION_HEAP_TYPE_CARVEOUT) {
 			rt_heaps[i].base = heap_data->base;
 			rt_heaps[i].size = heap_data->size;
 		}
