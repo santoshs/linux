@@ -267,6 +267,9 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 	MSG_MED("[RTAPIK]    |aW      [%d]\n", disp_draw->draw_rect.width);
 	MSG_MED("[RTAPIK]    |aH      [%d]\n", disp_draw->draw_rect.height);
 	MSG_MED("[RTAPIK]    |aFormat [%d]\n", disp_draw->format);
+	MSG_MED("[RTAPIK]    |buffer_id     [%d]\n", disp_draw->buffer_id);
+	MSG_MED("[RTAPIK]    |buffer_offset [%d]\n", disp_draw->buffer_offset);
+	MSG_MED("[RTAPIK]    |rotate        [%d]\n", disp_draw->rotate);
 
 	if ((NULL == disp_draw->handle) ||
 		((RT_DISPLAY_LCD1 != disp_draw->output_mode) &&
@@ -1124,6 +1127,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 	}
 	MSG_MED("[RTAPIK]    |handle       [0x%08X]\n", (unsigned int)address->handle);
 	MSG_MED("[RTAPIK]    |output_mode  [%d]\n", address->output_mode);
+	MSG_MED("[RTAPIK]    |buffer_id    [%d]\n", address->buffer_id);
 	MSG_MED("[RTAPIK]    |address      [0x%08X]\n", (unsigned int)address->address);
 	MSG_MED("[RTAPIK]    |size         [%d]\n", address->size);
 

@@ -141,9 +141,9 @@ typedef struct {
 	unsigned short   format;
 	screen_rect      draw_rect;
 	unsigned int     buffer_offset;
+	unsigned short   buffer_id;
 /* #MU2DSP582 mod -S- */
 	unsigned short   rotate;
-	unsigned short   dummy;
 /* #MU2DSP582 mod -E- */
 } screen_disp_draw;
 
@@ -217,7 +217,7 @@ typedef struct {
 typedef struct {
 	void           *handle;
 	unsigned short output_mode;
-	unsigned short dummy;
+	unsigned short buffer_id;
 	unsigned int   address;
 	unsigned int   size;
 } screen_disp_set_address;
