@@ -71,6 +71,11 @@
 #define WM1811_EARPEACE_ENABLE		0x0800
 #define WM1811_EARPEACE_VOL		0x00C0
 
+#define WM1811_MIXOUTR_ENA		0x0010
+#define WM1811_MIXOUTRVOL_ENA		0x0040
+#define WM1811_MIXOUTRVOL_TO_HPOUT2	0x0010
+#define WM1811_AIF1DAC1_MONO		0x0080
+
 #define WM1811_HEADPHONE_ENABLE		0x0300
 #define WM1811_HEADPHONE_VOL		0x0030
 
@@ -1145,6 +1150,8 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 	u_short hp_out2_mix = 0;
 	u_short earpiece_l = 0;
 	u_short earpiece_r = 0;
+	u_short stereo2mono = 0;
+	u_short pm5 = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1157,17 +1164,21 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 			/* earpiece on */
 			hp_out2_mute = 0x0;
 			mix_out_mute = 0x1;
-			mix_out_vol = 0x18;
+			mix_out_vol = 0x10;
 			hp_out2_mix = 0x40;
 			earpiece_l |= 0x100;
 			earpiece_r |= 0x100;
 			oe |= WM1811_EARPEACE_VOL;
+			oe &= ~WM1811_MIXOUTRVOL_ENA;
+			stereo2mono = 0x80;
+
 			if (WM1811_BIAS_VMID_ENABLE & pm)
 				pm |= WM1811_EARPEACE_ENABLE;
 			else {
 				pm |= (WM1811_BIAS_VMID_ENABLE |
 					WM1811_EARPEACE_ENABLE);
 			}
+			pm5 = 0x0203;	/* Disable AIF1DAC1R */
 		} else {
 			/* earpiece off */
 			hp_out2_mute = 0x20;
@@ -1176,11 +1187,13 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 			hp_out2_mix = 0x0;
 			earpiece_l &= ~0x13F;
 			earpiece_r &= ~0x13F;
+			stereo2mono = 0x00;
 			ret = wm1811_write(0x0020, earpiece_l);
 			ret = wm1811_write(0x0021, earpiece_r);
 			earpiece_l |= 0x100;
 			earpiece_r |= 0x100;
 			oe &= ~WM1811_EARPEACE_VOL;
+			oe |= WM1811_MIXOUTRVOL_ENA;
 			if (~(WM1811_BIAS_VMID_ENABLE |
 				WM1811_EARPEACE_ENABLE) & pm) {
 				pm &= ~WM1811_EARPEACE_ENABLE;
@@ -1188,11 +1201,14 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
 					WM1811_EARPEACE_ENABLE);
 			}
+			pm5 = 0x0303;	/* Enable AIF1DAC1R */
 		}
 
 		/***********************************/
 		/* Earpiece Enable                 */
 		/***********************************/
+		ret = wm1811_write(0x0005, pm5);
+
 		/* Left Earpiece vol setting */
 		ret = wm1811_write(0x0020, earpiece_l);
 
@@ -1213,11 +1229,13 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 		ret = wm1811_write(0x002E, mix_out_mute);
 
 		/* Unmute Left Output Mixer to HPOUT2 (Earpiece) path, */
-		/* Unmute Right Output Mixer to HPOUT2 (Earpiece) path */
 		ret = wm1811_write(0x0033, mix_out_vol);
 
 		/* Enable HPOUT2 Mixer and Input Stage */
 		ret = wm1811_write(0x0038, hp_out2_mix);
+
+		/* Activate deactivate AIF1 mono mixing */
+		ret = wm1811_write(0x0420, stereo2mono);
 
 		/* Enable bias generator, Enable VMID, */
 		/* Enable HPOUT2 (Earpiece) */
