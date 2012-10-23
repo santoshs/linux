@@ -44,6 +44,8 @@ COMMON_CTRL_NO_EXTERN u_long g_scuw_Base;
 COMMON_CTRL_NO_EXTERN u_long g_scuw_Base_FFD;
 /* CLKGEN base address */
 COMMON_CTRL_NO_EXTERN u_long g_clkgen_Base;
+/* SCUW base address to CPUFIFO2 */
+COMMON_CTRL_NO_EXTERN u_long g_scuw_Base_CPUFIFO2;
 
 COMMON_CTRL_NO_EXTERN void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg);
 COMMON_CTRL_NO_EXTERN int common_ioremap(void);
