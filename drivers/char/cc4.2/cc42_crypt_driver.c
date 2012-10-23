@@ -1138,27 +1138,9 @@ void Chip_HwInit(void)
 	//
 	*******************************************/
 	/* system module-stop control/status register(s) 2 */
-	volatile u32 i,cc42Reset, *pSRCR2, *smstpcr2, *mstpsr2 = 0 ;
+	volatile cc42Reset, *pSRCR2 = 0 ;
 	int ret_status = 0;
 	unsigned long flags;
-
-	smstpcr2 = (u32 *)IO_ADDRESS(0xE6150138) ;
-	mstpsr2 = (u32 *)IO_ADDRESS(0xe6150040) ;
-
-	/* check status before enabling -- debug*/
-	CC42_DEBUG_PRINT(KERN_INFO "\nBEFORE -- module stop status \
-			register value = 0x%x\n", __raw_readl(mstpsr2));
-
-	/* enable CC4.2 module */
-	i = __raw_readl(smstpcr2) ;
-	i &= (~(3<<28)) ;  /* make bits 28 & 29 '0' */
-	__raw_writel(i, smstpcr2) ;
-
-	mdelay(20);  /* wait 20 ms */
-
-	/* check status after module enabling -- debug */
-	CC42_DEBUG_PRINT(KERN_INFO "\nAFTER -- module stop status \
-			register value = 0x%x\n", __raw_readl(mstpsr2));
 
 	/* reset CC4.2 from system domain */
 	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
