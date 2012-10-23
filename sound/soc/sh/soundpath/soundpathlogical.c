@@ -2951,6 +2951,9 @@ static void sndp_work_play_incomm_start(struct work_struct *work)
 		}
 	}
 
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -3048,6 +3051,9 @@ static void sndp_work_capture_incomm_start(struct work_struct *work)
 		/* To register a work queue to start processing Capture */
 		sndp_work_incomm_start(wp->new_value);
 	}
+
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
 
 	sndp_log_debug_func("end\n");
 }
@@ -3157,8 +3163,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 start_err:
 	g_sndp_start_call_wait = 1;
 	wake_up_interruptible(&g_sndp_start_call_queue);
-	/* Wake Unlock */
-	sndp_wake_lock(E_UNLOCK);
 
 	sndp_log_debug_func("end\n");
 }
@@ -3321,8 +3325,7 @@ static void sndp_work_call_playback_stop(struct work_struct *work)
 
 	g_call_playback_stop = false;
 
-	if (IDLE_STATUS == g_status)
-		sndp_wake_lock(E_UNLOCK);
+	sndp_wake_lock(E_UNLOCK);
 
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_OUT] &=
@@ -3359,8 +3362,7 @@ static void sndp_work_call_capture_stop(struct work_struct *work)
 	/* Call + Capture stop request */
 	call_record_stop();
 
-	if (IDLE_STATUS == g_status)
-		sndp_wake_lock(E_UNLOCK);
+	sndp_wake_lock(E_UNLOCK);
 
 	/* Reset a Trigger stop status flag */
 	g_sndp_stop_trigger_condition[SNDP_PCM_IN] &=
@@ -3959,9 +3961,6 @@ static void sndp_path_switching(const u_int uiValue)
 
 	/* stop CLKGEN */
 	clkgen_stop();
-
-	/* Wake Lock */
-	sndp_wake_lock(E_LOCK);
 
 	/* for Register dump debug */
 	/* g_sndp_now_direction = SNDP_PCM_OUT; */
