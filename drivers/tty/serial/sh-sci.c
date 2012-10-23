@@ -60,6 +60,7 @@
 
 #include "sh-sci.h"
 
+extern bool KERNEL_LOG; /* For kernel log supression */
 struct sci_port {
 	struct uart_port	port;
 
@@ -1866,7 +1867,7 @@ static void serial_console_putchar(struct uart_port *port, int ch)
 static void serial_console_write(struct console *co, const char *s,
 				 unsigned count)
 {
-#if 0
+if(KERNEL_LOG) {
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
 	unsigned short bits, ctrl;
@@ -1898,7 +1899,7 @@ static void serial_console_write(struct console *co, const char *s,
 	if (locked)
 		spin_unlock(&port->lock);
 	local_irq_restore(flags);
-#endif
+	}
 }
 
 static int __devinit serial_console_setup(struct console *co, char *options)
@@ -2159,7 +2160,7 @@ static struct platform_driver sci_driver = {
 static int __init sci_init(void)
 {
 	int ret;
-
+	KERNEL_LOG = 1;
 	printk(banner);
 
 	ret = uart_register_driver(&sci_uart_driver);
