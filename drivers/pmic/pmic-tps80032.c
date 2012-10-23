@@ -1,4 +1,4 @@
-/*
+ /*
  * drivers/pmic/pmic-tps80032.c
  *
  * TPS80032 PMIC Driver
@@ -44,7 +44,6 @@
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 #include <linux/hwspinlock.h>
-
 
 #ifdef PMIC_DEBUG_ENABLE
 #define PMIC_DEBUG_MSG(...) printk(KERN_DEBUG __VA_ARGS__)
@@ -591,6 +590,7 @@ static void tps80032_interrupt_work(void)
 			key_count = 1;
 			input_event(button_dev, EV_KEY, KEY_POWER, key_count);
 			input_sync(button_dev);
+            printk("Onkey pressed...\n");
 		}
 	}
 
@@ -598,6 +598,7 @@ static void tps80032_interrupt_work(void)
 		key_count = (key_count + 1) % 2;
 		input_event(button_dev, EV_KEY, KEY_POWER, key_count);
 		input_sync(button_dev);
+        printk("Onkey %s...\n", key_count == 0 ? "released" : "pressed" );
 	}
 
 	if (0 != (MSK_BIT_4 & sts_c)) {
@@ -3595,9 +3596,7 @@ static void tps80032_bat_update(struct tps80032_data *data)
 
 
 /*
- * tps80032_ext_work: define the external device which is inserted
- * and notify the presence of external device
- * @work: The struct work.
+ * tps80032_ext_work: define the external device which is inserted and notify the presence of external device
  * return: void
  */
 static void tps80032_ext_work(void)
@@ -3648,8 +3647,7 @@ static void tps80032_update_work(struct work_struct *work)
 }
 
 /*
- * tps80032_int_chrg_work: update all battery information and
- * notify the change of battery state
+ * tps80032_int_chrg_work: update all battery information and notify the change of battery state
  * return: void
  */
 static void tps80032_int_chrg_work(void)
@@ -3744,8 +3742,7 @@ static void tps80032_int_chrg_work(void)
 
 
 /*
- * tps80032_chrg_ctrl_work: update all battery information and
- * notify the change of battery state
+ * tps80032_chrg_ctrl_work: update all battery information and notify the change of battery state
  * return: void
  */
 static void tps80032_chrg_ctrl_work(void)
@@ -3788,8 +3785,7 @@ static void tps80032_chrg_ctrl_work(void)
 }
 
 /*
- * tps80032_vac_charger_work: detect VAC charger and set current
- * limit when VAC charger is plugged
+ * tps80032_vac_charger_work: detect VAC charger and set current limit when VAC charger is plugged
  * return: void
  */
 static void tps80032_vac_charger_work(void)
@@ -4686,7 +4682,6 @@ static int tps80032_writes(struct device *dev, u8 addr, int len, u8 *val)
 	return ret;
 }
 
-#ifdef PMIC_FUELGAUGE_ENABLE
 /*
  * tps80032_get_temp_status: read the current temperature of battery
  * @dev: The struct which handles the TPS80032 driver.
@@ -4706,11 +4701,11 @@ static int tps80032_get_temp_status(struct device *dev)
 		ret = data->bat_temp;
 	else
 		ret = 0;
+	
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
-#endif
 
 #ifdef PMIC_PT_TEST_ENABLE
 
@@ -4784,9 +4779,7 @@ static struct pmic_device_ops tps80032_power_ops = {
 	.reads = tps80032_reads,
 	.write = tps80032_write,
 	.writes = tps80032_writes,
-#ifdef PMIC_FUELGAUGE_ENABLE
 	.get_temp_status = tps80032_get_temp_status,
-#endif
 #ifdef PMIC_PT_TEST_ENABLE
 	.get_batt_status = tps80032_get_batt_status,
 #endif
@@ -4846,6 +4839,9 @@ static int tps80032_power_suspend(struct device *dev)
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
 #endif
+
+	/* Reset key counter */
+	key_count = 0;
 
 	/* Disable GPADC */
 	ret = I2C_WRITE(data->client_battery, HW_REG_TOGGLE1, 0x11);
@@ -5624,6 +5620,10 @@ static int tps80032_power_probe(struct i2c_client *client,
 					__func__, __LINE__, ret);
 		goto err_device_register;
 	}
+
+
+	 /*patch*/
+	 tps80032_clk32k_enable(CLK32KG, TPS80032_STATE_ON);
 
 	/* Init hardware */
 	ret = tps80032_init_power_hw(data);

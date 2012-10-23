@@ -25,7 +25,7 @@
 #include <linux/platform_device.h>
 
 /* Macro for PMIC Production Test enable */
-/* #define PMIC_PT_TEST_ENABLE */
+#define PMIC_PT_TEST_ENABLE
 
 enum {
 	E_POWER_ALL = 0,		/* All power resources */
