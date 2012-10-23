@@ -403,6 +403,11 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		}
 		if (!is_vbus_powered)
 			wake_unlock(&r8a66597->wake_lock);
+			
+		if(!r8a66597->old_vbus) {
+			r8a66597_clk_disable(r8a66597);
+			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+		}
 		udc_log("%s: return\n", __func__);
 		return;
 	}
@@ -3088,6 +3093,9 @@ static int r8a66597_udc_suspend(struct device *dev)
 	}
 	if (uclk->usecount)
 		clk_disable(uclk);
+	
+	/*save the state of the phy before suspend*/
+	r8a66597->phy_active_sav = r8a66597->phy_active;
 
 	if(!powerup) 
 		return 0;
@@ -3116,15 +3124,23 @@ static int r8a66597_udc_suspend(struct device *dev)
 static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	struct clk *uclk;
-	uclk = clk_get(NULL, "vclk3_clk");
+	//struct clk *uclk;
+	/*restore the state of the phy before resume*/
+	r8a66597->phy_active = r8a66597->phy_active_sav;
+		
+	/*uclk = clk_get(NULL, "vclk3_clk");
 	if (IS_ERR(uclk)) {
 		dev_err(dev, "cannot get vclk3_clk\n");
 		return PTR_ERR(uclk);
 	}
 	if (!uclk->usecount)
 		clk_enable(uclk);
-	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
+	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);*/
+	
+	if(r8a66597->old_vbus) {
+		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
+		r8a66597_clk_enable(r8a66597);
+	}
 	schedule_delayed_work(&r8a66597->vbus_work,0);
 	return 0;
 }

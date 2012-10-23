@@ -182,6 +182,7 @@ struct r8a66597 {
 	unsigned pullup_requested:1;
 	unsigned vbus_active:1;
 	unsigned phy_active:1;
+	unsigned phy_active_sav:1; /*save the state of the phy before resume*/
 
 	struct delayed_work	vbus_work;
 	struct delayed_work	charger_work;
