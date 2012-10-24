@@ -619,8 +619,8 @@ static int i2c_gpio_pm_suspend(struct device *dev)
 	if (!pdata)
 		return -ENXIO;
 
-	setb_port_n_CR(pdata->sda_pin, 0x00);
-	setb_port_n_CR(pdata->scl_pin, 0x00);
+	//setb_port_n_CR(pdata->sda_pin, 0x00);
+	//setb_port_n_CR(pdata->scl_pin, 0x00);
 
 	pm_runtime_put_sync(dev);
 
