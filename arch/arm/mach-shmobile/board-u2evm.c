@@ -76,27 +76,7 @@
 #include <linux/usb/tusb1211.h>
 #endif
 
-#define CLASHLOG_R_LOCAL_VER_LOCATE		0x44801000
-#define CLASHLOG_R_LOCAL_VER_LENGTH       	32
-
-#define CRASHLOG_KMSG_LOCATE			0x44801020
-#define CRASHLOG_LOGCAT_MAIN_LOCATE		0x44801030
-#define CRASHLOG_LOGCAT_EVENT_LOCATE	0x44801040
-#define CRASHLOG_LOGCAT_RADIO_LOCATE	0x44801050
-#define CRASHLOG_LOGCAT_SYSTEM_LOCATE	0x44801060
-
-#define TMPLOG_ADDRESS 0x44801200
-#define TMPLOG_SIZE    0x00040000
-#define RMC_LOCAL_VERSION "150612"		// ddmmyy (release time)
-#ifndef CONFIG_IRQ_TRACE
-#define TMPLOG_ADDRESS 0x44801200
-#define TMPLOG_SIZE    0x00040000
-char *tmplog_nocache_address = NULL;
-#endif
-
-static void crashlog_r_local_ver_write(void);
-static void crashlog_reset_log_write(void);
-static void crashlog_init_tmplog(void);
+#include <mach/crashlog.h>
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -3438,7 +3418,7 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #if defined (CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
 #endif
-	crashlog_r_local_ver_write();
+	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
 	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
@@ -3554,147 +3534,6 @@ static void __init u2evm_reserve(void)
 				       u2evm_ion_data.heaps[i].base);
 		}
 	}
-}
-
-static void crashlog_r_local_ver_write()
-{
-	void __iomem * adr = 0;
-	void __iomem * adr_bak = 0;
-	char	version_name[CLASHLOG_R_LOCAL_VER_LENGTH];
-	int	revision_version_length;
-	unsigned char i;
-	
-	adr = ioremap(CLASHLOG_R_LOCAL_VER_LOCATE, CLASHLOG_R_LOCAL_VER_LENGTH); 
-	adr_bak = adr;
-	if (adr) 
-	{
-		revision_version_length=strlen(linux_banner);
-
-		snprintf(mmcoops_info.soft_version,CLASHLOG_R_LOCAL_VER_LENGTH,"%s %s",RMC_LOCAL_VERSION,(linux_banner + revision_version_length - 25) );
-
-		strncpy(version_name , RMC_LOCAL_VERSION , CLASHLOG_R_LOCAL_VER_LENGTH);
-
-		for(i=0 ; i<CLASHLOG_R_LOCAL_VER_LENGTH ; i++){
-			__raw_writeb(version_name[i], adr);
-			adr++;
-		}
-
-		iounmap(adr_bak);
-	}
-}
-
-extern unsigned long log_buf_address;
-extern unsigned long log_buf_len_address;
-extern unsigned long log_end_address;
-extern unsigned long logged_chars_address;
-
-extern unsigned long log_main_buffer_address;
-extern unsigned long log_main_size_address;
-extern unsigned long log_main_w_off_address;
-extern unsigned long log_main_head_address;
-
-extern unsigned long log_events_buffer_address;
-extern unsigned long log_events_size_address;
-extern unsigned long log_events_w_off_address;
-extern unsigned long log_events_head_address;
-
-extern unsigned long log_radio_buffer_address;
-extern unsigned long log_radio_size_address;
-extern unsigned long log_radio_w_off_address;
-extern unsigned long log_radio_head_address;
-
-extern unsigned long log_system_buffer_address;
-extern unsigned long log_system_size_address;
-extern unsigned long log_system_w_off_address;
-extern unsigned long log_system_head_address;
-
-static void crashlog_reset_log_write()
-{
-	void __iomem * adr = 0;
-	u8 	reg = 0;
-
-/* kmsg */
-/*	printk(KERN_ERR "log_buf_address=0x%08x\n", log_buf_address); */
-	adr = ioremap(CRASHLOG_KMSG_LOCATE, 16);
-	__raw_writel(log_buf_address, adr);
-	__raw_writel(log_buf_len_address, adr + 4);
-	__raw_writel(log_end_address, adr + 8);
-	__raw_writel(logged_chars_address, adr + 12);
-	iounmap(adr);
-
-/* log_cat_main */
-/*	printk(KERN_ERR "log_main_buffer_address=0x%08x\n", log_main_buffer_address); */
-	adr = ioremap(CRASHLOG_LOGCAT_MAIN_LOCATE, 16);
-	__raw_writel(log_main_buffer_address, adr);
-	__raw_writel(log_main_size_address, adr + 4);
-	__raw_writel(log_main_w_off_address, adr + 8);
-	__raw_writel(log_main_head_address, adr + 12);
-	iounmap(adr);
-
-/* log_cat_events */
-/*	printk(KERN_ERR "log_events_buffer_address=0x%08x\n", log_events_buffer_address); */
-	adr = ioremap(CRASHLOG_LOGCAT_EVENT_LOCATE, 16);
-	__raw_writel(log_events_buffer_address, adr);
-	__raw_writel(log_events_size_address, adr + 4);
-	__raw_writel(log_events_w_off_address, adr + 8);
-	__raw_writel(log_events_head_address, adr + 12);
-	iounmap(adr);
-
-/* log_cat_radio */
-/*	printk(KERN_ERR "log_radio_buffer_address=0x%08x\n", log_radio_buffer_address); */
-	adr = ioremap(CRASHLOG_LOGCAT_RADIO_LOCATE, 16);
-	__raw_writel(log_radio_buffer_address, adr);
-	__raw_writel(log_radio_size_address, adr + 4);
-	__raw_writel(log_radio_w_off_address, adr + 8);
-	__raw_writel(log_radio_head_address, adr + 12);
-	iounmap(adr);
-
-/* log_cat_system */
-	adr = ioremap(CRASHLOG_LOGCAT_SYSTEM_LOCATE, 16);
-	__raw_writel(log_system_buffer_address, adr);
-	__raw_writel(log_system_size_address, adr + 4);
-	__raw_writel(log_system_w_off_address, adr + 8);
-	__raw_writel(log_system_head_address, adr + 12);
-	iounmap(adr);
-
-	reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_INIT_COMPLETE), STBCHR2);	/* andriod init */
-
-/*Developer option to debug Reset Log*/
-     /*	reg = __raw_readb(STBCHR3);*/
-     /*	__raw_writeb((reg | APE_RESETLOG_DEBUG), STBCHR3);*/
-}
-
-static void crashlog_init_tmplog(void)
-{
-#ifndef CONFIG_IRQ_TRACE
-	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_SIZE, "tmplog-nocache"))
-	{
-		tmplog_nocache_address = (char *)ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_SIZE);
-		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
-	}
-
-	/*	reg = __raw_readb(STBCHR3);*/
-	/*	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR3); */ // write STBCHR3 for debug	
-#else
-	void __iomem * adr = 0;
-	void __iomem * tmp = 0;
-	u8 	reg = 0;
-
-	if(tmplog_nocache_address == 0) {
-		/* Request Trace Log Memory region for I/O remapping */
-		request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE, "tmplog-nocache");
-		tmp = ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE);
-		for(adr=tmp; adr<(tmp+TMPLOG_TOTAL_SIZE); adr+=4) {
-			__raw_writel((unsigned int)adr+0x10000000, adr);
-		}
-		tmplog_nocache_address = (char *)tmp;
-	}
-	reg = __raw_readb(STBCHR3);
-	/* Set bit APE_RESETLOG_TRACELOG of STBCHR3 for tracelog */
-	__raw_writeb((reg | APE_RESETLOG_TRACELOG), STBCHR3);
-#endif /* CONFIG_IRQ_TRACE */
-	return;
 }
 
 MACHINE_START(U2EVM, "u2evm")
