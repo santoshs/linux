@@ -38,6 +38,16 @@
 #include <linux/etherdevice.h>
 #include <linux/pkt_sched.h>
 
+#ifdef CONFIG_MHDP_BONDING_SUPPORT
+#define MHDP_BONDING_SUPPORT
+#endif
+
+/*#define MHDP_USE_NAPI*/
+
+#ifdef MHDP_BONDING_SUPPORT
+#include <linux/etherdevice.h>
+#endif /*MHDP_BONDING_SUPPORT*/
+
 #include <net/netns/generic.h>
 #include <net/mhi/mhdp.h>
 
@@ -45,6 +55,7 @@
 /* MHDP device MTU limits */
 #define MHDP_MTU_MAX		0x2400
 #define MHDP_MTU_MIN		0x44
+#define MAX_MHDP_FRAME_SIZE	16000
 
 /* MHDP device names */
 #define MHDP_IFNAME			"rmnet%d"
@@ -75,7 +86,12 @@
 
 /*** Type definitions ***/
 
-#define MAX_MHDPHDR_SIZE 10
+#define MAX_MHDPHDR_SIZE 18
+
+#ifdef MHDP_USE_NAPI
+#define NAPI_WEIGHT 64
+#endif /*MHDP_USE_NAPI*/
+
 
 struct mhdp_tunnel {
 	struct mhdp_tunnel	*next;
@@ -83,6 +99,7 @@ struct mhdp_tunnel {
 	struct net_device	*master_dev;
 	struct sk_buff		*skb;
 	int			pdn_id;
+	int			free_pdn;
     struct timer_list tx_timer;
     struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
     spinlock_t timer_lock;
@@ -91,6 +108,12 @@ struct mhdp_tunnel {
 struct mhdp_net {
 	struct mhdp_tunnel	*tunnels;
 	struct net_device	*ctl_dev;
+#ifdef MHDP_USE_NAPI
+	struct net_device	*dev;
+	struct napi_struct	napi;
+	struct sk_buff_head	skb_list;
+#endif /*#ifdef MHDP_USE_NAPI*/
+
 };
 
 struct packet_info {
@@ -109,12 +132,20 @@ struct mhdp_hdr {
 
 static void mhdp_netdev_setup(struct net_device *dev);
 
-static void mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel);
+static void mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send);
 
 static int mhdp_netdev_event(struct notifier_block *this,
 			     unsigned long event, void *ptr);
 
 static void tx_timer_timeout(unsigned long arg);
+
+
+#ifdef MHDP_USE_NAPI
+
+static int mhdp_poll(struct napi_struct *napi, int budget);
+
+#endif /*MHDP_USE_NAPI*/
+
 
 /*** Global Variables ***/
 
@@ -191,6 +222,7 @@ mhdp_tunnel_init(struct net_device *dev,
 	tunnel->master_dev  = master_dev;
 	tunnel->skb         = NULL;
 	tunnel->pdn_id      = parms->pdn_id;
+	tunnel->free_pdn    = 0;
 
 	init_timer(&tunnel->tx_timer);
 	spin_lock_init (&tunnel->timer_lock);
@@ -259,9 +291,6 @@ mhdp_add_tunnel(struct net *net, struct mhdp_tunnel_parm *parms)
 
 	mhdp_tunnel_init(mhdp_dev, parms, master_dev);
 
-	mhdp_dev->flags    |= IFF_SLAVE;
-	master_dev->flags  |= IFF_MASTER;
-
 	dev_put(master_dev);
 
 	return mhdp_dev;
@@ -299,8 +328,9 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		DPRINTK("pdn_id:%d master_device:%s",
 				k_parms.pdn_id,
 				k_parms.master);
+		tunnel = mhdp_locate_tunnel(mhdpn, k_parms.pdn_id);
 
-		if (!mhdp_locate_tunnel(mhdpn, k_parms.pdn_id)) {
+		if (NULL == tunnel) {
 			if (mhdp_add_tunnel(net, &k_parms)) {
 				if (copy_to_user(u_parms, &k_parms,
 					sizeof(struct mhdp_tunnel_parm)))
@@ -308,6 +338,16 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			} else {
 				err = -EINVAL;
 			}
+
+		} else if (1 == tunnel->free_pdn) {
+
+			tunnel->free_pdn = 0;
+
+			strcpy(&k_parms.name, tunnel->dev->name);
+
+			if (copy_to_user(u_parms, &k_parms,
+					sizeof(struct mhdp_tunnel_parm)))
+					err = -EINVAL;
 		} else {
 			err = -EBUSY;
 		}
@@ -315,6 +355,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	case SIOCDELPDNID:
 		u_parms = (struct mhdp_tunnel_parm *)ifr->ifr_data;
+
 		if (copy_from_user(&k_parms, u_parms,
 					sizeof(struct mhdp_tunnel_parm))) {
 			DPRINTK("Error: Failed to copy data from user space");
@@ -327,13 +368,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		     tunnel;
 		     pre_dev = tunnel, tunnel = tunnel->next) {
 			if (tunnel->pdn_id == k_parms.pdn_id) {
-				if (!pre_dev)
-					mhdpn->tunnels = mhdpn->tunnels->next;
-				else
-					pre_dev->next = tunnel->next;
-
-				mhdp_tunnel_destroy(tunnel->dev);
-			}
+				tunnel->free_pdn = 1;			}
 		}
 		break;
 
@@ -367,7 +402,7 @@ mhdp_netdev_uninit(struct net_device *dev)
 
 
 static void
-mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel)
+mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 {
 	struct sk_buff *skb = tunnel->skb;
 	struct l2muxhdr	*l2hdr;
@@ -528,6 +563,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		}
 
 		skb_reset_network_header(newskb);
+
       /* IPv6 Support - Check the IP version */
 	  /* and set ETH_P_IP or ETH_P_IPv6 for received packets */
 
@@ -543,10 +579,24 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 			stats->rx_packets++;
 			newskb->dev = tunnel->dev;
 			SKBPRINT(newskb, "NEWSKB: RX");
+
+#ifdef MHDP_USE_NAPI
+			netif_receive_skb(newskb);
+#else
 			netif_rx(newskb);
+#endif /*#ifdef MHDP_USE_NAPI*/
 		}
 	}
+
 	rcu_read_unlock();
+
+	if (mhdp_header_len > skb_headlen(skb))
+		kfree(mhdpHdr);
+
+	dev_kfree_skb(skb);
+
+	return err;
+
 
 error:
 	if (mhdp_header_len > skb_headlen(skb))
@@ -557,13 +607,58 @@ error:
 	return err;
 }
 
+#ifdef MHDP_USE_NAPI
+/*
+static int mhdp_poll(struct napi_struct *napi, int budget)
+function called through napi to read current ip frame received
+*/
+static int mhdp_poll(struct napi_struct *napi, int budget)
+{
+	struct mhdp_net *mhdpn = container_of(napi, struct mhdp_net, napi);
+	int err = 0;
+	struct sk_buff *skb;
+
+	while (!skb_queue_empty(&mhdpn->skb_list)) {
+
+		skb = skb_dequeue(&mhdpn->skb_list);
+		err = mhdp_netdev_rx(skb, mhdpn->dev);
+	}
+
+	napi_complete(napi);
+
+	return err;
+}
+/*l2mux callback*/
+static int
+mhdp_netdev_rx_napi(struct sk_buff *skb, struct net_device *dev)
+{
+	struct mhdp_net *mhdpn = mhdp_net_dev(dev);
+
+
+	if (mhdpn) {
+
+		mhdpn->dev = dev;
+		skb_queue_tail(&mhdpn->skb_list, skb);
+
+		napi_schedule(&mhdpn->napi);
+
+	} else {
+		EPRINTK("mhdp_netdev_rx_napi-MHDP driver init not correct\n");
+	}
+
+	return 0;
+}
+
+
+#endif /*MHDP_USE_NAPI*/
+
 static void tx_timer_timeout(unsigned long arg)
 {
     struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
 
     spin_lock(&tunnel->timer_lock);
 
-    mhdp_submit_queued_skb(tunnel);
+	mhdp_submit_queued_skb(tunnel, 1);
 
     spin_unlock(&tunnel->timer_lock);
 }
@@ -582,6 +677,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	spin_lock(&tunnel->timer_lock);
 
 	SKBPRINT(skb, "SKB: TX");
+
 
 	if (timer_pending(&tunnel->tx_timer)) {
 		del_timer(&tunnel->tx_timer);
@@ -602,8 +698,10 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 		}
 	}
 #endif
+xmit_again:
 
 		if (tunnel->skb == NULL) {
+
 			tunnel->skb = netdev_alloc_skb(dev,
 				L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
 
@@ -634,10 +732,20 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 		mhdpHdr->packet_count = 0;
 	}
 
+	/*This new frame is to big for the current mhdp frame,
+	* send the frame first*/
+	if (tunnel->skb->len + skb->len >= MAX_MHDP_FRAME_SIZE) {
+
+		mhdp_submit_queued_skb(tunnel, 1);
+
+		goto xmit_again;
+
+	} else {
+
 	/*
 	 * skb_put cannot be called as the (data_len != 0)
 	 */
-	{
+
 		tunnel->skb->tail += sizeof(struct packet_info);
 		tunnel->skb->len  += sizeof(struct packet_info);
 
@@ -645,7 +753,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 				(unsigned long)tunnel->skb->tail,
 				(unsigned long)tunnel->skb->end,
 				(unsigned long)tunnel->skb->data_len);
-	}
+
 
 	mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 
@@ -680,21 +788,35 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 			page, offset, skb_headlen(skb));
 
 	if (skb_shinfo(skb)->nr_frags) {
+
 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-			skb_frag_t *frag = &skb_shinfo(tunnel->skb)->frags[i];
+
+				skb_frag_t *frag =
+					&skb_shinfo(tunnel->skb)->frags[i];
+
 			get_page(frag->page);
-			skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-					frag->page, frag->page_offset, frag->size);
+
+				skb_add_rx_frag(tunnel->skb,
+					skb_shinfo(tunnel->skb)->nr_frags,
+					frag->page,
+					frag->page_offset,
+					frag->size);
 		}
 	}
 
-	if (mhdpHdr->packet_count == MAX_MHDPHDR_SIZE) {
-		mhdp_submit_queued_skb(tunnel);
+		if (mhdpHdr->packet_count >= MAX_MHDPHDR_SIZE) {
+
+			mhdp_submit_queued_skb(tunnel, 1);
+
 	} else {
+
 		tunnel->tx_timer.function = &tx_timer_timeout;
 		tunnel->tx_timer.data     = (unsigned long) tunnel;
-		tunnel->tx_timer.expires = jiffies + ((HZ + 999) / 1000);
+			tunnel->tx_timer.expires =
+					jiffies + ((HZ + 999) / 1000);
 		add_timer(&tunnel->tx_timer);
+
+		}
 	}
 
 	spin_unlock(&tunnel->timer_lock);
@@ -744,6 +866,28 @@ mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 	return NOTIFY_DONE;
 }
 
+#ifdef MHDP_BONDING_SUPPORT
+
+
+static void
+cdma_netdev_uninit(struct net_device *dev)
+{
+	dev_put(dev);
+}
+
+
+static void mhdp_ethtool_get_drvinfo(struct net_device *dev,
+				    struct ethtool_drvinfo *drvinfo)
+{
+	strncpy(drvinfo->driver, dev->name, 32);
+}
+
+static const struct ethtool_ops mhdp_ethtool_ops = {
+	.get_drvinfo		= mhdp_ethtool_get_drvinfo,
+	.get_link		= ethtool_op_get_link,
+};
+#endif /*MHDP_BONDING_SUPPORT*/
+
 static const struct net_device_ops mhdp_netdev_ops = {
 	.ndo_uninit	= mhdp_netdev_uninit,
 	.ndo_start_xmit	= mhdp_netdev_xmit,
@@ -754,8 +898,18 @@ static const struct net_device_ops mhdp_netdev_ops = {
 static void mhdp_netdev_setup(struct net_device *dev)
 {
 	dev->netdev_ops	= &mhdp_netdev_ops;
+#ifdef MHDP_BONDING_SUPPORT
+	dev->ethtool_ops = &mhdp_ethtool_ops;
+#endif /*MHDP_BONDING_SUPPORT */
+
 	dev->destructor	= free_netdev;
 
+#ifdef truc/*MHDP_BONDING_SUPPORT*/
+	ether_setup(dev);
+	dev->flags		|= IFF_NOARP;
+	dev->iflink		= 0;
+	dev->features	|= (NETIF_F_NETNS_LOCAL | NETIF_F_FRAGLIST);
+#else
 	dev->type		= ARPHRD_TUNNEL;
 	dev->hard_header_len	= L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr);
 	dev->mtu		= ETH_DATA_LEN;
@@ -763,6 +917,8 @@ static void mhdp_netdev_setup(struct net_device *dev)
 	dev->iflink		= 0;
 	dev->addr_len	= 4;
 	dev->features	|= (NETIF_F_NETNS_LOCAL | NETIF_F_FRAGLIST);
+#endif /* MHDP_BONDING_SUPPORT */
+
 }
 
 static int __net_init mhdp_init_net(struct net *net)
@@ -787,6 +943,17 @@ static int __net_init mhdp_init_net(struct net *net)
 		free_netdev(mhdpn->ctl_dev);
 		return err;
 	}
+
+
+
+#ifdef MHDP_USE_NAPI
+
+	netif_napi_add(mhdpn->ctl_dev, &mhdpn->napi, mhdp_poll, NAPI_WEIGHT);
+	napi_enable(&mhdpn->napi);
+	skb_queue_head_init(&mhdpn->skb_list);
+
+#endif /*#ifdef MHDP_USE_NAPI*/
+
 
 	return 0;
 }
@@ -813,7 +980,12 @@ static int __init mhdp_init(void)
 {
 	int err;
 
+#ifdef MHDP_USE_NAPI
+	err = l2mux_netif_rx_register(MHI_L3_MHDP_DL, mhdp_netdev_rx_napi);
+#else
 	err = l2mux_netif_rx_register(MHI_L3_MHDP_DL, mhdp_netdev_rx);
+
+#endif /*MHDP_USE_NAPI*/
 	if (err)
 		goto rollback0;
 
@@ -849,3 +1021,4 @@ module_exit(mhdp_exit);
 MODULE_AUTHOR("Sugnan Prabhu S <sugnan.prabhu@renesasmobile.com>");
 MODULE_DESCRIPTION("Modem Host Data Protocol for MHI");
 MODULE_LICENSE("GPL");
+
