@@ -59,6 +59,13 @@
 #define AUDIO_TEST_JACK_BIT_BTN		(0x0004)/**< Accessory Button. */
 
 /*!
+  @brief	Mic volume.
+*/
+#define AUDIO_TEST_MAINMIC_VOL		(0x010B)/**< Main mic volume. */
+#define AUDIO_TEST_SUBMIC_VOL		(0x010B)/**< Sub mic volume. */
+#define AUDIO_TEST_HEADSETMIC_VOL	(0x010B)/**< Headset mic volume. */
+
+/*!
   @brief	MAX wait time for wait queue for VCD.
 */
 #define AUDIO_TEST_WATCH_CLK_TIME_OUT	(1000)
@@ -471,19 +478,19 @@ static struct audio_test_common_reg_table
   @brief	Speker volume (00_0000:-57dB - 11_1111:+6dB).
 */
 static u_short audio_test_tbl_seaker_vol[] = {
-	0x014D, 0x015C, 0x016A, 0x0178, 0x017F
+	0x014D, 0x015C, 0x016A, 0x0179, 0x017F
 };
 /*!
   @brief	Headphone volume (00_0000:-57dB - 11_1111:+6dB).
 */
 static u_short audio_test_tbl_headphone_vol[] = {
-	0x014D, 0x015C, 0x016A, 0x0178, 0x017F
+	0x014D, 0x015C, 0x016A, 0x0176, 0x017F
 };
 /*!
   @brief	Earpiece volume (00_0000:-57dB - 11_1111:+6dB).
 */
 static u_short audio_test_tbl_earpiece_vol[] = {
-	0x004D, 0x005C, 0x006A, 0x0078, 0x007F
+	0x004D, 0x005C, 0x006A, 0x0079, 0x007F
 };
 
 /*---------------------------------------------------------------------------*/
@@ -576,19 +583,19 @@ static int audio_test_proc_set_device(u_int in_device_type,
 	/***********************************/
 	switch (in_device_type) {
 	case AUDIO_TEST_DRV_IN_MIC:
-		ret = audio_test_ic_write(0x0018, 0x010B);
+		ret = audio_test_ic_write(0x0018, AUDIO_TEST_MAINMIC_VOL);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
-		ret = audio_test_ic_write(0x001B, 0x010B);
+		ret = audio_test_ic_write(0x001B, AUDIO_TEST_SUBMIC_VOL);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
 		break;
 	case AUDIO_TEST_DRV_IN_HEADSETMIC:
-		ret = audio_test_ic_write(0x001A, 0x010B);
+		ret = audio_test_ic_write(0x001A, AUDIO_TEST_HEADSETMIC_VOL);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
