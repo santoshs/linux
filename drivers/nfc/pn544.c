@@ -232,7 +232,8 @@ static int pn544_probe(struct i2c_client *client,
 	int ret;
 	struct pn544_i2c_platform_data *platform_data;
 	struct pn544_dev *pn544_dev;
-
+	
+	// NFC Firmware
 	platform_data = client->dev.platform_data;
 
 	if (platform_data == NULL) {
@@ -261,8 +262,9 @@ static int pn544_probe(struct i2c_client *client,
 		goto err_ven;
 	}
 	ret = gpio_direction_output(platform_data->ven_gpio, 0);
-	
-	ret = gpio_request(platform_data->firm_gpio, "nfc_firm");
+
+	gpio_free(platform_data->firm_gpio);
+	ret = gpio_request(platform_data->firm_gpio,"nfc_firm");
 	if (ret)
 		goto err_firm;
 
