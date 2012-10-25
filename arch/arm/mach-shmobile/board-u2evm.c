@@ -2847,10 +2847,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_PORT9, NULL);
 	gpio_direction_output(GPIO_PORT9, 0);
 
-	// LCD TE
-	gpio_request(GPIO_PORT33, NULL);
-	gpio_direction_output(GPIO_PORT33, 0);
-	
 	// MHL enable
 	gpio_request(GPIO_PORT102, NULL);
 	gpio_direction_output(GPIO_PORT102, 0);
