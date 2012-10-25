@@ -15,6 +15,7 @@
 #include <mach/r8a73734.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
+#include "board-u2evm-bt.h"
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 
@@ -178,6 +179,8 @@ static struct plat_sci_port scif4_platform_data = {
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(107), gic_spi(107),
 			    gic_spi(107), gic_spi(107) },
+	.rts_ctrl	= 0,
+	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
 };
 
 static struct platform_device scif4_device = {

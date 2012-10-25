@@ -241,6 +241,13 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
+#ifdef CONFIG_BT
+static struct platform_device bcm4334_bluetooth_device = {
+	.name = "bcm4334_bluetooth",
+	.id = -1,
+};
+#endif
+
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 /* KEYSC */
 static struct sh_keysc_info keysc_platdata = {
@@ -2005,6 +2012,9 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
+#ifdef CONFIG_BT
+	&bcm4334_bluetooth_device,
+#endif
 	&fsi_device,
 	&fsi_b_device,
 	&gpio_key_device,
@@ -2053,6 +2063,9 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 //	&sdhi1_device,
+#ifdef CONFIG_BT
+	&bcm4334_bluetooth_device,
+#endif
 	&fsi_device,
 	&fsi_b_device,
 	&gpio_key_device,
@@ -2101,6 +2114,9 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device,
+#ifdef CONFIG_BT
+	&bcm4334_bluetooth_device,
+#endif
 	&fsi_device,
 	&fsi_b_device,
 	&gpio_key_device,
@@ -2737,6 +2753,12 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
+	// Config SCIFB0 with PU on RX and CTS pins
+	*((volatile u8 *)0xE6050025) = 0x81;
+	*((volatile u8 *)0xE6050026) = 0xC1;
+	*((volatile u8 *)0xE6051089) = 0x81;
+	*((volatile u8 *)0xE605108A) = 0xC1;
+
 	if((system_rev & 0xFF) == 0x00) /*ES1.0*/
 	{
 		gpio_pull(GPIO_PORTCR_ES1(138), GPIO_PULL_UP); /* RX PU */
@@ -2830,9 +2852,9 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_direction_output(GPIO_PORT260, 0);
 	
 	// BT Enable
-	gpio_request(GPIO_PORT268, NULL);
-	gpio_direction_output(GPIO_PORT268, 0);
-
+	//gpio_request(GPIO_PORT268, NULL);
+	//gpio_direction_output(GPIO_PORT268, 0);
+	
 	// GPS Enable
 	/*gpio_request(GPIO_PORT11, NULL);
 	gpio_direction_output(GPIO_PORT11, 0);*/
