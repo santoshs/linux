@@ -2818,12 +2818,12 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_direction_output(GPIO_PORT11, 0);
 
 	// NFC Enable
-	gpio_request(GPIO_PORT12, NULL);
-	gpio_direction_output(GPIO_PORT12, 0);
+	//gpio_request(GPIO_PORT12, NULL);
+	//gpio_direction_output(GPIO_PORT12, 0);
 
 	// NFC Firmware
-	gpio_request(GPIO_PORT101, NULL);
-	gpio_direction_output(GPIO_PORT101, 0);
+	//gpio_request(GPIO_PORT101, NULL);
+	//gpio_direction_output(GPIO_PORT101, 0);
 	
 	// WLAN Enable
 	gpio_request(GPIO_PORT260, NULL);
