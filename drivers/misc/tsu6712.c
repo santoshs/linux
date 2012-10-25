@@ -700,7 +700,6 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	ptr = strstr(at_isi_switch_buf, "AT+ATSTART");
 	if (NULL != ptr) {
 		printk("ld_set_switch_buf : switch at");
-		KERNEL_LOG = 0;
 		ld_set_manualsw(NULL, NULL, "switch at", 9);
 		memset(at_isi_switch_buf, 0, 1000);
 		error = 0;
