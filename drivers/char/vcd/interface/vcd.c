@@ -43,7 +43,7 @@ void (*g_vcd_start_clkgen)(void);
 void (*g_vcd_stop_clkgen)(void);
 void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
-unsigned int g_vcd_log_level;
+unsigned int g_vcd_log_level = VCD_LOG_ERROR;
 
 struct vcd_async_wait  g_vcd_async_wait;
 struct libvcd_status_async_map *g_vcd_status_async_map;
