@@ -24,7 +24,6 @@
 #include <linux/input/sh_keysc.h>
 #include <linux/gpio_keys.h>
 #include <video/sh_mobile_lcdc.h>
-#include <video/sh_mipi_dsi.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 
 #ifdef CONFIG_PMIC_INTERFACE
@@ -1029,37 +1028,6 @@ static struct platform_device mfis_device = {
 	.num_resources  = ARRAY_SIZE(mfis_resources),
 };
 
-static struct resource mipidsi0_resources[] = {
-	[0] = {
-		.start  = 0xfeab0000,
-		.end    = 0xfeab3fff,
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = 0xfeab4000,
-		.end    = 0xfeab7fff,
-		.flags  = IORESOURCE_MEM,
-	},
-};
-
-static struct sh_mipi_dsi_info mipidsi0_info = {
-	.data_format	= MIPI_RGB888,
-	.lcd_chan	= &lcdc_info.ch[0],
-	.vsynw_offset	= 20,
-	.clksrc		= 1,
-	.flags		= SH_MIPI_DSI_HSABM,
-};
-
-static struct platform_device mipidsi0_device = {
-	.name           = "sh-mipi-dsi",
-	.num_resources  = ARRAY_SIZE(mipidsi0_resources),
-	.resource       = mipidsi0_resources,
-	.id             = 0,
-	.dev	= {
-		.platform_data	= &mipidsi0_info,
-	},
-};
-
 static struct led_renesas_tpu_config tpu3_info = {
 	.name		= "lcd-backlight",
 	.pin_gpio_fn	= GPIO_FN_TPUTO3,
@@ -2031,7 +1999,6 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
-	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
 	&vibrator_device,
@@ -2079,7 +2046,6 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
-	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
 	&vibrator_device,
@@ -2127,7 +2093,6 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
-	&mipidsi0_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
 	&vibrator_device,
@@ -2560,8 +2525,6 @@ void u2evm_restart(char mode, const char *cmd)
 
  
  
-#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
-
 #define STBCHRB3		0xE6180043
 /* SBSC register address */
 #define SBSC_BASE		(0xFE000000U)
