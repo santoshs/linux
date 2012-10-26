@@ -956,13 +956,11 @@ void vcd_spuv_func_set_hpb_register(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* if ((system_rev & 0xFFFF) <= 0x3E12) { */
-		vcd_spuv_func_modify_register(
-			VCD_SPUV_FUNC_HPBCTRL2_DMSENMRAM,
-			0,
-			SPUV_FUNC_RW_32_HPB_HPBCTRL2);
+	vcd_spuv_func_modify_register(
+		VCD_SPUV_FUNC_HPBCTRL2_DMSENMRAM,
+		0,
+		SPUV_FUNC_RW_32_HPB_HPBCTRL2);
 
-	/* } */
 	if ((system_rev & 0xFFFF) <= 0x3E10) {
 		vcd_spuv_func_modify_register(
 			VCD_SPUV_FUNC_HPBCTRL2_DMSENMSH,
@@ -986,11 +984,9 @@ void vcd_spuv_func_set_cpg_register(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* if ((system_rev & 0xFFFF) <= 0x3E12) { */
-		vcd_spuv_func_modify_register(0,
-			VCD_SPUV_FUNC_MPMODE_MPSWMSK,
-			SPUV_FUNC_RW_32_CPG_MPMODE);
-	/* } */
+	vcd_spuv_func_modify_register(0,
+		VCD_SPUV_FUNC_MPMODE_MPSWMSK,
+		SPUV_FUNC_RW_32_CPG_MPMODE);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1483,6 +1479,13 @@ int vcd_spuv_func_resampler_init(
 		"alsa_ul_rate[%d], alsa_dl_rate[%d], spuv_rate[%d].\n",
 		alsa_ul_rate, alsa_dl_rate, spuv_rate);
 
+	/* check parameter */
+	if (0 == alsa_ul_rate || 0 == alsa_dl_rate || 0 == spuv_rate) {
+		vcd_pr_err("parameter error.\n");
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
 	/* save sampling rate */
 	g_spuv_func_alsa_ul_sampling_rate = alsa_ul_rate;
 	g_spuv_func_alsa_dl_sampling_rate = alsa_dl_rate;
@@ -1529,6 +1532,12 @@ int vcd_spuv_func_resampler_init(
 		(alsa_buf_size/2),
 		(g_spuv_func_spuv_buf_size/2));
 
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("sh_resampler_init error.\n");
+		ret = VCD_ERR_NOMEMORY;
+	}
+
+rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
