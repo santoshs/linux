@@ -37,12 +37,6 @@ static struct vcd_spuv_workqueue  *g_vcd_spuv_work_queue;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_ack;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_req;
 
-static struct vcd_spuv_workqueue  *g_vcd_spuv_notify_queue;
-static struct vcd_spuv_work       g_vcd_spuv_rec_trigger;
-static struct vcd_spuv_work       g_vcd_spuv_play_trigger;
-static struct vcd_spuv_work       g_vcd_spuv_system_error;
-static struct vcd_spuv_work       g_vcd_spuv_udata_ind;
-
 
 /* ========================================================================= */
 /* Internal public functions                                                 */
@@ -1511,8 +1505,6 @@ static void vcd_spuv_work_initialize(
  */
 static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 {
-	unsigned long flags;
-
 	vcd_pr_start_spuv_function("wq[%p]", wq);
 
 	if (wq == NULL) {
@@ -1523,7 +1515,7 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 			kthread_stop(wq->task);
 
 		/* wakeup pending thread */
-		spin_lock_irqsave(&wq->lock, flags);
+		spin_lock(&wq->lock);
 
 		while (!list_empty(&wq->top)) {
 			struct list_head *list;
@@ -1540,7 +1532,7 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 				list_del_init(&work->link);
 			}
 		}
-		spin_unlock_irqrestore(&wq->lock, flags);
+		spin_unlock(&wq->lock);
 
 		wake_up_interruptible_all(&wq->wait);
 
@@ -1562,7 +1554,6 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 static inline int vcd_spuv_workqueue_thread(void *arg)
 {
 	struct vcd_spuv_workqueue *wq = (struct vcd_spuv_workqueue *)arg;
-	unsigned long flags;
 
 	vcd_pr_start_spuv_function("arg[%p]", arg);
 
@@ -1579,7 +1570,7 @@ static inline int vcd_spuv_workqueue_thread(void *arg)
 		if (kthread_should_stop())
 			break;
 
-		spin_lock_irqsave(&wq->lock, flags);
+		spin_lock(&wq->lock);
 		while (!list_empty(&wq->top)) {
 			work = list_first_entry(&wq->top,
 				struct vcd_spuv_work, link);
@@ -1587,15 +1578,15 @@ static inline int vcd_spuv_workqueue_thread(void *arg)
 			func = work->func;
 			work_clear_pending(work);
 			list_del_init(&work->link);
-			spin_unlock_irqrestore(&wq->lock, flags);
+			spin_unlock(&wq->lock);
 
 			(*func)();
 
-			spin_lock_irqsave(&wq->lock, flags);
+			spin_lock(&wq->lock);
 			work->status = 1;
 			wake_up_all(&wq->finish);
 		}
-		spin_unlock_irqrestore(&wq->lock, flags);
+		spin_unlock(&wq->lock);
 	}
 
 	vcd_pr_end_spuv_function();
@@ -1653,21 +1644,23 @@ static struct vcd_spuv_workqueue *vcd_spuv_workqueue_create(char *taskname)
 static void vcd_spuv_workqueue_enqueue(
 	struct vcd_spuv_workqueue *wq, struct vcd_spuv_work *work)
 {
-	unsigned long flags;
-
 	vcd_pr_start_spuv_function("wq[%p]work[%p]", wq, work);
 
 	if (wq && work) {
-		spin_lock_irqsave(&wq->lock, flags);
+		spin_lock(&wq->lock);
 		if (!test_and_set_bit(
 			WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
-			if (!list_empty(&work->link))
+			if (!list_empty(&work->link)) {
+				/* SPUV FW error */
 				vcd_pr_err("sequence violation. type1.\n");
-			list_add_tail(&work->link, &wq->top);
+			} else {
+				list_add_tail(&work->link, &wq->top);
+			}
 		} else {
+			/* SPUV FW error */
 			vcd_pr_err("sequence violation. type2.\n");
 		}
-		spin_unlock_irqrestore(&wq->lock, flags);
+		spin_unlock(&wq->lock);
 		wake_up_interruptible(&wq->wait);
 	} else {
 		vcd_pr_err("parameter error. wq[%p]work[%p].\n", wq, work);
@@ -1705,23 +1698,6 @@ int vcd_spuv_create_queue(void)
 						vcd_spuv_interrupt_req);
 	}
 
-	/* queue create for notify */
-	g_vcd_spuv_notify_queue =
-			vcd_spuv_workqueue_create("vcd_spuv_notify_queue");
-	if (NULL == g_vcd_spuv_notify_queue) {
-		vcd_pr_err("notify queue create error.\n");
-		ret = VCD_ERR_NOMEMORY;
-	} else {
-		vcd_spuv_work_initialize(&g_vcd_spuv_rec_trigger,
-						vcd_spuv_rec_trigger);
-		vcd_spuv_work_initialize(&g_vcd_spuv_play_trigger,
-						vcd_spuv_play_trigger);
-		vcd_spuv_work_initialize(&g_vcd_spuv_system_error,
-						vcd_spuv_system_error);
-		vcd_spuv_work_initialize(&g_vcd_spuv_udata_ind,
-						vcd_spuv_udata_ind);
-	}
-
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -1740,7 +1716,6 @@ void vcd_spuv_destroy_queue(void)
 	vcd_pr_start_spuv_function();
 
 	vcd_spuv_workqueue_destroy(g_vcd_spuv_work_queue);
-	vcd_spuv_workqueue_destroy(g_vcd_spuv_notify_queue);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1862,8 +1837,7 @@ static void vcd_spuv_interrupt_req(void)
 			);
 
 		/* notify SYSTEM_ERROR_IND */
-		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
-						&g_vcd_spuv_system_error);
+		vcd_spuv_system_error();
 		break;
 	case VCD_SPUV_SYSTEM_INFO_IND:
 		/* copy SYSTEM_INFO_IND data length */
@@ -1898,16 +1872,13 @@ static void vcd_spuv_interrupt_req(void)
 				(sizeof(unsigned int) * rcv_msg_buf[0])
 			);
 		/* notify UDATA_IND */
-		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
-						&g_vcd_spuv_udata_ind);
+		vcd_spuv_udata_ind();
 		break;
 	case VCD_SPUV_TRIGGER_REC_IND:
-		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
-						&g_vcd_spuv_rec_trigger);
+		vcd_spuv_rec_trigger();
 		break;
 	case VCD_SPUV_TRIGGER_PLAY_IND:
-		vcd_spuv_workqueue_enqueue(g_vcd_spuv_notify_queue,
-						&g_vcd_spuv_play_trigger);
+		vcd_spuv_play_trigger();
 		break;
 	default:
 		/* get status */
@@ -1961,9 +1932,6 @@ static void vcd_spuv_rec_trigger(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* set schedule */
-	vcd_spuv_set_schedule();
-
 	/* notification buffer update */
 	vcd_ctrl_rec_trigger();
 
@@ -1983,9 +1951,6 @@ static void vcd_spuv_play_trigger(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* set schedule */
-	vcd_spuv_set_schedule();
-
 	/* notification buffer update */
 	vcd_ctrl_play_trigger();
 
@@ -2004,9 +1969,6 @@ static void vcd_spuv_play_trigger(void)
 static void vcd_spuv_system_error(void)
 {
 	vcd_pr_start_spuv_function();
-
-	/* set schedule */
-	vcd_spuv_set_schedule();
 
 	vcd_pr_err("system error occured.\n");
 
@@ -2028,9 +1990,6 @@ static void vcd_spuv_system_error(void)
 static void vcd_spuv_udata_ind(void)
 {
 	vcd_pr_start_spuv_function();
-
-	/* set schedule */
-	vcd_spuv_set_schedule();
 
 	/* notification fw stop */
 	vcd_ctrl_udata_ind();
