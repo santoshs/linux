@@ -2306,7 +2306,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	if (!base) {
 		err = -ENXIO;
 		dev_err(&pdev->dev, "Unable to ioremap MERAM registers.\n");
-		goto exit_kfree;
+		goto exit_iounmap;
 	}
 	pcdev->base_meram = base;
 
@@ -2319,7 +2319,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	if (!base) {
 		err = -ENXIO;
 		dev_err(&pdev->dev, "Unable to ioremap MERAM registers.\n");
-		goto exit_kfree;
+		goto exit_iounmap;
 	}
 	pcdev->base_meram_ch = base;
 
@@ -2327,7 +2327,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	if (!base) {
 		err = -ENXIO;
 		dev_err(&pdev->dev, "Unable to ioremap IPMMU registers.\n");
-		goto exit_kfree;
+		goto exit_iounmap;
 	}
 	pcdev->ipmmu = base;
 
@@ -2449,7 +2449,14 @@ exit_free_clk:
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
 exit_iounmap:
-	iounmap(base);
+	if (pcdev->base)
+		iounmap(pcdev->base);
+	if (pcdev->base_meram)
+		iounmap(pcdev->base_meram);
+	if (pcdev->base_meram_ch)
+		iounmap(pcdev->base_meram_ch);
+	if (pcdev->ipmmu)
+		iounmap(pcdev->ipmmu);
 exit_kfree:
 	kfree(pcdev);
 exit:
@@ -2470,6 +2477,9 @@ static int __devexit sh_mobile_rcu_remove(struct platform_device *pdev)
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
 	iounmap(pcdev->base);
+	iounmap(pcdev->base_meram);
+	iounmap(pcdev->base_meram_ch);
+	iounmap(pcdev->ipmmu);
 	vb2_dma_contig_cleanup_ctx(pcdev->alloc_ctx);
 	if (csi2 && csi2->driver)
 		module_put(csi2->driver->owner);
