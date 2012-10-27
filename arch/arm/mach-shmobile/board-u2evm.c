@@ -2870,8 +2870,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_direction_output(GPIO_PORT9, 0);
 
 	// MHL enable
-	gpio_request(GPIO_PORT102, NULL);
-	gpio_direction_output(GPIO_PORT102, 0);
+	//gpio_request(GPIO_PORT102, NULL);  /* commented as suggested by  */
+	//gpio_direction_output(GPIO_PORT102, 0);
 
 	/* End */
 
