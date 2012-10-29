@@ -73,6 +73,7 @@
 acquiring HPB Semaphore*/
 #define LOCK_TIME_OUT_MS 1000
 
+#define CC42_DRIVER__NAME          "cc42_crypt_driver"
 /*--------------------------------------------
 	GLOBAL variables
 --------------------------------------------*/
@@ -113,7 +114,10 @@ static struct clk* sep_clk;
 /* wakelock object */
 static struct wake_lock sep_wakelock;
 
-
+/* create cc42 device*/
+static struct class *cc42_class;
+dev_t devno;
+struct device *cc42_device;
 
 #define POLLING_WAIT_INTERVAL					(100)
 #define WAIT_FOR_WARMBOOT_CHECK					(10 * 1000)
@@ -200,8 +204,39 @@ static int  sep_register_driver_to_fs(void)
 		goto end_function_unregister_devnum;
 	}
 
+	devno = MKDEV(major, 0);
 
+	/* Create device class */
+	cc42_class = class_create(THIS_MODULE, CC42_DRIVER__NAME);
+
+	if (IS_ERR(cc42_class)) {
+		ret_val = PTR_ERR(cc42_class);
+		goto delete_class;
+	}
+
+	/* Create cc42 device node */
+	if (cc42_class)
+		cc42_device = device_create(
+			cc42_class, NULL, devno, NULL, CC42_DRIVER__NAME);
+
+	if (IS_ERR(cc42_device)) {
+		ret_val = PTR_ERR(cc42_device);
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:Not able to "\
+			"create device node retval is %d\n", ret_val);
+		goto delete_device;
+	}
 	goto end_function;
+
+delete_device:
+	if (cc42_device && cc42_class) {
+		device_destroy(cc42_class, devno);
+		cc42_device = NULL;
+	}
+delete_class:
+	if (cc42_class) {
+		class_destroy(cc42_class);
+		cc42_class = NULL;
+	}
 
 end_function_unregister_devnum:
 
@@ -264,6 +299,16 @@ static void sep_unregister_driver_from_fs(void)
 
 	cdev_del(&sep_context.cdev);
 	/*cdev_del(&sep_context.request_daemon_cdev); */
+
+	/* Destroy cc42 device*/
+	if (cc42_class) {
+		if (cc42_device) {
+			device_destroy(cc42_class, devno);
+			cc42_device = NULL;
+		}
+		class_destroy(cc42_class);
+		cc42_class = NULL;
+	}
 
 #ifdef DX_CC52_SUPPORT
 	cdev_del(&sep_context.singleton_cdev);
