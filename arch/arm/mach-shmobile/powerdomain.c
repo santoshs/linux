@@ -48,14 +48,6 @@
 /******************************************************************************
  * SYSC accessor
  ******************************************************************************/
-/* SYSC registers */
-#define SYSC_SPDCR					0xE6180008
-#define SYSC_SWUCR					0xE6180014
-#define SYSC_WUPSMSK				0xE618002C
-#define SYSC_PSTR					0xE6180080
-#define SYSC_PDNSEL					0xE6180254
-#define SBSC_SDPDCR0A				0xFE400058
-
 #define C4_POWER_DOWN_SEL_ALL		0x0000001F
 #define PSTR_POLLING_INTERVAL_US	10
 #define PSTR_POLLING_COUNT_MAX		50

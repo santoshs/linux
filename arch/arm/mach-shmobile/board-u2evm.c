@@ -3446,9 +3446,6 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
 #endif
 
-/* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
-__raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
-__raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
