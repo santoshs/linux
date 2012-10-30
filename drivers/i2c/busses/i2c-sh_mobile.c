@@ -33,6 +33,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <mach/gpio.h>
 
 /* Transmit operation:                                                      */
 /*                                                                          */
@@ -272,6 +273,15 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 
 static void activate_ch(struct sh_mobile_i2c_data *pd)
 {
+	struct i2c_sh_mobile_platform_data *pdata = pd->dev->platform_data;
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_num);
+		gpio_free(pdata->sda_info.port_num);
+		gpio_request(pdata->scl_info.port_func, NULL);
+		gpio_request(pdata->sda_info.port_func, NULL);
+	}
+
 	/* Wake up device and enable clock */
 	pm_runtime_get_sync(pd->dev);
 	clk_enable(pd->clk);
@@ -290,6 +300,8 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 
 static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 {
+	struct i2c_sh_mobile_platform_data *pdata = pd->dev->platform_data;
+
 	/* Clear/disable interrupts */
 	iic_wr(pd, ICSR, 0);
 	iic_wr(pd, ICIC, 0);
@@ -300,6 +312,17 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);
 	pm_runtime_put_sync(pd->dev);
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_func);
+		gpio_free(pdata->sda_info.port_func);
+		gpio_request(pdata->scl_info.port_num, NULL);
+		gpio_request(pdata->sda_info.port_num, NULL);
+		gpio_direction_input(pdata->scl_info.port_num);
+		gpio_direction_input(pdata->sda_info.port_num);
+		gpio_direction_none_port(pdata->scl_info.port_num);
+		gpio_direction_none_port(pdata->sda_info.port_num);
+	}
 }
 
 static unsigned char i2c_op(struct sh_mobile_i2c_data *pd,
@@ -725,6 +748,17 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	if (ret < 0) {
 		dev_err(&dev->dev, "cannot add numbered adapter\n");
 		goto err_all;
+	}
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_func);
+		gpio_free(pdata->sda_info.port_func);
+		gpio_request(pdata->scl_info.port_num, NULL);
+		gpio_request(pdata->sda_info.port_num, NULL);
+		gpio_direction_input(pdata->scl_info.port_num);
+		gpio_direction_input(pdata->sda_info.port_num);
+		gpio_direction_none_port(pdata->scl_info.port_num);
+		gpio_direction_none_port(pdata->sda_info.port_num);
 	}
 
 	dev_info(&dev->dev,

@@ -59,6 +59,7 @@
 #endif
 
 #include "sh-sci.h"
+#include <mach/gpio.h>
 
 extern bool KERNEL_LOG; /* For kernel log supression */
 struct sci_port {
@@ -2088,6 +2089,97 @@ err_unreg:
 	return ret;
 }
 
+static void sci_gpio_setting(struct plat_sci_port *pdata, int suspend_mode)
+{
+	int i = 0, ret = 0;
+	int port;
+	struct portn_gpio_setting *gpio_prev, *gpio_current;
+	
+	if (pdata == NULL || pdata->port_count == 0)
+		return ;
+	
+	for (i = 0; i < pdata->port_count; i++)	{		
+		port = pdata->scif_gpio_setting_info[i].port;
+		if (suspend_mode == 1) {
+			gpio_current = \
+				&pdata->scif_gpio_setting_info[i].inactive;
+			gpio_prev  = &pdata->scif_gpio_setting_info[i].active;		
+		} else {
+			gpio_current = &pdata->scif_gpio_setting_info[i].active;
+			gpio_prev = &pdata->scif_gpio_setting_info[i].inactive;
+		}
+		
+		if (pdata->scif_gpio_setting_info[i].flag == 1) {
+			/* Change required */
+			gpio_free(gpio_prev->port_fn);
+
+			/* Set Input/Output direction & Output level */
+			/* 
+			 * gpio_direction_input() and gpio_direction_output 
+			 * are only used by Function 0. So, in the case of 
+			 * selecting function other than Function 0, 
+			 * it is necessary to do following sequence.
+			 * 1.gpio_request()   <- Function0
+			 * 2.gpio_direction_output()/gpio_direction_input()
+			 * 3.gpio_free()
+			 * 4.gpio_request() <- except Function0.
+			*/
+			switch (gpio_current->direction) {
+			case PORTn_CR_DIRECTION_NOT_SET:
+				break ;
+			case PORTn_CR_DIRECTION_NONE:
+				/* Select Function 0 */
+				gpio_request(port, NULL); 
+				/* Either gpio_direction_input or 
+				gpio_direction_output should be invoked 
+				before gpio_direction_none_port */
+				gpio_direction_input(port);
+				gpio_direction_none_port(port);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+			case PORTn_CR_DIRECTION_OUTPUT:
+				gpio_request(port, NULL);
+				gpio_direction_output(port, 
+						gpio_current->output_level);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+			
+			case PORTn_CR_DIRECTION_INPUT:
+				gpio_request(port, NULL);
+				gpio_direction_input(port);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+			default:
+				break;
+			}
+
+			/* Set Pull up/down/off */
+			switch (gpio_current->pull)	{
+			case PORTn_CR_PULL_NOT_SET:		
+				break;
+			case PORTn_CR_PULL_OFF:
+				gpio_pull_off_port(port);
+				break;
+			case PORTn_CR_PULL_DOWN:
+				gpio_pull_down_port(port);
+				break;
+			
+			case PORTn_CR_PULL_UP:
+				gpio_pull_up_port(port);
+				break;
+			default:
+				break;
+			}
+			if (gpio_current->port_fn != port)
+				gpio_request(gpio_current->port_fn, NULL);
+		}
+	}
+	return;
+}
+
 static int sci_suspend(struct device *dev)
 {
  	struct sci_port *sport = dev_get_drvdata(dev);
@@ -2111,6 +2203,10 @@ static int sci_suspend(struct device *dev)
 		}
 
 		uart_suspend_port(&sci_uart_driver, &sport->port);
+		/* Set suspend state GPIO CR values here 
+					to reduce power consumption */
+		/* Second parameter is suspend_mode */
+		sci_gpio_setting(sport->cfg, 1); 
 	}
 
 	return 0;
@@ -2123,6 +2219,8 @@ static int sci_resume(struct device *dev)
 	u16 data;
 
 	if (sport) {
+		/* Resume back initial GPIO settings here */
+		sci_gpio_setting(sport->cfg, 0); 
 		uart_resume_port(&sci_uart_driver, &sport->port);
 
 		if (sport->cfg->rts_ctrl)

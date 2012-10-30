@@ -563,6 +563,9 @@ static int bit_xfer(struct i2c_adapter *i2c_adap,
 	int i, ret;
 	unsigned short nak_ok;
 
+	setsda(adap, 1);
+	setscl(adap, 1);
+
 	if (adap->pre_xfer) {
 		ret = adap->pre_xfer(i2c_adap);
 		if (ret < 0)
@@ -620,6 +623,10 @@ bailout:
 
 	if (adap->post_xfer)
 		adap->post_xfer(i2c_adap);
+
+	setsda(adap, -1);
+	setscl(adap, -1);
+
 	return ret;
 }
 

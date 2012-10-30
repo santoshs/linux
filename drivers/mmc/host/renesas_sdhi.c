@@ -26,6 +26,7 @@
 #include <linux/mmc/core.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/renesas_sdhi.h>
+#include <mach/gpio.h>
 
 #define SDHI_CMD		0x00
 #define SDHI_ARG		0x04
@@ -1099,6 +1100,60 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+static void renesas_sdhi_gpio_setting(struct renesas_sdhi_platdata *pdata,
+								int mode)
+{
+	int i;
+	int port;
+	struct renesas_sdhi_gpio_setting *gpio_before, *gpio_after;
+
+	for (i = 0; i < pdata->port_cnt; i++) {
+
+		port = pdata->gpio_setting_info[i].port;
+		if (mode == 1) {
+			gpio_after  = &pdata->gpio_setting_info[i].active;
+			gpio_before = &pdata->gpio_setting_info[i].deactive;
+		} else {
+			gpio_after = &pdata->gpio_setting_info[i].deactive;
+			gpio_before  = &pdata->gpio_setting_info[i].active;
+		}
+
+		if (pdata->gpio_setting_info[i].flag == 1) {
+			gpio_free(gpio_before->port_mux);
+			gpio_request(gpio_after->port_mux, NULL);
+
+			switch (gpio_after->direction) {
+			case RENESAS_SDHI_DIRECTION_NONE:
+				gpio_direction_input(port);
+				gpio_direction_none_port(port);
+				break;
+			case RENESAS_SDHI_DIRECTION_OUTPUT:
+				gpio_direction_output(port, 
+					gpio_after->out_level);
+				break;
+
+			case RENESAS_SDHI_DIRECTION_INPUT:
+				gpio_direction_input(port);
+				break;
+			}
+
+			switch (gpio_after->pull) {
+			case RENESAS_SDHI_PULL_OFF:
+				gpio_pull_off_port(port);
+				break;
+			case RENESAS_SDHI_PULL_DOWN:
+				gpio_pull_down_port(port);
+				break;
+
+			case RENESAS_SDHI_PULL_UP:
+				gpio_pull_up_port(port);
+				break;
+			}
+		}
+	}
+	return;
+}
+
 int renesas_sdhi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1108,7 +1163,7 @@ int renesas_sdhi_suspend(struct device *dev)
 		clk_disable(host->clk);
 		pm_runtime_put_sync(dev);
 	}
-
+	renesas_sdhi_gpio_setting(host->pdata, 0);
 	return ret;
 }
 
@@ -1117,6 +1172,7 @@ int renesas_sdhi_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	u32 val;
+	renesas_sdhi_gpio_setting(host->pdata, 1);
 	if (!host->dynamic_clock) {
 		pm_runtime_get_sync(dev);
 		clk_enable(host->clk);

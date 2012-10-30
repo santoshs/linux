@@ -23,6 +23,33 @@ struct renesas_sdhi_dma {
 	struct sh_dmae_slave chan_rx;
 };
 
+#define RENESAS_SDHI_PULL_OFF	0
+#define RENESAS_SDHI_PULL_DOWN	1
+#define RENESAS_SDHI_PULL_UP	2
+
+#define RENESAS_SDHI_DIRECTION_NOT_SET	(-1)
+#define RENESAS_SDHI_DIRECTION_NONE		0
+#define RENESAS_SDHI_DIRECTION_OUTPUT	1
+#define RENESAS_SDHI_DIRECTION_INPUT	2
+
+#define RENESAS_SDHI_OUT_LEVEL_NOT_SET	(-1)
+#define RENESAS_SDHI_OUT_LEVEL_HI		1
+#define RENESAS_SDHI_OUT_LEVEL_LOW		0
+
+struct renesas_sdhi_gpio_setting {
+	u32	port_mux;	/* pin function */
+	s32	pull;
+	s32 direction;
+	s32 out_level;	/* It become enable only when direction is output. */
+};
+
+struct renesas_sdhi_gpio_setting_info {
+	u32	flag;		/* 0:nochange 1:change */
+	u32	port;		/* gpio port num */
+	struct renesas_sdhi_gpio_setting active;
+	struct renesas_sdhi_gpio_setting deactive;
+};
+
 struct renesas_sdhi_platdata {
 	unsigned long		caps;
 	unsigned long		flags;
@@ -38,6 +65,11 @@ struct renesas_sdhi_platdata {
 	/* Detection */
 	u32			detect_irq;
 	u32			detect_msec;
+
+	/* Gpio setting */
+	u32			port_cnt;
+	struct renesas_sdhi_gpio_setting_info	*gpio_setting_info;
+
 	void (*detect_int)(struct platform_device *pdev);
 	int (*get_cd)(struct platform_device *pdev);
 

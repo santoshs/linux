@@ -369,6 +369,216 @@ static void usbhs_module_reset(void)
 #endif
 }
 
+static struct r8a66597_gpio_setting_info r8a66597_gpio_setting_info[] = {
+	[0] = {
+		.flag = 1,
+		.port = GPIO_PORT203,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA0,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT203,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[1] = {
+		.flag = 1,
+		.port = GPIO_PORT204,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA1,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT204,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[2] = {
+		.flag = 1,
+		.port = GPIO_PORT205,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA2,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT205,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[3] = {
+		.flag = 1,
+		.port = GPIO_PORT206,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA3,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT206,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[4] = {
+		.flag = 1,
+		.port = GPIO_PORT207,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA4,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT207,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[5] = {
+		.flag = 1,
+		.port = GPIO_PORT208,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA5,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT208,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[6] = {
+		.flag = 1,
+		.port = GPIO_PORT209,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA6,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT209,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[7] = {
+		.flag = 1,
+		.port = GPIO_PORT210,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DATA7,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT210,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[8] = {
+		.flag = 1,
+		.port = GPIO_PORT211,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_CLK,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT211,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[9] = {
+		.flag = 1,
+		.port = GPIO_PORT212,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_STP,
+			.pull 		= R8A66597_PULL_UP,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT212,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[10] = {
+		.flag = 1,
+		.port = GPIO_PORT213,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_DIR,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT213,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[11] = {
+		.flag = 1,
+		.port = GPIO_PORT214,
+		.active = {
+			.port_mux 	= GPIO_FN_ULPI_NXT,
+			.pull 		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_NOT_SET,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT214,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[12] = {
+		.flag = 1,
+		.port = GPIO_PORT217,
+		.active = {
+			.port_mux 	= GPIO_FN_VIO_CKO3,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_OUTPUT,
+			.out_level	= R8A66597_OUT_LEVEL_HI,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_PORT217,
+			.pull 		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_NONE,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
 static struct r8a66597_platdata usbhs_func_data = {
 	.is_vbus_powered = is_vbus_powered,
 	.module_start	= usbhs_module_reset,
@@ -384,6 +594,8 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.pin_gpio_1 	= GPIO_PORT130,
 	.pin_gpio_2_fn	= GPIO_PORT131,
 	.pin_gpio_2		= GPIO_PORT131,
+	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
+	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };
 
 static struct resource usbhs_resources[] = {
@@ -623,14 +835,36 @@ static struct renesas_sdhi_dma sdhi0_dma = {
 	}
 };
 
+static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
+	[0] = {
+		.flag = 1,
+		.port = GPIO_PORT327,
+		.active = {
+			.port_mux 	= GPIO_PORT327,
+			.pull 		= RENESAS_SDHI_PULL_OFF,
+			.direction	= RENESAS_SDHI_DIRECTION_INPUT,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_FN_SDHICD0,
+			.pull 		= RENESAS_SDHI_PULL_UP,
+			.direction	= RENESAS_SDHI_DIRECTION_NOT_SET,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
+
 static struct renesas_sdhi_platdata sdhi0_info = {
-	.caps		= 0,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
-	.dma		= &sdhi0_dma,
-	.set_pwr	= sdhi0_set_pwr,
-	.detect_irq	= irqpin2irq(50),
-	.detect_msec	= 0,
-	.get_cd		= sdhi0_get_cd,
+	.caps				= 0,
+	.flags				= RENESAS_SDHI_SDCLK_OFFEN | 
+						RENESAS_SDHI_WP_DISABLE,
+	.dma				= &sdhi0_dma,
+	.set_pwr			= sdhi0_set_pwr,
+	.detect_irq			= irqpin2irq(50),
+	.detect_msec		= 0,
+	.get_cd				= sdhi0_get_cd,
+	.port_cnt			= ARRAY_SIZE(sdhi0_gpio_setting_info),
+	.gpio_setting_info	= &sdhi0_gpio_setting_info,
 };
 
 static struct resource sdhi0_resources[] = {
@@ -2875,6 +3109,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 
 	/* End */
 
+	gpio_direction_none_port(GPIO_PORT309);
+
 	if (0 != stm_select) {
 		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used for SD-Card */
 		/* SDHI0 */
@@ -2884,6 +3120,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		gpio_request(GPIO_FN_SDHID0_3, NULL);
 		gpio_request(GPIO_FN_SDHICMD0, NULL);
 		gpio_request(GPIO_FN_SDHIWP0, NULL);
+		gpio_direction_none_port(GPIO_PORT326);
 		gpio_request(GPIO_FN_SDHICLK0, NULL);
 		gpio_request(GPIO_PORT327, NULL);
 		gpio_direction_input(GPIO_PORT327);

@@ -41,6 +41,7 @@
 #include <mach/hardware.h>
 #include <mach/pm.h>
 #include <mach/r8a73734.h>
+#include <mach/gpio.h>
 #include <linux/pm.h>
 
 #ifdef CONFIG_USB_OTG
@@ -56,6 +57,7 @@
 #define DMA_ADDR_INVALID  (~(dma_addr_t)0)
 
 /* #define UDC_LOG */
+
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
@@ -3073,26 +3075,85 @@ clean_up:
 
 
 #ifdef CONFIG_PM
+static void r8a66597_udc_gpio_setting(struct r8a66597_platdata *pdata, int mode)
+{
+	int i;
+	int port;
+	struct r8a66597_gpio_setting *gpio_before, *gpio_after;
+
+	for (i = 0; i < pdata->port_cnt; i++) {
+		port = pdata->gpio_setting_info[i].port;
+		if (mode == 1) {
+			gpio_after  = &pdata->gpio_setting_info[i].active;
+			gpio_before = &pdata->gpio_setting_info[i].deactive;
+		} else {
+			gpio_after = &pdata->gpio_setting_info[i].deactive;
+			gpio_before  = &pdata->gpio_setting_info[i].active;
+		}
+
+		if (pdata->gpio_setting_info[i].flag == 1) {
+			gpio_free(gpio_before->port_mux);
+
+			switch (gpio_after->direction) {
+			case R8A66597_DIRECTION_NOT_SET:
+					break;
+			case R8A66597_DIRECTION_NONE:
+					gpio_request(port, NULL);
+					gpio_direction_input(port);
+					gpio_direction_none_port(port);
+					if (gpio_after->port_mux != port)
+						gpio_free(port);
+					break;
+			case R8A66597_DIRECTION_OUTPUT:
+					gpio_request(port, NULL);
+					gpio_direction_output(port,
+							gpio_after->out_level);
+					if (gpio_after->port_mux != port)
+						gpio_free(port);
+					break;
+			case R8A66597_DIRECTION_INPUT:
+					gpio_request(port, NULL);
+					gpio_direction_input(port);
+					if (gpio_after->port_mux != port)
+						gpio_free(port);
+					break;
+			default:
+					break;
+			}
+			switch (gpio_after->pull) {
+			case R8A66597_PULL_OFF:
+					gpio_pull_off_port(port);
+					break;
+			case R8A66597_PULL_DOWN:
+					gpio_pull_down_port(port);
+					break;
+			case R8A66597_PULL_UP:
+					gpio_pull_up_port(port);
+					break;
+			default:
+					break;
+			}
+
+			if (gpio_after->port_mux != port)
+				gpio_request(gpio_after->port_mux, NULL);
+		}
+	}
+	return;
+}
 static int r8a66597_udc_suspend(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	struct clk *uclk;
 	unsigned long flags = 0;
 	udc_log("%s: IN\n", __func__);
-
 	if (delayed_work_pending(&r8a66597->charger_work))
 			cancel_delayed_work_sync(&r8a66597->charger_work);
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
-	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
-	uclk = clk_get(NULL, "vclk3_clk");
-	if (IS_ERR(uclk)) {
-		dev_err(dev, "cannot get vclk3_clk\n");
-		return PTR_ERR(uclk);
-	}
-	if (uclk->usecount)
-		clk_disable(uclk);
+	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 0);
+	gpio_pull_down_port(r8a66597->pdata->pin_gpio_1);
+	gpio_pull_down_port(r8a66597->pdata->pin_gpio_2);
+	r8a66597_udc_gpio_setting(r8a66597->pdata, 0);
 	
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
@@ -3124,19 +3185,12 @@ static int r8a66597_udc_suspend(struct device *dev)
 static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	//struct clk *uclk;
 	/*restore the state of the phy before resume*/
 	r8a66597->phy_active = r8a66597->phy_active_sav;
-		
-	/*uclk = clk_get(NULL, "vclk3_clk");
-	if (IS_ERR(uclk)) {
-		dev_err(dev, "cannot get vclk3_clk\n");
-		return PTR_ERR(uclk);
-	}
-	if (!uclk->usecount)
-		clk_enable(uclk);
-	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);*/
-	
+	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 1);
+	gpio_pull_off_port(r8a66597->pdata->pin_gpio_1);
+	gpio_pull_off_port(r8a66597->pdata->pin_gpio_2);
+	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
 	if(r8a66597->old_vbus) {
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
