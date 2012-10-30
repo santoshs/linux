@@ -3288,6 +3288,9 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	udelay(100); /* assert RESET_N (minimum pulse width 100 usecs) */
 	gpio_direction_output(GPIO_PORT131, 1);
 
+	gpio_request(GPIO_PORT130, NULL);
+	gpio_direction_output(GPIO_PORT130, 1);
+
 	/* start supplying VIO_CKO3@26MHz to REFCLK */
 	gpio_request(GPIO_FN_VIO_CKO3, NULL);
 	clk_enable(clk_get(NULL, "vclk3_clk"));
