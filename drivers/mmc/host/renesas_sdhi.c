@@ -821,7 +821,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			val |= SDHI_OPT_WIDTH1;
 		sdhi_write16(host, SDHI_OPTION, val);
 		clk_disable(host->clk);
-		host->bus_width = host->bus_width;
+		host->bus_width = ios->bus_width;
 	}
 
 	if (host->clock != ios->clock &&
