@@ -753,6 +753,86 @@ static void __exit tpu_exit(void)
 	platform_driver_unregister(&tpu_platform_driver);
 	destroy_workqueue(tpu_work_queue);
 }
+/* GPIO Settings */
+static void tpu_gpio_setting(struct port_info *pinfo, int suspend_mode)
+{
+	int i;
+	int port;
+	struct portn_gpio_setting_tpu *gpio_prev, *gpio_current;
+	if (pinfo == NULL || pinfo->port_count == 0)
+		return ;
+
+	for (i = 0; i < pinfo->port_count; i++)	{
+		port = pinfo->tpu_gpio_setting_info[i].port ;
+		if (suspend_mode == 1) {
+			gpio_prev  = &pinfo->tpu_gpio_setting_info[i].active;
+			gpio_current = \
+				&pinfo->tpu_gpio_setting_info[i].inactive;
+		} else {
+			gpio_prev = &pinfo->tpu_gpio_setting_info[i].inactive;
+			gpio_current  = &pinfo->tpu_gpio_setting_info[i].active;
+		}
+
+		if (pinfo->tpu_gpio_setting_info[i].flag == 1) {
+			gpio_free(gpio_prev->port_fn);
+
+		/* Set Pull up/down/off */
+			switch (gpio_current->direction) {
+
+			case PORTn_CR_DIRECTION_NOT_SET:
+				break;
+
+			case PORTn_CR_DIRECTION_NONE:
+				gpio_request(port, NULL);
+				gpio_direction_input(port);
+				gpio_direction_none_port(port);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+
+			case PORTn_CR_DIRECTION_OUTPUT:
+				gpio_request(port, NULL);
+				gpio_direction_output(port,
+					gpio_current->output_level);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+
+			case PORTn_CR_DIRECTION_INPUT:
+				gpio_request(port, NULL);
+				gpio_direction_input(port);
+				if (gpio_current->port_fn != port)
+					gpio_free(port);
+				break;
+
+			default:
+				break;
+			}
+
+			switch (gpio_current->pull) {
+
+			case PORTn_CR_PULL_NOT_SET:
+				break;
+
+			case PORTn_CR_PULL_OFF:
+				gpio_pull_off_port(port);
+				break;
+
+			case PORTn_CR_PULL_DOWN:
+				gpio_pull_down_port(port);
+				break;
+
+			case PORTn_CR_PULL_UP:
+				gpio_pull_up_port(port);
+				break;
+			}
+
+			if (gpio_current->port_fn != port)
+				gpio_request(gpio_current->port_fn, NULL);
+		}
+	}
+	return;
+}
 
 /*
  * tpu_suspend: Indicate that driver goes to low power state
@@ -766,8 +846,11 @@ static int tpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret = 0;
 	struct tpu_work_arg work_arg;
+	struct port_info *pinfo;
 	work_arg.request = TPU_SUSPEND;
 	ret = add_to_workqueue(&work_arg);
+	pinfo = (struct port_info *)pdev->dev.platform_data;
+	tpu_gpio_setting(pinfo, 1);
 	return ret;
 }
 
@@ -806,8 +889,12 @@ static int tpu_resume(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct tpu_work_arg work_arg;
+	struct port_info *pinfo;
 	work_arg.request = TPU_RESUME;
 	ret = add_to_workqueue(&work_arg);
+	pinfo = (struct port_info *)pdev->dev.platform_data;
+	tpu_gpio_setting(pinfo, 0);
+	gpio_free(pinfo->port_func);
 	return ret;
 }
 
