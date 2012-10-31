@@ -81,7 +81,6 @@ config MACH_MACKEREL
 config MACH_U2EVM
 	bool "U2EVM board"
 	select ARCH_REQUIRE_GPIOLIB
-	select SH_LCD_MIPI_DSI
 	depends on ARCH_R8A73734
 
 config U2_ES1
