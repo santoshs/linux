@@ -51,7 +51,7 @@ static struct {
 } the_clock;
 
 /* #define SHM_CLK_TEST_MODE	1 */
-#define CLKSUS_DEBUG_ENABLE	1
+/* #define CLKSUS_DEBUG_ENABLE	1 */
 #ifdef pr_fmt
 #undef pr_fmt
 #define pr_fmt(fmt) "[CLK] - " fmt
@@ -1335,18 +1335,18 @@ int cpg_get_freq(struct clk_rate *rates)
 	/* rates->zb_clk = __match_div_rate(ZB_CLK,
 		HW_TO_DIV(zbckcr, ZB_CLK)); */
 	rates->zb_clk = 0; /* do not read ZB */
-        if (shmobile_chip_rev() >= ES_REV_2_0)
-                 rates->m5_clk = __match_div_rate(M5_CLK,
-                        HW_TO_DIV(frqcra, M5_CLK));
-        else
-                 rates->m5_clk = DIV1_1; /* dummy one */
-    
-        if ((frqcrd & FRQCRD_ZB30SEL) != 0)
-                 rates->zb3_clk = __match_div_rate(ZB3_CLK,
-                        HW_TO_DIV(frqcrd, ZB3_CLK));
-        else
-                 rates->zb3_clk = DIV1_2;
-            /* verify again */	
+	if (shmobile_chip_rev() >= ES_REV_2_0)
+		rates->m5_clk = __match_div_rate(M5_CLK,
+			HW_TO_DIV(frqcra, M5_CLK));
+	else
+		rates->m5_clk = DIV1_1; /* dummy one */
+
+	if ((frqcrd & FRQCRD_ZB30SEL) != 0)
+		rates->zb3_clk = __match_div_rate(ZB3_CLK,
+			HW_TO_DIV(frqcrd, ZB3_CLK));
+	else
+		rates->zb3_clk = DIV1_2;
+	/* verify again */
 	if ((rates->i_clk < 0) || (rates->zg_clk < 0)
 		|| (rates->b_clk < 0) || (rates->m1_clk < 0)
 		|| (rates->m3_clk < 0) || (rates->z_clk < 0)
@@ -2097,3 +2097,167 @@ void pm_release_spinlock(unsigned long flag)
 	spin_unlock_irqrestore(&zs_lock, flag);
 }
 EXPORT_SYMBOL(pm_release_spinlock);
+
+/**** DebugFS Tuning****/
+#if defined(CONFIG_DEBUG_FS)
+
+#include <linux/debugfs.h>
+
+static struct dentry *clk_debugfs_root;
+
+struct dentry *array_dent[ARRAY_SIZE(__shmobile_freq_modes_es2_x)];
+
+static int clk_debugfs_register_one(unsigned int index)
+{
+	int err;
+	struct dentry *d;
+	char s[255];
+	char *p = s;
+
+	p += sprintf(p, "opp-%d", index);
+	d = debugfs_create_dir(s, clk_debugfs_root);
+	if (!d)
+		return -ENOMEM;
+	array_dent[index] = d;
+
+	d = debugfs_create_u8("i_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].i_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("zg_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].zg_clk);
+	if (!d) {
+		err = -ENOMEM;
+	goto err_out;
+	}
+
+	d = debugfs_create_u8("b_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].b_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("m1_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].m1_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("m3_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].m3_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("m5_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].m5_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("z_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].z_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("ztr_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].ztr_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("zt_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].zt_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("zx_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].zx_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("hp_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].hp_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("zs_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].zs_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("zb_clk", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].zb_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u32("zb3_clk", S_IRWXUGO, array_dent[index],
+			(u32 *)&__shmobile_freq_modes_es2_x[index].zb3_clk);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	d = debugfs_create_u8("pll0", S_IRWXUGO, array_dent[index],
+			(u8 *)&__shmobile_freq_modes_es2_x[index].pll0);
+	if (!d) {
+		err = -ENOMEM;
+		goto err_out;
+	}
+
+	return 0;
+
+err_out:
+	d = array_dent[index];
+	debugfs_remove_recursive(array_dent[index]);
+	return err;
+}
+
+static int __init clk_debugfs_init(void)
+{
+	struct dentry *d;
+	int err;
+	unsigned int i;
+
+	printk(KERN_INFO "\n%s() started!");
+	d = debugfs_create_dir("clk_dfs", NULL);
+	if (!d)
+		return -ENOMEM;
+
+	clk_debugfs_root = d;
+
+	for (i = 0; i < ARRAY_SIZE(__shmobile_freq_modes_es2_x); i++) {
+		err = clk_debugfs_register_one(i);
+		if (err)
+			goto err_out;
+	}
+
+	return 0;
+err_out:
+	debugfs_remove_recursive(clk_debugfs_root);
+	printk(KERN_INFO "\n%s() completed -> ret = %d", err);
+	return err;
+}
+late_initcall(clk_debugfs_init);
+
+#endif
