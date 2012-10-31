@@ -28,6 +28,12 @@ enum {
 };
 
 enum {
+	TSU6712_DETACHED_DOCK = 0,
+	TSU6712_ATTACHED_DESK_DOCK,
+	TSU6712_ATTACHED_CAR_DOCK,
+};
+
+enum {
 	SWITCH_PORT_AUTO = 0,
 	SWITCH_PORT_USB,
 	SWITCH_PORT_AUDIO,
@@ -38,9 +44,9 @@ enum {
 };
 
 enum cable_type_t{
-	CABLE_TYPE_USB,
-	CABLE_TYPE_AC,
-	CABLE_TYPE_NONE
+   CABLE_TYPE_USB,
+   CABLE_TYPE_AC,
+   CABLE_TYPE_NONE
 };
 
 extern void tsu6712_manual_switching(int path);
@@ -52,18 +58,21 @@ extern ssize_t ld_set_switch_buf(struct device *dev,
 					const char *buf, size_t count);
 
 struct tsu6712_platform_data{
-	void (*cfg_gpio) (void);
+    void (*cfg_gpio) (void);
 	void (*otg_cb) (bool attached);
+	void (*ovp_cb) (bool attached);
 	void (*usb_cb) (bool attached);
 	void (*uart_cb) (bool attached);
 	void (*charger_cb) (bool attached);
 	void (*jig_cb) (bool attached);
-	void (*deskdock_cb) (bool attached);
-	void (*cardock_cb) (bool attached);
 	void (*mhl_cb) (bool attached);
 	void (*reset_cb) (void);
 	void (*set_init_flag) (void);
 	void (*mhl_sel) (bool onoff);
+	void (*dock_cb) (int attached);
+	int	(*ex_init) (void);
+	void (*usb_cdp_cb) (bool attached);
+	void (*smartdock_cb) (bool attached);
 };
 
 #endif
