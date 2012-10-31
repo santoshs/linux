@@ -77,11 +77,12 @@
 #define RCU_MERAM_FRAMEA	(0)
 #define RCU_MERAM_FRAMEB	(1)
 
-#define RCU_MERAM_MAX_CONTBUF	(32)
+#define RCU_MERAM_MAX_CONTBUF	(16)
 #define RCU_MERAM_CONTI_BUF	(1)
 #define RCU_MERAM_BLOCK		(0)
 #define RCU_MERAM_MAX_LINEBUF	(16)
-#define RCU_MERAM_GETLINEBUF(x)	((1024>=x)?1:((2048>=x)?2:(4096>=x)?4:8))
+#define RCU_MERAM_GETLINEBUF(x)	((1024 >= x) ? 1 : \
+				((2048 >= x) ? 2 : (4096 >= x) ? 4 : 8))
 
 #define RCU_IPMMU_IMCTCR1	(0x00)
 #define RCU_IPMMU_IMCTCR2	(0x04)
@@ -93,12 +94,15 @@
 
 
 /* alignment */
-#define ALIGNxK(size,x)		(((unsigned int)(size) + (x*0x400-1)) & ~(x*0x400-1))
+#define ALIGNxK(size, x)	(((unsigned int)(size) + (x*0x400-1)) \
+					& ~(x*0x400-1))
 #define ALIGN32(size)		(((unsigned int)(size) + 31) & ~31)
 #define ALIGN4(size)		(((unsigned int)(size) +  3) &  ~3)
 #define ALIGN8(size)		(((unsigned int)(size) +  7) &  ~7)
-#define ALIGN_PACK20(size)	((unsigned int)((((unsigned int)(size)) + 15) / 16) * 20)
-#define ALIGN_PACK24(size)	((unsigned int)((((unsigned int)(size)) + 15) / 16) * 24)
+#define ALIGN_PACK20(size)	((unsigned int)((((unsigned int)(size)) + 15) \
+					/ 16) * 20)
+#define ALIGN_PACK24(size)	((unsigned int)((((unsigned int)(size)) + 15) \
+					/ 16) * 24)
 
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
@@ -290,6 +294,8 @@
 #define SH_RCU_MIN_WIDTH	48		/* min width size  [pixels] */
 #define SH_RCU_MIN_HEIGHT	48		/* min height size [lines] */
 
+#define SH_RCU_BUF_INIT		(0x1234)
+
 #undef DEBUG_GEOMETRY
 #ifdef DEBUG_GEOMETRY
 #define dev_geo	dev_info
@@ -301,6 +307,7 @@
 struct sh_mobile_rcu_buffer {
 	struct vb2_buffer vb; /* v4l buffer must be first */
 	struct list_head queue;
+	int init_flg;
 	enum v4l2_mbus_pixelcode code;
 };
 
@@ -315,6 +322,7 @@ struct sh_mobile_rcu_dev {
 	void __iomem *ipmmu;
 	int meram_frame;
 	int meram_ch;
+	u32 int_status;
 	unsigned long video_limit;
 
 	spinlock_t lock;		/* Protects video buffer lists */
@@ -392,12 +400,12 @@ static void meram_write(struct sh_mobile_rcu_dev *priv,
 {
 	iowrite32(data, priv->base_meram + reg_offs);
 }
-
+/*
 static u32 meram_read(struct sh_mobile_rcu_dev *priv, unsigned long reg_offs)
 {
 	return ioread32(priv->base_meram + reg_offs);
 }
-
+*/
 static void meram_ch_write(struct sh_mobile_rcu_dev *priv,
 		      unsigned long reg_offs, u32 data)
 {
@@ -514,6 +522,8 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 
 #define RCU_RCETCR_CDTOF	(1 << RCETCR_CDTOF)
 
+#define RCU_RCETCR_VD		(1 << RCETCR_VD)
+
 /* continuous capture mode (if set) */
 #define RCU_RCAPCR_CTNCP	(1 << RCAPCR_CTNCP)
 /* one-frame capture end interrupt */
@@ -527,27 +537,44 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 
 #define RCU_RCEIER_CDTOFE	(1 << RCEIER_CDTOFE)
 
+#define RCU_RCEIER_VDE		(1 << RCEIER_VDE)
+
 /* error mask */
-#define RCU_RCETCR_MASK_MEM_ISP	(RCU_RCETCR_CPE | RCU_RCETCR_VBP | RCU_RCETCR_DFO | RCU_RCETCR_CDTOF)
-#define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO | RCU_RCETCR_CDTOF)
+#define RCU_RCETCR_MASK_MEM_ISP	(RCU_RCETCR_CPE | RCU_RCETCR_VBP | \
+					RCU_RCETCR_DFO | RCU_RCETCR_CDTOF)
+#define RCU_RCETCR_MASK_MEM_ISP2	(RCU_RCETCR_VBP | RCU_RCETCR_DFO | \
+					RCU_RCETCR_CDTOF)
+#define RCU_RCETCR_MASK_MEM_ISP3	(RCU_RCETCR_ISPO | RCU_RCETCR_VBP)
+#define RCU_RCETCR_MASK_MEM_ISP4	(RCU_RCETCR_ISPO | \
+					RCU_RCETCR_MASK_MEM_ISP2)
+#define RCU_RCETCR_ERR_MASK	(RCU_RCETCR_VBP | RCU_RCETCR_DFO | \
+					RCU_RCETCR_CDTOF)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
+#define RCU_RCEIER_MASK		(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | \
+					RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
+#define RCU_RCEIER_MASK2	(RCU_RCEIER_ISPOE | RCU_RCEIER_VBPE | \
+					RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE | \
+					RCU_RCEIER_VDE)
+#define RCU_RCEIER_MASK3	(RCU_RCEIER_VBPE | RCU_RCEIER_DFOE | \
+					RCU_RCEIER_CDTOFE)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
+#define RCU_RCEIER_MASK_MEM	(RCU_RCEIER_CPEE  | RCU_RCEIER_VBPE | \
+					RCU_RCEIER_DFOE | RCU_RCEIER_CDTOFE)
 /* interrupt enable mask */
-#define RCU_RCEIER_MASK_MEM_ISP	(RCU_RCEIER_ISPOE | RCU_RCEIER_MASK_MEM)
+#define RCU_RCEIER_MASK_MEM_ISP	(RCU_RCEIER_ISPOE | RCU_RCEIER_MASK3)
 
 
 /*
  * return value doesn't reflex the success/failure to queue the new buffer,
  * but rather the status of the previous buffer.
  */
-static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
+static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 {
 	dma_addr_t phys_addr_top;
 	u32 status, rcamcr, rceier;
 	int ret = 0;
 	struct soc_camera_device *icd = pcdev->icd;
+	u32 regMECTRL = 0;
 	/*
 	 * The hardware is _very_ picky about this sequence. Especially
 	 * the RCU_RCETCR_MAGIC value. It seems like we need to acknowledge
@@ -556,17 +583,24 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 	if (SH_RCU_OUTPUT_MEM == pcdev->output_mode)
 		rceier = RCU_RCEIER_MASK_MEM;
 	else if (SH_RCU_OUTPUT_ISP == pcdev->output_mode)
-		rceier = RCU_RCEIER_MASK;
+		rceier = RCU_RCEIER_MASK3;
 	else
 		rceier = RCU_RCEIER_MASK_MEM_ISP;
 
 	rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) & ~rceier);
-	status = rcu_read(pcdev, RCETCR);
-	rcu_write(pcdev, RCETCR, ~status & RCU_RCETCR_MAGIC);
+	if (!irq)
+		status = rcu_read(pcdev, RCETCR);
+	else
+		status = irq;
 	rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) | rceier);
-	rcu_write(pcdev, RCAPCR, rcu_read(pcdev, RCAPCR) & ~RCU_RCAPCR_CTNCP);
-	rcu_write(pcdev, RCETCR, RCU_RCETCR_MAGIC ^ RCU_RCETCR_IGRW);
+	if (SH_RCU_OUTPUT_ISP != pcdev->output_mode)
+		rcu_write(pcdev, RCAPCR,
+			rcu_read(pcdev, RCAPCR) & ~RCU_RCAPCR_CTNCP);
 
+	if (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode) {
+		status |= pcdev->int_status;
+		pcdev->int_status = 0;
+	}
 	/*
 	 * When a VBP interrupt occurs, a capture end interrupt does not occur
 	 * and the image of that frame is not captured correctly. So, soft reset
@@ -580,23 +614,25 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 			"Error interrupt occurred! RCETCR=0x%08X\n", status);
 
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
+#if 0
 			dev_err(pcdev->icd->dev.parent, "IMCTCR1  [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMCTCR1));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR1));
 			dev_err(pcdev->icd->dev.parent, "IMCTCR2  [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMCTCR2));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR2));
 			dev_err(pcdev->icd->dev.parent, "IMSTR    [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMSTR));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMSTR));
 			dev_err(pcdev->icd->dev.parent, "IMEAR    [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMEAR));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMEAR));
 			dev_err(pcdev->icd->dev.parent, "IMASID   [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMASID));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMASID));
 			dev_err(pcdev->icd->dev.parent, "IMTTBR   [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMTTBR));
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMTTBR));
 			dev_err(pcdev->icd->dev.parent, "IMTTBCR  [%08x]\n",
-				*(u32*) (pcdev->ipmmu + RCU_IPMMU_IMTTBCR));
-
+				*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMTTBCR));
+#endif
 			dev_err(pcdev->icd->dev.parent, "RCDAYR      [%08x]\n",
 				rcu_read(pcdev, RCDAYR));
+#if 0
 			dev_err(pcdev->icd->dev.parent, "MERAM_CTRL  [%08x]\n",
 				meram_ch_read(pcdev, RCU_MERAM_CTRL));
 			dev_err(pcdev->icd->dev.parent, "MERAM_BSIZE [%08x]\n",
@@ -610,34 +646,72 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 			dev_err(pcdev->icd->dev.parent, "MERAM_SBSIZE[%08x]\n",
 				meram_ch_read(pcdev, RCU_MERAM_SBSIZE));
 			if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
-				dev_err(pcdev->icd->dev.parent, "RCDACR        [%08x]\n",
+				dev_err(pcdev->icd->dev.parent,
+					"RCDACR        [%08x]\n",
 					rcu_read(pcdev, RCDACR));
-				dev_err(pcdev->icd->dev.parent, "MERAM_CTRL_C  [%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
-				dev_err(pcdev->icd->dev.parent, "MERAM_BSIZE_C [%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_BSIZE_C));
-				dev_err(pcdev->icd->dev.parent, "MERAM_MCNF_C  [%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_MCNF_C));
-				dev_err(pcdev->icd->dev.parent, "MERAM_SSARA_C [%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_SSARA_C));
-				dev_err(pcdev->icd->dev.parent, "MERAM_SSARB_C [%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_SSARB_C));
-				dev_err(pcdev->icd->dev.parent, "MERAM_SBSIZE_C[%08x]\n",
-					meram_ch_read(pcdev, RCU_MERAM_SBSIZE_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_CTRL_C  [%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_CTRL_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_BSIZE_C [%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_BSIZE_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_MCNF_C  [%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_MCNF_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_SSARA_C [%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_SSARA_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_SSARB_C [%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_SSARB_C));
+				dev_err(pcdev->icd->dev.parent,
+					"MERAM_SBSIZE_C[%08x]\n",
+					meram_ch_read(pcdev,
+						RCU_MERAM_SBSIZE_C));
 			}
+#endif
 		}
 		sh_mobile_rcu_soft_reset(pcdev);
 
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-			meram_ch_write(pcdev, RCU_MERAM_CTRL,
-				meram_ch_read(pcdev, RCU_MERAM_CTRL) | 0x60);
-			if (SH_RCU_MODE_IMAGE == pcdev->image_mode)
-				meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
-					meram_ch_read(pcdev, RCU_MERAM_CTRL_C)
-						| 0x60);
+			if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
+				regMECTRL = meram_ch_read(pcdev,
+					RCU_MERAM_CTRL);
+				if (!(0x20 & regMECTRL))
+					meram_ch_write(pcdev, RCU_MERAM_CTRL,
+						regMECTRL | 0x60);
+				regMECTRL = meram_ch_read(pcdev,
+					RCU_MERAM_CTRL_C);
+				if (!(0x20 & regMECTRL))
+					meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
+						regMECTRL | 0x60);
+			} else {
+				if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL,
+							regMECTRL | 0x60);
+				} else {
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL_C);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL_C,
+							regMECTRL | 0x60);
+				}
+			}
 		}
 		ret = -EIO;
 	}
+
+	rcu_write(pcdev, RCETCR, ~status);
 
 	/* ISP output */
 	/* Memory and ISP output mode (Active buffer doesn't exist.) */
@@ -666,7 +740,8 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 			pcdev->active)) {
 		phys_addr_top = pcdev->active->v4l2_planes[0].m.userptr;
 
-		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
+		if ((SH_RCU_OUTPUT_SDRAM != pcdev->output_meram)
+			&& (SH_RCU_MODE_IMAGE == pcdev->image_mode)) {
 			if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
 				meram_ch_write(pcdev, RCU_MERAM_SSARA,
 					phys_addr_top);
@@ -678,11 +753,25 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 				phys_addr_top = 0xE4000000;
 				pcdev->meram_frame = RCU_MERAM_FRAMEA;
 			}
+		} else if ((SH_RCU_OUTPUT_SDRAM != pcdev->output_meram)
+				&& (SH_RCU_MODE_IMAGE != pcdev->image_mode)) {
+			if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
+				meram_ch_write(pcdev, RCU_MERAM_SSARA_C,
+					phys_addr_top);
+				phys_addr_top = 0xE8000000;
+				pcdev->meram_frame = RCU_MERAM_FRAMEB;
+			} else {
+				meram_ch_write(pcdev, RCU_MERAM_SSARA,
+					phys_addr_top);
+				phys_addr_top = 0xE0000000;
+				pcdev->meram_frame = RCU_MERAM_FRAMEA;
+			}
 		}
 
 		rcu_write(pcdev, RCDAYR, phys_addr_top);
-		if(!ret)
-			dev_geo(pcdev->icd->dev.parent,"set RCDAYR[%08x][%08x]\n",
+		if (!ret)
+			dev_geo(pcdev->icd->dev.parent,
+				"set RCDAYR[%08x][%08x]\n",
 				(u32)phys_addr_top,
 				(u32)pcdev->active->v4l2_planes[0].m.userptr);
 
@@ -729,8 +818,9 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev)
 		return ret;
 	}
 
-	if(!pcdev->zsl)
-		rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE); /* start capture */
+	if (!pcdev->zsl)
+		if (SH_RCU_OUTPUT_ISP != pcdev->output_mode)
+			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
 
 	return ret;
 }
@@ -742,11 +832,18 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf;
-	int bytes_per_line = sh_mobile_rcu_bytes_per_line(
-						icd->user_width,
-						icd->current_fmt->host_fmt,
-						pcdev);
+	int bytes_per_line = -EINVAL;
 	unsigned long size;
+
+	if (SH_RCU_OUTPUT_ENHANCING == pcdev->output_pack)
+		bytes_per_line = sh_mobile_rcu_bytes_per_line(icd->user_width,
+				icd->current_fmt->host_fmt, pcdev);
+	else {
+		if (V4L2_PIX_FMT_SBGGR10 == icd->current_fmt->host_fmt->fourcc)
+			bytes_per_line = ALIGN8(ALIGN_PACK20(icd->user_width));
+		else
+			bytes_per_line = ALIGN_PACK24(icd->user_width);
+	}
 
 	dev_dbg(icd->dev.parent, "%s(vb=0x%p): 0x%lx %lu\n", __func__,
 		vb, vb->v4l2_planes[0].m.userptr, vb2_get_plane_payload(vb, 0));
@@ -805,7 +902,7 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 		if ((SH_RCU_STREAMING_ON == pcdev->streaming) &&
 			(SH_RCU_OUTPUT_MEM == pcdev->output_mode)) {
 			/* restart capture */
-			sh_mobile_rcu_capture(pcdev);
+			sh_mobile_rcu_capture(pcdev, 0);
 		}
 	}
 	spin_unlock_irqrestore(&pcdev->lock, flags);
@@ -832,19 +929,21 @@ static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 	}
 
 	/* Doesn't hurt also if the list is empty */
-	list_del_init(&buf->queue);
+	if (SH_RCU_BUF_INIT == buf->init_flg)
+		list_del_init(&buf->queue);
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 }
 
 static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 {
-	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	struct soc_camera_device *icd = container_of(vb->vb2_queue,
+		struct soc_camera_device, vb2_vidq);
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
 
 	/* This is for locking debugging only */
 	INIT_LIST_HEAD(&to_rcu_vb(vb)->queue);
+	to_rcu_vb(vb)->init_flg = SH_RCU_BUF_INIT;
 	return 0;
 }
 
@@ -860,6 +959,15 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 	unsigned int meram_tmp = 0;
 
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
+
+	if (SH_RCU_OUTPUT_ISP_FULL != pcdev->output_ispthinned) {
+		if (2 != (pcdev->icd->user_height % 4)) {
+			dev_err(pcdev->icd->dev.parent,
+				"%s :W/A size error(%d)\n",
+				__func__, pcdev->icd->user_height);
+			return -1;
+		}
+	}
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
@@ -885,10 +993,10 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 				| (3 << (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 #endif
 		if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
-			u32 wdr = rcu_read(pcdev, RCDWDR);
-			dev_geo(pcdev->icd->dev.parent, "%s:meram start\n", __func__);
+			dev_geo(pcdev->icd->dev.parent,
+				"%s:meram start\n", __func__);
 			meram_write(pcdev, RCU_MERAM_ACTST1,
-				(3 << (RCU_MERAM_CH(pcdev->meram_ch)- 32)));
+				(3 << (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 			/* y frame setting */
 			meram_tmp = RCU_MERAM_GETLINEBUF(icd->user_width)
 				* (1 << RCU_MERAM_BLOCK);
@@ -901,19 +1009,21 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 			meram_ch_write(pcdev, RCU_MERAM_BSIZE,
 				((icd->user_height - 1) << 16)
 					| (icd->user_width - 1));
-			meram_tmp = RCU_MERAM_MAX_LINEBUF / RCU_MERAM_GETLINEBUF(icd->user_width) - 1;
-			meram_ch_write(pcdev, RCU_MERAM_MCNF, (meram_tmp << 16));
+			meram_tmp = RCU_MERAM_MAX_LINEBUF /
+				RCU_MERAM_GETLINEBUF(icd->user_width) - 1;
+			meram_ch_write(pcdev, RCU_MERAM_MCNF,
+				(meram_tmp << 16));
 			meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
 				icd->user_width);
 			meram_ch_write(pcdev, RCU_MERAM_CTRL,
 				((pcdev->output_meram - 1) << 16) | 0x702
 					| (RCU_MERAM_BLOCK << 28));
 			/* c frame setting */
-			if(rcu_read(pcdev, RCDOCR) & (1 << RCDOCR_T420)) {
+			if (rcu_read(pcdev, RCDOCR) & (1 << RCDOCR_T420)) {
 				meram_ch_write(pcdev, RCU_MERAM_BSIZE_C,
 					((icd->user_height / 2 - 1) << 16)
 						| (icd->user_width - 1));
-			}else{
+			} else {
 				meram_ch_write(pcdev, RCU_MERAM_BSIZE_C,
 					((icd->user_height - 1) << 16)
 						| (icd->user_width - 1));
@@ -930,20 +1040,23 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 		} else {
 			int cont_num = RCU_MERAM_CONTI_BUF;
 			u32 wdr = rcu_read(pcdev, RCDWDR);
-			dev_geo(pcdev->icd->dev.parent, "%s:meram start\n", __func__);
+			dev_geo(pcdev->icd->dev.parent,
+				"%s:meram start\n", __func__);
 			meram_write(pcdev, RCU_MERAM_ACTST1,
-				(1 << (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
+				(3 << (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 			while (1) {
-				meram_tmp =
-					ALIGNxK(wdr * icd->user_height, cont_num);
+				meram_tmp = ALIGNxK(wdr * icd->user_height,
+					cont_num);
 				meram_tmp /= 0x400 * cont_num;
 				if (0x1000 > meram_tmp)
 					break;
-				else {
+				else
 					cont_num *= 2;
-				}
 			}
 			meram_ch_write(pcdev, RCU_MERAM_BSIZE,
+				((meram_tmp - 1) << 16)
+					| (0x400 * cont_num - 1));
+			meram_ch_write(pcdev, RCU_MERAM_BSIZE_C,
 				((meram_tmp - 1) << 16)
 					| (0x400 * cont_num - 1));
 			meram_tmp = cont_num * (1 << RCU_MERAM_BLOCK);
@@ -956,15 +1069,31 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 			meram_tmp = RCU_MERAM_MAX_CONTBUF / cont_num - 1;
 			meram_ch_write(pcdev, RCU_MERAM_MCNF,
 				(meram_tmp << 16));
+			meram_ch_write(pcdev, RCU_MERAM_MCNF_C,
+				(meram_tmp << 16));
 			meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
+				0x400 * cont_num);
+			meram_ch_write(pcdev, RCU_MERAM_SBSIZE_C,
 				0x400 * cont_num);
 			meram_ch_write(pcdev, RCU_MERAM_CTRL,
 				((pcdev->output_meram - 1) << 16) | 0x70A
 					| (RCU_MERAM_BLOCK << 28));
+			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
+				((pcdev->output_meram - 1
+					+ RCU_MERAM_MAX_CONTBUF) << 16)|0x70A
+				| (RCU_MERAM_BLOCK << 28));
 		}
 	}
 
-	sh_mobile_rcu_capture(pcdev);
+
+	if (SH_RCU_OUTPUT_ISP == pcdev->output_mode) {
+		/*rcu_write(pcdev, RCEIER, RCU_RCEIER_MASK3);*/
+		rcu_write(pcdev, RCAPCR,
+			rcu_read(pcdev, RCAPCR) | RCU_RCAPCR_CTNCP);
+		rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE); /* start capture */
+	} else {
+		sh_mobile_rcu_capture(pcdev, 0);
+	}
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
@@ -994,7 +1123,8 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	ret = v4l2_device_call_until_err(sd->v4l2_dev, 0, video, s_stream, 0);
 	if (ret) {
-		dev_err(pcdev->icd->dev.parent, "%s :Error v4l2_device_call_until_err(%d)\n",
+		dev_err(pcdev->icd->dev.parent,
+			"%s :Error v4l2_device_call_until_err(%d)\n",
 				__func__, ret);
 	}
 
@@ -1005,15 +1135,19 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	pcdev->streaming = SH_RCU_STREAMING_OFF;
 
+	if (SH_RCU_OUTPUT_ISP == pcdev->output_mode) {
+		rcu_write(pcdev, RCAPSR, 0);
+		rcu_write(pcdev, RCAPCR,
+			rcu_read(pcdev, RCAPCR) & ~RCU_RCAPCR_CTNCP);
+	}
+
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
 	sh_mobile_rcu_soft_reset(pcdev);
 
 	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 		meram_ch_write(pcdev, RCU_MERAM_CTRL, 0x60);
-		if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
-			meram_ch_write(pcdev, RCU_MERAM_CTRL_C, 0x60);
-		}
+		meram_ch_write(pcdev, RCU_MERAM_CTRL_C, 0x60);
 		dev_geo(pcdev->icd->dev.parent, "%s:meram stop\n", __func__);
 #if 0
 		meram_write(pcdev, RCU_MERAM_QSEL2,
@@ -1042,7 +1176,7 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 	struct vb2_buffer *vb;
 	int ret;
 	unsigned long flags;
-	u32 regRCETCR, regRCDAYR;
+	u32 regRCETCR, regRCDAYR, regMECTRL;
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
@@ -1056,27 +1190,54 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 		/* ISP output */
 		/* Memory and ISP output mode (Active buffer doesn't exist.) */
 		if ((SH_RCU_OUTPUT_ISP == pcdev->output_mode)
-			|| (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode
-				&& !regRCDAYR)) {
-			sh_mobile_rcu_capture(pcdev);
+			|| ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
+				&& (!regRCDAYR)
+			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP4))) {
+			sh_mobile_rcu_capture(pcdev, regRCETCR);
 
 		/* Memory and ISP output mode (Active buffer exists.) */
 		/* Memory output (Active buffer exists.) */
 		} else if (((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
 			&& (regRCDAYR)
-			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP))
+			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP3))
 			|| (SH_RCU_OUTPUT_MEM == pcdev->output_mode && vb)) {
 
 			if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-				meram_ch_write(pcdev, RCU_MERAM_CTRL,
-					meram_ch_read(pcdev, RCU_MERAM_CTRL)
-					| 0x20);
 				if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
-					meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
-						meram_ch_read(pcdev, RCU_MERAM_CTRL_C)
-						| 0x20);
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL,
+							regMECTRL | 0x20);
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL_C);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL_C,
+							regMECTRL | 0x20);
+				} else {
+					if (RCU_MERAM_FRAMEA ==
+						pcdev->meram_frame) {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL,
+								regMECTRL |
+								0x20);
+					} else {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL_C);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL_C
+								, regMECTRL |
+								0x20);
+					}
 				}
-				dev_geo(pcdev->icd->dev.parent,"%s:meram clear\n", __func__);
+				dev_geo(pcdev->icd->dev.parent,
+					"%s:meram clear\n", __func__);
 			}
 
 			list_del_init(&to_rcu_vb(vb)->queue);
@@ -1087,7 +1248,7 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 			else
 				pcdev->active = NULL;
 
-			ret = sh_mobile_rcu_capture(pcdev);
+			ret = sh_mobile_rcu_capture(pcdev, regRCETCR);
 			do_gettimeofday(&vb->v4l2_buf.timestamp);
 			if (!ret) {
 				vb->v4l2_buf.field = V4L2_FIELD_NONE;
@@ -1096,6 +1257,17 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 			vb2_buffer_done(vb,
 				ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
 
+		} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
+				&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP2)) {
+			rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) &
+				~RCU_RCEIER_CDTOFE);
+			pcdev->int_status |= regRCETCR &
+				RCU_RCETCR_MASK_MEM_ISP2;
+			rcu_write(pcdev, RCETCR,
+				~(regRCETCR & RCU_RCETCR_MASK_MEM_ISP2));
+			dev_err(pcdev->icd->dev.parent,
+				"pre Error interrupt occurred! RCETCR=0x%08X\n",
+				regRCETCR);
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
 			dev_err(pcdev->icd->dev.parent,
@@ -1206,12 +1378,12 @@ static void sh_mobile_rcu_set_rect(struct soc_camera_device *icd)
 				icd->user_width, icd->current_fmt->host_fmt,
 				pcdev);
 		else
-		{
-			if (V4L2_PIX_FMT_SBGGR10 == icd->current_fmt->host_fmt->fourcc)
-				bytes_per_line = ALIGN8(ALIGN_PACK20(icd->user_width));
+			if (V4L2_PIX_FMT_SBGGR10 ==
+				icd->current_fmt->host_fmt->fourcc)
+				bytes_per_line =
+					ALIGN8(ALIGN_PACK20(icd->user_width));
 			else
 				bytes_per_line = ALIGN_PACK24(icd->user_width);
-		}
 
 		if (bytes_per_line < 0)
 			rcdwdr = ALIGN4(icd->user_width * 2);
@@ -1310,12 +1482,12 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd,
 
 	/* setting RCAMCR */
 	rcamcr |= pcdev->image_mode << RCAMCR_CFMT;
-	if(SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
+	if (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
 		rcamcr |= SH_RCU_OUTPUT_ISP << RCAMCR_OCNT;
 	else
 		rcamcr |= pcdev->output_mode << RCAMCR_OCNT;
 
-	if(SH_RCU_OUTPUT_ISP_FULL != pcdev->output_ispthinned)
+	if (SH_RCU_OUTPUT_ISP_FULL != pcdev->output_ispthinned)
 		rcamcr |= pcdev->output_ispthinned << RCAMCR_HSS2;
 
 	yuv_lineskip = 0;
@@ -2201,10 +2373,8 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		return 0;
 	case V4L2_CID_SET_ZSL:
 		pcdev->zsl = ctrl->value;
-		if(!pcdev->zsl)
-		{
-			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE); /* start capture */
-		}
+		if (!pcdev->zsl)
+			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -2310,12 +2480,13 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	}
 	pcdev->base_meram = base;
 
-	if(!strcmp(pcdev->pdata->mod_name,"rcu0"))
+	if (!strcmp(pcdev->pdata->mod_name, "rcu0"))
 		pcdev->meram_ch = RCU_MERAM_CH_RCU0;
 	else
 		pcdev->meram_ch = RCU_MERAM_CH_RCU1;
 
-	base = ioremap_nocache(0xE5500400 + (RCU_MERAM_CH(pcdev->meram_ch) * 0x20), 0x40);
+	base = ioremap_nocache(0xE5500400 +
+		(RCU_MERAM_CH(pcdev->meram_ch) * 0x20), 0x40);
 	if (!base) {
 		err = -ENXIO;
 		dev_err(&pdev->dev, "Unable to ioremap MERAM registers.\n");
@@ -2590,8 +2761,6 @@ static struct platform_driver sh_mobile_rcu_driver = {
 
 static int __init sh_mobile_rcu_init(void)
 {
-	printk(KERN_DEBUG "%s():\n", __func__);
-
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
 	return platform_driver_register(&sh_mobile_rcu_driver);
@@ -2599,8 +2768,6 @@ static int __init sh_mobile_rcu_init(void)
 
 static void __exit sh_mobile_rcu_exit(void)
 {
-	printk(KERN_DEBUG "%s():\n", __func__);
-
 	platform_driver_unregister(&sh_mobile_rcu_driver);
 }
 
