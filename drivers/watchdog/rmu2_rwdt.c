@@ -426,7 +426,7 @@ int rmu2_rwdt_cntclear(void)
  * output: none
  * return: none
  */
-static int rmu2_rwdt_stop(void)
+int rmu2_rwdt_stop(void)
 {
 	int ret = 0;
 	unsigned int base;
