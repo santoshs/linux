@@ -595,7 +595,9 @@ static int wm1811_setup_wm1811(void)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
-	wm1811_log_info("not supported yet.");
+
+	wm1811_conf->info.raw_device = -1;
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -1999,13 +2001,10 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	u_int fll1_control5 = 0;
 	wm1811_log_efunc("device[%ld]", device);
 
-	if (WM1811_DEV_NONE != device) {
-
-		if ((WM1811_POWER_ON == power) &&
-			(0 == gpio_get_value(GPIO_PORT34))) {
-			wm1811_log_info("CODEC_LDO_EN : wm1811 Power ON");
-			gpio_set_value(GPIO_PORT34, 1);
-		}
+	if ((WM1811_POWER_ON == power) &&
+		(0 == gpio_get_value(GPIO_PORT34))) {
+		wm1811_log_info("CODEC_LDO_EN : wm1811 Power ON");
+		gpio_set_value(GPIO_PORT34, 1);
 	}
 
 	ret = wm1811_check_device(device);
