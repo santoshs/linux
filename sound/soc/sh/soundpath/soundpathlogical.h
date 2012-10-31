@@ -164,8 +164,6 @@ static void sndp_work_voice_start(struct work_struct *work);
 static void sndp_work_voice_stop(struct work_struct *work);
 /* Work queue processing for voice call device change */
 static void sndp_work_voice_dev_chg(struct work_struct *work);
-/* Work queue processing for device change (not voice call) */
-static void sndp_work_normal_dev_chg(struct work_struct *work);
 
 /* Work queue processing for Playback start */
 static void sndp_work_play_start(struct work_struct *work);

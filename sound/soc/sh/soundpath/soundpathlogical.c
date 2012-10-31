@@ -71,46 +71,42 @@ static struct snd_kcontrol_new g_sndpdrv_controls[] = {
 
 /* Mode change table */
 const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
-	[SNDP_MODE_INIT][SNDP_MODE_NORMAL]  =	{SNDP_PROC_START,
+	[SNDP_MODE_INIT][SNDP_MODE_NORMAL]  =	{SNDP_PROC_NO,
 							SNDP_MODE_NORMAL},
-	[SNDP_MODE_INIT][SNDP_MODE_RING]    =	{SNDP_PROC_START,
+	[SNDP_MODE_INIT][SNDP_MODE_RING]    =	{SNDP_PROC_NO,
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_INIT][SNDP_MODE_INCALL]  =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_START,
+	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_NO,
 							SNDP_STAT_NOT_CHG},
-	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_START,
+	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_NO,
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_NORMAL][SNDP_MODE_INCALL] =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_NORMAL][SNDP_MODE_INCOMM] =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_START,
+	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_NO,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_START,
+	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_NO,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_RING][SNDP_MODE_INCOMM]   =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_INCALL][SNDP_MODE_NORMAL] =	{SNDP_PROC_CALL_STOP |
-						 SNDP_PROC_START,
+	[SNDP_MODE_INCALL][SNDP_MODE_NORMAL] =	{SNDP_PROC_CALL_STOP,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_INCALL][SNDP_MODE_RING]   =	{SNDP_PROC_CALL_STOP |
-						 SNDP_PROC_START,
+	[SNDP_MODE_INCALL][SNDP_MODE_RING]   =	{SNDP_PROC_CALL_STOP,
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_INCALL][SNDP_MODE_INCALL] =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_INCALL][SNDP_MODE_INCOMM] =	{SNDP_PROC_CALL_STOP |
 						 SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL] =	{SNDP_PROC_INCOMM_STOP |
-						 SNDP_PROC_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_NORMAL] =	{SNDP_PROC_INCOMM_STOP,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_INCOMM_STOP |
-						 SNDP_PROC_START,
+	[SNDP_MODE_INCOMM][SNDP_MODE_RING]   =	{SNDP_PROC_INCOMM_STOP,
 							SNDP_STAT_RINGTONE},
 	[SNDP_MODE_INCOMM][SNDP_MODE_INCALL] =	{SNDP_PROC_INCOMM_STOP |
 						 SNDP_PROC_CALL_START,
@@ -144,8 +140,6 @@ static struct sndp_work_info g_sndp_work_voice_start;
 static struct sndp_work_info g_sndp_work_voice_stop;
 /* Device change for voice */
 static struct sndp_work_info g_sndp_work_voice_dev_chg;
-/* Device change for not voice */
-static struct sndp_work_info g_sndp_work_normal_dev_chg;
 /* Playback start for soundpath */
 static struct sndp_work_info g_sndp_work_play_start;
 /* Capture start for soundpath */
@@ -574,8 +568,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_voice_stop);
 	INIT_WORK(&g_sndp_work_voice_dev_chg.work,
 		  sndp_work_voice_dev_chg);
-	INIT_WORK(&g_sndp_work_normal_dev_chg.work,
-		  sndp_work_normal_dev_chg);
 	INIT_WORK(&g_sndp_work_play_start.work,
 		  sndp_work_play_start);
 	INIT_WORK(&g_sndp_work_capture_start.work,
@@ -728,6 +720,19 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto workque_create_err;
 	}
 
+	/* Initialize device setting for AudioLSI */
+	if (NULL != g_sndp_codec_info.set_device) {
+		iRet = g_sndp_codec_info.set_device(
+			g_sndp_codec_info.dev_none,
+			SNDP_VALUE_INIT,
+			g_sndp_codec_info.power_on);
+		sndp_log_debug("initial set_device\n");
+		if (ERROR_NONE != iRet) {
+			sndp_log_err("set device error(code=%d)\n", iRet);
+			goto set_dev_err;
+		}
+	}
+
 	/* Wake lock init */
 	wake_lock_init(&g_sndp_wake_lock_suspend,
 		       WAKE_LOCK_SUSPEND,
@@ -741,6 +746,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 set_volume_err:
 set_mute_err:
+set_dev_err:
 ioremap_err:
 mkproc_sub_err:
 /*
@@ -1288,20 +1294,6 @@ static int sndp_soc_put(
 		}
 	}
 
-	/* SNDP_PROC_START */
-	if (uiProcess & SNDP_PROC_START) {
-
-		/* Wake Lock */
-		sndp_wake_lock(E_LOCK);
-
-		/*
-		 * Registered in the work queue for
-		 * device change (not voice call)
-		 */
-		g_sndp_work_normal_dev_chg.new_value = uiValue;
-		queue_work(g_sndp_queue_main, &g_sndp_work_normal_dev_chg.work);
-	}
-
 	/* SNDP_PROC_DEV_CHANGE */
 	if (uiProcess & SNDP_PROC_DEV_CHANGE) {
 		/* Modes other than the INIT */
@@ -1580,7 +1572,7 @@ static int sndp_fsi_resume(struct device *dev)
 
 			if (NULL != g_sndp_codec_info.set_device) {
 				iRet = g_sndp_codec_info.set_device(
-						ulSetDevice,
+						g_sndp_codec_info.dev_none,
 						GET_OLD_VALUE(SNDP_PCM_OUT),
 						g_sndp_codec_info.power_on);
 				sndp_log_debug("set_device 0x%08lX\n",
@@ -2739,61 +2731,6 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
-}
-
-
-/*!
-   @brief Work queue function for Device change (not IN_CALL)
-
-   @param[in]	work	work queue structure
-   @param[out]	none
-
-   @retval	none
- */
-static void sndp_work_normal_dev_chg(struct work_struct *work)
-{
-	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
-	struct sndp_work_info	*wp = NULL;
-
-
-	sndp_log_debug_func("start\n");
-
-	/* To get a work queue structure */
-	wp = container_of((void *)work, struct sndp_work_info, work);
-
-	/* device change */
-	ulSetDevice = sndp_get_next_devices(wp->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				wp->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n", iRet);
-	}
-
-	if (NULL != g_sndp_codec_info.set_speaker_amp) {
-		/* Set to ENABLE/DISABLE the speaker amp */
-		if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value))
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-		else
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(wp->new_value)) ?
-							"ENABLE" : "DISABLE",
-			iRet);
-		}
-	}
-
-	/* Wake Unlock */
-	sndp_wake_lock(E_UNLOCK);
-
-	sndp_log_debug_func("end\n");
 }
 
 
@@ -4064,17 +4001,27 @@ static void sndp_work_start(const int direction)
 
 	uiValue = GET_OLD_VALUE(direction);
 
-	if (SNDP_PCM_IN == direction) {
-		/* set device */
+	/* set device */
+	/* (In the case of IN_CALL, the device has been set) */
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		ulSetDevice = sndp_get_next_devices(uiValue);
+		sndp_log_debug("set_next_dev[%08x]\n", ulSetDevice);
 		if (NULL != g_sndp_codec_info.set_device) {
+			if ((SNDP_PCM_IN == direction) &&
+			    (E_CAP == g_sndp_playrec_flg)) {
+				if (SNDP_BUILTIN_MIC & ulSetDevice)
+					ulSetDevice |=
+					g_sndp_codec_info.dev_playback_speaker;
+				else if (SNDP_WIREDHEADSET & ulSetDevice)
+					ulSetDevice |=
+					g_sndp_codec_info.dev_playback_headphones;
+			}
 			iRet = g_sndp_codec_info.set_device(
-					ulSetDevice,
-					uiValue,
+					ulSetDevice, uiValue,
 					g_sndp_codec_info.power_on);
 			if (ERROR_NONE != iRet) {
 				sndp_log_err("set device error (code=%d)\n",
-					     iRet);
+					iRet);
 				return;
 			}
 		}
@@ -4140,24 +4087,27 @@ static void sndp_work_start(const int direction)
 	}
 
 	/* Set to ENABLE the speaker amp */
-	if ((SNDP_PCM_OUT == direction) &&
-	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
+	/* (In the case of IN_CALL, the amp has been set) */
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+		if ((SNDP_PCM_OUT == direction) &&
+		    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
+			if (NULL != g_sndp_codec_info.set_speaker_amp) {
+				iRet = g_sndp_codec_info.set_speaker_amp(
 					g_sndp_codec_info.speaker_enable);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err(
+				if (ERROR_NONE != iRet) {
+					sndp_log_err(
 					"speaker_amp ENABLE error(code=%d)\n",
 					iRet);
-				return;
+					return;
+				}
 			}
 		}
 	}
 
 	/* start CLKGEN */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		iRet = clkgen_start(uiValue, SNDP_NORMAL_RATE);
-	else {
+	} else {
 		/* set mode INCALL -> NORMAL */
 		uiValue &= 0xFFFFFFFC;
 		iRet = clkgen_start(uiValue, SNDP_CALL_RATE);
@@ -4198,23 +4148,28 @@ static void sndp_work_stop(
 	int			iRet = ERROR_NONE;
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	struct sndp_work_info	*wp = NULL;
+	u_int			uiValue;
 
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
+
+	uiValue = GET_OLD_VALUE(direction);
 
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
 
 	/* Set to DISABLE the speaker amp */
-	if ((SNDP_PCM_OUT == direction) &&
-	    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+		if ((SNDP_PCM_OUT == direction) &&
+		    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
+			if (NULL != g_sndp_codec_info.set_speaker_amp) {
+				iRet = g_sndp_codec_info.set_speaker_amp(
 					g_sndp_codec_info.speaker_disable);
-			if (ERROR_NONE != iRet)
-				sndp_log_err(
+				if (ERROR_NONE != iRet)
+					sndp_log_err(
 					"speaker_amp DISABLE error(code=%d)\n",
 					iRet);
+			}
 		}
 	}
 
@@ -4236,27 +4191,37 @@ static void sndp_work_stop(
 	/* FSI slave setting OFF */
 	fsi_set_slave(false);
 
-	/* Capture path is delete */
-	if (SNDP_PCM_IN == direction) {
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		if (NULL != g_sndp_codec_info.get_device) {
 			iRet = g_sndp_codec_info.get_device(&ulSetDevice);
+			sndp_log_debug("get_dev[%08x]\n", ulSetDevice);
 			if (ERROR_NONE != iRet)
-				sndp_log_err("get_device error(code=%d)\n",
+				sndp_log_err("get_device error(codec=%d)\n",
 					     iRet);
 		}
 
-		/* Init to Capture side */
-		ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
+		if (SNDP_PCM_OUT == direction) {
+			/* Init to Out devices */
+			ulSetDevice &= ~g_sndp_codec_info.out_dev_all;
+		} else if (SNDP_PCM_IN == direction) {
+			/* Init to In devices */
+			ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
+			if (E_PLAY != g_sndp_playrec_flg)
+				ulSetDevice = 0;
+		}
 
-		/* set Device */
 		if (NULL != g_sndp_codec_info.set_device) {
-			iRet = g_sndp_codec_info.set_device(
-					ulSetDevice,
-					SNDP_VALUE_INIT,
-					g_sndp_codec_info.power_on);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("set_device error (code=%d)\n",
-					     iRet);
+			if (!((SNDP_PCM_OUT == direction) &&
+			      (E_CAP == g_sndp_playrec_flg))) {
+				sndp_log_debug("set_next_dev[%08x]\n",
+					ulSetDevice);
+				iRet = g_sndp_codec_info.set_device(
+					ulSetDevice, SNDP_VALUE_INIT,
+						g_sndp_codec_info.power_on);
+				if (ERROR_NONE != iRet)
+					sndp_log_err("set_device error (code=%d)\n",
+						iRet);
+			}
 		}
 	}
 
