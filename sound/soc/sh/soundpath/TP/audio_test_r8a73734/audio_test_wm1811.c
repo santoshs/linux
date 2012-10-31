@@ -235,6 +235,10 @@ static struct audio_test_priv *audio_test_conf;
   @brief	Clock status flag.
 */
 static u_int g_audio_test_clock_flag;
+/*!
+  @brief	Loopback flag.
+*/
+static u_int g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 /***********************************/
 /* HW logical address              */
 /***********************************/
@@ -803,6 +807,8 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -820,7 +826,6 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 static int audio_test_proc_stop_scuw_loopback(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
 
 	audio_test_log_efunc("");
 
@@ -830,10 +835,6 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
@@ -841,11 +842,8 @@ static int audio_test_proc_stop_scuw_loopback(void)
 		audio_test_log_err("audio_test_ic_clear_device");
 		goto error;
 	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
-		goto error;
-	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -867,9 +865,64 @@ error:
 static int audio_test_proc_detect_jack(u_int *state)
 {
 	int ret = 0;
+	u_short reg = 0;
+	u_short jack_reg = 0;
 	u_short state_jack = 0;
 
 	audio_test_log_efunc("");
+
+	/* JACKDET_MODE B'01 */
+	ret = audio_test_ic_read(0x0039, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
+		jack_reg = reg;
+		reg = reg | 0x0080;
+		reg = reg & 0xFEFF;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* MICD_ENA B'1 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		reg = reg | 0x0001;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* GP1_FN B'101 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		reg = reg | 0x0005;
+		reg = reg & 0xFFFD;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		mdelay(2000);
+	}
 
 	/***********************************/
 	/* Get state of jack               */
@@ -887,6 +940,57 @@ static int audio_test_proc_detect_jack(u_int *state)
 		*state = AUDIO_TEST_DRV_STATE_ON;
 	else
 		*state = AUDIO_TEST_DRV_STATE_OFF;
+
+	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
+		/* JACKDET_MODE B'10 */
+		ret = audio_test_ic_read(0x0039, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+		reg = reg & 0xFF7F;
+		reg = reg | 0x0100;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* MICD_ENA B'0 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		reg = reg & 0xFFFE;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* GP1_FN B'011 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		reg = reg | 0x0003;
+		reg = reg & 0xFFFB;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+	}
 
 	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
 	return ret;
@@ -1003,6 +1107,8 @@ static int audio_test_proc_start_tone(void)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1023,8 +1129,6 @@ error:
 static int audio_test_proc_stop_tone(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
-
 	struct vcd_execute_command cmd;
 	struct vcd_call_option option;
 
@@ -1039,20 +1143,11 @@ static int audio_test_proc_stop_tone(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
 	if (0 != ret) {
 		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
 		goto error;
 	}
 
@@ -1067,6 +1162,8 @@ static int audio_test_proc_stop_tone(void)
 		audio_test_log_err("vcd_execute_test_call");
 		goto error;
 	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1155,6 +1252,8 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1176,8 +1275,6 @@ error:
 static int audio_test_proc_stop_spuv_loopback(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
-
 	struct vcd_execute_command cmd;
 	struct vcd_call_option option;
 
@@ -1192,20 +1289,11 @@ static int audio_test_proc_stop_spuv_loopback(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
 	if (0 != ret) {
 		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
 		goto error;
 	}
 
@@ -1220,6 +1308,8 @@ static int audio_test_proc_stop_spuv_loopback(void)
 		audio_test_log_err("vcd_execute_test_call");
 		goto error;
 	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
