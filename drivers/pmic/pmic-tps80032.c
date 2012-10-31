@@ -73,6 +73,10 @@ static int state_sleep[7];
 static int volt_sleep[7];
 struct hwspinlock *r8a73734_hwlock_pmic;
 
+/* Define for interrupt + suspend flag */
+unsigned long suspend_flag;
+unsigned long interrupt_flag;
+
 static wait_queue_head_t tps80032_modem_reset_event;
 static struct task_struct *tps80032_modem_reset_thread;
 static atomic_t modem_reset_handing = ATOMIC_INIT(0);
@@ -123,6 +127,7 @@ struct tps80032_data {
 	struct mutex vbus_lock;
 	struct mutex rscounter_lock;
 	struct mutex irq_lock;
+	spinlock_t pmic_lock;
 	struct workqueue_struct *queue;
 	struct i2c_client *client_power;
 	struct i2c_client *client_battery;
@@ -977,15 +982,29 @@ static void tps80032_init_timer(struct tps80032_data *data)
 static void tps80032_battery_timer_handler(unsigned long data)
 {
 	struct tps80032_data *pdata = (struct tps80032_data *)data;
+	unsigned long flags;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	/* Start timer to update battery info */
-	queue_work(pdata->queue, &pdata->update_work);
-	bat_timer.expires = jiffies + msecs_to_jiffies(CONST_TIMER_UPDATE);
-	add_timer(&bat_timer);
+	/* Lock spinlock */
+	spin_lock_irqsave(&pdata->pmic_lock, flags);
+	/* Check flag */
+	if (suspend_flag == 1) {
+		/* Unlock spinlock */
+		spin_unlock_irqrestore(&pdata->pmic_lock, flags);
+		/* Do not add timer */
+	} else {
+		/* Unlock spinlock */
+		spin_unlock_irqrestore(&pdata->pmic_lock, flags);
+		/* Add timer */
+		queue_work(pdata->queue, &pdata->update_work);
+		bat_timer.expires =
+			jiffies + msecs_to_jiffies(CONST_TIMER_UPDATE);
+		add_timer(&bat_timer);
+	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+	return;
 }
 
 /*
@@ -1258,10 +1277,35 @@ static void tps80032_interrupt_work(void)
  */
 static irqreturn_t tps80032_interrupt_handler(int irq, void *dev_id)
 {
+	unsigned long flags;
+
 	PMIC_DEBUG_MSG("%s: irq=%d\n", __func__, irq);
+	/* Lock spinlock */
+	spin_lock_irqsave(&data->pmic_lock, flags);
+
+	/* Check flag */
+	if (suspend_flag == 1) {
+		/* Unlock spinlock */
+		spin_unlock_irqrestore(&data->pmic_lock, flags);
+		/* Clear interrupt flag */
+		interrupt_flag = 0;
+		return IRQ_HANDLED;
+	}
+
+	/* Set interrupt flag */
+	interrupt_flag = 1;
+	/* Unlock spinlock */
+	spin_unlock_irqrestore(&data->pmic_lock, flags);
 
 	tps80032_interrupt_work();
 
+	/* Clear interrupt flag */
+	spin_lock_irqsave(&data->pmic_lock, flags);
+	interrupt_flag = 0;
+	/* Unlock spinlock */
+	spin_unlock_irqrestore(&data->pmic_lock, flags);
+
+	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -5529,16 +5573,35 @@ static int tps80032_power_suspend(struct device *dev)
 {
 	int ret = 0;
 	int val = 0;
+	unsigned long flags;
+	int error_flag = 0;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tps80032_data *data = i2c_get_clientdata(client);
 
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n",
 		__func__, data->client_power->name, data->client_power->addr);
 
+	/* Lock spinlock */
+	spin_lock_irqsave(&data->pmic_lock, flags);
+	/* Set flag */
+	suspend_flag = 1;
+	spin_unlock_irqrestore(&data->pmic_lock, flags);
+
+	/* Wait until interrupt_flag == 0 */
+	while (interrupt_flag == 1)
+		schedule();
+
+	/* Disable IRQ28 */
+	disable_irq(pint2irq(CONST_INT_ID));
+
 #ifdef PMIC_FUELGAUGE_ENABLE
 	/* Disable timer of PMIC */
 	del_timer_sync(&bat_timer);
+
+	/* Cancel workqueue */
+	cancel_work_sync(&(data->update_work));
 #endif
+
 	/* Get status of LDO before entering sleep mode */
 	tps80032_ldo_get_state_suspend();
 	tps80032_ldo_get_volt_suspend();
@@ -5547,6 +5610,7 @@ static int tps80032_power_suspend(struct device *dev)
 	ret = I2C_WRITE(data->client_battery, HW_REG_TOGGLE1, 0x11);
 	if (0 > ret) {
 		/* Do nothing */
+		error_flag = 1;
 		PMIC_ERROR_MSG("%s: I2C_WRITE failed err=%d\n",
 			__func__, ret);
 	}
@@ -5555,6 +5619,7 @@ static int tps80032_power_suspend(struct device *dev)
 	ret = I2C_WRITE(data->client_battery, HW_REG_GPADC_CTRL, 0x00);
 	if (0 > ret) {
 		/* Do nothing */
+		error_flag = 1;
 		PMIC_ERROR_MSG("%s: I2C_WRITE failed err=%d\n",
 			__func__, ret);
 	}
@@ -5562,6 +5627,7 @@ static int tps80032_power_suspend(struct device *dev)
 	ret = I2C_READ(data->client_battery, HW_REG_GPADC_CTRL2);
 	if (0 > ret) {
 		/* Do nothing */
+		error_flag = 1;
 		PMIC_ERROR_MSG("%s: I2C_READ failed err=%d\n",
 			__func__, ret);
 	}
@@ -5570,8 +5636,22 @@ static int tps80032_power_suspend(struct device *dev)
 	ret = I2C_WRITE(data->client_battery, HW_REG_GPADC_CTRL2, val);
 	if (0 > ret) {
 		/* Do nothing */
+		error_flag = 1;
 		PMIC_ERROR_MSG("%s: I2C_WRITE failed err=%d\n",
 			__func__, ret);
+	}
+
+	if (1 == error_flag) {
+		spin_lock_irqsave(&data->pmic_lock, flags);
+
+		/* Set flag is 0 if error occur */
+		suspend_flag = 0;
+
+		/* Unlock spinlock */
+		spin_unlock_irqrestore(&data->pmic_lock, flags);
+
+		PMIC_DEBUG_MSG("%s end <<<\n", __func__);
+		return 0;
 	}
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
@@ -5591,6 +5671,12 @@ static int tps80032_power_resume(struct device *dev)
 
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n",
 			__func__, client->name, client->addr);
+
+	/* Clear flag */
+	suspend_flag = 0;
+
+	/* Enable IRQ28 */
+	enable_irq(pint2irq(CONST_INT_ID));
 
 #ifdef PMIC_FUELGAUGE_ENABLE
 	queue_work(data->queue, &data->resume_work);
@@ -6262,10 +6348,15 @@ static int tps80032_power_probe(struct i2c_client *client,
 	mutex_init(&data->force_off_lock);
 	mutex_init(&data->rscounter_lock);
 	mutex_init(&data->irq_lock);
+	spin_lock_init(&data->pmic_lock);
 
 	tps80032_modem_reset_thread = NULL;
 	key_count = 0;
 	num_volt = 0;
+
+	/* Init flags */
+	suspend_flag = 0;
+	interrupt_flag = 0;
 
 	data->device = E_DEVICE_NONE;
 	data->charger = 0;
