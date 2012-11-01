@@ -92,6 +92,7 @@ static unsigned long intcrt_base5;
 #define GSR_REQ_COMP		(0x00000001)
 
 static char *kernel_rt_boot_path = "/boot/RTFM_SH4AL_DSP_MU200.bin";
+static char *kernel_rt_cert_path = "/boot/mediafw.cert";
 extern struct rt_boot_info g_rtboot_info;
 
 /* prototype */
@@ -174,7 +175,11 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
 		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
 
+#if SECURE_BOOT_RT
+		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);
+#else
 		data_addr = ioremap(info.boot_addr, info.image_size);
+#endif
 		if (!data_addr) {
 			MSG_ERROR("[RTBOOTK]   |ioremap Error section info\n");
 			ret = 1;
@@ -193,7 +198,7 @@ int read_rt_image(unsigned int *addr)
 		/* Init load_flg */
 		bootaddr_info = (struct rt_boot_info *)(data_addr + RT_BOOT_SIZE);
 		bootaddr_info->load_flg = 0;
-
+#if !SECURE_BOOT_RT
 		/* Set screen data */
 		retval = set_screen_data(info.displaybuff_address);
 		if (0 != retval) {
@@ -201,7 +206,7 @@ int read_rt_image(unsigned int *addr)
 			ret = 1;
 			break;
 		}
-
+#endif
 	} while (0);
 
 	if (data_addr) {
@@ -349,4 +354,57 @@ static int set_screen_data(unsigned int disp_addr)
 	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
+}
+
+int read_rt_cert(unsigned int addr)
+{
+	unsigned char *data_addr = 0;
+	struct file *fp = NULL;
+	struct kstat stbuf;
+	int ret;
+	int ret_size;
+
+	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+
+	do {
+		ret = vfs_stat(kernel_rt_cert_path, &stbuf);
+		if (ret != 0) {
+			MSG_ERROR("[RTBOOTK]   |Error file stat\n");
+			ret_size = 0;
+			break;
+		}
+
+		fp = filp_open(kernel_rt_cert_path, O_RDONLY, 0);
+		if (IS_ERR(fp)) {
+			MSG_ERROR("[RTBOOTK]   |Error file open\n");
+			ret_size = 0;
+			break;
+		}
+
+		data_addr = ioremap(addr, stbuf.size);
+		if (!data_addr) {
+			MSG_ERROR("[RTBOOTK]   |ioremap Error section info\n");
+			ret_size = 0;
+			break;
+		}
+
+		ret_size = kernel_read(fp, 0, (char *)data_addr, stbuf.size);
+		if (ret_size != stbuf.size) {
+			MSG_ERROR("[RTBOOTK]   |Error file read (RT image) size =%d\n", ret_size);
+			ret_size = 0;
+			break;
+		}
+	} while (0);
+
+	if (data_addr) {
+		iounmap(data_addr);
+	}
+
+	if (!IS_ERR(fp)) {
+		(void)filp_close(fp, NULL);
+	}
+
+	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
+
+	return ret_size;
 }
