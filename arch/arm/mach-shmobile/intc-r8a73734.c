@@ -304,6 +304,7 @@ void __init r8a73734_init_irq(void)
 	void __iomem *gic_cpu_base = __io(IO_ADDRESS(0xf0000100));
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
+	BUG_ON(!intevtsa);
 
 	gic_init(0, 29, gic_dist_base, gic_cpu_base);
 	gic_arch_extn.irq_set_wake = r8a73734_irq_set_wake;

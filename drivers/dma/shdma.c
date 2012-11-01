@@ -1663,9 +1663,12 @@ static int __exit sh_dmae_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	clk_put(shdev->clk);
 
+	if (shdev->desc_mem)
+		iounmap(shdev->desc_mem);
 	if (shdev->dmars)
 		iounmap(shdev->dmars);
-	iounmap(shdev->chan_reg);
+	if (shdev->chan_reg)
+		iounmap(shdev->chan_reg);
 
 	platform_set_drvdata(pdev, NULL);
 
