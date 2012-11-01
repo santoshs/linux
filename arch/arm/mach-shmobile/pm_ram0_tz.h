@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-shmobile/pm_ram0.h
+ * arch/arm/mach-shmobile/pm_ram0_tz.h
  *
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
@@ -61,18 +61,21 @@
 #define	saveCpuRegisterAreaSize				0x660
 
 /* Size of code	*/
-#define	fsArmVector							0x080 /* ARM Vector size*/
-#define	fsWfiVector							0x040 /* WFI Vector size*/
-#define	fsCoreStandby						0x280 /* Core Standby function size	*/
-#define	fsSystemSuspend						0x2A0 /* System Suspend function size*/
-#define	fsSaveArmRegister					0x140 /* Save ARM register function size*/
-#define	fsRestoreArmRegisterPA				0x40 /* Restore ARM register function(PA) size*/
-#define	fsRestoreArmRegisterVA				0x0E0 /* Restore ARM register function(VA) size*/
-#define	fsSaveArmCommonRegister				0x060 /* Save ARM common register function size*/
-#define	fsRestoreArmCommonRegister			0x040 /* Restore ARM common register function size*/
-#define	fsSysPowerDown						0x220 /* power down function size*/
-#define	fsSysPowerUp						0x1A0 	/* power up function size*/
-#define	fsSetClockSystemSuspend				0x1A0 /* Set clock function size*/
+#define	fsArmVector			0x080 /* ARM Vector */
+#define	fsCoreStandby		0x340 /* Core Standby */
+#define	fsCoreStandby_2		0x300 /* Core Standby 2 */
+#define	fsSystemSuspend		0x320 /* System Suspend */
+#define	fsSaveArmRegister	0x140 /* Save ARM register */
+#define	fsRestoreArmRegisterPA	0x40  /* Restore ARM register PA */
+#define	fsRestoreArmRegisterVA	0x0E0 /* Restore ARM register VA */
+#define	fsSaveArmCommonRegister	0x060 /* Save ARM common register */
+#define	fsRestoreArmCommonRegister	0x040 /* Restore ARM common register */
+#define	fsPM_Spin_Lock		0x180	/* PM_Spin_Lock */
+#define	fsPM_Spin_Unlock	0xA0	/* PM_Spin_Unlock */
+#define	fsxtal_though		0x20	/* XTAL though mode setting */
+#define	fsSysPowerDown		0x220	/* power down function size*/
+#define	fsSysPowerUp		0x1A0	/* power up function size*/
+#define	fsSetClockSystemSuspend		0x460 /* Set clock function size*/
 
 /*-----------------------------------------------*/
 /* Offset of RAM0 area							*/
@@ -86,14 +89,14 @@
 #define		hoArmVector						\
 0x0
 /* Offset to the Core Standby function */
-#define		hoWfiVector					\
-(hoArmVector				+ fsArmVector)
-/* Offset to the Core Standby function */
 #define		hoCoreStandby					\
-(hoWfiVector				+ fsWfiVector)
+(hoArmVector				+ fsArmVector)
+/* Offset to the Core Standby 2 function */
+#define		hoCoreStandby_2					\
+(hoCoreStandby				+ fsCoreStandby)
 /* Offset to the System Suspend function */
 #define		hoSystemSuspend					\
-(hoCoreStandby				+ fsCoreStandby)
+(hoCoreStandby_2				+ fsCoreStandby_2)
 /* Offset to the Save ARM register function */
 #define		hoSaveArmRegister				\
 (hoSystemSuspend			+ fsSystemSuspend)
@@ -109,9 +112,18 @@
 /* Offset to the Restore ARM common register function */
 #define		hoRestoreArmCommonRegister		\
 (hoSaveArmCommonRegister	+ fsSaveArmCommonRegister)
+/* Offset to PM spin lock */
+#define		hoPM_Spin_Lock					\
+(hoRestoreArmCommonRegister + fsRestoreArmCommonRegister)
+/* Offset to PM spin unlock */
+#define		hoPM_Spin_Unlock					\
+(hoPM_Spin_Lock + fsPM_Spin_Lock)
+
+#define		hoxtal_though					\
+(hoPM_Spin_Unlock + fsPM_Spin_Unlock)
 /* Offset to the power down function */
 #define		hoSysPowerDown					\
-(hoRestoreArmCommonRegister	+ fsRestoreArmCommonRegister)
+(hoxtal_though	+ fsxtal_though)
 /* Offset to the power up function */
 #define		hoSysPowerUp					\
 (hoSysPowerDown				+ fsSysPowerDown)
@@ -119,9 +131,8 @@
 #define		hoSetClockSystemSuspend			\
 (hoSysPowerUp				+ fsSysPowerUp)
 
-
 /* backup area */
-#define	hoBackup		0x1000 /* Offset to the Area for backup */
+#define	hoBackup		0x1A00 /* Offset to the Area for backup */
 
 /*-------------------------------------------------------*/
 /* Address of RAM0 area */
@@ -131,15 +142,16 @@
 /*-------------------------------------------------------*/
 /* Address of function			*/
 
+/* Address of function (Virt)	*/
 /* Address of ARM Vector function */
 #define		ram0ArmVector						\
 (ram0Base + hoArmVector)
-/* Address of WFI Vector function */
-#define		ram0WfiVector						\
-(ram0Base + hoWfiVector)
 /* Address of Core Standby function */
 #define		ram0CoreStandby						\
 (ram0Base + hoCoreStandby)
+/* Address of Core Standby 2 function */
+#define		ram0CoreStandby_2					\
+(ram0Base + hoCoreStandby_2)
 /* Address of System Suspend function */
 #define		ram0SystemSuspend					\
 (ram0Base + hoSystemSuspend)
@@ -158,7 +170,15 @@
 /* Address of Restore ARM common register function */
 #define		ram0RestoreArmCommonRegister		\
 (ram0Base + hoRestoreArmCommonRegister)
-/* Address of Save common register function */
+/* Address of PM spin lock */
+#define		ram0PM_Spin_Lock					\
+(ram0Base + hoPM_Spin_Lock)
+/* Addresss of PM spin unlock */
+#define		ram0PM_Spin_Unlock					\
+(ram0Base + hoPM_Spin_Unlock)
+/* Addresss of Xtal though */
+#define	ram0xtal_though				\
+(ram0Base + hoxtal_though)
 /* Address of System power down function */
 #define		ram0SysPowerDown					\
 (ram0Base + hoSysPowerDown)
@@ -169,18 +189,16 @@
 #define		ram0SetClockSystemSuspend			\
 (ram0Base + hoSetClockSystemSuspend)
 
-
-/* Address of function (Phys) */
-
+/* Address of function (Phys)	*/
 /* Address of ARM Vector function */
 #define	ram0ArmVectorPhys					\
 (ram0BasePhys + hoArmVector)
-/* Address of WFI Vector function */
-#define	ram0WfiVectorPhys					\
-(ram0BasePhys + hoWfiVector)
 /* Address of Core Standby function */
 #define	ram0CoreStandbyPhys					\
 (ram0BasePhys + hoCoreStandby)
+/* Address of Core Standby2 function */
+#define	ram0CoreStandby_2Phys					\
+(ram0BasePhys + hoCoreStandby_2)
 /* Address of System Suspend function */
 #define	ram0SystemSuspendPhys				\
 (ram0BasePhys + hoSystemSuspend)
@@ -199,6 +217,15 @@
 /* Address of Restore ARM common register function */
 #define	ram0RestoreArmCommonRegisterPhys	\
 (ram0BasePhys + hoRestoreArmCommonRegister)
+/* Address of PM spin lock */
+#define		ram0PM_Spin_LockPhys					\
+(ram0BasePhys + hoPM_Spin_Lock)
+/* Address of PM spin unlock */
+#define		ram0PM_Spin_UnlockPhys					\
+(ram0BasePhys + hoPM_Spin_Unlock)
+/* xtal though */
+#define		ram0xtal_thoughPhys					\
+(ram0BasePhys + hoxtal_though)
 /* Address of System power down function */
 #define	ram0SysPowerDownPhys				\
 (ram0BasePhys + hoSysPowerDown)
@@ -209,13 +236,12 @@
 #define	ram0SetClockSystemSuspendPhys		\
 (ram0BasePhys + hoSetClockSystemSuspend)
 
-
 /* Address of backup area top */
 /* Address of backup(L) */
-#define	ram0Backup							\
+#define ram0Backup							\
 (ram0Base		+ hoBackup)
 /* Address of backup(P) */
-#define	ram0BackupPhys						\
+#define ram0BackupPhys						\
 (ram0BasePhys	+ hoBackup)
 
 /* Backup area */
@@ -260,8 +286,16 @@
 (ram0SecHalReturnCpu0						+ 0x4)
 #define ram0ZClockFlag						\
 (ram0SecHalReturnCpu1						+ 0x4)
+
+/* Errata(ECR0285) */
+#define ram0ES_2_2_AndAfter				\
+(ram0ZClockFlag + 0x4)
+#define ram0CPU0SpinLock					\
+(ram0ES_2_2_AndAfter + 0x4)
+#define ram0CPU1SpinLock					\
+(ram0CPU0SpinLock + 0x4)
 #define	ram0DramPasrSettingArea0			\
-(ram0ZClockFlag				+ 0x4)
+(ram0CPU1SpinLock				+ 0x4)
 #define	ram0DramPasrSettingArea1			\
 (ram0DramPasrSettingArea0		+ 0x4)
 #define	ram0SaveSdmracr0a					\
@@ -279,28 +313,56 @@
 /*Restore point after enable MMU for CoreStandby with CPU1*/
 #define	ram0CoreStandbyRestoreCPU1			\
 (ram0CoreStandbyRestoreCPU0 + 0x4)
-/*Restore point after enable MMU for CoreStandby with CPU0*/
-#define	ram0CoreStandbyRestoreCPU0_error			\
+/*Restore point after enable MMU for CoreStandby2 with CPU0*/
+#define	ram0CoreStandby2RestoreCPU0			\
 (ram0CoreStandbyRestoreCPU1	+ 0x4)
-/*Restore point after enable MMU for CoreStandby with CPU1*/
+/*Restore point after enable MMU for CoreStandby2 with CPU1*/
+#define	ram0CoreStandby2RestoreCPU1			\
+(ram0CoreStandby2RestoreCPU0 + 0x4)
+/*Restore point error after enable MMU for CoreStandby with CPU0*/
+#define	ram0CoreStandbyRestoreCPU0_error			\
+(ram0CoreStandby2RestoreCPU1	+ 0x4)
+/*Restore point error after enable MMU for CoreStandby with CPU1*/
 #define	ram0CoreStandbyRestoreCPU1_error			\
 (ram0CoreStandbyRestoreCPU0_error + 0x4)
 
 /*FRQCRA mask*/
 #define	ram0FRQCRAMask			\
 (ram0CoreStandbyRestoreCPU1_error + 0x4)
-/*FRQCRA mask*/
+
 #define	ram0FRQCRADown			\
 (ram0FRQCRAMask + 0x4)
+#define	ram0FRQCRBDown			\
+(ram0FRQCRADown + 0x4)
 
 /* SPI Status Registers */
 #define	ram0_ICSPISR0		\
-(ram0FRQCRADown + 0x4)
-#define	ram0_ICSPISR1						\
+(ram0FRQCRBDown + 0x4)
+#define	 ram0_ICSPISR1						\
 (ram0_ICSPISR0 + 0x4)
+
+/* SBSC ioremap address */
+#define ram0SBSC_SDCR0AIOremap	\
+(ram0_ICSPISR1 + 0x4)
+#define ram0SBSC_SDWCRC0AIOremap	\
+(ram0SBSC_SDCR0AIOremap + 0x4)
+#define ram0SBSC_SDWCRC1AIOremap	\
+(ram0SBSC_SDWCRC0AIOremap + 0x4)
+#define ram0SBSC_SDWCR00AIOremap	\
+(ram0SBSC_SDWCRC1AIOremap + 0x4)
+#define ram0SBSC_SDWCR01AIOremap	\
+(ram0SBSC_SDWCR00AIOremap + 0x4)
+#define ram0SBSC_SDWCR10AIOremap	\
+(ram0SBSC_SDWCR01AIOremap + 0x4)
+#define ram0SBSC_SDWCR11AIOremap	\
+(ram0SBSC_SDWCR10AIOremap + 0x4)
+#define ram0SBSC_SDWCRC2AIOremap	\
+(ram0SBSC_SDWCR11AIOremap + 0x4)
+
+
 /* Watchdog status in suspend */
 #define	ram0RwdtStatus	\
-(ram0_ICSPISR1 + 0x4)
+(ram0SBSC_SDWCRC2AIOremap + 0x4)
 #define	ram0SaveEXMSKCNT1_suspend	\
 (ram0RwdtStatus + 0x4)
 #define	ram0SaveAPSCSTP_suspend		\
@@ -371,8 +433,18 @@
 (ram0SecHalReturnCpu0Phys					+ 0x4)
 #define ram0ZClockFlagPhys						\
 (ram0SecHalReturnCpu1Phys						+ 0x4)
+
+
+/* Errata(ECR0285) */
+#define ram0ES_2_2_AndAfterPhys				\
+(ram0ZClockFlagPhys + 0x4)
+#define ram0CPU0SpinLockPhys					\
+(ram0ES_2_2_AndAfterPhys + 0x4)
+
+#define ram0CPU1SpinLockPhys					\
+(ram0CPU0SpinLockPhys + 0x4)
 #define	ram0DramPasrSettingArea0Phys		\
-(ram0ZClockFlagPhys		+ 0x4)
+(ram0CPU1SpinLockPhys		+ 0x4)
 #define	ram0DramPasrSettingArea1Phys		\
 (ram0DramPasrSettingArea0Phys	+ 0x4)
 #define	ram0SaveSdmracr0aPhys				\
@@ -381,7 +453,7 @@
 (ram0SaveSdmracr0aPhys			+ 0x4)
 #define	ram0SystemSuspendRestoreCPU0Phys	\
 (ram0SaveSdmracr1aPhys + 0x4)
-/* Restore point after enable MMU for System Sleep with CPU1 */
+/* Restore point after enable MMU for System Suspend with CPU1 */
 #define	ram0SystemSuspendRestoreCPU1Phys	\
 (ram0SystemSuspendRestoreCPU0Phys	+ 0x4)
 /* Restore point after enable MMU for CoreStandby with CPU0 */
@@ -390,10 +462,16 @@
 /* Restore point after enable MMU for CoreStandby with CPU1 */
 #define	ram0CoreStandbyRestoreCPU1Phys		\
 (ram0CoreStandbyRestoreCPU0Phys + 0x4)
-/*Restore point after enable MMU for CoreStandby with CPU0*/
-#define	ram0CoreStandbyRestoreCPU0_errorPhys			\
+/* Restore point after enable MMU for CoreStandby2 with CPU0 */
+#define	ram0CoreStandby2RestoreCPU0Phys		\
 (ram0CoreStandbyRestoreCPU1Phys	+ 0x4)
-/*Restore point after enable MMU for CoreStandby with CPU1*/
+/* Restore point after enable MMU for CoreStandby2 with CPU1 */
+#define	ram0CoreStandby2RestoreCPU1Phys		\
+(ram0CoreStandby2RestoreCPU0Phys + 0x4)
+/*Restore point error after enable MMU for CoreStandby with CPU0*/
+#define	ram0CoreStandbyRestoreCPU0_errorPhys			\
+(ram0CoreStandby2RestoreCPU1Phys	+ 0x4)
+/*Restore point error after enable MMU for CoreStandby with CPU1*/
 #define	ram0CoreStandbyRestoreCPU1_errorPhys			\
 (ram0CoreStandbyRestoreCPU0_errorPhys + 0x4)
 
@@ -403,16 +481,38 @@
 /*FRQCRA mask*/
 #define	ram0FRQCRADownPhys			\
 (ram0FRQCRAMaskPhys + 0x4)
+#define	ram0FRQCRBDownPhys			\
+(ram0FRQCRADownPhys + 0x4)
 
 /* SPI Status Registers */
 #define	ram0_ICSPISR0Phys		\
-(ram0FRQCRADownPhys + 0x4)
+(ram0FRQCRBDownPhys + 0x4)
 #define	 ram0_ICSPISR1Phys					\
 (ram0_ICSPISR0Phys + 0x4)
-#define ram0RwdtStatusPhys	\
+
+/* SBSC ioremap address */
+#define ram0SBSC_SDCR0AIOremapPhys	\
 (ram0_ICSPISR1Phys + 0x4)
+#define ram0SBSC_SDWCRC0AIOremapPhys	\
+(ram0SBSC_SDCR0AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCRC1AIOremapPhys	\
+(ram0SBSC_SDWCRC0AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCR00AIOremapPhys	\
+(ram0SBSC_SDWCRC1AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCR01AIOremapPhys	\
+(ram0SBSC_SDWCR00AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCR10AIOremapPhys	\
+(ram0SBSC_SDWCR01AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCR11AIOremapPhys	\
+(ram0SBSC_SDWCR10AIOremapPhys + 0x4)
+#define ram0SBSC_SDWCRC2AIOremapPhys	\
+(ram0SBSC_SDWCR11AIOremapPhys + 0x4)
+
+#define ram0RwdtStatusPhys	\
+(ram0SBSC_SDWCRC2AIOremapPhys + 0x4)
 #define	ram0SaveEXMSKCNT1Phys_suspend	\
 (ram0RwdtStatusPhys + 0x4)
+
 #define	ram0SaveAPSCSTPPhys_suspend	\
 (ram0SaveEXMSKCNT1Phys_suspend + 0x4)
 #define	ram0SaveSYCKENMSKPhys_suspend	\
@@ -461,10 +561,12 @@
 /*-----------------------------------------*/
 /* Definition of CPU status	*/
 /*----------------------------------------*/
-#define CPUSTATUS_RUN						0x0
-#define CPUSTATUS_WFI						0x1
-#define CPUSTATUS_SHUTDOWN					0x3
-
+#define CPUSTATUS_RUN				0x0
+#define CPUSTATUS_WFI				0x1
+#define CPUSTATUS_SHUTDOWN			0x3
+#define CPUSTATUS_WFI2				0x4
+#define CPUSTATUS_HOTPLUG			0x5
+#define CPUSTATUS_SHUTDOWN2			0x6
 /*----------------------------------------------*/
 /* Definition parameters of sec_hal_pm_coma_entry()*/
 /*----------------------------------------------*/
@@ -473,7 +575,10 @@
 #define COMA_MODE_SUSPEND				0x1
 #define COMA_MODE_CORE_STANDBY			0x2
 #define COMA_MODE_SLEEP					0x3
+#define COMA_MODE_HOTPLUG				0x4
 #define COMA_MODE_SLEEP_2				0x5
+#define COMA_MODE_CORE_STANDBY_2		0x6
+
 /* Frequency */
 #define CLK_NOCHANGED				0x00
 #define PLL0_OFF					0x01
@@ -504,7 +609,6 @@ M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 #define WAKEUP_ADDRESS				ram0ArmVectorPhys
 #define WAKEUP_ADDRESS_DUMMY		0x00000000
 #define WAKEUP_ADDRESS_CORESTANDBY	ram0ArmVectorPhys
-#define WAKEUP_ADDRESS_WFI			ram0WfiVectorPhys
 
 /* Context save address */
 #define CONTEXT_SAVE_ADDRESS		0x00000000
@@ -515,56 +619,4 @@ M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 #define SEC_HAL_RES_FAIL			0x00000010
 #define SEC_HAL_FREQ_FAIL			0x00000020
 
-#if 0
-/*---------------------------------------------------------------*/
-/* Definition needed for changing the SBSC clock. */
-/*-------------------------------------------------------------*/
-/* Base address					*/
-#define	ram0ChangeClkBase		(ram0Base		+ 0x3700)
-#define	ram0ChangeClkBasePhys	(ram0BasePhys	+ 0x3700)
-/* Size of code					*/
-#define	fsChangeSbscClkOnInternalMemory	0x2A0
-#define	fsWaitOnInternalMemory			0xE0
-/* Offset of code				*/
-#define	hoChangeSbscClkOnInternalMemory	0x0000
-#define	hoWaitOnInternalMemory			\
-(hoChangeSbscClkOnInternalMemory + fsChangeSbscClkOnInternalMemory)
-
-/* Address of function			*/
-#define	ram0ChangeSbscClkOnInternalMemory	\
-(ram0ChangeClkBase			+ hoChangeSbscClkOnInternalMemory)
-#define	ram0WaitOnInternalMemory			\
-(ram0ChangeClkBase			+ hoWaitOnInternalMemory)
-/* Address of function(Phys)	*/
-#define	ram0ChangeSbscClkOnInternalMemoryPhys	\
-(ram0ChangeClkBasePhys		+ hoChangeSbscClkOnInternalMemory)
-#define	ram0WaitOnInternalMemoryPhys			\
-(ram0ChangeClkBasePhys		+ hoWaitOnInternalMemory)
-
-
-/*------------------------------------------*/
-/* Wait state		"BEGIN WAIT"	:0x0	*/
-/*					"PREPARE WAIT"	:0x1	*/
-/*					"ENTER WAIT"	:0x2	*/
-/*					"FINISH WAIT"	:0x3	*/
-/*					"END WAIT"		:0x4	*/
-/* Wait request		"BEGIN"			:0x0	*/
-/*					"PREPARE"		:0x1	*/
-/*					"ENTER"			:0x2	*/
-/*					"FINISH"		:0x3	*/
-/*					"END"			:0x4	*/
-/*------------------------------------------*/
-/* Address of flags				*/
-#define	ram0WaitState					\
-(ram0ChangeClkBase + hoWaitOnInternalMemory + fsWaitOnInternalMemory)
-#define	ram0WaitRequest					\
-(ram0WaitState				+ 0x4)
-/* Address of flags(Phys)		*/
-#define	ram0WaitStatePhys				\
-(ram0ChangeClkBasePhys + hoWaitOnInternalMemory + fsWaitOnInternalMemory)
-#define	ram0WaitRequestPhys				\
-(ram0WaitStatePhys			+ 0x4)
-#endif
-
 #endif /* __PM_RAM0_H__ */
-

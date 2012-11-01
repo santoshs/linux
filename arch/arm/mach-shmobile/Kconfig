@@ -233,6 +233,7 @@ config PM_HAS_SECURE
 	default y
 	bool "Support Secure OS by Power Management"
 	depends on ARCH_SHMOBILE
+	depends on ARM_SEC_HAL
 	help
 	  This enables PM support for Secure OS.
 
@@ -242,6 +243,17 @@ config HOTPLUG_ARCH_R8A73734
 	depends on HOTPLUG_CPU
 	help
 	  This CPU Hotplug for R-MobileU2
+
+config HOTPLUG_CPU_MGR
+	default y
+	bool "Support CPU Hotplug Manager for R-MobileU2 New power consumption"
+	depends on HOTPLUG_CPU
+	depends on ARCH_SHMOBILE
+	depends on HOTPLUG_ARCH_R8A73734
+	help
+	  This CPU Hotplug Manager for R-MobileU2 New power consumption
+	  It relatd to 3 modules: Dynamic Frequency Scaling (DFS), Hotplug
+	  and Sleep (WFI)/CoreStandy)
 
 source "drivers/sh/Kconfig"
 

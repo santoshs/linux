@@ -352,7 +352,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * Setup the percpu timer for this CPU.
 	 */
 	percpu_timer_setup();
-
+#if 0
 	while (!cpu_active(cpu))
 		cpu_relax();
 
@@ -360,6 +360,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * cpu_active bit is set, so it's safe to enable interrupts
 	 * now.
 	 */
+#endif
 	local_irq_enable();
 	local_fiq_enable();
 

@@ -23,6 +23,7 @@
 #include <mach/vmalloc.h>
 #include <mach/r8a73734.h>
 #include <linux/io.h>
+#include <linux/spinlock_types.h>
 
 #ifdef CONFIG_PM_HAS_SECURE
 #include "../../../../../drivers/sec_hal/rt/inc/sec_hal_rt.h"
@@ -44,7 +45,7 @@
 #define PM_STATE_NOTIFY_WAKEUP			4
 #define PM_STATE_NOTIFY_SUSPEND			5
 #define PM_STATE_NOTIFY_RESUME			6
-#define PM_STATE_NOTIFY_SLEEP_LOWFREQ2	7
+#define PM_STATE_NOTIFY_CORESTANDBY_2	7
 struct pm_state_notify {
 	struct list_head link;
 	const char *name;
@@ -66,9 +67,10 @@ extern int corestandby_pa_physical;
 extern int systemsuspend_cpu0_pa_physical;
 extern int systemsuspend_cpu1_pa_physical;
 extern int start_corestandby(void);
+extern int start_corestandby_2(void);
 extern void ArmVector(void);
-extern void WfiVector(void);
 extern void corestandby(void);
+extern void corestandby_2(void);
 extern void systemsuspend(void);
 extern void save_arm_register(void);
 extern void restore_arm_register_pa(void);
@@ -86,6 +88,14 @@ extern void disablemmu(void);
 extern void systemsuspend_cpu0_pa(void);
 extern void systemsuspend_cpu1_pa(void);
 extern void corestandby_pa(void);
+extern void corestandby_pa_2(void);
+
+extern void corestandby_down_status(void);
+extern void corestandby_up_status(void);
+extern void xtal_though(void);
+extern void PM_Spin_Lock(void);
+extern void PM_Spin_Unlock(void);
+
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
 extern void shmobile_suspend_udelay(unsigned int delay_time);
@@ -331,9 +341,31 @@ enum pll_type {
 };
 
 enum pll_ratio {
+	PLLx35 = 35,
 	PLLx38 = 38,
+	PLLx42 = 42,
 	PLLx46 = 46,
+	PLLx49 = 49,
 	PLLx56 = 56
+};
+
+enum {
+	LLx1_16 = 1,
+	LLx2_16,
+	LLx3_16,
+	LLx4_16,
+	LLx5_16,
+	LLx6_16,
+	LLx7_16,
+	LLx8_16,
+	LLx9_16,
+	LLx10_16,
+	LLx11_16,
+	LLx12_16,
+	LLx13_16,
+	LLx14_16,
+	LLx15_16,
+	LLx16_16,
 };
 
 struct clk_rate {
@@ -367,8 +399,25 @@ enum {
 extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
-/* overdrive mode enable flag */
-#define SH_CPUFREQ_OVERDRIVE	1
+/* #define DVFS_DEBUG_MODE		1 */
+/* #define DVFS_TEST_MODE		1 */
+#ifdef DVFS_DEBUG_MODE
+#define pr_log	pr_alert
+#else
+#define pr_log(...)
+#endif /* DVFS_DEBUG_MODE */
+#define ZFREQ_MODE 1
+#ifndef valid_revision
+#define valid_revision()	(ES_REV_2X & shmobile_chip_rev())
+#endif /* valid_revision */
+#ifndef validate
+#ifdef CONFIG_PM_DEBUG
+#define validate()		(valid_revision() && is_cpufreq_enable())
+#else /* CONFIG_PM_DEBUG */
+#define validate()		valid_revision()
+#endif /* CONFIG_PM_DEBUG */
+#endif /* validate */
+#define DYNAMIC_HOTPLUG_CPU	1
 
 #ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND
 extern int samplrate_downfact_change(unsigned int sampl_rate,
@@ -401,7 +450,7 @@ extern void unsuppress_clocks_change(void);
 #ifdef CONFIG_PM_DEBUG
 extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
-#endif
+#endif /* CONFIG_PM_DEBUG */
 /* Internal API for CPUFreq driver only */
 extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
@@ -448,4 +497,10 @@ static inline int pm_disable_clock_change(int clk) { return 0; }
 static inline unsigned long pm_get_spinlock(void) { return 0; }
 static inline void pm_release_spinlock(unsigned long flag) { }
 #endif /* CONFIG_CPU_FREQ */
+
+#if (defined CONFIG_HOTPLUG_CPU_MGR) && (defined CONFIG_ARCH_R8A73734)
+#define THS_HOTPLUG_ID		(1 << 4)
+#define DFS_HOTPLUG_ID		(1 << 8)
+#define SYSFS_HOTPLUG_ID	(1 << 12)
+#endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
 #endif /* __ASM_ARCH_PM_H */
