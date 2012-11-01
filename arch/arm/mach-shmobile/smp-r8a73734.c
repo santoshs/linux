@@ -113,13 +113,6 @@ void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 
 int __cpuinit r8a73734_boot_secondary(unsigned int cpu)
 {
-#ifndef CONFIG_ARM_TZ
-	/* must be sure */
-	if (!(get_shmobile_suspend_state() & PM_SUSPEND_MEM)) {
-		pr_debug("prepare boot entry for CPU<%d>\n", cpu);
-		rewrite_boot_entry(__pa(shmobile_secondary_vector));
-	}
-#endif
 	/* enable cache coherency */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));
 

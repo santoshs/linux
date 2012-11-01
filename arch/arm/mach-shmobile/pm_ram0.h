@@ -23,15 +23,15 @@
 #include <mach/vmalloc.h>
 #include <mach/r8a73734.h>
 
-#define __EXTAL1_INFO__
+/* #define __EXTAL1_INFO__ */
 
 #undef CONFIG_PM_SMP
 #if (defined(CONFIG_SMP) && (CONFIG_NR_CPUS > 1))
 #define CONFIG_PM_SMP
 #endif
 
-#ifndef	CONFIG_PM_SMP
-#define		CORESTANDBY_A2SL /* CORESTANDBY_A2SL */
+#ifndef CONFIG_PM_SMP
+#define CORESTANDBY_A2SL /* CORESTANDBY_A2SL */
 #endif
 
 
@@ -51,93 +51,102 @@
 #define ram1Base		IO_ADDRESS(ram1BasePhys)
 
 /* Size of backup area	*/
-#define	saveCommonSettingSize				0x90
-#define	savePl30GlobalSettingSize			0x14
-#define	saveArmMmuSettingSize				0x28
+#define saveCommonSettingSize		0x90
+#define savePl30GlobalSettingSize	0x14
+#define saveArmMmuSettingSize		0x28
 
 /* Size of CPU Register backup area	*/
-#define	saveCpuRegisterAreaSize				0x660
+#define saveCpuRegisterAreaSize		0x660
 
 /* Size of code	*/
-#define	fsArmVector					0x100 /* ARM Vector */
+#define	fsArmVector					0xC0 /* ARM Vector */
 #define	fsCoreStandby				0x0 /* Core Standby */
 #define	fsSystemSuspend				0x0 /* System Suspend */
 #define	fsSaveArmRegister			0x0 /* Save ARM register */
-#define	fsRestoreArmRegisterPA		0x60 /* Restore ARM register (PA) */
-#define	fsRestoreArmRegisterVA		0x0/* Restore ARM register VA) */
+#define	fsRestoreArmRegisterPA		0x40 /* Restore ARM register (PA) */
+#define	fsRestoreArmRegisterVA		0x0/* Restore ARM register (VA) */
 #define	fsSaveArmCommonRegister		0x0 /* Save ARM common register */
 #define	fsRestoreArmCommonRegister	0x0 /* Restore ARM common register */
 #define	fsSaveCommonRegister		0x0 /* Save common register */
 #define	fsRestoreCommonRegister		0x100 /* Restore common register */
-#define	fsSysPowerDown				0x240 /* power down */
-#define	fsSysPowerUp				0x2C0 /* power up */
-#define	fsSetClockSystemSuspend		0x160 /* Set clock */
+#define	fsSysPowerDown				0x1C0 /* power down */
+#define	fsSysPowerUp				0x200 /* power up */
+#define	fsSetClockSystemSuspend		0x120 /* Set clock */
 
-#define	fsSystemSuspendCPU0PA		0x80 /* System Suspend for CPU0 with MMU off */
-#define	fsCoreStandbyPA				0x5C0 /* CoreStandby function with MMU off */
-#define	fsDisableMMU				0x20 /* Disable MMU function */
-#define	fsSystemSuspendCPU1PA		0xE0 /* System Suspend for CPU1 with MMU off */
+#define	fsSystemSuspendCPU0PA	0x80 /* CPU0: Suspend with MMU off */
+#define	fsCoreStandbyPA		0x1C0 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA2	0x240 /* CoreStandby function with MMU off */
+#define	fsPM_Spin_Lock		0x180 /* PM_Spin_Lock */
+#define	fsPM_Spin_Unlock	0xA0 /* PM_Spin_Unlock */
+#define	fsDisableMMU		0x20 /* Disable MMU function */
+#define	fsSystemSuspendCPU1PA	0x140 /* CPU1: Suspend with MMU off */
 
-/*--------------------------------------------------*/
+#define	fscorestandby_down_status	0x60 /* Status for corestandby down */
+#define	fscorestandby_up_status	0x60 /* Status for corestandby up */
+#define	fsxtal_though			0x20 /* XTAL though mode setting */
+#define	fsxtal_though_restore	0x0 /* XTAL though mode restore setting  */
+
+/*------------------------------*/
 /* Offset of RAM1 area */
 /* Function area				*/
-/*--------------------------------------------------*/
+/*------------------------------*/
 /* Offset to the ARM Vector */
 #define		hoArmVector						\
 0x0
-/* Offset to the Core Standby function */
-#define		hoCoreStandby					\
-(hoArmVector + fsArmVector)
-/* Offset to the System Suspend function */
-#define		hoSystemSuspend					\
-(hoCoreStandby + fsCoreStandby)
-/* Offset to the Save ARM register function */
-#define		hoSaveArmRegister				\
-(hoSystemSuspend + fsSystemSuspend)
 /* Offset to the Restore ARM register function(PA) */
 #define		hoRestoreArmRegisterPA			\
-(hoSaveArmRegister + fsSaveArmRegister)
-/* Offset to the Restore ARM register function(VA) */
-#define		hoRestoreArmRegisterVA			\
-(hoRestoreArmRegisterPA + fsRestoreArmRegisterPA)
-/* Offset to the Save ARM common register function */
-#define		hoSaveArmCommonRegister			\
-(hoRestoreArmRegisterVA + fsRestoreArmRegisterVA)
-/* Offset to the Restore ARM common register function */
-#define		hoRestoreArmCommonRegister		\
-(hoSaveArmCommonRegister + fsSaveArmCommonRegister)
-/* Offset to the Save common register function */
-#define		hoSaveCommonRegister			\
-(hoRestoreArmCommonRegister + fsRestoreArmCommonRegister)
+(hoArmVector + fsArmVector)
 /* Offset to the Restore common register function */
 #define		hoRestoreCommonRegister			\
-(hoSaveCommonRegister + fsSaveCommonRegister)
-/* Offset to the power down function */
-#define		hoSysPowerDown					\
+(hoRestoreArmRegisterPA + fsRestoreArmRegisterPA)
+
+/* Offset to PM spin lock */
+#define		hoPM_Spin_Lock					\
 (hoRestoreCommonRegister + fsRestoreCommonRegister)
+/* Offset to PM spin unlock */
+#define		hoPM_Spin_Unlock					\
+(hoPM_Spin_Lock + fsPM_Spin_Lock)
+
+/* Offset to the Disable MMU function */
+#define		hoDisableMMU					\
+(hoPM_Spin_Unlock + fsPM_Spin_Unlock)
+
+/* For Sleep/CoreStandby & Hotplug*/
+/* Offset to the Core Standby function with MMU off */
+#define		hoCoreStandbyPA					\
+(hoDisableMMU + fsDisableMMU)
+/* Offset to the Core Standby function 2with MMU off */
+#define		hoCoreStandbyPA2					\
+(hoCoreStandbyPA + fsCoreStandbyPA)
+/* Offset to the System Suspend for CPU 1 function with MMU off */
+#define		hoSystemSuspendCPU1PA			\
+(hoCoreStandbyPA2 + fsCoreStandbyPA2)
+
+#define		hocorestandby_down_status			\
+(hoSystemSuspendCPU1PA + fsSystemSuspendCPU1PA)
+
+#define		hocorestandby_up_status					\
+(hocorestandby_down_status + fscorestandby_down_status)
+
+#define		hoxtal_though					\
+(hocorestandby_up_status + fscorestandby_up_status)
+
+#define		hoxtal_though_restore			\
+(hoxtal_though + fsxtal_though)
+
+/* For Suspend*/
+/* Offset to the power down function */
+/* Offset to the System Suspend for CPU 0 function with MMU off */
+#define		hoSystemSuspendCPU0PA			\
+(hoxtal_though_restore + fsxtal_though_restore)
+#define		hoSysPowerDown					\
+(hoSystemSuspendCPU0PA + fsSystemSuspendCPU0PA)
 /* Offset to the power up function */
 #define		hoSysPowerUp					\
 (hoSysPowerDown + fsSysPowerDown)
 /* Offset to the Set clock function */
 #define		hoSetClockSystemSuspend			\
 (hoSysPowerUp + fsSysPowerUp)
-
-
-/* Offset to the System Suspend for CPU 0 function with MMU off */
-#define		hoSystemSuspendCPU0PA			\
-(hoSetClockSystemSuspend + fsSetClockSystemSuspend)
-/* Offset to the Core Standby function with MMU off */
-#define		hoCoreStandbyPA					\
-(hoSystemSuspendCPU0PA + fsSystemSuspendCPU0PA)
-/* Offset to the Disable MMU function */
-#define		hoDisableMMU					\
-(hoCoreStandbyPA + fsCoreStandbyPA)
-/* Offset to the System Suspend for CPU 1 function with MMU off */
-#define		hoSystemSuspendCPU1PA			\
-(hoDisableMMU + fsDisableMMU)
-
-
-
 
 /*--------------------------------------------------------------------------*/
 /* Address of RAM0 area */
@@ -195,12 +204,34 @@
 /* Address of Core Standby function with MMU off */
 #define	ram1CoreStandbyPA					\
 (ram1Base + hoCoreStandbyPA)
+/* Address of Core Standby function with MMU off */
+#define	ram1CoreStandbyPA2					\
+(ram1Base + hoCoreStandbyPA2)
+
+/* Address of PM spin lock */
+#define		ram1PM_Spin_Lock					\
+(ram1Base + hoPM_Spin_Lock)
+
+/* Addresss of PM spin unlock */
+#define		ram1PM_Spin_Unlock					\
+(ram1Base + hoPM_Spin_Unlock)
+
 /* Address of Disable MMU function */
 #define		ram1DisableMMU					\
 (ram1Base + hoDisableMMU)
 /* Address of System Suspend for CPU 1 function with MMU off */
 #define	ram1SystemSuspendCPU1PA				\
 (ram1Base + hoSystemSuspendCPU1PA)
+
+#define	ram1corestandby_down_status				\
+(ram1Base + hocorestandby_down_status)
+#define	ram1corestandby_up_status					\
+(ram1Base + hocorestandby_up_status)
+#define		ram1xtal_though					\
+(ram1Base + hoxtal_though)
+#define	ram1xtal_though_restore				\
+(ram1Base + hoxtal_though_restore)
+
 
 /* Address of function (Phys)	*/
 /* Address of ARM Vector function */
@@ -250,6 +281,18 @@
 /* Address of Core Standby function with MMU off */
 #define	ram1CoreStandbyPAPhys				\
 (ram1BasePhys + hoCoreStandbyPA)
+/* Address of Core Standby function with MMU off */
+#define	ram1CoreStandbyPA2Phys				\
+(ram1BasePhys + hoCoreStandbyPA2)
+
+/* Address of PM spin lock */
+#define		ram1PM_Spin_LockPhys					\
+(ram1BasePhys + hoPM_Spin_Lock)
+/* Address of PM spin unlock */
+#define		ram1PM_Spin_UnlockPhys					\
+(ram1BasePhys + hoPM_Spin_Unlock)
+
+
 /* Address of Disable MMU function			*/
 #define	ram1DisableMMUPhys					\
 (ram1BasePhys + hoDisableMMU)
@@ -257,285 +300,299 @@
 #define	ram1SystemSuspendCPU1PAPhys			\
 (ram1BasePhys + hoSystemSuspendCPU1PA)
 
-
+/* corestandby down status */
+#define	ram1corestandby_down_statusPhys				\
+(ram1BasePhys + hocorestandby_down_status)
+/* corestandby up status */
+#define	ram1corestandby_up_statusPhys					\
+(ram1BasePhys + hocorestandby_up_status)
+/* xtal though */
+#define		ram1xtal_thoughPhys					\
+(ram1BasePhys + hoxtal_though)
+/* xtal though restore */
+#define	ram1xtal_though_restorePhys				\
+(ram1BasePhys + hoxtal_though_restore)
 
 /*--------------------------------------------------*/
 /* Offset of RAM0 area */
-/* Backup area					*/
+/* Backup area */
 /*--------------------------------------------------*/
 
 /* backup area */
-#define	hoBackup	0x0000 /* Offset to the Area for backup */
+#define hoBackup	0x0000 /* Offset to the Area for backup */
 
 /* Address of backup area top	*/
 /* Address of backup(L) */
-#define	ram0Backup							\
+#define ram0Backup							\
 (ram0Base		+ hoBackup)
 /* Address of backup(P) */
-#define	ram0BackupPhys						\
+#define ram0BackupPhys						\
 (ram0BasePhys	+ hoBackup)
 
 /* Backup area */
-#define	ram0CommonSetting ram0Backup
-#define	ram0Pl310GlobalSetting				\
+#define ram0CommonSetting ram0Backup
+#define ram0Pl310GlobalSetting				\
 (ram0CommonSetting + saveCommonSettingSize)
-#define	ram0MmuSetting0						\
+#define ram0MmuSetting0						\
 (ram0Pl310GlobalSetting + savePl30GlobalSettingSize)
-#define	ram0MmuSetting1						\
+#define ram0MmuSetting1						\
 (ram0MmuSetting0 + saveArmMmuSettingSize)
-#define	ram0WakeupCodeAddr0					\
+#define ram0WakeupCodeAddr0					\
 (ram0MmuSetting1 + saveArmMmuSettingSize)
-#define	ram0WakeupCodeAddr1					\
+#define ram0WakeupCodeAddr1					\
 (ram0WakeupCodeAddr0 + 0x4)
-#define	ram0Cpu0RegisterArea				\
+#define ram0Cpu0RegisterArea				\
 (ram0WakeupCodeAddr1 + 0x4)
-#define	ram0Cpu1RegisterArea				\
+#define ram0Cpu1RegisterArea				\
 (ram0Cpu0RegisterArea + 0x4)
-#define	ram0SpinLockVA						\
+#define ram0SpinLockVA						\
 (ram0Cpu1RegisterArea + 0x4)
-#define	ram0SpinLockPA						\
+#define ram0SpinLockPA						\
 (ram0SpinLockVA + 0x4)
-#define	ram0Cpu0Status						\
+#define ram0Cpu0Status						\
 (ram0SpinLockPA + 0x4)
-#define	ram0Cpu1Status						\
+#define ram0Cpu1Status						\
 (ram0Cpu0Status + 0x4)
-#define	ram0CpuClock						\
+#define ram0SetClockWork					\
 (ram0Cpu1Status + 0x4)
-#define	ram0SetClockWork					\
-(ram0CpuClock + 0x4)
-#define	ram0SetClockFrqcra					\
+#define ram0SetClockFrqcra					\
 (ram0SetClockWork + 0x4)
-#define	ram0SetClockFrqcrb					\
+#define ram0SetClockFrqcrb					\
 (ram0SetClockFrqcra + 0x4)
-#define	ram0SetClockFrqcrd					\
+#define ram0SetClockFrqcrd					\
 (ram0SetClockFrqcrb + 0x4)
 
 /* Errata(ECR0285) */
-#define	ram0ES_2_2_AndAfter				\
+#define ram0ES_2_2_AndAfter				\
 (ram0SetClockFrqcrd + 0x4)
 
-#define	ram0CPU0SpinLock					\
+#define ram0CPU0SpinLock					\
 (ram0ES_2_2_AndAfter + 0x4)
-#define	ram0CPU1SpinLock					\
+#define ram0CPU1SpinLock					\
 (ram0CPU0SpinLock + 0x4)
 
-#define	ram0DramPasrSettingArea0			\
+#define ram0DramPasrSettingArea0			\
 (ram0CPU1SpinLock + 0x4)
-#define	ram0DramPasrSettingArea1			\
+#define ram0DramPasrSettingArea1			\
 (ram0DramPasrSettingArea0 + 0x4)
-#define	ram0SaveSdmracr0a					\
+#define ram0SaveSdmracr0a					\
 (ram0DramPasrSettingArea1 + 0x4)
-#define	ram0SaveSdmracr1a					\
+#define ram0SaveSdmracr1a					\
 (ram0SaveSdmracr0a + 0x4)
 
 /* SPI Status Registers */
-#define	ram0_ICSPISR0				\
-(ram0SaveSdmracr1a + 0x4)			
-#define	 ram0_ICSPISR1				\
+#define ram0_ICSPISR0				\
+(ram0SaveSdmracr1a + 0x4)
+#define  ram0_ICSPISR1				\
 (ram0_ICSPISR0 + 0x4)
 /*FRQCRA mask*/
-#define	ram0FRQCRAMask				\
+#define ram0FRQCRAMask				\
 (ram0_ICSPISR1 + 0x4)
 /*FRQCRA Down*/
-#define	ram0FRQCRADown				\
+#define ram0FRQCRADown				\
 (ram0FRQCRAMask + 0x4)
-
-#ifdef __EXTAL1_INFO__
-#define	ram0SaveEXMSKCNT1_suspend 	\
+#define	ram0FRQCRBDown			\
 (ram0FRQCRADown + 0x4)
-#define	ram0SaveAPSCSTP_suspend 	\
+
+/* Watchdog status in suspend */
+#define ram0RwdtStatus	\
+(ram0FRQCRBDown + 0x4)
+#define	ram0SaveEXMSKCNT1_suspend 	\
+(ram0RwdtStatus + 0x4)
+#define ram0SaveAPSCSTP_suspend		\
 (ram0SaveEXMSKCNT1_suspend + 0x4)
-#define	ram0SaveSYCKENMSK_suspend 	\
+#define ram0SaveSYCKENMSK_suspend	\
 (ram0SaveAPSCSTP_suspend + 0x4)
-#define	ram0SaveC4POWCR_suspend 	\
+#define ram0SaveC4POWCR_suspend		\
 (ram0SaveSYCKENMSK_suspend + 0x4)
-#define	ram0SavePDNSEL_suspend 		\
+#define ram0SavePDNSEL_suspend		\
 (ram0SaveC4POWCR_suspend + 0x4)
-#define	ram0SavePSTR_suspend 		\
+#define ram0SavePSTR_suspend		\
 (ram0SavePDNSEL_suspend + 0x4)
 
-#define	ram0SaveEXMSKCNT1_resume 	\
+#define ram0SaveEXMSKCNT1_resume	\
 (ram0SavePSTR_suspend + 0x4)
-#define	ram0SaveAPSCSTP_resume 		\
+#define ram0SaveAPSCSTP_resume		\
 (ram0SaveEXMSKCNT1_resume + 0x4)
-#define	ram0SaveSYCKENMSK_resume 	\
+#define ram0SaveSYCKENMSK_resume	\
 (ram0SaveAPSCSTP_resume + 0x4)
-#define	ram0SaveC4POWCR_resume 		\
+#define ram0SaveC4POWCR_resume		\
 (ram0SaveSYCKENMSK_resume + 0x4)
-#define	ram0SavePDNSEL_resume 		\
+#define ram0SavePDNSEL_resume		\
 (ram0SaveC4POWCR_resume + 0x4)
-#define	ram0SavePSTR_resume 		\
+#define ram0SavePSTR_resume			\
 (ram0SavePDNSEL_resume + 0x4)
 
-#endif
 
 /*Restore point after enable MMU for System Suspend with CPU0*/
-#ifdef __EXTAL1_INFO__
 #define	ram0SystemSuspendRestoreCPU0	\
 (ram0SavePSTR_resume + 0x4)
-#else
-#define	ram0SystemSuspendRestoreCPU0	\
-(ram0FRQCRADown + 0x4)
-#endif
-
 /*Restore point after enable MMU for System Suspend with CPU1*/
-#define	ram0SystemSuspendRestoreCPU1		\
+#define ram0SystemSuspendRestoreCPU1		\
 (ram0SystemSuspendRestoreCPU0 + 0x4)
 /*Restore point after enable MMU for CoreStandby with CPU0*/
-#define	ram0CoreStandbyRestoreCPU0			\
+#define ram0CoreStandbyRestoreCPU0			\
 (ram0SystemSuspendRestoreCPU1 + 0x4)
 /*Restore point after enable MMU for CoreStandby with CPU1*/
-#define	ram0CoreStandbyRestoreCPU1			\
+#define ram0CoreStandbyRestoreCPU1			\
 (ram0CoreStandbyRestoreCPU0 + 0x4)
+/*Restore point after enable MMU for CoreStandby2 with CPU0*/
+#define	ram0CoreStandby2RestoreCPU0			\
+(ram0CoreStandbyRestoreCPU1	+ 0x4)
+/*Restore point after enable MMU for CoreStandby2 with CPU1*/
+#define	ram0CoreStandby2RestoreCPU1			\
+(ram0CoreStandby2RestoreCPU0 + 0x4)
 /* Do ZQ Calibration or not */
 #define	ram0ZQCalib		\
-(ram0CoreStandbyRestoreCPU1 + 0x4)
+(ram0CoreStandby2RestoreCPU1 + 0x4)
 
-/* Backup area Phys			*/
-#define	ram0CommonSettingPhys				ram0BackupPhys
-#define	ram0Pl310GlobalSettingPhys			\
+/* Backup area Phys */
+#define ram0CommonSettingPhys		ram0BackupPhys
+#define ram0Pl310GlobalSettingPhys			\
 (ram0CommonSettingPhys			+ saveCommonSettingSize)
-#define	ram0MmuSetting0Phys					\
+#define ram0MmuSetting0Phys					\
 (ram0Pl310GlobalSettingPhys		+ savePl30GlobalSettingSize)
-#define	ram0MmuSetting1Phys					\
+#define ram0MmuSetting1Phys					\
 (ram0MmuSetting0Phys			+ saveArmMmuSettingSize)
-#define	ram0WakeupCodeAddr0Phys				\
+#define ram0WakeupCodeAddr0Phys				\
 (ram0MmuSetting1Phys			+ saveArmMmuSettingSize)
-#define	ram0WakeupCodeAddr1Phys				\
+#define ram0WakeupCodeAddr1Phys				\
 (ram0WakeupCodeAddr0Phys	+ 0x4)
-#define	ram0Cpu0RegisterAreaPhys			\
+#define ram0Cpu0RegisterAreaPhys			\
 (ram0WakeupCodeAddr1Phys	+ 0x4)
-#define	ram0Cpu1RegisterAreaPhys			\
+#define ram0Cpu1RegisterAreaPhys			\
 (ram0Cpu0RegisterAreaPhys	+ 0x4)
-#define	ram0SpinLockVAPhys					\
+#define ram0SpinLockVAPhys					\
 (ram0Cpu1RegisterAreaPhys	+ 0x4)
-#define	ram0SpinLockPAPhys					\
+#define ram0SpinLockPAPhys					\
 (ram0SpinLockVAPhys			+ 0x4)
-#define	ram0Cpu0StatusPhys					\
+#define ram0Cpu0StatusPhys					\
 (ram0SpinLockPAPhys			+ 0x4)
-#define	ram0Cpu1StatusPhys					\
+#define ram0Cpu1StatusPhys					\
 (ram0Cpu0StatusPhys			+ 0x4)
-#define	ram0CpuClockPhys					\
+#define ram0SetClockWorkPhys				\
 (ram0Cpu1StatusPhys			+ 0x4)
-#define	ram0SetClockWorkPhys				\
-(ram0CpuClockPhys			+ 0x4)
-#define	ram0SetClockFrqcraPhys				\
+#define ram0SetClockFrqcraPhys				\
 (ram0SetClockWorkPhys		+ 0x4)
-#define	ram0SetClockFrqcrbPhys				\
+#define ram0SetClockFrqcrbPhys				\
 (ram0SetClockFrqcraPhys		+ 0x4)
-#define	ram0SetClockFrqcrdPhys				\
+#define ram0SetClockFrqcrdPhys				\
 (ram0SetClockFrqcrbPhys		+ 0x4)
 
 /* Errata(ECR0285) */
-#define	ram0ES_2_2_AndAfterPhys				\
+#define ram0ES_2_2_AndAfterPhys				\
 (ram0SetClockFrqcrdPhys + 0x4)
 
-#define	ram0CPU0SpinLockPhys					\
+#define ram0CPU0SpinLockPhys					\
 (ram0ES_2_2_AndAfterPhys + 0x4)
 
-#define	ram0CPU1SpinLockPhys					\
+#define ram0CPU1SpinLockPhys					\
 (ram0CPU0SpinLockPhys + 0x4)
 
-#define	ram0DramPasrSettingArea0Phys		\
+#define ram0DramPasrSettingArea0Phys		\
 (ram0CPU1SpinLockPhys			+ 0x4)
-#define	ram0DramPasrSettingArea1Phys		\
+#define ram0DramPasrSettingArea1Phys		\
 (ram0DramPasrSettingArea0Phys	+ 0x4)
-#define	ram0SaveSdmracr0aPhys				\
+#define ram0SaveSdmracr0aPhys				\
 (ram0DramPasrSettingArea1Phys	+ 0x4)
-#define	ram0SaveSdmracr1aPhys				\
+#define ram0SaveSdmracr1aPhys				\
 (ram0SaveSdmracr0aPhys			+ 0x4)
 
 /* SPI Status Registers */
-#define	ram0_ICSPISR0Phys				\
+#define ram0_ICSPISR0Phys				\
 (ram0SaveSdmracr1aPhys + 0x4)
-#define	 ram0_ICSPISR1Phys				\
+#define  ram0_ICSPISR1Phys				\
 (ram0_ICSPISR0Phys + 0x4)
 
 /*FRQCRA mask*/
-#define	ram0FRQCRAMaskPhys				\
+#define ram0FRQCRAMaskPhys				\
 (ram0_ICSPISR1Phys + 0x4)
 /*FRQCRA mask*/
-#define	ram0FRQCRADownPhys				\
+#define ram0FRQCRADownPhys				\
 (ram0FRQCRAMaskPhys + 0x4)
-
-#ifdef __EXTAL1_INFO__
-#define	ram0SaveEXMSKCNT1Phys_suspend	\
+#define	ram0FRQCRBDownPhys			\
 (ram0FRQCRADownPhys + 0x4)
-#define	ram0SaveAPSCSTPPhys_suspend		\
+
+/* Watchdog status in suspend */
+#define ram0RwdtStatusPhys	\
+(ram0FRQCRBDownPhys + 0x4)
+#define ram0SaveEXMSKCNT1Phys_suspend	\
+(ram0RwdtStatusPhys + 0x4)
+#define ram0SaveAPSCSTPPhys_suspend		\
 (ram0SaveEXMSKCNT1Phys_suspend + 0x4)
-#define	ram0SaveSYCKENMSKPhys_suspend	\
+#define ram0SaveSYCKENMSKPhys_suspend	\
 (ram0SaveAPSCSTPPhys_suspend + 0x4)
-#define	ram0SaveC4POWCRPhys_suspend		\
+#define ram0SaveC4POWCRPhys_suspend		\
 (ram0SaveSYCKENMSKPhys_suspend + 0x4)
-#define	ram0SavePDNSELPhys_suspend		\
+#define ram0SavePDNSELPhys_suspend		\
 (ram0SaveC4POWCRPhys_suspend + 0x4)
-#define	ram0SavePSTRPhys_suspend		\
+#define ram0SavePSTRPhys_suspend		\
 (ram0SavePDNSELPhys_suspend + 0x4)
 
-#define	ram0SaveEXMSKCNT1Phys_resume	\
+#define ram0SaveEXMSKCNT1Phys_resume	\
 (ram0SavePSTRPhys_suspend + 0x4)
-#define	ram0SaveAPSCSTPPhys_resume		\
+#define ram0SaveAPSCSTPPhys_resume		\
 (ram0SaveEXMSKCNT1Phys_resume + 0x4)
-#define	ram0SaveSYCKENMSKPhys_resume	\
+#define ram0SaveSYCKENMSKPhys_resume	\
 (ram0SaveAPSCSTPPhys_resume + 0x4)
-#define	ram0SaveC4POWCRPhys_resume		\
+#define ram0SaveC4POWCRPhys_resume		\
 (ram0SaveSYCKENMSKPhys_resume + 0x4)
-#define	ram0SavePDNSELPhys_resume		\
+#define ram0SavePDNSELPhys_resume		\
 (ram0SaveC4POWCRPhys_resume + 0x4)
-#define	ram0SavePSTRPhys_resume			\
+#define ram0SavePSTRPhys_resume			\
 (ram0SavePDNSELPhys_resume + 0x4)
-#endif
 
 
 /* Restore point after enable MMU for System Sleep with CPU0 */
-
-#ifdef __EXTAL1_INFO__
-#define	ram0SystemSuspendRestoreCPU0Phys	\
+#define ram0SystemSuspendRestoreCPU0Phys	\
 (ram0SavePSTRPhys_resume + 0x4)
-#else
-#define	ram0SystemSuspendRestoreCPU0Phys	\
-(ram0FRQCRADownPhys + 0x4)
-#endif
 
 /* Restore point after enable MMU for System Sleep with CPU1 */
 #define ram0SystemSuspendRestoreCPU1Phys	\
 (ram0SystemSuspendRestoreCPU0Phys + 0x4)
 /* Restore point after enable MMU for CoreStandby with CPU0 */
-#define	ram0CoreStandbyRestoreCPU0Phys		\
+#define ram0CoreStandbyRestoreCPU0Phys		\
 (ram0SystemSuspendRestoreCPU1Phys + 0x4)
 /* Restore point after enable MMU for CoreStandby with CPU1 */
-#define	ram0CoreStandbyRestoreCPU1Phys		\
+#define ram0CoreStandbyRestoreCPU1Phys		\
 (ram0CoreStandbyRestoreCPU0Phys + 0x4)
+/* Restore point after enable MMU for CoreStandby2 with CPU0 */
+#define	ram0CoreStandby2RestoreCPU0Phys		\
+(ram0CoreStandbyRestoreCPU1Phys	+ 0x4)
+/* Restore point after enable MMU for CoreStandby2 with CPU1 */
+#define	ram0CoreStandby2RestoreCPU1Phys		\
+(ram0CoreStandby2RestoreCPU0Phys + 0x4)
 /* Do ZQ Calibration or not */
 #define	ram0ZQCalibPhys		\
-(ram0CoreStandbyRestoreCPU1Phys + 0x4)
+(ram0CoreStandby2RestoreCPU1Phys + 0x4)
 
-/*---------------------------------------------------------------------------*/
+/*-----------------------------------------------*/
 /* Offset of CPU register buckup area */
 /* Defining the offset of allocated memory area. */
 /* Subject to the offset address is stored */
 /* in ram0Cpu0RegisterArea/ram0Cpu1RegisterArea. */
-/*---------------------------------------------------------------------------*/
+/*-----------------------------------------------*/
 /* Backup setting(CPU register)	*/
-#define	hoSaveArmSvc				0
-#define	hoSaveArmExceptSvc			(hoSaveArmSvc + 0x4)
-#define	hoSaveArmVfp				(hoSaveArmExceptSvc + 0x4)
-#define	hoSaveArmGic				(hoSaveArmVfp + 0x4)
-#define	hoSaveArmTimer				(hoSaveArmGic + 0x4)
-#define	hoSaveArmSystem				(hoSaveArmTimer + 0x4)
-#define	hoSaveArmPerformanceMonitor	(hoSaveArmSystem + 0x4)
-#define	hoSaveArmCti		(hoSaveArmPerformanceMonitor + 0x4)
-#define	hoSaveArmPtm				(hoSaveArmCti + 0x4)
-#define	hoSaveArmDebug				(hoSaveArmPtm + 0x4)
-#define	hoBackupAddr				(hoSaveArmDebug + 0x4)
-#define	hoDataArea					(hoBackupAddr + 0x4)
+#define hoSaveArmSvc				0
+#define hoSaveArmExceptSvc			(hoSaveArmSvc + 0x4)
+#define hoSaveArmVfp				(hoSaveArmExceptSvc + 0x4)
+#define hoSaveArmGic				(hoSaveArmVfp + 0x4)
+#define hoSaveArmTimer				(hoSaveArmGic + 0x4)
+#define hoSaveArmSystem				(hoSaveArmTimer + 0x4)
+#define hoSaveArmPerformanceMonitor	(hoSaveArmSystem + 0x4)
+#define hoSaveArmCti		(hoSaveArmPerformanceMonitor + 0x4)
+#define hoSaveArmPtm				(hoSaveArmCti + 0x4)
+#define hoSaveArmDebug				(hoSaveArmPtm + 0x4)
+#define hoBackupAddr				(hoSaveArmDebug + 0x4)
+#define hoDataArea					(hoBackupAddr + 0x4)
 
-/*---------------------------------------------------------------------------*/
+/*-------------------------------------------------*/
 /* Definition of CPU status */
-/*---------------------------------------------------------------------------*/
+/*-------------------------------------------------*/
 #define CPUSTATUS_RUN				0x0
 #define CPUSTATUS_WFI				0x1
 #define CPUSTATUS_SHUTDOWN			0x3
 #define CPUSTATUS_WFI2				0x4
+#define CPUSTATUS_HOTPLUG			0x5
+#define CPUSTATUS_SHUTDOWN2			0x6
 #endif /* __PM_RAM0_H__ */
-
