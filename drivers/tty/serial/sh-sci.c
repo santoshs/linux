@@ -61,6 +61,12 @@
 #include "sh-sci.h"
 
 extern bool KERNEL_LOG; /* For kernel log supression */
+#ifdef CONFIG_SERIAL_CORE_CONSOLE
+#define sci_uart_console(port)	\
+	((port)->cons && (port)->cons->index == (port)->line)
+#else
+#define sci_uart_console(port)	(0)
+#endif
 struct sci_port {
 	struct uart_port	port;
 
@@ -98,6 +104,9 @@ struct sci_port {
 #endif
 
 	struct notifier_block		freq_transition;
+	/* PCP# TT12102320062
+	Save & retain termios->c_cflag value */
+	int	cons_cflag ;
 };
 
 /* Function prototypes */
@@ -1539,6 +1548,17 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	int t = -1;
 	u16 scfcr = 0;
 
+	/* PCP# TT12102320062 - Save & retain termios->c_cflag value
+	for TTY close use case.	This change is applicable only for
+	SCIFA port to retain all register values as C4 power area
+	might get turned OFF and reset register values
+	in TTY close use case */
+	if (sci_uart_console(port) && s && termios) {
+		if (termios->c_cflag == 0)
+			termios->c_cflag = s->cons_cflag ;
+		else
+			s->cons_cflag = termios->c_cflag;
+	}
 	/*
 	 * earlyprintk comes here early on with port->uartclk set to zero.
 	 * the clock framework is not up and running at this point so here
@@ -1937,6 +1957,10 @@ static int __devinit serial_console_setup(struct console *co, char *options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
 	ret = uart_set_options(port, co, baud, parity, bits, flow);
+	/* PCP# TT12102320062 - Save & retain termios->c_cflag
+	value for TTY close use case */
+	if (sci_port && port->cons && port->cons->cflag != 0)
+		sci_port->cons_cflag = port->cons->cflag ;
 #if defined(__H8300H__) || defined(__H8300S__)
 	/* disable rx interrupt */
 	if (ret == 0)
