@@ -1132,7 +1132,7 @@ static int cbus_reset(struct mhl_platform_data *pdata)
                                         | BIT_TPI_INTR_ST0_HOT_PLUG_EVENT
                                         ));
   if(ret<0){
-		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
+//		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
 		return ret;
   }   
     
@@ -1463,7 +1463,7 @@ static int mhl_init_func(struct mhl_tx *mhl)
 
   ret = cbus_reset(mhl->pdata);
   if(ret<0){
-		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
+		//printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
 		return ret;
   }     
 
@@ -3124,9 +3124,9 @@ static bool ParseDetailedTiming(struct mhl_tx *mhl, u8 DetailedTimingOffset, u8 
   if(Block == EDID_BLOCK_0){
     memcpy(edidBlockData, mhl->edid_block0, EDID_BLOCK_SIZE);
   }
-  else if(Block == EDID_BLOCK_0){
+ /* else if(Block == EDID_BLOCK_0){
     memcpy(edidBlockData, mhl->edid_block1, EDID_BLOCK_SIZE);
-  }
+  }*/
 
 	TmpWord = edidBlockData[DetailedTimingOffset + PIX_CLK_OFFSET] +
 		256 * edidBlockData[DetailedTimingOffset + PIX_CLK_OFFSET + 1];
@@ -5834,14 +5834,14 @@ static irqreturn_t mhl_irq_thread(int irq, void *data)
 				mhl->pdata->status.op_status = NO_MHL_STATUS;
 				ret = mhl_init_func(mhl);
 				if(ret<0){
-				printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);  	
+				//printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);  	
 				}
 
 				mhl->hdmi_sink = false;
 
 				ret = TX_GO2D3(mhl->pdata);
 				if(ret<0){
-				printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);  	
+				//printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);  	
 				}  
 
 				mhl->pdata->status.op_status = MHL_READY_RGND_DETECT;
