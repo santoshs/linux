@@ -76,9 +76,6 @@ ENTRY(stext)
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
 	mrc	p15, 0, r9, c0, c0		@ get processor id
-#ifdef CONFIG_ARM_TZ
-	bl __cache_sync
-#endif
 	bl	__lookup_processor_type		@ r5=procinfo r9=cpuid
 	movs	r10, r5				@ invalid processor (r5=0)?
  THUMB( it	eq )		@ force fixup-able long branch encoding
@@ -590,22 +587,6 @@ __pv_phys_offset:
 	.size	__pv_phys_offset, . - __pv_phys_offset
 __pv_offset:
 	.long	0
-#endif
-#ifdef CONFIG_ARM_TZ
-ENTRY(__cache_sync)
-	adr	r3, __l2reg
-	ldr	r5, [r3]
-	ldr	r3, =0xffff
-	str	r3, [r5]
-wait:
-	ldr	r3, [r5]
-	ldr	r4, =0xffff
-	ands	r3, r3, r4
-	bne	wait
-	mov 	pc, lr
-__l2reg:
-	.long	0xf01007bc
-ENDPROC(__cache_sync)
 #endif
 
 #include "head-common.S"
