@@ -33,6 +33,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <linux/wakelock.h>
 
 /* Transmit operation:                                                      */
 /*                                                                          */
@@ -126,6 +127,7 @@ struct sh_mobile_i2c_data {
 	u_int16_t icch;
 
 	spinlock_t lock;
+	struct wake_lock wakelock;
 	wait_queue_head_t wait;
 	struct i2c_msg *msgs;
 	struct i2c_msg *msg;
@@ -272,6 +274,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 
 static void activate_ch(struct sh_mobile_i2c_data *pd)
 {
+	wake_lock(&pd->wakelock);
 	/* Wake up device and enable clock */
 	pm_runtime_get_sync(pd->dev);
 	clk_enable(pd->clk);
@@ -300,6 +303,7 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);
 	pm_runtime_put_sync(pd->dev);
+	wake_unlock(&pd->wakelock);
 }
 
 static unsigned char i2c_op(struct sh_mobile_i2c_data *pd,
@@ -692,6 +696,9 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 		pd->flags |= IIC_FLAG_HAS_ICIC67;
 
 	sh_mobile_i2c_init(pd);
+	/* init wakelock(prevent suspend) */
+	wake_lock_init(&pd->wakelock,
+				WAKE_LOCK_SUSPEND, "i2c-wakelock");
 
 	/* Enable Runtime PM for this device.
 	 *

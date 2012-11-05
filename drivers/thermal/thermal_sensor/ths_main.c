@@ -44,6 +44,10 @@
 #include "ths_main.h"
 #include "ths_hardware.h"
 
+#ifdef CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734
+#include <mach/pm.h>
+#endif /*CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734*/
+
 #ifndef TRUE
     #define TRUE 1
 #endif
@@ -626,7 +630,11 @@ static void ths_start_cpu(int cpu_id)
 
 #ifdef CONFIG_HOTPLUG_ARCH_R8A73734
 	if (cpu_online(cpu_id) != 1)
+#ifdef CONFIG_HOTPLUG_CPU_MGR
+		cpu_up_manager(cpu_id, THS_HOTPLUG_ID);
+#else /*!defined(CONFIG_HOTPLUG_CPU_MGR)*/
 		cpu_up(cpu_id);
+#endif /*CONFIG_HOTPLUG_CPU_MGR*/
 #else
 	THS_DEBUG_MSG("%s HOTPLUG_CPU is disabled <<<\n", __func__);
 #endif /* CONFIG_HOTPLUG_ARCH_R8A73734 */
@@ -646,7 +654,11 @@ static void ths_stop_cpu(int cpu_id)
 
 #ifdef CONFIG_HOTPLUG_ARCH_R8A73734
 	if (1 == cpu_online(cpu_id))
+#ifdef CONFIG_HOTPLUG_CPU_MGR
+		cpu_down_manager(cpu_id, THS_HOTPLUG_ID);
+#else /*!defined(CONFIG_HOTPLUG_CPU_MGR)*/
 		cpu_down(cpu_id);
+#endif /*CONFIG_HOTPLUG_CPU_MGR*/
 #else
 	THS_DEBUG_MSG("%s HOTPLUG_CPU is disabled <<<\n", __func__);
 #endif /* CONFIG_HOTPLUG_ARCH_R8A73734 */

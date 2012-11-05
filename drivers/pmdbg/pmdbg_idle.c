@@ -40,7 +40,7 @@ static struct idle_info last_item[CONFIG_NR_CPUS][NO_LAST_ITEM];
 static int cur_last_idx[CONFIG_NR_CPUS];
 static struct timeval beforeTime[CONFIG_NR_CPUS];
 static struct timeval afterTime[CONFIG_NR_CPUS];
-static char state_name[PM_STATE_NOTIFY_RESUME+1][32] = {
+static char state_name[PM_STATE_NOTIFY_CORESTANDBY_2+1][32] = {
 	[0] = "",
 	[PM_STATE_NOTIFY_SLEEP] = "Sleep",
 	[PM_STATE_NOTIFY_SLEEP_LOWFREQ] = "Sleep low-freq",
@@ -48,6 +48,7 @@ static char state_name[PM_STATE_NOTIFY_RESUME+1][32] = {
 	[PM_STATE_NOTIFY_WAKEUP] = "Wakeup",
 	[PM_STATE_NOTIFY_SUSPEND] = "Suspend",
 	[PM_STATE_NOTIFY_RESUME] = "Resume",
+	[PM_STATE_NOTIFY_CORESTANDBY_2] = "CoreStandby_2",
 };
 
 static char buf_reg[1024];
@@ -102,6 +103,7 @@ static unsigned int idle_notify_cb(int state)
 		case PM_STATE_NOTIFY_SLEEP:
 		case PM_STATE_NOTIFY_SLEEP_LOWFREQ:
 		case PM_STATE_NOTIFY_CORESTANDBY:
+		case PM_STATE_NOTIFY_CORESTANDBY_2:
 			cur_last_idx[cpuid]++;
 			if (cur_last_idx[cpuid] >= NO_LAST_ITEM){
 				cur_last_idx[cpuid] = 0;

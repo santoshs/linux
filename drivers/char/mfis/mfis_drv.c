@@ -86,9 +86,8 @@ static void mfis_standby_work_entry(int reset_flag)
 	}
 
 	if (!standby_work_stop_flag) {
-		if (down_interruptible(&mfis_sem)) {
+		while (down_interruptible(&mfis_sem)) {
 			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-			return;
 		}
 
 		standby_work_on = 1;
@@ -112,9 +111,8 @@ static void mfis_standby_work_cancel(void)
 	standby_work_stop_flag = 1;
 
 	if (standby_work_on) {
-		if (down_interruptible(&mfis_sem)) {
+		while (down_interruptible(&mfis_sem)) {
 			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-			return;
 		}
 
 		cancel_delayed_work_sync(&standby_work);
@@ -165,9 +163,8 @@ static int mfis_suspend_noirq(struct device *dev)
 	}
 #endif /* EARLYSUSPEND_STANDBY */
 
-	if (down_interruptible(&a3r_power_sem)) {
+	while (down_interruptible(&a3r_power_sem)) {
 		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
-		return -1;
 	}
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
@@ -251,9 +248,8 @@ static int mfis_resume_noirq(struct device *dev)
 	unsigned int i;									/* #MU2SYS921 */
 #endif
 
-	if (down_interruptible(&a3r_power_sem)) {
+	while (down_interruptible(&a3r_power_sem)) {
 		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
-		return -1;
 	}
 
 #if EARLYSUSPEND_STANDBY
@@ -491,9 +487,8 @@ int mfis_drv_suspend(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	if (down_interruptible(&mfis_sem)) {
+	while (down_interruptible(&mfis_sem)) {
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-		return -1;
 	}
 
 	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
@@ -517,9 +512,8 @@ int mfis_drv_resume(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	if (down_interruptible(&mfis_sem)) {
+	while (down_interruptible(&mfis_sem)) {
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-		return -1;
 	}
 
 	if (CLOCK_TLB_IC_OC == (inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {

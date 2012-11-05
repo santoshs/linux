@@ -15,12 +15,11 @@
 #include <linux/smp.h>
 #include <linux/delay.h>
 #include <asm/cacheflush.h>
-
+#include <mach/common.h>
 #ifdef CONFIG_ARCH_R8A73734
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
 #include <mach/pm.h>
-#include <mach/common.h>
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
 
@@ -39,7 +38,7 @@ int platform_cpu_kill(unsigned int cpu)
 		mdelay(1);
 	}
 #endif /* CONFIG_ARM_TZ */
-	return 0;
+	return 1;
 }
 
 void platform_cpu_die(unsigned int cpu)
@@ -56,19 +55,8 @@ void platform_cpu_die(unsigned int cpu)
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
 #ifdef CONFIG_SUSPEND
-	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM)
-		/*
-		 * cpu state is "shutdown mode" will transition
-		 * in this function.
-		 */
-		return (void)jump_systemsuspend();
+	return (void)jump_systemsuspend();
 #endif /* CONFIG_SUSPEND */
-#ifdef CONFIG_ARM_TZ
-		ret = sec_hal_pm_coma_entry(
-			4, __pa(shmobile_secondary_vector), 0, 0);
-		if (ret)
-			pr_alert("platform_cpu_die():fail<%d>\n", ret);
-#endif /* CONFIG_ARM_TZ */
 #endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {
 		/*

@@ -63,7 +63,7 @@
 #define WM1811_DISABLE		0    /* disable value */
 
 #define WM1811_BIAS_VMID_ENABLE		0x0003
-#define WM1811_DMIC1_ENABLE		0x0003
+#define WM1811_ADC_ENABLE		0x0303
 
 #define WM1811_SPEAKER_ENABLE		0x3000
 #define WM1811_SPEAKER_VOL		0x0300
@@ -85,6 +85,8 @@
 
 #define WM1811_HEADSET_MIC_ENABLE	0x0020
 #define WM1811_MIXINR_HEADSET_MIC_ENA	0x0030
+
+#define WM1811_TSHUT_ENA		0x4000
 
 #define WM1811_DISABLE_CONFIG		(0xff000004)
 #define WM1811_DISABLE_CONFIG_SUB	(0x00000000)
@@ -186,13 +188,15 @@ struct wm1811_priv {
 	struct snd_soc_codec *codec;
 	/* pcm */
 	u_int pcm_mode;                     /**< pcm mode. */
+	struct clk *main_clk;
+	struct clk *vclk4_clk;
 };
 
 /*---------------------------------------------------------------------------*/
 /* prototype declaration (private)                                           */
 /*---------------------------------------------------------------------------*/
 static int wm1811_enable_vclk4(void);
-
+static int wm1811_disable_vclk4(void);
 static int wm1811_setup(struct i2c_client *client,
 			struct wm1811_priv *dev);
 static int wm1811_setup_r8a73734(void);
@@ -378,8 +382,6 @@ static const struct snd_kcontrol_new wm1811_volume_controls[] = {
 static int wm1811_enable_vclk4(void)
 {
 	int ret = 0;
-	struct clk *main_clk = NULL;
-	struct clk *vclk4_clk = NULL;
 	wm1811_log_efunc("");
 
 	ret = gpio_request(GPIO_FN_VIO_CKO4, NULL);
@@ -389,45 +391,43 @@ static int wm1811_enable_vclk4(void)
 		goto err_gpio_request;
 	}
 
-	vclk4_clk = clk_get(NULL, "vclk4_clk");
+	wm1811_conf->vclk4_clk = clk_get(NULL, "vclk4_clk");
 
-	if (IS_ERR(vclk4_clk)) {
-		ret = IS_ERR(vclk4_clk);
+	if (IS_ERR(wm1811_conf->vclk4_clk)) {
+		ret = IS_ERR(wm1811_conf->vclk4_clk);
 		wm1811_log_err("clk_get(vclk4_clk) ret[%d]", ret);
 		goto err_gpio_request;
 	}
 
-	main_clk = clk_get(NULL, "main_clk");
+	wm1811_conf->main_clk = clk_get(NULL, "main_clk");
 
-	if (IS_ERR(main_clk)) {
-		ret = IS_ERR(main_clk);
+	if (IS_ERR(wm1811_conf->main_clk)) {
+		ret = IS_ERR(wm1811_conf->main_clk);
 		wm1811_log_err("clk_get(main_clk) ret[%d]", ret);
 		goto err_gpio_request;
 	}
 
 	/* vclk4_clk */
-	ret = clk_set_parent(vclk4_clk, main_clk);
+	ret = clk_set_parent(wm1811_conf->vclk4_clk, wm1811_conf->main_clk);
 
 	if (0 != ret) {
 		wm1811_log_err("clk_set_parent() ret[%d]", ret);
 		goto err_gpio_request;
 	}
 
-	ret = clk_set_rate(vclk4_clk, 26000000);
+	ret = clk_set_rate(wm1811_conf->vclk4_clk, 26000000);
 
 	if (0 != ret) {
 		wm1811_log_err("clk_set_rate() ret[%d]", ret);
 		goto err_gpio_request;
 	}
 
-	ret = clk_enable(vclk4_clk);
+	ret = clk_enable(wm1811_conf->vclk4_clk);
 
 	if (0 != ret) {
 		wm1811_log_err("clk_enable() ret[%d]", ret);
 		goto err_gpio_request;
 	}
-
-	clk_put(vclk4_clk);
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -435,6 +435,14 @@ static int wm1811_enable_vclk4(void)
 err_gpio_request:
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
+}
+
+static int wm1811_disable_vclk4(void)
+{
+	clk_disable(wm1811_conf->vclk4_clk);
+	clk_put(wm1811_conf->vclk4_clk);
+
+	return 0;
 }
 
 /*!
@@ -551,10 +559,6 @@ static int wm1811_setup_r8a73734(void)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
-	ret = wm1811_enable_vclk4();
-
-	if (0 != ret)
-		goto err_enable_vclk4;
 
 	/* CODEC_LDO_EN */
 	ret = gpio_request(GPIO_PORT34, NULL);
@@ -576,7 +580,6 @@ static int wm1811_setup_r8a73734(void)
 
 gpio_direction_output:
 err_gpio_request:
-err_enable_vclk4:
 	wm1811_log_err("ret[%d]", ret);
 	return ret;
 }
@@ -592,7 +595,9 @@ static int wm1811_setup_wm1811(void)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
-	wm1811_log_info("not supported yet.");
+
+	wm1811_conf->info.raw_device = -1;
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -957,30 +962,29 @@ static int wm1811_set_mic_adc_pm(const u_int cur_dev_mic,
 					const u_int new_dev_headsetmic)
 {
 	int ret = 0;
-	u_short dmic1 = 0;
+	u_short adc = 0;
 	wm1811_log_efunc("mic[%d] new_mic[%d] headset[%d] new_headset[%d]",
 			cur_dev_mic, new_dev_mic,
 			cur_dev_headsetmic, cur_dev_headsetmic);
 
 	if ((cur_dev_mic != new_dev_mic) ||
 		(cur_dev_headsetmic != new_dev_headsetmic)) {
-		ret = wm1811_read(0x0004, &dmic1);
+		ret = wm1811_read(0x0004, &adc);
 
 		if ((WM1811_ENABLE == new_dev_mic) ||
 			(WM1811_ENABLE == new_dev_headsetmic)) {
 			/* mic on */
-			dmic1 |= WM1811_DMIC1_ENABLE;
+			adc |= WM1811_ADC_ENABLE;
 		} else {
 			/* mic off */
-			dmic1 &= ~WM1811_DMIC1_ENABLE;
+			adc &= ~WM1811_ADC_ENABLE;
 		}
 
 		/* Enable Left ADC,Enable Right ADC */
-		ret = wm1811_write(0x0004, dmic1);
+		ret = wm1811_write(0x0004, adc);
 	} else {
 		/* nothing to do. */
 	}
-
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1013,19 +1017,18 @@ static int wm1811_set_mic_mixer_pm(const u_int cur_dev_mic,
 
 		if ((WM1811_ENABLE == new_dev_mic) ||
 			(WM1811_ENABLE == new_dev_headsetmic)) {
-			pm |= 0x4300;
+			/* mic on */
+			pm |= 0x0300;
 		} else {
 			/* mic off */
-			pm &= ~0x4300;
+			pm &= ~0x0300;
 		}
 
-		/* Disable Thermal sensor */
 		/* Disable Left Input Mixer, Disable Right Input Mixer */
 		ret = wm1811_write(0x0002, pm);
 	} else {
 		/* nothing to do. */
 	}
-
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1042,11 +1045,13 @@ static int wm1811_set_mic_mixer_pm(const u_int cur_dev_mic,
 static int wm1811_set_speaker_device(const u_int cur_dev,
 				const u_int new_dev)
 {
+	int value = 0;
 	int ret = 0;
 	u_short oe = 0;
 	u_short vol = 0;
 	u_short vol_p = 0;
 	u_short pm = 0;
+	u_short pm2 = 0;
 	u_short mute_l = 0;
 	u_short mute_r = 0;
 	u_short speaker_mixer = 0;
@@ -1055,6 +1060,7 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 	if (cur_dev != new_dev) {
 		/* update device conf */
 		ret = wm1811_read(0x0001, &pm);
+		ret = wm1811_read(0x0002, &pm2);
 		ret = wm1811_read(0x0003, &oe);
 		ret = wm1811_read(0x0026, &mute_l);
 		ret = wm1811_read(0x0027, &mute_r);
@@ -1066,9 +1072,6 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 			mute_l |= 0x100;
 			mute_r |= 0x100;
 			oe |= WM1811_SPEAKER_VOL;
-			/***********************************/
-			/* Speaker Enable                  */
-			/***********************************/
 
 			if (WM1811_BIAS_VMID_ENABLE & pm)
 				pm |= WM1811_SPEAKER_ENABLE;
@@ -1076,6 +1079,8 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 				pm |= (WM1811_BIAS_VMID_ENABLE |
 					WM1811_SPEAKER_ENABLE);
 			}
+
+			pm2 |= WM1811_TSHUT_ENA;
 		} else {
 			/* speaker off */
 			vol = 0x3;
@@ -1086,6 +1091,7 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 			mute_l = 0x100;
 			mute_r = 0x100;
 			oe &= ~WM1811_SPEAKER_VOL;
+
 			if (~(WM1811_BIAS_VMID_ENABLE |
 				WM1811_SPEAKER_ENABLE) & pm) {
 				pm &= ~WM1811_SPEAKER_ENABLE;
@@ -1093,6 +1099,8 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
 					WM1811_SPEAKER_ENABLE);
 			}
+
+			pm2 &= ~WM1811_TSHUT_ENA;
 		}
 		/* Disable Speaker mute */
 		ret = wm1811_write(0x0024, speaker_mixer);
@@ -1118,10 +1126,12 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 		/* Unmute DAC1 (Right) to Right Speaker Mixer (SPKMIXR) path */
 		ret = wm1811_write(0x0036, vol_p);
 
+		/* Enable Themal sensor */
+		ret = wm1811_write(0x0002, pm2);
+
 		/* Enable bias generator, Enable VMID, Enable SPKOUTL, */
 		/* Enable SPKOUTR */
 		ret = wm1811_write(0x0001, pm);
-
 	} else {
 		/* nothing to do. */
 	}
@@ -1905,7 +1915,6 @@ static int wm1811_resume(const u_long device)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
-
 	ret = wm1811_restore_volume(device);
 
 	/* disable irq wake */
@@ -1929,6 +1938,7 @@ static int wm1811_suspend(void)
 	ret = wm1811_write(0x0204, 0x0000);
 	ret = wm1811_write(0x0211, 0x0001);
 	ret = wm1811_write(0x0204, 0x0009);
+	ret = wm1811_write(0x0208, 0x000F);/* use mclk2 */
 
 	if (0 == wm1811_conf->switch_data.state) {
 		/* jack detect. */
@@ -1949,10 +1959,6 @@ static int wm1811_suspend(void)
 	wm1811_write(0x0731, status2);
 
 	/* low power setting */
-	wm1811_read(0x0002, &pm2);
-	pm2 &= ~0x4000;
-	wm1811_write(0x0002, pm2);
-
 	wm1811_read(0x003B, &ldo_1);
 	ldo_1 &= ~0x1;
 	wm1811_write(0x003B, ldo_1);
@@ -1983,27 +1989,22 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	u_int power)
 {
 	int ret = 0;
+	int value = 0;
+
 	struct wm1811_info new_device = wm1811_conf->info;
 	static int audio_on = WM1811_DISABLE;
+	static int speaker_on;
 	u_int pcm_mode = 0;
 	u_int aif1_rate = 0;
 	u_int fll1_control2 = 0;
 	u_int fll1_control4 = 0;
 	u_int fll1_control5 = 0;
-	struct clk *vclk4_clk = NULL;
 	wm1811_log_efunc("device[%ld]", device);
 
-	if (WM1811_DEV_NONE != device) {
-		/* vclk4 enable */
-		vclk4_clk = clk_get(NULL, "vclk4_clk");
-		clk_enable(vclk4_clk);
-		clk_put(vclk4_clk);
-
-		if ((WM1811_POWER_ON == power) &&
-			(0 == gpio_get_value(GPIO_PORT34))) {
-			wm1811_log_info("CODEC_LDO_EN : wm1811 Power ON");
-			gpio_set_value(GPIO_PORT34, 1);
-		}
+	if ((WM1811_POWER_ON == power) &&
+		(0 == gpio_get_value(GPIO_PORT34))) {
+		wm1811_log_info("CODEC_LDO_EN : wm1811 Power ON");
+		gpio_set_value(GPIO_PORT34, 1);
 	}
 
 	ret = wm1811_check_device(device);
@@ -2032,6 +2033,9 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 		/***********************************/
 		ret = wm1811_write(0x0000, 0x0000);
 
+		/* LDO1 2.8V, discharged when disable */
+		ret = wm1811_write(0x003B, 0x0009);
+
 		/*****************************************************/
 		/* General Purpose Input/Output (GPIO) Configuration */
 		/*****************************************************/
@@ -2059,6 +2063,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	if (wm1811_conf->pcm_mode != pcm_mode) {
 		wm1811_conf->pcm_mode = pcm_mode;
+
 		/***********************************/
 		/* Disable Clocking/FLL1/AIF1      */
 		/***********************************/
@@ -2069,7 +2074,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 		ret = wm1811_write(0x0220, 0x0000);
 
 		/* AIF1 Disable */
-		ret = wm1811_write(0x0208, 0x0000);
+		ret = wm1811_write(0x0208, 0x0008);
 
 		if (SNDP_MODE_INCALL == pcm_mode) {
 			/* SNDP_MODE_INCALL */
@@ -2154,35 +2159,10 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 		/***********************************/
 		/* FFL2                            */
 		/***********************************/
-		/* FLL2: (MCLK / REF_DIV[2]) * */
-		/* (N[7] + THETA[391h]/LAMBDA[659h]) */
-		/* * FRATIO[1] / OUTDIV[8] */
-		/* OUTDIV=7(/8), FRATIO=000(x1) */
-		ret = wm1811_write(0x0241, 0x0700);
+		/*FLL2 is not used*/
 
-		/* THETA=391h(913d) */
-		ret = wm1811_write(0x0242, 0x0391);
-
-		/* N=7 */
-		ret = wm1811_write(0x0243, 0x00E0);
-
-		/* BYP=0, non-free, REF_DIV=1(/2), SRC=0(MCLK1) */
-		ret = wm1811_write(0x0244, 0x0008);
-
-		/* LAMBDA=659h(1625d) */
-		ret = wm1811_write(0x0246, 0x0659);
-
-		/* EFS_ENA=1 */
-		ret = wm1811_write(0x0247, 0x0007);
-
-		/* FLL_ENA=1, FLL_OSC_ENA=0 */
-		ret = wm1811_write(0x0240, 0x0001);
-
-		/* INSERT_DELAY_MS [5] */
-		mdelay(5);
-
-		/* AIF2CLK_SRC=3(FLL2), INV=0, DIV=/1, AIF2CLK=enable */
-		ret = wm1811_write(0x0204, 0x0019);
+		/* AIF2CLK_SRC=3(MCLK2), INV=0, DIV=/1, AIF2CLK=disable */
+		ret = wm1811_write(0x0204, 0x0008);
 	}
 
 	if (WM1811_DISABLE == audio_on) {
@@ -2219,9 +2199,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 		/***********************************/
 		/* Enable DAC1 (Left), Enable DAC1 (Right), */
 		ret = wm1811_write(0x0005, 0x0303);
-
-		/* Enable ADC (Left), Enable ADC (Right) */
-		ret = wm1811_write(0x0004, 0x0300);
 
 		/* Enable the AIF1 (Left) to DAC 1 (Left) mixer path */
 		ret = wm1811_write(0x0601, 0x0001);
@@ -2274,19 +2251,16 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	/* set value */
 	ret = wm1811_set_speaker_device(wm1811_conf->info.speaker,
 					  new_device.speaker);
-
 	if (0 != ret)
 		goto err_set_device;
 
 	ret = wm1811_set_earpiece_device(wm1811_conf->info.earpiece,
 					   new_device.earpiece);
-
 	if (0 != ret)
 		goto err_set_device;
 
 	ret = wm1811_set_headphone_device(wm1811_conf->info.headphone,
 					    new_device.headphone);
-
 	if (0 != ret)
 		goto err_set_device;
 
@@ -2334,21 +2308,22 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	if (WM1811_DEV_NONE == device) {
 		ret = wm1811_suspend();
-
 		if ((WM1811_POWER_OFF == power) &&
 			(1 == gpio_get_value(GPIO_PORT34))) {
 			wm1811_log_info("CODEC_LDO_EN : wm1811 Power OFF");
 			gpio_set_value(GPIO_PORT34, 0);
 		}
 
-		/* vclk4 disable */
-		vclk4_clk = clk_get(NULL, "vclk4_clk");
-		clk_disable(vclk4_clk);
-		clk_put(vclk4_clk);
-
 		audio_on = WM1811_DISABLE;
 	}
 
+
+	if ((new_device.speaker == 1) ||
+		(new_device.earpiece == 1) ||
+		(new_device.headphone == 1)) {
+		ret = wm1811_write(0x0208, 0x000e);/* FIXME use LR clock */
+		speaker_on = 1;
+	}
 	wm1811_conf->info = new_device;
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -2846,6 +2821,15 @@ int __init wm1811_init(void)
 	wm1811_log_efunc("");
 
 	ret = i2c_add_driver(&wm1811_i2c_driver);
+	ret = wm1811_enable_vclk4();
+	ret = wm1811_write(0x0200, 0x0011);
+	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
+	ret = wm1811_write(0x0204, 0x0009);
+	mdelay(1);
+	ret = wm1811_write(0x0200, 0x0011);
+	ret = wm1811_write(0x0204, 0x0009);
+	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
+	ret = wm1811_disable_vclk4();
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;

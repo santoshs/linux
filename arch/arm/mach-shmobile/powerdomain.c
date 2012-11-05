@@ -37,6 +37,7 @@
 #include <mach/common.h>
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
+#include <linux/atomic.h>
 
 #endif /*POWER_DOMAIN_H*/
 
@@ -66,12 +67,14 @@
 struct workqueue_struct *pdwait_wq;
 static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
 static struct mutex pdwait_mutex;
-static unsigned int pdwait_judge_count;
+static atomic_t	pdwait_judge_count;
 static bool a2ri_status_old ;
 static bool a2rv_status_old;
 static bool a2ri_status_new;
 static bool a2rv_status_new;
 static bool suspend_state;
+static void __iomem *sbsc_sdpdcr0a_reg;
+static DEFINE_SPINLOCK(pdwait_lock);
 
 /******************************************************************************
  * Declaration
@@ -102,6 +105,7 @@ static struct drv_pd_mapping_table tbl1[] = {
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
 	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
+	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
 	/* MSIOF2	*/	{ "spi_sh_msiof.2",	ID_A3SP },
@@ -110,6 +114,7 @@ static struct drv_pd_mapping_table tbl1[] = {
 	/* USB		*/	{ "r8a66597_udc.0",	ID_A3SP },
 	/* USB		*/	{ "usb_mass_storage",	ID_A3SP },
 	/* USB		*/	{ "android_usb",		ID_A3SP },
+	/* USB_OTG	*/	{ "tusb1211_driver.0",	ID_A3SP },
 	/* SCIFA0	*/	{ "sh-sci.0",			ID_C4 },
 	/* SCIFA1	*/	{ "sh-sci.1",			ID_A3SP },
 	/* SCIFA2	*/	{ "sh-sci.2",			ID_A3SP },
@@ -154,6 +159,7 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
 	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
+	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
 	/* MSIOF2	*/	{ "spi_sh_msiof.2",	ID_A3SP },
@@ -163,6 +169,7 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* USB		*/	{ "r8a66597_udc.0",	ID_A3SP },
 	/* USB		*/	{ "usb_mass_storage",	ID_A3SP },
 	/* USB		*/	{ "android_usb",		ID_A3SP },
+	/* USB_OTG	*/	{ "tusb1211_driver.0",	ID_A3SP },
 	/* SCIFA0	*/	{ "sh-sci.0",			ID_C4	},
 	/* SCIFA1	*/	{ "sh-sci.1",			ID_A3SP },
 	/* SCIFA2	*/	{ "sh-sci.2",			ID_A3SP },
@@ -188,7 +195,6 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* MFI		*/	{ "av-domain",		ID_A3R	},
 	/* FSI2/ALSA	*/	{ "snd-soc-fsi",	ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4MP },
-	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4RM },
 	/* PCM2PWM	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
 	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
 
@@ -388,10 +394,9 @@ static void power_status_set(unsigned int area, bool on)
 
 	/* Dummy read register (SYSC_SWUCR, SYSC_SPDCR) to wait all bits is 0 */
 	reg_val = __raw_readl(__io(reg));
-	while (0 != reg_val) {
-		/* do nothing */
+	while (0 != reg_val)
 		reg_val = __raw_readl(__io(reg));
-	}
+
 	__raw_writel(area, __io(reg));
 
 	for (i = 0; i < PSTR_POLLING_COUNT_MAX; i++) {
@@ -399,6 +404,12 @@ static void power_status_set(unsigned int area, bool on)
 		if (!is_power_status_on(area) == !on) {
 			mutex_unlock(&power_status_mutex);
 			return;
+		} else if (false == on) { /* Set SYSC_SPDCR each time repeat */
+			reg_val = __raw_readl(__io(reg));
+			while (0 != reg_val)
+				reg_val = __raw_readl(__io(reg));
+
+			__raw_writel(area, __io(reg));
 		}
 	}
 
@@ -528,11 +539,11 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 #endif /* CONFIG_PM_HAS_SECURE */
 
 	if (POWER_A3SG == area) {
-		pdwait_judge_count--;
+		atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] A3SG = OFF\n");
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 #endif
 		pdwait_judge();
 	}
@@ -593,11 +604,11 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 #endif /* CONFIG_PM_HAS_SECURE */
 
 	if (POWER_A3SG == area) {
-		pdwait_judge_count++;
+		atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] A3SG = ON\n");
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 #endif
 		pdwait_judge();
 	}
@@ -797,32 +808,34 @@ static struct platform_device *pd[] = {
 
 static void pdwait_judge()
 {
-	void __iomem *reg = NULL;
+
 	u32 reg_val = 0;
 	u32 mask = 0x00FFFFFF;
 	u32 pdwait = 0x08000000;
+	unsigned long flags;
+
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] pdwait_judge()\n");
 #endif
 
-	reg = ioremap(SBSC_SDPDCR0A, 4);
-	reg_val = __raw_readl(reg);
-#ifdef __DEBUG_PDWAIT
-printk(KERN_INFO "[PDC] SBSC_SDPDCR0A current pdwait = 0x%08x\n", reg_val);
-#endif
-	if (pdwait_judge_count > 0)
-		pdwait = 0xFF000000;
+	if (NULL != sbsc_sdpdcr0a_reg) {
+		spin_lock_irqsave(&pdwait_lock, flags);
+		reg_val = __raw_readl(sbsc_sdpdcr0a_reg);
+		if (atomic_read(&pdwait_judge_count) > 0)
+			pdwait = 0xFF000000;
 
-	if (pdwait != (reg_val & ~mask)) {
-#ifdef __DEBUG_PDWAIT
-		printk(KERN_INFO "[PDC] new pdwait for setting = 0x%08x\n",
-				pdwait);
-#endif
-		__raw_writel(pdwait | (reg_val & mask), reg);
+		if (pdwait != (reg_val & ~mask))
+			__raw_writel(pdwait | (reg_val & mask), \
+						sbsc_sdpdcr0a_reg);
+
+		spin_unlock_irqrestore(&pdwait_lock, flags);
 	}
-iounmap(reg);
 #ifdef __DEBUG_PDWAIT
-printk(KERN_INFO "\n");
+	printk(KERN_INFO "[PDC] SDPDCR0A current pdwait = 0x%08x\n", \
+			reg_val);
+	if (pdwait != (reg_val & ~mask))
+		printk(KERN_INFO "[PDC] new pdwait = 0x%08x\n", pdwait);
+	printk(KERN_INFO "\n");
 #endif
 }
 
@@ -831,28 +844,30 @@ int pdc_cpufreq_transition(struct notifier_block *block, unsigned long state,
 {
 	if (state == CPUFREQ_POSTCHANGE) {
 		struct cpufreq_freqs *freqs = data;
-		if (freqs->cpu == CPU0_ID) {
-			if (freqs && (freqs->new > HIGH_THRESHOLD)
+		if (freqs && (freqs->cpu == CPU0_ID)) {
+			if ((freqs->new > HIGH_THRESHOLD)
 					&& (freqs->old < HIGH_THRESHOLD)) {
 				/* frequency change
 				upper HIGH_THRESHOLD = 1 GHz */
-				pdwait_judge_count++;
+				atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] Z clock goes > 1 GHz\n");
 printk(KERN_INFO "[PDC] freqs->old = %d\n", freqs->old);
 printk(KERN_INFO "[PDC] freqs->new = %d\n", freqs->new);
-printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
+		atomic_read(&pdwait_judge_count));
 #endif
-			} else if (freqs && (freqs->new < HIGH_THRESHOLD)
+			} else if ((freqs->new < HIGH_THRESHOLD)
 					&& (freqs->old > HIGH_THRESHOLD)) {
 				/* frequency change
 				under HIGH_THRESHOLD = 1 GHz */
-				pdwait_judge_count--;
+				atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] Z clock goes < 1 GHz\n");
 printk(KERN_INFO "[PDC] freqs->old = %d\n", freqs->old);
 printk(KERN_INFO "[PDC] freqs->new = %d\n", freqs->new);
-printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
+		atomic_read(&pdwait_judge_count));
 #endif
 			}
 
@@ -879,20 +894,20 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);
 	if (a2ri_status_new && (a2ri_status_new != a2ri_status_old)) {
 		/* A2RI change OFF -> ON */
-		pdwait_judge_count++;
+		atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 		printk(KERN_INFO "[PDC] A2RI change from %s -> %s\n",
 			a2ri_status_old ? "ON" : "OFF",
 			a2ri_status_new ? "ON" : "OFF");
 #endif
 	} else if (!a2ri_status_new && (a2ri_status_new != a2ri_status_old)) {
 		/* A2RI change ON -> OFF */
-		pdwait_judge_count--;
+		atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 		printk(KERN_INFO "[PDC] A2RI change from %s -> %s\n",
 				a2ri_status_old ? "ON" : "OFF",
 				a2ri_status_new ? "ON" : "OFF");
@@ -902,30 +917,30 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 	a2rv_status_new = ((pstr_val & POWER_A2RV) == POWER_A2RV);
 	if (a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
 		/* A2RV change OFF -> ON */
-		pdwait_judge_count++;
+		atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
 				a2rv_status_old ? "ON" : "OFF",
 				a2rv_status_new ? "ON" : "OFF");
 #endif
 	} else if (!a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
 		/* A2RV change ON -> OFF */
-		pdwait_judge_count--;
+		atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
 		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				pdwait_judge_count);
+				atomic_read(&pdwait_judge_count));
 		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
 				a2rv_status_old ? "ON" : "OFF",
 				a2rv_status_new ? "ON" : "OFF");
 #endif
 	}
 #ifdef __DEBUG_PDWAIT
-	printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n", pdwait_judge_count);
+	printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
+			atomic_read(&pdwait_judge_count));
 #endif
 	pdwait_judge();
-
 	queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
 	mutex_unlock(&pdwait_mutex);
 }
@@ -955,22 +970,28 @@ static int __init power_domain_driver_init(void)
 
 	chip_rev = shmobile_chip_rev();
 
+	sbsc_sdpdcr0a_reg = NULL;
+
 #ifdef CONFIG_PM_RUNTIME_A4RM
 power_a4rm_mask = POWER_A4RM;
 #endif
+
 	ret = cpufreq_register_notifier(&pdc_cpufreq_nb,
 			CPUFREQ_TRANSITION_NOTIFIER);
 	if (0 != ret)
 		return ret;
 
 	/* Z clock > 1GHz, A3SG, A2RI, A2RV ON at boot time */
-	pdwait_judge_count = 4;
+	atomic_set(&pdwait_judge_count, 4);
 	mutex_init(&pdwait_mutex);
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
 	a2rv_status_old = 1;
 	a2rv_status_new = 1;
 	suspend_state	= 0;
+	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0A, PAGE_SIZE);
+	if (NULL == sbsc_sdpdcr0a_reg)
+		printk(KERN_INFO "[PDC] error can't map SBSC_SDPDCR0A\n");
 
 	pdwait_wq = alloc_ordered_workqueue("pdwait_wq", 0);
 	INIT_DELAYED_WORK(&pdwait_work, pdwait_work_fnc);

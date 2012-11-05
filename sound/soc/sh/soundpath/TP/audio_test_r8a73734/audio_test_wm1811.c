@@ -61,9 +61,9 @@
 /*!
   @brief	Mic volume.
 */
-#define AUDIO_TEST_MAINMIC_VOL		(0x010B)/**< Main mic volume. */
-#define AUDIO_TEST_SUBMIC_VOL		(0x010B)/**< Sub mic volume. */
-#define AUDIO_TEST_HEADSETMIC_VOL	(0x010B)/**< Headset mic volume. */
+#define AUDIO_TEST_MAINMIC_VOL		(0x000B)/**< Main mic volume. */
+#define AUDIO_TEST_SUBMIC_VOL		(0x000B)/**< Sub mic volume. */
+#define AUDIO_TEST_HEADSETMIC_VOL	(0x000B)/**< Headset mic volume. */
 
 /*!
   @brief	MAX wait time for wait queue for VCD.
@@ -235,6 +235,10 @@ static struct audio_test_priv *audio_test_conf;
   @brief	Clock status flag.
 */
 static u_int g_audio_test_clock_flag;
+/*!
+  @brief	Loopback flag.
+*/
+static u_int g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 /***********************************/
 /* HW logical address              */
 /***********************************/
@@ -477,20 +481,20 @@ static struct audio_test_common_reg_table
 /*!
   @brief	Speker volume (00_0000:-57dB - 11_1111:+6dB).
 */
-static u_short audio_test_tbl_seaker_vol[] = {
-	0x014D, 0x015C, 0x016A, 0x0179, 0x017F
+static u_short audio_test_tbl_speaker_vol[] = {
+	0x0000, 0x004D, 0x005C, 0x006A, 0x0079, 0x007F
 };
 /*!
   @brief	Headphone volume (00_0000:-57dB - 11_1111:+6dB).
 */
 static u_short audio_test_tbl_headphone_vol[] = {
-	0x014D, 0x015C, 0x016A, 0x0176, 0x017F
+	0x0000, 0x004D, 0x005C, 0x006A, 0x0076, 0x007F
 };
 /*!
   @brief	Earpiece volume (00_0000:-57dB - 11_1111:+6dB).
 */
 static u_short audio_test_tbl_earpiece_vol[] = {
-	0x004D, 0x005C, 0x006A, 0x0079, 0x007F
+	0x0000, 0x004D, 0x005C, 0x006A, 0x0079, 0x007F
 };
 
 /*---------------------------------------------------------------------------*/
@@ -537,6 +541,9 @@ static int audio_test_proc_set_device(u_int in_device_type,
 	u_long new_device = 0;
 	u_long old_device = 0;
 	u_short oe = 0;
+	u_short reg = 0;
+	u_short reg_l = 0;
+	u_short reg_r = 0;
 
 	audio_test_log_efunc("in_dev[%d] out_dev[%d] out_LR[%d] out_vol[%d]",
 		in_device_type, out_device_type, out_LR_type, out_volume);
@@ -578,6 +585,21 @@ static int audio_test_proc_set_device(u_int in_device_type,
 
 	audio_test_log_info("new device[%#010lx]", new_device);
 
+	/* AIF1 disable */
+	ret = audio_test_ic_read(0x0200, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("aif1 addr[0x0200] reg[%#010x]", reg);
+	reg = reg & 0xFFFE;
+	audio_test_log_info("aif1 addr[0x0200] convert reg[%#010x]", reg);
+	ret = audio_test_ic_write(0x0200, reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_write");
+		goto error;
+	}
+
 	/***********************************/
 	/* Set volume                      */
 	/***********************************/
@@ -593,14 +615,56 @@ static int audio_test_proc_set_device(u_int in_device_type,
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
+
+		ret = audio_test_ic_write(0x0018,
+					AUDIO_TEST_MAINMIC_VOL | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x001B,
+					AUDIO_TEST_SUBMIC_VOL | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_ic_read(0x0018, &reg_l);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("main mic addr[0x0018] reg[%#010x]", reg_l);
+		ret = audio_test_ic_read(0x001B, &reg_r);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("sub mic addr[0x001B] reg[%#010x]", reg_r);
 		break;
+
 	case AUDIO_TEST_DRV_IN_HEADSETMIC:
 		ret = audio_test_ic_write(0x001A, AUDIO_TEST_HEADSETMIC_VOL);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
+
+		ret = audio_test_ic_write(0x001A,
+					AUDIO_TEST_HEADSETMIC_VOL | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_ic_read(0x001A, &reg_l);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("hs mic addr[0x001A] reg[%#010x]", reg_l);
 		break;
+
 	default:
 		audio_test_log_info("unknown input device");
 		break;
@@ -626,78 +690,165 @@ static int audio_test_proc_set_device(u_int in_device_type,
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
-
 		ret = audio_test_ic_write(0x0026,
-			audio_test_tbl_seaker_vol[out_volume - 1]);
+			audio_test_tbl_speaker_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
 		ret = audio_test_ic_write(0x0027,
-			audio_test_tbl_seaker_vol[out_volume - 1]);
+			audio_test_tbl_speaker_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
-
 		ret = audio_test_ic_write(0x0003, 0x0330);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
+
+		ret = audio_test_ic_write(0x0003, 0x0030);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0026,
+			audio_test_tbl_speaker_vol[out_volume] | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0027,
+			audio_test_tbl_speaker_vol[out_volume] | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0003, 0x0330);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_ic_read(0x0026, &reg_l);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("speaker addr[0x0026] reg[%#010x]", reg_l);
+		ret = audio_test_ic_read(0x0027, &reg_r);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("speaker addr[0x0027] reg[%#010x]", reg_r);
 		break;
+
 	case AUDIO_TEST_DRV_OUT_HEADPHONE:
 		ret = audio_test_ic_write(0x001C,
-			audio_test_tbl_headphone_vol[out_volume - 1]);
+			audio_test_tbl_headphone_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
 		ret = audio_test_ic_write(0x001D,
-			audio_test_tbl_headphone_vol[out_volume - 1]);
+			audio_test_tbl_headphone_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
+
+		ret = audio_test_ic_write(0x001C,
+			audio_test_tbl_headphone_vol[out_volume] | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x001D,
+			audio_test_tbl_headphone_vol[out_volume] | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_ic_read(0x001C, &reg_l);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("headphone addr[0x001C] reg[%#010x]",
+					reg_l);
+		ret = audio_test_ic_read(0x001D, &reg_r);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("headphone addr[0x001D] reg[%#010x]",
+					reg_r);
 		break;
+
 	case AUDIO_TEST_DRV_OUT_EARPIECE:
 		ret = audio_test_ic_write(0x0003, 0x0030);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
-
 		ret = audio_test_ic_write(0x0020,
-			audio_test_tbl_earpiece_vol[out_volume - 1]);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-		ret = audio_test_ic_write(0x0020,
-			(audio_test_tbl_earpiece_vol[out_volume - 1]) | 0x0100);
+			audio_test_tbl_earpiece_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
 		ret = audio_test_ic_write(0x0021,
-			audio_test_tbl_earpiece_vol[out_volume - 1]);
+			audio_test_tbl_earpiece_vol[out_volume]);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
-		ret = audio_test_ic_write(0x0021,
-			(audio_test_tbl_earpiece_vol[out_volume - 1]) | 0x0100);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-
 		ret = audio_test_ic_write(0x0003, 0x00F0);
 		if (0 != ret) {
 			audio_test_log_err("audio_test_ic_write");
 			goto error;
 		}
+
+		ret = audio_test_ic_write(0x0003, 0x0030);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0020,
+			(audio_test_tbl_earpiece_vol[out_volume]) | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0021,
+			(audio_test_tbl_earpiece_vol[out_volume]) | 0x0100);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		ret = audio_test_ic_write(0x0003, 0x00F0);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_ic_read(0x0020, &reg_l);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("earpiece addr[0x0020] reg[%#010x]", reg_l);
+		ret = audio_test_ic_read(0x0021, &reg_r);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("earpiece addr[0x0021] reg[%#010x]", reg_r);
 		break;
+
 	default:
 		audio_test_log_info("unknown output device");
 		break;
@@ -736,6 +887,21 @@ static int audio_test_proc_set_device(u_int in_device_type,
 	}
 
 	audio_test_log_info("new output enable[%#010x]", oe);
+
+	/* AIF1 enable */
+	ret = audio_test_ic_read(0x0200, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("aif1 addr[0x0200] reg[%#010x]", reg);
+	reg = reg | 0x0001;
+	audio_test_log_info("aif1 addr[0x0200] convert reg[%#010x]", reg);
+	ret = audio_test_ic_write(0x0200, reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_write");
+		goto error;
+	}
 
 	/***********************************/
 	/* Tune up Audio IC                */
@@ -803,6 +969,8 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -820,7 +988,6 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 static int audio_test_proc_stop_scuw_loopback(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
 
 	audio_test_log_efunc("");
 
@@ -830,10 +997,6 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
@@ -841,11 +1004,8 @@ static int audio_test_proc_stop_scuw_loopback(void)
 		audio_test_log_err("audio_test_ic_clear_device");
 		goto error;
 	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
-		goto error;
-	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -867,9 +1027,64 @@ error:
 static int audio_test_proc_detect_jack(u_int *state)
 {
 	int ret = 0;
+	u_short reg = 0;
+	u_short jack_reg = 0;
 	u_short state_jack = 0;
 
 	audio_test_log_efunc("");
+
+	/* JACKDET_MODE B'01 */
+	ret = audio_test_ic_read(0x0039, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
+		jack_reg = reg;
+		reg = reg | 0x0080;
+		reg = reg & 0xFEFF;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* MICD_ENA B'1 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		reg = reg | 0x0001;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* GP1_FN B'101 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		reg = reg | 0x0005;
+		reg = reg & 0xFFFD;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		mdelay(2000);
+	}
 
 	/***********************************/
 	/* Get state of jack               */
@@ -887,6 +1102,57 @@ static int audio_test_proc_detect_jack(u_int *state)
 		*state = AUDIO_TEST_DRV_STATE_ON;
 	else
 		*state = AUDIO_TEST_DRV_STATE_OFF;
+
+	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
+		/* JACKDET_MODE B'10 */
+		ret = audio_test_ic_read(0x0039, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+		reg = reg & 0xFF7F;
+		reg = reg | 0x0100;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* MICD_ENA B'0 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		reg = reg & 0xFFFE;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* GP1_FN B'011 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		reg = reg | 0x0003;
+		reg = reg & 0xFFFB;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+	}
 
 	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
 	return ret;
@@ -1003,6 +1269,8 @@ static int audio_test_proc_start_tone(void)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1023,8 +1291,6 @@ error:
 static int audio_test_proc_stop_tone(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
-
 	struct vcd_execute_command cmd;
 	struct vcd_call_option option;
 
@@ -1039,20 +1305,11 @@ static int audio_test_proc_stop_tone(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
 	if (0 != ret) {
 		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
 		goto error;
 	}
 
@@ -1067,6 +1324,8 @@ static int audio_test_proc_stop_tone(void)
 		audio_test_log_err("vcd_execute_test_call");
 		goto error;
 	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1155,6 +1414,8 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1176,8 +1437,6 @@ error:
 static int audio_test_proc_stop_spuv_loopback(void)
 {
 	int ret = 0;
-	u_long new_device = 0;
-
 	struct vcd_execute_command cmd;
 	struct vcd_call_option option;
 
@@ -1192,20 +1451,11 @@ static int audio_test_proc_stop_spuv_loopback(void)
 	audio_test_loopback_remove();
 
 	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(AUDIO_TEST_DRV_OUT_SPEAKER, &new_device);
-	/***********************************/
 	/* Set device                      */
 	/***********************************/
 	ret = audio_test_ic_clear_device();
 	if (0 != ret) {
 		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
 		goto error;
 	}
 
@@ -1220,6 +1470,8 @@ static int audio_test_proc_stop_spuv_loopback(void)
 		audio_test_log_err("vcd_execute_test_call");
 		goto error;
 	}
+
+	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;

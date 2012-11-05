@@ -124,7 +124,7 @@ static void rmu2_cmt_clear(void);
 static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id);
 static void rmu2_cmt_init_irq(void);
 int rmu2_rwdt_cntclear(void);
-static int rmu2_rwdt_stop(void);
+int rmu2_rwdt_stop(void);
 static void rmu2_rwdt_workfn(struct work_struct *work);
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
 static irqreturn_t rmu2_rwdt_irq(int irq, void *dev_id);

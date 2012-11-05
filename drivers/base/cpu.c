@@ -14,6 +14,10 @@
 
 #include "base.h"
 
+#ifdef CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734
+#include <mach/pm.h>
+#endif /*CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734*/
+
 static struct sysdev_class_attribute *cpu_sysdev_class_attrs[];
 
 struct sysdev_class cpu_sysdev_class = {
@@ -42,12 +46,20 @@ static ssize_t __ref store_online(struct sys_device *dev, struct sysdev_attribut
 	cpu_hotplug_driver_lock();
 	switch (buf[0]) {
 	case '0':
+#ifdef CONFIG_HOTPLUG_CPU_MGR
+		ret = cpu_down_manager(cpu->sysdev.id, SYSFS_HOTPLUG_ID);
+#else /*!defined(CONFIG_HOTPLUG_CPU_MGR)*/
 		ret = cpu_down(cpu->sysdev.id);
+#endif /*CONFIG_HOTPLUG_CPU_MGR*/
 		if (!ret)
 			kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
 		break;
 	case '1':
+#ifdef CONFIG_HOTPLUG_CPU_MGR
+		ret = cpu_up_manager(cpu->sysdev.id, SYSFS_HOTPLUG_ID);
+#else /*!defined(CONFIG_HOTPLUG_CPU_MGR)*/
 		ret = cpu_up(cpu->sysdev.id);
+#endif /*CONFIG_HOTPLUG_CPU_MGR*/
 		if (!ret)
 			kobject_uevent(&dev->kobj, KOBJ_ONLINE);
 		break;
