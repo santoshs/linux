@@ -193,18 +193,19 @@ static void iic_set_clr(struct sh_mobile_i2c_data *pd, int offs,
 	iic_wr(pd, offs, (iic_rd(pd, offs) | set) & ~clr);
 }
 
-static u32 sh_mobile_i2c_icch(unsigned long count, u32 tHIGH, int offset)
+static u32 sh_mobile_i2c_icch(unsigned long count, u32 tHIGH,
+				u32 tf, int offset)
 {
 	/*
 	 * Conditional expression:
-	 *   ICCH >= COUNT_CLK * tHIGH
+	 *   ICCH >= COUNT_CLK * (tHIGH + tf)
 	 *
 	 * SH/R-Mobile IIC hardware awares of SCL transition period 'tr',
 	 * and can ignore it.  SH/R-Mobile IIC controller starts counting
 	 * the HIGH peirod of the SCL signal (tHIGH) after the SCL input
 	 * voltage increases at VIH.
 	 */
-	return ((count * tHIGH) + 5000) / 10000 + offset;
+	return ((count * (tHIGH + tf)) + 5000) / 10000 + offset;
 }
 
 static u32 sh_mobile_i2c_iccl(unsigned long count, u32 tLOW, u32 tf, int offset)
@@ -255,7 +256,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 		dev_err(pd->dev, "unrecognized bus speed %lu Hz\n",
 			pd->bus_speed);
 
-	pd->icch = sh_mobile_i2c_icch(i2c_clk_khz, tHIGH, offset);
+	pd->icch = sh_mobile_i2c_icch(i2c_clk_khz, tHIGH, tf, offset);
 	/* one more bit of ICCH in ICIC */
 	if ((pd->icch > 0xff) && (pd->flags & IIC_FLAG_HAS_ICIC67))
 		pd->icic |= ICIC_ICCHB8;
