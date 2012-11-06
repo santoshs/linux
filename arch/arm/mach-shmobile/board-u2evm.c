@@ -1052,24 +1052,54 @@ static struct resource	tpu_resources[] = {
 	},
 };
 
+/* GPIO Settings */
+static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
+	[0] = { /* TPU CHANNEL */
+		.flag = 1,
+		.port = GPIO_PORT36,
+		/* GPIO settings to be retained at resume state */
+		.active = {
+			.port_fn		= GPIO_FN_TPUTO0,/*Func 3*/
+			.pull			= PORTn_CR_PULL_DOWN,
+			.direction		= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			.port_fn		= GPIO_PORT36, /*Func 0*/
+			.pull			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_OUTPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
+		}
+	},
+};
+
 static struct port_info
 	tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
 	[TPU_MODULE_0] = {
 		[TPU_CHANNEL_0]	= {
 			.port_func	= GPIO_FN_TPUTO0,
 			.func_name	= "pwm-tpu0to0",
+			.port_count = ARRAY_SIZE(tpu0_gpio_setting_info),
+			.tpu_gpio_setting_info	= &tpu0_gpio_setting_info,
 		},
 		[TPU_CHANNEL_1]	= {
 			.port_func	= GPIO_FN_TPUTO1,
 			.func_name	= "pwm-tpu0to1",
+			.port_count = 0,
+			.tpu_gpio_setting_info	= NULL,
 		},
 		[TPU_CHANNEL_2]	= {
 			.port_func	= GPIO_FN_TPUTO2,
 			.func_name	= "pwm-tpu0to2",
+			.port_count = 0,
+			.tpu_gpio_setting_info	= NULL,
 		},
 		[TPU_CHANNEL_3]	= {
 			.port_func	= GPIO_FN_TPUTO3,
 			.func_name	= "pwm-tpu0to3",
+			.port_count = 0,
+			.tpu_gpio_setting_info	= NULL,
 		},
 	},
 };
