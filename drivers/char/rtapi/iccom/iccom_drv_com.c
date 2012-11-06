@@ -26,6 +26,10 @@
 #include "iccom_drv.h"
 #include "iccom_drv_common.h"
 #include "iccom_drv_private.h"
+/* MU2SYS1418 ---> */
+#include "iccom_drv_id.h"
+/* MU2SYS1418 <--- */
+
 
 static iccom_fatal_info g_iccom_fatal;			  /* fatal information */
 static struct list_head g_iccom_list_recv;		  /* queue header */
@@ -34,6 +38,10 @@ static spinlock_t g_iccom_lock_fatal;			  /* spinlock for fatal */
 extern struct completion g_iccom_async_completion;  /* completion for asynchronous */
 extern spinlock_t			g_iccom_lock_handle_list;
 extern struct list_head		g_iccom_list_handle;
+
+/* MU2SYS1418 ---> */ 
+static void 			*iccom_handle;			/* iccomhandle for log */
+/* MU2SYS1418 <--- */
 
 /******************************************************************************/
 /* Function   : iccom_create_handle											  */
@@ -355,3 +363,97 @@ void iccom_leak_check(
 
 	return;
 }
+
+/* MU2SYS1418 ---> */
+/******************************************************************************/
+/* Function   : iccom_log_request 											  */
+/* Description: log output													  */
+/******************************************************************************/
+static void iccom_log_request(void *user_data, int result, int func_id,
+							  unsigned char *addr, int length)
+{
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_LOW("[ICCOMK]    |info   [0x%08X]\n", (unsigned int)user_data);
+	MSG_LOW("[ICCOMK]    |result [%d]\n", result);
+	MSG_LOW("[ICCOMK]    |func_id[%d]\n", func_id);
+	MSG_LOW("[ICCOMK]    |addr   [0x%08X]\n", (unsigned int)addr);
+	MSG_LOW("[ICCOMK]    |length [%d]\n", length);
+
+	switch (func_id) {
+	case EVENT_DEBUG_STARTOUTPUTLOG:
+		if ((0 < length) && (0 != addr)) {
+			printk(KERN_ALERT "[RTDomain]%s",addr);
+		}
+		break;
+	default:
+		break;
+	}
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+	return;
+}
+
+/******************************************************************************/
+/* Function   : iccom_log_start 											  */
+/* Description: log start													  */
+/******************************************************************************/
+void iccom_log_start(void)
+{
+	iccom_drv_init_param		iccom_init;
+	iccom_drv_send_cmd_param	iccom_send_cmd;
+	int							result;
+
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
+
+	iccom_init.user_data	= (void *)NULL;
+	iccom_init.comp_notice	= &iccom_log_request;
+
+	iccom_handle = iccom_drv_init(&iccom_init);
+
+	if (NULL == iccom_handle) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%s][%d] iccom_log_start() aInfo NULL error\n",
+		__func__,
+		__LINE__);
+		return;
+	}
+
+	iccom_send_cmd.handle      = iccom_handle;
+	iccom_send_cmd.task_id     = TASK_DEBUG;
+	iccom_send_cmd.function_id = EVENT_DEBUG_STARTOUTPUTLOG;
+	iccom_send_cmd.send_mode   = ICCOM_DRV_ASYNC;
+	iccom_send_cmd.send_size   = 0;
+	iccom_send_cmd.send_data   = 0;
+	iccom_send_cmd.recv_size   = 0;
+	iccom_send_cmd.recv_data   = NULL;
+
+	result = iccom_drv_send_command(&iccom_send_cmd);
+	if (SMAP_OK != result) {
+		MSG_ERROR(
+		"[ICCOMK] ERR|[%d] iccom_drv_send_command() ret = [%d]\n",
+		__LINE__,
+		result);
+		return;
+	}
+
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+	return;
+}
+
+/******************************************************************************/
+/* Function   : iccom_log_stop 												  */
+/* Description: log stop													  */
+/******************************************************************************/
+void iccom_log_stop(void)
+{
+	iccom_drv_cleanup_param  iccom_cleanup;
+
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
+
+	iccom_cleanup.handle = iccom_handle;
+	iccom_drv_cleanup(&iccom_cleanup);
+	iccom_handle = NULL;
+
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+	return;
+}
+/* MU2SYS1418 <--- */

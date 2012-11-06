@@ -29,6 +29,7 @@
 #define RT_DISPLAY_LCD2 (2)
 #define RT_DISPLAY_HDMI (3)
 #define RT_DISPLAY_LCDHDMI (7)	/* #MU2DSP582 add */
+#define RT_DISPLAY_LCD1_ASYNC (257)
 
 /** Image format */
 #define RT_DISPLAY_FORMAT_RGB565		(1)
@@ -88,6 +89,10 @@
 #define SMAP_LIB_DISPLAY_PARAERR		(-2)
 #define SMAP_LIB_DISPLAY_SEQERR			(-3)
 
+/* LUT mode */
+#define RT_DISPLAY_LUT_OFF				(1)
+#define RT_DISPLAY_LUT_ON				(2)
+
 /****************************************/
 /* Structure				*/
 /****************************************/
@@ -116,6 +121,7 @@ typedef struct {
 	unsigned int LDDCKR;		/* #MU2DSP533 */
 	unsigned int MLDDCKPAT1R;	/* #MU2DSP533 */
 	unsigned int MLDDCKPAT2R;	/* #MU2DSP533 */
+	unsigned int PHYTEST;		/* #MU2DSP1329 */
 } screen_disp_lcd_if;
 
 #ifndef _SCREEN_RECT_TYPE_
@@ -258,6 +264,7 @@ typedef struct {
 	unsigned int PLL2CR;
 	unsigned int DSI1PCKCR;
 	unsigned int DSI1PHYCR;
+	unsigned int PHYTEST;		/* #MU2DSP1329 */
 } screen_disp_hdmi_if;
 
 typedef struct {
@@ -267,6 +274,13 @@ typedef struct {
 	screen_disp_hdmi_if		*hdmi_if_param;
 } screen_disp_set_hdmi_if_param;
 /* #MU2DSP939 add -E- */
+
+typedef struct {
+	void					*handle;
+	unsigned short			output_mode;
+	unsigned short			lut_mode;
+	unsigned long			*lut;
+} screen_disp_set_lut;
 
 typedef struct {
 	void *handle;
@@ -357,9 +371,15 @@ extern int screen_display_set_address
 );
 
 /* Set HDMI parameters */
-int screen_display_set_hdmi_if_parameters
+extern int screen_display_set_hdmi_if_parameters
 (
 	screen_disp_set_hdmi_if_param *set_hdmi_if_param
+);
+
+/* Set Lut parameters */
+extern int screen_display_set_lut
+(
+	screen_disp_set_lut *disp_set_lut
 );
 
 /* Delete handle */

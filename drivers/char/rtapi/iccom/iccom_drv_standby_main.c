@@ -306,7 +306,7 @@ int rtctl_change_rt_state_standby(void)
 	}
 
 	reg_modify32(MFISGSR_RECOGNITION, 0, MFIS_GSR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__, inl(MFIS_GSR));
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__, readl(MFIS_GSR));
 
 	do {
 		check_standby = rtctl_check_rt_confirm_standby();
@@ -349,7 +349,7 @@ int rtctl_change_rt_state_standby(void)
 	reg_modify32(0, RTCTL_RT_CLOCK_STOP, SYSC_RESCNT);
 
 	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-					inl(SYSC_RESCNT));
+					readl(SYSC_RESCNT));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 
@@ -358,32 +358,32 @@ int rtctl_change_rt_state_standby(void)
 
 	reg_modify32(0, RTCTL_RT_MOD_STPSR0_SET , CPGA_RMSTPCR0);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__ ,
-				inl(CPGA_MSTPSR0));
-	inl(CPGA_RMSTPCR0);
-	inl(CPGA_RMSTPCR0);
-	reg_mstpsr = inl(CPGA_MSTPSR0);
+				readl(CPGA_MSTPSR0));
+	readl(CPGA_RMSTPCR0);
+	readl(CPGA_RMSTPCR0);
+	reg_mstpsr = readl(CPGA_MSTPSR0);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR0_SET);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				inl(CPGA_MSTPSR0));
+				readl(CPGA_MSTPSR0));
 
 //	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
 //		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
-//			inl(CPGA_MSTPSR0));
+//			readl(CPGA_MSTPSR0));
 //	}
 
 	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , CPGA_RMSTPCR2);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__ ,
-				inl(CPGA_MSTPSR2));
-	inl(CPGA_RMSTPCR2);
-	inl(CPGA_RMSTPCR2);
-	reg_mstpsr = inl(CPGA_MSTPSR2);
+				readl(CPGA_MSTPSR2));
+	readl(CPGA_RMSTPCR2);
+	readl(CPGA_RMSTPCR2);
+	reg_mstpsr = readl(CPGA_MSTPSR2);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR2_SET);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				inl(CPGA_MSTPSR2));
+				readl(CPGA_MSTPSR2));
 
 //	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
 //		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
-//			inl(CPGA_MSTPSR2));
+//			readl(CPGA_MSTPSR2));
 //	}
 
 	status_rt_now = RTCTL_STS_STANDBY ;
@@ -402,9 +402,9 @@ static bool rtctl_check_rt_recognize_standby()
 
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
-	reg_mfis = inl(MFIS_GSR);
+	reg_mfis = readl(MFIS_GSR);
 	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__,
-			inl(MFIS_GSR));
+			readl(MFIS_GSR));
 	reg_mfis = (reg_mfis & MFISGSR_STANDBY_RECONITION_FLAG);
 	if (0 != reg_mfis) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
@@ -426,16 +426,16 @@ static bool rtctl_check_rt_confirm_standby()
 
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
-	reg_pstr = inl(SYSC_PSTR);
-	MSG_MED("[ICCOMK]   |[%s] : SYSC_PSTR = 0x%08x\n", __func__, inl(SYSC_PSTR));
+	reg_pstr = readl(SYSC_PSTR);
+	MSG_MED("[ICCOMK]   |[%s] : SYSC_PSTR = 0x%08x\n", __func__, readl(SYSC_PSTR));
 	reg_pstr = (reg_pstr & RTCTL_A3R_STATE);
 	if (0 == reg_pstr) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;
 	}
 
-	reg_mfis = inl(MFIS_GSR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = %d\n", __func__, inl(MFIS_GSR));
+	reg_mfis = readl(MFIS_GSR);
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = %d\n", __func__, readl(MFIS_GSR));
 	reg_mfis = (reg_mfis & MFISGSR_STANDBY_NG);
 	if (0 != reg_mfis) {
 		reg_modify32(MFISGSR_STANDBY_NG, 0 , MFIS_GSR);
@@ -469,16 +469,16 @@ int rtctl_change_rt_state_active(void)
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 
 	reg_modify32(RTCTL_RT_MOD_STPSR0_SET, 0, CPGA_RMSTPCR0);
-	inl(CPGA_RMSTPCR0);
-	inl(CPGA_RMSTPCR0);
+	readl(CPGA_RMSTPCR0);
+	readl(CPGA_RMSTPCR0);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				inl(CPGA_MSTPSR0));
+				readl(CPGA_MSTPSR0));
 
 	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, CPGA_RMSTPCR2);
-	inl(CPGA_RMSTPCR2);
-	inl(CPGA_RMSTPCR2);
+	readl(CPGA_RMSTPCR2);
+	readl(CPGA_RMSTPCR2);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				inl(CPGA_MSTPSR2));
+				readl(CPGA_MSTPSR2));
 
 	MSG_MED("[ICCOMK]   |[%s] : rtctl_intcs_mask_in_active()\n", __func__);
 	rtctl_intcs_mask_in_active();
@@ -487,15 +487,15 @@ int rtctl_change_rt_state_active(void)
 
 	enable_irq(INT_MFIS);
 	MSG_MED("[ICCOMK]   |[%s] : enable_irq\n", __func__);
-	outl(MFISIICR_INIT, MFIS_IICR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, inl(MFIS_IICR));
+	writel(MFISIICR_INIT, MFIS_IICR);
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, readl(MFIS_IICR));
 
 	spin_lock_irqsave(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_lock_irqsave\n", __func__);
 
 	reg_modify32(RTCTL_RT_CLOCK_STOP, 0 , SYSC_RESCNT);
 	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-			inl(SYSC_RESCNT));
+			readl(SYSC_RESCNT));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 
@@ -516,13 +516,13 @@ int rtctl_change_rt_state_active(void)
 		rtctl_change_active_timeout_error();
 	}
 
-	outl(MFISGSR_REQ_COMP, MFIS_GSR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__, inl(MFIS_GSR));
-	outl(MFISIICR_RTACTIVE, MFIS_IICR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, inl(MFIS_IICR));
+	writel(MFISGSR_REQ_COMP, MFIS_GSR);
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__, readl(MFIS_GSR));
+	writel(MFISIICR_RTACTIVE, MFIS_IICR);
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, readl(MFIS_IICR));
 
 	do {
-		mfis_eicr = inl(MFIS_EICR);
+		mfis_eicr = readl(MFIS_EICR);
 
 		active_ret = rtctl_check_rt_active();
 		MSG_MED("[ICCOMK]   |[%s] : active_ret = %d\n", __func__, active_ret);
@@ -553,19 +553,19 @@ void rtctl_intcs_mask_in_active(void)
 	unsigned long reg;
 
 	for (reg = RTCTL_INTCRT_IMR0SA; reg <= RTCTL_INTCRT_IMR12SA; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0SA3; reg <= RTCTL_INTCRT_IMR12SA3; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0S; reg <= RTCTL_INTCRT_IMR12S; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0S3; reg <= RTCTL_INTCRT_IMR12S3; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	MSG_HIGH("[ICCOMK]OUT|[%s] \n", __func__);
@@ -579,7 +579,7 @@ void rtctl_mfis_initialize(void)
 {
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_EICR);
-	inl(MFIS_EICR);
+	readl(MFIS_EICR);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_IICR);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_GSR);
 	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
@@ -594,8 +594,8 @@ static bool rtctl_check_rt_start(void)
 	unsigned long reg_iicr = 0;
 
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
-	reg_iicr = inl(MFIS_IICR);
-	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, inl(MFIS_IICR));
+	reg_iicr = readl(MFIS_IICR);
+	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, readl(MFIS_IICR));
 	if (0 == reg_iicr) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;

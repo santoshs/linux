@@ -30,7 +30,7 @@
 
 #define RBAR				(0xE618001C)
 #define REG_RT_BOOT_ADDR	RBAR
-#define RD_BOOT_ADDR(x)		(inl((x)) & ~0xf)
+#define RD_BOOT_ADDR(x)		(readl((x)) & ~0xf)
 
 int system_sub_load_rtimage(void);
 int system_sub_get_section_header(

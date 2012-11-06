@@ -20,6 +20,8 @@
 #ifndef __RTBOOT_DRV_H__
 #define __RTBOOT_DRV_H__
 
+#define SUPPORT_DRM 0
+
 enum {
 	RT_LVL_1 = 0,
 	RT_LVL_2,
@@ -38,8 +40,8 @@ struct rt_boot_info {
 	unsigned int	image_size;
 	unsigned int	memmpl_address;					/* unused */
 	unsigned int	memmpl_size;					/* unused */
-	unsigned int	command_area_address;			/* unused */
-	unsigned int	command_area_size;				/* unused */
+	unsigned int	command_area_address;
+	unsigned int	command_area_size;
 	unsigned int	load_flg;
 	struct rt_section_img_info img[RT_LVL_MAX];	/* section image information */
 	unsigned int	displaybuff_address;

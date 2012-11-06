@@ -250,4 +250,9 @@ void iccom_leak_check(
 	iccom_drv_handle	*handle
 );
 
+/* MU2SYS1418 ---> */
+void iccom_log_start(void);
+void iccom_log_stop(void);
+/* MU2SYS1418 <--- */
+
 #endif /* __ICCOM_DRV_PRIVATE_H__ */

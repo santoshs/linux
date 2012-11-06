@@ -595,6 +595,10 @@ int iccom_init_module(
 		}
 		return SMAP_NG;
 	}
+/* MU2SYS1418 ---> */
+	/* start log */
+	iccom_log_start();
+/* MU2SYS1418 <--- */
 
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return SMAP_OK;
@@ -612,6 +616,11 @@ void iccom_cleanup_module(
 	int ret;
 
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
+
+/* MU2SYS1418 ---> */
+	/* stop log */
+	iccom_log_stop();
+/* MU2SYS1418 <--- */
 
 	/* free IRQ handler */
 	free_irq(INT_ICCOM, (void *)ICCOM_DEVICE_ID);

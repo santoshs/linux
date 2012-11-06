@@ -474,10 +474,18 @@ void rtds_memory_check_shared_apmem(
 		map_data->mem_table	 = NULL;
 
 		/* Map user space */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 		ret = rtds_memory_do_map(fp,
 								  &(mem_table->rt_wb_addr),
 								  mem_table->memory_size,
 								  mem_table->rt_nc_addr >> PAGE_SHIFT);
+#else
+		ret = rtds_memory_do_map(fp,
+								  &(mem_table->rt_wb_addr),
+								  mem_table->memory_size,
+								  mem_table->rt_nc_addr);
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
+
 		if (SMAP_OK != ret) {
 			MSG_ERROR("[RTDSK]ERR| rtds_memory_do_map failed[%d]\n", ret);
 			mem_table->error_code = RTDS_MEM_ERR_MAPPING;
@@ -652,8 +660,11 @@ int rtds_memory_open_shared_rtmem(
 		map_data->cache_kind	= cache;
 		map_data->data_ent		= true;
 		map_data->mapping_flag	= RTDS_MEM_MAPPING_RTMEM;
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 		ret_code = rtds_memory_do_map(fp, rt_addr, (unsigned long)map_size, (phy_addr >> PAGE_SHIFT));
+#else
+		ret_code = rtds_memory_do_map(fp, rt_addr, (unsigned long)map_size, (phy_addr));
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
 		if (SMAP_OK != ret_code) {
 			kfree(rtmem_table);
 			goto out;
@@ -1137,7 +1148,10 @@ int rtds_memory_open_shared_apmem(
 	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)mem_info->mem_size);
 	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (u32)mem_info->pages);
 
-	/* leak check */
+	/* leak check mpro */
+	rtds_memory_leak_check_mpro();
+
+	/* leak check page frame */
 	rtds_memory_leak_check_page_frame();
 
 	k_pages = kmalloc(page_num * sizeof(struct page *), GFP_KERNEL);
@@ -2827,6 +2841,18 @@ void rtds_memory_drv_close_vma(
 	}
 	up(&g_rtds_memory_shared_mem);
 
+	MSG_LOW("[RTDSK]   |---map_rtmem list---\n");
+	spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
+	list_for_each_entry(rtmem_table, &g_rtds_memory_list_map_rtmem, list_head) {
+		MSG_LOW("[RTDSK]   |---\n");
+		MSG_LOW("[RTDSK]   |rtmem_table             [0x%08X]\n", (u32)rtmem_table);
+		MSG_LOW("[RTDSK]   |rtmem_table->tgid       [%d]\n", (u32)rtmem_table->tgid);
+		MSG_LOW("[RTDSK]   |rtmem_table->rt_addr    [0x%08X]\n", (u32)rtmem_table->rt_addr);
+		MSG_LOW("[RTDSK]   |rtmem_table->open_count [%d]\n", (u32)rtmem_table->open_count);
+		MSG_LOW("[RTDSK]   |---\n");
+	}
+	spin_unlock_irqrestore(&g_rtds_memory_lock_map_rtmem, flag);
+
 	/* check process status */
 	if (current->flags & PF_EXITING) {
 
@@ -2857,7 +2883,7 @@ void rtds_memory_drv_close_vma(
 
 		/* check page frame */
 		rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
-
+		
 		/* check map_rtmem list */
 		spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
 		list_for_each_entry(rtmem_table, &g_rtds_memory_list_map_rtmem, list_head) {
@@ -3132,15 +3158,26 @@ int rtds_memory_do_map(
 
 	/* Mapping */
 	down_write(&current->mm->mmap_sem);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
 	*addr =	 do_mmap_pgoff(fp,
 							0,
 							size,
 							PROT_READ|PROT_WRITE,
 							MAP_SHARED,
 							pgoff);
+#else
+	*addr =	 do_mmap(fp,
+						0,
+						size,
+						PROT_READ|PROT_WRITE,
+						MAP_SHARED,
+						pgoff);
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
+
 	up_write(&current->mm->mmap_sem);
 
-	MSG_MED("[RTDSK]   |do_mmap_pgoff_addr [0x%08X]\n", (u32)*addr);
+	MSG_MED("[RTDSK]   |do_mmap_addr [0x%08X]\n", (u32)addr);
 
 	/* Address check(PAGE alignment) */
 	if ((0 != (*addr & RTDS_MEM_ADDR_ERR)) || (0 == *addr)) {

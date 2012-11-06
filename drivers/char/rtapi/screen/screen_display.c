@@ -34,13 +34,15 @@
 #include <screen_id.h>
 #include <iccom_drv_standby.h>
 #include <rtds_memory_drv.h>
+#include <rt_boot_drv.h>
 #include "screen_display_private.h"
 #include "system_rtload_internal.h"
 
 #define	REG_SYSC_PSTR	((unsigned long)0xE6180080)
 #define	POWER_A3R		((unsigned long)0x00002000)
 
-static int output_state;
+static int output_state = ICCOM_DRV_STATE_LCD_OFF;	/* MU2DSP1314 mod */
+extern int screen_display_get_screen_data_info( int, screen_display_screen_data_info * ) ; /* #MU2DISP1088 add */
 
 
 static int  iccom_wq_system_mem_rt_map_thread(void *param)
@@ -131,7 +133,9 @@ void *screen_display_new(void)
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
-	output_state = ICCOM_DRV_STATE_LCD_ON;
+/* MU2DSP1314 del -S- */
+/*	output_state = ICCOM_DRV_STATE_LCD_ON; */
+/* MU2DSP1314 del -E- */
 
 	MSG_MED("[RTAPIK]    |callback[0x%08X]\n", (unsigned int)NULL);
 
@@ -220,7 +224,7 @@ int screen_display_get_address(screen_disp_get_address *address)
 		}
 
 		disp_addr = section.displaybuff_address;
-
+#if !(SUPPORT_DRM)
 		kernel_disp_addr = (void *)ioremap_nocache(disp_addr	, RT_DISPLAY_SCRNDATAINFO_SIZE);
 		if (NULL == kernel_disp_addr) {
 
@@ -234,7 +238,7 @@ int screen_display_get_address(screen_disp_get_address *address)
 		address->address = (unsigned int)disp_addr + *((unsigned long *)((unsigned long)kernel_disp_addr + RT_DISPLAY_LCD1_OFFSET));
 
 		iounmap(kernel_disp_addr);
-
+#endif
 		break;
 	default:
 		break;
@@ -277,6 +281,7 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 /* #MU2DSP582 mod -S- */
 /*		(RT_DISPLAY_HDMI  != disp_draw->output_mode)) || */
 		(RT_DISPLAY_HDMI  != disp_draw->output_mode) &&
+		(RT_DISPLAY_LCD1_ASYNC  != disp_draw->output_mode) &&
 		(RT_DISPLAY_LCDHDMI  != disp_draw->output_mode)) ||
 /* #MU2DSP582 mod -E- */
 		((RT_DISPLAY_LCD1 == disp_draw->output_mode) &&
@@ -291,6 +296,7 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 
 /* #MU2DSP582 add -S- */
 	if ((RT_DISPLAY_LCD1    == disp_draw->output_mode) ||
+	    (RT_DISPLAY_LCD1_ASYNC == disp_draw->output_mode) ||
 	    (RT_DISPLAY_LCDHDMI == disp_draw->output_mode)) {
 		disptask_id = TASK_DISPLAY;
 	} else {
@@ -451,6 +457,9 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 	int result;
 	iccom_drv_send_cmd_param  iccom_send_cmd;
 	iccom_drv_lcd_state_param iccom_lcd_state;
+/* #MU2DISP1088 add -S- */
+	screen_display_screen_data_info	screen_info ;
+/* #MU2DISP1088 add -E- */
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
@@ -473,12 +482,24 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-	if (!(POWER_A3R & inl(REG_SYSC_PSTR))) {
+	if (!(POWER_A3R & readl(REG_SYSC_PSTR))) {
 		result = mfis_drv_resume();
 		if (SMAP_OK != result) {
 			return result;
 		}
 	}
+
+/* #MU2DISP1088 add -S- */
+	result = screen_display_get_screen_data_info( (int)set_lcd_refresh->output_mode, &screen_info ) ;
+	if( SMAP_OK != result )	{
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] screen_display_get_screen_data_info() ret = [%d]\n",
+		__LINE__,
+		result);
+
+		return result ;
+	}
+/* #MU2DISP1088 add -E- */
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)set_lcd_refresh->handle)->handle;
 	iccom_send_cmd.task_id     = TASK_DISPLAY;
@@ -509,12 +530,40 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 	}
 
 	if (RT_DISPLAY_REFRESH_ON == set_lcd_refresh->refresh_mode) {
+/* #MU2DISP1088 add -S- */
+		if (ICCOM_DRV_STATE_LCD_REFRESH != output_state) {
+			if( 0 == screen_info.mode ) {
+				result = mfis_drv_use_a4rm();
+				if (SMAP_OK != result) {
+					MSG_ERROR(
+					"[RTAPIK] ERR|[%d] mfis_drv_use_a4rm() ret = [%d]\n",
+					__LINE__,
+					result);
+				}
+			}
+		}
+/* #MU2DISP1088 add -E- */
+
 		iccom_lcd_state.handle    = ((screen_disp_handle *)set_lcd_refresh->handle)->handle;
 		iccom_lcd_state.lcd_state = ICCOM_DRV_STATE_LCD_REFRESH;
 		iccom_drv_set_lcd_state(&iccom_lcd_state);
 
 		output_state = ICCOM_DRV_STATE_LCD_REFRESH;
 	} else {
+/* #MU2DISP1088 add -S- */
+		if (ICCOM_DRV_STATE_LCD_REFRESH == output_state) {
+			if( 0 == screen_info.mode ) {
+				result = mfis_drv_rel_a4rm();
+				if (SMAP_OK != result) {
+					MSG_ERROR(
+					"[RTAPIK] ERR|[%d] mfis_drv_rel_a4rm() ret = [%d]\n",
+					__LINE__,
+					result);
+				}
+			}
+		}
+/* #MU2DISP1088 add -E- */
+
 		output_state = ICCOM_DRV_STATE_LCD_ON;
 	}
 
@@ -1143,7 +1192,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 
 	sys_rt_map.handle	 = address->handle;
 	sys_rt_map.phys_addr = address->address;
-	sys_rt_map.map_size  = address->size;
+	sys_rt_map.map_size  = address->size + 0x2000;
 
 	result = iccom_wq_system_mem_rt_map( &sys_rt_map );
 	if (SMAP_LIB_MEMORY_OK != result) {
@@ -1254,6 +1303,87 @@ int screen_display_set_hdmi_if_parameters(screen_disp_set_hdmi_if_param *set_hdm
 EXPORT_SYMBOL(screen_display_set_hdmi_if_parameters);
 /* #MU2DSP939 add -E- */
 
+int screen_display_set_lut(screen_disp_set_lut *disp_set_lut)
+{
+	int result;
+	iccom_drv_cmd_data      cmd_array[2];
+	iccom_drv_send_cmd_array_param iccom_send_cmd_array;
+	int						disptask_id;
+	unsigned int			set_num = 0;
+
+	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	if (NULL == disp_set_lut) {
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+	MSG_MED("[RTAPIK]    |handle            [0x%08X]\n", (unsigned int)disp_set_lut->handle);
+	MSG_MED("[RTAPIK]    |output_mode       [0x%08X]\n", (unsigned int)disp_set_lut->output_mode);
+	MSG_MED("[RTAPIK]    |lut_mode          [0x%08X]\n", (unsigned int)disp_set_lut->lut_mode);
+	MSG_MED("[RTAPIK]    |lut               [0x%08X]\n", (unsigned int)disp_set_lut->lut);
+
+	if ((NULL == disp_set_lut->handle) ||
+		(RT_DISPLAY_LCD1 != disp_set_lut->output_mode) ||
+		((RT_DISPLAY_LUT_ON  != disp_set_lut->lut_mode) &&
+		 (RT_DISPLAY_LUT_OFF != disp_set_lut->lut_mode))
+	   ) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] params error\n",
+		__LINE__);
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+
+	if ((RT_DISPLAY_LUT_ON  == disp_set_lut->lut_mode) &&
+		(NULL == disp_set_lut->lut)
+	   ) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] lut NULL error\n",
+		__LINE__);
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+
+	cmd_array[0].size	= sizeof(screen_disp_set_lut);
+	cmd_array[0].data	= (unsigned int *)disp_set_lut;
+	if(RT_DISPLAY_LUT_ON  == disp_set_lut->lut_mode) {
+		cmd_array[1].size	= 256*4;
+		cmd_array[1].data	= (unsigned int *)disp_set_lut->lut;
+		set_num = 2;
+	} else {
+		/* RT_DISPLAY_LUT_OFF */
+		set_num = 1;
+	}
+
+	if (RT_DISPLAY_LCD1 == disp_set_lut->output_mode) {
+		disptask_id = TASK_DISPLAY;
+	} else {
+		disptask_id = TASK_DISPLAY2;
+	}
+
+	iccom_send_cmd_array.handle          = ((screen_disp_handle *)disp_set_lut->handle)->handle;
+	iccom_send_cmd_array.task_id         = disptask_id;
+	iccom_send_cmd_array.function_id     = EVENT_DISPLAY_SETLUT;
+	iccom_send_cmd_array.send_mode       = ICCOM_DRV_SYNC;
+	iccom_send_cmd_array.send_num        = set_num;
+	iccom_send_cmd_array.send_data       = cmd_array;
+	iccom_send_cmd_array.recv_size       = 0;
+	iccom_send_cmd_array.recv_data       = NULL;
+
+	result = iccom_drv_send_command_array(&iccom_send_cmd_array);
+	if (SMAP_OK != result) {
+			MSG_ERROR(
+			"[RTAPIK] ERR|[%d] iccom_drv_send_command_array() ret = [%d]\n",
+			__LINE__,
+			result);
+			return result;
+	}
+
+	MSG_HIGH(
+	"[RTAPIK] OUT|[%s][%d] ret = [%d]\n",
+	__func__,
+	__LINE__,
+	SMAP_LIB_DISPLAY_OK);
+	return SMAP_LIB_DISPLAY_OK;
+}
+EXPORT_SYMBOL(screen_display_set_lut);
+
 void screen_display_delete(screen_disp_delete *disp_delete)
 {
 	iccom_drv_cleanup_param  iccom_cleanup;
@@ -1280,3 +1410,40 @@ void screen_display_delete(screen_disp_delete *disp_delete)
 	MSG_HIGH("[RTAPIK] OUT|[%s]\n", __func__);
 }
 EXPORT_SYMBOL(screen_display_delete);
+
+/* #MU2DISP1088 add -S- */
+int screen_display_get_screen_data_info( int output_mode, screen_display_screen_data_info * info )
+{
+    int	result;
+	int	offset;
+    get_section_header_param	get_section;
+    system_rt_section_header	section;
+    void *	kernel_screen_info_addr;
+
+	offset = (output_mode == RT_DISPLAY_LCD2) ? sizeof(screen_display_screen_data_info) : 0 ;
+
+    get_section.section_header = &section;
+
+    result = sys_get_section_header(&get_section);
+    if(SMAP_OK != result) {
+        MSG_ERROR( "[RTAPIK] ERR|[%d] result = [%d]\n", __LINE__, result);
+        return SMAP_LIB_DISPLAY_NG;
+    }
+#if !(SUPPORT_DRM)
+    kernel_screen_info_addr = ioremap_nocache( section.displaybuff_address + offset, sizeof(screen_display_screen_data_info) );
+#else
+	kernel_screen_info_addr = ioremap_nocache( section.command_area_address + section.command_area_size - 32 + offset,
+												sizeof(screen_display_screen_data_info) );
+#endif
+    if(NULL == kernel_screen_info_addr) {
+        MSG_ERROR( "[RTAPIK] ERR|[%d] \n", __LINE__);
+        return SMAP_LIB_DISPLAY_NG;
+    }
+
+    memcpy_fromio( info, kernel_screen_info_addr, sizeof(screen_display_screen_data_info) );
+
+    iounmap(kernel_screen_info_addr);
+
+    return SMAP_LIB_DISPLAY_OK;
+}
+/* #MU2DISP1088 add -E- */

@@ -55,7 +55,7 @@
 #define UDELAY_TIM_VALUE					(100)
 
 #define reg_modify32(clrmask, setmask, addr) \
-	outl(((inl(addr) & ~(clrmask)) | (setmask)), addr)
+	writel(((readl(addr) & ~(clrmask)) | (setmask)), addr)
 
 extern void iccom_rtctl_standby_ng(void);
 extern void iccom_rtctl_standby_ng_cancel(void);

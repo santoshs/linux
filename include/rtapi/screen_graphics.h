@@ -29,6 +29,7 @@
 #define RT_GRAPHICS_MODE_IMAGE_CONVERSION	(0x00000001)	/* image conversion */
 #define RT_GRAPHICS_MODE_IMAGE_BLEND		(0x00000002)	/* image blend */
 #define RT_GRAPHICS_MODE_IMAGE_OUTPUT		(0x00000004)	/* image output */
+#define RT_GRAPHICS_MODE_IMAGE_EDIT			(0x00000008)	/* image edit */
 
 /* color_format */
 #define RT_GRAPHICS_COLOR_YUV422SP			(1)	/* YUV422 SemiPlanar */
@@ -111,6 +112,11 @@ typedef struct {
 			int				result,
 			unsigned long	user_data
 		);
+	void (*notify_graphics_image_edit)
+		(
+			int				result,
+			unsigned long	user_data
+		);
 } screen_grap_new;
 
 
@@ -122,63 +128,78 @@ typedef struct {
 
 /* screen_graphics_image_conversion API parameter */
 typedef struct {
-	unsigned short			width;			/* image width */
-	unsigned short			height;			/* image height */
-	unsigned short			stride;			/* image stride(Y) */
-	unsigned short			stride_c;		/* image stride(C) */
-	unsigned int			format;			/* image color format */
-	unsigned short			yuv_format;		/* image yuv format */
-	unsigned short			yuv_range;		/* image yuv range */
-	unsigned char			*address;		/* image data address(Y) */
-	void					*apmem_handle;	/* image data app-shared memory handle(Y) */
+	unsigned short			width;				/* image width */
+	unsigned short			height;				/* image height */
+	unsigned short			stride;				/* image stride(Y) */
+	unsigned short			stride_c;			/* image stride(C) */
+	unsigned int			format;				/* image color format */
+	unsigned short			yuv_format;			/* image yuv format */
+	unsigned short			yuv_range;			/* image yuv range */
+	unsigned char			*address;			/* image data address(Y) */
+	void					*apmem_handle;		/* image data app-shared memory handle(Y) */
 	unsigned char			*address_c0;		/* image data address(C0) */
-	void					*apmem_handle_c0;/* image data app-shared memory handle(C0) */
+	void					*apmem_handle_c0;	/* image data app-shared memory handle(C0) */
 	unsigned char			*address_c1;		/* image data address(C1) */
-	void					*apmem_handle_c1;/* image data app-shared memory handle(C1) */
+	void					*apmem_handle_c1;	/* image data app-shared memory handle(C1) */
 } screen_grap_image_param;
 
 typedef struct {
 	void					*handle;			/* graphics interface handle */
-	screen_grap_image_param	input_image;	/* input image parameters */
-	screen_grap_image_param	output_image;	/* output image parameters */
-	unsigned long			user_data;		/* user data */
+	screen_grap_image_param	input_image;		/* input image parameters */
+	screen_grap_image_param	output_image;		/* output image parameters */
+	unsigned long			user_data;			/* user data */
 } screen_grap_image_conv;
 
 /* screen_graphics_image_blend API parameter */
 typedef struct {
-	screen_grap_image_param		image;		/* input image parameters */
-	screen_rect					rect;		/* rect */
-	unsigned short				alpha;		/* alpha */
-	unsigned short				rotate;		/* rotation type */
-	unsigned short				mirror;		/* mirror type */
-	unsigned short				dummy;		/* dummy */
-	long					key_color;	/* key color */
+	screen_grap_image_param		image;			/* input image parameters */
+	screen_rect					rect;			/* rect */
+	unsigned short				alpha;			/* alpha */
+	unsigned short				rotate;			/* rotation type */
+	unsigned short				mirror;			/* mirror type */
+	unsigned short				dummy;			/* dummy */
+	long						key_color;		/* key color */
 	unsigned short				premultiplied;	/* premultiplied */
 	unsigned short				alpha_coef;		/* alpha coefficient */
 } screen_grap_layer;
 
 typedef struct {
-	void					*handle;		/* graphics interface handle */
-	screen_grap_layer*		input_layer[4]; /* input image information */
-	screen_grap_image_param	output_image;	/* output image parameters */
+	void					*handle;			/* graphics interface handle */
+	screen_grap_layer*		input_layer[4];		/* input image information */
+	screen_grap_image_param	output_image;		/* output image parameters */
 	unsigned long			background_color;	/* background_color */
-	unsigned long			user_data;		/* user data */
+	unsigned long			user_data;			/* user data */
 } screen_grap_image_blend;
 
 /* screen_graphics_image_output API parameter */
 typedef struct {
-	void					*handle;		/* graphics interface handle */
-	screen_grap_image_param	output_image;	/* output image parameters */
-	unsigned short			rotate;			/* rotation type */
-	unsigned short			dummy;			/* dummy */
-	unsigned long			user_data;		/* user data */
+	void					*handle;			/* graphics interface handle */
+	screen_grap_image_param	output_image;		/* output image parameters */
+	unsigned short			rotate;				/* rotation type */
+	unsigned short			dummy;				/* dummy */
+	unsigned long			user_data;			/* user data */
 } screen_grap_image_output;
 
 /* screen_graphics_quit API parameter */
 typedef struct {
-	void					*handle;		/* graphics interface handle */
-	unsigned long			mode;			/* graphics mode */
+	void					*handle;			/* graphics interface handle */
+	unsigned long			mode;				/* graphics mode */
 } screen_grap_quit;
+
+/* screen_graphics_edit API parameter */
+typedef struct {
+	screen_grap_image_param		input_image;	/* input image parameters */
+	screen_rect					rect;			/* rect */
+	unsigned short				rotate;			/* rotation type */
+	unsigned short				mirror;			/* mirror type */
+} screen_grap_edit_param;
+
+typedef struct {
+	void						*handle;		/* graphics interface handle */
+	screen_grap_edit_param		input_param;	/* input image parameters */
+	screen_grap_image_param		output_image;	/* output image parameters */
+	unsigned long				user_data;		/* user data */
+} screen_grap_image_edit;
 
 /* screen_graphics_delete API parameter */
 typedef struct {
@@ -192,36 +213,41 @@ typedef struct {
 
 extern void *screen_graphics_new
 (
-	screen_grap_new*	grap_new
+	screen_grap_new	*grap_new
 );
 
 extern int screen_graphics_initialize
 (
-	screen_grap_initialize*	grap_initialize
+	screen_grap_initialize	*grap_initialize
 );
 
 extern int screen_graphics_image_conversion
 (
-	screen_grap_image_conv*	grap_image_conv
+	screen_grap_image_conv	*grap_image_conv
 );
 
 extern int screen_graphics_image_blend
 (
-	screen_grap_image_blend*	grap_blend
+	screen_grap_image_blend	*grap_blend
 );
 
 extern int screen_graphics_image_output
 (
-	screen_grap_image_output*	grap_output
+	screen_grap_image_output	*grap_output
 );
 extern int screen_graphics_quit
 (
-	screen_grap_quit*	grap_quit
+	screen_grap_quit	*grap_quit
+);
+
+extern int screen_graphics_image_edit
+(
+	screen_grap_image_edit	*grap_edit
 );
 
 extern void screen_graphics_delete
 (
-	screen_grap_delete*	grap_delete
+	screen_grap_delete	*grap_delete
 );
 
 
