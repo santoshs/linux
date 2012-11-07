@@ -266,7 +266,7 @@ static int tps80032_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	tm->tm_min  = bcd2dec(val[1] & 0x7F);
 	tm->tm_hour = bcd2dec(val[2] & 0x3F);
 	tm->tm_mday = bcd2dec(val[3] & 0x3F);
-	tm->tm_mon  = bcd2dec(val[4] & 0x1F);
+	tm->tm_mon  = bcd2dec(val[4] & 0x1F) - 1;
 	tm->tm_year = bcd2dec(val[5] & 0xFF) + RTC_YEAR_OFFSET;
 	tm->tm_wday = bcd2dec(val[6] & 0x07);
 
@@ -300,7 +300,7 @@ static int tps80032_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	val[1] = dec2bcd(tm->tm_min);
 	val[2] = dec2bcd(tm->tm_hour);
 	val[3] = dec2bcd(tm->tm_mday);
-	val[4] = dec2bcd(tm->tm_mon);
+	val[4] = dec2bcd(tm->tm_mon) + 1;
 	val[5] = dec2bcd(tm->tm_year % RTC_YEAR_OFFSET);
 	val[6] = dec2bcd(tm->tm_wday);
 
