@@ -58,7 +58,6 @@
 #include "cc42_crypt_driver_hw_defs.h"
 #include "cc42_crypt_driver_config.h"
 #include "cc42_crypt_driver_api.h"
-//#include "sec_hal_pm.h"
 
 /* To Enable debug print */
 //#define ENABLE_CC42_DEBUG_PRINT
@@ -718,8 +717,10 @@ end_function:
 static int sep_resume(struct device *dev)
 {
 	int error = 0;
-	//int sec_hal_error = 0;
 	unsigned long long count = 0;
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	int sec_hal_error = 0;
+	#endif
 	
 	/*----------------------------
 	    CODE
@@ -758,17 +759,19 @@ static int sep_resume(struct device *dev)
 	if (sep_power_down_counter != count) {
 		/* to update the sep power down counter */
 		sep_power_down_counter = count;
-		/* Commented : sec_hal_pm_public_cc42_key_init function is failing.
-		Calling this API results in Instability on Secure side*/ 
-		/*sec_hal_error = sec_hal_pm_public_cc42_key_init();
+		/* RKEK Implementation*/
+		#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+		sec_hal_error = sec_hal_pm_public_cc42_key_init();
 		if (sec_hal_error) {
-			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: \
-			sec_hal_pm_public_cc42_key_init failed with error %d\n", error);
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:" \
+			"sec_hal_pm_public_cc42_key_init failed" \
+				" with error 0x%x\n", sec_hal_error);
 		}
 		else {
 			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: \
 			sec_hal_pm_public_cc42_key_init succeeded \n");
-		}*/
+		}
+		#endif
 	}
 
 	
