@@ -70,16 +70,6 @@ static int num_vbat[5];
 static int num_volt;
 static int state_sleep[7];
 static int volt_sleep[7];
-static u8 portcr_val_backup[NUM_PORT];
-static int output_backup[3];
-static u8 portcr_val[NUM_PORT] = {
-	GPIO_PULL_OFF | OUTPUT | FUNCTION_0, /*PORT 0*/
-	GPIO_PULL_UP | INPUT | FUNCTION_0, /*PORT 28*/
-	GPIO_PULL_UP | OUTPUT | FUNCTION_0, /*PORT 35*/
-	GPIO_PULL_DOWN | OUTPUT | FUNCTION_0, /*PORT 141*/
-	GPIO_PULL_DOWN | FUNCTION_1, /*PORT 202*/
-};
-
 struct hwspinlock *r8a73734_hwlock_pmic;
 
 /* Define for interrupt + suspend flag */
@@ -5575,8 +5565,6 @@ static void tps80032_ldo_get_state_suspend(void)
 static int tps80032_power_suspend(struct device *dev)
 {
 	int ret = 0;
-	int i = 0;
-	struct tps80032_platform_data *pdata = data->dev->platform_data;
 	int val = 0;
 	unsigned long flags;
 	int error_flag = 0;
@@ -5613,23 +5601,6 @@ static int tps80032_power_suspend(struct device *dev)
 	/* Reset key counter */
 	key_count = 0;
 
-	/* Back up and set gpio port*/
-	/* Back up gpio data value */
-	output_backup[0] = gpio_get_value(pdata->pin_gpio[0]); /*MSECURE*/
-	output_backup[1] = gpio_get_value(pdata->pin_gpio[2]); /*NRESWARM*/
-	output_backup[2] = gpio_get_value(pdata->pin_gpio[3]); /*GPADC_START*/
-
-	/* Set gpio port control */
-	for (i = 0; i < NUM_PORT; i++) {
-		u8 temp;
-		temp = pdata->get_portcr_value(pdata->portcr[i]);
-		portcr_val_backup[i] = temp;
-		pdata->set_portcr_value(portcr_val[i], pdata->portcr[i]);
-	}
-	/* Set gpio data value */
-	gpio_set_value(pdata->pin_gpio[0], GPIO_LOW); /*MSECURE*/
-	gpio_set_value(pdata->pin_gpio[2], GPIO_HIGH); /*NRESWARM*/
-	gpio_set_value(pdata->pin_gpio[3], GPIO_LOW); /*GPADC_START*/
 	/* Disable GPADC */
 	ret = I2C_WRITE(data->client_battery, HW_REG_TOGGLE1, 0x11);
 	if (0 > ret) {
@@ -5692,8 +5663,6 @@ static int tps80032_power_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct tps80032_data *data = i2c_get_clientdata(client);
-	struct tps80032_platform_data *pdata = data->dev->platform_data;
-	int i = 0;
 
 	PMIC_DEBUG_MSG(">>> %s: name=%s addr=0x%x\n",
 			__func__, client->name, client->addr);
@@ -5704,14 +5673,6 @@ static int tps80032_power_resume(struct device *dev)
 	/* Enable IRQ28 */
 	enable_irq(pint2irq(CONST_INT_ID));
 
-	/* Restore gpio port control */
-	for (i = 0; i < NUM_PORT; i++)
-		pdata->set_portcr_value(portcr_val_backup[i], pdata->portcr[i]);
-
-	/* Restore gpio data value */
-	gpio_set_value(pdata->pin_gpio[0], output_backup[0]); /*MSECURE*/
-	gpio_set_value(pdata->pin_gpio[2], output_backup[1]); /*NRESWARM*/
-	gpio_set_value(pdata->pin_gpio[3], output_backup[2]); /*GPADC_START*/
 #ifdef PMIC_FUELGAUGE_ENABLE
 	queue_work(data->queue, &data->resume_work);
 #endif
@@ -6561,7 +6522,7 @@ static int tps80032_power_remove(struct i2c_client *client)
 	for (i = 0; i < RESOURCE_POWER_CTRL_PROP_MAX; i++)
 		power_ctrl_unregister(&control_ldo[i]);
 
-	gpio_free(pdata->pin_gpio[1]);	/* free GPIO_PORT28 */
+	gpio_free(pdata->pin_gpio);		/* free GPIO_PORT28 */
 	free_irq(pint2irq(CONST_INT_ID), data);	/* free interrupt */
 	pmic_device_unregister(&client->dev);
 	destroy_workqueue(data->queue);

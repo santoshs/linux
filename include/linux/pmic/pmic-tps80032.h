@@ -61,22 +61,9 @@ struct tps80032_subdev_info {
 	void		*platform_data;
 };
 
-#define NUM_PORT	5
-#define GPIO_LOW	0
-#define GPIO_HIGH	1
-#define GPIO_PULL_OFF	0x00
-#define GPIO_PULL_DOWN	0x80
-#define GPIO_PULL_UP	0xc0
-#define INPUT	0x20
-#define OUTPUT	0x10
-#define FUNCTION_0 0x00
-#define FUNCTION_1 0x01
 struct tps80032_platform_data {
-	unsigned pin_gpio[NUM_PORT];
-	unsigned pin_gpio_fn[NUM_PORT];
-	unsigned portcr[NUM_PORT];
-	u8 (*get_portcr_value)(u32 addr);
-	void (*set_portcr_value)(u8 value, u32 addr);
+	unsigned pin_gpio;
+	unsigned pin_gpio_fn;
 	int num_subdevs;
 	struct tps80032_subdev_info *subdevs;
 	int irq_base;
