@@ -1140,10 +1140,11 @@ void rmu2_rwdt_software_reset(void)
 
 	for (;;) {
 		hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
-		if (0 == hwlock)
+		if (0 == hwlock) {
 			RWDT_DEBUG(">>> %s Get lock in loop successfully\n",
 							__func__);
 			break;
+		}
 	}
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_PRES_MASK,
 							RESCNT2_PRES_MASK);
