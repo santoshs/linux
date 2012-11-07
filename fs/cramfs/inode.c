@@ -242,6 +242,14 @@ static void *cramfs_read(struct super_block *sb, unsigned int offset, unsigned i
 
 static void cramfs_put_super(struct super_block *sb)
 {
+#ifdef CONFIG_CRAMFS_LINEAR
+	struct cramfs_sb_info *sbi = NULL;
+
+	sbi = (struct cramfs_sb_info *) sb->s_fs_info;
+	if (sbi != NULL)
+		iounmap(sbi->linear_virt_addr);
+#endif
+
 	kfree(sb->s_fs_info);
 	sb->s_fs_info = NULL;
 }

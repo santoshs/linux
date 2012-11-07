@@ -338,6 +338,11 @@ extern int pcm2pwm_open(void)
 
 	pcm2pwm_platdevice.base_address = (u16 *)ioremap_nocache(
 			pdev->resource->start, resource_size(pdev->resource));
+	if (pcm2pwm_platdevice.base_address == NULL) {
+		printk(KERN_ERR "[PWM ERR]%s[%d] Unable to map IO memory\n",
+						__func__, __LINE__);
+		return -EBUSY;
+	}
 
 	pcm2pwm_platdevice.state = PCM2PWM_OPEN;
 

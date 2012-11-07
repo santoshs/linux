@@ -62,12 +62,16 @@ void crashlog_r_local_ver_write(char *soft_version)
 
 void crashlog_reset_log_write()
 {
-	void __iomem *adr = 0;
+	void __iomem *adr = NULL;
 	u8 reg = 0;
 
 	/* kmsg */
 	/* printk(KERN_ERR "log_buf_address=0x%08x\n", log_buf_address); */
 	adr = ioremap(CRASHLOG_KMSG_LOCATE, 16);
+	if (adr) {
+		printk(KERN_ERR "Unable to map CRASHLOG_KMSG_LOCATE\n");
+		return;
+	}
 	__raw_writel(log_buf_address, adr);
 	__raw_writel(log_buf_len_address, adr + 4);
 	__raw_writel(log_end_address, adr + 8);
@@ -78,6 +82,10 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_main_buffer_address=0x%08x\n",
 				log_main_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_MAIN_LOCATE, 16);
+	if (adr) {
+		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_MAIN_LOCATE\n");
+		return;
+	}
 	__raw_writel(log_main_buffer_address, adr);
 	__raw_writel(log_main_size_address, adr + 4);
 	__raw_writel(log_main_w_off_address, adr + 8);
@@ -88,6 +96,10 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_events_buffer_address=0x%08x\n",
 				log_events_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_EVENT_LOCATE, 16);
+	if (adr) {
+		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_EVENT_LOCATE\n");
+		return;
+	}
 	__raw_writel(log_events_buffer_address, adr);
 	__raw_writel(log_events_size_address, adr + 4);
 	__raw_writel(log_events_w_off_address, adr + 8);
@@ -98,6 +110,10 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_radio_buffer_address=0x%08x\n",
 				log_radio_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_RADIO_LOCATE, 16);
+	if (adr) {
+		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_RADIO_LOCATE\n");
+		return;
+	}
 	__raw_writel(log_radio_buffer_address, adr);
 	__raw_writel(log_radio_size_address, adr + 4);
 	__raw_writel(log_radio_w_off_address, adr + 8);
@@ -106,6 +122,10 @@ void crashlog_reset_log_write()
 
 	/* log_cat_system */
 	adr = ioremap(CRASHLOG_LOGCAT_SYSTEM_LOCATE, 16);
+	if (adr) {
+		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_SYSTEM_LOCATE\n");
+		return;
+	}
 	__raw_writel(log_system_buffer_address, adr);
 	__raw_writel(log_system_size_address, adr + 4);
 	__raw_writel(log_system_w_off_address, adr + 8);
