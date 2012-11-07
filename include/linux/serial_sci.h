@@ -64,6 +64,9 @@ struct plat_sci_port {
 	
 	void 		(*exit_lpm_cb)(struct uart_port *uport); /* Call Back for Low Power Mode support */
 	bool		rts_ctrl; /* set to 0 = Set RTS to low after first initialization only */
+	/* GPIO setting */
+	u32				port_count ;
+	struct portn_gpio_setting_info	*scif_gpio_setting_info;
 };
 
 #endif /* __LINUX_SERIAL_SCI_H */

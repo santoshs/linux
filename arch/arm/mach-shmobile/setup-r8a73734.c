@@ -99,6 +99,51 @@ static struct platform_device cmt12_device = {
 	.num_resources	= ARRAY_SIZE(cmt12_resources),
 };
 
+/*GPIO Settings for SCIFA0 port */
+static struct portn_gpio_setting_info scif0_gpio_setting_info[] = {
+	[0] = { /* SCIFA0_TXD */
+		.flag = 1,
+		.port = GPIO_PORT128,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 1 */
+			.port_fn	= GPIO_FN_SCIFA0_TXD, 
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_OUTPUT,
+			.output_level = PORTn_OUTPUT_LEVEL_HIGH,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 0 */
+			.port_fn 	= GPIO_PORT128, 
+			.pull 	 	= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NONE,
+			.output_level = PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[1] = { /* SCIFA0_RXD */
+		.flag = 1,
+		.port = GPIO_PORT129,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			 /* Function 1 */
+			.port_fn	= GPIO_FN_SCIFA0_RXD, 
+			.pull 		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.output_level = PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 0 */
+			.port_fn 		= GPIO_PORT129,
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NONE,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
+
+/* SCIFA0 */
 static struct plat_sci_port scif0_platform_data = {
 	.mapbase	= 0xe6450000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -107,6 +152,9 @@ static struct plat_sci_port scif0_platform_data = {
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(102), gic_spi(102),
 			    gic_spi(102), gic_spi(102) },
+	/* GPIO settings */
+	.port_count = ARRAY_SIZE(scif0_gpio_setting_info),
+	.scif_gpio_setting_info	= &scif0_gpio_setting_info,
 };
 
 static struct platform_device scif0_device = {
@@ -117,6 +165,7 @@ static struct platform_device scif0_device = {
 	},
 };
 
+/* SCIFA1 */
 static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -125,6 +174,9 @@ static struct plat_sci_port scif1_platform_data = {
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(103), gic_spi(103),
 			    gic_spi(103), gic_spi(103) },
+	/* GPIO settings */
+	.port_count = 0,
+	.scif_gpio_setting_info	= NULL,
 };
 
 static struct platform_device scif1_device = {
@@ -135,6 +187,7 @@ static struct platform_device scif1_device = {
 	},
 };
 
+/*SCIFA2 */
 static struct plat_sci_port scif2_platform_data = {
 	.mapbase	= 0xe6c60000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -143,6 +196,9 @@ static struct plat_sci_port scif2_platform_data = {
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(104), gic_spi(104),
 			    gic_spi(104), gic_spi(104) },
+	/* GPIO settings */
+	.port_count = 0,
+	.scif_gpio_setting_info	= NULL,
 };
 
 static struct platform_device scif2_device = {
@@ -153,6 +209,7 @@ static struct platform_device scif2_device = {
 	},
 };
 
+/*SCIFA3 */
 static struct plat_sci_port scif3_platform_data = {
 	.mapbase	= 0xe6c70000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -161,6 +218,9 @@ static struct plat_sci_port scif3_platform_data = {
 	.type		= PORT_SCIFA,
 	.irqs		= { gic_spi(105), gic_spi(105),
 			    gic_spi(105), gic_spi(105) },
+	/* GPIO settings */
+	.port_count = 0,
+	.scif_gpio_setting_info	= NULL,
 };
 
 static struct platform_device scif3_device = {
@@ -171,6 +231,91 @@ static struct platform_device scif3_device = {
 	},
 };
 
+/*GPIO Settings for SCIFB0 port */
+static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
+	[0] = { /* SCIFB0_TXD */ 
+		.flag = 1,
+		.port = GPIO_PORT137,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 1 */
+			.port_fn	= GPIO_FN_SCIFB0_TXD, 
+			.pull		= PORTn_CR_PULL_DOWN,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level = PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_TXD,
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[1] = { /* SCIFB0_RXD */
+		.flag = 0,
+		.port = GPIO_PORT138,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_RXD,
+			.pull 			= PORTn_CR_PULL_UP,
+			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_RXD,
+			.pull 			= PORTn_CR_PULL_UP,
+			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[2] = { /* SCIFB0_CTS_ */
+		.flag = 0,
+		.port = GPIO_PORT38,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_CTS_, 
+			.pull 			= PORTn_CR_PULL_UP,
+			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_CTS_, 
+			.pull 			= PORTn_CR_PULL_UP,
+			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},	 
+	[3] = { /* SCIFB0_RTS_ */
+		.flag = 1,
+		.port = GPIO_PORT37,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_RTS_, 
+			.pull 			= PORTn_CR_PULL_DOWN,
+			.direction		= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 1 */
+			.port_fn 		= GPIO_FN_SCIFB0_RTS_, 
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
+
+/*SCIFB0 */
 static struct plat_sci_port scif4_platform_data = {
 	.mapbase	= 0xe6c20000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -181,6 +326,9 @@ static struct plat_sci_port scif4_platform_data = {
 			    gic_spi(107), gic_spi(107) },
 	.rts_ctrl	= 0,
 	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
+	/* GPIO settings */
+	.port_count = ARRAY_SIZE(scif4_gpio_setting_info),
+	.scif_gpio_setting_info	= &scif4_gpio_setting_info,
 };
 
 static struct platform_device scif4_device = {
@@ -191,6 +339,90 @@ static struct platform_device scif4_device = {
 	},
 };
 
+/*GPIO Settings for SCIFB1 port */
+static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
+	[0] = { /* SCIFB1_RTS */ 
+		.flag = 1,
+		.port = GPIO_PORT76,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 2 */
+			.port_fn	= GPIO_FN_SCIFB1_RTS, 
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_OUTPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 0 */
+			.port_fn 		= GPIO_PORT76,
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NONE,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[1] = { /* SCIFB1_CTS */
+		.flag = 1,
+		.port = GPIO_PORT77,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 2 */
+			.port_fn 		= GPIO_FN_SCIFB1_CTS,
+			.pull 			= PORTn_CR_PULL_UP,
+			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 0 */
+			.port_fn 		= GPIO_PORT77,
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NONE,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+	[2] = { /* SCIFB1_TXD */
+		.flag = 1,
+		.port = GPIO_PORT78,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 2 */
+			.port_fn 		= GPIO_FN_SCIFB1_TXD, 
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_OUTPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			 /* Function 0 */
+			.port_fn 		= GPIO_PORT78,
+			.pull 			= PORTn_CR_PULL_OFF,
+			.direction		= PORTn_CR_DIRECTION_NONE,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},	 
+	[3] = { /* SCIFB1_RXD */
+		.flag = 1,
+		.port = GPIO_PORT79,
+		/* GPIO settings to be retained at resume state */
+		.active = { 
+			/* Function 2 */
+			.port_fn	= GPIO_FN_SCIFB1_RXD, 
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 0 */
+			.port_fn 		= GPIO_PORT79, 
+			.pull 			= PORTn_CR_PULL_DOWN,
+			.direction		= PORTn_CR_DIRECTION_NONE,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
+/*SCIFB1 */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -199,6 +431,9 @@ static struct plat_sci_port scif5_platform_data = {
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(108), gic_spi(108),
 			    gic_spi(108), gic_spi(108) },
+	/* GPIO settings */
+	.port_count = ARRAY_SIZE(scif5_gpio_setting_info),
+	.scif_gpio_setting_info	= &scif5_gpio_setting_info,
 };
 
 static struct platform_device scif5_device = {
@@ -209,6 +444,7 @@ static struct platform_device scif5_device = {
 	},
 };
 
+/*SCIFB2 */
 static struct plat_sci_port scif6_platform_data = {
 	.mapbase	= 0xe6ce0000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
@@ -217,6 +453,9 @@ static struct plat_sci_port scif6_platform_data = {
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(116), gic_spi(116),
 			    gic_spi(116), gic_spi(116) },
+	/* GPIO settings */
+	.port_count = 0,
+	.scif_gpio_setting_info	= NULL,
 };
 
 static struct platform_device scif6_device = {
@@ -236,6 +475,9 @@ static struct plat_sci_port scif7_platform_data = {
         .type           = PORT_SCIFB,
         .irqs           = { gic_spi(117), gic_spi(117),
                             gic_spi(117), gic_spi(117) },
+		/* GPIO settings */
+		.port_count = 0,
+		.scif_gpio_setting_info	= NULL,
 };
 
 static struct platform_device scif7_device = {
@@ -248,6 +490,7 @@ static struct platform_device scif7_device = {
 
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= false,
 };
 
 static struct resource i2c0_resources[] = {
@@ -266,6 +509,7 @@ static struct resource i2c0_resources[] = {
 
 static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= false,
 };
 
 static struct resource i2c1_resources[] = {
@@ -284,6 +528,7 @@ static struct resource i2c1_resources[] = {
 
 static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= false,
 };
 
 static struct resource i2c2_resources[] = {
@@ -303,6 +548,7 @@ static struct resource i2c2_resources[] = {
 //ES2.0 change start
 static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= false,
 };
 
 static struct resource i2c3_resources[] = {
@@ -323,6 +569,15 @@ static struct resource i2c3_resources[] = {
 
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
+        .pin_multi	= true,
+	.scl_info	= {
+		.port_num	= GPIO_PORT84,
+		.port_func	= GPIO_FN_I2C_SCL0H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT85,
+		.port_func	= GPIO_FN_I2C_SDA0H,
+	},
 };
 //IIC0H
 static struct resource i2c4_resources[] = {
@@ -341,6 +596,15 @@ static struct resource i2c4_resources[] = {
 
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= true,
+	.scl_info	= {
+		.port_num	= GPIO_PORT86,
+		.port_func	= GPIO_FN_I2C_SCL1H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT87,
+		.port_func	= GPIO_FN_I2C_SDA1H,
+	},
 };
 //IIC1H
 static struct resource i2c5_resources_es10[] = {
@@ -378,6 +642,7 @@ static struct resource i2c5_resources_es20[] = {
 
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= false,
 };
 
 static struct resource i2c6_resources[] = {
@@ -394,9 +659,19 @@ static struct resource i2c6_resources[] = {
 	},
 };
 
+#ifndef CONFIG_SPI_SH_MSIOF
 //ES2.0 change start
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= true,
+	.scl_info	= {
+		.port_num	= GPIO_PORT82,
+		.port_func	= GPIO_FN_I2C_SCL2H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT83,
+		.port_func	= GPIO_FN_I2C_SDA2H,
+	},
 };
 //IIC2H
 static struct resource i2c7_resources[] = {
@@ -412,10 +687,20 @@ static struct resource i2c7_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+#endif
 
 #ifndef CONFIG_PN544_NFC
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 	.bus_speed	= 400000,
+	.pin_multi	= true,
+	.scl_info	= {
+		.port_num	= GPIO_PORT273,
+		.port_func	= GPIO_FN_I2C_SCL3H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT274,
+		.port_func	= GPIO_FN_I2C_SDA3H,
+	},
 };
 //IIC3H
 static struct resource i2c8_resources[] = {
@@ -516,6 +801,7 @@ static struct platform_device i2c6_device = {
 	},
 };
 
+#ifndef CONFIG_SPI_SH_MSIOF
 // ES2.0 change start
 static struct platform_device i2c7_device = {
 	.name		= "i2c-sh_mobile",
@@ -526,6 +812,7 @@ static struct platform_device i2c7_device = {
 		.platform_data	= &i2c7_platform_data,
 	},
 };
+#endif
 
 #ifndef CONFIG_PN544_NFC
 static struct platform_device i2c8_device = {
@@ -1130,7 +1417,9 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
     &i2c4_device,
     &i2c5_device_es20,
     &i2c6_device,
+#ifndef CONFIG_SPI_SH_MSIOF
     &i2c7_device,
+#endif
 #ifndef CONFIG_PN544_NFC
     &i2c8_device,
 #endif

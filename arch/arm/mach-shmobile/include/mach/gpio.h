@@ -18,6 +18,42 @@
 
 #ifdef CONFIG_GPIOLIB
 
+/* GPIO Settings - PULMD (Pull OFF/Pull DOWN/Pull UP) */
+#define PORTn_CR_PULL_NOT_SET	-1
+#define PORTn_CR_PULL_OFF	0
+#define PORTn_CR_PULL_DOWN	1
+#define PORTn_CR_PULL_UP	2
+
+/* GPIO Settings - IE/OE */
+#define PORTn_CR_DIRECTION_NOT_SET	(-1)
+#define PORTn_CR_DIRECTION_NONE		0
+#define PORTn_CR_DIRECTION_OUTPUT	1
+#define PORTn_CR_DIRECTION_INPUT	2
+
+/* GPIO Settings - Output data level High/Low */
+#define PORTn_OUTPUT_LEVEL_NOT_SET	(-1)
+#define PORTn_OUTPUT_LEVEL_LOW		0
+#define PORTn_OUTPUT_LEVEL_HIGH		1
+
+
+struct portn_gpio_setting {
+	u32	port_fn;	/* Pin function select*/
+	s32	pull;		/* Pull Off/Down/Up */
+	s32 direction;  /* Input/Output direction */
+	/* It become enable only when direction is output. */
+	s32 output_level; 
+};
+
+struct portn_gpio_setting_info {
+	u32	flag;		/* 0: no change required on suspend 
+					   1: change required on suspend*/
+	u32	port;		/* GPIO port number */
+	/* GPIO settings to be retained on resume */
+	struct portn_gpio_setting active; 
+	/* GPIO settings on suspending state */
+	struct portn_gpio_setting inactive; 
+};
+
 static inline int gpio_get_value(unsigned gpio)
 {
 	return __gpio_get_value(gpio);

@@ -426,15 +426,22 @@ inline unsigned int getb_port_n_DR(unsigned int port)
 static void i2c_gpio_setsda_dir(void *data, int state)
 {
 	struct i2c_gpio_platform_data *pdata = data;
+	unsigned char val;
 
-	if (state)
+	switch (state)
 	{
-		setb_port_n_CR(pdata->sda_pin, 0x20);
+	case 0:
+		val = 0x10;
+		break;
+	case 1:
+		val = 0x20;
+		break;
+	default:
+		val = 0x00;
+		break;
 	}
-	else
-	{
-		setb_port_n_CR(pdata->sda_pin, 0x10);
-	}
+	setb_port_n_CR(pdata->sda_pin, val);
+
 }
 
 /*
@@ -453,15 +460,21 @@ static void i2c_gpio_setsda_val(void *data, int state)
 static void i2c_gpio_setscl_dir(void *data, int state)
 {
 	struct i2c_gpio_platform_data *pdata = data;
+	unsigned char val;
 
-	if (state)
+	switch (state)
 	{
-		setb_port_n_CR(pdata->scl_pin, 0x20);
+	case 0:
+		val = 0x10;
+		break;
+	case 1:
+		val = 0x20;
+		break;
+	default:
+		val = 0x00;
+		break;
 	}
-	else
-	{
-		setb_port_n_CR(pdata->scl_pin, 0x10);
-	}
+	setb_port_n_CR(pdata->scl_pin, val);
 }
 
 /*
@@ -551,6 +564,8 @@ static int __devinit i2c_gpio_probe(struct platform_device *pdev)
 
 	bit_data->data = pdata;
 
+	setb_port_n_CR(pdata->sda_pin, 0x00);
+	setb_port_n_CR(pdata->scl_pin, 0x00);
 	setl_port_n_DCR(pdata->sda_pin);
 	setl_port_n_DCR(pdata->scl_pin);
 
@@ -618,9 +633,6 @@ static int i2c_gpio_pm_suspend(struct device *dev)
 	pdata = dev->platform_data;
 	if (!pdata)
 		return -ENXIO;
-
-	//setb_port_n_CR(pdata->sda_pin, 0x00);
-	//setb_port_n_CR(pdata->scl_pin, 0x00);
 
 	pm_runtime_put_sync(dev);
 
