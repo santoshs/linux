@@ -28,8 +28,10 @@
 #include "entry-header.S"
 #include <asm/entry-macro-multi.S>
 
+#ifndef CONFIG_ARM_TZ
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
+#endif
 
 /*
  * Interrupt handling.  Preserves r7, r8, r9

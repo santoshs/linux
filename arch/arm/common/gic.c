@@ -33,8 +33,10 @@
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
 
+#ifndef CONFIG_ARM_TZ
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
+#endif /* CONFIG_ARM_TZ */
 
 static DEFINE_SPINLOCK(irq_controller_lock);
 

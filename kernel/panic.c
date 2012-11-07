@@ -67,8 +67,6 @@ EXPORT_SYMBOL(panic_blink);
  *	This function never returns.
  */
 
-static unsigned char dump_cnt = 0;
-static DEFINE_SPINLOCK(panic_lock);
 
 NORET_TYPE void panic(const char * fmt, ...)
 {
@@ -85,8 +83,6 @@ NORET_TYPE void panic(const char * fmt, ...)
 	 * not have preempt disabled. Some functions called from here want
 	 * preempt to be disabled. No point enabling it later though...
 	 */
-//	mdelay(200);
-	spin_lock(&panic_lock);
 	preempt_disable();
 
 	console_verbose();
@@ -105,25 +101,9 @@ NORET_TYPE void panic(const char * fmt, ...)
 	 * Do we want to call this before we try to display a message?
 	 */
 	crash_kexec(NULL);
-	spin_unlock(&panic_lock);
-//	mdelay(900);
-	spin_lock(&panic_lock);
-	if(dump_cnt == 0)
-	{
-		rmu2_rwdt_cntclear();
-		dump_cnt++;
-		spin_unlock(&panic_lock);
-	} else {
-		spin_unlock(&panic_lock);
-		while(1);
-	}
+	rmu2_rwdt_cntclear();
 
-	mdelay(1500);
-
-	kmsg_dump(KMSG_DUMP_PANIC);
-
-	reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_PANIC_END), STBCHR2); // write STBCHR2 for debug
+	smp_send_all_cpu_backtrace();
 
 	/*
 	 * Note smp_send_stop is the usual smp shutdown function, which
@@ -131,6 +111,13 @@ NORET_TYPE void panic(const char * fmt, ...)
 	 * situation.
 	 */
 	smp_send_stop();
+
+	kmsg_dump(KMSG_DUMP_PANIC);
+
+	reg = __raw_readb(STBCHR2);
+	/* write STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_PANIC_END), STBCHR2);
+
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 

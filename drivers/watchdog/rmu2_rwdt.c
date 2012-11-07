@@ -228,7 +228,7 @@ static void rmu2_cmt_start(void)
 {
 	unsigned long flags, wrflg, i = 0;
 
-	RWDT_DEBUG("START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 	RWDT_DEBUG("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
 	RWDT_DEBUG("< %s >CMSTR15=%08x\n", __func__, __raw_readl(CMSTR15));
 	RWDT_DEBUG("< %s >CMCSR15=%08x\n", __func__, __raw_readl(CMCSR15));
@@ -270,7 +270,7 @@ void rmu2_cmt_stop(void)
 {
 	unsigned long flags, wrflg, i = 0;
 
-	RWDT_DEBUG("START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);	/* Int disable */
 	__raw_writel(0U, CMCNT15);
@@ -297,7 +297,7 @@ static void rmu2_cmt_clear(void)
 {
 
 	int wrflg, i = 0;
-	RWDT_DEBUG("START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 	__raw_writel(0, CMSTR15);	/* Stop counting */
 
 	__raw_writel(0U, CMCNT15);	/* Clear the count value */
@@ -321,10 +321,21 @@ static void rmu2_cmt_clear(void)
 static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id)
 {
 	unsigned int reg_val = __raw_readl(CMCSR15);
+#ifdef CONFIG_ARM_TZ
+	unsigned char *killer = NULL;
+	printk(KERN_ERR "TRUST ZONE ENABLED : CMT15 counter overflow occur!\n");
+#else
 
-	printk(KERN_ERR "CMT15 Counter Overflow Occur!\n");
+	printk(KERN_ERR "TRUST ZONE DISABLED : CMT15 counter overflow occur!\n");
+#endif/* CONFIG_ARM_TZ */
+
 	reg_val &= ~0x0000c000U;
 	__raw_writel(reg_val, CMCSR15);
+
+#ifdef CONFIG_ARM_TZ
+	printk(KERN_ERR "Watchdog will trigger in 5 sec... Generating panic to collect logs...");
+	*killer = 1;
+#endif /* CONFIG_ARM_TZ */
 
 	return IRQ_HANDLED;
 }

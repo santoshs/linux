@@ -5,8 +5,10 @@
 
 #include <asm/ptrace.h>
 
+#ifndef CONFIG_ARM_TZ
 #define CONFIG_GIC_NS 
 #define CONFIG_GIC_NS_CMT
+#endif
 
 /*
  * CPU interrupt mask handling.
