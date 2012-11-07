@@ -3204,9 +3204,9 @@ static int tps80032_set_power_mode(struct device *dev, int resource,
 static int tps80032_set_vbus(struct device *dev, int enable)
 {
 	int ret;
-	int val_mode;
-	int val_dcdc;
-	int val_boost;
+	int val_mode = 0;
+	int val_dcdc = 0;
+	int val_boost = 0;
 	int cur_mode;
 	int cur_dcdc;
 	int cur_boost;
