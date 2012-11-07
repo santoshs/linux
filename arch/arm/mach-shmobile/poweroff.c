@@ -59,6 +59,8 @@
 	#define POWEROFF_PRINTK(fmt, arg...)
 #endif
 
+static char dummy_access_for_sync;
+
 #if 0
 /*
  *  shmobile_pm_set_recovery_mode: Set Recovery Mode
@@ -146,10 +148,13 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_PM_RESTART), STBCHR2); /* write STBCHR2 for debug */
 
-	/* Turn off caching */
-	cpu_proc_fin();
-	/* Push out any further dirty data, and ensure cache is empty */
-	flush_cache_all();
+	/* Push out any further dirty data, and ensure L2 cache is empty */
+	outer_flush_all();
+
+	/* Dummy access to wait for L2 flushing. We intend to keep processor
+	 * executing this statement to allow time for L2 flushing */
+	memcpy(&dummy_access_for_sync, &flag, sizeof(flag));
+
 	/* The architecture specific reboot */
 	#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
