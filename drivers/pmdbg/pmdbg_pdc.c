@@ -25,8 +25,6 @@
 #include <asm/io.h>
 #include <mach/pm.h>
 
-#define SYSC_PSTR		IO_ADDRESS(0xE6180080)
-
 int lst_cmd(char*, int);
 int set_cmd(char*, int);
 int pdc_init(void);

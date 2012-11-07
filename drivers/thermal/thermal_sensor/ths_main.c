@@ -68,8 +68,9 @@
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define EARLY_SUSPEND_MAX_TRY 5
-/* ths_wait_wq: Work_queue used to wait power domain to be turned off during early suspend */
-struct workqueue_struct *ths_wait_wq = NULL;
+/* ths_wait_wq: Work_queue used to wait power domain to be turned off 
+   during early suspend */
+struct workqueue_struct *ths_wait_wq;
 static DECLARE_DEFERRED_WORK(ths_work, NULL);
 
 /* early_suspend_try: Number of attempt to early suspend ths device */
@@ -391,21 +392,30 @@ static void ths_early_suspend_wq(struct work_struct *work)
 {
 	u_int reg;
 
-	if(suspend_state) {
+	mutex_lock(&ths->sensor_mutex);
+	if (suspend_state) {
+		mutex_unlock(&ths->sensor_mutex);
 		THS_DEBUG_MSG("%s: device already suspended\n", __func__);
 		return;
 	}
+	mutex_unlock(&ths->sensor_mutex);
 
 	reg = ioread32(SYSC_PSTR);
-	if (reg & (POWER_A3SG | POWER_A3R | POWER_D4) && early_suspend_try > 0) {
-		THS_DEBUG_MSG("%s: waiting for power domains to be turned off (%d) \n", __func__, early_suspend_try);
-		queue_delayed_work_on(0, ths_wait_wq, &ths_work, usecs_to_jiffies(100*1000));
+	if ((reg & (POWER_A3SG | POWER_A3R | POWER_D4)) &&
+		(early_suspend_try > 0)) {
+		THS_DEBUG_MSG(
+					"%s: waiting for power domains to be turned off (%d)\n",
+					__func__, early_suspend_try);
+		queue_delayed_work_on(0, ths_wait_wq, &ths_work,
+					usecs_to_jiffies(100*1000));
 		early_suspend_try = early_suspend_try - 1;
 		return;
 	}
-	
+
 	if (!early_suspend_try) {
-		THS_DEBUG_MSG("%s: Thermal sensor not suspended, some power domains remains \n", __func__);
+		THS_DEBUG_MSG(
+				"%s:Thermal sensor not suspended, some power domains remains\n"
+				, __func__);
 		return;
 	}
 
@@ -421,34 +431,38 @@ static void ths_early_suspend_wq(struct work_struct *work)
 
 	clk_disable(ths->clk);
 
+	mutex_lock(&ths->sensor_mutex);
 	suspend_state = TRUE;
+	mutex_unlock(&ths->sensor_mutex);
+
 	THS_DEBUG_MSG("%s : Done\n", __func__);
 
 	return;
 }
 
 /*
- * ths_early_suspend: suspend thermal sensor device during early suspend of the platform
- *
+ * ths_early_suspend: suspend thermal sensor device during early suspend
+ * of the platform
  * @h: a struct early_suspend, initialized during probe sequence
  * return: 0 if success
  */
 static int ths_early_suspend(struct early_suspend *h)
 {
-	THS_DEBUG_MSG("%s: Enter - Add ths_early_suspend to the work queue\n", __func__);
+	THS_DEBUG_MSG("%s: Enter - Add ths_early_suspend to the work queue\n",
+						__func__);
 
-	ths_wait_wq = alloc_ordered_workqueue("ths_wait_wq", 0);
-	INIT_DELAYED_WORK(&ths_work, ths_early_suspend_wq);
-	queue_delayed_work_on(0, ths_wait_wq, &ths_work, usecs_to_jiffies(100*1000));
+	queue_delayed_work_on(0, ths_wait_wq, &ths_work,
+						usecs_to_jiffies(100*1000));
 
-	THS_DEBUG_MSG("%s: Done - Early_suspend added to the work queue\n", __func__);
+	THS_DEBUG_MSG("%s: Done - Early_suspend added to the work queue\n",
+	__func__);
 
 	return 0;
 }
 
 /*
- * ths_late_resume: resume thermal sensor device during late resume of the platform
- *
+ * ths_late_resume: resume thermal sensor device during late resume of
+ * the platform
  * @h: a struct early_suspend, initialized during probe sequence
  * return: 0 if success
  */
@@ -458,13 +472,17 @@ static int ths_late_resume(struct early_suspend *h)
 
 	early_suspend_try = EARLY_SUSPEND_MAX_TRY;
 
-	if(!suspend_state){
+	mutex_lock(&ths->sensor_mutex);
+	if (!suspend_state) {
+		mutex_unlock(&ths->sensor_mutex);
 		THS_DEBUG_MSG("%s: device already resumed\n", __func__);
 		return 0;
 	}
 
-	clk_enable(ths->clk);
 	suspend_state = FALSE;
+	mutex_unlock(&ths->sensor_mutex);
+
+	clk_enable(ths->clk);
 
 	__ths_set_op_mode((enum mode)ths->pdata[0].last_mode, 0);
 	__ths_set_op_mode((enum mode)ths->pdata[1].last_mode, 1);
@@ -483,7 +501,7 @@ static int ths_suspend(struct device *dev)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
-	if(suspend_state) {
+	if (suspend_state) {
 		THS_DEBUG_MSG("%s: device already suspended\n", __func__);
 		return 0;
 	}
@@ -516,7 +534,7 @@ static int ths_resume(struct device *dev)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
-	if(!suspend_state){
+	if (!suspend_state) {
 		THS_DEBUG_MSG("%s: device already resumed\n", __func__);
 		return 0;
 	}
@@ -940,6 +958,8 @@ static int __devinit ths_probe(struct platform_device *pdev)
 	ths->early_suspend.suspend = (void *)ths_early_suspend;
 	ths->early_suspend.resume = (void *)ths_late_resume;
 	register_early_suspend(&ths->early_suspend);
+	ths_wait_wq = alloc_ordered_workqueue("ths_wait_wq", 0);
+	INIT_DELAYED_WORK(&ths_work, ths_early_suspend_wq);
 #endif
 
 	THS_DEBUG_MSG("%s end (Normal case) <<<\n", __func__);

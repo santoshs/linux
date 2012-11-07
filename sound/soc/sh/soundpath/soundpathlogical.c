@@ -4376,11 +4376,6 @@ static void sndp_after_of_work_call_capture_stop(
 /* SYSC base address */
 u_long g_sysc_Base;
 
-#define SYSC_SPDCR	(g_sysc_Base + 0x0008)
-#define SYSC_SWUCR	(g_sysc_Base + 0x0014)
-#define SYSC_PSTR	(g_sysc_Base + 0x0080)
-
-
 /* Path test pm_runtime get function */
 void sndp_path_test_pm_runtime_get_sync(void)
 {

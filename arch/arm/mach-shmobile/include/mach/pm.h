@@ -136,6 +136,14 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
 
+/* SYSC registers */
+#define SYSC_SPDCR					0xE6180008
+#define SYSC_SWUCR					0xE6180014
+#define SYSC_WUPSMSK					0xE618002C
+#define SYSC_PSTR					0xE6180080
+#define SYSC_PDNSEL					0xE6180254
+#define SBSC_SDPDCR0A					0xFE400058
+
 /*Value of power area (value is appropriate with SWUCR, SPDCR, PSTR registers)*/
 #define POWER_A2SL					BIT(20)
 #define POWER_A3SM					BIT(19)
