@@ -20,6 +20,7 @@
 typedef enum
 {
 	SPA_EVT_CHARGER,
+	SPA_EVT_ACC_INFO,
 	SPA_EVT_EOC,
 	SPA_EVT_TEMP,
 	SPA_EVT_OVP,
@@ -28,6 +29,14 @@ typedef enum
 	SPA_EVT_CAPACITY,
 	SPA_EVT_MAX,
 } SPA_EVT_T;
+
+typedef enum
+{
+	SPA_ACC_NONE,
+	SPA_ACC_JIG_UART,
+	SPA_ACC_JIG_USB,
+	SPA_ACC_MAX,
+} SPA_ACC_INFO_T;
 
 #define ADC_RUNNING_AVG_SHIFT	4
 #define ADC_RUNNING_AVG_SIZE	(1 << ADC_RUNNING_AVG_SHIFT)
@@ -39,7 +48,7 @@ typedef enum
 #define SPA_BATT_UPDATE_INTERVAL_INIT3 1000
 #define SPA_BATT_UPDATE_INTERVAL_INIT4 1000
 #define SPA_BATT_UPDATE_INTERVAL_INIT5 1000
-#define SPA_BATT_UPDATE_INTERVAL_INIT SPA_BATT_UPDATE_INTERVAL_INIT5
+#define SPA_BATT_UPDATE_INTERVAL_INIT SPA_BATT_UPDATE_INTERVAL_INIT0
 
 #define SPA_BATT_UPDATE_INTERVAL 30000
 #define SPA_BATT_UPDATE_INTERVAL_WHILE_CHARGING 5000
@@ -126,6 +135,8 @@ struct spa_power_data
 	unsigned int charging_cur_usb;
 	unsigned int charging_cur_wall;
 
+	charge_timer_t charge_timer_limit;
+
 	struct spa_temp_tb *batt_temp_tb;
 	unsigned int batt_temp_tb_len;
 };
@@ -200,6 +211,7 @@ struct spa_power_desc
 
 	struct workqueue_struct *spa_workqueue;
 	struct wake_lock spa_wakelock;
+	struct wake_lock acc_wakelock;
 
 	struct spa_power_data *pdata;
 

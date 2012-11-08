@@ -261,6 +261,11 @@ config CHARGER_TWL4030
 	help
 	  Say Y here to enable support for TWL4030 Battery Charge Interface.
 
+config CHARGER_SMB328A
+	tristate "SMB328A charger driver"
+	help
+	  Say Y here to enable support for SMB328A Battery Charge Interface.
+
 config CHARGER_GPIO
 	tristate "GPIO charger"
 	depends on GPIOLIB
@@ -270,5 +275,15 @@ config CHARGER_GPIO
 
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
+
+config BATTERY_BQ27425
+	tristate "BQ27425 fuelgauge driver"
+	help
+	  Say Y here to enable support for BQ27425 fuelgauge Interface.
+
+config SEC_CHARGING_FEATURE
+	tristate "SPA charger driver"
+	help
+	  Say Y here to enable support for SPA Interface.
 
 endif # POWER_SUPPLY

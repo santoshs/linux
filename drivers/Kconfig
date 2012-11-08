@@ -14,6 +14,8 @@ source "drivers/pnp/Kconfig"
 
 source "drivers/block/Kconfig"
 
+source "drivers/sensors/Kconfig"
+
 # misc before ide - BLK_DEV_SGIIOC4 depends on SGI_IOC4
 
 source "drivers/misc/Kconfig"
@@ -134,8 +136,9 @@ source "drivers/smeco/Kconfig"
 
 source "drivers/thermal/thermal_sensor/Kconfig"
 
-source "drivers/sensor/Kconfig"
 
 source "drivers/sec_hal/Kconfig"
+
+source "drivers/motor/Kconfig"
 
 endmenu

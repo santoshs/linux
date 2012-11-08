@@ -6,7 +6,6 @@
 #
 
 obj-y				+= gpio/
-obj-$(CONFIG_SENSOR_SUPPORT)		+= sensor/
 obj-$(CONFIG_PCI)		+= pci/
 obj-$(CONFIG_PARISC)		+= parisc/
 obj-$(CONFIG_RAPIDIO)		+= rapidio/
@@ -123,6 +122,7 @@ obj-y				+= platform/
 obj-y				+= ieee802154/
 #common clk code
 obj-y				+= clk/
+obj-$(CONFIG_NEW_SENSORS)	+= sensors/
 obj-y		+= pmic/
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
 
@@ -130,5 +130,6 @@ obj-$(CONFIG_SMECO)		+= smeco/
 
 obj-$(CONFIG_THERMAL_SENSOR) += thermal/thermal_sensor/
 
+obj-y	+= motor/
 obj-$(CONFIG_PM_DEBUG)	+= pmdbg/
 obj-$(CONFIG_ARM_SEC_HAL) += sec_hal/
