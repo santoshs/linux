@@ -317,6 +317,11 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	(g_sndp_stop_trigger_condition[idx] &=				\
 	(g_sndp_stop_trigger_condition[idx] & (0xffff0000 >> (idx * 16))))
 
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_BLUETOOTHSCO) ||		\
+	 (device & SNDP_FM_RADIO_TX)  ||		\
+	 (device & SNDP_FM_RADIO_RX)  ||		\
+	 (device & SNDP_AUXDIGITAL))
 
 /*
  *
