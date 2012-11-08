@@ -29,7 +29,10 @@
 /*
  * ths_get_cur_temp: get the current temperature of LSI
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
- * 	@cur_temp: current temperature of LSI
+ *  @cur_temp: This value shows that the actual LSI temperature is
+			in range of [cur_temp-5, cur_temp]
+			E.g: cur_temp is 45. It means the current temperature is
+			in range from 40 to 45 degree.
  * return: 
  * 		-EINVAL (-22): invalid argument
  *		-ENXIO   (-6): Thermal Sensor device is IDLE state

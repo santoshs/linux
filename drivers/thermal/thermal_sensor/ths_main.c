@@ -44,10 +44,6 @@
 #include "ths_main.h"
 #include "ths_hardware.h"
 
-#ifdef CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734
-#include <mach/pm.h>
-#endif /*CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A73734*/
-
 #ifndef TRUE
     #define TRUE 1
 #endif
@@ -77,6 +73,13 @@ static DECLARE_DEFERRED_WORK(ths_work, NULL);
 static int early_suspend_try = EARLY_SUSPEND_MAX_TRY;
 #endif
 
+enum temp_control {
+	E_HOTPLUG = 0x1,
+	E_DFS     = 0x2
+};
+
+unsigned int dfs_ctrl;
+unsigned int hotplug_ctrl;
 struct thermal_sensor *ths;
 int suspend_state = FALSE;
 
@@ -113,7 +116,10 @@ static void __exit ths_exit(void);
 /*
  * __ths_get_cur_temp: get the current temperature of LSI
  *  @ths_id  : index of Thermal Sensor device (THS0 or THS1)
- *	@cur_temp: current temperature of LSI
+ *  @cur_temp: This value shows that the actual LSI temperature is
+			in range of [cur_temp-5, cur_temp]
+			E.g: cur_temp is 45. It means the current temperature is
+			in range from 40 to 45 degree.
  * return:
  *		-EINVAL (-22): invalid argument
  *		-ENXIO   (-6): Thermal Sensor device is IDLE state
@@ -147,7 +153,7 @@ int __ths_get_cur_temp(unsigned int ths_id, int *cur_temp)
 	}
 
 	ctemp     = get_register_32(THSSR(ths_id)) & CTEMP_MASK;
-	*cur_temp = ctemp * 5 - 65;
+	*cur_temp = (ctemp * 5 - 65) + 5;	/* Plus 5 degree for safety */
 
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 
@@ -693,61 +699,63 @@ static void ths_stop_cpu(int cpu_id)
  */
 static irqreturn_t ths_isr(int irq, void *dev_id)
 {
-	int ret = 0;
+	int intr_status = -1;
 	int temp = 0;
-
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 	disable_irq_nosync(irq);
 
+	intr_status = get_register_32(STR_RW_32B);
 	THS_DEBUG_MSG(">>>STR_RW_32B (Before clear) = %x (Hex)\n",
 					get_register_32(STR_RW_32B));
 
-	ret = __ths_get_cur_temp(0, &temp);
+	THS_DEBUG_MSG("Current temp THS0 (%d) = %d\n",
+			__ths_get_cur_temp(0, &temp), temp);
 
-	if (ret < 0) {
-		enable_irq(irq);
-		goto finish;
-	}
-
-	THS_DEBUG_MSG("Current temp:%d\n", temp);
-
-	if (temp >= CTEMP3_DEC) {
+	if ((TJ03ST == (intr_status & TJ03ST)) ||
+		(TJ13ST == (intr_status & TJ13ST))) {
+		/* INTDT3 interrupt occurs */
 #ifdef CONFIG_THS_CPU_HOTPLUG
-		ths_stop_cpu(1);
+		if (E_HOTPLUG != hotplug_ctrl) {
+			ths_stop_cpu(1); /* Control CPU1 */
+			hotplug_ctrl = E_HOTPLUG;
+		} else {
+			THS_DEBUG_MSG("CPU1 was already stopped!\n", __func__);
+		}
 #endif /* CONFIG_THS_CPU_HOTPLUG */
 		/* Un-mask INTDT0 interrupt to output to INTC(THS0) */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
 						TJ01INT_MSK, TJ00INT_MSK);
 		enable_irq(irq);
-	} else if ((CTEMP2_DEC <= temp) && (temp < CTEMP3_DEC)) {
+	} else if (TJ02ST == (intr_status & TJ02ST)) {
+		/* INTDT2 interrupt occurs */
 		/* Un-mask INTDT0/3 interrupt to output to INTC(THS0) */
 		modify_register_32(INT_MASK_RW_32B, TJ02INT_MSK | TJ01INT_MSK,
 					TJ00INT_MSK | TJ03INT_MSK);
 		queue_work(ths->queue, &ths->tj2_work);
-	} else if ((CTEMP1_DEC <= temp) && (temp < CTEMP2_DEC)) {
+	} else if (TJ01ST == (intr_status & TJ01ST)) {
+		/* INTDT1 interrupt occurs */
 		/* Un-mask INTDT0/2 interrupts to output to INTC (THS0) */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ01INT_MSK,
 						TJ00INT_MSK | TJ02INT_MSK);
 		queue_work(ths->queue, &ths->tj1_work);
-	} else if (temp < CTEMP1_DEC) {
+	} else if (TJ00ST == (intr_status & TJ00ST)) {
+		/* INTDT0 interrupt occurs */
 		/* Un-mask INTDT1 interrupt to output to INTC (THS0) */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
 						TJ00INT_MSK, TJ01INT_MSK);
 		queue_work(ths->queue, &ths->tj0_work);
 	}
 
-finish:
 	/* Clear Interrupt Status register */
 	set_register_32(STR_RW_32B, TJST_ALL_CLEAR);
-
 	THS_DEBUG_MSG(">>>STR_RW_32B (After clear) = %x (Hex)\n",
 					get_register_32(STR_RW_32B));
-
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 
 	return IRQ_HANDLED;
 }
+
 
 /*
  * ths_work_tj0:
@@ -767,11 +775,17 @@ static void ths_work_tj0(struct work_struct *work)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 #ifdef CONFIG_THS_CPU_HOTPLUG
-	ths_start_cpu(1); /* Start CPU1 */
+	if (E_HOTPLUG == hotplug_ctrl) {
+		ths_start_cpu(1); /* Start CPU1 */
+		hotplug_ctrl = ~E_HOTPLUG;
+	}
 #endif /* CONFIG_THS_CPU_HOTPLUG */
 
 #ifdef CONFIG_THS_DFS
-	ths_dfs_control(LIMIT_NONE);
+	if (E_DFS == dfs_ctrl) {
+		ths_dfs_control(LIMIT_NONE);
+		dfs_ctrl = ~E_DFS;
+	}
 #endif /* CONFIG_THS_DFS */
 
 	enable_irq(ths->ths_irq);
@@ -794,9 +808,15 @@ static void ths_work_tj1(struct work_struct *work)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 #ifdef CONFIG_THS_CPU_HOTPLUG
-	ths_stop_cpu(1); /* Stop CPU1 */
+	if (E_HOTPLUG != hotplug_ctrl) {
+		ths_stop_cpu(1); /* Stop CPU1 */
+		hotplug_ctrl = E_HOTPLUG;
+	}
 #elif defined CONFIG_THS_DFS
-	ths_dfs_control(LIMIT_MID);
+	if (E_DFS != dfs_ctrl) {
+		ths_dfs_control(LIMIT_MID);
+		dfs_ctrl = E_DFS;
+	}
 #endif /* CONFIG_THS_CPU_HOTPLUG */
 
 	enable_irq(ths->ths_irq);
@@ -820,7 +840,13 @@ static void ths_work_tj2(struct work_struct *work)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 #ifdef CONFIG_THS_CPU_HOTPLUG
-	ths_stop_cpu(1); /* Control CPU1 */
+	if (E_HOTPLUG != hotplug_ctrl) {
+		ths_stop_cpu(1); /* Control CPU1 */
+		hotplug_ctrl = E_HOTPLUG;
+	} else {
+		THS_DEBUG_MSG("CPU1 was already stopped in tj1_work!\n",
+		__func__);
+	}
 #endif /* CONFIG_THS_CPU_HOTPLUG */
 
 #ifdef CONFIG_THS_DFS
@@ -829,6 +855,7 @@ static void ths_work_tj2(struct work_struct *work)
 #else
 	ths_dfs_control(LIMIT_LOW);
 #endif /* CONFIG_THS_CPU_HOTPLUG */
+	dfs_ctrl = E_DFS;
 #endif /* CONFIG_THS_DFS */
 
 	enable_irq(ths->ths_irq);
@@ -949,6 +976,10 @@ static int __devinit ths_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Error! Can not start Thermal Sensor module\n");
 		goto error_4;
 	}
+
+	/* Mark that there is no DFS or HOTPLUG control by THS*/
+	dfs_ctrl = 0;
+	hotplug_ctrl = 0;
 
 	/* Initialize the operation of Thermal Sensor device */
 	ths_initialize_hardware();
