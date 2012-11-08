@@ -5632,7 +5632,7 @@ static int tps80032_power_suspend(struct device *dev)
 		pdata->set_portcr_value(portcr_val[i], pdata->portcr[i]);
 	}
 	/* Set gpio data value */
-	gpio_set_value(pdata->pin_gpio[0], GPIO_LOW); /*MSECURE*/
+	gpio_set_value(pdata->pin_gpio[0], GPIO_HIGH); /*MSECURE*/
 	gpio_set_value(pdata->pin_gpio[2], GPIO_HIGH); /*NRESWARM*/
 	gpio_set_value(pdata->pin_gpio[3], GPIO_LOW); /*GPADC_START*/
 	/* Disable GPADC */
