@@ -525,7 +525,7 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
 	struct pinmux_data_reg *dummy;
 	unsigned long flags = 0;
-	int i, ret, pinmux_type;
+	int i, ret, pinmux_type, err = 0;
 
 	ret = -EINVAL;
 
@@ -642,11 +642,18 @@ static int sh_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
 	unsigned long flags = 0;
-	int ret;
+	int ret, err = 0;
 
-	if (gpio_hwlock)
-		hwspin_lock_timeout_irqsave(gpio_hwlock,
-							HWLOCK_TIMEOUT, &flags);
+	if (gpio_hwlock) {
+		err = hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT,
+									&flags);
+		if (err < 0) {
+			printk(KERN_ERR "\nGPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return -EINVAL;
+		}
+	}
+
 	else
 		spin_lock_irqsave(&gpio_lock, flags);
 
@@ -677,13 +684,20 @@ static int sh_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
 	unsigned long flags = 0;
-	int ret;
+	int ret, err = 0;
 
 	sh_gpio_set_value(gpioc, offset, value);
 
-	if (gpio_hwlock)
-		hwspin_lock_timeout_irqsave(gpio_hwlock,
-							HWLOCK_TIMEOUT, &flags);
+	if (gpio_hwlock) {
+		err = hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT,
+									&flags);
+		if (err < 0) {
+			printk(KERN_ERR "\nGPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return -EINVAL;
+		}
+	}
+
 	else
 		spin_lock_irqsave(&gpio_lock, flags);
 	ret = pinmux_direction(gpioc, offset, PINMUX_TYPE_OUTPUT);
