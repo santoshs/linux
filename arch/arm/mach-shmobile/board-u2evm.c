@@ -31,6 +31,10 @@
 #include <linux/pmic/pmic-tps80032.h>
 #endif
 
+#ifdef CONFIG_VIBRATOR_ISA1000A
+#include <linux/isa1000a_haptic.h>
+#endif
+
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
 #include <linux/i2c/atmel_mxt_ts.h>
@@ -54,8 +58,26 @@
 
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+#include <linux/spa_power.h>
+#endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #include <linux/tsu6712.h>
+#endif
+#ifdef CONFIG_MPU_SENSORS_MPU6050B1
+#include <linux/mpu.h>
+#endif
+#ifdef CONFIG_INPUT_YAS_SENSORS
+#include <linux/yas.h>
+#endif
+#ifdef CONFIG_YAS_ACC_MULTI_SUPPORT
+#include <linux/yas_accel.h>
+#endif
+#ifdef CONFIG_OPTICAL_GP2AP020A00F
+#include <linux/i2c/gp2ap020.h>
+#endif
+#ifdef CONFIG_OPTICAL_TAOS_TRITON
+#include <linux/i2c/taos.h>
 #endif
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/i2c/touchkey_i2c.h>
@@ -75,6 +97,52 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
+
+static int check_sec_rlte_hw_rev(void);
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+#include <mach/sec_debug.h>
+#include <mach/sec_debug_inform.h>
+#endif
+
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
+static void mpu_power_on(int onoff);
+#endif
+
+#ifdef CONFIG_INPUT_YAS_SENSORS
+static void yas_power_on(int onoff);
+#endif
+
+
+
+
+
+
+
+
+#if defined(CONFIG_OPTICAL_GP2AP020A00F)
+static void gp2a_power_on(int onoff);
+#endif
+
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
+	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
+	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
+	defined(CONFIG_INPUT_YAS_SENSORS)
+enum {
+	SNS_PWR_OFF,
+	SNS_PWR_ON,
+	SNS_PWR_KEEP
+};
+#endif
+
+
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
+	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
+	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
+	defined(CONFIG_INPUT_YAS_SENSORS)
+static void sensor_power_on_vdd(int);
+#endif
+
+
 
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
@@ -1167,12 +1235,15 @@ static struct platform_device gpio_key_polled_device = {
 
 static const struct fb_videomode lcdc0_modes[] = {
 	{
-/*		.name		= "WVGA",*/
-/*		.xres		= 480,*/
-/*		.yres		= 800,*/
+#if CONFIG_S6E63M0X_TYPE == 2
 		.name		= "qHD",
 		.xres		= 540,
 		.yres		= 960,
+#else
+		.name		= "WVGA",
+		.xres		= 480,
+		.yres		= 800,
+#endif
 		.left_margin	= 16,
 		.right_margin	= 1000,
 		.hsync_len	= 16,
@@ -1276,6 +1347,62 @@ static struct platform_device tpu3_device = {
 		.platform_data	= &tpu3_info,
 	},
 };
+#if defined(CONFIG_VIBRATOR_ISA1000A)
+
+/******************************************************/
+/*
+ * ISA1000 HAPTIC MOTOR Driver IC.
+ * MOTOR Resonance frequency: 205HZ.
+ * Input PWM Frequency: 205 * 128 = 26240 HZ.
+ * PWM_period_ns = 1000000000/26240 = 38109.
+ * PWM Enable GPIO number = 189.
+*/
+/******************************************************/
+
+#define GPIO_MOTOR_EN	GPIO_PORT226
+
+static int isa1000_enable(bool en)
+{
+	return gpio_direction_output(GPIO_MOTOR_EN, en);
+}
+
+static struct platform_isa1000_vibrator_data isa1000_vibrator_data =
+{
+	.gpio_en	= isa1000_enable,
+	.pwm_name	= "TPU0TO0",
+	.pwm_duty	= 542,
+	.pwm_period_ns	= 580, //0x244, VIB_CYC
+	.polarity	= 0,
+	.regulator_id	= "vibldo_uc",
+};
+
+static struct platform_device isa1000_device =
+{
+	.name     = "isa1000-vibrator",
+	.id       = -1,
+	.dev      =
+		{
+		.platform_data = &isa1000_vibrator_data,
+	},
+};
+
+static void isa1000_gpio_init(void)
+{
+	int gpio;
+
+	gpio = GPIO_MOTOR_EN;
+	gpio_request(gpio, "MOTOR_EN");
+	gpio_direction_output(gpio, 1);
+	gpio_export(gpio, 0);
+}
+
+static void __init isa1000_vibrator_init(void)
+{
+	isa1000_gpio_init();
+	platform_device_register(&isa1000_device);
+}
+#endif
+
 
 static struct resource	tpu_resources[] = {
 	[TPU_MODULE_0] = {
@@ -1467,6 +1594,280 @@ static struct platform_device u2evm_ion_device = {
 		.platform_data = &u2evm_ion_data,
 	},
 };
+/* I2C */
+
+static struct tps80031_32kclock_plat_data tps_clk = {
+        /*All 32k always on*/
+        .en_clk32kao = 1,
+        .en_clk32kg = 1,
+        .en_clk32kaudio = 1,
+};
+
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_INPUT_YAS_SENSORS) || \
+	defined(CONFIG_OPTICAL_TAOS_TRITON) || defined(CONFIG_OPTICAL_GP2AP020A00F)
+
+#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
+static int gpiosensor = -1;
+#else
+static struct regulator *vsensor_3V;
+#endif
+
+static void sensor_power_on_vdd(int onoff)
+{
+       pr_err("%s: start ",__func__);
+
+#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
+
+      if(gpiosensor < 0) {
+          gpiosensor = gpio_request(GPIO_PORT9, "SENSOR_LDO");
+	    if (gpiosensor < 0)
+          {
+		pr_err("SENSOR_LDO_EN gpio_request was failed\n");
+             return;
+           }
+           gpio_pull(GPIO_PORTCR_ES2(9), GPIO_PULL_OFF);
+      }
+
+	if (onoff == SNS_PWR_ON) {
+            gpio_direction_output(GPIO_PORT9,1);
+            pr_err("%s: power on ",__func__);
+	} else if ((onoff == SNS_PWR_OFF)) {
+            //gpio_direction_output(GPIO_PORT9,0); // TEMP  fix for "inv_i2c_read error"
+            pr_err("%s: power off ",__func__);
+	}
+#else
+	int ret;
+
+       pr_err("%s: start ",__func__);
+
+	if (!vsensor_3V) {
+		vsensor_3V = regulator_get(NULL, "vdd_touch");
+		pr_err("%s: regulator_get ",__func__);
+		if (IS_ERR(vsensor_3V))
+			return ;
+
+		ret = regulator_set_voltage(vsensor_3V, 3000000, 3000000);
+		if (ret)
+			pr_err("%s: error vsensor_3V setting voltage ret=%d\n",__func__, ret);
+	}
+
+	if (onoff == SNS_PWR_ON) {
+		ret = regulator_enable(vsensor_3V);
+		pr_err("%s: regulator_enable ",__func__);
+		if (ret)
+			pr_err("%s: error enabling regulator\n", __func__);
+	} else if ((onoff == SNS_PWR_OFF)) {
+		if (regulator_is_enabled(vsensor_3V)) {
+			ret = regulator_disable(vsensor_3V);
+			if (ret)
+				pr_err("%s: error vsensor_3V enabling regulator\n",__func__);
+		}
+	}
+#endif
+}
+#endif
+
+
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
+static void mpu_power_on(int onoff)
+{
+	sensor_power_on_vdd(onoff);
+}
+#endif
+
+#ifdef CONFIG_INPUT_YAS_SENSORS
+static void yas_power_on(int onoff)
+{
+	sensor_power_on_vdd(onoff);
+}
+#endif
+
+#if defined(CONFIG_OPTICAL_GP2AP020A00F)
+static void gp2a_power_on(int onoff)
+{
+	sensor_power_on_vdd(onoff);
+}
+#endif
+
+#if defined(CONFIG_OPTICAL_TAOS_TRITON)
+static void taos_power_on(int onoff)
+{
+	sensor_power_on_vdd(onoff);
+}
+#endif
+
+#if defined(CONFIG_OPTICAL_GP2A) || defined(CONFIG_OPTICAL_GP2AP020A00F)
+static void gp2a_led_onoff(int onoff)
+{
+
+}
+#endif
+
+#if defined(CONFIG_OPTICAL_TAOS_TRITON)
+static void taos_led_onoff(int onoff)
+{
+
+}
+#endif
+
+#ifdef CONFIG_MPU_SENSORS_MPU6050B1
+struct mpu_platform_data mpu6050_data = {
+	.int_config = 0x10,
+	.orientation = {-1, 0, 0,
+			0, -1, 0,
+			0, 0, 1},
+	.poweron = mpu_power_on,
+	};
+	/* compass */
+static struct ext_slave_platform_data inv_mpu_yas530_data = {
+	.bus            = EXT_SLAVE_BUS_PRIMARY,
+	.orientation = {1, 0, 0,
+			0, 1, 0,
+			0, 0, 1},
+	};
+#endif
+
+
+#if defined(CONFIG_OPTICAL_GP2AP020A00F)
+#define GPIO_ALS_INT	 108
+static struct gp2a_platform_data opt_gp2a_data = {
+	.gp2a_led_on	= gp2a_led_onoff,
+	.power_on = gp2a_power_on,
+	.p_out = GPIO_ALS_INT,
+	.addr = 0x72>>1,
+	.version = 0,
+};
+
+static struct platform_device opt_gp2a = {
+	.name = "gp2a-opt",
+	.id = -1,
+	.dev        = {
+		.platform_data  = &opt_gp2a_data,
+	},
+};
+#endif
+
+#if defined(CONFIG_OPTICAL_TAOS_TRITON)
+#define GPIO_ALS_INT	 108
+static void taos_power_on(int onoff);
+static void taos_led_onoff(int onoff);
+
+static struct taos_platform_data taos_pdata = {
+	.power	= taos_power_on,
+	.led_on	=	taos_led_onoff,
+	.als_int = GPIO_ALS_INT,
+	.prox_thresh_hi = 650,
+	.prox_thresh_low = 510,
+	.als_time = 0xED,
+	.intr_filter = 0x33,
+	.prox_pulsecnt = 0x08,
+	.prox_gain = 0x28,
+	.coef_atime = 50,
+	.ga = 117,
+	.coef_a = 1000,
+	.coef_b = 1600,
+	.coef_c = 660,
+	.coef_d = 1250,
+};
+#endif
+
+#if defined(CONFIG_INPUT_YAS_SENSORS)
+static struct platform_device yas532_orient_device = {
+	.name			= "orientation",
+};
+#endif
+
+
+static struct i2c_board_info __initdata i2c2_devices[] = {
+#ifdef CONFIG_MPU_SENSORS_MPU6050B1
+	{
+		I2C_BOARD_INFO("mpu6050", 0x68),
+		.irq = irqpin2irq(46),
+		.platform_data = &mpu6050_data,
+	 },
+#endif
+#ifdef CONFIG_INPUT_YAS_SENSORS
+	{
+#ifdef CONFIG_YAS_ACC_MULTI_SUPPORT
+		I2C_BOARD_INFO("accelerometer", 0x18),
+		.platform_data = &accel_pdata,
+#else
+		I2C_BOARD_INFO("accelerometer", 0x19),
+#endif
+	},
+	{
+		I2C_BOARD_INFO("geomagnetic", 0x2e),
+	},
+#endif
+#if defined(CONFIG_OPTICAL_GP2AP020A00F)
+	{
+		I2C_BOARD_INFO("gp2a", 0x72>>1),
+	},
+#elif defined(CONFIG_OPTICAL_TAOS_TRITON)
+	{
+		I2C_BOARD_INFO("taos", 0x39),
+		.platform_data = &taos_pdata,
+	},
+#endif
+};
+
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+// Samsung charging feature
+// +++ for board files, it may contain changeable values
+struct spa_temp_tb batt_temp_tb[]=
+{
+	{869, -300},            /* -30 */
+	{769, -200},			/* -20 */
+	{643, -100},                    /* -10 */
+	{568, -50},				/* -5 */
+	{509,   0},                    /* 0   */
+	{382,  100},                    /* 10  */
+	{275,  200},                    /* 20  */
+	{231,  250},                    /* 25  */
+	{196,  300},                    /* 30  */
+	{138,  400},                    /* 40  */
+	{95 ,  500},                    /* 50  */
+	{68 ,  600},                    /* 60  */
+	{54 ,  650},                    /* 65  */
+	{46 ,  700},            /* 70  */
+	{34 ,  800},            /* 80  */
+};
+
+struct spa_power_data spa_power_pdata=
+{
+	.charger_name = "smb328a-charger",
+	.eoc_current=100,
+	.recharge_voltage=4150,
+	.charging_cur_usb=500,
+	.charging_cur_wall=800,
+	.suspend_temp_hot=600,
+	.recovery_temp_hot=400,
+	.suspend_temp_cold=-50,
+	.recovery_temp_cold=0,
+	.charge_timer_limit=CHARGE_TIMER_6HOUR,
+	.batt_temp_tb=&batt_temp_tb[0],
+	.batt_temp_tb_len=ARRAY_SIZE(batt_temp_tb),
+};
+EXPORT_SYMBOL(spa_power_pdata);
+
+static struct platform_device spa_power_device=
+{
+	.name = "spa_power",
+	.id=-1,
+	.dev.platform_data = &spa_power_pdata,
+};
+// --- for board files
+#endif
+
+#if defined(CONFIG_BATTERY_BQ27425)
+#define BQ27425_ADDRESS (0xAA >> 1)
+#define GPIO_FG_INT 44
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+#define SMB328A_ADDRESS (0x69 >> 1)
+#define GPIO_CHG_INT 19
+#endif
 
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #define TSU6712_ADDRESS (0x4A >> 1)
@@ -1476,6 +1877,12 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 };
 #endif
 static struct i2c_board_info __initdata i2c3_devices[] = {
+#if defined(CONFIG_BATTERY_BQ27425)
+    {
+                I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
+                .irq            = irqpin2irq(GPIO_FG_INT),
+        },
+#endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
     {
 		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
@@ -1491,6 +1898,18 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
     },
 #endif
 };
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
+static void mpl_init(void)
+{
+	int rc = 0;
+	rc = gpio_request(GPIO_PORT107, "MPUIRQ");
+	if (rc < 0)
+		pr_err("GPIO_MPU3050_INT gpio_request was failed\n");
+	gpio_direction_input(GPIO_PORT107);
+	gpio_pull(GPIO_PORTCR_ES1(107), GPIO_PULL_UP);
+}
+#endif
+
 /* << Add for Thermal Sensor driver*/
 static struct thermal_sensor_data ths_platdata[] = {
 	/* THS0 */
@@ -2302,7 +2721,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
-//	&tpu_devices[TPU_MODULE_0],
+	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
 	&vibrator_device,
 //	&pcm2pwm_device,
@@ -2325,6 +2744,13 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
 #endif
+#if defined(CONFIG_OPTICAL_GP2A) ||	defined(CONFIG_OPTICAL_GP2AP020A00F)
+	&opt_gp2a,
+#endif
+#if defined(CONFIG_INPUT_YAS_SENSORS)
+	&yas532_orient_device,
+#endif
+
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -2352,7 +2778,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
-//	&tpu_devices[TPU_MODULE_0],
+    &tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
 	&vibrator_device,
 //	&pcm2pwm_device,
@@ -2480,22 +2906,11 @@ static struct i2c_board_info i2c_touchkey[];
 
 static void touchkey_init_hw(void)
 {
-	/* To do as follows
-	gpio_request(GPIO_3_TOUCH_INT, "3_TOUCH_INT");
-	setpull(GPIO_3_TOUCH_INT, S3C_GPIO_PULL_NONE);
-	register_interrupt(GPIO_3_TOUCH_INT);
-	gpio_direction_input(GPIO_3_TOUCH_INT);
+#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
 
-	i2c_touchkey[0].irq = gpio_to_irq(GPIO_3_TOUCH_INT);
-	irq_set_irq_type(gpio_to_irq(GPIO_3_TOUCH_INT), IRQF_TRIGGER_FALLING);
-	gpio_cfgpin(GPIO_3_TOUCH_INT, S3C_GPIO_SFN(0xf));
-	*/
-#if 0
-	gpio_request(GPIO_PORT104, NULL);
-	gpio_direction_input(GPIO_PORT104);
-	gpio_pull(GPIO_PORTCR(104), GPIO_PULL_UP);
-	i2c_touchkey[0].irq = irqpin2irq(43);
-	irq_set_irq_type(irqpin2irq(43), IRQF_TRIGGER_FALLING);
+	gpio_request(GPIO_PORT29, "TCKEY_LDO");
+	gpio_pull(GPIO_PORTCR_ES2(29), GPIO_PULL_OFF);
+    gpio_direction_output(GPIO_PORT29,0);
 #endif
 }
 
@@ -2533,9 +2948,15 @@ static int touchkey_power_on(bool on)
 
 	if (on) {
 		/* To do to power on */		
+#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
+	gpio_direction_output(GPIO_PORT29,1);
+#endif
 	}
 	else {
 		/* To do to power off */		
+#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
+	gpio_direction_output(GPIO_PORT29,0);
+#endif
 	}
 
 	if (on)
@@ -2557,10 +2978,11 @@ static int touchkey_led_power_on(bool on)
 	
 	return 1;
 }
-
+#define TCKEY_SDA 27
+#define TCKEY_SCL 26
 static struct touchkey_platform_data touchkey_pdata = {
-	.gpio_sda = NULL,	/* To do to set gpio */
-	.gpio_scl = NULL,	/* To do to set gpio */
+	.gpio_sda = TCKEY_SDA,	/* To do to set gpio */
+	.gpio_scl = TCKEY_SCL,	/* To do to set gpio */
 	.gpio_int = NULL,	/* To do to set gpio */
 	.init_platform_hw = touchkey_init_hw,
 	.suspend = touchkey_suspend,
@@ -2568,7 +2990,7 @@ static struct touchkey_platform_data touchkey_pdata = {
 	.power_on = touchkey_power_on,
 	.led_power_on = touchkey_led_power_on,
 };
-#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
+
 
 static struct i2c_board_info i2c_touchkey[] = {
 #ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
@@ -2577,10 +2999,10 @@ static struct i2c_board_info i2c_touchkey[] = {
 		.platform_data = &touchkey_pdata,
 		.irq = irqpin2irq(43),
 	},
-#endif
+
 };
-
-
+#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
+#endif
 #ifndef CONFIG_PMIC_INTERFACE
 	static struct regulator *mxt224_regulator;
 #endif
@@ -2726,11 +3148,22 @@ static struct map_desc u2evm_io_desc[] __initdata = {
 		.length         = SZ_4M,
 		.type           = MT_DEVICE
 	},
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+	{
+		.virtual        = SEC_DEBUG_INFORM_VIRT,
+		.pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
+		.length         = SZ_4K,
+		.type           = MT_UNCACHED,
+	},
+#endif
 };
 
 static void __init u2evm_map_io(void)
 {
 	iotable_init(u2evm_io_desc, ARRAY_SIZE(u2evm_io_desc));
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+	sec_debug_init();
+#endif
 	r8a73734_add_early_devices();
 	shmobile_setup_console();
 }
@@ -2770,8 +3203,15 @@ static void irqc_set_chattering(int pin, int timing)
 	__raw_writel(val | (timing << 16) | (1 << 31), reg);
 }
 
+#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 #define SBAR2		__io(IO_ADDRESS(0xe6180060))
 #define RESCNT2		__io(IO_ADDRESS(0xe6188020))
+
+#define SEC_RLTE_REV0_0_0		0
+#define SEC_RLTE_REV0_2_1		1
+#define SEC_RLTE_REV0_2_2		2
+#define SEC_RLTE_REV0_3_1		3
+#define SEC_RLTE_REV0_4_0		4
 
 void u2evm_restart(char mode, const char *cmd)
 {
@@ -2781,6 +3221,7 @@ void u2evm_restart(char mode, const char *cmd)
 	__raw_writel(0, SBAR2);
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
+int sec_rlte_hw_rev;
 
  
  
@@ -2951,6 +3392,8 @@ static void __init u2evm_init(void)
 		*GPIO_DRVCR_SIM2 = 0x0023;
 	}
 	shmobile_arch_reset = u2evm_restart;
+	sec_rlte_hw_rev = check_sec_rlte_hw_rev();
+	printk(KERN_INFO "%s hw rev : %d \n", __func__, sec_rlte_hw_rev);
 
 	/* set board version */
 	u2_board_rev = 0;
@@ -3009,13 +3452,14 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYIN4, NULL);
 	gpio_request(GPIO_FN_KEYIN5, NULL);
 	gpio_request(GPIO_FN_KEYIN6, NULL);
-	gpio_request(GPIO_FN_KEYOUT0, NULL);
-	gpio_request(GPIO_FN_KEYOUT1, NULL);
-	gpio_request(GPIO_FN_KEYOUT2, NULL);
-	gpio_request(GPIO_FN_KEYOUT3, NULL);
-	gpio_request(GPIO_FN_KEYOUT4, NULL);
-	gpio_request(GPIO_FN_KEYOUT5, NULL);
-	gpio_request(GPIO_FN_KEYOUT6, NULL);
+//	gpio_request(GPIO_FN_KEYOUT0, NULL);
+//	gpio_request(GPIO_FN_KEYOUT1, NULL);
+//	gpio_request(GPIO_FN_KEYOUT2, NULL);
+//	gpio_request(GPIO_FN_KEYOUT3, NULL);
+//	gpio_request(GPIO_FN_KEYOUT4, NULL);
+//	gpio_request(GPIO_FN_KEYOUT5, NULL);
+//	gpio_request(GPIO_FN_KEYOUT6, NULL);
+
 
 if((system_rev & 0xFFFF) == 0x3E00)
 {	
@@ -3461,6 +3905,27 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
+#if 0 // LCD initialization is already done in sboot.
+#if CONFIG_S6E63M0X_TYPE == 2
+	gpio_request(GPIO_PORT89, NULL);
+	gpio_direction_output(GPIO_PORT89, 0);
+#else
+	gpio_request(GPIO_PORT88, NULL);
+	gpio_direction_output(GPIO_PORT88, 1);
+#endif
+
+	/* LCD */
+	gpio_request(GPIO_PORT31, NULL);
+	gpio_direction_output(GPIO_PORT31, 0); /* reset */
+#if CONFIG_S6E63M0X_TYPE == 2
+#else
+	udelay(50);
+	gpio_direction_output(GPIO_PORT31, 1); /* unreset */
+#endif
+
+	/* MIPI-DSI clock setup */
+	__raw_writel(0x2a83900D, DSI0PHYCR);
+#endif // LCD initialization is already done in sboot.
 
 	/* PMIC */
 	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
@@ -3479,6 +3944,59 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
    gpio_direction_input(GPIO_PORT97);
    gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
 #endif
+#if defined(CONFIG_CHARGER_SMB328A)
+	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
+	{
+	   gpio_request(GPIO_PORT103, NULL);
+	   gpio_direction_input(GPIO_PORT103);
+	   gpio_pull(GPIO_PORTCR_ES2(103), GPIO_PULL_UP);
+	}
+	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
+	{
+	   gpio_request(GPIO_PORT19, NULL);
+	   gpio_direction_input(GPIO_PORT19);
+	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	}
+	else
+	{
+	   gpio_request(GPIO_PORT19, NULL);
+	   gpio_direction_input(GPIO_PORT19);
+	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	}
+#endif
+
+#if defined(CONFIG_BATTERY_BQ27425)
+   gpio_request(GPIO_PORT105, NULL);
+   gpio_direction_input(GPIO_PORT105);
+   gpio_pull(GPIO_PORTCR_ES2(105), GPIO_PULL_UP);
+#endif
+#if defined(CONFIG_CHARGER_SMB328A)
+	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
+	{
+	   gpio_request(GPIO_PORT103, NULL);
+	   gpio_direction_input(GPIO_PORT103);
+	   gpio_pull(GPIO_PORTCR_ES2(103), GPIO_PULL_UP);
+	}
+	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
+	{
+	   gpio_request(GPIO_PORT19, NULL);
+	   gpio_direction_input(GPIO_PORT19);
+	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	}
+	else
+	{
+	   gpio_request(GPIO_PORT19, NULL);
+	   gpio_direction_input(GPIO_PORT19);
+	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	}
+#endif
+
+#if defined(CONFIG_BATTERY_BQ27425)
+   gpio_request(GPIO_PORT105, NULL);
+   gpio_direction_input(GPIO_PORT105);
+   gpio_pull(GPIO_PORTCR_ES2(105), GPIO_PULL_UP);
+#endif
+
 #if 0
 	/* Ethernet */
 	gpio_request(GPIO_PORT97, NULL);
@@ -3653,32 +4171,43 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		}
 	}
 	platform_add_devices(p_dev, p_dev_cnt);
+#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
+	mpl_init();
+#endif
 
-	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
-	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
-	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
-#if 0
-        if((system_rev & 0xFFFF) == 0x3E00) {
-            i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-        } else if(((system_rev & 0xFFFF)>>4) >= 0x3E1) {
-            i2c_register_board_info(6, i2cm_devices_es2, ARRAY_SIZE(i2cm_devices_es2));
-        }
-#endif	
-platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
+#if defined (CONFIG_KEYBOARD_CYPRESS_TOUCH)
+	touchkey_init_hw();
+#endif
+
 #if defined (CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
 #endif
+
+	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
+	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
+	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
+	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
+            i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+#ifdef CONFIG_PN544_NFC
+	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); //PATCH CPN
+#endif	
+	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
+	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
+platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
+	#if defined(CONFIG_VIBRATOR_ISA1000A)
+    isa1000_vibrator_init();
+#endif
+
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+	platform_device_register(&spa_power_device);
+#endif
+	printk(KERN_DEBUG "%s \n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
-	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
-
-	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
-	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-#ifdef CONFIG_PN544_NFC
-	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
-#endif
-
+/* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
+__raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
+__raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
@@ -3785,6 +4314,26 @@ static void __init u2evm_reserve(void)
 				       u2evm_ion_data.heaps[i].base);
 		}
 	}
+}
+
+static int check_sec_rlte_hw_rev(void)
+{
+	int rev0, rev1, rev2, rev3;
+
+	gpio_request(GPIO_PORT72, "HW_REV0");
+	gpio_request(GPIO_PORT73, "HW_REV1");
+	gpio_request(GPIO_PORT74, "HW_REV2");
+	gpio_request(GPIO_PORT75, "HW_REV3");
+	gpio_direction_input(GPIO_PORT72);
+	gpio_direction_input(GPIO_PORT73);
+	gpio_direction_input(GPIO_PORT74);
+	gpio_direction_input(GPIO_PORT75);
+	rev0 = gpio_get_value(GPIO_PORT72);
+	rev1 = gpio_get_value(GPIO_PORT73);
+	rev2 = gpio_get_value(GPIO_PORT74);
+	rev3 = gpio_get_value(GPIO_PORT75);
+
+	return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
 }
 
 MACHINE_START(U2EVM, "u2evm")
