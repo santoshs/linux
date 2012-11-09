@@ -190,7 +190,7 @@ int __hwspin_lock_timeout(struct hwspinlock *hwlock, unsigned int to,
 	for (;;) {
 		/* Try to take the hwspinlock */
 		ret = __hwspin_trylock(hwlock, mode, flags);
-		if ((ret != -EBUSY) || (ret != -EINVAL))
+		if (ret == 0)
 			break;
 
 		/*
