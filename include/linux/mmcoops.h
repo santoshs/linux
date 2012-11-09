@@ -37,6 +37,8 @@
 #define MMCOOPS_START_OFFSET_DDR	0x44841200	/* DDR Address */
 #define MMCOOPS_LOG_SIZE		(MMCOOPS_RECORD_SIZE * MMCOOPS_RECORD_CNT)
 
+#define MAX_LOG_SIZE_ON_DDR	(0xBFE00)
+
 struct mmcoops_platform_data {
 	struct platform_device	*pdev;
 	unsigned long		start;

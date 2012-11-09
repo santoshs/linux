@@ -60,8 +60,10 @@
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
+#ifndef CONFIG_ARM_TZ
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
+#endif
 
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];

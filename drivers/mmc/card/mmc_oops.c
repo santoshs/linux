@@ -37,6 +37,10 @@
 #define BLOCK_SIZE		512UL
 #define RECORD_SIZE		8
 
+#ifdef CONFIG_CRASHLOG_DDR
+static void *adr;
+#endif
+
 static int dump_oops = 0;
 module_param(dump_oops, int, 0600);
 MODULE_PARM_DESC(dump_oops,
@@ -412,26 +416,30 @@ static int __mmc_panic_write(struct mmcoops_context *cxt,
 #endif //CONFIG_CRASHLOG_EMMC
 
 #ifdef CONFIG_CRASHLOG_DDR
-static void mmc_panic_write_ddr(char *buf, unsigned long start,unsigned long offset)
+static void ddr_panic_write(char *buf, unsigned long start,
+					unsigned long offset)
 {
-	void __iomem * adr = 0;
-	void __iomem * adr_bak = 0;
+	unsigned char *adr_bak = NULL;
 	unsigned int cnt;
 
-	start += (offset * BLOCK_SIZE);
-	adr = ioremap(start, BLOCK_SIZE);
-	adr_bak = adr;
-	if (adr)
+	/* param check */
+	if (MMCOOPS_START_OFFSET_DDR > start)
 	{
-		for(cnt=0 ; cnt < BLOCK_SIZE ; cnt++){
-			__raw_writeb(*buf, adr);
-			adr++;
-			buf++;
-		}
-		iounmap(adr_bak);
+		printk(KERN_ERR "%s[%d]: param error not write start[0x%lx]\n",
+						__func__, __LINE__, start);
+		return;
 	}
+
+	adr_bak = (char *)(adr + (offset * BLOCK_SIZE));
+
+	for (cnt = 0 ; cnt < BLOCK_SIZE ; cnt++) {
+		__raw_writeb(*buf, adr_bak);
+		adr_bak++;
+		buf++;
+		}
 }
-#endif //CONFIG_CRASHLOG_DDR
+#endif /*CONFIG_CRASHLOG_DDR*/
+
 #ifdef CONFIG_CRASHLOG_EMMC
 static void mmc_panic_write(struct mmcoops_context *cxt,
 			    char *buf, unsigned long start)
@@ -568,7 +576,7 @@ static void mmc_log_write_ddr(	struct mmcoops_context *cxt,
 
 		memcpy(cxt->virt_addr, s1 , l1_cpy);
 		memcpy(cxt->virt_addr + l1_cpy, s2, l2_cpy);
-		mmc_panic_write_ddr(cxt->virt_addr, cxt->start_ddr, offset + i);
+		ddr_panic_write(cxt->virt_addr, cxt->start_ddr, offset + i);
 		l1 -= l1_cpy;
 		s1 += l1_cpy;
 		l2 -= l2_cpy;
@@ -697,7 +705,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 			(cxt->next_record * cxt->record_size));
 #endif //CONFIG_CRASHLOG_EMMC
 #ifdef CONFIG_CRASHLOG_DDR
-	mmc_panic_write_ddr(cxt->virt_addr, cxt->start_ddr, 0);
+	ddr_panic_write(cxt->virt_addr, cxt->start_ddr, 0);
 #endif //CONFIG_CRASHLOG_DDR
 
 	/* kmsg is written in emmc */
@@ -894,6 +902,15 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 		goto kmsg_dump_register_failed;
 	}
 
+#ifdef CONFIG_CRASHLOG_DDR
+	adr = ioremap(MMCOOPS_START_OFFSET_DDR, MAX_LOG_SIZE_ON_DDR);
+
+	if (adr == NULL) {
+		printk(KERN_ERR "ioremap for MMCOOPS_START_OFFSET_DDR is failed\n");
+		err = -ENOMEM;
+		goto kmsg_dump_register_failed;
+	}
+#endif
 	return err;
 
 kmsg_dump_register_failed:
@@ -911,6 +928,10 @@ static int __exit mmcoops_remove(struct platform_device *pdev)
 	if (kmsg_dump_unregister(&cxt->dump) < 0)
 		printk(KERN_WARNING "mmcoops: colud not unregister kmsg dumper");
 	kfree(cxt->virt_addr);
+#ifdef CONFIG_CRASHLOG_DDR
+	if (adr)
+		iounmap(adr);
+#endif
 	mmc_unregister_driver(&mmc_driver);
 
 	return 0;
