@@ -218,25 +218,10 @@
 /***************************/
 /* CPG setting             */
 /***************************/
-#define AUDIO_TEST_CPG_PHY_BASE		(0xE6150000)
-#define AUDIO_TEST_CPG_REG_MAX		(0x01FF)
 #define AUDIO_TEST_CPG_PHY_BASE_SRST	(0xE6158000)
 #define AUDIO_TEST_CPG_REG_MAX_SRST	(0x01CC)
 #define AUDIO_TEST_CPG_SRCR2	(g_audio_test_ulSrstRegBase + 0x000000B0)
 #define AUDIO_TEST_CPG_SRCR3	(g_audio_test_ulSrstRegBase + 0x000000B8)
-#define	AUDIO_TEST_CPG_MPCKCR	(g_audio_test_ulClkRstRegBase + 0x00000080)
-#define	AUDIO_TEST_CPG_MSTPSR2	(g_audio_test_ulClkRstRegBase + 0x00000040)
-#define	AUDIO_TEST_CPG_SMSTPCR2	(g_audio_test_ulClkRstRegBase + 0x00000138)
-#define	AUDIO_TEST_CPG_MSTPSR3	(g_audio_test_ulClkRstRegBase + 0x00000048)
-#define	AUDIO_TEST_CPG_SMSTPCR3	(g_audio_test_ulClkRstRegBase + 0x0000013C)
-/***************************/
-/* SYSC setting            */
-/***************************/
-#define AUDIO_TEST_SYSC_PHY_BASE	(0xE6180000)
-#define AUDIO_TEST_SYSC_REG_MAX		(0x0084)
-#define AUDIO_TEST_SYSC_SPDCR		(g_audio_test_sysc_Base + 0x0008)
-#define AUDIO_TEST_SYSC_SWUCR		(g_audio_test_sysc_Base + 0x0014)
-#define AUDIO_TEST_SYSC_PSTR		(g_audio_test_sysc_Base + 0x0080)
 /***************************/
 /* FSI physical address    */
 /***************************/
