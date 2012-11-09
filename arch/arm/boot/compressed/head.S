@@ -350,6 +350,15 @@ not_relocated:	mov	r0, #0
 		bl	decompress_kernel
 		bl	cache_clean_flush
 		bl	cache_off
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A73734)
+		/*
+		 * If enabled the "CONFIG_ARM_TZ" in the "R-Mobile-U2",
+		 * the L2$ controller is already ON due to H/W specification.
+		 * Therefore, it must do the "L2$ clean&flush" operation
+		 * here.
+        */
+		bl	l2_cache_clean_flush
+#endif
 		mov	r0, #0			@ must be zero
 		mov	r1, r7			@ restore architecture number
 		mov	r2, r8			@ restore atags pointer
@@ -1110,6 +1119,22 @@ memdump:	mov	r12, r0
 		cmp	r11, #64
 		blt	2b
 		mov	pc, r10
+#endif
+
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A73734)
+l2_cache_clean_flush:
+		adr	r0, __l2_clean_by_way
+		ldr	r2, [r0]
+		ldr	r0, =0xffff
+		str	r0, [r2]  	@ Write clean by way reg
+wait:
+		ldr	r0, [r2]
+		ldr	r1, =0xffff
+		ands	r0, r0, r1
+		bne	wait		@ Wait until cleaned the L2$
+		mov 	pc, lr
+__l2_clean_by_way:
+		.long	0xf01007bc
 #endif
 
 		.ltorg
