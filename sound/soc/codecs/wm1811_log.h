@@ -52,7 +52,8 @@
 #define WM1811_LOG_BYTE_LOW(sw)         ((sw) & 0x0000000f)
 
 #define WM1811_GET_PROCESS_TIME(tv)     do_gettimeofday(&tv)
-#define __PRN_LSI__
+#define __WM1811_PRN_LSI__
+/* #define __WM1811_PRN_ADD_TIME__ */
 
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration                                         */
@@ -91,7 +92,7 @@
 /*---------------------------------------------------------------------------*/
 /* inline function implementation                                            */
 /*---------------------------------------------------------------------------*/
-#ifdef __PRN_LSI__
+#ifdef __WM1811_PRN_LSI__
 
 #define wm1811_log_reg_dump(fmt, ...)                                        \
 do {                                                                         \
@@ -103,7 +104,7 @@ do {                                                                         \
 } while (0)
 
 
-#ifdef __PRN_ADD_TIME__
+#ifdef __WM1811_PRN_ADD_TIME__
 
 #define wm1811_log_err(fmt, ...)                                             \
 do {                                                                         \
@@ -196,7 +197,7 @@ do {                                                                         \
 } while (0)
 
 
-#else /* != __PRN_ADD_TIME__ */
+#else /* != __WM1811_PRN_ADD_TIME__ */
 
 
 #define wm1811_log_err(fmt, ...)                                             \
@@ -269,8 +270,8 @@ do {                                                                         \
 	}                                                                    \
 } while (0)
 
-#endif  /* __PRN_ADD_TIME__ */
-#else   /* != __PRN_LSI__ */
+#endif  /* __WM1811_PRN_ADD_TIME__ */
+#else   /* != __WM1811_PRN_LSI__ */
 
 #define wm1811_log_reg_dump(fmt, ...)         do { } while (0)
 #define wm1811_log_err(fmt, ...)              do { } while (0)
@@ -279,6 +280,6 @@ do {                                                                         \
 #define wm1811_log_efunc(fmt, ...)            do { } while (0)
 #define wm1811_log_rfunc(fmt, ...)            do { } while (0)
 
-#endif	/* __PRN_LSI__ */
+#endif	/* __WM1811_PRN_LSI__ */
 
 #endif  /* __WM1811_LOG_H__ */

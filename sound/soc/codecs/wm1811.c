@@ -186,8 +186,7 @@ struct wm1811_priv {
 	struct proc_dir_entry *dump_entry;  /**< dump entry. */
 	struct proc_dir_entry *proc_parent; /**< proc parent. */
 	struct snd_soc_codec *codec;
-	/* pcm */
-	u_int pcm_mode;                     /**< pcm mode. */
+	/* clock */
 	struct clk *main_clk;
 	struct clk *vclk4_clk;
 };
@@ -526,9 +525,6 @@ static int wm1811_setup(struct i2c_client *client,
 	if (0 != ret)
 		goto err_setup_wm1811;
 
-	/* set default pcm mode */
-	dev->pcm_mode = SNDP_MODE_INIT;
-
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -761,7 +757,7 @@ static void wm1811_irq_work_func(struct work_struct *unused)
 	u_short raw_status2 = 0;
 	u_short mic_detect3 = 0;
 	static u_short before_button_state = 0x0;
-	u_short current_button_state;
+	u_short current_button_state = 0;
 	wm1811_log_efunc("");
 
 	wm1811_read(0x0730, &status1);
@@ -887,7 +883,8 @@ static int wm1811_conv_device_info(const u_long device,
 				struct wm1811_info *device_info)
 {
 	int ret = 0;
-	wm1811_log_efunc("device[%ld]", device);
+	wm1811_log_efunc("device_info->raw_device[%ld] device[%ld]",
+			device_info->raw_device, device);
 
 	/* check param */
 	if (NULL == device_info) {
@@ -915,7 +912,8 @@ static int wm1811_conv_device_info(const u_long device,
 			device_info->mic,
 			device_info->headset_mic);
 
-	wm1811_log_rfunc("");
+	wm1811_log_rfunc("device_info->raw_device[%ld]",
+			device_info->raw_device);
 	return 0;
 }
 
@@ -1045,7 +1043,6 @@ static int wm1811_set_mic_mixer_pm(const u_int cur_dev_mic,
 static int wm1811_set_speaker_device(const u_int cur_dev,
 				const u_int new_dev)
 {
-	int value = 0;
 	int ret = 0;
 	u_short oe = 0;
 	u_short vol = 0;
@@ -1062,8 +1059,8 @@ static int wm1811_set_speaker_device(const u_int cur_dev,
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0002, &pm2);
 		ret = wm1811_read(0x0003, &oe);
-		ret = wm1811_read(0x0026, &mute_l);
-		ret = wm1811_read(0x0027, &mute_r);
+		mute_l = wm1811_conf->volume[E_VOL_SPEAKER_L];
+		mute_r = wm1811_conf->volume[E_VOL_SPEAKER_R];
 		if (WM1811_ENABLE == new_dev) {
 			/* speaker on */
 			vol = 0x0;
@@ -1168,8 +1165,8 @@ static int wm1811_set_earpiece_device(const u_int cur_dev,
 		/* update device conf */
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0003, &oe);
-		ret = wm1811_read(0x0020, &earpiece_l);
-		ret = wm1811_read(0x0021, &earpiece_r);
+		earpiece_l = wm1811_conf->volume[E_VOL_EARPIECE_L];
+		earpiece_r = wm1811_conf->volume[E_VOL_EARPIECE_R];
 		if (WM1811_ENABLE == new_dev) {
 			/* earpiece on */
 			hp_out2_mute = 0x0;
@@ -1287,8 +1284,8 @@ static int wm1811_set_headphone_device(const u_int cur_dev,
 		/* update device conf */
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0033, &mix_out_vol);
-		ret = wm1811_read(0x001C, &hp_l_vol);
-		ret = wm1811_read(0x001D, &hp_r_vol);
+		hp_l_vol = wm1811_conf->volume[E_VOL_HEADPHONE_L];
+		hp_r_vol = wm1811_conf->volume[E_VOL_HEADPHONE_R];
 		if (WM1811_ENABLE == new_dev) {
 			/* headphone on */
 			cp_dyn_pwr = 0x5;
@@ -1407,10 +1404,10 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 	if (cur_dev != new_dev) {
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0002, &pm2);
-		ret = wm1811_read(0x0018, &mute_main);
-		ret = wm1811_read(0x001B, &mute_sub);
 		ret = wm1811_read(0x0029, &mixin_l);
 		ret = wm1811_read(0x002A, &mixin_r);
+		mute_main = wm1811_conf->volume[E_VOL_MAIN_MIC];
+		mute_sub = wm1811_conf->volume[E_VOL_SUB_MIC];
 		if (WM1811_ENABLE == new_dev) {
 			/* mic on */
 			if (WM1811_BIAS_VMID_ENABLE & pm)
@@ -1487,10 +1484,10 @@ static int wm1811_set_headset_mic_device(const u_int cur_dev,
 	if (cur_dev != new_dev) {
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0002, &pm2);
-		ret = wm1811_read(0x001A, &mute);
 		ret = wm1811_read(0x0029, &mixin_l);
 		ret = wm1811_read(0x002A, &mixin_r);
 		ret = wm1811_read(0x0028, &connect);
+		mute = wm1811_conf->volume[E_VOL_HEADSET_MIC];
 		if (WM1811_ENABLE == new_dev) {
 			/* headset mic on */
 			if (WM1811_BIAS_VMID_ENABLE & pm)
@@ -1593,7 +1590,7 @@ static int wm1811_i2c_read_device(struct i2c_client *wm1811,
 	u_char wbf[2];
 	u_char rbf[2];
 	int ret = 0;
-	wm1811_log_efunc("");
+	wm1811_log_debug("");
 
 	wbf[0] = (reg>>8) & 0x00ff;
 	wbf[1] = (reg>>0) & 0x00ff;
@@ -1615,7 +1612,7 @@ static int wm1811_i2c_read_device(struct i2c_client *wm1811,
 			   ARRAY_SIZE(msg));
 	*(u_short *)dest = (rbf[0] << 8) + rbf[1];
 
-	wm1811_log_rfunc("ret[%d]", ret);
+	wm1811_log_debug("ret[%d]", ret);
 	return ret;
 }
 
@@ -1626,7 +1623,7 @@ static int wm1811_i2c_write_device(struct i2c_client *wm1811,
 {
 	int ret;
 	u_char w_data2[4];
-	wm1811_log_efunc("");
+	wm1811_log_debug("");
 
 	w_data2[0] = (reg    & 0xFF00) >> 8;
 	w_data2[1] = (reg    & 0x00FF);
@@ -1637,7 +1634,7 @@ static int wm1811_i2c_write_device(struct i2c_client *wm1811,
 				wm1811_conf->client_wm1811,
 				w_data2[0], 3, &w_data2[1]);
 
-	wm1811_log_rfunc("ret[%d]", ret);
+	wm1811_log_debug("ret[%d]", ret);
 	return ret;
 }
 
@@ -1920,7 +1917,7 @@ static int wm1811_resume(const u_long device)
 	/* disable irq wake */
 	irq_set_irq_wake(wm1811_conf->irq, 0);
 
-	wm1811_log_efunc("ret[%d]", ret);
+	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
 
@@ -1929,7 +1926,6 @@ static int wm1811_suspend(void)
 	int ret = 0;
 	u_short status1 = 0;
 	u_short status2 = 0;
-	u_short pm2 = 0;
 	u_short ldo_1 = 0;
 	u_short pull_down = 0;
 	u_short de_bouce = 0;
@@ -1978,7 +1974,7 @@ static int wm1811_suspend(void)
 	/* enable irq wake */
 	irq_set_irq_wake(wm1811_conf->irq, 1);
 
-	wm1811_log_efunc("ret[%d]", ret);
+	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
 
@@ -1989,17 +1985,16 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	u_int power)
 {
 	int ret = 0;
-	int value = 0;
-
 	struct wm1811_info new_device = wm1811_conf->info;
 	static int audio_on = WM1811_DISABLE;
-	static int speaker_on;
 	u_int pcm_mode = 0;
-	u_int aif1_rate = 0;
-	u_int fll1_control2 = 0;
-	u_int fll1_control4 = 0;
-	u_int fll1_control5 = 0;
-	wm1811_log_efunc("device[%ld]", device);
+	u_short aif1_rate = 0;
+	u_short fll1_control2 = 0;
+	u_short fll1_control4 = 0;
+	u_short fll1_control5 = 0;
+	u_short clocking1 = 0;
+	wm1811_log_efunc("device[%ld] pcm_value[0x%08x] power[%d]",
+			device, pcm_value, power);
 
 	if ((WM1811_POWER_ON == power) &&
 		(0 == gpio_get_value(GPIO_PORT34))) {
@@ -2060,10 +2055,11 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	/* get pcm mode type */
 	pcm_mode = SNDP_GET_MODE_VAL(pcm_value);
+	ret = wm1811_read(0x0221, &fll1_control2);
 
-	if (wm1811_conf->pcm_mode != pcm_mode) {
-		wm1811_conf->pcm_mode = pcm_mode;
-
+	if ((WM1811_DISABLE == audio_on) ||
+	    ((SNDP_MODE_INCALL == pcm_mode) && (0x1700 != fll1_control2)) ||
+	    ((SNDP_MODE_INCALL != pcm_mode) && (0x0704 != fll1_control2))) {
 		/***********************************/
 		/* Disable Clocking/FLL1/AIF1      */
 		/***********************************/
@@ -2094,7 +2090,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 			/* BYP=0, non-free, REF_DIV=0(/1), SRC=3(BCLK1) */
 			fll1_control5 = 0x0003;
 		} else {
-			/* SNDP_MODE_NORMAL/SNDP_MODE_RING/SNDP_MODE_INCOMM */
+			/* SNDP_MODE_NORMAL/SNDP_MODE_RING */
 			/* AIF1 Sample Rate = 48 kHz, */
 			/* AIF1CLK/Fs ratio = 256 (Default Register Value) */
 			aif1_rate = 0x0083;
@@ -2308,6 +2304,7 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	if (WM1811_DEV_NONE == device) {
 		ret = wm1811_suspend();
+
 		if ((WM1811_POWER_OFF == power) &&
 			(1 == gpio_get_value(GPIO_PORT34))) {
 			wm1811_log_info("CODEC_LDO_EN : wm1811 Power OFF");
@@ -2315,16 +2312,12 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 		}
 
 		audio_on = WM1811_DISABLE;
+	} else {
+		ret = wm1811_write(0x0208, 0x000e);
 	}
 
-
-	if ((new_device.speaker == 1) ||
-		(new_device.earpiece == 1) ||
-		(new_device.headphone == 1)) {
-		ret = wm1811_write(0x0208, 0x000e);/* FIXME use LR clock */
-		speaker_on = 1;
-	}
 	wm1811_conf->info = new_device;
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -2511,8 +2504,8 @@ int wm1811_dump_registers(void)
 			if (0 > ret)
 				goto err_i2c_read;
 
-			wm1811_log_info("ret[%d] R%d addr[0x%04X] val[0x%04X]",
-					ret, i, i, val);
+			wm1811_log_info("R%04d addr[0x%04X] val[0x%04X]",
+					i, i, val);
 		}
 	}
 
@@ -2623,6 +2616,7 @@ static int wm1811_proc_dump_write(struct file *filp, const char *buffer,
 		return r;
 
 	wm1811_dump_registers();
+
 	wm1811_log_rfunc("");
 	return count;
 }
