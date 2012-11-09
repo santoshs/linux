@@ -59,7 +59,7 @@ obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 # BT object
-obj-$(CONFIG_BT)	+= board-u2evm-bt.o
+obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)

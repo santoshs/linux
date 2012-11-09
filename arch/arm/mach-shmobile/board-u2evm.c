@@ -86,6 +86,9 @@
 
 #include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
 #include <asm/io.h>
+#if defined(CONFIG_RENESAS_BT)
+#include <mach/board-u2evm-renesas-bt.h>
+#endif
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h>
@@ -308,12 +311,6 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
-#ifdef CONFIG_BT
-static struct platform_device bcm4334_bluetooth_device = {
-	.name = "bcm4334_bluetooth",
-	.id = -1,
-};
-#endif
 
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 /* KEYSC */
@@ -2671,7 +2668,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
-#ifdef CONFIG_BT
+#if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
@@ -2721,7 +2718,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 //	&sdhi1_device,
-#ifdef CONFIG_BT
+#if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
@@ -2778,7 +2775,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device,
-#ifdef CONFIG_BT
+#if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
