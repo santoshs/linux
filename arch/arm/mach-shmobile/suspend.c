@@ -98,6 +98,11 @@ static int es;
 
 static char xtal1_log_out;
 
+/*Change clocks using DFS function*/
+static struct clk_rate suspend_clock;
+static struct clk_rate suspend_clock_save;
+/*Change clocks using DFS function*/
+
 #ifdef CONFIG_PM_DEBUG
 /*
  * Dynamic on/off for System Suspend
@@ -1183,6 +1188,10 @@ static int shmobile_suspend(void)
 
 #endif // #if Enable_PM_Test_Mode
 
+	/*Change clocks using DFS function*/
+	int clocks_ret;
+	/*Change clocks using DFS function*/
+
 	/* check wakelock */
 	locked = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
 	if (locked)
@@ -1274,9 +1283,11 @@ static int shmobile_suspend(void)
 	/*
 	 * do cpu suspend ...
 	 */
-	/* - set PLL1 stop conditon to A3R and C4 state */
+	/* - add A4MP state as PLL1 stop conditon */
+	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
 	bk_pll1stpcr = __raw_readl(CPG_PLL1STPCR);
-	__raw_writel((1 << 13)|(1 << 16), CPG_PLL1STPCR);
+	__raw_writel(bk_pll1stpcr | A4MP | C4STP, CPG_PLL1STPCR);
+	/* TO DO: Release semaphore before access to CPG_PLL1STPCR */
 
 	__raw_writel((__raw_readl(WUPSMSK) | (1 << 28)), WUPSMSK);
 
@@ -1284,13 +1295,60 @@ static int shmobile_suspend(void)
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(1, ram0ZQCalib);
 #endif 	/*CONFIG_PM_HAS_SECURE*/
+
+/*Change clocks using DFS function*/
+
+		/* clock table */
+	clocks_ret = cpg_get_freq(&suspend_clock_save);
+	suspend_clock = suspend_clock_save;
+	if (clocks_ret < 0) {
+		printk(KERN_INFO "[%s]: cpg_get_freq() FAILED ", __func__);
+		goto suspend_skip_clock_change;
+		}
+	printk(KERN_INFO "[%s]: cpg_get_freq() OK ", __func__);
+
+	suspend_clock.i_clk = DIV1_6;
+	suspend_clock.zg_clk = DIV1_4;
+	suspend_clock.m3_clk = DIV1_8;
+	suspend_clock.b_clk = DIV1_48;
+	suspend_clock.m1_clk = DIV1_6;
+	suspend_clock.m5_clk = DIV1_8;
+
+	suspend_clock.ztr_clk = DIV1_4;
+	suspend_clock.zt_clk = DIV1_6;
+	suspend_clock.zx_clk = DIV1_48;
+	suspend_clock.zs_clk = DIV1_48;
+	suspend_clock.hp_clk = DIV1_48;
+
+	clocks_ret = pm_set_clocks(suspend_clock);
+	if (clocks_ret < 0)
+		printk(KERN_INFO "[%s]: pm_set_clocks() FAILED ", __func__);
+
+	printk(KERN_INFO "[%s]: pm_set_clocks() suspended OK ", __func__);
+
+suspend_skip_clock_change:
+/*Change clocks using DFS function*/
+
 	jump_systemsuspend();
+
+/*Change clocks using DFS function*/
+
+	clocks_ret = pm_set_clocks(suspend_clock_save);
+	if (clocks_ret < 0)
+		printk(KERN_INFO "[%s]: pm_set_clocks() FAILED ", __func__);
+
+	printk(KERN_INFO "[%s]: pm_set_clocks() restored OK ", __func__);
+
+/*Change clocks using DFS function*/
+
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
 #endif 	/*CONFIG_PM_HAS_SECURE*/
 
 	/* Restore PLL1 stop conditon)*/
+	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
 	__raw_writel(bk_pll1stpcr, CPG_PLL1STPCR);
+	/* TO DO: Release semaphore before access to CPG_PLL1STPCR */
 	wakeups_factor();
 
 #ifdef CONFIG_PM_HAS_SECURE

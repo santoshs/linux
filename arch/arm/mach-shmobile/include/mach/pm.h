@@ -452,6 +452,10 @@ extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
 /* Internal API for CPUFreq driver only */
+ /* for corestandby */
+extern int cpg_get_freq(struct clk_rate *rates);
+extern int corestandby_pm_set_clocks(const struct clk_rate clk_div);
+ /* for corestandby end */
 extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
 extern int pm_get_clock_mode(const int mode, struct clk_rate *rate);

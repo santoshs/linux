@@ -163,7 +163,8 @@
 #define CPG_FRQCRBPhys	(CPG_FRQCRABasePhys + 0x0004)
 /* Frequency control register D	*/
 #define CPG_FRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E4)
-
+/* Frequency control register D for Modem	*/
+#define CPG_BBFRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E8)
 
 /******************************************/
 /* XTAL though mode				*/
@@ -245,7 +246,7 @@
 #define C4STP			(1 << 16)
 #define C4STP_MASK		(~C4STP)
 
-#define PLL1STPCR_DEFALT	(A2SLSTP | C4STP | A3RSTP)
+#define PLL1STPCR_DEFALT	(A2SLSTP | A3RSTP)
 #define PLL1STPCR_DEFALT_MASK	(~PLL1STPCR_DEFALT)
 
 /* IIC0(MSTPST116) halted */
@@ -259,7 +260,7 @@
 #define MSTPST218 (1 << 18)
 /* USB-DMAC0(MSTPST214) halted */
 #define MSTPST214 (1 << 14)
-#define MSTPST2_PLL1 (MSTPST220 | MSTPST218 | MSTPST214)
+#define MSTPST2_PLL1 (MSTPST220 | MSTPST214)
 #define MSTPST2_PLL1_MASK (~MSTPST2_PLL1)
 
 /*IIC1(MSTPST323) halted */
@@ -315,8 +316,8 @@
 #define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
 #define FRQCRA_ES1_MASK		0x00000F00 /* 0x00FFFFF0 */
-#define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
-#define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */
+#define FRQCRA_ES2_MASK		0x00FFFFFF /* 0x00FFFFFF */
+#define FRQCRB_MASK			0x00FFFFF0 /* 0x1FFFFFF0 */
 #define FRQCRB_ZSEL_BIT		0x10000000
 #define FRQCRB_ZFC_MASK		0x0F000000
 #define FRQCRB_ZCLK_MASK	0x1F000000
@@ -333,24 +334,20 @@
 /* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/24, HP:1/24	*/
 #define	POWERDOWN_FRQCRB_ES1	0x10233880
 
-/* I:1/6, ZG:1/4, M3:1/8, B:1/24, M1:1/6, M5: 1/8	*/
-/* #define	POWERDOWN_FRQCRA_ES2	0x00324834 */
-
-/* I, ZG, M3: Not change, B:1/24, M1, M5: Not change	*/
-#define	POWERDOWN_FRQCRA_ES2	0x00000800	/* 0x00324834 */
+/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8	*/
+#define	POWERDOWN_FRQCRA_ES2	0x00324B34
 
 /* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/24, ZS:1/24, HP:1/24	*/
 #define	POWERDOWN_FRQCRB_ES2_0	0x00008880	/* 0x10233880 */
 
-/* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/24, HP:1/24	*/
-/* #define	POWERDOWN_FRQCRB_ES2_02	0x00008880	0x10238880 */
+/* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/48, ZS:1/48, HP:1/48 */
+#define	POWERDOWN_FRQCRB_ES2_02	0x0023BBB0
 
-/* Z, ZTR, ZT: Not change, ZX:1/6, ZS:1/24, HP:1/24	*/
-#define	POWERDOWN_FRQCRB_ES2_02	0x00008880	/* 0x10238880 */
-
-/* ZB3:1/16*/
+/* ZB3:1/16	*/
 #define		POWERDOWN_FRQCRD	0x00000014
-#define		POWERDOWN_FRQCRB    0x00008880 /* 0x10238880 */
+
+#define		POWERDOWN_FRQCRB    0x0023BBB0 /* 0x10238880 */
+
 /********************************************/
 /* RWDT Register							*/
 /********************************************/
@@ -377,6 +374,7 @@
 #define SBAR2		(BaseSysc + 0x0060)
 #define WUPSMSK	(BaseSysc + 0x002C)	/* WakeUpS Factor Mask Register*/
 #define WUPSFAC	(BaseSysc + 0x0098)	/* WakeUpS Factor Register	*/
+#define SPDCR	(BaseSysc + 0x0008)	/* SYS Power Down Control Register */
 #define SPDCRPhys	(BaseSyscPhys + 0x0008)
 #define SWBCR		(BaseSyscPhys + 0x0204)
 #define A3SM_PD		0x00080000
@@ -684,15 +682,13 @@
 #ifndef SMGP100_DFS_ZS    /* General-purpose0 */
 #define    BUS_SMGPxSRC_MSK    0XFF000000
 #define    BUS_SMGPxSRCPhys    0xE6001830
+#define    BUS_SMGPxSRC    IO_ADDRESS(BUS_SMGPxSRCPhys)
 #else    /* General-purpose1 */
 #define    BUS_SMGPxSRC_MSK    0XFF000000
 #define    BUS_SMGPxSRCPhys    0xE6001840
+#define    BUS_SMGPxSRC    IO_ADDRESS(BUS_SMGPxSRCPhys)
 #endif
-/*
- ***************************
- * ZB3 Set Clock W/A
- ***************************
- */
+
 #define	CPG_CKSCRPhys		0xE61500C0
 #define	CPG_CKSCR			IO_ADDRESS(0xE61500C0)
 #define	CPG_FRQCRD_E054_1	0x00008000
