@@ -275,4 +275,9 @@ config RENESAS_NFC
 	default n
 	depends on RENESAS
 
+config RENESAS_GPS
+	bool "Renesas reference implementation for GPS"
+	default n
+	depends on RENESAS
+
 endif

@@ -690,3 +690,7 @@ CONFIG_RENESAS_BT=y
 
 # Renesas NFC implementation
 CONFIG_RENESAS_NFC=y
+
+# Renesas GPS implementation
+CONFIG_RENESAS_GPS=y
+

@@ -197,6 +197,10 @@ static void gpio_pull(u32 addr, int type)
 
 static DEFINE_SPINLOCK(io_lock);//for modify register
 
+#if defined(CONFIG_RENESAS_GPS)
+struct class *gps_class;
+#endif
+
 /*===================*/
 /*  modify register  */
 /*===================*/
@@ -1874,6 +1878,172 @@ static struct platform_device spa_power_device=
 #if defined(CONFIG_CHARGER_SMB328A)
 #define SMB328A_ADDRESS (0x69 >> 1)
 #define GPIO_CHG_INT 19
+#endif
+
+#if defined(CONFIG_RENESAS_GPS)
+#define FUNC2_MODE_SCIFB 0x02
+
+static ssize_t GNSS_NRST_value_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	int value = gpio_get_value(GPIO_PORT10);
+
+	return sprintf(buf, "%d\n", value);
+}
+
+static ssize_t GNSS_NRST_value_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	long value;
+	int  ret;
+
+	ret = strict_strtol(buf, 0, &value);
+	if (ret < 0)
+		return ret;
+
+#ifdef CONFIG_PMIC_INTERFACE
+
+	if (1 == value)
+		pmic_clk32k_enable(CLK32KG, TPS80032_STATE_ON);
+	else
+		pmic_clk32k_enable(CLK32KG, TPS80032_STATE_OFF);
+#endif
+
+	printk(KERN_ALERT "%s: %d\n", __func__, value);
+
+	gpio_set_value(GPIO_PORT10, value);
+
+	return count;
+}
+
+DEVICE_ATTR(value_nrst, 0644, GNSS_NRST_value_show, GNSS_NRST_value_store);
+
+static ssize_t GNSS_EN_value_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int value = gpio_get_value(GPIO_PORT11);
+
+	return sprintf(buf, "%d\n", value);
+}
+
+static ssize_t GNSS_EN_value_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	long value;
+	int  ret;
+
+	ret = strict_strtol(buf, 0, &value);
+	if (ret < 0)
+		return ret;
+
+	printk(KERN_ALERT "%s: %d\n", __func__, value);
+
+	gpio_set_value(GPIO_PORT11, value);
+
+	return count;
+}
+
+DEVICE_ATTR(value_en, 0644, GNSS_EN_value_show, GNSS_EN_value_store);
+
+static const struct attribute *GNSS_NRST_attrs[] = {
+	&dev_attr_value_nrst.attr,
+	NULL,
+};
+
+static const struct attribute_group GNSS_NRST_attr_group = {
+	.attrs = (struct attribute **) GNSS_NRST_attrs,
+};
+
+static const struct attribute *GNSS_EN_attrs[] = {
+	&dev_attr_value_en.attr,
+	NULL,
+};
+
+static const struct attribute_group GNSS_EN_attr_group = {
+	.attrs = (struct attribute **) GNSS_EN_attrs,
+};
+
+static void gps_gpio_init(void)
+{
+	struct device *gps_dev;
+	struct device *gnss_nrst_dev;
+	struct device *gnss_en_dev;
+	int    status = -EINVAL;
+
+	gps_class = class_create(THIS_MODULE, "gps");
+	if (IS_ERR(gps_class)) {
+		pr_err("Failed to create class(sec)!\n");
+		return PTR_ERR(gps_class);
+	}
+	BUG_ON(!gps_class);
+
+	gps_dev = device_create(gps_class, NULL, 0, NULL, "device_gps");
+	BUG_ON(!gps_dev);
+
+	gnss_nrst_dev = device_create(gps_class, gps_dev, 0, NULL, "GNSS_NRST");
+	BUG_ON(!gnss_nrst_dev);
+
+	gnss_en_dev = device_create(gps_class, gps_dev, 0, NULL, "GNSS_EN");
+	BUG_ON(!gnss_en_dev);
+
+	status = sysfs_create_group(&gnss_nrst_dev->kobj,
+				    &GNSS_NRST_attr_group);
+
+	if (status)
+		pr_debug("%s: status for sysfs_create_group %d\n",
+			 __func__, status);
+
+	status = sysfs_create_group(&gnss_en_dev->kobj, &GNSS_EN_attr_group);
+
+	if (status)
+		pr_debug("%s: status for sysfs_create_group %d\n",
+			 __func__, status);
+
+	printk(KERN_ALERT "gps_gpio_init!!");
+
+	if ((system_rev & 0xFF) == 0x00) { /*ES1.0*/
+		/* SCIFB1::UART mode & Function mode settings. */
+		gpio_request(GPIO_FN_SCIFB1_RXD, NULL);
+		gpio_pull(GPIO_PORTCR_ES1(79), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
+		gpio_pull(GPIO_PORTCR_ES1(78), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
+		gpio_pull(GPIO_PORTCR_ES1(77), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_RTS, NULL);
+		gpio_pull(GPIO_PORTCR_ES1(76), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+
+		/* GPS Settings */
+		gpio_request(GPIO_PORT10, "GNSS_NRST");
+		gpio_pull(GPIO_PORTCR_ES1(10), GPIO_PULL_OFF);
+		gpio_direction_output(GPIO_PORT10, 1);
+
+		gpio_request(GPIO_PORT11, "GNSS_EN");
+		gpio_pull(GPIO_PORTCR_ES1(11), GPIO_PULL_OFF);
+		gpio_direction_output(GPIO_PORT11, 0);
+	} else { /* ES2.0*/
+		gpio_request(GPIO_FN_SCIFB1_RXD, NULL);
+		gpio_pull(GPIO_PORTCR_ES2(79), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
+		gpio_pull(GPIO_PORTCR_ES2(78), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
+		gpio_pull(GPIO_PORTCR_ES2(77), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_request(GPIO_FN_SCIFB1_RTS, NULL);
+		gpio_pull(GPIO_PORTCR_ES2(76), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+
+		/* GPS Settings */
+		gpio_request(GPIO_PORT10, "GNSS_NRST");
+		gpio_pull(GPIO_PORTCR_ES2(10), GPIO_PULL_OFF);
+		gpio_direction_output(GPIO_PORT10, 0);
+
+		gpio_request(GPIO_PORT11, "GNSS_EN");
+		gpio_pull(GPIO_PORTCR_ES2(11), GPIO_PULL_OFF);
+		gpio_direction_output(GPIO_PORT11, 0);
+	}
+
+	printk("gps_gpio_init done!!\n");
+}
 #endif
 
 #if defined(CONFIG_USB_SWITCH_TSU6712)
@@ -4228,8 +4398,12 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #ifdef CONFIG_PN544_NFC
 	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); //PATCH CPN
 #endif	
-	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
-	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
+
+	/* GPS Init */
+#if defined(CONFIG_RENESAS_GPS)
+	gps_gpio_init();
+#endif
+
 platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
 	#if defined(CONFIG_VIBRATOR_ISA1000A)
     isa1000_vibrator_init();
