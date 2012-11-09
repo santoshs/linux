@@ -269,4 +269,10 @@ config RENESAS_BT
 	bool "Renesas reference implementation for BT"
 	default n
 	depends on RENESAS
+
+config RENESAS_NFC
+	bool "Renesas reference implementation for NFC"
+	default n
+	depends on RENESAS
+
 endif

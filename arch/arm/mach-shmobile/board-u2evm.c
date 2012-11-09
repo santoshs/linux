@@ -89,9 +89,11 @@
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/board-u2evm-renesas-bt.h>
 #endif
+#if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h>
+#endif
 #endif
 #if defined(CONFIG_SAMSUNG_MHL)
 #include "board_mhl_sii8332.c"
@@ -386,7 +388,7 @@ static int is_vbus_powered(void) {
 //Chaitanya
 	#if defined(CONFIG_SAMSUNG_MHL)
 	isvbus_powered_mhl(val1);
-	#endif 
+	#endif
 //Chaitanya
 	return val1>>7;
 
@@ -2559,6 +2561,7 @@ static struct platform_device rcu1_device = {
 	},
 };
 
+#if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC  
 
 #define NFC_EN_GPIO         GPIO_PORT12
@@ -2596,6 +2599,7 @@ static struct i2c_board_info pn544_info[] __initdata = {
  	},
 };
 
+#endif
 #endif
 
 static struct resource mdm_reset_resources[] = {
@@ -2696,8 +2700,10 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&camera_devices[0],
 	&camera_devices[1],
 	&stm_device,
+#if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
+#endif
 #endif
 };
 
@@ -2746,8 +2752,10 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&camera_devices[0],
 	&camera_devices[1],
 	&stm_device,
+#if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
+#endif
 #endif
 #if defined(CONFIG_OPTICAL_GP2A) ||	defined(CONFIG_OPTICAL_GP2AP020A00F)
 	&opt_gp2a,
@@ -2755,7 +2763,6 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #if defined(CONFIG_INPUT_YAS_SENSORS)
 	&yas532_orient_device,
 #endif
-
 };
 
 static struct platform_device *u2evm_devices_stm_none[] __initdata = {
@@ -2800,8 +2807,10 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 
 	&camera_devices[0],
 	&camera_devices[1],
+#if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
         &pn544_i2c_gpio_device,
+#endif
 #endif
 };
 
@@ -3541,11 +3550,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	// NFC Enable
 	//gpio_request(GPIO_PORT12, NULL);
 	//gpio_direction_output(GPIO_PORT12, 0);
-
+#if defined(CONFIG_RENESAS_NFC)
 	// NFC Firmware
 	gpio_request(GPIO_PORT101, NULL);
 	gpio_direction_output(GPIO_PORT101, 0);
-	
+#endif
 	// WLAN Enable
 	gpio_request(GPIO_PORT260, NULL);
 	gpio_direction_output(GPIO_PORT260, 0);
@@ -4233,6 +4242,16 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
+	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
+
+	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
+	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+#if defined(CONFIG_RENESAS_NFC)
+#ifdef CONFIG_PN544_NFC
+	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
+#endif
+#endif
+
 /* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
 __raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
 __raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
