@@ -41,6 +41,11 @@ static struct switch_dev switch_dock = {
 	.name = "dock",
 };
 
+static struct switch_dev switch_usb_uart = {
+        .name = "tsu6712",
+};
+
+
 static int usb_uart_switch_state;
 static int state;
 char at_isi_switch_buf[1000] = {0};
@@ -321,6 +326,13 @@ static int tsu6712_dock_init(void)
 		pr_err("Failed to register dock switch. %d\n", ret);
 		return ret;
 	}
+        /* for usb uart switch */
+        ret = switch_dev_register(&switch_usb_uart);
+        if (ret < 0) {
+                pr_err("Failed to register dock switch. %d\n", ret);
+                return ret;
+        }
+
 	return 0;
 }
 static int tsu6712_ex_init(void)
@@ -372,15 +384,15 @@ static void tsu6712_usb_cb(bool attached)
    set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
    if(attached)
    {	
-      printk("USB attached : FIXZ send switch state 100");
+      printk("USB attached : MUIC send switch state 100");
       usb_uart_switch_state = 100;
-      switch_set_state(&switch_dock,100); 
+      switch_set_state(&switch_usb_uart,100); 
    }
    else
    {
-      printk("USB detached : FIXZ send switch state 101");
+      printk("USB detached : MUIC send switch state 101");
       usb_uart_switch_state = 101;
-      switch_set_state(&switch_dock,101); 
+      switch_set_state(&switch_usb_uart,101);
    }
 
    printk("%s : %d", __func__,__LINE__);
@@ -440,13 +452,13 @@ static void tsu6712_uart_cb(bool attached)
    {	
       printk("UART attached : send switch state 200");
       usb_uart_switch_state = 200;
-      switch_set_state(&switch_dock,200); 
+      switch_set_state(&switch_usb_uart,200);
    }
    else
    {
       printk("UART detached : send switch state 201");
       usb_uart_switch_state = 201;
-      switch_set_state(&switch_dock,201);
+      switch_set_state(&switch_usb_uart,201);
    }
    printk("%s : %d", __func__,__LINE__);
 
@@ -767,7 +779,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		printk(" ld_set_manualsw switch at\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "at");
-		switch_set_state(&switch_dock, SWITCH_AT);
+		switch_set_state(&switch_usb_uart, SWITCH_AT);
 
 		stop_isi = 1;
 	}
@@ -775,7 +787,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		printk(" ld_set_manualsw switch isi\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "isi");
-		switch_set_state(&switch_dock, SWITCH_ISI);
+		switch_set_state(&switch_usb_uart, SWITCH_ISI);
 		stop_isi = 0;
 	}
 	return count;
