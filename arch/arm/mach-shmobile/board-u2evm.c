@@ -1547,11 +1547,17 @@ static struct platform_device sh_msiof0_device = {
 #define ION_HEAP_CAMERA_ADDR	0x48800000
 #define ION_HEAP_GPU_SIZE	SZ_4M
 #define ION_HEAP_GPU_ADDR	0x49A00000
+#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
 #define ION_HEAP_VIDEO_SIZE	(SZ_16M + SZ_2M)
 #define ION_HEAP_VIDEO_ADDR	0x56C00000
+#endif
 
 static struct ion_platform_data u2evm_ion_data = {
+#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
 	.nr = 5,
+#else
+	.nr = 4,
+#endif
 	.heaps = {
 		{
 			.type = ION_HEAP_TYPE_SYSTEM,
@@ -1577,6 +1583,7 @@ static struct ion_platform_data u2evm_ion_data = {
 			.base = ION_HEAP_GPU_ADDR,
 			.size = ION_HEAP_GPU_SIZE,
 		},
+#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
 		{
 			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_HEAP_VIDEO_ID,
@@ -1584,6 +1591,7 @@ static struct ion_platform_data u2evm_ion_data = {
 			.base = ION_HEAP_VIDEO_ADDR,
 			.size = ION_HEAP_VIDEO_SIZE,
 		},
+#endif
 	},
 };
 

@@ -24,6 +24,9 @@
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
+#if SECURE_BOOT_RT
+#include <sec_hal_cmn.h>
+#endif
 
 MODULE_AUTHOR("Renesas Electronics Corp.");
 MODULE_DESCRIPTION("Device Driver (RT Boot)");
@@ -50,6 +53,10 @@ static int rtboot_init(void)
 {
 	int ret;
 	unsigned int bootaddr = 0;
+#if SECURE_BOOT_RT
+	uint32_t phys_cert_addr;
+	uint32_t cert_size;
+#endif
 
 	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
 
@@ -78,10 +85,43 @@ static int rtboot_init(void)
 		return 1;
 	}
 
+#if SECURE_BOOT_RT
+	phys_cert_addr = (PRIMARY_COPY_ADDR + g_rtboot_info.image_size + 0x00001000) & (0xFFFFF000);
+	cert_size = read_rt_cert(phys_cert_addr);
+	if (cert_size == 0) {
+		MSG_ERROR("[RTBOOTK]   |read_rt_cert failed\n");
+		do_iounmap_register();
+		ret = misc_deregister(&g_device);
+		if (0 != ret)
+			MSG_ERROR("[RTBOOTK]   |misc_deregister failed ret[%d]\n", ret);
+		MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 1\n", __func__);
+		return 1;
+	}
+
+	ret = sec_hal_memcpy((uint32_t)g_rtboot_info.boot_addr, (uint32_t)PRIMARY_COPY_ADDR, (uint32_t)g_rtboot_info.image_size);
+	if (ret == SEC_HAL_CMN_RES_OK) {
+		ret = sec_hal_authenticate(phys_cert_addr, cert_size, NULL );
+		if (ret != SEC_HAL_CMN_RES_OK)
+			MSG_ERROR("[RTBOOTK]   |sec_hal_authenticate ret[%d], phys_cert_addr[0x%08x], cert_size[%d]\n",
+				ret, phys_cert_addr, cert_size);
+	}
+
+	if (SEC_HAL_CMN_RES_OK != ret) {
+		MSG_ERROR("[RTBOOTK]   |RT boot secure error\n");
+		MSG_ERROR("[RTBOOTK]   |boot_addr[0x%08x], image_size[%d]\n", g_rtboot_info.boot_addr, g_rtboot_info.image_size);
+		do_iounmap_register();
+		ret = misc_deregister(&g_device);
+		if (0 != ret)
+			MSG_ERROR("[RTBOOTK]   |misc_deregister failed ret[%d]\n", ret);
+		MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 1\n", __func__);
+		return 1;
+	}
+#else
 	MSG_LOW("[RTBOOTK]   |write_rt_imageaddr bootaddr[%x]\n", bootaddr);
 
 	MSG_LOW("[RTBOOTK]   |write_rt_imageaddr start\n");
 	write_rt_imageaddr(bootaddr);
+#endif
 	MSG_LOW("[RTBOOTK]   |stop_rt_interrupt start\n");
 	stop_rt_interrupt();
 	MSG_LOW("[RTBOOTK]   |init_rt_register start\n");

@@ -168,7 +168,7 @@ static int mfis_suspend_noirq(struct device *dev)
 	}
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
-	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
+	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		dev_name = domain_name;
 
 		/* #MU2SYS921 Start */
@@ -253,7 +253,7 @@ static int mfis_resume_noirq(struct device *dev)
 	}
 
 #if EARLYSUSPEND_STANDBY
-	if (CLOCK_TLB_IC_OC == (inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 #endif /* EARLYSUSPEND_STANDBY */
 		clk_enable(clk_data);
 
@@ -491,7 +491,7 @@ int mfis_drv_suspend(void)
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 	}
 
-	if (POWER_A3R & inl(REG_SYSC_PSTR)) {
+	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		early_suspend_phase_flag = 1;
@@ -516,7 +516,7 @@ int mfis_drv_resume(void)
 		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
 	}
 
-	if (CLOCK_TLB_IC_OC == (inl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		late_resume_phase_flag = 1;
@@ -555,6 +555,75 @@ void mfis_drv_eco_suspend(void)
 #endif /* EARLYSUSPEND_STANDBY */
 }
 EXPORT_SYMBOL(mfis_drv_eco_suspend);
+
+
+/* #MU2DISP1088 add -S-*/
+int mfis_drv_use_a4rm(void)
+{
+#if RTPM_PF_CUSTOM
+	int		ret;
+	struct device	*dev_img[POWER_DOMAIN_COUNT_MAX];
+	size_t		dev_cnt	= 0;
+	char domain_name[] = "meram-domain";
+	char *dev_name;
+	unsigned int	i;
+
+	dev_name = domain_name;	
+	ret	= power_domain_devices( dev_name, dev_img, &dev_cnt );
+	if( !ret ) {
+		for( i = 0; i < dev_cnt; i++ ) {
+				ret = pm_runtime_get_sync( dev_img[i] );
+				if ( 0 > ret ) {
+					return -1;
+				}
+
+/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id ) ;*/
+/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name ) ;*/
+		}
+	}
+	else {
+		return -1;
+	}
+#endif
+
+	return 0 ;
+}
+EXPORT_SYMBOL(mfis_drv_use_a4rm);
+
+
+int mfis_drv_rel_a4rm(void)
+{
+#if RTPM_PF_CUSTOM
+	int		ret;
+	struct device	*dev_img[POWER_DOMAIN_COUNT_MAX];
+	size_t		dev_cnt	= 0;
+	char domain_name[] = "meram-domain";
+	char *dev_name;
+	unsigned int	i;
+
+	dev_name = domain_name;
+	ret	= power_domain_devices( dev_name, dev_img, &dev_cnt );
+	if( !ret ) {
+		for( i = 0; i < dev_cnt; i++ ) {
+				ret = pm_runtime_put_sync( dev_img[i] );
+				if ( 0 > ret ) {
+					return -1;
+				}
+
+/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id ) ;*/
+/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name ) ;*/
+
+		}
+	}
+	else {
+		return -1;
+	}
+#endif
+
+	return 0 ;
+}
+EXPORT_SYMBOL(mfis_drv_rel_a4rm);
+/* #MU2DISP1088 add -E- */
 
 static int mfis_runtime_nop(struct device *dev)
 {

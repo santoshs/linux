@@ -92,6 +92,7 @@ static unsigned long intcrt_base5;
 #define GSR_REQ_COMP		(0x00000001)
 
 static char *kernel_rt_boot_path = "/boot/RTFM_SH4AL_DSP_MU200.bin";
+static char *kernel_rt_cert_path = "/boot/mediafw.cert";
 extern struct rt_boot_info g_rtboot_info;
 
 /* prototype */
@@ -174,7 +175,11 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
 		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
 
+#if SECURE_BOOT_RT
+		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);
+#else
 		data_addr = ioremap(info.boot_addr, info.image_size);
+#endif
 		if (!data_addr) {
 			MSG_ERROR("[RTBOOTK]   |ioremap Error section info\n");
 			ret = 1;
@@ -195,7 +200,11 @@ int read_rt_image(unsigned int *addr)
 		bootaddr_info->load_flg = 0;
 
 		/* Set screen data */
+#if !(SUPPORT_DRM)
 		retval = set_screen_data(info.displaybuff_address);
+#else
+		retval = set_screen_data( (info.command_area_address + info.command_area_size - 32) );
+#endif
 		if (0 != retval) {
 			MSG_ERROR("[RTBOOTK]   |Error setting screen info\n");
 			ret = 1;
@@ -227,7 +236,7 @@ void write_rt_imageaddr(unsigned int addr)
 	unsigned int bootaddr = addr;
 	/* Write RT image addr to register */
 	bootaddr &= ~0xf;
-	outl(bootaddr | 1, REG_IMGADDR);
+	writel(bootaddr | 1, REG_IMGADDR);
 }
 
 
@@ -236,19 +245,19 @@ void stop_rt_interrupt(void)
 	int reg;
 
 	for (reg = INTCRT_IMR0SA; reg <= INTCRT_IMR12SA; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = INTCRT_IMR0SA3; reg <= INTCRT_IMR12SA3; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = INTCRT_IMR0S; reg <= INTCRT_IMR12S; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 	for (reg = INTCRT_IMR0S3; reg <= INTCRT_IMR12S3; reg += 4) {
-		outb(0xFF, reg);
+		writeb(0xFF, reg);
 	}
 
 }
@@ -257,38 +266,38 @@ void init_rt_register(void)
 {
 	/* initialize CPGA */
 	MSG_LOW("[RTBOOTK]   |write RMSTPCR0 reg start\n");
-	outl((inl(RMSTPCR0) & ~(RMSTPCR0_TLB|RMSTPCR0_IC|RMSTPCR0_OC|RMSTPCR0_INTCRT)), RMSTPCR0);
-	while (0 != (inl(MSTPSR0) & (RMSTPCR0_TLB|RMSTPCR0_IC|RMSTPCR0_OC|RMSTPCR0_INTCRT)))
+	writel((readl(RMSTPCR0) & ~(RMSTPCR0_TLB|RMSTPCR0_IC|RMSTPCR0_OC|RMSTPCR0_INTCRT)), RMSTPCR0);
+	while (0 != (readl(MSTPSR0) & (RMSTPCR0_TLB|RMSTPCR0_IC|RMSTPCR0_OC|RMSTPCR0_INTCRT)))
 		;
 
 	MSG_LOW("[RTBOOTK]   |write RMSTPCR2 reg start\n");
-	outl(inl(RMSTPCR2) & ~RMSTPCR2_MFI, RMSTPCR2);
-	while (0 != (inl(MSTPSR2) & RMSTPCR2_MFI))
+	writel(readl(RMSTPCR2) & ~RMSTPCR2_MFI, RMSTPCR2);
+	while (0 != (readl(MSTPSR2) & RMSTPCR2_MFI))
 		;
 
 	/* Initialize MFI */
-	outl(inl(SRCR2) & ~SRCR2_MFI, SRCR2);
+	writel(readl(SRCR2) & ~SRCR2_MFI, SRCR2);
 
-	outl(0x00000000, REG_RTIIC);
-	outl(0x00000000, REG_GSR);
+	writel(0x00000000, REG_RTIIC);
+	writel(0x00000000, REG_GSR);
 
 }
 
 void write_os_kind(unsigned int kind)
 {
-	outl(kind, REG_ARMIIC);
+	writel(kind, REG_ARMIIC);
 }
 
 void start_rt_cpu(void)
 {
 	/* Reset RT */
-	outl(inl(SRCR0) | SRCR0_RT, SRCR0);
+	writel(readl(SRCR0) | SRCR0_RT, SRCR0);
 
 	/* Enable RT clock */
-	outl(inl(REG_RTCPUCLOCK) & ~RESCNT_RT, REG_RTCPUCLOCK);
+	writel(readl(REG_RTCPUCLOCK) & ~RESCNT_RT, REG_RTCPUCLOCK);
 
 	/* Unreset RT */
-	outl(inl(SRCR0) & ~SRCR0_RT, SRCR0);
+	writel(readl(SRCR0) & ~SRCR0_RT, SRCR0);
 
 }
 
@@ -299,7 +308,7 @@ int wait_rt_cpu(unsigned int check_num)
 	unsigned int loop = check_num;
 
 	while (loop != 0) {
-		if (inl(REG_ARMIIC) == 0) {
+		if (readl(REG_ARMIIC) == 0) {
 			ret = 0;
 			break;
 		}
@@ -315,8 +324,8 @@ int wait_rt_cpu(unsigned int check_num)
 
 void write_req_comp(void)
 {
-	outl(ARMIIC_RTBOOT, REG_ARMIIC);
-	outl(GSR_REQ_COMP, REG_GSR);
+	writel(ARMIIC_RTBOOT, REG_ARMIIC);
+	writel(GSR_REQ_COMP, REG_GSR);
 }
 
 
@@ -349,4 +358,57 @@ static int set_screen_data(unsigned int disp_addr)
 	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
+}
+
+int read_rt_cert(unsigned int addr)
+{
+	unsigned char *data_addr = 0;
+	struct file *fp = NULL;
+	struct kstat stbuf;
+	int ret;
+	int ret_size;
+
+	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+
+	do {
+		ret = vfs_stat(kernel_rt_cert_path, &stbuf);
+		if (ret != 0) {
+			MSG_ERROR("[RTBOOTK]   |Error file stat\n");
+			ret_size = 0;
+			break;
+		}
+
+		fp = filp_open(kernel_rt_cert_path, O_RDONLY, 0);
+		if (IS_ERR(fp)) {
+			MSG_ERROR("[RTBOOTK]   |Error file open\n");
+			ret_size = 0;
+			break;
+		}
+
+		data_addr = ioremap(addr, stbuf.size);
+		if (!data_addr) {
+			MSG_ERROR("[RTBOOTK]   |ioremap Error section info\n");
+			ret_size = 0;
+			break;
+		}
+
+		ret_size = kernel_read(fp, 0, (char *)data_addr, stbuf.size);
+		if (ret_size != stbuf.size) {
+			MSG_ERROR("[RTBOOTK]   |Error file read (RT image) size =%d\n", ret_size);
+			ret_size = 0;
+			break;
+		}
+	} while (0);
+
+	if (data_addr) {
+		iounmap(data_addr);
+	}
+
+	if (!IS_ERR(fp)) {
+		(void)filp_close(fp, NULL);
+	}
+
+	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
+
+	return ret_size;
 }

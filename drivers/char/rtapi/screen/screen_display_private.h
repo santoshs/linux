@@ -32,6 +32,15 @@ typedef struct {
 	void *rtds_mem_handle;
 } screen_disp_handle;
 
+/* #MU2DISP1088 add -S- */
+typedef struct {
+	unsigned short    height;
+	unsigned short    width;
+	unsigned short    stride;
+	unsigned short    mode;
+} screen_display_screen_data_info;
+/* #MU2DISP1088 add -E- */
+
 struct iccom_wq_system_mem_rt_map
 {
 	struct semaphore	sem;
