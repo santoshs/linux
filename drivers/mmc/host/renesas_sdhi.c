@@ -27,6 +27,10 @@
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <mach/gpio.h>
+#include <linux/kobject.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/slab.h>
 
 #define SDHI_CMD		0x00
 #define SDHI_ARG		0x04
@@ -108,6 +112,9 @@
 
 
 #define SDHI_MIN_DMA_LEN	8
+
+/* sdcard1_detect_state variable used to detect the state of the SD card */
+static int sdcard1_detect_state;
 
 struct renesas_sdhi_host {
 	struct mmc_host *mmc;
@@ -519,7 +526,11 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		host->connect = status & SDHI_INFO_CD ? 1 : 0;
 	}
 
-// PMIC Start: Will effect the PMIC power source on insertion /deletion of Card after Boot-Up
+	/* updating the SD card presence*/
+	sdcard1_detect_state = host->connect;
+
+	/* PMIC Start: Will effect the PMIC power source on insertion /deletion
+		of Card after Boot-Up */
 	if (host->connect) {
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
@@ -531,7 +542,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		clk_disable(host->clk);
 		host->power_mode = MMC_POWER_OFF;
 	}
-//PMIC End
+	/* PMIC End */
 
 	sdhi_reset(host);
 
@@ -895,6 +906,43 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.enable_sdio_irq = renesas_sdhi_enable_sdio_irq,
 };
 
+
+static ssize_t sdhi_detect_show(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n",  sdcard1_detect_state);
+}
+
+static struct kobj_attribute sdhi_detect_attribute =
+	__ATTR(sdcard, 0444, sdhi_detect_show, NULL);
+
+static struct attribute *attrs[] = {
+	&sdhi_detect_attribute.attr,
+	NULL,   /* need to NULL terminate the list of attributes */
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+static struct kobject *sdhi_kobj;
+
+static int sdhi_sysfs_init(struct renesas_sdhi_host *host)
+{
+	int ret;
+
+	sdhi_kobj = kobject_create_and_add("sdhi", kernel_kobj);
+	if (sdhi_kobj == NULL)
+		return -ENOMEM;
+
+	ret = sysfs_create_group(sdhi_kobj, &attr_group);
+	if (ret)
+		kobject_put(sdhi_kobj);
+
+	return ret;
+}
+
+
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -902,6 +950,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	struct renesas_sdhi_platdata *pdata;
 	struct resource *res;
 	int i, irq, ret;
+	int sysfs_ret = 0;
 	u32 val;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -985,12 +1034,14 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 			goto err4;
 		}
 
-// PMIC Start: Disable the Power source if card not available. Will happen at board boot-up
+	/* PMIC Start: Disable the Power source if card not available.
+		Will happen at board boot-up */
 		if (!(host->connect = pdata->get_cd(pdev))) {
 			if (pdata->set_pwr)
 				pdata->set_pwr(pdev, 0);
 		}
-// PMIC End
+	/* PMIC End: */
+
 		host->dynamic_clock = 1;
 	} else if (host->pdata->caps &
 			(MMC_CAP_NEEDS_POLL | MMC_CAP_NONREMOVABLE)) {
@@ -1003,6 +1054,14 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 		host->dynamic_clock = 0;
+	}
+
+	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
+		/* updating the SD card presence*/
+		sdcard1_detect_state = host->connect;
+		sysfs_ret = sdhi_sysfs_init(host);
+		if (sysfs_ret)
+			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
 	}
 
 	/* irq */
@@ -1051,10 +1110,11 @@ err5:
 	renesas_sdhi_release_dma(host);
 err4:
 	pm_runtime_disable(&pdev->dev);
-// PMIC Start: Disable the Power source if card not available. Will happen if transfer IRQ is not functinal
+	/* PMIC Start: Disable the Power source if card not available.
+		Will happen if transfer IRQ is not functinal */
 	if (pdata->set_pwr)
 		pdata->set_pwr(pdev, 0);
-// PMIC End
+	/* PMIC End */
 err3:
 	iounmap(host->base);
 err2:
