@@ -39,6 +39,8 @@
 #define SCREEN1_STRIDE		(0)
 #define SCREEN1_MODE		(0)
 
+#define SECURE_BOOT_RT		(0)
+#define PRIMARY_COPY_ADDR	(0x48800000)
 
 struct screen_info {
 	unsigned short	height;
@@ -57,5 +59,6 @@ void	write_os_kind(unsigned int kind);
 void	start_rt_cpu(void);
 int		wait_rt_cpu(unsigned int check_num);
 void	write_req_comp(void);
+int		read_rt_cert(unsigned int addr);
 #endif
 

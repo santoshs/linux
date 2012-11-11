@@ -220,7 +220,7 @@ int screen_display_get_address(screen_disp_get_address *address)
 		}
 
 		disp_addr = section.displaybuff_address;
-
+#if 1
 		kernel_disp_addr = (void *)ioremap_nocache(disp_addr	, RT_DISPLAY_SCRNDATAINFO_SIZE);
 		if (NULL == kernel_disp_addr) {
 
@@ -234,7 +234,7 @@ int screen_display_get_address(screen_disp_get_address *address)
 		address->address = (unsigned int)disp_addr + *((unsigned long *)((unsigned long)kernel_disp_addr + RT_DISPLAY_LCD1_OFFSET));
 
 		iounmap(kernel_disp_addr);
-
+#endif
 		break;
 	default:
 		break;
@@ -1143,7 +1143,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 
 	sys_rt_map.handle	 = address->handle;
 	sys_rt_map.phys_addr = address->address;
-	sys_rt_map.map_size  = address->size;
+	sys_rt_map.map_size  = address->size + 0x2000;
 
 	result = iccom_wq_system_mem_rt_map( &sys_rt_map );
 	if (SMAP_LIB_MEMORY_OK != result) {
