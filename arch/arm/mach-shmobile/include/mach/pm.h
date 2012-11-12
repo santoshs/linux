@@ -507,4 +507,5 @@ static inline void pm_release_spinlock(unsigned long flag) { }
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
 #endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
+/* #define PLL1_CAN_OFF 1*/
 #endif /* __ASM_ARCH_PM_H */

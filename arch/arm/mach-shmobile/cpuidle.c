@@ -478,6 +478,7 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 			__raw_writel(0, ram0SecHalReturnCpu0);
 #endif
 
+#ifdef PLL1_CAN_OFF
 			/* PLL1 is sure to be off ? */
 			if (corestandby_2_pll1_will_be_off_check() < 0)
 				goto skip_clock_change;
@@ -513,9 +514,10 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 
 skip_clock_change:
 			/* end clock table */
-
+#endif
 			start_corestandby_2(); /* CoreStandby(A2SL Off) */
 
+#ifdef PLL1_CAN_OFF
 			/* update pll1 stop condition without C4 */
 			corestandby_2_pll1_condition_at_wakeup();
 
@@ -529,7 +531,7 @@ skip_clock_change:
 					"[%s]: restore clocks FAILED\n ", \
 					__func__);
 			}
-
+#endif
 			dr_WUPSFAC = __raw_readl(WUPSFAC);
 #if 0	/* for debug */
 			if (dr_WUPSFAC)
@@ -974,8 +976,12 @@ static int shmobile_init_cpuidle(void)
 	__raw_writel(CPG_LPCKCR_26MHz, CPG_LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
 	__raw_writel(A2SLSTP, CPG_PLL0STPCR);
+#ifdef PLL1_CAN_OFF
 	/* - set PLL1 stop conditon to A2SL, A3R state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, CPG_PLL1STPCR);
+#else
+	__raw_writel(PLL1STPCR_DEFALT | C4STP, CPG_PLL1STPCR);
+#endif
 	do {
 		__raw_writel(POWER_BBPLLOFF, SPDCR);
 		pstr_val = __raw_readl(PSTR);
