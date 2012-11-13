@@ -452,7 +452,6 @@ int sh_resampler_init(
 		|| (sh_resampler_out_stage_2 == NULL)
 		|| (sh_resampler_out_stage_3 == NULL)
 		|| (sh_resampler_out_stage_4 == NULL)
-		|| (sh_resampler_out_stage_1 == NULL)
 		|| (sh_resampler_d_in_stage_1 == NULL)
 		|| (sh_resampler_d_in_stage_2 == NULL)
 		|| (sh_resampler_d_in_stage_3 == NULL)
