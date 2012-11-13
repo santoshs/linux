@@ -45,9 +45,9 @@
 
 /* Clocks State */
 enum clock_state {
-	MODE_SUSPEND = 0,
-	MODE_NORMAL,
+	MODE_NORMAL = 0,
 	MODE_EARLY_SUSPEND,
+	MODE_SUSPEND,
 	MODE_NUM
 };
 #define SUSPEND_CPUFREQ FREQ_MID_LOWER_LIMIT	/* Suspend */
@@ -141,6 +141,7 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
+#define HOTPLUG_IN_ACTIVE	1
 static void do_check_cpu(struct work_struct *work);
 static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu);
 
@@ -313,6 +314,8 @@ static inline int fixup_all_cpu_up(void)
 	if (the_cpuinfo.limit_maxfrq < hlg_config.plug_threshold)
 		return 1;
 
+	if (the_cpuinfo.highspeed.used)
+		return 1;
 	/* policy update */
 	if (policy_update())
 		return 1;
@@ -324,7 +327,7 @@ static inline int fixup_all_cpu_up(void)
 
 	/* by request */
 	if (the_cpuinfo.upper_lowspeed.used &&
-	   (FREQ_MIN_UPPER_LIMIT > hlg_config.unplug_threshold))
+	   (FREQ_MIN_UPPER_LIMIT >= hlg_config.unplug_threshold))
 		return 1;
 
 	return 0;
@@ -516,20 +519,22 @@ int __clk_get_rate(struct clk_rate *rate)
 	unsigned int target_freq = the_cpuinfo.freq;
 	int clkmode = 0;
 	int ret = 0;
+	int level = 0;
 
 	if (!rate) {
 		pr_err("invalid parameter<NULL>\n");
 		return -EINVAL;
 	}
 
-	clkmode = the_cpuinfo.clk_state;
-	/* get the frequency mode */
-	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
-		if (target_freq <= FREQ_MID_UPPER_LIMIT)
-			clkmode++;
-		if (target_freq <= FREQ_MIN_UPPER_LIMIT)
-			clkmode++;
-	}
+	if (target_freq <= FREQ_MID_UPPER_LIMIT)
+		level++;
+	if (target_freq <= FREQ_MIN_UPPER_LIMIT)
+		level++;
+
+	if (the_cpuinfo.clk_state == MODE_SUSPEND)
+		clkmode = 0;
+	else
+		clkmode = the_cpuinfo.clk_state * MODE_NUM + level + 1;
 
 	/* get clocks setting according to clock mode */
 	ret = pm_get_clock_mode(clkmode, rate);
@@ -1262,12 +1267,14 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 		ret = __set_all_clocks(the_cpuinfo.freq);
 		spin_unlock(&the_cpuinfo.lock);
 #ifdef DYNAMIC_HOTPLUG_CPU
+#ifndef HOTPLUG_IN_ACTIVE
 		/* dynamic hotplug cpu-core */
 		mutex_lock(&hlg_config.timer_mutex);
 		hlg_config.hlg_enabled = 1;
 		mutex_unlock(&hlg_config.timer_mutex);
 		schedule_delayed_work_on(0, &hlg_work,
 			usecs_to_jiffies(hlg_config.sampling_rate));
+#endif /* HOTPLUG_IN_ACTIVE */
 #endif /* DYNAMIC_HOTPLUG_CPU */
 	}
 }
@@ -1302,6 +1309,7 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 
 		spin_unlock(&the_cpuinfo.lock);
 #ifdef DYNAMIC_HOTPLUG_CPU
+#ifndef HOTPLUG_IN_ACTIVE
 		/* dynamic hotplug cpu-core */
 		mutex_lock(&hlg_config.timer_mutex);
 		/* cancel workqueue from now on */
@@ -1313,6 +1321,7 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 		/* boot all secondaries cpu */
 		wakeup_nonboot_cpus();
 		mutex_unlock(&hlg_config.timer_mutex);
+#endif /* HOTPLUG_IN_ACTIVE */
 #endif /* DYNAMIC_HOTPLUG_CPU */
 	}
 }
@@ -1844,6 +1853,11 @@ static struct attribute_group attr_group = {
 
 static int __init shmobile_sysfs_init(void)
 {
+#ifdef DYNAMIC_HOTPLUG_CPU
+#ifdef HOTPLUG_IN_ACTIVE
+	hlg_config.hlg_enabled = 1;
+#endif /* HOTPLUG_IN_ACTIVE */
+#endif /* DYNAMIC_HOTPLUG_CPU */
 	/* Create the files associated with power kobject */
 	return sysfs_create_group(power_kobj, &attr_group);
 }

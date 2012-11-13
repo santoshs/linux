@@ -2281,6 +2281,7 @@ ENTRY(start_corestandby_2)
 	/*--------------------------------------*/
 	/* Jump to CoreStandby_2() on SDRAM		*/
 	/*--------------------------------------*/
+#if 0
 	LDR		r4, =ram0Cpu1Status
 	LDR		r4, [r4]
 	CMP		r4, #CPUSTATUS_HOTPLUG
@@ -2302,7 +2303,12 @@ CORESTANDBY_REDIRECT:
 	NOP
 CORESTANDY2_RESUME_CONTINUE:
 	NOP
-
+#else
+	LDR		r4, =ram0CoreStandby_2
+	MOV		lr, pc			/* lr: Return address */
+	MOV		pc, r4			/* Call CoreStandby() */
+	NOP
+#endif
 	/*------------------------------------------*/
 	/* Restore domain access settings			*/
 	/*------------------------------------------*/
@@ -2353,11 +2359,13 @@ ENTRY(corestandby_2)
 
 	L1_DataCacheCleanInvalidateSW
 
+#if 0 /* Only CPU0 is running...*/
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
+#endif
 
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
@@ -2366,7 +2374,8 @@ ENTRY(corestandby_2)
 	STR		r6, [r5]
 	DSB
 #endif
-
+	/* Turn off PLL1 */
+#if 0
 	/* Condition to turn off PLL1 */
 	LDR		r4, =CPG_MSTPSR1
 	LDR		r4, [r4]
@@ -2404,13 +2413,16 @@ CORESTANDBY2_SET_PLL1_C4:
 
 CORESTANDBY2_SET_PLL1_C4_SKIP:
 	NOP
+#endif
+
+#if 0 /* Only CPU0 is running...*/
 
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Unlock
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
-
+#endif
 	LDR	r0, =ram0CoreStandby2RestoreCPU0
 		/* r0: Backup area of resume point after MMU is enable */
 	ADR		r4, CORESTANDBY2_RESTORE
@@ -2447,13 +2459,15 @@ CORESTANDBY2_SET_PLL1_C4_SKIP:
 
 CORESTANDBY2_WAKEUP:
 	NOP
-
+#if 0 /* Only CPU0 is running...*/
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
+#endif
 
+#if 0
 	/* Turn on PLL1 */
 	LDR		r4, =CPG_PLL1STPCRPhys
 	LDR		r5, [r4]
@@ -2461,6 +2475,7 @@ CORESTANDBY2_WAKEUP:
 	BIC		r5, r5, r6
 	STR		r5, [r4]
 	DSB
+#endif
 
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
@@ -2470,11 +2485,13 @@ CORESTANDBY2_WAKEUP:
 	DSB
 #endif
 
+#if 0 /* Only CPU0 is running...*/
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
+#endif
 
 	/* Invalidate L1 D-cache */
 

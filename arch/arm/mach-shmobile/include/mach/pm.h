@@ -460,6 +460,10 @@ extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
 /* Internal API for CPUFreq driver only */
+ /* for corestandby */
+extern int cpg_get_freq(struct clk_rate *rates);
+extern int corestandby_pm_set_clocks(const struct clk_rate clk_div);
+ /* for corestandby end */
 extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
 extern int pm_get_clock_mode(const int mode, struct clk_rate *rate);
@@ -511,4 +515,5 @@ static inline void pm_release_spinlock(unsigned long flag) { }
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
 #endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
+/* #define PLL1_CAN_OFF 1*/
 #endif /* __ASM_ARCH_PM_H */

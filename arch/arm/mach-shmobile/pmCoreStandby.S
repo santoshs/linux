@@ -1509,7 +1509,7 @@ SKIP_PASR_DRAM_AREA1:
 	/*--------------------------------------*/
 	/* Change clock setting for powerdown	*/
 	/*--------------------------------------*/
-#if 1
+#if 0
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
 	LDR		r4, =ram1SetClockSystemSuspendPhys
@@ -1742,7 +1742,7 @@ SKIP_TURN_ON_RWDT2:
 	/*--------------------------------------*/
 	/* Change clock setting for wakeup		*/
 	/*--------------------------------------*/
-#if 1
+#if 0
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
 	LDR		r4, =ram1SetClockSystemSuspendPhys
@@ -2876,20 +2876,8 @@ ENTRY(start_corestandby_2)
 	/*--------------------------------------*/
 	/* Jump to CoreStandby_2() on SDRAM		*/
 	/*--------------------------------------*/
-	LDR		r4, =ram0Cpu1Status
-	LDR		r4, [r4]
-	CMP		r4, #CPUSTATUS_HOTPLUG
-	BNE		CORESTANDBY_REDIRECT
 	MOV		lr, pc /* lr: Return address */
 	B		corestandby_2 /* Call CoreStandby_2() */
-	NOP
-	B		CORESTANDY2_RESUME_CONTINUE
-CORESTANDBY_REDIRECT:
-	NOP
-	MOV		lr, pc /* lr: Return address */
-	B		corestandby /* Call CoreStandby() */
-	NOP
-CORESTANDY2_RESUME_CONTINUE:
 	NOP
 
 	/*------------------------------------------*/
@@ -2983,12 +2971,6 @@ ENDPROC(corestandby_2)
 .align	5
 ENTRY(corestandby_pa_2)
 
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-
 	LDR		r8, =CPUSTATUS_SHUTDOWN2
 	LDR		r4, =ram1corestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
@@ -3009,52 +2991,6 @@ CPUPD_CACHESYNC_LOOP:
 	LDR		r5, [r4, #L2_CHACH_SYNC]
 	TST		r5, #0x1
 	BNE		CPUPD_CACHESYNC_LOOP
-
-	/* Turn off PLL1 */
-#if 1
-	LDR		r4, =CPG_MSTPSR1Phys
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST1_PLL1_MASK
-	CMP		r4, #MSTPST1_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
-
-	LDR		r4, =CPG_MSTPSR2Phys
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST2_PLL1_MASK
-	CMP		r4, #MSTPST2_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
-
-	LDR		r4, =CPG_MSTPSR3Phys
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST3_PLL1_MASK
-	CMP		r4, #MSTPST3_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
-
-	LDR		r4, =CPG_MSTPSR4Phys
-	LDR		r4, [r4]
-	LDR		r5, =MSTPST4_PLL1_MASK
-	BIC		r4, r4, r5
-	LDR		r5, =MSTPST4_PLL1
-	CMP		r4, r5
-	BEQ		CORESTANDBY2_SET_PLL1_C4_SKIP
-
-CORESTANDBY2_SET_PLL1_C4:
-	LDR		r4, =CPG_PLL1STPCRPhys
-	LDR		r5, [r4]
-	LDR		r6, =C4STP
-	ORR		r5, r5, r6
-	STR		r5, [r4]
-	DSB
-
-CORESTANDBY2_SET_PLL1_C4_SKIP:
-	NOP
-#endif
-
-	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_UnLock() */
-	NOP
 
 	/*------------------------------------------*/
 	/* CPU power down */
@@ -3083,35 +3019,13 @@ CORE_POWERDOWN_LOOP:
 CORESTANDBY2_WAKEUP:
 	NOP
 
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-
-#if 1
-	/* Turn on PLL1 */
-	LDR		r4, =CPG_PLL1STPCRPhys
-	LDR		r5, [r4]
-	LDR		r6, =C4STP
-	BIC		r5, r5, r6
-	STR		r5, [r4]
-	DSB
-#endif
-
 	LDR		r4, =ram1corestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
 
-	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_UnLock() */
-	NOP
-
-    /* Invalidate L1 D-cache */
-    L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */
+	/* Invalidate L1 D-cache */
+	L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */
 
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
