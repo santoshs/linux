@@ -38,7 +38,11 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/pm_runtime.h>
 #include <mach/common.h>
+#include <mach/pm.h>
+#include <mach/r8a73734.h>
+#include <linux/hwspinlock.h>
 
 #include <sound/soundpath/TP/audio_test_extern.h>
 #include "audio_test_wm1811.h"
@@ -140,7 +144,7 @@ static int audio_test_proc_stop_spuv_loopback(void);
 static int audio_test_tuneup_ic(u_int in_device_type, u_int out_device_type);
 static int audio_test_get_logic_addr(void);
 static void audio_test_rel_logic_addr(void);
-static void audio_test_loopback_setup(void);
+static int audio_test_loopback_setup(void);
 static void audio_test_loopback_remove(void);
 static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat);
 static void audio_test_common_set_register(enum audio_test_hw_val drv,
@@ -243,14 +247,6 @@ static u_int g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 /* HW logical address              */
 /***********************************/
 /*!
-  @brief	SYSC register base address.
-*/
-static u_long g_audio_test_sysc_Base;
-/*!
-  @brief	CPGA register base address.
-*/
-static u_long g_audio_test_ulClkRstRegBase;
-/*!
   @brief	CPGA register(soft reset) base address.
 */
 static u_long g_audio_test_ulSrstRegBase;
@@ -279,6 +275,17 @@ static atomic_t g_audio_test_watch_start_clk;
 */
 static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_audio_test_watch_stop_clk;
+/***********************************/
+/* PM setting                      */
+/***********************************/
+/*!
+  @brief	Power domain.
+*/
+static struct device *g_audio_test_power_domain;
+/*!
+  @brief	Power domain count.
+*/
+static size_t g_audio_test_power_domain_count;
 /***********************************/
 /* Table for loopback              */
 /***********************************/
@@ -939,7 +946,11 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
-	audio_test_loopback_setup();
+	ret = audio_test_loopback_setup();
+	if (0 != ret) {
+		audio_test_log_err("audio_test_loopback_setup");
+		goto error;
+	}
 
 	/***********************************/
 	/* Set SCUW register               */
@@ -971,6 +982,7 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 
 	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
 
+error:
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -1239,7 +1251,11 @@ static int audio_test_proc_start_tone(void)
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
-	audio_test_loopback_setup();
+	ret = audio_test_loopback_setup();
+	if (0 != ret) {
+		audio_test_log_err("audio_test_loopback_setup");
+		goto error;
+	}
 
 	/***********************************/
 	/* Set SCUW register               */
@@ -1384,7 +1400,11 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
-	audio_test_loopback_setup();
+	ret = audio_test_loopback_setup();
+	if (0 != ret) {
+		audio_test_log_err("audio_test_loopback_setup");
+		goto error;
+	}
 
 	/***********************************/
 	/* Set SCUW register               */
@@ -1517,30 +1537,6 @@ static int audio_test_get_logic_addr(void)
 
 	audio_test_log_efunc("");
 
-	/***********************************/
-	/* Get SYSC Logical Address        */
-	/***********************************/
-	g_audio_test_sysc_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_SYSC_PHY_BASE,
-					AUDIO_TEST_SYSC_REG_MAX);
-	if (0 >= g_audio_test_sysc_Base) {
-		audio_test_log_err("error SYSC register ioremap failed\n");
-		ret = -ENOMEM;
-		goto error;
-	}
-
-	/***********************************/
-	/* Get CPGA Logical Address        */
-	/***********************************/
-	g_audio_test_ulClkRstRegBase =
-		(u_long)ioremap_nocache(AUDIO_TEST_CPG_PHY_BASE,
-					AUDIO_TEST_CPG_REG_MAX);
-	if (0 >= g_audio_test_ulClkRstRegBase) {
-		audio_test_log_err("error CPGA register ioremap failed\n");
-		ret = -ENOMEM;
-		goto error;
-	}
-
 	/****************************************/
 	/* Get CPGA(soft reset) Logical Address */
 	/****************************************/
@@ -1646,22 +1642,6 @@ static void audio_test_rel_logic_addr(void)
 		g_audio_test_ulSrstRegBase = 0;
 	}
 
-	/***********************************/
-	/*  Release CPGA Logical Address  */
-	/***********************************/
-	if (0 < g_audio_test_ulClkRstRegBase) {
-		iounmap((void *)g_audio_test_ulClkRstRegBase);
-		g_audio_test_ulClkRstRegBase = 0;
-	}
-
-	/***********************************/
-	/*  Release SYSC Logical Address   */
-	/***********************************/
-	if (0 < g_audio_test_sysc_Base) {
-		iounmap((void *)g_audio_test_sysc_Base);
-		g_audio_test_sysc_Base = 0;
-	}
-
 	audio_test_log_rfunc("");
 }
 
@@ -1670,45 +1650,24 @@ static void audio_test_rel_logic_addr(void)
 
   @param	.
 
-  @return	.
+  @return	Function results.
 
   @note		.
 */
-static void audio_test_loopback_setup(void)
+static int audio_test_loopback_setup(void)
 {
+	int ret = 0;
+	int res = 0;
 	int reg = 0;
-	int i = 0;
 
 	audio_test_log_efunc("");
 
-	/***********************************/
-	/* Wakeup A4MP                     */
-	/***********************************/
-	reg = ioread32(AUDIO_TEST_SYSC_PSTR);
-	audio_test_log_info("SYSC_PSTR[%#010x]", reg);
-	if (reg & (1 << 8)) {
-		audio_test_log_info("reg[%#010x] supplied to A4MP", reg);
-	} else {
-		/* WakeUp */
-		sh_modify_register32(AUDIO_TEST_SYSC_SWUCR, 0, 0x00000100);
-		for (i = 0; ; i++) {
-			reg = ioread32(AUDIO_TEST_SYSC_SWUCR);
-			reg &= (1 << 8);
-			if (!reg)
-				break;
-		}
-		audio_test_log_info("Wake up process time[%d]", i);
-	}
-
-	/***********************************/
-	/* Start MPCK                      */
-	/***********************************/
-	reg = ioread32(AUDIO_TEST_CPG_MPCKCR);
-	audio_test_log_info("CPG_MPCKCR[%#010x]", reg);
-	if (reg & (1 << 11)) {
-		sh_modify_register32(AUDIO_TEST_CPG_MPCKCR, 0x00000800, 0);
-		reg = ioread32(AUDIO_TEST_CPG_MPCKCR);
-		audio_test_log_info("MPCKCR[%#010x]", reg);
+	/* Enable the power domain */
+	res = pm_runtime_get_sync(g_audio_test_power_domain);
+	if (!(0 == res || 1 == res)) {  /* 0:success 1:active */
+		audio_test_log_err("pm_runtime_get_sync res[%d]\n", res);
+		ret = -1;
+		goto error;
 	}
 
 	/***********************************/
@@ -1749,7 +1708,9 @@ static void audio_test_loopback_setup(void)
 		audio_test_log_info("FSI2CR[%#06x]", reg);
 	}
 
-	audio_test_log_rfunc("");
+error:
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
 }
 
 /*!
@@ -1763,8 +1724,7 @@ static void audio_test_loopback_setup(void)
 */
 static void audio_test_loopback_remove(void)
 {
-	int reg = 0;
-	int i = 0;
+	int res = 0;
 
 	audio_test_log_efunc("");
 
@@ -1795,38 +1755,10 @@ static void audio_test_loopback_remove(void)
 	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
 				AUDIO_TEST_DRV_STATE_OFF);
 
-	/***********************************/
-	/* Stop MPCK                       */
-	/***********************************/
-	reg = ioread32(AUDIO_TEST_CPG_MPCKCR);
-	audio_test_log_info("CPG_MPCKCR[%#010x]", reg);
-	if (reg & (1 << 11)) {
-		audio_test_log_info("reg[%#010x] Stops MP_MP clock", reg);
-	} else {
-		sh_modify_register32(AUDIO_TEST_CPG_MPCKCR, 0, 0x00000800);
-		reg = ioread32(AUDIO_TEST_CPG_MPCKCR);
-		audio_test_log_info("MPCKCR[%#010x]", reg);
-	}
-
-	/***********************************/
-	/* Stop A4MP                       */
-	/***********************************/
-	/* PSTR */
-	reg = ioread32(AUDIO_TEST_SYSC_PSTR);
-	audio_test_log_info("SYSC_PSTR[%#010x]", reg);
-	if (reg & (1 << 8)) {
-		/* Power Down */
-		sh_modify_register32(AUDIO_TEST_SYSC_SPDCR, 0, 0x00000100);
-		for (i = 0; ; i++) {
-			reg = ioread32(AUDIO_TEST_SYSC_SPDCR);
-			reg &= (1 << 8);
-			if (!reg)
-				break;
-		}
-		audio_test_log_info("Power Down process time[%d]", i);
-	} else {
-		audio_test_log_info("reg[%#010x] A4MP is power down ", reg);
-	}
+	/* Disable the power domain */
+	res = pm_runtime_put_sync(g_audio_test_power_domain);
+	if (0 != res)
+		audio_test_log_err("pm_runtime_put_sync res[%d]\n", res);
 
 	audio_test_log_rfunc("");
 }
@@ -1844,8 +1776,8 @@ static void audio_test_loopback_remove(void)
 static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 {
 	struct clk *clk;
-	int reg = 0;
-	int i = 0;
+	unsigned long flags = 0;
+	int res = 0;
 
 	audio_test_log_efunc("hw[%d] stat[%d]", drv, stat);
 
@@ -1873,36 +1805,22 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 						"clkgen clock enable");
 				}
 
+				res = hwspin_lock_timeout_irqsave(
+					r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > res)
+					audio_test_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR2,
 							0, 0x01000000);
 				udelay(62);
-
 				/* CLKGEN operates */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR2,
 							0x01000000, 0);
 
-				/* CLKGEN operates */
-				reg = ioread32(AUDIO_TEST_CPG_MSTPSR2);
-				audio_test_log_info("CPG_SMSTPSR2[%#010x]",
-							reg);
-				if (reg & (1 << 24)) {
-					sh_modify_register32(
-						AUDIO_TEST_CPG_SMSTPCR2,
-						0x01000000, 0);
-					for (i = 0; ; i++) {
-						reg = ioread32(
-							AUDIO_TEST_CPG_MSTPSR2);
-						reg &= (1 << 24);
-						if (!reg)
-							break;
-					}
-					audio_test_log_info(
-					"clkgen operate process time[%d]", i);
-				} else {
-					audio_test_log_info(
-					"reg[%#010x] clkgen operate", reg);
-				}
+				if (0 <= res)
+					hwspin_unlock_irqrestore(
+						r8a73734_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |=
 					AUDIO_TEST_CLK_CLKGEN;
@@ -1950,36 +1868,22 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 						"fsi clock enable");
 				}
 
+				res = hwspin_lock_timeout_irqsave(
+					r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > res)
+					audio_test_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR3,
 							0, 0x10000000);
 				udelay(62);
-
 				/* FSI operates */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR3,
 							0x10000000, 0);
 
-				/* FSI operates */
-				reg = ioread32(AUDIO_TEST_CPG_MSTPSR3);
-				audio_test_log_info("CPG_SMSTPSR3[%#010x]",
-							reg);
-				if (reg & (1 << 28)) {
-					sh_modify_register32(
-						AUDIO_TEST_CPG_SMSTPCR3,
-						0x10000000, 0);
-					for (i = 0; ; i++) {
-						reg = ioread32(
-							AUDIO_TEST_CPG_MSTPSR3);
-						reg &= (1 << 28);
-						if (!reg)
-							break;
-					}
-					audio_test_log_info(
-					"fsi operate process time[%d]", i);
-				} else {
-					audio_test_log_info(
-					"reg[%#010x] fsi operate", reg);
-				}
+				if (0 <= res)
+					hwspin_unlock_irqrestore(
+						r8a73734_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |= AUDIO_TEST_CLK_FSI;
 			}
@@ -2024,36 +1928,22 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 						"scuw clock enable");
 				}
 
+				res = hwspin_lock_timeout_irqsave(
+					r8a73734_hwlock_cpg, 10, &flags);
+				if (0 > res)
+					audio_test_log_err("Can't lock cpg\n");
+
 				/* Soft Reset */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR3,
 							0, 0x04000000);
 				udelay(62);
-
 				/* SCUW operates */
 				sh_modify_register32(AUDIO_TEST_CPG_SRCR3,
 							0x04000000, 0);
 
-				/* SCUW operates */
-				reg = ioread32(AUDIO_TEST_CPG_MSTPSR3);
-				audio_test_log_info("CPG_SMSTPSR3[%#010x]",
-							reg);
-				if (reg & (1 << 26)) {
-					sh_modify_register32(
-						AUDIO_TEST_CPG_SMSTPCR3,
-						0x04000000, 0);
-					for (i = 0; ; i++) {
-						reg = ioread32(
-							AUDIO_TEST_CPG_MSTPSR3);
-						reg &= (1 << 26);
-						if (!reg)
-							break;
-					}
-					audio_test_log_info(
-					"scuw operate process time[%d]", i);
-				} else {
-					audio_test_log_info(
-					"reg[%#010x] scuw operate", reg);
-				}
+				if (0 <= res)
+					hwspin_unlock_irqrestore(
+						r8a73734_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |= AUDIO_TEST_CLK_SCUW;
 			}
@@ -2668,6 +2558,23 @@ static int __init audio_test_init(void)
 		}
 	}
 
+	/* Power domain setting */
+	ret = power_domain_devices("snd-soc-audio-test",
+				    &g_audio_test_power_domain,
+				    &g_audio_test_power_domain_count);
+	if (0 != ret) {
+		audio_test_log_err("Power domain setting ret[%d]\n", ret);
+		goto error;
+	}
+
+	/* RuntimePM */
+	pm_runtime_enable(g_audio_test_power_domain);
+	ret = pm_runtime_resume(g_audio_test_power_domain);
+	if (ret < 0) {
+		audio_test_log_err("pm_runtime_resume ret[%d]\n", ret);
+		goto error;
+	}
+
 	/***********************************/
 	/* Regist callback for VCD         */
 	/***********************************/
@@ -2704,6 +2611,11 @@ error:
 	/* Free internal parameter area    */
 	/***********************************/
 	kfree(dev_conf);
+
+	if (g_audio_test_power_domain) {
+		pm_runtime_disable(g_audio_test_power_domain);
+		g_audio_test_power_domain = NULL;
+	}
 
 	audio_test_log_err("ret[%d]", ret);
 	return ret;
@@ -2753,6 +2665,11 @@ static void __exit audio_test_exit(void)
 	/* Free internal parameter area    */
 	/***********************************/
 	kfree(audio_test_conf);
+
+	if (g_audio_test_power_domain) {
+		pm_runtime_disable(g_audio_test_power_domain);
+		g_audio_test_power_domain = NULL;
+	}
 
 	audio_test_log_rfunc("");
 }
