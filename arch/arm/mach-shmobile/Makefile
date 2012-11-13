@@ -76,3 +76,7 @@ obj-y += crashlog.o
 
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
+# touchkey
+obj-y += setup-u2touchkey.o
+# touchscreen
+obj-y += setup-u2mxt224.o

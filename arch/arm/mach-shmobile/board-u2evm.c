@@ -25,7 +25,7 @@
 #include <linux/gpio_keys.h>
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
-
+#include <mach/board-u2evm.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
@@ -37,7 +37,6 @@
 
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
-#include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
@@ -79,9 +78,8 @@
 #ifdef CONFIG_OPTICAL_TAOS_TRITON
 #include <linux/i2c/taos.h>
 #endif
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-#include <linux/i2c/touchkey_i2c.h>
-#endif
+#include <mach/setup-u2touchkey.h>
+#include <mach/setup-u2mxt224.h>
 
 
 #include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
@@ -152,10 +150,6 @@ static void sensor_power_on_vdd(int);
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
 
-#define GPIO_PULL_OFF	0x00
-#define GPIO_PULL_DOWN	0x80
-#define GPIO_PULL_UP	0xc0
-
 #define SDHI1_CLK_CR IO_ADDRESS(0xE6052120)
 #define SDHI1_D0_CR IO_ADDRESS(0xE6052121)
 #define SDHI1_D1_CR IO_ADDRESS(0xE6052122)
@@ -163,23 +157,6 @@ static void sensor_power_on_vdd(int);
 #define SDHI1_D3_CR IO_ADDRESS(0xE6052124)
 #define SDHI1_CMD_CR IO_ADDRESS(0xE6052125)
 
-/*Support for compatibility between ES1.0 and ES2.0*/
-#define GPIO_BASE	IO_ADDRESS(0xe6050000)
-#define GPIO_PORTCR_ES1(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
-
-#define GPIO_PORTCR_ES2(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
@@ -3108,158 +3085,6 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 #endif
 };
 
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-static struct i2c_board_info i2c_touchkey[];
-
-static void touchkey_init_hw(void)
-{
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-
-	gpio_request(GPIO_PORT29, "TCKEY_LDO");
-	gpio_pull(GPIO_PORTCR_ES2(29), GPIO_PULL_OFF);
-    gpio_direction_output(GPIO_PORT29,0);
-#endif
-}
-
-static int touchkey_suspend(void)
-{
-	struct regulator *regulator;
-#if 0
-	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
-	if (IS_ERR(regulator))
-		return 0;
-	if (regulator_is_enabled(regulator))
-		regulator_force_disable(regulator);
-
-	regulator_put(regulator);
-#endif
-	return 1;
-}
-
-static int touchkey_resume(void)
-{
-	struct regulator *regulator;
-#if 0
-	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
-	if (IS_ERR(regulator))
-		return 0;
-	regulator_enable(regulator);
-	regulator_put(regulator);
-#endif
-	return 1;
-}
-
-static int touchkey_power_on(bool on)
-{
-	int ret;
-
-	if (on) {
-		/* To do to power on */		
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-	gpio_direction_output(GPIO_PORT29,1);
-#endif
-	}
-	else {
-		/* To do to power off */		
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-	gpio_direction_output(GPIO_PORT29,0);
-#endif
-	}
-
-	if (on)
-		ret = touchkey_resume();
-	else
-		ret = touchkey_suspend();
-
-	return ret;
-}
-
-static int touchkey_led_power_on(bool on)
-{
-	if (on) {
-		/* To do to led power on */		
-	}
-	else {
-		/* To do to led power off */		
-	}
-	
-	return 1;
-}
-#define TCKEY_SDA 27
-#define TCKEY_SCL 26
-static struct touchkey_platform_data touchkey_pdata = {
-	.gpio_sda = TCKEY_SDA,	/* To do to set gpio */
-	.gpio_scl = TCKEY_SCL,	/* To do to set gpio */
-	.gpio_int = NULL,	/* To do to set gpio */
-	.init_platform_hw = touchkey_init_hw,
-	.suspend = touchkey_suspend,
-	.resume = touchkey_resume,
-	.power_on = touchkey_power_on,
-	.led_power_on = touchkey_led_power_on,
-};
-
-
-static struct i2c_board_info i2c_touchkey[] = {
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-	{
-		I2C_BOARD_INFO("sec_touchkey", 0x20),
-		.platform_data = &touchkey_pdata,
-		.irq = irqpin2irq(43),
-	},
-
-};
-#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
-#endif
-#ifndef CONFIG_PMIC_INTERFACE
-	static struct regulator *mxt224_regulator;
-#endif
-
-static void mxt224_set_power(int on)
-{
-#ifdef CONFIG_PMIC_INTERFACE
-//	pmic_set_power_on(E_POWER_VANA_MM);
-	if(on)
-	{
-		gpio_set_value(GPIO_PORT29, 1);
-		gpio_set_value(GPIO_PORT30, 1);
-	}
-	else
-	{
-		gpio_set_value(GPIO_PORT29, 0 );
-		gpio_set_value(GPIO_PORT30, 0 );		
-	}
-#else
-	if (!mxt224_regulator)
-		mxt224_regulator = regulator_get(NULL, "vdd_touch");
-
-	if (mxt224_regulator) {
-		if (on)
-			regulator_enable(mxt224_regulator);
-		else
-			regulator_disable(mxt224_regulator);
-	}
-#endif
-}
-
-static int mxt224_read_chg(void)
-{
-	return gpio_get_value(GPIO_PORT32);
-}
-
-static struct mxt_platform_data mxt224_platform_data = {
-	.x_line		= 19,
-	.y_line		= 11,
-	.x_size		= 800,
-	.y_size		= 480,
-	.blen		= 0x21,
-	.threshold	= 0x28,
-	.voltage	= 1825000,
-	.orient		= MXT_DIAGONAL,
-	.irqflags	= IRQF_TRIGGER_FALLING,
-	.set_pwr	= mxt224_set_power,
-	.read_chg	= mxt224_read_chg,
-};
-
 static struct i2c_board_info i2c4_devices[] = {
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
@@ -4404,6 +4229,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gps_gpio_init();
 #endif
 
+	touchkey_i2c_register_board_info(10);
 platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
 	#if defined(CONFIG_VIBRATOR_ISA1000A)
     isa1000_vibrator_init();
