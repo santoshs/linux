@@ -105,4 +105,3 @@
 	extern spinlock_t       sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
 #endif
 #endif /* __ASM_ARCH_BOARD_U2EVM_H*/
->>>>>>> 015cf3e
