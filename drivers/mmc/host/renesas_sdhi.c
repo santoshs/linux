@@ -521,19 +521,15 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 
 // PMIC Start: Will effect the PMIC power source on insertion /deletion of Card after Boot-Up
 	if (host->connect) {
-		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
-		clk_disable(host->clk);
 		host->power_mode = MMC_POWER_UP;
+		sdhi_reset(host);
 	} else {
-		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
-		clk_disable(host->clk);
 		host->power_mode = MMC_POWER_OFF;
 	}
 //PMIC End
 
-	sdhi_reset(host);
 
 	if (!IS_ERR_OR_NULL(host->mrq)) {
 		if (host->mrq->cmd)
