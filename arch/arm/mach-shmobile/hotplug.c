@@ -55,7 +55,8 @@ void platform_cpu_die(unsigned int cpu)
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
 #ifdef CONFIG_SUSPEND
-	return (void)jump_systemsuspend();
+	jump_systemsuspend();
+	return;
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {
