@@ -7,13 +7,20 @@
 #include <linux/platform_device.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
-#include <asm/mach-types.h>
-#include <board-u2evm-bt.h>
+#include <linux/interrupt.h>
+#include <linux/serial_core.h>
+//#include <asm/mach-types.h>
+//#include <mach/board-u2evm-bt.h>
 
 #define BT_REG_GPIO 268
 #define BT_WAKE_GPIO 262
 #define BT_HOST_WAKE_GPIO 272
 #define BT_WAKE_GPIO_CR 0xE6052106
+
+struct platform_device bcm4334_bluetooth_device = {
+	.name = "bcm4334_bluetooth",
+	.id = -1,
+};
 
 static struct rfkill *bt_rfkill;
 static bool bt_enabled;
@@ -35,6 +42,7 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 {
 	// rfkill_ops callback. Turn transmitter on when blocked is false
 	static int rfkill_pwr_init = 1; 
+
 	printk("%s: %s\n", __func__, (blocked ? "off" : "on" ));
 	
 	if (!blocked) {
