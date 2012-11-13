@@ -60,6 +60,7 @@
 #define FILTERx3c_LG 300
 #define FILTERx3d_LG 121
 #define FILTERx3e_LG 59
+#define FILTERx3f_LG 27
 #define FILTERx4_LG 53
 #define FILTERx4b_LG 39
 #define FILTERx5_LG 41
@@ -217,6 +218,13 @@ short x3e[FILTERx3e_LG] = {
 		-328, 194, 474, 359, 7, -282, -314, -112,
 		133, 237, 145, -51, -211, -249, -178,
 		-80, 40};
+
+short x3f[FILTERx3f_LG] = {
+		-333, -79, 484, 613, -177, -837, -30,
+		1390, 885, -1760, -2590, 2091, 9949,
+		13880, 9949, 2091, -2590, -1760, 885,
+		1390, -30, -837, -177, 613, 484, -79,
+		-333};
 
 
 short x4[FILTERx4_LG] = {
@@ -674,8 +682,8 @@ int sh_resampler_resample(
 				sh_resampler_in_stage_1,
 				sh_resampler_out_stage_1,
 				sh_resampler_size_out1,
-				&x3e[0],
-				FILTERx3e_LG,
+				&x3f[0],
+				FILTERx3f_LG,
 				vcd2alsa_pdelaystart1_p,
 				&vcd2alsa_ptrdelay1_p, 0, UPSAMPLE_3) != 0)
 			error = SH_RESAMPLER_ERR_5;
@@ -801,8 +809,8 @@ int sh_resampler_resample(
 				input_buffer,
 				sh_resampler_out_stage_1,
 				sh_resampler_size_out1,
-				&x3e[0],
-				FILTERx3e_LG,
+				&x3f[0],
+				FILTERx3f_LG,
 				alsa2vcd_pdelaystart1_p,
 				&alsa2vcd_ptrdelay1_p, 0, 1) != 0) {
 			error = SH_RESAMPLER_ERR_1;
@@ -826,8 +834,8 @@ int sh_resampler_resample(
 				sh_resampler_in_stage_1,
 				output_buffer,
 				sh_resampler_size_out1,
-				&x3e[0],
-				FILTERx3e_LG,
+				&x3f[0],
+				FILTERx3f_LG,
 				vcd2alsa_pdelaystart1_p,
 				&vcd2alsa_ptrdelay1_p, 0, 1) != 0)
 			error = SH_RESAMPLER_ERR_1;
