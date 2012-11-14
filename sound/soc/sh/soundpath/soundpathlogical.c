@@ -4007,15 +4007,6 @@ static void sndp_work_start(const int direction)
 		ulSetDevice = sndp_get_next_devices(uiValue);
 		sndp_log_debug("set_next_dev[%08x]\n", ulSetDevice);
 		if (NULL != g_sndp_codec_info.set_device) {
-			if ((SNDP_PCM_IN == direction) &&
-			    (E_CAP == g_sndp_playrec_flg)) {
-				if (SNDP_BUILTIN_MIC & ulSetDevice)
-					ulSetDevice |=
-					g_sndp_codec_info.dev_playback_speaker;
-				else if (SNDP_WIREDHEADSET & ulSetDevice)
-					ulSetDevice |=
-					g_sndp_codec_info.dev_playback_headphones;
-			}
 			iRet = g_sndp_codec_info.set_device(
 					ulSetDevice, uiValue,
 					g_sndp_codec_info.power_on);
@@ -4206,22 +4197,17 @@ static void sndp_work_stop(
 		} else if (SNDP_PCM_IN == direction) {
 			/* Init to In devices */
 			ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
-			if (E_PLAY != g_sndp_playrec_flg)
-				ulSetDevice = 0;
 		}
 
 		if (NULL != g_sndp_codec_info.set_device) {
-			if (!((SNDP_PCM_OUT == direction) &&
-			      (E_CAP == g_sndp_playrec_flg))) {
-				sndp_log_debug("set_next_dev[%08x]\n",
-					ulSetDevice);
-				iRet = g_sndp_codec_info.set_device(
-					ulSetDevice, SNDP_VALUE_INIT,
-						g_sndp_codec_info.power_on);
-				if (ERROR_NONE != iRet)
-					sndp_log_err("set_device error (code=%d)\n",
-						iRet);
-			}
+			sndp_log_debug("set_next_dev[%08x]\n",
+				ulSetDevice);
+			iRet = g_sndp_codec_info.set_device(
+				ulSetDevice, SNDP_VALUE_INIT,
+					g_sndp_codec_info.power_on);
+			if (ERROR_NONE != iRet)
+				sndp_log_err("set_device error (code=%d)\n",
+					iRet);
 		}
 	}
 
