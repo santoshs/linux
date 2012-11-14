@@ -1242,7 +1242,7 @@ static struct platform_device gpio_key_polled_device = {
 
 static const struct fb_videomode lcdc0_modes[] = {
 	{
-#if CONFIG_S6E63M0X_TYPE == 2
+#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
 		.name		= "qHD",
 		.xres		= 540,
 		.yres		= 960,
@@ -4126,27 +4126,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
-#if 0 // LCD initialization is already done in sboot.
-#if CONFIG_S6E63M0X_TYPE == 2
-	gpio_request(GPIO_PORT89, NULL);
-	gpio_direction_output(GPIO_PORT89, 0);
-#else
-	gpio_request(GPIO_PORT88, NULL);
-	gpio_direction_output(GPIO_PORT88, 1);
-#endif
-
-	/* LCD */
-	gpio_request(GPIO_PORT31, NULL);
-	gpio_direction_output(GPIO_PORT31, 0); /* reset */
-#if CONFIG_S6E63M0X_TYPE == 2
-#else
-	udelay(50);
-	gpio_direction_output(GPIO_PORT31, 1); /* unreset */
-#endif
-
-	/* MIPI-DSI clock setup */
-	__raw_writel(0x2a83900D, DSI0PHYCR);
-#endif // LCD initialization is already done in sboot.
 
 	/* PMIC */
 	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
