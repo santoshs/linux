@@ -103,6 +103,8 @@
 #include <linux/usb/tusb1211.h>
 #endif
 
+#include <sound/a2220.h>
+
 static int check_sec_rlte_hw_rev(void);
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 #include <mach/sec_debug.h>
@@ -3260,6 +3262,12 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.read_chg	= mxt224_read_chg,
 };
 
+struct a2220_platform_data  u2evm_a2220_data = {
+	.a2220_hw_init = NULL,
+	.gpio_reset = GPIO_PORT44,
+	.gpio_wakeup = GPIO_PORT26,
+};
+
 static struct i2c_board_info i2c4_devices[] = {
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
@@ -3293,6 +3301,10 @@ static struct i2c_board_info i2cm_devices[] = {
                 I2C_BOARD_INFO("wm1811", 0x1a),
                 .irq            = irqpin2irq(24),
         },
+	{
+		I2C_BOARD_INFO("audience_a2220", 0x3E),
+		.platform_data = &u2evm_a2220_data,
+	},
 #if 0
 	{
 		I2C_BOARD_INFO("led", 0x74),
