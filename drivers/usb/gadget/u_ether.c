@@ -689,7 +689,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 
 	if ((skb_shinfo(multiframe->skb)->nr_frags == MAX_RNDIS_FRAME_COUNT) ||
-		(multiframe->skb->data_len >= 12000) ||
+		(multiframe->skb->data_len >= 8000) ||
 		(HostMaxTransferSize != 0x4000)) {
 		if (timer_pending(&multiframe->multiframe_timer))
 			del_timer(&multiframe->multiframe_timer);

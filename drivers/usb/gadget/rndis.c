@@ -685,9 +685,15 @@ static int rndis_set_response(int configNr, rndis_set_msg_type *buf)
 
 static int rndis_reset_response(int configNr, rndis_reset_msg_type *buf)
 {
+	u8 *buffer;
+	u32 length;
 	rndis_reset_cmplt_type *resp;
 	rndis_resp_t *r;
 	struct rndis_params *params = rndis_per_dev_params + configNr;
+
+	/* drain the response queue */
+	while ((buffer = rndis_get_next_response(configNr, &length)))
+		rndis_free_response(configNr, buffer);
 
 	r = rndis_add_response(configNr, sizeof(rndis_reset_cmplt_type));
 	if (!r)
