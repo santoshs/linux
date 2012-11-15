@@ -24,6 +24,9 @@ config FB_R_MOBILE_PANEL_KOTA
 config FB_R_MOBILE_S6E39A0X02
         boolean "S6E39A0X02 PANEL"
 
+config FB_R_MOBILE_HX8369_B
+        boolean "HX8369_B PANEL"
+
 endchoice
 
 choice
