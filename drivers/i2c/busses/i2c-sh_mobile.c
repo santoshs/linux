@@ -35,6 +35,8 @@
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <mach/gpio.h>
 
+#include <mach/common.h>
+
 /* Transmit operation:                                                      */
 /*                                                                          */
 /* 0 byte transmit                                                          */
@@ -149,6 +151,7 @@ struct sh_mobile_i2c_data {
 #define ICIC			0x0c
 #define ICCL			0x10
 #define ICCH			0x14
+#define ICTC			0x28
 
 /* Register bits */
 #define ICCR_ICE		0x80
@@ -293,6 +296,10 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 
 	/* Mask all interrupts */
 	iic_wr(pd, ICIC, 0);
+
+	/* temporary code add 17clocks delay(about 163ns)*/
+	if (u2_get_board_rev() == 4)
+		iic_wr(pd, ICTC, 0x88);
 
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
