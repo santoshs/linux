@@ -3588,12 +3588,12 @@ static struct mxt_platform_data mxt224_platform_data = {
 	.read_chg	= mxt224_read_chg,
 };
 
+#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 struct a2220_platform_data  u2evm_a2220_data = {
 	.a2220_hw_init = NULL,
 	.gpio_reset = GPIO_PORT44,
 	.gpio_wakeup = GPIO_PORT26,
 };
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 
 static struct i2c_board_info i2c4_devices[] = {
 #ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
