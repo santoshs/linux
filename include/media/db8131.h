@@ -1,5 +1,5 @@
 /*
- * Driver for SONY ISX012 CMOS Image Sensor
+ * Driver for Samsung DB8131 1.3M VT Camera
  *
  * Copyright (C) 2012 Renesas Mobile Corp.
  * All rights reserved.
@@ -9,11 +9,12 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef __ISX012_H__
-#define __ISX012_H__
+#ifndef __DB8131_H__
+#define __DB8131_H__
 
 #include <linux/device.h>
 
-void ISX012_pll_init(void);
+int DB8131_power(struct device *dev, int power_on);
 
-#endif /* __ISX012_H__ */
+#endif /* __DB8131_H__ */
+
