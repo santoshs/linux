@@ -177,7 +177,7 @@ struct power_ctrl {
 #ifdef PMIC_NON_VOLATILE_ENABLE
 static void __iomem *virt_addr;
 
-#define MAP_BASE_NV				0x4C800000
+#define MAP_BASE_NV				0x48000000
 #define MAP_BASE_PMIC_NV			0x0010800
 #define MAP_SIZE_PMIC_NV			1280
 #define get_map_data(base, offset)		__raw_readb(base + offset)
@@ -401,6 +401,7 @@ static void __iomem *virt_addr;
 #define CONST_CHRG_CTRL2		get_map_data(virt_addr, 0x32)
 #define CONST_CTRLLIMIT1		get_map_data(virt_addr, 0x33)
 #define CONST_CTRLLIMIT2		get_map_data(virt_addr, 0x34)
+#define CONST_I2C_RETRY			get_map_data(virt_addr, 0x35)
 
 #else
 /* If no use BIN */
@@ -475,7 +476,7 @@ static void __iomem *virt_addr;
 #define RESOURCE_POWER_CTRL_PROP_MAX		7
 
 #ifdef PMIC_NON_VOLATILE_ENABLE
-static struct tps80032_irq_data tps80032_irqs[13];
+static struct tps80032_irq_data tps80032_irqs[30];
 #else
 static struct tps80032_irq_data tps80032_irqs[] = {
 	[TPS80032_INT_PWRON]		= TPS80032_IRQ(A, 0),

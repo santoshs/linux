@@ -5397,7 +5397,6 @@ static int tps80032_get_temp_status(struct device *dev)
 		ret = data->bat_temp;
 	else
 		ret = 0;
-	
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
@@ -6320,7 +6319,7 @@ static void tps80032_init_usb_id(void)
 
 	memcpy((void *)&tps80032_irqs[0].mask_reg,
 		(void *)&tps80032_irqs_tmp[0].mask_reg,
-				sizeof(struct tps80032_irq_data)*13);
+				sizeof(struct tps80032_irq_data)*30);
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return;
 }
