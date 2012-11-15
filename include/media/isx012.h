@@ -14,6 +14,6 @@
 
 #include <linux/device.h>
 
-void ISX012_pll_init(void);
+int ISX012_power0(struct device *dev, int power_on);
 
 #endif /* __ISX012_H__ */
