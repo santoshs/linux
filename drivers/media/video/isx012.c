@@ -394,7 +394,7 @@ _stSonyData ISX012_Pll_Setting_2[] = {
 void ISX012_pll_init(void)
 {
 	struct i2c_adapter *adapter;
-	struct i2c_board_info info = { I2C_BOARD_INFO("ISX012_KERN", 0x3D), };
+	struct i2c_board_info info = { I2C_BOARD_INFO("ISX012_KERN", 0x1A), };
 	struct i2c_client *pClient;
 
 	adapter = i2c_get_adapter(1);
@@ -629,9 +629,6 @@ static int ISX012_probe(struct i2c_client *client,
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
-
-	/* not connect ISX012 */
-	return -1;
 
 	if (!icd) {
 		dev_err(&client->dev, "ISX012: missing soc-camera data!\n");
