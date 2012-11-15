@@ -4457,8 +4457,10 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
+#ifdef BOARD_VERSION_V041
 	gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
 	gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
+#endif /* BOARD_VERSION_V041 */
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
@@ -4541,15 +4543,26 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
+#ifdef BOARD_VERSION_V041
 	gpio_direction_output(GPIO_PORT30, 0);
-	
+#else
+	gpio_direction_output(GPIO_PORT30, 1);
+#endif /* BOARD_VERSION_V041 */
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
 if((system_rev & 0xFFFF) == 0x3E00)
+#ifdef BOARD_VERSION_V041
 	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
+#else
+	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
+#endif /* BOARD_VERSION_V041 */
 else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+#ifdef BOARD_VERSION_V041
 	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
+#else
+	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
+#endif /* BOARD_VERSION_V041 */
 
 	/* USBHS */
 	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
