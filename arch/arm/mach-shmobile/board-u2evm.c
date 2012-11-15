@@ -37,7 +37,9 @@
 
 #include <linux/mfd/tps80031.h>
 #include <linux/spi/sh_msiof.h>
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 #include <linux/i2c/atmel_mxt_ts.h>
+#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
@@ -3532,6 +3534,8 @@ static struct i2c_board_info i2c_touchkey[] = {
 };
 #endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/
 #endif
+
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 #ifndef CONFIG_PMIC_INTERFACE
 	static struct regulator *mxt224_regulator;
 #endif
@@ -3587,13 +3591,22 @@ struct a2220_platform_data  u2evm_a2220_data = {
 	.gpio_reset = GPIO_PORT44,
 	.gpio_wakeup = GPIO_PORT26,
 };
+#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 
 static struct i2c_board_info i2c4_devices[] = {
+#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
 		.platform_data = &mxt224_platform_data,
 		.irq	= irqpin2irq(32),
 	},
+#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
+#ifdef CONFIG_TOUCHSCREEN_MELFAS
+	{
+		I2C_BOARD_INFO("sec_touch", 0x48),
+		.irq	= irqpin2irq(32),
+	},
+#endif
 };
 
 static struct NCP6914_platform_data ncp6914info= {
@@ -4442,6 +4455,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
+	gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
+	gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
@@ -4524,15 +4539,15 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
-	gpio_direction_output(GPIO_PORT30, 1);
+	gpio_direction_output(GPIO_PORT30, 0);
 	
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
 if((system_rev & 0xFFFF) == 0x3E00)
-	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
 else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
+	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
 
 	/* USBHS */
 	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
@@ -4736,8 +4751,9 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
-
+#endif
 	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
 	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
 #if defined(CONFIG_RENESAS_NFC)
