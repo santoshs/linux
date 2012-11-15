@@ -2515,7 +2515,8 @@ int ISX012_power(struct device *dev, int power_on)
 
 	if (power_on) {
 		printk(KERN_ALERT "%s PowerON\n", __func__);
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
@@ -2634,7 +2635,8 @@ int ISX012_power(struct device *dev, int power_on)
 		subPMIC_PinOnOff(0x0, 0);
 		mdelay(1);
 
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
 	}
 
@@ -2797,7 +2799,7 @@ static struct i2c_board_info i2c_cameras[] = {
 
 static struct i2c_board_info i2c_cameras_rev4[] = {
 	{
-		I2C_BOARD_INFO("ISX012", 0x1A),
+		I2C_BOARD_INFO("ISX012", 0x3D),
 	},
 	{
 		I2C_BOARD_INFO("DB8131", 0x45), /* TODO::HYCHO 0x45(0x8A>>1) */
@@ -4676,6 +4678,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 	if ((1 != u2_get_board_rev()) && (2 != u2_get_board_rev()) &&
 		(3 != u2_get_board_rev())) {
+		csi20_clients[0].lanes = 0x3;
 		camera_devices[0].dev.platform_data = &camera_links_rev4[0];
 		camera_devices[1].dev.platform_data = &camera_links_rev4[1];
 		camera_links_rev4[0].priv = &csi20_info;
