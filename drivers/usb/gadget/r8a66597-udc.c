@@ -66,18 +66,16 @@
 
 static const char udc_name[] = "r8a66597_udc";
 static const char usbhs_dma_name[] = "USBHS-DMA1";
-#if defined(USBHS_TYPE_BULK_PIPES_12)
 static const char *r8a66597_ep_name[] = {
-	"ep0", "ep1", "ep2", "ep3", "ep4", "ep5", "ep6", "ep7",
-	"ep8", "ep9", "ep10", "ep11", "ep12", "ep13", "ep14", "ep15",
-};
+	"ep0", "ep1-iso", "ep2-iso", "ep3-bulk", "ep4-bulk", "ep5-bulk",
+	"ep6-int", "ep7-int", "ep8-int",
+#ifdef CONFIG_USB_R8A66597_TYPE_BULK_PIPES_12
+	"ep9-bulk", "ep10-bulk", "ep11-bulk", "ep12-bulk", "ep13-bulk",
+	"ep14-bulk", "ep15-bulk",
 #else
-static const char *r8a66597_ep_name[] = {
-	"ep0", "ep1", "ep2", "ep3", "ep4", "ep5", "ep6", "ep7",
-	"ep8", "ep9",
-};
+	"ep9-int",
 #endif
-
+};
 
 static int powerup = 0;
 
@@ -741,6 +739,64 @@ static inline void pipe_dma_disable(struct r8a66597 *r8a66597, u16 pipenum)
 		r8a66597_bclr(r8a66597, DREQE, ep->fifosel);
 }
 
+/*
+ * PIPE, transfer type and buffer size configuration (1 chunk = 64 bytes)
+ *
+ * pipe#			type		size@bufnum
+ * -------------------------------------------------------------
+ * PIPE0 = 0			CONTROL		256B@0x00
+ * PIPE1 = 8 + (32 * 0)		ISOC or BULK	2KB@0x08 (1KB reserved for future use)
+ * PIPE2 = 8 + (32 * 1)		ISOC or BULK	2KB@0x28 (1KB reserved for future use)
+ * PIPE3 = 8 + 64 + (16 * 0)	BULK		1KB@0x48 with DBLB
+ * PIPE4 = 8 + 64 + (16 * 1)	BULK		1KB@0x58 with DBLB
+ * PIPE5 = 8 + 64 + (16 * 2)	BULK		1KB@0x68 with DBLB
+ * PIPE6 = 4 + (1 * 0)		INT		64B@0x04
+ * PIPE7 = 4 + (1 * 1)		INT		64B@0x05
+ * PIPE8 = 4 + (1 * 2)		INT		64B@0x06
+ * PIPE9 = 4 + (1 * 3)		INT		64B@0x07
+ *
+ * With extended bulk endpoints supported:
+ * PIPE9 = 8 + 64 + (16 * 3)	BULK		1KB@0x78 with DBLB
+ * PIPEA = 8 + 64 + (16 * 4)	BULK		1KB@0x88 with DBLB
+ * PIPEB = 8 + 64 + (16 * 5)	BULK		1KB@0x98 with DBLB
+ * PIPEC = 8 + 64 + (16 * 6)	BULK		1KB@0xA8 with DBLB
+ * PIPED = 8 + 64 + (16 * 7)	BULK		1KB@0xB8 with DBLB
+ * PIPEE = 8 + 64 + (16 * 8)	BULK		1KB@0xC8 with DBLB
+ * PIPEF = 8 + 64 + (16 * 9)	BULK		1KB@0xD8 with DBLB
+ *
+ * Expression in C:
+ *
+ * #define R8A66597_BASE_PIPENUM_BULK	3
+ * #define R8A66597_BASE_PIPENUM_ISOC	1
+ * #define R8A66597_BASE_PIPENUM_INT	6
+ *
+ * u16 get_bufnum(int pipenum)
+ * {
+ *	u16 bufnum = 0;
+ *
+ *	if (pipenum < 0)
+ *		BUG();
+ *	else if (pipenum <= 2)
+ *		bufnum = 8 + 32 * (pipenum - R8A66597_BASE_PIPENUM_ISOC);
+ *	else if (pipenum <= 5)
+ *		bufnum = 8 + 64 + 16 * (pipenum - R8A66597_BASE_PIPENUM_BULK);
+ *	else if (pipenum <= 9)
+ *		bufnum = 4 + (pipenum - R8A66597_BASE_PIPENUM_INT);
+ *	else
+ *		BUG();
+ *
+ *	return bufnum;
+ * }
+ */
+static u16 pipenum2bufnum[R8A66597_MAX_NUM_PIPE] = {
+	0, 0x08, 0x28, 0x48, 0x58, 0x68, 0x04, 0x05, 0x06, /* PIPE0..PIPE8 */
+#ifdef CONFIG_USB_R8A66597_TYPE_BULK_PIPES_12
+	0x78, 0x88, 0x98, 0xa8, 0xb8, 0xc8, 0xd8, /* PIPE9..PIPEF */
+#else
+	0x07, /* PIPE9 */
+#endif
+};
+
 static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 		struct r8a66597_pipe_info *info)
 {
@@ -748,7 +804,7 @@ static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 	u16 pipecfg = 0;
 	u16 max_bufnum;
 
-	if (info->pipe == 0)
+	if ((info->pipe <= 0) || (info->pipe >= R8A66597_MAX_NUM_PIPE))
 		return -EINVAL;
 
 	r8a66597_write(r8a66597, info->pipe, PIPESEL);
@@ -759,40 +815,20 @@ static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 	pipecfg |= info->epnum;
 	switch (info->type) {
 	case R8A66597_INT:
-		bufnum = 4 + (info->pipe - R8A66597_BASE_PIPENUM_INT);
 		buf_bsize = 0;
 		break;
 	case R8A66597_BULK:
-#if defined(USBHS_TYPE_BULK_PIPES_12)
-		if (info->pipe >= R8A66597_BASE_PIPENUM_BULK_2ND) {
-			bufnum = info->pipe - R8A66597_BASE_PIPENUM_BULK_2ND +
-					R8A66597_MAX_NUM_BULK_1ST;
-		} else {
-			bufnum = info->pipe - R8A66597_BASE_PIPENUM_BULK;
-		}
-#else
-		/* isochronous pipes may be used as bulk pipes */
-		if (info->pipe >= R8A66597_BASE_PIPENUM_BULK)
-			bufnum = info->pipe - R8A66597_BASE_PIPENUM_BULK;
-		else
-			bufnum = info->pipe - R8A66597_BASE_PIPENUM_ISOC +
-				 R8A66597_MAX_NUM_BULK;
-#endif
-
-		bufnum = R8A66597_BASE_BUFNUM + (bufnum * 16);
 		buf_bsize = 7;
 		pipecfg |= R8A66597_DBLB;
 		if (!info->dir_in)
 			pipecfg |= (R8A66597_SHTNAK | R8A66597_BFRE);
 		break;
 	case R8A66597_ISO:
-		bufnum = R8A66597_BASE_BUFNUM +
-			 (info->pipe - R8A66597_BASE_PIPENUM_ISOC +
-			  R8A66597_MAX_NUM_BULK) * 16;
-		buf_bsize = 7;
+		buf_bsize = 15;
 		break;
 	}
 
+	bufnum = pipenum2bufnum[info->pipe];
 	max_bufnum = r8a66597->pdata->max_bufnum ? : R8A66597_MAX_BUFNUM;
 	if (buf_bsize && ((bufnum + 16) >= max_bufnum)) {
 		dev_err(r8a66597_to_dev(r8a66597),
@@ -809,30 +845,6 @@ static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 	r8a66597_write(r8a66597, info->interval, PIPEPERI);
 
 	return 0;
-}
-
-static void pipe_buffer_release(struct r8a66597 *r8a66597,
-				struct r8a66597_pipe_info *info)
-{
-	unsigned long flags;
-
-	if (info->pipe == 0)
-		return;
-
-	spin_lock_irqsave(&r8a66597->lock, flags);
-	if (is_bulk_pipe(info->pipe)) {
-		r8a66597->bulk--;
-	} else if (is_interrupt_pipe(info->pipe)) {
-		r8a66597->interrupt--;
-	} else if (is_isoc_pipe(info->pipe)) {
-		r8a66597->isochronous--;
-		if (info->type == R8A66597_BULK)
-			r8a66597->bulk--;
-	} else {
-		dev_err(r8a66597_to_dev(r8a66597),
-			"ep_release: unexpect pipenum (%d)\n", info->pipe);
-	}
-	spin_unlock_irqrestore(&r8a66597->lock, flags);
 }
 
 static void pipe_initialize(struct r8a66597_ep *ep)
@@ -909,7 +921,7 @@ static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 	else
 		ep->pipectr = get_pipectr_addr(pipenum);
 
-	if (check_bulk_or_isoc(pipenum)) {
+	if (usb_endpoint_xfer_bulk(desc) || usb_endpoint_xfer_isoc(desc)) {
 		ep->pipetre = get_pipetre_addr(pipenum);
 		ep->pipetrn = get_pipetrn_addr(pipenum);
 	} else {
@@ -919,7 +931,7 @@ static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 	ep->pipenum = pipenum;
 	ep->ep.maxpacket = le16_to_cpu(desc->wMaxPacketSize);
 	r8a66597->pipenum2ep[pipenum] = ep;
-	r8a66597->epaddr2ep[desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK]
+	r8a66597->epaddr2ep[usb_endpoint_num(desc)]
 		= ep;
 	INIT_LIST_HEAD(&ep->queue);
 }
@@ -938,7 +950,6 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 	struct r8a66597 *r8a66597 = ep->r8a66597;
 	struct r8a66597_pipe_info info;
 	int dma = 0;
-	unsigned char *counter;
 	int ret = 0;
 	unsigned long flags;
 
@@ -948,70 +959,18 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 		return 0;
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
+	info.pipe = usb_endpoint_num(desc);
 
 	switch (desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) {
 	case USB_ENDPOINT_XFER_BULK:
-#if defined(USBHS_TYPE_BULK_PIPES_12)
-		if (r8a66597->bulk >= R8A66597_MAX_NUM_BULK) {
-			dev_err(r8a66597_to_dev(r8a66597),
-				"bulk pipe is insufficient\n");
-			ret = -ENODEV;
-			goto out;
-		} else if (r8a66597->bulk >= R8A66597_MAX_NUM_BULK_1ST) {
-			info.pipe = R8A66597_BASE_PIPENUM_BULK_2ND +
-				r8a66597->bulk - R8A66597_MAX_NUM_BULK_1ST;
-		} else {
-			info.pipe = R8A66597_BASE_PIPENUM_BULK + r8a66597->bulk;
-		}
-		counter = &r8a66597->bulk;
-#else
-		if (r8a66597->bulk >= R8A66597_MAX_NUM_BULK) {
-			if (r8a66597->isochronous >= R8A66597_MAX_NUM_ISOC) {
-				dev_err(r8a66597_to_dev(r8a66597),
-					"bulk pipe is insufficient\n");
-				ret = -ENODEV;
-				goto out;
-			} else {
-				info.pipe = R8A66597_BASE_PIPENUM_ISOC
-						+ r8a66597->isochronous;
-				counter = &r8a66597->isochronous;
-			}
-		} else {
-			info.pipe = R8A66597_BASE_PIPENUM_BULK + r8a66597->bulk;
-			counter = &r8a66597->bulk;
-		}
-#endif
 		info.type = R8A66597_BULK;
 		dma = 1;
 		break;
 	case USB_ENDPOINT_XFER_INT:
-		if (r8a66597->interrupt >= R8A66597_MAX_NUM_INT) {
-			dev_err(r8a66597_to_dev(r8a66597),
-				"interrupt pipe is insufficient\n");
-			ret = -ENODEV;
-			goto out;
-		}
-		info.pipe = R8A66597_BASE_PIPENUM_INT + r8a66597->interrupt;
 		info.type = R8A66597_INT;
-		counter = &r8a66597->interrupt;
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
-#if defined(USBHS_TYPE_BULK_PIPES_12)
-		dev_err(r8a66597_to_dev(r8a66597),
-			"isochronous pipe is not supported now\n");
-		ret = -ENODEV;
-		goto out;
-#else
-		if (r8a66597->isochronous >= R8A66597_MAX_NUM_ISOC) {
-			dev_err(r8a66597_to_dev(r8a66597),
-				"isochronous pipe is insufficient\n");
-			ret = -ENODEV;
-			goto out;
-		}
-		info.pipe = R8A66597_BASE_PIPENUM_ISOC + r8a66597->isochronous;
 		info.type = R8A66597_ISO;
-		counter = &r8a66597->isochronous;
-#endif
 		break;
 	default:
 		dev_err(r8a66597_to_dev(r8a66597), "unexpect xfer type\n");
@@ -1020,7 +979,7 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 	}
 	ep->type = info.type;
 
-	info.epnum = desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+	info.epnum = usb_endpoint_num(desc);
 	info.maxpacket = le16_to_cpu(desc->wMaxPacketSize);
 	info.interval = desc->bInterval;
 	if (desc->bEndpointAddress & USB_ENDPOINT_DIR_MASK)
@@ -1035,10 +994,6 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 		goto out;
 	}
 
-	(*counter)++;
-	if ((counter == &r8a66597->isochronous) && info.type == R8A66597_BULK)
-		r8a66597->bulk++;
-
 	r8a66597_ep_setting(r8a66597, ep, desc, info.pipe, dma);
 	pipe_initialize(ep);
 
@@ -1050,12 +1005,6 @@ out:
 
 static int free_pipe_config(struct r8a66597_ep *ep)
 {
-	struct r8a66597 *r8a66597 = ep->r8a66597;
-	struct r8a66597_pipe_info info;
-
-	info.pipe = ep->pipenum;
-	info.type = ep->type;
-	pipe_buffer_release(r8a66597, &info);
 	r8a66597_ep_release(ep);
 
 	return 0;
@@ -1528,7 +1477,7 @@ static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
 	int ch;
 
 	/* Check transfer type */
-	if (!is_bulk_pipe(ep->pipenum))
+	if (!usb_endpoint_xfer_bulk(ep->desc))
 		return -EIO;
 
 	/* Check buffer alignment */
@@ -1692,7 +1641,7 @@ static void irq_packet_read(struct r8a66597_ep *ep,
 		req->req.status = -EPIPE;
 		pipe_stop(r8a66597, pipenum);
 		pipe_irq_disable(r8a66597, pipenum);
-		dev_err(r8a66597_to_dev(r8a66597), "read fifo not ready (%d)\n",
+		dev_err(r8a66597_to_dev(r8a66597), "read fifo not ready (%d)",
 			pipenum);
 		return;
 	}
