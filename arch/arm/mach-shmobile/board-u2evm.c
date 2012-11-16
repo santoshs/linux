@@ -2205,58 +2205,6 @@ static struct platform_device stm_device = {
 	.resource	= stm_res,
 };
 
-#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
-#ifndef CONFIG_PMIC_INTERFACE
-        static struct regulator *mxt224_regulator;
-#endif
-
-static void mxt224_set_power(int on)
-{
-#ifdef CONFIG_PMIC_INTERFACE
-//      pmic_set_power_on(E_POWER_VANA_MM);
-        if(on)
-        {
-                gpio_set_value(GPIO_PORT29, 1);
-                gpio_set_value(GPIO_PORT30, 1);
-        }
-        else
-        {
-                gpio_set_value(GPIO_PORT29, 0 );
-                gpio_set_value(GPIO_PORT30, 0 );                
-        }
-#else
-        if (!mxt224_regulator)
-                mxt224_regulator = regulator_get(NULL, "vdd_touch");
-
-        if (mxt224_regulator) {
-                if (on)
-                        regulator_enable(mxt224_regulator);
-                else
-                        regulator_disable(mxt224_regulator);
-        }
-#endif
-}
-
-static int mxt224_read_chg(void)
-{
-        return gpio_get_value(GPIO_PORT32);
-}
-
-static struct mxt_platform_data mxt224_platform_data = {
-        .x_line         = 19,
-        .y_line         = 11,
-        .x_size         = 800,
-        .y_size         = 480,
-        .blen           = 0x21,
-        .threshold      = 0x28,
-        .voltage        = 1825000,
-        .orient         = MXT_DIAGONAL,
-        .irqflags       = IRQF_TRIGGER_FALLING,
-        .set_pwr        = mxt224_set_power,
-        .read_chg       = mxt224_read_chg,
-};
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
-
 struct a2220_platform_data  u2evm_a2220_data = {
 	.a2220_hw_init = NULL,
 	.gpio_reset = GPIO_PORT44,
@@ -3560,8 +3508,9 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #if defined(CONFIG_RENESAS_GPS)
 	gps_gpio_init();
 #endif
-
+#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 	touchkey_i2c_register_board_info(10);
+#endif /* CONFIG_KEYBOARD_CYPRESS_TOUCH */
 platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
 	#if defined(CONFIG_VIBRATOR_ISA1000A)
     isa1000_vibrator_init();
@@ -3574,11 +3523,6 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
-
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
- 	i2c_register_board_info(10, i2c_touchkey, ARRAY_SIZE(i2c_touchkey)); //For TOUCHKEY
-
-#endif
 
 	i2c_register_board_info(9, i2c9gpio_devices, ARRAY_SIZE(i2c9gpio_devices));
 	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
