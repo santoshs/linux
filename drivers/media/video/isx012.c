@@ -391,175 +391,28 @@ _stSonyData ISX012_Pll_Setting_2[] = {
 {0xFFFF, 0xFF, 0xFF}
 };
 
-
-
-int ISX012_power0(struct device *dev, int power_on)
+void ISX012_pll_init(void)
 {
-	struct clk *vclk1_clk, *vclk2_clk;
-	int iRet;
 	struct i2c_adapter *adapter;
-	struct i2c_board_info info = { I2C_BOARD_INFO("ISX012_KERN", 0x3D), };
+	struct i2c_board_info info = { I2C_BOARD_INFO("ISX012_KERN", 0x1A), };
 	struct i2c_client *pClient;
 
-	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-
-	vclk1_clk = clk_get(NULL, "vclk1_clk");
-	if (IS_ERR(vclk1_clk)) {
-		dev_err(dev, "clk_get(vclk1_clk) failed\n");
-		return -1;
+	adapter = i2c_get_adapter(1);
+	if (!adapter) {
+		printk(KERN_ALERT"%s :adapter get NG\n", __func__);
+		return;
+	}
+	pClient = i2c_new_device(adapter, &info);
+	if (!pClient) {
+		printk(KERN_ALERT"%s :pClient get NG\n", __func__);
+		return;
 	}
 
-	vclk2_clk = clk_get(NULL, "vclk2_clk");
-	if (IS_ERR(vclk2_clk)) {
-		dev_err(dev, "clk_get(vclk2_clk) failed\n");
-		return -1;
-	}
+	CamacqExtWriteI2cLists_Sony(pClient, ISX012_Pll_Setting_2, 0);
 
-	if (power_on) {
-		printk(KERN_ALERT "%s PowerON\n", __func__);
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN */
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
-		mdelay(10);
-		/* 10ms */
-
-		subPMIC_PowerOn(0x0);
-
-		/* CAM_CORE_1V2  On */
-		subPMIC_PinOnOff(0x0, 1);
-		mdelay(1);
-		/* CAM_AVDD_2V8  On */
-		subPMIC_PinOnOff(0x4, 1);
-		mdelay(1);
-		/* VT_DVDD_1V5   On */
-		subPMIC_PinOnOff(0x1, 1);
-		mdelay(1);
-		/* CAM_VDDIO_1V8 On */
-		subPMIC_PinOnOff(0x2, 1);
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		udelay(50);
-
-		/* MCLK Sub-Camera */
-		iRet = clk_set_rate(vclk2_clk,
-			clk_round_rate(vclk2_clk, 12000000));
-		if (0 != iRet) {
-			dev_err(dev,
-				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-
-		iRet = clk_enable(vclk2_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-		mdelay(10);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(150);
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		clk_disable(vclk2_clk);
-
-		mdelay(10);
-
-		iRet = clk_set_rate(vclk1_clk,
-			clk_round_rate(vclk1_clk, 24000000));
-		if (0 != iRet) {
-			dev_err(dev,
-				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
-				iRet);
-		}
-
-		iRet = clk_enable(vclk1_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
-				iRet);
-		}
-
-		mdelay(1);
-		/* 1ms */
-
-		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
-		mdelay(20);
-		/* 20ms */
-
-		adapter = i2c_get_adapter(1);
-		if (!adapter) {
-			printk(KERN_ALERT"%s :adapter get NG\n", __func__);
-			return -1;
-		}
-		pClient = i2c_new_device(adapter, &info);
-		if (!pClient) {
-			printk(KERN_ALERT"%s :pClient get NG\n", __func__);
-			return -1;
-		}
-
-		CamacqExtWriteI2cLists_Sony(pClient, ISX012_Pll_Setting_2, 0);
-
-		i2c_unregister_device(pClient);
-		i2c_put_adapter(adapter);
-
-		gpio_set_value(GPIO_PORT90, 1); /* CAM0_STBY */
-		mdelay(20);
-
-		/* 5M_AF_2V8 On */
-		subPMIC_PinOnOff(0x3, 1);
-		mdelay(20);
-
-		printk(KERN_ALERT "%s PowerON fin\n", __func__);
-	} else {
-		printk(KERN_ALERT "%s PowerOFF\n", __func__);
-
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		mdelay(1);
-
-		clk_disable(vclk1_clk);
-
-		iRet = clk_enable(vclk2_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(1);
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		mdelay(1);
-		clk_disable(vclk2_clk);
-		mdelay(1);
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-
-		/* CAM_VDDIO_1V8 Off */
-		subPMIC_PinOnOff(0x2, 0);
-		mdelay(1);
-		/* VT_DVDD_1V5   Off */
-		subPMIC_PinOnOff(0x1, 0);
-		mdelay(1);
-		/* CAM_AVDD_2V8  Off */
-		subPMIC_PinOnOff(0x4, 0);
-		mdelay(1);
-		/* CAM_CORE_1V2  Off */
-		subPMIC_PinOnOff(0x0, 0);
-		mdelay(1);
-
-		gpio_direction_output(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
-		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
-	}
-
-	clk_put(vclk1_clk);
-	clk_put(vclk2_clk);
-
-	return 0;
+	i2c_unregister_device(pClient);
+	i2c_put_adapter(adapter);
 }
-
 
 static struct ISX012 *
 to_ISX012(const struct i2c_client *client)
@@ -718,14 +571,6 @@ static int
 ISX012_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (id->match.type != V4L2_CHIP_MATCH_I2C_ADDR)
-		return -EINVAL;
-
-	if (id->match.addr != client->addr)
-		return -ENODEV;
-
 	id->ident	= V4L2_IDENT_ISX012;
 	id->revision	= 0;
 
