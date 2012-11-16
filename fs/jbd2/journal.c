@@ -1197,6 +1197,24 @@ out:
 		journal->j_flags |= JBD2_FLUSHED;
 	write_unlock(&journal->j_state_lock);
 }
+/**
+ * jbd2_journal_update_sb_errno() - Update error in the journal.
+ * @journal: The journal to update.
+ *
+ * Update a journal's errno.  Write updated superblock to disk waiting for IO
+ * to complete.
+ */
+void jbd2_journal_update_sb_errno(journal_t *journal)
+{
+	journal_superblock_t *sb = journal->j_superblock;
+
+	read_lock(&journal->j_state_lock);
+	jbd_debug(1, "JBD2: updating superblock error (errno %d)\n",
+	journal->j_errno);
+	sb->s_errno    = cpu_to_be32(journal->j_errno);
+	read_unlock(&journal->j_state_lock);
+	jbd2_journal_update_superblock(journal, WRITE_SYNC);
+}
 
 /*
  * Read the superblock for a given journal, performing initial
