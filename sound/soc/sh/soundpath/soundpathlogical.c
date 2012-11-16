@@ -1191,6 +1191,11 @@ static int sndp_soc_put(
 		((SNDP_MODE_INCALL == uiMode) || (SNDP_MODE_INCOMM == uiMode)) ?
 		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
+	 /* for Register dump debug */
+	 g_sndp_now_direction =
+	    ((SNDP_MODE_INCALL == uiMode) || (SNDP_MODE_INCOMM == uiMode)) ?
+	    SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
+
 	/* Processing for each process */
 	/* SNDP_PROC_CALL_STOP */
 	if (uiProcess & SNDP_PROC_CALL_STOP) {

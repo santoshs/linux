@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #endif
 
+#include <linux/sh_dma.h>
 
 #include "sh_resampler.h"
 
@@ -302,7 +303,17 @@ short *sh_resampler_out_stage_3;
 short *sh_resampler_out_stage_4;
 short *sh_resampler_out_stage_5;
 
+dma_addr_t phys_in_stage_1;
+dma_addr_t phys_in_stage_2;
+dma_addr_t phys_in_stage_3;
+dma_addr_t phys_in_stage_4;
+dma_addr_t phys_in_stage_5;
 
+dma_addr_t phys_out_stage_1;
+dma_addr_t phys_out_stage_2;
+dma_addr_t phys_out_stage_3;
+dma_addr_t phys_out_stage_4;
+dma_addr_t phys_out_stage_5;
 
 short *sh_resampler_d_in_stage_1;
 short *sh_resampler_d_in_stage_2;
@@ -316,6 +327,17 @@ short *sh_resampler_d_out_stage_3;
 short *sh_resampler_d_out_stage_4;
 short *sh_resampler_d_out_stage_5;
 
+dma_addr_t phys_d_in_stage_1;
+dma_addr_t phys_d_in_stage_2;
+dma_addr_t phys_d_in_stage_3;
+dma_addr_t phys_d_in_stage_4;
+dma_addr_t phys_d_in_stage_5;
+
+dma_addr_t phys_d_out_stage_1;
+dma_addr_t phys_d_out_stage_2;
+dma_addr_t phys_d_out_stage_3;
+dma_addr_t phys_d_out_stage_4;
+dma_addr_t phys_d_out_stage_5;
 
 int sh_resampler_size_d_in1;
 int sh_resampler_size_d_out1;
@@ -384,24 +406,33 @@ int sh_resampler_init(
 	sh_resampler_d_out_stage_4 = NULL;
 
 	/* Allocation of the intermediate buffers */
-	sh_resampler_in_stage_1 = kmalloc(
-			sh_resampler_size_out1*sizeof(short), GFP_KERNEL);
-	sh_resampler_in_stage_2 = kmalloc(
-			sh_resampler_size_out2*sizeof(short), GFP_KERNEL);
-	sh_resampler_in_stage_3 = kmalloc(
-			sh_resampler_size_out3*sizeof(short), GFP_KERNEL);
-	sh_resampler_in_stage_4 = kmalloc(
-			sh_resampler_size_out4*sizeof(short), GFP_KERNEL);
+
+	sh_resampler_in_stage_1 = dma_alloc_coherent(NULL,
+					sh_resampler_size_in1*sizeof(short),
+					&phys_in_stage_1, GFP_ATOMIC);
+	sh_resampler_in_stage_2 = dma_alloc_coherent(NULL,
+					sh_resampler_size_in2*sizeof(short),
+					&phys_in_stage_2, GFP_ATOMIC);
+	sh_resampler_in_stage_3 = dma_alloc_coherent(NULL,
+					sh_resampler_size_in3*sizeof(short),
+					&phys_in_stage_3, GFP_ATOMIC);
+	sh_resampler_in_stage_4 = dma_alloc_coherent(NULL,
+					sh_resampler_size_in4*sizeof(short),
+					&phys_in_stage_4, GFP_ATOMIC);
 
 
-	sh_resampler_out_stage_1 = kmalloc(
-			sh_resampler_size_out1*sizeof(short), GFP_KERNEL);
-	sh_resampler_out_stage_2 = kmalloc(
-			sh_resampler_size_out2*sizeof(short), GFP_KERNEL);
-	sh_resampler_out_stage_3 = kmalloc(
-			sh_resampler_size_out3*sizeof(short), GFP_KERNEL);
-	sh_resampler_out_stage_4 = kmalloc(
-			sh_resampler_size_out4*sizeof(short), GFP_KERNEL);
+	sh_resampler_out_stage_1 = dma_alloc_coherent(NULL,
+					sh_resampler_size_out1*sizeof(short),
+					&phys_out_stage_1, GFP_ATOMIC);
+	sh_resampler_out_stage_2 = dma_alloc_coherent(NULL,
+					sh_resampler_size_out2*sizeof(short),
+					&phys_out_stage_2, GFP_ATOMIC);
+	sh_resampler_out_stage_3 = dma_alloc_coherent(NULL,
+					sh_resampler_size_out3*sizeof(short),
+					&phys_out_stage_3, GFP_ATOMIC);
+	sh_resampler_out_stage_4 = dma_alloc_coherent(NULL,
+					sh_resampler_size_out4*sizeof(short),
+					&phys_out_stage_4, GFP_ATOMIC);
 
 	/* Downsampling */
 	sh_resampler_size_d_in1		= input_buffer_alsa_size*UPSAMPLE_2;
@@ -417,24 +448,32 @@ int sh_resampler_init(
 	sh_resampler_size_d_out4	= sh_resampler_size_d_in4*UPSAMPLE_5;
 
 
-	sh_resampler_d_in_stage_1 = kmalloc(
-			sh_resampler_size_d_out1*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_in_stage_2 = kmalloc(
-			sh_resampler_size_d_out2*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_in_stage_3 = kmalloc(
-			sh_resampler_size_d_out3*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_in_stage_4 = kmalloc(
-			sh_resampler_size_d_out4*sizeof(short), GFP_KERNEL);
+	sh_resampler_d_in_stage_1 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_in1*sizeof(short),
+					&phys_d_in_stage_1, GFP_ATOMIC);
+	sh_resampler_d_in_stage_2 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_in2*sizeof(short),
+					&phys_d_in_stage_2, GFP_ATOMIC);
+	sh_resampler_d_in_stage_3 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_in3*sizeof(short),
+					&phys_d_in_stage_3, GFP_ATOMIC);
+	sh_resampler_d_in_stage_4 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_in4*sizeof(short),
+					&phys_d_in_stage_4, GFP_ATOMIC);
 
 
-	sh_resampler_d_out_stage_1 = kmalloc(
-			sh_resampler_size_d_out1*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_out_stage_2 = kmalloc(
-			sh_resampler_size_d_out2*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_out_stage_3 = kmalloc(
-			sh_resampler_size_d_out3*sizeof(short), GFP_KERNEL);
-	sh_resampler_d_out_stage_4 = kmalloc(
-			sh_resampler_size_d_out4*sizeof(short), GFP_KERNEL);
+	sh_resampler_d_out_stage_1 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_out1*sizeof(short),
+					&phys_d_out_stage_1, GFP_ATOMIC);
+	sh_resampler_d_out_stage_2 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_out2*sizeof(short),
+					&phys_d_out_stage_2, GFP_ATOMIC);
+	sh_resampler_d_out_stage_3 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_out3*sizeof(short),
+					&phys_d_out_stage_3, GFP_ATOMIC);
+	sh_resampler_d_out_stage_4 = dma_alloc_coherent(NULL,
+					sh_resampler_size_d_out4*sizeof(short),
+					&phys_d_out_stage_4, GFP_ATOMIC);
 
 	if ((sh_resampler_in_stage_1 == NULL)
 		|| (sh_resampler_in_stage_2 == NULL)
@@ -470,57 +509,68 @@ int sh_resampler_close(void)
 
 	/* Upsampling */
 	if (sh_resampler_in_stage_1 != NULL)
-		kfree(sh_resampler_in_stage_1);
+		dma_free_coherent(NULL, sh_resampler_size_in1*sizeof(short),
+			sh_resampler_in_stage_1, phys_in_stage_1);
 
 	if (sh_resampler_in_stage_2 != NULL)
-		kfree(sh_resampler_in_stage_2);
+		dma_free_coherent(NULL, sh_resampler_size_in2*sizeof(short),
+			sh_resampler_in_stage_2, phys_in_stage_2);
 
 	if (sh_resampler_in_stage_3 != NULL)
-		kfree(sh_resampler_in_stage_3);
+		dma_free_coherent(NULL, sh_resampler_size_in3*sizeof(short),
+			sh_resampler_in_stage_3, phys_in_stage_3);
 
 	if (sh_resampler_in_stage_4 != NULL)
-		kfree(sh_resampler_in_stage_4);
-
-	if (sh_resampler_in_stage_5 != NULL)
-		kfree(sh_resampler_in_stage_5);
+		dma_free_coherent(NULL, sh_resampler_size_in4*sizeof(short),
+			sh_resampler_in_stage_4, phys_in_stage_4);
 
 	if (sh_resampler_out_stage_1 != NULL)
-		kfree(sh_resampler_out_stage_1);
+		dma_free_coherent(NULL, sh_resampler_size_out1*sizeof(short),
+			sh_resampler_out_stage_1, phys_out_stage_1);
 
 	if (sh_resampler_out_stage_2 != NULL)
-		kfree(sh_resampler_out_stage_2);
+		dma_free_coherent(NULL, sh_resampler_size_out2*sizeof(short),
+			sh_resampler_out_stage_2, phys_out_stage_2);
 
 	if (sh_resampler_out_stage_3 != NULL)
-		kfree(sh_resampler_out_stage_3);
+		dma_free_coherent(NULL, sh_resampler_size_out3*sizeof(short),
+			sh_resampler_out_stage_3, phys_out_stage_3);
 
 	if (sh_resampler_out_stage_4 != NULL)
-		kfree(sh_resampler_out_stage_4);
-
+		dma_free_coherent(NULL, sh_resampler_size_out4*sizeof(short),
+			sh_resampler_out_stage_4, phys_out_stage_4);
 
 	if (sh_resampler_d_in_stage_1 != NULL)
-		kfree(sh_resampler_d_in_stage_1);
+		dma_free_coherent(NULL, sh_resampler_size_d_in1*sizeof(short),
+			sh_resampler_d_in_stage_1, phys_d_in_stage_1);
 
 	if (sh_resampler_d_in_stage_2 != NULL)
-		kfree(sh_resampler_d_in_stage_2);
+		dma_free_coherent(NULL, sh_resampler_size_d_in2*sizeof(short),
+			sh_resampler_d_in_stage_2, phys_d_in_stage_2);
 
 	if (sh_resampler_d_in_stage_3 != NULL)
-		kfree(sh_resampler_d_in_stage_3);
+		dma_free_coherent(NULL, sh_resampler_size_d_in3*sizeof(short),
+			sh_resampler_d_in_stage_3, phys_d_in_stage_3);
 
 	if (sh_resampler_d_in_stage_4 != NULL)
-		kfree(sh_resampler_d_in_stage_4);
-
+		dma_free_coherent(NULL, sh_resampler_size_d_in4*sizeof(short),
+			sh_resampler_d_in_stage_4, phys_d_in_stage_4);
 
 	if (sh_resampler_d_out_stage_1 != NULL)
-		kfree(sh_resampler_d_out_stage_1);
+		dma_free_coherent(NULL, sh_resampler_size_d_out1*sizeof(short),
+			sh_resampler_d_out_stage_1, phys_d_out_stage_1);
 
 	if (sh_resampler_d_out_stage_2 != NULL)
-		kfree(sh_resampler_d_out_stage_2);
+		dma_free_coherent(NULL, sh_resampler_size_d_out2*sizeof(short),
+			sh_resampler_d_out_stage_2, phys_d_out_stage_2);
 
 	if (sh_resampler_d_out_stage_3 != NULL)
-		kfree(sh_resampler_d_out_stage_3);
+		dma_free_coherent(NULL, sh_resampler_size_d_out3*sizeof(short),
+			sh_resampler_d_out_stage_3, phys_d_out_stage_3);
 
 	if (sh_resampler_d_out_stage_4 != NULL)
-		kfree(sh_resampler_d_out_stage_4);
+		dma_free_coherent(NULL, sh_resampler_size_d_out4*sizeof(short),
+			sh_resampler_d_out_stage_4, phys_d_out_stage_4);
 
 	return SH_RESAMPLER_NO_ERR;
 }
