@@ -231,7 +231,7 @@ u_int g_sndp_log_cycle_counter[SNDP_PCM_DIRECTION_MAX];
 
 /* for wait path */
 DECLARE_WAIT_QUEUE_HEAD(g_sndp_start_call_queue);
-u_int g_sndp_start_call_wait;
+static u_int g_sndp_start_call_wait;
 
 #if defined(DEBUG) && defined(__PRN_SNDP__)
 /* Status */
@@ -1085,6 +1085,10 @@ static int sndp_soc_put(
 #endif
 	/* Gets the mode (NORMAL/RINGTONE/INCALL/INCOMMUNICATION) */
 	uiMode = SNDP_GET_MODE_VAL(uiValue);
+
+	if ((SNDP_MODE_INCALL != uiMode) && (SNDP_MODE_INCOMM != uiMode))
+		g_sndp_start_call_wait = 0;
+	sndp_log_debug("g_sndp_start_call_wait = %d\n", g_sndp_start_call_wait);
 
 	/* Identify the process for changing modes (Old mode -> New mode) */
 	uiProcess = g_sndp_mode_map[old_mode][uiMode].next_proc;
@@ -2409,8 +2413,9 @@ static void sndp_work_voice_stop(struct work_struct *work)
 	int			iRet = ERROR_NONE;
 	struct sndp_work_info	*wp = NULL;
 
-
 	sndp_log_debug_func("start\n");
+
+	g_sndp_start_call_wait = 0;
 
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
@@ -3119,6 +3124,8 @@ static void sndp_work_incomm_stop(void)
 
 	sndp_log_debug_func("start\n");
 
+	g_sndp_start_call_wait = 0;
+
 	wait_event_interruptible_timeout(
 		g_watch_stop_clk_queue, atomic_read(&g_sndp_watch_stop_clk),
 		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
@@ -3637,14 +3644,14 @@ static void sndp_wait_path_cb(void)
 {
 	sndp_log_debug_func("start\n");
 
+	sndp_log_debug("g_sndp_start_call_wait = %d\n", g_sndp_start_call_wait);
+
 	/*
 	 * Registered in the work queue for
 	 * VCD_COMMAND_WAIT_PATH process
 	 */
 	wait_event_interruptible(g_sndp_start_call_queue,
 				g_sndp_start_call_wait);
-
-	g_sndp_start_call_wait = 0;
 
 	sndp_log_debug_func("end\n");
 }
@@ -4007,15 +4014,6 @@ static void sndp_work_start(const int direction)
 		ulSetDevice = sndp_get_next_devices(uiValue);
 		sndp_log_debug("set_next_dev[%08x]\n", ulSetDevice);
 		if (NULL != g_sndp_codec_info.set_device) {
-			if ((SNDP_PCM_IN == direction) &&
-			    (E_CAP == g_sndp_playrec_flg)) {
-				if (SNDP_BUILTIN_MIC & ulSetDevice)
-					ulSetDevice |=
-					g_sndp_codec_info.dev_playback_speaker;
-				else if (SNDP_WIREDHEADSET & ulSetDevice)
-					ulSetDevice |=
-					g_sndp_codec_info.dev_playback_headphones;
-			}
 			iRet = g_sndp_codec_info.set_device(
 					ulSetDevice, uiValue,
 					g_sndp_codec_info.power_on);
@@ -4206,22 +4204,17 @@ static void sndp_work_stop(
 		} else if (SNDP_PCM_IN == direction) {
 			/* Init to In devices */
 			ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
-			if (E_PLAY != g_sndp_playrec_flg)
-				ulSetDevice = 0;
 		}
 
 		if (NULL != g_sndp_codec_info.set_device) {
-			if (!((SNDP_PCM_OUT == direction) &&
-			      (E_CAP == g_sndp_playrec_flg))) {
-				sndp_log_debug("set_next_dev[%08x]\n",
-					ulSetDevice);
-				iRet = g_sndp_codec_info.set_device(
-					ulSetDevice, SNDP_VALUE_INIT,
-						g_sndp_codec_info.power_on);
-				if (ERROR_NONE != iRet)
-					sndp_log_err("set_device error (code=%d)\n",
-						iRet);
-			}
+			sndp_log_debug("set_next_dev[%08x]\n",
+				ulSetDevice);
+			iRet = g_sndp_codec_info.set_device(
+				ulSetDevice, SNDP_VALUE_INIT,
+					g_sndp_codec_info.power_on);
+			if (ERROR_NONE != iRet)
+				sndp_log_err("set_device error (code=%d)\n",
+					iRet);
 		}
 	}
 

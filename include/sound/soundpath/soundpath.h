@@ -1,6 +1,6 @@
 /* soundpath.h
  *
- * Copyright (C) 2011 Renesas Mobile Corp.
+ * Copyright (C) 2011-2012 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
