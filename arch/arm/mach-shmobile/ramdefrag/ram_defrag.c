@@ -21,16 +21,17 @@
 /* Main processing of RAM defragmentation (Core part) */
 #include <linux/mm.h>
 #include <linux/swap.h>
+#include <linux/syscalls.h>
 #include <linux/memory.h>
 #include <linux/compaction.h>
 #include <linux/page-flags.h>
 
 #include "ram_defrag_internal.h"
 
-/*#define DEBUG_RAMDEFRAG */
+/* #define DEBUG_RAMDEFRAG */
 
 #ifdef DEBUG_RAMDEFRAG
-	#define DEFRAG_PRINTK(fmt, arg...)  printk(fmt,##arg)
+	#define DEFRAG_PRINTK(fmt, arg...)  printk(fmt, ##arg)
 #else
 	#define DEFRAG_PRINTK(fmt, arg...)
 #endif
@@ -40,16 +41,15 @@
 #define BANK_SIZE			0x04000000
 
 #define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
-#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0)  \
-							? ((INUSED_RANGE / BANK_SIZE) + 1) \
-							: (INUSED_RANGE / BANK_SIZE))
+#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0) \
+				? ((INUSED_RANGE / BANK_SIZE) + 1) \
+				: (INUSED_RANGE / BANK_SIZE))
 
 #define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
 #define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
-							? (UNUSED_BANKS_START - CONFIG_MEMORY_START) \
-							: 0 )
+		? (UNUSED_BANKS_START - CONFIG_MEMORY_START) : 0)
 
-#define SDRAM_SIZE 			((SDRAM_END - SDRAM_START) + 1)
+#define SDRAM_SIZE			((SDRAM_END - SDRAM_START) + 1)
 #define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
 #define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
 #define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
@@ -81,7 +81,7 @@ unsigned int get_ram_banks_status(void)
 	unsigned int begin;
 	unsigned int end;
 	unsigned int status;
-	struct page* start_page_check;
+	struct page *start_page_check;
 	i = 0;
 	j = 0;
 	begin = 0;
@@ -100,7 +100,7 @@ unsigned int get_ram_banks_status(void)
 		if (j > end)
 			status &= ~(1 << i);
 	}
-	
+
 	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
 	return status;
 }
@@ -134,6 +134,46 @@ static int page_check(struct page *page)
 	}
 }
 
+static void drop_pagecache_sb(struct super_block *sb, void *unused)
+{
+	struct inode *inode;
+	struct inode *toput_inode;
+	toput_inode = NULL;
+	DEFRAG_PRINTK("%s\n", __func__);
+	spin_lock(&inode_sb_list_lock);
+	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
+		spin_lock(&inode->i_lock);
+		if ((inode->i_state & (I_FREEING|I_WILL_FREE|I_NEW)) ||
+		    (inode->i_mapping->nrpages == 0)) {
+			spin_unlock(&inode->i_lock);
+			continue;
+		}
+		__iget(inode);
+		spin_unlock(&inode->i_lock);
+		spin_unlock(&inode_sb_list_lock);
+		invalidate_mapping_pages(inode->i_mapping, 0, -1);
+		iput(toput_inode);
+		toput_inode = inode;
+		spin_lock(&inode_sb_list_lock);
+	}
+	spin_unlock(&inode_sb_list_lock);
+	iput(toput_inode);
+}
+
+static void drop_slab(void)
+{
+	int nr_objects;
+
+	struct shrink_control shrink = {
+		.gfp_mask = GFP_KERNEL,
+	};
+
+	DEFRAG_PRINTK("%s\n", __func__);
+	do {
+		nr_objects = shrink_slab(&shrink, 1000, 1000);
+	} while (nr_objects > 10);
+}
+
 #ifdef CONFIG_COMPACTION
 
 /*
@@ -146,11 +186,19 @@ int defrag()
 	int ret;
 	ret = 0;
 	DEFRAG_PRINTK("%s\n", __func__);
+
+	/* Flush caches */
+	iterate_supers(drop_pagecache_sb, NULL);
+	drop_slab();
+
 	/* Do defragmentation on all nodes */
 	ret = compact_nodes();
 	if (ret == 3) { /* If compaction is finished */
 		ret = 0;
 	}
+	/* Flush caches again*/
+	iterate_supers(drop_pagecache_sb, NULL);
+	drop_slab();
 	return ret;
 }
 EXPORT_SYMBOL_GPL(defrag);

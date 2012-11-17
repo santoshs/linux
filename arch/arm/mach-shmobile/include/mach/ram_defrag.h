@@ -23,6 +23,8 @@
 #define __ARCH_MACH_RAM_DEFRAG_H__
 
 #include <linux/errno.h>
+#include <linux/mm.h>
+#include <linux/fs.h>
 
 extern struct page *mem_map;
 
@@ -31,7 +33,7 @@ extern struct page *mem_map;
 int defrag(void);
 unsigned int get_ram_banks_status(void);
 
-#else /*!CONFIG_COMPACTION*/
+#else /* !CONFIG_COMPACTION */
 
 static inline int defrag(void)
 {
