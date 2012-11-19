@@ -41,7 +41,7 @@
 #endif
 
 /* framebuffer address */
-#define R_MOBILE_M_BUFF_ADDR		0x51000000
+#define R_MOBILE_M_BUFF_ADDR		0x48C00000
 
 /* panel pixel */
 #define R_MOBILE_M_PANEL_PIXEL_WIDTH	 480
