@@ -738,6 +738,8 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 #endif
 		if (var->bits_per_pixel == 16)
 			set_format = RT_DISPLAY_FORMAT_RGB565;
+		else if (var->bits_per_pixel == 24)
+			set_format = RT_DISPLAY_FORMAT_RGB888;
 		else
 			set_format = RT_DISPLAY_FORMAT_ARGB8888;
 
@@ -942,6 +944,16 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
+	case 24: /* RGB 888 */
+		var->red.offset    = 0;
+		var->red.length    = 8;
+		var->green.offset  = 8;
+		var->green.length  = 8;
+		var->blue.offset   = 16;
+		var->blue.length   = 8;
+		var->transp.offset = 0;
+		var->transp.length = 0;
+		break;
 	case 32: /* ARGB 8888*/
 		var->red.offset    = 16;
 		var->red.length    = 8;
@@ -987,7 +999,16 @@ static int sh_mobile_lcdc_set_bpp(struct fb_var_screeninfo *var, int bpp)
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
-
+	case 24: /* RGB 888 */
+		var->red.offset    = 0;
+		var->red.length    = 8;
+		var->green.offset  = 8;
+		var->green.length  = 8;
+		var->blue.offset   = 16;
+		var->blue.length   = 8;
+		var->transp.offset = 0;
+		var->transp.length = 0;
+		break;
 	case 32: /* ARGB 8888 */
 		var->red.offset = 16;
 		var->red.length = 8;
@@ -1051,7 +1072,8 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 				}
 			}
 #endif
-			if (lcd_ext_param[lcd_num].draw_bpp == 16) {
+			if ((lcd_ext_param[lcd_num].draw_bpp == 16)
+			    || (lcd_ext_param[lcd_num].draw_bpp == 24)) {
 				memset((void *)lcd_ext_param[lcd_num].vir_addr
 				       , 0, lcd_ext_param[lcd_num].mem_size);
 			} else {
@@ -1061,8 +1083,8 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 					(unsigned int *)
 					lcd_ext_param[lcd_num].vir_addr;
 				for (i = 0;
-				    i < lcd_ext_param[lcd_num].mem_size / 4;
-				    i++) {
+				     i < lcd_ext_param[lcd_num].mem_size / 4;
+				     i++) {
 					*cpy_address++ = 0xFF000000;
 				}
 			}
@@ -1207,6 +1229,7 @@ static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y)
 	return (div + ((rem == 0) ? 0 : 1)) * y;
 }
 
+#ifndef CONFIG_FB_SH_MOBILE_RGB888
 static unsigned long GCD(unsigned long x, unsigned long y)
 {
 	while (y != 0) {
@@ -1223,7 +1246,7 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 
 	return (gcd == 0) ? 0 : ((x / gcd) * y);
 }
-
+#endif
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
 	struct fb_info *info;
@@ -1233,7 +1256,9 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int error = 0;
 	int i, j;
+#ifndef CONFIG_FB_SH_MOBILE_RGB888
 	unsigned long ulLCM;
+#endif
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 
@@ -1405,6 +1430,11 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		if (error)
 			break;
 		info->fix = sh_mobile_lcdc_fix;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		info->fix.line_length = RoundUpToMultiple(
+			info->var.xres * (cfg->bpp / 8), 16);
+		info->fix.smem_len = info->fix.line_length * info->var.yres;
+#else
 		info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
 			* (cfg->bpp / 8);
 
@@ -1412,8 +1442,15 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		ulLCM = LCM(info->fix.line_length, 0x1000);
 		info->fix.smem_len = RoundUpToMultiple(
 			info->fix.line_length*info->var.yres, ulLCM);
+#endif
 		info->var.reserved[0] = info->fix.smem_len;
 		info->fix.smem_len *= 2;
+
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		/* 4kbyte align */
+		info->fix.smem_len = RoundUpToMultiple(
+			info->fix.smem_len, 0x1000);
+#endif
 
 		info->var.yres_virtual = info->fix.smem_len
 			/ info->fix.line_length;
@@ -1469,7 +1506,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		info->device = &pdev->dev;
 		info->par = &priv->ch[i];
 
-		if (cfg->bpp == 16) {
+		if ((cfg->bpp == 16) || (cfg->bpp == 24)) {
 			memset((void *)lcd_ext_param[i].vir_addr
 			       , 0, lcd_ext_param[i].mem_size);
 		} else {

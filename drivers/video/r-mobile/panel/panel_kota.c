@@ -267,7 +267,11 @@ static int kota_dsi_startsetting(int draw_flag)
 		disp_draw.draw_rect.y = 0;
 		disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
 		disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
+#else
 		disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+#endif
 		disp_draw.buffer_id = RT_DISPLAY_BUFFER_A;
 		disp_draw.buffer_offset = 0;
 		disp_draw.rotate = RT_DISPLAY_ROTATE_270;
