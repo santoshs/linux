@@ -22,6 +22,7 @@
 
 /* hwspin_lock time out value*/
 #define VCD_SPUV_FUNC_MAX_LOCK_TIME		(62)
+#define VCD_SPUV_FUNC_IPC_MAX_LOCK_TIME		(15)
 
 /* spuv effective invalidity */
 #define VCD_SPUV_FUNC_DISABLE	0
