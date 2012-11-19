@@ -1282,8 +1282,8 @@ static struct resource r8a73734_hwsem1_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.start  = 0x47fbfc00,	/* software bit extension */
-		.end    = 0x47fbfc7f,
+		.start  = 0x464ffc00,	/* software bit extension 464F FC00 */
+		.end    = 0x464ffc7f,
 		.flags  = IORESOURCE_MEM,
 	},
 };
@@ -1330,8 +1330,8 @@ static struct resource r8a73734_hwsem2_resources[] = {
 		.flags  = IORESOURCE_MEM,
 	},
 	{
-		.start  = 0x47fbfe00,	/* software bit extension */
-		.end    = 0x47fbfe7f,
+		.start  = 0x464ffe00,	/* software bit extension */
+		.end    = 0x464ffe7f,
 		.flags  = IORESOURCE_MEM,
 	},
 };
