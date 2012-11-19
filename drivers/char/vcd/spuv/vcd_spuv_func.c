@@ -3375,7 +3375,8 @@ static void vcd_spuv_func_ipc_semaphore(int effective)
 
 	if (VCD_SEMAPHORE_TAKE == effective) {
 		/* take semaphore for IPC */
-		sem = hwspin_trylock_nospin(g_vcd_spuv_func_sem_lock);
+		sem = hwspin_lock_timeout_nospin(g_vcd_spuv_func_sem_lock,
+				VCD_SPUV_FUNC_IPC_MAX_LOCK_TIME);
 		if (!sem) {
 			vcd_pr_spuv_debug("take semaphore for IPC.\n");
 			g_vcd_spuv_func_ipc_sem_flag = VCD_SEMAPHORE_TAKE;
