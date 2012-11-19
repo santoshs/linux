@@ -550,22 +550,21 @@ int __clk_get_rate(struct clk_rate *rate)
 	unsigned int target_freq = the_cpuinfo.freq;
 	int clkmode = 0;
 	int ret = 0;
-	int level = 0;
 
 	if (!rate) {
 		pr_err("invalid parameter<NULL>\n");
 		return -EINVAL;
 	}
 
-	if (target_freq <= the_cpuinfo.freq_mid_upper_limit)
-		level++;
-	if (target_freq <= the_cpuinfo.freq_min_upper_limit)
-		level++;
+	clkmode = the_cpuinfo.clk_state;
+	/* get the frequency mode */
+	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
+		if (target_freq <= the_cpuinfo.freq_mid_upper_limit)
+			clkmode++;
+		if (target_freq <= the_cpuinfo.freq_min_upper_limit)
+			clkmode++;
+	}
 
-	if (the_cpuinfo.clk_state == MODE_SUSPEND)
-		clkmode = 0;
-	else
-		clkmode = the_cpuinfo.clk_state * MODE_NUM + level + 1;
 	/* get clocks setting according to clock mode */
 	ret = pm_get_clock_mode(clkmode, rate);
 	if (ret)
