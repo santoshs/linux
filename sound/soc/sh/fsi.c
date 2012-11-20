@@ -1535,12 +1535,12 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 
 		fsi_master_write(master, FSIDIVB, 0x00DB0003);
 
-		fsi_reg_write(fsi, ACK_RV, 0x00000000);
+		fsi_reg_write(fsi, ACK_RV, 0x00001000);
 
 		if (0 != is_play)
-			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00004001);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003101);
 		else
-			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00004010);
+			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003110);
 	/*for ES1.0 */
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
@@ -1569,7 +1569,7 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 	reg = is_play ? DO_FMT : DI_FMT;
 	fmt = is_play ? SH_FSI_GET_OFMT(flags) : SH_FSI_GET_IFMT(flags);
 
-	fsi_reg_write(fsi, reg, 0x00100000);
+	fsi_reg_write(fsi, reg, 0x00100010);
 
 	/* irq clear */
 	fsi_irq_disable(fsi, is_play);

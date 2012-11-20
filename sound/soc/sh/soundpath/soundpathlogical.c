@@ -663,7 +663,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(STAT_ON);
+		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
 
 	/* Replaced of function pointers. */
 	g_sndp_dai_func.fsi_startup = fsi_port_dai_driver->ops->startup;
@@ -2328,12 +2328,13 @@ static void sndp_work_voice_start(struct work_struct *work)
 	/* Initialization of the firmware starting notice receiving flag */
 	atomic_set(&g_call_watch_start_fw, 0);
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(STAT_OFF);
-
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
+
+	/* FSI master for ES 2.0 over */
+	if ((system_rev & 0xffff) >= 0x3E10)
+		common_set_fsi2cr(SNDP_GET_DEVICE_VAL(wp->new_value), 
+				  STAT_OFF);
 
 	/* set device  */
 	ulSetDevice = sndp_get_next_devices(wp->new_value);
@@ -2456,7 +2457,8 @@ static void sndp_work_voice_stop(struct work_struct *work)
 
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(STAT_ON);
+		common_set_fsi2cr(SNDP_GET_DEVICE_VAL(wp->old_value), 
+				  STAT_ON);
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
@@ -2920,7 +2922,7 @@ static void sndp_work_play_incomm_stop(struct work_struct *work)
 		wp = container_of((void *)work, struct sndp_work_info, work);
 
 		/* To register a work queue to stop processing Playback */
-		sndp_work_incomm_stop();
+		sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(wp->old_value));
 	}
 
 	if (NULL != g_sndp_codec_info.get_device) {
@@ -3021,7 +3023,7 @@ static void sndp_work_capture_incomm_stop(struct work_struct *work)
 		wp = container_of((void *)work, struct sndp_work_info, work);
 
 		/* To register a work queue to stop processing Playback */
-		sndp_work_incomm_stop();
+		sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(wp->old_value));
 	}
 
 	if (NULL != g_sndp_codec_info.get_device) {
@@ -3071,7 +3073,8 @@ static void sndp_work_incomm_start(const u_int new_value)
 
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(STAT_OFF);
+		common_set_fsi2cr(SNDP_GET_DEVICE_VAL(new_value),
+				  STAT_OFF);
 
 	/* start SCUW */
 	ret = scuw_start(new_value);
@@ -3115,7 +3118,7 @@ start_err:
 
    @retval	none
  */
-static void sndp_work_incomm_stop(void)
+static void sndp_work_incomm_stop(const u_int old_value)
 {
 	int	ret = ERROR_NONE;
 
@@ -3142,7 +3145,7 @@ static void sndp_work_incomm_stop(void)
 
 	/* FSI master for ES 2.0 over */
 	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(STAT_ON);
+		common_set_fsi2cr(old_value, STAT_ON);
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
@@ -4041,25 +4044,27 @@ static void sndp_work_start(const int direction)
 			/* CPG soft reset */
 			fsi_soft_reset();
 		}
+	}
+
+	/* FSI slave setting ON for switch */
+	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue)) {
+		fsi_set_slave(true);
+	} else {
 		/* FSI master for ES 2.0 over */
 		if ((system_rev & 0xffff) >= 0x3E10) {
 			if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
 				common_set_pll22(uiValue, STAT_ON);
 			} else {
 				fsi_set_slave(true);
-				common_set_fsi2cr(STAT_OFF);
+				common_set_fsi2cr(dev, STAT_OFF);
 			}
 		}
 	}
 
-	/* FSI slave setting ON for switch */
-	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue))
-		fsi_set_slave(true);
-
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
 		sndp_log_debug("fsi_dai_startup\n");
-		if (false == (SNDP_GET_DEVICE_VAL(uiValue) & SNDP_BLUETOOTHSCO)) {
+		if (false == (dev & SNDP_BLUETOOTHSCO)) {
 			iRet = g_sndp_dai_func.fsi_startup(
 				g_sndp_main[direction].arg.fsi_substream,
 				g_sndp_main[direction].arg.fsi_dai);
@@ -4100,7 +4105,7 @@ static void sndp_work_start(const int direction)
 	/* (In the case of IN_CALL, the amp has been set) */
 	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		if ((SNDP_PCM_OUT == direction) &&
-		    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
+		    (SNDP_SPEAKER & dev)) {
 			if (NULL != g_sndp_codec_info.set_speaker_amp) {
 				iRet = g_sndp_codec_info.set_speaker_amp(
 					g_sndp_codec_info.speaker_enable);
@@ -4159,11 +4164,12 @@ static void sndp_work_stop(
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	struct sndp_work_info	*wp = NULL;
 	u_int			uiValue;
-
+	u_int			dev;
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
 
 	uiValue = GET_OLD_VALUE(direction);
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
 
 	/* To get a work queue structure */
 	wp = container_of((void *)work, struct sndp_work_info, work);
@@ -4171,7 +4177,7 @@ static void sndp_work_stop(
 	/* Set to DISABLE the speaker amp */
 	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		if ((SNDP_PCM_OUT == direction) &&
-		    (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(uiValue))) {
+		    (SNDP_SPEAKER & dev)) {
 			if (NULL != g_sndp_codec_info.set_speaker_amp) {
 				iRet = g_sndp_codec_info.set_speaker_amp(
 					g_sndp_codec_info.speaker_disable);
@@ -4242,13 +4248,12 @@ static void sndp_work_stop(
 
 		/* FSI master for ES 2.0 over */
 		if ((system_rev & 0xffff) >= 0x3E10) {
-			if (SNDP_IS_FSI_MASTER_DEVICE(SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
-				common_set_pll22(GET_OLD_VALUE(direction),
-						 STAT_OFF);
+			if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+				common_set_pll22(uiValue, STAT_OFF);
 			} else {
 				/* FSI slave setting OFF */
 				fsi_set_slave(false);
-				common_set_fsi2cr(STAT_ON);
+				common_set_fsi2cr(dev, STAT_ON);
 			}
 		}
 
@@ -4273,7 +4278,6 @@ static void sndp_work_stop(
 static void sndp_fm_work_start(const int direction)
 {
 	int	iRet = ERROR_NONE;
-	u_int	uiValue;
 
 	/* FSI Trigger in FM radio start */
 	if (NULL != fsi_dai_trigger_in_fm) {
