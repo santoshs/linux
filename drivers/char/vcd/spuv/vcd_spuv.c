@@ -438,11 +438,6 @@ int vcd_spuv_start_call(void)
 		vcd_spuv_func_init_voip_ul_buffer_id();
 		vcd_spuv_func_init_voip_dl_buffer_id();
 
-		/* patch start */
-		proc_param[1] = 44100;
-		proc_param[2] = 44100;
-		/* patch end */
-
 		/* SRC initialize */
 		/* UL : proc_param[1], DL : proc_param[2], spuv : 16kHz */
 		ret = vcd_spuv_func_resampler_init(
