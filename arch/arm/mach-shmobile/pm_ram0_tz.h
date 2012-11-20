@@ -61,21 +61,36 @@
 #define	saveCpuRegisterAreaSize				0x660
 
 /* Size of code	*/
-#define	fsArmVector			0x080 /* ARM Vector */
-#define	fsCoreStandby		0x340 /* Core Standby */
-#define	fsCoreStandby_2		0x300 /* Core Standby 2 */
-#define	fsSystemSuspend		0x320 /* System Suspend */
-#define	fsSaveArmRegister	0x140 /* Save ARM register */
-#define	fsRestoreArmRegisterPA	0x40  /* Restore ARM register PA */
-#define	fsRestoreArmRegisterVA	0x0E0 /* Restore ARM register VA */
-#define	fsSaveArmCommonRegister	0x060 /* Save ARM common register */
-#define	fsRestoreArmCommonRegister	0x040 /* Restore ARM common register */
-#define	fsPM_Spin_Lock		0x180	/* PM_Spin_Lock */
-#define	fsPM_Spin_Unlock	0xA0	/* PM_Spin_Unlock */
-#define	fsxtal_though		0x20	/* XTAL though mode setting */
-#define	fsSysPowerDown		0x220	/* power down function size*/
-#define	fsSysPowerUp		0x1A0	/* power up function size*/
-#define	fsSetClockSystemSuspend		0x460 /* Set clock function size*/
+/* ARM Vector */
+#define	fsArmVector			0x080
+/* Core Standby */
+#define	fsCoreStandby		0x2E0
+/* Core Standby 2 */
+#define	fsCoreStandby_2		0x2A0
+/* System Suspend */
+#define	fsSystemSuspend		0x2C0
+/* Save ARM register */
+#define	fsSaveArmRegister	0x140
+/* Restore ARM register PA */
+#define	fsRestoreArmRegisterPA	0x40
+/* Restore ARM register VA */
+#define	fsRestoreArmRegisterVA	0x0E0
+/* Save ARM common register */
+#define	fsSaveArmCommonRegister	0x060
+/* Restore ARM common register */
+#define	fsRestoreArmCommonRegister	0x040
+/* PM_Spin_Lock */
+#define	fsPM_Spin_Lock		0x180
+/* PM_Spin_Unlock */
+#define	fsPM_Spin_Unlock	0xA0
+/* XTAL though mode setting */
+#define	fsxtal_though		0x20
+/* power down function size*/
+#define	fsSysPowerDown		0x220
+/* power up function size*/
+#define	fsSysPowerUp		0x140
+/* Set clock function size*/
+#define	fsSetClockSystemSuspend		0x460
 
 /*-----------------------------------------------*/
 /* Offset of RAM0 area							*/

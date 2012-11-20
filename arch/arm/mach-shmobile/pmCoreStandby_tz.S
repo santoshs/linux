@@ -525,7 +525,7 @@ CORESTANDBY_WAKEUP:
 
 	/* Invalidate L1 D-cache */
 
-	L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -819,7 +819,7 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 	/* Invalidate L1 D-cache					*/
 	/*------------------------------------------*/
 
-	L1_DataCacheInvalidateSW	/* L1 D-Cache Invalidate	*/
+	/* L1_DataCacheInvalidateSW	*/ /* L1 D-Cache Invalidate	*/
 
 	/*--------------------------------------------------------------*/
 	/* Restore ARM registers (enable MMU) */
@@ -1516,7 +1516,7 @@ ENTRY(sys_powerup)
 	/* Invalidate L1 D-cache			*/
 	/*----------------------------------*/
 
-	L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*----------------------------------*/
 	/* Turn on Watchdog timer			*/
@@ -2478,7 +2478,7 @@ CORESTANDBY2_WAKEUP:
 
 	/* Invalidate L1 D-cache */
 
-	L1_DataCacheInvalidateSW /* L1 D-Cache Invalidate */
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
