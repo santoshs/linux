@@ -112,6 +112,10 @@
 #define WM1811_HEADSET		0x1
 #define WM1811_HEADPHONE	0x2
 
+#define WM1811_IRQ_WAKE_OFF	0x0
+#define WM1811_IRQ_WAKE_ON	0x1
+
+
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration (private)                               */
 /*---------------------------------------------------------------------------*/
@@ -176,6 +180,7 @@ struct wm1811_priv {
 	struct i2c_client *client_wm1811;   /**< i2c driver wm1811 client. */
 	/* irq */
 	u_int irq;                          /**< irq number. */
+	u_int irq_wake_state;                   /**< irq_set_irq_wake OnOff flg. */
 	struct workqueue_struct *irq_workqueue;
 					    /**< irq workqueue. */
 	struct work_struct irq_work;	    /**< irq work. */
@@ -1917,8 +1922,12 @@ static int wm1811_resume(const u_long device)
 	wm1811_log_efunc("");
 	ret = wm1811_restore_volume(device);
 
-	/* disable irq wake */
-	irq_set_irq_wake(wm1811_conf->irq, 0);
+	if (WM1811_IRQ_WAKE_ON == wm1811_conf->irq_wake_state) {
+		/* disable irq wake */
+		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_OFF);
+		if (0 == ret)
+			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_OFF;
+	}
 
 	wm1811_log_efunc("ret[%d]", ret);
 	return ret;
@@ -1975,8 +1984,12 @@ static int wm1811_suspend(void)
 	ret = wm1811_write(0x0302, 0x8000);
 	ret = wm1811_write(0x0420, 0x0200);
 
-	/* enable irq wake */
-	irq_set_irq_wake(wm1811_conf->irq, 1);
+	if (WM1811_IRQ_WAKE_OFF == wm1811_conf->irq_wake_state) {
+		/* enable irq wake */
+		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_ON);
+		if (0 == ret)
+			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_ON;
+	}
 
 	wm1811_log_efunc("ret[%d]", ret);
 	return ret;
