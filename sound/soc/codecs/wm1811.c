@@ -63,13 +63,24 @@
 #define WM1811_DISABLE		0    /* disable value */
 
 #define WM1811_BIAS_VMID_ENABLE		0x0003
-#define WM1811_ADC_ENABLE		0x0303
+#define WM1811_ADCL_ENABLE		0x0202
+#define WM1811_ADCR_ENABLE		0x0101
+#define WM1811_ADCLR_ENABLE		(WM1811_ADCL_ENABLE | \
+					 WM1811_ADCR_ENABLE)
 
 #define WM1811_SPEAKER_ENABLE		0x3000
 #define WM1811_SPEAKER_VOL		0x0300
 
 #define WM1811_EARPEACE_ENABLE		0x0800
 #define WM1811_EARPEACE_VOL		0x00C0
+
+#define WM1811_MIXINL_ENA		0x0200
+#define WM1811_MIXINR_ENA		0x0100
+#define WM1811_MIXINLR_ENA		(WM1811_MIXINL_ENA | \
+					 WM1811_MIXINR_ENA)
+
+#define WM1811_IN1L_ENA			0x0040
+#define WM1811_IN2R_ENA			0x0020
 
 #define WM1811_MIXOUTR_ENA		0x0010
 #define WM1811_MIXOUTRVOL_ENA		0x0040
@@ -221,13 +232,30 @@ static int wm1811_conv_device_info(const u_long device,
 
 static int wm1811_check_device(const u_long device);
 
+static int wm1811_set_mic_adc_pm(const u_int cur_dev_mic,
+				const u_int new_dev_mic,
+				const u_int cur_dev_headsetmic,
+				const u_int new_dev_headsetmic,
+				const u_int pcm_mode);
+
+static int wm1811_set_mic_mixer_pm(const u_int cur_dev_mic,
+				const u_int new_dev_mic,
+				const u_int cur_dev_headsetmic,
+				const u_int new_dev_headsetmic,
+				const u_int pcm_mode);
+
 static int wm1811_set_speaker_device(const u_int cur_dev,
 				const u_int new_dev);
 static int wm1811_set_earpiece_device(const u_int cur_dev,
 				const u_int new_dev);
 static int wm1811_set_headphone_device(const u_int cur_dev,
 				const u_int new_dev);
-static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev);
+static int wm1811_set_main_mic_device(const u_int cur_dev,
+				const u_int new_dev);
+static int wm1811_set_sub_mic_device(const u_int cur_dev,
+				const u_int new_dev);
+static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev,
+				const u_int pcm_mode);
 static int wm1811_set_headset_mic_device(const u_int cur_dev,
 				const u_int new_dev);
 
@@ -965,31 +993,44 @@ static int wm1811_check_device(const u_long device)
   @param[i] new_dev_mic  new mic device state.
   @param[i] cur_dev_headsetmic  cureent headsetmic device state.
   @param[i] new_dev_headsetmic  new headsetmic device state.
+  @param[i] pcm_mode  pcm_mode.
 
   @return function results.
 */
 static int wm1811_set_mic_adc_pm(const u_int cur_dev_mic,
-					const u_int new_dev_mic,
-					const u_int cur_dev_headsetmic,
-					const u_int new_dev_headsetmic)
+				const u_int new_dev_mic,
+				const u_int cur_dev_headsetmic,
+				const u_int new_dev_headsetmic,
+				const u_int pcm_mode)
 {
 	int ret = 0;
 	u_short adc = 0;
-	wm1811_log_efunc("mic[%d] new_mic[%d] headset[%d] new_headset[%d]",
+	wm1811_log_efunc("cMic[%d] nMic[%d] chMic[%d] nhMic[%d] pcm[%d]",
 			cur_dev_mic, new_dev_mic,
-			cur_dev_headsetmic, cur_dev_headsetmic);
+			cur_dev_headsetmic, new_dev_headsetmic,
+			pcm_mode);
 
 	if ((cur_dev_mic != new_dev_mic) ||
 		(cur_dev_headsetmic != new_dev_headsetmic)) {
 		ret = wm1811_read(0x0004, &adc);
 
-		if ((WM1811_ENABLE == new_dev_mic) ||
-			(WM1811_ENABLE == new_dev_headsetmic)) {
+		if (WM1811_ENABLE == new_dev_mic) {
 			/* mic on */
-			adc |= WM1811_ADC_ENABLE;
+			if (SNDP_MODE_INCALL == pcm_mode) {
+				wm1811_log_info("ADC LR ON");
+				adc |= WM1811_ADCLR_ENABLE;
+			} else {
+				wm1811_log_info("ADC L ON");
+				adc |= WM1811_ADCL_ENABLE;
+			}
+		} else if (WM1811_ENABLE == new_dev_headsetmic) {
+			/* mic on */
+			wm1811_log_info("ADC LR ON");
+			adc |= WM1811_ADCLR_ENABLE;
 		} else {
 			/* mic off */
-			adc &= ~WM1811_ADC_ENABLE;
+			wm1811_log_info("ADC LR OFF");
+			adc &= ~WM1811_ADCLR_ENABLE;
 		}
 
 		/* Enable Left ADC,Enable Right ADC */
@@ -1009,31 +1050,44 @@ static int wm1811_set_mic_adc_pm(const u_int cur_dev_mic,
   @param[i] new_dev_mic  new mic device state.
   @param[i] cur_dev_headsetmic  cureent headsetmic device state.
   @param[i] new_dev_headsetmic  new headsetmic device state.
+  @param[i] pcm_mode  pcm_mode.
 
   @return function results.
 */
 static int wm1811_set_mic_mixer_pm(const u_int cur_dev_mic,
 					const u_int new_dev_mic,
 					const u_int cur_dev_headsetmic,
-					const u_int new_dev_headsetmic)
+					const u_int new_dev_headsetmic,
+					const u_int pcm_mode)
 {
 	int ret = 0;
 	u_short pm = 0;
-	wm1811_log_efunc("mic[%d] new_mic[%d] headset[%d] new_headset[%d]",
+	wm1811_log_efunc("cMic[%d] nMic[%d] chMic[%d] nhMic[%d] pcm[%d]",
 			cur_dev_mic, new_dev_mic,
-			cur_dev_headsetmic, new_dev_headsetmic);
+			cur_dev_headsetmic, new_dev_headsetmic,
+			pcm_mode);
 
 	if ((cur_dev_mic != new_dev_mic) ||
 		(cur_dev_headsetmic != new_dev_headsetmic)) {
 		ret = wm1811_read(0x0002, &pm);
 
-		if ((WM1811_ENABLE == new_dev_mic) ||
-			(WM1811_ENABLE == new_dev_headsetmic)) {
+		if (WM1811_ENABLE == new_dev_mic) {
 			/* mic on */
-			pm |= 0x0300;
+			if (SNDP_MODE_INCALL == pcm_mode) {
+				wm1811_log_info("MIXIN LR ON");
+				pm |= WM1811_MIXINLR_ENA;
+			} else {
+				wm1811_log_info("MIXIN L ON");
+				pm |= WM1811_MIXINL_ENA;
+			}
+		} else if (WM1811_ENABLE == new_dev_headsetmic) {
+			/* mic on */
+			wm1811_log_info("MIXIN LR ON");
+			pm |= WM1811_MIXINLR_ENA;
 		} else {
 			/* mic off */
-			pm &= ~0x0300;
+			wm1811_log_info("MIXIN LR OFF");
+			pm &= ~WM1811_MIXINLR_ENA;
 		}
 
 		/* Disable Left Input Mixer, Disable Right Input Mixer */
@@ -1396,49 +1450,44 @@ static int wm1811_set_headphone_device(const u_int cur_dev,
 }
 
 /*!
-  @brief change state of microphone device.
+  @brief change state of main microphone device.
 
   @param[i] cur_dev  cureent device state.
   @param[i] new_dev  new device state.
 
   @return function results.
 */
-static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
+static int wm1811_set_main_mic_device(const u_int cur_dev,
+				const u_int new_dev)
 {
 	int ret = 0;
 	u_short pm = 0;
 	u_short pm2 = 0;
 	u_short mixin_l = 0;
-	u_short mixin_r = 0;
 	u_short mute_main = 0;
-	u_short mute_sub = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
 		ret = wm1811_read(0x0001, &pm);
 		ret = wm1811_read(0x0002, &pm2);
 		ret = wm1811_read(0x0029, &mixin_l);
-		ret = wm1811_read(0x002A, &mixin_r);
 		mute_main = wm1811_conf->volume[E_VOL_MAIN_MIC];
-		mute_sub = wm1811_conf->volume[E_VOL_SUB_MIC];
+
 		if (WM1811_ENABLE == new_dev) {
-			/* mic on */
+			/* main mic on */
 			if (WM1811_BIAS_VMID_ENABLE & pm)
 				pm |= WM1811_MIC_ENABLE;
 			else {
 				pm |= (WM1811_BIAS_VMID_ENABLE |
 					WM1811_MIC_ENABLE);
 			}
-			pm2 |= 0x60;
+
+			pm2 |= WM1811_IN1L_ENA;
 			mute_main &= ~0x80;
 			mute_main |= 0x100;
-			mute_sub &= ~0x80;
-			mute_sub |= 0x100;
 			mixin_l |= WM1811_MIXINL_MIC_ENA;
-			mixin_r |= WM1811_MIXINR_MIC_ENA;
 		} else {
-			/* mic off */
-
+			/* main mic off */
 			if (~(WM1811_BIAS_VMID_ENABLE |
 				WM1811_HEADPHONE_ENABLE) & pm) {
 				pm &= ~WM1811_MIC_ENABLE;
@@ -1446,29 +1495,99 @@ static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev)
 				pm &= ~(WM1811_BIAS_VMID_ENABLE |
 					WM1811_MIC_ENABLE);
 			}
-			pm2 &= ~0x60;
+
+			pm2 &= ~WM1811_IN1L_ENA;
 			ret = wm1811_write(0x0018, 0x80);
-			ret = wm1811_write(0x001B, 0x80);
 			mute_main = 0x180;
-			mute_sub = 0x180;
 			mixin_l &= ~WM1811_MIXINL_MIC_ENA;
-			mixin_r &= ~WM1811_MIXINR_MIC_ENA;
 		}
+
+		/* IN1L MUTE & VOL */
 		ret = wm1811_write(0x0018, mute_main);
-
-		ret = wm1811_write(0x001B, mute_sub);
-
+		/* Enable MICB1_ENA */
 		ret = wm1811_write(0x0001, pm);
-
-		/* Enable IN1L Input, Enable IN2R Input */
+		/* Enable IN1L Input */
 		ret = wm1811_write(0x0002, pm2);
 		/* Unmute IN1L PGA output to Left Input Mixer (MIXINL) Path */
 		ret = wm1811_write(0x0029, mixin_l);
+	} else {
+		/* nothing to do. */
+	}
+
+	wm1811_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief change state of sub microphone device.
+
+  @param[i] cur_dev  cureent device state.
+  @param[i] new_dev  new device state.
+
+  @return function results.
+*/
+static int wm1811_set_sub_mic_device(const u_int cur_dev,
+				const u_int new_dev)
+{
+	int ret = 0;
+	u_short pm2 = 0;
+	u_short mixin_r = 0;
+	u_short mute_sub = 0;
+	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
+
+	if (cur_dev != new_dev) {
+		ret = wm1811_read(0x0002, &pm2);
+		ret = wm1811_read(0x002A, &mixin_r);
+		mute_sub = wm1811_conf->volume[E_VOL_SUB_MIC];
+
+		if (WM1811_ENABLE == new_dev) {
+			/* sub mic on */
+			pm2 |= WM1811_IN2R_ENA;
+			mute_sub &= ~0x80;
+			mute_sub |= 0x100;
+			mixin_r |= WM1811_MIXINR_MIC_ENA;
+		} else {
+			/* sub mic off */
+			pm2 &= ~WM1811_IN2R_ENA;
+			ret = wm1811_write(0x001B, 0x80);
+			mute_sub = 0x180;
+			mixin_r &= ~WM1811_MIXINR_MIC_ENA;
+		}
+
+		/* IN2R MUTE & VOL */
+		ret = wm1811_write(0x001B, mute_sub);
+		/* Enable IN2R Input */
+		ret = wm1811_write(0x0002, pm2);
 		/* Unmute IN2R PGA output to Right Input Mixer (MIXINR) Path */
 		ret = wm1811_write(0x002A, mixin_r);
 	} else {
 		/* nothing to do. */
 	}
+
+	wm1811_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief change state of microphone device.
+
+  @param[i] cur_dev  cureent device state.
+  @param[i] new_dev  new device state.
+  @param[i] pcm_mode  pcm_mode.
+
+  @return function results.
+*/
+static int wm1811_set_mic_device(const u_int cur_dev, const u_int new_dev,
+				const u_int pcm_mode)
+{
+	int ret = 0;
+	wm1811_log_efunc("cur_dev[%d] new_dev[%d] pcm_mode[%d]",
+			cur_dev, new_dev, pcm_mode);
+
+	ret = wm1811_set_main_mic_device(cur_dev, new_dev);
+
+	if ((SNDP_MODE_INCALL == pcm_mode) || (WM1811_DISABLE == new_dev))
+		ret = wm1811_set_sub_mic_device(cur_dev, new_dev);
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -2046,7 +2165,6 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	u_short fll1_control2 = 0;
 	u_short fll1_control4 = 0;
 	u_short fll1_control5 = 0;
-	u_short clocking1 = 0;
 	wm1811_log_efunc("device[%ld] pcm_value[0x%08x] power[%d]",
 			device, pcm_value, power);
 
@@ -2329,13 +2447,15 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	ret = wm1811_set_mic_adc_pm(wm1811_conf->info.mic, new_device.mic,
 					wm1811_conf->info.headset_mic,
-					new_device.headset_mic);
+					new_device.headset_mic,
+					pcm_mode);
 
 	if (0 != ret)
 		goto err_set_device;
 
 	ret = wm1811_set_mic_device(wm1811_conf->info.mic,
-					      new_device.mic);
+					new_device.mic,
+					pcm_mode);
 
 	if (0 != ret)
 		goto err_set_device;
@@ -2348,7 +2468,8 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 
 	ret = wm1811_set_mic_mixer_pm(wm1811_conf->info.mic, new_device.mic,
 					wm1811_conf->info.headset_mic,
-					new_device.headset_mic);
+					new_device.headset_mic,
+					pcm_mode);
 
 	if (0 != ret)
 		goto err_set_device;
