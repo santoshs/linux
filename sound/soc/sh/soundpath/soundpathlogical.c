@@ -1778,9 +1778,6 @@ static int sndp_fsi_trigger(
 				fsi_set_trigger_stop(arg->fsi_substream,
 						     false);
 
-				/* Init register dump log flag for debug */
-				g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
-
 				/* A work queue processing */
 				if (SNDP_PCM_OUT == substream->stream) {
 					g_sndp_stop_trigger_condition[SNDP_PCM_OUT] |=
@@ -3995,7 +3992,7 @@ static void sndp_work_start(const int direction)
 	int	iRet = ERROR_NONE;
 	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int	uiValue;
-
+	u_int	dev;
 
 	sndp_log_debug_func("start direction[%d]\n", direction);
 
@@ -4027,6 +4024,8 @@ static void sndp_work_start(const int direction)
 		}
 	}
 
+	dev = SNDP_GET_DEVICE_VAL(uiValue);
+
 	/* PM_RUNTIME */
 	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
 		iRet = pm_runtime_get_sync(g_sndp_power_domain);
@@ -4038,8 +4037,14 @@ static void sndp_work_start(const int direction)
 			fsi_soft_reset();
 		}
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10)
-			common_set_pll22(uiValue, STAT_ON);
+		if ((system_rev & 0xffff) >= 0x3E10) {
+			if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+				common_set_pll22(uiValue, STAT_ON);
+			} else {
+				fsi_set_slave(true);
+				common_set_fsi2cr(STAT_OFF);
+			}
+		}
 	}
 
 	/* FSI slave setting ON for switch */
@@ -4188,9 +4193,6 @@ static void sndp_work_stop(
 					     &(wp->stop.fsi_dai));
 	}
 
-	/* FSI slave setting OFF */
-	fsi_set_slave(false);
-
 	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 		if (NULL != g_sndp_codec_info.get_device) {
 			iRet = g_sndp_codec_info.get_device(&ulSetDevice);
@@ -4227,12 +4229,23 @@ static void sndp_work_stop(
 
 	/* Disable the power domain */
 	if (!g_sndp_playrec_flg) {
+		/* Init register dump log flag for debug */
+		g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
+
 		/* stop CLKGEN */
 		clkgen_stop();
 
 		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10)
-			common_set_pll22(GET_OLD_VALUE(direction), STAT_OFF);
+		if ((system_rev & 0xffff) >= 0x3E10) {
+			if (SNDP_IS_FSI_MASTER_DEVICE(SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(direction)))) {
+				common_set_pll22(GET_OLD_VALUE(direction),
+						 STAT_OFF);
+			} else {
+				/* FSI slave setting OFF */
+				fsi_set_slave(false);
+				common_set_fsi2cr(STAT_ON);
+			}
+		}
 
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
