@@ -24,10 +24,10 @@
 
 #define GET_RT_CACHE_ADDRESS(addr) \
 ( \
-	((0x8E000000UL <= (unsigned long)addr) \
-	  && (0x96000000UL >  (unsigned long)addr)) \
+	((0x89000000UL <= (unsigned long)addr) \
+	  && (0x8C000000UL >  (unsigned long)addr)) \
 	? \
-	(unsigned char *)((unsigned long)addr - 0x0C000000) \
+	(unsigned char *)((unsigned long)addr - 0x08000000) \
 	: \
 	addr \
 )

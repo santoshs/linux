@@ -47,7 +47,7 @@
 #define SCREEN1_MODE		(0)
 
 #define SECURE_BOOT_RT		(0)
-#define PRIMARY_COPY_ADDR	(0x48800000)
+#define PRIMARY_COPY_ADDR	(0x46600000)
 
 struct screen_info {
 	unsigned short	height;
