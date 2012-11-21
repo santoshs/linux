@@ -20,11 +20,19 @@
 #include <linux/smsc911x.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/sh_mmcif.h>
+#include <linux/mmc/renesas_sdhi.h>
+#include <linux/input.h>
+#include <linux/input/sh_keysc.h>
+#include <linux/gpio_keys.h>
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
 #ifdef CONFIG_PMIC_INTERFACE
+#include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
+#endif
+#ifdef CONFIG_VIBRATOR_ISA1000A
+#include <linux/isa1000a_haptic.h>
 #endif
 #include <linux/mfd/tps80031.h>
 #include <linux/pmic/pmic.h>
@@ -55,6 +63,9 @@
 #endif
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+#include <linux/spa_power.h>
+#endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #include <linux/tsu6712.h>
 #endif
@@ -95,18 +106,7 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-#if defined(CONFIG_VIBRATOR_ISA1000A)
-#include <mach/setup-u2vibrator.h>
-#endif
-#if defined(CONFIG_SEC_CHARGING_FEATURE)
-#include <mach/setup-u2smb328a.h>
-#endif
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-#include <mach/setup-u2current_timer.h>
-#endif
-#include <mach/setup-u2sdhi.h>
-#include <mach/board-u2evm.h>
-#include <mach/setup-u2gpio_key.h>
+
 static int check_sec_rlte_hw_rev(void);
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 #include <mach/sec_debug.h>
@@ -122,9 +122,18 @@ static void mpu_power_on(int onoff);
 #ifdef CONFIG_INPUT_YAS_SENSORS
 static void yas_power_on(int onoff);
 #endif
+
+
+
+
+
+
+
+
 #if defined(CONFIG_OPTICAL_GP2AP020A00F)
 static void gp2a_power_on(int onoff);
 #endif
+
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
 	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
 	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
@@ -152,8 +161,48 @@ static void sensor_power_on_vdd(int);
 #define SRCR2		IO_ADDRESS(0xe61580b0)
 #define SRCR3		IO_ADDRESS(0xe61580b8)
 
+#define GPIO_PULL_OFF	0x00
+#define GPIO_PULL_DOWN	0x80
+#define GPIO_PULL_UP	0xc0
+
+#define SDHI1_CLK_CR IO_ADDRESS(0xE6052120)
+#define SDHI1_D0_CR IO_ADDRESS(0xE6052121)
+#define SDHI1_D1_CR IO_ADDRESS(0xE6052122)
+#define SDHI1_D2_CR IO_ADDRESS(0xE6052123)
+#define SDHI1_D3_CR IO_ADDRESS(0xE6052124)
+#define SDHI1_CMD_CR IO_ADDRESS(0xE6052125)
+
+/*Support for compatibility between ES1.0 and ES2.0*/
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
+#define GPIO_PORTCR_ES1(n)	({				\
+	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 192) ? 0 :				\
+	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
+	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
+
+#define GPIO_PORTCR_ES2(n)	({				\
+	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :	\
+	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
+	((n) < 192) ? 0 :				\
+	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
+	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
+
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
+static void gpio_pull(u32 addr, int type)
+{
+	u8 data = __raw_readb(addr);
+
+	data &= ~0xc0;
+	data |= type;
+
+	__raw_writeb(data, addr);
+}
 
 static DEFINE_SPINLOCK(io_lock);//for modify register
 
@@ -206,7 +255,7 @@ EXPORT_SYMBOL_GPL(sh_modify_register32);
 /*===================*/
 /*  get board rev */
 /*===================*/
-unsigned int u2_board_rev;
+static unsigned int u2_board_rev;
 unsigned int u2_get_board_rev()
 {
 	return u2_board_rev;
@@ -220,6 +269,35 @@ static int u2_read_board_rev(char *page, char **start, off_t off,
 	return count;
 }
 
+
+void gpio_direction_none_port(int gpio)
+{
+
+	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0xcf,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_direction_none_port);
+
+void gpio_pull_off_port(int gpio)
+{
+	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_off_port);
+
+void gpio_pull_up_port(int gpio)
+{
+	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0xc0,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_up_port);
+
+void gpio_pull_down_port(int gpio)
+{
+	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0x80,
+	GPIO_PORTCR_ES2(gpio));
+}
+EXPORT_SYMBOL_GPL(gpio_pull_down_port);
 
 static struct resource smsc9220_resources[] = {
 	{
@@ -249,6 +327,55 @@ static struct platform_device eth_device = {
 	.num_resources	= ARRAY_SIZE(smsc9220_resources),
 };
 
+
+#ifdef CONFIG_KEYBOARD_SH_KEYSC
+/* KEYSC */
+static struct sh_keysc_info keysc_platdata = {
+	.mode		= SH_KEYSC_MODE_6,
+	.scan_timing	= 3,
+	.delay		= 100,
+	.wakeup		= 1,	
+	.automode	= 1,
+	.flags		= WA_EOS_E132_KEYSC,
+	.keycodes	= {
+		227, KEY_0, 228,
+		0, 0, 0, 0, 0,
+		KEY_7, KEY_8, KEY_9,
+		0, KEY_DOWN, 0, 0, 0,
+		KEY_4, KEY_5, KEY_6,
+		KEY_LEFT, KEY_ENTER, KEY_RIGHT, 0, 0,
+		KEY_1, KEY_2, KEY_3,
+		0, KEY_UP, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+	},
+};
+
+static struct resource keysc_resources[] = {
+	[0] = {
+		.name	= "KEYSC",
+		.start	= 0xe61b0000,
+		.end	= 0xe61b0098 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(101),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device keysc_device = {
+	.name		= "sh_keysc",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(keysc_resources),
+	.resource	= keysc_resources,
+	.dev		= {
+		.platform_data	= &keysc_platdata,
+	},
+};
+#endif
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -345,6 +472,225 @@ static struct platform_device mmcoops_device = {
 	},
 };
 
+#define MSEL3CR		IO_ADDRESS(0xE6058020)
+
+static void sdhi0_set_pwr(struct platform_device *pdev, int state)
+{
+#ifdef CONFIG_PMIC_INTERFACE
+	if(state)
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		pmic_set_power_on(E_POWER_VIO_SD);
+		pmic_set_power_on(E_POWER_VMMC);
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+
+	}
+	else
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
+		pmic_set_power_off(E_POWER_VIO_SD);
+		pmic_set_power_off(E_POWER_VMMC);
+	}
+#endif
+}
+
+static int sdhi0_get_cd(struct platform_device *pdev)
+{
+	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
+}
+
+static struct renesas_sdhi_dma sdhi0_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI0_RX,
+	}
+};
+
+static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
+	[0] = {
+		.flag = 1,
+		.port = GPIO_PORT327,
+		.active = {
+			.port_mux 	= GPIO_PORT327,
+			.pull 		= RENESAS_SDHI_PULL_OFF,
+			.direction	= RENESAS_SDHI_DIRECTION_INPUT,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_FN_SDHICD0,
+			.pull 		= RENESAS_SDHI_PULL_UP,
+			.direction	= RENESAS_SDHI_DIRECTION_NOT_SET,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		}                                   
+	},
+};
+
+static struct renesas_sdhi_platdata sdhi0_info = {
+	.caps				= 0,
+	.flags				= RENESAS_SDHI_SDCLK_OFFEN | 
+						RENESAS_SDHI_WP_DISABLE,
+	.dma				= &sdhi0_dma,
+	.set_pwr			= sdhi0_set_pwr,
+	.detect_irq			= irqpin2irq(50),
+	.detect_msec		= 0,
+	.get_cd				= sdhi0_get_cd,
+	.port_cnt			= ARRAY_SIZE(sdhi0_gpio_setting_info),
+	.gpio_setting_info	= &sdhi0_gpio_setting_info,
+};
+
+static struct resource sdhi0_resources[] = {
+	[0] = {
+		.name	= "SDHI0",
+		.start	= 0xee100000,
+		.end	= 0xee1000ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(118),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi0_device = {
+	.name		= "renesas_sdhi",
+	.id		= 0,
+	.dev		= {
+		.platform_data	= &sdhi0_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi0_resources),
+	.resource	= sdhi0_resources,
+};
+
+#if 0
+
+static void sdhi1_set_pwr(struct platform_device *pdev, int state)
+{
+   static int power_state;
+
+   printk("Powering %s wifi\n", (state ? "on" : "off"));
+
+   if (state == power_state)
+       return;
+   power_state = state;
+
+   if (state) {
+       gpio_set_value(WLAN_GPIO_EN, 1);
+       mdelay(15);
+       gpio_set_value(WLAN_GPIO_EN, 0);
+       mdelay(1);
+       gpio_set_value(WLAN_GPIO_EN, 1);
+       mdelay(70);
+   } else {
+       gpio_set_value(WLAN_GPIO_EN, 0);
+   }
+}
+static int sdhi1_get_cd(struct platform_device *pdev)
+{
+   return 1;//return gpio_get_value(GPIO_PORT327) ? 0 : 1;
+}
+
+static struct renesas_sdhi_dma sdhi1_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
+	}
+};
+
+#define SDHI1_VOLTAGE  MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 | MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 | MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 | MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_VDD_34_35 | MMC_VDD_35_36 
+
+static struct renesas_sdhi_platdata sdhi1_info = {
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+ 	.dma		= &sdhi1_dma,
+ 	.set_pwr	= sdhi1_set_pwr,
+	.detect_irq	= 0, 
+	.detect_msec	= 0,
+	.get_cd		= sdhi1_get_cd,
+	.ocr		= MMC_VDD_165_195,//SDHI1_VOLTAGE,
+};
+
+static struct resource sdhi1_resources[] = {
+	[0] = {
+		.name	= "SDHI1",
+		.start	= 0xee120000,
+		.end	= 0xee1200ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(119),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi1_device = {
+	.name		= "renesas_sdhi",
+	.id		= 1,
+	.dev		= {
+		.platform_data	= &sdhi1_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi1_resources),
+	.resource	= sdhi1_resources,
+};
+
+static void sdhi2_set_pwr(struct platform_device *pdev, int state)
+{
+	;
+}
+static int sdhi2_get_cd(struct platform_device *pdev)
+{
+   return 1;
+}
+
+static struct renesas_sdhi_dma sdhi2_dma = {
+	.chan_tx = {
+		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
+	},
+	.chan_rx = {
+		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
+	}
+};
+
+static struct renesas_sdhi_platdata sdhi2_info = {
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
+ 	.dma		= &sdhi2_dma,
+ 	.set_pwr	= sdhi2_set_pwr,
+	.detect_irq	= 0, 
+	.detect_msec	= 0,
+	.get_cd		= sdhi2_get_cd,
+	.ocr		= MMC_VDD_165_195, //SDHI2_VOLTAGE,
+};
+
+static struct resource sdhi2_resources[] = {
+	[0] = {
+		.name	= "SDHI2",
+		.start	= 0xee140000,
+		.end	= 0xee1400ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(120),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sdhi2_device = {
+	.name		= "renesas_sdhi",
+	.id		= 2,
+	.dev		= {
+		.platform_data	= &sdhi2_info,
+	},
+	.num_resources	= ARRAY_SIZE(sdhi2_resources),
+	.resource	= sdhi2_resources,
+};
+
+#endif
+
 static struct sh_fsi_platform_info fsi_info = {
 	.port_flags = SH_FSI_OUT_SLAVE_MODE |
 		SH_FSI_IN_SLAVE_MODE	|
@@ -404,6 +750,93 @@ static struct platform_device fsi_b_device = {
 	.resource	= fsi_b_resources,
 	.dev	= {
 		.platform_data	= &fsi_b_info,
+	},
+};
+
+
+#define GPIO_KEY(c, g, d, w) \
+	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
+	 .debounce_interval = 20}
+
+static struct gpio_keys_button gpio_buttons_polled[] = {
+#ifndef CONFIG_PMIC_INTERFACE
+	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
+#endif
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT45, "Home",  0),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT46, "+",     0),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-",     0),
+};
+
+static struct gpio_keys_button gpio_buttons[] = {
+#ifndef CONFIG_PMIC_INTERFACE
+	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
+#endif
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+};
+
+static int gpio_key_enable(struct device *dev)
+{
+	if((system_rev & 0xFFFF) == 0x3E00)
+	{
+		#ifndef CONFIG_PMIC_INTERFACE
+			gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
+		#endif
+		gpio_pull(GPIO_PORTCR_ES1(25), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(26), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(27), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
+	}
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
+		#ifndef CONFIG_PMIC_INTERFACE
+			gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
+		#endif
+		gpio_pull(GPIO_PORTCR_ES2(25), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(26), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(27), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
+		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
+	}
+	return 0;
+}
+
+static struct gpio_keys_platform_data gpio_key_polled_info = {
+	.buttons	= gpio_buttons_polled,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.rep		= 0,
+	.enable		= gpio_key_enable,
+	.poll_interval	= 50,
+};
+
+static struct gpio_keys_platform_data gpio_key_info = {
+	.buttons	= gpio_buttons,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.rep		= 0,
+	.enable		= gpio_key_enable,
+};
+
+static struct platform_device gpio_key_device = {
+	.name	= "gpio-keys",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_key_info,
+	},
+};
+
+static struct platform_device gpio_key_polled_device = {
+	.name	= "gpio-keys-polled",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &gpio_key_polled_info,
 	},
 };
 
@@ -521,6 +954,63 @@ static struct platform_device tpu3_device = {
 		.platform_data	= &tpu3_info,
 	},
 };
+#if defined(CONFIG_VIBRATOR_ISA1000A)
+
+/******************************************************/
+/*
+ * ISA1000 HAPTIC MOTOR Driver IC.
+ * MOTOR Resonance frequency: 205HZ.
+ * Input PWM Frequency: 205 * 128 = 26240 HZ.
+ * PWM_period_ns = 1000000000/26240 = 38109.
+ * PWM Enable GPIO number = 189.
+*/
+/******************************************************/
+
+#define GPIO_MOTOR_EN	GPIO_PORT226
+
+static int isa1000_enable(bool en)
+{
+	return gpio_direction_output(GPIO_MOTOR_EN, en);
+}
+
+static struct platform_isa1000_vibrator_data isa1000_vibrator_data =
+{
+	.gpio_en	= isa1000_enable,
+	.pwm_name	= "TPU0TO0",
+	.pwm_duty	= 542,
+	.pwm_period_ns	= 580, //0x244, VIB_CYC
+	.polarity	= 0,
+	.regulator_id	= "vibldo_uc",
+};
+
+static struct platform_device isa1000_device =
+{
+	.name     = "isa1000-vibrator",
+	.id       = -1,
+	.dev      =
+		{
+		.platform_data = &isa1000_vibrator_data,
+	},
+};
+
+static void isa1000_gpio_init(void)
+{
+	int gpio;
+
+	gpio = GPIO_MOTOR_EN;
+	gpio_request(gpio, "MOTOR_EN");
+	gpio_direction_output(gpio, 1);
+	gpio_export(gpio, 0);
+}
+
+static void __init isa1000_vibrator_init(void)
+{
+	isa1000_gpio_init();
+	platform_device_register(&isa1000_device);
+}
+#endif
+
+
 static struct resource	tpu_resources[] = {
 	[TPU_MODULE_0] = {
 		.name	= "tpu0_map",
@@ -935,6 +1425,54 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 	},
 #endif
 };
+
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+// Samsung charging feature
+// +++ for board files, it may contain changeable values
+struct spa_temp_tb batt_temp_tb[]=
+{
+	{869, -300},            /* -30 */
+	{769, -200},			/* -20 */
+	{643, -100},                    /* -10 */
+	{568, -50},				/* -5 */
+	{509,   0},                    /* 0   */
+	{382,  100},                    /* 10  */
+	{275,  200},                    /* 20  */
+	{231,  250},                    /* 25  */
+	{196,  300},                    /* 30  */
+	{138,  400},                    /* 40  */
+	{95 ,  500},                    /* 50  */
+	{68 ,  600},                    /* 60  */
+	{54 ,  650},                    /* 65  */
+	{46 ,  700},            /* 70  */
+	{34 ,  800},            /* 80  */
+};
+
+struct spa_power_data spa_power_pdata=
+{
+	.charger_name = "smb328a-charger",
+	.eoc_current=100,
+	.recharge_voltage=4150,
+	.charging_cur_usb=500,
+	.charging_cur_wall=800,
+	.suspend_temp_hot=600,
+	.recovery_temp_hot=400,
+	.suspend_temp_cold=-50,
+	.recovery_temp_cold=0,
+	.charge_timer_limit=CHARGE_TIMER_6HOUR,
+	.batt_temp_tb=&batt_temp_tb[0],
+	.batt_temp_tb_len=ARRAY_SIZE(batt_temp_tb),
+};
+EXPORT_SYMBOL(spa_power_pdata);
+
+static struct platform_device spa_power_device=
+{
+	.name = "spa_power",
+	.id=-1,
+	.dev.platform_data = &spa_power_pdata,
+};
+// --- for board files
+#endif
 
 #if defined(CONFIG_BATTERY_BQ27425)
 #define BQ27425_ADDRESS (0xAA >> 1)
@@ -2566,6 +3104,12 @@ static void irqc_set_chattering(int pin, int timing)
 #define SBAR2		__io(IO_ADDRESS(0xe6180060))
 #define RESCNT2		__io(IO_ADDRESS(0xe6188020))
 
+#define SEC_RLTE_REV0_0_0		0
+#define SEC_RLTE_REV0_2_1		1
+#define SEC_RLTE_REV0_2_2		2
+#define SEC_RLTE_REV0_3_1		3
+#define SEC_RLTE_REV0_4_0		4
+
 void u2evm_restart(char mode, const char *cmd)
 {
 	u8 reg = __raw_readb(STBCHR2);
@@ -2624,6 +3168,8 @@ static void __init u2evm_init(void)
 	char *cp=&boot_command_line[0];
 	int ci;
 	int pub_stm_select=-1;
+	struct platform_device **p_dev;
+	int p_dev_cnt;
 	int stm_select=-1;	// Shall tell how to route STM traces.
 				// Taken from boot_command_line[] parameters.
 				// stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
@@ -3473,16 +4019,32 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 0);
 #endif
-	gpio_key_init(stm_select,
-		u2_board_rev,
-		sec_rlte_hw_rev,
-		u2evm_devices_stm_sdhi0,
-		ARRAY_SIZE(u2evm_devices_stm_sdhi0),
-		u2evm_devices_stm_sdhi1,
-		ARRAY_SIZE(u2evm_devices_stm_sdhi1),
-		u2evm_devices_stm_none,
-		ARRAY_SIZE(u2evm_devices_stm_none));
 
+	switch (stm_select) {
+		case 0:
+			p_dev = u2evm_devices_stm_sdhi0;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_sdhi0);
+			break;
+		case 1:
+			p_dev = u2evm_devices_stm_sdhi1;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_sdhi1);
+			break;
+		default:
+			p_dev = u2evm_devices_stm_none;
+			p_dev_cnt = ARRAY_SIZE(u2evm_devices_stm_none);
+			break;
+	}
+
+	if (u2_board_rev < 3) {
+		int i;
+		for (i = 0; i < p_dev_cnt; i++) {
+			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
+				p_dev[i] = &gpio_key_polled_device;
+				break;
+			}
+		}
+	}
+	platform_add_devices(p_dev, p_dev_cnt);
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)
 	mpl_init();
 #endif
@@ -3517,9 +4079,9 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #endif
 
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
-	spa_power_init();
+	platform_device_register(&spa_power_device);
 #endif
-	printk(KERN_DEBUG "%s\n", __func__);
+	printk(KERN_DEBUG "%s \n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
@@ -3536,6 +4098,80 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 __raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
 __raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
 }
+
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+
+/* CMT13 */
+#define CMSTR3		IO_ADDRESS(0xe6130300)
+#define CMCSR3		IO_ADDRESS(0xe6130310)
+#define CMCNT3		IO_ADDRESS(0xe6130314)
+#define CMCOR3		IO_ADDRESS(0xe6130318)
+#define CMCLKE		IO_ADDRESS(0xe6131000)
+
+extern spinlock_t	sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
+
+int read_current_timer(unsigned long *timer_val)
+{
+	*timer_val = __raw_readl(CMCNT3);
+	return 0;
+}
+
+static int __init setup_current_timer(void)
+{
+	struct clk *clk;
+	unsigned long lpj, flags;
+
+	clk = clk_get(NULL, "currtimer");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+	clk_enable(clk);
+
+	lpj = clk_get_rate(clk) + HZ/2;
+	do_div(lpj, HZ);
+	lpj_fine = lpj;
+
+	spin_lock_irqsave(&sh_cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
+	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+
+	__raw_writel(0, CMSTR3);
+	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
+	__raw_writel(0xffffffff, CMCOR3);
+	__raw_writel(0, CMCNT3);
+	while (__raw_readl(CMCNT3) != 0)
+		cpu_relax();
+	__raw_writel(1, CMSTR3);
+
+	pr_info("Current timer started (lpj=%lu)\n", lpj);
+
+	/*
+	 * TODO: Current timer (CMT1) MSTP bit vs. Suspend-to-RAM
+	 *
+	 * We don't have proper suspend/resume operations implemented yet
+	 * for the current timer (CMT1), so there is no guarantee that CMT1
+	 * module is functional when timer-based udelay() is used.  Thus
+	 * we need to enable CMT1 MSTP clock here, and if possible, would
+	 * like to leave it enabled forever.
+	 *
+	 * On the other hand, CMT1 should be halted during Suspend-to-RAM
+	 * state to minimize power consumption.
+	 *
+	 * To solve the problem, we make the following assumptions:
+	 *
+	 * 1) udelay() is not used from now (time_init()) until
+	 *    late_time_init() or calibrate_delay() completes
+	 *
+	 * 2) timer-based udelay() is functional as long as clocksource is
+	 *    available
+	 *
+	 * and disable CMT1 MSTP clock here not to increment CMT1 usecount.
+	 */
+	clk_disable(clk);
+	clk_put(clk);
+	return 0;
+}
+
+#endif /* ARCH_HAS_READ_CURRENT_TIMER */
 
 static void __init u2evm_timer_init(void)
 {
