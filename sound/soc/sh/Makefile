@@ -28,7 +28,7 @@ snd-soc-fsi-wm1811-objs	:= fsi-wm1811.o \
 snd-soc-fsi-hdmi-objs		:= fsi-hdmi.o
 snd-soc-migor-objs		:= migor.o
 
-obj-m							+= audience-a2220.o
+obj-$(CONFIG_SND_SOC_AUDIENCE_A2220)	+= audience-a2220.o
 obj-$(CONFIG_SND_SH7760_AC97)	+= snd-soc-sh7760-ac97.o
 obj-$(CONFIG_SND_FSI_AK4642)	+= snd-soc-fsi-ak4642.o
 obj-$(CONFIG_SND_FSI_DA7210)	+= snd-soc-fsi-da7210.o

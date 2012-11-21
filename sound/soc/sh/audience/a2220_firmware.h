@@ -13,6 +13,22 @@
  *
  */
 
+#ifdef __VCD_ES305B__
+
+#if defined(A2220_EOS2_FIRMWARE)
+#include "a2220_guardian.h"
+#elif defined(CONFIG_MACH_GOGH)
+#include "a2220_firmware_gogh.h"
+#elif defined(CONFIG_MACH_COMANCHE)
+#include "a2220_firmware_comanche.h"
+#elif defined(_d2tmo_)
+#include "a2220_firmware_t999.h"
+#else
+#include "a2220_firmware_i747.h"
+#endif
+
+#else /* __VCD_ES305B__ */
+
 #if defined(CONFIG_MACH_GOGH)
 #include "a2220_firmware_gogh.h"
 #elif defined(CONFIG_MACH_COMANCHE)
@@ -22,3 +38,5 @@
 #else
 #include "a2220_firmware_i747.h"
 #endif
+
+#endif /* __VCD_ES305B__ */
