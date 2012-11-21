@@ -375,28 +375,14 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	udc_log ("%s\n", otg_state_string(otg->state));
 	otg_put_transceiver(otg);
 #endif
+#ifdef CONFIG_HAVE_CLK
 	if(!r8a66597->old_vbus)
 	{
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
 	}
+#endif
 	udc_log("%s: IN\n", __func__);
-	if (!powerup){	
-		powerup = 1; 
-		if (r8a66597->pdata->module_start)
-			r8a66597->pdata->module_start();
-
-		/* start clock */
-		r8a66597_write(r8a66597, bwait, SYSCFG1);
-		r8a66597_bset(r8a66597, HSE, SYSCFG0);
-		r8a66597_bset(r8a66597, USBE, SYSCFG0);
-		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
-
-		r8a66597_bset(r8a66597, CTRE, INTENB0);
-		r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-		r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-	}
-	
 	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
 	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
 		if (is_vbus_powered && r8a66597->charger_detected) {
@@ -405,15 +391,17 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		}
 		if (!is_vbus_powered)
 			wake_unlock(&r8a66597->wake_lock);
-			
+#ifdef CONFIG_HAVE_CLK
 		if(!r8a66597->old_vbus) {
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
 		}
+#endif
 		udc_log("%s: return\n", __func__);
 		return;
 	}
 	r8a66597->old_vbus = is_vbus_powered;
+
 
 	if (is_vbus_powered) {
 		if (!powerup){ 
@@ -448,11 +436,6 @@ static void r8a66597_vbus_work(struct work_struct *work)
 vbus_disconnect:
 		if (delayed_work_pending(&r8a66597->charger_work))
 			cancel_delayed_work_sync(&r8a66597->charger_work);
-		//pm_runtime_get_sync(r8a66597_to_dev(r8a66597)); 
-		if (!powerup){ 
-			powerup = 1;
-		}
-
 		start_cpufreq ();		
 		printk ("%s()[%d]: start_cpufreq\n", __func__, __LINE__);
 
@@ -470,8 +453,10 @@ vbus_disconnect:
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
 		if (powerup){ 
+#ifdef CONFIG_HAVE_CLK
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+#endif
 			powerup = 0;
 			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 
@@ -2685,8 +2670,10 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 		/* do not pull up D+ line, unless explicitly requested so */
 		r8a66597->pullup_requested = 0;
 		if (powerup){
+#ifdef CONFIG_HAVE_CLK
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
+#endif
 			bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 			if (r8a66597->pdata->module_start)
 				r8a66597->pdata->module_start();
@@ -2704,10 +2691,6 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 				if (!wake_lock_active(&r8a66597->wake_lock))
 					wake_lock(&r8a66597->wake_lock);
 				schedule_delayed_work(&r8a66597->vbus_work, 0);
-			}else {
-			powerup=0;//added 0 for powerup
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
 			}
 		}
 		
@@ -2761,18 +2744,16 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	driver->unbind(&r8a66597->gadget);
 
-#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus) {
-		if (powerup){ 
+		if (powerup) {
+#ifdef CONFIG_HAVE_CLK
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+#endif
 			powerup = 0;
 			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 		}
 	}
-#endif
-
-
 	device_del(&r8a66597->gadget.dev);
 	r8a66597->driver = NULL;
 	return 0;
@@ -2835,12 +2816,13 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	free_irq(platform_get_irq(pdev, 1), r8a66597);
 	gpio_free(r8a66597->pdata->pin_gpio_1_fn);
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
-#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
 		if (!r8a66597->pdata->vbus_irq) {
-			if (powerup){ 
+			if (powerup) {
+#ifdef CONFIG_HAVE_CLK
 				r8a66597_clk_disable(r8a66597);
 				pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+#endif
 				powerup = 0; 
 				udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 			}
@@ -2848,7 +2830,6 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
-#endif
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(r8a66597);
 	return 0;
@@ -2962,16 +2943,17 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
 			goto clean_up;
+#endif
 		if (!powerup){
+#ifdef CONFIG_HAVE_CLK
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
+#endif
 			powerup = 1;
 			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 		}
 				
 	}
-#endif
-
 	disable_controller(r8a66597); /* make sure controller is disabled */
 
 #ifdef CONFIG_USB_OTG
@@ -3033,8 +3015,10 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597_bset(r8a66597, TRENB, PIPE2TRE);
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
+#ifdef CONFIG_HAVE_CLK
 	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
 	r8a66597_clk_disable(r8a66597);
+#endif
 	return 0;
 
 clean_up4:
@@ -3042,11 +3026,12 @@ clean_up4:
 clean_up3:
 	free_irq(irq, r8a66597);
 clean_up2:
-#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		if (powerup){ 
+		if (powerup) {
+#ifdef CONFIG_HAVE_CLK
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+#endif
 			powerup = 0; 
 			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 
@@ -3055,7 +3040,6 @@ clean_up2:
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
-#endif
 clean_up:
 	dev_set_drvdata(&pdev->dev, NULL);
 	if (r8a66597) {
@@ -3157,7 +3141,6 @@ static int r8a66597_udc_suspend(struct device *dev)
 	
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
-
 	if(!powerup) 
 		return 0;
 
@@ -3174,8 +3157,10 @@ static int r8a66597_udc_suspend(struct device *dev)
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
 	}
+#ifdef CONFIG_HAVE_CLK
 	r8a66597_clk_disable(r8a66597);
 	pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+#endif
 	powerup = 0;
 	udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 	
@@ -3191,10 +3176,12 @@ static int r8a66597_udc_resume(struct device *dev)
 	gpio_pull_off_port(r8a66597->pdata->pin_gpio_1);
 	gpio_pull_off_port(r8a66597->pdata->pin_gpio_2);
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
+#ifdef CONFIG_HAVE_CLK
 	if(r8a66597->old_vbus) {
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
-	}
+}
+#endif
 	schedule_delayed_work(&r8a66597->vbus_work,0);
 	return 0;
 }
