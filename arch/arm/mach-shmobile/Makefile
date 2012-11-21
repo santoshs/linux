@@ -82,14 +82,14 @@ obj-y += setup-u2touchkey.o
 # touchscreen
 obj-y += setup-u2mxt224.o
 # vibrator
-#obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
+obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 # charging
-#obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
+obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
 # current timer
-#obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
+obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 # sdhi
-#obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
+obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 # gpio_key and keysc
-#obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
+obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
