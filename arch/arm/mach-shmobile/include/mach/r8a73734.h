@@ -444,6 +444,8 @@ extern struct hwspinlock *r8a73734_hwlock_gpio;
 extern struct hwspinlock *r8a73734_hwlock_cpg;
 extern struct hwspinlock *r8a73734_hwlock_sysc;
 
+#define SMGP000_PMIC SMGP000 /* for PMIC GPADC access from APE/Modem */
+
 #endif /* __ASSEMBLY__*/
 
 #if 0
