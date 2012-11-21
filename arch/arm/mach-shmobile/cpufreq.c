@@ -52,9 +52,9 @@
 
 /* Clocks State */
 enum clock_state {
-	MODE_NORMAL = 0,
-	MODE_EARLY_SUSPEND,
 	MODE_SUSPEND,
+	MODE_NORMAL,
+	MODE_EARLY_SUSPEND,
 	MODE_NUM
 };
 #define SUSPEND_CPUFREQ15 FREQ_MID_LOWER_LIMIT15	/* Suspend */
