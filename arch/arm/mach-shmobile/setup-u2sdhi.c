@@ -42,14 +42,36 @@ static struct renesas_sdhi_dma sdhi0_dma = {
 	}
 };
 
+static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
+	[0] = {
+		.flag = 1,
+		.port = GPIO_PORT327,
+		.active = {
+			.port_mux 	= GPIO_PORT327,
+			.pull 		= RENESAS_SDHI_PULL_OFF,
+			.direction	= RENESAS_SDHI_DIRECTION_INPUT,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux 	= GPIO_FN_SDHICD0,
+			.pull 		= RENESAS_SDHI_PULL_UP,
+			.direction	= RENESAS_SDHI_DIRECTION_NOT_SET,
+			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		}
+	},
+};
+
 struct renesas_sdhi_platdata sdhi0_info = {
-	.caps		= 0,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
-	.dma		= &sdhi0_dma,
-	.set_pwr	= sdhi0_set_pwr,
-	.detect_irq	= irqpin2irq(50),
-	.detect_msec	= 0,
-	.get_cd		= sdhi0_get_cd,
+	.caps			= 0,
+	.flags			= RENESAS_SDHI_SDCLK_OFFEN |
+					RENESAS_SDHI_WP_DISABLE,
+	.dma			= &sdhi0_dma,
+	.set_pwr		= sdhi0_set_pwr,
+	.detect_irq		= irqpin2irq(50),
+	.detect_msec		= 0,
+	.get_cd			= sdhi0_get_cd,
+	.port_cnt		= ARRAY_SIZE(sdhi0_gpio_setting_info),
+	.gpio_setting_info	= &sdhi0_gpio_setting_info,
 };
 
 static struct resource sdhi0_resources[] = {

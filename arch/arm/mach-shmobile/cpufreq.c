@@ -30,6 +30,7 @@
 #include <linux/earlysuspend.h>
 #include <linux/slab.h>
 #include <asm/system.h>
+#include <mach/common.h>
 #include <mach/pm.h>
 
 #ifdef pr_fmt
@@ -37,20 +38,27 @@
 #define pr_fmt(fmt) "dvfs[cpufreq.c<%d>]:" fmt, __LINE__
 #endif
 
-#define FREQ_MAX 1456000
-#define FREQ_MID_UPPER_LIMIT 910000
-#define FREQ_MID_LOWER_LIMIT 455000
-#define FREQ_MIN_UPPER_LIMIT 364000
-#define FREQ_MIN_LOWER_LIMIT 273000
+#define EXTAL1 26000
+#define FREQ_MAX15 1456000
+#define FREQ_MID_UPPER_LIMIT15 910000
+#define FREQ_MID_LOWER_LIMIT15 455000
+#define FREQ_MIN_UPPER_LIMIT15 364000
+#define FREQ_MIN_LOWER_LIMIT15 273000
+#define FREQ_MAX12 1196000
+#define FREQ_MID_UPPER_LIMIT12 897000
+#define FREQ_MID_LOWER_LIMIT12 448500
+#define FREQ_MIN_UPPER_LIMIT12 373750
+#define FREQ_MIN_LOWER_LIMIT12 299000
 
 /* Clocks State */
 enum clock_state {
-	MODE_SUSPEND = 0,
-	MODE_NORMAL,
+	MODE_NORMAL = 0,
 	MODE_EARLY_SUSPEND,
+	MODE_SUSPEND,
 	MODE_NUM
 };
-#define SUSPEND_CPUFREQ FREQ_MID_LOWER_LIMIT	/* Suspend */
+#define SUSPEND_CPUFREQ15 FREQ_MID_LOWER_LIMIT15	/* Suspend */
+#define SUSPEND_CPUFREQ12 FREQ_MID_LOWER_LIMIT12
 #define CORESTB_CPUFREQ CPUFREQ_ENTRY_INVALID   /* CoreStandby */
 #define FREQ_TRANSITION_LATENCY  (CONFIG_SH_TRANSITION_LATENCY * NSEC_PER_USEC)
 
@@ -58,7 +66,7 @@ enum clock_state {
 #define MAX_HP_DIVRATE	DIV1_12
 
 /* For change sampling rate & down factor dynamically */
-#define SAMPLING_RATE_DEF 50000
+#define SAMPLING_RATE_DEF FREQ_TRANSITION_LATENCY
 #define SAMPLING_RATE_LOW 500000
 #define SAMPLING_DOWN_FACTOR_DEF 20
 #define SAMPLING_DOWN_FACTOR_LOW 1
@@ -67,6 +75,8 @@ enum clock_state {
 #define BACK_UP_STATE	2
 #define NORMAL_STATE	3
 #define STOP_STATE	4
+
+#define HWREV_041	4
 
 /* FIX me: need mock for bellow APIs
  *	   this should be disabled after got mock funcion
@@ -89,6 +99,12 @@ struct shmobile_cpuinfo {
 	unsigned int freq;
 	unsigned int req_rate[CONFIG_NR_CPUS];
 	unsigned int limit_maxfrq;
+	unsigned int freq_max;
+	unsigned int freq_mid_upper_limit;
+	unsigned int freq_mid_lower_limit;
+	unsigned int freq_min_upper_limit;
+	unsigned int freq_min_lower_limit;
+	unsigned int freq_suspend;
 	int sgx_flg;
 	int clk_state;
 	int scaling_locked;
@@ -96,6 +112,7 @@ struct shmobile_cpuinfo {
 };
 
 /**************** static ****************/
+static int zclk12_flg;
 #ifdef CONFIG_PM_DEBUG
 int cpufreq_enabled = 1;
 #endif /* CONFIG_PM_DEBUG */
@@ -119,7 +136,7 @@ static struct {
 	int pllratio;
 	int div_rate;
 	int waveform;
-} zdiv_table[] = {
+} zdiv_table15[] = {
 	{ PLLx56, DIV1_1, LLx16_16},	/* 1,456 MHz	*/
 	{ PLLx49, DIV1_1, LLx14_16},	/* 1,274 MHz	*/
 	{ PLLx42, DIV1_1, LLx12_16},	/* 1,092 MHz	*/
@@ -130,7 +147,19 @@ static struct {
 	{ PLLx35, DIV1_2, LLx5_16},	/*   455 MHz	*/
 	{ PLLx56, DIV1_4, LLx4_16},	/*   364 MHz	*/
 	{ PLLx42, DIV1_4, LLx3_16},	/*   273 MHz	*/
-};
+},
+zdiv_table12[] = {
+	{ PLLx46, DIV1_1, LLx16_16},	/* 1196    MHz	*/
+	{ PLLx46, DIV1_1, LLx14_16},	/* 1046.5  MHz	*/
+	{ PLLx46, DIV1_1, LLx12_16},	/*  897    MHz	*/
+	{ PLLx46, DIV1_1, LLx10_16},	/*  747.5  MHz	*/
+	{ PLLx46, DIV1_2, LLx9_16},	/*  672.75 MHz	*/
+	{ PLLx46, DIV1_2, LLx7_16},	/*  523.25 MHz	*/
+	{ PLLx46, DIV1_2, LLx6_16},	/*  448.5  MHz	*/
+	{ PLLx46, DIV1_2, LLx5_16},	/*  373.75 MHz	*/
+	{ PLLx46, DIV1_4, LLx4_16},	/*  299    MHz	*/
+},
+*zdiv_table = NULL;
 
 static int debug = 1;
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
@@ -141,14 +170,17 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
+#define HOTPLUG_IN_ACTIVE	1
 static void do_check_cpu(struct work_struct *work);
 static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu);
 
 /* FIX me: need to study more about below const */
 #define DEF_MAX_REQ_NR		10
 #define DEF_MAX_REQ_CHECK_NR	2
-#define DEF_UNPLUG_THRESHOLD	364000	/* KHz */
-#define DEF_PLUG_THRESHOLD	910000	/* KHz */
+#define DEF_UNPLUG_THRESHOLD12	373750	/* KHz */
+#define DEF_PLUG_THRESHOLD12	897000	/* KHz */
+#define DEF_UNPLUG_THRESHOLD15	364000	/* KHz */
+#define DEF_PLUG_THRESHOLD15	910000	/* KHz */
 #define DEF_MAX_SAM_IN_US	(FREQ_TRANSITION_LATENCY * 2) /* 50ms * 2 */
 
 static struct {
@@ -163,8 +195,8 @@ static struct {
 } hlg_config = {
 	.req_chk_nr = DEF_MAX_REQ_CHECK_NR,
 	.req_his_idx = 0,
-	.plug_threshold = DEF_PLUG_THRESHOLD,
-	.unplug_threshold = DEF_UNPLUG_THRESHOLD,
+	.plug_threshold = DEF_PLUG_THRESHOLD15,
+	.unplug_threshold = DEF_UNPLUG_THRESHOLD15,
 	.sampling_rate = DEF_MAX_SAM_IN_US,
 	.hlg_enabled = 0
 };
@@ -313,6 +345,8 @@ static inline int fixup_all_cpu_up(void)
 	if (the_cpuinfo.limit_maxfrq < hlg_config.plug_threshold)
 		return 1;
 
+	if (the_cpuinfo.highspeed.used)
+		return 1;
 	/* policy update */
 	if (policy_update())
 		return 1;
@@ -324,7 +358,7 @@ static inline int fixup_all_cpu_up(void)
 
 	/* by request */
 	if (the_cpuinfo.upper_lowspeed.used &&
-	   (FREQ_MIN_UPPER_LIMIT > hlg_config.unplug_threshold))
+	   (the_cpuinfo.freq_min_upper_limit >= hlg_config.unplug_threshold))
 		return 1;
 
 	return 0;
@@ -516,21 +550,22 @@ int __clk_get_rate(struct clk_rate *rate)
 	unsigned int target_freq = the_cpuinfo.freq;
 	int clkmode = 0;
 	int ret = 0;
+	int level = 0;
 
 	if (!rate) {
 		pr_err("invalid parameter<NULL>\n");
 		return -EINVAL;
 	}
 
-	clkmode = the_cpuinfo.clk_state;
-	/* get the frequency mode */
-	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
-		if (target_freq <= FREQ_MID_UPPER_LIMIT)
-			clkmode++;
-		if (target_freq <= FREQ_MIN_UPPER_LIMIT)
-			clkmode++;
-	}
+	if (target_freq <= the_cpuinfo.freq_mid_upper_limit)
+		level++;
+	if (target_freq <= the_cpuinfo.freq_min_upper_limit)
+		level++;
 
+	if (the_cpuinfo.clk_state == MODE_SUSPEND)
+		clkmode = 0;
+	else
+		clkmode = the_cpuinfo.clk_state * MODE_NUM + level + 1;
 	/* get clocks setting according to clock mode */
 	ret = pm_get_clock_mode(clkmode, rate);
 	if (ret)
@@ -640,7 +675,7 @@ static inline void __change_sampling_values(void)
 		sampling_flag = NORMAL_STATE;
 	}
 	if ((the_cpuinfo.clk_state == MODE_EARLY_SUSPEND &&
-		the_cpuinfo.freq <= FREQ_MIN_UPPER_LIMIT) ||
+		the_cpuinfo.freq <= the_cpuinfo.freq_min_upper_limit) ||
 		the_cpuinfo.clk_state == MODE_SUSPEND) {
 		if (NORMAL_STATE == sampling_flag) {/* Backup old values */
 			samplrate_downfact_get(&samrate, &downft);
@@ -763,16 +798,17 @@ int stop_cpufreq(void)
 			spin_unlock(&the_cpuinfo.lock);
 			return ret;
 		}
-
-		/* this must be set for cpufreq_update_policy() */
-		cur_policy->user_policy.max = freq_new;
-		pr_log("update plicy->max\n");
-		ret = cpufreq_update_policy(0);
 	}
 
 	atomic_inc(&the_cpuinfo.highspeed.usage_count);
 	spin_unlock(&the_cpuinfo.lock);
 
+	if (0 != freq_new) {
+		/* this must be set for cpufreq_update_policy() */
+		cur_policy->user_policy.max = freq_new;
+		pr_log("update plicy->max\n");
+		ret = cpufreq_update_policy(0);
+	}
 #ifdef DYNAMIC_HOTPLUG_CPU
 	/* high-speed mode, need both CPUs online */
 	if (the_cpuinfo.highspeed.used) {
@@ -812,12 +848,12 @@ void disable_dfs_mode_min(void)
 	 * emergency case, CPU is hot, do not allow user to change
 	 * frequency now
 	 */
-	if (the_cpuinfo.limit_maxfrq <= FREQ_MIN_UPPER_LIMIT)
+	if (the_cpuinfo.limit_maxfrq <= the_cpuinfo.freq_min_upper_limit)
 		goto done;
 
 	if (!atomic_read(&the_cpuinfo.upper_lowspeed.usage_count)) {
-		if (the_cpuinfo.freq <= FREQ_MIN_UPPER_LIMIT) {
-			freq_new = FREQ_MID_LOWER_LIMIT;
+		if (the_cpuinfo.freq <= the_cpuinfo.freq_min_upper_limit) {
+			freq_new = the_cpuinfo.freq_mid_lower_limit;
 			ret = __set_all_clocks(freq_new);
 			if (ret)
 				goto done;
@@ -928,13 +964,13 @@ int suspend_cpufreq(void)
 	 * emergency case, CPU is hot, do not allow user to change
 	 * frequency now
 	 */
-	if (the_cpuinfo.limit_maxfrq < SUSPEND_CPUFREQ)
+	if (the_cpuinfo.limit_maxfrq < the_cpuinfo.freq_suspend)
 		goto done;
 
 	the_cpuinfo.clk_state = MODE_SUSPEND;
 
 	/* get the clock value for suspend state */
-	freq_new = SUSPEND_CPUFREQ;
+	freq_new = the_cpuinfo.freq_suspend;
 
 	/* change SYS-CPU frequency */
 	ret = __set_all_clocks(freq_new);
@@ -978,7 +1014,7 @@ int resume_cpufreq(void)
 	the_cpuinfo.clk_state = MODE_EARLY_SUSPEND;
 	freq_new = the_cpuinfo.freq;
 	if (the_cpuinfo.highspeed.used)
-		freq_new = FREQ_MAX;
+		freq_new = the_cpuinfo.freq_max;
 
 	ret = __set_all_clocks(freq_new);
 	spin_unlock(&the_cpuinfo.lock);
@@ -1141,13 +1177,13 @@ int limit_max_cpufreq(int max)
 	spin_lock(&the_cpuinfo.lock);
 	switch (max) {
 	case LIMIT_NONE:
-		the_cpuinfo.limit_maxfrq = FREQ_MAX;
+		the_cpuinfo.limit_maxfrq = the_cpuinfo.freq_max;
 		break;
 	case LIMIT_MID:
-		the_cpuinfo.limit_maxfrq = FREQ_MID_UPPER_LIMIT;
+		the_cpuinfo.limit_maxfrq = the_cpuinfo.freq_mid_upper_limit;
 		break;
 	case LIMIT_LOW:
-		the_cpuinfo.limit_maxfrq = FREQ_MIN_UPPER_LIMIT;
+		the_cpuinfo.limit_maxfrq = the_cpuinfo.freq_min_upper_limit;
 		break;
 	default:
 		spin_unlock(&the_cpuinfo.lock);
@@ -1262,12 +1298,14 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 		ret = __set_all_clocks(the_cpuinfo.freq);
 		spin_unlock(&the_cpuinfo.lock);
 #ifdef DYNAMIC_HOTPLUG_CPU
+#ifndef HOTPLUG_IN_ACTIVE
 		/* dynamic hotplug cpu-core */
 		mutex_lock(&hlg_config.timer_mutex);
 		hlg_config.hlg_enabled = 1;
 		mutex_unlock(&hlg_config.timer_mutex);
 		schedule_delayed_work_on(0, &hlg_work,
 			usecs_to_jiffies(hlg_config.sampling_rate));
+#endif /* HOTPLUG_IN_ACTIVE */
 #endif /* DYNAMIC_HOTPLUG_CPU */
 	}
 }
@@ -1296,12 +1334,13 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 
 		/* fixed: MAX frequency is used */
 		if (the_cpuinfo.highspeed.used)
-			(void)__set_all_clocks(FREQ_MAX);
+			(void)__set_all_clocks(the_cpuinfo.freq_max);
 		else
 			(void)__set_all_clocks(the_cpuinfo.freq);
 
 		spin_unlock(&the_cpuinfo.lock);
 #ifdef DYNAMIC_HOTPLUG_CPU
+#ifndef HOTPLUG_IN_ACTIVE
 		/* dynamic hotplug cpu-core */
 		mutex_lock(&hlg_config.timer_mutex);
 		/* cancel workqueue from now on */
@@ -1313,6 +1352,7 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 		/* boot all secondaries cpu */
 		wakeup_nonboot_cpus();
 		mutex_unlock(&hlg_config.timer_mutex);
+#endif /* HOTPLUG_IN_ACTIVE */
 #endif /* DYNAMIC_HOTPLUG_CPU */
 	}
 }
@@ -1407,7 +1447,8 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	 * is suppressed
 	 */
 	if (the_cpuinfo.upper_lowspeed.used)
-		freq = max((unsigned int)FREQ_MID_LOWER_LIMIT, freq);
+		freq = max((unsigned int)the_cpuinfo.freq_mid_lower_limit,
+						freq);
 
 	/* current frequency is set */
 	if ((the_cpuinfo.freq == freq))
@@ -1531,13 +1572,28 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	the_cpuinfo.scaling_locked = 0;
 	the_cpuinfo.highspeed.used = false;
 	the_cpuinfo.upper_lowspeed.used = false;
+	if (0 != zclk12_flg) {
+		the_cpuinfo.freq_max = FREQ_MAX12;
+		the_cpuinfo.freq_mid_upper_limit = FREQ_MID_UPPER_LIMIT12;
+		the_cpuinfo.freq_mid_lower_limit = FREQ_MID_LOWER_LIMIT12;
+		the_cpuinfo.freq_min_upper_limit = FREQ_MIN_UPPER_LIMIT12;
+		the_cpuinfo.freq_min_lower_limit = FREQ_MIN_LOWER_LIMIT12;
+		the_cpuinfo.freq_suspend = SUSPEND_CPUFREQ12;
+	} else {
+		the_cpuinfo.freq_max = FREQ_MAX15;
+		the_cpuinfo.freq_mid_upper_limit = FREQ_MID_UPPER_LIMIT15;
+		the_cpuinfo.freq_mid_lower_limit = FREQ_MID_LOWER_LIMIT15;
+		the_cpuinfo.freq_min_upper_limit = FREQ_MIN_UPPER_LIMIT15;
+		the_cpuinfo.freq_min_lower_limit = FREQ_MIN_LOWER_LIMIT15;
+		the_cpuinfo.freq_suspend = SUSPEND_CPUFREQ15;
+	}
 	atomic_set(&the_cpuinfo.highspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.upper_lowspeed.usage_count, 0);
 
 	/*
 	 * loader had set the frequency to MAX, already.
 	 */
-	the_cpuinfo.limit_maxfrq = FREQ_MAX;
+	the_cpuinfo.limit_maxfrq = the_cpuinfo.freq_max;
 	the_cpuinfo.freq = pm_get_syscpu_frequency();
 	ret = cpufreq_frequency_table_cpuinfo(policy, freq_table);
 	if (ret)
@@ -1555,6 +1611,13 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	mutex_init(&hlg_config.timer_mutex);
 	for (i = 0; i < DEF_MAX_REQ_NR; i++)
 		hlg_config.req_his_freq[i] = the_cpuinfo.freq;
+	if (0 != zclk12_flg) {
+		hlg_config.plug_threshold = DEF_PLUG_THRESHOLD12;
+		hlg_config.unplug_threshold = DEF_UNPLUG_THRESHOLD12;
+	} else {
+		hlg_config.plug_threshold = DEF_PLUG_THRESHOLD15;
+		hlg_config.unplug_threshold = DEF_UNPLUG_THRESHOLD15;
+	}
 #endif /* DYNAMIC_HOTPLUG_CPU */
 
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
@@ -1612,17 +1675,50 @@ static int __init shmobile_cpu_init(void)
 {
 	int ret = 0;
 	int i = 0;
-
+	int pll0_ratio = 0;
+	int arr_size = 0;
+#if 0
+	unsigned int hw_rev = 0;
+#endif
 #ifdef DVFS_DEBUG_MODE
 	debug = 1;
 #else  /* !DVFS_DEBUG_MODE */
 	debug = 0;
 #endif /* DVFS_DEBUG_MODE */
 	/* build frequency table */
-	for (i = 0; i < ARRAY_SIZE(zdiv_table); i++) {
+#if 0 /* Disable board rev checking */
+	hw_rev = u2_get_board_rev();
+	pr_info("------hw_rev = %d", hw_rev);
+	if (hw_rev >= HWREV_041)
+		zclk12_flg = 1;
+	else
+		zclk12_flg = 0;
+#else
+#if defined(CONFIG_BOARD_VERSION_V041) && !defined(CPUFREQ_OVERDRIVE)
+	zclk12_flg = 1;
+#else
+	zclk12_flg = 0;
+#endif /* CONFIG_BOARD_VERSION_V041 && CPUFREQ_OVERDRIVE */
+#endif /* Disable board rev checking */
+	if (0 != zclk12_flg) {
+		pll0_ratio = PLLx46;
+		zdiv_table = zdiv_table12;
+		arr_size = (int)ARRAY_SIZE(zdiv_table12);
+	} else {
+		pll0_ratio = PLLx56;
+		zdiv_table = zdiv_table15;
+		arr_size = (int)ARRAY_SIZE(zdiv_table15);
+	}
+
+	if (pll0_ratio != pm_get_pll_ratio(PLL0)) {
+		pr_info("Try to set PLL0 = x%d...", pll0_ratio);
+		pm_set_pll_ratio(PLL0, pll0_ratio);
+	}
+	pr_info("----> PLL0 = x%d", pm_get_pll_ratio(PLL0));
+	for (i = 0; i < arr_size; i++) {
 		main_freqtbl_es2_x[i].index = i;
 		main_freqtbl_es2_x[i].frequency =
-			FREQ_MAX * zdiv_table[i].waveform / 16;
+		pll0_ratio * EXTAL1 * zdiv_table[i].waveform / 16;
 	}
 	main_freqtbl_es2_x[i].index = i;
 	main_freqtbl_es2_x[i].frequency = CPUFREQ_TABLE_END;
@@ -1844,6 +1940,11 @@ static struct attribute_group attr_group = {
 
 static int __init shmobile_sysfs_init(void)
 {
+#ifdef DYNAMIC_HOTPLUG_CPU
+#ifdef HOTPLUG_IN_ACTIVE
+	hlg_config.hlg_enabled = 1;
+#endif /* HOTPLUG_IN_ACTIVE */
+#endif /* DYNAMIC_HOTPLUG_CPU */
 	/* Create the files associated with power kobject */
 	return sysfs_create_group(power_kobj, &attr_group);
 }

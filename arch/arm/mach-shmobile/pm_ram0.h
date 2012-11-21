@@ -75,7 +75,7 @@
 
 #define	fsSystemSuspendCPU0PA	0x80 /* CPU0: Suspend with MMU off */
 #define	fsCoreStandbyPA		0x1C0 /* CoreStandby function with MMU off */
-#define	fsCoreStandbyPA2	0x240 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA2	0x140 /* CoreStandby function with MMU off */
 #define	fsPM_Spin_Lock		0x180 /* PM_Spin_Lock */
 #define	fsPM_Spin_Unlock	0xA0 /* PM_Spin_Unlock */
 #define	fsDisableMMU		0x20 /* Disable MMU function */

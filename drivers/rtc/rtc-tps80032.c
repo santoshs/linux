@@ -258,6 +258,7 @@ static int tps80032_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	ret = rtc_reads(dev->parent, RTC_SECONDS_REG, 7, val);
 	if (ret < 0) {
 		dev_err(dev->parent, "failed reading time\n");
+		mutex_unlock(&set_time_lock);
 		goto exit;
 	}
 

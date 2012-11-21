@@ -2685,6 +2685,8 @@ static int fsg_main_thread(void *common_)
 
 	/* Let fsg_unbind() know the thread has exited */
 	complete_and_exit(&common->thread_notifier, 0);
+
+	return 0;
 }
 
 

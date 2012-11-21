@@ -58,6 +58,7 @@ obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
+obj-$(CONFIG_MACH_U2USB)     += setup-u2usb.o
 # BT object
 obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
 
@@ -76,6 +77,10 @@ obj-y += crashlog.o
 
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
+# touchkey
+obj-y += setup-u2touchkey.o
+# touchscreen
+obj-y += setup-u2mxt224.o
 # vibrator
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 # charging
@@ -86,3 +91,5 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 # gpio_key and keysc
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
+#setup-u2tps80032
+obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o

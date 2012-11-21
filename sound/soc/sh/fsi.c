@@ -1416,7 +1416,7 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 #endif /* USE_DMA */
 
 	/* chip revision check */
-	/* for ES2.0 */
+	/* for ES2.0 or FSI Master*/
 	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
 		if (fsi_is_port_a(fsi))
 			fsi_master_write(master, FSIDIVA, 0x00490003);
@@ -1427,16 +1427,17 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			fsi_reg_mask_set(fsi, ACK_MD, 0x00007701, 0x00004001);
 		else
 			fsi_reg_mask_set(fsi, ACK_MD, 0x00007710, 0x00004010);
-	/*for ES1.0 */
+	/*for ES1.0 or CLKGEN Master*/
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
 		is_master = fsi_is_master_mode(fsi, is_play);
-		fsi_reg_mask_set(fsi, ACK_MD, 7<<12, 2<<12);
-		fsi_reg_mask_set(fsi, ACK_MD, 7<<8, 1<<8);
+		fsi_reg_mask_set(fsi, ACK_MD, 7<<12, 4<<12);
+		fsi_reg_mask_set(fsi, ACK_MD, 7<<8, 0<<8);
 		if (is_master && !master->info->always_slave)
 			fsi_reg_mask_set(fsi, ACK_MD, data, data);
 		else
 			fsi_reg_mask_set(fsi, ACK_MD, data, 0);
+
 		/* clock inversion (ACK_RV) */
 		data = 0;
 		if (SH_FSI_LRM_INV & flags)
@@ -1447,6 +1448,7 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			data |= 1 << 4;
 		if (SH_FSI_BRS_INV & flags)
 			data |= 1 << 0;
+
 		fsi_reg_write(fsi, ACK_RV, data);
 	}
 

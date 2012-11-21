@@ -695,7 +695,7 @@ static int cpg_get_pll(int pll);
 static int cpg_get_freqval(int clk, int *div);
 #endif /*CONFIG_CPU_FREQ*/
 static inline int __div(enum clk_div c_div);
-static int cpg_get_freq(struct clk_rate *rates);
+/* static int cpg_get_freq(struct clk_rate *rates); */
 static inline int __match_div_rate(int clk, int val);
 static int transition_notifier_cb(struct notifier_block *, unsigned long, void *);
 static int start_monitor(void);
@@ -907,6 +907,7 @@ static inline int __div(enum clk_div c_div)
  *		0: successful
  *		negative: operation fail
  */
+#if 0
 static int cpg_get_freq(struct clk_rate *rates)
 {
 	struct clk_rate get_rate;
@@ -981,7 +982,7 @@ static int cpg_get_freq(struct clk_rate *rates)
 
 	return 0;
 }
-
+#endif
 
 static int start_dfs_cmd(char *para, int size)
 {

@@ -83,6 +83,11 @@ config MACH_U2EVM
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A73734
 
+config MACH_U2USB
+	bool "U2USB board"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A73734
+
 config U2_ES1
 	bool "U2 ES1.0"
 	default y
@@ -105,7 +110,7 @@ config MEMORY_START
 	default "0x50000000" if MACH_G3EVM
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL
-	default "0x59000000" if MACH_U2EVM
+	default "0x52000000" if MACH_U2EVM
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -269,4 +274,20 @@ config RENESAS_BT
 	bool "Renesas reference implementation for BT"
 	default n
 	depends on RENESAS
+
+config RENESAS_NFC
+	bool "Renesas reference implementation for NFC"
+	default n
+	depends on RENESAS
+
+config RENESAS_GPS
+	bool "Renesas reference implementation for GPS"
+	default n
+	depends on RENESAS
+
+config BOARD_VERSION_V041
+	default y
+	bool "board_revision"
+	help
+	  Board revision 
 endif

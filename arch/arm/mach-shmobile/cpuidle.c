@@ -376,6 +376,67 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 }
 
 /*
+ * corestandby_2_pll1_condition_set
+ *
+ * return:
+ *		0: successful
+ *		-1: C4 is set to PLL1 stop condition.
+ */
+static int corestandby_2_pll1_condition_set(void)
+{
+	if ((__raw_readl(CPG_MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
+		goto set_pll1_c4;
+
+	if ((__raw_readl(CPG_MSTPSR2) & MSTPST2_PLL1) != MSTPST2_PLL1)
+		goto set_pll1_c4;
+
+	if ((__raw_readl(CPG_MSTPSR3) & MSTPST3_PLL1) != MSTPST3_PLL1)
+		goto set_pll1_c4;
+
+	if ((__raw_readl(CPG_MSTPSR4) & MSTPST4_PLL1) == MSTPST4_PLL1)
+		goto set_pll1_c4_skip;
+
+set_pll1_c4:
+	__raw_writel(__raw_readl(CPG_PLL1STPCR) | C4STP, CPG_PLL1STPCR);
+	return -1;
+
+set_pll1_c4_skip:
+	return 0;
+}
+
+static void corestandby_2_pll1_condition_at_wakeup(void)
+{
+	__raw_writel(__raw_readl(CPG_PLL1STPCR) & (~C4STP), CPG_PLL1STPCR);
+}
+
+#define POWER_BBPLLST					BIT(7)
+#define POWER_BBPLLOFF					BIT(7)
+
+/*
+ * corestandby_2_pll1_will_be_off_check
+ *
+ * return:
+ *		0: successful
+ *		-1: PLL1 cannot be off
+ */
+static int corestandby_2_pll1_will_be_off_check(void)
+{
+	/* pll1 condition is successful */
+	if (corestandby_2_pll1_condition_set() < 0)
+		return -1;
+
+	/* A3R off ? */
+	if (__raw_readl(PSTR) & POWER_A3R)
+		return -1;
+
+	/* Bit7(BBPLLST) of SYSC.PSTR==0 ? */
+	if (__raw_readl(PSTR) & POWER_BBPLLST)
+		return -1;
+
+	return 0;
+}
+
+/*
  * shmobile_enter_corestandby_2:
  * Executes idle PM for a CPU - CoreStandby_2 state
  * @dev: the target CPU
@@ -392,6 +453,8 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 
 	int cpuid = smp_processor_id();
 	unsigned int dr_WUPSFAC;
+	struct clk_rate before_corestandby_clocks, corestandby_clocks;
+	int clocks_ret, clocks_changed = 0;
 #if DISPLAY_LOG
 	printk(KERN_INFO "Standby-2 IN  %d\n", cpuid);
 #endif
@@ -409,11 +472,66 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 #ifdef CORESTANDBY_DFS
 		corestandby_cpufreq();
 #endif
-		if (cpuid == 0) {
+		if ((cpuid == 0) &&
+		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG)) {
 #ifdef CONFIG_PM_HAS_SECURE
 			__raw_writel(0, ram0SecHalReturnCpu0);
 #endif
+
+#ifdef PLL1_CAN_OFF
+			/* PLL1 is sure to be off ? */
+			if (corestandby_2_pll1_will_be_off_check() < 0)
+				goto skip_clock_change;
+
+			/* clock table */
+			clocks_ret = cpg_get_freq(&before_corestandby_clocks);
+			if (clocks_ret < 0)
+				goto skip_clock_change;
+
+			(void)memcpy(&corestandby_clocks,
+			&before_corestandby_clocks, sizeof(struct clk_rate));
+
+			corestandby_clocks.i_clk = DIV1_6;
+			corestandby_clocks.zg_clk = DIV1_4;
+			corestandby_clocks.m3_clk = DIV1_8;
+			corestandby_clocks.b_clk = DIV1_12;
+			corestandby_clocks.m1_clk = DIV1_6;
+			corestandby_clocks.m5_clk = DIV1_8;
+
+			corestandby_clocks.ztr_clk = DIV1_4;
+			corestandby_clocks.zt_clk = DIV1_6;
+			corestandby_clocks.zx_clk = DIV1_6;
+			corestandby_clocks.zs_clk = DIV1_6;
+			corestandby_clocks.hp_clk = DIV1_12;
+			/* set clocks */
+			clocks_ret =
+			corestandby_pm_set_clocks(corestandby_clocks);
+			if (clocks_ret < 0)
+				printk(KERN_INFO "[%s]: set clocks FAILED\n", \
+				__func__);
+
+			clocks_changed = 1;
+
+skip_clock_change:
+			/* end clock table */
+#endif
 			start_corestandby_2(); /* CoreStandby(A2SL Off) */
+
+#ifdef PLL1_CAN_OFF
+			/* update pll1 stop condition without C4 */
+			corestandby_2_pll1_condition_at_wakeup();
+
+			/* restore clocks */
+			if (clocks_changed) {
+				clocks_ret =
+				corestandby_pm_set_clocks(
+				before_corestandby_clocks);
+				if (clocks_ret < 0)
+					printk(KERN_INFO
+					"[%s]: restore clocks FAILED\n ", \
+					__func__);
+			}
+#endif
 			dr_WUPSFAC = __raw_readl(WUPSFAC);
 #if 0	/* for debug */
 			if (dr_WUPSFAC)
@@ -559,6 +677,7 @@ static int shmobile_init_cpuidle(void)
 	struct cpuidle_device *device;
 	unsigned int smstpcr5_val;
 	unsigned int mstpsr5_val;
+	unsigned int pstr_val;
 	unsigned long flags;
 	int count;
 	void __iomem *map = NULL;
@@ -806,7 +925,8 @@ static int shmobile_init_cpuidle(void)
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
-       printk(KERN_INFO "[%s] No. idle state: %d\n", __func__, SHMOBILE_MAX_STATES);
+		printk(KERN_INFO "[%s] No. idle state: %d\n", \
+				__func__, SHMOBILE_MAX_STATES);
 
 	for_each_possible_cpu(count) {
 		device = &per_cpu(shmobile_cpuidle_device, count);
@@ -856,13 +976,21 @@ static int shmobile_init_cpuidle(void)
 	__raw_writel(CPG_LPCKCR_26MHz, CPG_LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
 	__raw_writel(A2SLSTP, CPG_PLL0STPCR);
-	/* - set PLL1 stop conditon to A2SL, C4, A3R state by CPG.PLL1STPCR */
+#ifdef PLL1_CAN_OFF
+	/* - set PLL1 stop conditon to A2SL, A3R state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, CPG_PLL1STPCR);
-	/* - set Wake up factor unmask to GIC.CPU0,CPU1 by SYS.WUPSMSK */
+#else
+	__raw_writel(PLL1STPCR_DEFALT | C4STP, CPG_PLL1STPCR);
+#endif
+	do {
+		__raw_writel(POWER_BBPLLOFF, SPDCR);
+		pstr_val = __raw_readl(PSTR);
+	} while (pstr_val & POWER_BBPLLST);
+
+	/* - set Wake up factor unmask to GIC.CPU0 by SYS.WUPSMSK */
 	__raw_writel((__raw_readl(WUPSMSK) &  ~(1 << 28)), WUPSMSK);
 
 	return 0;
 }
-
 device_initcall(shmobile_init_cpuidle);
 

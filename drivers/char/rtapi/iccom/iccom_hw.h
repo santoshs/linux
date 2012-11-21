@@ -116,17 +116,17 @@
 #define MFIS_SM4		(MFIS_BASE_ADDR + 0x00000080)
 #endif
 /* MFIS register macro */
-#define RD_ICCOMGSR()   inl(MFIS_GSR)
-#define WT_ICCOMGSR(x)  outl(x, MFIS_GSR)
+#define RD_ICCOMGSR()   readl(MFIS_GSR)
+#define WT_ICCOMGSR(x)  writel(x, MFIS_GSR)
 #ifndef RMU2
-#define RD_ICCOMSCR()   inl(MFIS_SCR)
-#define WT_ICCOMSCR(x)  outl(x, MFIS_SCR)
+#define RD_ICCOMSCR()   readl(MFIS_SCR)
+#define WT_ICCOMSCR(x)  writel(x, MFIS_SCR)
 #endif
-#define RD_ICCOMIICR()  inl(MFIS_IICR)
-#define WT_ICCOMIICR(x) outl(x, MFIS_IICR)
-#define RD_ICCOMEICR()  inl(MFIS_EICR)
-#define WT_ICCOMEICR(x) outl(x, MFIS_EICR)
-#define RD_ICCOMCSR()   inl(MFIS_SM4)
-#define WT_ICCOMCSR(x)  outl(x, MFIS_SM4)
+#define RD_ICCOMIICR()  readl(MFIS_IICR)
+#define WT_ICCOMIICR(x) writel(x, MFIS_IICR)
+#define RD_ICCOMEICR()  readl(MFIS_EICR)
+#define WT_ICCOMEICR(x) writel(x, MFIS_EICR)
+#define RD_ICCOMCSR()   readl(MFIS_SM4)
+#define WT_ICCOMCSR(x)  writel(x, MFIS_SM4)
 
 #endif  /* __ICCOM_HW_H__ */

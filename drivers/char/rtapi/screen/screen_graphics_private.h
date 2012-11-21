@@ -32,6 +32,7 @@
 	addr \
 )
 
+
 typedef struct {
 	void *handle;
 	void *rtds_mem_handle;
@@ -46,6 +47,11 @@ typedef struct {
 			unsigned long	user_data
 		);
 	void (*notify_graphics_image_output)
+		(
+			int				result,
+			unsigned long	user_data
+		);
+	void (*notify_graphics_image_edit)
 		(
 			int				result,
 			unsigned long	user_data

@@ -1227,7 +1227,7 @@ static void tps80032_interrupt_work(void)
 			key_count = 1;
 			input_event(button_dev, EV_KEY, KEY_POWER, key_count);
 			input_sync(button_dev);
-            printk("Onkey pressed...\n");
+			PMIC_DEBUG_MSG("Onkey pressed...\n");
 		}
 	}
 
@@ -1235,7 +1235,8 @@ static void tps80032_interrupt_work(void)
 		key_count = (key_count + 1) % 2;
 		input_event(button_dev, EV_KEY, KEY_POWER, key_count);
 		input_sync(button_dev);
-        printk("Onkey %s...\n", key_count == 0 ? "released" : "pressed" );
+		PMIC_DEBUG_MSG("Onkey %s...\n",
+			key_count == 0 ? "released" : "pressed");
 	}
 
 	if (0 != (MSK_BIT_4 & sts_c)) {
@@ -3203,9 +3204,9 @@ static int tps80032_set_power_mode(struct device *dev, int resource,
 static int tps80032_set_vbus(struct device *dev, int enable)
 {
 	int ret;
-	int val_mode;
-	int val_dcdc;
-	int val_boost;
+	int val_mode = 0;
+	int val_dcdc = 0;
+	int val_boost = 0;
 	int cur_mode;
 	int cur_dcdc;
 	int cur_boost;
@@ -4292,7 +4293,8 @@ static void tps80032_bat_update(struct tps80032_data *data)
 
 
 /*
- * tps80032_ext_work: define the external device which is inserted and notify the presence of external device
+ * tps80032_ext_work: define the external device which is
+ * inserted and notify the presence of external device
  * return: void
  */
 static void tps80032_ext_work(void)
@@ -4343,7 +4345,8 @@ static void tps80032_update_work(struct work_struct *work)
 }
 
 /*
- * tps80032_int_chrg_work: update all battery information and notify the change of battery state
+ * tps80032_int_chrg_work: update all battery information
+ * and notify the change of battery state
  * return: void
  */
 static void tps80032_int_chrg_work(void)
@@ -4438,7 +4441,8 @@ static void tps80032_int_chrg_work(void)
 
 
 /*
- * tps80032_chrg_ctrl_work: update all battery information and notify the change of battery state
+ * tps80032_chrg_ctrl_work: update all battery information
+ * and notify the change of battery state
  * return: void
  */
 static void tps80032_chrg_ctrl_work(void)
@@ -4481,7 +4485,8 @@ static void tps80032_chrg_ctrl_work(void)
 }
 
 /*
- * tps80032_vac_charger_work: detect VAC charger and set current limit when VAC charger is plugged
+ * tps80032_vac_charger_work: detect VAC charger and set
+ * current limit when VAC charger is plugged
  * return: void
  */
 static void tps80032_vac_charger_work(void)
@@ -5397,7 +5402,7 @@ static int tps80032_get_temp_status(struct device *dev)
 		ret = data->bat_temp;
 	else
 		ret = 0;
-	
+
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
@@ -5627,7 +5632,7 @@ static int tps80032_power_suspend(struct device *dev)
 		pdata->set_portcr_value(portcr_val[i], pdata->portcr[i]);
 	}
 	/* Set gpio data value */
-	gpio_set_value(pdata->pin_gpio[0], GPIO_LOW); /*MSECURE*/
+	gpio_set_value(pdata->pin_gpio[0], GPIO_HIGH); /*MSECURE*/
 	gpio_set_value(pdata->pin_gpio[2], GPIO_HIGH); /*NRESWARM*/
 	gpio_set_value(pdata->pin_gpio[3], GPIO_LOW); /*GPADC_START*/
 	/* Disable GPADC */
@@ -5736,7 +5741,13 @@ static int tps80032_init_power_hw(struct tps80032_data *data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Check board revision and setting for LDO5 voltage */
+#ifdef BOARD_VERSION_V041
+	if (4 <= data->board_rev)
+		val = E_LDO_VOLTAGE_3_3000V;
+	else if (3 <= data->board_rev)
+#else
 	if (3 <= data->board_rev)
+#endif /* BOARD_VERSION_V041 */
 		val = E_LDO_VOLTAGE_3_0000V;
 	else
 		val = E_LDO_VOLTAGE_2_5000V;
@@ -6903,7 +6914,7 @@ static int __init tps80032_power_init(void)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/*Initialize hw spinlock*/
-	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000);
+	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000_PMIC);
 	if (r8a73734_hwlock_pmic == NULL) {
 		PMIC_ERROR_MSG(
 		"Unable to register hw spinlock for pmic driver\n");

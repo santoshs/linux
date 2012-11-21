@@ -49,16 +49,7 @@
 
 #define FRQCRD_ZB30SEL		BIT(4)
 #define KICK_WAIT_INTERVAL_US	500
-/* FIX me
- *
- * SMGP100 should be used instead/to sync with modem CPU23 but
- * in case SMGP100 is not available yet, SMGP001 should be a
- * replacement.
- *
- * SMGP100 should be define in <mach/r8a73734.h> thus "#ifndef"
- * is used to avoid code revising.
- *
- */
+
 #ifndef SMGP100_DFS_ZS
 #define SMGP100_DFS_ZS		SMGP002
 #endif /* SMGP100_DFS_ZS */
@@ -828,11 +819,11 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
-		.z_clk = DIV1_2,
+		.m5_clk = DIV1_8,
+		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
+		.zx_clk = DIV1_6,
 		.hp_clk	= DIV1_12,
 		.zs_clk = DIV1_12,
 		.zb_clk = DIV1_6,
@@ -846,11 +837,47 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
 		.zx_clk = DIV1_3,
+		.hp_clk	= DIV1_12,
+		.zs_clk = DIV1_6,
+		.zb_clk = DIV1_6,
+		.zb3_clk = DIV1_2,
+		.pll0 = PLLx56
+	},
+	{
+		/* Normal, CPU:MID */
+		.i_clk = DIV1_6,
+		.zg_clk = DIV1_4,
+		.b_clk = DIV1_12,
+		.m1_clk = DIV1_6,
+		.m3_clk = DIV1_8,
+		.m5_clk = DIV1_8,
+		.z_clk = DIV1_1,
+		.ztr_clk = DIV1_4,
+		.zt_clk = DIV1_6,
+		.zx_clk = DIV1_6,
+		.hp_clk	= DIV1_12,
+		.zs_clk = DIV1_6,
+		.zb_clk = DIV1_6,
+		.zb3_clk = DIV1_2,
+		.pll0 = PLLx56
+	},
+	{
+		/* Normal, CPU:MIN */
+		.i_clk = DIV1_6,
+		.zg_clk = DIV1_4,
+		.b_clk = DIV1_12,
+		.m1_clk = DIV1_6,
+		.m3_clk = DIV1_8,
+		.m5_clk = DIV1_8,
+		.z_clk = DIV1_1,
+		.ztr_clk = DIV1_4,
+		.zt_clk = DIV1_6,
+		.zx_clk = DIV1_6,
 		.hp_clk	= DIV1_12,
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
@@ -864,11 +891,11 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
+		.zx_clk = DIV1_6,
 		.hp_clk	= DIV1_12,
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
@@ -882,11 +909,11 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_2,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
+		.zx_clk = DIV1_6,
 		.hp_clk	= DIV1_12,
 		.zs_clk = DIV1_12,
 		.zb_clk = DIV1_6,
@@ -895,18 +922,18 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 	},
 	{
 		/* Earlysuspend, CPU:MIN */
-		.i_clk = DIV1_6,
+		.i_clk = DIV1_48,
 		.zg_clk = DIV1_4,
-		.b_clk = DIV1_24,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
-		.z_clk = DIV1_4,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_24,
-		.hp_clk = DIV1_24,
-		.zs_clk = DIV1_24,
+		.b_clk = DIV1_48,
+		.m1_clk = DIV1_48,
+		.m3_clk = DIV1_48,
+		.m5_clk = DIV1_8,
+		.z_clk = DIV1_1,
+		.ztr_clk = DIV1_48,
+		.zt_clk = DIV1_48,
+		.zx_clk = DIV1_48,
+		.hp_clk = DIV1_48,
+		.zs_clk = DIV1_48,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_16,
 		.pll0 = PLLx46
@@ -1339,6 +1366,8 @@ int cpg_get_freq(struct clk_rate *rates)
 			HW_TO_DIV(frqcrd, ZB3_CLK));
 	else
 		rates->zb3_clk = DIV1_2;
+
+	/* verify again */
 	if ((rates->i_clk < 0) || (rates->zg_clk < 0)
 		|| (rates->b_clk < 0) || (rates->m1_clk < 0)
 		|| (rates->m3_clk < 0) || (rates->z_clk < 0)
@@ -1351,6 +1380,7 @@ int cpg_get_freq(struct clk_rate *rates)
 
 	return 0;
 }
+EXPORT_SYMBOL(cpg_get_freq);
 
 /*
  * cpg_set_freqval: set div-rate of special clock
@@ -1709,6 +1739,159 @@ done:
 }
 
 /*
+ * corestandby_cpg_set_freq: set div-rate for set of clock
+ *
+ * Arguments:
+ *		@rates: clocks div-rate.
+ *
+ * Return:
+ *		0: successful
+ *		negative: operation fail
+ */
+int corestandby_cpg_set_freq(const struct clk_rate rates)
+{
+	struct clk_rate curr_rates;
+	unsigned long zsflags = 0;
+	unsigned long flags = 0;
+	unsigned int reg = 0;
+	int frq_change = 0;
+	int zb3_change = 0;
+	int zs_change = 0;
+	int ret = 0;
+
+	/* violate restriction? */
+	if (check_restriction(rates)) {
+		/* ret = -EINVAL; */
+		pr_log("%s()[%d]: warning, violate restriction\n",
+			__func__, __LINE__);
+		/* goto done; */
+	}
+
+	/* get current setting, if nor success try to apply new one */
+	if (cpg_get_freq(&curr_rates)) {
+		pr_warning("error! can not get current setting, try new one\n");
+		/* previous H/W setting not correct, try with new one */
+		(void)memcpy(&curr_rates, &rates, sizeof(struct clk_rate));
+	}
+
+	/* change FRQCR(A/B) ? */
+	if ((curr_rates.i_clk != rates.i_clk)
+		|| (curr_rates.zg_clk != rates.zg_clk)
+		|| (curr_rates.b_clk != rates.b_clk)
+		|| (curr_rates.m1_clk != rates.m1_clk)
+		|| (curr_rates.m3_clk != rates.m3_clk)
+		|| (curr_rates.ztr_clk != rates.ztr_clk)
+		|| (curr_rates.zt_clk != rates.zt_clk)
+		|| (curr_rates.zx_clk != rates.zx_clk)
+		|| (curr_rates.hp_clk != rates.hp_clk)
+		|| (curr_rates.zs_clk != rates.zs_clk)) {
+		frq_change = 1;
+	}
+
+	/* enable HP change? */
+	if ((!the_clock.hp_disabled_cnt) &&
+		(curr_rates.hp_clk != rates.hp_clk))
+		frq_change = 1;
+
+	/* enable ZS change? */
+	if ((!the_clock.zs_disabled_cnt) &&
+		(curr_rates.zs_clk != rates.zs_clk)) {
+		frq_change = 1;
+		zs_change = 1;
+
+		/* try to get the lock, timout:2ms */
+		ret = hwspin_lock_timeout_nospin(gen_sem1, SEM_TIMEOUT);
+		if (ret) {
+			pr_err("fail to get hwsem, quit\n");
+			goto done;
+		}
+	}
+
+	/* change ZB3 clock ? */
+	if (curr_rates.zb3_clk != rates.zb3_clk)
+		zb3_change = 1;
+
+	/* wait for KICK bit change (if any) */
+	ret = cpg_wait_kick(KICK_WAIT_INTERVAL_US);
+	if (ret) {
+		pr_err("error! wait KICK timeout\n");
+			goto done;
+	}
+#ifdef FRQCRA_B_SEM
+	/* try to get the lock, timout:2ms */
+	ret = hwspin_lock_timeout_nospin(gen_sem0, SEM_TIMEOUT);
+	if (ret) {
+		pr_err("fail to get hwsem, quit\n");
+		goto done;
+	}
+#endif /* FRQCRA_B_SEM */
+	/* change FRQCR(A/B) ? */
+	if (frq_change) {
+		/* not change Z-Phy, use the current one */
+		reg = DIV_TO_HW(Z_CLK, curr_rates.z_clk);
+		/* apply new setting */
+		reg |= DIV_TO_HW(ZTR_CLK, rates.ztr_clk);
+		reg |= DIV_TO_HW(ZT_CLK, rates.zt_clk);
+		reg |= DIV_TO_HW(ZX_CLK, rates.zx_clk);
+
+		/* change HP */
+		if (!the_clock.hp_disabled_cnt)
+			reg |= DIV_TO_HW(HP_CLK, rates.hp_clk);
+		else /* keep current HP-Phy */
+			reg |= DIV_TO_HW(HP_CLK, curr_rates.hp_clk);
+
+		/* change ZS clock */
+		if (zs_change) {
+			reg |= DIV_TO_HW(ZS_CLK, rates.zs_clk);
+		} else {
+			/* keep current ZS-Phy */
+			reg |= DIV_TO_HW(ZS_CLK, curr_rates.zs_clk);
+		}
+
+		/* apply setting */
+		__raw_writel(reg, CPG_FRQCRB);
+
+		reg = DIV_TO_HW(I_CLK, rates.i_clk);
+		reg |= DIV_TO_HW(ZG_CLK, rates.zg_clk);
+		reg |= DIV_TO_HW(B_CLK, rates.b_clk);
+		reg |= DIV_TO_HW(M1_CLK, rates.m1_clk);
+		reg |= DIV_TO_HW(M3_CLK, rates.m3_clk);
+		reg |= DIV_TO_HW(M5_CLK, curr_rates.m5_clk);
+
+		/* apply setting */
+		__raw_writel(reg, CPG_FRQCRA);
+		pr_log("FRQCR[A/B]=[0x%08X/0x%08X]\n",
+			__raw_readl(CPG_FRQCRA),
+			__raw_readl(CPG_FRQCRB));
+
+		/* set and wait for KICK bit changed */
+		if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
+			pr_err("error! set & wait KICK timeout\n");
+			if (zs_change)
+				hwspin_unlock_nospin(gen_sem1);
+#ifdef FRQCRA_B_SEM
+			/* UNLOCK semaphore */
+			hwspin_unlock_nospin(gen_sem0);
+#endif /* FRQCRA_B_SEM */
+			goto done;
+		}
+
+		if (zs_change)
+			hwspin_unlock_nospin(gen_sem1);
+	}
+
+	/* change ZB3 clock ? */
+	if (zb3_change)
+		ret = cpg_set_sbsc_freq((int)rates.zb3_clk);
+#ifdef FRQCRA_B_SEM
+	/* UNLOCK semaphore */
+	hwspin_unlock_nospin(gen_sem0);
+#endif /* FRQCRA_B_SEM */
+done:
+	return ret;
+}
+
+/*
  * cpg_set_zdiv: change waveform controlling Z-div clock
  *
  * Arguments:
@@ -1838,6 +2021,29 @@ int pm_set_clocks(const struct clk_rate rates)
 	return 0;
 }
 EXPORT_SYMBOL(pm_set_clocks);
+
+/*
+ * corestandby_pm_set_clocks: set frequencies value
+ *
+ * Arguments:
+ *		@rates: frequencies.
+ *
+ * Return:
+ *		0: successful
+ *		negative: operation fail
+ */
+int corestandby_pm_set_clocks(const struct clk_rate rates)
+{
+	/* validate chip revision
+	 * -> support revision 2.x and later
+	 */
+	if (validate())
+		return corestandby_cpg_set_freq(rates);
+
+	return 0;
+}
+EXPORT_SYMBOL(corestandby_pm_set_clocks);
+
 
 /*
  * pm_set_clock_mode: set frequencies value

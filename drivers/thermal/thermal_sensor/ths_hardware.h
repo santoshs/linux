@@ -136,10 +136,12 @@
 
 /* THS0/1 Interrupt control register - INTCTLR0 bit definition */
 /* Bit value definition of CTEM3/2/1/0 */
-#define	CTEMP3_HEX				0x20000000	/* 95oC */
-#define	CTEMP2_HEX				0x001F0000	/* 90oC */
-#define	CTEMP1_HEX				0x00001E00	/* 85oC */
-#define	CTEMP0_HEX				0x0000001C	/* 75oC */
+/* Set CTEMP to lower than actual value base on formular
+  ((The_interrupt_temperature + 65) / 5) - 1 */
+#define	CTEMP3_HEX				0x1F000000	/* 90oC */
+#define	CTEMP2_HEX				0x001E0000	/* 85oC */
+#define	CTEMP1_HEX				0x00001D00	/* 80oC */
+#define	CTEMP0_HEX				0x0000001B	/* 70oC */
 
 /* Other values */
 #define	CTEMP3_DEC				95	/* 95oC */
