@@ -224,7 +224,6 @@ int screen_display_get_address(screen_disp_get_address *address)
 		}
 
 		disp_addr = section.displaybuff_address;
-#if 1
 #if !(SUPPORT_DRM)
 		kernel_disp_addr = (void *)ioremap_nocache(disp_addr	, RT_DISPLAY_SCRNDATAINFO_SIZE);
 		if (NULL == kernel_disp_addr) {
