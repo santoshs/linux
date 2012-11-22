@@ -184,76 +184,6 @@ void *screen_display_new(void)
 }
 EXPORT_SYMBOL(screen_display_new);
 
-int screen_display_get_address(screen_disp_get_address *address)
-{
-	get_section_header_param	get_section;
-	system_rt_section_header    section;
-	int result;
-	unsigned long disp_addr;
-	void *kernel_disp_addr;
-
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
-
-	if (NULL == address) {
-		return SMAP_LIB_DISPLAY_PARAERR;
-	}
-
-	MSG_MED("[RTAPIK]    |handle      [0x%08X]\n", (unsigned int)address->handle);
-	MSG_MED("[RTAPIK]    |output_mode [%d]\n", address->output_mode);
-
-	if  ((NULL == address->handle) ||
-		 (RT_DISPLAY_LCD1 != address->output_mode)
-		) {
-		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] output_mode = [%d]\n",
-		__LINE__,
-		address->output_mode);
-		return SMAP_LIB_DISPLAY_PARAERR;
-	}
-
-	switch (address->output_mode) {
-	case RT_DISPLAY_LCD1:
-		get_section.section_header = &section;
-		result = sys_get_section_header(&get_section);
-		if (SMAP_OK != result) {
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] result = [%d]\n",
-			__LINE__,
-			result);
-			return SMAP_LIB_DISPLAY_NG;
-		}
-
-		disp_addr = section.displaybuff_address;
-#if !(SUPPORT_DRM)
-		kernel_disp_addr = (void *)ioremap_nocache(disp_addr	, RT_DISPLAY_SCRNDATAINFO_SIZE);
-		if (NULL == kernel_disp_addr) {
-
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n",
-			__LINE__);
-
-			return SMAP_LIB_DISPLAY_NG;
-		}
-
-		address->address = (unsigned int)disp_addr + *((unsigned long *)((unsigned long)kernel_disp_addr + RT_DISPLAY_LCD1_OFFSET));
-
-		iounmap(kernel_disp_addr);
-#endif
-		break;
-	default:
-		break;
-	}
-
-	MSG_HIGH(
-	"[RTAPIK] OUT|[%s][%d] ret = [%d] address[0x%08X]\n",
-	__func__,
-	__LINE__,
-	SMAP_LIB_DISPLAY_OK,
-	(int)address->address);
-	return SMAP_LIB_DISPLAY_OK;
-}
-EXPORT_SYMBOL(screen_display_get_address);
-
 int screen_display_draw(screen_disp_draw *disp_draw)
 {
 	int result;
@@ -286,6 +216,9 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 /* #MU2DSP582 mod -E- */
 		((RT_DISPLAY_LCD1 == disp_draw->output_mode) &&
 		 (RT_DISPLAY_FORMAT_RGB565   != disp_draw->format) &&
+/* #MU2DSP1676 mod -S- */
+		 (RT_DISPLAY_FORMAT_RGB888   != disp_draw->format) &&
+/* #MU2DSP1676 mod -E- */
 		 (RT_DISPLAY_FORMAT_ARGB8888 != disp_draw->format))
 	   ) {
 		MSG_ERROR(
@@ -1429,12 +1362,8 @@ int screen_display_get_screen_data_info( int output_mode, screen_display_screen_
         MSG_ERROR( "[RTAPIK] ERR|[%d] result = [%d]\n", __LINE__, result);
         return SMAP_LIB_DISPLAY_NG;
     }
-#if !(SUPPORT_DRM)
-    kernel_screen_info_addr = ioremap_nocache( section.displaybuff_address + offset, sizeof(screen_display_screen_data_info) );
-#else
 	kernel_screen_info_addr = ioremap_nocache( section.command_area_address + section.command_area_size - 32 + offset,
 												sizeof(screen_display_screen_data_info) );
-#endif
     if(NULL == kernel_screen_info_addr) {
         MSG_ERROR( "[RTAPIK] ERR|[%d] \n", __LINE__);
         return SMAP_LIB_DISPLAY_NG;

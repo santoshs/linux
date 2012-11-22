@@ -34,6 +34,7 @@
 /** Image format */
 #define RT_DISPLAY_FORMAT_RGB565		(1)
 #define RT_DISPLAY_FORMAT_ARGB8888		(2)
+#define RT_DISPLAY_FORMAT_RGB888		(3)
 
 /** Refreshment mode */
 #define RT_DISPLAY_REFRESH_ON			(1)
@@ -133,13 +134,6 @@ typedef struct {
 	unsigned short height;
 } screen_rect;
 #endif
-
-typedef struct {
-	void          *handle;
-	unsigned short output_mode;
-	unsigned short dummy;
-	unsigned int   address;
-} screen_disp_get_address;
 
 typedef struct {
 	void            *handle;
@@ -293,12 +287,6 @@ typedef struct {
 extern void *screen_display_new
 (
 	void
-);
-
-/* Get address */
-extern int screen_display_get_address
-(
-	screen_disp_get_address* address
 );
 
 /* Draw */

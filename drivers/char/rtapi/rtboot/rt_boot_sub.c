@@ -176,7 +176,7 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
 		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
 
-#if SECURE_BOOT_RT
+#ifdef CONFIG_ARM_SEC_HAL
 		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);
 #else
 		data_addr = ioremap(info.boot_addr, info.image_size);
@@ -199,19 +199,15 @@ int read_rt_image(unsigned int *addr)
 		/* Init load_flg */
 		bootaddr_info = (struct rt_boot_info *)(data_addr + RT_BOOT_SIZE);
 		bootaddr_info->load_flg = 0;
-#if !SECURE_BOOT_RT
+
 		/* Set screen data */
-#if !(SUPPORT_DRM)
-		retval = set_screen_data(info.displaybuff_address);
-#else
-		retval = set_screen_data( (info.command_area_address + info.command_area_size - 32) );
-#endif
+		retval = set_screen_data(info.command_area_address + info.command_area_size - 32);
 		if (0 != retval) {
 			MSG_ERROR("[RTBOOTK]   |Error setting screen info\n");
 			ret = 1;
 			break;
 		}
-#endif
+
 	} while (0);
 
 	if (data_addr) {
