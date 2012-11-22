@@ -846,7 +846,6 @@ static struct platform_device i2c0gpio_device = {
   },
 };
 
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 static struct i2c_gpio_platform_data  i2c1gpio_platform_data = {
       .sda_pin        = GPIO_PORT27,
       .scl_pin        = GPIO_PORT26,
@@ -860,7 +859,6 @@ static struct platform_device i2c1gpio_device = {
          .platform_data  = &i2c1gpio_platform_data,
   },
 };
-#endif
 
 /* Transmit sizes and respective CHCR register values */
 enum {
@@ -1428,9 +1426,7 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
     &i2c8_device,
 #endif
     &i2c0gpio_device,
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
     &i2c1gpio_device,
-#endif
     &dma0_device,
 #ifdef CONFIG_SMECO
     &smc_netdevice0,
