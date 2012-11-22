@@ -81,6 +81,8 @@ enum clock_state {
 /* FIX me: need mock for bellow APIs
  *	   this should be disabled after got mock funcion
  */
+#define DYNAMIC_BOARD_REV_CHECK
+#define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR
 #define cpu_up_manager(x, y)	cpu_up(x)
 #define cpu_down_manager(x, y)	cpu_down(x)
@@ -1676,29 +1678,36 @@ static int __init shmobile_cpu_init(void)
 	int i = 0;
 	int pll0_ratio = 0;
 	int arr_size = 0;
-#if 0
+#ifdef DYNAMIC_BOARD_REV_CHECK
 	unsigned int hw_rev = 0;
 #endif
+
 #ifdef DVFS_DEBUG_MODE
 	debug = 1;
 #else  /* !DVFS_DEBUG_MODE */
 	debug = 0;
 #endif /* DVFS_DEBUG_MODE */
 	/* build frequency table */
-#if 0 /* Disable board rev checking */
+	
+#ifdef DYNAMIC_BOARD_REV_CHECK
 	hw_rev = u2_get_board_rev();
 	pr_info("------hw_rev = %d", hw_rev);
 	if (hw_rev >= HWREV_041)
 		zclk12_flg = 1;
 	else
 		zclk12_flg = 0;
-#else
+
+#if defined(CPUFREQ_OVERDRIVE)
+	zclk12_flg = 0;
+#endif /* CPUFREQ_OVERDRIVE */
+
+#else /* !(DYNAMIC_BOARD_REV_CHECK) */
 #if defined(CONFIG_BOARD_VERSION_V041) && !defined(CPUFREQ_OVERDRIVE)
 	zclk12_flg = 1;
 #else
 	zclk12_flg = 0;
 #endif /* CONFIG_BOARD_VERSION_V041 && CPUFREQ_OVERDRIVE */
-#endif /* Disable board rev checking */
+#endif /* DYNAMIC_BOARD_REV_CHECK */
 	if (0 != zclk12_flg) {
 		pll0_ratio = PLLx46;
 		zdiv_table = zdiv_table12;
