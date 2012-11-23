@@ -30,6 +30,9 @@
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
 
+#include <linux/hwspinlock.h>
+#include <linux/delay.h>
+
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
 #else /*CONFIG_PM_HAS_SECURE*/
@@ -37,9 +40,25 @@
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
 
+#define ZB3_CLK_CORESTANDBY2	(65000)
 #define SHMOBILE_MAX_STATES	4
 
 #define DISPLAY_LOG 0
+
+#if DISPLAY_LOG
+#define idle_log(fmt, ...) printk(KERN_INFO "[%s] line[%d] cpu[%d] " fmt,\
+		__func__, __LINE__, smp_processor_id(), ##__VA_ARGS__)
+#else
+#define idle_log(fmt, ...)
+#endif
+
+#ifndef CONFIG_PM_HAS_SECURE
+#define FIQ_ENABLE()	local_fiq_enable()
+#define FIQ_DISABLE()	local_fiq_disable()
+#else
+#define FIQ_ENABLE()
+#define FIQ_DISABLE()
+#endif
 
 #ifdef CONFIG_PM_HAS_SECURE
 static int sec_hal_fail_cpu0;
@@ -48,6 +67,11 @@ module_param(sec_hal_fail_cpu0, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int sec_hal_fail_cpu1;
 module_param(sec_hal_fail_cpu1, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #endif /*CONFIG_PM_HAS_SECURE*/
+
+static int get_sem_fail_ebusy;
+module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int get_sem_fail_einval;
+module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static DEFINE_SPINLOCK(clock_lock);
 
@@ -184,9 +208,9 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_disable();
-#endif
+
+	FIQ_DISABLE();
+
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -205,9 +229,8 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_enable();
-#endif
+	FIQ_ENABLE();
+
 	return idle_time;
 }
 
@@ -223,9 +246,9 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_disable();
-#endif
+
+	FIQ_DISABLE();
+
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -245,9 +268,8 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_enable();
-#endif
+	FIQ_ENABLE();
+
 	return idle_time;
 }
 
@@ -263,9 +285,8 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 {
 	struct timeval beforeTime, afterTime;
 	int idle_time;
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_disable();
-#endif
+
+	FIQ_DISABLE();
 	do_gettimeofday(&beforeTime);
 
 	/* Sleep State Notify */
@@ -285,9 +306,8 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_enable();
-#endif
+	FIQ_ENABLE();
+
 	return idle_time;
 }
 
@@ -304,15 +324,11 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 	long wakelock;
-	int sec_ret = 0;
-	int cpuid = smp_processor_id();
 
-#if DISPLAY_LOG
-	printk(KERN_INFO "Standby IN  %d\n", cpuid);
-#endif
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_disable();
-#endif
+	idle_log(">>>IN\n");
+
+	FIQ_DISABLE();
+
 	do_gettimeofday(&beforeTime);
 
 	/* Core Standby wakelock check */
@@ -321,34 +337,13 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
-#ifdef CORESTANDBY_DFS
-		corestandby_cpufreq();
-#endif
-#ifdef CONFIG_PM_HAS_SECURE
-		if (cpuid == 0)
-			__raw_writel(0, ram0SecHalReturnCpu0);
-		else
-			__raw_writel(0, ram0SecHalReturnCpu1);
-#endif /*CONFIG_PM_HAS_SECURE*/
 
 		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
-#ifdef CONFIG_PM_HAS_SECURE
-		if (cpuid == 0)
-			sec_ret = __raw_readl(ram0SecHalReturnCpu0);
-		else
-			sec_ret = __raw_readl(ram0SecHalReturnCpu1);
-		if (sec_ret) {
-			if (cpuid == 0)
-				sec_hal_fail_cpu0++;
-			else
-				sec_hal_fail_cpu1++;
-		}
-#endif /*CONFIG_PM_HAS_SECURE*/
 
 	} else {
-#if DISPLAY_LOG
-		printk(KERN_INFO "Core-Standby %d (WAKELOCK)", cpuid);
-#endif
+
+		idle_log(">>>IN (WAKELOCK)\n");
+
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_SLEEP);
@@ -365,25 +360,26 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_enable();
-#endif
-#if DISPLAY_LOG
-	printk(KERN_INFO "Standby OUT %d IDLE=0x%x\n", cpuid, idle_time);
-#endif
+	FIQ_ENABLE();
+
+	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return idle_time;
 }
 
+struct hwspinlock *pll_1_sem;
+
 /*
- * corestandby_2_pll1_condition_set
+ * pll1_condition_set
  *
  * return:
  *		0: successful
  *		-1: C4 is set to PLL1 stop condition.
+ *		-2: set C4 failed.
  */
-static int corestandby_2_pll1_condition_set(void)
+static int pll1_condition_set(void)
 {
+	int ret = 0;
 	if ((__raw_readl(CPG_MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
 		goto set_pll1_c4;
 
@@ -397,44 +393,282 @@ static int corestandby_2_pll1_condition_set(void)
 		goto set_pll1_c4_skip;
 
 set_pll1_c4:
-	__raw_writel(__raw_readl(CPG_PLL1STPCR) | C4STP, CPG_PLL1STPCR);
-	return -1;
+	ret = hwspin_trylock_nospin(pll_1_sem);
+	if (ret == 0) { /* Get sem OK */
+		__raw_writel(__raw_readl(CPG_PLL1STPCR) | C4STP, CPG_PLL1STPCR);
+		hwspin_unlock_nospin(pll_1_sem);
+		ret = -1;
+	} else if (ret == -EBUSY) {
+		get_sem_fail_ebusy++;
+		ret = -2;
+	} else if (ret == -EINVAL) {
+		get_sem_fail_einval++;
+		ret = -2;
+	} else { /* Never come !!! */
+		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n"
+				, __func__);
+		ret = -2;
+	}
 
 set_pll1_c4_skip:
-	return 0;
+	return ret;
 }
 
-static void corestandby_2_pll1_condition_at_wakeup(void)
+static void pll1_condition_at_wakeup(void)
 {
-	__raw_writel(__raw_readl(CPG_PLL1STPCR) & (~C4STP), CPG_PLL1STPCR);
+	int ret;
+	ret = hwspin_trylock_nospin(pll_1_sem);
+	if (ret == 0) { /* Get sem OK */
+		__raw_writel(__raw_readl(CPG_PLL1STPCR) &
+					(~C4STP), CPG_PLL1STPCR);
+		hwspin_unlock_nospin(pll_1_sem);
+	} else if (ret == -EBUSY)
+		get_sem_fail_ebusy++;
+	else if (ret == -EINVAL)
+		get_sem_fail_einval++;
+	else /* Never come !!! */
+		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n",
+				__func__);
 }
 
 #define POWER_BBPLLST					BIT(7)
 #define POWER_BBPLLOFF					BIT(7)
 
 /*
- * corestandby_2_pll1_will_be_off_check
+ * pll1_will_be_off_check
  *
  * return:
  *		0: successful
  *		-1: PLL1 cannot be off
+ *		-2: Set C4 failed
  */
-static int corestandby_2_pll1_will_be_off_check(void)
+static int pll1_will_be_off_check(void)
 {
+	int ret;
 	/* pll1 condition is successful */
-	if (corestandby_2_pll1_condition_set() < 0)
-		return -1;
+	ret = pll1_condition_set();
+	if (ret < 0)
+		return ret;
 
-	/* A3R off ? */
-	if (__raw_readl(PSTR) & POWER_A3R)
-		return -1;
+	/* A3R or Bit7(BBPLLST) is not off */
+	if (__raw_readl(PSTR) & (POWER_A3R | POWER_BBPLLST))
+		ret = -1;
 
-	/* Bit7(BBPLLST) of SYSC.PSTR==0 ? */
-	if (__raw_readl(PSTR) & POWER_BBPLLST)
-		return -1;
-
-	return 0;
+	return ret;
 }
+
+/* FRQCRA */
+#define IFC_MASK (0xF << 20)
+#define ZGFC_MASK (0xF << 16)
+#define M3FC_MASK (0xF << 12)
+#define BFC_MASK (0xF << 8)
+#define M1FC_MASK (0xF << 4)
+#define M5FC_MASK 0xF
+#define FRQCRA_MSK (IFC_MASK | ZGFC_MASK | M3FC_MASK | \
+						BFC_MASK | M1FC_MASK | M5FC_MASK)
+
+/* FRQCRB */
+#define KICK_BIT BIT(31)
+#define ZTRFC_MASK (0xF << 20)
+#define ZTFC_MASK (0xF << 16)
+#define ZXFC_MASK (0xF << 12)
+#define ZSFC_MASK (0xF << 8)
+#define HPFC_MASK (0xF << 4)
+#define FRQCRB_MSK (ZTRFC_MASK | ZTFC_MASK | ZXFC_MASK | \
+						ZSFC_MASK | HPFC_MASK)
+
+#define KICK_WAIT_INTERVAL_US	10
+
+#define		DIV_1_1		-1
+#define		DIV_1_2		0x0
+#define		DIV_1_3		0x1
+#define		DIV_1_4		0x2
+#define		DIV_1_5		-1
+#define		DIV_1_6		0x3
+#define		DIV_1_7		-1
+#define		DIV_1_8		0x4
+#define		DIV_1_12	0x5
+#define		DIV_1_16	0x6
+#define		DIV_1_18	0x7
+#define		DIV_1_24	0x8
+#define		DIV_1_32	-1
+#define		DIV_1_36	0xa
+#define		DIV_1_48	0xb
+#define		DIV_1_96	-1
+
+/* clocks table change for corestandby 2
+FRQCRA
+I:		1/6
+ZG:		1/4
+M3:		1/8
+B:		1/12
+M1:		1/6
+M5:		1/8
+
+FRQCRB:
+ZTR:	1/4
+ZT:		1/6
+ZX:		1/6
+ZS:		1/6
+HP:		1/12
+*/
+
+/* FRQCRA CHANGED */
+#define IFC_CHANGE		(DIV_1_6 << 20)
+#define ZGFC_CHANGE		(DIV_1_4 << 16)
+#define M3FC_CHANGE		(DIV_1_16 << 12)
+#define BFC_CHANGE		(DIV_1_24 << 8)
+#define M1FC_CHANGE		(DIV_1_12 << 4)
+#define M5FC_CHANGE		DIV_1_16
+#define FRQCRA_CHANGE_CORE (IFC_CHANGE | ZGFC_CHANGE | M3FC_CHANGE | \
+						BFC_CHANGE | M1FC_CHANGE | M5FC_CHANGE)
+/* FRQCRB CHANGED */
+#define ZTRFC_CHANGE (DIV_1_8 << 20)
+#define ZTFC_CHANGE (DIV_1_12 << 16)
+#define ZXFC_CHANGE (DIV_1_12 << 12)
+#define ZSFC_CHANGE (DIV_1_12 << 8)
+#define HPFC_CHANGE (DIV_1_24 << 4)
+#define FRQCRB_CHANGE_CORE (ZTRFC_CHANGE | ZTFC_CHANGE | ZXFC_CHANGE | \
+						ZSFC_CHANGE | HPFC_CHANGE)
+
+/*
+ * core_wait_kick: wait for KICK bit change
+ *
+ * Arguments:
+ *		@time: wait time.
+ *
+ * Return:
+ *		0: successful
+ * -EBUSY: unsuccessful
+ */
+int core_wait_kick(unsigned int time)
+{
+	unsigned int wait_time = time;
+
+	while (0 < wait_time--) {
+		if ((__raw_readl(CPG_FRQCRB) >> 31) == 0)
+			break;
+		shmobile_suspend_udelay(1);
+	}
+
+	return (wait_time <= 0) ? -EBUSY : 0;
+}
+/*
+ * core_set_kick: set and wait for KICK bit cleared
+ *
+ * Arguments:
+ *		@time: wait time.
+ *
+ * Return:
+ *		0: successful
+ *		-EBUSY: operation fail
+ */
+int core_set_kick(unsigned int time)
+{
+	unsigned int wait_time = time;
+
+	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
+		wait_time = KICK_WAIT_INTERVAL_US;
+	__raw_writel(BIT(31) | __raw_readl(CPG_FRQCRB), CPG_FRQCRB);
+
+	return core_wait_kick(wait_time);
+}
+
+
+/*
+ * clock_update
+ *
+ * Arguments:
+ *		@freqA: value of freqA need to be changed.
+ *		@freqB: value of freqB need to be changed.
+ *		@freqA_mask: mask of freqA need to be changed.
+ *		@freqB_mask: mask of freqB need to be changed.
+ *
+ * Return:
+ *		0: successful
+ * -EBUSY: - operation fail of KICK bit
+ *           OR the hwspinlock was already taken
+ * -EINVAL: @hwlock is invalid.
+ */
+
+int clock_update(unsigned int freqA, unsigned int freqA_mask,
+				unsigned int freqB, unsigned int freqB_mask)
+{
+	unsigned int current_value;
+	int ret;
+	int freqA_change = 0;
+	int freqB_change = 0;
+	int zs_change = 0;
+
+	/* check if freqA change */
+	current_value = __raw_readl(CPG_FRQCRA);
+	if (freqA != (current_value & freqA_mask))
+		freqA_change = 1;
+	/* check if freqB change */
+	current_value = __raw_readl(CPG_FRQCRB);
+	if ((freqB & ZSFC_MASK) != (current_value & ZSFC_MASK)) {
+		zs_change = 1;
+		ret = hwspin_trylock_nospin(gen_sem1); /* ZS_CLK_SEM */
+		if (ret) {
+			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
+				__func__, __LINE__, ret);
+			return ret;
+		}
+	} else if (freqB != (current_value & freqB_mask))
+		freqB_change = 1;
+
+	/* wait for KICK bit change if any */
+	ret = core_wait_kick(KICK_WAIT_INTERVAL_US);
+	if (ret) {
+		printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
+			__func__, __LINE__, ret);
+		if (zs_change)
+			hwspin_unlock_nospin(gen_sem1);
+		return ret;
+	}
+
+	if (freqA_change || zs_change || freqB_change) {
+		/* FRQCRA_B_SEM */
+		ret = hwspin_trylock_nospin(sw_cpg_lock);
+		if (ret) {
+			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
+				__func__, __LINE__, ret);
+			if (zs_change)
+				hwspin_unlock_nospin(gen_sem1);
+			return ret;
+		}
+		/* update value change */
+		if (freqA_change)
+			__raw_writel(freqA | (__raw_readl(CPG_FRQCRA) &
+						(~freqA_mask)),
+					CPG_FRQCRA);
+		if (zs_change || freqB_change)
+			__raw_writel(freqB | (__raw_readl(CPG_FRQCRB) &
+						(~freqB_mask)),
+				CPG_FRQCRB);
+
+		/* set and wait for KICK bit changed */
+		ret = core_set_kick(KICK_WAIT_INTERVAL_US);
+		if (ret) {
+			printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
+				__func__, __LINE__, ret);
+			if (zs_change)
+				hwspin_unlock_nospin(gen_sem1);
+			hwspin_unlock_nospin(sw_cpg_lock);
+			return ret;
+		}
+
+		/* Release SEM */
+		if (zs_change)
+			hwspin_unlock_nospin(gen_sem1);
+		hwspin_unlock_nospin(sw_cpg_lock);
+	}
+
+	/* successful change,...*/
+	return ret;
+}
+EXPORT_SYMBOL(clock_update);
+
 
 /*
  * shmobile_enter_corestandby_2:
@@ -450,17 +684,21 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 	long wakelock;
-
-	int cpuid = smp_processor_id();
 	unsigned int dr_WUPSFAC;
-	struct clk_rate before_corestandby_clocks, corestandby_clocks;
 	int clocks_ret, clocks_changed = 0;
-#if DISPLAY_LOG
-	printk(KERN_INFO "Standby-2 IN  %d\n", cpuid);
-#endif
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_disable();
-#endif
+	unsigned int freqA_save;
+	unsigned int freqB_save;
+#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+	unsigned int freqD_save = 0;
+	int chip_rev;
+#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
+	int ret;
+	int cpuid = smp_processor_id();
+
+	idle_log(">>>IN\n");
+
+	FIQ_DISABLE();
+
 	do_gettimeofday(&beforeTime);
 
 	/* Core Standby wakelock check */
@@ -469,66 +707,127 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY_2);
-#ifdef CORESTANDBY_DFS
-		corestandby_cpufreq();
-#endif
+
 		if ((cpuid == 0) &&
 		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG)) {
-#ifdef CONFIG_PM_HAS_SECURE
-			__raw_writel(0, ram0SecHalReturnCpu0);
-#endif
 
 #ifdef PLL1_CAN_OFF
 			/* PLL1 is sure to be off ? */
-			if (corestandby_2_pll1_will_be_off_check() < 0)
-				goto skip_clock_change;
+			ret = pll1_will_be_off_check();
+			if (ret == 0)
+				goto clock_change;
+			else if (ret == -2)
+				/* Have to handle case C4 is set,
+				but cannot due to sem fail */
+				goto out;
+			else /* (ret == -1) */
+					/* PLL1 cannot off,
+					no need to change clocks */
+					goto skip_clock_change;
 
-			/* clock table */
-			clocks_ret = cpg_get_freq(&before_corestandby_clocks);
-			if (clocks_ret < 0)
-				goto skip_clock_change;
-
-			(void)memcpy(&corestandby_clocks,
-			&before_corestandby_clocks, sizeof(struct clk_rate));
-
-			corestandby_clocks.i_clk = DIV1_6;
-			corestandby_clocks.zg_clk = DIV1_4;
-			corestandby_clocks.m3_clk = DIV1_8;
-			corestandby_clocks.b_clk = DIV1_12;
-			corestandby_clocks.m1_clk = DIV1_6;
-			corestandby_clocks.m5_clk = DIV1_8;
-
-			corestandby_clocks.ztr_clk = DIV1_4;
-			corestandby_clocks.zt_clk = DIV1_6;
-			corestandby_clocks.zx_clk = DIV1_6;
-			corestandby_clocks.zs_clk = DIV1_6;
-			corestandby_clocks.hp_clk = DIV1_12;
+clock_change:
+			/* backup freqs before change */
+			freqA_save = __raw_readl(CPG_FRQCRA);
+			freqB_save = __raw_readl(CPG_FRQCRB);
 			/* set clocks */
-			clocks_ret =
-			corestandby_pm_set_clocks(corestandby_clocks);
-			if (clocks_ret < 0)
+			clocks_ret = clock_update(FRQCRA_CHANGE_CORE,
+				FRQCRA_MSK, FRQCRB_CHANGE_CORE, FRQCRB_MSK);
+			if (clocks_ret < 0) {
 				printk(KERN_INFO "[%s]: set clocks FAILED\n", \
 				__func__);
+				goto skip_clock_change;
+			}
 
 			clocks_changed = 1;
 
+#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+			chip_rev = shmobile_chip_rev();
+			if (chip_rev > ES_REV_2_1) {
+				freqD_save = suspend_ZB3_backup();
+				if (freqD_save > 0) {
+					clocks_ret = cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
+					if (clocks_ret < 0) {
+						printk(KERN_INFO "[%s]: set ZB3 clocks FAILED\n",
+							__func__);
+					} else {
+						printk(KERN_INFO "[%s]: set ZB3 clocks OK\n",
+							__func__);
+					}
+				} else {
+					printk(KERN_INFO "[%s]: Backup ZB3 clocks FAILED\n",
+						__func__);
+					clocks_ret = freqD_save;
+				}
+			}
+			
+#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
+
+#else /*!defined(PLL1_CAN_OFF)*/
+			/* PLL1 is sure to be off ? */
+			ret = pll1_will_be_off_check();
+			if (ret == 0)
+				goto clock_change;
+			else if (ret == -2)
+				/* Have to handle case C4 is set,
+				but cannot due to sem fail */
+				goto out;
+			else /* (ret == -1) */
+					/* PLL1 cannot off,
+					no need to change clocks */
+					goto skip_clock_change;
+
+clock_change:
+#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+			chip_rev = shmobile_chip_rev();
+			if (chip_rev > ES_REV_2_1) {
+				freqD_save = suspend_ZB3_backup();
+				if (freqD_save > 0) {
+					clocks_ret = cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
+					if (clocks_ret < 0) {
+						printk(KERN_INFO "[%s]: set ZB3 clocks FAILED\n",
+							__func__);
+					} else {
+						printk(KERN_INFO "[%s]: set ZB3 clocks OK\n",
+							__func__);
+					}
+				} else {
+					printk(KERN_INFO "[%s]: Backup ZB3 clocks FAILED\n",
+						__func__);
+					clocks_ret = freqD_save;
+				}
+			}
+			
+#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
+#endif
+
 skip_clock_change:
 			/* end clock table */
-#endif
+
 			start_corestandby_2(); /* CoreStandby(A2SL Off) */
+
+#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+			if ((chip_rev > ES_REV_2_1) && (freqD_save > 0)) {
+				clocks_ret = cpg_set_sbsc_freq(freqD_save);
+				if (clocks_ret < 0) {
+					printk(KERN_INFO "[%s]: Restore ZB3 clocks FAILED\n",
+							__func__);
+				} else {
+					printk(KERN_INFO "[%s]: Restore ZB3 clocks OK\n",
+							__func__);
+				}
+			}
+#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
 
 #ifdef PLL1_CAN_OFF
 			/* update pll1 stop condition without C4 */
-			corestandby_2_pll1_condition_at_wakeup();
+			pll1_condition_at_wakeup();
 
 			/* restore clocks */
 			if (clocks_changed) {
-				clocks_ret =
-				corestandby_pm_set_clocks(
-				before_corestandby_clocks);
+				clocks_ret = clock_update(freqA_save,
+					FRQCRA_MSK, freqB_save, FRQCRB_MSK);
 				if (clocks_ret < 0)
-					printk(KERN_INFO
-					"[%s]: restore clocks FAILED\n ", \
+					printk(KERN_INFO "[%s]: restore clocks FAILED\n ",
 					__func__);
 			}
 #endif
@@ -538,30 +837,28 @@ skip_clock_change:
 				printk(KERN_INFO "[%s] is wake-up 0x%08X. ", \
 						__func__, dr_WUPSFAC);
 #endif
-#ifdef CONFIG_PM_HAS_SECURE
-			if (0 != __raw_readl(ram0SecHalReturnCpu0))
-				sec_hal_fail_cpu0++;
-#endif
-		} else {
-#ifdef CONFIG_PM_HAS_SECURE
-			__raw_writel(0, ram0SecHalReturnCpu1);
-#endif
-			start_corestandby();
-#ifdef CONFIG_PM_HAS_SECURE
-			if (0 != __raw_readl(ram0SecHalReturnCpu1))
-				sec_hal_fail_cpu1++;
-#endif
+
+			goto finished_wakeup;
+
 		}
-	} else {
-#if DISPLAY_LOG
-		printk(KERN_INFO "Core-Standby %d (WAKELOCK)", cpuid);
-#endif
+
+/* #ifdef PLL1_CAN_OFF */
+out: /* go to corestandby for power consumption */
+/* #endif */
+
+		start_corestandby();
+
+	} else { /* idle wakelock is used */
+
+		idle_log(">>>IN (WAKELOCK)\n");
+
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_SLEEP);
 		arch_idle(); /* WFI cpu_do_idle(); */
 	}
 
+finished_wakeup:
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
@@ -572,13 +869,9 @@ skip_clock_change:
 				+ (afterTime.tv_usec - beforeTime.tv_usec);
 
 	local_irq_enable();
-#ifndef CONFIG_PM_HAS_SECURE
-	local_fiq_enable();
-#endif
+	FIQ_ENABLE();
 
-#if DISPLAY_LOG
-	printk(KERN_INFO "Standby-2 OUT %d IDLE=0x%x\n", cpuid, idle_time);
-#endif
+	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return idle_time;
 }
@@ -989,6 +1282,14 @@ static int shmobile_init_cpuidle(void)
 
 	/* - set Wake up factor unmask to GIC.CPU0 by SYS.WUPSMSK */
 	__raw_writel((__raw_readl(WUPSMSK) &  ~(1 << 28)), WUPSMSK);
+
+	/* General HBP semaphore 0 + Dedicated (SW) semaphore #temp */
+	pll_1_sem = hwspin_lock_request_specific(SMGP002);
+	if (pll_1_sem == NULL) {
+		printk(KERN_ERR "(%s:[%d])Unable to register hw_sem\n",
+					__func__, __LINE__);
+		return -EIO;
+	}
 
 	return 0;
 }

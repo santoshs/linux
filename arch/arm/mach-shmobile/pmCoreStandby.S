@@ -1610,21 +1610,22 @@ SYSPD_LOOP_TURNOFF_PLL0:
 	STR		r5, [r6]
 #endif /*__EXTAL1_INFO__*/
 
-	/*--------------------------------------*/
-	/* Power Down							*/
-	/*--------------------------------------*/
-	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
-	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
+    /*--------------------------------------*/
+    /* Power Down                            */
+    /*--------------------------------------*/
+    LDR        r4, =SPDCRPhys    /* Load SPDCR address    */
+    LDR        r5, =A3SM_PD    /* A3SM Power Down Value */
 TRY_TURNOFF_A3SM:
-	LDR		r6, [r4]
-	ORR		r6, r6, r5
-	STR		r6, [r4]	/* Power Down    */
+    LDR        r6, [r4]
+    ORR        r6, r6, r5
+    STR        r6, [r4]        /* Power Down    */
 
-	LDR		r6, =PSTRPhys
-	LDR		r6, [r6]
-	AND		r6, r6, r5
-	CMP		r6, #0
-	BNE		TRY_TURNOFF_A3SM
+    LDR        r6, =PSTRPhys
+    LDR        r6, [r6]
+    AND        r6, r6, r5
+    CMP        r6, #0
+    BNE        TRY_TURNOFF_A3SM
+
 .pool
 
 ENDPROC(sys_powerdown)

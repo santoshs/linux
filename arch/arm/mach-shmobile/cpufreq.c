@@ -50,11 +50,14 @@
 #define FREQ_MIN_UPPER_LIMIT12 373750
 #define FREQ_MIN_LOWER_LIMIT12 299000
 
+#define MODE_PER_STATE       3
+
 /* Clocks State */
 enum clock_state {
-	MODE_SUSPEND,
-	MODE_NORMAL,
+	MODE_NORMAL = 0,
 	MODE_EARLY_SUSPEND,
+	MODE_MOVIE720P,
+	MODE_SUSPEND,
 	MODE_NUM
 };
 #define SUSPEND_CPUFREQ15 FREQ_MID_LOWER_LIMIT15	/* Suspend */
@@ -77,10 +80,8 @@ enum clock_state {
 #define STOP_STATE	4
 
 #define HWREV_041	4
-
-/* FIX me: need mock for bellow APIs
- *	   this should be disabled after got mock funcion
- */
+#define DYNAMIC_BOARD_REV_CHECK
+#define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR
 #define cpu_up_manager(x, y)	cpu_up(x)
 #define cpu_down_manager(x, y)	cpu_down(x)
@@ -170,11 +171,10 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
-/*#define HOTPLUG_IN_ACTIVE	1*/
+/* #define HOTPLUG_IN_ACTIVE	1 */
 static void do_check_cpu(struct work_struct *work);
 static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu);
 
-/* FIX me: need to study more about below const */
 #define DEF_MAX_REQ_NR		10
 #define DEF_MAX_REQ_CHECK_NR	2
 #define DEF_UNPLUG_THRESHOLD12	373750	/* KHz */
@@ -382,12 +382,17 @@ static void hotplug_nonboot_cpu(void)
 	if (!hlg_config.hlg_enabled)
 		return;
 
+	if (hlg_config.req_his_idx >= DEF_MAX_REQ_NR)
+		hlg_config.req_his_idx = 0;
+
+	hlg_config.req_his_freq[hlg_config.req_his_idx++] = the_cpuinfo.freq;
+
 	/* max system cpu frequency is limitted under plug-inin
 	 * threshold
 	 */
 	if (fixup_all_cpu_up()) {
 		wakeup_nonboot_cpus();
-		goto done;
+		return;
 	}
 
 	/* check for unplugging nonboot cpus
@@ -408,7 +413,7 @@ static void hotplug_nonboot_cpu(void)
 
 	if (i >= hlg_config.req_chk_nr) {
 		shutdown_nonboot_cpus();
-		goto done;
+		return;
 	}
 
 	/* check for plugging nonboot cpus
@@ -428,11 +433,6 @@ static void hotplug_nonboot_cpu(void)
 	average /= DEF_MAX_REQ_NR;
 	if (average >= hlg_config.plug_threshold)
 		wakeup_nonboot_cpus();
-done:
-	if (hlg_config.req_his_idx >= DEF_MAX_REQ_NR)
-		hlg_config.req_his_idx = 0;
-
-	hlg_config.req_his_freq[hlg_config.req_his_idx++] = the_cpuinfo.freq;
 }
 
 /*
@@ -456,8 +456,11 @@ static void do_check_cpu(struct work_struct *work)
 	if (!static_governor())
 		schedule_delayed_work_on(0, &hlg_work,
 			usecs_to_jiffies(hlg_config.sampling_rate));
-	else
+	else {
+		mutex_lock(&hlg_config.timer_mutex);
 		wakeup_nonboot_cpus();
+		mutex_unlock(&hlg_config.timer_mutex);
+	}
 }
 #endif /* DYNAMIC_HOTPLUG_CPU */
 
@@ -550,20 +553,22 @@ int __clk_get_rate(struct clk_rate *rate)
 	unsigned int target_freq = the_cpuinfo.freq;
 	int clkmode = 0;
 	int ret = 0;
+	int level = 0;
 
 	if (!rate) {
 		pr_err("invalid parameter<NULL>\n");
 		return -EINVAL;
 	}
 
-	clkmode = the_cpuinfo.clk_state;
-	/* get the frequency mode */
-	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
-		if (target_freq <= the_cpuinfo.freq_mid_upper_limit)
-			clkmode++;
-		if (target_freq <= the_cpuinfo.freq_min_upper_limit)
-			clkmode++;
-	}
+	if (target_freq <= the_cpuinfo.freq_mid_upper_limit)
+		level++;
+	if (target_freq <= the_cpuinfo.freq_min_upper_limit)
+		level++;
+
+	if (the_cpuinfo.clk_state == MODE_SUSPEND)
+		clkmode = 0;
+	else
+		clkmode = the_cpuinfo.clk_state * MODE_PER_STATE + level + 1;
 
 	/* get clocks setting according to clock mode */
 	ret = pm_get_clock_mode(clkmode, rate);
@@ -895,6 +900,58 @@ void enable_dfs_mode_min(void)
 	}
 }
 EXPORT_SYMBOL(enable_dfs_mode_min);
+
+/*
+ * movie_cpufreq: change the SYS-CPU frequency to middle before entering
+ * uspend state.
+ * Argument:
+ *		sw720p
+ *
+ * Return:
+ *		0: normal
+ *		negative: operation fail
+ */
+int movie_cpufreq(int sw720p)
+{
+	unsigned int freq_new = 0;
+	int ret = 0;
+
+	/* validate chip revision
+	 * -> support revision 2.x and later
+	 */
+	if (!validate())
+		return ret;
+
+	spin_lock(&the_cpuinfo.lock);
+
+	if (static_governor()) {
+		ret = -EBUSY;
+		goto done;
+	}
+
+	if ((the_cpuinfo.clk_state != MODE_MOVIE720P) &&
+	    (the_cpuinfo.clk_state != MODE_NORMAL)) {
+		ret = -EBUSY;
+		goto done;
+	}
+
+	if (sw720p) {
+		the_cpuinfo.clk_state = MODE_MOVIE720P;
+	}
+	else {
+		the_cpuinfo.clk_state = MODE_NORMAL;
+	}
+	freq_new = the_cpuinfo.freq;
+
+	/* change SYS-CPU frequency */
+	ret = __set_all_clocks(freq_new);
+
+done:
+	spin_unlock(&the_cpuinfo.lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(movie_cpufreq);
 
 /*
  * corestandby_cpufreq: change clocks in case of corestandby
@@ -1462,13 +1519,13 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 		goto done;
 
 	ret = __set_all_clocks(freq);
-done:
-	spin_unlock(&the_cpuinfo.lock);
 
 	/* the_cpuinfo.freq == freq when frequency changed */
 	if ((the_cpuinfo.freq == freq) && debug)
 		pr_info("[%07uKHz->%07uKHz]%s\n", old_freq, freq,
 			(old_freq < freq) ? "^" : "v");
+done:
+	spin_unlock(&the_cpuinfo.lock);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
 	/* dynamic hotplug cpu-core */
@@ -1676,29 +1733,36 @@ static int __init shmobile_cpu_init(void)
 	int i = 0;
 	int pll0_ratio = 0;
 	int arr_size = 0;
-#if 0
+#ifdef DYNAMIC_BOARD_REV_CHECK
 	unsigned int hw_rev = 0;
 #endif
+
 #ifdef DVFS_DEBUG_MODE
 	debug = 1;
 #else  /* !DVFS_DEBUG_MODE */
 	debug = 0;
 #endif /* DVFS_DEBUG_MODE */
 	/* build frequency table */
-#if 0 /* Disable board rev checking */
+	
+#ifdef DYNAMIC_BOARD_REV_CHECK
 	hw_rev = u2_get_board_rev();
 	pr_info("------hw_rev = %d", hw_rev);
 	if (hw_rev >= HWREV_041)
 		zclk12_flg = 1;
 	else
 		zclk12_flg = 0;
-#else
+
+#if defined(CPUFREQ_OVERDRIVE)
+	zclk12_flg = 0;
+#endif /* CPUFREQ_OVERDRIVE */
+
+#else /* !(DYNAMIC_BOARD_REV_CHECK) */
 #if defined(CONFIG_BOARD_VERSION_V041) && !defined(CPUFREQ_OVERDRIVE)
 	zclk12_flg = 1;
 #else
 	zclk12_flg = 0;
 #endif /* CONFIG_BOARD_VERSION_V041 && CPUFREQ_OVERDRIVE */
-#endif /* Disable board rev checking */
+#endif /* DYNAMIC_BOARD_REV_CHECK */
 	if (0 != zclk12_flg) {
 		pll0_ratio = PLLx46;
 		zdiv_table = zdiv_table12;

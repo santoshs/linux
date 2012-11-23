@@ -316,40 +316,41 @@
 #define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
 #define FRQCRA_ES1_MASK		0x00000F00 /* 0x00FFFFF0 */
-#define FRQCRA_ES2_MASK		0x00FFFFFF /* 0x00FFFFFF */
-#define FRQCRB_MASK			0x00FFFFF0 /* 0x1FFFFFF0 */
+#define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
+#define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */
 #define FRQCRB_ZSEL_BIT		0x10000000
 #define FRQCRB_ZFC_MASK		0x0F000000
 #define FRQCRB_ZCLK_MASK	0x1F000000
-#define FRQCRB_KICK			0x80000000	/* FRQCRB KICK bit*/
-#define FRQCRD_MASK			0x0000001F
+#define FRQCRB_KICK		0x80000000 /* FRQCRB KICK bit*/
+#define FRQCRD_MASK		0x0000001F
 #define FRQCRD_ZB30SEL_BIT	0x00000010
 #define FRQCRD_ZB30FC_MASK	0x0000000F
-#define FRQCRD_ZB3CHG		0x80000000	/* FRQCRD ZB3CHG bit */
-#define KICK_WAIT			1000
-#define FRRCRB_ZCLK_1_48	0x1B000000	/* Z clk div = 1/48 */
+#define FRQCRD_ZB3CHG		0x80000000 /* FRQCRD ZB3CHG bit */
+#define KICK_WAIT		1000
+#define FRRCRB_ZCLK_1_48	0x1B000000 /* Z clk div = 1/48 */
 
-/* I:1/6, ZG:1/6, M3:1/8, B:1/24, M1:1/6	*/
-#define	POWERDOWN_FRQCRA_ES1	0x00334830
-/* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/24, HP:1/24	*/
-#define	POWERDOWN_FRQCRB_ES1	0x10233880
+/* For ES 1.0 */
+#define FRQCRA_MASK_ES1		0x00FFFFF0
+#define FRQCRB_MASK_ES1		0x00FFFFF0
 
-/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8	*/
+/* I:1/6, ZG:1/4, M3:1/8, B:1/12, M1:1/6 */
+#define	POWERDOWN_FRQCRA_ES1	0x00324530
+
+/* Z:No change, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/12, HP:1/12 */
+#define	POWERDOWN_FRQCRB_ES1	0x00233550
+
+/* For ES 2.0 and later*/
+#define FRQCRA_MASK_ES2		0x00FFFFFF
+#define FRQCRB_MASK_ES2		0x00FFFFF0
+/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8 */
 #define	POWERDOWN_FRQCRA_ES2	0x00324B34
 
-/* Z:1/2, ZTR:1/4, ZT:1/6, ZX:1/24, ZS:1/24, HP:1/24	*/
-#define	POWERDOWN_FRQCRB_ES2_0	0x00008880	/* 0x10233880 */
-
 /* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/48, ZS:1/48, HP:1/48 */
-#define	POWERDOWN_FRQCRB_ES2_02	0x0023BBB0
-
-/* ZB3:1/16	*/
-#define		POWERDOWN_FRQCRD	0x00000014
-
-#define		POWERDOWN_FRQCRB    0x0023BBB0 /* 0x10238880 */
+//#define	POWERDOWN_FRQCRB_ES2    0x0023BBB0 /* 0x10238880 */
+#define	POWERDOWN_FRQCRB_ES2    0x00038880 /* 0x10238880 */
 
 /********************************************/
-/* RWDT Register							*/
+/* RWDT Register			*/
 /********************************************/
 #define BaseRwdtPhys				0xE6020000
 #define BaseRwdt					IO_ADDRESS(0xE6020000)
@@ -688,7 +689,11 @@
 #define    BUS_SMGPxSRCPhys    0xE6001840
 #define    BUS_SMGPxSRC    IO_ADDRESS(BUS_SMGPxSRCPhys)
 #endif
-
+/*
+ ***************************
+ * ZB3 Set Clock W/A
+ ***************************
+ */
 #define	CPG_CKSCRPhys		0xE61500C0
 #define	CPG_CKSCR			IO_ADDRESS(0xE61500C0)
 #define	CPG_FRQCRD_E054_1	0x00008000

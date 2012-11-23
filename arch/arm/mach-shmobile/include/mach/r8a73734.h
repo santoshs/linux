@@ -3,6 +3,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include <linux/types.h>
+
 /* Pin Function Controller:
  * GPIO_FN_xx - GPIO used to select pin function and MSEL switch
  * GPIO_PORTxx - GPIO mapped to real I/O pin on CPU
@@ -444,7 +446,68 @@ extern struct hwspinlock *r8a73734_hwlock_gpio;
 extern struct hwspinlock *r8a73734_hwlock_cpg;
 extern struct hwspinlock *r8a73734_hwlock_sysc;
 
-#define SMGP000_PMIC SMGP000 /* for PMIC GPADC access from APE/Modem */
+/*Operating Points*/
+enum {
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+	ZB3_FREQ_65 = 0,
+	ZB3_FREQ_87,
+	ZB3_FREQ_97,
+	ZB3_FREQ_130,
+	ZB3_FREQ_173,
+	ZB3_FREQ_195,
+	ZB3_FREQ_260,
+	ZB3_FREQ_390,
+	ZB3_FREQ_520,
+	ZB3_FREQ_SIZE
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+};
+
+struct sbsc_param {
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+	u8 pll3multiplier_1;
+	u8 zb3divider_1;
+	u8 pll3multiplier_2;
+	u8 zb3divider_2;
+	u32 SDWCRC0A;
+	u32 SDWCRC1A;
+	u32 SDWCRC2A;
+	u32 SDWCR00A;
+	u32 SDWCR01A;
+	u32 SDWCR10A;
+	u32 SDWCR11A;
+	u32 freq;
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+};
+
+struct shared_area {
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+	u32 ape_req_freq;
+	u32 bb_req_freq;
+	struct sbsc_param sbsc[ZB3_FREQ_SIZE];
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+};
+
+void cpg_init_sbsc_clock_change(struct shared_area *sh);
+
+/*Shared area memory mapping*/
+#define SHARED_AREA_SW_SEM_0_START_PHY	0x47fbfc00
+#define SHARED_AREA_SW_SEM_0_SIZE	0x80
+#define SHARED_AREA_SW_SEM_0_END_PHY	(SHARED_AREA_SW_SEM_0_START_PHY + \
+				SHARED_AREA_SW_SEM_0_SIZE - 1)
+#define SHARED_AREA_SBSC_START_PHY	0x47FBFC80
+#define SHARED_AREA_SBSC_SIZE		384
+#define SHARED_AREA_SBSC_END_PHY	(SHARED_AREA_SBSC_START_PHY + \
+				SHARED_AREA_SBSC_SIZE - 1)
+#define SHARED_AREA_SW_SEM_1_START_PHY	0x47fbfe00
+#define SHARED_AREA_SW_SEM_1_SIZE	0x80
+#define SHARED_AREA_SW_SEM_1_END_PHY	(SHARED_AREA_SW_SEM_1_START_PHY + \
+				SHARED_AREA_SW_SEM_1_SIZE - 1)
+
+#define LPCKCR_MODE0	0
+#define LPCKCR_MODE1	1
+#define LPCKCR_MODE2	2
+#define LPCKCR_MODE3	4
+void cpg_set_lpclkcr_mode(u32 mode);
 
 #endif /* __ASSEMBLY__*/
 
@@ -460,6 +523,8 @@ extern struct hwspinlock *r8a73734_hwlock_sysc;
 #define IO_ADDRESS(x)	(x)
 #endif
 
+#define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
+#define SMGP001_DFS		SMGP001
 #define SMGP100_DFS_ZS	SMGP100
-#define SMGP101_VCD	SMGP101
+#define SMGP101_VCD		SMGP101
 #endif /* __ASM_R8A73734_H__ */
