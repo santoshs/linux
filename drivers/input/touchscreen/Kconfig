@@ -732,13 +732,6 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
-config TOUCH_DRV_LOADER
-	tristate "Dynamic touch driver loader for KOTA"
-	depends on I2C
-	help
-	  Designed to work as a loadable module.
-	  This will determine which touch panel is attached.
-
 
 source "drivers/input/touchscreen/melfas/Kconfig"
 
