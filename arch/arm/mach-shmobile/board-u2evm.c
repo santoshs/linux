@@ -1341,7 +1341,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_USB_SWITCH_TSU6712)
     {
 		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
-			.platform_data = &tsu6712_pdata,
+			.platform_data = NULL,
 			.irq            = irqpin2irq(GPIO_MUS_INT),
     },
 #endif
