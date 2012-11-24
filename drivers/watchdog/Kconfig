@@ -351,10 +351,10 @@ config RMU2_RWDT
 
 	  3. Rebooting setting
 	     You can select rebooting setting when overflow occurs.
-	     If you want to do system reboot, check []. If you want to 
-	     put crash dump, do not check. but in this case, system 
-	     reboot do not occur. 
-	  
+	     If you want to do system reboot, check []. If you want to
+	     put crash dump, do not check. but in this case, system
+	     reboot do not occur.
+
 menu "Select RWDT counter overflow time"
 	depends on RMU2_RWDT
 
@@ -495,7 +495,7 @@ config RMU2_RWDT_CMT_OVF
 	default 9000		if  RMU2_RWDT_9S
 	default 10000		if  RMU2_RWDT_10S
 	default 15000		if  RMU2_RWDT_15S
-	default 20000		if  RMU2_RWDT_20S 
+	default 20000		if  RMU2_RWDT_20S
 	default 25000		if  RMU2_RWDT_25S
 	default 25000		if  RMU2_RWDT_30S
 	default 35000		if  RMU2_RWDT_35S
@@ -516,14 +516,14 @@ config RMU2_RWDT_CMT_OVF
 	default 900000		if  RMU2_RWDT_15MIN
 	default 1200000		if  RMU2_RWDT_20MIN
 	default 1500000		if  RMU2_RWDT_25MIN
-	default 1800000		if  RMU2_RWDT_30MIN  
+	default 1800000		if  RMU2_RWDT_30MIN
 endmenu
 
 menu "Set time interval to clear timer in RWDT [msec]"
 	depends on RMU2_RWDT
 
 config RMU2_RWDT_CLEARTIME
-	int "Set time interval to clear timer in RWDT between 1 to half of overflow time [msec]" 
+	int "Set time interval to clear timer in RWDT between 1 to half of overflow time [msec]"
 	range 1 4			if  RMU2_RWDT_8mS
 	range 1 15			if  RMU2_RWDT_31mS
 	range 1 64			if  RMU2_RWDT_125mS
@@ -540,7 +540,7 @@ config RMU2_RWDT_CLEARTIME
 	range 1 4500		if  RMU2_RWDT_9S
 	range 1 5000		if  RMU2_RWDT_10S
 	range 1 7500		if  RMU2_RWDT_15S
-	range 1 10000		if  RMU2_RWDT_20S 
+	range 1 10000		if  RMU2_RWDT_20S
 	range 1 12500		if  RMU2_RWDT_25S
 	range 1 15000		if  RMU2_RWDT_30S
 	range 1 17500		if  RMU2_RWDT_35S
@@ -571,12 +571,25 @@ config RMU2_RWDT_REBOOT_ENABLE
     bool "reboot enable"
 	default y
 endmenu
-	  
+
 config RWDT_DEBUG
 	bool "RWDT debug"
 	depends on RMU2_RWDT
 	help
 	  Say Y here to enable debugging messages for rwdt drivers.
+
+	  You can use the echo commmad to write value into /proc/proc_watch_entry
+	  to skip clearing RWDT for debugging. RWDT counter will be overflowed
+	  after overflow time.
+
+config RWDT_BUS_TIMEOUT_CHECK_ENABLE
+	bool "Enable bus timeout checking"
+	depends on RMU2_RWDT
+	help
+	  Say Y here to enable SHwy Bus Timeout Control Function.
+
+	  This function is to help the debugging of SHwy bus hung-up 
+	  from the point of view of CPG operation.
 
 # AVR32 Architecture
 

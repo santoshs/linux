@@ -169,8 +169,10 @@ static struct miscdevice rwdt_mdev = {
  */
 static void cpg_check_init(void)
 {
+#ifdef RWDT_BUS_TIMEOUT_CHECK_ENABLE
 	__raw_writel(0x3fff3fffU, CPG_CHECK_REG);
 	__raw_writel(0x3fff3fffU, CPG_CHECK_REG + 4);
+#endif /* RWDT_BUS_TIMEOUT_CHECK_ENABLE */
 }
 
 /*
@@ -181,6 +183,7 @@ static void cpg_check_init(void)
  */
 static void cpg_check_check(void)
 {
+#ifdef RWDT_BUS_TIMEOUT_CHECK_ENABLE
 	unsigned int val0;
 	unsigned int val1;
 	unsigned int addr;
@@ -205,7 +208,7 @@ static void cpg_check_check(void)
 						addr, __raw_readl(addr));
 		}
 
-		panic("Bus timeout occurred!!");
+		printk(KERN_EMERG "Bus timeout occurred!!");
 	} else if ((0x3fff3fffU != (val0 & 0x3fff3fffU)) ||
 				(0x3fff3fffU != (val1 & 0x3fff3fffU))) {
 		RWDT_DEBUG("CPG CHECK register was modified\n");
@@ -215,6 +218,7 @@ static void cpg_check_check(void)
 	} else {
 		/* Do nothing */
 	}
+#endif /* RWDT_BUS_TIMEOUT_CHECK_ENABLE */
 }
 
 #ifdef CONFIG_GIC_NS_CMT
