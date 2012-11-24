@@ -914,8 +914,9 @@ extern unsigned int g_vcd_log_level;
  */
 enum VCD_CALL_TYPE {
 	VCD_CALL_TYPE_CS = 0,
-	VCD_CALL_TYPE_VOIP = 1,
-	VCD_CALL_TYPE_VOLTE = 2,
+	VCD_CALL_TYPE_VOIP,
+	VCD_CALL_TYPE_VOLTE,
+	VCD_CALL_TYPE_VTCALL,
 };
 
 enum VCD_SEMAPHORE {

@@ -1314,19 +1314,14 @@ int vcd_spuv_get_call_type(void)
 
 	/* flush cache */
 	vcd_spuv_func_cacheflush((unsigned int)proc_param, PAGE_SIZE);
-	if (0x03000000 & g_vcd_log_level)/* VoIP Loopback [SRC] */
+
+	/* VoIP Loopback [SRC] for debug */
+	if (0x03000000 & g_vcd_log_level)
 		*proc_param = VCD_CALL_TYPE_VOIP;
 
-	if (VCD_CALL_TYPE_CS == *proc_param) {
-		call_type = VCD_CALL_TYPE_CS;
-	} else if (VCD_CALL_TYPE_VOIP == *proc_param) {
-		call_type = VCD_CALL_TYPE_VOIP;
-	} else if (VCD_CALL_TYPE_VOLTE == *proc_param) {
-		call_type = VCD_CALL_TYPE_VOLTE;
-	} else {
-		vcd_pr_err("Unknown call type[%d].\n", *proc_param);
-		call_type = VCD_CALL_TYPE_CS;
-	}
+	/* set call type */
+	call_type = *proc_param;
+
 	vcd_pr_end_spuv_function("call_type[%d].\n", call_type);
 	return call_type;
 }
