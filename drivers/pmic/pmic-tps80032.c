@@ -5816,6 +5816,28 @@ static int tps80032_init_power_hw(struct tps80032_data *data)
 	if (0 > ret)
 		return ret;
 
+	/* Set backup battery end of charge voltage is 3.15V */
+	ret = I2C_READ(data->client_power, HW_REG_BBSPOR_CFG);
+	if (0 > ret)
+		return ret;
+
+	val = (ret | MSK_BIT_2) & (~MSK_BIT_1);
+
+	ret = I2C_WRITE(data->client_power, HW_REG_BBSPOR_CFG, val);
+	if (0 > ret)
+		return ret;
+
+	/* Enable backup battery charging */
+	ret = I2C_READ(data->client_power, HW_REG_BBSPOR_CFG);
+	if (0 > ret)
+		return ret;
+
+	val = ret | MSK_BIT_3;
+
+	ret = I2C_WRITE(data->client_power, HW_REG_BBSPOR_CFG, val);
+	if (0 > ret)
+		return ret;
+
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return ret;
 }
