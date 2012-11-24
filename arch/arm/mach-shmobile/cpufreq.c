@@ -170,7 +170,7 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
-#define HOTPLUG_IN_ACTIVE	1
+/*#define HOTPLUG_IN_ACTIVE	1*/
 static void do_check_cpu(struct work_struct *work);
 static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu);
 
