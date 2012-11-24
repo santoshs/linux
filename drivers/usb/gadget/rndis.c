@@ -159,6 +159,7 @@ static const u32 oid_supported_list[] =
 #endif	/* RNDIS_PM */
 };
 
+static int HostMaxTransferSize;
 
 /* NDIS Functions */
 static int gen_ndis_query_resp(int configNr, u32 OID, u8 *buf,
@@ -586,12 +587,12 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	resp->MinorVersion = cpu_to_le32(RNDIS_MINOR_VERSION);
 	resp->DeviceFlags = cpu_to_le32(RNDIS_DF_CONNECTIONLESS);
 	resp->Medium = cpu_to_le32(RNDIS_MEDIUM_802_3);
-	resp->MaxPacketsPerTransfer = cpu_to_le32(1);
-	resp->MaxTransferSize = cpu_to_le32(
+	resp->MaxPacketsPerTransfer = cpu_to_le32(16);
+	resp->MaxTransferSize = cpu_to_le32( 6*(
 		  params->dev->mtu
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
-		+ 22);
+		+ 22));
 	resp->PacketAlignmentFactor = cpu_to_le32(0);
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
@@ -684,9 +685,15 @@ static int rndis_set_response(int configNr, rndis_set_msg_type *buf)
 
 static int rndis_reset_response(int configNr, rndis_reset_msg_type *buf)
 {
+	u8 *buffer;
+	u32 length;
 	rndis_reset_cmplt_type *resp;
 	rndis_resp_t *r;
 	struct rndis_params *params = rndis_per_dev_params + configNr;
+
+	/* drain the response queue */
+	while ((buffer = rndis_get_next_response(configNr, &length)))
+		rndis_free_response(configNr, buffer);
 
 	r = rndis_add_response(configNr, sizeof(rndis_reset_cmplt_type));
 	if (!r)
@@ -822,6 +829,7 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 		pr_debug("%s: REMOTE_NDIS_INITIALIZE_MSG\n",
 			__func__);
 		params->state = RNDIS_INITIALIZED;
+		HostMaxTransferSize = get_unaligned_le32(tmp+3);
 		return rndis_init_response(configNr,
 					(rndis_init_msg_type *)buf);
 
@@ -1030,23 +1038,45 @@ int rndis_rm_hdr(struct gether *port,
 {
 	/* tmp points to a struct rndis_packet_msg_type */
 	__le32 *tmp = (void *)skb->data;
-
+	struct sk_buff *newskb;
+	u32 MessageLength;
 	/* MessageType, MessageLength */
 	if (cpu_to_le32(REMOTE_NDIS_PACKET_MSG)
 			!= get_unaligned(tmp++)) {
 		dev_kfree_skb_any(skb);
 		return -EINVAL;
 	}
-	tmp++;
+NextFrame:
+	newskb = NULL;
+	MessageLength = get_unaligned_le32(tmp++);
+
+	newskb = skb_clone(skb, GFP_ATOMIC);
+
+	if (unlikely(!newskb)) {
+		dev_kfree_skb_any(skb);
+		return 0;
+	}
 
 	/* DataOffset, DataLength */
-	if (!skb_pull(skb, get_unaligned_le32(tmp++) + 8)) {
+	if (!skb_pull(newskb, get_unaligned_le32(tmp++) + 8)) {
+		dev_kfree_skb_any(newskb);
 		dev_kfree_skb_any(skb);
 		return -EOVERFLOW;
 	}
-	skb_trim(skb, get_unaligned_le32(tmp++));
+	newskb->len = get_unaligned_le32(tmp++);
 
-	skb_queue_tail(list, skb);
+
+	tmp = (__le32 *)(((u8 *)tmp) + (MessageLength - 4 * 4));
+
+	if (cpu_to_le32(REMOTE_NDIS_PACKET_MSG)
+			== get_unaligned_le32(tmp++)) {
+		skb_queue_tail(list, newskb);
+		skb->data = (unsigned int *)(((u8 *)tmp) - 4);
+		goto NextFrame;
+	}
+
+	skb_queue_tail(list, newskb);
+	dev_kfree_skb_any(skb);
 	return 0;
 }
 
