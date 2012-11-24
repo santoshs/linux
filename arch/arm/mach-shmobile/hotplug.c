@@ -26,7 +26,7 @@
 static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
-#ifndef CONFIG_ARM_TZ
+#ifndef CONFIG_ARCH_R8A73734
 	int cnt = 0;
 	/* this will be executed on alive cpu,
 	 * and it must be executed after the victim has been finished
@@ -34,10 +34,11 @@ int platform_cpu_kill(unsigned int cpu)
 	for (cnt = 0; cnt < 1000; cnt++) {
 		if (cpumask_test_cpu(cpu, &dead_cpus))
 			return shmobile_platform_cpu_kill(cpu);
-
 		mdelay(1);
 	}
-#endif /* CONFIG_ARM_TZ */
+#else
+	return shmobile_platform_cpu_kill(cpu);
+#endif
 	return 1;
 }
 

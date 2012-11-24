@@ -32,6 +32,7 @@
 #include <linux/suspend.h>
 #include <mach/pm.h>
 #include <linux/errno.h>
+#include <linux/delay.h>
 
 #define WUPCR		IO_ADDRESS(0xe6151010)
 #define SRESCR		IO_ADDRESS(0xe6151018)
@@ -143,7 +144,10 @@ int r8a73734_smp_cpu_die(unsigned int cpu)
 
 int r8a73734_smp_cpu_kill(unsigned int cpu)
 {
-	modify_scu_cpu_psr(3 << (cpu * 8), 0);
+/*	modify_scu_cpu_psr(3 << (cpu * 8), 0); */
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	while ((((__raw_readl(scu_base_addr() + 8)) >> (8 * cpu)) & 3) != 3)
+		mdelay(1);
 	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	return 1;
 }
