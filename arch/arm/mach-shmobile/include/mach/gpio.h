@@ -35,6 +35,13 @@
 #define PORTn_OUTPUT_LEVEL_LOW		0
 #define PORTn_OUTPUT_LEVEL_HIGH		1
 
+#define GPIO_PULL_OFF	0x00
+#define GPIO_PULL_DOWN	0x80
+#define GPIO_PULL_UP	0xc0
+#define INPUT		0x20
+#define OUTPUT		0x10
+#define FUNCTION_0	0x00
+#define FUNCTION_1	0x01
 
 struct portn_gpio_setting {
 	u32	port_fn;	/* Pin function select*/
@@ -79,6 +86,7 @@ static inline int irq_to_gpio(unsigned int irq)
 	return -ENOSYS;
 }
 
+extern void gpio_pull(u32 addr, int type);
 extern void gpio_direction_none_port(int gpio);
 extern void gpio_pull_off_port(int gpio);
 extern void gpio_pull_up_port(int gpio);

@@ -20,11 +20,11 @@
 /**
  * GPIO port configurations
  */
-#define GPIO_BASE	IO_ADDRESS(0xe6050000)
-
 #ifndef __ASM_ARCH_BOARD_U2EVM_H
 #define __ASM_ARCH_BOARD_U2EVM_H
 
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
+#include <mach/gpio.h>
 /**
  * SDHI
  */
@@ -51,10 +51,6 @@
 /**
  * GPIO
  **/
-#define GPIO_PULL_OFF	0x00
-#define GPIO_PULL_DOWN	0x80
-#define GPIO_PULL_UP	0xc0
-
 /*Support for compatibility between ES1.0 and ES2.0*/
 #define GPIO_PORTCR_ES1(n)	({				\
 	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
