@@ -1946,6 +1946,13 @@ static int wm1811_resume(const u_long device, u_int pcm_mode)
 
 	ret = wm1811_restore_volume(device);
 
+	if (WM1811_IRQ_WAKE_ON == wm1811_conf->irq_wake_state) {
+		/* disable irq wake */
+		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_OFF);
+		if (0 == ret)
+			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_OFF;
+	}
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -2027,6 +2034,12 @@ static int wm1811_set_irq_wake(const u_int set_wake_state, u_int pcm_mode)
 			wm1811_conf->irq_wake_state = set_wake_state;
 	}
 
+	if (WM1811_IRQ_WAKE_OFF == wm1811_conf->irq_wake_state) {
+		/* enable irq wake */
+		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_ON);
+		if (0 == ret)
+			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_ON;
+	}
 	wm1811_log_rfunc("conf-wake_state[%d] ret[%d]",
 				wm1811_conf->irq_wake_state, ret);
 	return ret;
