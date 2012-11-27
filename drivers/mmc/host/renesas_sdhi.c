@@ -22,6 +22,7 @@
 #include <linux/scatterlist.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/slab.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/core.h>
 #include <linux/mmc/sdio.h>
@@ -38,7 +39,9 @@
 #define SDHI_SECCNT		0x0a
 #define SDHI_RSP		0x0c
 #define SDHI_INFO		0x1c
+#define SDHI_INFO2             0x1e
 #define SDHI_INFO_MASK		0x20
+#define SDHI_INFO2_MASK                0x22
 #define SDHI_CLK_CTRL		0x24
 #define SDHI_SIZE		0x26
 #define SDHI_OPTION		0x28
@@ -115,6 +118,17 @@
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
+struct sdhi_register_value {
+       int sd_info1_mask;
+       int sd_info2_mask;
+       int sd_clk_ctrl;
+       int sd_option;
+       int sdio_mode;
+       int sdio_info1_mask;
+       int dma_mode;
+       int soft_rst;
+       int ext_acc;
+};
 
 struct renesas_sdhi_host {
 	struct mmc_host *mmc;
@@ -152,6 +166,7 @@ struct renesas_sdhi_host {
 	struct scatterlist      *sg_orig;
 	unsigned int            sg_len;
 	unsigned int            sg_off;
+	struct sdhi_register_value *reg;
 };
 
 static u16 sdhi_read16(struct renesas_sdhi_host *host, u32 offset)
@@ -193,6 +208,53 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 	}
 	__raw_writew(val, host->base + offset);
 }
+
+static int sdhi_save_register(struct renesas_sdhi_host *host)
+{
+       struct sdhi_register_value *reg = host->reg;
+
+       clk_enable(host->clk);
+
+       reg->sd_info1_mask = sdhi_read16(host, SDHI_INFO_MASK);
+       reg->sd_info2_mask = sdhi_read16(host, SDHI_INFO2_MASK);
+       reg->sd_clk_ctrl = sdhi_read16(host, SDHI_CLK_CTRL);
+       reg->sd_option = sdhi_read16(host, SDHI_OPTION);
+       reg->sdio_mode = sdhi_read16(host, SDHI_SDIO_MODE);
+       reg->sdio_info1_mask = sdhi_read16(host, SDHI_SDIO_INFO_MASK);
+       reg->dma_mode = sdhi_read16(host, SDHI_DMA_MODE);
+       reg->soft_rst = sdhi_read16(host, SDHI_SOFT_RST);
+       reg->ext_acc = sdhi_read16(host, SDHI_EXT_ACC);
+
+       clk_disable(host->clk);
+
+       return 0;
+}
+
+static int sdhi_restore_register(struct renesas_sdhi_host *host)
+{
+       struct sdhi_register_value *reg = host->reg;
+
+       clk_enable(host->clk);
+
+       sdhi_write16(host, SDHI_SOFT_RST, 0x0000);
+       sdhi_write16(host, SDHI_SOFT_RST, 0x0001);
+
+       sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) | (1 << 13));
+       
+       sdhi_write16(host, SDHI_CLK_CTRL, reg->sd_clk_ctrl);
+       sdhi_write16(host, SDHI_INFO_MASK, reg->sd_info1_mask);
+       sdhi_write16(host, SDHI_INFO2_MASK, reg->sd_info2_mask);
+       sdhi_write16(host, SDHI_SDIO_INFO_MASK, reg->sdio_info1_mask);
+       sdhi_write16(host, SDHI_SDIO_MODE, reg->sdio_mode);
+       sdhi_write16(host, SDHI_EXT_ACC, reg->ext_acc);
+
+       sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) & ~(1 << 13));
+
+       clk_disable(host->clk);
+
+       return 0;
+}
+
 
 static void sdhi_write16s(struct renesas_sdhi_host *host,
 		u32 offset, u16 *buf, int count)
@@ -945,6 +1007,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	struct renesas_sdhi_host *host;
 	struct renesas_sdhi_platdata *pdata;
 	struct resource *res;
+	struct sdhi_register_value *reg;
 	int i, irq, ret;
 	int sysfs_ret = 0;
 	u32 val;
@@ -971,10 +1034,28 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	if (!mmc)
 		return -ENOMEM;
 
+    reg = kzalloc(sizeof(struct sdhi_register_value), GFP_KERNEL);
+    if (reg == NULL) {
+              dev_err(&pdev->dev, "kzalloc failed\n");
+              return -ENOMEM;
+    }
+
+    /* Initialize register value struct used to save/restore register during suspend */
+    reg->sd_info1_mask = 0;
+    reg->sd_info2_mask = 0;
+    reg->sd_clk_ctrl = 0;
+    reg->sd_option = 0;
+    reg->sdio_mode = 0;
+    reg->sdio_info1_mask = 0;
+    reg->dma_mode = 0;
+    reg->soft_rst = 0;
+    reg->ext_acc = 0;
+
 	host = mmc_priv(mmc);
 	host->mmc = mmc;
 	host->pdev = pdev;
 	host->pdata = pdata;
+ 	host->reg = reg;
 
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
@@ -1003,6 +1084,8 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 			MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED;
 	if (pdata->caps)
 		mmc->caps |= pdata->caps;
+
+	mmc->pm_caps = pdata->pm_caps;
 	mmc->f_max = host->hclk;
 	mmc->f_min = mmc->f_max / 512;
 	mmc->max_segs = 128;
@@ -1215,10 +1298,12 @@ int renesas_sdhi_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	int ret = mmc_suspend_host(host->mmc);
+	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		pm_runtime_put_sync(dev);
+		
 	}
+	pm_runtime_put_sync(dev);
 	renesas_sdhi_gpio_setting(host->pdata, 0);
 	return ret;
 }
@@ -1229,13 +1314,14 @@ int renesas_sdhi_resume(struct device *dev)
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	u32 val;
 	renesas_sdhi_gpio_setting(host->pdata, 1);
+	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
-		pm_runtime_get_sync(dev);
 		clk_enable(host->clk);
 		sdhi_reset(host);
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
+ 	sdhi_restore_register(host);
 
 	return mmc_resume_host(host->mmc);
 }

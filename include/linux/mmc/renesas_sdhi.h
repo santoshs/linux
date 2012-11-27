@@ -52,6 +52,7 @@ struct renesas_sdhi_gpio_setting_info {
 
 struct renesas_sdhi_platdata {
 	unsigned long		caps;
+	mmc_pm_flag_t		pm_caps;
 	unsigned long		flags;
 	u32			ocr;
 
