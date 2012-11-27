@@ -33,13 +33,9 @@ Description :  File created
 #include <linux/if_arp.h>
 #include <linux/if_phonet.h>
 
-
 #include "smc.h"
 #include "smc_trace.h"
-
 #include "smc_conf_l2mux_linux.h"
-
-// TODO Cleanup #include "smc_instance_config_l2mux.h"
 #include "smc_config_l2mux.h"
 
 #if( SMCTEST == TRUE )
@@ -167,6 +163,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': PM Host Access Req %s", device_name, SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
     SMC_TRACE_PRINTF_STARTUP("Device '%s': APE Wakeup interrupt sense 0x%02X", device_name, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE);
 
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -184,6 +181,8 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
         smc_channel_conf->smc_send_data_deallocator_cb  = NULL;
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;
+
+        SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
     }
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: completed, return SMC instance configuration 0x%08X", (uint32_t)smc_conf);
@@ -352,18 +351,8 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
         case SMC_STOP_SEND_LOCAL:
         {
             struct net_device* device     = NULL;
-            //smc_lock_t*        local_lock = get_local_lock_smc_start_stop();
 
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_STOP_SEND: queue protocol %d", smc_channel->id, smc_channel->protocol);
-
-            /* TODO Add the state_lock */
-
-            //SMC_LOCK( smc_channel->lock_tx_queue );
-
-            /* TODO Check if the stop counter is required
-            assert( smc_channel->stop_counter < 0xFF );
-            smc_channel->stop_counter++;
-            */
 
                 /* Get the net device and close */
             device = dev_config_l2mux.device_driver_priv->net_dev;
@@ -395,8 +384,6 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                 assert(0);
             }
 
-            //SMC_UNLOCK( smc_channel->lock_tx_queue );
-
             break;
         }
         case SMC_RESUME_SEND:
@@ -405,17 +392,6 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
             struct net_device* device     = NULL;
 
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_RESUME_SEND: queue protocol %d", smc_channel->id, smc_channel->protocol);
-
-            /* TODO Add the state_lock */
-
-            //SMC_TRACE_PRINTF_ALWAYS("Channel %d: TX is enabling request (from %s) state=0x%08X", smc_channel->id, (event == SMC_RESUME_SEND)?"remote":"local",smc_channel->state);
-
-            //SMC_LOCK( smc_channel->lock_tx_queue );
-
-            /* TODO Check if stop counter is required
-            if( smc_channel->stop_counter > 0 ) smc_channel->stop_counter--;
-            if( smc_channel->stop_counter==0 )
-            */
 
             if( event == SMC_RESUME_SEND )
             {
@@ -452,10 +428,8 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
             }
             else
             {
-                SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channels %d lock counter is %d, not starting queue %d", smc_channel->id, smc_channel->stop_counter, smc_channel->protocol);
+                SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel %d: not starting queue %d (denied)", smc_channel->id, smc_channel->protocol);
             }
-
-            //SMC_UNLOCK( smc_channel->lock_tx_queue );
 
             break;
         }
@@ -629,7 +603,7 @@ static void l2mux_layer_device_driver_setup(struct net_device* device)
 {
     SMC_TRACE_PRINTF_DEBUG("l2mux_layer_device_driver_setup: modify net device for L2MUX usage...");
 
-    device->features        = NETIF_F_SG /* Frags to be tested by MHDP team  | NETIF_F_HW_CSUM | NETIF_F_FRAGLIST*/;
+    device->features        = NETIF_F_SG /* Frags to be tested by MHDP team  | NETIF_F_HW_CSUM | NETIF_F_FRAGLIST*/ ;
     device->type            = ARPHRD_MHI;
     device->flags           = IFF_POINTOPOINT | IFF_NOARP;
     device->mtu             = MHI_MAX_MTU;
