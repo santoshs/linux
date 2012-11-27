@@ -57,6 +57,7 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
+obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_U2USB)     += setup-u2usb.o
 # BT object

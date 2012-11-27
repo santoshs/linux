@@ -2282,7 +2282,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&sh_mmcif_device,
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
-//	&sdhi1_device,
+	&sdhi1_device,
 #if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
@@ -2340,7 +2340,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sh_mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-//	&sdhi1_device,
+	&sdhi1_device,
 #if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
@@ -2870,8 +2870,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_direction_output(GPIO_PORT101, 0);
 #endif
 	// WLAN Enable
-	gpio_request(GPIO_PORT260, NULL);
-	gpio_direction_output(GPIO_PORT260, 0);
+	//gpio_request(GPIO_PORT260, NULL);
+	//gpio_direction_output(GPIO_PORT260, 0);
 	
 	// BT Enable
 	//gpio_request(GPIO_PORT268, NULL);
@@ -3225,10 +3225,22 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		gpio_request(GPIO_FN_SDHID1_3, NULL);
 		gpio_request(GPIO_FN_SDHICMD1, NULL);
 		gpio_request(GPIO_FN_SDHICLK1, NULL);
-	    irq_set_irq_type(irqpin2irq(42), IRQ_TYPE_EDGE_FALLING);
-	    irqc_set_chattering(42, 0x01);  /* 1msec */
-	
 
+		if((system_rev & 0xFF) == 0x00)
+		{ /*ES1.0*/
+			gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(292), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(291), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(290), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(289), GPIO_PULL_UP);
+		} else
+		{ /*ES2.0*/
+			gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(292), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(291), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(290), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(289), GPIO_PULL_UP);
+		}
 	}
 
 	/* touch key Interupt */
@@ -3370,15 +3382,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
-
-	if (1 != stm_select) {
-		/*configure Ports for SDHI1*/
-		*((volatile u8 *)SDHI1_D0_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D1_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D2_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D3_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_CMD_CR) = 0xC1;
-	}
 
 	/* enable sound */
 	gpio_request(GPIO_FN_FSIAISLD, "sound");

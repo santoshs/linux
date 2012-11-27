@@ -285,6 +285,11 @@ config RENESAS_GPS
 	default n
 	depends on RENESAS
 
+config RENESAS_WIFI
+	bool "Renesas reference implementation for WiFi"
+	default n
+	depends on RENESAS
+
 config BOARD_VERSION_V041
 	default y
 	bool "board_revision"

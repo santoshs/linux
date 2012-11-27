@@ -101,21 +101,11 @@ static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
 	static int power_state;
 
-	printk(KERN_INFO "%s Powering %s wifi\n", __func__, (state ? "on" : "off"));
+	printk(KERN_ALERT "%s: %s\n", __func__, (state ? "on" : "off"));
 
-	if (state == power_state)
-		return;
-	power_state = state;
-
-	if (state) {
-		gpio_set_value(WLAN_GPIO_EN, 1);
-		mdelay(15);
-		gpio_set_value(WLAN_GPIO_EN, 0);
-		mdelay(1);
-		gpio_set_value(WLAN_GPIO_EN, 1);
-		mdelay(70);
-	} else {
-		gpio_set_value(WLAN_GPIO_EN, 0);
+	if (state != power_state) {
+		power_state = state;
+		gpio_set_value(GPIO_PORT260, state);
 	}
 }
 
@@ -139,14 +129,15 @@ static struct renesas_sdhi_dma sdhi1_dma = {
 };
 
 static struct renesas_sdhi_platdata sdhi1_info = {
-	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE,
-	.flags		= RENESAS_SDHI_WP_DISABLE,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
+	.pm_caps	= MMC_PM_KEEP_POWER | MMC_PM_IGNORE_PM_NOTIFY,
+	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
 	.dma		= &sdhi1_dma,
-	.set_pwr		= sdhi1_set_pwr,
-	.detect_irq		= 0,
+	.set_pwr	= sdhi1_set_pwr,
+	.detect_irq	= 0,
 	.detect_msec	= 0,
 	.get_cd		= sdhi1_get_cd,
-	.ocr			= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
+	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
 };
 
 static struct resource sdhi1_resources[] = {
@@ -172,6 +163,7 @@ struct platform_device sdhi1_device = {
 	.resource	= sdhi1_resources,
 };
 
+#if 0
 static void sdhi2_set_pwr(struct platform_device *pdev, int state)
 {
 	;/* TODO*/
@@ -225,3 +217,4 @@ static struct platform_device sdhi2_device = {
 	.num_resources	= ARRAY_SIZE(sdhi2_resources),
 	.resource	= sdhi2_resources,
 };
+#endif
