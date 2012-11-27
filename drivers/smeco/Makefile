@@ -74,7 +74,6 @@ ifneq ($(KERNELRELEASE),)
 obj-$(CONFIG_SMECO) += smeco.o
 
 smeco-objs := smc.o
-smeco-objs += smc_inits.o
 smeco-objs += smc_conf.o
 smeco-objs += smc_fifo.o
 smeco-objs += smc_mdb.o

@@ -199,7 +199,7 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
 
 
     assert( p_fifo != NULL );
-    assert( ((cell->data > 0) || (cell->length > 0) || (cell->flags > 0)) );
+    assert( ((cell->data > 0) | (cell->length > 0) | (cell->flags > 0)) );
 
     if( use_cache_control == TRUE )
     {
@@ -292,7 +292,7 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     }
     else
     {
-        SMC_TRACE_PRINTF_WARNING("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
+        SMC_TRACE_PRINTF_ERROR("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
                 (uint32_t)p_fifo, n_in_fifo, p_fifo->length, write_index, read_index);
 
         return_value = SMC_FIFO_ERROR_FIFO_FULL;

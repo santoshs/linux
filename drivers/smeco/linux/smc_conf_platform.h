@@ -29,9 +29,6 @@ Description :  File created
 
 #define SMC_SEND_USE_SEMAPHORE
 
-/*#define SMC_XMIT_BUFFER_FAIL_SEND*/
-#define SMC_XMIT_BUFFER_SIZE                  15
-
 
 //#define SMC_LOCK_TX_BUFFER                    SMC_LOCK
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
@@ -49,7 +46,6 @@ Description :  File created
 
 #include <linux/interrupt.h>
 #include <linux/irq.h>
-#include <linux/mutex.h>
 #include <asm/signal.h>
 
 
@@ -92,6 +88,8 @@ Description :  File created
 #define SMC_SIGNAL_TYPE_INT_IRQC       (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x07)  /* 0x03000007 */
 
 
+#define SMC_SEMAPHORE_WAIT( smc_semaphore )
+#define SMC_SEMAPHORE_POST( smc_semaphore )
 
     /*
      * Data type for SMC signals
@@ -142,10 +140,6 @@ typedef struct
 #define  SMC_LOCK_IRQ( lock )    { SMC_TRACE_PRINTF_LOCK("lock irq save: 0x%08X...", (uint32_t)lock); spin_lock_irqsave( &lock->mr_lock, lock->flags); }
 #define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); SMC_TRACE_PRINTF_LOCK("unlock irq save: 0x%08X...", (uint32_t)lock); }
 
-
-#define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
-#define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
-
     /*
      * Data type for SMC locking
      */
@@ -163,7 +157,7 @@ typedef struct _smc_lock_t
      */
 typedef struct _smc_semaphore_t
 {
-    struct mutex smc_mutex;
+    struct semaphore* sem;
 
 } smc_semaphore_t;
 
