@@ -30,17 +30,10 @@
 #define RT_BOOT_SIZE		(0xb00)
 
 /* Screen information */
-#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
-#define SCREEN0_HEIGHT		(960)
-#define SCREEN0_WIDTH		(540)
-#define SCREEN0_STRIDE		(544)
-#define SCREEN0_MODE		(1)
-#else
 #define SCREEN0_HEIGHT		(800)
 #define SCREEN0_WIDTH		(480)
 #define SCREEN0_STRIDE		(480)
 #define SCREEN0_MODE		(0)
-#endif
 #define SCREEN1_HEIGHT		(0)
 #define SCREEN1_WIDTH		(0)
 #define SCREEN1_STRIDE		(0)

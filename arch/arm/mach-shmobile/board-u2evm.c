@@ -405,43 +405,17 @@ static struct platform_device fsi_b_device = {
 	},
 };
 
-static const struct fb_videomode lcdc0_modes[] = {
-	{
-#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
-		.name		= "qHD",
-		.xres		= 540,
-		.yres		= 960,
-#else
-		.name		= "WVGA",
-		.xres		= 480,
-		.yres		= 800,
-#endif
-		.left_margin	= 16,
-		.right_margin	= 1000,
-		.hsync_len	= 16,
-		.upper_margin	= 1,
-		.lower_margin	= 4,
-		.vsync_len	= 2,
-		.sync		= FB_SYNC_VERT_HIGH_ACT | FB_SYNC_HOR_HIGH_ACT,
-	},
-};
-
 static struct sh_mobile_lcdc_info lcdc_info = {
 	.clock_source	= LCDC_CLK_PERIPHERAL,
 
 	/* LCDC0 */
 	.ch[0] = {
 		.chan = LCDC_CHAN_MAINLCD,
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		.bpp = 24,
+#else
 		.bpp = 32,
-		.interface_type		= RGB24,
-		.clock_divider		= 1,
-		.flags			= LCDC_FLAGS_DWPOL,
-		.lcd_cfg = lcdc0_modes,
-		.num_cfg = ARRAY_SIZE(lcdc0_modes),
-		.lcd_size_cfg = {
-			.width	= 44,
-			.height	= 79,
-		},
+#endif
 		.panelreset_gpio = GPIO_PORT31,
 		.paneldsi_irq = 33,
 	},

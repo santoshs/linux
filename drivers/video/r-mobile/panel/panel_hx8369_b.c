@@ -26,7 +26,7 @@
 #include <video/sh_mobile_lcdc.h>
 
 #include <rtapi/screen_display.h>
-#include <linux/lcd.h>
+
 
 #include <linux/platform_device.h>
 #include <linux/fb.h>
@@ -116,7 +116,7 @@
 #define LCD_DSI0PCKCR_50HZ	0x00000031
 #define LCD_DSI0PHYCR_50HZ	0x2A800016
 
-struct fb_panel_info r_mobile_info = {
+static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
 	.pixel_height	= R_MOBILE_M_PANEL_PIXEL_HEIGHT,
 	.size_width	= R_MOBILE_M_PANEL_SIZE_WIDTH,
@@ -331,7 +331,6 @@ static const struct specific_cmdset demise_cmdset[] = {
 
 static int is_dsi_read_enabled;
 
-static struct lcd_device *registed_ld;
 static struct fb_info *common_fb_info;
 
 enum lcdfreq_level_idx {
@@ -452,30 +451,17 @@ static int hx8369_b_lcd_frequency_register(struct device *dev)
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	/* register device for LCD */
-	registed_ld = lcd_device_register("hx8369_b",
-						dev, NULL, NULL);
-	if (IS_ERR(registed_ld)) {
-		printk(KERN_ALERT "registed_ld is null!\n");
-		return PTR_ERR(registed_ld);
-	}
-
 	memset(&lcdfreq_info_data, 0, sizeof(lcdfreq_info_data));
 
 	lcdfreq = &lcdfreq_info_data;
-	lcdfreq->dev = &(registed_ld->dev);
+	lcdfreq->dev = dev;
 	lcdfreq->level = LEVEL_NORMAL;
-
 
 	mutex_init(&lcdfreq->lock);
 
 	ret = sysfs_create_group(&lcdfreq->dev->kobj, &lcdfreq_attr_group);
 	if (ret < 0) {
 		printk(KERN_ALERT "fail to add sysfs entries, %d\n", __LINE__);
-
-		/* uregister device for LCD */
-		lcd_device_unregister(registed_ld);
-		registed_ld = NULL;
 
 		return ret;
 	}
@@ -489,12 +475,9 @@ static void hx8369_b_lcd_frequency_unregister(void)
 {
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	if (registed_ld) {
-		sysfs_remove_group(&lcdfreq_info_data.dev->kobj,
-						&lcdfreq_attr_group);
-		mutex_destroy(&lcdfreq_info_data.lock);
-		lcd_device_unregister(registed_ld);
-	}
+	sysfs_remove_group(&lcdfreq_info_data.dev->kobj,
+					&lcdfreq_attr_group);
+	mutex_destroy(&lcdfreq_info_data.lock);
 
 	printk(KERN_DEBUG "%s is done\n", __func__);
 
@@ -715,7 +698,11 @@ static int panel_specific_cmdset(void *lcd_handle,
 			disp_draw.draw_rect.y = 0;
 			disp_draw.draw_rect.width  = panel_width;
 			disp_draw.draw_rect.height = panel_height;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+			disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
+#else
 			disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+#endif
 			disp_draw.buffer_offset = 0;
 			disp_draw.rotate = RT_DISPLAY_ROTATE_270;
 			ret = screen_display_draw(&disp_draw);
@@ -875,7 +862,6 @@ static int hx8369_b_panel_suspend(void)
 
 	screen_handle =  screen_display_new();
 
-#if 0
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, demise_cmdset);
 	if (ret != 0) {
@@ -884,7 +870,6 @@ static int hx8369_b_panel_suspend(void)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
-#endif
 
 	is_dsi_read_enabled = 0;
 
@@ -998,7 +983,7 @@ static int hx8369_b_panel_probe(struct fb_info *info,
 	is_dsi_read_enabled = 0;
 
 	/* register sysfs for LCD frequency control */
-	ret = hx8369_b_lcd_frequency_register(info->dev);
+	ret = hx8369_b_lcd_frequency_register(info->device);
 	if (ret < 0)
 		return ret;
 
@@ -1022,6 +1007,7 @@ static struct fb_panel_info hx8369_b_panel_info(void)
 	return r_mobile_info;
 }
 
+#ifndef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -1044,3 +1030,22 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
+#else
+struct fb_panel_func hx8369_b_func_list()
+{
+	struct fb_panel_func panel_func;
+
+	printk(KERN_INFO "%s\n", __func__);
+
+	memset(&panel_func, 0, sizeof(struct fb_panel_func));
+
+	panel_func.panel_init    = hx8369_b_panel_init;
+	panel_func.panel_suspend = hx8369_b_panel_suspend;
+	panel_func.panel_resume  = hx8369_b_panel_resume;
+	panel_func.panel_probe   = hx8369_b_panel_probe;
+	panel_func.panel_remove  = hx8369_b_panel_remove;
+	panel_func.panel_info    = hx8369_b_panel_info;
+
+	return panel_func;
+}
+#endif
