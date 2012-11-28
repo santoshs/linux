@@ -3500,9 +3500,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
             i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-#ifdef CONFIG_PN544_NFC
-	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); //PATCH CPN
-#endif	
 
 	/* GPS Init */
 #if defined(CONFIG_RENESAS_GPS)
