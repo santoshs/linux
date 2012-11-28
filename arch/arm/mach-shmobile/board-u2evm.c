@@ -3278,32 +3278,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
    gpio_direction_input(GPIO_PORT97);
    gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
 #endif
-#if defined(CONFIG_CHARGER_SMB328A)
-	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT103, NULL);
-	   gpio_direction_input(GPIO_PORT103);
-	   gpio_pull(GPIO_PORTCR_ES2(103), GPIO_PULL_UP);
-	}
-	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
-	}
-	else
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
-	}
-#endif
 
-#if defined(CONFIG_BATTERY_BQ27425)
-   gpio_request(GPIO_PORT105, NULL);
-   gpio_direction_input(GPIO_PORT105);
-   gpio_pull(GPIO_PORTCR_ES2(105), GPIO_PULL_UP);
-#endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
 	{
