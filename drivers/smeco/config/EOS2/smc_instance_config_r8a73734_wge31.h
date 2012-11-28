@@ -220,10 +220,13 @@ Description :  File created
 #undef SMC_APE_RDTRACE_ENABLED
 #endif
 
+#define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
+#define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
+#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC           200      /* Wakelock timeout in milliseconds in APE IRQ (old confs: 2000) */
 
-#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM         /* If defined uses ext irq in modem side (modem wakes APE)*/
+#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                       /* If defined uses ext irq in modem side (modem wakes APE)*/
 
-/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */     /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
+/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */                   /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
 
 #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
 
@@ -235,7 +238,6 @@ Description :  File created
     #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID_FROM_MODEM     0                                 /* Modem side interrupt genio to wakeup APE */
     #define SMC_APE_WAKEUP_EXTERNAL_IRQ_REGISTER_HANDLER  FALSE
 
-    #define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC          2000
 
     #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  { SMC_VERSION_TO_INT(0,0,36), SMC_VERSION_REQUIREMENT_LEVEL_WARNING, "Modem->APE wakeup signal polarity change" }
     #define SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37 { SMC_VERSION_TO_INT(0,0,37), SMC_VERSION_REQUIREMENT_LEVEL_ASSERT, "MHDP Channel Shared Memory size change" }
@@ -246,6 +248,7 @@ Description :  File created
 #endif /* #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) ) */
 
 
+
     /*
      * SMC Version requirements
      */
@@ -253,7 +256,28 @@ Description :  File created
 #define SMC_VERSION_REQUIREMENT_ARRAY  SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY, SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37
 #define SMC_VERSION_REQUIREMENT_COUNT  2
 
-//#define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM       /* If defined, the message is buffered when out of MDB memory */
+/* #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM */      /* If defined, the message is buffered when out of MDB memory */
+
+
+
+/* ======================================
+ * Target specific product configurations
+ */
+#ifdef SMECO_MODEM
+    /*
+     * MODEM specific configuration
+     */
+
+  /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */       /* If defined, the message is buffered when FIFO is full */
+
+#elif( defined(SMECO_LINUX_KERNEL) )
+    /*
+     * APE Linux Kernel specific configuration
+     */
+
+  #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS        /* If defined, the message is buffered when FIFO is full */
+
+#endif  /* End of target specific configuration */
 
 #endif  /* #ifndef SMC_INSTANCE_CONFIG_R8A73734_WGE31_H */
 
