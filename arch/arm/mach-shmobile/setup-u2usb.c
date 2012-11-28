@@ -62,7 +62,7 @@ static int is_vbus_powered(void)
 }
 
 #define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
-#define LOCK_TIME_OUT_MS 1
+#define LOCK_TIME_OUT_MS 1000
 static void usbhs_module_reset(void)
 {
 	unsigned long flags;
