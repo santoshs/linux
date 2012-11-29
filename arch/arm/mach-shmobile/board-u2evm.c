@@ -3532,9 +3532,11 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #endif
 #endif
 
+#ifdef CONFIG_BOARD_VERSION_V041
 /* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
 __raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
 __raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
+#endif
 }
 
 static void __init u2evm_timer_init(void)
