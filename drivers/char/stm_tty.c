@@ -23,6 +23,7 @@
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
 #include <linux/clk.h>
+#include <linux/console.h>
 #include <asm/hardware/coresight.h>
 
 MODULE_DESCRIPTION("STM TTY Driver");
@@ -39,7 +40,8 @@ struct stm_port {
 };
 
 #define STM_TCSR_TRACEID (0x40 << 16)
-#define STM_TTY_MINORS 8
+#define STM_TTY_MINORS 7
+#define STM_CONSOLE 7
 
 void __iomem *fun;
 void __iomem *stm_ctrl;
@@ -53,10 +55,10 @@ static int is_debug_enabled(void)
 	uint32_t val;
 
 	val = __raw_readl(DBGREG1);
-	if ((val & (1 << 29)) == 0)
-		return 0; /* Debug is disabled */
-	else
+	if (((val >> 28) & 3) == 2)
 		return 1; /* Debug is enabled */
+	else
+		return 0; /* Debug is disabled */
 
 }
 
@@ -65,79 +67,15 @@ static int is_debug_disabled(void)
 	return !(is_debug_enabled());
 }
 
-static int stm_tty_open(struct tty_struct *tty, struct file *filp)
-{
-	int index;
-	struct stm_port *prt;
 
-	/* initialize the pointer in case something fails */
-	tty->driver_data = NULL;
-	/* get the serial object associated with this tty pointer */
-	index = tty->index;
-	printk(KERN_EMERG "### stm_tty_open %d\n", index);
-	prt = stm_table[index];
-	if (prt == NULL) {
-		/* first time accessing this device, let's create it */
-		prt = devm_kzalloc(tty->dev, sizeof(*prt), GFP_KERNEL);
-		if (!prt)
-			return -ENOMEM;
-		sema_init(&prt->sem, 1);
-		prt->open_count = 0;
-		stm_table[index] = prt;
-	}
-	if (!down_interruptible(&prt->sem)) {
-		/* save our structure within the tty structure */
-		tty->driver_data = prt;
-		prt->tty = tty;
-		++prt->open_count;
-		up(&prt->sem);
-	}
-	return 0;
-}
-
-static void do_close(struct stm_port *prt)
-{
-	if (!down_interruptible(&prt->sem)) {
-		if (prt->open_count)
-			--prt->open_count;
-		up(&prt->sem);
-	}
-}
-
-static void stm_tty_close(struct tty_struct *tty, struct file *filp)
-{
-	struct stm_port *prt = tty->driver_data;
-	printk(KERN_EMERG "### stm_tty_close %d\n", tty->index);
-	if (prt)
-		do_close(prt);
-}
-
-static int stm_tty_write(struct tty_struct *tty,
-				const unsigned char *buf,
-				int count)
+static int stm_write(const unsigned char *buf, int count, void __iomem *stm)
 {
 	int written = 0;
 	int retval = -EINVAL;
-	struct stm_port *prt = tty->driver_data;
 	u32 *aligned;
 	u16 *b_u16;
 	u8 *b_u8;
-	void __iomem *stm;
 
-	if (!prt)
-		return -ENODEV;
-	retval = down_interruptible(&prt->sem);
-	if (retval)
-		return retval;
-	if (!prt->open_count)
-		/* port was not opened */
-		goto exit;
-	if (!count) {
-		/* no data */
-		retval = count;
-		goto exit;
-	}
-	stm = stm_prt_reg + STM_PORT_SIZE*tty->index;
 	if (count >= 4) {
 		/* align source buffer address */
 		/* to move data 32 bits per 32 bits */
@@ -191,6 +129,110 @@ static int stm_tty_write(struct tty_struct *tty,
 	}
 	retval = count;
 	__raw_writel(__raw_readl(stm_ctrl + STM_SYNCR), stm_ctrl + STM_SYNCR);
+	return retval;
+}
+
+void stm_console_write(struct console *co, const char *b, unsigned count)
+{
+	void __iomem *stm = stm_prt_reg + STM_PORT_SIZE*STM_CONSOLE;
+	if (count) {
+		__raw_writeb(0x20, stm + STM_G_D);
+		stm_write(b, count, stm);
+	}
+}
+
+static struct tty_driver *stm_console_device(struct console *c, int *index)
+{
+	*index = 0;
+	return g_stm_tty_driver;
+}
+
+static int __init stm_console_setup(struct console *co, char *options)
+{
+	if (co->index != 0)
+		return -ENODEV;
+	return 0;
+}
+
+static struct console stm_console = {
+	.name = "STM",
+	.write = stm_console_write,
+	.device = stm_console_device,
+	.setup = stm_console_setup,
+	.flags = CON_PRINTBUFFER,
+	.index = -1,
+};
+
+static int stm_tty_open(struct tty_struct *tty, struct file *filp)
+{
+	int index;
+	struct stm_port *prt;
+
+	/* initialize the pointer in case something fails */
+	tty->driver_data = NULL;
+	/* get the serial object associated with this tty pointer */
+	index = tty->index;
+	printk(KERN_EMERG "### stm_tty_open %d\n", index);
+	prt = stm_table[index];
+	if (prt == NULL) {
+		/* first time accessing this device, let's create it */
+		prt = devm_kzalloc(tty->dev, sizeof(*prt), GFP_KERNEL);
+		if (!prt)
+			return -ENOMEM;
+		sema_init(&prt->sem, 1);
+		prt->open_count = 0;
+		stm_table[index] = prt;
+	}
+	if (!down_interruptible(&prt->sem)) {
+		/* save our structure within the tty structure */
+		tty->driver_data = prt;
+		prt->tty = tty;
+		++prt->open_count;
+		up(&prt->sem);
+	}
+	return 0;
+}
+
+static void do_close(struct stm_port *prt)
+{
+	if (!down_interruptible(&prt->sem)) {
+		if (prt->open_count)
+			--prt->open_count;
+		up(&prt->sem);
+	}
+}
+
+static void stm_tty_close(struct tty_struct *tty, struct file *filp)
+{
+	struct stm_port *prt = tty->driver_data;
+	printk(KERN_EMERG "### stm_tty_close %d\n", tty->index);
+	if (prt)
+		do_close(prt);
+}
+
+static int stm_tty_write(struct tty_struct *tty,
+				const unsigned char *buf,
+				int count)
+{
+	int retval = -EINVAL;
+	struct stm_port *prt = tty->driver_data;
+	void __iomem *stm;
+
+	if (!prt)
+		return -ENODEV;
+	retval = down_interruptible(&prt->sem);
+	if (retval)
+		return retval;
+	if (!prt->open_count)
+		/* port was not opened */
+		goto exit;
+	if (!count) {
+		/* no data */
+		retval = count;
+		goto exit;
+	}
+	stm = stm_prt_reg + STM_PORT_SIZE*tty->index;
+	retval = stm_write(buf, count, stm);
 exit:
 	up(&prt->sem);
 	return retval;
@@ -302,6 +344,7 @@ static int __devinit stm_probe(struct platform_device *pd)
 			pr_warning("%s: no classdev for port %d, err %ld\n",
 						__func__, i, PTR_ERR(tty_dev));
 	}
+	register_console(&stm_console);
 	dev_info(&pd->dev, "STM ready\n");
 	return 0;
 }
@@ -312,6 +355,7 @@ static int __exit stm_remove(struct platform_device *pd)
 	unsigned int tscr;
 	printk(KERN_EMERG "### stm_tty_remove\n");
 
+	unregister_console(&stm_console);
 	/* Disable STM */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr & ~STM_TCSR_EN, stm_ctrl + STM_TCSR);
