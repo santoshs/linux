@@ -46,6 +46,7 @@
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -148,10 +149,14 @@ struct semaphore   sh_mobile_sem_hdmi;
 struct workqueue_struct *sh_mobile_wq;
 #endif
 
-struct workqueue_struct *sh_vsync_wq;
-struct kobject *vsync_kobj;
-struct work_struct vsync_work;
+struct sh_mobile_lcdc_vsync {
+	struct task_struct *vsync_thread;
+	wait_queue_head_t vsync_wait;
+	ktime_t vsync_time;
+	int vsync_flag;
+};
 
+static struct sh_mobile_lcdc_vsync sh_lcd_vsync;
 
 static u32 fb_debug;
 #define DBG_PRINT(FMT, ARGS...)	      \
@@ -188,19 +193,20 @@ void r_mobile_fb_err_msg(int value, char *func_name)
 	return;
 }
 
-static void vsync_work_func(struct work_struct *work)
+static int vsync_recv_thread(void *data)
 {
-	char buf[64];
-	char *envp[2];
+	int ret;
+	struct sh_mobile_lcdc_priv *priv = data;
 
-	snprintf(buf, sizeof(buf), "VSYNC=%llu",
-		 ktime_to_ns(ktime_get()));
-	envp[0] = buf;
-	envp[1] = NULL;
+	while (!kthread_should_stop()) {
+		sh_lcd_vsync.vsync_flag = 0;
+		ret = wait_event_interruptible(sh_lcd_vsync.vsync_wait,
+					       sh_lcd_vsync.vsync_flag);
+		if (!ret)
+			sysfs_notify(&priv->dev->kobj, NULL, "vsync");
+	}
 
-	kobject_uevent_env(vsync_kobj, KOBJ_CHANGE, envp);
-
-	return;
+	return 0;
 }
 
 static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
@@ -213,7 +219,9 @@ static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
 		& (0x1 << IRQ_BIT_NUM);
 
 	if (intreq_sts) {
-		queue_work(sh_vsync_wq, &vsync_work);
+		sh_lcd_vsync.vsync_time = ktime_get();
+		sh_lcd_vsync.vsync_flag = 1;
+		wake_up_interruptible(&sh_lcd_vsync.vsync_wait);
 
 		__raw_writel(0x1 << IRQ_BIT_NUM,
 			     irqc_baseaddr + IRQC_CPORT0_STS0);
@@ -226,6 +234,15 @@ static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+static ssize_t sh_fb_vsync_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%llu\n",
+			 ktime_to_ns(sh_lcd_vsync.vsync_time));
+}
+
+static DEVICE_ATTR(vsync, S_IRUGO, sh_fb_vsync_show, NULL);
 
 static int sh_mobile_lcdc_setcolreg(u_int regno,
 				    u_int red, u_int green, u_int blue,
@@ -1307,8 +1324,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	sh_mobile_wq = create_singlethread_workqueue("sh_mobile_lcd");
 #endif
 
-	sh_vsync_wq = create_workqueue("sh_vsync_lcd");
-
 	j = 0;
 	for (i = 0; i < ARRAY_SIZE(pdata->ch); i++) {
 		priv->ch[j].lcdc = priv;
@@ -1563,9 +1578,25 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	lcd_ext_param[0].hdmi_func = r_mobile_hdmi_func();
 	lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
 
-	vsync_kobj = &priv->ch[0].lcdc->dev->kobj;
+	error = device_create_file(priv->ch[0].lcdc->dev, &dev_attr_vsync);
 
-	INIT_WORK(&vsync_work, vsync_work_func);
+	if (error) {
+		printk(KERN_ALERT "device_create_file error\n");
+		goto err1;
+	}
+
+	sh_lcd_vsync.vsync_thread = kthread_run(vsync_recv_thread,
+						priv->ch[0].lcdc,
+						"sh-fb-vsync");
+	if (IS_ERR(sh_lcd_vsync.vsync_thread)) {
+		error = PTR_ERR(sh_lcd_vsync.vsync_thread);
+		printk(KERN_ALERT "kthread_run error\n");
+		goto err1;
+	}
+
+	sh_lcd_vsync.vsync_flag = 0;
+
+	init_waitqueue_head(&sh_lcd_vsync.vsync_wait);
 
 	fb_debug = 0;
 
@@ -1599,8 +1630,6 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 	destroy_workqueue(sh_mobile_wq);
 #endif
 
-	destroy_workqueue(sh_vsync_wq);
-
 	for (i = 0; i < ARRAY_SIZE(priv->ch); i++)
 		if (priv->ch[i].info->dev)
 			unregister_framebuffer(priv->ch[i].info);
@@ -1633,6 +1662,8 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 		fb_dealloc_cmap(&info->cmap);
 		framebuffer_release(info);
 	}
+
+	kthread_stop(sh_lcd_vsync.vsync_thread);
 
 	if (priv->irq)
 		free_irq(priv->irq, priv);
