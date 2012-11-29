@@ -18,6 +18,8 @@
 #include <mach/board-u2evm-renesas-bt.h>
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
+#define I2C_SDA_NODELAY	0
+#define I2C_SDA_163NS_DELAY	17
 
 static bool is_es20(void);
 
@@ -493,6 +495,7 @@ static struct platform_device scif7_device = {
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
+	.bus_data_delay	= I2C_SDA_NODELAY,
 };
 
 static struct resource i2c0_resources[] = {
@@ -512,6 +515,7 @@ static struct resource i2c0_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
+	.bus_data_delay	= I2C_SDA_NODELAY,
 };
 
 static struct resource i2c1_resources[] = {
@@ -531,6 +535,7 @@ static struct resource i2c1_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
+	.bus_data_delay	= I2C_SDA_NODELAY,
 };
 
 static struct resource i2c2_resources[] = {
@@ -551,6 +556,7 @@ static struct resource i2c2_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
+	.bus_data_delay	= I2C_SDA_NODELAY,
 };
 
 static struct resource i2c3_resources[] = {
@@ -572,6 +578,7 @@ static struct resource i2c3_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
         .pin_multi	= true,
+	.bus_data_delay = I2C_SDA_163NS_DELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT84,
 		.port_func	= GPIO_FN_I2C_SCL0H,
@@ -599,6 +606,7 @@ static struct resource i2c4_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
+	.bus_data_delay = I2C_SDA_NODELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT86,
 		.port_func	= GPIO_FN_I2C_SCL1H,
@@ -645,6 +653,7 @@ static struct resource i2c5_resources_es20[] = {
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
+	.bus_data_delay = I2C_SDA_NODELAY,
 };
 
 static struct resource i2c6_resources[] = {
@@ -666,6 +675,7 @@ static struct resource i2c6_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
+	.bus_data_delay = I2C_SDA_NODELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT82,
 		.port_func	= GPIO_FN_I2C_SCL2H,
@@ -695,6 +705,7 @@ static struct resource i2c7_resources[] = {
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
+	.bus_data_delay = I2C_SDA_NODELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT273,
 		.port_func	= GPIO_FN_I2C_SCL3H,
