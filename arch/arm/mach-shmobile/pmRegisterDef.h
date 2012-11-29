@@ -171,6 +171,7 @@
 /*****************************************/
 #define CPG_LPCKCRPhys		0xE6151024
 #define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR_LEGACY	0x00000000
 #define CPG_LPCKCR_26MHz	0x00000002
 #define CPG_LPCKCR_PLLOFF	0x00000004
 

@@ -1265,8 +1265,8 @@ static int shmobile_init_cpuidle(void)
 		}
 	}
 
-	/* - set the Xtal though(PLL0 ON) mode to LPCKCR */
-	__raw_writel(CPG_LPCKCR_26MHz, CPG_LPCKCR);
+	/* - set the legacy mode to LPCKCR */
+	__raw_writel(CPG_LPCKCR_LEGACY, CPG_LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
 	__raw_writel(A2SLSTP, CPG_PLL0STPCR);
 #ifdef PLL1_CAN_OFF
