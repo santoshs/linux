@@ -18,6 +18,12 @@
 
 #include <linux/ioctl.h>
 
+#define __VCD_ES305B__	1
+
+#ifdef __VCD_ES305B__
+extern unsigned int g_a2220_log_level;
+#endif /* __VCD_ES305B__ */
+
 extern bool dualmic_enabled;
 
 struct a2220img {
@@ -63,6 +69,16 @@ enum A2220_NS_states {
 	A2220_NS_NUM_STATES
 };
 
+#ifdef __VCD_ES305B__
+enum A2220_STATE {
+	A2220_STATE_NONE = 0,
+	A2220_STATE_IDLE,
+	A2220_STATE_PASS_THROUGH,
+	A2220_STATE_VOICE_PROCESS,
+	A2220_STATE_VOICE_MAX,
+};
+#endif /* __VCD_ES305B__ */
+
 /* indicates if a2220_set_config() performs a full configuration or only
  * a voice processing algorithm configuration */
 /* IOCTLs for Audience A2220 */
@@ -71,6 +87,48 @@ enum A2220_NS_states {
 #define A2220_BOOTUP_INIT  _IOW(A2220_IOCTL_MAGIC, 0x01, struct a2220img *)
 #define A2220_SET_CONFIG   _IOW(A2220_IOCTL_MAGIC, 0x02, enum A2220_PathID)
 #define A2220_SET_NS_STATE _IOW(A2220_IOCTL_MAGIC, 0x03, enum A2220_NS_states)
+
+#ifdef __VCD_ES305B__
+#define A2220_SET_VCLK4			_IOW(A2220_IOCTL_MAGIC, 0x08, unsigned)
+#define A2220_BT_MHL_NORMAL_START	_IOW(A2220_IOCTL_MAGIC, 0x09, unsigned)
+#define A2220_BT_MHL_RING_START		_IOW(A2220_IOCTL_MAGIC, 0x0A, unsigned)
+#define A2220_BT_MHL_INCOMM_START	_IOW(A2220_IOCTL_MAGIC, 0x0B, unsigned)
+#define A2220_BT_MHL_INCALL_START	_IOW(A2220_IOCTL_MAGIC, 0x0C, unsigned)
+#define A2220_BT_MHL_NORMAL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x0D, unsigned)
+#define A2220_BT_MHL_RING_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x0E, unsigned)
+#define A2220_BT_MHL_INCOMM_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x0F, unsigned)
+#define A2220_BT_MHL_INCALL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x10, unsigned)
+#define A2220_BT_MHL_NORMAL_STOP	_IOW(A2220_IOCTL_MAGIC, 0x11, unsigned)
+#define A2220_BT_MHL_RING_STOP		_IOW(A2220_IOCTL_MAGIC, 0x12, unsigned)
+#define A2220_BT_MHL_INCOMM_STOP	_IOW(A2220_IOCTL_MAGIC, 0x13, unsigned)
+#define A2220_BT_MHL_INCALL_STOP	_IOW(A2220_IOCTL_MAGIC, 0x14, unsigned)
+#define A2220_EARPIECE_NORMAL_START	_IOW(A2220_IOCTL_MAGIC, 0x15, unsigned)
+#define A2220_EARPIECE_RING_START	_IOW(A2220_IOCTL_MAGIC, 0x16, unsigned)
+#define A2220_EARPIECE_INCOMM_START	_IOW(A2220_IOCTL_MAGIC, 0x17, unsigned)
+#define A2220_EARPIECE_INCALL_START	_IOW(A2220_IOCTL_MAGIC, 0x18, unsigned)
+#define A2220_EARPIECE_NORMAL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x19, unsigned)
+#define A2220_EARPIECE_RING_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x1A, unsigned)
+#define A2220_EARPIECE_INCOMM_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x1B, unsigned)
+#define A2220_EARPIECE_INCALL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x1C, unsigned)
+#define A2220_EARPIECE_NORMAL_STOP	_IOW(A2220_IOCTL_MAGIC, 0x1D, unsigned)
+#define A2220_EARPIECE_RING_STOP	_IOW(A2220_IOCTL_MAGIC, 0x1E, unsigned)
+#define A2220_EARPIECE_INCOMM_STOP	_IOW(A2220_IOCTL_MAGIC, 0x1F, unsigned)
+#define A2220_EARPIECE_INCALL_STOP	_IOW(A2220_IOCTL_MAGIC, 0x20, unsigned)
+#define A2220_OTHER_NORMAL_START	_IOW(A2220_IOCTL_MAGIC, 0x21, unsigned)
+#define A2220_OTHER_RING_START		_IOW(A2220_IOCTL_MAGIC, 0x22, unsigned)
+#define A2220_OTHER_INCOMM_START	_IOW(A2220_IOCTL_MAGIC, 0x23, unsigned)
+#define A2220_OTHER_INCALL_START	_IOW(A2220_IOCTL_MAGIC, 0x24, unsigned)
+#define A2220_OTHER_NORMAL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x25, unsigned)
+#define A2220_OTHER_RING_CHANGE		_IOW(A2220_IOCTL_MAGIC, 0x26, unsigned)
+#define A2220_OTHER_INCOMM_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x27, unsigned)
+#define A2220_OTHER_INCALL_CHANGE	_IOW(A2220_IOCTL_MAGIC, 0x28, unsigned)
+#define A2220_OTHER_NORMAL_STOP		_IOW(A2220_IOCTL_MAGIC, 0x29, unsigned)
+#define A2220_OTHER_RING_STOP		_IOW(A2220_IOCTL_MAGIC, 0x2A, unsigned)
+#define A2220_OTHER_INCOMM_STOP		_IOW(A2220_IOCTL_MAGIC, 0x2B, unsigned)
+#define A2220_OTHER_INCALL_STOP		_IOW(A2220_IOCTL_MAGIC, 0x2C, unsigned)
+
+#endif /* __VCD_ES305B__ */
+
 /* For Diag */
 #define A2220_SET_MIC_ONOFF     _IOW(A2220_IOCTL_MAGIC, 0x50, unsigned)
 #define A2220_SET_MICSEL_ONOFF  _IOW(A2220_IOCTL_MAGIC, 0x51, unsigned)
@@ -221,6 +279,73 @@ enum A2220_NS_states {
 #define A2220_CMD_FIFO_DEPTH    64
 #define ERROR                   0xffffffff
 
+#ifdef __VCD_ES305B__
+#define A2220_DRIVER_NAME	"a2220"
+#define A2220_LOG_NONE	0x0
+#define A2220_LOG_ERR	0x1
+#define A2220_LOG_DEBUG	0x2
+#define A2220_LOG_INFO	0x4
+#define A2220_LOG_FUNC	0x8
+#define A2220_LOG_ALL	0xF
+#define A2220_LOG_LEVEL_CHECK	0xffffff00
+
+#define a2220_pr_err(fmt, ...) { \
+	if (g_a2220_log_level & A2220_LOG_ERR) { \
+		pr_alert( \
+			A2220_DRIVER_NAME \
+			" : [error] %s: " \
+			fmt, \
+			__func__, \
+			##__VA_ARGS__); \
+	} \
+}
+#define a2220_pr_debug(fmt, ...) { \
+	if (g_a2220_log_level & A2220_LOG_DEBUG) { \
+		pr_alert( \
+			A2220_DRIVER_NAME \
+			" : [debug] %s: " \
+			fmt, \
+			__func__, \
+			##__VA_ARGS__); \
+	} \
+}
+#define a2220_pr_info(fmt, ...) { \
+	if (g_a2220_log_level & A2220_LOG_INFO) { \
+		pr_alert( \
+			A2220_DRIVER_NAME \
+			" : [debug] %s: " \
+			fmt, \
+			__func__, \
+			##__VA_ARGS__); \
+	} \
+}
+#define a2220_pr_func_start(fmt, ...) { \
+	if (g_a2220_log_level & A2220_LOG_FUNC) { \
+		pr_alert( \
+			A2220_DRIVER_NAME \
+			" : [start] %s: " \
+			fmt, \
+			__func__, \
+			##__VA_ARGS__); \
+	} \
+}
+#define a2220_pr_func_end(fmt, ...) { \
+	if (g_a2220_log_level & A2220_LOG_FUNC) { \
+		pr_alert( \
+			A2220_DRIVER_NAME \
+			" : [end] %s: " \
+			fmt, \
+			__func__, \
+			##__VA_ARGS__); \
+	} \
+}
+#else
+#define a2220_pr_err(fmt, ...)		{}
+#define a2220_pr_debug(fmt, ...)	{}
+#define a2220_pr_info(fmt, ...)		{}
+#define a2220_pr_func_start(fmt, ...)	{}
+#define a2220_pr_func_end(fmt, ...)	{}
+#endif /* __VCD_ES305B__ */
 enum A2220_config_mode {
 	A2220_CONFIG_FULL,
 	A2220_CONFIG_VP
