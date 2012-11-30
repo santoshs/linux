@@ -40,7 +40,7 @@
 
 /* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
 /* SDRAM address for NVM */
-#define NVM_BOOTFLAG_ADDRESS		0x47FBFF80
+#define NVM_BOOTFLAG_ADDRESS		0x464FFF80
 #define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
 #define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
 /* END: CR1040: Clean up source code which accesses the eMMC directly */
