@@ -942,6 +942,10 @@ static void r8a66597_ep_release(struct r8a66597_ep *ep)
 		return;
 	ep->pipenum = 0;
 	ep->busy = 0;
+
+	/* Re-initialize ep.maxpacket in endpoint descriptor to
+	   R8A66597_MAX_PACKET_SIZE */
+	ep->ep.maxpacket = R8A66597_MAX_PACKET_SIZE;
 }
 
 static int alloc_pipe_config(struct r8a66597_ep *ep,
