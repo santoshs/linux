@@ -36,6 +36,7 @@
 #include <linux/power_supply.h>
 #include <linux/ctype.h>
 //#include <linux/spa_power.h>
+#include <linux/pmic/pmic-tps80032.h>
 
 static struct switch_dev switch_dock = {
 	.name = "dock",
@@ -166,6 +167,9 @@ struct tsu6712_usbsw {
 	int				adc;
 	int				deskdock;
 	int				vbus;
+
+	struct irq_chip irq_chip;
+	int             irq_base;
 };
 
 enum {
@@ -196,6 +200,7 @@ static inline u8 mhl_onoff_ex(bool onoff){ return 0;} //temp
 #endif
 
 static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw);
+static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data);
 
 int get_cable_type(void)
 {    
@@ -1457,6 +1462,11 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	tsu6712_read_word_reg(client, TSU6712_REG_INT1,&intr);
 	intr2 = intr >> 8;
 
+	dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
+	if (intr) {
+		handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP);
+		handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS);
+	}
 	if (intr < 0) {
 		msleep(100);
 		dev_err(&client->dev, "%s: err %d\n", __func__, intr);
@@ -1657,6 +1667,8 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&usbsw->init_work, tsu6712_init_detect);
 	schedule_delayed_work(&usbsw->init_work, msecs_to_jiffies(2700));
 
+	tsu6712_init_usb_irq(usbsw);
+
 	return 0;
 
 #if 0
@@ -1738,6 +1750,46 @@ static int __init tsu6712_init(void)
 static void __exit tsu6712_exit(void)
 {
 	i2c_del_driver(&tsu6712_i2c_driver);
+}
+
+static void tsu6712_irq_enable(struct irq_data *data)
+{
+}
+
+static void tsu6712_irq_disable(struct irq_data *data)
+{
+}
+
+static void tsu6712_irq_lock(struct irq_data *data)
+{
+}
+
+static void tsu6712_irq_sync_unlock(struct irq_data *data)
+{
+}
+
+
+static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
+{
+	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP,
+					 IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS };
+	int i;
+
+	data->irq_base = IRQPIN_IRQ_BASE + 64;
+	data->irq_chip.name = "tsu6712_irq_usb";
+	data->irq_chip.irq_enable = tsu6712_irq_enable;
+	data->irq_chip.irq_disable = tsu6712_irq_disable;
+	data->irq_chip.irq_bus_lock = tsu6712_irq_lock;
+	data->irq_chip.irq_bus_sync_unlock = tsu6712_irq_sync_unlock;
+
+	for(i = 0; i < 2; i++ ) {
+		irq_set_chip_data(__irq[i], data);
+		irq_set_chip_and_handler(__irq[i], &data->irq_chip, handle_simple_irq);
+		irq_set_nested_thread(__irq[i], 1);
+#ifdef CONFIG_ARM
+		set_irq_flags(__irq[i], IRQF_VALID);
+#endif
+	}
 }
 
 module_init(tsu6712_init);

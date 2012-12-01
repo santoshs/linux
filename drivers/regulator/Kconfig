@@ -139,6 +139,13 @@ config REGULATOR_WM831X
 	  Support the voltage and current regulators of the WM831x series
 	  of PMIC devices.
 
+config REGULATOR_D2153
+	tristate "Dialog Semiconductor D2153 PMIC regulators"
+	depends on MFD_D2153
+	help
+	  Support the voltage and current regulators of the Dialog D2153
+	  multifunction device.
+
 config REGULATOR_WM8350
 	tristate "Wolfson Microelectronics WM8350 AudioPlus PMIC"
 	depends on MFD_WM8350

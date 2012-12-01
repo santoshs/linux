@@ -1671,11 +1671,35 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
+#ifdef CONFIG_MFD_D2153
+		struct regulator *regulator;
+		
+		regulator = regulator_get(NULL, "vtsp_3v");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+
+		regulator_put(regulator);
+#else
 		pmic_set_power_on(E_POWER_VANA_MM);
+#endif
 	}
 	else
 	{
+#ifdef CONFIG_MFD_D2153
+		struct regulator *regulator;
+		
+		regulator = regulator_get(NULL, "vtsp_3v");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+
+		regulator_put(regulator);
+#else
 		pmic_set_power_off(E_POWER_VANA_MM);
+#endif
 	}
 
 	return size;

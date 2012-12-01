@@ -35,6 +35,10 @@ config SND_SOC_SH4_SIU
 
 config SND_SOC_AUDIO_TEST_WM1811
 	tristate
+        default n
+
+config SND_SOC_AUDIO_TEST_D2153
+	tristate
         default m
 
 config SND_SOC_AUDIENCE_A2220
@@ -78,6 +82,14 @@ config SND_FSI_WM1811
 	help
 	  This option enables generic sound support for the
 	  FSI - wm1811 unit
+
+config SND_FSI_D2153
+	tristate "FSI-D2153 sound support"
+	depends on SND_SOC_SH4_FSI && I2C
+	select SND_SOC_D2153
+	help
+	  This option enables generic sound support for the
+	  FSI - d2153 unit
 
 config SND_FSI_HDMI
 	tristate "FSI-HDMI sound support"

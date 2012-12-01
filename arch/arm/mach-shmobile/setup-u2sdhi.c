@@ -3,6 +3,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/pmic/pmic.h>
+#include <linux/regulator/consumer.h>
 
 #include <mach/r8a73734.h>
 #include <mach/board-u2evm.h>
@@ -12,6 +13,55 @@
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
+#if defined(CONFIG_MFD_D2153)
+	struct regulator *regulator;		
+
+	if(state)
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return ;
+
+		regulator_enable(regulator);
+
+		regulator_put(regulator);
+
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+
+	}
+	else
+	{
+		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return ;
+
+		regulator_disable(regulator);
+
+		regulator_put(regulator);
+		
+	}
+#else
 #ifdef CONFIG_PMIC_INTERFACE
 	if (state) {
 		printk(KERN_INFO "\n EOS2_BSP_SDHI : %s\n", __func__);
@@ -25,6 +75,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		pmic_set_power_off(E_POWER_VIO_SD);
 		pmic_set_power_off(E_POWER_VMMC);
 	}
+#endif
 #endif
 }
 

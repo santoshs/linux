@@ -56,6 +56,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WL1273 if MFD_WL1273_CORE
 	select SND_SOC_WM1250_EV1 if I2C
 	select SND_SOC_WM1811 if I2C
+	select SND_SOC_D2153 if I2C
 	select SND_SOC_WM2000 if I2C
 	select SND_SOC_WM8350 if MFD_WM8350
 	select SND_SOC_WM8400 if MFD_WM8400
@@ -258,6 +259,12 @@ config SND_SOC_WM1250_EV1
 config SND_SOC_WM1811
 	tristate "WM1811 codec support"
 
+config SND_SOC_D2153
+	tristate "D2153 codec support"
+
+config SND_SOC_D2153_AAD
+	tristate "D2153 AAD support"	
+	
 config SND_SOC_WM8350
 	tristate
 
