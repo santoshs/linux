@@ -371,6 +371,11 @@ do {									\
 #define SNDP_NORMAL_RATE	(44100)
 #define SNDP_CALL_RATE		(16000)
 
+/*!
+  @brief	D2153 <==> WM1811 change board revision
+*/
+#define D2153_INTRODUCE_BOARD_REV		5
+
 enum sndp_hw_audio {
 	SNDP_HW_CLKGEN,
 	SNDP_HW_FSI,

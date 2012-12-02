@@ -2729,7 +2729,7 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT72);
 	u2_board_rev |= gpio_get_value(GPIO_PORT72);
 
-	create_proc_read_entry("board_revision", 0400, NULL,
+	create_proc_read_entry("board_revision", 0444, NULL,
 					u2_read_board_rev, NULL);
 
 	/* SCIFA0 */

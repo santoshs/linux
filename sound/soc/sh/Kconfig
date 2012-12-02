@@ -35,7 +35,7 @@ config SND_SOC_SH4_SIU
 
 config SND_SOC_AUDIO_TEST_WM1811
 	tristate
-        default n
+        default m
 
 config SND_SOC_AUDIO_TEST_D2153
 	tristate

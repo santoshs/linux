@@ -42,6 +42,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <mach/common.h>
 #include <mach/r8a73734.h>
 #include <sound/soundpath/wm1811_extern.h>
 #include <sound/soundpath/soundpath.h>
@@ -2937,6 +2938,9 @@ int __init wm1811_init(void)
 	int ret = 0;
 	wm1811_log_efunc("");
 
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return -ENODEV;
+
 	ret = i2c_add_driver(&wm1811_i2c_driver);
 	ret = wm1811_enable_vclk4();
 	ret = wm1811_write(0x0200, 0x0011);
@@ -2955,6 +2959,9 @@ int __init wm1811_init(void)
 void __exit wm1811_exit(void)
 {
 	wm1811_log_efunc("");
+
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return;
 
 	i2c_del_driver(&wm1811_i2c_driver);
 

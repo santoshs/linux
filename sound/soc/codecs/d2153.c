@@ -25,6 +25,7 @@
 #ifdef CONFIG_PROC_FS
 #include <linux/proc_fs.h>
 #endif
+#include <mach/common.h>
 
 //#define CONFIG_SND_SOC_USE_DA9055_HW
 
@@ -2755,6 +2756,9 @@ static int __init d2153_modinit(void)
 {
 	int ret;
 
+	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+		return -ENODEV;
+
 	ret = i2c_add_driver(&d2153_i2c_driver);
 	if (ret)
 		pr_err("D2153 I2C registration failed %d\n", ret);
@@ -2769,6 +2773,8 @@ void __exit d2153_exit(void)
 static void __exit d2153_exit(void)
 #endif
 {
+	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+		return;
 	i2c_del_driver(&d2153_i2c_driver);
 }
 module_exit(d2153_exit);
