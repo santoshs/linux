@@ -77,6 +77,7 @@ config TEST_POWER
 
 config PMIC_BAT_INTERFACE
 	bool "PowerManagement IC battery interface support"
+	default y
 	help
 	  This enables support for the PowerManagement IC battery interface.
 	  This feature support all battery info for Android framework.

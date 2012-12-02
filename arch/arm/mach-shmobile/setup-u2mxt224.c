@@ -23,7 +23,9 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/i2c/atmel_mxt_ts.h>
+#ifdef CONFIG_BOARD_VERSION_V050
 #include <linux/regulator/consumer.h>
+#endif /* CONFIG_BOARD_VERSION_V050 */
 
 #ifndef CONFIG_PMIC_INTERFACE
 	static struct regulator *mxt224_regulator;

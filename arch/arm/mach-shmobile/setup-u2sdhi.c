@@ -3,7 +3,9 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/pmic/pmic.h>
+#ifdef CONFIG_BOARD_VERSION_V050
 #include <linux/regulator/consumer.h>
+#endif /* CONFIG_BOARD_VERSION_V050 */
 
 #include <mach/r8a73734.h>
 #include <mach/board-u2evm.h>

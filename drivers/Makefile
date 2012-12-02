@@ -42,7 +42,11 @@ obj-$(CONFIG_FB_I810)           += video/i810/
 obj-$(CONFIG_FB_INTEL)          += video/intelfb/
 
 obj-$(CONFIG_PARPORT)		+= parport/
+ifdef CONFIG_MFD_SUPPORT
 obj-y				+= base/ block/ misc/ mfd/ nfc/
+else
+obj-y				+= base/ block/ misc/ nfc/
+endif
 obj-$(CONFIG_NUBUS)		+= nubus/
 obj-y				+= macintosh/
 obj-$(CONFIG_IDE)		+= ide/
