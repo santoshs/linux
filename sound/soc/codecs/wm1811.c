@@ -2826,7 +2826,7 @@ static struct snd_soc_dai_driver wm1811_dai_driver[] = {
 };
 EXPORT_SYMBOL(wm1811_dai_driver);
 
-static void wm1811_set_soc_controls(struct snd_kcontrol_new *controls,
+void wm1811_set_soc_controls(struct snd_kcontrol_new *controls,
 				u_int array_size)
 {
 	wm1811_log_efunc("controls[0x%p] array_size[%d]",
