@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA  02110-1301, USA.
  */
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
 #include <linux/kernel.h>
 #include <linux/i2c/touchkey_i2c.h>
 
@@ -127,4 +126,3 @@ int touchkey_i2c_register_board_info(int busnum) {
 	return i2c_register_board_info(busnum, i2c_touchkey, ARRAY_SIZE(i2c_touchkey));
 }
 
-#endif /*CONFIG_KEYBOARD_CYPRESS_TOUCH*/

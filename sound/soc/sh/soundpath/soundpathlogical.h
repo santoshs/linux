@@ -229,7 +229,7 @@ static void sndp_work_stop(
 	const int direction);
 /* Incommunication */
 static void sndp_work_incomm_start(const u_int new_value);
-static void sndp_work_incomm_stop(void);
+static void sndp_work_incomm_stop(const u_int old_value);
 /* SoundPath start / stop control functions */
 static void sndp_fm_work_start(const int direction);
 static void sndp_fm_work_stop(
@@ -461,6 +461,11 @@ static atomic_t g_sndp_watch_start_clk;
 /* Wait queue for stop voice process wake up */
 static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_sndp_watch_stop_clk;
+
+/* audience Callback */
+static void sndp_a2220_set_state(
+		unsigned int mode, unsigned int device, unsigned int dev_chg);
+
 
 /* SOUND_TEST */
 #ifdef SOUND_TEST

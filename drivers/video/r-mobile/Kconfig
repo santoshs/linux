@@ -11,13 +11,6 @@ config FB_SH_MOBILE_LCDC
         ---help---
           Frame buffer driver for the on-chip SH-Mobile LCD controller.
 
-choice
-        depends on FB_SH_MOBILE_LCDC
-        prompt "panel select"
-        default FB_R_MOBILE_PANEL_KOTA
-        help
-          Selected panel
-
 config FB_R_MOBILE_PANEL_KOTA
         boolean "KOTA PANEL"
 
@@ -27,7 +20,10 @@ config FB_R_MOBILE_S6E39A0X02
 config FB_R_MOBILE_HX8369_B
         boolean "HX8369_B PANEL"
 
-endchoice
+config FB_R_MOBILE_PANEL_SWITCH
+        bool "dynamically switch the panel"
+        depends on FB_SH_MOBILE_LCDC && (FB_R_MOBILE_S6E39A0X02 || FB_R_MOBILE_HX8369_B)
+
 
 choice
         depends on FB_SH_MOBILE_LCDC

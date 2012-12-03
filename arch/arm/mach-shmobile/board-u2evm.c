@@ -31,9 +31,7 @@
 #include <mach/setup-u2tps80032.h>
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/spi/sh_msiof.h>
-#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 #include <linux/i2c/atmel_mxt_ts.h>
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
@@ -407,43 +405,17 @@ static struct platform_device fsi_b_device = {
 	},
 };
 
-static const struct fb_videomode lcdc0_modes[] = {
-	{
-#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
-		.name		= "qHD",
-		.xres		= 540,
-		.yres		= 960,
-#else
-		.name		= "WVGA",
-		.xres		= 480,
-		.yres		= 800,
-#endif
-		.left_margin	= 16,
-		.right_margin	= 1000,
-		.hsync_len	= 16,
-		.upper_margin	= 1,
-		.lower_margin	= 4,
-		.vsync_len	= 2,
-		.sync		= FB_SYNC_VERT_HIGH_ACT | FB_SYNC_HOR_HIGH_ACT,
-	},
-};
-
 static struct sh_mobile_lcdc_info lcdc_info = {
 	.clock_source	= LCDC_CLK_PERIPHERAL,
 
 	/* LCDC0 */
 	.ch[0] = {
 		.chan = LCDC_CHAN_MAINLCD,
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		.bpp = 24,
+#else
 		.bpp = 32,
-		.interface_type		= RGB24,
-		.clock_divider		= 1,
-		.flags			= LCDC_FLAGS_DWPOL,
-		.lcd_cfg = lcdc0_modes,
-		.num_cfg = ARRAY_SIZE(lcdc0_modes),
-		.lcd_size_cfg = {
-			.width	= 44,
-			.height	= 79,
-		},
+#endif
 		.panelreset_gpio = GPIO_PORT31,
 		.paneldsi_irq = 33,
 	},
@@ -2401,19 +2373,15 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 };
 
 static struct i2c_board_info i2c4_devices[] = {
-#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
 		.platform_data = &mxt224_platform_data,
 		.irq	= irqpin2irq(32),
 	},
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
-#ifdef CONFIG_TOUCHSCREEN_MELFAS
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
 		.irq	= irqpin2irq(32),
 	},
-#endif
 };
 
 static struct NCP6914_platform_data ncp6914info= {
@@ -3266,10 +3234,12 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
-	gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
-#endif /* BOARD_VERSION_V041 */
+
+	if (u2_board_rev == 4) {
+		gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
+		gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
+	}
+
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
@@ -3352,27 +3322,28 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
-#ifdef BOARD_VERSION_V041
-	gpio_direction_output(GPIO_PORT30, 0);
-#else
-	gpio_direction_output(GPIO_PORT30, 1);
-#endif /* BOARD_VERSION_V041 */
+	if(u2_board_rev == 4)
+		gpio_direction_output(GPIO_PORT30, 0);
+	else
+		gpio_direction_output(GPIO_PORT30, 1);
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-if((system_rev & 0xFFFF) == 0x3E00)
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
-#else
-	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
-#endif /* BOARD_VERSION_V041 */
-else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
-#else
-	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
-#endif /* BOARD_VERSION_V041 */
+	if((system_rev & 0xFFFF) == 0x3E00)
+	{
+		if(u2_get_board_rev() == 4)
+			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
 
+		else
+			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
+	}
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
+		if(u2_get_board_rev() == 4)
+			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
+		else
+			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
+	}
 	USBGpio_init();
 
 #ifdef CONFIG_SPI_SH_MSIOF
@@ -3490,9 +3461,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	mpl_init();
 #endif
 
-#if defined (CONFIG_KEYBOARD_CYPRESS_TOUCH)
+	if(u2_get_board_rev() < 4)
 	touchkey_init_hw();
-#endif
 
 #if defined (CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
@@ -3508,9 +3478,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #if defined(CONFIG_RENESAS_GPS)
 	gps_gpio_init();
 #endif
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-	touchkey_i2c_register_board_info(10);
-#endif /* CONFIG_KEYBOARD_CYPRESS_TOUCH */
+	if(u2_get_board_rev() < 4)
+		touchkey_i2c_register_board_info(10);
 platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
 	#if defined(CONFIG_VIBRATOR_ISA1000A)
     isa1000_vibrator_init();
