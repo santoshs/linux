@@ -463,6 +463,58 @@ int melfas_fw_i2c_write(char *buf, int length);
 static ssize_t	check_init_lowleveldata( void );
 static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
+
+#ifdef CONFIG_MFD_D2153
+
+#define VREG_ENABLE		1
+#define VREG_DISABLE	0
+#define TOUCH_ON  1
+#define TOUCH_OFF 0
+static struct regulator *touch_regulator;
+static struct regulator *touch_regulator_1_8;
+
+static void ts_power_enable(int en)
+{
+	int ret;
+	
+	printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
+	if(touch_regulator == NULL)
+	{
+		printk(" %s, %d \n", __func__, __LINE__ );			
+		touch_regulator = regulator_get(NULL, "vtsp_3v"); 
+		if(IS_ERR(touch_regulator)){
+			printk("can not get VTOUCH_3.3V\n");
+			return;
+		}
+	}
+
+	if(en==1)
+	{
+		printk(" %s, %d Touch On\n", __func__, __LINE__ );	
+
+		//if(!regulator_is_enabled(touch_regulator))
+		{
+			printk(" %s, %d \n", __func__, __LINE__ );	
+			ret = regulator_set_voltage(touch_regulator,3000000,3000000); //3.0V
+			printk("regulator_set_voltage ret = %d \n", ret);       			
+			ret = regulator_enable(touch_regulator);
+			printk("regulator_enable ret = %d \n", ret);       			
+		}
+	}
+	else
+	{
+		printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
+
+		//if(regulator_is_enabled(touch_regulator))
+		{
+			ret = regulator_disable(touch_regulator);
+			printk("regulator_disable ret = %d \n", ret);			
+		}
+	}
+
+}
+
+#else	// CONFIG_MFD_D2153
 #if 0
 #define VREG_ENABLE		1
 #define VREG_DISABLE	0
@@ -525,6 +577,7 @@ static void ts_power_enable(int en)
 #endif
 }
 #endif
+#endif	// CONFIG_MFD_D2153
 
 void ts_power_control(int en)
 {
@@ -1674,7 +1727,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 #ifdef CONFIG_MFD_D2153
 		struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "vtsp_3v");
+		regulator = regulator_get(NULL, "key_led");
 		if (IS_ERR(regulator))
 			return -1;
 
@@ -1690,7 +1743,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 #ifdef CONFIG_MFD_D2153
 		struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "vtsp_3v");
+		regulator = regulator_get(NULL, "key_led");
 		if (IS_ERR(regulator))
 			return -1;
 

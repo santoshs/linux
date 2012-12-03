@@ -1438,9 +1438,9 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
 #endif
 
 #ifdef CONFIG_BOARD_VERSION_V050
-    &i2c0gpio_device,
+//   &i2c0gpio_device,
 #else
-//    &i2c0gpio_device,
+    &i2c0gpio_device,
 #endif /* CONFIG_BOARD_VERSION_V050 */
     &i2c1gpio_device,
     &dma0_device,
