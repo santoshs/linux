@@ -569,6 +569,7 @@ PUB_SMI_LABEL_0:
 PUB_SMI_LABEL_1:
 .endif
         DSB
+        .arch_extension sec
         SMC    0                               @ Call secure application
         DSB
         NOP
