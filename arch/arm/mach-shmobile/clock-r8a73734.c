@@ -3,15 +3,6 @@
 
 void __init r8a73734_clock_init(void)
 {
-	/* quirks - can be removed once fixed in the boot software */
-	__raw_writel(0x6100, VCLKCR3);	/* main clock, x1/1 */
-
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
-	__raw_writel(0x00000105, SLIMBCKCR);
-	__raw_writel(0x00324534, FRQCRA);
-	}
-
 	if (((system_rev & 0xFFFF) == 0x3E00)) {
 		/* detect System-CPU clock parent */
 		if (__raw_readl(PLLECR) & (1 << 8)) {	/* PLL0ST */
