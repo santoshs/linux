@@ -925,7 +925,7 @@ int control_cpuidle(int is_enable)
 			/* Restore to original CPU's idle PM */
 			device->state_count = SHMOBILE_MAX_STATES;
 			device->states[0].enter = shmobile_enter_wfi;
-			device->states[1].enter = shmobile_enter_wfi_lowfreq;
+			device->states[1].enter = shmobile_enter_wfi;
 			device->states[2].enter = shmobile_enter_corestandby;
 			device->states[3].enter = shmobile_enter_corestandby_2;
 
@@ -1237,7 +1237,8 @@ static int shmobile_init_cpuidle(void)
 		/* WFI(low-freq) state */
 		strcpy(device->states[1].name, "WFI(low-freq)");
 		strcpy(device->states[1].desc, "Wait for interrupt(low-freq)");
-		device->states[1].enter = shmobile_enter_wfi_lowfreq;
+		/* device->states[1].enter = shmobile_enter_wfi_lowfreq; */
+		device->states[1].enter = shmobile_enter_wfi;
 		device->states[1].exit_latency = 100;
 		device->states[1].target_residency = 1;
 		device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
