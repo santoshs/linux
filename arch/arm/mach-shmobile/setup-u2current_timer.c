@@ -20,12 +20,20 @@ int read_current_timer(unsigned long *timer_val)
 int __init setup_current_timer(void)
 {
 	struct clk *clk = NULL;
-	unsigned long lpj, flags;
+	unsigned long lpj = 0, flags = 0;
+	int ret = 0;
 
 	clk = clk_get(NULL, "currtimer");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
-	clk_enable(clk);
+	ret = clk_enable(clk);
+	if (ret < 0)
+
+	{
+		pr_err("%s:couldn't enable current timer clock\n", __func__);
+		clk_put(clk);
+		return ret;
+	}
 
 	lpj = clk_get_rate(clk) + HZ/2;
 	do_div(lpj, HZ);
