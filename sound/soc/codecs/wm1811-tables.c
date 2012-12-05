@@ -1,3 +1,19 @@
+/* wm1811-tables.c
+ *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
 #include "wm1811.h"
 
 const struct wm1811_access_mask wm1811_access_masks[WM1811_CACHE_SIZE] = {
