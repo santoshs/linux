@@ -2709,27 +2709,35 @@ static void __init u2evm_init(void)
 	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
 	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	pinmux_hwspinlock_init(r8a73734_hwlock_gpio);
-
 #ifdef CONFIG_ARM_TZ
 	if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
 	{
-#else
-	if(0) /* Without TZ, kernel may override also on ES2.02 and onwards */
-	{
-#endif
-		printk("ES2.02 on later with TZ enabled\n");
-		pub_stm_select = 0; /* Can't override secure side by public side any more */
+		printk(KERN_DEBUG "ES2.02 on later with TZ enabled\n");
+		pub_stm_select = 0; /* Can't override secure \
+				side by public side any more */
 	} else {
-		printk("ES2.01 or earlier or TZ disabled\n");
+		printk(KERN_DEBUG "ES2.01 or earlier or TZ enabled\n");
 		if (stm_select != pub_stm_select) {
 			stm_select = pub_stm_select;
-			pub_stm_select = 1; /* Override secure side by public side */
+			pub_stm_select = 1; /* Override secure \
+					side by public side */
 		} else {
-			pub_stm_select = 0; /* Both secure and public agree. No need to change HW setup */
+			pub_stm_select = 0; /* Both secure and public agree.\
+					No need to change HW setup */
 		}
 	}
-
-	printk("final stm_select=%d\n", stm_select);
+#else
+		printk(KERN_DEBUG "ES2.01 or earlier or TZ disabled\n");
+		if (stm_select != pub_stm_select) {
+			stm_select = pub_stm_select;
+			pub_stm_select = 1; /* Override secure \
+						side by public side */
+		} else {
+			pub_stm_select = 0; /* Both secure and public agree. \
+						No need to change HW setup */
+		}
+#endif
+		printk(KERN_DEBUG "final stm_select=%d\n", stm_select);
 
 
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
