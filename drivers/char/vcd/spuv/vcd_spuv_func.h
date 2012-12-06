@@ -158,7 +158,7 @@
 /* sdram static area */
 #define SPUV_FUNC_SDRAM_AREA_SIZE		0x7C0000
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1	0x47800000
-#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47000000
+#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
 
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
 		g_spuv_func_sdram_static_area_top_phy
