@@ -855,6 +855,7 @@ static int sep_driver_resume(struct device *dev)
 		pm_runtime_disable(dev);
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
+		pm_runtime_suspend(dev);
 	}
 	
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_driver_resume end\n");
