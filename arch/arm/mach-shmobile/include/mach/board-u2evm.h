@@ -22,23 +22,9 @@
  */
 #ifndef __ASM_ARCH_BOARD_U2EVM_H
 #define __ASM_ARCH_BOARD_U2EVM_H
-
-#define GPIO_BASE	IO_ADDRESS(0xe6050000)
+#include <mach/r8a73734.h>
 #include <mach/gpio.h>
-/**
- * SDHI
- */
-#define SDHI1_CLK_CR	IO_ADDRESS(0xE6052120)
-#define SDHI1_D0_CR	IO_ADDRESS(0xE6052121)
-#define SDHI1_D1_CR	IO_ADDRESS(0xE6052122)
-#define SDHI1_D2_CR	IO_ADDRESS(0xE6052123)
-#define SDHI1_D3_CR	IO_ADDRESS(0xE6052124)
-#define SDHI1_CMD_CR	IO_ADDRESS(0xE6052125)
 
-/**
- * MSEL3CR
- */
-#define MSEL3CR		IO_ADDRESS(0xE6058020)
 
 /**
  * SEC_RLTE_REV
@@ -70,11 +56,6 @@
 /**
  * CMT13
  */
-#define CMSTR3		IO_ADDRESS(0xe6130300)
-#define CMCSR3		IO_ADDRESS(0xe6130310)
-#define CMCNT3		IO_ADDRESS(0xe6130314)
-#define CMCOR3		IO_ADDRESS(0xe6130318)
-#define CMCLKE		IO_ADDRESS(0xe6131000)
 
 /**
  * Crash log configurations

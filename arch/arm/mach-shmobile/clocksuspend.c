@@ -33,8 +33,6 @@
 #define pr_fmt(fmt) "dvfs[clocksuspend.c<%4d>]:" fmt, __LINE__
 #endif
 
-#define CPG_BASE		IO_ADDRESS(0xE6150000)
-#define ZDIVCR5			IO_ADDRESS(0xE61501b4)
 #define CPG_FRQCRA		(CPG_BASE + 0x0000)
 #define CPG_FRQCRB		(CPG_BASE + 0x0004)
 #define CPG_ZBCKCR		(CPG_BASE + 0x0010)

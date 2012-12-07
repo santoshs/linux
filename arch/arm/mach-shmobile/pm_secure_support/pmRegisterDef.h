@@ -25,7 +25,7 @@
 #include "pm_ram0.h"
 
 #ifndef CONFIG_PM_SMP
-#define APARMBAREA IO_ADDRESS(0xe6f10020)
+#include <mach/r8a73734.h>
 #endif
 
 #define CA9_SCU_ICD	0x1000	/* GIC Distributor offset from SCU_BASE */
@@ -150,7 +150,6 @@
 /* CPG SETTINGS							*/
 /*  Use to PLLC1 Setting					*/
 /********************************************/
-#define CPG_FRQCRABasePhys	0xE6150000
 #define CPG_FRQCRABase		IO_ADDRESS(CPG_FRQCRABasePhys)
 
 #define CPG_FRQCRAPhys	CPG_FRQCRABasePhys /* Frequency control register A*/
@@ -179,8 +178,6 @@
 /* System module stop control register 5 */
 #define CPG_SMSTPCR5 (CPG_FRQCRABase + 0x0144)
 
-/* Module stop status register 2*/
-#define CPG_MSTPSR2	IO_ADDRESS(0xE6150040)
 /* Module stop status register 4*/
 #define CPG_MSTPSR4	IO_ADDRESS(0xE615004C)
 #define MSTP212		0x00001000	/* Module Stop bit 212(MFIM) */
@@ -193,18 +190,10 @@
 #define MSTP527 0x08000000 /* Module Stop bit 527(Internal RAM0)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
-/* System-CPU Power Status Register (ES1.0)*/
-#define CPG_PSTR		IO_ADDRESS(0xE6151040)
-/* System-CPU Power Status Register (ES2.0) */
-#define CPG_SCPUSTR		IO_ADDRESS(0xE6151040)
 
-#define CPG_PLLECRPhys	0xE61500D0	/* PLL Enable Register*/
 #define CPG_PLLECR	IO_ADDRESS(CPG_PLLECRPhys) /* PLL Enable Register*/
 #define CPG_PLL0E	0x1	/* PLL0 Enable (0:turn off, 1:turn on) */
 #define CPG_PLL0ST	0x100	/* PLL0 status (0:turned off, 1:turned on)*/
-/*System-CPU PERIPHCLK Control Register*/
-#define CPG_PCLKCRPhys		0xE6151020
-#define CPG_PCLKCR			IO_ADDRESS(0xE6151020)
 
 #define FRQCRA_ES1_MASK			0x00FFFFF0
 #define FRQCRA_ES2_MASK			0x00FFFFFF
@@ -374,11 +363,6 @@
  * ********************************************************************
  */
 /* IRQC Event Detectors registers */
-#define IRQC_EVENTDETECTOR_BLK0_BASE			0xE61C0000
-#define IRQC_EVENTDETECTOR_BLK1_BASE			0xE61C0200
-#define IRQC_EVENTDETECTOR_BLK10_BASE			0xE61C1400
-#define IRQC_EVENTDETECTOR_BLK11_BASE			0xE61C1600
-#define IRQC_EVENTDETECTOR_BLK12_BASE			0xE61C1800
 
 #define HSGPR_BASE_PHYS				0xFFA00000
 #define SYSGPR_BASE_PHYS			0xFF700000

@@ -28,9 +28,7 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 
-#ifndef CONFIG_PM_SMP
-#define APARMBAREA IO_ADDRESS(0xe6f10020)
-#endif
+#include <mach/r8a73734.h>
 
 #define CA9_SCU_ICD	0x1000	/* GIC Distributor offset from SCU_BASE */
 #define CA9_SCU_ICC	0x100	/* GIC CPU Interface offset from SCU_BASE */
@@ -154,22 +152,20 @@
 /* CPG SETTINGS							*/
 /*  Use to PLLC1 Setting					*/
 /********************************************/
-#define CPG_FRQCRABasePhys	0xE6150000
-#define CPG_FRQCRABase		IO_ADDRESS(CPG_FRQCRABasePhys)
+#define CPG_FRQCRABase		IO_ADDRESS(FRQCRA)
 
 /* Frequency control register A*/
-#define CPG_FRQCRAPhys	CPG_FRQCRABasePhys
+#define CPG_FRQCRAPhys	FRQCRA
 /* Frequency control register B	*/
-#define CPG_FRQCRBPhys	(CPG_FRQCRABasePhys + 0x0004)
+#define CPG_FRQCRBPhys	(FRQCRA + 0x0004)
 /* Frequency control register D	*/
-#define CPG_FRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E4)
+#define CPG_FRQCRDPhys	(FRQCRA + 0x00E4)
 /* Frequency control register D for Modem	*/
-#define CPG_BBFRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E8)
+#define CPG_BBFRQCRDPhys	(FRQCRA + 0x00E8)
 
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
-#define CPG_LPCKCRPhys		0xE6151024
 #define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
 #define CPG_LPCKCR_LEGACY	0x00000000
 #define CPG_LPCKCR_26MHz	0x00000002
@@ -184,13 +180,13 @@
 #define CPG_FRQCRD	(CPG_FRQCRABase + 0x00E4)
 
 /* System-Cpu Wake Up Control Register		*/
-#define CPG_WUPCR			(CPG_FRQCRABasePhys + 0x1010)
+#define CPG_WUPCR			(FRQCRA + 0x1010)
 #define CPU1_WUP			0x02		/* CPU1 Wake Up bit*/
 /* RT module stop control register 4		*/
-#define CPG_RMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0120)
+#define CPG_RMSTPCR4Phys	(FRQCRA + 0x0120)
 #define CPG_RMSTPCR4		(CPG_FRQCRABase + 0x0120)
 /* System module stop control register 4	*/
-#define CPG_SMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0140)
+#define CPG_SMSTPCR4Phys	(FRQCRA + 0x0140)
 #define CPG_SMSTPCR4		(CPG_FRQCRABase + 0x0140)
 /* System module stop control register 5 */
 #define CPG_SMSTPCR5 (CPG_FRQCRABase + 0x0144)
@@ -215,23 +211,23 @@
 
 /* Module stop physical address */
 /* Module stop status register 0  */
-#define CPG_MSTPSR0Phys	(CPG_FRQCRABasePhys + 0x0030)
+#define CPG_MSTPSR0Phys	(FRQCRA + 0x0030)
 /* Module stop status register 1 */
-#define CPG_MSTPSR1Phys	(CPG_FRQCRABasePhys + 0x0038)
+#define CPG_MSTPSR1Phys	(FRQCRA + 0x0038)
 /* Module stop status register 2 */
-#define CPG_MSTPSR2Phys	(CPG_FRQCRABasePhys + 0x0040)
+#define CPG_MSTPSR2Phys	(FRQCRA + 0x0040)
 /* Module stop status register 3 */
-#define CPG_MSTPSR3Phys	(CPG_FRQCRABasePhys + 0x0048)
+#define CPG_MSTPSR3Phys	(FRQCRA + 0x0048)
 /* Module stop status register 4 */
-#define CPG_MSTPSR4Phys	(CPG_FRQCRABasePhys + 0x004C)
+#define CPG_MSTPSR4Phys	(FRQCRA + 0x004C)
 /* Module stop status register 5 */
-#define CPG_MSTPSR5Phys	(CPG_FRQCRABasePhys + 0x003C)
+#define CPG_MSTPSR5Phys	(FRQCRA + 0x003C)
 
 #define CPG_PLL0STPCR	(CPG_FRQCRABase + 0x00F0)
 #define CPG_PLL1STPCR	(CPG_FRQCRABase + 0x00C8)
 
-#define CPG_PLL0STPCRPhys	(CPG_FRQCRABasePhys + 0x00F0)
-#define CPG_PLL1STPCRPhys	(CPG_FRQCRABasePhys + 0x00C8)
+#define CPG_PLL0STPCRPhys	(FRQCRA + 0x00F0)
+#define CPG_PLL1STPCRPhys	(FRQCRA + 0x00C8)
 
 #define A2SLSTP		(1 << 20)
 #define A2SLSTP_MASK		(~A2SLSTP)
@@ -301,20 +297,12 @@
 #define MSTP528 0x10000000 /* Module Stop bit 528(Internal RAM1)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
-/* System-CPU Power Status Register (ES1.0)*/
-#define CPG_PSTR		IO_ADDRESS(0xE6151040)
-/* System-CPU Power Status Register (ES2.0) */
-#define CPG_SCPUSTR		IO_ADDRESS(0xE6151040)
 
-#define CPG_PLLECRPhys	0xE61500D0	/* PLL Enable Register*/
-#define CPG_PLLECR	IO_ADDRESS(CPG_PLLECRPhys) /* PLL Enable Register*/
+#define CPG_PLLECR	IO_ADDRESS(PLLECR) /* PLL Enable Register*/
 #define CPG_PLL0E	0x1	/* PLL0 Enable (0:off, 1:on) */
 #define CPG_PLL0ST	0x100	/* PLL0 status (0:off, 1:on)*/
 #define CPG_PLL1E	(1 << 1)	/* PLL0 Enable (0:off, 1:on) */
 #define CPG_PLL1ST	(1 << 9)	/* PLL0 status (0:off, 1:on)*/
-/*System-CPU PERIPHCLK Control Register*/
-#define CPG_PCLKCRPhys		0xE6151020
-#define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
 #define FRQCRA_ES1_MASK		0x00000F00 /* 0x00FFFFF0 */
 #define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
@@ -517,11 +505,6 @@
 /* IP registers for platform suspend */
 /*************************************/
 /* IRQC Event Detectors registers */
-#define IRQC_EVENTDETECTOR_BLK0_BASE			0xE61C0000
-#define IRQC_EVENTDETECTOR_BLK1_BASE			0xE61C0200
-#define IRQC_EVENTDETECTOR_BLK10_BASE			0xE61C1400
-#define IRQC_EVENTDETECTOR_BLK11_BASE			0xE61C1600
-#define IRQC_EVENTDETECTOR_BLK12_BASE			0xE61C1800
 
 #define HSGPR_BASE_PHYS				0xFFA00000
 #define SYSGPR_BASE_PHYS			0xFF700000
@@ -695,7 +678,5 @@
  * ZB3 Set Clock W/A
  ***************************
  */
-#define	CPG_CKSCRPhys		0xE61500C0
-#define	CPG_CKSCR			IO_ADDRESS(0xE61500C0)
 #define	CPG_FRQCRD_E054_1	0x00008000
 #define	CPG_FRQCRD_E054_2	0x00008004

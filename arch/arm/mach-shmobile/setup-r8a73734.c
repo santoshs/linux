@@ -1442,18 +1442,7 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
    &sgx_device,
 };
 
-/* CMT10 clocksource */
-#define CMCLKE	0xe6131000
-#define CMSTR0	0xe6130000
-#define CMCSR0	0xe6130010
-#define CMCNT0	0xe6130014
-#define CMCOR0	0xe6130018
 
-/* CMT14 sched_clock */
-#define CMSTR4	0xe6130400
-#define CMCSR4	0xe6130410
-#define CMCNT4	0xe6130414
-#define CMCOR4	0xe6130418
 
 extern spinlock_t sh_cmt_lock;	/* arch/arm/mach-shmobile/sh_cmt.c */
 

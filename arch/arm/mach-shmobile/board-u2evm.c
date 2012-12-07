@@ -10,7 +10,6 @@
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach-types.h>
@@ -148,9 +147,6 @@ static void sensor_power_on_vdd(int);
 
 
 
-
-#define SRCR2		IO_ADDRESS(0xe61580b0)
-#define SRCR3		IO_ADDRESS(0xe61580b8)
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -2482,7 +2478,7 @@ i2c_board_info i2cm_devices_es2[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 #if defined(CONFIG_SAMSUNG_MHL)
 	&mhl_i2c_gpio_device,
-#endif	
+#endif
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -2548,8 +2544,6 @@ static int wait_for_coresight_access_lock(u32 base)
 #endif
 
 
-#define IRQC0_CONFIG_00		IO_ADDRESS(0xe61c0180)
-#define IRQC1_CONFIG_00		IO_ADDRESS(0xe61c0380)
 static void irqc_set_chattering(int pin, int timing)
 {
 	u32 val;
@@ -2562,7 +2556,6 @@ static void irqc_set_chattering(int pin, int timing)
 	__raw_writel(val | (timing << 16) | (1 << 31), reg);
 }
 
-#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 #define SBAR2		__io(IO_ADDRESS(0xe6180060))
 #define RESCNT2		__io(IO_ADDRESS(0xe6188020))
 
@@ -2583,8 +2576,6 @@ int sec_rlte_hw_rev;
 #define SBSC_BASE		(0xFE000000U)
 #define SBSC_SDMRA_DONE		(0x00000000)
 #define SBSC_SDMRACR1A_ZQ	(0x0000560A)
-/* CPG register address */
-#define CPG_BASE		(0xE6150000U)
 #define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
 #define CPG_PLL3CR_1040MHZ	(0x27000000)
@@ -2734,9 +2725,6 @@ static void __init u2evm_init(void)
 
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
-#define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
-#define GPIO_DRVCR_SIM1	((volatile ushort *)(0xE6050000ul + 0x8192))
-#define GPIO_DRVCR_SIM2	((volatile ushort *)(0xE6050000ul + 0x8194))
 
 		*GPIO_DRVCR_SD0 = 0x0023;
 		*GPIO_DRVCR_SIM1 = 0x0023;
@@ -3038,9 +3026,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
           int i;
           volatile unsigned long dummy_read;
 #if 0 // NOT neede any more with new FIDO SW version Fido.1.9.5.36.edge_aligned_stpv2
-          // Lower CPG Frequency Control Register B (BRQCRB) ZTRFC clock by divider  control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz
-#define BRQCRB		IO_ADDRESS(0xE6150004)
-	  __raw_writel((__raw_readl(BRQCRB) & 0x7F0FFFFF) | 0x80400000, BRQCRB); // Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System CPU Debugging and Trace Clock Frequenct Division Ratio
+	/* Lower CPG Frequency Control Register B (FRQCRB) ZTRFC clock by divider*/
+	/*control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz*/
+	__raw_writel((__raw_readl(FRQCRB) & 0x7F0FFFFF) | 0x80400000, FRQCRB);
+	/* Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System*/
+	/*CPU Debugging and Trace Clock Frequenct Division Ratio*/
 #endif
 
 #define DBGREG9		IO_ADDRESS(0xE6100040)
