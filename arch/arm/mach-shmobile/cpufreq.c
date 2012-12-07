@@ -80,6 +80,10 @@ enum clock_state {
 #define STOP_STATE	4
 
 #define HWREV_041	4
+
+/* FIX me: need mock for bellow APIs
+ *	   this should be disabled after got mock funcion
+ */
 #define DYNAMIC_BOARD_REV_CHECK
 #define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR

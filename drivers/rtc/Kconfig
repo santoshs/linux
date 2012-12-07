@@ -163,6 +163,13 @@ config RTC_DRV_88PM860X
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-88pm860x.
 
+config RTC_DRV_D2153
+	tristate "Dialog Semiconductor D2153"
+	depends on MFD_D2153
+	help
+	  If you say yes here you get support for RTC function of the
+	  Dialog Semiconductor D2153 multifunction device.
+
 config RTC_DRV_DS1307
 	tristate "Dallas/Maxim DS1307/37/38/39/40, ST M41T00, EPSON RX-8025"
 	help
@@ -1160,7 +1167,7 @@ config RTC_DRV_TPS80031
 
 config RTC_DRV_TPS80032
 	tristate "TPS80032 RTC driver"
-	default y
+	default n
 	help
 	  This is a driver for TPS80032 chip to be used as a RTC.
 

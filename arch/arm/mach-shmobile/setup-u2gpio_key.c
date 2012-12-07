@@ -103,7 +103,7 @@ EXPORT_SYMBOL_GPL(gpio_pull_down_port);
 	 .debounce_interval = 20}
 
 static struct gpio_keys_button gpio_buttons_polled[] = {
-#ifndef CONFIG_PMIC_INTERFACE
+#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
 #endif
 	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT45, "Home",  0),
@@ -112,7 +112,7 @@ static struct gpio_keys_button gpio_buttons_polled[] = {
 };
 
 static struct gpio_keys_button gpio_buttons[] = {
-#ifndef CONFIG_PMIC_INTERFACE
+#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
 #endif
 	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
@@ -123,7 +123,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 static int gpio_key_enable(struct device *dev)
 {
 	if ((system_rev & 0xFFFF) == 0x3E00) {
-	#ifndef CONFIG_PMIC_INTERFACE
+#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 		gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
 #endif
 		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
@@ -132,7 +132,7 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
 		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
 	} else if (((system_rev & 0xFFFF)>>4) >= 0x3E1) {
-#ifndef CONFIG_PMIC_INTERFACE
+#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 		gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
 #endif
 		gpio_pull(GPIO_PORTCR_ES2(18), GPIO_PULL_UP);

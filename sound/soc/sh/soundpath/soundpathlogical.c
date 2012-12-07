@@ -722,6 +722,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		iRet = -ENOMEM;
 		goto workque_create_err;
 	}
+	
+#if !defined(CONFIG_MFD_D2153)
 
 	/* Initialize device setting for AudioLSI */
 	if (NULL != g_sndp_codec_info.set_device) {
@@ -735,7 +737,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 			goto set_dev_err;
 		}
 	}
-
+#endif
 	/* Wake lock init */
 	wake_lock_init(&g_sndp_wake_lock_suspend,
 		       WAKE_LOCK_SUSPEND,
