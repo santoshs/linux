@@ -75,8 +75,10 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
             .fifo_full_check_timeout_usec_slave  = 500,
-            .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
-            .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
+            .trace_features_master               = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+            .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+            .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
+            .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
      },
      {
              .name                = "ETH_P_MHI",
@@ -109,8 +111,10 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
-             .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
-             .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
+             .trace_features_master               = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
+             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
      },
 
      {
@@ -154,8 +158,10 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND),         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
-             .trace_features_master         = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
-             .trace_features_slave          = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)
+             .trace_features_master               = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
+             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
+             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
      }
 };
 

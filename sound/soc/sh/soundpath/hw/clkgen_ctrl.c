@@ -256,9 +256,9 @@ static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
 	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
-	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
+	{ CLKG_TIMSEL0,	 0x00000000, 0, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
+	{ CLKG_FSIBCOM,	 0x00202101, 0, 0 }, /* 1ch, 64fs, 8kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */

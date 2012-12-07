@@ -75,6 +75,16 @@
 */
 #define AUDIO_TEST_WATCH_CLK_TIME_OUT	(1000)
 
+/*!
+  @brief	Clock in AudioIC Off(32kHz).
+*/
+#define AUDIO_TEST_CLK_AUDIOIC_OFF	32000
+
+/*!
+  @brief	Value to convert sec to ms.
+*/
+#define AUDIO_TEST_VAL_CONVSEC2MSEC	1000
+
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration (private)                               */
 /*---------------------------------------------------------------------------*/
@@ -228,10 +238,6 @@ static struct audio_test_priv *audio_test_conf;
   @brief	Clock status flag.
 */
 static u_int g_audio_test_clock_flag;
-/*!
-  @brief	Loopback flag.
-*/
-static u_int g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 /***********************************/
 /* HW logical address              */
 /***********************************/
@@ -693,8 +699,6 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
-
 error:
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -736,13 +740,355 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
 
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
-
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
 error:
 	audio_test_log_err("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Get wait time.
+
+  @param	mic_reg [i] Value of Mic Detect 1.
+  @param	wait_time [o] Wait time of jack detection.
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_get_wait_time(u_short mic_reg, u_int *wait_time)
+{
+	int ret = 0;
+	u_short reg = 0;
+	u_int micd_rate = 0;
+	u_int micd_dbtime = 0;
+	u_int aif2_fs = 0;
+	u_int aif2clk_rate = 0;
+
+	audio_test_log_efunc("");
+
+	/* BIT11-8(MICD_RATE) */
+	switch (mic_reg & 0x0F00) {
+	case 0x0000:
+		micd_rate = 0;
+		break;
+	case 0x0100:
+		micd_rate = 250;
+		break;
+	case 0x0200:
+		micd_rate = 500;
+		break;
+	case 0x0300:
+		micd_rate = 1000;
+		break;
+	case 0x0400:
+		micd_rate = 2000;
+		break;
+	case 0x0500:
+		micd_rate = 4000;
+		break;
+	case 0x0600:
+		micd_rate = 8000;
+		break;
+	case 0x0700:
+		micd_rate = 16000;
+		break;
+	case 0x0800:
+		micd_rate = 32000;
+		break;
+	case 0x0900:
+		micd_rate = 64000;
+		break;
+	case 0x0A00:
+		micd_rate = 128000;
+		break;
+	case 0x0B00:
+		micd_rate = 256000;
+		break;
+	default:
+		micd_rate = 512000;
+		break;
+	}
+
+	/* BIT1(MICD_DBTIME) */
+	switch (mic_reg & 0x0002) {
+	case 0x0000:
+		micd_dbtime = 2;
+		break;
+	case 0x0020:
+		micd_dbtime = 4;
+		break;
+	default:
+		audio_test_log_err("unknown de-bounce time");
+		goto error;
+		break;
+	}
+
+	/* AIF2 Clocking (1) */
+	ret = audio_test_ic_read(0x0204, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("AIF2 Clk int addr[0x0204] reg[%#010x]",
+								reg);
+	/* BIT4-3(AIF2CLK_SRC) */
+	if ((reg & 0x0018) != 0x0008) {
+		audio_test_log_err("AIF2CLK_SRC is not MCLK2");
+		goto error;
+	}
+
+	/* AIF2 Rate */
+	ret = audio_test_ic_read(0x0211, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("AIF2 Rate addr[0x0211] reg[%#010x]", reg);
+	/* BIT7-4(AIF2_SR) */
+	switch (reg & 0x00F0) {
+	case 0x0000:
+		aif2_fs = 8000;
+		break;
+	case 0x0010:
+		aif2_fs = 11025;
+		break;
+	case 0x0020:
+		aif2_fs = 12000;
+		break;
+	case 0x0030:
+		aif2_fs = 16000;
+		break;
+	case 0x0040:
+		aif2_fs = 22050;
+		break;
+	case 0x0050:
+		aif2_fs = 24000;
+		break;
+	case 0x0060:
+		aif2_fs = 32000;
+		break;
+	case 0x0070:
+		aif2_fs = 44100;
+		break;
+	case 0x0080:
+		aif2_fs = 48000;
+		break;
+	case 0x0090:
+		aif2_fs = 88200;
+		break;
+	case 0x00A0:
+		aif2_fs = 96000;
+		break;
+	default:
+		audio_test_log_err("unknown fs");
+		goto error;
+		break;
+	}
+
+	/* BIT3-0(AIF2CLK_RATE) */
+	switch (reg & 0x000F) {
+	case 0x0001:
+		aif2clk_rate = 128;
+		break;
+	case 0x0002:
+		aif2clk_rate = 192;
+		break;
+	case 0x0003:
+		aif2clk_rate = 256;
+		break;
+	case 0x0004:
+		aif2clk_rate = 384;
+		break;
+	case 0x0005:
+		aif2clk_rate = 512;
+		break;
+	case 0x0006:
+		aif2clk_rate = 768;
+		break;
+	case 0x0007:
+		aif2clk_rate = 1024;
+		break;
+	case 0x0008:
+		aif2clk_rate = 1408;
+		break;
+	case 0x0009:
+		aif2clk_rate = 1536;
+		break;
+	default:
+		audio_test_log_err("unknown ratio");
+		goto error;
+		break;
+	}
+
+	*wait_time = aif2clk_rate * aif2_fs / AUDIO_TEST_CLK_AUDIOIC_OFF
+			* micd_rate * micd_dbtime / AUDIO_TEST_VAL_CONVSEC2MSEC;
+
+error:
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Setup jack detection.
+
+  @param	jack_reg [o] Value of AntiPOP (2).
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_setup_detect_jack(u_short *jack_reg)
+{
+	int ret = 0;
+	u_short reg = 0;
+	u_int wait_time = 0;
+
+	audio_test_log_efunc("");
+
+	/* AntiPOP (2) */
+	ret = audio_test_ic_read(0x0039, &reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_ic_read");
+		goto error;
+	}
+	audio_test_log_info("JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+	*jack_reg = reg & 0x0180;
+	if (*jack_reg != 0x0180) {
+		/* BIT8-7(JACKDET_MODE): 01(Jack Detect enabled) */
+		reg = reg | 0x0080;
+		reg = reg & 0xFEFF;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		/* Mic Detect 1 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		/* BIT0(MICD_ENA): 1(Enabled) */
+		reg = reg | 0x0001;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		ret = audio_test_get_wait_time(reg, &wait_time);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_get_wait_time");
+			goto error;
+		}
+
+		/* GPIO 1 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		/* BIT4-0(GP1_FN): 0_0101(MICDET status) */
+		reg = reg | 0x0005;
+		reg = reg & 0xFFFD;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+
+		mdelay(wait_time);
+	}
+
+error:
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Cleanup jack detection.
+
+  @param	jack_reg [i] Value of AntiPOP (2).
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_cleanup_detect_jack(u_short jack_reg)
+{
+	int ret = 0;
+	u_short reg = 0;
+
+	audio_test_log_efunc("");
+
+	if (jack_reg != 0x0180) {
+		/* AntiPOP (2) */
+		ret = audio_test_ic_read(0x0039, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
+		/* BIT8-7(JACKDET_MODE): 10(Jack Detect enabled) */
+		reg = reg & 0xFF7F;
+		reg = reg | 0x0100;
+		audio_test_log_info(
+			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x0039, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* Mic Detect 1 */
+		ret = audio_test_ic_read(0x00D0, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
+		/* BIT0(MICD_ENA): 0(Disabled) */
+		reg = reg & 0xFFFE;
+		audio_test_log_info(
+			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
+		ret = audio_test_ic_write(0x00D0, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+		/* GPIO 1 */
+		ret = audio_test_ic_read(0x0700, &reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_read");
+			goto error;
+		}
+		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
+		/* BIT4-0(GP1_FN): 0_0011(IRQ) */
+		reg = reg | 0x0003;
+		reg = reg & 0xFFFB;
+		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
+					reg);
+		ret = audio_test_ic_write(0x0700, reg);
+		if (0 != ret) {
+			audio_test_log_err("audio_test_ic_write");
+			goto error;
+		}
+	}
+
+error:
+	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
 
@@ -758,68 +1104,17 @@ error:
 static int audio_test_proc_detect_jack(u_int *state)
 {
 	int ret = 0;
-	u_short reg = 0;
 	u_short jack_reg = 0;
 	u_short state_jack = 0;
 
 	audio_test_log_efunc("");
 
-	/* JACKDET_MODE B'01 */
-	ret = audio_test_ic_read(0x0039, &reg);
+	ret = audio_test_setup_detect_jack(&jack_reg);
 	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_read");
+		audio_test_log_err("audio_test_setup_detect_jack");
 		goto error;
 	}
-	audio_test_log_info("JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
-	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
-		jack_reg = reg;
-		reg = reg | 0x0080;
-		reg = reg & 0xFEFF;
-		audio_test_log_info(
-			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
-		ret = audio_test_ic_write(0x0039, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-		/* MICD_ENA B'1 */
-		ret = audio_test_ic_read(0x00D0, &reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
-		reg = reg | 0x0001;
-		audio_test_log_info(
-			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
-		ret = audio_test_ic_write(0x00D0, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-		/* GP1_FN B'101 */
-		ret = audio_test_ic_read(0x0700, &reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
-		reg = reg | 0x0005;
-		reg = reg & 0xFFFD;
-		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
-					reg);
-		ret = audio_test_ic_write(0x0700, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
 
-		mdelay(2000);
-	}
-
-	/***********************************/
-	/* Get state of jack               */
-	/***********************************/
 	/* 0x00D2 (Mic Detect 3) */
 	ret = audio_test_ic_read(0x00D2, &state_jack);
 	if (0 != ret) {
@@ -834,62 +1129,14 @@ static int audio_test_proc_detect_jack(u_int *state)
 	else
 		*state = AUDIO_TEST_DRV_STATE_OFF;
 
-	if (AUDIO_TEST_DRV_STATE_OFF == g_audio_test_loopback) {
-		/* JACKDET_MODE B'10 */
-		ret = audio_test_ic_read(0x0039, &reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-		audio_test_log_info(
-			"JACKDET_MODE addr[0x0039] reg[%#010x]", reg);
-		reg = reg & 0xFF7F;
-		reg = reg | 0x0100;
-		audio_test_log_info(
-			"JACKDET_MODE addr[0x0039] convert reg[%#010x]", reg);
-		ret = audio_test_ic_write(0x0039, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-		/* MICD_ENA B'0 */
-		ret = audio_test_ic_read(0x00D0, &reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-		audio_test_log_info("MICD_ENA addr[0x00D0] reg[%#010x]", reg);
-		reg = reg & 0xFFFE;
-		audio_test_log_info(
-			"MICD_ENA mode addr[0x00D0] convert reg[%#010x]", reg);
-		ret = audio_test_ic_write(0x00D0, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
-		/* GP1_FN B'011 */
-		ret = audio_test_ic_read(0x0700, &reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-		audio_test_log_info("GP1_FN addr[0x0700] reg[%#010x]", reg);
-		reg = reg | 0x0003;
-		reg = reg & 0xFFFB;
-		audio_test_log_info("GP1_FN addr[0x0700] convert reg[%#010x]",
-					reg);
-		ret = audio_test_ic_write(0x0700, reg);
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_write");
-			goto error;
-		}
+	ret = audio_test_cleanup_detect_jack(jack_reg);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_cleanup_detect_jack");
+		goto error;
 	}
 
-	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
-	return ret;
-
 error:
-	audio_test_log_err("ret[%d]", ret);
+	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
 	return ret;
 }
 
@@ -1007,8 +1254,6 @@ static int audio_test_proc_start_tone(void)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
-
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1068,8 +1313,6 @@ static int audio_test_proc_stop_tone(void)
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
-
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1165,8 +1408,6 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_ON;
-
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1227,8 +1468,6 @@ static int audio_test_proc_stop_spuv_loopback(void)
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
-
-	g_audio_test_loopback = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;

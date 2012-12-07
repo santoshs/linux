@@ -65,18 +65,19 @@ smc_channel_conf_t* smc_channel_conf_create( void )
         /*
          * Initialize empty values
          */
-    conf->channel_id    = 0;
-    conf->priority      = SMC_CHANNEL_PRIORITY_DEFAULT;
-    conf->copy_scheme   = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
-    conf->protocol      = 0;
+    conf->channel_id      = 0;
+    conf->priority        = SMC_CHANNEL_PRIORITY_DEFAULT;
+    conf->copy_scheme     = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
+    conf->wake_lock_flags = SMC_CHANNEL_WAKELOCK_NONE;
+    conf->protocol        = 0;
 
-    conf->fifo_size_in  = 0;
-    conf->fifo_size_out = 0;
-    conf->mdb_size_in   = 0;
-    conf->mdb_size_out  = 0;
+    conf->fifo_size_in    = 0;
+    conf->fifo_size_out   = 0;
+    conf->mdb_size_in     = 0;
+    conf->mdb_size_out    = 0;
 
-    conf->signal_remote = NULL;
-    conf->signal_local  = NULL;
+    conf->signal_remote   = NULL;
+    conf->signal_local    = NULL;
 
     conf->smc_receive_data_cb           = NULL;
     conf->smc_receive_data_allocator_cb = NULL;
@@ -313,6 +314,9 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
 
             smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_master;
             smc_channel_conf->trace_features = smc_instance_conf_channel->trace_features_master;
+
+            smc_channel_conf->wake_lock_flags = smc_instance_conf_channel->wake_lock_flags_master;
+
         }
         else
         {
@@ -331,6 +335,8 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
 
             smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_slave;
             smc_channel_conf->trace_features = smc_instance_conf_channel->trace_features_slave;
+
+            smc_channel_conf->wake_lock_flags = smc_instance_conf_channel->wake_lock_flags_slave;
         }
 
         smc_channel_conf->priority       = smc_instance_conf_channel->priority;

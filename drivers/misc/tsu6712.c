@@ -1594,8 +1594,6 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
       else
     	usbsw->pdata = &tsu6712_pdata;
 
-        usbsw->pdata = &tsu6712_pdata;
-   
 	if (!usbsw->pdata)
 		goto fail1;
 

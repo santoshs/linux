@@ -30,7 +30,8 @@
 #include <mach/pm.h>
 #include <mach/io.h>
 #include <linux/delay.h>
-
+#include <linux/hwspinlock.h>
+#include <mach/sbsc.h>
 #include <linux/wakelock.h>
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
@@ -75,14 +76,14 @@ enum {
 	SHWYSTATDM,
 	SHBUF,
 #ifdef CONFIG_PM_HAS_SECURE
-	SBSC_SDCR0A,
-	SBSC_SDWCRC0A,
-	SBSC_SDWCRC1A,
-	SBSC_SDWCR00A,
-	SBSC_SDWCR01A,
-	SBSC_SDWCR10A,
-	SBSC_SDWCR11A,
-	SBSC_SDWCRC2A,
+	SBSC_SDCR0A_TZ,
+	SBSC_SDWCRC0A_TZ,
+	SBSC_SDWCRC1A_TZ,
+	SBSC_SDWCR00A_TZ,
+	SBSC_SDWCR01A_TZ,
+	SBSC_SDWCR10A_TZ,
+	SBSC_SDWCR11A_TZ,
+	SBSC_SDWCRC2A_TZ,
 #endif
 };
 
@@ -98,10 +99,16 @@ static int es;
 
 static char xtal1_log_out;
 
-/*Change clocks using DFS function*/
-static struct clk_rate suspend_clock;
-static struct clk_rate suspend_clock_save;
-/*Change clocks using DFS function*/
+/*Change clocks function*/
+unsigned int frqcrA_save;
+unsigned int frqcrB_save;
+unsigned int frqcrD_save;
+unsigned int is_clock_updated;
+#define CLOCK_SUSPEND		0
+#define CLOCK_RESTORE		1
+#define ZB3_CLK_SUSPEND		65000
+#define CPG_PLL3CR		IO_ADDRESS(0xE61500DC)
+#define PLL3CR_MASK		0x3F000000
 
 #ifdef CONFIG_PM_DEBUG
 /*
@@ -196,43 +203,43 @@ static struct base_map map[] = {
 		.base = SHBUF_BASE,
 	},
 #ifdef CONFIG_PM_HAS_SECURE
-	[SBSC_SDCR0A] = {	/* for setclock */
+	[SBSC_SDCR0A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDCR0APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
 
-	[SBSC_SDWCRC0A] = {	/* for setclock */
+	[SBSC_SDWCRC0A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC0APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCRC1A] = {	/* for setclock */
+	[SBSC_SDWCRC1A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC1APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCR00A] = {	/* for setclock */
+	[SBSC_SDWCR00A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR00APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCR01A] = {	/* for setclock */
+	[SBSC_SDWCR01A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR01APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCR10A] = {	/* for setclock */
+	[SBSC_SDWCR10A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR10APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCR11A] = {	/* for setclock */
+	[SBSC_SDWCR11A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR11APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
 	},
-	[SBSC_SDWCRC2A] = {	/* for setclock */
+	[SBSC_SDWCRC2A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC2APhys,
 		.size = SZ_4,	/* 4 bytes */
 		.base = 0x0,	/* Allocate at boot time */
@@ -759,7 +766,7 @@ static void do_iicdvm_setting(void)
 	__raw_writeb(0x80, ICASTARTDVM1);
 }
 
-#define Enable_PM_Test_Mode  1
+#define Enable_PM_Test_Mode  0
 
 #if Enable_PM_Test_Mode
 #define Enable_Change_Pin  0
@@ -1088,6 +1095,158 @@ void _gpio_set( int port_num, int val )
 
 #endif // #if Enable_PM_Test_Mode
 
+unsigned int suspend_ZB3_backup(void)
+{
+	unsigned int pll3cr = 0;
+	unsigned int pll3cr_mul = 0;
+	unsigned int zb3_div = 0;
+	unsigned int zb3_clk = 0;
+	pll3cr = __raw_readl(CPG_PLL3CR);
+	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
+
+	zb3_div = __raw_readl(CPG_FRQCRD);
+	zb3_clk = (26 * pll3cr_mul);
+
+	switch (zb3_div & (0x1F)) {
+	case 0x00:
+	case 0x04:
+		zb3_clk /= 2;
+		break;
+	case 0x10:
+		zb3_clk /= 4;
+		break;
+	case 0x11:
+		zb3_clk /= 6;
+		break;
+	case 0x12:
+		zb3_clk /= 8;
+		break;
+	case 0x13:
+		zb3_clk /= 12;
+		break;
+	case 0x14:
+		zb3_clk /= 16;
+		break;
+	case 0x15:
+		zb3_clk /= 24;
+		break;
+	case 0x16:
+		zb3_clk /= 32;
+		break;
+	case 0x18:
+		zb3_clk /= 48;
+		break;
+	case 0x1B:
+		zb3_clk /= 96;
+		break;
+	default:
+		zb3_clk = -EINVAL;
+	}
+	zb3_clk *= 1000;
+	return zb3_clk;
+}
+
+/*
+ * suspend_set_clock
+ *
+ * Arguments:
+ *		@is_restore:
+ *			0: set clock when suspending
+ *			1: restore clock when resuming
+ * Return:
+ *		0: successful
+ */
+int suspend_set_clock(unsigned int is_restore)
+{
+	unsigned int clocks_ret = 0;
+	unsigned int frqcrA_suspend_clock;
+	unsigned int frqcrB_suspend_clock;
+	unsigned int zb3_clock;
+	unsigned int frqcrA_mask;
+	unsigned int frqcrB_mask;
+
+	if (es >= ES_REV_2_0) {
+		/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8*/
+		/* Z: Not change, ZTR: 1/4, ZT: 1/6 */
+		/* ZX:1/48, ZS:1/48, HP:1/48 */
+		frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES2;
+		frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES2;
+		zb3_clock = ZB3_CLK_SUSPEND;
+		frqcrA_mask = FRQCRA_MASK_ES2;
+		frqcrB_mask = FRQCRB_MASK_ES2;
+	} else {
+		/* I:1/6, ZG:1/4, M3:1/8, B:1/12, M1:1/6 */
+		/* Z:No change, ZTR:1/4, ZT:1/6, ZX:1/6 */
+		/* ZS:1/12, HP:1/12 */
+		frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES1;
+		frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES1;
+		frqcrA_mask = FRQCRA_MASK_ES1;
+		frqcrB_mask = FRQCRA_MASK_ES1;
+	}
+
+	if (!is_restore) {
+		pr_info("[%s]: Suspend: Set clock for suspending\n",\
+			__func__);
+		/* Backup FRQCRA/B */
+		frqcrA_save = __raw_readl(CPG_FRQCRA);
+		frqcrB_save = __raw_readl(CPG_FRQCRB);
+
+		clocks_ret = clock_update(frqcrA_suspend_clock, frqcrA_mask,
+				frqcrB_suspend_clock, frqcrB_mask);
+		if (clocks_ret < 0) {
+			pr_info("[%s]: Set clocks FAILED\n",\
+				__func__);
+		} else {
+			pr_info("[%s]: Set clocks OK\n",
+				__func__);
+		}
+	#if (defined ZB3_CLK_SUSPEND_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+		if (es > ES_REV_2_1) {
+			frqcrD_save = suspend_ZB3_backup();
+			if (frqcrD_save > 0) {
+				clocks_ret = cpg_set_sbsc_freq(zb3_clock);
+				if (clocks_ret < 0) {
+					pr_info("[%s]: Set ZB3 clocks"
+					"FAILED\n", __func__);
+				} else {
+					pr_info("[%s]: Set ZB3 "
+					"clocks OK\n", __func__);
+				}
+			} else {
+				pr_info("[%s]: Backup ZB3 "
+					"clock FAILED\n", __func__);
+				clocks_ret = frqcrD_save;
+			}
+		}
+	#endif
+	} else {
+		pr_info("[%s]: Restore clock for resuming\n",
+			__func__);
+		clocks_ret = clock_update(frqcrA_save, frqcrA_mask,
+					frqcrB_save, frqcrB_mask);
+		if (clocks_ret < 0) {
+			pr_info("[%s]: Restore clocks FAILED\n",
+				__func__);
+		} else {
+			pr_info("[%s]: Restore clocks OK\n",
+				__func__);
+		}
+	#if (defined ZB3_CLK_SUSPEND_ENABLE) && \
+		(defined ZB3_CLK_DFS_ENABLE)
+		if (es > ES_REV_2_1) {
+			clocks_ret = cpg_set_sbsc_freq(frqcrD_save);
+			if (clocks_ret < 0) {
+				pr_info("[%s]: Restore ZB3 "
+					"clocks FAILED\n", __func__);
+			} else {
+				pr_info("[%s]: Restore ZB3 clocks OK\n",
+					__func__);
+			}
+		}
+	#endif
+	}
+	return clocks_ret;
+}
 
 unsigned int CPG_PLL1STPCR_bk;
 
@@ -1103,6 +1262,10 @@ static int shmobile_suspend(void)
 	unsigned int dramPasrSettingsArea0;
 	unsigned int dramPasrSettingsArea1;
 	u32 bk_pll1stpcr = 0;
+
+	/*Change clocks using DFS function*/
+	int clocks_ret;
+	/*Change clocks using DFS function*/
 
 #if Enable_PM_Test_Mode
 	check_n_save_pin_conf();
@@ -1188,10 +1351,6 @@ static int shmobile_suspend(void)
 
 #endif // #if Enable_PM_Test_Mode
 
-	/*Change clocks using DFS function*/
-	int clocks_ret;
-	/*Change clocks using DFS function*/
-
 	/* check wakelock */
 	locked = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
 	if (locked)
@@ -1247,32 +1406,23 @@ static int shmobile_suspend(void)
 	pm_writel(dramPasrSettingsArea0, ram0DramPasrSettingArea0);
 	pm_writel(dramPasrSettingsArea1, ram0DramPasrSettingArea1);
 
-
-	pm_writel((es < ES_REV_2_0) ? FRQCRA_ES1_MASK \
-			: FRQCRA_ES2_MASK, ram0FRQCRAMask);
-	pm_writel((es < ES_REV_2_0) ? POWERDOWN_FRQCRA_ES1 \
-			: POWERDOWN_FRQCRA_ES2, ram0FRQCRADown);
-	pm_writel((es < ES_REV_2_0) ? POWERDOWN_FRQCRB_ES1 \
-			: ((es <= ES_REV_2_1) ? POWERDOWN_FRQCRB_ES2_0 \
-			: POWERDOWN_FRQCRB_ES2_02), ram0FRQCRBDown);
-
 #ifdef CONFIG_PM_HAS_SECURE
 	/* For access SBSC registers */
-	pm_writel((unsigned long)(map[SBSC_SDCR0A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDCR0A_TZ].base), \
 				ram0SBSC_SDCR0AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCRC0A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCRC0A_TZ].base), \
 				ram0SBSC_SDWCRC0AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCRC1A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCRC1A_TZ].base), \
 				ram0SBSC_SDWCRC1AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCR00A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCR00A_TZ].base), \
 				ram0SBSC_SDWCR00AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCR01A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCR01A_TZ].base), \
 				ram0SBSC_SDWCR01AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCR10A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCR10A_TZ].base), \
 				ram0SBSC_SDWCR10AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCR11A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCR11A_TZ].base), \
 				ram0SBSC_SDWCR11AIOremap);
-	pm_writel((unsigned long)(map[SBSC_SDWCRC2A].base), \
+	pm_writel((unsigned long)(map[SBSC_SDWCRC2A_TZ].base), \
 				ram0SBSC_SDWCRC2AIOremap);
 #endif
 	if (es <= ES_REV_2_1)
@@ -1280,75 +1430,81 @@ static int shmobile_suspend(void)
 
 	xtal1_log_out = 1;
 
-	/*
-	 * do cpu suspend ...
-	 */
 	/* - add A4MP state as PLL1 stop conditon */
+
 	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
+	unsigned int ret;
+	if (pll_1_sem) {
+		ret = hwspin_trylock_nospin(pll_1_sem);
+		if ((ret == -EBUSY) || (ret == -EINVAL)) {
+			pr_err("[%s]: Suspend: Can not get semaphore\n", \
+					__func__);
+			goto Cancel;
+		}
+	}
+	pr_err("[%s]: Suspend: Get semaphore successfully\n", __func__);
+	pr_err("[%s]: Suspend: Setting PLL1STPCR\n", __func__);
 	bk_pll1stpcr = __raw_readl(CPG_PLL1STPCR);
 	__raw_writel(bk_pll1stpcr | A4MP | C4STP, CPG_PLL1STPCR);
+	pr_err("[%s]: Suspend: PLL1STPCR = 0x%8x\n", __func__, \
+			__raw_readl(CPG_PLL1STPCR));
+
 	/* TO DO: Release semaphore before access to CPG_PLL1STPCR */
+	hwspin_unlock_nospin(pll_1_sem);
 
 	__raw_writel((__raw_readl(WUPSMSK) | (1 << 28)), WUPSMSK);
 
-	pr_debug(PMDBG_PRFX "%s: do cpu suspend ...\n\n", __func__);
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(1, ram0ZQCalib);
-#endif 	/*CONFIG_PM_HAS_SECURE*/
+#endif	/*CONFIG_PM_HAS_SECURE*/
 
-/*Change clocks using DFS function*/
-
-		/* clock table */
-	clocks_ret = cpg_get_freq(&suspend_clock_save);
-	suspend_clock = suspend_clock_save;
-	if (clocks_ret < 0) {
-		printk(KERN_INFO "[%s]: cpg_get_freq() FAILED ", __func__);
-		goto suspend_skip_clock_change;
-		}
-	printk(KERN_INFO "[%s]: cpg_get_freq() OK ", __func__);
-
-	suspend_clock.i_clk = DIV1_6;
-	suspend_clock.zg_clk = DIV1_4;
-	suspend_clock.m3_clk = DIV1_8;
-	suspend_clock.b_clk = DIV1_48;
-	suspend_clock.m1_clk = DIV1_6;
-	suspend_clock.m5_clk = DIV1_8;
-
-	suspend_clock.ztr_clk = DIV1_4;
-	suspend_clock.zt_clk = DIV1_6;
-	suspend_clock.zx_clk = DIV1_48;
-	suspend_clock.zs_clk = DIV1_48;
-	suspend_clock.hp_clk = DIV1_48;
-
-	clocks_ret = pm_set_clocks(suspend_clock);
-	if (clocks_ret < 0)
-		printk(KERN_INFO "[%s]: pm_set_clocks() FAILED ", __func__);
-
-	printk(KERN_INFO "[%s]: pm_set_clocks() suspended OK ", __func__);
-
-suspend_skip_clock_change:
-/*Change clocks using DFS function*/
-
+	/* Update clocks setting */
+	is_suspend_setclock = 1;
+	if (suspend_set_clock(CLOCK_SUSPEND) != 0) {
+			pr_debug(PMDBG_PRFX "%s: Suspend without "
+			"updating clock setting\n", __func__);
+		is_clock_updated = 0;
+	} else {
+		is_clock_updated = 1;
+	}
+	/*
+	 * do cpu suspend ...
+	 */
+	pr_err("[%s]: do cpu suspend ...\n\n", __func__);
 	jump_systemsuspend();
 
-/*Change clocks using DFS function*/
-
-	clocks_ret = pm_set_clocks(suspend_clock_save);
-	if (clocks_ret < 0)
-		printk(KERN_INFO "[%s]: pm_set_clocks() FAILED ", __func__);
-
-	printk(KERN_INFO "[%s]: pm_set_clocks() restored OK ", __func__);
-
-/*Change clocks using DFS function*/
-
+	/* Update clocks setting */
+	if (is_clock_updated == 1) {
+		if (suspend_set_clock(CLOCK_RESTORE) != 0)
+			pr_debug(PMDBG_PRFX "%s: Resume after "
+				"restoring clock setting\n", __func__);
+	} else {
+		pr_debug(PMDBG_PRFX "%s: Resume without "
+		"restoring clock setting\n", __func__);
+	}
+	is_suspend_setclock = 0;
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
-#endif 	/*CONFIG_PM_HAS_SECURE*/
+#endif	/*CONFIG_PM_HAS_SECURE*/
 
 	/* Restore PLL1 stop conditon)*/
 	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
-	__raw_writel(bk_pll1stpcr, CPG_PLL1STPCR);
-	/* TO DO: Release semaphore before access to CPG_PLL1STPCR */
+	ret = hwspin_trylock_nospin(pll_1_sem);
+	if ((ret == -EBUSY) || (ret == -EINVAL)) {
+		pr_err("[%s]: Resume: Can not get semaphore\n", __func__);
+		pr_err("[%s]: Resume: Can not restore PLL1STPCR setting\n",\
+				__func__);
+		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n", \
+				__func__, __raw_readl(CPG_PLL1STPCR));
+	} else {
+		pr_err("[%s]: Resume: Get semaphore successfully\n", __func__);
+		pr_err("[%s]: Resume: Restore PLL1STPCR setting\n", __func__);
+		__raw_writel(bk_pll1stpcr, CPG_PLL1STPCR);
+		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n",
+			__func__, __raw_readl(CPG_PLL1STPCR));
+		hwspin_unlock_nospin(pll_1_sem);
+	}
+
 	wakeups_factor();
 
 #ifdef CONFIG_PM_HAS_SECURE
@@ -1617,3 +1773,4 @@ void shmobile_suspend_udelay(unsigned int delay_time)
 		i--;
 }
 EXPORT_SYMBOL(shmobile_suspend_udelay);
+

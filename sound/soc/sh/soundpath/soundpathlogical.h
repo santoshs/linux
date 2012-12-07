@@ -229,7 +229,7 @@ static void sndp_work_stop(
 	const int direction);
 /* Incommunication */
 static void sndp_work_incomm_start(const u_int new_value);
-static void sndp_work_incomm_stop(void);
+static void sndp_work_incomm_stop(const u_int old_value);
 /* SoundPath start / stop control functions */
 static void sndp_fm_work_start(const int direction);
 static void sndp_fm_work_stop(

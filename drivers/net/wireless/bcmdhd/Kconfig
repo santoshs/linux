@@ -52,3 +52,12 @@ config DHD_ENABLE_P2P
 	default n
 	---help---
 	  Use Enable Wifi Direct
+
+config BCMDHD_EXT_DRIVER
+	bool "Use external DHD drivers"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	depends on RENESAS
+	help
+		Enable WEXT_PRIV and WIRELESS_EXT flags to support external DHD drivers
+

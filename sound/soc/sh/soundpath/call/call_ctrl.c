@@ -528,8 +528,8 @@ int call_regist_watch(struct call_vcd_callback *func)
 	}
 
 	/* Set Incomm for Vocoder */
-/*	voip_callback.voip_ul_callback = call_record_incomm_cb; */
-	voip_callback.voip_ul_callback = NULL;
+	voip_callback.voip_ul_callback = call_record_incomm_cb;
+/*	voip_callback.voip_ul_callback = NULL;*/
 	voip_callback.voip_dl_callback = call_playback_incomm_cb;
 
 	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_SET_VOIP_CALLBACK\n");
@@ -1331,13 +1331,14 @@ static void call_playback_incomm_cb(unsigned int buf_size)
 	else
 		/* Dummy */
 		call_playback_incomm_dummy(buf_size);
-
-		if (g_status & REC_INCOMM_STATUS)
-			/* Data get */
-			call_record_incomm_data_set(buf_size);
-		else
-			/* Dummy */
-			call_record_incomm_dummy(buf_size);
+#if 0
+	if (g_status & REC_INCOMM_STATUS)
+		/* Data get */
+		call_record_incomm_data_set(buf_size);
+	else
+		/* Dummy */
+		call_record_incomm_dummy(buf_size);
+#endif
 }
 
 /*!

@@ -532,9 +532,15 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 	if (!gpioc)
 		goto err_out;
 
-	if (gpio_hwlock)
-		hwspin_lock_timeout_irqsave(gpio_hwlock,
-							HWLOCK_TIMEOUT, &flags);
+	if (gpio_hwlock) {
+		err = hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT,
+									&flags);
+		if (err < 0) {
+			printk(KERN_ERR "\nGPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return -EINVAL;
+		}
+	}
 	else
 		spin_lock_irqsave(&gpio_lock, flags);
 

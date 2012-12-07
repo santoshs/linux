@@ -63,9 +63,15 @@ struct pm_state_notify_confirm {
 	const char *name;
 	unsigned int (*confirm)(void);
 };
-extern int corestandby_pa_physical;
-extern int systemsuspend_cpu0_pa_physical;
-extern int systemsuspend_cpu1_pa_physical;
+
+/* Need to be used by others of PM */
+extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
+				unsigned int freqB, unsigned int freqB_mask);
+extern struct hwspinlock *pll_1_sem;
+extern struct hwspinlock *gen_sem1;
+extern struct hwspinlock *sw_cpg_lock;
+extern unsigned int is_suspend_setclock;
+
 extern int start_corestandby(void);
 extern int start_corestandby_2(void);
 extern void ArmVector(void);
@@ -99,6 +105,7 @@ extern void PM_Spin_Unlock(void);
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
 extern void shmobile_suspend_udelay(unsigned int delay_time);
+extern unsigned int suspend_ZB3_backup(void);
 
 #ifdef CONFIG_CPU_IDLE
 void register_pm_state_notify(struct pm_state_notify *h);
@@ -391,6 +398,7 @@ struct clk_rate {
 	enum clk_div zs_clk;
 	enum clk_div zb_clk;
 	enum clk_div zb3_clk;
+	unsigned int zb3_freq;
 	enum pll_ratio pll0;
 };
 
@@ -409,6 +417,9 @@ extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
 /* #define DVFS_DEBUG_MODE		1 */
 /* #define DVFS_TEST_MODE		1 */
+#define ZB3_CLK_DFS_ENABLE
+#define ZB3_CLK_SUSPEND_ENABLE
+#define ZB3_CLK_IDLE_ENABLE
 #ifdef DVFS_DEBUG_MODE
 #define pr_log	pr_alert
 #else
@@ -438,7 +449,8 @@ static inline int samplrate_downfact_change(unsigned int sampl_rate,
 { return 0; }
 static inline void samplrate_downfact_get(unsigned int *sampl_rate,
 				unsigned int *down_factor) {}
-#endif
+#endif /* CONFIG_CPU_FREQ_GOV_ONDEMAND */
+
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
 extern void start_cpufreq(void);
@@ -447,6 +459,7 @@ extern bool cpufreq_compulsive_exec_get(void);
 extern void cpufreq_compulsive_exec_clear(void);
 extern void disable_dfs_mode_min(void);
 extern void enable_dfs_mode_min(void);
+extern int movie_cpufreq(int sw720p);
 extern int corestandby_cpufreq(void);
 extern int suspend_cpufreq(void);
 extern int resume_cpufreq(void);
@@ -462,8 +475,7 @@ extern int is_cpufreq_enable(void);
 /* Internal API for CPUFreq driver only */
  /* for corestandby */
 extern int cpg_get_freq(struct clk_rate *rates);
-extern int corestandby_pm_set_clocks(const struct clk_rate clk_div);
- /* for corestandby end */
+extern int cpg_set_sbsc_freq(unsigned int new_ape_freq);
 extern int pm_set_clocks(const struct clk_rate clk_div);
 extern int pm_set_clock_mode(const int mode);
 extern int pm_get_clock_mode(const int mode, struct clk_rate *rate);
@@ -472,6 +484,7 @@ extern unsigned int pm_get_syscpu_frequency(void);
 extern int pm_set_pll_ratio(int pll, unsigned int val);
 extern int pm_get_pll_ratio(int pll);
 extern int pm_setup_clock(void);
+extern void shmobile_sbsc_init(void);
 extern int pm_enable_clock_change(int clk);
 extern int pm_disable_clock_change(int clk);
 extern unsigned long pm_get_spinlock(void);
@@ -481,6 +494,7 @@ static inline void start_cpufreq(void) {}
 static inline int stop_cpufreq(void) { return 0; }
 static inline void disable_dfs_mode_min(void) {}
 static inline void enable_dfs_mode_min(void) {}
+static inline int movie_cpufreq(int sw720p) { return 0; }
 static inline int corestandby_cpufreq(void) { return 0; }
 static inline int suspend_cpufreq(void) { return 0; }
 static inline int resume_cpufreq(void) { return 0; }
@@ -494,6 +508,7 @@ static inline int control_cpufreq(int is_enable) { return 0; }
 static inline int is_cpufreq_enable(void) { return 0; }
 #endif
 /* Internal API for CPUFreq driver only */
+static inline int cpg_set_sbsc_freq(unsigned int new_ape_freq) { return 0; }
 static inline int pm_set_clocks(const struct clk_rate clk_div) { return 0; }
 static inline int pm_set_clock_mode(const int mode) { return 0; }
 static inline int pm_get_clock_mode(const int mode, struct clk_rate *rate)
@@ -515,5 +530,7 @@ static inline void pm_release_spinlock(unsigned long flag) { }
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
 #endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
+
 /* #define PLL1_CAN_OFF 1*/
+
 #endif /* __ASM_ARCH_PM_H */

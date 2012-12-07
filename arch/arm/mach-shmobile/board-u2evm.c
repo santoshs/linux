@@ -1129,7 +1129,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_USB_SWITCH_TSU6712)
     {
 		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
-			.platform_data = &tsu6712_pdata,
+			.platform_data = NULL,
 			.irq            = irqpin2irq(GPIO_MUS_INT),
     },
 #endif
@@ -2282,7 +2282,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&sh_mmcif_device,
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
-//	&sdhi1_device,
+	&sdhi1_device,
 #if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
@@ -2340,7 +2340,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&sh_mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-//	&sdhi1_device,
+	&sdhi1_device,
 #if defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
@@ -2870,8 +2870,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_direction_output(GPIO_PORT101, 0);
 #endif
 	// WLAN Enable
-	gpio_request(GPIO_PORT260, NULL);
-	gpio_direction_output(GPIO_PORT260, 0);
+	//gpio_request(GPIO_PORT260, NULL);
+	//gpio_direction_output(GPIO_PORT260, 0);
 	
 	// BT Enable
 	//gpio_request(GPIO_PORT268, NULL);
@@ -3225,10 +3225,22 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		gpio_request(GPIO_FN_SDHID1_3, NULL);
 		gpio_request(GPIO_FN_SDHICMD1, NULL);
 		gpio_request(GPIO_FN_SDHICLK1, NULL);
-	    irq_set_irq_type(irqpin2irq(42), IRQ_TYPE_EDGE_FALLING);
-	    irqc_set_chattering(42, 0x01);  /* 1msec */
-	
 
+		if((system_rev & 0xFF) == 0x00)
+		{ /*ES1.0*/
+			gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(292), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(291), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(290), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES1(289), GPIO_PULL_UP);
+		} else
+		{ /*ES2.0*/
+			gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(292), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(291), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(290), GPIO_PULL_UP);
+			gpio_pull(GPIO_PORTCR_ES2(289), GPIO_PULL_UP);
+		}
 	}
 
 	/* touch key Interupt */
@@ -3278,32 +3290,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
    gpio_direction_input(GPIO_PORT97);
    gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
 #endif
-#if defined(CONFIG_CHARGER_SMB328A)
-	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT103, NULL);
-	   gpio_direction_input(GPIO_PORT103);
-	   gpio_pull(GPIO_PORTCR_ES2(103), GPIO_PULL_UP);
-	}
-	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
-	}
-	else
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
-	}
-#endif
 
-#if defined(CONFIG_BATTERY_BQ27425)
-   gpio_request(GPIO_PORT105, NULL);
-   gpio_direction_input(GPIO_PORT105);
-   gpio_pull(GPIO_PORTCR_ES2(105), GPIO_PULL_UP);
-#endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
 	{
@@ -3370,15 +3357,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 #endif
-
-	if (1 != stm_select) {
-		/*configure Ports for SDHI1*/
-		*((volatile u8 *)SDHI1_D0_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D1_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D2_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_D3_CR) = 0xC1;
-		*((volatile u8 *)SDHI1_CMD_CR) = 0xC1;
-	}
 
 	/* enable sound */
 	gpio_request(GPIO_FN_FSIAISLD, "sound");
@@ -3500,9 +3478,6 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
             i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
-#ifdef CONFIG_PN544_NFC
-	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); //PATCH CPN
-#endif	
 
 	/* GPS Init */
 #if defined(CONFIG_RENESAS_GPS)
@@ -3532,9 +3507,11 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #endif
 #endif
 
+#ifdef CONFIG_BOARD_VERSION_V041
 /* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
 __raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
 __raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
+#endif
 }
 
 static void __init u2evm_timer_init(void)

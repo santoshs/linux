@@ -1610,21 +1610,22 @@ SYSPD_LOOP_TURNOFF_PLL0:
 	STR		r5, [r6]
 #endif /*__EXTAL1_INFO__*/
 
-	/*--------------------------------------*/
-	/* Power Down							*/
-	/*--------------------------------------*/
-	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
-	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
+    /*--------------------------------------*/
+    /* Power Down                            */
+    /*--------------------------------------*/
+    LDR        r4, =SPDCRPhys    /* Load SPDCR address    */
+    LDR        r5, =A3SM_PD    /* A3SM Power Down Value */
 TRY_TURNOFF_A3SM:
-	LDR		r6, [r4]
-	ORR		r6, r6, r5
-	STR		r6, [r4]	/* Power Down    */
+    LDR        r6, [r4]
+    ORR        r6, r6, r5
+    STR        r6, [r4]        /* Power Down    */
 
-	LDR		r6, =PSTRPhys
-	LDR		r6, [r6]
-	AND		r6, r6, r5
-	CMP		r6, #0
-	BNE		TRY_TURNOFF_A3SM
+    LDR        r6, =PSTRPhys
+    LDR        r6, [r6]
+    AND        r6, r6, r5
+    CMP        r6, #0
+    BNE        TRY_TURNOFF_A3SM
+
 .pool
 
 ENDPROC(sys_powerdown)
@@ -2331,9 +2332,9 @@ ENTRY(start_wfi)
 	STR		r6, [r5]
 	DSB
 #endif
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	MOV		lr, pc /* lr: Return address */
 	B	xtal_though
 	NOP
@@ -2348,9 +2349,9 @@ ENTRY(start_wfi)
 	BL PM_Spin_Lock
 	NOP
 #if 0
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	MOV		lr, pc /* lr: Return address */
 	B	xtal_though
 	NOP
@@ -2402,9 +2403,9 @@ ENTRY(start_wfi2)
 	STR		r6, [r5]
 	DSB
 
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	/* r7=0x4: Xtal though (PLL0 Stop) */
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	CMP		r0, #0x0
 	LDREQ	r5, =ram0Cpu1Status
 	LDRNE	r5, =ram0Cpu0Status
@@ -2433,9 +2434,9 @@ START_WFI2_XTAL_THOUGH_SET:
 	BL PM_Spin_Lock
 	NOP
 
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	MOV		lr, pc /* lr: Return address */
 	B	xtal_though
 	NOP
@@ -2555,10 +2556,10 @@ ENTRY(corestandby_pa)
 	LDRNE	r5, =ram0Cpu0StatusPhys
 	LDR		r4, [r5]
 
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	/* r7=0x4: Xtal though (PLL0 Stop) */
 	LDR		r5, =CPG_LPCKCRPhys
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
 	LDR		r7, =CPG_LPCKCR_PLLOFF
@@ -2603,9 +2604,9 @@ CORESTANDBY_WAKEUP:
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
-	/* r7=0x2: Xtal though (PLL0 Oscillated) */
+	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCRPhys
-	LDR		r7, =CPG_LPCKCR_26MHz
+	LDR		r7, =CPG_LPCKCR_LEGACY
 	LDR		r4, =ram1xtal_thoughPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call xtal_though() */

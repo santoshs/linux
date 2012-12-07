@@ -62,7 +62,7 @@ typedef struct
     uint8_t           channel_id;
     uint8_t           priority;                         /* The priority of the channel, the highest priority is 0 */
     uint8_t           copy_scheme;                      /* Copy scheme bits: SMC_COPY_SCHEME_COPY_IN_SEND | SMC_COPY_SCHEME_COPY_IN_RECEIVE*/
-    uint8_t           fill1;
+    uint8_t           wake_lock_flags;                  /* Channel specific Wakeup lock policy */
 
     uint32_t          fifo_size_in;                     /* The size of the FIFO receiving data (remote) */
     uint32_t          fifo_size_out;                    /* The size of the FIFO sending data (local) */
@@ -140,8 +140,8 @@ typedef struct _smc_instance_conf_channel_t
     uint8_t  trace_features_master;                 /* Master Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
 
     uint8_t  trace_features_slave;                  /* Slave  Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
-    uint8_t  fill3;
-    uint8_t  fill2;
+    uint8_t  wake_lock_flags_master;                /* Wakelock policy in master side */
+    uint8_t  wake_lock_flags_slave;                 /* Wakelock policy in slave side  */
     uint8_t  fill1;
 
 } smc_instance_conf_channel_t;

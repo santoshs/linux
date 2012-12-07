@@ -36,6 +36,13 @@ Description :  File created
      * TODO THE PRODUCT SPECIFIC BUILD FLAG NEEDED
      */
 
+
+
+
+#ifndef SMC_RUNTIME_TRACES_ENABLED
+    #define SMC_RUNTIME_TRACES_ENABLED   FALSE
+#endif
+
 #include "smc_instance_config_r8a73734_wge31.h"
 
 #endif

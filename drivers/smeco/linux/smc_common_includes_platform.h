@@ -53,8 +53,6 @@ Description :  File created
 
 #define SMC_TIMESTAMP_GET      0
 
-#define SMC_SLEEP_MS(time_ms)  msleep(time_ms)
-
 #ifndef CHAR_BIT
     #define CHAR_BIT           8
 #endif

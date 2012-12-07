@@ -12,7 +12,7 @@ obj-$(CONFIG_ARCH_SH7367)	+= setup-sh7367.o clock-sh7367.o intc-sh7367.o
 obj-$(CONFIG_ARCH_SH7377)	+= setup-sh7377.o clock-sh7377.o intc-sh7377.o
 obj-$(CONFIG_ARCH_SH7372)	+= setup-sh7372.o clock-sh7372.o intc-sh7372.o
 obj-$(CONFIG_ARCH_SH73A0)	+= setup-sh73a0.o clock-sh73a0.o intc-sh73a0.o
-obj-$(CONFIG_ARCH_R8A73734)	+= setup-r8a73734.o clock-r8a73734.o intc-r8a73734.o
+obj-$(CONFIG_ARCH_R8A73734)	+= setup-r8a73734.o clock-r8a73734.o intc-r8a73734.o sbsc.o
 
 # SMP objects
 smp-y				:= platsmp.o headsmp.o
@@ -57,8 +57,9 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
+obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
-obj-$(CONFIG_MACH_U2USB)     += setup-u2usb.o
+obj-$(CONFIG_MACH_U2EVM)    += setup-u2usb.o
 # BT object
 obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
 

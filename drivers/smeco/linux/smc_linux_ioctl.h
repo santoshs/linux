@@ -49,13 +49,13 @@ Description :  File created
 
 #define SIOCDEV_SEND_DATA     (SIOCDEVPRIVATE + 0x04)
 #define SIOCDEV_RUN_TEST      (SIOCDEVPRIVATE + 0x05)       /* Run SMC tests (valid only when test module is built in)*/
-#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Return the status of the specified device (val 0x89F6) */
+#define SIOCDEV_STATUS        (SIOCDEVPRIVATE + 0x06)       /* Prints the status of the specified device (val 0x89F6) to kernel log */
 #define SIOCDEV_TRACE         (SIOCDEVPRIVATE + 0x07)       /* Activate / Deactivate runtime traces in the SMC */
 #define SIOCDEV_HISTORY       (SIOCDEVPRIVATE + 0x08)       /* Retrieve the SMC history data */
 #define SIOCDEV_INFO          (SIOCDEVPRIVATE + 0x09)
 #define SIOCDEV_MSG_INTERNAL  (SIOCDEVPRIVATE + 0x0A)
-#define SIOCDEV_MSG_LOOPBACK  (SIOCDEVPRIVATE + 0x0B)
-
+#define SIOCDEV_MSG_LOOPBACK  (SIOCDEVPRIVATE + 0x0B)       /* Runs loopback test */
+#define SIOCDEV_STATUS_SMC    (SIOCDEVPRIVATE + 0x0C)       /* Returns SMC status to IOCTL client */
 
 /*
  * Internal message return values
@@ -157,6 +157,18 @@ struct ifreq_smc_loopback
     } ifr_ifrn;
 
     uint32_t  if_channel_id;
+    uint32_t  if_loopback_payload_length;
+    uint32_t  if_loopback_rounds;
+};
+
+struct ifreq_smc_status
+{
+    union
+    {
+      char ifrn_name[IFNAMSIZ];
+    } ifr_ifrn;
+
+    uint32_t  state;
     uint32_t  if_loopback_payload_length;
     uint32_t  if_loopback_rounds;
 };

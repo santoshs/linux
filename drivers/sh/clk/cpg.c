@@ -313,7 +313,7 @@ static void sh_clk_div4_disable(struct clk *clk)
 
 static struct clk_ops sh_clk_div4_clk_ops = {
 	.recalc		= sh_clk_div4_recalc,
-	.set_rate	= sh_clk_div4_set_rate,
+/*	.set_rate	= sh_clk_div4_set_rate,*/
 	.round_rate	= sh_clk_div_round_rate,
 };
 
