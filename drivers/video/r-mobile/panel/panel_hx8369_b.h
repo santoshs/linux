@@ -22,5 +22,9 @@
 
 extern int hx8369_b_dsi_read(int id, int reg, int len, char *buf);
 
+#ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
+#include <video/sh_mobile_lcdc.h>
+extern struct fb_panel_func hx8369_b_func_list(void);
+#endif
 
 #endif /* __PANEL_HX8369_B_H__ */

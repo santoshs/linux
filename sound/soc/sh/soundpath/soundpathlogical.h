@@ -462,6 +462,11 @@ static atomic_t g_sndp_watch_start_clk;
 static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_sndp_watch_stop_clk;
 
+/* audience Callback */
+static void sndp_a2220_set_state(
+		unsigned int mode, unsigned int device, unsigned int dev_chg);
+
+
 /* SOUND_TEST */
 #ifdef SOUND_TEST
 extern void fsi_set_callback(callback_function func);

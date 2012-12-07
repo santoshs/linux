@@ -37,6 +37,11 @@ config SND_SOC_AUDIO_TEST_WM1811
 	tristate
         default m
 
+config SND_SOC_AUDIENCE_A2220
+	tristate "AUDIENCE-A2220 sound support"
+	depends on I2C
+        default m
+
 ##
 ## Boards
 ##

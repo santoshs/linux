@@ -136,6 +136,7 @@ struct sh_mobile_i2c_data {
 	int curr_msg;
 	int pos;
 	int sr;
+	u_int8_t bus_data_delay;
 };
 
 #define IIC_FLAG_HAS_ICIC67	(1 << 0)
@@ -176,6 +177,12 @@ struct sh_mobile_i2c_data {
 #define ICIC_WAITE		0x02
 #define ICIC_DTEE		0x01
 
+#define RLTE_SSG_REV_041	4
+#define MAX_SDA_DELAY		31
+#define MIN_SDA_DELAY		0
+#define UNMASK_ICTC_BITS_0TO2	0x07
+#define UNMASK_DATA_DELAY_3TO7	0xF8
+#define SHIFT_3BITS_SDA_DELAY	3
 static void iic_wr(struct sh_mobile_i2c_data *pd, int offs, unsigned char data)
 {
 	if (offs == ICIC)
@@ -297,10 +304,10 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 	/* Mask all interrupts */
 	iic_wr(pd, ICIC, 0);
 
-	/* temporary code add 17clocks delay(about 163ns)*/
-	if (u2_get_board_rev() == 4)
-		iic_wr(pd, ICTC, 0x88);
-
+	/*set the bus_data_delay*/
+	if (u2_get_board_rev() >= RLTE_SSG_REV_041)
+		iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
+				(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
 	iic_wr(pd, ICCH, pd->icch & 0xff);
@@ -716,6 +723,13 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	if (pdata && pdata->bus_speed)
 		pd->bus_speed = pdata->bus_speed;
 
+	if ((u2_get_board_rev() >= RLTE_SSG_REV_041) && pdata &&
+			(pdata->bus_data_delay <= MAX_SDA_DELAY
+			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
+		pd->bus_data_delay = pdata->bus_data_delay <<
+						SHIFT_3BITS_SDA_DELAY;
+	else
+		pd->bus_data_delay = MIN_SDA_DELAY;
 	/* The IIC blocks on SH-Mobile ARM processors
 	 * come with two new bits in ICIC.
 	 */
