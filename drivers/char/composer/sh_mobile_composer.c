@@ -7269,7 +7269,7 @@ err_exit:
 		/* set draw complete flag to wakeup tasks. */
 		overlay_draw_complete = true;
 #endif
-		printk_err("request failed.\n");
+		printk_err2("request failed.\n");
 
 		/* wake-up waiting thread */
 		wake_up(&kernel_waitqueue_comp);
