@@ -27,8 +27,9 @@
 
 #include <rtapi/screen_display.h>
 
-/* framebuffer address */
+/* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		0x48C00000
+#define R_MOBILE_M_BUFF_SIZE		(4 * 1024 * 1024)
 
 /* panel pixel */
 #define R_MOBILE_M_PANEL_PIXEL_WIDTH	480
@@ -365,7 +366,7 @@ static int kota_panel_init(unsigned int mem_size)
 	set_address.output_mode = RT_DISPLAY_LCD1;
 	set_address.buffer_id = RT_DISPLAY_BUFFER_A;
 	set_address.address = R_MOBILE_M_BUFF_ADDR;
-	set_address.size = mem_size;
+	set_address.size = R_MOBILE_M_BUFF_SIZE;
 	ret = screen_display_set_address(&set_address);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
 		r_mobile_fb_err_msg(ret, "screen_display_set_address");
