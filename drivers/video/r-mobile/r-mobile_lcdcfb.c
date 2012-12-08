@@ -168,6 +168,10 @@ static u32 fb_debug;
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
 
+static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y);
+static unsigned long GCD(unsigned long x, unsigned long y);
+static unsigned long LCM(unsigned long x, unsigned long y);
+
 void r_mobile_fb_err_msg(int value, char *func_name)
 {
 
@@ -986,13 +990,61 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 
 	}
 	return 0;
+}
 
+static int sh_mobile_fb_set_par(struct fb_info *info)
+{
+	unsigned long ulLCM;
+	int bpp = info->var.bits_per_pixel;
+
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	/* calculate info->fix.smem_len by its maximum size */
+	if (bpp == 24)
+		bpp = 32;
+#endif
+
+	info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
+		* (bpp / 8);
+
+	/* 4kbyte align */
+	ulLCM = LCM(info->fix.line_length, 0x1000);
+	info->fix.smem_len = RoundUpToMultiple(
+			info->fix.line_length*info->var.yres, ulLCM);
+
+	info->var.reserved[0] = info->fix.smem_len;
+	info->fix.smem_len *= 2;
+
+	info->var.yres_virtual = info->fix.smem_len
+		/ info->fix.line_length;
+
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	/* calculate other values again using actual bpp */
+	bpp = info->var.bits_per_pixel;
+	if (bpp == 24) {
+		int smem_len;
+
+		info->fix.line_length = RoundUpToMultiple(
+				info->var.xres * (bpp / 8), 16);
+		smem_len = info->fix.line_length * info->var.yres;
+
+		info->var.reserved[0] = smem_len;
+		smem_len *= 2;
+
+		/* 4kbyte align */
+		smem_len = RoundUpToMultiple(smem_len, 0x1000);
+
+		info->var.yres_virtual = smem_len
+			/ info->fix.line_length;
+	}
+#endif
+	return 0;
 }
 
 static struct fb_ops sh_mobile_lcdc_ops = {
 	.owner          = THIS_MODULE,
 	.fb_setcolreg	= sh_mobile_lcdc_setcolreg,
 	.fb_check_var	= sh_mobile_fb_check_var,
+	.fb_set_par	= sh_mobile_fb_set_par,
 	.fb_read        = fb_sys_read,
 	.fb_write       = fb_sys_write,
 	.fb_fillrect	= sys_fillrect,
@@ -1246,7 +1298,6 @@ static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y)
 	return (div + ((rem == 0) ? 0 : 1)) * y;
 }
 
-#ifndef CONFIG_FB_SH_MOBILE_RGB888
 static unsigned long GCD(unsigned long x, unsigned long y)
 {
 	while (y != 0) {
@@ -1263,7 +1314,7 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 
 	return (gcd == 0) ? 0 : ((x / gcd) * y);
 }
-#endif
+
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
 	struct fb_info *info;
@@ -1273,9 +1324,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int error = 0;
 	int i, j;
-#ifndef CONFIG_FB_SH_MOBILE_RGB888
-	unsigned long ulLCM;
-#endif
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 
@@ -1445,31 +1493,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		if (error)
 			break;
 		info->fix = sh_mobile_lcdc_fix;
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-		info->fix.line_length = RoundUpToMultiple(
-			info->var.xres * (cfg->bpp / 8), 16);
-		info->fix.smem_len = info->fix.line_length * info->var.yres;
-#else
-		info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
-			* (cfg->bpp / 8);
-
-		/* 4kbyte align */
-		ulLCM = LCM(info->fix.line_length, 0x1000);
-		info->fix.smem_len = RoundUpToMultiple(
-			info->fix.line_length*info->var.yres, ulLCM);
-#endif
-		info->var.reserved[0] = info->fix.smem_len;
-		info->fix.smem_len *= 2;
-
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-		/* 4kbyte align */
-		info->fix.smem_len = RoundUpToMultiple(
-			info->fix.smem_len, 0x1000);
-#endif
-
-		info->var.yres_virtual = info->fix.smem_len
-			/ info->fix.line_length;
-
+		sh_mobile_fb_set_par(info);
 		lcd_ext_param[i].mem_size = info->fix.smem_len;
 
 #ifdef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
