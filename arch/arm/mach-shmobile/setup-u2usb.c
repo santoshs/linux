@@ -28,9 +28,7 @@
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 #endif
-
-#define SRCR2		IO_ADDRESS(0xe61580b0)
-#define SRCR3		IO_ADDRESS(0xe61580b8)
+#include <mach/r8a73734.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 static int is_vbus_powered(void)
@@ -61,7 +59,6 @@ static int is_vbus_powered(void)
 	return val1>>7;
 }
 
-#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
 #define LOCK_TIME_OUT_MS 1000
 static void usbhs_module_reset(void)
 {
@@ -98,7 +95,6 @@ static void usbhs_module_reset(void)
 			;
 #ifdef CONFIG_USB_OTG
 #define SYSSTS	IO_ADDRESS(0xe6890004) /* 16-bit */
-#define PHYOTGCTR	IO_ADDRESS(0xe689010a) /* 16-bit */
 	__raw_writew(__raw_readw(PHYOTGCTR) |
 		(1 << 8), PHYOTGCTR); /* IDPULLUP */
 	msleep(50);

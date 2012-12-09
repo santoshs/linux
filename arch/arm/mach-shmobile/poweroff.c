@@ -26,8 +26,7 @@
 
 #include <linux/hwspinlock.h>
 #include <mach/r8a73734.h>
-/* PLL2CR */
-#define PLL2CR		IO_ADDRESS(0xE615002C)
+/* CPG_PLL2CR */
 #define PLL2CE_XOE	0x1
 
 /* Restart Mode Setting*/
@@ -181,7 +180,7 @@ static void shmobile_pm_poweroff(void)
 	local_irq_disable();
 	local_fiq_disable();
 	/* Disable XTAL2 */
-	__raw_writel(__raw_readl(PLL2CR) | PLL2CE_XOE, PLL2CR);
+	__raw_writel(__raw_readl(CPG_PLL2CR) | PLL2CE_XOE, CPG_PLL2CR);
 	/* Set Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) | POFFFLAG, STBCHRB2);
 	/* Clean and invalidate caches */
