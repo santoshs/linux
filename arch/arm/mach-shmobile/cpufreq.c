@@ -171,9 +171,17 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
-/* #define HOTPLUG_IN_ACTIVE	1 */
+#define HOTPLUG_IN_ACTIVE	1
+
 static void do_check_cpu(struct work_struct *work);
-static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu);
+/* static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu); */
+static void do_plugout(struct work_struct *work);
+static void do_plugin(struct work_struct *work);
+/* Hotplug works */
+static struct workqueue_struct *dfs_queue;
+static struct delayed_work hlg_work_plugout; /* To plug CPU out */
+static struct delayed_work hlg_work_plugin; /* To plug CPU in */
+static struct delayed_work do_check_cpu_wrk; /* To check history */
 
 #define DEF_MAX_REQ_NR		10
 #define DEF_MAX_REQ_CHECK_NR	2
@@ -265,15 +273,10 @@ static int static_governor(void)
  */
 static inline void wakeup_nonboot_cpus(void)
 {
-	unsigned int cpu;
-
-	for_each_present_cpu(cpu) {
-		if (!cpu_online(cpu)) {
-			pr_his_req();
-			pr_log("plug-in cpu<%d>\n", cpu);
-			cpu_up_manager(cpu, DFS_HOTPLUG_ID);
-		}
-	}
+	pr_his_req();
+	if (delayed_work_pending(&hlg_work_plugin))
+		cancel_delayed_work_sync(&hlg_work_plugin);
+	queue_delayed_work_on(0, dfs_queue, &hlg_work_plugin, 0);
 }
 
 /*
@@ -287,15 +290,10 @@ static inline void wakeup_nonboot_cpus(void)
  */
 static inline void shutdown_nonboot_cpus(void)
 {
-	unsigned int cpu;
-
-	for_each_online_cpu(cpu) {
-		if (cpu) {
-			pr_his_req();
-			cpu_down_manager(cpu, DFS_HOTPLUG_ID);
-			pr_log("plug-out cpu<%d> done\n", cpu);
-		}
-	}
+	pr_his_req();
+	if (delayed_work_pending(&hlg_work_plugout))
+		cancel_delayed_work_sync(&hlg_work_plugout);
+	queue_delayed_work_on(0, dfs_queue, &hlg_work_plugout, 0);
 }
 
 /*
@@ -454,12 +452,52 @@ static void do_check_cpu(struct work_struct *work)
 	 * only active hotplug workqueue if one of these governors used
 	 */
 	if (!static_governor())
-		schedule_delayed_work_on(0, &hlg_work,
+		queue_delayed_work_on(0, dfs_queue, &do_check_cpu_wrk,
 			usecs_to_jiffies(hlg_config.sampling_rate));
 	else {
 		mutex_lock(&hlg_config.timer_mutex);
 		wakeup_nonboot_cpus();
 		mutex_unlock(&hlg_config.timer_mutex);
+	}
+}
+/*
+ * do_plugout: workqueue for turn CPU off
+ * Argument:
+ *		@work: turn non-boot CPU off
+ *
+ * Return:
+ *		none
+ */
+static void do_plugout(struct work_struct *work)
+{
+	unsigned int cpu;
+
+	for_each_online_cpu(cpu) {
+		if (cpu) {
+			pr_info("plug-out cpu<%d>\n", cpu);
+			cpu_down_manager(cpu, DFS_HOTPLUG_ID);
+			pr_info("plug-out cpu<%d> done\n", cpu);
+		}
+	}
+}
+/*
+ * do_plugin: workqueue for turn non-boot CPU on
+ * Argument:
+ *		@work: turn non-boot CPU on
+ *
+ * Return:
+ *		none
+ */
+static void do_plugin(struct work_struct *work)
+{
+	unsigned int cpu;
+
+	for_each_present_cpu(cpu) {
+		if (!cpu_online(cpu)) {
+			pr_info("plug-in cpu<%d>\n", cpu);
+			cpu_up_manager(cpu, DFS_HOTPLUG_ID);
+			pr_info("plug-in cpu<%d> done\n", cpu);
+		}
 	}
 }
 #endif /* DYNAMIC_HOTPLUG_CPU */
@@ -935,12 +973,10 @@ int movie_cpufreq(int sw720p)
 		goto done;
 	}
 
-	if (sw720p) {
+	if (sw720p)
 		the_cpuinfo.clk_state = MODE_MOVIE720P;
-	}
-	else {
+	else
 		the_cpuinfo.clk_state = MODE_NORMAL;
-	}
 	freq_new = the_cpuinfo.freq;
 
 	/* change SYS-CPU frequency */
@@ -1359,7 +1395,9 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 		mutex_lock(&hlg_config.timer_mutex);
 		hlg_config.hlg_enabled = 1;
 		mutex_unlock(&hlg_config.timer_mutex);
-		schedule_delayed_work_on(0, &hlg_work,
+		if (delayed_work_pending(&do_check_cpu_wrk))
+			cancel_delayed_work_sync(&do_check_cpu_wrk);
+		queue_delayed_work_on(0, dfs_queue, &do_check_cpu_wrk,
 			usecs_to_jiffies(hlg_config.sampling_rate));
 #endif /* HOTPLUG_IN_ACTIVE */
 #endif /* DYNAMIC_HOTPLUG_CPU */
@@ -1400,8 +1438,8 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 		/* dynamic hotplug cpu-core */
 		mutex_lock(&hlg_config.timer_mutex);
 		/* cancel workqueue from now on */
-		cancel_delayed_work(&hlg_work);
-
+		if (delayed_work_pending(&do_check_cpu_wrk))
+			cancel_delayed_work_sync(&do_check_cpu_wrk);
 		/* not allow hotplug now */
 		hlg_config.hlg_enabled = 0;
 
@@ -1534,19 +1572,17 @@ done:
 	/* hotplug is disabled before, do nothing */
 	if (!hlg_config.hlg_enabled)
 		goto end;
-
-	/* need to cancel workqueue before do any setting */
-	cancel_delayed_work(&hlg_work);
-
+	/* Cancel the scheduled work.*/
+	if (delayed_work_pending(&do_check_cpu_wrk))
+		cancel_delayed_work_sync(&do_check_cpu_wrk);
 	/* dynamic frequency scalling governor is used, try to check hotplug
 	 * condition
 	 */
 	if (!static_governor()) {
 		if (!policy_update()) {
 			hotplug_nonboot_cpu();
-
 			/* schedule hotplug workqueue */
-			schedule_delayed_work_on(0, &hlg_work,
+			queue_delayed_work_on(0, dfs_queue, &do_check_cpu_wrk,
 				usecs_to_jiffies(hlg_config.sampling_rate));
 			goto end;
 		}
@@ -1556,7 +1592,7 @@ done:
 	 * wakeup_nonboot_cpus() right here. So start
 	 * workqueue with very short delay time instead.
 	 */
-	schedule_delayed_work_on(0, &hlg_work,
+	queue_delayed_work_on(0, dfs_queue, &do_check_cpu_wrk,
 		usecs_to_jiffies(1 * HZ));
 end:
 	mutex_unlock(&hlg_config.timer_mutex);
@@ -1674,6 +1710,12 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		hlg_config.plug_threshold = DEF_PLUG_THRESHOLD15;
 		hlg_config.unplug_threshold = DEF_UNPLUG_THRESHOLD15;
 	}
+	/*Hotplug workqueue */
+	dfs_queue = alloc_workqueue("dfs_queue",
+			WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
+	INIT_DELAYED_WORK(&hlg_work_plugout, do_plugout);
+	INIT_DELAYED_WORK(&hlg_work_plugin, do_plugin);
+	INIT_DELAYED_WORK_DEFERRABLE(&do_check_cpu_wrk, do_check_cpu);
 #endif /* DYNAMIC_HOTPLUG_CPU */
 
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
@@ -1743,7 +1785,7 @@ static int __init shmobile_cpu_init(void)
 	debug = 0;
 #endif /* DVFS_DEBUG_MODE */
 	/* build frequency table */
-	
+
 #ifdef DYNAMIC_BOARD_REV_CHECK
 	hw_rev = u2_get_board_rev();
 	pr_info("------hw_rev = %d", hw_rev);
