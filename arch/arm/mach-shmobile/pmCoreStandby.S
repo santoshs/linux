@@ -1613,18 +1613,23 @@ SYSPD_LOOP_TURNOFF_PLL0:
     /*--------------------------------------*/
     /* Power Down                            */
     /*--------------------------------------*/
-    LDR        r4, =SPDCRPhys    /* Load SPDCR address    */
-    LDR        r5, =A3SM_PD    /* A3SM Power Down Value */
+	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
+	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
 TRY_TURNOFF_A3SM:
-    LDR        r6, [r4]
-    ORR        r6, r6, r5
-    STR        r6, [r4]        /* Power Down    */
-
-    LDR        r6, =PSTRPhys
-    LDR        r6, [r6]
-    AND        r6, r6, r5
-    CMP        r6, #0
-    BNE        TRY_TURNOFF_A3SM
+SPDCR_CHECK_LOOP_A3SM:
+	LDR		r6, [r4]
+	DSB
+	CMP		r6, #0x0
+	BNE		SPDCR_CHECK_LOOP_A3SM
+ 	LDR		r6, =A3SM_PD
+	STR		r6, [r4]	/* Power Down    */
+	DSB
+	LDR		r6, =PSTRPhys
+	LDR		r6, [r6]
+	DSB
+	AND		r6, r6, r5
+	CMP		r6, #0
+	BNE		TRY_TURNOFF_A3SM
 
 .pool
 
@@ -3007,12 +3012,17 @@ CPUPD_CACHESYNC_LOOP:
 	/*------------------------------------------*/
 	LDR		r4, =SPDCRPhys /* Load SPDCR address */
 CORE_POWERDOWN_LOOP:
+SPDCR_CHECK_LOOP_A2SL:
 	LDR		r5, [r4]
-	ORR		r5, r5, #A2SLPD
-	STR		r5, [r4] /* Power Down */
+	DSB
+	CMP		r5, #0x0
+	BNE		SPDCR_CHECK_LOOP_A2SL
+ 	LDR		r5, =A2SLPD
+	STR		r5, [r4]
 	DSB
 	LDR		r6, =PSTRPhys /* Load PSTR address */
 	LDR		r6, [r6]
+	DSB
 	AND		r6, r6, #A2SLST
 	CMP		r6, #0x0
 	BNE		CORE_POWERDOWN_LOOP
