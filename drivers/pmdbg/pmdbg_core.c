@@ -18,6 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 #include "pmdbg_core.h"
+#include <linux/interrupt.h>
+#include <linux/irq.h>
 
 /* Module header*/
 MODULE_DESCRIPTION("PM Debug information");
@@ -49,6 +51,12 @@ struct pmdbg_mod *pmdbg_mod_list[] = {
 
 static int __init init_pmdbg(void);
 static void __exit exit_pmdbg(void);
+
+/* for TDBG interrupt */
+static irqreturn_t TDBG_request_irq(int irq, void *dev_id);
+static unsigned int pmdbg_has_irq = 0;
+static int pmdbg_irq = -1;
+#define TDBG_SPI 81U
 
 /*APIs*/
 struct kobject *pmdbg_kobj;
@@ -177,6 +185,34 @@ int get_word(const char* buf, int size, int pos, char* out, int* out_sz)
 
 }
 
+#ifndef CONFIG_ARM_TZ
+/* TDBG-IRQ Initialization for DEBUG LINKUP REQUEST */
+/* Following code is available in NON-TRUSTZONE Mode  */
+static void init_TDBG_interrupt(void)
+{
+	int r;
+	pmdbg_irq = gic_spi(TDBG_SPI);
+	set_irq_flags(pmdbg_irq, IRQF_VALID | IRQF_NOAUTOEN);
+	r = request_irq(pmdbg_irq, TDBG_request_irq, IRQF_DISABLED,
+					"DEBUG_LINKUP_REQ", NULL);
+	if (0 > r) {
+		free_irq(pmdbg_irq, NULL);
+		pmdbg_has_irq = 0;
+	}
+	else {
+		pmdbg_has_irq = 1;
+		enable_irq(pmdbg_irq);
+	}
+}
+
+/* TDBG-IRQ interrupt handler */
+/* Following code is available in NON-TRUSTZONE Mode  */
+static irqreturn_t TDBG_request_irq(int irq, void *dev_id)
+{
+	extern void pmdbg_dbgpin_to_dbgmode();
+	pmdbg_dbgpin_to_dbgmode();
+}
+#endif
 
 static int __init init_pmdbg(void)
 {
@@ -194,6 +230,9 @@ static int __init init_pmdbg(void)
 		pmdbg_mod_list[i]->init();
 		
 	}
+#ifndef CONFIG_ARM_TZ
+	init_TDBG_interrupt();
+#endif
 
 end:
 	FUNC_MSG_RET(ret);
@@ -215,8 +254,15 @@ static void __exit exit_pmdbg(void)
 		kobject_del(pmdbg_kobj);
 		pmdbg_kobj = NULL;
 	}
+#ifndef CONFIG_ARM_TZ
+	if (pmdbg_has_irq) {
+		free_irq(pmdbg_irq, NULL);
+		pmdbg_has_irq = 0;
+	}
+#endif
 	FUNC_MSG_OUT;
 }
+
 
 module_init(init_pmdbg);
 module_exit(exit_pmdbg);

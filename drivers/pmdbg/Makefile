@@ -1,3 +1,5 @@
+INC_PATH := $(srctree)
+EXTRA_CFLAGS += -I$(INC_PATH)/drivers/sec_hal/exports
 obj-$(CONFIG_ARCH_R8A73734)		+= pmdbg_core.o
 obj-$(CONFIG_ARCH_R8A73734)		+= pmdbg_hw.o
 obj-$(CONFIG_ARCH_R8A73734)		+= pmdbg_sysc.o
