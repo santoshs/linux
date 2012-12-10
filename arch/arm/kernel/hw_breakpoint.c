@@ -36,6 +36,9 @@
 #include <asm/kdebug.h>
 #include <asm/system.h>
 #include <asm/traps.h>
+#include <asm/io.h>
+
+#define DBGREG1 0xE6100020
 
 /* Breakpoint currently in use for each BRP. */
 static DEFINE_PER_CPU(struct perf_event *, bp_on_reg[ARM_MAX_BRP]);
@@ -841,6 +844,8 @@ static void reset_ctrl_regs(void *info)
 	int i, cpu = smp_processor_id();
 	u32 dbg_power;
 	cpumask_t *cpumask = info;
+	if (core_num_brps == 0)
+		return;
 
 	/*
 	 * v7 debug contains save and restore registers so that debug state
@@ -932,6 +937,12 @@ static int __init arch_hw_breakpoint_init(void)
 	 * Reset the breakpoint resources. We assume that a halting
 	 * debugger will leave the world in a nice state for us.
 	 */
+	if ((__raw_readl(DBGREG1) & 0x20000000L) == 0) {
+		core_num_brps = 0;
+		core_num_reserved_brps = 0;
+		core_num_wrps = 0;
+		return 0;
+	} else {
 	on_each_cpu(reset_ctrl_regs, &cpumask, 1);
 	if (!cpumask_empty(&cpumask)) {
 		core_num_brps = 0;
@@ -950,6 +961,7 @@ static int __init arch_hw_breakpoint_init(void)
 		max_watchpoint_len = get_max_wp_len();
 		pr_info("maximum watchpoint size is %u bytes.\n",
 				max_watchpoint_len);
+	}
 	}
 
 	/* Register debug fault handler. */
@@ -976,3 +988,63 @@ int hw_breakpoint_exceptions_notify(struct notifier_block *unused,
 {
 	return NOTIFY_DONE;
 }
+
+int arch_hw_breakpoint_init_late(void)
+{
+	u32 dscr;
+	cpumask_t cpumask = { CPU_BITS_NONE };
+	debug_arch = get_debug_arch();
+
+	if (!debug_arch_supported()) {
+		pr_info("debug architecture 0x%x unsupported.\n", debug_arch);
+		return 0;
+	}
+
+	/* Determine how many BRPs/WRPs are available. */
+	core_num_brps = get_num_brps();
+	core_num_reserved_brps = get_num_reserved_brps();
+	core_num_wrps = get_num_wrps();
+
+	pr_info("found %d breakpoint and %d watchpoint registers.\n",
+		core_num_brps + core_num_reserved_brps, core_num_wrps);
+
+	if (core_num_reserved_brps)
+		pr_info("%d breakpoint(s) reserved for watchpoint "
+				"single-step.\n", core_num_reserved_brps);
+
+	/*
+	 * Reset the breakpoint resources. We assume that a halting
+	 * debugger will leave the world in a nice state for us.
+	 */
+	on_each_cpu(reset_ctrl_regs, &cpumask, 1);
+	if (!cpumask_empty(&cpumask)) {
+		core_num_brps = 0;
+		core_num_reserved_brps = 0;
+		core_num_wrps = 0;
+		return 0;
+	}
+
+	ARM_DBG_READ(c1, 0, dscr);
+	if (dscr & ARM_DSCR_HDBGEN) {
+		max_watchpoint_len = 4;
+		pr_warning("halting debug mode enabled. Assuming maximum watchpoint size of %u bytes.\n",
+			   max_watchpoint_len);
+	} else {
+		/* Work out the maximum supported watchpoint length. */
+		max_watchpoint_len = get_max_wp_len();
+		pr_info("maximum watchpoint size is %u bytes.\n",
+				max_watchpoint_len);
+	}
+#if 0
+	/* Register debug fault handler. */
+	hook_fault_code(2, hw_breakpoint_pending, SIGTRAP, TRAP_HWBKPT,
+			"watchpoint debug exception");
+	hook_ifault_code(2, hw_breakpoint_pending, SIGTRAP, TRAP_HWBKPT,
+			"breakpoint debug exception");
+
+	/* Register hotplug notifier. */
+	register_cpu_notifier(&dbg_reset_nb);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(arch_hw_breakpoint_init_late);
