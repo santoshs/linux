@@ -438,7 +438,8 @@ int read_rt_cert(unsigned int addr)
 	}
 
 	if (!IS_ERR(fp)) {
-		(void)filp_close(fp, NULL);
+		if (fp)
+			(void)filp_close(fp, NULL);
 	}
 
 	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);

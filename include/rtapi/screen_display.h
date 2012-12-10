@@ -36,6 +36,9 @@
 #define RT_DISPLAY_FORMAT_ARGB8888		(2)
 #define RT_DISPLAY_FORMAT_RGB888		(3)
 
+/** Buffer ID */
+#define RT_DISPLAY_DRAW_BLACK			(99)
+
 /** Refreshment mode */
 #define RT_DISPLAY_REFRESH_ON			(1)
 #define RT_DISPLAY_REFRESH_OFF			(2)
@@ -93,6 +96,10 @@
 /* LUT mode */
 #define RT_DISPLAY_LUT_OFF				(1)
 #define RT_DISPLAY_LUT_ON				(2)
+
+/** Color Palette mode */
+#define RT_DISPLAY_PALETTE_ON			(1)
+#define RT_DISPLAY_PALETTE_OFF			(2)
 
 /****************************************/
 /* Structure				*/
@@ -276,6 +283,14 @@ typedef struct {
 	unsigned long			*lut;
 } screen_disp_set_lut;
 
+typedef struct
+{
+	void*          handle;
+	unsigned short output_mode;
+	unsigned short palette_mode;
+	unsigned long  *data;
+} screen_disp_lcd_color_palette;
+
 typedef struct {
 	void *handle;
 } screen_disp_delete;
@@ -368,6 +383,12 @@ extern int screen_display_set_hdmi_if_parameters
 extern int screen_display_set_lut
 (
 	screen_disp_set_lut *disp_set_lut
+);
+
+/* Set LCD color palette data */
+extern int screen_display_set_lcd_color_palette
+(
+	screen_disp_lcd_color_palette* disp_lcd_color_plt
 );
 
 /* Delete handle */

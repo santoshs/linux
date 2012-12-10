@@ -188,7 +188,7 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 {
 	int result;
 	iccom_drv_send_cmd_param  iccom_send_cmd;
-	int					 disptask_id;	/* #MU2DSP582 add */
+	int					 disptask_id;
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 	if (NULL == disp_draw) {
 		return SMAP_LIB_DISPLAY_PARAERR;
@@ -205,29 +205,34 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 	MSG_MED("[RTAPIK]    |buffer_offset [%d]\n", disp_draw->buffer_offset);
 	MSG_MED("[RTAPIK]    |rotate        [%d]\n", disp_draw->rotate);
 
-	if ((NULL == disp_draw->handle) ||
-		((RT_DISPLAY_LCD1 != disp_draw->output_mode) &&
-		(RT_DISPLAY_LCD2  != disp_draw->output_mode) &&
-/* #MU2DSP582 mod -S- */
-/*		(RT_DISPLAY_HDMI  != disp_draw->output_mode)) || */
-		(RT_DISPLAY_HDMI  != disp_draw->output_mode) &&
-		(RT_DISPLAY_LCD1_ASYNC  != disp_draw->output_mode) &&
-		(RT_DISPLAY_LCDHDMI  != disp_draw->output_mode)) ||
-/* #MU2DSP582 mod -E- */
-		((RT_DISPLAY_LCD1 == disp_draw->output_mode) &&
-		 (RT_DISPLAY_FORMAT_RGB565   != disp_draw->format) &&
-/* #MU2DSP1676 mod -S- */
-		 (RT_DISPLAY_FORMAT_RGB888   != disp_draw->format) &&
-/* #MU2DSP1676 mod -E- */
-		 (RT_DISPLAY_FORMAT_ARGB8888 != disp_draw->format))
-	   ) {
-		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n",
-		__LINE__);
-		return SMAP_LIB_DISPLAY_PARAERR;
+	if (RT_DISPLAY_DRAW_BLACK == disp_draw->buffer_id) {
+		if ((NULL == disp_draw->handle) ||
+		    ((RT_DISPLAY_LCD1 != disp_draw->output_mode) &&
+		     (RT_DISPLAY_LCD1_ASYNC != disp_draw->output_mode))
+		   ) {
+			MSG_ERROR(
+			"[RTAPIK] ERR|[%d] \n",
+			__LINE__);
+			return SMAP_LIB_DISPLAY_PARAERR;
+		}
+	} else {
+		if ((NULL == disp_draw->handle) ||
+			((RT_DISPLAY_LCD1 != disp_draw->output_mode) &&
+			(RT_DISPLAY_HDMI  != disp_draw->output_mode) &&
+			(RT_DISPLAY_LCD1_ASYNC  != disp_draw->output_mode) &&
+			(RT_DISPLAY_LCDHDMI  != disp_draw->output_mode)) ||
+			((RT_DISPLAY_LCD1 == disp_draw->output_mode) &&
+			 (RT_DISPLAY_FORMAT_RGB565   != disp_draw->format) &&
+			 (RT_DISPLAY_FORMAT_RGB888   != disp_draw->format) &&
+			 (RT_DISPLAY_FORMAT_ARGB8888 != disp_draw->format))
+		   ) {
+			MSG_ERROR(
+			"[RTAPIK] ERR|[%d] \n",
+			__LINE__);
+			return SMAP_LIB_DISPLAY_PARAERR;
+		}
 	}
 
-/* #MU2DSP582 add -S- */
 	if ((RT_DISPLAY_LCD1    == disp_draw->output_mode) ||
 	    (RT_DISPLAY_LCD1_ASYNC == disp_draw->output_mode) ||
 	    (RT_DISPLAY_LCDHDMI == disp_draw->output_mode)) {
@@ -235,12 +240,9 @@ int screen_display_draw(screen_disp_draw *disp_draw)
 	} else {
 		disptask_id = TASK_DISPLAY2;
 	}
-/* #MU2DSP582 add -E- */
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)disp_draw->handle)->handle;
-/* #MU2DSP582 mod -S- */
 	iccom_send_cmd.task_id     = disptask_id;
-/* #MU2DSP582 mod -E- */
 	iccom_send_cmd.function_id = EVENT_DISPLAY_DRAW;
 	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
 	iccom_send_cmd.send_size   = sizeof(screen_disp_draw);
@@ -1316,6 +1318,88 @@ int screen_display_set_lut(screen_disp_set_lut *disp_set_lut)
 	return SMAP_LIB_DISPLAY_OK;
 }
 EXPORT_SYMBOL(screen_display_set_lut);
+
+int screen_display_set_lcd_color_palette(screen_disp_lcd_color_palette* disp_lcd_color_plt)
+{
+	int result;
+	iccom_drv_cmd_data      cmd_array[2];
+	iccom_drv_send_cmd_array_param iccom_send_cmd_array;
+	int						disptask_id;
+	unsigned int			set_num = 0;
+
+	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	if (NULL == disp_lcd_color_plt) {
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+	MSG_MED("[RTAPIK]    |handle            [0x%08X]\n", (unsigned int)disp_lcd_color_plt->handle);
+	MSG_MED("[RTAPIK]    |output_mode       [0x%08X]\n", (unsigned int)disp_lcd_color_plt->output_mode);
+	MSG_MED("[RTAPIK]    |palette_mode      [0x%08X]\n", (unsigned int)disp_lcd_color_plt->palette_mode);
+	MSG_MED("[RTAPIK]    |data              [0x%08X]\n", (unsigned int)disp_lcd_color_plt->data);
+
+	if ((NULL == disp_lcd_color_plt->handle) ||
+		((RT_DISPLAY_LCD1 != disp_lcd_color_plt->output_mode) &&
+		 (RT_DISPLAY_HDMI != disp_lcd_color_plt->output_mode)) ||
+		((RT_DISPLAY_PALETTE_ON  != disp_lcd_color_plt->palette_mode) &&
+		 (RT_DISPLAY_PALETTE_OFF != disp_lcd_color_plt->palette_mode))
+	   ) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] params error\n",
+		__LINE__);
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+
+	if ((RT_DISPLAY_PALETTE_ON  == disp_lcd_color_plt->palette_mode) &&
+		(NULL == disp_lcd_color_plt->data)
+	   ) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] data NULL error\n",
+		__LINE__);
+		return SMAP_LIB_DISPLAY_PARAERR;
+	}
+
+	cmd_array[0].size	= sizeof(screen_disp_lcd_color_palette);
+	cmd_array[0].data	= (unsigned int *)disp_lcd_color_plt;
+	if(RT_DISPLAY_PALETTE_ON  == disp_lcd_color_plt->palette_mode) {
+		cmd_array[1].size	= 256*4;
+		cmd_array[1].data	= (unsigned int *)disp_lcd_color_plt->data;
+		set_num = 2;
+	} else {
+		/* RT_DISPLAY_PALETTE_OFF */
+		set_num = 1;
+	}
+
+	if (RT_DISPLAY_LCD1 == disp_lcd_color_plt->output_mode) {
+		disptask_id = TASK_DISPLAY;
+	} else {
+		disptask_id = TASK_DISPLAY2;
+	}
+
+	iccom_send_cmd_array.handle          = ((screen_disp_handle *)disp_lcd_color_plt->handle)->handle;
+	iccom_send_cmd_array.task_id         = disptask_id;
+	iccom_send_cmd_array.function_id     = EVENT_DISPLAY_COLORPALETTE;
+	iccom_send_cmd_array.send_mode       = ICCOM_DRV_SYNC;
+	iccom_send_cmd_array.send_num        = set_num;
+	iccom_send_cmd_array.send_data       = cmd_array;
+	iccom_send_cmd_array.recv_size       = 0;
+	iccom_send_cmd_array.recv_data       = NULL;
+
+	result = iccom_drv_send_command_array(&iccom_send_cmd_array);
+	if (SMAP_OK != result) {
+			MSG_ERROR(
+			"[RTAPIK] ERR|[%d] iccom_drv_send_command_array() ret = [%d]\n",
+			__LINE__,
+			result);
+			return result;
+	}
+
+	MSG_HIGH(
+	"[RTAPIK] OUT|[%s][%d] ret = [%d]\n",
+	__func__,
+	__LINE__,
+	SMAP_LIB_DISPLAY_OK);
+	return SMAP_LIB_DISPLAY_OK;
+}
+EXPORT_SYMBOL(screen_display_set_lcd_color_palette);
 
 void screen_display_delete(screen_disp_delete *disp_delete)
 {
