@@ -1161,6 +1161,28 @@ static struct platform_device dma0_device = {
 		.platform_data	= &r8a73734_dmae_platform_data,
 	},
 };
+ 
+static struct resource pmu_resources[] = {
+  [0] = {
+    .name= "cpu0",
+    .start= gic_spi(77),
+    .end= gic_spi(77),
+    .flags= IORESOURCE_IRQ,
+  },
+  [1] = {
+    .name= "cpu1",
+    .start= gic_spi(78),
+    .end= gic_spi(78),
+    .flags= IORESOURCE_IRQ,
+  },
+};
+
+static struct platform_device pmu_device = {
+  .name= "arm-pmu",
+  .resource= pmu_resources,
+  .num_resources= ARRAY_SIZE(pmu_resources),
+};
+
 
 #ifdef CONFIG_SMECO
 static struct resource smc_resources[] =
@@ -1375,6 +1397,7 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&scif4_device,
 	&scif5_device,
 	&scif6_device,
+	&pmu_device,
 };
 
 #if 0
