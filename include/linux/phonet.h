@@ -25,6 +25,7 @@
 
 #include <linux/types.h>
 
+
 /* Phonet media types */
 #define PN_MEDIA_ROUTING	0x00
 #define PN_MEDIA_USB		0x1B
@@ -57,10 +58,10 @@
 
 /* ioctls */
 #define SIOCPNGETOBJECT		(SIOCPROTOPRIVATE + 0)
-#define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
-#define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
 #define SIOCCONFIGTYPE		(SIOCPROTOPRIVATE + 1)
 #define SIOCCONFIGSUBTYPE	(SIOCPROTOPRIVATE + 2)
+#define SIOCPNADDRESOURCE	(SIOCPROTOPRIVATE + 14)
+#define SIOCPNDELRESOURCE	(SIOCPROTOPRIVATE + 15)
 
 /* Phonet protocol header */
 struct phonethdr {
@@ -70,7 +71,7 @@ struct phonethdr {
 	__be16	pn_length;
 	__u8	pn_robj;
 	__u8	pn_sobj;
-} __attribute__((packed));
+} __packed;
 
 /* Common Phonet payload header */
 struct phonetmsg {
@@ -112,7 +113,7 @@ struct sockaddr_pn {
 	__u8 spn_dev;
 	__u8 spn_resource;
 	__u8 spn_zero[sizeof(struct sockaddr) - sizeof(sa_family_t) - 3];
-} __attribute__((packed));
+} __packed;
 
 /* Well known address */
 #define PN_DEV_PC	0x10
