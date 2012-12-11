@@ -52,6 +52,14 @@
 
 #include <media/videobuf2-memops.h>
 
+/* camera device info */
+bool cam_class_init;
+struct class *camera_class;      /* /sys/class/camera */
+struct device *sec_main_cam_dev; /* /sys/class/camera/rear/rear_type */
+EXPORT_SYMBOL(sec_main_cam_dev);
+struct device *sec_sub_cam_dev;  /* /sys/class/camera/rear/rear_type */
+EXPORT_SYMBOL(sec_sub_cam_dev);
+
 #define RCU_MERAM_ACTST1 (0x50)
 #define RCU_MERAM_QSEL2	 (0x44)
 
@@ -2771,6 +2779,11 @@ static struct platform_driver sh_mobile_rcu_driver = {
 
 static int __init sh_mobile_rcu_init(void)
 {
+	/* initialise camera device info */
+	cam_class_init = false;
+	sec_main_cam_dev = NULL;
+	sec_sub_cam_dev = NULL;
+
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
 	return platform_driver_register(&sh_mobile_rcu_driver);
