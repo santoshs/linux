@@ -1374,16 +1374,14 @@ static struct platform_device sgx_device = {
 	.num_resources = ARRAY_SIZE(sgx_resources),
 };
 
+/* Removed unused SCIF Ports getting initialized
+ * to reduce BOOT UP time "JIRAID 1382"  */
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt11_device,
 	&cmt12_device,
 	&scif0_device,
-	&scif1_device,
-	&scif2_device,
-	&scif3_device,
 	&scif4_device,
 	&scif5_device,
-	&scif6_device,
 };
 
 #if 0
