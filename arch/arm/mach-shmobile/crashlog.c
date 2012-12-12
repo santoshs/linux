@@ -68,8 +68,8 @@ void crashlog_reset_log_write()
 	/* kmsg */
 	/* printk(KERN_ERR "log_buf_address=0x%08x\n", log_buf_address); */
 	adr = ioremap(CRASHLOG_KMSG_LOCATE, 16);
-	if (adr) {
-		printk(KERN_ERR "Unable to map CRASHLOG_KMSG_LOCATE\n");
+	if (adr == NULL) {
+		printk(KERN_ERR "crashlog reset log initialization failed\n");
 		return;
 	}
 	__raw_writel(log_buf_address, adr);
@@ -82,8 +82,8 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_main_buffer_address=0x%08x\n",
 				log_main_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_MAIN_LOCATE, 16);
-	if (adr) {
-		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_MAIN_LOCATE\n");
+	if (adr == NULL) {
+		printk(KERN_ERR "crashlog reset log initialization failed\n");
 		return;
 	}
 	__raw_writel(log_main_buffer_address, adr);
@@ -96,8 +96,8 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_events_buffer_address=0x%08x\n",
 				log_events_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_EVENT_LOCATE, 16);
-	if (adr) {
-		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_EVENT_LOCATE\n");
+	if (adr == NULL) {
+		printk(KERN_ERR "crashlog reset log initialization failed\n");
 		return;
 	}
 	__raw_writel(log_events_buffer_address, adr);
@@ -110,8 +110,8 @@ void crashlog_reset_log_write()
 	/* printk(KERN_ERR "log_radio_buffer_address=0x%08x\n",
 				log_radio_buffer_address); */
 	adr = ioremap(CRASHLOG_LOGCAT_RADIO_LOCATE, 16);
-	if (adr) {
-		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_RADIO_LOCATE\n");
+	if (adr == NULL) {
+		printk(KERN_ERR "crashlog reset log initialization failed\n");
 		return;
 	}
 	__raw_writel(log_radio_buffer_address, adr);
@@ -122,8 +122,8 @@ void crashlog_reset_log_write()
 
 	/* log_cat_system */
 	adr = ioremap(CRASHLOG_LOGCAT_SYSTEM_LOCATE, 16);
-	if (adr) {
-		printk(KERN_ERR "Unable to map CRASHLOG_LOGCAT_SYSTEM_LOCATE\n");
+	if (adr == NULL) {
+		printk(KERN_ERR "crashlog reset log initialization failed\n");
 		return;
 	}
 	__raw_writel(log_system_buffer_address, adr);
