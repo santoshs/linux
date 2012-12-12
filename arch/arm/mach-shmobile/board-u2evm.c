@@ -10,7 +10,6 @@
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach-types.h>
@@ -31,9 +30,7 @@
 #include <mach/setup-u2tps80032.h>
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/spi/sh_msiof.h>
-#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 #include <linux/i2c/atmel_mxt_ts.h>
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
 #include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
@@ -148,9 +145,6 @@ static void sensor_power_on_vdd(int);
 
 
 
-
-#define SRCR2		IO_ADDRESS(0xe61580b0)
-#define SRCR3		IO_ADDRESS(0xe61580b8)
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -407,43 +401,17 @@ static struct platform_device fsi_b_device = {
 	},
 };
 
-static const struct fb_videomode lcdc0_modes[] = {
-	{
-#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
-		.name		= "qHD",
-		.xres		= 540,
-		.yres		= 960,
-#else
-		.name		= "WVGA",
-		.xres		= 480,
-		.yres		= 800,
-#endif
-		.left_margin	= 16,
-		.right_margin	= 1000,
-		.hsync_len	= 16,
-		.upper_margin	= 1,
-		.lower_margin	= 4,
-		.vsync_len	= 2,
-		.sync		= FB_SYNC_VERT_HIGH_ACT | FB_SYNC_HOR_HIGH_ACT,
-	},
-};
-
 static struct sh_mobile_lcdc_info lcdc_info = {
 	.clock_source	= LCDC_CLK_PERIPHERAL,
 
 	/* LCDC0 */
 	.ch[0] = {
 		.chan = LCDC_CHAN_MAINLCD,
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+		.bpp = 24,
+#else
 		.bpp = 32,
-		.interface_type		= RGB24,
-		.clock_divider		= 1,
-		.flags			= LCDC_FLAGS_DWPOL,
-		.lcd_cfg = lcdc0_modes,
-		.num_cfg = ARRAY_SIZE(lcdc0_modes),
-		.lcd_size_cfg = {
-			.width	= 44,
-			.height	= 79,
-		},
+#endif
 		.panelreset_gpio = GPIO_PORT31,
 		.paneldsi_irq = 33,
 	},
@@ -2401,19 +2369,15 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 };
 
 static struct i2c_board_info i2c4_devices[] = {
-#ifdef CONFIG_TOUCHSCREEN_ATMEL_MXT
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
 		.platform_data = &mxt224_platform_data,
 		.irq	= irqpin2irq(32),
 	},
-#endif /* CONFIG_TOUCHSCREEN_ATMEL_MXT */
-#ifdef CONFIG_TOUCHSCREEN_MELFAS
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
 		.irq	= irqpin2irq(32),
 	},
-#endif
 };
 
 static struct NCP6914_platform_data ncp6914info= {
@@ -2482,7 +2446,7 @@ i2c_board_info i2cm_devices_es2[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 #if defined(CONFIG_SAMSUNG_MHL)
 	&mhl_i2c_gpio_device,
-#endif	
+#endif
 };
 
 static struct map_desc u2evm_io_desc[] __initdata = {
@@ -2548,8 +2512,6 @@ static int wait_for_coresight_access_lock(u32 base)
 #endif
 
 
-#define IRQC0_CONFIG_00		IO_ADDRESS(0xe61c0180)
-#define IRQC1_CONFIG_00		IO_ADDRESS(0xe61c0380)
 static void irqc_set_chattering(int pin, int timing)
 {
 	u32 val;
@@ -2562,7 +2524,6 @@ static void irqc_set_chattering(int pin, int timing)
 	__raw_writel(val | (timing << 16) | (1 << 31), reg);
 }
 
-#define DSI0PHYCR	IO_ADDRESS(0xe615006c)
 #define SBAR2		__io(IO_ADDRESS(0xe6180060))
 #define RESCNT2		__io(IO_ADDRESS(0xe6188020))
 
@@ -2583,8 +2544,6 @@ int sec_rlte_hw_rev;
 #define SBSC_BASE		(0xFE000000U)
 #define SBSC_SDMRA_DONE		(0x00000000)
 #define SBSC_SDMRACR1A_ZQ	(0x0000560A)
-/* CPG register address */
-#define CPG_BASE		(0xE6150000U)
 #define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
 #define CPG_PLL3CR_1040MHZ	(0x27000000)
@@ -2662,20 +2621,6 @@ static void __init u2evm_init(void)
 
 	/* For case that Secure ISSW has selected debug mode already! */
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-	{
-		volatile uint32_t val;
-		
-		val = __raw_readl(DBGREG1);
-		if ((val & (1 << 29)) == 0) {
-			stm_select = -1;
-		} else {
-			if ((val & (1 << 20)) == 0) {
-				stm_select = 0;
-			} else {
-				stm_select = 1;
-			}
-		}
-	}
 
 	printk("sec stm_select=%d\n", stm_select);
 
@@ -2709,34 +2654,39 @@ static void __init u2evm_init(void)
 	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
 	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	pinmux_hwspinlock_init(r8a73734_hwlock_gpio);
-
 #ifdef CONFIG_ARM_TZ
 	if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
 	{
-#else
-	if(0) /* Without TZ, kernel may override also on ES2.02 and onwards */
-	{
-#endif
-		printk("ES2.02 on later with TZ enabled\n");
-		pub_stm_select = 0; /* Can't override secure side by public side any more */
+		printk(KERN_DEBUG "ES2.02 on later with TZ enabled\n");
+		pub_stm_select = 0; /* Can't override secure \
+				side by public side any more */
 	} else {
-		printk("ES2.01 or earlier or TZ disabled\n");
+		printk(KERN_DEBUG "ES2.01 or earlier or TZ enabled\n");
 		if (stm_select != pub_stm_select) {
 			stm_select = pub_stm_select;
-			pub_stm_select = 1; /* Override secure side by public side */
+			pub_stm_select = 1; /* Override secure \
+					side by public side */
 		} else {
-			pub_stm_select = 0; /* Both secure and public agree. No need to change HW setup */
+			pub_stm_select = 0; /* Both secure and public agree.\
+					No need to change HW setup */
 		}
 	}
-
-	printk("final stm_select=%d\n", stm_select);
+#else
+		printk(KERN_DEBUG "ES2.01 or earlier or TZ disabled\n");
+		if (stm_select != pub_stm_select) {
+			stm_select = pub_stm_select;
+			pub_stm_select = 1; /* Override secure \
+						side by public side */
+		} else {
+			pub_stm_select = 0; /* Both secure and public agree. \
+						No need to change HW setup */
+		}
+#endif
+		printk(KERN_DEBUG "final stm_select=%d\n", stm_select);
 
 
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
-#define GPIO_DRVCR_SD0	((volatile ushort *)(0xE6050000ul + 0x818E))
-#define GPIO_DRVCR_SIM1	((volatile ushort *)(0xE6050000ul + 0x8192))
-#define GPIO_DRVCR_SIM2	((volatile ushort *)(0xE6050000ul + 0x8194))
 
 		*GPIO_DRVCR_SD0 = 0x0023;
 		*GPIO_DRVCR_SIM1 = 0x0023;
@@ -3038,9 +2988,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
           int i;
           volatile unsigned long dummy_read;
 #if 0 // NOT neede any more with new FIDO SW version Fido.1.9.5.36.edge_aligned_stpv2
-          // Lower CPG Frequency Control Register B (BRQCRB) ZTRFC clock by divider  control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz
-#define BRQCRB		IO_ADDRESS(0xE6150004)
-	  __raw_writel((__raw_readl(BRQCRB) & 0x7F0FFFFF) | 0x80400000, BRQCRB); // Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System CPU Debugging and Trace Clock Frequenct Division Ratio
+	/* Lower CPG Frequency Control Register B (FRQCRB) ZTRFC clock by divider*/
+	/*control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz*/
+	__raw_writel((__raw_readl(FRQCRB) & 0x7F0FFFFF) | 0x80400000, FRQCRB);
+	/* Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System*/
+	/*CPU Debugging and Trace Clock Frequenct Division Ratio*/
 #endif
 
 #define DBGREG9		IO_ADDRESS(0xE6100040)
@@ -3266,10 +3218,12 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
-	gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
-#endif /* BOARD_VERSION_V041 */
+
+	if (u2_board_rev == 4) {
+		gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
+		gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
+	}
+
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
 
@@ -3327,27 +3281,28 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
-#ifdef BOARD_VERSION_V041
-	gpio_direction_output(GPIO_PORT30, 0);
-#else
-	gpio_direction_output(GPIO_PORT30, 1);
-#endif /* BOARD_VERSION_V041 */
+	if(u2_board_rev == 4)
+		gpio_direction_output(GPIO_PORT30, 0);
+	else
+		gpio_direction_output(GPIO_PORT30, 1);
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-if((system_rev & 0xFFFF) == 0x3E00)
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
-#else
-	gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
-#endif /* BOARD_VERSION_V041 */
-else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-#ifdef BOARD_VERSION_V041
-	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
-#else
-	gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
-#endif /* BOARD_VERSION_V041 */
+	if((system_rev & 0xFFFF) == 0x3E00)
+	{
+		if(u2_get_board_rev() == 4)
+			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
 
+		else
+			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
+	}
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
+		if(u2_get_board_rev() == 4)
+			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
+		else
+			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
+	}
 	USBGpio_init();
 
 #ifdef CONFIG_SPI_SH_MSIOF
@@ -3465,9 +3420,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	mpl_init();
 #endif
 
-#if defined (CONFIG_KEYBOARD_CYPRESS_TOUCH)
+	if(u2_get_board_rev() < 4)
 	touchkey_init_hw();
-#endif
 
 #if defined (CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
@@ -3483,9 +3437,8 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #if defined(CONFIG_RENESAS_GPS)
 	gps_gpio_init();
 #endif
-#ifdef CONFIG_KEYBOARD_CYPRESS_TOUCH
-	touchkey_i2c_register_board_info(10);
-#endif /* CONFIG_KEYBOARD_CYPRESS_TOUCH */
+	if(u2_get_board_rev() < 4)
+		touchkey_i2c_register_board_info(10);
 platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
 	#if defined(CONFIG_VIBRATOR_ISA1000A)
     isa1000_vibrator_init();

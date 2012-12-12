@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/delay.h>
+#include <mach/common.h>
 #include <asm/io.h>
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
@@ -328,11 +329,17 @@ void write_req_comp(void)
 	writel(GSR_REQ_COMP, REG_GSR);
 }
 
+#define RT_BOOT_HW_ID_REV_0_2_1 1
+#define RT_BOOT_HW_ID_REV_0_2_2 2
+#define RT_BOOT_HW_ID_REV_0_3_X 3
+#define RT_BOOT_HW_ID_REV_0_4_1 4
+#define RT_BOOT_HW_ID_REV_0_5_X 10
 
 static int set_screen_data(unsigned int disp_addr)
 {
 	void *addr = NULL;
 	struct screen_info screen[2];
+	unsigned int hw_id;
 
 	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
 
@@ -342,10 +349,40 @@ static int set_screen_data(unsigned int disp_addr)
 		MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 1\n", __func__);
 		return 1;
 	}
-	screen[0].height = SCREEN0_HEIGHT;
-	screen[0].width  = SCREEN0_WIDTH;
-	screen[0].stride = SCREEN0_STRIDE;
-	screen[0].mode   = SCREEN0_MODE;
+
+	hw_id = u2_get_board_rev();
+
+	switch (hw_id) {
+	case RT_BOOT_HW_ID_REV_0_2_1:
+	case RT_BOOT_HW_ID_REV_0_2_2:
+	case RT_BOOT_HW_ID_REV_0_3_X:
+		/* qHD */
+		MSG_LOW("qHD setting.(HWID=%d)\n", hw_id);
+		screen[0].height = 960;
+		screen[0].width  = 540;
+		screen[0].stride = 544;
+		screen[0].mode   = 1; /* COMMAND MODE */
+
+		break;
+	case RT_BOOT_HW_ID_REV_0_4_1:
+	case RT_BOOT_HW_ID_REV_0_5_X:
+		/* WVGA */
+		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
+		screen[0].height = 800;
+		screen[0].width  = 480;
+		screen[0].stride = 480;
+		screen[0].mode   = 0; /* VIDEO MODE */
+
+		break;
+	default:
+		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
+					"Unknown HWID(=%d)\n", hw_id);
+		screen[0].height = 0;
+		screen[0].width  = 0;
+		screen[0].stride = 0;
+		screen[0].mode   = 0;
+	}
+
 	screen[1].height = SCREEN1_HEIGHT;
 	screen[1].width  = SCREEN1_WIDTH;
 	screen[1].stride = SCREEN1_STRIDE;

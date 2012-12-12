@@ -1,9 +1,4 @@
-#define VCLKCR5         IO_ADDRESS(0xE6150034)
-#define SLIMBCKCR	IO_ADDRESS(0xE6150088)
-#define M4CKCR          IO_ADDRESS(0xE6150098)
-#define DSI1PCKCR	IO_ADDRESS(0xE6150068)
-#define DSI1PHYCR	IO_ADDRESS(0xE6150070)
-#define PLL22CR		IO_ADDRESS(0xE61501F4)
+#include <mach/r8a73734.h>
 
 static struct clk es2_fsiack_clk = { };
 
@@ -198,11 +193,11 @@ static struct clk es2_div6_clks[ES2_DIV6_NR] = {
 	[ES2_DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
 					 hsi_parent, ARRAY_SIZE(hsi_parent), 6,
 					 2),
-	[ES2_DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, DSITCKCR, 8, 0,
+	[ES2_DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, CPG_DSITCKCR, 8, 0,
 					  div6_two_parent,
 					  ARRAY_SIZE(hsi_parent), 7, 1),
-	[ES2_DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
-	[ES2_DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, DSI1PCKCR, 0),
+	[ES2_DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, CPG_DSI0PCKCR, 0),
+	[ES2_DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, CPG_DSI1PCKCR, 0),
 	[ES2_DIV6_SLIMB] = SH_CLK_DIV6_EXT(NULL, SLIMBCKCR, 8, 0,
 					   es2_slimb_parent,
 					   ARRAY_SIZE(es2_slimb_parent), 7, 1),
@@ -303,7 +298,7 @@ static struct clk *dsi1p_parent[] = {
 	[4] = &extcki_clk,
 };
 
-static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
+static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI1PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi1p_parent,
 						  ARRAY_SIZE(dsi1p_parent), 24,
@@ -312,12 +307,12 @@ static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
 static struct clk dsi1p0_clk = {
 	.parent = &dsi1p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
 
-static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
+static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI1PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi1p_parent,
 						  ARRAY_SIZE(dsi1p_parent), 12,
@@ -326,7 +321,7 @@ static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
 static struct clk dsi1p1_clk = {
 	.parent = &dsi1p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -338,7 +333,7 @@ static struct clk *selmon1_parent[2] = {
 
 static struct clk dsi1p_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon1_parent,
 	.src_shift = 27,

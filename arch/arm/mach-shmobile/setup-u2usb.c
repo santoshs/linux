@@ -28,9 +28,7 @@
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 #endif
-
-#define SRCR2		IO_ADDRESS(0xe61580b0)
-#define SRCR3		IO_ADDRESS(0xe61580b8)
+#include <mach/r8a73734.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 static int is_vbus_powered(void)
@@ -61,7 +59,6 @@ static int is_vbus_powered(void)
 	return val1>>7;
 }
 
-#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
 #define LOCK_TIME_OUT_MS 1000
 static void usbhs_module_reset(void)
 {
@@ -98,7 +95,6 @@ static void usbhs_module_reset(void)
 			;
 #ifdef CONFIG_USB_OTG
 #define SYSSTS	IO_ADDRESS(0xe6890004) /* 16-bit */
-#define PHYOTGCTR	IO_ADDRESS(0xe689010a) /* 16-bit */
 	__raw_writew(__raw_readw(PHYOTGCTR) |
 		(1 << 8), PHYOTGCTR); /* IDPULLUP */
 	msleep(50);
@@ -329,10 +325,8 @@ static struct r8a66597_platdata usbhs_func_data = {
 #endif
 	.pin_gpio_1_fn	= GPIO_PORT130,
 	.pin_gpio_1		= GPIO_PORT130,
-#ifndef CONFIG_BOARD_VERSION_V041
 	.pin_gpio_2_fn	= GPIO_PORT131,
 	.pin_gpio_2		= GPIO_PORT131,
-#endif
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };
@@ -459,12 +453,12 @@ void __init USBGpio_init(void)
 	gpio_request(GPIO_FN_ULPI_NXT, NULL);
 
 	/* TUSB1211 */
-#ifndef CONFIG_BOARD_VERSION_V041
-	gpio_request(GPIO_PORT131, NULL);
-	gpio_direction_output(GPIO_PORT131, 0);
-	udelay(100); /* assert RESET_N (minimum pulse width 100 usecs) */
-	gpio_direction_output(GPIO_PORT131, 1);
-#endif
+	if (u2_get_board_rev() < 4) {
+		gpio_request(GPIO_PORT131, NULL);
+		gpio_direction_output(GPIO_PORT131, 0);
+		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
+		gpio_direction_output(GPIO_PORT131, 1);
+	}
 
         gpio_request(GPIO_PORT130, NULL);
         gpio_direction_output(GPIO_PORT130, 1);

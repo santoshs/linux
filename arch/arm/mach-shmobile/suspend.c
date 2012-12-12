@@ -671,7 +671,7 @@ void shwystatdm_regs_restore(void)
 static int core_shutdown_status(unsigned int cpu)
 {
 	if (es == ES_REV_1_0)
-		return (__raw_readl(CPG_PSTR) >> (4 * cpu)) & 3;
+		return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
 	else
 		return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
 }
@@ -738,7 +738,6 @@ static void shmobile_suspend_end(void)
 #define ICATD00DVM13	__io(0xE60A1150)
 #define ICATD01DVM13	__io(0xE60A1154)
 #define ICATD02DVM13	__io(0xE60A1158)
-#define SRCR4			__io(0xE61580BC)
 
 static void do_iicdvm_setting(void)
 {
@@ -1737,8 +1736,6 @@ arch_initcall(shmobile_suspend_init);
 static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
 24, 1, 1, 48, 1, 1, 1, 1};
 
-/* PLL0 control register */
-#define CPG_PLL0CR	IO_ADDRESS(0xE61500D8)
 /* PLL Circuit 0 Multiplication Ratio mask */
 #define PLL0CR_STC_MASK	0x3F000000
 
@@ -1750,7 +1747,7 @@ void shmobile_suspend_udelay(unsigned int delay_time)
 	unsigned int zfc_val = 1;
 
 	if (__raw_readl(CPG_PLLECR) & CPG_PLL0ST)
-		mul_ratio = ((__raw_readl(CPG_PLL0CR) & PLL0CR_STC_MASK) \
+		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
 					>> 24) + 1;
 
 	if (__raw_readl(CPG_FRQCRB) & FRQCRB_ZSEL_BIT) {

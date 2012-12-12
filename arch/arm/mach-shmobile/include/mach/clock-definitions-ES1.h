@@ -8,88 +8,12 @@
 #include <mach/common.h>
 #include <mach/r8a73734.h>
 
-#define FRQCRA		IO_ADDRESS(0xE6150000)
-#define FRQCRB		IO_ADDRESS(0xE6150004)
-#define FRQCRD		IO_ADDRESS(0xE61500E4)
-#define VCLKCR1		IO_ADDRESS(0xE6150008)
-#define VCLKCR2		IO_ADDRESS(0xE615000C)
-#define VCLKCR3		IO_ADDRESS(0xE6150014)
-#define VCLKCR4		IO_ADDRESS(0xE615001C)
-#define ZBCKCR		IO_ADDRESS(0xE6150010)
-#define SD0CKCR		IO_ADDRESS(0xE6150074)
-#define SD1CKCR		IO_ADDRESS(0xE6150078)
-#define SD2CKCR		IO_ADDRESS(0xE615007C)
-#define FSIACKCR	IO_ADDRESS(0xE6150018)
-#define FSIBCKCR	IO_ADDRESS(0xE6150090)
-#define MPCKCR		IO_ADDRESS(0xE6150080)
-#define SPUACKCR	IO_ADDRESS(0xE6150084)
-/* VCD add start */
-#define SPUVCKCR	IO_ADDRESS(0xE6150094)
-/* VCD add end */
-#define HSICKCR		IO_ADDRESS(0xE615008C)
-#define DSITCKCR	IO_ADDRESS(0xE6150060)
-#define DSI0PCKCR	IO_ADDRESS(0xE6150064)
-#define DSI0PHYCR	IO_ADDRESS(0xE615006C)
-#define MPMODE		IO_ADDRESS(0xE61500CC)
-#define RTSTBCR		IO_ADDRESS(0xE6150020)
-#define PLLECR		IO_ADDRESS(0xE61500D0)
-#define PLL0CR		IO_ADDRESS(0xE61500D8)
-#define PLL1CR		IO_ADDRESS(0xE6150028)
-#define PLL2CR		IO_ADDRESS(0xE615002C)
-#define PLL3CR		IO_ADDRESS(0xE61500DC)
-#define PLL0STPCR	IO_ADDRESS(0xE61500F0)
-#define PLL1STPCR	IO_ADDRESS(0xE61500C8)
-#define PLL2STPCR	IO_ADDRESS(0xE61500F8)
-#define PLL3STPCR	IO_ADDRESS(0xE61500FC)
-#define MSTPSR0		IO_ADDRESS(0xE6150030)
-#define MSTPSR1		IO_ADDRESS(0xE6150038)
-#define MSTPSR2		IO_ADDRESS(0xE6150040)
-#define MSTPSR3		IO_ADDRESS(0xE6150048)
-#define MSTPSR4		IO_ADDRESS(0xE615004C)
-#define MSTPSR5		IO_ADDRESS(0xE615003C)
-#define RMSTPCR0	IO_ADDRESS(0xE6150110)
-#define RMSTPCR1	IO_ADDRESS(0xE6150114)
-#define RMSTPCR2	IO_ADDRESS(0xE6150118)
-#define RMSTPCR3	IO_ADDRESS(0xE615011C)
-#define RMSTPCR4	IO_ADDRESS(0xE6150120)
-#define RMSTPCR5	IO_ADDRESS(0xE6150124)
-#define SMSTPCR0	IO_ADDRESS(0xE6150130)
-#define SMSTPCR1	IO_ADDRESS(0xE6150134)
-#define SMSTPCR2	IO_ADDRESS(0xE6150138)
-#define SMSTPCR3	IO_ADDRESS(0xE615013C)
-#define SMSTPCR4	IO_ADDRESS(0xE6150140)
-#define SMSTPCR5	IO_ADDRESS(0xE6150144)
-#define MMSTPCR0	IO_ADDRESS(0xE6150150)
-#define MMSTPCR1	IO_ADDRESS(0xE6150154)
-#define MMSTPCR2	IO_ADDRESS(0xE6150158)
-#define MMSTPCR3	IO_ADDRESS(0xE615015C)
-#define MMSTPCR4	IO_ADDRESS(0xE6150160)
-#define MMSTPCR5	IO_ADDRESS(0xE6150164)
-#define SRCR0		IO_ADDRESS(0xE61580A0)
-#define SRCR1		IO_ADDRESS(0xE61580A8)
-#define SRCR2		IO_ADDRESS(0xE61580B0)
-#define SRCR3		IO_ADDRESS(0xE61580B8)
-#define SRCR4		IO_ADDRESS(0xE61580BC)
-#define SRCR5		IO_ADDRESS(0xE61580C4)
-#define ASTAT		IO_ADDRESS(0xE6150054)
-#define CKSCR		IO_ADDRESS(0xE61500C0)
-#define SEQMON		IO_ADDRESS(0xE6150108)
-#define VREFCR		IO_ADDRESS(0xE61500EC)
-#define WUPCR		IO_ADDRESS(0xE6151010)
-#define SRESCR		IO_ADDRESS(0xE6151018)
-#define PCLKCR		IO_ADDRESS(0xE6151020)
-#define PSTR		IO_ADDRESS(0xE6151040)
-#define CPU0RFR		IO_ADDRESS(0xE6151104)
-#define CPU1RFR		IO_ADDRESS(0xE6151114)
-#define SPCTR		IO_ADDRESS(0xE61501A4)
-#define SPCMMR		IO_ADDRESS(0xE61501AC)
-#define SPCDMR		IO_ADDRESS(0xE61501B0)
 
 #define EXSTMON2	IO_ADDRESS(0xe6180088)
 
 static int extal2_clk_enable(struct clk *clk)
 {
-	__raw_writel(__raw_readl(PLL2CR) & ~1, PLL2CR);
+	__raw_writel(__raw_readl(CPG_PLL2CR) & ~1, CPG_PLL2CR);
 	while (__raw_readl(EXSTMON2) & (1 << 16))	/* EX2MSK */
 		cpu_relax();
 	return 0;
@@ -97,7 +21,7 @@ static int extal2_clk_enable(struct clk *clk)
 
 static void extal2_clk_disable(struct clk *clk)
 {
-	__raw_writel(__raw_readl(PLL2CR) | 1, PLL2CR);	/* XOE */
+	__raw_writel(__raw_readl(CPG_PLL2CR) | 1, CPG_PLL2CR);	/* XOE */
 	/*
 	 * Make sure that EX2MSK bit gets set here in response to XOE bit
 	 * set to '1' (Stop XTAL2 oscillation) above.   This is needed for
@@ -274,14 +198,14 @@ static struct clk *pll2_parent[] = {
 	[5] = &extal2_clk,
 };
 
-static struct clk pll2_cksel_clk = SH_CLK_CKSEL(NULL, PLL2CR, 0, 0,
+static struct clk pll2_cksel_clk = SH_CLK_CKSEL(NULL, CPG_PLL2CR, 0, 0,
 						pll2_parent,
 						ARRAY_SIZE(pll2_parent), 5, 3);
 
 static struct clk pll2_clk = {
 	.parent = &pll2_cksel_clk,
 	.ops = &pll2223_clk_ops,
-	.enable_reg = (void *__iomem)PLL2CR,
+	.enable_reg = (void *__iomem)CPG_PLL2CR,
 	.enable_bit = 2,	/* bit in PLLECR */
 };
 
@@ -513,10 +437,10 @@ static struct clk div6_clks[DIV6_NR] = {
 /* VCD add end */
 	[DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
 				     hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
-	[DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, DSITCKCR, 8, 0,
+	[DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, CPG_DSITCKCR, 8, 0,
 				      div6_two_parent, ARRAY_SIZE(hsi_parent),
 				      7, 1),
-	[DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
+	[DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, CPG_DSI0PCKCR, 0),
 };
 
 static struct clk *mp_parent[] = {
@@ -591,7 +515,7 @@ static struct clk *dsi0p_parent[] = {
 	[4] = &extcki_clk,
 };
 
-static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI0PCKCR,
+static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI0PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi0p_parent,
 						  ARRAY_SIZE(dsi0p_parent), 24,
@@ -600,12 +524,12 @@ static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI0PCKCR,
 static struct clk dsi0p0_clk = {
 	.parent = &dsi0p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
 
-static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI0PCKCR,
+static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI0PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi0p_parent,
 						  ARRAY_SIZE(dsi0p_parent), 12,
@@ -614,7 +538,7 @@ static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI0PCKCR,
 static struct clk dsi0p1_clk = {
 	.parent = &dsi0p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -657,7 +581,7 @@ static struct clk *selmon0_parent[2] = {
 
 static struct clk dsi0p_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon0_parent,
 	.src_shift = 27,
@@ -666,7 +590,7 @@ static struct clk dsi0p_clk = {
 
 static struct clk hdmi0_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
 	.enable_bit = 9,
 	.parent_table = selmon0_parent,
 	.src_shift = 27,

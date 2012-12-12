@@ -249,6 +249,9 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 static int g_call_playback_stop;
 static int g_fm_playback_stop;
 
+/* Callback function for audience */
+static struct sndp_a2220_callback_func *g_sndp_a2220_callback;
+
 /*!
    @brief Print Log informs of data receiving
 
@@ -2353,6 +2356,10 @@ static void sndp_work_voice_start(struct work_struct *work)
 		}
 	}
 
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(wp->new_value),
+			     SNDP_GET_AUDIO_DEVICE(wp->new_value),
+			     SNDP_A2220_START);
+
 	/* start SCUW */
 	iRet = scuw_start(wp->new_value);
 	if (ERROR_NONE != iRet) {
@@ -2455,6 +2462,10 @@ static void sndp_work_voice_stop(struct work_struct *work)
 				     iRet);
 	}
 
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(wp->old_value),
+			     SNDP_GET_AUDIO_DEVICE(wp->old_value),
+			     SNDP_A2220_STOP);
+
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
@@ -2534,6 +2545,10 @@ static void sndp_work_voice_dev_chg(struct work_struct *work)
 	} else {
 		/* Without processing */
 	}
+
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(wp->new_value),
+			     new_dev,
+			     SNDP_A2220_CH_DEV);
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3065,7 +3080,7 @@ static void sndp_work_capture_incomm_stop(struct work_struct *work)
 /*!
    @brief Work queue function for Incommunication Start
 
-   @param[in]	work	work queue structure
+   @param[in]	new_value	PCM Value
    @param[out]	none
 
    @retval	none
@@ -3080,6 +3095,10 @@ static void sndp_work_incomm_start(const u_int new_value)
 	if ((system_rev & 0xffff) >= 0x3E10)
 		common_set_fsi2cr(SNDP_GET_DEVICE_VAL(new_value),
 				  STAT_OFF);
+
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(new_value),
+			     SNDP_GET_AUDIO_DEVICE(new_value),
+			     SNDP_A2220_START);
 
 	/* start SCUW */
 	ret = scuw_start(new_value);
@@ -3118,7 +3137,7 @@ start_err:
 /*!
    @brief Work queue function for Incommunication Stop
 
-   @param[in]	none
+   @param[in]	old_value	PCM Value
    @param[out]	none
 
    @retval	none
@@ -3144,6 +3163,10 @@ static void sndp_work_incomm_stop(const u_int old_value)
 
 	/* stop CLKGEN */
 	clkgen_stop();
+
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(old_value),
+			     SNDP_GET_AUDIO_DEVICE(old_value),
+			     SNDP_A2220_STOP);
 
 	/* Disable the power domain */
 	ret = pm_runtime_put_sync(g_sndp_power_domain);
@@ -3732,6 +3755,9 @@ static void sndp_work_fm_radio_start(struct work_struct *work)
 			common_set_pll22(wp->new_value, STAT_ON);
 	}
 
+	sndp_a2220_set_state(SNDP_GET_MODE_VAL(wp->new_value),
+			     SNDP_GET_AUDIO_DEVICE(wp->new_value),
+			     SNDP_A2220_START);
 
 	/* start SCUW */
 	iRet = scuw_start(wp->new_value);
@@ -3841,6 +3867,10 @@ static void sndp_work_fm_radio_stop(struct work_struct *work)
 		/* FSI master for ES 2.0 over */
 		if ((system_rev & 0xffff) >= 0x3E10)
 			common_set_pll22(GET_OLD_VALUE(SNDP_PCM_IN), STAT_OFF);
+
+		sndp_a2220_set_state(SNDP_GET_MODE_VAL(wp->old_value),
+				     SNDP_GET_AUDIO_DEVICE(wp->old_value),
+				     SNDP_A2220_STOP);
 
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
@@ -4059,6 +4089,11 @@ static void sndp_work_start(const int direction)
 		}
 	}
 
+	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+		sndp_a2220_set_state(SNDP_GET_MODE_VAL(uiValue),
+				     SNDP_GET_AUDIO_DEVICE(uiValue),
+				     SNDP_A2220_START);
+
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
 		sndp_log_debug("fsi_dai_startup\n");
@@ -4250,6 +4285,11 @@ static void sndp_work_stop(
 			}
 		}
 
+		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+			sndp_a2220_set_state(SNDP_GET_MODE_VAL(uiValue),
+					     SNDP_GET_AUDIO_DEVICE(uiValue),
+					     SNDP_A2220_STOP);
+
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
 
@@ -4378,6 +4418,56 @@ static void sndp_after_of_work_call_capture_stop(
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
+
+	sndp_log_debug_func("end\n");
+}
+
+/*!
+   @brief audience Set Callback function
+
+   @param[in]	Structure address for callback function
+   @param[out]	none
+
+   @retval	none
+ */
+void sndp_a2220_regist_callback(struct sndp_a2220_callback_func *func)
+{
+	sndp_log_debug_func("start\n");
+
+	g_sndp_a2220_callback = func;
+
+	sndp_log_debug_func("end  callback address [%p]\n", g_sndp_a2220_callback);
+}
+EXPORT_SYMBOL(sndp_a2220_regist_callback);
+
+/*!
+   @brief audience set_state
+
+   @param[in]	mode	mode on PCM value
+   @param[in]	device	device on PCM value
+   @param[in]	dev_chg
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_a2220_set_state(unsigned int mode, unsigned int device, unsigned int dev_chg)
+{
+	int			ret = ERROR_NONE;
+
+	sndp_log_debug_func("start\n");
+
+	if (!g_sndp_a2220_callback) {
+		sndp_log_debug("struct address is NULL\n");
+		return;
+	}
+
+	if (g_sndp_a2220_callback->set_state) {
+		ret = g_sndp_a2220_callback->set_state(mode, device, dev_chg);
+		if (ERROR_NONE != ret)
+			sndp_log_err("set_state error [%d]\n", ret);
+	} else {
+		sndp_log_debug("set_state is NULL\n");
+	}
 
 	sndp_log_debug_func("end\n");
 }

@@ -9,13 +9,13 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/serial_core.h>
+#include <mach/r8a73734.h>
 //#include <asm/mach-types.h>
 //#include <mach/board-u2evm-bt.h>
 
 #define BT_REG_GPIO 268
 #define BT_WAKE_GPIO 262
 #define BT_HOST_WAKE_GPIO 272
-#define BT_WAKE_GPIO_CR 0xE6052106
 
 struct platform_device bcm4334_bluetooth_device = {
 	.name = "bcm4334_bluetooth",

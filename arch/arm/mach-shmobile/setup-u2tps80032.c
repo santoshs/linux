@@ -9,11 +9,6 @@
 #include <mach/r8a73734.h>
 #include <mach/setup-u2tps80032.h>
 
-#define PORTCR0			IO_ADDRESS(0xE6050000)
-#define PORTCR28		IO_ADDRESS(0xE605001C)
-#define PORTCR35		IO_ADDRESS(0xE6050023)
-#define PORTCR141		IO_ADDRESS(0xE605108D)
-#define PORTCR202		IO_ADDRESS(0xE60520CA)
 
 static struct regulator_consumer_supply tps80031_ldo5_supply[] = {
 	REGULATOR_SUPPLY("vdd_touch", NULL),

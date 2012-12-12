@@ -983,7 +983,7 @@ SAVE_ARM_COMMON_GIC_EXIT:
 	STR		r0, [r12, r4]
 
 	/* CPG.PCLKCR */
-	LDR		r1, =CPG_PCLKCR
+	LDR		r1, =PCLKCR
 	LDR		r4, [r1]
 	STR		r4, [r0], #0x4
 
@@ -1060,7 +1060,7 @@ ENTRY(restore_arm_common_register)
 
 	/* CPG.PCLKCR */
 	LDR		r4, [r0], #0x4
-	LDR		r5, =CPG_PCLKCR
+	LDR		r5, =PCLKCR
 	STR		r4, [r5]
 
 	/* Private Timer	*/
@@ -1558,7 +1558,7 @@ SKIP_TURN_OFF_RWDT:
 	/*--------------------------------------*/
 	/* Turn off PLL0						*/
 	/*--------------------------------------*/
-	LDR		r4, =CPG_PLLECRPhys
+	LDR		r4, =PLLECR
 	LDR		r5, [r4]			/* Read PLLECR	*/
 	BIC		r5, r5, #CPG_PLL0E	/* Clear PLL0E	*/
 	STR		r5, [r4]			/* Turn off PLL0 */
@@ -1613,18 +1613,23 @@ SYSPD_LOOP_TURNOFF_PLL0:
     /*--------------------------------------*/
     /* Power Down                            */
     /*--------------------------------------*/
-    LDR        r4, =SPDCRPhys    /* Load SPDCR address    */
-    LDR        r5, =A3SM_PD    /* A3SM Power Down Value */
+	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
+	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
 TRY_TURNOFF_A3SM:
-    LDR        r6, [r4]
-    ORR        r6, r6, r5
-    STR        r6, [r4]        /* Power Down    */
-
-    LDR        r6, =PSTRPhys
-    LDR        r6, [r6]
-    AND        r6, r6, r5
-    CMP        r6, #0
-    BNE        TRY_TURNOFF_A3SM
+SPDCR_CHECK_LOOP_A3SM:
+	LDR		r6, [r4]
+	DSB
+	CMP		r6, #0x0
+	BNE		SPDCR_CHECK_LOOP_A3SM
+ 	LDR		r6, =A3SM_PD
+	STR		r6, [r4]	/* Power Down    */
+	DSB
+	LDR		r6, =PSTRPhys
+	LDR		r6, [r6]
+	DSB
+	AND		r6, r6, r5
+	CMP		r6, #0
+	BNE		TRY_TURNOFF_A3SM
 
 .pool
 
@@ -1702,7 +1707,7 @@ ENTRY(sys_powerup)
 	/*----------------------------------*/
 	/* Turn on PLL0						*/
 	/*----------------------------------*/
-	LDR		r4, =CPG_PLLECRPhys
+	LDR		r4, =PLLECR
 	LDR		r5, [r4]
 	TST		r5, #CPG_PLL0ST		/* Check PLLECR.PLL0ST */
 	BNE		SYSPU_TURNON_PLL0_SKIP	/* if PLL0 == turned off */
@@ -2590,7 +2595,7 @@ CORESTANDBY_PA_XTAL_THOUGH_SET:
 
 	WFI 		/* Transition to shutdown status */
 	MOV	r6,#1000
-	LDR	r4, =CPG_PLLECRPhys
+	LDR	r4, =PLLECR
 1:	LDR	r5, [r4]
 	SUBS	r6, r6, #1
 	BNE	1b
@@ -2680,7 +2685,7 @@ ENTRY(systemsuspend_cpu1_pa)
 	WFI
 	NOP
 	MOV	r6,#1000
-	LDR	r4, =CPG_PLLECRPhys
+	LDR	r4, =PLLECR
 1:	LDR	r5, [r4]
 	SUBS	r6, r6, #1
 	BNE	1b
@@ -3007,12 +3012,17 @@ CPUPD_CACHESYNC_LOOP:
 	/*------------------------------------------*/
 	LDR		r4, =SPDCRPhys /* Load SPDCR address */
 CORE_POWERDOWN_LOOP:
+SPDCR_CHECK_LOOP_A2SL:
 	LDR		r5, [r4]
-	ORR		r5, r5, #A2SLPD
-	STR		r5, [r4] /* Power Down */
+	DSB
+	CMP		r5, #0x0
+	BNE		SPDCR_CHECK_LOOP_A2SL
+ 	LDR		r5, =A2SLPD
+	STR		r5, [r4]
 	DSB
 	LDR		r6, =PSTRPhys /* Load PSTR address */
 	LDR		r6, [r6]
+	DSB
 	AND		r6, r6, #A2SLST
 	CMP		r6, #0x0
 	BNE		CORE_POWERDOWN_LOOP

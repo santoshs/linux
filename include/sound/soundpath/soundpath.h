@@ -54,6 +54,24 @@ enum sndp_wake_lock_kind {
 #define SOUNDPATH_NO_EXTERN		extern
 #endif
 
+/**
+ ** ************************************************** *
+ ***  For Audience interface                          **
+ ** ************************************************** *
+ */
+/* use Audience information */
+struct sndp_a2220_callback_func {
+	int (*set_state)(unsigned int mode, unsigned int device, unsigned int dev_chg);
+};
+
+/* change device */
+enum sndp_a2220_ch_type {
+	SNDP_A2220_NONE,
+	SNDP_A2220_START,
+	SNDP_A2220_STOP,
+	SNDP_A2220_CH_DEV,
+};
+
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct snd_soc_platform_driver *fsi_soc_platform);
@@ -74,6 +92,10 @@ SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
 
 SOUNDPATH_NO_EXTERN u_int g_sndp_log_level;
 SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
+
+/* audience Set Callback function */
+SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
+				struct sndp_a2220_callback_func *func);
 
 #endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 

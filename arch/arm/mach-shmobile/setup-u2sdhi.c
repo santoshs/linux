@@ -3,26 +3,26 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/pmic/pmic.h>
-
+#include <linux/delay.h>
 #include <mach/r8a73734.h>
 #include <mach/board-u2evm.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
+#define VSD_VDCORE_DELAY 50
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
 #ifdef CONFIG_PMIC_INTERFACE
 	if (state) {
-		printk(KERN_INFO "\n EOS2_BSP_SDHI : %s\n", __func__);
 		pmic_set_power_on(E_POWER_VIO_SD);
 		pmic_set_power_on(E_POWER_VMMC);
 		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 
 	} else {
-		printk(KERN_INFO "\n EOS2_BSP_SDHI : %s\n", __func__);
 		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 		pmic_set_power_off(E_POWER_VIO_SD);
+		mdelay(VSD_VDCORE_DELAY);
 		pmic_set_power_off(E_POWER_VMMC);
 	}
 #endif
