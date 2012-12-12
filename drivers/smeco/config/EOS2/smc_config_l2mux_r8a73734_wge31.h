@@ -30,17 +30,16 @@ Description :  File created
 #define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 #define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 
-
 #define SMC_CONF_COUNT_L2MUX                         2
 #define SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2            3
 #define SMC_L2MUX_QUEUE_COUNT                        3
 
 
-
 /**
  * SMC instance configurations for L2MUX
+ * Master = APE
+ * Slave  = Modem
  */
-
 static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2] =
 {
     {
@@ -70,7 +69,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
             .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
             .priority                      = SMC_CHANNEL_PRIORITY_HIGHEST,
-            .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
+            .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to the RX handler */
             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
@@ -107,7 +106,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
              .priority                      = SMC_CHANNEL_PRIORITY_DEFAULT,
-             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
+             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to the RX handler */
              .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
@@ -116,24 +115,14 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
              .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
      },
-
      {
              .name                = "ETH_P_MHDP",
              .protocol            = SMC_L2MUX_QUEUE_3_MHDP,
-
 
              .fifo_size_master    = 300,
              .fifo_size_slave     = 400,
              .mdb_size_master     = 1024*1600,          /* Master to slave MDB (Typically UL) */
              .mdb_size_slave      = 1024*1600,          /* Slave to master MDB (Typically DL) */
-
-             /* New MHDP channel configuration from after sw 12w45 (approximately)
-              * To support 100 x 16kB burst of data
-             .fifo_size_master    = 200,
-             .fifo_size_slave     = 200,
-             .mdb_size_master     = 1024*1600,
-             .mdb_size_slave      = 1024*1600,
-             */
 
                  /*
                   * Master side signal configuration
@@ -154,8 +143,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
              .priority                      = SMC_CHANNEL_PRIORITY_LOWEST,           /*  */
-             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to SKB */
-             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND),         /* No copy in Modem receive in L2_PRIORITY_LTE channel (delayed allocation)*/
+             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE+SMC_COPY_SCHEME_USE_DMA_IN_SEND), /* No copy in Kernel receive --> directly to the RX handler */
+             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE+SMC_COPY_SCHEME_USE_DMA_IN_SEND), /* No copy in modem receive in L2_PRIORITY_LTE channel (delayed allocation + DMA transfer)*/
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  = 500,
              .trace_features_master               = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),

@@ -252,12 +252,10 @@ Description :  File created
     /*
      * SMC Version requirements
      */
-
 #define SMC_VERSION_REQUIREMENT_ARRAY  SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY, SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37
 #define SMC_VERSION_REQUIREMENT_COUNT  2
 
 /* #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM */      /* If defined, the message is buffered when out of MDB memory */
-
 
 
 /* ======================================
@@ -276,6 +274,11 @@ Description :  File created
      */
 
   #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS        /* If defined, the message is buffered when FIFO is full */
+
+  #define SMC_SUPPORT_SKB_FRAGMENT_UL                 /* If defined, the SKB fragmens are supported in uplink. NOTE: enable also the SMC_DMA_TRANSFER_ENABLED with this */
+  #define SMC_DMA_TRANSFER_ENABLED                    /* If defined, the DMA transfer feature is enabled for channel configuration  */
+
+
 
 #endif  /* End of target specific configuration */
 

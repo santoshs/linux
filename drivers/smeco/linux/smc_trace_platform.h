@@ -30,7 +30,7 @@ Description :  File created
 #ifndef SMC_TRACE_PLATFORM_H
 #define SMC_TRACE_PLATFORM_H
 
-/*#define SMC_APE_LINUX_KERNEL_STM*/    /* If defined, the SMC traces are routed to STM -> Ntrace */
+/* #define SMC_APE_LINUX_KERNEL_STM */    /* If defined, the SMC traces are routed to STM -> Ntrace */
 
 
 #ifdef SMC_APE_RDTRACE_ENABLED
@@ -65,14 +65,14 @@ Description :  File created
 #define SMC_TRACE_TRANSMIT_ENABLED
 #define SMC_TRACE_SIGNALS_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
+#define SMC_TRACE_SIGNAL_RAISE_ENABLED
 #define SMC_TRACE_FIFO_GET_ENABLED
 #define SMC_TRACE_FIFO_PUT_ENABLED
 #define SMC_TRACE_LOCK_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
+#define SMC_TRACE_DMA_ENABLED
 */
-
-
 
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF(format, arg...)         smc_printk( format,## arg )
