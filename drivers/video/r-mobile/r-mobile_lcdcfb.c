@@ -326,6 +326,8 @@ static int display_initialize(int lcd_num)
 
 	int ret = 0;
 
+	printk(KERN_INFO "enter display_initialize\n");
+
 	lcd_ext_param[lcd_num].aInfo = screen_display_new();
 	if (lcd_ext_param[lcd_num].aInfo == NULL)
 		return -2;
@@ -343,6 +345,8 @@ static int display_initialize(int lcd_num)
 
 	disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
 	screen_display_delete(&disp_delete);
+
+	printk(KERN_INFO "exit display_initialize\n");
 
 	return 0;
 
