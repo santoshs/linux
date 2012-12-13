@@ -301,7 +301,7 @@ static int tps80032_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	val[1] = dec2bcd(tm->tm_min);
 	val[2] = dec2bcd(tm->tm_hour);
 	val[3] = dec2bcd(tm->tm_mday);
-	val[4] = dec2bcd(tm->tm_mon) + 1;
+	val[4] = dec2bcd(tm->tm_mon + 1);
 	val[5] = dec2bcd(tm->tm_year % RTC_YEAR_OFFSET);
 	val[6] = dec2bcd(tm->tm_wday);
 
@@ -355,7 +355,7 @@ static int tps80032_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	alarm->time.tm_min = bcd2dec(val[1] & 0x7F);
 	alarm->time.tm_hour = bcd2dec(val[2] & 0x3F);
 	alarm->time.tm_mday = bcd2dec(val[3] & 0x3F);
-	alarm->time.tm_mon = bcd2dec(val[4] & 0x1F);
+	alarm->time.tm_mon = bcd2dec(val[4] & 0x1F) - 1;
 	alarm->time.tm_year = bcd2dec(val[5]) + RTC_YEAR_OFFSET;
 
 exit:
@@ -400,7 +400,7 @@ static int tps80032_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		val[1] = dec2bcd(alarm->time.tm_min);
 		val[2] = dec2bcd(alarm->time.tm_hour);
 		val[3] = dec2bcd(alarm->time.tm_mday);
-		val[4] = dec2bcd(alarm->time.tm_mon);
+		val[4] = dec2bcd(alarm->time.tm_mon + 1);
 		val[5] = dec2bcd(alarm->time.tm_year % RTC_YEAR_OFFSET);
 
 		ret = rtc_writes(dev->parent, RTC_ALARM_SECONDS_REG, 6, val);
@@ -567,7 +567,7 @@ static int __devinit tps80032_rtc_probe(struct platform_device *pdev)
 	}
 
 	if (((RTC_YEAR_OFFSET + RTC_POR_YEAR) == tm.tm_year) &&
-		(RTC_POR_MONTH == tm.tm_mon) &&
+		(RTC_POR_MONTH == (tm.tm_mon + 1)) &&
 		(RTC_POR_DAY == tm.tm_mday)) {
 		tm.tm_year = 2012;
 		tm.tm_mon = 10;
