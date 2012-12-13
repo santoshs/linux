@@ -626,6 +626,7 @@ int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 	while (test_bit(TTY_LDISC_CHANGING, &tty->flags)) {
 		mutex_unlock(&tty->ldisc_mutex);
 		tty_unlock();
+
 		wait_event(tty_ldisc_wait,
 			test_bit(TTY_LDISC_CHANGING, &tty->flags) == 0);
 		tty_lock();
@@ -679,14 +680,13 @@ int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 		goto enable;
 	}
 
-	if (test_bit(TTY_HUPPED, &tty->flags)) {
+	if (test_bit(TTY_HUPPING, &tty->flags)) {
 		/* We were raced by the hangup method. It will have stomped
 		   the ldisc data and closed the ldisc down */
 		clear_bit(TTY_LDISC_CHANGING, &tty->flags);
-		mutex_unlock(&tty->ldisc_mutex);
 		tty_ldisc_put(new_ldisc);
-		tty_unlock();
-		return -EIO;
+		retval = -EIO;
+		goto enable;
 	}
 
 	/* Shutdown the current discipline. */
