@@ -422,6 +422,10 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define DBGENTER(fmt, arg...) printk_dbg2(2, "in  "  fmt, ## arg)
 #define DBGLEAVE(fmt, arg...) printk_dbg2(2, "out "  fmt, ## arg)
 
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+#error	operation not guranteed, if remove this line.
+#endif
+
 /******************************************************/
 /* define local variables                             */
 /******************************************************/
@@ -5361,7 +5365,7 @@ static void dump_screen_disp_set_address(screen_disp_set_address *arg)
 }
 
 static void dump_system_mem_phy_change_rtaddr(
-	system_mem_phy_change_rtaddr *arg)
+	system_mem_phy_change_rtaddr * arg)
 {
 	printk_lowdbg("system_memory_phy_change_rtaddr"
 		" handle:%p phys_addr:0x%x\n",
@@ -5828,6 +5832,18 @@ static void work_dispdraw(struct localwork *work)
 		printk_dbg2(3, "need_blend:%d\n", blend_req->need_blend);
 
 		if (blend_req->need_blend == false) {
+			if (blend_req->data.layer[0].image.format !=
+				blend_req->data.blend.output_image.format) {
+				printk_dbg2(3, "detect format mismatch.\n");
+				blend_req->need_blend = true;
+			} else if (blend_req->data.layer[0].image.stride !=
+				blend_req->data.blend.output_image.stride) {
+				printk_dbg2(3, "detect stride mismatch.\n");
+				blend_req->need_blend = true;
+			}
+		}
+
+		if (blend_req->need_blend == false) {
 			unsigned long phys_addr;
 
 			/* no need blending, but layer[0] has updated image. */
@@ -5837,10 +5853,13 @@ static void work_dispdraw(struct localwork *work)
 
 			phys_addr = sh_mobile_rtmem_conv_rt2physmem(rt_addr);
 
-			printk_dbg2(3, "queue_fb_map_handle2:%p phys_addr:0x%lx "
-				"queue_fb_map_address2:0x%lx queue_fb_map_endaddress2:0x%lx\n",
+			printk_dbg2(3, "queue_fb_map_handle2:%p "
+				"phys_addr:0x%lx "
+				"queue_fb_map_address2:0x%lx "
+				"queue_fb_map_endaddress2:0x%lx\n",
 					queue_fb_map_handle2, phys_addr,
-					queue_fb_map_address2, queue_fb_map_endaddress2);
+					queue_fb_map_address2,
+					queue_fb_map_endaddress2);
 
 			if (queue_fb_map_handle2 != NULL &&
 				queue_fb_map_address2 <= phys_addr &&
@@ -5848,8 +5867,11 @@ static void work_dispdraw(struct localwork *work)
 				/* set output_image address is not necessary. */
 
 				offset = phys_addr - queue_fb_map_address2;
-				if (offset < fb_offset_info[1]\
-[FB_OFFSET_INFO_OFFSET]) {
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+				lane = 0;
+#else
+				if (offset < ((queue_fb_map_endaddress2 - \
+					 queue_fb_map_address2) / 2)) {
 					/* select lane 0 of
 					   second frame buffer */
 					lane = 0;
@@ -5858,6 +5880,7 @@ static void work_dispdraw(struct localwork *work)
 					   second frame buffer */
 					lane = 1;
 				}
+#endif
 				y_offset = fb_offset_info[lane]\
 [FB_OFFSET_INFO_YLINE];
 				bufferid = FB_SCREEN_BUFFERID1;
@@ -5874,6 +5897,9 @@ static void work_dispdraw(struct localwork *work)
 			/* set output_image address. */
 
 			lane = fb_count_display & 1;
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+			lane = 0;
+#endif
 			offset = fb_offset_info[lane][FB_OFFSET_INFO_OFFSET];
 
 			/* get RT address of queue_fb_map_address. */
@@ -5923,8 +5949,10 @@ static void work_dispdraw(struct localwork *work)
 
 #ifdef RT_DISPLAY_BUFFER_B
 		if (bufferid == FB_SCREEN_BUFFERID0) {
+			/* display FB's buffer*/
 			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_A;
 		} else {
+			/* display gpu buffer */
 			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_B;
 		}
 #endif
@@ -6305,11 +6333,7 @@ static void get_fb_info(void)
 
 			/* set page 1 offset */
 			offset = fb_info->var.reserved[FB_RESERVE_OFFSET];
-			if (offset * 2 != fb_info->fix.smem_len) {
-				/* error report */
-				printk_err("FB memory size "
-					"should be double.\n");
-			}
+
 			fb_offset_info[1][FB_OFFSET_INFO_OFFSET] = offset;
 			fb_offset_info[1][FB_OFFSET_INFO_YLINE] = \
 				offset / linelength;
@@ -6317,8 +6341,8 @@ static void get_fb_info(void)
 			quotient  = offset / linelength;
 			remainder = offset % linelength;
 
-			if (offset & 0xFFF)
-				printk_err("framebuffer not aligned 4K.\n");
+			if (offset & 0xF)
+				printk_err("framebuffer not aligned 16.\n");
 
 			if (remainder)
 				printk_err("xoffset is not 0.\n");
@@ -6451,7 +6475,7 @@ static int second_fb_register_rtmemory(unsigned long *args)
 			"map success.\n",                 \
 			fb_addr, fb_addr + fb_size - 1);
 	} else {
-		/* there is no API to unregister the address of 
+		/* there is no API to unregister the address of
 		   screen_display_set_address. */
 		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
 			fb_addr, fb_addr + fb_size - 1);
@@ -6567,7 +6591,7 @@ err_exit:
 
 static int fb_unregister_rtmemory(unsigned long *args)
 {
-	switch(args[0]) {
+	switch (args[0]) {
 	case FB_SCREEN_BUFFERID0:
 		if (queue_fb_map_handle) {
 			sh_mobile_rtmem_physarea_unregister(
@@ -6600,8 +6624,7 @@ static int composer_unset_address(unsigned int id)
 	/* because core_release already acqurie it. */
 
 	/* confirm already configured. */
-	switch (id)
-	{
+	switch (id) {
 	case FB_SCREEN_BUFFERID0:
 	case FB_SCREEN_BUFFERID1:
 		break;
@@ -7246,7 +7269,7 @@ err_exit:
 		/* set draw complete flag to wakeup tasks. */
 		overlay_draw_complete = true;
 #endif
-		printk_err("request failed.\n");
+		printk_err2("request failed.\n");
 
 		/* wake-up waiting thread */
 		wake_up(&kernel_waitqueue_comp);
