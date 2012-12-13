@@ -20,13 +20,12 @@
 
 #include <linux/device.h>
 #include <linux/string.h>
-#include <linux/io.h>
 #include <asm/cacheflush.h>
 #include <mach/pm.h>
 
 #include <linux/hwspinlock.h>
-#include <mach/r8a73734.h>
 /* CPG_PLL2CR */
+
 #define PLL2CE_XOE	0x1
 
 /* Restart Mode Setting*/
@@ -51,7 +50,7 @@
 #endif
 
 /* #define DEBUG_POWEROFF */
-
+/* #define SHMOBILE_PM_RESTART */
 #ifdef DEBUG_POWEROFF
 	#define POWEROFF_PRINTK(fmt, arg...)  printk(fmt, ##arg)
 #else
@@ -97,44 +96,41 @@ void shmobile_pm_stop_peripheral_devices(void)
 }
 
 /*
- *  U2EVM Restart
+ *  U2EVM Prepare Restart
  */
-static void shmobile_pm_restart(char mode, const char *cmd)
+void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 {
 	u8 reg = 0;
 	int hwlock;
-	POWEROFF_PRINTK("%s\n", __func__);
-	/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
-    char* bootflag_address = NULL;
+
+	char *bootflag_address = NULL;
 	unsigned char flag = 0xA5;
 
-	if(cmd == NULL) {
-	 /* copy cmd = NULL to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+	POWEROFF_PRINTK("%s\n", __func__);
+	if (cmd == NULL) {
+		/* Copy cmd = NULL to SDRAM */
+		bootflag_address = (char *)ioremap_nocache(\
+			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
 		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, "" , BOOTFLAG_SIZE - 0x01);	    
-	}
-	else {
-	   	/* copy cmd to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+		strncpy((void *)bootflag_address + 0x01, "",\
+				BOOTFLAG_SIZE - 0x01);
+	} else {
+		/* Copy cmd to SDRAM */
+		bootflag_address = (char *)ioremap_nocache(\
+			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
 		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, cmd , BOOTFLAG_SIZE - 0x01);
+		strncpy((void *)bootflag_address + 0x01, cmd,\
+				BOOTFLAG_SIZE - 0x01);
 	}
-	/* END: CR1040: Clean up source code which accesses the eMMC directly */
-    /* Check to make sure that SYSC hwspinlock has been requested successfully */
-	if(NULL == r8a73734_hwlock_sysc) {
+
+	/* Check to make sure that SYSC hwspinlock
+	 * has been requested successfully */
+	if (NULL == r8a73734_hwlock_sysc)
 		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-	}
 	/* Lock SMSYSC hwspinlock with 1ms timeout */
 	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
 	if (0 != hwlock)
-		printk(KERN_ERR "Fail to take hwlock, but system must be reset now!\n");
-	/* Flush the console to make sure all the relevant messages make it
-	 * out to the console drivers */
-	arm_machine_flush_console();
-	/* Disable interrupts first */
-	local_irq_disable();
-	local_fiq_disable();
+		printk(KERN_ERR "Cannot take hwlock, but system must be reset now.\n");
 	/* Clear Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) & (~POFFFLAG), STBCHRB2);
 	/*
@@ -146,8 +142,10 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	/* Clean and invalidate caches */
 	flush_cache_all();
 
-	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
-	__raw_writeb((reg | APE_RESETLOG_PM_RESTART), STBCHR2); /* write STBCHR2 for debug */
+	/* Read STBCHR2 for debug */
+	reg = __raw_readb(STBCHR2);
+	/* Write STBCHR2 for debug */
+	__raw_writeb((reg | debug_mode), STBCHR2);
 
 	/* Push out any further dirty data, and ensure L2 cache is empty */
 	outer_flush_all();
@@ -157,11 +155,27 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	memcpy(&dummy_access_for_sync, &flag, sizeof(flag));
 
 	/* The architecture specific reboot */
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-	#endif
+#endif /* CONFIG_PM_HAS_SECURE */
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
+
+#ifdef SHMOBILE_PM_RESTART
+/*
+ *  U2EVM Restart
+ */
+static void shmobile_pm_restart(char mode, const char *cmd)
+{
+	/* Flush the console to make sure all the relevant messages make it
+	 * out to the console drivers */
+	arm_machine_flush_console();
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+	shmobile_do_restart(mode, cmd, APE_RESETLOG_PM_RESTART);
+}
+#endif /* SHMOBILE_PM_RESTART */
 
 /*
  * Power off
@@ -171,10 +185,10 @@ static void shmobile_pm_poweroff(void)
 	u8 reg;
 	int hwlock;
 	POWEROFF_PRINTK("%s\n", __func__);
-	/* Check to make sure that SYSC hwspinlock has been requested successfully */
-	if(NULL == r8a73734_hwlock_sysc) {
+	/* Check to make sure that SYSC hwspinlock
+	 * has been requested successfully */
+	if (NULL == r8a73734_hwlock_sysc)
 		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-	}
 #if 1
     /* Lock SMSYSC hwspinlock with 1ms timeout */
 	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
@@ -194,21 +208,23 @@ static void shmobile_pm_poweroff(void)
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
 
+	/* Read STBCHR2 for debug */
+	reg = __raw_readb(STBCHR2);
 	/* Write STBCHR2 for debug */
-	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
-	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2); /* write STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2);
 
 	/* The architecture specific reboot */
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-	#endif
+#endif
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 #else
 	/* Turn off power of whole system */
 	pmic_force_power_off(E_POWER_ALL);
-#endif	
+#endif
 	/* Wait for power off */
-	while (1);
+	while (1)
+		;
 }
 
 /*
@@ -219,7 +235,9 @@ static int __init shmobile_init_poweroff(void)
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* Register globally exported PM poweroff and restart */
 	pm_power_off = shmobile_pm_poweroff;
+#ifdef SHMOBILE_PM_RESTART
 	arm_pm_restart = shmobile_pm_restart;
+#endif /* SHMOBILE_PM_RESTART */
 	return 0;
 }
 

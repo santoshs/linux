@@ -2529,11 +2529,8 @@ static void irqc_set_chattering(int pin, int timing)
 
 void u2evm_restart(char mode, const char *cmd)
 {
-	u8 reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
-
-	__raw_writel(0, SBAR2);
-	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+	printk(KERN_INFO "%s\n", __func__);
+	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 int sec_rlte_hw_rev;
 
