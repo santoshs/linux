@@ -407,7 +407,7 @@ static void ths_early_suspend_wq(struct work_struct *work)
 	mutex_unlock(&ths->sensor_mutex);
 
 	reg = ioread32(SYSC_PSTR);
-	if ((reg & (POWER_A3SG | POWER_A3R | POWER_D4)) &&
+	if ((reg & (POWER_A3SG | POWER_A3R)) &&
 		(early_suspend_try > 0)) {
 		THS_DEBUG_MSG(
 					"%s: waiting for power domains to be turned off (%d)\n",
