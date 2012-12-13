@@ -127,6 +127,8 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	}
 	/* Lock SMSYSC hwspinlock with 1ms timeout */
 	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+	if (0 != hwlock)
+		printk(KERN_ERR "Fail to take hwlock, but system must be reset now!\n");
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
@@ -176,6 +178,8 @@ static void shmobile_pm_poweroff(void)
 #if 1
     /* Lock SMSYSC hwspinlock with 1ms timeout */
 	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+	if (0 != hwlock)
+		printk(KERN_ERR "Fail to take hwlock, but system must be turned off now!\n");
 	/* Disable interrupts first */
 	local_irq_disable();
 	local_fiq_disable();
