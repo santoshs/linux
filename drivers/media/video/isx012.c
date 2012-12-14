@@ -438,10 +438,10 @@ static void ISX012_res_roundup(u32 *width, u32 *height)
 {
 	int i;
 	enum {
-		VGA, HD, UXGA, FHD, PIX5M, PIX8M
+		VGA, HD, SXGA, UXGA, FHD, PIX5M, PIX8M
 	};
-	int res_x[] = { 640, 1280, 1600, 1920, 2560, 3272 };
-	int res_y[] = { 480, 720, 1200, 1080, 1920, 2456 };
+	int res_x[] = { 640, 1280, 1280, 1600, 1920, 2560, 3272 };
+	int res_y[] = { 480, 720, 960, 1200, 1080, 1920, 2456 };
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
