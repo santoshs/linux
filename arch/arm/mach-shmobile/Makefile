@@ -98,8 +98,6 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 # gpio_key and keysc
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
-#gpio
-obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 ifneq ($(CONFIG_MFD_D2153),y)
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
