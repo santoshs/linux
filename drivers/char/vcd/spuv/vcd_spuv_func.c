@@ -1374,27 +1374,78 @@ static const int vcd_spuv_func_resample_table
  */
 static const int vcd_spuv_func_resample_mode
 [VCD_SPUV_FUNC_SAMPLING_RATE_MAX][VCD_SPUV_FUNC_SAMPLING_RATE_MAX] = {
-	/* OUT      8    11    12    16 */
-			/*      22    24    32    44    48 */
-	/* IN */
-	/*  8 */{0xFF, 0xFF, 0xFF, ALSA_8_2_VCD_16,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 11 */{0xFF, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 12 */{0xFF, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 16 */{VCD_16_2_ALSA_8, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, VCD2ALSA, VCD2ALSA_48,},
-	/* 22 */{0xFF, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 24 */{0xFF, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 32 */{0xFF, 0xFF, 0xFF, 0xFF,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 44 */{0xFF, 0xFF, 0xFF, ALSA2VCD,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,},
-	/* 48 */{0xFF, 0xFF, 0xFF, ALSA_482VCD,
-				0xFF, 0xFF, 0xFF, 0xFF, 0xFF,}
+	/***** IN  8KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_NO_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, ALSA_8_2_VCD_16,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 11KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_NO_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 12KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_NO_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 16KHz *****/
+	{
+	/*  8 11 */	VCD_16_2_ALSA_8, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_NO_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD2ALSA,
+	/* 48    */	VCD2ALSA_48,
+	},
+	/***** IN 22KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_NO_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 24KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_NO_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 32KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_NO_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 44KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, ALSA2VCD,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_NO_SRC,
+	/* 48    */	VCD_SPUV_FUNC_UNKNOWN_SRC,
+	},
+	/***** IN 48KHz *****/
+	{
+	/*  8 11 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 12 16 */	VCD_SPUV_FUNC_UNKNOWN_SRC, ALSA_482VCD,
+	/* 22 24 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 32 44 */	VCD_SPUV_FUNC_UNKNOWN_SRC, VCD_SPUV_FUNC_UNKNOWN_SRC,
+	/* 48    */	VCD_SPUV_FUNC_NO_SRC,
+	}
 };
 
 
@@ -1597,10 +1648,13 @@ static int vcd_spuv_func_resampler_resample(
 		in_buf, in_buf_size, in_rate);
 
 	mode = vcd_spuv_func_get_resample_mode(in_rate, out_rate);
-	vcd_pr_spuv_debug("@@@@@mode[%d].@@@@@\n", mode);
+	vcd_pr_spuv_debug("mode[%d].\n", mode);
 
-	res_size = sh_resampler_resample(out_buf, out_buf_size,
-			in_buf, in_buf_size, mode);
+	if (mode == VCD_SPUV_FUNC_NO_SRC)
+		res_size = memcpy(out_buf, in_buf, out_buf_size);
+	else
+		res_size = sh_resampler_resample(out_buf, (out_buf_size/2),
+			in_buf, (in_buf_size/2), mode);
 
 	vcd_pr_end_spuv_function("res_size[%d].\n", res_size);
 	return res_size;
@@ -1658,9 +1712,9 @@ void vcd_spuv_func_voip_ul(unsigned int *buf_size)
 
 		/* overwrite */
 		ret = vcd_spuv_func_resampler_resample(
-			(short *)voip_dl_buf, (g_spuv_func_alsa_ul_buf_size/2),
+			(short *)voip_dl_buf, g_spuv_func_alsa_ul_buf_size,
 			g_spuv_func_alsa_ul_sampling_rate,
-			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+			(short *)voip_ul_tmp_buf, g_spuv_func_spuv_buf_size,
 			g_spuv_func_spuv_sampling_rate);
 	} else {
 		/* check VoIP UL buffer ID */
@@ -1671,9 +1725,9 @@ void vcd_spuv_func_voip_ul(unsigned int *buf_size)
 
 		/* resample */
 		ret = vcd_spuv_func_resampler_resample(
-			(short *)voip_ul_buf, (g_spuv_func_alsa_ul_buf_size/2),
+			(short *)voip_ul_buf, g_spuv_func_alsa_ul_buf_size,
 			g_spuv_func_alsa_ul_sampling_rate,
-			(short *)voip_ul_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+			(short *)voip_ul_tmp_buf, g_spuv_func_spuv_buf_size,
 			g_spuv_func_spuv_sampling_rate);
 	}
 
@@ -1779,9 +1833,9 @@ void vcd_spuv_func_voip_dl(unsigned int *buf_size)
 
 	/* resample */
 	ret = vcd_spuv_func_resampler_resample(
-		(short *)voip_dl_tmp_buf, (g_spuv_func_spuv_buf_size/2),
+		(short *)voip_dl_tmp_buf, g_spuv_func_spuv_buf_size,
 		g_spuv_func_spuv_sampling_rate,
-		(short *)voip_dl_buf, (g_spuv_func_alsa_dl_buf_size/2),
+		(short *)voip_dl_buf, g_spuv_func_alsa_dl_buf_size,
 		g_spuv_func_alsa_dl_sampling_rate);
 
 	*buf_size = (unsigned int)g_spuv_func_alsa_dl_buf_size;
