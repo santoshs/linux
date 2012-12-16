@@ -333,7 +333,7 @@ void write_req_comp(void)
 #define RT_BOOT_HW_ID_REV_0_2_2 2
 #define RT_BOOT_HW_ID_REV_0_3_X 3
 #define RT_BOOT_HW_ID_REV_0_4_1 4
-#define RT_BOOT_HW_ID_REV_0_5_X 10
+#define RT_BOOT_HW_ID_REV_0_5_X 5
 
 static int set_screen_data(unsigned int disp_addr)
 {

@@ -17,6 +17,7 @@ audience-a2220-objs			:= audience/a2220.o
 snd-soc-sh7760-ac97-objs	:= sh7760-ac97.o
 snd-soc-fsi-ak4642-objs		:= fsi-ak4642.o
 snd-soc-fsi-da7210-objs		:= fsi-da7210.o
+ifdef CONFIG_SND_FSI_WM1811
 snd-soc-fsi-wm1811-objs	:= fsi-wm1811.o \
 							soundpath/soundpathlogical.o \
 							soundpath/hw/common_ctrl.o \
@@ -24,7 +25,16 @@ snd-soc-fsi-wm1811-objs	:= fsi-wm1811.o \
 							soundpath/hw/scuw_ctrl.o \
 							soundpath/hw/clkgen_ctrl.o \
 							soundpath/call/call_ctrl.o
-
+endif
+ifdef CONFIG_SND_FSI_D2153
+snd-soc-fsi-d2153-objs	:= fsi-d2153.o \
+							soundpath/soundpathlogical.o \
+							soundpath/hw/common_ctrl.o \
+							soundpath/hw/fsi_ctrl.o \
+							soundpath/hw/scuw_ctrl.o \
+							soundpath/hw/clkgen_ctrl.o \
+							soundpath/call/call_ctrl.o
+endif
 snd-soc-fsi-hdmi-objs		:= fsi-hdmi.o
 snd-soc-migor-objs		:= migor.o
 
@@ -33,10 +43,18 @@ obj-$(CONFIG_SND_SH7760_AC97)	+= snd-soc-sh7760-ac97.o
 obj-$(CONFIG_SND_FSI_AK4642)	+= snd-soc-fsi-ak4642.o
 obj-$(CONFIG_SND_FSI_DA7210)	+= snd-soc-fsi-da7210.o
 obj-$(CONFIG_SND_FSI_WM1811)    += snd-soc-fsi-wm1811.o
+obj-$(CONFIG_SND_FSI_D2153)     += snd-soc-fsi-d2153.o
 obj-$(CONFIG_SND_FSI_HDMI)	+= snd-soc-fsi-hdmi.o
 obj-$(CONFIG_SND_SIU_MIGOR)	+= snd-soc-migor.o
 
+ifdef CONFIG_SND_SOC_AUDIO_TEST_WM1811
 snd-soc-audio-test-wm1811-objs	:= soundpath/TP/audio_test_r8a73734/audio_test_wm1811.o \
 									soundpath/TP/audio_test_r8a73734/audio_test_wrap_wm1811.o
+endif
+ifdef CONFIG_SND_SOC_AUDIO_TEST_D2153
+snd-soc-audio-test-d2153-objs	:= soundpath/TP/audio_test_r8a73734/audio_test_d2153.o \
+									soundpath/TP/audio_test_r8a73734/audio_test_wrap_d2153.o									
+endif
 
 obj-$(CONFIG_SND_SOC_AUDIO_TEST_WM1811)	+= snd-soc-audio-test-wm1811.o
+obj-$(CONFIG_SND_SOC_AUDIO_TEST_D2153)	+= snd-soc-audio-test-d2153.o

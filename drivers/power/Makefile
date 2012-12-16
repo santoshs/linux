@@ -29,6 +29,7 @@ obj-$(CONFIG_BATTERY_GAUGE_TPS8003X) += tps80031_battery_gauge.o
 obj-$(CONFIG_BATTERY_DA9030)	+= da9030_battery.o
 obj-$(CONFIG_BATTERY_MAX17040)	+= max17040_battery.o
 obj-$(CONFIG_BATTERY_MAX17042)	+= max17042_battery.o
+obj-$(CONFIG_BATTERY_D2153)	+= d2153_battery.o
 obj-$(CONFIG_BATTERY_Z2)	+= z2_battery.o
 obj-$(CONFIG_BATTERY_S3C_ADC)	+= s3c_adc_battery.o
 obj-$(CONFIG_CHARGER_PCF50633)	+= pcf50633-charger.o
@@ -39,7 +40,9 @@ obj-$(CONFIG_CHARGER_MAX8903)	+= max8903_charger.o
 obj-$(CONFIG_CHARGER_TWL4030)	+= twl4030_charger.o
 obj-$(CONFIG_CHARGER_SMB328A)	+= smb328a_charger.o
 obj-$(CONFIG_CHARGER_GPIO)	+= gpio-charger.o
+ifndef CONFIG_BOARD_VERSION_V050
 obj-$(CONFIG_PMIC_BAT_INTERFACE)+= pmic_battery.o
+endif
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += spa_power.o \
 									  spa_ps.o
 obj-$(CONFIG_BATTERY_BQ27425) += bq27425.o

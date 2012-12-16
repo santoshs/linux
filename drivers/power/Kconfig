@@ -193,6 +193,14 @@ config BATTERY_MAX17040
 	  in handheld and portable equipment. The MAX17040 is configured
 	  to operate with a single lithium cell
 
+config BATTERY_D2153
+	tristate "D2153 Fuel Gauge"
+	depends on MFD_D2153
+	depends on I2C
+	help
+	  This feature is depend on Power Supply class support
+
+	  
 config BATTERY_MAX17042
 	tristate "Maxim MAX17042/8997/8966 Fuel Gauge"
 	depends on I2C

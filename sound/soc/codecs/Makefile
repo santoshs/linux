@@ -19,6 +19,7 @@ snd-soc-da7210-objs := da7210.o
 snd-soc-dfbmcs320-objs := dfbmcs320.o
 snd-soc-dmic-objs := dmic.o
 snd-soc-l3-objs := l3.o
+snd-soc-max98090-objs := max98090.o
 snd-soc-max98088-objs := max98088.o
 snd-soc-max98095-objs := max98095.o
 snd-soc-max9850-objs := max9850.o
@@ -41,6 +42,8 @@ snd-soc-uda1380-objs := uda1380.o
 snd-soc-wl1273-objs := wl1273.o
 snd-soc-wm1250-ev1-objs := wm1250-ev1.o
 snd-soc-wm1811-objs := wm1811.o wm1811-tables.o
+snd-soc-d2153-objs := d2153.o d2153_sndp_wrapper.o
+snd-soc-d2153-aad-objs := d2153_aad.o
 snd-soc-wm8350-objs := wm8350.o
 snd-soc-wm8400-objs := wm8400.o
 snd-soc-wm8510-objs := wm8510.o
@@ -113,6 +116,13 @@ obj-$(CONFIG_SND_SOC_DFBMCS320)	+= snd-soc-dfbmcs320.o
 obj-$(CONFIG_SND_SOC_DMIC)	+= snd-soc-dmic.o
 obj-$(CONFIG_SND_SOC_L3)	+= snd-soc-l3.o
 obj-$(CONFIG_SND_SOC_JZ4740_CODEC)	+= snd-soc-jz4740-codec.o
+obj-$(CONFIG_SND_SOC_MAX98090)	+= snd-soc-max98090.o
+ifdef CONFIG_SND_SOC_MAX98090_26MHZ
+KBUILD_CFLAGS_KERNEL := -DMAX98090_26MHZ
+endif
+ifdef CONFIG_SND_SOC_MAX98090_13MHZ
+KBUILD_CFLAGS_KERNEL := -DMAX98090_13MHZ
+endif
 obj-$(CONFIG_SND_SOC_MAX98088)	+= snd-soc-max98088.o
 obj-$(CONFIG_SND_SOC_MAX98095)	+= snd-soc-max98095.o
 obj-$(CONFIG_SND_SOC_MAX9850)	+= snd-soc-max9850.o
@@ -134,6 +144,8 @@ obj-$(CONFIG_SND_SOC_UDA1380)	+= snd-soc-uda1380.o
 obj-$(CONFIG_SND_SOC_WL1273)	+= snd-soc-wl1273.o
 obj-$(CONFIG_SND_SOC_WM1250_EV1) += snd-soc-wm1250-ev1.o
 obj-$(CONFIG_SND_SOC_WM1811)	+= snd-soc-wm1811.o
+obj-$(CONFIG_SND_SOC_D2153)	+= snd-soc-d2153.o
+obj-$(CONFIG_SND_SOC_D2153_AAD)	+= snd-soc-d2153-aad.o
 obj-$(CONFIG_SND_SOC_WM8350)	+= snd-soc-wm8350.o
 obj-$(CONFIG_SND_SOC_WM8400)	+= snd-soc-wm8400.o
 obj-$(CONFIG_SND_SOC_WM8510)	+= snd-soc-wm8510.o

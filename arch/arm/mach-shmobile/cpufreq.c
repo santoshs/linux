@@ -80,6 +80,10 @@ enum clock_state {
 #define STOP_STATE	4
 
 #define HWREV_041	4
+
+/* FIX me: need mock for bellow APIs
+ *	   this should be disabled after got mock funcion
+ */
 #define DYNAMIC_BOARD_REV_CHECK
 #define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR
@@ -171,7 +175,7 @@ static int sampling_flag = STOP_STATE;
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #ifdef DYNAMIC_HOTPLUG_CPU
-#define HOTPLUG_IN_ACTIVE	1
+/* #define HOTPLUG_IN_ACTIVE	1 */
 
 static void do_check_cpu(struct work_struct *work);
 /* static DECLARE_DEFERRED_WORK(hlg_work, do_check_cpu); */

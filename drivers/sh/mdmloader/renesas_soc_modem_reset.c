@@ -42,8 +42,11 @@
 #include <linux/scatterlist.h>
 #include <mach/common.h>
 #include <mach/r8a73734.h>
+#ifdef CONFIG_MFD_D2153
+#include <linux/d2153/d2153_battery.h>
+#else
 #include <linux/pmic/pmic.h>
-
+#endif
 
 
 #define HPB_OCPBRGWIN1_MDM2MEM		IO_ADDRESS(0xE6001200)
@@ -87,6 +90,8 @@
 #define CPG_SMSTPCR3			IO_ADDRESS(0xE615013C)
 
 #define SWRESET   1
+#define KERNEL_PANIC  1
+
 
 static dev_t 		rmc_reset_dev;
 static struct 		cdev rmc_reset_cdev;
@@ -140,13 +145,10 @@ static long rmc_reset_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 
 	case SWRESET:
-/*+patch LMR 22/08/2012 */
-		if(arg == 1){
-			printk(KERN_ALERT "!!!!!     MODEM CRASH: case 1291      !!!!!!\n");
-			printk(KERN_ALERT "To have a silent reset instead of kernel panic please setprop persist.sys.modem.reset 0 \n");
+
+		if(arg == KERNEL_PANIC){
 			panic("MODEM boot: Modem Reset occurs!!!\n");
 		}else{
-/*-patch LMR 22/08/2012 */
 			curent_value = __raw_readl(WPMCIF_EPMU_ACC_CR);
 			if (curent_value != 0x00000003){
 				__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
@@ -161,11 +163,7 @@ static long rmc_reset_ioctl(struct file *file, unsigned int cmd,
 
 			/* Clear WRES bit other wise WGM_Recover_Req will be assert again */
 			__raw_writel(0x00000000, WPMCIF_EPMU_RES_CR);
-
-			pr_info("open WPMCIF_EPMU_INT_MONREG =0x%08lx \n",curent_value);//tmp monreg
-/*+patch LMR 22/08/2012 */
 		}
-/*-patch LMR 22/08/2012 */
 	break;
 
 	default:
@@ -293,7 +291,11 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	}
 	
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
+#ifdef CONFIG_MFD_D2153
+	d2153_handle_modem_reset();
+#else
 	tps80032_handle_modem_reset();
+#endif
 
 	/* Clear Event factor by setting corresponding bit in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
