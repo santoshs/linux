@@ -14,8 +14,10 @@
 ** *********************************************************************** */
 #ifndef SEC_HAL_RT_H
 #define SEC_HAL_RT_H
-
-
+/*
+#define SEC_STORAGE_SELFTEST_ENABLE
+#define SEC_STORAGE_DS_TEST_ENABLE
+*/
 /* ************************ HEADER (INCLUDE) SECTION ********************* */
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -81,23 +83,19 @@ typedef struct
   char imei[SEC_HAL_MAX_IMEI_SIZE];
 } sec_hal_imei_t;
 
-/*!
- * This type defines the structure for RAT and band information.
- */
-typedef struct
-{
-  uint32_t rats;
-  uint32_t bands[SEC_HAL_MAX_BANDS];
-} sec_hal_rat_band_t;
+
+#define SEC_HAL_RESCNT_COUNT 3
 
 /*!
- * This type defines the structure for a secure product profile flag.
+ * This type defines the runtime init information given by secenv.
  */
+
+
 typedef struct
 {
-  uint16_t id;
-  uint16_t value;
-} sec_hal_pp_flag_t;
+  uint64_t commit_id;
+  uint32_t reset_info[SEC_HAL_RESCNT_COUNT];
+} sec_hal_init_info_t;
 
 /*!
  * This type defines a callback function that must provide protected data
@@ -176,7 +174,6 @@ typedef uint32_t (*sec_hal_rt_rpc_handler)(
 		uint32_t p3,
 		uint32_t p4);
 
-
 #define SEC_HAL_RPC_ALLOC                      0x80000001
 #define SEC_HAL_RPC_FREE                       0x80000002
 #define SEC_HAL_RPC_RPMB                       0x80000003
@@ -215,16 +212,18 @@ typedef uint32_t (*sec_hal_rt_rpc_handler)(
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t sec_hal_rt_init(
-		uint32_t *virt_wdt_upd_out);
+uint32_t
+sec_hal_rt_init(
+    sec_hal_init_info_t *runtime_init);
 
 /*!
  * This function can be used to install rpc handler to the secure side.
  * Handler will be called whenever secure side needs something special
  * from the public domain.
  */
-uint32_t sec_hal_rt_install_rpc_handler(
-		sec_hal_rt_rpc_handler virt_func_ptr_in);
+uint32_t
+sec_hal_rt_install_rpc_handler(
+    sec_hal_rt_rpc_handler fptr);
 
 /*!
  * This function is used to retrieve key information from the secure side.
@@ -359,6 +358,38 @@ uint32_t sec_hal_rt_data_cert_register(
 uint32_t sec_hal_rt_mac_address_get(
 		uint32_t user_index_in,
 		sec_hal_mac_address_t *user_mac_addr_out);
+
+#ifdef SEC_STORAGE_DS_TEST_ENABLE
+/* TEMPORARY, for testing purposes, send SEC_SERV_SIMU_DS0/1_TEST messages to Demo (DS) */
+
+/* **************************************************************************
+** Function name      : sec_hal_rt_simu_ds_test
+** Description        : send SEC_SERV_SIMU_DS0/1_TEST messages to Demo (DS).
+** Parameters         : IN/--- DS0 or DS1 / w or wo params, zero, one
+** Return value       : uint32
+**                      ==0 operation successful
+**                      failure otherwise.
+** *************************************************************************/
+uint32_t sec_hal_rt_simu_ds_test(
+    uint32_t dsnum,
+    uint32_t param,
+    uint32_t zero,
+    uint32_t one);
+#endif
+#ifdef SEC_STORAGE_SELFTEST_ENABLE
+/* **************************************************************************
+** Function name      : sec_hal_rt_sec_storage_selftest
+** Description        : run test sequence to test Secure Storage
+** Parameters         : IN/---  rpc_func_ptr
+**                              testcase
+** Return value       : uint32
+**                      ==0 operation successful
+**                      failure otherwise.
+** *************************************************************************/
+uint32_t sec_hal_rt_sec_storage_selftest(
+    sec_hal_rt_rpc_handler rpc_func_ptr,
+    uint32_t testcase);
+#endif
 
 /*!
  * This function can be used to get the IMEI of the device.

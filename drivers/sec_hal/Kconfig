@@ -1,6 +1,5 @@
 #
 # SEC_HAL Linux Kernel Module Configuration file
-#
 config ARM_SEC_HAL
 	bool "ARM trustzone (TZ) access hardware abstraction layer."
 	default n
@@ -8,23 +7,23 @@ config ARM_SEC_HAL
 	---help---
 	ARM trustzone (TZ) access hardware abstraction layer.
 
+config ARM_SEC_HAL_DRM_WVN
+	bool "Enable sec_hal widevine drm implementation."
+	default n
+#	depends ARM_SEC_HAL
+	---help---
+	Enable sec_hal widevine drm implementation.
+
 
 if ARM_SEC_HAL
 # RND conf flags to enable early integration. Consider removing asap.
 
-config ARM_SEC_HAL_RT_INIT
-	bool "Enable runtime init. Used for TZ binary version check, and initializing runtime resources."
+config ARM_SEC_HAL_TRACE
+	bool "Use printk to trace execution.(monitoring)"
 	default n
 #	depends ARM_SEC_HAL
 	---help---
-	Enable runtime init. Used for TZ binary version check, and initializing runtime resources.
-
-config ARM_SEC_HAL_RPC_HANDLER
-	bool "Enable sec_hal rpc handler installation."
-	default n
-#	depends ARM_SEC_HAL
-	---help---
-	Enable sec_hal rpc handler installation.
+	Use printk to trace execution.(monitoring). Useful when integrating to hw.
 
 config ARM_SEC_HAL_TEST_DISPATCHER
 	bool "Use test dispatcher instead of real one."
@@ -41,3 +40,4 @@ config ARM_SEC_HAL_SDTOC
 	Read data from sdram toc instead of using secure services.
 
 endif
+

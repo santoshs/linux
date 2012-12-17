@@ -1,9 +1,8 @@
-
 /* *********************************************************************** **
-**                               Renesas                                   **
+**                              Renesas                                    **
 ** *********************************************************************** */
 
-/* *************************** COPYRIGHT INFORMATION ********************* **
+/* ************************** COPYRIGHT INFORMATION ********************** **
 ** This program contains proprietary information that is a trade secret of **
 ** Renesas and also is protected as an unpublished work under              **
 ** applicable Copyright laws. Recipient is to retain this program in       **
@@ -16,15 +15,9 @@
 #if defined _SEC_SERV_API_H_
 #error "Multiply included"
 #endif
-
 #define _SEC_SERV_API_H_
 
-#ifdef __KERNEL__
 #include <linux/types.h>
-#else
-#include <inttypes.h>
-#endif
-#include "sec_msg.h"
 
 /*!
  * This is the type of the status expected from a secure service.
@@ -81,12 +74,40 @@ typedef uint32_t sec_serv_status_t;
 #define SEC_SERV_MEMCPY_REQUEST                 0x1000001B
 #define SEC_SERV_COMA_CPU_OFF                   0x1000001C
 #define SEC_SERV_PUBLIC_CC42_KEY_INIT           0x1000001D
-#define SEC_SERV_A3SP_STATE_INFO                0x1000001E
+#define SEC_SERV_A3SP_STATE_INFO                0x1000001E // To be removed when references removed
+#define SEC_SERV_A3SP_STATE_REQUEST             0x1000001E // This will replace the A3SP state info
+#define SEC_SERV_DRM_OEMCRYPTO_IS_KEYBOX_VALID  0x1000001F
+#define SEC_SERV_DRM_OEMCRYPTO_GET_DEVICE_ID    0x10000020
+#define SEC_SERV_DRM_OEMCRYPTO_GET_KEYDATA      0x10000021
+#define SEC_SERV_DRM_OEMCRYPTO_GET_RANDOM       0x10000022
+#define SEC_SERV_DRM_OEMCRYPTO_SESSION_INIT     0x10000023
+#define SEC_SERV_DRM_OEMCRYPTO_SESSION_TERMINATE        0x10000024
+#define SEC_SERV_DRM_OEMCRYPTO_SET_ENTITLEMENT_KEY      0x10000025
+#define SEC_SERV_DRM_OEMCRYPTO_DERIVE_CONTROL_WORD      0x10000026
+#define SEC_SERV_DRM_OEMCRYPTO_DECRYPT_VIDEO            0x10000027
+#define SEC_SERV_DRM_OEMCRYPTO_DECRYPT_AUDIO            0x10000028
+#define SEC_SERV_DRM_OEMCRYPTO_WRAP_KEYBOX              0x10000029
+#define SEC_SERV_DRM_OEMCRYPTO_INSTALL_KEYBOX           0x1000002A
+#define SEC_SERV_RESERVE_MEDIA_AREA             0x1000002B
+#define SEC_SERV_FREE_MEDIA_AREA                0x1000002C
+#define SEC_SERV_RESET_INFO_ADDR_REGISTER       0x1000002D
+#define SEC_SERV_DEBUG_CONTROL_DATA_SET         0x1000002F
 
 #define SEC_SERV_SIMU_DS0_TEST                  0x10000050
 #define SEC_SERV_SIMU_DS1_TEST                  0x10000051
 #define SEC_SERV_SIMU_DSBUILD0_TEST             0x10000052
 #define SEC_SERV_SIMU_DSBUILD1_TEST             0x10000053
+
+#define SEC_SERV_TEEC_InitializeContext         0x100000F0
+#define SEC_SERV_TEEC_FinalizeContext           0x100000F1
+#define SEC_SERV_TEEC_OpenSession               0x100000F2
+#define SEC_SERV_TEEC_CloseSession              0x100000F3
+#define SEC_SERV_TEEC_InvokeCommand             0x100000F4
+#define SEC_SERV_TEEC_AllocateSharedMemory      0x100000F5
+#define SEC_SERV_TEEC_ReleaseSharedMemory       0x100000F6
+#define SEC_SERV_TEEC_RegisterSharedMemory      0x100000F7
+#define SEC_SERV_TEEC_RequestCancellation       0x100000F8
+#define SEC_SERV_TEE_DMEM_SDRAM_WORKAROUND      0x100000FF
 
 /*!
  * Service status values

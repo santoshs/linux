@@ -13,9 +13,7 @@
 ** All rights reserved.                                                    **
 ** *********************************************************************** */
 #include "sec_dispatch.h"
-#include "sec_hal_rt_trace.h"
 #include "sec_hal_rt_cmn.h"
-
 #include <stdarg.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
@@ -55,23 +53,19 @@
 #define FIQ_MASK                                0x40
 #define IRQ_MASK                                0x80
 
-extern unsigned long icram_offset;      /* offset */
-
 uint32_t hw_sec_rom_pub_bridge(uint32_t appl_id, uint32_t flags, va_list *);
-/* **************************************************************************
-** Function name      : sec_dispatcher
+/* ****************************************************************************
+** Function name      : pub2sec_dispatcher
 ** Description        :
 ** Parameters         :
 ** Return value       : uint32
 **                      ==0 operation successful
 **                      failure otherwise.
-** *************************************************************************/
+** ***************************************************************************/
 uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 {
     uint32_t return_value, pub_cpsr;
     va_list ap;
-
-    SEC_HAL_TRACE_ENTRY
 
     /* Read current CPSR */
     __asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
@@ -91,7 +85,6 @@ uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
     return_value = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
     va_end(ap);
 
-    SEC_HAL_TRACE_EXIT
     return return_value;
 }
 
@@ -100,7 +93,7 @@ uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 void* hw_mmu_physical_address_get(void* arg)
 {
     va_list* va_ptr = (va_list*)arg;
-    va_ptr->__ap = virt_to_phys(va_ptr->__ap); 
+    va_ptr->__ap = virt_to_phys((void*)va_ptr->__ap); 
     return (void*)virt_to_phys(arg);
 }
 
@@ -133,11 +126,4 @@ void hw_arm_l2_cache_area_clean(void * virt_addr, int32_t size)
 }
 
 
-unsigned long sec_hal_virt_to_icram_phys(unsigned long virt_addr)
-{
-    unsigned long phys_addr;
-    phys_addr = virt_addr - icram_offset;
-    return phys_addr;
-}
-
-/* ******************************** END ********************************** */
+/* ******************************** END ************************************ */

@@ -12,20 +12,23 @@
 # ** Copyright (C) 2012 Renesas Electronics Corp.                              **
 # ** All rights reserved.                                                      **
 # ** ************************************************************************* */
-ifneq ($(KERNELRELEASE),)
 
 NAME                      := sec_hal
-INCLUDES                   = -I$(src) -I$(src)/exports -I$(src)/rt/inc -I$(src)/sdtoc/inc
-
+INCLUDES                   = -I$(src) -I$(src)/exports -I$(src)/rt/inc -I$(src)/toc/inc
 obj-$(CONFIG_ARM_SEC_HAL)  = $(NAME).o
-ccflags-y                 += $(INCLUDES) -DPUBLIC_ENVIRONMENT -DSEC_HAL_TRACE_TO_KERNEL
+ccflags-y                 += $(INCLUDES) -DPUBLIC_ENVIRONMENT
+ifneq ($(CONFIG_ARM_SEC_HAL_TRACE),)
+ccflags-y                 += -DSEC_HAL_TRACE_TO_KERNEL
+endif
 asflags-y                 += $(INCLUDES)
 $(NAME)-y                 := sec_hal_dev.o
-# legacy code ported from previous implementation.
+$(NAME)-$(CONFIG_ARM_SEC_HAL_DRM_WVN) += rt/src/sec_hal_drm.o
+$(NAME)-y                 += rt/src/sec_hal_cmn.o
+#legacy code ported from previous implementation.
 $(NAME)-y                 += rt/src/sec_hal_rt.o
 $(NAME)-y                 += rt/src/sec_msg.o
 $(NAME)-y                 += rt/src/sec_hal_pm.o
-$(NAME)-y                 += rt/src/sec_hal_cmn.o
+$(NAME)-y                 += rt/src/sec_hal_tee.o
 
 ifeq ($(CONFIG_ARM_SEC_HAL_TEST_DISPATCHER),y) # select test dispatcher.
 $(NAME)-y                 += rt/test/src/sec_hal_test_dispatcher.o
@@ -35,22 +38,7 @@ $(NAME)-y                 += rt/src/sec_dispatch.o
 $(NAME)-y                 += rt/src/sec_bridge_tz.o
 endif
 
-ifeq ($(CONFIG_ARM_SEC_HAL_SDTOC),y) # toc read feature
-$(NAME)-y                 += sdtoc/src/sec_hal_sdtoc.o
+ifeq ($(CONFIG_ARM_SEC_HAL_TOC),y) # toc read feature
+$(NAME)-y                 += toc/src/sec_hal_toc.o
 endif
-
-else
-
-KERNELDIR                := /lib/modules/$(shell uname -r)/build
-PWD                      := $(shell pwd)
-
-
-default all modules:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
-
-clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
-
-
-endif
-
+$(NAME)-y                 += toc/src/sec_hal_toc.o

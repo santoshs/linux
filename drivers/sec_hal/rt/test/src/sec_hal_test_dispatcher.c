@@ -13,25 +13,47 @@
 ** All rights reserved.                                                      **
 ** ************************************************************************* */
 
+#define SEC_HAL_TRACE_LOCAL_ENABLE
 
-/* ************************ HEADER (INCLUDE) SECTION *********************** */
 #include "sec_hal_rt.h"
 #include "sec_hal_rt_trace.h"
 #include "sec_hal_rt_cmn.h"
+#include "sec_hal_cmn.h"
 #include "sec_serv_api.h"
+#include "sec_msg.h"
 #include <stdarg.h>
 
-#ifdef __KERNEL__
 #include <linux/string.h>
-#else
-#include <string.h>
-#endif
+#include <linux/slab.h>
 
+#include "tee_defs.h"
+#include "sec_hal_tee.h"
 
 /* ***************** MACROS, CONSTANTS, COMPILATION FLAGS ****************** */
 /* local macros */
 #define DATA_SIZE_MAX 50
 #define PPFLAGS_COUNT 10
+
+#define OEMCrypto_SUCCESS                             0x00000000
+#define OEMCrypto_ERROR_INIT_FAILED                   0x00000001
+#define OEMCrypto_ERROR_TERMINATE_FAILED              0x00000002
+#define OEMCrypto_ERROR_ENTER_SECURE_PLAYBACK_FAILED  0x00000003
+#define OEMCrypto_ERROR_EXIT_SECURE_PLAYBACK_FAILED   0x00000004
+#define OEMCrypto_ERROR_SHORT_BUFFER                  0x00000005
+#define OEMCrypto_ERROR_NO_DEVICE_KEY                 0x00000006
+#define OEMCrypto_ERROR_NO_ASSET_KEY                  0x00000007
+#define OEMCrypto_ERROR_KEYBOX_INVALID                0x00000008
+#define OEMCrypto_ERROR_NO_KEYDATA                    0x00000009
+#define OEMCrypto_ERROR_NO_CW                         0x00000010
+#define OEMCrypto_ERROR_DECRYPT_FAILED                0x00000011
+#define OEMCrypto_ERROR_WRITE_KEYBOX                  0x00000012
+#define OEMCrypto_ERROR_WRAP_KEYBOX                   0x00000013
+#define OEMCrypto_ERROR_BAD_MAGIC                     0x00000014
+#define OEMCrypto_ERROR_BAD_CRC                       0x00000015
+#define OEMCrypto_ERROR_NO_DEVICEID                   0x00000016
+#define OEMCrypto_ERROR_RNG_FAILED                    0x00000017
+#define OEMCrypto_ERROR_RNG_NOT_SUPPORTED             0x00000018
+#define OEMCrypto_ERROR_SETUP                         0x00000019
 
 /* volatile data */
 static uint32_t g_status = SEC_SERV_STATUS_OK;
@@ -60,25 +82,23 @@ static const char k_keyinfo[SEC_HAL_KEY_INFO_SIZE] =
      'I','J','K','L','M','N','O','P',
      'Q','R','S','T','X','Y','0','1',
      '2','3','4','5','6','7','8','9'};
-static const sec_hal_rat_band_t k_rat_band = {0x0f,{0x01,0x02,0x03,0x04,0x05}};
-static const sec_hal_pp_flag_t k_pp_flags[PPFLAGS_COUNT] =
-    {{0x01,0x02},
-     {0x03,0x04},
-     {0x05,0x06},
-     {0x07,0x08},
-     {0x09,0x10},
-     {0x11,0x12},
-     {0x13,0x14},
-     {0x15,0x16},
-     {0x17,0x18},
-     {0x19,0x20}};
 static const uint32_t k_default_timeout_value = 30000;
 static const uint32_t k_objid = 12;
 static const char k_correct_siml_unlock_code[5][17] =
-	{"ONE","TWO","THREE","FOUR","FIVE"};
+    {"ONE","TWO","THREE","FOUR","FIVE"};
+static const uint32_t k_drm_default_session_id = 127;
+static const uint8_t k_drm_device_id[] =
+    {'A','B','C','D','E','F','G','H',
+     'I','J','K','L','M','N','O','P',
+     'Q','R','S','T','X','Y','0','1',
+     '2','3','4','5','6','7','8','9',
+     'A','B','C','D','E','F','G','H',
+     'I','J','K','L','M','N','O','P',
+     'Q','R','S','T','X','Y','0','1',
+     '2','3','4','5','6','7','8','9'};
 
+static const uint32_t k_reset_info[] = {0x1122UL, 0x3344UL, 0x5566UL};
 
-/* ****************************** CODE SECTION ***************************** */
 void test_set_status(uint32_t status)
 {
     g_status = status;
@@ -168,35 +188,6 @@ int test_assert_auth_data(uint8_t* input_buf,
     return ret;
 }
 
-int test_assert_rat_band(sec_hal_rat_band_t* rat_band)
-{
-    int i = 0, ret = 1;
-    ret = (k_rat_band.rats == rat_band->rats);
-    while(i<SEC_HAL_MAX_BANDS && ret)
-    {
-        ret = (k_rat_band.bands[i] == rat_band->bands[i]);
-        i++;
-    }
-    return ret;
-}
-
-int test_assert_pp_flags_count(int count)
-{
-    return (PPFLAGS_COUNT == count);
-}
-
-int test_assert_pp_flags(uint8_t* input_buf)
-{
-    int i = 0, ret = 1;
-    uint8_t* own_buffer = (uint8_t*) k_pp_flags;
-    while(i<(PPFLAGS_COUNT*sizeof(sec_hal_pp_flag_t)) && ret)
-    {
-        ret = (own_buffer[i] == input_buf[i]);
-        i++;
-    }
-    return ret;
-}
-
 int test_assert_exp_time(uint32_t exp_time)
 {
     return (k_default_timeout_value == exp_time);
@@ -231,10 +222,17 @@ int test_assert_memcpy_params(uint32_t param0, uint32_t param1, uint32_t param2)
 static const char* k_callback_hash = "5a36b50698fc9cec36087c93980d6580aa494d1b";
 static int is_callback_req(const char* data, uint32_t* offs)
 {
-	int i = 0, ret = 1, len = strlen(k_callback_hash);
-	while(ret && len > i){ret = (k_callback_hash[i] == data[i]); i++;}
-	if(offs){*offs = (uint32_t)len;}
-	return ret;
+    int i = 0, ret = 1, len = strlen(k_callback_hash);
+
+    while (ret && len > i) {
+        ret = (k_callback_hash[i] == data[i]);
+        i++;
+    }
+    if(offs) {
+        *offs = (uint32_t)len;
+    }
+
+    return ret;
 }
 typedef uint32_t (*callback)(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 typedef struct
@@ -248,8 +246,8 @@ typedef struct
 
 /* ****************************************************************************
 ** ***************************************************************************/
-uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...);
-uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
+uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...);
+uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 {
     uint32_t ret_status = g_disp_status;
     sec_msg_t* sec_msg_out_msg;
@@ -257,7 +255,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
     sec_msg_handle_t out_handle, in_handle;
     va_list list;
 
-    SEC_HAL_TRACE_ENTRY
+    SEC_HAL_TRACE_ENTRY();
     va_start(list,flags);
 
     /*uint32_t spare_param = */ va_arg(list, uint32_t); /* spare not used. */
@@ -270,7 +268,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
     {
         case SEC_SERV_CERTIFICATE_REGISTER:
         {
-            SEC_HAL_TRACE("SEC_SERV_CERTIFICATE_REGISTER")
+            SEC_HAL_TRACE("SEC_SERV_CERTIFICATE_REGISTER");
             /* store cert address */
             sec_msg_param_read32(&in_handle, &g_cert_address);
             /* write status */
@@ -279,7 +277,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_MAC_ADDRESS_REQUEST:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_MAC_ADDRESS_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_MAC_ADDRESS_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -294,7 +292,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_IMEI_REQUEST:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_IMEI_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_IMEI_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -312,7 +310,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             uint8_t buffer[256] = {0};
             uint32_t input_data_size = 0x00;
             uint32_t auth_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_DEVICE_AUTH_DATA_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_DEVICE_AUTH_DATA_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* read input data */
@@ -358,7 +356,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_DEVICE_AUTH_DATA_SIZE_REQUEST:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_DEVICE_AUTH_DATA_SIZE_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_DEVICE_AUTH_DATA_SIZE_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -369,7 +367,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_KEY_INFO_REQUEST:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_KEY_INFO_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_KEY_INFO_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -384,7 +382,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_RANDOM_DATA_REQUEST:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_RANDOM_DATA_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_RANDOM_DATA_REQUEST");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -394,54 +392,10 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
                                 k_auth_data,
                                 (input_data_size<DATA_SIZE_MAX?input_data_size:DATA_SIZE_MAX), 0);
         } break;
-        case SEC_SERV_RAT_BAND_INFO_REQUEST:
+       case SEC_SERV_INTEGRITY_CHECK:
         {
             uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_RAT_BAND_INFO_REQUEST")
-            /* read input data size */
-            sec_msg_param_read32(&in_handle, &input_data_size);
-            /* write status */
-            sec_msg_param_write32(&out_handle,
-                    sizeof(uint32_t)*(1+SEC_HAL_MAX_BANDS) == input_data_size ?
-                            g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-            /* write data */
-            sec_msg_param_write32(&out_handle, k_rat_band.rats, 0);
-            sec_msg_param_write(&out_handle,
-                                k_rat_band.bands,
-                                sizeof(uint32_t)*SEC_HAL_MAX_BANDS, 0);
-        } break;
-        case SEC_SERV_PP_FLAGS_SIZE_REQUEST:
-        {
-            uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_PP_FLAGS_SIZE_REQUEST")
-            /* read input data size */
-            sec_msg_param_read32(&in_handle, &input_data_size);
-            /* write status */
-            sec_msg_param_write32(&out_handle,
-                    sizeof(sec_hal_pp_flag_t) == input_data_size ?
-                            g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-            /* write data */
-            sec_msg_param_write32(&out_handle,
-                    PPFLAGS_COUNT*sizeof(sec_hal_pp_flag_t), 0);
-        } break;
-        case SEC_SERV_PP_FLAGS_REQUEST:
-        {
-            uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_PP_FLAGS_REQUEST")
-            /* read input data size */
-            sec_msg_param_read32(&in_handle, &input_data_size);
-            /* write status */
-            sec_msg_param_write32(&out_handle,
-                    PPFLAGS_COUNT*sizeof(sec_hal_pp_flag_t) == input_data_size ?
-                            g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-            /* write data */
-            sec_msg_param_write(&out_handle, k_pp_flags,
-                    PPFLAGS_COUNT*sizeof(sec_hal_pp_flag_t), 0);
-        } break;
-        case SEC_SERV_INTEGRITY_CHECK:
-        {
-            uint32_t input_data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_INTEGRITY_CHECK")
+            SEC_HAL_TRACE("SEC_SERV_INTEGRITY_CHECK");
             /* read input data size */
             sec_msg_param_read32(&in_handle, &input_data_size);
             /* write status */
@@ -454,7 +408,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         case SEC_SERV_PROT_DATA_REGISTER:
         {
             uint32_t data_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_PROT_DATA_REGISTER")
+            SEC_HAL_TRACE("SEC_SERV_PROT_DATA_REGISTER");
             /* store cert address & data address */
             sec_msg_param_read32(&in_handle, &g_cert_address);
             /* store data address */
@@ -474,7 +428,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             uint32_t status = 0x00;
             uint32_t level_status = 0x00;
             uint32_t param_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CHECK_LOCKS")
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CHECK_LOCKS");
             /* read codes and write status */
             while (index < 5 && SEC_SERV_STATUS_OK == status)
             {
@@ -506,7 +460,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             uint8_t level = 0;
             uint32_t status = 0x00;
             uint32_t param_size = 0x00;
-            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CHECK_ONE_LOCK")
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CHECK_ONE_LOCK");
             /* read level */
             status = sec_msg_param_read8(&in_handle, &level);
             if (level <= 5 && SEC_SERV_STATUS_OK == status)
@@ -528,7 +482,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         } break;
         case SEC_SERV_SIMLOCK_GET_STATE:
         {
-            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_GET_STATE")
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_GET_STATE");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
             /* write simlock level status bitmask */
@@ -536,12 +490,34 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         } break;
         case SEC_SERV_RUNTIME_INIT:
         {
-            SEC_HAL_TRACE("SEC_SERV_RUNTIME_INIT")
-            ret_status = SEC_ROM_RET_OK;
-        } break;
+            SEC_HAL_TRACE("SEC_SERV_RUNTIME_INIT");
+
+            uint32_t st[2] = {0}, commit_id_len = 0, reset_info_len = 0;
+            uint64_t commit_id;
+            commit_id = 0x123456789abcdef;
+
+            SEC_HAL_TRACE("SEC_SERV_RUNTIME_INIT");
+            st[0] = sec_msg_param_read32(&in_handle, &commit_id_len);
+
+            st[1] = sec_msg_param_read32(&in_handle, &reset_info_len);
+
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st[0] &&
+                     SEC_MSG_STATUS_OK == st[1]) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+
+            sec_msg_param_write32(&out_handle,
+                    sizeof(uint64_t), 0);
+
+            sec_msg_param_write(&out_handle, &commit_id, sizeof(uint64_t), 0);
+
+            sec_msg_param_write32(&out_handle, 3*sizeof(uint32_t), 0);
+
+            sec_msg_param_write(&out_handle, k_reset_info, 3*sizeof(uint32_t), 0);
+
+         } break;
         case SEC_SERV_SELFTEST:
         {
-            SEC_HAL_TRACE("SEC_SERV_SELFTEST")
+            SEC_HAL_TRACE("SEC_SERV_SELFTEST");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
             /* write selftest result */
@@ -549,7 +525,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         } break;
         case SEC_SERV_RPC_ADDRESS:
         {
-            SEC_HAL_TRACE("SEC_SERV_RPC_ADDRESS")
+            SEC_HAL_TRACE("SEC_SERV_RPC_ADDRESS");
             /* read input (phys)address */
             sec_msg_param_read32(&in_handle, &g_rpc_handler);
             /* write status */
@@ -559,7 +535,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         } break;
         case SEC_SERV_COMA_ENTRY:
         {
-            SEC_HAL_TRACE("SEC_SERV_COMA_ENTRY")
+            SEC_HAL_TRACE("SEC_SERV_COMA_ENTRY");
             /* read input params */
             sec_msg_param_read32(&in_handle, &g_coma_params[0]);
             sec_msg_param_read32(&in_handle, &g_coma_params[1]);
@@ -570,13 +546,13 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         } break;
         case SEC_SERV_POWER_OFF:
         {
-            SEC_HAL_TRACE("SEC_SERV_POWER_OFF")
+            SEC_HAL_TRACE("SEC_SERV_POWER_OFF");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
         } break;
         case SEC_SERV_MEMCPY_REQUEST:
         {
-            SEC_HAL_TRACE("SEC_SERV_MEMCPY_REQUEST")
+            SEC_HAL_TRACE("SEC_SERV_MEMCPY_REQUEST");
             /* read input params */
             sec_msg_param_read32(&in_handle, &g_memcpy_params[0]);
             sec_msg_param_read32(&in_handle, &g_memcpy_params[1]);
@@ -586,29 +562,594 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         }break;
         case SEC_SERV_COMA_CPU_OFF:
         {
-            SEC_HAL_TRACE("SEC_SERV_COMA_CPU_OFF")
+            SEC_HAL_TRACE("SEC_SERV_COMA_CPU_OFF");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
         }break;
         case SEC_SERV_PUBLIC_CC42_KEY_INIT:
         {
-            SEC_HAL_TRACE("SEC_SERV_PUBLIC_CC42_KEY_INIT")
+            SEC_HAL_TRACE("SEC_SERV_PUBLIC_CC42_KEY_INIT");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
         }break;
         case SEC_SERV_A3SP_STATE_INFO:
         {
-            SEC_HAL_TRACE("SEC_SERV_A3SP_STATE_INFO")
-			sec_msg_param_read32(&in_handle, &g_a3sp_state_info[0]);
-			g_a3sp_state_info[1] = g_a3sp_state_info[0] + 1;
+            SEC_HAL_TRACE("SEC_SERV_A3SP_STATE_INFO");
+            sec_msg_param_read32(&in_handle, &g_a3sp_state_info[0]);
+            g_a3sp_state_info[1] = g_a3sp_state_info[0] + 1;
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
-			/* write 'allowed' */
-			sec_msg_param_write32(&out_handle, g_a3sp_state_info[1], 0);
+            /* write 'allowed' */
+            sec_msg_param_write32(&out_handle, g_a3sp_state_info[1], 0);
         }break;
+        case SEC_SERV_DRM_OEMCRYPTO_SESSION_INIT:
+        {
+            uint32_t pid;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_SESSION_INIT");
+            sec_msg_param_read32(&in_handle, &pid);
+            /* write status */
+            sec_msg_param_write32(&out_handle, g_status, 0);
+            /* write 'session_id' */
+            sec_msg_param_write32(&out_handle, k_drm_default_session_id, 0);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_SESSION_TERMINATE:
+        {
+            uint32_t count, session_id;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_SESSION_TERMINATE");
+            sec_msg_param_read32(&in_handle, &count);
+            sec_msg_param_read32(&in_handle, &session_id);
+            /* write status */
+            sec_msg_param_write32(&out_handle,
+                    ((count == 1) && (session_id == k_drm_default_session_id)) ?
+                    g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_SET_ENTITLEMENT_KEY:
+        {
+            uint32_t session_id, key_len, st;
+            uint8_t key[16] = {0};
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_SET_ENTITLEMENT_KEY");
+            sec_msg_param_read32(&in_handle, &session_id);
+            sec_msg_param_read32(&in_handle, &key_len);
+            st = sec_msg_param_read(&in_handle, &key, key_len);
+            SEC_HAL_TRACE("key[0,1,2,3]: 0x%x,0x%x,0x%x,0x%x", key[0],key[1],key[2],key[3]);
+            /* write status */
+            sec_msg_param_write32(&out_handle,
+                    ((SEC_MSG_STATUS_OK == st) &&
+                     (session_id == k_drm_default_session_id) && (key_len == 16) && 
+                     (key[0] && key[1] && key[2] && key[3])) ?
+                    g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_DERIVE_CONTROL_WORD:
+        {
+            uint32_t session_id, ecm_len, st;
+            uint8_t ecm[32] = {0};
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_DERIVE_CONTROL_WORD");
+            sec_msg_param_read32(&in_handle, &session_id);
+            sec_msg_param_read32(&in_handle, &ecm_len);
+            st = sec_msg_param_read(&in_handle, &ecm, ecm_len);
+            SEC_HAL_TRACE("ecm[0,1,2,3]: 0x%x,0x%x,0x%x,0x%x", ecm[0],ecm[1],ecm[2],ecm[3]);
+           /* write status */
+            sec_msg_param_write32(&out_handle,
+                    ((SEC_MSG_STATUS_OK == st) &&
+                     (session_id == k_drm_default_session_id) && (ecm_len == 32) && 
+                     (ecm[0] && ecm[1] && ecm[2] && ecm[3])) ?
+                    g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+            sec_msg_param_write32(&out_handle, 0x07, 0); /* flags */
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_DECRYPT_VIDEO:
+        {
+            uint32_t session_id, st;
+            uint32_t iv_len = 0, input_len = 0, input_addr = 0, output_hnd = 0, output_offset = 0;
+            uint8_t iv_in[16] = {0};
+            uint8_t iv_out[16] = {0};
+            int index = 16;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_DECRYPT_VIDEO");
+            sec_msg_param_read32(&in_handle, &session_id);
+            sec_msg_param_read32(&in_handle, &iv_len);
+            st = sec_msg_param_read(&in_handle, &iv_in, iv_len);
+            sec_msg_param_read32(&in_handle, &input_len);
+            sec_msg_param_read32(&in_handle, &input_addr);
+            sec_msg_param_read32(&in_handle, &output_hnd);
+            sec_msg_param_read32(&in_handle, &output_offset);
+            SEC_HAL_TRACE("iv_in[0,1,2,3]: 0x%x,0x%x,0x%x,0x%x", iv_in[0],iv_in[1],iv_in[2],iv_in[3]);
+            SEC_HAL_TRACE("[input_addr, output_hnd, output_offset]: 0x%x, 0x%x, 0x%x", input_addr, output_hnd, output_offset);
+           /* write status */
+            sec_msg_param_write32(&out_handle,
+                    ((SEC_MSG_STATUS_OK == st) &&
+                     (session_id == k_drm_default_session_id) &&
+                     (iv_in[0] && iv_in[1] && iv_in[2] && iv_in[3])) &&
+                     (input_len && input_addr && output_hnd) ?
+                    g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+            while(index > 0){ iv_out[index-1] = iv_in[16-index]; index--; }
+            sec_msg_param_write32(&out_handle, 8, 0); /* outsize */
+            sec_msg_param_write(&out_handle, iv_out, 16, 0); /* iv_out */
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_DECRYPT_AUDIO:
+        {
+            uint32_t session_id, st;
+            uint32_t iv_len = 0, input_len = 0, input_addr = 0, output_addr = 0;
+            uint8_t iv_in[16] = {0};
+            uint8_t iv_out[16] = {0};
+            int index = 16;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_DECRYPT_AUDIO");
+            sec_msg_param_read32(&in_handle, &session_id);
+            sec_msg_param_read32(&in_handle, &iv_len);
+            st = sec_msg_param_read(&in_handle, &iv_in, iv_len);
+            sec_msg_param_read32(&in_handle, &input_len);
+            sec_msg_param_read32(&in_handle, &input_addr);
+            sec_msg_param_read32(&in_handle, &output_addr);
+            SEC_HAL_TRACE("iv_in[0,1,2,3]: 0x%x,0x%x,0x%x,0x%x", iv_in[0],iv_in[1],iv_in[2],iv_in[3]);
+            SEC_HAL_TRACE("[input_addr, output_addr]: 0x%x, 0x%x", input_addr, output_addr);
+            /* write status */
+            sec_msg_param_write32(&out_handle,
+                    ((SEC_MSG_STATUS_OK == st) &&
+                     (session_id == k_drm_default_session_id) &&
+                     (iv_in[0] && iv_in[1] && iv_in[2] && iv_in[3])) &&
+                     (input_len && input_addr && output_addr) ?
+                    g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+            while(index > 0){ iv_out[index-1] = iv_in[16-index]; index--; }
+            sec_msg_param_write32(&out_handle, 8, 0); /* outsize */
+            sec_msg_param_write(&out_handle, iv_out, 16, 0); /* iv_out */
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_GET_DEVICE_ID:
+        {
+            uint32_t id_len = 0, st;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_GET_DEVICE_ID");
+            st = sec_msg_param_read32(&in_handle, &id_len);
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st) && id_len ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+            sec_msg_param_write32(&out_handle, 32, 0); /* actual length */
+            sec_msg_param_write(&out_handle, k_drm_device_id, 32, 0);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_GET_KEYDATA:
+        {
+            uint32_t keyd_len = 0, st;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_GET_KEYDATA");
+            st = sec_msg_param_read32(&in_handle, &keyd_len);
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st) && keyd_len ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+            sec_msg_param_write32(&out_handle, 32, 0); /* actual length */
+            sec_msg_param_write(&out_handle, k_drm_device_id, 32, 0);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_WRAP_KEYBOX:
+        {
+            uint32_t kbox_size = 0, trs_key_size = 0, wrap_buffer_size = 0, st[3] = {SEC_MSG_STATUS_OK};
+            void *kbox = 0, *trs_key = 0;
+
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_WRAP_KEYBOX");
+            st[0] = sec_msg_param_read32(&in_handle, &kbox_size);
+            if (kbox_size && (kbox = kmalloc(kbox_size, GFP_KERNEL))) {
+                st[1] = sec_msg_param_read(&in_handle, kbox, kbox_size);
+            }
+            else{
+                st[1] = SEC_MSG_STATUS_PARAM_EMPTY;
+            }
+            st[2] = sec_msg_param_read32(&in_handle, &wrap_buffer_size);
+
+            /* Optional params */
+            sec_msg_param_read32(&in_handle, &trs_key_size);
+            if (trs_key_size && (trs_key = kmalloc(trs_key_size, GFP_KERNEL))) {
+                sec_msg_param_read(&in_handle, trs_key, trs_key_size);
+            }
+
+            sec_msg_param_write32(&out_handle,
+                     (SEC_MSG_STATUS_OK == st[0]) &&
+                     (SEC_MSG_STATUS_OK == st[1]) &&
+                     (SEC_MSG_STATUS_OK == st[2]) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle,
+                     wrap_buffer_size ? OEMCrypto_SUCCESS : OEMCrypto_ERROR_SHORT_BUFFER, 0);
+            sec_msg_param_write32(&out_handle, 32, 0);
+            sec_msg_param_write(&out_handle, k_drm_device_id, 32, 0);
+
+            SEC_HAL_TRACE("st0: 0x%X, st1: 0x%X, st2: 0x%X", st[0], st[1], st[2]);
+            SEC_HAL_TRACE("kbox_size: %d, trs_key_size: %d, wrap_buffer_size: %d",
+                     kbox_size, trs_key_size, wrap_buffer_size);
+            kfree(trs_key);
+            kfree(kbox);
+        }break;
+        case SEC_SERV_DRM_OEMCRYPTO_INSTALL_KEYBOX:
+        {
+            uint32_t kbox_size = 0, st;
+            SEC_HAL_TRACE("SEC_SERV_DRM_OEMCRYPTO_INSTALL_KEYBOX");
+            st = sec_msg_param_read32(&in_handle, &kbox_size);
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st) && kbox_size ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
+        }break;
+        case SEC_SERV_RESERVE_MEDIA_AREA:
+        {
+            uint32_t id = 0xFF, start = 0, end = 0, st[3] = {0};
+            SEC_HAL_TRACE("SEC_SERV_RESERVE_MEDIA_AREA");
+            st[0] = sec_msg_param_read32(&in_handle, &id);
+            st[1] = sec_msg_param_read32(&in_handle, &start);
+            st[2] = sec_msg_param_read32(&in_handle, &end);
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st[0] &&
+                     SEC_MSG_STATUS_OK == st[1] &&
+                     SEC_MSG_STATUS_OK == st[2] &&
+                     start && end) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_FREE_MEDIA_AREA:
+        {
+            uint32_t id = 0xFF, st = 0;
+            SEC_HAL_TRACE("SEC_SERV_FREE_MEDIA_AREA");
+            st = sec_msg_param_read32(&in_handle, &id);
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+
+        case SEC_SERV_TEEC_InitializeContext:
+        {
+            uint32_t st = 0;
+            uint32_t phys_name_ptr;
+            uint32_t name_size;
+            uint32_t phys_context_ptr;
+            uint32_t name_ptr;
+            uint32_t context_ptr;
+            TEEC_Context * context;
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_InitializeContext");
+
+            st = sec_msg_param_read32(&in_handle, &name_size);
+            SEC_HAL_TRACE("name_size 0x%x", name_size);
+
+            st = sec_msg_param_read32(&in_handle, &phys_name_ptr);
+            name_ptr = phys_to_virt(phys_name_ptr);
+            SEC_HAL_TRACE("name %s", (char *)name_ptr);
+
+            st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
+            SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
+            context_ptr = phys_to_virt(phys_context_ptr);
+            SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
+            context=(uint32_t*) context_ptr;
+
+            context->imp.tag = 0x2020;
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+        case SEC_SERV_TEEC_FinalizeContext:
+        {
+            uint32_t st = 0;
+            uint32_t phys_context_ptr;
+            uint32_t context_ptr;
+            uint32_t * context;
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_FinalizeContext");
+
+            st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
+            SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
+            context_ptr = phys_to_virt(phys_context_ptr);
+            SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
+            context=(uint32_t*) context_ptr;
+
+            SEC_HAL_TRACE("*context: 0x%x", *context);
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+        case SEC_SERV_TEEC_OpenSession:
+        {
+            uint32_t st = 0;
+
+        /* 1 ) context */
+        /* 2 ) session */
+        /* 3 ) destination */
+        /* 4 ) connectionMethod */
+        /* 5 ) connectionData (NULL) */
+        /* 6 ) operation (NULL) */
+        /* 7 ) returnOrigin (NULL) */
+            uint32_t phys_context_ptr;
+            uint32_t context_ptr;
+            uint32_t * context;
+
+            uint32_t phys_session_ptr;
+            uint32_t session_ptr;
+            TEEC_Session * session;
+
+            uint32_t phys_destination_ptr;
+            uint32_t destination_ptr;
+            uint32_t * destination;
+
+            uint32_t connection_method;
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_OpenSession");
+
+            st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
+            SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
+            context_ptr = phys_to_virt(phys_context_ptr);
+            SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
+            context=(uint32_t*) context_ptr;
+
+            SEC_HAL_TRACE("*context: 0x%x", *context);
+
+
+            st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
+            SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
+
+            session_ptr = phys_to_virt(phys_session_ptr);
+            SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
+            session=(uint32_t*) session_ptr;
+
+            session->imp.tag = 0x3030;
+
+            st = sec_msg_param_read32(&in_handle, &phys_destination_ptr);
+            SEC_HAL_TRACE("phys_destination_ptr 0x%x", phys_destination_ptr);
+            destination_ptr = phys_to_virt(phys_destination_ptr);
+            SEC_HAL_TRACE("destination_ptr 0x%x", destination_ptr);
+            destination=(uint32_t*) destination_ptr;
+
+
+
+            st = sec_msg_param_read32(&in_handle, &connection_method);
+            SEC_HAL_TRACE("connection_method 0x%x", connection_method);
+
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_TEEC_CloseSession:
+        {
+            uint32_t st = 0;
+            uint32_t phys_session_ptr;
+            uint32_t session_ptr;
+            uint32_t * session;
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_CloseSession");
+
+            st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
+            SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
+            session_ptr = phys_to_virt(phys_session_ptr);
+            SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
+            session=(uint32_t*) session_ptr;
+
+            SEC_HAL_TRACE("*session: 0x%x", *session);
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_TEEC_InvokeCommand:
+        {
+            uint32_t st = 0;
+
+		/* write content to the input msg */
+        /* 1 ) session */
+        /* 2 ) commandID */
+        /* 3 ) operation */
+        /* 4 ) returnOrigin */
+
+            uint32_t phys_session_ptr;
+            uint32_t session_ptr;
+            uint32_t * session;
+
+            uint32_t phys_operation_ptr;
+            uint32_t operation_ptr;
+            TEEC_Operation * operation;
+
+            uint32_t phys_returnOrigin_ptr;
+            uint32_t returnOrigin_ptr;
+            uint32_t * returnOrigin;
+
+            uint32_t commandID;
+
+            uint32_t i;
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_InvokeCommand");
+
+
+            st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
+            SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
+            session_ptr = phys_to_virt(phys_session_ptr);
+            SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
+            session=(uint32_t*) session_ptr;
+            st = sec_msg_param_read32(&in_handle, &commandID);
+            SEC_HAL_TRACE("commandID: 0x%x", commandID);
+
+
+            st = sec_msg_param_read32(&in_handle, &phys_operation_ptr);
+
+            SEC_HAL_TRACE("phys_operation_ptr 0x%x", phys_operation_ptr);
+            if(phys_operation_ptr != 0)
+                {
+                operation_ptr = phys_to_virt(phys_operation_ptr);
+                SEC_HAL_TRACE("operation_ptr 0x%x", operation_ptr);
+                operation=(uint32_t*) operation_ptr;
+
+                for(i=0;i<4;i++)
+                    {
+                    uint32_t param_type;
+                    SEC_HAL_TRACE("i: 0x%x", i);
+
+/*                    param_type = sec_hal_tee_get_param_type(i,operation->paramTypes);*/
+                    param_type = TEEC_PARAM_TYPE_GET(operation->paramTypes, i);
+                    SEC_HAL_TRACE("param_type: 0x%x", param_type);
+
+                    }
+
+                if(commandID==7)
+                    {
+                    /* This command is memcpy from memref1 to memref2*/
+                    TEEC_SharedMemory *inputSM;
+                    TEEC_SharedMemory *outputSM;
+
+                    if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) ==  TEEC_MEMREF_WHOLE &&
+                       TEEC_PARAM_TYPE_GET(operation->paramTypes, 1) ==  TEEC_MEMREF_WHOLE )
+                        {
+                        inputSM = phys_to_virt(operation->params[0].memref.parent);
+                        outputSM = phys_to_virt(operation->params[1].memref.parent);
+                        SEC_HAL_TRACE("outputSM 0x%x",outputSM);
+                        SEC_HAL_TRACE("inputSM 0x%x",inputSM);
+                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt(outputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt(inputSM->buffer));
+
+                        memcpy(phys_to_virt(outputSM->buffer),phys_to_virt(inputSM->buffer),inputSM->size);
+                        }
+                    else if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) == TEEC_MEMREF_PARTIAL_INPUT &&
+                            TEEC_PARAM_TYPE_GET(operation->paramTypes, 1) == TEEC_MEMREF_PARTIAL_OUTPUT )
+                        {
+                        inputSM = phys_to_virt(operation->params[0].memref.parent);
+                        outputSM = phys_to_virt(operation->params[1].memref.parent);
+                        SEC_HAL_TRACE("outputSM 0x%x",outputSM);
+                        SEC_HAL_TRACE("inputSM 0x%x",inputSM);
+                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt(outputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt(inputSM->buffer));
+
+                        memcpy(phys_to_virt(outputSM->buffer) + operation->params[1].memref.offset,
+                        phys_to_virt(inputSM->buffer) + operation->params[0].memref.offset,
+                        inputSM->size);
+                        }
+                    else if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) == TEEC_MEMREF_PARTIAL_INOUT )
+                        {
+                        TEEC_SharedMemory *inoutSM;
+                        inoutSM = phys_to_virt(operation->params[0].memref.parent);
+                        SEC_HAL_TRACE("inoutSM 0x%x",inoutSM);
+                        memcpy(phys_to_virt(inoutSM->buffer),
+                        phys_to_virt(inoutSM->buffer) + (inoutSM->size/2),
+                        (inoutSM->size/2));
+                        }
+                    }
+                if(commandID==8)
+                    {
+                    /* This is add of numbers command */
+                    SEC_HAL_TRACE("operation->params[0].value.a: %d",operation->params[0].value.a);
+                    SEC_HAL_TRACE("operation->params[1].value.a: %d",operation->params[1].value.a);
+                    operation->params[2].value.a = operation->params[0].value.a + operation->params[1].value.a;
+                    SEC_HAL_TRACE("operation->params[2].value.a: %d",operation->params[2].value.a);
+                    }
+                if(commandID==9)
+                    {
+                    /* Get properties test */
+
+                    operation->params[0].value.a = 0x00000000;
+                    operation->params[0].value.b = 0x11111111;
+                    operation->params[1].value.a = 0x22222222;
+                    operation->params[1].value.b = 0x33333333;
+                    operation->params[2].value.a = 0x44444444;
+                    operation->params[2].value.b = 0x55555555;
+                    operation->params[3].value.a = 0x66666666;
+                    operation->params[3].value.b = 0x77777777;
+                    }
+
+                }
+
+            st = sec_msg_param_read32(&in_handle, &phys_returnOrigin_ptr);
+            SEC_HAL_TRACE("phys_returnOrigin_ptr 0x%x", phys_returnOrigin_ptr);
+            if(phys_returnOrigin_ptr != 0)
+                {
+                returnOrigin_ptr = phys_to_virt(phys_returnOrigin_ptr);
+                SEC_HAL_TRACE("returnOrigin_ptr 0x%x", returnOrigin_ptr);
+                returnOrigin=(uint32_t*) returnOrigin_ptr;
+                }
+
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_TEEC_RegisterSharedMemory:
+        {
+            uint32_t st = 0;
+            uint32_t phys_context_ptr;
+            uint32_t context_ptr;
+            uint32_t * context;
+
+            uint32_t phys_shmem_ptr;
+            uint32_t shmem_ptr;
+            TEEC_SharedMemory *shmem;
+
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_RegisterSharedMemory");
+
+            st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
+            SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
+            context_ptr = phys_to_virt(phys_context_ptr);
+            SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
+            context=(uint32_t*) context_ptr;
+
+            SEC_HAL_TRACE("*context: 0x%x", *context);
+
+            st = sec_msg_param_read32(&in_handle, &phys_shmem_ptr);
+            SEC_HAL_TRACE("phys_shmem_ptr 0x%x", phys_shmem_ptr);
+            shmem_ptr = phys_to_virt(phys_shmem_ptr);
+            SEC_HAL_TRACE("shmem_ptr 0x%x", shmem_ptr);
+            shmem=(uint32_t*) shmem_ptr;
+
+            shmem->imp.tag = 0x12345678;
+
+            SEC_HAL_TRACE("shmem->size: 0x%x", shmem->size);
+            SEC_HAL_TRACE("shmem->flags: 0x%x", shmem->flags);
+            SEC_HAL_TRACE("shmem->buffer: 0x%x", shmem->buffer);
+            SEC_HAL_TRACE("shmem->imp: 0x%x", shmem->imp);
+
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+        case SEC_SERV_TEEC_ReleaseSharedMemory:
+        {
+
+            uint32_t st = 0;
+            uint32_t phys_shmem_ptr;
+            uint32_t shmem_ptr;
+            TEEC_SharedMemory *shmem;
+
+
+            SEC_HAL_TRACE("SEC_SERV_TEEC_ReleaseSharedMemory");
+
+            st = sec_msg_param_read32(&in_handle, &phys_shmem_ptr);
+            SEC_HAL_TRACE("phys_shmem_ptr 0x%x", phys_shmem_ptr);
+            shmem_ptr = phys_to_virt(phys_shmem_ptr);
+            SEC_HAL_TRACE("shmem_ptr 0x%x", shmem_ptr);
+            shmem=(uint32_t*) shmem_ptr;
+
+            SEC_HAL_TRACE("shmem->size: 0x%x", shmem->size);
+            SEC_HAL_TRACE("shmem->flags: 0x%x", shmem->flags);
+            SEC_HAL_TRACE("shmem->buffer: 0x%x", shmem->buffer);
+            SEC_HAL_TRACE("shmem->imp: 0x%x", shmem->imp);
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+        case SEC_SERV_RESET_INFO_ADDR_REGISTER:
+        {
+
+            uint32_t st = 0;
+            uint32_t size;
+            uint32_t addr;
+            sec_reset_info * reset_info;
+
+
+            SEC_HAL_TRACE("SEC_SERV_RESET_INFO_ADDR_REGISTER");
+
+            st = sec_msg_param_read32(&in_handle, &size);
+            SEC_HAL_TRACE("size 0x%x", size);
+
+            st = sec_msg_param_read32(&in_handle, &addr);
+            SEC_HAL_TRACE("addr 0x%x", addr);
+
+            reset_info = phys_to_virt(addr);
+            reset_info->hw_reset_type = 0x12341234;
+            reset_info->reason = 0x43214321;
+            reset_info->link_register = 0x98769876;
+
+
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+
+
         default:
         {
-            SEC_HAL_TRACE("SSA_SEC_PUB_DISPATCHER:default")
+            SEC_HAL_TRACE("SSA_SEC_PUB_DISPATCHER:default");
             ret_status = SEC_ROM_RET_NON_SUPPORTED_SERV;
         } break;
     }
@@ -617,7 +1158,7 @@ uint32_t sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
     sec_msg_close(&out_handle);
     va_end(list);
 
-    SEC_HAL_TRACE_EXIT
+    SEC_HAL_TRACE_EXIT();
     return ret_status;
 }
 

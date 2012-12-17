@@ -22,14 +22,8 @@
 #ifndef SEC_MSG_CFILE_
 #define SEC_MSG_CFILE_
 
-#include "sec_serv_api.h"
-#include "sec_hal_rt_cmn.h"
+#include "sec_msg.h"
 
-/* #include <linux/stdlib.h> */
-#include <linux/string.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-/* #include <linustdio.h> */
 #ifdef SECURE_ENVIRONMENT
 
 #include <string.h>
@@ -213,26 +207,20 @@ static sec_msg_status_t _sec_msg_elem_data_write(cb_memcpy f_ptr,
 {
   sec_msg_elem_t *elem = 0;
   void *elem_data = 0;
- uint8_t *ptemp;
- int i;
- 
-printk("sec api sec_msg_elem_data_write in \n");
+
   if (!handle || !handle->msg)
     {
-		printk("  Bad address null pointer \n");
               return SEC_MSG_STATUS_NULL_PTR;
     }
   if ((uint8_t *)handle->msg + handle->offset >=
       (uint8_t *)handle->msg + handle->msg->size)
     {
-        printk("Param out of range \n");
         return SEC_MSG_STATUS_PARAM_OUT_OF_RANGE;
     }
 
   elem = _sec_msg_elem_get(handle);
   if (!elem)
     {
-      printk("No Params \n");
       return SEC_MSG_STATUS_PARAM_NULL;
     }
 
@@ -240,17 +228,12 @@ printk("sec api sec_msg_elem_data_write in \n");
   if ((uint8_t *)elem_data + write_length >
       (uint8_t *)handle->msg + handle->msg->size)
     {
-      printk("param out of range \n");
       return SEC_MSG_STATUS_PARAM_OUT_OF_RANGE;
     }
-
-	/* PM start */
    elem->size = write_length;
    elem->elem_id = param_id;
-   /* iowrite16(write_length,&elem->size); */
-   /* iowrite8(param_id, &elem->elem_id); */
-	/* PM end */
-  switch (write_length)
+
+   switch (write_length)
     {
 #ifdef SECURE_ENVIRONMENT
     case 1:
@@ -267,24 +250,12 @@ printk("sec api sec_msg_elem_data_write in \n");
       break;
 #endif /* SECURE_ENVIRONMENT */
     default:
-     printk("write data to ICRAM  \n");
       (*f_ptr)(elem_data, data, write_length);
       break;
     }
-  /*  printk(" using iowrite32 \n"); */
-   /* iowrite32((*(uint32_t *)data),elem_data); */
-  handle->offset += sizeof(sec_msg_elem_t) + _sec_msg_align(elem->size);
-#if 0
-  ptemp = handle->msg;
-  for ( i = 0; i < handle->offset ; i++)
-  {
-     printk("Read ICRAM  data 0x%x addr 0x%x\n",ioread8(ptemp),ptemp);
-     ptemp++;
-  }
-#endif
-printk(" sec api sec_msg_elem_data_write exit");
 
-  return SEC_MSG_STATUS_OK;
+   handle->offset += sizeof(sec_msg_elem_t) + _sec_msg_align(elem->size);
+   return SEC_MSG_STATUS_OK;
 }
 
 /*!
@@ -395,48 +366,19 @@ sec_msg_t *_sec_msg_alloc(cb_calloc f_ptr,
                          uint8_t msg_version,
                          uint8_t byte_order)
 {
-    
-    printk("_sec_msg_alloc  called \n");
+  uint16_t msg_size = _sec_msg_align(size + sizeof(sec_msg_t));
+  sec_msg_t *msg = (sec_msg_t *)(*f_ptr)(1, msg_size);
 
-    uint16_t msg_size = _sec_msg_align(size + sizeof(sec_msg_t));
-
-    
-
-      sec_msg_t *msg = (sec_msg_t *)(*f_ptr)(1, msg_size);
-
-     if (!msg)
-    {
-         printk(" sec_msg_alloc null \n");
+  if (!msg) {
          return NULL;
-    }
-
- #if 0   
+  }
   msg->byte_order = byte_order;
   msg->version = msg_version;
   msg->object_id = object_id;
   msg->size = msg_size;
-  #else
-  iowrite32(object_id,&msg->object_id);
-  iowrite8(msg_version,&msg->version);
-  iowrite8(byte_order,&msg->byte_order);
-  iowrite16(msg_size,&msg->size);  
-  #endif
 
   handle->msg = msg;
   handle->offset = sizeof(sec_msg_t);
-
- 
-
- #if 0 
-      iowrite32(object_id,msg+0);
-      iowrite8(msg_version,msg+4);
-      iowrite8(byte_order,msg+5);
-      iowrite16(msg_size,msg+6);
-
-	__raw_writel(0x00,(msg+0));
-	__raw_writel(22,(msg+0));
-
-#endif
 
   return msg;
 }
