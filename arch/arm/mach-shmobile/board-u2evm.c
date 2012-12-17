@@ -2529,11 +2529,8 @@ static void irqc_set_chattering(int pin, int timing)
 
 void u2evm_restart(char mode, const char *cmd)
 {
-	u8 reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
-
-	__raw_writel(0, SBAR2);
-	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+	printk(KERN_INFO "%s\n", __func__);
+	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 int sec_rlte_hw_rev;
 
@@ -3458,12 +3455,6 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #ifdef CONFIG_PN544_NFC
 	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
 #endif
-#endif
-
-#ifdef CONFIG_BOARD_VERSION_V041
-/* Tentative workaround to set thermal sensor idle. To be removed when thermal sensor driver is enabled */
-__raw_writel((__raw_readl(__io(0xE61F012C)) | 0x00000300), __io(0xE61F012C)); 
-__raw_writel((__raw_readl(__io(0xE61F022C)) | 0x00000300), __io(0xE61F022C));
 #endif
 }
 

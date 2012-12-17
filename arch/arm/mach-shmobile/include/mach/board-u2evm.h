@@ -81,4 +81,5 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 	extern spinlock_t       sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
 #endif
+extern void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode);
 #endif /* __ASM_ARCH_BOARD_U2EVM_H*/
