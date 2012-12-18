@@ -20,8 +20,6 @@
 #ifndef __RTBOOT_DRV_H__
 #define __RTBOOT_DRV_H__
 
-#define SUPPORT_DRM 0
-
 enum {
 	RT_LVL_1 = 0,
 	RT_LVL_2,

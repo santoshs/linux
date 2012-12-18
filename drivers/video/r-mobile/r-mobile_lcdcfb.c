@@ -46,6 +46,7 @@
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -148,10 +149,14 @@ struct semaphore   sh_mobile_sem_hdmi;
 struct workqueue_struct *sh_mobile_wq;
 #endif
 
-struct workqueue_struct *sh_vsync_wq;
-struct kobject *vsync_kobj;
-struct work_struct vsync_work;
+struct sh_mobile_lcdc_vsync {
+	struct task_struct *vsync_thread;
+	wait_queue_head_t vsync_wait;
+	ktime_t vsync_time;
+	int vsync_flag;
+};
 
+static struct sh_mobile_lcdc_vsync sh_lcd_vsync;
 
 static u32 fb_debug;
 #define DBG_PRINT(FMT, ARGS...)	      \
@@ -163,19 +168,49 @@ static u32 fb_debug;
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
 
-static void vsync_work_func(struct work_struct *work)
+static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y);
+static unsigned long GCD(unsigned long x, unsigned long y);
+static unsigned long LCM(unsigned long x, unsigned long y);
+
+void r_mobile_fb_err_msg(int value, char *func_name)
 {
-	char buf[64];
-	char *envp[2];
 
-	snprintf(buf, sizeof(buf), "VSYNC=%llu",
-		 ktime_to_ns(ktime_get()));
-	envp[0] = buf;
-	envp[1] = NULL;
-
-	kobject_uevent_env(vsync_kobj, KOBJ_CHANGE, envp);
+	switch (value) {
+	case -1:
+		printk(KERN_INFO "FB %s ret = -1 SMAP_LIB_DISPLAY_NG\n",
+		       func_name);
+		break;
+	case -2:
+		printk(KERN_INFO "FB %s ret = -2 SMAP_LIB_DISPLAY_PARAERR\n",
+		       func_name);
+		break;
+	case -3:
+		printk(KERN_INFO "FB %s ret = -3 SMAP_LIB_DISPLAY_SEQERR\n",
+		       func_name);
+		break;
+	default:
+		printk(KERN_INFO "FB %s ret = %d unknown RT-API error\n",
+		       func_name, value);
+		break;
+	}
 
 	return;
+}
+
+static int vsync_recv_thread(void *data)
+{
+	int ret;
+	struct sh_mobile_lcdc_priv *priv = data;
+
+	while (!kthread_should_stop()) {
+		sh_lcd_vsync.vsync_flag = 0;
+		ret = wait_event_interruptible(sh_lcd_vsync.vsync_wait,
+					       sh_lcd_vsync.vsync_flag);
+		if (!ret)
+			sysfs_notify(&priv->dev->kobj, NULL, "vsync");
+	}
+
+	return 0;
 }
 
 static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
@@ -188,7 +223,9 @@ static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
 		& (0x1 << IRQ_BIT_NUM);
 
 	if (intreq_sts) {
-		queue_work(sh_vsync_wq, &vsync_work);
+		sh_lcd_vsync.vsync_time = ktime_get();
+		sh_lcd_vsync.vsync_flag = 1;
+		wake_up_interruptible(&sh_lcd_vsync.vsync_wait);
 
 		__raw_writel(0x1 << IRQ_BIT_NUM,
 			     irqc_baseaddr + IRQC_CPORT0_STS0);
@@ -201,6 +238,15 @@ static irqreturn_t sh_mobile_lcdc_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+static ssize_t sh_fb_vsync_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%llu\n",
+			 ktime_to_ns(sh_lcd_vsync.vsync_time));
+}
+
+static DEVICE_ATTR(vsync, S_IRUGO, sh_fb_vsync_show, NULL);
 
 static int sh_mobile_lcdc_setcolreg(u_int regno,
 				    u_int red, u_int green, u_int blue,
@@ -423,9 +469,8 @@ static void refresh_work(struct work_struct *work)
 		disp_refresh.refresh_mode = RT_DISPLAY_REFRESH_ON;
 		ret = screen_display_set_lcd_refresh(&disp_refresh);
 		if (ret != SMAP_LIB_DISPLAY_OK)
-			printk(KERN_ALERT "display_set_lcd_refresh ON ERR%d\n"
-			       , ret);
-
+			r_mobile_fb_err_msg(ret,
+					    "screen_display_set_lcd_refresh");
 		DBG_PRINT("screen_display_set_lcd_refresh ON\n");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
@@ -494,6 +539,9 @@ int sh_mobile_lcdc_refresh(unsigned short set_state,
 				ret = screen_display_set_lcd_refresh(
 					&disp_refresh);
 				if (ret != SMAP_LIB_DISPLAY_OK) {
+					r_mobile_fb_err_msg(
+						ret,
+						"screen_display_set_lcd_refresh");
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
 					up(&lcd_ext_param[i].sem_lcd);
@@ -551,6 +599,8 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		hdmi_handle = screen_display_new();
 		disp_stop_hdmi.handle = hdmi_handle;
 		ret = screen_display_stop_hdmi(&disp_stop_hdmi);
+		if (ret != SMAP_LIB_DISPLAY_OK)
+			r_mobile_fb_err_msg(ret, "screen_display_stop_hdmi");
 		DBG_PRINT("screen_display_stop_hdmi ret = %d\n", ret);
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
@@ -695,6 +745,9 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 				ret = screen_display_set_lcd_refresh(
 					&disp_refresh);
 				if (ret != SMAP_LIB_DISPLAY_OK) {
+					r_mobile_fb_err_msg(
+						ret,
+						"screen_display_set_lcd_refresh");
 					up(&lcd_ext_param[lcd_num].sem_lcd);
 					disp_delete.handle = screen_handle;
 					screen_display_delete(&disp_delete);
@@ -706,6 +759,8 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 #endif
 		if (var->bits_per_pixel == 16)
 			set_format = RT_DISPLAY_FORMAT_RGB565;
+		else if (var->bits_per_pixel == 24)
+			set_format = RT_DISPLAY_FORMAT_RGB888;
 		else
 			set_format = RT_DISPLAY_FORMAT_ARGB8888;
 
@@ -747,6 +802,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		ret = screen_display_draw(&disp_draw);
 		DBG_PRINT("screen_display_draw return %d\n", ret);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
+			r_mobile_fb_err_msg(ret, "screen_display_draw");
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -777,6 +833,7 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 #endif
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
+			r_mobile_fb_err_msg(ret, "screen_display_draw");
 			up(&lcd_ext_param[lcd_num].sem_lcd);
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -908,6 +965,16 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
+	case 24: /* RGB 888 */
+		var->red.offset    = 0;
+		var->red.length    = 8;
+		var->green.offset  = 8;
+		var->green.length  = 8;
+		var->blue.offset   = 16;
+		var->blue.length   = 8;
+		var->transp.offset = 0;
+		var->transp.length = 0;
+		break;
 	case 32: /* ARGB 8888*/
 		var->red.offset    = 16;
 		var->red.length    = 8;
@@ -923,13 +990,61 @@ static int sh_mobile_fb_check_var(struct fb_var_screeninfo *var,
 
 	}
 	return 0;
+}
 
+static int sh_mobile_fb_set_par(struct fb_info *info)
+{
+	unsigned long ulLCM;
+	int bpp = info->var.bits_per_pixel;
+
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	/* calculate info->fix.smem_len by its maximum size */
+	if (bpp == 24)
+		bpp = 32;
+#endif
+
+	info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
+		* (bpp / 8);
+
+	/* 4kbyte align */
+	ulLCM = LCM(info->fix.line_length, 0x1000);
+	info->fix.smem_len = RoundUpToMultiple(
+			info->fix.line_length*info->var.yres, ulLCM);
+
+	info->var.reserved[0] = info->fix.smem_len;
+	info->fix.smem_len *= 2;
+
+	info->var.yres_virtual = info->fix.smem_len
+		/ info->fix.line_length;
+
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	/* calculate other values again using actual bpp */
+	bpp = info->var.bits_per_pixel;
+	if (bpp == 24) {
+		int smem_len;
+
+		info->fix.line_length = RoundUpToMultiple(
+				info->var.xres * (bpp / 8), 16);
+		smem_len = info->fix.line_length * info->var.yres;
+
+		info->var.reserved[0] = smem_len;
+		smem_len *= 2;
+
+		/* 4kbyte align */
+		smem_len = RoundUpToMultiple(smem_len, 0x1000);
+
+		info->var.yres_virtual = smem_len
+			/ info->fix.line_length;
+	}
+#endif
+	return 0;
 }
 
 static struct fb_ops sh_mobile_lcdc_ops = {
 	.owner          = THIS_MODULE,
 	.fb_setcolreg	= sh_mobile_lcdc_setcolreg,
 	.fb_check_var	= sh_mobile_fb_check_var,
+	.fb_set_par	= sh_mobile_fb_set_par,
 	.fb_read        = fb_sys_read,
 	.fb_write       = fb_sys_write,
 	.fb_fillrect	= sys_fillrect,
@@ -953,7 +1068,16 @@ static int sh_mobile_lcdc_set_bpp(struct fb_var_screeninfo *var, int bpp)
 		var->transp.offset = 0;
 		var->transp.length = 0;
 		break;
-
+	case 24: /* RGB 888 */
+		var->red.offset    = 0;
+		var->red.length    = 8;
+		var->green.offset  = 8;
+		var->green.length  = 8;
+		var->blue.offset   = 16;
+		var->blue.length   = 8;
+		var->transp.offset = 0;
+		var->transp.length = 0;
+		break;
 	case 32: /* ARGB 8888 */
 		var->red.offset = 16;
 		var->red.length = 8;
@@ -1017,7 +1141,8 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 				}
 			}
 #endif
-			if (lcd_ext_param[lcd_num].draw_bpp == 16) {
+			if ((lcd_ext_param[lcd_num].draw_bpp == 16)
+			    || (lcd_ext_param[lcd_num].draw_bpp == 24)) {
 				memset((void *)lcd_ext_param[lcd_num].vir_addr
 				       , 0, lcd_ext_param[lcd_num].mem_size);
 			} else {
@@ -1027,8 +1152,8 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 					(unsigned int *)
 					lcd_ext_param[lcd_num].vir_addr;
 				for (i = 0;
-				    i < lcd_ext_param[lcd_num].mem_size / 4;
-				    i++) {
+				     i < lcd_ext_param[lcd_num].mem_size / 4;
+				     i++) {
 					*cpy_address++ = 0xFF000000;
 				}
 			}
@@ -1199,7 +1324,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int error = 0;
 	int i, j;
-	unsigned long ulLCM;
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 
@@ -1247,8 +1371,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 #if FB_SH_MOBILE_REFRESH
 	sh_mobile_wq = create_singlethread_workqueue("sh_mobile_lcd");
 #endif
-
-	sh_vsync_wq = create_workqueue("sh_vsync_lcd");
 
 	j = 0;
 	for (i = 0; i < ARRAY_SIZE(pdata->ch); i++) {
@@ -1371,19 +1493,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		if (error)
 			break;
 		info->fix = sh_mobile_lcdc_fix;
-		info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
-			* (cfg->bpp / 8);
-
-		/* 4kbyte align */
-		ulLCM = LCM(info->fix.line_length, 0x1000);
-		info->fix.smem_len = RoundUpToMultiple(
-			info->fix.line_length*info->var.yres, ulLCM);
-		info->var.reserved[0] = info->fix.smem_len;
-		info->fix.smem_len *= 2;
-
-		info->var.yres_virtual = info->fix.smem_len
-			/ info->fix.line_length;
-
+		sh_mobile_fb_set_par(info);
 		lcd_ext_param[i].mem_size = info->fix.smem_len;
 
 #ifdef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
@@ -1434,6 +1544,22 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 #endif
 		info->device = &pdev->dev;
 		info->par = &priv->ch[i];
+
+		if ((cfg->bpp == 16) || (cfg->bpp == 24)) {
+			memset((void *)lcd_ext_param[i].vir_addr
+			       , 0, lcd_ext_param[i].mem_size);
+		} else {
+			int size;
+			unsigned int *cpy_address;
+			cpy_address =
+				(unsigned int *)
+				lcd_ext_param[i].vir_addr;
+			for (size = 0;
+			     size < lcd_ext_param[i].mem_size / 4;
+			     size++) {
+				*cpy_address++ = 0xFF000000;
+			}
+		}
 	}
 
 	if (error)
@@ -1476,9 +1602,25 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	lcd_ext_param[0].hdmi_func = r_mobile_hdmi_func();
 	lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
 
-	vsync_kobj = &priv->ch[0].lcdc->dev->kobj;
+	error = device_create_file(priv->ch[0].lcdc->dev, &dev_attr_vsync);
 
-	INIT_WORK(&vsync_work, vsync_work_func);
+	if (error) {
+		printk(KERN_ALERT "device_create_file error\n");
+		goto err1;
+	}
+
+	sh_lcd_vsync.vsync_thread = kthread_run(vsync_recv_thread,
+						priv->ch[0].lcdc,
+						"sh-fb-vsync");
+	if (IS_ERR(sh_lcd_vsync.vsync_thread)) {
+		error = PTR_ERR(sh_lcd_vsync.vsync_thread);
+		printk(KERN_ALERT "kthread_run error\n");
+		goto err1;
+	}
+
+	sh_lcd_vsync.vsync_flag = 0;
+
+	init_waitqueue_head(&sh_lcd_vsync.vsync_wait);
 
 	fb_debug = 0;
 
@@ -1512,8 +1654,6 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 	destroy_workqueue(sh_mobile_wq);
 #endif
 
-	destroy_workqueue(sh_vsync_wq);
-
 	for (i = 0; i < ARRAY_SIZE(priv->ch); i++)
 		if (priv->ch[i].info->dev)
 			unregister_framebuffer(priv->ch[i].info);
@@ -1546,6 +1686,8 @@ static int sh_mobile_lcdc_remove(struct platform_device *pdev)
 		fb_dealloc_cmap(&info->cmap);
 		framebuffer_release(info);
 	}
+
+	kthread_stop(sh_lcd_vsync.vsync_thread);
 
 	if (priv->irq)
 		free_irq(priv->irq, priv);
