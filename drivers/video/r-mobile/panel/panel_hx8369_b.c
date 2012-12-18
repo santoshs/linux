@@ -38,7 +38,6 @@
 #include "panel_hx8369_b.h"
 
 #define HX8369_B_POWAREA_MNG_ENABLE
-#define HX8369_BL_ENABLE
 
 #ifdef HX8369_B_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -790,10 +789,6 @@ static void mipi_display_reset(void)
 	gpio_direction_output(reset_gpio, 1);
 
 	msleep(50);
-#ifdef HX8369_BL_ENABLE
-	gpio_request(47, NULL);
-	gpio_direction_output(47, 1);
-#endif /* HX8369_BL_ENABLE */
 }
 
 
@@ -902,9 +897,6 @@ static int hx8369_b_panel_suspend(void)
 	screen_display_stop_lcd(&disp_stop_lcd);
 
 	/* GPIO control */
-#ifdef HX8369_BL_ENABLE
-	gpio_direction_output(47, 0);
-#endif /* HX8369_BL_ENABLE */
 	gpio_direction_output(reset_gpio, 0);
 	msleep(20);
 #ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK

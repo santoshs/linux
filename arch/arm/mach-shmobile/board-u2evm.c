@@ -111,6 +111,7 @@ static int check_sec_rlte_hw_rev(void);
 #endif
 
 #include <sound/a2220.h>
+#include <linux/leds-ktd253ehd.h>
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)
 static void mpu_power_on(int onoff);
@@ -443,6 +444,17 @@ static struct platform_device lcdc_device = {
 	.dev	= {
 		.platform_data  = &lcdc_info,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+
+static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
+	.gpio_port = GPIO_PORT47,
+};
+
+static struct platform_device led_backlight_device = {
+	.name		= "ktd253ehd_led",
+	.dev	= {
+		.platform_data  = &ktd253ehd_led_info,
 	},
 };
 
@@ -2206,6 +2218,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
@@ -2258,6 +2271,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
@@ -2316,6 +2330,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
     &tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
