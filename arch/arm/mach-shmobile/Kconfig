@@ -285,7 +285,7 @@ config RENESAS_WIFI
 	default n
 	depends on RENESAS
 
-config BOARD_VERSION_V041
+config BOARD_VERSION_V050
 	default y
 	bool "board_revision"
 	help

@@ -46,6 +46,7 @@
 #include <linux/wakelock.h>
 
 #include <sound/soundpath/TP/audio_test_extern.h>
+#include <sound/soundpath/soundpath.h>
 #include "audio_test_wm1811.h"
 #include "audio_test_reg_wm1811.h"
 
@@ -2441,6 +2442,9 @@ static int __init audio_test_init(void)
 	struct device *dev_cre = NULL;
 	struct audio_test_priv *dev_conf = NULL;
 
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return -ENODEV;
+
 	audio_test_log_efunc("");
 
 	/***********************************/
@@ -2596,6 +2600,9 @@ error:
 static void __exit audio_test_exit(void)
 {
 	dev_t dev = MKDEV(audio_test_major, 0);
+
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return;
 
 	audio_test_log_efunc("");
 

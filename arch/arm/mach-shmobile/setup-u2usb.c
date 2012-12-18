@@ -318,10 +318,14 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
+#ifdef CONFIG_MFD_D2153
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
+#else
 #ifdef CONFIG_PMIC_INTERFACE
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
 #else
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
+#endif
 #endif
 	.pin_gpio_1_fn	= GPIO_PORT130,
 	.pin_gpio_1		= GPIO_PORT130,

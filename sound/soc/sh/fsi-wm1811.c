@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
 #include <linux/io.h>
+#include <mach/common.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
@@ -64,6 +65,9 @@ static struct platform_device *fsi_snd_device;
 static int __init fsi_wm1811_init(void)
 {
 	int ret = -ENOMEM;
+
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return -ENODEV;
 
 	g_sndp_codec_info.set_device =	wm1811_set_device;
 	g_sndp_codec_info.get_device =	wm1811_get_device;
@@ -116,6 +120,9 @@ out:
 
 static void __exit fsi_wm1811_exit(void)
 {
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
+		return;
+
 	sndp_exit();
 	platform_device_unregister(fsi_snd_device);
 }
