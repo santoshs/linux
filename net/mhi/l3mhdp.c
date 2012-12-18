@@ -532,6 +532,10 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			skb_pull(newskb, mhdp_header_len + offset);
 
+			newskb->len = length ;
+			skb_set_tail_pointer(newskb, length);
+			newskb->truesize = length + sizeof(struct sk_buff);
+
 			ip_ver = (u8)*newskb->data;
 
 		} else if (has_frag) {
