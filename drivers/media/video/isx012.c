@@ -33,6 +33,23 @@
 
 #include <media/isx012.h>
 
+static ssize_t maincamtype_isx012_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "ISX012";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t maincamfw_isx012_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "ISX012";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(rear_camtype, 0644, maincamtype_isx012_show, NULL);
+static DEVICE_ATTR(rear_camfw, 0644, maincamfw_isx012_show, NULL);
+
 typedef struct stSonyData_t {
 	u16 usRegs;
 	u16 usData;
@@ -647,10 +664,68 @@ static int ISX012_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ISX012_subdev_ops);
 
+	{
+		/* check i2c device */
+		struct i2c_msg msg[2];
+		unsigned char send_buf[2];
+		unsigned char rcv_buf[2];
+
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 2;
+		msg[0].buf = (char *)send_buf;
+		/* ROM Version */
+		send_buf[0] = 0x00;
+		send_buf[1] = 0x00;
+
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags = I2C_M_RD;
+		msg[1].len = 1;
+		msg[1].buf = rcv_buf;
+
+		ret = i2c_transfer(client->adapter, msg, 2);
+		if (0 > ret)
+			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
+		else
+			ret = 0;
+	}
+
 	icd->ops	= &ISX012_ops;
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &ISX012_colour_fmts[0];
+
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
+
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Main camera device !\n");
+
+		sec_main_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "rear");
+		if (IS_ERR(sec_main_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_main_cam_dev)!\n");
+		}
+
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera device file, %s\n",
+				dev_attr_rear_camtype.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera device file, %s\n",
+				dev_attr_rear_camfw.attr.name);
+		}
+	}
 
 	return ret;
 }
