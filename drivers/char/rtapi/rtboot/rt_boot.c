@@ -24,7 +24,7 @@
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
-#if SECURE_BOOT_RT
+#ifdef CONFIG_ARM_SEC_HAL
 #include <sec_hal_cmn.h>
 #endif
 
@@ -53,7 +53,7 @@ static int rtboot_init(void)
 {
 	int ret;
 	unsigned int bootaddr = 0;
-#if SECURE_BOOT_RT
+#ifdef CONFIG_ARM_SEC_HAL
 	uint32_t phys_cert_addr;
 	uint32_t cert_size;
 #endif
@@ -85,7 +85,7 @@ static int rtboot_init(void)
 		return 1;
 	}
 
-#if SECURE_BOOT_RT
+#ifdef CONFIG_ARM_SEC_HAL
 	phys_cert_addr = (PRIMARY_COPY_ADDR + g_rtboot_info.image_size + 0x00001000) & (0xFFFFF000);
 	cert_size = read_rt_cert(phys_cert_addr);
 	if (cert_size == 0) {
@@ -100,7 +100,7 @@ static int rtboot_init(void)
 
 	ret = sec_hal_memcpy((uint32_t)g_rtboot_info.boot_addr, (uint32_t)PRIMARY_COPY_ADDR, (uint32_t)g_rtboot_info.image_size);
 	if (ret == SEC_HAL_CMN_RES_OK) {
-		ret = sec_hal_authenticate(phys_cert_addr, cert_size, NULL );
+		ret = sec_hal_authenticate(phys_cert_addr, cert_size, NULL);
 		if (ret != SEC_HAL_CMN_RES_OK)
 			MSG_ERROR("[RTBOOTK]   |sec_hal_authenticate ret[%d], phys_cert_addr[0x%08x], cert_size[%d]\n",
 				ret, phys_cert_addr, cert_size);

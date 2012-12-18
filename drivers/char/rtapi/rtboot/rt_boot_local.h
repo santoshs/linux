@@ -39,7 +39,6 @@
 #define SCREEN1_STRIDE		(0)
 #define SCREEN1_MODE		(0)
 
-#define SECURE_BOOT_RT		(0)
 #define PRIMARY_COPY_ADDR	(0x46600000)
 
 struct screen_info {

@@ -366,10 +366,14 @@ int rtctl_change_rt_state_standby(void)
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
 				readl(CPGA_MSTPSR0));
 
-//	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
-//		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
-//			readl(CPGA_MSTPSR0));
-//	}
+/* #MU2SYS1539 del -S- */
+/*
+	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
+		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
+			readl(CPGA_MSTPSR0));
+	}
+ */
+/* #MU2SYS1539 del -E- */
 
 	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , CPGA_RMSTPCR2);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__ ,
@@ -381,10 +385,14 @@ int rtctl_change_rt_state_standby(void)
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
 				readl(CPGA_MSTPSR2));
 
-//	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
-//		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
-//			readl(CPGA_MSTPSR2));
-//	}
+/* #MU2SYS1539 del -S- */
+/*
+	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
+		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
+			readl(CPGA_MSTPSR2));
+	}
+ */
+/* #MU2SYS1539 del -E- */
 
 	status_rt_now = RTCTL_STS_STANDBY ;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);

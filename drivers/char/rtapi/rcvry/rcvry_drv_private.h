@@ -21,6 +21,13 @@
 #ifndef __RCVRY_DRV_PRIVATE_H__
 #define __RCVRY_DRV_PRIVATE_H__
 
+/* Resource Release Notify */
+#define	TASK_RCVRY01			(72)
+/* Function ID Base */
+#define	FUNCTIONID_RCVRY01_BASE	((TASK_RCVRY01*256) + 3)
+/* Event ID */
+#define	EVENT_TASK_RESOURCE_RELEASE	(FUNCTIONID_RCVRY01_BASE + 30)
+
 /* Recovery Task01 ID */
 #define	TASK_RCVRY01			(72)
 /* Function ID Base */
@@ -42,6 +49,8 @@
 /* Event ID */
 #define	EVENT_TASK_RCVRY03_ID	(FUNCTIONID_RCVRY03_BASE + 3)
 
+#define	RECOVERY_DRIVER_INFO_MAX	(32)
+
 typedef struct {
 	void	*handle;
 } rcvry_delete;
@@ -50,6 +59,14 @@ typedef struct {
 typedef struct {
 	void	*handle;
 } rcvry_handle;
+
+typedef struct {
+	pid_t				pid;
+	long				standby_counter;
+	unsigned long		killable_flag;
+	struct completion	rcvry_completion;
+	struct file			*rcvry_fp;
+} rcvry_info;
 
 #endif /* __RCVRY_DRV_PRIVATE_H__ */
 

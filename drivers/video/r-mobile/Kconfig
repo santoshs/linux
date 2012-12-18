@@ -44,3 +44,9 @@ config FB_SH_MOBILE_DOUBLE_BUF
         help
           SuperH Mobile LCDC framebuffer support double buffer.
 
+config FB_SH_MOBILE_RGB888
+        bool "SuperH Mobile RGB888 support"
+        depends on FB_SH_MOBILE_LCDC
+        default y
+        help
+          SuperH Mobile LCDC framebuffer support RGB888.
