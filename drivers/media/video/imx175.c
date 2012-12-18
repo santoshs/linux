@@ -308,16 +308,12 @@ static int IMX175_probe(struct i2c_client *client,
 		msg[1].len = 1;
 		msg[1].buf = rcv_buf;
 
-		printk(KERN_ALERT "%s :Slave Address 0x%x\n", __func__, msg[0].addr);
 		ret = i2c_transfer(client->adapter, msg, 2);
 		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n", __func__, ret);
+			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
+		} else {
+			ret = 0;
 		}
-		else
-		{
-			printk(KERN_ALERT "%s :IMX175 OK(%d)\n", __func__, rcv_buf[0]);
-		}
-		ret = 0;
 	}
 
 	return ret;
