@@ -119,10 +119,10 @@ static ssize_t ld_set_manualsw1(struct device *dev,
 {
 	if (0 == strncmp(buf, "switch at", 9)) {
 		dbg("SWITCH FOR ATATATATATATATATATATA\n");
-		switch_set_state(&switch_dock, SWITCH_AT);		
+		switch_set_state(&switch_dock, SWITCH_AT);
   	}
 	if (0 == strncmp(buf, "switch isi", 10))
-		switch_set_state(&switch_dock, SWITCH_ISI);		
+		switch_set_state(&switch_dock, SWITCH_ISI);
 	return count;
 }
 
@@ -138,10 +138,10 @@ static ssize_t ld_set_at_closed(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
 	unsigned int value;
-  
+
 	if (0 == strncmp(buf, "at closed", 9))
-		switch_set_state(&switch_dock, AT_CLOSED);		
-  
+		switch_set_state(&switch_dock, AT_CLOSED);
+
 	return count;
 }
 
@@ -172,7 +172,7 @@ static DEVICE_ATTR(at_closed_ind, S_IRUGO | S_IWUSR,
 
 static DEVICE_ATTR(isi_closed_ind, S_IRUGO | S_IWUSR,
 		ld_show_isi_closed, ld_set_isi_closed);
-		
+
 static struct attribute *ld_attributes[] = {
 	&dev_attr_at_isi_switch.attr,
 	&dev_attr_at_closed_ind.attr,
@@ -233,8 +233,8 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 			}
 			else { /* FALLBACK TRIAL */
 				dbg("ld_pn_handle_tx no room, waiting for \
-				previous to be sent..:\n");				
-				
+				previous to be sent..:\n");
+
 				if (!test_bit(TTY_DO_WRITE_WAKEUP, \
 					 &tty->flags)) {
 					/* wakeup bit is not set, set it */
@@ -312,7 +312,7 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	ptr[3] = 0x9a;
 	ptr[4] = skb->data[10];
 	ptr[5] = skb->data[11];
-
+	PN_PRINTK("ld_pn_net_xmit: send skb to %s", dev->name);
 	if (ld_pn->link_up == true) {
 		skb_queue_tail(&ld_pn->head, skb);
 		return ld_pn_handle_tx(ld_pn);
@@ -471,7 +471,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 		/* Check if extract length is possible */
 		if ((count - ld_pn->n_Data_Processed) > ISI_MSG_HEADER_SIZE) {
 			/* Extract length */
-			/* Move 1 byte since media parameter is not there in 
+			/* Move 1 byte since media parameter is not there in
 			phonethdr structure */
 			ph = (struct phonethdr *) \
 			(cp + ld_pn->n_Data_Processed + sizeof(char));
@@ -490,10 +490,10 @@ static void ld_phonet_ldisc_initiate_transfer \
 			skb_reset_mac_header(skb);
 			ld_pn->skb = skb;
 
-			/* check if we receive complete data in this 
+			/* check if we receive complete data in this
 			usb frame */
 			if (ld_pn->len <= (count - ld_pn->n_Data_Processed)) {
-				/* We received complete data in this usb 
+				/* We received complete data in this usb
 				frame */
 				/* copy the ISI buffer */
 				memcpy(skb_put(skb, ld_pn->len), \
@@ -510,7 +510,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 					if (i%8 == 0)
 						dbg("\n");
 				}
-		
+
 				dbg("Request buffer end\n");
 				dbg("calling netif_rx inside \
 				initiate_transfer ld_pn->len=%d\n", \
@@ -556,9 +556,9 @@ static void ld_phonet_ldisc_initiate_transfer \
 			cp + ld_pn->n_Data_Processed, count - \
 			ld_pn->n_Data_Processed);
 			ld_pn->ld_phonet_state = LD_PHONET_ISI_MSG_NO_LEN;
-			
+
 			ld_pn->len += count - ld_pn->n_Data_Processed;
-			ld_pn->n_Data_Processed += \ 
+			ld_pn->n_Data_Processed += \
 			count - ld_pn->n_Data_Processed;
 
 			return;
@@ -599,6 +599,12 @@ static void ld_phonet_ldisc_receive
 
 		ld_pn->nb_try_to_tx = 0;
 	}
+	PN_PRINTK("ld_phonet_ldisc_receive: receive  %d data", count);
+	for (i = 1; i <= count; i++) {
+		PN_DATA_PRINTK(" %02x", cp[i-1]);
+		if ((i%8) == 0)
+			PN_DATA_PRINTK("\n");
+	}
 
 	spin_lock_irqsave(&ld_pn->lock, flags);
 
@@ -624,13 +630,13 @@ static void ld_phonet_ldisc_receive
 			int first_byte = 0;
 			if (count >= 1) {
 				if (*cp) {
-	                		first_byte = *cp;	
+	                		first_byte = *cp;
 					dbg("case LD_PHONET_NEW_ISI_MSG: \
 					%d\n", *cp);
 				}
 			} else
 				dbg("case LD_PHONET_NEW_ISI_MSG\n");
-		
+
 			if ((count >= 1) && (first_byte != check_at)) {
 				dbg("MATCH FOR change mode %c\n", *cp);
 				ld_pn->ld_phonet_state = LD_PHONET_SWITCH;
@@ -688,7 +694,7 @@ static void ld_phonet_ldisc_receive
 			/*Check if we can extact length */
 			if ((ld_pn->len + count) >= ISI_MSG_HEADER_SIZE) {
 
-				/* Copy remaining header to SKBuff to extract 
+				/* Copy remaining header to SKBuff to extract
 				length */
 				memcpy(skb_put(skb, ISI_MSG_HEADER_SIZE - \
 				ld_pn->len), cp + ld_pn->n_Data_Processed, \
@@ -743,7 +749,7 @@ static void ld_phonet_ldisc_receive
 						if (i%8 == 0)
 							dbg("\n");
 					}
-	
+
 					dbg("Request buffer end\n");
 					dbg("calling netif_rx inside \
 					ldisc_receive second ld_pn->len= \
