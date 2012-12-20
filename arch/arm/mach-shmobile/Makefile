@@ -103,3 +103,12 @@ ifneq ($(CONFIG_MFD_D2153),y)
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 endif
+
+# rcu
+obj-y += setup-u2rcu.o
+# csi2
+obj-y += setup-u2csi2.o
+# ion
+obj-y += setup-u2ion.o
+# camera
+obj-y += setup-u2camera.o
