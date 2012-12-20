@@ -331,6 +331,7 @@ WAKEUP_EXCEPTLOOP:
 	B		WAKEUP_EXCEPTLOOP
 WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 
+	cpsie	f
 	/* Enable the I-Cache and branch prediction */
 	MCR		p15, 0, r0, c7, c5, 0 /* Invalidate I-Cache to PoC */
 	MCR		p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
@@ -789,7 +790,17 @@ ENTRY(restore_arm_register_pa)
 	MCR	p15, 0, r10, c1, c0, 1
 	ISB
 	/* System Control Register(enable MMU, D-Cache)*/
+	BIC r11, r11, #0x2000
 	MCR	p15, 0, r11, c1, c0, 0
+	DSB
+	ISB
+	ORR	r11,#0x2000
+	MCR	p15, 0, r11, c1, c0, 0
+
+	MCR	p15, 0, r0, c8, c7, 0 /* Invalidate entire unified TLB */
+	MCR	p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
+	DSB
+	ISB
 
 	MOV		pc, r1
 
@@ -2419,9 +2430,10 @@ ENTRY(start_wfi2)
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		START_WFI2_XTAL_THOUGH_SET
 
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF *//* test09 PLL OFF -> LEGACY */
 #else
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF *//* test09 PLL OFF -> LEGACY */
+	LDR		r7, =CPG_LPCKCR_LEGACY  /* test09 PLL OFF -> LEGACY */
 #endif
 START_WFI2_XTAL_THOUGH_SET:
 	LDR		r5, =CPG_LPCKCR
@@ -2482,6 +2494,12 @@ ENTRY(disablemmu)
 	BIC		r4, r4, #0x1 /* Clear M bit */
 	ISB
 	MCR	p15, 0, r4, c1, c0, 0 /* Write Control register (Disable MMU)*/
+
+	MCR	p15, 0, r0, c8, c7, 0 /* Invalidate entire unified TLB */
+	MCR	p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
+	DSB
+	ISB
+
 	MOV		pc, r0
 .pool
 ENDPROC(disablemmu)
@@ -2567,7 +2585,7 @@ ENTRY(corestandby_pa)
 	LDR		r7, =CPG_LPCKCR_LEGACY
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF *//* test09 PLL OFF -> LEGACY */
 
 CORESTANDBY_PA_XTAL_THOUGH_SET:
 	LDR		r4, =ram1xtal_thoughPhys

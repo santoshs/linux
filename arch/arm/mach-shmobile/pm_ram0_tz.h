@@ -72,7 +72,7 @@
 /* Save ARM register */
 #define	fsSaveArmRegister	0x140
 /* Restore ARM register PA */
-#define	fsRestoreArmRegisterPA	0x40
+#define	fsRestoreArmRegisterPA	0x60
 /* Restore ARM register VA */
 #define	fsRestoreArmRegisterVA	0x0E0
 /* Save ARM common register */
