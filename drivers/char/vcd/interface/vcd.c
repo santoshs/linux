@@ -39,6 +39,7 @@ void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
 void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
 void (*g_vcd_start_fw)(void);
 void (*g_vcd_stop_fw)(void);
+void (*g_vcd_codec_type_ind)(unsigned int codec_type);
 void (*g_vcd_start_clkgen)(void);
 void (*g_vcd_stop_clkgen)(void);
 void (*g_vcd_wait_path)(void);
@@ -63,6 +64,7 @@ static struct vcd_execute_func vcd_func_table[] = {
 	{ VCD_COMMAND_GET_PLAYBACK_BUFFER,	vcd_get_playback_buffer	},
 	{ VCD_COMMAND_WATCH_FW,			vcd_watch_fw		},
 	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen	},
+	{ VCD_COMMAND_WATCH_CODEC_TYPE,		vcd_watch_codec_type	},
 	{ VCD_COMMAND_WAIT_PATH,		vcd_set_wait_path	},
 	{ VCD_COMMAND_GET_VOIP_UL_BUFFER,	vcd_get_voip_ul_buffer	},
 	{ VCD_COMMAND_GET_VOIP_DL_BUFFER,	vcd_get_voip_dl_buffer	},
@@ -106,6 +108,13 @@ static const struct dev_pm_ops vcd_dev_pm_ops = {
 	.resume			= vcd_resume,
 	.runtime_suspend	= vcd_runtime_suspend,
 	.runtime_resume		= vcd_runtime_resume,
+};
+
+/*
+ * device object
+ */
+static struct platform_device vcd_platform_device = {
+	.name = VCD_DRIVER_NAME,
 };
 
 /*
@@ -238,6 +247,26 @@ void vcd_stop_fw(void)
 
 	g_vcd_complete_buffer = NULL;
 	g_vcd_beginning_buffer = NULL;
+
+	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
+ * @brief	codec type ind notification function.
+ *
+ * @param	codec_type.	VCD_CODEC_WB(0)
+ *				VCD_CODEC_NB(1)
+ *
+ * @retval	none.
+ */
+void vcd_codec_type_ind(unsigned int codec_type)
+{
+	vcd_pr_start_if_user();
+
+	if (NULL != g_vcd_codec_type_ind)
+		g_vcd_codec_type_ind(codec_type);
 
 	vcd_pr_end_if_user();
 	return;
@@ -1150,6 +1179,41 @@ rtn:
 
 
 /**
+ * @brief	watch codec type function.
+ *
+ * @param[in]	arg	pointer of notify info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_watch_codec_type(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_watch_codec_type_info info = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_CODEC_TYPE\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&info, arg, sizeof(info));
+
+	/* register notify function */
+	g_vcd_codec_type_ind = info.codec_type_ind;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
  * @brief	set wait path function.
  *
  * @param[in]	arg	pointer of notify info structure.
@@ -1528,6 +1592,7 @@ static int vcd_debug_execute(unsigned int command)
 	struct vcd_playback_buffer_info playback_buf_info = { {0} };
 	struct vcd_watch_fw_info watch_fw_info = {0};
 	struct vcd_watch_clkgen_info watch_clkgen_info = {0};
+	struct vcd_watch_codec_type_info watch_codec_type_info = {0};
 	unsigned int temp_log_level = VCD_LOG_NONE;
 
 	vcd_pr_start_interface_function("command[%d].\n", command);
@@ -1566,6 +1631,11 @@ static int vcd_debug_execute(unsigned int command)
 		watch_clkgen_info.start_clkgen = vcd_debug_watch_start_clkgen;
 		watch_clkgen_info.stop_clkgen = vcd_debug_watch_stop_clkgen;
 		args.arg = &watch_fw_info;
+		break;
+	case VCD_COMMAND_WATCH_CODEC_TYPE:
+		watch_codec_type_info.codec_type_ind =
+			vcd_debug_watch_codec_type;
+		args.arg = &watch_codec_type_info;
 		break;
 	default:
 		/* check debug commands */
@@ -1773,6 +1843,20 @@ static void vcd_debug_watch_stop_clkgen(void)
 
 
 /**
+ * @brief	codec type notify debug function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_debug_watch_codec_type(unsigned int codec_type)
+{
+	vcd_pr_start_interface_function("codec_type[%d].\n", codec_type);
+	vcd_pr_end_interface_function();
+}
+
+
+/**
  * @brief	create proc entry function.
  *
  * @param	none.
@@ -1888,11 +1972,18 @@ static int vcd_probe(void)
 
 	vcd_pr_start_interface_function();
 
+	/* register device */
+	ret = platform_device_register(&vcd_platform_device);
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_always_err("device registration error.\n");
+		goto rtn;
+	}
+
 	/* register driver */
 	ret = platform_driver_register(&vcd_platform_driver);
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_always_err("driver registration error.\n");
-		goto rtn;
+		goto unreg_device;
 	}
 
 	/* register misc */
@@ -1927,6 +2018,8 @@ unreg_misc:
 	misc_deregister(&vcd_misc_dev);
 unreg_driver:
 	platform_driver_unregister(&vcd_platform_driver);
+unreg_device:
+	platform_device_unregister(&vcd_platform_device);
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);
 	return ret;
@@ -1955,6 +2048,9 @@ static void vcd_remove(void)
 
 	/* unregister driver */
 	platform_driver_unregister(&vcd_platform_driver);
+
+	/* unregister device */
+	platform_device_unregister(&vcd_platform_device);
 
 	vcd_pr_end_interface_function();
 	return;

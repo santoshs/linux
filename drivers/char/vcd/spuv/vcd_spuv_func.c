@@ -43,9 +43,11 @@
 /*
  * global variable declaration
  */
-void  *g_spuv_func_fw_static_buffer;
+void *g_spuv_func_spuv_static_buffer;
+void *g_spuv_func_pcm_static_buffer;
 unsigned int g_spuv_func_sdram_static_area_top_phy;
-unsigned int g_spuv_func_sdram_static_area_top;
+unsigned int g_spuv_func_sdram_static_non_cache_area_top;
+unsigned int g_spuv_func_sdram_static_cache_area_top;
 unsigned int g_spuv_func_hpb_register_top;
 unsigned int g_spuv_func_cpg_register_top;
 unsigned int g_spuv_func_crmu_register_top;
@@ -106,7 +108,14 @@ static DECLARE_WAIT_QUEUE_HEAD(g_vcd_spuv_wait);
 /*
  * static prototype declaration
  */
+static void vcd_spuv_func_initialize(void);
 static void vcd_spuv_func_ipc_semaphore(int effective);
+#ifdef __VCD_SPUV_FW_FROM_SD_ENABLE__
+static int vcd_spuv_func_read_binary(char *read_data, const char *file_name);
+#endif /* __VCD_SPUV_FW_FROM_SD_ENABLE__ */
+static int vcd_spuv_func_fw_analyze(
+		struct vcd_spuv_func_read_fw_info *read_fw_info,
+		char *read_data);
 static int vcd_spuv_func_relocation_fw(
 		struct vcd_spuv_func_read_fw_info *firmware_info);
 static int vcd_spuv_func_get_meram(unsigned int fw_size);
@@ -149,25 +158,6 @@ static unsigned int vcd_spuv_func_get_voip_dl_buffer_id(void);
 /* ========================================================================= */
 
 /**
- * @brief	spuv_func initialize function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-void vcd_spuv_func_initialize(void)
-{
-	vcd_pr_start_spuv_function();
-
-	memset((void *)g_spuv_func_sdram_static_area_top,
-				0, SPUV_FUNC_SDRAM_AREA_SIZE);
-
-	vcd_pr_end_spuv_function();
-	return;
-}
-
-
-/**
  * @brief	cache flush function.
  *
  * @param[in]	start_addr	cache start logical address.
@@ -182,8 +172,9 @@ void vcd_spuv_func_cacheflush(unsigned int start_addr, unsigned int size)
 	vcd_pr_start_spuv_function("start_addr[0x%08x], size[%d].\n",
 		start_addr, size);
 
-	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
-		(start_addr - SPUV_FUNC_SDRAM_AREA_TOP);
+	buf_addr = (SPUV_FUNC_SDRAM_AREA_TOP_PHY +
+		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE) +
+		(start_addr - SPUV_FUNC_SDRAM_CACHE_AREA_TOP);
 
 	dmac_flush_range((void *)start_addr,
 		(void *)(start_addr + size));
@@ -560,102 +551,52 @@ int vcd_spuv_func_check_power_supply(void)
  * @param	none.
  *
  * @retval	VCD_ERR_NONE		successful.
- * @retval	VCD_ERR_FILE_NOT_FOUND	file not found.
  * @retval	VCD_ERR_SYSTEM		system error.
- * @retval	others			result of called function.
  */
 int vcd_spuv_func_set_fw(void)
 {
 	int ret = VCD_ERR_NONE;
-	struct file *filp = NULL;
-	mm_segment_t fs = {0};
-	size_t file_size = 0;
-	size_t read_size = 0;
-	char *read_data = NULL;
-
 	struct vcd_spuv_func_read_fw_info read_fw_info = { {0} };
-	void *page_data_addr = NULL;
-	unsigned int current_offset = 0;
-	unsigned int memory_type = 0;
-	unsigned int page_number = 0;
-	unsigned int global_size = 0;
-	unsigned int page_size = 0;
 
 	vcd_pr_start_spuv_function();
 
-	/* open file */
-	filp = filp_open(VCD_SPUV_FUNC_SPUV_FILENAME,
-			O_RDONLY | O_LARGEFILE, 0);
-	if (IS_ERR(filp)) {
-		vcd_pr_err("filp open error.\n");
-		ret = PTR_ERR(filp);
-		goto rtn;
-	}
-	fs = get_fs();
-	set_fs(get_ds());
-
-	/* get file size */
-	file_size = filp->f_dentry->d_inode->i_size;
-	vcd_pr_spuv_info("file_size[%d].\n", file_size);
-
-	/* set read file buffer */
-	read_data = (char *)g_spuv_func_fw_static_buffer;
-
-	/* initialize buffer */
-	memset(read_data, 0, file_size);
-
-	/* read file */
-	read_size = filp->f_op->read(filp, read_data, file_size, &filp->f_pos);
-	if (file_size != read_size) {
-		vcd_pr_err("read error. (read_size[%d] / file_size[%d]).\n",
-			read_size, file_size);
+	/* read spuv.bin */
+	ret = vcd_spuv_func_read_binary(g_spuv_func_spuv_static_buffer,
+			VCD_SPUV_FUNC_SPUV_FILENAME);
+	if (0 != ret) {
+		vcd_pr_err("read spuv.bin error. ret[%d].\n", ret);
 		ret = VCD_ERR_SYSTEM;
 		goto rtn;
 	}
-	set_fs(fs);
 
-	/* close file */
-	filp_close(filp, NULL);
-
-	/* set firmware to read_fw_info */
-	while (1) {
-		memory_type = *(read_data + current_offset +
-			VCD_SPUV_FUNC_OFFSET_MEMORY_TYPE);
-		page_number = *(read_data + current_offset +
-			VCD_SPUV_FUNC_OFFSET_PAGE_NUM);
-		page_data_addr = (read_data + current_offset +
-			VCD_SPUV_FUNC_OFFSET_PAGE_DATA);
-		page_size = *(unsigned int *)(read_data + current_offset +
-			VCD_SPUV_FUNC_OFFSET_PAGE_SIZE) *
-			VCD_SPUV_FUNC_UNIT_PAGE_SIZE;
-		global_size = (*(read_data + current_offset +
-			VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE) *
-			VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE);
-		if (global_size == 0)
-			global_size = VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW;
-
-		if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_PRAM) {
-			read_fw_info.pram_addr[page_number] = page_data_addr;
-			read_fw_info.pram_page_size[page_number] = page_size;
-			read_fw_info.pram_global_size = global_size;
-		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_XRAM) {
-			read_fw_info.xram_addr[page_number] = page_data_addr;
-			read_fw_info.xram_page_size[page_number] = page_size;
-			read_fw_info.xram_global_size = global_size;
-		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_YRAM) {
-			read_fw_info.yram_addr[page_number] = page_data_addr;
-			read_fw_info.yram_page_size[page_number] = page_size;
-			read_fw_info.yram_global_size = global_size;
-		} else {
-			break;
-		}
-
-		current_offset += page_size + VCD_SPUV_FUNC_OFFSET_PAGE_DATA;
-		if (file_size <= current_offset)
-			break;
+	/* spuv.bin analyze */
+	ret = vcd_spuv_func_fw_analyze(&read_fw_info,
+			g_spuv_func_spuv_static_buffer);
+	if (0 != ret) {
+		vcd_pr_err("spuv.bin analyze error. ret[%d].\n", ret);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
 	}
 
-	/* relocation fw buffer */
+	/* read pcm_proc.bin */
+	ret = vcd_spuv_func_read_binary(g_spuv_func_pcm_static_buffer,
+			VCD_SPUV_FUNC_PCM_FILENAME);
+	if (0 != ret) {
+		vcd_pr_err("read pcm_proc.bin error. ret[%d].\n", ret);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* pcm_proc.bin analyze */
+	ret = vcd_spuv_func_fw_analyze(&read_fw_info,
+			g_spuv_func_pcm_static_buffer);
+	if (0 != ret) {
+		vcd_pr_err("pcm_proc.bin analyze error. ret[%d].\n", ret);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* relocation fw */
 	ret = vcd_spuv_func_relocation_fw(&read_fw_info);
 	if (0 != ret) {
 		vcd_pr_err("copy firmware error. ret[%d].\n", ret);
@@ -669,79 +610,39 @@ rtn:
 }
 #else /* __VCD_SPUV_FW_FROM_SD_ENABLE__ */
 /**
- * @brief	set spuv.bin function.
+ * @brief	set spuv.bin/pcm_proc.bin function.
  *
  * @param	none.
  *
  * @retval	VCD_ERR_NONE		successful.
- * @retval	VCD_ERR_FILE_NOT_FOUND	file not found.
  * @retval	VCD_ERR_SYSTEM		system error.
- * @retval	others			result of called function.
  */
 int vcd_spuv_func_set_fw(void)
 {
 	int ret = VCD_ERR_NONE;
-	char *read_data;
 	struct vcd_spuv_func_read_fw_info read_fw_info = { {0} };
-	void *page_data_addr = NULL;
-	unsigned int current_offset = 0;
-	unsigned int memory_type = 0;
-	unsigned int page_number = 0;
-	unsigned int global_size = 0;
-	unsigned int page_size = 0;
 
 	vcd_pr_start_spuv_function();
 
-	/* set read file buffer */
-	read_data = (char *)g_spuv_func_fw_static_buffer;
-
-	/* set firmware to read_fw_info */
-	while (1) {
-		memory_type = *(read_data + current_offset +
-				VCD_SPUV_FUNC_OFFSET_MEMORY_TYPE);
-		page_number = *(read_data + current_offset +
-				VCD_SPUV_FUNC_OFFSET_PAGE_NUM);
-		page_data_addr = (read_data + current_offset +
-				VCD_SPUV_FUNC_OFFSET_PAGE_DATA);
-		page_size = *(unsigned int *)(read_data + current_offset +
-				VCD_SPUV_FUNC_OFFSET_PAGE_SIZE) *
-				VCD_SPUV_FUNC_UNIT_PAGE_SIZE;
-		global_size = (*(read_data + current_offset +
-				VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE) *
-				VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE);
-		if (global_size == 0)
-			global_size = VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW;
-
-		if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_PRAM) {
-			read_fw_info.pram_addr[page_number] = page_data_addr;
-			read_fw_info.pram_page_size[page_number] = page_size;
-			read_fw_info.pram_global_size = global_size;
-		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_XRAM) {
-			read_fw_info.xram_addr[page_number] = page_data_addr;
-			read_fw_info.xram_page_size[page_number] = page_size;
-			read_fw_info.xram_global_size = global_size;
-		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_YRAM) {
-			read_fw_info.yram_addr[page_number] = page_data_addr;
-			read_fw_info.yram_page_size[page_number] = page_size;
-			read_fw_info.yram_global_size = global_size;
-		}  else if (
-			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_00) ||
-			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_FF)) {
-			/* read complete */
-			break;
-		} else {
-			vcd_pr_err("unknown memory type. memory_type[0x%x].\n",
-				memory_type);
-			ret = VCD_ERR_NOMEMORY;
-			goto rtn;
-		}
-
-		current_offset += page_size + VCD_SPUV_FUNC_OFFSET_PAGE_DATA;
-		if (VCD_SPUV_FUNC_FW_BUFFER_SIZE <= current_offset)
-			break;
+	/* spuv.bin analyze */
+	ret = vcd_spuv_func_fw_analyze(&read_fw_info,
+			(char *)g_spuv_func_spuv_static_buffer);
+	if (0 != ret) {
+		vcd_pr_err("spuv.bin analyze error. ret[%d].\n", ret);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
 	}
 
-	/* relocation fw buffer */
+	/* pcm_proc.bin analyze */
+	ret = vcd_spuv_func_fw_analyze(&read_fw_info,
+			(char *)g_spuv_func_pcm_static_buffer);
+	if (0 != ret) {
+		vcd_pr_err("pcm_proc.bin analyze error. ret[%d].\n", ret);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* relocation fw */
 	ret = vcd_spuv_func_relocation_fw(&read_fw_info);
 	if (0 != ret) {
 		vcd_pr_err("copy firmware error. ret[%d].\n", ret);
@@ -843,10 +744,14 @@ void vcd_spuv_func_send_msg(int *param, int length)
 			(param[i] << VCD_SPUV_FUNC_CPU_TO_DSP_BIT_SHIFT);
 	}
 
+	/* cache flush */
+	vcd_spuv_func_cacheflush((unsigned int)msg_buf_addr,
+					(length * sizeof(int)));
+
 	/* conversion address */
-	msg_buf_physical_addr =
-			vcd_spuv_func_sdram_logical_to_physical(
-				SPUV_FUNC_SDRAM_SPUV_SEND_MSG_BUFFER);
+	vcd_spuv_func_sdram_logical_to_physical(
+				SPUV_FUNC_SDRAM_SPUV_SEND_MSG_BUFFER,
+				msg_buf_physical_addr);
 
 	/* set com2 and com3 */
 	vcd_spuv_func_set_register(((int)msg_buf_physical_addr &
@@ -1066,13 +971,25 @@ int vcd_spuv_func_ioremap(void)
 		g_spuv_func_sdram_static_area_top_phy =
 			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2;
 
-	/* ioremap sdram */
-	g_spuv_func_sdram_static_area_top =
+	/* ioremap sdram (non cache) */
+	g_spuv_func_sdram_static_non_cache_area_top =
 		(unsigned int)ioremap_nocache(
 			SPUV_FUNC_SDRAM_AREA_TOP_PHY,
-			SPUV_FUNC_SDRAM_AREA_SIZE);
-	if (g_spuv_func_sdram_static_area_top == 0) {
-		vcd_pr_err("error ioremap sdram.\n");
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE);
+	if (g_spuv_func_sdram_static_non_cache_area_top == 0) {
+		vcd_pr_err("error ioremap sdram (non cache).\n");
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* ioremap sdram (cache) */
+	g_spuv_func_sdram_static_cache_area_top =
+		(unsigned int)ioremap(
+			(SPUV_FUNC_SDRAM_AREA_TOP_PHY +
+				SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE),
+			SPUV_FUNC_SDRAM_CACHE_AREA_SIZE);
+	if (g_spuv_func_sdram_static_cache_area_top == 0) {
+		vcd_pr_err("error ioremap sdram (cache).\n");
 		ret = VCD_ERR_SYSTEM;
 		goto rtn;
 	}
@@ -1226,10 +1143,16 @@ void vcd_spuv_func_iounmap(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* iounmap sdram */
-	if (0 != g_spuv_func_sdram_static_area_top) {
-		iounmap((void *)g_spuv_func_sdram_static_area_top);
-		g_spuv_func_sdram_static_area_top = 0;
+	/* iounmap sdram (non cache) */
+	if (0 != g_spuv_func_sdram_static_non_cache_area_top) {
+		iounmap((void *)g_spuv_func_sdram_static_non_cache_area_top);
+		g_spuv_func_sdram_static_non_cache_area_top = 0;
+	}
+
+	/* iounmap sdram (cache) */
+	if (0 != g_spuv_func_sdram_static_cache_area_top) {
+		iounmap((void *)g_spuv_func_sdram_static_cache_area_top);
+		g_spuv_func_sdram_static_cache_area_top = 0;
 	}
 
 	/* iounmap hpb */
@@ -1280,25 +1203,25 @@ void vcd_spuv_func_iounmap(void)
 		g_spuv_func_dsp0_register_top = 0;
 	}
 
-	/* ioremap pram0 */
+	/* iounmap pram0 */
 	if (0 != g_spuv_func_pram_base_top) {
 		iounmap((void *)g_spuv_func_pram_base_top);
 		g_spuv_func_pram_base_top = 0;
 	}
 
-	/* ioremap xram0 */
+	/* iounmap xram0 */
 	if (0 != g_spuv_func_xram_base_top) {
 		iounmap((void *)g_spuv_func_xram_base_top);
 		g_spuv_func_xram_base_top = 0;
 	}
 
-	/* ioremap yram0 */
+	/* iounmap yram0 */
 	if (0 != g_spuv_func_yram_base_top) {
 		iounmap((void *)g_spuv_func_yram_base_top);
 		g_spuv_func_yram_base_top = 0;
 	}
 
-	/* ioremap dspioram */
+	/* iounmap dspioram */
 	if (0 != g_spuv_func_dspioram_base_top) {
 		iounmap((void *)g_spuv_func_dspioram_base_top);
 		g_spuv_func_dspioram_base_top = 0;
@@ -1323,24 +1246,57 @@ int vcd_spuv_func_get_fw_buffer(void)
 	vcd_pr_start_spuv_function();
 
 	/* get buffer */
-	g_spuv_func_fw_static_buffer = vmalloc(VCD_SPUV_FUNC_FW_BUFFER_SIZE);
-	if (NULL == g_spuv_func_fw_static_buffer) {
+	g_spuv_func_spuv_static_buffer =
+		vmalloc(VCD_SPUV_FUNC_FW_BUFFER_SIZE*2);
+	if (NULL == g_spuv_func_spuv_static_buffer) {
 		vcd_pr_err("vmalloc error.\n");
-		g_spuv_func_fw_static_buffer = NULL;
+		g_spuv_func_spuv_static_buffer = NULL;
 		ret = -EBUSY;
 		goto rtn;
 	}
+	memset(g_spuv_func_spuv_static_buffer,
+		0, VCD_SPUV_FUNC_FW_BUFFER_SIZE*2);
 
-	memset(g_spuv_func_fw_static_buffer, 0, VCD_SPUV_FUNC_FW_BUFFER_SIZE);
-	memcpy(g_spuv_func_fw_static_buffer,
-		(const void *)SPUV_FUNC_SDRAM_FIRMWARE_READ_BUFFER,
+	/* conservation spuv.bin */
+	memcpy(g_spuv_func_spuv_static_buffer,
+		(const void *)SPUV_FUNC_SDRAM_SPUVBIN_READ_BUFFER,
 		VCD_SPUV_FUNC_FW_BUFFER_SIZE);
-	memset((void *)SPUV_FUNC_SDRAM_FIRMWARE_READ_BUFFER,
-					0, VCD_SPUV_FUNC_FW_BUFFER_SIZE);
+
+	/* conservation pcm_proc.bin */
+	g_spuv_func_pcm_static_buffer =
+		g_spuv_func_spuv_static_buffer + VCD_SPUV_FUNC_FW_BUFFER_SIZE;
+
+	memcpy(g_spuv_func_pcm_static_buffer,
+		(const void *)SPUV_FUNC_SDRAM_PCMBIN_READ_BUFFER,
+		VCD_SPUV_FUNC_FW_BUFFER_SIZE);
+
+	/* static sdram area initialize */
+	vcd_spuv_func_initialize();
 
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
+}
+
+
+/**
+ * @brief	free fw buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_free_fw_buffer(void)
+{
+	vcd_pr_start_spuv_function();
+
+	if (NULL != g_spuv_func_spuv_static_buffer) {
+		/* free buffer */
+		vfree(g_spuv_func_spuv_static_buffer);
+	}
+
+	vcd_pr_end_spuv_function();
+	return;
 }
 
 
@@ -1514,17 +1470,70 @@ static int vcd_spuv_func_get_resample_mode(int in_rate, int out_rate)
 /**
  * @brief	initialize resampler function.
  *
- * @param[in]	alsa ul_rate	UL ALSA sampling rate.
- * @param[in]	alsa dl_rate	DL ALSA sampling rate.
+ * @param[in]	alsa_rate	ALSA sampling rate.
  * @param[in]	spuv_rate	SPUV sampling rate.
  *
  * @retval	ret	initialize resampler return value.
  */
 int vcd_spuv_func_resampler_init(
-	int alsa_ul_rate, int alsa_dl_rate, int spuv_rate)
+	int alsa_rate, int spuv_rate)
 {
 	int ret = 0;
 	int alsa_buf_size = 0;
+	int spuv_buf_size = 0;
+
+	vcd_pr_start_spuv_function(
+		"alsa_rate[%d], spuv_rate[%d].\n",
+		alsa_rate, spuv_rate);
+
+	/* check parameter */
+	if (0 == alsa_rate || 0 == spuv_rate) {
+		vcd_pr_err("parameter error.\n");
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	/* get alsa buffer size */
+	alsa_buf_size = vcd_spuv_func_get_resample_buf_size(alsa_rate);
+
+	/* get spuv buffer size */
+	spuv_buf_size =	vcd_spuv_func_get_resample_buf_size(spuv_rate);
+
+	vcd_pr_spuv_debug(
+		"alsa_buf_size[%d], "
+		"spuv_buf_size[%d].\n",
+		alsa_buf_size,
+		spuv_buf_size);
+
+	/* initialize resampler */
+	ret = sh_resampler_init(
+		(alsa_buf_size/2),
+		(spuv_buf_size/2));
+
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("sh_resampler_init error.\n");
+		ret = VCD_ERR_NOMEMORY;
+	}
+
+rtn:
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set resampler function.
+ *
+ * @param[in]	alsa ul_rate	UL ALSA sampling rate.
+ * @param[in]	alsa dl_rate	DL ALSA sampling rate.
+ * @param[in]	spuv_rate	SPUV sampling rate.
+ *
+ * @retval	ret	set parameter return value.
+ */
+int vcd_spuv_func_resampler_set(
+	int alsa_ul_rate, int alsa_dl_rate, int spuv_rate)
+{
+	int ret = 0;
 
 	vcd_pr_start_spuv_function(
 		"alsa_ul_rate[%d], alsa_dl_rate[%d], spuv_rate[%d].\n",
@@ -1569,24 +1578,6 @@ int vcd_spuv_func_resampler_init(
 		g_spuv_func_alsa_ul_buf_size,
 		g_spuv_func_alsa_dl_buf_size,
 		g_spuv_func_spuv_buf_size);
-
-	/* check large buffer size. */
-	if (g_spuv_func_alsa_ul_buf_size < g_spuv_func_alsa_dl_buf_size)
-		alsa_buf_size = g_spuv_func_alsa_dl_buf_size;
-	else
-		alsa_buf_size = g_spuv_func_alsa_ul_buf_size;
-
-	vcd_pr_spuv_debug("alsa_buf_size[%d].\n", alsa_buf_size);
-
-	/* initialize resampler */
-	ret = sh_resampler_init(
-		(alsa_buf_size/2),
-		(g_spuv_func_spuv_buf_size/2));
-
-	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("sh_resampler_init error.\n");
-		ret = VCD_ERR_NOMEMORY;
-	}
 
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
@@ -1651,34 +1642,15 @@ static int vcd_spuv_func_resampler_resample(
 	vcd_pr_spuv_debug("mode[%d].\n", mode);
 
 	if (mode == VCD_SPUV_FUNC_NO_SRC)
-		res_size = memcpy(out_buf, in_buf, out_buf_size);
+		memcpy((void *)out_buf,
+			(void *)in_buf,
+			out_buf_size);
 	else
 		res_size = sh_resampler_resample(out_buf, (out_buf_size/2),
 			in_buf, (in_buf_size/2), mode);
 
 	vcd_pr_end_spuv_function("res_size[%d].\n", res_size);
 	return res_size;
-}
-
-
-/**
- * @brief	free fw buffer function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-void vcd_spuv_func_free_fw_buffer(void)
-{
-	vcd_pr_start_spuv_function();
-
-	if (NULL != g_spuv_func_fw_static_buffer) {
-		/* free buffer */
-		vfree(g_spuv_func_fw_static_buffer);
-	}
-
-	vcd_pr_end_spuv_function();
-	return;
 }
 
 
@@ -2004,6 +1976,39 @@ static void vcd_spuv_func_mixing
 		rcv_data++;
 		mixing_data++;
 	}
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	for PT playback function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_pt_playback(void)
+{
+	int ret = 0;
+	unsigned int play_buf = SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_0;
+	unsigned int play_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0;
+
+	vcd_pr_start_spuv_function();
+
+	/* check VoIP DL buffer ID */
+	if (1 == vcd_spuv_func_get_plaback_buffer_id()) {
+		play_buf = SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_1;
+		play_tmp_buf = SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1;
+	}
+
+	/* resample */
+	ret = vcd_spuv_func_resampler_resample(
+		(short *)play_tmp_buf, 640, 16000,
+		(short *)play_buf, 1920, 48000);
+
+	vcd_spuv_func_set_plaback_buffer_id();
+
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -3349,8 +3354,8 @@ void vcd_spuv_func_dump_sdram_static_area_memory(void)
 	/* write file */
 	file->f_op->write(
 		file,
-		(char *)g_spuv_func_sdram_static_area_top,
-		SPUV_FUNC_SDRAM_AREA_SIZE,
+		(char *)g_spuv_func_sdram_static_non_cache_area_top,
+		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE,
 		&file->f_pos);
 
 	/* close file */
@@ -3378,7 +3383,7 @@ void vcd_spuv_func_dump_fw_static_buffer_memory(void)
 	vcd_pr_start_spuv_function();
 
 	/* open file */
-	file = filp_open("/mnt/sdcard/fw_static_buffer.bin",
+	file = filp_open("/mnt/sdcard/spuv_static_buffer.bin",
 			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
 	if (NULL == file) {
 		vcd_pr_err("file open error.\n");
@@ -3390,7 +3395,28 @@ void vcd_spuv_func_dump_fw_static_buffer_memory(void)
 	/* write file */
 	file->f_op->write(
 		file,
-		(char *)g_spuv_func_fw_static_buffer,
+		(char *)g_spuv_func_spuv_static_buffer,
+		VCD_SPUV_FUNC_FW_BUFFER_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/pcm_static_buffer.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)g_spuv_func_pcm_static_buffer,
 		VCD_SPUV_FUNC_FW_BUFFER_SIZE,
 		&file->f_pos);
 
@@ -3407,6 +3433,28 @@ rtn:
 /* ========================================================================= */
 /* Internal functions                                                        */
 /* ========================================================================= */
+
+/**
+ * @brief	spuv_func initialize function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_spuv_func_initialize(void)
+{
+	vcd_pr_start_spuv_function();
+
+	memset((void *)g_spuv_func_sdram_static_non_cache_area_top,
+				0, SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE);
+
+	memset((void *)g_spuv_func_sdram_static_cache_area_top,
+				0, SPUV_FUNC_SDRAM_CACHE_AREA_SIZE);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
 
 /**
  * @brief	for IPC semaphore function.
@@ -3448,6 +3496,157 @@ rtn:
 	vcd_pr_end_spuv_function();
 	return;
 }
+
+
+#ifdef __VCD_SPUV_FW_FROM_SD_ENABLE__
+/**
+ * @brief	read binary function.
+ *
+ * @param	none.
+ *
+ * @retval	VCD_ERR_NONE		successful.
+ * @retval	VCD_ERR_FILE_NOT_FOUND	file not found.
+ * @retval	VCD_ERR_SYSTEM		system error.
+ * @retval	others			result of called function.
+ */
+static int vcd_spuv_func_read_binary(char *read_data, const char *file_name)
+{
+	int ret = VCD_ERR_NONE;
+	struct file *filp = NULL;
+	mm_segment_t fs = {0};
+	size_t file_size = 0;
+	size_t read_size = 0;
+
+	vcd_pr_start_spuv_function();
+
+	/* initialize buffer */
+	memset(read_data, 0, VCD_SPUV_FUNC_FW_BUFFER_SIZE);
+
+	/* open file */
+	filp = filp_open(file_name, O_RDONLY | O_LARGEFILE, 0);
+	if (IS_ERR(filp)) {
+		vcd_pr_err("filp open error.\n");
+		ret = PTR_ERR(filp);
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* get file size */
+	file_size = filp->f_dentry->d_inode->i_size;
+	vcd_pr_spuv_info("file_size[%d].\n", file_size);
+
+	/* read file */
+	read_size = filp->f_op->read(filp, read_data, file_size, &filp->f_pos);
+	if (file_size != read_size) {
+		vcd_pr_err("read error. (read_size[%d] / file_size[%d]).\n",
+			read_size, file_size);
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+	set_fs(fs);
+
+	/* close file */
+	filp_close(filp, NULL);
+
+rtn:
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+#endif /* __VCD_SPUV_FW_FROM_SD_ENABLE__ */
+
+
+/**
+ * @brief	analyze binary function.
+ *
+ * @param	none.
+ *
+ * @retval	VCD_ERR_SYSTEM		system error.
+ * @retval	others			result of called function.
+ */
+static int vcd_spuv_func_fw_analyze(
+		struct vcd_spuv_func_read_fw_info *read_fw_info,
+		char *read_data)
+{
+	int ret = VCD_ERR_NONE;
+	void *page_data_addr = NULL;
+	unsigned int current_offset = 0;
+	unsigned int memory_type = 0;
+	unsigned int page_number = 0;
+	unsigned int global_size = 0;
+	unsigned int page_size = 0;
+
+	vcd_pr_start_spuv_function();
+
+	/* set firmware to read_fw_info */
+	while (1) {
+		memory_type = *(read_data + current_offset +
+				VCD_SPUV_FUNC_OFFSET_MEMORY_TYPE);
+		page_number = *(read_data + current_offset +
+				VCD_SPUV_FUNC_OFFSET_PAGE_NUM);
+		page_data_addr = (read_data + current_offset +
+				VCD_SPUV_FUNC_OFFSET_PAGE_DATA);
+		page_size = *(unsigned int *)(read_data + current_offset +
+				VCD_SPUV_FUNC_OFFSET_PAGE_SIZE) *
+				VCD_SPUV_FUNC_UNIT_PAGE_SIZE;
+		global_size = (*(read_data + current_offset +
+				VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE) *
+				VCD_SPUV_FUNC_UNIT_GLOBAL_SIZE);
+		if (global_size == 0)
+			global_size = VCD_SPUV_FUNC_GLOBAL_AREA_SIZE_64KW;
+
+		if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_PRAM) {
+			read_fw_info->pram_addr[page_number] = page_data_addr;
+			read_fw_info->pram_page_size[page_number] = page_size;
+			if ((page_number == 0) &&
+				(read_fw_info->pram_global_size == 0)) {
+				/* set default */
+				read_fw_info->pram_global_size = global_size;
+			} else if (page_number != 0) {
+				read_fw_info->pram_global_size = global_size;
+			}
+		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_XRAM) {
+			read_fw_info->xram_addr[page_number] = page_data_addr;
+			read_fw_info->xram_page_size[page_number] = page_size;
+			if ((page_number == 0) &&
+				(read_fw_info->xram_global_size == 0)) {
+				/* set default */
+				read_fw_info->xram_global_size = global_size;
+			} else if (page_number != 0) {
+				read_fw_info->xram_global_size = global_size;
+			}
+		} else if (memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_YRAM) {
+			read_fw_info->yram_addr[page_number] = page_data_addr;
+			read_fw_info->yram_page_size[page_number] = page_size;
+			if ((page_number == 0) &&
+				(read_fw_info->yram_global_size == 0)) {
+				/* set default */
+				read_fw_info->yram_global_size = global_size;
+			} else if (page_number != 0) {
+				read_fw_info->yram_global_size = global_size;
+			}
+		}  else if (
+			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_00) ||
+			(memory_type == VCD_SPUV_FUNC_MEMORY_TYPE_NONE_FF)) {
+			/* read complete */
+			break;
+		} else {
+			vcd_pr_err("unknown memory type. memory_type[0x%x].\n",
+				memory_type);
+			ret = VCD_ERR_SYSTEM;
+			goto rtn;
+		}
+
+		current_offset += page_size + VCD_SPUV_FUNC_OFFSET_PAGE_DATA;
+		if (VCD_SPUV_FUNC_FW_BUFFER_SIZE <= current_offset)
+			break;
+	}
+
+rtn:
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
 
 /**
  * @brief	relocation fw
@@ -3909,13 +4108,13 @@ static void vcd_spuv_func_calc_ram(
 	for (i = 0; i < page_num; i++) {
 		if (0 != ram_info->reg_addr[i]) {
 			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i])
-				ram_info->reg_addr_physcal[i] =
 				vcd_spuv_func_meram_logical_to_physical(
-				ram_info->reg_addr[i]);
+				ram_info->reg_addr[i],
+				ram_info->reg_addr_physcal[i]);
 			else
-				ram_info->reg_addr_physcal[i] =
 				vcd_spuv_func_sdram_logical_to_physical(
-				ram_info->reg_addr[i]);
+				ram_info->reg_addr[i],
+				ram_info->reg_addr_physcal[i]);
 		}
 	}
 

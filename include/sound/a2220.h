@@ -280,6 +280,9 @@ enum A2220_STATE {
 #define ERROR                   0xffffffff
 
 #ifdef __VCD_ES305B__
+#define A2220_BOARD_REV_OUTSIDE_RANGE_2		2
+#define A2220_BOARD_REV_OUTSIDE_RANGE_3		3
+
 #define A2220_DRIVER_NAME	"a2220"
 #define A2220_LOG_NONE	0x0
 #define A2220_LOG_ERR	0x1

@@ -89,6 +89,8 @@ static void call_incomm_pcm_info_init(
 static int call_vcd_execute(int command, void *arg);
 /* Playback data setting function */
 static void call_playback_data_set(void);
+/* Playback data setting function for Production-test(Loopback) */
+static void call_playback_data_set_for_pt(void);
 /* Capture data reaping function */
 static void call_record_data_set(void);
 

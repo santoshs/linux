@@ -61,10 +61,12 @@ extern int vcd_spuv_stop_call(void);
 extern int vcd_spuv_set_udata(void);
 extern int vcd_spuv_start_record(struct vcd_record_option *option);
 extern int vcd_spuv_stop_record(void);
-extern int vcd_spuv_start_playback(struct vcd_playback_option *option);
+extern int vcd_spuv_start_playback(struct vcd_playback_option *option,
+	unsigned int call_kind);
 extern int vcd_spuv_stop_playback(void);
 extern void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
-extern void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info);
+extern void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
+						unsigned int call_kind);
 extern void vcd_spuv_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
 extern void vcd_spuv_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 extern void vcd_spuv_init_record_buffer_id(void);
@@ -76,6 +78,9 @@ extern void vcd_spuv_voip_ul_playback(unsigned int mode);
 extern void vcd_spuv_voip_dl_playback(unsigned int mode);
 extern void vcd_spuv_update_voip_ul_buffer_id(void);
 extern void vcd_spuv_update_voip_dl_buffer_id(void);
+extern int vcd_spuv_resampler_init(void);
+extern int vcd_spuv_resampler_close(void);
+extern void vcd_spuv_pt_playback(void);
 
 extern int vcd_spuv_start_1khz_tone(void);
 extern int vcd_spuv_stop_1khz_tone(void);
