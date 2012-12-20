@@ -27,23 +27,6 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 
-static ssize_t maincamtype_imx175_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorname = "IMX175";
-	return sprintf(buf, "%s\n", sensorname);
-}
-
-static ssize_t maincamfw_imx175_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorfw = "IMX175";
-	return sprintf(buf, "%s\n", sensorfw);
-}
-
-static DEVICE_ATTR(rear_camtype, 0644, maincamtype_imx175_show, NULL);
-static DEVICE_ATTR(rear_camfw, 0644, maincamfw_imx175_show, NULL);
-
 struct IMX175_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
@@ -335,37 +318,6 @@ static int IMX175_probe(struct i2c_client *client,
 			printk(KERN_ALERT "%s :IMX175 OK(%d)\n", __func__, rcv_buf[0]);
 		}
 		ret = 0;
-	}
-
-	if (cam_class_init == false) {
-		dev_dbg(&client->dev,
-			"Start create class for factory test mode !\n");
-		camera_class = class_create(THIS_MODULE, "camera");
-		cam_class_init = true;
-	}
-
-	if (camera_class) {
-		dev_dbg(&client->dev, "Create Main camera device !\n");
-
-		sec_main_cam_dev = device_create(camera_class,
-						NULL, 0, NULL, "rear");
-		if (IS_ERR(sec_main_cam_dev)) {
-			dev_err(&client->dev,
-				"Failed to create device(sec_main_cam_dev)!\n");
-		}
-
-		if (device_create_file(sec_main_cam_dev,
-					&dev_attr_rear_camtype) < 0) {
-			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
-				dev_attr_rear_camtype.attr.name);
-		}
-		if (device_create_file(sec_main_cam_dev,
-					&dev_attr_rear_camfw) < 0) {
-			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
-				dev_attr_rear_camfw.attr.name);
-		}
 	}
 
 	return ret;
