@@ -2214,7 +2214,6 @@ int pm_setup_clock(void)
 	unsigned int zbckcr = 0;
 	unsigned int cnt_zb = 1000;/*Wait 1ms*/
 
-	spin_lock_irqsave(&freq_change_lock, flags);
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
@@ -2245,7 +2244,6 @@ int pm_setup_clock(void)
 	if (!cnt_zb)
 		pr_err("fail to stop ZB-Phy, ZBCKCR<0x%08x>\n", zbckcr);
 
-	spin_unlock_irqrestore(&freq_change_lock, flags);
 
 	return 0;
 }

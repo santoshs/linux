@@ -56,7 +56,7 @@ static unsigned int min_sampling_rate;
 #ifdef ENABLE_SAMPLING_CHANGE
 static unsigned int dfs_low_flag;
 static unsigned int init_flag;
-static struct mutex sampling_mutex;
+static DEFINE_SPINLOCK(sampling_lock);
 #endif /* ENABLE_SAMPLING_CHANGE */
 
 #define LATENCY_MULTIPLIER			(1000)
@@ -272,14 +272,14 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 #ifdef ENABLE_SAMPLING_CHANGE
-	mutex_lock(&sampling_mutex);
+	spin_lock(&sampling_lock);
 	if (dfs_low_flag != 1)
 		dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
 	else {
-		mutex_unlock(&sampling_mutex);
+		spin_unlock(&sampling_lock);
 		return -EPERM;
 	}
-	mutex_unlock(&sampling_mutex);
+	spin_unlock(&sampling_lock);
 #else /* ENABLE_SAMPLING_CHANGE */
 	dbs_tuners_ins.sampling_rate = max(input, min_sampling_rate);
 #endif /* ENABLE_SAMPLING_CHANGE */
@@ -325,7 +325,7 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 		return -EINVAL;
 
 #ifdef ENABLE_SAMPLING_CHANGE
-	mutex_lock(&sampling_mutex);
+	spin_lock(&sampling_lock);
 	if (dfs_low_flag != 1) {
 		dbs_tuners_ins.sampling_down_factor = input;
 		/* Reset down sampling multiplier in case it was active */
@@ -335,10 +335,10 @@ static ssize_t store_sampling_down_factor(struct kobject *a,
 			dbs_info->rate_mult = 1;
 		}
 	} else {
-		mutex_unlock(&sampling_mutex);
+		spin_unlock(&sampling_lock);
 		return -EPERM;
 	}
-	mutex_unlock(&sampling_mutex);
+	spin_unlock(&sampling_lock);
 #else /* ENABLE_SAMPLING_CHANGE */
 	dbs_tuners_ins.sampling_down_factor = input;
 	/* Reset down sampling multiplier in case it was active */
@@ -435,7 +435,7 @@ int samplrate_downfact_change(unsigned int sampl_rate,
 	if ((down_factor > MAX_SAMPLING_DOWN_FACTOR) || (down_factor < 1))
 		return -EINVAL;
 
-	mutex_lock(&sampling_mutex);
+	spin_lock(&sampling_lock);
 	dbs_tuners_ins.sampling_rate = max(sampl_rate, min_sampling_rate);
 	dfs_low_flag = flag;
 	if (dbs_tuners_ins.sampling_down_factor != down_factor) {
@@ -447,7 +447,7 @@ int samplrate_downfact_change(unsigned int sampl_rate,
 			dbs_info->rate_mult = 1;
 		}
 	}
-	mutex_unlock(&sampling_mutex);
+	spin_unlock(&sampling_lock);
 #endif
 	return 0;
 }
@@ -795,7 +795,6 @@ static int __init cpufreq_gov_dbs_init(void)
 	int cpu = get_cpu();
 
 #ifdef ENABLE_SAMPLING_CHANGE
-	mutex_init(&sampling_mutex);
 	dfs_low_flag = 0;
 	init_flag = 0;
 #endif /* ENABLE_SAMPLING_CHANGE */
