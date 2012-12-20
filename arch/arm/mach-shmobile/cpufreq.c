@@ -279,7 +279,7 @@ static inline void wakeup_nonboot_cpus(void)
 {
 	pr_his_req();
 	if (delayed_work_pending(&hlg_work_plugin))
-		cancel_delayed_work_sync(&hlg_work_plugin);
+		__cancel_delayed_work(&hlg_work_plugin);
 	queue_delayed_work_on(0, dfs_queue, &hlg_work_plugin, 0);
 }
 
@@ -296,7 +296,7 @@ static inline void shutdown_nonboot_cpus(void)
 {
 	pr_his_req();
 	if (delayed_work_pending(&hlg_work_plugout))
-		cancel_delayed_work_sync(&hlg_work_plugout);
+		__cancel_delayed_work(&hlg_work_plugout);
 	queue_delayed_work_on(0, dfs_queue, &hlg_work_plugout, 0);
 }
 
@@ -1400,7 +1400,7 @@ void shmobile_cpufreq_early_suspend(struct early_suspend *h)
 		hlg_config.hlg_enabled = 1;
 		mutex_unlock(&hlg_config.timer_mutex);
 		if (delayed_work_pending(&do_check_cpu_wrk))
-			cancel_delayed_work_sync(&do_check_cpu_wrk);
+			__cancel_delayed_work(&do_check_cpu_wrk);
 		queue_delayed_work_on(0, dfs_queue, &do_check_cpu_wrk,
 			usecs_to_jiffies(hlg_config.sampling_rate));
 #endif /* HOTPLUG_IN_ACTIVE */
@@ -1443,7 +1443,7 @@ void shmobile_cpufreq_late_resume(struct early_suspend *h)
 		mutex_lock(&hlg_config.timer_mutex);
 		/* cancel workqueue from now on */
 		if (delayed_work_pending(&do_check_cpu_wrk))
-			cancel_delayed_work_sync(&do_check_cpu_wrk);
+			__cancel_delayed_work(&do_check_cpu_wrk);
 		/* not allow hotplug now */
 		hlg_config.hlg_enabled = 0;
 
@@ -1578,7 +1578,7 @@ done:
 		goto end;
 	/* Cancel the scheduled work.*/
 	if (delayed_work_pending(&do_check_cpu_wrk))
-		cancel_delayed_work_sync(&do_check_cpu_wrk);
+		__cancel_delayed_work(&do_check_cpu_wrk);
 	/* dynamic frequency scalling governor is used, try to check hotplug
 	 * condition
 	 */

@@ -92,6 +92,7 @@ static int hwsem_trylock(struct hwspinlock *lock)
 		 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
 		 */
 		smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
+		smp_mb();
 		return smsrc == HWSEM_MASTER_ID;
 	} else {
 		printk(">>>>>>%s: Cannot get HW semaphore\n", __func__);
@@ -103,6 +104,7 @@ static void hwsem_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 
+	smp_mb();
 	__raw_writel(0, p->sm_base + SMxxSRC);
 }
 /*
@@ -133,6 +135,12 @@ static int hwsem_ext_trylock(struct hwspinlock *lock)
 	struct hwspinlock_private *p = lock->priv;
 	unsigned long value;
 	int ret = 0;
+
+	/* check to see if software semaphore bit is already set to be done
+	BEFORE getting the HW semaphore */
+	value = __raw_readl(p->ext_base);
+	if (value & 0xff)
+		return 0; /* no need to get HW sem, failure case */
 
 	if (!hwsem_trylock(lock))
 		return 0;

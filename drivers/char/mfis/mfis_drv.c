@@ -61,6 +61,7 @@ static unsigned long early_suspend_phase_flag;
 static unsigned long late_resume_phase_flag;
 static struct semaphore mfis_sem;
 static unsigned long eco_mode_flag;
+static unsigned long sh_early_suspend_finish_flag;
 
 #define CYCLE_STANDBY 1
 #else
@@ -314,6 +315,7 @@ static void mfis_drv_early_suspend(struct early_suspend *h)
 	}
 
 	early_suspend_phase_flag = 0;
+	sh_early_suspend_finish_flag = 1;
 
 	return;
 }
@@ -334,6 +336,7 @@ static void mfis_drv_late_resume(struct early_suspend *h)
 	mfis_resume_noirq(p_tbl->dev);
 
 	late_resume_phase_flag = 0;
+	sh_early_suspend_finish_flag = 0;
 
 	return;
 }
@@ -355,6 +358,7 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	early_suspend_phase_flag = 0;
 	late_resume_phase_flag = 0;
 	eco_mode_flag = 0;
+	sh_early_suspend_finish_flag = 0;
 #endif /* EARLYSUSPEND_STANDBY */
 
 	clk_data = clk_get(NULL, "mp_clk");
@@ -526,7 +530,12 @@ int mfis_drv_resume(void)
 		late_resume_phase_flag = 0;
 	}
 
-	up(&mfis_sem);
+	if ((sh_early_suspend_finish_flag) && (!standby_work_on)) {
+		up(&mfis_sem);
+		mfis_standby_work_entry(1);
+	} else {
+		up(&mfis_sem);
+	}
 
 	return ret;
 }

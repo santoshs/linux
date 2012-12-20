@@ -92,6 +92,11 @@
 #define RCU_IPMMU_IMTTBR	(0x14)
 #define RCU_IPMMU_IMTTBCR	(0x18)
 
+#define RCU_POWAREA_MNG_ENABLE
+
+#ifdef RCU_POWAREA_MNG_ENABLE
+#include <rtapi/system_pwmng.h>
+#endif
 
 /* alignment */
 #define ALIGNxK(size, x)	(((unsigned int)(size) + (x*0x400-1)) \
@@ -1291,11 +1296,31 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 /* Called with .video_lock held */
 static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 {
+#ifdef RCU_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+#endif
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	int ret;
 
 	dev_geo(icd->dev.parent, "%s():\n", __func__);
+
+#ifdef RCU_POWAREA_MNG_ENABLE
+	dev_info(icd->dev.parent, "Start A4LC power area(RCU)\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK)
+		dev_warn(icd->dev.parent, "powarea_start_notify err!\n");
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
 
 	if (pcdev->icd)
 		return -EBUSY;
@@ -1324,6 +1349,13 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 /* Called with .video_lock held */
 static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 {
+#ifdef RCU_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_end_notify;
+	system_pmg_delete pmg_delete;
+	int ret;
+#endif
+
 	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	unsigned long flags;
@@ -1354,6 +1386,24 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		 "SuperH Mobile RCU driver detached from camera %d\n",
 		 icd->devnum);
 
+#ifdef RCU_POWAREA_MNG_ENABLE
+	dev_info(icd->dev.parent, "End A4LC power area(RCU)\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_end_notify.handle		= system_handle;
+	powarea_end_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_end_notify(&powarea_end_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		dev_warn(icd->dev.parent, "powarea_end_notify err!\n");
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+		return;
+	}
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
 	pcdev->icd = NULL;
 }
 
