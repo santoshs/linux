@@ -487,4 +487,10 @@ config LEDS_TRIGGER_SLEEP
 comment "iptables trigger is under Netfilter config (LED target)"
 	depends on LEDS_TRIGGERS
 
+config LEDS_KTD253EHD
+	tristate "LED support for KTD253EHD"
+	depends on LEDS_CLASS && GENERIC_GPIO
+	help
+	  This option enables support for the KTD253EHD.
+
 endif # NEW_LEDS

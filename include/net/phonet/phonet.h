@@ -36,6 +36,7 @@
 struct pn_sock {
 	struct sock	sk;
 	u16		sobject;
+	u16		dobject;
 	u8		resource;
 	u8		resource_type;
 	u8		resource_subtype;
@@ -58,6 +59,11 @@ void phonet_get_local_port_range(int *min, int *max);
 void pn_sock_hash(struct sock *sk);
 void pn_sock_unhash(struct sock *sk);
 int pn_sock_get_port(struct sock *sk, unsigned short sport);
+
+struct sock *pn_find_sock_by_res(struct net *net, u8 res);
+int pn_sock_bind_res(struct sock *sock, u8 res);
+int pn_sock_unbind_res(struct sock *sk, u8 res);
+void pn_sock_unbind_all_res(struct sock *sk);
 
 int pn_skb_send(struct sock *sk, struct sk_buff *skb,
 		const struct sockaddr_pn *target);
@@ -107,12 +113,35 @@ struct phonet_protocol {
 	int			sock_type;
 };
 
-int phonet_proto_register(int protocol, struct phonet_protocol *pp);
-void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
+int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
+void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
 
 int phonet_sysctl_init(void);
 void phonet_sysctl_exit(void);
 int isi_register(void);
 void isi_unregister(void);
+
+#ifdef CONFIG_PHONET_DEBUG
+#define ACTIVATE_PHONET_DEBUG
+#else
+#undef ACTIVATE_PHONET_DEBUG
+#endif
+
+#ifdef ACTIVATE_PHONET_DEBUG
+typedef enum {
+	OFF = 0,
+	ON,
+	DATA,
+} phonet_debug_state ;
+extern phonet_debug_state phonet_dbg_state;
+
+# define PN_PRINTK(...)    if (OFF != phonet_dbg_state) \
+				printk(KERN_DEBUG "PHONET: " __VA_ARGS__)
+# define PN_DATA_PRINTK(...)    if (DATA == phonet_dbg_state) \
+				  printk(__VA_ARGS__)
+#else
+# define PN_PRINTK(...)
+# define PN_DATA_PRINTK(...)
+#endif
 
 #endif

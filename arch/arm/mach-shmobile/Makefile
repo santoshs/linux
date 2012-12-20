@@ -57,7 +57,7 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
-obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
+# obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
 ifeq ($(CONFIG_MFD_D2153),y)
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm-d2153.o
 else
@@ -103,3 +103,6 @@ ifneq ($(CONFIG_MFD_D2153),y)
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 endif
+# WiFi objects
+obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
+>>>>>>> EOS2_CSW_RLTE_12W50D1_V1.2_SD12112136895_WIFI0.4.X

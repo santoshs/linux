@@ -27,6 +27,23 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/sh_mobile_csi2.h>
 
+static ssize_t subcamtype_DB8131_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "DB8131";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t subcamfw_DB8131_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "DB8131";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_DB8131_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_DB8131_show, NULL);
+
 struct DB8131_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
@@ -49,6 +66,64 @@ static const struct DB8131_datafmt DB8131_colour_fmts[] = {
 	{V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
 };
+
+static inline int db8131_read(struct i2c_client *client, unsigned char subaddr,
+	unsigned short *data)
+{
+	unsigned char buf[2];
+	int err = 0;
+	struct i2c_msg msg = { client->addr, 0, 1, buf };
+
+	buf[0] = subaddr;
+
+	err = i2c_transfer(client->adapter, &msg, 1);
+	if (unlikely(err < 0))
+		dev_err("%s: %d register read fail\n", __func__, __LINE__);
+
+	msg.flags = I2C_M_RD;
+	msg.len = 2;
+
+	err = i2c_transfer(client->adapter, &msg, 1);
+	if (unlikely(err < 0))
+		dev_err("%s: %d register read fail\n", __func__, __LINE__);
+
+	*data = ((buf[0] << 8) | buf[1]);
+
+	return err;
+}
+
+static inline int db8131_write(struct i2c_client *client, unsigned short packet)
+{
+	unsigned char buf[2];
+
+	int err = 0;
+	int retry_count = 5;
+
+	struct i2c_msg msg = { .addr = client->addr, .flags = 0, .buf = buf,
+		.len = 2, };
+
+	if (!client->adapter) {
+		dev_err(&client->dev, "%s: can't search i2c client adapter\n",
+			__func__);
+		return -EIO;
+	}
+
+	while (retry_count--) {
+		*(unsigned long *) buf = cpu_to_be16(packet);
+		err = i2c_transfer(client->adapter, &msg, 1);
+		if (likely(err == 1))
+			break;
+		mdelay(10);
+	}
+
+	if (unlikely(err < 0)) {
+		dev_err(&client->dev, "%s: 0x%08x write failed err = %d\n",
+			__func__, (unsigned int) packet, err);
+		return err;
+	}
+
+	return (err != 1) ? -1 : 0;
+}
 
 static struct DB8131 *to_DB8131(const struct i2c_client *client)
 {
@@ -278,36 +353,48 @@ static int DB8131_probe(struct i2c_client *client,
 
 	{
 		/* check i2c device */
-		struct i2c_msg msg[2];
-		unsigned char send_buf[2];
 		unsigned char rcv_buf[2];
 
-		msg[0].addr = client->addr;
-		msg[0].flags = client->flags & I2C_M_TEN;
-		msg[0].len = 2;
-		msg[0].buf = (char *)send_buf;
-		send_buf[0] = 0xFF;     /* device id = 0x6100 */
-		send_buf[1] = 0xD0;
+		db8131_write(client, 0xFFD0);
+		ret = db8131_read(client, 0x00, (unsigned short *) rcv_buf);
 
-		msg[1].addr = client->addr;
-		msg[1].flags = client->flags & I2C_M_TEN;
-		msg[1].flags = I2C_M_RD;
-		msg[1].len = 2;
-		msg[1].buf = rcv_buf;
-
-		printk(KERN_ALERT "%s :Slave Address 0x%x\n",
-					__func__, msg[0].addr);
-		ret = i2c_transfer(client->adapter, msg, 2);
 		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n",
-					__func__, ret);
+			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
 		} else {
-			printk(KERN_ALERT "%s :DB8131M OK(%02x, %02x)\n",
-					__func__, rcv_buf[0], rcv_buf[1]);
+			ret = 0;
 		}
-		ret = 0;
 	}
 
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
+
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Sub camera device !\n");
+
+		sec_sub_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "front");
+		if (IS_ERR(sec_sub_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_sub_cam_dev)!\n");
+		}
+
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+		}
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camfw.attr.name);
+		}
+	}
 
 	return ret;
 }
