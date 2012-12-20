@@ -105,4 +105,3 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 endif
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
->>>>>>> EOS2_CSW_RLTE_12W50D1_V1.2_SD12112136895_WIFI0.4.X
