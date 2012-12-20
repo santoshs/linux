@@ -99,6 +99,7 @@ smeco-objs += ./test/smc_test.o
 smeco-objs += ./test/smc_test_fifo.o
 smeco-objs += ./test/smc_test_mdb.o
 smeco-objs += ./test/smc_test_messaging.o
+smeco-objs += ./test/smc_test_dma.o
 endif
 
   # Build the test module if selected

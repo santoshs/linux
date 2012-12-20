@@ -45,17 +45,20 @@ Description :  File created
 /*#define SMC_TRACE_DEBUG_ENABLED*/
 /*#define SMC_TRACE_INFO_ENABLED*/
 
+
 /* -----------------------------------
  * Module specific traces.
  * These flags can be enabled also in the smc_trace_platform.h file
  */
 
 /*
+#define SMC_TRACE_INFO_DATA_ENABLED
 #define SMC_TRACE_FIFO_ENABLED
 #define SMC_TRACE_FIFO_GET_ENABLED
 #define SMC_TRACE_FIFO_PUT_ENABLED
 #define SMC_TRACE_MDB_ENABLED
 #define SMC_TRACE_SIGNALS_ENABLED
+#define SMC_TRACE_SIGNAL_RAISE_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
 #define SMC_TRACE_EVENT_SEND_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
@@ -73,12 +76,19 @@ Description :  File created
 #define SMC_TRACE_LOOPBACK_DATA_ENABLED
 #define SMC_TRACE_HISTORY_ENABLED
 #define SMC_TRACE_FIFO_BUFFER_ENABLED
+#define SMC_TRACE_DMA_ENABLED
 */
 
 
 /**
  * ----------- R&D Trace macros begin ---------------
  */
+
+#ifdef SMC_TRACE_DMA_ENABLED
+  #define SMC_TRACE_PRINTF_DMA(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"DMA: " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_DMA(...)
+#endif
 
 #ifdef SMC_TRACE_LOOPBACK_ENABLED
   #define SMC_TRACE_PRINTF_LOOPBACK(...)               SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"LOOPBACK: " __VA_ARGS__)
@@ -157,9 +167,11 @@ Description :  File created
 
 #ifdef SMC_TRACE_LOCK_ENABLED
   #define SMC_TRACE_PRINTF_LOCK(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"LOCK: " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_LOCK_MUTEX(...)           SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"LOCK: " __VA_ARGS__ )
   #define SMC_TRACE_PRINTF_LOCK_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
 #else
   #define SMC_TRACE_PRINTF_LOCK(...)
+  #define SMC_TRACE_PRINTF_LOCK_MUTEX(...)
   #define SMC_TRACE_PRINTF_LOCK_DATA( length, data )
 #endif
 
@@ -180,11 +192,19 @@ Description :  File created
 #endif
 
 #ifdef SMC_TRACE_SIGNAL_RECEIVE_ENABLED
-  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SIGRC:" __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SIGRCV:" __VA_ARGS__ )
   #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
 #else
   #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE(...)
   #define SMC_TRACE_PRINTF_SIGNAL_RECEIVE_DATA( length, data )
+#endif
+
+#ifdef SMC_TRACE_SIGNAL_RAISE_ENABLED
+  #define SMC_TRACE_PRINTF_SIGNAL_RAISE(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SIGRSE:" __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_SIGNAL_RAISE_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_SIGNAL_RAISE(...)
+  #define SMC_TRACE_PRINTF_SIGNAL_RAISE_DATA( length, data )
 #endif
 
 #ifdef SMC_TRACE_TRANSMIT_ENABLED
@@ -286,7 +306,12 @@ Description :  File created
 
 #ifdef SMC_TRACE_INFO_ENABLED
   #define SMC_TRACE_PRINTF_INFO(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"INFO: " __VA_ARGS__ )
-  #define SMC_TRACE_PRINTF_INFO_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+
+  #ifdef SMC_TRACE_INFO_DATA_ENABLED
+    #define SMC_TRACE_PRINTF_INFO_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+  #else
+    #define SMC_TRACE_PRINTF_INFO_DATA( length, data )
+  #endif
 #else
   #define SMC_TRACE_PRINTF_INFO(...)
   #define SMC_TRACE_PRINTF_INFO_DATA( length, data )

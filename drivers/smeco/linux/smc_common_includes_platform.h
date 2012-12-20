@@ -41,6 +41,7 @@ Description :  File created
 #include <linux/device.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/highmem.h>
 
   /* Linux kernel specific definitions */
 #define TRUE                   -1

@@ -391,9 +391,14 @@ static int smc_control_modify_send_data( struct sk_buff *skb, smc_user_data_t* s
 
 static void smc_control_layer_device_driver_setup(struct net_device* device)
 {
-    SMC_TRACE_PRINTF_DEBUG("smc_control_layer_device_driver_setup: modify net device for SMC control usage...");
+    SMC_TRACE_PRINTF_STM("smc_control_layer_device_driver_setup: modify net device for SMC control usage...");
 
-    device->features        = NETIF_F_SG /* Frags to be tested by MHDP team  | NETIF_F_HW_CSUM | NETIF_F_FRAGLIST*/;
+#ifdef SMC_SUPPORT_SKB_FRAGMENT_UL
+    device->features        = NETIF_F_SG | NETIF_F_FRAGLIST /* | NETIF_F_HW_CSUM */ ;
+#else
+    device->features        = NETIF_F_SG;
+#endif
+
     device->type            = 0x00;
     device->flags           = IFF_POINTOPOINT | IFF_NOARP;
     device->mtu             = 2;

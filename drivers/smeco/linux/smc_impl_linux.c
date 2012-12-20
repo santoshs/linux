@@ -44,6 +44,10 @@ Description :  File created
 #include <linux/wakelock.h>
 #include <asm/io.h>
 
+#ifdef SMC_DMA_TRANSFER_ENABLED
+  #include <linux/dma-mapping.h>
+#endif
+
 static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id );          /* INTC-BB interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id );      /* GENIO interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id );    /* SPI resource interrupt handler */
@@ -72,6 +76,9 @@ static inline struct wake_lock* get_wake_lock(void)
 
     return wakelock;
 }
+
+
+
 
 /* =============================================================
  * SMC Interrupt platform specific implementations
@@ -468,7 +475,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
         uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
         smc_gop001_t* gop001 = (smc_gop001_t*)signal->peripheral_address;
 
-        SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
+        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X",
         signal->interrupt_id, genios);
 
         SMC_HOST_ACCESS_WAKEUP( get_local_lock_sleep_control(), SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS );
@@ -496,7 +503,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 
     if( smc_channel != NULL && (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER)
     {
-        SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: 0x%02X (%d), Device 0x%08X (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC);
+        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: IRQ: 0x%02X (%d), Device 0x%08X (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC);
 
         wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC) );
     }
@@ -597,7 +604,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
             uint32_t genios = (1UL << ((signal->interrupt_id-SMC_MODEM_INTGEN_L2_FIRST) + SMC_MODEM_INTGEN_L2_OFFSET));
             smc_gop001_t* gop001 = (smc_gop001_t*)signal->peripheral_address;
 
-            SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
+            SMC_TRACE_PRINTF_SIGNAL_RAISE("smc_signal_raise: SMC_SIGNAL_TYPE_INTGEN: Raise signal %d with gop001 set value 0x%08X",
             signal->interrupt_id, genios);
 
             RD_TRACE_SEND2(TRA_SMC_SIGNAL_INTGEN, 4, &signal,
@@ -1335,7 +1342,7 @@ void smc_vprintk(const char *fmt, va_list args)
 
         smc_lock_t* local_lock = get_local_lock_smc_trace();
 
-        SMC_LOCK( local_lock );
+        spin_lock( &(local_lock->mr_lock));
 
         printed_len += vscnprintf(printk_buf + printed_len, sizeof(printk_buf) - printed_len, fmt, args);
 
@@ -1365,9 +1372,7 @@ void smc_vprintk(const char *fmt, va_list args)
         __raw_writel(tsfreq, SYS_STM_TSFREQR /* sys_stm_conf.TSFREQR */);
         tsfreq = __raw_readl(SYS_STM_TSFREQR /* sys_stm_conf.TSFREQR */);
 
-
-
-        SMC_UNLOCK( local_lock );
+        spin_unlock( &(local_lock->mr_lock));
     }
 }
 
@@ -1412,6 +1417,44 @@ void smc_printk_data(const char* prefix_text, const uint8_t* data, int data_len,
 }
 
 #endif  /* #ifdef SMC_APE_LINUX_KERNEL_STM */
+
+
+/* =======================================================
+ * DMA Implementations
+ */
+#ifdef SMC_DMA_TRANSFER_ENABLED
+
+uint8_t smc_dma_init(struct device *device)
+{
+    uint8_t  ret_val = SMC_ERROR;
+    int      ret_drv = 0;
+
+    SMC_TRACE_PRINTF_DMA("smc_dma_init: device 0x%08X", (uint32_t)device);
+
+    if( device->dma_mask == NULL )
+    {
+        device->dma_mask = (uint32_t*)SMC_MALLOC(sizeof(uint32_t));
+    }
+
+    SMC_TRACE_PRINTF_DMA("smc_dma_init: device 0x%08X try to set DMA mask ptr 0x%08X to 0x%08X...", (uint32_t)device, (uint32_t)device->dma_mask, DMA_BIT_MASK(32));
+
+    ret_drv = dma_set_mask(device, DMA_BIT_MASK(32));
+
+    if( ret_drv == 0 )
+    {
+        SMC_TRACE_PRINTF_DMA("smc_dma_init: device 0x%08X DMA 32 bit mask 0x%08X set, drv returned %d", (uint32_t)device, device->dma_mask, ret_drv);
+        ret_val = SMC_OK;
+    }
+    else
+    {
+        *device->dma_mask = DMA_BIT_MASK(32);
+        SMC_TRACE_PRINTF_ERROR("smc_dma_init: device 0x%08X DMA 32bit mask failed, drv returned %d", (uint32_t)device, ret_drv);
+    }
+
+    return ret_val;
+}
+
+#endif
 
 
 /* EOF */
