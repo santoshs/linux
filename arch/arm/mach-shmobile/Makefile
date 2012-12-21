@@ -37,13 +37,21 @@ obj-$(CONFIG_ARCH_SH73A0)	+= entry-gic.o
 obj-$(CONFIG_ARCH_R8A73734)	+= entry-gic.o
 
 # PM objects
-ifeq ($(CONFIG_PM_HAS_SECURE),y)
-obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby_tz.o
+ifeq ($(CONFIG_CPU_IDLE),y)
+	ifeq ($(CONFIG_PM_HAS_SECURE),y)
+	obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby_tz.o cpuidle.o pm.o
+	else
+	obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby.o cpuidle.o pm.o
+	endif
 else
-obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby.o
+	ifeq ($(CONFIG_PM_HAS_SECURE),y)
+	obj-$(CONFIG_SUSPEND)		+= pmCoreStandby_tz.o pm.o
+	else
+	obj-$(CONFIG_SUSPEND)		+= pmCoreStandby.o pm.o
+	endif
 endif
 obj-$(CONFIG_SUSPEND)		+= suspend.o
-obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
+
 obj-$(CONFIG_ARCH_SH7372)	+= pm-sh7372.o sleep-sh7372.o
 obj-y						+= poweroff.o
 obj-$(CONFIG_PDC) 			+= powerdomain.o

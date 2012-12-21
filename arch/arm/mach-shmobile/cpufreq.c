@@ -87,8 +87,13 @@ enum clock_state {
 #define DYNAMIC_BOARD_REV_CHECK
 #define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR
-#define cpu_up_manager(x, y)	cpu_up(x)
-#define cpu_down_manager(x, y)	cpu_down(x)
+#ifdef CONFIG_HOTPLUG_CPU
+#define cpu_up_manager(x, y)    cpu_up(x)
+#define cpu_down_manager(x, y)    cpu_down(x)
+#else /*!CONFIG_HOTPLUG_CPU*/
+#define cpu_up_manager(x, y) do { } while (0)
+#define cpu_down_manager(x, y) do { } while (0)
+#endif /*CONFIG_HOTPLUG_CPU*/
 #endif /*CONFIG_HOTPLUG_CPU_MGR*/
 
 /* Resource */

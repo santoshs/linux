@@ -91,7 +91,7 @@ static suspend_state_t shmobile_suspend_state;
 static int not_core_shutdown;
 
 static unsigned int save_sbar_val;
-unsigned int is_suspend_request;
+
 static int log_wakeupfactor;
 module_param(log_wakeupfactor, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -107,8 +107,6 @@ unsigned int is_clock_updated;
 #define CLOCK_SUSPEND		0
 #define CLOCK_RESTORE		1
 #define ZB3_CLK_SUSPEND		65000
-#define CPG_PLL3CR		IO_ADDRESS(0xE61500DC)
-#define PLL3CR_MASK		0x3F000000
 
 #ifdef CONFIG_PM_DEBUG
 /*
@@ -1094,57 +1092,6 @@ void _gpio_set( int port_num, int val )
 
 #endif // #if Enable_PM_Test_Mode
 
-unsigned int suspend_ZB3_backup(void)
-{
-	unsigned int pll3cr = 0;
-	unsigned int pll3cr_mul = 0;
-	unsigned int zb3_div = 0;
-	unsigned int zb3_clk = 0;
-	pll3cr = __raw_readl(CPG_PLL3CR);
-	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
-
-	zb3_div = __raw_readl(CPG_FRQCRD);
-	zb3_clk = (26 * pll3cr_mul);
-
-	switch (zb3_div & (0x1F)) {
-	case 0x00:
-	case 0x04:
-		zb3_clk /= 2;
-		break;
-	case 0x10:
-		zb3_clk /= 4;
-		break;
-	case 0x11:
-		zb3_clk /= 6;
-		break;
-	case 0x12:
-		zb3_clk /= 8;
-		break;
-	case 0x13:
-		zb3_clk /= 12;
-		break;
-	case 0x14:
-		zb3_clk /= 16;
-		break;
-	case 0x15:
-		zb3_clk /= 24;
-		break;
-	case 0x16:
-		zb3_clk /= 32;
-		break;
-	case 0x18:
-		zb3_clk /= 48;
-		break;
-	case 0x1B:
-		zb3_clk /= 96;
-		break;
-	default:
-		zb3_clk = -EINVAL;
-	}
-	zb3_clk *= 1000;
-	return zb3_clk;
-}
-
 /*
  * suspend_set_clock
  *
@@ -1694,8 +1641,12 @@ static int __init shmobile_suspend_init(void)
 #endif /*CONFIG_PM_DEBUG*/
 	pr_debug(PMDBG_PRFX "%s: initialize\n", __func__);
 
-	is_suspend_request = 0;
-
+#ifndef CONFIG_CPU_IDLE
+	int ret;
+	ret = shmobile_init_pm();
+	if (ret != 0)
+		return ret;
+#endif
 	/* Get chip revision */
 	es = shmobile_chip_rev();
 
@@ -1732,42 +1683,4 @@ static int __init shmobile_suspend_init(void)
 	return 0;
 }
 arch_initcall(shmobile_suspend_init);
-
-static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
-24, 1, 1, 48, 1, 1, 1, 1};
-
-/* PLL Circuit 0 Multiplication Ratio mask */
-#define PLL0CR_STC_MASK	0x3F000000
-
-void shmobile_suspend_udelay(unsigned int delay_time)
-{
-	unsigned int i;
-	unsigned int mul_ratio = 1;
-	unsigned int div_ratio = 1;
-	unsigned int zfc_val = 1;
-
-	if (__raw_readl(CPG_PLLECR) & CPG_PLL0ST)
-		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
-					>> 24) + 1;
-
-	if (__raw_readl(CPG_FRQCRB) & FRQCRB_ZSEL_BIT) {
-		zfc_val = (__raw_readl(CPG_FRQCRB) & FRQCRB_ZFC_MASK) \
-					>> 24;
-		div_ratio = division_ratio[zfc_val];
-
-		if (div_ratio == 1) {
-			printk(KERN_ALERT "Abnormal Zclk div_rate, as 1/%d. ", \
-					zfc_val);
-			printk(KERN_ALERT "Skip delay processing\n");
-			return;
-		}
-	}
-
-	/* get loop time for delay */
-	i = delay_time * (26 * mul_ratio) / 8 / div_ratio;
-
-	while (i > 0)
-		i--;
-}
-EXPORT_SYMBOL(shmobile_suspend_udelay);
 
