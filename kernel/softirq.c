@@ -29,6 +29,12 @@
 #include <trace/events/irq.h>
 
 #include <asm/irq.h>
+
+/* Added for Ramdump Feature*/
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+#include <mach/sec_debug.h>
+#endif
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -458,9 +464,17 @@ static void tasklet_action(struct softirq_action *a)
 
 		if (tasklet_trylock(t)) {
 			if (!atomic_read(&t->count)) {
-				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
+				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
+					&t->state))
 					BUG();
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+				/* Added for Ramdump Feature */
+				sec_debug_irq_sched_log(-1, t->func, 3);
 				t->func(t->data);
+				sec_debug_irq_sched_log(-1, t->func, 4);
+#else
+				t->func(t->data);
+#endif
 				tasklet_unlock(t);
 				continue;
 			}

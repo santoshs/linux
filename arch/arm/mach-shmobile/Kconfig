@@ -289,5 +289,57 @@ config BOARD_VERSION_V050
 	default y
 	bool "board_revision"
 	help
-	  Board revision 
+	  Board revision
+comment "Debugging Feature"
+
+menuconfig SEC_DEBUG
+      bool "Samsung TN Ramdump Feature"
+       default y
+       help
+         Samsung TN Ramdump Feature. Use INFORM3 and magic number at 0xc0000000.
+         enable this to use Ramdump secondary handler
+
+if SEC_DEBUG
+
+config SEC_DEBUG_USER
+        bool "Panic on Userspace fault"
+        default y
+        help
+          Panic on Userspace fault
+
+menuconfig SEC_DEBUG_INFORM
+        bool "Samsung TN Ramdump information region on memory"
+        default y
+        help
+          Samsung TN Ramdump information region.
+
+menuconfig SEC_DEBUG_SCHED_LOG
+        bool "Samsung TN Ramdump information region on memory"
+        default y
+        help
+          Samsung TN Ramdump information region.
+
+menuconfig SEC_DEBUG_IRQ_EXIT_LOG
+        bool "Samsung TN Ramdump information region on memory"
+        default y
+        help
+          Samsung TN Ramdump information region.
+menuconfig SEC_DEBUG_INFORM_IOREMAP
+        bool "Samsung TN Ramdump information region on memory"
+        default n
+        depends on SEC_DEBUG_INFORM
+        help
+          Samsung TN Ramdump information region that is dynamically mapped by ioremap_nocache().
+
+menuconfig SEC_DEBUG_INFORM_IOTABLE
+        bool "Samsung TN Ramdump information region on memory"
+        default y
+        depends on SEC_DEBUG_INFORM
+        help
+          Samsung TN Ramdump information region that is statically mapped by iotable_init().
+
+#endif for SEC_DEBUG
+endif
+
+# endif for ARCH_SHMOBILE
 endif
