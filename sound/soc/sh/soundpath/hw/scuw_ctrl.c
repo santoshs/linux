@@ -60,8 +60,8 @@ static struct common_reg_table scuw_reg_tbl_voicecallA[] = {
 	{ SCUW_VD_VDSET,	0x00000002,	0, 0 },
 };
 
-/* Table for Voicecall(PortB) */
-static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
+/* Table for Voicecall(PortB) BT 8kHz */
+static struct common_reg_table scuw_reg_tbl_voicecallB_8000[] = {
 /*        Reg			Val		D  C */
 	/*   1 : SPU2V output data */
 	{ SCUW_SEL_SELCR21,	0x00000001,	0, 0 },
@@ -147,6 +147,37 @@ static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
 	/* 001 : 1 channel */
 	{ SCUW_FSIIF_ADINRW0,	0x00000001,	0, 0 },
 	/* 001 : 1 channel */
+	{ SCUW_FSIIF_ADINRR1,	0x00000001,	0, 0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
+	{ SCUW_FSIIF_WADCR0,	0x00000019,	0, 0 },
+	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
+	{ SCUW_FSIIF_RADCR1,	0x00000018,	0, 0 },
+	/*   0 : Processing State */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0, 0 },
+	/* 010 : Channel 1 to 7 are copied Channel 0 */
+	{ SCUW_VD_VDSET,	0x00000002,	0, 0 },
+};
+
+/* Table for Voicecall(PortB) BT 16kHz */
+static struct common_reg_table scuw_reg_tbl_voicecallB_16000[] = {
+/*        Reg			Val		D  C */
+	/*   1 : SPU2V output data */
+	{ SCUW_SEL_SELCR21,	0x00000001,	0, 0 },
+	/*   1 : Voice data (from VOIP) */
+	{ SCUW_SEL_SELCR15,	0x00000001,	0, 0 },
+	/* 011 : FSI-IF read port 1 data (from FSI2) */
+	{ SCUW_SEL_SELCR12,	0x00000003,	0, 0 },
+	/*   1 : FSI-IF operates. */
+	{ SCUW_MSTP1,		0x00000001,	0, 0 },
+	/*   0 : Reset the FSI IF. */
+	{ SCUW_FSIIF_SWRSR,	0x00000000,	0, 0 },
+	/*   1 : FSI IF enters the operating state. */
+	{ SCUW_FSIIF_SWRSR,	0x00000001,	0, 0 },
+	/*   1 : Initialization */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 },
+	/* 010 : 1 channel */
+	{ SCUW_FSIIF_ADINRW0,	0x00000001,	0, 0 },
+	/* 010 : 1 channel */
 	{ SCUW_FSIIF_ADINRR1,	0x00000001,	0, 0 },
 	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
 	{ SCUW_FSIIF_WADCR0,	0x00000019,	0, 0 },
@@ -327,11 +358,12 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
    @brief SCUW start function
 
    @param[in]	uiValue		PCM type
+   @param[in]   rate            Sampling rate
    @param[out]	none
 
    @retval	ERROR_NONE	successful
  */
-int scuw_start(const u_int uiValue)
+int scuw_start(const u_int uiValue, const u_int rate)
 {
 	/* Local variable declaration */
 	u_int			dev		= 0;
@@ -353,8 +385,15 @@ int scuw_start(const u_int uiValue)
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallA);
 	/* BLUETOOTHSCO */
 	} else if (false != (dev & SNDP_BLUETOOTHSCO)) {
-		reg_tbl  = scuw_reg_tbl_voicecallB;
-		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB);
+		if (rate == 16000) {
+			sndp_log_info("rate=16000..\n");
+			reg_tbl  = scuw_reg_tbl_voicecallB_16000;
+			tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB_16000);
+		} else {
+			sndp_log_info("rate=8000..\n");
+			reg_tbl  = scuw_reg_tbl_voicecallB_8000;
+			tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB_8000);
+		}
 	/* FM_RADIO_RX */
 	} else {
 		reg_tbl  = scuw_reg_tbl_loopbackBA;

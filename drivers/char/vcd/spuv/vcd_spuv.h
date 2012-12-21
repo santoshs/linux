@@ -45,6 +45,14 @@
 #define VCD_SPUV_LOOPBACK_DELAY_0		0
 #define VCD_SPUV_LOOPBACK_DELAY_500		25
 
+/* spuv fw codec type */
+#define VCD_SPUV_CODEC_INVALID			0
+#define VCD_SPUV_CODEC_FR			1
+#define VCD_SPUV_CODEC_HR			2
+#define VCD_SPUV_CODEC_EFR			3
+#define VCD_SPUV_CODEC_AMR			4
+#define VCD_SPUV_CODEC_WBAMR			5
+
 /* spuv fw message id (to spuv) */
 #define VCD_SPUV_HW_PARAMETERS_IND		0x04
 #define VCD_SPUV_ACTIVE_REQ			0x10
@@ -88,6 +96,7 @@
 #define VCD_SPUV_SYSTEM_INFO_IND		0x02
 #define VCD_SPUV_TRIGGER_PLAY_IND		0x03
 #define VCD_SPUV_TRIGGER_REC_IND		0x05
+#define VCD_SPUV_CODEC_TYPE_IND			0x06
 #define VCD_SPUV_ACTIVE_CNF			0x20
 #define VCD_SPUV_SPEECH_START_CNF		0x21
 #define VCD_SPUV_SPEECH_STOP_CNF		0x22
@@ -147,6 +156,8 @@
 		"[VCD <- SPUV ] : SPUV_TRIGGER_PLAY_IND\n"
 #define VCD_SPUV_TRIGGER_REC_IND_LOG		\
 		"[VCD <- SPUV ] : SPUV_TRIGGER_REC_IND\n"
+#define VCD_SPUV_CODEC_TYPE_IND_LOG		\
+		"[VCD <- SPUV ] : SPUV_CODEC_TYPE_IND\n"
 #define VCD_SPUV_ACTIVE_CNF_LOG			\
 		"[VCD <- SPUV ] : SPUV_ACTIVE_CNF\n"
 #define VCD_SPUV_SPEECH_START_CNF_LOG		\
@@ -253,10 +264,12 @@ int vcd_spuv_stop_call(void);
 int vcd_spuv_set_udata(void);
 int vcd_spuv_start_record(struct vcd_record_option *option);
 int vcd_spuv_stop_record(void);
-int vcd_spuv_start_playback(struct vcd_playback_option *option);
+int vcd_spuv_start_playback(struct vcd_playback_option *option,
+	unsigned int call_kind);
 int vcd_spuv_stop_playback(void);
 void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
-void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info);
+void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
+					unsigned int call_kind);
 void vcd_spuv_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
 void vcd_spuv_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 void vcd_spuv_init_record_buffer_id(void);
@@ -268,6 +281,9 @@ void vcd_spuv_voip_ul_playback(unsigned int mode);
 void vcd_spuv_voip_dl_playback(unsigned int mode);
 void vcd_spuv_update_voip_ul_buffer_id(void);
 void vcd_spuv_update_voip_dl_buffer_id(void);
+int vcd_spuv_resampler_init(void);
+int vcd_spuv_resampler_close(void);
+void vcd_spuv_pt_playback(void);
 
 int vcd_spuv_start_1khz_tone(void);
 int vcd_spuv_stop_1khz_tone(void);
@@ -298,6 +314,7 @@ static void vcd_spuv_interrupt_ack(void);
 static void vcd_spuv_interrupt_req(void);
 static void vcd_spuv_rec_trigger(void);
 static void vcd_spuv_play_trigger(void);
+static void vcd_spuv_codec_type_ind(unsigned int codec_type);
 static void vcd_spuv_system_error(void);
 static void vcd_spuv_udata_ind(void);
 static int vcd_spuv_is_log_enable(unsigned int msg);

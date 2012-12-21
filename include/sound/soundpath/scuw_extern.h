@@ -26,7 +26,7 @@
 #endif
 
 /* SCUW start */
-SCUW_NO_EXTERN int scuw_start(const u_int uiValue);
+SCUW_NO_EXTERN int scuw_start(const u_int uiValue, u_int rate);
 /* SCUW stop */
 SCUW_NO_EXTERN int scuw_stop(void);
 /*  SCUW registers dump */

@@ -62,6 +62,7 @@ enum sndp_wake_lock_kind {
 /* use Audience information */
 struct sndp_a2220_callback_func {
 	int (*set_state)(unsigned int mode, unsigned int device, unsigned int dev_chg);
+	int (*set_nb_wb) (unsigned int nb_wb);
 };
 
 /* change device */
@@ -85,7 +86,7 @@ SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
 SOUNDPATH_NO_EXTERN  void sndp_call_playback_normal(void);
 
 SOUNDPATH_NO_EXTERN struct workqueue_struct	*g_sndp_queue_main;
-SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait;
+SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait[2];
 
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_idle;
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
@@ -93,9 +94,16 @@ SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
 SOUNDPATH_NO_EXTERN u_int g_sndp_log_level;
 SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
 
+/* Production test (Loopback) start flag */
+SOUNDPATH_NO_EXTERN int g_pt_loopback_start;
+
 /* audience Set Callback function */
 SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
 				struct sndp_a2220_callback_func *func);
+
+/* for Production Test (Loopback test) */
+SOUNDPATH_NO_EXTERN int sndp_pt_loopback(
+				u_int mode, u_int device, u_int dev_chg);
 
 #endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 
@@ -472,6 +480,13 @@ enum sndp_audio_devices {
 
 #define SNDP_GET_AUDIO_DEVICE(val)				\
 	((u_int)(val) >> SNDP_DEVICE_BIT)
+
+#define SNDP_BLUETOOTH_FREQUENCY_NARROW_BAND	(0x00000000)
+#define SNDP_BLUETOOTH_FREQUENCY_WIDE_BAND	(0x00008000)
+#define SNDP_BLUETOOTH_FREQUENCY_MASK		(0xffff7fff)
+
+#define SNDP_GET_BLUETOOTH_FREQUENCY(val)			\
+	((u_int)(val) & SNDP_BLUETOOTH_FREQUENCY_WIDE_BAND)
 
 static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 {

@@ -174,10 +174,10 @@ int vcd_spuv_get_msg_buffer(void)
 
 	vcd_pr_start_spuv_function();
 
-	vcd_spuv_func_initialize();
-
-	buf_addr = SPUV_FUNC_SDRAM_AREA_TOP_PHY +
-		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER - SPUV_FUNC_SDRAM_AREA_TOP);
+	buf_addr = (SPUV_FUNC_SDRAM_AREA_TOP_PHY +
+		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE) +
+		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER -
+		SPUV_FUNC_SDRAM_CACHE_AREA_TOP);
 
 	vcd_spuv_func_cacheflush(
 		SPUV_FUNC_SDRAM_PROC_MSG_BUFFER,
@@ -200,8 +200,6 @@ int vcd_spuv_get_async_area(void)
 	int buf_addr = 0;
 
 	vcd_pr_start_spuv_function();
-
-	vcd_spuv_func_initialize();
 
 	buf_addr = (int)__get_free_pages(GFP_KERNEL, 1);
 
@@ -401,6 +399,8 @@ int vcd_spuv_start_call(void)
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
 	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
 	int param_num = VCD_SPUV_SPEECH_START_LENGTH;
+	unsigned int dl_adr = 0;
+	unsigned int ul_adr = 0;
 
 	vcd_pr_start_spuv_function();
 
@@ -420,17 +420,15 @@ int vcd_spuv_start_call(void)
 	param[1] = VCD_SPUV_SPEECH_START_REQ;
 	param[2] = proc_param[0];
 	if (VCD_CALL_TYPE_VOIP == proc_param[0]) {
+		vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0, dl_adr);
+		vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0, ul_adr);
 		param[3] = 0;
-		param[4] = ((vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0) >> 16) &
-			0x0000FFFF);
-		param[5] = (vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0) & 0x0000FFFF);
-		param[6] = ((vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0) >> 16) &
-			0x0000FFFF);
-		param[7] = (vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0) & 0x0000FFFF);
+		param[4] = ((dl_adr >> 16) & 0x0000FFFF);
+		param[5] = (dl_adr & 0x0000FFFF);
+		param[6] = ((ul_adr >> 16) & 0x0000FFFF);
+		param[7] = (ul_adr & 0x0000FFFF);
 
 		/* set parameter num */
 		param_num = VCD_SPUV_VOIP_SPEECH_START_LENGTH;
@@ -440,15 +438,10 @@ int vcd_spuv_start_call(void)
 
 		/* SRC initialize */
 		/* UL : proc_param[1], DL : proc_param[2], spuv : 16kHz */
-		ret = vcd_spuv_func_resampler_init(
+		vcd_spuv_func_resampler_set(
 			proc_param[1],
 			proc_param[2],
 			16000);
-		if (VCD_ERR_NONE != ret) {
-			/* close resampler */
-			vcd_spuv_func_resampler_close();
-			goto rtn;
-		}
 	}
 
 	/* wait path set */
@@ -462,11 +455,7 @@ int vcd_spuv_start_call(void)
 
 	/* check result */
 	ret = vcd_spuv_check_result();
-	if ((VCD_ERR_NONE != ret) && (VCD_CALL_TYPE_VOIP == proc_param[0])) {
-		/* close resampler */
-		vcd_spuv_func_resampler_close();
-	}
-rtn:
+
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -507,9 +496,6 @@ int vcd_spuv_stop_call(void)
 
 	/* check result */
 	ret = vcd_spuv_check_result();
-
-	/* close resampler */
-	vcd_spuv_func_resampler_close();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -577,6 +563,7 @@ int vcd_spuv_start_record(struct vcd_record_option *option)
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
 	int dl_gain = VCD_SPUV_GAIN_DISABLE;
 	int ul_gain = VCD_SPUV_GAIN_DISABLE;
+	unsigned int rec_adr = 0;
 
 	vcd_pr_start_spuv_function("option[%p].\n", option);
 
@@ -605,13 +592,14 @@ int vcd_spuv_start_record(struct vcd_record_option *option)
 		break;
 	}
 
+	vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_RECORD_BUFFER_0, rec_adr);
+
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_VOICE_RECORDING_START_REQ;
 	param[2] = 0;
-	param[3] = ((vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_RECORD_BUFFER_0) >> 16) & 0x0000FFFF);
-	param[4] = (vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_RECORD_BUFFER_0) & 0x0000FFFF);
+	param[3] = ((rec_adr >> 16) & 0x0000FFFF);
+	param[4] = (rec_adr & 0x0000FFFF);
 	param[5] = dl_gain;
 	param[6] = ul_gain;
 
@@ -674,11 +662,13 @@ int vcd_spuv_stop_record(void)
  * @brief	start playback function.
  *
  * @param	option		playback mode.
+ * @param	call_kind	call kind.
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	others		result of called function.
  */
-int vcd_spuv_start_playback(struct vcd_playback_option *option)
+int vcd_spuv_start_playback(struct vcd_playback_option *option,
+	unsigned int call_kind)
 {
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
@@ -686,8 +676,10 @@ int vcd_spuv_start_playback(struct vcd_playback_option *option)
 	int dl_playback_gain = VCD_SPUV_GAIN_DISABLE;
 	int ul_speech_gain = VCD_SPUV_GAIN_DISABLE;
 	int ul_playback_gain = VCD_SPUV_GAIN_DISABLE;
+	unsigned int play_adr = 0;
 
-	vcd_pr_start_spuv_function("option[%p].\n", option);
+	vcd_pr_start_spuv_function("option[%p] call_kind[%d].\n"
+		, option, call_kind);
 
 	/* set status */
 	vcd_spuv_set_status(VCD_SPUV_STATUS_WAIT_ACK |
@@ -715,14 +707,19 @@ int vcd_spuv_start_playback(struct vcd_playback_option *option)
 		break;
 	}
 
+	if (VCD_CALL_KIND_CALL == call_kind) {
+		vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0, play_adr);
+	} else {
+		vcd_spuv_func_sdram_logical_to_physical(
+			SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0, play_adr);
+	}
+
 	param[0] = VCD_SPUV_INTERFACE_ID;
 	param[1] = VCD_SPUV_VOICE_PLAYING_START_REQ;
 	param[2] = 0;
-	param[3] = ((vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0) >> 16) &
-			0x0000FFFF);
-	param[4] = (vcd_spuv_func_sdram_logical_to_physical(
-			SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0) & 0x0000FFFF);
+	param[3] = ((play_adr >> 16) & 0x0000FFFF);
+	param[4] = (play_adr & 0x0000FFFF);
 	param[5] = dl_speech_gain;
 	param[6] = dl_playback_gain;
 	param[7] = ul_speech_gain;
@@ -812,15 +809,25 @@ void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info)
  *
  * @retval	none.
  */
-void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info)
+void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
+					unsigned int call_kind)
 {
-	vcd_pr_start_spuv_function("info[%p].\n", info);
+	vcd_pr_start_spuv_function("info[%p] call_kind[%d].\n",
+					info, call_kind);
 
-	/* set buffer address */
-	info->playback_buffer[0] =
-		(unsigned int *)SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0;
-	info->playback_buffer[1] =
-		(unsigned int *)SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1;
+	if (VCD_CALL_KIND_CALL == call_kind) {
+		/* set buffer address */
+		info->playback_buffer[0] =
+			(unsigned int *)SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0;
+		info->playback_buffer[1] =
+			(unsigned int *)SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1;
+	} else {
+		/* set buffer address */
+		info->playback_buffer[0] =
+			(unsigned int *)SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_0;
+		info->playback_buffer[1] =
+			(unsigned int *)SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_1;
+	}
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -1031,6 +1038,65 @@ void vcd_spuv_voip_dl_playback(unsigned int mode)
 	vcd_pr_end_spuv_function();
 	return;
 }
+
+
+/**
+ * @brief	for PT playback function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_pt_playback(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_pt_playback();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	initialize resampler function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	initialize resampler return value.
+ */
+int vcd_spuv_resampler_init(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function();
+
+	ret = vcd_spuv_func_resampler_init(48000, 16000);
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	close resampler function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	close resampler return value.
+ */
+int vcd_spuv_resampler_close(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function();
+
+	ret = vcd_spuv_func_resampler_close();
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
 
 /**
  * @brief	start 1khz tone function.
@@ -1882,6 +1948,9 @@ static void vcd_spuv_interrupt_req(void)
 	case VCD_SPUV_TRIGGER_PLAY_IND:
 		vcd_spuv_play_trigger();
 		break;
+	case VCD_SPUV_CODEC_TYPE_IND:
+		vcd_spuv_codec_type_ind(fw_req[2]);
+		break;
 	default:
 		/* get status */
 		spuv_status = vcd_spuv_get_status();
@@ -1924,7 +1993,7 @@ rtn:
 
 
 /**
- * @brief	queue out rec_trigger function.
+ * @brief	rec_trigger function.
  *
  * @param	none.
  *
@@ -1943,7 +2012,7 @@ static void vcd_spuv_rec_trigger(void)
 
 
 /**
- * @brief	queue out play_trigger function.
+ * @brief	play_trigger function.
  *
  * @param	none.
  *
@@ -1962,7 +2031,47 @@ static void vcd_spuv_play_trigger(void)
 
 
 /**
- * @brief	queue out system_error function.
+ * @brief	codec type function.
+ *
+ * @param	codec_type.	0 : INVALID
+ *				1 : FR
+ *				2 : HR
+ *				3 : EFR
+ *				4 : AMR
+ *				5 : WBAMR
+ *
+ * @retval	none.
+ */
+static void vcd_spuv_codec_type_ind(unsigned int codec_type)
+{
+	unsigned int type;
+
+	vcd_pr_start_spuv_function();
+
+	/* convert codec type */
+	switch (codec_type) {
+	case VCD_SPUV_CODEC_FR:
+	case VCD_SPUV_CODEC_HR:
+	case VCD_SPUV_CODEC_EFR:
+	case VCD_SPUV_CODEC_AMR:
+		type = VCD_CODEC_NB;
+		break;
+	case VCD_SPUV_CODEC_INVALID:
+	case VCD_SPUV_CODEC_WBAMR:
+		type = VCD_CODEC_WB;
+		break;
+	}
+
+	/* notification buffer update */
+	vcd_ctrl_codec_type_ind(type);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	system_error function.
  *
  * @param	none.
  *
@@ -1983,7 +2092,7 @@ static void vcd_spuv_system_error(void)
 
 
 /**
- * @brief	queue out UDATA function.
+ * @brief	UDATA function.
  *
  * @param	none.
  *
@@ -2111,6 +2220,9 @@ static void vcd_spuv_interface_log(unsigned int msg)
 	case VCD_SPUV_TRIGGER_REC_IND:
 		vcd_pr_if_spuv_trigger_rec_ind(VCD_SPUV_TRIGGER_REC_IND_LOG);
 		break;
+	case VCD_SPUV_CODEC_TYPE_IND:
+		vcd_pr_if_spuv(VCD_SPUV_CODEC_TYPE_IND_LOG);
+		break;
 	case VCD_SPUV_ACTIVE_CNF:
 		vcd_pr_if_spuv(VCD_SPUV_ACTIVE_CNF_LOG);
 		break;
@@ -2157,7 +2269,7 @@ static void vcd_spuv_interface_log(unsigned int msg)
 		vcd_pr_if_spuv_udata_ind(VCD_SPUV_UDATA_IND_LOG);
 		break;
 	default:
-		vcd_pr_if_spuv("unkown msg[%x].\n", msg);
+		vcd_pr_err("[VCD <- SPUV ] : Unkown msg[%x].\n", msg);
 		break;
 	}
 

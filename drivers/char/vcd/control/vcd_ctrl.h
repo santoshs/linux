@@ -103,6 +103,7 @@ void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 /* For spuv functions */
 void vcd_ctrl_rec_trigger(void);
 void vcd_ctrl_play_trigger(void);
+void vcd_ctrl_codec_type_ind(unsigned int codec_type);
 void vcd_ctrl_stop_fw(void);
 void vcd_ctrl_udata_ind(void);
 void vcd_ctrl_start_clkgen(void);
