@@ -286,7 +286,6 @@ static int smc_net_device_driver_open_channels(struct net_device* device)
             {
                 SMC_TRACE_PRINTF_DMA("smc_net_device_driver_open_channels: device '%s' (0x%08X) uses DMA (parent device 0x%08X), platform device 0x%08X...", device->name, (uint32_t)device, (uint32_t)device->dev.parent, (uint32_t)smc_priv->platform_device);
 
-                //if( smc_dma_init( device ) == SMC_OK )
                 if( smc_dma_init( device->dev.parent ) == SMC_OK )
                 {
                     SMC_TRACE_PRINTF_DMA("smc_net_device_driver_open_channels: device '%s': DMA initialization ok", device->name);
@@ -381,6 +380,14 @@ static int smc_net_device_driver_close(struct net_device* device)
         SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_close: SMC priv: 0x%08X: Destroying SMC instance 0x%08X...",
                 (uint32_t)smc_priv, (uint32_t)smc_priv->smc_instance);
 
+#ifdef SMC_DMA_TRANSFER_ENABLED
+        /* Unintialize the DMA */
+
+        SMC_TRACE_PRINTF_DMA("smc_net_device_driver_close: device '%s' (0x%08X) uninitialize DMA (parent device 0x%08X), platform device 0x%08X...", device->name, (uint32_t)device, (uint32_t)device->dev.parent, (uint32_t)smc_priv->platform_device);
+        smc_dma_uninit(device->dev.parent);
+
+#endif
+
         smc_instance_destroy( smc_priv->smc_instance );
         smc_priv->smc_instance = NULL;
 
@@ -405,7 +412,6 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     smc_device_driver_priv_t* smc_net_dev  = NULL;
     smc_t*                    smc_instance = NULL;
     uint8_t                   drop_packet  = 0;
-    uint32_t                  skb_ptr      = (uint32_t)skb;
 
     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: device 0x%08X, protocol 0x%04X, queue %d...", (uint32_t)device, skb->protocol, skb->queue_mapping );
     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
@@ -522,7 +528,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                             skb_frag_t *frag        = NULL;
                             uint32_t    data_copied = 0;
 
-                            SMC_TRACE_PRINTF_STM("smc_net_device_driver_xmit: channel %d: send %d bytes from MDB address 0x%08X (skb=0x%08X) (fragments %d)...",
+                            SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: channel %d: send %d bytes from MDB address 0x%08X (skb=0x%08X) (fragments %d)...",
                                                                                         smc_channel->id,
                                                                                         data_to_send_len,
                                                                                         (uint32_t)data_to_send,
@@ -554,7 +560,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                         }
                         else
                         {
-                            SMC_TRACE_PRINTF_STM("smc_net_device_driver_xmit: channel %d: send %d bytes from MDB 0x%08X (skb=0x%08X) (no fragments)...",
+                            SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: channel %d: send %d bytes from MDB 0x%08X (skb=0x%08X) (no fragments)...",
                                                             smc_channel->id,
                                                             data_to_send_len,
                                                             (uint32_t)data_to_send,
@@ -908,49 +914,45 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
     {
         struct ifreq_smc_info* if_req_smc_info = (struct ifreq_smc_info *)ifr;
 
-        smc_t*         smc_instance   = NULL;
-        smc_channel_t* smc_channel    = NULL;
-        uint32_t       version_remote = 0x00000000;
-        char*          temp_str       = NULL;
-        int            version_ind    = 0;
 
-        /* Set the version info */
+        SMC_TRACE_PRINTF_STM("smc_net_device_driver_ioctl: device '%s': SIOCDEV_INFO: select version type 0x%02X", device->name, if_req_smc_info->smc_version_selection);
 
-        strcpy( if_req_smc_info->smc_version, SMC_SW_VERSION );
-
-        /* Get the remote version from 0 channel */
-        smc_instance = smc_net_dev->smc_instance;
-
-        if( smc_instance != NULL )
+        if( if_req_smc_info->smc_version_selection == SMC_VERSION_SELECTION_REMOTE )
         {
-            smc_channel = SMC_CHANNEL_GET(smc_instance, 0);
+            smc_t*         smc_instance   = NULL;
+            smc_channel_t* smc_channel    = NULL;
+            uint32_t       version_remote = 0x00000000;
+            char*          temp_str       = NULL;
 
-            if( smc_channel != NULL )
+                /* Get the remote version from 0 channel */
+            smc_instance = smc_net_dev->smc_instance;
+
+            if( smc_instance != NULL )
             {
-                version_remote = smc_channel->version_remote;
+                smc_channel = SMC_CHANNEL_GET(smc_instance, 0);
+
+                if( smc_channel != NULL )
+                {
+                    version_remote = smc_channel->version_remote;
+                }
             }
+
+            temp_str = smc_version_to_str(version_remote);
+
+            strcpy( if_req_smc_info->smc_version, temp_str );
+
+            SMC_FREE( temp_str );
+        }
+        else
+        {
+                /* Set the local version info */
+            strcpy( if_req_smc_info->smc_version, SMC_SW_VERSION );
         }
 
-        temp_str = smc_utoa( SMC_VERSION_MAJOR(version_remote) );
-        strcpy( if_req_smc_info->smc_version_remote, temp_str );
-        version_ind += strlen(temp_str);
-        SMC_FREE( temp_str );
 
-        strcpy( (if_req_smc_info->smc_version_remote+version_ind), "." );
-        version_ind += 1;
+        SMC_TRACE_PRINTF_STM("smc_net_device_driver_ioctl: device '%s': SIOCDEV_INFO: return version '%s' for version type %d", device->name, if_req_smc_info->smc_version, if_req_smc_info->smc_version_selection );
 
-        temp_str = smc_utoa( SMC_VERSION_MINOR(version_remote) );
-        strcpy( (if_req_smc_info->smc_version_remote + version_ind), temp_str );
-        version_ind += strlen(temp_str);
-        SMC_FREE( temp_str );
 
-        strcpy( (if_req_smc_info->smc_version_remote+version_ind), "." );
-        version_ind += 1;
-
-        temp_str = smc_utoa( SMC_VERSION_REVISION(version_remote) );
-        strcpy( (if_req_smc_info->smc_version_remote + version_ind), temp_str );
-        version_ind += strlen(temp_str);
-        SMC_FREE( temp_str );
 
         ret_val = SMC_DRIVER_OK;
     }

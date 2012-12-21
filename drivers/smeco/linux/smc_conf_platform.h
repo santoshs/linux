@@ -32,16 +32,14 @@ Description :  File created
 /*#define SMC_XMIT_BUFFER_FAIL_SEND*/
 #define SMC_XMIT_BUFFER_SIZE                  15
 
-
-//#define SMC_LOCK_TX_BUFFER                    SMC_LOCK
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
-
-//#define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK
 #define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK_IRQ
 
 #define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      10
 
 #define SMC_FREE_LOCAL_PTR_OS_NOT_NEEDED
+
+/*#define SMC_LINUX_USE_TASKLET_IN_IRQ*/                      /* If defined, tasklet usage for IRQs is enabled */
 
     /* ===============================================
      * Define Linux Kernel Specific data types for SMC

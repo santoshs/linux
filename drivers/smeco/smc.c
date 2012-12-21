@@ -123,7 +123,7 @@ static uint8_t  smc_handle_loopback_data_message( smc_channel_t* smc_channel, sm
 
     /* TODO Each channel should have own timer
      * FIFO timer cb function */
-static void     smc_fifo_timer_expired(uint32_t timer_data);
+static void            smc_fifo_timer_expired(uint32_t timer_data);
 
     /*
      * Local static inline functions
@@ -2596,7 +2596,7 @@ smc_signal_handler_t* smc_signal_handler_get( uint32_t signal_id, uint32_t signa
     return NULL;
 }
 
-smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel )
+smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel, uint32_t userdata )
 {
     smc_signal_handler_t* signal_handler = NULL;
 
@@ -2609,6 +2609,7 @@ smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, sm
     signal_handler->signal       = signal;
     signal_handler->smc_instance = smc_instance;
     signal_handler->smc_channel  = smc_channel;
+    signal_handler->userdata     = userdata;
 
     smc_signal_add_handler( signal_handler );
 
@@ -2697,14 +2698,8 @@ void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
     if(signal_handler != NULL )
     {
         smc_signal_handler_t** old_ptr_array = NULL;
-
-        uint8_t     handler_found = 0;
-        uint8_t     signal_index  = 0;
-
-        /* LOCK must be set in the caller
-        smc_lock_t* local_lock = get_local_lock_signal_handler();
-        SMC_LOCK_IRQ( local_lock );
-        */
+        uint8_t                handler_found = 0;
+        uint8_t                signal_index  = 0;
 
             /* Check if handler exists */
         if( signal_handler_ptr_array )
@@ -2768,8 +2763,6 @@ void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
         }
 
         SMC_TRACE_PRINTF_SIGNAL("smc_signal_remove_handler: completed, signal handler count is %d", signal_handler_count);
-
-        /*SMC_UNLOCK_IRQ( local_lock );*/
     }
 }
 
