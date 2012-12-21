@@ -262,7 +262,7 @@ struct cmp_layaddr {
 /* define busylock  */
 /********************/
 #define CMP_BUSYLOCK_SET     1
-#define CMP_BUSYLOCK_CLEAR   0
+#define CMP_BUSYLOCK_CLEAR   4
 
 #ifdef __KERNEL__
 /* please not define __KERNEL__ when build application. */

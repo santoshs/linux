@@ -3560,16 +3560,14 @@ static int  ioc_busylock(struct composer_fh *fh, unsigned long *data)
 	printk_dbg2(3, "arg data:0x%lx\n", *data);
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 
-	if (*data == CMP_BUSYLOCK_SET) {
+	if (*data & CMP_BUSYLOCK_SET) {
 		/* acquire busy lock for framebuffer access control. */
 		rc = decrement_useable_framebuffer();
-	} else if (*data == CMP_BUSYLOCK_CLEAR) {
-		/* nothing to do */
+	}
+	if (*data & CMP_BUSYLOCK_CLEAR) {
+		/* release busy lock for framebuffer access control. */
+		increment_useable_framebuffer();
 		rc = 0;
-	} else {
-		/* report error */
-		printk_err2("invalid argument.\n");
-		rc = -EINVAL;
 	}
 #endif
 	DBGLEAVE("%d\n", rc);
@@ -6099,8 +6097,9 @@ static void work_runblend(struct localwork *work)
 	common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (in_early_suspend) {
-		printk_dbg2(1, "suspend state.\n");
-		rc = CMP_NG;
+		printk_dbg2(1, "composition was skipped because " \
+			"already in early suspend state.\n");
+		rc = CMP_OK;
 		goto finish;
 	}
 #endif
@@ -7062,7 +7061,10 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 #endif
 
 	if (blend_req == NULL) {
-		printk_err("not found blend request.\n");
+		/* This is an error in a normal Android mode,
+		   but not an error in a recovery mode.
+		   Suppress this message. */
+		printk_dbg1(2, "not found blend request.\n");
 		goto pass_exit;
 	}
 
