@@ -143,6 +143,11 @@ static void process_composer_queue_callback(struct composer_rh *rh);
 static void callback_composer_queue(int result, void *user_data);
 #endif
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void increment_useable_framebuffer(void);
+static int  decrement_useable_framebuffer(void);
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void pm_early_suspend(struct early_suspend *h);
 static void pm_late_resume(struct early_suspend *h);
@@ -349,6 +354,16 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define FB_SCREEN_BUFFERID1      1
 #endif
 
+/* define for busylock */
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+
+#define BUSYLOCK_WAITTIME            300
+/* only one frame available to avoid problem */
+#define DEFAULT_USEABLE_FRAMEBUFFER  1
+#define NUM_OF_FRAMEBUFFER_MAXIMUM   1
+
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define NUM_OF_COMPOSER_PROHIBITE_AT_START    0
 #define NUM_OF_COMPOSER_PROHIBITE_AT_RESUME   0
@@ -486,6 +501,10 @@ static spinlock_t             irqlock_timer;
 static DEFINE_TIMER(kernel_queue_timer, \
 	timeout_queue_process, 0, 0);
 static struct localwork       expire_kernel_request;
+
+/* confirm framebuffer is available. */
+static int                      available_num_framebuffer;
+static DECLARE_WAIT_QUEUE_HEAD(wait_framebuffer_available);
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void                   *graphic_handle_hdmi;
@@ -3534,6 +3553,28 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
+static int  ioc_busylock(struct composer_fh *fh, unsigned long *data)
+{
+	int rc = -EINVAL;
+	DBGENTER("fh:%p addr:%p\n", fh, addr);
+	printk_dbg2(3, "arg data:0x%lx\n", *data);
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+
+	if (*data == CMP_BUSYLOCK_SET) {
+		/* acquire busy lock for framebuffer access control. */
+		rc = decrement_useable_framebuffer();
+	} else if (*data == CMP_BUSYLOCK_CLEAR) {
+		/* nothing to do */
+		rc = 0;
+	} else {
+		/* report error */
+		printk_err2("invalid argument.\n");
+		rc = -EINVAL;
+	}
+#endif
+	DBGLEAVE("%d\n", rc);
+	return rc;
+}
 
 static int  chk_ioc_supportpixfmt(struct composer_fh *fh, \
 	struct cmp_lay_supportpixfmt *arg)
@@ -4977,6 +5018,60 @@ err_exit:
 	return rc;
 }
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void increment_useable_framebuffer(void)
+{
+	unsigned long flags;
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
+
+	if (available_num_framebuffer < NUM_OF_FRAMEBUFFER_MAXIMUM)
+		available_num_framebuffer++;
+	else
+		printk_err("busylock control not work correctly\n");
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
+
+	wake_up(&wait_framebuffer_available);
+}
+static int decrement_useable_framebuffer(void)
+{
+	unsigned long flags;
+	int      rc;
+
+	rc = wait_event_timeout(
+			wait_framebuffer_available,
+			available_num_framebuffer != 0,
+			msecs_to_jiffies(BUSYLOCK_WAITTIME));
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
+
+	if (rc == 0) {
+		/* report information */
+		printk_dbg2(3, "detect timeout.\n");
+		rc = -EBUSY;
+	} else if (rc > 0) {
+		/* set default code */
+		rc = 0;
+	} else {
+		/* report error */
+		printk_err2("error in wait_event_timeout\n");
+		rc = -EINVAL;
+	}
+
+	if (available_num_framebuffer > 0)
+		available_num_framebuffer--;
+	else
+		printk_err("busylock control not work correctly\n");
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
+
+	return rc;
+}
+#endif
+
 #if _LOG_DBG >= 1
 static const char *get_RTAPImsg_memory(int rc)
 {
@@ -5970,6 +6065,8 @@ static void work_dispdraw(struct localwork *work)
 		}
 	}
 	fb_count_display++;
+
+	increment_useable_framebuffer();
 
 	TRACE_LEAVE(FUNC_DRAWDISP);
 	DBGLEAVE("\n");
@@ -7271,6 +7368,8 @@ err_exit:
 #endif
 		printk_err2("request failed.\n");
 
+		increment_useable_framebuffer();
+
 		/* wake-up waiting thread */
 		wake_up(&kernel_waitqueue_comp);
 	} else {
@@ -8088,6 +8187,9 @@ static long core_ioctl(struct file *filep, \
 	case CMP_IOCS_FBADDR:
 		rc = ioc_setfbaddr(fh, parg);
 		break;
+	case CMP_IOCS_BUSYLOCK:
+		rc = ioc_busylock(fh, parg);
+		break;
 	default:
 		printk_err2("invalid cmd 0x%x\n", cmd);
 	}
@@ -8473,6 +8575,9 @@ static int __init sh_mobile_composer_init(void)
 
 	spin_lock_init(&irqlock_timer);
 	localwork_init(&expire_kernel_request, work_expirequeue);
+
+	available_num_framebuffer = DEFAULT_USEABLE_FRAMEBUFFER;
+	init_waitqueue_head(&wait_framebuffer_available);
 
 	/* initialize mapping information */
 	queue_fb_map_address    = 0;

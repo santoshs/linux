@@ -194,6 +194,8 @@ struct cmp_layaddr {
 	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1c, int)
 #define CMP_IOCS_FBADDR \
 	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1d, unsigned long [2])
+#define CMP_IOCS_BUSYLOCK \
+	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x1e, unsigned long)
 
 
 /*******************/
@@ -257,7 +259,10 @@ struct cmp_layaddr {
 #define CMP_NG_CROPPOS_L4  (-(CMP_NG_BASE+0x134)) /*l4  */
 
 /********************/
-/* define err code  */
+/* define busylock  */
+/********************/
+#define CMP_BUSYLOCK_SET     1
+#define CMP_BUSYLOCK_CLEAR   0
 
 #ifdef __KERNEL__
 /* please not define __KERNEL__ when build application. */
