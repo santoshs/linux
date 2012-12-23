@@ -24,7 +24,7 @@
  */
 #define VCD_RECORD_BUFFER_SIZE 640
 #define VCD_PLAYBACK_BUFFER_SIZE 640
-
+#define VCD_PLAYBACK_PT_BUFFER_SIZE 1920
 
 /*
  * define macro declaration
@@ -44,6 +44,7 @@ enum VCD_COMMAND {
 	VCD_COMMAND_GET_PLAYBACK_BUFFER,
 	VCD_COMMAND_WATCH_FW,
 	VCD_COMMAND_WATCH_CLKGEN,
+	VCD_COMMAND_WATCH_CODEC_TYPE,
 	VCD_COMMAND_WAIT_PATH,
 	VCD_COMMAND_GET_VOIP_UL_BUFFER,
 	VCD_COMMAND_GET_VOIP_DL_BUFFER,
@@ -77,7 +78,10 @@ enum VCD_LOOPBACK_MODE {
 	VCD_LOOPBACK_MODE_DELAY
 };
 
-
+enum VCD_CODEC_TYPE {
+	VCD_CODEC_WB = 0,
+	VCD_CODEC_NB
+};
 /*
  * structure declaration
  */
@@ -117,6 +121,10 @@ struct vcd_watch_fw_info {
 struct vcd_watch_clkgen_info {
 	void *start_clkgen;
 	void *stop_clkgen;
+};
+
+struct vcd_watch_codec_type_info {
+	void *codec_type_ind;
 };
 
 struct vcd_wait_path_info {

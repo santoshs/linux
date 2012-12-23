@@ -1515,7 +1515,8 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 }
 
 int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
-			   struct snd_soc_dai *dai)
+			   struct snd_soc_dai *dai,
+			   u_int rate)
 {
 	struct fsi_priv *fsi = fsi_get_priv(substream);
 	struct fsi_master *master = fsi_get_master(fsi);
@@ -1539,9 +1540,13 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 	/* chip revision check */
 	/* for ES2.0 */
 	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
-
-		fsi_master_write(master, FSIDIVB, 0x00DB0003);
-
+		if (rate == 16000) {
+			dev_dbg(dai->dev, "rate=16000\n");
+			fsi_master_write(master, FSIDIVB, 0x00490003);
+		} else {
+			dev_dbg(dai->dev, "rate=8000\n");
+			fsi_master_write(master, FSIDIVB, 0x00DB0003);
+       }
 		fsi_reg_write(fsi, ACK_RV, 0x00001000);
 
 		if (0 != is_play)

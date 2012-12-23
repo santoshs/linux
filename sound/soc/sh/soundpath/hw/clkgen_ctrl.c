@@ -31,6 +31,9 @@
 /* FSI format */
 static u_int g_clkgen_rate = 0x0;
 
+/* BT Sampling rate */
+static u_int g_clkgen_btscorate = 0x0;
+
 /* CLKGEN Control functions table */
 static struct ctrl_func_tbl g_clkgen_ctrl_func_tbl[] = {
 	{ SNDP_PLAYBACK_EARPIECE_NORMAL,                    clkgen_playback   },
@@ -249,8 +252,8 @@ static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
 };
 #endif
 
-/* Table for Voicecall(PortB, CLKGEN master) */
-static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
+/* Table for Voicecall(PortB, CLKGEN master, 8kHz) */
+static struct common_reg_table clkgen_reg_tbl_voicecallB_M_8000[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
@@ -259,6 +262,21 @@ static struct common_reg_table clkgen_reg_tbl_voicecallB_M[] = {
 	{ CLKG_TIMSEL0,	 0x00000000, 0, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
 	{ CLKG_FSIBCOM,	 0x00202101, 0, 0 }, /* 1ch, 64fs, 8kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
+};
+
+/* Table for Voicecall(PortB, CLKGEN master, 16kHz) */
+static struct common_reg_table clkgen_reg_tbl_voicecallB_M_16000[] = {
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
+	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
+	{ CLKG_FSIBCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
 					      * CLKGEN master,
 					      * Non - continuos mode */
 	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
@@ -287,7 +305,7 @@ static struct common_reg_table clkgen_reg_tbl_voicecallB_S[] = {
    @retval	0		Successful
    @retval	-EINVAL		Invalid argument
  */
-int clkgen_start(const u_int uiValue, const int iRate)
+int clkgen_start(const u_int uiValue, const int iRate, const u_int btscorate)
 {
 	/* Local variable declaration */
 	int iCnt;
@@ -302,6 +320,8 @@ int clkgen_start(const u_int uiValue, const int iRate)
 			if (NULL != g_clkgen_ctrl_func_tbl[iCnt].func) {
 				/* Set sampling rate */
 				g_clkgen_rate = iRate;
+				g_clkgen_btscorate = btscorate;
+
 				/* Clock framework API, Status ON */
 				audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
 				/* Path setting API call */
@@ -388,8 +408,15 @@ static void clkgen_voicecall(const u_int uiValue)
 	/* BLUETOOTHSCO */
 	} else {
 		/* CLKGEN master */
-		reg_tbl  = clkgen_reg_tbl_voicecallB_M;
-		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB_M);
+		if (g_clkgen_btscorate == 16000) {
+			sndp_log_info("rate=16000..\n");
+			reg_tbl  = clkgen_reg_tbl_voicecallB_M_16000;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB_M_16000);
+		} else {
+			sndp_log_info("rate=8000..\n");
+			reg_tbl  = clkgen_reg_tbl_voicecallB_M_8000;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallB_M_8000);
+		}
 	}
 
 	/* Register setting function call */

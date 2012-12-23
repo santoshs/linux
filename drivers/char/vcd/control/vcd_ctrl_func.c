@@ -113,7 +113,7 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_START_RECORD:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
+		if (!(VCD_CTRL_FUNC_HW_PARAM & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_RECORD & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
@@ -123,7 +123,7 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_ALREADY_EXECUTION;
 		break;
 	case VCD_CTRL_FUNC_START_PLAYBACK:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
+		if (!(VCD_CTRL_FUNC_HW_PARAM & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;

@@ -29,7 +29,6 @@
 
 #ifdef __VCD_ES305B__
 #define A2220_EOS2_FIRMWARE	(1)
-#define __VCD_SUSPEND_RESUME_WA__ (1)
 #endif /* __VCD_ES305B__ */
 #include "a2220_firmware.h"
 #include <linux/firmware.h>
@@ -42,12 +41,11 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/proc_fs.h>
+#include <mach/common.h>
 #include <mach/r8a73734.h>
 #include "sound/soundpath/soundpath.h"
-
-#ifdef __VCD_SUSPEND_RESUME_WA__
+#include <linux/vcd/vcd.h>
 #include <linux/platform_device.h>
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 
 #endif /* __VCD_ES305B__ */
 
@@ -79,17 +77,17 @@ static int a2220_voice_process
 	(unsigned int mode, unsigned int device, unsigned int ch_dev);
 static int a2220_set_state
 	(unsigned int mode, unsigned int device, unsigned int ch_dev);
-
-#ifdef __VCD_SUSPEND_RESUME_WA__
+static int a2220_set_nb_wb(unsigned int nb_wb);
+static int a2220_set_algo_sample_rate(unsigned int rate);
 static int a2220_wa_suspend(struct device *dev);
 static int a2220_wa_resume(struct device *dev);
 static int a2220_wa_runtime_suspend(struct device *dev);
 static int a2220_wa_runtime_resume(struct device *dev);
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 
 static unsigned int g_a2220_current_state;
 static unsigned int g_a2220_current_mode;
 static unsigned int g_a2220_current_device;
+static unsigned int g_a2220_suspend_state;
 static unsigned int g_a2220_start;
 static unsigned int g_a2220_vclk_adr;
 static struct a2220_data *g_a2220_data;
@@ -97,9 +95,9 @@ static struct sndp_a2220_callback_func g_a2220_callback_func;
 static struct clk *g_a2220_vclk4_clk;
 static struct proc_dir_entry *g_a2220_parent;
 unsigned int g_a2220_log_level;
+static unsigned int g_a2220_current_nb_wb;
+static unsigned int g_a2220_nb_wb;
 
-#ifdef __VCD_SUSPEND_RESUME_WA__
-unsigned int g_a2220_dummy_idle_flag;
 /*
  * callback object
  */
@@ -128,7 +126,6 @@ static struct platform_driver a2220_platform_driver = {
 		.remove = NULL,
 	},
 };
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 #endif /* __VCD_ES305B__ */
 
 
@@ -253,6 +250,130 @@ static int a2220_release(struct inode *inode, struct file *file)
 #define A100_msg_mutimedia6   0x800D0001
 #endif
 
+#ifdef __VCD_ES305B__
+unsigned char port_a_init_setting[] = {
+	/* wordlength 16bit(default) */
+	0x80, 0x0c, 0x0a, 0x00, 0x80, 0x0d, 0x00, 0x0f,
+	/* delfromfstx Min(default) */
+	0x80, 0x0c, 0x0a, 0x02, 0x80, 0x0d, 0x00, 0x00,
+	/* delfromfstx Min(default) */
+	0x80, 0x0c, 0x0a, 0x03, 0x80, 0x0d, 0x00, 0x00,
+	/* latchedge PCM */
+	0x80, 0x0c, 0x0a, 0x04, 0x80, 0x0d, 0x00, 0x03,
+	/* endiannes little */
+	0x80, 0x0c, 0x0a, 0x05, 0x80, 0x0d, 0x00, 0x00,
+	/* tristateenable enable(default) */
+	0x80, 0x0c, 0x0a, 0x06, 0x80, 0x0d, 0x00, 0x01,
+	/* audio port mode PCM */
+	0x80, 0x0c, 0x0a, 0x07, 0x80, 0x0d, 0x00, 0x00,
+};
+
+unsigned char port_c_init_setting[] = {
+	/* wordlength 16bit(default) */
+	0x80, 0x0c, 0x0c, 0x00, 0x80, 0x0d, 0x00, 0x0f,
+	/* delfromfstx Min(default) */
+	0x80, 0x0c, 0x0c, 0x02, 0x80, 0x0d, 0x00, 0x00,
+	/* delfromfstx Min(default) */
+	0x80, 0x0c, 0x0c, 0x03, 0x80, 0x0d, 0x00, 0x00,
+	/* latchedge PCM */
+	0x80, 0x0c, 0x0c, 0x04, 0x80, 0x0d, 0x00, 0x03,
+	/* endiannes little */
+	0x80, 0x0c, 0x0c, 0x05, 0x80, 0x0d, 0x00, 0x00,
+	/* tristateenable enable(default) */
+	0x80, 0x0c, 0x0c, 0x06, 0x80, 0x0d, 0x00, 0x01,
+	/* audio port mode PCM */
+	0x80, 0x0c, 0x0c, 0x07, 0x80, 0x0d, 0x00, 0x00,
+};
+
+unsigned char idle_to_pass_through[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char idle_to_voice[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+};
+
+unsigned char idle_to_voice_nb[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x4c, 0x00, 0x00,	/* Set Algo Sample Rate(NB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+
+unsigned char idle_to_voice_wb[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x4c, 0x00, 0x01,	/* Set Algo Sample Rate(WB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+
+unsigned char pass_through_to_idle[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	0x80, 0x52, 0x00, 0x00,	/* disable pass through */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char wa_pass_through_to_idle[] = {
+	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
+	/*0x80, 0x52, 0x00, 0x00,*/	/* disable pass through */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char pass_through_to_voice[] = {
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+};
+
+unsigned char pass_through_to_voice_nb[] = {
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x4c, 0x00, 0x00,	/* Set Algo Sample Rate(NB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+
+unsigned char pass_through_to_voice_wb[] = {
+	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x4c, 0x00, 0x01,	/* Set Algo Sample Rate(WB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+
+unsigned char voice_to_idle[] = {
+	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x52, 0x00, 0x00,	/* disable pass through */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char wa_voice_to_idle[] = {
+	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	/* 0x80, 0x52, 0x00, 0x00,*/	/* disable pass through */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char voice_to_pass_through[] = {
+	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
+	0x80, 0x43, 0x00, 0x00,	/* check voice process */
+	0x80, 0x10, 0x00, 0x01,	/* sleep */
+};
+
+unsigned char set_algo_nb[] = {
+	0x80, 0x4c, 0x00, 0x00,	/* Set Algo Sample Rate(NB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+
+unsigned char set_algo_wb[] = {
+	0x80, 0x4c, 0x00, 0x01,	/* Set Algo Sample Rate(WB) */
+	0x80, 0x4f, 0x00, 0x00,	/* Get Change Status(success) */
+};
+#endif /* __VCD_ES305B__ */
+
 static void a2220_i2c_sw_reset(struct a2220_data *a2220, unsigned int reset_cmd)
 {
 	int rc = 0;
@@ -274,11 +395,14 @@ static void a2220_i2c_sw_reset(struct a2220_data *a2220, unsigned int reset_cmd)
 a2220_hw_reset(struct a2220_data *a2220, struct a2220img *img)
 {
 	struct a2220img *vp = img;
-	int rc, i, pass = 0;
+	int rc, i, size, pass = 0;
 	int remaining;
 	int retry = RETRY_CNT;
 	unsigned char *index;
 	char buf[2];
+	unsigned int msg;
+	unsigned char *pMsg;
+	unsigned char *i2c_cmds;
 
 	pr_info("%s\n", __func__);
 	while (retry--) {
@@ -344,6 +468,58 @@ a2220_hw_reset(struct a2220_data *a2220, struct a2220img *img)
 		pass = 1;
 		break;
 	}
+#ifdef __VCD_ES305B__
+	/* port A */
+	pMsg = (unsigned char *)&msg;
+	i2c_cmds = port_a_init_setting;
+	size = sizeof(port_a_init_setting);
+
+	for (i = 0 ; i < size ; i += 4) {
+		pMsg[3] = i2c_cmds[i];
+		pMsg[2] = i2c_cmds[i+1];
+		pMsg[1] = i2c_cmds[i+2];
+		pMsg[0] = i2c_cmds[i+3];
+
+		retry = RETRY_CNT;
+
+		do {
+			rc = execute_cmdmsg(a2220, msg);
+			a2220_pr_info("portA retry:%d, size:%d, rc:%d\n"
+				, retry, size, rc);
+		} while ((rc < 0) && --retry);
+
+		if (rc < 0)
+			a2220_pr_err("portA setting Failed\n");
+	}
+
+	/* port C */
+	pMsg = (unsigned char *)&msg;
+	i2c_cmds = port_c_init_setting;
+	size = sizeof(port_c_init_setting);
+
+	for (i = 0 ; i < size ; i += 4) {
+		pMsg[3] = i2c_cmds[i];
+		pMsg[2] = i2c_cmds[i+1];
+		pMsg[1] = i2c_cmds[i+2];
+		pMsg[0] = i2c_cmds[i+3];
+
+		retry = RETRY_CNT;
+
+		do {
+			rc = execute_cmdmsg(a2220, msg);
+			a2220_pr_info("portC retry:%d, size:%d, rc:%d\n"
+				, retry, size, rc);
+		} while ((rc < 0) && --retry);
+
+		if (rc < 0)
+			a2220_pr_err("portC setting Failed\n");
+	}
+
+	/*setting disable pass throungh */
+	pMsg = (unsigned char *)&msg;
+	i2c_cmds = idle_to_pass_through;
+	size = sizeof(idle_to_pass_through);
+#endif /* __VCD_ES305B__ */
 	return rc;
 }
 
@@ -354,94 +530,6 @@ unsigned char bypass_multimedia[] = {
 #endif /* __VCD_ES305B__ */
 	0x80, 0x10, 0x00, 0x01,
 };
-
-#ifdef __VCD_ES305B__
-unsigned char port_a_init_setting[] = {
-	/* wordlength 16bit(default) */
-	0x80, 0x0c, 0x0a, 0x00, 0x80, 0x0d, 0x00, 0x0f,
-	/* delfromfstx Min(default) */
-	0x80, 0x0c, 0x0a, 0x02, 0x80, 0x0d, 0x00, 0x00,
-	/* delfromfstx Min(default) */
-	0x80, 0x0c, 0x0a, 0x03, 0x80, 0x0d, 0x00, 0x00,
-	/* latchedge PCM */
-	0x80, 0x0c, 0x0a, 0x04, 0x80, 0x0d, 0x00, 0x03,
-	/* endiannes little */
-	0x80, 0x0c, 0x0a, 0x05, 0x80, 0x0d, 0x00, 0x00,
-	/* tristateenable enable(default) */
-	0x80, 0x0c, 0x0a, 0x06, 0x80, 0x0d, 0x00, 0x01,
-	/* audio port mode PCM */
-	0x80, 0x0c, 0x0a, 0x07, 0x80, 0x0d, 0x00, 0x00,
-};
-
-unsigned char port_c_init_setting[] = {
-	/* wordlength 16bit(default) */
-	0x80, 0x0c, 0x0c, 0x00, 0x80, 0x0d, 0x00, 0x0f,
-	/* delfromfstx Min(default) */
-	0x80, 0x0c, 0x0c, 0x02, 0x80, 0x0d, 0x00, 0x00,
-	/* delfromfstx Min(default) */
-	0x80, 0x0c, 0x0c, 0x03, 0x80, 0x0d, 0x00, 0x00,
-	/* latchedge PCM */
-	0x80, 0x0c, 0x0c, 0x04, 0x80, 0x0d, 0x00, 0x03,
-	/* endiannes little */
-	0x80, 0x0c, 0x0c, 0x05, 0x80, 0x0d, 0x00, 0x00,
-	/* tristateenable enable(default) */
-	0x80, 0x0c, 0x0c, 0x06, 0x80, 0x0d, 0x00, 0x01,
-	/* audio port mode PCM */
-	0x80, 0x0c, 0x0c, 0x07, 0x80, 0x0d, 0x00, 0x00,
-};
-
-unsigned char idle_to_pass_through[] = {
-	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-
-unsigned char idle_to_voice[] = {
-	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
-	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
-	0x80, 0x43, 0x00, 0x00,	/* check voice process */
-};
-
-unsigned char pass_through_to_idle[] = {
-	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
-	0x80, 0x52, 0x00, 0x00,	/* disable pass through */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-
-#ifdef __VCD_SUSPEND_RESUME_WA__
-unsigned char wa_pass_through_to_idle[] = {
-	0x80, 0x52, 0x00, 0x48,	/* enable pass through */
-	/*0x80, 0x52, 0x00, 0x00,*/	/* disable pass through */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
-
-unsigned char pass_through_to_voice[] = {
-	0x80, 0x1c, 0x00, 0x01,	/* enable voice process */
-	0x80, 0x43, 0x00, 0x00,	/* check voice process */
-};
-
-unsigned char voice_to_idle[] = {
-	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
-	0x80, 0x43, 0x00, 0x00,	/* check voice process */
-	0x80, 0x52, 0x00, 0x00,	/* disable pass through */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-
-#ifdef __VCD_SUSPEND_RESUME_WA__
-unsigned char wa_voice_to_idle[] = {
-	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
-	0x80, 0x43, 0x00, 0x00,	/* check voice process */
-	/* 0x80, 0x52, 0x00, 0x00,*/	/* disable pass through */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
-
-unsigned char voice_to_pass_through[] = {
-	0x80, 0x1c, 0x00, 0x00,	/* disable voice process */
-	0x80, 0x43, 0x00, 0x00,	/* check voice process */
-	0x80, 0x10, 0x00, 0x01,	/* sleep */
-};
-#endif /* __VCD_ES305B__ */
 
 int a2220_bootup_init(struct a2220_data *a2220, struct a2220img *pImg)
 {
@@ -577,17 +665,10 @@ int a2220_bootup_init(struct a2220_data *a2220, struct a2220img *pImg)
 			a2220_pr_err("portC setting Failed\n");
 	}
 
-#ifdef __VCD_SUSPEND_RESUME_WA__
 	/*setting disable pass throungh */
 	pMsg = (unsigned char *)&msg;
-	i2c_cmds = wa_pass_through_to_idle;
-	size = sizeof(wa_pass_through_to_idle);
-#else
-	/*setting disable pass throungh */
-	pMsg = (unsigned char *)&msg;
-	i2c_cmds = pass_through_to_idle;
-	size = sizeof(pass_through_to_idle);
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
+	i2c_cmds = idle_to_pass_through;
+	size = sizeof(idle_to_pass_through);
 #endif /* __VCD_ES305B__ */
 
 	for (i = 0 ; i < size ; i += 4) {
@@ -619,11 +700,7 @@ int a2220_bootup_init(struct a2220_data *a2220, struct a2220img *pImg)
 #ifdef __VCD_ES305B__
 	a2220_disable_vclk4();
 	g_a2220_current_state = A2220_STATE_IDLE;
-#ifdef __VCD_SUSPEND_RESUME_WA__
-	g_a2220_dummy_idle_flag = 1;
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 	a2220_pr_info("- finish\n");
-	g_a2220_log_level = A2220_LOG_NONE;
 #endif /* __VCD_ES305B__ */
 
 	pr_info("%s : a2220_bootup_init - finish\n", __func__);
@@ -2012,10 +2089,15 @@ static int a2220_probe(
 	/* copy to static table pointer */
 	g_a2220_data = a2220;
 
+	/* set to nb/wb mode */
+	g_a2220_nb_wb = VCD_CODEC_WB;
+	g_a2220_current_nb_wb = VCD_CODEC_NB;
+
 	/* set callback function */
 	g_a2220_callback_func.set_state = a2220_set_state;
+	g_a2220_callback_func.set_nb_wb = a2220_set_nb_wb;
 	sndp_a2220_regist_callback(&g_a2220_callback_func);
-#ifdef __VCD_SUSPEND_RESUME_WA__
+
 	rc = platform_device_register(&a2220_platform_device);
 	if (0 != rc) {
 		a2220_pr_err("platform_device_register failed.[%d]\n", rc);
@@ -2028,7 +2110,6 @@ static int a2220_probe(
 		goto err_pf_device_reg;
 	}
 
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 #endif /* __VCD_ES305B__ */
 
 	kthread_run(thread_start, a2220, "thread_start");
@@ -2041,10 +2122,8 @@ static int a2220_probe(
 	return 0;
 
 #ifdef __VCD_ES305B__
-#ifdef __VCD_SUSPEND_RESUME_WA__
 err_pf_device_reg:
 	platform_device_unregister(&a2220_platform_device);
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 
 err_reset_gpio_request_failed:
 	gpio_free(a2220->pdata->gpio_reset);
@@ -2068,10 +2147,8 @@ static int a2220_remove(struct i2c_client *client)
 #ifdef __VCD_ES305B__
 	a2220_pr_func_start();
 
-#ifdef __VCD_SUSPEND_RESUME_WA__
 	platform_driver_unregister(&a2220_platform_driver);
 	platform_device_unregister(&a2220_platform_device);
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 	a2220_remove_proc_entry();
 	iounmap((void *)g_a2220_vclk_adr);
 	gpio_free(a2220->pdata->gpio_reset);
@@ -2103,7 +2180,7 @@ static int a2220_resume(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef __VCD_SUSPEND_RESUME_WA__
+#ifdef __VCD_ES305B__
 static int a2220_wa_suspend(struct device *dev)
 {
 	int rc = 0, size = 0;
@@ -2113,20 +2190,24 @@ static int a2220_wa_suspend(struct device *dev)
 
 	mutex_lock(&g_a2220_data->lock);
 
-	if (g_a2220_dummy_idle_flag &&
-		(g_a2220_current_state == A2220_STATE_IDLE)) {
-		a2220_pr_debug("suspend.\n");
-		rc = a2220_enable_vclk4();
-		if (0 != rc)
-			goto err_rtn;
-		rc = chk_wakeup_a2220(g_a2220_data);
-		if (rc < 0)
-			goto err_rtn;
-		i2c_cmds = voice_to_idle;
-		size = sizeof(voice_to_idle);
-		rc = a2220_i2c_cmd_execute(i2c_cmds, size);
-		a2220_disable_vclk4();
-		g_a2220_dummy_idle_flag = 0;
+	if (g_a2220_current_state == A2220_STATE_IDLE) {
+		if (g_a2220_suspend_state) {
+			/* nop */
+			a2220_pr_debug("arleady suspend state.\n");
+		} else {
+			a2220_pr_debug("suspend.\n");
+			rc = a2220_enable_vclk4();
+			if (0 != rc)
+				goto err_rtn;
+			rc = chk_wakeup_a2220(g_a2220_data);
+			if (rc < 0)
+				goto err_rtn;
+			i2c_cmds = pass_through_to_idle;
+			size = sizeof(pass_through_to_idle);
+			rc = a2220_i2c_cmd_execute(i2c_cmds, size);
+			a2220_disable_vclk4();
+			g_a2220_suspend_state = 1;
+		}
 	}
 
 	mutex_unlock(&g_a2220_data->lock);
@@ -2145,40 +2226,20 @@ static int a2220_wa_resume(struct device *dev)
 
 	mutex_lock(&g_a2220_data->lock);
 
-	if (!g_a2220_dummy_idle_flag) {
-		if ((g_a2220_current_device == SNDP_OUT_BLUETOOTH_SCO) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_BLUETOOTH_A2DP) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_BLUETOOTH_A2DP_HEADPHONES) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_BLUETOOTH_A2DP_SPEAKER) ||
-			(g_a2220_current_device ==
-				SNDP_OUT_AUX_DIGITAL) ||
-			(g_a2220_current_device ==
-				SNDP_IN_BLUETOOTH_SCO_HEADSET) ||
-			(g_a2220_current_device ==
-				SNDP_IN_AUX_DIGITAL)) {
-			/* nop */
-		} else {
-			if (A2220_STATE_IDLE == g_a2220_current_state) {
-				/* change pass through */
-				rc = a2220_enable_vclk4();
-				if (0 != rc)
-					goto err_rtn;
-				rc = chk_wakeup_a2220(g_a2220_data);
-				if (rc < 0)
-					goto err_rtn;
-				i2c_cmds = wa_pass_through_to_idle;
-				size = sizeof(wa_pass_through_to_idle);
-				rc = a2220_i2c_cmd_execute(i2c_cmds, size);
-				a2220_disable_vclk4();
-				g_a2220_dummy_idle_flag = 1;
-			}
+	if (A2220_STATE_IDLE == g_a2220_current_state) {
+		if (g_a2220_suspend_state) {
+			/* change pass through */
+			rc = a2220_enable_vclk4();
+			if (0 != rc)
+				goto err_rtn;
+			rc = chk_wakeup_a2220(g_a2220_data);
+			if (rc < 0)
+				goto err_rtn;
+			i2c_cmds = idle_to_pass_through;
+			size = sizeof(idle_to_pass_through);
+			rc = a2220_i2c_cmd_execute(i2c_cmds, size);
+			a2220_disable_vclk4();
+			g_a2220_suspend_state = 0;
 		}
 	}
 	mutex_unlock(&g_a2220_data->lock);
@@ -2213,7 +2274,7 @@ static int a2220_wa_runtime_resume(struct device *dev)
 	return 0;
 }
 
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
+#endif /* __VCD_ES305B__ */
 
 static const struct i2c_device_id a2220_id[] = {
 	{ "audience_a2220", 0 },
@@ -2280,14 +2341,14 @@ static int a2220_i2c_cmd_execute(char *i2c_cmds, int size)
 static int a2220_idle
 	(unsigned int mode, unsigned int device, unsigned int ch_dev)
 {
-	int ret = 0, size = 0;
+	int ret = 0;
+	int size = 0;
 	unsigned char *i2c_cmds;
 
 	a2220_pr_func_start("mode[0x%x] device[0x%x] ch_dev[0x%x]\n"
 		, mode, device, ch_dev);
 
-	if ((ch_dev == SNDP_A2220_STOP) ||
-		(device == SNDP_OUT_BLUETOOTH_SCO) ||
+	if ((device == SNDP_OUT_BLUETOOTH_SCO) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
 		(device == SNDP_OUT_BLUETOOTH_A2DP) ||
@@ -2296,11 +2357,11 @@ static int a2220_idle
 		(device == SNDP_OUT_AUX_DIGITAL) ||
 		(device == SNDP_IN_BLUETOOTH_SCO_HEADSET) ||
 		(device == SNDP_IN_AUX_DIGITAL)) {
-		/* nop */
-		return ret;
-	}
+		if (g_a2220_suspend_state) {
+			/* nop */
+			goto rtn;
+		}
 
-	if ((device == SNDP_OUT_EARPIECE) && (mode == SNDP_MODE_INCALL)) {
 		/* clock on */
 		ret = a2220_enable_vclk4();
 		if (0 != ret)
@@ -2311,39 +2372,131 @@ static int a2220_idle
 		if (ret < 0)
 			goto a2220_state_err;
 
-		/* enable pass through & voice_process */
-		i2c_cmds = idle_to_voice;
-		size = sizeof(idle_to_voice);
+		i2c_cmds = pass_through_to_idle;
+		size = sizeof(pass_through_to_idle);
 
-		/* state update */
-		g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
-	} else {
-		/* clock on */
-		ret = a2220_enable_vclk4();
-		if (0 != ret)
-			goto a2220_state_err;
+		/* suspend state */
+		g_a2220_suspend_state = 1;
 
-		/* wakeup */
-		ret = chk_wakeup_a2220(g_a2220_data);
-		if (ret < 0)
-			goto a2220_state_err;
+		/* execute i2c command */
+		ret = a2220_i2c_cmd_execute(i2c_cmds, size);
 
-		/* set pass through & sleep */
-		i2c_cmds = idle_to_pass_through;
-		size = sizeof(idle_to_pass_through);
-
-		/* state update */
-		g_a2220_current_state = A2220_STATE_PASS_THROUGH;
-	}
-
-	/* execute i2c command */
-	ret = a2220_i2c_cmd_execute(i2c_cmds, size);
-
-	if (A2220_STATE_PASS_THROUGH == g_a2220_current_state) {
 		/* clock off */
 		a2220_disable_vclk4();
+
+	} else if (ch_dev == SNDP_A2220_STOP) {
+		/* nop */
+		goto rtn;
+	} else if ((device == SNDP_OUT_EARPIECE) &&
+			(mode == SNDP_MODE_INCALL)) {
+		if (g_a2220_suspend_state) {
+			/* clock on */
+			ret = a2220_enable_vclk4();
+			if (0 != ret)
+				goto a2220_state_err;
+
+			/* wakeup */
+			ret = chk_wakeup_a2220(g_a2220_data);
+			if (ret < 0)
+				goto a2220_state_err;
+#ifdef __VCD_NB_WB_SUPPORT__
+			/* check set NB/WB type */
+			if (g_a2220_nb_wb == VCD_CODEC_WB) {
+				/* enable pass through & voice_process & WB */
+				i2c_cmds = idle_to_voice_wb;
+				size = sizeof(idle_to_voice_wb);
+			} else {
+				/* enable pass through & voice_process & NB */
+				i2c_cmds = idle_to_voice_nb;
+				size = sizeof(idle_to_voice_nb);
+			}
+#else
+			/* enable pass through & sleep */
+			i2c_cmds = idle_to_pass_through;
+			size = sizeof(idle_to_pass_through);
+#endif /* __VCD_NB_WB_SUPPORT__ */
+
+			/* not suspend state */
+			g_a2220_suspend_state = 0;
+
+			/* state update */
+			g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
+
+			/* execute i2c command */
+			ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+#ifndef __VCD_NB_WB_SUPPORT__
+			/* clock off */
+			a2220_disable_vclk4();
+#endif /* !__VCD_NB_WB_SUPPORT__ */
+
+		} else {
+#ifdef __VCD_NB_WB_SUPPORT__
+			/* clock on */
+			ret = a2220_enable_vclk4();
+			if (0 != ret)
+				goto a2220_state_err;
+
+			/* wakeup */
+			ret = chk_wakeup_a2220(g_a2220_data);
+			if (ret < 0)
+				goto a2220_state_err;
+
+			/* check set NB/WB type */
+			if (g_a2220_nb_wb == VCD_CODEC_WB) {
+				/* enable pass through & voice_process & WB */
+				i2c_cmds = idle_to_voice_wb;
+				size = sizeof(idle_to_voice_wb);
+			} else {
+				/* enable pass through & voice_process & NB */
+				i2c_cmds = idle_to_voice_nb;
+				size = sizeof(idle_to_voice_nb);
+			}
+			/* state update */
+			g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
+
+			/* execute i2c command */
+			ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+#else
+			/* state update */
+			g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
+#endif /* __VCD_NB_WB_SUPPORT__ */
+		}
+	} else {
+		if (g_a2220_suspend_state) {
+			/* clock on */
+			ret = a2220_enable_vclk4();
+			if (0 != ret)
+				goto a2220_state_err;
+
+			/* wakeup */
+			ret = chk_wakeup_a2220(g_a2220_data);
+			if (ret < 0)
+				goto a2220_state_err;
+
+			/* set pass through & sleep */
+			i2c_cmds = idle_to_pass_through;
+			size = sizeof(idle_to_pass_through);
+
+			/* not suspend state */
+			g_a2220_suspend_state = 0;
+
+			/* state update */
+			g_a2220_current_state = A2220_STATE_PASS_THROUGH;
+
+			/* execute i2c command */
+			ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+			/* clock off */
+			a2220_disable_vclk4();
+		} else {
+			/* state update */
+			g_a2220_current_state = A2220_STATE_PASS_THROUGH;
+		}
 	}
 
+rtn:
 	a2220_pr_func_end("ret.[%d]\n", ret);
 	return ret;
 
@@ -2355,50 +2508,14 @@ a2220_state_err:
 static int a2220_pass_through
 	(unsigned int mode, unsigned int device, unsigned int ch_dev)
 {
-	int ret = 0, size = 0;
+	int ret = 0;
+	int size = 0;
 	unsigned char *i2c_cmds;
 
 	a2220_pr_func_start("mode[0x%x] device[0x%x] ch_dev[0x%x]\n"
 		, mode, device, ch_dev);
-#ifdef __VCD_SUSPEND_RESUME_WA__
-	if (ch_dev == SNDP_A2220_STOP) {
-		/* clock on */
-		ret = a2220_enable_vclk4();
-		if (0 != ret)
-			goto a2220_pass_through_err;
 
-		/* wakeup */
-		ret = chk_wakeup_a2220(g_a2220_data);
-		if (ret < 0)
-			goto a2220_pass_through_err;
-
-		if ((device == SNDP_OUT_BLUETOOTH_SCO) ||
-			(device == SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
-			(device == SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP_HEADPHONES) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP_SPEAKER) ||
-			(device == SNDP_OUT_AUX_DIGITAL) ||
-			(device == SNDP_IN_BLUETOOTH_SCO_HEADSET) ||
-			(device == SNDP_IN_AUX_DIGITAL)) {
-				/* disable pass through & sleep */
-				i2c_cmds = pass_through_to_idle;
-				size = sizeof(pass_through_to_idle);
-				g_a2220_dummy_idle_flag = 0;
-			} else {
-				/* enable pass through & sleep */
-				i2c_cmds = wa_pass_through_to_idle;
-				size = sizeof(wa_pass_through_to_idle);
-				/* idle flag on */
-				g_a2220_dummy_idle_flag = 1;
-			}
-
-		/* state update */
-		g_a2220_current_state = A2220_STATE_IDLE;
-
-#else
-	if ((ch_dev == SNDP_A2220_STOP) ||
-		(device == SNDP_OUT_BLUETOOTH_SCO) ||
+	if ((device == SNDP_OUT_BLUETOOTH_SCO) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
 		(device == SNDP_OUT_BLUETOOTH_A2DP) ||
@@ -2417,18 +2534,28 @@ static int a2220_pass_through
 		if (ret < 0)
 			goto a2220_pass_through_err;
 
-		/* disable pass through & sleep */
 		i2c_cmds = pass_through_to_idle;
 		size = sizeof(pass_through_to_idle);
 
+		/* suspend state */
+		g_a2220_suspend_state = 1;
+
 		/* state update */
 		g_a2220_current_state = A2220_STATE_IDLE;
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 
+		/* execute i2c command */
+		ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+		/* clock off */
+		a2220_disable_vclk4();
+	} else if (ch_dev == SNDP_A2220_STOP) {
+		/* state update */
+		g_a2220_current_state = A2220_STATE_IDLE;
 	} else if (((ch_dev == SNDP_A2220_START) ||
 		(ch_dev == SNDP_A2220_CH_DEV)) &&
 		(device == SNDP_OUT_EARPIECE) &&
 		(mode == SNDP_MODE_INCALL)) {
+#ifdef __VCD_NB_WB_SUPPORT__
 		/* clock on */
 		ret = a2220_enable_vclk4();
 		if (0 != ret)
@@ -2439,23 +2566,29 @@ static int a2220_pass_through
 		if (ret < 0)
 			goto a2220_pass_through_err;
 
-		/* enable voice_process */
-		i2c_cmds = pass_through_to_voice;
-		size = sizeof(pass_through_to_voice);
-
+		/* check set NB/WB type */
+		if (g_a2220_nb_wb == VCD_CODEC_WB) {
+			/* enable pass through & voice_process */
+			i2c_cmds = pass_through_to_voice_wb;
+			size = sizeof(pass_through_to_voice_wb);
+		} else {
+			/* enable pass through & voice_process */
+			i2c_cmds = pass_through_to_voice_nb;
+			size = sizeof(pass_through_to_voice_nb);
+		}
 		/* state update */
 		g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
+
+		/* execute i2c command */
+		ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+#else
+		/* state update */
+		g_a2220_current_state = A2220_STATE_VOICE_PROCESS;
+#endif /* __VCD_NB_WB_SUPPORT__ */
+
 	} else {
 		/* nop */
-		return ret;
-	}
-
-	/* execute i2c command */
-	ret = a2220_i2c_cmd_execute(i2c_cmds, size);
-
-	if (g_a2220_current_state == A2220_STATE_IDLE) {
-		/* clock off */
-		a2220_disable_vclk4();
+		a2220_pr_info("now pass through.\n");
 	}
 
 	a2220_pr_func_end("ret[%d]\n", ret);
@@ -2479,37 +2612,10 @@ static int a2220_voice_process
 	if (((ch_dev == SNDP_A2220_START) || (ch_dev == SNDP_A2220_CH_DEV)) &&
 		(device == SNDP_OUT_EARPIECE) && (mode == SNDP_MODE_INCALL)) {
 		/* nop */
-		return ret;
+		goto rtn;
 	}
 
-#ifdef __VCD_SUSPEND_RESUME_WA__
-	if (ch_dev == SNDP_A2220_STOP) {
-		if ((device == SNDP_OUT_BLUETOOTH_SCO) ||
-			(device == SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
-			(device == SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP_HEADPHONES) ||
-			(device == SNDP_OUT_BLUETOOTH_A2DP_SPEAKER) ||
-			(device == SNDP_OUT_AUX_DIGITAL) ||
-			(device == SNDP_IN_BLUETOOTH_SCO_HEADSET) ||
-			(device == SNDP_IN_AUX_DIGITAL)) {
-			/* disable voice_process & pass through & sleep */
-			i2c_cmds = voice_to_idle;
-			size = sizeof(voice_to_idle);
-			g_a2220_dummy_idle_flag = 0;
-		} else {
-			/* disable voice_process & sleep */
-			i2c_cmds = wa_voice_to_idle;
-			size = sizeof(wa_voice_to_idle);
-			/* idle flag on */
-			g_a2220_dummy_idle_flag = 1;
-		}
-
-		/* state update */
-		g_a2220_current_state = A2220_STATE_IDLE;
-#else
-	if ((ch_dev == SNDP_A2220_STOP) ||
-		(device == SNDP_OUT_BLUETOOTH_SCO) ||
+	if ((device == SNDP_OUT_BLUETOOTH_SCO) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_HEADSET) ||
 		(device == SNDP_OUT_BLUETOOTH_SCO_CARKIT) ||
 		(device == SNDP_OUT_BLUETOOTH_A2DP) ||
@@ -2518,31 +2624,58 @@ static int a2220_voice_process
 		(device == SNDP_OUT_AUX_DIGITAL) ||
 		(device == SNDP_IN_BLUETOOTH_SCO_HEADSET) ||
 		(device == SNDP_IN_AUX_DIGITAL)) {
-		/* disable voice_process & pass through & sleep */
+#ifdef __VCD_NB_WB_SUPPORT__
+		/* set command */
 		i2c_cmds = voice_to_idle;
 		size = sizeof(voice_to_idle);
+#else
+		/* set command */
+		i2c_cmds = pass_through_to_idle;
+		size = sizeof(pass_through_to_idle);
+#endif /* __VCD_NB_WB_SUPPORT__ */
+
+		/* suspend state */
+		g_a2220_suspend_state = 1;
 
 		/* state update */
 		g_a2220_current_state = A2220_STATE_IDLE;
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
-	} else {
-		/* disable speech process & sleep */
+
+		/* execute i2c command */
+		ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+		/* clock off */
+		a2220_disable_vclk4();
+	} else if (ch_dev == SNDP_A2220_STOP) {
+#ifdef __VCD_NB_WB_SUPPORT__
+		/* set command */
 		i2c_cmds = voice_to_pass_through;
 		size = sizeof(voice_to_pass_through);
 
 		/* state update */
+		g_a2220_current_state = A2220_STATE_IDLE;
+
+		/* execute i2c command */
+		ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+		/* clock off */
+		a2220_disable_vclk4();
+#else
+		/* state update */
+		g_a2220_current_state = A2220_STATE_IDLE;
+#endif /* __VCD_NB_WB_SUPPORT__ */
+	} else {
+		/* state update */
 		g_a2220_current_state = A2220_STATE_PASS_THROUGH;
 	}
 
-	/* execute i2c command */
-	ret = a2220_i2c_cmd_execute(i2c_cmds, size);
-
+#ifdef __VCD_NB_WB_SUPPORT__
 	if ((g_a2220_current_state == A2220_STATE_IDLE) ||
 		(g_a2220_current_state == A2220_STATE_PASS_THROUGH)) {
-		/* clock off */
-		a2220_disable_vclk4();
+		/* init current NB/WB type */
+		g_a2220_current_nb_wb = VCD_CODEC_NB;
 	}
-
+#endif /* __VCD_NB_WB_SUPPORT__ */
+rtn:
 	a2220_pr_func_end("ret[%d]\n", ret);
 	return ret;
 }
@@ -2559,7 +2692,7 @@ static int a2220_set_state
 		(g_a2220_current_device == device) &&
 		(g_a2220_start == ch_dev)) {
 		a2220_pr_info("already configured this path!!!\n");
-		return ret;
+		goto rtn;
 	}
 
 	mutex_lock(&g_a2220_data->lock);
@@ -2588,13 +2721,78 @@ static int a2220_set_state
 		, g_a2220_start);
 	a2220_pr_debug("g_a2220_current_state[0x%x]\n"
 		, g_a2220_current_state);
-#ifdef __VCD_SUSPEND_RESUME_WA__
-	a2220_pr_debug("g_a2220_dummy_idle_flag[0x%x]\n"
-		, g_a2220_dummy_idle_flag);
-#endif /* __VCD_SUSPEND_RESUME_WA__ */
 
 	mutex_unlock(&g_a2220_data->lock);
 
+rtn:
+	a2220_pr_func_end("ret[%d]\n", ret);
+	return ret;
+}
+
+static int a2220_set_nb_wb(unsigned int nb_wb)
+{
+	int ret = 0;
+
+	a2220_pr_func_start("nb_wb[0x%x]\n", nb_wb);
+
+#ifndef __VCD_NB_WB_SUPPORT__
+	a2220_pr_info("NB/WB not support.\n");
+	goto rtn;
+#endif /* !__VCD_NB_WB_SUPPORT__ */
+
+	if (g_a2220_current_nb_wb == nb_wb) {
+		a2220_pr_info("already configured this path!!!\n");
+		goto rtn;
+	}
+
+	mutex_lock(&g_a2220_data->lock);
+
+	g_a2220_nb_wb = nb_wb;
+
+	/* Set Algo Sample Rate & Get Change Status */
+	if (g_a2220_current_state == A2220_STATE_VOICE_PROCESS)
+		ret = a2220_set_algo_sample_rate(nb_wb);
+
+	mutex_unlock(&g_a2220_data->lock);
+
+rtn:
+	a2220_pr_func_end("ret[%d]\n", ret);
+	return ret;
+}
+
+static int a2220_set_algo_sample_rate(unsigned int rate)
+{
+	int ret = 0, size = 0;
+	unsigned char *i2c_cmds;
+
+	a2220_pr_func_start("rate[0x%x]\n", rate);
+
+#ifndef __VCD_NB_WB_SUPPORT__
+	a2220_pr_info("NB/WB not support.\n");
+	goto rtn;
+#endif /* !__VCD_NB_WB_SUPPORT__ */
+
+	/* Set Algo Sample Rate & Get Change Status */
+	if (rate == VCD_CODEC_WB) {
+		i2c_cmds = set_algo_wb;
+		size = sizeof(set_algo_wb);
+	} else {
+		i2c_cmds = set_algo_nb;
+		size = sizeof(set_algo_nb);
+	}
+
+	/* execute i2c command */
+	ret = a2220_i2c_cmd_execute(i2c_cmds, size);
+
+	/* update current events */
+	g_a2220_current_nb_wb = rate;
+
+	a2220_pr_debug("g_a2220_current_nb_wb[0x%x]\n"
+		, g_a2220_current_nb_wb);
+
+#ifndef __VCD_NB_WB_SUPPORT__
+rtn:
+#endif /* !__VCD_NB_WB_SUPPORT__ */
 	a2220_pr_func_end("ret[%d]\n", ret);
 	return ret;
 }
@@ -2603,13 +2801,31 @@ static int a2220_set_state
 static int __init a2220_init(void)
 {
 #ifdef __VCD_ES305B__
-	g_a2220_log_level = (A2220_LOG_ERR | A2220_LOG_INFO);
+	unsigned int board_rev = 0;
+
+	/* get board rev */
+	board_rev = u2_get_board_rev();
+	a2220_pr_info("u2_board_rev:%d\n",board_rev);
+	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
+		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
+		return -ENODEV;
+	g_a2220_log_level = A2220_LOG_ERR;
 #endif /* __VCD_ES305B__ */
 	return i2c_add_driver(&a2220_driver);
 }
 
 static void __exit a2220_exit(void)
 {
+#ifdef __VCD_ES305B__
+	unsigned int board_rev = 0;
+
+	/* get board rev */
+	board_rev = u2_get_board_rev();
+	a2220_pr_info("u2_board_rev:%d\n",board_rev);
+	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
+		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
+		return;
+#endif /* __VCD_ES305B__ */
 	i2c_del_driver(&a2220_driver);
 }
 

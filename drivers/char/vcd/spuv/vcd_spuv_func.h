@@ -53,6 +53,7 @@
 
 /* file name */
 #define VCD_SPUV_FUNC_SPUV_FILENAME		"/mnt/sdcard/spuv/spuv.bin"
+#define VCD_SPUV_FUNC_PCM_FILENAME		"/mnt/sdcard/spuv/pcm_proc.bin"
 
 /* read files */
 #define VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE	0x5
@@ -148,7 +149,7 @@
 #define VCD_SPUV_FUNC_MPMODE_MPSWMSK		0x00000080
 
 /* fw static buffer size */
-#define VCD_SPUV_FUNC_FW_BUFFER_SIZE		0x007C0000
+#define VCD_SPUV_FUNC_FW_BUFFER_SIZE		0x00180000
 
 /* mixing parameter */
 #define	VCD_SPUV_FUNC_FR10_MIX_MAX		60
@@ -160,64 +161,76 @@
 #define VCD_SPUV_FUNC_UNKNOWN_SRC		0xFF
 
 /* sdram static area */
-#define SPUV_FUNC_SDRAM_AREA_SIZE		0x7C0000
+#define SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE	0x740000
+#define SPUV_FUNC_SDRAM_CACHE_AREA_SIZE		0x080000
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1	0x47800000
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
 
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
 		g_spuv_func_sdram_static_area_top_phy
-#define SPUV_FUNC_SDRAM_AREA_TOP		\
-		g_spuv_func_sdram_static_area_top
+#define SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP	\
+		g_spuv_func_sdram_static_non_cache_area_top
+#define SPUV_FUNC_SDRAM_CACHE_AREA_TOP		\
+		g_spuv_func_sdram_static_cache_area_top
+/* non cache area */
 #define SPUV_FUNC_SDRAM_FIRMWARE_BUFFER		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00000000)
-#define SPUV_FUNC_SDRAM_FIRMWARE_READ_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00000000)
-#define SPUV_FUNC_SDRAM_PROC_MSG_BUFFER		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00780000)
-#define SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00782000)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00000000)
+#define SPUV_FUNC_SDRAM_SPUVBIN_READ_BUFFER	( \
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00000000)
+#define SPUV_FUNC_SDRAM_PCMBIN_READ_BUFFER	( \
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00180000)
 #define SPUV_FUNC_SDRAM_SPUV_SEND_MSG_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00783000)
-#define SPUV_FUNC_SDRAM_FW_RESULT_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00784000)
-#define SPUV_FUNC_SDRAM_SYSTEM_INFO_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00786000)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00700000)
 #define SPUV_FUNC_SDRAM_RECORD_BUFFER_0		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00787000)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00701000)
 #define SPUV_FUNC_SDRAM_RECORD_BUFFER_1		( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00787280)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00701280)
 #define SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00788000)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00702000)
 #define SPUV_FUNC_SDRAM_PLAYBACK_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00788280)
-#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00789000)
-#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x00789800)
-#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078A000)
-#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078A800)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00702280)
 #define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B000)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00703000)
 #define SPUV_FUNC_SDRAM_VOIP_DL_TEMP_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B280)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00703280)
 #define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078B800)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00703800)
 #define SPUV_FUNC_SDRAM_VOIP_UL_TEMP_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078BA80)
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00703A80)
+#define SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00703D00)
+#define SPUV_FUNC_SDRAM_PT_PLAYBACK_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00704480)
+
+/* cache area */
+#define SPUV_FUNC_SDRAM_PROC_MSG_BUFFER		( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00000000)
+#define SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER		( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00002000)
+#define SPUV_FUNC_SDRAM_FW_RESULT_BUFFER	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00003000)
+#define SPUV_FUNC_SDRAM_SYSTEM_INFO_BUFFER	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00005000)
+#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00007000)
+#define SPUV_FUNC_SDRAM_VOIP_DL_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00007800)
+#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_0	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00008000)
+#define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1	( \
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00008800)
 #define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C000)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00009000)
 #define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C280)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00009280)
 #define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078C800)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00009800)
 #define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078CA80)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00009A80)
 #define SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078D000)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x0000A000)
 #define SPUV_FUNC_SDRAM_VOIP_MIXING_BUFFER	( \
-			SPUV_FUNC_SDRAM_AREA_TOP + 0x0078E000)
+			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x0000B000)
 
 /* spuv physical memory configuration mapping */
 #define SPUV_FUNC_DATA_RAM_SIZE		0x00040000
@@ -507,13 +520,27 @@
  */
 
 /* meram address change (logical -> physical) */
-#define vcd_spuv_func_meram_logical_to_physical(logical) \
-	(SPUV_FUNC_MERAM_PHY_ADDR + \
+#define vcd_spuv_func_meram_logical_to_physical(logical, ret) \
+	ret = (SPUV_FUNC_MERAM_PHY_ADDR + \
 	(logical - g_spuv_func_meram_logical_addr))
 /* sdram address change (logical -> physical) */
-#define vcd_spuv_func_sdram_logical_to_physical(logical) \
-	(SPUV_FUNC_SDRAM_AREA_TOP_PHY + \
-	(logical - g_spuv_func_sdram_static_area_top))
+#define vcd_spuv_func_sdram_logical_to_physical(logical, ret)		\
+{									\
+	if ((logical >= g_spuv_func_sdram_static_non_cache_area_top) && \
+		(logical < (g_spuv_func_sdram_static_non_cache_area_top \
+		+ SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE))) {		\
+		/* non cache address */					\
+		ret = (SPUV_FUNC_SDRAM_AREA_TOP_PHY +			\
+			(logical -					\
+			g_spuv_func_sdram_static_non_cache_area_top));	\
+	} else {							\
+		/* cache address */					\
+		ret = ((SPUV_FUNC_SDRAM_AREA_TOP_PHY +			\
+			SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE) +		\
+			(logical -					\
+			g_spuv_func_sdram_static_cache_area_top));	\
+	}								\
+}
 
 /* ceiling macro */
 #define vcd_spuv_func_ceiling128(x)	((x + 127) & (~127))
@@ -618,7 +645,8 @@ extern unsigned int g_spuv_func_meram_logical_addr;
 extern unsigned int g_spuv_func_meram_alloc_size;
 
 extern unsigned int g_spuv_func_sdram_static_area_top_phy;
-extern unsigned int g_spuv_func_sdram_static_area_top;
+extern unsigned int g_spuv_func_sdram_static_non_cache_area_top;
+extern unsigned int g_spuv_func_sdram_static_cache_area_top;
 extern unsigned int g_spuv_func_hpb_register_top;
 extern unsigned int g_spuv_func_cpg_register_top;
 extern unsigned int g_spuv_func_crmu_register_top;
@@ -632,7 +660,6 @@ extern unsigned int g_spuv_func_dsp0_register_top;
  * prototype declaration
  */
 /* Internal public functions */
-extern void vcd_spuv_func_initialize(void);
 extern void vcd_spuv_func_cacheflush(unsigned int start_addr,
 	unsigned int size);
 extern void vcd_spuv_func_ipc_semaphore_init(void);
@@ -661,8 +688,12 @@ extern void vcd_spuv_func_free_fw_buffer(void);
 
 /* SRC functions */
 extern int vcd_spuv_func_resampler_init
+(int alsa_rate, int spuv_rate);
+extern int vcd_spuv_func_resampler_set
 (int alsa_ul_rate, int alsa_dl_rate, int spuv_rate);
 extern int vcd_spuv_func_resampler_close(void);
+
+extern void vcd_spuv_func_pt_playback(void);
 
 extern void vcd_spuv_func_voip_ul(unsigned int *buf_size);
 extern void vcd_spuv_func_voip_ul_playback_mode0(void);

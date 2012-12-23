@@ -597,15 +597,33 @@ static int wm1811_setup_r8a73734(void)
 	ret = gpio_request(GPIO_PORT34, NULL);
 
 	if (0 != ret) {
-		wm1811_log_err("gpio_request() ret[%d]", ret);
+		wm1811_log_err("gpio_request(34) ret[%d]", ret);
 		goto err_gpio_request;
 	}
 
 	ret = gpio_direction_output(GPIO_PORT34, 1);
 
 	if (0 != ret) {
-		wm1811_log_err("gpio_direction_output() ret[%d]", ret);
+		wm1811_log_err("gpio_direction_output(34) ret[%d]", ret);
 		goto gpio_direction_output;
+	}
+
+	if (4 == u2_get_board_rev()) {
+		/* SUB_MIC_LDO_EN */
+		ret = gpio_request(GPIO_PORT46, NULL);
+
+		if (0 != ret) {
+			wm1811_log_err("gpio_request(46) ret[%d]", ret);
+			goto err_gpio_request;
+		}
+
+		ret = gpio_direction_output(GPIO_PORT46, 0);
+
+		if (0 != ret) {
+			wm1811_log_err("gpio_direction_output(46) ret[%d]",
+					ret);
+			goto gpio_direction_output;
+		}
 	}
 
 	wm1811_log_rfunc("ret[%d]", ret);
@@ -1535,6 +1553,7 @@ static int wm1811_set_sub_mic_device(const u_int cur_dev,
 	u_short pm2 = 0;
 	u_short mixin_r = 0;
 	u_short mute_sub = 0;
+	int sub_mic_ldo = 0;
 	wm1811_log_efunc("cur_dev[%d] new_dev[%d]", cur_dev, new_dev);
 
 	if (cur_dev != new_dev) {
@@ -1548,12 +1567,19 @@ static int wm1811_set_sub_mic_device(const u_int cur_dev,
 			mute_sub &= ~0x80;
 			mute_sub |= 0x100;
 			mixin_r |= WM1811_MIXINR_MIC_ENA;
+			sub_mic_ldo = WM1811_ENABLE;
 		} else {
 			/* sub mic off */
 			pm2 &= ~WM1811_IN2R_ENA;
 			ret = wm1811_write(0x001B, 0x80);
 			mute_sub = 0x180;
 			mixin_r &= ~WM1811_MIXINR_MIC_ENA;
+			sub_mic_ldo = WM1811_DISABLE;
+		}
+
+		if (4 == u2_get_board_rev()) {
+			wm1811_log_info("SUB_MIC_LDO_EN[%d]", sub_mic_ldo);
+			gpio_set_value(GPIO_PORT46, sub_mic_ldo);
 		}
 
 		/* IN2R MUTE & VOL */
@@ -2067,13 +2093,6 @@ static int wm1811_resume(const u_long device, u_int pcm_mode)
 
 	ret = wm1811_restore_volume(device);
 
-	if (WM1811_IRQ_WAKE_ON == wm1811_conf->irq_wake_state) {
-		/* disable irq wake */
-		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_OFF);
-		if (0 == ret)
-			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_OFF;
-	}
-
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 }
@@ -2155,12 +2174,6 @@ static int wm1811_set_irq_wake(const u_int set_wake_state, u_int pcm_mode)
 			wm1811_conf->irq_wake_state = set_wake_state;
 	}
 
-	if (WM1811_IRQ_WAKE_OFF == wm1811_conf->irq_wake_state) {
-		/* enable irq wake */
-		ret = irq_set_irq_wake(wm1811_conf->irq, WM1811_IRQ_WAKE_ON);
-		if (0 == ret)
-			wm1811_conf->irq_wake_state = WM1811_IRQ_WAKE_ON;
-	}
 	wm1811_log_rfunc("conf-wake_state[%d] ret[%d]",
 				wm1811_conf->irq_wake_state, ret);
 	return ret;
@@ -2946,7 +2959,6 @@ static struct snd_soc_dai_driver wm1811_dai_driver[] = {
 		.symmetric_rates = 1,
 	},
 };
-EXPORT_SYMBOL(wm1811_dai_driver);
 
 void wm1811_set_soc_controls(struct snd_kcontrol_new *controls,
 				u_int array_size)

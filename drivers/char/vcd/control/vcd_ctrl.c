@@ -26,6 +26,7 @@ int g_vcd_ctrl_result;
 unsigned int g_vcd_ctrl_call_type;
 unsigned int g_vcd_record_mode;
 unsigned int g_vcd_playback_mode;
+unsigned int g_vcd_ctrl_call_kind;
 /* ========================================================================= */
 /* For AMHAL functions                                                       */
 /* ========================================================================= */
@@ -169,6 +170,9 @@ int vcd_ctrl_stop_vcd(void)
 		vcd_pr_control_info("vcd_spuv_stop_vcd[%d].\n",
 			g_vcd_ctrl_result);
 
+	/* delete call kind */
+	g_vcd_ctrl_call_kind = VCD_CALL_KIND_CALL;
+
 #ifdef __VCD_PROC_IF_ENABLE__
 	/* update result */
 	g_vcd_ctrl_result = VCD_ERR_NONE;
@@ -262,6 +266,9 @@ int vcd_ctrl_start_call(int call_kind, int mode)
 		vcd_pr_err("start call error[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
+
+	/* save call kind */
+	g_vcd_ctrl_call_kind = call_kind;
 
 	/* update active status */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_CALL);
@@ -554,7 +561,7 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 
 	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
 		/* execute spuv function */
-		ret = vcd_spuv_start_playback(option);
+		ret = vcd_spuv_start_playback(option, g_vcd_ctrl_call_kind);
 		if (VCD_ERR_NONE != ret) {
 			vcd_pr_err("start playback error[%d].\n", ret);
 			goto rtn;
@@ -654,7 +661,7 @@ void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info)
 	vcd_pr_start_control_function();
 
 	/* execute spuv function */
-	vcd_spuv_get_playback_buffer(info);
+	vcd_spuv_get_playback_buffer(info, g_vcd_ctrl_call_kind);
 
 	vcd_pr_end_control_function();
 	return;
@@ -768,9 +775,10 @@ void vcd_ctrl_play_trigger(void)
 
 	active_feature = vcd_ctrl_func_get_active_feature();
 
-	/* VoIP DL path route */
 	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
 		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
+		/* VoIP DL path route */
+
 		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
 			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
 			/* VoIP + Playback */
@@ -791,12 +799,35 @@ void vcd_ctrl_play_trigger(void)
 		vcd_spuv_update_voip_dl_buffer_id();
 		/* notification buffer update */
 		vcd_voip_dl_callback(buf_size);
-	} else { /* Normal playback route */
-		if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
-			/* notification buffer update */
-			vcd_beginning_buffer();
-		}
+	} else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
+		/* normal playback route */
+		if (VCD_CALL_KIND_CALL != g_vcd_ctrl_call_kind)
+			vcd_spuv_pt_playback();
+		/* notification buffer update */
+		vcd_beginning_buffer();
+	} else {
+		/* playback is not active */
 	}
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	codec type notification function.
+ *
+ * @param	codec_type.	VCD_CODEC_WB(0)
+ *				VCD_CODEC_NB(1)
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_codec_type_ind(unsigned int codec_type)
+{
+	vcd_pr_start_control_function();
+
+	/* notification codec type */
+	vcd_codec_type_ind(codec_type);
 
 	vcd_pr_end_control_function();
 	return;
@@ -843,7 +874,7 @@ void vcd_ctrl_udata_ind(void)
 {
 	vcd_pr_start_control_function();
 
-	/* notification fw stop */
+	/* notification udata_ind */
 	vcd_udata_ind();
 
 	vcd_pr_end_control_function();
@@ -963,19 +994,10 @@ int vcd_ctrl_resume(void)
 int vcd_ctrl_runtime_suspend(void)
 {
 	int ret = VCD_ERR_NONE;
-	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
-
 	vcd_pr_start_control_function();
 
-	/* operation state confirmation */
-	active_feature = vcd_ctrl_func_get_active_feature();
-	if (VCD_CTRL_FUNC_FEATURE_NONE != active_feature) {
-		vcd_pr_control_info("vcd is operating.\n");
-		ret = VCD_ERR_BUSY;
-		goto rtn;
-	}
+	/* nop */
 
-rtn:
 	vcd_pr_end_control_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -1037,6 +1059,11 @@ int vcd_ctrl_probe(void)
 	/* register initialize */
 	vcd_spuv_init_register();
 
+	/* resampler init */
+	ret = vcd_spuv_resampler_init();
+	if (VCD_ERR_NONE != ret)
+		goto rtn;
+
 	/* ipc semaphore initialize */
 	vcd_spuv_ipc_semaphore_init();
 
@@ -1059,6 +1086,9 @@ int vcd_ctrl_remove(void)
 	int ret = VCD_ERR_NONE;
 
 	vcd_pr_start_control_function();
+
+	/* resampler close */
+	vcd_spuv_resampler_close();
 
 	/* execute spuv function */
 	vcd_spuv_destroy_queue();
