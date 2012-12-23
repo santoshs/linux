@@ -324,6 +324,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 	long wakelock;
+	int cpuid = smp_processor_id();
 
 	idle_log(">>>IN\n");
 
@@ -338,7 +339,14 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
 
-		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
+		if ((cpuid == 1) ||
+			((cpuid == 0) && (__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG))) {
+
+			start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
+
+		} else {
+			start_wfi();
+		}
 
 	} else {
 
@@ -846,7 +854,11 @@ skip_clock_change:
 out: /* go to corestandby for power consumption */
 /* #endif */
 
-		start_corestandby();
+		if (cpuid == 1) {
+			start_corestandby();
+		} else {	/* if cpuid == 0 and cpu1 isn't unpluged */
+			start_wfi();
+		}
 
 	} else { /* idle wakelock is used */
 
