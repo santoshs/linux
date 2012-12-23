@@ -1,6 +1,10 @@
 #include <linux/device.h>
 #include <linux/err.h>
 
+/* changed for Ramdump feature addtion :
+   this will be modified futhur */
+
+#if 0
 struct class *sec_class;
 EXPORT_SYMBOL(sec_class);
 
@@ -16,3 +20,4 @@ static int __init rlte_class_create(void)
 }
 
 subsys_initcall(rlte_class_create);
+#endif
