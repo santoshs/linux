@@ -164,6 +164,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': APE Wakeup interrupt sense 0x%02X", device_name, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE);
 
 
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -182,7 +183,28 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;
 
-        SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
+        if( smc_channel_conf->wake_lock_flags == SMC_CHANNEL_WAKELOCK_TIMER)
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy is timer, timeout %d ms", device_name, i, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC );
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
+        }
+
+#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+        if( smc_channel_conf->protocol == SMC_L2MUX_QUEUE_3_MHDP )
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ uses task", device_name, i);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ calls CB", device_name, i);
+        }
+#else
+        SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ calls CB", device_name, i);
+#endif
+
     }
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: completed, return SMC instance configuration 0x%08X", (uint32_t)smc_conf);

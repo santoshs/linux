@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       42   12-Dec-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.42
+
 Version:       41   22-Nov-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.41
@@ -159,7 +163,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.41"
+#define SMC_SW_VERSION  "0.0.42"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -385,6 +389,8 @@ Description :  File created
      */
 
 #define SMC_CHANNEL_GET( smc_instance, channel_id )    ( smc_instance->smc_channel_ptr_array[channel_id] )
+
+#define SMC_MEMORY_VIRTUAL_TO_PHYSICAL(smc_instance, address)     ( ((uint32_t)address)-(smc_instance->smc_shm_conf->remote_cpu_memory_offset) )
 
     /* SMC history data collection flags */
 
@@ -677,6 +683,7 @@ uint8_t               smc_send_negotiable_configurations( smc_t* smc_instance );
 uint8_t               smc_send_channels_initialized_message(smc_t* smc_instance);
 
 uint8_t               smc_instance_uses_dma( smc_conf_t* smc_instance_conf );
+
     /*
      * Structure holding signal handler information.
      */
@@ -685,7 +692,7 @@ typedef struct
     smc_signal_t*  signal;
     smc_t*         smc_instance;
     smc_channel_t* smc_channel;
-
+    uint32_t       userdata;        /* Additional data for user */
 } smc_signal_handler_t;
 
     /*
@@ -720,7 +727,7 @@ uint8_t               smc_signal_raise                 ( smc_signal_t* signal );
 uint8_t               smc_signal_acknowledge           ( smc_signal_t* signal );
 uint8_t               smc_signal_handler_register      ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
 uint8_t               smc_signal_handler_unregister    ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
-smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
+smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel, uint32_t userdata );
 uint8_t               smc_signal_add_handler           ( smc_signal_handler_t* signal_handler );
 smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uint32_t signal_type );
 void                  smc_signal_handler_remove_and_destroy( smc_signal_handler_t* signal_handler );
@@ -761,19 +768,17 @@ uint8_t      smc_timer_destroy( smc_timer_t* timer );
      *       The API implementation is in platform leve.
      */
 smc_t*   smc_instance_get_control    ( void );
-
 smc_t**  smc_instance_array_get      ( void );
 uint8_t  smc_instance_array_count_get( void );
-// TODO Cleanup smc_lock_t* get_local_lock_smc_channel_ext(void);
 
     /*
      * Misc functions
      */
-char*    smc_get_version            ( void );
-uint32_t smc_version_to_int         ( char* version );
-char*    smc_version_to_str         ( uint32_t version );
-int      smc_atoi                   ( char* a );
-char*    smc_utoa                   ( uint32_t i );
+char*    smc_get_version                  ( void );
+uint32_t smc_version_to_int               ( char* version );
+char*    smc_version_to_str               ( uint32_t version );
+int      smc_atoi                         ( char* a );
+char*    smc_utoa                         ( uint32_t i );
 uint8_t  smc_channel_send_ping            ( smc_channel_t* smc_channel, uint8_t wait_reply );
 uint8_t  smc_channel_send_config          ( smc_channel_t* smc_channel, uint32_t configuration_id, uint32_t configuration_value, uint8_t wait_reply );
 uint8_t  smc_send_crash_info              ( char* crash_message );

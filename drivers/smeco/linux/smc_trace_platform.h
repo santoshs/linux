@@ -30,7 +30,7 @@ Description :  File created
 #ifndef SMC_TRACE_PLATFORM_H
 #define SMC_TRACE_PLATFORM_H
 
-/* #define SMC_APE_LINUX_KERNEL_STM */    /* If defined, the SMC traces are routed to STM -> Ntrace */
+/*#define SMC_APE_LINUX_KERNEL_STM*/    /* If defined, the SMC traces are routed to STM -> Ntrace */
 
 
 #ifdef SMC_APE_RDTRACE_ENABLED
@@ -72,7 +72,19 @@ Description :  File created
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
 #define SMC_TRACE_DMA_ENABLED
+#define SMC_TRACE_TASKLET_ENABLED
 */
+
+
+
+
+
+
+#ifdef SMC_TRACE_TASKLET_ENABLED
+  #define SMC_TRACE_PRINTF_TASKLET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"TASKLET: " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_TASKLET(...)
+#endif
 
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF(format, arg...)         smc_printk( format,## arg )
@@ -106,7 +118,7 @@ Description :  File created
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        smc_printk( format,## arg )
   #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg ); smc_printk( format,## arg )
-  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)
+  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)     smc_printk_data("SMC", data, length, 100)
 #else
   #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        printk(KERN_ALERT format,## arg )
   #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg )

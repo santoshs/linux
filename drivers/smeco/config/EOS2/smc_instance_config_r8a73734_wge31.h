@@ -222,7 +222,7 @@ Description :  File created
 
 #define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
 #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
-#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC           200      /* Wakelock timeout in milliseconds in APE IRQ (old confs: 2000) */
+#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC           400      /* Wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200) */
 
 #define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                       /* If defined uses ext irq in modem side (modem wakes APE)*/
 
@@ -275,10 +275,8 @@ Description :  File created
 
   #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS        /* If defined, the message is buffered when FIFO is full */
 
-  #define SMC_SUPPORT_SKB_FRAGMENT_UL                 /* If defined, the SKB fragmens are supported in uplink. NOTE: enable also the SMC_DMA_TRANSFER_ENABLED with this */
+  #define SMC_SUPPORT_SKB_FRAGMENT_UL                 /* If defined, the SKB fragments are supported in uplink. NOTE: enable also the SMC_DMA_TRANSFER_ENABLED with this for highmem config */
   #define SMC_DMA_TRANSFER_ENABLED                    /* If defined, the DMA transfer feature is enabled for channel configuration  */
-
-
 
 #endif  /* End of target specific configuration */
 
