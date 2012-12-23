@@ -106,11 +106,3 @@ endif
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
 
-# rcu
-obj-y += setup-u2rcu.o
-# csi2
-obj-y += setup-u2csi2.o
-# ion
-obj-y += setup-u2ion.o
-# camera
-obj-y += setup-u2camera.o

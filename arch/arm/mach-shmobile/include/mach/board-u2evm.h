@@ -82,16 +82,4 @@
 	extern spinlock_t       sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
 #endif
 extern void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode);
-
-/**
- * ION
- */
-#define ION_HEAP_CAMERA_SIZE	(SZ_16M + SZ_2M)
-#define ION_HEAP_CAMERA_ADDR	0x46600000
-#define ION_HEAP_GPU_SIZE	SZ_4M
-#define ION_HEAP_GPU_ADDR	0x48400000
-#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
-#define ION_HEAP_VIDEO_SIZE	(SZ_16M + SZ_2M)
-#define ION_HEAP_VIDEO_ADDR	0x4AE00000
-#endif
 #endif /* __ASM_ARCH_BOARD_U2EVM_H*/
