@@ -97,8 +97,8 @@
 /*---------------------------------------------------------------------------*/
 /* extern function declaration                                               */
 /*---------------------------------------------------------------------------*/
-extern int d2153_codec_read(const u_short addr, u_short *value);
-extern int d2153_codec_write(const u_short addr, const u_short value);
+extern int d2153_codec_read_ex(const u_short addr, u_short *value);
+extern int d2153_codec_write_ex(const u_short addr, const u_short value);
 #ifdef D2153_FSI_SOUNDPATH
 extern int d2153_aad_read_ex(u8 reg);
 extern int d2153_aad_write_ex(u8 reg, u8 value);
@@ -135,7 +135,7 @@ int audio_test_ic_read(const u_short addr, u_short *value)
 
 	audio_test_log_efunc("");
 
-	ret = d2153_codec_read(addr, value);
+	ret = d2153_codec_read_ex(addr, value);
 	if (0 <= ret) {
 		audio_test_log_info("ret[%d]", ret);
 		ret = 0;
@@ -161,7 +161,7 @@ int audio_test_ic_write(const u_short addr, const u_short value)
 
 	audio_test_log_efunc("");
 
-	ret = d2153_codec_write(addr, value);
+	ret = d2153_codec_write_ex(addr, value);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
