@@ -72,13 +72,6 @@
 #define AUDIO_TEST_JACK_BIT_BTN		(0x0004)/**< Accessory Button. */
 
 /*!
-  @brief	Mic volume.
-*/
-#define AUDIO_TEST_MAINMIC_VOL		(0x000B)/**< Main mic volume. */
-#define AUDIO_TEST_SUBMIC_VOL		(0x000B)/**< Sub mic volume. */
-#define AUDIO_TEST_HEADSETMIC_VOL	(0x000B)/**< Headset mic volume. */
-
-/*!
   @brief	MAX wait time for wait queue for VCD.
 */
 #define AUDIO_TEST_WATCH_CLK_TIME_OUT	(1000)
