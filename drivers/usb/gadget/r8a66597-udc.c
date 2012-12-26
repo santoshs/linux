@@ -3090,6 +3090,9 @@ static int r8a66597_udc_suspend(struct device *dev)
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
+	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 0);
+	gpio_pull_down_port(r8a66597->pdata->pin_gpio_1);
+	gpio_pull_down_port(r8a66597->pdata->pin_gpio_2);
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 0);
 	
 	/*save the state of the phy before suspend*/
@@ -3128,6 +3131,9 @@ static int r8a66597_udc_resume(struct device *dev)
 	struct r8a66597 *r8a66597 = the_controller;
 	/*restore the state of the phy before resume*/
 	r8a66597->phy_active = r8a66597->phy_active_sav;
+	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 1);
+	gpio_pull_off_port(r8a66597->pdata->pin_gpio_1);
+	gpio_pull_off_port(r8a66597->pdata->pin_gpio_2);
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
 	if(r8a66597->old_vbus) {
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
