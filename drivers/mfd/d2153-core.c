@@ -69,7 +69,6 @@ static struct d2153 *d2153_dev_info;
 /*
  * D2153 Device IO
  */
-static DEFINE_MUTEX(io_mutex);
 
 #ifdef D2153_REG_DEBUG
 void d2153_write_reg_history(u8 opmode,u8 reg,u8 data) { 
@@ -135,7 +134,7 @@ int d2153_clear_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
 		dev_err(d2153->dev, "read from reg R%d failed\n", reg);
@@ -156,7 +155,7 @@ int d2153_clear_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	}
 #endif    
 out:
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 
 	return err;
 }
@@ -175,7 +174,7 @@ int d2153_set_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
 		dev_err(d2153->dev, "read from reg R%d failed\n", reg);
@@ -197,7 +196,7 @@ int d2153_set_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	}
 #endif    
 out:
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 
 	return err;
 }
@@ -216,7 +215,7 @@ int d2153_reg_read(struct d2153 * const d2153, u8 const reg, u8 *dest)
 	u8 data;
 	int err;
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0)
 		dlg_err("read from reg R%d failed\n", reg);
@@ -225,7 +224,7 @@ int d2153_reg_read(struct d2153 * const d2153, u8 const reg, u8 *dest)
 		d2153_write_reg_history(D2153_HISTORY_READ_OP,reg,data);
 #endif       
 	*dest = data;
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
 }
 EXPORT_SYMBOL_GPL(d2153_reg_read);
@@ -243,7 +242,7 @@ int d2153_reg_write(struct d2153 * const d2153, u8 const reg, u8 const val)
 	int ret;
 	u8 data = val;
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, reg, 1, &data);
 	if (ret != 0)
 		dlg_err("write to reg R%d failed\n", reg);
@@ -253,7 +252,7 @@ int d2153_reg_write(struct d2153 * const d2153, u8 const reg, u8 const val)
 		d2153_write_reg_cache(reg,data);
 	}
 #endif    
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(d2153_reg_write);
@@ -275,7 +274,7 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 	int i;
 #endif	   
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, start_reg, regs, dest);
 	if (err != 0)
 		dlg_err("block read starting from R%d failed\n", start_reg);
@@ -285,7 +284,7 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 			d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
 	}
 #endif       
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
 }
 EXPORT_SYMBOL_GPL(d2153_block_read);
@@ -307,7 +306,7 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 	int i;
 #endif
 
-	mutex_lock(&io_mutex);
+	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, start_reg, regs, src);
 	if (ret != 0)
 		dlg_err("block write starting at R%d failed\n", start_reg);
@@ -317,7 +316,7 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 			d2153_write_reg_cache(start_reg+i,*(src+i));
 	}
 #endif    
-	mutex_unlock(&io_mutex);
+	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(d2153_block_write);
@@ -682,6 +681,8 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	//DLG eric. d2153->pmic.max_dcdc = 25; //
 	d2153->pdata = pdata;
+
+	mutex_init(&d2153->d2153_io_mutex);
 
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);

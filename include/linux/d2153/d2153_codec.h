@@ -447,7 +447,8 @@
 #define D2153_DAC_NG_THRESHOLD_MAX			0x7
 
 /* D2153_CP_CTRL = 0x5C */
-#define D2153_CP_MCHANGE_ANA				(3 << 4)
+#define D2153_CP_MCHANGE_SM_SIZE				(3 << 4)
+#define D2153_CP_MCHANGE_LARGEST_VOL			(1 << 4)
 #define D2153_CP_EN						(1 << 7)
 #define D2153_CP_EN_SHIFT				7
 
@@ -695,6 +696,8 @@
 
 /* D2153_REFERENCES = 0xE4 */
 #define D2153_BIAS_EN					(1 << 3)
+#define D2153_VMID_FAST_CHARGE			(1 << 4)
+#define D2153_VMID_FAST_DISCHARGE		(1 << 5)
 #define D2153_VMID_EN					(1 << 7)
 
 /* D2153_IO_CTRL = 0xE5 */
@@ -768,6 +771,7 @@ struct d2153_codec_priv {
 	struct d2153_info info;   /**< user setting info. */
 	struct i2c_client *i2c_client;
 	int power_mode;
+	int sndp_power_mode;
 #endif	/* D2153_FSI_SOUNDPATH */
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	struct d2153 *d2153_pmic;
@@ -793,6 +797,7 @@ int d2153_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai);
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
+int d2153_aad_enable(struct snd_soc_codec *codec);
 #endif
 
 #endif /* _D2153_H */

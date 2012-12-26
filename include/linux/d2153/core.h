@@ -213,7 +213,8 @@ struct d2153 {
 	struct d2153_hwmon hwmon;
 	struct d2153_battery batt;
 
-    struct d2153_platform_data *pdata;
+	struct d2153_platform_data *pdata;
+	struct mutex d2153_io_mutex;
 };
 
 /*
