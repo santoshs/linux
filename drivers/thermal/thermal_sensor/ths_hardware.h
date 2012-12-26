@@ -149,6 +149,12 @@
 #define	CTEMP1_DEC				85	/* 85oC */
 #define	CTEMP0_DEC				75	/* 75oC */
 
+/* THS CPG clock supply register */
+#define SMSTPCR5		0xE6150144
+#define MMSTPCR5		0xE6150164
+#define THS_CLK_SUPPLY_BIT	0x00400000
+
+
 /*Export struct thermal_sensor */
 extern struct thermal_sensor *ths;
 
