@@ -25,6 +25,10 @@
 #include <asm/irq_regs.h>
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
+#include <asm/io.h>
+
+#define DYNAMIC_ENABLE 1
+#define DBGREG1 0xE6100020
 
 static struct platform_device *pmu_device;
 
@@ -91,6 +95,12 @@ struct arm_pmu {
 
 /* Set at runtime when we know what CPU type we are. */
 static const struct arm_pmu *armpmu;
+static int normalmode = 1;
+static inline void normalmode_check(void){
+	if (normalmode == 1)
+		pr_info("WARNING: PMU cannot work in this mode\n");
+	normalmode = 2;
+}
 
 enum arm_perf_pmu_ids
 armpmu_get_pmu_id(void)
@@ -248,6 +258,8 @@ armpmu_stop(struct perf_event *event, int flags)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
+	if (normalmode)
+		return;
 	if (!armpmu)
 		return;
 
@@ -268,6 +280,10 @@ armpmu_start(struct perf_event *event, int flags)
 {
 	struct hw_perf_event *hwc = &event->hw;
 
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (!armpmu)
 		return;
 
@@ -554,6 +570,10 @@ static int armpmu_event_init(struct perf_event *event)
 		return -ENOENT;
 	}
 
+	if (normalmode) {
+		normalmode_check();
+		return -ENODEV;
+	}
 	if (!armpmu)
 		return -ENODEV;
 
@@ -586,6 +606,10 @@ static void armpmu_enable(struct pmu *pmu)
 	int idx, enabled = 0;
 	struct cpu_hw_events *cpuc = &__get_cpu_var(cpu_hw_events);
 
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (!armpmu)
 		return;
 
@@ -605,6 +629,10 @@ static void armpmu_enable(struct pmu *pmu)
 
 static void armpmu_disable(struct pmu *pmu)
 {
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (armpmu)
 		armpmu->stop();
 }
@@ -632,6 +660,8 @@ static struct pmu pmu = {
 static int __init
 armpmu_reset(void)
 {
+	if (normalmode)
+		return;
 	if (armpmu && armpmu->reset)
 		return on_each_cpu(armpmu->reset, NULL, 1);
 	return 0;
@@ -675,6 +705,16 @@ init_hw_perf_events(void)
 			break;
 		}
 	}
+	if ((__raw_readl(DBGREG1) & 0x20000000L) == 0) {
+#if DYNAMIC_ENABLE
+		normalmode = 1;
+#else
+		normalmode = 0;
+		armpmu = NULL;
+#endif
+	} else {
+		normalmode = 0;
+	}
 
 	if (armpmu) {
 		pr_info("enabled with %s PMU driver, %d counters available\n",
@@ -688,6 +728,13 @@ init_hw_perf_events(void)
 	return 0;
 }
 early_initcall(init_hw_perf_events);
+int init_hw_perf_events_late(void)
+{
+	if (normalmode)
+		on_each_cpu(armpmu->reset, NULL, 1);
+	normalmode = 0;
+}
+EXPORT_SYMBOL(init_hw_perf_events_late);
 
 /*
  * Callchain handling code.
