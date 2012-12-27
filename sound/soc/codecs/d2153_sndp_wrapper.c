@@ -257,8 +257,13 @@ static int d2153_sndp_set_dapm_kcontrol_single(struct snd_soc_codec *codec,
 
 	/* Set value */
 	ucontrol.value.integer.value[0] = val;
-
-	return kctl->put(kctl, &ucontrol);
+	/* 
+	 * Have to call this method because kcontrol 'put' method
+	 * requires DAPM paths to have any impact on registers.
+	 */
+    kctl->private_data = (void *)codec;
+	
+	return snd_soc_put_volsw(kctl, &ucontrol);
 }
 
 /* Set widget single enum Kcontrol */
@@ -302,8 +307,13 @@ static int d2153_sndp_set_dapm_kcontrol_enum(struct snd_soc_codec *codec,
 
 	/* Set value */
 	ucontrol.value.enumerated.item[0] = val;
-
-	return kctl->put(kctl, &ucontrol);
+	/* 
+	 * Have to call this method because kcontrol 'put' method
+	 * requires DAPM paths to have any impact on registers.
+	 */
+	kctl->private_data = (void *)codec;
+	
+	return snd_soc_put_enum_double(kctl, &ucontrol);
 }
 
 /*
