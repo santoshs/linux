@@ -50,10 +50,7 @@
 /*---------------------------------------------------------------------------*/
 /* prototype declaration (private)                                           */
 /*---------------------------------------------------------------------------*/
-static int d2153_volume_set(struct snd_kcontrol *kcontrol,
-			    struct snd_ctl_elem_value *ucontrol);
-
-static struct d2153_codec_priv *d2153_conf;
+struct d2153_codec_priv *d2153_conf;
 #endif
 
 /*
@@ -115,13 +112,6 @@ static const unsigned int sp_ng_att_tlv[] = {
 	/* 12dB */
 	0x3, 0x3, TLV_DB_SCALE_ITEM(-1200, 0, 0)
 };
-
-#ifdef D2153_FSI_SOUNDPATH
-static const DECLARE_TLV_DB_SCALE(playback_sp_tlv, -2400, 0, 0);
-static const DECLARE_TLV_DB_SCALE(playback_ep_tlv, -5600, 50, 0);
-static const DECLARE_TLV_DB_SCALE(playback_hp_tlv, -2400, 50, 0);
-static const DECLARE_TLV_DB_SCALE(capture_tlv, -600, 600, 0);
-#endif
 
 static const DECLARE_TLV_DB_SCALE(mic_gain_tlv, -600, 600, 0);
 static const DECLARE_TLV_DB_SCALE(mixin_gain_tlv, -450, 150, 0);
@@ -532,50 +522,6 @@ static int d2153_put_alc_ext_mic_enum(struct snd_kcontrol *kcontrol,
 }
 
 #ifdef D2153_FSI_SOUNDPATH
-/* This is required to store volume states for future volume restoration */
-static int d2153_volume_set(struct snd_kcontrol *kcontrol,
-			    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct soc_mixer_control *mc =
-		(struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_ctl_elem_info uinfo;
-	int ret=0;	
-	
-	u_short val_l = (u_short) ucontrol->value.integer.value[0];
-	u_short val_r = (u_short) ucontrol->value.integer.value[1];
-
-
-	dlg_info("%s() val_l=0x%x val_r=0x%x mc->reg=0x%x \n",__FUNCTION__,val_l,val_r,mc->reg);
-	
-	/* Get info on Kcontrol */
-	ret = kcontrol->info(kcontrol, &uinfo);
-	if (ret < 0)
-		return -EINVAL;
-
-	/* Check the type of control */
-	if (uinfo.count == 1) {
-		/* SINGLE */
-		ret = snd_soc_put_volsw(kcontrol, ucontrol);
-		ret = d2153_sndp_store_volume(codec, (u_short)mc->reg, val_l);
-	} else if (uinfo.count == 2) {
-		/* DOUBLE_R */
-		if (mc->reg == mc->rreg) {
-			/* Don't support DOUBLE, only DOUBLE_R */
-			return -EINVAL;
-		} else {
-			ret = snd_soc_put_volsw_2r(kcontrol, ucontrol);
-			ret = d2153_sndp_store_volume(codec, (u_short)mc->reg,
-						      val_l);
-			ret = d2153_sndp_store_volume(codec, (u_short)mc->rreg,
-						      val_r);
-		}
-	} else
-		return -EINVAL;
-
-	return ret;
-}
-
 static struct snd_kcontrol_new *d2153_sndp_controls;
 static u_int d2153_sndp_array_size;
 #endif /* D2153_FSI_SOUNDPATH */
@@ -585,31 +531,18 @@ static u_int d2153_sndp_array_size;
  */
 
 static const struct snd_kcontrol_new d2153_snd_controls[] = {
-
-#ifdef D2153_FSI_SOUNDPATH
-	SOC_SINGLE_EXT_TLV("Capture Sub Mic Volume", D2153_MIC_L_GAIN,
-				 D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
-			     D2153_NO_INVERT, snd_soc_get_volsw,
-			     d2153_volume_set, mic_gain_tlv),
-	SOC_SINGLE_EXT_TLV("Capture Main Mic Volume", D2153_MIC_R_GAIN, 
-			   D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
-			   D2153_NO_INVERT, snd_soc_get_volsw,
-			   d2153_volume_set, mic_gain_tlv),
-	SOC_SINGLE_EXT_TLV("Capture Headset Mic Volume", D2153_MIC_EXT_GAIN,
-			   D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
-			   D2153_NO_INVERT, snd_soc_get_volsw,
-			   d2153_volume_set, mic_gain_tlv),			   
-#else
-	SOC_DOUBLE_R_TLV("Mic Volume", D2153_MIC_L_GAIN, D2153_MIC_R_GAIN,
+	SOC_SINGLE_TLV("Capture Main Mic Volume", D2153_MIC_R_GAIN, //main
 			 D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
 			 D2153_NO_INVERT, mic_gain_tlv),
-	SOC_SINGLE_TLV("Mic Ext Volume", D2153_MIC_EXT_GAIN,
+	SOC_SINGLE_TLV("Capture Sub Mic Volume", D2153_MIC_L_GAIN, //sub
+			 D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
+			 D2153_NO_INVERT, mic_gain_tlv),
+	SOC_SINGLE_TLV("Capture Headset Mic Volume", D2153_MIC_EXT_GAIN, //headset
 		       D2153_MIC_AMP_GAIN_SHIFT, D2153_MIC_AMP_GAIN_MAX,
 		       D2153_NO_INVERT, mic_gain_tlv),
 	SOC_DOUBLE_R_TLV("Aux Volume", D2153_AUX_L_GAIN, D2153_AUX_R_GAIN,
 			 D2153_AUX_AMP_GAIN_SHIFT, D2153_AUX_AMP_GAIN_MAX,
 			 D2153_NO_INVERT, aux_gain_tlv),
-#endif /* D2153_FSI_SOUNDPATH */
 	SOC_DOUBLE_R_EXT_TLV("In Mixer PGA Volume", D2153_MIXIN_L_GAIN,
 			     D2153_MIXIN_R_GAIN, D2153_MIXIN_AMP_GAIN_SHIFT,
 			     D2153_MIXIN_AMP_GAIN_MAX, D2153_NO_INVERT,
@@ -623,31 +556,15 @@ static const struct snd_kcontrol_new d2153_snd_controls[] = {
 			 D2153_DAC_DIGITAL_GAIN_SHIFT,
 			 D2153_DAC_DIGITAL_GAIN_MAX,
 			 D2153_NO_INVERT, digital_gain_tlv),
-#ifdef D2153_FSI_SOUNDPATH
-	SOC_DOUBLE_R_EXT_TLV("Playback Headphone Volume", D2153_HP_L_GAIN, D2153_HP_R_GAIN,
-			     D2153_HP_AMP_GAIN_SHIFT, D2153_HP_AMP_GAIN_MAX,
-			     D2153_NO_INVERT, snd_soc_get_volsw_2r,
-			     d2153_volume_set, hp_gain_tlv),
-	SOC_SINGLE_EXT_TLV("Playback Earpiece Volume", D2153_EP_GAIN,
-			   D2153_EP_AMP_GAIN_SHIFT, D2153_EP_AMP_GAIN_MAX,
-			   D2153_NO_INVERT, snd_soc_get_volsw,
-			   d2153_volume_set, ep_gain_tlv),
-	SOC_SINGLE_EXT_TLV("Playback Speaker Volume", D2153_SP_GAIN,
-			   D2153_SP_AMP_GAIN_SHIFT, D2153_SP_AMP_GAIN_MAX,
-			   D2153_NO_INVERT, snd_soc_get_volsw,
-			   d2153_volume_set, sp_gain_tlv),
-#else
-	SOC_DOUBLE_R_TLV("Headphone Volume", D2153_HP_L_GAIN, D2153_HP_R_GAIN,
+	SOC_DOUBLE_R_TLV("Playback Headphone Volume", D2153_HP_L_GAIN, D2153_HP_R_GAIN,
 			 D2153_HP_AMP_GAIN_SHIFT, D2153_HP_AMP_GAIN_MAX,
 			 D2153_NO_INVERT, hp_gain_tlv),
-	SOC_SINGLE_TLV("Earpiece Volume", D2153_EP_GAIN,
+	SOC_SINGLE_TLV("Playback Earpiece Volume", D2153_EP_GAIN,
 		       D2153_EP_AMP_GAIN_SHIFT, D2153_EP_AMP_GAIN_MAX,
 		       D2153_NO_INVERT, ep_gain_tlv),
-	SOC_SINGLE_TLV("Speaker Volume", D2153_SP_GAIN,
+	SOC_SINGLE_TLV("Playback Speaker Volume", D2153_SP_GAIN,
 		       D2153_SP_AMP_GAIN_SHIFT, D2153_SP_AMP_GAIN_MAX,
 		       D2153_NO_INVERT, sp_gain_tlv),
-#endif /* D2153_FSI_SOUNDPATH */
-
 	/* ADC HPF Controls */
 	SOC_ENUM("ADC Voice Cutoff", d2153_adc_vf_cutoff),
 	SOC_SINGLE("ADC Voice Mode Switch", D2153_ADC_FILTERS1,
@@ -721,13 +638,13 @@ static const struct snd_kcontrol_new d2153_snd_controls[] = {
 	SOC_DOUBLE_R("ADC Switch", D2153_ADC_L_CTRL, D2153_ADC_R_CTRL,
 		     D2153_ADC_MUTE_EN_SHIFT, D2153_ADC_MUTE_EN_MAX,
 		     D2153_INVERT),
-	SOC_DOUBLE_R("Headphone Switch", D2153_HP_L_CTRL, D2153_HP_R_CTRL,
+	SOC_DOUBLE_R("HP Switch", D2153_HP_L_CTRL, D2153_HP_R_CTRL,
 		     D2153_HP_AMP_MUTE_EN_SHIFT, D2153_HP_AMP_MUTE_EN_MAX,
 		     D2153_INVERT),
-	SOC_SINGLE("Earpiece Switch", D2153_EP_CTRL,
+	SOC_SINGLE("EP Switch", D2153_EP_CTRL,
 		   D2153_EP_AMP_MUTE_EN_SHIFT, D2153_EP_AMP_MUTE_EN_MAX,
 		   D2153_INVERT),
-	SOC_SINGLE("Speaker Switch", D2153_SP_CTRL,
+	SOC_SINGLE("SP Switch", D2153_SP_CTRL,
 		   D2153_SP_AMP_MUTE_EN_SHIFT, D2153_SP_AMP_MUTE_EN_MAX,
 		   D2153_INVERT),
 	SOC_ENUM("DAC Soft Mute Rate", d2153_dac_soft_mute_rate),
@@ -1069,6 +986,31 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutr_controls[] = {
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
 };
 
+/* Out Mixer Earpiece */
+static const struct snd_kcontrol_new d2153_dapm_mixoutep_controls[] = {
+	SOC_DAPM_SINGLE("Aux Right Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_AUX_R_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("Mixin Right Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_MIXIN_R_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("Mixin Left Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("DAC Right Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_DAC_R_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("Aux Right Invert Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_AUX_R_INV_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("Mixin Right Invert Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_MIXIN_R_INV_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+	SOC_DAPM_SINGLE("Mixin Left Invert Switch", D2153_MIXOUT_R_SELECT,
+			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_INV_SHIFT,
+			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
+};
+
 /* Out Mixer Speaker */
 static const struct snd_kcontrol_new d2153_dapm_mixoutsp_controls[] = {
 	SOC_DAPM_SINGLE("Aux Right Switch", D2153_MIXOUT_SP_SELECT,
@@ -1105,18 +1047,25 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 {
 	struct snd_soc_codec *codec = widget->codec;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);	
-
+	struct i2c_client *client = d2153_codec->aad_i2c_client;
+	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	
+	dlg_info("%s() event = %d  \n",__FUNCTION__,event);
+	
 	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
-		/* Invert ADC output value */
-		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CFG4,
-					  D2153_ACCDET_ADC_COMP_OUT_INV,
-					  D2153_ACCDET_ADC_COMP_OUT_INV);
+	case SND_SOC_DAPM_PRE_PMU:
+		d2153_aad->button.status = D2153_BUTTON_RELEASE;
+		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+					  D2153_ACCDET_BTN_EN,
+					  0);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* Revert ADC output value */
-		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CFG4,
-					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
+		d2153_aad->button.status = D2153_BUTTON_RELEASE;
+		if(d2153_aad->switch_data.state ==D2153_HEADSET)
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
+		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+					  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
 		break;
 	default:
 		return -EINVAL;
@@ -1149,11 +1098,11 @@ static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 			 &d2153_mic_ext_amp_in_sel_mux),
 	
 	/* Mic Biases */
-#if 0 //def CONFIG_SND_SOC_D2153_AAD
+#ifdef CONFIG_SND_SOC_D2153_AAD
 	/* HACK to deal with issue of ADC 1/8 bit reads for button detect */
 	SND_SOC_DAPM_SUPPLY("Mic Bias 1", D2153_MICBIAS1_CTRL,
 				D2153_MICBIAS_EN_SHIFT, D2153_NO_INVERT,
-				d2153_micbias_event, 0),
+				d2153_micbias_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #else	
 	SND_SOC_DAPM_SUPPLY("Mic Bias 1", D2153_MICBIAS1_CTRL,
 			    D2153_MICBIAS_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
@@ -1224,14 +1173,19 @@ static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("Out Mixer Right", SND_SOC_NOPM, 0, 0,
 			   d2153_dapm_mixoutr_controls,
 			   ARRAY_SIZE(d2153_dapm_mixoutr_controls)),
+	SND_SOC_DAPM_MIXER("Out Mixer Earpiece", SND_SOC_NOPM, 0, 0,
+				   d2153_dapm_mixoutep_controls,
+				   ARRAY_SIZE(d2153_dapm_mixoutep_controls)),
 	SND_SOC_DAPM_MIXER("Out Mixer Speaker", SND_SOC_NOPM, 0, 0,
 			   d2153_dapm_mixoutsp_controls,
-			   ARRAY_SIZE(d2153_dapm_mixoutsp_controls)),
+			   ARRAY_SIZE(d2153_dapm_mixoutsp_controls)),	
 
 	/* Output PGAs */
 	SND_SOC_DAPM_PGA("Out Mixer Left PGA", D2153_MIXOUT_L_CTRL,
 			 D2153_MIXOUT_AMP_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
 	SND_SOC_DAPM_PGA("Out Mixer Right PGA", D2153_MIXOUT_R_CTRL,
+			 D2153_MIXOUT_AMP_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
+	SND_SOC_DAPM_PGA("Out Mixer Earpiece PGA", D2153_MIXOUT_R_CTRL,
 			 D2153_MIXOUT_AMP_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
 	SND_SOC_DAPM_PGA("Out Mixer Speaker PGA", D2153_MIXOUT_SP_CTRL,
 			 D2153_MIXOUT_AMP_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
@@ -1263,9 +1217,9 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	/* Dest  |  Connecting Widget  |  Source */
 
 	/* Input path */
-	{"MICL", NULL, "Mic Bias 1"}, 
-	{"MICR", NULL, "Mic Bias 2"},
-	{"MICEXT", NULL, "Mic Bias 3"},
+	{"MICL", NULL, "Mic Bias 2"}, 
+	{"MICR", NULL, "Mic Bias 3"},
+	{"MICEXT", NULL, "Mic Bias 1"},
 
 	{"Mic Left Amp Source MUX", "Differential", "MICL"},
 	{"Mic Left Amp Source MUX", "MIC_P", "MICL"},
@@ -1359,6 +1313,14 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Out Mixer Right", "Aux Right Invert Switch", "Aux Right PGA"},
 	{"Out Mixer Right", "Mixin Right Invert Switch", "In Mixer Right PGA"},
 	{"Out Mixer Right", "Mixin Left Invert Switch", "In Mixer Left PGA"},
+
+	{"Out Mixer Earpiece", "Aux Right Switch", "Aux Right PGA"},
+	{"Out Mixer Earpiece", "Mixin Right Switch", "In Mixer Right PGA"},
+	{"Out Mixer Earpiece", "Mixin Left Switch", "In Mixer Left PGA"},
+	{"Out Mixer Earpiece", "DAC Right Switch", "DAC Right"},
+	{"Out Mixer Earpiece", "Aux Right Invert Switch", "Aux Right PGA"},
+	{"Out Mixer Earpiece", "Mixin Right Invert Switch", "In Mixer Right PGA"},
+	{"Out Mixer Earpiece", "Mixin Left Invert Switch", "In Mixer Left PGA"},
 	
 	{"Out Mixer Speaker", "Aux Right Switch", "Aux Right PGA"},
 	{"Out Mixer Speaker", "Mixin Right Switch", "In Mixer Right PGA"},
@@ -1371,6 +1333,7 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Out Mixer Left PGA", NULL, "Out Mixer Left"},
 	{"Out Mixer Right PGA", NULL, "Out Mixer Right"},
 	{"Out Mixer Speaker PGA", NULL, "Out Mixer Speaker"},
+	{"Out Mixer Earpiece PGA", NULL, "Out Mixer Earpiece"},
 	
 	{"Headphone Left PGA", NULL, "Out Mixer Left PGA"},
 	{"Headphone Left PGA", NULL, "Charge Pump"},
@@ -1380,7 +1343,7 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Headphone Right PGA", NULL, "Charge Pump"},
 	{"HPR", NULL, "Headphone Right PGA"},
 
-	{"Earpiece PGA", NULL, "Out Mixer Right PGA"},
+	{"Earpiece PGA", NULL, "Out Mixer Earpiece PGA"},
 	{"Earpiece PGA", NULL, "Charge Pump"},
 	{"EP", NULL, "Earpiece PGA"},
 	
@@ -1577,6 +1540,7 @@ static int d2153_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 	struct snd_soc_codec *codec = codec_dai->codec;
 	u8 aif_clk_mode = 0, aif_ctrl = 0;
 
+	dlg_info("%s() format = %d  \n",__FUNCTION__,fmt);
 	/* Set master/slave mode */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
 	case SND_SOC_DAIFMT_CBM_CFM:
@@ -1639,11 +1603,16 @@ static int d2153_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
 
+
+	dlg_info("%s() mute = %d  \n",__FUNCTION__,mute);
+	
 	if (mute) {
+#if 0		
 		snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
 				   D2153_DAC_MUTE_EN, D2153_DAC_MUTE_EN);
 		snd_soc_update_bits(codec, D2153_DAC_R_CTRL,
 				   D2153_DAC_MUTE_EN, D2153_DAC_MUTE_EN);
+#endif		
 	} else {
 		snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
 				    D2153_DAC_MUTE_EN, 0);
@@ -1660,6 +1629,8 @@ static int d2153_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	struct snd_soc_codec *codec = codec_dai->codec;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
+	dlg_info("%s() clk_id = %d  \n",__FUNCTION__,clk_id);
+	
 	switch (clk_id) {
 	case D2153_CLKSRC_MCLK:
 		if ((freq == 32768) ||
@@ -1690,6 +1661,8 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	u32 freq_ref;
 	u64 frac_div;
 
+	dlg_info("%s() fout = %d  \n",__FUNCTION__,fout);
+	
 	/* Disable PLL before setting the divisors */
 	snd_soc_update_bits(codec, D2153_PLL_CTRL, D2153_PLL_EN, 0);
 
@@ -1817,26 +1790,38 @@ static struct snd_soc_dai_driver d2153_dai[] = {
 };
 EXPORT_SYMBOL(d2153_dai);
 
-#ifndef D2153_FSI_SOUNDPATH	
 static int d2153_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
 {
+	dlg_info("%s() level = %d  \n",__FUNCTION__,level);
+	
 	switch (level) {
 	case SND_SOC_BIAS_ON:
+		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
+			snd_soc_update_bits(codec, D2153_REFERENCES,
+					    D2153_VMID_EN | D2153_BIAS_EN |D2153_VMID_FAST_CHARGE |D2153_VMID_FAST_DISCHARGE,
+					    D2153_VMID_EN | D2153_BIAS_EN);
+			msleep(10);
+			snd_soc_update_bits(codec, D2153_REFERENCES,
+					    D2153_VMID_EN | D2153_BIAS_EN |D2153_VMID_FAST_CHARGE |D2153_VMID_FAST_DISCHARGE,
+					    D2153_VMID_EN | D2153_BIAS_EN |D2153_VMID_FAST_CHARGE |D2153_VMID_FAST_DISCHARGE);
+		}
 	case SND_SOC_BIAS_PREPARE:
 		break;
 	case SND_SOC_BIAS_STANDBY:
 		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
 			/* Enable VMID reference & master bias */
 			snd_soc_update_bits(codec, D2153_REFERENCES,
-					    D2153_VMID_EN | D2153_BIAS_EN,
-					    D2153_VMID_EN | D2153_BIAS_EN);
+					    D2153_VMID_EN | D2153_BIAS_EN |D2153_VMID_FAST_CHARGE |D2153_VMID_FAST_DISCHARGE,
+					    D2153_VMID_EN | D2153_BIAS_EN |D2153_VMID_FAST_CHARGE);
 		}
 		break;
 	case SND_SOC_BIAS_OFF:
 		/* Disable VMID reference & master bias */
 		snd_soc_update_bits(codec, D2153_REFERENCES,
-				    D2153_VMID_EN | D2153_BIAS_EN, 0);
+				    D2153_VMID_EN | D2153_BIAS_EN
+				    |D2153_VMID_FAST_CHARGE | D2153_VMID_FAST_DISCHARGE
+				    , 0);
 		break;
 	}
 	codec->dapm.bias_level = level;
@@ -1846,37 +1831,32 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 #ifdef CONFIG_PM
 static int d2153_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
-	d2153_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+
+	if(d2153_codec->sndp_power_mode== 0)
+		d2153_codec_power(codec, 0);	
 	return 0;
 }
 
 static int d2153_resume(struct snd_soc_codec *codec)
 {
 	int ret;
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	
+	d2153_codec_power(codec, 1);
+	d2153_aad_enable(codec);
 
-	/* Restore codec register states */
-	ret = snd_soc_cache_sync(codec);
-	if (ret != 0)
-		dev_err(codec->dev, "Failed to sync codec cache: %d\n", ret);
-
-	d2153_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	return 0;
 }
 #else
 #define d2153_suspend NULL
 #define d2153_resume NULL
 #endif
-#endif /* !D2153_FSI_SOUNDPATH */
-
-#ifdef D2153_FSI_SOUNDPATH
-/*
- * Public Soundpath methods.
- */
 
 int d2153_codec_power(struct snd_soc_codec *codec, int on)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	u16 *cache = codec->reg_cache,i;
+	u8 *cache = codec->reg_cache,i;
 	struct regulator *regulator;	
 	
 	if(on ==1 && d2153_codec->power_mode==0){
@@ -1900,13 +1880,13 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		regulator = regulator_get(NULL, "aud2");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_set_voltage(regulator,3300000,3300000);
+		regulator_set_voltage(regulator,2700000,2700000);
 		regulator_enable(regulator);
 		regulator_put(regulator);
 		
 		d2153_codec->power_mode=1;
-	}	
-#if 0	
+		
+	}		
 	else if(on ==0 && d2153_codec->power_mode==1){
 
 		dlg_info("%s() Start power = %d \n",__FUNCTION__,on);
@@ -1933,32 +1913,12 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 
 		d2153_codec->power_mode=0;
 	}
-#endif	
+
 	return 0;
 }
 EXPORT_SYMBOL(d2153_codec_power);
 
-int d2153_codec_read(const u_short addr, u_short *value)
-{
-	int ret = 0;
-
-	*value = snd_soc_read(d2153_conf->codec,addr);
-
-	return ret;
-}
-EXPORT_SYMBOL(d2153_codec_read);
-
-int d2153_codec_write(const u_short addr, const u_short value)
-{
-	int ret = 0;
-
-	ret = snd_soc_write(d2153_conf->codec,addr,value);
-
-	return ret;
-}
-EXPORT_SYMBOL(d2153_codec_write);
-
-
+#ifdef D2153_FSI_SOUNDPATH
 int d2153_set_device(const u_long device, const u_int pcm_value, u_int power)
 {
 	return d2153_sndp_set_device(d2153_conf->codec, device, pcm_value, power);
@@ -2056,7 +2016,7 @@ EXPORT_SYMBOL(d2153_set_soc_controls);
 #ifdef CONFIG_SND_SOC_D2153_AAD
 extern int d2153_aad_write_ex(u8 reg, u8 value);
 
-int d2153_aad_eanble(struct snd_soc_codec *codec)
+int d2153_aad_enable(struct snd_soc_codec *codec)
 {
 	struct d2153_codec_priv *d2153_codec =
 		snd_soc_codec_get_drvdata(codec);
@@ -2077,6 +2037,7 @@ int d2153_aad_eanble(struct snd_soc_codec *codec)
 	d2153_aad_write(client,D2153_ACCDET_CFG2,0x00);
 	d2153_aad_write(client,D2153_ACCDET_CFG3,0x03);
 	d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
+//	d2153_aad_write(client,D2153_ACCDET_CFG5,0x2b);
 	
 	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
 
@@ -2093,10 +2054,11 @@ int d2153_aad_eanble(struct snd_soc_codec *codec)
 static int d2153_probe(struct snd_soc_codec *codec)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret;
 
 	d2153_codec->codec = codec;
-	
+
 	ret = snd_soc_codec_set_cache_io(codec, 8, 8, SND_SOC_I2C);
 	if (ret < 0) {
 		dev_err(codec->dev, "Failed to set cache I/O: %d\n", ret);
@@ -2112,10 +2074,19 @@ static int d2153_probe(struct snd_soc_codec *codec)
 	codec->cache_bypass = 1;
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
+#ifdef CONFIG_SND_SOC_D2153_AAD
+		d2153_codec_power(d2153_codec->codec,1);
+		d2153_aad_enable(codec);	
+#ifndef D2153_FSI_SOUNDPATH
+		d2153_codec->info.raw_device = D2153_DEV_NONE;
+#endif		
+		d2153_codec->codec_init =1;
+#endif	
 #ifdef D2153_FSI_SOUNDPATH
 	ret = snd_soc_add_controls(codec, d2153_sndp_controls,
 				   d2153_sndp_array_size);
-#else
+
+#endif
 #ifdef CONFIG_SND_SOC_USE_DA9055_HW
 	/*
 	 * Default to using ALC manual offset calibration mode.
@@ -2125,6 +2096,8 @@ static int d2153_probe(struct snd_soc_codec *codec)
 			    D2153_ALC_CALIB_MODE_MAN);
 	d2153_codec->alc_calib_auto = false;
 #else
+	d2153_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+
 	/* Default to using ALC auto offset calibration mode. */
 	snd_soc_update_bits(codec, D2153_ALC_CTRL1, D2153_ALC_CALIB_MODE_MAN, 0);
 	d2153_codec->alc_calib_auto = true;
@@ -2245,8 +2218,10 @@ static int d2153_probe(struct snd_soc_codec *codec)
 			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
 
 	/* Set charge pump mode */
-	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_ANA,
-			    D2153_CP_MCHANGE_ANA);
+	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_SM_SIZE,
+			    //D2153_CP_MCHANGE_SM_SIZE);
+	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_LARGEST_VOL,
+			    D2153_CP_MCHANGE_LARGEST_VOL);
 
 	/* Enable AIF output */
 	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_OE, D2153_AIF_OE);
@@ -2260,40 +2235,112 @@ static int d2153_probe(struct snd_soc_codec *codec)
 	/* Enable Earpiece Output Enable */
 	snd_soc_update_bits(codec, D2153_EP_CTRL,
 			    D2153_EP_AMP_OE, D2153_EP_AMP_OE);
-
-#endif
-#ifdef CONFIG_SND_SOC_D2153_AAD
-	d2153_codec_power(d2153_codec->codec,1);
-	d2153_aad_eanble(codec);
-	d2153_codec->info.raw_device = D2153_DEV_NONE;
-	d2153_codec->codec_init =1;
-#endif
-
 	return 0;
 }
 
 static int d2153_remove(struct snd_soc_codec *codec)
 {
-#ifndef D2153_FSI_SOUNDPATH
 	d2153_set_bias_level(codec, SND_SOC_BIAS_OFF);
-#endif	
 	return 0;
 }
+
+static unsigned int d2153_codec_read(struct snd_soc_codec *codec, unsigned int reg)
+{
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);	
+	struct i2c_msg xfer[2];
+	u8 data;
+	int ret;
+
+	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	/* Write register */
+	xfer[0].addr = d2153_codec->i2c_client->addr;
+	xfer[0].flags = 0;
+	xfer[0].len = 1;
+	xfer[0].buf = &reg;
+
+	/* Read data */
+	xfer[1].addr = d2153_codec->i2c_client->addr;
+	xfer[1].flags = I2C_M_RD;
+	xfer[1].len = 1;
+	xfer[1].buf = &data;
+
+	ret = i2c_transfer(d2153_codec->i2c_client->adapter, xfer, 2);
+
+	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
+	if (ret == 2)
+		return data;
+	else if (ret < 0)
+		return ret;
+	else
+		return -EIO;
+
+}
+
+static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int value)
+{
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	u8 data[2];
+	int ret;
+
+	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
+	reg &= 0xff;
+	data[0] = reg;
+	data[1] = value & 0xff;
+
+	ret = i2c_master_send(d2153_codec->i2c_client, data, 2);
+
+	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
+	if (ret == 2)
+		return 0;
+	else if (ret < 0)
+		return ret;
+	else
+		return -EIO;
+
+}
+
+#ifdef D2153_FSI_SOUNDPATH
+int d2153_codec_read_ex(unsigned short reg, unsigned short *value)
+{
+	int ret=0;
+	
+	ret=d2153_codec_read(d2153_conf->codec,reg);
+
+	if(ret < 0)
+		return ret;
+
+	*value=ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(d2153_codec_read_ex);
+
+int d2153_codec_write_ex(unsigned short reg, unsigned short value)
+{
+	int ret=0;
+	
+	ret=d2153_codec_write(d2153_conf->codec,reg,value);
+
+	return ret;
+}
+EXPORT_SYMBOL(d2153_codec_write_ex);
+#endif
 
 static struct snd_soc_codec_driver soc_codec_dev_d2153 = {
 	.probe			= d2153_probe,
 	.remove			= d2153_remove,
-#ifndef D2153_FSI_SOUNDPATH
 	.suspend		= d2153_suspend,
 	.resume			= d2153_resume,
-#endif
+	.read			= d2153_codec_read,
+	.write			= d2153_codec_write,
 	.reg_cache_size		= ARRAY_SIZE(d2153_reg_defaults),
 	.reg_word_size		= sizeof(u8),
 	.reg_cache_default	= d2153_reg_defaults,
 	.volatile_register	= d2153_volatile_register,	
-#ifndef D2153_FSI_SOUNDPATH	
 	.set_bias_level		= d2153_set_bias_level,
-#endif
 	.controls		= d2153_snd_controls,
 	.num_controls		= ARRAY_SIZE(d2153_snd_controls),	
 	.dapm_widgets		= d2153_dapm_widgets,
@@ -2309,12 +2356,12 @@ static struct i2c_board_info aad_i2c_info = {
 #endif /* CONFIG_SND_SOC_D2153_AAD */
 
 #ifdef CONFIG_PROC_FS
-static int d2153codec_i2c_read_device(char reg,
+static int d2153codec_i2c_read_device(struct d2153_codec_priv *d2153_codec,char reg,
 					int bytes, void *dest)
 {
 	int ret;
 	struct i2c_msg msgs[2];
-	struct i2c_adapter *adap = d2153_conf->i2c_client->adapter;
+	struct i2c_adapter *adap = d2153_codec->i2c_client->adapter;
 
 	if(reg > 0x6b && reg < 0x80){
 		msgs[0].addr = D2153_AAD_I2C_ADDR;
@@ -2346,7 +2393,7 @@ static int d2153codec_i2c_read_device(char reg,
 		return -EFAULT;
 }
 
-static int d2153codec_i2c_write_device(char reg,
+static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char reg,
 				   int bytes, u8 *src )
 {
 	int ret;
@@ -2354,7 +2401,7 @@ static int d2153codec_i2c_write_device(char reg,
 	u8 data[12];
 	u8 *buf = data;
 	
-	struct i2c_adapter *adap = d2153_conf->i2c_client->adapter;
+	struct i2c_adapter *adap = d2153_codec->i2c_client->adapter;
 
 	if (bytes == 0)
 		return -EINVAL;
@@ -2367,7 +2414,7 @@ static int d2153codec_i2c_write_device(char reg,
 	else {
 		msgs[0].addr = D2153_CODEC_I2C_ADDR;
 	}
-	msgs[0].flags = d2153_conf->i2c_client->flags & I2C_M_TEN;
+	msgs[0].flags = d2153_codec->i2c_client->flags & I2C_M_TEN;
 	msgs[0].len = 1+bytes;
 	msgs[0].buf = data;
 
@@ -2418,7 +2465,7 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 					return -EFAULT;
 
 				if(reg.reg > 0x6b && reg.reg < 0x80) {
-					d2153codec_i2c_read_device((u8)reg.reg,1, &reg_val);
+					d2153codec_i2c_read_device(d2153_codec,(u8)reg.reg,1, &reg_val);
 				}
 				else {
 					snd_soc_read(d2153_codec->codec,reg.reg);
@@ -2432,7 +2479,7 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 				if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 					return -EFAULT;
 				if(reg.reg > 0x6b && reg.reg < 0x80) {
-					d2153codec_i2c_write_device((u8)reg.reg,1, (u8)(&reg.val));
+					d2153codec_i2c_write_device(d2153_codec,(u8)reg.reg,1, (u8)(&reg.val));
 				}
 				else {
 					snd_soc_write(d2153_codec->codec, reg.reg, reg.val);
@@ -2598,7 +2645,7 @@ static ssize_t d2153_codec_ioctl_write(struct file *file, const char __user *buf
 		for (i = 0; i < dbg.len; i++, dbg.addr++)
 		{
 			//if(dbg.addr > 0x6b && dbg.addr < 0x80) {
-				ret=d2153codec_i2c_read_device(dbg.addr,1,&dbg.val[i]);
+				ret=d2153codec_i2c_read_device(d2153_codec,dbg.addr,1,&dbg.val[i]);
 			//}
 			//else
 			//{
@@ -2615,7 +2662,7 @@ static ssize_t d2153_codec_ioctl_write(struct file *file, const char __user *buf
 		for (i = 0; i < dbg.len; i++, dbg.addr++)
 		{
 			//if(dbg.addr > 0x6b && dbg.addr < 0x80) {
-				ret = d2153codec_i2c_write_device(dbg.addr,1,&dbg.val[i]);
+				ret = d2153codec_i2c_write_device(d2153_codec,dbg.addr,1,&dbg.val[i]);
 			//}
 			//else {
 			//	snd_soc_write(d2153_codec->codec, dbg.addr, dbg.val[i]);
@@ -2699,7 +2746,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 	/***********************************/
 	/* setup r8a73734                  */
 	/***********************************/
-	ret = d2153_sndp_enable_vclk4();
+	//ret = d2153_sndp_enable_vclk4();
 	
 	if (0 != ret)
 		return ret;		
@@ -2731,6 +2778,16 @@ static int __devexit d2153_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
+void d2153_i2c_shutdown(struct i2c_client *client) 
+{
+    struct d2153_codec_priv *d2153_codec;
+
+    d2153_codec = i2c_get_clientdata(client);
+
+    snd_soc_write(d2153_codec->codec, D2153_SYSTEM_MODES_CFG3,0x01);
+    snd_soc_write(d2153_codec->codec, D2153_CIF_CTRL,0x80);
+}
+
 static const struct i2c_device_id d2153_i2c_id[] = {
 	{ "d2153-codec", 0 },
 	{ }
@@ -2745,6 +2802,7 @@ static struct i2c_driver d2153_i2c_driver = {
 	},
 	.probe		= d2153_i2c_probe,
 	.remove		= __devexit_p(d2153_i2c_remove),
+	.shutdown       = d2153_i2c_shutdown,
 	.id_table	= d2153_i2c_id,
 };
 

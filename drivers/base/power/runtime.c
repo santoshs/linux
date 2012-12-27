@@ -683,7 +683,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 #ifdef CONFIG_PDC
 	if (pdi) {
 		spin_unlock(&dev->power.lock);
-		for_each_power_device(dev, pm_runtime_idle);
+		for_each_power_device(dev, pm_runtime_suspend);
 		spin_lock(&dev->power.lock);
 	}
 #endif /* CONFIG_PDC */
@@ -1103,9 +1103,6 @@ EXPORT_SYMBOL_GPL(pm_runtime_barrier);
  */
 void __pm_runtime_disable(struct device *dev, bool check_resume)
 {
-#ifdef CONFIG_PDC
-	struct power_domain_info *pdi = __to_pdi(dev);
-#endif /* CONFIG_PDC */
 	might_sleep();
 	spin_lock_irq(&dev->power.lock);
 
@@ -1132,18 +1129,8 @@ void __pm_runtime_disable(struct device *dev, bool check_resume)
 		pm_runtime_put_noidle(dev);
 	}
 
-#ifdef CONFIG_PDC
-	if (!dev->power.disable_depth++) {
-		__pm_runtime_barrier(dev);
-		if (pdi) {
-			dev->power.subsys_data = NULL;
-			kfree(pdi);
-		}
-	}
-#else
 	if (!dev->power.disable_depth++)
 		__pm_runtime_barrier(dev);
-#endif /* CONFIG_PDC */
 
  out:
 	spin_unlock_irq(&dev->power.lock);
@@ -1158,27 +1145,29 @@ void pm_runtime_enable(struct device *dev)
 {
 	unsigned long flags;
 #ifdef CONFIG_PDC
-	struct power_domain_info *pdi;
+	struct power_domain_info *pdi = NULL;
+	if (dev && dev_name(dev))
+		pdi = get_pdi(dev_name(dev));
+	if (NULL != pdi)
+		(void)power_domain_devices(dev_name(dev), \
+			pdi->devs, &pdi->cnt);
 #endif /* CONFIG_PDC */
 
 	spin_lock_irqsave(&dev->power.lock, flags);
 #ifdef CONFIG_PDC
 	if (dev->power.disable_depth > 0) {
 		dev->power.disable_depth--;
-		if (!dev->power.subsys_data) {
-			pdi = kzalloc(sizeof(*pdi), GFP_KERNEL);
 			if (!pdi) {
-				dev_err(dev, "Not enough memory for runtime PM data.\n");
+				dev->power.subsys_data = NULL;
+				dev_err(dev, "%s is't supported by PDC\n", \
+					dev_name(dev));
 				spin_unlock_irqrestore(&dev->power.lock, flags);
 				return;
 			}
-			(void)power_domain_devices(dev_name(dev), \
-						pdi->devs, &pdi->cnt);
 			if (pdi->cnt != 0)
 				dev->power.subsys_data = pdi;
 			else
-				kfree(pdi);
-		}
+				dev->power.subsys_data = NULL;
 	}
 #else
 	if (dev->power.disable_depth > 0)

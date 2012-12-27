@@ -116,4 +116,12 @@ void smc_set_ape_wakeup_irq_sense( uint8_t irq_sense );
 
 #include "smc_linux_ioctl.h"
 
+/**
+ * DMA transfer function prototypes
+ */
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    uint8_t smc_dma_init(struct device *device);
+    uint8_t smc_dma_uninit(struct device *device);
+#endif
+
 #endif

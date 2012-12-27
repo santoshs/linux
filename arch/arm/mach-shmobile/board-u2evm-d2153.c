@@ -54,6 +54,7 @@
 #include <media/sh_mobile_csi2.h>
 #include <linux/sh_clk.h>
 #include <media/v4l2-subdev.h>
+#include "board-renesas_wifi.h"
 #include <linux/pmic/pmic-ncp6914.h>
 #ifdef CONFIG_SOC_CAMERA_ISX012
 #include <media/isx012.h>
@@ -119,6 +120,7 @@ static int check_sec_rlte_hw_rev(void);
 #endif
 
 #include <sound/a2220.h>
+#include <linux/leds-ktd253ehd.h>
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)
 static void mpu_power_on(int onoff);
@@ -464,6 +466,17 @@ static struct platform_device lcdc_device = {
 	.dev	= {
 		.platform_data  = &lcdc_info,
 		.coherent_dma_mask = DMA_BIT_MASK(32),
+	},
+};
+
+static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
+	.gpio_port = GPIO_PORT47,
+};
+
+static struct platform_device led_backlight_device = {
+	.name		= "ktd253ehd_led",
+	.dev	= {
+		.platform_data  = &ktd253ehd_led_info,
 	},
 };
 
@@ -2519,6 +2532,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
 //	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
@@ -2571,6 +2585,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
@@ -2629,6 +2644,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 	&fsi_b_device,
 	&gpio_key_device,
 	&lcdc_device,
+	&led_backlight_device,
 	&mfis_device,
     &tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
@@ -3557,11 +3573,8 @@ static void irqc_set_chattering(int pin, int timing)
 
 void u2evm_restart(char mode, const char *cmd)
 {
-	u8 reg = __raw_readb(STBCHR2);
-	__raw_writeb((reg | APE_RESETLOG_U2EVM_RESTART), STBCHR2); // write STBCHR2 for debug
-
-	__raw_writel(0, SBAR2);
-	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
+	printk(KERN_INFO "%s\n", __func__);
+	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 int sec_rlte_hw_rev;
 
@@ -4230,6 +4243,17 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 			gpio_pull(GPIO_PORTCR_ES2(290), GPIO_PULL_UP);
 			gpio_pull(GPIO_PORTCR_ES2(289), GPIO_PULL_UP);
 		}
+		// move gpio request to board-renesas_wifi.c
+		
+		/* WLAN Init API call */
+#ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
+		printk(KERN_ERR "Calling WLAN_INIT!\n");
+
+	 	renesas_wlan_init();
+		printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif	
+		/* add the SDIO device */
+		//board_add_sdio_devices();
 	}
 
 	/* touch key Interupt */

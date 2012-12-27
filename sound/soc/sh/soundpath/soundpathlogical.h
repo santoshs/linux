@@ -38,7 +38,8 @@ extern void fsi_set_slave(const bool slave);
 
 extern int fsi_dai_startup_bt(
 		struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai);
+		struct snd_soc_dai *dai,
+		u_int rate);
 extern int fsi_dai_trigger_in_fm(
 		struct snd_pcm_substream *substream,
 		int cmd, struct snd_soc_dai *dai);
@@ -247,6 +248,9 @@ static void sndp_watch_start_fw_cb(void);
 
 /* Watch stop Firmware notification callback function */
 static void sndp_watch_stop_fw_cb(void);
+
+/* Watch codec type(WB/NB) callback function */
+static void sndp_codec_type_cb(u_int codec_type);
 
 /* Wake up start clkgen callback function */
 static void sndp_watch_start_clk_cb(void);

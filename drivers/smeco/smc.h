@@ -14,6 +14,16 @@
 /*
 Change history:
 
+Version:       42   12-Dec-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.42
+
+Version:       41   22-Nov-2012     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.41
+               Modem SMC FIFO overflow assert replaced by error message.
+               APE SMC fragmented SKB optimization
+
 Version:       40   20-Nov-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.40
@@ -153,7 +163,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.40"
+#define SMC_SW_VERSION  "0.0.42"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -190,40 +200,36 @@ Description :  File created
      * SMC Channel internal message flags
      * The MSB bit is set for SMC internal messages.
      */
-#define SMC_MSG_FLAG_MASK                   0x80000000              /* Mask to filter if FIFO contains internal message */
-#define SMC_MSG_FLAG_SYNC_INFO_REQ          0x80000001              /* Used in channel synchronization */
-#define SMC_MSG_FLAG_SYNC_INFO_RESP         0x80000002              /* Used in channel synchronization */
-#define SMC_MSG_FLAG_SYNC_SEND_REQ          0x80000004              /* Used in channel synchronization */
-#define SMC_MSG_FLAG_FREE_MEM_MDB           0x80000008              /* If flag is set, the FIFO message is for freeing memory in MDB */
-#define SMC_MSG_FLAG_CREATE_CHANNEL         0x80000010              /* If flag is set, the FIFO message is for creating new SMC channel */
-#define SMC_MSG_FLAG_CHANNEL_EVENT_USER     0x80000020              /* If flag is set, the FIFO message is an event from remote host to user */
-#define SMC_MSG_FLAG_VERSION_INFO_REQ       0x80000040              /* Version info request */
-#define SMC_MSG_FLAG_VERSION_INFO_RESP      0x80000080              /* Version info response */
-#define SMC_MSG_FLAG_PING_REQ               0x80000100              /* Ping request  */
-#define SMC_MSG_FLAG_PING_RESP              0x80000200              /* Ping response */
-#define SMC_MSG_FLAG_CONFIG_REQ             0x80000400              /* Configuration request for single configuration value */
-#define SMC_MSG_FLAG_CONFIG_RESP            0x80000800              /* Configuration response for single configuration value */
-#define SMC_MSG_FLAG_CONFIG_SHM_REQ         0x80001000              /* Shared Memory area configuration request for single channel */
-#define SMC_MSG_FLAG_CONFIG_SHM_RESP        0x80002000              /* Shared Memory area configuration response for single channel */
-#define SMC_MSG_FLAG_REMOTE_CHANNELS_INIT   0x80004000              /* Send to remote when all own channels are initialized (not necessarily sync'd) */
-#define SMC_MSG_FLAG_LOOPBACK_DATA_REQ      0x80008000              /* Loopback data sent from remote */
-#define SMC_MSG_FLAG_LOOPBACK_DATA_RESP     0x80010000              /* Response to the loopback data req, the data is received in remote side */
-#define SMC_MSG_FLAG_TRACE_ACTIVATE_REQ     0x80020000              /* Trace activation/deactivation message */
-#define SMC_MSG_FLAG_REMOTE_CPU_CRASH       0x80040000              /* Remote CPU has crashed */
+#define SMC_MSG_FLAG_MASK                       0x80000000      /* Mask to filter if FIFO contains internal message */
+#define SMC_MSG_FLAG_SYNC_INFO_REQ              0x80000001      /* Used in channel synchronization */
+#define SMC_MSG_FLAG_SYNC_INFO_RESP             0x80000002      /* Used in channel synchronization */
+#define SMC_MSG_FLAG_SYNC_SEND_REQ              0x80000004      /* Used in channel synchronization */
+#define SMC_MSG_FLAG_FREE_MEM_MDB               0x80000008      /* If flag is set, the FIFO message is for freeing memory in MDB */
+#define SMC_MSG_FLAG_CREATE_CHANNEL             0x80000010      /* If flag is set, the FIFO message is for creating new SMC channel */
+#define SMC_MSG_FLAG_CHANNEL_EVENT_USER         0x80000020      /* If flag is set, the FIFO message is an event from remote host to user */
+#define SMC_MSG_FLAG_VERSION_INFO_REQ           0x80000040      /* Version info request */
+#define SMC_MSG_FLAG_VERSION_INFO_RESP          0x80000080      /* Version info response */
+#define SMC_MSG_FLAG_PING_REQ                   0x80000100      /* Ping request  */
+#define SMC_MSG_FLAG_PING_RESP                  0x80000200      /* Ping response */
+#define SMC_MSG_FLAG_CONFIG_REQ                 0x80000400      /* Configuration request for single configuration value */
+#define SMC_MSG_FLAG_CONFIG_RESP                0x80000800      /* Configuration response for single configuration value */
+#define SMC_MSG_FLAG_CONFIG_SHM_REQ             0x80001000      /* Shared Memory area configuration request for single channel */
+#define SMC_MSG_FLAG_CONFIG_SHM_RESP            0x80002000      /* Shared Memory area configuration response for single channel */
+#define SMC_MSG_FLAG_REMOTE_CHANNELS_INIT       0x80004000      /* Send to remote when all own channels are initialized (not necessarily sync'd) */
+#define SMC_MSG_FLAG_LOOPBACK_DATA_REQ          0x80008000      /* Loopback data sent from remote */
+#define SMC_MSG_FLAG_LOOPBACK_DATA_RESP         0x80010000      /* Response to the loopback data req, the data is received in remote side */
+#define SMC_MSG_FLAG_TRACE_ACTIVATE_REQ         0x80020000      /* Trace activation/deactivation message */
+#define SMC_MSG_FLAG_REMOTE_CPU_CRASH           0x80040000      /* Remote CPU has crashed */
+#define SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED  0x20000000      /* If bit set the fifo packet is buffered */
+#define SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR        0x40000000      /* If bit set the data pointer was local */
 
-#define SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED    0x20000000        /* If bit set the fifo packet is buffered */
-
-#define SMC_FIFO_DATA_PTR_IS_BUFFERED( flag )                        (((flag)&SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)==SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
-#define SMC_FIFO_SET_DATA_PTR_IS_BUFFERED( flag )                    ((flag) |= SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
-#define SMC_FIFO_CLEAR_DATA_PTR_IS_BUFFERED( flag )                  ((flag) &= ~SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
-
-
-#define SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR    0x40000000              /* If bit set the data pointer was local */
+#define SMC_FIFO_DATA_PTR_IS_BUFFERED( flag )                     (((flag)&SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)==SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
+#define SMC_FIFO_SET_DATA_PTR_IS_BUFFERED( flag )                 ((flag) |= SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
+#define SMC_FIFO_CLEAR_DATA_PTR_IS_BUFFERED( flag )               ((flag) &= ~SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED)
 
 #define SMC_FIFO_DATA_PTR_IS_LOCAL( flag )                        (((flag)&SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR)==SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR)
 #define SMC_FIFO_SET_DATA_PTR_IS_LOCAL( flag )                    ((flag) |= SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR)
 #define SMC_FIFO_CLEAR_DATA_PTR_IS_LOCAL( flag )                  ((flag) &= ~SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR)
-
 
 #define SMC_FIFO_IS_INTERNAL_MESSAGE( flag )                      (((flag)&SMC_MSG_FLAG_MASK)==SMC_MSG_FLAG_MASK)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_SYNC_REQ( flag )             (((flag)&SMC_MSG_FLAG_SYNC_INFO_REQ)==SMC_MSG_FLAG_SYNC_INFO_REQ)
@@ -272,55 +278,60 @@ Description :  File created
 #define SMC_INSTANCE_CAN_SEND_FIXED_CONFIG(status)            (((status&SMC_INSTANCE_STATUS_INIT_CHANNELS_LOCAL)==SMC_INSTANCE_STATUS_INIT_CHANNELS_LOCAL) && ((status&SMC_INSTANCE_STATUS_INIT_CHANNELS_REMOTE)==SMC_INSTANCE_STATUS_INIT_CHANNELS_REMOTE) && ((status&SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT)!=SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT))
 
 
-#define SMC_FIXED_CONFIG_NO_CHANGES         0x00000000
-#define SMC_FIXED_CONFIG_CHANGE_FIFO_IN     0x00000001
-#define SMC_FIXED_CONFIG_CHANGE_FIFO_OUT    0x00000002
-#define SMC_FIXED_CONFIG_CHANGE_MDB_IN      0x00000004
-#define SMC_FIXED_CONFIG_CHANGE_MDB_OUT     0x00000008
-#define SMC_FIXED_CONFIG_CHANGE_SHM_SIZE    0x00000010
-#define SMC_FIXED_CONFIG_CHANGE_SHM_START   0x00000020
+#define SMC_FIXED_CONFIG_NO_CHANGES             0x00000000
+#define SMC_FIXED_CONFIG_CHANGE_FIFO_IN         0x00000001
+#define SMC_FIXED_CONFIG_CHANGE_FIFO_OUT        0x00000002
+#define SMC_FIXED_CONFIG_CHANGE_MDB_IN          0x00000004
+#define SMC_FIXED_CONFIG_CHANGE_MDB_OUT         0x00000008
+#define SMC_FIXED_CONFIG_CHANGE_SHM_SIZE        0x00000010
+#define SMC_FIXED_CONFIG_CHANGE_SHM_START       0x00000020
 
     /*
      * SMC Channel state flags
      */
-#define SMC_CHANNEL_STATE_SYNCHRONIZED         0x00000001           /* If set the channel is synchronized with remote */
-#define SMC_CHANNEL_STATE_SYNC_MSG_SENT        0x00000002           /* If set the synchronize msg has been sent to remote */
-#define SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED    0x00000004           /* If set the synchronize msg has been received from remote */
-#define SMC_CHANNEL_STATE_SHM_CONFIGURED       0x00000008           /* If set the shared memory of the channel is initialized */
-#define SMC_CHANNEL_STATE_RECEIVE_DISABLED     0x00000010           /* If set the channel does not receive any data (data is buffered to MDB)*/
-#define SMC_CHANNEL_STATE_MDB_OUT_OF_MEM       0x00000020           /* If set the channel's OUT MDB is out of memory*/
-#define SMC_CHANNEL_STATE_FIFO_FULL            0x00000040           /* If set the channel's out FIFO is FULL */
-#define SMC_CHANNEL_STATE_SEND_DISABLED        0x00000080           /* If set the channel does not send any data (upper layer tx buffers are stopped )*/
-#define SMC_CHANNEL_STATE_SEND_STOP_BY_REMOTE  0x00000100           /* If set the channel send disable was set by the remote */
-#define SMC_CHANNEL_STATE_SEND_DISABLED_REMOTE 0x00000200           /* If set the remote channel is set to not send any data to us (upper layer tx buffers are stopped )*/
-#define SMC_CHANNEL_STATE_SEND_DISABLED_XMIT   0x00000400           /* If set the transmit function has disabled the queue */
+#define SMC_CHANNEL_STATE_SYNCHRONIZED          0x00000001           /* If set the channel is synchronized with remote */
+#define SMC_CHANNEL_STATE_SYNC_MSG_SENT         0x00000002           /* If set the synchronize msg has been sent to remote */
+#define SMC_CHANNEL_STATE_SYNC_MSG_RECEIVED     0x00000004           /* If set the synchronize msg has been received from remote */
+#define SMC_CHANNEL_STATE_SHM_CONFIGURED        0x00000008           /* If set the shared memory of the channel is initialized */
+#define SMC_CHANNEL_STATE_RECEIVE_DISABLED      0x00000010           /* If set the channel does not receive any data (data is buffered to MDB)*/
+#define SMC_CHANNEL_STATE_MDB_OUT_OF_MEM        0x00000020           /* If set the channel's OUT MDB is out of memory*/
+#define SMC_CHANNEL_STATE_FIFO_FULL             0x00000040           /* If set the channel's out FIFO is FULL */
+#define SMC_CHANNEL_STATE_SEND_DISABLED         0x00000080           /* If set the channel does not send any data (upper layer tx buffers are stopped )*/
+#define SMC_CHANNEL_STATE_SEND_STOP_BY_REMOTE   0x00000100           /* If set the channel send disable was set by the remote */
+#define SMC_CHANNEL_STATE_SEND_DISABLED_REMOTE  0x00000200           /* If set the remote channel is set to not send any data to us (upper layer tx buffers are stopped )*/
+#define SMC_CHANNEL_STATE_SEND_DISABLED_XMIT    0x00000400           /* If set the transmit function has disabled the queue */
 
     /* Defines the flags to be set before SMC send is possible */
-#define SMC_CHANNEL_STATE_READY_TO_SEND     (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
+#define SMC_CHANNEL_STATE_READY_TO_SEND         (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
 
     /*
      * SMC Misc defines
      */
-#define SMC_SYNC_MSG_FIFO_REQ                   0x108F1F0           /* Synchronization request  message put in the FIFO */
-#define SMC_SYNC_MSG_FIFO_RESP                  0xF1F0104           /* Synchronization response message put in the FIFO */
+#define SMC_SYNC_MSG_FIFO_REQ                       0x108F1F0           /* Synchronization request  message put in the FIFO */
+#define SMC_SYNC_MSG_FIFO_RESP                      0xF1F0104           /* Synchronization response message put in the FIFO */
 
     /*
-     * Copy Scheme bits
+     * Copy Scheme bits used for one channel
      */
-#define SMC_COPY_SCHEME_COPY_IN_SEND             0x01
-#define SMC_COPY_SCHEME_COPY_IN_RECEIVE          0x02
+#define SMC_COPY_SCHEME_COPY_IN_SEND                0x01
+#define SMC_COPY_SCHEME_COPY_IN_RECEIVE             0x02
+#define SMC_COPY_SCHEME_USE_DMA_IN_SEND             0x04
+#define SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE          0x08
 
-#define SMC_COPY_SCHEME_SEND_IS_COPY( bits )     (((bits)&SMC_COPY_SCHEME_COPY_IN_SEND)==SMC_COPY_SCHEME_COPY_IN_SEND)
-#define SMC_COPY_SCHEME_RECEIVE_IS_COPY( bits )  (((bits)&SMC_COPY_SCHEME_COPY_IN_RECEIVE)==SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+#define SMC_COPY_SCHEME_SEND_IS_COPY( bits )        (((bits)&SMC_COPY_SCHEME_COPY_IN_SEND)==SMC_COPY_SCHEME_COPY_IN_SEND)
+#define SMC_COPY_SCHEME_RECEIVE_IS_COPY( bits )     (((bits)&SMC_COPY_SCHEME_COPY_IN_RECEIVE)==SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+#define SMC_COPY_SCHEME_SEND_USE_DMA( bits )        (((bits)&SMC_COPY_SCHEME_USE_DMA_IN_SEND)==SMC_COPY_SCHEME_USE_DMA_IN_SEND)
+#define SMC_COPY_SCHEME_RECEIVE_USE_DMA( bits )     (((bits)&SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE)==SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE)
 
-#define SMC_COPY_SCHEME_SEND_SET_COPY( bits )    ((bits) |= SMC_COPY_SCHEME_COPY_IN_SEND)
-#define SMC_COPY_SCHEME_RECEIVE_SET_COPY( bits ) ((bits) |= SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+#define SMC_COPY_SCHEME_SEND_SET_COPY( bits )       ((bits) |= SMC_COPY_SCHEME_COPY_IN_SEND)
+#define SMC_COPY_SCHEME_RECEIVE_SET_COPY( bits )    ((bits) |= SMC_COPY_SCHEME_COPY_IN_RECEIVE)
+#define SMC_COPY_SCHEME_SEND_SET_USE_DMA( bits )    ((bits) |= SMC_COPY_SCHEME_USE_DMA_IN_SEND)
+#define SMC_COPY_SCHEME_RECEIVE_SET_USE_DMA( bits ) ((bits) |= SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE)
 
     /*
      * SMC Channel state bit read/set/clear macros
      */
 #define SMC_CHANNEL_STATE_IS_READY_TO_SEND( state )          (((state)&SMC_CHANNEL_STATE_READY_TO_SEND)==SMC_CHANNEL_STATE_READY_TO_SEND)
-
 #define SMC_CHANNEL_STATE_IS_SYNCHRONIZED( state )           (((state)&SMC_CHANNEL_STATE_SYNCHRONIZED)==SMC_CHANNEL_STATE_SYNCHRONIZED)
 #define SMC_CHANNEL_STATE_SET_SYNCHRONIZED( state )          ((state) |= SMC_CHANNEL_STATE_SYNCHRONIZED)
 #define SMC_CHANNEL_STATE_CLEAR_SYNCHRONIZED( state )        ((state) &= ~SMC_CHANNEL_STATE_SYNCHRONIZED)
@@ -378,6 +389,8 @@ Description :  File created
      */
 
 #define SMC_CHANNEL_GET( smc_instance, channel_id )    ( smc_instance->smc_channel_ptr_array[channel_id] )
+
+#define SMC_MEMORY_VIRTUAL_TO_PHYSICAL(smc_instance, address)     ( ((uint32_t)address)-(smc_instance->smc_shm_conf->remote_cpu_memory_offset) )
 
     /* SMC history data collection flags */
 
@@ -514,6 +527,11 @@ typedef struct _smc_channel_t
 
     struct _smc_semaphore_t*            send_semaphore;                  /* Semaphore used in smc_send to prevent overflow */
 
+    uint32_t                            dropped_packets_mdb_out;
+    uint32_t                            dropped_packets_fifo_buffer;
+    uint32_t                            send_packets_fifo_buffer;
+    uint32_t                            fifo_buffer_copied_total;
+
 #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
 
     struct _smc_message_history_data_t* smc_history_data_sent;
@@ -525,10 +543,6 @@ typedef struct _smc_channel_t
 
 #endif /* #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED */
 
-    uint32_t                            dropped_packets_mdb_out;
-    uint32_t                            dropped_packets_fifo_buffer;
-    uint32_t                            send_packets_fifo_buffer;
-    uint32_t                            fifo_buffer_copied_total;
 } smc_channel_t;
 
 
@@ -668,6 +682,8 @@ smc_loopback_data_t*  smc_loopback_data_create( uint32_t size_of_message_payload
 uint8_t               smc_send_negotiable_configurations( smc_t* smc_instance );
 uint8_t               smc_send_channels_initialized_message(smc_t* smc_instance);
 
+uint8_t               smc_instance_uses_dma( smc_conf_t* smc_instance_conf );
+
     /*
      * Structure holding signal handler information.
      */
@@ -676,7 +692,7 @@ typedef struct
     smc_signal_t*  signal;
     smc_t*         smc_instance;
     smc_channel_t* smc_channel;
-
+    uint32_t       userdata;        /* Additional data for user */
 } smc_signal_handler_t;
 
     /*
@@ -711,7 +727,7 @@ uint8_t               smc_signal_raise                 ( smc_signal_t* signal );
 uint8_t               smc_signal_acknowledge           ( smc_signal_t* signal );
 uint8_t               smc_signal_handler_register      ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
 uint8_t               smc_signal_handler_unregister    ( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
-smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel );
+smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, smc_signal_t* signal, smc_channel_t* smc_channel, uint32_t userdata );
 uint8_t               smc_signal_add_handler           ( smc_signal_handler_t* signal_handler );
 smc_signal_handler_t* smc_signal_handler_get           ( uint32_t signal_id, uint32_t signal_type );
 void                  smc_signal_handler_remove_and_destroy( smc_signal_handler_t* signal_handler );
@@ -752,19 +768,17 @@ uint8_t      smc_timer_destroy( smc_timer_t* timer );
      *       The API implementation is in platform leve.
      */
 smc_t*   smc_instance_get_control    ( void );
-
 smc_t**  smc_instance_array_get      ( void );
 uint8_t  smc_instance_array_count_get( void );
-// TODO Cleanup smc_lock_t* get_local_lock_smc_channel_ext(void);
 
     /*
      * Misc functions
      */
-char*    smc_get_version            ( void );
-uint32_t smc_version_to_int         ( char* version );
-char*    smc_version_to_str         ( uint32_t version );
-int      smc_atoi                   ( char* a );
-char*    smc_utoa                   ( uint32_t i );
+char*    smc_get_version                  ( void );
+uint32_t smc_version_to_int               ( char* version );
+char*    smc_version_to_str               ( uint32_t version );
+int      smc_atoi                         ( char* a );
+char*    smc_utoa                         ( uint32_t i );
 uint8_t  smc_channel_send_ping            ( smc_channel_t* smc_channel, uint8_t wait_reply );
 uint8_t  smc_channel_send_config          ( smc_channel_t* smc_channel, uint32_t configuration_id, uint32_t configuration_value, uint8_t wait_reply );
 uint8_t  smc_send_crash_info              ( char* crash_message );

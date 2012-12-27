@@ -40,13 +40,15 @@ CALL_CTRL_NO_EXTERN enum call_status g_status;
 CALL_CTRL_NO_EXTERN atomic_t g_call_watch_start_fw;
 
 typedef void (*callback_func)(void);
+typedef void (*callback_func_arg1)(u_int);
 
 struct call_vcd_callback {
-	callback_func	 callback_start_fw;
-	callback_func	 callback_stop_fw;
-	callback_func	 callback_start_clk;
-	callback_func	 callback_stop_clk;
-	callback_func	 callback_wait_path;
+	callback_func		callback_start_fw;
+	callback_func		callback_stop_fw;
+	callback_func	 	callback_start_clk;
+	callback_func		callback_stop_clk;
+	callback_func	 	callback_wait_path;
+	callback_func_arg1	callback_codec_type;
 };
 
 /* Call initialization function */

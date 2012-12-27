@@ -32,16 +32,14 @@ Description :  File created
 /*#define SMC_XMIT_BUFFER_FAIL_SEND*/
 #define SMC_XMIT_BUFFER_SIZE                  15
 
-
-//#define SMC_LOCK_TX_BUFFER                    SMC_LOCK
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
-
-//#define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK
 #define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK_IRQ
 
 #define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      10
 
 #define SMC_FREE_LOCAL_PTR_OS_NOT_NEEDED
+
+/*#define SMC_LINUX_USE_TASKLET_IN_IRQ*/                      /* If defined, tasklet usage for IRQs is enabled */
 
     /* ===============================================
      * Define Linux Kernel Specific data types for SMC
@@ -143,8 +141,8 @@ typedef struct
 #define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); SMC_TRACE_PRINTF_LOCK("unlock irq save: 0x%08X...", (uint32_t)lock); }
 
 
-#define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
-#define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
+#define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK_MUTEX("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
+#define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK_MUTEX("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
 
     /*
      * Data type for SMC locking

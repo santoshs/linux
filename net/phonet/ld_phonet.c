@@ -60,6 +60,10 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_PHONET_NEW_ISI_MSG     0
 #define LD_PHONET_ISI_MSG_LEN     1
 #define LD_PHONET_ISI_MSG_NO_LEN  2
+
+#define LD_PHONET_BUFFER_LEN      1048576
+#define LD_PHONET_INIT_LEN        0
+
 extern struct switch_dev switch_dock;
 
 struct ld_phonet {
@@ -97,6 +101,7 @@ struct switch_dev ld_pt_dev = {
 	.state = 0
 };
 
+int ld_buff_len; /* LD Phonet Tx Backlog buffer Len */
 
 /* AT-ISI Separation ends */
 #define LD_PHONET_DEBUG 0
@@ -119,10 +124,10 @@ static ssize_t ld_set_manualsw1(struct device *dev,
 {
 	if (0 == strncmp(buf, "switch at", 9)) {
 		dbg("SWITCH FOR ATATATATATATATATATATA\n");
-		switch_set_state(&switch_dock, SWITCH_AT);		
+		switch_set_state(&switch_dock, SWITCH_AT);
   	}
 	if (0 == strncmp(buf, "switch isi", 10))
-		switch_set_state(&switch_dock, SWITCH_ISI);		
+		switch_set_state(&switch_dock, SWITCH_ISI);
 	return count;
 }
 
@@ -138,10 +143,10 @@ static ssize_t ld_set_at_closed(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
 	unsigned int value;
-  
+
 	if (0 == strncmp(buf, "at closed", 9))
-		switch_set_state(&switch_dock, AT_CLOSED);		
-  
+		switch_set_state(&switch_dock, AT_CLOSED);
+
 	return count;
 }
 
@@ -172,7 +177,7 @@ static DEVICE_ATTR(at_closed_ind, S_IRUGO | S_IWUSR,
 
 static DEVICE_ATTR(isi_closed_ind, S_IRUGO | S_IWUSR,
 		ld_show_isi_closed, ld_set_isi_closed);
-		
+
 static struct attribute *ld_attributes[] = {
 	&dev_attr_at_isi_switch.attr,
 	&dev_attr_at_closed_ind.attr,
@@ -183,6 +188,7 @@ static struct attribute *ld_attributes[] = {
 static const struct attribute_group ld_group = {
 	.attrs = ld_attributes,
 };
+
 
 /* AT-ISI Separation ends */
 
@@ -218,7 +224,7 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 		room = tty_write_room(tty);
 
 		if (!room) {
-			if (ld_pn->nb_try_to_tx++ > 40) {
+			if (ld_buff_len > LD_PHONET_BUFFER_LEN)  {
 				ld_pn->link_up = false;
 				/* Flush TX queue */
 				while ((skb = \
@@ -230,11 +236,13 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 					else
 						kfree_skb(skb);
 				}
+				ld_buff_len = LD_PHONET_INIT_LEN;
+				goto error;
 			}
 			else { /* FALLBACK TRIAL */
 				dbg("ld_pn_handle_tx no room, waiting for \
-				previous to be sent..:\n");				
-				
+				previous to be sent..:\n");
+
 				if (!test_bit(TTY_DO_WRITE_WAKEUP, \
 					 &tty->flags)) {
 					/* wakeup bit is not set, set it */
@@ -254,16 +262,15 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 		/* Get room => reset nb_try_to_tx counter */
 		ld_pn->nb_try_to_tx = 0;
 
-		if (room > MAX_WRITE_CHUNK)
-			room = MAX_WRITE_CHUNK;
 		if (len > room)
 			len = room;
 
-
 		tty_wr = tty->ops->write(tty, skb->data, len);
+		ld_buff_len -= tty_wr;
+		if (ld_buff_len < LD_PHONET_INIT_LEN)
+			ld_buff_len = LD_PHONET_INIT_LEN;
 		ld_pn->dev->stats.tx_packets++;
 		ld_pn->dev->stats.tx_bytes += tty_wr;
-		/*dbg(" === data write in tty :\n");*/
 		dbg(" Response start\n");
 		for (i = 1; i <= len; i++) {
 			dbg(" %02x", skb->data[i-1]);
@@ -288,11 +295,10 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 	}
 	/* Send flow off if queue is empty */
 	clear_bit(PHONET_SENDING, &ld_pn->state);
-
-	return 0;
+	return NETDEV_TX_OK;
 error:
 	clear_bit(PHONET_SENDING, &ld_pn->state);
-	return tty_wr;
+	return NETDEV_TX_OK;
 }
 
 
@@ -303,7 +309,16 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	u8 *ptr;
 
 	BUG_ON(dev == NULL);
+
 	ld_pn = netdev_priv(dev);
+
+	if ((ld_pn == NULL) || (ld_pn->tty == NULL)) {
+		if (in_interrupt())
+			dev_kfree_skb_irq(skb);
+		else
+			kfree_skb(skb);
+	return NETDEV_TX_OK;
+	}
 
 	ptr = skb_push(skb, 6);
 	ptr[0] = 0xdd;
@@ -312,17 +327,18 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	ptr[3] = 0x9a;
 	ptr[4] = skb->data[10];
 	ptr[5] = skb->data[11];
-
+	PN_PRINTK("ld_pn_net_xmit: send skb to %s", dev->name);
 	if (ld_pn->link_up == true) {
 		skb_queue_tail(&ld_pn->head, skb);
+		ld_buff_len += skb->len;
 		return ld_pn_handle_tx(ld_pn);
 	} else {
 		if (tty_write_room(ld_pn->tty)) {
 			/* link is up again */
 			ld_pn->link_up = true;
 			ld_pn->nb_try_to_tx = 0;
-
 			skb_queue_tail(&ld_pn->head, skb);
+			ld_buff_len += skb->len;
 			return ld_pn_handle_tx(ld_pn);
 		} else {
 			if (in_interrupt())
@@ -332,8 +348,8 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 			dev->stats.tx_dropped++;
 			dbg("tx_dropped = %d", dev->stats.tx_dropped);
 			return NETDEV_TX_OK;
-			}
 		}
+	}
 }
 
 static int
@@ -363,8 +379,6 @@ static int ld_pn_net_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
-
-
 static const struct net_device_ops ld_pn_netdev_ops = {
 	.ndo_open	= ld_pn_net_open,
 	.ndo_stop	= ld_pn_net_close,
@@ -372,10 +386,6 @@ static const struct net_device_ops ld_pn_netdev_ops = {
 	.ndo_do_ioctl   = ld_pn_net_ioctl,
 	.ndo_change_mtu	= ld_pn_net_mtu,
 };
-
-
-
-
 
 static void ld_pn_net_setup(struct net_device *dev)
 {
@@ -471,7 +481,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 		/* Check if extract length is possible */
 		if ((count - ld_pn->n_Data_Processed) > ISI_MSG_HEADER_SIZE) {
 			/* Extract length */
-			/* Move 1 byte since media parameter is not there in 
+			/* Move 1 byte since media parameter is not there in
 			phonethdr structure */
 			ph = (struct phonethdr *) \
 			(cp + ld_pn->n_Data_Processed + sizeof(char));
@@ -490,10 +500,10 @@ static void ld_phonet_ldisc_initiate_transfer \
 			skb_reset_mac_header(skb);
 			ld_pn->skb = skb;
 
-			/* check if we receive complete data in this 
+			/* check if we receive complete data in this
 			usb frame */
 			if (ld_pn->len <= (count - ld_pn->n_Data_Processed)) {
-				/* We received complete data in this usb 
+				/* We received complete data in this usb
 				frame */
 				/* copy the ISI buffer */
 				memcpy(skb_put(skb, ld_pn->len), \
@@ -510,7 +520,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 					if (i%8 == 0)
 						dbg("\n");
 				}
-		
+
 				dbg("Request buffer end\n");
 				dbg("calling netif_rx inside \
 				initiate_transfer ld_pn->len=%d\n", \
@@ -519,6 +529,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 				ld_pn->n_Data_Sent += ld_pn->len;
 
 				/* TBD : Reset pointers */
+				ld_pn->len = LD_PHONET_INIT_LEN;
 			} else {
 				/* We receive only partial ISI message */
 				/* Copy the partial ISI message */
@@ -556,9 +567,9 @@ static void ld_phonet_ldisc_initiate_transfer \
 			cp + ld_pn->n_Data_Processed, count - \
 			ld_pn->n_Data_Processed);
 			ld_pn->ld_phonet_state = LD_PHONET_ISI_MSG_NO_LEN;
-			
+
 			ld_pn->len += count - ld_pn->n_Data_Processed;
-			ld_pn->n_Data_Processed += \ 
+			ld_pn->n_Data_Processed += \
 			count - ld_pn->n_Data_Processed;
 
 			return;
@@ -599,6 +610,12 @@ static void ld_phonet_ldisc_receive
 
 		ld_pn->nb_try_to_tx = 0;
 	}
+	PN_PRINTK("ld_phonet_ldisc_receive: receive  %d data", count);
+	for (i = 1; i <= count; i++) {
+		PN_DATA_PRINTK(" %02x", cp[i-1]);
+		if ((i%8) == 0)
+			PN_DATA_PRINTK("\n");
+	}
 
 	spin_lock_irqsave(&ld_pn->lock, flags);
 
@@ -624,13 +641,13 @@ static void ld_phonet_ldisc_receive
 			int first_byte = 0;
 			if (count >= 1) {
 				if (*cp) {
-	                		first_byte = *cp;	
+	                		first_byte = *cp;
 					dbg("case LD_PHONET_NEW_ISI_MSG: \
 					%d\n", *cp);
 				}
 			} else
 				dbg("case LD_PHONET_NEW_ISI_MSG\n");
-		
+
 			if ((count >= 1) && (first_byte != check_at)) {
 				dbg("MATCH FOR change mode %c\n", *cp);
 				ld_pn->ld_phonet_state = LD_PHONET_SWITCH;
@@ -677,6 +694,7 @@ static void ld_phonet_ldisc_receive
 				ld_pn->n_Data_Sent += ld_pn->n_Remaining_Data;
 				ld_pn->n_Data_Processed += \
 				ld_pn->n_Remaining_Data;
+				ld_pn->len = LD_PHONET_INIT_LEN;
 
 				/* Initiate a new ISI transfer */
 				ld_phonet_ldisc_initiate_transfer\
@@ -688,7 +706,7 @@ static void ld_phonet_ldisc_receive
 			/*Check if we can extact length */
 			if ((ld_pn->len + count) >= ISI_MSG_HEADER_SIZE) {
 
-				/* Copy remaining header to SKBuff to extract 
+				/* Copy remaining header to SKBuff to extract
 				length */
 				memcpy(skb_put(skb, ISI_MSG_HEADER_SIZE - \
 				ld_pn->len), cp + ld_pn->n_Data_Processed, \
@@ -743,7 +761,7 @@ static void ld_phonet_ldisc_receive
 						if (i%8 == 0)
 							dbg("\n");
 					}
-	
+
 					dbg("Request buffer end\n");
 					dbg("calling netif_rx inside \
 					ldisc_receive second ld_pn->len= \
@@ -757,6 +775,10 @@ static void ld_phonet_ldisc_receive
 					ld_pn->n_Data_Processed += (msglen + \
 					ISI_MSG_HEADER_SIZE) - (ld_pn->len + \
 					ld_pn->n_Data_Processed);
+
+					/* Reset len as skb buffer
+					is sent to phonet */
+					ld_pn->len = LD_PHONET_INIT_LEN;
 
 					/* Check if we still have data in cp */
 					if (count > ld_pn->n_Data_Processed) {
@@ -809,13 +831,41 @@ static void ld_phonet_ldisc_write_wakeup(struct tty_struct *tty)
 	ld_pn_handle_tx(ld_pn);
 }
 
+int ld_phonet_hangup_wait(void *data)
+{
+	return NETDEV_TX_OK;
+}
+
+static int ld_phonet_ldisc_hangup(struct tty_struct *tty)
+{
+	struct ld_phonet *ld_pn;
+	struct sk_buff *skb;
+	struct net_device *dev;
+	/* Flush TX queue */
+	ld_pn = tty->disc_data;
+
+	wait_on_bit_lock(&ld_pn->state, PHONET_SENDING, \
+			ld_phonet_hangup_wait, TASK_KILLABLE);
+
+	while ((skb = skb_dequeue(&ld_pn->head)) != NULL) {
+		skb->dev->stats.tx_dropped++;
+		if (in_interrupt())
+			dev_kfree_skb_irq(skb);
+		else
+			kfree_skb(skb);
+	}
+	ld_buff_len = LD_PHONET_INIT_LEN;
+	clear_bit(PHONET_SENDING, &ld_pn->state);
+	return NETDEV_TX_OK;
+}
 static struct tty_ldisc_ops ld_phonet_ldisc = {
 	.owner =	THIS_MODULE,
 	.name =		"phonet",
 	.open =		ld_phonet_ldisc_open,
 	.close =	ld_phonet_ldisc_close,
 	.receive_buf =	ld_phonet_ldisc_receive,
-	.write_wakeup =	ld_phonet_ldisc_write_wakeup
+	.write_wakeup =	ld_phonet_ldisc_write_wakeup,
+	.hangup =       ld_phonet_ldisc_hangup
 };
 
 /*
@@ -827,6 +877,7 @@ static int __init ld_phonet_init(void)
 	int retval;
 	retval = tty_register_ldisc(N_PHONET, &ld_phonet_ldisc);
 	switch_dev_register(&ld_pt_dev);
+	ld_buff_len = LD_PHONET_INIT_LEN;
 	return  retval;
 }
 
@@ -837,9 +888,6 @@ static void __exit ld_phonet_exit(void)
 	/* sysfs_remove_group(&client->dev.kobj, &ld_group); */
 	switch_dev_unregister(&ld_pt_dev);
 }
-
-
-
 
 module_init(ld_phonet_init);
 module_exit(ld_phonet_exit);

@@ -120,6 +120,9 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
 
 static uint8_t smc_test_case_function_loopback( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+    /* DMA test case in smc_test_dma.c */
+extern uint8_t smc_test_case_dma( uint8_t* test_input_data, uint32_t test_input_data_len );
+
     /* ========================================================
      * SMC Test Case functions
      * First index is 0x00
@@ -140,6 +143,7 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_function_misc,                    /* 0x0A */
     smc_test_case_function_ping,                    /* 0x0B */
     smc_test_case_function_loopback,                /* 0x0C */
+    smc_test_case_dma,                              /* 0x0D */
     0
 };
 

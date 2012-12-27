@@ -32,8 +32,6 @@ Description :  File created
   #include "smc_test.h"
 #endif
 
-
-
 uint8_t                smc_initialized            = FALSE;
 
 /*
@@ -924,6 +922,35 @@ smc_channel_conf_t* smc_channel_get_conf( smc_channel_t* smc_channel )
     assert(0);
     return NULL;
 }
+
+/**
+ * Returns TRUE if any of the channels of the specified SMC instance uses DMA transfer.
+ */
+uint8_t smc_instance_uses_dma( smc_conf_t* smc_instance_conf )
+{
+    uint8_t use_dma = FALSE;
+
+    SMC_TRACE_PRINTF_DMA("smc_instance_uses_dma: check DMA usage of SMC instance configuration 0x%08X...", (uint32_t)smc_instance_conf);
+
+    for(int i = 0; i < smc_instance_conf->smc_channel_conf_count; i++)
+    {
+        if( SMC_COPY_SCHEME_SEND_USE_DMA(smc_instance_conf->smc_channel_conf_ptr_array[i]->copy_scheme) ||
+            SMC_COPY_SCHEME_RECEIVE_USE_DMA(smc_instance_conf->smc_channel_conf_ptr_array[i]->copy_scheme) )
+        {
+            SMC_TRACE_PRINTF_DMA("smc_instance_uses_dma: channel %d uses DMA, copy scheme = 0x%02X",
+                    smc_instance_conf->smc_channel_conf_ptr_array[i]->channel_id,
+                    smc_instance_conf->smc_channel_conf_ptr_array[i]->copy_scheme );
+
+            use_dma = TRUE;
+            break;
+        }
+    }
+
+    SMC_TRACE_PRINTF_DMA("smc_instance_uses_dma: return DMA usage = %s", use_dma?"TRUE":"FALSE");
+
+    return use_dma;
+}
+
 
 /* End of file */
 

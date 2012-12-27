@@ -65,14 +65,26 @@ Description :  File created
 #define SMC_TRACE_TRANSMIT_ENABLED
 #define SMC_TRACE_SIGNALS_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
+#define SMC_TRACE_SIGNAL_RAISE_ENABLED
 #define SMC_TRACE_FIFO_GET_ENABLED
 #define SMC_TRACE_FIFO_PUT_ENABLED
 #define SMC_TRACE_LOCK_ENABLED
 #define SMC_TRACE_RECEIVE_PACKET_ENABLED
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
+#define SMC_TRACE_DMA_ENABLED
+#define SMC_TRACE_TASKLET_ENABLED
 */
 
 
+
+
+
+
+#ifdef SMC_TRACE_TASKLET_ENABLED
+  #define SMC_TRACE_PRINTF_TASKLET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"TASKLET: " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_TASKLET(...)
+#endif
 
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF(format, arg...)         smc_printk( format,## arg )
@@ -106,7 +118,7 @@ Description :  File created
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        smc_printk( format,## arg )
   #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg ); smc_printk( format,## arg )
-  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)
+  #define SMC_TRACE_PRINTF_ALWAYS_DATA(length, data)     smc_printk_data("SMC", data, length, 100)
 #else
   #define SMC_TRACE_PRINTF_ALWAYS(format, arg...)        printk(KERN_ALERT format,## arg )
   #define SMC_TRACE_PRINTF_ALWAYS_ERROR(format, arg...)  printk(KERN_ALERT format,## arg )

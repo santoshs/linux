@@ -58,7 +58,6 @@
 #define CPU0_ID				0
 struct workqueue_struct *pdwait_wq;
 static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
-static struct mutex pdwait_mutex;
 static atomic_t	pdwait_judge_count;
 static bool a2ri_status_old ;
 static bool a2rv_status_old;
@@ -77,6 +76,11 @@ struct drv_pd_mapping_table {
 		unsigned int area;	/* Power area id*/
 };
 
+struct pdi_mapping_table {
+	char *name;			/* Driver name  */
+	struct power_domain_info pdi;
+};
+
 static DEFINE_MUTEX(power_status_mutex);
 static u64 a3sp_power_down_count;
 static unsigned int default_c4_pdsel;
@@ -84,8 +88,9 @@ static unsigned int default_c4_pdsel;
 static int power_a4rm_mask;
 #endif
 static int chip_rev = ES_REV_1_0;
-#ifdef CONFIG_PM_DEBUG
+
 static DEFINE_SPINLOCK(pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 static int pdc_enable = 1;
 static int old_pdc_enable = 1;
 static int power_areas_status;
@@ -203,6 +208,77 @@ static struct drv_pd_mapping_table tbl2[] = {
 #endif
 
 };
+
+#define pdi_init_val {{NULL, NULL, NULL}, 0}
+static struct pdi_mapping_table pdi_tb2[] = {
+	/* MFIS		*/ { "mfis.0", pdi_init_val},
+	/* SGX544MP1*/ { "pvrsrvkm", pdi_init_val},
+	/* SY-DMA0	*/ { "sh-dma-engine.0", pdi_init_val},
+	/* CC4.2 0	*/ { "sep_sec_driver.0", pdi_init_val},
+	/* MMCIF.0	*/ { "sh_mmcif.0", pdi_init_val},
+	/* MMCIF.0	*/ { "renesas_mmcif.0", pdi_init_val},
+	/* MSIOF0	*/ { "spi_sh_msiof.0", pdi_init_val},
+	/* MSIOF1	*/ { "spi_sh_msiof.1", pdi_init_val},
+	/* MSIOF2	*/ { "spi_sh_msiof.2", pdi_init_val},
+	/* MSIOF3	*/ { "spi_sh_msiof.3", pdi_init_val},
+	/* MSIOF4	*/ { "spi_sh_msiof.4", pdi_init_val},
+	/* USB		*/ { "r8a66597_hcd.0", pdi_init_val},
+	/* USB		*/ { "r8a66597_udc.0", pdi_init_val},
+	/* USB		*/ { "usb_mass_storage", pdi_init_val},
+	/* USB		*/ { "android_usb", pdi_init_val},
+	/* USB_OTG	*/ { "tusb1211_driver.0", pdi_init_val},
+	/* SCIFA0	*/ { "sh-sci.0", pdi_init_val},
+	/* SCIFA1	*/ { "sh-sci.1", pdi_init_val},
+	/* SCIFA2	*/ { "sh-sci.2", pdi_init_val},
+	/* SCIFA3	*/ { "sh-sci.3", pdi_init_val},
+	/* SCIFB0	*/ { "sh-sci.4", pdi_init_val},
+	/* SCIFB1	*/ { "sh-sci.5", pdi_init_val},
+	/* SCIFB2	*/ { "sh-sci.6", pdi_init_val},
+	/* SCIFB3	*/ { "sh-sci.7", pdi_init_val},
+	/* I2C0		*/ { "i2c-sh_mobile.0", pdi_init_val},
+	/* I2C1		*/ { "i2c-sh_mobile.1", pdi_init_val},
+	/* I2C2		*/ { "i2c-sh_mobile.2", pdi_init_val},
+	/* I2C3		*/ { "i2c-sh_mobile.3", pdi_init_val},
+	/* I2C0H	*/ { "i2c-sh_mobile.4", pdi_init_val},
+	/* I2C1H	*/ { "i2c-sh_mobile.5", pdi_init_val},
+    /* I2CM		*/ { "i2c-sh7730.6", pdi_init_val},
+	/* I2C2H	*/ { "i2c-sh_mobile.7", pdi_init_val},
+	/* I2C3H	*/ { "i2c-sh_mobile.8", pdi_init_val},
+	/* SDHI0	*/ { "renesas_sdhi.0", pdi_init_val},
+	/* SDHI1	*/ { "renesas_sdhi.1", pdi_init_val},
+	/* SDHI2	*/ { "renesas_sdhi.2", pdi_init_val},
+	/* TPU		*/ { "tpu-renesas-sh_mobile.0", pdi_init_val},
+	/* HSI		*/ { "sh_hsi.0", pdi_init_val},
+	/* MFI		*/ { "av-domain", pdi_init_val},
+	/* FSI2/ALSA*/ { "snd-soc-fsi", pdi_init_val},
+	/* SPUV/VOCODER*/ { "vcd", pdi_init_val},
+	/* PCM2PWM	*/ { "pcm2pwm-renesas-sh_mobile.1", pdi_init_val},
+	/* SHX(rtapi) */ { "meram-domain", pdi_init_val},
+	/* AudioPT */ { "snd-soc-audio-test", pdi_init_val },
+
+
+#if 0
+	/* The following device is used for test purpose only */
+	/*	C4 dummy device */ { "dummy_test_c4.0", pdi_init_val},
+	/*	A3SG dummy device */ { "dummy_test_a3sg.0", pdi_init_val},
+	/*	A3SP dummy device */ { "dummy_test_a3sp.0", pdi_init_val},
+	/*	A3R dummy device */ { "dummy_test_a3r.0", pdi_init_val},
+	/*	A4RM dummy device */ { "dummy_test_a4rm.0", pdi_init_val},
+	/*	A4MP dummy device */ { "dummy_test_a4mp.0", pdi_init_val},
+#endif
+
+};
+
+struct power_domain_info *get_pdi(char *name)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(pdi_tb2); i++) {
+		if (0 == strcmp(name, pdi_tb2[i].name))
+			return &(pdi_tb2[i].pdi);
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(get_pdi);
 
 #define POWER_DOMAIN_DEVICE(_pd_dev, _pwr_id, _parent_dev) \
 	static struct platform_device _pd_dev = { \
@@ -379,10 +455,8 @@ static void power_status_set(unsigned int area, bool on)
 	if (0 != (area & ~POWER_ALL))
 		panic("power status invalid argument: 0%08x", area);
 
-	mutex_lock(&power_status_mutex);
 
 	if (!is_power_status_on(area) == !on) {
-		mutex_unlock(&power_status_mutex);
 		return;
 	}
 
@@ -396,7 +470,6 @@ static void power_status_set(unsigned int area, bool on)
 	for (i = 0; i < PSTR_POLLING_COUNT_MAX; i++) {
 		udelay(PSTR_POLLING_INTERVAL_US);
 		if (!is_power_status_on(area) == !on) {
-			mutex_unlock(&power_status_mutex);
 			return;
 		} else if (false == on) { /* Set SYSC_SPDCR each time repeat */
 			reg_val = __raw_readl(__io(reg));
@@ -407,7 +480,6 @@ static void power_status_set(unsigned int area, bool on)
 		}
 	}
 
-	mutex_unlock(&power_status_mutex);
 	panic("power status error (area:0x%08x on:%d PSTR:0x%08x)",
 					area, on, __raw_readl(__io(SYSC_PSTR)));
 
@@ -499,8 +571,8 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
-#ifdef CONFIG_PM_DEBUG
 	spin_lock(&pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 	power_areas_status &= (~area);
 	if (0 == pdc_enable) {
 #ifdef __DEBUG_PDC
@@ -532,6 +604,12 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		a3sp_power_down_count++;
 #endif /* CONFIG_PM_HAS_SECURE */
 
+#ifdef __DEBUG_PDC
+	power_areas_info();
+#endif /* __DEBUG_PDC */
+
+	spin_unlock(&pdc_lock);
+
 	if (POWER_A3SG == area) {
 		atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
@@ -542,16 +620,12 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		pdwait_judge();
 	}
 
-#ifdef __DEBUG_PDC
-	power_areas_info();
-#endif /* __DEBUG_PDC */
-
-#ifdef CONFIG_PM_DEBUG
-	spin_unlock(&pdc_lock);
-#endif
-
-	if (POWER_A3R == area)
-		pm_runtime_put_sync(&a4rm_device.dev);
+	if (POWER_A3R == area) {
+		spin_unlock(&dev->power.lock);
+		pm_runtime_put_noidle(&a4rm_device.dev);
+		pm_runtime_suspend(&a4rm_device.dev);
+		spin_lock(&dev->power.lock);
+	}
 
 	return 0;
 }
@@ -565,11 +639,14 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 static int power_domain_driver_runtime_resume(struct device *dev)
 {
 	unsigned int area = 1 << (to_platform_device(dev)->id);
-	if (POWER_A3R == area)
+	if (POWER_A3R == area) {
+		spin_unlock(&dev->power.lock);
 		pm_runtime_get_sync(&a4rm_device.dev);
+		spin_lock(&dev->power.lock);
+	}
 
-#ifdef CONFIG_PM_DEBUG
 	spin_lock(&pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 	power_areas_status |= area;
 	if (0 == pdc_enable) {
 #ifdef __DEBUG_PDC
@@ -597,6 +674,12 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 	power_status_set(area, true);
 #endif /* CONFIG_PM_HAS_SECURE */
 
+#ifdef __DEBUG_PDC
+	power_areas_info();
+#endif /* __DEBUG_PDC */
+
+	spin_unlock(&pdc_lock);
+
 	if (POWER_A3SG == area) {
 		atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
@@ -606,13 +689,6 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 #endif
 		pdwait_judge();
 	}
-#ifdef __DEBUG_PDC
-	power_areas_info();
-#endif /* __DEBUG_PDC */
-
-#ifdef CONFIG_PM_DEBUG
-	spin_unlock(&pdc_lock);
-#endif
 
 	return 0;
 }
@@ -629,6 +705,7 @@ static int power_domain_driver_probe(struct device *dev)
 		(void)pm_runtime_set_active(dev);
 
 	pm_runtime_enable(dev);
+	pm_runtime_irq_safe(dev);
 	return 0;
 }
 
@@ -738,6 +815,7 @@ static int c4_power_domain_driver_probe(struct device *dev)
 	default_c4_pdsel = c4_power_down_sel();
 	(void)c4_power_driver_runtime_suspend(dev);
 	pm_runtime_enable(dev);
+	pm_runtime_irq_safe(dev);
 	return 0;
 }
 
@@ -879,7 +957,6 @@ static void pdwait_work_fnc(struct work_struct *work)
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
-	mutex_lock(&pdwait_mutex);
 
 	a2ri_status_old = a2ri_status_new;
 	a2rv_status_old = a2rv_status_new;
@@ -936,7 +1013,6 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
 	pdwait_judge();
 	queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
-	mutex_unlock(&pdwait_mutex);
 }
 
 static struct notifier_block pdc_cpufreq_nb = {
@@ -977,7 +1053,6 @@ power_a4rm_mask = POWER_A4RM;
 
 	/* Z clock > 1GHz, A3SG, A2RI, A2RV ON at boot time */
 	atomic_set(&pdwait_judge_count, 4);
-	mutex_init(&pdwait_mutex);
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
 	a2rv_status_old = 1;

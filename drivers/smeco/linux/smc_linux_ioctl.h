@@ -64,6 +64,9 @@ Description :  File created
 #define MSG_RESP_OK      0x01
 #define MSG_RESP_FAIL    0x00
 
+#define SMC_VERSION_SELECTION_LOCAL   0x00
+#define SMC_VERSION_SELECTION_REMOTE  0x01
+
 struct ifreq_smc
 {
     union
@@ -82,8 +85,8 @@ struct ifreq_smc_info
       char ifrn_name[IFNAMSIZ];
     } ifr_ifrn;
 
-    char smc_version[14];
-    char smc_version_remote[14];
+    uint32_t smc_version_selection;
+    char smc_version[16];
 };
 
 struct ifreq_smc_test

@@ -57,9 +57,9 @@ static inline smc_lock_t* get_local_lock_smc_start_stop(void)
  * Callback functions for SMC
  */
 static void  smc_receive_data_callback_channel_l2mux(void*   data,
-                                                      int32_t data_length,
-                                                      const struct _smc_user_data_t* userdata,
-                                                      const struct _smc_channel_t* channel);
+                                                     int32_t data_length,
+                                                     const struct _smc_user_data_t* userdata,
+                                                     const struct _smc_channel_t* channel);
 
 static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
@@ -164,6 +164,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': APE Wakeup interrupt sense 0x%02X", device_name, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE);
 
 
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -182,7 +183,28 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;
 
-        SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
+        if( smc_channel_conf->wake_lock_flags == SMC_CHANNEL_WAKELOCK_TIMER)
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy is timer, timeout %d ms", device_name, i, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC );
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
+        }
+
+#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+        if( smc_channel_conf->protocol == SMC_L2MUX_QUEUE_3_MHDP )
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ uses task", device_name, i);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ calls CB", device_name, i);
+        }
+#else
+        SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ calls CB", device_name, i);
+#endif
+
     }
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: completed, return SMC instance configuration 0x%08X", (uint32_t)smc_conf);
@@ -206,8 +228,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
     SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Data 0x%08X from SMC 0x%08X: channel %d, len %d",
                             (uint32_t)data, (uint32_t)channel->smc_instance, channel->id, data_length);
-
-    SMC_TRACE_PRINTF_DEBUG_DATA(data_length, data);
+    SMC_TRACE_PRINTF_INFO_DATA(data_length, data);
 
     device = dev_config_l2mux.device_driver_priv->net_dev;
 
@@ -249,13 +270,24 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 char* skb_data_buffer = NULL;
 
                 skb_reserve(skb, SMC_L2MUX_HEADER_OVERHEAD);
-
                 skb_data_buffer = skb_put(skb, data_length);
 
-                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: Copy Message data 0x%08X into the SKB buffer 0x%08X (0x%08X)...",
-                        (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+#ifdef SMC_DMA_TRANSFER_ENABLED
+                if( SMC_COPY_SCHEME_RECEIVE_USE_DMA( channel->copy_scheme ) )
+                {
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: DMA copy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
+                                                                (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
 
-                memcpy( skb_data_buffer, data, data_length);
+                        /* Start the DMA transfer */
+                    memcpy( skb_data_buffer, data, data_length);
+                }
+                else
+#endif
+                {
+                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: memcpy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
+                                            (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+                    memcpy( skb_data_buffer, data, data_length);
+                }
 
                     /* Ensure the cache cleanup */
                 SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux clean 0x%08X->0x%08X (len %d)",
@@ -512,7 +544,10 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
 #if(SMCTEST==TRUE)
         case SIOCDEV_RUN_TEST:
         {
+            extern void set_smc_device_driver_priv(smc_device_driver_priv_t* smc_net_dev_priv);
+
             struct ifreq_smc_test* if_req_smc_test = (struct ifreq_smc_test *)ifr;
+            smc_device_driver_priv_t* smc_net_dev  = NULL;
 
             SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test case 0x%02X, test data length = %d, test data 0x%08X",
                     if_req_smc_test->if_test_case ,if_req_smc_test->if_test_data_len, (uint32_t)if_req_smc_test->if_test_data);
@@ -526,6 +561,10 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
                 SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: No test input data found");
             }
 
+            smc_net_dev = netdev_priv(device);
+
+            set_smc_device_driver_priv( smc_net_dev );
+
             if( smc_test_handler_start(if_req_smc_test->if_test_case, if_req_smc_test->if_test_data_len, if_req_smc_test->if_test_data) == SMC_OK )
             {
                 SMC_TRACE_PRINTF_DEBUG("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X OK", if_req_smc_test->if_test_case);
@@ -537,7 +576,7 @@ static int l2mux_net_device_driver_ioctl(struct net_device* device, struct ifreq
             {
                 SMC_TRACE_PRINTF_ERROR("l2mux_net_device_driver_ioctl: SIOCDEV_RUN_TEST: test 0x%02X FAILED", if_req_smc_test->if_test_case);
                 if_req_smc_test->if_test_result = 0xCDEF;
-                ret_val = SMC_DRIVER_ERROR;
+                ret_val = SMC_DRIVER_OK;
             }
 
             break;
@@ -601,9 +640,14 @@ static int l2mux_modify_send_data( struct sk_buff *skb, smc_user_data_t* smc_use
 
 static void l2mux_layer_device_driver_setup(struct net_device* device)
 {
-    SMC_TRACE_PRINTF_DEBUG("l2mux_layer_device_driver_setup: modify net device for L2MUX usage...");
+    SMC_TRACE_PRINTF_STM("l2mux_layer_device_driver_setup: modify net device for L2MUX usage...");
 
-    device->features        = NETIF_F_SG /* Frags to be tested by MHDP team  | NETIF_F_HW_CSUM | NETIF_F_FRAGLIST*/ ;
+#ifdef SMC_SUPPORT_SKB_FRAGMENT_UL
+    device->features        = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_GEN_CSUM /* | NETIF_F_HW_CSUM */ ;
+#else
+    device->features        = NETIF_F_SG;
+#endif
+
     device->type            = ARPHRD_MHI;
     device->flags           = IFF_POINTOPOINT | IFF_NOARP;
     device->mtu             = MHI_MAX_MTU;

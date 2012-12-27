@@ -373,27 +373,12 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	udc_log ("%s\n", otg_state_string(otg->state));
 	otg_put_transceiver(otg);
 #endif
-	if(!r8a66597->old_vbus)
+	if((!r8a66597->old_vbus) && (!powerup)) 
 	{
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
 	}
 	udc_log("%s: IN\n", __func__);
-	if (!powerup){	
-		powerup = 1; 
-		if (r8a66597->pdata->module_start)
-			r8a66597->pdata->module_start();
-
-		/* start clock */
-		r8a66597_write(r8a66597, bwait, SYSCFG1);
-		r8a66597_bset(r8a66597, HSE, SYSCFG0);
-		r8a66597_bset(r8a66597, USBE, SYSCFG0);
-		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
-
-		r8a66597_bset(r8a66597, CTRE, INTENB0);
-		r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-		r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-	}
 	
 	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
 	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
@@ -401,13 +386,15 @@ static void r8a66597_vbus_work(struct work_struct *work)
 			r8a66597->old_vbus = 0;
 			goto vbus_disconnect;
 		}
+ 	
 		if (!is_vbus_powered)
 			wake_unlock(&r8a66597->wake_lock);
-			
-		if(!r8a66597->old_vbus) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-		}
+                       
+           if((!r8a66597->old_vbus) && (!powerup)){
+            r8a66597_clk_disable(r8a66597);
+            pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+        }
+             
 		udc_log("%s: return\n", __func__);
 		return;
 	}
@@ -444,13 +431,11 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		}
 	} else {
 vbus_disconnect:
+
 		if (delayed_work_pending(&r8a66597->charger_work))
 			cancel_delayed_work_sync(&r8a66597->charger_work);
 		//pm_runtime_get_sync(r8a66597_to_dev(r8a66597)); 
-		if (!powerup){ 
-			powerup = 1;
-		}
-
+	
 		start_cpufreq ();		
 		printk ("%s()[%d]: start_cpufreq\n", __func__, __LINE__);
 
@@ -472,9 +457,10 @@ vbus_disconnect:
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
 			powerup = 0;
 			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
-
+		
 		}
-
+		
+ 
 		wake_unlock(&r8a66597->wake_lock);
 	}
 }
@@ -491,6 +477,7 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 #else
 	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
 #endif
+	 
 	return IRQ_HANDLED;
 }
 
@@ -3111,8 +3098,11 @@ static int r8a66597_udc_suspend(struct device *dev)
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
 
-	if(!powerup) 
+	if(!powerup){
+		udc_log("%s, USB device usage count: %d \n", __func__, r8a66597_to_dev(r8a66597)->power.usage_count); 
 		return 0;
+}
+	
 
 	if (r8a66597->vbus_active){
 		spin_lock_irqsave(&r8a66597->lock, flags);
@@ -3131,7 +3121,8 @@ static int r8a66597_udc_suspend(struct device *dev)
 	pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
 	powerup = 0;
 	udc_log("%s: power %s\n", __func__, powerup?"up":"down");
-	
+	udc_log("%s, USB device usage count: %d \n", __func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+       
 	return 0;
 }
 
@@ -3147,8 +3138,9 @@ static int r8a66597_udc_resume(struct device *dev)
 	if(r8a66597->old_vbus) {
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
-	}
-	schedule_delayed_work(&r8a66597->vbus_work,0);
+		schedule_delayed_work(&r8a66597->vbus_work,0);
+}
+
 	return 0;
 }
 #else

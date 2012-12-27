@@ -608,11 +608,12 @@ void common_set_register(
 
    @param[in]	uiValue		PCM type
    @param[in]	stat		On/Off
+   @param[in]	rate		Sampling Rate
    @param[out]	none
 
    @retval	none
  */
-void common_set_pll22(const u_int uiValue, int stat)
+void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 {
 	/* Local variable declaration */
 	u_int dev, fsickcr;
@@ -641,8 +642,15 @@ void common_set_pll22(const u_int uiValue, int stat)
 				pll22val = 0x44000000;
 				fsival = 0x00001047;
 			} else {
-				pll22val = 0x44000000;
-				fsival = 0x00001047;
+				if (rate == 16000) {
+					sndp_log_info("rate=16000..\n");
+					pll22val = 0x44000000;
+					fsival = 0x0000104B;
+				} else {
+					sndp_log_info("rate=8000..]\n");
+					pll22val = 0x44000000;
+					fsival = 0x00001047;
+				}
 			}
 
 			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
