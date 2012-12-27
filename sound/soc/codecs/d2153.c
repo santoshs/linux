@@ -1828,24 +1828,31 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#if 1 //def CONFIG_PM
 static int d2153_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
+#if 0
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
+	dlg_info("%s() d2153_codec->sndp_power_mode=%d  \n",__FUNCTION__,d2153_codec->sndp_power_mode);
+	
 	if(d2153_codec->sndp_power_mode== 0)
 		d2153_codec_power(codec, 0);	
+#endif
 	return 0;
 }
 
 static int d2153_resume(struct snd_soc_codec *codec)
 {
+#if 0
 	int ret;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	
+	dlg_info("%s() d2153_codec->sndp_power_mode = %d  \n",__FUNCTION__,d2153_codec->sndp_power_mode);
+	
 	d2153_codec_power(codec, 1);
 	d2153_aad_enable(codec);
-
+#endif
 	return 0;
 }
 #else
@@ -2251,7 +2258,7 @@ static unsigned int d2153_codec_read(struct snd_soc_codec *codec, unsigned int r
 	u8 data;
 	int ret;
 
-	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 	/* Write register */
 	xfer[0].addr = d2153_codec->i2c_client->addr;
 	xfer[0].flags = 0;
@@ -2266,7 +2273,7 @@ static unsigned int d2153_codec_read(struct snd_soc_codec *codec, unsigned int r
 
 	ret = i2c_transfer(d2153_codec->i2c_client->adapter, xfer, 2);
 
-	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	if (ret == 2)
 		return data;
@@ -2283,7 +2290,9 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 	u8 data[2];
 	int ret;
 
-	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+
+	dlg_info("%s() reg=0x%x value=0x%x \n",__FUNCTION__,reg,value);
 	
 	reg &= 0xff;
 	data[0] = reg;
@@ -2291,7 +2300,7 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 
 	ret = i2c_master_send(d2153_codec->i2c_client, data, 2);
 
-	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	if (ret == 2)
 		return 0;
@@ -2334,8 +2343,6 @@ static struct snd_soc_codec_driver soc_codec_dev_d2153 = {
 	.remove			= d2153_remove,
 	.suspend		= d2153_suspend,
 	.resume			= d2153_resume,
-	.read			= d2153_codec_read,
-	.write			= d2153_codec_write,
 	.reg_cache_size		= ARRAY_SIZE(d2153_reg_defaults),
 	.reg_word_size		= sizeof(u8),
 	.reg_cache_default	= d2153_reg_defaults,
