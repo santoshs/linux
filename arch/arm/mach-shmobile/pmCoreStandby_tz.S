@@ -430,7 +430,7 @@ ENTRY(corestandby)
 	LDR		r7, =CPG_LPCKCR_LEGACY
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF *//* PLL OFF -> LEGACY */
 CORESTANDBY_PA_XTAL_THOUGH_SET:
 	LDR		r4, =ram0xtal_though
 	MOV		lr, pc /* lr: Return address */
@@ -1293,7 +1293,7 @@ SKIP_PASR_DRAM_AREA1:
 	LDR		r0, [r0]
 	CMP		r0, #SEC_HAL_FREQ_FAIL
 	BEQ		POWERDOWN_NO_CHANGE_FREQUENCY
-#endif
+
 	LDR		r5, =ram0SetClockWork
 	STR		lr, [r5]
 	LDR		r4, =ram0SetClockSystemSuspend
@@ -1304,7 +1304,7 @@ SKIP_PASR_DRAM_AREA1:
 	LDR		r5, =ram0SetClockWork
 	LDR		lr, [r5]
 POWERDOWN_NO_CHANGE_FREQUENCY:
-
+#endif
 
 	/*--------------------------------------*/
 	/* Turn off Watchdog timer				*/
@@ -1547,7 +1547,7 @@ SKIP_TURN_ON_RWDT2:
 	LDR		r0, [r0]
 	CMP		r0, #SEC_HAL_FREQ_FAIL
 	BEQ		POWERUP_NO_CHANGE_FREQUENCY
-#endif
+
 	LDR		r5, =ram0SetClockWorkPhys
 	STR		lr, [r5]
 	LDR		r4, =ram0SetClockSystemSuspendPhys
@@ -1558,6 +1558,7 @@ SKIP_TURN_ON_RWDT2:
 	LDR		r5, =ram0SetClockWorkPhys
 	LDR		lr, [r5]
 POWERUP_NO_CHANGE_FREQUENCY:
+#endif
 #if 0
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
