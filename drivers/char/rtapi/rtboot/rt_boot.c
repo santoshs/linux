@@ -24,6 +24,7 @@
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
+#undef CONFIG_ARM_SEC_HAL
 #ifdef CONFIG_ARM_SEC_HAL
 #include <sec_hal_cmn.h>
 #endif

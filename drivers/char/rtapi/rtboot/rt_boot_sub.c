@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <mach/common.h>
 #include <asm/io.h>
+#undef CONFIG_ARM_SEC_HAL
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
 #include "log_kernel.h"
