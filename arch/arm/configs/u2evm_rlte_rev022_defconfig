@@ -886,7 +886,7 @@ CONFIG_OPROFILE=y
 
 #Renesas Bluetooth Implementation
 CONFIG_RENESAS=y
-CONFIG_RENESAS_BT=y
+#CONFIG_RENESAS_BT=y
 
 # Renesas NFC implementation
 CONFIG_RENESAS_NFC=n
