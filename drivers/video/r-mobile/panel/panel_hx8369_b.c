@@ -909,9 +909,11 @@ static int hx8369_b_panel_suspend(void)
 	ret = panel_specific_cmdset(screen_handle, demise_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+#if 0
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;
+#endif
 	}
 
 	is_dsi_read_enabled = 0;
