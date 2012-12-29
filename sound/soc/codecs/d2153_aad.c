@@ -14,8 +14,10 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#include <mach/common.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
+#include <sound/soundpath/soundpath.h>
 
 //#define D2153_READ_PMIC_BUTTON_REG
 
@@ -675,6 +677,9 @@ static struct i2c_driver d2153_aad_i2c_driver = {
 static int __init d2153_aad_init(void)
 {
 	int ret;
+
+	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+		return 0;
 
 	ret = i2c_add_driver(&d2153_aad_i2c_driver);
 	if (ret)

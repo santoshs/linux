@@ -27,6 +27,7 @@
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 static int d2153_i2c_read_device(struct d2153 *d2153, char reg,
 					int bytes, void *dest)
@@ -162,6 +163,10 @@ static struct i2c_driver d2153_i2c_driver = {
 
 static int __init d2153_i2c_init(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	return i2c_add_driver(&d2153_i2c_driver);
 }
 
@@ -171,6 +176,10 @@ subsys_initcall(d2153_i2c_init);
 
 static void __exit d2153_i2c_exit(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	i2c_del_driver(&d2153_i2c_driver);
 }
 module_exit(d2153_i2c_exit);

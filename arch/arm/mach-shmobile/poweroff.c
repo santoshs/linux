@@ -24,6 +24,8 @@
 #include <mach/pm.h>
 
 #include <linux/hwspinlock.h>
+#include <mach/common.h>
+
 /* CPG_PLL2CR */
 
 #define PLL2CE_XOE	0x1
@@ -42,6 +44,10 @@
 #define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
 #define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
 /* END: CR1040: Clean up source code which accesses the eMMC directly */
+
+#if defined(CONFIG_MFD_D2153)
+#include <linux/regulator/consumer.h>
+#endif
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
@@ -86,13 +92,34 @@ void shmobile_pm_set_recovery_mode(const char *cmd)
  */
 void shmobile_pm_stop_peripheral_devices(void)
 {
-	POWEROFF_PRINTK("%s\n", __func__);
-	POWEROFF_PRINTK("Turn off SIM Reader\n");
-	pmic_force_power_off(E_POWER_VUSIM1);
-	POWEROFF_PRINTK("Turn off SD Host Interface\n");
-	pmic_force_power_off(E_POWER_VIO_SD);
-	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
-	pmic_force_power_off(E_POWER_VANA_MM);
+	struct regulator *regulator;
+
+	if(u2_get_board_rev() >= 5) {
+
+		POWEROFF_PRINTK("%s\n", __func__);
+		POWEROFF_PRINTK("Turn off SIM Reader\n");
+		regulator = regulator_get(NULL, "vusim1");
+		if (!IS_ERR(regulator)){
+			regulator_force_disable(regulator);
+			regulator_put(regulator);
+		}
+		POWEROFF_PRINTK("Turn off SD Host Interface\n");
+		regulator = regulator_get(NULL, "vio_sd");
+		if (!IS_ERR(regulator)){
+			regulator_force_disable(regulator);
+			regulator_put(regulator);
+		}
+		POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
+
+	} else {
+		POWEROFF_PRINTK("%s\n", __func__);
+		POWEROFF_PRINTK("Turn off SIM Reader\n");
+		pmic_force_power_off(E_POWER_VUSIM1);
+		POWEROFF_PRINTK("Turn off SD Host Interface\n");
+		pmic_force_power_off(E_POWER_VIO_SD);
+		POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
+		pmic_force_power_off(E_POWER_VANA_MM);
+	}
 }
 
 /*
@@ -214,14 +241,14 @@ static void shmobile_pm_poweroff(void)
 	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2);
 
 	/* The architecture specific reboot */
-#ifndef CONFIG_PM_HAS_SECURE
+	#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-#endif
+	#endif
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 #else
 	/* Turn off power of whole system */
 	pmic_force_power_off(E_POWER_ALL);
-#endif
+#endif	
 	/* Wait for power off */
 	while (1)
 		;
