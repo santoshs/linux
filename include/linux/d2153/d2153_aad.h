@@ -134,6 +134,7 @@ struct d2153_aad_priv {
 	struct d2153_jack_info jack;
 	struct d2153_jack_info button;
 	unsigned int button_detect_rate;
+	struct wake_lock wakeup;
 #ifdef D2153_FSI_SOUNDPATH	
 	struct input_dev *input_dev;        
 	struct d2153_switch_data switch_data;

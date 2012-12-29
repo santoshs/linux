@@ -257,7 +257,10 @@ static int d2153_sndp_set_dapm_kcontrol_single(struct snd_soc_codec *codec,
 
 	/* Set value */
 	ucontrol.value.integer.value[0] = val;
-
+	/* 
+	 * Have to call this method because kcontrol 'put' method
+	 * requires DAPM paths to have any impact on registers.
+	 */
 	return kctl->put(kctl, &ucontrol);
 }
 
@@ -302,7 +305,10 @@ static int d2153_sndp_set_dapm_kcontrol_enum(struct snd_soc_codec *codec,
 
 	/* Set value */
 	ucontrol.value.enumerated.item[0] = val;
-
+	/* 
+	 * Have to call this method because kcontrol 'put' method
+	 * requires DAPM paths to have any impact on registers.
+	 */
 	return kctl->put(kctl, &ucontrol);
 }
 
@@ -966,6 +972,7 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 	static int audio_on = D2153_DISABLE;
 	u_int pcm_mode = 0;
 	struct clk *vclk4_clk = NULL;
+	int i;
 
 	dlg_info("%s() device=%d pcm_value=%d power=%d \n",__FUNCTION__,device,pcm_value,power);
 	
@@ -1029,6 +1036,15 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 	/* get pcm mode type */
 	pcm_mode = SNDP_GET_MODE_VAL(pcm_value);
 
+	if(pcm_mode == SNDP_MODE_INCALL) {
+		for(i=0; i<codec->card->num_rtd ; i++)
+			codec->card->rtd[i].dai_link->ignore_suspend =1;
+	}
+	else {
+		for(i=0; i<codec->card->num_rtd ; i++)
+			codec->card->rtd[i].dai_link->ignore_suspend =0;
+	}	
+		
 	if (d2153_codec->pcm_mode != pcm_mode) {
 		d2153_codec->pcm_mode = pcm_mode;
 

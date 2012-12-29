@@ -83,7 +83,7 @@ static int d2153_aad_read(struct i2c_client *client, u8 reg)
 	u8 data;
 	int ret;
 	
-	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	/* Write register */
 	xfer[0].addr = client->addr;
@@ -99,7 +99,7 @@ static int d2153_aad_read(struct i2c_client *client, u8 reg)
 
 	ret = i2c_transfer(client->adapter, xfer, 2);
 
-	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	if (ret == 2)
 		return data;
@@ -115,7 +115,7 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 	u8 data[2];
 	int ret;
 
-	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
 	
     reg &= 0xff;
     data[0] = reg;
@@ -123,7 +123,7 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 
 	ret = i2c_master_send(client, data, 2);
 
-	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
+//	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	if (ret == 2)
 		return 0;
@@ -221,6 +221,7 @@ static irqreturn_t d2153_jack_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
 	
+	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 	cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
 	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
 	
@@ -230,6 +231,8 @@ static irqreturn_t d2153_jack_handler(int irq, void *data)
 static irqreturn_t d2153_button_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
+
+	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 #if 1
 	if(d2153_aad->button.status == D2153_BUTTON_IGNORE)
 	{
@@ -352,8 +355,9 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 	}
 	
 	if(d2153_aad->switch_data.state != D2153_HEADSET)
+	{	
 		return;
-
+	}
 	//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 	//			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
 	d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
@@ -605,6 +609,8 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	d2153_aad->i2c_client = client;
 	d2153_aad->d2153_codec = client->dev.platform_data;
 
+	wake_lock_init(&d2153_aad->wakeup, WAKE_LOCK_SUSPEND, "jack_monitor");
+	
 	i2c_set_clientdata(client, d2153_aad);
 
 	d2153_switch_dev_register(d2153_aad);
