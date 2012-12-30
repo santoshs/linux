@@ -338,6 +338,10 @@ static struct r8a66597_platdata usbhs_func_data = {
 #else  /* CONFIG_PMIC_INTERFACE */
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 #endif /* CONFIG_PMIC_INTERFACE */
+	.pin_gpio_1_fn	= GPIO_PORT130,
+	.pin_gpio_1		= GPIO_PORT130,
+	.pin_gpio_2_fn	= GPIO_PORT131,
+	.pin_gpio_2		= GPIO_PORT131,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };

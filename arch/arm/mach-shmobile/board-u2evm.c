@@ -3678,17 +3678,38 @@ static struct i2c_board_info i2c9gpio_devices[] = {
 	},
 };
 
-static struct i2c_board_info i2cm_devices[] = {
+static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
 		.platform_data = &u2evm_a2220_data,
 	},
+};
+
+static struct i2c_board_info i2cm_devices[] = {
+	{
+                I2C_BOARD_INFO("max98090", 0x10),
+                .irq            = irqpin2irq(34),
+    },
+    {
+                I2C_BOARD_INFO("max97236", 0x40),
+                .irq            = irqpin2irq(34),
+    },
+    {
+                I2C_BOARD_INFO("wm1811", 0x1a),
+                .irq            = irqpin2irq(24),
+    },
+	{
+		I2C_BOARD_INFO("audience_a2220", 0x3E),
+		.platform_data = &u2evm_a2220_data,
+	},
+#if 0
 #ifdef CONFIG_SND_FSI_WM1811_MODULE
 	{
 		I2C_BOARD_INFO("wm1811", 0x1a),
 		.irq	= irqpin2irq(24),
 	},
 #endif /* CONFIG_SND_FSI_WM1811_MODULE */
+#endif
 #if 0
 	{
 		I2C_BOARD_INFO("led", 0x74),
@@ -4488,13 +4509,17 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	gpio_request(GPIO_PORT104, NULL);
 	gpio_direction_input(GPIO_PORT104);
 
+#if 0
 	if (u2_get_board_rev() >= 5) {		// PORT227(CS0_N) pin is not connected.
 #ifndef CONFIG_MFD_D2153		// PORT227(CS0_N) pin is not connected.
+#endif
 		/* emmc ldo enable*/
 		gpio_request(GPIO_PORT227, NULL);
 		gpio_direction_output(GPIO_PORT227, 1);
+#if 0
 #endif
 	}
+#endif
 
 
 if((system_rev & 0xFFFF) == 0x3E00)
@@ -4744,7 +4769,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
-	i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+	if(u2_get_board_rev() >= 5) {
+		i2c_register_board_info(6, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
+	}else{
+		i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+	}
 
 	/* GPS Init */
 #if defined(CONFIG_RENESAS_GPS)
