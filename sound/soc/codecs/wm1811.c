@@ -2213,7 +2213,8 @@ int wm1811_set_device(const u_long device, const u_int pcm_value,
 	}
 
 	/* check update */
-	if (wm1811_conf->info.raw_device == device) {
+	if ((WM1811_POWER_ON == power) &&
+		(wm1811_conf->info.raw_device == device)) {
 		mutex_unlock(&wm1811_mutex);
 		wm1811_log_rfunc("no changed. ret[%d]", ret);
 		return ret;
