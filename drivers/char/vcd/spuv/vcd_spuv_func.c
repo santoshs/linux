@@ -172,9 +172,7 @@ void vcd_spuv_func_cacheflush(unsigned int start_addr, unsigned int size)
 	vcd_pr_start_spuv_function("start_addr[0x%08x], size[%d].\n",
 		start_addr, size);
 
-	buf_addr = (SPUV_FUNC_SDRAM_AREA_TOP_PHY +
-		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE) +
-		(start_addr - SPUV_FUNC_SDRAM_CACHE_AREA_TOP);
+	vcd_spuv_func_sdram_logical_to_physical(start_addr, buf_addr);
 
 	dmac_flush_range((void *)start_addr,
 		(void *)(start_addr + size));
@@ -562,7 +560,7 @@ int vcd_spuv_func_set_fw(void)
 
 	/* read spuv.bin */
 	ret = vcd_spuv_func_read_binary(g_spuv_func_spuv_static_buffer,
-			VCD_SPUV_FUNC_SPUV_FILENAME);
+			VCD_SPUV_FUNC_SPUV_SD_PATH);
 	if (0 != ret) {
 		vcd_pr_err("read spuv.bin error. ret[%d].\n", ret);
 		ret = VCD_ERR_SYSTEM;
@@ -580,7 +578,7 @@ int vcd_spuv_func_set_fw(void)
 
 	/* read pcm_proc.bin */
 	ret = vcd_spuv_func_read_binary(g_spuv_func_pcm_static_buffer,
-			VCD_SPUV_FUNC_PCM_FILENAME);
+			VCD_SPUV_FUNC_PCM_SD_PATH);
 	if (0 != ret) {
 		vcd_pr_err("read pcm_proc.bin error. ret[%d].\n", ret);
 		ret = VCD_ERR_SYSTEM;
@@ -898,6 +896,38 @@ void vcd_spuv_func_set_cpg_register(void)
 }
 
 
+/**
+ * @brief	get spuv static buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	g_spuv_func_spuv_static_buffer.
+ */
+unsigned int vcd_spuv_func_get_spuv_static_buffer(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function();
+	return (unsigned int)g_spuv_func_spuv_static_buffer;
+}
+
+
+/**
+ * @brief	get pcm static buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	g_spuv_func_pcm_static_buffer.
+ */
+unsigned int vcd_spuv_func_get_pcm_static_buffer(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function();
+	return (unsigned int)g_spuv_func_pcm_static_buffer;
+}
+
+
 /* ========================================================================= */
 /* Synchronous conversion functions                                          */
 /* ========================================================================= */
@@ -1126,6 +1156,9 @@ int vcd_spuv_func_ioremap(void)
 		goto rtn;
 	}
 
+	/* static sdram area initialize */
+	vcd_spuv_func_initialize();
+
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -1242,37 +1275,28 @@ void vcd_spuv_func_iounmap(void)
 int vcd_spuv_func_get_fw_buffer(void)
 {
 	int ret = VCD_ERR_NONE;
+	void *alloc_adr = NULL;
 
 	vcd_pr_start_spuv_function();
 
 	/* get buffer */
-	g_spuv_func_spuv_static_buffer =
+	alloc_adr =
 		vmalloc(VCD_SPUV_FUNC_FW_BUFFER_SIZE*2);
-	if (NULL == g_spuv_func_spuv_static_buffer) {
+	if (NULL == alloc_adr) {
 		vcd_pr_err("vmalloc error.\n");
 		g_spuv_func_spuv_static_buffer = NULL;
+		g_spuv_func_pcm_static_buffer = NULL;
 		ret = -EBUSY;
 		goto rtn;
 	}
-	memset(g_spuv_func_spuv_static_buffer,
+	memset(alloc_adr,
 		0, VCD_SPUV_FUNC_FW_BUFFER_SIZE*2);
 
-	/* conservation spuv.bin */
-	memcpy(g_spuv_func_spuv_static_buffer,
-		(const void *)SPUV_FUNC_SDRAM_SPUVBIN_READ_BUFFER,
+	g_spuv_func_spuv_static_buffer = alloc_adr;
+
+	g_spuv_func_pcm_static_buffer = (void *)(
+		(unsigned int)alloc_adr +
 		VCD_SPUV_FUNC_FW_BUFFER_SIZE);
-
-	/* conservation pcm_proc.bin */
-	g_spuv_func_pcm_static_buffer =
-		g_spuv_func_spuv_static_buffer + VCD_SPUV_FUNC_FW_BUFFER_SIZE;
-
-	memcpy(g_spuv_func_pcm_static_buffer,
-		(const void *)SPUV_FUNC_SDRAM_PCMBIN_READ_BUFFER,
-		VCD_SPUV_FUNC_FW_BUFFER_SIZE);
-
-	/* static sdram area initialize */
-	vcd_spuv_func_initialize();
-
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
