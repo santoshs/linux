@@ -23,6 +23,8 @@
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
+
 #define DRIVER_NAME "d2153-onkey"
 
 static int powerkey_pressed;
@@ -30,6 +32,10 @@ static int powerkey_pressed;
 
 int d2153_onkey_check(void)
 {
+	if (u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	return powerkey_pressed;
 }
 EXPORT_SYMBOL(d2153_onkey_check);
@@ -41,7 +47,8 @@ static irqreturn_t d2153_onkey_event_lo_handler(int irq, void *data)
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
 
 	dev_info(d2153->dev, "Onkey LO Interrupt Event generated\n");
-	input_report_key(dlg_onkey->input, KEY_POWER, 1);
+	input_event(dlg_onkey->input, EV_KEY, KEY_POWER, 1);
+	//input_report_key(dlg_onkey->input, KEY_POWER, 1);
 	input_sync(dlg_onkey->input);
 
 	powerkey_pressed = 1;	
@@ -55,7 +62,8 @@ static irqreturn_t d2153_onkey_event_hi_handler(int irq, void *data)
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
 
 	dev_info(d2153->dev, "Onkey HI Interrupt Event generated\n");
-	input_report_key(dlg_onkey->input, KEY_POWER, 0);
+	input_event(dlg_onkey->input, EV_KEY, KEY_POWER, 0);
+	//input_report_key(dlg_onkey->input, KEY_POWER, 0);
 	input_sync(dlg_onkey->input);
 
 	powerkey_pressed = 0;
@@ -77,12 +85,15 @@ static int __devinit d2153_onkey_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
         
-	dlg_onkey->input->evbit[0] = BIT_MASK(EV_KEY);
-	dlg_onkey->input->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
+	//dlg_onkey->input->evbit[0] = BIT_MASK(EV_KEY);
+	//dlg_onkey->input->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	dlg_onkey->input->name = DRIVER_NAME;
 	dlg_onkey->input->phys = "d2153-onkey/input0";
+	dlg_onkey->input->id.bustype = BUS_HOST;
 	dlg_onkey->input->dev.parent = &pdev->dev;
 
+	input_set_capability(dlg_onkey->input, EV_KEY, KEY_POWER);
+	
 	ret = input_register_device(dlg_onkey->input);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register input device,error: %d\n", ret);
@@ -121,11 +132,19 @@ static struct platform_driver d2153_onkey_driver = {
 
 static int __init d2153_onkey_init(void)
 {
+	if (u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	return platform_driver_register(&d2153_onkey_driver);
 }
 
 static void __exit d2153_onkey_exit(void)
 {
+	if (u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	platform_driver_unregister(&d2153_onkey_driver);
 }
 

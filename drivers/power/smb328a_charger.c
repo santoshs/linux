@@ -21,10 +21,13 @@
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/machine.h>
+#include <linux/d2153/d2153_battery.h>
 #include <linux/bq27425.h>
 #include <linux/tsu6712.h>
 #include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
+
+#include <mach/common.h>
 
 /* Register define */
 #define SMB328A_INPUT_AND_CHARGE_CURRENTS	0x00
@@ -228,14 +231,27 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 	if (val >= 0) {
 		data = (u8)val;
 		printk("%s : reg (0x%x) = 0x%x\n", __func__, SMB328A_FLOAT_VOLTAGE, data);
-		if (data != 0xca) {
-			data = 0xca; /* 4.2V float voltage */
-			if (smb328a_write_reg(client, SMB328A_FLOAT_VOLTAGE, data) < 0)
-				printk("%s : error!\n", __func__);
-			val = smb328a_read_reg(client, SMB328A_FLOAT_VOLTAGE);
-			if (val >= 0) {
-				data = (u8)val;
-				printk("%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_FLOAT_VOLTAGE, data);
+		if (u2_get_board_rev() >= 5) {
+			if (data != 0xd4) {
+				data = 0xd4; /* 4.3V float voltage */
+				if (smb328a_write_reg(client, SMB328A_FLOAT_VOLTAGE, data) < 0)
+					printk("%s : error!\n", __func__);
+				val = smb328a_read_reg(client, SMB328A_FLOAT_VOLTAGE);
+				if (val >= 0) {
+					data = (u8)val;
+					printk("%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_FLOAT_VOLTAGE, data);
+				}
+			}
+		} else {
+			if (data != 0xca) {
+				data = 0xca; /* 4.2V float voltage */
+				if (smb328a_write_reg(client, SMB328A_FLOAT_VOLTAGE, data) < 0)
+					printk("%s : error!\n", __func__);
+				val = smb328a_read_reg(client, SMB328A_FLOAT_VOLTAGE);
+				if (val >= 0) {
+					data = (u8)val;
+					printk("%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_FLOAT_VOLTAGE, data);
+				}
 			}
 		}
 	}
@@ -527,7 +543,11 @@ union power_supply_propval *val)
 	case POWER_SUPPLY_PROP_CAPACITY    :
 		{
 			unsigned int bat_per = 1;
-			get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
+			if (u2_get_board_rev() >= 5) {
+				bat_per= d2153_battery_read_status(D2153_BATTERY_SOC);
+			} else {
+				get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
+			}
 			val->intval = bat_per;
 		}
 		break;
@@ -565,11 +585,24 @@ union power_supply_propval *val)
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = pmic_read_battery_status(E_BATT_PROP_VOLTAGE);
+		if (u2_get_board_rev() >= 5) {
+			val->intval = d2153_battery_read_status(D2153_BATTERY_CUR_VOLTAGE);
+		} else {
+			val->intval = pmic_read_battery_status(E_BATT_PROP_VOLTAGE);
+		}
 		break;
 	case POWER_SUPPLY_PROP_BATT_TEMP_ADC:
-		val->intval = pmic_get_temp_status();
+		if (u2_get_board_rev() >= 5) {
+			val->intval = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
+		} else {
+			val->intval = pmic_get_temp_status();
+		}
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_STATUS:
+		if (u2_get_board_rev() >= 5) {
+			val->intval=smb328a_check_charging_status(chip->client);
+			break;
+		}
 		/* no need
 		case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		switch (smb328a_check_charging_status(chip->client)) {
@@ -995,6 +1028,9 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
     smb328a_irq_init(client);
 
+	if (u2_get_board_rev() >= 5) {
+		d2153_battery_start();
+	}
 	return 0;
 
 err_kfree:

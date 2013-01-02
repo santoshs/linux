@@ -40,9 +40,7 @@ obj-$(CONFIG_CHARGER_MAX8903)	+= max8903_charger.o
 obj-$(CONFIG_CHARGER_TWL4030)	+= twl4030_charger.o
 obj-$(CONFIG_CHARGER_SMB328A)	+= smb328a_charger.o
 obj-$(CONFIG_CHARGER_GPIO)	+= gpio-charger.o
-ifndef CONFIG_BOARD_VERSION_V050
 obj-$(CONFIG_PMIC_BAT_INTERFACE)+= pmic_battery.o
-endif
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += spa_power.o \
 									  spa_ps.o
 obj-$(CONFIG_BATTERY_BQ27425) += bq27425.o
