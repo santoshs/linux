@@ -1292,6 +1292,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_usb_function *f;
 	int enabled = 0;
+	bool audio_enabled = false;
 
 
 	if (!cdev)
@@ -1313,10 +1314,19 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceClass = device_desc.bDeviceClass;
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
+
+		/* Audio dock accessory is unable to enumerate device if
+		 * pull-up is enabled immediately. The enumeration is
+		 * reliable with 100 msec delay.
+		 */
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 			if (f->enable)
 				f->enable(f);
+			if (!strncmp(f->name, "audio_source", 12))
+				audio_enabled = true;
 		}
+		if (audio_enabled)
+			msleep(100);
 		android_enable(dev);
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
