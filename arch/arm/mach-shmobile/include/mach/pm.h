@@ -65,13 +65,18 @@ struct pm_state_notify_confirm {
 };
 
 /* Need to be used by others of PM */
+
+extern int core_wait_kick(unsigned int time);
+extern int core_set_kick(unsigned int time);
 extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
 				unsigned int freqB, unsigned int freqB_mask);
+extern unsigned int suspend_ZB3_backup(void);
+extern int shmobile_init_pm(void);
 extern struct hwspinlock *pll_1_sem;
 extern struct hwspinlock *gen_sem1;
 extern struct hwspinlock *sw_cpg_lock;
 extern unsigned int is_suspend_setclock;
-
+extern unsigned int is_suspend_request;
 extern int start_corestandby(void);
 extern int start_corestandby_2(void);
 extern void ArmVector(void);
@@ -117,8 +122,6 @@ unsigned int state_notify(int state);
 #ifdef CONFIG_PM_DEBUG
 extern int control_cpuidle(int is_enable);
 extern int is_cpuidle_enable(void);
-extern void request_suspend_state(suspend_state_t state);
-extern suspend_state_t get_suspend_state(void);
 #endif /* CONFIG_PM_DEBUG */
 #else /*!CONFIG_CPU_IDLE*/
 static inline void register_pm_state_notify(struct pm_state_notify *h) {}
@@ -224,6 +227,8 @@ void shwystatdm_regs_restore(void);
 #ifdef CONFIG_PM_DEBUG
 int control_systemsuspend(int is_enabled);
 int is_systemsuspend_enable(void);
+extern void request_suspend_state(suspend_state_t state);
+extern suspend_state_t get_suspend_state(void);
 #else
 static inline int control_systemsuspend(int is_enabled) { return 0; }
 static inline int is_systemsuspend_enable(void) { return 0; }

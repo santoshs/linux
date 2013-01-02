@@ -73,13 +73,7 @@ module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int get_sem_fail_einval;
 module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-static DEFINE_SPINLOCK(clock_lock);
-
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
-
-unsigned int *cpu0BackupArea;
-unsigned int *cpu1BackupArea;
-
 
 static struct cpuidle_driver shmobile_idle_driver = {
 	.name =			"shmobile_idle",
@@ -375,7 +369,6 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	return idle_time;
 }
 
-struct hwspinlock *pll_1_sem;
 
 /*
  * pll1_condition_set
@@ -485,8 +478,6 @@ static int pll1_will_be_off_check(void)
 #define FRQCRB_MSK (ZTRFC_MASK | ZTFC_MASK | ZXFC_MASK | \
 						ZSFC_MASK | HPFC_MASK)
 
-#define KICK_WAIT_INTERVAL_US	10
-
 #define		DIV_1_1		-1
 #define		DIV_1_2		0x0
 #define		DIV_1_3		0x1
@@ -538,145 +529,6 @@ HP:		1/12
 #define HPFC_CHANGE (DIV_1_24 << 4)
 #define FRQCRB_CHANGE_CORE (ZTRFC_CHANGE | ZTFC_CHANGE | ZXFC_CHANGE | \
 						ZSFC_CHANGE | HPFC_CHANGE)
-
-/*
- * core_wait_kick: wait for KICK bit change
- *
- * Arguments:
- *		@time: wait time.
- *
- * Return:
- *		0: successful
- * -EBUSY: unsuccessful
- */
-int core_wait_kick(unsigned int time)
-{
-	unsigned int wait_time = time;
-
-	while (0 < wait_time--) {
-		if ((__raw_readl(CPG_FRQCRB) >> 31) == 0)
-			break;
-		shmobile_suspend_udelay(1);
-	}
-
-	return (wait_time <= 0) ? -EBUSY : 0;
-}
-/*
- * core_set_kick: set and wait for KICK bit cleared
- *
- * Arguments:
- *		@time: wait time.
- *
- * Return:
- *		0: successful
- *		-EBUSY: operation fail
- */
-int core_set_kick(unsigned int time)
-{
-	unsigned int wait_time = time;
-
-	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
-		wait_time = KICK_WAIT_INTERVAL_US;
-	__raw_writel(BIT(31) | __raw_readl(CPG_FRQCRB), CPG_FRQCRB);
-
-	return core_wait_kick(wait_time);
-}
-
-
-/*
- * clock_update
- *
- * Arguments:
- *		@freqA: value of freqA need to be changed.
- *		@freqB: value of freqB need to be changed.
- *		@freqA_mask: mask of freqA need to be changed.
- *		@freqB_mask: mask of freqB need to be changed.
- *
- * Return:
- *		0: successful
- * -EBUSY: - operation fail of KICK bit
- *           OR the hwspinlock was already taken
- * -EINVAL: @hwlock is invalid.
- */
-
-int clock_update(unsigned int freqA, unsigned int freqA_mask,
-				unsigned int freqB, unsigned int freqB_mask)
-{
-	unsigned int current_value;
-	int ret;
-	int freqA_change = 0;
-	int freqB_change = 0;
-	int zs_change = 0;
-
-	/* check if freqA change */
-	current_value = __raw_readl(CPG_FRQCRA);
-	if (freqA != (current_value & freqA_mask))
-		freqA_change = 1;
-	/* check if freqB change */
-	current_value = __raw_readl(CPG_FRQCRB);
-	if ((freqB & ZSFC_MASK) != (current_value & ZSFC_MASK)) {
-		zs_change = 1;
-		ret = hwspin_trylock_nospin(gen_sem1); /* ZS_CLK_SEM */
-		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
-				__func__, __LINE__, ret);
-			return ret;
-		}
-	} else if (freqB != (current_value & freqB_mask))
-		freqB_change = 1;
-
-	/* wait for KICK bit change if any */
-	ret = core_wait_kick(KICK_WAIT_INTERVAL_US);
-	if (ret) {
-		printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
-			__func__, __LINE__, ret);
-		if (zs_change)
-			hwspin_unlock_nospin(gen_sem1);
-		return ret;
-	}
-
-	if (freqA_change || zs_change || freqB_change) {
-		/* FRQCRA_B_SEM */
-		ret = hwspin_trylock_nospin(sw_cpg_lock);
-		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
-				__func__, __LINE__, ret);
-			if (zs_change)
-				hwspin_unlock_nospin(gen_sem1);
-			return ret;
-		}
-		/* update value change */
-		if (freqA_change)
-			__raw_writel(freqA | (__raw_readl(CPG_FRQCRA) &
-						(~freqA_mask)),
-					CPG_FRQCRA);
-		if (zs_change || freqB_change)
-			__raw_writel(freqB | (__raw_readl(CPG_FRQCRB) &
-						(~freqB_mask)),
-				CPG_FRQCRB);
-
-		/* set and wait for KICK bit changed */
-		ret = core_set_kick(KICK_WAIT_INTERVAL_US);
-		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
-				__func__, __LINE__, ret);
-			if (zs_change)
-				hwspin_unlock_nospin(gen_sem1);
-			hwspin_unlock_nospin(sw_cpg_lock);
-			return ret;
-		}
-
-		/* Release SEM */
-		if (zs_change)
-			hwspin_unlock_nospin(gen_sem1);
-		hwspin_unlock_nospin(sw_cpg_lock);
-	}
-
-	/* successful change,...*/
-	return ret;
-}
-EXPORT_SYMBOL(clock_update);
-
 
 /*
  * shmobile_enter_corestandby_2:
@@ -980,253 +832,11 @@ EXPORT_SYMBOL(is_cpuidle_enable);
 static int shmobile_init_cpuidle(void)
 {
 	struct cpuidle_device *device;
-	unsigned int smstpcr5_val;
-	unsigned int mstpsr5_val;
-	unsigned int pstr_val;
-	unsigned long flags;
 	int count;
-	void __iomem *map = NULL;
-	int chip_rev;
-	unsigned long cpuidle_spinlock;
-
-	/* Chip revision */
-	chip_rev = shmobile_chip_rev();
-
-	spin_lock_irqsave(&clock_lock, flags);
-	/* Internal RAM0 Module Clock ON */
-	if (chip_rev < ES_REV_2_0) {
-		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-		if (0 != (mstpsr5_val & MSTPST527)) {
-			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~MSTP527)), CPG_SMSTPCR5);
-			do {
-				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-			} while (mstpsr5_val & MSTPST527);
-		}
-	} else {
-	/* W/A of errata ES2 E0263 */
-		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
-			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
-							, CPG_SMSTPCR5);
-			do {
-				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
-		}
-	}
-#ifndef CONFIG_PM_HAS_SECURE
-	/* Internal RAM1 Module Clock ON */
-	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-	if (0 != (mstpsr5_val & MSTPST528)) {
-		smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-		__raw_writel((smstpcr5_val & (~MSTP528)), CPG_SMSTPCR5);
-		do {
-			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
-		} while (mstpsr5_val & MSTPST528);
-	}
-#endif
-	spin_unlock_irqrestore(&clock_lock, flags);
-	/* Allocate CPU0 back up area */
-	cpu0BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
-	if (cpu0BackupArea == NULL)
-		printk(KERN_ERR "shmobile_init_cpuidle: "
-			"Failed Allocate CPU0 back up area\n");
-	else
-		__raw_writel((unsigned int)cpu0BackupArea,
-						ram0Cpu0RegisterArea);
-
-	/* Allocate CPU1 back up area */
-	cpu1BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
-	if (cpu1BackupArea == NULL)
-		printk(KERN_ERR "shmobile_init_cpuidle: "
-			"Failed Allocate CPU1 back up area\n");
-	else
-		__raw_writel((unsigned int)cpu1BackupArea,
-						ram0Cpu1RegisterArea);
-
-	/* Initialize SpinLock setting */
-	if (chip_rev < ES_REV_2_0)
-		cpuidle_spinlock = 0x47BDF000;
-	else
-		cpuidle_spinlock = 0x44000000;
-
-	map = ioremap_nocache(cpuidle_spinlock,
-							0x00000400/*1k*/);
-	if (map != NULL) {
-		__raw_writel((unsigned long)map, __io(ram0SpinLockVA));
-		__raw_writel(cpuidle_spinlock,
-						__io(ram0SpinLockPA));
-		__raw_writel((unsigned long)0x0, __io(map));
-	} else {
-		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
-		return -EIO;
-	}
-
-#ifndef CONFIG_PM_HAS_SECURE
-	__raw_writel((unsigned long)0x0, __io(ram0CPU0SpinLock));
-	__raw_writel((unsigned long)0x0, __io(ram0CPU1SpinLock));
-	/* Errata(ECR0285) */
-	if (chip_rev <= ES_REV_2_1)
-		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
-	else
-		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
-#endif
-	/* Initialize internal setting */
-	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
-	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
-
-#ifdef CONFIG_PM_HAS_SECURE
-
-	/* Initialize sec_hal allocation */
-	sec_hal_pm_coma_entry_init();
-
-	/* Initialize internal setting */
-	__raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
-					__io(ram0SecHalCommaEntry));
-	__raw_writel((unsigned long)0x0, __io(ram0ZClockFlag));
-#endif
-
-#ifndef CONFIG_PM_SMP
-	/* Temporary solution for Kernel in Secure */
-#ifndef CONFIG_PM_HAS_SECURE
-	__raw_writel(0, __io(SBAR2));
-#endif
-
-	__raw_writel((unsigned long)0x0, __io(APARMBAREA)); /* 4k */
-#endif
-#ifndef CONFIG_PM_HAS_SECURE
-	/* Copy the source code internal RAM1 */
-	(void)memcpy((void *)ram1ArmVector,
-				(void *)&ArmVector,
-				fsArmVector);
-
-	(void)memcpy((void *)ram1PM_Spin_Lock,
-		(void *)&PM_Spin_Lock,
-		fsPM_Spin_Lock);
-
-	(void)memcpy((void *)ram1PM_Spin_Unlock,
-		(void *)&PM_Spin_Unlock,
-		fsPM_Spin_Unlock);
-
-	(void)memcpy((void *)ram1DisableMMU,
-				(void *)&disablemmu,
-				fsDisableMMU);
-
-	(void)memcpy((void *)ram1RestoreArmRegisterPA,
-				(void *)&restore_arm_register_pa,
-				fsRestoreArmRegisterPA);
-
-	(void)memcpy((void *)ram1RestoreCommonRegister,
-				(void *)&restore_common_register,
-				fsRestoreCommonRegister);
-
-	(void)memcpy((void *)ram1SysPowerDown,
-				(void *)&sys_powerdown,
-				fsSysPowerDown);
-
-	(void)memcpy((void *)ram1SysPowerUp,
-				(void *)&sys_powerup,
-				fsSysPowerUp);
-
-	(void)memcpy((void *)ram1SetClockSystemSuspend,
-				(void *)&setclock_systemsuspend,
-				fsSetClockSystemSuspend);
-
-	(void)memcpy((void *)ram1SystemSuspendCPU0PA,
-				(void *)&systemsuspend_cpu0_pa,
-				fsSystemSuspendCPU0PA);
-
-	(void)memcpy((void *)ram1CoreStandbyPA,
-				(void *)&corestandby_pa,
-				fsCoreStandbyPA);
-
-	(void)memcpy((void *)ram1CoreStandbyPA2,
-				(void *)&corestandby_pa_2,
-				fsCoreStandbyPA2);
-
-	(void)memcpy((void *)ram1SystemSuspendCPU1PA,
-				(void *)&systemsuspend_cpu1_pa,
-				fsSystemSuspendCPU1PA);
-
-	(void)memcpy((void *)ram1corestandby_down_status,
-				(void *)&corestandby_down_status,
-				fscorestandby_down_status);
-
-	(void)memcpy((void *)ram1corestandby_up_status,
-				(void *)&corestandby_up_status,
-				fscorestandby_up_status);
-
-	(void)memcpy((void *)ram1xtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-#if 0
-	(void)memcpy((void *)ram1xtal_though_restore,
-				(void *)&xtal_though_restore,
-				fsxtal_though_restore);
-#endif
-#else /*CONFIG_PM_HAS_SECURE*/
-	/* Copy the source code internal RAM0 */
-	(void)memcpy((void *)ram0ArmVector,
-				(void *)&ArmVector,
-				fsArmVector);
-
-	(void)memcpy((void *)ram0CoreStandby,
-				(void *)&corestandby,
-				fsCoreStandby);
-
-	(void)memcpy((void *)ram0CoreStandby_2,
-				(void *)&corestandby_2,
-				fsCoreStandby_2);
-
-	(void)memcpy((void *)ram0SystemSuspend,
-				(void *)&systemsuspend,
-				fsSystemSuspend);
-
-	(void)memcpy((void *)ram0SaveArmRegister,
-				(void *)&save_arm_register,
-				fsSaveArmRegister);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterPA,
-				(void *)&restore_arm_register_pa,
-				fsRestoreArmRegisterPA);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterVA,
-				(void *)&restore_arm_register_va,
-				fsRestoreArmRegisterVA);
-
-	(void)memcpy((void *)ram0SaveArmCommonRegister,
-				(void *)&save_arm_common_register,
-				fsSaveArmCommonRegister);
-
-	(void)memcpy((void *)ram0RestoreArmCommonRegister,
-				(void *)&restore_arm_common_register,
-				fsRestoreArmCommonRegister);
-
-	(void)memcpy((void *)ram0PM_Spin_Lock,
-		(void *)&PM_Spin_Lock,
-		fsPM_Spin_Lock);
-
-	(void)memcpy((void *)ram0PM_Spin_Unlock,
-		(void *)&PM_Spin_Unlock,
-		fsPM_Spin_Unlock);
-
-	(void)memcpy((void *)ram0xtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-
-	(void)memcpy((void *)ram0SysPowerDown,
-				(void *)&sys_powerdown,
-				fsSysPowerDown);
-
-	(void)memcpy((void *)ram0SysPowerUp,
-				(void *)&sys_powerup,
-				fsSysPowerUp);
-
-	(void)memcpy((void *)ram0SetClockSystemSuspend,
-				(void *)&setclock_systemsuspend,
-				fsSetClockSystemSuspend);
-#endif /* CONFIG_PM_HAS_SECURE */
+	int ret;
+	ret = shmobile_init_pm();
+	if (ret != 0)
+		return ret;
 
 	/* Idle function register */
 	cpuidle_register_driver(&shmobile_idle_driver);
@@ -1282,27 +892,9 @@ static int shmobile_init_cpuidle(void)
 	__raw_writel(CPG_LPCKCR_LEGACY, CPG_LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
 	__raw_writel(A2SLSTP, CPG_PLL0STPCR);
-#ifdef PLL1_CAN_OFF
-	/* - set PLL1 stop conditon to A2SL, A3R state by CPG.PLL1STPCR */
-	__raw_writel(PLL1STPCR_DEFALT, CPG_PLL1STPCR);
-#else
-	__raw_writel(PLL1STPCR_DEFALT | C4STP, CPG_PLL1STPCR);
-#endif
-	do {
-		__raw_writel(POWER_BBPLLOFF, SPDCR);
-		pstr_val = __raw_readl(PSTR);
-	} while (pstr_val & POWER_BBPLLST);
 
 	/* - set Wake up factor unmask to GIC.CPU0 by SYS.WUPSMSK */
 	__raw_writel((__raw_readl(WUPSMSK) &  ~(1 << 28)), WUPSMSK);
-
-	/* General HBP semaphore 0 + Dedicated (SW) semaphore #temp */
-	pll_1_sem = hwspin_lock_request_specific(SMGP002);
-	if (pll_1_sem == NULL) {
-		printk(KERN_ERR "(%s:[%d])Unable to register hw_sem\n",
-					__func__, __LINE__);
-		return -EIO;
-	}
 
 	return 0;
 }
