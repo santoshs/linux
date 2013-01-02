@@ -950,6 +950,7 @@ static ssize_t chk_wakeup_a2220(struct a2220_data *a2220)
 	int rc = 0, retry = 4;
 
 	if (a2220->suspended == 1) {
+		gpio_set_value(a2220->pdata->gpio_wakeup, 1);
 		mdelay(1);
 		gpio_set_value(a2220->pdata->gpio_wakeup, 0);
 		msleep(30);
@@ -965,7 +966,6 @@ static ssize_t chk_wakeup_a2220(struct a2220_data *a2220)
 		}
 		if (rc < 0)
 			pr_err("Audience HW Reset Failed rc %d\n", rc);
-		gpio_set_value(a2220->pdata->gpio_wakeup, 1);
 		if (rc < 0) {
 			pr_err("%s: failed (%d)\n", __func__, rc);
 			goto wakeup_sync_err;
@@ -2067,6 +2067,10 @@ static int a2220_probe(
 		goto err_reset_gpio_request_failed;
 	}
 
+	/* Wakeup signal H -> L */
+	gpio_set_value(a2220->pdata->gpio_wakeup, 0);
+	msleep(30);
+
 	rc = a2220_create_proc_entry();
 	if (0 != rc) {
 		a2220_pr_err("create_proc_entry failed.[%d]\n", rc);
@@ -2805,7 +2809,7 @@ static int __init a2220_init(void)
 
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n",board_rev);
+	a2220_pr_info("u2_board_rev:%d\n", board_rev);
 	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
 		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
 		return -ENODEV;
@@ -2821,7 +2825,7 @@ static void __exit a2220_exit(void)
 
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n",board_rev);
+	a2220_pr_info("u2_board_rev:%d\n", board_rev);
 	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
 		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
 		return;

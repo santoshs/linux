@@ -236,6 +236,12 @@ struct vcd_spuv_info {
 	int fw_result;
 };
 
+struct vcd_spuv_set_binary_info {
+	unsigned int top_address;
+	unsigned int write_address;
+	unsigned int total_size;
+};
+
 
 /*
  * table declaration
@@ -253,6 +259,10 @@ void vcd_spuv_init_register(void);
 void vcd_spuv_ipc_semaphore_init(void);
 int vcd_spuv_get_fw_buffer(void);
 void vcd_spuv_free_fw_buffer(void);
+int vcd_spuv_get_binary_buffer(void);
+int vcd_spuv_set_binary_preprocessing(char *file_path);
+int vcd_spuv_set_binary_main(unsigned int write_size);
+int vcd_spuv_set_binary_postprocessing(void);
 int vcd_spuv_get_msg_buffer(void);
 int vcd_spuv_get_async_area(void);
 int vcd_ctrl_free_async_area(unsigned int adr);
