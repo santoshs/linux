@@ -373,6 +373,11 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	udc_log ("%s\n", otg_state_string(otg->state));
 	otg_put_transceiver(otg);
 #endif
+
+        /* for subsequent VBINT detection */
+        if (r8a66597_read(r8a66597, INTSTS0) & VBINT)
+                r8a66597_bset(r8a66597, VBSE, INTENB0);
+
 	if((!r8a66597->old_vbus) && (!powerup)) 
 	{
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
@@ -381,6 +386,10 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	udc_log("%s: IN\n", __func__);
 	
 	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
+
+        /* Clear VBUS Interrupt after reading */
+        r8a66597_bclr(r8a66597, VBINT, INTSTS0);
+
 	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
 		if (is_vbus_powered && r8a66597->charger_detected) {
 			r8a66597->old_vbus = 0;
