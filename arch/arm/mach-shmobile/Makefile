@@ -104,5 +104,5 @@ ifneq ($(CONFIG_MFD_D2153),y)
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 endif
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
-
+# obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
+obj-$(CONFIG_RENESAS_WIFI) +=  board-renesas_wifi.o
