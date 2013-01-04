@@ -1170,7 +1170,7 @@ static struct platform_device dma0_device = {
 		.platform_data	= &r8a73734_dmae_platform_data,
 	},
 };
- 
+
 static struct resource pmu_resources[] = {
   [0] = {
     .name= "cpu0",
@@ -1443,6 +1443,34 @@ static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
     &sgx_device,
 };
 
+// HS-- ES20 Specific late devices for Dialog
+static struct platform_device *r8a73734_late_devices_es20_d2153[] __initdata = {
+    &i2c0_device,
+    &i2c1_device,
+    &i2c2_device,
+    &i2c3_device,
+    &i2c4_device,
+    &i2c5_device_es20,
+    &i2c6_device,
+#ifndef CONFIG_SPI_SH_MSIOF
+    &i2c7_device,
+#endif
+#ifndef CONFIG_PN544_NFC
+    &i2c8_device,
+#endif
+//    &i2c0gpio_device,
+    &i2c1gpio_device,
+    &dma0_device,
+#ifdef CONFIG_SMECO
+    &smc_netdevice0,
+    &smc_netdevice1,
+#endif
+   &hwsem0_device,
+   &hwsem1_device,
+   &hwsem2_device,
+   &sgx_device,
+};
+
 // HS-- ES20 Specific late devices
 static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
     &i2c0_device,
@@ -1458,12 +1486,7 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
 #ifndef CONFIG_PN544_NFC
     &i2c8_device,
 #endif
-
-#ifdef CONFIG_BOARD_VERSION_V050
-//   &i2c0gpio_device,
-#else
     &i2c0gpio_device,
-#endif /* CONFIG_BOARD_VERSION_V050 */
     &i2c1gpio_device,
     &dma0_device,
 #ifdef CONFIG_SMECO
@@ -1595,9 +1618,13 @@ void __init r8a73734_add_standard_devices(void)
 	}
 	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
-		platform_add_devices(r8a73734_late_devices_es20,
-				ARRAY_SIZE(r8a73734_late_devices_es20)); 	  
-	
+		if(u2_get_board_rev() >= 5) {
+			platform_add_devices(r8a73734_late_devices_es20_d2153,
+					ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
+		} else {
+			platform_add_devices(r8a73734_late_devices_es20,
+					ARRAY_SIZE(r8a73734_late_devices_es20));
+		}
 	}
 //ES2.0 change end
 
@@ -1609,8 +1636,13 @@ void __init r8a73734_add_standard_devices(void)
 	if( is_es20() )
 	{
 		printk("Loading ES20 late devices...\n");
-		platform_add_devices(r8a73734_late_devices_es20,
-			ARRAY_SIZE(r8a73734_late_devices_es20));
+		if(u2_get_board_rev() >= 5) {
+			platform_add_devices(r8a73734_late_devices_es20_d2153,
+				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
+		} else {
+			platform_add_devices(r8a73734_late_devices_es20,
+				ARRAY_SIZE(r8a73734_late_devices_es20));
+		}
 	}
 	else
 	{

@@ -67,6 +67,7 @@
 #endif
 //#include <../mach-msm/smd_private.h>
 //#include <../mach-msm/smd_rpcrouter.h>
+#include <mach/common.h>
 
 #if 0
 #define TS_MAX_Z_TOUCH			255
@@ -464,8 +465,6 @@ static ssize_t	check_init_lowleveldata( void );
 static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
 
-#ifdef CONFIG_MFD_D2153
-
 #define VREG_ENABLE		1
 #define VREG_DISABLE	0
 #define TOUCH_ON  1
@@ -475,46 +474,49 @@ static struct regulator *touch_regulator_1_8;
 
 static void ts_power_enable(int en)
 {
-	int ret;
+	if (u2_get_board_rev() >= 5) {
+		int ret;
 	
-	printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-	if(touch_regulator == NULL)
-	{
-		printk(" %s, %d \n", __func__, __LINE__ );			
-		touch_regulator = regulator_get(NULL, "vtsp_3v"); 
-		if(IS_ERR(touch_regulator)){
-			printk("can not get VTOUCH_3.3V\n");
-			return;
-		}
-	}
-
-	if(en==1)
-	{
-		printk(" %s, %d Touch On\n", __func__, __LINE__ );	
-
-		//if(!regulator_is_enabled(touch_regulator))
+		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
+		if(touch_regulator == NULL)
 		{
-			printk(" %s, %d \n", __func__, __LINE__ );	
-			ret = regulator_set_voltage(touch_regulator,3000000,3000000); //3.0V
-			printk("regulator_set_voltage ret = %d \n", ret);       			
-			ret = regulator_enable(touch_regulator);
-			printk("regulator_enable ret = %d \n", ret);       			
+			printk(" %s, %d \n", __func__, __LINE__ );			
+			touch_regulator = regulator_get(NULL, "vtsp_3v"); 
+			if(IS_ERR(touch_regulator)){
+				printk("can not get VTOUCH_3.3V\n");
+				return;
+			}
 		}
-	}
-	else
-	{
-		printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
 
-		//if(regulator_is_enabled(touch_regulator))
+		if(en==1)
 		{
-			ret = regulator_disable(touch_regulator);
-			printk("regulator_disable ret = %d \n", ret);			
-		}
-	}
+			printk(" %s, %d Touch On\n", __func__, __LINE__ );	
 
+			//if(!regulator_is_enabled(touch_regulator))
+			{
+				printk(" %s, %d \n", __func__, __LINE__ );	
+				ret = regulator_set_voltage(touch_regulator,3000000,3000000); //3.0V
+				printk("regulator_set_voltage ret = %d \n", ret);       			
+				ret = regulator_enable(touch_regulator);
+				printk("regulator_enable ret = %d \n", ret);       			
+			}
+		}
+		else
+		{
+			printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
+
+			//if(regulator_is_enabled(touch_regulator))
+			{
+				ret = regulator_disable(touch_regulator);
+				printk("regulator_disable ret = %d \n", ret);			
+			}
+		}
+	} else if (u2_get_board_rev() <= 4 ) {
+		printk(KERN_EMERG"%s : en=%d\n", __func__, en);
+		gpio_set_value(GPIO_PORT30, en ? 1:0);
+	}
 }
 
-#else	// CONFIG_MFD_D2153
 #if 0
 #define VREG_ENABLE		1
 #define VREG_DISABLE	0
@@ -564,20 +566,18 @@ else
 			printk("regulator_disable ret = %d \n", ret);			
 		}
 	}
-#endif
+#endif /* 1 */
 
 }
 
-#else
 static void ts_power_enable(int en)
 {
 #ifdef CONFIG_PMIC_INTERFACE
 	printk(KERN_EMERG"%s : en=%d\n", __func__, en);
 	gpio_set_value(GPIO_PORT30, en ? 1:0);
-#endif
+#endif /* CONFIG_PMIC_INTERFACE */
 }
-#endif
-#endif	// CONFIG_MFD_D2153
+#endif /* 0 */
 
 void ts_power_control(int en)
 {
@@ -1724,35 +1724,35 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
-#ifdef CONFIG_MFD_D2153
-		struct regulator *regulator;
+		if (u2_get_board_rev() >= 5) {
+			struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "key_led");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_enable(regulator);
+			regulator_enable(regulator);
 
-		regulator_put(regulator);
-#else
-		pmic_set_power_on(E_POWER_VANA_MM);
-#endif
+			regulator_put(regulator);
+		} else {
+			pmic_set_power_on(E_POWER_VANA_MM);
+		}
 	}
 	else
 	{
-#ifdef CONFIG_MFD_D2153
-		struct regulator *regulator;
+		if (u2_get_board_rev() >= 5) {
+			struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "key_led");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_disable(regulator);
+			regulator_disable(regulator);
 
-		regulator_put(regulator);
-#else
-		pmic_set_power_off(E_POWER_VANA_MM);
-#endif
+			regulator_put(regulator);
+		} else {
+			pmic_set_power_off(E_POWER_VANA_MM);
+		}
 	}
 
 	return size;

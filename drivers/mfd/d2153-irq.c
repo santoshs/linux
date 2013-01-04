@@ -32,6 +32,7 @@
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 #define D2153_NUM_IRQ_MASK_REGS			3
 
@@ -160,6 +161,10 @@ void d2153_irq_worker(struct work_struct *work)
 
 	memset(&read_done, 0, sizeof(read_done));
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	for (i = 0; i < ARRAY_SIZE(d2153_irqs); i++) {
 		data = &d2153_irqs[i];
 
@@ -220,6 +225,10 @@ int d2153_register_irq(struct d2153 * const d2153, int const irq,
 			irq_handler_t handler, unsigned long flags,
 			const char * const name, void * const data)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if (irq < 0 || irq >= D2153_NUM_IRQ || !handler)
 		return -EINVAL;
 
@@ -239,6 +248,10 @@ EXPORT_SYMBOL_GPL(d2153_register_irq);
 
 int d2153_free_irq(struct d2153 *d2153, int irq)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if (irq < 0 || irq >= D2153_NUM_IRQ)
 		return -EINVAL;
 
@@ -253,6 +266,10 @@ EXPORT_SYMBOL_GPL(d2153_free_irq);
 
 int d2153_mask_irq(struct d2153 *d2153, int irq)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	return d2153_set_bits(d2153, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg,
 			       d2153_irqs[irq].mask);
 }
@@ -260,6 +277,10 @@ EXPORT_SYMBOL_GPL(d2153_mask_irq);
 
 int d2153_unmask_irq(struct d2153 *d2153, int irq)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	dev_info(d2153->dev, "\nIRQ[%d] Register [%d] MASK [%d]\n",irq, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg, d2153_irqs[irq].mask);
 	return d2153_clear_bits(d2153, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg,
 				 d2153_irqs[irq].mask);
@@ -272,6 +293,10 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	int ret = -EINVAL;
 	int reg_data, maskbit;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if (!irq) {
 	    dev_err(d2153->dev, "No IRQ configured \n");
 	    return -EINVAL;
@@ -310,6 +335,10 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 
 int d2153_irq_exit(struct d2153 *d2153)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	free_irq(d2153->chip_irq, d2153);
 	return 0;
 }

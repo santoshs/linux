@@ -3,10 +3,9 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/pmic/pmic.h>
-#ifdef CONFIG_BOARD_VERSION_V050
 #include <linux/regulator/consumer.h>
-#endif /* CONFIG_BOARD_VERSION_V050 */
 
+#include <mach/common.h>
 #include <mach/r8a73734.h>
 #include <mach/board-u2evm.h>
 
@@ -15,68 +14,69 @@
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MFD_D2153)
-	struct regulator *regulator;		
+	if (u2_get_board_rev() >= 5) {
+		struct regulator *regulator;		
 
-	if(state)
-	{
-		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		if(state)
+		{
+			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
 
-		regulator = regulator_get(NULL, "vio_sd");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "vio_sd");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_enable(regulator);
+			regulator_enable(regulator);
 
-		regulator_put(regulator);
+			regulator_put(regulator);
 
-		regulator = regulator_get(NULL, "vsd");
-		if (IS_ERR(regulator))
-			return ;
+			regulator = regulator_get(NULL, "vsd");
+			if (IS_ERR(regulator))
+				return ;
 
-		regulator_enable(regulator);
+			regulator_enable(regulator);
 
-		regulator_put(regulator);
+			regulator_put(regulator);
 
-		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 
-	}
-	else
-	{
-		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
-		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
+		}
+		else
+		{
+			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
 
-		regulator = regulator_get(NULL, "vio_sd");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "vio_sd");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_disable(regulator);
+			regulator_disable(regulator);
 
-		regulator_put(regulator);
+			regulator_put(regulator);
 
-		regulator = regulator_get(NULL, "vsd");
-		if (IS_ERR(regulator))
-			return ;
+			regulator = regulator_get(NULL, "vsd");
+			if (IS_ERR(regulator))
+				return ;
 
-		regulator_disable(regulator);
+			regulator_disable(regulator);
 
-		regulator_put(regulator);
-		
-	}
-#else
-#ifdef CONFIG_PMIC_INTERFACE
-	if (state) {
-		pmic_set_power_on(E_POWER_VIO_SD);
-		pmic_set_power_on(E_POWER_VMMC);
-		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
-
+			regulator_put(regulator);
+			
+		}
 	} else {
-		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
-		pmic_set_power_off(E_POWER_VIO_SD);
-		pmic_set_power_off(E_POWER_VMMC);
+#ifdef CONFIG_PMIC_INTERFACE
+		if (state) {
+			pmic_set_power_on(E_POWER_VIO_SD);
+			pmic_set_power_on(E_POWER_VMMC);
+			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+
+		} else {
+			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
+			pmic_set_power_off(E_POWER_VIO_SD);
+			mdelay(VSD_VDCORE_DELAY);
+			pmic_set_power_off(E_POWER_VMMC);
+		}
+#endif
 	}
-#endif
-#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)

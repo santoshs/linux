@@ -139,9 +139,9 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_max_design),
 	POWER_SUPPLY_ATTR(voltage_min_design),
 	POWER_SUPPLY_ATTR(voltage_now),
-#ifdef CONFIG_BOARD_VERSION_V050
+#ifdef CONFIG_BATTERY_D2153
 	POWER_SUPPLY_ATTR(batt_vol_adc),	
-#endif /* CONFIG_BOARD_VERSION_V050 */
+#endif	
 	POWER_SUPPLY_ATTR(voltage_avg),
 	POWER_SUPPLY_ATTR(current_max),
 	POWER_SUPPLY_ATTR(current_now),

@@ -2822,7 +2822,7 @@ static int __init d2153_modinit(void)
 	int ret;
 
 	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return -ENODEV;
+		return 0;
 
 	ret = i2c_add_driver(&d2153_i2c_driver);
 	if (ret)

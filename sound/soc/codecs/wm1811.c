@@ -647,7 +647,7 @@ static int wm1811_setup_wm1811(void)
 	int ret = 0;
 	wm1811_log_efunc("");
 
-	wm1811_conf->info.raw_device = -1;
+	wm1811_conf->info.raw_device = 0;
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -3026,6 +3026,18 @@ static int wm1811_i2c_probe(struct i2c_client *client,
 	if (0 != ret)
 		goto err_setup;
 
+	ret = wm1811_enable_vclk4();
+	ret = wm1811_write(0x0200, 0x0011);
+	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
+	ret = wm1811_write(0x0204, 0x0009);
+	mdelay(1);
+	ret = wm1811_write(0x0200, 0x0011);
+	ret = wm1811_write(0x0204, 0x0009);
+	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
+	ret = wm1811_disable_vclk4();
+	if (0 != ret)
+		goto err_setup;
+
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -3077,15 +3089,6 @@ int __init wm1811_init(void)
 		return -ENODEV;
 
 	ret = i2c_add_driver(&wm1811_i2c_driver);
-	ret = wm1811_enable_vclk4();
-	ret = wm1811_write(0x0200, 0x0011);
-	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
-	ret = wm1811_write(0x0204, 0x0009);
-	mdelay(1);
-	ret = wm1811_write(0x0200, 0x0011);
-	ret = wm1811_write(0x0204, 0x0009);
-	ret = wm1811_write(0x0208, 0x000F); /* FIXME use MCLK2 */
-	ret = wm1811_disable_vclk4();
 
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;

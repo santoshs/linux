@@ -312,25 +312,32 @@ static struct r8a66597_gpio_setting_info r8a66597_gpio_setting_info[] = {
 	},
 };
 
+static struct r8a66597_platdata usbhs_func_data_d2153 = {
+	.is_vbus_powered = is_vbus_powered,
+	.module_start	= usbhs_module_reset,
+	.on_chip	= 1,
+	.buswait	= 5,
+	.max_bufnum	= 0xff,
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
+	.pin_gpio_1_fn	= GPIO_PORT130,
+	.pin_gpio_1		= GPIO_PORT130,
+	.pin_gpio_2_fn	= GPIO_PORT131,
+	.pin_gpio_2		= GPIO_PORT131,
+	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
+	.gpio_setting_info	= &r8a66597_gpio_setting_info,
+};
+
 static struct r8a66597_platdata usbhs_func_data = {
 	.is_vbus_powered = is_vbus_powered,
 	.module_start	= usbhs_module_reset,
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
-#ifdef CONFIG_MFD_D2153
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
-#else
 #ifdef CONFIG_PMIC_INTERFACE
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
-#else
+#else  /* CONFIG_PMIC_INTERFACE */
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
-#endif
-#endif
-	.pin_gpio_1_fn	= GPIO_PORT130,
-	.pin_gpio_1		= GPIO_PORT130,
-	.pin_gpio_2_fn	= GPIO_PORT131,
-	.pin_gpio_2		= GPIO_PORT131,
+#endif /* CONFIG_PMIC_INTERFACE */
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };
@@ -356,6 +363,18 @@ static struct resource usbhs_resources[] = {
 		.start	= gic_spi(85) /* USBHSDMAC1 */,
 		.flags	= IORESOURCE_IRQ,
 	},
+};
+
+struct platform_device usbhs_func_device_d2153 = {
+	.name	= "r8a66597_udc",
+	.id	= 0,
+	.dev = {
+		.dma_mask		= NULL,
+		.coherent_dma_mask	= DMA_BIT_MASK(32),
+		.platform_data		= &usbhs_func_data_d2153,
+	},
+	.num_resources	= ARRAY_SIZE(usbhs_resources),
+	.resource	= usbhs_resources,
 };
 
 struct platform_device usbhs_func_device = {

@@ -83,6 +83,11 @@ config MACH_U2EVM
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A73734
 
+config MACH_U2USB
+	bool "U2USB board"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A73734
+
 config U2_ES1
 	bool "U2 ES1.0"
 	default y
@@ -289,7 +294,7 @@ config BOARD_VERSION_V050
 	default y
 	bool "board_revision"
 	help
-	  Board revision
+	  Board revision 
 comment "Debugging Feature"
 
 menuconfig SEC_DEBUG

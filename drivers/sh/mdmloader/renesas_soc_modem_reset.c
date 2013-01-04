@@ -42,11 +42,8 @@
 #include <linux/scatterlist.h>
 #include <mach/common.h>
 #include <mach/r8a73734.h>
-#ifdef CONFIG_MFD_D2153
 #include <linux/d2153/d2153_battery.h>
-#else
 #include <linux/pmic/pmic.h>
-#endif
 
 
 #define HPB_OCPBRGWIN1_MDM2MEM		IO_ADDRESS(0xE6001200)
@@ -291,11 +288,11 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	}
 	
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
-#ifdef CONFIG_MFD_D2153
-	d2153_handle_modem_reset();
-#else
-	tps80032_handle_modem_reset();
-#endif
+	if (u2_get_board_rev() >= 5) {
+		d2153_handle_modem_reset();
+	} else {
+		tps80032_handle_modem_reset();
+	}
 
 	/* Clear Event factor by setting corresponding bit in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);

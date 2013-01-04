@@ -34,6 +34,7 @@
 #include <linux/jiffies.h>
 #include <linux/hwspinlock.h>
 #include <linux/kthread.h>
+#include <linux/spa_power.h>
 
 #include "linux/err.h"	// test only
 
@@ -56,9 +57,19 @@ static const char __initdata d2153_battery_banner[] = \
 #define ADC_RES_MASK_LSB					(0x0F)
 #define ADC_RES_MASK_MSB					(0xF0)
 
+#if USED_BATTERY_CAPACITY == BAT_CAPACITY_1800MA
+#define ADC_VAL_100_PERCENT            		3670 //3665  
+#else
 #define ADC_VAL_100_PERCENT            		3445
+#endif
+
+#if USED_BATTERY_CAPACITY == BAT_CAPACITY_1800MA
+#define CV_START_ADC            			3400
+#else
 #define CV_START_ADC            			3338
-#define FIRST_VOLTAGE_DROP_ADC  			100 //80
+#endif
+
+#define FIRST_VOLTAGE_DROP_ADC  			180 //100 //80
 #define NORM_NUM                			10000
 #define MAX_DIS_OFFSET_FOR_WEIGHT   		200
 #define MIN_DIS_OFFSET_FOR_WEIGHT   		30
@@ -71,30 +82,7 @@ static const char __initdata d2153_battery_banner[] = \
 #define MIN_ADD_CHA_PERCENT_FOR_WEIGHT  	(0)
 #define DISCHARGE_SLEEP_OFFSET              20
 #define LAST_VOL_UP_PERCENT                 75
-
-#define POWER_SUPPLY_BATTERY 				"battery"
-#define POWER_SUPPLY_WALL 					"ac"
-#define POWER_SUPPLY_USB 					"usb_d2153"
-
-
-//////////////////////////////////////////////////////////////////////////////
-//    External Function Protorype
-//////////////////////////////////////////////////////////////////////////////
-
-// TODO: DLG eric.
-// For TSU6111 IC
-#if 0   // These functions are for the charger control.
-extern int fsa9480_read_charger_status(u8 *val);
-extern int fsa9480_read_charge_current(u8 *val);
-#endif
-
-// TODO: DLG eric.
-#if 0   // These functions are for the functionality of battery calibration.
-//extern short SYSPARM_GetActual4p2VoltReading(void);
-//extern short SYSPARM_GetActualLowVoltReading(void);
-//extern char SYSPARM_GetIsInitialized(void);
-#endif
-
+#define LAST_CHARGING_WEIGHT      			400
 
 //////////////////////////////////////////////////////////////////////////////
 //    Static Function Prototype
@@ -102,26 +90,12 @@ extern int fsa9480_read_charge_current(u8 *val);
 //static void d2153_external_event_handler(int category, int event);
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
 static int  d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel channel);
-static void d2153_start_charge(struct d2153_battery *pbat, u32 timer_type);
-static void d2153_stop_charge(struct d2153_battery *pbat, u8 end_of_charge);
-static void d2153_set_battery_health(struct d2153_battery *pbat, u32 health);
 static void d2153_sleep_monitor(struct d2153_battery *pbat);
-static u8   d2153_clear_end_of_charge(struct d2153_battery *pbat, u8 end_of_charge);
-static void d2153_set_ta_attached(struct d2153_battery *pbat, u8 state);
-static s8   d2153_check_end_of_charge(struct d2153_battery *pbat, u8 end_of_charge);
-static void d2153_set_usb_attached(struct d2153_battery *pbat, u8 state);
-static void d2153_set_jig_attached(struct d2153_battery *pbat, u8 state);
-static void d2153_battery_charge_full(struct d2153_battery *pbat);
-static void d2153_ovp_charge_stop(struct d2153_battery *pbat);
-static void d2153_ovp_charge_restart(struct d2153_battery *pbat);
-static void d2153_external_event_handler(int category, int event);
-
 
 //////////////////////////////////////////////////////////////////////////////
 //    Static Variable Declaration
 //////////////////////////////////////////////////////////////////////////////
-
-struct hwspinlock *r8a73734_hwlock_pmic;
+struct hwspinlock *r8a73734_hwlock_pmic_d2153;
 static wait_queue_head_t d2153_modem_reset_event;
 static struct task_struct *d2153_modem_reset_thread;
 static atomic_t modem_reset_handing = ATOMIC_INIT(0);
@@ -130,28 +104,6 @@ static struct d2153_battery *gbat = NULL;
 static u8  is_called_by_ticker = 0;
 static u16 ACT_4P2V_ADC = 0;
 static u16 ACT_3P4V_ADC = 0;
-
-
-static enum power_supply_property d2153_ta_props[] = {
-	POWER_SUPPLY_PROP_ONLINE,
-};
-
-static enum power_supply_property d2153_usb_props[] = {
-	POWER_SUPPLY_PROP_ONLINE,
-};
-
-static enum power_supply_property d2153_battery_props[] = {
-	POWER_SUPPLY_PROP_STATUS,
-	POWER_SUPPLY_PROP_HEALTH,
-	POWER_SUPPLY_PROP_PRESENT,
-	POWER_SUPPLY_PROP_CAPACITY,
-	POWER_SUPPLY_PROP_TECHNOLOGY,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW_ADC,	
-	POWER_SUPPLY_PROP_VOLTAGE_AVG,
-	POWER_SUPPLY_PROP_TEMP,
-	POWER_SUPPLY_PROP_BATT_TEMP_ADC,
-};
 
 
 // This array is for setting ADC_CONT register about each channel.
@@ -205,10 +157,14 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 
 // Table for compensation of charge offset in CC mode
 static u16 initialize_charge_offset[] = {
-// 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950
-	90, 110, 130, 150, 170, 190, 210, 230, 250, 270, 290, 310, 330, 350, 370, 390
+//  500, 600, 700, 800, 900, 1000, 1100, 1200,
+	 18,  22,  26,  30,  34,   36,   40,   44,
 };
 
+static u16 initialize_charge_up_cc[] = {
+// 500, 600, 700, 800, 900, 1000, 1100, 1200,
+   215, 275, 335, 390, 450,  510,  570,  630,
+};
 
 // LUT for NCP15XW223 thermistor with 10uA current source selected
 static struct adc2temp_lookuptbl adc2temp_lut = {
@@ -252,21 +208,21 @@ static struct adc2soc_lookuptbl adc2soc_lut = {
 	.adc_lmt = {1800, 1853, 1985, 2113, 2243, 2361, 2428, 2538, 2610, 2705, 2840, 2985, 3125, 3260,}, // ADC input @ low mid temp(-10)
 	.adc_llt = {1800, 1850, 1978, 2105, 2235, 2342, 2405, 2510, 2595, 2680, 2786, 2930, 3040, 3160,}, // ADC input @ low low temp(-20)
 	.soc	 = {   0,	10,   30,	50,  100,  200,  300,  400,  500,  600,  700,  800,  900, 1000,}, // SoC in %
-};               
+};           
 
 //Discharging Weight(Room/Low/low low)          //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_weight_section_discharge[]		= {5000, 2000, 2000, 1200,	180,   55,	 50,   50,	190,  180,	258,  369,	492, 1000};
+static u16 adc_weight_section_discharge[]		= {5000, 4000, 3000,  500,	200,   55,	 50,   40,	190,  180,	290,  369,	492, 1000};
 static u16 adc_weight_section_discharge_rlt[]	= {3640, 2740,	966,  466,	140,  120,	 93,   80,	128,  151,	150,  176,	186,  780};
 static u16 adc_weight_section_discharge_lt[]	= {3200, 2120,	860,  356,	111,   90,	 68,   64,	 96,  106,	110,  130,	139,  710};
 static u16 adc_weight_section_discharge_lmt[]	= {2920, 1850,	756,  326,	 94,   79,	 65,   57,	 81,   96,	 99,  121,	128,  670};
 static u16 adc_weight_section_discharge_llt[]	= {2730, 1840,	710,  300,	 70,   62,	 55,   51,	 63,   71,	 73,   79,	 85,  630};   // 20121113. will be tested
 
 //Charging Weight(Room/Low/low low)             //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_weight_section_charge[]			= {7000, 1700, 1000,  230,	150,   55,	 50,   45,	170,  180,	200,  280,	300,  600};
-static u16 adc_weight_section_charge_rlt[]		= {7000, 1700, 1000,  230,	150,   55,	 50,   45,	170,  180,	200,  280,	300,  600};
-static u16 adc_weight_section_charge_lt[]		= {7000, 1700, 1000,  230,	150,   55,	 50,   45,	170,  180,	200,  280,	300,  600};
-static u16 adc_weight_section_charge_lmt[]		= {7000, 1700, 1000,  230,	150,   55,	 50,   45,	170,  180,	200,  280,	300,  600};
-static u16 adc_weight_section_charge_llt[]		= {7000, 1700, 1000,  230,	150,   55,	 50,   45,	170,  180,	200,  280,	300,  600};
+static u16 adc_weight_section_charge[]			= {7000, 1500,  700,  200,	155,   60,	 55,   45,	165,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_rlt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_lt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_lmt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_llt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
 
 //Charging Offset                               //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
 static u16 adc_diff_charge[]                    = {  60,   60,  200,  210,  225,  225,  248,  240,  235,  220,  175,  165,  165,    0};
@@ -481,7 +437,7 @@ static void d2153_force_release_swsem(u8 swsem_id)
 	}
 
 	/* Check which CPU (Real time or Baseband or System) is using SW sem*/
-	lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
+	lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
 
 	dlg_info("%s: ID (0x%x) is using SW semaphore\n", \
 				__func__, lock_id);
@@ -491,8 +447,8 @@ static void d2153_force_release_swsem(u8 swsem_id)
 
 	for (;;) {
 		/* Try to force to unlock SW sem*/
-		hwspin_unlock_nospin(r8a73734_hwlock_pmic);
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
+		hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
+		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
 		if (lock_id == 0) {
 			dlg_err(
 		"%s: Forcing to release SW sem from ID (0x%x) is successful\n",
@@ -522,8 +478,12 @@ static void d2153_force_release_swsem(u8 swsem_id)
  * d2153_handle_modem_reset: Handle modem reset
  * return: void
  */
-void d2153_handle_modem_reset()
+void d2153_handle_modem_reset(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	atomic_set(&modem_reset_handing, 1);
 	wake_up_interruptible(&d2153_modem_reset_event);
 }
@@ -608,6 +568,10 @@ u32 adc_to_soc_with_temp_compensat(u16 adc, u16 temp) {
 
 	//pr_info("%s. adc = %d. temp = %d\n", __func__, adc, temp);
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if(temp < BAT_LOW_LOW_TEMPERATURE)
 		temp = BAT_LOW_LOW_TEMPERATURE;
 	else if(temp > BAT_HIGH_TEMPERATURE)
@@ -648,6 +612,10 @@ static u16 pre_soc = 0xffff;
 u16 soc_filter(u16 new_soc, u8 is_charging) {
 	u16 soc = new_soc;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if(pre_soc == 0xffff)
 		pre_soc = soc;
 	else {
@@ -683,10 +651,18 @@ u16 soc_filter(u16 new_soc, u8 is_charging) {
 //u16 adc_to_degree_k(u16 adc) {
 int adc_to_degree_k(u16 adc) {
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
     return (chk_lut_temp(adc2temp_lut.adc, adc2temp_lut.temp, adc, temp_lut_length));
 }
 
 int degree_k2c(u16 k) {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	return (K2C(k));
 }
 
@@ -697,6 +673,10 @@ int degree_k2c(u16 k) {
 //u16 get_adc_offset(u16 adc) {	
 int get_adc_offset(u16 adc) {	
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
     return (chk_lut(adc2vbat_lut.adc, adc2vbat_lut.offset, adc, adc2vbat_lut_length));
 }
 
@@ -707,6 +687,10 @@ int get_adc_offset(u16 adc) {
 u16 adc_to_vbat(u16 adc, u8 is_charging) {    
 	u16 a = adc;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if(is_charging)
 		a = adc - get_adc_offset(adc); // deduct charging offset
 	// return (chk_lut(adc2vbat_lut.adc, adc2vbat_lut.vbat, a, adc2vbat_lut_length));
@@ -722,287 +706,13 @@ int adc_to_soc(u16 adc, u8 is_charging) {
 
 	u16 a = adc;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if(is_charging)
 		a = adc - get_adc_offset(adc); // deduct charging offset
 	return (chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, a, adc2soc_lut_length));
-}
-
-
-
-//////////////////////////////////////////////////////////////////////////////////
-// External Function 
-//////////////////////////////////////////////////////////////////////////////////
-
-/* 
- * Name : d2153_register_enable_charge
- */
-int d2153_register_enable_charge(void (*enable_charge)())
-{
-	pr_info("%s. Start\n", __func__);
-
-	if(unlikely(!gbat)) {
-		pr_err("%s. Platfrom data is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&gbat->api_lock);
-	gbat->charger_data.enable_charge = enable_charge;
-	mutex_unlock(&gbat->api_lock);
-
-	return 0; 
-}
-EXPORT_SYMBOL(d2153_register_enable_charge);
-
-/* 
- * Name : d2153_register_disable_charge
- */
-int d2153_register_disable_charge(void (*disable_charge)())
-{
-	pr_info("%s. Start\n", __func__);
-
-	if(unlikely(!gbat)) {
-		pr_err("%s. Platfrom data is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&gbat->api_lock);
-	gbat->charger_data.disable_charge = disable_charge;
-	mutex_unlock(&gbat->api_lock);
-
-	return 0; 
-}
-EXPORT_SYMBOL(d2153_register_disable_charge);
-
-
-
-/* 
- * Name : d2153_get_external_event_handler
- */
-void (*d2153_get_external_event_handler(void))(int, int)
-{
-	return d2153_external_event_handler;
-}
-EXPORT_SYMBOL(d2153_get_external_event_handler);
-
-
-/* 
- * Name : d2153_external_event_handler
- */
-static void d2153_external_event_handler(int category, int event)
-{
-	if(unlikely(!gbat)) {
-		pr_err("%s. Invalid data.\n", __func__);
-		return;
-	}
-
-	switch(category)
-	{
-		case D2153_CATEGORY_DEVICE:
-			switch(event)
-			{
-				case D2153_EVENT_TA_ATTACHED:
-					d2153_set_ta_attached(gbat, ATTACHED);
-					break;
-				case D2153_EVENT_TA_DETACHED:
-					d2153_set_ta_attached(gbat, DETACHED);
-					break;
-				case D2153_EVENT_USB_ATTACHED:
-					d2153_set_usb_attached(gbat, ATTACHED);
-					break;
-				case D2153_EVENT_USB_DETACHED:
-					d2153_set_usb_attached(gbat, DETACHED);
-					break;
-				case D2153_EVENT_JIG_ATTACHED:
-					d2153_set_jig_attached(gbat, ATTACHED);
-					break;
-				case D2153_EVENT_JIG_DETACHED:
-					d2153_set_jig_attached(gbat, DETACHED);
-					break;
-				default:
-					break;
-			}
-			break;
-
-		case D2153_CATEGORY_BATTERY:
-			switch(event)
-			{
-				case D2153_EVENT_CHARGE_FULL:
-					d2153_battery_charge_full(gbat);
-					break;
-				case D2153_EVENT_OVP_CHARGE_STOP:
-					d2153_ovp_charge_stop(gbat);	
-					break;
-				case D2153_EVENT_OVP_CHARGE_RESTART:
-					d2153_ovp_charge_restart(gbat);
-					break;
-				case D2153_EVENT_SLEEP_MONITOR:
-					d2153_sleep_monitor(gbat);
-					break;
-				default:
-					break;
-			}
-			break;
-
-		default:
-			break;
-	}
-}
-EXPORT_SYMBOL(d2153_external_event_handler);
-
-
-/* 
- * Name : d2153_get_voltage
- */
-int d2153_get_voltage(void)
-{
-	if(unlikely(!gbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	return gbat->battery_data.average_voltage;
-}
-EXPORT_SYMBOL(d2153_get_voltage);
-
-
-/* 
- * Name : d2153_get_last_adc
- */
-int d2153_get_last_vbat_adc(void)
-{
-	int last_adc;
-	
-	if(unlikely(!gbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&gbat->lock);
-	last_adc = gbat->battery_data.average_volt_adc;
-	mutex_unlock(&gbat->lock);
-
-	return last_adc;
-}
-
-EXPORT_SYMBOL(d2153_get_last_vbat_adc);
-
-int d2153_get_last_temp_adc(void)
-{
-	int last_temp;
-	
-	if(unlikely(!gbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&gbat->lock);
-	last_temp = gbat->battery_data.average_temp_adc;
-	mutex_unlock(&gbat->lock);
-
-	return last_temp;
-}
-
-EXPORT_SYMBOL(d2153_get_last_temp_adc);
-
-
-/* 
- * Name : d2153_get_charger_type
- */
-static int d2153_get_charger_type(struct d2153_battery *pbat)
-{
-	int charger_type = CHARGER_TYPE_NONE;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&pbat->lock);
-	charger_type = pbat->charger_data.current_charger;
-	mutex_unlock(&pbat->lock);
-
-	return charger_type;
-}
-
-
-/* 
- * Name : d2153_get_battery_status
- */
-static int d2153_get_battery_status(struct d2153_battery *pbat)
-{
-	int battery_status;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-	
-	mutex_lock(&pbat->lock);
-	battery_status = pbat->battery_data.status;
-	mutex_unlock(&pbat->lock);
-
-	return battery_status;
-}
-
-
-/* 
- * Name : d2153_get_battery_health
- */
-static int d2153_get_battery_health(struct d2153_battery *pbat)
-{
-	int battery_health;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&pbat->lock);
-	battery_health = pbat->battery_data.health;
-	mutex_unlock(&pbat->lock);
-
-	return battery_health;
-}
-
-
-/* 
- * Name : d2153_get_battery_capacity
- */
-static int d2153_get_battery_capacity(struct d2153_battery *pbat)
-{
-	int battery_soc = 0;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-
-	mutex_lock(&pbat->lock);
-	battery_soc = pbat->battery_data.soc;
-	mutex_unlock(&pbat->lock);
-
-	return battery_soc;
-}
-
-
-/* 
- * Name : d2153_get_battery_technology
- */
-static int d2153_get_battery_technology(struct d2153_battery *pbat)
-{
-	int battery_technology;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&pbat->lock);
-	battery_technology = pbat->battery_data.battery_technology;
-	mutex_unlock(&pbat->lock);
-
-	return battery_technology;
 }
 
 
@@ -1087,42 +797,20 @@ static int d2153_get_average_temperature_adc(struct d2153_battery *pbat)
 
 
 /* 
- * Name : d2153_get_pmic_vbus_status
- */
-static int d2153_get_pmic_vbus_status(struct d2153_battery *pbat)
-{
-	int pmic_vbus_state;
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&pbat->lock);
-	pmic_vbus_state = pbat->charger_data.pmic_vbus_state;
-	mutex_unlock(&pbat->lock);
-
-	return pmic_vbus_state;
-}
-
-
-/* 
  * Name : d2153_get_soc
  */
 static int d2153_get_soc(struct d2153_battery *pbat)
 {
 	//u8 is_charger = 0;
-	int soc, battery_status;
+	int soc;
  	struct d2153_battery_data *pbat_data = NULL;
-	struct d2153_charger_data *pchg_data = NULL;
 
 	if(pbat == NULL) {
 		pr_err("%s. Invalid parameter. \n", __func__);
+		return 0;
 	}
 
 	pbat_data = &pbat->battery_data;
-	pchg_data = &pbat->charger_data;
-	battery_status = d2153_get_battery_status(pbat);
 
 	if(pbat_data->soc)
 		pbat_data->prev_soc = pbat_data->soc;
@@ -1132,7 +820,7 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 	if(soc <= 0) {
 		pbat_data->soc = 0;
 		if(pbat_data->current_voltage >= BAT_POWER_OFF_VOLTAGE
-			|| (pchg_data->is_charging == TRUE)) {
+			|| (pbat_data->is_charging == TRUE)) {
 			soc = 10;
 		}
 	}
@@ -1142,32 +830,17 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 
 	// Don't allow soc goes up when battery is dicharged.
 	// and also don't allow soc goes down when battey is charged.
-	if(pchg_data->is_charging != TRUE 
+	if(pbat_data->is_charging != TRUE 
 		&& (soc > pbat_data->prev_soc && pbat_data->prev_soc )) {
 		soc = pbat_data->prev_soc;
 	}
-	else if(pchg_data->is_charging
+	else if(pbat_data->is_charging
 		&& (soc < pbat_data->prev_soc) && pbat_data->prev_soc) {
 		soc = pbat_data->prev_soc;
 	}
 	pbat_data->soc = soc;
 
 	return soc;
-}
-
-
-/* 
- * Name : d2153_get_jig_state
- */
-static int d2153_get_jig_state(struct d2153_battery *pbat)
-{
-	int jig_connected = 0;
-
-	mutex_lock(&pbat->lock);
-	jig_connected = pbat->charger_data.jig_connected;
-	mutex_unlock(&pbat->lock);
-
-	return jig_connected;
 }
 
 
@@ -1217,7 +890,7 @@ static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_chargi
 {
 	u8 i = 0;
 	u16 *plut = NULL;
-	int /*percent, */weight = 0;
+	int weight = 0;
 
 	// Sanity check.
 	if (tempk < BAT_LOW_LOW_TEMPERATURE)		
@@ -1338,260 +1011,11 @@ static int d2153_set_adc_mode(struct d2153_battery *pbat, adc_mode type)
 
 
 /* 
- * Name : d2153_set_end_of_charge
- */
-static void d2153_set_end_of_charge(struct d2153_battery *pbat, u8 end_of_charge)
-{
-	unsigned char result = 0;
-
-	mutex_lock(&pbat->lock); 
-	if(end_of_charge == BAT_END_OF_CHARGE_NONE)
-		pbat->battery_data.end_of_charge = end_of_charge;
-	else
-		result = pbat->battery_data.end_of_charge |= end_of_charge; 		
-	mutex_unlock(&pbat->lock);
-
-	pr_info("%s. end_of_charge(%d) result(%d)\n", __func__, end_of_charge, result);
-}
-
-
-/* 
- * Name : d2153_set_battery_health
- */
-static void d2153_set_battery_health(struct d2153_battery *pbat, u32 health)
-{
-	mutex_lock(&pbat->lock);
-	pbat->battery_data.health = health;
-	mutex_unlock(&pbat->lock);
-}
-
-
-/* 
- * Name : d2153_set_battery_status
- */
-static void d2153_set_battery_status(struct d2153_battery *pbat, u32 status)
-{
-	mutex_lock(&pbat->lock);
-	pbat->battery_data.status = status;
-	mutex_unlock(&pbat->lock);
-
-	power_supply_changed(&pbat->battery);	
-}
-
-
-/* 
- * Name : d2153_set_charger_type
- */
-static void d2153_set_charger_type(struct d2153_battery *pbat, u8 charger_type)
-{
-	if(charger_type >= CHARGER_TYPE_MAX) {
-		pr_err("%s. Invalid parameter(%d)\n", __func__, charger_type);
-		return ;
-	}
-
-	mutex_lock(&pbat->lock);
-	pbat->charger_data.current_charger = charger_type;
-	mutex_unlock(&pbat->lock);
-}
-
-
-/* 
- * Name : d2153_set_jig_connected
- */
-static void d2153_set_jig_connected(struct d2153_battery *pbat, int jig_connected)
-{
-	if(jig_connected == pbat->charger_data.jig_connected) {
-		pr_info("%s. JIG states is same before was set\n", __func__);	
-		return;
-	}
-	
-	pbat->charger_data.jig_connected = jig_connected;
-	return;
-}
-
-
-/* 
- * Name : d2153_set_ta_attached
- */
-static void d2153_set_ta_attached(struct d2153_battery *pbat, u8 state)
-{
-	int charger_type = d2153_get_charger_type(pbat);
-
-	pr_info("%s. Start. state(%d), charger_type(%d)\n", __func__, state, charger_type);
-	
-	if(state) {
-		// TA was attached
-		if(charger_type == CHARGER_TYPE_NONE)
-		{
-			wake_lock(&pbat->charger_data.charger_wakeup);
-			d2153_set_charger_type(pbat, CHARGER_TYPE_TA);
-			d2153_start_charge(pbat, BAT_CHARGE_START_TIMER);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_CHARGING); 
-			power_supply_changed(&pbat->wall);
-		}
-	}
-	else {
-		// TA was detached
-		if(charger_type == CHARGER_TYPE_TA)
-        {
-			d2153_set_charger_type(pbat, CHARGER_TYPE_NONE);
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_NONE);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_DISCHARGING);
-			d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_GOOD);
-			power_supply_changed(&pbat->wall);
-			d2153_stop_charge(pbat, BAT_END_OF_CHARGE_NONE);
-			wake_unlock(&pbat->charger_data.charger_wakeup);
-		}
-	}
-}
-
-
-/* 
- * Name : d2153_set_usb_attached
- */
-static void d2153_set_usb_attached(struct d2153_battery *pbat, u8 state)
-{
-	int charger_type = d2153_get_charger_type(pbat);
-
-	pr_info("%s. Start. state(%d), charger_type(%d)\n", __func__, state, charger_type);
-
-	if(state) {
-		if(charger_type == CHARGER_TYPE_NONE)
-		{
-			wake_lock(&pbat->charger_data.charger_wakeup);
-			d2153_set_charger_type(pbat, CHARGER_TYPE_USB);
-			d2153_start_charge(pbat, BAT_CHARGE_START_TIMER);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_CHARGING);
-			power_supply_changed(&pbat->usb);
-		}
-	}
-	else {
-		if(charger_type == CHARGER_TYPE_USB)
-		{
-			d2153_set_charger_type(pbat, CHARGER_TYPE_NONE);
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_NONE);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_DISCHARGING);
-			d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_GOOD);
-			power_supply_changed(&pbat->usb);
-			d2153_stop_charge(pbat, BAT_END_OF_CHARGE_NONE);
-			wake_unlock(&pbat->charger_data.charger_wakeup);
-		}
-	}
-}
-
-
-/* 
- * Name : d2153_set_jig_attached
- */
-static void d2153_set_jig_attached(struct d2153_battery *pbat, u8 state)
-{
-	pr_info("%s. Start. state(%d)\n", __func__, state);
-
-	if(state) {
-		d2153_set_jig_connected(pbat, state);
-	}
-	else {
-		d2153_set_jig_connected(pbat, state);
-	}
-}
-
-
-/* 
- * Name : d2153_clear_end_of_charge
- */
-static u8 d2153_clear_end_of_charge(struct d2153_battery *pbat, u8 end_of_charge)
-{
-	unsigned char ret = 0;
-	
-	mutex_lock(&pbat->lock);
-	ret = pbat->battery_data.end_of_charge;
-	ret &= (~end_of_charge);
-	pbat->battery_data.end_of_charge = ret;
-	mutex_unlock(&pbat->lock);
-
-	pr_info("%s. end_of_charge(%d) ret(%d)\n", __func__, end_of_charge, ret);
-
-	return ret; 
-}
-
-
-/* 
- * Name : d2153_check_end_of_charge
- */
-static s8 d2153_check_end_of_charge(struct d2153_battery *pbat, u8 end_of_charge)
-{
-	char ret = 0;
-
-	mutex_lock(&pbat->lock);
-    ret = pbat->battery_data.end_of_charge;
-    mutex_unlock(&pbat->lock);
-
-	ret &= end_of_charge; 
-	ret = (ret ? 0 : -1);
-
-	return ret;
-}
-
-
-/* 
- * Name : d2153_check_enable_charge
- */
-static int d2153_check_enable_charge(struct d2153_battery *pbat)
-{
-	int charger_type, ret = 0;
-	enum power_supply_type current_charger = POWER_SUPPLY_TYPE_MAINS;
-
-
-	charger_type = d2153_get_charger_type(pbat);
-	if(charger_type == CHARGER_TYPE_TA) {
-		current_charger = POWER_SUPPLY_TYPE_MAINS;
-	}
-	else if(charger_type == CHARGER_TYPE_USB) {
-		current_charger = POWER_SUPPLY_TYPE_USB;
-	}
-
-	mutex_lock(&pbat->api_lock);
-	if(pbat->charger_data.enable_charge) {
-		pbat->charger_data.enable_charge();
-		pbat->charger_data.is_charging = TRUE;
-	}
-	else {
-		ret = -1;
-		pr_warn("%s. enable_charge function is NULL\n", __func__);
-	}
-	mutex_unlock(&pbat->api_lock);
-
-	return ret; 
-}
-
-
-/* 
- * Name : d2153_check_disable_charge
- */
-static int d2153_check_disable_charge(struct d2153_battery *pbat, u8 end_of_charge)
-{
-	int ret = 0;
-
-	mutex_lock(&pbat->api_lock);
-	if(pbat->charger_data.disable_charge) {
-		pbat->charger_data.disable_charge();
-		pbat->charger_data.is_charging = FALSE;
-	}
-	else {
-		ret = -1;
-		pr_warn("%s disable_charge function is NULL\n", __func__);
-	}
-	mutex_unlock(&pbat->api_lock);
-	return ret; 
-}
-
-
-/* 
  * Name : d2153_read_adc_in_auto
  * Desc : Read ADC raw data for each channel.
  * Param : 
  *    - d2153 : 
- *    - channel : voltage, temperature 1, temperature 2, VF and TJUNC
+ *    - channel : voltage, temperature 1, temperature 2, VF and TJUNC* Name : d2153_set_end_of_charge
  */
 static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel)
 {
@@ -1605,13 +1029,14 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 		return -EINVAL;
 	}
 
+
 	// The valid channel is from ADC_VOLTAGE to ADC_AIN in auto mode.
 	if(channel >= D2153_ADC_CHANNEL_MAX - 1) {
 		pr_err("%s. Invalid channel(%d) in auto mode\n", __func__, channel);
 		return -EINVAL;
 	}
 
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
+	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
 	
 	if (ret < 0) {
 			pr_err("%s:lock is already taken.\n", __func__);
@@ -1653,7 +1078,7 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 out:
 	mutex_unlock(&pbat->meoc_lock);
 	
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
 	
 	return ret;
 }
@@ -1669,7 +1094,7 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
 	struct d2153 *d2153 = pbat->pd2153;
 
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic, CONST_HPB_WAIT);
+	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
 	
 	if (ret < 0) {
 			pr_err("%s:lock is already taken.\n", __func__);
@@ -1720,7 +1145,7 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 out:
 	mutex_unlock(&pbat->meoc_lock);
 	
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
 	
 	return ret;    
 }
@@ -1762,21 +1187,55 @@ static int d2153_get_calibration_offset(int voltage, int y1, int y0)
 /* 
  * Name : d2153_read_voltage
  */
-static int d2153_read_voltage(struct d2153_battery *pbat)
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+extern struct spa_power_data spa_power_pdata;
+#endif
+static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps)
 {
-	int new_vol_adc = 0, base_weight,base_diff_adc, new_vol_orign;
-	int battery_status, offset_with_old, offset_with_new = 0;
+	int new_vol_adc = 0, base_weight,new_vol_orign;
+	int offset_with_old, offset_with_new = 0;
 	int ret = 0;
 	static int calOffset_4P2, calOffset_3P4 = 0;
 	int num_multi=0;
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-	struct d2153_charger_data *pchg_data = &pbat->charger_data;
 	u16 offset_charging=0;
-	u8 charge_current=0;
+	union power_supply_propval charger_type;
+	int charging_index;
 
+	ps->get_property(ps, POWER_SUPPLY_PROP_TYPE, &charger_type);
+
+	if(charger_type.intval== POWER_SUPPLY_TYPE_USB)  {
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		pbat_data->is_charging=1;
+		charging_index=(spa_power_pdata.charging_cur_wall-500)/100;
+#else  /* CONFIG_SEC_CHARGING_FEATURE */
+		pbat_data->is_charging=0;
+		charging_index=0;
+#endif /* CONFIG_SEC_CHARGING_FEATURE */
+		pr_info("Charging mode USB charger connected \n");
+	}
+	else if(charger_type.intval== POWER_SUPPLY_TYPE_USB_DCP)
+	{
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		pbat_data->is_charging=1;
+		charging_index=(spa_power_pdata.charging_cur_wall-500)/100;
+#else  /* CONFIG_SEC_CHARGING_FEATURE */
+		pbat_data->is_charging=0;
+		charging_index=0;
+#endif /* CONFIG_SEC_CHARGING_FEATURE */
+		pr_info("Charging mode Wall charger connected \n");
+	}
+	else {
+		pbat_data->is_charging=0;
+		charging_index=0;
+		pr_info("Discharging mode \n");
+	}
+	
 	// Read voltage ADC
 	ret = pbat->d2153_read_adc(pbat, D2153_ADC_VOLTAGE);
 
+	if(ret < 0)
+		return ret;
 	// Getting calibration result.
 #if 0
 	if(ACT_4P2V_ADC == 0 && SYSPARM_GetIsInitialized()) {
@@ -1792,40 +1251,17 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 	}
 #endif
 
-	// TODO: DLG eric.
-	// These codes will be added after charger driver ported.
-	#if 0
-	if(pchg_data->is_charging)
-	{	
-		
-		ret = fsa9480_read_charge_current(&charge_current);
-		if(ret < 0) {
-			pr_err("### %s. Failure!!! Getting charge current\n", __func__);
-			return -EIO;
-		}
-		offset_charging = initialize_charge_offset[(charge_current&0xF)];
+	if(pbat_data->is_charging)
+	{			
+		offset_charging = initialize_charge_offset[charging_index];
 
-		if((charge_current&0xF) > 5) 
-		{
-			int offset;
+		adc2soc_lut.adc_ht[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT+offset_charging;
+		adc2soc_lut.adc_rt[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT+offset_charging;
+		adc2soc_lut.adc_rlt[ADC2SOC_LUT_SIZE-1] = 3390+offset_charging;
+		adc2soc_lut.adc_lt[ADC2SOC_LUT_SIZE-1] = 3320+offset_charging;
+		adc2soc_lut.adc_lmt[ADC2SOC_LUT_SIZE-1] = 3260+offset_charging;
+		adc2soc_lut.adc_llt[ADC2SOC_LUT_SIZE-1] = 3160+offset_charging;
 
-			offset=(offset_charging-initialize_charge_offset[5] - 45);
-
-			adc2soc_lut.adc_ht[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT + offset;
-			adc2soc_lut.adc_rt[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT + offset;
-			adc2soc_lut.adc_rlt[ADC2SOC_LUT_SIZE-1] = 3390 + offset;
-			adc2soc_lut.adc_lt[ADC2SOC_LUT_SIZE-1] = 3320 + offset;
-			adc2soc_lut.adc_lmt[ADC2SOC_LUT_SIZE-1] = 3260 + offset;
-			adc2soc_lut.adc_llt[ADC2SOC_LUT_SIZE-1] = 3160 + offset;
-		}
-		else {
-			adc2soc_lut.adc_ht[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT;
-    		adc2soc_lut.adc_rt[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT;
-			adc2soc_lut.adc_rlt[ADC2SOC_LUT_SIZE-1] = 3390;
-    		adc2soc_lut.adc_lt[ADC2SOC_LUT_SIZE-1] = 3320;
-			adc2soc_lut.adc_lmt[ADC2SOC_LUT_SIZE-1] = 3260;
-    		adc2soc_lut.adc_llt[ADC2SOC_LUT_SIZE-1] = 3160;
-		}
 	} else {
 		adc2soc_lut.adc_ht[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT;
 		adc2soc_lut.adc_rt[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT;
@@ -1834,7 +1270,7 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 		adc2soc_lut.adc_lmt[ADC2SOC_LUT_SIZE-1] = 3260;
 		adc2soc_lut.adc_llt[ADC2SOC_LUT_SIZE-1] = 3160;
 	}
-	#endif
+
 	
 	if(pbat_data->adc_res[D2153_ADC_VOLTAGE].is_adc_eoc) {
 		int offset = 0;
@@ -1855,14 +1291,14 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 		
 		if(pbat->battery_data.volt_adc_init_done) {
 
-			battery_status = d2153_get_battery_status(pbat);
+			//battery_status = d2153_get_battery_status(pbat);
 
 			base_weight = d2153_get_weight_from_lookup(
 											C2K(pbat_data->average_temperature),
 											pbat_data->average_volt_adc,
-											pchg_data->is_charging);
+											pbat_data->is_charging);
 
-			if(pchg_data->is_charging) {
+			if(pbat_data->is_charging) {
 
 				offset_with_new = new_vol_adc - pbat_data->average_volt_adc; 
 				// Case of Charging
@@ -1870,7 +1306,7 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 
 				if(pbat_data->average_volt_adc > CV_START_ADC)
 					base_weight = base_weight + ((pbat_data->average_volt_adc 
-							- CV_START_ADC)*(600-base_weight))
+							- CV_START_ADC)*(LAST_CHARGING_WEIGHT-base_weight))
 							/ ((ADC_VAL_100_PERCENT+offset) - CV_START_ADC);
 				
 				if(offset_with_new > 0) {
@@ -1883,9 +1319,6 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 					}
 					else
 						new_vol_adc = pbat_data->average_volt_adc;
-				}
-				else if(offset_with_new < -200) { // not charged enough .. exception case
-					new_vol_adc = pbat_data->average_volt_adc + ((offset_with_new+100) * base_weight / NORM_NUM); 
 				}
 				else
 					new_vol_adc = pbat_data->average_volt_adc;
@@ -1947,8 +1380,6 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 					else
 						new_vol_adc = pbat_data->average_volt_adc;					
 				}
-				else 
-					new_vol_adc=pbat_data->average_volt_adc;
 
 				if(is_called_by_ticker ==0)			
 				{
@@ -2007,11 +1438,9 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 			
 			//new_vol_adc += 80; //52.5mV -> 40mV
 			if(C2K(pbat_data->average_temperature) <= BAT_LOW_LOW_TEMPERATURE) {
-				pr_info("### BAT_LOW_LOW_TEMPERATURE new ADC is %4d \n", new_vol_adc);
 				new_vol_adc += (Y0 + 330);
 			} else if(C2K(pbat_data->average_temperature) >= BAT_ROOM_TEMPERATURE) {
 				new_vol_adc += Y0;
-				pr_info("### BAT_ROOM_TEMPERATURE new ADC is %4d \n", new_vol_adc);
 			} else {
 				if(C2K(pbat_data->average_temperature) <= BAT_LOW_MID_TEMPERATURE) {
 					Y1 = Y0 + 105;	Y0 = Y0 + 330;
@@ -2040,33 +1469,39 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 			result = ((res_msb << 4) | (res_lsb & 0xF));
 
 			// Conpensate charging current.
-			if(pchg_data->is_charging) {
-				u8 is_cv_charging = 0;
-				u8 read_status;
+			if(pbat_data->is_charging) {
+				union power_supply_propval is_cv_charging;	
+								
+				ps->get_property(ps, POWER_SUPPLY_PROP_CHARGE_STATUS, &is_cv_charging);
+								
+				is_cv_charging.intval= (is_cv_charging.intval & 0x4);
+				
+				pr_info("CV =%d offset_charging = %d index=%d\n",is_cv_charging.intval, offset_charging,charging_index);
 
-				offset_charging = offset_charging - (offset_charging*18)/100;
-				pr_info(" offset_charging = %d\n", offset_charging);
+				if(is_cv_charging.intval && new_vol_adc > (CV_START_ADC)) {
 
-				// TODO: DLG eric
-				#if 0   // These codes will be added after charger driver ported
-				fsa9480_read_charger_status(&read_status);
-				is_cv_charging = (read_status & (0x1 << 3));
-
-				if(is_cv_charging && new_vol_adc > (CV_START_ADC)) {
-
-					int offset;
-
-					offset = (offset_charging*LAST_VOL_UP_PERCENT)/100;
+					offset=initialize_charge_up_cc[charging_index]
+						+(initialize_charge_offset[charging_index]
+						-initialize_charge_offset[charging_index]);						
+					///185 + (x-12)
 					
-					new_vol_adc =new_vol_adc -(offset_charging - ((new_vol_adc - CV_START_ADC)*(offset_charging-offset))
-						/ ((ADC_VAL_100_PERCENT + offset) - (CV_START_ADC)));
+					if(new_vol_adc > 3600){ //4195mV
+						new_vol_adc =new_vol_adc -80;
+					}
+					else {	
+						//usb = adc - 185 -40 + 185(%)
+						//wall = adc - (185+22) -80 + (185+22)(%)
+						new_vol_adc =new_vol_adc -offset-80 +offset*((new_vol_adc - CV_START_ADC)
+							/ ( 3600 - CV_START_ADC));		
+					}
 				}
-				else {
-					// Charging CC
-					base_diff_adc = offset_charging;
-					new_vol_adc -= base_diff_adc; //95mV TI charge 450mA charging 
+				else 
+				{
+					offset=initialize_charge_up_cc[charging_index];
+					// Charging CC					
+					new_vol_adc -= offset;
 				}
-				#endif
+
 			}
 
 			result=result_vol_adc - new_vol_adc;
@@ -2084,16 +1519,15 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 			
 			pbat_data->current_volt_adc = new_vol_adc;
 			pbat->battery_data.volt_adc_init_done = TRUE;
-			power_supply_changed(&pbat->battery);
 		}
 
 		pbat_data->origin_volt_adc = new_vol_orign;
 		pbat_data->average_volt_adc = pbat_data->sum_voltage_adc >> AVG_SHIFT;
 		pbat_data->voltage_idx = (pbat_data->voltage_idx+1) % AVG_SIZE;
 		pbat_data->current_voltage = adc_to_vbat(pbat_data->current_volt_adc,
-											 pbat->charger_data.pmic_vbus_state);
+											 pbat_data->is_charging);
 		pbat_data->average_voltage = adc_to_vbat(pbat_data->average_volt_adc,
-											 pbat->charger_data.pmic_vbus_state);
+											 pbat_data->is_charging);
 
 		pr_info("# SOC = %3d.%d %%, Weight = %4d, ADC(oV) = %4d, ADC(aV) = %4d, OFST = %4d, Voltage = %4d mV, ADC(T) = %4d, ADC(VF) = %4d, Temp = %3d.%d \n",
 					(pbat->battery_data.soc/10),
@@ -2112,7 +1546,6 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 		pr_err("%s. Voltage ADC read failure \n", __func__);
 		ret = -EIO;
 	}
-	//mutex_unlock(&pbat->lock);
 
 	return ret;
 }
@@ -2172,376 +1605,6 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 	}
 
 	return ret;
-}
-
-
-/* 
- * Name : d2153_read_vf
- */
-static int d2153_read_vf(struct d2153_battery *pbat)
-{
-	int i, ret = 0;
-	unsigned int sum = 0, read_adc;
-	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-
-	if(pbat == NULL || pbat_data == NULL) {
-		pr_err("%s. Invalid Parameter \n", __func__);
-		return -EINVAL;
-	}
-
-	// Read VF ADC
-	for(i = 4; i; i--) {
-		ret = pbat->d2153_read_adc(pbat, D2153_ADC_VF);
-
-		if(pbat_data->adc_res[D2153_ADC_VF].is_adc_eoc) {
-			mutex_lock(&pbat->api_lock);
-			read_adc = pbat_data->adc_res[D2153_ADC_VF].read_adc;
-			sum += read_adc;
-			pbat_data->vf_ohm = d2153_get_vf_ohm(pbat_data->vf_adc);
-			mutex_unlock(&pbat->api_lock);
-		}
-		else {
-			pr_err("%s. VF ADC read failure \n", __func__);
-			ret = -EIO;
-		}
-	}
-
-	if(i == 0) {
-		// getting average and store VF ADC to member of structure.
-		pbat_data->vf_adc = sum >> 2;
-	}
-
-	return 0;
-}
-
-
-/* 
- * Name : d2153_start_charge
- */
-static void d2153_start_charge(struct d2153_battery *pbat, u32 timer_type)
-{
-	u32 time = 0;
-
-	pr_info("%s. Start\n", __func__);
-
-	if(d2153_check_enable_charge(pbat) < 0) {
-		pr_err("%s. Failed to enable charge\n", __func__);
-	}
-
-	if(timer_pending(&pbat->charge_timer)) {
-		pr_info("%s Charge_timer is running. Delete charge_timer\n", __func__);
-		del_timer(&pbat->charge_timer);
-	}
-
-	if(timer_pending(&pbat->recharge_start_timer)) {
-		pr_info("%s. recharge_start_timer is running. Delete reCharge_start_timer\n", __func__);
-		if(d2153_check_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TIMER) == 0) {
-			d2153_clear_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TIMER);
-		}
-		del_timer(&pbat->recharge_start_timer);
-	}
-
-	if(timer_type == BAT_CHARGE_START_TIMER) {
-		if(pbat->battery_data.capacity < BAT_CAPACITY_1500MA)
-			time = BAT_CHARGE_TIMER_5HOUR;
-		else if(pbat->battery_data.capacity < BAT_CAPACITY_2000MA)
-			time = BAT_CHARGE_TIMER_6HOUR;
-		else if(pbat->battery_data.capacity < BAT_CAPACITY_4500MA)
-			time = BAT_CHARGE_TIMER_8HOUR;
-		else if(pbat->battery_data.capacity < BAT_CAPACITY_7000MA)
-			time = BAT_CHARGE_TIMER_10HOUR;
-		else {
-			time = BAT_CHARGE_TIMER_5HOUR;
-			pr_warn("%s. wrong battery capacity %d\n", __func__,
-													pbat->battery_data.capacity);
-		}
-	}
-	else if(timer_type == BAT_CHARGE_RESTART_TIMER)
-		time = BAT_CHARGE_TIMER_90MIN;
-
-	pbat->charge_timer.expires = jiffies + time; 
-	add_timer(&pbat->charge_timer);	
-
-	return;
-}
-
-
-/* 
- * Name : d2153_stop_charge
- */
-static void d2153_stop_charge(struct d2153_battery *pbat, u8 end_of_charge)
-{
-	pr_info("%s. Start\n", __func__);
-	if(d2153_check_disable_charge(pbat,end_of_charge) < 0) {
-		pr_warn("%s. Failed to disable_charge\n", __func__);
-	}
-
-	if(timer_pending(&pbat->charge_timer)) {
-		printk("%s Charge_timer is running. Delete Charge_timer\n", __func__);
-		del_timer(&pbat->charge_timer);
-	}
-
-	if(timer_pending(&pbat->recharge_start_timer)) 	{
-		pr_info("%s recharge_start_timer is running. Delete recharge_start_timer\n", __func__);
-		if(d2153_check_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TIMER)==0)
-		{
-			d2153_clear_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TIMER);
-		}
-		del_timer(&pbat->recharge_start_timer);
-	}
-}
-
-
-/* 
- * Name : d2153_battery_charge_full
- */
-static void d2153_battery_charge_full(struct d2153_battery *pbat)
-{
-	int soc = 0;
-
-	pr_info("%s. charger_type (%d)\n", __func__, d2153_get_charger_type(pbat));
-
-	if(d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE) {
-
-		soc = d2153_get_battery_capacity(pbat);	
-		if(soc != 100) {
-			if(soc >= 99) {
-				pbat->battery_data.soc = 100;
-			}
-			pr_info("%s. SOC : %d\n", __func__, soc);
-		}
-
-		if(soc == 1000) {
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_FULL);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_FULL);
-			d2153_stop_charge(pbat, BAT_END_OF_CHARGE_BY_FULL);
-			power_supply_changed(&pbat->battery);
-		}
-	}
-	else {
-		pr_info("%s. Can not make battery full. There is no charger\n", __func__);
-	}
-}
-
-
-/* 
- * Name : d2153_ovp_charge_stop
- */
-static void d2153_ovp_charge_stop(struct d2153_battery *pbat)
-{
-	int battery_status;
-
-	if(d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE)
-	{
-		d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_OVERVOLTAGE);
-
-		battery_status = d2153_get_battery_status(pbat);
-
-		if(battery_status == POWER_SUPPLY_STATUS_CHARGING) {                                                          
-			pr_info("%s. Stop charging by OVP\n", __func__);                                                         
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_OVP);          
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_NOT_CHARGING);
-			d2153_stop_charge(pbat, BAT_END_OF_CHARGE_BY_OVP);                         
-		}                                                          
-		else if((battery_status == POWER_SUPPLY_STATUS_NOT_CHARGING)
-				|| (battery_status == POWER_SUPPLY_STATUS_FULL))                                                                     
-		{       
-			pr_info("%s. Charging had already been stopped\n", __func__);         
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_OVP);          
-		}
-	}
-}
-
-
-/* 
- * Name : d2153_ovp_charge_restart
- */
-static void d2153_ovp_charge_restart(struct d2153_battery *pbat)
-{
-	if(d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE)
-	{
-		if(d2153_check_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_OVP)==0)
-		{
-			pr_info("%s. Restart charge. Device recorver OVP status\n", __func__);
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_NONE);
-			d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_GOOD);
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_CHARGING);
-			d2153_start_charge(pbat, BAT_CHARGE_START_TIMER);
-		}
-	}
-}
-
-
-/* 
- * Name : d2153_vf_charge_stop
- */
-static void d2153_vf_charge_stop(struct d2153_battery *pbat)
-{
-	int battery_status;
-	
-	if(d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE)
-	{
-		d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
-		battery_status = d2153_get_battery_status(pbat);
-
-		if(battery_status == POWER_SUPPLY_STATUS_CHARGING)
-		{                                                          
-			pr_info("%s. Stop charging by vf open\n", __func__);                                                         
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_VF_OPEN);          
-			d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_NOT_CHARGING);
-			d2153_stop_charge(pbat, BAT_END_OF_CHARGE_BY_VF_OPEN);                         
-		}                                                          
-		else if((battery_status == POWER_SUPPLY_STATUS_NOT_CHARGING)
-			|| (battery_status == POWER_SUPPLY_STATUS_FULL))                                                                     
-		{       
-			pr_info("%s. Charging had been stopped\n", __func__);         
-			d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_VF_OPEN);          
-		}
-	}
-}
-
-
-/* 
- * Name : d2153_ta_get_property
- */
-static int d2153_ta_get_property(struct power_supply *psy,
-                                    enum power_supply_property psp,
-                                    union power_supply_propval *val)
-{
-	int charger_type, ret = 0;
-	struct d2153_battery *pbat = dev_get_drvdata(psy->dev->parent);
-	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-
-	if(unlikely(!pbat || !pbat_data)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	switch(psp) {
-		case POWER_SUPPLY_PROP_ONLINE:
-			charger_type = d2153_get_charger_type(pbat);
-			if(charger_type == CHARGER_TYPE_TA)
-				val->intval = 1;
-			else
-				val->intval = 0;
-			pr_info("%s. charger_type (%d), intval (%d) \n", __func__, charger_type, val->intval);
-			break;
-		default:
-			pr_info("%s. TA : Property(%d) was not implemented\n", __func__, psp);
-			ret = -EINVAL;
-			break;
-	}
-
-	return ret;
-}
-
-
-/* 
- * Name : d2153_usb_get_property
- */
-static int d2153_usb_get_property(struct power_supply *psy,
-                                    enum power_supply_property psp,
-                                    union power_supply_propval *val)
-{
-	int charger_type, ret = 0;
-	struct d2153_battery *pbat = dev_get_drvdata(psy->dev->parent);
-	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-
-	if(unlikely(!pbat || !pbat_data)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	switch(psp) {
-		case POWER_SUPPLY_PROP_ONLINE:
-			charger_type = d2153_get_charger_type(pbat);\
-			if(charger_type == CHARGER_TYPE_USB)
-				val->intval = 1;
-			else
-				val->intval = 0;
-			pr_info("%s. charger_type (%d), intval (%d)\n", __func__, charger_type, val->intval);
-			break;
-		default:
-			pr_info("%s. USB : Property(%d) was not implemented\n", __func__, psp);
-			ret = -EINVAL;
-			break;
-	}
-
-	return ret;
-}
-
-
-
-/* 
- * Name : d2153_battery_get_property
- */
-static int d2153_battery_get_property(struct power_supply *psy,
-                                    enum power_supply_property psp,
-                                    union power_supply_propval *val)
-{
-	int ret = 0;
-	struct d2153_battery *pbat = dev_get_drvdata(psy->dev->parent);
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return -EINVAL;
-	}
-
-	switch(psp) {
-		case POWER_SUPPLY_PROP_STATUS:
-			val->intval = d2153_get_battery_status(pbat);
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_HEALTH:
-			val->intval = d2153_get_battery_health(pbat);
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_PRESENT:
-			val->intval = pbat->battery_data.battery_present;
-			break;
-		case POWER_SUPPLY_PROP_CAPACITY:
-			val->intval = d2153_get_battery_capacity(pbat) / 10;
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_TECHNOLOGY:
-			val->intval = d2153_get_battery_technology(pbat);
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-			val->intval = (adc_to_vbat(pbat->battery_data.origin_volt_adc, pbat->charger_data.is_charging) * 1000);
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_VOLTAGE_NOW_ADC:
-			val->intval = pbat->battery_data.origin_volt_adc;
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-			
-		case POWER_SUPPLY_PROP_VOLTAGE_AVG:
-			val->intval = (d2153_get_average_voltage(pbat) * 1000);
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		case POWER_SUPPLY_PROP_TEMP:
-			val->intval = pbat->battery_data.average_temperature;
-			break;
-		case POWER_SUPPLY_PROP_BATT_TEMP_ADC:
-			val->intval = pbat->battery_data.average_temp_adc;
-			if(val->intval < 0)
-				ret = val->intval;
-			break;
-		default:
-			pr_info("%s. Battery : Property(%d) was not implemented\n", __func__, psp);
-			ret = -EINVAL;
-			break;
-	}
-
-	return ret;    
 }
 
 
@@ -2663,47 +1726,6 @@ out:
 
 
 /* 
- * Name : d2153_charge_timer_expired
- */
-static void d2153_charge_timer_expired(unsigned long data)
-{
-	struct d2153_battery *pbat = (struct d2153_battery*)data; 
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return;
-	}
-
-	pr_info("%s\n", __func__);
-
-	schedule_delayed_work(&pbat->charge_timer_work, 0);
-
-	return;
-}
-
-
-/* 
- * Name : d2153_recharge_timer_expired
- */
-static void d2153_recharge_timer_expired(unsigned long data)
-{
-	struct d2153_battery *pbat = (struct d2153_battery*)data; 
-
-
-	if(unlikely(!pbat)) {
-		pr_err("%s. Invalid driver data\n", __func__);
-		return;
-	}
-
-	pr_info("%s\n", __func__);
-
-	schedule_delayed_work(&pbat->recharge_start_timer_work, 0);
-
-	return;
-}
-
-
-/* 
  * Name : d2153_sleep_monitor
  */
 static void d2153_sleep_monitor(struct d2153_battery *pbat)
@@ -2717,109 +1739,78 @@ static void d2153_sleep_monitor(struct d2153_battery *pbat)
 /* 
  * Name : d2153_monitor_voltage_work
  */
-extern void d2153_set_adc_rpc(int result);
+
+int d2153_battery_read_status(int type)
+{
+	int val=0;
+
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
+	switch(type){
+		case D2153_BATTERY_SOC:
+			val=d2153_get_soc(gbat);
+			val=(val+5)/10;
+			break;
+
+		case D2153_BATTERY_CUR_VOLTAGE:
+			val=gbat->battery_data.current_voltage;
+			break;
+ 
+		case D2153_BATTERY_TEMP_ADC:
+			val=gbat->battery_data.current_temp_adc;
+			break;
+		case D2153_BATTERY_SLEEP_MONITOR:
+			is_called_by_ticker=1;
+			wake_lock_timeout(&gbat->battery_data.sleep_monitor_wakeup, 
+									D2153_SLEEP_MONITOR_WAKELOCK_TIME);
+			cancel_delayed_work_sync(&gbat->monitor_temp_work);
+			cancel_delayed_work_sync(&gbat->monitor_volt_work);
+			schedule_delayed_work(&gbat->monitor_temp_work, 0);
+			schedule_delayed_work(&gbat->monitor_volt_work, 0);
+			break;
+	}
+	
+	return val;
+}
+EXPORT_SYMBOL(d2153_battery_read_status);
 
 static void d2153_monitor_voltage_work(struct work_struct *work)
 {
-	u8 end_of_charge = 0;
-	static u8 loop_count = 0;
-	int ret=0, charger_type = CHARGER_TYPE_NONE;
+	int ret=0; 
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_volt_work.work);
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-	int result;
-
+	struct power_supply *ps;
+	
 	if(unlikely(!pbat || !pbat_data)) {
 		pr_err("%s. Invalid driver data\n", __func__);
 		goto err_adc_read;
 	}
-
-#if 0   // Temp.
-	if(pbat->charger_data.enable_charge == NULL) {
-		pr_warn("Wait to register enable and disable charge function\n");
-		goto err_adc_read;
-	}
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+	ps = power_supply_get_by_name(spa_power_pdata.charger_name);
+#else
+	ps = NULL;
 #endif
-
-	ret = d2153_read_voltage(pbat);
+	if(ps == NULL){
+		pr_info("spa is not registered yet !!!");
+		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_START);
+		return;
+	}
+	
+	ret = d2153_read_voltage(pbat,ps);
 	if(ret < 0)
 	{
 		pr_err("%s. Read voltage ADC failure\n", __func__);
 		goto err_adc_read;
 	}
 
-	ret = d2153_get_soc(pbat);
-
-	if((d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE) 
-		&& (d2153_get_battery_health(pbat) != POWER_SUPPLY_HEALTH_UNSPEC_FAILURE)
-		&& (d2153_get_jig_state(pbat) == 0)) {
-
-		ret = d2153_read_vf(pbat); 
-		if(!ret) {
-
-			if(pbat_data->vf_lower >= pbat_data->vf_upper)
-			{
-				pr_err("%s. Please check battery. vf_lower(%d) vf_upper(%d)\n",
-							__func__, pbat_data->vf_lower, pbat_data->vf_upper);
-			}
-			else if(pbat_data->vf_adc == 0xFFF) {
-				// In case of, battery was removed.
-				pbat_data->battery_present = FALSE;
-				power_supply_changed(&pbat->battery);
-			}
-			else
-			{
-				if((pbat_data->vf_adc < pbat_data->vf_lower) 
-					|| (pbat_data->vf_adc > pbat_data->vf_upper))
-				{
-					pr_err("%s. Wrong battery detected. VF(%d), vf_lower(%d), vf_upper(%d)\n",
-						 __func__, pbat_data->vf_adc, pbat_data->vf_lower, pbat_data->vf_upper);
-					d2153_vf_charge_stop(pbat);
-				}
-			}
-		}
-		else {
-			pr_err("%s. Read VF ADC failure\n", __func__);
-		}
-	}
-
-	if(pbat->battery_data.volt_adc_init_done) {
-
-		charger_type = d2153_get_charger_type(pbat);
-		// Sampling time is 3 seconds for charging with Wall(TA) and USB charger
-		if(charger_type == CHARGER_TYPE_TA || charger_type == CHARGER_TYPE_USB)
-			schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
-		else {
-			if(loop_count <= 1) {
-				if(pbat_data->voltage_idx == AVG_SIZE - 1)
-					loop_count++;
-				schedule_delayed_work(&pbat->monitor_volt_work, (20 * HZ));
-			}
-			else {
-				schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_NORMAL);
-			}
-		}
+	if(pbat_data->is_charging ==0) {
+		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_NORMAL);
 	}
 	else {
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
-
-	// check recharge condition 
-	if((d2153_get_battery_status(pbat) == POWER_SUPPLY_STATUS_FULL) 
-		&& (adc_to_vbat(pbat_data->origin_volt_adc, pbat->charger_data.is_charging) < BAT_CHARGING_RESTART_VOLTAGE) 
-		&& (d2153_check_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_FULL)==0)) {
-		end_of_charge = d2153_clear_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_FULL);
-
-		if(end_of_charge == BAT_END_OF_CHARGE_NONE) {
-			pr_info("%s. Restart charging. Voltage is lower than %04d mV\n", 
-						__func__, BAT_CHARGING_RESTART_VOLTAGE);
-			d2153_start_charge(pbat, BAT_CHARGE_RESTART_TIMER);			
-			// TODO: Need to check more. d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_CHARGING);
-		}
-		else {
-			pr_info("%s. Can't restart charge. Reason is %d\n", __func__, end_of_charge); 
-		}
-	}
-
 	return;
 
 err_adc_read:
@@ -2832,20 +1823,11 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 {
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_temp_work.work);
 	int ret = 0;
-	int battery_health, average_temperature;
-	unsigned char end_of_charge = 0;
-
-#if 0   // Temp.
-	if(pbat->charger_data.enable_charge == NULL) {
-		pr_warn(" ### Wait to register enable and disable charge function ### \n");
-		goto err_adc_read;
-	}
-#endif
 
 	ret = d2153_read_temperature(pbat);
 	if(ret < 0) {
 		pr_err("%s. Failed to read_temperature\n", __func__);
-		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_NORMAL);
+		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 		return;
 	}
 
@@ -2856,86 +1838,11 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	}
 
-
-	battery_health = d2153_get_battery_health(pbat);
-	if((battery_health == POWER_SUPPLY_HEALTH_COLD) 
-		|| (battery_health == POWER_SUPPLY_HEALTH_OVERHEAT))
-	{
-		average_temperature = d2153_get_average_temperature(pbat);
-
-		if((average_temperature <= CHARGING_RESTART_HIGH_TEMPERATURE)
-			 && (average_temperature >= CHARGING_RESTART_LOW_TEMPERATURE))
-		 {
-
-			d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_GOOD);
-
-			if(d2153_check_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE) == 0)
-			{	
-				end_of_charge = d2153_clear_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-				
-				if(end_of_charge == BAT_END_OF_CHARGE_NONE) {
-					pr_info("%s. Restart charge. Temperature is in normal\n", 
-																	__func__);
-					d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_CHARGING);
-					d2153_start_charge(pbat, BAT_CHARGE_START_TIMER);
-				}				
-				else {
-					pr_warn("%s. Can't restart charge. Reason is %d\n", 
-													__func__, end_of_charge); 
-				}
-			}
-			else {
-				pr_info("%s. Temperature is in normal\n", __func__);
-			}
-		}
-		else
-		{
-			if(d2153_get_battery_status(pbat) == POWER_SUPPLY_STATUS_CHARGING)
-			{
-				pr_info("%s. Stop charging. Insert TA during HEALTH_COLD or HEALTH_OVERHEAT\n", __func__);
-				d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-				d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_NOT_CHARGING);
-				d2153_stop_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-			}
-		}
-	}
-	else {
-		int average_temperature = d2153_get_average_temperature(pbat);
-
-		if((d2153_get_charger_type(pbat) != CHARGER_TYPE_NONE)  
-			 && ((average_temperature >= CHARGING_STOP_HIGH_TEMPERATURE) 
-			 	|| (average_temperature <= CHARGING_STOP_LOW_TEMPERATURE)))
-	 	{
-
-			if(average_temperature >= CHARGING_STOP_HIGH_TEMPERATURE)
-				d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_OVERHEAT);
-			else if(average_temperature <= CHARGING_STOP_LOW_TEMPERATURE)
-				d2153_set_battery_health(pbat, POWER_SUPPLY_HEALTH_COLD);
-
-			if(d2153_get_battery_status(pbat) == POWER_SUPPLY_STATUS_CHARGING)
-			{
-				pr_info("%s. Stop charging by HIGH_TEMPERATURE or LOW_TEMPERATURE\n", __func__);
-				d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-				d2153_set_battery_status(pbat, POWER_SUPPLY_STATUS_NOT_CHARGING);
-				d2153_stop_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-			}					
-			else if((d2153_get_battery_status(pbat) == POWER_SUPPLY_STATUS_NOT_CHARGING)
-					|| (d2153_get_battery_status(pbat) == POWER_SUPPLY_STATUS_FULL))
-			{
-				pr_info("%s. Already charging had been stopped\n", __func__);
-				d2153_set_end_of_charge(pbat, BAT_END_OF_CHARGE_BY_TEMPERATURE);
-			}
-		}
-	}
-
-	return ;
-
-err_adc_read :
-	schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	return ;
 }
 
 
+#if 0
 /* 
  * Name : d2153_info_notify_work
  */
@@ -3038,7 +1945,17 @@ static void d2153_sleep_monitor_work(struct work_struct *work)
 
 	return ;	
 }
+#endif
 
+void d2153_battery_start(void)
+{
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
+	schedule_delayed_work(&gbat->monitor_volt_work, 0);
+}
+EXPORT_SYMBOL_GPL(d2153_battery_start);
 
 /* 
  * Name : d2153_battery_init
@@ -3046,9 +1963,8 @@ static void d2153_sleep_monitor_work(struct work_struct *work)
 static void d2153_battery_data_init(struct d2153_battery *pbat)
 {
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-	struct d2153_charger_data *pchg_data = &pbat->charger_data;
 
-	if(unlikely(!pbat_data || !pchg_data)) {
+	if(unlikely(!pbat_data)) {
 		pr_err("%s. Invalid platform data\n", __func__);
 		return;
 	}
@@ -3060,214 +1976,11 @@ static void d2153_battery_data_init(struct d2153_battery *pbat)
 	pbat_data->volt_adc_init_done = FALSE;
 	pbat_data->temp_adc_init_done = FALSE;
 	pbat_data->battery_present = TRUE;
-	pbat_data->health = POWER_SUPPLY_HEALTH_GOOD;
-	pbat_data->status = POWER_SUPPLY_STATUS_DISCHARGING;
-	pbat_data->end_of_charge = BAT_END_OF_CHARGE_NONE;
-
-	pchg_data->is_charging = FALSE;
-	pchg_data->current_charger = CHARGER_TYPE_NONE;
-
-	wake_lock_init(&pchg_data->charger_wakeup, WAKE_LOCK_SUSPEND, "charger_wakeups");
-	wake_lock_init(&pbat_data->sleep_monitor_wakeup, WAKE_LOCK_SUSPEND, "sleep_monitor");
-
-	init_timer(&pbat->charge_timer);
-	pbat->charge_timer.function = d2153_charge_timer_expired;
-	pbat->charge_timer.data = (u_long)pbat; 
-
-	init_timer(&pbat->recharge_start_timer);
-	pbat->recharge_start_timer.function = d2153_recharge_timer_expired;
-	pbat->recharge_start_timer.data = (u_long)pbat; 
-
-	pbat_data->capacity = pbat->pd2153->pdata->pbat_platform->battery_capacity;
-	pbat_data->battery_technology = pbat->pd2153->pdata->pbat_platform->battery_technology;
-
-	if(pbat->pd2153->pdata->pbat_platform->vf_lower 
-			>= pbat->pd2153->pdata->pbat_platform->vf_upper)
-	{
-		printk("%s. Please check vf_lower(%d) and vf_upper(%d)\n", 
-					__func__, 
-					pbat->pd2153->pdata->pbat_platform->vf_lower,
-					pbat->pd2153->pdata->pbat_platform->vf_upper);
-	}
-	else
-	{
-		pbat_data->vf_lower = pbat->pd2153->pdata->pbat_platform->vf_lower;
-		pbat_data->vf_upper = pbat->pd2153->pdata->pbat_platform->vf_upper;
-	}
+	wake_lock_init(&pbat_data->sleep_monitor_wakeup, WAKE_LOCK_SUSPEND, "sleep_monitor");		
 
 	return;
 }
 
-
-// The following definition is for functionality of power-off charging
-#define CONFIG_SEC_BATT_EXT_ATTRS
-
-#if defined(CONFIG_SEC_BATT_EXT_ATTRS)
-#define BATT_TYPE 							"SDI_SDI"
-enum
-{
-	SS_BATT_LP_CHARGING,
-	SS_BATT_CHARGING_SOURCE,
-	SS_BATT_TEMP_AVER,
-	SS_BATT_TEMP_ADC_AVER,
-	SS_BATT_TYPE,
-	SS_BATT_READ_ADJ_SOC,
-	SS_BATT_RESET_SOC,
-	SS_BATT_READ_RAW_SOC,
-};
-
-static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf);
-static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attribute *attr, const char *buf, size_t count);
-
-static struct device_attribute ss_batt_ext_attrs[]=
-{
-	__ATTR(batt_lp_charging, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_charging_source, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_temp_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_temp_adc_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_type, 0644, ss_batt_ext_attrs_show, NULL),
-	__ATTR(batt_read_adj_soc, 0644, ss_batt_ext_attrs_show , NULL),
-	__ATTR(batt_reset_soc, 0664, NULL, ss_batt_ext_attrs_store),
-	
-	__ATTR(batt_read_raw_soc, 0664, ss_batt_ext_attrs_show, NULL),
-};
-
-static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf)
-{
-	ssize_t count=0;
-	int lp_charging=0;
-
-	struct d2153_battery *pbat = pdev->platform_data;
-	struct d2153_charger_data *pchg_data = &pbat->charger_data;
-
-	const ptrdiff_t off = attr - ss_batt_ext_attrs;
-
-	//struct power_supply *ps;
-	union power_supply_propval propval;
-	propval.intval = 0;
-	propval.strval = 0;
-
-	if(pbat == NULL)
-	{
-		printk("%s: Failed to get drive_data\n",__func__);
-		return 0;
-	}
-
-	switch(off)
-	{
-		case SS_BATT_LP_CHARGING:
-			lp_charging = pchg_data->lp_charging;
-			count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", lp_charging);
-			break;
-		case SS_BATT_CHARGING_SOURCE:
-			{
-				unsigned int charger_type = 0;
-				unsigned int charging_source = 0;
-
-				charging_source = d2153_get_charger_type(pbat);
-				switch(charging_source)
-				{
-					case CHARGER_TYPE_TA :
-						charger_type = POWER_SUPPLY_TYPE_USB_DCP;
-						break;
-					case CHARGER_TYPE_USB :
-						charger_type = POWER_SUPPLY_TYPE_USB;
-						break;
-					default:
-						break;
-				}
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", charger_type);
-			}
-			break;
-		case SS_BATT_TEMP_AVER:
-			{
-				int temp_aver = 0;
-
-				temp_aver = pbat->battery_data.average_temp_adc;
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", temp_aver);
-			}
-			break;
-		case SS_BATT_TEMP_ADC_AVER:
-			{
-				int temp_adc_aver = 0;
-
-				temp_adc_aver = pbat->battery_data.average_temp_adc;
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", temp_adc_aver);
-			}
-			break;
-		case SS_BATT_TYPE:
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%s\n", BATT_TYPE);
-			break;
-		case SS_BATT_READ_ADJ_SOC:
-			{
-				int capacity = 0;
-
-				capacity = pbat->battery_data.soc / 10;
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", capacity);
-			}
-			break;
-		case SS_BATT_READ_RAW_SOC:
-			{
-				int soc = 0;
-
-				soc = pbat->battery_data.soc * 10;
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", soc);
-			}
-			break;
-		default:
-			break;
-	}
-
-
-	return count;
-}
-
-static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct d2153_battery *pbat = pdev->platform_data;
-
-	const ptrdiff_t off = attr - ss_batt_ext_attrs;
-
-	//struct power_supply *ps;
-	union power_supply_propval propval;
-	propval.intval = 0;
-	propval.strval = 0;
-
-	if(pbat == NULL)
-	{
-		printk("%s: Failed to get drive_data\n",__func__);
-		return 0;
-	}
-
-	switch(off)
-	{
-		case SS_BATT_RESET_SOC:
-			{
-				// TODO: Check.
-				//count = 0;
-
-				//unsigned long val = simple_strtoul(buf, NULL, 0);
-				//if ((val == 1) && (bcmpmu->em_reset))
-				//	bcmpmu->em_reset(bcmpmu);	
-			}
-			break;
-		default:
-			break;
-	}
-
-	return count;
-}
-
-unsigned int lp_boot_mode;
-static int get_boot_mode(char *str)
-{
-	get_option(&str, &lp_boot_mode);
-
-	return 1;
-}
-__setup("lpcharge=",get_boot_mode);
-
-#endif /* CONFIG_SEC_BATT_EXT_ATTRS */
 
 /* 
  * Name : d2153_battery_probe
@@ -3276,7 +1989,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
-	int ret, i;
+	int ret;
 
 	pr_info("Start %s\n", __func__);
 
@@ -3285,9 +1998,9 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000);
-	if (r8a73734_hwlock_pmic == NULL) {
-		pr_err("Unable to register hw spinlock for pmic driver\n",__func__);
+	r8a73734_hwlock_pmic_d2153 = hwspin_lock_request_specific(SMGP000);
+	if (r8a73734_hwlock_pmic_d2153 == NULL) {
+		pr_err("%s Unable to register hw spinlock for pmic driver\n",__func__);
 		return -EIO;
 	}
 	
@@ -3307,95 +2020,17 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	// Disable 50uA current source in Manual ctrl register
 	d2153_reg_write(d2153, D2153_ADC_MAN_REG, 0x00);
 
-	pbat->wall.name = POWER_SUPPLY_WALL;
-	pbat->wall.type = POWER_SUPPLY_TYPE_MAINS;
-	pbat->wall.properties = d2153_ta_props;
-	pbat->wall.num_properties = ARRAY_SIZE(d2153_ta_props);
-	pbat->wall.get_property = d2153_ta_get_property;
-	ret = power_supply_register(&pdev->dev, &pbat->wall);
-	if(ret) {
-		pr_err("%s. The wall charger registration failed\n", __func__);
-		goto err_reg_wall_supply;
-	}
-
-	pbat->usb.name = POWER_SUPPLY_USB;
-	pbat->usb.type = POWER_SUPPLY_TYPE_USB;
-	pbat->usb.properties = d2153_usb_props;
-	pbat->usb.num_properties = ARRAY_SIZE(d2153_usb_props);
-	pbat->usb.get_property = d2153_usb_get_property;
-	ret = power_supply_register(&pdev->dev, &pbat->usb);
-	if(ret) {
-		pr_err("%s. The USB registration failed\n", __func__);
-		goto err_reg_usb_supply;        
-	}
-
-	pbat->battery.name = POWER_SUPPLY_BATTERY;
-	pbat->battery.type = POWER_SUPPLY_TYPE_BATTERY;
-	pbat->battery.properties = d2153_battery_props;
-	pbat->battery.num_properties = ARRAY_SIZE(d2153_battery_props);
-	pbat->battery.get_property = d2153_battery_get_property;
-	ret = power_supply_register(&pdev->dev, &pbat->battery);
-	if(ret) {
-		pr_err("%s. The battery registration failed\n", __func__);
-		goto err_reg_battery_supply;        
-	}
-
-	// Register event handler
-#ifdef D2153_REG_TBAT2_IRQ
-	ret = d2153_register_irq(d2153, D2153_IRQ_ETBAT2, d2153_battery_tbat2_handler,
-							0, "d2153-tbat2", pbat);
-	if(ret < 0) {		
-		pr_err("%s. TBAT2 IRQ register failed\n", __func__);
-		goto err_reg_tbat2;
-	}
-#endif /* D2153_REG_TBAT2_IRQ */
-#ifdef D2153_REG_VDD_LOW_IRQ
-	ret = d2153_register_irq(d2153, D2153_IRQ_EVDD_LOW, d2153_battery_vdd_low_handler,
-							0, "d2153-vddlow", pbat);
-	if(ret < 0) {		
-		pr_err("%s. VDD_LOW IRQ register failed\n", __func__);
-		goto err_reg_vdd_low;
-	}
-#endif /* D2153_REG_VDD_LOW_IRQ */
-#ifdef D2153_REG_VDD_MON_IRQ
-	ret = d2153_register_irq(d2153, D2153_IRQ_EVDD_MON, d2153_battery_vdd_mon_handler,
-							0, "d2153-vddmon", pbat);
-	if(ret < 0) {		
-		pr_err("%s. VDD_MON IRQ register failed\n", __func__);
-		goto err_reg_vdd_mon;
-	}
-#endif /* D2153_REG_VDD_MON_IRQ */
-#ifdef D2153_REG_EOM_IRQ
-	ret = d2153_register_irq(d2153, D2153_IRQ_EADCEOM, d2153_battery_adceom_handler,
-							0, "d2153-eom", pbat);
-	if(ret < 0) {		
-		pr_err("%s. ADCEOM IRQ register failed\n", __func__);
-		goto err_reg_eadeom;
-	}
-#endif /* D2153_REG_EOM_IRQ */
-
-	pbat->battery.dev->platform_data = (void *)pbat;
-
-#if defined(CONFIG_SEC_BATT_EXT_ATTRS)
-	pbat->charger_data.lp_charging = lp_boot_mode;
-	pr_info("%s. lp_charging = %d\n", __func__, lp_boot_mode);
-	for(i = 0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++)
-	{
-		ret = device_create_file(pbat->battery.dev, &ss_batt_ext_attrs[i]);
-	}
-#endif
-
 	INIT_DELAYED_WORK(&pbat->monitor_volt_work, d2153_monitor_voltage_work);
 	INIT_DELAYED_WORK(&pbat->monitor_temp_work, d2153_monitor_temperature_work);
+#if 0	
 	INIT_DELAYED_WORK(&pbat->info_notify_work, d2153_info_notify_work);
 	INIT_DELAYED_WORK(&pbat->charge_timer_work, d2153_charge_timer_work);
 	INIT_DELAYED_WORK(&pbat->recharge_start_timer_work, d2153_recharge_start_timer_work);
 	INIT_DELAYED_WORK(&pbat->sleep_monitor_work, d2153_sleep_monitor_work);
+#endif	
 
-	// Start schedule of dealyed work for monitoring voltage and temperature.
-	schedule_delayed_work(&pbat->info_notify_work, D2153_NOTIFY_INTERVAL);
-	schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_START);
-	schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_START);
+	// Start schedule of dealyed work for temperature.
+	schedule_delayed_work(&pbat->monitor_temp_work, 0);
 
 	device_init_wakeup(&pdev->dev, 1);	
 
@@ -3415,27 +2050,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	return 0;
 
 err_default:
-#ifdef D2153_REG_EOM_IRQ
-err_reg_eadeom:
-#endif /* D2153_REG_EOM_IRQ */
-#ifdef D2153_REG_VDD_MON_IRQ
-	d2153_free_irq(d2153, D2153_IRQ_EVDD_MON);
-err_reg_vdd_mon:
-#endif /* D2153_REG_VDD_MON_IRQ */
-#ifdef D2153_REG_VDD_LOW_IRQ
-	d2153_free_irq(d2153, D2153_IRQ_EVDD_LOW);
-err_reg_vdd_low:
-#endif /* D2153_REG_VDD_LOW_IRQ */
-#ifdef D2153_REG_TBAT2_IRQ
-	d2153_free_irq(d2153, D2153_IRQ_ETBAT2);
-err_reg_tbat2:
-#endif /* D2153_REG_TBAT2_IRQ */
-	power_supply_unregister(&pbat->battery);
-err_reg_battery_supply:
-	power_supply_unregister(&pbat->usb);
-err_reg_usb_supply:
-	power_supply_unregister(&pbat->wall);
-err_reg_wall_supply:
 	kfree(pbat);
 
 	return ret;
@@ -3450,7 +2064,7 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;
-	int ret;
+//	int ret;
 
 	pr_info("%s. Enter\n", __func__);
 
@@ -3461,7 +2075,7 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 
 	//ret = d2153_reg_write(d2153, D2153_BUCK_A_REG, 0x9A);//force pwm mode
 	
-	cancel_delayed_work(&pbat->info_notify_work);
+//	cancel_delayed_work(&pbat->info_notify_work);
 	cancel_delayed_work(&pbat->monitor_temp_work);
 	cancel_delayed_work(&pbat->monitor_volt_work);
 
@@ -3478,7 +2092,7 @@ static int d2153_battery_resume(struct platform_device *pdev, pm_message_t state
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;
-	int ret;
+//	int ret;
 
 	pr_info("%s. Enter\n", __func__);
 
@@ -3491,11 +2105,10 @@ static int d2153_battery_resume(struct platform_device *pdev, pm_message_t state
 	
 	// Start schedule of dealyed work for monitoring voltage and temperature.
 	if(!is_called_by_ticker) {
-		wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup, 
-										D2153_SLEEP_MONITOR_WAKELOCK_TIME);
+//		wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup, 
+//										D2153_SLEEP_MONITOR_WAKELOCK_TIME);
 		schedule_delayed_work(&pbat->monitor_temp_work, 0);
 		schedule_delayed_work(&pbat->monitor_volt_work, 0);
-		schedule_delayed_work(&pbat->info_notify_work, 0);
 	}
 
 	pr_info("%s. Leave\n", __func__);
@@ -3511,7 +2124,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;
-	int i;
+//	int i;
 
 	if(unlikely(!pbat || !d2153)) {
 		pr_err("%s. Invalid parameter\n", __func__);
@@ -3532,13 +2145,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 	d2153_free_irq(d2153, D2153_IRQ_ETBAT2);
 #endif /* D2153_REG_TBAT2_IRQ */
 
-#if defined(CONFIG_SEC_BATT_EXT_ATTRS)
-	for(i = 0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++)
-	{
-		device_remove_file(pbat->battery.dev, &ss_batt_ext_attrs[i]);
-	}
-#endif
-	hwspin_lock_free(r8a73734_hwlock_pmic);
+	hwspin_lock_free(r8a73734_hwlock_pmic_d2153);
 
 	return 0;
 }
@@ -3556,6 +2163,10 @@ static struct platform_driver d2153_battery_driver = {
 
 static int __init d2153_battery_init(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	printk(d2153_battery_banner);
 	return platform_driver_register(&d2153_battery_driver);
 }
@@ -3566,6 +2177,10 @@ subsys_initcall(d2153_battery_init);
 
 static void __exit d2153_battery_exit(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	flush_scheduled_work();
 	platform_driver_unregister(&d2153_battery_driver);
 }

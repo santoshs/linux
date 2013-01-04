@@ -31,9 +31,9 @@
 #include <linux/platform_device.h>
 #include <linux/fb.h>
 
-#ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK
 #include <linux/regulator/consumer.h>
-#endif
+
+#include <mach/common.h>
 
 #include "panel_hx8369_b.h"
 
@@ -189,12 +189,9 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 
 static unsigned int reset_gpio;
 static unsigned int irq_portno;
-#ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK
 struct regulator *power_ldo_3v;
 struct regulator *power_ldo_1v8;
-#else
 static unsigned int power_gpio;
-#endif
 
 struct specific_cmdset {
 	unsigned char cmd;
@@ -767,23 +764,23 @@ static void mipi_display_reset(void)
 
 	/* GPIO control */
 	gpio_request(reset_gpio, NULL);
-#ifndef CONFIG_MFD_D2153_BRINGUP_RECHECK
-	gpio_request(power_gpio, NULL);
-#endif
+	if (u2_get_board_rev() <= 4) {
+		gpio_request(power_gpio, NULL);
+	}
 	gpio_direction_output(reset_gpio, 0);
-#ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK
-	if(power_ldo_3v==NULL)
-		printk(KERN_ERR "power_ldo_3v failed\n");
-	else
-		regulator_enable(power_ldo_3v);
+	if (u2_get_board_rev() >= 5) {
+		if(power_ldo_3v==NULL)
+			printk(KERN_ERR "power_ldo_3v failed\n");
+		else
+			regulator_enable(power_ldo_3v);
 		
-	if(power_ldo_1v8==NULL)
-		printk(KERN_ERR "power_ldo_1v8 failed\n");
-	else
-		regulator_enable(power_ldo_1v8);
-#else
-	gpio_direction_output(power_gpio, 1);
-#endif
+		if(power_ldo_1v8==NULL)
+			printk(KERN_ERR "power_ldo_1v8 failed\n");
+		else
+			regulator_enable(power_ldo_1v8);
+	} else {
+		gpio_direction_output(power_gpio, 1);
+	}
 
 	msleep(20);
 
@@ -926,21 +923,21 @@ static int hx8369_b_panel_suspend(void)
 	/* GPIO control */
 	gpio_direction_output(reset_gpio, 0);
 	msleep(20);
-#ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK
+	if (u2_get_board_rev() >= 5) {
 	
-	if(power_ldo_3v==NULL)
-		printk(KERN_ERR "power_ldo_3v failed\n");
-	else
-		regulator_disable(power_ldo_3v);
+		if(power_ldo_3v==NULL)
+			printk(KERN_ERR "power_ldo_3v failed\n");
+		else
+			regulator_disable(power_ldo_3v);
 		
-	if(power_ldo_1v8==NULL)
-		printk(KERN_ERR "power_ldo_1v8 failed\n");
-	else
-		regulator_disable(power_ldo_1v8);
+		if(power_ldo_1v8==NULL)
+			printk(KERN_ERR "power_ldo_1v8 failed\n");
+		else
+			regulator_disable(power_ldo_1v8);
 
-#else
-	gpio_direction_output(power_gpio, 0);
-#endif
+	} else {
+		gpio_direction_output(power_gpio, 0);
+	}
 	msleep(25);
 
 	disp_delete.handle = screen_handle;
@@ -1053,15 +1050,15 @@ static int hx8369_b_panel_probe(struct fb_info *info,
 		printk(KERN_ALERT "panel_power_port is NULL!!\n");
 		return -ENODEV;
 	}
-#ifdef CONFIG_MFD_D2153_BRINGUP_RECHECK
-	power_ldo_3v = regulator_get(NULL, "vlcd_3v");
-	power_ldo_1v8 = regulator_get(NULL, "vlcd_1v8");
-#else	
-	power_gpio	= res_power_gpio->start;
-#endif
-#ifndef CONFIG_MFD_D2153_BRINGUP_RECHECK
-	printk(KERN_INFO "GPIO_PORT%d : for panel power\n", power_gpio);
-#endif
+	if (u2_get_board_rev() >= 5) {
+		power_ldo_3v = regulator_get(NULL, "vlcd_3v");
+		power_ldo_1v8 = regulator_get(NULL, "vlcd_1v8");
+	} else {
+		power_gpio	= res_power_gpio->start;
+	}
+	if (u2_get_board_rev() <= 4) {
+		printk(KERN_INFO "GPIO_PORT%d : for panel power\n", power_gpio);
+	}
 	printk(KERN_INFO "GPIO_PORT%d : for panel reset\n", reset_gpio);
 	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
 

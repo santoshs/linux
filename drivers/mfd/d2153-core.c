@@ -37,6 +37,7 @@
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 #define D2153_REG_DEBUG
 //#define D2153_SUPPORT_I2C_HIGH_SPEED
@@ -134,6 +135,10 @@ int d2153_clear_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
@@ -174,6 +179,10 @@ int d2153_set_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
@@ -215,6 +224,10 @@ int d2153_reg_read(struct d2153 * const d2153, u8 const reg, u8 *dest)
 	u8 data;
 	int err;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0)
@@ -242,6 +255,10 @@ int d2153_reg_write(struct d2153 * const d2153, u8 const reg, u8 const val)
 	int ret;
 	u8 data = val;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, reg, 1, &data);
 	if (ret != 0)
@@ -274,6 +291,10 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 	int i;
 #endif	   
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, start_reg, regs, dest);
 	if (err != 0)
@@ -306,6 +327,10 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 	int i;
 #endif
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, start_reg, regs, src);
 	if (ret != 0)
@@ -411,6 +436,10 @@ static int d2153_ioctl_open(struct inode *inode, struct file *file)
 
 int d2153_ioctl_release(struct inode *inode, struct file *file)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	file->private_data = NULL;
 	return 0;
 }
@@ -638,6 +667,10 @@ void d2153_debug_proc_init(struct d2153 *d2153)
 {
 	struct proc_dir_entry *entry;
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	disable_irq(d2153->chip_irq);
 	entry = proc_create_data("pmu0", S_IRWXUGO, NULL, &d2153_pmu_ops, d2153);
 	enable_irq(d2153->chip_irq);
@@ -649,6 +682,10 @@ void d2153_debug_proc_init(struct d2153 *d2153)
  */
 void d2153_debug_proc_exit(void)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}
 	//disable_irq(client->irq);
 	remove_proc_entry("pmu0", NULL);
 	//enable_irq(client->irq);
@@ -672,6 +709,10 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	u8 data;
 #endif
 
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 	if(d2153 != NULL)
 		d2153_regl_info = d2153;
 	else
@@ -695,7 +736,7 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 #endif
 
 	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0x0);
-	d2153_reg_write(d2153, D2153_PULLDOWN_D_REG, 0x0);
+	d2153_reg_write(d2153, D2153_PULLDOWN_D_REG, 0x0C);
 	d2153_reg_write(d2153, D2153_BBAT_CONT_REG, 0x1F);
 	d2153_set_bits(d2153,  D2153_SUPPLY_REG, D2153_BBCHG_EN_MASK);
 
@@ -766,6 +807,10 @@ EXPORT_SYMBOL_GPL(d2153_device_init);
  */
 void d2153_device_exit(struct d2153 *d2153)
 {
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
 #ifdef CONFIG_PROC_FS
 	d2153_debug_proc_exit();
 #endif
@@ -794,7 +839,11 @@ void d2153_system_poweroff(void)
 	struct d2153 *d2153 = d2153_dev_info;
 
 	dlg_info("%s\n", __func__);
-	
+
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return;
+	}	
 	if(d2153 == NULL || d2153->read_dev == NULL) {
 		dlg_err("%s. Platform or Device data is NULL\n", __func__);
 		return;
