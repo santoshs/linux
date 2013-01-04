@@ -11,6 +11,7 @@
 
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
+#define VSD_VDCORE_DELAY 50
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
