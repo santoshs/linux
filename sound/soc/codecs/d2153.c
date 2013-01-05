@@ -1828,17 +1828,15 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-#if 1 //def CONFIG_PM
+#ifdef CONFIG_PM
 static int d2153_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
 #if 0
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
-	dlg_info("%s() d2153_codec->sndp_power_mode=%d  \n",__FUNCTION__,d2153_codec->sndp_power_mode);
-	
 	if(d2153_codec->sndp_power_mode== 0)
 		d2153_codec_power(codec, 0);	
-#endif
+#endif	
 	return 0;
 }
 
@@ -1847,8 +1845,6 @@ static int d2153_resume(struct snd_soc_codec *codec)
 #if 0
 	int ret;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	
-	dlg_info("%s() d2153_codec->sndp_power_mode = %d  \n",__FUNCTION__,d2153_codec->sndp_power_mode);
 	
 	d2153_codec_power(codec, 1);
 	d2153_aad_enable(codec);
@@ -1877,7 +1873,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		regulator_enable(regulator);
 		regulator_put(regulator);
 
-		snd_soc_write(codec, D2153_CIF_CTRL,0x80);
+		//snd_soc_write(codec, D2153_CIF_CTRL,0x80);
 		
 		/* Sync reg_cache with the hardware */
 		for (i = 0; i < ARRAY_SIZE(d2153_reg_defaults); i++) {
@@ -2292,7 +2288,6 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 
 //	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 
-	dlg_info("%s() reg=0x%x value=0x%x \n",__FUNCTION__,reg,value);
 	
 	reg &= 0xff;
 	data[0] = reg;

@@ -140,7 +140,7 @@ struct d2153_aad_priv {
 	struct d2153_switch_data switch_data;
 	struct delayed_work	jack_monitor_work;
 	struct delayed_work	button_monitor_work;
-	unsigned int interrupting;
+	unsigned int first_check_done;
 #endif	
 };
 

@@ -711,12 +711,12 @@ static int d2153_sndp_set_headset_mic_device(struct snd_soc_codec *codec,
 	if (cur_dev != new_dev) { //EXT(MIC1)
 		dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__);
 		if(D2153_ENABLE == new_dev) {
-			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
-					  D2153_ACCDET_BTN_EN,
-					  0);
+//			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+//					  D2153_ACCDET_BTN_EN,
+//					  0);
 			d2153_sndp_set_dapm_widget(codec, "In Mixer Left PGA", 1);
 			d2153_sndp_set_dapm_widget(codec, "Mic Ext PGA", 1);
-			//d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 1); 
+//			d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 1); 
 
 			d2153_sndp_set_dapm_kcontrol_enum(codec,"AIF Left Source MUX",0); //left
 			d2153_sndp_set_dapm_kcontrol_enum(codec,"AIF Right Source MUX",0);
@@ -733,10 +733,10 @@ static int d2153_sndp_set_headset_mic_device(struct snd_soc_codec *codec,
 			d2153_sndp_set_kcontrol_single(codec, "Mic Ext Switch", 1);
 		}
 		else {
-			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
-					  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
+//			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+//					  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
 			d2153_sndp_set_dapm_widget(codec, "Mic Ext PGA", 0);
-			//d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 0); 
+//			d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 0); 
 			d2153_sndp_set_kcontrol_single(codec, "Mic Ext Switch", 0);
 
 		}
