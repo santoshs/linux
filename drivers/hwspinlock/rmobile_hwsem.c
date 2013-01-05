@@ -94,10 +94,8 @@ static int hwsem_trylock(struct hwspinlock *lock)
 		smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
 		smp_mb();
 		return smsrc == HWSEM_MASTER_ID;
-	} else {
-		printk(">>>>>>%s: Cannot get HW semaphore\n", __func__);
+	} else
 		return 0;
-	}
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
