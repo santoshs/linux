@@ -628,6 +628,9 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	u32 status, stop_status = 0;
 	int err, retry;
 
+	if (mmc_card_removed(card))
+		return ERR_ABORT;
+
 	/*
 	 * Try to get card status which indicates both the card state
 	 * and why there was no response.  If the first attempt fails,
@@ -642,11 +645,11 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 		pr_err("%s: error %d sending status command, %sing\n",
 		       req->rq_disk->disk_name, err, retry ? "retry" : "abort");
 	}
-
 	/* We couldn't get a response from the card.  Give up. */
-	if (err)
-		return ERR_ABORT;
-
+	if (err) {
+		if (mmc_detect_card_removed(card->host))
+			return ERR_ABORT;
+	}
 	/*
 	 * Check the current card state.  If it is in some data transfer
 	 * mode, tell it to stop (and hopefully transition back to TRAN.)
@@ -1083,6 +1086,8 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 
  cmd_abort:
 	spin_lock_irq(&md->lock);
+	if (mmc_card_removed(card))
+		req->cmd_flags |= REQ_QUIET;
 	while (ret)
 		ret = __blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
 	spin_unlock_irq(&md->lock);

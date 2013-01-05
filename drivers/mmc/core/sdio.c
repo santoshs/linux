@@ -570,6 +570,13 @@ static void mmc_sdio_remove(struct mmc_host *host)
 	mmc_remove_card(host->card);
 	host->card = NULL;
 }
+/*
+ * Card detection - card is alive.
+ */
+static int mmc_sdio_alive(struct mmc_host *host)
+{
+	return mmc_select_card(host->card);
+}
 
 /*
  * Card detection callback from host.
@@ -771,6 +778,7 @@ static const struct mmc_bus_ops mmc_sdio_ops = {
 	.suspend = mmc_sdio_suspend,
 	.resume = mmc_sdio_resume,
 	.power_restore = mmc_sdio_power_restore,
+	.alive = mmc_sdio_alive,
 };
 
 
