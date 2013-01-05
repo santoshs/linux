@@ -1858,12 +1858,14 @@ static ssize_t store_freq(struct kobject *kobj,
 {
 	struct cpufreq_policy *cur_policy = NULL;
 	struct cpufreq_policy data;
-	unsigned int freq = 0;
+	unsigned int min_freq = 0;
+	unsigned int max_freq = 0;
+	int freq = 0;
 	int index = -1;
 	int att_id = 0;
 	int ret = -EINVAL;
-	int i = 0;
 
+	spin_lock(&the_cpuinfo.lock);
 	if (strcmp(attr->attr.name, "cpufreq_max_limit") == 0)
 		att_id = 1;
 	else if (strcmp(attr->attr.name, "cpufreq_min_limit") == 0)
@@ -1873,60 +1875,65 @@ static ssize_t store_freq(struct kobject *kobj,
 
 	cur_policy = cpufreq_cpu_get(0);
 	if (!cur_policy)
-			goto end;
+		goto end;
 
 	memcpy(&data, cur_policy, sizeof(struct cpufreq_policy));
-	if (sscanf(buf, "%d", &i) != 1)
-			goto end;
-
-	/*
-	 * if input == -1 then restore original setting
-	 * else apply new setting
-	 */
-	if (i >= 0) {
-		if (sscanf(buf, "%d", &freq) != 1)
-			goto end;
-
-		if (the_cpuinfo.highspeed.used && att_id)
-			freq = the_cpuinfo.limit_maxfrq;
-	} else {
-		/* restore original value
-		 * will request new value which must be smaller than
-		 * limit_maxfrq which set by other one.
-		 */
-		if (att_id)
-			freq = the_cpuinfo.limit_maxfrq;
-	}
-
+	if (sscanf(buf, "%d", &freq) != 1)
+		goto end;
 	ret = cpufreq_frequency_table_cpuinfo(&data, freq_table);
-	if (ret < 0)
-		return ret;
+	if (ret)
+		goto end;
 
-	/* this must be set for cpufreq_update_policy() */
 	if (att_id) {
-		/* max limit
-		 * for searching, need lowwer value compare with
+		/*
+		 * if input == -1 then restore original setting
+		 * else apply new setting
+		 */
+		if (freq < 0) /* Restore to original value */
+			freq = data.max;
+		/* Max limit: need lower value compare with
 		 * new one then CPUFREQ_RELATION_H will be used
 		 */
-		if (cpufreq_frequency_table_target(&data, freq_table, freq,
-			CPUFREQ_RELATION_H, &index))
-			return -EINVAL;
-		cur_policy->user_policy.max = freq_table[index].frequency;
+		ret = cpufreq_frequency_table_target(&data, freq_table,
+			freq, CPUFREQ_RELATION_H, &index);
+		if (ret)
+			goto end;
+		max_freq = freq_table[index].frequency;
+		if (cur_policy->min > max_freq)
+			min_freq = max_freq;
+		/* Change current clock settings IF ANY */
+		if (the_cpuinfo.highspeed.used &&
+			(max_freq != the_cpuinfo.freq))
+			__set_all_clocks(freq_table[index].frequency);
 	} else {
-		/* min limit
-		 * for searching, need upper value compare with
+		if (freq < 0) /* Restore to original value */
+			freq = data.min;
+		/* Min limit: need upper value compare with
 		 * new one then CPUFREQ_RELATION_L will be used
 		 */
-		if (cpufreq_frequency_table_target(&data, freq_table, freq,
-			CPUFREQ_RELATION_L, &index))
-			return -EINVAL;
-		cur_policy->user_policy.min = freq_table[index].frequency;
+		ret = cpufreq_frequency_table_target(&data, freq_table, freq,
+			CPUFREQ_RELATION_L, &index);
+		if (ret)
+			goto end;
+		/* If min_freq > max -> min_freq = max */
+		min_freq = min(freq_table[index].frequency, cur_policy->max);
 	}
 
-	/* now, apply new value */
-	pr_log("update plicy->max/policy->min\n");
-	ret = cpufreq_update_policy(0);
 end:
+	spin_unlock(&the_cpuinfo.lock);
+
+	/* Update the MIN - MAX limitations */
+	/* Firstly, update MIN limitation if any */
+	if (min_freq > 0) {
+		cur_policy->user_policy.min = min_freq;
+		ret = cpufreq_update_policy(0);
+	}
+	/* Then, update MAX limitation if any */
+	if (max_freq > 0) {
+		cur_policy->user_policy.max = max_freq;
+		ret = cpufreq_update_policy(0);
+	}
+	pr_log("%s(): update min/max freq: ret<%d>", __func__, ret);
 	return ret ? ret : count;
 }
 
