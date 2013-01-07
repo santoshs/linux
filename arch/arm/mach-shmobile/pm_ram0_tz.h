@@ -80,7 +80,7 @@
 /* Restore ARM common register */
 #define	fsRestoreArmCommonRegister	0x040
 /* PM_Spin_Lock */
-#define	fsPM_Spin_Lock		0x180
+#define	fsPM_Spin_Lock		0x1A0
 /* PM_Spin_Unlock */
 #define	fsPM_Spin_Unlock	0xA0
 /* XTAL though mode setting */
