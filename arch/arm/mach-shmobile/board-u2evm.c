@@ -287,7 +287,7 @@ static struct sh_mmcif_plat_data sh_mmcif_plat = {
 	.set_pwr	= mmcif_set_pwr,
 	.down_pwr	= mmcif_down_pwr,
 	.dma		= &sh_mmcif_dma,
-	.max_clk	= 26000000,
+	.max_clk	= 52000000,
 };
 
 static struct resource sh_mmcif_resources[] = {
