@@ -14,6 +14,7 @@
 ** *********************************************************************** */
 #ifndef SEC_HAL_RT_H
 #define SEC_HAL_RT_H
+
 /*
 #define SEC_STORAGE_SELFTEST_ENABLE
 #define SEC_STORAGE_DS_TEST_ENABLE

@@ -37,7 +37,7 @@
 #define LOCAL_WMB()                       wmb()
 #define LOCAL_RMB()                       rmb()
 
-sec_reset_info *sec_hal_reset_info;
+sec_reset_info *sec_hal_reset_info = NULL;
 
 /* **********************************************************************
 ** Function name      : sec_hal_memcpy
@@ -222,7 +222,8 @@ sec_hal_authenticate(
 		sec_msg_st = sec_msg_param_read32(&out_handle, obj_id);
 		LOCAL_RMB();
 		if (SEC_MSG_STATUS_OK != sec_msg_st) {
-			SEC_HAL_TRACE("failed to read objid! msg==%d", sec_msg_st);
+			SEC_HAL_TRACE("failed to read objid! msg==%d",
+					sec_msg_st);
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
@@ -269,33 +270,38 @@ sec_hal_memfw_attr_reserve(
 	/* allocate memory for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*3;
 	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t));
 	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 
 	do {
 		if (!in_msg || !out_msg) {
-			SEC_HAL_TRACE("alloc failure, msgs not sent, aborting!");
+			SEC_HAL_TRACE("alloc failure, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
 
 		/* write content to the input msg */
-		if (sec_msg_param_write32(&in_handle, area_id,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				area_id,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("area_id write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
-		if (sec_msg_param_write32(&in_handle, phys_start_addr,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				phys_start_addr,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("phys_start_addr write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
-		if (sec_msg_param_write32(&in_handle, phys_end_addr,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				phys_end_addr,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("phys_end_addr write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
@@ -359,21 +365,24 @@ sec_hal_memfw_attr_free(
 	/* allocate memory for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t));
 	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t));
 	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 
 	do {
 		if (!in_msg || !out_msg) {
-			SEC_HAL_TRACE("alloc failure, msgs not sent, aborting!");
+			SEC_HAL_TRACE("alloc failure, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
 
 		/* write content to the input msg */
-		if (sec_msg_param_write32(&in_handle, area_id,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				area_id,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("area_id write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
@@ -427,7 +436,6 @@ sec_hal_reset_info_addr_register(void)
 	uint32_t ssa_disp_st = 0x00;
 	uint32_t sec_serv_st = 0x00;
 	uint16_t msg_data_size;
-	uint16_t size;
 	sec_msg_t *in_msg = NULL;
 	sec_msg_t *out_msg = NULL;
 	sec_msg_handle_t in_handle;
@@ -441,31 +449,33 @@ sec_hal_reset_info_addr_register(void)
 	/* allocate memory for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*2;
 	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t));
 	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 
 	do {
 		if (!in_msg || !out_msg) {
-			SEC_HAL_TRACE("alloc failure, msgs not sent, aborting!");
+			SEC_HAL_TRACE("alloc failure, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
 
 		/* write the reset info address to the input msg */
 		if (sec_msg_param_write32(&in_handle,
-					virt_to_phys(sec_hal_reset_info),
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
-			SEC_HAL_TRACE("sizeof(sec_reset_info) write error, aborting!");
+				virt_to_phys(sec_hal_reset_info),
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("sec_reset_info werr, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
 		/* write size of the info struct to the input msg */
 		if (sec_msg_param_write32(&in_handle,
-					sizeof(sec_reset_info),
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
-			SEC_HAL_TRACE("sizeof(sec_reset_info) write error, aborting!");
+				sizeof(sec_reset_info),
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("sec_reset_info sz werr, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
@@ -513,14 +523,17 @@ EXPORT_SYMBOL(sec_hal_reset_info_get);
 uint32_t
 sec_hal_reset_info_get(sec_reset_info *reset_info)
 {
-	uint32_t sec_api_st = SEC_HAL_CMN_RES_OK;
-
 	SEC_HAL_TRACE_ENTRY();
 
-	sec_api_st = memcpy(reset_info, sec_hal_reset_info, sizeof(sec_reset_info));
-
-	SEC_HAL_TRACE_EXIT();
-	return sec_api_st;
+	if ( sec_hal_reset_info==NULL ) {
+		SEC_HAL_TRACE_EXIT();
+		return SEC_HAL_CMN_RES_FAIL;
+	}
+	else {
+		memcpy(reset_info, sec_hal_reset_info, sizeof(sec_reset_info));
+		SEC_HAL_TRACE_EXIT();
+		return SEC_HAL_CMN_RES_OK;
+	}
 }
 
 /* ****************************************************************************
@@ -557,34 +570,39 @@ sec_hal_dbg_reg_set(
 	/* allocate memory for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*3;
 	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
 				sec_msg_param_size(sizeof(uint32_t))*3;
 	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE, 0, LOCAL_MSG_BYTE_ORDER);
+				SEC_MSG_OBJECT_ID_NONE, 0,
+				LOCAL_MSG_BYTE_ORDER);
 
 	do {
 		if (!in_msg || !out_msg) {
-			SEC_HAL_TRACE("alloc failure, msgs not sent, aborting!");
+			SEC_HAL_TRACE("alloc failure, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
 
 		/* write content to the input msg */
-		if (sec_msg_param_write32(&in_handle, dbgreg1 ? *dbgreg1 : 0x00,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				dbgreg1 ? *dbgreg1 : 0x00,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("dbgreg1 write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
-		if (sec_msg_param_write32(&in_handle, dbgreg2 ? *dbgreg2 : 0x00,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				dbgreg2 ? *dbgreg2 : 0x00,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("dbgreg2 write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
 		}
-		if (sec_msg_param_write32(&in_handle, dbgreg3 ? *dbgreg3 : 0x00,
-					SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+		if (sec_msg_param_write32(&in_handle,
+				dbgreg3 ? *dbgreg3 : 0x00,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
 			SEC_HAL_TRACE("dbgreg3 write error, aborting!");
 			sec_api_st = SEC_HAL_CMN_RES_FAIL;
 			break;
@@ -612,7 +630,8 @@ sec_hal_dbg_reg_set(
 		if (dbgreg1) {
 			sec_msg_st = sec_msg_param_read32(&out_handle, dbgreg1);
 			if (SEC_MSG_STATUS_OK != sec_msg_st) {
-				SEC_HAL_TRACE("failed to read reg1! msg==%d", sec_msg_st);
+				SEC_HAL_TRACE("failed to read reg1! msg==%d",
+						sec_msg_st);
 				sec_api_st = SEC_HAL_CMN_RES_FAIL;
 				break;
 			}
@@ -620,7 +639,8 @@ sec_hal_dbg_reg_set(
 		if (dbgreg2) {
 			sec_msg_st = sec_msg_param_read32(&out_handle, dbgreg2);
 			if (SEC_MSG_STATUS_OK != sec_msg_st) {
-				SEC_HAL_TRACE("failed to read reg2! msg==%d", sec_msg_st);
+				SEC_HAL_TRACE("failed to read reg2! msg==%d",
+						sec_msg_st);
 				sec_api_st = SEC_HAL_CMN_RES_FAIL;
 				break;
 			}
@@ -628,7 +648,8 @@ sec_hal_dbg_reg_set(
 		if (dbgreg3) {
 			sec_msg_st = sec_msg_param_read32(&out_handle, dbgreg3);
 			if (SEC_MSG_STATUS_OK != sec_msg_st) {
-				SEC_HAL_TRACE("failed to read reg3! msg==%d", sec_msg_st);
+				SEC_HAL_TRACE("failed to read reg3! msg==%d",
+						sec_msg_st);
 				sec_api_st = SEC_HAL_CMN_RES_FAIL;
 				break;
 			}

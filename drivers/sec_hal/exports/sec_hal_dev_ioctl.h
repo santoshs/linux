@@ -30,11 +30,26 @@ typedef struct
     unsigned int param5;
     unsigned int reserved1;
     unsigned int reserved2;
-    char fname[SEC_STORAGE_FILENAME_MAXLEN];
 } sd_ioctl_params_t;
 
+typedef struct
+{
+    unsigned int param0;
+    unsigned int param1;
+    unsigned int param2;
+    unsigned int param3;
+    unsigned int param4;
+    unsigned int param5;
+    unsigned int reserved1;
+    unsigned int reserved2;
+    char fname[SEC_STORAGE_FILENAME_MAXLEN];
+    char data[SEC_STORAGE_FILE_MAXLEN];
+} sd_rpc_params_t;
+
 #define SD_IOCTL_PARAMS_SZ      sizeof(sd_ioctl_params_t)
-#define SD_IOCTL_PARAMS_ZI      {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,'\0'}
+#define SD_IOCTL_PARAMS_ZI      {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
+#define SD_RPC_PARAMS_SZ        sizeof(sd_rpc_params_t)
+#define SD_RPC_PARAMS_ZI        {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,"\0", "\0"}
 #define PARAM_SZ                sizeof(unsigned int)
 
 #define SD_MAGICNUM             's'

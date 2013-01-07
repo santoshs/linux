@@ -198,12 +198,13 @@ ENTRY(ret_from_sec_mode)
 
         DSB                            @ Data Syncronization Barrier
 
-        PUSH    {R0-R2,LR}
+        PUSH    {R0-R2, R12,LR}
         MOV     R0, #2                 @ clean&invalidate up to point of unification
         MOV     R1, #0
                 .extern hw_arm_dcache_maintenance
         BL      hw_arm_dcache_maintenance
-        POP     {R0-R2, LR}
+        POP     {R0-R2, R12,LR}
+
 
 @ Restore Supervisor mode LR, SP and CPSR (that may have been corrupted by
 @ secure mode).
