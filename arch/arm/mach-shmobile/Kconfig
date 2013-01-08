@@ -284,11 +284,13 @@ config RENESAS_GPS
 	bool "Renesas reference implementation for GPS"
 	default n
 	depends on RENESAS
-
+config BRCM_UNIFIED_DHD_SUPPORT
+	bool "Renesas reference implementation for WiFi"
+	default n
 config RENESAS_WIFI
 	bool "Renesas reference implementation for WiFi"
 	default n
-	depends on RENESAS
+	depends on BRCM_UNIFIED_DHD_SUPPORT
 
 config BOARD_VERSION_V050
 	default y

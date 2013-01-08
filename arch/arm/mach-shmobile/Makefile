@@ -103,4 +103,5 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
+# obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
+obj-$(CONFIG_RENESAS_WIFI) +=  board-renesas_wifi.o

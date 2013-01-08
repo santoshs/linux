@@ -4495,11 +4495,13 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		// move gpio request to board-renesas_wifi.c
 		
 		/* WLAN Init API call */
+#ifdef CONFIG_RENESAS_WIFI		
 #ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
 
 	 	renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif
 #endif	
 		/* add the SDIO device */
 		//board_add_sdio_devices();
