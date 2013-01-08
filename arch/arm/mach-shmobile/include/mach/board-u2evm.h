@@ -22,8 +22,6 @@
  */
 #ifndef __ASM_ARCH_BOARD_U2EVM_H
 #define __ASM_ARCH_BOARD_U2EVM_H
-#include <mach/r8a73734.h>
-#include <mach/gpio.h>
 
 
 /**

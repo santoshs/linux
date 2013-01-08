@@ -6,6 +6,7 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 #include <mach/board-u2evm.h>
 #include <mach/sh_cmt.h>
+#include <mach/r8a73734.h>
 #include <linux/spinlock_types.h>
 #include <linux/clk.h>
 #include <linux/err.h>
