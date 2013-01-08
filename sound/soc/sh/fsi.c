@@ -501,20 +501,24 @@ static int fsi_get_fifo_residue(struct fsi_priv *fsi, int is_play)
 ************************************************************************/
 static void fsi_irq_enable(struct fsi_priv *fsi, int is_play)
 {
+#ifndef USE_DMA
 	u32 data = fsi_port_ab_io_bit(fsi, is_play);
 	struct fsi_master *master = fsi_get_master(fsi);
 
 	fsi_master_mask_set(master, master->regs->imsk,  data, data);
 	fsi_master_mask_set(master, master->regs->iemsk, data, data);
+#endif
 }
 
 static void fsi_irq_disable(struct fsi_priv *fsi, int is_play)
 {
+#ifndef USE_DMA
 	u32 data = fsi_port_ab_io_bit(fsi, is_play);
 	struct fsi_master *master = fsi_get_master(fsi);
 
 	fsi_master_mask_set(master, master->regs->imsk,  data, 0);
 	fsi_master_mask_set(master, master->regs->iemsk, data, 0);
+#endif
 }
 
 static u32 fsi_irq_get_status(struct fsi_master *master)
