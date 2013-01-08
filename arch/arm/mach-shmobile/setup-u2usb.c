@@ -31,6 +31,7 @@
 #include <mach/r8a73734.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+#define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 static int is_vbus_powered(void)
 {
 	int val = 0;
@@ -62,8 +63,8 @@ static int is_vbus_powered(void)
 #define LOCK_TIME_OUT_MS 1000
 static void usbhs_module_reset(void)
 {
-	unsigned long flags;
-	int ret;
+	unsigned long flags = 0;
+	int ret = 0;
 
 	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
 		LOCK_TIME_OUT_MS, &flags);
@@ -310,8 +311,39 @@ static struct r8a66597_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
 		}                                   
 	},
+	[13] = {
+		.flag = 1,
+		.port = GPIO_PORT130,
+		.active = {
+			.port_mux	= GPIO_PORT130,
+			.pull		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_OUTPUT,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux	= GPIO_PORT130,
+			.pull		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_OUTPUT,
+			.out_level	= R8A66597_OUT_LEVEL_LOW,
+		}
+	},
+	[14] = {
+		.flag = 1,
+		.port = GPIO_PORT131,
+		.active = {
+			.port_mux	= GPIO_PORT131,
+			.pull		= R8A66597_PULL_OFF,
+			.direction	= R8A66597_DIRECTION_OUTPUT,
+			.out_level	= R8A66597_OUT_LEVEL_NOT_SET,
+		},
+		.deactive = {
+			.port_mux	= GPIO_PORT131,
+			.pull		= R8A66597_PULL_DOWN,
+			.direction	= R8A66597_DIRECTION_OUTPUT,
+			.out_level	= R8A66597_OUT_LEVEL_LOW,
+		}
+	},
 };
-
 static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.is_vbus_powered = is_vbus_powered,
 	.module_start	= usbhs_module_reset,
@@ -319,10 +351,6 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
-	.pin_gpio_1_fn	= GPIO_PORT130,
-	.pin_gpio_1		= GPIO_PORT130,
-	.pin_gpio_2_fn	= GPIO_PORT131,
-	.pin_gpio_2		= GPIO_PORT131,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };
@@ -338,10 +366,6 @@ static struct r8a66597_platdata usbhs_func_data = {
 #else  /* CONFIG_PMIC_INTERFACE */
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 #endif /* CONFIG_PMIC_INTERFACE */
-	.pin_gpio_1_fn	= GPIO_PORT130,
-	.pin_gpio_1		= GPIO_PORT130,
-	.pin_gpio_2_fn	= GPIO_PORT131,
-	.pin_gpio_2		= GPIO_PORT131,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
 };
@@ -465,32 +489,82 @@ struct platform_device tusb1211_device = {
 
 void __init USBGpio_init(void)
 {
+	int ret = 0;
 	/* USBHS */
-	gpio_request(GPIO_FN_ULPI_DATA0, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA1, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA2, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA3, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA4, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA5, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA6, NULL);
-	gpio_request(GPIO_FN_ULPI_DATA7, NULL);
-	gpio_request(GPIO_FN_ULPI_CLK, NULL);
-	gpio_request(GPIO_FN_ULPI_STP, NULL);
-	gpio_request(GPIO_FN_ULPI_DIR, NULL);
-	gpio_request(GPIO_FN_ULPI_NXT, NULL);
+	ret = gpio_request(GPIO_FN_ULPI_DATA0, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA0 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA1, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA1 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA2, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA2 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA3, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA3 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA4, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA4 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA5, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA5 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA6, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA6 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DATA7, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DATA7 failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_CLK, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_CLK failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_STP, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_STP failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_DIR, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_DIR failed ! USB may not function\n");
+
+	ret = gpio_request(GPIO_FN_ULPI_NXT, NULL);
+	if (ret < 0)
+		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
 	/* TUSB1211 */
 	if (u2_get_board_rev() < 4) {
-		gpio_request(GPIO_PORT131, NULL);
-		gpio_direction_output(GPIO_PORT131, 0);
-		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-		gpio_direction_output(GPIO_PORT131, 1);
-	}
+				ret = gpio_request(GPIO_PORT131, NULL);
+		if (ret < 0)
+			error_log("PORT131 failed!USB may not function\n");
 
-        gpio_request(GPIO_PORT130, NULL);
-        gpio_direction_output(GPIO_PORT130, 1);
+		ret = gpio_direction_output(GPIO_PORT131, 0);
+		if (ret < 0)
+			error_log("PORT131 direction output(0) failed!\n");
+		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
+		ret = gpio_direction_output(GPIO_PORT131, 1);
+		if (ret < 0)
+			error_log("PORT131 direction output(1) failed!\n");
+	}
+	
+	ret = gpio_request(GPIO_PORT130, NULL);
+	if (ret < 0)
+		error_log("ERROR : PORT130 failed ! USB may not function\n");
+
+	ret = gpio_direction_output(GPIO_PORT130, 1);
+	if (ret < 0)
+		error_log("ERROR : PORT130 direction output(1) failed !\n");
 
 	/* start supplying VIO_CKO3@26MHz to REFCLK */
-	gpio_request(GPIO_FN_VIO_CKO3, NULL);
+	ret = gpio_request(GPIO_FN_VIO_CKO3, NULL);
+	if (ret < 0)
+		error_log("ERROR : VIO_CKO3 failed ! USB may not function\n");
 	clk_enable(clk_get(NULL, "vclk3_clk"));
 }
