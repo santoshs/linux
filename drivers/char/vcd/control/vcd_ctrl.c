@@ -32,6 +32,86 @@ unsigned int g_vcd_ctrl_call_kind;
 /* ========================================================================= */
 
 /**
+ * @brief	get binary buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_get_binary_buffer(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_get_binary_buffer();
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	set binary preprocessing function.
+ *
+ * @param	file_path	binary file path.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_set_binary_preprocessing(char *file_path)
+{
+	vcd_pr_start_control_function("file_path[%p].\n", file_path);
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_set_binary_preprocessing(file_path);
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	set binary main function.
+ *
+ * @param	write_size	size.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_set_binary_main(unsigned int write_size)
+{
+	vcd_pr_start_control_function("write_size[%d].\n", write_size);
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_set_binary_main(write_size);
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	set binary postprocessing function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_set_binary_postprocessing(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_set_binary_postprocessing();
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%x].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
+}
+
+
+/**
  * @brief	get msg buffer function.
  *
  * @param	none.

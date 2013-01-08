@@ -1387,8 +1387,10 @@ int cpg_wait_kick(unsigned int time)
 			break;
 		if (!is_suspend_setclock)
 			udelay(1);
+	#if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
 			shmobile_suspend_udelay(1);
+	#endif
 	}
 
 	return (wait_time <= 0) ? -EBUSY : 0;
@@ -1598,8 +1600,10 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 			break;
 		if (!is_suspend_setclock)
 			udelay(1);
+	#if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
 			shmobile_suspend_udelay(1);
+	#endif
 	}
 
 	/* Dummy read */

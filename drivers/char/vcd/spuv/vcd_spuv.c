@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/string.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <mach/pm.h>
@@ -32,6 +33,7 @@
  * global variable declaration
  */
 struct vcd_spuv_info g_vcd_spuv_info;
+struct vcd_spuv_set_binary_info g_vcd_spuv_binary_info;
 
 static struct vcd_spuv_workqueue  *g_vcd_spuv_work_queue;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_ack;
@@ -162,6 +164,127 @@ void vcd_spuv_free_fw_buffer(void)
 
 
 /**
+ * @brief	get bin buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	buf_addr	bin buffer physical address.
+ */
+int vcd_spuv_get_binary_buffer(void)
+{
+	int buf_addr = 0;
+
+	vcd_pr_start_spuv_function();
+
+	vcd_spuv_func_sdram_logical_to_physical(
+		SPUV_FUNC_SDRAM_BINARY_READ_BUFFER, buf_addr);
+
+	vcd_spuv_func_cacheflush(
+		SPUV_FUNC_SDRAM_BINARY_READ_BUFFER,
+		(PAGE_SIZE*10));
+
+	vcd_pr_end_spuv_function("buf_addr[0x%08x].\n", buf_addr);
+	return buf_addr;
+}
+
+
+/**
+ * @brief	set binary preprocessing function.
+ *
+ * @param	file_path	binary file path.
+ *
+ * @retval	ret	result.
+ */
+int vcd_spuv_set_binary_preprocessing(char *file_path)
+{
+	int ret = 0;
+	unsigned int addr = 0;
+	char *comp_result = NULL;
+	vcd_pr_start_spuv_function("file_path[%s].\n", file_path);
+
+	comp_result = strstr(file_path, (char *)VCD_SPUV_FUNC_SPUV_FILE_NAME);
+
+	if (NULL != comp_result) {
+		vcd_pr_spuv_info("set binary : [%s].\n",
+				VCD_SPUV_FUNC_SPUV_FILE_NAME);
+
+		/* set base address */
+		addr = vcd_spuv_func_get_spuv_static_buffer();
+
+		g_vcd_spuv_binary_info.top_address = addr;
+		g_vcd_spuv_binary_info.write_address = addr;
+	} else {
+		vcd_pr_spuv_info("set binary : [%s].\n",
+				VCD_SPUV_FUNC_PCM_PROC_FILE_NAME);
+
+		/* set base address */
+		addr = vcd_spuv_func_get_pcm_static_buffer();
+
+		g_vcd_spuv_binary_info.top_address = addr;
+		g_vcd_spuv_binary_info.write_address = addr;
+	}
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set binary main function.
+ *
+ * @param	write_size	size.
+ *
+ * @retval	ret	result.
+ */
+int vcd_spuv_set_binary_main(unsigned int write_size)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function("write_size[%d].\n", write_size);
+
+	/* check size */
+	g_vcd_spuv_binary_info.total_size += write_size;
+	if (VCD_SPUV_FUNC_FW_BUFFER_SIZE < g_vcd_spuv_binary_info.total_size) {
+		ret = VCD_ERR_FILE_TOO_BIG;
+		goto rtn;
+	}
+
+	vcd_spuv_func_cacheflush(
+		SPUV_FUNC_SDRAM_BINARY_READ_BUFFER,
+		write_size);
+
+	memcpy((void *)g_vcd_spuv_binary_info.write_address,
+		(const void *)SPUV_FUNC_SDRAM_BINARY_READ_BUFFER,
+		write_size);
+
+	g_vcd_spuv_binary_info.write_address += write_size;
+rtn:
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set binary postprocessing function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+int vcd_spuv_set_binary_postprocessing(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_spuv_function();
+
+	memset(&g_vcd_spuv_binary_info, 0, sizeof(g_vcd_spuv_binary_info));
+
+	vcd_pr_end_spuv_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
  * @brief	get msg buffer function.
  *
  * @param	none.
@@ -174,10 +297,8 @@ int vcd_spuv_get_msg_buffer(void)
 
 	vcd_pr_start_spuv_function();
 
-	buf_addr = (SPUV_FUNC_SDRAM_AREA_TOP_PHY +
-		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE) +
-		(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER -
-		SPUV_FUNC_SDRAM_CACHE_AREA_TOP);
+	vcd_spuv_func_sdram_logical_to_physical(
+		SPUV_FUNC_SDRAM_PROC_MSG_BUFFER, buf_addr);
 
 	vcd_spuv_func_cacheflush(
 		SPUV_FUNC_SDRAM_PROC_MSG_BUFFER,

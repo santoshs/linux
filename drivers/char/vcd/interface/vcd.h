@@ -28,22 +28,18 @@
 #define VCD_POLL_READ_OK	1
 #define VCD_POLL_READ_NG	0
 
-#define VCD_PROC_IF_GET_MSG_BUFFER_LOG		\
-		"[VCD <- AMHAL] : '0'  - GET_MSG_BUFFER\n"
-#define VCD_PROC_IF_START_VCD_LOG		\
-		"[VCD <- AMHAL] : '1'  - START_VCD\n"
-#define VCD_PROC_IF_STOP_VCD_LOG		\
-		"[VCD <- AMHAL] : '2'  - STOP_VCD\n"
-#define VCD_PROC_IF_SET_HW_PARAM_LOG		\
-		"[VCD <- AMHAL] : '3'  - SET_HW_PARAM\n"
-#define VCD_PROC_IF_START_CALL_LOG		\
-		"[VCD <- AMHAL] : '4'  - START_CALL\n"
-#define VCD_PROC_IF_STOP_CALL_LOG		\
-		"[VCD <- AMHAL] : '5'  - STOP_CALL\n"
-#define VCD_PROC_IF_SET_UDATA_LOG		\
-		"[VCD <- AMHAL] : '9'  - SET_UDATA\n"
-#define VCD_PROC_IF_GET_STATUS_LOG		\
-		"[VCD <- AMHAL] : '10' - GET_STATUS\n"
+#define VCD_IF_GET_MSG_BUFFER_LOG	"[VCD <- AMHAL] : GET_MSG_BUFFER\n"
+#define VCD_IF_SET_BINARY_BUF_LOG	"[VCD <- AMHAL] : SET_BINARY(BUF)\n"
+#define VCD_IF_SET_BINARY_PRE_LOG	"[VCD <- AMHAL] : SET_BINARY(PRE)\n"
+#define VCD_IF_SET_BINARY_MAIN_LOG	"[VCD <- AMHAL] : SET_BINARY(MAIN)\n"
+#define VCD_IF_SET_BINARY_POST_LOG	"[VCD <- AMHAL] : SET_BINARY(POST)\n"
+#define VCD_IF_START_VCD_LOG		"[VCD <- AMHAL] : START_VCD\n"
+#define VCD_IF_STOP_VCD_LOG		"[VCD <- AMHAL] : STOP_VCD\n"
+#define VCD_IF_SET_HW_PARAM_LOG		"[VCD <- AMHAL] : SET_HW_PARAM\n"
+#define VCD_IF_START_CALL_LOG		"[VCD <- AMHAL] : START_CALL\n"
+#define VCD_IF_STOP_CALL_LOG		"[VCD <- AMHAL] : STOP_CALL\n"
+#define VCD_IF_SET_UDATA_LOG		"[VCD <- AMHAL] : SET_UDATA\n"
+#define VCD_IF_GET_STATUS_LOG		"[VCD <- AMHAL] : GET_STATUS\n"
 
 
 /*
@@ -133,6 +129,10 @@ void vcd_voip_ul_callback(unsigned int buf_size);
 void vcd_voip_dl_callback(unsigned int buf_size);
 
 /* Internal functions */
+static int vcd_get_binary_buffer(void);
+static int vcd_set_binary_preprocessing(char *file_path);
+static int vcd_set_binary_main(unsigned int write_size);
+static int vcd_set_binary_postprocessing(void);
 static int vcd_get_msg_buffer(void);
 static int vcd_get_async_area(void);
 static int vcd_free_async_area(void);

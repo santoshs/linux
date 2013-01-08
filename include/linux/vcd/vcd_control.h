@@ -44,6 +44,10 @@
 /*
  * prototype declaration
  */
+extern int vcd_ctrl_get_binary_buffer(void);
+extern int vcd_ctrl_set_binary_preprocessing(char *file_path);
+extern int vcd_ctrl_set_binary_main(unsigned int write_size);
+extern int vcd_ctrl_set_binary_postprocessing(void);
 extern int vcd_ctrl_get_msg_buffer(void);
 extern int vcd_ctrl_get_async_area(void);
 extern int vcd_ctrl_free_async_area(unsigned int adr);
@@ -61,7 +65,8 @@ extern int vcd_ctrl_stop_record(void);
 extern int vcd_ctrl_start_playback(struct vcd_playback_option *option);
 extern int vcd_ctrl_stop_playback(void);
 extern void vcd_ctrl_get_record_buffer(struct vcd_record_buffer_info *info);
-extern void vcd_ctrl_get_playback_buffer(struct vcd_playback_buffer_info *info);
+extern void vcd_ctrl_get_playback_buffer(
+			struct vcd_playback_buffer_info *info);
 extern void vcd_ctrl_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
 extern void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 

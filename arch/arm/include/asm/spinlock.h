@@ -82,95 +82,93 @@ static inline void dsb_sev(void)
 	do { while (arch_spin_is_locked(lock)) cpu_relax(); } while (0)
 
 #define arch_spin_lock_flags(lock, flags) arch_spin_lock(lock)
-#ifdef CONFIG_ARCH_SHMOBILE
+
 static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
-/* added to test EOS LDREX/STREX errata */
-	unsigned long cpu_number = raw_smp_processor_id();
-	cpu_number += 1;
-/* end */
-
-	__asm__ __volatile__(
-"1:	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-	WFE("ne")
-"	strexeq	%0, %2, [%1]\n"
-"	ldr	%0, [%1]\n"
-"	cmpeq	%0, %2\n"
-"	bne	1b"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (cpu_number)
-	: "cc");
-
-	smp_mb();
-}
-#else
-static inline void arch_spin_lock(arch_spinlock_t *lock)
-{
-	unsigned long tmp;
-
-	__asm__ __volatile__(
-"1:	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-	WFE("ne")
-"	strexeq	%0, %2, [%1]\n"
-"	teqeq	%0, #0\n"
-"	bne	1b"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
-	: "cc");
-
-	smp_mb();
-}
-#endif //CONFIG_ARCH_SHMOBILE
-
 #ifdef CONFIG_ARCH_SHMOBILE
+	if ((system_rev & 0xFFFF) <= 0x3E12) { /* ES2.02 or older*/
+		/* added to test EOS LDREX/STREX errata */
+		unsigned long cpu_number = raw_smp_processor_id();
+		cpu_number += 1;
+		/* end */
+
+		__asm__ __volatile__(
+"1:		ldrex   %0, [%1]\n"
+"		teq     %0, #0\n"
+		WFE("ne")
+"		strexeq %0, %2, [%1]\n"
+"		ldr     %0, [%1]\n"
+"		cmpeq   %0, %2\n"
+"		bne     1b"
+		: "=&r" (tmp)
+		: "r" (&lock->lock), "r" (cpu_number)
+		: "cc");
+
+	} else {
+#endif /*CONFIG_ARCH_SHMOBILE*/
+		__asm__ __volatile__(
+"1:		ldrex	%0, [%1]\n"
+"		teq	%0, #0\n"
+		WFE("ne")
+"		strexeq	%0, %2, [%1]\n"
+"		teqeq	%0, #0\n"
+"		bne	1b"
+		: "=&r" (tmp)
+		: "r" (&lock->lock), "r" (1)
+		: "cc");
+#ifdef CONFIG_ARCH_SHMOBILE
+	}
+#endif /*CONFIG_ARCH_SHMOBILE*/
+
+	smp_mb();
+}
+
 static inline int arch_spin_trylock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
-/* added to test EOS LDREX/STREX errata */
-	unsigned long cpu_number = raw_smp_processor_id();
-	cpu_number += 1;
-/* end */
+#ifdef CONFIG_ARCH_SHMOBILE
+	if ((system_rev & 0xFFFF) <= 0x3E12) { /* ES2.02 or older*/
+		/* added to test EOS LDREX/STREX errata */
+		unsigned long cpu_number = raw_smp_processor_id();
+		cpu_number += 1;
+		/* end */
 
-	__asm__ __volatile__(
-"	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-"	strexeq	%0, %2, [%1]\n"
-"	ldr	%0, [%1]"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (cpu_number)
-	: "cc");
+		__asm__ __volatile__(
+"		ldrex	%0, [%1]\n"
+"		teq	%0, #0\n"
+"		strexeq	%0, %2, [%1]\n"
+"		ldr	%0, [%1]"
+		: "=&r" (tmp)
+		: "r" (&lock->lock), "r" (cpu_number)
+		: "cc");
 
-	if (tmp == cpu_number) {
-		smp_mb();
-		return 1;
+		if (tmp == cpu_number) {
+			smp_mb();
+			return 1;
+		} else {
+			return 0;
+		}
 	} else {
-		return 0;
-	}
-}
-#else
-static inline int arch_spin_trylock(arch_spinlock_t *lock)
-{
-	unsigned long tmp;
+#endif /*CONFIG_ARCH_SHMOBILE*/
+		__asm__ __volatile__(
+"		ldrex   %0, [%1]\n"
+"		teq     %0, #0\n"
+"		strexeq %0, %2, [%1]"
+		: "=&r" (tmp)
+		: "r" (&lock->lock), "r" (1)
+		: "cc");
 
-	__asm__ __volatile__(
-"	ldrex	%0, [%1]\n"
-"	teq	%0, #0\n"
-"	strexeq	%0, %2, [%1]"
-	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (1)
-	: "cc");
-
-	if (tmp == 0) {
-		smp_mb();
-		return 1;
-	} else {
-		return 0;
+		if (tmp == 0) {
+			smp_mb();
+			return 1;
+		} else {
+			return 0;
+		}
+#ifdef CONFIG_ARCH_SHMOBILE
 	}
+#endif /*CONFIG_ARCH_SHMOBILE*/
 }
-#endif //CONFIG_ARCH_SHMOBILE
 
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {

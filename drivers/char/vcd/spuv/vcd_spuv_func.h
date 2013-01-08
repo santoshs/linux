@@ -51,9 +51,13 @@
 #define VCD_SPUV_FUNC_COM2_MASK			0x00FFFFFF
 #define VCD_SPUV_FUNC_COM3_MASK			0x00FF0000
 
-/* file name */
-#define VCD_SPUV_FUNC_SPUV_FILENAME		"/mnt/sdcard/spuv/spuv.bin"
-#define VCD_SPUV_FUNC_PCM_FILENAME		"/mnt/sdcard/spuv/pcm_proc.bin"
+/* binary file name */
+#define VCD_SPUV_FUNC_SPUV_FILE_NAME		"spuv.bin"
+#define VCD_SPUV_FUNC_PCM_PROC_FILE_NAME	"pcm_proc.bin"
+
+/* sd path */
+#define VCD_SPUV_FUNC_SPUV_SD_PATH		"/mnt/sdcard/spuv/spuv.bin"
+#define VCD_SPUV_FUNC_PCM_SD_PATH		"/mnt/sdcard/spuv/pcm_proc.bin"
 
 /* read files */
 #define VCD_SPUV_FUNC_OFFSET_GLOBAL_SIZE	0x5
@@ -175,10 +179,8 @@
 /* non cache area */
 #define SPUV_FUNC_SDRAM_FIRMWARE_BUFFER		( \
 			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00000000)
-#define SPUV_FUNC_SDRAM_SPUVBIN_READ_BUFFER	( \
+#define SPUV_FUNC_SDRAM_BINARY_READ_BUFFER	( \
 			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00000000)
-#define SPUV_FUNC_SDRAM_PCMBIN_READ_BUFFER	( \
-			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00180000)
 #define SPUV_FUNC_SDRAM_SPUV_SEND_MSG_BUFFER	( \
 			SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP + 0x00700000)
 #define SPUV_FUNC_SDRAM_RECORD_BUFFER_0		( \
@@ -675,6 +677,9 @@ extern void vcd_spuv_func_get_fw_request(void);
 
 extern void vcd_spuv_func_set_hpb_register(void);
 extern void vcd_spuv_func_set_cpg_register(void);
+
+extern unsigned int vcd_spuv_func_get_spuv_static_buffer(void);
+extern unsigned int vcd_spuv_func_get_pcm_static_buffer(void);
 
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);

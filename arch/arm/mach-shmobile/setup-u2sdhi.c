@@ -3,7 +3,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <linux/pmic/pmic.h>
-#include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 
 #include <mach/common.h>

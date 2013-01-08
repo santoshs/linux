@@ -212,6 +212,9 @@ struct mmc_host {
 #define MMC_CAP_MAX_CURRENT_600	(1 << 28)	/* Host max current limit is 600mA */
 #define MMC_CAP_MAX_CURRENT_800	(1 << 29)	/* Host max current limit is 800mA */
 #define MMC_CAP_CMD23		(1 << 30)	/* CMD23 supported. */
+#define MMC_CAP2_DETECT_ON_ERR  (1 << 8)
+					/* On I/O err check card removal */
+	unsigned int            caps2;          /* More host capabilities */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
@@ -263,6 +266,7 @@ struct mmc_host {
 
 	struct delayed_work	detect;
 	struct wake_lock	detect_wake_lock;
+	int                     detect_change;  /* card detect flag */
 
 	const struct mmc_bus_ops *bus_ops;	/* current bus driver */
 	unsigned int		bus_refs;	/* reference counter */

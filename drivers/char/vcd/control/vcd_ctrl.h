@@ -78,6 +78,10 @@ enum VCD_CTRL_STATUS {
  */
 
 /* For AMHAL functions */
+int vcd_ctrl_get_binary_buffer(void);
+int vcd_ctrl_set_binary_preprocessing(char *file_path);
+int vcd_ctrl_set_binary_main(unsigned int write_size);
+int vcd_ctrl_set_binary_postprocessing(void);
 int vcd_ctrl_get_msg_buffer(void);
 int vcd_ctrl_get_async_area(void);
 int vcd_ctrl_free_async_area(unsigned int adr);

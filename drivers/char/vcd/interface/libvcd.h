@@ -44,6 +44,8 @@ enum LIBVCD_CB_TYPE {
 /* lib - driver interface parameter */
 union vcd_ioctl_param {
 	unsigned int addr;	/* asyncronous response address */
+	unsigned int file_path;	/* set binary file path address */
+	unsigned int write_size;/* set binary write size address */
 };
 
 
@@ -97,6 +99,14 @@ struct vocoder_ioctl_message {
 	_IO(VCD_IOCTL_MAGIC, 7)
 #define VCD_IOCTL_UDATA				\
 	_IO(VCD_IOCTL_MAGIC, 8)
+#define VCD_IOCTL_GET_BIN_BUF			\
+	_IOR(VCD_IOCTL_MAGIC, 9, unsigned int)
+#define VCD_IOCTL_START_SET_BIN			\
+	_IOW(VCD_IOCTL_MAGIC, 10, unsigned int)
+#define VCD_IOCTL_EXEC_SET_BIN			\
+	_IOW(VCD_IOCTL_MAGIC, 11, unsigned int)
+#define VCD_IOCTL_END_SET_BIN			\
+	_IO(VCD_IOCTL_MAGIC, 12)
 #define VCD_IOCTL_GET_ASYNC_MEM			\
 	_IOR(VCD_IOCTL_MAGIC, 100, unsigned int)
 #define VCD_IOCTL_FREE_ASYNC_MEM		\

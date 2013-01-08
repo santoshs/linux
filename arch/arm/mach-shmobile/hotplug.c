@@ -19,10 +19,9 @@
 #ifdef CONFIG_ARCH_R8A73734
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
-#include <mach/pm.h>
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
-
+#include <mach/pm.h>
 static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
@@ -55,10 +54,10 @@ void platform_cpu_die(unsigned int cpu)
 #ifdef CONFIG_ARCH_R8A73734
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
-#ifdef CONFIG_SUSPEND
+/* #ifdef CONFIG_SUSPEND */
 	jump_systemsuspend();
 	return;
-#endif /* CONFIG_SUSPEND */
+/* #endif *//* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A73734 */
 	while (1) {
 		/*

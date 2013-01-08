@@ -508,6 +508,90 @@ EXPORT_SYMBOL_GPL(vcd_execute_test_call);
 /* ========================================================================= */
 
 /**
+ * @brief	get binary buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_get_binary_buffer(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function();
+
+	/* execute control function */
+	ret = vcd_ctrl_get_binary_buffer();
+
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set binary preprocessing function.
+ *
+ * @param	file_path	binary file path.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_set_binary_preprocessing(char *file_path)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function("file_path[%p].\n", file_path);
+
+	/* execute control function */
+	ret = vcd_ctrl_set_binary_preprocessing(file_path);
+
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set binary main function.
+ *
+ * @param	write_size	size.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_set_binary_main(unsigned int write_size)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function("write_size[%d].\n", write_size);
+
+	/* execute control function */
+	ret = vcd_ctrl_set_binary_main(write_size);
+
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	set binary postprocessing function.
+ *
+ * @param	file_path	binary file path.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_set_binary_postprocessing(void)
+{
+	int ret = 0;
+
+	vcd_pr_start_interface_function();
+
+	/* execute control function */
+	ret = vcd_ctrl_set_binary_postprocessing();
+
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
  * @brief	get msg buffer function.
  *
  * @param	none.
@@ -1363,35 +1447,35 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 
 	switch (exec_proc) {
 	case VCD_PROC_IF_GET_MSG_BUFFER:
-		vcd_pr_if_amhal(VCD_PROC_IF_GET_MSG_BUFFER_LOG);
+		vcd_pr_if_amhal(VCD_IF_GET_MSG_BUFFER_LOG);
 		vcd_get_msg_buffer();
 		break;
 	case VCD_PROC_IF_START_VCD:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_VCD_LOG);
+		vcd_pr_if_amhal(VCD_IF_START_VCD_LOG);
 		vcd_start_vcd();
 		break;
 	case VCD_PROC_IF_STOP_VCD:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_VCD_LOG);
+		vcd_pr_if_amhal(VCD_IF_STOP_VCD_LOG);
 		vcd_stop_vcd();
 		break;
 	case VCD_PROC_IF_SET_HW_PARAM:
-		vcd_pr_if_amhal(VCD_PROC_IF_SET_HW_PARAM_LOG);
+		vcd_pr_if_amhal(VCD_IF_SET_HW_PARAM_LOG);
 		vcd_set_hw_param();
 		break;
 	case VCD_PROC_IF_START_CALL:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_CALL_LOG);
+		vcd_pr_if_amhal(VCD_IF_START_CALL_LOG);
 		vcd_start_call();
 		break;
 	case VCD_PROC_IF_STOP_CALL:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_CALL_LOG);
+		vcd_pr_if_amhal(VCD_IF_STOP_CALL_LOG);
 		vcd_stop_call();
 		break;
 	case VCD_PROC_IF_SET_UDATA:
-		vcd_pr_if_amhal(VCD_PROC_IF_SET_UDATA_LOG);
+		vcd_pr_if_amhal(VCD_IF_SET_UDATA_LOG);
 		vcd_set_udata();
 		break;
 	case VCD_PROC_IF_GET_STATUS:
-		vcd_pr_if_amhal(VCD_PROC_IF_GET_STATUS_LOG);
+		vcd_pr_if_amhal(VCD_IF_GET_STATUS_LOG);
 		vcd_get_status();
 		break;
 	default:
@@ -2247,7 +2331,7 @@ static long vcd_fops_ioctl
 
 	switch (cmd) {
 	case VCD_IOCTL_GET_MSG_BUF:
-		vcd_pr_if_amhal(VCD_PROC_IF_GET_MSG_BUFFER_LOG);
+		vcd_pr_if_amhal(VCD_IF_GET_MSG_BUFFER_LOG);
 		/* parameter copy */
 		ret = copy_from_user(&msg.param, (void __user *)arg,
 				sizeof(msg.param));
@@ -2266,30 +2350,73 @@ static long vcd_fops_ioctl
 		}
 		break;
 	case VCD_IOCTL_START_VCD:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_VCD_LOG);
+		vcd_pr_if_amhal(VCD_IF_START_VCD_LOG);
 		ret = vcd_start_vcd();
 		break;
 	case VCD_IOCTL_STOP_VCD:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_VCD_LOG);
+		vcd_pr_if_amhal(VCD_IF_STOP_VCD_LOG);
 		ret = vcd_stop_vcd();
 		/* stop async thread */
 		vcd_async_notify(LIBVCD_CB_TYPE_VCD_END);
 		break;
 	case VCD_IOCTL_SET_HW_PARAM:
-		vcd_pr_if_amhal(VCD_PROC_IF_SET_HW_PARAM_LOG);
+		vcd_pr_if_amhal(VCD_IF_SET_HW_PARAM_LOG);
 		ret = vcd_set_hw_param();
 		break;
 	case VCD_IOCTL_START_CALL:
-		vcd_pr_if_amhal(VCD_PROC_IF_START_CALL_LOG);
+		vcd_pr_if_amhal(VCD_IF_START_CALL_LOG);
 		ret = vcd_start_call();
 		break;
 	case VCD_IOCTL_STOP_CALL:
-		vcd_pr_if_amhal(VCD_PROC_IF_STOP_CALL_LOG);
+		vcd_pr_if_amhal(VCD_IF_STOP_CALL_LOG);
 		ret = vcd_stop_call();
 		break;
 	case VCD_IOCTL_UDATA:
-		vcd_pr_if_amhal(VCD_PROC_IF_SET_UDATA_LOG);
+		vcd_pr_if_amhal(VCD_IF_SET_UDATA_LOG);
 		ret = vcd_set_udata();
+		break;
+	case VCD_IOCTL_GET_BIN_BUF:
+		vcd_pr_if_amhal(VCD_IF_SET_BINARY_BUF_LOG);
+		/* parameter copy */
+		ret = copy_from_user(&msg.param, (void __user *)arg,
+				sizeof(msg.param));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_from_user failed.\n", cmd);
+			goto rtn;
+		}
+		vcd_pr_interface_debug("msg.param.addr = [0x%08x]\n",
+				msg.param.addr);
+		ret = vcd_get_binary_buffer();
+		ret = copy_to_user((void __user *)arg,
+				&ret, sizeof(int));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_to_user failed.\n", cmd);
+			goto rtn;
+		}
+		break;
+	case VCD_IOCTL_START_SET_BIN:
+		vcd_pr_if_amhal(VCD_IF_SET_BINARY_PRE_LOG);
+		ret = copy_from_user(&msg.param,
+				(void __user *)arg, sizeof(msg.param));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_from_user failed.\n", cmd);
+			goto rtn;
+		}
+		ret = vcd_set_binary_preprocessing((char *)msg.param.file_path);
+		break;
+	case VCD_IOCTL_EXEC_SET_BIN:
+		vcd_pr_if_amhal(VCD_IF_SET_BINARY_MAIN_LOG);
+		ret = copy_from_user(&msg.param,
+				(void __user *)arg, sizeof(msg.param));
+		if (0 != ret) {
+			vcd_pr_err("cmd[%d] copy_from_user failed.\n", cmd);
+			goto rtn;
+		}
+		ret = vcd_set_binary_main(msg.param.write_size);
+		break;
+	case VCD_IOCTL_END_SET_BIN:
+		vcd_pr_if_amhal(VCD_IF_SET_BINARY_POST_LOG);
+		ret = vcd_set_binary_postprocessing();
 		break;
 	case VCD_IOCTL_GET_ASYNC_MEM:
 		ret = copy_from_user(&msg.param,

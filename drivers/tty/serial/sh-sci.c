@@ -572,7 +572,7 @@ static void sci_receive_chars(struct uart_port *port)
 				/* Store data and status */
 				if (status & SCxSR_FER(port)) {
 					flag = TTY_FRAME;
-					dev_notice(port->dev, "frame error\n");
+					dev_notice(port->dev, "Warning:frame error, Retry again..\n");
 				} else if (status & SCxSR_PER(port)) {
 					flag = TTY_PARITY;
 					dev_notice(port->dev, "parity error\n");
@@ -672,7 +672,7 @@ static int sci_handle_errors(struct uart_port *port)
 			if (tty_insert_flip_char(tty, 0, TTY_FRAME))
 				copied++;
 
-			dev_notice(port->dev, "frame error\n");
+			dev_notice(port->dev, "Warning:frame error, Retry again..\n");
 		}
 	}
 
