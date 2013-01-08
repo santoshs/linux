@@ -106,7 +106,7 @@ unsigned int frqcrD_save;
 unsigned int is_clock_updated;
 #define CLOCK_SUSPEND		0
 #define CLOCK_RESTORE		1
-#define ZB3_CLK_SUSPEND		65000
+#define ZB3_CLK_SUSPEND		130000
 
 #ifdef CONFIG_PM_DEBUG
 /*
@@ -716,27 +716,6 @@ static void shmobile_suspend_end(void)
 #endif
 }
 
-
-/* I2CDVM */
-#define ICCRDVM			__io(0xE60A0004)
-#define ICTMC1DVM1		__io(0xE60A102C)
-#define ICTMC2DVM1		__io(0xE60A1030)
-#define ICTMCWDVM1		__io(0xE60A1034)
-#define ICICDVM1		__io(0xE60A1004)
-#define ICACEDVM1		__io(0xE60A1028)
-#define ICIMSKDVM1		__io(0xE60A1024)
-#define ICATFRDVM1		__io(0xE60A103C)
-#define ICVCONDVM1		__io(0xE60A1020)
-#define ICATSET1DVM1	__io(0xE60A1040)
-#define ICASTARTDVM1	__io(0xE60A1038)
-/* I2CDVM COM */
-#define ICATD00DVM12	__io(0xE60A1100)
-#define ICATD01DVM12	__io(0xE60A1104)
-#define ICATD02DVM12	__io(0xE60A1108)
-#define ICATD00DVM13	__io(0xE60A1150)
-#define ICATD01DVM13	__io(0xE60A1154)
-#define ICATD02DVM13	__io(0xE60A1158)
-
 static void do_iicdvm_setting(void)
 {
 	pr_debug("Setting IICDVM\n");
@@ -1134,8 +1113,8 @@ int suspend_set_clock(unsigned int is_restore)
 		pr_info("[%s]: Suspend: Set clock for suspending\n",\
 			__func__);
 		/* Backup FRQCRA/B */
-		frqcrA_save = __raw_readl(CPG_FRQCRA);
-		frqcrB_save = __raw_readl(CPG_FRQCRB);
+		frqcrA_save = __raw_readl(FRQCRA);
+		frqcrB_save = __raw_readl(FRQCRB);
 
 		clocks_ret = clock_update(frqcrA_suspend_clock, frqcrA_mask,
 				frqcrB_suspend_clock, frqcrB_mask);
@@ -1193,8 +1172,6 @@ int suspend_set_clock(unsigned int is_restore)
 	}
 	return clocks_ret;
 }
-
-unsigned int CPG_PLL1STPCR_bk;
 
 static int shmobile_suspend(void)
 {
@@ -1378,7 +1355,7 @@ static int shmobile_suspend(void)
 
 	/* - add A4MP state as PLL1 stop conditon */
 
-	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
+	/* TO DO: Use semaphore before access to PLL1STPCR */
 	unsigned int ret;
 	if (pll_1_sem) {
 		ret = hwspin_trylock_nospin(pll_1_sem);
@@ -1390,12 +1367,12 @@ static int shmobile_suspend(void)
 	}
 	pr_err("[%s]: Suspend: Get semaphore successfully\n", __func__);
 	pr_err("[%s]: Suspend: Setting PLL1STPCR\n", __func__);
-	bk_pll1stpcr = __raw_readl(CPG_PLL1STPCR);
-	__raw_writel(bk_pll1stpcr | A4MP | C4STP, CPG_PLL1STPCR);
+	bk_pll1stpcr = __raw_readl(PLL1STPCR);
+	__raw_writel(bk_pll1stpcr | A4MP | C4STP, PLL1STPCR);
 	pr_err("[%s]: Suspend: PLL1STPCR = 0x%8x\n", __func__, \
-			__raw_readl(CPG_PLL1STPCR));
+			__raw_readl(PLL1STPCR));
 
-	/* TO DO: Release semaphore before access to CPG_PLL1STPCR */
+	/* TO DO: Release semaphore before access to PLL1STPCR */
 	hwspin_unlock_nospin(pll_1_sem);
 
 	__raw_writel((__raw_readl(WUPSMSK) | (1 << 28)), WUPSMSK);
@@ -1434,20 +1411,20 @@ static int shmobile_suspend(void)
 #endif	/*CONFIG_PM_HAS_SECURE*/
 
 	/* Restore PLL1 stop conditon)*/
-	/* TO DO: Use semaphore before access to CPG_PLL1STPCR */
+	/* TO DO: Use semaphore before access to PLL1STPCR */
 	ret = hwspin_trylock_nospin(pll_1_sem);
 	if ((ret == -EBUSY) || (ret == -EINVAL)) {
 		pr_err("[%s]: Resume: Can not get semaphore\n", __func__);
 		pr_err("[%s]: Resume: Can not restore PLL1STPCR setting\n",\
 				__func__);
 		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n", \
-				__func__, __raw_readl(CPG_PLL1STPCR));
+				__func__, __raw_readl(PLL1STPCR));
 	} else {
 		pr_err("[%s]: Resume: Get semaphore successfully\n", __func__);
 		pr_err("[%s]: Resume: Restore PLL1STPCR setting\n", __func__);
-		__raw_writel(bk_pll1stpcr, CPG_PLL1STPCR);
+		__raw_writel(bk_pll1stpcr, PLL1STPCR);
 		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n",
-			__func__, __raw_readl(CPG_PLL1STPCR));
+			__func__, __raw_readl(PLL1STPCR));
 		hwspin_unlock_nospin(pll_1_sem);
 	}
 

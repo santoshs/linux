@@ -451,12 +451,9 @@ enum {
 	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
 	ZB3_FREQ_65 = 0,
 	ZB3_FREQ_87,
-	ZB3_FREQ_97,
 	ZB3_FREQ_130,
 	ZB3_FREQ_173,
-	ZB3_FREQ_195,
 	ZB3_FREQ_260,
-	ZB3_FREQ_390,
 	ZB3_FREQ_520,
 	ZB3_FREQ_SIZE
 	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
@@ -625,7 +622,18 @@ void cpg_set_lpclkcr_mode(u32 mode);
 #define SRCR4		IO_ADDRESS(0xE61580BC)
 #define SRCR5		IO_ADDRESS(0xE61580C4)
 
-#define CPG_LPCKCRPhys	IO_ADDRESS(0xE6151024)
+#define BBFRQCRD	IO_ADDRESS(0xE61500E8)
+
+#define RMSTPCR4Phys	0xE6150120
+#define SMSTPCR4Phys	0xE6150140
+#define MSTPSR4Phys	0xE615004C
+
+/******************************************/
+/* XTAL though mode				*/
+/*****************************************/
+#define CPG_LPCKCRPhys	0xE6151024
+#define CPG_LPCKCR		IO_ADDRESS(CPG_LPCKCRPhys)
+
 /*System-CPU PERIPHCLK Control Register*/
 #define PCLKCR		IO_ADDRESS(0xE6151020)
 
@@ -672,4 +680,132 @@ void cpg_set_lpclkcr_mode(u32 mode);
 #define PHYOTGCTR	IO_ADDRESS(0xe689010a) /* 16-bit */
 
 #define PORT47CR	IO_ADDRESS(0xE605002F)
+
+/*
+ * SYSC
+*/
+#define SBAR		IO_ADDRESS(0xe6180020)
+#define SBAR2		IO_ADDRESS(0xe6180060)
+#define RESCNT2		IO_ADDRESS(0xE6188020)
+#define STBCHRB2	IO_ADDRESS(0xE6180042)
+/* WakeUpS Factor Mask Register*/
+#define WUPSMSK		IO_ADDRESS(0xe618002C)
+/* WakeUpS Factor Register	*/
+#define WUPSFAC		IO_ADDRESS(0xE6180098)
+/* SYS Power Down Control Register */
+#define SPDCRPhys	0xE6180008
+#define SPDCR		IO_ADDRESS(SPDCRPhys)
+
+#define SWUCR		IO_ADDRESS(0xE6180014)
+
+/* C4 Area Power Control Register (C4POWCR) */
+/*Power Status Register (PSTR)*/
+#define SYSC_PSTR	0xE6180080
+#define PSTR		IO_ADDRESS(SYSC_PSTR)
+
+/* EXTAL1 Mask Count Register (EXMSKCNT1) */
+#define EXMSKCNT1Phys	0xE6180214
+#define EXMSKCNT1	IO_ADDRESS(0xE6180214)
+
+/* EXTAL1 Clock Stop Control Register (APSCSTP) */
+#define APSCSTPPhys	0xE6180234
+#define APSCSTP		IO_ADDRESS(0xE6180234)
+
+/* EXTAL1 Control Register (SYCKENMSK) */
+#define SYCKENMSKPhys	0xE618024C
+#define SYCKENMSK	IO_ADDRESS(0xE618024C)
+
+/* C4 Area Power Control Register (C4POWCR) */
+#define C4POWCRPhys	0xE618004C
+#define C4POWCR		IO_ADDRESS(0xE618004C)
+
+/*C4 Area Power Control Register2 (PDNSEL)*/
+#define PDNSELPhys	0xE6180254
+#define PDNSEL		IO_ADDRESS(0xE6180254)
+
+/********************************************/
+/* PL310 Register							*/
+/********************************************/
+#define BasePl310Phys		0xF0100000
+
+/************************************/
+/* SCU Register						*/
+/***********************************/
+#define SCU_PWRST_ADDRPhys	0xF0000008
+
+/* I2CDVM */
+#define ICCRDVM			IO_ADDRESS(0xE60A0004)
+#define ICTMC1DVM1		IO_ADDRESS(0xE60A102C)
+#define ICTMC2DVM1		IO_ADDRESS(0xE60A1030)
+#define ICTMCWDVM1		IO_ADDRESS(0xE60A1034)
+#define ICICDVM1		IO_ADDRESS(0xE60A1004)
+#define ICACEDVM1		IO_ADDRESS(0xE60A1028)
+#define ICIMSKDVM1		IO_ADDRESS(0xE60A1024)
+#define ICATFRDVM1		IO_ADDRESS(0xE60A103C)
+#define ICVCONDVM1		IO_ADDRESS(0xE60A1020)
+#define ICATSET1DVM1		IO_ADDRESS(0xE60A1040)
+#define ICASTARTDVM1		IO_ADDRESS(0xE60A1038)
+/* I2CDVM COM */
+#define ICATD00DVM12		IO_ADDRESS(0xE60A1100)
+#define ICATD01DVM12		IO_ADDRESS(0xE60A1104)
+#define ICATD02DVM12		IO_ADDRESS(0xE60A1108)
+#define ICATD00DVM13		IO_ADDRESS(0xE60A1150)
+#define ICATD01DVM13		IO_ADDRESS(0xE60A1154)
+#define ICATD02DVM13		IO_ADDRESS(0xE60A1158)
+
+/* IRQC Event Detectors registers */
+
+#define HSGPR_BASE_PHYS		0xFFA00000
+#define SYSGPR_BASE_PHYS	0xFF700000
+#define HPB_BASE		0xE6000000
+#define CCCR	IO_ADDRESS(0xE600101C)
+#define SHWYSTATHS_BASE		0xE6F30000
+#define SHWYSTATSY_BASE		0xE6F20000
+#define SHWYSTATDM_BASE		0xFE060000
+#define SHBUF_BASE		0xE6240000
+
+/********************************************/
+/* SBSC Register							*/
+/********************************************/
+/* SDRAM Control Register 0A */
+#define SBSC_SDCR0APhys		0xFE400008
+/* SDRAM Common Wait Control Register 0A*/
+#define SBSC_SDWCRC0APhys	0xFE400040
+/* SDRAM Common Wait Control Register 1A*/
+#define SBSC_SDWCRC1APhys	0xFE400044
+/* SDRAM Common wait control register 2A*/
+#define SBSC_SDWCRC2APhys	0xFE400064
+/* SDRAM Wait Control Register 00A */
+#define SBSC_SDWCR00APhys	0xFE400048
+/* SDRAM Wait Control Register 01A */
+#define SBSC_SDWCR01APhys	0xFE40004C
+/* SDRAM Wait Control Register 10A */
+#define SBSC_SDWCR10APhys	0xFE400050
+/* SDRAM Wait Control Register 11A */
+#define SBSC_SDWCR11APhys	0xFE400054
+
+#define SBSC_SDPDCR0APhys	0xFE400058
+
+/********************************************/
+/* RWDT Register			*/
+/********************************************/
+
+/* RCLK watchdog timer counter	*/
+#define RWTCNTPhys	0xE6020000
+#define RWTCNT		IO_ADDRESS(0xE6020000)
+/* RCLK watchdog timer control/status Register	*/
+#define RWDTCSRAPhys	0xE6020004
+#define RWDTCSRA	IO_ADDRESS(0xE6020004)
+
+
+
+/*
+ * ********************************************************************
+ * LPDDR2 ZQ Calibration Issue WA
+ * ********************************************************************
+ */
+#define	SdramZQCalib1Phys	0xFE528200
+#define	SdramZQCalib2Phys	0xFE538200
+#define STBCHRB3		0xE6180043
+
 #endif /* __ASM_R8A73734_H__ */

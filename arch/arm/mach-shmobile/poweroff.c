@@ -25,18 +25,14 @@
 
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
+#include <mach/r8a73734.h>
 
 /* CPG_PLL2CR */
 
 #define PLL2CE_XOE	0x1
 
-/* Restart Mode Setting*/
-#define SBAR2		IO_ADDRESS(0xe6180060)
-#define RESCNT2		IO_ADDRESS(0xE6188020)
-
 /* Power Off Mode Setting */
 #define POFFFLAG	0x80
-#define STBCHRB2	IO_ADDRESS(0xE6180042)
 
 /* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
 /* SDRAM address for NVM */

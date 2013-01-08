@@ -63,7 +63,7 @@
 #define	fsCoreStandby				0x0 /* Core Standby */
 #define	fsSystemSuspend				0x0 /* System Suspend */
 #define	fsSaveArmRegister			0x0 /* Save ARM register */
-#define	fsRestoreArmRegisterPA		0x60 /* Restore ARM register (PA) */
+#define	fsRestoreArmRegisterPA		0x80 /* Restore ARM register (PA) */
 #define	fsRestoreArmRegisterVA		0x0/* Restore ARM register (VA) */
 #define	fsSaveArmCommonRegister		0x0 /* Save ARM common register */
 #define	fsRestoreArmCommonRegister	0x0 /* Restore ARM common register */
@@ -74,9 +74,9 @@
 #define	fsSetClockSystemSuspend		0x120 /* Set clock */
 
 #define	fsSystemSuspendCPU0PA	0x80 /* CPU0: Suspend with MMU off */
-#define	fsCoreStandbyPA		0x1C0 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA		0x1E0 /* CoreStandby function with MMU off */
 #define	fsCoreStandbyPA2	0x160 /* CoreStandby function with MMU off */
-#define	fsPM_Spin_Lock		0x180 /* PM_Spin_Lock */
+#define	fsPM_Spin_Lock		0x1A0 /* PM_Spin_Lock */
 #define	fsPM_Spin_Unlock	0xA0 /* PM_Spin_Unlock */
 #define	fsDisableMMU		0x40 /* Disable MMU function */
 #define	fsSystemSuspendCPU1PA	0x140 /* CPU1: Suspend with MMU off */
