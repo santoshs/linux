@@ -22,6 +22,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
+#include <mach/poweroff.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
 #endif
