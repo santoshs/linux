@@ -3920,7 +3920,21 @@ static void __init u2evm_init(void)
 
 	/* For case that Secure ISSW has selected debug mode already! */
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-
+       {
+               volatile uint32_t val;
+               
+               val = __raw_readl(DBGREG1);
+               if ((val & (1 << 29)) == 0) {
+                       stm_select = -1;
+               } else {
+                       if ((val & (1 << 20)) == 0) {
+                               stm_select = 0;
+                       } else {
+                               stm_select = 1;
+                       }
+               }
+       }
+       
 	printk("sec stm_select=%d\n", stm_select);
 
 	/* pub_stm_select = stm_select;*/
