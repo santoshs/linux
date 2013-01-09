@@ -1,6 +1,0 @@
-config CRYPTO_HW_DX_CC42
-       tristate 'discretix CC 4.2 device driver'
-	
-       help
-		select discretix CC 4.2 device driver
-
