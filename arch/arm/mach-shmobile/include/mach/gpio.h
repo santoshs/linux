@@ -18,6 +18,19 @@
 
 #ifdef CONFIG_GPIOLIB
 
+#define GPIO_BASE	IO_ADDRESS(0xe6050000)
+/* gpio address calculation */
+#define GPIO_PORTCR(n) ({ \
+((n) < 96) ? (GPIO_BASE + 0x0000 + (n)) : \
+((n) < 128) ? (GPIO_BASE + 0x0000 + (n) +  \
+	((system_rev&(~0x3E00)) ? 0 : 0x1000)) : \
+((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) : \
+((n) < 192) ? 0 : \
+((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) : \
+((n) < 328) ? (GPIO_BASE + 0x2000 + (n) + \
+	((system_rev&(~0x3E00)) ? 0 : 0x1000)) : 0; })
+
+
 /* GPIO Settings - PULMD (Pull OFF/Pull DOWN/Pull UP) */
 #define PORTn_CR_PULL_NOT_SET	-1
 #define PORTn_CR_PULL_OFF	0
@@ -35,9 +48,12 @@
 #define PORTn_OUTPUT_LEVEL_LOW		0
 #define PORTn_OUTPUT_LEVEL_HIGH		1
 
-#define GPIO_PULL_OFF	0x00
-#define GPIO_PULL_DOWN	0x80
-#define GPIO_PULL_UP	0xc0
+/* GPIO Mask Values */
+#define GPIO_DIRECTION_NONE	0xcf
+#define GPIO_PULL_OFF		0x3f
+#define GPIO_PULL_UP		0xc0
+#define GPIO_PULL_DOWN		0x80
+#define GPIO_BIDIRECTION	0x30
 #define INPUT		0x20
 #define OUTPUT		0x10
 #define FUNCTION_0	0x00
@@ -86,11 +102,11 @@ static inline int irq_to_gpio(unsigned int irq)
 	return -ENOSYS;
 }
 
-extern void gpio_pull(u32 addr, int type);
 extern void gpio_direction_none_port(int gpio);
 extern void gpio_pull_off_port(int gpio);
 extern void gpio_pull_up_port(int gpio);
 extern void gpio_pull_down_port(int gpio);
+extern void gpio_bidirection_port(int gpio);
 
 #endif /* CONFIG_GPIOLIB */
 
