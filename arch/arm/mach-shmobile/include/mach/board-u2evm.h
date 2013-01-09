@@ -34,25 +34,7 @@
 #define SEC_RLTE_REV0_2_2		2
 #define SEC_RLTE_REV0_3_1		3
 #define SEC_RLTE_REV0_4_0		4
-/**
- * GPIO
- **/
-/*Support for compatibility between ES1.0 and ES2.0*/
-#define GPIO_PORTCR_ES1(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
 
-#define GPIO_PORTCR_ES2(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 /**
  * CMT13
  */
