@@ -41,8 +41,6 @@
 
 #endif /*POWER_DOMAIN_H*/
 
-#undef __io
-#define __io	IO_ADDRESS
 /* #define __DEBUG_PDC */
 /* #define __DEBUG_PDWAIT */
 
@@ -327,7 +325,7 @@ static void power_areas_info(void);
 static void power_areas_info(void)
 {
 	u32 reg_val;
-	reg_val = __raw_readl(__io(SYSC_PSTR));
+	reg_val = __raw_readl(PSTR);
 	printk(KERN_INFO "[PDC] PSTR(0x%08x) = 0x%08x\n",
 			SYSC_PSTR, reg_val);
 	printk(KERN_INFO "[PDC] A3SG = %s\n",
@@ -425,7 +423,7 @@ static bool is_power_status_on(unsigned int area)
 {
 	if (0 != (area & ~POWER_ALL))
 		panic("power status invalid argument: 0%08x", area);
-	return ((__raw_readl(__io(SYSC_PSTR)) & area) == area);
+	return ((__raw_readl(PSTR) & area) == area);
 }
 
 /*
@@ -449,7 +447,7 @@ struct power_domain_info *__to_pdi(const struct device *dev)
 static void power_status_set(unsigned int area, bool on)
 {
 	int i = 0;
-	u32 reg = (on ? SYSC_SWUCR : SYSC_SPDCR);
+	u32 reg = (on ? SWUCR : SPDCR);
 	int reg_val = 0;
 
 	if (0 != (area & ~POWER_ALL))
@@ -460,28 +458,28 @@ static void power_status_set(unsigned int area, bool on)
 		return;
 	}
 
-	/* Dummy read register (SYSC_SWUCR, SYSC_SPDCR) to wait all bits is 0 */
-	reg_val = __raw_readl(__io(reg));
+	/* Dummy read register (SWUCR, SPDCR) to wait all bits is 0 */
+	reg_val = __raw_readl(reg);
 	while (0 != reg_val)
-		reg_val = __raw_readl(__io(reg));
+		reg_val = __raw_readl(reg);
 
-	__raw_writel(area, __io(reg));
+	__raw_writel(area, reg);
 
 	for (i = 0; i < PSTR_POLLING_COUNT_MAX; i++) {
 		udelay(PSTR_POLLING_INTERVAL_US);
 		if (!is_power_status_on(area) == !on) {
 			return;
-		} else if (false == on) { /* Set SYSC_SPDCR each time repeat */
-			reg_val = __raw_readl(__io(reg));
+		} else if (false == on) { /* Set SPDCR each time repeat */
+			reg_val = __raw_readl(reg);
 			while (0 != reg_val)
-				reg_val = __raw_readl(__io(reg));
+				reg_val = __raw_readl(reg);
 
-			__raw_writel(area, __io(reg));
+			__raw_writel(area, reg);
 		}
 	}
 
 	panic("power status error (area:0x%08x on:%d PSTR:0x%08x)",
-					area, on, __raw_readl(__io(SYSC_PSTR)));
+					area, on, __raw_readl(PSTR));
 
 }
 
@@ -760,16 +758,16 @@ static struct platform_driver pwr_driver = {
 /* C4 area driver */
 /*
  * c4_power_down_sel: get value of C4PD[4:0] bits
- * (Power down selection bits) in SYSC_PDNSEL register
+ * (Power down selection bits) in PDNSEL register
  */
 static unsigned int c4_power_down_sel(void)
 {
-	return __raw_readl(__io(SYSC_PDNSEL));
+	return __raw_readl(PDNSEL);
 }
 
 /*
  * set_c4_power_down_sel: set new value into C4PD[4:0] bits
- * (Power down selection bits) in SYSC_PDNSEL register
+ * (Power down selection bits) in PDNSEL register
  * @condition: value to set
  */
 static void set_c4_power_down_sel(unsigned int condition)
@@ -777,7 +775,7 @@ static void set_c4_power_down_sel(unsigned int condition)
 	if (0 != (condition & ~C4_POWER_DOWN_SEL_ALL))
 		panic("C4 power down condition invalid argument: 0%08x",
 				condition);
-	__raw_writel(condition, __io(SYSC_PDNSEL));
+	__raw_writel(condition, PDNSEL);
 }
 
 /*
@@ -960,7 +958,7 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 
 	a2ri_status_old = a2ri_status_new;
 	a2rv_status_old = a2rv_status_new;
-	pstr_val = __raw_readl(__io(SYSC_PSTR));
+	pstr_val = __raw_readl(PSTR);
 
 	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);
 	if (a2ri_status_new && (a2ri_status_new != a2ri_status_old)) {
@@ -1058,7 +1056,7 @@ power_a4rm_mask = POWER_A4RM;
 	a2rv_status_old = 1;
 	a2rv_status_new = 1;
 	suspend_state	= 0;
-	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0A, PAGE_SIZE);
+	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0APhys, PAGE_SIZE);
 	if (NULL == sbsc_sdpdcr0a_reg)
 		printk(KERN_INFO "[PDC] error can't map SBSC_SDPDCR0A\n");
 

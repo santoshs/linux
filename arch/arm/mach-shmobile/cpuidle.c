@@ -40,7 +40,7 @@
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
 
-#define ZB3_CLK_CORESTANDBY2	(65000)
+#define ZB3_CLK_CORESTANDBY2	(130000)
 #define SHMOBILE_MAX_STATES	4
 
 #define DISPLAY_LOG 0
@@ -318,7 +318,6 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct timeval beforeTime, afterTime;
 	int idle_time;
 	long wakelock;
-	int cpuid = smp_processor_id();
 
 	idle_log(">>>IN\n");
 
@@ -333,14 +332,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
 
-		if ((cpuid == 1) ||
-			((cpuid == 0) && (__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG))) {
-
-			start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
-
-		} else {
-			start_wfi();
-		}
+		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
 
 	} else {
 
@@ -381,22 +373,22 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 static int pll1_condition_set(void)
 {
 	int ret = 0;
-	if ((__raw_readl(CPG_MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
+	if ((__raw_readl(MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
 		goto set_pll1_c4;
 
-	if ((__raw_readl(CPG_MSTPSR2) & MSTPST2_PLL1) != MSTPST2_PLL1)
+	if ((__raw_readl(MSTPSR2) & MSTPST2_PLL1) != MSTPST2_PLL1)
 		goto set_pll1_c4;
 
-	if ((__raw_readl(CPG_MSTPSR3) & MSTPST3_PLL1) != MSTPST3_PLL1)
+	if ((__raw_readl(MSTPSR3) & MSTPST3_PLL1) != MSTPST3_PLL1)
 		goto set_pll1_c4;
 
-	if ((__raw_readl(CPG_MSTPSR4) & MSTPST4_PLL1) == MSTPST4_PLL1)
+	if ((__raw_readl(MSTPSR4) & MSTPST4_PLL1) == MSTPST4_PLL1)
 		goto set_pll1_c4_skip;
 
 set_pll1_c4:
 	ret = hwspin_trylock_nospin(pll_1_sem);
 	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(CPG_PLL1STPCR) | C4STP, CPG_PLL1STPCR);
+		__raw_writel(__raw_readl(PLL1STPCR) | C4STP, PLL1STPCR);
 		hwspin_unlock_nospin(pll_1_sem);
 		ret = -1;
 	} else if (ret == -EBUSY) {
@@ -420,8 +412,8 @@ static void pll1_condition_at_wakeup(void)
 	int ret;
 	ret = hwspin_trylock_nospin(pll_1_sem);
 	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(CPG_PLL1STPCR) &
-					(~C4STP), CPG_PLL1STPCR);
+		__raw_writel(__raw_readl(PLL1STPCR) &
+					(~C4STP), PLL1STPCR);
 		hwspin_unlock_nospin(pll_1_sem);
 	} else if (ret == -EBUSY)
 		get_sem_fail_ebusy++;
@@ -587,8 +579,8 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 
 clock_change:
 			/* backup freqs before change */
-			freqA_save = __raw_readl(CPG_FRQCRA);
-			freqB_save = __raw_readl(CPG_FRQCRB);
+			freqA_save = __raw_readl(FRQCRA);
+			freqB_save = __raw_readl(FRQCRB);
 			/* set clocks */
 			clocks_ret = clock_update(FRQCRA_CHANGE_CORE,
 				FRQCRA_MSK, FRQCRB_CHANGE_CORE, FRQCRB_MSK);
@@ -706,11 +698,7 @@ skip_clock_change:
 out: /* go to corestandby for power consumption */
 /* #endif */
 
-		if (cpuid == 1) {
-			start_corestandby();
-		} else {	/* if cpuid == 0 and cpu1 isn't unpluged */
-			start_wfi();
-		}
+		start_corestandby();
 
 	} else { /* idle wakelock is used */
 
@@ -891,7 +879,7 @@ static int shmobile_init_cpuidle(void)
 	/* - set the legacy mode to LPCKCR */
 	__raw_writel(CPG_LPCKCR_LEGACY, CPG_LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
-	__raw_writel(A2SLSTP, CPG_PLL0STPCR);
+	__raw_writel(A2SLSTP, PLL0STPCR);
 
 	/* - set Wake up factor unmask to GIC.CPU0 by SYS.WUPSMSK */
 	__raw_writel((__raw_readl(WUPSMSK) &  ~(1 << 28)), WUPSMSK);

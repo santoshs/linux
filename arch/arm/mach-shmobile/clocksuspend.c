@@ -33,25 +33,10 @@
 #define pr_fmt(fmt) "dvfs[clocksuspend.c<%4d>]:" fmt, __LINE__
 #endif
 
-#define CPG_FRQCRA		(CPG_BASE + 0x0000)
-#define CPG_FRQCRB		(CPG_BASE + 0x0004)
-#define CPG_ZBCKCR		(CPG_BASE + 0x0010)
-#define CPG_FRQCRD		(CPG_BASE + 0x00E4)
-#define CPG_BBFRQCRD	(CPG_BASE + 0x00E8)
-
-#define CPG_PLLECR		(CPG_BASE + 0x00D0)
-#define CPG_PLL0CR		(CPG_BASE + 0x00D8)
-#define CPG_PLL1CR		(CPG_BASE + 0x0028)
-#define CPG_PLL2CR		(CPG_BASE + 0x002C)
-#define CPG_PLL3CR		(CPG_BASE + 0x00DC)
-#define CPG_CKSCR		(CPG_BASE + 0x00C0)
-#define CPG_LPCKCR_		(CPG_BASE + 0x1024)
 #define PLLCR_STC_MASK		0x3F000000
 #define PLLCR_BIT24_SHIFT	24
-
 #define FRQCRD_ZB30SEL		BIT(4)
 #define KICK_WAIT_INTERVAL_US	500
-
 #define SEM_TIMEOUT		2	/* 2ms */
 
 /* #define DOWN_PLL1_ENABLE	1 */
@@ -100,7 +85,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -123,7 +108,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -146,7 +131,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -169,7 +154,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -192,7 +177,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -215,7 +200,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -238,7 +223,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -261,7 +246,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -284,7 +269,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -307,7 +292,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -330,7 +315,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x3f,
@@ -353,7 +338,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = __io(CPG_ZBCKCR)
+		.addr = __io(ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -376,7 +361,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = __io(CPG_FRQCRD)
+		.addr = __io(FRQCRD)
 	}
 };
 static struct clk_hw_info __clk_hw_info_es2_x[] = {
@@ -401,7 +386,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -424,7 +409,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -447,7 +432,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -470,7 +455,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -493,7 +478,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[M5_CLK] = {
 		.mask_bit	= 0xf,
@@ -516,7 +501,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = __io(FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -539,7 +524,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -562,7 +547,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -585,7 +570,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -608,7 +593,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -631,7 +616,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -654,7 +639,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = __io(FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x3f,
@@ -677,7 +662,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = __io(CPG_ZBCKCR)
+		.addr = __io(ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -700,7 +685,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = __io(CPG_FRQCRD)
+		.addr = __io(FRQCRD)
 	}
 };
 
@@ -948,7 +933,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	},
 	{
@@ -967,7 +952,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	},
 	{
@@ -986,7 +971,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	}
 };
@@ -1053,20 +1038,6 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.SDWCR11A = 0x001F030E,
 		.freq = 86667,
 	},
-	[ZB3_FREQ_97] = {
-		.pll3multiplier_1 = 30,
-		.zb3divider_1 = 8,
-		.pll3multiplier_2 = 0,
-		.zb3divider_2 = 0,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
-		.freq = 97500,
-	},
 	[ZB3_FREQ_130] = {
 		.pll3multiplier_1 = 0, /* 30, */
 		.zb3divider_1 = 0, /* 6 */
@@ -1096,20 +1067,6 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.SDWCR11A = 0x001F030E,
 		.freq = 173333,
 	},
-	[ZB3_FREQ_195] = {
-		.pll3multiplier_1 = 30,
-		.zb3divider_1 = 4,
-		.pll3multiplier_2 = 0,
-		.zb3divider_2 = 0,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
-		.freq = 195000,
-	},
 	[ZB3_FREQ_260] = {
 		.pll3multiplier_1 = 0,
 		.zb3divider_1 = 0,
@@ -1123,20 +1080,6 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.SDWCR10A = 0x51528909,
 		.SDWCR11A = 0x001F030E,
 		.freq = 260000,
-	},
-	[ZB3_FREQ_390] = {
-		.pll3multiplier_1 = 30,
-		.zb3divider_1 = 2,
-		.pll3multiplier_2 = 30,
-		.zb3divider_2 = 2,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
-		.freq = 390000,
 	},
 	[ZB3_FREQ_520] = {
 		.pll3multiplier_1 = 0,
@@ -1162,7 +1105,7 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 
 void cpg_set_lpclkcr_mode(u32 mode)
 {
-	__raw_writel(mode, CPG_LPCKCR_);
+	__raw_writel(mode, CPG_LPCKCRPhys);
 }
 /*
  * __match_div_rate: get div-rate by hw setting value
@@ -1298,7 +1241,7 @@ int cpg_set_pll(int pll, unsigned int val)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = CPG_PLL0CR;
+	unsigned int addr = PLL0CR;
 	int timeout = 500;
 
 	if (pll != PLL0) {
@@ -1315,7 +1258,7 @@ int cpg_set_pll(int pll, unsigned int val)
 		__raw_writel(pllcr, __io(IO_ADDRESS(addr)));
 		/* wait for status bit set */
 		while (--timeout) {
-			if (__raw_readl(CPG_PLLECR) & (1 << 8))
+			if (__raw_readl(PLLECR) & (1 << 8))
 				break;
 			udelay(1);
 		}
@@ -1342,20 +1285,20 @@ int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = CPG_PLL0CR;
+	unsigned int addr = PLL0CR;
 
 	switch (pll) {
 	case PLL0:
-		addr = CPG_PLL0CR;
+		addr = PLL0CR;
 		break;
 	case PLL1:
-		addr = CPG_PLL1CR;
+		addr = PLL1CR;
 		break;
 	case PLL2:
 		addr = CPG_PLL2CR;
 		break;
 	case PLL3:
-		addr = CPG_PLL3CR;
+		addr = PLL3CR;
 		break;
 	default:
 		pr_err("PLL<%d> not supported\n", pll);
@@ -1383,7 +1326,7 @@ int cpg_wait_kick(unsigned int time)
 	unsigned int wait_time = time;
 
 	while (0 < wait_time--) {
-		if ((__raw_readl(CPG_FRQCRB) >> 31) == 0)
+		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
 		if (!is_suspend_setclock)
 			udelay(1);
@@ -1412,7 +1355,7 @@ int cpg_set_kick(unsigned int time)
 
 	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
 		wait_time = KICK_WAIT_INTERVAL_US;
-	__raw_writel(BIT(31) | __raw_readl(CPG_FRQCRB), CPG_FRQCRB);
+	__raw_writel(BIT(31) | __raw_readl(FRQCRB), FRQCRB);
 
 	return cpg_wait_kick(wait_time);
 }
@@ -1431,9 +1374,9 @@ int cpg_set_kick(unsigned int time)
  */
 int cpg_get_freq(struct clk_rate *rates)
 {
-	unsigned int frqcra = __raw_readl(CPG_FRQCRA);
-	unsigned int frqcrb = __raw_readl(CPG_FRQCRB);
-	unsigned int frqcrd = __raw_readl(CPG_FRQCRD);
+	unsigned int frqcra = __raw_readl(FRQCRA);
+	unsigned int frqcrb = __raw_readl(FRQCRB);
+	unsigned int frqcrd = __raw_readl(FRQCRD);
 
 	if (!rates) {
 		pr_err("invalid parameter<NULL>\n");
@@ -1505,8 +1448,8 @@ void cpg_enable_sbsc_change_for_modem(void)
 	unsigned int ckscr = 0;
 
 	/* unlock ZB30SEL */
-	ckscr = __raw_readl(CPG_CKSCR);
-	__raw_writel(BIT(14) | ckscr, CPG_CKSCR);
+	ckscr = __raw_readl(CKSCR);
+	__raw_writel(BIT(14) | ckscr, CKSCR);
 }
 
 /*
@@ -1520,7 +1463,7 @@ void cpg_enable_sbsc_change_for_modem(void)
  */
 void cpg_init_bbfrqcrd(void)
 {
-	writel(0x1B, CPG_BBFRQCRD);
+	writel(0x1B, BBFRQCRD);
 }
 
 /*
@@ -1578,23 +1521,23 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 	long timeout = 1500;
 
 	/* Check PLL3 status */
-	work = __raw_readl(CPG_PLLECR);
+	work = __raw_readl(PLLECR);
 	if (!(work & CPG_PLLECR_PLL3ST)) {
 		pr_log("CPG_PLLECR_PLL3ST is 0\n");
 		return;
 	}
 
 	if (pll_multiplier == 40)
-		__raw_writel(CPG_PLL3CR_X40, CPG_PLL3CR);
+		__raw_writel(CPG_PLL3CR_X40, PLL3CR);
 	else if (pll_multiplier == 30)
-		__raw_writel(CPG_PLL3CR_X30, CPG_PLL3CR);
+		__raw_writel(CPG_PLL3CR_X30, PLL3CR);
 	else
 		WARN(1, KERN_WARNING "unknown PLL3 multiplier");
 
 	/* Wait PLL3 status on */
 	while (0 < timeout) {
 		timeout--;
-		work = __raw_readl(CPG_PLLECR);
+		work = __raw_readl(PLLECR);
 		work &= CPG_PLLECR_PLL3ST;
 		if (work == CPG_PLLECR_PLL3ST)
 			break;
@@ -1712,7 +1655,7 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 	}
 
 	actual_pllmult = cpg_get_pll(PLL3);
-	reg = __raw_readl(CPG_FRQCRD);
+	reg = __raw_readl(FRQCRD);
 	old_freq = (26 * actual_pllmult);
 
 	switch (reg & (0x1F)) {
@@ -1773,7 +1716,7 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 			(reg_zb3div != 0x8000))) {
 			pr_log("%s()[%d]: FRQCRD[0x%8x]\n", __func__,
 				__LINE__, reg_zb3div);
-			__raw_writel(reg_zb3div, CPG_FRQCRD);
+			__raw_writel(reg_zb3div, FRQCRD);
 			/* set and wait for KICK bit changed */
 			if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
 				pr_err("%s()[%d]: error! set kick bit\n",
@@ -1784,11 +1727,11 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 
 			/*ERRATA*/
 			if (zb3divider == 2) {
-				ckscr = __raw_readl(CPG_CKSCR);
+				ckscr = __raw_readl(CKSCR);
 				ckscr &= ~BIT(14);
-				__raw_writel(ckscr, CPG_CKSCR);
+				__raw_writel(ckscr, CKSCR);
 
-				__raw_writel(BIT(15) | 0x4, CPG_FRQCRD);
+				__raw_writel(BIT(15) | 0x4, FRQCRD);
 
 				if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
 					pr_err("%s()[%d]: error! set kick bit\n",
@@ -1796,8 +1739,8 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 					ret = -ETIMEDOUT;
 					goto exit;
 				}
-				ckscr = __raw_readl(CPG_CKSCR);
-				__raw_writel(ckscr | BIT(14), CPG_CKSCR);
+				ckscr = __raw_readl(CKSCR);
+				__raw_writel(ckscr | BIT(14), CKSCR);
 			}
 			/*end of ERRATA*/
 		}
@@ -1839,9 +1782,9 @@ int cpg_set_freqval(int clk, int div)
 
 		spin_unlock_irqrestore(&freq_change_lock, flags);
 		pr_log("REQ[%d] REG[E0/E4/E8]=[0x%08x/0x%08x/0x%08x]\n", div,
-			__raw_readl(CPG_FRQCRD - 0x4),
-			__raw_readl(CPG_FRQCRD),
-			__raw_readl(CPG_FRQCRD + 0x4));
+			__raw_readl(FRQCRD - 0x4),
+			__raw_readl(FRQCRD),
+			__raw_readl(FRQCRD + 0x4));
 		return ret;
 	}
 
@@ -1943,18 +1886,18 @@ int cpg_get_freqval(int clk, int *div)
 
 	/* get divrate */
 	if (clk == ZB3_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRD), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRD), clk);
 	} else if (clk == ZB_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_ZBCKCR), clk);
+		div_rate = HW_TO_DIV(__raw_readl(ZBCKCR), clk);
 	} else if ((clk == ZB_CLK) || (clk == ZG_CLK) || (clk == B_CLK)
 		|| (clk == M1_CLK) || (clk == M3_CLK) || (clk == I_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else if ((clk == Z_CLK) || (clk == ZTR_CLK) || (clk == ZT_CLK)
 		|| (clk == ZX_CLK) || (clk == HP_CLK) || (clk == ZS_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRB), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRB), clk);
 	} else if ((shmobile_chip_rev() >= ES_REV_2_0) &&
 		(clk == M5_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else {
 		spin_unlock_irqrestore(&freq_change_lock, flags);
 		pr_err("error! invalid clock<%d>\n", clk);
@@ -2015,20 +1958,20 @@ int cpg_set_freq(const struct clk_rate rates)
 	}
 #ifdef DOWN_PLL1_ENABLE
 	if (is_first_run) {
-		reg = __raw_readl(CPG_PLL1CR);
+		reg = __raw_readl(PLL1CR);
 		/* Set Bit 7 = 1 to change clock source */
 		if (!(reg & BIT(7))) { /* BIT 7 = 0 */
 			reg |= BIT(7);
-			__raw_writel(reg, CPG_PLL1CR);
+			__raw_writel(reg, PLL1CR);
 			while (--timeout) {
-				if (__raw_readl(CPG_PLLECR) & (1 << 9))
+				if (__raw_readl(PLLECR) & (1 << 9))
 					break;
 				udelay(1);
 			}
 
 			if (timeout <= 0)
 				pr_err("wait PLL1 status timeout\n");
-			pr_info("CPG_PLL1CR = 0x%8x", __raw_readl(CPG_PLL1CR));
+			pr_info("PLL1CR = 0x%8x", __raw_readl(PLL1CR));
 		}
 		is_first_run = 0;
 	}
@@ -2110,7 +2053,7 @@ int cpg_set_freq(const struct clk_rate rates)
 		}
 
 		/* apply setting */
-		__raw_writel(reg, CPG_FRQCRB);
+		__raw_writel(reg, FRQCRB);
 
 		reg = DIV_TO_HW(I_CLK, rates.i_clk);
 		reg |= DIV_TO_HW(ZG_CLK, rates.zg_clk);
@@ -2120,10 +2063,10 @@ int cpg_set_freq(const struct clk_rate rates)
 		reg |= DIV_TO_HW(M5_CLK, rates.m5_clk);
 
 		/* apply setting */
-		__raw_writel(reg, CPG_FRQCRA);
+		__raw_writel(reg, FRQCRA);
 		pr_log("FRQCR[A/B]=[0x%08X/0x%08X]\n",
-			__raw_readl(CPG_FRQCRA),
-			__raw_readl(CPG_FRQCRB));
+			__raw_readl(FRQCRA),
+			__raw_readl(FRQCRB));
 
 		/* set and wait for KICK bit changed */
 		if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
@@ -2236,13 +2179,13 @@ int pm_setup_clock(void)
 	}
 	/* stop ZB-Phy */
 	while (cnt_zb--) {
-		zbckcr = __raw_readl(CPG_ZBCKCR);
+		zbckcr = __raw_readl(ZBCKCR);
 		if (zbckcr & BIT(8)) {
 			pr_info("ZB-Phy stopped, ZBCKCR<0x%08x>\n", zbckcr);
 			break;
 		}
 		zbckcr |= BIT(8);
-		__raw_writel(zbckcr, CPG_ZBCKCR);
+		__raw_writel(zbckcr, ZBCKCR);
 		udelay(1);
 	}
 	if (!cnt_zb)

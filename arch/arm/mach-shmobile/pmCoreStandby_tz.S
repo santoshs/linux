@@ -33,24 +33,42 @@
 /*==========================================*/
 ENTRY(PM_Spin_Lock)
 #ifdef CONFIG_PM_SMP
-	PM_ES2_2_And_After
+	MRC		p15, 0, r7, c1, c0, 0	/* System Control Register */
+	TST		r7, #0x1
+	LDRNE	r9, =ram0ES_2_2_AndAfter
+	LDREQ	r9, =ram0ES_2_2_AndAfterPhys
+	LDR 	r9, [r9]
+	CMP		r9, #0x0	/* es < 2.0.2 */
 	BEQ		SPIN_LOCK_ES_2_2_AFTER_GET1_SKIP
 
-	MRC	p15, 0, r8, c0, c0, 5	/* Read MPIDR */
 	MOV		r4, #0x1
-	ADD		r4, r4, r8 /* Different value for each CPU */
 
-	MRC		p15, 0, r7, c1, c0, 0	/* System Control Register */
 	TST		r7, #0x1
 	LDRNE	r5, =ram0SpinLockVA
 	LDREQ	r5, =ram0SpinLockPAPhys
 	LDR		r5, [r5]
+
+	CMP		r9, #0x1
+	BEQ		2f	/* es = 2.0.2 */
+
+3: /* es > 2.0.2 */
+	LDREX	r6, [r5]
+	CMP		r6, #0x0
+	/* WFENE */
+	STREXEQ	r6, r4, [r5]
+	CMPEQ	r6, #0x0
+	BNE		3b
+	DMB
+	B	SPIN_LOCK_GET1_END
 
 2:
 	LDR	r6, [r5]
 	CMP	r6, #0x0
 	BNE	2b
 	DMB
+
+	MRC	p15, 0, r8, c0, c0, 5	/* Read MPIDR */
+	ADD		r4, r4, r8 /* Different value for each CPU */
 
 1:
 	LDREX	r6, [r5]
@@ -565,12 +583,7 @@ CORESTANDBY_RESUME_ERROR:
 
 CORESTANDBY_RESTORE:
 	NOP
-#if 0
-	MCR	p15, 0, r0, c8, c7, 0 /* Invalidate entire unified TLB */
-	MCR	p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
-	DSB
-	ISB
-#endif
+
 	/*-----------------------------------*/
 	/* Restore ARM registers 			*/
 	/*---------------------------------*/
@@ -682,15 +695,6 @@ SYSTEMSUSPEND_RESTORE_CPU0:
 
 	CMP 	r0, #SEC_HAL_RES_OK
 	BNE		CPU0_SEC_HAL_NOT_OK
-
-#if 0
-	/* Invalidate entire unified TLB */
-	MCR		p15, 0, r0, c8, c7, 0
-	/* Invalidate branch predictor */
-	MCR		p15, 0, r0, c7, c5, 6
-	DSB
-	ISB
-#endif
 
 CPU0_SEC_HAL_NOT_OK:
 	/*----------------------------------*/
@@ -836,14 +840,6 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 
 SYSTEMSUSPEND_RESTORE_CPU1:
 	NOP
-#if 0
-	/* Invalidate entire unified TLB */
-	MCR		p15, 0, r0, c8, c7, 0
-	/* Invalidate branch predictor	*/
-	MCR		p15, 0, r0, c7, c5, 6
-	DSB
-	ISB
-#endif
 
 CPU1_SEC_HAL_NOT_OK:
 	/*------------------------------------------*/
@@ -1310,7 +1306,7 @@ POWERDOWN_NO_CHANGE_FREQUENCY:
 	/* Turn off Watchdog timer				*/
 	/*--------------------------------------*/
 	/* Check status before turn it off */
-	LDR		r6, =CPG_MSTPSR4
+	LDR		r6, =MSTPSR4
 	LDR		r7, [r6]
 	AND		r4, r7, #MSTP402
 	CMP		r4, #MSTP402		/* 0: ON, 1: OFF */
@@ -1330,8 +1326,8 @@ SYSPD_LOOP_RWDT:
 	TST		r7, #0x20
 	BNE		SYSPD_LOOP_RWDT
 
-	LDR		r6, =CPG_RMSTPCR4
-	LDR		r7, =CPG_SMSTPCR4
+	LDR		r6, =RMSTPCR4
+	LDR		r7, =SMSTPCR4
 	LDR		r4, [r6]
 	LDR		r5, [r7]
 	ORR		r4, r4, #MSTP402
@@ -1424,8 +1420,8 @@ SKIP_TURN_OFF_RWDT:
 	LDR		r7, [r6]
 	CMP		r7, #0x1		/* 0: enable RWDT, 1: skip */
 	BEQ		SKIP_TURN_ON_RWDT3
-	LDR		r6, =CPG_RMSTPCR4
-	LDR		r7, =CPG_SMSTPCR4
+	LDR		r6, =RMSTPCR4
+	LDR		r7, =SMSTPCR4
 	LDR		r4, [r6]
 	LDR		r5, [r7]
 	BIC		r4, r4, #MSTP402
@@ -1526,8 +1522,8 @@ ENTRY(sys_powerup)
 	CMP		r7, #0x1		/* 0: enable RWDT, 1: skip */
 	BEQ		SKIP_TURN_ON_RWDT2
 
-	LDR		r6, =CPG_RMSTPCR4Phys
-	LDR		r7, =CPG_SMSTPCR4Phys
+	LDR		r6, =RMSTPCR4Phys
+	LDR		r7, =SMSTPCR4Phys
 	LDR		r4, [r6]
 	LDR		r5, [r7]
 	BIC		r4, r4, #MSTP402
@@ -1536,29 +1532,6 @@ ENTRY(sys_powerup)
 	STR		r5, [r7]
 SKIP_TURN_ON_RWDT2:
 
-#if 0
-	/*------------------------------------------*/
-	/* Change clock setting for wakeup          */
-	/* Switch by Sec_hal function return value  */
-	/*   0x00: Perform clock change             */
-	/*   0x20: Skip clock change                */
-	/*------------------------------------------*/
-	LDR		r0, =ram0SecHalReturnCpu0
-	LDR		r0, [r0]
-	CMP		r0, #SEC_HAL_FREQ_FAIL
-	BEQ		POWERUP_NO_CHANGE_FREQUENCY
-
-	LDR		r5, =ram0SetClockWorkPhys
-	STR		lr, [r5]
-	LDR		r4, =ram0SetClockSystemSuspendPhys
-	MOV		r0, #0x1	/* Target(r0):Wakeup(0x1) */
-	MOV		lr, pc	/* lr: Return address */
-	MOV		pc, r4	/* Call setclock_systemsuspend() */
-	NOP
-	LDR		r5, =ram0SetClockWorkPhys
-	LDR		lr, [r5]
-POWERUP_NO_CHANGE_FREQUENCY:
-#endif
 #if 0
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
@@ -1609,469 +1582,6 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 
 ENDPROC(sys_powerup)
 
-/********************************************************************/
-/* Change the division ratio of clocks 	*/
-/* This function is running on RAM0		*/
-/* After modification of this function, please check the offset. */
-/* Enter with: 	*/
-/*  r0 = Setting Target (0:Powerdown / 1:Wakeup) */
-/* 	lr = Address of return point */
-/********************************************************************/
-	.align	5
-ENTRY(setclock_systemsuspend)
-	/*
-	 * Before setting clock for the Powerdown,
-	 * backup the current clock setting.
-	 */
-	CMP		r0, #0x0	/* 0: Suspend 1: Resume */
-	BNE		SETCLOCK_BACKUP_CLOCK_SETTING_SKIP
-
-	/* Backup CPG.FRQCRA */
-	LDR		r4, =CPG_FRQCRA
-	LDR		r5, =ram0SetClockFrqcra
-	LDR		r6, [r4]
-	LDR		r7, =ram0FRQCRAMask
-	LDR		r7, [r7]
-	AND		r6, r6, r7
-	STR		r6, [r5]
-
-	/*
-	 * Backup CPG.FRQCRB
-	 * Clear FRQCRB.ZFC[3:0] if FRQCRB.ZSEL == 0
-	*/
-	LDR		r4, =CPG_FRQCRB
-	LDR		r5, =ram0SetClockFrqcrb
-	LDR		r6, [r4]
-	LDR		r7, =FRQCRB_MASK
-	AND		r6, r6, r7
-	STR		r6, [r5]
-
-#if 0
-	/*
-	 * Backup CPG.FRQCRD
-	 * Clear the FRQCRD.ZB30FC[3:0] if FRQCRD.ZB30SEL == 0
-	 */
-	LDR		r4, =CPG_FRQCRD
-	LDR		r5, =ram0SetClockFrqcrd
-	LDR		r6, [r4]
-	LDR		r7, =FRQCRD_MASK
-	AND		r6, r6, r7
-	LDR		r8, =FRQCRD_ZB30SEL_BIT
-	TST		r6, r8
-	LDREQ	r9, =FRQCRD_ZB30FC_MASK
-	BICEQ	r6, r6, r9
-	STR		r6, [r5]
-#endif
-SETCLOCK_BACKUP_CLOCK_SETTING_SKIP:
-
-	/* Change the division ratio of System-CPU/SGX and Common divider */
-	/* In power down (r0 == 0) */
-	/*   r4: Power-save setting to FRQCRA */
-	/*   r5: Power-save setting to FRQCRB */
-	/* In power up (r0 == 1) */
-	/*   r4: Backup setting to FRQCRA */
-	/*   r5: Backup setting to FRQCRB */
-	/* r6: RAM0 address storing backup setting of FRQCRA */
-	/* r7: RAM0 address storing backup setting of FRQCRB */
-	CMP		r0, #0x0
-	LDREQ	r4, =ram0FRQCRADown
-	LDREQ	r4, [r4]
-	LDREQ	r5, =ram0FRQCRBDown
-	LDREQ	r5, [r5]
-	LDRNE	r6, =ram0SetClockFrqcraPhys
-	LDRNE	r4, [r6]
-	LDRNE	r7, =ram0SetClockFrqcrbPhys
-	LDRNE	r5, [r7]
-
-	/* Compare the current setting with target setting */
-	/* r4: Target setting to FRQCRA */
-	/* r5: Target setting to FRQCRB */
-	/* r6: Physical address of FRQCRA */
-	/* r7: Physical address of FRQCRB */
-	CMP		r0, #0x0
-	LDREQ	r6, =CPG_FRQCRA
-	LDREQ	r7, =CPG_FRQCRB
-	LDRNE	r6, =CPG_FRQCRAPhys
-	LDRNE	r7, =CPG_FRQCRBPhys
-	LDR		r8, [r6]	/* Read CPG.FRQCRA		*/
-	LDREQ	r9, =ram0FRQCRAMask
-	LDRNE	r9, =ram0FRQCRAMaskPhys
-	LDR		r9, [r9]
-	AND		r8, r8, r9	/* Clear reserve bit.	*/
-	CMP		r8, r4
-	BNE		SETCLOCK_CHANGE_START
-	LDR		r8, [r7]	/* Read CPG.FRQCRB	*/
-	LDR		r9, =FRQCRB_MASK
-	AND		r8, r8, r9	/* Clear control & reserve bit. */
-
-	CMP		r8, r5
-	BEQ		SETCLOCK_CHANGE_SKIP
-
-	/* Perform division ratio setting	*/
-	/* r4: Target setting to FRQCRA		*/
-	/* r5: Target setting to FRQCRB		*/
-	/* r6: Physical address of FRQCRA	*/
-	/* r7: Physical address of FRQCRB	*/
-SETCLOCK_CHANGE_START:
-
-#if 0
-/* ---Put a wait here in suspend semaphore---*/
-/**Get semaphore 1*/
-	LDR	r11, =BUS_SMGPxSRCPhys
-/* Get semaphore */
-TRY_GET_SEMAPHORE:
-	LDR		r10, [r11]
-	LDR		r9, =0x1
-	ORR		r10, r10, r9
-	STR		r10, [r11]
-
-/* Check status of semaphore acquisition */
-	LDR		r10, [r11]
-	LDR		r9, =BUS_SMGPxSRC_MSK
-	AND		r10, r10, r9
-	CMP		r10, #0x40000000	/* Acquire by APE-CPU0 */
-	BEQ		SETCLOCK_CHANGE_START_SEMAPHORE
-
-/* Handle failed case */
-	MOV		r9, #0x10	/* Loop 16 times before re-try */
-SEMAPHORE_TRY_LOOP:
-	SUB 	r9, r9, #0x1
-	CMP		r9, #0x0
-	BNE		SEMAPHORE_TRY_LOOP
-	BEQ		TRY_GET_SEMAPHORE
-
-SETCLOCK_CHANGE_START_SEMAPHORE:
-#endif
-
-	LDR		r8, =FRQCRB_KICK
-SETCLOCK_KICK_CLEAR_LOOP1:
-	LDR		r9, [r7]	/* Read CPG.FRQCRB	*/
-	TST		r9, r8
-	BNE		SETCLOCK_KICK_CLEAR_LOOP1
-	/* Set target settings */
-
-	LDR		r3, =ram0FRQCRAMask
-	LDR 	r3, [r3]
-	LDR		r9, [r6]	/* Read CPG.FRQCRA */
-	BIC		r9, r9, r3	/* Clear B clock */
-	ORR		r4, r4, r9	/* Set B clock target value */
-	STR		r4, [r6]	/* Write CPG.FRQCRA */
-
-	LDR		r3, =FRQCRB_MASK
-	LDR		r9, [r7]	/* Read CPG.FRQCRB */
-	BIC		r9, r9, r3	/* Clear ZX, ZS, HP clock */
-	ORR		r5, r5, r9	/* Set ZX, ZS, HP clock target value */
-	ORR		r5, r5, r8	/* Set KICK bit */
-	STR		r5, [r7]	/* Write CPG.FRQCRB */
-
-SETCLOCK_KICK_CLEAR_LOOP2:
-	LDR		r9, [r7]	/* Read CPG.FRQCRB	*/
-	TST		r9, r8
-	BNE		SETCLOCK_KICK_CLEAR_LOOP2 /* Loop until KICK==b'0 */
-
-#if 0
-/**Release semaphore 1*/
-	LDR		r11, =BUS_SMGPxSRCPhys
-	LDR		r10, [r11]
-	BIC		r10, r10, #0x1
-	STR		r10, [r11]
-/* ---Put a wait here in suspend semaphore---*/
-/**Release semaphore 1*/
-#endif
-
-	SETCLOCK_CHANGE_SKIP:
-#if 0
-	/*
-	/* Change the DDR clock divider
-	/* In power down (r0 == 0)
-	 *   r4: Power-save setting to FRQCRD
-	 * In power up (r0 == 1)
-	 *   r4: Backup setting to FRQCRD
-	 * r6: RAM0 address storing backup setting of FRQCRD
-	 */
-	CMP		r0, #0x0
-	LDREQ	r4, =POWERDOWN_FRQCRD
-	LDRNE	r6, =ram0SetClockFrqcrdPhys
-	LDRNE	r4, [r6]
-
-	/*
-	 * Compare the current setting with target setting
-	 * r4: Target setting to FRQCRD
-	 * r5: Physical address of FRQCRD
-	 * r6: Current setting of FRQCRD
-	 */
-	LDR		r5, =CPG_FRQCRDPhys
-	LDR		r6, [r5]
-	LDR		r7, =FRQCRD_MASK
-	AND		r6, r6, r7	/* Clear control and reserve bit. */
-	LDR		r7, =FRQCRD_ZB30SEL_BIT
-	TST		r6, r7		/* if (FRQCRD.ZB30SEL == 0) */
-	LDREQ	r8, =FRQCRD_ZB30FC_MASK
-	/* If FRQCRD.ZB30SEL is b'0, clear the FRQCRD.ZB30FC[3:0]. */
-	BICEQ	r6, r6, r8
-
-	/* Perform division ratio setting
-	 * r4: Set setting for FRQCRD.
-	 *		ZB3_HIGHSPEED	: 0x00000000	(1/2)
-	 *		ZB3_MIDSPEED	: 0x00000010	(1/4)
-	 *		ZB3_LOWSPEED	: 0x00000014	(1/16)
-	 */
-	CMP		r6, r4
-	BEQ		SETCLOCK_ZB3CHANGE_SKIP
-	/*
-	 * Confirm direction of ZB3 change
-	 * (based on status of APSR.Z,APSR.C bits of above CMP instruction)
-	 * r6=1: MID -> HI, LOW -> HI, LOW -> MID	(Clk UP)
-	 * r6=0: HI -> MID, HI -> LOW, MID -> LOW	(Clk DOWN)
-	 */
-	MOVHI	r6, #0x1
-	MOVLS	r6, #0x0
-
-	/*
-	 * For cases MID -> HI, LOW -> HI, LOW -> MID
-	 * Set wait setting
-	 * r4: Target setting to FRQCRD
-	 * r5: Physical address of FRQCRD
-	 * r6: Target direction of ZB3 speed
-	 */
-	CMP		r6, #0x0
-	BEQ		SETCLOCK_BEFORE_WAITSETTING_SKIP
-
-	/* Clk up cases MID/HI */
-
-	/* SBSC dummy read */
-	CMP		r0, #0x0
-	LDREQ	r7, =ram0SBSC_SDCR0AIOremap
-	LDREQ	r7, [r7]
-	LDRNE	r7, =SBSC_SDCR0APhys
-	LDR		r8, =SDCR0A_DUMMY_READ
-SETCLOCK_SBSC_DUMMYREAD_LOOP1:
-	LDR		r9, [r7]	/* SBSC dummy read	*/
-	TST		r9, r8
-	BEQ		SETCLOCK_SBSC_DUMMYREAD_LOOP1
-	/* Wait setting for HI or MID speed */
-	MOV		r9, #0x7	/* Number of Wait setting registers */
-	ADR		r10, SETCLOCK_WAIT_CONTROL_REGISTER
-	LDR		r7, =ZB3_HIGHSPEED
-	CMP		r4, r7		/* If target setting is HI speed */
-	ADREQ	r11, SETCLOCK_WAIT_CONTROL_HI_VAL
-	ADRNE	r11, SETCLOCK_WAIT_CONTROL_MID_VAL
-SETCLOCK_BEFORE_WAITSETTING_LOOP:
-	LDR		r7, [r10], #0x4
-	LDR		r8, [r11], #0x4
-	STR		r8, [r7]
-	SUBS	r9, r9, #0x1
-	BNE		SETCLOCK_BEFORE_WAITSETTING_LOOP
-SETCLOCK_BEFORE_WAITSETTING_SKIP:
-
-	/* Perform division ratio setting 		*/
-	/* r4: Target setting to FRQCRD			*/
-	/* r5: Physical address of FRQCRD		*/
-	/* r6: Target direction of ZB3x speed	*/
-	/* SBSC dummy read */
-	CMP		r0, #0x0
-	LDREQ	r7, =ram0SBSC_SDCR0AIOremap
-	LDREQ	r7, [r7]
-	LDRNE	r7, =SBSC_SDCR0APhys
-	LDR		r8, =SDCR0A_DUMMY_READ
-SETCLOCK_SBSC_DUMMYREAD_LOOP2:
-	LDR		r9, [r7]
-	TST		r9, r8
-	BEQ		SETCLOCK_SBSC_DUMMYREAD_LOOP2
-#if 0
-/**Get semaphore 2*/
-/* Check semaphore */
-	LDR	r11, =BUS_SMGPxSRCPhys
-/* Get semaphore */
-TRY_GET_SEMAPHORE_ZB3_HI:
-	LDR		r10, [r11]
-	LDR		r9, =0x1
-	ORR		r10, r10, r9
-	STR		r10, [r11]
-
-/* Check status of semaphore acquisition */
-	LDR		r10, [r11]
-	LDR		r9, =BUS_SMGPxSRC_MSK
-	AND		r10, r10, r9
-	CMP		r10, #0x40000000	/* Acquire by APE-CPU0 */
-	BEQ		SETCLOCK_CHANGE_START_SEMAPHORE_ZB3_HI
-
-/* Handle failed case */
-	MOV		r9, #0x10	/* Loop 16 times before re-try */
-SEMAPHORE_TRY_LOOP_ZB3_HI:
-	SUB 	r9, r9, #0x1
-	CMP		r9, #0x0
-	BNE		SEMAPHORE_TRY_LOOP_ZB3_HI
-	BEQ		TRY_GET_SEMAPHORE_ZB3_HI
-
-SETCLOCK_CHANGE_START_SEMAPHORE_ZB3_HI:
-/**Get semaphore 2*/
-#endif
-/**Apply 9 steps of RMU2-E054*/
-/*(1) Check the FRQCRB bit31 (KICK bit) is cleared to 0.*/
-
-	/* Check FRQCRB.KICK bit before setting for FRQCRD */
-	LDR		r7, =FRQCRB_KICK
-	LDR		r8, =CPG_FRQCRBPhys
-SETCLOCK_KICK_CLEAR_LOOP3:
-	LDR		r9, [r8]
-	TST		r9, r7
-	BNE		SETCLOCK_KICK_CLEAR_LOOP3
-
-/*Check HI speed setting or not*/
-	AND		r9, r4, #0x10	/* Read CPG.FRQCRD.ZB30SEL bit */
-	CMP		r9, #0x0	/* Check division ratio is 1/2 or not */
-	BNE		WA_SKIP		/* NE: Not 1/2 division */
-
-/*(2) Set 0x00008000 in FRQCRD.*/
-	LDR		r9, =CPG_FRQCRD_E054_1 /*if EQ: */
-	STR		r9, [r5]
-
-/*(3) Set FRQCRB bit31 (KICK bit) = 1*/
-	LDR		r9, [r8]		/* Read CPG.FRQCRB */
-	ORR		r9, r9, r7		/* Set KICK bit */
-	STR		r9, [r8]		/* Write CPG.FRQCRB */
-
-/*(4) Wait until FRQCRB bit31 (KICK bit) is cleared to 0 */
-/* (the division setting is completed).*/
-	/* Check FRQCRB.KICK bit after setting for FRQCRD */
-SETCLOCK_KICK_CLEAR_LOOP4:
-	LDR		r9, [r8]
-	TST		r9, r7
-	BNE		SETCLOCK_KICK_CLEAR_LOOP4
-
-/*(5) Set 0xE61500C0.bit 14= 0 (CKSCR.ZB3MODE)*/
-	LDR		r9, =CPG_CKSCRPhys
-	LDR		r10, [r9]
-	BIC		r10, r10, #0x4000
-	STR		r10, [r9]
-
-/*(6) Set 0x00008004 in FRQCRD*/
-	LDR		r9, =CPG_FRQCRD_E054_2
-	STR		r9, [r5]
-
-/*(7) Set FRQCRB bit31 (KICK bit) = 1*/
-	LDR		r9, [r8]	/* Read CPG.FRQCRB */
-	ORR		r9, r9, r7	/* Set KICK bit */
-	STR		r9, [r8]	/* Write CPG.FRQCRB */
-
-/*(8) Wait until FRQCRB bit31 (KICK bit) is cleared to 0 */
-/* (the division setting is completed).*/
-	/* Check FRQCRB.KICK bit after setting for FRQCRD */
-SETCLOCK_KICK_CLEAR_LOOP5:
-	LDR		r9, [r8]
-	TST		r9, r7
-	BNE		SETCLOCK_KICK_CLEAR_LOOP5
-
-/*(9) Set 0xE61500C0.bit 14= 1 (CKSCR.ZB3MODE)*/
-	LDR		r9, =CPG_CKSCRPhys
-	LDR		r10, [r9]
-	ORR		r10, r10, #0x4000
-	STR		r10, [r9]
-
-	B		WA_END
-
-WA_SKIP:
-
-	STR	r4, [r5]	/* Write CPG.FRQCRD */
-
-/* Set FRQCRB bit31 (KICK bit) = 1*/
-	LDR		r9, [r8]	/* Read CPG.FRQCRB */
-	ORR		r9, r9, r7	/* Set KICK bit */
-	STR		r9, [r8]	/* Write CPG.FRQCRB */
-/* Wait until FRQCRB bit31 (KICK bit) is cleared to 0 */
-/* (the division setting is completed).*/
-	/* Check FRQCRB.KICK bit after setting for FRQCRD */
-SETCLOCK_KICK_CLEAR_LOOP6:
-	LDR		r9, [r8]
-	TST		r9, r7
-	BNE		SETCLOCK_KICK_CLEAR_LOOP6
-
-WA_END:
-	/* SBSC dummy read */
-	CMP		r0, #0x0
-	LDREQ	r7, =ram0SBSC_SDCR0AIOremap
-	LDREQ	r7, [r7]
-	LDRNE	r7, =SBSC_SDCR0APhys
-	LDR		r8, =SDCR0A_DUMMY_READ
-SETCLOCK_SBSC_DUMMYREAD_LOOP3:
-	LDR		r9, [r7]
-	TST		r9, r8
-	BEQ		SETCLOCK_SBSC_DUMMYREAD_LOOP3
-
-	/* Wait setting (HI -> MID, HI -> LOW, MID -> LOW) */
-	/* r4: Set value to FRQCRD				*/
-	/* r6: Target direction of ZB3x speed	*/
-	CMP		r6, #0x0
-	BNE		SETCLOCK_AFTER_WAITSETTING_SKIP
-
-	/* Clk down to MID/LOW */
-
-	/* Wait setting for MID or LOW speed */
-	MOV		r9, #0x7	/* Number of Wait setting registers */
-	ADR		r10, SETCLOCK_WAIT_CONTROL_REGISTER
-	LDR		r7,=ZB3_MIDSPEED
-	CMP		r4, r7
-	ADREQ	r11, SETCLOCK_WAIT_CONTROL_MID_VAL
-	ADRNE	r11, SETCLOCK_WAIT_CONTROL_LOW_VAL
-SETCLOCK_AFTER_WAITSETTING_LOOP:
-	LDR		r7, [r10], #0x4
-	LDR		r8, [r11], #0x4
-	STR		r8, [r7]
-	SUBS	r9, r9, #0x1
-	BNE		SETCLOCK_AFTER_WAITSETTING_LOOP
-	/* SBSC dummy read  */
-	CMP		r0, #0x0
-	LDREQ	r7, =ram0SBSC_SDCR0AIOremap
-	LDREQ	r7, [r7]
-	LDRNE	r7, =SBSC_SDCR0APhys
-	LDR		r8, =SDCR0A_DUMMY_READ
-SETCLOCK_SBSC_DUMMYREAD_LOOP4:
-	LDR		r9, [r7]
-	TST		r9, r8
-	BEQ		SETCLOCK_SBSC_DUMMYREAD_LOOP4
-SETCLOCK_AFTER_WAITSETTING_SKIP:
-
-#if 0
-/**Release semaphore 2*/
-	LDR		r11, =BUS_SMGPxSRCPhys
-	LDR		r10, [r11]
-	BIC		r10, r10, #0x1
-	STR		r10, [r11]
-/**Release semaphore 2*/
-#endif
-
-SETCLOCK_ZB3CHANGE_SKIP:
-#endif
-
-	MOV		pc, lr		/* return	*/
-
-#if 0
-SETCLOCK_WAIT_CONTROL_REGISTER:
-
-.word	ram0SBSC_SDWCRC0AIOremap, ram0SBSC_SDWCRC1AIOremap, \
-		ram0SBSC_SDWCRC2AIOremap, ram0SBSC_SDWCR00AIOremap, \
-		ram0SBSC_SDWCR01AIOremap, ram0SBSC_SDWCR10AIOremap, \
-		ram0SBSC_SDWCR11AIOremap
-
-/* ZB3:520.0MHz */
-SETCLOCK_WAIT_CONTROL_HI_VAL:
-.word	0x70A84115, 0x4320CD48, 0x00BB2E19, 0x51528909,\
-		0x001F030E, 0x51528909, 0x001F030E
-
-/* ZB3:195.0MHz */
-SETCLOCK_WAIT_CONTROL_MID_VAL:
-.word	0x70884111, 0x190C491B, 0x00461109, 0x10810303,\
-		0x000B0109, 0x10810303, 0x000B0109
-
-/* ZB3:65.0MHz*/
-SETCLOCK_WAIT_CONTROL_LOW_VAL:
-.word	0x70884111, 0x08043909, 0x00170503, 0x10208202,\
-		0x00030109, 0x10208202, 0x00030109
-#endif
-.pool
-ENDPROC(setclock_systemsuspend)
-
 /**********************************************************/
 /* Transition to WFI standby. */
 /* This function is running on SDRAM */
@@ -2113,14 +1623,7 @@ ENTRY(start_wfi)
 	/* Get PM SpinLock						*/
 	BL PM_Spin_Lock
 	NOP
-#if 0
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
-#endif
+
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	/* r0: CPU number						*/
@@ -2282,34 +1785,12 @@ ENTRY(start_corestandby_2)
 	/*--------------------------------------*/
 	/* Jump to CoreStandby_2() on SDRAM		*/
 	/*--------------------------------------*/
-#if 0
-	LDR		r4, =ram0Cpu1Status
-	LDR		r4, [r4]
-	CMP		r4, #CPUSTATUS_HOTPLUG
-	BNE		CORESTANDBY_REDIRECT
 
 	LDR		r4, =ram0CoreStandby_2
 	MOV		lr, pc			/* lr: Return address */
-	MOV		pc, r4			/* Call CoreStandby_2() */
-	NOP
-	B		CORESTANDY2_RESUME_CONTINUE
-CORESTANDBY_REDIRECT:
-	NOP
-	/*--------------------------------------*/
-	/* Jump to CoreStandby() on SDRAM		*/
-	/*--------------------------------------*/
-	LDR		r4, =ram0CoreStandby
-	MOV		lr, pc			/* lr: Return address */
 	MOV		pc, r4			/* Call CoreStandby() */
 	NOP
-CORESTANDY2_RESUME_CONTINUE:
-	NOP
-#else
-	LDR		r4, =ram0CoreStandby_2
-	MOV		lr, pc			/* lr: Return address */
-	MOV		pc, r4			/* Call CoreStandby() */
-	NOP
-#endif
+
 	/*------------------------------------------*/
 	/* Restore domain access settings			*/
 	/*------------------------------------------*/
@@ -2360,14 +1841,6 @@ ENTRY(corestandby_2)
 
 	L1_DataCacheCleanInvalidateSW
 
-#if 0 /* Only CPU0 is running...*/
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_Lock
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-#endif
-
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	LDR	r5, =ram0Cpu0Status
@@ -2375,55 +1848,7 @@ ENTRY(corestandby_2)
 	STR		r6, [r5]
 	DSB
 #endif
-	/* Turn off PLL1 */
-#if 0
-	/* Condition to turn off PLL1 */
-	LDR		r4, =CPG_MSTPSR1
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST1_PLL1_MASK
-	CMP		r4, #MSTPST1_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
 
-	LDR		r4, =CPG_MSTPSR2
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST2_PLL1_MASK
-	CMP		r4, #MSTPST2_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
-
-	LDR		r4, =CPG_MSTPSR3
-	LDR		r4, [r4]
-	BIC		r4, r4, #MSTPST3_PLL1_MASK
-	CMP		r4, #MSTPST3_PLL1
-	BNE		CORESTANDBY2_SET_PLL1_C4
-
-	LDR		r4, =CPG_MSTPSR4
-	LDR		r4, [r4]
-	LDR		r5, =MSTPST4_PLL1_MASK
-	BIC		r4, r4, r5
-	LDR		r5, =MSTPST4_PLL1
-	CMP		r4, r5
-	BEQ		CORESTANDBY2_SET_PLL1_C4_SKIP
-
-CORESTANDBY2_SET_PLL1_C4:
-	LDR		r4, =CPG_PLL1STPCR
-	LDR		r5, [r4]
-	LDR		r6, =C4STP
-	ORR		r5, r5, r6
-	STR		r5, [r4]
-	DSB
-
-CORESTANDBY2_SET_PLL1_C4_SKIP:
-	NOP
-#endif
-
-#if 0 /* Only CPU0 is running...*/
-
-	/* Release PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_Unlock
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_UnLock() */
-	NOP
-#endif
 	LDR	r0, =ram0CoreStandby2RestoreCPU0
 		/* r0: Backup area of resume point after MMU is enable */
 	ADR		r4, CORESTANDBY2_RESTORE
@@ -2460,23 +1885,6 @@ CORESTANDBY2_SET_PLL1_C4_SKIP:
 
 CORESTANDBY2_WAKEUP:
 	NOP
-#if 0 /* Only CPU0 is running...*/
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_LockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-#endif
-
-#if 0
-	/* Turn on PLL1 */
-	LDR		r4, =CPG_PLL1STPCRPhys
-	LDR		r5, [r4]
-	LDR		r6, =C4STP
-	BIC		r5, r5, r6
-	STR		r5, [r4]
-	DSB
-#endif
 
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
@@ -2484,14 +1892,6 @@ CORESTANDBY2_WAKEUP:
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
-#endif
-
-#if 0 /* Only CPU0 is running...*/
-	/* Release PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_UnlockPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_UnLock() */
-	NOP
 #endif
 
 	/* Invalidate L1 D-cache */
@@ -2531,12 +1931,6 @@ CORESTANDBY2_RESUME_ERROR:
 
 CORESTANDBY2_RESTORE:
 	NOP
-#if 0
-	MCR	p15, 0, r0, c8, c7, 0 /* Invalidate entire unified TLB */
-	MCR	p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
-	DSB
-	ISB
-#endif
 
 	/*-----------------------------------*/
 	/* Restore ARM registers 			*/

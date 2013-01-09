@@ -95,17 +95,6 @@ struct r8a66597_platdata {
 	/* (external controller only) set one = WR0_N shorted to WR1_N */
 	unsigned	wr0_shorted_to_wr1:1;
 	
-	/* (external usb phy chip select)  cs*/
-	unsigned int pin_gpio_1_fn;
-
-	/* (external usb phy chip select) cs  */
-	unsigned int pin_gpio_1;
-	
-	/* (external usb phy active low reset pin) reset_n */
-	unsigned int pin_gpio_2_fn;
-	
-	/* (external usb phy active low reset pin) reset_n */
-	unsigned int pin_gpio_2;
 	/* Gpio setting */
 	unsigned int port_cnt;
 	struct r8a66597_gpio_setting_info	*gpio_setting_info;

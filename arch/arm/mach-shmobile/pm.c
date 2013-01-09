@@ -64,7 +64,7 @@ int core_wait_kick(unsigned int time)
 	unsigned int wait_time = time;
 
 	while (0 < wait_time--) {
-		if ((__raw_readl(CPG_FRQCRB) >> 31) == 0)
+		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
 		shmobile_suspend_udelay(1);
 	}
@@ -87,7 +87,7 @@ int core_set_kick(unsigned int time)
 
 	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
 		wait_time = KICK_WAIT_INTERVAL_US;
-	__raw_writel(BIT(31) | __raw_readl(CPG_FRQCRB), CPG_FRQCRB);
+	__raw_writel(BIT(31) | __raw_readl(FRQCRB), FRQCRB);
 
 	return core_wait_kick(wait_time);
 }
@@ -119,11 +119,11 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 	int zs_change = 0;
 
 	/* check if freqA change */
-	current_value = __raw_readl(CPG_FRQCRA);
+	current_value = __raw_readl(FRQCRA);
 	if (freqA != (current_value & freqA_mask))
 		freqA_change = 1;
 	/* check if freqB change */
-	current_value = __raw_readl(CPG_FRQCRB);
+	current_value = __raw_readl(FRQCRB);
 	if ((freqB & ZSFC_MASK) != (current_value & ZSFC_MASK)) {
 		zs_change = 1;
 		ret = hwspin_trylock_nospin(gen_sem1); /* ZS_CLK_SEM */
@@ -157,13 +157,13 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 		}
 		/* update value change */
 		if (freqA_change)
-			__raw_writel(freqA | (__raw_readl(CPG_FRQCRA) &
+			__raw_writel(freqA | (__raw_readl(FRQCRA) &
 						(~freqA_mask)),
-					CPG_FRQCRA);
+					FRQCRA);
 		if (zs_change || freqB_change)
-			__raw_writel(freqB | (__raw_readl(CPG_FRQCRB) &
+			__raw_writel(freqB | (__raw_readl(FRQCRB) &
 						(~freqB_mask)),
-				CPG_FRQCRB);
+				FRQCRB);
 
 		/* set and wait for KICK bit changed */
 		ret = core_set_kick(KICK_WAIT_INTERVAL_US);
@@ -186,7 +186,6 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 	return ret;
 }
 
-#define CPG_PLL3CR		IO_ADDRESS(0xE61500DC)
 #define PLL3CR_MASK		0x3F000000
 
 unsigned int suspend_ZB3_backup(void)
@@ -195,10 +194,10 @@ unsigned int suspend_ZB3_backup(void)
 	unsigned int pll3cr_mul = 0;
 	unsigned int zb3_div = 0;
 	unsigned int zb3_clk = 0;
-	pll3cr = __raw_readl(CPG_PLL3CR);
+	pll3cr = __raw_readl(PLL3CR);
 	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
 
-	zb3_div = __raw_readl(CPG_FRQCRD);
+	zb3_div = __raw_readl(FRQCRD);
 	zb3_clk = (26 * pll3cr_mul);
 
 	switch (zb3_div & (0x1F)) {
@@ -268,34 +267,34 @@ int shmobile_init_pm(void)
 	spin_lock_irqsave(&clock_lock, flags);
 	/* Internal RAM0 Module Clock ON */
 	if (chip_rev < ES_REV_2_0) {
-		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		mstpsr5_val = __raw_readl(MSTPSR5);
 		if (0 != (mstpsr5_val & MSTPST527)) {
-			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~MSTP527)), CPG_SMSTPCR5);
+			smstpcr5_val = __raw_readl(SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~MSTP527)), SMSTPCR5);
 			do {
-				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+				mstpsr5_val = __raw_readl(MSTPSR5);
 			} while (mstpsr5_val & MSTPST527);
 		}
 	} else {
 	/* W/A of errata ES2 E0263 */
-		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		mstpsr5_val = __raw_readl(MSTPSR5);
 		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
-			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+			smstpcr5_val = __raw_readl(SMSTPCR5);
 			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
-							, CPG_SMSTPCR5);
+							, SMSTPCR5);
 			do {
-				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+				mstpsr5_val = __raw_readl(MSTPSR5);
 			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
 		}
 	}
 #ifndef CONFIG_PM_HAS_SECURE
 	/* Internal RAM1 Module Clock ON */
-	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+	mstpsr5_val = __raw_readl(MSTPSR5);
 	if (0 != (mstpsr5_val & MSTPST528)) {
-		smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
-		__raw_writel((smstpcr5_val & (~MSTP528)), CPG_SMSTPCR5);
+		smstpcr5_val = __raw_readl(SMSTPCR5);
+		__raw_writel((smstpcr5_val & (~MSTP528)), SMSTPCR5);
 		do {
-			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+			mstpsr5_val = __raw_readl(MSTPSR5);
 		} while (mstpsr5_val & MSTPST528);
 	}
 #endif
@@ -341,8 +340,10 @@ int shmobile_init_pm(void)
 	/* Errata(ECR0285) */
 	if (chip_rev <= ES_REV_2_1)
 		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
-	else
+	else if (chip_rev == ES_REV_2_2)
 		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+	else
+		__raw_writel((unsigned long)0x2, __io(ram0ES_2_2_AndAfter));
 
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
@@ -400,10 +401,6 @@ int shmobile_init_pm(void)
 	(void)memcpy((void *)ram1SysPowerUp,
 				(void *)&sys_powerup,
 				fsSysPowerUp);
-
-	(void)memcpy((void *)ram1SetClockSystemSuspend,
-				(void *)&setclock_systemsuspend,
-				fsSetClockSystemSuspend);
 
 	(void)memcpy((void *)ram1SystemSuspendCPU0PA,
 				(void *)&systemsuspend_cpu0_pa,
@@ -495,16 +492,13 @@ int shmobile_init_pm(void)
 				(void *)&sys_powerup,
 				fsSysPowerUp);
 
-	(void)memcpy((void *)ram0SetClockSystemSuspend,
-				(void *)&setclock_systemsuspend,
-				fsSetClockSystemSuspend);
 #endif /* CONFIG_PM_HAS_SECURE */
 
 #ifdef PLL1_CAN_OFF
 	/* - set PLL1 stop conditon to A2SL, A3R state by CPG.PLL1STPCR */
-	__raw_writel(PLL1STPCR_DEFALT, CPG_PLL1STPCR);
+	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
 #else
-	__raw_writel(PLL1STPCR_DEFALT | C4STP, CPG_PLL1STPCR);
+	__raw_writel(PLL1STPCR_DEFALT | C4STP, PLL1STPCR);
 #endif
 	do {
 		__raw_writel(POWER_BBPLLOFF, SPDCR);
@@ -525,8 +519,6 @@ int shmobile_init_pm(void)
 static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
 24, 1, 1, 48, 1, 1, 1, 1};
 
-/* PLL0 control register */
-#define CPG_PLL0CR	IO_ADDRESS(0xE61500D8)
 /* PLL Circuit 0 Multiplication Ratio mask */
 #define PLL0CR_STC_MASK	0x3F000000
 
@@ -537,12 +529,12 @@ void shmobile_suspend_udelay(unsigned int delay_time)
 	unsigned int div_ratio = 1;
 	unsigned int zfc_val = 1;
 
-	if (__raw_readl(CPG_PLLECR) & CPG_PLL0ST)
-		mul_ratio = ((__raw_readl(CPG_PLL0CR) & PLL0CR_STC_MASK) \
+	if (__raw_readl(PLLECR) & CPG_PLL0ST)
+		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
 					>> 24) + 1;
 
-	if (__raw_readl(CPG_FRQCRB) & FRQCRB_ZSEL_BIT) {
-		zfc_val = (__raw_readl(CPG_FRQCRB) & FRQCRB_ZFC_MASK) \
+	if (__raw_readl(FRQCRB) & FRQCRB_ZSEL_BIT) {
+		zfc_val = (__raw_readl(FRQCRB) & FRQCRB_ZFC_MASK) \
 					>> 24;
 		div_ratio = division_ratio[zfc_val];
 

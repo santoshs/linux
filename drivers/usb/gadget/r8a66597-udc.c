@@ -56,6 +56,11 @@
 
 #define DMA_ADDR_INVALID  (~(dma_addr_t)0)
 
+/* Port Number taken from r8a66597_gpio_setting_info structure for PORT130 */
+#define IDX_PORT130 13
+
+#define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+
 /* #define UDC_LOG */
 
 #ifdef  UDC_LOG
@@ -140,6 +145,7 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	struct clk *uclk;
+	int ret = 0;
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
 	if (!r8a66597->phy_active) {
@@ -150,7 +156,10 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 		}
 		if (!uclk->usecount)
 			clk_enable(uclk);
-		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
+		ret = gpio_direction_output(r8a66597->pdata->
+				gpio_setting_info[IDX_PORT130].port, 1);
+		if (ret < 0)
+			error_log("PORT130 direction output(1) failed!\n");
 		r8a66597->phy_active = 1;
 	}
 	clk_enable(r8a66597->clk_dmac);
@@ -160,10 +169,14 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
 	struct clk *uclk;
+	int ret = 0;
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
 	if (r8a66597->phy_active) {
-		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
+		ret = gpio_direction_output(r8a66597->pdata->
+				gpio_setting_info[IDX_PORT130].port, 0);
+		if (ret < 0)
+			error_log("PORT130 direction output(0) failed!\n");
 		uclk = clk_get(NULL, "vclk3_clk");
 		if (IS_ERR(uclk)) {
 			udc_log("%s() cannot get vclk3_clk\n", __func__);
@@ -2782,7 +2795,7 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 	iounmap(r8a66597->dma_reg);
 	free_irq(platform_get_irq(pdev, 0), r8a66597);
 	free_irq(platform_get_irq(pdev, 1), r8a66597);
-	gpio_free(r8a66597->pdata->pin_gpio_1_fn);
+	gpio_free(r8a66597->pdata->gpio_setting_info[IDX_PORT130].port);
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
@@ -2940,8 +2953,15 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	}
 	
 	/*TUSB1211 CS*/
-	gpio_request(r8a66597->pdata->pin_gpio_1_fn, NULL);
-	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
+	gpio_free(r8a66597->pdata->gpio_setting_info[IDX_PORT130].port);
+	ret = gpio_request(r8a66597->pdata->
+				gpio_setting_info[IDX_PORT130].port, NULL);
+	if (ret < 0)
+		error_log("ERROR : PORT130 failed ! USB may not function\n");
+	ret = gpio_direction_output(r8a66597->pdata->
+				gpio_setting_info[IDX_PORT130].port, 1);
+	if (ret < 0)
+		error_log("ERROR : PORT130 direction output(1) failed !\n");
 
 	INIT_LIST_HEAD(&r8a66597->gadget.ep_list);
 	r8a66597->gadget.ep0 = &r8a66597->ep[0].ep;
@@ -3099,11 +3119,7 @@ static int r8a66597_udc_suspend(struct device *dev)
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
-	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 0);
-	gpio_pull_down_port(r8a66597->pdata->pin_gpio_1);
-	gpio_pull_down_port(r8a66597->pdata->pin_gpio_2);
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 0);
-	
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
 
@@ -3140,9 +3156,6 @@ static int r8a66597_udc_resume(struct device *dev)
 	struct r8a66597 *r8a66597 = the_controller;
 	/*restore the state of the phy before resume*/
 	r8a66597->phy_active = r8a66597->phy_active_sav;
-	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 1);
-	gpio_pull_off_port(r8a66597->pdata->pin_gpio_1);
-	gpio_pull_off_port(r8a66597->pdata->pin_gpio_2);
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
 	if(r8a66597->old_vbus) {
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));

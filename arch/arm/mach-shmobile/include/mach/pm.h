@@ -92,7 +92,6 @@ extern void save_common_register(void);
 extern void restore_common_register(void);
 extern void sys_powerdown(void);
 extern void sys_powerup(void);
-extern void setclock_systemsuspend(void);
 extern void start_wfi(void);
 extern void start_wfi2(void);
 extern void disablemmu(void);
@@ -145,14 +144,6 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define CONFIG_PM_RUNTIME_A3R
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
-
-/* SYSC registers */
-#define SYSC_SPDCR					0xE6180008
-#define SYSC_SWUCR					0xE6180014
-#define SYSC_WUPSMSK					0xE618002C
-#define SYSC_PSTR					0xE6180080
-#define SYSC_PDNSEL					0xE6180254
-#define SBSC_SDPDCR0A					0xFE400058
 
 /*Value of power area (value is appropriate with SWUCR, SPDCR, PSTR registers)*/
 #define POWER_A2SL					BIT(20)
@@ -255,7 +246,6 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 #endif /*CONFIG_PM_HAS_SECURE*/
 
 /* HPB Phys:0xE6000000 + 0x101C */
-#define HPBCCCR				0xE600101C
 #define CHIP_VERSION_ES1_0	0x00003E00
 #define CHIP_VERSION_ES2_0	0x00003E10
 #define CHIP_VERSION_ES2_1	0x00003E11
@@ -271,7 +261,6 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 
 #define ES_REV_2X	(ES_REV_2_0 | ES_REV_2_1 | ES_REV_2_2)
 #define ES_REV_ALL	(ES_REV_2X | ES_REV_1X)
-#define CCCR	IO_ADDRESS(0xE600101C)
 
 /*
  * Helper functions for getting chip revision
