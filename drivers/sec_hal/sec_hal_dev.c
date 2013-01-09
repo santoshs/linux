@@ -68,7 +68,11 @@
 #define ICRAM1_ADDRESS 0xE63A0000
 
 #define SDTOC_SIZE 0x4000
+#if 0
+#define SDTOC_ADDRESS 0x46500000
+#else
 #define SDTOC_ADDRESS 0x47FE0000
+#endif
 
 #define PUBLIC_TOC_SIZE 4096
 /*#define PUBLIC_TOC_ADDRESS 0x47FE0000*/
@@ -140,7 +144,7 @@ typedef struct
 typedef struct
 {
     struct list_head list;
-    sd_ioctl_params_t param;
+    sd_rpc_params_t param;
 } rpc_queue_item_t;
 typedef struct
 {
@@ -159,7 +163,7 @@ rpcq_init(rpc_queue_t* q)
  * *********************************************************************/
 static int
 _rpcq_add(struct list_head* lst,
-          sd_ioctl_params_t* param_in)
+          sd_rpc_params_t* param_in)
 {
     rpc_queue_item_t* new = kmalloc(sizeof(rpc_queue_item_t), GFP_KERNEL);
     if (!new){
@@ -167,14 +171,13 @@ _rpcq_add(struct list_head* lst,
     }
 
     new->param = *param_in;
-    new->param.reserved2 = (unsigned int) current->tgid;
 
     list_add(&new->list, lst);
     return 0;
 }
 static int
 rpcq_add_wakeup(rpc_queue_t* q,
-                sd_ioctl_params_t* param_in)
+                sd_rpc_params_t* param_in)
 {
     _rpcq_add(&q->list_head, param_in);
     wake_up_interruptible(&q->waitq);
@@ -185,7 +188,7 @@ rpcq_add_wakeup(rpc_queue_t* q,
  * *********************************************************************/
 static int
 _rpcq_get(struct list_head* lst,
-          sd_ioctl_params_t* param_out)
+          sd_rpc_params_t* param_out)
 {
     unsigned int tgid = (unsigned int)current->tgid;
     struct list_head *pos;
@@ -205,7 +208,7 @@ _rpcq_get(struct list_head* lst,
 }
 static int
 rpcq_get_wait(rpc_queue_t* q,
-              sd_ioctl_params_t* item)
+              sd_rpc_params_t* item)
 {
     return wait_event_interruptible(q->waitq, _rpcq_get(&q->list_head, item));
 }
@@ -866,6 +869,7 @@ sec_hal_cli_ioctl(struct file *filp,
 #ifdef SEC_STORAGE_SELFTEST_ENABLE
         case SD_SEC_STORAGE_SELFTEST:
         {
+            secure_storage_pid = current->tgid;
             ret = sec_hal_rt_sec_storage_selftest(&rpc_handler, input.param1);
         }break;
 #endif
@@ -873,10 +877,12 @@ sec_hal_cli_ioctl(struct file *filp,
         /* TEMPORARY, for testing purposes, send SEC_SERV_SIMU_DS(0/1)_TEST message to Demo (DS) */
         case SD_SIMU_DS0_TEST:
         {
+            secure_storage_pid = current->tgid;
             ret = sec_hal_rt_simu_ds_test(0, input.param1, 0, 1); /* DS0, with or without params(0, 1)*/
         }break;
         case SD_SIMU_DS1_TEST:
         {
+            secure_storage_pid = current->tgid;
             ret = sec_hal_rt_simu_ds_test(1, input.param1, 0, 1); /* DS1, with or without params(0, 1)*/
         }break;
 #endif
@@ -1216,8 +1222,7 @@ rpc_handler(uint32_t id,
     uint32_t ret = 0x00, size = 0x00;
     struct device_data* device = &g_device_data;
     void *kernel_data_ptr = NULL;
-    sd_ioctl_params_t params = {id, p1, p2, p3, p4};
-    static void *user_data_ptr = NULL;
+    sd_rpc_params_t params = {id, p1, p2, p3, p4, 0, (uint32_t)(current->tgid), (uint32_t)(current->tgid)};
     sec_msg_handle_t in_handle, out_handle;
     uint64_t offset, filesize;
 
@@ -1265,6 +1270,7 @@ rpc_handler(uint32_t id,
             sec_msg_param_read(&in_handle, (void *)(params.fname), (uint16_t)params.param1); /* filename */
             SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(1): fnamelen: %d, fname: %s",params.param1, params.fname);
             sec_msg_close(&in_handle);
+	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
         }break;
         case SEC_HAL_RPC_FS_READ:
         {
@@ -1288,6 +1294,7 @@ rpc_handler(uint32_t id,
                 SEC_HAL_TRACE_EXIT();
                 return RPC_SUCCESS; /* Illegal filesize, return without calling Sec Server */
             }
+	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
         }break;
         case SEC_HAL_RPC_FS_WRITE:
         {
@@ -1298,31 +1305,13 @@ rpc_handler(uint32_t id,
             sec_msg_param_read32(&in_handle, &(params.param1)); /* pass file handle */
             sec_msg_param_read64(&in_handle, &offset);          /* offset (unused) */
             sec_msg_param_read32(&in_handle, &(params.param2)); /* pass length of file */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): f-handle=%d, file_len=%d, user_data_ptr=0x%08x",
-                           params.param1,params.param2,user_data_ptr);
+            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): f-handle=%d, file_len=%d", params.param1,params.param2);
 
             /* Filesize must be valid */
             if (params.param2 <= SEC_STORAGE_FILE_MAXLEN) {
-                /* Allocate mem buffer for file in kernel space. Read file from sec message. */
-                /* Copy to user space (pointer got at previous Lookup). Free kernel space buffer. */
-                if (user_data_ptr) {
-                    kernel_data_ptr = kmalloc(params.param2, GFP_KERNEL);
-                }
-                if (kernel_data_ptr) {
-                    /* Read file from ICRAM to kernel space buffer */
-                    sec_msg_param_read(&in_handle, kernel_data_ptr, (uint16_t)params.param2);
-                    sec_msg_close(&in_handle);
-                    /* Copy to user space */
-                    copy_to_user(user_data_ptr, kernel_data_ptr, params.param2);
-                    kfree(kernel_data_ptr);
-                    kernel_data_ptr = NULL;
-                }
-                else {
-                    sec_msg_close(&in_handle);
-                    SEC_HAL_TRACE("user_data_ptr or kernel_data_ptr is NULL!");
-                    SEC_HAL_TRACE_EXIT();
-                    return RPC_FAILURE; /* Mem alloc fail, return without calling Sec Server */
-                }
+                /* Read file from sec message to params.data */
+                sec_msg_param_read(&in_handle, (void *)(params.data), (uint16_t)params.param2);
+                sec_msg_close(&in_handle);
             }
             else {
                 sec_msg_close(&in_handle);
@@ -1333,6 +1322,7 @@ rpc_handler(uint32_t id,
                 SEC_HAL_TRACE_EXIT();
                 return RPC_SUCCESS; /* Illegal filesize, return without calling Sec Server */
             }
+	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
         }break;
         case SEC_HAL_RPC_FS_CREATE:
         {
@@ -1357,6 +1347,7 @@ rpc_handler(uint32_t id,
             sec_msg_param_read(&in_handle, (void *)(params.fname), (uint16_t)params.param1); /* filename */
             SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(1): fnamelen: %d, fname: %s",params.param1, params.fname);
             sec_msg_close(&in_handle);
+	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
         }break;
         case SEC_HAL_RPC_FS_SIZE:
         {
@@ -1367,6 +1358,7 @@ rpc_handler(uint32_t id,
             sec_msg_param_read32(&in_handle, &(params.param1)); /* file handle */
             SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(1): f-handle=%d",params.param1);
             sec_msg_close(&in_handle);
+	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
         }break;
         case SEC_HAL_RPC_FS_ROOT:
         {
@@ -1394,13 +1386,13 @@ rpc_handler(uint32_t id,
         default: break;
     }
 
+    SEC_HAL_TRACE("from tgid: %d, to tgid: %d",params.reserved1, params.reserved2);
+
     rpcq_add_wakeup(&device->rpc_read_waitq, &params);
     if (rpcq_get_wait(&device->rpc_write_waitq, &params)) {
         SEC_HAL_TRACE_EXIT_INFO("interrupted, aborting!");
         return RPC_FAILURE;
     }
-
-    SEC_HAL_TRACE("Returned from rpcq_get_wait()");
 
     switch (id)/* post-ipc step for params conversion and etc. */
     {
@@ -1452,10 +1444,7 @@ rpc_handler(uint32_t id,
             sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
             sec_msg_param_write32(&out_handle, params.param4, SEC_MSG_PARAM_ID_NONE);    /* file handle */
             sec_msg_close(&out_handle);
-            /* Get pointer to user-space buffer where the file will be later read from or written to */
-            user_data_ptr = (void *)params.param5;
-            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(2): status=%d, handle=%d, user_data_ptr=0x%08x",
-                          params.reserved1,params.param4,params.param5);
+            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(2): status=%d, handle=%d", params.reserved1,params.param4);
         }break;
         case SEC_HAL_RPC_FS_READ:
         {
@@ -1467,26 +1456,9 @@ rpc_handler(uint32_t id,
 
             /* Copy data only if length read > 0 */
             if (params.param4) {
-                /* Allocate mem buffer for file in kernel space. */
-                /* Copy from user space (pointer got at previous Lookup). Free kernel space buffer. */
-                if (user_data_ptr) {
-                    kernel_data_ptr = kmalloc(params.param4, GFP_KERNEL);
-                }
-                if (kernel_data_ptr) {
-                    /* Copy file */
-                    copy_from_user(kernel_data_ptr, user_data_ptr, params.param4);
-                    /* Write file to ICRAM */
-                    sec_msg_param_write(&out_handle, kernel_data_ptr, params.param4, SEC_MSG_PARAM_ID_NONE);
-                    sec_msg_close(&out_handle);
-                    kfree(kernel_data_ptr);
-                    kernel_data_ptr = NULL;
-                }
-                else {
-                    sec_msg_close(&out_handle);
-                    SEC_HAL_TRACE("user_data_ptr or kernel_data_ptr is NULL!");
-                    SEC_HAL_TRACE_EXIT();
-                    return RPC_FAILURE; /* Mem alloc fail, return FAILURE */
-                }
+                /* Write file to ICRAM from params.data */
+                sec_msg_param_write(&out_handle, (void *)(params.data), params.param4, SEC_MSG_PARAM_ID_NONE);
+                sec_msg_close(&out_handle);
             }
             SEC_HAL_TRACE("SECHAL_RPC_FS_READ(2): status=%d, l_read=%d",params.reserved1,params.param4);
         }break;
@@ -1541,7 +1513,7 @@ sec_hal_rpc_read(struct file *filp,
     int cnt = 0;
     struct client_data *client = filp->private_data;
     struct device_data *device = client->device;
-    sd_ioctl_params_t param;
+    sd_rpc_params_t param;
 
     SEC_HAL_TRACE_ENTRY();
 
@@ -1555,10 +1527,10 @@ sec_hal_rpc_read(struct file *filp,
         SEC_HAL_TRACE_EXIT_INFO("interrupted, restart syscall");
         return -ERESTARTSYS;
     }
-    cnt = copy_to_user(buf, &param, k_param_sz);
+    cnt = copy_to_user(buf, &param, SD_RPC_PARAMS_SZ);
 
     SEC_HAL_TRACE_EXIT();
-    return (k_param_sz-cnt);
+    return (SD_RPC_PARAMS_SZ-cnt);
 }
 
 /* ----------------------------------------------------------------------
@@ -1573,7 +1545,7 @@ sec_hal_rpc_write(struct file *filp,
     int cnt = 0;
     struct client_data *client = filp->private_data;
     struct device_data *device = client->device;
-    sd_ioctl_params_t param;
+    sd_rpc_params_t param;
 
     SEC_HAL_TRACE_ENTRY();
 
@@ -1582,11 +1554,11 @@ sec_hal_rpc_write(struct file *filp,
         return -EPERM;
     }
 
-    cnt = copy_from_user(&param, buf, k_param_sz);
+    cnt = copy_from_user(&param, buf, SD_RPC_PARAMS_SZ);
     rpcq_add_wakeup(&device->rpc_write_waitq, &param);
 
     SEC_HAL_TRACE_EXIT();
-    return (k_param_sz-cnt);
+    return (SD_RPC_PARAMS_SZ-cnt);
 }
 
 
@@ -2335,8 +2307,6 @@ sec_hal_platform_device_probe(struct platform_device *plat_dev)
 	int ret = 0;
 	struct resource* mem = NULL;
 	sec_hal_init_info_t rt_init;
-    uint8_t* tmp;
-    uint32_t i;
 
 	SEC_HAL_TRACE_ENTRY();
 
@@ -2360,22 +2330,46 @@ sec_hal_platform_device_probe(struct platform_device *plat_dev)
 			rt_init.reset_info[0], rt_init.reset_info[1], rt_init.reset_info[2]);
 
 	ret = sec_hal_rt_install_rpc_handler(&rpc_handler);
-	if (ret)
+	if (ret) {
 		goto e1;
-
-	if (!is_recovery()) {
-		ret = sec_hal_memfw_attr_reserve(0, 0x00UL, 0x00UL);
-		if (ret)
-			goto e1;
 	}
 
+#if 0
+	printk(KERN_INFO "sec_hal_rt_install_rpc_handler was ok\n");
+#endif
+
+	if (!is_recovery()) {
+#if 0
+		printk(KERN_INFO "!is_recovery()\n");
+#endif
+		ret = sec_hal_memfw_attr_reserve(0, 0x00UL, 0x00UL);
+		if (ret){
+			goto e1;
+		}
+#if 0
+	printk(KERN_INFO "sec_hal_memfw_attr_reserve was ok\n");
+#endif
+	}
+
+
+#if 0
+	printk(KERN_INFO "trying sec_hal_cdev_init\n");
+#endif
 	ret = sec_hal_cdev_init(&g_device_data);
-	if (ret)
+	if (ret){
 		goto e2;
+	}
+#if 0
+	printk(KERN_INFO "sec_hal_cdev_init was ok\n");
+#endif
 
 	ret = sec_hal_reset_info_addr_register();
-	if (ret)
+	if (ret){
 		goto e2;
+	}
+#if 0
+	printk(KERN_INFO "sec_hal_reset_info_addr_register was ok\n");
+#endif
     /*sdtoc_init*/
     sdtoc_root = (DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ADDRESS, SDTOC_SIZE);
 
@@ -2412,12 +2406,15 @@ sec_hal_platform_device_probe(struct platform_device *plat_dev)
 
     if(public_id!=NULL)
         {
+        uint8_t* tmp;
+        uint32_t i;
+
         tmp = public_id;
-        printk("Device public ID (length %d):",public_id_size);
+        printk("Device public ID (length %d): ",public_id_size);
 
         for(i=0;i<public_id_size;i++ )
             {
-            printk("%x",*tmp);
+            printk("%02x",*tmp);
             tmp++;
             }
         printk("\n");
