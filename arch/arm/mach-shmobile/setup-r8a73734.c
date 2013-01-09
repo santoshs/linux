@@ -1405,7 +1405,6 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&scif0_device,
 	&scif4_device,
 	&scif5_device,
-	&scif6_device,
 	&pmu_device,
 };
 
