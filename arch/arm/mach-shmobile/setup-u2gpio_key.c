@@ -11,16 +11,6 @@
 #include <linux/input/sh_keysc.h>
 #include <linux/platform_device.h>
 
-
-void gpio_pull(u32 addr, int type)
-{
-	u8 data = __raw_readb(addr);
-
-	data &= ~0xc0;
-	data |= type;
-
-	__raw_writeb(data, addr);
-}
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 static struct sh_keysc_info keysc_platdata = {
 	.mode		= SH_KEYSC_MODE_6,
@@ -69,35 +59,6 @@ struct platform_device keysc_device = {
 };
 #endif
 
-void gpio_direction_none_port(int gpio)
-{
-
-	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0xcf,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_direction_none_port);
-
-void gpio_pull_off_port(int gpio)
-{
-	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_off_port);
-
-void gpio_pull_up_port(int gpio)
-{
-	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0xc0,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_up_port);
-
-void gpio_pull_down_port(int gpio)
-{
-	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0x80,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_down_port);
-
 #define GPIO_KEY(c, g, d, w) \
 	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
 	 .debounce_interval = 20}
@@ -122,26 +83,16 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-	if ((system_rev & 0xFFFF) == 0x3E00) {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
+		gpio_pull_up_port(GPIO_PORT24);
 #endif
-		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
-	} else if (((system_rev & 0xFFFF)>>4) >= 0x3E1) {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
-#endif
-		gpio_pull(GPIO_PORTCR_ES2(18), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
-	}
+		gpio_pull_up_port(GPIO_PORT18);
+		gpio_pull_up_port(GPIO_PORT1);
+		gpio_pull_up_port(GPIO_PORT2);
+		gpio_pull_up_port(GPIO_PORT45);
+		gpio_pull_up_port(GPIO_PORT46);
+		gpio_pull_up_port(GPIO_PORT47);
+
 	return 0;
 }
 

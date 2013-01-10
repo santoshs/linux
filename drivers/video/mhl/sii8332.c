@@ -4234,7 +4234,9 @@ static int set_audio_mode(struct mhl_tx *mhl)
 
     mutex_lock(&mhl->i2c_lock);  
 //    ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0x20, 0x98);//Rising edge, 256fs, ws polarity high, SD judtify left, SD direction Byte MSB, WS to SD first bit shift.
-    ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0x20, 0x10);
+ret = I2C_WriteByte(mhl->pdata, PAGE_0, 0x20, 0x90);/*Rising edge,
+256fs, word sync polarity low,SD justify left, SD direction Byte MSB,
+word sync to SD first bit shift.*/
 	if(ret<0){
   		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
       mutex_unlock(&mhl->i2c_lock);
@@ -4297,7 +4299,8 @@ static int set_audio_mode(struct mhl_tx *mhl)
     mutex_unlock(&mhl->i2c_lock);
 
 	mutex_lock(&mhl->i2c_lock);  
-    ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0x27, 0x51); // setting to 16 bit 2 channel and 44.1 KHz
+ret = I2C_WriteByte(mhl->pdata, PAGE_0, 0x27, 0x58);/* setting to
+16 bit 2 channel and 48 KHz*/
     if(ret<0){
   		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
       mutex_unlock(&mhl->i2c_lock);
@@ -4531,7 +4534,9 @@ static int set_ouptput_timings(struct mhl_tx *mhl, bool *input_check)
   mutex_unlock(&mhl->i2c_lock);  
 
   mutex_lock(&mhl->i2c_lock);  
-  ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0xBC, 0x01);
+  /*ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0xBC, 0x01);*/
+ret = I2C_WriteByte(mhl->pdata, PAGE_0, 0xBC, 0x02);/*set Page by writting to
+TPI:0xBC, here page 2 is set*/
   if(ret<0){
 		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
 		goto exit_func;
@@ -4539,7 +4544,9 @@ static int set_ouptput_timings(struct mhl_tx *mhl, bool *input_check)
   mutex_unlock(&mhl->i2c_lock);
 
   mutex_lock(&mhl->i2c_lock);  
-  ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0xBD, 0x09);
+  /*ret = I2C_WriteByte(mhl->pdata,PAGE_0, 0xBD, 0x09);*/
+ret = I2C_WriteByte(mhl->pdata, PAGE_0, 0xBD, 0x24);/*select Indexed Offset
+within page by writting to TPI:0xBD, here indexed register 24*/
   if(ret<0){
 		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
 		goto exit_func;
@@ -4547,20 +4554,34 @@ static int set_ouptput_timings(struct mhl_tx *mhl, bool *input_check)
   mutex_unlock(&mhl->i2c_lock);  
 
   mutex_lock(&mhl->i2c_lock);        
-  ret = I2C_ReadByte(mhl->pdata,PAGE_0, 0xBE, &rd_data);
+ret = I2C_ReadByte(mhl->pdata, PAGE_0, 0xBE, &rd_data);/*Read/Write register
+value via: TPI:0xBE, here reading*/
   if(ret<0){
 		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n", __func__, __LINE__);
 		goto exit_func;
-  } 
+		}
+ret = (ret & 0x80) | (0x02);/*changing the identified bits,only
+Change bit [3:0] to binary 0010 for 16 bits word length and 48KHz*/
   mutex_unlock(&mhl->i2c_lock); 
 
   if(rd_data&0x01){
-   //printk(KERN_INFO "sii8332: %s():%d  Clock stable \n", __func__, __LINE__);     
+	/*printk(KERN_INFO "sii8332: %s():%d  Clock stable\n",
+			* __func__, __LINE__);*/
   }
   else{
-   //printk(KERN_INFO "sii8332: %s():%d  Clock unstable \n", __func__, __LINE__);  
-   return ret;
+	/*printk(KERN_INFO "sii8332: %s():%d  Clock unstable\n",
+			* __func__, __LINE__);*/
+	return ret;
   }
+mutex_lock(&mhl->i2c_lock);
+ret = I2C_WriteByte(mhl->pdata, PAGE_0, 0xBE, ret);/*Read/Write register value
+via: TPI:0xBE, here we are writting the ret value*/
+if (ret < 0) {
+		printk(KERN_INFO "[ERROR]sii8332: %s():%d failed !\n"
+		, __func__, __LINE__);
+		goto exit_func;
+		}
+		mutex_unlock(&mhl->i2c_lock);
 
   mutex_lock(&mhl->i2c_lock); 
   do{

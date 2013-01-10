@@ -22,8 +22,6 @@
  */
 #ifndef __ASM_ARCH_BOARD_U2EVM_H
 #define __ASM_ARCH_BOARD_U2EVM_H
-#include <mach/r8a73734.h>
-#include <mach/gpio.h>
 
 
 /**
@@ -34,25 +32,7 @@
 #define SEC_RLTE_REV0_2_2		2
 #define SEC_RLTE_REV0_3_1		3
 #define SEC_RLTE_REV0_4_0		4
-/**
- * GPIO
- **/
-/*Support for compatibility between ES1.0 and ES2.0*/
-#define GPIO_PORTCR_ES1(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x3000 + (n)) : 0; })
 
-#define GPIO_PORTCR_ES2(n)	({				\
-	((n) <  96) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :	\
-	((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) :	\
-	((n) < 192) ? 0 :				\
-	((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) :	\
-	((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 /**
  * CMT13
  */
@@ -78,8 +58,4 @@
 #define CRASHLOG_LOGCAT_RADIO_LOCATE	IO_ADDRESS(0x44801050)
 #define CRASHLOG_LOGCAT_SYSTEM_LOCATE	IO_ADDRESS(0x44801060)
 
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-	extern spinlock_t       sh_cmt_lock; /* arch/arm/mach-shmobile/sh_cmt.c */
-#endif
-extern void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode);
 #endif /* __ASM_ARCH_BOARD_U2EVM_H*/

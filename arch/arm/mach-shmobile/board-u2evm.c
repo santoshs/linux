@@ -22,6 +22,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
+#include <mach/poweroff.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
 #endif
@@ -316,15 +317,11 @@ static void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
 	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_MFD_D2153)
-		printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
 		d2153_mmcif_pwr_control(1);
-		printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
 #endif /* CONFIG_MFD_D2153 */
 	}else{
 #if defined(CONFIG_PMIC_INTERFACE)
-		printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
 		gpio_set_value(GPIO_PORT227, 1);
-		printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
 #endif /* CONFIG_PMIC_INTERFACE */
 	}
 }
@@ -333,15 +330,11 @@ static void mmcif_down_pwr(struct platform_device *pdev)
 {
 	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_MFD_D2153)
-		printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
 		d2153_mmcif_pwr_control(0);
-		printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
 #endif /* CONFIG_MFD_D2153 */
 	}else{
 #if defined(CONFIG_PMIC_INTERFACE)
-		printk(" \n EOS2_BSP_MMCIF_PMIC : %s\n",__func__);
 		gpio_set_value(GPIO_PORT227, 0);
-		printk("\n GPIO_PORTCR_ES2(227) : %x\n",__raw_readl(0xe60520e3));
 #endif /* CONFIG_PMIC_INTERFACE */
 	}
 }
@@ -800,7 +793,7 @@ static void sensor_power_on_vdd(int onoff)
 		pr_err("SENSOR_LDO_EN gpio_request was failed\n");
              return;
            }
-           gpio_pull(GPIO_PORTCR_ES2(9), GPIO_PULL_OFF);
+	gpio_pull_off_port(GPIO_PORT9);
       }
 
 	if (onoff == SNS_PWR_ON) {
@@ -1005,7 +998,6 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #endif
 
 #if defined(CONFIG_RENESAS_GPS)
-#define FUNC2_MODE_SCIFB 0x02
 
 static ssize_t GNSS_NRST_value_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
@@ -1139,44 +1131,23 @@ static void gps_gpio_init(void)
 
 	printk(KERN_ALERT "gps_gpio_init!!");
 
-	if ((system_rev & 0xFF) == 0x00) { /*ES1.0*/
-		/* SCIFB1::UART mode & Function mode settings. */
 		gpio_request(GPIO_FN_SCIFB1_RXD, NULL);
-		gpio_pull(GPIO_PORTCR_ES1(79), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_pull_up_port(GPIO_PORT79);
 		gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
-		gpio_pull(GPIO_PORTCR_ES1(78), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+		gpio_pull_off_port(GPIO_PORT78);
 		gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
-		gpio_pull(GPIO_PORTCR_ES1(77), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
+		gpio_pull_up_port(GPIO_PORT77);
 		gpio_request(GPIO_FN_SCIFB1_RTS, NULL);
-		gpio_pull(GPIO_PORTCR_ES1(76), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
+		gpio_pull_off_port(GPIO_PORT76);
 
 		/* GPS Settings */
 		gpio_request(GPIO_PORT10, "GNSS_NRST");
-		gpio_pull(GPIO_PORTCR_ES1(10), GPIO_PULL_OFF);
-		gpio_direction_output(GPIO_PORT10, 1);
-
-		gpio_request(GPIO_PORT11, "GNSS_EN");
-		gpio_pull(GPIO_PORTCR_ES1(11), GPIO_PULL_OFF);
-		gpio_direction_output(GPIO_PORT11, 0);
-	} else { /* ES2.0*/
-		gpio_request(GPIO_FN_SCIFB1_RXD, NULL);
-		gpio_pull(GPIO_PORTCR_ES2(79), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
-		gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
-		gpio_pull(GPIO_PORTCR_ES2(78), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
-		gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
-		gpio_pull(GPIO_PORTCR_ES2(77), GPIO_PULL_UP|FUNC2_MODE_SCIFB);
-		gpio_request(GPIO_FN_SCIFB1_RTS, NULL);
-		gpio_pull(GPIO_PORTCR_ES2(76), GPIO_PULL_OFF|FUNC2_MODE_SCIFB);
-
-		/* GPS Settings */
-		gpio_request(GPIO_PORT10, "GNSS_NRST");
-		gpio_pull(GPIO_PORTCR_ES2(10), GPIO_PULL_OFF);
+		gpio_pull_off_port(GPIO_PORT10);
 		gpio_direction_output(GPIO_PORT10, 0);
 
 		gpio_request(GPIO_PORT11, "GNSS_EN");
-		gpio_pull(GPIO_PORTCR_ES2(11), GPIO_PULL_OFF);
+		gpio_pull_off_port(GPIO_PORT11);
 		gpio_direction_output(GPIO_PORT11, 0);
-	}
 
 	printk("gps_gpio_init done!!\n");
 }
@@ -1219,7 +1190,7 @@ static void mpl_init(void)
 	if (rc < 0)
 		pr_err("GPIO_MPU3050_INT gpio_request was failed\n");
 	gpio_direction_input(GPIO_PORT107);
-	gpio_pull(GPIO_PORTCR_ES1(107), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT107);
 }
 #endif
 
@@ -3919,7 +3890,21 @@ static void __init u2evm_init(void)
 
 	/* For case that Secure ISSW has selected debug mode already! */
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-
+       {
+               volatile uint32_t val;
+               
+               val = __raw_readl(DBGREG1);
+               if ((val & (1 << 29)) == 0) {
+                       stm_select = -1;
+               } else {
+                       if ((val & (1 << 20)) == 0) {
+                               stm_select = 0;
+                       } else {
+                               stm_select = 1;
+                       }
+               }
+       }
+       
 	printk("sec stm_select=%d\n", stm_select);
 
 	/* pub_stm_select = stm_select;*/
@@ -4029,19 +4014,11 @@ static void __init u2evm_init(void)
 	*((volatile u8 *)0xE6051089) = 0x81;
 	*((volatile u8 *)0xE605108A) = 0xC1;
 
-	if((system_rev & 0xFF) == 0x00) /*ES1.0*/
-	{
-		gpio_pull(GPIO_PORTCR_ES1(138), GPIO_PULL_UP); /* RX PU */
-		gpio_pull(GPIO_PORTCR_ES1(137), GPIO_PULL_DOWN); /* TX PD */
-		gpio_pull(GPIO_PORTCR_ES1(38), GPIO_PULL_UP); /* CTS PU */
-		gpio_pull(GPIO_PORTCR_ES1(37), GPIO_PULL_DOWN); /* RTS PD */
-	} else
-	{
-		gpio_pull(GPIO_PORTCR_ES2(138), GPIO_PULL_UP); /* RX PU */
-		gpio_pull(GPIO_PORTCR_ES2(137), GPIO_PULL_DOWN); /* TX PD */
-		gpio_pull(GPIO_PORTCR_ES2(38), GPIO_PULL_UP); /* CTS PU */
-		gpio_pull(GPIO_PORTCR_ES2(37), GPIO_PULL_DOWN); /* RTS PD */
-	}
+	gpio_pull_up_port(GPIO_PORT138); /* RX PU */
+	gpio_pull_down_port(GPIO_PORT137); /* TX PD */
+	gpio_pull_up_port(GPIO_PORT38); /* CTS PU */
+	gpio_pull_down_port(GPIO_PORT37); /* RTS PD */
+
 
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
@@ -4061,26 +4038,13 @@ static void __init u2evm_init(void)
 //	gpio_request(GPIO_FN_KEYOUT6, NULL);
 
 
-if((system_rev & 0xFFFF) == 0x3E00)
-{	
-	gpio_pull(GPIO_PORTCR_ES1(44), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(48), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(96), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES1(97), GPIO_PULL_UP);
-}
-else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-{
-	gpio_pull(GPIO_PORTCR_ES2(44), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(45), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(46), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(47), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(48), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(96), GPIO_PULL_UP);
-	gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
-}
+	gpio_pull_up_port(GPIO_PORT44);
+	gpio_pull_up_port(GPIO_PORT45);
+	gpio_pull_up_port(GPIO_PORT46);
+	gpio_pull_up_port(GPIO_PORT47);
+	gpio_pull_up_port(GPIO_PORT48);
+	gpio_pull_up_port(GPIO_PORT96);
+	gpio_pull_up_port(GPIO_PORT97);
 #endif
 	/* MMC0 */
 	gpio_request(GPIO_FN_MMCCLK0, NULL);
@@ -4264,10 +4228,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 //        gpio_request(GPIO_PORT293, NULL);
 //        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
-if((system_rev & 0xFFFF) == 0x3E00)
-        gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
-else if((system_rev & 0xFFFF>>4) >= 0x3E1)
-	gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT293);
 
 	}
 	
@@ -4276,10 +4237,7 @@ else if((system_rev & 0xFFFF>>4) >= 0x3E1)
 //        gpio_request(GPIO_PORT324, NULL);
 //        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
-if((system_rev & 0xFFFF) == 0x3E00)
-        gpio_pull(GPIO_PORTCR_ES1(324), GPIO_PULL_UP);
-else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	gpio_pull(GPIO_PORTCR_ES2(324), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT324);
 
 	}
 
@@ -4477,21 +4435,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 		gpio_request(GPIO_FN_SDHICMD1, NULL);
 		gpio_request(GPIO_FN_SDHICLK1, NULL);
 
-		if((system_rev & 0xFF) == 0x00)
-		{ /*ES1.0*/
-			gpio_pull(GPIO_PORTCR_ES1(293), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES1(292), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES1(291), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES1(290), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES1(289), GPIO_PULL_UP);
-		} else
-		{ /*ES2.0*/
-			gpio_pull(GPIO_PORTCR_ES2(293), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES2(292), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES2(291), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES2(290), GPIO_PULL_UP);
-			gpio_pull(GPIO_PORTCR_ES2(289), GPIO_PULL_UP);
-		}
+		gpio_pull_up_port(GPIO_PORT293);
+		gpio_pull_up_port(GPIO_PORT292);
+		gpio_pull_up_port(GPIO_PORT291);
+		gpio_pull_up_port(GPIO_PORT290);
+		gpio_pull_up_port(GPIO_PORT289);
 		// move gpio request to board-renesas_wifi.c
 		
 		/* WLAN Init API call */
@@ -4524,23 +4472,15 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #endif
 
 
-if((system_rev & 0xFFFF) == 0x3E00)
-
-{	
-	gpio_pull(GPIO_PORTCR_ES1(104), GPIO_PULL_UP);
-}
-else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-{
-	gpio_pull(GPIO_PORTCR_ES2(104), GPIO_PULL_UP);
-}
+	gpio_pull_up_port(GPIO_PORT104);
 
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
 
 	if (u2_board_rev >= 4) {
-		gpio_pull(GPIO_PORTCR_ES2(84), GPIO_PULL_OFF);
-		gpio_pull(GPIO_PORTCR_ES2(85), GPIO_PULL_OFF);
+		gpio_pull_off_port(GPIO_PORT84);
+		gpio_pull_off_port(GPIO_PORT85);
 	}
 
 	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
@@ -4567,7 +4507,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 #if defined(CONFIG_USB_SWITCH_TSU6712)
    gpio_request(GPIO_PORT97, NULL);
    gpio_direction_input(GPIO_PORT97);
-   gpio_pull(GPIO_PORTCR_ES2(97), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT97);
 #endif
 
 #if defined(CONFIG_CHARGER_SMB328A)
@@ -4575,26 +4515,20 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 	   gpio_request(GPIO_PORT103, NULL);
 	   gpio_direction_input(GPIO_PORT103);
-	   gpio_pull(GPIO_PORTCR_ES2(103), GPIO_PULL_UP);
-	}
-	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	   gpio_pull_up_port(GPIO_PORT103);
 	}
 	else
 	{
 	   gpio_request(GPIO_PORT19, NULL);
 	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull(GPIO_PORTCR_ES2(19), GPIO_PULL_UP);
+	   gpio_pull_up_port(GPIO_PORT19);
 	}
 #endif
 
 #if defined(CONFIG_BATTERY_BQ27425)
    gpio_request(GPIO_PORT105, NULL);
    gpio_direction_input(GPIO_PORT105);
-   gpio_pull(GPIO_PORTCR_ES2(105), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT105);
 #endif
 
 #if 0
@@ -4613,21 +4547,11 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-	if((system_rev & 0xFFFF) == 0x3E00)
-	{
-		if(u2_get_board_rev() >= 4)
-			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_OFF);
+	if (u2_get_board_rev() >= 4)
+		gpio_pull_off_port(GPIO_PORT32);
+	else
+		gpio_pull_up_port(GPIO_PORT32);
 
-		else
-			gpio_pull(GPIO_PORTCR_ES1(32), GPIO_PULL_UP);
-	}
-	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
-		if(u2_get_board_rev() >= 4)
-			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_OFF);
-		else
-			gpio_pull(GPIO_PORTCR_ES2(32), GPIO_PULL_UP);
-	}
 	USBGpio_init();
 
 #ifdef CONFIG_SPI_SH_MSIOF
@@ -4651,7 +4575,7 @@ else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 
 	gpio_request(GPIO_PORT24, NULL);
 	gpio_direction_input(GPIO_PORT24);
-	gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_DOWN);
+	gpio_pull_down_port(GPIO_PORT24);
 
 #ifdef CONFIG_CACHE_L2X0
 	/*

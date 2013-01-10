@@ -16,6 +16,7 @@
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <mach/board-u2evm-renesas-bt.h>
+#include <mach/sh_cmt.h>
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 #define I2C_SDA_NODELAY	0
@@ -1404,7 +1405,6 @@ static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&scif0_device,
 	&scif4_device,
 	&scif5_device,
-	&scif6_device,
 	&pmu_device,
 };
 

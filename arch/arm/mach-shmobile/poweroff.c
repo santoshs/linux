@@ -21,6 +21,7 @@
 #include <linux/device.h>
 #include <linux/string.h>
 #include <asm/cacheflush.h>
+#include <mach/poweroff.h>
 #include <mach/pm.h>
 
 #include <linux/hwspinlock.h>
