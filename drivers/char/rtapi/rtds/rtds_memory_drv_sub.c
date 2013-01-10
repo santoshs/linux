@@ -474,7 +474,7 @@ void rtds_memory_check_shared_apmem(
 		map_data->mem_table	 = NULL;
 
 		/* Map user space */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 		ret = rtds_memory_do_map(fp,
 								  &(mem_table->rt_wb_addr),
 								  mem_table->memory_size,
@@ -660,7 +660,7 @@ int rtds_memory_open_shared_rtmem(
 		map_data->cache_kind	= cache;
 		map_data->data_ent		= true;
 		map_data->mapping_flag	= RTDS_MEM_MAPPING_RTMEM;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 		ret_code = rtds_memory_do_map(fp, rt_addr, (unsigned long)map_size, (phy_addr >> PAGE_SHIFT));
 #else
 		ret_code = rtds_memory_do_map(fp, rt_addr, (unsigned long)map_size, (phy_addr));
@@ -2883,7 +2883,7 @@ void rtds_memory_drv_close_vma(
 
 		/* check page frame */
 		rtds_memory_close_apmem(vm_area->vm_start, (vm_area->vm_end - vm_area->vm_start));
-		
+
 		/* check map_rtmem list */
 		spin_lock_irqsave(&g_rtds_memory_lock_map_rtmem, flag);
 		list_for_each_entry(rtmem_table, &g_rtds_memory_list_map_rtmem, list_head) {
@@ -3159,7 +3159,7 @@ int rtds_memory_do_map(
 	/* Mapping */
 	down_write(&current->mm->mmap_sem);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 	*addr =	 do_mmap_pgoff(fp,
 							0,
 							size,
@@ -3232,17 +3232,27 @@ void rtds_memory_flush_mmu(
 	unsigned long			address
 )
 {
-	pgd_t   *pgd;
-	pmd_t   *pmd;
-	pte_t   *pte;
-	unsigned long   phy_pgd;
-	unsigned long   phy_pte;
+	pgd_t	*pgd;
+	pmd_t	*pmd;
+	pte_t	*pte;
+	unsigned long	phy_pgd;
+	unsigned long	phy_pte;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+
+#else
+	pud_t	*pud;
+#endif
 
 	MSG_INFO("[RTDSK]IN |[%s]\n", __func__);
 	MSG_INFO("[RTDSK]   |address[0x%08X]\n", (u32)address);
 
 	pgd = pgd_offset(vm_area->vm_mm, address);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 	pmd = pmd_offset(pgd, address);
+#else
+	pud = pud_offset(pgd, address);
+	pmd = pmd_offset(pud, address);
+#endif
 	pte = pte_offset_map(pmd, address);
 
 	phy_pgd = virt_to_phys(pgd);
@@ -3647,6 +3657,11 @@ unsigned long rtds_memory_tablewalk(
 	unsigned long	page_num;
 	unsigned long	phys_addr;
 	unsigned long	*page_addr;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+
+#else
+	pud_t			*pud;
+#endif
 
 	MSG_INFO("[RTDSK]IN |[%s]\n", __func__);
 	MSG_INFO("[RTDSK]   |virt_addr[0x%08X]\n", (u32)virt_addr);
@@ -3658,7 +3673,12 @@ unsigned long rtds_memory_tablewalk(
 		phys_addr = virt_to_phys((void *)virt_addr);
 	} else {
 		pgd = pgd_offset(current->mm, virt_addr);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
 		pmd = pmd_offset(pgd, virt_addr);
+#else
+		pud = pud_offset(pgd, virt_addr);
+		pmd = pmd_offset(pud, virt_addr);
+#endif
 		pte = pte_offset_map(pmd, virt_addr);
 
 		page_addr = (unsigned long *)((unsigned long)pte + (RTDS_PTE_OFFSET * sizeof(pte)));
@@ -4280,7 +4300,7 @@ void rtds_memory_leak_check_page_frame(
 		void
 )
 {
-	unsigned long 				flag;
+	unsigned long				flag;
 	rtds_memory_create_queue	*this_p = NULL;
 	rtds_memory_create_queue	*next_p = NULL;
 	rtds_memory_create_queue	*share_p = NULL;

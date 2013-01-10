@@ -225,6 +225,11 @@ long rtds_memory_drv_ioctl(
 				rtds_memory_check_shared_apmem(fp, &(rtds_memory_data_p->mem_map));
 			}
 		}
+		else {	/* #MU2SYS2264 add -S- */
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_drv_init_mpro failed ret[%d]\n", ret);
+			panic("[RTDSK]ERR|[%s][%d]rtds_memory_drv_init_mpro failed[%d]\n", __func__, __LINE__, ret);
+		}		/* #MU2SYS2264 add -E- */
+
 		break;
 
 	case IOCTL_MEM_CMD_WR_INIT:

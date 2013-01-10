@@ -1127,7 +1127,7 @@ int screen_display_set_address(screen_disp_set_address *address)
 
 	sys_rt_map.handle	 = address->handle;
 	sys_rt_map.phys_addr = address->address;
-	sys_rt_map.map_size  = address->size + 0x2000;
+	sys_rt_map.map_size  = address->size + 0x2000*8;
 
 	result = iccom_wq_system_mem_rt_map( &sys_rt_map );
 	if (SMAP_LIB_MEMORY_OK != result) {

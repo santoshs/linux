@@ -493,30 +493,32 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 	}
 
 	/* Input(C0) */
-	if (NULL != grap_image_conv->input_image.apmem_handle_c0) {
-		ap_get_apmem_id.handle       = grap_image_conv->handle;
-		ap_get_apmem_id.apmem_handle = grap_image_conv->input_image.apmem_handle_c0;
-		image_conv.input_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
-		if (image_conv.input_image.apmem_handle_c0 == 0) {
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
-			return SMAP_LIB_GRAPHICS_PARAERR;
-		}
+	if (NULL != grap_image_conv->input_image.address_c0) {
+		if (NULL != grap_image_conv->input_image.apmem_handle_c0) {
+			ap_get_apmem_id.handle       = grap_image_conv->handle;
+			ap_get_apmem_id.apmem_handle = grap_image_conv->input_image.apmem_handle_c0;
+			image_conv.input_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
+			if (image_conv.input_image.apmem_handle_c0 == 0) {
+				MSG_ERROR(
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
+				return SMAP_LIB_GRAPHICS_PARAERR;
+			}
 
-		ap_change_rtaddr.handle         = grap_image_conv->handle;
-		ap_change_rtaddr.cache_kind     = RT_MEMORY_NONCACHE;
-		ap_change_rtaddr.apmem_handle   = grap_image_conv->input_image.apmem_handle_c0;
-		ap_change_rtaddr.apmem_apaddr   = (unsigned int)(grap_image_conv->input_image.address_c0);
+			ap_change_rtaddr.handle         = grap_image_conv->handle;
+			ap_change_rtaddr.cache_kind     = RT_MEMORY_NONCACHE;
+			ap_change_rtaddr.apmem_handle   = grap_image_conv->input_image.apmem_handle_c0;
+			ap_change_rtaddr.apmem_apaddr   = (unsigned int)(grap_image_conv->input_image.address_c0);
 
-		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
-		if (result != SMAP_LIB_MEMORY_OK) {
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
-			return SMAP_LIB_GRAPHICS_PARAERR;
+			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
+			if (result != SMAP_LIB_MEMORY_OK) {
+				MSG_ERROR(
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
+				return SMAP_LIB_GRAPHICS_PARAERR;
+			}
+			image_conv.input_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
+		} else {
+			image_conv.input_image.address_c0 = GET_RT_CACHE_ADDRESS(grap_image_conv->input_image.address_c0);
 		}
-		image_conv.input_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
-	} else {
-		image_conv.input_image.address_c0 = GET_RT_CACHE_ADDRESS(grap_image_conv->input_image.address_c0);
 	}
 
 	/* Output(Y) */
