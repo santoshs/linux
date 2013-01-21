@@ -799,3 +799,12 @@ int rtds_memory_drv_map_pnc_nma(
 }
 EXPORT_SYMBOL(rtds_memory_drv_map_pnc_nma);
 
+void rtds_memory_drv_dump_mpro(
+	void
+)
+{
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	rtds_memory_dump_notify();
+	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+}
+EXPORT_SYMBOL(rtds_memory_drv_dump_mpro);

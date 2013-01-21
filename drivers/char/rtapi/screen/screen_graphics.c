@@ -180,29 +180,26 @@ static int screen_graphics_change_rtaddr(
 	void			**change_apmem_handle)
 {
 	int result;
-	system_mem_ap_get_apmem_id  	ap_get_apmem_id;
-	system_mem_ap_change_rtaddr 	ap_change_rtaddr;
+	system_mem_ap_get_apmem_id		ap_get_apmem_id;
+	system_mem_ap_change_rtaddr		ap_change_rtaddr;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
-	if (NULL == handle)
-	{
+	if (NULL == handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
-	if ((NULL == address) || (NULL == apmem_handle))
-	{
+	if ((NULL == address) || (NULL == apmem_handle)) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
-	if ((NULL == change_address) || (NULL == change_apmem_handle))
-	{
+	if ((NULL == change_address) || (NULL == change_apmem_handle)) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -210,9 +207,9 @@ static int screen_graphics_change_rtaddr(
 	ap_get_apmem_id.apmem_handle = apmem_handle;
 
 	*change_apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
-	if ( 0 == *change_apmem_handle ) {
+	if (0 == *change_apmem_handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -654,7 +651,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 
 	struct {
 		screen_grap_image_blend		t_grap_blend;
-		screen_grap_layer			t_grap_layer[RT_GRAPHICS_BLEND_LAYER];
+		screen_grap_layer_local		t_grap_layer[RT_GRAPHICS_BLEND_LAYER];
 	} send_data;
 
 	iccom_drv_send_cmd_param      iccom_send_cmd;
@@ -684,7 +681,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			break;
 		}
 
-		memcpy(&send_data.t_grap_layer[layer], grap_blend->input_layer[layer], sizeof(screen_grap_layer));
+		memcpy(&send_data.t_grap_layer[layer], grap_blend->input_layer[layer], sizeof(screen_grap_layer_local));
 
 		/* Input(Y/RGB) */
 		if (NULL != grap_blend->input_layer[layer]->image.apmem_handle) {
@@ -1045,7 +1042,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 {
 	int result;
 	screen_grap_image_edit			send_data;
-	iccom_drv_send_cmd_param    	iccom_send_cmd;
+	iccom_drv_send_cmd_param		iccom_send_cmd;
 	iccom_drv_disable_standby_param	dis_standby;
 	iccom_drv_enable_standby_param  ena_standby;
 

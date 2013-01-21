@@ -28,6 +28,7 @@
 #include "iccom_drv.h"
 #include "iccom_drv_common.h"
 #include "iccom_drv_private.h"
+#include "rtds_memory_drv.h"
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 #include "iccom_drv_standby_private.h"
 #endif
@@ -378,6 +379,7 @@ irqreturn_t iccom_iccomeicr_int(
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 			iccom_rtctl_set_rt_fatal_error();
 #endif
+			rtds_memory_drv_dump_mpro();
 			iccom_read_fatal(cmd_posi);
 		} else {
 			/* event responce */

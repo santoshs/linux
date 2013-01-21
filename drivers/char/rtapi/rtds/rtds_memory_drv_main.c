@@ -76,6 +76,7 @@ struct list_head			g_rtds_memory_list_map_rtmem;
 spinlock_t					g_rtds_memory_lock_map_rtmem;
 struct list_head			g_rtds_memory_list_reg_phymem;
 struct semaphore			g_rtds_memory_phy_mem;
+struct semaphore			g_rtds_memory_leak_sem;
 
 /*******************************************************************************
  * Function   : rtds_memory_drv_open
@@ -224,11 +225,12 @@ long rtds_memory_drv_ioctl(
 			while (1) {
 				rtds_memory_check_shared_apmem(fp, &(rtds_memory_data_p->mem_map));
 			}
-		}
-		else {	/* #MU2SYS2264 add -S- */
+		} else {
+			/* #MU2SYS2264 add -S- */
 			MSG_ERROR("[RTDSK]ERR| rtds_memory_drv_init_mpro failed ret[%d]\n", ret);
 			panic("[RTDSK]ERR|[%s][%d]rtds_memory_drv_init_mpro failed[%d]\n", __func__, __LINE__, ret);
-		}		/* #MU2SYS2264 add -E- */
+			/* #MU2SYS2264 add -E- */
+		}
 
 		break;
 
@@ -448,6 +450,11 @@ int rtds_memory_thread_apmem_rttrig(
 
 				break;
 
+			case RTDS_MEM_DRV_EVENT_FATAL:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_FATAL\n");
+				rtds_memory_dump_mpro();
+				break;
+
 			default:
 				MSG_ERROR("[RTDSK]ERR| No EVENT[0x%08X]\n", recv_queue->event);
 				panic("[RTDSK]ERR| thread_apmem illegal event\n");
@@ -543,6 +550,7 @@ int rtds_memory_init_module(
 	init_MUTEX_LOCKED(&g_rtds_memory_mpro_sem);
 	init_MUTEX(&g_rtds_memory_shared_mem);
 	init_MUTEX(&g_rtds_memory_phy_mem);
+	init_MUTEX(&g_rtds_memory_leak_sem);
 
 	/* Get section info */
 	section.section_header = &section_header;
