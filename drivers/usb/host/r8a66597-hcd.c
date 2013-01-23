@@ -9,7 +9,7 @@
  * Portions Copyright (C) 2004-2005 David Brownell
  * Portions Copyright (C) 1999 Roman Weissgaerber
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+ * Author : Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -181,8 +181,8 @@ static void r8a66597_disable_port(struct r8a66597 *r8a66597, int port)
 #if 0
 	r8a66597_port_power(r8a66597, port, 0);
 #endif
- 	r8a66597->power = 0;
-	schedule_delayed_work(&r8a66597->vbus_work, 0); 
+	r8a66597->power = 0;
+	schedule_delayed_work(&r8a66597->vbus_work, 0);
 
 	do {
 		tmp = r8a66597_read(r8a66597, SOFCFG) & EDGESTS;
@@ -970,7 +970,7 @@ static void init_pipe_info(struct r8a66597 *r8a66597, struct urb *urb,
 	info.pipenum = get_empty_pipenum(r8a66597, ep);
 	info.address = get_urb_to_r8a66597_addr(r8a66597, urb);
 	info.epnum = usb_endpoint_num(ep);
-	info.maxpacket = le16_to_cpu(ep->wMaxPacketSize);
+	info.maxpacket = usb_endpoint_maxp(ep);
 	info.type = get_r8a66597_type(usb_endpoint_type(ep));
 	info.bufnum = get_bufnum(info.pipenum);
 	info.buf_bsize = get_buf_bsize(info.pipenum);
@@ -1097,7 +1097,7 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597, int port)
 static void r8a66597_usb_disconnect(struct r8a66597 *r8a66597, int port)
 {
 	struct r8a66597_device *dev = r8a66597->root_hub[port].dev;
-	
+
 	disable_r8a66597_pipe_all(r8a66597, dev);
 	free_usb_address(r8a66597, dev, 0);
 
@@ -1697,7 +1697,7 @@ static void irq_vbus_state(struct r8a66597 *r8a66597)
 			x->state = OTG_STATE_A_IDLE;
 			printk("%s\n", otg_state_string(x->state));
 			break;
-		case VSESS_VLD: 
+		case VSESS_VLD:
 			if (x->state == OTG_STATE_A_IDLE) {
 				r8a66597_bclr(r8a66597, VBCOMPE, INTENB1);
 				r8a66597_bset(r8a66597, DISCHRGVBUS, USBHS_PHYOTGCTR);
@@ -1794,7 +1794,7 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
 			r8a66597_usb_disconnect(r8a66597, 0);
 #ifdef CONFIG_USB_OTG
-			if (x->state == OTG_STATE_A_SUSPEND 
+			if (x->state == OTG_STATE_A_SUSPEND
 			|| x->state == OTG_STATE_B_PERIPHERAL) {
 			schedule_delayed_work(&r8a66597->hnp_work, 0);
 			} else if (x->state == OTG_STATE_A_HOST) {
@@ -2318,7 +2318,7 @@ static void r8a66597_hnp_work(struct work_struct *work)
 	unsigned long dvstctr_reg = get_dvstctr_reg(0);
 	struct otg_transceiver *otg = otg_get_transceiver();
 	u16 tmp;
-	if (otg->state == OTG_STATE_A_SUSPEND 
+	if (otg->state == OTG_STATE_A_SUSPEND
 		|| otg->state == OTG_STATE_B_PERIPHERAL) {
 			r8a66597_set_b_hnp_enable(r8a66597);
 			return;
@@ -2327,7 +2327,7 @@ static void r8a66597_hnp_work(struct work_struct *work)
 				otg->state == OTG_STATE_A_WAIT_BCON) {
 	r8a66597_bset(r8a66597, DRPD, SYSCFG0);
 	tmp = r8a66597_read(r8a66597, dvstctr_reg);
-	if ((tmp & USBRST) == USBRST) 
+	if ((tmp & USBRST) == USBRST)
 	r8a66597_mdfy(r8a66597, UACT, USBRST | UACT,
 					dvstctr_reg);
 	r8a66597_bclr(r8a66597, HNPBTOA, DVSTCTR0);
@@ -2419,8 +2419,8 @@ static int r8a66597_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		case USB_PORT_FEAT_POWER:
 #if 0
 			r8a66597_port_power(r8a66597, port, 0);
-#endif		
- 			r8a66597->power = 0; 
+#endif
+			r8a66597->power = 0;
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
 			break;
 		case USB_PORT_FEAT_C_ENABLE:
@@ -2453,7 +2453,7 @@ static int r8a66597_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			goto error;
 
 		switch (wValue) {
-		case USB_PORT_FEAT_SUSPEND: 
+		case USB_PORT_FEAT_SUSPEND:
 			break;
 		case USB_PORT_FEAT_POWER:
 #if 0
@@ -2515,7 +2515,7 @@ static int r8a66597_bus_suspend(struct usb_hcd *hcd)
 		r8a66597_bclr(r8a66597, UACT, dvstctr_reg);	/* suspend */
 		rh->port |= USB_PORT_STAT_SUSPEND;
 #ifdef CONFIG_USB_OTG
-		if (otg->state == OTG_STATE_A_HOST) 
+		if (otg->state == OTG_STATE_A_HOST)
 			otg->state = OTG_STATE_A_SUSPEND;
 		if (otg->state == OTG_STATE_B_HOST)
 			otg->state = OTG_STATE_B_PERIPHERAL;
@@ -2676,6 +2676,9 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 	int i;
 	unsigned long irq_trigger;
 
+	if (usb_disabled())
+		return -ENODEV;
+
 	if (pdev->dev.dma_mask) {
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "dma not supported\n");
@@ -2781,7 +2784,7 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 	bus->otg_port = 1;
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED | irq_trigger);
 #else
-	ret = usb_add_hcd(hcd, irq, IRQF_DISABLED | irq_trigger);
+	ret = usb_add_hcd(hcd, irq, irq_trigger);
 #endif
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Failed to add hcd\n");
@@ -2815,19 +2818,4 @@ static struct platform_driver r8a66597_driver = {
 	},
 };
 
-static int __init r8a66597_init(void)
-{
-	if (usb_disabled())
-		return -ENODEV;
-
-	printk(KERN_INFO KBUILD_MODNAME ": driver %s, %s\n", hcd_name,
-	       DRIVER_VERSION);
-	return platform_driver_register(&r8a66597_driver);
-}
-module_init(r8a66597_init);
-
-static void __exit r8a66597_cleanup(void)
-{
-	platform_driver_unregister(&r8a66597_driver);
-}
-module_exit(r8a66597_cleanup);
+module_platform_driver(r8a66597_driver);

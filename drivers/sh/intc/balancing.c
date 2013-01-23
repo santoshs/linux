@@ -9,7 +9,7 @@
  */
 #include "internals.h"
 
-static unsigned long dist_handle[NR_IRQS];
+static unsigned long dist_handle[INTC_NR_IRQS];
 
 void intc_balancing_enable(unsigned int irq)
 {
@@ -21,7 +21,7 @@ void intc_balancing_enable(unsigned int irq)
 		return;
 
 	addr = INTC_REG(d, _INTC_ADDR_D(handle), 0);
-	intc_reg_fns[_INTC_FN(handle)](addr, handle, 1);
+	intc_reg_fns[_INTC_FN(handle)](addr, handle, 1, &d->lock);
 }
 
 void intc_balancing_disable(unsigned int irq)
@@ -34,7 +34,7 @@ void intc_balancing_disable(unsigned int irq)
 		return;
 
 	addr = INTC_REG(d, _INTC_ADDR_D(handle), 0);
-	intc_reg_fns[_INTC_FN(handle)](addr, handle, 0);
+	intc_reg_fns[_INTC_FN(handle)](addr, handle, 0, &d->lock);
 }
 
 static unsigned int intc_dist_data(struct intc_desc *desc,

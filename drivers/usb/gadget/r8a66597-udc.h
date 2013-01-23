@@ -4,21 +4,11 @@
  * Copyright (C) 2007-2009 Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+ * Author : Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
  */
 
 #ifndef __R8A66597_H__
@@ -30,7 +20,6 @@
 
 #include <linux/usb/r8a66597.h>
 #include <linux/usb/r8a66597_dmac.h>
-#include <linux/wakelock.h>
 
 #define R8A66597_MAX_SAMPLING	10
 #define R8A66597_MAX_PACKET_SIZE	512
@@ -54,6 +43,8 @@
 #define R8A66597_BASE_BUFNUM	6
 #define R8A66597_MAX_BUFNUM	0x4F
 #define R8A66597_MAX_DMA_CHANNELS	2
+
+#define r8a66597_has_dmac(r8a66597)	(r8a66597->pdata->dmac)
 
 struct r8a66597_pipe_info {
 	u16	pipe;
@@ -84,12 +75,11 @@ struct r8a66597_ep {
 	unsigned		use_dma:1;
 	u16			pipenum;
 	u16			type;
-	const struct usb_endpoint_descriptor	*desc;
+
 	/* register address */
 	unsigned char		fifoaddr;
 	unsigned char		fifosel;
 	unsigned char		fifoctr;
-	unsigned char		fifotrn;
 	unsigned char		pipectr;
 	unsigned char		pipetre;
 	unsigned char		pipetrn;
@@ -119,7 +109,7 @@ struct r8a66597_dma {
 struct r8a66597 {
 	spinlock_t		lock;
 	void __iomem		*reg;
-	void __iomem		*dma_reg;
+	void __iomem		*dmac_reg;
 
 #ifdef CONFIG_HAVE_CLK
 	struct clk *clk;
@@ -141,25 +131,16 @@ struct r8a66597 {
 	u16			old_vbus;
 	u16			scount;
 	u16			old_dvsq;
+	u16			device_status;	/* for GET_STATUS */
 
 	/* pipe config */
 	unsigned char num_dma;
 
 	unsigned irq_sense_low:1;
-	unsigned charger_detected:1;
-	unsigned pullup_requested:1;
 	unsigned vbus_active:1;
-	unsigned phy_active:1;
-	unsigned phy_active_sav:1; /*save the state of the phy before resume*/
+	unsigned softconnect:1;
 
-	struct delayed_work	vbus_work;
-	struct delayed_work	charger_work;
-	struct wake_lock	wake_lock;
-#ifdef CONFIG_USB_OTG
-	struct delayed_work	hnp_work;
-	struct timer_list	hnp_timer_fail;
-	unsigned host_request_flag:1;
-#endif
+	struct usb_phy		*transceiver;
 };
 
 #define gadget_to_r8a66597(_gadget)	\
@@ -234,17 +215,17 @@ static inline void r8a66597_mdfy(struct r8a66597 *r8a66597,
 	r8a66597_write(r8a66597, tmp, offset);
 }
 
-/* USBHS-DMA Read/Write */
+/* USBHS-DMAC read/write */
 static inline u32 r8a66597_dma_read(struct r8a66597 *r8a66597,
 				unsigned long offset)
 {
-	return inl(r8a66597->dma_reg + offset);
+	return ioread32(r8a66597->dmac_reg + offset);
 }
 
 static inline void r8a66597_dma_write(struct r8a66597 *r8a66597, u32 val,
 				unsigned long offset)
 {
-	outl(val, r8a66597->dma_reg + offset);
+	iowrite32(val, r8a66597->dmac_reg + offset);
 }
 
 static inline void r8a66597_dma_mdfy(struct r8a66597 *r8a66597,
@@ -367,8 +348,8 @@ static inline unsigned long get_pipetrn_addr(u16 pipenum)
 }
 
 #else
-#define get_pipetre_addr(pipenum) (PIPE1TRE + (pipenum - 1) * 4)
-#define get_pipetrn_addr(pipenum) (PIPE1TRN + (pipenum - 1) * 4)
+#define get_pipetre_addr(pipenum)	(PIPE1TRE + (pipenum - 1) * 4)
+#define get_pipetrn_addr(pipenum)	(PIPE1TRN + (pipenum - 1) * 4)
 #endif
 
 #define enable_irq_ready(r8a66597, pipenum)	\

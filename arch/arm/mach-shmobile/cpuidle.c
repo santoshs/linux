@@ -1,6 +1,8 @@
 /*
+ * CPUIdle support code for SH-Mobile ARM
  * arch/arm/mach-shmobile/cpuidle.c
  *
+ * Copyright (C) 2011 Magnus Damm
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,48 +19,30 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <linux/kernel.h>
-#include <linux/init.h>
-#include <linux/platform_device.h>
+
+#include <linux/pm.h>
 #include <linux/cpuidle.h>
-#include <asm/proc-fns.h>
+#include <linux/suspend.h>
+#include <linux/module.h>
+#include <linux/err.h>
 #include <linux/io.h>
+#include <mach/pm.h>
 #include <linux/slab.h>
 #include <mach/system.h>
-#include <mach/pm.h>
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
 
-#include <linux/hwspinlock.h>
-#include <linux/delay.h>
-
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
-#else /*CONFIG_PM_HAS_SECURE*/
+#else
 #include "pm_ram0_tz.h"
-#endif /*CONFIG_PM_HAS_SECURE*/
+#endif
 #include "pmRegisterDef.h"
 
-#define ZB3_CLK_CORESTANDBY2	(130000)
-#define SHMOBILE_MAX_STATES	4
+
 
 #define DISPLAY_LOG 0
-
-#if DISPLAY_LOG
-#define idle_log(fmt, ...) printk(KERN_INFO "[%s] line[%d] cpu[%d] " fmt,\
-		__func__, __LINE__, smp_processor_id(), ##__VA_ARGS__)
-#else
-#define idle_log(fmt, ...)
-#endif
-
-#ifndef CONFIG_PM_HAS_SECURE
-#define FIQ_ENABLE()	local_fiq_enable()
-#define FIQ_DISABLE()	local_fiq_disable()
-#else
-#define FIQ_ENABLE()
-#define FIQ_DISABLE()
-#endif
 
 #ifdef CONFIG_PM_HAS_SECURE
 static int sec_hal_fail_cpu0;
@@ -66,19 +50,7 @@ module_param(sec_hal_fail_cpu0, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static int sec_hal_fail_cpu1;
 module_param(sec_hal_fail_cpu1, int, S_IRUGO | S_IWUSR | S_IWGRP);
-#endif /*CONFIG_PM_HAS_SECURE*/
-
-static int get_sem_fail_ebusy;
-module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
-static int get_sem_fail_einval;
-module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
-
-static struct cpuidle_driver shmobile_idle_driver = {
-	.name =			"shmobile_idle",
-	.owner =		THIS_MODULE,
-};
+#endif
 
 
 /*
@@ -188,24 +160,100 @@ unsigned int state_notify_confirm(void)
 End:
 	return error;
 }
+/*
+ * ********************************************************************
+ *     Drivers interface end.
+ * ********************************************************************
+ */
+
+/* states */
+enum state {
+	SHMOBILE_STATE_1 = 0,
+	SHMOBILE_STATE_2 = 1,
+	SHMOBILE_STATE_3 = 2,
+	SHMOBILE_STATE_4 = 3,
+	SHMOBILE_MAX_STATES = 4
+};
+
+static int shmobile_enter_wfi(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_wfi_lowfreq2(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_corestandby(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+
+static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_dev);
+
+struct cpuidle_driver shmobile_cpuidle_driver = {
+	.name = "shmobile_cpuidle",
+	.owner = THIS_MODULE,
+	.state_count = SHMOBILE_MAX_STATES,
+	.states = {
+		[SHMOBILE_STATE_1] = {
+			.enter			= shmobile_enter_wfi,
+			.exit_latency		= 1,
+			.target_residency	= 1,
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+			.name			= "WFI",
+			.desc			= "Wait for interrupt",
+		},
+		[SHMOBILE_STATE_2] = {
+			.enter			= shmobile_enter_wfi_lowfreq,
+			.exit_latency		= 100,
+			.target_residency	= 1,
+			.flags		= CPUIDLE_FLAG_TIME_VALID,
+			.name		= "WFI(low-freq)",
+			.desc = "Wait for interrupt(lowfreq)",
+		},
+		[SHMOBILE_STATE_3] = {
+			.enter			= shmobile_enter_wfi_lowfreq2,
+			.exit_latency		= 200,
+			.target_residency	= 100,
+			.flags		= CPUIDLE_FLAG_TIME_VALID,
+			.name		= "WFI(low-freq2)",
+			.desc = "Wait for interrupt(low-freq2)",
+		},
+		[SHMOBILE_STATE_4] = {
+			.enter			= shmobile_enter_corestandby,
+			.exit_latency		= 300,
+			.target_residency	= 500,
+#ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
+			.flags		= CPUIDLE_FLAG_TIME_VALID |
+					CPUIDLE_FLAG_COUPLED,
+#else
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+#endif
+			.name			= "CoreStandby",
+			.desc			= "Core Standby",
+		},
+	},
+};
 
 
 /*
- * shmobile_enter_wfi_debug: executes idle PM for a CPU - WFI state
- * @dev: the target CPU
- * @state: the state
+ * shmobile_enter_wfi: executes idle PM for a CPU - WFI state
+ * @dev: cpuidle device for this cpu
+ * @drv: cpuidle driver for this cpu
+ * @index: index into drv->states of the state to enter
  * return:
- *		int: the idle duration
+ *		int: index into drv->states of the state to exit
  */
-static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
-				struct cpuidle_state *state)
+static int shmobile_enter_wfi(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index)
 {
-	struct timeval beforeTime, afterTime;
-	int idle_time;
+	ktime_t time_start, time_end;
+	s64 diff;
 
-	FIQ_DISABLE();
-
-	do_gettimeofday(&beforeTime);
+#if DISPLAY_LOG
+	int cpuid = smp_processor_id();
+	printk(KERN_INFO "WFI IN %d\n", cpuid);
+#endif
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_disable();
+#endif
+	time_start = ktime_get();
 
 	/* Sleep State Notify */
 	if (!state_notify_confirm())
@@ -217,113 +265,165 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
 
-	do_gettimeofday(&afterTime);
-
-	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-				+ (afterTime.tv_usec - beforeTime.tv_usec);
+	time_end = ktime_get();
 
 	local_irq_enable();
-	FIQ_ENABLE();
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_enable();
+#endif
+	diff = ktime_to_us(ktime_sub(time_end, time_start));
+	if (diff > INT_MAX)
+		diff = INT_MAX;
 
-	return idle_time;
-}
+	dev->last_residency = (int) diff;
 
-/*
- * shmobile_enter_wfi: executes idle PM for a CPU - WFI state
- * @dev: the target CPU
- * @state: the state
- * return:
- *		int: the idle duration
- */
-static int shmobile_enter_wfi(struct cpuidle_device *dev,
-				struct cpuidle_state *state)
-{
-	struct timeval beforeTime, afterTime;
-	int idle_time;
+#if DISPLAY_LOG
+	printk(KERN_INFO "WFI OUT %d IDLE=%d\n", cpuid, (int) diff);
+#endif
 
-	FIQ_DISABLE();
+	return index;
 
-	do_gettimeofday(&beforeTime);
-
-	/* Sleep State Notify */
-	if (!state_notify_confirm())
-		state_notify(PM_STATE_NOTIFY_SLEEP);
-
-	/* Transition to WFI setting	*/
-	start_wfi();
-
-	/* WakeUp State Notify */
-	if (!state_notify_confirm())
-		state_notify(PM_STATE_NOTIFY_WAKEUP);
-
-	do_gettimeofday(&afterTime);
-
-	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-				+ (afterTime.tv_usec - beforeTime.tv_usec);
-
-	local_irq_enable();
-	FIQ_ENABLE();
-
-	return idle_time;
 }
 
 /*
  * shmobile_enter_wfi_lowfreq: executes idle PM for a CPU - WFI(low-freq) state
- * @dev: the target CPU
- * @state: the state
+ * @dev: cpuidle device for this cpu
+ * @drv: cpuidle driver for this cpu
+ * @index: index into drv->states of the state to enter
  * return:
- *		int: the idle duration
+ *		int: index into drv->states of the state to exit
  */
 static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
-				struct cpuidle_state *state)
+	struct cpuidle_driver *drv, int index)
 {
-	struct timeval beforeTime, afterTime;
-	int idle_time;
+	ktime_t time_start, time_end;
+	s64 diff;
 
-	FIQ_DISABLE();
-	do_gettimeofday(&beforeTime);
+#if DISPLAY_LOG
+	int cpuid = smp_processor_id();
+	printk(KERN_INFO "WFI-low IN %d\n", cpuid);
+#endif
+
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_disable();
+#endif
+
+	time_start = ktime_get();
 
 	/* Sleep State Notify */
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_SLEEP_LOWFREQ);
 
 	/* Transition to WFI standby with low-frequency setting	*/
-	start_wfi2();
+#ifndef CONFIG_PM_HAS_SECURE
+	start_wfi();
+#else
+	arch_idle();		/* WFI cpu_do_idle(); */
+#endif
 
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
 
-	do_gettimeofday(&afterTime);
-
-	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-				+ (afterTime.tv_usec - beforeTime.tv_usec);
+	time_end = ktime_get();
 
 	local_irq_enable();
-	FIQ_ENABLE();
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_enable();
+#endif
+	diff = ktime_to_us(ktime_sub(time_end, time_start));
+	if (diff > INT_MAX)
+		diff = INT_MAX;
 
-	return idle_time;
+	dev->last_residency = (int) diff;
+
+#if DISPLAY_LOG
+	printk(KERN_INFO "WFI-low OUT %d IDLE=%d\n", cpuid, (int) diff);
+#endif
+
+	return index;
 }
 
 /*
- * shmobile_enter_corestandby: executes idle PM for a CPU - CoreStandby state
- * @dev: the target CPU
- * @state: the state
+ * shmobile_enter_wfi_lowfreq2: executes idle PM for a CPU-WFI(low-freq2) state
+ * @dev: cpuidle device for this cpu
+ * @drv: cpuidle driver for this cpu
+ * @index: index into drv->states of the state to enter
  * return:
- *		int: the idle duration
+ *		int: index into drv->states of the state to exit
+ */
+static int shmobile_enter_wfi_lowfreq2(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index)
+{
+	ktime_t time_start, time_end;
+	s64 diff;
+
+#if DISPLAY_LOG
+	int cpuid = smp_processor_id();
+	printk(KERN_INFO "WFI-low2 IN %d\n", cpuid);
+#endif
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_disable();
+#endif
+	time_start = ktime_get();
+
+	/* Sleep State Notify */
+	if (!state_notify_confirm())
+		state_notify(PM_STATE_NOTIFY_SLEEP_LOWFREQ2);
+
+#ifndef CONFIG_PM_HAS_SECURE
+	/* Transition to WFI standby with low-frequency-2 setting	*/
+	start_wfi2();
+#else
+	arch_idle();		/* WFI cpu_do_idle(); */
+#endif
+
+	/* WakeUp State Notify */
+	if (!state_notify_confirm())
+		state_notify(PM_STATE_NOTIFY_WAKEUP);
+
+	time_end = ktime_get();
+
+	local_irq_enable();
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_enable();
+#endif
+	diff = ktime_to_us(ktime_sub(time_end, time_start));
+	if (diff > INT_MAX)
+		diff = INT_MAX;
+
+	dev->last_residency = (int) diff;
+
+#if DISPLAY_LOG
+	printk(KERN_INFO "WFI-low2 OUT %d IDLE=%d\n", cpuid, (int) diff);
+#endif
+
+	return index;
+}
+
+/*
+ * shmobile_enter_corestandby: executes idle PM for a CPU - Corestandby state
+ * @dev: cpuidle device for this cpu
+ * @drv: cpuidle driver for this cpu
+ * @index: index into drv->states of the state to enter
+ * return:
+ *		int: index into drv->states of the state to exit
  */
 static int shmobile_enter_corestandby(struct cpuidle_device *dev,
-						struct cpuidle_state *state)
+	struct cpuidle_driver *drv, int index)
 {
-	struct timeval beforeTime, afterTime;
-	int idle_time;
+	ktime_t time_start, time_end;
+	s64 diff;
 	long wakelock;
+	int cpuid = smp_processor_id();
+#if DISPLAY_LOG
+	printk(KERN_INFO "Standby IN  %d\n", cpuid);
+#endif
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_disable();
+#endif
 
-	idle_log(">>>IN\n");
-
-	FIQ_DISABLE();
-
-	do_gettimeofday(&beforeTime);
+	time_start = ktime_get();
 
 	/* Core Standby wakelock check */
 	wakelock = has_wake_lock(WAKE_LOCK_IDLE);
@@ -331,409 +431,63 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
-
+#ifdef CORESTANDBY_DFS
+		corestandby_cpufreq();
+#endif
+#ifdef CONFIG_PM_HAS_SECURE
+		if (cpuid == 0)
+			__raw_writel(0, ram0SecHalReturnCpu0);
+		else
+			__raw_writel(0, ram0SecHalReturnCpu1);
+#endif
 		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
-
-	} else {
-
-		idle_log(">>>IN (WAKELOCK)\n");
-
-		/* Sleep State Notify */
-		if (!state_notify_confirm())
-			state_notify(PM_STATE_NOTIFY_SLEEP);
-		arch_idle(); /* WFI cpu_do_idle(); */
-	}
-
-	/* WakeUp State Notify */
-	if (!state_notify_confirm())
-		state_notify(PM_STATE_NOTIFY_WAKEUP);
-
-	do_gettimeofday(&afterTime);
-
-	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-				+ (afterTime.tv_usec - beforeTime.tv_usec);
-
-	local_irq_enable();
-	FIQ_ENABLE();
-
-	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
-
-	return idle_time;
-}
-
-
-/*
- * pll1_condition_set
- *
- * return:
- *		0: successful
- *		-1: C4 is set to PLL1 stop condition.
- *		-2: set C4 failed.
- */
-static int pll1_condition_set(void)
-{
-	int ret = 0;
-	if ((__raw_readl(MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
-		goto set_pll1_c4;
-
-	if ((__raw_readl(MSTPSR2) & MSTPST2_PLL1) != MSTPST2_PLL1)
-		goto set_pll1_c4;
-
-	if ((__raw_readl(MSTPSR3) & MSTPST3_PLL1) != MSTPST3_PLL1)
-		goto set_pll1_c4;
-
-	if ((__raw_readl(MSTPSR4) & MSTPST4_PLL1) == MSTPST4_PLL1)
-		goto set_pll1_c4_skip;
-
-set_pll1_c4:
-	ret = hwspin_trylock_nospin(pll_1_sem);
-	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(PLL1STPCR) | C4STP, PLL1STPCR);
-		hwspin_unlock_nospin(pll_1_sem);
-		ret = -1;
-	} else if (ret == -EBUSY) {
-		get_sem_fail_ebusy++;
-		ret = -2;
-	} else if (ret == -EINVAL) {
-		get_sem_fail_einval++;
-		ret = -2;
-	} else { /* Never come !!! */
-		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n"
-				, __func__);
-		ret = -2;
-	}
-
-set_pll1_c4_skip:
-	return ret;
-}
-
-static void pll1_condition_at_wakeup(void)
-{
-	int ret;
-	ret = hwspin_trylock_nospin(pll_1_sem);
-	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(PLL1STPCR) &
-					(~C4STP), PLL1STPCR);
-		hwspin_unlock_nospin(pll_1_sem);
-	} else if (ret == -EBUSY)
-		get_sem_fail_ebusy++;
-	else if (ret == -EINVAL)
-		get_sem_fail_einval++;
-	else /* Never come !!! */
-		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n",
-				__func__);
-}
-
-#define POWER_BBPLLST					BIT(7)
-#define POWER_BBPLLOFF					BIT(7)
-
-/*
- * pll1_will_be_off_check
- *
- * return:
- *		0: successful
- *		-1: PLL1 cannot be off
- *		-2: Set C4 failed
- */
-static int pll1_will_be_off_check(void)
-{
-	int ret;
-	/* pll1 condition is successful */
-	ret = pll1_condition_set();
-	if (ret < 0)
-		return ret;
-
-	/* A3R or Bit7(BBPLLST) is not off */
-	if (__raw_readl(PSTR) & (POWER_A3R | POWER_BBPLLST))
-		ret = -1;
-
-	return ret;
-}
-
-/* FRQCRA */
-#define IFC_MASK (0xF << 20)
-#define ZGFC_MASK (0xF << 16)
-#define M3FC_MASK (0xF << 12)
-#define BFC_MASK (0xF << 8)
-#define M1FC_MASK (0xF << 4)
-#define M5FC_MASK 0xF
-#define FRQCRA_MSK (IFC_MASK | ZGFC_MASK | M3FC_MASK | \
-						BFC_MASK | M1FC_MASK | M5FC_MASK)
-
-/* FRQCRB */
-#define KICK_BIT BIT(31)
-#define ZTRFC_MASK (0xF << 20)
-#define ZTFC_MASK (0xF << 16)
-#define ZXFC_MASK (0xF << 12)
-#define ZSFC_MASK (0xF << 8)
-#define HPFC_MASK (0xF << 4)
-#define FRQCRB_MSK (ZTRFC_MASK | ZTFC_MASK | ZXFC_MASK | \
-						ZSFC_MASK | HPFC_MASK)
-
-#define		DIV_1_1		-1
-#define		DIV_1_2		0x0
-#define		DIV_1_3		0x1
-#define		DIV_1_4		0x2
-#define		DIV_1_5		-1
-#define		DIV_1_6		0x3
-#define		DIV_1_7		-1
-#define		DIV_1_8		0x4
-#define		DIV_1_12	0x5
-#define		DIV_1_16	0x6
-#define		DIV_1_18	0x7
-#define		DIV_1_24	0x8
-#define		DIV_1_32	-1
-#define		DIV_1_36	0xa
-#define		DIV_1_48	0xb
-#define		DIV_1_96	-1
-
-/* clocks table change for corestandby 2
-FRQCRA
-I:		1/6
-ZG:		1/4
-M3:		1/8
-B:		1/12
-M1:		1/6
-M5:		1/8
-
-FRQCRB:
-ZTR:	1/4
-ZT:		1/6
-ZX:		1/6
-ZS:		1/6
-HP:		1/12
-*/
-
-/* FRQCRA CHANGED */
-#define IFC_CHANGE		(DIV_1_6 << 20)
-#define ZGFC_CHANGE		(DIV_1_4 << 16)
-#define M3FC_CHANGE		(DIV_1_16 << 12)
-#define BFC_CHANGE		(DIV_1_24 << 8)
-#define M1FC_CHANGE		(DIV_1_12 << 4)
-#define M5FC_CHANGE		DIV_1_16
-#define FRQCRA_CHANGE_CORE (IFC_CHANGE | ZGFC_CHANGE | M3FC_CHANGE | \
-						BFC_CHANGE | M1FC_CHANGE | M5FC_CHANGE)
-/* FRQCRB CHANGED */
-#define ZTRFC_CHANGE (DIV_1_8 << 20)
-#define ZTFC_CHANGE (DIV_1_12 << 16)
-#define ZXFC_CHANGE (DIV_1_12 << 12)
-#define ZSFC_CHANGE (DIV_1_12 << 8)
-#define HPFC_CHANGE (DIV_1_24 << 4)
-#define FRQCRB_CHANGE_CORE (ZTRFC_CHANGE | ZTFC_CHANGE | ZXFC_CHANGE | \
-						ZSFC_CHANGE | HPFC_CHANGE)
-
-/*
- * shmobile_enter_corestandby_2:
- * Executes idle PM for a CPU - CoreStandby_2 state
- * @dev: the target CPU
- * @state: the state
- * return:
- *		int: the idle duration
- */
-static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
-						struct cpuidle_state *state)
-{
-	struct timeval beforeTime, afterTime;
-	int idle_time;
-	long wakelock;
-	unsigned int dr_WUPSFAC;
-	int clocks_ret, clocks_changed = 0;
-	unsigned int freqA_save;
-	unsigned int freqB_save;
-#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-	unsigned int freqD_save = 0;
-	int chip_rev;
-#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-	int ret;
-	int cpuid = smp_processor_id();
-
-	idle_log(">>>IN\n");
-
-	FIQ_DISABLE();
-
-	do_gettimeofday(&beforeTime);
-
-	/* Core Standby wakelock check */
-	wakelock = has_wake_lock(WAKE_LOCK_IDLE);
-	if (!wakelock) {
-		/* Core Standby State Notify */
-		if (!state_notify_confirm())
-			state_notify(PM_STATE_NOTIFY_CORESTANDBY_2);
-
-		if ((cpuid == 0) &&
-		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG)) {
-
-#ifdef PLL1_CAN_OFF
-			/* PLL1 is sure to be off ? */
-			ret = pll1_will_be_off_check();
-			if (ret == 0)
-				goto clock_change;
-			else if (ret == -2)
-				/* Have to handle case C4 is set,
-				but cannot due to sem fail */
-				goto out;
-			else /* (ret == -1) */
-					/* PLL1 cannot off,
-					no need to change clocks */
-					goto skip_clock_change;
-
-clock_change:
-			/* backup freqs before change */
-			freqA_save = __raw_readl(FRQCRA);
-			freqB_save = __raw_readl(FRQCRB);
-			/* set clocks */
-			clocks_ret = clock_update(FRQCRA_CHANGE_CORE,
-				FRQCRA_MSK, FRQCRB_CHANGE_CORE, FRQCRB_MSK);
-			if (clocks_ret < 0) {
-				printk(KERN_INFO "[%s]: set clocks FAILED\n", \
-				__func__);
-				goto skip_clock_change;
-			}
-
-			clocks_changed = 1;
-
-#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-			chip_rev = shmobile_chip_rev();
-			if (chip_rev > ES_REV_2_1) {
-				freqD_save = suspend_ZB3_backup();
-				if (freqD_save > 0) {
-					clocks_ret = cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
-					if (clocks_ret < 0) {
-						printk(KERN_INFO "[%s]: set ZB3 clocks FAILED\n",
-							__func__);
-					} else {
-						printk(KERN_INFO "[%s]: set ZB3 clocks OK\n",
-							__func__);
-					}
-				} else {
-					printk(KERN_INFO "[%s]: Backup ZB3 clocks FAILED\n",
-						__func__);
-					clocks_ret = freqD_save;
-				}
-			}
-			
-#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-
-#else /*!defined(PLL1_CAN_OFF)*/
-			/* PLL1 is sure to be off ? */
-			ret = pll1_will_be_off_check();
-			if (ret == 0)
-				goto clock_change;
-			else if (ret == -2)
-				/* Have to handle case C4 is set,
-				but cannot due to sem fail */
-				goto out;
-			else /* (ret == -1) */
-					/* PLL1 cannot off,
-					no need to change clocks */
-					goto skip_clock_change;
-
-clock_change:
-#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-			chip_rev = shmobile_chip_rev();
-			if (chip_rev > ES_REV_2_1) {
-				freqD_save = suspend_ZB3_backup();
-				if (freqD_save > 0) {
-					clocks_ret = cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
-					if (clocks_ret < 0) {
-						printk(KERN_INFO "[%s]: set ZB3 clocks FAILED\n",
-							__func__);
-					} else {
-						printk(KERN_INFO "[%s]: set ZB3 clocks OK\n",
-							__func__);
-					}
-				} else {
-					printk(KERN_INFO "[%s]: Backup ZB3 clocks FAILED\n",
-						__func__);
-					clocks_ret = freqD_save;
-				}
-			}
-			
-#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-#endif
-
-skip_clock_change:
-			/* end clock table */
-
-			start_corestandby_2(); /* CoreStandby(A2SL Off) */
-
-#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-			if ((chip_rev > ES_REV_2_1) && (freqD_save > 0)) {
-				clocks_ret = cpg_set_sbsc_freq(freqD_save);
-				if (clocks_ret < 0) {
-					printk(KERN_INFO "[%s]: Restore ZB3 clocks FAILED\n",
-							__func__);
-				} else {
-					printk(KERN_INFO "[%s]: Restore ZB3 clocks OK\n",
-							__func__);
-				}
-			}
-#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-
-#ifdef PLL1_CAN_OFF
-			/* update pll1 stop condition without C4 */
-			pll1_condition_at_wakeup();
-
-			/* restore clocks */
-			if (clocks_changed) {
-				clocks_ret = clock_update(freqA_save,
-					FRQCRA_MSK, freqB_save, FRQCRB_MSK);
-				if (clocks_ret < 0)
-					printk(KERN_INFO "[%s]: restore clocks FAILED\n ",
-					__func__);
-			}
-#endif
-			dr_WUPSFAC = __raw_readl(WUPSFAC);
-#if 0	/* for debug */
-			if (dr_WUPSFAC)
-				printk(KERN_INFO "[%s] is wake-up 0x%08X. ", \
-						__func__, dr_WUPSFAC);
-#endif
-
-			goto finished_wakeup;
-
+#ifdef CONFIG_PM_HAS_SECURE
+		if (cpuid == 0) {
+			if (0 != __raw_readl(ram0SecHalReturnCpu0))
+				sec_hal_fail_cpu0++;
+		} else {
+			if (0 != __raw_readl(ram0SecHalReturnCpu1))
+				sec_hal_fail_cpu1++;
 		}
-
-/* #ifdef PLL1_CAN_OFF */
-out: /* go to corestandby for power consumption */
-/* #endif */
-
-		start_corestandby();
-
-	} else { /* idle wakelock is used */
-
-		idle_log(">>>IN (WAKELOCK)\n");
-
+#endif
+	} else {
+#if DISPLAY_LOG
+		printk(KERN_INFO "Core-Standby %d (WAKELOCK)\n", cpuid);
+#endif
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_SLEEP);
-		arch_idle(); /* WFI cpu_do_idle(); */
+		cpu_do_idle(); /* WFI cpu_do_idle(); */
 	}
 
-finished_wakeup:
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_WAKEUP);
 
-	do_gettimeofday(&afterTime);
-
-	idle_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-				+ (afterTime.tv_usec - beforeTime.tv_usec);
+	time_end = ktime_get();
 
 	local_irq_enable();
-	FIQ_ENABLE();
+#ifndef CONFIG_PM_HAS_SECURE
+	local_fiq_enable();
+#endif
+	diff = ktime_to_us(ktime_sub(time_end, time_start));
+	if (diff > INT_MAX)
+		diff = INT_MAX;
 
-	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
+	dev->last_residency = (int) diff;
 
-	return idle_time;
+#if DISPLAY_LOG
+	printk(KERN_INFO "Standby OUT %d IDLE=%d\n", cpuid, (int) diff);
+#endif
+
+	return index;
 }
+
 
 #ifdef CONFIG_PM_DEBUG
 
-#define SHMOBILE_MAX_STATES_DEBUG	1
-
 static int is_enable_cpuidle = 1; /* Status of CPU's idle PM */
-static DEFINE_SPINLOCK(cpuidle_debug_lock);
+spinlock_t cpuidle_debug_lock;
 
 /*
  * control_cpuidle: Enable/Disable of CPU's idle PM
@@ -745,10 +499,10 @@ static DEFINE_SPINLOCK(cpuidle_debug_lock);
  */
 int control_cpuidle(int is_enable)
 {
-	struct cpuidle_device *device;
 	unsigned long flags;
-	int cpu;
+	unsigned int states_disable;
 	int error = 0;
+	struct cpuidle_driver *drv = &shmobile_cpuidle_driver;
 
 	spin_lock_irqsave(&cpuidle_debug_lock, flags);
 	switch (is_enable) {
@@ -756,37 +510,27 @@ int control_cpuidle(int is_enable)
 	case 0:
 		if (!is_enable_cpuidle)
 			break; /* Already disabled */
-		for_each_possible_cpu(cpu) {
-			device = &per_cpu(shmobile_cpuidle_device, cpu);
-			/* Let the governor work/statistic correct info */
-			device->state_count = SHMOBILE_MAX_STATES_DEBUG;
-			/* Make sure that only WFI state is running */
-			device->states[0].enter = shmobile_enter_wfi_debug;
-			device->states[1].enter = shmobile_enter_wfi_debug;
-			device->states[2].enter = shmobile_enter_wfi_debug;
-			device->states[3].enter = shmobile_enter_wfi_debug;
-		}
+		/* Only WFI state is running */
+		for (states_disable = SHMOBILE_STATE_2;
+			states_disable < SHMOBILE_MAX_STATES; states_disable++)
+			drv->states[states_disable].disable = 1;
+
 		is_enable_cpuidle = is_enable;
 		break;
 
 	case 1:
 		if (is_enable_cpuidle)
 			break; /* Already enabled */
-		for_each_possible_cpu(cpu) {
-			device = &per_cpu(shmobile_cpuidle_device, cpu);
-			/* Restore to original CPU's idle PM */
-			device->state_count = SHMOBILE_MAX_STATES;
-			device->states[0].enter = shmobile_enter_wfi;
-			device->states[1].enter = shmobile_enter_wfi;
-			device->states[2].enter = shmobile_enter_corestandby;
-			device->states[3].enter = shmobile_enter_corestandby_2;
+		/* Restore to original CPU's idle PM */
+		for (states_disable = SHMOBILE_STATE_2;
+			states_disable < SHMOBILE_MAX_STATES; states_disable++)
+			drv->states[states_disable].disable = 0;
 
-		}
 		is_enable_cpuidle = is_enable;
 		break;
 
 	default:
-		printk(KERN_INFO "control_cpuidle: Invalid argument\n");
+		printk(KERN_INFO "%s: Invalid argument\n", __func__);
 		error = -EINVAL; /* Invalid argument */
 		break;
 	}
@@ -810,6 +554,182 @@ EXPORT_SYMBOL(is_cpuidle_enable);
 
 #endif
 
+spinlock_t clock_lock;
+
+/*
+ * cpuidle_coupled_cpu_notify - notifier called during hotplug transitions
+ * @nfb: notifier block
+ * @action: hotplug transition
+ * @hcpu: target cpu number
+ *
+ * Called when a cpu is brought on or offline using hotplug.
+ * updates the CPU's status appropriately
+ */
+static int __cpuinit
+cpu_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
+{
+	unsigned long flags;
+	int cpu = (unsigned long)hcpu;
+
+	switch (action) {
+
+	case CPU_ONLINE:
+	case CPU_ONLINE_FROZEN:
+		spin_lock_irqsave(&clock_lock, flags);
+		if (cpu)
+			__raw_writel((unsigned long)CPUSTATUS_RUN
+						, IOMEM(ram0Cpu1Status));
+		else
+			__raw_writel((unsigned long)CPUSTATUS_RUN
+						, IOMEM(ram0Cpu0Status));
+		spin_unlock_irqrestore(&clock_lock, flags);
+		break;
+
+	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
+		spin_lock_irqsave(&clock_lock, flags);
+		if (cpu)
+			__raw_writel((unsigned long)CPUSTATUS_SHUTDOWN
+						, IOMEM(ram0Cpu1Status));
+		else
+			__raw_writel((unsigned long)CPUSTATUS_SHUTDOWN
+						, IOMEM(ram0Cpu0Status));
+		spin_unlock_irqrestore(&clock_lock, flags);
+		break;
+
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __cpuinitdata cpu_nfb = {
+	.notifier_call = cpu_callback
+};
+
+
+unsigned int *cpu0BackupArea;
+unsigned int *cpu1BackupArea;
+struct copy_source_code {
+		void *dest;
+		const void *source;
+		size_t size;
+	} internal_ram[] = {
+#ifndef CONFIG_PM_HAS_SECURE
+		[0] = {
+			.dest = (void *)ram1ArmVector,
+			.source = (const void *)&ArmVector,
+			.size = (size_t)fsArmVector,
+		},
+		[1] = {
+			.dest = (void *)ram1DisableMMU,
+			.source = (const void *)&disablemmu,
+			.size = (size_t)fsDisableMMU,
+		},
+		[2] = {
+			.dest = (void *)ram1RestoreArmRegisterPA,
+			.source = (const void *)&restore_arm_register_pa,
+			.size = (size_t)fsRestoreArmRegisterPA,
+		},
+		[3] = {
+			.dest = (void *)ram1RestoreCommonRegister,
+			.source = (const void *)&restore_common_register,
+			.size = (size_t)fsRestoreCommonRegister,
+		},
+		[4] = {
+			.dest = (void *)ram1SysPowerDown,
+			.source = (const void *)&sys_powerdown,
+			.size = (size_t)fsSysPowerDown,
+		},
+		[5] = {
+			.dest = (void *)ram1SysPowerUp,
+			.source = (const void *)&sys_powerup,
+			.size = (size_t)fsSysPowerUp,
+		},
+		[6] = {
+			.dest = (void *)ram1SetClockSystemSuspend,
+			.source = (const void *)&setclock_systemsuspend,
+			.size = (size_t)fsSetClockSystemSuspend,
+		},
+		[7] = {
+			.dest = (void *)ram1SystemSuspendCPU0PA,
+			.source = (const void *)&systemsuspend_cpu0_pa,
+			.size = (size_t)fsSystemSuspendCPU0PA,
+		},
+		[8] = {
+			.dest = (void *)ram1CoreStandbyPA,
+			.source = (const void *)&corestandby_pa,
+			.size = (size_t)fsCoreStandbyPA,
+		},
+		[9] = {
+			.dest = (void *)ram1SystemSuspendCPU1PA,
+			.source = (const void *)&systemsuspend_cpu1_pa,
+			.size = (size_t)fsSystemSuspendCPU1PA,
+		},
+#else
+		[0] = {
+			.dest = (void *)ram0ArmVector,
+			.source = (const void *)&ArmVector,
+			.size = (size_t)fsArmVector,
+		},
+		[1] = {
+			.dest = (void *)ram0CoreStandby,
+			.source = (const void *)&corestandby,
+			.size = (size_t)fsCoreStandby,
+		},
+		[2] = {
+			.dest = (void *)ram0SystemSuspend,
+			.source = (const void *)&systemsuspend,
+			.size = (size_t)fsSystemSuspend,
+		},
+		[3] = {
+			.dest = (void *)ram0SaveArmRegister,
+			.source = (const void *)&save_arm_register,
+			.size = (size_t)fsSaveArmRegister,
+		},
+		[4] = {
+			.dest = (void *)ram0RestoreArmRegisterPA,
+			.source = (const void *)&restore_arm_register_pa,
+			.size = (size_t)fsRestoreArmRegisterPA,
+		},
+		[5] = {
+			.dest = (void *)ram0RestoreArmRegisterVA,
+			.source = (const void *)&restore_arm_register_va,
+			.size = (size_t)fsRestoreArmRegisterVA,
+		},
+		[6] = {
+			.dest = (void *)ram0SaveArmCommonRegister,
+			.source = (const void *)&save_arm_common_register,
+			.size = (size_t)fsSaveArmCommonRegister,
+		},
+		[7] = {
+			.dest = (void *)ram0RestoreArmCommonRegister,
+			.source = (const void *)&restore_arm_common_register,
+			.size = (size_t)fsRestoreArmCommonRegister,
+		},
+		[8] = {
+			.dest = (void *)ram0SysPowerDown,
+			.source = (const void *)&sys_powerdown,
+			.size = (size_t)fsSysPowerDown,
+		},
+		[9] = {
+			.dest = (void *)ram0SysPowerUp,
+			.source = (const void *)&sys_powerup,
+			.size = (size_t)fsSysPowerUp,
+		},
+		[10] = {
+			.dest = (void *)ram0SetClockSystemSuspend,
+			.source = (const void *)&setclock_systemsuspend,
+			.size = (size_t)fsSetClockSystemSuspend,
+		},
+#endif /* CONFIG_PM_HAS_SECURE */
+	};
+
+#define	copy_source_from_index(index) \
+			((void *)memcpy(internal_ram[index].dest, \
+			internal_ram[index].source, \
+			internal_ram[index].size))
 
 /*
  * shmobile_init_cpuidle: Initialization of CPU's idle PM
@@ -819,70 +739,159 @@ EXPORT_SYMBOL(is_cpuidle_enable);
  */
 static int shmobile_init_cpuidle(void)
 {
-	struct cpuidle_device *device;
-	int count;
+	struct cpuidle_device *dev;
+	struct cpuidle_driver *drv = &shmobile_cpuidle_driver;
+	unsigned int cpu;
+	unsigned long flags;
 	int ret;
-	ret = shmobile_init_pm();
-	if (ret != 0)
+	unsigned int smstpcr5_val;
+	unsigned int mstpsr5_val;
+	int chip_rev;
+	int index;
+	unsigned long cpuidle_spinlock;
+	void __iomem *map = NULL;
+
+	/* Chip revision */
+	chip_rev = shmobile_chip_rev();
+
+	spin_lock_irqsave(&clock_lock, flags);
+	/* Internal RAM0 Module Clock ON */
+	if (chip_rev < ES_REV_2_0) {
+		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		if (0 != (mstpsr5_val & MSTPST527)) {
+			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~MSTP527)), CPG_SMSTPCR5);
+			do {
+				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+			} while (mstpsr5_val & MSTPST527);
+		}
+	} else {
+	/* W/A of errata ES2 E0263 */
+		mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
+			smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
+							, CPG_SMSTPCR5);
+			do {
+				mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
+		}
+	}
+	/* Internal RAM1 Module Clock ON */
+	mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+	if (0 != (mstpsr5_val & MSTPST528)) {
+		smstpcr5_val = __raw_readl(CPG_SMSTPCR5);
+		__raw_writel((smstpcr5_val & (~MSTP528)), CPG_SMSTPCR5);
+		do {
+			mstpsr5_val = __raw_readl(CPG_MSTPSR5);
+		} while (mstpsr5_val & MSTPST528);
+	}
+	spin_unlock_irqrestore(&clock_lock, flags);
+	/* Allocate CPU0 back up area */
+	cpu0BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
+	if (cpu0BackupArea == NULL)
+		printk(KERN_ERR "%s: Failed Allocate CPU0 back up area\n",
+				__func__);
+	else
+		__raw_writel((unsigned int)cpu0BackupArea,
+						IOMEM(ram0Cpu0RegisterArea));
+
+	/* Allocate CPU1 back up area */
+	cpu1BackupArea = kmalloc(saveCpuRegisterAreaSize, GFP_KERNEL);
+	if (cpu1BackupArea == NULL)
+		printk(KERN_ERR "%s: Failed Allocate CPU1 back up area\n",
+				__func__);
+	else
+		__raw_writel((unsigned int)cpu1BackupArea,
+						IOMEM(ram0Cpu1RegisterArea));
+
+	/* Initialize SpinLock setting */
+	if (chip_rev < ES_REV_2_0)
+		cpuidle_spinlock = 0x47BDF000;
+	else
+		cpuidle_spinlock = 0x44000000;
+
+	map = ioremap_nocache(cpuidle_spinlock,
+							0x00000400/*1k*/);
+	if (map != NULL) {
+		__raw_writel((unsigned long)map,
+						IOMEM(ram0SpinLockVA));
+		__raw_writel(cpuidle_spinlock,
+						IOMEM(ram0SpinLockPA));
+		__raw_writel((unsigned long)0x0, map);
+	} else {
+		printk(KERN_ERR "%s: Failed ioremap\n", __func__);
+		return -EIO;
+	}
+#ifndef CONFIG_PM_HAS_SECURE
+	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU0SpinLock));
+	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU1SpinLock));
+	/* Errata(ECR0285) */
+	if (chip_rev <= ES_REV_2_1)
+		__raw_writel((unsigned long)0x0,
+				IOMEM(ram0ES_2_2_AndAfter));
+	else
+		__raw_writel((unsigned long)0x1,
+				IOMEM(ram0ES_2_2_AndAfter));
+#endif
+	/* Initialize internal setting */
+	__raw_writel((unsigned long)CPUSTATUS_RUN,
+					IOMEM(ram0Cpu0Status));
+	__raw_writel((unsigned long)CPUSTATUS_RUN,
+					IOMEM(ram0Cpu1Status));
+	__raw_writel((unsigned long)0x0,
+					IOMEM(ram0CpuClock));
+
+
+#ifdef CONFIG_PM_HAS_SECURE
+	/* Initialize sec_hal allocation */
+	sec_hal_pm_coma_entry_init();
+	__raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
+					IOMEM(ram0SecHalCommaEntry));
+	__raw_writel((unsigned long)0x0, IOMEM(ram0ZClockFlag));
+#endif
+
+#ifndef CONFIG_PM_SMP
+	/* Temporary solution for Kernel in Secure */
+#ifdef CONFIG_PM_HAS_SECURE
+	__raw_writel(0, IOMEM(SBAR2));
+#endif
+	__raw_writel((unsigned long)0x0,
+			IOMEM(APARMBAREA)); /* 4k */
+#endif
+
+	/* Copy the source code internal RAM1 */
+	for (index = 0; index < ARRAY_SIZE(internal_ram); index++)
+		copy_source_from_index(index);
+
+	ret = cpuidle_register_driver(drv);
+	if (ret) {
+		printk(KERN_ERR "%s: driver registration failed\n",
+				__func__);
 		return ret;
+	}
 
-	/* Idle function register */
-	cpuidle_register_driver(&shmobile_idle_driver);
-		printk(KERN_INFO "[%s] No. idle state: %d\n", \
-				__func__, SHMOBILE_MAX_STATES);
+	for_each_possible_cpu(cpu) {
+		dev = &per_cpu(shmobile_cpuidle_dev, cpu);
+		dev->cpu = cpu;
 
-	for_each_possible_cpu(count) {
-		device = &per_cpu(shmobile_cpuidle_device, count);
-		device->state_count = SHMOBILE_MAX_STATES;
-		device->cpu = count;
-
-		/* WFI state */
-		strcpy(device->states[0].name, "WFI");
-		strcpy(device->states[0].desc, "Wait for interrupt");
-		device->states[0].enter = shmobile_enter_wfi;
-		device->states[0].exit_latency = 1;
-		device->states[0].target_residency = 1;
-		device->states[0].flags = CPUIDLE_FLAG_TIME_VALID;
-
-		/* WFI(low-freq) state */
-		strcpy(device->states[1].name, "WFI(low-freq)");
-		strcpy(device->states[1].desc, "Wait for interrupt(low-freq)");
-		/* device->states[1].enter = shmobile_enter_wfi_lowfreq; */
-		device->states[1].enter = shmobile_enter_wfi;
-		device->states[1].exit_latency = 100;
-		device->states[1].target_residency = 1;
-		device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
-
-		/* CoreStandby state */
-		strcpy(device->states[2].name, "CoreStandby");
-		strcpy(device->states[2].desc, "Core Standby");
-		device->states[2].enter = shmobile_enter_corestandby;
-		device->states[2].exit_latency = 300;
-		device->states[2].target_residency = 500;
-		device->states[2].flags = CPUIDLE_FLAG_TIME_VALID;
-
-		/* CoreStandby state */
-		strcpy(device->states[3].name, "CoreStandby_2");
-		strcpy(device->states[3].desc, "Core Standby 2");
-		device->states[3].enter = shmobile_enter_corestandby_2;
-		device->states[3].exit_latency = 400;
-		device->states[3].target_residency = 600;
-		device->states[3].flags = CPUIDLE_FLAG_TIME_VALID;
-
-		if (cpuidle_register_device(device)) {
-			printk(KERN_ERR "shmobile_init_cpuidle: "
-				"Failed registering\n");
-			return -EIO;
+		dev->state_count = drv->state_count;
+#ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
+		dev->safe_state_index = SHMOBILE_STATE_1;
+		cpumask_set_cpu(cpu, &dev->coupled_cpus);
+#endif
+		ret = cpuidle_register_device(dev);
+		if (ret) {
+			printk(KERN_ERR "%s:[CPU%u] device registration failed\n",
+				__func__, cpu);
+			return ret;
 		}
 	}
 
-	/* - set the legacy mode to LPCKCR */
-	__raw_writel(CPG_LPCKCR_LEGACY, CPG_LPCKCR);
-	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
-	__raw_writel(A2SLSTP, PLL0STPCR);
-
-	/* - set Wake up factor unmask to GIC.CPU0 by SYS.WUPSMSK */
-	__raw_writel((__raw_readl(WUPSMSK) &  ~(1 << 28)), WUPSMSK);
+	/* Register hotplug notifier. */
+	if (0 != register_cpu_notifier(&cpu_nfb))
+		printk(KERN_ERR "%s: Failed registering CPUHotplug\n",
+				__func__);
 
 	return 0;
 }

@@ -25,6 +25,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/err.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
@@ -105,7 +106,7 @@ static int gpio_switch_list_voltage(struct regulator_dev *rdev,
 }
 
 static int gpio_switch_set_voltage(struct regulator_dev *rdev,
-				    int min_uV, int max_uV)
+				   int min_uV, int max_uV, unsigned *selector)
 {
 	struct gpio_switch_regulator *ri = rdev_get_drvdata(rdev);
 	int uV;
@@ -116,7 +117,7 @@ static int gpio_switch_set_voltage(struct regulator_dev *rdev,
 		uV = ri->voltages[val] * 1000;
 		if (min_uV <= uV && uV <= max_uV) {
 			found = true;
-			ri->curr_vol_sel = val;
+			*selector = ri->curr_vol_sel = val;
 			break;
 		}
 	}
@@ -319,7 +320,7 @@ static int __devinit gpio_switch_regulator_probe(struct platform_device *pdev)
 		ri->is_gpio_init = true;
 
 		ri->rdev = regulator_register(&ri->reg_desc, &pdev->dev,
-					&ri->reg_init_data, ri);
+					&ri->reg_init_data, ri, NULL);
 		if (IS_ERR_OR_NULL(ri->rdev)) {
 			dev_err(&pdev->dev, "Failed to register regulator %s\n",
 							ri->reg_desc.name);

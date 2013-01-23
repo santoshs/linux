@@ -14,6 +14,7 @@ struct i2c_sh_mobile_platform_data {
 	unsigned char bus_data_delay;
 	struct i2c_sh_mobile_port_info	scl_info;
 	struct i2c_sh_mobile_port_info	sda_info;
+	unsigned int clks_per_count;
 };
 
 extern unsigned int u2_get_board_rev();

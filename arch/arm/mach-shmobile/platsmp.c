@@ -17,48 +17,82 @@
 #include <linux/smp.h>
 #include <linux/io.h>
 #include <asm/hardware/gic.h>
-#include <asm/localtimer.h>
 #include <asm/mach-types.h>
 #include <mach/common.h>
 
+#define is_sh73a0() (machine_is_ag5evm() || machine_is_kota2())
+#define is_r8a7779() machine_is_marzen()
+#define is_r8a7373() machine_is_u2evm()
+
 static unsigned int __init shmobile_smp_get_core_count(void)
 {
-	if (machine_is_ag5evm())
+	if (is_sh73a0())
 		return sh73a0_get_core_count();
 
-	if (machine_is_u2evm())
-		return r8a73734_get_core_count();
+	if (is_r8a7779())
+		return r8a7779_get_core_count();
+
+	if (is_r8a7373())
+		return r8a7373_get_core_count();
 
 	return 1;
 }
 
 static void __init shmobile_smp_prepare_cpus(void)
 {
-	if (machine_is_ag5evm())
+	if (is_sh73a0())
 		sh73a0_smp_prepare_cpus();
 
-	if (machine_is_u2evm())
-		r8a73734_smp_prepare_cpus();
+	if (is_r8a7779())
+		r8a7779_smp_prepare_cpus();
+
+	if (is_r8a7373())
+		r8a7373_smp_prepare_cpus();
+}
+
+int shmobile_platform_cpu_kill(unsigned int cpu)
+{
+	if (is_r8a7779())
+		return r8a7779_platform_cpu_kill(cpu);
+
+	if (is_r8a7373())
+		return r8a7373_platform_cpu_kill(cpu);
+
+	return 1;
+}
+
+int shmobile_platform_cpu_die(unsigned int cpu)
+{
+	if (is_r8a7373())
+		return r8a7373_platform_cpu_die(cpu);
+
+	return 1;
 }
 
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
 	trace_hardirqs_off();
 
-	if (machine_is_ag5evm())
+	if (is_sh73a0())
 		sh73a0_secondary_init(cpu);
 
-	if (machine_is_u2evm())
-		r8a73734_secondary_init(cpu);
+	if (is_r8a7779())
+		r8a7779_secondary_init(cpu);
+
+	if (is_r8a7373())
+		r8a7373_secondary_init(cpu);
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
-	if (machine_is_ag5evm())
+	if (is_sh73a0())
 		return sh73a0_boot_secondary(cpu);
 
-	if (machine_is_u2evm())
-		return r8a73734_boot_secondary(cpu);
+	if (is_r8a7779())
+		return r8a7779_boot_secondary(cpu);
+
+	if (is_r8a7373())
+		return r8a7373_boot_secondary(cpu);
 
 	return -ENOSYS;
 }
@@ -68,6 +102,12 @@ void __init smp_init_cpus(void)
 	unsigned int ncores = shmobile_smp_get_core_count();
 	unsigned int i;
 
+	if (ncores > nr_cpu_ids) {
+		pr_warn("SMP: %u cores greater than maximum (%u), clipping\n",
+			ncores, nr_cpu_ids);
+		ncores = nr_cpu_ids;
+	}
+
 	for (i = 0; i < ncores; i++)
 		set_cpu_possible(i, true);
 
@@ -76,11 +116,6 @@ void __init smp_init_cpus(void)
 
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int i;
-
-	for (i = 0; i < max_cpus; i++)
-		set_cpu_present(i, true);
-
 	shmobile_smp_prepare_cpus();
 }
 

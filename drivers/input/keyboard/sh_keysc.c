@@ -79,32 +79,30 @@ struct sh_keysc_priv {
 
 static unsigned long sh_keysc_read(struct sh_keysc_priv *p, int reg_nr)
 {
-	printk("Base Address for Read:=0x%x\n", p->iomem_base);
 	switch (reg_nr) {
 	case A_KYIR:
 	case A_KYSR:
 	case A_KYSCDRL:
 	case A_KYSCDRH:
 	case A_KYSCDNUM:
-		return ioread32(p->iomem_base + (reg_nr << 2));
+		return readl_relaxed(p->iomem_base + (reg_nr << 2));
 	}
-	return ioread16(p->iomem_base + (reg_nr << 2));
+	return readw_relaxed(p->iomem_base + (reg_nr << 2));
 }
 
 static void sh_keysc_write(struct sh_keysc_priv *p, int reg_nr,
 			   unsigned long value)
 {
-	printk("Base Address for write:=0x%x\n", p->iomem_base);
 	switch (reg_nr) {
 	case A_KYIR:
 	case A_KYSR:
 	case A_KYSCDRL:
 	case A_KYSCDRH:
 	case A_KYSCDNUM:
-		iowrite32(value, p->iomem_base + (reg_nr << 2));
+		writel_relaxed(value, p->iomem_base + (reg_nr << 2));
 		return;
 	}
-	iowrite16(value, p->iomem_base + (reg_nr << 2));
+	writew_relaxed(value, p->iomem_base + (reg_nr << 2));
 }
 
 static void sh_keysc_level_mode(struct sh_keysc_priv *p,
@@ -114,6 +112,7 @@ static void sh_keysc_level_mode(struct sh_keysc_priv *p,
 
 	sh_keysc_write(p, KYOUTDR, 0);
 	sh_keysc_write(p, KYCR2, KYCR2_IRQ_LEVEL | (keys_set << 8));
+	sh_keysc_read(p, KYCR2); /* defeat write posting */
 
 	if (pdata->kycr2_delay)
 		udelay(pdata->kycr2_delay);
@@ -140,6 +139,7 @@ static irqreturn_t sh_keysc_isr(int irq, void *dev_id)
 	DECLARE_BITMAP(keys1, SH_KEYSC_MAXKEYS);
 	unsigned char keyin_set, tmp;
 	int i, k, n;
+	unsigned long drl, drh;
 
 	unsigned long drl, drh, num;
 
@@ -211,6 +211,7 @@ static irqreturn_t sh_keysc_isr(int irq, void *dev_id)
 		} while (sh_keysc_read(priv, KYCR2) & 0x01);
 	}
 
+key_report:
 	sh_keysc_map_dbg(&pdev->dev, priv->last_keys, "last_keys");
 	sh_keysc_map_dbg(&pdev->dev, keys0, "keys0");
 	sh_keysc_map_dbg(&pdev->dev, keys1, "keys1");
@@ -352,13 +353,14 @@ static int __devinit sh_keysc_probe(struct platform_device *pdev)
 		sh_keysc_write(priv, A_KYOUTDR, 0);
 		sh_keysc_write(priv, A_KYIR, A_KYIR_FIFONE);
 		sh_keysc_write(priv, A_KYCR4, A_KYCR4_AUTOLPC);
-	}else{
- 
-		sh_keysc_write(priv, KYCR1, (sh_keysc_mode[pdata->mode].kymd << 8) |
-		       pdata->scan_timing);
+	} else {
+		sh_keysc_write(priv, KYCR1,
+				(sh_keysc_mode[pdata->mode].kymd << 8) |
+				pdata->scan_timing);
 		sh_keysc_write(priv, KYOUTDR, 0);
 		sh_keysc_level_mode(priv, 0);
 	}
+
 	if (pdata->wakeup)
 		device_init_wakeup(&pdev->dev, 1);
 
@@ -383,7 +385,12 @@ static int __devexit sh_keysc_remove(struct platform_device *pdev)
 {
 	struct sh_keysc_priv *priv = platform_get_drvdata(pdev);
 
-	sh_keysc_write(priv, KYCR2, KYCR2_IRQ_DISABLED);
+	if (priv->pdata.automode) {
+		sh_keysc_write(priv, A_KYCR4, 0);
+		sh_keysc_write(priv, A_KYIR, 0);
+	} else {
+		sh_keysc_write(priv, KYCR2, KYCR2_IRQ_DISABLED);
+	}
 
 	input_unregister_device(priv->input);
 	free_irq(platform_get_irq(pdev, 0), pdev);
@@ -400,21 +407,24 @@ static int __devexit sh_keysc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#if CONFIG_PM_SLEEP
+#ifdef CONFIG_PM_SLEEP
 static int sh_keysc_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_keysc_priv *priv = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
-	unsigned short value;
-
-	value = sh_keysc_read(priv, KYCR1);
+	unsigned long value;
 
 	if (device_may_wakeup(dev)) {
-		sh_keysc_write(priv, KYCR1, value | 0x80);
+		if (priv->pdata.automode) {
+			value = sh_keysc_read(priv, A_KYIR);
+			sh_keysc_write(priv, A_KYIR, value | A_KYIR_STBCSL);
+		} else {
+			value = sh_keysc_read(priv, KYCR1);
+			sh_keysc_write(priv, KYCR1, value | 0x80);
+		}
 		enable_irq_wake(irq);
 	} else {
-		sh_keysc_write(priv, KYCR1, value & ~0x80);
 		pm_runtime_put_sync(dev);
 		clk_disable(priv->clk);
 	}
@@ -451,19 +461,7 @@ static struct platform_driver sh_keysc_device_driver = {
 		.pm	= &sh_keysc_dev_pm_ops,
 	}
 };
-
-static int __init sh_keysc_init(void)
-{
-	return platform_driver_register(&sh_keysc_device_driver);
-}
-
-static void __exit sh_keysc_exit(void)
-{
-	platform_driver_unregister(&sh_keysc_device_driver);
-}
-
-module_init(sh_keysc_init);
-module_exit(sh_keysc_exit);
+module_platform_driver(sh_keysc_device_driver);
 
 MODULE_AUTHOR("Magnus Damm");
 MODULE_DESCRIPTION("SuperH KEYSC Keypad Driver");

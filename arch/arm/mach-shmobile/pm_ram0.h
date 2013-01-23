@@ -20,8 +20,7 @@
 #ifndef __PM_RAM0_H__
 #define __PM_RAM0_H__
 
-#include <mach/vmalloc.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 /* #define __EXTAL1_INFO__ */
 

@@ -21,6 +21,7 @@
 #include <linux/uaccess.h>
 #include <linux/proc_fs.h>
 #include <linux/bootmem.h>
+#include <linux/moduleparam.h>
 
 #if defined(CONFIG_ARCH_EXYNOS)
 #include <plat/system-reset.h>

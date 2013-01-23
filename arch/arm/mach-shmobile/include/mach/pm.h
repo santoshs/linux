@@ -20,8 +20,7 @@
 #ifndef __ASM_ARCH_PM_H
 #define __ASM_ARCH_PM_H __FILE__
 #include <linux/suspend.h>
-#include <mach/vmalloc.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <linux/spinlock_types.h>
 

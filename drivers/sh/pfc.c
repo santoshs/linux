@@ -106,11 +106,11 @@ static unsigned long gpio_read_raw_reg(void __iomem *mapped_reg,
 {
 	switch (reg_width) {
 	case 8:
-		return ioread8(mapped_reg);
+		return readb_relaxed(mapped_reg);
 	case 16:
-		return ioread16(mapped_reg);
+		return readw_relaxed(mapped_reg);
 	case 32:
-		return ioread32(mapped_reg);
+		return readl_relaxed(mapped_reg);
 	}
 
 	BUG();
@@ -123,13 +123,13 @@ static void gpio_write_raw_reg(void __iomem *mapped_reg,
 {
 	switch (reg_width) {
 	case 8:
-		iowrite8(data, mapped_reg);
+		writeb_relaxed(data, mapped_reg);
 		return;
 	case 16:
-		iowrite16(data, mapped_reg);
+		writew_relaxed(data, mapped_reg);
 		return;
 	case 32:
-		iowrite32(data, mapped_reg);
+		writel_relaxed(data, mapped_reg);
 		return;
 	}
 
@@ -152,8 +152,7 @@ static int gpio_read_bit(struct pinmux_data_reg *dr,
 static void gpio_write_bit(struct pinmux_data_reg *dr,
 			   unsigned long in_pos, unsigned long value)
 {
-	unsigned long pos, data;
-	void __iomem *mapped_reg;
+	unsigned long pos;
 
 	pos = dr->reg_width - (in_pos + 1);
 
@@ -162,20 +161,21 @@ static void gpio_write_bit(struct pinmux_data_reg *dr,
 		 dr->reg, !!value, pos, dr->reg_width);
 
 	if (dr->set_reg && dr->clr_reg) {
+		void __iomem *mapped_reg;
+
 		if (value)
 			mapped_reg = dr->mapped_set_reg;
 		else
 			mapped_reg = dr->mapped_clr_reg;
-		data = 1 << pos;
+		gpio_write_raw_reg(mapped_reg, dr->reg_width, 1 << pos);
 	} else {
 		if (value)
 			set_bit(pos, &dr->reg_shadow);
 		else
 			clear_bit(pos, &dr->reg_shadow);
-		mapped_reg = dr->mapped_reg;
-		data = dr->reg_shadow;
+
+		gpio_write_raw_reg(dr->mapped_reg, dr->reg_width, dr->reg_shadow);
 	}
-	gpio_write_raw_reg(mapped_reg, dr->reg_width, data);
 }
 
 static void config_reg_helper(struct pinmux_info *gpioc,
@@ -540,8 +540,7 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 							__FILE__, __func__);
 			return -EINVAL;
 		}
-	}
-	else
+	} else
 		spin_lock_irqsave(&gpio_lock, flags);
 
 	if ((gpioc->gpios[offset].flags & PINMUX_FLAG_TYPE) != PINMUX_TYPE_NONE)
@@ -582,24 +581,31 @@ static int sh_gpio_request(struct gpio_chip *chip, unsigned offset)
 static void sh_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
 	struct pinmux_info *gpioc = chip_to_pinmux(chip);
-	unsigned long flags;
+	unsigned long flags = 0;
 	int pinmux_type;
 
 	if (!gpioc)
 		return;
-	/*
-	 * pinmux_config_gpio(GPIO_CFG_FREE) doesn't touch the hardware,
-	 * so we don't need hwspinlock locked.  Just use gpio_lock.
-	 */
 
-	spin_lock_irqsave(&gpio_lock, flags);
+	/*
+	 * Albeit pinmux_config_gpio(GPIO_CFG_FREE) does not access to
+	 * GPIO registers, we have to use gpio_hwlock if it's available
+	 * for synchronization between processes on the ARM core.
+	 */
+	if (gpio_hwlock)
+		hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT, &flags);
+	else
+		spin_lock_irqsave(&gpio_lock, flags);
 
 	pinmux_type = gpioc->gpios[offset].flags & PINMUX_FLAG_TYPE;
 	pinmux_config_gpio(gpioc, offset, pinmux_type, GPIO_CFG_FREE);
 	gpioc->gpios[offset].flags &= ~PINMUX_FLAG_TYPE;
 	gpioc->gpios[offset].flags |= PINMUX_TYPE_NONE;
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&gpio_lock, flags);
 }
 
 static int pinmux_direction(struct pinmux_info *gpioc,
@@ -658,9 +664,7 @@ static int sh_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 							__FILE__, __func__);
 			return -EINVAL;
 		}
-	}
-
-	else
+	} else
 		spin_lock_irqsave(&gpio_lock, flags);
 
 	ret = pinmux_direction(gpioc, offset, PINMUX_TYPE_INPUT);
@@ -702,10 +706,9 @@ static int sh_gpio_direction_output(struct gpio_chip *chip, unsigned offset,
 							__FILE__, __func__);
 			return -EINVAL;
 		}
-	}
-
-	else
+	} else
 		spin_lock_irqsave(&gpio_lock, flags);
+
 	ret = pinmux_direction(gpioc, offset, PINMUX_TYPE_OUTPUT);
 
 	if (gpio_hwlock)

@@ -14,6 +14,8 @@
 #ifndef SH_MIPI_CSI
 #define SH_MIPI_CSI
 
+#include <linux/list.h>
+
 enum sh_csi2_phy {
 	SH_CSI2_PHY_MAIN,
 	SH_CSI2_PHY_SUB,
@@ -27,7 +29,7 @@ enum sh_csi2_type {
 #define SH_CSI2_CRC	(1 << 0)
 #define SH_CSI2_ECC	(1 << 1)
 
-#define SH_CSI2_MULTI	(1 << 3)
+#define SH_CSI2_MULTI   (1 << 3)
 
 struct platform_device;
 
@@ -38,6 +40,8 @@ struct sh_csi2_client_config {
 	struct platform_device *pdev;	/* client platform device */
 };
 
+struct v4l2_device;
+
 struct sh_csi2_pdata {
 	enum sh_csi2_type type;
 	unsigned int flags;
@@ -47,13 +51,11 @@ struct sh_csi2_pdata {
 	unsigned short ipr_set;
 	unsigned int imcr;
 	unsigned char imcr_set;
-	void*	priv;
+	void*   priv;
 	char *cmod_name;
 	int (*local_reset)(void*, int);
+	struct v4l2_device *v4l2_dev;
 };
-
-struct device;
-struct v4l2_device;
 
 void sh_csi2_power(struct device *dev, int power_on);
 int sh_csi2__l_reset(void *handle, int reset);

@@ -8,3 +8,4 @@ obj-$(CONFIG_MAPLE)		+= maple/
 obj-$(CONFIG_MACH_U2EVM)	+= mdmloader/
 obj-$(CONFIG_SUPERHYWAY)	+= superhyway/
 obj-$(CONFIG_GENERIC_GPIO)	+= pfc.o
+obj-y				+= pm_runtime.o

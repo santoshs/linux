@@ -192,14 +192,12 @@ void pinmux_hwspinlock_init(struct hwspinlock *hwlock);
 
 /* helper macro for top 4 bits in PORTnCR */
 #define _PCRH(in, in_pd, in_pu, out)	\
-	0, (out), (in), 0,		\
-	0, 0, 0, 0,			\
-	0, 0, (in_pd), 0,		\
-	0, 0, (in_pu), 0
+	0, 0, (in_pd), (in_pu), 	\
+	0, (out), (in), 0
 
 #define PORTCR(nr, reg)							\
 	{								\
-		PINMUX_CFG_REG("PORT" nr "CR", reg, 8, 4) {		\
+		PINMUX_CFG_REG_VAR("PORT" nr "CR", reg, 8, 2, 2, 4) {	\
 			_PCRH(PORT##nr##_IN, PORT##nr##_IN_PD,		\
 			      PORT##nr##_IN_PU, PORT##nr##_OUT),	\
 				PORT##nr##_FN0, PORT##nr##_FN1,		\

@@ -13,14 +13,16 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 #include <asm/memory.h>
-#include <asm/assembler.h>
+
+#include "pm-macro.S"
 
 	__CPUINIT
 
-ENTRY(shmobile_startup)
-	bl v7_inv_dcache_all
-	b secondary_startup
-ENDPROC(shmobile_startup)
+ENTRY(shmobile_invalidate_start)
+	v7_invalidate_l1
+	b	secondary_startup
+ENDPROC(shmobile_invalidate_start)
+
 /*
  * Reset vector for secondary CPUs.
  * This will be mapped at address 0 by SBAR register.
@@ -29,17 +31,5 @@ ENDPROC(shmobile_startup)
 	.align  12
 ENTRY(shmobile_secondary_vector)
 	ldr     pc, 1f
-1:	.long   shmobile_startup - PAGE_OFFSET + PLAT_PHYS_OFFSET
+1:	.long   shmobile_invalidate_start - PAGE_OFFSET + PLAT_PHYS_OFFSET
 ENDPROC(shmobile_secondary_vector)
-#ifdef CONFIG_ARCH_R8A73734
-/*
- * R8A73734 ES1.0 SMP errata W/A
- */
-ENTRY(r8a73734_secondary_vector)
-	ldr	r0, r8a73734_secondary_vector_addr
-	mov	pc, r0
-ENTRY(r8a73734_secondary_vector_addr)
-	.word	0
-ENTRY(r8a73734_secondary_vector_sz)
-	.word	. - r8a73734_secondary_vector
-#endif

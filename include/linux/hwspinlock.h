@@ -25,8 +25,9 @@
 /* hwspinlock mode argument */
 #define HWLOCK_IRQSTATE	0x01	/* Disable interrupts, save state */
 #define HWLOCK_IRQ	0x02	/* Disable interrupts, don't save state */
-#define HWLOCK_NOSPIN	0x03	/* Hold hwspinlock but without spinlock */
+#define HWLOCK_NOSPIN	0x03	/* Hold hwspinlock without spinlock */
 
+struct device;
 struct hwspinlock;
 struct hwspinlock_device;
 struct hwspinlock_ops;
@@ -120,7 +121,6 @@ int __hwspin_trylock(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 static inline
 u32 __hwspin_get_hwlock_id(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
-	return 0;
 }
 
 static inline
@@ -176,11 +176,6 @@ static inline int hwspin_trylock_irq(struct hwspinlock *hwlock)
 	return __hwspin_trylock(hwlock, HWLOCK_IRQ, NULL);
 }
 
-static inline int hwspin_trylock_nospin(struct hwspinlock *hwlock)
-{
-	return __hwspin_trylock(hwlock, HWLOCK_NOSPIN, NULL);
-}
-
 static inline u32 hwspin_get_lock_id(struct hwspinlock *hwlock)
 {
 	return __hwspin_get_hwlock_id(hwlock, HWLOCK_IRQ, NULL);
@@ -189,6 +184,27 @@ static inline u32 hwspin_get_lock_id(struct hwspinlock *hwlock)
 static inline u32 hwspin_get_lock_id_nospin(struct hwspinlock *hwlock)
 {
 	return __hwspin_get_hwlock_id(hwlock, HWLOCK_NOSPIN, NULL);
+}
+
+/**
+ * hwspin_trylock_nospin() - try to lock an hwspinlock, with spinlock unlocked
+ * @hwlock: an hwspinlock which we want to trylock
+ *
+ * This function attempts to lock an hwspinlock, and will immediately fail
+ * if the hwspinlock is already taken.
+ *
+ * Upon a successful return from this function, an hwspinlock is taken,
+ * but a spinlock on a hwspinlock instance is not taken (unlocked), so
+ * the hwlock is not SMP-safe on the local host (ARM). In return to this,
+ * preemption is enabled even on a successful return, and the caller can
+ * sleep.
+ *
+ * Returns 0 if we successfully locked the hwspinlock, -EBUSY if
+ * the hwspinlock was already taken, and -EINVAL if @hwlock is invalid.
+ */
+static inline int hwspin_trylock_nospin(struct hwspinlock *hwlock)
+{
+	return __hwspin_trylock(hwlock, HWLOCK_NOSPIN, NULL);
 }
 
 /**
@@ -258,6 +274,25 @@ int hwspin_lock_timeout_irq(struct hwspinlock *hwlock, unsigned int to)
 	return __hwspin_lock_timeout(hwlock, to, HWLOCK_IRQ, NULL);
 }
 
+/**
+ * hwspin_lock_timeout_nospin() - lock hwspinlock, with timeout, unlock spinlock
+ * @hwlock: the hwspinlock to be locked
+ * @to: timeout value in msecs
+ *
+ * This function locks the underlying @hwlock. If the @hwlock
+ * is already taken, the function will busy loop waiting for it to
+ * be released, but give up when @timeout msecs have elapsed.
+ *
+ * Upon a successful return from this function, an hwspinlock is taken,
+ * but a spinlock on a hwspinlock instance is not taken (unlocked), so
+ * the hwlock is not SMP-safe on the local host (ARM). In return to this,
+ * preemption is enabled even on a successful return, and the caller can
+ * sleep.
+ *
+ * Returns 0 when the @hwlock was successfully taken, and an appropriate
+ * error code otherwise (most notably an -ETIMEDOUT if the @hwlock is still
+ * busy after @timeout msecs). The function will never sleep.
+ */
 static inline
 int hwspin_lock_timeout_nospin(struct hwspinlock *hwlock, unsigned int to)
 {
@@ -323,6 +358,17 @@ static inline void hwspin_unlock_irq(struct hwspinlock *hwlock)
 	__hwspin_unlock(hwlock, HWLOCK_IRQ, NULL);
 }
 
+/**
+ * hwspin_unlock_nospin() - unlock hwspinlock (locked with spinlock unlocked)
+ * @hwlock: a previously-acquired hwspinlock which we want to unlock
+ *
+ * This function will unlock a specific hwspinlock and enable preemption
+ * back.
+ *
+ * @hwlock must be already locked (e.g. by hwspin_trylock()) before calling
+ * this function: it is a bug to call unlock on a @hwlock that is already
+ * unlocked.
+ */
 static inline void hwspin_unlock_nospin(struct hwspinlock *hwlock)
 {
 	__hwspin_unlock(hwlock, HWLOCK_NOSPIN, NULL);

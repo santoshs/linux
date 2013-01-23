@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2012 Renesas Mobile Corporation
  */
+#include <linux/pm_qos.h>
 
 #ifdef CONFIG_PM_RUNTIME
 
@@ -41,15 +42,21 @@ extern void device_pm_move_last(struct device *);
 static inline void device_pm_init(struct device *dev)
 {
 	spin_lock_init(&dev->power.lock);
+	dev->power.power_state = PMSG_INVALID;
 	pm_runtime_init(dev);
+}
+
+static inline void device_pm_add(struct device *dev)
+{
+	dev_pm_qos_constraints_init(dev);
 }
 
 static inline void device_pm_remove(struct device *dev)
 {
+	dev_pm_qos_constraints_destroy(dev);
 	pm_runtime_remove(dev);
 }
 
-static inline void device_pm_add(struct device *dev) {}
 static inline void device_pm_move_before(struct device *deva,
 					 struct device *devb) {}
 static inline void device_pm_move_after(struct device *deva,
@@ -69,6 +76,8 @@ extern void dpm_sysfs_remove(struct device *dev);
 extern void rpm_sysfs_remove(struct device *dev);
 extern int wakeup_sysfs_add(struct device *dev);
 extern void wakeup_sysfs_remove(struct device *dev);
+extern int pm_qos_sysfs_add(struct device *dev);
+extern void pm_qos_sysfs_remove(struct device *dev);
 
 #else /* CONFIG_PM */
 
@@ -77,6 +86,8 @@ static inline void dpm_sysfs_remove(struct device *dev) {}
 static inline void rpm_sysfs_remove(struct device *dev) {}
 static inline int wakeup_sysfs_add(struct device *dev) { return 0; }
 static inline void wakeup_sysfs_remove(struct device *dev) {}
+static inline int pm_qos_sysfs_add(struct device *dev) { return 0; }
+static inline void pm_qos_sysfs_remove(struct device *dev) {}
 
 #endif
 
