@@ -33,14 +33,6 @@ pfc-$(CONFIG_ARCH_R8A7740)	+= pfc-r8a7740.o
 pfc-$(CONFIG_ARCH_R8A7779)	+= pfc-r8a7779.o
 pfc-$(CONFIG_ARCH_R8A7373)	+= pfc-r8a7373.o
 
-# IRQ objects
-obj-$(CONFIG_ARCH_SH7367)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH7377)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH7372)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH73A0)	+= entry-gic.o
-obj-$(CONFIG_ARCH_R8A7373)	+= entry-gic.o
-obj-$(CONFIG_ARCH_R8A7740)	+= entry-intc.o
-
 # PM objects
 ifeq ($(CONFIG_CPU_IDLE),y)
 	ifeq ($(CONFIG_PM_HAS_SECURE),y)

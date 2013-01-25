@@ -13,6 +13,7 @@
 #include <mach/hardware.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
+#include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
@@ -23,6 +24,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
+#include <mach/irqs.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
@@ -232,7 +234,7 @@ static struct resource smsc9220_resources[] = {
 		.end	= 0x00080000 + SZ_64K - 1,
 		.flags	= IORESOURCE_MEM,
 	}, {
-		.start	= irqpin2irq(41),
+		.start	= R8A7373_IRQC_IRQ(41),
 		.flags	= IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
 	},
 };
@@ -539,7 +541,7 @@ static struct platform_device mfis_device = {
 
 static struct led_renesas_tpu_config tpu3_info = {
 	.name		= "lcd-backlight",
-	.pin_gpio_fn	= GPIO_FN_TPUTO3,
+	.pin_gpio_fn	= GPIO_FN_TPU0TO3,
 	.pin_gpio	= GPIO_PORT39,
 	.channel_offset	= 0x00d0,
 	.timer_bit	= 3,
@@ -581,7 +583,7 @@ static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
 		.port = GPIO_PORT36,
 		/* GPIO settings to be retained at resume state */
 		.active = {
-			.port_fn		= GPIO_FN_TPUTO0,/*Func 3*/
+			.port_fn		= GPIO_FN_PORT36_TPU0TO0,/*Func 3*/
 			.pull			= PORTn_CR_PULL_DOWN,
 			.direction		= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
@@ -600,25 +602,25 @@ static struct port_info
 	tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
 	[TPU_MODULE_0] = {
 		[TPU_CHANNEL_0]	= {
-			.port_func	= GPIO_FN_TPUTO0,
+			.port_func	= GPIO_FN_PORT36_TPU0TO0,
 			.func_name	= "pwm-tpu0to0",
 			.port_count = ARRAY_SIZE(tpu0_gpio_setting_info),
 			.tpu_gpio_setting_info	= &tpu0_gpio_setting_info,
 		},
 		[TPU_CHANNEL_1]	= {
-			.port_func	= GPIO_FN_TPUTO1,
+			.port_func	= GPIO_FN_TPU0TO1,
 			.func_name	= "pwm-tpu0to1",
 			.port_count = 0,
 			.tpu_gpio_setting_info	= NULL,
 		},
 		[TPU_CHANNEL_2]	= {
-			.port_func	= GPIO_FN_TPUTO2,
+			.port_func	= GPIO_FN_TPU0TO2,
 			.func_name	= "pwm-tpu0to2",
 			.port_count = 0,
 			.tpu_gpio_setting_info	= NULL,
 		},
 		[TPU_CHANNEL_3]	= {
-			.port_func	= GPIO_FN_TPUTO3,
+			.port_func	= GPIO_FN_TPU0TO3,
 			.func_name	= "pwm-tpu0to3",
 			.port_count = 0,
 			.tpu_gpio_setting_info	= NULL,
@@ -951,7 +953,7 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #ifdef CONFIG_MPU_SENSORS_MPU6050B1
 	{
 		I2C_BOARD_INFO("mpu6050", 0x68),
-		.irq = irqpin2irq(46),
+		.irq = R8A7373_IRQC_IRQ(46),
 		.platform_data = &mpu6050_data,
 	 },
 #endif
@@ -1157,14 +1159,14 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_BATTERY_BQ27425)
     {
                 I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
-                .irq            = irqpin2irq(GPIO_FG_INT),
+                .irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
         },
 #endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
     {
 		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
 			.platform_data = NULL,
-			.irq            = irqpin2irq(GPIO_MUS_INT),
+			.irq            = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
     },
 #endif
 #if defined(CONFIG_CHARGER_SMB328A)
@@ -2497,7 +2499,7 @@ static struct pn544_i2c_platform_data pn544_pdata = {
 static struct i2c_board_info pn544_info[] __initdata = {
 {
 	I2C_BOARD_INFO("pn544", 0x2b),
-	.irq = irqpin2irq(NFC_IRQ_GPIO),
+	.irq = R8A7373_IRQC_IRQ(NFC_IRQ_GPIO),
 	.platform_data = &pn544_pdata,
  	},
 };
@@ -3576,7 +3578,7 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 		// for D2153 PMIC driver
 		I2C_BOARD_INFO("d2153", D2153_PMIC_I2C_ADDR),
 		.platform_data = &d2153_pdata,
-		.irq = irqpin2irq(28),
+		.irq = R8A7373_IRQC_IRQ(28),
 	},
 #if 0 // register below I2C at mfd
 	{
@@ -3603,7 +3605,7 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
   	},
   	{
   		I2C_BOARD_INFO("tps80032-battery", 0x49),
-		.irq = irqpin2irq(28),
+		.irq = R8A7373_IRQC_IRQ(28),
   	},
   	{
   		I2C_BOARD_INFO("tps80032-dvs", 0x12),
@@ -3614,7 +3616,7 @@ static struct i2c_board_info __initdata i2c0_devices[] = {
 #else /* CONFIG_PMIC_INTERFACE */
 	{
 		I2C_BOARD_INFO("tps80032", 0x4A),
-		.irq		= irqpin2irq(28),
+		.irq		= R8A7373_IRQC_IRQ(28),
 		.platform_data	= &tps_platform,
 	},
 #endif /* CONFIG_PMIC_INTERFACE */
@@ -3624,11 +3626,11 @@ static struct i2c_board_info i2c4_devices[] = {
 	{
 		I2C_BOARD_INFO("atmel_mxt_ts", 0x4a),
 		.platform_data = &mxt224_platform_data,
-		.irq	= irqpin2irq(32),
+		.irq	= R8A7373_IRQC_IRQ(32),
 	},
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
-		.irq	= irqpin2irq(32),
+		.irq	= R8A7373_IRQC_IRQ(32),
 	},
 };
 
@@ -3639,7 +3641,7 @@ static struct NCP6914_platform_data ncp6914info= {
 static struct i2c_board_info i2c9gpio_devices[] = {
 	{
 		I2C_BOARD_INFO("ncp6914", 0x10),//address 20/21
-		.irq	= irqpin2irq(5),
+		.irq	= R8A7373_IRQC_IRQ(5),
 		.platform_data = &ncp6914info,
 	},
 };
@@ -3654,15 +3656,15 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct i2c_board_info i2cm_devices[] = {
 	{
                 I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = irqpin2irq(34),
+                .irq            = R8A7373_IRQC_IRQ(34),
     },
     {
                 I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = irqpin2irq(34),
+                .irq            = R8A7373_IRQC_IRQ(34),
     },
     {
                 I2C_BOARD_INFO("wm1811", 0x1a),
-                .irq            = irqpin2irq(24),
+                .irq            = R8A7373_IRQC_IRQ(24),
     },
 	{
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
@@ -3793,6 +3795,7 @@ int sec_rlte_hw_rev;
 #define SBSC_BASE		(0xFE000000U)
 #define SBSC_SDMRA_DONE		(0x00000000)
 #define SBSC_SDMRACR1A_ZQ	(0x0000560A)
+#define CPG_BASE		(0xE6150000U)
 #define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
 #define CPG_PLL3CR_1040MHZ	(0x27000000)
@@ -4105,7 +4108,7 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_SDHICLK0, NULL);
 		gpio_request(GPIO_PORT327, NULL);
 		gpio_direction_input(GPIO_PORT327);
-		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
+		irq_set_irq_type(R8A7373_IRQC_IRQ(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}
 
@@ -4474,13 +4477,13 @@ static void __init u2evm_init(void)
 
 	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_MFD_D2153)
-		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+		irq_set_irq_type(R8A7373_IRQC_IRQ(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
 	} else {
 #if defined(CONFIG_PMIC_INTERFACE)
-		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_EDGE_FALLING);
+		irq_set_irq_type(R8A7373_IRQC_IRQ(28), IRQ_TYPE_EDGE_FALLING);
 #else  /* CONFIG_PMIC_INTERFACE */
-		irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+		irq_set_irq_type(R8A7373_IRQC_IRQ(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_PMIC_INTERFACE */
 	}
 
@@ -4710,21 +4713,6 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 #endif
 }
 
-static void __init u2evm_timer_init(void)
-{
-	r8a73734_clock_init();
-	shmobile_timer.init();
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-	if (!setup_current_timer())
-		set_delay_fn(read_current_timer_delay_loop);
-#endif
-}
-
-struct sys_timer u2evm_timer = {
-	.init	= u2evm_timer_init,
-};
-
-
 static void __init u2evm_reserve(void)
 {
 	int i;
@@ -4768,9 +4756,8 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_early	= r8a7373_init_early,
 	.nr_irqs	= NR_IRQS_LEGACY,
 	.init_irq	= r8a7373_init_irq,
-	.handle_irq	= shmobile_handle_irq_gic,
+	.handle_irq	= gic_handle_irq,
 	.init_machine	= u2evm_init,
-	.timer		= &u2evm_timer,
+	.timer		= &shmobile_timer,
 	.restart	= u2evm_restart,
-	.reserve	= u2evm_reserve,
 MACHINE_END

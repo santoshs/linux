@@ -188,37 +188,37 @@ static struct i2c_board_info __initdata i2c_devs_sii9234[] = {
 	{
 		I2C_BOARD_INFO("SIMG72", 0x72>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMG7A", 0x7A>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMG92", 0x92>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMG9A", 0x9A>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMGC8", 0xC8>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMGA0", 0xA0>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("SIMG60", 0x60>>1),
 		.platform_data = &sii9234_pdata,
-		.irq = irqpin2irq(MHL_INT),
+		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
 };
 
