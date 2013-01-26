@@ -1647,6 +1647,14 @@ void clocksource_mmio_resume(struct clocksource *cs)
 	cmt10_start();
 }
 
+/* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
+void __init __weak r8a7373_register_twd(void) { }
+
+static u32 notrace cmt_read_sched_clock(void)
+{
+	return __raw_readl(CMCNT4);
+}
+
 static void __init cmt_clocksource_init(void)
 {
 	struct clk *cp_clk, *r_clk;

@@ -7,6 +7,7 @@
 
 #include <mach/common.h>
 #include <mach/r8a7373.h>
+#include <mach/irqs.h>
 #include <mach/board-u2evm.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
@@ -81,14 +82,36 @@ static int sdhi0_get_cd(struct platform_device *pdev)
 	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
 }
 
-static struct renesas_sdhi_dma sdhi0_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_RX,
+#define SDHI0_EXT_ACC	0xee1000e4
+#define SDHI0_DMACR	0xee108000
+
+static void sdhi0_set_dma(struct platform_device *pdev, int size)
+{
+	static void __iomem *dmacr, *ext_acc;
+	u32 val, val2;
+
+	if (!dmacr)
+		dmacr = ioremap_nocache(SDHI0_DMACR, 4);
+	if (!ext_acc)
+		ext_acc = ioremap_nocache(SDHI0_EXT_ACC, 4);
+
+	switch (size) {
+	case 32:
+		val = 0x30;
+		val2 = 1;
+		break;
+	case 16:
+		val = 0x03;
+		val2 = 1;
+		break;
+	default:
+		val = 0x00;
+		val2 = 0;
+		break;
 	}
-};
+	__raw_writew(val, dmacr);
+	__raw_writew(val2, ext_acc);
+}
 
 static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
 	[0] = {
@@ -112,12 +135,15 @@ static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
 struct renesas_sdhi_platdata sdhi0_info = {
 	.caps			= 0,
 	.flags			= RENESAS_SDHI_SDCLK_OFFEN |
-					RENESAS_SDHI_WP_DISABLE,
-	.dma			= &sdhi0_dma,
+					RENESAS_SDHI_WP_DISABLE |
+					RENESAS_SDHI_DMA_SLAVE_CONFIG,
+	.slave_id_tx		= SHDMA_SLAVE_SDHI0_TX,
+	.slave_id_rx		= SHDMA_SLAVE_SDHI0_RX,
 	.set_pwr		= sdhi0_set_pwr,
-	.detect_irq		= irqpin2irq(50),
+	.detect_irq		= R8A7373_IRQC_IRQ(50),
 	.detect_msec		= 0,
 	.get_cd			= sdhi0_get_cd,
+	.set_dma		= sdhi0_set_dma,
 	.port_cnt		= ARRAY_SIZE(sdhi0_gpio_setting_info),
 	.gpio_setting_info	= &sdhi0_gpio_setting_info,
 };
@@ -167,21 +193,20 @@ static int sdhi1_get_cd(struct platform_device *pdev)
 	return 1;/*return gpio_get_value(GPIO_PORT327) ? 0 : 1;*/
 }
 
-static struct renesas_sdhi_dma sdhi1_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
-	}
-};
+#define SDHI1_VOLTAGE (MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 \
+			| MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 \
+			| MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 \
+			| MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
+			| MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 \
+			| MMC_VDD_34_35 | MMC_VDD_35_36)
 
 static struct renesas_sdhi_platdata sdhi1_info = {
 	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA |
 			  MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
 	.pm_caps	= MMC_PM_KEEP_POWER | MMC_PM_IGNORE_PM_NOTIFY,
 	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
-	.dma		= &sdhi1_dma,
+	.slave_id_tx	= SHDMA_SLAVE_SDHI1_TX,
+	.slave_id_rx	= SHDMA_SLAVE_SDHI1_RX,
 	.set_pwr	= sdhi1_set_pwr,
 	.detect_irq	= 0,
 	.detect_msec	= 0,

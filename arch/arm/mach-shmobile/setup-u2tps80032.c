@@ -7,6 +7,7 @@
 #include <linux/mfd/tps80031.h>
 #include <linux/io.h>
 #include <mach/r8a7373.h>
+#include <mach/irqs.h>
 #include <mach/setup-u2tps80032.h>
 
 
