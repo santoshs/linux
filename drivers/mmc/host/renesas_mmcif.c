@@ -38,6 +38,13 @@
 #define DRIVER_NAME	"renesas_mmcif"
 #define DRIVER_VERSION	"2010-04-28"
 
+/* #define SHMMCIF_LOG */
+#ifdef SHMMCIF_LOG
+#define shmmcif_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define shmmcif_log(fmt, ...)
+#endif
+
 /* CE_CMD_SET */
 #define CMD_MASK		0x3f000000
 #define CMD_SET_RTYP_NO		((0 << 23) | (0 << 22))
@@ -434,6 +441,7 @@ static void sh_mmcif_sync_reset(struct sh_mmcif_host *host)
 	sh_mmcif_bitset(host, MMCIF_CE_CLK_CTRL, tmp |
 		SRSPTO_256 | SRBSYTO_29 | SRWDTO_29 | SCCSTO_29);
 	sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, host->buf_acc);
+	sh_mmcif_writel(host->addr, MMCIF_CE_DELAY_SEL, 0);
 }
 
 static int sh_mmcif_error_manage(struct sh_mmcif_host *host)
@@ -976,20 +984,24 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 		clk_disable(host->hclk);
 		if (host->power) {
+			shmmcif_log("%s: power down\n", __func__);
 			pm_runtime_put_sync(&host->pd->dev);
 			host->power = false;
 		}
 		host->state = STATE_IDLE;
+		shmmcif_log("sh_mmcif_set_ios end\n");
 		return;
+	}
+
+	if (!host->power) {
+		shmmcif_log("%s: power up\n", __func__);
+		pm_runtime_get_sync(&host->pd->dev);
+		host->power = true;
 	}
 
 	if (ios->clock) {
 		clk_enable(host->hclk);
-		if (!host->power) {
-			pm_runtime_get_sync(&host->pd->dev);
-			host->power = true;
-			sh_mmcif_sync_reset(host);
-		}
+		sh_mmcif_sync_reset(host);
 		sh_mmcif_clock_control(host, ios->clock);
 		clk_disable(host->hclk);
 	}
@@ -1142,10 +1154,17 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 		mmc->f_max = pd->max_clk;
 	else
 		mmc->f_max = host->clk / 2;
-	mmc->f_min = host->clk / 512;
+	/* close to 400KHz */
+	if (host->clk < 51200000)
+		mmc->f_min = host->clk / 128;
+	else if (host->clk < 102400000)
+		mmc->f_min = host->clk / 256;
+	else
+		mmc->f_min = host->clk / 512;
 	if (pd->ocr)
 		mmc->ocr_avail = pd->ocr;
-	mmc->caps = MMC_CAP_MMC_HIGHSPEED | MMC_CAP_WAIT_WHILE_BUSY;
+	mmc->caps = MMC_CAP_MMC_HIGHSPEED | MMC_CAP_WAIT_WHILE_BUSY
+					| MMC_CAP_ERASE;
 	if (pd->caps)
 		mmc->caps |= pd->caps;
 	mmc->max_segs = 32;
@@ -1243,6 +1262,7 @@ static int __devexit sh_mmcif_remove(struct platform_device *pdev)
 
 	clk_disable(host->hclk);
 	mmc_free_host(host->mmc);
+	shmmcif_log("%s: power down\n", __func__);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
@@ -1254,7 +1274,7 @@ static int sh_mmcif_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-
+	shmmcif_log("%s: In\n", __func__);
 	return mmc_suspend_host(host->mmc);
 }
 
@@ -1262,7 +1282,7 @@ static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-
+	shmmcif_log("%s: In\n", __func__);
 	return mmc_resume_host(host->mmc);
 }
 #else

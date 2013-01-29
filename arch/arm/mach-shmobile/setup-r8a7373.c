@@ -69,7 +69,6 @@ void __init r8a7373_map_io(void)
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 	sec_debug_init();
 #endif
-
 }
 
 static struct cmt_timer_clock cmt1_cks_table[] = {

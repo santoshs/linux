@@ -1964,12 +1964,8 @@ static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 
 static void irq_device_state(struct r8a66597 *r8a66597)
 {
-#if 0
+
 	u16 dvsq;
-#ifdef CONFIG_USB_OTG
-	struct otg_transceiver *otg;
-	otg = otg_get_transceiver();
-#endif
 	dvsq = r8a66597_read(r8a66597, INTSTS0) & DVSQ;
 	r8a66597_write(r8a66597, ~DVST, INTSTS0);
 
@@ -1979,13 +1975,6 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		r8a66597->driver->disconnect(&r8a66597->gadget);
 		spin_lock(&r8a66597->lock);
 		r8a66597_update_usb_speed(r8a66597);
-		r8a66597_inform_vbus_power(r8a66597, 100);
-#ifdef CONFIG_USB_OTG
-		if (otg->state == OTG_STATE_A_SUSPEND) {
-			otg->state = OTG_STATE_A_PERIPHERAL;
-		}
-		udc_log ("%s\n", otg_state_string(otg->state));
-#endif
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
 		r8a66597_update_usb_speed(r8a66597);
@@ -2002,12 +1991,12 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 	r8a66597->old_dvsq = dvsq;
 
 	/* Cancel a pending charger work only if configured properly */
-	if ((delayed_work_pending(&r8a66597->charger_work)) &&
+/*	if ((delayed_work_pending(&r8a66597->charger_work)) &&
 	    (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)) {
 		__cancel_delayed_work(&r8a66597->charger_work);
 		r8a66597->charger_detected = 0;
-	}
-#endif
+	}*/
+
 }
 
 static void irq_control_stage(struct r8a66597 *r8a66597)
@@ -2742,7 +2731,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	void __iomem *dma_reg = NULL;
 	struct r8a66597 *r8a66597 = NULL;
 	int ret = 0;
-#if 0
 	int i;
 	unsigned long irq_trigger;
 
@@ -2809,20 +2797,10 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto clean_up;
 	}
 
-	INIT_DELAYED_WORK(&r8a66597->vbus_work, r8a66597_vbus_work);
-	INIT_DELAYED_WORK(&r8a66597->charger_work, r8a66597_charger_work);
-#ifdef CONFIG_USB_OTG
-	INIT_DELAYED_WORK(&r8a66597->hnp_work, r8a66597_hnp_work);
-	init_timer(&r8a66597->hnp_timer_fail);
-	r8a66597->hnp_timer_fail.function = r8a66597_hnp_timer_fail;
-	r8a66597->hnp_timer_fail.data = (unsigned long)r8a66597;
-#endif
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
 	r8a66597->timer.data = (unsigned long)r8a66597;
 	r8a66597->reg = reg;
-	r8a66597->dma_reg = dma_reg;
-	r8a66597->phy_active = 1;
 
 	if (r8a66597->pdata->on_chip) {
 		pm_runtime_enable(&pdev->dev);
@@ -2931,7 +2909,6 @@ clean_up:
 
 	if (dma_reg)
 		iounmap(dma_reg);
-#endif
 	return ret;
 }
 

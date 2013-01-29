@@ -259,16 +259,6 @@ static struct platform_device eth_device = {
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
-/* MMCIF */
-static struct sh_mmcif_dma sh_mmcif_dma = {
-	.chan_priv_rx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
-	},
-	.chan_priv_tx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
-	},
-};
-
 
 #if defined(CONFIG_MFD_D2153)
 static struct regulator *emmc_regulator;
@@ -351,7 +341,8 @@ static struct sh_mmcif_plat_data sh_mmcif_plat = {
 			  MMC_CAP_NONREMOVABLE,
 	.set_pwr	= mmcif_set_pwr,
 	.down_pwr	= mmcif_down_pwr,
-	.dma		= &sh_mmcif_dma,
+	.slave_id_tx	= SHDMA_SLAVE_MMCIF0_TX,
+	.slave_id_rx	= SHDMA_SLAVE_MMCIF0_RX,
 	.max_clk	= 52000000,
 };
 

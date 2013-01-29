@@ -24,7 +24,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
-				return -1;
+				return;
 
 			regulator_enable(regulator);
 
@@ -32,7 +32,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			regulator = regulator_get(NULL, "vsd");
 			if (IS_ERR(regulator))
-				return ;
+				return;
 
 			regulator_enable(regulator);
 
@@ -46,7 +46,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
-				return -1;
+				return;
 
 			regulator_disable(regulator);
 
@@ -54,7 +54,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			regulator = regulator_get(NULL, "vsd");
 			if (IS_ERR(regulator))
-				return ;
+				return;
 
 			regulator_disable(regulator);
 
@@ -113,21 +113,21 @@ static void sdhi0_set_dma(struct platform_device *pdev, int size)
 	__raw_writew(val2, ext_acc);
 }
 
-static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
+static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 	[0] = {
 		.flag = 1,
 		.port = GPIO_PORT327,
 		.active = {
-			.port_mux 	= GPIO_PORT327,
-			.pull 		= RENESAS_SDHI_PULL_OFF,
-			.direction	= RENESAS_SDHI_DIRECTION_INPUT,
-			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+			.port_fn	= GPIO_PORT327,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
-		.deactive = {
-			.port_mux 	= GPIO_FN_SDHICD0,
-			.pull 		= RENESAS_SDHI_PULL_UP,
-			.direction	= RENESAS_SDHI_DIRECTION_NOT_SET,
-			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		.inactive = {
+			.port_fn	= GPIO_FN_SDHICD0,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
 };

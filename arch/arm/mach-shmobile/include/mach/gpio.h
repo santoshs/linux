@@ -12,6 +12,8 @@
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
+
+#define ARCH_NR_GPIOS 1024
 #include <linux/sh_pfc.h>
 #include <linux/io.h>
 
@@ -40,6 +42,7 @@
 #define PORTn_CR_DIRECTION_NONE		0
 #define PORTn_CR_DIRECTION_OUTPUT	1
 #define PORTn_CR_DIRECTION_INPUT	2
+#define PORTn_CR_BI_DIRECTIONAL		3
 
 /* GPIO Settings - Output data level High/Low */
 #define PORTn_OUTPUT_LEVEL_NOT_SET      (-1)
@@ -117,11 +120,32 @@ static inline void gpio_pull_down(unsigned long reg)
 {
 	__raw_writeb((__raw_readb(reg) & 0x3f) | 0x80, reg);
 }
+static inline int gpio_get_value(unsigned gpio)
+{
+	return __gpio_get_value(gpio);
+}
+
+static inline void gpio_set_value(unsigned gpio, int value)
+{
+	__gpio_set_value(gpio, value);
+}
+
+static inline int gpio_cansleep(unsigned gpio)
+{
+	return __gpio_cansleep(gpio);
+}
+
+static inline int gpio_to_irq(unsigned gpio)
+{
+	return __gpio_to_irq(gpio);
+}
 
 extern void gpio_direction_none_port(int gpio);
 extern void gpio_pull_off_port(int gpio);
 extern void gpio_pull_up_port(int gpio);
 extern void gpio_pull_down_port(int gpio);
 extern void gpio_bidirection_port(int gpio);
+extern void gpio_set_portncr_value(unsigned int port_count,
+	struct portn_gpio_setting_info *gpio_setting_info, int suspend_mode);
 
 #endif /* __ASM_ARCH_GPIO_H */

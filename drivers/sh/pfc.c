@@ -152,7 +152,8 @@ static int gpio_read_bit(struct pinmux_data_reg *dr,
 static void gpio_write_bit(struct pinmux_data_reg *dr,
 			   unsigned long in_pos, unsigned long value)
 {
-	unsigned long pos;
+	unsigned long pos, data;
+	void __iomem *mapped_reg;
 
 	pos = dr->reg_width - (in_pos + 1);
 
@@ -161,21 +162,20 @@ static void gpio_write_bit(struct pinmux_data_reg *dr,
 		 dr->reg, !!value, pos, dr->reg_width);
 
 	if (dr->set_reg && dr->clr_reg) {
-		void __iomem *mapped_reg;
-
 		if (value)
 			mapped_reg = dr->mapped_set_reg;
 		else
 			mapped_reg = dr->mapped_clr_reg;
-		gpio_write_raw_reg(mapped_reg, dr->reg_width, 1 << pos);
+		data = 1 << pos;
 	} else {
 		if (value)
 			set_bit(pos, &dr->reg_shadow);
 		else
 			clear_bit(pos, &dr->reg_shadow);
-
-		gpio_write_raw_reg(dr->mapped_reg, dr->reg_width, dr->reg_shadow);
+		mapped_reg = dr->mapped_reg;
+		data = dr->reg_shadow;
 	}
+	gpio_write_raw_reg(mapped_reg, dr->reg_width, data);
 }
 
 static void config_reg_helper(struct pinmux_info *gpioc,
