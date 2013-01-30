@@ -40,6 +40,7 @@ struct sh_csi2_client_config {
 	struct platform_device *pdev;	/* client platform device */
 };
 
+struct device;
 struct v4l2_device;
 
 struct sh_csi2_pdata {

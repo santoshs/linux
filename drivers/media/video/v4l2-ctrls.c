@@ -644,6 +644,14 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_JPEG_COMPRESSION_QUALITY:	return "Compression Quality";
 	case V4L2_CID_JPEG_ACTIVE_MARKER:	return "Active Markers";
 
+	case V4L2_CID_SET_OUTPUT_MODE:		return "Rcu Output Mode";
+	case V4L2_CID_SET_OUTPUT_OFFSET:	return "Rcu Output Offset";
+	case V4L2_CID_SET_OUTPUT_PACK:		return "Rcu Output Pack";
+	case V4L2_CID_SET_OUTPUT_MERAM:		return "Rcu Output Meram";
+	case V4L2_CID_SET_OUTPUT_ISPTHINNED:	return "Rcu Output ISP Thread";
+	case V4L2_CID_SET_LED:				return "Rcu Output LED";
+	case V4L2_CID_SET_ZSL:				return "Rcu Output ZSL";
+
 	default:
 		return NULL;
 	}

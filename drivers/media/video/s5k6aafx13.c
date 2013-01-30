@@ -17,15 +17,34 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/v4l2-mediabus.h>
+#include <linux/module.h>
 #include <linux/videodev2.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
 
 #include <media/soc_camera.h>
-#include <media/soc_mediabus.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
+#include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
+
+static ssize_t subcamtype_S5K6AAFX13_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "S5K6AAFX13";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t subcamfw_S5K6AAFX13_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "S5K6AAFX13";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_S5K6AAFX13_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_S5K6AAFX13_show, NULL);
 
 struct S5K6AAFX13_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -34,6 +53,7 @@ struct S5K6AAFX13_datafmt {
 
 struct S5K6AAFX13 {
 	struct v4l2_subdev		subdev;
+	struct v4l2_ctrl_handler hdl;
 	const struct S5K6AAFX13_datafmt	*fmt;
 	unsigned int			width;
 	unsigned int			height;
@@ -201,6 +221,28 @@ static int S5K6AAFX13_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
+/* Request bus settings on camera side */
+static int S5K6AAFX13_g_mbus_config(struct v4l2_subdev *sd,
+				struct v4l2_mbus_config *cfg)
+{
+//	struct i2c_client *client = v4l2_get_subdevdata(sd);
+//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+
+	cfg->type = V4L2_MBUS_CSI2;
+	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
+		V4L2_MBUS_CSI2_CHANNEL_0 |
+		V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
+
+	return 0;
+}
+
+/* Alter bus settings on camera side */
+static int S5K6AAFX13_s_mbus_config(struct v4l2_subdev *sd,
+				const struct v4l2_mbus_config *cfg)
+{
+	return 0;
+}
+
 static struct v4l2_subdev_video_ops S5K6AAFX13_subdev_video_ops = {
 	.s_mbus_fmt	= S5K6AAFX13_s_fmt,
 	.g_mbus_fmt	= S5K6AAFX13_g_fmt,
@@ -208,6 +250,8 @@ static struct v4l2_subdev_video_ops S5K6AAFX13_subdev_video_ops = {
 	.enum_mbus_fmt	= S5K6AAFX13_enum_fmt,
 	.g_crop		= S5K6AAFX13_g_crop,
 	.cropcap	= S5K6AAFX13_cropcap,
+	.g_mbus_config	= S5K6AAFX13_g_mbus_config,
+	.s_mbus_config	= S5K6AAFX13_s_mbus_config,
 };
 
 static struct v4l2_subdev_core_ops S5K6AAFX13_subdev_core_ops = {
@@ -219,72 +263,137 @@ static struct v4l2_subdev_ops S5K6AAFX13_subdev_ops = {
 	.video	= &S5K6AAFX13_subdev_video_ops,
 };
 
-static unsigned long S5K6AAFX13_query_bus_param(struct soc_camera_device *icd)
-{
-	struct soc_camera_link *icl = to_soc_camera_link(icd);
-	unsigned long flags = SOCAM_PCLK_SAMPLE_RISING | SOCAM_SLAVE |
-		SOCAM_VSYNC_ACTIVE_HIGH | SOCAM_HSYNC_ACTIVE_HIGH |
-		SOCAM_DATA_ACTIVE_HIGH;
-
-	flags |= SOCAM_DATAWIDTH_8;
-
-	return soc_camera_apply_sensor_flags(icl, flags);
-}
-
-static int S5K6AAFX13_set_bus_param(struct soc_camera_device *icd,
-		     unsigned long flags)
+static int S5K6AAFX13_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	return 0;
 }
 
-static struct soc_camera_ops S5K6AAFX13_ops = {
-	.query_bus_param	= S5K6AAFX13_query_bus_param,
-	.set_bus_param		= S5K6AAFX13_set_bus_param,
+static const struct v4l2_ctrl_ops S5K6AAFX13_ctrl_ops = {
+	.s_ctrl = S5K6AAFX13_s_ctrl,
 };
 
 static int S5K6AAFX13_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
 	struct S5K6AAFX13 *priv;
-	struct soc_camera_device *icd = client->dev.platform_data;
-	struct soc_camera_link *icl;
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
-	if (!icd) {
-		dev_err(&client->dev, "S5K6AAFX13: missing soc-camera data!\n");
-		return -EINVAL;
-	}
-
-	icl = to_soc_camera_link(icd);
 	if (!icl) {
 		dev_err(&client->dev, "S5K6AAFX13: missing platform data!\n");
 		return -EINVAL;
 	}
 
-	priv = kzalloc(sizeof(struct S5K6AAFX13), GFP_KERNEL);
-	if (!priv)
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	if (!priv) {
+		dev_err(&client->dev,
+			"S5K6AAFX13: Failed to allocate memory for private data!\n");
 		return -ENOMEM;
+	}
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &S5K6AAFX13_subdev_ops);
+	v4l2_ctrl_handler_init(&priv->hdl, 4);
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
+			V4L2_CID_VFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
+			V4L2_CID_HFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
+			V4L2_CID_GAIN, 0, 127, 1, 66);
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
+			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
+	priv->subdev.ctrl_handler = &priv->hdl;
+	if (priv->hdl.error) {
+		int err = priv->hdl.error;
 
-	icd->ops	= &S5K6AAFX13_ops;
+		kfree(priv);
+		return err;
+	}
+
+	{
+		/* check i2c device */
+		struct i2c_msg msg[2];
+		unsigned char send_buf[2];
+		unsigned char rcv_buf[2];
+		int loop = 0;
+
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = 2;
+		msg[0].buf = (char *)send_buf;
+		/* FW Sensor ID Support */
+		send_buf[0] = 0x01;
+		send_buf[1] = 0x5A;
+
+		msg[1].addr = client->addr;
+		msg[1].flags = client->flags & I2C_M_TEN;
+		msg[1].flags = I2C_M_RD;
+		msg[1].len = 2;
+		msg[1].buf = rcv_buf;
+
+		for (loop = 0; loop < 5; loop++) {
+			ret = i2c_transfer(client->adapter, msg, 2);
+			if (0 <= ret)
+				break;
+		}
+		if (0 > ret) {
+			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
+		}
+		else
+		{
+			printk(KERN_ALERT "%s :S5K6AAFX13 OK(%d)\n", __func__, rcv_buf[0]);
+		}
+		ret = 0;
+	}
+
 	priv->width	= 640;
 	priv->height= 480;
 	priv->fmt	= &S5K6AAFX13_colour_fmts[0];
 
-	return ret;
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
+
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Sub camera device !\n");
+
+		sec_sub_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "front");
+		if (IS_ERR(sec_sub_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_sub_cam_dev)!\n");
+		}
+
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+		}
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camfw.attr.name);
+		}
+	}
+
+	return v4l2_ctrl_handler_setup(&priv->hdl);
 }
 
 static int S5K6AAFX13_remove(struct i2c_client *client)
 {
 	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
-	struct soc_camera_device *icd = client->dev.platform_data;
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 
-	v4l2_device_unregister_subdev(sd);
-	icd->ops = NULL;
+	v4l2_device_unregister_subdev(&priv->subdev);
+	if (icl->free_bus)
+		icl->free_bus(icl);
+	v4l2_ctrl_handler_free(&priv->hdl);
 	kfree(priv);
 
 	return 0;
@@ -305,20 +414,7 @@ static struct i2c_driver S5K6AAFX13_i2c_driver = {
 	.id_table	= S5K6AAFX13_id,
 };
 
-static int __init S5K6AAFX13_mod_init(void)
-{
-	printk(KERN_DEBUG "%s():\n", __func__);
-	return i2c_add_driver(&S5K6AAFX13_i2c_driver);
-}
-
-static void __exit S5K6AAFX13_mod_exit(void)
-{
-	printk(KERN_DEBUG "%s():\n", __func__);
-	i2c_del_driver(&S5K6AAFX13_i2c_driver);
-}
-
-module_init(S5K6AAFX13_mod_init);
-module_exit(S5K6AAFX13_mod_exit);
+module_i2c_driver(S5K6AAFX13_i2c_driver);
 
 MODULE_DESCRIPTION("Samsung S5K6AAFX13 Camera driver");
 MODULE_AUTHOR("Renesas Mobile Corp.");

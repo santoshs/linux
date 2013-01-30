@@ -17,6 +17,7 @@
 #define SH_RCU_OUTPUT_MEM			0x00	/* Memory output */
 #define SH_RCU_OUTPUT_ISP			0x01	/* ISP output (default) */
 #define SH_RCU_OUTPUT_MEM_ISP			0x03	/* Memory and ISP output */
+#define SH_RCU_OUTPUT_MEM_EXT			0x04	/* Memory Extended */
 
 #define SH_RCU_OUTPUT_OFFSET_OFF		(0)
 #define SH_RCU_OUTPUT_OFFSET_32B		(1)
@@ -34,13 +35,23 @@
 #define SH_RCU_LED_ON				(1)
 #define SH_RCU_LED_OFF				(0)
 #define SH_RCU_LED_MODE_NORM			(0)
-#define SH_RCU_LED_MODE_PRE			(1)
+#define SH_RCU_LED_MODE_PRE			(1<<1)
 
 struct device;
+struct resource;
+
+struct sh_mobile_rcu_companion {
+	u32		num_resources;
+	struct resource	*resource;
+	int		id;
+	void		*platform_data;
+};
 
 struct sh_mobile_rcu_info {
 	unsigned long flags;
-	struct device *csi2_dev;
+	int max_width;
+	int max_height;
+	struct sh_mobile_rcu_companion *csi2;
 	char *mod_name;
 	int (*led)(int, int);
 };

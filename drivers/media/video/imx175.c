@@ -18,14 +18,32 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/slab.h>
+#include <linux/v4l2-mediabus.h>
+#include <linux/module.h>
 #include <linux/videodev2.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
 
 #include <media/soc_camera.h>
-#include <media/soc_mediabus.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
+
+static ssize_t maincamtype_imx175_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "IMX175";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t maincamfw_imx175_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "IMX175";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(rear_camtype, 0644, maincamtype_imx175_show, NULL);
+static DEVICE_ATTR(rear_camfw, 0644, maincamfw_imx175_show, NULL);
 
 struct IMX175_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -34,6 +52,7 @@ struct IMX175_datafmt {
 
 struct IMX175 {
 	struct v4l2_subdev		subdev;
+	struct v4l2_ctrl_handler hdl;
 	const struct IMX175_datafmt	*fmt;
 	unsigned int			width;
 	unsigned int			height;
@@ -213,6 +232,28 @@ IMX175_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
+/* Request bus settings on camera side */
+static int IMX175_g_mbus_config(struct v4l2_subdev *sd,
+				struct v4l2_mbus_config *cfg)
+{
+//	struct i2c_client *client = v4l2_get_subdevdata(sd);
+//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+
+	cfg->type = V4L2_MBUS_CSI2;
+	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
+		V4L2_MBUS_CSI2_CHANNEL_0 |
+		V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
+
+	return 0;
+}
+
+/* Alter bus settings on camera side */
+static int IMX175_s_mbus_config(struct v4l2_subdev *sd,
+				const struct v4l2_mbus_config *cfg)
+{
+	return 0;
+}
+
 static struct v4l2_subdev_video_ops IMX175_subdev_video_ops = {
 	.s_mbus_fmt	= IMX175_s_fmt,
 	.g_mbus_fmt	= IMX175_g_fmt,
@@ -220,6 +261,8 @@ static struct v4l2_subdev_video_ops IMX175_subdev_video_ops = {
 	.enum_mbus_fmt	= IMX175_enum_fmt,
 	.g_crop		= IMX175_g_crop,
 	.cropcap	= IMX175_cropcap,
+	.g_mbus_config	= IMX175_g_mbus_config,
+	.s_mbus_config	= IMX175_s_mbus_config,
 };
 
 static struct v4l2_subdev_core_ops IMX175_subdev_core_ops = {
@@ -231,29 +274,13 @@ struct v4l2_subdev_ops IMX175_subdev_ops = {
 	.video	= &IMX175_subdev_video_ops,
 };
 
-static unsigned long
-IMX175_query_bus_param(struct soc_camera_device *icd)
-{
-	struct soc_camera_link *icl = to_soc_camera_link(icd);
-	unsigned long flags = SOCAM_PCLK_SAMPLE_RISING | SOCAM_MASTER |
-		SOCAM_VSYNC_ACTIVE_HIGH | SOCAM_HSYNC_ACTIVE_HIGH |
-		SOCAM_DATA_ACTIVE_HIGH;
-
-	flags |= SOCAM_DATAWIDTH_8;
-
-	return soc_camera_apply_sensor_flags(icl, flags);
-}
-
-static int
-IMX175_set_bus_param(struct soc_camera_device *icd,
-		     unsigned long flags)
+static int IMX175_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	return 0;
 }
 
-struct soc_camera_ops IMX175_ops = {
-	.query_bus_param	= IMX175_query_bus_param,
-	.set_bus_param		= IMX175_set_bus_param,
+struct v4l2_ctrl_ops IMX175_ctrl_ops = {
+	.s_ctrl = IMX175_s_ctrl,
 };
 
 #if 1
@@ -261,30 +288,41 @@ static int IMX175_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
 	struct IMX175 *priv;
-	struct soc_camera_device *icd = client->dev.platform_data;
-	struct soc_camera_link *icl;
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
-	if (!icd) {
-		dev_err(&client->dev, "IMX175: missing soc-camera data!\n");
-		return -EINVAL;
-	}
-
-	icl = to_soc_camera_link(icd);
 	if (!icl) {
 		dev_err(&client->dev, "IMX175: missing platform data!\n");
 		return -EINVAL;
 	}
 
 	priv = kzalloc(sizeof(struct IMX175), GFP_KERNEL);
-	if (!priv)
+	if (!priv) {
+		dev_err(&client->dev,
+			"IMX175: Failed to allocate memory for private data!\n");
 		return -ENOMEM;
+	}
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &IMX175_subdev_ops);
+	v4l2_ctrl_handler_init(&priv->hdl, 4);
+	v4l2_ctrl_new_std(&priv->hdl, &IMX175_ctrl_ops,
+			V4L2_CID_VFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(&priv->hdl, &IMX175_ctrl_ops,
+			V4L2_CID_HFLIP, 0, 1, 1, 0);
+	v4l2_ctrl_new_std(&priv->hdl, &IMX175_ctrl_ops,
+			V4L2_CID_GAIN, 0, 127, 1, 66);
+	v4l2_ctrl_new_std(&priv->hdl, &IMX175_ctrl_ops,
+			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
+	priv->subdev.ctrl_handler = &priv->hdl;
+	if (priv->hdl.error) {
+		int err = priv->hdl.error;
 
-	icd->ops	= &IMX175_ops;
+		kfree(priv);
+		return err;
+	}
+
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &IMX175_colour_fmts[0];
@@ -294,6 +332,7 @@ static int IMX175_probe(struct i2c_client *client,
 		struct i2c_msg msg[2];
 		unsigned char send_buf[2];
 		unsigned char rcv_buf[2];
+		int loop = 0;
 		
 		msg[0].addr = client->addr;
 		msg[0].flags = client->flags & I2C_M_TEN;
@@ -308,29 +347,61 @@ static int IMX175_probe(struct i2c_client *client,
 		msg[1].len = 1;
 		msg[1].buf = rcv_buf;
 
-		printk(KERN_ALERT "%s :Slave Address 0x%x\n", __func__, msg[0].addr);
-		ret = i2c_transfer(client->adapter, msg, 2);
+		for (loop = 0; loop < 5; loop++) {
+			ret = i2c_transfer(client->adapter, msg, 2);
+			if (0 <= ret)
+				break;
+		}
 		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n", __func__, ret);
+			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
+		} else {
+			ret = 0;
 		}
-		else
-		{
-			printk(KERN_ALERT "%s :IMX175 OK(%d)\n", __func__, rcv_buf[0]);
-		}
-		ret = 0;
 	}
 
-	return ret;
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
+
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Main camera device !\n");
+
+		sec_main_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "rear");
+		if (IS_ERR(sec_main_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_main_cam_dev)!\n");
+		}
+
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera device file, %s\n",
+				dev_attr_rear_camtype.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera device file, %s\n",
+				dev_attr_rear_camfw.attr.name);
+		}
+	}
+
+	return v4l2_ctrl_handler_setup(&priv->hdl);
 }
 
 static int IMX175_remove(struct i2c_client *client)
 {
 	struct IMX175 *priv = to_IMX175(client);
-	struct soc_camera_device *icd = client->dev.platform_data;
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 
-	v4l2_device_unregister_subdev(sd);
-	icd->ops = NULL;
+	v4l2_device_unregister_subdev(&priv->subdev);
+	if (icl->free_bus)
+		icl->free_bus(icl);
+	v4l2_ctrl_handler_free(&priv->hdl);
 	kfree(priv);
 
 	return 0;
@@ -351,20 +422,7 @@ static struct i2c_driver IMX175_i2c_driver = {
 	.id_table	= IMX175_id,
 };
 
-static int __init IMX175_mod_init(void)
-{
-	printk(KERN_DEBUG "%s():\n", __func__);
-	return i2c_add_driver(&IMX175_i2c_driver);
-}
-
-static void __exit IMX175_mod_exit(void)
-{
-	printk(KERN_DEBUG "%s():\n", __func__);
-	i2c_del_driver(&IMX175_i2c_driver);
-}
-
-module_init(IMX175_mod_init);
-module_exit(IMX175_mod_exit);
+module_i2c_driver(IMX175_i2c_driver);
 
 MODULE_DESCRIPTION("Sony IMX175 Camera driver");
 MODULE_AUTHOR("Renesas Mobile Corp.");

@@ -102,7 +102,9 @@ obj-$(CONFIG_SOC_CAMERA_IMX081)		+= imx081.o
 obj-$(CONFIG_SOC_CAMERA_ISX012)		+= isx012.o
 obj-$(CONFIG_SOC_CAMERA_IMX175)		+= imx175.o
 obj-$(CONFIG_SOC_CAMERA_S5K6AAFX13)	+= s5k6aafx13.o
+obj-$(CONFIG_SOC_CAMERA_S5K4ECGX)	+= s5k4ecgx.o
 obj-$(CONFIG_SOC_CAMERA_DB8131)		+= db8131.o
+obj-$(CONFIG_SOC_CAMERA_SR030PC50)	+= sr030pc50.o
 
 # And now the v4l2 drivers:
 

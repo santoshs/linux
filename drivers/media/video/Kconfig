@@ -974,7 +974,13 @@ config SOC_CAMERA_ISX012
 	depends on SOC_CAMERA && I2C
 	help
 	  This driver supports ISX012 cameras from SONY
-	  
+
+config SOC_CAMERA_ISX012_TUNING
+	tristate "ISX012_TUNING support"
+	depends on SOC_CAMERA_ISX012 && I2C
+	help
+	  This driver supports ISX012_TUNING cameras from SONY
+
 config SOC_CAMERA_IMX081
 	tristate "IMX081 support"
 	depends on SOC_CAMERA && I2C
@@ -993,11 +999,29 @@ config SOC_CAMERA_S5K6AAFX13
 	help
 	  This driver supports S5K6AAFX13 cameras from Samsung
 
+config SOC_CAMERA_S5K4ECGX
+	tristate "s5k4ecgx support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports S5K4ECGX cameras from Samsung
+
+config SOC_CAMERA_S5K4ECGX_TUNING
+	tristate "s5k4ecgx tuning support"
+	depends on SOC_CAMERA_S5K4ECGX && I2C
+	help
+	  This driver supports S5K4ECGX tuning cameras from Samsung
+
 config SOC_CAMERA_DB8131
 	tristate "db8131 support"
 	depends on SOC_CAMERA && I2C
 	help
 	  This driver supports DB8131 cameras from Dongbu Hitek
+
+config SOC_CAMERA_SR030PC50
+	tristate "sr030pc50 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports SR030PC50 cameras from siliconfile
 
 config SOC_CAMERA_MT9M001
 	tristate "mt9m001 support"

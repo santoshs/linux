@@ -18,9 +18,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/sh_clk.h>
-#include <linux/module.h>
 
 #include <media/sh_mobile_ceu.h>
 #include <media/sh_mobile_csi2.h>
@@ -267,7 +267,31 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	}
 
 	iowrite32(tmp, priv->base + SH_CSI2_VCDT);
+
 	return 0;
+}
+
+static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
+				 struct v4l2_mbus_config *cfg)
+{
+	cfg->flags = V4L2_MBUS_PCLK_SAMPLE_RISING |
+		V4L2_MBUS_HSYNC_ACTIVE_HIGH | V4L2_MBUS_VSYNC_ACTIVE_HIGH |
+		V4L2_MBUS_MASTER | V4L2_MBUS_DATA_ACTIVE_HIGH;
+	cfg->type = V4L2_MBUS_PARALLEL;
+
+	return 0;
+}
+
+static int sh_csi2_s_mbus_config(struct v4l2_subdev *sd,
+				 const struct v4l2_mbus_config *cfg)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(sd);
+	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
+	struct v4l2_mbus_config client_cfg = {.type = V4L2_MBUS_CSI2,
+					      .flags = priv->mipi_flags};
+
+	return v4l2_subdev_call(client_sd, video, s_mbus_config, &client_cfg);
 }
 
 static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
@@ -320,35 +344,13 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
-static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
-				 struct v4l2_mbus_config *cfg)
-{
-	cfg->flags = V4L2_MBUS_PCLK_SAMPLE_RISING |
-		V4L2_MBUS_HSYNC_ACTIVE_HIGH | V4L2_MBUS_VSYNC_ACTIVE_HIGH |
-		V4L2_MBUS_MASTER | V4L2_MBUS_DATA_ACTIVE_HIGH;
-	cfg->type = V4L2_MBUS_PARALLEL;
-
-	return 0;
-}
-
-static int sh_csi2_s_mbus_config(struct v4l2_subdev *sd,
-				 const struct v4l2_mbus_config *cfg)
-{
-	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
-	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(sd);
-	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
-	struct v4l2_mbus_config client_cfg = {.type = V4L2_MBUS_CSI2,
-					      .flags = priv->mipi_flags};
-
-	return v4l2_subdev_call(client_sd, video, s_mbus_config, &client_cfg);
-}
 
 static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
 	.try_mbus_fmt	= sh_csi2_try_fmt,
+	.s_stream	= sh_csi2_s_stream,
 	.g_mbus_config	= sh_csi2_g_mbus_config,
 	.s_mbus_config	= sh_csi2_s_mbus_config,
-        .s_stream       = sh_csi2_s_stream,
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv)
@@ -515,10 +517,9 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	}
 
 	priv->pdev = pdev;
-	platform_set_drvdata(pdev, priv);
 
 	pdata->priv = priv;
-	priv->client = pdata->clients;
+	platform_set_drvdata(pdev, priv);
 
 	v4l2_subdev_init(&priv->subdev, &sh_csi2_subdev_ops);
 	v4l2_set_subdevdata(&priv->subdev, &pdev->dev);
@@ -580,15 +581,6 @@ static struct platform_driver __refdata sh_csi2_pdrv = {
 	},
 };
 
-static int __init sh_csi2_init(void)
-{
-	return platform_driver_probe(&sh_csi2_pdrv, sh_csi2_probe);
-}
-
-static void __exit sh_csi2_exit(void)
-{
-	platform_driver_unregister(&sh_csi2_pdrv);
-}
 void sh_csi2_power(struct device *dev, int power_on)
 {
 	struct clk *csi_clk;
@@ -669,8 +661,6 @@ int sh_csi2__l_reset(void *handle, int reset)
 	return 0;
 }
 
-module_init(sh_csi2_init);
-module_exit(sh_csi2_exit);
 module_platform_driver(sh_csi2_pdrv);
 
 MODULE_DESCRIPTION("SH-Mobile MIPI CSI-2 driver");

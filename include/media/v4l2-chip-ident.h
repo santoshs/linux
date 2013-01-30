@@ -340,9 +340,12 @@ enum {
 
 	/* Samsung S5K6AAFX13 */
 	V4L2_IDENT_S5K6AAFX13 = 100020,
+	V4L2_IDENT_S5K4ECGX = 100030,
 
 	/* Dongbu Hitek DB8131 */
 	V4L2_IDENT_DB8131 = 100021,
+	/* Siliconfile SR030PC50 */
+	V4L2_IDENT_SR030PC50 = 100022,
 
 	/* Don't just add new IDs at the end: KEEP THIS LIST ORDERED BY ID! */
 };

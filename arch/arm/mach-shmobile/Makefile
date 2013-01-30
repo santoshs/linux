@@ -109,3 +109,12 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 obj-$(CONFIG_RENESAS_WIFI) +=  board-renesas_wifi.o
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
+
+# rcu
+obj-y += setup-u2rcu.o
+# csi2
+obj-y += setup-u2csi2.o
+# ion
+obj-y += setup-u2ion.o
+# camera
+obj-y += setup-u2camera.o
