@@ -35,7 +35,6 @@
 #include <linux/gpio.h>
 #include <linux/sched.h>
 
-#define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 #define I2C_SDA_NODELAY		0
 #define I2C_SDA_163NS_DELAY	17
 
@@ -70,86 +69,6 @@ void __init r8a7373_map_io(void)
 	sec_debug_init();
 #endif
 }
-
-static struct cmt_timer_clock cmt1_cks_table[] = {
-	[0] = CKS("cp_clk", 8),
-	[1] = CKS("cp_clk", 32),
-	[2] = CKS("cp_clk", 128),
-	[3] = CKS("cp_clk", 1), /* 0x1000 <=> 315 usecs */
-	[4] = CKS("r_clk", 8),
-	[5] = CKS("r_clk", 32),
-	[6] = CKS("r_clk", 128),
-	[7] = CKS("r_clk", 1), /* 0x8 <=> 244 usecs */
-	/* Pseudo 32KHz/1 is omitted */
-};
-
-/* CMT11 */
-static struct sh_timer_config cmt11_platform_data = {
-	.name			= "CMT11",
-	.channel_offset		= 0x1000,
-	.timer_bit		= 1,
-	.clockevent_rating	= 125,
-	.cks_table	= cmt1_cks_table,
-	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 3,
-	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
-};
-
-static struct resource cmt11_resources[] = {
-	{
-		.name	= "CMT11",
-		.start	= 0xe6130100,
-		.end	= 0xe6131003,
-		.flags	= IORESOURCE_MEM,
-	}, {
-		.start	= gic_spi(94),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device cmt11_device = {
-	.name		= "sh_cmt",
-	.id		= 11,
-	.dev		= {
-		.platform_data	= &cmt11_platform_data,
-	},
-	.resource	= cmt11_resources,
-	.num_resources	= ARRAY_SIZE(cmt11_resources),
-};
-
-/* CMT12 */
-static struct sh_timer_config cmt12_platform_data = {
-	.name		= "CMT12",
-	.channel_offset		= 0x1000 - 0x200,
-	.timer_bit		= 2,
-	.clockevent_rating	= 125,
-	.cks_table	= cmt1_cks_table,
-	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
-	.cks		= 3,
-	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
-};
-
-static struct resource cmt12_resources[] = {
-	{
-		.name	= "CMT12",
-		.start	= 0xe6130200,
-		.end	= 0xe6131003,
-		.flags	= IORESOURCE_MEM,
-	}, {
-		.start	= gic_spi(95),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device cmt12_device = {
-	.name		= "sh_cmt",
-	.id		= 12,
-	.dev		= {
-		.platform_data	= &cmt12_platform_data,
-	},
-	.resource	= cmt12_resources,
-	.num_resources	= ARRAY_SIZE(cmt12_resources),
-};
 
 /*GPIO Settings for SCIFA0 port */
 static struct portn_gpio_setting_info scif0_gpio_setting_info[] = {
@@ -298,14 +217,14 @@ static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
 			.port_fn	= GPIO_FN_SCIFB0_TXD,
 			.pull		= PORTn_CR_PULL_DOWN,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level = PORTn_OUTPUT_LEVEL_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 1 */
-			.port_fn		= GPIO_FN_SCIFB0_TXD,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_NOT_SET,
+			.port_fn	= GPIO_FN_SCIFB0_TXD,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
@@ -315,17 +234,17 @@ static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 1 */
-			.port_fn		= GPIO_FN_SCIFB0_RXD,
-			.pull			= PORTn_CR_PULL_UP,
-			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.port_fn	= GPIO_FN_SCIFB0_RXD,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 1 */
-			.port_fn		= GPIO_FN_SCIFB0_RXD,
-			.pull			= PORTn_CR_PULL_UP,
-			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.port_fn	= GPIO_FN_SCIFB0_RXD,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
@@ -335,18 +254,18 @@ static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 1 */
-			.port_fn		= GPIO_FN_SCIFB0_CTS_,
-			.pull			= PORTn_CR_PULL_UP,
-			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.port_fn	= GPIO_FN_SCIFB0_CTS_,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 	},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 1 */
-		.port_fn			= GPIO_FN_SCIFB0_CTS_,
-		.pull				= PORTn_CR_PULL_UP,
-		.direction			= PORTn_CR_DIRECTION_INPUT,
-		.output_level		= PORTn_OUTPUT_LEVEL_NOT_SET,
+			.port_fn	= GPIO_FN_SCIFB0_CTS_,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
 	[3] = { /* SCIFB0_RTS_ */
@@ -354,19 +273,19 @@ static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
 		.port = GPIO_PORT37,
 		/* GPIO settings to be retained at resume state */
 		.active = {
-/* Function 1 */
-		.port_fn			= GPIO_FN_SCIFB0_RTS_,
-		.pull				= PORTn_CR_PULL_DOWN,
-		.direction			= PORTn_CR_DIRECTION_NOT_SET,
-		.output_level		= PORTn_OUTPUT_LEVEL_NOT_SET,
-	},
-/* GPIO settings to be set at suspend state */
-.inactive = {
-/* Function 1 */
-		.port_fn			= GPIO_FN_SCIFB0_RTS_,
-		.pull				= PORTn_CR_PULL_OFF,
-		.direction			= PORTn_CR_DIRECTION_NOT_SET,
-		.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+			/* Function 1 */
+			.port_fn	= GPIO_FN_SCIFB0_RTS_,
+			.pull		= PORTn_CR_PULL_DOWN,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
+		},
+		/* GPIO settings to be set at suspend state */
+		.inactive = {
+			/* Function 1 */
+			.port_fn	= GPIO_FN_SCIFB0_RTS_,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
 };
@@ -402,17 +321,17 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 2 */
-			.port_fn		= GPIO_FN_SCIFB1_RTS,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_OUTPUT,
+			.port_fn	= GPIO_FN_SCIFB1_RTS,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_OUTPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 0 */
-			.port_fn		= GPIO_PORT76,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_NONE,
+			.port_fn	= GPIO_PORT76,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
@@ -422,17 +341,17 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 2 */
-			.port_fn		= GPIO_FN_SCIFB1_CTS,
-			.pull			= PORTn_CR_PULL_UP,
-			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.port_fn	= GPIO_FN_SCIFB1_CTS,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
-/* GPIO settings to be set at suspend state */
+		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 0 */
-			.port_fn		= GPIO_PORT77,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_NONE,
+			.port_fn	= GPIO_PORT77,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
@@ -442,17 +361,17 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 2 */
-			.port_fn		= GPIO_FN_SCIFB1_TXD,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_OUTPUT,
+			.port_fn	= GPIO_FN_SCIFB1_TXD,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_OUTPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 0 */
-			.port_fn		= GPIO_PORT78,
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_NONE,
+			.port_fn	= GPIO_PORT78,
+			.pull		= PORTn_CR_PULL_OFF,
+			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
@@ -462,21 +381,22 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 		/* GPIO settings to be retained at resume state */
 		.active = {
 			/* Function 2 */
-			.port_fn		= GPIO_FN_SCIFB1_RXD,
-			.pull			= PORTn_CR_PULL_UP,
-			.direction		= PORTn_CR_DIRECTION_INPUT,
+			.port_fn	= GPIO_FN_SCIFB1_RXD,
+			.pull		= PORTn_CR_PULL_UP,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			/* Function 0 */
-			.port_fn		= GPIO_PORT79,
-			.pull			= PORTn_CR_PULL_DOWN,
-			.direction		= PORTn_CR_DIRECTION_NONE,
+			.port_fn	= GPIO_PORT79,
+			.pull		= PORTn_CR_PULL_DOWN,
+			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
 };
+
 /* SCIFB1 */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
@@ -763,16 +683,6 @@ static struct platform_device i2c5_device_es10 = {
 		.platform_data	= &i2c5_platform_data,
 	},
 };
- 
-static struct platform_device i2c5_device_es20 = {
-	.name		= "i2c-sh_mobile",
-	.id		= 5,
-	.resource	= i2c5_resources_es20,
-	.num_resources	= ARRAY_SIZE(i2c5_resources_es20),
-	.dev = {
-		.platform_data	= &i2c5_platform_data,
-	},
-};
 
 static struct platform_device i2c5_device_es20 = {
 	.name		= "i2c-sh_mobile",
@@ -815,7 +725,7 @@ static struct platform_device i2c6_device = {
 	},
 };
 
-/* IIC7H */
+/* IIC3H */
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -1122,7 +1032,7 @@ static const struct sh_dmae_slave_config r8a7373_dmae_slaves[] = {
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCUW_CPUFIFO_0_TX,
 		.addr		= 0xec700720,
-		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
+		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
 		.mid_rid	= 0x7d,
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCUW_CPUFIFO_2_RX,
@@ -1132,12 +1042,12 @@ static const struct sh_dmae_slave_config r8a7373_dmae_slaves[] = {
 	}, {
 		.slave_id	= SHDMA_SLAVE_SCUW_CPUFIFO_1_TX,
 		.addr		= 0xec70072c,
-		.chcr		= CHCR_RX(XMIT_SZ_32BIT),
+		.chcr		= CHCR_TX(XMIT_SZ_32BIT),
 		.mid_rid	= 0x81,
 	}, {
 		.slave_id	= SHDMA_SLAVE_PCM2PWM_TX,
 		.addr		= 0xec380080,
-		.chcr		= CHCR_RX(XMIT_SZ_16BIT),
+		.chcr		= CHCR_TX(XMIT_SZ_16BIT),
 		.mid_rid	= 0x91,
 	},
 };
@@ -1445,8 +1355,6 @@ static struct platform_device sgx_device = {
 /* Removed unused SCIF Ports getting initialized
  * to reduce BOOT UP time "JIRAID 1382" */
 static struct platform_device *r8a7373_early_devices[] __initdata = {
-	&cmt11_device,
-	&cmt12_device,
 	&scif0_device,
 	&scif4_device,
 	&scif5_device,
@@ -1548,54 +1456,9 @@ void __init r8a7373_add_standard_devices(void)
 		}
 	}
 /* ES2.0 change end */
-
-#if 0
-#ifdef CONFIG_CACHE_L2X0
-	/*
-	 * [30] Early BRESP enable
-	 * [27] Non-secure interrupt access control
-	 * [26] Non-secure lockdown enable
-	 * [22] Shared attribute override enable
-	 * [19:17] Way-size: b010 = 32KB
-	 * [16] Accosiativity: 0 = 8-way
-	 */
-	l2x0_init(IOMEM(0xf0100000), 0x4c440000, 0x820f0fff);
-#endif
-
-	r8a7373_pm_init();
-
-	r8a7373_init_pm_domain(&r8a7373_a3sg);
-	r8a7373_init_pm_domain(&r8a7373_a3sp);
-	r8a7373_init_pm_domain(&r8a7373_a3r);
-	r8a7373_init_pm_domain(&r8a7373_a4rm);
-	r8a7373_init_pm_domain(&r8a7373_a4mp);
-
-	r8a7373_pm_add_subdomain(&r8a7373_a4rm, &r8a7373_a3r);
-
-	platform_add_devices(r8a7373_devices, ARRAY_SIZE(r8a7373_devices));
-
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c0_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c1_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c2_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c3_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c4_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c5_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c6_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &i2c7_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &dma0_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif1_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif2_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif3_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif4_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif5_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sp, &scif6_device);
-	r8a7373_add_device_to_domain(&r8a7373_a3sg, &sgx_device);
-#endif
 }
 
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
-void __init __weak r8a7373_register_twd(void) { }
-
 extern spinlock_t sh_cmt_lock;
 
 static struct clk *cmt10_clk;
@@ -1649,9 +1512,22 @@ void clocksource_mmio_resume(struct clocksource *cs)
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 void __init __weak r8a7373_register_twd(void) { }
 
+/* CMT10 clocksource */
+#define CMCLKE  0xe6131000
+#define CMSTR0  0xe6130000
+#define CMCSR0  0xe6130010
+#define CMCNT0  0xe6130014
+#define CMCOR0  0xe6130018
+
+/* CMT14 sched_clock */
+#define CMSTR4  0xe6130400
+#define CMCSR4  0xe6130410
+#define CMCNT4  0xe6130414
+#define CMCOR4  0xe6130418
+
 static u32 notrace cmt_read_sched_clock(void)
 {
-	return __raw_readl(CMCNT4);
+        return __raw_readl(CMCNT4);
 }
 
 static void __init cmt_clocksource_init(void)
@@ -1659,40 +1535,68 @@ static void __init cmt_clocksource_init(void)
 	struct clk *cp_clk, *r_clk;
 	unsigned long flags, rate;
 
-	/* Set up CMT14 for sched_clock - running forever */
+
+	clk_enable(clk_get_sys("sh_cmt.10", NULL));
+	cp_clk = clk_get(NULL, "cp_clk");
+	rate = clk_get_rate(cp_clk);
+	clk_enable(cp_clk);
+
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1 << 0), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+
+	/* stop */
+	__raw_writel(0, CMSTR0);
+
+	/* setup */
+	__raw_writel(0, CMCNT0);
+	__raw_writel(0x10b, CMCSR0); /* Free-running, debug, cp_clk/1 */
+	__raw_writel(0xffffffff, CMCOR0);
+	while (__raw_readl(CMCNT0) != 0)
+		;
+
+	/* start */
+	__raw_writel(1, CMSTR0);
+
+	clocksource_mmio_init(IOMEM(CMCNT0), "cmt10", rate, 125, 32,
+				clocksource_mmio_readl_up);
+
 	clk_enable(clk_get_sys("sh_cmt.14", NULL));
 	r_clk = clk_get(NULL, "r_clk");
 	clk_enable(r_clk);
 	rate = clk_get_rate(r_clk);
 
-	spin_lock_irqsave(&sh_cmt_lock, flags);
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1 << 4), CMCLKE);
-	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+	spin_unlock_irqrestore(&cmt_lock, flags);
 
+	/* stop */
 	__raw_writel(0, CMSTR4);
 
+	/* setup */
 	__raw_writel(0, CMCNT4);
-	__raw_writel(0x10f, CMCSR4); /* Free-running, DBGIVD, RCLK/1 */
+	__raw_writel(0x10f, CMCSR4); /* Free-running, debug, RCLK/1 */
 	__raw_writel(0xffffffff, CMCOR4);
 	while (__raw_readl(CMCNT4) != 0)
-		cpu_relax();
+		;
 
+	/* start */
 	__raw_writel(1, CMSTR4);
 
-	sched_clock_init();
-
-	/* Set up CMT10 for clocksource - get halted during suspend */
-	cmt10_clk = clk_get_sys("sh_cmt.10", NULL);
-	clk_enable(cmt10_clk);
-	cp_clk = clk_get(NULL, "cp_clk");
-	clk_enable(cp_clk);
-	rate = clk_get_rate(cp_clk);
-
-	cmt10_start();
-
-	clocksource_mmio_init(__io(CMCNT0), "cmt10", rate, 125, 32,
-				clocksource_mmio_readl_up);
+	setup_sched_clock(cmt_read_sched_clock, 32, rate);
 }
+
+static struct cmt_timer_clock cmt1_cks_table[] = {
+	[0] = CKS("cp_clk", 8, 512),
+	[1] = CKS("cp_clk", 32, 128),
+	[2] = CKS("cp_clk", 128, 32),
+	[3] = CKS("cp_clk", 1, 4096), /* 0x1000 <=> 315 usecs */
+	[4] = CKS("r_clk", 8, 8),
+	[5] = CKS("r_clk", 32, 8),
+	[6] = CKS("r_clk", 128, 8),
+	[7] = CKS("r_clk", 1, 8), /* 0x8 <=> 244 usecs */
+	/* Pseudo 32KHz/1 is omitted */
+};
 
 
 /* CMT11, CMT12 clockevent */
@@ -1726,7 +1630,7 @@ static struct cmt_timer_config cmt1_timers[2] = {
 /* Current timer */
 int cmt_read_current_timer(unsigned long *timer_val)
 {
-	*timer_val = __raw_readl(CMCNT3);
+	*timer_val = __raw_readl(CMCNT0);
 	return 0;
 }
 
@@ -1768,20 +1672,4 @@ void __init r8a7373_init_early(void)
 
 	/* override timer setup with soc-specific code */
 	shmobile_timer.init = r8a7373_timer_init;
-}
-
-extern void sh_cmt_register_devices(struct platform_device **devs, int num);
-
-void __init r8a7373_add_early_devices(void)
-{
-	system_rev = __raw_readl(__io(CCCR));
-
-	shmobile_clocksource_init = cmt_clocksource_init;
-
-	early_platform_add_devices(r8a7373_early_devices,
-			ARRAY_SIZE(r8a7373_early_devices));
-
-#ifdef CONFIG_SH_TIMER_CMT_ARM
-	sh_cmt_register_devices(r8a7373_early_devices, NR_CPUS);
-#endif
 }

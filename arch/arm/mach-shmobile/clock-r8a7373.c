@@ -974,7 +974,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("dsi1p_clk", &div6_clks[DIV6_DSI1P]),
 	CLKDEV_CON_ID("dsi1p0_clk", &dsi1p0_clk),
 	CLKDEV_CON_ID("dsi1p1_clk", &dsi1p1_clk),
-	
+
 	CLKDEV_CON_ID("csi21", &mstp_clks[MSTP128]), /* CSI2-RX1 */
 	CLKDEV_CON_ID("csi20", &mstp_clks[MSTP126]), /* CSI2-RX0 */
 

@@ -1267,6 +1267,8 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	mutex_lock(&dev->mutex);
 
 	sscanf(buff, "%d", &enabled);
+	if (cdev->gadget)
+		usb_gadget_vbus_connect(cdev->gadget);
 	if (enabled && !dev->enabled) {
 		/*
 		 * Update values in composite driver's copy of

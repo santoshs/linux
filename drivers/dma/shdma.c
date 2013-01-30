@@ -30,7 +30,6 @@
 #include <linux/kdebug.h>
 #include <linux/spinlock.h>
 #include <linux/rculist.h>
-#include <asm/io.h>
 
 #include "dmaengine.h"
 #include "shdma.h"
@@ -362,12 +361,10 @@ static int dmae_set_dmars(struct sh_dmae_chan *sh_chan, u16 val)
 {
 	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	struct sh_dmae_pdata *pdata = shdev->pdata;
-	const struct sh_dmae_channel *chan_pdata;
+	const struct sh_dmae_channel *chan_pdata = &pdata->channel[sh_chan->id];
 	u16 __iomem *addr = shdev->dmars;
 	unsigned int shift = chan_pdata->dmars_bit;
 
-	chan_pdata = &pdata->channel[sh_chan->id];
-	shift = chan_pdata->dmars_bit;
 
 	if (dmae_is_busy(sh_chan))
 		return -EBUSY;
@@ -422,9 +419,9 @@ int sh_dmae_clear_rpt_mode(struct dma_chan *chan)
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	/* Revert to descriptor normal mode */
-	chcr = sh_dmae_readl(sh_chan, CHCR);
+	chcr = chcr_read(sh_chan);
 	chcr = (chcr & ~CHCR_DPM_MASK) | CHCR_DPM_DNM;
-	sh_dmae_writel(sh_chan, chcr, CHCR);
+	chcr_write(sh_chan, chcr);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
@@ -474,18 +471,22 @@ static void dmae_set_desc_mem(struct sh_dmae_chan *sh_chan,
 
 static void dmae_rpt_start(struct sh_dmae_chan *sh_chan)
 {
-	u32 chcr = sh_dmae_readl(sh_chan, CHCR);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
+	u32 chcr = chcr_read(sh_chan);
+
 	/* Start descriptor repeat mode with DPB = 1 */
-	chcr |= CHCR_DE | CHCR_IE | CHCR_DSIE | CHCR_DPB;
-	sh_dmae_writel(sh_chan, chcr, CHCR);
+	chcr |= CHCR_DE | (shdev->chcr_ie_bit) | CHCR_DSIE | CHCR_DPB;
+	chcr_write(sh_chan, chcr);
 }
 
 static void dmae_rpt_halt(struct sh_dmae_chan *sh_chan)
 {
-	u32 chcr = sh_dmae_readl(sh_chan, CHCR);
+	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
+	u32 chcr = chcr_read(sh_chan);
 
-	chcr &= ~(CHCR_DE | CHCR_TE | CHCR_IE | CHCR_DSIE | CHCR_DSE);
-	sh_dmae_writel(sh_chan, chcr, CHCR);
+	chcr &= ~(CHCR_DE | CHCR_TE | (shdev->chcr_ie_bit)
+			  | CHCR_DSIE | CHCR_DSE);
+	chcr_write(sh_chan, chcr);
 }
 
 static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
@@ -506,7 +507,20 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 		power_up = false;
 
 	cookie = dma_cookie_assign(tx);
+	if (power_up) {
+		pm_runtime_get_sync(sh_chan->dev);
 
+		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
+
+		if (param) {
+			const struct sh_dmae_slave_config *cfg = param->config;
+
+			dmae_set_dmars(sh_chan, cfg->mid_rid);
+			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
+		} else {
+			dmae_init(sh_chan);
+		}
+	}
 	if (sh_chan->desc_mode) {
 		desc->mark = DESC_SUBMITTED;
 		desc->cookie = cookie;
@@ -544,20 +558,6 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
-	if (power_up) {
-		pm_runtime_get_sync(sh_chan->dev);
-
-		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
-
-		if (param) {
-			const struct sh_dmae_slave_config *cfg = param->config;
-
-			dmae_set_dmars(sh_chan, cfg->mid_rid);
-			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
-		} else {
-			dmae_init(sh_chan);
-		}
-	}
 
 	return cookie;
 }
@@ -667,7 +667,6 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_desc *desc, *_desc;
 	LIST_HEAD(list);
-	int descs = sh_chan->descs_allocated;
 	unsigned long flags;
 
 	/* Protect against ISR */
@@ -697,11 +696,9 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	list_splice_init(&sh_chan->ld_free, &list);
 	sh_chan->descs_allocated = 0;
 	sh_chan->chcr = 0;
+	sh_chan->desc_mode = 0;
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
-	if (descs > 0)
-		pm_runtime_put_sync(sh_chan->dev);
 
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);
@@ -822,12 +819,16 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	sh_dmae_writel(sh_chan, chcrb, CHCRB);
 
 	/* Update the RPT */
-	chcr = sh_dmae_readl(sh_chan, CHCR) | CHCR_RPT;
-	sh_dmae_writel(sh_chan, chcr, CHCR);
+
+	chcr = chcr_read(sh_chan) | CHCR_RPT;
+
+	chcr_write(sh_chan, chcr);
+
 
 	/* Enable the descriptor repeat mode */
 	chcr = (chcr & ~CHCR_DPM_MASK) | CHCR_DPM_DRM;
-	sh_dmae_writel(sh_chan, chcr, CHCR);
+	chcr_write(sh_chan, chcr);
+
 
 	spin_lock_irqsave(&sh_chan->desc_lock, irq_flags);
 	/*
@@ -1235,7 +1236,7 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan,
 
 			if (list_empty(&sh_chan->ld_queue)) {
 				dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
-				pm_runtime_put(sh_chan->dev);
+				pm_runtime_put_sync(sh_chan->dev);
 			}
 		}
 	}
@@ -1351,7 +1352,7 @@ static irqreturn_t sh_dmae_interrupt(int irq, void *data)
 	if (sh_chan->desc_mode) {
 		if ((chcr & CHCR_DSE) || (chcr & CHCR_TE)) {
 			chcr &= ~(CHCR_TE | CHCR_DSE);
-			sh_dmae_writel(sh_chan, chcr, CHCR);
+			chcr_write(sh_chan, chcr);
 			ret = IRQ_HANDLED;
 			tasklet_schedule(&sh_chan->tasklet);
 		}
@@ -1408,7 +1409,7 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 
 		if (!list_empty(&dl)) {
 			dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
-			pm_runtime_put(sh_chan->dev);
+			pm_runtime_put_sync(sh_chan->dev);
 		}
 
 		spin_unlock(&sh_chan->desc_lock);
@@ -1739,6 +1740,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, shdev);
 
+	shdev->common.dev = &pdev->dev;
 	shdev->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(shdev->clk)) {
 		dev_err(&pdev->dev,
@@ -1746,7 +1748,6 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 		err = PTR_ERR(shdev->clk);
 		goto clk_err;
 	}
-	shdev->common.dev = &pdev->dev;
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -1863,7 +1864,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 			   pdata->channel_num, SH_DMAC_MAX_CHANNELS);
 
 
-	pm_runtime_put(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 
 	dma_async_device_register(&shdev->common);
 	return err;
@@ -1880,7 +1881,7 @@ rst_err:
 	list_del_rcu(&shdev->node);
 	spin_unlock_irq(&sh_dmae_lock);
 
-	pm_runtime_put(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	clk_put(shdev->clk);
 
@@ -1972,16 +1973,16 @@ static void sh_dmae_shutdown(struct platform_device *pdev)
 static int sh_dmae_runtime_suspend(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-
-	clk_disable(shdev->clk);
+	if (shdev && shdev->clk)
+		clk_disable(shdev->clk);
 	return 0;
 }
 
 static int sh_dmae_runtime_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-
-	clk_enable(shdev->clk);
+	if (shdev && shdev->clk)
+		clk_enable(shdev->clk);
 	return sh_dmae_rst(shdev);
 }
 

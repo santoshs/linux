@@ -1511,11 +1511,6 @@ static void sci_start_tx(struct uart_port *port)
 	struct sci_port *s = to_sci_port(port);
 	unsigned short ctrl;
 
-	/* Wake BT chip before sending a frame */
-	if (s->cfg->exit_lpm_cb)
-		s->cfg->exit_lpm_cb(port);
-
-
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
 		u16 new, scr = serial_port_in(port, SCSCR);
@@ -1741,8 +1736,6 @@ static void sci_free_dma(struct uart_port *port)
 
 	del_timer_sync(&s->rx_timer);
 
-	del_timer_sync(&s->rx_timer);
-
 	if (s->chan_tx)
 		sci_tx_dma_release(s, false);
 	if (s->chan_rx)
@@ -1761,7 +1754,7 @@ static inline void sci_free_dma(struct uart_port *port)
 static int sci_startup(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
-	unsigned long flags;
+	unsigned long flags = 0 ;
 	int ret;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
@@ -1783,7 +1776,7 @@ static int sci_startup(struct uart_port *port)
 static void sci_shutdown(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
-	unsigned long flags;
+	unsigned long flags = 0 ;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
 
@@ -1888,7 +1881,7 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	{
 		smr_val &= ~(7 << 8);
 		smr_val |= 4 << 8;
-        }
+	}
 
 	uart_update_timeout(port, termios->c_cflag, baud);
 
@@ -2247,8 +2240,8 @@ static void serial_console_write(struct console *co, const char *s,
 if(KERNEL_LOG) {
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
-	unsigned short bits, ctrl;
-	unsigned long flags;
+	unsigned short bits = 0, ctrl = 0 ;
+	unsigned long flags = 0 ;
 	int locked = 1;
 
 	local_irq_save(flags);
@@ -2463,122 +2456,18 @@ static int __devinit sci_probe(struct platform_device *dev)
 	return 0;
 }
 
-static void sci_gpio_setting(struct plat_sci_port *pdata, int suspend_mode)
-{
-	int i = 0, ret = 0;
-	int port;
-	struct portn_gpio_setting *gpio_prev, *gpio_current;
-
-	if (pdata == NULL || pdata->port_count == 0)
-		return ;
-
-	for (i = 0; i < pdata->port_count; i++)	{
-		port = pdata->scif_gpio_setting_info[i].port;
-		if (suspend_mode == 1) {
-			gpio_current = \
-				&pdata->scif_gpio_setting_info[i].inactive;
-			gpio_prev  = &pdata->scif_gpio_setting_info[i].active;
-		} else {
-			gpio_current = &pdata->scif_gpio_setting_info[i].active;
-			gpio_prev = &pdata->scif_gpio_setting_info[i].inactive;
-		}
-
-		if (pdata->scif_gpio_setting_info[i].flag == 1) {
-			/* Change required */
-			gpio_free(gpio_prev->port_fn);
-
-			/* Set Input/Output direction & Output level */
-			/*
-			 * gpio_direction_input() and gpio_direction_output
-			 * are only used by Function 0. So, in the case of
-			 * selecting function other than Function 0,
-			 * it is necessary to do following sequence.
-			 * 1.gpio_request()   <- Function0
-			 * 2.gpio_direction_output()/gpio_direction_input()
-			 * 3.gpio_free()
-			 * 4.gpio_request() <- except Function0.
-			*/
-			switch (gpio_current->direction) {
-			case PORTn_CR_DIRECTION_NOT_SET:
-				break ;
-			case PORTn_CR_DIRECTION_NONE:
-				/* Select Function 0 */
-				gpio_request(port, NULL);
-				/* Either gpio_direction_input or
-				gpio_direction_output should be invoked
-				before gpio_direction_none_port */
-				gpio_direction_input(port);
-				gpio_direction_none_port(port);
-				if (gpio_current->port_fn != port)
-					gpio_free(port);
-				break;
-			case PORTn_CR_DIRECTION_OUTPUT:
-				gpio_request(port, NULL);
-				gpio_direction_output(port,
-						gpio_current->output_level);
-				if (gpio_current->port_fn != port)
-					gpio_free(port);
-				break;
-
-			case PORTn_CR_DIRECTION_INPUT:
-				gpio_request(port, NULL);
-				gpio_direction_input(port);
-				if (gpio_current->port_fn != port)
-					gpio_free(port);
-				break;
-			default:
-				break;
-			}
-
-			/* Set Pull up/down/off */
-			switch (gpio_current->pull)	{
-			case PORTn_CR_PULL_NOT_SET:
-				break;
-			case PORTn_CR_PULL_OFF:
-				gpio_pull_off_port(port);
-				break;
-			case PORTn_CR_PULL_DOWN:
-				gpio_pull_down_port(port);
-				break;
-
-			case PORTn_CR_PULL_UP:
-				gpio_pull_up_port(port);
-				break;
-			default:
-				break;
-			}
-			if (gpio_current->port_fn != port)
-				gpio_request(gpio_current->port_fn, NULL);
-		}
-	}
-	return;
-}
-
 static int sci_suspend(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
-	struct uart_port *port = &sport->port;
-	u16 data;
 
-	if (sport) {
-		if (sport->cfg->rts_ctrl) {
-			sci_port_enable(sport);
-
-#if 0			/* Set RTS to high before going in deep sleep mode */
-			data = serial_port_in(port, SCPCR);
-			sci_out(port, SCPCR,  data | 0x0010);
-
-			data = serial_port_in(port, SCPDR);
-			sci_out(port, SCPDR,  data | 0x0010);
-#endif
-			sci_port_disable(sport);
-		}
-
+	/* GPIO settings review comments for PCP# NK12120730341 */
+	if (sport && sport->cfg) {
 		uart_suspend_port(&sci_uart_driver, &sport->port);
 		/* Set suspend state GPIO CR values here
 					to reduce power consumption */
 		/* Second parameter is suspend_mode */
-		sci_gpio_setting(sport->cfg, 1);
+		gpio_set_portncr_value(sport->cfg->port_count,\
+			sport->cfg->scif_gpio_setting_info, 1);
 	}
 
 	return 0;
@@ -2587,28 +2476,14 @@ static int sci_suspend(struct device *dev)
 static int sci_resume(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
-	struct uart_port *port = &sport->port;
-	u16 data;
 
-	if (sport) {
+	/* GPIO settings review comments for PCP# NK12120730341 */
+	if (sport && sport->cfg) {
 		/* Resume back initial GPIO settings here */
-		sci_gpio_setting(sport->cfg, 0);
+		gpio_set_portncr_value(sport->cfg->port_count, \
+			sport->cfg->scif_gpio_setting_info, 0);
 		uart_resume_port(&sci_uart_driver, &sport->port);
-
-		if (sport->cfg->rts_ctrl) {
-			sci_port_enable(sport);
-
-#if 0			/* Set RTS to low after the resume */
-			data = serial_port_in(port, SCPDR);
-			sci_out(port, SCPDR,  data & 0xFFEF);
-
-			data = serial_port_in(port, SCPCR);
-			sci_out(port, SCPCR,  data & 0xFFEF);
-
-#endif			sci_port_disable(sport);
-		}
 	}
-
 	return 0;
 }
 
