@@ -39,6 +39,25 @@
 #define I2C_SDA_163NS_DELAY	17
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
+#if 1
+/*
+ * TODO: Porting  parameter.
+ *   original parameter is error by vmalloc.
+ *   we use KOTA K3.4.5 parameter.
+ */
+	{
+		.virtual	= 0xe6000000,
+		.pfn		= __phys_to_pfn(0xe6000000),
+		.length		= SZ_16M,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= 0xf0000000,
+		.pfn		= __phys_to_pfn(0xf0000000),
+		.length		= SZ_2M,
+		.type		= MT_DEVICE
+	},
+#else
 	{
 		.virtual	= 0xe6000000,
 		.pfn		= __phys_to_pfn(0xe6000000),
@@ -60,6 +79,7 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.length		= SZ_4M,
 		.type		= MT_DEVICE
 	},
+#endif
 };
 
 void __init r8a7373_map_io(void)
