@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/serial_sci.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <linux/i2c-gpio.h>
 #include <linux/clocksource.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
@@ -35,8 +36,6 @@
 #include <linux/gpio.h>
 #include <linux/sched.h>
 
-#define I2C_SDA_NODELAY		0
-#define I2C_SDA_163NS_DELAY	17
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
@@ -491,7 +490,7 @@ static struct platform_device scif7_device = {
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay	= MIN_SDA_DELAY ,
 };
 
 static struct resource i2c0_resources[] = {
@@ -522,7 +521,7 @@ static struct platform_device i2c0_device = {
 static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay	= MIN_SDA_DELAY,
 };
 
 static struct resource i2c1_resources[] = {
@@ -553,7 +552,7 @@ static struct platform_device i2c1_device = {
 static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay	= MIN_SDA_DELAY,
 };
 
 static struct resource i2c2_resources[] = {
@@ -584,7 +583,7 @@ static struct platform_device i2c2_device = {
 static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay	= MIN_SDA_DELAY,
 };
 
 static struct resource i2c3_resources[] = {
@@ -614,8 +613,8 @@ static struct platform_device i2c3_device = {
 /* IIC0H */
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
-	.pin_multi	= true,
-	.bus_data_delay	= I2C_SDA_163NS_DELAY,
+        .pin_multi	= true,
+	.bus_data_delay = I2C_SDA_163NS_DELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT84,
 		.port_func	= GPIO_FN_I2C_SCL0H,
@@ -654,7 +653,7 @@ static struct platform_device i2c4_device = {
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay = MIN_SDA_DELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT86,
 		.port_func	= GPIO_FN_I2C_SCL1H,
@@ -719,7 +718,7 @@ static struct platform_device i2c5_device_es20 = {
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
-	.bus_data_delay	= I2C_SDA_NODELAY,
+	.bus_data_delay = MIN_SDA_DELAY,
 };
 
 static struct resource i2c6_resources[] = {
@@ -734,6 +733,7 @@ static struct resource i2c6_resources[] = {
 		.end	= gic_spi(191),
 		.flags	= IORESOURCE_IRQ,
 	},
+
 };
 
 static struct platform_device i2c6_device = {
@@ -745,12 +745,12 @@ static struct platform_device i2c6_device = {
 		.platform_data	= &i2c6_platform_data,
 	},
 };
-
-/* IIC3H */
+/* IIC2H */
+#ifndef CONFIG_SPI_SH_MSIOF
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
-	.bus_data_delay = I2C_SDA_NODELAY,
+	.bus_data_delay = MIN_SDA_DELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT82,
 		.port_func	= GPIO_FN_I2C_SCL2H,
@@ -784,12 +784,14 @@ static struct platform_device i2c7_device = {
 		.platform_data	= &i2c7_platform_data,
 	},
 };
+#endif
 
-/* IIC8H */
+/* IIC3H */
+#ifndef CONFIG_PN544_NFC
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
-	.bus_data_delay = I2C_SDA_NODELAY,
+	.bus_data_delay = MIN_SDA_DELAY,
 	.scl_info	= {
 		.port_num	= GPIO_PORT273,
 		.port_func	= GPIO_FN_I2C_SCL3H,
@@ -813,49 +815,48 @@ static struct resource i2c8_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
-
 static struct platform_device i2c8_device = {
 	.name		= "i2c-sh_mobile",
 	.id		= 8,
-	.resource		= i2c8_resources,
+	.resource	= i2c8_resources,
 	.num_resources	= ARRAY_SIZE(i2c8_resources),
-	.dev = {
+	.dev		= {
 		.platform_data	= &i2c8_platform_data,
 	},
 };
+#endif
 
-/* GPIO Port number needs to be modified by the respective driver module */
-/* Udealy=5 will set I2C bus speed to 100k HZ */
+/* SYS-DMAC */
+/* GPIO Port number needs to be modified by the respective driver module
+Udealy=5 will set I2C bus speed to 100k HZ */
 
-static struct i2c_gpio_platform_data i2c0gpio_platform_data = {
-	.sda_pin	= GPIO_PORT5,
-	.scl_pin	= GPIO_PORT4,
-	.udelay	= 5,
+static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
+      .sda_pin        = GPIO_PORT5,
+      .scl_pin        = GPIO_PORT4,
+      .udelay         = 5,
 };
 
 static struct platform_device i2c0gpio_device = {
-	.name = "i2c-gpio",
-	.id	= 9,
-	.dev = {
-		 .platform_data = &i2c0gpio_platform_data,
-	},
+  .name          = "i2c-gpio",
+  .id    = 9,
+  .dev           = {
+         .platform_data  = &i2c0gpio_platform_data,
+  },
 };
 
-static struct i2c_gpio_platform_data i2c1gpio_platform_data = {
-	.sda_pin	= GPIO_PORT27,
-	.scl_pin	= GPIO_PORT26,
-	.udelay	 = 5,
+static struct i2c_gpio_platform_data  i2c1gpio_platform_data = {
+      .sda_pin        = GPIO_PORT27,
+      .scl_pin        = GPIO_PORT26,
+      .udelay         = 5,
 };
 
 static struct platform_device i2c1gpio_device = {
-	.name = "i2c-gpio",
-	.id	= 10,
-	.dev = {
-		 .platform_data = &i2c1gpio_platform_data,
-	},
+  .name          = "i2c-gpio",
+  .id    = 10,
+  .dev           = {
+         .platform_data  = &i2c1gpio_platform_data,
+  },
 };
-
-/* SYS-DMAC */
 
 /* Transmit sizes and respective CHCR register values */
 enum {
@@ -1416,7 +1417,6 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 #ifndef CONFIG_PN544_NFC
 	&i2c8_device,
 #endif
-	&i2c1gpio_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
 	&smc_netdevice0,

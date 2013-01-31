@@ -211,7 +211,6 @@ static irqreturn_t sh_keysc_isr(int irq, void *dev_id)
 		} while (sh_keysc_read(priv, KYCR2) & 0x01);
 	}
 
-key_report:
 	sh_keysc_map_dbg(&pdev->dev, priv->last_keys, "last_keys");
 	sh_keysc_map_dbg(&pdev->dev, keys0, "keys0");
 	sh_keysc_map_dbg(&pdev->dev, keys1, "keys1");

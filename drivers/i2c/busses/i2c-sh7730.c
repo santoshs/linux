@@ -811,6 +811,12 @@ static int sh7730_i2c_master_xfer(struct i2c_adapter *adap,
 		unsigned char iccr1 = read_ICCR1(id->iobase);
 		struct i2c_sh_mobile_platform_data *pd;
 		pd = id->adap.dev.parent->platform_data;
+		if (!pd) {
+				dev_err(&adap->dev, "no platform_data!\n");
+				clk_disable(id->clk);
+        			pm_runtime_put_sync(adap->dev.parent);
+        			return -ENODEV;
+		}
 
 		/* Transfer Clock Select */
 		{
@@ -953,7 +959,6 @@ again:
 	id->msg = NULL;
 	id->flags = 0;
 	id->status = 0;
-
 	clk_disable(id->clk);
 	pm_runtime_put_sync(adap->dev.parent);
 
