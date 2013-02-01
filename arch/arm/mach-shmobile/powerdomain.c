@@ -620,10 +620,8 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 	}
 
 	if (POWER_A3R == area) {
-		spin_unlock(&dev->power.lock);
 		pm_runtime_put_noidle(&a4rm_device.dev);
 		pm_runtime_suspend(&a4rm_device.dev);
-		spin_lock(&dev->power.lock);
 	}
 
 	return 0;
