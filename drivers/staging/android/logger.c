@@ -733,25 +733,25 @@ DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
 DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
 DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
 
-unsigned long log_main_buffer_address = __pa(&_buf_log_main[0]);
-unsigned long log_main_size_address = __pa(&log_main.size);
-unsigned long log_main_w_off_address = __pa(&log_main.w_off);
-unsigned long log_main_head_address = __pa(&log_main.head);
+unsigned long log_main_buffer_address;
+unsigned long log_main_size_address;
+unsigned long log_main_w_off_address;
+unsigned long log_main_head_address;
 
-unsigned long log_events_buffer_address = __pa(&_buf_log_events[0]);
-unsigned long log_events_size_address = __pa(&log_events.size);
-unsigned long log_events_w_off_address = __pa(&log_events.w_off);
-unsigned long log_events_head_address = __pa(&log_events.head);
+unsigned long log_events_buffer_address;
+unsigned long log_events_size_address;
+unsigned long log_events_w_off_address;
+unsigned long log_events_head_address;
 
-unsigned long log_radio_buffer_address = __pa(&_buf_log_radio[0]);
-unsigned long log_radio_size_address = __pa(&log_radio.size);
-unsigned long log_radio_w_off_address = __pa(&log_radio.w_off);
-unsigned long log_radio_head_address = __pa(&log_radio.head);
+unsigned long log_radio_buffer_address;
+unsigned long log_radio_size_address;
+unsigned long log_radio_w_off_address;
+unsigned long log_radio_head_address;
 
-unsigned long log_system_buffer_address = __pa(&_buf_log_system[0]);
-unsigned long log_system_size_address = __pa(&log_system.size);
-unsigned long log_system_w_off_address = __pa(&log_system.w_off);
-unsigned long log_system_head_address = __pa(&log_system.head);
+unsigned long log_system_buffer_address;
+unsigned long log_system_size_address;
+unsigned long log_system_w_off_address;
+unsigned long log_system_head_address;
 
 void get_logcat_bufinfo(char* logname, unsigned char ** buffer, size_t * w_off, size_t * head, size_t * size)
 {

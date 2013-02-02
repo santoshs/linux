@@ -2122,8 +2122,6 @@ void mmc_stop_host(struct mmc_host *host)
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
 
-	if (host->caps & MMC_CAP_DISABLE)
-		cancel_delayed_work(&host->disable);
 	if (cancel_delayed_work_sync(&host->detect))
 		wake_unlock(&host->detect_wake_lock);
 	mmc_flush_scheduled_work();

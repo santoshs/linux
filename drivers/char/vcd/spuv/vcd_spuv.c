@@ -22,6 +22,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <mach/pm.h>
+#include <mach/irqs.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"

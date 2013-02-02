@@ -46,7 +46,8 @@ daniel.lee@siliconimage.com
 #include <linux/err.h>
 #include <linux/switch.h>
 #include <linux/poll.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
+#include <mach/irqs.h>
 #include <linux/gpio.h>
 #include <linux/earlysuspend.h>
 #define SYSFS_EVENT_FILENAME "evread"

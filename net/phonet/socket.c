@@ -106,7 +106,7 @@ struct sock *pn_find_sock_by_sa_and_skb(struct net *net,
 					skb_frag_t *msg_frag =
 						&skb_shinfo(skb)->frags[0];
 
-					msg_page = msg_frag->page;
+					msg_page = msg_frag->page.p;
 					msg = page_address(msg_page);
 
 					type = msg[msg_frag->page_offset + 2];

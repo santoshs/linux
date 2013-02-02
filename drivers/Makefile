@@ -135,3 +135,14 @@ obj-$(CONFIG_VIRT_DRIVERS)	+= virt/
 obj-$(CONFIG_HYPERV)		+= hv/
 
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
+
+obj-$(CONFIG_NEW_SENSORS)	+= sensors/
+obj-y				+= pmic/
+
+obj-$(CONFIG_SMECO)		+= smeco/
+
+obj-$(CONFIG_THERMAL_SENSOR)	+= thermal/thermal_sensor/
+obj-y				+= motor/
+obj-$(CONFIG_PM_DEBUG)		+= pmdbg/
+obj-$(CONFIG_ARM_SEC_HAL)	+= sec_hal/
+obj-y				+= zb3ctrl/

@@ -118,19 +118,3 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 	shmobile_smp_prepare_cpus();
 }
-
-int shmobile_platform_cpu_kill(unsigned int cpu)
-{
-	if (machine_is_u2evm())
-		return r8a73734_smp_cpu_kill(cpu);
-
-	return 1;
-}
-
-int shmobile_platform_cpu_die(unsigned int cpu)
-{
-	if (machine_is_u2evm())
-		return r8a73734_smp_cpu_die(cpu);
-
-	return 1;
-}

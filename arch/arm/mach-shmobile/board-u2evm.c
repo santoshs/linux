@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
+#include <linux/i2c.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/setup-u2usb.h>
@@ -762,15 +763,7 @@ static struct platform_device u2evm_ion_device = {
 		.platform_data = &u2evm_ion_data,
 	},
 };
-/* I2C */
-#ifdef CONFIG_PMIC_INTERFACE
-static struct tps80031_32kclock_plat_data tps_clk = {
-        /*All 32k always on*/
-        .en_clk32kao = 1,
-        .en_clk32kg = 1,
-        .en_clk32kaudio = 1,
-};
-#endif /* CONFIG_PMIC_INTERFACE */
+
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_INPUT_YAS_SENSORS) || \
 	defined(CONFIG_OPTICAL_TAOS_TRITON) || defined(CONFIG_OPTICAL_GP2AP020A00F)
 
@@ -1870,7 +1863,9 @@ int ISX012_power(struct device *dev, int power_on)
 		mdelay(20);
 		/* 20ms */
 
+#if 0
 		ISX012_pll_init();
+#endif
 
 		gpio_set_value(GPIO_PORT90, 1); /* CAM0_STBY */
 		mdelay(20);
@@ -3753,21 +3748,6 @@ static struct map_desc u2evm_io_desc[] __initdata = {
 #endif
 };
 
-static void __init u2evm_map_io(void)
-{
-	iotable_init(u2evm_io_desc, ARRAY_SIZE(u2evm_io_desc));
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-	sec_debug_init();
-#endif
-	r8a73734_add_early_devices();
-	shmobile_setup_console();
-}
-
-void __init u2evm_init_irq(void)
-{
-	r8a73734_init_irq();
-}
-
 #ifdef CONFIG_U2_STM_ETR_TO_SDRAM
 static int wait_for_coresight_access_lock(u32 base)
 {
@@ -3930,13 +3910,13 @@ static void __init u2evm_init(void)
 
 	printk("pub_stm_select=%d\n", pub_stm_select);
 
-	r8a73734_pinmux_init();
-	r8a73734_add_standard_devices();
+	r8a7373_pinmux_init();
+	r8a7373_add_standard_devices();
 
-	r8a73734_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
-	r8a73734_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
-	r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-	pinmux_hwspinlock_init(r8a73734_hwlock_gpio);
+	r8a7373_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
+	r8a7373_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
+	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	pinmux_hwspinlock_init(r8a7373_hwlock_gpio);
 
 #ifdef CONFIG_ARM_TZ
 	if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
@@ -4588,12 +4568,12 @@ static void __init u2evm_init(void)
 	 */
 	if((system_rev & 0xFFFF) == 0x3E00)
 	{
-		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
+		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
 	}
 	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(__io(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
+		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
 	}
 #endif
 
@@ -4783,8 +4763,11 @@ static int check_sec_rlte_hw_rev(void)
 }
 
 MACHINE_START(U2EVM, "u2evm")
-	.map_io		= u2evm_map_io,
-	.init_irq	= u2evm_init_irq,
+	.reserve	= u2evm_reserve,
+	.map_io		= r8a7373_map_io,
+	.init_early	= r8a7373_init_early,
+	.nr_irqs	= NR_IRQS_LEGACY,
+	.init_irq	= r8a7373_init_irq,
 	.handle_irq	= shmobile_handle_irq_gic,
 	.init_machine	= u2evm_init,
 	.timer		= &u2evm_timer,

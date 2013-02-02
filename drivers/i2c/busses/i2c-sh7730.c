@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <linux/module.h>
 
 /* BIT VALUE */
 #define BIT_CLR  0

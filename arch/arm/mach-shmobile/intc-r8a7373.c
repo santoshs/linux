@@ -19,7 +19,6 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
-#define IRQC0_BASE	0xe61c0000
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */
 #define IRQC0_INTEN_SET0	(IRQC0_BASE + 0x008)	/* W */
@@ -29,7 +28,6 @@
 #define IRQC0_DETECT_STATUS	(IRQC0_BASE + 0x100)	/* R/WC1 */
 #define IRQC0_CONFIG_00		(IRQC0_BASE + 0x180)	/* R/W */
 
-#define IRQC1_BASE	0xe61c0200
 #define IRQC1_INTREQ_STS0	(IRQC1_BASE + 0x000)	/* R */
 #define IRQC1_INTEN_STS0	(IRQC1_BASE + 0x004)	/* R/WC1 */
 #define IRQC1_INTEN_SET0	(IRQC1_BASE + 0x008)	/* W */
@@ -223,7 +221,7 @@ enum {
 	VPU, _2DDM0, TSIF, LMB, JPU_JPEG, LCDC0, CSIRX,
 	DSITX0_DSITX0, DSITX0_DSITX1, FSI, LCDC1, VSP, JPU6E, CSIRX1,
 	DSITX1_0, DSITX1_1,
-
+	ISP_PRE, ISP_POS, RCU1, RCU0,
 	/* interrupt groups INTCS */
 	DSITX0,
 };
@@ -237,6 +235,8 @@ static struct intc_vect intcs_vectors[] = {
 	INTCS_VECT(LCDC1, 0x1880), INTCS_VECT(VSP, 0x1b60),
 	INTCS_VECT(JPU6E, 0x1bc0), INTCS_VECT(CSIRX1, 0x1be0),
 	INTCS_VECT(DSITX1_0, 0x1c00), INTCS_VECT(DSITX1_1, 0x1c20),
+	INTCS_VECT(ISP_PRE, 0x1d40), INTCS_VECT(ISP_POS, 0x1d60),
+	INTCS_VECT(RCU1, 0x1dc0), INTCS_VECT(RCU0, 0x1de0),
 };
 
 static struct intc_mask_reg intcs_mask_registers[] = {
@@ -264,6 +264,9 @@ static struct intc_mask_reg intcs_mask_registers[] = {
 	{ 0xffd501a4, 0xffd501e4, 8, /* IMR9SA3 / IMCR9SA3 */
 	  { DSITX1_0, DSITX1_1, 0, 0,
 	    0, 0, 0, 0 } },
+	{ 0xffd501a8, 0xffd501e8, 8, /* IMR10SA3 / IMCR10SA3 */
+	  { 0, 0, ISP_PRE, ISP_POS,
+	    0, 0, RCU1, RCU0 } },
 };
 
 static struct intc_group intcs_groups[] __initdata = {
@@ -282,6 +285,8 @@ static struct intc_prio_reg intcs_prio_registers[] = {
 	{ 0xffd50040, 0, 16, 4, /* IPRQS3 */ { 0, 0, 0, VSP } },
 	{ 0xffd50044, 0, 16, 4, /* IPRRS3 */ { 0, 0, JPU6E, CSIRX1 } },
 	{ 0xffd50048, 0, 16, 4, /* IPRSS3 */ { DSITX1_0, DSITX1_1, 0, 0 } },
+	{ 0xffd50050, 0, 16, 4, /* IPRUS3 */ { 0, 0, ISP_PRE, ISP_POS } },
+	{ 0xffd50054, 0, 16, 4, /* IPRVS3 */ { 0, 0, RCU1, RCU0 } },
 };
 
 static struct resource intcs_resources[] __initdata = {
@@ -299,6 +304,7 @@ static struct resource intcs_resources[] __initdata = {
 
 static struct intc_desc intcs_desc __initdata = {
 	.name = "intcs",
+	.skip_syscore_suspend = true,
 	.resource = intcs_resources,
 	.num_resources = ARRAY_SIZE(intcs_resources),
 	.hw = INTC_HW_DESC(intcs_vectors, intcs_groups, intcs_mask_registers,
@@ -328,6 +334,7 @@ void __init r8a7373_init_irq(void)
 	void __iomem *gic_cpu_base = IOMEM(0xf0000100);
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
+	BUG_ON(!intevtsa);
 
 	gic_init(0, 29, gic_dist_base, gic_cpu_base);
 	gic_arch_extn.irq_set_wake = r8a7373_irq_set_wake;

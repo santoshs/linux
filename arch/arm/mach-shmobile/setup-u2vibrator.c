@@ -1,6 +1,6 @@
 #ifdef CONFIG_VIBRATOR_ISA1000A
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/isa1000a_haptic.h>
 #include <linux/platform_device.h>

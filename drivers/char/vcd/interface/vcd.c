@@ -22,6 +22,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/workqueue.h>
+#include <linux/module.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"

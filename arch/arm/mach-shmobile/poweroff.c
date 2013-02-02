@@ -26,7 +26,7 @@
 
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 /* CPG_PLL2CR */
 
@@ -149,10 +149,10 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 
 	/* Check to make sure that SYSC hwspinlock
 	 * has been requested successfully */
-	if (NULL == r8a73734_hwlock_sysc)
-		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	if (NULL == r8a7373_hwlock_sysc)
+		r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	/* Lock SMSYSC hwspinlock with 1ms timeout */
-	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+	hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
 	if (0 != hwlock)
 		printk(KERN_ERR "Cannot take hwlock, but system must be reset now.\n");
 	/* Clear Power off flag */
@@ -211,11 +211,11 @@ static void shmobile_pm_poweroff(void)
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* Check to make sure that SYSC hwspinlock
 	 * has been requested successfully */
-	if (NULL == r8a73734_hwlock_sysc)
-		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
+	if (NULL == r8a7373_hwlock_sysc)
+		r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 #if 1
     /* Lock SMSYSC hwspinlock with 1ms timeout */
-	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+	hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
 	if (0 != hwlock)
 		printk(KERN_ERR "Fail to take hwlock, but system must be turned off now!\n");
 	/* Disable interrupts first */

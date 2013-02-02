@@ -21,6 +21,8 @@
 #define SCFTDR		0x20
 #define FSR_TEND	(1 << 6)
 
+#define DEBUG_UART_BASE		CONFIG_DEBUG_LL_SH_SCI_BASE
+
 #ifdef CONFIG_MACH_U2EVM
 #define DEBUG_UART_BASE_PHY	0xe6450000
 #define DEBUG_UART_BASE_VIRT	0xe6450000
@@ -28,7 +30,7 @@
 #error "Set DEBUG_UART_BASE"
 #endif
 
-	.macro	addruart, rp, rv
+	.macro	addruart, rp, rv, tmp
 	ldr	\rp, =DEBUG_UART_BASE_PHY
 	ldr	\rv, =DEBUG_UART_BASE_VIRT
 	.endm

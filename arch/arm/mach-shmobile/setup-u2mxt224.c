@@ -18,7 +18,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA  02110-1301, USA.
  */
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #include <linux/gpio.h>
 #include <linux/interrupt.h>

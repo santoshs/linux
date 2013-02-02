@@ -466,7 +466,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
-		page = frag->page;
+		page = frag->page.p;
 	}
 
 	if (skb_headlen(skb) > L2MUX_HDR_SIZE)
@@ -551,7 +551,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				page,
 				frag->page_offset +
 				((mhdp_header_len - skb_headlen(skb)) + offset),
-				length);
+				length, PAGE_SIZE);
 
 			ip_ver = *((unsigned long *)page_address(page) +
 					(frag->page_offset +
@@ -789,7 +789,7 @@ xmit_again:
 			(unsigned long)page_address(page));
 
 	skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-			page, offset, skb_headlen(skb));
+			page, offset, skb_headlen(skb), PAGE_SIZE);
 
 	if (skb_shinfo(skb)->nr_frags) {
 
@@ -798,13 +798,13 @@ xmit_again:
 				skb_frag_t *frag =
 					&skb_shinfo(tunnel->skb)->frags[i];
 
-			get_page(frag->page);
+			get_page(frag->page.p);
 
 				skb_add_rx_frag(tunnel->skb,
 					skb_shinfo(tunnel->skb)->nr_frags,
-					frag->page,
+					frag->page.p,
 					frag->page_offset,
-					frag->size);
+					frag->size, PAGE_SIZE);
 		}
 	}
 

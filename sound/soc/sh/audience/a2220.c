@@ -42,7 +42,7 @@
 #include <linux/clk.h>
 #include <linux/proc_fs.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include "sound/soundpath/soundpath.h"
 #include <linux/vcd/vcd.h>
 #include <linux/platform_device.h>

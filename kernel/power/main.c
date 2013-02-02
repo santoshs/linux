@@ -16,9 +16,9 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
-#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A73734)
+#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A7373)
 #include <mach/pm.h>
-#endif /*CONFIG_PM_DEBUG && CONFIG_ARCH_R8A73734*/
+#endif /*CONFIG_PM_DEBUG && CONFIG_ARCH_R8A7373*/
 
 #include "power.h"
 
@@ -381,7 +381,7 @@ power_attr(wakeup_count);
 #endif /* CONFIG_PM_SLEEP */
 
 
-#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A73734)
+#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A7373)
 
 /*
  * Enable PM modules (DFS, Suspend, Idle, PDC) at run-time
@@ -518,7 +518,7 @@ static ssize_t disable_pm_store(struct kobject *kobj, struct kobj_attribute *att
 
 power_attr(disable_pm);
 
-#endif /*CONFIG_PM_DEBUG && CONFIG_ARCH_R8A73734*/
+#endif /*CONFIG_PM_DEBUG && CONFIG_ARCH_R8A7373*/
 
 
 #ifdef CONFIG_PM_TRACE
@@ -585,7 +585,7 @@ static struct attribute * g[] = {
 	&wake_unlock_attr.attr,
 #endif
 #endif
-#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A73734)
+#if defined (CONFIG_PM_DEBUG) && defined (CONFIG_ARCH_R8A7373)
 	&enable_pm_attr.attr,
 	&disable_pm_attr.attr,
 #endif

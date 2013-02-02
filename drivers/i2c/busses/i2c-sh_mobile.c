@@ -253,7 +253,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	clk_enable(pd->clk);
 	i2c_clk_khz = clk_get_rate(pd->clk) / 1000;
 
-#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
+#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A7373)
 	i2c_clk_khz /= 2;
 #endif
 

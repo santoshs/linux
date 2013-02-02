@@ -54,7 +54,7 @@
 #include <linux/miscdevice.h>
 #include <mach/common.h>
 #include <mach/irqs.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #ifndef IO_ADDRESS
 #define IO_ADDRESS(x)	x

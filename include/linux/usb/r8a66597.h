@@ -97,6 +97,10 @@ struct r8a66597_platdata {
 
 	/* set one = using USBHS-DMAC */
 	unsigned	dmac:1;
+
+	/* Gpio setting */
+	unsigned int	port_cnt;
+	struct r8a66597_gpio_setting_info	*gpio_setting_info;
 };
 
 /* Register definitions */

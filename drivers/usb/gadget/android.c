@@ -44,7 +44,9 @@
 #include "composite.c"
 
 #include "f_fs.c"
+#if 0
 #include "f_audio_source.c"
+#endif
 #include "f_mass_storage.c"
 #include "u_serial.c"
 #include "f_acm.c"
@@ -941,6 +943,7 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#if 0
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
@@ -1002,6 +1005,7 @@ static struct android_usb_function audio_source_function = {
 	.unbind_config	= audio_source_function_unbind_config,
 	.attributes	= audio_source_function_attributes,
 };
+#endif
 
 static int phonet_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
 {
@@ -1037,7 +1041,9 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+#if 0
 	&audio_source_function,
+#endif
 	&phonet_function,
 	NULL
 };

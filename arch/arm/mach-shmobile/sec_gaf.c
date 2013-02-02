@@ -40,9 +40,7 @@ static struct GAForensicINFO {
 	unsigned short dentry_struct_d_parent;
 	unsigned short dentry_struct_d_name;
 	unsigned short qstr_struct_name;
-	unsigned short vfsmount_struct_mnt_mountpoint;
 	unsigned short vfsmount_struct_mnt_root;
-	unsigned short vfsmount_struct_mnt_parent;
 	unsigned int pgdir_shift;
 	unsigned int ptrs_per_pte;
 	unsigned int phys_offset;
@@ -115,9 +113,7 @@ static struct GAForensicINFO {
 	.dentry_struct_d_parent = offsetof(struct dentry, d_parent),
 	.dentry_struct_d_name = offsetof(struct dentry, d_name),
 	.qstr_struct_name = offsetof(struct qstr, name),
-	.vfsmount_struct_mnt_mountpoint = offsetof(struct vfsmount, mnt_mountpoint),
 	.vfsmount_struct_mnt_root = offsetof(struct vfsmount, mnt_root),
-	.vfsmount_struct_mnt_parent = offsetof(struct vfsmount, mnt_parent),
 	.pgdir_shift = PGDIR_SHIFT,
 	.ptrs_per_pte = PTRS_PER_PTE,
 	/* .phys_offset = PHYS_OFFSET, */

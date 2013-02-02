@@ -38,6 +38,7 @@
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
 #include <linux/atomic.h>
+#include <linux/export.h>
 
 #endif /*POWER_DOMAIN_H*/
 

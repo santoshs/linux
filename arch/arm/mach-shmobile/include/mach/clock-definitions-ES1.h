@@ -6,7 +6,7 @@
 #include <linux/sh_clk.h>
 #include <asm/clkdev.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 
 #define EXSTMON2	IO_ADDRESS(0xe6180088)

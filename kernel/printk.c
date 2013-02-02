@@ -160,10 +160,10 @@ static int log_buf_len = __LOG_BUF_LEN;
 static unsigned logged_chars; /* Number of chars produced since last read+clear operation */
 static int saved_console_loglevel = -1;
 
-unsigned long log_buf_address = __pa(&__log_buf[0]);
-unsigned long log_buf_len_address = __pa(&log_buf_len);
-unsigned long log_end_address = __pa(&log_end);
-unsigned long logged_chars_address = __pa(&logged_chars);
+unsigned long log_buf_address;
+unsigned long log_buf_len_address;
+unsigned long log_end_address;
+unsigned long logged_chars_address;
 
 #ifdef CONFIG_KEXEC
 /*

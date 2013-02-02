@@ -243,7 +243,7 @@ static inline void* smc_kmap_skb_fragment(const skb_frag_t *frag)
     local_bh_disable();
 #endif
 
-    return kmap_atomic(frag->page, KM_SKB_DATA_SOFTIRQ);
+    return kmap_atomic(frag->page.p, KM_SKB_DATA_SOFTIRQ);
 }
 
 static inline void smc_kunmap_skb_fragment(void *vaddr)

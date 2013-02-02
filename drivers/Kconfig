@@ -132,6 +132,8 @@ source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
 
+source "drivers/pmic/Kconfig"
+
 source "drivers/iommu/Kconfig"
 
 source "drivers/remoteproc/Kconfig"
@@ -141,5 +143,15 @@ source "drivers/rpmsg/Kconfig"
 source "drivers/virt/Kconfig"
 
 source "drivers/devfreq/Kconfig"
+
+source "drivers/sensors/Kconfig"
+
+source "drivers/smeco/Kconfig"
+
+source "drivers/thermal/thermal_sensor/Kconfig"
+
+source "drivers/motor/Kconfig"
+
+source "drivers/sec_hal/Kconfig"
 
 endmenu

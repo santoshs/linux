@@ -11,10 +11,10 @@
 #define INTCS_VECT(n, vect)	INTC_VECT((n), INTCS_VECT_BASE + (vect))
 #define intcs_evt2irq(evt)	evt2irq(INTCS_VECT_BASE + (evt))
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 /* IRQ pin */
 #define IRQPIN_IRQ_BASE		512
-#define irqpin2irq(nr)		(IRQPIN_IRQ_BASE + (nr))
+#define irqpin2irq(nr)		(int)(IRQPIN_IRQ_BASE + (nr))
 #endif
 
 #endif /* __ASM_MACH_IRQS_H */

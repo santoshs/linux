@@ -6,7 +6,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/board-u2evm.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
@@ -18,8 +18,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 	if (u2_get_board_rev() >= 5) {
 		struct regulator *regulator;		
 
-		if(state)
-		{
+		if(state) {
 			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
 
 			regulator = regulator_get(NULL, "vio_sd");
@@ -40,9 +39,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 
-		}
-		else
-		{
+		} else {
 			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
 			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
 
@@ -61,7 +58,6 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			regulator_disable(regulator);
 
 			regulator_put(regulator);
-			
 		}
 	} else {
 #ifdef CONFIG_PMIC_INTERFACE
@@ -76,7 +72,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			mdelay(VSD_VDCORE_DELAY);
 			pmic_set_power_off(E_POWER_VMMC);
 		}
-#endif
+#endif  /* CONFIG_PMIC_INTERFACE */
 	}
 }
 
@@ -181,7 +177,8 @@ static struct renesas_sdhi_dma sdhi1_dma = {
 };
 
 static struct renesas_sdhi_platdata sdhi1_info = {
-	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA |
+			  MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
 	.pm_caps	= MMC_PM_KEEP_POWER | MMC_PM_IGNORE_PM_NOTIFY,
 	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
 	.dma		= &sdhi1_dma,

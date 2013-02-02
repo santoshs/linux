@@ -91,6 +91,6 @@ static inline void pm_qos_sysfs_remove(struct device *dev) {}
 
 #endif
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 extern int has_wake_lock_no_expire(int type);
-#endif /* CONFIG_ARCH_R8A73734 */
+#endif /* CONFIG_ARCH_R8A7373 */

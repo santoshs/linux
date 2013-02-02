@@ -27,7 +27,7 @@
 #include <asm/smp_scu.h>
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #include <linux/suspend.h>
 #include <mach/pm.h>

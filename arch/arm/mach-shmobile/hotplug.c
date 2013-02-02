@@ -16,16 +16,16 @@
 #include <linux/delay.h>
 #include <asm/cacheflush.h>
 #include <mach/common.h>
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
 #endif /* CONFIG_SUSPEND */
-#endif /* CONFIG_ARCH_R8A73734 */
+#endif /* CONFIG_ARCH_R8A7373 */
 #include <mach/pm.h>
 static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
-#ifndef CONFIG_ARCH_R8A73734
+#ifndef CONFIG_ARCH_R8A7373
 	int cnt = 0;
 	/* this will be executed on alive cpu,
 	 * and it must be executed after the victim has been finished
@@ -51,14 +51,14 @@ void platform_cpu_die(unsigned int cpu)
 
 	/* notify platform_cpu_kill() that hardware shutdown is finished */
 	cpumask_set_cpu(cpu, &dead_cpus);
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
 /* #ifdef CONFIG_SUSPEND */
 	jump_systemsuspend();
 	return;
 /* #endif *//* CONFIG_SUSPEND */
-#endif /* CONFIG_ARCH_R8A73734 */
+#endif /* CONFIG_ARCH_R8A7373 */
 	while (1) {
 		/*
 		 * here's the WFI

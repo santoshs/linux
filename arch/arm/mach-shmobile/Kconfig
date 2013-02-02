@@ -45,14 +45,6 @@ config ARCH_R8A7373
 	bool "R-Mobile U2 (R8A7373)"
 	select CPU_V7
 	select SH_CLK_CPG
-	select ARM_GIC
-	select ARCH_WANT_OPTIONAL_GPIOLIB
-	select CLKSRC_MMIO
-
-config ARCH_R8A73734
-	bool "R-Mobile U2 (R8A73734)"
-	select CPU_V7
-	select SH_CLK_CPG
 	select ARCH_WANT_OPTIONAL_GPIOLIB
 	select ARM_GIC
 	select CLKSRC_MMIO
@@ -119,30 +111,24 @@ config MACH_MARZEN
 
 config MACH_U2EVM
 	bool "U2EVM board"
+	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
-	select ARCH_REQUIRE_GPIOLIB
-	select SH_LCD_MIPI_DSI
-
-config MACH_U2EVM
-	bool "U2EVM board"
-	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A73734
 
 config MACH_U2USB
 	bool "U2USB board"
 	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A73734
+	depends on ARCH_R8A7373
 
 config U2_ES1
 	bool "U2 ES1.0"
 	default y
-	depends on ARCH_R8A73734
+	depends on ARCH_R8A7373
 	help
 	  R-Mobile-U2 Engineering Sample 1.0.
 
 config U2_STM_ETR_TO_SDRAM
 	bool "U2 STM ETR to SDRAM"
-	depends on ARCH_R8A73734
+	depends on ARCH_R8A7373
 	help
 	  R-Mobile-U2 STM Traces through ETR to SDRAM.
 
@@ -160,7 +146,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x50000000" if MACH_U2EVM
+	default "0x4C000000" if MACH_U2EVM
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -171,10 +157,9 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_BONITO
+	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_BONITO
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
-	default "0x30000000" if MACH_U2EVM
 	default "0x04000000"
 	help
 	  This sets the default memory size assumed by your kernel. It can
@@ -201,6 +186,12 @@ config SH_TIMER_CMT
 	bool "CMT timer driver"
 	help
 	  This enables build of the CMT timer driver.
+
+config SH_TIMER_CMT_ARM
+        bool "CMT timer driver dedicated for ARM CPU timer"
+        default y
+        help
+          This enables build of the CMT timer driver.
 
 endmenu
 
@@ -282,7 +273,7 @@ config PM_HAS_SECURE
 	help
 	  This enables PM support for Secure OS.
 
-config HOTPLUG_ARCH_R8A73734
+config HOTPLUG_ARCH_R8A7373
 	default y
 	bool "Support CPU Hotplug for R-MobileU2"
 	depends on HOTPLUG_CPU
@@ -294,7 +285,7 @@ config HOTPLUG_CPU_MGR
 	bool "Support CPU Hotplug Manager for R-MobileU2 New power consumption"
 	depends on HOTPLUG_CPU
 	depends on ARCH_SHMOBILE
-	depends on HOTPLUG_ARCH_R8A73734
+	depends on HOTPLUG_ARCH_R8A7373
 	help
 	  This CPU Hotplug Manager for R-MobileU2 New power consumption
 	  It relatd to 3 modules: Dynamic Frequency Scaling (DFS), Hotplug

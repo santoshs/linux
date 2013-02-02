@@ -13,12 +13,16 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <linux/sh_dma.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/pagemap.h>
 #include <linux/scatterlist.h>
+#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/sdio.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <mach/gpio.h>
 #include <linux/kobject.h>
@@ -209,6 +213,52 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		break;
 	}
 	__raw_writew(val, host->base + (offset << host->bus_shift));
+}
+
+static int sdhi_save_register(struct renesas_sdhi_host *host)
+{
+       struct sdhi_register_value *reg = host->reg;
+
+       clk_enable(host->clk);
+
+       reg->sd_info1_mask = sdhi_read16(host, SDHI_INFO_MASK);
+       reg->sd_info2_mask = sdhi_read16(host, SDHI_INFO2_MASK);
+       reg->sd_clk_ctrl = sdhi_read16(host, SDHI_CLK_CTRL);
+       reg->sd_option = sdhi_read16(host, SDHI_OPTION);
+       reg->sdio_mode = sdhi_read16(host, SDHI_SDIO_MODE);
+       reg->sdio_info1_mask = sdhi_read16(host, SDHI_SDIO_INFO_MASK);
+       reg->dma_mode = sdhi_read16(host, SDHI_DMA_MODE);
+       reg->soft_rst = sdhi_read16(host, SDHI_SOFT_RST);
+       reg->ext_acc = sdhi_read16(host, SDHI_EXT_ACC);
+
+       clk_disable(host->clk);
+
+       return 0;
+}
+
+static int sdhi_restore_register(struct renesas_sdhi_host *host)
+{
+       struct sdhi_register_value *reg = host->reg;
+
+       clk_enable(host->clk);
+
+       sdhi_write16(host, SDHI_SOFT_RST, 0x0000);
+       sdhi_write16(host, SDHI_SOFT_RST, 0x0001);
+
+       sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) | (1 << 13));
+
+       sdhi_write16(host, SDHI_CLK_CTRL, reg->sd_clk_ctrl);
+       sdhi_write16(host, SDHI_INFO_MASK, reg->sd_info1_mask);
+       sdhi_write16(host, SDHI_INFO2_MASK, reg->sd_info2_mask);
+       sdhi_write16(host, SDHI_SDIO_INFO_MASK, reg->sdio_info1_mask);
+       sdhi_write16(host, SDHI_SDIO_MODE, reg->sdio_mode);
+       sdhi_write16(host, SDHI_EXT_ACC, reg->ext_acc);
+
+       sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) & ~(1 << 13));
+
+       clk_disable(host->clk);
+
+       return 0;
 }
 
 static void sdhi_write16s(struct renesas_sdhi_host *host,

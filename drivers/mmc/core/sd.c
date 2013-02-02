@@ -1063,15 +1063,6 @@ static int mmc_sd_alive(struct mmc_host *host)
 	return mmc_send_status(host->card, NULL);
 }
 
-
-/*
- * Card detection - card is alive.
- */
-static int mmc_sd_alive(struct mmc_host *host)
-{
-	return mmc_send_status(host->card, NULL);
-}
-
 /*
  * Card detection callback from host.
  */

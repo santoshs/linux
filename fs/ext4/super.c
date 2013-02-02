@@ -4107,7 +4107,6 @@ static void ext4_clear_journal_err(struct super_block *sb,
 		ext4_commit_super(sb, 1);
 
 		jbd2_journal_clear_err(journal);
-		jbd2_journal_update_sb_errno(journal);
 	}
 }
 

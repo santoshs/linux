@@ -1,6 +1,6 @@
 #include <asm/system.h>
 #include <mach/board-u2evm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/gpio.h>
 #include <mach/irqs.h>
 #include <mach/setup-u2gpio_key.h>

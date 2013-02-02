@@ -28,6 +28,7 @@
 #include <linux/perf_event.h>
 #include <linux/hw_breakpoint.h>
 #include <linux/smp.h>
+#include <linux/export.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
@@ -47,6 +48,7 @@ static DEFINE_PER_CPU(struct perf_event *, wp_on_reg[ARM_MAX_WRP]);
 
 /* Number of BRP/WRP registers on this CPU. */
 static int core_num_brps;
+static int core_num_reserved_brps;
 static int core_num_wrps;
 
 /* Debug architecture version. */
@@ -210,6 +212,13 @@ static int get_num_wrps(void)
 		return 1;
 
 	return get_num_wrp_resources();
+}
+
+static int get_num_reserved_brps(void)
+{
+        if (core_has_mismatch_brps())
+                return get_num_wrps();
+        return 0;
 }
 
 /* Determine number of usable BRPs available. */
@@ -885,7 +894,6 @@ static void reset_ctrl_regs(void *unused)
 	int i, raw_num_brps, err = 0, cpu = smp_processor_id();
 	u32 dbg_power;
 
-	cpumask_t *cpumask = info;
 	if (core_num_brps == 0)
 		return;
 
@@ -1003,11 +1011,13 @@ static int __init arch_hw_breakpoint_init(void)
 		core_num_wrps = 0;
 		return 0;
 	} else {
-	on_each_cpu(reset_ctrl_regs, &cpumask, 1);
-	if (!cpumask_empty(&cpumask)) {
+	on_each_cpu(reset_ctrl_regs, NULL, 1);
+	unregister_undef_hook(&debug_reg_hook);
+	if (!cpumask_empty(&debug_err_mask)) {
 		core_num_brps = 0;
 		core_num_wrps = 0;
 		return 0;
+	}
 	}
 
 	pr_info("found %d " "%s" "breakpoint and %d watchpoint registers.\n",
@@ -1024,7 +1034,6 @@ static int __init arch_hw_breakpoint_init(void)
 		max_watchpoint_len = get_max_wp_len();
 		pr_info("maximum watchpoint size is %u bytes.\n",
 				max_watchpoint_len);
-	}
 	}
 
 	/* Register debug fault handler. */

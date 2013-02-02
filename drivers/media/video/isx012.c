@@ -27,7 +27,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/sh_clk.h>
 #include <linux/pmic/pmic-ncp6914.h>
 

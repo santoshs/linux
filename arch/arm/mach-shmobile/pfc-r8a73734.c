@@ -24,7 +24,7 @@
 #include <linux/gpio.h>
 #include <linux/sh_pfc.h>
 #include <mach/irqs.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #define CPU_ALL_PORT(fn, pfx, sfx) \
 	PORT_10(fn, pfx, sfx), \

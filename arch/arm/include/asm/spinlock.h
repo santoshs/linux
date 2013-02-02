@@ -7,6 +7,9 @@
 
 #include <asm/processor.h>
 
+/* TODO: */
+#include <asm/system_info.h>
+
 #ifdef CONFIG_ARCH_SHMOBILE
 /* added to test EOS LDREX/STREX errata */
 #ifndef __ASM_ARM_SMP_H

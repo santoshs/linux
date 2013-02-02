@@ -6,18 +6,13 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 #include <mach/board-u2evm.h>
 #include <mach/sh_cmt.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/spinlock_types.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/rmu2_rwdt.h>
 #include <asm/io.h>
-
-int read_current_timer(unsigned long *timer_val)
-{
-	*timer_val = __raw_readl(CMCNT3);
-	return 0;
-}
 
 int __init setup_current_timer(void)
 {

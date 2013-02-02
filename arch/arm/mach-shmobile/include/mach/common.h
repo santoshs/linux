@@ -73,8 +73,6 @@ extern void sh73a0_secondary_init(unsigned int cpu);
 extern int sh73a0_boot_secondary(unsigned int cpu);
 extern void sh73a0_smp_prepare_cpus(void);
 
-extern unsigned int u2_get_board_rev();
-
 extern void r8a7740_init_irq(void);
 extern void r8a7740_map_io(void);
 extern void r8a7740_add_early_devices(void);
@@ -107,6 +105,12 @@ extern void r8a7373_pinmux_init(void);
 extern void r8a7373_pm_init(void);
 extern void r8a7373_enter_core_standby(void);
 
+extern void sh_modify_register8(unsigned int, u8, u8);
+extern void sh_modify_register16(unsigned int, u16, u16);
+extern void sh_modify_register32(unsigned int, u32, u32);
+
+extern unsigned int u2_get_board_rev(void);
+
 extern unsigned int r8a7373_get_core_count(void);
 extern int r8a7373_platform_cpu_kill(unsigned int cpu);
 extern int r8a7373_platform_cpu_die(unsigned int cpu);
@@ -114,5 +118,7 @@ extern void r8a7373_secondary_init(unsigned int cpu);
 extern int r8a7373_boot_secondary(unsigned int cpu);
 extern void r8a7373_smp_prepare_cpus(void);
 extern void r8a7373_register_twd(void);
-
+extern void r8a7373_secondary_vector(void);
+extern unsigned long r8a7373_secondary_vector_addr;
+extern unsigned long r8a7373_secondary_vector_sz;
 #endif /* __ARCH_MACH_COMMON_H */

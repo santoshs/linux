@@ -458,7 +458,7 @@ not_relocated:	mov	r0, #0
 		bl	decompress_kernel
 		bl	cache_clean_flush
 		bl	cache_off
-#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A73734)
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A7373)
 		/*
 		 * If enabled the "CONFIG_ARM_TZ" in the "R-Mobile-U2",
 		 * the L2$ controller is already ON due to H/W specification.
@@ -1231,7 +1231,7 @@ memdump:	mov	r12, r0
 		mov	pc, r10
 #endif
 
-#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A73734)
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A7373)
 l2_cache_clean_flush:
 		adr	r0, __l2_clean_by_way
 		ldr	r2, [r0]

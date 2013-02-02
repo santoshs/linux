@@ -30,7 +30,7 @@
 #include <linux/stat.h>
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #ifdef __VCD_MERAM_ENABLE__
 #include "rtapi/system_memory.h"
@@ -322,7 +322,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* cpga spuv module reset */
 		ret = hwspin_lock_timeout_irqsave(
-				r8a73734_hwlock_cpg,
+				r8a7373_hwlock_cpg,
 				VCD_SPUV_FUNC_MAX_LOCK_TIME,
 				&flags);
 		if (ret < 0) {
@@ -343,7 +343,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
 					ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
 				cpu_relax();
-			hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+			hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 		}
 
 		vcd_spuv_func_set_register(
@@ -360,7 +360,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		/* cpga spuv module reset */
 		ret = hwspin_lock_timeout_irqsave(
-				r8a73734_hwlock_cpg,
+				r8a7373_hwlock_cpg,
 				VCD_SPUV_FUNC_MAX_LOCK_TIME,
 				&flags);
 		if (ret < 0) {
@@ -379,7 +379,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
 					ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
 				cpu_relax();
-			hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+			hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 		}
 
 		/* spuv clock */

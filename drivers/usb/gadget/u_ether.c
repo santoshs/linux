@@ -54,7 +54,7 @@ static inline void *kmap_frag(const skb_frag_t *frag)
 
 	local_bh_disable();
 #endif
-	return kmap_atomic(frag->page, KM_SKB_DATA_SOFTIRQ);
+	return kmap_atomic(frag->page.p, KM_SKB_DATA_SOFTIRQ);
 }
 
 static inline void kunmap_frag(void *vaddr)
@@ -676,7 +676,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			(unsigned long)page_address(page));
 
 	skb_add_rx_frag(multiframe->skb, skb_shinfo(multiframe->skb)->nr_frags,
-			page, offset, skb_headlen(skb));
+			page, offset, skb_headlen(skb), skb_headlen(skb));
 
 
 	if ((skb_shinfo(multiframe->skb)->nr_frags == MAX_RNDIS_FRAME_COUNT) ||

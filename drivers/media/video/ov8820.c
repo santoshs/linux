@@ -27,7 +27,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 struct OV8820_datafmt {
 	enum v4l2_mbus_pixelcode	code;

@@ -35,7 +35,7 @@
 #include <linux/gpio.h>
 #include <linux/timer.h>
 #include <linux/atomic.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <mach/common.h>
 #include <linux/jiffies.h>

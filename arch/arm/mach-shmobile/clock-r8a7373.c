@@ -775,6 +775,7 @@ void __init r8a7373_clock_init(void)
 
 	/* quirks - can be removed once fixed in the boot software */
 	__raw_writel(0x6100, VCLKCR3); /* main clock, x1/1 */
+	__raw_writel(0x000000D, DSI1PCKCR);
 
 	/* detect main clock parent */
 	switch ((__raw_readl(CKSCR) >> 28) & 0x03) {

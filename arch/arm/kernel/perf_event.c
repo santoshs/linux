@@ -26,6 +26,10 @@
 #include <asm/irq_regs.h>
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
+#include <asm/io.h>
+
+#define DYNAMIC_ENABLE 1
+#define DBGREG1 0xE6100020
 
 /*
  * ARMv6 supports a maximum of 3 events, starting from index 0. If we add
@@ -46,6 +50,12 @@ static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
 
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
+static int normalmode = 1;
+static inline void normalmode_check(void){
+	if (normalmode == 1)
+		pr_info("WARNING: PMU cannot work in this mode\n");
+	normalmode = 2;
+}
 
 enum arm_perf_pmu_ids
 armpmu_get_pmu_id(void)
@@ -223,6 +233,8 @@ armpmu_stop(struct perf_event *event, int flags)
 	 * ARM pmu always has to update the counter, so ignore
 	 * PERF_EF_UPDATE, see comments in armpmu_start().
 	 */
+	if (normalmode)
+		return;
 	if (!(hwc->state & PERF_HES_STOPPED)) {
 		armpmu->disable(hwc, hwc->idx);
 		barrier(); /* why? */
@@ -241,6 +253,10 @@ armpmu_start(struct perf_event *event, int flags)
 	 * ARM pmu always has to reprogram the period, so ignore
 	 * PERF_EF_RELOAD, see the comment below.
 	 */
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (flags & PERF_EF_RELOAD)
 		WARN_ON_ONCE(!(hwc->state & PERF_HES_UPTODATE));
 
@@ -543,6 +559,11 @@ static int armpmu_event_init(struct perf_event *event)
 	if (has_branch_stack(event))
 		return -EOPNOTSUPP;
 
+	if (normalmode) {
+		normalmode_check();
+		return -ENODEV;
+	}
+
 	if (armpmu->map_event(event) == -ENOENT)
 		return -ENOENT;
 
@@ -574,6 +595,10 @@ static void armpmu_enable(struct pmu *pmu)
 	struct pmu_hw_events *hw_events = armpmu->get_hw_events();
 	int enabled = bitmap_weight(hw_events->used_mask, armpmu->num_events);
 
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (enabled)
 		armpmu->start();
 }
@@ -581,6 +606,10 @@ static void armpmu_enable(struct pmu *pmu)
 static void armpmu_disable(struct pmu *pmu)
 {
 	struct arm_pmu *armpmu = to_arm_pmu(pmu);
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	armpmu->stop();
 }
 
@@ -619,6 +648,8 @@ int __init armpmu_register(struct arm_pmu *armpmu, char *name, int type)
 static int __init
 cpu_pmu_reset(void)
 {
+	if (normalmode)
+		return;
 	if (cpu_pmu && cpu_pmu->reset)
 		return on_each_cpu(cpu_pmu->reset, NULL, 1);
 	return 0;
@@ -755,6 +786,17 @@ init_hw_perf_events(void)
 		}
 	}
 
+	if ((__raw_readl(DBGREG1) & 0x20000000L) == 0) {
+#if DYNAMIC_ENABLE
+		normalmode = 1;
+#else
+		normalmode = 0;
+		cpu_pmu = NULL;
+#endif
+	} else {
+		normalmode = 0;
+	}
+
 	if (cpu_pmu) {
 		pr_info("enabled with %s PMU driver, %d counters available\n",
 			cpu_pmu->name, cpu_pmu->num_events);
@@ -768,6 +810,13 @@ init_hw_perf_events(void)
 	return 0;
 }
 early_initcall(init_hw_perf_events);
+int init_hw_perf_events_late(void)
+{
+	if (normalmode)
+		on_each_cpu(cpu_pmu->reset, NULL, 1);
+	normalmode = 0;
+}
+EXPORT_SYMBOL(init_hw_perf_events_late);
 
 /*
  * Callchain handling code.

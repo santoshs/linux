@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
+#include <linux/export.h>
 
 #include <mach/r8a7373.h>
 #include <mach/pm.h>

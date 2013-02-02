@@ -23,7 +23,8 @@
 #include <linux/i2c/touchkey_i2c.h>
 
 #include <mach/board-u2evm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
+#include <mach/irqs.h>
 static struct i2c_board_info i2c_touchkey[];
 
 void touchkey_init_hw(void)

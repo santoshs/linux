@@ -326,28 +326,28 @@ int shmobile_init_pm(void)
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);
 	if (map != NULL) {
-		__raw_writel((unsigned long)map, __io(ram0SpinLockVA));
+		__raw_writel((unsigned long)map, IOMEM(ram0SpinLockVA));
 		__raw_writel(cpuidle_spinlock,
-						__io(ram0SpinLockPA));
-		__raw_writel((unsigned long)0x0, __io(map));
+						IOMEM(ram0SpinLockPA));
+		__raw_writel((unsigned long)0x0, IOMEM(map));
 	} else {
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
 		return -EIO;
 	}
 
-	__raw_writel((unsigned long)0x0, __io(ram0CPU0SpinLock));
-	__raw_writel((unsigned long)0x0, __io(ram0CPU1SpinLock));
+	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU0SpinLock));
+	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU1SpinLock));
 	/* Errata(ECR0285) */
 	if (chip_rev <= ES_REV_2_1)
-		__raw_writel((unsigned long)0x0, __io(ram0ES_2_2_AndAfter));
+		__raw_writel((unsigned long)0x0, IOMEM(ram0ES_2_2_AndAfter));
 	else if (chip_rev == ES_REV_2_2)
-		__raw_writel((unsigned long)0x1, __io(ram0ES_2_2_AndAfter));
+		__raw_writel((unsigned long)0x1, IOMEM(ram0ES_2_2_AndAfter));
 	else
-		__raw_writel((unsigned long)0x2, __io(ram0ES_2_2_AndAfter));
+		__raw_writel((unsigned long)0x2, IOMEM(ram0ES_2_2_AndAfter));
 
 	/* Initialize internal setting */
-	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu0Status));
-	__raw_writel((unsigned long)CPUSTATUS_RUN, __io(ram0Cpu1Status));
+	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu0Status));
+	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu1Status));
 
 #ifdef CONFIG_PM_HAS_SECURE
 
@@ -356,17 +356,17 @@ int shmobile_init_pm(void)
 
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
-					__io(ram0SecHalCommaEntry));
-	__raw_writel((unsigned long)0x0, __io(ram0ZClockFlag));
+					IOMEM(ram0SecHalCommaEntry));
+	__raw_writel((unsigned long)0x0, IOMEM(ram0ZClockFlag));
 #endif
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */
 #ifndef CONFIG_PM_HAS_SECURE
-	__raw_writel(0, __io(SBAR2));
+	__raw_writel(0, IOMEM(SBAR2));
 #endif
 
-	__raw_writel((unsigned long)0x0, __io(APARMBAREA)); /* 4k */
+	__raw_writel((unsigned long)0x0, IOMEM(APARMBAREA)); /* 4k */
 #endif
 #ifndef CONFIG_PM_HAS_SECURE
 	/* Copy the source code internal RAM1 */

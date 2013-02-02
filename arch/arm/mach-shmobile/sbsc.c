@@ -28,10 +28,11 @@
 #include <linux/platform_device.h>
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
+#include <linux/export.h>
 
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/sbsc.h>
 #include <mach/pm.h>
 
@@ -199,7 +200,7 @@ int shmobile_acquire_cpg_lock(unsigned long *flags)
 {
 	int ret = 0;
 #ifdef ZB3_CLK_DFS_ENABLE
-	if ((cpg_lock_init == 0) && (r8a73734_hwlock_cpg != NULL))
+	if ((cpg_lock_init == 0) && (r8a7373_hwlock_cpg != NULL))
 		shmobile_init_cpg_lock();
 	if (cpg_lock_init == 0)
 		return 0;

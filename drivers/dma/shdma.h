@@ -14,6 +14,7 @@
 #define __DMA_SHDMA_H
 
 #include <linux/clk.h>
+#include <linux/err.h>
 #include <linux/dmaengine.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>

@@ -162,7 +162,7 @@ static void sh_cmt_clk_disable(struct sh_cmt_priv *p)
 	p->clk_enabled = 0;
 }
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 /*
  * In R-Mobile U2 CMT hardware,
  * 1. CMSTR is not a shared register any more

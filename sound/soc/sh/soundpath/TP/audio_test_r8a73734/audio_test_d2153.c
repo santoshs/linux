@@ -33,7 +33,7 @@
 #include <linux/pm_runtime.h>
 #include <mach/common.h>
 #include <mach/pm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/hwspinlock.h>
 #include <linux/wakelock.h>
 #include <linux/miscdevice.h>

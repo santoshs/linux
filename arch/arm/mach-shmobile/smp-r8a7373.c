@@ -22,6 +22,8 @@
 #include <linux/smp.h>
 #include <linux/spinlock.h>
 #include <linux/io.h>
+#include <linux/delay.h>
+#include <linux/sh_clk.h>
 #include <mach/common.h>
 #include <asm/smp_plat.h>
 #include <asm/smp_scu.h>
@@ -72,8 +74,10 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 {
 	cpu = cpu_logical_map(cpu);
 
-	/* disable cache coherency */
-	modify_scu_cpu_psr(3 << (cpu * 8), 0);
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	while ((((__raw_readl(scu_base_addr() + 8)) >> (8 * cpu)) & 3) != 3)
+		mdelay(1);
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 1;
 }
@@ -108,7 +112,35 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	else
 		__raw_writel(1 << cpu, IOMEM(SRESCR));	/* reset */
 
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	return 0;
+}
+
+#define BOOT_ADDR      0xE63A3000
+
+static void rewrite_boot_entry(unsigned long entry)
+{
+	void __iomem *boot_code;
+	static struct clk *ram_clk;
+
+	__raw_writel(0, IOMEM(SBAR2));
+
+	/* map the reset vector (in headsmp.S) */
+	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
+
+	if ((system_rev & 0xff) < 0x10) {
+		ram_clk = clk_get(NULL, "internal_ram0");
+		clk_enable(ram_clk);
+		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
+		r8a7373_secondary_vector_addr = entry;
+		memcpy(boot_code, r8a7373_secondary_vector,
+					r8a7373_secondary_vector_sz);
+		__raw_writel(BOOT_ADDR, IOMEM(SBAR));
+		iounmap(boot_code);
+		clk_put(ram_clk);
+	} else {
+		__raw_writel(entry, IOMEM(SBAR));
+	}
 }
 
 void __init r8a7373_smp_prepare_cpus(void)
@@ -119,9 +151,7 @@ void __init r8a7373_smp_prepare_cpus(void)
 
 	__raw_writel(0, IOMEM(SBAR2));
 
-	/* Map the reset vector (in headsmp.S) */
-	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
-	__raw_writel(__pa(shmobile_secondary_vector), IOMEM(SBAR));
+	rewrite_boot_entry(__pa(shmobile_secondary_vector));
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));

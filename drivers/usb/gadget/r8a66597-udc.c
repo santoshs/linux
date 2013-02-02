@@ -32,7 +32,7 @@
 #include <asm/dma.h>
 #include <mach/hardware.h>
 #include <mach/pm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/gpio.h>
 #include <linux/pm.h>
 
@@ -311,6 +311,7 @@ static void r8a66597_hnp_timer_fail(unsigned long _r8a66597)
 #endif
 static void r8a66597_charger_work(struct work_struct *work)
 {
+#if 0
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, charger_work.work);
 	u16 syssts0;
@@ -322,12 +323,14 @@ static void r8a66597_charger_work(struct work_struct *work)
 	r8a66597_inform_vbus_power(r8a66597, 1500);
 	r8a66597->charger_detected = 1;
 	schedule_delayed_work(&r8a66597->vbus_work, 0);
+#endif
 }
 
 #define CHARGER_DETECT_TIMEOUT	(30 * 1000) /* 30s */
 
 static void r8a66597_vbus_work(struct work_struct *work)
 {
+#if 0
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, vbus_work.work);
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
@@ -443,10 +446,12 @@ vbus_disconnect:
  
 		wake_unlock(&r8a66597->wake_lock);
 	}
+#endif
 }
 
 static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 {
+#if 0
 	struct r8a66597 *r8a66597 = _r8a66597;
 
 	if (!wake_lock_active(&r8a66597->wake_lock))
@@ -457,7 +462,7 @@ static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
 #else
 	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
 #endif
-	 
+#endif	 
 	return IRQ_HANDLED;
 }
 
@@ -821,49 +826,6 @@ static void pipe_initialize(struct r8a66597_ep *ep)
 	}
 }
 
-static void disable_fifosel(struct r8a66597 *r8a66597, u16 pipenum,
-			    u16 fifosel)
-{
-	u16 tmp;
-
-	tmp = r8a66597_read(r8a66597, fifosel) & CURPIPE;
-	if (tmp == pipenum)
-		r8a66597_change_curpipe(r8a66597, 0, 0, fifosel);
-}
-
-static void change_bfre_mode(struct r8a66597 *r8a66597, u16 pipenum,
-			     int enable)
-{
-	struct r8a66597_ep *ep = r8a66597->pipenum2ep[pipenum];
-	u16 tmp, toggle;
-
-	/* check current BFRE bit */
-	r8a66597_write(r8a66597, pipenum, PIPESEL);
-	tmp = r8a66597_read(r8a66597, PIPECFG) & R8A66597_BFRE;
-	if ((enable && tmp) || (!enable && !tmp))
-		return;
-
-	/* change BFRE bit */
-	pipe_stop(r8a66597, pipenum);
-	disable_fifosel(r8a66597, pipenum, CFIFOSEL);
-	disable_fifosel(r8a66597, pipenum, D0FIFOSEL);
-	disable_fifosel(r8a66597, pipenum, D1FIFOSEL);
-
-	toggle = save_usb_toggle(r8a66597, pipenum);
-
-	r8a66597_write(r8a66597, pipenum, PIPESEL);
-	if (enable)
-		r8a66597_bset(r8a66597, R8A66597_BFRE, PIPECFG);
-	else
-		r8a66597_bclr(r8a66597, R8A66597_BFRE, PIPECFG);
-
-	/* initialize for internal BFRE flag */
-	r8a66597_bset(r8a66597, ACLRM, ep->pipectr);
-	r8a66597_bclr(r8a66597, ACLRM, ep->pipectr);
-
-	restore_usb_toggle(r8a66597, pipenum, toggle);
-}
-
 static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 				struct r8a66597_ep *ep,
 				const struct usb_endpoint_descriptor *desc,
@@ -1051,31 +1013,31 @@ static int usb_dma_check_alignment(void *buf, int size)
 }
 
 static int dmac_alloc_channel(struct r8a66597 *r8a66597,
-				struct r8a66597_ep *ep,
-				struct r8a66597_request *req)
+				   struct r8a66597_ep *ep,
+				   struct r8a66597_request *req)
 {
 	struct r8a66597_dma *dma;
 	int ch, ret;
 
 	if (!r8a66597_has_dmac(r8a66597))
-		return -ENODEV;
+		 return -ENODEV;
 
 	/* Check transfer type */
 	if (!usb_endpoint_xfer_bulk(ep->ep.desc))
-		return -EIO;
+		 return -EIO;
 
 	/* Check buffer alignment */
 	if (!usb_dma_check_alignment(req->req.buf, 8))
-		return -EINVAL;
+		 return -EINVAL;
 
 	/* Find available DMA channels */
 	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN)
-		ch = USBHS_DMAC_IN_CHANNEL;
+		 ch = USBHS_DMAC_IN_CHANNEL;
 	else
-		ch = USBHS_DMAC_OUT_CHANNEL;
+		 ch = USBHS_DMAC_OUT_CHANNEL;
 
 	if (r8a66597->dma[ch].used)
-		return -EBUSY;
+		 return -EBUSY;
 	dma = &r8a66597->dma[ch];
 
 	/* set USBHS-DMAC parameters */
@@ -1083,38 +1045,38 @@ static int dmac_alloc_channel(struct r8a66597 *r8a66597,
 	dma->ep = ep;
 	dma->used = 1;
 	if (usb_dma_check_alignment(req->req.buf, 32)) {
-		dma->tx_size = 32;
-		dma->chcr_ts = TS_32;
+		 dma->tx_size = 32;
+		 dma->chcr_ts = TS_32;
 	} else if (usb_dma_check_alignment(req->req.buf, 16)) {
-		dma->tx_size = 16;
-		dma->chcr_ts = TS_16;
+		 dma->tx_size = 16;
+		 dma->chcr_ts = TS_16;
 	} else {
-		dma->tx_size = 8;
-		dma->chcr_ts = TS_8;
+		 dma->tx_size = 8;
+		 dma->chcr_ts = TS_8;
 	}
 
 	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN) {
-		dma->dir = 1;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
+		 dma->dir = 1;
+		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
 	} else {
-		dma->dir = 0;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
-				    USBHS_DMAC_DMICR_SP(ch) |
-				    USBHS_DMAC_DMICR_NULL(ch);
-		change_bfre_mode(r8a66597, ep->pipenum, 1);
+		 dma->dir = 0;
+		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
+					USBHS_DMAC_DMICR_SP(ch) |
+					USBHS_DMAC_DMICR_NULL(ch);
+		 change_bfre_mode(r8a66597, ep->pipenum, 1);
 	}
 
 	/* set r8a66597_ep paramters */
 	ep->use_dma = 1;
 	ep->dma = dma;
 	if (dma->channel == 0) {
-		ep->fifoaddr = D0FIFO;
-		ep->fifosel = D0FIFOSEL;
-		ep->fifoctr = D0FIFOCTR;
+		 ep->fifoaddr = D0FIFO;
+		 ep->fifosel = D0FIFOSEL;
+		 ep->fifoctr = D0FIFOCTR;
 	} else {
-		ep->fifoaddr = D1FIFO;
-		ep->fifosel = D1FIFOSEL;
-		ep->fifoctr = D1FIFOCTR;
+		 ep->fifoaddr = D1FIFO;
+		 ep->fifosel = D1FIFOSEL;
+		 ep->fifoctr = D1FIFOCTR;
 	}
 
 	/* dma mapping */
@@ -1122,8 +1084,8 @@ static int dmac_alloc_channel(struct r8a66597 *r8a66597,
 
 	/* Initialize pipe, if needed */
 	if (!dma->initialized) {
-		pipe_initialize(ep);
-		dma->initialized = 1;
+		 pipe_initialize(ep);
+		 dma->initialized = 1;
 	}
 
 	return ret;
@@ -1544,91 +1506,6 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 		disable_irq_empty(r8a66597, pipenum);
 		pipe_irq_enable(r8a66597, pipenum);
 	}
-}
-
-static int usb_dma_check_alignment(void *buf, int size)
-{
-	return !((unsigned long)buf & (size - 1));
-}
-
-static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_ep *ep,
-				 struct r8a66597_request *req)
-{
-	struct r8a66597_dma *dma = NULL;
-	int ch;
-
-	/* Check transfer type */
-	if (!usb_endpoint_xfer_bulk(ep->desc))
-		return -EIO;
-
-	/* Check buffer alignment */
-	if (!usb_dma_check_alignment(req->req.buf, 8))
-		return -EINVAL;
-
-	/* Find available DMA channels */
-	if (ep->desc->bEndpointAddress & USB_DIR_IN)
-		ch = USBHS_DMAC_IN_CHANNEL;
-	else
-		ch = USBHS_DMAC_OUT_CHANNEL;
-
-	if (!r8a66597->dma[ch].used)
-		dma = &r8a66597->dma[ch];
-	else
-		return -EBUSY;
-
-	/* Set parameters */
-	dma->channel = ch;
-	dma->ep = ep;
-	dma->used = 1;
-	if (usb_dma_check_alignment(req->req.buf, 32)) {
-		dma->tx_size = 32;
-		dma->chcr_ts = TS_32;
-	} else if (usb_dma_check_alignment(req->req.buf, 16)) {
-		dma->tx_size = 16;
-		dma->chcr_ts = TS_16;
-	} else {
-		dma->tx_size = 8;
-		dma->chcr_ts = TS_8;
-	}
-
-	if (ep->desc->bEndpointAddress & USB_DIR_IN) {
-		dma->dir = 1;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
-	} else {
-		dma->dir = 0;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
-				    USBHS_DMAC_DMICR_SP(ch) |
-				    USBHS_DMAC_DMICR_NULL(ch);
-		change_bfre_mode(r8a66597, ep->pipenum, 1);
-	}
-
-	ep->use_dma = 1;
-	ep->dma = dma;
-	if (dma->channel == 0) {
-		ep->fifoaddr = D0FIFO;
-		ep->fifosel = D0FIFOSEL;
-		ep->fifoctr = D0FIFOCTR;
-	} else {
-		ep->fifoaddr = D1FIFO;
-		ep->fifosel = D1FIFOSEL;
-		ep->fifoctr = D1FIFOCTR;
-	}
-
-	/* dma mapping */
-	req->req.dma = dma_map_single(ep->r8a66597->gadget.dev.parent,
-				req->req.buf, req->req.length,
-				(ep->desc->bEndpointAddress & USB_DIR_IN)
-					? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-	req->mapped = 1;
-
-	/* Initialize pipe, if needed */
-	if (!dma->initialized) {
-		pipe_initialize(ep);
-		dma->initialized = 1;
-	}
-
-	return ch;
 }
 
 static void usb_dma_free_channel(struct r8a66597 *r8a66597,
@@ -2087,6 +1964,7 @@ static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 
 static void irq_device_state(struct r8a66597 *r8a66597)
 {
+#if 0
 	u16 dvsq;
 #ifdef CONFIG_USB_OTG
 	struct otg_transceiver *otg;
@@ -2129,6 +2007,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		__cancel_delayed_work(&r8a66597->charger_work);
 		r8a66597->charger_detected = 0;
 	}
+#endif
 }
 
 static void irq_control_stage(struct r8a66597 *r8a66597)
@@ -2863,6 +2742,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	void __iomem *dma_reg = NULL;
 	struct r8a66597 *r8a66597 = NULL;
 	int ret = 0;
+#if 0
 	int i;
 	unsigned long irq_trigger;
 
@@ -3051,7 +2931,7 @@ clean_up:
 
 	if (dma_reg)
 		iounmap(dma_reg);
-
+#endif
 	return ret;
 }
 
@@ -3059,6 +2939,7 @@ clean_up:
 #ifdef CONFIG_PM
 static void r8a66597_udc_gpio_setting(struct r8a66597_platdata *pdata, int mode)
 {
+#if 0
 	int i;
 	int port;
 	struct r8a66597_gpio_setting *gpio_before, *gpio_after;
@@ -3120,10 +3001,12 @@ static void r8a66597_udc_gpio_setting(struct r8a66597_platdata *pdata, int mode)
 				gpio_request(gpio_after->port_mux, NULL);
 		}
 	}
+#endif
 	return;
 }
 static int r8a66597_udc_suspend(struct device *dev)
 {
+#if 0
 	struct r8a66597 *r8a66597 = the_controller;
 	unsigned long flags = 0;
 	udc_log("%s: IN\n", __func__);
@@ -3160,12 +3043,13 @@ static int r8a66597_udc_suspend(struct device *dev)
 	powerup = 0;
 	udc_log("%s: power %s\n", __func__, powerup?"up":"down");
 	udc_log("%s, USB device usage count: %d \n", __func__, r8a66597_to_dev(r8a66597)->power.usage_count);
-       
+#endif
 	return 0;
 }
 
 static int r8a66597_udc_resume(struct device *dev)
 {
+#if 0
 	struct r8a66597 *r8a66597 = the_controller;
 	/*restore the state of the phy before resume*/
 	r8a66597->phy_active = r8a66597->phy_active_sav;
@@ -3174,8 +3058,8 @@ static int r8a66597_udc_resume(struct device *dev)
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 		r8a66597_clk_enable(r8a66597);
 		schedule_delayed_work(&r8a66597->vbus_work,0);
-}
-
+	}
+#endif
 	return 0;
 }
 #else

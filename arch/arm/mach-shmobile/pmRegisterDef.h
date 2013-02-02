@@ -28,7 +28,7 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #define CA9_SCU_ICD	0x1000	/* GIC Distributor offset from SCU_BASE */
 #define CA9_SCU_ICC	0x100	/* GIC CPU Interface offset from SCU_BASE */

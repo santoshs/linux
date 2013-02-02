@@ -40,7 +40,7 @@
 #include <sound/soundpath/common_extern.h>
 
 #include <linux/sh_dma.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/common.h>
 
 #define USE_DMA

@@ -17,5 +17,5 @@ struct i2c_sh_mobile_platform_data {
 	unsigned int clks_per_count;
 };
 
-extern unsigned int u2_get_board_rev();
+extern unsigned int u2_get_board_rev(void);
 #endif /* __I2C_SH_MOBILE_H__ */

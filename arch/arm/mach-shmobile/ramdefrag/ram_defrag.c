@@ -25,6 +25,7 @@
 #include <linux/memory.h>
 #include <linux/compaction.h>
 #include <linux/page-flags.h>
+#include <linux/export.h>
 
 #include "ram_defrag_internal.h"
 

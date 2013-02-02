@@ -11,7 +11,8 @@
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
+#include <mach/irqs.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/gpio_keys.h>
 #include <linux/usb/r8a66597.h>
@@ -28,7 +29,7 @@
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
 #endif
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
@@ -66,7 +67,7 @@ static void usbhs_module_reset(void)
 	unsigned long flags = 0;
 	int ret = 0;
 
-	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
+	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,
 		LOCK_TIME_OUT_MS, &flags);
 	if (ret < 0)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
@@ -74,17 +75,17 @@ static void usbhs_module_reset(void)
 		__raw_writel(__raw_readl(SRCR2) |
 				(1 << 14), SRCR2); /* USBHS-DMAC */
 		__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
-		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 	udelay(50); /* wait for at least one EXTALR cycle */
-	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
+	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,
 		LOCK_TIME_OUT_MS, &flags);
 	if (ret < 0)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
 	else {
 		__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
 		__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
-		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 	/* wait for SuspendM bit being cleared by hardware */
 	while (!(__raw_readw(PHYFUNCTR) & (1 << 14))) /* SUSMON */

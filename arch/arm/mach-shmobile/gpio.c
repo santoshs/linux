@@ -12,7 +12,7 @@
 
 #include <mach/gpio.h>
 #include <mach/board-u2evm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <asm/system.h>

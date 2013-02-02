@@ -23,6 +23,7 @@
 
 #include <linux/device.h>	/* for struct device */
 #include <linux/platform_device.h>
+#include <linux/module.h>
 
 /* Macro for PMIC Production Test enable */
 #define PMIC_PT_TEST_ENABLE

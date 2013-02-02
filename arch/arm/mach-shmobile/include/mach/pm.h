@@ -519,11 +519,11 @@ static inline unsigned long pm_get_spinlock(void) { return 0; }
 static inline void pm_release_spinlock(unsigned long flag) { }
 #endif /* CONFIG_CPU_FREQ */
 
-#if (defined CONFIG_HOTPLUG_CPU_MGR) && (defined CONFIG_ARCH_R8A73734)
+#if (defined CONFIG_HOTPLUG_CPU_MGR) && (defined CONFIG_ARCH_R8A7373)
 #define THS_HOTPLUG_ID		(1 << 4)
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
-#endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
+#endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A7373*/
 
 /* #define PLL1_CAN_OFF 1*/
 

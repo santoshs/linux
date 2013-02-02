@@ -26,7 +26,7 @@
 #include <linux/i2c.h>
 #include <linux/wakelock.h>
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 /* Macro */
 /* Define register */

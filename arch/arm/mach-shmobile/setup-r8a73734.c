@@ -12,7 +12,7 @@
 #include <asm/sched_clock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <mach/board-u2evm-renesas-bt.h>

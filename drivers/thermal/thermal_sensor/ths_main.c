@@ -32,7 +32,7 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/cpu.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/pm.h>
 #include <linux/hwspinlock.h>
 
@@ -324,7 +324,7 @@ static void ths_initialize_hardware(void)
 	/* Loop until getting the lock */
 	for (;;) {
 		/* Take the lock, spin for 1 msec if it's already taken */
-		ret = hwspin_lock_timeout(r8a73734_hwlock_sysc, HPB_TIMEOUT);
+		ret = hwspin_lock_timeout(r8a7373_hwlock_sysc, HPB_TIMEOUT);
 		if (0 == ret) {
 			THS_DEBUG_MSG("Get lock successfully\n");
 			break;
@@ -335,7 +335,7 @@ static void ths_initialize_hardware(void)
 	ths_enable_reset_signal();
 
 	/* Release the lock */
-	hwspin_unlock(r8a73734_hwlock_sysc);
+	hwspin_unlock(r8a7373_hwlock_sysc);
 
 	/* Set thresholds  (reset and raising interrupts) for THS0 and THS1 */
 	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX
@@ -723,7 +723,7 @@ static void ths_start_cpu(int cpu_id)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
-#ifdef CONFIG_HOTPLUG_ARCH_R8A73734
+#ifdef CONFIG_HOTPLUG_ARCH_R8A7373
 	if (cpu_online(cpu_id) != 1)
 #ifdef CONFIG_HOTPLUG_CPU_MGR
 		cpu_up_manager(cpu_id, THS_HOTPLUG_ID);
@@ -732,7 +732,7 @@ static void ths_start_cpu(int cpu_id)
 #endif /*CONFIG_HOTPLUG_CPU_MGR*/
 #else
 	THS_DEBUG_MSG("%s HOTPLUG_CPU is disabled <<<\n", __func__);
-#endif /* CONFIG_HOTPLUG_ARCH_R8A73734 */
+#endif /* CONFIG_HOTPLUG_ARCH_R8A7373 */
 
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 }
@@ -747,7 +747,7 @@ static void ths_stop_cpu(int cpu_id)
 {
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
-#ifdef CONFIG_HOTPLUG_ARCH_R8A73734
+#ifdef CONFIG_HOTPLUG_ARCH_R8A7373
 	if (1 == cpu_online(cpu_id))
 #ifdef CONFIG_HOTPLUG_CPU_MGR
 		cpu_down_manager(cpu_id, THS_HOTPLUG_ID);
@@ -756,7 +756,7 @@ static void ths_stop_cpu(int cpu_id)
 #endif /*CONFIG_HOTPLUG_CPU_MGR*/
 #else
 	THS_DEBUG_MSG("%s HOTPLUG_CPU is disabled <<<\n", __func__);
-#endif /* CONFIG_HOTPLUG_ARCH_R8A73734 */
+#endif /* CONFIG_HOTPLUG_ARCH_R8A7373 */
 
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 }

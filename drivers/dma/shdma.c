@@ -667,6 +667,7 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_desc *desc, *_desc;
 	LIST_HEAD(list);
+	int descs = sh_chan->descs_allocated;
 	unsigned long flags;
 
 	/* Protect against ISR */
@@ -778,7 +779,7 @@ static struct sh_desc *sh_dmae_add_desc(struct sh_dmae_chan *sh_chan,
 static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	struct sh_dmae_chan *sh_chan,
 	struct scatterlist *sgl, unsigned int sg_len, dma_addr_t *addr,
-	enum dma_data_direction direction, unsigned long flags)
+	enum dma_transfer_direction direction, unsigned long flags)
 {
 	struct scatterlist *sg;
 	struct sh_desc *first = NULL;
@@ -857,7 +858,7 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 		do {
 			copy_size = min(len, (size_t)SH_DMA_TCR_MAX + 1);
 			hw.tcr = copy_size;
-			if (direction == DMA_FROM_DEVICE) {
+			if (direction == DMA_DEV_TO_MEM) {
 				hw.sar = *addr;
 				hw.dar = sg_addr;
 			} else {

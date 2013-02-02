@@ -301,7 +301,7 @@ __setup("reboot=", reboot_setup);
 
 void machine_shutdown(void)
 {
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 	extern void shmobile_pm_stop_peripheral_devices(void);
 
 	/* Stop peripheral devices */

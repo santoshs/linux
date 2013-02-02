@@ -1,4 +1,4 @@
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 static struct clk es2_fsiack_clk = { };
 

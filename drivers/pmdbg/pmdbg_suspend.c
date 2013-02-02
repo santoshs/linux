@@ -26,9 +26,9 @@
 #include <mach/pm.h>
 #include <linux/wakelock.h>
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 extern int has_wake_lock_no_expire(int type);
-#endif /*CONFIG_ARCH_R8A73734*/
+#endif /*CONFIG_ARCH_R8A7373*/
 
 static int suspend_cmd(char*, int);
 static int wakelock_cmd(char*, int);
@@ -100,17 +100,17 @@ static int wakelock_cmd(char *para, int size)
 	int ret = 0;
 	FUNC_MSG_IN;
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 	ret = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
 	if (ret == 0){
 		MSG_INFO("No active suspend wakelock");
 	}
-#else /*!CONFIG_ARCH_R8A73734*/
+#else /*!CONFIG_ARCH_R8A7373*/
 	ret = has_wake_lock(WAKE_LOCK_SUSPEND);
 	if (ret == 0){
 		MSG_INFO("No active suspend wakelock");
 	}
-#endif /*CONFIG_ARCH_R8A73734*/
+#endif /*CONFIG_ARCH_R8A7373*/
 	
 	FUNC_MSG_RET(0);
 }

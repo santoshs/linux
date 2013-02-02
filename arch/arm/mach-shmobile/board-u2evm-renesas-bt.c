@@ -9,7 +9,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/serial_core.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 //#include <asm/mach-types.h>
 //#include <mach/board-u2evm-bt.h>
 

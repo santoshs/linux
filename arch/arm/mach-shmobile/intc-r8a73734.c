@@ -5,7 +5,7 @@
 #include <linux/io.h>
 #include <linux/sh_intc.h>
 #include <asm/hardware/gic.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */

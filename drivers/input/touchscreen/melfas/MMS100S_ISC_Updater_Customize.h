@@ -3,7 +3,7 @@
 #define __MMS100S_ISC_Updater_CUSTOMIZE_H__
 
 #include "MMS100S_ISC_Updater.h"
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #ifdef CONFIG_MACH_U2EVM/* temp CONFIG_MACH_U2EVM_SR_REV040 */
 #define GPIO_TOUCH_EN    	GPIO_PORT30

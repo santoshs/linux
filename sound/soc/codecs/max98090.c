@@ -50,7 +50,7 @@
 /* none */
 #endif  /* __SOC_CODEC_ADD__ */
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #endif  /* __MAX98090_UT__ */
 
 #include <sound/soundpath/max98090_extern.h>

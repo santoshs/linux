@@ -30,7 +30,7 @@
 #include	<linux/gpio.h>
 #include	<linux/fs.h>
 
-#include	<mach/r8a73734.h>
+#include	<mach/r8a7373.h>
 #include	<linux/tpu_pwm.h>
 #include	<linux/tpu_pwm_board.h>
 

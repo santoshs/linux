@@ -25,7 +25,7 @@
 #include "pm_ram0.h"
 
 #ifndef CONFIG_PM_SMP
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #endif
 
 #define CA9_SCU_ICD	0x1000	/* GIC Distributor offset from SCU_BASE */

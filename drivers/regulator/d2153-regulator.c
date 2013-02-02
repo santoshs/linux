@@ -896,7 +896,8 @@ static int d2153_regulator_probe(struct platform_device *pdev)
 	/* register regulator */
 	rdev = regulator_register(&d2153_reg[pdev->id], &pdev->dev,
 				pdev->dev.platform_data,
-				dev_get_drvdata(&pdev->dev));
+				dev_get_drvdata(&pdev->dev),
+				NULL);
 
 	if (IS_ERR(rdev)) {
 		dev_err(&pdev->dev, "failed to register %s\n",

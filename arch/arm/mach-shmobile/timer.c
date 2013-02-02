@@ -64,8 +64,14 @@ void __init shmobile_calibrate_delay_early(void)
 	}
 }
 
+void (*shmobile_clocksource_init)(void);
+
 static void __init shmobile_timer_init(void)
 {
+        if (shmobile_clocksource_init)
+                shmobile_clocksource_init();
+
+        late_time_init = shmobile_late_time_init;
 }
 
 struct sys_timer shmobile_timer = {

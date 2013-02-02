@@ -4,7 +4,7 @@
 
 # Common objects
 # obj-y				:= timer.o console.o clock.o pm_runtime.o
-obj-y				:= timer.o console.o clock.o
+obj-y				:= timer.o console.o clock.o cmt.o serial.o
 obj-$(CONFIG_SH_TIMER_CMT_ARM)	+= sh_cmt.o
 obj-y                           += tz_comm/
 # CPU objects
@@ -90,7 +90,7 @@ obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
 #obj-y	+= flash-control.o
 
 # RAM Defragmentation
-obj-$(CONFIG_ARCH_R8A73734)	+= ramdefrag/
+obj-$(CONFIG_ARCH_R8A7373)	+= ramdefrag/
 # crashlog
 obj-y += crashlog.o
 

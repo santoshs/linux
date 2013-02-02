@@ -20,6 +20,7 @@
 #include "pmdbg_core.h"
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <mach/irqs.h>
 
 /* Module header*/
 MODULE_DESCRIPTION("PM Debug information");

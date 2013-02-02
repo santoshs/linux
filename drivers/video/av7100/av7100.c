@@ -26,7 +26,7 @@
 #include <linux/timer.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include "av7100_regs.h"
 #include <video/av7100.h>
 #include <video/hdmi.h>

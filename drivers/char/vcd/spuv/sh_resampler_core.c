@@ -25,6 +25,7 @@
 #endif
 
 #include <linux/sh_dma.h>
+#include <linux/dma-mapping.h>
 
 #include "sh_resampler.h"
 

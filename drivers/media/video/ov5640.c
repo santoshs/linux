@@ -27,7 +27,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <media/sh_mobile_csi2.h>
 
 int OV5640_power(struct device *dev, int power_on)

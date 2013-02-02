@@ -27,6 +27,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/rtc.h>
 #include <trace/events/power.h>
+#include <mach/pm.h>
 
 #include "power.h"
 
@@ -78,7 +79,7 @@ static int suspend_test(int level)
 {
 #ifdef CONFIG_PM_DEBUG
 	if (pm_test_level == level) {
-#if defined(CONFIG_ARCH_R8A73734) && defined(CONFIG_PM_TEST)
+#if defined(CONFIG_ARCH_R8A7373) && defined(CONFIG_PM_TEST)
 #include <linux/time.h>
 		extern int wait_time;
 		unsigned long wait_time_jiffies = jiffies + (wait_time * HZ);
@@ -89,7 +90,7 @@ static int suspend_test(int level)
 #else
 		printk(KERN_INFO "suspend debug: Waiting for 5 seconds.\n");
 		mdelay(5000);
-#endif /* CONFIG_ARCH_R8A73734 & CONFIG_PM_TEST */
+#endif /* CONFIG_ARCH_R8A7373 & CONFIG_PM_TEST */
 		return 1;
 	}
 #endif /* !CONFIG_PM_DEBUG */

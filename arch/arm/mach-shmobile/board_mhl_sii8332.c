@@ -5,7 +5,8 @@
 #include <linux/irq.h>
 #include <linux/delay.h>
 #include <linux/sii8332_platform.h>
-#include <mach/r8a73734.h>
+#include <mach/irqs.h>
+#include <mach/r8a7373.h>
 
 /*#include "midas.h"*/
 

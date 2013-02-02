@@ -22,7 +22,7 @@ ENTRY(shmobile_invalidate_start)
 	v7_invalidate_l1
 	b	secondary_startup
 ENDPROC(shmobile_invalidate_start)
-
+	.pool
 /*
  * Reset vector for secondary CPUs.
  * This will be mapped at address 0 by SBAR register.
@@ -33,3 +33,16 @@ ENTRY(shmobile_secondary_vector)
 	ldr     pc, 1f
 1:	.long   shmobile_invalidate_start - PAGE_OFFSET + PLAT_PHYS_OFFSET
 ENDPROC(shmobile_secondary_vector)
+
+#ifdef CONFIG_ARCH_R8A7373
+/*
+ * R8A7373 ES1.0 SMP errata W/A
+ */
+ENTRY(r8a7373_secondary_vector)
+	ldr	r0, r8a7373_secondary_vector_addr
+	mov	pc, r0
+ENTRY(r8a7373_secondary_vector_addr)
+	.word	0
+ENTRY(r8a7373_secondary_vector_sz)
+	.word	. - r8a7373_secondary_vector
+#endif

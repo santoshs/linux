@@ -43,7 +43,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <sound/soundpath/wm1811_extern.h>
 #include <sound/soundpath/soundpath.h>
 

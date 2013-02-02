@@ -41,7 +41,7 @@
 #include <linux/interrupt.h>
 #include <linux/scatterlist.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/d2153/d2153_battery.h>
 #include <linux/pmic/pmic.h>
 

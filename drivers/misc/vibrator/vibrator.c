@@ -22,7 +22,7 @@
 #include <linux/sched.h>
 #include <linux/err.h>
 #include <linux/hrtimer.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/kthread.h>

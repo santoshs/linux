@@ -32,6 +32,9 @@
 #include <asm/system.h>
 #include <mach/common.h>
 #include <mach/pm.h>
+#include <linux/stat.h>
+#include <linux/moduleparam.h>
+#include <linux/export.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -1549,7 +1552,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 		policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
 		/* policy sharing between dual CPUs */
-		cpumask_copy(policy->cpus, &cpu_present_map);
+		cpumask_copy(policy->cpus, &(*(cpumask_t *)cpu_present_mask));
 		policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 		goto done;
 	}
@@ -1593,7 +1596,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 	policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
 	/* policy sharing between dual CPUs */
-	cpumask_copy(policy->cpus, &cpu_present_map);
+	cpumask_copy(policy->cpus, &(*(cpumask_t *)cpu_present_mask));
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	not_initialized--;
 #ifdef DYNAMIC_HOTPLUG_CPU

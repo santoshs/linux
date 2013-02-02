@@ -22,7 +22,7 @@
 #include "common_ctrl.h"
 #include "scuw_ctrl.h"
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/hwspinlock.h>
 
 

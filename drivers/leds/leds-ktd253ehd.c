@@ -22,8 +22,9 @@
 #include <linux/leds.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/i2c.h>
+#include <linux/module.h>
 
 #include <linux/hrtimer.h>
 #include <linux/kthread.h>
