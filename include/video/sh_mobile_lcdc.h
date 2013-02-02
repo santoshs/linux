@@ -205,7 +205,7 @@ struct sh_mobile_lcdc_panel_cfg {
 struct sh_mobile_lcdc_chan_cfg {
 	int chan;
 	int fourcc;
-	int colorspace;
+	int bpp;
 	int interface_type; /* selects RGBn or SYSn I/F, see above */
 	int clock_divider;
 	unsigned long flags; /* LCDC_FLAGS_... */
