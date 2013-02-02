@@ -57,6 +57,8 @@ obj-$(CONFIG_CPU_FREQ) 		+= cpufreq.o clocksuspend.o
 ccflags-$(CONFIG_PM_TEST)	:= -DDEBUG
 obj-$(CONFIG_ARCH_R8A7779)	+= pm-r8a7779.o
 obj-$(CONFIG_ARCH_R8A7373)	+= pm-r8a7373.o sleep-r8a7373.o
+# boot stop sysfs
+obj-$(CONFIG_PM_BOOT_SYSFS)	+= pm_boot_sysfs.o
 
 # Board objects
 obj-$(CONFIG_MACH_G3EVM)	+= board-g3evm.o

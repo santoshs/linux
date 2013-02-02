@@ -18,23 +18,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "pmdbg_api.h"
-#include <linux/string.h>
-#include <linux/parser.h>
-#include <asm/errno.h>
-#include <asm/io.h>
-#include <mach/pm.h>
-#include <linux/wakelock.h>
-
-
-#define NO_LAST_ITEM 	10
-
-struct idle_info{
-	int state;
-	int start_us;
-	int idle_time;
-	int is_active;
-};
+#include "pmdbg_idle.h"
 
 static struct idle_info last_item[CONFIG_NR_CPUS][NO_LAST_ITEM];
 static int cur_last_idx[CONFIG_NR_CPUS];
@@ -52,12 +36,10 @@ static char state_name[PM_STATE_NOTIFY_CORESTANDBY_2+1][32] = {
 };
 
 static char buf_reg[1024];
-static int mon_state = 0;
+static int mon_state;
 static struct wake_lock idle_wakelock;
-static int mon_all = 0;
+static int mon_all;
 
-static unsigned int idle_confirm_cb(void);
-static unsigned int idle_notify_cb(int state);
 
 static struct pm_state_notify idle_notify = {
 	.name = "PMDBG IDLE",
@@ -69,19 +51,7 @@ static struct pm_state_notify_confirm idle_confirm = {
 	.confirm = &idle_confirm_cb
 };
 
-static void get_info(char* buf);
 
-static int monitor_cmd(char*, int);
-static int suppress_cmd(char*, int);
-static int wakelock_cmd(char*, int);
-
-#ifdef CONFIG_ARCH_R8A7373
-extern int has_wake_lock_no_expire(int type);
-#endif /*CONFIG_ARCH_R8A7373*/
-
-static int idle_init(void);
-static void idle_exit(void);
-static void idle_show(char**);
 
 LOCAL_DECLARE_MOD_SHOW(idle, idle_init, idle_exit, idle_show);
 
@@ -99,39 +69,40 @@ static unsigned int idle_notify_cb(int state)
 {
 	int cpuid = smp_processor_id();
 
-	switch (state){
-		case PM_STATE_NOTIFY_SLEEP:
-		case PM_STATE_NOTIFY_SLEEP_LOWFREQ:
-		case PM_STATE_NOTIFY_CORESTANDBY:
-		case PM_STATE_NOTIFY_CORESTANDBY_2:
-			cur_last_idx[cpuid]++;
-			if (cur_last_idx[cpuid] >= NO_LAST_ITEM){
-				cur_last_idx[cpuid] = 0;
-			}
-			last_item[cpuid][cur_last_idx[cpuid]].state = state;
-			last_item[cpuid][cur_last_idx[cpuid]].is_active = 0;
-			do_gettimeofday(&beforeTime[cpuid]);
-			
-			last_item[cpuid][cur_last_idx[cpuid]].start_us =  
-					beforeTime[cpuid].tv_sec * 1000000
-					+ beforeTime[cpuid].tv_usec;
-			if (mon_all){
-				MSG_INFO("CPU %d: Enter %s at %uus\n", cpuid, 
-				state_name[last_item[cpuid][cur_last_idx[cpuid]].state],
-				last_item[cpuid][cur_last_idx[cpuid]].start_us);
-			}
-			break;
-		case PM_STATE_NOTIFY_WAKEUP:
-			do_gettimeofday(&afterTime[cpuid]);
-			last_item[cpuid][cur_last_idx[cpuid]].is_active = 1;
-			last_item[cpuid][cur_last_idx[cpuid]].idle_time = 
-					(afterTime[cpuid].tv_sec - beforeTime[cpuid].tv_sec) * 1000000
-					+ (afterTime[cpuid].tv_usec - beforeTime[cpuid].tv_usec);
-			if (mon_all){
-				MSG_INFO("CPU %d: Leave\n", cpuid);
-			}
-			break;
-			
+	switch (state) {
+	case PM_STATE_NOTIFY_SLEEP:
+	case PM_STATE_NOTIFY_SLEEP_LOWFREQ:
+	case PM_STATE_NOTIFY_CORESTANDBY:
+	case PM_STATE_NOTIFY_CORESTANDBY_2:
+		cur_last_idx[cpuid]++;
+		if (cur_last_idx[cpuid] >= NO_LAST_ITEM)
+			cur_last_idx[cpuid] = 0;
+
+		last_item[cpuid][cur_last_idx[cpuid]].state = state;
+		last_item[cpuid][cur_last_idx[cpuid]].is_active = 0;
+		do_gettimeofday(&beforeTime[cpuid]);
+
+		last_item[cpuid][cur_last_idx[cpuid]].start_us =
+				beforeTime[cpuid].tv_sec * 1000000
+				+ beforeTime[cpuid].tv_usec;
+		if (mon_all) {
+			MSG_INFO("CPU %d: Enter %s at %uus\n", cpuid,
+			state_name[last_item[cpuid][cur_last_idx[cpuid]].state],
+			last_item[cpuid][cur_last_idx[cpuid]].start_us);
+		}
+		break;
+	case PM_STATE_NOTIFY_WAKEUP:
+		do_gettimeofday(&afterTime[cpuid]);
+		last_item[cpuid][cur_last_idx[cpuid]].is_active = 1;
+		last_item[cpuid][cur_last_idx[cpuid]].idle_time =
+				(afterTime[cpuid].tv_sec -
+				beforeTime[cpuid].tv_sec) * 1000000
+				+ (afterTime[cpuid].tv_usec -
+				beforeTime[cpuid].tv_usec);
+		if (mon_all)
+			MSG_INFO("CPU %d: Leave\n", cpuid);
+		break;
+
 	};
 
 	return 0;
@@ -165,33 +136,33 @@ static int monitor_cmd(char *para, int size)
 	char item[PAR_SIZE];
 	int para_sz = 0;
 	int pos = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	FUNC_MSG_IN;
 #ifdef CONFIG_CPU_IDLE
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret = -EINVAL;
 		goto fail;
 	}
 	pos = ret;
 
 	ret = strncmp(item, "start", sizeof("start"));
-	if (0 == ret){
-		if (mon_state){
+	if (0 == ret) {
+		if (mon_state) {
 			MSG_INFO("Monitor has been started");
 			goto end;
 		}
 		ret = start_monitor();
 		if (ret)
 			goto fail;
-		s+= sprintf(s, "Started monitor Idle change");
+		s += sprintf(s, "Started monitor Idle change");
 		goto end;
 	}
 	ret = strncmp(item, "all", sizeof("all"));
-	if (0 == ret){
-		if (mon_state){
+	if (0 == ret) {
+		if (mon_state) {
 			MSG_INFO("Monitor has been started");
 			goto end;
 		}
@@ -199,24 +170,24 @@ static int monitor_cmd(char *para, int size)
 		if (ret)
 			goto fail;
 		mon_all = 1;
-		s+= sprintf(s, "Started monitor Idle change");
+		s += sprintf(s, "Started monitor Idle change");
 		goto end;
 	}
 	ret = strncmp(item, "get", sizeof("get"));
-	if (0 == ret){
-		if (!mon_state){
-			s+= sprintf(s, "Monitor has not been started yet");
+	if (0 == ret) {
+		if (!mon_state) {
+			s += sprintf(s, "Monitor has not been started yet");
 			ret = -1;
 			goto end;
 		}
-		
+
 		get_info(s);
 		goto end;
 	}
 	ret = strncmp(item, "stop", sizeof("stop"));
-	if (0 == ret){
-		if (!mon_state){
-			s+= sprintf(s, "Monitor has not been started yet");
+	if (0 == ret) {
+		if (!mon_state) {
+			s += sprintf(s, "Monitor has not been started yet");
 			ret = -1;
 			goto end;
 		}
@@ -224,15 +195,15 @@ static int monitor_cmd(char *para, int size)
 		ret = stop_monitor();
 		if (ret)
 			goto fail;
-		s+= sprintf(s, "Monitor has been stopped");
+		s += sprintf(s, "Monitor has been stopped");
 		goto end;
 	}
 #else /*!CONFIG_CPU_IDLE*/
-	s+= sprintf(s, "CONFIG_CPU_IDLE is disable");
+	s += sprintf(s, "CONFIG_CPU_IDLE is disable");
 #endif /*CONFIG_CPU_IDLE*/
 	ret =  -EINVAL;
 fail:
-	s+= sprintf(s, "FAILED");
+	s += sprintf(s, "FAILED");
 end:
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
@@ -243,10 +214,10 @@ static int suppress_cmd(char *para, int size)
 	int ret = 0;
 	char item[PAR_SIZE];
 	int para_sz = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	FUNC_MSG_IN;
 #ifndef CONFIG_HAS_WAKELOCK
-	s+= sprintf(s, "Not support\n");
+	s += sprintf(s, "Not support\n");
 	ret =  -ENOTSUPP;
 	goto end;
 #endif /*CONFIG_HAS_WAKELOCK*/
@@ -254,25 +225,25 @@ static int suppress_cmd(char *para, int size)
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (para_sz ==0){
+	if (para_sz == 0) {
 		wake_lock(&idle_wakelock);
-		s+= sprintf(s, "CoreStandby was suppressed\n");
+		s += sprintf(s, "CoreStandby was suppressed\n");
 		goto end;
 	}
 	ret = strncmp(item, "no", sizeof("no"));
-	if (0 == ret){
+	if (0 == ret) {
 		wake_unlock(&idle_wakelock);
-		s+= sprintf(s, "CoreStandby is allowed\n");
+		s += sprintf(s, "CoreStandby is allowed\n");
 		goto end;
 	}
 	ret =  -EINVAL;
-	s+= sprintf(s, "FAILED");
+	s += sprintf(s, "FAILED");
 end:
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
 }
 
-static void get_info(char* buf)
+static void get_info(char *buf)
 {
 
 	int i = 0;
@@ -281,27 +252,27 @@ static void get_info(char* buf)
 	char *s = buf;
 	struct idle_info *item = NULL;
 	FUNC_MSG_IN;
-	
-	for (cpuid=0; cpuid<CONFIG_NR_CPUS; cpuid++){
-		s+= sprintf(s, "CPU: %d\n", cpuid);
-		
+
+	for (cpuid = 0; cpuid < CONFIG_NR_CPUS; cpuid++) {
+		s += sprintf(s, "CPU: %d\n", cpuid);
+
 		cur = cur_last_idx[cpuid];
 		cur++;
-		for (i=0; i<NO_LAST_ITEM; i++,cur++){
-			if (cur >= NO_LAST_ITEM){
+		for (i = 0; i < NO_LAST_ITEM; i++, cur++) {
+			if (cur >= NO_LAST_ITEM)
 				cur = 0;
-			}
+
 			item = &last_item[cpuid][cur];
-			
-			s+= sprintf(s, "[%12u] %s in %12u us (%s)\n", 
-				item->start_us, 
-				state_name[item->state], 
-				item->is_active?item->idle_time:0, 
-				item->is_active?"Actived":"Still sleep"
+
+			s += sprintf(s, "[%12u] %s in %12u us (%s)\n",
+				item->start_us,
+				state_name[item->state],
+				item->is_active ? item->idle_time : 0,
+				item->is_active ? "Actived" : "Still sleep"
 				);
 		}
 	}
-	
+
 	FUNC_MSG_OUT;
 }
 
@@ -312,27 +283,26 @@ int wakelock_cmd(char *para, int size)
 
 #ifdef CONFIG_ARCH_R8A7373
 	ret = has_wake_lock_no_expire(WAKE_LOCK_IDLE);
-	if (ret == 0){
+	if (ret == 0)
 		MSG_INFO("No active idle wakelock");
-	}
+
 #else /*!CONFIG_ARCH_R8A7373*/
 	ret = has_wake_lock(WAKE_LOCK_IDLE);
-	if (ret == 0){
+	if (ret == 0)
 		MSG_INFO("No active idle wakelock");
-	}
-	else{
+	else
 		MSG_INFO("Has active idle wakelock");
-	}
+
 #endif /*CONFIG_ARCH_R8A7373*/
-	
+
 	FUNC_MSG_RET(0);
 }
 
-static void idle_show(char** buf)
+static void idle_show(char **buf)
 {
 	FUNC_MSG_IN;
 	*buf = buf_reg;
-	
+
 	FUNC_MSG_OUT;
 }
 
@@ -343,6 +313,8 @@ static int idle_init(void)
 	ADD_CMD(idle, sup);
 	ADD_CMD(idle, wakelock);
 	wake_lock_init(&idle_wakelock, WAKE_LOCK_IDLE, "pmdbg Idle");
+	mon_state = 0;
+	mon_all = 0;
 	FUNC_MSG_RET(0);
 }
 

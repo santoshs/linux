@@ -281,9 +281,20 @@ static void update_sampling_rate(unsigned int new_rate)
 {
 	int cpu;
 
+#ifdef ENABLE_SAMPLING_CHANGE
+	spin_lock(&sampling_lock);
+	if (dfs_low_flag != 1)
+		dbs_tuners_ins.sampling_rate = new_rate
+				     = max(new_rate, min_sampling_rate);
+	else {
+		spin_unlock(&sampling_lock);
+		return;
+	}
+	spin_unlock(&sampling_lock);
+#else /* ENABLE_SAMPLING_CHANGE */
 	dbs_tuners_ins.sampling_rate = new_rate
 				     = max(new_rate, min_sampling_rate);
-
+#endif /* ENABLE_SAMPLING_CHANGE */
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
 		struct cpu_dbs_info_s *dbs_info;
@@ -328,18 +339,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	ret = sscanf(buf, "%u", &input);
 	if (ret != 1)
 		return -EINVAL;
-#ifdef ENABLE_SAMPLING_CHANGE
-	spin_lock(&sampling_lock);
-	if (dfs_low_flag != 1)
-		update_sampling_rate(input);
-	else {
-		spin_unlock(&sampling_lock);
-		return -EPERM;
-	}
-	spin_unlock(&sampling_lock);
-#else /* ENABLE_SAMPLING_CHANGE */
 	update_sampling_rate(input);
-#endif /* ENABLE_SAMPLING_CHANGE */
 	return count;
 }
 

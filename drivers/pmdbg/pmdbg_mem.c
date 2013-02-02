@@ -20,17 +20,17 @@
 
 #include "pmdbg_api.h"
 #include "pmdbg_core.h"
-#include <asm/errno.h>
+#include <linux/errno.h>
 #include <mach/pm.h>
 #include <mach/ram_defrag.h>
 #include <linux/string.h>
 #include <linux/parser.h>
-#include <asm/io.h>
+#include <linux/io.h>
 
 
-static int bank_status_cmd(char*, int);
-static int defrag_cmd(char*, int);
-static int dump_cmd(char*, int);
+static int bank_status_cmd(char *, int);
+static int defrag_cmd(char *, int);
+static int dump_cmd(char *, int);
 
 static int pmdgb_mem_init(void);
 static void pmdgb_mem_exit(void);
@@ -73,8 +73,9 @@ static int defrag_cmd(char *para, int size)
 	ret = defrag();
 	do_gettimeofday(&aftertime);
 	MSG("Defrag done");
-	s += sprintf(s, "Defraged in %12uus\n", 
-				(u32)((aftertime.tv_sec - beforetime.tv_sec) * 1000000 
+	s += sprintf(s, "Defraged in %12uus\n",
+				(u32)((aftertime.tv_sec -
+				beforetime.tv_sec) * 1000000
 				+ (aftertime.tv_usec - beforetime.tv_usec)));
 	ret = get_ram_banks_status();
 	s += sprintf(s, "Bank status after 0x%x\n", ret);
@@ -95,15 +96,16 @@ static void dump_memory(u32 address, int length)
 	u32 j = 0;
 	char data[40];
 	char str[40];
-	char* data_tmp;
-	char* str_tmp;
+	char *data_tmp;
+	char *str_tmp;
 	char c = '.';
-	for (i = start; i < end; i+=16){
+	for (i = start; i < end; i += 16) {
 		data_tmp = data;
 		str_tmp = str;
-		for (j = 0; j<16 && i+j < end;j++){
-			c = *((char*)(i+j));
-			data_tmp += sprintf(data_tmp, "%02x ", (unsigned char)c);
+		for (j = 0; j < 16 && i+j < end; j++) {
+			c = *((char *)(i+j));
+			data_tmp += sprintf(data_tmp, "%02x ",
+						(unsigned char)c);
 			if (IS_CHAR(c))
 				str_tmp += sprintf(str_tmp, "%c", c);
 			else
@@ -134,28 +136,26 @@ static int dump_cmd(char *para, int size)
 	/* Address type*/
 	ret = get_word(para, size, 0, item, &para_sz);
 	pos = ret;
-	if (ret <=0){
+	if (ret <= 0) {
 		ret =  -EINVAL;
 		goto fail;
 	}
 	ret = strncmp(item, "v", sizeof("v"));
-	if (0 == ret){
+	if (0 == ret) {
 		is_addr_vir = 1;
-	}
-	else{
+	} else {
 		ret = strncmp(item, "p", sizeof("p"));
-		if (0 == ret){
+		if (0 == ret) {
 			is_addr_vir = 0;
-		}
-		else{
+		} else {
 			ret =  -EINVAL;
 			goto fail;
 		}
 	}
-	
+
 	/* Address*/
 	ret = get_word(para, size, pos, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret = -EINVAL;
 		goto fail;
 	}
@@ -163,13 +163,12 @@ static int dump_cmd(char *para, int size)
 	args.from = item;
 	args.to = item + para_sz;
 	ret = match_int(&args, &addr);
-	if (ret){
+	if (ret)
 		goto fail;
-	}
-	
+
 	/* Length*/
 	ret = get_word(para, size, pos, item, &para_sz);
-	if (ret <= pos){
+	if (ret <= pos) {
 		ret =  -EINVAL;
 		goto fail;
 	}
@@ -177,38 +176,40 @@ static int dump_cmd(char *para, int size)
 	args.from = item;
 	args.to = item + para_sz;
 	ret = match_int(&args, &length);
-	if (ret){
+	if (ret)
 		goto fail;
-	}
-	if (length<0){
+
+	if (length < 0) {
 		ret =  -EINVAL;
 		goto fail;
 	}
-	if (!is_addr_vir){
+	if (!is_addr_vir) {
 		base_addr = addr & 0xFFFFF000;
 		map_size = (addr - base_addr)+length;
 		map_addr = ioremap_nocache(base_addr, map_size);
 		vir_addr = map_addr + (addr - base_addr);
-	}
-	else
+	} else {
 		vir_addr = (void __iomem *)addr;
-	if (!vir_addr){
+	}
+
+	if (!vir_addr) {
 		ret =  -ENOMEM;
 		goto fail;
 	}
-	if (is_addr_vir){
-		MSG_INFO("Dump memory at vir address 0x%08x, length %d", 
+	if (is_addr_vir) {
+		MSG_INFO("Dump memory at vir address 0x%08x, length %d",
 					(u32)vir_addr, length);
-	} else{
-		MSG_INFO("Dump memory at phys address 0x%08x (vir: 0x%08x), length %d", 
-					(u32)addr, (u32)vir_addr, length);
+	} else {
+		MSG_INFO(
+			"Dump memory at phys address 0x%08x (vir: 0x%08x), length %d",
+			(u32)addr, (u32)vir_addr, length);
 	}
 	dump_memory((int)vir_addr, length);
-	if (map_addr){
+	if (map_addr) {
 		iounmap(map_addr);
 		map_addr = NULL;
 	}
-	
+
 	sprintf(bufres, "Show done");
 	goto end;
 fail:
@@ -235,7 +236,7 @@ static void pmdgb_mem_exit(void)
 	DEL_CMD(mem, bank);
 	DEL_CMD(mem, defrag);
 	DEL_CMD(mem, dump);
-	
+
 	FUNC_MSG_OUT;
 }
 

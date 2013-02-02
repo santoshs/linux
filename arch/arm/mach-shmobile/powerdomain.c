@@ -100,7 +100,6 @@ static struct drv_pd_mapping_table tbl1[] = {
 	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
 	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
@@ -155,7 +154,6 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
 	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
@@ -192,6 +190,7 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* MFI		*/	{ "av-domain",		ID_A3R	},
 	/* FSI2/ALSA	*/	{ "snd-soc-fsi",	ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4MP },
+	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4RM },
 	/* PCM2PWM	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
 	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
 	/* AudioPT	*/	{ "snd-soc-audio-test",	ID_A4MP },
@@ -214,7 +213,6 @@ static struct pdi_mapping_table pdi_tb2[] = {
 	/* SGX544MP1*/ { "pvrsrvkm", pdi_init_val},
 	/* SY-DMA0	*/ { "sh-dma-engine.0", pdi_init_val},
 	/* CC4.2 0	*/ { "sep_sec_driver.0", pdi_init_val},
-	/* MMCIF.0	*/ { "sh_mmcif.0", pdi_init_val},
 	/* MMCIF.0	*/ { "renesas_mmcif.0", pdi_init_val},
 	/* MSIOF0	*/ { "spi_sh_msiof.0", pdi_init_val},
 	/* MSIOF1	*/ { "spi_sh_msiof.1", pdi_init_val},
@@ -455,9 +453,8 @@ static void power_status_set(unsigned int area, bool on)
 		panic("power status invalid argument: 0%08x", area);
 
 
-	if (!is_power_status_on(area) == !on) {
+	if (!is_power_status_on(area) == !on)
 		return;
-	}
 
 	/* Dummy read register (SWUCR, SPDCR) to wait all bits is 0 */
 	reg_val = __raw_readl(reg);
@@ -636,11 +633,8 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 static int power_domain_driver_runtime_resume(struct device *dev)
 {
 	unsigned int area = 1 << (to_platform_device(dev)->id);
-	if (POWER_A3R == area) {
-		spin_unlock(&dev->power.lock);
+	if (POWER_A3R == area)
 		pm_runtime_get_sync(&a4rm_device.dev);
-		spin_lock(&dev->power.lock);
-	}
 
 	spin_lock(&pdc_lock);
 #ifdef CONFIG_PM_DEBUG

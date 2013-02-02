@@ -32,6 +32,7 @@
 #define PSTR_RETRIES 100
 #define PSTR_DELAY_US 10
 
+#ifndef CONFIG_PDC
 #ifdef CONFIG_PM
 
 static DEFINE_SPINLOCK(r8a7373_sysc_lock); /* SMP CPUs + I/O devices */
@@ -190,8 +191,9 @@ struct r8a7373_pm_domain r8a7373_a4mp = {
 };
 
 #endif /* CONFIG_PM */
+#endif /* CONFIG_PDC */
 
-#ifdef CONFIG_SUSPEND
+#if 0 /* #ifdef CONFIG_SUSPEND */
 static int r8a7373_enter_suspend(suspend_state_t state)
 {
 	cpu_do_idle();
@@ -220,7 +222,8 @@ void r8a7373_enter_core_standby(void)
 }
 #endif
 
-#ifdef CONFIG_CPU_IDLE
+/* #ifdef CONFIG_CPU_IDLE */
+#if 0
 static void r8a7373_cpuidle_setup(struct cpuidle_driver *drv)
 {
 	struct cpuidle_state *state;

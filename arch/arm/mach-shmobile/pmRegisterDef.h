@@ -262,7 +262,7 @@
 #define	POWERDOWN_FRQCRA_ES2	0x00324B34
 
 /* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/48, ZS:1/48, HP:1/48 */
-//#define	POWERDOWN_FRQCRB_ES2    0x0023BBB0 /* 0x10238880 */
+/* #define	POWERDOWN_FRQCRB_ES2	0x0023BBB0 *//* 0x10238880 */
 #define	POWERDOWN_FRQCRB_ES2    0x00038880 /* 0x10238880 */
 
 /********************************************/
@@ -355,13 +355,13 @@
 #define POWER_D(Dn)(1 << 22)
 /* Only use of Save VFP-D32 */
 #define POWER_VSTMIA(cc, Rn, Dd, N)		\
-	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+	((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
 		 ((N) * 2) | (POWER_D(Dd)) | (0x0CA00B00))
+
 /* Only use of Restore VFP-D32 */
 #define POWER_VLDMIA(cc, Rn, Dd, N)		\
-	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+	((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
 		 ((N) * 2) | (POWER_D(Dd)) | (0x0CB00B00))
-
 
 /* SPI Status Registers	*/
 #define ICSPISR0Phys	0xF0001D04

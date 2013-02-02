@@ -20,9 +20,12 @@
 #ifndef __ASM_ARCH_PM_H
 #define __ASM_ARCH_PM_H __FILE__
 #include <linux/suspend.h>
+#include <linux/version.h>
 #include <mach/r8a7373.h>
+
 #include <linux/io.h>
 #include <linux/spinlock_types.h>
+#include <linux/hwspinlock.h>
 
 #ifdef CONFIG_PM_HAS_SECURE
 #include "../../../../../drivers/sec_hal/rt/inc/sec_hal_rt.h"
@@ -91,6 +94,7 @@ extern void save_common_register(void);
 extern void restore_common_register(void);
 extern void sys_powerdown(void);
 extern void sys_powerup(void);
+
 extern void start_wfi(void);
 extern void start_wfi2(void);
 extern void disablemmu(void);
@@ -108,7 +112,8 @@ extern void PM_Spin_Unlock(void);
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
 extern void shmobile_suspend_udelay(unsigned int delay_time);
-extern unsigned int suspend_ZB3_backup(void);
+extern void request_suspend_state(suspend_state_t state);
+extern suspend_state_t get_suspend_state(void);
 
 #ifdef CONFIG_CPU_IDLE
 void register_pm_state_notify(struct pm_state_notify *h);
@@ -217,8 +222,6 @@ void shwystatdm_regs_restore(void);
 #ifdef CONFIG_PM_DEBUG
 int control_systemsuspend(int is_enabled);
 int is_systemsuspend_enable(void);
-extern void request_suspend_state(suspend_state_t state);
-extern suspend_state_t get_suspend_state(void);
 #else
 static inline int control_systemsuspend(int is_enabled) { return 0; }
 static inline int is_systemsuspend_enable(void) { return 0; }
@@ -260,6 +263,7 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 
 #define ES_REV_2X	(ES_REV_2_0 | ES_REV_2_1 | ES_REV_2_2)
 #define ES_REV_ALL	(ES_REV_2X | ES_REV_1X)
+extern unsigned int system_rev;
 
 /*
  * Helper functions for getting chip revision
@@ -467,7 +471,7 @@ extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
 /* Internal API for CPUFreq driver only */
- /* for corestandby */
+/* for corestandby */
 extern int cpg_get_freq(struct clk_rate *rates);
 extern int cpg_set_sbsc_freq(unsigned int new_ape_freq);
 extern int pm_set_clocks(const struct clk_rate clk_div);

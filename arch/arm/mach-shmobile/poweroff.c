@@ -29,7 +29,6 @@
 #include <mach/r8a7373.h>
 
 /* CPG_PLL2CR */
-
 #define PLL2CE_XOE	0x1
 
 /* Power Off Mode Setting */
@@ -41,6 +40,12 @@
 #define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
 #define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
 /* END: CR1040: Clean up source code which accesses the eMMC directly */
+
+/* W/A for RMU2-E059 start */
+#define	A4SFST	(1 << 4)	/* A4SF Status */
+#define	A4SFWU	(1 << 4)	/* A4SF Wake Up */
+#define	A4SFBL	(1 << 4)	/* A4SF Power area mask bit */
+/* W/A for RMU2-E059 end */
 
 #if defined(CONFIG_MFD_D2153)
 #include <linux/regulator/consumer.h>
@@ -61,28 +66,6 @@
 #endif
 
 static char dummy_access_for_sync;
-
-#if 0
-/*
- *  shmobile_pm_set_recovery_mode: Set Recovery Mode
- *	@cmd: Special boot mode
- */
-void shmobile_pm_set_recovery_mode(const char *cmd)
-{
-	POWEROFF_PRINTK("%s\n", __func__);
-	local_irq_disable();
-	if (cmd == NULL) {
-		/* copy cmd to Inter Connect RAM0 */
-		strncpy((void *)INTERNAL_RAM0, "", SIZE);
-	} else {
-		/* copy cmd to Inter Connect RAM0 */
-		strncpy((void *)INTERNAL_RAM0, cmd, SIZE);
-	}
-	/* set boot flag */
-	__raw_writeb(__raw_readb(STBCHRB2) | BOOTFLAG, STBCHRB2);
-	local_irq_enable();
-}
-#endif
 
 /*
  *  Stop peripheral devices
@@ -182,6 +165,23 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 #ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
 #endif /* CONFIG_PM_HAS_SECURE */
+
+	/* W/A for RMU2-E059 start */
+	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(PSTR));
+	/* If A4SF area is off now */
+	if (0x0 == (A4SFST & (__raw_readl(PSTR)))) {
+		POWEROFF_PRINTK("A4SF area is off, need Errata059 W/A\n");
+		/* A4SF area is controlled by SPDCR/SWUCR */
+		if (0x0 == (A4SFBL & (__raw_readl(SWBCR)))) {
+			/* Power On A4SF area */
+			__raw_writel(__raw_readl(SWUCR) | A4SFWU, SWUCR);
+			while (0x0 == (A4SFST & (__raw_readl(PSTR))))
+				;
+		} else
+			POWEROFF_PRINTK(
+				"A4SF area is NOT controlled by  SPDCR/SWUCR\n");
+	}
+	/* W/A for RMU2-E059 end */
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
 
@@ -213,7 +213,6 @@ static void shmobile_pm_poweroff(void)
 	 * has been requested successfully */
 	if (NULL == r8a7373_hwlock_sysc)
 		r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-#if 1
     /* Lock SMSYSC hwspinlock with 1ms timeout */
 	hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
 	if (0 != hwlock)
@@ -231,21 +230,15 @@ static void shmobile_pm_poweroff(void)
 	cpu_proc_fin();
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
-
 	/* Read STBCHR2 for debug */
 	reg = __raw_readb(STBCHR2);
 	/* Write STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2);
-
 	/* The architecture specific reboot */
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-	#endif
+#endif /* CONFIG_PM_HAS_SECURE */
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
-#else
-	/* Turn off power of whole system */
-	pmic_force_power_off(E_POWER_ALL);
-#endif	
 	/* Wait for power off */
 	while (1)
 		;

@@ -32,7 +32,6 @@
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
-#include <linux/hwspinlock.h>
 
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
@@ -73,85 +72,13 @@ module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int get_sem_fail_einval;
 module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-static int shmobile_enter_wfi(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index);
-static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index);
-static int shmobile_enter_corestandby(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index);
-static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
-		struct cpuidle_driver *drv, int index);
-
-void (*shmobile_cpuidle_modes[CPUIDLE_STATE_MAX])(void) = {
-	shmobile_enter_wfi, /* regular sleep mode */
-};
-
-static int shmobile_cpuidle_enter(struct cpuidle_device *dev,
-				  struct cpuidle_driver *drv,
-				  int index)
-{
-	shmobile_cpuidle_modes[index]();
-
-	return index;
-}
-
-/* states */
-enum state {
-	SHMOBILE_STATE_1 = 0,
-	SHMOBILE_STATE_2 = 1,
-	SHMOBILE_STATE_3 = 2,
-	SHMOBILE_STATE_4 = 3,
-	SHMOBILE_MAX_STATES = 4
-};
-
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
-struct cpuidle_driver shmobile_cpuidle_driver = {
-	.name = "shmobile_cpuidle",
-	.owner = THIS_MODULE,
-	.state_count = SHMOBILE_MAX_STATES,
-	.states = {
-		[SHMOBILE_STATE_1] = {
-			.enter			= shmobile_enter_wfi,
-			.exit_latency		= 1,
-			.target_residency	= 1,
-			.flags			= CPUIDLE_FLAG_TIME_VALID,
-			.name			= "WFI",
-			.desc			= "Wait for interrupt",
-		},
-		[SHMOBILE_STATE_2] = {
-			.enter			= shmobile_enter_wfi,
-			/*.enter		= shmobile_enter_wfi_lowfreq,*/
-			.exit_latency		= 100,
-			.target_residency	= 1,
-			.flags			= CPUIDLE_FLAG_TIME_VALID,
-			.name			= "WFI(low-freq)",
-			.desc			= "Wait for interrupt(lowfreq)",
-		},
-		[SHMOBILE_STATE_3] = {
-			.enter			= shmobile_enter_corestandby,
-			.exit_latency		= 300,
-			.target_residency	= 500,
-#ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
-			.flags			= CPUIDLE_FLAG_TIME_VALID |
-						CPUIDLE_FLAG_COUPLED,
-#else
-			.flags			= CPUIDLE_FLAG_TIME_VALID,
-#endif
-			.name			= "CoreStandby",
-			.desc			= "Core Standby",
-		},
-		[SHMOBILE_STATE_4] = {
-			.enter			= shmobile_enter_corestandby_2,
-			.exit_latency		= 400,
-			.target_residency	= 15000,
-			.flags			= CPUIDLE_FLAG_TIME_VALID,
-			.name			= "CoreStandby_2",
-			.desc			= "Core Standby 2",
-		},
-	},
+
+static struct cpuidle_driver shmobile_idle_driver = {
+	.name =			"shmobile_idle",
+	.owner =		THIS_MODULE,
 };
 
-void (*shmobile_cpuidle_setup)(struct cpuidle_driver *drv);
 
 /*
  * ********************************************************************
@@ -216,12 +143,6 @@ void unregister_pm_state_notify_confirm(struct pm_state_notify_confirm *h)
 EXPORT_SYMBOL(unregister_pm_state_notify_confirm);
 
 /*
- * ********************************************************************
- *     Drivers interface end.
- * ********************************************************************
- */
-
-/*
  * state_notify: notify the state.
  * @state: the state
  * return:
@@ -266,6 +187,79 @@ unsigned int state_notify_confirm(void)
 End:
 	return error;
 }
+/*
+ * ********************************************************************
+ *     Drivers interface end.
+ * ********************************************************************
+ */
+
+/* states */
+enum state {
+	SHMOBILE_STATE_1 = 0,
+	SHMOBILE_STATE_2 = 1,
+	SHMOBILE_STATE_3 = 2,
+	SHMOBILE_STATE_4 = 3,
+	SHMOBILE_MAX_STATES = 4
+};
+
+static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_wfi(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_corestandby(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
+	struct cpuidle_driver *drv, int index);
+
+static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_dev);
+
+struct cpuidle_driver shmobile_cpuidle_driver = {
+	.name = "shmobile_cpuidle",
+	.owner = THIS_MODULE,
+	.state_count = SHMOBILE_MAX_STATES,
+	.states = {
+		[SHMOBILE_STATE_1] = {
+			.enter			= shmobile_enter_wfi,
+			.exit_latency		= 1,
+			.target_residency	= 1,
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+			.name			= "WFI",
+			.desc			= "Wait for interrupt",
+		},
+		[SHMOBILE_STATE_2] = {
+			.enter			= shmobile_enter_wfi,
+			/*.enter		= shmobile_enter_wfi_lowfreq,*/
+			.exit_latency		= 100,
+			.target_residency	= 1,
+			.flags		= CPUIDLE_FLAG_TIME_VALID,
+			.name		= "WFI(low-freq)",
+			.desc = "Wait for interrupt(lowfreq)",
+		},
+		[SHMOBILE_STATE_3] = {
+			.enter			= shmobile_enter_corestandby,
+			.exit_latency		= 300,
+			.target_residency	= 500,
+#ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
+			.flags		= CPUIDLE_FLAG_TIME_VALID |
+					CPUIDLE_FLAG_COUPLED,
+#else
+			.flags			= CPUIDLE_FLAG_TIME_VALID,
+#endif
+			.name			= "CoreStandby",
+			.desc			= "Core Standby",
+		},
+		[SHMOBILE_STATE_4] = {
+			.enter			= shmobile_enter_corestandby_2,
+			.exit_latency		= 400,
+			.target_residency	= 600,
+			.flags		= CPUIDLE_FLAG_TIME_VALID,
+			.name		= "CoreStandby_2",
+			.desc = "Core Standby 2",
+		},
+	},
+};
 
 /*
  * shmobile_enter_wfi_debug: executes idle PM for a CPU - WFI state
@@ -273,10 +267,10 @@ End:
  * @drv: cpuidle driver for this cpu
  * @index: index into drv->states of the state to enter
  * return:
- *              int: index into drv->states of the state to exit
+ *		int: index into drv->states of the state to exit
  */
 static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
-				    struct cpuidle_driver *drv, int index)
+	struct cpuidle_driver *drv, int index)
 {
 	ktime_t time_start, time_end;
 	s64 diff;
@@ -289,7 +283,7 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_SLEEP);
 
-	cpu_do_idle();	/* WFI cpu_do_idle(); */
+	cpu_do_idle();		/* WFI cpu_do_idle(); */
 
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
@@ -307,6 +301,7 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 	dev->last_residency = (int) diff;
 
 	return index;
+
 }
 
 /*
@@ -315,7 +310,7 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
  * @drv: cpuidle driver for this cpu
  * @index: index into drv->states of the state to enter
  * return:
- *	int: index into drv->states of the state to exit
+ *		int: index into drv->states of the state to exit
  */
 static int shmobile_enter_wfi(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
@@ -331,7 +326,7 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 	if (!state_notify_confirm())
 		state_notify(PM_STATE_NOTIFY_SLEEP);
 
-	/* Transition to WFI setting    */
+	/* Transition to WFI setting	*/
 	start_wfi();
 
 	/* WakeUp State Notify */
@@ -350,6 +345,7 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 	dev->last_residency = (int) diff;
 
 	return index;
+
 }
 
 /*
@@ -450,7 +446,7 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 
 	dev->last_residency = (int) diff;
 
-	idle_log("<<<OUT idle_time[0x%x]\n", diff);
+	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return index;
 }
@@ -632,12 +628,9 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	s64 diff;
 	long wakelock;
 	unsigned int dr_WUPSFAC;
-	int clocks_ret;
-#ifdef PLL1_CAN_OFF
-	int clocks_changed = 0;
+	int clocks_ret, clocks_changed = 0;
 	unsigned int freqA_save;
 	unsigned int freqB_save;
-#endif /* PLL1_CAN_OFF */
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 	unsigned int freqD_save = 0;
 	int chip_rev;
@@ -720,19 +713,6 @@ clock_change:
 #endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
 
 #else /*!defined(PLL1_CAN_OFF)*/
-			/* PLL1 is sure to be off ? */
-			ret = pll1_will_be_off_check();
-			if (ret == 0)
-				goto clock_change;
-			else if (ret == -2)
-				/* Have to handle case C4 is set,
-				   but cannot due to sem fail */
-				goto out;
-			else /* (ret == -1) */
-				/* PLL1 cannot off,
-				   no need to change clocks */
-				goto skip_clock_change;
-clock_change:
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 			chip_rev = shmobile_chip_rev();
 			if (chip_rev > ES_REV_2_1) {
@@ -842,7 +822,7 @@ finished_wakeup:
 
 	dev->last_residency = (int) diff;
 
-	idle_log("<<<OUT idle_time[0x%x]\n", diff);
+	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return index;
 }
@@ -874,30 +854,26 @@ int control_cpuidle(int is_enable)
 	case 0:
 		if (!is_enable_cpuidle)
 			break; /* Already disabled */
-		for_each_possible_cpu(cpu) {
-			/* Let the governor work/statistic correct info */
-			drv->state_count = SHMOBILE_MAX_STATES_DEBUG;
-			/* Make sure that only WFI state is running */
-			drv->states[0].enter = shmobile_enter_wfi_debug;
-			drv->states[1].enter = shmobile_enter_wfi_debug;
-			drv->states[2].enter = shmobile_enter_wfi_debug;
-			drv->states[3].enter = shmobile_enter_wfi_debug;
-		}
+		/* Let the governor work/statistic correct info */
+		drv->state_count = SHMOBILE_MAX_STATES_DEBUG;
+		/* Make sure that only WFI state is running */
+		drv->states[0].enter = shmobile_enter_wfi_debug;
+		drv->states[1].enter = shmobile_enter_wfi_debug;
+		drv->states[2].enter = shmobile_enter_wfi_debug;
+		drv->states[3].enter = shmobile_enter_wfi_debug;
 		is_enable_cpuidle = is_enable;
 		break;
 
 	case 1:
 		if (is_enable_cpuidle)
 			break; /* Already enabled */
-		for_each_possible_cpu(cpu) {
-			/* Restore to original CPU's idle PM */
-			drv->state_count = SHMOBILE_MAX_STATES;
-			drv->states[0].enter = shmobile_enter_wfi;
-			/*drv->states[1].enter = shmobile_enter_wfi_lowfreq;*/
-			drv->states[1].enter = shmobile_enter_wfi;
-			drv->states[2].enter = shmobile_enter_corestandby;
-			drv->states[3].enter = shmobile_enter_corestandby_2;
-		}
+		/* Restore to original CPU's idle PM */
+		drv->state_count = SHMOBILE_MAX_STATES;
+		drv->states[0].enter = shmobile_enter_wfi;
+		/*drv->states[1].enter = shmobile_enter_wfi_lowfreq;*/
+		drv->states[1].enter = shmobile_enter_wfi;
+		drv->states[2].enter = shmobile_enter_corestandby;
+		drv->states[3].enter = shmobile_enter_corestandby_2;
 		is_enable_cpuidle = is_enable;
 		break;
 
@@ -924,7 +900,7 @@ int is_cpuidle_enable(void)
 }
 EXPORT_SYMBOL(is_cpuidle_enable);
 
-#endif /* CONFIG_PM_DEBUG */
+#endif
 
 
 /*
@@ -952,10 +928,18 @@ static int shmobile_init_cpuidle(void)
 	}
 
 	for_each_possible_cpu(cpu) {
-		dev = &per_cpu(shmobile_cpuidle_device, cpu);
+		dev = &per_cpu(shmobile_cpuidle_dev, cpu);
 		dev->cpu = cpu;
 
 		dev->state_count = drv->state_count;
+#ifdef CONFIG_PM_BOOT_SYSFS
+		is_enable_cpuidle = 0;
+		/* Make sure that only WFI state is running */
+		drv->states[0].enter = shmobile_enter_wfi_debug;
+		drv->states[1].enter = shmobile_enter_wfi_debug;
+		drv->states[2].enter = shmobile_enter_wfi_debug;
+		drv->states[3].enter = shmobile_enter_wfi_debug;
+#endif
 #ifdef CONFIG_ARCH_NEEDS_CPU_IDLE_COUPLED
 		dev->safe_state_index = SHMOBILE_STATE_1;
 		cpumask_set_cpu(cpu, &dev->coupled_cpus);

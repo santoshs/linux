@@ -21,6 +21,13 @@
 #define __PM_RAM0_H__
 
 #include <mach/r8a7373.h>
+/* IO_ADDRESS */
+#ifdef IO_ADDRESS
+#undef IO_ADDRESS
+#endif
+
+
+#define IO_ADDRESS(x)	(x)
 
 /* #define __EXTAL1_INFO__ */
 
@@ -595,11 +602,3 @@
 #define CPUSTATUS_HOTPLUG			0x5
 #define CPUSTATUS_SHUTDOWN2			0x6
 #endif /* __PM_RAM0_H__ */
-
-/* ### CTM_DEBUG ### */
-#define CTM_DEBUG_STBCHR0		0xE6180000
-#define CTM_DEBUG_STBCHR1		0xE6180001
-#define CTM_DEBUG_STBCHR2		0xE6180002
-#define CTM_DEBUG_STBCHR3		0xE6180003
-
-

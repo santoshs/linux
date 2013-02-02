@@ -13,6 +13,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <asm/cacheflush.h>
 #include <mach/common.h>
@@ -26,7 +27,7 @@ static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
 #ifndef CONFIG_ARCH_R8A7373
-	int cnt = 0;
+	int cnt;
 	/* this will be executed on alive cpu,
 	 * and it must be executed after the victim has been finished
 	 */
@@ -43,9 +44,7 @@ int platform_cpu_kill(unsigned int cpu)
 
 void platform_cpu_die(unsigned int cpu)
 {
-#ifdef CONFIG_ARM_TZ
-	int ret = 0;
-#endif
+	/* hardware shutdown code running on the CPU that is being offlined */
 	flush_cache_all();
 	dsb();
 

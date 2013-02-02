@@ -20,8 +20,14 @@
 #ifndef __PM_RAM0_H__
 #define __PM_RAM0_H__
 
-#include <mach/vmalloc.h>
 #include <mach/r8a7373.h>
+/* IO_ADDRESS */
+#ifdef IO_ADDRESS
+#undef IO_ADDRESS
+#endif
+
+
+#define IO_ADDRESS(x)	(x)
 
 #define		__EXTAL1_INFO__
 
@@ -66,7 +72,7 @@
 /* Core Standby */
 #define	fsCoreStandby		0x2E0
 /* Core Standby 2 */
-#define	fsCoreStandby_2		0x2A0
+#define	fsCoreStandby_2		0x1A0
 /* System Suspend */
 #define	fsSystemSuspend		0x2C0
 /* Save ARM register */
@@ -86,11 +92,11 @@
 /* XTAL though mode setting */
 #define	fsxtal_though		0x20
 /* power down function size*/
-#define	fsSysPowerDown		0x220
+#define	fsSysPowerDown		0x240
 /* power up function size*/
 #define	fsSysPowerUp		0x140
 /* Set clock function size*/
-#define	fsSetClockSystemSuspend		0x460
+#define	fsSetClockSystemSuspend		0x120
 
 /*-----------------------------------------------*/
 /* Offset of RAM0 area							*/

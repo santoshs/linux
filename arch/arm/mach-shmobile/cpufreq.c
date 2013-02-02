@@ -82,8 +82,6 @@ enum clock_state {
 #define NORMAL_STATE	3
 #define STOP_STATE	4
 
-#define DYNAMIC_BOARD_REV_CHECK
-#define HWREV_041	4
 #ifndef CONFIG_HOTPLUG_CPU_MGR
 #ifdef CONFIG_HOTPLUG_CPU
 #define cpu_up_manager(x, y)    cpu_up(x)
@@ -691,8 +689,8 @@ static inline void __change_sampling_values(void)
 		}
 	}
 	if (ret)
-		pr_err("%s()[%d]: error, samplrate_downfact_change(),"
-			"ret<%d>\n", __func__, __LINE__, ret);
+		pr_err("%s()[%d]: error, samplrate_downfact_change(), ret<%d>\n",
+			__func__, __LINE__, ret);
 }
 
 /*
@@ -1552,7 +1550,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 		policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
 		/* policy sharing between dual CPUs */
-		cpumask_copy(policy->cpus, &(*(cpumask_t *)cpu_present_mask));
+		cpumask_copy(policy->cpus, cpu_online_mask);
 		policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 		goto done;
 	}
@@ -1596,7 +1594,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 	policy->cpuinfo.transition_latency = FREQ_TRANSITION_LATENCY;
 	/* policy sharing between dual CPUs */
-	cpumask_copy(policy->cpus, &(*(cpumask_t *)cpu_present_mask));
+	cpumask_copy(policy->cpus, cpu_online_mask);
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	not_initialized--;
 #ifdef DYNAMIC_HOTPLUG_CPU
@@ -1694,9 +1692,6 @@ static int __init shmobile_cpu_init(void)
 	int i = 0;
 	int pll0_ratio = 0;
 	int arr_size = 0;
-#ifdef DYNAMIC_BOARD_REV_CHECK
-	unsigned int hw_rev = 0;
-#endif
 
 #ifdef DVFS_DEBUG_MODE
 	debug = 1;
@@ -1705,25 +1700,12 @@ static int __init shmobile_cpu_init(void)
 #endif /* DVFS_DEBUG_MODE */
 	/* build frequency table */
 
-#ifdef DYNAMIC_BOARD_REV_CHECK
-	hw_rev = u2_get_board_rev();
-	pr_info("------hw_rev = %d", hw_rev);
-	if (hw_rev >= HWREV_041)
-		zclk12_flg = 1;
-	else
-		zclk12_flg = 0;
-
-#if defined(CPUFREQ_OVERDRIVE)
+#ifdef CONFIG_CPUFREQ_OVERDRIVE
 	zclk12_flg = 0;
-#endif /* CPUFREQ_OVERDRIVE */
-
-#else /* !(DYNAMIC_BOARD_REV_CHECK) */
-#if defined(CONFIG_BOARD_VERSION_V041) && !defined(CPUFREQ_OVERDRIVE)
-	zclk12_flg = 1;
 #else
-	zclk12_flg = 0;
-#endif /* CONFIG_BOARD_VERSION_V041 && CPUFREQ_OVERDRIVE */
-#endif /* DYNAMIC_BOARD_REV_CHECK */
+	zclk12_flg = 1;
+#endif /* CONFIG_CPUFREQ_OVERDRIVE */
+
 	if (0 != zclk12_flg) {
 		pll0_ratio = PLLx46;
 		zdiv_table = zdiv_table12;
@@ -1758,7 +1740,12 @@ static int __init shmobile_cpu_init(void)
 		return ret;
 	ret = cpufreq_register_notifier(&policy_notifier,
 					CPUFREQ_POLICY_NOTIFIER);
-
+#ifdef CONFIG_PM_BOOT_SYSFS /* Restrain DVFS at the time of start */
+	/* stop cpufreq */
+	ret = stop_cpufreq();
+	if (ret)
+		pr_err("%s : stop_cpufreq error!!(%d)\n", __func__, ret);
+#endif
 	return ret;
 }
 /*
@@ -1822,7 +1809,7 @@ static struct {
 static ssize_t show_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	unsigned int ret = -EINVAL;
+	int ret = -EINVAL;
 	struct cpufreq_policy cur_policy;
 	struct kobj_type *ktype = NULL;
 	struct attribute *att = NULL;
@@ -1847,7 +1834,6 @@ static ssize_t show_freq(struct kobject *kobj,
 					&cur_policy.kobj, att, buf);
 		}
 	}
-
 
 	return -EINVAL;
 }
@@ -1939,7 +1925,6 @@ end:
 	pr_log("%s(): update min/max freq: ret<%d>", __func__, ret);
 	return ret ? ret : count;
 }
-
 
 static ssize_t show_cur_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)

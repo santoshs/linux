@@ -23,15 +23,15 @@
 
 #include <linux/io.h>
 
-#define rreg8(addr) 			ioread8(addr)
-#define rreg16(addr) 			ioread16(addr)
-#define rreg32(addr) 			ioread32(addr)
-#define rreg(addr) 			rreg32(addr)
+#define rreg8(addr)	ioread8(addr)
+#define rreg16(addr)	ioread16(addr)
+#define rreg32(addr)	ioread32(addr)
+#define rreg(addr)		rreg32(addr)
 
 
-#define wreg8(addr, val)		iowrite8(val, addr)
-#define wreg16(addr, val)		iowrite16(val, addr)
-#define wreg32(addr, val)		iowrite32(val, addr)
+#define wreg8(addr, val)	iowrite8(val, addr)
+#define wreg16(addr, val)	iowrite16(val, addr)
+#define wreg32(addr, val)	iowrite32(val, addr)
 #define wreg(addr, val)		wreg32(val, addr)
 
 
@@ -40,5 +40,33 @@ extern void mreg16(void __iomem *addr, u16 set, u16 clear);
 extern void mreg32(void __iomem *addr, u32 set, u32 clear);
 
 #define mreg(addr, set, clear) mreg32(addr, set, clear)
+
+#ifndef CCCR
+#define CCCR			IO_ADDRESS(0xe600101c)
+#endif /*CCCR*/
+
+#ifndef CHIP_VERSION_MASK
+#define CHIP_VERSION_MASK	0x0000FFFF
+#endif /*CHIP_VERSION_MASK*/
+
+#ifndef CHIP_VERSION_ES1_0
+#define CHIP_VERSION_ES1_0	0x00003E00
+#endif /*CHIP_VERSION_ES1_0*/
+
+#ifndef CHIP_VERSION_ES2_0
+#define CHIP_VERSION_ES2_0	0x00003E10
+#endif /*CHIP_VERSION_ES2_0*/
+
+#ifndef CHIP_VERSION_ES2_1
+#define CHIP_VERSION_ES2_1	0x00003E11
+#endif /*CHIP_VERSION_ES2_1*/
+
+#ifndef CHIP_VERSION_ES2_2
+#define CHIP_VERSION_ES2_2	0x00003E12
+#endif /*CHIP_VERSION_ES2_2*/
+
+#ifndef CHIP_VERSION_ES2_3
+#define CHIP_VERSION_ES2_3	0x00003E13
+#endif /*CHIP_VERSION_ES2_3*/
 
 #endif /*__TST_PM_HW___*/

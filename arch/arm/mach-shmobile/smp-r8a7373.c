@@ -29,8 +29,11 @@
 #include <asm/smp_scu.h>
 #include <asm/smp_twd.h>
 #include <asm/hardware/gic.h>
+#include <mach/pm.h>
+#include <linux/delay.h>
 
 #include "pm-r8a7373.h"
+
 
 static void __iomem *scu_base_addr(void)
 {
@@ -72,11 +75,21 @@ unsigned int __init r8a7373_get_core_count(void)
 
 int r8a7373_platform_cpu_kill(unsigned int cpu)
 {
-	cpu = cpu_logical_map(cpu);
+	/* cpu = cpu_logical_map(cpu); */
 
+	/* disable cache coherency */
+	/* modify_scu_cpu_psr(3 << (cpu * 8), 0); */
+
+	if (system_state == SYSTEM_RESTART ||
+		system_state == SYSTEM_HALT) {
+		cpu = cpu_logical_map(cpu);
+		modify_scu_cpu_psr(3 << (cpu * 8), 0);
+		goto abort_checking;
+	}
 	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	while ((((__raw_readl(scu_base_addr() + 8)) >> (8 * cpu)) & 3) != 3)
 		mdelay(1);
+abort_checking:
 	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 1;
@@ -84,15 +97,11 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 
 int r8a7373_platform_cpu_die(unsigned int cpu)
 {
+	pr_debug("smp-r8a7373: smp_cpu_die is called\n");
 	/* disable gic cpu_if */
 	__raw_writel(0, IOMEM(0xf0000100 + GIC_CPU_CTRL));
 
-#if defined(CONFIG_SUSPEND) || defined(CONFIG_CPU_IDLE)
-	r8a7373_enter_core_standby();
-	return 0;
-#else
 	return 1;
-#endif
 }
 
 void __cpuinit r8a7373_secondary_init(unsigned int cpu)
@@ -112,35 +121,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	else
 		__raw_writel(1 << cpu, IOMEM(SRESCR));	/* reset */
 
-	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	return 0;
-}
-
-#define BOOT_ADDR      0xE63A3000
-
-static void rewrite_boot_entry(unsigned long entry)
-{
-	void __iomem *boot_code;
-	static struct clk *ram_clk;
-
-	__raw_writel(0, IOMEM(SBAR2));
-
-	/* map the reset vector (in headsmp.S) */
-	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
-
-	if ((system_rev & 0xff) < 0x10) {
-		ram_clk = clk_get(NULL, "internal_ram0");
-		clk_enable(ram_clk);
-		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
-		r8a7373_secondary_vector_addr = entry;
-		memcpy(boot_code, r8a7373_secondary_vector,
-					r8a7373_secondary_vector_sz);
-		__raw_writel(BOOT_ADDR, IOMEM(SBAR));
-		iounmap(boot_code);
-		clk_put(ram_clk);
-	} else {
-		__raw_writel(entry, IOMEM(SBAR));
-	}
 }
 
 void __init r8a7373_smp_prepare_cpus(void)
@@ -151,7 +132,9 @@ void __init r8a7373_smp_prepare_cpus(void)
 
 	__raw_writel(0, IOMEM(SBAR2));
 
-	rewrite_boot_entry(__pa(shmobile_secondary_vector));
+	/* Map the reset vector (in headsmp.S) */
+	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
+	__raw_writel(__pa(shmobile_secondary_vector), IOMEM(SBAR));
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));

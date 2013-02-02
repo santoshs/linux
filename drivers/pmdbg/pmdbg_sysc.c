@@ -21,7 +21,7 @@
 #include "pmdbg_api.h"
 #include "pmdbg_hw.h"
 #include <asm/page.h>
-#include <asm/io.h>
+#include <linux/io.h>
 
 
 #define SYSC_BASE_PHYS		0xE6180000
@@ -44,61 +44,78 @@
 #define WUPRCR_OFFSET		0x0260
 #define WUPSCR_OFFSET		0x0264
 
-int sysc_init(void);
-void sysc_exit(void);
-void sysc_show(char**);
+static int sysc_init(void);
+static void sysc_exit(void);
+static void sysc_show(char **);
 
 static char buf_reg[1024];
 
 LOCAL_DECLARE_MOD_SHOW(sysc, sysc_init, sysc_exit, sysc_show);
 
 
-void sysc_show(char** buf)
+void sysc_show(char **buf)
 {
 	void __iomem *vir_addr = NULL;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	FUNC_MSG_IN;
 	vir_addr = ioremap_nocache(SYSC_BASE_PHYS, PAGE_SIZE);
-	if (!vir_addr){
-		s+= sprintf(s, "Failed: No memory\n");
+	if (!vir_addr) {
+		s += sprintf(s, "Failed: No memory\n");
 		goto end;
 	}
 	memset(buf_reg, 0, sizeof(buf_reg));
-	
-	s+= sprintf(s, "SBAR (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + SBAR_OFFSET,
-											rreg(vir_addr + SBAR_OFFSET));
-	s+= sprintf(s, "PSTR (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + PSTR_OFFSET,
-											rreg(vir_addr + PSTR_OFFSET));
-	s+= sprintf(s, "WUPSFAC (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + WUPSFAC_OFFSET,
-												rreg(vir_addr + WUPSFAC_OFFSET));
-	s+= sprintf(s, "WUPRFAC (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + WUPRFAC_OFFSET,
-												rreg(vir_addr + WUPRFAC_OFFSET));
-	s+= sprintf(s, "SRSTFR (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + SRSTFR_OFFSET,
-												rreg(vir_addr + SRSTFR_OFFSET));
-	s+= sprintf(s, "WUPSMSK (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + WUPSMSK_OFFSET,
-												rreg(vir_addr + WUPSMSK_OFFSET));
-	s+= sprintf(s, "WUPRMSK (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + WUPRMSK_OFFSET,
-												rreg(vir_addr + WUPRMSK_OFFSET));
-	s+= sprintf(s, "SWUCR (0x%x): 0x%x\n", 		SYSC_BASE_PHYS + SWUCR_OFFSET,
-												rreg(vir_addr + SWUCR_OFFSET));
-	s+= sprintf(s, "RWUCR (0x%x): 0x%x\n", 		SYSC_BASE_PHYS + RWUCR_OFFSET,
-												rreg(vir_addr + RWUCR_OFFSET));
-	s+= sprintf(s, "SWBCR (0x%x): 0x%x\n", 		SYSC_BASE_PHYS + SWBCR_OFFSET,
-												rreg(vir_addr + SWBCR_OFFSET));
-	s+= sprintf(s, "RWBCR (0x%x): 0x%x\n", 		SYSC_BASE_PHYS + RWBCR_OFFSET,
-												rreg(vir_addr + RWBCR_OFFSET));
-	s+= sprintf(s, "SYCKENMSK (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + SYCKENMSK_OFFSET,
-												rreg(vir_addr + SYCKENMSK_OFFSET));
-	s+= sprintf(s, "APSCSTP (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + APSCSTP_OFFSET,
-												rreg(vir_addr + APSCSTP_OFFSET));
-	s+= sprintf(s, "EXMSKCNT1 (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + EXMSKCNT1_OFFSET,
-												rreg(vir_addr + EXMSKCNT1_OFFSET));
-	s+= sprintf(s, "EXMSKCNT2 (0x%x): 0x%x\n", 	SYSC_BASE_PHYS + EXMSKCNT2_OFFSET,
-												rreg(vir_addr + EXMSKCNT2_OFFSET));
-	s+= sprintf(s, "WUPRCR (0x%x): 0x%x\n", SYSC_BASE_PHYS + WUPRCR_OFFSET,
-											rreg(vir_addr + WUPRCR_OFFSET));
-	s+= sprintf(s, "WUPSCR (0x%x): 0x%x\n", SYSC_BASE_PHYS + WUPSCR_OFFSET,
-											rreg(vir_addr + WUPSCR_OFFSET));
+
+	s += sprintf(s, "SBAR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + SBAR_OFFSET,
+			rreg(vir_addr + SBAR_OFFSET));
+	s += sprintf(s, "PSTR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + PSTR_OFFSET,
+			rreg(vir_addr + PSTR_OFFSET));
+	s += sprintf(s, "WUPSFAC (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPSFAC_OFFSET,
+			rreg(vir_addr + WUPSFAC_OFFSET));
+	s += sprintf(s, "WUPRFAC (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPRFAC_OFFSET,
+			rreg(vir_addr + WUPRFAC_OFFSET));
+	s += sprintf(s, "SRSTFR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + SRSTFR_OFFSET,
+			rreg(vir_addr + SRSTFR_OFFSET));
+	s += sprintf(s, "WUPSMSK (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPSMSK_OFFSET,
+			rreg(vir_addr + WUPSMSK_OFFSET));
+	s += sprintf(s, "WUPRMSK (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPRMSK_OFFSET,
+			rreg(vir_addr + WUPRMSK_OFFSET));
+	s += sprintf(s, "SWUCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + SWUCR_OFFSET,
+			rreg(vir_addr + SWUCR_OFFSET));
+	s += sprintf(s, "RWUCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + RWUCR_OFFSET,
+			rreg(vir_addr + RWUCR_OFFSET));
+	s += sprintf(s, "SWBCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + SWBCR_OFFSET,
+			rreg(vir_addr + SWBCR_OFFSET));
+	s += sprintf(s, "RWBCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + RWBCR_OFFSET,
+			rreg(vir_addr + RWBCR_OFFSET));
+	s += sprintf(s, "SYCKENMSK (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + SYCKENMSK_OFFSET,
+			rreg(vir_addr + SYCKENMSK_OFFSET));
+	s += sprintf(s, "APSCSTP (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + APSCSTP_OFFSET,
+			rreg(vir_addr + APSCSTP_OFFSET));
+	s += sprintf(s, "EXMSKCNT1 (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + EXMSKCNT1_OFFSET,
+			rreg(vir_addr + EXMSKCNT1_OFFSET));
+	s += sprintf(s, "EXMSKCNT2 (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + EXMSKCNT2_OFFSET,
+			rreg(vir_addr + EXMSKCNT2_OFFSET));
+	s += sprintf(s, "WUPRCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPRCR_OFFSET,
+			rreg(vir_addr + WUPRCR_OFFSET));
+	s += sprintf(s, "WUPSCR (0x%x): 0x%x\n",
+			SYSC_BASE_PHYS + WUPSCR_OFFSET,
+			rreg(vir_addr + WUPSCR_OFFSET));
 
 	iounmap(vir_addr);
 	vir_addr = NULL;

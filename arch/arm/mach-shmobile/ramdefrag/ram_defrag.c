@@ -26,6 +26,7 @@
 #include <linux/compaction.h>
 #include <linux/page-flags.h>
 #include <linux/export.h>
+#include <linux/module.h>
 
 #include "ram_defrag_internal.h"
 
@@ -42,13 +43,14 @@
 #define BANK_SIZE			0x04000000
 
 #define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
-#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0) \
-				? ((INUSED_RANGE / BANK_SIZE) + 1) \
-				: (INUSED_RANGE / BANK_SIZE))
+#define USED_BANKS	(((INUSED_RANGE % BANK_SIZE) != 0) \
+					? ((INUSED_RANGE / BANK_SIZE) + 1) \
+					: (INUSED_RANGE / BANK_SIZE))
 
 #define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
+#define SKIPPED_RANGE	(UNUSED_BANKS_START - CONFIG_MEMORY_START)
 #define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
-		? (UNUSED_BANKS_START - CONFIG_MEMORY_START) : 0)
+							? (SKIPPED_RANGE) : 0)
 
 #define SDRAM_SIZE			((SDRAM_END - SDRAM_START) + 1)
 #define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
@@ -70,7 +72,7 @@ const unsigned int used_banks = USED_BANKS;
  *		 return value will be set to 1
  *		- If certain bank is freed, correlative bit status in
  *		 return value will be cleared to 0
- *		- Bit 8 to bit 31 are "Don't Care" which
+ *		- Bit 16 to bit 31 are "Don't Care" which
  *		correspond to non-existent banks, will be set to 1
  *		- Bit status is least significant
  *		(bit 0 corresponds to bank 0, bit 1 corresponds to bank 1, etc.)

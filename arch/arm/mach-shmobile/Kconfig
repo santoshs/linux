@@ -195,6 +195,24 @@ config SH_TIMER_CMT_ARM
 
 endmenu
 
+menu "CPU Frequency configuration"
+config ARCH_HAS_CPUFREQ
+	bool
+
+config CPUFREQ_SUPPORT
+	bool "Enable support for CPU srequency scaling"
+	select ARCH_HAS_CPUFREQ
+	help
+	   This enables support for CPU frequency scaling
+	   with R-Mobile U2 HW
+	   DFS is developed basing on CPUFreq framework of Linux kernel of Android OS.
+	   DFS is a feature offered to reduce power consumption
+	   by changing system clock dynamically (based on system load).
+	   When system load meets a specific condition,
+	   system clocks frequencies will be changed automatically.
+
+endmenu
+
 config SH_CLK_CPG
 	bool
 
@@ -223,6 +241,16 @@ config SHMOBILE_CPUFREQ
 	depends on ARCH_SHMOBILE
 	select ARCH_HAS_CPUFREQ
 	default n
+
+config CPUFREQ_OVERDRIVE
+	bool "SH-Mobile CPUFreq overdrive"
+	depends on SHMOBILE_CPUFREQ
+	default n
+	help
+	  By default, maximum CPU frequency (Z clock) is 1.2 GHz only.
+	  When this config is enabled, max CPU frequency is 1.5 GHz
+	  instead of 1.2 GHz as normal. The frequency steps will also been
+	  adjusted when this config is enabled.
 
 config SH_TRANSITION_LATENCY
 	int "Transition Latency (ms)"
@@ -257,7 +285,6 @@ config SH_FRQ_STEP
 	  Frequency Step.
 endmenu
 
-
 config PDC
 	bool "Power Domain Control"
 	default n
@@ -278,7 +305,10 @@ config HOTPLUG_ARCH_R8A7373
 	bool "Support CPU Hotplug for R-MobileU2"
 	depends on HOTPLUG_CPU
 	help
-	  This CPU Hotplug for R-MobileU2
+	  This CPU Hotplug for R-MobileU2 LSI generic power saving
+	  Non-boot CPU(s) can ON/OFF with this fuction
+	  The implementation is specific for R-MobileU2
+	  It can support hotplug non-boot CPU in active state, Idle and Suspend
 
 config HOTPLUG_CPU_MGR
 	default y
@@ -290,6 +320,14 @@ config HOTPLUG_CPU_MGR
 	  This CPU Hotplug Manager for R-MobileU2 New power consumption
 	  It relatd to 3 modules: Dynamic Frequency Scaling (DFS), Hotplug
 	  and Sleep (WFI)/CoreStandy)
+
+config PM_BOOT_SYSFS
+	default y
+	bool "Support Restrain DVFS at the time of start by Power Management"
+	help
+	  This enables build for Power Management
+	  It created new file which controls the operation of Dynamic Frequency
+	  Scaling (DFS) and Sleep (WFI)/CoreStandy) during boot time
 
 source "drivers/sh/Kconfig"
 
@@ -378,6 +416,8 @@ menuconfig SEC_DEBUG_INFORM_IOTABLE
 
 #endif for SEC_DEBUG
 endif
+
+source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
 # endif for ARCH_SHMOBILE
 

@@ -28,12 +28,12 @@
 
 extern struct page *mem_map;
 
-#ifdef CONFIG_COMPACTION
+#ifdef CONFIG_SHMOBILE_RAM_DEFRAG
 
 int defrag(void);
 unsigned int get_ram_banks_status(void);
 
-#else /* !CONFIG_COMPACTION */
+#else /* !CONFIG_SHMOBILE_RAM_DEFRAG */
 
 static inline int defrag(void)
 {
@@ -45,6 +45,6 @@ static inline unsigned int get_ram_banks_status(void)
 	return -ENOTSUPP;
 }
 
-#endif /*CONFIG_COMPACTION*/
+#endif /*CONFIG_SHMOBILE_RAM_DEFRAG*/
 
 #endif /*__ARCH_MACH_RAM_DEFRAG_H__*/

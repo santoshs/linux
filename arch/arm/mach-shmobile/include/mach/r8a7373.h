@@ -572,6 +572,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define FRQCRD		IO_ADDRESS(0xE61500E4)
 #define VREFCR		IO_ADDRESS(0xE61500EC)
 #define SEQMON		IO_ADDRESS(0xE6150108)
+#define CPG_PSTR	IO_ADDRESS(0xE6151040)
 #define CPG_SCPUSTR	IO_ADDRESS(0xE6151040)
 #define SRCR0		IO_ADDRESS(0xE61580A0)
 #define SRCR1		IO_ADDRESS(0xE61580A8)
@@ -581,7 +582,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SRCR5		IO_ADDRESS(0xE61580C4)
 
 #define BBFRQCRD	IO_ADDRESS(0xE61500E8)
-
+#define PLLECRPhys	0xE61500D0
 #define RMSTPCR4Phys	0xE6150120
 #define SMSTPCR4Phys	0xE6150140
 #define MSTPSR4Phys	0xE615004C
@@ -655,6 +656,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SPDCR           IO_ADDRESS(SPDCRPhys)
 
 #define SWUCR           IO_ADDRESS(0xE6180014)
+#define SWBCR		IO_ADDRESS(0xE6180204)
 
 /* C4 Area Power Control Register (C4POWCR) */
 /*Power Status Register (PSTR)*/

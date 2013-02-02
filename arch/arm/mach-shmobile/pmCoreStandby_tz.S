@@ -448,7 +448,7 @@ ENTRY(corestandby)
 	LDR		r7, =CPG_LPCKCR_LEGACY
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF *//* PLL OFF -> LEGACY */
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
 CORESTANDBY_PA_XTAL_THOUGH_SET:
 	LDR		r4, =ram0xtal_though
 	MOV		lr, pc /* lr: Return address */
@@ -940,7 +940,7 @@ ENTRY(save_arm_register)
 	MRS		r5, MVFR0 /* Read MVFR0 register(VMRS -> MRS) */
 	AND		r6, r5, #0xF /* Extract the RB field */
 	TEQ	r6, #0x2 /* Check for Advanced SIMD/VFP-D32 support	*/
-	POWER_VSTMIA(POWER_CC_EQ, 0, 16, 16) /* Save VFP-D32 */
+	.word(POWER_VSTMIA(POWER_CC_EQ, 0, 16, 16)) /* Save VFP-D32 */
 	MSR		FPEXC, r4 /* Restore FPEXC register(VMSR -> MSR) */
 	MCR	p15, 0, r3, c1, c0, 2
 	/* Restore Coprocessor Access Control register */
@@ -1020,13 +1020,20 @@ ENTRY(restore_arm_register_pa)
 	MCR	p15, 0, r5, c2, c0, 0 /* Translation Table Base 0 Register */
 	MCR	p15, 0, r4, c10, c2, 1 /* Normal Memory Remap Register */
 	MCR	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register	*/
+	DSB
+
+	/* Enable MMU */
 	ISB
-	/* System Control Register(enable MMU, D-Cache)*/
+    LDR		r0, =0x1801             /* set I,Z,M bit */
+    MCR		p15, 0, r0, c1, c0, 0   /* MMU Enable */
+    MCR		p15, 0, r0, c7, c5, 6   /* invalidate branch predictor */
+	DSB
+    ISB
+    MCR     p15,0,r0,c8,c7,0        /* invalidate all TLB entries on this cpu */
+    ISB
+
+	/* Enable D-Cache */
 	MCR	p15, 0, r10, c1, c0, 0
-	/* Invalidate entire unified TLB */
-	MCR	p15, 0, r0, c8, c7, 0
-	/* Invalidate branch predictor */
-	MCR	p15, 0, r0, c7, c5, 6
 	DSB
 	ISB
 	MOV		pc, r1
@@ -1092,7 +1099,7 @@ ENTRY(restore_arm_register_va)
 	MRS		r6, MVFR0 /* Read MVFR0 register */
 	AND		r7, r6, #0xF /* Extract the RB field */
 	TEQ	r7, #0x2 /* Check for Advanced SIMD/VFP-D32 support	*/
-	POWER_VLDMIA(POWER_CC_EQ, 0, 16, 16) /* Restore VFP-D32	*/
+	.word(POWER_VLDMIA(POWER_CC_EQ, 0, 16, 16)) /* Restore VFP-D32 */
 	MSR		FPSCR, r5 /* Restore FPSCR */
 	MSR		FPEXC, r4 /* Restore FPEXC */
 	MCR		p15, 0, r3, c1, c0, 2
@@ -1279,27 +1286,6 @@ SKIP_PASR_DRAM_AREA0:
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
 
-	/*------------------------------------------*/
-	/* Change clock setting for powerdown       */
-	/* Switch by Sec_hal function return value  */
-	/*   0x00: Perform clock change             */
-	/*   0x20: Skip clock change                */
-	/*------------------------------------------*/
-	LDR		r0, =ram0SecHalReturnCpu0
-	LDR		r0, [r0]
-	CMP		r0, #SEC_HAL_FREQ_FAIL
-	BEQ		POWERDOWN_NO_CHANGE_FREQUENCY
-
-	LDR		r5, =ram0SetClockWork
-	STR		lr, [r5]
-	LDR		r4, =ram0SetClockSystemSuspend
-	MOV		r0, #0x0	/* Target(r0):Powerdown(0x0)	*/
-	MOV		lr, pc		/* lr: Return address	*/
-	MOV		pc, r4		/* Call setclock_systemsuspend()*/
-	NOP
-	LDR		r5, =ram0SetClockWork
-	LDR		lr, [r5]
-POWERDOWN_NO_CHANGE_FREQUENCY:
 #endif
 
 	/*--------------------------------------*/
@@ -1679,9 +1665,10 @@ ENTRY(start_wfi2)
 	CMP		r4, #CPUSTATUS_WFI
 	BLE		START_WFI2_XTAL_THOUGH_SET
 
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
 #else
-	LDR		r7, =CPG_LPCKCR_PLLOFF
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
+	LDR		r7, =CPG_LPCKCR_LEGACY
 #endif
 START_WFI2_XTAL_THOUGH_SET:
 	LDR		r5, =CPG_LPCKCR
@@ -1699,7 +1686,7 @@ START_WFI2_XTAL_THOUGH_SET:
 	BL PM_Spin_Lock
 	NOP
 
-	/* r7=0x2: legacy mode */
+	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCR
 	LDR		r7, =CPG_LPCKCR_LEGACY
 	MOV		lr, pc /* lr: Return address */

@@ -18,41 +18,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-
-#include "pmdbg_api.h"
-#include <linux/suspend.h>
-#include <asm/errno.h>
-#include <asm/io.h>
-#include <mach/pm.h>
-#include <linux/wakelock.h>
-
-#ifdef CONFIG_ARCH_R8A7373
-extern int has_wake_lock_no_expire(int type);
-#endif /*CONFIG_ARCH_R8A7373*/
-
-static int suspend_cmd(char*, int);
-static int wakelock_cmd(char*, int);
-static int suspend_init(void);
-static void suspend_exit(void);
-
-#ifdef CONFIG_SUSPEND
-extern int suspend_devices_and_enter(suspend_state_t state);
-#else /*!CONFIG_SUSPEND*/
-static inline int suspend_devices_and_enter(suspend_state_t state)
-{
-	return 0;
-}
-#endif /*CONFIG_SUSPEND*/
+#include "pmdbg_suspend.h"
 
 LOCAL_DECLARE_MOD(suspend, suspend_init, suspend_exit);
 
 DECLARE_CMD(suspend, suspend_cmd);
 DECLARE_CMD(wakelock, wakelock_cmd);
 
-
 /* suspend [type]
  * type:
- * - force: force suspend (skip early suspend) 
+ * - force: force suspend (skip early suspend)
  * */
 static int suspend_cmd(char *para, int size)
 {
@@ -67,25 +42,25 @@ static int suspend_cmd(char *para, int size)
 	para = strim(para);
 	ret = get_word(para, size, 0, item, &para_sz);
 	pos = ret;
-	if (para_sz > 0){
+	if (para_sz > 0) {
 		ret = strncmp(item, "force", sizeof("force"));
-		if (0 == ret){
+		if (0 == ret) {
 			do_gettimeofday(&beforeTime);
 			ret = suspend_devices_and_enter(PM_SUSPEND_MEM);
-		}
-		else{
+		} else {
 			ret = -ENOTSUPP;
 			MSG_INFO("No supported");
 			goto fail;
 		}
-	}else{
+	} else {
 		do_gettimeofday(&beforeTime);
 		ret = pm_suspend(PM_SUSPEND_MEM);
 	}
 	do_gettimeofday(&afterTime);
-	suspend_time = (afterTime.tv_sec - beforeTime.tv_sec) * 1000000
-					+ (afterTime.tv_usec - beforeTime.tv_usec);
-	
+	suspend_time = (afterTime.tv_sec -
+			beforeTime.tv_sec) * 1000000
+			+ (afterTime.tv_usec - beforeTime.tv_usec);
+
 	MSG_INFO("Suspended in %12uus", suspend_time);
 fail:
 	FUNC_MSG_RET(ret);
@@ -102,16 +77,14 @@ static int wakelock_cmd(char *para, int size)
 
 #ifdef CONFIG_ARCH_R8A7373
 	ret = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
-	if (ret == 0){
+	if (ret == 0)
 		MSG_INFO("No active suspend wakelock");
-	}
 #else /*!CONFIG_ARCH_R8A7373*/
 	ret = has_wake_lock(WAKE_LOCK_SUSPEND);
-	if (ret == 0){
+	if (ret == 0)
 		MSG_INFO("No active suspend wakelock");
-	}
 #endif /*CONFIG_ARCH_R8A7373*/
-	
+
 	FUNC_MSG_RET(0);
 }
 

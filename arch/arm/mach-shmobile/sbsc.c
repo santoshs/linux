@@ -59,8 +59,6 @@ static void __iomem *shared_area_base;
 /* Flag to check whether changing clock in suspend processing or not */
 unsigned int is_suspend_setclock;
 
-static int cpg_count;
-
 static struct resource cpg_sem_res[] = {
 	{
 		.start  = SHARED_AREA_SBSC_START_PHY,
@@ -73,7 +71,8 @@ void shmobile_sbsc_init(void)
 {
 	sbsc_reg = NULL;
 	cpg_lock_init = 0;
-	cpg_count = 0;
+	if (ES_REV_2_2 > shmobile_chip_rev())
+		return;
 	sbsc_reg = ioremap(SBSC_BASE, SBSC_SIZE);
 	if (!sbsc_reg)
 		pr_info(KERN_ERR "failed to remap SBSC registers\n");
@@ -86,20 +85,16 @@ void shmobile_sbsc_init(void)
 
 u32 shmobile_sbsc_read_reg32(u32 offset)
 {
-	if (!sbsc_reg) {
-		pr_info(KERN_ERR "SBSC remap not intialized\n");
+	if (!sbsc_reg)
 		return 0;
-	}
 
 	return ioread32((void __iomem *) (sbsc_reg + offset));
 }
 
 void shmobile_sbsc_write_reg32(u32 val, u32 offset)
 {
-	if (!sbsc_reg) {
-		pr_info(KERN_ERR "SBSC remap not intialized\n");
+	if (!sbsc_reg)
 		return;
-	}
 
 	iowrite32(val, (void __iomem *) (sbsc_reg + offset));
 }
@@ -116,7 +111,6 @@ void shmobile_sbsc_update_param(struct sbsc_param *param)
 	(param->SDWCR10A == 0) ||
 	(param->SDWCR11A == 0)) {
 		/* Don't apply parameters */
-		pr_info(KERN_ERR "%s: bad paramters value", __func__);
 	} else {
 		shmobile_sbsc_write_reg32(param->SDWCRC0A, SBSC_SDWCRC0A);
 		shmobile_sbsc_write_reg32(param->SDWCRC1A, SBSC_SDWCRC1A);
@@ -158,7 +152,6 @@ static void shmobile_init_cpg_lock(void)
 		cpg_lock_init = 0;
 		return;
 	}
-	cpg_count = 0;
 	shared_area_base = ioremap(cpg_sem_res[0].start,
 			cpg_sem_res[0].end - cpg_sem_res[0].start);
 
@@ -200,14 +193,12 @@ int shmobile_acquire_cpg_lock(unsigned long *flags)
 {
 	int ret = 0;
 #ifdef ZB3_CLK_DFS_ENABLE
+	if (ES_REV_2_2 > shmobile_chip_rev())
+		return 0;
 	if ((cpg_lock_init == 0) && (r8a7373_hwlock_cpg != NULL))
 		shmobile_init_cpg_lock();
 	if (cpg_lock_init == 0)
 		return 0;
-
-	if (cpg_count > 0)
-		WARN(1, KERN_WARNING "one semaphore was hold count=%d\n",
-				cpg_count);
 
 	if (!is_suspend_setclock)
 		ret = hwspin_lock_timeout(sw_cpg_lock, LOCK_TIME_OUT_MS);
@@ -216,8 +207,7 @@ int shmobile_acquire_cpg_lock(unsigned long *flags)
 
 	if (ret < 0)
 		pr_info("Can't lock hwlock_cpg\n");
-	else
-		cpg_count++;
+
 #endif /*ZB3_CLK_DFS_ENABLE*/
 	return ret;
 }
@@ -228,13 +218,7 @@ int shmobile_release_cpg_lock(unsigned long *flags)
 #ifdef ZB3_CLK_DFS_ENABLE
 	if (cpg_lock_init == 0)
 		return 0;
-	if (cpg_count != 1) {
-		pr_info(KERN_ERR "%s: one semaphore was hold count=%d\n",
-				__func__, cpg_count);
-		WARN(1, KERN_WARNING "one semaphore was not released");
-	}
 
-	cpg_count--;
 	if (!is_suspend_setclock)
 		hwspin_unlock(sw_cpg_lock);
 	else

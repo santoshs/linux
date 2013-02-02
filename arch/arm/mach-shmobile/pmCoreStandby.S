@@ -700,7 +700,7 @@ ENTRY(save_arm_register)
 	MRS		r5, MVFR0 /* Read MVFR0 register(VMRS -> MRS) */
 	AND		r6, r5, #0xF /* Extract the RB field */
 	TEQ		r6, #0x2 /* Check for Advanced SIMD/VFP-D32 support */
-	POWER_VSTMIA(POWER_CC_EQ, 0, 16, 16) /* Save VFP-D32 */
+	.word(POWER_VSTMIA(POWER_CC_EQ, 0, 16, 16)) /* Save VFP-D32 */
 	MSR		FPEXC, r4 /* Restore FPEXC register(VMSR -> MSR) */
 	MCR	p15, 0, r3, c1, c0, 2 /* Restore Coprocessor Access Control */
 
@@ -879,7 +879,7 @@ ENTRY(restore_arm_register_va)
 	MRS	r6, MVFR0 /* Read MVFR0 register */
 	AND	r7, r6, #0xF /* Extract the RB field */
 	TEQ	r7, #0x2 /* Check for Advanced SIMD/VFP-D32 support */
-	POWER_VLDMIA(POWER_CC_EQ, 0, 16, 16) /* Restore VFP-D32 */
+	.word(POWER_VLDMIA(POWER_CC_EQ, 0, 16, 16)) /* Restore VFP-D32 */
 	MSR		FPSCR, r5 /* Restore FPSCR */
 	MSR		FPEXC, r4 /* Restore FPEXC */
 	MCR	p15, 0, r3, c1, c0, 2 /* Restore Coprocessor Access Control */
@@ -1732,9 +1732,6 @@ ENTRY(sys_powerup)
 	STR		r5, [r7]
 SKIP_TURN_ON_RWDT2:
 
-	/*--------------------------------------*/
-	/* Change clock setting for wakeup		*/
-	/*--------------------------------------*/
 
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
@@ -2206,7 +2203,7 @@ ENTRY(systemsuspend_cpu1_pa)
 	WFI
 	NOP
 	MOV	r6,#1000
-	LDR	r4, =PLLECR
+	LDR	r4, =PLLECRPhys
 1:	LDR	r5, [r4]
 	SUBS	r6, r6, #1
 	BNE	1b

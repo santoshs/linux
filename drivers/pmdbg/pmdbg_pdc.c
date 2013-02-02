@@ -21,14 +21,14 @@
 #include "pmdbg_api.h"
 #include <linux/string.h>
 #include <linux/parser.h>
-#include <asm/errno.h>
-#include <asm/io.h>
+#include <linux/errno.h>
+#include <linux/io.h>
 #include <mach/pm.h>
 
-int lst_cmd(char*, int);
-int set_cmd(char*, int);
-int pdc_init(void);
-void pdc_exit(void);
+static int lst_cmd(char *, int);
+static int set_cmd(char *, int);
+static int pdc_init(void);
+static void pdc_exit(void);
 
 LOCAL_DECLARE_MOD(pdc, pdc_init, pdc_exit);
 
@@ -36,37 +36,43 @@ DECLARE_CMD(lst, lst_cmd);
 DECLARE_CMD(set, set_cmd);
 
 
-static int power_areas_info(char* buf)
+static int power_areas_info(char *buf)
 {
 	u32 reg_val;
-	char* s = buf;
+	char *s = buf;
 	FUNC_MSG_IN;
 
 	reg_val = __raw_readl(__io(SYSC_PSTR));
-	s+= sprintf(s, "Power Areas Info: \n");
-	s+= sprintf(s, "PSTR(0x%08x) = 0x%08x \n", SYSC_PSTR, reg_val);
-	s+= sprintf(s, "A3SG = %s \n", (POWER_A3SG & reg_val) ? "ON" : "OFF");
-	s+= sprintf(s, "A3SP = %s \n", (POWER_A3SP & reg_val) ? "ON" : "OFF");
-	s+= sprintf(s, "A3R = %s \n", (POWER_A3R & reg_val) ? "ON" : "OFF");
-	s+= sprintf(s, "A4RM = %s \n", (POWER_A4RM & reg_val) ? "ON" : "OFF");
-	s+= sprintf(s, "A4MP = %s \n", (POWER_A4MP & reg_val) ? "ON" : "OFF");
+	s += sprintf(s, "Power Areas Info:\n");
+	s += sprintf(s, "PSTR(0x%08x) = 0x%08x\n",
+		SYSC_PSTR, reg_val);
+	s += sprintf(s, "A3SG = %s\n",
+		(POWER_A3SG & reg_val) ? "ON" : "OFF");
+	s += sprintf(s, "A3SP = %s\n",
+		(POWER_A3SP & reg_val) ? "ON" : "OFF");
+	s += sprintf(s, "A3R = %s\n",
+		(POWER_A3R & reg_val) ? "ON" : "OFF");
+	s += sprintf(s, "A4RM = %s\n",
+		(POWER_A4RM & reg_val) ? "ON" : "OFF");
+	s += sprintf(s, "A4MP = %s\n",
+		(POWER_A4MP & reg_val) ? "ON" : "OFF");
 
 	FUNC_MSG_RET(s-buf);
 }
 
-static int power_client_info(char* buf)
+static int power_client_info(char *buf)
 {
-	char* s = buf;
+	char *s = buf;
 	FUNC_MSG_IN;
 	FUNC_MSG_RET(s-buf);
 }
 
-static int power_all_info(char* buf)
+static int power_all_info(char *buf)
 {
-	char* s = buf;
+	char *s = buf;
 	FUNC_MSG_IN;
-	s+= power_areas_info(s);
-	s+= power_client_info(s);
+	s += power_areas_info(s);
+	s += power_client_info(s);
 	FUNC_MSG_RET(s-buf);
 }
 
@@ -78,7 +84,6 @@ static int power_all_info(char* buf)
  * */
 int lst_cmd(char *para, int size)
 {
-
 	int ret = 0;
 	char item[PAR_SIZE];
 	int para_sz = 0;
@@ -87,30 +92,30 @@ int lst_cmd(char *para, int size)
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret =  -EINVAL;
 		goto fail;
 	}
 	pos = ret;
 	ret = strncmp(item, "pa", sizeof("pa"));
-	if (0 == ret){
+	if (0 == ret) {
 		(void)power_areas_info(bufres);
 		goto end;
 	}
 	ret = strncmp(item, "client", sizeof("client"));
-	if (0 == ret){
+	if (0 == ret) {
 		(void)power_client_info(bufres);
 		goto end;
 	}
-	
+
 	ret = strncmp(item, "all", sizeof("all"));
-	if (0 == ret){
+	if (0 == ret) {
 		(void)power_all_info(bufres);
 		goto end;
 	}
-	
+
 	ret = -EINVAL;
-	
+
 fail:
 	sprintf(bufres, "FAILED");
 end:
@@ -118,16 +123,13 @@ end:
 	FUNC_MSG_RET(ret);
 }
 
-/* set (f) <on/off> <pa>
- *  
- * */
+/* set (f) <on/off> <pa> */
 int set_cmd(char *para, int size)
 {
 	int ret = 0;
 	FUNC_MSG_IN;
-	
 
-	sprintf(bufres, "FAILED");
+	sprintf(bufres, "Not support");
 
 	MSG_INFO("%s", bufres);
 	FUNC_MSG_RET(ret);
@@ -141,7 +143,7 @@ int pdc_init(void)
 	ADD_CMD(pdc, lst);
 	ADD_CMD(pdc, set);
 
-	FUNC_MSG_RET(ret);	
+	FUNC_MSG_RET(ret);
 }
 
 void pdc_exit(void)

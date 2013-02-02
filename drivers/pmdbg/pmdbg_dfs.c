@@ -18,40 +18,17 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "pmdbg_api.h"
-#include <linux/string.h>
-#include <linux/parser.h>
-#include <asm/errno.h>
-#include <asm/io.h>
-#include <mach/pm.h>
-#include <linux/jiffies.h>
-#include <linux/cpufreq.h>
+#include "pmdbg_dfs.h"
 
-#define CPG_BASE_VA	IO_ADDRESS(0xE6150000)
-#define CPG_FRQCRA	(CPG_BASE_VA + 0x0000)
-#define CPG_FRQCRB	(CPG_BASE_VA + 0x0004)
-#define CPG_ZBCKCR	(CPG_BASE_VA + 0x0010)
-#define CPG_FRQCRD	(CPG_BASE_VA + 0x00E4)
-#define CPG_PLL0CR	(CPG_BASE_VA + 0x00D8)
-#define CPG_PLL1CR	(CPG_BASE_VA + 0x0028)
-#define CPG_PLL2CR	(CPG_BASE_VA + 0x002C)
-#define CPG_PLL3CR	(CPG_BASE_VA + 0x00DC)
-#define PLLCR_STC_MASK			0x3F000000
-#define PLLCR_BIT24_SHIFT		24
+#ifndef IOMEM
+#define IOMEM __io
+#endif /*IOMEM*/
 
-#define FRQCRD_ZB30SEL			BIT(4)
-#define KICK_WAIT_INTERVAL_US	500
+static char monitor_buf[NO_MON_ITEM][64] = { {0} };
+static int curr_idx;
+static char buf_reg[1024];
+static int mon_state;
 
-#define HW_TO_DIV(reg, clk)	((reg >> __clk_hw_info[clk].shift_bit) & \
-	__clk_hw_info[clk].mask_bit)
-
-
-struct clk_hw_info {
-	unsigned int	mask_bit;
-	unsigned int	shift_bit;
-	int				div_val[16];
-	void __iomem	*addr;
-};
 static struct clk_hw_info *__clk_hw_info;
 
 static struct clk_hw_info __clk_hw_info_es1_x[] = {
@@ -76,7 +53,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -99,7 +76,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -122,7 +99,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -145,7 +122,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -168,7 +145,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -191,7 +168,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -214,7 +191,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -237,7 +214,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -260,7 +237,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -283,7 +260,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -306,7 +283,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x1bf,
@@ -329,7 +306,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = __iomem(CPG_ZBCKCR)
+		.addr = IOMEM(CPG_ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -352,7 +329,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = __iomem(CPG_FRQCRD)
+		.addr = IOMEM(CPG_FRQCRD)
 	}
 };
 static struct clk_hw_info __clk_hw_info_es2_x[] = {
@@ -377,7 +354,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -400,7 +377,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -423,7 +400,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -446,7 +423,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -469,7 +446,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[M5_CLK] = {
 		.mask_bit	= 0xf,
@@ -492,7 +469,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRA)
+		.addr = IOMEM(CPG_FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -515,7 +492,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -538,7 +515,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -561,7 +538,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -584,7 +561,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -607,7 +584,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -630,7 +607,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __iomem(CPG_FRQCRB)
+		.addr = IOMEM(CPG_FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x1bf,
@@ -653,7 +630,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = __iomem(CPG_ZBCKCR)
+		.addr = IOMEM(CPG_ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -676,41 +653,9 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = __iomem(CPG_FRQCRD)
+		.addr = IOMEM(CPG_FRQCRD)
 	}
 };
-
-#define NO_MON_ITEM		10
-
-static char monitor_buf[NO_MON_ITEM][64] = {{0}};
-static int curr_idx = 0;
-static char buf_reg[1024];
-static int mon_state = 0;
-
-#ifdef CONFIG_CPU_FREQ
-extern unsigned int pm_get_syscpu_frequency(void);
-#else /*!CONFIG_CPU_FREQ*/
-static unsigned int pm_get_syscpu_frequency(void);
-static int cpg_get_pll(int pll);
-static int cpg_get_freqval(int clk, int *div);
-#endif /*CONFIG_CPU_FREQ*/
-static inline int __div(enum clk_div c_div);
-/* static int cpg_get_freq(struct clk_rate *rates); */
-static inline int __match_div_rate(int clk, int val);
-static int transition_notifier_cb(struct notifier_block *, unsigned long, void *);
-static int start_monitor(void);
-static int stop_monitor(void);
-static int start_dfs_cmd(char*, int);
-static int stop_dfs_cmd(char*, int);
-static int enable_dfs_cmd(char*, int);
-static int disable_dfs_cmd(char*, int);
-static int suppress_cmd(char*, int);
-static int clk_get_cmd(char*, int);
-static int monitor_cmd(char*, int);
-
-static void dfs_show(char**);
-static int dfs_init(void);
-static void dfs_exit(void);
 
 LOCAL_DECLARE_MOD_SHOW(dfs, dfs_init, dfs_exit, dfs_show);
 
@@ -763,7 +708,7 @@ static int cpg_get_pll(int pll)
 		return -EINVAL;
 	}
 
-	pllcr = __raw_readl(__io(IO_ADDRESS(addr)));
+	pllcr = __raw_readl(IOMEM(IO_ADDRESS(addr)));
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 	return (int)stc_val;
 }
@@ -784,10 +729,8 @@ static int cpg_get_freqval(int clk, int *div)
 {
 	int div_rate = 0;
 
-	if (!div) {
-
+	if (!div)
 		return -EINVAL;
-	}
 	/* get divrate */
 	if (clk == ZB3_CLK) {
 		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRD), clk);
@@ -811,11 +754,11 @@ static int cpg_get_freqval(int clk, int *div)
 	if ((clk == ZB3_CLK) && ((div_rate & 0x1f) == 0))
 		div_rate = DIV1_2;
 	else
-	div_rate = (int)__match_div_rate((enum clk_type)clk, div_rate);
-	if (div_rate < 0) {
-
+		div_rate =
+		(int)__match_div_rate((enum clk_type)clk, div_rate);
+	if (div_rate < 0)
 		return -EINVAL;
-	}
+
 	*div = div_rate;
 
 	return 0;
@@ -834,7 +777,7 @@ static unsigned int pm_get_syscpu_frequency(void)
 			switch (div) {
 			case DIV1_1: return (pll0 * 26000);
 			case DIV1_2: return (pll0 * 13000);
-			case DIV1_4: return (pll0 *  6500);
+			case DIV1_4: return (pll0 * 6500);
 			}
 		}
 	}
@@ -890,9 +833,8 @@ static inline int __div(enum clk_div c_div)
 	case DIV1_36:	return 36;
 	case DIV1_48:	return 48;
 	case DIV1_96:	return 96;
-	default: {
-			return -EINVAL;
-		}
+	default:
+		return -EINVAL;
 	}
 }
 
@@ -907,7 +849,7 @@ static inline int __div(enum clk_div c_div)
  *		0: successful
  *		negative: operation fail
  */
-#if 0
+ #if 0
 static int cpg_get_freq(struct clk_rate *rates)
 {
 	struct clk_rate get_rate;
@@ -916,9 +858,9 @@ static int cpg_get_freq(struct clk_rate *rates)
 	unsigned int frqcrd = __raw_readl(CPG_FRQCRD);
 	unsigned int zbckcr = __raw_readl(CPG_ZBCKCR);
 
-	if (!rates) {
+	if (!rates)
 		return -EINVAL;
-	}
+
 	/* get the clock setting
 	 * must execute in spin lock context
 	 */
@@ -970,38 +912,37 @@ static int cpg_get_freq(struct clk_rate *rates)
 	}
 
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
-		if (get_rate.m5_clk < 0) {
+		if (get_rate.m5_clk < 0)
 			return -EINVAL;
-		}
 		get_rate.pll0 = pm_get_pll_ratio(PLL0);
-	} else {
+	} else
 		get_rate.pll0 = PLLx38;
-	}
 
 	(void)memcpy(rates, &get_rate, sizeof(struct clk_rate));
 
 	return 0;
 }
 #endif
-
 static int start_dfs_cmd(char *para, int size)
 {
 	struct timeval time;
 	int freq = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	(void)para;
 	(void)size;
 	FUNC_MSG_IN;
 #ifdef CONFIG_SHMOBILE_CPUFREQ
 	start_cpufreq();
 	jiffies_to_timeval(jiffies, &time);
-	s+= sprintf(s, "DFS: Started at: %u s, %u us\n", (u32)time.tv_sec, (u32)time.tv_usec);
+	s += sprintf(s, "DFS: Started at: %u s, %u us\n",
+		(u32)time.tv_sec, (u32)time.tv_usec);
 #else /*!CONFIG_SHMOBILE_CPUFREQ*/
 	(void)time;
-	s+= sprintf(s, "DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
+	s += sprintf(s,
+		"DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
 #endif /*CONFIG_SHMOBILE_CPUFREQ*/
 	freq = pm_get_syscpu_frequency();
-	s+= sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
+	s += sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(0);
 }
@@ -1010,20 +951,22 @@ static int stop_dfs_cmd(char *para, int size)
 {
 	struct timeval time;
 	int freq = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	(void)para;
 	(void)size;
 	FUNC_MSG_IN;
 #ifdef CONFIG_SHMOBILE_CPUFREQ
 	(void)stop_cpufreq();
 	jiffies_to_timeval(jiffies, &time);
-	s+= sprintf(s, "DFS: Stopped at: %u s, %u us\n", (u32)time.tv_sec, (u32)time.tv_usec);
+	s += sprintf(s, "DFS: Stopped at: %u s, %u us\n",
+		(u32)time.tv_sec, (u32)time.tv_usec);
 #else /*!CONFIG_SHMOBILE_CPUFREQ*/
 	(void)time;
-	s+= sprintf(s, "DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
+	s += sprintf(s,
+		"DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
 #endif /*CONFIG_SHMOBILE_CPUFREQ*/
 	freq = pm_get_syscpu_frequency();
-	s+= sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
+	s += sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(0);
 }
@@ -1032,20 +975,22 @@ static int enable_dfs_cmd(char *para, int size)
 {
 	struct timeval time;
 	int freq = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	(void)para;
 	(void)size;
 	FUNC_MSG_IN;
 #ifdef CONFIG_SHMOBILE_CPUFREQ
 	(void)control_dfs_scaling(true);
 	jiffies_to_timeval(jiffies, &time);
-	s+= sprintf(s, "DFS: Enable at: %u s, %u us\n", (u32)time.tv_sec, (u32)time.tv_usec);
+	s += sprintf(s, "DFS: Enable at: %u s, %u us\n",
+		(u32)time.tv_sec, (u32)time.tv_usec);
 #else /*!CONFIG_SHMOBILE_CPUFREQ*/
 	(void)time;
-	s+= sprintf(s, "DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
+	s += sprintf(s,
+		"DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
 #endif /*CONFIG_SHMOBILE_CPUFREQ*/
 	freq = pm_get_syscpu_frequency();
-	s+= sprintf(s, "DFS: CPU Freq: %u KHz", freq);
+	s += sprintf(s, "DFS: CPU Freq: %u KHz", freq);
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(0);
 }
@@ -1054,20 +999,22 @@ static int disable_dfs_cmd(char *para, int size)
 {
 	struct timeval time;
 	int freq = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	(void)para;
 	(void)size;
 	FUNC_MSG_IN;
 #ifdef CONFIG_SHMOBILE_CPUFREQ
 	(void)control_dfs_scaling(false);
 	jiffies_to_timeval(jiffies, &time);
-	s+= sprintf(s, "DFS: Disable at: %u s, %u ms\n", (u32)time.tv_sec, (u32)time.tv_usec);
+	s += sprintf(s, "DFS: Disable at: %u s, %u ms\n",
+		(u32)time.tv_sec, (u32)time.tv_usec);
 #else /*!CONFIG_SHMOBILE_CPUFREQ*/
 	(void)time;
-	s+= sprintf(s, "DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
+	s += sprintf(s,
+		"DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
 #endif /*CONFIG_SHMOBILE_CPUFREQ*/
 	freq = pm_get_syscpu_frequency();
-	s+= sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
+	s += sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(0);
 }
@@ -1079,41 +1026,42 @@ static int suppress_cmd(char *para, int size)
 	int para_sz = 0;
 	int pos = 0;
 	int freq = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	FUNC_MSG_IN;
 #ifndef CONFIG_SHMOBILE_CPUFREQ
-	s+= sprintf(s, "DFS: Not support (macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
+	s += sprintf(s,
+		"DFS: Not support \(macro CONFIG_SHMOBILE_CPUFREQ enable?)\n");
 	ret =  -ENOTSUPP;
 	goto end;
 #endif /*CONFIG_SHMOBILE_CPUFREQ*/
 
 	para = strim(para);
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret =  -EINVAL;
 		goto fail;
 	}
 
 	pos = ret;
 	ret = strncmp(item, "min", sizeof("min"));
-	if (0 == ret){
+	if (0 == ret) {
 		disable_dfs_mode_min();
-		s+= sprintf(s, "DFS: Disable MIN level\n");
+		s += sprintf(s, "DFS: Disable MIN level\n");
 		goto end;
 	}
-	
+
 	ret = strncmp(item, "no", sizeof("no"));
-	if (0 == ret){
+	if (0 == ret) {
 		enable_dfs_mode_min();
-		s+= sprintf(s, "DFS: Allow all levels\n");
+		s += sprintf(s, "DFS: Allow all levels\n");
 		goto end;
 	}
 	ret =  -EINVAL;
 fail:
-	s+= sprintf(s, "FAILED");
+	s += sprintf(s, "FAILED");
 end:
 	freq = pm_get_syscpu_frequency();
-	s+= sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
+	s += sprintf(s, "DFS: CPU Freq: %u KHz\n", freq);
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
 }
@@ -1125,7 +1073,7 @@ static int clk_get_cmd(char *para, int size)
 	char item[PAR_SIZE];
 	int para_sz = 0;
 	int pos = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	struct clk_rate curr_rates;
 
 	FUNC_MSG_IN;
@@ -1133,50 +1081,64 @@ static int clk_get_cmd(char *para, int size)
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret = -EINVAL;
 		goto fail;
 	}
 
 	pos = ret;
 	ret = strncmp(item, "all", sizeof("all"));
-	if (0 == ret){
+	if (0 == ret) {
 		ret = cpg_get_freq(&curr_rates);
 		if (ret < 0)
 			goto fail;
-		s+= sprintf(s, "I_CLK: 1:%d\n", __div(curr_rates.i_clk));
-		s+= sprintf(s, "ZG_CLK: 1:%d\n", __div(curr_rates.zg_clk));
-		s+= sprintf(s, "B_CLK: 1:%d\n", __div(curr_rates.b_clk));
-		s+= sprintf(s, "M1_CLK: 1:%d\n", __div(curr_rates.m1_clk));
-		s+= sprintf(s, "M3_CLK: 1:%d\n", __div(curr_rates.m3_clk));
-		if (shmobile_chip_rev() >= ES_REV_2_0){
-			s+= sprintf(s, "M5_CLK: 1:%d\n", __div(curr_rates.m5_clk));
+		s += sprintf(s, "I_CLK: 1:%d\n",
+			__div(curr_rates.i_clk));
+		s += sprintf(s, "ZG_CLK: 1:%d\n",
+			__div(curr_rates.zg_clk));
+		s += sprintf(s, "B_CLK: 1:%d\n",
+			__div(curr_rates.b_clk));
+		s += sprintf(s, "M1_CLK: 1:%d\n",
+			__div(curr_rates.m1_clk));
+		s += sprintf(s, "M3_CLK: 1:%d\n",
+			__div(curr_rates.m3_clk));
+		if (shmobile_chip_rev() >= ES_REV_2_0) {
+			s += sprintf(s, "M5_CLK: 1:%d\n",
+				__div(curr_rates.m5_clk));
 		}
-		s+= sprintf(s, "Z_CLK: 1:%d\n", __div(curr_rates.z_clk));
-		s+= sprintf(s, "ZTR_CLK: 1:%d\n", __div(curr_rates.ztr_clk));
-		s+= sprintf(s, "ZT_CLK: 1:%d\n", __div(curr_rates.zt_clk));
-		s+= sprintf(s, "ZX_CLK: 1:%d\n", __div(curr_rates.zx_clk));
-		s+= sprintf(s, "HP_CLK: 1:%d\n", __div(curr_rates.hp_clk));
-		s+= sprintf(s, "ZS_CLK: 1:%d\n", __div(curr_rates.zs_clk));
-		s+= sprintf(s, "ZB_CLK: 1:%d\n", __div(curr_rates.zb_clk));
-		s+= sprintf(s, "ZB3_CLK: 1:%d\n", __div(curr_rates.zb3_clk));
-		if (shmobile_chip_rev() >= ES_REV_2_0){
-			s+= sprintf(s, "PLL0: %d\n", curr_rates.pll0);
-		}
+		s += sprintf(s, "Z_CLK: 1:%d\n",
+			__div(curr_rates.z_clk));
+		s += sprintf(s, "ZTR_CLK: 1:%d\n",
+			__div(curr_rates.ztr_clk));
+		s += sprintf(s, "ZT_CLK: 1:%d\n",
+			__div(curr_rates.zt_clk));
+		s += sprintf(s, "ZX_CLK: 1:%d\n",
+			__div(curr_rates.zx_clk));
+		s += sprintf(s, "HP_CLK: 1:%d\n",
+			__div(curr_rates.hp_clk));
+		s += sprintf(s, "ZS_CLK: 1:%d\n",
+			__div(curr_rates.zs_clk));
+		s += sprintf(s, "ZB_CLK: 1:%d\n",
+			__div(curr_rates.zb_clk));
+		s += sprintf(s, "ZB3_CLK: 1:%d\n",
+			__div(curr_rates.zb3_clk));
+		if (shmobile_chip_rev() >= ES_REV_2_0)
+			s += sprintf(s, "PLL0: %d\n", curr_rates.pll0);
+
 		goto end;
 	}
-	
+
 	ret = strncmp(item, "cpu", sizeof("cpu"));
-	if (0 == ret){
+	if (0 == ret) {
 		ret = pm_get_syscpu_frequency();
-		s+= sprintf(s, "SYS-CPU Freq: %d KHz\n", ret);
+		s += sprintf(s, "SYS-CPU Freq: %d KHz\n", ret);
 		ret = 0;
 		goto end;
 	}
 
 	ret =  -EINVAL;
 fail:
-	s+= sprintf(s, "FAILED");
+	s += sprintf(s, "FAILED");
 end:
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
@@ -1186,7 +1148,8 @@ static int start_monitor(void)
 {
 	int ret = 0;
 	FUNC_MSG_IN;
-	ret = cpufreq_register_notifier(&notifier, CPUFREQ_TRANSITION_NOTIFIER);
+	ret = cpufreq_register_notifier(&notifier,
+			CPUFREQ_TRANSITION_NOTIFIER);
 	if (!ret)
 		mon_state = 1;
 	FUNC_MSG_RET(ret);
@@ -1196,28 +1159,30 @@ static int stop_monitor(void)
 {
 	int ret = 0;
 	FUNC_MSG_IN;
-	ret = cpufreq_unregister_notifier(&notifier, CPUFREQ_TRANSITION_NOTIFIER);
+	ret = cpufreq_unregister_notifier(&notifier,
+			CPUFREQ_TRANSITION_NOTIFIER);
 	if (!ret)
 		mon_state = 0;
 	FUNC_MSG_RET(ret);
 }
 
-static int transition_notifier_cb(struct notifier_block * nb, 
-								unsigned long phase, void *data)
+static int transition_notifier_cb(struct notifier_block *nb,
+			unsigned long phase, void *data)
 {
 	struct cpufreq_freqs *freqs = (struct cpufreq_freqs *)data;
 	static struct timeval time;
 	(void)nb;
 	jiffies_to_timeval(jiffies, &time);
-	if (phase == CPUFREQ_POSTCHANGE){
+	if (phase == CPUFREQ_POSTCHANGE) {
 		curr_idx++;
-		if (curr_idx >= NO_MON_ITEM){
+		if (curr_idx >= NO_MON_ITEM)
 			curr_idx = 0;
-		}
-		sprintf(monitor_buf[curr_idx], 
-				"[%12u us] CPU %d: from %u KHz -> to: %u KHz", 
-				(u32)(time.tv_sec * 1000000 + time.tv_usec), 
-				(u32)freqs->cpu, (u32)freqs->old, (u32)freqs->new);
+
+		sprintf(monitor_buf[curr_idx],
+				"[%12u us] CPU %d: from %u KHz -> to: %u KHz",
+				(u32)(time.tv_sec * 1000000 + time.tv_usec),
+				(u32)freqs->cpu, (u32)freqs->old,
+				(u32)freqs->new);
 		MSG_INFO("%s", monitor_buf[curr_idx]);
 	}
 	return NOTIFY_OK;
@@ -1229,7 +1194,7 @@ static int monitor_cmd(char *para, int size)
 	char item[PAR_SIZE];
 	int para_sz = 0;
 	int pos = 0;
-	char* s = buf_reg;
+	char *s = buf_reg;
 	int cur = 0;
 	int i = 0;
 	FUNC_MSG_IN;
@@ -1237,67 +1202,67 @@ static int monitor_cmd(char *para, int size)
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
-	if (ret <=0){
+	if (ret <= 0) {
 		ret = -EINVAL;
 		goto fail;
 	}
 	pos = ret;
 
 	ret = strncmp(item, "start", sizeof("start"));
-	if (0 == ret){
-		if (mon_state){
+	if (0 == ret) {
+		if (mon_state) {
 			MSG_INFO("Monitor has been started");
 			goto end;
 		}
 		ret = start_monitor();
 		if (ret)
 			goto fail;
-		s+= sprintf(s, "Started monitor Freq change\n");
+		s += sprintf(s, "Started monitor Freq change\n");
 		goto end;
 	}
 	ret = strncmp(item, "get", sizeof("get"));
-	if (0 == ret){
-		if (!mon_state){
-			s+= sprintf(s, "Monitor has not been started yet\n");
+	if (0 == ret) {
+		if (!mon_state) {
+			s += sprintf(s, "Monitor has not been started yet\n");
 			ret = -1;
 			goto end;
 		}
-		
+
 		cur = curr_idx;
 		cur++;
-		for (i=0; i<NO_MON_ITEM; i++,cur++){
-			if (cur >= NO_MON_ITEM){
+		for (i = 0; i < NO_MON_ITEM; i++, cur++) {
+			if (cur >= NO_MON_ITEM)
 				cur = 0;
-			}
-			s+= sprintf(s, "%s\n", monitor_buf[cur]);
+
+			s += sprintf(s, "%s\n", monitor_buf[cur]);
 		}
 		goto end;
 	}
 	ret = strncmp(item, "stop", sizeof("stop"));
-	if (0 == ret){
-		if (!mon_state){
-			s+= sprintf(s, "Monitor has not been started yet\n");
+	if (0 == ret) {
+		if (!mon_state) {
+			s += sprintf(s, "Monitor has not been started yet\n");
 			ret = -1;
 			goto end;
 		}
 		ret = stop_monitor();
 		if (ret)
 			goto fail;
-		s+= sprintf(s, "Monitor has been stopped");
+		s += sprintf(s, "Monitor has been stopped");
 		goto end;
 	}
 #else /*!CONFIG_CPU_FREQ*/
-	s+= sprintf(s, "CONFIG_CPU_FREQ is disable\n");
+	s += sprintf(s, "CONFIG_CPU_FREQ is disable\n");
 #endif /*CONFIG_CPU_FREQ*/
 	ret =  -EINVAL;
 fail:
-	s+= sprintf(s, "FAILED\n");
+	s += sprintf(s, "FAILED\n");
 end:
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
 }
 
-static void dfs_show(char** buf)
+static void dfs_show(char **buf)
 {
 	FUNC_MSG_IN;
 	*buf = buf_reg;
@@ -1315,11 +1280,13 @@ static int dfs_init(void)
 	ADD_CMD(dfs, clk_get);
 	ADD_CMD(dfs, mon);
 
-	if (shmobile_chip_rev() >= ES_REV_2_0) {
+	if (shmobile_chip_rev() >= ES_REV_2_0)
 		__clk_hw_info = __clk_hw_info_es2_x;
-	} else {
+	else
 		__clk_hw_info = __clk_hw_info_es1_x;
-	}
+
+	curr_idx = 0;
+	mon_state = 0;
 
 	FUNC_MSG_RET(0);
 }
@@ -1334,7 +1301,7 @@ static void dfs_exit(void)
 	DEL_CMD(dfs, sup);
 	DEL_CMD(dfs, clk_get);
 	DEL_CMD(dfs, mon);
-	
+
 	FUNC_MSG_OUT;
 }
 

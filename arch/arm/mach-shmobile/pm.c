@@ -29,8 +29,6 @@
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
-
-#include <linux/hwspinlock.h>
 #include <linux/delay.h>
 
 #ifndef CONFIG_PM_HAS_SECURE
@@ -61,7 +59,7 @@ unsigned int is_suspend_request;
  */
 int core_wait_kick(unsigned int time)
 {
-	unsigned int wait_time = time;
+	int wait_time = time;
 
 	while (0 < wait_time--) {
 		if ((__raw_readl(FRQCRB) >> 31) == 0)
@@ -83,7 +81,7 @@ int core_wait_kick(unsigned int time)
  */
 int core_set_kick(unsigned int time)
 {
-	unsigned int wait_time = time;
+	int wait_time = time;
 
 	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
 		wait_time = KICK_WAIT_INTERVAL_US;

@@ -287,6 +287,23 @@ static void l2x0_disable(void)
 	raw_spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
+#ifdef CONFIG_ARM_SEC_HAL
+#define L2_CLEAN_BY_WAY 0xF01007BC
+int flush_l2_cache_internal(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&l2x0_lock, flags);
+
+	writel_relaxed(0x0000FFFF, L2_CLEAN_BY_WAY);
+	while ((readl_relaxed(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0)
+		;
+	spin_unlock_irqrestore(&l2x0_lock, flags);
+	return 1;
+}
+EXPORT_SYMBOL(flush_l2_cache_internal);
+#endif /* CONFIG_ARM_SEC_HAL */
+
 static void l2x0_unlock(u32 cache_id)
 {
 	int lockregs;
