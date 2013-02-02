@@ -2685,7 +2685,12 @@ MODULE_ALIAS("platform:r8a66597_udc");
 
 static int __init r8a66597_udc_init(void)
 {
+#if 1 /* temp W/A */
+	return 0;
+#else
+
 	return platform_driver_probe(&r8a66597_driver, r8a66597_probe);
+#endif
 }
 module_init(r8a66597_udc_init);
 
