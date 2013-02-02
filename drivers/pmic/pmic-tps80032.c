@@ -729,6 +729,9 @@ static int tps80032_power_is_writeable(struct power_ctrl *pctl,
 static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock,
 		unsigned int time_out)
 {
+#if 1 /* temp W/A */
+	return 1;
+#else
 	int ret;
 	unsigned long expire;
 
@@ -753,6 +756,7 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock,
 	}
 
 	return ret;
+#endif
 }
 
 /*
@@ -909,7 +913,10 @@ static void tps80032_force_release_swsem(u8 swsem_id)
 
 	for (;;) {
 		/* Try to force to unlock SW sem*/
+#if 0 /* tmp W/A */
 		hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
+
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		if (lock_id == 0) {
 			PMIC_ERROR_MSG(
@@ -3401,7 +3408,9 @@ static int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 	}
 
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	sign_trim1 = ret_trim1 & MSK_BIT_0;
 	sign_trim2 = ret_trim2 & MSK_BIT_0;
@@ -3439,7 +3448,9 @@ static int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3556,7 +3567,9 @@ static int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3674,7 +3687,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3792,7 +3807,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3915,7 +3932,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 
