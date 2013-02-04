@@ -20,7 +20,7 @@
 #include <asm/mach/time.h>
 #include <linux/smsc911x.h>
 #include <linux/mmc/host.h>
-#include <linux/mmc/sh_mmcif.h>
+#include <linux/mmc/renesas_mmcif.h>
 #include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
@@ -330,7 +330,7 @@ static void mmcif_down_pwr(struct platform_device *pdev)
 }
 
 
-static struct sh_mmcif_plat_data sh_mmcif_plat = {
+static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.sup_pclk	= 0,
 	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
 	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
@@ -343,7 +343,7 @@ static struct sh_mmcif_plat_data sh_mmcif_plat = {
 	.max_clk	= 52000000,
 };
 
-static struct resource sh_mmcif_resources[] = {
+static struct resource renesas_mmcif_resources[] = {
 	[0] = {
 		.name	= "MMCIF",
 		.start	= 0xe6bd0000,
@@ -356,18 +356,18 @@ static struct resource sh_mmcif_resources[] = {
 	},
 };
 
-static struct platform_device sh_mmcif_device = {
-	.name		= "sh_mmcif",
+static struct platform_device mmcif_device = {
+	.name		= "renesas_mmcif",
 	.id		= 0,
 	.dev		= {
-		.platform_data	= &sh_mmcif_plat,
+		.platform_data	= &renesas_mmcif_plat,
 	},
-	.num_resources	= ARRAY_SIZE(sh_mmcif_resources),
-	.resource	= sh_mmcif_resources,
+	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
+	.resource	= renesas_mmcif_resources,
 };
 
 static struct mmcoops_platform_data mmcoops_info = {
-	.pdev		= &sh_mmcif_device,
+	.pdev		= &mmcif_device,
 	.record_size	= MMCOOPS_RECORD_SIZE,
 	.kmsg_size	= MMCOOPS_KMSG_SIZE,
 	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
@@ -1269,7 +1269,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1_d2153[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
@@ -1322,7 +1322,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
 //	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
@@ -1375,7 +1375,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0_d2153[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 	&sdhi1_device,
@@ -1434,7 +1434,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 //	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
 	&sdhi1_device,
@@ -1493,7 +1493,7 @@ static struct platform_device *u2evm_devices_stm_none_d2153[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
@@ -1543,7 +1543,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	&keysc_device,
 #endif
-	&sh_mmcif_device,
+	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
