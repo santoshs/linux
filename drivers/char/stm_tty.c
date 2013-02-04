@@ -30,9 +30,12 @@ MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
 
 struct stm_port {
-	struct tty_struct	*tty;		/* pointer to the tty for this device */
-	int			open_count;	/* number of times this port has been opened */
-	struct semaphore	sem;		/* locks this structure */
+	/* pointer to the tty for this device */
+	struct tty_struct	*tty;
+	/* number of times this port has been opened */
+	int			open_count;
+	/* locks this structure */
+	struct semaphore	sem;
 };
 
 #define STM_TCSR_TRACEID (0x40 << 16)
@@ -47,23 +50,22 @@ static struct stm_port *stm_table[STM_TTY_MINORS];
 static int is_debug_enabled(void)
 {
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-	volatile uint32_t val;
-		
+	uint32_t val;
+
 	val = __raw_readl(DBGREG1);
-	if ((val & (1 << 29)) == 0) {
+	if ((val & (1 << 29)) == 0)
 		return 0; /* Debug is disabled */
-	} else {
+	else
 		return 1; /* Debug is enabled */
-	}
 
 }
 
 static int is_debug_disabled(void)
 {
-	return (!(is_debug_enabled));
+	return !(is_debug_enabled());
 }
 
-static int stm_tty_open(struct tty_struct * tty, struct file * filp)
+static int stm_tty_open(struct tty_struct *tty, struct file *filp)
 {
 	int index;
 	struct stm_port *prt;
@@ -102,7 +104,7 @@ static void do_close(struct stm_port *prt)
 	}
 }
 
-static void stm_tty_close(struct tty_struct * tty, struct file * filp)
+static void stm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct stm_port *prt = tty->driver_data;
 	printk(KERN_EMERG "### stm_tty_close %d\n", tty->index);
@@ -110,7 +112,9 @@ static void stm_tty_close(struct tty_struct * tty, struct file * filp)
 		do_close(prt);
 }
 
-static int stm_tty_write(struct tty_struct * tty, const unsigned char *buf, int count)
+static int stm_tty_write(struct tty_struct *tty,
+				const unsigned char *buf,
+				int count)
 {
 	int written = 0;
 	int retval = -EINVAL;
@@ -134,44 +138,48 @@ static int stm_tty_write(struct tty_struct * tty, const unsigned char *buf, int 
 		goto exit;
 	}
 	stm = stm_prt_reg + STM_PORT_SIZE*tty->index;
-	/* align source buffer address to move data 32 bits per 32 bits */
-	if (((unsigned)buf & 3) < count){
+	if (count >= 4) {
+		/* align source buffer address */
+		/* to move data 32 bits per 32 bits */
 		while ((unsigned)buf & 3) {
 			__raw_writeb(*buf, stm + STM_G_D);
 			buf++;
 			written++;
 		};
+		/* write 32 bits word */
 		aligned = (u32 *)buf;
-		while ((written+sizeof(u32))<count) {
+		while ((written+sizeof(u32)) < count) {
 			__raw_writel(*aligned, stm + STM_G_D);
 			aligned++;
 			written += sizeof(u32);
 		}
+		/* Last unaligned bytes with timestamp on last write */
 		switch (count-written) {
 		case sizeof(u8):
 			b_u8 = (u8 *)aligned;
 			__raw_writeb(*b_u8, stm + STM_G_DMTS);
-			count = written + sizeof(u8);
 			break;
 		case sizeof(u16):
 			b_u16 = (u16 *)aligned;
 			__raw_writew(*b_u16, stm + STM_G_DMTS);
-			count = written + sizeof(u16);
 			break;
-		case sizeof(u32):
-			__raw_writel(*aligned, stm + STM_G_DMTS);
-			count = written + sizeof(u32);
-			break;
-		default:
+		case (sizeof(u16)+sizeof(u8)):
 			b_u16 = (u16 *)aligned;
 			__raw_writew(*b_u16, stm + STM_G_D);
 			b_u16++;
 			b_u8 = (u8 *)b_u16;
 			__raw_writeb(*b_u8, stm + STM_G_DMTS);
-			count = written + sizeof(u16) + sizeof(u8);
+			break;
+		case sizeof(u32):
+			__raw_writel(*aligned, stm + STM_G_DMTS);
+			break;
+		default:
+		/* it should not happen, however trace string is closed */
+			__raw_writeb(0, stm + STM_G_DMTS);
 			break;
 		}
 	} else {
+		/* unaligned short message is written byte per byte */
 		while (written+1 < count) {
 			__raw_writeb(*buf, stm + STM_G_D);
 			buf++;
@@ -180,10 +188,9 @@ static int stm_tty_write(struct tty_struct * tty, const unsigned char *buf, int 
 		__raw_writeb(*buf, stm + STM_G_DMTS);
 		buf++;
 		written++;
-		count = written;
 	}
 	retval = count;
-	__raw_writel(__raw_readl(stm_ctrl + STM_SYNCR),stm_ctrl + STM_SYNCR);
+	__raw_writel(__raw_readl(stm_ctrl + STM_SYNCR), stm_ctrl + STM_SYNCR);
 exit:
 	up(&prt->sem);
 	return retval;
@@ -194,7 +201,7 @@ static int stm_tty_write_room(struct tty_struct *tty)
 	return 0x800;	/* Always 2 kbytes */
 }
 
-static struct tty_operations stm_tty_ops = {
+static const struct tty_operations stm_tty_ops = {
 	.open = stm_tty_open,
 	.close = stm_tty_close,
 	.write = stm_tty_write,
@@ -235,35 +242,34 @@ static int __devinit stm_probe(struct platform_device *pd)
 	unsigned long rate;
 
 	clk = clk_get(NULL, "cp_clk");
-	if (clk) {
+	if (clk)
 		rate = clk_get_rate(clk);
-	} else
+	else
 		rate = 13000000;
 	dev_info(&pd->dev, "clk %p %ld\n", clk, rate);
 
 	stm_ctrl = remap(pd, 0);
-	if (!stm_ctrl) {
+	if (!stm_ctrl)
 		return -ENXIO;
-	}
 
 	fun = remap(pd, 2);
-	if (!fun) {
+	if (!fun)
 		return -ENXIO;
-	}
 
 	stm_prt_reg = remap(pd, 1);
-	if (!stm_prt_reg) {
+	if (!stm_prt_reg)
 		return -ENXIO;
-	}
+
 	/* Unlock trace funnel */
 	__raw_writel(UNLOCK_MAGIC, fun + CSMR_LOCKACCESS);
-	CSTF_PORT_DISABLE(fun,0);
-	CSTF_PRIO_SET(fun,0,0);
+	CSTF_PORT_DISABLE(fun, 0);
+	CSTF_PRIO_SET(fun, 0, 0);
 	/* Re-enable Funnel */
-	CSTF_PORT_ENABLE(fun,0);
+	CSTF_PORT_ENABLE(fun, 0);
 	__raw_writel(0, fun + CSMR_LOCKACCESS);
 
-	/* Unlock STM, STM is not relocked to allow STP synchronization writes to STM_SYNCR */
+	/* Unlock STM. STM is not relocked */
+	/* to allow STP synchronization writes to STM_SYNCR */
 	__raw_writel(UNLOCK_MAGIC, stm_ctrl + CSMR_LOCKACCESS);
 	/* Disable STM for configuration */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
@@ -281,7 +287,7 @@ static int __devinit stm_probe(struct platform_device *pd)
 	__raw_writel(rate, stm_ctrl + STM_TSFREQR);
 	/* enable all 32 stimulus ports, 8 are used by APE and 2 by SPUV */
 	__raw_writel(0xffffffff, stm_ctrl + STM_SPER);
-	__raw_writel(0x400,stm_ctrl + STM_SYNCR);
+	__raw_writel(0x400, stm_ctrl + STM_SYNCR);
 	/* Control settings in STMTCSR */
 	tscr = STM_TCSR_TSEN|STM_TCSR_SYNCEN|STM_TCSR_TRACEID;
 	__raw_writel(tscr, stm_ctrl + STM_TCSR);
@@ -312,7 +318,7 @@ static int __exit stm_remove(struct platform_device *pd)
 	/* Unlock trace funnel */
 	__raw_writel(UNLOCK_MAGIC, fun + CSMR_LOCKACCESS);
 	/* Disable port0 of trace funnel */
-	CSTF_PORT_DISABLE(fun,0);
+	CSTF_PORT_DISABLE(fun, 0);
 	__raw_writel(0, fun + CSMR_LOCKACCESS);
 	for (i = 0; i < STM_TTY_MINORS; ++i)
 		tty_unregister_device(g_stm_tty_driver, i);
@@ -348,7 +354,7 @@ static int __init stm_tty_init(void)
 	g_stm_tty_driver->owner = THIS_MODULE;
 	g_stm_tty_driver->driver_name = "stm";
 	g_stm_tty_driver->name = "ttySTM";
-	g_stm_tty_driver->major = 0; // auto assign
+	g_stm_tty_driver->major = 0; /* auto assign */
 	g_stm_tty_driver->minor_start = 0;
 	g_stm_tty_driver->type = TTY_DRIVER_TYPE_SERIAL;
 	g_stm_tty_driver->subtype = SERIAL_TYPE_NORMAL;
@@ -380,15 +386,15 @@ static void  __exit stm_tty_exit(void)
 {
 	int ret;
 
-	if (is_debug_disabled()) {
+	if (is_debug_disabled())
 		goto no_debug_exit;
-	}
+
 	ret = tty_unregister_driver(g_stm_tty_driver);
-	if (ret < 0) {
+	if (ret < 0)
 		printk(KERN_ERR "stm_tty_remove: tty_unregister_driver failed, %d\n", ret);
-	} else {
+	else
 		put_tty_driver(g_stm_tty_driver);
-	}
+
 no_debug_exit:
 	g_stm_tty_driver = NULL;
 }
