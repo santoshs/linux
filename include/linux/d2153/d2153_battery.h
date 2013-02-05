@@ -27,7 +27,6 @@
 
 // Battery capacity
 #define BATTERY_CAPACITY_1800mAH
-//#define USE_ANTO_ALGORITHM
 
 #define D2153_MANUAL_READ_RETRIES			(5)
 #define ADC2TEMP_LUT_SIZE					(22)
@@ -154,6 +153,7 @@ enum {
 
 enum {
 	D2153_BATTERY_SOC = 0,
+	D2153_BATTERY_TEMP_HPA,
 	D2153_BATTERY_TEMP_ADC,
 	D2153_BATTERY_CUR_VOLTAGE,
 	D2153_BATTERY_SLEEP_MONITOR,
@@ -230,8 +230,10 @@ struct d2153_battery_data {
 
 	// for temperature
 	u32	current_temp_adc;
-	u32	average_temp_adc; 
+	u32 current_rf_temp_adc;
+	u32	average_temp_adc;
 	int	current_temperature;
+	int current_rf_temperature;
 	int	average_temperature;
 	u32 sum_temperature_adc;
 	
@@ -259,6 +261,8 @@ struct d2153_battery_data {
 	u8  temp_adc_init_done;
 	struct wake_lock sleep_monitor_wakeup;
     struct adc_man_res adc_res[D2153_ADC_CHANNEL_MAX];
+
+	u8 virtual_battery_full;
 };
 
 struct d2153_battery {
