@@ -22,7 +22,6 @@
 #define __RTDS_MEMORY_DRV_PRIVATE_H__
 
 
-#define KERNEL_ADDRESS_MASK(addr)	(addr + 0x40000000)
 #define RTDS_MEM_FLUSH_CACHE_SIZE	(1024*40)	   /* Size of the cache */
 
 #endif /* __RTDS_MEMORY_DRV_PRIVATE_H__ */

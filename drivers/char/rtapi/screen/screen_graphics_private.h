@@ -22,16 +22,14 @@
 
 #define RT_GRAPHICS_BLEND_LAYER		4
 
-#define GET_RT_CACHE_ADDRESS(addr) \
-( \
-	((0x89000000UL <= (unsigned long)addr) \
-	  && (0x8C000000UL >  (unsigned long)addr)) \
-	? \
-	(unsigned char *)((unsigned long)addr - 0x08000000) \
-	: \
-	addr \
-)
-
+inline void *GET_RT_CACHE_ADDRESS(void *addr)
+{
+	rtds_memory_drv_change_addr_param rtds_change_addr;
+	rtds_change_addr.org_addr = (unsigned int)addr;
+	rtds_change_addr.chg_addr = 0;
+	(void)rtds_memory_drv_rtpmb_cache_address(&rtds_change_addr);
+	return (void *)rtds_change_addr.chg_addr;
+}
 
 typedef struct {
 	void *handle;

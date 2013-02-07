@@ -2,7 +2,7 @@
  * iccom_drv.c
  *	 Inter Core Communication device driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <asm/types.h>
+#include <linux/types.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 
@@ -36,9 +36,7 @@
 /* Function   : iccom_drv_init                                                */
 /* Description: create a ICCOM handle                                         */
 /******************************************************************************/
-void *iccom_drv_init(
-	iccom_drv_init_param		   *iccom_init
-)
+void *iccom_drv_init(iccom_drv_init_param *iccom_init)
 {
 	iccom_drv_handle *handle;
 
@@ -66,9 +64,7 @@ EXPORT_SYMBOL(iccom_drv_init);
 /* Function   : iccom_drv_cleanup                                             */
 /* Description: release a ICCOM handle                                        */
 /******************************************************************************/
-void iccom_drv_cleanup(
-	iccom_drv_cleanup_param		*iccom_cleanup
-)
+void iccom_drv_cleanup(iccom_drv_cleanup_param *iccom_cleanup)
 {
 	iccom_drv_handle *handle;
 
@@ -97,9 +93,7 @@ EXPORT_SYMBOL(iccom_drv_cleanup);
 /* Function   : iccom_drv_send_command                                        */
 /* Description: send a command to RT Domain                                   */
 /******************************************************************************/
-int iccom_drv_send_command(
-	iccom_drv_send_cmd_param	   *iccom_send_cmd
-)
+int iccom_drv_send_command(iccom_drv_send_cmd_param	*iccom_send_cmd)
 {
 	int ret_code = SMAP_OK;
 	int ret = SMAP_OK;
@@ -228,9 +222,7 @@ EXPORT_SYMBOL(iccom_drv_send_command);
 /* Function   : iccom_drv_send_command_array                                  */
 /* Description: send a command to RT Domain (multiple data)                   */
 /******************************************************************************/
-int iccom_drv_send_command_array(
-	iccom_drv_send_cmd_array_param *iccom_send_cmd_array
-)
+int iccom_drv_send_command_array(iccom_drv_send_cmd_array_param *iccom_send_cmd_array)
 {
 	int ret_code = SMAP_OK;
 	int ret = SMAP_OK;

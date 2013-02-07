@@ -2,7 +2,7 @@
  * rt_boot_sub.c
  *		booting rt_cpu.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -23,8 +23,8 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <mach/common.h>
-#include <asm/io.h>
 #undef CONFIG_ARM_SEC_HAL
+#include <linux/io.h>
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
 #include "log_kernel.h"
@@ -95,7 +95,6 @@ static unsigned long intcrt_base5;
 
 static char *kernel_rt_boot_path = "/boot/RTFM_SH4AL_DSP_MU200.bin";
 static char *kernel_rt_cert_path = "/boot/mediafw.cert";
-extern struct rt_boot_info g_rtboot_info;
 
 /* prototype */
 static int set_screen_data(unsigned int disp_addr);
@@ -178,8 +177,9 @@ int read_rt_image(unsigned int *addr)
 				info.img[RT_LVL_2].section_start);
 		MSG_LOW("img[RT_LVL_2].section_size  = %08d\n",
 				info.img[RT_LVL_2].section_size);
-		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
-		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
+		MSG_LOW("sh_pmb_offset              = 0x%08x\n", info.sh_pmb_offset);
+		MSG_LOW("sh_pmb_nc_offset           = 0x%08x\n", info.sh_pmb_nc_offset);
+		MSG_LOW("mfi_pmb_offset             = 0x%08x\n", info.mfi_pmb_offset);
 
 #ifdef CONFIG_ARM_SEC_HAL
 		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);

@@ -272,7 +272,7 @@ typedef struct {
 
 /* system_memory_meram_alloc() */
 typedef struct {
-	void		   *handle;
+	void			*handle;
 	unsigned int	alloc_size;
 	unsigned int	meram_offset;
 	unsigned int	ch_num;
@@ -280,9 +280,23 @@ typedef struct {
 
 /* system_memory_meram_free() */
 typedef struct {
-	void		   *handle;
+	void			*handle;
 	unsigned int	ch_num;
 } system_mem_meram_free;
+
+/* system_memory_phy_change_rtpmbaddr() */
+typedef struct {
+	unsigned int	phys_addr;
+	unsigned int	rtmem_rtpmbaddr;
+} system_mem_phy_change_rtpmbaddr;
+
+
+/* system_memory_rtpmb_change_phyaddr() */
+typedef struct {
+	unsigned int	rtmem_rtpmbaddr;
+	unsigned int	phys_addr;
+} system_mem_rtpmb_change_phyaddr;
+
 
 /* function kernel side */
 extern int system_memory_rt_alloc
@@ -443,6 +457,16 @@ extern int system_memory_meram_alloc
 extern int system_memory_meram_free
 (
 	system_mem_meram_free*  meram_free
+);
+
+extern int system_memory_phy_change_rtpmbaddr
+(
+	system_mem_phy_change_rtpmbaddr *phys_change_rtaddr
+);
+
+extern int system_memory_rtpmb_change_phyaddr
+(
+	system_mem_rtpmb_change_phyaddr *rt_change_physaddr
 );
 
 #endif  /* __SYSTEM_MEMORY_H__ */

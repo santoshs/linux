@@ -41,12 +41,13 @@ typedef struct {
 } screen_display_screen_data_info;
 /* #MU2DISP1088 add -E- */
 
-struct iccom_wq_system_mem_rt_map
-{
+struct iccom_wq_system_mem_rt_map {
 	struct semaphore	sem;
-	system_mem_rt_map*	sys_rt_map;
+	system_mem_rt_map	*sys_rt_map;
 	int					result;
 };
+
+int screen_display_get_screen_data_info(int, screen_display_screen_data_info *); /* #MU2DISP1088 add */
 
 #endif /* __SCREEN_OVERLAY_PRIVATE_H__ */
 

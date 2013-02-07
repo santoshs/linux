@@ -2,7 +2,7 @@
  * iccom_drv.h
  *     Inter Core Communication device driver API function header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -106,19 +106,9 @@ typedef struct {
 } iccom_drv_send_cmd_array_param;
 
 /*** prototype ***/
-void *iccom_drv_init(
-	iccom_drv_init_param			*iccom_init
-);
+void *iccom_drv_init(iccom_drv_init_param *iccom_init);
+void iccom_drv_cleanup(iccom_drv_cleanup_param *iccom_cleanup);
+int iccom_drv_send_command(iccom_drv_send_cmd_param *iccom_send_cmd);
+int iccom_drv_send_command_array(iccom_drv_send_cmd_array_param	*iccom_send_cmd_array);
 
-void iccom_drv_cleanup(
-	iccom_drv_cleanup_param			*iccom_cleanup
-);
-
-int iccom_drv_send_command(
-	iccom_drv_send_cmd_param		*iccom_send_cmd
-);
-
-int iccom_drv_send_command_array(
-	iccom_drv_send_cmd_array_param	*iccom_send_cmd_array
-);
 #endif /* __ICCOM_DRV_H__ */

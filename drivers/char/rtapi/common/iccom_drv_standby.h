@@ -2,7 +2,7 @@
  * iccom_drv_standby.h
  *   Inter Core Communication Standby API header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -35,21 +35,10 @@ typedef struct {
 } iccom_drv_lcd_state_param;
 
 
-int iccom_drv_disable_standby(
-	iccom_drv_disable_standby_param	*iccom_disable_standby
-);
-
-int iccom_drv_enable_standby(
-	iccom_drv_enable_standby_param	*iccom_enable_standby
-);
-
-int iccom_drv_set_lcd_state(
-	iccom_drv_lcd_state_param	*iccom_lcd_state
-);
-
-int iccom_drv_change_active(
-	void
-);
+int iccom_drv_disable_standby(iccom_drv_disable_standby_param *iccom_disable_standby);
+int iccom_drv_enable_standby(iccom_drv_enable_standby_param *iccom_enable_standby);
+int iccom_drv_set_lcd_state(iccom_drv_lcd_state_param *iccom_lcd_state);
+int iccom_drv_change_active(void);
 
 bool iccom_drv_check_standby_enable(
 	void

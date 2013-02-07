@@ -2,7 +2,7 @@
  * iccom_drv_int.c
  *     Inter Core Communication driver function file for interrupts.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <asm/io.h>
+#include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/interrupt.h>
@@ -36,11 +36,6 @@
 /*#define FATAL_REPORT */
 
 static iccom_recv_data_err  g_iccom_recv_data_err;  /* receive data (memory allocate error) */
-extern iccom_recv_data_info g_iccom_recv_info;
-extern unsigned char	*g_iccom_command_area;
-extern spinlock_t		g_iccom_lock_iicr;
-extern spinlock_t			g_iccom_lock_handle_list;
-extern struct list_head		g_iccom_list_handle;
 
 /* MACRO */
 #define GET_STATIC_RECV_AREA(x)														\

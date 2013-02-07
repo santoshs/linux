@@ -2,7 +2,7 @@
  * iccom_drv_main.c
  *     Inter Core Communication driver function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -17,8 +17,8 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
@@ -32,6 +32,7 @@
 #include "iccom_drv.h"
 #include "iccom_drv_common.h"
 #include "iccom_drv_private.h"
+#include "system_rtload_internal.h"
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 #include <linux/mfis.h>
 #include "iccom_drv_standby_private.h"
@@ -455,7 +456,7 @@ int iccom_thread_async_resp(
 }
 
 /* initialize file_operations */
-static struct file_operations g_iccom_fops = {
+static const struct file_operations g_iccom_fops = {
 	.owner			= THIS_MODULE,
 	.open			= iccom_open,
 	.release		= iccom_close,
@@ -521,6 +522,19 @@ int iccom_init_module(
 
 	if (0 == loop) {
 		MSG_ERROR("[ICCOMK]ERR| RTDomain Boot NG : Time Out Error\n");
+		{
+			get_section_header_param	get_section;
+			system_rt_section_header    section;
+
+			get_section.section_header = &section;
+			ret = sys_get_section_header(&get_section);
+			if (SMAP_OK == ret) {
+				unsigned long *addr_status;
+				addr_status = ioremap_nocache(section.command_area_address, sizeof(unsigned long));
+				MSG_ERROR("[ICCOMK]ERR| RTDomain Boot Status [%d]\n", *addr_status);
+				iounmap(addr_status);
+			}
+		}
 		/* unregister device driver */
 		ret = misc_deregister(&g_iccom_device);
 		if (0 != ret) {

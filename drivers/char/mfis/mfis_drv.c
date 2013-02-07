@@ -152,7 +152,7 @@ static int mfis_suspend_noirq(struct device *dev)
 	char *dev_name;
 	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
-	unsigned int i;									/* #MU2SYS921 */
+	unsigned int i;					/* #MU2SYS921 */
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -173,25 +173,25 @@ static int mfis_suspend_noirq(struct device *dev)
 
 		/* #MU2SYS921 Start */
 		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
-		if(!ret) {
+		if (!ret) {
 		} else {
 			up(&a3r_power_sem);
 			return -1;
 		}
 
-		for(i=0; i < dev_cnt; i++) {
+		for (i = 0; i < dev_cnt; i++) {
 			if (ID_A3R == to_platform_device(dev_img[i])->id) {
 				break;
 			}
 		}
 
-		if( i >= dev_cnt ) {
+		if (i >= dev_cnt) {
 			up(&a3r_power_sem);
 			return -1;
 		}
 		/* #MU2SYS921 End */
 
-		if (((early_suspend_phase_flag)&&(1==atomic_read(&dev_img[i]->power.usage_count))) || (!early_suspend_phase_flag)) {
+		if (((early_suspend_phase_flag) && (1 == atomic_read(&dev_img[i]->power.usage_count))) || (!early_suspend_phase_flag)) {
 #endif /* EARLYSUSPEND_STANDBY */
 			ret = system_rt_standby();
 			if (ret == SMAP_LIB_STANDBY_OK) {
@@ -203,14 +203,14 @@ static int mfis_suspend_noirq(struct device *dev)
 			dev_name = domain_name;
 			ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 			if (!ret) {
-				for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
-					ret = 	pm_runtime_put_sync(dev_img[i]);			/* #MU2SYS921 */
+				for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
+					ret = pm_runtime_put_sync(dev_img[i]);		/* #MU2SYS921 */
 					if (!ret) {
 					} else {
 						up(&a3r_power_sem);
 						return -1;
 					}
-				}														/* #MU2SYS921 */
+				}							/* #MU2SYS921 */
 			} else {
 				up(&a3r_power_sem);
 				return -1;
@@ -245,7 +245,7 @@ static int mfis_resume_noirq(struct device *dev)
 	char *dev_name;
 	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
-	unsigned int i;									/* #MU2SYS921 */
+	unsigned int i;					/* #MU2SYS921 */
 #endif
 
 	while (down_interruptible(&a3r_power_sem)) {
@@ -268,13 +268,13 @@ static int mfis_resume_noirq(struct device *dev)
 		dev_name = domain_name;
 		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 		if (!ret) {
-			for (i=0; i<dev_cnt; i++){								/* #MU2SYS921 */
-				ret = pm_runtime_get_sync(dev_img[i]);				/* #MU2SYS921 */
+			for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
+				ret = pm_runtime_get_sync(dev_img[i]);		/* #MU2SYS921 */
 				if (0 > ret) {
 					up(&a3r_power_sem);
 					return -1;
 				}
-			}														/* #MU2SYS921 */
+			}							/* #MU2SYS921 */
 		} else {
 			up(&a3r_power_sem);
 			return -1;
@@ -350,7 +350,7 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	char *dev_name;
 	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
-	unsigned int i;									/* #MU2SYS921 */
+	unsigned int i;					/* #MU2SYS921 */
 #endif
 #if EARLYSUSPEND_STANDBY
 	struct mfis_early_suspend_tbl *p_tbl;
@@ -380,12 +380,12 @@ static int mfis_drv_probe(struct platform_device *pdev)
 	dev_name = domain_name;
 	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 	if (!ret) {
-		for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
-			ret = pm_runtime_get_sync(dev_img[i]);				/* #MU2SYS921 */
+		for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
+			ret = pm_runtime_get_sync(dev_img[i]);		/* #MU2SYS921 */
 			if (0 > ret) {
 				return -1;
 			}
-		}														/* #MU2SYS921 */
+		}							/* #MU2SYS921 */
 	} else {
 		return -1;
 	}
@@ -440,7 +440,7 @@ static int mfis_drv_remove(struct platform_device *pdev)
 	char *dev_name;
 	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
 	size_t dev_cnt;
-	unsigned int i;									/* #MU2SYS921 */
+	unsigned int i;					/* #MU2SYS921 */
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -453,13 +453,13 @@ static int mfis_drv_remove(struct platform_device *pdev)
 	dev_name = domain_name;
 	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
 	if (!ret) {
-		for (i=0; i<dev_cnt; i++) {								/* #MU2SYS921 */
-			ret = 	pm_runtime_put_sync(dev_img[i]);			/* #MU2SYS921 */
+		for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
+			ret = pm_runtime_put_sync(dev_img[i]);		/* #MU2SYS921 */
 			if (!ret) {
 			} else {
 				return -1;
 			}
-		}														/* #MU2SYS921 */
+		}							/* #MU2SYS921 */
 	}
 
 #endif
@@ -576,20 +576,19 @@ int mfis_drv_use_a4rm(void)
 	char *dev_name;
 	unsigned int	i;
 
-	dev_name = domain_name;	
-	ret	= power_domain_devices( dev_name, dev_img, &dev_cnt );
-	if( !ret ) {
-		for( i = 0; i < dev_cnt; i++ ) {
-				ret = pm_runtime_get_sync( dev_img[i] );
-				if ( 0 > ret ) {
+	dev_name = domain_name;
+	ret	= power_domain_devices(dev_name, dev_img, &dev_cnt);
+	if (!ret) {
+		for (i = 0; i < dev_cnt; i++) {
+				ret = pm_runtime_get_sync(dev_img[i]);
+				if (0 > ret) {
 					return -1;
 				}
 
-/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id ) ;*/
-/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name ) ;*/
+/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id);*/
+/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name);*/
 		}
-	}
-	else {
+	} else {
 		return -1;
 	}
 #endif
@@ -610,20 +609,19 @@ int mfis_drv_rel_a4rm(void)
 	unsigned int	i;
 
 	dev_name = domain_name;
-	ret	= power_domain_devices( dev_name, dev_img, &dev_cnt );
-	if( !ret ) {
-		for( i = 0; i < dev_cnt; i++ ) {
-				ret = pm_runtime_put_sync( dev_img[i] );
-				if ( 0 > ret ) {
+	ret	= power_domain_devices(dev_name, dev_img, &dev_cnt);
+	if (!ret) {
+		for (i = 0; i < dev_cnt; i++) {
+				ret = pm_runtime_put_sync(dev_img[i]);
+				if (0 > ret) {
 					return -1;
 				}
 
-/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id ) ;*/
-/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name ) ;*/
+/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id);*/
+/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name);*/
 
 		}
-	}
-	else {
+	} else {
 		return -1;
 	}
 #endif

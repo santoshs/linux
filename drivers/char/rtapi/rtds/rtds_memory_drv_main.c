@@ -17,8 +17,8 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/miscdevice.h>
 #include <linux/slab.h>
@@ -30,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 
+#include <system_memory.h>
 #include "log_kernel.h"
 #include "rtds_memory_drv.h"
 #include "rtds_memory_drv_main.h"
@@ -39,7 +40,7 @@
 #include "system_rtload_internal.h"
 
 /* file operation */
-static struct file_operations	g_rtds_memory_fops = {
+static const struct file_operations	g_rtds_memory_fops = {
 								.owner			= THIS_MODULE,
 								.open			= rtds_memory_drv_open,
 								.release		= rtds_memory_drv_close,
@@ -345,6 +346,38 @@ long rtds_memory_drv_ioctl(
 		ret = rtds_memory_ioctl_change_phymem_address((void __user *)ioctl_data.data, ioctl_data.data_size);
 		break;
 
+	case IOCTL_MEM_CMD_WR_CHANGE_PHY_PMB:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_CHANGE_PHY_PMB\n");
+		{
+			system_mem_phy_change_rtpmbaddr phy_change_rtaddr;
+			if (copy_from_user(&phy_change_rtaddr, (int __user *)ioctl_data.data, sizeof(phy_change_rtaddr))) {
+				MSG_ERROR("[RTDSK]ERR| copy_from_user (L:%d)\n", __LINE__);
+				ret = SMAP_NG;
+				break;
+			}
+			ret = system_memory_phy_change_rtpmbaddr(&phy_change_rtaddr);
+			if (copy_to_user((int __user *)ioctl_data.data , &phy_change_rtaddr, ioctl_data.data_size)) {
+				MSG_ERROR("[RTDSK]ERR| copy_to_user (L:%d)\n", __LINE__);
+			}
+		}
+		break;
+
+	case IOCTL_MEM_CMD_WR_CHANGE_PMB_PHY:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_CHANGE_PMB_PHY\n");
+		{
+			system_mem_rtpmb_change_phyaddr rt_change_phyaddr;
+			if (copy_from_user(&rt_change_phyaddr, (int __user *)ioctl_data.data, sizeof(rt_change_phyaddr))) {
+				MSG_ERROR("[RTDSK]ERR| copy_from_user (L:%d)\n", __LINE__);
+				ret = SMAP_NG;
+				break;
+			}
+			ret = system_memory_rtpmb_change_phyaddr(&rt_change_phyaddr);
+			if (copy_to_user((int __user *)ioctl_data.data , &rt_change_phyaddr, ioctl_data.data_size)) {
+				MSG_ERROR("[RTDSK]ERR| copy_to_user (L:%d)\n", __LINE__);
+			}
+		}
+		break;
+
 	default:
 		MSG_ERROR("[RTDSK]ERR| No command\n");
 
@@ -569,6 +602,9 @@ int rtds_memory_init_module(
 
 	g_rtds_memory_section_info.var_address	= section_header.memmpl_address;
 	g_rtds_memory_section_info.var_length	= section_header.memmpl_size;
+	g_rtds_memory_section_info.sh_pmb_offset	= section_header.sh_pmb_offset;
+	g_rtds_memory_section_info.sh_pmb_nc_offset	= section_header.sh_pmb_nc_offset;
+	g_rtds_memory_section_info.mfi_pmb_offset	= section_header.mfi_pmb_offset;
 
 	/* I/O remap */
 	g_rtds_memory_section_info.kernel_var_addr = ioremap_nocache(g_rtds_memory_section_info.var_address, g_rtds_memory_section_info.var_length);

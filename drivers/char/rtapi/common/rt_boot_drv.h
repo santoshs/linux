@@ -42,8 +42,9 @@ struct rt_boot_info {
 	unsigned int	command_area_size;
 	unsigned int	load_flg;
 	struct rt_section_img_info img[RT_LVL_MAX];	/* section image information */
-	unsigned int	displaybuff_address;
-	unsigned int	displaybuff_size;
+	unsigned int	sh_pmb_offset;
+	unsigned int	sh_pmb_nc_offset;
+	unsigned int	mfi_pmb_offset;
 };
 
 

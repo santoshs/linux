@@ -2,7 +2,7 @@
  * iccom_drv_private.h
  *     Inter Core Communication driver private header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -19,6 +19,10 @@
  */
 #ifndef __ICCOM_DRV_PRIVATE_H__
 #define __ICCOM_DRV_PRIVATE_H__
+
+#include <linux/list.h>
+#include <linux/spinlock.h>
+#include <linux/completion.h>
 
 /*** define ***/
 #define ICCOM_CMD_AREA_SIZE         2048        /* size of command transfer area */
@@ -254,5 +258,19 @@ void iccom_leak_check(
 void iccom_log_start(void);
 void iccom_log_stop(void);
 /* MU2SYS1418 <--- */
+
+
+extern struct completion    g_iccom_async_completion;
+extern unsigned long        g_iccom_async_recv_status;
+
+extern spinlock_t           g_iccom_lock_handle_list;
+extern struct list_head     g_iccom_list_handle;
+
+extern iccom_recv_data_info g_iccom_recv_info;
+extern unsigned char        *g_iccom_command_area;
+extern spinlock_t           g_iccom_lock_iicr;
+extern spinlock_t           g_iccom_lock_handle_list;
+extern struct list_head     g_iccom_list_handle;
+
 
 #endif /* __ICCOM_DRV_PRIVATE_H__ */

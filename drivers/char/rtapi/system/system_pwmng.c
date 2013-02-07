@@ -2,7 +2,7 @@
  * system_pwmng.c
  *  Power Management function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -73,10 +73,7 @@ void *system_pwmng_new
 }
 EXPORT_SYMBOL(system_pwmng_new);
 
-int system_pwmng_powerarea_start_notify
-(
-	system_pmg_param *pwmng_param
-)
+int system_pwmng_powerarea_start_notify(system_pmg_param *pwmng_param)
 {
 	int ret_code;
 	iccom_drv_send_cmd_param iccom_send_cmd;
@@ -137,10 +134,7 @@ int system_pwmng_powerarea_start_notify
 }
 EXPORT_SYMBOL(system_pwmng_powerarea_start_notify);
 
-int system_pwmng_powerarea_end_notify
-(
-	system_pmg_param *pwmng_param
-)
+int system_pwmng_powerarea_end_notify(system_pmg_param *pwmng_param)
 {
 	int ret_code;
 	iccom_drv_send_cmd_param iccom_send_cmd;
@@ -201,10 +195,7 @@ int system_pwmng_powerarea_end_notify
 }
 EXPORT_SYMBOL(system_pwmng_powerarea_end_notify);
 
-void system_pwmng_delete
-(
-	system_pmg_delete *pwmng_delete
-)
+void system_pwmng_delete(system_pmg_delete *pwmng_delete)
 {
 	iccom_drv_cleanup_param			iccom_cleanup;
 

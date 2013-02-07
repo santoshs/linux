@@ -392,6 +392,21 @@ int rtds_memory_change_kernel_phymem_address(
 	unsigned long  *rt_addr
 );
 
+int rtds_memory_change_rtpmb_to_phy_address(
+	unsigned long  rtpmb_addr,
+	unsigned long  *phy_addr
+);
+
+int rtds_memory_change_phy_to_rtpmb_address(
+	unsigned long  phy_addr,
+	unsigned long  *rtpmb_addr
+);
+
+int rtds_memory_change_rtpmb_cache_address(
+	unsigned long  rtpmb_addr,
+	unsigned long  *rtpmb_cache_addr
+);
+
 int rtds_memory_ioctl_change_phymem_address(
 	char __user   *buffer,
 	size_t    buf_size

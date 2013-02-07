@@ -18,7 +18,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <asm/types.h>
+#include <linux/types.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
@@ -661,7 +661,7 @@ int rtds_memory_drv_reg_phymem(
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
 	if (NULL == rtds_memory_map) {
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL \n", __func__);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL\n", __func__);
 		return ret_code;
 	}
 
@@ -700,7 +700,7 @@ int rtds_memory_drv_unreg_phymem(
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
 	if (NULL == rtds_memory_map) {
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL \n", __func__);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL\n", __func__);
 		return ret_code;
 	}
 
@@ -739,7 +739,7 @@ int rtds_memory_drv_phy_change_address(
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
 	if (NULL == phy_change_rtaddr) {
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL \n", __func__);
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
 		return ret_code;
 	}
 
@@ -758,6 +758,108 @@ int rtds_memory_drv_phy_change_address(
 	return ret_code;
 }
 EXPORT_SYMBOL(rtds_memory_drv_phy_change_address);
+
+/*******************************************************************************
+ * Function   : rtds_memory_drv_rtpmb_to_phy_address
+ * Description: This function give physical address
+ * Parameters : phy_change_rtaddr   -   Address change information
+ * Returns	  : SMAP_OK			- Success
+ *				SMAP_PARA_NG	- Parameter Error
+ *******************************************************************************/
+int rtds_memory_drv_rtpmb_to_phy_address(
+	rtds_memory_drv_change_addr_param *phy_change_rtaddr
+)
+{
+	int ret_code = SMAP_PARA_NG;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	if (NULL == phy_change_rtaddr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		return ret_code;
+	}
+
+	if (0 == phy_change_rtaddr->org_addr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		return ret_code;
+	}
+
+	ret_code = rtds_memory_change_rtpmb_to_phy_address(
+								phy_change_rtaddr->org_addr,
+				(unsigned long *)&phy_change_rtaddr->chg_addr);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	return ret_code;
+}
+EXPORT_SYMBOL(rtds_memory_drv_rtpmb_to_phy_address);
+
+/*******************************************************************************
+ * Function   : rtds_memory_drv_phy_to_rtpmb_address
+ * Description: This function give RT-logical(PMB) address
+ * Parameters : phy_change_rtaddr   -   Address change information
+ * Returns	  : SMAP_OK			- Success
+ *				SMAP_PARA_NG	- Parameter Error
+ *******************************************************************************/
+int rtds_memory_drv_phy_to_rtpmb_address(
+	rtds_memory_drv_change_addr_param *phy_change_rtaddr
+)
+{
+	int ret_code = SMAP_PARA_NG;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	if (NULL == phy_change_rtaddr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		return ret_code;
+	}
+
+	if (0 == phy_change_rtaddr->org_addr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		return ret_code;
+	}
+
+	ret_code = rtds_memory_change_phy_to_rtpmb_address(
+								phy_change_rtaddr->org_addr,
+				(unsigned long *)&phy_change_rtaddr->chg_addr);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	return ret_code;
+}
+EXPORT_SYMBOL(rtds_memory_drv_phy_to_rtpmb_address);
+
+/*******************************************************************************
+ * Function   : rtds_memory_drv_rtpmb_cache_address
+ * Description: This function give rtpmb cache address
+ * Parameters : phy_change_rtaddr   -   Address change information
+ * Returns	  : SMAP_OK			- Success
+ *				SMAP_PARA_NG	- Parameter Error
+ *******************************************************************************/
+int rtds_memory_drv_rtpmb_cache_address(
+	rtds_memory_drv_change_addr_param *phy_change_rtaddr
+)
+{
+	int ret_code = SMAP_PARA_NG;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	if (NULL == phy_change_rtaddr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		return ret_code;
+	}
+
+	if (0 == phy_change_rtaddr->org_addr) {
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		return ret_code;
+	}
+
+	ret_code = rtds_memory_change_rtpmb_cache_address(
+								phy_change_rtaddr->org_addr,
+				(unsigned long *)&phy_change_rtaddr->chg_addr);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	return ret_code;
+}
+EXPORT_SYMBOL(rtds_memory_drv_rtpmb_cache_address);
 
 /*******************************************************************************
  * Function   : rtds_memory_drv_map_pnc_nma

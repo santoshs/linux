@@ -114,6 +114,9 @@ typedef struct {
 	unsigned long		var_address;		/* Variable address */
 	unsigned long		var_length;			/* Variable length */
 	void				*kernel_var_addr;	/* Variable memory address(kernel) */
+	unsigned long		sh_pmb_offset;
+	unsigned long		sh_pmb_nc_offset;
+	unsigned long		mfi_pmb_offset;
 } rtds_memory_section_info;
 
 /* Memory mapping info */
@@ -189,4 +192,24 @@ int rtds_memory_init_module(
 void rtds_memory_exit_module(
 		void
 );
+
+extern spinlock_t					g_rtds_memory_lock_recv_queue;
+extern struct list_head				g_rtds_memory_list_rcv_event;
+extern struct semaphore				g_rtds_memory_apmem_rttrig_sem;
+extern struct completion			g_rtds_memory_completion;
+extern void							*g_rtds_memory_iccom_handle;
+extern spinlock_t					g_rtds_memory_lock_cache_all;
+extern rtds_memory_section_info		g_rtds_memory_section_info;
+extern spinlock_t					g_rtds_memory_lock_mpro;
+extern struct list_head				g_rtds_memory_list_mpro;
+extern struct semaphore				g_rtds_memory_mpro_sem;
+extern struct list_head				g_rtds_memory_list_shared_mem;
+extern struct semaphore				g_rtds_memory_shared_mem;
+extern struct list_head				g_rtds_memory_list_reg_phymem;
+extern struct semaphore				g_rtds_memory_phy_mem;
+extern struct list_head				g_rtds_memory_list_create_mem;
+extern spinlock_t					g_rtds_memory_lock_create_mem;
+extern struct list_head				g_rtds_memory_list_map_rtmem;
+extern spinlock_t					g_rtds_memory_lock_map_rtmem;
+extern struct semaphore	g_rtds_memory_leak_sem;
 #endif /* __RTDS_MEMORY_DRV_MAIN_H__ */

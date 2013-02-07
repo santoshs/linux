@@ -2,7 +2,7 @@
  * system_rtload.c
  *     RT domain boot function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,8 +18,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <asm/io.h>
-#include <asm/types.h>
+#include <linux/io.h>
+#include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include "iccom_drv.h"
@@ -99,9 +99,7 @@ EXPORT_SYMBOL(system_rt_load_level2task);
 /************************************/
 /*			internal function		*/
 /************************************/
-int sys_get_section_header(
-	get_section_header_param	*param
-)
+int sys_get_section_header(get_section_header_param *param)
 {
 	int ret_code;
 
@@ -240,7 +238,7 @@ int system_sub_get_section_header(system_rt_section_header *section_header)
 
 	ret = rtboot_get_section_header(&rt_info);
 	if (ret != 0) {
-		MSG_ERROR("[RTAPIK]ERR|[%s] : rtboot_get_section_header ERROR \n", __func__);
+		MSG_ERROR("[RTAPIK]ERR|[%s] : rtboot_get_section_header ERROR\n", __func__);
 		return SMAP_NG;
 	}
 
@@ -271,6 +269,9 @@ int system_sub_get_section_header(system_rt_section_header *section_header)
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_1].size  = %08d\n",	(int)section_header->img[RT_LEVEL_1].size);
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_2].start = 0x%08x\n",	(unsigned int)section_header->img[RT_LEVEL_2].start);
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_2].size  = %08d\n",	(int)section_header->img[RT_LEVEL_2].size);
+	MSG_LOW("[RTAPIK]   |sh_pmb_offset         = 0x%08x\n",	(int)section_header->sh_pmb_offset);
+	MSG_LOW("[RTAPIK]   |sh_pmb_nc_offset      = 0x%08x\n",	(int)section_header->sh_pmb_nc_offset);
+	MSG_LOW("[RTAPIK]   |mfi_pmb_offset        = 0x%08x\n",	(int)section_header->mfi_pmb_offset);
 
 	MSG_HIGH("[RTAPIK]OUT|[%s] :\n", __func__);
 	return SMAP_OK;

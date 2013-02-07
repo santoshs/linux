@@ -2,7 +2,7 @@
  * iccom_drv_standby_private.h
  *     Inter Core Communication standby private header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -20,7 +20,7 @@
 #ifndef __ICCOM_DRV_STANDBY_PRIVATE_H__
 #define __ICCOM_DRV_STANDBY_PRIVATE_H__
 
-#include <asm/io.h>
+#include <linux/io.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/ioctl.h>

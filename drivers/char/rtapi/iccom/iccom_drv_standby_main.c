@@ -2,7 +2,7 @@
  * iccom_drv_standby_main.c
  *    Inter Core Communication Standby Main function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,9 +18,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <asm/uaccess.h>
-#include <asm/string.h>
-#include <asm/io.h>
+#include <linux/uaccess.h>
+#include <linux/string.h>
+#include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
@@ -112,7 +112,7 @@ void iccom_rtctl_standby_ng_cancel(void)
 	}
 
 	up(&semaphore_count_standby_ng);
-	MSG_HIGH("[ICCOMK]OUT|[%s] \n", __func__);
+	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -147,7 +147,7 @@ int iccom_rtctl_watch_rt_state(void)
 {
 	int ret_code = 0;
 
-	MSG_HIGH("[ICCOMK]IN |[%s] \n", __func__);
+	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 	down(&semaphore_standby_flag);
 	if (standby_flag == 1) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__,
@@ -339,7 +339,7 @@ int rtctl_change_rt_state_standby(void)
 	default:
 		MSG_HIGH("[ICCOMK]OUT|[%s] : status_rt_now = %d\n", __func__,
 				status_rt_now);
-		panic("%s : status_rt_now = %d \n", __func__, status_rt_now);
+		panic("%s : status_rt_now = %d\n", __func__, status_rt_now);
 	}
 
 
@@ -546,7 +546,7 @@ int rtctl_change_rt_state_active(void)
 	if (false == active_ret) {
 		rtctl_change_active_timeout_error();
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s] \n", __func__);
+	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
 	return SMAP_OK;
 }
 
@@ -556,9 +556,9 @@ int rtctl_change_rt_state_active(void)
 /******************************************************************************/
 void rtctl_intcs_mask_in_active(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s] \n", __func__);
-
 	unsigned long reg;
+
+	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
 	for (reg = RTCTL_INTCRT_IMR0SA; reg <= RTCTL_INTCRT_IMR12SA; reg += 4) {
 		writeb(0xFF, reg);
@@ -576,7 +576,7 @@ void rtctl_intcs_mask_in_active(void)
 		writeb(0xFF, reg);
 	}
 
-	MSG_HIGH("[ICCOMK]OUT|[%s] \n", __func__);
+	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -815,7 +815,7 @@ int iccom_rtctl_before_send_cmd_check_standby(
 	MSG_MED("[ICCOMK]   |[%s] : function_id = %d\n", __func__, function_id);
 	if (EVENT_STATUS_STANDBYCONTROL == function_id) {
 		if (RTCTL_STS_STANDBY  == status_rt_now) {
-			MSG_MED("[ICCOMK]   |[%s] : status_rt_now = RTCTL_STS_STANDBY \n",
+			MSG_MED("[ICCOMK]   |[%s] : status_rt_now = RTCTL_STS_STANDBY\n",
 					__func__);
 			MSG_HIGH("[ICCOMK]OUT|[%s] : ret = SMAP_ALREADY_STANDBY\n",
 					__func__);

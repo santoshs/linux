@@ -261,7 +261,7 @@ typedef struct {
 	unsigned int VMLEN2;
 	unsigned int VMLEN3;
 	unsigned int VMLEN4;
-	unsigned int DTCTR;	
+	unsigned int DTCTR;
 	unsigned int PLL2CR;
 	unsigned int DSI1PCKCR;
 	unsigned int DSI1PHYCR;
@@ -283,12 +283,11 @@ typedef struct {
 	unsigned long			*lut;
 } screen_disp_set_lut;
 
-typedef struct
-{
-	void*          handle;
-	unsigned short output_mode;
-	unsigned short palette_mode;
-	unsigned long  *data;
+typedef struct{
+	void			*handle;
+	unsigned short	output_mode;
+	unsigned short	palette_mode;
+	unsigned long	*data;
 } screen_disp_lcd_color_palette;
 
 typedef struct {
@@ -301,50 +300,50 @@ typedef struct {
 /* Create handle */
 extern void *screen_display_new
 (
-	void
+void
 );
 
 /* Draw */
 extern int screen_display_draw
 (
-	screen_disp_draw* disp_draw
+screen_disp_draw *disp_draw
 );
 
 /* Start LCD */
 extern int screen_display_start_lcd
 (
-	screen_disp_start_lcd* start_lcd
+screen_disp_start_lcd *start_lcd
 );
 
 /* Stop LCD */
 extern int screen_display_stop_lcd
 (
-	screen_disp_stop_lcd* stop_lcd
+screen_disp_stop_lcd *stop_lcd
 );
 
 /* Set LCD refresh mode */
 extern int screen_display_set_lcd_refresh
 (
-	screen_disp_set_lcd_refresh* set_lcd_refresh
+screen_disp_set_lcd_refresh *set_lcd_refresh
 );
 
 /* Start HDMI */
 extern int screen_display_start_hdmi
 (
-	screen_disp_start_hdmi* start_hdmi
+screen_disp_start_hdmi *start_hdmi
 );
 
 /* Stop HDMI */
 extern int screen_display_stop_hdmi
 (
-	screen_disp_stop_hdmi* stop_hdmi
+screen_disp_stop_hdmi *stop_hdmi
 );
 
 /* #MU2DSP222 add -S- */
 /* Read LCD packet data */
 extern int screen_display_read_dsi_short_packet
 (
-	screen_disp_read_dsi_short* read_dsi_s
+screen_disp_read_dsi_short *read_dsi_s
 );
 /* #MU2DSP222 add -E- */
 
@@ -352,49 +351,49 @@ extern int screen_display_read_dsi_short_packet
 /* Write LCD packet data */
 extern int screen_display_write_dsi_short_packet
 (
-	screen_disp_write_dsi_short* write_dsi_s
+screen_disp_write_dsi_short *write_dsi_s
 );
 
 /* Write LCD packet data */
 extern int screen_display_write_dsi_long_packet
 (
-	screen_disp_write_dsi_long* write_dsi_l
+screen_disp_write_dsi_long *write_dsi_l
 );
 
 /* Set LCD parameters */
 extern int screen_display_set_lcd_if_parameters
 (
-	screen_disp_set_lcd_if_param* set_lcd_if_param
+screen_disp_set_lcd_if_param *set_lcd_if_param
 );
 
 /* Set address  */
 extern int screen_display_set_address
 (
-	screen_disp_set_address* address
+screen_disp_set_address *address
 );
 
 /* Set HDMI parameters */
 extern int screen_display_set_hdmi_if_parameters
 (
-	screen_disp_set_hdmi_if_param *set_hdmi_if_param
+screen_disp_set_hdmi_if_param *set_hdmi_if_param
 );
 
 /* Set Lut parameters */
 extern int screen_display_set_lut
 (
-	screen_disp_set_lut *disp_set_lut
+screen_disp_set_lut *disp_set_lut
 );
 
 /* Set LCD color palette data */
 extern int screen_display_set_lcd_color_palette
 (
-	screen_disp_lcd_color_palette* disp_lcd_color_plt
+screen_disp_lcd_color_palette *disp_lcd_color_plt
 );
 
 /* Delete handle */
 extern void screen_display_delete
 (
-	screen_disp_delete* disp_delete
+screen_disp_delete *disp_delete
 );
 
 #endif	/* __SCREEN_DISPLAY_H__ */
