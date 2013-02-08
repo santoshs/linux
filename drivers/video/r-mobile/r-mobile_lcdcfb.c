@@ -1027,8 +1027,8 @@ static int sh_mobile_fb_set_par(struct fb_info *info)
 	if (bpp == 24) {
 		int smem_len;
 
-		info->fix.line_length = RoundUpToMultiple(
-				info->var.xres * (bpp / 8), 16);
+		info->fix.line_length = RoundUpToMultiple(info->var.xres, 32)
+			* (bpp / 8);
 		smem_len = info->fix.line_length * info->var.yres;
 
 		info->var.reserved[0] = smem_len;
