@@ -36,6 +36,7 @@
 #include <mach/msm_xo.h>
 #endif /* __A2220_ORGINAL__ */
 
+#define WA_FOR_K34
 
 #ifdef __VCD_ES305B__
 #include <linux/io.h>
@@ -46,6 +47,7 @@
 #include "sound/soundpath/soundpath.h"
 #include <linux/vcd/vcd.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 
 #endif /* __VCD_ES305B__ */
 
@@ -2097,10 +2099,12 @@ static int a2220_probe(
 	g_a2220_nb_wb = VCD_CODEC_WB;
 	g_a2220_current_nb_wb = VCD_CODEC_NB;
 
+#ifndef WA_FOR_K34
 	/* set callback function */
 	g_a2220_callback_func.set_state = a2220_set_state;
 	g_a2220_callback_func.set_nb_wb = a2220_set_nb_wb;
 	sndp_a2220_regist_callback(&g_a2220_callback_func);
+#endif
 
 	rc = platform_device_register(&a2220_platform_device);
 	if (0 != rc) {

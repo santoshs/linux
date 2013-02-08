@@ -43,6 +43,8 @@ void (*g_vcd_stop_fw)(void);
 void (*g_vcd_codec_type_ind)(unsigned int codec_type);
 void (*g_vcd_start_clkgen)(void);
 void (*g_vcd_stop_clkgen)(void);
+void (*g_vcd_start_clkgen_pt)(void);
+void (*g_vcd_stop_clkgen_pt)(void);
 void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level = VCD_LOG_ERROR;
@@ -75,7 +77,7 @@ static struct vcd_execute_func vcd_func_table[] = {
 
 static struct vcd_execute_func vcd_loopback_func_table[] = {
 	{ VCD_COMMAND_SET_CALL_MODE,		vcd_set_call_mode	},
-	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen	}
+	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen_pt	}
 };
 
 /*
@@ -337,8 +339,13 @@ void vcd_start_clkgen(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_start_clkgen)
-		g_vcd_start_clkgen();
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_start_clkgen)
+			g_vcd_start_clkgen();
+	} else {
+		if (NULL != g_vcd_start_clkgen_pt)
+			g_vcd_start_clkgen_pt();
+	}
 
 	vcd_pr_end_if_user();
 	return;
@@ -356,8 +363,13 @@ void vcd_stop_clkgen(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_stop_clkgen)
-		g_vcd_stop_clkgen();
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_stop_clkgen)
+			g_vcd_stop_clkgen();
+	} else {
+		if (NULL != g_vcd_stop_clkgen_pt)
+			g_vcd_stop_clkgen_pt();
+	}
 
 	vcd_pr_end_if_user();
 	return;
@@ -1256,6 +1268,42 @@ static int vcd_watch_clkgen(void *arg)
 	/* register notify function */
 	g_vcd_start_clkgen = info.start_clkgen;
 	g_vcd_stop_clkgen = info.stop_clkgen;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	watch clkgen for pt function.
+ *
+ * @param[in]	arg	pointer of notify info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_watch_clkgen_pt(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_watch_clkgen_info info = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("[VCD <- PT] : VCD_COMMAND_WATCH_CLKGEN\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&info, arg, sizeof(info));
+
+	/* register notify function */
+	g_vcd_start_clkgen_pt = info.start_clkgen;
+	g_vcd_stop_clkgen_pt = info.stop_clkgen;
 
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);

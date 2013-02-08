@@ -20,7 +20,7 @@
 #include <sound/soundpath/common_extern.h>
 #include <sound/soundpath/scuw_extern.h>
 #include "scuw_ctrl.h"
-#include "common_ctrl.h"
+/*#include "common_ctrl.h"*/
 #include <mach/common.h>
 
 /*
@@ -406,7 +406,7 @@ int scuw_start(const u_int uiValue, const u_int rate)
 	/* SCUW Registers Dump */
 	scuw_reg_dump();
 
-	sndp_log_debug_func("end (ret = %d)\n", ERROR_NONE);
+	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
 }
@@ -430,7 +430,7 @@ int scuw_stop(void)
 	/* Stop SCUW Clock Supply */
 	audio_ctrl_func(SNDP_HW_SCUW, STAT_OFF);
 
-	sndp_log_debug_func("end (ret = %d)\n", ERROR_NONE);
+	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
 }
