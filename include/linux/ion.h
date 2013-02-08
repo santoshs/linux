@@ -60,6 +60,9 @@ enum ion_heap_ids {
 #else
 	ION_HEAP_VIDEO_ID = ION_HEAP_CAMERA_ID,
 #endif
+
+	ION_HEAP_NON_SECURE_ID = ION_HEAP_CAMERA_ID,
+	ION_HEAP_SECURE_ID = ION_HEAP_VIDEO_ID,
 };
 
 /**
