@@ -46,6 +46,7 @@
 #include <linux/ion.h>
 #include <linux/memblock.h>
 #include <sound/sh_fsi.h>
+#include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
@@ -391,6 +392,23 @@ static struct platform_device mmcoops_device = {
 	.name   = "mmcoops",
 	.dev    = {
 		.platform_data  = &mmcoops_info,
+	},
+};
+
+static struct fsi_d2153_platform_data u2evm_audio_pdata = {
+	.gpio_spkr_en		= -1,
+	.gpio_hp_det		= GPIO_PORT24,
+	.gpio_hp_mute		= -1,
+	.gpio_int_mic_en	= -1,
+	.gpio_ext_mic_en	= -1,
+	.private_data		= NULL,
+};
+
+static struct platform_device u2evm_audio_device = {
+	.name	= "fsi-snd-d2153",
+	.id	= 0,
+	.dev	= {
+		.platform_data  = &u2evm_audio_pdata,
 	},
 };
 
@@ -1278,6 +1296,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1_d2153[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
+	&u2evm_audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -1384,6 +1403,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0_d2153[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
+	&u2evm_audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -1502,6 +1522,7 @@ static struct platform_device *u2evm_devices_stm_none_d2153[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
+	&u2evm_audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,

@@ -336,7 +336,8 @@ int fsi_start(const u_int uiValue)
 	/* Local variable declaration */
 	int iCnt;
 
-	sndp_log_debug_func("start [0x%08x]\n", uiValue);
+	sndp_log_debug_func("start\n");
+	sndp_log_info("[0x%08x]\n", uiValue);
 
 	/* Call of function of each PATH */
 	for (iCnt = 0; ARRAY_SIZE(g_fsi_func_tbl) > iCnt; iCnt++) {

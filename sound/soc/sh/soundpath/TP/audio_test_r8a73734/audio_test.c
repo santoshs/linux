@@ -1,16 +1,24 @@
-/*
- * D2153 ALSA SoC codec driver
+/* audio_test.c
  *
- * Copyright (c) 2012 Dialog Semiconductor
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
  *
- * Written by Adam Thomson <Adam.Thomson.Opensource@diasemi.com>
- * Based on DA9055 ALSA SoC codec driver.
- * 
- * This program is free software; you can redistribute  it and/or modify it
- * under  the terms of  the GNU General  Public License as published by the
- * Free Software Foundation;  either version 2 of the  License, or (at your
- * option) any later version.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
+
+/*!
+  @file		audio_test.c
+
+  @brief	Audio test command source file.
+*/
 
 
 
@@ -38,15 +46,12 @@
 #include <linux/wakelock.h>
 #include <linux/miscdevice.h>
 
-#include <sound/soundpath/TP/audio_test_extern.h>
 #include <sound/soundpath/soundpath.h>
-#include "audio_test_d2153.h"
-#include "audio_test_reg_d2153.h"
+#include <sound/fsi_d2153.h>
 
-#ifdef D2153_FSI_SOUNDPATH
-#include <linux/d2153/d2153_reg.h>
-#include <linux/d2153/d2153_aad.h>
-#endif
+#include <sound/soundpath/TP/audio_test_extern.h>
+#include "audio_test.h"
+#include "audio_test_reg.h"
 
 /*---------------------------------------------------------------------------*/
 /* typedef declaration (private)                                             */
@@ -57,15 +62,13 @@
 /* define macro declaration (private)                                        */
 /*---------------------------------------------------------------------------*/
 /*!
-  @brief	Device file name.
+  @brief	Flag for check board revision.
 */
-#define AUDIO_TEST_DEVICE_NAME		"audio_test"
-
-/*!
-  @brief	Detect bit.
-*/
-#define AUDIO_TEST_JACK_BIT_IN		(0x0001)/**< Insertion and Removal. */
-#define AUDIO_TEST_JACK_BIT_BTN		(0x0004)/**< Accessory Button. */
+#ifdef AUDIO_TEST_CHECK_BOARD_REV
+static u_int audio_test_check_board_rev = 1;
+#else	/* AUDIO_TEST_CHECK_BOARD_REV */
+static u_int audio_test_check_board_rev;
+#endif	/* AUDIO_TEST_CHECK_BOARD_REV */
 
 /*!
   @brief	MAX wait time for wait queue for VCD.
@@ -112,14 +115,8 @@ struct audio_test_common_reg_table {
 /***********************************/
 /* proc                            */
 /***********************************/
-static int audio_test_proc_set_device(u_int in_device_type,
-					u_int out_device_type,
-					u_int out_LR_type,
-					u_int out_volume);
 static int audio_test_proc_start_scuw_loopback(u_int fsi_port);
 static int audio_test_proc_stop_scuw_loopback(void);
-static int audio_test_proc_detect_jack(u_int *state);
-static int audio_test_proc_detect_key(u_int *state);
 static int audio_test_proc_start_tone(void);
 static int audio_test_proc_stop_tone(void);
 static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
@@ -200,13 +197,17 @@ static struct miscdevice audio_test_misc_dev = {
 /* internal parameter              */
 /***********************************/
 /*!
-  @brief	Store the AudioLSI driver config.
+  @brief	Store the AudioTest driver config.
 */
 static struct audio_test_priv *audio_test_conf;
 /*!
   @brief	Output device type.
 */
 static u_int audio_test_drv_out_device_type = AUDIO_TEST_DRV_OUT_SPEAKER;
+/*!
+  @brief	Loopback state.
+*/
+static u_int audio_test_loopback_state = AUDIO_TEST_DRV_STATE_OFF;
 /***********************************/
 /* HW clock flag                   */
 /***********************************/
@@ -264,11 +265,6 @@ static size_t g_audio_test_power_domain_count;
   @brief	Wake lock count.
 */
 struct wake_lock g_audio_test_wake_lock;
-
-//-----------------------------------------------------------------------
-// Unkonw part.. No1
-//-----------------------------------------------------------------------
-
 /***********************************/
 /* Table for loopback              */
 /***********************************/
@@ -490,123 +486,6 @@ static struct audio_test_common_reg_table
 /* for private function               */
 /*------------------------------------*/
 /*!
-  @brief	Process of setting device.
-
-  @param	in_device_type [i] Input device.
-  @param	out_device_type [i] Output device.
-  @param	out_LR_type [i] LR info.
-  @param	out_volume [i] Volume info.
-
-  @return	Function results.
-
-  @note		.
-*/
-static int audio_test_proc_set_device(u_int in_device_type,
-					u_int out_device_type,
-					u_int out_LR_type,
-					u_int out_volume)
-{
-	int ret = 0;
-	u_long new_device = 0;
-	u_long old_device = 0;
-	u_short oe = 0;
-	u_short reg = 0;
-
-	audio_test_log_efunc("in_dev[%d] out_dev[%d] out_LR[%d] out_vol[%d]",
-		in_device_type, out_device_type, out_LR_type, out_volume);
-
-	/***********************************/
-	/* Get device bit                  */
-	/***********************************/
-	ret = audio_test_ic_get_device(&old_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_get_device");
-		goto error;
-	}
-
-	audio_test_log_info("old device[%#010lx]", old_device);
-
-	/***********************************/
-	/* Set input device bit            */
-	/***********************************/
-	audio_test_cnv_input_device(in_device_type, &new_device);
-
-	/***********************************/
-	/* Set output device bit           */
-	/***********************************/
-	audio_test_cnv_output_device(out_device_type, &new_device);
-
-	/***********************************/
-	/* Set device                      */
-	/***********************************/
-	ret = audio_test_ic_clear_device();
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-	ret = audio_test_ic_set_device(new_device);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_set_device");
-		goto error;
-	}
-
-	audio_test_log_info("new device[%#010lx]", new_device);
-
-	/* AIF disable */
-	ret = audio_test_ic_read(D2153_AIF_CTRL, &reg);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_read");
-		goto error;
-	}	
-
-	audio_test_log_info("AIF Read value [0x%x]", reg);
-	audio_test_log_info("AIF Conv. value [0x%x]", reg & (~D2153_AIF_EN));
-
-	ret = audio_test_ic_write(D2153_AIF_CTRL, reg & (~D2153_AIF_EN));
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_write");
-		goto error;
-	}
-
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_write");
-		goto error;
-	}
-
-	/***********************************/
-	/* Set LR                          */
-	/***********************************/
-	audio_test_log_info("old output enable[%#010x]", oe);
-	audio_test_log_info("out_device_type[%d], ", out_device_type);
-	audio_test_log_info("out_LR_type[%d]", out_LR_type);
-
-	/* AIF enable */
-	ret = audio_test_ic_read(D2153_AIF_CTRL, &reg);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_read");
-		goto error;
-	}
-
-	audio_test_log_info("AIF Read value [0x%x]", reg);
-	audio_test_log_info("AIF Conv. value [0x%x]", reg | (D2153_AIF_EN));
-
-	ret = audio_test_ic_write(D2153_AIF_CTRL, reg | D2153_AIF_EN);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_write");
-		goto error;
-	}
-
-	audio_test_drv_out_device_type = out_device_type;
-
-	audio_test_log_rfunc("ret[%d]", ret);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
-	return ret;
-}
-
-/*!
   @brief	Norify loopback to sound driver.
 
   @param	dev_chg [i] Reason of device change.
@@ -714,6 +593,8 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_ON;
+
 error:
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -743,15 +624,6 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	/***********************************/
 	audio_test_loopback_remove();
 
-	/***********************************/
-	/* Set device                      */
-	/***********************************/
-	ret = audio_test_ic_clear_device();
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
-
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
 	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
@@ -763,132 +635,9 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
 
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_OFF;
+
 	audio_test_log_rfunc("ret[%d]", ret);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
-	return ret;
-}
-
-/*!
-  @brief	Process of detecting jack insert.
-
-  @param	state [o] state of jack insert.
-
-  @return	Function results.
-
-  @note		.
-*/
-static int audio_test_proc_detect_jack(u_int *state)
-{
-	int ret = 0;
-	u_short state_jack = 0;
-
-	audio_test_log_efunc("");
-
-	/* No info for 0x0080 of 'register 0x0039' */
-	/* MIC Detect Enable. */
-	/* Microphone Detect */
-	audio_test_ic_aad_write(D2153_ACCDET_UNLOCK_AO, 0x4a);
-
-	audio_test_ic_aad_write(D2153_ACCDET_TST2, 0x10);
-	audio_test_ic_aad_write(D2153_ACCDET_THRESH1, 0x0f);
-	audio_test_ic_aad_write(D2153_ACCDET_THRESH2, 0x56);
-	audio_test_ic_aad_write(D2153_ACCDET_THRESH3, 0x0e);
-	audio_test_ic_aad_write(D2153_ACCDET_THRESH4, 0x44);
-
-	audio_test_ic_write(D2153_REFERENCES, 0x88);
-
-	audio_test_ic_aad_write(D2153_ACCDET_CFG1, 0x5f);
-	audio_test_ic_aad_write(D2153_ACCDET_CFG2, 0x00);
-	audio_test_ic_aad_write(D2153_ACCDET_CFG3, 0x03);
-	audio_test_ic_aad_write(D2153_ACCDET_CFG4, 0x07);
-
-	audio_test_ic_aad_write(D2153_ACCDET_CONFIG, 0x88);
-
-	audio_test_ic_write(D2153_UNLOCK, 0x8b);
-
-	audio_test_ic_write(D2153_MICBIAS1_CTRL, 0x01);
-
-	/***********************************/
-	/* Get state of jack               */
-	/***********************************/
-	ret = audio_test_ic_aad_read(D2153_ACCDET_CFG3, &state_jack);
-	if (0 > ret) {
-		audio_test_log_err("audio_test_ic_read");
-		goto error;
-	}
-
-	if (state_jack & D2153_ACCDET_JACK_MODE_JACK) {
-		*state = AUDIO_TEST_DRV_STATE_ON;
-	} else {
-		*state = AUDIO_TEST_DRV_STATE_OFF;
-	}
-
-	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
-	return ret;
-}
-
-/*!
-  @brief	Process of detecting hookkey press.
-
-  @param	state [o] state of hookkey press.
-
-  @return	Function results.
-
-  @note		.
-*/
-static int audio_test_proc_detect_key(u_int *state)
-{
-	int ret = 0;
-	u_short state_jack = 0;
-
-	audio_test_log_efunc("");
-
-	/***********************************/
-	/* Get state of key               */
-	/***********************************/
-	/* Read accessory detect status (press/release) from PMIC */
-	ret = audio_test_ic_pmic_read(D2153_STATUS_C_REG, &state_jack);
-	if (state_jack & D2153_ACC_DET_STATUS_MASK) {
-		/* If last event was release, then this must be a press */
-		/* if (!d2153_aad->button.status) { */
-		ret |= audio_test_ic_aad_read(D2153_ACCDET_STATUS, &state_jack);
-		if (state_jack == 0) {
-			/* 
-			* Low resolution read - need to wait for AAD block to
-			* perfom high resolution measurements so we know which
-			* button was pressed.
-			*/
-			msleep(8);
-			ret = audio_test_ic_aad_read(D2153_ACCDET_STATUS,
-								&state_jack);
-		}
-
-		if (0 != ret) {
-			audio_test_log_err("audio_test_ic_read");
-			goto error;
-		}
-
-		if ((0 <= state_jack && state_jack <= 1) ||
-			(2 <= state_jack && state_jack <= 3) ||
-			(4 <= state_jack && state_jack <= 5)) {
-			/* known button */
-			*state = AUDIO_TEST_DRV_STATE_ON;
-		} else {
-			/* unknown button */
-			*state = AUDIO_TEST_DRV_STATE_OFF;
-		}
-	} else {
-		*state = AUDIO_TEST_DRV_STATE_OFF;
-	}
-
-	audio_test_log_rfunc("ret[%d] state[%d]", ret, *state);
 	return ret;
 
 error:
@@ -909,28 +658,10 @@ static int audio_test_proc_start_tone(void)
 {
 	int ret = 0;
 
-	struct vcd_execute_command cmd;
-	struct vcd_call_option option;
-
 	audio_test_log_efunc("");
-
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&option, 0, sizeof(option));
 
 	/* Add not to be suspend in loopback */
 	wake_lock(&g_audio_test_wake_lock);
-
-	/***********************************/
-	/* Start TestTone mode             */
-	/***********************************/
-	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_kind = VCD_CALL_KIND_1KHZ;
-	cmd.arg = &option;
-	ret = vcd_execute_test_call(&cmd);
-	if (0 != ret) {
-		audio_test_log_err("vcd_execute_test_call");
-		goto error;
-	}
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
@@ -977,6 +708,8 @@ static int audio_test_proc_start_tone(void)
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1000,27 +733,13 @@ error:
 static int audio_test_proc_stop_tone(void)
 {
 	int ret = 0;
-	struct vcd_execute_command cmd;
-	struct vcd_call_option option;
 
 	audio_test_log_efunc("");
-
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&option, 0, sizeof(option));
 
 	/***********************************/
 	/* Remove                          */
 	/***********************************/
 	audio_test_loopback_remove();
-
-	/***********************************/
-	/* Set device                      */
-	/***********************************/
-	ret = audio_test_ic_clear_device();
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
@@ -1030,20 +749,10 @@ static int audio_test_proc_stop_tone(void)
 		goto error;
 	}
 
-	/***********************************/
-	/* Stop TestTone mode              */
-	/***********************************/
-	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_kind = VCD_CALL_KIND_CALL;
-	cmd.arg = &option;
-	ret = vcd_execute_test_call(&cmd);
-	if (0 != ret) {
-		audio_test_log_err("vcd_execute_test_call");
-		goto error;
-	}
-
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
+
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1070,37 +779,10 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 {
 	int ret = 0;
 
-	struct vcd_execute_command cmd;
-	struct vcd_call_option option;
-
 	audio_test_log_efunc("");
-
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&option, 0, sizeof(option));
 
 	/* Add not to be suspend in loopback */
 	wake_lock(&g_audio_test_wake_lock);
-
-	/***********************************/
-	/* Start SPUV loopback mode        */
-	/***********************************/
-	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_kind = VCD_CALL_KIND_PCM_LB;
-	if (AUDIO_TEST_DRV_STATE_OFF == vqa_val &&
-		AUDIO_TEST_DRV_STATE_OFF == delay_val) {
-		option.loopback_mode = VCD_LOOPBACK_MODE_INTERFACE;
-	} else if (AUDIO_TEST_DRV_STATE_ON == vqa_val &&
-		AUDIO_TEST_DRV_STATE_OFF == delay_val) {
-		option.loopback_mode = VCD_LOOPBACK_MODE_PCM;
-	} else {
-		option.loopback_mode = VCD_LOOPBACK_MODE_DELAY;
-	}
-	cmd.arg = &option;
-	ret = vcd_execute_test_call(&cmd);
-	if (0 != ret) {
-		audio_test_log_err("vcd_execute_test_call");
-		goto error;
-	}
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
@@ -1147,6 +829,8 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
 		0, 0x00000001);
 
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_ON;
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1171,27 +855,13 @@ error:
 static int audio_test_proc_stop_spuv_loopback(void)
 {
 	int ret = 0;
-	struct vcd_execute_command cmd;
-	struct vcd_call_option option;
 
 	audio_test_log_efunc("");
-
-	memset(&cmd, 0, sizeof(cmd));
-	memset(&option, 0, sizeof(option));
 
 	/***********************************/
 	/* Remove                          */
 	/***********************************/
 	audio_test_loopback_remove();
-
-	/***********************************/
-	/* Set device                      */
-	/***********************************/
-	ret = audio_test_ic_clear_device();
-	if (0 != ret) {
-		audio_test_log_err("audio_test_ic_clear_device");
-		goto error;
-	}
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
@@ -1201,26 +871,91 @@ static int audio_test_proc_stop_spuv_loopback(void)
 		goto error;
 	}
 
-	/***********************************/
-	/* Stop SPUV loopback mode         */
-	/***********************************/
-	cmd.command = VCD_COMMAND_SET_CALL_MODE;
-	option.call_kind = VCD_CALL_KIND_CALL;
-	cmd.arg = &option;
-	ret = vcd_execute_test_call(&cmd);
-	if (0 != ret) {
-		audio_test_log_err("vcd_execute_test_call");
-		goto error;
-	}
-
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
+
+	audio_test_loopback_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
 error:
 	audio_test_log_err("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Process of setting call mode.
+
+  @param	.
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_proc_set_call_mode(u_int call_kind, u_int vqa_val,
+					u_int delay_val)
+{
+	int ret = 0;
+	struct vcd_execute_command cmd;
+	struct vcd_call_option option;
+
+	audio_test_log_efunc("");
+
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&option, 0, sizeof(option));
+
+	cmd.command = VCD_COMMAND_SET_CALL_MODE;
+	switch (call_kind) {
+	case AUDIO_TEST_DRV_KIND_CALL:
+		option.call_kind = VCD_CALL_KIND_CALL;
+		break;
+	case AUDIO_TEST_DRV_KIND_KIND_PCM_LB:
+		option.call_kind = VCD_CALL_KIND_PCM_LB;
+		if (AUDIO_TEST_DRV_STATE_OFF == vqa_val &&
+			AUDIO_TEST_DRV_STATE_OFF == delay_val) {
+			option.loopback_mode = VCD_LOOPBACK_MODE_INTERFACE;
+		} else if (AUDIO_TEST_DRV_STATE_ON == vqa_val &&
+			AUDIO_TEST_DRV_STATE_OFF == delay_val) {
+			option.loopback_mode = VCD_LOOPBACK_MODE_PCM;
+		} else {
+			option.loopback_mode = VCD_LOOPBACK_MODE_DELAY;
+		}
+		break;
+	case AUDIO_TEST_DRV_KIND_1KHZ:
+		option.call_kind = VCD_CALL_KIND_1KHZ;
+		break;
+	default:
+		audio_test_log_err("Unknown kind[%d]", call_kind);
+		goto error;
+		break;
+	}
+	cmd.arg = &option;
+	ret = vcd_execute_test_call(&cmd);
+
+error:
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+/*!
+  @brief	Get loopcack state.
+
+  @param	state [o] Loopback state.
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_proc_get_loopback_state(u_int *state)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	*state = audio_test_loopback_state;
+
+	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
 
@@ -1361,8 +1096,19 @@ static int audio_test_loopback_setup(void)
 	int ret = 0;
 	int res = 0;
 	int reg = 0;
+	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
+
+	params.intervals[SNDRV_PCM_HW_PARAM_RATE
+		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = 16000;
+	fsi_d2153_set_sampling_rate(&params);
+
+	ret = fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_START);
+	if (0 != ret) {
+		audio_test_log_err("loopback_notify ret[%d]\n", ret);
+		goto error;
+	}
 
 	/* Enable the power domain */
 	res = pm_runtime_get_sync(g_audio_test_power_domain);
@@ -1462,6 +1208,8 @@ static void audio_test_loopback_remove(void)
 	if (0 != res)
 		audio_test_log_err("pm_runtime_put_sync res[%d]\n", res);
 
+	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
+
 	audio_test_log_rfunc("");
 }
 
@@ -1508,7 +1256,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 				}
 
 				res = hwspin_lock_timeout_irqsave(
-					r8a73734_hwlock_cpg, 10, &flags);
+					r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > res)
 					audio_test_log_err("Can't lock cpg\n");
 
@@ -1522,7 +1270,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 
 				if (0 <= res)
 					hwspin_unlock_irqrestore(
-						r8a73734_hwlock_cpg, &flags);
+						r8a7373_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |=
 					AUDIO_TEST_CLK_CLKGEN;
@@ -1571,7 +1319,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 				}
 
 				res = hwspin_lock_timeout_irqsave(
-					r8a73734_hwlock_cpg, 10, &flags);
+					r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > res)
 					audio_test_log_err("Can't lock cpg\n");
 
@@ -1585,7 +1333,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 
 				if (0 <= res)
 					hwspin_unlock_irqrestore(
-						r8a73734_hwlock_cpg, &flags);
+						r8a7373_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |= AUDIO_TEST_CLK_FSI;
 			}
@@ -1631,7 +1379,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 				}
 
 				res = hwspin_lock_timeout_irqsave(
-					r8a73734_hwlock_cpg, 10, &flags);
+					r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > res)
 					audio_test_log_err("Can't lock cpg\n");
 
@@ -1645,7 +1393,7 @@ static void audio_test_audio_ctrl_func(enum audio_test_hw_val drv, int stat)
 
 				if (0 <= res)
 					hwspin_unlock_irqrestore(
-						r8a73734_hwlock_cpg, &flags);
+						r8a7373_hwlock_cpg, &flags);
 
 				g_audio_test_clock_flag |= AUDIO_TEST_CLK_SCUW;
 			}
@@ -2015,23 +1763,6 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 	memset(&data, 0, sizeof(data));
 
 	switch (cmd) {
-	case AUDIO_TEST_IOCTL_SETDEVICE:
-		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		if (copy_from_user(&data, (int __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		ret = audio_test_proc_set_device(data.in_device_type,
-						data.out_device_type,
-						data.out_LR_type,
-						data.out_volume);
-		break;
-
 	case AUDIO_TEST_IOCTL_STARTSCUWLOOP:
 		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
 						_IOC_SIZE(cmd))) {
@@ -2058,46 +1789,6 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 			goto done;
 		}
 		ret = audio_test_proc_stop_scuw_loopback();
-		break;
-
-	case AUDIO_TEST_IOCTL_DETECTJACK:
-		if (!access_ok(VERIFY_READ, (void __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		if (copy_from_user(&data, (int __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		ret = audio_test_proc_detect_jack(data.detect_jack);
-
-		if (copy_to_user((int __user *)arg, &data,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		break;
-
-	case AUDIO_TEST_IOCTL_DETECTKEY:
-		if (!access_ok(VERIFY_READ, (void __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		if (copy_from_user(&data, (int __user *)arg,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
-		ret = audio_test_proc_detect_key(data.detect_key);
-
-		if (copy_to_user((int __user *)arg, &data,
-						_IOC_SIZE(cmd))) {
-			ret = -EFAULT;
-			goto done;
-		}
 		break;
 
 	case AUDIO_TEST_IOCTL_STARTTONE:
@@ -2158,6 +1849,42 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 		ret = audio_test_proc_stop_spuv_loopback();
 		break;
 
+	case AUDIO_TEST_IOCTL_SETCALLMODE:
+		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		if (copy_from_user(&data, (int __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		ret = audio_test_proc_set_call_mode(data.call_kind,
+						data.vqa_val,
+						data.delay_val);
+		break;
+
+	case AUDIO_TEST_IOCTL_GETLBSTATE:
+		if (!access_ok(VERIFY_READ, (void __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		if (copy_from_user(&data, (int __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		ret = audio_test_proc_get_loopback_state(&data.loopback_state);
+
+		if (copy_to_user((int __user *)arg, &data,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		break;
+
 	default:
 		audio_test_log_err("unknown command");
 		ret = -ENOTTY;
@@ -2183,8 +1910,10 @@ static int __init audio_test_init(void)
 	int ret = 0;
 	struct audio_test_priv *dev_conf = NULL;
 
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return -ENODEV;
+	if (1 == audio_test_check_board_rev) {
+		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+			return -ENODEV;
+	}
 
 	audio_test_log_efunc("");
 
@@ -2209,8 +1938,6 @@ static int __init audio_test_init(void)
 			goto delete_misc;
 		}
 		audio_test_conf = dev_conf;
-	} else {
-		dev_conf = audio_test_conf;
 	}
 
 	/***********************************/
@@ -2222,7 +1949,7 @@ static int __init audio_test_init(void)
 						&audio_test_conf->log_entry);
 		if (0 != ret) {
 			audio_test_log_err("Create proc. ret[%d]", ret);
-			goto delete_conf;
+			goto error;
 		}
 	}
 
@@ -2232,7 +1959,7 @@ static int __init audio_test_init(void)
 				    &g_audio_test_power_domain_count);
 	if (0 != ret) {
 		audio_test_log_err("Power domain setting ret[%d]\n", ret);
-		goto delete_log;
+		goto error;
 	}
 
 	/* RuntimePM */
@@ -2240,7 +1967,7 @@ static int __init audio_test_init(void)
 	ret = pm_runtime_resume(g_audio_test_power_domain);
 	if (ret < 0) {
 		audio_test_log_err("pm_runtime_resume ret[%d]\n", ret);
-		goto remove_pm;
+		goto error;
 	}
 
 	/***********************************/
@@ -2267,19 +1994,20 @@ static int __init audio_test_init(void)
 destroy_wakelock:
 	/* Add not to be suspend in loopback */
 	wake_lock_destroy(&g_audio_test_wake_lock);
-remove_pm:
+error:
 	if (g_audio_test_power_domain) {
 		pm_runtime_disable(g_audio_test_power_domain);
 		g_audio_test_power_domain = NULL;
 	}
-delete_log:
+
 	if (audio_test_conf->log_entry)
 		remove_proc_entry(AUDIO_TEST_LOG_LEVEL,
 				audio_test_conf->proc_parent);
 	if (audio_test_conf->proc_parent)
 		remove_proc_entry(AUDIO_TEST_DRV_NAME, NULL);
-delete_conf:
-	kfree(dev_conf);
+
+	kfree(audio_test_conf);
+	audio_test_conf = NULL;
 delete_misc:
 	misc_deregister(&audio_test_misc_dev);
 
@@ -2299,8 +2027,10 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return;
+	if (1 == audio_test_check_board_rev) {
+		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+			return;
+	}
 
 	audio_test_log_efunc("");
 
@@ -2327,6 +2057,7 @@ static void __exit audio_test_exit(void)
 	/* Free internal parameter area    */
 	/***********************************/
 	kfree(audio_test_conf);
+	audio_test_conf = NULL;
 
 	if (g_audio_test_power_domain) {
 		pm_runtime_disable(g_audio_test_power_domain);
