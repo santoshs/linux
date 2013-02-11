@@ -1247,6 +1247,33 @@ __l2_clean_by_way:
 		.long	0xf01007bc
 #endif
 
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A7373)
+l2_cache_clean_flush:
+		/*
+		 * Clean & Invalidate L2 Cache
+		 */
+		adr r0, __l2_clean_and_invalidate_by_way
+		ldr r2, [r0]
+		ldr r0, =0xffff
+		str r0, [r2]    @ Write clean and inv by way reg
+wait:
+		ldr r0, [r2]
+		ldr r1, =0xffff
+		ands    r0, r0, r1
+		bne wait        @ Wait until finished the L2$ op
+		/*
+		 * Sync L2 Cache
+		 */
+		adr r0, __l2_sync
+		ldr r2, [r0]
+		ldr r0, =0x0
+		str r0, [r2]
+		mov     pc, lr
+__l2_clean_and_invalidate_by_way:
+		.long   0xf01007fc
+__l2_sync:
+		.long   0xf0100730
+#endif
 		.ltorg
 reloc_code_end:
 
