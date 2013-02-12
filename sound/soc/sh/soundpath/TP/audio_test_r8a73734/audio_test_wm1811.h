@@ -1,4 +1,4 @@
-/* audio_test.h
+/* audio_test_wm1811.h
  *
  * Copyright (C) 2012 Renesas Mobile Corp.
  * All rights reserved.
@@ -15,13 +15,13 @@
  */
 
 /*!
-  @file		audio_test.h
+  @file		audio_test_wm1811.h
 
   @brief	Local definition Audio test command header file.
 */
 
-#ifndef __AUDIO_TEST_H__
-#define __AUDIO_TEST_H__
+#ifndef __AUDIO_TEST_WM1811_H__
+#define __AUDIO_TEST_WM1811_H__
 
 /*---------------------------------------------------------------------------*/
 /* include files                                                             */
@@ -61,11 +61,6 @@
 #define AUDIO_TEST_GET_PROCESS_TIME(tv)	do_gettimeofday(&tv)
 #define __PRN_AUDIO_TEST__
 #define __PRN_AUDIO_TEST_ADD_TIME__
-
-/*!
-  @brief	Device file name.
-*/
-#define AUDIO_TEST_DEVICE_NAME		"audio_test"
 
 /*---------------------------------------------------------------------------*/
 /* structure declaration                                                     */
@@ -311,4 +306,4 @@ do {                                                                         \
 
 #endif	/* __PRN_AUDIO_TEST__ */
 
-#endif  /* __AUDIO_TEST_H__ */
+#endif  /* __AUDIO_TEST_WM1811_H__ */

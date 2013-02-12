@@ -1,24 +1,16 @@
-/* audio_test_wrap_wm1811.c
+/*
+ * D2153 ALSA SoC codec driver
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
- * All rights reserved.
+ * Copyright (c) 2012 Dialog Semiconductor
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
+ * Written by Adam Thomson <Adam.Thomson.Opensource@diasemi.com>
+ * Based on DA9055 ALSA SoC codec driver.
+ * 
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  */
-
-/*!
-  @file		audio_test_wrap_wm1811.c
-
-  @brief	Audio test command wrapper source file.
-*/
 
 
 
@@ -28,10 +20,10 @@
 #include <linux/module.h>
 
 #include <sound/soundpath/TP/audio_test_extern.h>
-#include "audio_test_wm1811.h"
+#include "audio_test_d2153.h"
 
 #include <sound/soundpath/soundpath.h>
-#include <sound/soundpath/wm1811_extern.h>
+#include <sound/soundpath/d2153_extern.h>
 
 /*---------------------------------------------------------------------------*/
 /* typedef declaration (private)                                             */
@@ -105,6 +97,13 @@
 /*---------------------------------------------------------------------------*/
 /* extern function declaration                                               */
 /*---------------------------------------------------------------------------*/
+extern int d2153_codec_read_ex(const u_short addr, u_short *value);
+extern int d2153_codec_write_ex(const u_short addr, const u_short value);
+#ifdef D2153_FSI_SOUNDPATH
+extern int d2153_aad_read_ex(u8 reg);
+extern int d2153_aad_write_ex(u8 reg, u8 value);
+extern int d2153_pmic_read_ex(u8 reg, u8 regval);
+#endif
 /* none */
 
 /*---------------------------------------------------------------------------*/
@@ -136,7 +135,7 @@ int audio_test_ic_read(const u_short addr, u_short *value)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_read(addr, value);
+	ret = d2153_codec_read_ex(addr, value);
 	if (0 <= ret) {
 		audio_test_log_info("ret[%d]", ret);
 		ret = 0;
@@ -162,7 +161,7 @@ int audio_test_ic_write(const u_short addr, const u_short value)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_write(addr, value);
+	ret = d2153_codec_write_ex(addr, value);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -183,8 +182,8 @@ int audio_test_ic_set_device(const u_long device)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_set_device(device, SNDP_PLAYBACK_SPEAKER_INCALL,
-				WM1811_POWER_ON);
+	ret = d2153_set_device(device, SNDP_PLAYBACK_SPEAKER_INCALL,
+				D2153_POWER_ON);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -205,7 +204,7 @@ int audio_test_ic_clear_device(void)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_set_device(WM1811_DEV_NONE, 0x00000000, WM1811_POWER_ON);
+	ret = d2153_set_device(D2153_DEV_NONE, 0x00000000, D2153_POWER_ON);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -226,7 +225,7 @@ int audio_test_ic_get_device(u_long *device)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_get_device(device);
+	ret = d2153_get_device(device);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -248,7 +247,7 @@ int audio_test_ic_set_volume(const u_long device, const u_int volume)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_set_volume(device, volume);
+	ret = d2153_set_volume(device, volume);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -270,11 +269,57 @@ int audio_test_ic_get_volume(const u_long device, u_int *volume)
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_get_volume(device, volume);
+	ret = d2153_get_volume(device, volume);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 }
+
+#ifdef D2153_FSI_SOUNDPATH
+int audio_test_ic_aad_read(const u_short addr, u_short *value)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	*value = d2153_aad_read_ex((unsigned char)addr);
+	if (0 <= *value) {
+		audio_test_log_info("value[%d]", *value);
+		ret = *value;
+	}
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+int audio_test_ic_aad_write(const u_short addr, const u_short value)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	ret = d2153_aad_write_ex(addr,(unsigned char)value);
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+
+int audio_test_ic_pmic_read(const u_short addr, u_short *value)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	ret = d2153_pmic_read_ex((unsigned char)addr, &value);
+	if (0 <= ret) {
+		audio_test_log_info("ret[%d]", ret);
+		ret = 0;
+	}
+
+	audio_test_log_rfunc("ret[%d]", ret);
+	return ret;
+}
+#endif
 
 /*!
   @brief	Convert input device type to device bit.
@@ -295,13 +340,13 @@ void audio_test_cnv_input_device(u_int device_type, u_long *device)
 	/* Main Mic                        */
 	/***********************************/
 	case AUDIO_TEST_DRV_IN_MIC:
-		*device |= WM1811_DEV_CAPTURE_MIC;
+		*device |= D2153_DEV_CAPTURE_MIC;
 		break;
 	/***********************************/
 	/* Headset Mic                     */
 	/***********************************/
 	case AUDIO_TEST_DRV_IN_HEADSETMIC:
-		*device |= WM1811_DEV_CAPTURE_HEADSET_MIC;
+		*device |= D2153_DEV_CAPTURE_HEADSET_MIC;
 		break;
 	/***********************************/
 	/* Unknown                         */
@@ -333,19 +378,19 @@ void audio_test_cnv_output_device(u_int device_type, u_long *device)
 	/* Speaker                         */
 	/***********************************/
 	case AUDIO_TEST_DRV_OUT_SPEAKER:
-		*device |= WM1811_DEV_PLAYBACK_SPEAKER;
+		*device |= D2153_DEV_PLAYBACK_SPEAKER;
 		break;
 	/***********************************/
 	/* Headphone                       */
 	/***********************************/
 	case AUDIO_TEST_DRV_OUT_HEADPHONE:
-		*device |= WM1811_DEV_PLAYBACK_HEADPHONES;
+		*device |= D2153_DEV_PLAYBACK_HEADPHONES;
 		break;
 	/***********************************/
 	/* Earpiece                        */
 	/***********************************/
 	case AUDIO_TEST_DRV_OUT_EARPIECE:
-		*device |= WM1811_DEV_PLAYBACK_EARPIECE;
+		*device |= D2153_DEV_PLAYBACK_EARPIECE;
 		break;
 	/***********************************/
 	/* Unknown                         */
@@ -377,38 +422,38 @@ void audio_test_cnv_volume(u_int volume_type, u_int *volume)
 	/* Volume 0                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME0:
-		*volume = WM1811_VOLUMEL0;
+		*volume = D2153_VOLUMEL0;
 		break;
 	/***********************************/
 	/* Volume 1                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME1:
-		*volume = WM1811_VOLUMEL1;
+		*volume = D2153_VOLUMEL1;
 		break;
 	/***********************************/
 	/* Volume 2                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME2:
-		*volume = WM1811_VOLUMEL2;
+		*volume = D2153_VOLUMEL2;
 		break;
 	/***********************************/
 	/* Volume 3                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME3:
-		*volume = WM1811_VOLUMEL3;
+		*volume = D2153_VOLUMEL3;
 		break;
 	/***********************************/
 	/* Volume 4                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME4:
-		*volume = WM1811_VOLUMEL4;
+		*volume = D2153_VOLUMEL4;
 		break;
 	/***********************************/
 	/* Volume 5                        */
 	/***********************************/
 	case AUDIO_TEST_VOLUME5:
 	default:
-		*volume = WM1811_VOLUMEL5;
+		*volume = D2153_VOLUMEL5;
 		break;
 	}
 

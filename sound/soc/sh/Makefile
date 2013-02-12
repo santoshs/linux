@@ -19,7 +19,6 @@ snd-soc-fsi-ak4642-objs		:= fsi-ak4642.o
 snd-soc-fsi-da7210-objs		:= fsi-da7210.o
 ifdef CONFIG_SND_FSI_WM1811
 snd-soc-fsi-wm1811-objs	:= fsi-wm1811.o \
-							fsi-extern_d2153.o \
 							soundpath/soundpathlogical.o \
 							soundpath/hw/common_ctrl.o \
 							soundpath/hw/fsi_ctrl.o \
@@ -48,15 +47,14 @@ obj-$(CONFIG_SND_FSI_D2153)     += snd-soc-fsi-d2153.o
 obj-$(CONFIG_SND_FSI_HDMI)	+= snd-soc-fsi-hdmi.o
 obj-$(CONFIG_SND_SIU_MIGOR)	+= snd-soc-migor.o
 
-LOCAL_CFLAGS := -DAUDIO_TEST_CHECK_BOARD_REV
-
 ifdef CONFIG_SND_SOC_AUDIO_TEST_WM1811
 snd-soc-audio-test-wm1811-objs	:= soundpath/TP/audio_test_r8a73734/audio_test_wm1811.o \
 									soundpath/TP/audio_test_r8a73734/audio_test_wrap_wm1811.o
 endif
 ifdef CONFIG_SND_SOC_AUDIO_TEST_D2153
-snd-soc-audio-test-objs			:= soundpath/TP/audio_test_r8a73734/audio_test.o
+snd-soc-audio-test-d2153-objs	:= soundpath/TP/audio_test_r8a73734/audio_test_d2153.o \
+									soundpath/TP/audio_test_r8a73734/audio_test_wrap_d2153.o									
 endif
 
 obj-$(CONFIG_SND_SOC_AUDIO_TEST_WM1811)	+= snd-soc-audio-test-wm1811.o
-obj-$(CONFIG_SND_SOC_AUDIO_TEST_D2153)	+= snd-soc-audio-test.o
+obj-$(CONFIG_SND_SOC_AUDIO_TEST_D2153)	+= snd-soc-audio-test-d2153.o

@@ -19,7 +19,6 @@
 #include <linux/ioctl.h>
 
 #define __VCD_ES305B__	1
-#define __VCD_NB_WB_SUPPORT__	1
 
 #ifdef __VCD_ES305B__
 extern unsigned int g_a2220_log_level;

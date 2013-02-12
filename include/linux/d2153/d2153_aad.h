@@ -78,9 +78,6 @@
 /* D2153_ACCDET_CFG3 = 0x71 */
 #define D2153_ACCDET_ADC_COMP_OUT_INV			(1 << 4)
 
-/* D2153_ACCDET_CFG5 = 0x72 */
-#define ACCDET_ISOURCE_MIC_FRC_EN				(1 << 3)
-
 /* Virtual IRQs */
 #define D2153_PMIC_IRQ_EACCDET		LEOPARD_IRQ_EACCDET
 #define D2153_PMIC_IRQ_EJACKDET		LEOPARD_IRQ_EACCDET
@@ -117,14 +114,18 @@ struct d2153_jack_info {
 	struct snd_soc_jack *jack;
 	int report_mask;	
 	int status;
+#ifdef D2153_FSI_SOUNDPATH
 	int key;
+#endif	
 };
 
+#ifdef D2153_FSI_SOUNDPATH
 struct d2153_switch_data {
 	struct switch_dev sdev; /**< switch dev. */
 	int state;              /**< switch state. */
 	int key_press;          /**< hook button pressed/released. */
 };
+#endif
 
 /* AAD private data */
 struct d2153_aad_priv {
@@ -134,11 +135,13 @@ struct d2153_aad_priv {
 	struct d2153_jack_info button;
 	unsigned int button_detect_rate;
 	struct wake_lock wakeup;
+#ifdef D2153_FSI_SOUNDPATH	
 	struct input_dev *input_dev;        
 	struct d2153_switch_data switch_data;
 	struct delayed_work	jack_monitor_work;
 	struct delayed_work	button_monitor_work;
 	unsigned int first_check_done;
+#endif	
 };
 
 /* HACK to deal with issue of ADC 1/8 bit reads for button detect */
@@ -150,8 +153,10 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value);
 /* Jack/Button detection control methods */
 int d2153_jack_detect(struct snd_soc_jack *jack, bool enable);
 int d2153_button_detect(struct snd_soc_jack *jack, bool enable);
+#ifdef D2153_FSI_SOUNDPATH	
 int d2153_aad_read_ex(u8 reg);
 int d2153_aad_write_ex(u8 reg, u8 value);
 int d2153_pmic_read_ex(u8 reg, u8 regval);
+#endif
 
 #endif /* __D2153_AAD_H */

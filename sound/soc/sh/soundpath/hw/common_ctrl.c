@@ -19,8 +19,8 @@
 
 #include <linux/clk.h>
 #include <sound/soundpath/common_extern.h>
-#include <sound/soundpath/scuw_extern.h>
 #include "common_ctrl.h"
+#include "scuw_ctrl.h"
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <linux/hwspinlock.h>
@@ -389,7 +389,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -400,7 +400,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_CLKGEN;
 			}
@@ -431,7 +431,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -442,7 +442,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
@@ -481,7 +481,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -492,7 +492,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_SCUW;
 			}
@@ -653,7 +653,7 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 				}
 			}
 
-			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
 
@@ -681,14 +681,14 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 			}
 
 			if (0 <= ret)
-				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 		}
 	/* Status OFF */
 	} else {
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
 
-			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
 
@@ -706,7 +706,7 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 			sh_modify_register32(CPG_PLLECR, 0x00000010, 0);
 
 			if (0 <= ret)
-				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
 		}
 	}
 
@@ -752,14 +752,14 @@ void common_set_fsi2cr(u_int dev, int stat)
 			clrbit = 0x0100;
 	}
 
-	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_gpio, 10, &flags);
+	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_gpio, 10, &flags);
 	if (0 > ret)
 		sndp_log_err("Can't lock cpg\n");
 
 	sh_modify_register16(GPIO_FSI2CR, clrbit, setbit);
 
 	if (0 <= ret)
-		hwspin_unlock_irqrestore(r8a7373_hwlock_gpio, &flags);
+		hwspin_unlock_irqrestore(r8a73734_hwlock_gpio, &flags);
 
 	sndp_log_info("FSI2CR[0x%04x]\n", ioread16(GPIO_FSI2CR));
 

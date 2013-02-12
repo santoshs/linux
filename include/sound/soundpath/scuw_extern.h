@@ -32,19 +32,6 @@ SCUW_NO_EXTERN int scuw_stop(void);
 /*  SCUW registers dump */
 SCUW_NO_EXTERN void scuw_reg_dump(void);
 
-/* SCUW FFD physical address top. */
-#define SCUW_PHY_BASE_FFD	(0xEC748000)
-/* SCUW FFD physical address top. */
-#define SCUW_PHY_BASE_CPUFIFO2	(0xEC768000)
-
-/* FFD Register */
-#define SCUW_FFDIR_FFD		(0xEC748004)
-#define SCUW_DEVCR_FFD		(0xEC748020)
-
-/* CPUFIFO2 Register */
-#define SCUW_CF2IR		(0xEC768004)
-#define SCUW_CF2EVCR		(0xEC76801C)
-
 #ifdef SOUND_TEST
 SCUW_NO_EXTERN void scuw_voice_test_start_a(void);
 SCUW_NO_EXTERN void scuw_voice_test_stop_a(void);

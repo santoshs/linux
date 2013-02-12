@@ -64,14 +64,11 @@ static struct platform_device *fsi_snd_device;
 
 static int __init fsi_wm1811_init(void)
 {
-	struct snd_soc_card *card = &fsi_soc_card;
 	int ret = -ENOMEM;
 
-	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev()) {
-		printk(KERN_INFO "%s unload the driver - board_revision:%d\n",
-			__func__, u2_get_board_rev());
+	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return -ENODEV;
-	}
+
 	g_sndp_codec_info.set_device =	wm1811_set_device;
 	g_sndp_codec_info.get_device =	wm1811_get_device;
 	g_sndp_codec_info.set_volum =  wm1811_set_volume;
@@ -102,7 +99,7 @@ static int __init fsi_wm1811_init(void)
 	g_sndp_codec_info.power_on = WM1811_POWER_ON;
 	g_sndp_codec_info.power_off = WM1811_POWER_OFF;
 
-	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform, card);
+	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform);
 	if (ret)
 		goto out;
 

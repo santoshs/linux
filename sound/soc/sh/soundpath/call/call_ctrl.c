@@ -121,7 +121,7 @@ int call_playback_start(struct snd_pcm_substream *substream)
 	call_pcm_info_init(substream, PLAY_STATUS);
 
 	/* Get playback buffer */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_GET_PLAYBACK_BUFFER,
 			       (void *)&vcd_ply_buf);
 	if (ERROR_NONE != ret) {
@@ -171,7 +171,7 @@ int call_playback_start(struct snd_pcm_substream *substream)
 		call_playback_data_set_for_pt();
 
 	/* Start speech playback */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_START_PLAYBACK\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_PLAYBACK\n");
 
 	ret = call_vcd_execute((int)VCD_COMMAND_START_PLAYBACK,
 			       (void *)&g_vcd_ply_opt);
@@ -181,14 +181,14 @@ int call_playback_start(struct snd_pcm_substream *substream)
 				ret);
 		if (atomic_read(&g_call_watch_start_fw)) {
 			/* after firmware starting */
-			sndp_log_info("path switch\n");
+			sndp_log_debug("path switch\n");
 			g_call_pcm_info[SNDP_PCM_OUT].byte_offset = 16;
 			/* Status update */
 			g_status &= ~PLAY_STATUS;
 			ret = -EPERM;
 		} else {
 			/* before firmware starting */
-			sndp_log_info("dummy play\n");
+			sndp_log_debug("dummy play\n");
 			call_change_dummy_play_before_fw();
 			ret = ERROR_NONE;
 		}
@@ -219,12 +219,12 @@ void call_playback_stop(void)
 	if (CALL_DUMMY_PLAY_YET != g_call_dummy_play) {
 		g_call_dummy_play = CALL_DUMMY_PLAY_YET;
 		wake_up_interruptible(&g_call_wait_out);
-		sndp_log_info("DUMMY_PLAY OFF [%d]\n", g_call_dummy_play);
+		sndp_log_debug("DUMMY_PLAY OFF [%d]\n", g_call_dummy_play);
 		return;
 	}
 
 	/* Stop speech playback */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_STOP_PLAYBACK\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_STOP_PLAYBACK\n");
 	(void)call_vcd_execute((int)VCD_COMMAND_STOP_PLAYBACK, NULL);
 
 	/* If cross Vocoder callback, Data information clear */
@@ -263,7 +263,7 @@ int call_record_start(struct snd_pcm_substream *substream)
 	call_pcm_info_init(substream, REC_STATUS);
 
 	/* Get record buffer */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_GET_RECORD_BUFFER\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_RECORD_BUFFER\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_GET_RECORD_BUFFER,
 			       (void *)&vcd_rec_buf);
 	if (ERROR_NONE != ret) {
@@ -290,7 +290,7 @@ int call_record_start(struct snd_pcm_substream *substream)
 	vcd_rec_opt.complete_buffer = call_record_cb;
 
 	/* Start speech record */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_START_RECORD\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_START_RECORD\n");
 
 	ret = call_vcd_execute((int)VCD_COMMAND_START_RECORD,
 			       (void *)&vcd_rec_opt);
@@ -327,12 +327,12 @@ void call_record_stop(void)
 	if (g_call_dummy_rec) {
 		g_call_dummy_rec = false;
 		wake_up_interruptible(&g_call_wait_in);
-		sndp_log_info("DUMMY_REC OFF [%02x]\n", g_call_dummy_rec);
+		sndp_log_debug("DUMMY_REC OFF [%02x]\n", g_call_dummy_rec);
 		return;
 	}
 
 	/* Stop speech record */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_STOP_RECORD\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_STOP_RECORD\n");
 	(void)call_vcd_execute((int)VCD_COMMAND_STOP_RECORD, NULL);
 
 	/* If cross Vocoder callback, Data information clear */
@@ -465,7 +465,7 @@ snd_pcm_uframes_t call_pcmdata_pointer(struct snd_pcm_substream *substream)
 	/* If offset < 16Byte, Reduce the amount of log. */
 	if ((g_call_pcm_info[substream->stream].buffer_len - 16) <=
 	    location) {
-		sndp_log_info("%ld frames (%ld bytes)\n",
+		sndp_log_debug("%ld frames (%ld bytes)\n",
 			bytes_to_frames(substream->runtime, location),
 			location);
 	}
@@ -499,7 +499,7 @@ int call_regist_watch(struct call_vcd_callback *func)
 	watch_fw_info.start_fw = func->callback_start_fw;
 	watch_fw_info.stop_fw = func->callback_stop_fw;
 
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_WATCH_FW\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_WATCH_FW\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_WATCH_FW,
 			       (void *)&watch_fw_info);
 	if (ERROR_NONE > ret) {
@@ -511,7 +511,7 @@ int call_regist_watch(struct call_vcd_callback *func)
 	watch_clkgen_info.start_clkgen = func->callback_start_clk;
 	watch_clkgen_info.stop_clkgen = func->callback_stop_clk;
 
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_WATCH_CLKGEN\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_WATCH_CLKGEN\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_WATCH_CLKGEN,
 			       (void *)&watch_clkgen_info);
 	if (ERROR_NONE > ret) {
@@ -523,7 +523,7 @@ int call_regist_watch(struct call_vcd_callback *func)
 	/* Set callback for Vocoder */
 	wait_path_info.wait_path = func->callback_wait_path;
 
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_WAIT_PATH\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_WAIT_PATH\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_WAIT_PATH,
 			       (void *)&wait_path_info);
 	if (ERROR_NONE > ret) {
@@ -537,7 +537,7 @@ int call_regist_watch(struct call_vcd_callback *func)
 /*	voip_callback.voip_ul_callback = NULL;*/
 	voip_callback.voip_dl_callback = call_playback_incomm_cb;
 
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_SET_VOIP_CALLBACK\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_SET_VOIP_CALLBACK\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_SET_VOIP_CALLBACK,
 		        (void *)&voip_callback);
 	if (ERROR_NONE > ret) {
@@ -549,7 +549,7 @@ int call_regist_watch(struct call_vcd_callback *func)
 	/* Set callback for Vocoder */
 	watch_codec_type_info.codec_type_ind = func->callback_codec_type;
 
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_WATCH_CODEC_TYPE\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_WATCH_CODEC_TYPE\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_WATCH_CODEC_TYPE,
 			       (void *)&watch_codec_type_info);
 	if (ERROR_NONE > ret) {
@@ -766,7 +766,7 @@ static void call_pcm_info_init(
 
 	g_call_pcm_info[direction].period = 0;
 
-	sndp_log_info("buffer_len %ld (buffer_size %ld) period_len %d\n",
+	sndp_log_debug("buffer_len %ld (buffer_size %ld) period_len %d\n",
 		g_call_pcm_info[direction].buffer_len,
 		runtime->buffer_size,
 		g_call_pcm_info[direction].period_len);
@@ -822,7 +822,7 @@ static void call_playback_data_set(void)
 
 	/* If firmware is abnormality */
 	if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
-		sndp_log_info("Firmware is abnormality");
+		sndp_log_debug("Firmware is abnormality");
 		memset((void *)g_call_play_data_addr[DATA_SIDE_0],
 			'\0', VCD_PLAYBACK_BUFFER_SIZE);
 		memset((void *)g_call_play_data_addr[DATA_SIDE_1],
@@ -964,7 +964,7 @@ static void call_playback_data_set_for_pt(void)
 
 	/* If firmware is abnormality */
 	if (SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route) {
-		sndp_log_info("Firmware is abnormality");
+		sndp_log_debug("Firmware is abnormality");
 		memset((void *)g_call_play_data_addr[DATA_SIDE_0],
 			'\0', VCD_PLAYBACK_PT_BUFFER_SIZE);
 		memset((void *)g_call_play_data_addr[DATA_SIDE_1],
@@ -1556,7 +1556,7 @@ static void call_work_dummy_rec(struct work_struct *work)
 
 		/* Status check */
 		if ((!(g_call_dummy_rec)) || (0 != wait_ret)) {
-			sndp_log_info("dummy flag %02x\n", g_call_dummy_rec);
+			sndp_log_debug("dummy flag %02x\n", g_call_dummy_rec);
 			return;
 		}
 	}
@@ -1661,7 +1661,7 @@ static bool call_work_play_wait_event(struct work_struct *work)
 
 		/* Status check */
 		if ((CALL_DUMMY_PLAY_YET == g_call_dummy_play) || (0 != wait_ret)) {
-			sndp_log_info("status %d\n", g_call_dummy_play);
+			sndp_log_debug("status %d \n", g_call_dummy_play);
 			return true;
 		}
 	}
@@ -1696,7 +1696,7 @@ static void call_work_before_start_fw(struct work_struct *work)
 			call_playback_data_set_for_pt();
 
 		/* Start speech playback */
-		sndp_log_info(
+		sndp_log_debug(
 			"vcd_execute() cmd=VCD_COMMAND_START_PLAYBACK\n");
 
 		ret = call_vcd_execute((int)VCD_COMMAND_START_PLAYBACK,
@@ -1866,7 +1866,7 @@ void call_get_incomm_buffer(void)
 	sndp_log_debug_func("start\n");
 
 	/* Get Voip UL buffer */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_GET_VOIP_UL_BUFFER,
 				(void *)&vcd_voip_ul_buf);
 	if (ERROR_NONE != ret)
@@ -1880,7 +1880,7 @@ void call_get_incomm_buffer(void)
 		(u_int)vcd_voip_ul_buf.voip_ul_buffer[DATA_SIDE_1];
 
 	/* Get Voip DL buffer */
-	sndp_log_info("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
+	sndp_log_debug("vcd_execute() cmd=VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
 	ret = call_vcd_execute((int)VCD_COMMAND_GET_VOIP_DL_BUFFER,
 				(void *)&vcd_voip_dl_buf);
 	if (ERROR_NONE != ret)
@@ -1951,7 +1951,7 @@ snd_pcm_uframes_t call_incomm_pcmdata_pointer(struct snd_pcm_substream *substrea
 	/* If offset < 16Byte, Reduce the amount of log. */
 	if ((g_call_incomm_pcm_info[substream->stream].buffer_len - 16) <=
 		location) {
-		sndp_log_info("%ld frames (%ld bytes)\n",
+		sndp_log_debug("%ld frames (%ld bytes)\n",
 		bytes_to_frames(substream->runtime, location),
 		location);
 	}

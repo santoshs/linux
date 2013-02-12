@@ -62,8 +62,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_UDA1380 if I2C
 	select SND_SOC_WL1273 if MFD_WL1273_CORE
 	select SND_SOC_WM1250_EV1 if I2C
-	select SND_SOC_WM1811 if I2C
-	select SND_SOC_D2153 if I2C
 	select SND_SOC_WM2000 if I2C
 	select SND_SOC_WM2200 if I2C
 	select SND_SOC_WM5100 if I2C
@@ -219,12 +217,6 @@ config SND_SOC_DFBMCS320
 config SND_SOC_DMIC
 	tristate
 
-config SND_SOC_D2153
-	tristate "D2153 codec support"
-
-config SND_SOC_D2153_AAD
-	tristate "D2153 AAD support"
-
 config SND_SOC_MAX98088
        tristate
 
@@ -297,9 +289,6 @@ config SND_SOC_WL1273
 
 config SND_SOC_WM1250_EV1
 	tristate
-
-config SND_SOC_WM1811
-	tristate "WM1811 codec support"
 
 config SND_SOC_WM2000
 	tristate

@@ -154,7 +154,6 @@ static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_fw(void *arg);
 static int vcd_watch_clkgen(void *arg);
-static int vcd_watch_clkgen_pt(void *arg);
 static int vcd_watch_codec_type(void *arg);
 static int vcd_set_wait_path(void *arg);
 static int vcd_get_voip_ul_buffer(void *arg);

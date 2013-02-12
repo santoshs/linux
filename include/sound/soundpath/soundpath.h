@@ -48,32 +48,6 @@ enum sndp_wake_lock_kind {
 
 #ifndef __RC5T7316_CTRL_NO_EXTERN__
 
-/* Work queue processing table */
-struct sndp_workqueue {
-	struct list_head top;
-	spinlock_t lock;
-	wait_queue_head_t wait;
-	wait_queue_head_t finish;
-	struct task_struct *task;
-};
-
-struct sndp_stop {
-	struct snd_pcm_substream	fsi_substream;
-	struct snd_soc_dai		fsi_dai;
-};
-
-struct sndp_work_info {
-	struct work_struct		work;		 /* Work             */
-	struct snd_pcm_substream	*save_substream; /* Substream        */
-	struct sndp_stop		stop;		 /* for Stop process */
-	u_int				new_value;	 /* PCM value (NEW)  */
-	u_int				old_value;	 /* PCM value (OLD)  */
-	struct list_head		link;
-	void				(*func)(struct sndp_work_info *work);
-	int				status;
-	atomic_long_t data;
-};
-
 #ifdef __SOUNDPATHLOGICAL_NO_EXTERN__
 #define SOUNDPATH_NO_EXTERN
 #else
@@ -101,12 +75,7 @@ enum sndp_a2220_ch_type {
 
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
-	struct snd_soc_platform_driver *fsi_soc_platform,
-	struct snd_soc_card *fsi_soc_card);
-
-SOUNDPATH_NO_EXTERN int sndp_soc_put(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
+	struct snd_soc_platform_driver *fsi_soc_platform);
 
 SOUNDPATH_NO_EXTERN void sndp_exit(void);
 SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
@@ -114,9 +83,9 @@ SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
 SOUNDPATH_NO_EXTERN void sndp_set_portb_start(bool flag);
 
 SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
-SOUNDPATH_NO_EXTERN void sndp_call_playback_normal(void);
+SOUNDPATH_NO_EXTERN  void sndp_call_playback_normal(void);
 
-SOUNDPATH_NO_EXTERN struct sndp_workqueue	*g_sndp_queue_main;
+SOUNDPATH_NO_EXTERN struct workqueue_struct	*g_sndp_queue_main;
 SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait[2];
 
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_idle;
@@ -135,17 +104,6 @@ SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
 /* for Production Test (Loopback test) */
 SOUNDPATH_NO_EXTERN int sndp_pt_loopback(
 				u_int mode, u_int device, u_int dev_chg);
-
-/* queue work initialize function */
-SOUNDPATH_NO_EXTERN void sndp_work_initialize(
-	struct sndp_work_info *work, void (*func)(struct sndp_work_info *));
-/* destroy workqueue function */
-SOUNDPATH_NO_EXTERN void sndp_workqueue_destroy(struct sndp_workqueue *wq);
-/* create workqueue function */
-SOUNDPATH_NO_EXTERN struct sndp_workqueue *sndp_workqueue_create(char *taskname);
-/* enqueue workqueue function */
-SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
-	struct sndp_workqueue *wq, struct sndp_work_info *work);
 
 #endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 

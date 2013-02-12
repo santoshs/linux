@@ -1,27 +1,21 @@
-/* audio_test_reg.h
+/*
+ * D2153 ALSA SoC codec driver
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
- * All rights reserved.
+ * Copyright (c) 2012 Dialog Semiconductor
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
+ * Written by Adam Thomson <Adam.Thomson.Opensource@diasemi.com>
+ * Based on DA9055 ALSA SoC codec driver.
+ * 
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  */
 
-/*!
-  @file		audio_test_reg.h
 
-  @brief	Public definition Audio test register file.
-*/
 
-#ifndef __AUDIO_TEST_REG_H__
-#define __AUDIO_TEST_REG_H__
+#ifndef __AUDIO_TEST_REG_D2153_H__
+#define __AUDIO_TEST_REG_D2153_H__
 
 /*---------------------------------------------------------------------------*/
 /* include files                                                             */
@@ -294,4 +288,4 @@
 /*---------------------------------------------------------------------------*/
 /* none */
 
-#endif  /* __AUDIO_TEST_REG_H__ */
+#endif  /* __AUDIO_TEST_REG_WM1811_H__ */

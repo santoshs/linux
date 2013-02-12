@@ -11,7 +11,6 @@
  * option) any later version.
  */
  
-#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -359,7 +358,8 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 			}
 		}
 	}
-	else {				
+	else {		
+		dlg_info("%s Jack Pull Out ! \n",__func__);
 		d2153_aad->first_check_done=1;
 		state=D2153_NO_JACK;
 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
@@ -369,8 +369,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 
 	d2153_aad->button.status = D2153_BUTTON_RELEASE;
 	
-	if (d2153_aad->switch_data.state != state) {
-		dlg_info("%s Jack state = %d ! \n",__func__, state);
+	if (d2153_aad->switch_data.state != state) {	
 		d2153_aad->d2153_codec->switch_state=state;
 		d2153_aad->switch_data.state = state;
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
@@ -424,7 +423,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 		input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event Send Press ! \n",__func__);
+		//dlg_info("%s event Send Press ! \n",__func__);
 
 	}
 	else if ((btn_status >= button_res_tbl[VOL_UP_BUTTON].min_val) &&
@@ -435,7 +434,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 		input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event VOL UP Press ! \n",__func__);
+		//dlg_info("%s event VOL UP Press ! \n",__func__);
 	
 	}
 	else if ((btn_status >= button_res_tbl[VOL_DN_BUTTON].min_val) &&
@@ -446,7 +445,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 		input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event VOL DOWN Press ! \n",__func__);
+		//dlg_info("%s event VOL DOWN Press ! \n",__func__);
 	
 	}
 	else {

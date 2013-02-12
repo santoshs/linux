@@ -19,7 +19,7 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
-//#define D2153_FSI_SOUNDPATH
+#define D2153_FSI_SOUNDPATH
 
 /*
  * D2153 register space
@@ -449,7 +449,6 @@
 /* D2153_CP_CTRL = 0x5C */
 #define D2153_CP_MCHANGE_SM_SIZE				(3 << 4)
 #define D2153_CP_MCHANGE_LARGEST_VOL			(1 << 4)
-#define D2153_CP_MCHANGE_MASK			(3 << 4)
 #define D2153_CP_EN						(1 << 7)
 #define D2153_CP_EN_SHIFT				7
 
@@ -527,8 +526,7 @@
 #define D2153_MIC_AMP_GAIN_MAX				0x7
 
 /* D2153_MICBIAS1/2/3_CTRL = 0xA1/0xA2/0xA3 */
-#define D2153_MICBIAS_LEVEL_2_5V			(1 << 0)
-#define D2153_MICBIAS_LEVEL_2_6V			(2 << 0)
+#define D2153_MICBIAS_LEVEL_2_5V			(2 << 0)
 #define D2153_MICBIAS_LEVEL_MASK			(3 << 0)
 #define D2153_MICBIAS_EN					(1 << 7)
 #define D2153_MICBIAS_EN_SHIFT				7
@@ -770,11 +768,11 @@ struct d2153_info {
 /* Codec private data */
 struct d2153_codec_priv {
 #ifdef D2153_FSI_SOUNDPATH
-	struct d2153_info info;   /**< user setting info. */	
-	int sndp_power_mode;
-#endif	/* D2153_FSI_SOUNDPATH */
+	struct d2153_info info;   /**< user setting info. */
 	struct i2c_client *i2c_client;
 	int power_mode;
+	int sndp_power_mode;
+#endif	/* D2153_FSI_SOUNDPATH */
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	struct d2153 *d2153_pmic;
 	struct i2c_client *aad_i2c_client;
@@ -791,20 +789,15 @@ struct d2153_codec_priv {
 	int volume_saved[E_VOL_MAX];        /**< volume save flag. */
 	/* pcm */
 	u_int pcm_mode;                     /**< pcm mode. */
-	bool earpiece_enable;
-	bool headset_enable;
 #endif
-	u8 spk_mixer_out;
-	u8 spk_amp;
-
 };
 
 #ifdef D2153_FSI_SOUNDPATH
 int d2153_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai);
-#endif
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
 int d2153_aad_enable(struct snd_soc_codec *codec);
+#endif
 
 #endif /* _D2153_H */
