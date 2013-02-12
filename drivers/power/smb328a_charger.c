@@ -546,7 +546,9 @@ union power_supply_propval *val)
 			if (u2_get_board_rev() >= 5) {
 				bat_per= d2153_battery_read_status(D2153_BATTERY_SOC);
 			} else {
+#ifdef CONFIG_BATTERY_BQ27425
 				get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
+#endif
 			}
 			val->intval = bat_per;
 		}
@@ -1076,12 +1078,16 @@ static struct i2c_driver smb328a_i2c_driver = {
 
 static int __init smb328a_init(void)
 {
-	return i2c_add_driver(&smb328a_i2c_driver);
+	if (u2_get_board_rev() >= 5)
+		return i2c_add_driver(&smb328a_i2c_driver);
+	else
+		return 0;
 }
 
 static void __exit smb328a_exit(void)
 {
-	i2c_del_driver(&smb328a_i2c_driver);
+	if (u2_get_board_rev() >= 5)
+		i2c_del_driver(&smb328a_i2c_driver);
 }
 
 module_init(smb328a_init);

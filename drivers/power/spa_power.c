@@ -25,6 +25,8 @@
 #include <linux/power_supply.h>
 #include <linux/sched.h>
 
+#include <mach/common.h>
+
 #define SPA_DEBUG_FEATURE 1
 //#define SPA_TEMPERATURE_INT 1
 #define BATT_TYPE "SDI_SDI"
@@ -1849,14 +1851,20 @@ static struct platform_driver spa_power_driver = {
 
 static int __init spa_power_init(void)
 {
-	int ret;
-	ret = platform_driver_register(&spa_power_driver);
-	return ret;
+	int ret = 0;
+
+	if (u2_get_board_rev() >= 5) {
+		ret = platform_driver_register(&spa_power_driver);
+		return ret;
+	} else {
+		return ret;
+	}
 }
 
 static void __exit spa_power_exit(void)
 {
-	platform_driver_unregister(&spa_power_driver);
+	if (u2_get_board_rev() >= 5)
+		platform_driver_unregister(&spa_power_driver);
 }
 
 module_init(spa_power_init);
