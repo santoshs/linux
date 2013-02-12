@@ -644,7 +644,9 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	if (!dev->power.is_suspended)
 		goto Unlock;
 
+#ifndef CONFIG_PDC
 	pm_runtime_enable(dev);
+#endif
 	put = true;
 
 	if (dev->pm_domain) {
@@ -699,8 +701,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 
 	TRACE_RESUME(error);
 
+#ifndef CONFIG_PDC
 	if (put)
 		pm_runtime_put_sync(dev);
+#endif
 
 	return error;
 }
@@ -1095,13 +1099,16 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	if (async_error)
 		goto Complete;
-
+#ifndef CONFIG_PDC
 	pm_runtime_get_noresume(dev);
+#endif
 	if (pm_runtime_barrier(dev) && device_may_wakeup(dev))
 		pm_wakeup_event(dev, 0);
 
 	if (pm_wakeup_pending()) {
+#ifndef CONFIG_PDC
 		pm_runtime_put_sync(dev);
+#endif
 		async_error = -EBUSY;
 		goto Complete;
 	}
@@ -1169,10 +1176,16 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	complete_all(&dev->power.completion);
 
 	if (error) {
+#ifndef CONFIG_PDC
 		pm_runtime_put_sync(dev);
+#endif
 		async_error = error;
 	} else if (dev->power.is_suspended) {
+#ifndef CONFIG_PDC
 		__pm_runtime_disable(dev, false);
+#else
+		pr_debug("no processing\n");
+#endif
 	}
 
 	return error;
