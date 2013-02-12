@@ -389,12 +389,13 @@ int sh_dmae_set_rpt_mode(struct dma_chan *chan)
 	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	unsigned long flags;
 	u32 val = 0;
-
+	pm_runtime_get_sync(sh_chan->dev);
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	/* Check if dma is in progress, this mode is not allowed
 	 * once DMA transfer is initiated */
 	if (dmae_is_busy(sh_chan)) {
 		spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+		pm_runtime_put_sync(sh_chan->dev);
 		dev_err(sh_chan->dev, "DMA is active, command not allowed\n");
 		return -ENXIO;
 	}
@@ -406,7 +407,7 @@ int sh_dmae_set_rpt_mode(struct dma_chan *chan)
 
 	sh_dmae_writel(sh_chan, val, DPBASE);
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
+	pm_runtime_put_sync(sh_chan->dev);
 	return 0;
 }
 EXPORT_SYMBOL(sh_dmae_set_rpt_mode);
@@ -416,7 +417,7 @@ int sh_dmae_clear_rpt_mode(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	unsigned long flags;
 	u32 chcr = 0;
-
+	pm_runtime_get_sync(sh_chan->dev);
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	/* Revert to descriptor normal mode */
 	chcr = chcr_read(sh_chan);
@@ -424,7 +425,7 @@ int sh_dmae_clear_rpt_mode(struct dma_chan *chan)
 	chcr_write(sh_chan, chcr);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
+	pm_runtime_put_sync(sh_chan->dev);
 	return 0;
 }
 EXPORT_SYMBOL(sh_dmae_clear_rpt_mode);
@@ -436,7 +437,7 @@ void sh_dmae_aquire_desc_config(struct dma_chan *chan, struct sh_dmae_regs *hw)
 
 	if (!hw)
 		return;
-
+	pm_runtime_get_sync(sh_chan->dev);
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 	hw->sar = sh_dmae_readl(sh_chan, SAR);
@@ -444,6 +445,7 @@ void sh_dmae_aquire_desc_config(struct dma_chan *chan, struct sh_dmae_regs *hw)
 	hw->tcr = sh_dmae_readl(sh_chan, TCR);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+	pm_runtime_put_sync(sh_chan->dev);
 }
 EXPORT_SYMBOL(sh_dmae_aquire_desc_config);
 
@@ -601,6 +603,8 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	struct sh_dmae_slave *param = chan->private;
 	int ret;
 
+	if (pm_runtime_get_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: get_sync error\n", __func__);
 	/*
 	 * This relies on the guarantee from dmaengine that
 	 * alloc_chan_resources never runs concurrently with itself
@@ -621,12 +625,17 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 		}
 
 		param->config = cfg;
+		dmae_set_dmars(sh_chan, cfg->mid_rid);
+		sh_chan->chcr |= cfg->chcr;
+		dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
 
 		if (WORKAROUND_APE5R_E157_DMAC) {
 			if (((cfg->chcr & CHCR_OUTBOUND) == CHCR_OUTBOUND) &&
 			    !(cfg->chcr & CHCR_BD))
 				sh_chan->outbound = true;
 		}
+	} else {
+		dmae_init(sh_chan);
 	}
 
 	while (sh_chan->descs_allocated < NR_DESCS_PER_CHANNEL) {
@@ -648,6 +657,8 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	}
 	/* Reset descripotr repeat mode flag */
 	sh_chan->desc_mode = 0;
+	if (pm_runtime_put_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: put_sync error\n", __func__);
 	return sh_chan->descs_allocated;
 
 edescalloc:
@@ -656,6 +667,8 @@ edescalloc:
 etestused:
 efindslave:
 	chan->private = NULL;
+	if (pm_runtime_put_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: put_sync error\n", __func__);
 	return ret;
 }
 
@@ -669,6 +682,8 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	LIST_HEAD(list);
 	unsigned long flags;
 
+	if (pm_runtime_get_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: get_sync error\n", __func__);
 	/* Protect against ISR */
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	if (!sh_chan->desc_mode)
@@ -699,6 +714,9 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 	sh_chan->desc_mode = 0;
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+
+	if (pm_runtime_put_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: put_sync error\n", __func__);
 
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);
@@ -807,6 +825,9 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 			"Not enough descs available, needed = %d\n", chunks);
 		return NULL;
 	}
+	if (pm_runtime_get_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: get_sync error\n", __func__);
+	spin_lock_irqsave(&sh_chan->desc_lock, irq_flags);
 	sh_chan->no_of_descs = chunks;
 
 	/* Reset the descriptor */
@@ -828,9 +849,6 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	/* Enable the descriptor repeat mode */
 	chcr = (chcr & ~CHCR_DPM_MASK) | CHCR_DPM_DRM;
 	chcr_write(sh_chan, chcr);
-
-
-	spin_lock_irqsave(&sh_chan->desc_lock, irq_flags);
 	/*
 	 * In repeat only one software descriptor is used to maintain
 	 * the interface consistency. The HW descriptor memory is filled
@@ -881,13 +899,19 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	/* Restore descriptor memory base */
 	sh_chan->desc_mem = desc_mem;
 
+	/*Updating the channel control register*/
+	sh_chan->chcr |= chcr;
 	spin_unlock_irqrestore(&sh_chan->desc_lock, irq_flags);
 
+	if (pm_runtime_put_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: put_sync error\n", __func__);
 	dev_dbg(sh_chan->dev, "&first->async_tx = 0x%p\n", &first->async_tx);
 	return &first->async_tx;
 
 err_get_desc:
 	spin_unlock_irqrestore(&sh_chan->desc_lock, irq_flags);
+	if (pm_runtime_put_sync(sh_chan->dev) < 0)
+		dev_err(sh_chan->dev, "%s: put_sync error\n", __func__);
 	return NULL;
 }
 
@@ -1750,6 +1774,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_irq_safe(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
 	spin_lock_irq(&sh_dmae_lock);
