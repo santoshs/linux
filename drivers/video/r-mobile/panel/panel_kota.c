@@ -406,7 +406,7 @@ static int kota_panel_suspend(void)
 	disp_stop_lcd.output_mode = RT_DISPLAY_LCD1;
 	ret = screen_display_stop_lcd(&disp_stop_lcd);
 	if (ret != SMAP_LIB_DISPLAY_OK)
-                r_mobile_fb_err_msg(ret, "screen_display_stop_lcd");
+		r_mobile_fb_err_msg(ret, "screen_display_stop_lcd");
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);

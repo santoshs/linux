@@ -583,8 +583,9 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		DBG_PRINT("set_mode->start param\n");
 		return -1;
 	}
-	if (set_mode->format < SH_FB_HDMI_480P60 ||
-	    set_mode->format > SH_FB_HDMI_576P50A43) {
+	if (set_mode->start == SH_FB_HDMI_START &&
+	    (set_mode->format < SH_FB_HDMI_480P60 ||
+	     set_mode->format > SH_FB_HDMI_576P50A43)) {
 		DBG_PRINT("set_mode->format param\n");
 		return -1;
 	}
@@ -1613,6 +1614,8 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
+	init_waitqueue_head(&sh_lcd_vsync.vsync_wait);
+
 	sh_lcd_vsync.vsync_thread = kthread_run(vsync_recv_thread,
 						priv->ch[0].lcdc,
 						"sh-fb-vsync");
@@ -1623,8 +1626,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	}
 
 	sh_lcd_vsync.vsync_flag = 0;
-
-	init_waitqueue_head(&sh_lcd_vsync.vsync_wait);
 
 	fb_debug = 0;
 
