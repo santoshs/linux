@@ -172,7 +172,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity_level),
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_ambient),
-#ifdef CONFIG_PMIC_BAT_INTERFACE
+#if defined(CONFIG_PMIC_BAT_INTERFACE) || defined(CONFIG_BATTERY_D2153)
 	POWER_SUPPLY_ATTR(temp_hpa),
 #endif
 	POWER_SUPPLY_ATTR(batt_temp_adc),

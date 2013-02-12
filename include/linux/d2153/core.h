@@ -199,6 +199,8 @@ struct d2153 {
 	int (*write_dev)(struct d2153 * const d2153, char reg, int size, u8 *src);
 
 	u8 *reg_cache;
+	u16 vbat_init_adc[3];
+	u16 average_vbat_init_adc;
 
 	/* Interrupt handling */
     struct work_struct irq_work;
@@ -252,5 +254,7 @@ extern int d2153_ioctl_regulator(struct d2153 *d2153, unsigned int cmd, unsigned
 /* DLG new prototype */
 void 	d2153_system_poweroff(void);
 void 	d2153_set_mctl_enable(void);
+void d2153_clk32k_enable(int onoff);
+extern struct d2153_platform_data d2153_pdata;
 
 #endif /* __D2153_LEOPARD_CORE_H_ */

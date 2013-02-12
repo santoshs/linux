@@ -120,3 +120,5 @@ obj-y += setup-u2csi2.o
 obj-y += setup-u2ion.o
 # camera
 obj-y += setup-u2camera.o
+#setup-d2153
+obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
