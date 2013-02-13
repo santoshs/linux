@@ -90,7 +90,7 @@ static int hwsem_trylock(struct hwspinlock *lock)
 	 */
 	smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
 
-	smp_mb();
+	mb();
 	return smsrc == HWSEM_MASTER_ID;
 }
 
@@ -98,8 +98,9 @@ static void hwsem_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 
-	smp_mb();
+	mb();
 	__raw_writel(0, p->sm_base + SMxxSRC);
+	__raw_readl(p->sm_base + SMxxSRC);
 }
 
 /*
