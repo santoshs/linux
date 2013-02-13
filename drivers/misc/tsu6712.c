@@ -495,10 +495,11 @@ static void tsu6712_uart_cb(bool attached)
         acc_info=SPA_ACC_NONE;
    }
 #endif
-  }
+
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-   spa_event_handler(SPA_EVT_ACC_INFO, (void *)acc_info);
+	spa_event_handler(SPA_EVT_ACC_INFO, (void *)acc_info);
 #endif
+	}
 }
 
 static struct tsu6712_platform_data tsu6712_pdata = {

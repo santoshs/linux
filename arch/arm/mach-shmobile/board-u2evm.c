@@ -1920,6 +1920,25 @@ static void __init u2evm_init(void)
 	printk("pub_stm_select=%d\n", pub_stm_select);
 
 	r8a7373_pinmux_init();
+
+	/* set board version */
+	u2_board_rev = 0;
+	gpio_request(GPIO_PORT75, NULL);
+	gpio_direction_input(GPIO_PORT75);
+	u2_board_rev |= gpio_get_value(GPIO_PORT75) << 3;
+	gpio_request(GPIO_PORT74, NULL);
+	gpio_direction_input(GPIO_PORT74);
+	u2_board_rev |= gpio_get_value(GPIO_PORT74) << 2;
+	gpio_request(GPIO_PORT73, NULL);
+	gpio_direction_input(GPIO_PORT73);
+	u2_board_rev |= gpio_get_value(GPIO_PORT73) << 1;
+	gpio_request(GPIO_PORT72, NULL);
+	gpio_direction_input(GPIO_PORT72);
+	u2_board_rev |= gpio_get_value(GPIO_PORT72);
+
+	create_proc_read_entry("board_revision", 0444, NULL,
+					u2_read_board_rev, NULL);
+
 	r8a7373_add_standard_devices();
 
 	r8a7373_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
@@ -1967,25 +1986,7 @@ static void __init u2evm_init(void)
 	}
 	shmobile_arch_reset = u2evm_restart;
 	sec_rlte_hw_rev = check_sec_rlte_hw_rev();
-	printk(KERN_INFO "%s hw rev : %d \n", __func__, sec_rlte_hw_rev);
-
-	/* set board version */
-	u2_board_rev = 0;
-	gpio_request(GPIO_PORT75, NULL);
-	gpio_direction_input(GPIO_PORT75);
-	u2_board_rev |= gpio_get_value(GPIO_PORT75) << 3;
-	gpio_request(GPIO_PORT74, NULL);
-	gpio_direction_input(GPIO_PORT74);
-	u2_board_rev |= gpio_get_value(GPIO_PORT74) << 2;
-	gpio_request(GPIO_PORT73, NULL);
-	gpio_direction_input(GPIO_PORT73);
-	u2_board_rev |= gpio_get_value(GPIO_PORT73) << 1;
-	gpio_request(GPIO_PORT72, NULL);
-	gpio_direction_input(GPIO_PORT72);
-	u2_board_rev |= gpio_get_value(GPIO_PORT72);
-
-	create_proc_read_entry("board_revision", 0444, NULL,
-					u2_read_board_rev, NULL);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, sec_rlte_hw_rev);
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -2649,9 +2650,12 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
     isa1000_vibrator_init();
 #endif
 
+	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
-	spa_power_init();
+		spa_power_init();
 #endif
+	}
+
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 	crashlog_reset_log_write();
