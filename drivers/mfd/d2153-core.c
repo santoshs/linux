@@ -702,6 +702,8 @@ EXPORT_SYMBOL(d2153_regl_info);
 int d2153_device_init(struct d2153 *d2153, int irq,
 		       struct d2153_platform_data *pdata)
 {
+	u8 res_msb, res_lsb;
+	u16 read_adc;
 	int ret = 0;//, tmp;
 	//struct regulator *regulator;
 #ifdef D2153_REG_DEBUG 
@@ -725,6 +727,20 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	mutex_init(&d2153->d2153_io_mutex);
 
+	///////////////////////////////////
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
+						| D2153_ADC_MODE_MASK
+						| D2153_AUTO_VBAT_EN_MASK));
+	msleep(1);
+	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
+	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
+	read_adc = (((res_msb & 0xFF) << 4) | (res_lsb & 0x0F));
+	d2153->vbat_init_adc[0] = read_adc;
+	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n",
+				__LINE__, __func__, d2153->vbat_init_adc[0]);
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
+	///////////////////////////////////
+
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);
 
@@ -736,7 +752,7 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 #endif
 
 	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0x0);
-	d2153_reg_write(d2153, D2153_PULLDOWN_D_REG, 0x0C);
+	//d2153_reg_write(d2153, D2153_PULLDOWN_D_REG, 0x0C);
 	d2153_reg_write(d2153, D2153_BBAT_CONT_REG, 0x1F);
 	d2153_set_bits(d2153,  D2153_SUPPLY_REG, D2153_BBCHG_EN_MASK);
 
@@ -760,6 +776,20 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 			goto err_irq;
 		}
 	}
+
+	///////////////////////////////////
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
+						| D2153_ADC_MODE_MASK
+						| D2153_AUTO_VBAT_EN_MASK));
+	msleep(1);
+	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
+	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
+	read_adc = (((res_msb & 0xFF) << 4) | (res_lsb & 0x0F));
+	d2153->vbat_init_adc[1] = read_adc;
+	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n",
+				__LINE__, __func__, d2153->vbat_init_adc[1]);
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
+	///////////////////////////////////
 	
 	// Regulator Specific Init
 	ret = d2153_platform_regulator_init(d2153);
@@ -768,6 +798,20 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 		goto err_irq;
 	}
 
+	///////////////////////////////////
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
+												| D2153_ADC_MODE_MASK
+												| D2153_AUTO_VBAT_EN_MASK));
+	msleep(1);
+	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
+	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
+	read_adc = (((res_msb & 0xFF) << 4) | (res_lsb & 0x0F));
+	d2153->vbat_init_adc[2] = read_adc;
+	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n",
+				__LINE__, __func__, d2153->vbat_init_adc[2]);
+	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
+	///////////////////////////////////
+	
 	d2153_client_dev_register(d2153, "d2153-battery", &(d2153->batt.pdev));
 	d2153_client_dev_register(d2153, "d2153-rtc", &(d2153->rtc.pdev));
 	d2153_client_dev_register(d2153, "d2153-onkey", &(d2153->onkey.pdev));

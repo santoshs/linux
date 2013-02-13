@@ -67,6 +67,9 @@ static enum power_supply_property spa_batt_props[] = {
         POWER_SUPPLY_PROP_CAPACITY_LEVEL,
         POWER_SUPPLY_PROP_VOLTAGE_NOW,
         POWER_SUPPLY_PROP_TEMP,
+#ifdef CONFIG_BATTERY_D2153
+		POWER_SUPPLY_PROP_TEMP_HPA,
+#endif
         POWER_SUPPLY_PROP_BATT_TEMP_ADC,
         POWER_SUPPLY_PROP_HEALTH,
         POWER_SUPPLY_PROP_MODEL_NAME,
@@ -74,6 +77,10 @@ static enum power_supply_property spa_batt_props[] = {
 static enum power_supply_property spa_charger_props[] = {
         POWER_SUPPLY_PROP_ONLINE,
 };
+
+#ifdef CONFIG_BATTERY_D2153
+extern int d2153_get_rf_temperature(void);
+#endif
 
 static int spa_batt_get_property( struct power_supply *batt, enum power_supply_property property, union power_supply_propval *propval)
 {
@@ -106,6 +113,12 @@ static int spa_batt_get_property( struct power_supply *batt, enum power_supply_p
 						propval->intval = spa_ps_iter->state.temp;
 						break;
 
+#ifdef CONFIG_BATTERY_D2153
+				case POWER_SUPPLY_PROP_TEMP_HPA :
+						propval->intval = d2153_get_rf_temperature();
+						break;
+#endif /* CONFIG_BATTERY_D2153 */
+				
 				case POWER_SUPPLY_PROP_HEALTH:
 						propval->intval = spa_ps_iter->state.health;
 						break;
