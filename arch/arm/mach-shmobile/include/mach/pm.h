@@ -470,6 +470,7 @@ extern void unsuppress_clocks_change(void);
 extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
+extern int is_cpufreq_clk_state_normal(void);
 /* Internal API for CPUFreq driver only */
 /* for corestandby */
 extern int cpg_get_freq(struct clk_rate *rates);
@@ -505,6 +506,7 @@ static inline void unsuppress_clocks_change(void) {}
 static inline int control_cpufreq(int is_enable) { return 0; }
 static inline int is_cpufreq_enable(void) { return 0; }
 #endif
+static inline int is_cpufreq_clk_state_normal(void) { return 0; }
 /* Internal API for CPUFreq driver only */
 static inline int cpg_set_sbsc_freq(unsigned int new_ape_freq) { return 0; }
 static inline int pm_set_clocks(const struct clk_rate clk_div) { return 0; }
