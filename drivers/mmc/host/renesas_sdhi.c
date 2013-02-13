@@ -1227,9 +1227,16 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdata = pdata;
  	host->reg = reg;
 
+#if defined(CONFIG_MFD_D2153)
+	/*This call only used for updating the usage count of regulator,
+		as it is already turned on from bootloader.*/
+	if (pdata->set_pwr)
+		pdata->set_pwr(host->pdev, 1);
+#endif
 	/* powr off */
 	host->power_mode = MMC_POWER_OFF;
-	renesas_sdhi_power(host, 0);
+	if (pdata->set_pwr)
+		pdata->set_pwr(host->pdev, 0);
 
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
@@ -1296,21 +1303,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 			ret = -EINVAL;
 			goto err4;
 		}
-
-#if defined(CONFIG_MFD_D2153)
-	/*This call only used for updating the usage count of regulator,
-		as it is already turned on from bootloader.*/
-		pdata->set_pwr(host->pdev, 1);
-#endif
-
-	/* PMIC Start: Disable the Power source if card not available.
-		Will happen at board boot-up */
-		if (!(host->connect = pdata->get_cd(pdev))) {
-			if (pdata->set_pwr)
-				pdata->set_pwr(pdev, 0);
-		}
-	/* PMIC End */
-
+		host->connect = pdata->get_cd(pdev);
 		host->dynamic_clock = 1;
 	} else if (host->pdata->caps &
 			(MMC_CAP_NEEDS_POLL | MMC_CAP_NONREMOVABLE)) {
