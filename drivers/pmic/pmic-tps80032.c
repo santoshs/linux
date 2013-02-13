@@ -4488,8 +4488,8 @@ static void tps80032_chrg_ctrl_work(void)
 
 	if (data->vbus_det != (ret_stat1 & MSK_BIT_2)) {
 		/* interrupt source relate to external charger */
-		handle_nested_irq(data->irq_base + TPS80032_INT_VBUSS_WKUP);
-		handle_nested_irq(data->irq_base + TPS80032_INT_VBUS);
+//		handle_nested_irq(data->irq_base + TPS80032_INT_VBUSS_WKUP);
+//		handle_nested_irq(data->irq_base + TPS80032_INT_VBUS);
 		/* Update status of VBUS_DET */
 		data->vbus_det = ret_stat1 & MSK_BIT_2;
 	}

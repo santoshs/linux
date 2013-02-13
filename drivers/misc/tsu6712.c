@@ -1533,11 +1533,11 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	tsu6712_read_word_reg(client, TSU6712_REG_INT1,&intr);
 	intr2 = intr >> 8;
 
-	if (u2_get_board_rev() >= 5) {
+if (u2_get_board_rev() >= 5) {
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
 		if (intr) {
-			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP);
-			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS);
+//			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP);
+//			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS);
 		}
 	}
 	if (intr < 0) {

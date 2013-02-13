@@ -175,14 +175,14 @@ static int r8a66597_clk_get(struct r8a66597 *r8a66597,
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 {
-	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
+/*	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
 	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(1));
 	r8a66597_dma_bclr(r8a66597, DME, DMAOR);
 	r8a66597_bset(r8a66597, BCLR, D0FIFOCTR);
 	r8a66597_bset(r8a66597, BCLR, D1FIFOCTR);
 	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
 	udelay(100);
-	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
+	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);*/
 }
 
 static int can_pullup(struct r8a66597 *r8a66597)
@@ -2632,8 +2632,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto err_add_udc;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
-	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
-	r8a66597_clk_disable(r8a66597);
+//	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
+//	r8a66597_clk_disable(r8a66597);
 	return 0;
 
 err_add_udc:
@@ -2685,12 +2685,8 @@ MODULE_ALIAS("platform:r8a66597_udc");
 
 static int __init r8a66597_udc_init(void)
 {
-#if 1 /* temp W/A */
-	return 0;
-#else
 
 	return platform_driver_probe(&r8a66597_driver, r8a66597_probe);
-#endif
 }
 module_init(r8a66597_udc_init);
 
