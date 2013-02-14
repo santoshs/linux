@@ -62,6 +62,9 @@ EXPORT_SYMBOL(sec_main_cam_dev);
 struct device *sec_sub_cam_dev;  /* /sys/class/camera/rear/rear_type */
 EXPORT_SYMBOL(sec_sub_cam_dev);
 
+static bool rear_flash_state;
+static int (*rear_flash_set)(int, int);
+
 #define RCU_MERAM_ACTST1 (0x50)
 #define RCU_MERAM_QSEL2	 (0x44)
 
@@ -121,7 +124,10 @@ EXPORT_SYMBOL(sec_sub_cam_dev);
 
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
-#define PRINT_FOURCC(fourcc) (fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
+#define PRINT_FOURCC(fourcc)	((fourcc) & 0xff, \
+				((fourcc) >> 8) & 0xff, \
+				((fourcc) >> 16) & 0xff, \
+				((fourcc) >> 24) & 0xff)
 
 /* register offsets for r8a73734 */
 
@@ -284,8 +290,10 @@ EXPORT_SYMBOL(sec_sub_cam_dev);
 #define SH_RCU_RAWTYP_RAW10		0x01	/* RAW10 format */
 #define SH_RCU_RAWTYP_RAW12		0x02	/* RAW12 format */
 
-#define SH_RCU_RPAC_ENHANCE		0x00	/* 16bit Enhancing */
-#define SH_RCU_RPAC_PACKING		0x01	/* Packing(MIPI-CSI2 standerd) */
+/* 16bit Enhancing */
+#define SH_RCU_RPAC_ENHANCE		0x00
+/* Packing(MIPI-CSI2 standerd) */
+#define SH_RCU_RPAC_PACKING		0x01
 
 /* Transferred to the bus in 4-burst 1-transfer (4QW x 1) units */
 #define SH_RCU_MTCM_SIZE_1		0x00
@@ -367,6 +375,9 @@ struct sh_mobile_rcu_dev {
 	struct clk *iclk;
 	struct clk *fclk;
 	struct clk *mclk;
+
+	unsigned int mmap_size;
+	struct page **mmap_pages;
 };
 
 struct sh_mobile_rcu_cam {
@@ -488,8 +499,9 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 	unsigned int height;
 #if 0
 	if (fmt) {
-		const struct soc_camera_format_xlate *xlate = soc_camera_xlate_by_fourcc(icd,
-								fmt->fmt.pix.pixelformat);
+		const struct soc_camera_format_xlate *xlate =
+					soc_camera_xlate_by_fourcc(icd,
+					fmt->fmt.pix.pixelformat);
 		if (!xlate)
 			return -EINVAL;
 		bytes_per_line = soc_mbus_bytes_per_line(fmt->fmt.pix.width,
@@ -511,6 +523,8 @@ static int sh_mobile_rcu_videobuf_setup(struct vb2_queue *vq,
 		__func__, bytes_per_line, icd->user_width,
 		icd->current_fmt->host_fmt->packing,
 		icd->current_fmt->host_fmt->bits_per_sample);
+
+	height = icd->user_height;
 #endif
 	if (bytes_per_line < 0)
 		return bytes_per_line;
@@ -864,7 +878,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+		container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf;
@@ -921,7 +935,7 @@ static int sh_mobile_rcu_videobuf_prepare(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+		container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
@@ -947,7 +961,7 @@ static void sh_mobile_rcu_videobuf_queue(struct vb2_buffer *vb)
 static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 {
 	struct soc_camera_device *icd =
-			container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
+	container_of(vb->vb2_queue, struct soc_camera_device, vb2_vidq);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_buffer *buf = to_rcu_vb(vb);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
@@ -1029,7 +1043,7 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 		/* IMCR10SA3 */
 		iowrite8(0x01, intcs_base + 0x1E8);
 		dev_geo(icd->parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n",
-			ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
+		ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
 		iounmap(intcs_base);
 	}
 
@@ -1337,8 +1351,9 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
-				pcdev->active = &list_entry(pcdev->capture.next,
-						struct sh_mobile_rcu_buffer, queue)->vb;
+				pcdev->active =
+					&list_entry(pcdev->capture.next,
+					struct sh_mobile_rcu_buffer, queue)->vb;
 			else
 				pcdev->active = NULL;
 
@@ -1349,7 +1364,7 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				vb->v4l2_buf.sequence = pcdev->sequence++;
 			}
 			vb2_buffer_done(vb,
-				ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
+			ret < 0 ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE);
 
 		} else if ((SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode)
 				&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP2)) {
@@ -1516,6 +1531,8 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	dev_info(icd->parent,
 		 "SuperH Mobile RCU driver detached from camera %d\n",
 		 icd->devnum);
+
+	kfree(pcdev->mmap_pages);
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 	dev_info(icd->parent, "End A4LC power area(RCU)\n");
@@ -1694,9 +1711,9 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 			common_flags &= ~V4L2_MBUS_VSYNC_ACTIVE_LOW;
 	}
 
-//	ret = icd->ops->set_bus_param(icd, common_flags);
-//	if (ret < 0)
-//		return ret;
+/*	ret = icd->ops->set_bus_param(icd, common_flags);
+	if (ret < 0)
+		return ret;*/
 
 	/* setting RCAMCR */
 	rcamcr |= pcdev->image_mode << RCAMCR_CFMT;
@@ -1779,8 +1796,12 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 	}
 
 	/* setting RCPICR */
-	rcpicr |= common_flags & V4L2_MBUS_VSYNC_ACTIVE_LOW ? 1 << RCPICR_VDPOL : 0;
-	rcpicr |= common_flags & V4L2_MBUS_HSYNC_ACTIVE_LOW ? 1 << RCPICR_HDPOL : 0;
+	rcpicr |=
+		common_flags & V4L2_MBUS_VSYNC_ACTIVE_LOW ? \
+		1 << RCPICR_VDPOL : 0;
+	rcpicr |=
+		common_flags & V4L2_MBUS_HSYNC_ACTIVE_LOW ? \
+		1 << RCPICR_HDPOL : 0;
 	if (!pcdev->pdata->csi2)
 		rcpicr |= 1 << RCPICR_IFS;	/* Paralell I/F */
 
@@ -1808,10 +1829,10 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 	if (yuv_lineskip)
 		rcdocr |= 1 << RCDOCR_T420;	/* output YUV420 */
 
-	if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21 ||
-	    icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61) {
-	    /* swap U, V to change from NV1x->NVx1 */
-		rcdocr |= 1 << RCDOCR_C1BS;
+		if (icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV21 ||
+		icd->current_fmt->host_fmt->fourcc == V4L2_PIX_FMT_NV61) {
+			/* swap U, V to change from NV1x->NVx1 */
+			rcdocr |= 1 << RCDOCR_C1BS;
 	}
 
 	sh_mobile_rcu_set_rect(icd);
@@ -1830,7 +1851,8 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 	rcu_write(pcdev, RCRCMPR, 0);
 	rcu_write(pcdev, RCBDSR,  0);
 
-//	dev_dbg(icd->parent, "S_FMT successful for %c%c%c%c %ux%u\n", PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);
+/*	dev_dbg(icd->parent, "S_FMT successful for %c%c%c%c %ux%u\n",
+		PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);*/
 
 	capture_restore(pcdev, rcapsr);
 
@@ -2091,11 +2113,13 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 		struct v4l2_rect rect;
 		int shift = 0;
 
-//		/* Add our control */
-//		v4l2_ctrl_new_std(&icd->ctrl_handler, &sh_mobile_rcu_ctrl_ops,
-//				  V4L2_CID_SHARPNESS, 0, 1, 1, 0);
-//		if (icd->ctrl_handler.error)
-//			return icd->ctrl_handler.error;
+		/* Add our control */
+/*
+		v4l2_ctrl_new_std(&icd->ctrl_handler, &sh_mobile_rcu_ctrl_ops,
+				  V4L2_CID_SHARPNESS, 0, 1, 1, 0);
+		if (icd->ctrl_handler.error)
+			return icd->ctrl_handler.error;
+*/
 
 		/* FIXME: subwindow is lost between close / open */
 
@@ -2111,8 +2135,8 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 		 * sizes, just try VGA multiples. If needed, this can be
 		 * adjusted in the future.
 		 */
-//		while ((mf.width > pcdev->max_width ||
-//			mf.height > pcdev->max_height) && shift < 4) {
+/*		while ((mf.width > pcdev->max_width ||
+			mf.height > pcdev->max_height) && shift < 4) {*/
 		while ((mf.width > 3264 || mf.height > 2448) && shift < 4) {
 			/* Try 2560x1920, 1280x960, 640x480, 320x240 */
 			mf.width	= 2560 >> shift;
@@ -2142,7 +2166,8 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 		if (!cam)
 			return -ENOMEM;
 
-		/* We are called with current camera crop, initialise subrect with it */
+		/* We are called with current camera crop,
+		   initialise subrect with it */
 		/* initialise rect with it */
 		cam->width		= mf.width;
 		cam->height		= mf.height;
@@ -2410,11 +2435,14 @@ static int sh_mobile_rcu_set_fmt(struct soc_camera_device *icd,
 	unsigned int walign, halign;
 	struct v4l2_rect rect;
 
-	dev_geo(dev, "%s(): S_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(dev,
+		"%s(): S_FMT(%c%c%c%c, %ux%u)\n",
+		__func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(dev, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
+		dev_warn(dev,
+		"Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -2488,11 +2516,13 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 	int ret;
 	unsigned int walign, halign;
 
-	dev_geo(icd->parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n", __func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
+	dev_geo(icd->parent, "%s(): TRY_FMT(%c%c%c%c, %ux%u)\n",
+		__func__, PRINT_FOURCC(pixfmt), pix->width, pix->height);
 
 	xlate = soc_camera_xlate_by_fourcc(icd, pixfmt);
 	if (!xlate) {
-		dev_warn(icd->parent, "Format %c%c%c%c not found\n", PRINT_FOURCC(pixfmt));
+		dev_warn(icd->parent, "Format %c%c%c%c not found\n",
+					PRINT_FOURCC(pixfmt));
 		return -EINVAL;
 	}
 
@@ -2574,10 +2604,11 @@ static int sh_mobile_rcu_querycap(struct soc_camera_host *ici,
 	return 0;
 }
 
-static void *sh_mobile_rcu_contig_get_userptr(void *alloc_ctx, unsigned long vaddr,
-					unsigned long size, int write)
+static void *sh_mobile_rcu_contig_get_userptr(
+	void *alloc_ctx, unsigned long vaddr,
+	unsigned long size, int write)
 {
-//	return NULL;
+/*	return NULL;*/
 	return 1;
 }
 
@@ -2586,9 +2617,54 @@ static void sh_mobile_rcu_contig_put_userptr(void *mem_priv)
 	return;
 }
 
+static int sh_mobile_rcu_mmap(void *buf_priv, struct vm_area_struct *vma)
+{
+	unsigned long vm_addr = vma->vm_start;
+	struct soc_camera_device *icd = buf_priv;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	struct sh_mobile_rcu_dev *pcdev = ici->priv;
+	int ret = 0;
+	int i = 0;
+
+	unsigned int page_num;
+	page_num = ((vma->vm_end - vma->vm_start) + PAGE_SIZE - 1)
+		/ PAGE_SIZE;
+
+	if (pcdev->mmap_size <= page_num) {
+		dev_err(icd->parent,
+			"%s:size error(%d <= %d)\n", __func__,
+			pcdev->mmap_size, page_num);
+		return -1;
+	}
+	if (!pcdev->mmap_pages) {
+		dev_err(icd->parent,
+			"%s:mmap_pages NULL\n", __func__);
+		return -1;
+	}
+
+	for (i = 0; i < page_num; i++) {
+		ret = remap_pfn_range(vma, vm_addr,
+			page_to_pfn(pcdev->mmap_pages[i+1]), PAGE_SIZE,
+			vma->vm_page_prot);
+		if (ret) {
+			dev_err(icd->parent,
+			"%s:remap_pfn_range error(%d)\n", __func__,
+			ret);
+			return -1;
+		}
+		vm_addr += PAGE_SIZE;
+	}
+
+	kfree(pcdev->mmap_pages);
+	pcdev->mmap_pages = 0;
+	pcdev->mmap_size = 0;
+	return 0;
+}
+
 const struct vb2_mem_ops sh_mobile_rcu_memops = {
 	.get_userptr	= sh_mobile_rcu_contig_get_userptr,
 	.put_userptr	= sh_mobile_rcu_contig_put_userptr,
+	.mmap		= sh_mobile_rcu_mmap,
 };
 
 static int sh_mobile_rcu_init_videobuf(struct vb2_queue *q,
@@ -2620,11 +2696,34 @@ static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 	return -ENOIOCTLCMD;
 }
 
+static bool is_state_rear_flash(void)
+{
+	return rear_flash_state;
+}
+
+void sh_mobile_rcu_flash(int led)
+{
+	int set_state = SH_RCU_LED_OFF;
+	if (led) {
+		set_state = SH_RCU_LED_ON;
+		rear_flash_state = false;
+	} else {
+		set_state = SH_RCU_LED_OFF;
+		rear_flash_state = true;
+	}
+	if (rear_flash_set)
+		rear_flash_set(set_state, SH_RCU_LED_MODE_PRE);
+	return;
+}
+
 static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 				  struct v4l2_control *ctrl)
 {
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
+	unsigned int mmap_page_info[2];
+	unsigned int page_num = 0;
+	int ret = 0;
 
 	dev_geo(icd->parent, "%s(): id=0x%x value=0x%x\n",
 			__func__, ctrl->id, ctrl->value);
@@ -2660,7 +2759,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		pcdev->output_ispthinned = ctrl->value;
 		return 0;
 	case V4L2_CID_SET_LED:
-		if (pcdev->pdata->led)
+		if ((pcdev->pdata->led) && is_state_rear_flash())
 			return pcdev->pdata->led((ctrl->value & SH_RCU_LED_ON),
 			(ctrl->value & SH_RCU_LED_MODE_PRE));
 		return 0;
@@ -2668,6 +2767,43 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		pcdev->zsl = ctrl->value;
 		if (!pcdev->zsl)
 			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
+		return 0;
+	case V4L2_CID_SET_MMAP_PAGE:
+		kfree(pcdev->mmap_pages);
+		pcdev->mmap_pages = NULL;
+
+		ret = copy_from_user(mmap_page_info,
+			(int __user *)ctrl->value,
+			sizeof(mmap_page_info));
+		if (0 != ret) {
+			dev_err(icd->parent,
+				"%s:copy_from_user error(%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		page_num = (mmap_page_info[0] + PAGE_SIZE - 1)
+				/ PAGE_SIZE;
+		pcdev->mmap_pages = kmalloc(page_num *
+			sizeof(struct page *), GFP_KERNEL);
+		if (NULL == pcdev->mmap_pages) {
+			dev_err(icd->parent,
+				"%s:kmalloc error\n",
+				__func__);
+			return -1;
+		}
+		ret = copy_from_user(pcdev->mmap_pages,
+			(int __user *)mmap_page_info[1],
+			page_num * sizeof(struct page *));
+		if (0 != ret) {
+			dev_err(icd->parent,
+				"%s:copy_from_user error(%d)\n",
+				__func__, ret);
+			kfree(pcdev->mmap_pages);
+			pcdev->mmap_pages = NULL;
+			return ret;
+		}
+		pcdev->mmap_size = page_num;
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -2864,6 +3000,9 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	if (err)
 		goto exit_free_ctx;
 
+	if ((!rear_flash_set) && pcdev->pdata->led)
+		rear_flash_set = pcdev->pdata->led;
+
 	/* CSI2 interfacing */
 	csi2 = pcdev->pdata->csi2;
 	dev_geo(&pdev->dev, "CSI2 interface %p\n", csi2);
@@ -2878,11 +3017,12 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		}
 
 		pcdev->csi2_pdev		= csi2_pdev;
-
-//		err = platform_device_add_data(csi2_pdev, csi2_pdata, sizeof(*csi2_pdata));
-//		if (err < 0)
-//			goto exit_pdev_put;
-
+/*
+		err = platform_device_add_data(csi2_pdev,
+				csi2_pdata, sizeof(*csi2_pdata));
+		if (err < 0)
+			goto exit_pdev_put;
+*/
 
 		csi2_pdata->v4l2_dev		= &pcdev->ici.v4l2_dev;
 
@@ -2909,7 +3049,8 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		if (!csi2_pdev->dev.driver) {
 			complete(&wait.completion);
 			/* Either too late, or probing failed */
-			bus_unregister_notifier(&platform_bus_type, &wait.notifier);
+			bus_unregister_notifier(
+					&platform_bus_type, &wait.notifier);
 			err = -ENXIO;
 			goto exit_pdev_unregister;
 		}
@@ -3006,7 +3147,7 @@ static int sh_mobile_rcu_resume(struct device *dev)
 static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev)
+	if (NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
@@ -3017,27 +3158,27 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 * to save and restore registers here.
 	 */
 
-	if(NULL == pcdev) {
+	if (NULL == pcdev) {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk)
+	if (NULL != pcdev->iclk)
 		clk_disable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk)
+	if (NULL != pcdev->fclk)
 		clk_disable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk)
+	if (NULL != pcdev->mclk)
 		clk_disable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->parent,
@@ -3050,32 +3191,32 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 static int sh_mobile_rcu_runtime_resume(struct device *dev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
-	if(NULL == dev)
+	if (NULL == dev)
 		return 0;
 
 	pcdev = dev_get_drvdata(dev);
 
-	if(NULL == pcdev) {
+	if (NULL == pcdev) {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
-	if(NULL != pcdev->iclk)
+	if (NULL != pcdev->iclk)
 		clk_enable(pcdev->iclk);
 	else {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev->iclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->fclk)
+	if (NULL != pcdev->fclk)
 		clk_enable(pcdev->fclk);
 	else {
 		dev_err(pcdev->icd->parent,
 			"%s, pcdev->fclk is NULL\n", __func__);
 	}
 
-	if(NULL != pcdev->mclk)
+	if (NULL != pcdev->mclk)
 		clk_enable(pcdev->mclk);
 	else {
 		dev_err(pcdev->icd->parent,
@@ -3108,6 +3249,8 @@ static int __init sh_mobile_rcu_init(void)
 	cam_class_init = false;
 	sec_main_cam_dev = NULL;
 	sec_sub_cam_dev = NULL;
+	rear_flash_state = true;
+	rear_flash_set = NULL;
 
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");

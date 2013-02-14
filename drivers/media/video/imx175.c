@@ -27,6 +27,7 @@
 #include <media/soc_camera.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
+#include <media/sh_mobile_rcu.h>
 
 static ssize_t maincamtype_imx175_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -42,8 +43,22 @@ static ssize_t maincamfw_imx175_show(struct device *dev,
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
+static ssize_t maincamflash_imx175_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if ((0 >= count) || !buf)
+		return 0;
+	if (buf[0] == '0')
+		sh_mobile_rcu_flash(0);
+	else
+		sh_mobile_rcu_flash(1);
+	return count;
+}
+
 static DEVICE_ATTR(rear_camtype, 0644, maincamtype_imx175_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, maincamfw_imx175_show, NULL);
+static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_imx175_store);
 
 struct IMX175_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -236,8 +251,8 @@ IMX175_g_chip_ident(struct v4l2_subdev *sd,
 static int IMX175_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
@@ -333,7 +348,7 @@ static int IMX175_probe(struct i2c_client *client,
 		unsigned char send_buf[2];
 		unsigned char rcv_buf[2];
 		int loop = 0;
-		
+
 		msg[0].addr = client->addr;
 		msg[0].flags = client->flags & I2C_M_TEN;
 		msg[0].len = 2;
@@ -352,11 +367,10 @@ static int IMX175_probe(struct i2c_client *client,
 			if (0 <= ret)
 				break;
 		}
-		if (0 > ret) {
+		if (0 > ret)
 			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
-		} else {
+		else
 			ret = 0;
-		}
 	}
 
 	if (cam_class_init == false) {
@@ -373,20 +387,30 @@ static int IMX175_probe(struct i2c_client *client,
 						NULL, 0, NULL, "rear");
 		if (IS_ERR(sec_main_cam_dev)) {
 			dev_err(&client->dev,
-				"Failed to create device(sec_main_cam_dev)!\n");
+				"Failed to create device"
+				"(sec_main_cam_dev)!\n");
 		}
 
 		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camtype) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camtype.attr.name);
 		}
 		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camfw) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camfw.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_flash) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera "
+				"device file, %s\n",
+				dev_attr_rear_flash.attr.name);
 		}
 	}
 

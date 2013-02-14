@@ -10,7 +10,7 @@
  */
 
 /* for debug */
-//#undef DEBUG
+/* #undef DEBUG */
 #define DEBUG 1
 /* #define DEBUG */
 
@@ -29,6 +29,8 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
+#include <media/sh_mobile_rcu.h>
+
 static ssize_t subcamtype_S5K4ECGX_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -43,8 +45,22 @@ static ssize_t subcamfw_S5K4ECGX_show(struct device *dev,
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
+static ssize_t maincamflash_S5K4ECGX_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if ((0 >= count) || !buf)
+		return 0;
+	if (buf[0] == '0')
+		sh_mobile_rcu_flash(0);
+	else
+		sh_mobile_rcu_flash(1);
+	return count;
+}
+
 static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
+static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_S5K4ECGX_store);
 
 struct S5K4ECGX_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -72,11 +88,13 @@ static const struct S5K4ECGX_datafmt S5K4ECGX_colour_fmts[] = {
 
 static struct S5K4ECGX *to_S5K4ECGX(const struct i2c_client *client)
 {
-	return container_of(i2c_get_clientdata(client), struct S5K4ECGX, subdev);
+	return container_of(i2c_get_clientdata(client),
+					struct S5K4ECGX, subdev);
 }
 
 /* Find a data format by a pixel code in an array */
-static const struct S5K4ECGX_datafmt *S5K4ECGX_find_datafmt(enum v4l2_mbus_pixelcode code)
+static const struct S5K4ECGX_datafmt *S5K4ECGX_find_datafmt(
+					enum v4l2_mbus_pixelcode code)
 {
 	int i;
 
@@ -225,8 +243,8 @@ static int S5K4ECGX_g_chip_ident(struct v4l2_subdev *sd,
 static int S5K4ECGX_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
@@ -327,11 +345,6 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 		return err;
 	}
 
-	priv->width	= 640;
-	priv->height= 480;
-	priv->fmt	= &S5K4ECGX_colour_fmts[0];
-
-
 	{
 		/* check i2c device */
 		struct i2c_msg msg[2];
@@ -364,6 +377,9 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 			ret = 0;
 	}
 
+	priv->width	= 640;
+	priv->height	= 480;
+	priv->fmt	= &S5K4ECGX_colour_fmts[0];
 
 	if (cam_class_init == false) {
 		dev_dbg(&client->dev,
@@ -373,26 +389,36 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 	}
 
 	if (camera_class) {
-		dev_dbg(&client->dev, "Create Sub camera device !\n");
+		dev_dbg(&client->dev, "Create main camera device !\n");
 
-		sec_sub_cam_dev = device_create(camera_class,
+		sec_main_cam_dev = device_create(camera_class,
 						NULL, 0, NULL, "rear");
-		if (IS_ERR(sec_sub_cam_dev)) {
+		if (IS_ERR(sec_main_cam_dev)) {
 			dev_err(&client->dev,
-				"Failed to create device(sec_sub_cam_dev)!\n");
+				"Failed to create device"
+				"(sec_main_cam_dev)!\n");
 		}
 
-		if (device_create_file(sec_sub_cam_dev,
+		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camtype) < 0) {
 			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camtype.attr.name);
 		}
-		if (device_create_file(sec_sub_cam_dev,
+		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camfw) < 0) {
 			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camfw.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_flash) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera "
+				"device file, %s\n",
+				dev_attr_rear_flash.attr.name);
 		}
 	}
 
