@@ -1,6 +1,6 @@
 /* vcd.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -22,9 +22,9 @@
 /*
  * constant definition
  */
-#define VCD_RECORD_BUFFER_SIZE 640
-#define VCD_PLAYBACK_BUFFER_SIZE 640
-#define VCD_PLAYBACK_PT_BUFFER_SIZE 1920
+#define VCD_RECORD_BUFFER_SIZE		640
+#define VCD_PLAYBACK_BUFFER_SIZE	640
+#define VCD_PLAYBACK_PT_BUFFER_SIZE	1920
 
 /*
  * define macro declaration

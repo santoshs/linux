@@ -1,6 +1,6 @@
 /* vcd_spuv_func.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -21,9 +22,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
 #include <linux/hwspinlock.h>
-#ifdef __VCD_POWERDOMAIN_ENABLE__
 #include <mach/pm.h>
-#endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 #include <linux/fs.h>
 #include <linux/namei.h>
@@ -31,10 +30,6 @@
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 #include <mach/r8a7373.h>
-
-#ifdef __VCD_MERAM_ENABLE__
-#include "rtapi/system_memory.h"
-#endif /* __VCD_MERAM_ENABLE__ */
 
 #include "linux/vcd/vcd_common.h"
 #include "vcd_spuv_func.h"
@@ -61,9 +56,6 @@ unsigned int g_spuv_func_xram_base_top;
 unsigned int g_spuv_func_yram_base_top;
 unsigned int g_spuv_func_dspioram_base_top;
 
-unsigned int g_spuv_func_meram_physical_addr;
-unsigned int g_spuv_func_meram_logical_addr;
-
 unsigned int g_spuv_func_playback_buffer_id;
 unsigned int g_spuv_func_record_buffer_id;
 unsigned int g_spuv_func_voip_ul_buffer_id;
@@ -76,26 +68,20 @@ int g_spuv_func_alsa_ul_buf_size;
 int g_spuv_func_alsa_dl_buf_size;
 int g_spuv_func_spuv_buf_size;
 
-#ifdef __VCD_MERAM_ENABLE__
-system_mem_meram_alloc g_spuv_func_meram_alloc;
-system_mem_meram_free g_spuv_func_meram_free;
-system_mem_info_delete g_spuv_func_meram_delete;
-#endif /* __VCD_MERAM_ENABLE__ */
-
 struct vcd_spuv_func_fw_info g_spuv_func_pram_info;
 struct vcd_spuv_func_fw_info g_spuv_func_xram_info;
 struct vcd_spuv_func_fw_info g_spuv_func_yram_info;
 
-#ifdef __VCD_POWERDOMAIN_ENABLE__
 static struct device *g_spuv_func_power_domains
 			[VCD_SPUV_FUNC_POWER_DOMAIN_MAX];
 int g_spuv_func_pm_runtime_count;
 struct clk *g_spuv_func_spuv_clk;
 struct clk *g_spuv_func_clkgen_clk;
-#endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 static int g_vcd_spuv_func_ipc_sem_flag;
 static struct hwspinlock *g_vcd_spuv_func_sem_lock;
+
+int g_spuv_func_power_supply;
 
 bool g_spuv_func_is_spuv_clk;
 bool g_spuv_func_is_clkgen_clk;
@@ -118,21 +104,12 @@ static int vcd_spuv_func_fw_analyze(
 		char *read_data);
 static int vcd_spuv_func_relocation_fw(
 		struct vcd_spuv_func_read_fw_info *firmware_info);
-static int vcd_spuv_func_get_meram(unsigned int fw_size);
-static void vcd_spuv_func_free_meram(void);
-#ifdef __VCD_MERAM_ENABLE__
-static int vcd_spuv_func_meram_ioremap(unsigned int addr, unsigned int size);
-static void vcd_spuv_func_meram_iounmap(void);
-#endif /* __VCD_MERAM_ENABLE__ */
 static void vcd_spuv_func_calc_ram(
-		const unsigned int start_addr_meram,
 		const unsigned int start_addr_sdram,
 		const unsigned int global_size,
 		const unsigned int *page_size,
-		const unsigned int *page_location,
 		const unsigned int page_num,
 		struct vcd_spuv_func_fw_info *ram_info,
-		unsigned int *next_addr_meram,
 		unsigned int *next_addr_sdram);
 static void vcd_spuv_func_reg_firmware(void);
 static int vcd_spuv_func_conv_global_size(const unsigned int global_size);
@@ -158,26 +135,50 @@ static unsigned int vcd_spuv_func_get_voip_dl_buffer_id(void);
 /* ========================================================================= */
 
 /**
+ * @brief	sdram cache flush function.
+ *
+ * @param[in]	logical_addr	flush start logical address.
+ * @param[in]	size		flush size.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_cacheflush_sdram(unsigned int logical_addr,
+							unsigned int size)
+{
+	int buf_addr = 0;
+
+	vcd_pr_start_spuv_function("logical_addr[0x%08x], size[%d].\n",
+		logical_addr, size);
+
+	vcd_spuv_func_sdram_logical_to_physical(logical_addr, buf_addr);
+
+	vcd_spuv_func_cacheflush(buf_addr, logical_addr, size);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
  * @brief	cache flush function.
  *
- * @param[in]	start_addr	cache start logical address.
+ * @param[in]	physical_addr	flush start physical address.
+ * @param[in]	logical_addr	flush start logical address.
  * @param[in]	size		cache size.
  *
  * @retval	none.
  */
-void vcd_spuv_func_cacheflush(unsigned int start_addr, unsigned int size)
+void vcd_spuv_func_cacheflush(unsigned int physical_addr,
+		unsigned int logical_addr, unsigned int size)
 {
-	int buf_addr = 0;
+	vcd_pr_start_spuv_function(
+		"physical_addr[0x%08x], logical_addr[0x%08x], size[%d].\n",
+		physical_addr, logical_addr, size);
 
-	vcd_pr_start_spuv_function("start_addr[0x%08x], size[%d].\n",
-		start_addr, size);
-
-	vcd_spuv_func_sdram_logical_to_physical(start_addr, buf_addr);
-
-	dmac_flush_range((void *)start_addr,
-		(void *)(start_addr + size));
-	outer_flush_range((unsigned long)buf_addr,
-		(unsigned long)(buf_addr + size));
+	dmac_flush_range((void *)logical_addr,
+		(void *)(logical_addr + size));
+	outer_flush_range((unsigned long)physical_addr,
+		(unsigned long)(physical_addr + size));
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -211,7 +212,6 @@ rtn:
 }
 
 
-#ifdef __VCD_POWERDOMAIN_ENABLE__
 /**
  * @brief	power supply control function.
  *
@@ -230,6 +230,9 @@ int vcd_spuv_func_control_power_supply(int effective)
 	size_t power_domain_count = 0;
 
 	vcd_pr_start_spuv_function("effective[%d].\n", effective);
+
+	if (g_spuv_func_power_supply == effective)
+		goto rtn;
 
 	if (VCD_SPUV_FUNC_ENABLE == effective) {
 
@@ -353,6 +356,9 @@ int vcd_spuv_func_control_power_supply(int effective)
 		/* release semaphore for ipc  */
 		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_RELEASE);
 
+		/* update status */
+		g_spuv_func_power_supply = VCD_SPUV_FUNC_ENABLE;
+
 	} else {
 
 		/* get semaphore for ipc  */
@@ -420,104 +426,14 @@ int vcd_spuv_func_control_power_supply(int effective)
 		g_spuv_func_is_spuv_clk = false;
 		g_spuv_func_clkgen_clk = NULL;
 		g_spuv_func_is_clkgen_clk = false;
+		g_spuv_func_power_supply = VCD_SPUV_FUNC_DISABLE;
+
 	}
 
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
-#else /* __VCD_POWERDOMAIN_ENABLE__ */
-/**
- * @brief	power supply control function.
- *
- * @param	none.
- *
- * @retval	VCD_ERR_NONE	successful.
- * @retval	VCD_ERR_SYSTEM	system error.
- * @retval	others		result of called function.
- */
-int vcd_spuv_func_control_power_supply(int effective)
-{
-	int ret = VCD_ERR_NONE;
-	unsigned int swucr_adr = 0;
-	unsigned int pstr_adr = 0;
-	unsigned int reg = 0;
-	unsigned int hpbctrl2 = 0;
-
-	vcd_pr_start_spuv_function("effective[%d].\n", effective);
-
-	/* get power domain status */
-	pstr_adr = (unsigned int)ioremap(0xE6180080, 0x4);
-	vcd_spuv_func_register(pstr_adr, reg);
-	iounmap((void *)pstr_adr);
-
-	if (VCD_SPUV_FUNC_ENABLE == effective) {
-		/* mp-shwy dynamic module stop check */
-		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
-		vcd_pr_spuv_debug("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
-
-		/* a4mp */
-		if (!(0x00000100 & reg)) {
-			swucr_adr = (unsigned int)ioremap(0xE6180014, 0x4);
-
-			vcd_spuv_func_modify_register(
-					0, 0x00000100, swucr_adr);
-			do {
-				udelay(1);
-				vcd_spuv_func_register(swucr_adr, reg);
-			} while (0x00000100 & reg);
-
-			iounmap((void *)swucr_adr);
-		}
-
-		/* spuv */
-		if (!g_spuv_func_is_spuv_clk) {
-			vcd_spuv_func_modify_register(
-				0x00100000,
-				0,
-				SPUV_FUNC_RW_32_CPG_MMSTPCR2);
-			vcd_spuv_func_modify_register(
-				0x00100000,
-				0,
-				SPUV_FUNC_RW_32_CPG_SMSTPCR2);
-
-			vcd_spuv_func_modify_register(
-				0x0000013F,
-				0x00000003,
-				SPUV_FUNC_RW_32_CPG_SPUVCKCR);
-
-			vcd_spuv_func_modify_register(
-				0,
-				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-				SPUV_FUNC_RW_32_CPG_SRCR2);
-			udelay(62);
-			vcd_spuv_func_modify_register(
-				VCD_SPUV_FUNC_SRCR2_SPU2V_RESET,
-				0,
-				SPUV_FUNC_RW_32_CPG_SRCR2);
-			while (VCD_SPUV_FUNC_SRCR2_SPU2V_RESET &
-				ioread32(SPUV_FUNC_RW_32_CPG_SRCR2))
-				cpu_relax();
-
-			vcd_spuv_func_set_register(
-				VCD_SPUV_FUNC_CRMU_VOICEIF_ON,
-				SPUV_FUNC_RW_32_CRMU_VOICEIF);
-
-			g_spuv_func_is_spuv_clk = true;
-
-		}
-
-		/* release semaphore for ipc  */
-		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_RELEASE);
-
-	} else {
-		/* it dares not to drop. */
-	}
-
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
-}
-#endif /* __VCD_POWERDOMAIN_ENABLE__ */
 
 
 /**
@@ -666,10 +582,6 @@ void vcd_spuv_func_release_firmware(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* free meram */
-	if (0 != SPUV_FUNC_MERAM_FIRMWARE_BUFFER)
-		vcd_spuv_func_free_meram();
-
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -718,6 +630,7 @@ void vcd_spuv_func_dsp_core_reset(void)
 void vcd_spuv_func_send_msg(int *param, int length)
 {
 	int i = 0;
+	int error_cnt = 0;
 	int *msg_buf_addr = 0;
 	unsigned long msg_buf_physical_addr = 0;
 
@@ -743,8 +656,21 @@ void vcd_spuv_func_send_msg(int *param, int length)
 	}
 
 	/* cache flush */
-	vcd_spuv_func_cacheflush((unsigned int)msg_buf_addr,
+	vcd_spuv_func_cacheflush_sdram((unsigned int)msg_buf_addr,
 					(length * sizeof(int)));
+
+	/* check param */
+	for (i = 0; length > i; i++) {
+		if (msg_buf_addr[i] !=
+			(param[i] << VCD_SPUV_FUNC_CPU_TO_DSP_BIT_SHIFT)) {
+			vcd_pr_err("memory error.\n");
+			error_cnt++;
+			if (VCD_SPUV_FUNC_MAX_RETRY < error_cnt)
+				panic("memory purge error");
+			else
+				i = -1;
+		}
+	}
 
 	/* conversion address */
 	vcd_spuv_func_sdram_logical_to_physical(
@@ -833,6 +759,13 @@ void vcd_spuv_func_get_fw_request(void)
 	if ((0 != read_addr) && (0 != length)) {
 		addr = (unsigned int *)(g_spuv_func_xram_base_top +
 			(read_addr * VCD_SPUV_FUNC_WORD_TO_BYTE));
+
+		/* cache flush */
+		vcd_spuv_func_cacheflush(
+					(unsigned int)SPUV_FUNC_XRAM0_PHY,
+					(unsigned int)addr,
+					(length * sizeof(int)));
+
 		for (i = 0; i < length; i++) {
 			fw_req[i] = *addr;
 			fw_req[i] = ((fw_req[i] >> VCD_SPUV_FUNC_BIT_SHIFT) &
@@ -994,11 +927,7 @@ int vcd_spuv_func_ioremap(void)
 
 	vcd_pr_start_spuv_function();
 
-	if ((system_rev & 0xFFFF) == 0x3E00)
-		g_spuv_func_sdram_static_area_top_phy =
-			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES1;
-	else
-		g_spuv_func_sdram_static_area_top_phy =
+	g_spuv_func_sdram_static_area_top_phy =
 			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2;
 
 	/* ioremap sdram (non cache) */
@@ -1293,10 +1222,10 @@ int vcd_spuv_func_get_fw_buffer(void)
 		0, VCD_SPUV_FUNC_FW_BUFFER_SIZE*2);
 
 	g_spuv_func_spuv_static_buffer = alloc_adr;
-
 	g_spuv_func_pcm_static_buffer = (void *)(
 		(unsigned int)alloc_adr +
 		VCD_SPUV_FUNC_FW_BUFFER_SIZE);
+
 rtn:
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -3366,7 +3295,7 @@ void vcd_spuv_func_dump_sdram_static_area_memory(void)
 	vcd_pr_start_spuv_function();
 
 	/* open file */
-	file = filp_open("/mnt/sdcard/sdram_static_area.bin",
+	file = filp_open("/mnt/sdcard/sdram_static_non_cache_area.bin",
 			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
 	if (NULL == file) {
 		vcd_pr_err("file open error.\n");
@@ -3380,6 +3309,27 @@ void vcd_spuv_func_dump_sdram_static_area_memory(void)
 		file,
 		(char *)g_spuv_func_sdram_static_non_cache_area_top,
 		SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/sdram_static_cache_area.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)g_spuv_func_sdram_static_cache_area_top,
+		SPUV_FUNC_SDRAM_CACHE_AREA_SIZE,
 		&file->f_pos);
 
 	/* close file */
@@ -3449,6 +3399,38 @@ void vcd_spuv_func_dump_fw_static_buffer_memory(void)
 	filp_close(file, NULL);
 
 rtn:
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	dump spuv crashlog function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_spuv_crashlog(void)
+{
+	unsigned long flags;
+
+	vcd_pr_start_spuv_function();
+
+	flags = pm_get_spinlock();
+
+	/* dump XMEM */
+	memcpy((void *)SPUV_FUNC_SDRAM_SPUV_CRASHLOG,
+		(void *)(g_spuv_func_xram_base_top),
+		SPUV_FUNC_DUMP_XMEM_SIZE);
+	/* dump YMEM */
+	memcpy((void *)(SPUV_FUNC_SDRAM_SPUV_CRASHLOG +
+			SPUV_FUNC_DUMP_XMEM_SIZE),
+		(void *)(g_spuv_func_yram_base_top),
+		SPUV_FUNC_DUMP_YMEM_SIZE);
+
+	pm_release_spinlock(flags);
+
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -3685,12 +3667,8 @@ static int vcd_spuv_func_relocation_fw(
 {
 	int ret = VCD_ERR_NONE;
 	int i = 0;
-	unsigned int temp_fw_size = 0;
-	unsigned int meram_size = 0;
 	unsigned int fw_page_size[VCD_SPUV_FUNC_PAGE_SIZE] = {0};
-	unsigned int start_addr_meram = 0;
 	unsigned int start_addr_sdram = 0;
-	unsigned int next_addr_meram = 0;
 	unsigned int next_addr_sdram = 0;
 
 	vcd_pr_start_spuv_function("read_fw_info[%p].\n", read_fw_info);
@@ -3714,69 +3692,35 @@ static int vcd_spuv_func_relocation_fw(
 				read_fw_info->yram_page_size[i]);
 	}
 
-	/* get meram size */
-	for (i = 0; i < VCD_SPUV_FUNC_PAGE_SIZE; i++) {
-		temp_fw_size += fw_page_size[i];
-#ifdef __VCD_DIVISION_ARRANGEMENT_FW__
-		if (SPUV_FUNC_MERAM_MAX_SIZE < temp_fw_size)
-			break;
-#endif
-		read_fw_info->page_location[i] = VCD_SPUV_FUNC_LOCATE_MERAM;
-		meram_size = temp_fw_size;
-	}
-
-	/* get meram area */
-	if (0 != meram_size) {
-		ret = vcd_spuv_func_get_meram(meram_size);
-		if (0 != ret) {
-			vcd_pr_spuv_info("meram not use[%d].\n", ret);
-			memset((void *)read_fw_info->page_location,
-				0, (sizeof(int) * VCD_SPUV_FUNC_PAGE_SIZE));
-		}
-		ret = VCD_ERR_NONE;
-	}
-
 	/* set start address */
-	start_addr_meram = SPUV_FUNC_MERAM_FIRMWARE_BUFFER;
 	start_addr_sdram = SPUV_FUNC_SDRAM_FIRMWARE_BUFFER;
 
 	/* calculation ram base address */
 	/* xram */
 	vcd_spuv_func_calc_ram(
-		start_addr_meram,
 		start_addr_sdram,
 		read_fw_info->xram_global_size,
 		read_fw_info->xram_page_size,
-		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_xram_info),
-		&next_addr_meram,
 		&next_addr_sdram);
-	start_addr_meram = next_addr_meram;
 	start_addr_sdram = next_addr_sdram;
 	/* pram */
 	vcd_spuv_func_calc_ram(
-		start_addr_meram,
 		start_addr_sdram,
 		read_fw_info->pram_global_size,
 		read_fw_info->pram_page_size,
-		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_pram_info),
-		&next_addr_meram,
 		&next_addr_sdram);
-	start_addr_meram = next_addr_meram;
 	start_addr_sdram = next_addr_sdram;
 	/* yram */
 	vcd_spuv_func_calc_ram(
-		start_addr_meram,
 		start_addr_sdram,
 		read_fw_info->yram_global_size,
 		read_fw_info->yram_page_size,
-		read_fw_info->page_location,
 		VCD_SPUV_FUNC_PAGE_SIZE,
 		&(g_spuv_func_yram_info),
-		&next_addr_meram,
 		&next_addr_sdram);
 
 	/* save global size */
@@ -3868,197 +3812,30 @@ rtn:
 
 
 /**
- * @brief	get meram function.
- *
- * @param[in]	fw_size			firmware size
- *
- * @retval	VCD_ERR_NONE		successful.
- * @retval	VCD_ERR_NOMEMORY	parameter error.
- */
-static int vcd_spuv_func_get_meram(unsigned int fw_size)
-{
-	int ret = VCD_ERR_NONE;
-
-	vcd_pr_start_spuv_function("fw_size[%d].\n", fw_size);
-
-#ifdef __VCD_MERAM_ENABLE__
-
-	/* initialize meram table */
-	memset(&g_spuv_func_meram_alloc,  0, sizeof(g_spuv_func_meram_alloc));
-	memset(&g_spuv_func_meram_free,   0, sizeof(g_spuv_func_meram_free));
-	memset(&g_spuv_func_meram_delete, 0, sizeof(g_spuv_func_meram_delete));
-
-	/* get handle */
-	g_spuv_func_meram_alloc.handle = system_memory_info_new();
-	if (NULL == g_spuv_func_meram_alloc.handle) {
-		vcd_pr_err("system_memory_info_new error.\n");
-		ret = VCD_ERR_NOMEMORY;
-		goto rtn;
-	}
-
-	/* set handle */
-	g_spuv_func_meram_free.handle = g_spuv_func_meram_alloc.handle;
-	g_spuv_func_meram_delete.handle = g_spuv_func_meram_alloc.handle;
-
-	/* allocate meram */
-	g_spuv_func_meram_alloc.alloc_size = fw_size;
-	ret = system_memory_meram_alloc(&g_spuv_func_meram_alloc);
-	if (SMAP_LIB_MEMORY_OK != ret) {
-		/* allocate meram error */
-		vcd_pr_err("system_memory_meram_alloc error[%d].\n", ret);
-		system_memory_info_delete(&g_spuv_func_meram_delete);
-		goto rtn;
-	}
-
-	/* set ch number */
-	g_spuv_func_meram_free.ch_num = g_spuv_func_meram_alloc.ch_num;
-
-	/* set addr */
-	g_spuv_func_meram_physical_addr =
-		SPUV_FUNC_MERAM_TOP_PHY + g_spuv_func_meram_alloc.meram_offset;
-
-	/* ioremap meram */
-	ret = vcd_spuv_func_meram_ioremap(g_spuv_func_meram_physical_addr,
-					 g_spuv_func_meram_alloc.alloc_size);
-	if (VCD_ERR_NONE != ret) {
-		vcd_spuv_func_free_meram();
-		goto rtn;
-	}
-
-#else /* __VCD_MERAM_ENABLE__ */
-
-	ret = VCD_ERR_NOMEMORY;
-	goto rtn;
-#endif /* __VCD_MERAM_ENABLE__ */
-rtn:
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
-}
-
-
-/**
- * @brief	free meram function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_spuv_func_free_meram(void)
-{
-	vcd_pr_start_spuv_function();
-
-#ifdef __VCD_MERAM_ENABLE__
-
-	/* iounmap meram */
-	vcd_spuv_func_meram_iounmap();
-
-	/* free meram */
-	system_memory_meram_free(&g_spuv_func_meram_free);
-
-	/* delete handle */
-	system_memory_info_delete(&g_spuv_func_meram_delete);
-
-	/* global valiable initialize */
-	g_spuv_func_meram_logical_addr = 0;
-	g_spuv_func_meram_physical_addr = 0;
-	memset(&g_spuv_func_meram_alloc,  0, sizeof(g_spuv_func_meram_alloc));
-	memset(&g_spuv_func_meram_free,   0, sizeof(g_spuv_func_meram_free));
-	memset(&g_spuv_func_meram_delete, 0, sizeof(g_spuv_func_meram_delete));
-
-#endif /* __VCD_MERAM_ENABLE__ */
-
-	vcd_pr_end_spuv_function();
-	return;
-
-}
-
-
-#ifdef __VCD_MERAM_ENABLE__
-/**
- * @brief	meram ioremap function.
- *
- * @param	addr		physical address.
- * @param	size		meram size.
- *
- * @retval	VCD_ERR_NONE	successful.
- * @retval	VCD_ERR_SYSTEM	ioremap error.
- */
-static int vcd_spuv_func_meram_ioremap(unsigned int addr, unsigned int size)
-{
-	int ret = VCD_ERR_NONE;
-	unsigned int meram_addr = 0;
-
-	vcd_pr_start_spuv_function();
-
-	meram_addr = (unsigned int)ioremap_nocache(addr, size);
-	if (0 == meram_addr) {
-		vcd_pr_err("error ioremap MERAM addr. addr[0x%x].\n",
-				meram_addr);
-		ret = -VCD_ERR_SYSTEM;
-	}
-
-	g_spuv_func_meram_logical_addr = meram_addr;
-
-	vcd_pr_end_spuv_function();
-	return ret;
-}
-
-
-/**
- * @brief	meram iounma function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-static void vcd_spuv_func_meram_iounmap(void)
-{
-	vcd_pr_start_spuv_function();
-
-	if (0 != g_spuv_func_meram_logical_addr) {
-		iounmap((void *)g_spuv_func_meram_logical_addr);
-		g_spuv_func_meram_logical_addr = 0;
-	}
-
-	vcd_pr_end_spuv_function();
-	return;
-
-}
-#endif /* __VCD_MERAM_ENABLE__ */
-
-
-/**
  * @brief	calculation address function.
  *
- * @param[in]	start_addr_meram	meram base address.
  * @param[in]	start_addr_sdram	sdram base address.
  * @param[in]	global_size		global area size.
  * @param[in]	page_size		each size on page 0-15 for ram.
- * @param[in]	page_location		each location on page 0-15.
  * @param[in]	page_num		page num.
  * @param[out]	ram_info		dsp ram info.
- * @param[out]	next_addr_meram		next meram base address.
  * @param[out]	next_addr_sdram		next sdram address.
  *
  * @retval	none.
  */
 static void vcd_spuv_func_calc_ram(
-		const unsigned int start_addr_meram,
 		const unsigned int start_addr_sdram,
 		const unsigned int global_size,
 		const unsigned int *page_size,
-		const unsigned int *page_location,
 		const unsigned int page_num,
 		struct vcd_spuv_func_fw_info *ram_info,
-		unsigned int *next_addr_meram,
 		unsigned int *next_addr_sdram)
 {
 	int i = 0;
 
 	vcd_pr_start_spuv_function();
 
-	if ((NULL == page_size) || (NULL == page_location) ||
-		(NULL == ram_info) || (NULL == next_addr_meram) ||
+	if ((NULL == page_size) || (NULL == ram_info) ||
 		(NULL == next_addr_sdram)) {
 		vcd_pr_err("parameter error.\n");
 		goto rtn;
@@ -4070,73 +3847,32 @@ static void vcd_spuv_func_calc_ram(
 			break;
 
 		if (0 == i) {
-			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i]) {
-				ram_info->base_addr[i] = start_addr_meram;
-				ram_info->reg_addr[i] = start_addr_meram;
-				ram_info->page_size[i] =
-					vcd_spuv_func_ceiling128(page_size[i]);
-				*next_addr_meram =
-					ram_info->base_addr[i] +
-					vcd_spuv_func_ceiling128(page_size[i]);
-			} else {
-				ram_info->base_addr[i] = start_addr_sdram;
-				ram_info->reg_addr[i] = start_addr_sdram;
-				ram_info->page_size[i] =
-					vcd_spuv_func_ceiling128(page_size[i]);
-				*next_addr_sdram = ram_info->base_addr[i] +
-					vcd_spuv_func_ceiling128(page_size[i]);
-			}
+			ram_info->base_addr[i] = start_addr_sdram;
+			ram_info->reg_addr[i] = start_addr_sdram;
+			ram_info->page_size[i] =
+				vcd_spuv_func_ceiling128(page_size[i]);
+			*next_addr_sdram = ram_info->base_addr[i] +
+				vcd_spuv_func_ceiling128(page_size[i]);
 		} else {
-			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i]) {
-				ram_info->base_addr[i] =
-					ram_info->base_addr[i-1] +
-					vcd_spuv_func_ceiling128(
-						page_size[i-1]);
-				ram_info->reg_addr[i] =
-					ram_info->base_addr[i] -
-					global_size;
-				ram_info->page_size[i] =
-					vcd_spuv_func_ceiling128(
-						page_size[i]);
-				*next_addr_meram = ram_info->base_addr[i] +
-					vcd_spuv_func_ceiling128(page_size[i]);
-			} else {
-				if (VCD_SPUV_FUNC_LOCATE_MERAM ==
-						page_location[i-1]) {
-					ram_info->base_addr[i] =
-						start_addr_sdram + global_size;
-					ram_info->reg_addr[i] =
-						start_addr_sdram;
-					ram_info->page_size[i] =
-						vcd_spuv_func_ceiling128(
-							page_size[i]);
-				} else {
-					ram_info->base_addr[i] =
-						ram_info->base_addr[i-1] +
-						vcd_spuv_func_ceiling128(
-							page_size[i-1]);
-					ram_info->reg_addr[i] =
-						ram_info->base_addr[i] -
-						global_size;
-					ram_info->page_size[i] =
-						vcd_spuv_func_ceiling128(
-							page_size[i]);
-				}
-				*next_addr_sdram = ram_info->base_addr[i] +
-					vcd_spuv_func_ceiling128(page_size[i]);
-			}
+			ram_info->base_addr[i] =
+				ram_info->base_addr[i-1] +
+				vcd_spuv_func_ceiling128(
+					page_size[i-1]);
+			ram_info->reg_addr[i] =
+				ram_info->base_addr[i] -
+				global_size;
+			ram_info->page_size[i] =
+				vcd_spuv_func_ceiling128(
+					page_size[i]);
+			*next_addr_sdram = ram_info->base_addr[i] +
+				vcd_spuv_func_ceiling128(page_size[i]);
 		}
 	}
 
 	/* calculation logical to physcal */
 	for (i = 0; i < page_num; i++) {
 		if (0 != ram_info->reg_addr[i]) {
-			if (VCD_SPUV_FUNC_LOCATE_MERAM == page_location[i])
-				vcd_spuv_func_meram_logical_to_physical(
-				ram_info->reg_addr[i],
-				ram_info->reg_addr_physcal[i]);
-			else
-				vcd_spuv_func_sdram_logical_to_physical(
+			vcd_spuv_func_sdram_logical_to_physical(
 				ram_info->reg_addr[i],
 				ram_info->reg_addr_physcal[i]);
 		}
