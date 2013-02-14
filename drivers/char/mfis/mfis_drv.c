@@ -48,7 +48,6 @@ static struct semaphore a3r_power_sem;
 #define	IRQ_MFIS			(gic_spi(GIC_MFIS))
 #define	REG_SYSC_PSTR		((unsigned long)0xE6180080)
 #define	REG_CPGA_MSTPSR0	((unsigned long)0xE6150030)
-#define	POWER_A3R		((unsigned long)0x00002000)
 #define	CLOCK_TLB_IC_OC	((unsigned long)0xE0000000)
 
 struct mfis_early_suspend_tbl {

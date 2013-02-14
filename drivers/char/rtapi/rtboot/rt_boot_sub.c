@@ -170,10 +170,14 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("boot_addr                     = 0x%08x\n",	info.boot_addr);
 		MSG_LOW("image_size                    = %08d\n",	info.image_size);
 		MSG_LOW("load_flg                      = %08d\n",	info.load_flg);
-		MSG_LOW("img[RT_LVL_1].section_start = 0x%08x\n",	info.img[RT_LVL_1].section_start);
-		MSG_LOW("img[RT_LVL_1].section_size  = %08d\n",	info.img[RT_LVL_1].section_size);
-		MSG_LOW("img[RT_LVL_2].section_start = 0x%08x\n",	info.img[RT_LVL_2].section_start);
-		MSG_LOW("img[RT_LVL_2].section_size  = %08d\n",	info.img[RT_LVL_2].section_size);
+		MSG_LOW("img[RT_LVL_1].section_start = 0x%08x\n",
+				info.img[RT_LVL_1].section_start);
+		MSG_LOW("img[RT_LVL_1].section_size  = %08d\n",
+				info.img[RT_LVL_1].section_size);
+		MSG_LOW("img[RT_LVL_2].section_start = 0x%08x\n",
+				info.img[RT_LVL_2].section_start);
+		MSG_LOW("img[RT_LVL_2].section_size  = %08d\n",
+				info.img[RT_LVL_2].section_size);
 		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
 		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
 
@@ -223,7 +227,6 @@ int read_rt_image(unsigned int *addr)
 		g_rtboot_info = info;
 	}
 
-	MSG_HIGH("[RTBOOTK]g_rtboot_info|[%x] ret = %x\n", g_rtboot_info, info);
 	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret);
 	return ret;
 }

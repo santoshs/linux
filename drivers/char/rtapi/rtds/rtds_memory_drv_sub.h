@@ -64,6 +64,7 @@ enum {
 	RTDS_MEM_DRV_EVENT_APMEM_OPEN = 0,
 	RTDS_MEM_DRV_EVENT_APMEM_CLOSE,
 	RTDS_MEM_DRV_EVENT_APMEM_DELETE,
+	RTDS_MEM_DRV_EVENT_FATAL,
 
 	RTDS_MEM_DRV_EVENT_APMEM
 
@@ -446,5 +447,11 @@ void rtds_memory_leak_check_mpro(
 		void
 );
 
+void rtds_memory_dump_mpro(
+	void
+);
 
+void rtds_memory_dump_notify(
+	void
+);
 #endif /* __RTDS_MEMORY_DRV_SUB_H__ */
