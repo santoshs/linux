@@ -1,6 +1,6 @@
 /* vcd_interface.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -55,5 +55,7 @@ extern void vcd_stop_clkgen(void);
 extern void vcd_wait_path(void);
 extern void vcd_voip_ul_callback(unsigned int buf_size);
 extern void vcd_voip_dl_callback(unsigned int buf_size);
+extern void vcd_get_semaphore(void);
+extern void vcd_release_semaphore(void);
 
 #endif /* __VCD_INTERFACE_H__ */

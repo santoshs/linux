@@ -1,6 +1,8 @@
 /* include/linux/a2220.h - a2220 voice processor driver
+ * include/sound/a2220.h - a2220 voice processor driver
  *
  * Copyright (C) 2009 HTC Corporation.
+ * Copyright (C) 2013 Renesas Mobile Corp.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,11 +20,8 @@
 
 #include <linux/ioctl.h>
 
-#define __VCD_ES305B__	1
-
-#ifdef __VCD_ES305B__
+#define __VCD_A2220_PRINT__	1
 extern unsigned int g_a2220_log_level;
-#endif /* __VCD_ES305B__ */
 
 extern bool dualmic_enabled;
 
@@ -69,7 +68,6 @@ enum A2220_NS_states {
 	A2220_NS_NUM_STATES
 };
 
-#ifdef __VCD_ES305B__
 enum A2220_STATE {
 	A2220_STATE_NONE = 0,
 	A2220_STATE_IDLE,
@@ -77,7 +75,6 @@ enum A2220_STATE {
 	A2220_STATE_VOICE_PROCESS,
 	A2220_STATE_VOICE_MAX,
 };
-#endif /* __VCD_ES305B__ */
 
 /* indicates if a2220_set_config() performs a full configuration or only
  * a voice processing algorithm configuration */
@@ -88,7 +85,6 @@ enum A2220_STATE {
 #define A2220_SET_CONFIG   _IOW(A2220_IOCTL_MAGIC, 0x02, enum A2220_PathID)
 #define A2220_SET_NS_STATE _IOW(A2220_IOCTL_MAGIC, 0x03, enum A2220_NS_states)
 
-#ifdef __VCD_ES305B__
 #define A2220_SET_VCLK4			_IOW(A2220_IOCTL_MAGIC, 0x08, unsigned)
 #define A2220_BT_MHL_NORMAL_START	_IOW(A2220_IOCTL_MAGIC, 0x09, unsigned)
 #define A2220_BT_MHL_RING_START		_IOW(A2220_IOCTL_MAGIC, 0x0A, unsigned)
@@ -127,7 +123,6 @@ enum A2220_STATE {
 #define A2220_OTHER_INCOMM_STOP		_IOW(A2220_IOCTL_MAGIC, 0x2B, unsigned)
 #define A2220_OTHER_INCALL_STOP		_IOW(A2220_IOCTL_MAGIC, 0x2C, unsigned)
 
-#endif /* __VCD_ES305B__ */
 
 /* For Diag */
 #define A2220_SET_MIC_ONOFF     _IOW(A2220_IOCTL_MAGIC, 0x50, unsigned)
@@ -279,7 +274,6 @@ enum A2220_STATE {
 #define A2220_CMD_FIFO_DEPTH    64
 #define ERROR                   0xffffffff
 
-#ifdef __VCD_ES305B__
 #define A2220_BOARD_REV_OUTSIDE_RANGE_2		2
 #define A2220_BOARD_REV_OUTSIDE_RANGE_3		3
 
@@ -292,6 +286,7 @@ enum A2220_STATE {
 #define A2220_LOG_ALL	0xF
 #define A2220_LOG_LEVEL_CHECK	0xffffff00
 
+#ifdef __VCD_A2220_PRINT__
 #define a2220_pr_err(fmt, ...) { \
 	if (g_a2220_log_level & A2220_LOG_ERR) { \
 		pr_alert( \
@@ -316,7 +311,7 @@ enum A2220_STATE {
 	if (g_a2220_log_level & A2220_LOG_INFO) { \
 		pr_alert( \
 			A2220_DRIVER_NAME \
-			" : [debug] %s: " \
+			" : [info] %s: " \
 			fmt, \
 			__func__, \
 			##__VA_ARGS__); \
@@ -343,12 +338,15 @@ enum A2220_STATE {
 	} \
 }
 #else
+
 #define a2220_pr_err(fmt, ...)		{}
 #define a2220_pr_debug(fmt, ...)	{}
 #define a2220_pr_info(fmt, ...)		{}
 #define a2220_pr_func_start(fmt, ...)	{}
 #define a2220_pr_func_end(fmt, ...)	{}
-#endif /* __VCD_ES305B__ */
+
+#endif /* __VCD_A2220_PRINT__ */
+
 enum A2220_config_mode {
 	A2220_CONFIG_FULL,
 	A2220_CONFIG_VP

@@ -1,6 +1,6 @@
 /* vcd_spuv.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -46,12 +46,11 @@
 #define VCD_SPUV_LOOPBACK_DELAY_500		25
 
 /* spuv fw codec type */
-#define VCD_SPUV_CODEC_INVALID			0
-#define VCD_SPUV_CODEC_FR			1
-#define VCD_SPUV_CODEC_HR			2
-#define VCD_SPUV_CODEC_EFR			3
-#define VCD_SPUV_CODEC_AMR			4
-#define VCD_SPUV_CODEC_WBAMR			5
+#define VCD_SPUV_CODEC_FR			0
+#define VCD_SPUV_CODEC_HR			1
+#define VCD_SPUV_CODEC_EFR			2
+#define VCD_SPUV_CODEC_AMR			3
+#define VCD_SPUV_CODEC_WBAMR			4
 
 /* spuv fw message id (to spuv) */
 #define VCD_SPUV_HW_PARAMETERS_IND		0x04
@@ -193,19 +192,13 @@
 #define VCD_SPUV_FW_RESULT_SUCCESS		0
 #define VCD_SPUV_FW_RESULT_ERROR		1
 
+/* voip watchdog timer */
+#define VCD_SPUV_FW_WATCHDOG_TIMER		(100 * HZ / 1000)
+
 /*
  * define macro declaration
  */
 #define VCD_SPUV_SPI_NO				gic_spi(71)
-
-
-/*
- * enum declaration
- */
-enum VCD_SPUV_VALIDITY {
-	VCD_SPUV_DISABLE = 0,
-	VCD_SPUV_ENABLE
-};
 
 
 /*
@@ -229,6 +222,9 @@ struct vcd_spuv_work {
 };
 
 struct vcd_spuv_info {
+	struct timer_list timer_list;
+	unsigned int timer_status;
+	unsigned int watchdog_status;
 	unsigned int status;
 	unsigned int irq_status;
 	unsigned int wait_fw_if_id;
@@ -275,7 +271,7 @@ int vcd_spuv_set_udata(void);
 int vcd_spuv_start_record(struct vcd_record_option *option);
 int vcd_spuv_stop_record(void);
 int vcd_spuv_start_playback(struct vcd_playback_option *option,
-	unsigned int call_kind);
+					unsigned int call_kind);
 int vcd_spuv_stop_playback(void);
 void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
 void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
@@ -327,6 +323,9 @@ static void vcd_spuv_play_trigger(void);
 static void vcd_spuv_codec_type_ind(unsigned int codec_type);
 static void vcd_spuv_system_error(void);
 static void vcd_spuv_udata_ind(void);
+static void vcd_spuv_watchdog_timer_cb(void);
+static void vcd_spuv_start_watchdog_timer(void);
+static void vcd_spuv_stop_watchdog_timer(void);
 static int vcd_spuv_is_log_enable(unsigned int msg);
 static void vcd_spuv_interface_log(unsigned int msg);
 
@@ -359,5 +358,6 @@ void vcd_spuv_dump_yram0_memory(void);
 void vcd_spuv_dump_dspio_memory(void);
 void vcd_spuv_dump_sdram_static_area_memory(void);
 void vcd_spuv_dump_fw_static_buffer_memory(void);
+void vcd_spuv_dump_spuv_crashlog(void);
 
 #endif /* __VCD_SPUV_H__ */

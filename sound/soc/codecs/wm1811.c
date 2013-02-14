@@ -2889,13 +2889,13 @@ static int wm1811_probe(struct snd_soc_codec *codec)
 	if (ret)
 		wm1811_log_err("Failed to set chache I/O: %d\n", ret);
 
-	ret = snd_soc_add_controls(codec, wm1811_controls,
+	ret = snd_soc_add_codec_controls(codec, wm1811_controls,
 				wm1811_array_size);
 
 	if (ret)
 		wm1811_log_err("Failed to create control: %d\n", ret);
 
-	ret = snd_soc_add_controls(codec, wm1811_volume_controls,
+	ret = snd_soc_add_codec_controls(codec, wm1811_volume_controls,
 				ARRAY_SIZE(wm1811_volume_controls));
 
 	if (ret)

@@ -1,6 +1,6 @@
 /* vcd.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -43,6 +43,8 @@ void (*g_vcd_stop_fw)(void);
 void (*g_vcd_codec_type_ind)(unsigned int codec_type);
 void (*g_vcd_start_clkgen)(void);
 void (*g_vcd_stop_clkgen)(void);
+void (*g_vcd_start_clkgen_pt)(void);
+void (*g_vcd_stop_clkgen_pt)(void);
 void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level = VCD_LOG_ERROR;
@@ -52,6 +54,9 @@ struct libvcd_status_async_map *g_vcd_status_async_map;
 
 int g_vcd_debug_call_kind;
 int g_vcd_debug_mode;
+
+int g_vcd_is_call_clkgen;
+int g_vcd_is_start_vcd;
 
 /*
  * table declaration
@@ -75,7 +80,7 @@ static struct vcd_execute_func vcd_func_table[] = {
 
 static struct vcd_execute_func vcd_loopback_func_table[] = {
 	{ VCD_COMMAND_SET_CALL_MODE,		vcd_set_call_mode	},
-	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen	}
+	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen_pt	}
 };
 
 /*
@@ -239,9 +244,17 @@ void vcd_start_fw(void)
  */
 void vcd_stop_fw(void)
 {
+	int ret = VCD_ERR_NONE;
+
 	vcd_pr_start_if_user();
 
-	vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR);
+	ret = vcd_ctrl_check_semantics();
+
+	if (VCD_ERR_NONE == ret) {
+		vcd_ctrl_dump_spuv_crashlog();
+
+		vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR);
+	}
 
 	if (NULL != g_vcd_stop_fw)
 		g_vcd_stop_fw();
@@ -337,9 +350,21 @@ void vcd_start_clkgen(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_start_clkgen)
-		g_vcd_start_clkgen();
+	if (VCD_ENABLE == g_vcd_is_call_clkgen)
+		goto rtn;
 
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_start_clkgen)
+			g_vcd_start_clkgen();
+	} else {
+		if (NULL != g_vcd_start_clkgen_pt)
+			g_vcd_start_clkgen_pt();
+	}
+
+	/* status update */
+	g_vcd_is_call_clkgen = VCD_ENABLE;
+
+rtn:
 	vcd_pr_end_if_user();
 	return;
 }
@@ -356,9 +381,21 @@ void vcd_stop_clkgen(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_stop_clkgen)
-		g_vcd_stop_clkgen();
+	if (VCD_DISABLE == g_vcd_is_call_clkgen)
+		goto rtn;
 
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_stop_clkgen)
+			g_vcd_stop_clkgen();
+	} else {
+		if (NULL != g_vcd_stop_clkgen_pt)
+			g_vcd_stop_clkgen_pt();
+	}
+
+	/* status update */
+	g_vcd_is_call_clkgen = VCD_DISABLE;
+
+rtn:
 	vcd_pr_end_if_user();
 	return;
 }
@@ -382,6 +419,49 @@ void vcd_wait_path(void)
 	return;
 }
 
+
+/* ========================================================================= */
+/* Internal public semaphore functions                                       */
+/* ========================================================================= */
+
+/**
+ * @brief	get semaphore function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_get_semaphore(void)
+{
+	vcd_pr_start_interface_function();
+
+	/* semaphore start */
+	down(&g_vcd_semaphore);
+
+	vcd_pr_end_interface_function();
+	return;
+}
+
+
+/**
+ * @brief	release semaphore function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_release_semaphore(void)
+{
+	vcd_pr_start_interface_function();
+
+	/* semaphore end */
+	up(&g_vcd_semaphore);
+
+	vcd_pr_end_interface_function();
+	return;
+}
+
+
 /* ========================================================================= */
 /* External public functions                                                 */
 /* ========================================================================= */
@@ -403,13 +483,6 @@ int vcd_execute(const struct vcd_execute_command *args)
 
 	/* semaphore start */
 	down(&g_vcd_semaphore);
-
-	/* check system_rev */
-	if ((system_rev & 0xFFFF) == 0x3E00) {
-		vcd_pr_err("system_rev[%x].\n", system_rev);
-		ret = VCD_ERR_NOT_SUPPORT;
-		goto rtn;
-	}
 
 	/* check parameter */
 	if (NULL == args) {
@@ -451,7 +524,6 @@ EXPORT_SYMBOL_GPL(vcd_execute);
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	invalid argument.
- * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
  * @retval	others		result of called function.
  */
 int vcd_execute_test_call(const struct vcd_execute_command *args)
@@ -461,13 +533,6 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 
 	/* semaphore start */
 	down(&g_vcd_semaphore);
-
-	/* check system_rev */
-	if ((system_rev & 0xFFFF) == 0x3E00) {
-		vcd_pr_err("system_rev[%x].\n", system_rev);
-		ret = VCD_ERR_NOT_SUPPORT;
-		goto rtn;
-	}
 
 	/* check parameter */
 	if (NULL == args) {
@@ -1264,6 +1329,42 @@ rtn:
 
 
 /**
+ * @brief	watch clkgen for pt function.
+ *
+ * @param[in]	arg	pointer of notify info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_watch_clkgen_pt(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_watch_clkgen_info info = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound("[VCD <- PT] : VCD_COMMAND_WATCH_CLKGEN\n");
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&info, arg, sizeof(info));
+
+	/* register notify function */
+	g_vcd_start_clkgen_pt = info.start_clkgen;
+	g_vcd_stop_clkgen_pt = info.stop_clkgen;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
  * @brief	watch codec type function.
  *
  * @param[in]	arg	pointer of notify info structure.
@@ -1370,9 +1471,6 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* execute control function */
 	result = vcd_ctrl_get_result();
 
-	if ((system_rev & 0xFFFF) == 0x3E00)
-		result =  VCD_ERR_NOT_SUPPORT;
-
 	len = snprintf(page, count, "%d\n", result);
 
 	vcd_pr_if_amhal("[VCD -> AMHAL] : [%d]\n", result);
@@ -1419,12 +1517,6 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	/* exec_proc is disable */
 	goto rtn;
 #endif /* __VCD_DEBUG__ || __VCD_PROC_IF_ENABLE__ */
-
-	/* check system_rev */
-	if ((system_rev & 0xFFFF) == 0x3E00) {
-		vcd_pr_err("system_rev[%x].\n", system_rev);
-		goto rtn;
-	}
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
@@ -1804,6 +1896,10 @@ debug:
 	case VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY:
 		/* execute control function */
 		vcd_ctrl_dump_fw_static_buffer_memory();
+		break;
+	case VCD_DEBUG_DUMP_FW_CRASHLOG:
+		/* execute control function */
+		vcd_ctrl_dump_spuv_crashlog();
 		break;
 	case VCD_DEBUG_SET_CALL_MODE:
 		g_vcd_debug_call_kind = VCD_CALL_KIND_CALL;
@@ -2353,12 +2449,15 @@ static long vcd_fops_ioctl
 	case VCD_IOCTL_START_VCD:
 		vcd_pr_if_amhal(VCD_IF_START_VCD_LOG);
 		ret = vcd_start_vcd();
+		g_vcd_is_start_vcd = VCD_ENABLE;
 		break;
 	case VCD_IOCTL_STOP_VCD:
 		vcd_pr_if_amhal(VCD_IF_STOP_VCD_LOG);
 		ret = vcd_stop_vcd();
-		/* stop async thread */
-		vcd_async_notify(LIBVCD_CB_TYPE_VCD_END);
+		if (VCD_ENABLE == g_vcd_is_start_vcd)
+			/* stop async thread */
+			vcd_async_notify(LIBVCD_CB_TYPE_VCD_END);
+		g_vcd_is_start_vcd = VCD_DISABLE;
 		break;
 	case VCD_IOCTL_SET_HW_PARAM:
 		vcd_pr_if_amhal(VCD_IF_SET_HW_PARAM_LOG);

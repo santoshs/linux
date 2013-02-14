@@ -1,6 +1,6 @@
 /* vcd_control.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -59,6 +59,7 @@ extern int vcd_ctrl_stop_call(int call_type);
 extern int vcd_ctrl_set_udata(void);
 extern void vcd_ctrl_get_status(void);
 extern int vcd_ctrl_get_result(void);
+extern int vcd_ctrl_check_semantics(void);
 
 extern int vcd_ctrl_start_record(struct vcd_record_option *option);
 extern int vcd_ctrl_stop_record(void);
@@ -78,6 +79,8 @@ extern void vcd_ctrl_udata_ind(void);
 extern void vcd_ctrl_start_clkgen(void);
 extern void vcd_ctrl_stop_clkgen(void);
 extern void vcd_ctrl_wait_path(void);
+extern void vcd_ctrl_get_semaphore(void);
+extern void vcd_ctrl_release_semaphore(void);
 
 extern int vcd_ctrl_suspend(void);
 extern int vcd_ctrl_resume(void);
@@ -103,5 +106,6 @@ extern void vcd_ctrl_dump_yram0_memory(void);
 extern void vcd_ctrl_dump_dspio_memory(void);
 extern void vcd_ctrl_dump_sdram_static_area_memory(void);
 extern void vcd_ctrl_dump_fw_static_buffer_memory(void);
+extern void vcd_ctrl_dump_spuv_crashlog(void);
 
 #endif /* __VCD_CONTROL_H__ */

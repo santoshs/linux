@@ -52,6 +52,8 @@
 /*---------------------------------------------------------------------------*/
 struct d2153_codec_priv *d2153_conf;
 #endif
+struct clk *vclk4_clk;
+struct clk *main_clk;
 
 /*
  * Controls section
@@ -1054,13 +1056,13 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 	
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		d2153_aad->button.status = D2153_BUTTON_RELEASE;
+		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
 					  D2153_ACCDET_BTN_EN,
 					  0);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		d2153_aad->button.status = D2153_BUTTON_RELEASE;
+		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		if(d2153_aad->switch_data.state ==D2153_HEADSET)
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
@@ -1410,7 +1412,56 @@ static const u8 d2153_reg_defaults[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* RE0 - RE6 */
 };
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
+#define D2153_SNDP_MCLK_RATE	13000000
 
+static int d2153_enable_mclk(void)
+{
+	unsigned int mclk;
+	int ret;
+	
+	vclk4_clk = clk_get(NULL, "vclk4_clk");
+	if (IS_ERR(vclk4_clk)) {
+		ret = IS_ERR(vclk4_clk);
+		dlg_err("cannot get vclk4 clock\n");
+		goto err_vclk4_clk;
+	}
+	main_clk = clk_get(NULL, "main_clk");
+	if (IS_ERR(main_clk)) {
+		ret = IS_ERR(main_clk);
+		dlg_err("cannot get main clock\n");
+		goto err_main_clk;
+	}
+	ret = clk_set_parent(vclk4_clk, main_clk);
+	if (0 != ret) {
+		dlg_err("clk_set_parent failed (%d)\n", ret);
+		goto err_clk_set_parent;
+	}
+
+	mclk = D2153_SNDP_MCLK_RATE;
+
+	ret = clk_set_rate(vclk4_clk, mclk);
+	if (ret < 0) {
+		dlg_err("cannot set vclk4 rate\n");
+		goto err_clk_set_rate;
+	}
+
+	ret = clk_enable(vclk4_clk);
+	if (ret < 0) {
+		dlg_err("cannot stop vclk4\n");
+		goto err_clk_enable;
+	}
+
+	return 0;
+	
+err_clk_enable:
+err_clk_set_rate:
+err_clk_set_parent:
+	clk_put(main_clk);
+err_main_clk:
+	clk_put(vclk4_clk);
+err_vclk4_clk:
+	return 0;
+}
 static int d2153_volatile_register(struct snd_soc_codec *codec,
 				     unsigned int reg)
 {
@@ -1722,7 +1773,8 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	snd_soc_write(codec, D2153_PLL_FRAC_TOP, pll_frac_top);
 	snd_soc_write(codec, D2153_PLL_FRAC_BOT, pll_frac_bot);
 	snd_soc_write(codec, D2153_PLL_INTEGER, pll_integer);
-
+	snd_soc_write(codec, 0x52, 0x03);
+	
 	/* Enable PLL */
 	pll_ctrl |= D2153_PLL_EN;
 	snd_soc_write(codec, D2153_PLL_CTRL, pll_ctrl);
@@ -1751,44 +1803,44 @@ static const struct snd_soc_dai_ops d2153_dai_ops = {
 
 static struct snd_soc_dai_driver d2153_dai[] = {
 	{
-		.name = "d2153-codec-hifi",
+		.name = "d2153-aif1",
+		.id = 1,
 		.playback = {
 			.stream_name = "Playback",
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = SNDRV_PCM_RATE_8000_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE },
 		.capture = {
 			.stream_name = "Capture",
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000_48000,
+			.rates = SNDRV_PCM_RATE_8000_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE },
 		.ops =  &d2153_dai_ops,
 	},
 	{
-		.name = "d2153-codec-fm",
+		.name = "d2153-aif2",
+		.id = 2,
 		.playback = {
 			.stream_name = "Playback",
 			.channels_min = 1,
-			.channels_max = 1,
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_8000_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE },
 		.capture = {
 			.stream_name = "Capture",
 			.channels_min = 1,
-			.channels_max = 1,
-			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
+			.channels_max = 2,
+			.rates = SNDRV_PCM_RATE_8000_96000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
 					SNDRV_PCM_FMTBIT_S24_LE },
 		.ops =  &d2153_dai_ops,
-		.symmetric_rates = 1,
 	},
 };
-EXPORT_SYMBOL(d2153_dai);
 
 static int d2153_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
@@ -1828,27 +1880,208 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int d2153_suspend(struct snd_soc_codec *codec, pm_message_t state)
+static void d2153_setup(struct snd_soc_codec *codec)
 {
-#if 0
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+		
+#ifdef CONFIG_SND_SOC_USE_DA9055_HW
+	/*
+	 * Default to using ALC manual offset calibration mode.
+	 * Auto not supported on DA9055.
+	 */
+	snd_soc_update_bits(codec, D2153_ALC_CTRL1, D2153_ALC_CALIB_MODE_MAN,
+			    D2153_ALC_CALIB_MODE_MAN);
+	d2153_codec->alc_calib_auto = false;
+#else
+	/* Default to using ALC auto offset calibration mode. */
+	snd_soc_update_bits(codec, D2153_ALC_CTRL1, D2153_ALC_CALIB_MODE_MAN, 0);
+	d2153_codec->alc_calib_auto = true;
+#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
-	if(d2153_codec->sndp_power_mode== 0)
-		d2153_codec_power(codec, 0);	
-#endif	
+	/* 
+	 * DLG - The following defaults should probably be platform
+	 * data, but for now they're hardcoded here as a reminder.
+	 */
+
+	/* Default to using SRM for slave mode */
+	d2153_codec->srm_en = true;
+
+	/* Default dmic settings */
+	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_DMIC_DATA_SEL_MASK,
+			    D2153_DMIC_DATA_SEL_RL_FR);
+	snd_soc_update_bits(codec, D2153_MIC_CONFIG,
+			    D2153_DMIC_SAMPLEPHASE_MASK,
+			    D2153_DMIC_SAMPLEPHASE_ON_CLK_EDGE);
+	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_DMIC_CLK_RATE_MASK,
+			    D2153_DMIC_CLK_RATE_3MHZ);
+
+	/* Default mic bias levels */
+#ifdef CONFIG_SND_SOC_USE_DA9055_HW
+	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_MICBIAS_LEVEL_MASK,
+			    D2153_MICBIAS_LEVEL_1_5V);
+#else
+	snd_soc_update_bits(codec, D2153_MICBIAS1_CTRL,
+			    D2153_MICBIAS_LEVEL_MASK,
+			    D2153_MICBIAS_LEVEL_2_5V);
+	snd_soc_update_bits(codec, D2153_MICBIAS2_CTRL,
+			    D2153_MICBIAS_LEVEL_MASK,
+			    D2153_MICBIAS_LEVEL_2_5V);
+	snd_soc_update_bits(codec, D2153_MICBIAS3_CTRL,
+			    D2153_MICBIAS_LEVEL_MASK,
+			    D2153_MICBIAS_LEVEL_2_5V);
+#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
+	
+	/*
+	 * DLG - From the technical datasheet diagram for D2153 this should
+	 * not be needed as there is a bias for each MIC input.
+	 */
+#ifdef CONFIG_SND_SOC_USE_DA9055_HW
+	/* Default to MIC Bias 1 for right in mixer */
+	snd_soc_update_bits(codec, D2153_MIXIN_R_SELECT,
+			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2, 0);
+#else
+	/* Default to MIC Bias 2 for right in mixer */
+	snd_soc_update_bits(codec, D2153_MIXIN_R_SELECT,
+			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2,
+			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2);
+#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
+
+	/* Speaker config defaults */
+	snd_soc_write(codec, D2153_SP_CFG1, 0);
+	snd_soc_write(codec, D2153_SP_CFG2, 0);
+
+	/* Default IO settings */
+	snd_soc_update_bits(codec, D2153_IO_CTRL,
+			    D2153_IO_VOLTAGE_LEVEL_MASK,
+			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V);
+	
+	/* Default LDO settings */
+	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_LEVEL_SELECT_MASK,
+			    D2153_LDO_LEVEL_SELECT_1_05V);
+	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_EN_MASK,
+			    D2153_LDO_EN_MASK);
+
+	/* Enable all Gain Ramping Controls */
+	snd_soc_update_bits(codec, D2153_AUX_L_CTRL,
+			    D2153_AUX_AMP_RAMP_EN, D2153_AUX_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_AUX_R_CTRL,
+			    D2153_AUX_AMP_RAMP_EN, D2153_AUX_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_MIXIN_L_CTRL,
+			    D2153_MIXIN_AMP_RAMP_EN, D2153_MIXIN_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_MIXIN_R_CTRL,
+			    D2153_MIXIN_AMP_RAMP_EN, D2153_MIXIN_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+			    D2153_ADC_RAMP_EN, D2153_ADC_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
+			    D2153_ADC_RAMP_EN, D2153_ADC_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
+			    D2153_DAC_RAMP_EN, D2153_DAC_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_DAC_R_CTRL,
+			    D2153_DAC_RAMP_EN, D2153_DAC_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			    D2153_HP_AMP_RAMP_EN, D2153_HP_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			    D2153_HP_AMP_RAMP_EN, D2153_HP_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_EP_CTRL,
+			    D2153_EP_AMP_RAMP_EN, D2153_EP_AMP_RAMP_EN);
+	snd_soc_update_bits(codec, D2153_SP_CTRL,
+			    D2153_SP_AMP_RAMP_EN, D2153_SP_AMP_RAMP_EN);
+	
+	/*
+	 * There are two separate control bits for input and output mixers as
+	 * well as headphone and speaker outs.
+	 * One to enable corresponding amplifier and other to enable its
+	 * output. As amplifier bits are related to power control, they are
+	 * being managed by DAPM while other (non power related) bits are
+	 * enabled here
+	 */
+
+	/* Enable Left and Right input mixers */
+	snd_soc_update_bits(codec, D2153_MIXIN_L_CTRL,
+			    D2153_MIXIN_MIX_EN, D2153_MIXIN_MIX_EN);
+	snd_soc_update_bits(codec, D2153_MIXIN_R_CTRL,
+			    D2153_MIXIN_MIX_EN, D2153_MIXIN_MIX_EN);
+
+	/* Enable Left and Right output mixers */
+	snd_soc_update_bits(codec, D2153_MIXOUT_L_CTRL,
+			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
+	snd_soc_update_bits(codec, D2153_MIXOUT_R_CTRL,
+			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
+
+	/* Enable Speaker output mixer */
+	snd_soc_update_bits(codec, D2153_MIXOUT_SP_CTRL,
+			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
+
+	/* Set charge pump mode */
+	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
+			    //D2153_CP_MCHANGE_SM_SIZE);
+	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
+			    D2153_CP_MCHANGE_LARGEST_VOL);
+
+	snd_soc_write(codec, D2153_CP_VOL_THRESHOLD1 ,0x34);
+	
+	/* Enable AIF output */
+	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_OE, D2153_AIF_OE);
+
+	/* Enable Left and Right Headphone Output */
+	snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			    D2153_HP_AMP_OE, D2153_HP_AMP_OE);
+	snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			    D2153_HP_AMP_OE, D2153_HP_AMP_OE);
+
+	/* Enable Earpiece Output Enable */
+	snd_soc_update_bits(codec, D2153_EP_CTRL,
+			    D2153_EP_AMP_OE, D2153_EP_AMP_OE);
+}
+
+#ifdef CONFIG_PM
+static int d2153_suspend(struct snd_soc_codec *codec)
+{	
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	u8 val;
+	struct regulator *regulator;
+
+	d2153_codec->spk_mixer_out= snd_soc_read(codec, D2153_MIXOUT_SP_CTRL);
+	d2153_codec->spk_amp= snd_soc_read(codec, D2153_SP_CTRL);
+
+	snd_soc_write(codec, D2153_MIXOUT_SP_CTRL,0x00);
+	snd_soc_write(codec, D2153_SP_CTRL,0x00);
+	
+	d2153_set_bias_level(codec,SND_SOC_BIAS_OFF);
+
+	regulator = regulator_get(NULL, "aud2");
+	if (IS_ERR(regulator))
+		return -1;
+	regulator_disable(regulator);
+	regulator_put(regulator);
+
+	clk_disable(vclk4_clk);
+	
 	return 0;
 }
 
 static int d2153_resume(struct snd_soc_codec *codec)
 {
-#if 0
-	int ret;
+
+	int ret,i;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	struct i2c_client *client = d2153_codec->aad_i2c_client;
+	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	struct regulator *regulator;
+
+	clk_enable(vclk4_clk);
 	
-	d2153_codec_power(codec, 1);
-	d2153_aad_enable(codec);
-#endif
+	d2153_set_bias_level(codec,SND_SOC_BIAS_STANDBY);
+
+	snd_soc_write(codec, D2153_MIXOUT_SP_CTRL,d2153_codec->spk_mixer_out);
+	snd_soc_write(codec, D2153_SP_CTRL,d2153_codec->spk_amp);
+
+	regulator = regulator_get(NULL, "aud2");
+	if (IS_ERR(regulator))
+		return -1;
+	regulator_enable(regulator);
+	regulator_put(regulator);
+
 	return 0;
 }
 #else
@@ -1860,7 +2093,8 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	u8 *cache = codec->reg_cache,i;
-	struct regulator *regulator;	
+	struct regulator *regulator;
+	u8 status=0;
 	
 	if(on ==1 && d2153_codec->power_mode==0){
 
@@ -1878,7 +2112,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		/* Sync reg_cache with the hardware */
 		for (i = 0; i < ARRAY_SIZE(d2153_reg_defaults); i++) {
 			cache[i] = d2153_reg_defaults[i];
-		}
+		}	
 		
 		regulator = regulator_get(NULL, "aud2");
 		if (IS_ERR(regulator))
@@ -1887,7 +2121,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		regulator_enable(regulator);
 		regulator_put(regulator);
 		
-		d2153_codec->power_mode=1;
+		d2153_codec->power_mode=1;				
 		
 	}		
 	else if(on ==0 && d2153_codec->power_mode==1){
@@ -1900,13 +2134,6 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		snd_soc_write(codec, D2153_SYSTEM_MODES_CFG3,0x01);
 		snd_soc_write(codec, D2153_CIF_CTRL,0x80);	
 	
-		regulator = regulator_get(NULL, "aud2");
-		if (IS_ERR(regulator))
-			return -1;
-
-		regulator_disable(regulator);
-		regulator_put(regulator);
-
 		regulator = regulator_get(NULL, "aud1");
 		if (IS_ERR(regulator))
 			return -1;
@@ -1914,6 +2141,17 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		regulator_disable(regulator);
 		regulator_put(regulator);
 
+		msleep(1);
+		d2153_reg_read(d2153_codec->d2153_pmic, 0x9c, &status);
+		d2153_reg_read(d2153_codec->d2153_pmic, 0x9c, &status);
+
+		regulator = regulator_get(NULL, "aud2");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		
 		d2153_codec->power_mode=0;
 	}
 
@@ -2077,167 +2315,19 @@ static int d2153_probe(struct snd_soc_codec *codec)
 	codec->cache_bypass = 1;
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
-#ifdef CONFIG_SND_SOC_D2153_AAD
+		d2153_enable_mclk();
 		d2153_codec_power(d2153_codec->codec,1);
+		d2153_setup(codec);	
+#ifdef CONFIG_SND_SOC_D2153_AAD		
 		d2153_aad_enable(codec);	
-#ifndef D2153_FSI_SOUNDPATH
-		d2153_codec->info.raw_device = D2153_DEV_NONE;
-#endif		
 		d2153_codec->codec_init =1;
 #endif	
 #ifdef D2153_FSI_SOUNDPATH
-	ret = snd_soc_add_controls(codec, d2153_sndp_controls,
+	ret = snd_soc_add_codec_controls(codec, d2153_sndp_controls,
 				   d2153_sndp_array_size);
 
 #endif
-#ifdef CONFIG_SND_SOC_USE_DA9055_HW
-	/*
-	 * Default to using ALC manual offset calibration mode.
-	 * Auto not supported on DA9055.
-	 */
-	snd_soc_update_bits(codec, D2153_ALC_CTRL1, D2153_ALC_CALIB_MODE_MAN,
-			    D2153_ALC_CALIB_MODE_MAN);
-	d2153_codec->alc_calib_auto = false;
-#else
-	d2153_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
-	/* Default to using ALC auto offset calibration mode. */
-	snd_soc_update_bits(codec, D2153_ALC_CTRL1, D2153_ALC_CALIB_MODE_MAN, 0);
-	d2153_codec->alc_calib_auto = true;
-#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
-
-	/* 
-	 * DLG - The following defaults should probably be platform
-	 * data, but for now they're hardcoded here as a reminder.
-	 */
-
-	/* Default to using SRM for slave mode */
-	d2153_codec->srm_en = true;
-
-	/* Default dmic settings */
-	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_DMIC_DATA_SEL_MASK,
-			    D2153_DMIC_DATA_SEL_RL_FR);
-	snd_soc_update_bits(codec, D2153_MIC_CONFIG,
-			    D2153_DMIC_SAMPLEPHASE_MASK,
-			    D2153_DMIC_SAMPLEPHASE_ON_CLK_EDGE);
-	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_DMIC_CLK_RATE_MASK,
-			    D2153_DMIC_CLK_RATE_3MHZ);
-
-	/* Default mic bias levels */
-#ifdef CONFIG_SND_SOC_USE_DA9055_HW
-	snd_soc_update_bits(codec, D2153_MIC_CONFIG, D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_1_5V);
-#else
-	snd_soc_update_bits(codec, D2153_MICBIAS1_CTRL,
-			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
-	snd_soc_update_bits(codec, D2153_MICBIAS2_CTRL,
-			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
-	snd_soc_update_bits(codec, D2153_MICBIAS3_CTRL,
-			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
-#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
-
-	/*
-	 * DLG - From the technical datasheet diagram for D2153 this should
-	 * not be needed as there is a bias for each MIC input.
-	 */
-#ifdef CONFIG_SND_SOC_USE_DA9055_HW
-	/* Default to MIC Bias 1 for right in mixer */
-	snd_soc_update_bits(codec, D2153_MIXIN_R_SELECT,
-			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2, 0);
-#else
-	/* Default to MIC Bias 2 for right in mixer */
-	snd_soc_update_bits(codec, D2153_MIXIN_R_SELECT,
-			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2,
-			    D2153_MIC_BIAS_OUTPUT_SELECT_BIAS2);
-#endif /* CONFIG_SND_SOC_USE_DA9055_HW */
-
-	/* Speaker config defaults */
-	snd_soc_write(codec, D2153_SP_CFG1, 0);
-	snd_soc_write(codec, D2153_SP_CFG2, 0);
-
-	/* Default IO settings */
-	snd_soc_update_bits(codec, D2153_IO_CTRL,
-			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V,
-			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V);
-
-	/* Default LDO settings */
-	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_LEVEL_SELECT_MASK,
-			    D2153_LDO_LEVEL_SELECT_1_05V);
-	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_EN_MASK,
-			    D2153_LDO_EN_MASK);
-
-	/* Enable all Gain Ramping Controls */
-	snd_soc_update_bits(codec, D2153_AUX_L_CTRL,
-			    D2153_AUX_AMP_RAMP_EN, D2153_AUX_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_AUX_R_CTRL,
-			    D2153_AUX_AMP_RAMP_EN, D2153_AUX_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_MIXIN_L_CTRL,
-			    D2153_MIXIN_AMP_RAMP_EN, D2153_MIXIN_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_MIXIN_R_CTRL,
-			    D2153_MIXIN_AMP_RAMP_EN, D2153_MIXIN_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
-			    D2153_ADC_RAMP_EN, D2153_ADC_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
-			    D2153_ADC_RAMP_EN, D2153_ADC_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
-			    D2153_DAC_RAMP_EN, D2153_DAC_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_DAC_R_CTRL,
-			    D2153_DAC_RAMP_EN, D2153_DAC_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-			    D2153_HP_AMP_RAMP_EN, D2153_HP_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-			    D2153_HP_AMP_RAMP_EN, D2153_HP_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_EP_CTRL,
-			    D2153_EP_AMP_RAMP_EN, D2153_EP_AMP_RAMP_EN);
-	snd_soc_update_bits(codec, D2153_SP_CTRL,
-			    D2153_SP_AMP_RAMP_EN, D2153_SP_AMP_RAMP_EN);
-
-	/*
-	 * There are two separate control bits for input and output mixers as
-	 * well as headphone and speaker outs.
-	 * One to enable corresponding amplifier and other to enable its
-	 * output. As amplifier bits are related to power control, they are
-	 * being managed by DAPM while other (non power related) bits are
-	 * enabled here
-	 */
-
-	/* Enable Left and Right input mixers */
-	snd_soc_update_bits(codec, D2153_MIXIN_L_CTRL,
-			    D2153_MIXIN_MIX_EN, D2153_MIXIN_MIX_EN);
-	snd_soc_update_bits(codec, D2153_MIXIN_R_CTRL,
-			    D2153_MIXIN_MIX_EN, D2153_MIXIN_MIX_EN);
-
-	/* Enable Left and Right output mixers */
-	snd_soc_update_bits(codec, D2153_MIXOUT_L_CTRL,
-			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
-	snd_soc_update_bits(codec, D2153_MIXOUT_R_CTRL,
-			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
-
-	/* Enable Speaker output mixer */
-	snd_soc_update_bits(codec, D2153_MIXOUT_SP_CTRL,
-			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
-
-	/* Set charge pump mode */
-	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_SM_SIZE,
-			    //D2153_CP_MCHANGE_SM_SIZE);
-	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_LARGEST_VOL,
-			    D2153_CP_MCHANGE_LARGEST_VOL);
-
-	/* Enable AIF output */
-	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_OE, D2153_AIF_OE);
-
-	/* Enable Left and Right Headphone Output */
-	snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-			    D2153_HP_AMP_OE, D2153_HP_AMP_OE);
-	snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-			    D2153_HP_AMP_OE, D2153_HP_AMP_OE);
-
-	/* Enable Earpiece Output Enable */
-	snd_soc_update_bits(codec, D2153_EP_CTRL,
-			    D2153_EP_AMP_OE, D2153_EP_AMP_OE);
 	return 0;
 }
 
@@ -2470,7 +2560,7 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 					d2153codec_i2c_read_device(d2153_codec,(u8)reg.reg,1, &reg_val);
 				}
 				else {
-					snd_soc_read(d2153_codec->codec,reg.reg);
+					reg_val=snd_soc_read(d2153_codec->codec,reg.reg);
 				}	
 				reg.val = (unsigned short)reg_val;
 				if (copy_to_user((pmu_reg *)arg, &reg, sizeof(pmu_reg)) != 0)
@@ -2816,8 +2906,10 @@ static int __init d2153_modinit(void)
 {
 	int ret;
 
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
+	}
 
 	ret = i2c_add_driver(&d2153_i2c_driver);
 	if (ret)
@@ -2833,8 +2925,10 @@ void __exit d2153_exit(void)
 static void __exit d2153_exit(void)
 #endif
 {
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
+	}
 	i2c_del_driver(&d2153_i2c_driver);
 }
 module_exit(d2153_exit);
