@@ -63,7 +63,7 @@
 #define PMDBG_PRFX				"PM-DBG: "
 
 /* Enable/disable PASR for SDRAM */
-#define PASR_SUPPORT
+/* #define PASR_SUPPORT */
 
 enum {
 	IRQC_EVENTDETECTOR_BLK0 = 0,

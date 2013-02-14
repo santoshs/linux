@@ -22,11 +22,13 @@
 #include "pmdbg_core.h"
 #include <linux/errno.h>
 #include <mach/pm.h>
-#include <mach/ram_defrag.h>
 #include <linux/string.h>
 #include <linux/parser.h>
 #include <linux/io.h>
 
+#ifdef CONFIG_SHMOBILE_RAM_DEFRAG
+#include <mach/ram_defrag.h>
+#endif
 
 static int bank_status_cmd(char *, int);
 static int defrag_cmd(char *, int);
@@ -40,6 +42,121 @@ LOCAL_DECLARE_MOD(mem, pmdgb_mem_init, pmdgb_mem_exit);
 DECLARE_CMD(bank, bank_status_cmd);
 DECLARE_CMD(defrag, defrag_cmd);
 DECLARE_CMD(dump, dump_cmd);
+
+#ifndef CONFIG_SHMOBILE_RAM_DEFRAG
+
+#include <linux/compaction.h>
+#include <linux/mm.h>
+#include <linux/memory.h>
+#include <linux/page-flags.h>
+
+static unsigned int get_ram_banks_status(void);
+static int page_check(struct page *page);
+
+/* #define DEBUG_RAMDEFRAG */
+
+#ifdef DEBUG_RAMDEFRAG
+	#define DEFRAG_PRINTK(fmt, arg...)  printk(fmt, ##arg)
+#else
+	#define DEFRAG_PRINTK(fmt, arg...)
+#endif
+
+#define SDRAM_START			0x40000000
+#define SDRAM_END			0x7FFFFFFF
+#define BANK_SIZE			0x04000000
+
+#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
+#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0) \
+				? ((INUSED_RANGE / BANK_SIZE) + 1) \
+				: (INUSED_RANGE / BANK_SIZE))
+
+#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
+#define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
+		? (UNUSED_BANKS_START - CONFIG_MEMORY_START) : 0)
+
+#define SDRAM_SIZE			((SDRAM_END - SDRAM_START) + 1)
+#define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
+#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
+
+#define USED_BANKS_MASK(nr) (~(0xFFFF0000 | (0xFFFF << (nr))))
+
+const unsigned int max_unused_banks = MAX_UNUSED_BANKS;
+const unsigned int max_pages_in_bank = MAX_PAGES_IN_BANK;
+const unsigned int number_pages_skip = NUMBER_PAGES_SKIP;
+const unsigned int used_banks = USED_BANKS;
+
+/*
+ * get_ram_banks_status: Get status of RAM banks
+ * return: A bit mask which corresponds to status of RAM banks
+ *		- If certain bank is used, correlative bit status in
+ *		 return value will be set to 1
+ *		- If certain bank is freed, correlative bit status in
+ *		 return value will be cleared to 0
+ *		- Bit 16 to bit 31 are "Don't Care" which
+ *		correspond to non-existent banks, will be set to 1
+ *		- Bit status is least significant
+ *		(bit 0 corresponds to bank 0, bit 1 corresponds to bank 1, etc.)
+ */
+static unsigned int get_ram_banks_status(void)
+{
+	unsigned int i;
+	unsigned int j;
+	unsigned int begin;
+	unsigned int end;
+	unsigned int status;
+	struct page *start_page_check;
+	i = 0;
+	j = 0;
+	begin = 0;
+	end = 0;
+	status = 0xFFFFFFFF;
+	DEFRAG_PRINTK("%s\n", __func__);
+	/* start checking */
+	start_page_check = mem_map + number_pages_skip/PAGE_SIZE;
+	for (i = 0; i < max_unused_banks; i++) {
+		begin = i * max_pages_in_bank;
+		end = ((i + 1) * max_pages_in_bank) - 1;
+		for (j = begin; j <= end; j++) {
+			if (page_check(start_page_check + j) == 1)
+				break;
+		}
+		if (j > end)
+			status &= ~(1 << i);
+	}
+
+	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
+	return status;
+}
+
+/*
+ * page_check: Check whether page is "use" or "free"
+ * @page: Page needs to check status
+ * return:
+ *	0: Page is "freed"
+ *	1: Page is "used"
+ *	EINVAL: invalid argument
+ */
+static int page_check(struct page *page)
+{
+	int mapcount;
+	int pagecount;
+	mapcount = 0;
+	pagecount = 0;
+	if (page != NULL) {
+		mapcount = atomic_read(&page->_mapcount);
+		pagecount = atomic_read(&page->_count);
+		if ((mapcount >= 0) || (page->mapping != NULL)
+			|| (pagecount > 0)
+			|| (page->flags & PAGE_FLAGS_CHECK_AT_FREE)) {
+			return 1;	/* Page is "used" */
+		}
+		return 0;		/* Page is "freed" */
+	} else {
+		return -EINVAL;
+	}
+}
+#endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
 
 static int bank_status_cmd(char *para, int size)
 {
@@ -70,7 +187,11 @@ static int defrag_cmd(char *para, int size)
 	s += sprintf(s, "Bank status before 0x%x\n", ret);
 	MSG("Defraging...");
 	do_gettimeofday(&beforetime);
+#ifndef CONFIG_SHMOBILE_RAM_DEFRAG
+	ret = compact_nodes();
+#else
 	ret = defrag();
+#endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
 	do_gettimeofday(&aftertime);
 	MSG("Defrag done");
 	s += sprintf(s, "Defraged in %12uus\n",

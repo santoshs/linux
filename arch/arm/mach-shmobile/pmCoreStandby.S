@@ -1502,7 +1502,7 @@ SYSPD_CLEANINVALIDATE_LOOP:
 	LDR		r6, [r4, #L2_CLEAN_AND_INVALIDATE]
 	ANDS	r6, r6, r5
 	BNE		SYSPD_CLEANINVALIDATE_LOOP
-
+#ifdef PASR_SUPPORT
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
 	LDR	r6, =SDMRACR0A
@@ -1538,7 +1538,7 @@ SKIP_PASR_DRAM_AREA0:
 	MOV	r6, #0x0
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
-
+#endif /* PASR_SUPPORT */
 	/*--------------------------------------*/
 	/* Turn off Watchdog timer				*/
 	/*--------------------------------------*/
@@ -1732,7 +1732,7 @@ ENTRY(sys_powerup)
 	STR		r5, [r7]
 SKIP_TURN_ON_RWDT2:
 
-
+#ifdef PASR_SUPPORT
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
 	LDR	r4, =ram0DramPasrSettingArea0Phys
@@ -1771,7 +1771,7 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 	BIC	r7, r7, r8			/* Clear SDMRACR0A.MA/OP*/
 	ORR	r7, r7, r5
 	STR	r7, [r6]			/* Restore SDMRACR0A	*/
-
+#endif /* PASR_SUPPORT */
 	/*----------------------------------*/
 	/* Invalidate L2 cache				*/
 	/* Disable L2 cache					*/
