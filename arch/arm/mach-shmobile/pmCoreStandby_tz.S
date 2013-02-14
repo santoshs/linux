@@ -1246,7 +1246,7 @@ ENTRY(sys_powerdown)
 	LDR		r4, =ram0WakeupCodeAddr0
 	STR		lr, [r4]	/* Save wakeup code address	*/
 
-#if 0
+#ifdef PASR_SUPPORT
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
 	LDR	r4, =ram0DramPasrSettingArea0Phys
@@ -1286,7 +1286,7 @@ SKIP_PASR_DRAM_AREA0:
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
 
-#endif
+#endif /* PASR_SUPPORT *
 
 	/*--------------------------------------*/
 	/* Turn off Watchdog timer				*/
@@ -1518,7 +1518,7 @@ ENTRY(sys_powerup)
 	STR		r5, [r7]
 SKIP_TURN_ON_RWDT2:
 
-#if 0
+#ifdef PASR_SUPPORT
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
 	LDR	r4, =ram0DramPasrSettingArea0Phys
@@ -1561,7 +1561,7 @@ SKIP_RELEASE_PASR_DRAM_AREA0:
 	ORR	r7, r7, r5
 	STR	r7, [r6]	/* Restore SDMRACR1A	*/
 SKIP_RELEASE_PASR_DRAM_AREA1:
-#endif
+#endif /* PASR_SUPPORT */
 
 	MOV		pc, lr		/* return	*/
 .pool
