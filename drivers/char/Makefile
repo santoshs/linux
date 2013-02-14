@@ -68,5 +68,9 @@ obj-$(CONFIG_RAMOOPS)		+= ramoops.o
 
 obj-$(CONFIG_JS_RTC)		+= js-rtc.o
 js-rtc-y = rtc.o
+#
+# cc4.2 driver
+#
+obj-$(CONFIG_CRYPTO_HW_DX_CC42)	+= cc4.2/
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
