@@ -10,7 +10,7 @@
  */
 
 /* for debug */
-//#undef DEBUG
+/*#undef DEBUG*/
 #define DEBUG 1
 /* #define DEBUG */
 
@@ -72,11 +72,13 @@ static const struct S5K6AAFX13_datafmt S5K6AAFX13_colour_fmts[] = {
 
 static struct S5K6AAFX13 *to_S5K6AAFX13(const struct i2c_client *client)
 {
-	return container_of(i2c_get_clientdata(client), struct S5K6AAFX13, subdev);
+	return container_of(
+		i2c_get_clientdata(client), struct S5K6AAFX13, subdev);
 }
 
 /* Find a data format by a pixel code in an array */
-static const struct S5K6AAFX13_datafmt *S5K6AAFX13_find_datafmt(enum v4l2_mbus_pixelcode code)
+static const struct S5K6AAFX13_datafmt *S5K6AAFX13_find_datafmt(
+				enum v4l2_mbus_pixelcode code)
 {
 	int i;
 
@@ -109,7 +111,8 @@ static void S5K6AAFX13_res_roundup(u32 *width, u32 *height)
 static int S5K6AAFX13_try_fmt(struct v4l2_subdev *sd,
 	       struct v4l2_mbus_framefmt *mf)
 {
-	const struct S5K6AAFX13_datafmt *fmt = S5K6AAFX13_find_datafmt(mf->code);
+	const struct S5K6AAFX13_datafmt *fmt =
+			S5K6AAFX13_find_datafmt(mf->code);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
 
@@ -225,8 +228,8 @@ static int S5K6AAFX13_g_chip_ident(struct v4l2_subdev *sd,
 static int S5K6AAFX13_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
@@ -337,18 +340,16 @@ static int S5K6AAFX13_probe(struct i2c_client *client,
 			if (0 <= ret)
 				break;
 		}
-		if (0 > ret) {
+		if (0 > ret)
 			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
-		}
 		else
-		{
-			printk(KERN_ALERT "%s :S5K6AAFX13 OK(%d)\n", __func__, rcv_buf[0]);
-		}
+			printk(KERN_ALERT "%s :S5K6AAFX13 OK(%d)\n",
+						__func__, rcv_buf[0]);
 		ret = 0;
 	}
 
 	priv->width	= 640;
-	priv->height= 480;
+	priv->height	= 480;
 	priv->fmt	= &S5K6AAFX13_colour_fmts[0];
 
 	if (cam_class_init == false) {

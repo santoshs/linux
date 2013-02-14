@@ -637,11 +637,14 @@ static ssize_t soc_camera_read(struct file *file, char __user *buf,
 static int soc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct soc_camera_device *icd = file->private_data;
+#if 0
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+#endif
 	int err;
 
 	dev_dbg(icd->pdev, "mmap called, vma=0x%08lx\n", (unsigned long)vma);
 
+#if 0
 	if (icd->streamer != file)
 		return -EBUSY;
 
@@ -649,7 +652,9 @@ static int soc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 		err = videobuf_mmap_mapper(&icd->vb_vidq, vma);
 	else
 		err = vb2_mmap(&icd->vb2_vidq, vma);
-
+#else
+	err = icd->vb2_vidq.mem_ops->mmap(icd, vma);
+#endif
 	dev_dbg(icd->pdev, "vma start=0x%08lx, size=%ld, ret=%d\n",
 		(unsigned long)vma->vm_start,
 		(unsigned long)vma->vm_end - (unsigned long)vma->vm_start,
@@ -842,7 +847,6 @@ static int soc_camera_g_ctrl(struct file *file, void *priv,
 			     struct v4l2_control *ctrl)
 {
 	struct soc_camera_device *icd = file->private_data;
-//	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	int ret;
@@ -862,7 +866,6 @@ static int soc_camera_s_ctrl(struct file *file, void *priv,
 			     struct v4l2_control *ctrl)
 {
 	struct soc_camera_device *icd = file->private_data;
-//	struct soc_camera_host *ici = to_soc_camera_host(icd->dev.parent);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
 	int ret;
@@ -871,10 +874,10 @@ static int soc_camera_s_ctrl(struct file *file, void *priv,
 
 	if (ici->ops->set_ctrl) {
 		ret = ici->ops->set_ctrl(icd, ctrl);
-		if (ret != -ENOIOCTLCMD) {
+		if (ret != -ENOIOCTLCMD)
 			return ret;
-		}
 	}
+
 	return v4l2_subdev_call(sd, core, s_ctrl, ctrl);
 }
 
@@ -1203,8 +1206,8 @@ ectrl:
 	if (icl->board_info) {
 		soc_camera_free_i2c(icd);
 	} else {
-		module_put(control->driver->owner);
 		icl->del_device(icd);
+		module_put(control->driver->owner);
 	}
 enodrv:
 eadddev:

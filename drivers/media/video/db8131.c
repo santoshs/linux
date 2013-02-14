@@ -81,14 +81,16 @@ static inline int db8131_read(struct i2c_client *client, unsigned char subaddr,
 
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (unlikely(err < 0))
-		dev_err("%s: %d register read fail\n", __func__, __LINE__);
+		dev_err(&client->dev,
+		"%s %d: register read fail(%d)\n", __func__, __LINE__, err);
 
 	msg.flags = I2C_M_RD;
 	msg.len = 2;
 
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (unlikely(err < 0))
-		dev_err("%s: %d register read fail\n", __func__, __LINE__);
+		dev_err(&client->dev,
+		"%s %d: register read fail(%d)\n", __func__, __LINE__, err);
 
 	*data = ((buf[0] << 8) | buf[1]);
 
@@ -284,8 +286,8 @@ static int DB8131_g_chip_ident(struct v4l2_subdev *sd,
 static int DB8131_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
@@ -382,11 +384,10 @@ static int DB8131_probe(struct i2c_client *client,
 		db8131_write(client, 0xFFD0);
 		ret = db8131_read(client, 0x00, (unsigned short *) rcv_buf);
 
-		if (0 > ret) {
+		if (0 > ret)
 			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
-		} else {
+		else
 			ret = 0;
-		}
 	}
 
 	if (cam_class_init == false) {

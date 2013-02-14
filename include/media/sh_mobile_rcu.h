@@ -56,4 +56,6 @@ struct sh_mobile_rcu_info {
 	int (*led)(int, int);
 };
 
+void sh_mobile_rcu_flash(int led);
+
 #endif /* __ASM_SH_MOBILE_RCU_H__ */
