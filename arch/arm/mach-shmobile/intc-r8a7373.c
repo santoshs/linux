@@ -348,4 +348,8 @@ void __init r8a7373_init_irq(void)
 	register_intc_controller(&intcs_desc);
 	irq_set_handler_data(gic_spi(223), (void *)intevtsa);
 	irq_set_chained_handler(gic_spi(223), intcs_demux);
+
+#ifdef CONFIG_FIQ
+	init_FIQ(FIQ_START);
+#endif
 }

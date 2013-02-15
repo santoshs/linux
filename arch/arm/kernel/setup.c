@@ -66,11 +66,6 @@
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
-#ifndef CONFIG_ARM_TZ
-#define CONFIG_GIC_NS
-#define CONFIG_GIC_NS_CMT
-#endif
-
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
 
@@ -138,9 +133,6 @@ struct stack {
 	u32 irq[3];
 	u32 abt[3];
 	u32 und[3];
-#ifdef CONFIG_GIC_NS
-	u32 fiq[3];
-#endif               
 } ____cacheline_aligned;
 
 static struct stack stacks[NR_CPUS];
@@ -411,38 +403,9 @@ void cpu_init(void)
 #define PLC	"I"
 #endif
 
-#ifdef CONFIG_GIC_NS
 	/*
 	 * setup stacks for re-entrant exception handlers
 	 */
-	__asm__ (
-	"msr	cpsr_c, %1\n\t"
-	"add	r14, %0, %2\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %3\n\t"
-	"add	r14, %0, %4\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %5\n\t"
-	"add	r14, %0, %6\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %7\n\t"
-	"add	r14, %0, %8\n\t"
-	"mov	sp, r14\n\t"
-	"msr	cpsr_c, %9\n\t"
-	    :
-	    : "r" (stk),
-	      PLC (PSR_F_BIT | PSR_I_BIT | IRQ_MODE),
-	      "I" (offsetof(struct stack, irq[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | ABT_MODE),
-	      "I" (offsetof(struct stack, abt[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | UND_MODE),
-	      "I" (offsetof(struct stack, und[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | FIQ_MODE),
-	      "I" (offsetof(struct stack, fiq[0])),
-	      PLC (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
-	    : "r14" );
-#else
-
 	__asm__ (
 	"msr	cpsr_c, %1\n\t"
 	"add	r14, %0, %2\n\t"
@@ -464,7 +427,6 @@ void cpu_init(void)
 	      "I" (offsetof(struct stack, und[0])),
 	      PLC (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
 	    : "r14");
-#endif
 }
 
 int __cpu_logical_map[NR_CPUS];
