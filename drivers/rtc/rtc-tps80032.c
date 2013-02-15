@@ -589,12 +589,14 @@ static int __devinit tps80032_rtc_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, data);
 
+	/*WA: Temporarily disabled as there is an issue with system IRQ mapping.*/
+	/*
 	ret = tps80032_rtc_init_irq(&pdev->dev, data);
 	if (ret < 0) {
 		dev_err(&pdev->dev, ">>>Fail to initialize irq for RTC\n");
 		goto err;
 	}
-
+	*/
 	return 0;
 
 err:
