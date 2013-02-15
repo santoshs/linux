@@ -1,6 +1,6 @@
 /* vcd_spuv.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -66,7 +66,7 @@ extern int vcd_spuv_set_udata(void);
 extern int vcd_spuv_start_record(struct vcd_record_option *option);
 extern int vcd_spuv_stop_record(void);
 extern int vcd_spuv_start_playback(struct vcd_playback_option *option,
-	unsigned int call_kind);
+						unsigned int call_kind);
 extern int vcd_spuv_stop_playback(void);
 extern void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
 extern void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
@@ -114,5 +114,6 @@ extern void vcd_spuv_dump_yram0_memory(void);
 extern void vcd_spuv_dump_dspio_memory(void);
 extern void vcd_spuv_dump_sdram_static_area_memory(void);
 extern void vcd_spuv_dump_fw_static_buffer_memory(void);
+extern void vcd_spuv_dump_spuv_crashlog(void);
 
 #endif /* __VCD_SPUV_H__ */

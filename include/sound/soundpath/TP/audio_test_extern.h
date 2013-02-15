@@ -57,6 +57,8 @@ struct audio_test_ioctl_cmd {
 	u_int *detect_key;	/**< Key detect */
 	u_int vqa_val;		/**< VQA Valid */
 	u_int delay_val;	/**< Delay Valid */
+	u_int loopback_state;	/**< Loopback state */
+	u_int call_kind;	/**< Call kind */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -79,6 +81,10 @@ struct audio_test_ioctl_cmd {
 #define AUDIO_TEST_IOCTL_STARTSPUVLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 8, \
 					struct audio_test_ioctl_cmd)
 #define AUDIO_TEST_IOCTL_STOPSPUVLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 9, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_SETCALLMODE	_IOW(AUDIO_TEST_IOC_MAGIC, 10, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_GETLBSTATE	_IOR(AUDIO_TEST_IOC_MAGIC, 11, \
 					struct audio_test_ioctl_cmd)
 
 /*---------------------------------------------------------------------------*/
@@ -129,6 +135,16 @@ enum audio_test_fsi_port {
 	AUDIO_TEST_DRV_FSI_PORTA,	/**< 0x00: Port A. */
 	AUDIO_TEST_DRV_FSI_PORTB,	/**< 0x01: Port B. */
 	AUDIO_TEST_DRV_FSI_MAX
+};
+
+/*!
+  @brief	VCD call kind.
+*/
+enum audio_test_vcd_call_kind {
+	AUDIO_TEST_DRV_KIND_CALL,	/**< 0x00: Call. */
+	AUDIO_TEST_DRV_KIND_KIND_PCM_LB,/**< 0x01: PCM Loopback. */
+	AUDIO_TEST_DRV_KIND_1KHZ,	/**< 0x02: 1kHzTone. */
+	AUDIO_TEST_DRV_KIND_MAX
 };
 
 /*---------------------------------------------------------------------------*/

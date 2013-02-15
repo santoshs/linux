@@ -1,6 +1,6 @@
 /* vcd_ctrl.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -93,6 +93,7 @@ int vcd_ctrl_stop_call(int call_type);
 int vcd_ctrl_set_udata(void);
 void vcd_ctrl_get_status(void);
 int vcd_ctrl_get_result(void);
+int vcd_ctrl_check_semantics(void);
 
 /* For Sound driver functions */
 int vcd_ctrl_start_record(struct vcd_record_option *option);
@@ -112,6 +113,9 @@ void vcd_ctrl_stop_fw(void);
 void vcd_ctrl_udata_ind(void);
 void vcd_ctrl_start_clkgen(void);
 void vcd_ctrl_stop_clkgen(void);
+void vcd_ctrl_wait_path(void);
+void vcd_ctrl_get_semaphore(void);
+void vcd_ctrl_release_semaphore(void);
 
 /* Driver functions */
 int vcd_ctrl_suspend(void);
@@ -139,5 +143,9 @@ void vcd_ctrl_dump_yram0_memory(void);
 void vcd_ctrl_dump_dspio_memory(void);
 void vcd_ctrl_dump_sdram_static_area_memory(void);
 void vcd_ctrl_dump_fw_static_buffer_memory(void);
+void vcd_ctrl_dump_spuv_crashlog(void);
+
+/* Internal functions */
+static int vcd_ctrl_error_stop_vcd(void);
 
 #endif /* __VCD_CTRL_H__ */

@@ -141,7 +141,8 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_SRGGB12_1X12:
 			break;
 		default:
-			/* All MIPI CSI-2 devices must support one of primary formats */
+			/* All MIPI CSI-2 devices
+			 * must support one of primary formats */
 			mf->code = V4L2_MBUS_FMT_YUYV8_2X8;
 		}
 		break;
@@ -154,7 +155,8 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_SBGGR12_1X12:	/* RAW12 */
 			break;
 		default:
-			/* All MIPI CSI-2 devices must support one of primary formats */
+			/* All MIPI CSI-2 devices
+			 * must support one of primary formats */
 			mf->code = V4L2_MBUS_FMT_SBGGR8_1X8;
 		}
 		break;
@@ -527,7 +529,8 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	snprintf(priv->subdev.name, V4L2_SUBDEV_NAME_SIZE, "%s.mipi-csi",
 		 dev_name(pdata->v4l2_dev->dev));
 	ret = v4l2_device_register_subdev(pdata->v4l2_dev, &priv->subdev);
-	dev_dbg(&pdev->dev, "%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
+	dev_dbg(&pdev->dev,
+		"%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
 	if (ret < 0)
 		goto esdreg;
 
@@ -618,20 +621,20 @@ void sh_csi2_power(struct device *dev, int power_on)
 			ret = clk_enable(icb_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(icb) error(%d)",
-					__func__, ret);
+				KERN_ALERT "%s :clk_enable(icb) error(%d)",
+				__func__, ret);
 			}
 			ret = clk_enable(meram_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(meram) error(%d)",
-					__func__, ret);
+				KERN_ALERT "%s :clk_enable(meram) error(%d)",
+				__func__, ret);
 			}
 			ret = clk_enable(csi_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(%s) error(%d)",
-					__func__, csi_info->cmod_name, ret);
+				KERN_ALERT "%s :clk_enable(%s) error(%d)",
+				__func__, csi_info->cmod_name, ret);
 			}
 			sh_csi2_hwinit(csi_info->priv);
 			sh_csi2_stream(csi_info->priv, 1);

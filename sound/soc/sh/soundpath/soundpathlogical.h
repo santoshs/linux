@@ -20,6 +20,8 @@
 #include <linux/kernel.h>
 #include <linux/vcd/vcd.h>
 
+#include <mach/common.h>
+
 /*
  *
  * EXTERN Declarations
@@ -87,11 +89,6 @@ static int sndp_soc_info(
 static int sndp_soc_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
-/* SOC PUT */
-static int sndp_soc_put(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-
 /* SOC functions */
 static int sndp_soc_get_voice_out_volume(
 	struct snd_kcontrol *kcontrol,
@@ -160,73 +157,75 @@ static void sndp_fm_trigger(
 static u_long sndp_get_next_devices(const u_int uiValue);
 
 /* Work queue processing for call start */
-static void sndp_work_voice_start(struct work_struct *work);
+static void sndp_work_voice_start(struct sndp_work_info *work);
 /* Work queue processing for call stop */
-static void sndp_work_voice_stop(struct work_struct *work);
+static void sndp_work_voice_stop(struct sndp_work_info *work);
 /* Work queue processing for voice call device change */
-static void sndp_work_voice_dev_chg(struct work_struct *work);
+static void sndp_work_voice_dev_chg(struct sndp_work_info *work);
+/* Work queue processing for fm device change */
+static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work);
 
 /* Work queue processing for Playback start */
-static void sndp_work_play_start(struct work_struct *work);
+static void sndp_work_play_start(struct sndp_work_info *work);
 /* Work queue processing for Capture start */
-static void sndp_work_capture_start(struct work_struct *work);
+static void sndp_work_capture_start(struct sndp_work_info *work);
 /* Work queue processing for Playback stop */
-static void sndp_work_play_stop(struct work_struct *work);
+static void sndp_work_play_stop(struct sndp_work_info *work);
 /* Work queue processing for Capture stop */
-static void sndp_work_capture_stop(struct work_struct *work);
+static void sndp_work_capture_stop(struct sndp_work_info *work);
 
 /* Work queue processing for Start during a call playback */
-static void sndp_work_call_playback_start(struct work_struct *work);
+static void sndp_work_call_playback_start(struct sndp_work_info *work);
 /* Work queue processing for Start during a call capture */
-static void sndp_work_call_capture_start(struct work_struct *work);
+static void sndp_work_call_capture_start(struct sndp_work_info *work);
 /* Work queue processing for Stop during a call playback */
-static void sndp_work_call_playback_stop(struct work_struct *work);
+static void sndp_work_call_playback_stop(struct sndp_work_info *work);
 /* Work queue processing for Stop during a call capture */
-static void sndp_work_call_capture_stop(struct work_struct *work);
+static void sndp_work_call_capture_stop(struct sndp_work_info *work);
 
 /* Work queue processing for Start during a playback incommunication */
-static void sndp_work_call_playback_incomm_start(struct work_struct *work);
+static void sndp_work_call_playback_incomm_start(struct sndp_work_info *work);
 /* Work queue function for Start during a capture incommunication */
-static void sndp_work_call_capture_incomm_start(struct work_struct *work);
+static void sndp_work_call_capture_incomm_start(struct sndp_work_info *work);
 /* Work queue function for Stop during a playback incommunication */
-static void sndp_work_call_playback_incomm_stop(struct work_struct *work);
+static void sndp_work_call_playback_incomm_stop(struct sndp_work_info *work);
 /* Work queue function for Stop during a capture incommunication */
-static void sndp_work_call_capture_incomm_stop(struct work_struct *work);
+static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work);
 
 
 /* Work queue processing for Start during a fm playback */
-static void sndp_work_fm_playback_start(struct work_struct *work);
+static void sndp_work_fm_playback_start(struct sndp_work_info *work);
 /* Work queue processing for Start during a fm capture */
-static void sndp_work_fm_capture_start(struct work_struct *work);
+static void sndp_work_fm_capture_start(struct sndp_work_info *work);
 /* Work queue processing for Stop during a fm playback */
-static void sndp_work_fm_playback_stop(struct work_struct *work);
+static void sndp_work_fm_playback_stop(struct sndp_work_info *work);
 /* Work queue processing for Stop during a fm capture */
-static void sndp_work_fm_capture_stop(struct work_struct *work);
+static void sndp_work_fm_capture_stop(struct sndp_work_info *work);
 
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
-static void sndp_work_watch_stop_fw(struct work_struct *work);
+static void sndp_work_watch_stop_fw(struct sndp_work_info *work);
 
 /* Work queue processing for FM Radio start */
-static void sndp_work_fm_radio_start(struct work_struct *work);
+static void sndp_work_fm_radio_start(struct sndp_work_info *work);
 /* Work queue processing for FM Radio stop */
-static void sndp_work_fm_radio_stop(struct work_struct *work);
+static void sndp_work_fm_radio_stop(struct sndp_work_info *work);
 
 /* Work queue processing for playback incommunication start */
-static void sndp_work_play_incomm_start(struct work_struct *work);
+static void sndp_work_play_incomm_start(struct sndp_work_info *work);
 /* Work queue processing for playback incommunication stop */
-static void sndp_work_play_incomm_stop(struct work_struct *work);
+static void sndp_work_play_incomm_stop(struct sndp_work_info *work);
 /* Work queue processing for capture incommunication start */
-static void sndp_work_capture_incomm_start(struct work_struct *work);
+static void sndp_work_capture_incomm_start(struct sndp_work_info *work);
 /* Work queue processing for capture incommunication stop */
-static void sndp_work_capture_incomm_stop(struct work_struct *work);
+static void sndp_work_capture_incomm_stop(struct sndp_work_info *work);
 
 /* SoundPath start / stop control functions */
 /* Normal */
 static void sndp_work_start(const int direction);
 static void sndp_work_stop(
-	struct work_struct *work,
+	struct sndp_work_info *work,
 	const int direction);
 /* Incommunication */
 static void sndp_work_incomm_start(const u_int new_value);
@@ -234,7 +233,7 @@ static void sndp_work_incomm_stop(const u_int old_value);
 /* SoundPath start / stop control functions */
 static void sndp_fm_work_start(const int direction);
 static void sndp_fm_work_stop(
-	struct work_struct *work,
+	struct sndp_work_info *work,
 	const int direction);
 
 /* Voice stop and Normal device change */
@@ -339,6 +338,10 @@ static int sndp_work_voice_dev_chg_in_audioic(
 /* Wait time max for wait queue for start voice process wake up */
 #define SNDP_WATCH_CLK_TIME_OUT		(1000)
 
+#define SNDP_BOARD_REV_OUTSIDE_RANGE_5	(0x05)
+
+#define IS_DIALOG_BOARD_REV(r)        (SNDP_BOARD_REV_OUTSIDE_RANGE_5 <= r)
+
 /*
  *
  * STRUCTURE Definitions
@@ -430,12 +433,6 @@ struct sndp_arg {
 	struct snd_pcm_hw_params	fsi_params;
 };
 
-/* Stop processing table */
-struct sndp_stop {
-	struct snd_pcm_substream	fsi_substream;
-	struct snd_soc_dai		fsi_dai;
-};
-
 /* Main processing table */
 struct sndp_main {
 	struct sndp_arg		arg;		/* ARGs               */
@@ -447,15 +444,6 @@ struct sndp_main {
 struct sndp_mode_trans {
 	u_int next_proc;		/* Implementation processing  */
 	u_int next_status;		/* After the transition state */
-};
-
-/* Work queue processing table */
-struct sndp_work_info {
-	struct work_struct		work;		 /* Work             */
-	struct snd_pcm_substream	*save_substream; /* Substream        */
-	struct sndp_stop		stop;		 /* for Stop process */
-	u_int				new_value;	 /* PCM value (NEW)  */
-	u_int				old_value;	 /* PCM value (OLD)  */
 };
 
 /* Wait queue for start voice process wake up */
@@ -477,6 +465,9 @@ extern void fsi_set_callback(callback_function func);
 static void sndp_fsi_interrupt(void);
 #endif
 /* SOUND_TEST */
+
+/* set scheduler function */
+static void sndp_set_schedule(void);
 
 #endif /* __SOUNDPATHLOGICAL_H__ */
 

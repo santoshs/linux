@@ -1,8 +1,5 @@
 ccflags-y +=  -D__PRINT_VCD__
-#ccflags-y +=  -D__VCD_MERAM_ENABLE__
-ccflags-y +=  -D__VCD_POWERDOMAIN_ENABLE__
 ccflags-y +=  -D__VCD_DEBUG__
-#ccflags-y +=  -D__VCD_DIVISION_ARRANGEMENT_FW__
 #ccflags-y +=  -D__VCD_SPUV_FW_FROM_SD_ENABLE__
 
 

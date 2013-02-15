@@ -256,8 +256,10 @@ int camera_init(unsigned int u2_board_rev)
 	gpio_direction_output(GPIO_PORT3, 0);	/* CAM_PWR_EN */
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
-	gpio_request(GPIO_PORT90, NULL);
-	gpio_direction_output(GPIO_PORT90, 0);	/* CAM0_STBY */
+	if (4 <= u2_board_rev) {
+		gpio_request(GPIO_PORT45, NULL);
+		gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
+	}
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -363,7 +365,8 @@ int IMX175_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 		mdelay(10);
 		/* 10ms */
 
@@ -785,6 +788,8 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 
 #define CAM_FLASH_ENSET     (GPIO_PORT99)
 #define CAM_FLASH_FLEN      (GPIO_PORT100)
+
+#if !defined(CONFIG_BOARD_VERSION_GARDA)
 int main_cam_led(int light, int mode)
 {
 	int i = 0;
@@ -852,6 +857,80 @@ int main_cam_led(int light, int mode)
 	}
 	return 0;
 }
+#else
+
+static void MIC2871_write(char addr, char data)
+{
+	int i;
+	/* send address */
+	printk(KERN_ALERT "%s addr(%d) data(%d)\n", __func__, addr, data);
+	for (i = 0; i < (addr + 1); i++) {
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		udelay(1);
+		gpio_set_value(CAM_FLASH_ENSET, 1);
+		udelay(1);
+	}
+	/* wait T lat */
+	udelay(100);
+	/* send data */
+	for (i = 0; i < (data + 1); i++) {
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		udelay(1);
+		gpio_set_value(CAM_FLASH_ENSET, 1);
+		udelay(1);
+	}
+	/* wait T end */
+	udelay(500);
+}
+
+int main_cam_led(int light, int mode)
+{
+	int i = 0;
+	unsigned long flags;
+	spinlock_t lock;
+	spin_lock_init(&lock);
+
+	gpio_request(CAM_FLASH_ENSET, "camacq");
+	gpio_request(CAM_FLASH_FLEN, "camacq");
+
+	switch (light) {
+	case SH_RCU_LED_ON:
+		spin_lock_irqsave(&lock, flags);
+		gpio_set_value(CAM_FLASH_ENSET, 1);
+		/* wait T end */
+		udelay(500);
+		if (mode == SH_RCU_LED_MODE_PRE) {
+			/* write 56%(5) to FEN/FCUR(1) */
+			/* MIC2871_write(1, 5); */
+
+			/* write 56%(21) to TEN/TCUR(2) */
+			MIC2871_write(2, 21);
+		} else {
+			/* write 100%(0) to FEN/FCUR(1) */
+			MIC2871_write(1, 0);
+		}
+
+		/* enable */
+		gpio_set_value(CAM_FLASH_FLEN, 1);
+
+		spin_unlock_irqrestore(&lock, flags);
+		break;
+	case SH_RCU_LED_OFF:
+		/* initailize falsh IC */
+		gpio_set_value(CAM_FLASH_FLEN, 0);
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		mdelay(1);
+		break;
+	default:
+		printk(KERN_ALERT "%s:not case %d", __func__, light);
+		return -1;
+		break;
+	}
+	gpio_free(CAM_FLASH_ENSET);
+	gpio_free(CAM_FLASH_FLEN);
+	return 0;
+}
+#endif
 
 /* CAM1 Power function */
 #if defined(CONFIG_SOC_CAMERA_S5K6AAFX13)
@@ -883,7 +962,8 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 
 		mdelay(10);
 		/* 10ms */
@@ -1101,7 +1181,8 @@ int ISX012_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 		mdelay(10);
 		/* 10ms */
 
@@ -1201,7 +1282,8 @@ int ISX012_power(struct device *dev, int power_on)
 
 		ISX012_pll_init();
 
-		gpio_set_value(GPIO_PORT90, 1); /* CAM0_STBY */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
 		mdelay(20);
 
 		/* 5M_AF_2V8 On */
@@ -1222,10 +1304,9 @@ int ISX012_power(struct device *dev, int power_on)
 	} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
 
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
-		mdelay(1);
-
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 		mdelay(1);
 
 		clk_disable(vclk1_clk);
@@ -1339,7 +1420,8 @@ int DB8131_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* TODO::HYCHO CAM1_CEN */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT90, 0); /* CAM0_STBY */
+		if (u2_get_board_rev() >= 4)
+			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 
 		mdelay(10);
 		/* 10ms */

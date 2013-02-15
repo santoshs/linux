@@ -34,6 +34,7 @@
 #include <linux/pmic/pmic-ncp6914.h>
 
 #include <media/isx012.h>
+#include <media/sh_mobile_rcu.h>
 
 static ssize_t maincamtype_isx012_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -49,8 +50,22 @@ static ssize_t maincamfw_isx012_show(struct device *dev,
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
+static ssize_t maincamflash_isx012_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	if ((0 >= count) || !buf)
+		return 0;
+	if (buf[0] == '0')
+		sh_mobile_rcu_flash(0);
+	else
+		sh_mobile_rcu_flash(1);
+	return count;
+}
+
 static DEVICE_ATTR(rear_camtype, 0644, maincamtype_isx012_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, maincamfw_isx012_show, NULL);
+static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_isx012_store);
 
 typedef struct stSonyData_t {
 	u16 usRegs;
@@ -97,8 +112,8 @@ _ISX012_i2c_send(struct i2c_client *client, const u8 * data, int len)
 			len, ret);
 	} else if (ret != len) {
 		printk(
-			KERN_ERR "Failed to send exactly %d bytes to NCP6914 (send %d)",
-			len, ret);
+		KERN_ERR "Failed to send exactly %d bytes to NCP6914 (send %d)",
+		len, ret);
 		ret = -EIO;
 	} else {
 		ret = 0;
@@ -164,8 +179,9 @@ int CamacqExtWriteI2cLists_Sony(struct i2c_client *pClient,
 						2 + pstRegLists[uiCnt].ucLen);
 					if (iRet < 0) {
 						printk(
-							KERN_ALERT "%s :write failed ===============break!!!!!!!!!!!!!!",
-							__func__);
+						KERN_ALERT \
+						"%s :write failed=break!",
+						__func__);
 						iRet = -1;
 						return iRet;
 					}
@@ -173,8 +189,9 @@ int CamacqExtWriteI2cLists_Sony(struct i2c_client *pClient,
 				} else { /* 0x03 is delay */
 					mdelay(rgucWriteRegs[2]);
 					printk(
-						KERN_ALERT "%s :setfile delay :  %d", __func__,
-						 rgucWriteRegs[2]);
+					KERN_ALERT "%s :setfile delay :  %d",
+					__func__,
+					rgucWriteRegs[2]);
 				}
 
 				uiCnt++;
@@ -220,7 +237,8 @@ int CamacqExtWriteI2cLists_Sony(struct i2c_client *pClient,
 							>> 8 & 0xFF);
 				} else {
 					printk(
-						KERN_ALERT "%s :Unexpected value!!", __func__);
+					KERN_ALERT "%s :Unexpected value!!",
+					__func__);
 					return iRet;
 				}
 			}
@@ -616,8 +634,8 @@ static int ISX012_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int ISX012_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
@@ -753,20 +771,30 @@ static int ISX012_probe(struct i2c_client *client,
 						NULL, 0, NULL, "rear");
 		if (IS_ERR(sec_main_cam_dev)) {
 			dev_err(&client->dev,
-				"Failed to create device(sec_main_cam_dev)!\n");
+				"Failed to create device"
+				"(sec_main_cam_dev)!\n");
 		}
 
 		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camtype) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camtype.attr.name);
 		}
 		if (device_create_file(sec_main_cam_dev,
 					&dev_attr_rear_camfw) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera device file, %s\n",
+				"failed to create main camera "
+				"device file, %s\n",
 				dev_attr_rear_camfw.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_flash) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera "
+				"device file, %s\n",
+				dev_attr_rear_flash.attr.name);
 		}
 	}
 

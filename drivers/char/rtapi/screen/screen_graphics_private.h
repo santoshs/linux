@@ -58,6 +58,18 @@ typedef struct {
 		);
 } screen_grap_handle;
 
+/* screen_graphics_image_blend API parameter(local) */
+typedef struct {
+	screen_grap_image_param		image;						/* input image parameters */
+	screen_rect					rect;						/* rect */
+	unsigned short				alpha;						/* alpha */
+	unsigned short				rotate;						/* rotation type */
+	unsigned short				mirror;						/* mirror type */
+	unsigned short				dummy;						/* dummy */
+	long						key_color;					/* key color */
+	unsigned short				premultiplied;				/* premultiplied */
+	unsigned short				alpha_coef;					/* alpha coefficient */
+} screen_grap_layer_local;
 
 
 #endif /* __SCREEN_GRAPHICS_PRIVATE_H__ */

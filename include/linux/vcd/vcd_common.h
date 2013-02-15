@@ -1,6 +1,6 @@
 /* vcd_common.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -922,6 +922,11 @@ enum VCD_CALL_TYPE {
 enum VCD_SEMAPHORE {
 	VCD_SEMAPHORE_RELEASE = 0,
 	VCD_SEMAPHORE_TAKE = 1,
+};
+
+enum VCD_VALIDITY {
+	VCD_DISABLE = 0,
+	VCD_ENABLE
 };
 
 

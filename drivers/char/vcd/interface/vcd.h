@@ -1,6 +1,6 @@
 /* vcd.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -23,10 +23,10 @@
 #define VCD_PROC_FILE_NAME_LOG_LEVEL	"log_level"
 #define VCD_PROC_FILE_NAME_EXEC_FUNC	"exec_func"
 
-#define VCD_PROC_BUF_SIZE	32
+#define VCD_PROC_BUF_SIZE		32
 
-#define VCD_POLL_READ_OK	1
-#define VCD_POLL_READ_NG	0
+#define VCD_POLL_READ_OK		1
+#define VCD_POLL_READ_NG		0
 
 #define VCD_IF_GET_MSG_BUFFER_LOG	"[VCD <- AMHAL] : GET_MSG_BUFFER\n"
 #define VCD_IF_SET_BINARY_BUF_LOG	"[VCD <- AMHAL] : SET_BINARY(BUF)\n"
@@ -82,6 +82,7 @@ enum VCD_DEBUG_COMMAND {
 	VCD_DEBUG_DUMP_DSPIO_MEMORY,
 	VCD_DEBUG_DUMP_SDRAM_STATIC_AREA_MEMORY,
 	VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY,
+	VCD_DEBUG_DUMP_FW_CRASHLOG,
 	VCD_DEBUG_SET_CALL_MODE,
 	VCD_DEBUG_SET_1KHZ_TONE_MODE,
 	VCD_DEBUG_SET_PCM_LOOPBACK_MODE,
@@ -127,6 +128,8 @@ void vcd_start_clkgen(void);
 void vcd_wait_path(void);
 void vcd_voip_ul_callback(unsigned int buf_size);
 void vcd_voip_dl_callback(unsigned int buf_size);
+void vcd_get_semaphore(void);
+void vcd_release_semaphore(void);
 
 /* Internal functions */
 static int vcd_get_binary_buffer(void);
@@ -154,6 +157,7 @@ static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_fw(void *arg);
 static int vcd_watch_clkgen(void *arg);
+static int vcd_watch_clkgen_pt(void *arg);
 static int vcd_watch_codec_type(void *arg);
 static int vcd_set_wait_path(void *arg);
 static int vcd_get_voip_ul_buffer(void *arg);

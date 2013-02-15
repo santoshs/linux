@@ -54,75 +54,76 @@ static const struct SR030PC50_datafmt SR030PC50_colour_fmts[] = {
 };
 
 static inline int sr030pc50_read(struct i2c_client *client,
-        unsigned char subaddr, unsigned char *data)
+	unsigned char subaddr, unsigned char *data)
 {
-        unsigned char buf[2];
-        int err = 0;
-        struct i2c_msg msg = {client->addr, 0, 1, buf};
+	unsigned char buf[2];
+	int err = 0;
+	struct i2c_msg msg = {client->addr, 0, 1, buf};
 
-				buf[0] = subaddr;
+	buf[0] = subaddr;
 
-        err = i2c_transfer(client->adapter, &msg, 1);
-        if (unlikely(err < 0))
-                printk("%s: %d register read fail\n", __func__, __LINE__);
+	err = i2c_transfer(client->adapter, &msg, 1);
+	if (unlikely(err < 0))
+		dev_err(&client->dev, "%s: %d register read fail\n",
+							__func__, __LINE__);
 
-        msg.flags = I2C_M_RD;
-				msg.len = 1;
+	msg.flags = I2C_M_RD;
+	msg.len = 1;
 
-        err = i2c_transfer(client->adapter, &msg, 1);
-        if (unlikely(err < 0))
-                printk("%s: %d register read fail\n", __func__, __LINE__);
+	err = i2c_transfer(client->adapter, &msg, 1);
+	if (unlikely(err < 0))
+		dev_err(&client->dev, "%s: %d register read fail\n",
+							__func__, __LINE__);
 
-//      printk("\n\n\n%X %X\n\n\n", buf[0], buf[1]);
+/*	dev_err(&client->dev, "\n\n\n%X %X\n\n\n", buf[0], buf[1]); */
 
-        *data = buf[0];
+	*data = buf[0];
 
-        return err;
+	return err;
 }
 
 static inline int sr030pc50_write(struct i2c_client *client,
-                unsigned short packet)
+						unsigned short packet)
 {
-        unsigned char buf[2];
+	unsigned char buf[2];
 
-        int err = 0;
-        int retry_count = 5;
+	int err = 0;
+	int retry_count = 5;
 
-        struct i2c_msg msg =
-        {
-                .addr   = client->addr,
-                .flags  = 0,
-                .buf    = buf,
-                .len    = 2,
-        };
+	struct i2c_msg msg = {
+		.addr   = client->addr,
+		.flags  = 0,
+		.buf    = buf,
+		.len    = 2,
+	};
 
-        if (!client->adapter)
-        {
-          dev_err(&client->dev, "%s: can't search i2c client adapter\n", __func__);
-          return -EIO;
-        }
+	if (!client->adapter) {
+		dev_err(&client->dev,
+			"%s: can't search i2c client adapter\n", __func__);
+		return -EIO;
+	}
 
-        while(retry_count--)
-        {
-                *(unsigned long *)buf = cpu_to_be16(packet);
-                err = i2c_transfer(client->adapter, &msg, 1);
-                if (likely(err == 1))
-                        break;
-                mdelay(10);
-        }
+	while (retry_count--) {
+		*(unsigned long *)buf = cpu_to_be16(packet);
+		err = i2c_transfer(client->adapter, &msg, 1);
+		if (likely(err == 1))
+			break;
+		mdelay(10);
+	}
 
-        if (unlikely(err < 0))
-        {
-                dev_err(&client->dev, "%s: 0x%08x write failed err = %d\n", __func__, (unsigned int)packet, err);
-                return err;
-        }
+	if (unlikely(err < 0)) {
+		dev_err(&client->dev, "%s: 0x%08x write failed err = %d\n",
+					__func__, (unsigned int)packet, err);
+		return err;
+	}
 
-        return (err != 1) ? -1 : 0;
+	return (err != 1) ? -1 : 0;
 }
 
 static struct SR030PC50 *to_SR030PC50(const struct i2c_client *client)
 {
-	return container_of(i2c_get_clientdata(client), struct SR030PC50, subdev);
+	return container_of(i2c_get_clientdata(client),
+				struct SR030PC50, subdev);
 }
 
 /* Find a data format by a pixel code in an array */
@@ -272,12 +273,27 @@ static int SR030PC50_g_chip_ident(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int SR030PC50_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	switch (ctrl->id) {
+	case V4L2_CID_GET_TUNING:
+#ifdef CONFIG_SOC_CAMERA_SR030PC50_TUNING
+		ctrl->value = 1;
+#else
+		ctrl->value = 0;
+#endif
+	default:
+		return 0;
+	}
+	return -ENOIOCTLCMD;
+}
+
 /* Request bus settings on camera side */
 static int SR030PC50_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-//	struct i2c_client *client = v4l2_get_subdevdata(sd);
-//	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
@@ -307,6 +323,7 @@ static struct v4l2_subdev_video_ops SR030PC50_subdev_video_ops = {
 
 static struct v4l2_subdev_core_ops SR030PC50_subdev_core_ops = {
 	.g_chip_ident	= SR030PC50_g_chip_ident,
+	.g_ctrl		= SR030PC50_g_ctrl,
 };
 
 static struct v4l2_subdev_ops SR030PC50_subdev_ops = {
@@ -370,9 +387,10 @@ static int SR030PC50_probe(struct i2c_client *client,
 	{
 		/* check i2c device */
 		unsigned char rcv_buf[1];
-		
-		sr030pc50_write(client, 0x0300); // Page 0
-		ret = sr030pc50_read(client, 0x04, rcv_buf); // /* device id = P0(0x00) address 0x04 = 0xB8 */
+
+		sr030pc50_write(client, 0x0300); /* Page 0 */
+		ret = sr030pc50_read(client, 0x04, rcv_buf);
+			/* device id = P0(0x00) address 0x04 = 0xB8 */
 
 		if (0 > ret) {
 			printk(KERN_ALERT "%s :Read Error(%d)\n",

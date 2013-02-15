@@ -1,6 +1,6 @@
 /* vcd_ctrl.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/semaphore.h>
+
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_interface.h"
 #include "linux/vcd/vcd_spuv.h"
@@ -24,9 +26,12 @@
  */
 int g_vcd_ctrl_result;
 unsigned int g_vcd_ctrl_call_type;
-unsigned int g_vcd_record_mode;
-unsigned int g_vcd_playback_mode;
+unsigned int g_vcd_ctrl_record_mode;
+unsigned int g_vcd_ctrl_playback_mode;
 unsigned int g_vcd_ctrl_call_kind;
+int g_vcd_ctrl_is_stop_fw;
+DEFINE_SEMAPHORE(g_vcd_ctrl_semaphore);
+
 /* ========================================================================= */
 /* For AMHAL functions                                                       */
 /* ========================================================================= */
@@ -209,6 +214,9 @@ int vcd_ctrl_start_vcd(void)
 		goto rtn;
 	}
 
+	/* update status */
+	g_vcd_ctrl_is_stop_fw = VCD_ENABLE;
+
 	/* update active status */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_VCD);
 
@@ -232,6 +240,9 @@ int vcd_ctrl_stop_vcd(void)
 
 	/* update active status */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+
+	/* semaphore start */
+	down(&g_vcd_ctrl_semaphore);
 
 	/* check sequence */
 	g_vcd_ctrl_result =
@@ -259,9 +270,12 @@ int vcd_ctrl_stop_vcd(void)
 #endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_NONE);
+	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
 
 rtn:
+	/* semaphore end */
+	up(&g_vcd_ctrl_semaphore);
+
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return g_vcd_ctrl_result;
@@ -517,6 +531,30 @@ int vcd_ctrl_get_result(void)
 }
 
 
+/**
+ * @brief	cheak semantics function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+int vcd_ctrl_check_semantics(void)
+{
+	int ret = VCD_ERR_NONE;
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
+	vcd_pr_start_control_function();
+
+	active_feature = vcd_ctrl_func_get_active_feature();
+
+	if (VCD_CTRL_FUNC_FEATURE_AMHAL_STOP & active_feature)
+		ret = VCD_ERR_NOT_ACTIVE;
+
+	vcd_pr_end_control_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
 /* ========================================================================= */
 /* For Sound driver functions                                                */
 /* ========================================================================= */
@@ -596,7 +634,7 @@ int vcd_ctrl_stop_record(void)
 		}
 	} else {
 		/* clear record mode */
-		g_vcd_record_mode = 0;
+		g_vcd_ctrl_record_mode = 0;
 		ret = VCD_ERR_NONE;
 	}
 
@@ -691,7 +729,7 @@ int vcd_ctrl_stop_playback(void)
 		}
 	} else {
 		/* clear playback mode */
-		g_vcd_playback_mode = 0;
+		g_vcd_ctrl_playback_mode = 0;
 		ret = VCD_ERR_NONE;
 	}
 
@@ -812,7 +850,7 @@ void vcd_ctrl_rec_trigger(void)
 		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
 			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
 			/* VoIP + Playback */
-			vcd_spuv_voip_ul_playback(g_vcd_playback_mode);
+			vcd_spuv_voip_ul_playback(g_vcd_ctrl_playback_mode);
 		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
 			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
 			/* VoIP + Record */
@@ -862,7 +900,7 @@ void vcd_ctrl_play_trigger(void)
 		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
 			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
 			/* VoIP + Playback */
-			vcd_spuv_voip_dl_playback(g_vcd_playback_mode);
+			vcd_spuv_voip_dl_playback(g_vcd_ctrl_playback_mode);
 			/* notification buffer update */
 			vcd_beginning_buffer();
 		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
@@ -927,6 +965,13 @@ void vcd_ctrl_stop_fw(void)
 
 	vcd_pr_start_control_function();
 
+	/* semaphore start */
+	down(&g_vcd_ctrl_semaphore);
+
+	/* check execute */
+	if (VCD_DISABLE == g_vcd_ctrl_is_stop_fw)
+		goto rtn;
+
 	/* update feature */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_ERROR);
 
@@ -936,7 +981,14 @@ void vcd_ctrl_stop_fw(void)
 	/* check need stop vcd */
 	ret = vcd_ctrl_func_check_stop_vcd_need();
 	if (VCD_ERR_NONE == ret)
-		vcd_ctrl_stop_vcd();
+		vcd_ctrl_error_stop_vcd();
+
+	/* update status */
+	g_vcd_ctrl_is_stop_fw = VCD_DISABLE;
+
+rtn:
+	/* semaphore end */
+	up(&g_vcd_ctrl_semaphore);
 
 	vcd_pr_end_control_function();
 	return;
@@ -1013,6 +1065,44 @@ void vcd_ctrl_wait_path(void)
 
 	/* wait set path */
 	vcd_wait_path();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	get semaphore function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_get_semaphore(void)
+{
+	vcd_pr_start_control_function();
+
+	/* semaphore start */
+	vcd_get_semaphore();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	release semaphore function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_release_semaphore(void)
+{
+	vcd_pr_start_control_function();
+
+	/* semaphore end */
+	vcd_release_semaphore();
 
 	vcd_pr_end_control_function();
 	return;
@@ -1517,4 +1607,61 @@ void vcd_ctrl_dump_fw_static_buffer_memory(void)
 
 	vcd_pr_end_control_function();
 	return;
+}
+
+
+/**
+ * @brief	dump spuv crashlog function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_spuv_crashlog(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_spuv_crashlog();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/* ========================================================================= */
+/* Internal functions                                                        */
+/* ========================================================================= */
+
+/**
+ * @brief	vcd error stop function.
+ *
+ * @param	none.
+ *
+ * @retval	ret	result.
+ */
+static int vcd_ctrl_error_stop_vcd(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	g_vcd_ctrl_result = vcd_spuv_stop_vcd();
+	if (VCD_ERR_NONE != g_vcd_ctrl_result)
+		vcd_pr_control_info("vcd_spuv_stop_vcd[%d].\n",
+			g_vcd_ctrl_result);
+
+	/* delete call kind */
+	g_vcd_ctrl_call_kind = VCD_CALL_KIND_CALL;
+
+#ifdef __VCD_PROC_IF_ENABLE__
+	/* update result */
+	g_vcd_ctrl_result = VCD_ERR_NONE;
+#endif /* __VCD_PROC_IF_ENABLE__ */
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+
+	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
+		g_vcd_ctrl_result);
+	return g_vcd_ctrl_result;
 }

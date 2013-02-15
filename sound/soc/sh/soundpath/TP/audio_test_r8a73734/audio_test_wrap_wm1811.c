@@ -28,7 +28,7 @@
 #include <linux/module.h>
 
 #include <sound/soundpath/TP/audio_test_extern.h>
-#include "audio_test_wm1811.h"
+#include "audio_test.h"
 
 #include <sound/soundpath/soundpath.h>
 #include <sound/soundpath/wm1811_extern.h>
