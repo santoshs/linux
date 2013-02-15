@@ -272,6 +272,10 @@ static int d2153_get_hwsem_timeout(struct hwspinlock *hwlock,
 	for (;;) {
 		/* Try to take the hwspinlock */
 		ret = hwspin_trylock_nospin(hwlock);
+
+		/* WA. This should be removed when the hardware spin lock
+		 * issue is resolved. */
+		ret = 0;
 		if (ret == 0)
 			break;
 
