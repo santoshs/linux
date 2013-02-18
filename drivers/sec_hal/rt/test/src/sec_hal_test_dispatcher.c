@@ -12,22 +12,19 @@
 ** Copyright (C) 2010-2012 Renesas Electronics Corp.                         **
 ** All rights reserved.                                                      **
 ** ************************************************************************* */
-
-#define SEC_HAL_TRACE_LOCAL_ENABLE
-
 #include "sec_hal_rt.h"
+#define SEC_HAL_TRACE_LOCAL_ENABLE
 #include "sec_hal_rt_trace.h"
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_cmn.h"
 #include "sec_serv_api.h"
 #include "sec_msg.h"
+#include "tee_defs.h"
+#include "sec_hal_tee.h"
 #include <stdarg.h>
-
 #include <linux/string.h>
 #include <linux/slab.h>
 
-#include "tee_defs.h"
-#include "sec_hal_tee.h"
 
 /* ***************** MACROS, CONSTANTS, COMPILATION FLAGS ****************** */
 /* local macros */
@@ -84,8 +81,24 @@ static const char k_keyinfo[SEC_HAL_KEY_INFO_SIZE] =
      '2','3','4','5','6','7','8','9'};
 static const uint32_t k_default_timeout_value = 30000;
 static const uint32_t k_objid = 12;
-static const char k_correct_siml_unlock_code[5][17] =
-    {"ONE","TWO","THREE","FOUR","FIVE"};
+static const char *k_correct_siml_unlock_code[] = {
+    "code1",
+    "code2",
+    "code3",
+    "code4",
+    "code5"
+};
+static const char *k_master_code = "masterblaster";
+/* These are SHA256 values from above codes. Convert to bin still needed. */
+static const char *k_siml_verify_hash[] = {
+    "9583a5e3de1040c177c921abe53d4b28845129d8b11c8a83a59900045325de65",
+    "9d1e2cc14ea6a083da32d783f91367d8500de9244e8c17b54ad2ed3535bea4ec",
+    "ed2b1b8a1c244ad3d53084882c6ee966fb9cd1a94786787f9ef1b0a07bae20dd",
+    "c6681476a09bb796de70214be4b319928a3a818272388f56777f912d881050b5",
+    "9b9d3b164d165d17f786b3c474b4bba628e3378fe607da8860b19cc980eacda3"
+};
+static const char *k_master_hash =
+    "531f6d0840e65e0ab309ca0cf2db2f518d39df370f62dbee23690e5f813ac31a";
 static const uint32_t k_drm_default_session_id = 127;
 static const uint8_t k_drm_device_id[] =
     {'A','B','C','D','E','F','G','H',
@@ -96,8 +109,10 @@ static const uint8_t k_drm_device_id[] =
      'I','J','K','L','M','N','O','P',
      'Q','R','S','T','X','Y','0','1',
      '2','3','4','5','6','7','8','9'};
-
 static const uint32_t k_reset_info[] = {0x1122UL, 0x3344UL, 0x5566UL};
+static const uint8_t k_pub_id[SEC_HAL_MAX_PUBLIC_ID_LENGTH] =
+     {0x00u,0x00u,0x00u,0x00u,0x00u,0x00u,0x00u,0x00u,0x00u,0x00u,
+      0xF0u,0xF1u,0xF2u,0xF3u,0xF4u,0xF5u,0xF6u,0xF7u,0xF8u,0xF9u};
 
 void test_set_status(uint32_t status)
 {
@@ -487,11 +502,11 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             sec_msg_param_write32(&out_handle, g_status, 0);
             /* write simlock level status bitmask */
             sec_msg_param_write32(&out_handle, 0x07, 0);
+            sec_msg_param_write32(&out_handle, 0x06, 0);
+            sec_msg_param_write32(&out_handle, 0x05, 0);
         } break;
         case SEC_SERV_RUNTIME_INIT:
         {
-            SEC_HAL_TRACE("SEC_SERV_RUNTIME_INIT");
-
             uint32_t st[2] = {0}, commit_id_len = 0, reset_info_len = 0;
             uint64_t commit_id;
             commit_id = 0x123456789abcdef;
@@ -582,6 +597,37 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             /* write 'allowed' */
             sec_msg_param_write32(&out_handle, g_a3sp_state_info[1], 0);
         }break;
+        case SEC_SERV_RESERVE_MEDIA_AREA:
+        {
+            uint32_t id = 0xFF, start = 0, end = 0, st[3] = {0};
+            SEC_HAL_TRACE("SEC_SERV_RESERVE_MEDIA_AREA");
+            st[0] = sec_msg_param_read32(&in_handle, &id);
+            st[1] = sec_msg_param_read32(&in_handle, &start);
+            st[2] = sec_msg_param_read32(&in_handle, &end);
+            sec_msg_param_write32(&out_handle,
+                    (SEC_MSG_STATUS_OK == st[0] &&
+                     SEC_MSG_STATUS_OK == st[1] &&
+                     SEC_MSG_STATUS_OK == st[2] &&
+                     start && end) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_FREE_MEDIA_AREA:
+        {
+            uint32_t id = 0xFF, st = 0;
+            SEC_HAL_TRACE("SEC_SERV_FREE_MEDIA_AREA");
+            st = sec_msg_param_read32(&in_handle, &id);
+            sec_msg_param_write32(&out_handle,
+                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_PUBLIC_ID_REQUEST:
+        {
+            uint32_t sz = 0, st = 0;
+            SEC_HAL_TRACE("SEC_SERV_PUBLIC_ID_REQUEST");
+            st = sec_msg_param_read32(&in_handle, &sz);
+            sec_msg_param_write32(&out_handle,
+                    SEC_HAL_MAX_PUBLIC_ID_LENGTH == sz ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            sec_msg_param_write(&out_handle, k_pub_id, SEC_HAL_MAX_PUBLIC_ID_LENGTH, 0);
+        }break;
+#ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
         case SEC_SERV_DRM_OEMCRYPTO_SESSION_INIT:
         {
             uint32_t pid;
@@ -762,29 +808,105 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
                     (SEC_MSG_STATUS_OK == st) && kbox_size ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
             sec_msg_param_write32(&out_handle, SEC_HAL_RES_OK, 0);
         }break;
-        case SEC_SERV_RESERVE_MEDIA_AREA:
+#endif /* CONFIG_ARM_SEC_HAL_DRM_WVN */
+        case SEC_SERV_SIMLOCK_CONFIGURE:
         {
-            uint32_t id = 0xFF, start = 0, end = 0, st[3] = {0};
-            SEC_HAL_TRACE("SEC_SERV_RESERVE_MEDIA_AREA");
-            st[0] = sec_msg_param_read32(&in_handle, &id);
-            st[1] = sec_msg_param_read32(&in_handle, &start);
-            st[2] = sec_msg_param_read32(&in_handle, &end);
-            sec_msg_param_write32(&out_handle,
-                    (SEC_MSG_STATUS_OK == st[0] &&
-                     SEC_MSG_STATUS_OK == st[1] &&
-                     SEC_MSG_STATUS_OK == st[2] &&
-                     start && end) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-        }break;
-        case SEC_SERV_FREE_MEDIA_AREA:
-        {
-            uint32_t id = 0xFF, st = 0;
-            SEC_HAL_TRACE("SEC_SERV_FREE_MEDIA_AREA");
-            st = sec_msg_param_read32(&in_handle, &id);
-            sec_msg_param_write32(&out_handle,
-                    SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-        }break;
+            uint32_t msg[3], paddr, sz, emask, maxatt = 0x00, st = SEC_MSG_STATUS_OK;
+
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CONFIGURE");
+            msg[0] = sec_msg_param_read32(&in_handle, &sz);
+            msg[1] = sec_msg_param_read32(&in_handle, &paddr);
+            msg[2] = sec_msg_param_read32(&in_handle, &emask);
 
 
+            if (msg[0] != SEC_MSG_STATUS_OK
+                || msg[1] != SEC_MSG_STATUS_OK
+                || msg[2] != SEC_MSG_STATUS_OK
+                || !sz || !paddr || !emask) {
+                st = SEC_MSG_STATUS_FAIL;
+            }
+            else {
+                int i;
+                for (i = 0;
+                     i < 5 && st == SEC_MSG_STATUS_OK;
+                     i++) {
+                     char code[20] = {0};
+                     st = sec_msg_param_read(&in_handle, &code, 20);
+                     SEC_HAL_TRACE("st:%u, code: %s, k_correct: %s", st, code, k_correct_siml_unlock_code[i]);
+                     if ((emask & (0x1<<i)) && strcmp(code, k_correct_siml_unlock_code[i])) {
+                        st = SEC_MSG_STATUS_FAIL;
+                        break;
+                     }
+                }
+            }
+            sec_msg_param_read32(&in_handle, &maxatt);
+            SEC_HAL_TRACE("sz: %u, paddr: 0x%X, emask: 0x%X, maxatt: %u", sz, paddr, emask, maxatt);
+            sec_msg_param_write32(&out_handle,
+                (SEC_MSG_STATUS_OK == st) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            msg[0] = sec_msg_param_write32(&out_handle, 0x0D, 0);
+            if (msg[0] != SEC_MSG_STATUS_OK) { ret_status = SEC_ROM_RET_FAIL; }
+        }break;
+        case SEC_SERV_SIMLOCK_CONFIGURATION_REGISTER:
+        {
+            uint32_t msg[2], sz, paddr;
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_CONFIGURATION_REGISTER");
+            msg[0] = sec_msg_param_read32(&in_handle, &sz);
+            msg[1] = sec_msg_param_read32(&in_handle, &paddr);
+            sec_msg_param_write32(&out_handle,
+                (msg[0] == SEC_MSG_STATUS_OK &&
+                 msg[1] == SEC_MSG_STATUS_OK && paddr && sz) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_SIMLOCK_VERIFICATION_DATA_READ:
+        {
+            uint32_t msg[2] = {0}, i = 0, len = 0, st = 0;
+            uint8_t empty[32] = {0};
+            SEC_HAL_TRACE("SEC_SERV_SIMLOCK_VERIFICATION_DATA_READ");
+            msg[0] = sec_msg_param_read32(&in_handle, &len);
+            SEC_HAL_TRACE("len: %u", len);
+            st = sec_msg_param_write32(&out_handle,
+                (msg[0] == SEC_MSG_STATUS_OK && len <= 32) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+            /* master_hash is always the first. */
+            sec_msg_param_write32(&out_handle, len, 0);
+            sec_msg_param_write(&out_handle, k_master_hash, len, 0);
+            /* level1 hash is left empty so that we can also test not locked level */
+            msg[0] = sec_msg_param_write32(&out_handle, 0, 0);
+            msg[1] = sec_msg_param_write(&out_handle, empty, len, 0);
+            for (i = 1; st == SEC_MSG_STATUS_OK && i < 5 && msg[0] == SEC_MSG_STATUS_OK && msg[1] == SEC_MSG_STATUS_OK; i++) {
+                msg[0] = sec_msg_param_write32(&out_handle, len, 0);
+                msg[1] = sec_msg_param_write(&out_handle, k_siml_verify_hash[i], len, 0);
+            }
+            if (st != SEC_MSG_STATUS_OK || msg[0] != SEC_MSG_STATUS_OK || msg[1] != SEC_MSG_STATUS_OK) {
+                ret_status = SEC_ROM_RET_FAIL;
+            }
+        }break;
+        case SEC_SERV_IMEI_WRITE:
+        {
+            uint32_t msg[2];
+            sec_hal_imei_t imei;
+            uint8_t code[20] = {0};
+
+            SEC_HAL_TRACE("SEC_SERV_IMEI_WRITE");
+            msg[0] = sec_msg_param_read(&in_handle, &imei.imei, SEC_HAL_MAX_IMEI_SIZE);
+            msg[1] = sec_msg_param_read(&in_handle, &code, 20);
+            sec_msg_param_write32(&out_handle,
+                (msg[0] == SEC_MSG_STATUS_OK &&
+                 msg[1] == SEC_MSG_STATUS_OK) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
+        case SEC_SERV_MAC_WRITE:
+        {
+            uint32_t msg[3], idx = 0x00;
+            sec_hal_mac_address_t mac;
+            uint8_t code[20] = {0};
+
+            SEC_HAL_TRACE("SEC_SERV_MAC_WRITE");
+            msg[0] = sec_msg_param_read(&in_handle, &mac.mac_address, SEC_HAL_MAC_SIZE);
+            msg[1] = sec_msg_param_read32(&in_handle, &idx);
+            msg[2] = sec_msg_param_read(&in_handle, &code, 20);
+            sec_msg_param_write32(&out_handle,
+                (msg[0] == SEC_MSG_STATUS_OK &&
+                 msg[1] == SEC_MSG_STATUS_OK &&
+                 msg[2] == SEC_MSG_STATUS_OK) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
+        }break;
         case SEC_SERV_TEEC_InitializeContext:
         {
             uint32_t st = 0;
