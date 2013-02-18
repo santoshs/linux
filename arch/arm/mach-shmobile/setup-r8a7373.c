@@ -714,14 +714,93 @@ static struct platform_device i2c5_device_es20 = {
 	},
 };
 
-/* IICM */
+/* IIC2H */
+#ifndef CONFIG_SPI_SH_MSIOF
 static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
+	.bus_speed	= 400000,
+	.pin_multi	= true,
+	.bus_data_delay = MIN_SDA_DELAY,
+	.scl_info	= {
+		.port_num	= GPIO_PORT82,
+		.port_func	= GPIO_FN_I2C_SCL2H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT83,
+		.port_func	= GPIO_FN_I2C_SDA2H,
+	},
+};
+static struct resource i2c6_resources[] = {
+	[0] = {
+		.name	= "IIC6",
+		.start	= 0xe682c000,
+		.end	= 0xe682c425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(128),
+		.end	= gic_spi(128),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device i2c6_device = {
+	.name		= "i2c-sh_mobile",
+	.id             = 6,
+	.resource       = i2c6_resources,
+	.num_resources  = ARRAY_SIZE(i2c6_resources),
+	.dev            = {
+		.platform_data  = &i2c6_platform_data,
+	},
+};
+#endif
+/* IIC3H */
+#ifndef CONFIG_PN544_NFC
+static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
+	.bus_speed	= 400000,
+	.pin_multi	= true,
+	.bus_data_delay = MIN_SDA_DELAY,
+	.scl_info	= {
+		.port_num	= GPIO_PORT273,
+		.port_func	= GPIO_FN_I2C_SCL3H,
+	},
+	.sda_info	= {
+		.port_num	= GPIO_PORT274,
+		.port_func	= GPIO_FN_I2C_SDA3H,
+	},
+};
+
+static struct resource i2c7_resources[] = {
+	[0] = {
+		.name	= "IIC7",
+		.start	= 0xe682e000,
+		.end	= 0xe682e425 - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(181),
+		.end	= gic_spi(181),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device i2c7_device = {
+	.name		= "i2c-sh_mobile",
+	.id		= 7,
+	.resource	= i2c7_resources,
+	.num_resources	= ARRAY_SIZE(i2c7_resources),
+	.dev		= {
+		.platform_data	= &i2c7_platform_data,
+	},
+};
+#endif
+
+/* IICM */
+static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay = MIN_SDA_DELAY,
 };
 
-static struct resource i2c6_resources[] = {
+static struct resource i2c8_resources[] = {
 	[0] = {
 		.name	= "IICM",
 		.start	= 0xe6d20000,
@@ -736,87 +815,8 @@ static struct resource i2c6_resources[] = {
 
 };
 
-static struct platform_device i2c6_device = {
-	.name		= "i2c-sh7730",
-	.id		= 6,
-	.resource	= i2c6_resources,
-	.num_resources	= ARRAY_SIZE(i2c6_resources),
-	.dev		= {
-		.platform_data	= &i2c6_platform_data,
-	},
-};
-/* IIC2H */
-#ifndef CONFIG_SPI_SH_MSIOF
-static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
-	.bus_speed	= 400000,
-	.pin_multi	= true,
-	.bus_data_delay = MIN_SDA_DELAY,
-	.scl_info	= {
-		.port_num	= GPIO_PORT82,
-		.port_func	= GPIO_FN_I2C_SCL2H,
-	},
-	.sda_info	= {
-		.port_num	= GPIO_PORT83,
-		.port_func	= GPIO_FN_I2C_SDA2H,
-	},
-};
-
-static struct resource i2c7_resources[] = {
-	[0] = {
-		.name	= "IIC7",
-		.start	= 0xe682c000,
-		.end	= 0xe682c425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(128),
-		.end	= gic_spi(128),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device i2c7_device = {
-	.name		= "i2c-sh_mobile",
-	.id		= 7,
-	.resource	= i2c7_resources,
-	.num_resources	= ARRAY_SIZE(i2c7_resources),
-	.dev		= {
-		.platform_data	= &i2c7_platform_data,
-	},
-};
-#endif
-
-/* IIC3H */
-#ifndef CONFIG_PN544_NFC
-static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
-	.bus_speed	= 400000,
-	.pin_multi	= true,
-	.bus_data_delay = MIN_SDA_DELAY,
-	.scl_info	= {
-		.port_num	= GPIO_PORT273,
-		.port_func	= GPIO_FN_I2C_SCL3H,
-	},
-	.sda_info	= {
-		.port_num	= GPIO_PORT274,
-		.port_func	= GPIO_FN_I2C_SDA3H,
-	},
-};
-
-static struct resource i2c8_resources[] = {
-	[0] = {
-		.name	= "IIC8",
-		.start	= 0xe682e000,
-		.end	= 0xe682e425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(181),
-		.end	= gic_spi(181),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
 static struct platform_device i2c8_device = {
-	.name		= "i2c-sh_mobile",
+	.name		= "i2c-sh7730",
 	.id		= 8,
 	.resource	= i2c8_resources,
 	.num_resources	= ARRAY_SIZE(i2c8_resources),
@@ -824,7 +824,6 @@ static struct platform_device i2c8_device = {
 		.platform_data	= &i2c8_platform_data,
 	},
 };
-#endif
 
 /* SYS-DMAC */
 /* GPIO Port number needs to be modified by the respective driver module
@@ -1390,7 +1389,7 @@ static struct platform_device *r8a7373_late_devices_es10[] __initdata = {
 	&i2c2_device,
 	&i2c4_device,
 	&i2c5_device_es10,
-	&i2c6_device,
+	&i2c8_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
 	&smc_netdevice0,
@@ -1404,19 +1403,19 @@ static struct platform_device *r8a7373_late_devices_es10[] __initdata = {
 
 /* HS-- ES20 Specific late devices for Dialog */
 static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
-	&i2c0_device,
-	&i2c1_device,
-	&i2c2_device,
-	&i2c3_device,
-	&i2c4_device,
-	&i2c5_device_es20,
-	&i2c6_device,
+	&i2c0_device, /* IIC0  */
+	&i2c1_device, /* IIC1  */
+	&i2c2_device, /* IIC2  */
+	&i2c3_device, /* IIC3  */
+	&i2c4_device, /* IIC0H */
+	&i2c5_device_es20, /* IIC1H*/
 #ifndef CONFIG_SPI_SH_MSIOF
-	&i2c7_device,
+	&i2c6_device, /* IIC2H */
 #endif
 #ifndef CONFIG_PN544_NFC
-	&i2c8_device,
+	&i2c7_device, /* IIC3H */
 #endif
+	&i2c8_device, /* IICM  */
 	&dma0_device,
 #ifdef CONFIG_SMECO
 	&smc_netdevice0,
@@ -1430,19 +1429,19 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 
 /* HS-- ES20 Specific late devices */
 static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
-	&i2c0_device,
-	&i2c1_device,
-	&i2c2_device,
-	&i2c3_device,
-	&i2c4_device,
-	&i2c5_device_es20,
-	&i2c6_device,
+	&i2c0_device, /* IIC0  */
+	&i2c1_device, /* IIC1  */
+	&i2c2_device, /* IIC2  */
+	&i2c3_device, /* IIC3  */
+	&i2c4_device, /* IIC0H */
+	&i2c5_device_es20, /* IIC1H*/
 #ifndef CONFIG_SPI_SH_MSIOF
-	&i2c7_device,
+	&i2c6_device, /* IIC2H */
 #endif
 #ifndef CONFIG_PN544_NFC
-	&i2c8_device,
+	&i2c7_device, /* IIC3H */
 #endif
+	&i2c8_device, /* IICM  */
 	&i2c0gpio_device,
 	&i2c1gpio_device,
 	&dma0_device,

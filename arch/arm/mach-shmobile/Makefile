@@ -66,7 +66,7 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
-# obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
+obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
 obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
@@ -115,7 +115,7 @@ obj-$(CONFIG_MACH_GARDALTE)	+= board_mhl_sii8332.o
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 # WiFi objects
-# obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
+obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
 obj-$(CONFIG_RENESAS_WIFI) +=  board-renesas_wifi.o
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
