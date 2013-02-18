@@ -175,14 +175,14 @@ static int r8a66597_clk_get(struct r8a66597 *r8a66597,
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 {
-/*	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
+	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(0));
 	r8a66597_dma_bclr(r8a66597, IE | SP | DE | TE, USBHS_DMAC_CHCR(1));
 	r8a66597_dma_bclr(r8a66597, DME, DMAOR);
 	r8a66597_bset(r8a66597, BCLR, D0FIFOCTR);
 	r8a66597_bset(r8a66597, BCLR, D1FIFOCTR);
 	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
 	udelay(100);
-	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);*/
+	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
 }
 
 static int can_pullup(struct r8a66597 *r8a66597)
@@ -2469,7 +2469,7 @@ static int __init r8a66597_dmac_ioremap(struct r8a66597 *r8a66597,
 {
 	struct resource *res;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmac");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "USBHS-DMA");
 	if (!res) {
 		dev_err(&pdev->dev, "platform_get_resource error(dmac).\n");
 		return -ENODEV;
