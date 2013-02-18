@@ -42,7 +42,6 @@ DEFINE_SPINLOCK(clock_lock);
 unsigned int *cpu0BackupArea;
 unsigned int *cpu1BackupArea;
 int chip_rev;
-struct hwspinlock *pll_1_sem;
 unsigned int is_suspend_request;
 #define KICK_WAIT_INTERVAL_US	10
 #define ZSFC_MASK (0xF << 8)
@@ -237,12 +236,6 @@ unsigned int suspend_ZB3_backup(void)
 	return zb3_clk;
 }
 
-#ifndef POWER_BBPLLST
-#define POWER_BBPLLST					BIT(7)
-#endif
-#ifndef POWER_BBPLLOFF
-#define POWER_BBPLLOFF					BIT(7)
-#endif
 
 /*
  * shmobile_init_pm: Initialization of CPU's idle & suspend PM
@@ -254,7 +247,6 @@ int shmobile_init_pm(void)
 {
 	unsigned int smstpcr5_val;
 	unsigned int mstpsr5_val;
-	unsigned int pstr_val;
 	unsigned long flags;
 	void __iomem *map = NULL;
 	unsigned long cpuidle_spinlock;
@@ -492,24 +484,8 @@ int shmobile_init_pm(void)
 
 #endif /* CONFIG_PM_HAS_SECURE */
 
-#ifdef PLL1_CAN_OFF
-	/* - set PLL1 stop conditon to A2SL, A3R state by CPG.PLL1STPCR */
+	/* - set PLL1 stop conditon to A2SL, A3R, C4 state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
-#else
-	__raw_writel(PLL1STPCR_DEFALT | C4STP, PLL1STPCR);
-#endif
-	do {
-		__raw_writel(POWER_BBPLLOFF, SPDCR);
-		pstr_val = __raw_readl(PSTR);
-	} while (pstr_val & POWER_BBPLLST);
-
-	/* HPB SEM GP0  + SW semaphore @0x47FBFC08 */
-	pll_1_sem = hwspin_lock_request_specific(SMGP002);
-	if (pll_1_sem == NULL) {
-		printk(KERN_ERR "(%s:[%d])Unable to register hw_sem\n",
-					__func__, __LINE__);
-		return -EIO;
-	}
 
 	return 0;
 }
