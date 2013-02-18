@@ -331,6 +331,11 @@ enum {
 
 extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
 
+/*
+ * l2cache initialization
+ */
+extern void r8a7373_l2cache_init(void);
+
 /* DMA slave IDs */
 enum {
 	SHDMA_SLAVE_INVALID,
