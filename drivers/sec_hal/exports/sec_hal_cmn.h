@@ -28,12 +28,24 @@
 #define SEC_HAL_CMN_RES_PARAM_ERROR 0x00000020
 
 
+#define AREA_ID_FRAMEBUFFER  0
+#define AREA_ID_OMX          1
+#define AREA_ID_HDMI         2
+
+
 typedef struct {
 	uint32_t hw_reset_type;
 	uint32_t reason;
 	uint32_t link_register;
 	uint32_t interrupt_addr;
 } sec_reset_info;
+
+
+#define SEC_HAL_MAX_PUBLIC_ID_LENGTH 20
+typedef struct
+{
+	uint8_t public_id[SEC_HAL_MAX_PUBLIC_ID_LENGTH];
+} sec_hal_public_id_t;
 
 
 /* **************************************************************************
@@ -74,9 +86,6 @@ sec_hal_authenticate(
 		uint32_t cert_size,
 		uint32_t *obj_id);
 
-#define AREA_ID_FRAMEBUFFER  0
-#define AREA_ID_OMX          1
-#define AREA_ID_HDMI         2
 /* ****************************************************************************
 ** Function name      : sec_hal_memfw_attr_reserve
 ** Description        : Reserve memory firewalling attributes from secure env.
@@ -136,5 +145,18 @@ sec_hal_dbg_reg_set(
 		uint32_t *dbgreg1,
 		uint32_t *dbgreg2,
 		uint32_t *dbgreg3);
+
+/* ****************************************************************************
+** Function name      : sec_hal_public_id_get
+** Description        : stores device's Public ID to the given address.
+** Parameters         : IN/--- sec_hal_public_id_t *pub_id
+** Return value       : uint32
+**                      ==SEC_HAL_CMN_RES_OK operation successful
+**                      failure otherwise.
+** ***************************************************************************/
+uint32_t
+sec_hal_public_id_get(
+		sec_hal_public_id_t *pub_id);
+
 
 #endif /* SEC_HAL_CMN_H */

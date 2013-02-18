@@ -638,34 +638,26 @@ ENTRY(save_arm_register)
 	/*------------------------------*/
 	/* Read backup start address	*/
 	/*------------------------------*/
-	MOV		r1, r0 /* r1 = backup area(manage area base address) */
-	LDR		r2, =hoBackupAddr
-	LDR		r0, [r0, r2] /* Read backup start address */
+	MOV		r12, r0 /* r12 = backup area(manage area base address) */
+	LDR		r0, [r12, #hoBackupAddr] /* Read backup start address */
 
 	/*------------------------------*/
 	/* Save SVC mode context		*/
 	/*------------------------------*/
-	LDR		r4, =hoSaveArmSvc
-	STR		r0, [r1, r4]
+	STR		r0, [r12, #hoSaveArmSvc]
 	MRS		r4, CPSR /* Get CPSR */
+	/* Ensure all exceptions disabled now. In secure world, watchdog FIQs
+	 * could still happen until R13_fiq is modified */
+	CPSID	aif
 	MRS		r5, SPSR /* Get SPSR */
-	STMIA	r0!, {r4-r5, r12-r14} /* Save CPSR,SPSR,r12,sp,lr */
-
-	/*--------------------------------------*/
-	/* Restore manage area base address		*/
-	/*--------------------------------------*/
-	MOV		r12, r1
+	STMIA	r0!, {r4-r5, r13} /* Save CPSR,SPSR,sp */
 
 	/*----------------------------------------------*/
 	/* Save SYS,ABT,UND,IRQ,FIQ mode context		*/
 	/*----------------------------------------------*/
-	LDR		r4, =hoSaveArmExceptSvc
-	STR		r0, [r12, r4]
+	STR		r0, [r12, #hoSaveArmExceptSvc]
 	CPS		#POWER_MODESYS /* Switch to SYS mode */
 	STMIA	r0!, {r13-r14} /* Save sp,lr */
-	CPS		#POWER_MODEFIQ /* Switch to FIQ mode */
-	MRS		r4, SPSR /* Get SPSR */
-	STMIA	r0!, {r4, r8-r14} /* Save SPSR,r8-r12,sp,lr */
 	CPS		#POWER_MODEIRQ /* Switch to IRQ mode */
 	MRS		r4, SPSR /* Get SPSR */
 	STMIA	r0!, {r4, r13-r14} /* Save SPSR,sp,lr */
@@ -675,6 +667,10 @@ ENTRY(save_arm_register)
 	CPS		#POWER_MODEUND /* Switch to UND mode */
 	MRS		r4, SPSR /* Get SPSR */
 	STMIA	r0!, {r4, r13-r14} /* Save SPSR,sp,lr */
+	CPS		#POWER_MODEFIQ /* Switch to FIQ mode */
+	MRS		r4, SPSR /* Get SPSR */
+	STMIA	r0!, {r4, r8-r14} /* Save SPSR,r8-r12,sp,lr */
+	LDR		r13, =0xDEADDEAD /* Magic word for secure code */
 	CPS		#POWER_MODESVC /* switch to SVC mode */
 
 	/*----------------------------------------------*/
@@ -884,36 +880,36 @@ ENTRY(restore_arm_register_va)
 	MSR		FPEXC, r4 /* Restore FPEXC */
 	MCR	p15, 0, r3, c1, c0, 2 /* Restore Coprocessor Access Control */
 
+	/* SVC mode context */
+	LDR		r0, [r12, #hoSaveArmSvc]
+
+	LDMIA	r0!, {r4-r5, r13} /* Load CPSR,SPSR & restore sp */
+	MSR		SPSR_fsxc, r5 /* Restore SPSR */
+
 	/*----------------------------------------------*/
 	/* SYS, ABT, UND, IRQ, FIQ mode context		*/
 	/*----------------------------------------------*/
-	LDR		r4, =hoSaveArmExceptSvc
-	LDR		r0, [r12, r4]
-	CPS		#POWER_MODESYS /* Switch to SYS mode */
-	LDMIA	r0!, {r13-r14} /* Restore sp,lr */
-	CPS		#POWER_MODEFIQ /* Switch to FIQ mode */
-	LDMIA	r0!, {r4, r8-r14} /* Load SPSR, restore r8-r12,sp,lr */
-	MSR		SPSR_fsxc, r4 /* Restore SPSR */
-	CPS		#POWER_MODEIRQ /* Switch to IRQ mode */
-	LDMIA	r0!, {r4, r13-r14} /* Load SPSR, restore sp,lr */
-	MSR		SPSR_fsxc, r4 /* Restore SPSR */
-	CPS		#POWER_MODEABT /* Switch to ABT mode */
-	LDMIA	r0!, {r4, r13-r14} /* Load SPSR, restore sp,lr */
-	MSR		SPSR_fsxc, r4 /* Restore SPSR */
-	CPS		#POWER_MODEUND /* Switch to UND mode */
-	LDMIA	r0!, {r4, r13-r14} /* Load SPSR, restore sp,lr */
-	MSR		SPSR_fsxc, r4 /* Restore SPSR */
-	CPS		#POWER_MODESVC /* switch to SVC mode */
+	LDR		r0, [r12, #hoSaveArmExceptSvc]
+	CPS		#POWER_MODESYS
+	LDMIA	r0!, {r13-r14} /* Restore sp_usr,lr_usr */
+	CPS		#POWER_MODEIRQ
+	LDMIA	r0!, {r7, r13-r14} /* Load SPSR, restore sp_irq,lr_irq */
+	MSR		SPSR_fsxc, r7 /* Restore SPSR_irq */
+	CPS		#POWER_MODEABT
+	LDMIA	r0!, {r7, r13-r14} /* Load SPSR, restore sp_abt,lr_abt */
+	MSR		SPSR_fsxc, r7 /* Restore SPSR_abt */
+	CPS		#POWER_MODEUND
+	LDMIA	r0!, {r7, r13-r14} /* Load SPSR, restore sp_und,lr_und */
+	MSR		SPSR_fsxc, r7 /* Restore SPSR_und */
+	CPS		#POWER_MODEFIQ
+	LDMIA	r0!, {r7, r8-r14} /* Load SPSR, restore r8_fiq-r13_fiq,lr_fiq */
+	/* In secure world, a watchdog FIQ could hit from this point -
+	 * secure code checks r13_fiq to see whether public side is ready
+	 * for FIQs. So it's basically last, after sp_svc etc. */
+	MSR		SPSR_fsxc, r7 /* Restore SPSR_fiq */
 
-	/* SVC mode context */
-	LDR		r4, =hoSaveArmSvc
-	LDR		r0, [r12, r4]
-	MOV		r1, lr /* Backup link register */
-	LDMIA	r0!, {r4-r5, r12-r14} /* Load SPSR,CPSR & restore r12,sp,lr */
-	MSR		SPSR_fsxc, r5 /* Restore SPSR */
-	MSR		CPSR_fsxc, r4 /* Restore CPSR */
+	MSR		CPSR_fsxc, r4 /* Restore CPSR (so back to SVC mode) */
 
-	MOV		lr, r1 /* Restore link register */
 	MOV		pc, lr /* return */
 .pool
 

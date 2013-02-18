@@ -17,40 +17,73 @@
 
 #include <linux/ioctl.h>
 
-#define SEC_STORAGE_FILENAME_MAXLEN   128
-#define SEC_STORAGE_FILE_MAXLEN      3072
 
-typedef struct
-{
-    unsigned int param0;
-    unsigned int param1;
-    unsigned int param2;
-    unsigned int param3;
-    unsigned int param4;
-    unsigned int param5;
-    unsigned int reserved1;
-    unsigned int reserved2;
+typedef struct {
+	unsigned int param0;
+	unsigned int param1;
+	unsigned int param2;
+	unsigned int param3;
+	unsigned int param4;
+	unsigned int param5;
+	unsigned int reserved1;
+	unsigned int reserved2;
 } sd_ioctl_params_t;
-
-typedef struct
-{
-    unsigned int param0;
-    unsigned int param1;
-    unsigned int param2;
-    unsigned int param3;
-    unsigned int param4;
-    unsigned int param5;
-    unsigned int reserved1;
-    unsigned int reserved2;
-    char fname[SEC_STORAGE_FILENAME_MAXLEN];
-    char data[SEC_STORAGE_FILE_MAXLEN];
-} sd_rpc_params_t;
-
 #define SD_IOCTL_PARAMS_SZ      sizeof(sd_ioctl_params_t)
 #define SD_IOCTL_PARAMS_ZI      {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
+#define PARAM_SZ                sizeof(unsigned int)
+
+#define SEC_STORAGE_FILENAME_MAXLEN   128
+#define SEC_STORAGE_FILE_MAXLEN      3072
+typedef struct {
+	unsigned int param0;
+	unsigned int param1;
+	unsigned int param2;
+	unsigned int param3;
+	unsigned int param4;
+	unsigned int param5;
+	unsigned int reserved1;
+	unsigned int reserved2;
+	char fname[SEC_STORAGE_FILENAME_MAXLEN];
+	char data[SEC_STORAGE_FILE_MAXLEN];
+} sd_rpc_params_t;
 #define SD_RPC_PARAMS_SZ        sizeof(sd_rpc_params_t)
 #define SD_RPC_PARAMS_ZI        {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,"\0", "\0"}
-#define PARAM_SZ                sizeof(unsigned int)
+
+#define CNF_CODE_MAX_LEN        20
+typedef struct {
+	unsigned char code[CNF_CODE_MAX_LEN];
+} cnf_code_t;
+#define CNF_CODE_SZ             sizeof(cnf_code_t)
+#define CNF_CODE_ZI             {{0}}
+
+#define CNF_HASH_MAX_LEN        32
+typedef struct {
+	unsigned char hash[CNF_HASH_MAX_LEN];
+} cnf_hash_t;
+#define CNF_HASH_SZ             sizeof(cnf_hash_t)
+#define CNF_HASH_ZI             {{0}}
+
+#define SIML_LVL_CNT            5
+typedef struct {
+	cnf_code_t codes[SIML_LVL_CNT];
+} siml_unlock_codes_t;
+#define SIML_UNLOCK_CODES_SZ    sizeof(siml_unlock_codes_t)
+#define SIML_UNLOCK_CODES_ZI    {{CNF_CODE_ZI,CNF_CODE_ZI,CNF_CODE_ZI,CNF_CODE_ZI,CNF_CODE_ZI}}
+
+#define IMEI_MAX_LEN 16
+typedef struct {
+	unsigned char imei[IMEI_MAX_LEN];
+} imei_t;
+#define IMEI_SZ                 sizeof(imei_t)
+#define IMEI_ZI                 {{0}}
+
+#define MAC_MAX_LEN 6
+typedef struct {
+	unsigned char mac[MAC_MAX_LEN];
+} mac_t;
+#define MAC_SZ                  sizeof(mac_t)
+#define MAC_ZI                  {{0}}
+
 
 #define SD_MAGICNUM             's'
 #define SD_STARTNUM             _IOWR(SD_MAGICNUM, 0)
@@ -72,9 +105,8 @@ typedef struct
 #define SD_AUTH_DATA_GET        _IOWR(SD_MAGICNUM, 15, sd_ioctl_params_t*)
 #define SD_PERIODIC_ICHECK      _IOWR(SD_MAGICNUM, 16, sd_ioctl_params_t*)
 #define SD_SELFTEST             _IOWR(SD_MAGICNUM, 17, sd_ioctl_params_t*)
-#define SD_TOC_READ            _IOWR(SD_MAGICNUM, 18, sd_ioctl_params_t*)
-#define SD_EXIT                _IOWR(SD_MAGICNUM, 19, sd_ioctl_params_t*)
-
+#define SD_TOC_READ             _IOWR(SD_MAGICNUM, 18, sd_ioctl_params_t*)
+#define SD_EXIT                 _IOWR(SD_MAGICNUM, 19, sd_ioctl_params_t*)
 
 #define SD_DRM_ENTER_PLAY       _IOWR(SD_MAGICNUM, 20, sd_ioctl_params_t*)
 #define SD_DRM_EXIT_PLAY        _IOWR(SD_MAGICNUM, 21, sd_ioctl_params_t*)
@@ -90,18 +122,23 @@ typedef struct
 
 #define SD_SIMU_DS0_TEST        _IOWR(SD_MAGICNUM, 31, sd_ioctl_params_t*)
 #define SD_SIMU_DS1_TEST        _IOWR(SD_MAGICNUM, 32, sd_ioctl_params_t*)
+#define SD_SEC_STORAGE_SELFTEST _IOWR(SD_MAGICNUM, 33, sd_ioctl_params_t*)
+#define SD_SECURE_STORAGE_DAEMON_PID_REGISTER _IOWR(SD_MAGICNUM, 34, sd_ioctl_params_t*)
 
-#define SD_SEC_STORAGE_SELFTEST    _IOWR(SD_MAGICNUM, 33, sd_ioctl_params_t*)
-#define SD_SECURE_STORAGE_DAEMON_PID_REGISTER     _IOWR(SD_MAGICNUM, 34, sd_ioctl_params_t*)
+#define SD_TEE_INIT_CONTEXT     _IOWR(SD_MAGICNUM, 50, sd_ioctl_params_t*)
+#define SD_TEE_FINALIZE_CONTEXT _IOWR(SD_MAGICNUM, 51, sd_ioctl_params_t*)
+#define SD_TEE_OPEN_SESSION     _IOWR(SD_MAGICNUM, 52, sd_ioctl_params_t*)
+#define SD_TEE_CLOSE_SESSION    _IOWR(SD_MAGICNUM, 53, sd_ioctl_params_t*)
+#define SD_TEE_INVOKE_COMMAND   _IOWR(SD_MAGICNUM, 54, sd_ioctl_params_t*)
+#define SD_TEE_PRE_MMAP         _IOWR(SD_MAGICNUM, 55, sd_ioctl_params_t*)
 
-#define SD_TEE_INIT_CONTEXT        _IOWR(SD_MAGICNUM, 50, sd_ioctl_params_t*)
-#define SD_TEE_FINALIZE_CONTEXT    _IOWR(SD_MAGICNUM, 51, sd_ioctl_params_t*)
-#define SD_TEE_OPEN_SESSION        _IOWR(SD_MAGICNUM, 52, sd_ioctl_params_t*)
-#define SD_TEE_CLOSE_SESSION       _IOWR(SD_MAGICNUM, 53, sd_ioctl_params_t*)
-#define SD_TEE_INVOKE_COMMAND      _IOWR(SD_MAGICNUM, 54, sd_ioctl_params_t*)
-#define SD_TEE_PRE_MMAP            _IOWR(SD_MAGICNUM, 55, sd_ioctl_params_t*)
+#define SD_CNF_SIML             _IOWR(SD_MAGICNUM, 60, sd_ioctl_params_t*)
+#define SD_CNF_SIML_VALIDATE    _IOWR(SD_MAGICNUM, 61, sd_ioctl_params_t*)
+#define SD_CNF_SIML_VERIFY_DATA_GET _IOWR(SD_MAGICNUM, 62, sd_ioctl_params_t*)
+#define SD_CNF_IMEI             _IOWR(SD_MAGICNUM, 63, sd_ioctl_params_t*)
+#define SD_CNF_MAC              _IOWR(SD_MAGICNUM, 64, sd_ioctl_params_t*)
 
-#define SD_ENDNUM              _IOWR(SD_MAGICNUM, 56)
+#define SD_ENDNUM               _IOWR(SD_MAGICNUM, 70)
 
 
 
