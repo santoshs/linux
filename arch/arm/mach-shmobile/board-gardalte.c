@@ -175,7 +175,7 @@ int sec_rlte_hw_rev;
 unsigned int u2_board_rev;
 static void __iomem *sbsc_sdmracr1a;
 
-extern struct d2153_pdata d2153_pdata;
+//extern struct d2153_pdata d2153_pdata;
 
 void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
 {
@@ -1824,7 +1824,8 @@ static void __init gardalte_init(void)
 	i2c_register_board_info(4, i2c4_devices_melfas, ARRAY_SIZE(i2c4_devices_melfas));
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 
-	i2c_register_board_info(6, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
+	//i2c_register_board_info(6, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
+	i2c_register_board_info(8, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
 
 #if defined(CONFIG_GPS_CSR_GSD5T)
 	/* GPS Init */
