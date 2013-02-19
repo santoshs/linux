@@ -354,6 +354,7 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
+	.dmac		= 1,
 };
 
 static struct r8a66597_platdata usbhs_func_data = {
@@ -369,6 +370,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 #endif /* CONFIG_PMIC_INTERFACE */
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.gpio_setting_info	= &r8a66597_gpio_setting_info,
+	.dmac		= 1,
 };
 
 static struct resource usbhs_resources[] = {
