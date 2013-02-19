@@ -418,11 +418,15 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 };
 
 /* SCIFB1 */
+/* PCP# SS13020730732 - SCIFB1 configuration is changed as below
+based on UART baud rate settings in GPS module
+For baud rate 115 200 / 460 800 - SCBRR_ALGO_4 is set
+For baud rate 921 600 / 460 800 - SCBRR_ALGO_4_BIS */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4_BIS,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(108), gic_spi(108),
 			gic_spi(108), gic_spi(108) },
