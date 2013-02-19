@@ -47,14 +47,15 @@ struct sh_dmae_chan {
 	int id;				/* Raw id of this channel */
 	u32 __iomem *base;
 	char dev_id[16];                /* unique name per DMAC of channel */
-	u32 chcr;
-
-	bool outbound;
-
 	void __iomem *desc_mem;
 	phys_addr_t desc_pmem;
 	int desc_mode;
 	int no_of_descs;
+	u32 chcr;
+	struct scatterlist *sgl;
+	unsigned int sg_len;
+	dma_addr_t addr;
+	enum dma_transfer_direction direction;
 };
 
 struct sh_dmae_device {
@@ -66,10 +67,6 @@ struct sh_dmae_device {
 	u16 __iomem *dmars;
 	unsigned int chcr_offset;
 	u32 chcr_ie_bit;
-
-	spinlock_t	dev_lock;
-	unsigned int	burst_in_use;
-	unsigned int	num_in_use;
 	void __iomem *desc_mem;
 	phys_addr_t desc_pmem;
 
