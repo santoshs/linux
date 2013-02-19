@@ -43,10 +43,10 @@
  *      0x1860   SMCPGBxxx  -          -          -          -
  *      0x1870   SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx
  *
- * (*) General purpose semaphore
+ * (*) General-purpose bus semaphore
  */
 #define NR_HPB_SEMAPHORES	6
-#define NR_GP_EXT_SEMAPHORES	32
+#define NR_SMGP_SEMAPHORES	32
 
 /*
  * SrcID of the AP-System CPU on the SHwy bus
@@ -78,7 +78,11 @@ static int hwsem_trylock(struct hwspinlock *lock)
 	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
 
-	__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
+	/*Check if the semaphore is open*/
+	smsrc = __raw_readl(p->sm_base + SMxxSRC) >> 24;
+
+	if (smsrc == 0) {
+		__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
 
 	/*
 	 * Get upper 8 bits and compare to master ID.
@@ -92,6 +96,8 @@ static int hwsem_trylock(struct hwspinlock *lock)
 
 	mb();
 	return smsrc == HWSEM_MASTER_ID;
+	} else
+		return 0;
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
@@ -114,7 +120,6 @@ static void hwsem_unlock(struct hwspinlock *lock)
 static u32 hwsem_get_lock_id(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-
 	return (__raw_readl(p->sm_base + SMxxSRC) >> 24);
 }
 
@@ -124,63 +129,36 @@ static void hwsem_relax(struct hwspinlock *lock)
 }
 
 /*
- * General purpose semaphore - Software semaphore extension
- *
- * In accordance with an original HPB bus semaphore, software semaphore
- * extension consists of:
- *
- *  - 32-bit used per single software semaphore
- *
- *  - SMSRC[7:0] to indicate the SrcID of the CPU that acquired the semaphore;
- *    its position is tentative and configurable by 'EXTxxSRC_SHIFT'
- *
- * Format of Software semaphore:
- *
- * EXTxxSRC_SHIFT = 24
- * -------------------
- *  31            24 23            16 15             8  7             0
- * +----------------+----------------+----------------+----------------+
- * |   SMSRC[7:0]   |                |                |                |
- * +----------------+----------------+----------------+----------------+
- *
- * EXTxxSRC_SHIFT = 0
- * -------------------
- *  31            24 23            16 15             8  7             0
- * +----------------+----------------+----------------+----------------+
- * |                |                |                |   SMSRC[7:0]   |
- * +----------------+----------------+----------------+----------------+
- *
+ * General-purpose bus semaphore extension
  */
-#define EXTxxSRC_SHIFT	0
-
 static int hwsem_ext_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long extsrc;
+	unsigned long value;
 	int ret = 0;
 
-	/*
-	 * check to see if software semaphore bit is already set to be done
-	 * BEFORE getting the HW semaphore
-	 */
-	extsrc = __raw_readl(p->ext_base);
-	if (extsrc & 0xff)
+	/* check to see if software semaphore bit is already set to be done
+	BEFORE getting the HW semaphore */
+	value = __raw_readl(p->ext_base);
+	if (value & 0xff)
 		return 0; /* no need to get HW sem, failure case */
 
 	if (!hwsem_trylock(lock))
 		return 0;
 
-	/* check to see if a software semaphore is already acquired */
-	extsrc = __raw_readl(p->ext_base);
-	if (extsrc)
+	/* check to see if software semaphore bit is already set */
+	value = __raw_readl(p->ext_base);
+
+	if (value & 0xff)
 		goto out;
 
-	extsrc = HWSEM_MASTER_ID << EXTxxSRC_SHIFT;
-	__raw_writel(extsrc, p->ext_base);
+	value |= HWSEM_MASTER_ID;
+
+	__raw_writel(value, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 	ret = 1;
 
- out:
+out:
 	hwsem_unlock(lock);
 	return ret;
 }
@@ -188,7 +166,7 @@ static int hwsem_ext_trylock(struct hwspinlock *lock)
 static void hwsem_ext_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long expire, extsrc;
+	unsigned long expire, mask, value;
 
 	/* try to lock hwspinlock with timeout limit */
 	expire = msecs_to_jiffies(100) + jiffies;
@@ -197,38 +175,36 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 			break;
 
 		if (time_is_before_eq_jiffies(expire)) {
-			dev_err(lock->bank->dev,
-				"Timedout to lock hwspinlock to unlock %d\n",
-				hwlock_to_id(lock));
+			dev_err(lock->bank->dev, "Timeout to lock hwspinlock\n");
 			return;
 		}
 
 		hwsem_relax(lock);
 	}
 
-	extsrc = __raw_readl(p->ext_base) >> EXTxxSRC_SHIFT;
-	if (unlikely(extsrc == 0)) {
+	mask = 0xff;
+
+	value = __raw_readl(p->ext_base);
+	if (unlikely((value & mask) == 0)) {
 		dev_warn(lock->bank->dev,
-			 "Trying to unlock sw semaphore %d without lock\n",
+			 "Trying to unlock hwspinlock %d without lock\n",
 			 hwlock_to_id(lock));
 		goto out;
 	}
-	if (unlikely(extsrc != HWSEM_MASTER_ID)) {
-		dev_err(lock->bank->dev,
-			 "Trying to unlock sw semaphore %d not for ARM (%08lx)\n",
-			 hwlock_to_id(lock), extsrc);
-		dump_stack();
 
+	if (unlikely((value & mask) != HWSEM_MASTER_ID)) {
+		dev_err(lock->bank->dev,
+			 "Trying to unlock hwspinlock %d not for ARM (%08lx)\n",
+			 hwlock_to_id(lock), value);
 		/*
-		 * It's a sign of bug, and should be fixed in the caller.
-		 *
-		 * Even if it's so, however, AP-System CPU is the master
-		 * processor in the system and this software semaphore is
-		 * supposed to be unlocked, anyway.
+		 * Even if it's not for ARM, a general purpose semaphore
+		 * has been taken successfully, so we're going to unlock
+		 * this software semaphore anyway.
 		 */
 	}
 
-	__raw_writel(0, p->ext_base);
+	value &= ~mask;
+	__raw_writel(value, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 
  out:
@@ -257,16 +233,16 @@ static u32 hwsem_ext_get_lock_id(struct hwspinlock *lock)
 }
 
 static const struct hwspinlock_ops rmobile_hwspinlock_ops = {
-	.trylock	= hwsem_trylock,
-	.unlock		= hwsem_unlock,
-	.relax		= hwsem_relax,
+	.trylock		= hwsem_trylock,
+	.unlock			= hwsem_unlock,
+	.relax			= hwsem_relax,
 	.get_lock_id	= hwsem_get_lock_id,
 };
 
 static const struct hwspinlock_ops rmobile_hwspinlock_ext_ops = {
-	.trylock	= hwsem_ext_trylock,
-	.unlock		= hwsem_ext_unlock,
-	.relax		= hwsem_relax,
+	.trylock		= hwsem_ext_trylock,
+	.unlock			= hwsem_ext_unlock,
+	.relax			= hwsem_relax,
 	.get_lock_id	= hwsem_ext_get_lock_id,
 };
 
@@ -284,7 +260,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	if (!pdata || !pdata->descs)
 		return -EINVAL;
 
-	if ((pdata->nr_descs == 0) || (pdata->nr_descs > NR_GP_EXT_SEMAPHORES))
+	if ((pdata->nr_descs == 0) || (pdata->nr_descs > NR_SMGP_SEMAPHORES))
 		return -EINVAL;
 
 	num_locks = pdata->nr_descs;
@@ -300,7 +276,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	ops = &rmobile_hwspinlock_ops;
 	ext_base = NULL;
 
-	/* check to see if general purpose with semaphore extension is used */
+	/* check to see if general-purpose bus semaphore extension is used */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		ext_base = ioremap(res->start, resource_size(res));
