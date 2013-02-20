@@ -2055,8 +2055,6 @@ static int d2153_suspend(struct snd_soc_codec *codec)
 	regulator_disable(regulator);
 	regulator_put(regulator);
 
-	clk_disable(vclk4_clk);
-	
 	return 0;
 }
 
@@ -2069,8 +2067,6 @@ static int d2153_resume(struct snd_soc_codec *codec)
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct regulator *regulator;
 
-	clk_enable(vclk4_clk);
-	
 	d2153_set_bias_level(codec,SND_SOC_BIAS_STANDBY);
 
 	snd_soc_write(codec, D2153_MIXOUT_SP_CTRL,d2153_codec->spk_mixer_out);
@@ -2315,7 +2311,6 @@ static int d2153_probe(struct snd_soc_codec *codec)
 	codec->cache_bypass = 1;
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
-		d2153_enable_mclk();
 		d2153_codec_power(d2153_codec->codec,1);
 		d2153_setup(codec);	
 #ifdef CONFIG_SND_SOC_D2153_AAD		

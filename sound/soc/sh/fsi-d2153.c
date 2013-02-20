@@ -43,15 +43,24 @@
 #define D2153_PLAYBACK_STREAM_NAME	"Playback"
 #define D2153_CAPTURE_STREAM_NAME	"Capture"
 
+struct clk *vclk4_clk;
+struct clk *main_clk;
 static int g_boot_flag;
 
 static DEFINE_SPINLOCK(fsi_d2153_lock); /* Guards the ignore suspend */
 
+static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event);
 static int post_playback_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event);
 
 static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	const char *stream, int active);
+
+struct fsi_d2153_priv {
+	struct sndp_workqueue *fsi_d2153_workqueue;
+	struct sndp_work_info sync_work;
+};
 
 static struct snd_soc_codec *fsi_d2153_codec;
 static struct snd_soc_pcm_runtime *fsi_d2153_rtd;
@@ -367,31 +376,97 @@ static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("RECCHL"), /* Dummy widget */
 	SND_SOC_DAPM_OUTPUT("RECCHR"), /* Dummy widget */
 	SND_SOC_DAPM_POST("Post Playback", post_playback_event),
+	SND_SOC_DAPM_SUPPLY("VCLK4", SND_SOC_NOPM, 0, 0, vclk4_supply_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 };
 
 static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
 	{"RECCHL", NULL, "AIFOUTL"},
 	{"RECCHR", NULL, "AIFOUTR"},
+	{"AIFINL", NULL, "VCLK4"},
+	{"AIFINR", NULL, "VCLK4"},
 };
+
+static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	int ret;
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ret = clk_enable(vclk4_clk);
+		sndp_log_info("VCLKCR4[0x%x] ret[%d]\n",
+			__raw_readl(0xE615001C), ret);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		clk_disable(vclk4_clk);
+		sndp_log_info("VCLKCR4[0x%x]\n",
+			__raw_readl(0xE615001C));
+		break;
+	}
+	return 0;
+}
+
+static void fsi_d2153_sync_work_func(struct sndp_work_info *work)
+{
+	snd_soc_dapm_sync(&fsi_d2153_codec->dapm);
+}
 
 static int post_playback_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_dapm_widget *widget;
 	struct snd_soc_codec *codec = w->codec;
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(codec->card);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		if (!g_boot_flag) {
 			g_boot_flag = 1;
-			/* DAC OFF*/
-			fsi_d2153_set_active(codec,
-				D2153_PLAYBACK_STREAM_NAME, 0);
+			/* Force disable DACL/R */
+			list_for_each_entry(widget, &codec->card->widgets, list) {
+				if (!widget->sname)
+					continue;
+				if (strstr(widget->sname, D2153_PLAYBACK_STREAM_NAME)) {
+					widget->active = 0;
+					dapm_mark_dirty(widget,
+						"Force disable DAC on post_playback_event");
+					sndp_log_info("w->name[%s] w->active[%d] w->power[%d]\n",
+						widget->name, widget->active, widget->power);
+					continue;
+				}
+			}
+			sndp_workqueue_enqueue(priv->fsi_d2153_workqueue,
+				&priv->sync_work);
 		}
 		break;
 	default:
 		break;
 	}
 	return 0;
+}
+
+static int fsi_hifi_d2153_pcm_prepare(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dapm_widget *w;
+
+	if (!g_boot_flag) {
+		/* Force disable DACL/R */
+		list_for_each_entry(w, &codec->card->widgets, list) {
+			if (w) {
+				if (!strcmp("Post Playback", w->name)) {
+					dapm_mark_dirty(w,
+						"Force disable DAC on fsi_hifi_d2153_pcm_prepare");
+					return ret;
+				}
+			}
+		}
+	}
+	return ret;
 }
 
 static int fsi_hifi_d2153_hw_params(struct snd_pcm_substream *substream,
@@ -485,6 +560,7 @@ static int fsi_hifi_d2153_hw_params_test(struct snd_pcm_substream *substream,
 
 static struct snd_soc_ops fsi_hifi_d2153_ops = {
 	.hw_params = fsi_hifi_d2153_hw_params,
+	.prepare = fsi_hifi_d2153_pcm_prepare,
 };
 
 static struct snd_soc_ops fsi_hifi_d2153_ops_test = {
@@ -556,7 +632,50 @@ static struct snd_soc_card fsi_soc_card = {
 static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &fsi_soc_card;
+	struct fsi_d2153_priv *priv = NULL;
 	int ret = -ENOMEM;
+	unsigned int mclk;
+
+	priv = kzalloc(sizeof(struct fsi_d2153_priv), GFP_KERNEL);
+	if (!priv) {
+		ret = -ENOMEM;
+		sndp_log_err("cannot allocate fsi_d2153 private data\n");
+		return ret;
+	}
+
+	priv->fsi_d2153_workqueue =
+		sndp_workqueue_create("fsi_d2153 workqueue");
+	if (!priv->fsi_d2153_workqueue) {
+		ret = -ENOMEM;
+		sndp_log_err("Failed to create workqueue\n");
+		goto err_create_singlethread_workqueue;
+	}
+	sndp_work_initialize(&priv->sync_work, fsi_d2153_sync_work_func);
+
+	vclk4_clk = clk_get(NULL, "vclk4_clk");
+	if (IS_ERR(vclk4_clk)) {
+		ret = IS_ERR(vclk4_clk);
+		sndp_log_err("cannot get vclk4 clock\n");
+		goto err_vclk4_clk;
+	}
+	main_clk = clk_get(NULL, "main_clk");
+	if (IS_ERR(main_clk)) {
+		ret = IS_ERR(main_clk);
+		sndp_log_err("cannot get main clock\n");
+		goto err_main_clk;
+	}
+	ret = clk_set_parent(vclk4_clk, main_clk);
+	if (0 != ret) {
+		sndp_log_err("clk_set_parent failed (%d)\n", ret);
+		goto err_clk_set_parent;
+	}
+	mclk = 13000000;
+
+	ret = clk_set_rate(vclk4_clk, mclk);
+	if (ret < 0) {
+		sndp_log_err("cannot set vclk4 rate\n");
+		goto err_clk_set_rate;
+	}
 
 	ret = sndp_init(fsi_soc_dai, &fsi_soc_platform, card);
 	if (ret) {
@@ -566,6 +685,7 @@ static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
+	snd_soc_card_set_drvdata(card, priv);
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
@@ -576,17 +696,34 @@ static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 
 err_snd_soc_register_card:
 err_sndp_init:
-	return 0;
+err_clk_set_rate:
+err_clk_set_parent:
+	clk_put(main_clk);
+err_main_clk:
+	clk_put(vclk4_clk);
+err_vclk4_clk:
+	sndp_workqueue_destroy(priv->fsi_d2153_workqueue);
+err_create_singlethread_workqueue:
+	kfree(priv);
+	return ret;
 }
 
 static int __devexit fsi_d2153_driver_remove(struct platform_device *pdev)
 {
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(card);
+
 	fsi_d2153_codec = NULL;
 	fsi_d2153_rtd = NULL;
 	fsi_d2153_ops_save.startup = NULL;
 	fsi_d2153_ops_save.shutdown = NULL;
 	fsi_d2153_ops_save.hw_params = NULL;
 	fsi_d2153_ops_save.hw_free = NULL;
+	sndp_workqueue_destroy(priv->fsi_d2153_workqueue);
+	kfree(priv);
+	clk_put(main_clk);
+	clk_put(vclk4_clk);
 	return 0;
 }
 
