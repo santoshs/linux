@@ -118,8 +118,6 @@ struct sh_dmae_pdata {
 #define CHCR_CAE (1<<31)
 #define CHCR_CAIE (1<<30)
 
-#define CHCR_BD		(1 << 7)
-#define CHCR_OUTBOUND	(DM_FIX | SM_INC | 0x800)
 #define DPBASE_BASE 0xfffffff0
 #define DPBASE_SEL  0x00000001
 #define DPBASE_SHIFT  0x60  /* By using 6 descriptors per channel */

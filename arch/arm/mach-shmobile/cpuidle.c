@@ -453,164 +453,28 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 
 
 /*
- * pll1_condition_set
+ * check_peripheral_module_status
  *
  * return:
- *		0: successful
- *		-1: C4 is set to PLL1 stop condition.
- *		-2: set C4 failed.
+ *		0		: peripheral module is no busy.
+ *		-EBUSY	: peripheral module is busy.
  */
-static int pll1_condition_set(void)
+static int check_peripheral_module_status(void)
 {
-	int ret = 0;
 	if ((__raw_readl(MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
-		goto set_pll1_c4;
+		return -EBUSY;
 
 	if ((__raw_readl(MSTPSR2) & MSTPST2_PLL1) != MSTPST2_PLL1)
-		goto set_pll1_c4;
+		return -EBUSY;
 
 	if ((__raw_readl(MSTPSR3) & MSTPST3_PLL1) != MSTPST3_PLL1)
-		goto set_pll1_c4;
+		return -EBUSY;
 
-	if ((__raw_readl(MSTPSR4) & MSTPST4_PLL1) == MSTPST4_PLL1)
-		goto set_pll1_c4_skip;
+	if ((__raw_readl(MSTPSR4) & MSTPST4_PLL1) != MSTPST4_PLL1)
+		return -EBUSY;
 
-set_pll1_c4:
-	ret = hwspin_trylock_nospin(pll_1_sem);
-	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(PLL1STPCR) | C4STP, PLL1STPCR);
-		hwspin_unlock_nospin(pll_1_sem);
-		ret = -1;
-	} else if (ret == -EBUSY) {
-		get_sem_fail_ebusy++;
-		ret = -2;
-	} else if (ret == -EINVAL) {
-		get_sem_fail_einval++;
-		ret = -2;
-	} else { /* Never come !!! */
-		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n"
-				, __func__);
-		ret = -2;
-	}
-
-set_pll1_c4_skip:
-	return ret;
+	return 0;
 }
-
-static void pll1_condition_at_wakeup(void)
-{
-	int ret;
-	ret = hwspin_trylock_nospin(pll_1_sem);
-	if (ret == 0) { /* Get sem OK */
-		__raw_writel(__raw_readl(PLL1STPCR) &
-					(~C4STP), PLL1STPCR);
-		hwspin_unlock_nospin(pll_1_sem);
-	} else if (ret == -EBUSY)
-		get_sem_fail_ebusy++;
-	else if (ret == -EINVAL)
-		get_sem_fail_einval++;
-	else /* Never come !!! */
-		printk(KERN_ERR "[%s]:hwspin_unlock_nospin() spec NG\n",
-				__func__);
-}
-
-#define POWER_BBPLLST					BIT(7)
-#define POWER_BBPLLOFF					BIT(7)
-
-/*
- * pll1_will_be_off_check
- *
- * return:
- *		0: successful
- *		-1: PLL1 cannot be off
- *		-2: Set C4 failed
- */
-static int pll1_will_be_off_check(void)
-{
-	int ret;
-	/* pll1 condition is successful */
-	ret = pll1_condition_set();
-	if (ret < 0)
-		return ret;
-
-	/* A3R or Bit7(BBPLLST) is not off */
-	if (__raw_readl(PSTR) & (POWER_A3R | POWER_BBPLLST))
-		ret = -1;
-
-	return ret;
-}
-
-/* FRQCRA */
-#define IFC_MASK (0xF << 20)
-#define ZGFC_MASK (0xF << 16)
-#define M3FC_MASK (0xF << 12)
-#define BFC_MASK (0xF << 8)
-#define M1FC_MASK (0xF << 4)
-#define M5FC_MASK 0xF
-#define FRQCRA_MSK (IFC_MASK | ZGFC_MASK | \
-				M3FC_MASK | BFC_MASK | M1FC_MASK | M5FC_MASK)
-
-/* FRQCRB */
-#define KICK_BIT BIT(31)
-#define ZTRFC_MASK (0xF << 20)
-#define ZTFC_MASK (0xF << 16)
-#define ZXFC_MASK (0xF << 12)
-#define ZSFC_MASK (0xF << 8)
-#define HPFC_MASK (0xF << 4)
-#define FRQCRB_MSK (ZTRFC_MASK | ZTFC_MASK | ZXFC_MASK | \
-						ZSFC_MASK | HPFC_MASK)
-
-#define		DIV_1_1		-1
-#define		DIV_1_2		0x0
-#define		DIV_1_3		0x1
-#define		DIV_1_4		0x2
-#define		DIV_1_5		-1
-#define		DIV_1_6		0x3
-#define		DIV_1_7		-1
-#define		DIV_1_8		0x4
-#define		DIV_1_12	0x5
-#define		DIV_1_16	0x6
-#define		DIV_1_18	0x7
-#define		DIV_1_24	0x8
-#define		DIV_1_32	-1
-#define		DIV_1_36	0xa
-#define		DIV_1_48	0xb
-#define		DIV_1_96	-1
-
-/* clocks table change for corestandby 2
-FRQCRA
-I:		1/6
-ZG:		1/4
-M3:		1/8
-B:		1/12
-M1:		1/6
-M5:		1/8
-
-FRQCRB:
-ZTR:	1/4
-ZT:		1/6
-ZX:		1/6
-ZS:		1/6
-HP:		1/12
-*/
-
-/* FRQCRA CHANGED */
-#define IFC_CHANGE		(DIV_1_6 << 20)
-#define ZGFC_CHANGE		(DIV_1_4 << 16)
-#define M3FC_CHANGE		(DIV_1_16 << 12)
-#define BFC_CHANGE		(DIV_1_24 << 8)
-#define M1FC_CHANGE		(DIV_1_12 << 4)
-#define M5FC_CHANGE		DIV_1_16
-#define FRQCRA_CHANGE_CORE (IFC_CHANGE | ZGFC_CHANGE | \
-			M3FC_CHANGE | BFC_CHANGE | M1FC_CHANGE | M5FC_CHANGE)
-/* FRQCRB CHANGED */
-#define ZTRFC_CHANGE (DIV_1_8 << 20)
-#define ZTFC_CHANGE (DIV_1_12 << 16)
-#define ZXFC_CHANGE (DIV_1_12 << 12)
-#define ZSFC_CHANGE (DIV_1_12 << 8)
-#define HPFC_CHANGE (DIV_1_24 << 4)
-#define FRQCRB_CHANGE_CORE (ZTRFC_CHANGE | ZTFC_CHANGE | ZXFC_CHANGE | \
-						ZSFC_CHANGE | HPFC_CHANGE)
 
 /*
  * shmobile_enter_corestandby: executes idle PM for a CPU - Corestandby state
@@ -628,9 +492,7 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	s64 diff;
 	long wakelock;
 	unsigned int dr_WUPSFAC;
-	int clocks_ret, clocks_changed = 0;
-	unsigned int freqA_save;
-	unsigned int freqB_save;
+	int clocks_ret;
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 	unsigned int freqD_save = 0;
 	int chip_rev;
@@ -655,35 +517,15 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG) &&
 		is_cpufreq_clk_state_normal() != 0) {
 
-#ifdef PLL1_CAN_OFF
-			/* PLL1 is sure to be off ? */
-			ret = pll1_will_be_off_check();
-			if (ret == 0)
-				goto clock_change;
-			else if (ret == -2)
-				/* Have to handle case C4 is set,
-				but cannot due to sem fail */
-				goto out;
-			else /* (ret == -1) */
-					/* PLL1 cannot off,
-					no need to change clocks */
+			ret = check_peripheral_module_status();
+			if (ret == 0)	{
+				/* RT domain(A3R) is not off */
+				if (__raw_readl(PSTR) & (POWER_A3R))
 					goto skip_clock_change;
-
-clock_change:
-			/* backup freqs before change */
-			freqA_save = __raw_readl(FRQCRA);
-			freqB_save = __raw_readl(FRQCRB);
-			/* set clocks */
-			clocks_ret = clock_update(FRQCRA_CHANGE_CORE,
-				FRQCRA_MSK, FRQCRB_CHANGE_CORE, FRQCRB_MSK);
-			if (clocks_ret < 0) {
-				printk(KERN_INFO "[%s]: set clocks FAILED\n", \
-				__func__);
+			} else {
 				goto skip_clock_change;
 			}
 
-			clocks_changed = 1;
-
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 			chip_rev = shmobile_chip_rev();
 			if (chip_rev > ES_REV_2_1) {
@@ -691,58 +533,22 @@ clock_change:
 				if (freqD_save > 0) {
 					clocks_ret =
 					cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
-					/* if (clocks_ret < 0) {
+					if (clocks_ret < 0) {
 						printk
 						(KERN_INFO
 						"[%s]: set ZB3 clocks FAILED\n",
 							__func__);
-					} else {
-						printk
-						(KERN_INFO
-						"[%s]: set ZB3 clocks OK\n",
-							__func__);
-					} */
+					}
 				} else {
-					/* printk
+					printk
 					(KERN_INFO
 					"[%s]: Backup ZB3 clocks FAILED\n",
-						__func__); */
+						__func__);
 					clocks_ret = freqD_save;
 				}
 			}
 
 #endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-
-#else /*!defined(PLL1_CAN_OFF)*/
-#if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-			chip_rev = shmobile_chip_rev();
-			if (chip_rev > ES_REV_2_1) {
-				freqD_save = suspend_ZB3_backup();
-				if (freqD_save > 0) {
-					clocks_ret =
-					cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
-					/* if (clocks_ret < 0) {
-						printk
-						(KERN_INFO
-						"[%s]: set ZB3 clocks FAILED\n",
-							__func__);
-					} else {
-						printk
-						(KERN_INFO
-						"[%s]: set ZB3 clocks OK\n",
-							__func__);
-					}*/
-				} else {
-					/*printk
-					(KERN_INFO
-					"[%s]: Backup ZB3 clocks FAILED\n",
-						__func__);*/
-					clocks_ret = freqD_save;
-				}
-			}
-
-#endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
-#endif
 
 skip_clock_change:
 			/* end clock table */
@@ -752,33 +558,15 @@ skip_clock_change:
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 			if ((chip_rev > ES_REV_2_1) && (freqD_save > 0)) {
 				clocks_ret = cpg_set_sbsc_freq(freqD_save);
-				/*if (clocks_ret < 0) {
+				if (clocks_ret < 0) {
 					printk
 					(KERN_INFO
 					"[%s]: Restore ZB3 clocks FAILED\n",
 						__func__);
-				} else {
-					printk
-					(KERN_INFO
-					"[%s]: Restore ZB3 clocks OK\n",
-						__func__);
-				}*/
+				}
 			}
 #endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
 
-#ifdef PLL1_CAN_OFF
-			/* update pll1 stop condition without C4 */
-			pll1_condition_at_wakeup();
-
-			/* restore clocks */
-			if (clocks_changed) {
-				clocks_ret = clock_update(freqA_save,
-					FRQCRA_MSK, freqB_save, FRQCRB_MSK);
-				if (clocks_ret < 0)
-					printk(KERN_INFO "[%s]: restore clocks FAILED\n ",
-					__func__);
-			}
-#endif
 			dr_WUPSFAC = __raw_readl(WUPSFAC);
 #if 0	/* for debug */
 			if (dr_WUPSFAC)
@@ -790,9 +578,6 @@ skip_clock_change:
 
 		}
 
-/* #ifdef PLL1_CAN_OFF */
-out: /* go to corestandby for power consumption */
-/* #endif */
 
 		start_corestandby();
 

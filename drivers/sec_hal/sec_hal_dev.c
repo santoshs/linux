@@ -12,6 +12,7 @@
 ** Copyright (C) 2012 Renesas Electronics Corp.                            **
 ** All rights reserved.                                                    **
 ** *********************************************************************** */
+
 #include "sec_hal_rt.h"
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_drm.h"
@@ -57,12 +58,10 @@
 
 
 
-
 /* ********************************************************************
- * LOCAL MACROS, static constants.
- * *******************************************************************/
-#define FALSE 0
-#define TRUE  1
+** MACRO(s)
+** *******************************************************************/
+
 #define DEFAULT_WDT_VALUE 60000
 #define ICRAM1_SIZE 4096
 #define ICRAM1_ADDRESS 0xE63A0000
@@ -83,140 +82,90 @@
 #endif
 
 void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
-uint32_t sec_hal_reset_info_addr_register();
+uint32_t sec_hal_reset_info_addr_register(void);
 #ifdef SEC_STORAGE_SELFTEST_ENABLE
 static uint32_t rpc_handler(uint32_t id, uint32_t p1, uint32_t p2, uint32_t p3, uint32_t p4);
 #endif
 int workaround_done = 0;
 
-uint32_t secure_storage_pid;
+
+
 
 /* **********************************************************************
- * MEM ALLOC information, defined here so that one spinlock is enough.
- * *********************************************************************/
-struct mem_alloc_info
-{
-    void* virt_addr; /* the start address of the message area */
-    uint8_t size;/* the size of allocation */
-    uint8_t allocated; /* status of the block */
+** STRUCT(s)
+** *********************************************************************/
+struct mem_alloc_info {
+	void* virt_addr; /* the start address of the message area */
+	uint8_t size;/* the size of allocation */
+	uint8_t allocated; /* status of the block */
 };
-#define BLOCKCOUNT 128
-struct mem_msg_area
-{
-    void* virt_baseptr; /* stores ioremap output */
-    unsigned long phys_start; /* phys start addr */
-    unsigned long phys_size; /* phys size */
-    unsigned long offset; /* offset between physical and virtual addresses */
-    /* blocks to-be-allocated for out & in msgs */
-    struct mem_alloc_info msg_blocks[BLOCKCOUNT];
-};
-static inline void mem_msg_area_clear(struct mem_msg_area *ptr)
-{
-    int i = 0;
-    if (ptr) {
-        ptr->virt_baseptr = NULL;
-        ptr->phys_start = 0;
-        ptr->phys_size = 0;
-        for (; i < BLOCKCOUNT; i++) {
-            ptr->msg_blocks[i].virt_addr = NULL;
-            ptr->msg_blocks[i].size = 0;
-            ptr->msg_blocks[i].allocated = FALSE;
-        }
-    }
-}
-#define MEM_MSG_AREA_CLEAR(ptr) mem_msg_area_clear(ptr)
 
-typedef struct
-{
-    struct list_head list;
-    void* virt_addr; /* virtual address */
-    TEEC_SharedMemory *shmem;
+#define BLOCKCOUNT 128
+struct mem_msg_area {
+	void* virt_baseptr; /* stores ioremap output */
+	unsigned long phys_start; /* phys start addr */
+	unsigned long phys_size; /* phys size */
+	unsigned long offset; /* offset between physical and virtual addresses */
+	/* blocks to-be-allocated for out & in msgs */
+	struct mem_alloc_info msg_blocks[BLOCKCOUNT];
+};
+
+typedef struct {
+	struct list_head list;
+	void *virt_addr; /* virtual address */
+	TEEC_SharedMemory *shmem;
 } shared_memory_node;
 
-typedef struct
-{
-    struct list_head head;
+typedef struct {
+	struct list_head head;
 } shared_memory_list;
 
-/* **********************************************************************
- * RPC related data structures
- * *********************************************************************/
-typedef struct
-{
-    struct list_head list;
-    sd_rpc_params_t param;
-} rpc_queue_item_t;
-typedef struct
-{
-    struct list_head list_head;
-    wait_queue_head_t waitq;
-} rpc_queue_t;
-static int
-rpcq_init(rpc_queue_t* q)
-{
-    INIT_LIST_HEAD(&q->list_head);
-    init_waitqueue_head(&q->waitq);
-    return 0;
-}
+struct device_data {
+	struct class* class;
+	struct cdev cdev;
+	struct semaphore sem;
+	unsigned int wdt_upd; /* initial wdt value */
+	struct mem_msg_area icram0; /* memory (icram0) allocation information */
+	struct platform_device *pdev;
+};
+
+struct client_data {
+	struct device_data *device;
+	void *drm_data; /* if non NULL then owned. */
+	TEEC_Context *teec_context;
+	TEEC_SharedMemory *next_teec_shmem;
+	void * next_teec_shmem_buffer;
+	shared_memory_list shmem_list;
+};
+
+
+/* RunTime functions decl to higher level.(legacy stuff) */
+long sec_hal_rt_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param);
+
+
+/* RPC functions decl to higher level */
+ssize_t sec_hal_rpc_read(struct file *filp, char __user* buf,
+		size_t count, loff_t *ppos);
+ssize_t sec_hal_rpc_write(struct file *filp, const char *buf,
+		size_t count, loff_t *ppos);
+long sec_hal_rpc_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param);
+
+
+/* DRM functions decl to higher level */
+void sec_hal_drm_usr_exit(void *drm_data);
+long sec_hal_drm_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param,
+		struct platform_device *pdev);
+
+
+/* CNF functions decl to higher level */
+long sec_hal_cnf_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param,
+		struct platform_device *pdev);
 
 /* **********************************************************************
- * *********************************************************************/
-static int
-_rpcq_add(struct list_head* lst,
-          sd_rpc_params_t* param_in)
-{
-    rpc_queue_item_t* new = kmalloc(sizeof(rpc_queue_item_t), GFP_KERNEL);
-    if (!new){
-        return -ENOMEM;
-    }
-
-    new->param = *param_in;
-
-    list_add(&new->list, lst);
-    return 0;
-}
-static int
-rpcq_add_wakeup(rpc_queue_t* q,
-                sd_rpc_params_t* param_in)
-{
-    _rpcq_add(&q->list_head, param_in);
-    wake_up_interruptible(&q->waitq);
-    return 0;
-}
-
-/* **********************************************************************
- * *********************************************************************/
-static int
-_rpcq_get(struct list_head* lst,
-          sd_rpc_params_t* param_out)
-{
-    unsigned int tgid = (unsigned int)current->tgid;
-    struct list_head *pos;
-    rpc_queue_item_t *item;
-
-    list_for_each(pos, lst) {
-        item = list_entry(pos, rpc_queue_item_t, list);
-        if (item->param.reserved2 == tgid) {
-            *param_out = item->param;
-            list_del(&item->list);
-            kfree(item);
-            return 1;
-        }
-    }
-
-    return 0;
-}
-static int
-rpcq_get_wait(rpc_queue_t* q,
-              sd_rpc_params_t* item)
-{
-    return wait_event_interruptible(q->waitq, _rpcq_get(&q->list_head, item));
-}
-
-
-/* W/A to disable mem_prot in certain bootmodes */
-static inline int
-is_recovery(void)
+** W/A(s)
+** *********************************************************************/
+static inline
+int is_recovery(void)
 {
 	int i;
 	char *c = &boot_command_line[0];
@@ -233,37 +182,59 @@ is_recovery(void)
 	return 1;
 }
 
+static inline
+void mem_msg_area_clear(struct mem_msg_area *ptr)
+{
+	int i = 0;
+	if (ptr) {
+		ptr->virt_baseptr = NULL;
+		ptr->phys_start = 0;
+		ptr->phys_size = 0;
+		for (; i < BLOCKCOUNT; i++) {
+			ptr->msg_blocks[i].virt_addr = NULL;
+			ptr->msg_blocks[i].size = 0;
+			ptr->msg_blocks[i].allocated = FALSE;
+		}
+	}
+}
+#define MEM_MSG_AREA_CLEAR(ptr) mem_msg_area_clear(ptr)
+
+static
+int search_mem_node(struct list_head *lst, void *virt_addr)
+{
+	struct list_head *pos;
+	shared_memory_node *item;
+	shared_memory_node *node_to_return = NULL;
+
+	SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE("virt_addr: 0x%08x",virt_addr);
+
+	list_for_each(pos, lst) {
+		item = list_entry(pos, shared_memory_node, list);
+		SEC_HAL_TRACE("item: 0x%08x",item);
+		SEC_HAL_TRACE("item->virt_addr: 0x%08x",item->virt_addr);
+		if (item->virt_addr == virt_addr) {
+			SEC_HAL_TRACE("found node");
+			node_to_return = item;
+			break;
+		}
+	}
+
+	SEC_HAL_TRACE_EXIT();
+	return node_to_return;
+}
+
+
 
 /* **********************************************************************
- * STATIC WRITABLE data of the device, the only 'global' writable data.
- * *********************************************************************/
-struct device_data
+** STATIC writable data
+** *********************************************************************/
+static struct device_data g_device_data =
 {
-    struct class* class;
-    struct cdev cdev;
-    struct semaphore sem;
-    rpc_queue_t rpc_read_waitq;
-    rpc_queue_t rpc_write_waitq;
-    unsigned int wdt_upd; /* initial wdt value, received in rt_init */
-    struct mem_msg_area icram0; /* memory (icram0) allocation information */
-    struct platform_device *pdev;
-} g_device_data =
-{
-    .wdt_upd = DEFAULT_WDT_VALUE,
-    .icram0 = {.virt_baseptr = NULL},
+	.wdt_upd = DEFAULT_WDT_VALUE,
+	.icram0 = {.virt_baseptr = NULL},
 };
 static DEFINE_SPINLOCK(g_dev_spinlock); /* to protect above data struct */
-/* CLIENT specific data */
-struct client_data
-{
-    struct device_data *device;
-    uint32_t drm_session_id;
-    TEEC_Context *teec_context;
-    TEEC_SharedMemory *next_teec_shmem;
-    void * next_teec_shmem_buffer;
-    shared_memory_list shmem_list;
-};
-
 /* initial DBGREG values, for Rnd.
  * Eventually should be read from general purpose register
  * which are accessible by hw debuggers. */
@@ -272,801 +243,138 @@ static uint32_t g_dbgreg1 = 0x20000000;
 static uint32_t g_dbgreg2 = 0x00;
 static uint32_t g_dbgreg3 = 0x00078077;
 static int g_icram_mem_init_done = 0;
-
-DATA_TOC_ENTRY * sdtoc_root =NULL;
-DATA_TOC_ENTRY * public_toc_root =NULL;
-uint8_t * public_id;
-uint8_t * prcf;
+DATA_TOC_ENTRY *sdtoc_root;
+DATA_TOC_ENTRY *public_toc_root;
+uint8_t *public_id;
+uint8_t *prcf;
 uint32_t public_id_size;
 
-int search_mem_node(struct list_head* lst, void * virt_addr)
-    {
-    struct list_head *pos;
-    shared_memory_node *item;
-    shared_memory_node *node_to_return = NULL;
-
-    SEC_HAL_TRACE_ENTRY();
-    SEC_HAL_TRACE("virt_addr: 0x%08x",virt_addr);
-
-    list_for_each(pos, lst)
-        {
-        item = list_entry(pos, shared_memory_node, list);
-        SEC_HAL_TRACE("item: 0x%08x",item);
-        SEC_HAL_TRACE("item->virt_addr: 0x%08x",item->virt_addr);
-        if (item->virt_addr == virt_addr)
-            {
-            SEC_HAL_TRACE("found node");
-            node_to_return = item;
-            break;
-            }
-        }
-
-    SEC_HAL_TRACE_EXIT();
-    return node_to_return;
-    }
 
 
 /* **********************************************************************
- * CLIENT INTERFACE RELATED FUNCTIONS.
- * *********************************************************************/
-/* ----------------------------------------------------------------------
- * sec_hal_cli_open : allocate handle specific resources
- * --------------------------------------------------------------------*/
-static int
-sec_hal_cli_open(struct inode *inode,
-                 struct file *filp)
+** USR space access
+** *********************************************************************/
+static
+int sec_hal_usr_open(struct inode *inode, struct file *filp)
 {
-    struct device_data *device;
-    struct client_data *client;
+	struct device_data *device;
+	struct client_data *client;
 
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_ENTRY();
 
-    device = container_of(inode->i_cdev, struct device_data, cdev);
-    if (!device) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "failed to find cdev from container, aborting!");
-        return -ENODEV;
-    }
-    if (nonseekable_open(inode, filp)) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "failed set node as 'nonseekable', aborting!");
-        return -ENODEV;
-    }
-    client = kmalloc(sizeof(struct client_data), GFP_KERNEL);
-    if (!client) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "failed to allocate memory, aborting!");
-        return -ENODEV;
-    }
-    client->device = device;
-    client->drm_session_id = 0;
-    client->teec_context = NULL;
-    client->next_teec_shmem = NULL;
-    client->next_teec_shmem_buffer = NULL;
+	device = container_of(inode->i_cdev, struct device_data, cdev);
+	if (!device)
+		return -ENODEV;
 
-    INIT_LIST_HEAD(&(client->shmem_list.head));
+	if (nonseekable_open(inode, filp))
+		return -ENODEV;
 
-    filp->private_data = client;
+	client = kmalloc(sizeof(struct client_data), GFP_KERNEL);
+	if (!client)
+		return -ENODEV;
 
-    SEC_HAL_TRACE_EXIT();
-    return 0;
+	client->device = device;
+	client->drm_data = NULL;
+
+	client->teec_context = NULL;
+	client->next_teec_shmem = NULL;
+	client->next_teec_shmem_buffer = NULL;
+	INIT_LIST_HEAD(&(client->shmem_list.head));
+
+	filp->private_data = client;
+
+	SEC_HAL_TRACE_EXIT();
+	return 0;
 }
-/* ----------------------------------------------------------------------
- * sec_hal_cli_release :
- * --------------------------------------------------------------------*/
-static int
-sec_hal_cli_release(struct inode *inode,
-                    struct file *filp)
+
+static
+int sec_hal_usr_release(struct inode *inode, struct file *filp)
 {
+	struct client_data *client = filp->private_data;
 
-   struct client_data *client = filp->private_data;
-
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_ENTRY();
 
 #ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
-    if (client->drm_session_id){
-       sec_hal_drm_exit(1, &client->drm_session_id);
-    }
+	sec_hal_drm_usr_exit(client->drm_data); /* abnormal exit usecase */
+	client->drm_data = NULL;
 #endif
+	/* In case of crash client mem_nodes need to be freed here */
+	kfree(client);
 
-/* In case of crash client mem_nodes need to be freed here */
-
-    kfree(client);
-
-    SEC_HAL_TRACE_EXIT();
-    return 0;
+	SEC_HAL_TRACE_EXIT();
+	return 0;
 }
 
+
+static
+long sec_hal_usr_ioctl(struct file *filp, unsigned int cmd,
+		unsigned long arg)
+{
+	long ret = (long) -EPERM;
+	struct client_data *client = filp->private_data;
+	struct device_data *device = client->device;
+	sd_ioctl_params_t input;
+
+	if (filp->f_flags & O_NONBLOCK)
+		return -EPERM;
+
+	if (copy_from_user(&input, (void __user*)arg, SD_IOCTL_PARAMS_SZ))
+		return -EFAULT;
+
+	if (down_interruptible(&device->sem))
+		return -ERESTARTSYS;
+
+	switch (cmd) {
+	case SD_INIT:
+	case SD_EXIT:
+		ret = 0;
+		break;
+	case SD_KEY_INFO:
+	case SD_CERT_REGISTER:
+	case SD_DATA_CERT_REGISTER:
+	case SD_MAC_ADDRESS_GET:
+	case SD_IMEI_GET:
+	case SD_RAT_BAND_GET:
+	case SD_PP_FLAGS_COUNT_GET:
+	case SD_PP_FLAGS_GET:
+	case SD_SL_LEVELS_OPEN:
+	case SD_SL_LEVEL_OPEN:
+	case SD_SL_LEVEL_STATUS_GET:
+	case SD_AUTH_DATA_SIZE_GET:
+	case SD_AUTH_DATA_GET:
+	case SD_SELFTEST:
+		ret = sec_hal_rt_ioctl(cmd, NULL, &input);
+		break;
 #ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
-static inline int 
-has_drm_session(struct client_data *client,
-                uint32_t id)
-{
-    return (client->drm_session_id == id);
-}
-
-
-static inline uint32_t
-_drm_enter(struct client_data *client,
-           sd_ioctl_params_t *params)
-{
-    uint32_t id, ret;
-
-    if (!has_drm_session(client, id)) {
-        ret = sec_hal_drm_enter(current->pid, &id);
-        if (SEC_HAL_RES_OK == ret) {
-            client->drm_session_id = id;
-            if (copy_to_user((void __user*)params->param0, &id, sizeof(uint32_t))) {
-                ret = SEC_HAL_RES_FAIL;
-            }
-        }
-        else {
-            ret = SEC_HAL_RES_FAIL;
-        }
-    }
-    else {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-
-static inline uint32_t
-_drm_exit(struct client_data *client,
-          sd_ioctl_params_t *params)
-{
-    uint32_t id, ret;
-
-    id = params->param0;
-    if (has_drm_session(client, id)) {
-        ret = sec_hal_drm_exit(1, &id);
-        client->drm_session_id = 0;
-    }
-    else {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-
-#define ENTIT_KEY_MAX_LEN 16
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_set_entit_key(struct client_data *client,
-                   sd_ioctl_params_t *params)
-{
-    uint32_t id, ret, key_len;
-    uint8_t key[ENTIT_KEY_MAX_LEN] = {0};
-
-    id = params->param0;
-    key_len = params->param2;
-    if (has_drm_session(client, id) &&
-        ENTIT_KEY_MAX_LEN >= key_len) {
-        if (copy_from_user(key, (const void __user*)params->param1, key_len)) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-        else {
-            ret = sec_hal_drm_set_entit_key(id, key_len, key);
-         }
-    }
-    else
-    {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-
-#define ECM_KEY_MAX_LEN 32
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_derive_cw(struct client_data *client,
-               sd_ioctl_params_t *params)
-{
-    uint32_t id, ret, ecm_len, flags = 0;
-    uint8_t ecm[ECM_KEY_MAX_LEN] = {0};
-
-    id = params->param0;
-    ecm_len = params->param2;
-    if (has_drm_session(client, id) &&
-        ECM_KEY_MAX_LEN >= ecm_len) {
-        if (copy_from_user(ecm, (const void __user*)params->param1, ecm_len)) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-        else {
-            ret = sec_hal_drm_derive_cw(id, ecm_len, ecm, &flags);
-            put_user(flags, (uint32_t __user*)params->param3);
-         }
-    }
-    else
-    {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-#endif/* CONFIG_ARM_SEC_HAL_DRM_WVN*/
-
-static inline uint32_t
-pad_size(uint32_t sz)
-{
-    return ((sz+0xF) & ~0xF);
-}
-#define PTE_OFFSET -PTRS_PER_PTE 
-static inline uint32_t
-get_phys_addr(uint32_t virt_addr)
-{
-    uint32_t ret;
-    if (PAGE_OFFSET <= virt_addr) {
-        ret = (uint32_t)virt_to_phys((void*)virt_addr);
-    }
-    else {
-        pgd_t *pgd;
-        pmd_t *pmd;
-        pte_t *pte;
-        unsigned long *page_addr;
-        pgd = pgd_offset(current->mm, virt_addr);
-        pmd = pmd_offset(pgd, virt_addr);
-        pte = pte_offset_map(pmd, virt_addr); 
-        page_addr = (unsigned long*)((unsigned long)pte + (PTE_OFFSET*sizeof(pte)));
-        ret = ((0xFFFFF000 & (*page_addr)) | (0x00000FFF & virt_addr));
-    }
-    //SEC_HAL_TRACE_HEX("ret", ret);
-    return ret;
-}
-
-#define IV_SIZE 16
-
-#ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_decrypt_video(struct client_data *client,
-                   sd_ioctl_params_t *params)
-{
-    uint32_t id, ret, inl, outl = 0, phys_in = 0;
-    uint8_t iv[IV_SIZE*2] = {0};
-    void *iv_user = 0, *input = 0;
-
-    id = params->param0;
-    if (has_drm_session(client, id)) {
-        iv_user = (void*)params->param1;
-        inl = params->param3;
-
-        if (iv_user && copy_from_user(iv, (const void __user*)iv_user, IV_SIZE)) {
-            return SEC_HAL_RES_FAIL;
-        }
-
-        input = kmalloc(pad_size(inl), GFP_KERNEL);
-        if (!input) {
-            return -ENOMEM; 
-        }
-
-        if (copy_from_user(input, (const void __user*)params->param2, inl)) {
-            kfree(input);
-            return SEC_HAL_RES_FAIL;
-        }
-
-        phys_in = dma_map_single(&client->device->pdev->dev,
-                input, pad_size(inl), DMA_TO_DEVICE);
-        if (phys_in == 0) {
-            SEC_HAL_TRACE("dma_map_single error: %d", phys_in);
-            kfree(input);
-            return -ENOMEM;
-        }
-
-        ret = sec_hal_drm_decrypt_video(id, iv, iv_user ? IV_SIZE : 0, inl,
-                phys_in, params->param4,
-                params->param5, &outl, iv+IV_SIZE);
-        dma_unmap_single(&client->device->pdev->dev,
-                phys_in, pad_size(inl), DMA_TO_DEVICE);
-        kfree(input);
-
-        if (SEC_HAL_RES_OK == ret) {
-            if ((iv_user && copy_to_user((void __user*)iv_user, iv+IV_SIZE, IV_SIZE)) ||
-                put_user(outl, (uint32_t __user*)params->reserved1)) {
-                SEC_HAL_TRACE("failed in iv or outl copying to user");
-                ret = SEC_HAL_RES_FAIL;
-            }
-        }
-    }
-    else {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_decrypt_audio(struct client_data *client,
-                   sd_ioctl_params_t *params)
-{
-    uint32_t id, ret, inl, outl = 0, phys_in = 0, phys_out = 0;
-    uint8_t iv[IV_SIZE*2] = {0};
-    void *iv_user = 0, *input = 0, *output = 0;
-
-    id = params->param0;
-    if (has_drm_session(client, id)) {
-        iv_user = (void*)params->param1;
-        inl = params->param3;
-
-        if (iv_user && copy_from_user(iv, (const void __user*)iv_user, IV_SIZE)) {
-            return SEC_HAL_RES_FAIL;
-        }
-
-        input = kmalloc(pad_size(inl), GFP_KERNEL);
-        output = kmalloc(pad_size(inl), GFP_KERNEL);
-        if (!input || !output) {
-            return -ENOMEM;
-        }
-
-        if (copy_from_user(input, (const void __user*)params->param2, inl)) {
-            kfree(output);
-            kfree(input);
-            return SEC_HAL_RES_FAIL;
-        }
-
-        phys_in = dma_map_single(&client->device->pdev->dev,
-                input, pad_size(inl), DMA_TO_DEVICE);
-        if (phys_in == 0) {
-            SEC_HAL_TRACE("dma_map_single error: %d", phys_in);
-            kfree(output);
-            kfree(input);
-            return -ENOMEM;
-        }
-
-        phys_out = dma_map_single(&client->device->pdev->dev,
-                output, pad_size(inl), DMA_FROM_DEVICE);
-        if (phys_out == 0) {
-            SEC_HAL_TRACE("dma_map_single error: %d", phys_out);
-            kfree(output);
-            kfree(input);
-            return -ENOMEM;
-        }
-
-        ret = sec_hal_drm_decrypt_audio(id, iv, iv_user ? IV_SIZE : 0, inl,
-                phys_in, phys_out,
-                &outl, iv+IV_SIZE);
-        if (SEC_HAL_RES_OK == ret &&
-            copy_to_user((void __user*)params->param4, output, outl)) {
-            SEC_HAL_TRACE("failed in output copying to user");
-            ret = SEC_HAL_RES_FAIL;
-        }
-        dma_unmap_single(&client->device->pdev->dev,
-                phys_in, pad_size(inl), DMA_TO_DEVICE);
-        dma_unmap_single(&client->device->pdev->dev,
-                phys_out, pad_size(inl), DMA_FROM_DEVICE);
-        kfree(output);
-        kfree(input);
-
-        if (SEC_HAL_RES_OK == ret) {
-            if ((iv_user && copy_to_user((void __user*)iv_user, iv+IV_SIZE, IV_SIZE)) ||
-                put_user(outl, (uint32_t __user*)params->param5)) {
-                SEC_HAL_TRACE("failed in iv or outl copying to user");
-                ret = SEC_HAL_RES_FAIL;
-            }
-        }
-    }
-    else {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_wrap_keybox(struct client_data *client,
-                 sd_ioctl_params_t *params)
-{
-    uint32_t ret, kbox_size = 0, wr_kbox_size = 0, trs_key_size = 0;
-    void *kbox = 0, *wr_kbox = 0, *trs_key = 0;
-    void *kbox_user = 0, *wr_kbox_user = 0, *trs_key_user = 0;
-
-    kbox_user = (void*)params->param1;
-    kbox_size = params->param2;
-    wr_kbox_user = (void*)params->param3;
-    trs_key_user = (void*)params->param5;
-    trs_key_size = params->reserved1;
-    if (!kbox_user || !kbox_size) {
-        return -ENOMEM;
-    }
-
-    kbox = kmalloc(kbox_size, GFP_KERNEL);
-    wr_kbox = wr_kbox_user ? kmalloc(2*kbox_size, GFP_KERNEL) : 0;
-    trs_key = trs_key_size ? kmalloc(trs_key_size, GFP_KERNEL) : 0;
-    if (!kbox) {
-        return -ENOMEM;
-    }
-
-    if (copy_from_user(kbox, (const void __user*)kbox_user, kbox_size)) {
-        kfree(trs_key);
-        kfree(wr_kbox);
-        kfree(kbox);
-        return SEC_HAL_RES_FAIL;
-    }
-    if (copy_from_user(trs_key, (const void __user*)trs_key_user, trs_key_size)) {
-        kfree(trs_key);
-        kfree(wr_kbox);
-        kfree(kbox);
-        return SEC_HAL_RES_FAIL;
-    }
-
-    ret = sec_hal_drm_wrap_keybox((uint8_t*)kbox, kbox_size,
-                (uint8_t*)wr_kbox, &wr_kbox_size,
-                (uint8_t*)trs_key, trs_key_size);
-
-    if (SEC_HAL_RES_OK == ret &&
-        (wr_kbox_user && copy_to_user((void __user*)wr_kbox_user, wr_kbox, wr_kbox_size))) {
-        ret = SEC_HAL_RES_FAIL;
-    }
-    if (put_user(wr_kbox_size, (uint32_t __user*)params->param4)) {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    kfree(trs_key);
-    kfree(wr_kbox);
-    kfree(kbox);
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_install_keybox(struct client_data *client,
-                    sd_ioctl_params_t *params)
-{
-    uint32_t ret, kbox_size = 0;
-    void *kbox = 0;
-
-    kbox_size = params->param2;
-    kbox = kmalloc(kbox_size, GFP_KERNEL);
-    if (!kbox) {
-        return -ENOMEM;
-    }
-
-    if (copy_from_user(kbox, (const void __user*)params->param1, kbox_size)) {
-        kfree(kbox);
-        return SEC_HAL_RES_FAIL;
-    }
-
-    ret = sec_hal_drm_install_keybox((uint8_t*)kbox, kbox_size);
-
-    kfree(kbox);
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_valid_keybox(struct client_data *client,
-                  sd_ioctl_params_t *params)
-{
-    return sec_hal_drm_is_keybox_valid();
-}
-
-static inline uint32_t
-_get_random(struct client_data *client,
-            sd_ioctl_params_t *params)
-{
-    uint32_t ret, size;
-    void *rand;
-
-    size = params->param2;
-    rand = kmalloc(size, GFP_KERNEL);
-    if (!rand) {
-        return -ENOMEM;
-    }
-
-    ret = sec_hal_drm_get_random(size, (uint8_t*)rand);
-    if (SEC_HAL_RES_OK == ret &&
-        copy_to_user((void __user*)params->param1, rand, size)) {
-        ret = SEC_HAL_RES_FAIL;
-    }
-
-    kfree(rand);
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_get_device_id(struct client_data *client,
-                   sd_ioctl_params_t *params)
-{
-    uint32_t ret, id_len, out_size = 0;
-    void* id = 0;
-
-    id_len = params->param1;
-    if (!id_len){
-        return -ENOMEM;
-    }
-
-    id = kmalloc(id_len, GFP_KERNEL);
-    if (!id){
-        return -ENOMEM;
-    }
-
-    ret = sec_hal_drm_get_device_id(id_len, (uint8_t*)id, &out_size);
-    if (SEC_HAL_RES_OK == ret) {
-        if (id_len < out_size) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-        else if(copy_to_user((void __user*)params->param2, id, out_size) ||
-                put_user(out_size, (uint32_t __user*)params->param3)) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-    }
-
-    kfree(id);
-    return ret;
-}
-
-/* copy semantics wrapper. */
-static inline uint32_t
-_drm_get_keydata(struct client_data *client,
-                 sd_ioctl_params_t *params)
-{
-    uint32_t ret, keyd_len, out_size = 0;
-    void* keyd = 0;
-
-    keyd_len = params->param1;
-    if (!keyd_len){
-        return -ENOMEM;
-    }
-
-    keyd = kmalloc(keyd_len, GFP_KERNEL);
-    if (!keyd) {
-        return -ENOMEM;
-    }
-
-    ret = sec_hal_drm_get_key_data(keyd_len, (uint8_t*)keyd, &out_size);
-    if (SEC_HAL_RES_OK == ret) {
-        if (keyd_len < out_size) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-        else if(copy_to_user((void __user*)params->param2, keyd, out_size) ||
-                put_user(out_size, (uint32_t __user*)params->param3)) {
-            ret = SEC_HAL_RES_FAIL;
-        }
-    }
-
-    kfree(keyd);
-    return ret;
-}
-
+	case SD_DRM_ENTER_PLAY:
+	case SD_DRM_EXIT_PLAY:
+	case SD_DRM_SET_ENTIT_KEY:
+	case SD_DRM_DER_CTL_WORD:
+	case SD_DRM_DECRYPT_AUDIO:
+	case SD_DRM_DECRYPT_VIDEO:
+	case SD_DRM_VALID_KEYBOX:
+	case SD_DRM_DEVICE_ID_GET:
+	case SD_DRM_KEYDATA_GET:
+	case SD_RANDOM_NUMBER_GET:
+	case SD_DRM_WRAP_KEYBOX:
+	case SD_DRM_INSTALL_KEYBOX:
+		ret = sec_hal_drm_ioctl(cmd, &client->drm_data, &input, device->pdev);
+		break;
 #endif /* CONFIG_ARM_SEC_HAL_DRM_WVN */
-
-static const int k_param_sz = sizeof(sd_ioctl_params_t);
-/* ----------------------------------------------------------------------
- * sec_hal_cli_ioctl : IO control, make bi-directional sync operations.
- * --------------------------------------------------------------------*/
-static long
-sec_hal_cli_ioctl(struct file *filp,
-                  unsigned int cmd,
-                  unsigned long arg)
-{
-    long ret = (long) -EPERM;
-    struct client_data *client = filp->private_data;
-    struct device_data *device = client->device;
-    sd_ioctl_params_t input;
-
-    if (filp->f_flags & O_NONBLOCK) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "non-blocking IO not supported, aborting!");
-        return -EPERM;
-    }
-    if(copy_from_user(&input, (void __user*)arg, k_param_sz)) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "failed to get args from user, aborting!");
-        return -EFAULT;
-    }
-
-    if (down_interruptible(&device->sem)) {
-        SEC_HAL_TRACE_EXIT_INFO("interrupted, restart syscall");
-        return -ERESTARTSYS;
-    }
-
-    switch (cmd)
-    {
-#ifdef SEC_STORAGE_SELFTEST_ENABLE
-        case SD_SEC_STORAGE_SELFTEST:
-        {
-            secure_storage_pid = current->tgid;
-            ret = sec_hal_rt_sec_storage_selftest(&rpc_handler, input.param1);
-        }break;
-#endif
-#ifdef SEC_STORAGE_DS_TEST_ENABLE
-        /* TEMPORARY, for testing purposes, send SEC_SERV_SIMU_DS(0/1)_TEST message to Demo (DS) */
-        case SD_SIMU_DS0_TEST:
-        {
-            secure_storage_pid = current->tgid;
-            ret = sec_hal_rt_simu_ds_test(0, input.param1, 0, 1); /* DS0, with or without params(0, 1)*/
-        }break;
-        case SD_SIMU_DS1_TEST:
-        {
-            secure_storage_pid = current->tgid;
-            ret = sec_hal_rt_simu_ds_test(1, input.param1, 0, 1); /* DS1, with or without params(0, 1)*/
-        }break;
-#endif
-        case SD_INIT:{ret = 0;} break;
-        case SD_EXIT:{SEC_HAL_TRACE("EXIT - NOP"); ret = 0;}break;
-        case SD_KEY_INFO:
-        {
-            if (!access_ok(VERIFY_WRITE, (void __user *)input.param0, sizeof(sec_hal_key_info_t))) {
-                SEC_HAL_TRACE("keyinfo not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_key_info_get((sec_hal_key_info_t*)input.param0);
-            }
-        }break;
-        case SD_CERT_REGISTER:
-        {
-            if (!access_ok(VERIFY_READ, (void __user *)input.param0, input.param1)) {
-                SEC_HAL_TRACE("cert not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param2, PARAM_SZ)) {
-                SEC_HAL_TRACE("objid not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_cert_register(
-                        (void*)input.param0,/*IN*/
-                        input.param1,/*IN*/
-                        (uint32_t*)input.param2/*OUT*/);
-            }
-        }break;
-        case SD_DATA_CERT_REGISTER:
-        {
-            if (!access_ok(VERIFY_READ, (void __user*)input.param0, input.param1)) {
-                SEC_HAL_TRACE("cert not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_READ, (void __user*)input.param2, input.param3)) {
-                SEC_HAL_TRACE("data not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param4, sizeof(uint32_t))) {
-                SEC_HAL_TRACE("obj_id ptr not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_data_cert_register(
-                        (void*) input.param0, /*IN*/
-                        input.param1, /*IN*/
-                        (void*) input.param2, /*IN*/
-                        input.param3, /*IN*/
-                        (uint32_t*)input.param4);
-            }
-        }break;
-#ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
-        case SD_RANDOM_NUMBER_GET:{ ret = _get_random(client, &input); }break;
-#endif
-        case SD_MAC_ADDRESS_GET:
-        {
-            if (input.param0 > SEC_HAL_MAX_MAC_INDEX) {
-                SEC_HAL_TRACE("mac_addr_index out-of-bounds, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param1, SEC_HAL_MAC_SIZE)) {
-                SEC_HAL_TRACE("mac_addr not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_mac_address_get(
-                        input.param0, /*IN*/
-                        (sec_hal_mac_address_t *)input.param1 /*OUT*/);
-            }
-        }break;
-        case SD_IMEI_GET:
-        {
-            if (!access_ok(VERIFY_WRITE, (void __user*)input.param0, SEC_HAL_MAX_IMEI_SIZE)) {
-                SEC_HAL_TRACE("imei not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_imei_get((sec_hal_imei_t *)input.param0 /*OUT*/);
-            }
-        }break;
-        case SD_RAT_BAND_GET:{SEC_HAL_TRACE("!!RAT_BAND - NOT IMPL.!!");}break;
-        case SD_PP_FLAGS_COUNT_GET:{SEC_HAL_TRACE("!!PP_FLAGS_COUNT - NOT IMPL.!!");}break;
-        case SD_PP_FLAGS_GET:{SEC_HAL_TRACE("!!PP_FLAGS - NOT IMPL.!!");}break;
-        case SD_SL_LEVELS_OPEN:
-        {
-            if (0/*!access_ok(VERIFY_READ, unlock_codes,)*/ /*TBDL: howto verify??*/) {
-                SEC_HAL_TRACE("unlock_codes not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param2, sizeof(uint32_t))) {
-                SEC_HAL_TRACE("post_status ptr not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_simlock_levels_open(
-                        (uint32_t)input.param0, /*IN*/
-                        (void*) input.param1, /*IN*/
-                        (uint32_t*)input.param2 /*OUT*/);
-            }
-        }break;
-        case SD_SL_LEVEL_OPEN:
-        {
-            if (input.param1 > SEC_HAL_MAX_SIMLOCK_CODE_LENGTH) {
-                SEC_HAL_TRACE("unlock code too long, aborting!");
-                ret = -EFAULT;
-            }
-            if (!access_ok(VERIFY_READ, (void __user*)input.param0, input.param1)) {
-                SEC_HAL_TRACE("unlock code not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (input.param2 > SEC_HAL_MAX_SIMLOCK_LEVELS_COUNT) {
-                SEC_HAL_TRACE("level too big, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_simlock_level_open(
-                        (char*)input.param0, /*IN*/
-                        (uint8_t)input.param2 /*IN*/);
-            }
-        }break;
-        case SD_SL_LEVEL_STATUS_GET:
-        {
-            if (!access_ok(VERIFY_WRITE, (void __user*)input.param0, sizeof(uint32_t))) {
-                SEC_HAL_TRACE("status not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_simlock_level_status_get((uint32_t*)input.param0 /*OUT*/);
-            }
-        }break;
-        case SD_AUTH_DATA_SIZE_GET:
-        {
-            if (!access_ok(VERIFY_READ, (void __user*)input.param0, input.param1)) {
-                SEC_HAL_TRACE("input_data not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param2, sizeof(uint32_t))) {
-                SEC_HAL_TRACE("auth_data_size ptr not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_auth_data_size_get(
-                        (void*)input.param0, /*IN*/
-                        input.param1, /*IN*/
-                        (uint32_t*)input.param2 /*OUT*/);
-            }
-        }break;
-        case SD_AUTH_DATA_GET:
-        {
-            if (!access_ok(VERIFY_READ, (void __user*)input.param0, input.param1)) {
-                SEC_HAL_TRACE("input_data not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else if (!access_ok(VERIFY_WRITE, (void __user*)input.param2, input.param3)) {
-                SEC_HAL_TRACE("auth_data not ok, aborting!");
-                ret = -EFAULT;
-            }
-            else {
-                ret = sec_hal_rt_auth_data_get(
-                        (void*)input.param0, /*IN*/
-                        input.param1, /*IN*/
-                        (void*)input.param2, /*OUT*/
-                        input.param3 /*IN*/);
-            }
-        }break;
-        case SD_SELFTEST:{ ret = sec_hal_rt_selftest(); }break;
-#ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
-        case SD_DRM_ENTER_PLAY:{ ret = _drm_enter(client, &input); }break;
-        case SD_DRM_EXIT_PLAY:{ ret = _drm_exit(client, &input); }break;
-        case SD_DRM_SET_ENTIT_KEY:{ ret = _drm_set_entit_key(client, &input); }break;
-        case SD_DRM_DER_CTL_WORD:{ ret = _drm_derive_cw(client, &input); }break;
-        case SD_DRM_DECRYPT_AUDIO:{ ret = _drm_decrypt_audio(client, &input); }break;
-        case SD_DRM_DECRYPT_VIDEO:{ ret = _drm_decrypt_video(client, &input); }break;
-        case SD_DRM_VALID_KEYBOX:{ ret = _drm_valid_keybox(client, &input); }break;
-        case SD_DRM_DEVICE_ID_GET:{ ret = _drm_get_device_id(client, &input); }break;
-        case SD_DRM_KEYDATA_GET:{ ret = _drm_get_keydata(client, &input); }break;
-        case SD_DRM_WRAP_KEYBOX:{ ret = _drm_wrap_keybox(client, &input); }break;
-        case SD_DRM_INSTALL_KEYBOX:{ ret = _drm_install_keybox(client, &input); }break;
-#endif /* CONFIG_ARM_SEC_HAL_DRM_WVN */
-		case SD_TEE_INIT_CONTEXT:
+	case SD_SEC_STORAGE_SELFTEST:
+	case SD_SIMU_DS0_TEST:
+	case SD_SIMU_DS1_TEST:
+	case SD_SECURE_STORAGE_DAEMON_PID_REGISTER:
+		ret = sec_hal_rpc_ioctl(cmd, NULL, &input);
+		break;
+	case SD_CNF_SIML:
+	case SD_CNF_SIML_VALIDATE:
+	case SD_CNF_SIML_VERIFY_DATA_GET:
+	case SD_CNF_IMEI:
+	case SD_CNF_MAC:
+		ret = sec_hal_cnf_ioctl(cmd, NULL, &input, device->pdev);
+		break;
+	case SD_TEE_INIT_CONTEXT:
 		{
 			uint32_t* name = (uint32_t *)input.param0;
 			uint32_t* context = (uint32_t *)input.param1;
@@ -1191,375 +499,14 @@ sec_hal_cli_ioctl(struct file *filp,
 
 			ret = TEEC_SUCCESS;
 		}break;
-		case SD_SECURE_STORAGE_DAEMON_PID_REGISTER:
-		{
-            secure_storage_pid = current->tgid;
-			ret = SEC_HAL_RES_OK;
-		}break;
         default:{SEC_HAL_TRACE("DEFAULT!");}break;
     }
 
-    up(&device->sem);
+	up(&device->sem);
 
-    return ret; /* directly return API definitions */
+	return ret; /* directly return API definitions */
 }
 
-#define RPC_SUCCESS 0x00
-#define RPC_FAILURE 0x01
-
-void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
-void  sec_hal_mem_msg_area_free(void *virt_addr);
-/* **********************************************************************
- * RPC HANDLER
- * *********************************************************************/
-static uint32_t
-rpc_handler(uint32_t id,
-            uint32_t p1,
-            uint32_t p2,
-            uint32_t p3,
-            uint32_t p4)
-{
-    uint32_t ret = 0x00, size = 0x00;
-    struct device_data* device = &g_device_data;
-    void *kernel_data_ptr = NULL;
-    sd_rpc_params_t params = {id, p1, p2, p3, p4, 0, (uint32_t)(current->tgid), (uint32_t)(current->tgid)};
-    sec_msg_handle_t in_handle, out_handle;
-    uint64_t offset, filesize;
-
-    SEC_HAL_TRACE_ENTRY();
-
-    switch (id) /* pre-ipc step for callbacks*/
-    {
-        case SEC_HAL_RPC_ALLOC:
-        {
-            ret = (uint32_t)SEC_HAL_MEM_VIR2PHY_FUNC(sec_hal_mem_msg_area_calloc(1, p1));
-            SEC_HAL_TRACE("SECHAL_RPC_ALLOC: p1=0x%08x, ret=0x%08x",p1,ret);
-            SEC_HAL_TRACE_EXIT();
-            return ret;
-        }break;
-        case SEC_HAL_RPC_FREE:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FREE: p1=0x%08x",p1);
-            sec_hal_mem_msg_area_free(SEC_HAL_MEM_PHY2VIR_FUNC(p1));
-            SEC_HAL_TRACE_EXIT();
-            return RPC_SUCCESS;
-        }break;
-
-        /* Secure Storage RPC's -- p1=*out_msg(to Secure), p2=*in_msg(from Secure), p3=0 */
-        case SEC_HAL_RPC_FS_LOOKUP:
-        {
-            sec_msg_open(&in_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p2)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
-            /* Read in_msg from ICRAM (dir handle, namelen and filename) */
-            /* Pass parameters (namelen and filename) to Sec Server */
-            sec_msg_param_read32(&in_handle, &(params.param1));          /* dummy read: directory handle */
-            sec_msg_param_read32(&in_handle, &(params.param1));                       /* filename length */
-
-            /* Filename length must be valid */
-            if (params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
-                sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-                sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_NAME, SEC_MSG_PARAM_ID_NONE); /* status */
-                sec_msg_param_write32(&out_handle, 0, SEC_MSG_PARAM_ID_NONE); /* null handle */
-                sec_msg_close(&out_handle);
-                sec_msg_close(&in_handle);
-                SEC_HAL_TRACE("Too long filename! (%d)", params.param1);
-                SEC_HAL_TRACE_EXIT();
-                return RPC_SUCCESS; /* Too long filename, return without calling Sec Server */
-            }
-            /* Read filename only if it was not too long */
-            sec_msg_param_read(&in_handle, (void *)(params.fname), (uint16_t)params.param1); /* filename */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(1): fnamelen: %d, fname: %s",params.param1, params.fname);
-            sec_msg_close(&in_handle);
-	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
-        }break;
-        case SEC_HAL_RPC_FS_READ:
-        {
-            sec_msg_open(&in_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p2)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_READ(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
-            /* Read in_msg from ICRAM (file handle, offset(64b) and length) */
-            /* Pass parameters (file handle and length) to Sec Server */
-            sec_msg_param_read32(&in_handle, &(params.param1)); /* file handle */
-            sec_msg_param_read64(&in_handle, &offset);          /* offset (unused) */
-            sec_msg_param_read32(&in_handle, &(params.param2)); /* length of file */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_READ(1): f-handle=%d, file_len=%d",params.param1,params.param2);
-            sec_msg_close(&in_handle);
-
-            /* Filesize must be valid */
-            if (params.param2 > SEC_STORAGE_FILE_MAXLEN) {
-                sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-                sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_CALL, SEC_MSG_PARAM_ID_NONE); /* status */
-                sec_msg_param_write32(&out_handle, 0, SEC_MSG_PARAM_ID_NONE); /* length read 0 */
-                sec_msg_close(&out_handle);
-                SEC_HAL_TRACE("Illegal filesize!");
-                SEC_HAL_TRACE_EXIT();
-                return RPC_SUCCESS; /* Illegal filesize, return without calling Sec Server */
-            }
-	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
-        }break;
-        case SEC_HAL_RPC_FS_WRITE:
-        {
-            sec_msg_open(&in_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p2)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
-            /* Read in_msg from ICRAM (file handle, offset(64b), length and file contents) */
-            /* Pass parameters (file handle, length and file contents) to Sec Server */
-            sec_msg_param_read32(&in_handle, &(params.param1)); /* pass file handle */
-            sec_msg_param_read64(&in_handle, &offset);          /* offset (unused) */
-            sec_msg_param_read32(&in_handle, &(params.param2)); /* pass length of file */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): f-handle=%d, file_len=%d", params.param1,params.param2);
-
-            /* Filesize must be valid */
-            if (params.param2 <= SEC_STORAGE_FILE_MAXLEN) {
-                /* Read file from sec message to params.data */
-                sec_msg_param_read(&in_handle, (void *)(params.data), (uint16_t)params.param2);
-                sec_msg_close(&in_handle);
-            }
-            else {
-                sec_msg_close(&in_handle);
-                sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-                sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_CALL, SEC_MSG_PARAM_ID_NONE); /* status */
-                sec_msg_close(&out_handle);
-                SEC_HAL_TRACE("Illegal filesize!");
-                SEC_HAL_TRACE_EXIT();
-                return RPC_SUCCESS; /* Illegal filesize, return without calling Sec Server */
-            }
-	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
-        }break;
-        case SEC_HAL_RPC_FS_CREATE:
-        {
-            sec_msg_open(&in_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p2)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
-            /* Read in_msg from ICRAM (dir handle, namelen, "filename") */
-            /* Pass parameters (namelen and filename) to Sec Server     */
-            sec_msg_param_read32(&in_handle, &(params.param1));          /* dummy read: directory handle */
-            sec_msg_param_read32(&in_handle, &(params.param1));                       /* filename length */
-
-            /* Filename length must be valid */
-            if (params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
-                sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-                sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_NAME, SEC_MSG_PARAM_ID_NONE); /* status */
-                sec_msg_close(&out_handle);
-                sec_msg_close(&in_handle);
-                SEC_HAL_TRACE("Too long filename! (%d)", params.param1);
-                SEC_HAL_TRACE_EXIT();
-                return RPC_SUCCESS; /* Too long filename, return without calling Sec Server */
-            }
-            /* Read filename only if it was not too long */
-            sec_msg_param_read(&in_handle, (void *)(params.fname), (uint16_t)params.param1); /* filename */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(1): fnamelen: %d, fname: %s",params.param1, params.fname);
-            sec_msg_close(&in_handle);
-	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
-        }break;
-        case SEC_HAL_RPC_FS_SIZE:
-        {
-            sec_msg_open(&in_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p2)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
-            /* Read in_msg from ICRAM (file handle) */
-            /* Pass parameter (file handle) to Sec Server */
-            sec_msg_param_read32(&in_handle, &(params.param1)); /* file handle */
-            SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(1): f-handle=%d",params.param1);
-            sec_msg_close(&in_handle);
-	    params.reserved2 = secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
-        }break;
-        case SEC_HAL_RPC_FS_ROOT:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_ROOT(x): p1=0x%08x",p1);
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, SFS_STATUS_NOT_SUPPORTED, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_param_write32(&out_handle, 0, SEC_MSG_PARAM_ID_NONE); /* null handle */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_ROOT(x): STATUS_NOT_SUPPORTED=0x%08x, handle=0x%08x",SFS_STATUS_NOT_SUPPORTED,NULL);
-            SEC_HAL_TRACE_EXIT();
-            return RPC_SUCCESS;
-        }break;
-        case SEC_HAL_RPC_FS_MOVE:
-        case SEC_HAL_RPC_FS_REMOVE:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_(RE)MOVE(x): p1=0x%08x, p2=0x%08x",p1,p2);
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, SFS_STATUS_NOT_SUPPORTED, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_(RE)MOVE(x): STATUS_NOT_SUPPORTED=0x%08x",SFS_STATUS_NOT_SUPPORTED);
-            SEC_HAL_TRACE_EXIT();
-            return RPC_SUCCESS;
-        }break;
-
-        default: break;
-    }
-
-    SEC_HAL_TRACE("from tgid: %d, to tgid: %d",params.reserved1, params.reserved2);
-
-    rpcq_add_wakeup(&device->rpc_read_waitq, &params);
-    if (rpcq_get_wait(&device->rpc_write_waitq, &params)) {
-        SEC_HAL_TRACE_EXIT_INFO("interrupted, aborting!");
-        return RPC_FAILURE;
-    }
-
-    switch (id)/* post-ipc step for params conversion and etc. */
-    {
-        case SEC_HAL_RPC_PROT_DATA_ALLOC:
-        {
-            SEC_HAL_TRACE("case SEC_HAL_RPC_PROT_DATA_ALLOC:");
-            SEC_HAL_TRACE("params.param4 (size): %d", params.param4);
-            SEC_HAL_TRACE("params.param3 (user_data_prt): 0x%x", params.param3);
-            sec_msg_handle_t ret_handle;
-            sec_msg_t *ret_msg = sec_msg_alloc(&ret_handle,
-                    3*sec_msg_param_size(sizeof(uint32_t)),
-                    SEC_MSG_OBJECT_ID_NONE,
-                    0,
-                    SEC_HAL_MSG_BYTE_ORDER); /* dealloc by secenv */
-            if (ret_msg && SEC_HAL_RES_OK == params.reserved1) {
-                /* ensure that the prot_data is in SDRAM memory */
-                if(NULL != params.param3 && NULL != params.param4) {
-                    size = params.param4;
-                    /* ensure that the prot_data is in SDRAM memory */
-                    kernel_data_ptr = kmalloc(params.param4, GFP_KERNEL);
-                    copy_from_user(kernel_data_ptr, params.param3, size);
-                    SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_data_ptr, size);
-                    SEC_HAL_TRACE("kernel_data_ptr: 0x%x", kernel_data_ptr);
-                }
-                else {
-                    SEC_HAL_TRACE("Allocated data is null!");
-                    size = 0;
-                }
-            }
-            SEC_HAL_TRACE("kernel_data_ptr: 0x%x", kernel_data_ptr);
-            SEC_HAL_TRACE("params.reserved1: 0x%x", params.reserved1);
-
-            sec_msg_param_write32(&ret_handle, params.reserved1,
-                    SEC_MSG_PARAM_ID_NONE);
-            sec_msg_param_write32(&ret_handle, size, SEC_MSG_PARAM_ID_NONE);
-            sec_msg_param_write32(&ret_handle, virt_to_phys(kernel_data_ptr),
-                    SEC_MSG_PARAM_ID_NONE);
-            SEC_HAL_TRACE_EXIT_INFO("data_size == %u", size);
-            return (uint32_t) SEC_HAL_MEM_VIR2PHY_FUNC(ret_msg);
-        }break;
-        case SEC_HAL_RPC_PROT_DATA_FREE: /*NOP*/ break;
-
-        /* Secure Storage RPC's */
-        case SEC_HAL_RPC_FS_LOOKUP:
-        {
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(2): p1=0x%08x",p1);
-            /* Write out_msg to ICRAM: status, file handle */
-            sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_param_write32(&out_handle, params.param4, SEC_MSG_PARAM_ID_NONE);    /* file handle */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(2): status=%d, handle=%d", params.reserved1,params.param4);
-        }break;
-        case SEC_HAL_RPC_FS_READ:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_READ(2): p1=0x%08x",p1);
-            /* Write out_msg to ICRAM: status, length read, file */
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_param_write32(&out_handle, params.param4, SEC_MSG_PARAM_ID_NONE);    /* length read */
-
-            /* Copy data only if length read > 0 */
-            if (params.param4) {
-                /* Write file to ICRAM from params.data */
-                sec_msg_param_write(&out_handle, (void *)(params.data), params.param4, SEC_MSG_PARAM_ID_NONE);
-                sec_msg_close(&out_handle);
-            }
-            SEC_HAL_TRACE("SECHAL_RPC_FS_READ(2): status=%d, l_read=%d",params.reserved1,params.param4);
-        }break;
-        case SEC_HAL_RPC_FS_WRITE:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(2): p1=0x%08x",p1);
-            /* Write out_msg to ICRAM: status */
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(2): status=%d",params.reserved1);
-        }break;
-        case SEC_HAL_RPC_FS_CREATE:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(2): p1=0x%08x",p1);
-            /* Write out_msg to ICRAM: status */
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(2): status=%d",params.reserved1);
-        }break;
-        case SEC_HAL_RPC_FS_SIZE:
-        {
-            SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(2): p1=0x%08x",p1);
-            /* Write out_msg to ICRAM: status, size(64b) */
-            filesize = params.param4;
-            filesize <<= 32;
-            filesize |= params.param5;
-            sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
-            sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-            sec_msg_param_write64(&out_handle, filesize, SEC_MSG_PARAM_ID_NONE);         /* size */
-            sec_msg_close(&out_handle);
-            SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(2): status=%d, size=%d",params.reserved1,filesize);
-        }break;
-
-        default: break;
-    }
-
-    SEC_HAL_TRACE_EXIT();
-    return RPC_SUCCESS;
-}
-
-/* ----------------------------------------------------------------------
- * sec_hal_rpc_read : read content from rpc queque.
- * --------------------------------------------------------------------*/
-static ssize_t
-sec_hal_rpc_read(struct file *filp,
-                 char __user* buf,
-                 size_t count,
-                 loff_t *ppos)
-{
-    int cnt = 0;
-    struct client_data *client = filp->private_data;
-    struct device_data *device = client->device;
-    sd_rpc_params_t param;
-
-    SEC_HAL_TRACE_ENTRY();
-
-    if (filp->f_flags & O_NONBLOCK) {
-        SEC_HAL_TRACE_EXIT_INFO(
-            "non-blocking IO not supported, aborting!");
-        return -EPERM;
-    }
-
-    if (rpcq_get_wait(&device->rpc_read_waitq, &param)) {
-        SEC_HAL_TRACE_EXIT_INFO("interrupted, restart syscall");
-        return -ERESTARTSYS;
-    }
-    cnt = copy_to_user(buf, &param, SD_RPC_PARAMS_SZ);
-
-    SEC_HAL_TRACE_EXIT();
-    return (SD_RPC_PARAMS_SZ-cnt);
-}
-
-/* ----------------------------------------------------------------------
- * sec_hal_rpc_write : write content to rpc queque.
- * --------------------------------------------------------------------*/
-static ssize_t
-sec_hal_rpc_write(struct file *filp,
-                  const char *buf,
-                  size_t count,
-                  loff_t *ppos)
-{
-    int cnt = 0;
-    struct client_data *client = filp->private_data;
-    struct device_data *device = client->device;
-    sd_rpc_params_t param;
-
-    SEC_HAL_TRACE_ENTRY();
-
-    if (filp->f_flags & O_NONBLOCK) {
-        SEC_HAL_TRACE_EXIT_INFO("non-blocking IO not supported, aborting!");
-        return -EPERM;
-    }
-
-    cnt = copy_from_user(&param, buf, SD_RPC_PARAMS_SZ);
-    rpcq_add_wakeup(&device->rpc_write_waitq, &param);
-
-    SEC_HAL_TRACE_EXIT();
-    return (SD_RPC_PARAMS_SZ-cnt);
-}
 
 
 /*******************************************************************************
@@ -1568,21 +515,18 @@ sec_hal_rpc_write(struct file *filp,
  * Parameters : virt_addr	   - virtual address
  * Returns	  : phys_addr	   - physical address
  *******************************************************************************/
-unsigned long sec_hal_memory_tablewalk(
-	unsigned long		virt_addr
-)
+unsigned long sec_hal_memory_tablewalk(unsigned long virt_addr)
 {
-	pgd_t			*pgd;
-	pmd_t			*pmd;
-	pte_t			*pte;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
+	unsigned long page_num;
+	unsigned long phys_addr;
+	unsigned long *page_addr;
 
-	unsigned long	page_num;
-	unsigned long	phys_addr;
-	unsigned long	*page_addr;
-
-    SEC_HAL_TRACE_ENTRY();
-    SEC_HAL_TRACE("virt_addr: 0x%08x",virt_addr);
-    SEC_HAL_TRACE("PAGE_OFFSET: 0x%08x",PAGE_OFFSET);
+	SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE("virt_addr: 0x%08x",virt_addr);
+	SEC_HAL_TRACE("PAGE_OFFSET: 0x%08x",PAGE_OFFSET);
 
     if (PAGE_OFFSET <= virt_addr) {
 		phys_addr = virt_to_phys((void *)virt_addr);
@@ -1843,9 +787,9 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 
 static struct file_operations k_sec_hal_fops = {
     .owner = THIS_MODULE,
-    .open = &sec_hal_cli_open,
-    .release = &sec_hal_cli_release,
-    .unlocked_ioctl = &sec_hal_cli_ioctl,
+    .open = &sec_hal_usr_open,
+    .release = &sec_hal_usr_release,
+    .unlocked_ioctl = &sec_hal_usr_ioctl,
     .read = &sec_hal_rpc_read,
     .write = &sec_hal_rpc_write,
     .llseek = &no_llseek,
@@ -1927,8 +871,6 @@ sec_hal_cdev_init(struct device_data *device_data)
     /* all ok, store heap data to argument struct. */
     sema_init(&device_data->sem, CONFIG_NR_CPUS);
     device_data->class = cls;
-    rpcq_init(&device_data->rpc_read_waitq);
-    rpcq_init(&device_data->rpc_write_waitq);
 
     SEC_HAL_TRACE_EXIT();
     return ret;
@@ -1958,296 +900,14 @@ sec_hal_cdev_exit(struct device_data *device_data)
 }
 
 
-
-
-/* **********************************************************************
- * ICRAM ALLOCATION RELATED FUNCTIONS
- * *********************************************************************/
-#if (!defined(BLOCKCOUNT) && !BLOCKCOUNT)
-#error !!local macro not defined, can cause div by zero exception!!
-#endif
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_init :
- * --------------------------------------------------------------------*/
-int
-sec_hal_mem_msg_area_init(void)
-{
-    int ret = 0;
-    unsigned int block_sz, index = 0;
-    struct mem_msg_area *msg_area = &g_device_data.icram0;
-
-    if (g_icram_mem_init_done == 1) {
-        return ret;
-    }
-
-    if (!request_mem_region(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE), "msg area")) {
-        ret = -ENODEV;
-        goto e1;
-    }
-
-#ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
-    msg_area->virt_baseptr = kmalloc(UL(ICRAM1_SIZE), GFP_KERNEL);
-#else
-    msg_area->virt_baseptr = ioremap_nocache(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE));
-#endif /* CONFIG_ARM_SEC_HAL_TEST_DISPATCHER */
-    msg_area->phys_start = UL(ICRAM1_ADDRESS);
-    msg_area->phys_size = UL(ICRAM1_SIZE);
-    msg_area->offset = (unsigned long)(msg_area->virt_baseptr - msg_area->phys_start);
-
-    if (NULL == msg_area->virt_baseptr) {
-        ret = -EINVAL;
-        goto e2;
-    }
-
-    block_sz = (msg_area->phys_size)/BLOCKCOUNT;
-
-    /* initialize msg area alloc blocks */
-    for (; index < BLOCKCOUNT; index++) {
-        msg_area->msg_blocks[index].virt_addr = 
-            ((__u8*)msg_area->virt_baseptr + block_sz*index);
-        msg_area->msg_blocks[index].size = 0;
-        msg_area->msg_blocks[index].allocated = FALSE;
-    }
-
-    g_icram_mem_init_done = 1;
-    return ret;
-
-e2: release_mem_region(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE));
-e1: MEM_MSG_AREA_CLEAR(msg_area); /* leave mem struct as 'unallocated' */
-    return ret;
-}
-
- /* made available for other kernel entities */
-EXPORT_SYMBOL(sec_hal_mem_msg_area_init);
-
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_exit :
- * --------------------------------------------------------------------*/
-void
-sec_hal_mem_msg_area_exit(struct mem_msg_area *msg_area)
-{
-#ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
-    kfree(msg_area->virt_baseptr);
-#else
-    iounmap(msg_area->virt_baseptr);
-#endif /* CONFIG_ARM_SEC_HAL_TEST_DISPATCHER */
-    release_mem_region(msg_area->phys_start, msg_area->phys_size);
-    MEM_MSG_AREA_CLEAR(msg_area); /* leave mem struct as 'unallocated' */
-}
-
-
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_memcpy : simple memcpy
- * --------------------------------------------------------------------*/
-unsigned long
-sec_hal_mem_msg_area_memcpy(void *dst,
-                            const void *src,
-                            unsigned long sz)
-{
-    __u8* dst8 = (__u8*)dst;
-    __u8* src8 = (__u8*)src;
-
-    while (sz--) {
-        *dst8++ = *src8++;
-    }
-
-    return (unsigned long)dst;
-}
-
-unsigned long
-sec_hal_mem_msg_area_write(void *dst,
-                           const void *src,
-                           unsigned long sz)
-{
-    __u8* dst8 = (__u8*)dst;
-    __u8* src8 = (__u8*)src;
-
-    while (sz--) {
-        *dst8++ = *src8++;
-    }
-
-    return (unsigned long)dst;
-}
-
-unsigned long
-sec_hal_mem_msg_area_read(void *dst,
-                          const void *src,
-                          unsigned long sz)
-{
-    __u8* dst8 = (__u8*)dst;
-    __u8* src8 = (__u8*)src;
-
-    while (sz--) {
-        *dst8++ =  *src8++;
-    }
-
-    return (unsigned long)dst;
-}
-
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_memset : simple memset for ZI purposes.
- * --------------------------------------------------------------------*/
-static inline void
-sec_hal_mem_msg_area_memset(void *buff,
-                            unsigned char data,
-                            unsigned int cnt)
-{
-    __u8* ptr = (__u8*)buff;
-
-    while (cnt > 0) {
-        *ptr++ = data;
-        cnt--;
-    }
-}
-
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_calloc : used by sec_hal_rt
- * --------------------------------------------------------------------*/
-void*
-sec_hal_mem_msg_area_calloc(unsigned int n,
-                            unsigned int sz)
-{
-    unsigned int block_sz, block_cnt, block_ind, index = 0;
-    int found = FALSE;
-    void* virt_addr = NULL;
-    struct mem_msg_area* ramb = &g_device_data.icram0;
-
-    if (g_icram_mem_init_done == 0) {
-        sec_hal_mem_msg_area_init();
-    }
-
-    if (0 == (n*sz)) {
-        return NULL;
-    }
-
-    block_sz = (ramb->phys_size)/BLOCKCOUNT;
-    block_cnt = ((n*sz)+block_sz-1)/block_sz;
-
-    if (block_cnt > BLOCKCOUNT) {
-        return NULL;
-    }
-
-    spin_lock(&g_dev_spinlock); /* protect 'ramb' access */
-    /* critical section starting, do not 'call' anything that may sleep.*/
-
-    /* seek big enough unallocated mem area */
-    while (index < BLOCKCOUNT) {
-        if (FALSE == ramb->msg_blocks[index].allocated) {
-            found = TRUE;
-            block_ind = block_cnt - 1;
-
-            while (block_ind > 0 && (index+block_ind) < BLOCKCOUNT) {
-                found = (found && FALSE == ramb->msg_blocks[index+block_ind].allocated);
-                block_ind--;
-            }
-            if (TRUE == found){break;} /* check if the loop can be ended */
-        }
-        index++;
-    }
-
-    /* return ptr to first block, update allocation info & zero initialize */
-    if (TRUE == found && index < BLOCKCOUNT) {
-        /* allocated found message area */
-        virt_addr = ramb->msg_blocks[index].virt_addr;
-        ramb->msg_blocks[index].size = block_cnt;
-        ramb->msg_blocks[index].allocated = TRUE;
-        sec_hal_mem_msg_area_memset(virt_addr, 0, block_sz);
-        block_cnt--;
-    }
-
-    /* also update allocation info for rest of the blocks & zero initialize */
-    while (TRUE == found && block_cnt > 0 && (index+block_cnt) < BLOCKCOUNT) {
-        ramb->msg_blocks[index+block_cnt].allocated = TRUE;
-        sec_hal_mem_msg_area_memset(
-                ramb->msg_blocks[index+block_cnt].virt_addr,
-                0, block_sz);
-        block_cnt--;
-    }
-
-    /* critical section ending. */
-    spin_unlock(&g_dev_spinlock);
-
-    return virt_addr; /* return allocated(or not) memory address */
-}
-
-/* ----------------------------------------------------------------------
- * sec_hal_mem_msg_area_free : used by sec_hal_rt
- * --------------------------------------------------------------------*/
-void
-sec_hal_mem_msg_area_free(void *virt_addr)
-{
-    unsigned int block_ind, index = 0;
-    struct mem_msg_area* ramb = &g_device_data.icram0;
-
-    if (NULL == virt_addr) {
-        return;
-    }
-
-    spin_lock(&g_dev_spinlock); /* protect 'ramb' access */
-    /* critical section starting, do not 'call' anything that may sleep.*/
-
-    while (index < BLOCKCOUNT) {
-        if (ramb->msg_blocks[index].virt_addr == virt_addr) {
-            block_ind = ramb->msg_blocks[index].size - 1;
-
-            /* free allocated message area */
-            ramb->msg_blocks[index].size = 0;
-            ramb->msg_blocks[index].allocated = FALSE;
-
-            /* free rest of the blocks */
-            while (0 < block_ind && (index+block_ind) < BLOCKCOUNT) {
-                ramb->msg_blocks[index+block_ind].size = 0;
-                ramb->msg_blocks[index+block_ind].allocated = FALSE;
-                block_ind--;
-            }
-            break; /* terminate the seek-loop */
-        }
-        index++;/* seek next mem block */
-    }
-
-    /* critical section ending. */
-    spin_unlock(&g_dev_spinlock);
-}
-
-/* ----------------------------------------------------------------------
- * 
- * --------------------------------------------------------------------*/
-unsigned long sec_hal_virt_to_icram_phys(unsigned long virt_addr)
-{
-    unsigned long phys_addr;
-#ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
-    phys_addr = virt_to_phys(virt_addr);
-#else
-    phys_addr = virt_addr - g_device_data.icram0.offset;
-#endif
-    return phys_addr;
-}
-
-/* ----------------------------------------------------------------------
- * 
- * --------------------------------------------------------------------*/
-unsigned long sec_hal_icram_phys_to_virt(unsigned long phys_addr)
-{
-    unsigned long virt_addr;
-#ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
-    virt_addr = phys_to_virt(phys_addr);
-#else
-    virt_addr = phys_addr + g_device_data.icram0.offset;
-#endif
-    return virt_addr;
-}
-
-
 /* **********************************************************************
 ** Function name      : sec_hal_dbg_irq_hdr
 ** Description        : IRQ handler for JTAG/hw debugger attach event.
 **                      SJTAG not supported by this function.
 ** Return             : IRQ_HANDLED
 ** *********************************************************************/
-static irqreturn_t
-sec_hal_dbg_irq_hdr(
-		int irq,
-		void *dev_id)
+static
+irqreturn_t sec_hal_dbg_irq_hdr(int irq, void *dev_id)
 {
 	uint32_t ret;
 	uint32_t reg1 = g_dbgreg1, reg2 = g_dbgreg2, reg3 = g_dbgreg3;
@@ -2273,13 +933,13 @@ sec_hal_dbg_irq_hdr(
 **                      triggered by JTAG/hw debugger attach event.
 **                      SJTAG not supported by this function.
 ** *********************************************************************/
-static void
-sec_hal_dbg_irq_init(void)
+static
+void sec_hal_dbg_irq_init(void)
 {
 	int rv;
 	uint32_t irq, flags = IRQF_DISABLED;
 
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_ENTRY();
 
 	irq = gic_spi(TDBG_SPI);
 	set_irq_flags(irq, IRQF_VALID|IRQF_NOAUTOEN);
@@ -2295,28 +955,31 @@ sec_hal_dbg_irq_init(void)
 
 
 
+int sec_hal_icram0_init(void);
+int sec_hal_rpc_init(void);
 /* **********************************************************************
  * PLATFORM DEVICE FRAMEWORK RELATED FUNCTIONS.
  * *********************************************************************/
-/* ----------------------------------------------------------------------
- * sec_hal_platform_device_probe :
- * --------------------------------------------------------------------*/
-static int
-sec_hal_platform_device_probe(struct platform_device *plat_dev)
+static
+int sec_hal_pdev_probe(struct platform_device *pdev)
 {
-	int ret = 0;
-	struct resource* mem = NULL;
+	int ret;
+	struct resource* mem;
 	sec_hal_init_info_t rt_init;
 
 	SEC_HAL_TRACE_ENTRY();
 
 	if (NULL == (mem = platform_get_resource(
-					plat_dev, IORESOURCE_MEM, 0))) {
+					pdev, IORESOURCE_MEM, 0))) {
 		SEC_HAL_TRACE_EXIT_INFO("faulty arguments, aborting!");
 		return -ENOMEM;
 	}
 
-	ret = sec_hal_mem_msg_area_init();
+	ret = sec_hal_icram0_init();
+	if (ret)
+		goto e0;
+
+	ret = sec_hal_rpc_init();
 	if (ret)
 		goto e0;
 
@@ -2329,101 +992,76 @@ sec_hal_platform_device_probe(struct platform_device *plat_dev)
 			(uint32_t)(rt_init.commit_id),
 			rt_init.reset_info[0], rt_init.reset_info[1], rt_init.reset_info[2]);
 
-	ret = sec_hal_rt_install_rpc_handler(&rpc_handler);
-	if (ret) {
-		goto e1;
-	}
-
 #if 0
-	printk(KERN_INFO "sec_hal_rt_install_rpc_handler was ok\n");
+	ret = sec_hal_rt_install_rpc_handler(&sec_hal_rpc_cb);
+	if (ret)
+		goto e1;
 #endif
 
 	if (!is_recovery()) {
-#if 0
-		printk(KERN_INFO "!is_recovery()\n");
-#endif
 		ret = sec_hal_memfw_attr_reserve(0, 0x00UL, 0x00UL);
-		if (ret){
+		if (ret)
 			goto e1;
-		}
-#if 0
-	printk(KERN_INFO "sec_hal_memfw_attr_reserve was ok\n");
-#endif
 	}
+	sec_hal_dbg_irq_init();
 
-
-#if 0
-	printk(KERN_INFO "trying sec_hal_cdev_init\n");
-#endif
 	ret = sec_hal_cdev_init(&g_device_data);
-	if (ret){
+	if (ret)
 		goto e2;
-	}
-#if 0
-	printk(KERN_INFO "sec_hal_cdev_init was ok\n");
-#endif
 
 	ret = sec_hal_reset_info_addr_register();
-	if (ret){
+	if (ret)
 		goto e2;
-	}
-#if 0
-	printk(KERN_INFO "sec_hal_reset_info_addr_register was ok\n");
-#endif
-    /*sdtoc_init*/
-    sdtoc_root = (DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ADDRESS, SDTOC_SIZE);
 
-    /* ask production mode from sdtoc we can decide if we need to use public to
-    for imei and other customer data*/
+#ifdef CONFIG_ARM_SEC_HAL_SDTOC
+	/* sdtoc_init */
+	sdtoc_root = (DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ADDRESS, SDTOC_SIZE);
 
+	/* ask production mode from sdtoc we can decide if we need to use public to
+	 * for imei and other customer data. */
 #ifdef CONFIG_ARM_SEC_HAL_PUBLIC_TOC
-    /*toc_init*/
-    public_toc_root = kmalloc(PUBLIC_TOC_SIZE, GFP_KERNEL);
+	/*toc_init*/
+	public_toc_root = kmalloc(PUBLIC_TOC_SIZE, GFP_KERNEL);
+	SEC_HAL_TRACE("public_toc_root: 0x%08x",public_toc_root);
+	toc_initialize(public_toc_root,PUBLIC_TOC_SIZE);
 
-    SEC_HAL_TRACE("public_toc_root: 0x%08x",public_toc_root);
+	toc_put_payload(public_toc_root,0x12341234,"abcdefghijklmnopqstuv",20,NULL,0,0);
+	toc_put_payload(public_toc_root,0xffeeddcc,"1111111166666666",16,NULL,0,0);
 
-    toc_initialize(public_toc_root,PUBLIC_TOC_SIZE);
+	uint32_t length;
+	void *item_data;
+	item_data = toc_get_payload(public_toc_root,0x12341234, &length);
+	SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
+	item_data = toc_get_payload(public_toc_root,0xffeeddcc, &length);
+	SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
 
-    toc_put_payload(public_toc_root,0x12341234,"abcdefghijklmnopqstuv",20,NULL,0,0);
-    toc_put_payload(public_toc_root,0xffeeddcc,"1111111166666666",16,NULL,0,0);
-
-    if(1)
-    {
-    uint32_t length;
-    void * item_data;
-
-    item_data = toc_get_payload(public_toc_root,0x12341234, &length);
-    SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
-
-    item_data = toc_get_payload(public_toc_root,0xffeeddcc, &length);
-    SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
-    }
-
-    toc_put_payload(public_toc_root,SECURED_DATA_PUBLIC_ID,"eeeeeeeeaaaaaaaa1111111166666666",32,NULL,0,0);
+	toc_put_payload(public_toc_root,SECURED_DATA_PUBLIC_ID,"eeeeeeeeaaaaaaaa1111111166666666",32,NULL,0,0);
 #endif
-
-    public_id = toc_get_payload(sdtoc_root,SECURED_DATA_PUBLIC_ID, &public_id_size);
-
-    if(public_id!=NULL)
-        {
-        uint8_t* tmp;
-        uint32_t i;
-
-        tmp = public_id;
-        printk("Device public ID (length %d): ",public_id_size);
-
-        for(i=0;i<public_id_size;i++ )
-            {
-            printk("%02x",*tmp);
-            tmp++;
-            }
-        printk("\n");
-        }
-    else
-        {
-        printk("Could not read Device public ID\n");
-        }
-
+	public_id = toc_get_payload(sdtoc_root,SECURED_DATA_PUBLIC_ID, &public_id_size);
+	if (public_id != NULL) {
+		printk("DEVICE PUBLIC ID (length %d): ",public_id_size);
+		uint8_t* tmp = public_id;
+		int i;
+		for (i=0; i < public_id_size; i++) {
+			printk("%02x",*tmp);
+			tmp++;
+		}
+		printk("\n");
+	} else {
+		printk("DEVICE PUBLIC ID could not be read!\n");
+	}
+#else /*CONFIG_ARM_SEC_HAL_SDTOC*/
+	sec_hal_public_id_t pub_id;
+	ret = sec_hal_public_id_get(&pub_id);
+	if (ret)
+		goto e2;
+	printk("DEVICE PUBLIC ID: ");
+	int i;
+	for (i=0; i < SEC_HAL_MAX_PUBLIC_ID_LENGTH; i++) {
+		printk("%02x", pub_id.public_id[i]);
+	}
+	printk("\n");
+#endif /*CONFIG_ARM_SEC_HAL_SDTOC*/
 
 	SEC_HAL_TRACE_EXIT();
 	return ret;
@@ -2434,31 +1072,26 @@ e0:
 	return ret;
 }
 
-/* ----------------------------------------------------------------------
- * sec_hal_platform_device_remove :
- * --------------------------------------------------------------------*/
-static int
-sec_hal_platform_device_remove(struct platform_device *plat_dev)
+
+static
+int sec_hal_pdev_remove(struct platform_device *pdev)
 {
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_ENTRY();
 
-    sec_hal_cdev_exit(&g_device_data);
-    sec_hal_mem_msg_area_exit(&g_device_data.icram0);
+	sec_hal_cdev_exit(&g_device_data);
+	//sec_hal_mem_msg_area_exit(&g_device_data.icram0);
 
-    SEC_HAL_TRACE_EXIT();
-    return 0;
+	SEC_HAL_TRACE_EXIT();
+	return 0;
 }
 
-/* ----------------------------------------------------------------------
- * ---------------------------------------------------------------------*/
+
 static struct platform_driver k_sec_hal_platform_device_driver =
 {
-    .probe    = sec_hal_platform_device_probe,
-    .remove   = sec_hal_platform_device_remove,
-    .driver   = {.name  = DEVNAME, .owner = THIS_MODULE},
+	.probe = sec_hal_pdev_probe,
+	.remove = sec_hal_pdev_remove,
+	.driver = {.name  = DEVNAME, .owner = THIS_MODULE},
 };
-
-
 
 
 /* **********************************************************************
@@ -2467,12 +1100,9 @@ static struct platform_driver k_sec_hal_platform_device_driver =
 /* ----------------------------------------------------------------------
  * sec_hal_mdm_memcpy : copy data to a certain kind of protected memory.
  * --------------------------------------------------------------------*/
-uint32_t
-sec_hal_mdm_memcpy(uint32_t phys_dst,
-                   uint32_t phys_src,
-                   uint32_t size)
+uint32_t sec_hal_mdm_memcpy(uint32_t pdst, uint32_t psrc, uint32_t sz)
 {
-    return sec_hal_memcpy(phys_dst, phys_src, size);
+	return sec_hal_memcpy(pdst, psrc, sz);
 }
 /* made available for other kernel entities */
 EXPORT_SYMBOL(sec_hal_mdm_memcpy);
@@ -2480,81 +1110,77 @@ EXPORT_SYMBOL(sec_hal_mdm_memcpy);
 /* ----------------------------------------------------------------------
  * sec_hal_mdm_authenticate : authenticate memory content with SW cert.
  * --------------------------------------------------------------------*/
-uint32_t
-sec_hal_mdm_authenticate(uint32_t cert_phys_addr,
-                         uint32_t cert_size,
-                         uint32_t *objid)
+uint32_t sec_hal_mdm_authenticate(uint32_t c_paddr, uint32_t c_sz,
+		uint32_t *objid)
 {
-    return sec_hal_authenticate(cert_phys_addr, cert_size, objid);
+	return sec_hal_authenticate(c_paddr, c_sz, objid);
 }
 /* made available for other kernel entities */
 EXPORT_SYMBOL(sec_hal_mdm_authenticate);
 
 
 /* **********************************************************************
- * MODULE INIT & EXIT
+ * MODULE init & exit
  * *********************************************************************/
 static struct resource k_sec_hal_resources[] =
 {
-    [0] =
-        { /* ICRAM0 */
-        .start = UL(ICRAM1_ADDRESS),
-        .end = UL(ICRAM1_ADDRESS) + UL(ICRAM1_SIZE) - 1,/* 4kb from start addr */
-        .flags = IORESOURCE_MEM,
-        }
+	[0] =
+	{ /* ICRAM0 */
+		.start = UL(ICRAM1_ADDRESS),
+		.end = UL(ICRAM1_ADDRESS) + UL(ICRAM1_SIZE) - 1,/* 4kb from start addr */
+		.flags = IORESOURCE_MEM,
+	}
 };
 static const u64 k_dma_mask = 0xffffffff;
 static struct platform_device k_sec_hal_chardevice =
 {
-    .name =  DEVNAME,
-    .id = 0,
-    .dev = {
-        .coherent_dma_mask = 0xffffffff,
-        .dma_mask = &k_dma_mask
-    },
-    .resource = k_sec_hal_resources,
-    .num_resources = ARRAY_SIZE(k_sec_hal_resources),
+	.name =  DEVNAME,
+	.id = 0,
+	.dev = {
+		.coherent_dma_mask = 0xffffffff,
+		.dma_mask = &k_dma_mask
+	},
+	.resource = k_sec_hal_resources,
+	.num_resources = ARRAY_SIZE(k_sec_hal_resources),
 };
 static struct platform_device *k_sec_hal_local_devs[] __initdata =
 {
-    &k_sec_hal_chardevice,
+	&k_sec_hal_chardevice,
 };
 
 /* ----------------------------------------------------------------------
  * sec_hal_driver_init :
  * --------------------------------------------------------------------*/
-static int __init
-sec_hal_driver_init(void)
+static
+int __init sec_hal_driver_init(void)
 {
-    int ret = 0;
+	int ret = 0;
 
-    SEC_HAL_TRACE_INIT();
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_INIT();
+	SEC_HAL_TRACE_ENTRY();
 
-    ret = platform_driver_register(&k_sec_hal_platform_device_driver);
-    platform_add_devices(k_sec_hal_local_devs, ARRAY_SIZE(k_sec_hal_local_devs));
+	ret = platform_driver_register(&k_sec_hal_platform_device_driver);
+	platform_add_devices(k_sec_hal_local_devs, ARRAY_SIZE(k_sec_hal_local_devs));
 
-    SEC_HAL_TRACE_EXIT();
-    return ret;
+	SEC_HAL_TRACE_EXIT();
+	return ret;
 }
 
 /* ----------------------------------------------------------------------
  * sec_hal_driver_exit :
  * --------------------------------------------------------------------*/
-static void __exit
-sec_hal_driver_exit(void)
+static
+void __exit sec_hal_driver_exit(void)
 {
-    SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE_ENTRY();
 
-    platform_driver_unregister(&k_sec_hal_platform_device_driver);
+	platform_driver_unregister(&k_sec_hal_platform_device_driver);
 
-    SEC_HAL_TRACE_EXIT();
+	SEC_HAL_TRACE_EXIT();
 }
-/* PM start */
 /* module_init(sec_hal_driver_init); */
 module_exit(sec_hal_driver_exit);
 pure_initcall(sec_hal_driver_init);
-/* PM end */
 
 MODULE_AUTHOR("Renesas Mobile Corporation");
 MODULE_DESCRIPTION("Device driver for ARM TRUSTZONE access");

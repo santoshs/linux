@@ -47,6 +47,6 @@ config FB_SH_MOBILE_DOUBLE_BUF
 config FB_SH_MOBILE_RGB888
         bool "SuperH Mobile RGB888 support"
         depends on FB_SH_MOBILE_LCDC
-        default y
+        default n
         help
           SuperH Mobile LCDC framebuffer support RGB888.

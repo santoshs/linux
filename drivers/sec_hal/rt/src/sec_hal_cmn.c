@@ -525,11 +525,10 @@ sec_hal_reset_info_get(sec_reset_info *reset_info)
 {
 	SEC_HAL_TRACE_ENTRY();
 
-	if ( sec_hal_reset_info==NULL ) {
+	if (sec_hal_reset_info == NULL) {
 		SEC_HAL_TRACE_EXIT();
 		return SEC_HAL_CMN_RES_FAIL;
-	}
-	else {
+	} else {
 		memcpy(reset_info, sec_hal_reset_info, sizeof(sec_reset_info));
 		SEC_HAL_TRACE_EXIT();
 		return SEC_HAL_CMN_RES_OK;
@@ -663,6 +662,95 @@ sec_hal_dbg_reg_set(
 
 	SEC_HAL_TRACE_EXIT();
 	return sec_api_st;
+}
+
+/* ****************************************************************************
+** Function name      : sec_hal_public_id_get
+** Description        : stores device's Public ID to the given address.
+** Parameters         : IN/--- sec_hal_public_id_t *pub_id
+** Return value       : uint32
+**                      ==0 operation successful
+**                      failure otherwise.
+** ***************************************************************************/
+uint32_t
+sec_hal_public_id_get(
+		sec_hal_public_id_t *pub_id)
+{
+	uint32_t sec_hal_st = SEC_HAL_CMN_RES_OK;
+	uint32_t sec_msg_st = SEC_MSG_STATUS_OK;
+	uint32_t ssa_disp_st = 0x00;
+	uint32_t sec_serv_st = 0x00;
+	uint16_t msg_data_size;
+	sec_msg_t *in_msg = NULL;
+	sec_msg_t *out_msg = NULL;
+	sec_msg_handle_t in_handle;
+	sec_msg_handle_t out_handle;
+
+	SEC_HAL_TRACE_ENTRY();
+
+	/* allocate memory for msgs to be sent to TZ */
+	msg_data_size = sec_msg_param_size(sizeof(uint32_t));
+	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
+					SEC_MSG_OBJECT_ID_NONE, 0,
+					SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+					+ sec_msg_param_size(SEC_HAL_MAX_PUBLIC_ID_LENGTH);
+	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
+					SEC_MSG_OBJECT_ID_NONE, 0,
+					SEC_HAL_MSG_BYTE_ORDER);
+
+	do {
+		if (!in_msg || !out_msg) {
+			SEC_HAL_TRACE("alloc failure, aborting!");
+			sec_hal_st = SEC_HAL_CMN_RES_FAIL;
+			break;
+		}
+
+		if (sec_msg_param_write32(&in_handle,
+				SEC_HAL_MAX_PUBLIC_ID_LENGTH,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("alloc failure, aborting!");
+			sec_hal_st = SEC_HAL_CMN_RES_FAIL;
+			break;
+		}
+		LOCAL_WMB();
+
+		/* call dispatcher(the interrupter) */
+		ssa_disp_st = LOCAL_DISP(SEC_SERV_PUBLIC_ID_REQUEST,
+					LOCAL_DEFAULT_DISP_FLAGS,
+					LOCAL_DEFAULT_DISP_SPARE_PARAM,
+					SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+					SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
+
+		/* interpret the response */
+		sec_msg_st = sec_msg_param_read32(&out_handle, &sec_serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != ssa_disp_st
+				|| SEC_MSG_STATUS_OK != sec_msg_st
+				|| SEC_SERV_STATUS_OK != sec_serv_st) {
+			SEC_HAL_TRACE("failure! disp==%d, msg==%d, serv==%d",
+					ssa_disp_st, sec_msg_st, sec_serv_st);
+			sec_hal_st = SEC_HAL_CMN_RES_FAIL;
+			break;
+		}
+		sec_msg_st = sec_msg_param_read(&out_handle,
+						pub_id->public_id,
+						SEC_HAL_MAX_PUBLIC_ID_LENGTH);
+		if (SEC_MSG_STATUS_OK != sec_msg_st) {
+			SEC_HAL_TRACE("failed to read pub_id! msg==%d",
+					sec_msg_st);
+			sec_hal_st = SEC_HAL_CMN_RES_FAIL;
+			break;
+		}
+		LOCAL_RMB();
+	} while (0);
+
+	/* de-allocate msg */
+	sec_msg_free(out_msg);
+	sec_msg_free(in_msg);
+
+	SEC_HAL_TRACE_EXIT();
+	return sec_hal_st;
 }
 
 

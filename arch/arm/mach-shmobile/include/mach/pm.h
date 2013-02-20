@@ -74,7 +74,6 @@ extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
 				unsigned int freqB, unsigned int freqB_mask);
 extern unsigned int suspend_ZB3_backup(void);
 extern int shmobile_init_pm(void);
-extern struct hwspinlock *pll_1_sem;
 extern struct hwspinlock *gen_sem1;
 extern struct hwspinlock *sw_cpg_lock;
 extern unsigned int is_suspend_setclock;
@@ -530,7 +529,5 @@ static inline void pm_release_spinlock(unsigned long flag) { }
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
 #endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A7373*/
-
-/* #define PLL1_CAN_OFF 1*/
 
 #endif /* __ASM_ARCH_PM_H */

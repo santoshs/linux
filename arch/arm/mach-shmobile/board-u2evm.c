@@ -2588,26 +2588,9 @@ static void __init u2evm_init(void)
 	gpio_direction_input(GPIO_PORT24);
 	gpio_pull_down_port(GPIO_PORT24);
 
-#ifdef CONFIG_CACHE_L2X0
-	/*
-	 * [30] Early BRESP enable
-	 * [27] Non-secure interrupt access control
-	 * [26] Non-secure lockdown enable
-	 * [22] Shared attribute override enable
-	 * [19:17] Way-size: b010 = 32KB
-	 * [16] Accosiativity: 0 = 8-way
-	 */
-	if((system_rev & 0xFFFF) == 0x3E00)
-	{
-		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
-	}
-	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
-		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
-	}
+#ifndef CONFIG_ARM_TZ
+	r8a7373_l2cache_init();
 #endif
-
 	camera_init(u2_board_rev);
 
 #if 0

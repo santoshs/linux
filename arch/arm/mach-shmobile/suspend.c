@@ -860,7 +860,6 @@ static int shmobile_suspend(void)
 	unsigned int workBankState2Area;
 	unsigned int dramPasrSettingsArea0;
 	unsigned int dramPasrSettingsArea1;
-	u32 bk_pll1stpcr = 0;
 
 	/*Change clocks using DFS function*/
 	int clocks_ret;
@@ -945,28 +944,6 @@ static int shmobile_suspend(void)
 
 	xtal1_log_out = 1;
 
-	/* - add A4MP state as PLL1 stop conditon */
-
-	/* TO DO: Use semaphore before access to PLL1STPCR */
-	unsigned int ret;
-	if (pll_1_sem) {
-		ret = hwspin_trylock_nospin(pll_1_sem);
-		if ((ret == -EBUSY) || (ret == -EINVAL)) {
-			pr_err("[%s]: Suspend: Can not get semaphore\n", \
-					__func__);
-			goto Cancel;
-		}
-	}
-	pr_err("[%s]: Suspend: Get semaphore successfully\n", __func__);
-	pr_err("[%s]: Suspend: Setting PLL1STPCR\n", __func__);
-	bk_pll1stpcr = __raw_readl(PLL1STPCR);
-	__raw_writel(bk_pll1stpcr | A4MP | C4STP, PLL1STPCR);
-	pr_err("[%s]: Suspend: PLL1STPCR = 0x%8x\n", __func__, \
-			__raw_readl(PLL1STPCR));
-
-	/* TO DO: Release semaphore before access to PLL1STPCR */
-	hwspin_unlock_nospin(pll_1_sem);
-
 	__raw_writel((__raw_readl(WUPSMSK) | (1 << 28)), WUPSMSK);
 
 #ifndef CONFIG_PM_HAS_SECURE
@@ -1003,24 +980,6 @@ static int shmobile_suspend(void)
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);
 #endif	/*CONFIG_PM_HAS_SECURE*/
-
-	/* Restore PLL1 stop conditon)*/
-	/* TO DO: Use semaphore before access to PLL1STPCR */
-	ret = hwspin_trylock_nospin(pll_1_sem);
-	if ((ret == -EBUSY) || (ret == -EINVAL)) {
-		pr_err("[%s]: Resume: Can not get semaphore\n", __func__);
-		pr_err("[%s]: Resume: Can not restore PLL1STPCR setting\n",\
-				__func__);
-		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n", \
-				__func__, __raw_readl(PLL1STPCR));
-	} else {
-		pr_err("[%s]: Resume: Get semaphore successfully\n", __func__);
-		pr_err("[%s]: Resume: Restore PLL1STPCR setting\n", __func__);
-		__raw_writel(bk_pll1stpcr, PLL1STPCR);
-		pr_err("[%s]: Resume: PLL1STPCR = 0x%8x\n",
-			__func__, __raw_readl(PLL1STPCR));
-		hwspin_unlock_nospin(pll_1_sem);
-	}
 
 	wakeups_factor();
 

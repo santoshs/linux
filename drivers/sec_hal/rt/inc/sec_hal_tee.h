@@ -57,7 +57,7 @@ uint32_t sec_hal_tee_register_shared_memory_area( TEEC_Context* kernel_context, 
 
 uint32_t sec_hal_tee_release_shared_memory_area(TEEC_SharedMemory* kernel_shmem);
 
-uint32_t sec_hal_tee_allocate_TA_memory_workaround();
+uint32_t sec_hal_tee_allocate_TA_memory_workaround(void);
 
 /* ******************************** END ********************************** */
 

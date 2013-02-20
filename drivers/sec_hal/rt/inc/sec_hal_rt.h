@@ -490,8 +490,8 @@ uint32_t sec_hal_rt_simlock_level_open(
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t sec_hal_rt_simlock_level_status_get(
-		uint32_t* user_lock_level_status_out);
+//uint32_t sec_hal_rt_simlock_level_status_get(
+//		uint32_t* user_lock_level_status_out);
 
 /*!
  * This function is used to get the size of the device authentication data.

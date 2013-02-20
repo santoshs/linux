@@ -17,4 +17,6 @@
 #define irqpin2irq(nr)		(int)(IRQPIN_IRQ_BASE + (nr))
 #endif
 
+#define FIQ_START	0
+
 #endif /* __ASM_MACH_IRQS_H */

@@ -25,8 +25,22 @@
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 
+/* Android provides the fiq_glue API, which hasn't yet made it into core
+ * Linux. This works better if the glue is available, but it can still work
+ * with the basic fiq API, if we need to run on non-Android Linux.
+ */
+#ifdef CONFIG_FIQ_GLUE
+#include <asm/fiq_glue.h>
+#else
+#include <asm/fiq.h>
+#endif
+
 #define CONFIG_GIC_NS
 #define CONFIG_GIC_NS_CMT
+
+/* Note this option only controls behaviour on non-secure images. In secure
+ * images, it's up to the secure code whether the CMT is a FIQ or not. */
+#define CONFIG_RMU2_CMT_FIQ
 
 #ifdef CONFIG_RWDT_DEBUG
 #include <linux/proc_fs.h>
@@ -47,6 +61,10 @@ static unsigned long cntclear_time;
 static unsigned long cntclear_time_wa_zq;
 static int stop_func_flg;
 static int wa_zq_flg;
+#ifndef CONFIG_FIQ_GLUE
+static DEFINE_PER_CPU(struct pt_regs, rmu2_cmt_fiq_regs);
+#endif
+
 
 #define STBCHRB3 0xE6180043
 
@@ -345,6 +363,76 @@ static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id)
 }
 
 /*
+ * rmu2_cmt_fiq: FIQ handler for CMT. Called on all CPUs simultaneously.
+ * return: must not return
+ */
+#ifdef CONFIG_FIQ_GLUE
+static void rmu2_cmt_fiq(struct fiq_glue_handler *h, void *r, void *svc_sp)
+{
+	/* If we come in via the FIQ glue, then we are in SVC mode, but running
+	 * on a FIQ stack. svc_sp points to the original SVC stack pointer.
+	 * Good for reliability of getting here, bad for stack unwinding.
+	 * The trick to transplant current_thread_info() copied from
+	 * the FIQ debugger.
+	 */
+#define THREAD_INFO(sp) ((struct thread_info *) \
+		((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
+	struct pt_regs *regs = r; // Layout matches + orig_SPSR in orig_r0
+	struct thread_info *real_thread_info = THREAD_INFO(svc_sp);
+	int err = (int) svc_sp;
+
+	/* This is SMP-safe-ish, at least for the FIQ handler being entered
+	 * simultaneously - the bit will end up set, maybe more than once.
+	 */
+	u8 stbchr2 = __raw_readb(STBCHR2);
+	__raw_writeb(stbchr2 | APE_RESETLOG_RWDT_CMT_FIQ, STBCHR2);
+
+	*current_thread_info() = *real_thread_info;
+#else
+asmlinkage void rmu2_cmt_fiq(struct pt_regs *regs)
+{
+	/* If we come in through our assembler, we're on the original SVC
+	 * mode stack, with nothing extra pushed. Good for unwinding, bad if
+	 * the stack was broken. Our assembler does the STBCHR2 write.
+	 */
+	int err = 0;
+#endif
+
+	console_verbose();
+
+	printk(KERN_CRIT "Watchdog FIQ received\n");
+
+	die("Watchdog FIQ", regs, err);
+	panic("Watchdog FIQ");
+}
+
+#ifdef CONFIG_FIQ_GLUE
+static struct fiq_glue_handler fh = {
+	.fiq	= rmu2_cmt_fiq
+};
+#else
+static struct fiq_handler fh = {
+	.name	= "rmu2_rwdt_cmt"
+};
+extern unsigned char rmu2_cmt_fiq_handler, rmu2_cmt_fiq_handler_end;
+
+/*
+ * rmu2_cmt_fiq_reg_setup: Called on each CPU to set up FIQ handler regs
+ * input: unused
+ * output: none
+ * return: none
+ */
+static void rmu2_cmt_fiq_reg_setup(void *info)
+{
+	/* NB - secure code may mean handler doesn't see these registers */
+	struct pt_regs r;
+	get_fiq_regs(&r);
+	r.ARM_sp = (unsigned long) this_cpu_ptr(rmu2_cmt_fiq_regs);
+	set_fiq_regs(&r);
+}
+#endif
+
+/*
  * rmu2_cmt_init_irq: IRQ initialization handler for CMT
  * input: none
  * output: none
@@ -368,9 +456,12 @@ static void rmu2_cmt_init_irq(void)
 		return;
 	}
 
-#ifdef CONFIG_GIC_NS
+#ifdef CONFIG_RMU2_CMT_FIQ
+	/* In a secure system, CMT15 will already be set as a FIQ or not
+	 * in the GIC by the secure code. Our non-secure writes will be
+	 * ignored.
+	 */
 	{
-#ifdef CONFIG_RMU2_RWDT_30S
 		int i;
 		unsigned int val;
 		i = CMT15_SPI+32;
@@ -387,11 +478,39 @@ static void rmu2_cmt_init_irq(void)
 		printk(KERN_ERR
 		"< %s > ICD_IPTR%d = %08x\n",
 		__func__, i, __raw_readl(ICD_IPTR0+4*(int)(i/4)));
-#endif  /* CONFIG_RMU2_RWDT_30S */
 	}
-#endif  /* CONFIG_GIC_NS */
+#endif
 
+	/* Always claim the FIQ vector - the secure code may
+	 * or may not pass through the interrupt as a FIQ...
+	 *
+	 * Note that we rely on the platform preserving FIQ registers across
+	 * power management events.
+	 */
+#ifdef CONFIG_FIQ_GLUE
+	ret = fiq_glue_register_handler(&fh);
+	if (0 > ret) {
+		printk(KERN_ERR "%s:%d fiq_glue_register_handler failed err=%d\n",
+				__func__, __LINE__, ret);
+		free_irq(irq, (void *)irq);
+		return;
+	}
 
+#else
+	ret = claim_fiq(&fh);
+	if (0 > ret) {
+		printk(KERN_ERR "%s:%d claim_fiq failed err=%d\n",
+				__func__, __LINE__, ret);
+		free_irq(irq, (void *)irq);
+		return;
+	}
+
+	on_each_cpu(rmu2_cmt_fiq_reg_setup, NULL, true);
+	set_fiq_handler(&rmu2_cmt_fiq_handler,
+		&rmu2_cmt_fiq_handler_end - &rmu2_cmt_fiq_handler);
+#endif
+
+	/* And always set up in case it's an IRQ */
 	enable_irq(irq);
 }
 #endif	/* CONFIG_GIC_NS_CMT */

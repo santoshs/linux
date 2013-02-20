@@ -24,6 +24,9 @@ asflags-y                 += $(INCLUDES)
 $(NAME)-y                 := sec_hal_dev.o
 $(NAME)-$(CONFIG_ARM_SEC_HAL_DRM_WVN) += rt/src/sec_hal_drm.o
 $(NAME)-y                 += rt/src/sec_hal_cmn.o
+$(NAME)-y                 += sec_hal_rpc.o
+$(NAME)-y                 += sec_hal_icram0.o
+$(NAME)-y                 += sec_hal_cnf.o
 #legacy code ported from previous implementation.
 $(NAME)-y                 += rt/src/sec_hal_rt.o
 $(NAME)-y                 += rt/src/sec_msg.o

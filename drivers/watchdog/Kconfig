@@ -354,6 +354,8 @@ config RMU2_RWDT
 	tristate "rmu2_rwdt"
 	default y
 	depends on MACH_U2EVM
+	select FIQ
+	select FIQ_GLUE
 	help
 	  Say Y here if you want to support watchdog timer for APE5R.
 	  NOTE: You can choose '*' only here.

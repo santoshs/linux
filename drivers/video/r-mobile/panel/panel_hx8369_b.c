@@ -37,11 +37,18 @@
 
 #include "panel_hx8369_b.h"
 
+#define HX8369_B_DRAW_BLACK_KERNEL
+
 #define HX8369_B_POWAREA_MNG_ENABLE
 
 #ifdef HX8369_B_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
 #endif
+
+/* Panel ID */
+#define PANEL_ID_REV48_RDID1	0x55
+#define PANEL_ID_REV48_RDID2	0x48
+#define PANEL_ID_REV48_RDID3	0x90
 
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		0x48C00000
@@ -57,41 +64,68 @@
 
 
 /* pixclock = 1000000 / DCF */
-#define R_MOBILE_M_PANEL_PIXCLOCK	 24359
+#define R_MOBILE_M_PANEL_PIXCLOCK_REV48	 24359
+#define R_MOBILE_M_PANEL_PIXCLOCK	 18854
 
 /* timing */
-#define R_MOBILE_M_PANEL_LEFT_MARGIN	 49
-#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 305
-#define R_MOBILE_M_PANEL_HSYNC_LEN	 17
-#define R_MOBILE_M_PANEL_UPPER_MARGIN	 12
-#define R_MOBILE_M_PANEL_LOWER_MARGIN	 8
-#define R_MOBILE_M_PANEL_VSYNC_LEN	 4
-#define R_MOBILE_M_PANEL_H_TOTAL	 834
-#define R_MOBILE_M_PANEL_V_TOTAL	 820
+#define R_MOBILE_M_PANEL_LEFT_MARGIN	 180
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 390
+#define R_MOBILE_M_PANEL_HSYNC_LEN	 32
+#define R_MOBILE_M_PANEL_UPPER_MARGIN	 20
+#define R_MOBILE_M_PANEL_LOWER_MARGIN	 20
+#define R_MOBILE_M_PANEL_VSYNC_LEN	 2
+#define R_MOBILE_M_PANEL_H_TOTAL	 1050
+#define R_MOBILE_M_PANEL_V_TOTAL	 842
+
+#define LCD_DSITCKCR_REV48	0x00000007
+#define LCD_DSI0PCKCR_REV48	0x00000025
+#define LCD_DSI0PHYCR_REV48	0x2A800014
+#define LCD_SYSCONF_REV48	0x00000703
+#define LCD_TIMSET0_REV48	0x4C2B3332
+#define LCD_TIMSET1_REV48	0x00050091
+#define LCD_DSICTRL_REV48	0x00000001
+#define LCD_VMCTR1_REV48	0x0001003E
+#define LCD_VMCTR2_REV48	0x00020710
+#define LCD_VMLEN1_REV48	0x05A00000
+#define LCD_VMLEN2_REV48	0x005E0000
+#define LCD_VMLEN3_REV48	0x00000000
+#define LCD_VMLEN4_REV48	0x00000000
+#define LCD_DTCTR_REV48		0x00000007
+#define LCD_MLDHCNR_REV48	0x003C006E
+#define LCD_MLDHSYNR_REV48	0x00020062
+#define LCD_MLDHAJR_REV48	0x00030101
+#define LCD_MLDVLNR_REV48	0x0320033E
+#define LCD_MLDVSYNR_REV48	0x00040329
+#define LCD_MLDMT1R_REV48	0x0400000B
+#define LCD_LDDCKR_REV48	0x00010040
+#define LCD_MLDDCKPAT1R_REV48	0x00000000
+#define LCD_MLDDCKPAT2R_REV48	0x00000000
+#define LCD_PHYTEST_REV48	0x0000038C
 
 #define LCD_DSITCKCR		0x00000007
-#define LCD_DSI0PCKCR		0x00000025
-#define LCD_DSI0PHYCR		0x2A800014
+#define LCD_DSI0PCKCR		0x00000018
+#define LCD_DSI0PHYCR		0x2A800010
 #define LCD_SYSCONF		0x00000703
-#define LCD_TIMSET0		0x4C2B3332
-#define LCD_TIMSET1		0x00050091
+#define LCD_TIMSET0		0x4C2C4343
+#define LCD_TIMSET1		0x000900A2
 #define LCD_DSICTRL		0x00000001
 #define LCD_VMCTR1		0x0001003E
 #define LCD_VMCTR2		0x00020710
 #define LCD_VMLEN1		0x05A00000
-#define LCD_VMLEN2		0x005E0000
+#define LCD_VMLEN2		0x01B60000
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
 #define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x003C006E
-#define LCD_MLDHSYNR		0x00020062
-#define LCD_MLDHAJR		0x00030101
-#define LCD_MLDVLNR		0x0320033E
-#define LCD_MLDVSYNR		0x00040329
+#define LCD_MLDHCNR		0x003C0087
+#define LCD_MLDHSYNR		0x0004006C
+#define LCD_MLDHAJR		0x00020006
+#define LCD_MLDVLNR		0x0320034A
+#define LCD_MLDVSYNR		0x00020335
 #define LCD_MLDMT1R		0x0400000B
 #define LCD_LDDCKR		0x00010040
 #define LCD_MLDDCKPAT1R		0x00000000
 #define LCD_MLDDCKPAT2R		0x00000000
+#define LCD_PHYTEST		0x0000038C
 
 #define LCD_MASK_DSITCKCR	0x000000BF
 #define LCD_MASK_DSI0PCKCR	0x0000703F
@@ -116,9 +150,12 @@
 #define LCD_MASK_LDDCKR		0x0007007F
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
 #define LCD_MASK_MLDDCKPAT2R	0xFFFFFFFF
+#define LCD_MASK_PHYTEST	0x000003CC
 
-#define LCD_DSI0PCKCR_50HZ	0x00000031
-#define LCD_DSI0PHYCR_50HZ	0x2A800016
+#define LCD_DSI0PCKCR_50HZ_REV48	0x00000031
+#define LCD_DSI0PHYCR_50HZ_REV48	0x2A800016
+#define LCD_DSI0PCKCR_50HZ	0x0000001D
+#define LCD_DSI0PHYCR_50HZ	0x2A800010
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -133,6 +170,33 @@ static struct fb_panel_info r_mobile_info = {
 	.lower_margin  = R_MOBILE_M_PANEL_LOWER_MARGIN,
 	.hsync_len     = R_MOBILE_M_PANEL_HSYNC_LEN,
 	.vsync_len     = R_MOBILE_M_PANEL_VSYNC_LEN,
+};
+
+static screen_disp_lcd_if r_mobile_lcd_if_param_rev48 = {
+	.DSITCKCR    = LCD_DSITCKCR_REV48,
+	.DSI0PCKCR   = LCD_DSI0PCKCR_REV48,
+	.DSI0PHYCR   = LCD_DSI0PHYCR_REV48,
+	.SYSCONF     = LCD_SYSCONF_REV48,
+	.TIMSET0     = LCD_TIMSET0_REV48,
+	.TIMSET1     = LCD_TIMSET1_REV48,
+	.DSICTRL     = LCD_DSICTRL_REV48,
+	.VMCTR1      = LCD_VMCTR1_REV48,
+	.VMCTR2      = LCD_VMCTR2_REV48,
+	.VMLEN1      = LCD_VMLEN1_REV48,
+	.VMLEN2      = LCD_VMLEN2_REV48,
+	.VMLEN3      = LCD_VMLEN3_REV48,
+	.VMLEN4      = LCD_VMLEN4_REV48,
+	.DTCTR       = LCD_DTCTR_REV48,
+	.MLDHCNR     = LCD_MLDHCNR_REV48,
+	.MLDHSYNR    = LCD_MLDHSYNR_REV48,
+	.MLDHAJR     = LCD_MLDHAJR_REV48,
+	.MLDVLNR     = LCD_MLDVLNR_REV48,
+	.MLDVSYNR    = LCD_MLDVSYNR_REV48,
+	.MLDMT1R     = LCD_MLDMT1R_REV48,
+	.LDDCKR      = LCD_LDDCKR_REV48,
+	.MLDDCKPAT1R = LCD_MLDDCKPAT1R_REV48,
+	.MLDDCKPAT2R = LCD_MLDDCKPAT2R_REV48,
+	.PHYTEST     = LCD_PHYTEST_REV48
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param = {
@@ -158,7 +222,8 @@ static screen_disp_lcd_if r_mobile_lcd_if_param = {
 	.MLDMT1R     = LCD_MLDMT1R,
 	.LDDCKR      = LCD_LDDCKR,
 	.MLDDCKPAT1R = LCD_MLDDCKPAT1R,
-	.MLDDCKPAT2R = LCD_MLDDCKPAT2R
+	.MLDDCKPAT2R = LCD_MLDDCKPAT2R,
+	.PHYTEST     = LCD_PHYTEST
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
@@ -184,7 +249,8 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 	LCD_MASK_MLDMT1R,
 	LCD_MASK_LDDCKR,
 	LCD_MASK_MLDDCKPAT1R,
-	LCD_MASK_MLDDCKPAT2R
+	LCD_MASK_MLDDCKPAT2R,
+	LCD_MASK_PHYTEST
 };
 
 static unsigned int reset_gpio;
@@ -217,7 +283,7 @@ static unsigned char setextc[] = { 0xB9, 0xFF, 0x83, 0x69 };
 static unsigned char colmod[] = { 0x3A, 0x77 };
 
 /* GOA Timing Control */
-static unsigned char setgip[] = { 0xD5,
+static unsigned char setgip_rev48[] = { 0xD5,
 		0x00, 0x00, 0x13, 0x03, 0x35, 0x00, 0x01, 0x10, 0x01, 0x00,
 		0x00, 0x00, 0x01, 0x7A, 0x16, 0x04, 0x20, 0x13, 0x11, 0x34,
 		0x13, 0x00, 0x00, 0x01, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00,
@@ -229,21 +295,46 @@ static unsigned char setgip[] = { 0xD5,
 		0x00, 0xEF, 0x00, 0xEF, 0x0A, 0x00, 0xEF, 0x00, 0xEF, 0x00,
 		0x01, 0x5A };
 
+static unsigned char setgip[] = { 0xD5,
+		0x00, 0x00, 0x13, 0x03, 0x35, 0x00, 0x01, 0x10, 0x01, 0x00,
+		0x00, 0x00, 0x01, 0x7A, 0x16, 0x04, 0x04, 0x13, 0x07, 0x42,
+		0x13, 0x00, 0x00, 0x00, 0x20, 0x10, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x48, 0x88,
+		0x85, 0x42, 0x00, 0x99, 0x99, 0x00, 0x00, 0x18, 0x88, 0x86,
+		0x71, 0x35, 0x99, 0x99, 0x00, 0x00, 0x58, 0x88, 0x87, 0x63,
+		0x11, 0x99, 0x99, 0x00, 0x00, 0x08, 0x88, 0x84, 0x50, 0x24,
+		0x99, 0x99, 0x00, 0x00, 0x00, 0x51, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x0F, 0x00, 0x0F, 0x00, 0x00, 0x0F, 0x00, 0x0F, 0x00,
+		0x01, 0x5A };
+
 /* MIPI command */
-static unsigned char mipicmd[] = { 0xBA,
+static unsigned char mipicmd_rev48[] = { 0xBA,
 		0x31, 0x00, 0x16, 0xCA, 0xB0, 0x0A, 0x00, 0x10, 0x28, 0x02,
+		0x21, 0x21, 0x9A, 0x1A, 0x8F };
+
+static unsigned char mipicmd[] = { 0xBA,
+		0x31, 0x00, 0x16, 0xCA, 0xB1, 0x0A, 0x00, 0x10, 0x28, 0x02,
 		0x21, 0x21, 0x9A, 0x1A, 0x8F };
 
 /* Power Control */
 static unsigned char setpower[] = { 0xB1,
 		0x0A, 0x83, 0x77, 0x00, 0x92, 0x12, 0x16, 0x16, 0x0C, 0x02 };
 
+/* Set Display */
+static unsigned char setdisctrl[] = { 0xB2, 0x00, 0x70 };
+
 /* Gamma Setting */
-static unsigned char setgamma[] = { 0xE0,
+static unsigned char setgamma_rev48[] = { 0xE0,
 		0x00, 0x05, 0x0B, 0x2F, 0x2F, 0x30, 0x1B, 0x3E, 0x07, 0x0D,
 		0x0E, 0x12, 0x13, 0x12, 0x14, 0x13, 0x1A, 0x00, 0x05, 0x0B,
 		0x2F, 0x2F, 0x30, 0x1B, 0x3E, 0x07, 0x0D, 0x0E, 0x12, 0x13,
 		0x12, 0x14, 0x13, 0x1A, 0x01 };
+
+static unsigned char setgamma[] = { 0xE0,
+		0x00, 0x05, 0x0B, 0x2F, 0x2F, 0x30, 0x1B, 0x3D, 0x07, 0x0D,
+		0x0E, 0x12, 0x13, 0x12, 0x13, 0x11, 0x1A, 0x00, 0x05, 0x0B,
+		0x2F, 0x2F, 0x30, 0x1B, 0x3D, 0x07, 0x0D, 0x0E, 0x12, 0x13,
+		0x12, 0x13, 0x11, 0x1A, 0x01 };
 
 /* Digital Gamma */
 static unsigned char setdgc[] = { 0xC1,
@@ -262,7 +353,10 @@ static unsigned char setdgc[] = { 0xC1,
 		0xAA, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 /* RGB Setting */
-static unsigned char setrgbif[] = { 0xB3, 0x83, 0x00, 0x31, 0x03 };
+static unsigned char setrgbif_rev48[] = { 0xB3, 0x83, 0x00, 0x31, 0x03 };
+
+static unsigned char setrgbif[] = { 0xB3,
+		0x83, 0x00, 0x31, 0x03, 0x01, 0x15, 0x14 };
 
 /* Display Inversion Setting */
 static unsigned char setcyc[] = { 0xB4, 0x02 };
@@ -271,7 +365,9 @@ static unsigned char setcyc[] = { 0xB4, 0x02 };
 static unsigned char setbgp[] = { 0xB5, 0x0B, 0x0B, 0x24 };
 
 /* Display direction */
-static unsigned char setpanel[] = { 0xCC, 0x0E };
+static unsigned char setpanel_rev48[] = { 0xCC, 0x0E };
+
+static unsigned char setpanel[] = { 0xCC, 0x02 };
 
 /* Internal used */
 static unsigned char intused[] = { 0xC6, 0x40 };
@@ -288,6 +384,9 @@ static unsigned char setclk[] = { 0xCB, 0x6D };
 /* CABC Control */
 static unsigned char setcabc[] = { 0xEA, 0x62 };
 
+/* Memory access control */
+static unsigned char madctl[] = { 0x36, 0xC0 };
+
 /* Sleep Out */
 static unsigned char slpout[] = { 0x11 };
 
@@ -301,31 +400,72 @@ static unsigned char dispoff[] = { 0x28 };
 static unsigned char slpin[] = { 0x10 };
 
 
+static const struct specific_cmdset initialize_cmdset_rev48[] = {
+	{ MIPI_DSI_DCS_LONG_WRITE,  setextc,        sizeof(setextc)        },
+	{ MIPI_DSI_DCS_LONG_WRITE,  colmod,         sizeof(colmod)         },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setgip_rev48,   sizeof(setgip_rev48)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  mipicmd_rev48,  sizeof(mipicmd_rev48)  },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setpower,       sizeof(setpower)       },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setgamma_rev48, sizeof(setgamma_rev48) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setdgc,         sizeof(setdgc)         },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setrgbif_rev48, sizeof(setrgbif_rev48) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setcyc,         sizeof(setcyc)         },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setbgp,         sizeof(setbgp)         },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setpanel_rev48, sizeof(setpanel_rev48) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  intused,        sizeof(intused)        },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setstba,        sizeof(setstba)        },
+	{ MIPI_DSI_DCS_LONG_WRITE,  srceq,          sizeof(srceq)          },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setclk,         sizeof(setclk)         },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setcabc,        sizeof(setcabc)        },
+	{ MIPI_DSI_DCS_LONG_WRITE,  slpout,         sizeof(slpout)         },
+	{ MIPI_DSI_DELAY,           NULL,           120                    },
+	{ MIPI_DSI_BLACK,           NULL,           0                      },
+	{ MIPI_DSI_DELAY,           NULL,           20                     },
+	{ MIPI_DSI_END,             NULL,           0                      }
+};
+
+static const struct specific_cmdset dispon_cmdset_rev48[] = {
+	{ MIPI_DSI_DCS_LONG_WRITE,  dispon,         sizeof(dispon)         },
+	{ MIPI_DSI_DELAY,           NULL,           100                    },
+	{ MIPI_DSI_BLACK,           NULL,           0                      },
+	{ MIPI_DSI_END,             NULL,           0                      }
+};
+
 static const struct specific_cmdset initialize_cmdset[] = {
-	{ MIPI_DSI_DCS_LONG_WRITE,  setextc,   sizeof(setextc)  },
-	{ MIPI_DSI_DCS_LONG_WRITE,  colmod,    sizeof(colmod)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setgip,    sizeof(setgip)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  mipicmd,   sizeof(mipicmd)  },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setpower,  sizeof(setpower) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setgamma,  sizeof(setgamma) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setdgc,    sizeof(setdgc)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setrgbif,  sizeof(setrgbif) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setcyc,    sizeof(setcyc)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setbgp,    sizeof(setbgp)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setpanel,  sizeof(setpanel) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  intused,   sizeof(intused)  },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setstba,   sizeof(setstba)  },
-	{ MIPI_DSI_DCS_LONG_WRITE,  srceq,     sizeof(srceq)    },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setclk,    sizeof(setclk)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setcabc,   sizeof(setcabc)  },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setextc,    sizeof(setextc)    },
+	{ MIPI_DSI_DCS_LONG_WRITE,  colmod,     sizeof(colmod)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setgip,     sizeof(setgip)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  mipicmd,    sizeof(mipicmd)    },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setpower,   sizeof(setpower)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setdisctrl, sizeof(setdisctrl) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setgamma,   sizeof(setgamma)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setdgc,     sizeof(setdgc)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setrgbif,   sizeof(setrgbif)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setcyc,     sizeof(setcyc)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setbgp,     sizeof(setbgp)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setpanel,   sizeof(setpanel)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  intused,    sizeof(intused)    },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setstba,    sizeof(setstba)    },
+	{ MIPI_DSI_DCS_LONG_WRITE,  srceq,      sizeof(srceq)      },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setclk,     sizeof(setclk)     },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setcabc,    sizeof(setcabc)    },
+	{ MIPI_DSI_DCS_LONG_WRITE,  madctl,     sizeof(madctl)     },
+	{ MIPI_DSI_BLACK,           NULL,       0                  },
+	{ MIPI_DSI_END,             NULL,       0                  }
+};
+
+static const struct specific_cmdset dispon_cmdset[] = {
+	{ MIPI_DSI_DELAY,           NULL,       100                },
+	{ MIPI_DSI_DCS_LONG_WRITE,  dispon,     sizeof(dispon)     },
+	{ MIPI_DSI_DELAY,           NULL,       20                 },
 	{ MIPI_DSI_DCS_LONG_WRITE,  slpout,    sizeof(slpout)   },
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_BLACK,           NULL,      0                },
-	{ MIPI_DSI_DELAY,           NULL,      20               },
-	{ MIPI_DSI_DCS_LONG_WRITE,  dispon,    sizeof(dispon)   },
-	{ MIPI_DSI_DELAY,           NULL,      100              },
 	{ MIPI_DSI_END,             NULL,      0                }
 };
+
+struct specific_cmdset *init_cmd_set;
+struct specific_cmdset *dispon_cmd_set;
 
 static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  dispoff,   sizeof(dispoff)  },
@@ -338,6 +478,8 @@ static const struct specific_cmdset demise_cmdset[] = {
 static int is_dsi_read_enabled;
 
 static struct fb_info *common_fb_info;
+
+static int is_panel_rev48;
 
 enum lcdfreq_level_idx {
 	LEVEL_NORMAL,		/* 60Hz */
@@ -367,6 +509,9 @@ static int lcdfreq_lock_free(struct device *dev)
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
 	set_lcd_if_param.port_no		= irq_portno;
+	if (is_panel_rev48)
+		set_lcd_if_param.lcd_if_param	= &r_mobile_lcd_if_param_rev48;
+	else
 	set_lcd_if_param.lcd_if_param		= &r_mobile_lcd_if_param;
 	set_lcd_if_param.lcd_if_param_mask	= &r_mobile_lcd_if_param_mask;
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
@@ -413,15 +558,28 @@ static ssize_t level_store(struct device *dev,
 	if (value) {
 		/* set freq 50Hz */
 		printk(KERN_ALERT "set low freq(50Hz)\n");
-
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_50HZ;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_50HZ;
+		if (is_panel_rev48) {
+			r_mobile_lcd_if_param_rev48.DSI0PCKCR
+				= LCD_DSI0PCKCR_50HZ_REV48;
+			r_mobile_lcd_if_param_rev48.DSI0PHYCR
+				= LCD_DSI0PHYCR_50HZ_REV48;
+		} else {
+			r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_50HZ;
+			r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_50HZ;
+		}
 	} else {
 		/* set freq 60Hz */
 		printk(KERN_ALERT "set normal freq(60Hz)\n");
 
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR;
+		if (is_panel_rev48) {
+			r_mobile_lcd_if_param_rev48.DSI0PCKCR
+				= LCD_DSI0PCKCR_REV48;
+			r_mobile_lcd_if_param_rev48.DSI0PHYCR
+				= LCD_DSI0PHYCR_REV48;
+		} else {
+			r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR;
+			r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR;
+		}
 	}
 
 	ret = lcdfreq_lock_free(dev);
@@ -612,54 +770,9 @@ static int panel_specific_cmdset(void *lcd_handle,
 		{
 			u32 panel_width  = R_MOBILE_M_PANEL_PIXEL_WIDTH;
 			u32 panel_height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
-#if 0 /* using dsi command */
-			u32 line_size    = panel_width*3 + 1;
-			u32 lines        = panel_height - 1;
-			u32 line_num;
-			unsigned char *line_data
-					= kmalloc(line_size, GFP_KERNEL);
-			if (line_data == NULL) {
-				printk(KERN_ALERT
-				       "kmalloc err!\n");
-				return -1;
-			}
-			memset(line_data, 0, line_size);
-			printk(KERN_INFO "panel_cmdset Black Paint\n");
-			/* 1st line */
-			*line_data = 0x2C;
-			write_dsi_l.handle         = lcd_handle;
-			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
-			write_dsi_l.data_id        = MIPI_DSI_DCS_LONG_WRITE;
-			write_dsi_l.data_count     = line_size;
-			write_dsi_l.write_data     = line_data;
-			write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
-			write_dsi_l.send_mode      = RT_DISPLAY_SEND_MODE_HS;
-			ret = screen_display_write_dsi_long_packet(
-					&write_dsi_l);
-			if (ret != SMAP_LIB_DISPLAY_OK) {
-				printk(KERN_ALERT
-				       "1st line write err!%d\n", ret);
-				kfree(line_data);
-				return -1;
-			}
-			/* 2nd line */
-			*line_data = 0x3C;
-			for (line_num = 0; line_num < lines; line_num++) {
-				ret = screen_display_write_dsi_long_packet(
-					&write_dsi_l);
-				if (ret != SMAP_LIB_DISPLAY_OK) {
-					printk(KERN_ALERT
-					       "2nd line or later write  err!"
-					       "ret=%d line=%d\n",
-					       ret, line_num);
-					kfree(line_data);
-					return -1;
-				}
-			}
-			kfree(line_data);
-#else  /* using rtapi */
 			screen_disp_draw disp_draw;
 
+#ifdef HX8369_B_DRAW_BLACK_KERNEL
 			printk(KERN_ALERT
 				"num_registered_fb = %d\n", num_registered_fb);
 
@@ -683,23 +796,17 @@ static int panel_specific_cmdset(void *lcd_handle,
 			       (unsigned)(registered_fb[0]->fix.smem_len));
 			memset(registered_fb[0]->screen_base, 0x0,
 					registered_fb[0]->fix.smem_len);
-#if 0 /* fill color for debug */
-			{
-				int xx;
-				int max = (registered_fb[0]->fix.smem_len) / 4;
-				unsigned int color = cmdset[loop].size;
-				unsigned int *bbb =
-				 (unsigned int *)registered_fb[0]->screen_base;
-				printk(KERN_ALERT "color =  %08x\n", color);
-				for (xx = 0; xx < max; xx++)
-					bbb[xx] = color;
-			}
 #endif
+
 			/* Memory clean */
 			disp_draw.handle = lcd_handle;
+#ifdef HX8369_B_DRAW_BLACK_KERNEL
 			disp_draw.output_mode = RT_DISPLAY_LCD1;
-/*			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;	*/
 			disp_draw.buffer_id   = RT_DISPLAY_BUFFER_A;
+#else
+			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
+			disp_draw.buffer_id   = RT_DISPLAY_DRAW_BLACK;
+#endif
 			disp_draw.draw_rect.x = 0;
 			disp_draw.draw_rect.y = 0;
 			disp_draw.draw_rect.width  = panel_width;
@@ -716,7 +823,6 @@ static int panel_specific_cmdset(void *lcd_handle,
 				printk(KERN_ALERT "screen_display_draw err!\n");
 				return -1;
 			}
-#endif
 			break;
 		}
 		case MIPI_DSI_DELAY:
@@ -738,43 +844,21 @@ static int panel_specific_cmdset(void *lcd_handle,
 
 static void mipi_display_reset(void)
 {
-
-#if 0
-	void *system_handle;
-	system_pmg_param powarea_start_notify;
-	system_pmg_delete pmg_delete;
-	int ret;
-#endif
-
 	printk(KERN_INFO "%s\n", __func__);
-
-#if 0
-	printk(KERN_INFO "Start A4LC power area\n");
-	system_handle = system_pwmng_new();
-
-	/* Notifying the Beginning of Using Power Area */
-	powarea_start_notify.handle		= system_handle;
-	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
-	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
-	if (ret != SMAP_LIB_PWMNG_OK)
-		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
-	pmg_delete.handle = system_handle;
-	system_pwmng_delete(&pmg_delete);
-#endif
 
 	/* GPIO control */
 	gpio_request(reset_gpio, NULL);
-	if (u2_get_board_rev() <= 4) {
+	if (u2_get_board_rev() <= 4)
 		gpio_request(power_gpio, NULL);
-	}
+
 	gpio_direction_output(reset_gpio, 0);
 	if (u2_get_board_rev() >= 5) {
-		if(power_ldo_3v==NULL)
+		if (power_ldo_3v == NULL)
 			printk(KERN_ERR "power_ldo_3v failed\n");
 		else
 			regulator_enable(power_ldo_3v);
-		
-		if(power_ldo_1v8==NULL)
+
+		if (power_ldo_1v8 == NULL)
 			printk(KERN_ERR "power_ldo_1v8 failed\n");
 		else
 			regulator_enable(power_ldo_1v8);
@@ -794,10 +878,12 @@ static int hx8369_b_panel_init(unsigned int mem_size)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
+	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_set_lcd_if_param set_lcd_if_param;
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
 	unsigned char read_data[60];
+	unsigned char read_panel_id[3];
 	int ret = 0;
 
 #ifdef HX8369_B_POWAREA_MNG_ENABLE
@@ -869,8 +955,97 @@ retry:
 		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
 	}
 
+	/* Panel ID check */
+	ret = hx8369_b_dsi_read(MIPI_DSI_DCS_READ, 0xDA, 1, &read_panel_id[0]);
+	if (ret != 0)
+		printk(KERN_ALERT "disp_dsi_read(0xDA) err! ret = %d\n", ret);
+
+	ret = hx8369_b_dsi_read(MIPI_DSI_DCS_READ, 0xDB, 1, &read_panel_id[1]);
+	if (ret != 0)
+		printk(KERN_ALERT "disp_dsi_read(0xDB) err! ret = %d\n", ret);
+
+	ret = hx8369_b_dsi_read(MIPI_DSI_DCS_READ, 0xDC, 1, &read_panel_id[2]);
+	if (ret != 0)
+		printk(KERN_ALERT "disp_dsi_read(0xDC) err! ret = %d\n", ret);
+
+	printk(KERN_INFO "Panel ID : %02x %02x %02x\n",
+		read_panel_id[0], read_panel_id[1], read_panel_id[2]);
+
+	if (PANEL_ID_REV48_RDID1 == read_panel_id[0] &&
+	    PANEL_ID_REV48_RDID2 == read_panel_id[1] &&
+	    PANEL_ID_REV48_RDID3 == read_panel_id[2])
+		is_panel_rev48 = 1;
+	else
+		is_panel_rev48 = 0;
+
 	/* Transmit DSI command peculiar to a panel */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	if (is_panel_rev48) {
+		is_dsi_read_enabled = 0;
+
+		/* Stop a display to LCD */
+		disp_stop_lcd.handle		= screen_handle;
+		disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+		screen_display_stop_lcd(&disp_stop_lcd);
+
+		/* Setting peculiar to panel */
+		set_lcd_if_param.handle		= screen_handle;
+		set_lcd_if_param.port_no	= irq_portno;
+		set_lcd_if_param.lcd_if_param	= &r_mobile_lcd_if_param_rev48;
+		set_lcd_if_param.lcd_if_param_mask
+			= &r_mobile_lcd_if_param_mask;
+		ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_set_lcd_if_parameters err!\n");
+			goto out;
+		}
+
+		/* Start a display to LCD */
+		start_lcd.handle	= screen_handle;
+		start_lcd.output_mode	= RT_DISPLAY_LCD1;
+		ret = screen_display_start_lcd(&start_lcd);
+		if (ret != SMAP_LIB_DISPLAY_OK) {
+			printk(KERN_ALERT "disp_start_lcd err!\n");
+			goto out;
+		}
+		is_dsi_read_enabled = 1;
+
+		init_cmd_set   = &initialize_cmdset_rev48;
+		dispon_cmd_set = &dispon_cmdset_rev48;
+	} else {
+		init_cmd_set = &initialize_cmdset;
+		dispon_cmd_set = &dispon_cmdset;
+	}
+
+	/* Panel initialize */
+	ret = panel_specific_cmdset(screen_handle, init_cmd_set);
+	if (ret != 0) {
+		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
+	}
+
+	is_dsi_read_enabled = 0;
+
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	screen_display_stop_lcd(&disp_stop_lcd);
+
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+		goto out;
+	}
+
+	is_dsi_read_enabled = 1;
+
+	/* Display ON */
+	ret = panel_specific_cmdset(screen_handle, dispon_cmd_set);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
@@ -890,6 +1065,7 @@ static int hx8369_b_panel_suspend(void)
 {
 	void *screen_handle;
 	screen_disp_stop_lcd disp_stop_lcd;
+	screen_disp_start_lcd start_lcd;
 	screen_disp_delete disp_delete;
 	int ret;
 
@@ -902,18 +1078,25 @@ static int hx8369_b_panel_suspend(void)
 
 	screen_handle =  screen_display_new();
 
+	is_dsi_read_enabled = 0;
+
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	screen_display_stop_lcd(&disp_stop_lcd);
+
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, demise_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
-#if 0
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-#endif
+		/* continue */
 	}
-
-	is_dsi_read_enabled = 0;
 
 	/* Stop a display to LCD */
 	disp_stop_lcd.handle		= screen_handle;
@@ -924,13 +1107,13 @@ static int hx8369_b_panel_suspend(void)
 	gpio_direction_output(reset_gpio, 0);
 	msleep(20);
 	if (u2_get_board_rev() >= 5) {
-	
-		if(power_ldo_3v==NULL)
+
+		if (power_ldo_3v == NULL)
 			printk(KERN_ERR "power_ldo_3v failed\n");
 		else
 			regulator_disable(power_ldo_3v);
-		
-		if(power_ldo_1v8==NULL)
+
+		if (power_ldo_1v8 == NULL)
 			printk(KERN_ERR "power_ldo_1v8 failed\n");
 		else
 			regulator_disable(power_ldo_1v8);
@@ -969,6 +1152,7 @@ static int hx8369_b_panel_resume(void)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
+	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
 	int ret = 0;
 
@@ -1011,7 +1195,33 @@ retry:
 	is_dsi_read_enabled = 1;
 
 	/* Transmit DSI command peculiar to a panel */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	ret = panel_specific_cmdset(screen_handle, init_cmd_set);
+	if (ret != 0) {
+		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
+	}
+
+	is_dsi_read_enabled = 0;
+
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	screen_display_stop_lcd(&disp_stop_lcd);
+
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+
+	is_dsi_read_enabled = 1;
+
+	/* Display ON */
+	ret = panel_specific_cmdset(screen_handle, dispon_cmd_set);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
@@ -1056,9 +1266,9 @@ static int hx8369_b_panel_probe(struct fb_info *info,
 	} else {
 		power_gpio	= res_power_gpio->start;
 	}
-	if (u2_get_board_rev() <= 4) {
+	if (u2_get_board_rev() <= 4)
 		printk(KERN_INFO "GPIO_PORT%d : for panel power\n", power_gpio);
-	}
+
 	printk(KERN_INFO "GPIO_PORT%d : for panel reset\n", reset_gpio);
 	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
 
@@ -1086,7 +1296,6 @@ static int hx8369_b_panel_remove(struct fb_info *info)
 static struct fb_panel_info hx8369_b_panel_info(void)
 {
 	printk(KERN_INFO "%s\n", __func__);
-
 	return r_mobile_info;
 }
 

@@ -31,6 +31,8 @@
 
 #include <linux/platform_device.h>
 
+#define S6E39A0X02_DRAW_BLACK_KERNEL
+
 /*#define S6E39A0X02_BRIGHTNESS_LINER */
 #define S6E39A0X02_POWAREA_MNG_ENABLE
 
@@ -84,6 +86,7 @@
 #define LCD_LDDCKR		0x0001007C
 #define LCD_MLDDCKPAT1R		0x00000000
 #define LCD_MLDDCKPAT2R		0x00000000
+#define LCD_PHYTEST		0x0000038C
 
 #define LCD_MASK_DSITCKCR	0x000000BF
 #define LCD_MASK_DSI0PCKCR	0x0000703F
@@ -108,6 +111,7 @@
 #define LCD_MASK_LDDCKR		0x0007007F
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
 #define LCD_MASK_MLDDCKPAT2R	0xFFFFFFFF
+#define LCD_MASK_PHYTEST	0x000003CC
 
 #define MIN_BRIGHTNESS	(0)
 #define MAX_BRIGHTNESS	(255)
@@ -148,7 +152,8 @@ static screen_disp_lcd_if r_mobile_lcd_if_param = {
 	.MLDMT1R     = LCD_MLDMT1R,
 	.LDDCKR      = LCD_LDDCKR,
 	.MLDDCKPAT1R = LCD_MLDDCKPAT1R,
-	.MLDDCKPAT2R = LCD_MLDDCKPAT2R
+	.MLDDCKPAT2R = LCD_MLDDCKPAT2R,
+	.PHYTEST     = LCD_PHYTEST
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
@@ -174,7 +179,8 @@ static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
 	LCD_MASK_MLDMT1R,
 	LCD_MASK_LDDCKR,
 	LCD_MASK_MLDDCKPAT1R,
-	LCD_MASK_MLDDCKPAT2R
+	LCD_MASK_MLDDCKPAT2R,
+	LCD_MASK_PHYTEST
 };
 
 static unsigned int reset_gpio;
@@ -232,17 +238,11 @@ static unsigned char data_25[] = { 0x2c, 0x00 };
 
 static unsigned char data_26[] = { 0x35, 0x00 };
 /* panel size is qHD 540x960 */
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
 static unsigned char data_27[] = { 0x2a, 0x00, 0x1e, 0x02, 0x3D };
-#else
-static unsigned char data_27[] = { 0x2a, 0x00, 0x1e, 0x02, 0x39 };
-#endif
 /* panel size is qHD 540x960 */
 static unsigned char data_28[] = { 0x2b, 0x00, 0x00, 0x03, 0xbf };
 static unsigned char data_29[] = { 0xd1, 0x8a };
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
 static unsigned char data_30[] = { 0x2a, 0x00, 0x1F, 0x02, 0x3E };
-#endif
 static unsigned char last_gamma_table[] = {
 	0xfa, 0x02, 0x58, 0x42, 0x56, 0xaa, 0xc8, 0xae, 0xb5,
 	0xc1, 0xbe, 0xb4, 0xc0, 0xb2, 0x93, 0x9f, 0x93, 0xa6,
@@ -285,9 +285,7 @@ static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_28, sizeof(data_28) },
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, data_29, sizeof(data_29) },
 	{ MIPI_DSI_BLACK,                 NULL,    0               },
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_30, sizeof(data_30) },
-#endif
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
 
@@ -326,12 +324,10 @@ static const struct _s6e39a0x02_cmdset resume_cmdset[] = {
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
 
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
 static const struct _s6e39a0x02_cmdset resume_cmdset_2[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_30, sizeof(data_30) },
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
-#endif
 
 static struct fb_info *common_fb_info;
 
@@ -529,54 +525,9 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 		{
 			u32 panel_width  = R_MOBILE_M_PANEL_PIXEL_WIDTH;
 			u32 panel_height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
-#if 0 /* using dsi command */
-			u32 line_size    = panel_width*3 + 1;
-			u32 lines        = panel_height - 1;
-			u32 line_num;
-			unsigned char *line_data
-					= kmalloc(line_size, GFP_KERNEL);
-			if (line_data == NULL) {
-				printk(KERN_ALERT
-				       "kmalloc err!\n");
-				return -1;
-			}
-			memset(line_data, 0, line_size);
-			printk(KERN_INFO "panel_cmdset Black Paint\n");
-			/* 1st line */
-			*line_data = 0x2C;
-			write_dsi_l.handle         = lcd_handle;
-			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
-			write_dsi_l.data_id        = MIPI_DSI_DCS_LONG_WRITE;
-			write_dsi_l.data_count     = line_size;
-			write_dsi_l.write_data     = line_data;
-			write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
-			write_dsi_l.send_mode      = RT_DISPLAY_SEND_MODE_HS;
-			ret = screen_display_write_dsi_long_packet(
-					&write_dsi_l);
-			if (ret != SMAP_LIB_DISPLAY_OK) {
-				printk(KERN_ALERT
-				       "1st line write err!%d\n", ret);
-				kfree(line_data);
-				return -1;
-			}
-			/* 2nd line */
-			*line_data = 0x3C;
-			for (line_num = 0; line_num < lines; line_num++) {
-				ret = screen_display_write_dsi_long_packet(
-					&write_dsi_l);
-				if (ret != SMAP_LIB_DISPLAY_OK) {
-					printk(KERN_ALERT
-					       "2nd line or later write  err!"
-					       "ret=%d line=%d\n",
-					       ret, line_num);
-					kfree(line_data);
-					return -1;
-				}
-			}
-			kfree(line_data);
-#else  /* using rtapi */
 			screen_disp_draw disp_draw;
 
+#ifdef S6E39A0X02_DRAW_BLACK_KERNEL
 			printk(KERN_ALERT
 				"num_registered_fb = %d\n", num_registered_fb);
 
@@ -600,23 +551,16 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 			       (unsigned)(registered_fb[0]->fix.smem_len));
 			memset(registered_fb[0]->screen_base, 0x0,
 					registered_fb[0]->fix.smem_len);
-#if 0 /* fill color for debug */
-			{
-				int xx;
-				int max = (registered_fb[0]->fix.smem_len) / 4;
-				unsigned int color = cmdset[loop].size;
-				unsigned int *bbb =
-				 (unsigned int *)registered_fb[0]->screen_base;
-				printk(KERN_ALERT "color =  %08x\n", color);
-				for (xx = 0; xx < max; xx++)
-					bbb[xx] = color;
-			}
 #endif
 			/* Memory clean */
 			disp_draw.handle = lcd_handle;
+#ifdef S6E39A0X02_DRAW_BLACK_KERNEL
 			disp_draw.output_mode = RT_DISPLAY_LCD1;
-/*			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;	*/
 			disp_draw.buffer_id   = RT_DISPLAY_BUFFER_A;
+#else
+			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
+			disp_draw.buffer_id   = RT_DISPLAY_DRAW_BLACK;
+#endif
 			disp_draw.draw_rect.x = 0;
 			disp_draw.draw_rect.y = 0;
 			disp_draw.draw_rect.width  = panel_width;
@@ -633,7 +577,6 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 				printk(KERN_ALERT "screen_display_draw err!\n");
 				return -1;
 			}
-#endif
 			break;
 		}
 		case MIPI_DSI_DELAY:
@@ -1189,7 +1132,6 @@ static int s6e39a0x02_panel_resume(void)
 		return -1;
 	}
 
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
 	ret = s6e39a0x02_panel_cmdset(screen_handle, resume_cmdset_2);
 	if (ret != 0) {
 		printk(KERN_ALERT "s6e39a0x02_panel_cmdset(2) err!\n");
@@ -1197,7 +1139,6 @@ static int s6e39a0x02_panel_resume(void)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
-#endif
 
 	/* Display on */
 	write_dsi_s.handle		= screen_handle;

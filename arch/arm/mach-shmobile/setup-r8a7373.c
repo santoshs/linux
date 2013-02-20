@@ -418,11 +418,15 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 };
 
 /* SCIFB1 */
+/* PCP# SS13020730732 - SCIFB1 configuration is changed as below
+based on UART baud rate settings in GPS module
+For baud rate 115 200 / 460 800 - SCBRR_ALGO_4 is set
+For baud rate 921 600 / 460 800 - SCBRR_ALGO_4_BIS */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4_BIS,
+	.scbrr_algo_id	= SCBRR_ALGO_4,
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(108), gic_spi(108),
 			gic_spi(108), gic_spi(108) },
@@ -1685,12 +1689,38 @@ static void __init r8a7373_timer_init(void)
 	setup_current_timer();
 }
 
+void r8a7373_l2cache_init(void)
+{
+#ifdef CONFIG_CACHE_L2X0
+	/*
+	 * [30] Early BRESP enable
+	 * [27] Non-secure interrupt access control
+	 * [26] Non-secure lockdown enable
+	 * [22] Shared attribute override enable
+	 * [19:17] Way-size: b010 = 32KB
+	 * [16] Accosiativity: 0 = 8-way
+	 */
+	if((system_rev & 0xFFFF) == 0x3E00)
+	{
+		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
+	}
+	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	{
+		/*The L2Cache is resized to 512 KB*/
+		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
+	}
+#endif
+}
+
 #define CCCR	IO_ADDRESS(0xe600101c)
 
 void __init r8a7373_init_early(void)
 {
 	system_rev = __raw_readl(IOMEM(CCCR));
 
+#ifdef CONFIG_ARM_TZ
+	r8a7373_l2cache_init();
+#endif
 	/* override timer setup with soc-specific code */
 	shmobile_timer.init = r8a7373_timer_init;
 }

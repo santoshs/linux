@@ -5,11 +5,6 @@
 
 #include <asm/ptrace.h>
 
-#ifndef CONFIG_ARM_TZ
-#define CONFIG_GIC_NS 
-#define CONFIG_GIC_NS_CMT
-#endif
-
 /*
  * CPU interrupt mask handling.
  */
@@ -45,12 +40,7 @@ static inline void arch_local_irq_disable(void)
 }
 
 #define local_fiq_enable()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
-#ifndef CONFIG_GIC_NS
 #define local_fiq_disable() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
-#else
-#define local_fiq_disable()
-#endif
-
 #else
 
 /*
