@@ -32,8 +32,9 @@ static unsigned int __init shmobile_smp_get_core_count(void)
 	if (is_r8a7779())
 		return r8a7779_get_core_count();
 
-	if (is_r8a7373())
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
 		return r8a7373_get_core_count();
+#endif
 
 	return 1;
 }
@@ -46,8 +47,9 @@ static void __init shmobile_smp_prepare_cpus(void)
 	if (is_r8a7779())
 		r8a7779_smp_prepare_cpus();
 
-	if (is_r8a7373())
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
 		r8a7373_smp_prepare_cpus();
+#endif
 }
 
 int shmobile_platform_cpu_kill(unsigned int cpu)
@@ -79,8 +81,9 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	if (is_r8a7779())
 		r8a7779_secondary_init(cpu);
 
-	if (is_r8a7373())
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
 		r8a7373_secondary_init(cpu);
+#endif
 }
 
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
@@ -91,8 +94,9 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	if (is_r8a7779())
 		return r8a7779_boot_secondary(cpu);
 
-	if (is_r8a7373())
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
 		return r8a7373_boot_secondary(cpu);
+#endif
 
 	return -ENOSYS;
 }

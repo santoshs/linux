@@ -328,12 +328,13 @@ void write_req_comp(void)
 	writel(ARMIIC_RTBOOT, REG_ARMIIC);
 	writel(GSR_REQ_COMP, REG_GSR);
 }
-
+#define RT_BOOT_HW_ID_REV_0_0_X 0
 #define RT_BOOT_HW_ID_REV_0_2_1 1
 #define RT_BOOT_HW_ID_REV_0_2_2 2
 #define RT_BOOT_HW_ID_REV_0_3_X 3
 #define RT_BOOT_HW_ID_REV_0_4_1 4
 #define RT_BOOT_HW_ID_REV_0_5_X 5
+#define RT_BOOT_HW_ID_REV_0_6_X 6
 
 static int set_screen_data(unsigned int disp_addr)
 {
@@ -353,6 +354,7 @@ static int set_screen_data(unsigned int disp_addr)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
+#ifndef CONFIG_BOARD_VERSION_GARDA
 	case RT_BOOT_HW_ID_REV_0_2_1:
 	case RT_BOOT_HW_ID_REV_0_2_2:
 	case RT_BOOT_HW_ID_REV_0_3_X:
@@ -374,6 +376,19 @@ static int set_screen_data(unsigned int disp_addr)
 		screen[0].mode   = 0; /* VIDEO MODE */
 
 		break;
+#else /* CONFIG_BOARD_VERSION_GARDA */
+	case RT_BOOT_HW_ID_REV_0_0_X:
+	case RT_BOOT_HW_ID_REV_0_5_X:
+	case RT_BOOT_HW_ID_REV_0_6_X:
+		/* WVGA */
+		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
+		screen[0].height = 800;
+		screen[0].width  = 480;
+		screen[0].stride = 480;
+		screen[0].mode   = 0; /* VIDEO MODE */
+
+		break;
+#endif /* CONFIG_BOARD_VERSION_GARDA */
 	default:
 		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
 					"Unknown HWID(=%d)\n", hw_id);

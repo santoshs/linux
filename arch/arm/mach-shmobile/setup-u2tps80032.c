@@ -1,7 +1,7 @@
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
 #include <linux/pmic/pmic-tps80032.h>
-#endif
+
 
 #include <linux/regulator/tps80031-regulator.h>
 #include <linux/mfd/tps80031.h>
@@ -104,3 +104,4 @@ struct tps80032_platform_data tps_platform = {
 	.irq_base	= ENT_TPS80032_IRQ_BASE,
 };
 
+#endif

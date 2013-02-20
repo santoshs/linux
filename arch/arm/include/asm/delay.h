@@ -56,6 +56,15 @@ extern void __bad_udelay(void);
 			__const_udelay((n) * UDELAY_MULT)) :		\
 	  __udelay(n))
 
+extern void (*delay_fn)(unsigned long);
+
+static inline void set_delay_fn(void (*fn)(unsigned long))
+{
+	delay_fn = fn;
+}
+
+extern void read_current_timer_delay_loop(unsigned long loops);
+
 /* Loop-based definitions for assembly code. */
 extern void __loop_delay(unsigned long loops);
 extern void __loop_udelay(unsigned long usecs);

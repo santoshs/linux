@@ -231,6 +231,7 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 	if (val >= 0) {
 		data = (u8)val;
 		printk("%s : reg (0x%x) = 0x%x\n", __func__, SMB328A_FLOAT_VOLTAGE, data);
+#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			if (data != 0xd4) {
 				data = 0xd4; /* 4.3V float voltage */
@@ -254,6 +255,13 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 				}
 			}
 		}
+#elif defined(CONFIG_MACH_GARDALTE)
+	if (data != 0xd4) {
+		data = 0xd4; /* 4.3V float voltage */
+		if (smb328a_write_reg(client, SMB328A_FLOAT_VOLTAGE, data) < 0)
+			pr_err("%s : error!\n", __func__);
+	}
+#endif
 	}
 
 	val = smb328a_read_reg(client, SMB328A_FUNCTION_CONTROL_A1);
@@ -1078,15 +1086,18 @@ static struct i2c_driver smb328a_i2c_driver = {
 
 static int __init smb328a_init(void)
 {
-	if (u2_get_board_rev() >= 5)
+#ifdef CONFIG_MACH_U2EVM
+	if (u2_get_board_rev >= 3)
+#endif
 		return i2c_add_driver(&smb328a_i2c_driver);
-	else
-		return 0;
+	return 0;
 }
 
 static void __exit smb328a_exit(void)
 {
-	if (u2_get_board_rev() >= 5)
+#ifdef CONFIG_MACH_U2EVM
+	if (u2_get_board_rev >= 3)
+#endif
 		i2c_del_driver(&smb328a_i2c_driver);
 }
 

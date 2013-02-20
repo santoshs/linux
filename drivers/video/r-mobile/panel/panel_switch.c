@@ -23,17 +23,22 @@
 #include <video/sh_mobile_lcdc.h>
 #include <rtapi/screen_display.h>
 
+#define PANEL_SWITCH_HW_ID_REV_0_0_X 0
 #define PANEL_SWITCH_HW_ID_REV_0_2_1 1
 #define PANEL_SWITCH_HW_ID_REV_0_2_2 2
 #define PANEL_SWITCH_HW_ID_REV_0_3_X 3
 #define PANEL_SWITCH_HW_ID_REV_0_4_1 4
 #define PANEL_SWITCH_HW_ID_REV_0_5_X 5
+#define PANEL_SWITCH_HW_ID_REV_0_6_X 6
 
 #ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
 #include "panel_s6e39a0x02.h"
 #endif
 #ifdef CONFIG_FB_R_MOBILE_HX8369_B
 #include "panel_hx8369_b.h"
+#endif
+#ifdef CONFIG_FB_R_MOBILE_NT35512
+#include "panel_nt35512.h"
 #endif
 
 struct fb_panel_func r_mobile_panel_func(int panel)
@@ -52,6 +57,7 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
+#ifndef CONFIG_BOARD_VERSION_GARDA
 #ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
 	case PANEL_SWITCH_HW_ID_REV_0_2_1:
 	case PANEL_SWITCH_HW_ID_REV_0_2_2:
@@ -67,6 +73,17 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 		panel_func = hx8369_b_func_list();
 		break;
 #endif
+#else /* CONFIG_BOARD_VERSION_GARDA */
+#ifdef CONFIG_FB_R_MOBILE_NT35512
+	case PANEL_SWITCH_HW_ID_REV_0_0_X:
+	case PANEL_SWITCH_HW_ID_REV_0_5_X:
+	case PANEL_SWITCH_HW_ID_REV_0_6_X:
+		printk(KERN_INFO "Switch nt35512.(ID=%d)\n", hw_id);
+		panel_func = nt35512_func_list();
+		break;
+#endif /* CONFIG_FB_R_MOBILE_NT35512 */
+#endif /* CONFIG_BOARD_VERSION_GARDA */
+
 	default:
 		printk(KERN_INFO "Unknown HWID.(ID=%d)\n", hw_id);
 	}

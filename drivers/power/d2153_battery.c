@@ -481,10 +481,12 @@ static void d2153_force_release_swsem(u8 swsem_id)
  */
 void d2153_handle_modem_reset(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	atomic_set(&modem_reset_handing, 1);
 	wake_up_interruptible(&d2153_modem_reset_event);
 }
@@ -569,10 +571,12 @@ u32 adc_to_soc_with_temp_compensat(u16 adc, u16 temp) {
 
 	//pr_info("%s. adc = %d. temp = %d\n", __func__, adc, temp);
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	if(temp < BAT_LOW_LOW_TEMPERATURE)
 		temp = BAT_LOW_LOW_TEMPERATURE;
 	else if(temp > BAT_HIGH_TEMPERATURE)
@@ -659,10 +663,12 @@ static u16 pre_soc = 0xffff;
 u16 soc_filter(u16 new_soc, u8 is_charging) {
 	u16 soc = new_soc;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	if(pre_soc == 0xffff)
 		pre_soc = soc;
 	else {
@@ -698,18 +704,22 @@ u16 soc_filter(u16 new_soc, u8 is_charging) {
 //u16 adc_to_degree_k(u16 adc) {
 int adc_to_degree_k(u16 adc) {
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
     return (chk_lut_temp(adc2temp_lut.adc, adc2temp_lut.temp, adc, temp_lut_length));
 }
 
 int degree_k2c(u16 k) {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	return (K2C(k));
 }
 
@@ -720,10 +730,12 @@ int degree_k2c(u16 k) {
 //u16 get_adc_offset(u16 adc) {	
 int get_adc_offset(u16 adc) {	
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
     return (chk_lut(adc2vbat_lut.adc, adc2vbat_lut.offset, adc, adc2vbat_lut_length));
 }
 
@@ -734,10 +746,12 @@ int get_adc_offset(u16 adc) {
 u16 adc_to_vbat(u16 adc, u8 is_charging) {    
 	u16 a = adc;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	if(is_charging)
 		a = adc - get_adc_offset(adc); // deduct charging offset
 	// return (chk_lut(adc2vbat_lut.adc, adc2vbat_lut.vbat, a, adc2vbat_lut_length));
@@ -753,10 +767,12 @@ int adc_to_soc(u16 adc, u8 is_charging) {
 
 	u16 a = adc;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	if(is_charging)
 		a = adc - get_adc_offset(adc); // deduct charging offset
 	return (chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, a, adc2soc_lut_length));
@@ -1826,10 +1842,12 @@ int d2153_battery_read_status(int type)
 {
 	int val=0;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	switch(type){
 		case D2153_BATTERY_SOC:
 			val = d2153_get_soc(gbat);
@@ -2050,10 +2068,12 @@ static void d2153_sleep_monitor_work(struct work_struct *work)
 
 void d2153_battery_start(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	schedule_delayed_work(&gbat->monitor_volt_work, 0);
 }
 EXPORT_SYMBOL_GPL(d2153_battery_start);
@@ -2264,10 +2284,12 @@ static struct platform_driver d2153_battery_driver = {
 
 static int __init d2153_battery_init(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	printk(d2153_battery_banner);
 	return platform_driver_register(&d2153_battery_driver);
 }
@@ -2278,10 +2300,12 @@ subsys_initcall(d2153_battery_init);
 
 static void __exit d2153_battery_exit(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	flush_scheduled_work();
 	platform_driver_unregister(&d2153_battery_driver);
 }
