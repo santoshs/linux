@@ -288,11 +288,15 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	}
 	
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
+#ifndef CONFIG_BOARD_VERSION_GARDA	
 	if (u2_get_board_rev() >= 5) {
+#endif /* CONFIG_BOARD_VERSION_GARDA */
 		d2153_handle_modem_reset();
+#ifndef CONFIG_BOARD_VERSION_GARDA
 	} else {
 		tps80032_handle_modem_reset();
 	}
+#endif /* CONFIG_BOARD_VERSION_GARDA */
 
 	/* Clear Event factor by setting corresponding bit in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);

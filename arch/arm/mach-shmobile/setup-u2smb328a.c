@@ -92,10 +92,14 @@ static struct platform_device spa_power_device = {
 
 int spa_power_init(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() >= 5) {
 		return platform_device_register(&spa_power_device_d2153);
 	} else {
 		return platform_device_register(&spa_power_device);
 	}
+#elif defined(CONFIG_MACH_GARDALTE)
+	return platform_device_register(&spa_power_device_d2153);
+#endif
 }
 #endif

@@ -1852,18 +1852,18 @@ static struct platform_driver spa_power_driver = {
 static int __init spa_power_init(void)
 {
 	int ret = 0;
-
-	if (u2_get_board_rev() >= 5) {
+#ifdef CONFIG_MACH_U2EVM
+	if (u2_get_board_rev >= 3)
+#endif
 		ret = platform_driver_register(&spa_power_driver);
-		return ret;
-	} else {
-		return ret;
-	}
+	return ret;
 }
 
 static void __exit spa_power_exit(void)
 {
-	if (u2_get_board_rev() >= 5)
+#ifdef CONFIG_MACH_U2EVM
+	if (u2_get_board_rev >= 3)
+#endif
 		platform_driver_unregister(&spa_power_driver);
 }
 
