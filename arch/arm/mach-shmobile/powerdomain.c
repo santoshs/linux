@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-shmobile/powerdomain.c
  *
- * Copyright (C) 2012 Renesas Mobile Corporation
+ * Copyright (C) 2012-2013 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -190,7 +190,6 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* MFI		*/	{ "av-domain",		ID_A3R	},
 	/* FSI2/ALSA	*/	{ "snd-soc-fsi",	ID_A4MP },
 	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4MP },
-	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4RM },
 	/* PCM2PWM	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
 	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
 	/* AudioPT	*/	{ "snd-soc-audio-test",	ID_A4MP },
