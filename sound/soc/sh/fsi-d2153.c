@@ -359,6 +359,8 @@ static struct snd_kcontrol_new fsi_d2153_controls[] = {
 		fsi_d2153_snd_soc_get_adc, fsi_d2153_snd_soc_put_adc),
 	FSI_SOC_SINGLE_EXT("Path", 0, fsi_d2153_sndp_soc_info,
 		fsi_d2153_sndp_soc_get, fsi_d2153_sndp_soc_put),
+	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
+		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
 };
 
 static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
