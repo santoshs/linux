@@ -1275,6 +1275,9 @@ static void __init gardalte_init(void)
  	   should be either removed or modified to get Garda HW rev 
 	 */	
 	u2_board_rev = 5;
+	/* Temporary workaround */
+	if (u2_board_rev == 1)
+		u2_board_rev = RLTE_BOARD_REV_0_1;
 
 	create_proc_read_entry("board_revision", 0444, NULL,u2_read_board_rev,
 			NULL);
@@ -1844,6 +1847,7 @@ static void __init gardalte_reserve(void)
 static int check_sec_rlte_hw_rev(void)
 {
 	int rev0, rev1, rev2, rev3;
+	int tmp_board_rev;
 
 	gpio_request(GPIO_PORT72, "HW_REV0");
 	gpio_request(GPIO_PORT73, "HW_REV1");
@@ -1859,8 +1863,12 @@ static int check_sec_rlte_hw_rev(void)
 	rev1 = gpio_get_value(GPIO_PORT73);
 	rev2 = gpio_get_value(GPIO_PORT74);
 	rev3 = gpio_get_value(GPIO_PORT75);
-
-	return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
+	/* This line is commented as Temporary as a workaround */
+	/*return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);*/
+	tmp_board_rev = (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
+	if (tmp_board_rev == 1)
+		return RLTE_BOARD_REV_0_1;
+	return tmp_board_rev;
 }
 
 MACHINE_START(U2EVM, "u2evm")

@@ -27,14 +27,10 @@
  */
 
 /**
- * SEC_RLTE_REV
+ * RLTE_BOARD_REV
  */
-#define SEC_RLTE_REV0_0_0		0
-#define SEC_RLTE_REV0_2_1		1
-#define SEC_RLTE_REV0_2_2		2
-#define SEC_RLTE_REV0_3_1		3
-#define SEC_RLTE_REV0_4_0		4
-
+#define RLTE_BOARD_REV_0_0	6
+#define RLTE_BOARD_REV_0_1	6
 /**
  * ION
  */
