@@ -183,7 +183,7 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 	/* SKB fragments */
 	for (i = 0; i < (skb_shinfo(skb)->nr_frags); i++) {
 		frag = &skb_shinfo(skb)->frags[i];
-		page = frag->page;
+		page = skb_frag_page(frag);
 
 		ptr = page_address(page);
 
@@ -367,8 +367,8 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		for (tunnel = mhdpn->tunnels, pre_dev = NULL;
 		     tunnel;
 		     pre_dev = tunnel, tunnel = tunnel->next) {
-			if (tunnel->pdn_id == k_parms.pdn_id) {
-				tunnel->free_pdn = 1;			}
+			if (tunnel->pdn_id == k_parms.pdn_id)
+				tunnel->free_pdn = 1;
 		}
 		break;
 
@@ -438,13 +438,11 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		dev_queue_xmit(skb);
 
 		for (i = 0; i < nb_frags; i++) {
-		    if (tunnel->skb_to_free[i]) {
-			    dev_kfree_skb(tunnel->skb_to_free[i]);
-		    } else {
-			    EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
-		    }
+			if (tunnel->skb_to_free[i])
+				dev_kfree_skb(tunnel->skb_to_free[i]);
+			else
+				EPRINTK("mhdp_submit_queued_skb: error no skb to free\n");
 		}
-
 	}
 }
 
@@ -466,7 +464,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
-		page = frag->page.p;
+		page = skb_frag_page(frag);
 	}
 
 	if (skb_headlen(skb) > L2MUX_HDR_SIZE)
@@ -485,7 +483,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		DPRINTK("mhdp header length: %d, skb_headerlen: %d",
 				mhdp_header_len, skbheadlen);
 
-		mhdpHdr = (struct mhdp_hdr *) kmalloc(mhdp_header_len,
+		mhdpHdr = kmalloc(mhdp_header_len,
 				GFP_ATOMIC);
 
 		if (skbheadlen == 0) {
@@ -551,7 +549,8 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				page,
 				frag->page_offset +
 				((mhdp_header_len - skb_headlen(skb)) + offset),
-				length, PAGE_SIZE);
+				length,
+				length);
 
 			ip_ver = *((unsigned long *)page_address(page) +
 					(frag->page_offset +
@@ -683,9 +682,8 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	SKBPRINT(skb, "SKB: TX");
 
 
-	if (timer_pending(&tunnel->tx_timer)) {
+	if (timer_pending(&tunnel->tx_timer))
 		del_timer(&tunnel->tx_timer);
-	}
 
 #if 0
 	{
@@ -695,7 +693,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
-				printk("MHDP mhdp_netdev_xmit : TX [%04X] ", i);
+				printk(KERN_DEBUG "MHDP mhdp_netdev_xmit : TX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
 			if (i%8 == 7 || i == len-1)
 				printk("\n");
@@ -789,7 +787,7 @@ xmit_again:
 			(unsigned long)page_address(page));
 
 	skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-			page, offset, skb_headlen(skb), PAGE_SIZE);
+				page, offset, skb_headlen(skb), skb_headlen(skb));
 
 	if (skb_shinfo(skb)->nr_frags) {
 
@@ -798,13 +796,13 @@ xmit_again:
 				skb_frag_t *frag =
 					&skb_shinfo(tunnel->skb)->frags[i];
 
-			get_page(frag->page.p);
+			get_page(skb_frag_page(frag));
 
 				skb_add_rx_frag(tunnel->skb,
 					skb_shinfo(tunnel->skb)->nr_frags,
-					frag->page.p,
+					skb_frag_page(frag),
 					frag->page_offset,
-					frag->size, PAGE_SIZE);
+					frag->size, frag->size);
 		}
 	}
 

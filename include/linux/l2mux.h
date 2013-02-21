@@ -3,7 +3,7 @@
 *
 * MHI L2MUX kernel definitions
 *
-* Copyright (C) 2011 Renesas Mobile Corporation. All rights reserved.
+* Copyright (C) 2012 Renesas Mobile Corporation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -47,6 +47,7 @@
 #define MHI_L3_MHDP_DL		0x07
 #define MHI_L3_MHDP_UL		0x08
 #define MHI_L3_AUX_HOST		0x09
+#define MHI_L3_IMS		0x0D
 #define MHI_L3_THERMAL		0xC1
 #define MHI_L3_HIGH_PRIO_TEST	0xFD
 #define MHI_L3_MED_PRIO_TEST	0xFE
@@ -86,6 +87,18 @@ struct l2muxstat {
 	struct timeval time_val;
 	struct list_head list;
 	unsigned int stat_counter;
+};
+
+struct l2mux_stat_info {
+	struct proc_dir_entry *proc_entry;
+	struct l2muxstat l2muxstat_tab;
+	int l2mux_stat_id;
+	int previous_stat_counter;
+	unsigned int l2mux_total_stat_counter;
+	enum l2mux_trace_state l2mux_traces_state;
+	int l2mux_traces_activation_done;
+	struct net_device *dev;
+	struct work_struct l2mux_stat_work;
 };
 
 #endif /* ACTIVATE_L2MUX_STAT */

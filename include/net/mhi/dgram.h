@@ -3,7 +3,7 @@
 *
 * MHI DGRAM socket definitions
 *
-* Copyright (C) 2011 Renesas Mobile Corporation. All rights reserved.
+ * Copyright (C) 2012 Renesas Mobile Corporation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
