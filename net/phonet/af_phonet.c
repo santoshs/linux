@@ -239,9 +239,8 @@ static int pn_send(struct sk_buff *skb, struct net_device *dev,
 	skb->priority = 0;
 	skb->dev = dev;
 
-	PN_PRINTK("pn_send rdev %x sdev %x res %x robj %x sobj %x \
-		   netdev=%s\n", ph->pn_rdev, ph->pn_sdev, ph->pn_res,
-		   ph->pn_robj, ph->pn_sobj, dev->name);
+	PN_PRINTK("pn_send  rdev %x sdev %x res %x robj %x sobj %x netdev=%s\n",\
+	ph->pn_rdev, ph->pn_sdev, ph->pn_res, ph->pn_robj, ph->pn_sobj, dev->name);
 	PN_DATA_PRINTK("PHONET : skb  data = %d\nPHONET :", skb->len);
 	for (i = 1; i <= skb->len; i++) {
 		PN_DATA_PRINTK(" %02x", skb->data[i-1]);
@@ -451,15 +450,11 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 
 	pn_skb_get_dst_sockaddr(skb, &sa);
 
-	/* check if this is multicasted */
-	if (pn_sockaddr_get_object(&sa) == PNOBJECT_MULTICAST) {
-		pn_deliver_sock_broadcast(net, skb);
-		goto out;
-	}
 
-	PN_PRINTK("phonet rcv : phonet hdr rdev %x sdev %x res %x robj %x \
-		   sobj %x netdev=%s\n", ph->pn_rdev, ph->pn_sdev, ph->pn_res,
-		   ph->pn_robj, ph->pn_sobj, dev->name);
+	PN_PRINTK("phonet rcv : phonet hdr rdev %x sdev %x res %x robj %x sobj %x netdev=%s orig_netdev=%s\n",\
+			ph->pn_rdev, ph->pn_sdev, ph->pn_res,
+			ph->pn_robj, ph->pn_sobj, dev->name,
+			orig_dev->name);
 
 	PN_DATA_PRINTK("PHONET : skb  data = %d\nPHONET :", skb->len);
 	for (i = 1; i <= skb->len; i++) {
@@ -516,8 +511,9 @@ static int phonet_rcv(struct sk_buff *skb, struct net_device *dev,
 		__skb_push(skb, sizeof(struct phonethdr));
 		skb->dev = out_dev;
 		if (out_dev == dev) {
-			LIMIT_NETDEBUG(KERN_ERR"Phonet loop to %02X on %s\n",
-					pn_sockaddr_get_addr(&sa), dev->name);
+			LIMIT_NETDEBUG(KERN_ERR"Phonet loop to %02X on %s ori=%s\n",
+					pn_sockaddr_get_addr(&sa), dev->name,
+					orig_dev->name);
 			goto out_dev;
 		}
 		/* Some drivers (e.g. TUN) do not allocate HW header space */
