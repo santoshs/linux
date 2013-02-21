@@ -136,12 +136,19 @@ typedef enum {
 extern phonet_debug_state phonet_dbg_state;
 
 # define PN_PRINTK(...)    if (OFF != phonet_dbg_state) \
-				printk(KERN_DEBUG "PHONET: " __VA_ARGS__)
+				printk("PHONET: " __VA_ARGS__)
 # define PN_DATA_PRINTK(...)    if (DATA == phonet_dbg_state) \
+				  printk(__VA_ARGS__)
+# define PEP_PRINTK(...)    if (OFF != phonet_dbg_state) \
+				printk("PEP: " __VA_ARGS__)
+# define PEP_DATA_PRINTK(...)    if (DATA == phonet_dbg_state) \
 				  printk(__VA_ARGS__)
 #else
 # define PN_PRINTK(...)
 # define PN_DATA_PRINTK(...)
+# define PEP_PRINTK(...)
+# define PEP_DATA_PRINTK(...)
+
 #endif
 
 #endif

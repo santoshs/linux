@@ -47,6 +47,23 @@ MODULE_DESCRIPTION("Phonet TTY line discipline");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_LDISC(N_PHONET);
 
+/* Comment - 01 */
+/*AT+ATSTART will be entered by closing ISI application. By the methods under
+ implementation for disconnecting an application in NTrace)the same is
+ expected to be available for TnT), it is expected that, congestion condition
+ will be present when executing AT+ATSTART allowing a few bytes of room from
+ underlying layer. Hence, keeping simplicity later write_back functionality
+ is not used here as it is done for normal transfer.*/
+
+/* Comment - 02 */
+/*If control is transferred to AT Parser, activateld can close the tty
+ interfering tty->write. Hence, tty->write is done first. Only
+ programming error can fail AT switch . practically, no other reasons apply.
+ Tty->write will synchronously write to the lower driver which can later
+ transfer the data in tty independent way. In testing no synchronization
+ issue is seen.*/
+
+
 #define SEND_QUEUE_LOW 10
 #define SEND_QUEUE_HIGH 100
 #define PHONET_SENDING	        1 /* Bit 1 = 0x02*/
@@ -64,6 +81,11 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_PHONET_BUFFER_LEN      1048576
 #define LD_PHONET_INIT_LEN        0
 
+#define LD_ATCMD_BUFFER_LEN       1024
+#define LD_UART_AT_MODE           2
+#define LD_UART_INVALID_MODE      -1
+
+#define ATPLIB_AT_CMD_MAX   1024
 extern struct switch_dev switch_dock;
 
 struct ld_phonet {
@@ -86,6 +108,7 @@ struct ld_phonet {
 	int n_Remaining_Data;
 	bool link_up;
 	int nb_try_to_tx;
+	unsigned char *ld_atcmd_buffer;
 };
 
 /* AT-ISI Separation starts */
@@ -358,10 +381,6 @@ ld_pn_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	int ret = 0;
 	switch (cmd) {
 	case SIOCPNGAUTOCONF:
-		ret = phonet_address_add(dev, PN_MEDIA_USB);
-		if (ret)
-			return ret;
-		phonet_address_notify(RTM_NEWADDR, dev, PN_MEDIA_USB);
 		phonet_route_add(dev, PN_DEV_PC);
 		dev_open(dev);
 		netif_carrier_on(dev);
@@ -438,10 +457,12 @@ static int ld_phonet_ldisc_open(struct tty_struct *tty)
 	ld_pn->n_Remaining_Data = 0;
 	ld_pn->link_up = true;
 	ld_pn->nb_try_to_tx = 0;
-
+	ld_pn->ld_atcmd_buffer = kmalloc(LD_ATCMD_BUFFER_LEN, GFP_KERNEL);
+	if (ld_pn->ld_atcmd_buffer == NULL)
+		goto LDISC_ERROR;
 	err = register_netdev(dev);
-
 	if (err)
+LDISC_ERROR:
 		free_netdev(dev);
 
 	dbg("ld_phonet_ldisc_open exits err = %d\n", err);
@@ -456,6 +477,7 @@ static void ld_phonet_ldisc_close(struct tty_struct *tty)
 	struct ld_phonet *ld_pn = tty->disc_data;
 
 	tty->disc_data = NULL;
+	kfree(ld_pn->ld_atcmd_buffer);
 	ld_pn->tty = NULL;
 	unregister_netdev(ld_pn->dev);
 	/*free_netdev(ld_pn->dev); David a checker*/
@@ -602,6 +624,8 @@ static void ld_phonet_ldisc_receive
 	unsigned long flags = 0;
 	unsigned int msglen = 0, i;
 	int check_at = 27;
+	int ld_atcmd_len = 0;
+	int room = 0;
 	struct phonethdr *ph = NULL;
 
 	if (ld_pn->link_up == false) {
@@ -629,10 +653,42 @@ static void ld_phonet_ldisc_receive
 			int ret = 0;
 			dbg("case LD_PHONET_SWITCH\n");
 			ret = ld_set_switch_buf(NULL, NULL, cp, count);
-			if (-1 == ret) {
+			if (LD_UART_AT_MODE == ret) {
 				dbg("MATCH FOR change mode \
 				LD_PHONET_SWITCH%c\n", *cp);
+				ld_atcmd_len = sprintf \
+						 (ld_pn->ld_atcmd_buffer, \
+						"\r\n%s:%s\r\n"  \
+						"\r\n" "%s\r\n", \
+						"+ATSTART", "OK", "OK");
+				room = tty_write_room(tty);
+				if (room >= ld_atcmd_len) {
+					/* Refer Comment 01 above */
+					tty->ops->write(tty, \
+						ld_pn->ld_atcmd_buffer, \
+						ld_atcmd_len);
+				}
+				/* Refer Comment 02 above */
+				ld_set_manualsw(NULL, NULL, "switch at", 9);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
+			} else if (LD_UART_INVALID_MODE == ret) {
+					ld_atcmd_len = \
+						sprintf(
+						ld_pn->ld_atcmd_buffer, \
+							 "\r\n""%s""\r\n" \
+							, "ERROR");
+					room = tty_write_room(tty);
+					if (room >= ld_atcmd_len)
+						tty->ops->write(tty, \
+							ld_pn->ld_atcmd_buffer \
+							, ld_atcmd_len);
+					else
+						dbg \
+						("No Room for AT+ATSTART NG\n");
+					ld_pn->ld_phonet_state = \
+						LD_PHONET_NEW_ISI_MSG;
+			} else {
+				dbg("LD _ PARTIAL\n");
 			}
 			break;
 		}
