@@ -49,12 +49,13 @@ static int l2chs[MAX_CHANNELS] = {
 	MHI_L3_SECURITY,
 	MHI_L3_TEST,
 	MHI_L3_TEST_PRIO,
+	MHI_L3_IMS,
 	MHI_L3_THERMAL,
 	MHI_L3_HIGH_PRIO_TEST,
 	MHI_L3_MED_PRIO_TEST,
-	MHI_L3_LOW_PRIO_TEST
+	MHI_L3_LOW_PRIO_TEST,
 };
-static int l2cnt = 9;
+static int l2cnt = 10;
 
 
 
