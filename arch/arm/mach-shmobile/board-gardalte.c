@@ -809,8 +809,6 @@ static struct platform_device *gardalte_devices_stm_sdhi1_d2153[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-	&csi20_device,
-	&csi21_device,
 
 	&rcu0_device,
 	&rcu1_device,
@@ -862,8 +860,6 @@ static struct platform_device *gardalte_devices_stm_sdhi0_d2153[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-	&csi20_device,
-	&csi21_device,
 
 	&rcu0_device,
 	&rcu1_device,
@@ -915,8 +911,6 @@ static struct platform_device *gardalte_devices_stm_none_d2153[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-	&csi20_device,
-	&csi21_device,
 
 	&rcu0_device,
 	&rcu1_device,
