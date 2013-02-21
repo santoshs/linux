@@ -135,31 +135,43 @@ static long rmc_reset_ioctl(struct file *file, unsigned int cmd,
 	struct rmc_device_node *dev = file->private_data;
 	unsigned long curent_value = 0;
 
-	if (!dev->open_count) {
+	if (!dev->open_count)
 		return -ENODEV;
-	}
 
 	switch (cmd) {
 
 	case SWRESET:
 
 		if(arg == KERNEL_PANIC){
-			panic("MODEM boot: Modem Reset occurs!!!\n");
+			/* Set global variable panic_timeout to force a reboot
+                          if panic_timeout = 0 the plateform does not reboot*/
+			panic_timeout = 2;
+			panic("CP Crash");
 		}else{
+#if 0 /*CONFIG_SEC_DEBUG*/
+			panic("AP requested CP reboot");
+#else
 			curent_value = __raw_readl(WPMCIF_EPMU_ACC_CR);
 			if (curent_value != 0x00000003){
-				__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);  /* Host Access request */
+				/* Host Access request */
+				__raw_writel(0x00000002, WPMCIF_EPMU_ACC_CR);
 			}
 
 			while (0x00000003 != __raw_readl(WPMCIF_EPMU_ACC_CR) ) {
-				/* Wait until Access OK, should be very quick. */
+				/* Wait until Access OK */
+				/* should be very quick.*/
 			}
 
-			/*Setting WRES bit will assert WGM_Recover_Req signal to modem*/
+			/*Setting WRES bit will assert*/
+			/* WGM_Recover_Req signal to modem*/
 			__raw_writel(0x00000001, WPMCIF_EPMU_RES_CR);
 
-			/* Clear WRES bit other wise WGM_Recover_Req will be assert again */
+			/* Clear WRES bit other wise WGM_Recover_Req */
+			/* will be assert again */
 			__raw_writel(0x00000000, WPMCIF_EPMU_RES_CR);
+#endif
+			pr_info("open WPMCIF_EPMU_INT_MONREG =0x%08lx\n",
+				curent_value); /* tmp monreg */
 		}
 	break;
 
@@ -181,7 +193,8 @@ static unsigned int rmc_reset_poll(struct file *file, poll_table *wait)
 	if (atomic_read(&dev->counter))
 		mask = POLLIN | POLLRDNORM;
 
-	printk(KERN_ALERT " %s :poll end: %d\n", __func__ , atomic_read(&dev->counter));
+	printk(KERN_ALERT " %s :poll end: %d\n", __func__,
+			atomic_read(&dev->counter));
 	atomic_set(&dev->counter, 0);
 	return mask;	
 		
@@ -210,17 +223,21 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 	
 	/*1. Clear Desired event bit in INT_FACMSK register.*/
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_FACMSK);
-	__raw_writel(curent_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK, WPMCIF_EPMU_INT_FACMSK);
+	__raw_writel(curent_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK,
+			WPMCIF_EPMU_INT_FACMSK);
 	
-	/* 2. Set INT_FACCLR = 0xFFFFFFFF (Clear all Interrupt Events before enabling the desired event)*/
+	/* 2. Set INT_FACCLR = 0xFFFFFFFF*/
+	/* (Clear all Interrupt Events before enabling the desired event)*/
 	__raw_writel(0xFFFFFFFF, WPMCIF_EPMU_INT_FACCLR);
 	
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
-	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK, WPMCIF_EPMU_INT_FACCLR); //rpc tst
+	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK,
+			WPMCIF_EPMU_INT_FACCLR); /* rpc tst */
 	
 	/* 3. Set INT_CR = 0x00000001 (Enable EPMU_Int1)*/
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_CR);
-	__raw_writel(curent_value | INT_CR_ENABLE_EPMU_INT1_MASK, WPMCIF_EPMU_INT_CR);
+	__raw_writel(curent_value | INT_CR_ENABLE_EPMU_INT1_MASK,
+			WPMCIF_EPMU_INT_CR);
 		
 	/* save our object in the file's private structure */
 	file->private_data = dev;
@@ -268,13 +285,14 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	
 
 	spin_lock(&dev->irq_lock);
-	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FAC);//tmp
+	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FAC); /* tmp */
 	
 	
 	/* Mask all event factors by setting INT_FACMSK register*/
 	int_facmsk_value = __raw_readl(WPMCIF_EPMU_INT_FACMSK);
 	
-	pr_info("rmc_interrupt_handler :INT_FAC =0x%08lx, int_facmsk_value =0x%08lx   \n", curent_value,int_facmsk_value );
+	pr_info("rmc_interrupt_handler :INT_FAC =0x%08lx, int_facmsk_value =0x%08lx\n",
+			curent_value, int_facmsk_value);
 	
 	__raw_writel(0xFFFFFFFF, WPMCIF_EPMU_INT_FACMSK);
 
@@ -282,13 +300,15 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FAC);
 	int_fac_event = curent_value & INT_FAC_MODEM_RESET_MASK;
 	if (!int_fac_event){
-		pr_info("Wrong Interrupt :curent_value =0x%08lx  \n",curent_value);
+		pr_info("Wrong Interrupt :curent_value =0x%08lx\n",
+				curent_value);
 		spin_unlock(&dev->irq_lock);
 		return IRQ_HANDLED;
 	}
 	
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
-#ifndef CONFIG_BOARD_VERSION_GARDA	
+
+#ifndef CONFIG_BOARD_VERSION_GARDA
 	if (u2_get_board_rev() >= 5) {
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 		d2153_handle_modem_reset();
@@ -298,23 +318,30 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	}
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 
-	/* Clear Event factor by setting corresponding bit in INT_FACCLR register*/
+	/* Clear Event factor by setting corresponding bit */
+	/* in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
-	__raw_writel(curent_value | INT_FACCLR_MODEM_RESET_SET_MASK, WPMCIF_EPMU_INT_FACCLR);
+	__raw_writel(curent_value | INT_FACCLR_MODEM_RESET_SET_MASK,
+			WPMCIF_EPMU_INT_FACCLR);
 	
 	/* Clear the bit which is set in the above step.*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
-	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK, WPMCIF_EPMU_INT_FACCLR);
+	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK,
+			WPMCIF_EPMU_INT_FACCLR);
 	
 	/* Clear Interrupt by setting INT_CR[8] */
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_CR);
-	__raw_writel(curent_value | INT_CR_CLEAR_EPMU_INT1_MASK, WPMCIF_EPMU_INT_CR);
+	__raw_writel(curent_value | INT_CR_CLEAR_EPMU_INT1_MASK,
+			WPMCIF_EPMU_INT_CR);
 	/* Clear the bit which is set in the above step*/
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_CR);
-	__raw_writel(curent_value & INT_CR_CLEAR_EPMU_INT1_MASK_RESET, WPMCIF_EPMU_INT_CR);
+	__raw_writel(curent_value & INT_CR_CLEAR_EPMU_INT1_MASK_RESET,
+			WPMCIF_EPMU_INT_CR);
 	
-	/* Release the desired even factor by clearing corresponding bit in INT_FACMSK*/
-	__raw_writel(int_facmsk_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK, WPMCIF_EPMU_INT_FACMSK);
+	/* Release the desired even factor */
+	/* by clearing corresponding bit in INT_FACMSK*/
+	__raw_writel(int_facmsk_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK,
+			WPMCIF_EPMU_INT_FACMSK);
 
 	atomic_inc(&dev->counter);
 	wake_up_interruptible(&dev->wait);
@@ -322,7 +349,6 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	
 	return IRQ_HANDLED;	
 }
-
 
 static int __devinit rmc_reset_probe(struct platform_device *pdev)
 {
@@ -355,7 +381,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 	dev->irq = irq;
 	
 	init_waitqueue_head(&dev->wait);
-	
+
 	ret = request_irq(dev->irq, rmc_interrupt_handler,
 			0, "rmc_wgm_reset_int" /*devname*/, pdev);
 	if (ret) {
