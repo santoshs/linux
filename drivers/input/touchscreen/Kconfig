@@ -854,4 +854,10 @@ config TOUCHSCREEN_TPS6507X
 
 source "drivers/input/touchscreen/melfas/Kconfig"
 
+config TOUCHSCREEN_IST30XX
+	tristate "Imagis IST30XX i2c touchscreen"
+	depends on I2C
+	help
+	  This enables support for Imagis IST30XX over I2C based touchscreen.
+
 endif

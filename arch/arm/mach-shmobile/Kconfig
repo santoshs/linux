@@ -114,6 +114,11 @@ config MACH_U2EVM
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
+config MACH_GARDALTE
+	bool "Garda board"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A7373
+
 config MACH_U2USB
 	bool "U2USB board"
 	select ARCH_REQUIRE_GPIOLIB
@@ -146,7 +151,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x4C000000" if MACH_U2EVM
+	default "0x4C000000" if MACH_U2EVM || MACH_GARDALTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -157,7 +162,7 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_BONITO
+	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_GARDALTE
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -362,11 +367,16 @@ config RENESAS_WIFI
 	depends on BRCM_UNIFIED_DHD_SUPPORT
 
 config BOARD_VERSION_V050
-	default y
+	#default y
 	bool "board_revision"
 	help
 	  Board revision 
 comment "Debugging Feature"
+
+config BOARD_VERSION_GARDA
+	bool "board_revision"
+	help
+	  Board revision number
 
 menuconfig SEC_DEBUG
       bool "Samsung TN Ramdump Feature"

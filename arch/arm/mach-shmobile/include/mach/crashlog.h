@@ -18,6 +18,9 @@
  * MA  02110-1301, USA.
  */
 
+#ifndef __ARCH_SHMOBILE_CRASHLOG_H__
+#define __ARCH_SHMOBILE_CRASHLOG_H__
+
 #define RMC_LOCAL_VERSION "150612"              /* ddmmyy (release time)*/
 
 #ifndef CONFIG_IRQ_TRACE
@@ -62,3 +65,4 @@ extern unsigned long log_system_head_address;
 void crashlog_r_local_ver_write(char *soft_version);
 void crashlog_reset_log_write(void);
 void crashlog_init_tmplog(void);
+#endif /* __ARCH_SHMOBILE_CRASHLOG_H__ */

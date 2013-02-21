@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/delay.h>
 #include <linux/timex.h>
 
 /*
@@ -37,10 +38,43 @@ struct arm_delay_ops arm_delay_ops = {
 static struct delay_timer *delay_timer;
 static bool delay_calibrated;
 
+/*
+ * Oh, if only we had a cycle counter...
+ */
+static void delay_loop(unsigned long loops)
+{
+	asm volatile(
+	"1:	subs %0, %0, #1 \n"
+	"	bhi 1b		\n"
+	: /* No output */
+	: "r" (loops)
+	);
+}
+
+
 int read_current_timer(unsigned long *timer_val)
 {
 	return delay_timer ? delay_timer->read_current_timer(timer_val) : -ENXIO;
 }
+
+#ifdef ARCH_HAS_READ_CURRENT_TIMER
+/*
+ * Assumes read_current_timer() is monotonically increasing
+ * across calls and wraps at most once within MAX_UDELAY_MS.
+ */
+void read_current_timer_delay_loop(unsigned long loops)
+{
+	unsigned long bclock, now;
+
+	read_current_timer(&bclock);
+	do {
+		read_current_timer(&now);
+	} while ((now - bclock) < loops);
+}
+#endif
+
+void (*delay_fn)(unsigned long) = delay_loop;
+
 
 static void __timer_delay(unsigned long cycles)
 {

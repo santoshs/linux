@@ -220,10 +220,12 @@ void d2153_set_mctl_enable(void)
 {
 	u8 reg_val;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	if(d2153_regl_info) {
 		d2153_reg_read(d2153_regl_info, D2153_POWER_CONT_REG, &reg_val);
 		reg_val |= D2153_MCTRL_EN_MASK;
@@ -245,10 +247,12 @@ void d2153_lcd_power_on(void)
 {
 	u8 reg_val;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	if(d2153_regl_info) {
 		reg_val = 0x56;
 		d2153_reg_write(d2153_regl_info,D2153_LDO8_MCTL_REG,reg_val);
@@ -269,10 +273,12 @@ void d2153_clk32k_enable(int onoff)
 {
 	u8 reg_val;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	if(d2153_regl_info) {
 		dlg_info("[%s] OUT1_32K onoff ->[%d]\n", __func__, onoff);
 		
@@ -298,10 +304,12 @@ int d2153_platform_regulator_init(struct d2153 *d2153)
 	u8 reg_val=0;
 	struct d2153_regl_init_data *regl_data = d2153->pdata->regulator_data;
 
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	if(regl_data == NULL)
 		return -1;
 
@@ -978,20 +986,24 @@ static struct platform_driver d2153_regulator_driver = {
 
 static int __init d2153_regulator_init(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	return platform_driver_register(&d2153_regulator_driver);
 }
 subsys_initcall(d2153_regulator_init);
 
 static void __exit d2153_regulator_exit(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	platform_driver_unregister(&d2153_regulator_driver);
 }
 module_exit(d2153_regulator_exit);

@@ -183,6 +183,7 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
 	udelay(100);
 	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
+
 }
 
 static int can_pullup(struct r8a66597 *r8a66597)

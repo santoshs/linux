@@ -74,6 +74,7 @@ typedef struct{
 struct mhl_platform_data {  
 	unsigned int mhl_rst;
 	unsigned int mhl_int;
+	unsigned int mhl_en;
 	int irq;
 	bool hdcp_support;
 	bool intr_call;

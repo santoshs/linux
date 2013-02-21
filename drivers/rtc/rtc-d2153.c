@@ -474,20 +474,24 @@ static struct platform_driver d2153_rtc_driver = {
 
 static int __init d2153_rtc_init(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
+#endif
 	return platform_driver_register(&d2153_rtc_driver);
 }
 module_init(d2153_rtc_init);
 
 static void __exit d2153_rtc_exit(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
+#endif
 	platform_driver_unregister(&d2153_rtc_driver);
 }
 module_exit(d2153_rtc_exit);
