@@ -440,4 +440,13 @@ config DEBUG_LL_SH_SCI_BASE
 
 endmenu
 
+config SH_RAMDUMP
+	default y
+	bool "Support for Ramdump"
+	depends on ARCH_R8A7373
+	help
+	  This enables ramdump feature. It will flush caches from oops,panic
+	  and emerg kmsg callback. It will also save exceptio, core&mmu and
+	  some hw registers to ram.
+
 endif
