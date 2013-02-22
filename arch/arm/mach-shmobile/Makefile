@@ -142,3 +142,6 @@ obj-y += setup-u2ion.o
 obj-y += setup-u2camera.o
 #setup-d2153
 obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
+
+# Ramdump
+obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
