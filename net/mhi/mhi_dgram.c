@@ -331,4 +331,3 @@ void mhi_dgram_proto_exit(void)
 	proto_unregister(&mhi_dgram_proto);
 }
 
-
