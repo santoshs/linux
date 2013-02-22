@@ -50,6 +50,7 @@ static int start_stop_cmt_watchdog;
 #endif
 
 #define ICD_ISR0 0xF0001080
+#define ICD_IPR0 0xF0001400
 #define ICD_IPTR0 0xf0001800
 
 static struct delayed_work *dwork;
@@ -462,22 +463,28 @@ static void rmu2_cmt_init_irq(void)
 	 * ignored.
 	 */
 	{
-		int i;
+		/* Poke the GIC to make CMT15 interrupt*/
+		/*   a FIQ (GICD_IGROUPn / ICDISR0) */
 		unsigned int val;
-		i = CMT15_SPI+32;
-		__raw_writel(__raw_readl(ICD_ISR0+4*(int)(i/32)) &
-					~(1<<(i%32)), ICD_ISR0+4*(int)(i/32));
+		__raw_writel(__raw_readl(ICD_ISR0+4*(int)(irq/32)) &
+			~(1<<(irq%32)), ICD_ISR0+4*(int)(irq/32));
 		printk(KERN_DEBUG "< %s > ICD_ISR%d = %08x\n",
-		__func__, i, __raw_readl(ICD_ISR0+4*(int)(i/32)));
+		__func__, irq, __raw_readl(ICD_ISR0+4*(int)(irq/32)));
 
-		/* DIST to CPU0 & CPU1 */
-		val = __raw_readl(ICD_IPTR0+4*(int)(i/4));
-		val = (val & ~(0xff << (8*(int)(i%4)))) |
-						(0x03 << (8*(int)(i%4)));
-		__raw_writel(val, ICD_IPTR0+4*(int)(i/4));
+		/* Poke the GIC to send it to*/
+		/*	both CPUs (GICD_ITARGETSRn / ICDIPTRn) */
+		/* (Linux irq_set_affinity API will only send it to one) */
+		val = __raw_readl(ICD_IPTR0+4*(int)(irq/4));
+		val = (val & ~(0xff << (8*(int)(irq%4)))) |
+						(0x03 << (8*(int)(irq%4)));
+		__raw_writel(val, ICD_IPTR0+4*(int)(irq/4));
 		printk(KERN_ERR
 		"< %s > ICD_IPTR%d = %08x\n",
-		__func__, i, __raw_readl(ICD_IPTR0+4*(int)(i/4)));
+		__func__, irq, __raw_readl(ICD_IPTR0+4*(int)(irq/4)));
+
+		/* Make sure the interrupt is highest*/
+		/*	(0) priority (GICD_IPRIORITYn / ICDIPRn) */
+		__raw_writeb(0, ICD_IPR0+irq);
 	}
 #endif
 
