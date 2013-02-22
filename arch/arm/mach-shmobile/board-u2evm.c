@@ -2638,9 +2638,9 @@ static void __init u2evm_init(void)
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 	if(u2_get_board_rev() >= 5) {
-		i2c_register_board_info(6, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
+		i2c_register_board_info(8, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
 	}else{
-		i2c_register_board_info(6, i2cm_devices, ARRAY_SIZE(i2cm_devices));
+		i2c_register_board_info(8, i2cm_devices, ARRAY_SIZE(i2cm_devices));
 	}
 
 	/* GPS Init */

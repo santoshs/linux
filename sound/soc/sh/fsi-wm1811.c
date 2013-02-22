@@ -42,7 +42,7 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 		.cpu_dai_name	= "fsia-dai",
 		.codec_dai_name	= "wm1811-hifi",
 		.platform_name	= "sh_fsi2.0",
-		.codec_name	= "wm1811.6-001a",
+		.codec_name	= "wm1811.8-001a",
 	},
 	{
 		.name		= "fsib wm1811",
@@ -50,7 +50,7 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 		.cpu_dai_name	= "fsib-dai",
 		.codec_dai_name	= "wm1811-fm",
 		.platform_name	= "sh_fsi2.1",
-		.codec_name	= "wm1811.6-001a",
+		.codec_name	= "wm1811.8-001a",
 	},
 };
 
