@@ -163,24 +163,11 @@ static void PA_devices_init(void)
 #endif
 
 #if defined(CONFIG_CHARGER_SMB328A)
-	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT103, NULL);
-	   gpio_direction_input(GPIO_PORT103);
-	   gpio_pull_up_port(GPIO_PORT103);
-	}
-	else if(SEC_RLTE_REV0_3_1 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull_up_port(GPIO_PORT19);
-	}
-	else
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull_up_port(GPIO_PORT19);
-	}
+#if defined(CONFIG_BOARD_VERSION_GARDA)
+   gpio_request(GPIO_PORT19, NULL);
+   gpio_direction_input(GPIO_PORT19);
+   gpio_pull_up_port(GPIO_PORT19);
+#endif
 #endif
 
 #if defined(CONFIG_BATTERY_BQ27425)
