@@ -543,12 +543,12 @@ static void ipi_cpu_stop(unsigned int cpu)
 		raw_spin_unlock(&stop_lock);
 	}
 
+	flush_cache_all();
+	set_cpu_online(cpu, false);
+
 	local_fiq_disable();
 	local_irq_disable();
 
-	flush_cache_all();
-	cpu_proc_fin();
-	set_cpu_online(cpu, false);
 
 	while (1)
 		cpu_relax();
