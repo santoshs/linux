@@ -1258,7 +1258,6 @@ static void __init gardalte_init(void)
 
 	r8a7373_pinmux_init();
 
-#if 0
 	/* set board version */
 	u2_board_rev = 0;
 	gpio_request(GPIO_PORT75, NULL);
@@ -1273,11 +1272,7 @@ static void __init gardalte_init(void)
 	gpio_request(GPIO_PORT72, NULL);
 	gpio_direction_input(GPIO_PORT72);
 	u2_board_rev |= gpio_get_value(GPIO_PORT72);
-#endif
-	/* This is hack to make driver using get_u2_board_rev() work fine 
- 	   should be either removed or modified to get Garda HW rev 
-	 */	
-	u2_board_rev = 5;
+
 	/* Temporary workaround */
 	if (u2_board_rev == 1)
 		u2_board_rev = RLTE_BOARD_REV_0_1;
