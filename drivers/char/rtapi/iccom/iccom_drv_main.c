@@ -531,7 +531,7 @@ int iccom_init_module(
 			if (SMAP_OK == ret) {
 				unsigned long *addr_status;
 				addr_status = ioremap_nocache(section.command_area_address, sizeof(unsigned long));
-				MSG_ERROR("[ICCOMK]ERR| RTDomain Boot Status [%d]\n", *addr_status);
+				MSG_ERROR("[ICCOMK]ERR| RTDomain Boot Status [%ld]\n", *addr_status);
 				iounmap(addr_status);
 			}
 		}

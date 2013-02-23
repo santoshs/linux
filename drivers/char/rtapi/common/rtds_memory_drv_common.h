@@ -2,7 +2,7 @@
  * rtds_memory_drv_common.h
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -58,7 +58,12 @@ enum {
 	MEM_CMD_WR_PHYMEM,
 	MEM_CMD_WR_CHANGE_PHY_PMB,
 	MEM_CMD_WR_CHANGE_PMB_PHY,
-
+#ifdef RTDS_SUPPORT_CMA
+	MEM_CMD_WR_ALLOC_CMA,
+	MEM_CMD_WR_FREE_CMA,
+	MEM_CMD_WR_RTMAP_MA,
+	MEM_CMD_WR_RTUNMAP_MA,
+#endif
 	MEM_COMMAND_END
 };
 
@@ -83,7 +88,12 @@ enum {
 #define IOCTL_MEM_CMD_WR_PHYMEM			_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_PHYMEM, rtds_memory_ioctl_data)
 #define IOCTL_MEM_CMD_WR_CHANGE_PHY_PMB	_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_CHANGE_PHY_PMB, system_mem_phy_change_rtpmbaddr)
 #define IOCTL_MEM_CMD_WR_CHANGE_PMB_PHY	_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_CHANGE_PMB_PHY, system_mem_rtpmb_change_phyaddr)
-
+#ifdef RTDS_SUPPORT_CMA
+#define IOCTL_MEM_CMD_WR_ALLOC_CMA		_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_ALLOC_CMA, rtds_memory_ioctl_data)
+#define IOCTL_MEM_CMD_WR_FREE_CMA		_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_FREE_CMA, rtds_memory_ioctl_data)
+#define IOCTL_MEM_CMD_WR_RTMAP_MA		_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_RTMAP_MA, rtds_memory_ioctl_data)
+#define IOCTL_MEM_CMD_WR_RTUNMAP_MA		_IOWR(RTDS_MEM_CMD_MAGIC, MEM_CMD_WR_RTUNMAP_MA, rtds_memory_ioctl_data)
+#endif
 /* Memory Manager */
 /* Memory Manager Task */
 /* Task ID */
@@ -113,6 +123,9 @@ enum {
 #define EVENT_MEMORY_FLUSHTLB			(FUNCTIONID_MEMORY_BASE+9)
 #define EVENT_MEMORY_ALLOCATEMERAM		(FUNCTIONID_MEMORY_BASE+10)
 #define EVENT_MEMORY_FREEMERAM			(FUNCTIONID_MEMORY_BASE+11)
+#ifdef RTDS_SUPPORT_CMA
+#define EVENT_MEMORY_OPERATECTGMEMORY   (FUNCTIONID_MEMORY_BASE+12)
+#endif
 
 /* Memory Manager Sub */
 #define EVENT_MEMORYSUB_INITAPPSHAREDMEM	(FUNCTIONID_MEMORY_SUB_BASE+1)
