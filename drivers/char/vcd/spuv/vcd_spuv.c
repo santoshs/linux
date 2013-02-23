@@ -1715,6 +1715,8 @@ static void vcd_spuv_work_initialize(
  */
 static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 {
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function("wq[%p]", wq);
 
 	if (wq == NULL) {
@@ -1725,7 +1727,7 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 			kthread_stop(wq->task);
 
 		/* wakeup pending thread */
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 
 		while (!list_empty(&wq->top)) {
 			struct list_head *list;
@@ -1742,8 +1744,8 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
 				list_del_init(&work->link);
 			}
 		}
-		spin_unlock(&wq->lock);
-
+		spin_unlock_irqrestore(&wq->lock, flags);		
+		
 		wake_up_interruptible_all(&wq->wait);
 
 		kfree(wq);
@@ -1763,6 +1765,7 @@ static void vcd_spuv_workqueue_destroy(struct vcd_spuv_workqueue *wq)
  */
 static inline int vcd_spuv_workqueue_thread(void *arg)
 {
+	unsigned long flags;
 	struct vcd_spuv_workqueue *wq = (struct vcd_spuv_workqueue *)arg;
 
 	vcd_pr_start_spuv_function("arg[%p]", arg);
@@ -1780,7 +1783,7 @@ static inline int vcd_spuv_workqueue_thread(void *arg)
 		if (kthread_should_stop())
 			break;
 
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 		while (!list_empty(&wq->top)) {
 			work = list_first_entry(&wq->top,
 				struct vcd_spuv_work, link);
@@ -1788,15 +1791,15 @@ static inline int vcd_spuv_workqueue_thread(void *arg)
 			func = work->func;
 			work_clear_pending(work);
 			list_del_init(&work->link);
-			spin_unlock(&wq->lock);
+			spin_unlock_irqrestore(&wq->lock, flags);
 
 			(*func)();
-
-			spin_lock(&wq->lock);
+			
+			spin_lock_irqsave(&wq->lock, flags);
 			work->status = 1;
 			wake_up_all(&wq->finish);
 		}
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 	}
 
 	vcd_pr_end_spuv_function();
@@ -1854,10 +1857,11 @@ static struct vcd_spuv_workqueue *vcd_spuv_workqueue_create(char *taskname)
 static void vcd_spuv_workqueue_enqueue(
 	struct vcd_spuv_workqueue *wq, struct vcd_spuv_work *work)
 {
+	unsigned long flags;
 	vcd_pr_start_spuv_function("wq[%p]work[%p]", wq, work);
 
 	if (wq && work) {
-		spin_lock(&wq->lock);
+		spin_lock_irqsave(&wq->lock, flags);
 		if (!test_and_set_bit(
 			WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 			if (!list_empty(&work->link)) {
@@ -1870,7 +1874,7 @@ static void vcd_spuv_workqueue_enqueue(
 			/* SPUV FW error */
 			vcd_pr_err("sequence violation. type2.\n");
 		}
-		spin_unlock(&wq->lock);
+		spin_unlock_irqrestore(&wq->lock, flags);
 		wake_up_interruptible(&wq->wait);
 	} else {
 		vcd_pr_err("parameter error. wq[%p]work[%p].\n", wq, work);
