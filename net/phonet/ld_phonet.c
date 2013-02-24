@@ -510,6 +510,13 @@ static void ld_phonet_ldisc_initiate_transfer \
 			msglen = get_unaligned_be16(&ph->pn_length);
 			ld_pn->len = msglen + ISI_MSG_HEADER_SIZE;
 
+			if (ld_pn->len == ISI_MSG_HEADER_SIZE) {
+				printk("ld_phonet: Extracted ISI msg len = " \
+					"ISI_MSG_HEADER_SIZE, dumping rest " \
+					"of buffer");
+				goto out;
+			}
+
 			/* Alloc SKBuff */
 			skb = netdev_alloc_skb(ld_pn->dev, ld_pn->len);
 			if (NULL == skb) {
@@ -597,6 +604,8 @@ static void ld_phonet_ldisc_initiate_transfer \
 			return;
 		}
 	}
+
+out:
 	/* No more data in cp */
 	ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
 	ld_pn->len = 0;
