@@ -464,9 +464,6 @@ static void tsu6712_jig_cb(bool attached)
 
 static void tsu6712_uart_cb(bool attached)
 {
-#ifdef CONFIG_SEC_CHARGING_FEATURE
-   SPA_ACC_INFO_T acc_info;
-#endif
    pr_info("tsu6712_uart_cb attached %d\n", attached);
    set_cable_status = CABLE_TYPE_NONE;
    printk("%s : %d", __func__,__LINE__);
@@ -484,22 +481,6 @@ static void tsu6712_uart_cb(bool attached)
    }
    printk("%s : %d", __func__,__LINE__);
 
-  if (u2_get_board_rev() >= 5) {
-#ifdef CONFIG_SEC_CHARGING_FEATURE
-   if(attached==true)
-   {
-        acc_info=SPA_ACC_JIG_UART;    
-   }
-   else
-   {
-        acc_info=SPA_ACC_NONE;
-   }
-#endif
-
-#ifdef CONFIG_SEC_CHARGING_FEATURE
-	spa_event_handler(SPA_EVT_ACC_INFO, (void *)acc_info);
-#endif
-	}
 }
 
 static struct tsu6712_platform_data tsu6712_pdata = {
