@@ -168,8 +168,11 @@ static int __init d2153_i2c_init(void)
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return 0;
 	}
-#endif
 	return i2c_add_driver(&d2153_i2c_driver);
+#endif
+#ifdef CONFIG_MACH_GARDALTE
+	return i2c_add_driver(&d2153_i2c_driver);
+#endif
 }
 
 /* Initialised very early during bootup (in parallel with Subsystem init) */
@@ -183,8 +186,11 @@ static void __exit d2153_i2c_exit(void)
 		dlg_info("%s is called on old Board revision. error\n", __func__);
 		return;
 	}
-#endif
 	i2c_del_driver(&d2153_i2c_driver);
+#endif
+#ifdef CONFIG_MACH_GARDALTE
+	i2c_del_driver(&d2153_i2c_driver);
+#endif
 }
 module_exit(d2153_i2c_exit);
 
