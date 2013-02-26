@@ -43,6 +43,7 @@ void *g_spuv_func_pcm_static_buffer;
 unsigned int g_spuv_func_sdram_static_area_top_phy;
 unsigned int g_spuv_func_sdram_static_non_cache_area_top;
 unsigned int g_spuv_func_sdram_static_cache_area_top;
+unsigned int g_spuv_func_sdram_diamond_area_top;
 unsigned int g_spuv_func_hpb_register_top;
 unsigned int g_spuv_func_cpg_register_top;
 unsigned int g_spuv_func_crmu_register_top;
@@ -861,6 +862,22 @@ unsigned int vcd_spuv_func_get_pcm_static_buffer(void)
 }
 
 
+/**
+ * @brief	get diamond sdram buffer function.
+ *
+ * @param	none.
+ *
+ * @retval	g_spuv_func_pcm_static_buffer.
+ */
+unsigned int vcd_spuv_func_get_diamond_sdram_buffer(void)
+{
+	vcd_pr_start_spuv_function();
+
+	vcd_pr_end_spuv_function();
+	return (unsigned int)g_spuv_func_sdram_diamond_area_top;
+}
+
+
 /* ========================================================================= */
 /* Synchronous conversion functions                                          */
 /* ========================================================================= */
@@ -949,6 +966,17 @@ int vcd_spuv_func_ioremap(void)
 			SPUV_FUNC_SDRAM_CACHE_AREA_SIZE);
 	if (g_spuv_func_sdram_static_cache_area_top == 0) {
 		vcd_pr_err("error ioremap sdram (cache).\n");
+		ret = VCD_ERR_SYSTEM;
+		goto rtn;
+	}
+
+	/* ioremap sdram (diamond) */
+	g_spuv_func_sdram_diamond_area_top =
+		(unsigned int)ioremap_nocache(
+			SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY,
+			SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE);
+	if (g_spuv_func_sdram_diamond_area_top == 0) {
+		vcd_pr_err("error ioremap sdram (diamond).\n");
 		ret = VCD_ERR_SYSTEM;
 		goto rtn;
 	}
@@ -1115,6 +1143,12 @@ void vcd_spuv_func_iounmap(void)
 	if (0 != g_spuv_func_sdram_static_cache_area_top) {
 		iounmap((void *)g_spuv_func_sdram_static_cache_area_top);
 		g_spuv_func_sdram_static_cache_area_top = 0;
+	}
+
+	/* iounmap sdram (diamond) */
+	if (0 != g_spuv_func_sdram_diamond_area_top) {
+		iounmap((void *)g_spuv_func_sdram_diamond_area_top);
+		g_spuv_func_sdram_diamond_area_top = 0;
 	}
 
 	/* iounmap hpb */
@@ -3436,6 +3470,60 @@ void vcd_spuv_func_dump_spuv_crashlog(void)
 }
 
 
+/**
+ * @brief	dump diamond memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_func_dump_diamond_memory(void)
+{
+	void  *buffer;
+	unsigned long flags;
+	struct file *file = NULL;
+	mm_segment_t fs;
+
+	vcd_pr_start_spuv_function();
+
+	buffer = vmalloc(SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE);
+
+	flags = pm_get_spinlock();
+
+	memcpy(buffer, (void *)g_spuv_func_sdram_diamond_area_top,
+		SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE);
+
+	pm_release_spinlock(flags);
+
+	/* open file */
+	file = filp_open("/mnt/sdcard/diamond_memory.bin",
+			(O_WRONLY | O_LARGEFILE | O_CREAT), 0666);
+	if (NULL == file) {
+		vcd_pr_err("file open error.\n");
+		goto rtn;
+	}
+	fs = get_fs();
+	set_fs(get_ds());
+
+	/* write file */
+	file->f_op->write(
+		file,
+		(char *)buffer,
+		SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE,
+		&file->f_pos);
+
+	/* close file */
+	set_fs(fs);
+	filp_close(file, NULL);
+
+rtn:
+	vfree(buffer);
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
 /* ========================================================================= */
 /* Internal functions                                                        */
 /* ========================================================================= */
@@ -3456,6 +3544,9 @@ static void vcd_spuv_func_initialize(void)
 
 	memset((void *)g_spuv_func_sdram_static_cache_area_top,
 				0, SPUV_FUNC_SDRAM_CACHE_AREA_SIZE);
+
+	memset((void *)g_spuv_func_sdram_diamond_area_top,
+				0, SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE);
 
 	vcd_pr_end_spuv_function();
 	return;

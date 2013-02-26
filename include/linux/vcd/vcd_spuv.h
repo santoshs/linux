@@ -115,5 +115,6 @@ extern void vcd_spuv_dump_dspio_memory(void);
 extern void vcd_spuv_dump_sdram_static_area_memory(void);
 extern void vcd_spuv_dump_fw_static_buffer_memory(void);
 extern void vcd_spuv_dump_spuv_crashlog(void);
+extern void vcd_spuv_dump_diamond_memory(void);
 
 #endif /* __VCD_SPUV_H__ */

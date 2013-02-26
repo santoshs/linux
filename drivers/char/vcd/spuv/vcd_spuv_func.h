@@ -53,6 +53,7 @@
 /* binary file name */
 #define VCD_SPUV_FUNC_SPUV_FILE_NAME		"spuv.bin"
 #define VCD_SPUV_FUNC_PCM_PROC_FILE_NAME	"pcm_proc.bin"
+#define VCD_SPUV_FUNC_DIAMOND_FILE_NAME		"diamond.bin"
 
 /* sd path */
 #define VCD_SPUV_FUNC_SPUV_SD_PATH		"/mnt/sdcard/spuv/spuv.bin"
@@ -166,7 +167,10 @@
 /* sdram static area */
 #define SPUV_FUNC_SDRAM_NON_CACHE_AREA_SIZE	0x740000
 #define SPUV_FUNC_SDRAM_CACHE_AREA_SIZE		0x080000
+#define SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE	0x040000
+
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
+#define SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY	0x43FC0000
 
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
 		g_spuv_func_sdram_static_area_top_phy
@@ -670,6 +674,7 @@ extern void vcd_spuv_func_set_cpg_register(void);
 
 extern unsigned int vcd_spuv_func_get_spuv_static_buffer(void);
 extern unsigned int vcd_spuv_func_get_pcm_static_buffer(void);
+extern unsigned int vcd_spuv_func_get_diamond_sdram_buffer(void);
 
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);
@@ -727,5 +732,6 @@ extern void vcd_spuv_func_dump_dspio_memory(void);
 extern void vcd_spuv_func_dump_sdram_static_area_memory(void);
 extern void vcd_spuv_func_dump_fw_static_buffer_memory(void);
 extern void vcd_spuv_func_dump_spuv_crashlog(void);
+extern void vcd_spuv_func_dump_diamond_memory(void);
 
 #endif /* __VCD_SPUV_FUNC_H__ */

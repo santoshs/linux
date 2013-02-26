@@ -929,6 +929,13 @@ enum VCD_VALIDITY {
 	VCD_ENABLE
 };
 
+enum VCD_SYSTEM_ERROR_TYPE {
+	VCD_SYSTEM_ERROR = 0,
+	VCD_TIMEOUT,
+	VCD_CNF_ERROR,
+	VCD_INVALID_REQ,
+	VCD_WD_TIMEOUT,
+};
 
 /*
  * structure declaration

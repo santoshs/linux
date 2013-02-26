@@ -955,15 +955,15 @@ void vcd_ctrl_codec_type_ind(unsigned int codec_type)
 /**
  * @brief	fw stop notification function.
  *
- * @param	none.
+ * @param	result	result.
  *
  * @retval	none.
  */
-void vcd_ctrl_stop_fw(void)
+void vcd_ctrl_stop_fw(int result)
 {
 	int ret = VCD_ERR_NONE;
 
-	vcd_pr_start_control_function();
+	vcd_pr_start_control_function("result[%d].\n", result);
 
 	/* semaphore start */
 	down(&g_vcd_ctrl_semaphore);
@@ -976,7 +976,7 @@ void vcd_ctrl_stop_fw(void)
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_ERROR);
 
 	/* notification fw stop */
-	vcd_stop_fw();
+	vcd_stop_fw(result);
 
 	/* check need stop vcd */
 	ret = vcd_ctrl_func_check_stop_vcd_need();
@@ -1623,6 +1623,25 @@ void vcd_ctrl_dump_spuv_crashlog(void)
 
 	/* execute spuv function */
 	vcd_spuv_dump_spuv_crashlog();
+
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	dump diamond memory function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_ctrl_dump_diamond_memory(void)
+{
+	vcd_pr_start_control_function();
+
+	/* execute spuv function */
+	vcd_spuv_dump_diamond_memory();
 
 	vcd_pr_end_control_function();
 	return;
