@@ -507,6 +507,12 @@ static struct resource lcdc_resources[] = {
 		.end	= GPIO_PORT89,
 		.flags	= IORESOURCE_MEM,
 	},
+	[3] = {
+		.name	= "panel_irq_port",
+		.start	= GPIO_PORT27,
+		.end	= GPIO_PORT27,
+		.flags	= IORESOURCE_MEM,
+	},
 };
 
 static struct platform_device lcdc_device = {

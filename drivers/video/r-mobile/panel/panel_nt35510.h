@@ -1,5 +1,5 @@
 /*
- * drivers/video/r-mobile/panel/panel_nt35512.h
+ * drivers/video/r-mobile/panel/panel_nt35510.h
  *
  * Copyright (C) 2013 Renesas Electronics Corporation
  *
@@ -17,14 +17,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifndef __PANEL_NT35512_H__
-#define __PANEL_NT35512_H__
+#ifndef __PANEL_NT35510_H__
+#define __PANEL_NT35510_H__
 
-extern int nt35512_dsi_read(int id, int reg, int len, char *buf);
+extern int nt35510_dsi_read(int id, int reg, int len, char *buf);
 
 #ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 #include <video/sh_mobile_lcdc.h>
-extern struct fb_panel_func nt35512_func_list(void);
+extern struct fb_panel_func nt35510_func_list(void);
 #endif
 
-#endif /* __PANEL_NT35512_H__ */
+#endif /* __PANEL_NT35510_H__ */
