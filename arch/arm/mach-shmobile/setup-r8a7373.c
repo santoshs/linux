@@ -35,7 +35,10 @@
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
+
+#ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
+#endif
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
@@ -1377,64 +1380,23 @@ static struct platform_device sgx_device = {
 	.num_resources	= ARRAY_SIZE(sgx_resources),
 };
 
-
-static struct resource ramdump_res[] = {
-	{
-		.name	= "sbsc_setting_00",
-		.start	= SBSC_SETTING_00_S,
-		.end	= SBSC_SETTING_00_E,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "sbsc_setting_01",
-		.start	= SBSC_SETTING_01_S,
-		.end	= SBSC_SETTING_01_E,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "sbsc_mon_setting",
-		.start	= SBSC_MON_SETTING,
-		.end	= SBSC_MON_SETTING,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "sbsc_phy_setting_00",
-		.start	= SBSC_PHY_SETTING_00_S,
-		.end	= SBSC_PHY_SETTING_00_E,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "sbsc_phy_setting_01",
-		.start	= SBSC_PHY_SETTING_01,
-		.end	= SBSC_PHY_SETTING_01,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "sbsc_phy_setting_02",
-		.start	= SBSC_PHY_SETTING_02_S,
-		.end	= SBSC_PHY_SETTING_02_E,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.name	= "ipmmu_setting",
-		.start	= IPMMU_SETTING_S,
-		.end	= IPMMU_SETTING_E,
-		.flags	= IORESOURCE_MEM,
-	},
-};
+#ifdef CONFIG_SH_RAMDUMP
 struct ramdump_plat_data ramdump_pdata = {
    .reg_dump_base = 0x48800000,
    .reg_dump_size = SZ_1K*32,
    /* size of reg dump of each core */
    .core_reg_dump_size = SZ_1K,
+   .num_resources = ARRAY_SIZE(ramdump_res),
+   .hw_register_range = ramdump_res,
+   .io_desc = r8a7373_io_desc,
+   .io_desc_size = ARRAY_SIZE(r8a7373_io_desc),
 };
 
 static struct platform_device ramdump_device = {
 	.name = "ramdump",
 	.dev.platform_data = &ramdump_pdata,
-	.num_resources	= ARRAY_SIZE(ramdump_res),
-	.resource	= ramdump_res,
 };
+#endif
 
 /* Removed unused SCIF Ports getting initialized
  * to reduce BOOT UP time "JIRAID 1382" */
@@ -1443,7 +1405,9 @@ static struct platform_device *r8a7373_early_devices[] __initdata = {
 	&scif4_device,
 	&scif5_device,
 	&pmu_device,
+#ifdef CONFIG_SH_RAMDUMP
 	&ramdump_device,
+#endif
 };
 
 /* HS-- ES10 Specific late devices */
