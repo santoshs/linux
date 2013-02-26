@@ -20,6 +20,7 @@
 
 #include <linux/usb/r8a66597.h>
 #include <linux/usb/r8a66597_dmac.h>
+#include <linux/wakelock.h>
 
 #define R8A66597_MAX_SAMPLING	10
 #define R8A66597_MAX_PACKET_SIZE	512
@@ -141,6 +142,8 @@ struct r8a66597 {
 	unsigned softconnect:1;
 
 	struct usb_phy		*transceiver;
+	struct delayed_work	vbus_work;
+	struct wake_lock	wake_lock;
 };
 
 #define gadget_to_r8a66597(_gadget)	\
