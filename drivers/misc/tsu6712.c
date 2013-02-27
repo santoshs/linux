@@ -1517,8 +1517,9 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 if (u2_get_board_rev() >= 5) {
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
 		if (intr) {
-//			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP);
-//			handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS);
+			handle_nested_irq(usbsw->irq_base
+						+ TPS80032_INT_VBUSS_WKUP);
+			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 		}
 	}
 	if (intr < 0) {
@@ -1831,9 +1832,19 @@ static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 {
 	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP,
 					 IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS };
-	int i;
+	int i, ret;
+	int irq_base = IRQPIN_IRQ_BASE + 64;
 
-	data->irq_base = IRQPIN_IRQ_BASE + 64;
+	ret = irq_alloc_descs(irq_base, irq_base, TPS80032_INT_NR, -1);
+	if (ret < 1) {
+		dev_err("%s: unable to allocate %u irqs: %d\n",
+					__func__, TPS80032_INT_NR, ret);
+		if (ret == 0)
+			ret = -EINVAL;
+		return ret;
+	}
+
+	data->irq_base = ret;
 	data->irq_chip.name = "tsu6712_irq_usb";
 	data->irq_chip.irq_enable = tsu6712_irq_enable;
 	data->irq_chip.irq_disable = tsu6712_irq_disable;
