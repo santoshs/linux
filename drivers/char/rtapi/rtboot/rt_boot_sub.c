@@ -181,7 +181,7 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("sh_pmb_nc_offset           = 0x%08x\n", info.sh_pmb_nc_offset);
 		MSG_LOW("mfi_pmb_offset             = 0x%08x\n", info.mfi_pmb_offset);
 
-#ifdef CONFIG_ARM_SEC_HAL
+#ifdef SECURE_BOOT_ENABLE
 		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);
 #else
 		data_addr = ioremap(info.boot_addr, info.image_size);

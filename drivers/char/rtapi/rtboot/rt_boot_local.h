@@ -24,7 +24,13 @@
 #define SDRAM_CAMERA_START_ADDR	0x46600000
 #include "rt_boot_drv.h"
 
-#define DEBUG 0
+#define DEBUG (0)
+#define SECURE_BOOT			(0)
+
+#if defined(CONFIG_ARM_SEC_HAL) && SECURE_BOOT
+#include <sec_hal_cmn.h>
+#define SECURE_BOOT_ENABLE
+#endif
 
 #define MAX_POLLING_COUNT	(30000)
 #define MSLEEP_WAIT_VALUE	(1)
