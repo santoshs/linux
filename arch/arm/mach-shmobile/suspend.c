@@ -109,7 +109,7 @@ unsigned int frqcrD_save;
 unsigned int is_clock_updated;
 #define CLOCK_SUSPEND		0
 #define CLOCK_RESTORE		1
-#define ZB3_CLK_SUSPEND		130000
+#define ZB3_CLK_SUSPEND		0
 
 
 

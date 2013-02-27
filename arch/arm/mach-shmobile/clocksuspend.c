@@ -919,7 +919,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_24,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_16,
-		.zb3_freq = 130000,
+		.zb3_freq = 97500,
 		.pll0 = PLLx46
 	},
 	{
@@ -1016,17 +1016,17 @@ struct hwspinlock *gen_sem1;
 /*SBSC clock (ZB3) table parameter*/
 struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 	[ZB3_FREQ_65] = {
-		.pll3multiplier_1 = 0, /* 30, */
-		.zb3divider_1 = 0, /* 12, */
-		.pll3multiplier_2 = 40,
-		.zb3divider_2 = 16,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.pll3multiplier_1 = 30, 
+		.zb3divider_1 = 12,
+ 		.pll3multiplier_2 = 40,
+ 		.zb3divider_2 = 16,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x08043909,
+		.SDWCRC2A = 0x00170503,
+		.SDWCR00A = 0x10220202,
+		.SDWCR01A = 0x00030109,
+		.SDWCR10A = 0x10220202,
+		.SDWCR11A = 0x00030109,
 		.freq = 65000,
 	},
 	[ZB3_FREQ_87] = {
@@ -1034,27 +1034,41 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.zb3divider_1 = 0,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 12,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x0B05390C,
+		.SDWCRC2A = 0x001F0704,
+		.SDWCR00A = 0x10320202,
+		.SDWCR01A = 0x00050109,
+		.SDWCR10A = 0x10320202,
+		.SDWCR11A = 0x00050109,
 		.freq = 86667,
 	},
+	[ZB3_FREQ_97] = {
+		.pll3multiplier_1 = 30,
+		.zb3divider_1 = 8,
+		.pll3multiplier_2 = 0,
+		.zb3divider_2 = 0,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x0C06390D,
+		.SDWCRC2A = 0x00230804,
+		.SDWCR00A = 0x10420202,
+		.SDWCR01A = 0x00050109,
+		.SDWCR10A = 0x10420202,
+		.SDWCR11A = 0x00050109,
+		.freq = 97500,
+	},
 	[ZB3_FREQ_130] = {
-		.pll3multiplier_1 = 0, /* 30, */
-		.zb3divider_1 = 0, /* 6 */
+		.pll3multiplier_1 = 30, 
+		.zb3divider_1 = 6,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 8,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x10083912,
+		.SDWCRC2A = 0x002E0B06,
+		.SDWCR00A = 0x10520202,
+		.SDWCR01A = 0x00070109,
+		.SDWCR10A = 0x10520202,
+		.SDWCR11A = 0x00070109,
 		.freq = 130000,
 	},
 	[ZB3_FREQ_173] = {
@@ -1063,13 +1077,13 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 6,
 		/*195 MHz value*/
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x190C491B,
+		.SDWCRC2A = 0x00461109,
+		.SDWCR00A = 0x10824303,
+		.SDWCR01A = 0x000B0109,
+		.SDWCR10A = 0x10824303,
+		.SDWCR11A = 0x000B0109,
 		.freq = 173333,
 	},
 	[ZB3_FREQ_260] = {
@@ -1077,13 +1091,13 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.zb3divider_1 = 0,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 4,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x21106224,
+		.SDWCRC2A = 0x005D170C,
+		.SDWCR00A = 0x20A24404,
+		.SDWCR01A = 0x000F010A,
+		.SDWCR10A = 0x20A24404,
+		.SDWCR11A = 0x000F010A,
 		.freq = 260000,
 	},
 	[ZB3_FREQ_520] = {
@@ -1477,19 +1491,21 @@ void cpg_init_bbfrqcrd(void)
 static unsigned int cpg_sbsc_decide_clock(unsigned int ape_freq_req)
 {
 	unsigned int system_freq_req = 0;
+	unsigned int pll_change = shmobile_get_pll_reprogram();
 	unsigned int bb_freq_req = shmobile_get_modem_req_freq();
 	int i = 0, ret = 0;
 
 	/* select the bigger requested value */
-	system_freq_req = max(bb_freq_req, ape_freq_req);
+	system_freq_req = bb_freq_req + ape_freq_req;
 	for (i = 0; i < ZB3_FREQ_SIZE; i++) {
 		/* find the frequency just on top of requested,
 		when modem requested some frequency, forbidden to use
 		multiplier 1 only use multiplier 2 to avoid PLL3 change */
-		/* Now we don't change PLL3 */
 		if ((system_freq_req <= zb3_lut[i].freq)
-			&& (zb3_lut[i].pll3multiplier_2 != 0)
-			&& (zb3_lut[i].zb3divider_2 != 0)) {
+			&& (((pll_change == 0) &&
+			(zb3_lut[i].pll3multiplier_2 != 0))
+			|| ((pll_change == 1) && 
+			((zb3_lut[i].pll3multiplier_2 != 0) || (zb3_lut[i].pll3multiplier_1 != 0))))) {
 			ret = i;
 			goto exit;
 		}
@@ -1572,8 +1588,15 @@ static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 
 	/*first determine frequency*/
 	idx_newfreq = cpg_sbsc_decide_clock(new_ape_freq);
-	zb3divider = zb3_lut[idx_newfreq].zb3divider_2;
-	pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_2;
+	
+	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0) 
+		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {	
+		zb3divider = zb3_lut[idx_newfreq].zb3divider_1;
+		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_1;
+	} else {
+		zb3divider = zb3_lut[idx_newfreq].zb3divider_2;
+		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_2;
+	}
 
 	if ((zb3divider == 0) || (pll3multiplier == 0)) {
 		ret = -EINVAL;

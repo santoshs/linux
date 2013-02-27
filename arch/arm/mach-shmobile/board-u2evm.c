@@ -647,7 +647,6 @@ static struct platform_device	tpu_devices[] = {
 };
 
 static struct vibrator_port_info vibrator_platdata = {
-	.pcm2pwm_port	= GPIO_PORT228 ,
 	.vibrator_port	= GPIO_PORT226 ,
 	.tpu_port	= GPIO_PORT36 ,
 };
@@ -1124,10 +1123,12 @@ static void mpl_init(void)
 {
 	int rc = 0;
 	rc = gpio_request(GPIO_PORT107, "MPUIRQ");
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("GPIO_MPU3050_INT gpio_request was failed\n");
+		return;
+	}
 	gpio_direction_input(GPIO_PORT107);
-	gpio_pull_up_port(GPIO_PORT107);
+	gpio_pull_down_port(GPIO_PORT107);
 }
 #endif
 
@@ -1900,20 +1901,20 @@ static void __init u2evm_init(void)
 
 	/* For case that Secure ISSW has selected debug mode already! */
 #define DBGREG1		IO_ADDRESS(0xE6100020)
-       {
-               volatile uint32_t val;
-               
-               val = __raw_readl(DBGREG1);
-               if ((val & (1 << 29)) == 0) {
-                       stm_select = -1;
-               } else {
-                       if ((val & (1 << 20)) == 0) {
-                               stm_select = 0;
-                       } else {
-                               stm_select = 1;
-                       }
-               }
-       }
+	{
+		volatile uint32_t val;
+		
+		val = __raw_readl(DBGREG1);
+		if ((val & (1 << 29)) == 0) {
+			stm_select = -1;
+		} else {
+			if ((val & (1 << 20)) == 0) {
+				stm_select = 0;
+			} else {
+				stm_select = 1;
+			}
+		}
+	}
        
 	printk("sec stm_select=%d\n", stm_select);
 
@@ -2019,18 +2020,6 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
-	// Config SCIFB0 with PU on RX and CTS pins
-	*((volatile u8 *)0xE6050025) = 0x81;
-	*((volatile u8 *)0xE6050026) = 0xC1;
-	*((volatile u8 *)0xE6051089) = 0x81;
-	*((volatile u8 *)0xE605108A) = 0xC1;
-
-	gpio_pull_up_port(GPIO_PORT138); /* RX PU */
-	gpio_pull_down_port(GPIO_PORT137); /* TX PD */
-	gpio_pull_up_port(GPIO_PORT38); /* CTS PU */
-	gpio_pull_down_port(GPIO_PORT37); /* RTS PD */
-
-
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
 	gpio_request(GPIO_FN_KEYIN0, NULL);
@@ -2107,13 +2096,13 @@ static void __init u2evm_init(void)
 	
 	// ===== Misc GPIO =====
 
-	// MAIN MIC LDO Enable
-	gpio_request(GPIO_PORT8, NULL);
-	gpio_direction_output(GPIO_PORT8, 0);
-	
 	// Sensor LDO Enable
 	gpio_request(GPIO_PORT9, NULL);
-	gpio_direction_output(GPIO_PORT9, 0);
+	if (u2_get_board_rev() >= 5) {
+		/* do nothing */
+	} else {
+		gpio_direction_output(GPIO_PORT9, 0);
+	}
 
 	// MHL enable
 	//gpio_request(GPIO_PORT102, NULL);  /* commented as suggested by  */
@@ -2131,7 +2120,6 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_SDHID0_2, NULL);
 		gpio_request(GPIO_FN_SDHID0_3, NULL);
 		gpio_request(GPIO_FN_SDHICMD0, NULL);
-		gpio_request(GPIO_FN_SDHIWP0, NULL);
 		gpio_direction_none_port(GPIO_PORT326);
 		gpio_request(GPIO_FN_SDHICLK0, NULL);
 		gpio_request(GPIO_PORT327, NULL);
@@ -2494,12 +2482,18 @@ static void __init u2evm_init(void)
 		gpio_pull_off_port(GPIO_PORT85);
 	}
 
-	gpio_request(GPIO_FN_I2C_SCL1H, NULL);
-	gpio_request(GPIO_FN_I2C_SDA1H, NULL);
+	if(u2_board_rev < 4) {
+		gpio_request(GPIO_FN_I2C_SCL1H, NULL);
+		gpio_request(GPIO_FN_I2C_SDA1H, NULL);
+	}
 
 	/* PMIC */
 	gpio_request(GPIO_PORT0, NULL);	/* MSECURE */
-	gpio_direction_output(GPIO_PORT0, 1);
+	if (u2_get_board_rev() >= 5) {
+		/* do nothing */
+	} else {
+		gpio_direction_output(GPIO_PORT0, 1);
+	}
 	gpio_request(GPIO_PORT28, NULL);
 	gpio_direction_input(GPIO_PORT28);
 
@@ -2537,9 +2531,13 @@ static void __init u2evm_init(void)
 #endif
 
 #if defined(CONFIG_BATTERY_BQ27425)
-   gpio_request(GPIO_PORT105, NULL);
-   gpio_direction_input(GPIO_PORT105);
-	gpio_pull_up_port(GPIO_PORT105);
+	gpio_request(GPIO_PORT105, NULL);
+	gpio_direction_input(GPIO_PORT105);
+	if (u2_get_board_rev() >= 5) {
+		/* do nothing */
+	} else {
+		gpio_pull_up_port(GPIO_PORT105);
+	}
 #endif
 
 #if 0
@@ -2551,26 +2549,54 @@ static void __init u2evm_init(void)
 #endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
-	if(u2_board_rev >= 4)
+	if (u2_board_rev >= 5) {
+		/* do nothing */
+	} else if (u2_board_rev >= 4)
 		gpio_direction_output(GPIO_PORT30, 0);
 	else
 		gpio_direction_output(GPIO_PORT30, 1);
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
-	if (u2_get_board_rev() >= 4)
-		gpio_pull_off_port(GPIO_PORT32);
-	else
-		gpio_pull_up_port(GPIO_PORT32);
+	gpio_pull_up_port(GPIO_PORT32);
 
 	USBGpio_init();
 
 #ifdef CONFIG_SPI_SH_MSIOF
-	/* enable MSIOF0 */
-	gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
-	gpio_request(GPIO_FN_MSIOF0_SYNC, NULL);
-	gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
-	gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
+	if(u2_board_rev < 4) {
+		/* enable MSIOF0 */
+		gpio_request(GPIO_FN_MSIOF0_TXD, NULL);
+		gpio_request(GPIO_FN_MSIOF0_SYNC, NULL);
+		gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
+		gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
+	}
+#if 0
+	else {
+		switch (stm_select) {
+		case 0:
+				p_dev = u2evm_devices_stm_sdhi0;
+				p_dev_cnt = u2evm_devices_stm_sdhi0_size;
+				break;
+		case 1:
+				p_dev = u2evm_devices_stm_sdhi1;
+				p_dev_cnt = u2evm_devices_stm_sdhi1_size;
+				break;
+		default:
+				p_dev = u2evm_devices_stm_none;
+				p_dev_cnt = u2evm_devices_stm_none_size;
+				break;
+		}
+		int device_i;
+		for (device_i = 0; device_i < p_dev_cnt; i++) {
+			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
+				printk(KERN_INFO "%s u2_board_rev < 3 \
+					gpio_key_polled_device  \n", __func__);
+				p_dev[i] = &gpio_key_polled_device;
+			break;
+			}
+		}
+	}
+#endif
 #endif
 
 	/* enable sound */

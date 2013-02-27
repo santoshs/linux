@@ -403,6 +403,7 @@ enum {
 	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
 	ZB3_FREQ_65 = 0,
 	ZB3_FREQ_87,
+	ZB3_FREQ_97,
 	ZB3_FREQ_130,
 	ZB3_FREQ_173,
 	ZB3_FREQ_260,
@@ -428,21 +429,27 @@ struct sbsc_param {
 	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
 };
 
-struct shared_area {
-	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
-	u32 ape_req_freq;
-	u32 bb_req_freq;
-	struct sbsc_param sbsc[ZB3_FREQ_SIZE];
-	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
-};
-
-void cpg_init_sbsc_clock_change(struct shared_area *sh);
-
 /*Shared area memory mapping*/
 #define SHARED_AREA_SBSC_START_PHY	0x464FFC80
 #define SHARED_AREA_SBSC_SIZE		384
 #define SHARED_AREA_SBSC_END_PHY	(SHARED_AREA_SBSC_START_PHY + \
 				SHARED_AREA_SBSC_SIZE - 1)
+#define SHARED_AREA_REV 	1
+
+struct shared_area {
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+	u32 ape_req_freq;
+	u32 bb_req_freq;
+	struct sbsc_param sbsc[ZB3_FREQ_SIZE];
+	u8 dummy[(SHARED_AREA_SBSC_SIZE - (ZB3_FREQ_SIZE * sizeof(struct sbsc_param) + 4*sizeof(u32)))];
+	u32 pll_reprogram;
+	u32 revision;
+	/*DON'T CHANGE ORDER HERE, NEED ALIGNMENT WITH MODEM*/
+};
+
+void cpg_init_sbsc_clock_change(struct shared_area *sh);
+
+
 
 #define LPCKCR_MODE0	0
 #define LPCKCR_MODE1	1
