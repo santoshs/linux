@@ -1303,7 +1303,6 @@ int cpg_get_pll(int pll)
 		addr = (unsigned int)PLL3CR;
 		break;
 	default:
-		pr_err("PLL<%d> not supported\n", pll);
 			return -EINVAL;
 		}
 
@@ -1549,7 +1548,8 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 }
 
 /*
- * __cpg_set_sbsc_freq: set SBSC clock(ZB3) frequency
+ * __cpg_set_sbsc_freq: set SBSC clock(ZB3) frequency without semaphore lock
+ *			It is called by other APIs in semaphore lock!
  *
  * Arguments:
  *		@new_ape_freq: new frequency in kHz.
