@@ -4,6 +4,7 @@
 #include <mach/gpio.h>
 #include <mach/irqs.h>
 #include <mach/setup-u2gpio_key.h>
+#include <mach/common.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/input.h>
@@ -89,10 +90,11 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull_up_port(GPIO_PORT18);
 		gpio_pull_up_port(GPIO_PORT1);
 		gpio_pull_up_port(GPIO_PORT2);
+	if(u2_get_board_rev() < 4) {
 		gpio_pull_up_port(GPIO_PORT45);
 		gpio_pull_up_port(GPIO_PORT46);
 		gpio_pull_up_port(GPIO_PORT47);
-
+	}
 	return 0;
 }
 
