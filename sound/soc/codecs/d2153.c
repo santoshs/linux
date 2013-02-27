@@ -1534,7 +1534,7 @@ static
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S20_LE;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
-		aif_ctrl |= D2153_AIF_WORD_LENGTH_S24_LE;
+		aif_ctrl |= D2153_AIF_WORD_LENGTH_S16_LE;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S32_LE;

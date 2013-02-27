@@ -1,6 +1,6 @@
 /* soundpathlogical.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -153,6 +153,13 @@ static void sndp_fm_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
+/* Trigger process for PT */
+static void sndp_pt_trigger(
+	struct snd_pcm_substream *substream,
+	int cmd,
+	struct snd_soc_dai *dai,
+	u_int value);
+
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
 
@@ -201,6 +208,11 @@ static void sndp_work_fm_capture_start(struct sndp_work_info *work);
 static void sndp_work_fm_playback_stop(struct sndp_work_info *work);
 /* Work queue processing for Stop during a fm capture */
 static void sndp_work_fm_capture_stop(struct sndp_work_info *work);
+
+/* Work queue processing for Start during a PT playback */
+static void sndp_work_pt_playback_start(struct sndp_work_info *work);
+/* Work queue processing for Stop during a PT playback */
+static void sndp_work_pt_playback_stop(struct sndp_work_info *work);
 
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
@@ -274,6 +286,9 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	const u_int old_value,
 	const u_int new_value);
 
+/* Work queue function for hw free */
+static void sndp_work_hw_free(struct sndp_work_info *work);
+
 /*
  *
  * MACRO Declarations
@@ -311,14 +326,6 @@ static int sndp_work_voice_dev_chg_in_audioic(
 /* Old value (PCM) SET/GET */
 #define SET_OLD_VALUE(stream, value)	(g_sndp_main[stream].old_value = value)
 #define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
-
-/* For Stop trigger conditions */
-#define SNDP_STOP_TRIGGER_CHECK(idx)					\
-	(g_sndp_stop_trigger_condition[idx] & (0x0000ffff << (idx * 16)))
-
-#define SNDP_STOP_TRIGGER_INIT_SET(idx)					\
-	(g_sndp_stop_trigger_condition[idx] &=				\
-	(g_sndp_stop_trigger_condition[idx] & (0xffff0000 >> (idx * 16))))
 
 #define SNDP_IS_FSI_MASTER_DEVICE(device)	\
 	((device & SNDP_BLUETOOTHSCO) ||		\
@@ -384,14 +391,6 @@ enum sndp_play_rec_state {
 	E_IDLE = 0,		/* Idle */
 	E_PLAY,			/* Running Playback process */
 	E_CAP,			/* Running Capture process  */
-};
-
-/* Stop trigger conditions */
-enum sndp_stop_trigger_condition {
-	SNDP_STOP_TRIGGER_INIT		= 0x00000000,
-	SNDP_STOP_TRIGGER_PLAYBACK	= 0x00000001,
-	SNDP_STOP_TRIGGER_CAPTURE	= 0x00010000,
-	SNDP_STOP_TRIGGER_VOICE		= 0x00020000,
 };
 
 /* Port kind */

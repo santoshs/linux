@@ -1,7 +1,7 @@
 /*
  * fsi-d2153.c - FSI ASoC driver for boards using d2153 codec.
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -285,6 +285,19 @@ int fsi_d2153_loopback_notify(int status)
 	return ret;
 }
 EXPORT_SYMBOL(fsi_d2153_loopback_notify);
+
+/* temp process */
+void fsi_d2153_soc_write(int dev)
+{
+	if (0 == dev) {
+		snd_soc_write(fsi_d2153_codec, 0xc6, 0x98);
+	} else {
+/*		snd_soc_write(fsi_d2153_codec, 0xcd, 0x5F); */
+/*		snd_soc_write(fsi_d2153_codec, 0xd0, 0x5F); */
+	}
+}
+EXPORT_SYMBOL(fsi_d2153_soc_write);
+/* temp process */
 
 int fsi_d2153_sndp_soc_info(
 	struct snd_kcontrol *kcontrol,

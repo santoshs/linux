@@ -1,7 +1,7 @@
 /*
  * fsi_d2153.h - FSI ASoC driver for boards using wm1811 codec.
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -50,4 +50,9 @@ extern void fsi_d2153_deactivate_output(struct snd_kcontrol *kcontrol);
 extern int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params);
 
 extern int fsi_d2153_loopback_notify(int status);
+
+/* temp process */
+extern void fsi_d2153_soc_write(int dev);
+/* temp process */
+
 #endif

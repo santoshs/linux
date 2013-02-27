@@ -1,6 +1,6 @@
 /* audio_test.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -108,7 +108,7 @@ extern u_int audio_test_log_level;
 /*---------------------------------------------------------------------------*/
 int audio_test_ic_read(const u_short addr, u_short *value);
 int audio_test_ic_write(const u_short addr, const u_short value);
-int audio_test_ic_set_device(const u_long device);
+int audio_test_ic_set_device(const u_long device, const u_int mode);
 int audio_test_ic_clear_device(void);
 int audio_test_ic_get_device(u_long *device);
 int audio_test_ic_set_volume(const u_long device, const u_int volume);
