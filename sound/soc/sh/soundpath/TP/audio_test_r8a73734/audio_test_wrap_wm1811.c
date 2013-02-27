@@ -1,6 +1,6 @@
 /* audio_test_wrap_wm1811.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -172,19 +172,20 @@ int audio_test_ic_write(const u_short addr, const u_short value)
   @brief	Call set_device() of AudioIC.
 
   @param	device [i] Device bit.
+  @param	mode [i] SNDP_PLAYBACK_SPEAKER_INCALL
+			 SNDP_PLAYBACK_SPEAKER_NORMAL
 
   @return	Function results.
 
   @note		.
 */
-int audio_test_ic_set_device(const u_long device)
+int audio_test_ic_set_device(const u_long device, const u_int mode)
 {
 	int ret = 0;
 
 	audio_test_log_efunc("");
 
-	ret = wm1811_set_device(device, SNDP_PLAYBACK_SPEAKER_INCALL,
-				WM1811_POWER_ON);
+	ret = wm1811_set_device(device, mode, WM1811_POWER_ON);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;

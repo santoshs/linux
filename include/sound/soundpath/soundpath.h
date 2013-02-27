@@ -1,6 +1,6 @@
 /* soundpath.h
  *
- * Copyright (C) 2011-2012 Renesas Mobile Corp.
+ * Copyright (C) 2011-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -99,6 +99,13 @@ enum sndp_a2220_ch_type {
 	SNDP_A2220_CH_DEV,
 };
 
+/* PT status */
+enum sndp_pt_status_type {
+	SNDP_PT_NOT_STARTED,	/* PT not started */
+	SNDP_PT_LOOPBACK_START,	/* PT Loopback test start */
+	SNDP_PT_DEVCHG_START,	/* PT device change test start */
+};
+
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct snd_soc_platform_driver *fsi_soc_platform,
@@ -117,7 +124,6 @@ SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
 SOUNDPATH_NO_EXTERN void sndp_call_playback_normal(void);
 
 SOUNDPATH_NO_EXTERN struct sndp_workqueue	*g_sndp_queue_main;
-SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait[2];
 
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_idle;
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
@@ -125,8 +131,9 @@ SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
 SOUNDPATH_NO_EXTERN u_int g_sndp_log_level;
 SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
 
-/* Production test (Loopback) start flag */
-SOUNDPATH_NO_EXTERN int g_pt_loopback_start;
+/* for Production test Variable */
+SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
+SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
 
 /* audience Set Callback function */
 SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
@@ -135,6 +142,9 @@ SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
 /* for Production Test (Loopback test) */
 SOUNDPATH_NO_EXTERN int sndp_pt_loopback(
 				u_int mode, u_int device, u_int dev_chg);
+
+/* for Production Test (Device change) */
+SOUNDPATH_NO_EXTERN int sndp_pt_device_change(u_int dev, u_int onoff);
 
 /* queue work initialize function */
 SOUNDPATH_NO_EXTERN void sndp_work_initialize(
