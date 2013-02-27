@@ -82,7 +82,8 @@ static inline int db8131_read(struct i2c_client *client, unsigned char subaddr,
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (unlikely(err < 0))
 		dev_err(&client->dev,
-		"%s %d: register read fail(%d)\n", __func__, __LINE__, err);
+			"%s %d: register read fail(%d)\n",
+			__func__, __LINE__, err);
 
 	msg.flags = I2C_M_RD;
 	msg.len = 2;
@@ -90,7 +91,8 @@ static inline int db8131_read(struct i2c_client *client, unsigned char subaddr,
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (unlikely(err < 0))
 		dev_err(&client->dev,
-		"%s %d: register read fail(%d)\n", __func__, __LINE__, err);
+			"%s %d: register read fail(%d)\n",
+			__func__, __LINE__, err);
 
 	*data = ((buf[0] << 8) | buf[1]);
 

@@ -1035,18 +1035,6 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
-	if (0x00003E00 == system_rev) {
-		void __iomem *intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		/* IPRVS3 */
-		iowrite16(ioread16(intcs_base + 0x54) | 0x0001,
-			intcs_base + 0x54);
-		/* IMCR10SA3 */
-		iowrite8(0x01, intcs_base + 0x1E8);
-		dev_geo(icd->parent, "> IPRVS3=0x04%x, IMR10SA3=0x02%x\n",
-		ioread16(intcs_base + 0x54), ioread8(intcs_base + 0x1A8));
-		iounmap(intcs_base);
-	}
-
 	pcdev->streaming = SH_RCU_STREAMING_ON;
 	rcu_write(pcdev, RCEIER, 0);
 
