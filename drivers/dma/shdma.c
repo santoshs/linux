@@ -1671,6 +1671,8 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
+	/* Since PM get and put sync is used , we need to add irq_safe to use in interrupt context */
+	pm_runtime_irq_safe(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
 	spin_lock_irq(&sh_dmae_lock);
