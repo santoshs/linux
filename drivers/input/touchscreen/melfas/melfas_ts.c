@@ -83,7 +83,6 @@
 
 #ifdef SEC_TSP
 #define P5_THRESHOLD			0x05
-#define TS_READ_REGS_LEN		5
 #define TS_WRITE_REGS_LEN		16
 #endif
 #ifdef CONFIG_SEC_DVFS
@@ -93,10 +92,19 @@
 #else
 #define TOUCH_BOOSTER			0
 #endif
-#define TS_READ_REGS_LEN		66
+
+/*6 byte per 1 finger + 1 more 6byte queue buffer */
+#define TS_READ_REGS_LEN 36 /* (MELFAS_MAX_TOUCH + 1) * 6 */
+
 #define MELFAS_MAX_TOUCH		5
+
+//#define TS_READ_REGS_LEN		66
+
+ /*6 byte per 1 finger + 1 more 6byte queue buffer */
+#define TS_READ_REGS_LEN	 36 /* (MELFAS_MAX_TOUCH + 1) * 6 */
+
 static int FW_VERSION;
-#define DEBUG_PRINT			0
+#define DEBUG_PRINT			1
 #define PRESS_KEY					1
 #define RELEASE_KEY					0
 #define SET_DOWNLOAD_BY_GPIO	1
@@ -331,7 +339,8 @@ struct melfas_ts_data {
 };
 static struct melfas_ts_data *ts = NULL;
 #ifdef SEC_TSP
-struct class *sec_class;
+static struct class *sec_tsp_class; /*renamed to avoid a duplicated variable name*/
+static struct class *sec_touchkey_class; /*renamed to avoid a duplicated variable name*/
 struct device *sec_touchscreen_dev;
 struct device *sec_touchkey_dev;
 int menu_pressed;
@@ -469,115 +478,84 @@ static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 #define VREG_DISABLE	0
 #define TOUCH_ON  1
 #define TOUCH_OFF 0
-static struct regulator *touch_regulator;
 static struct regulator *touch_regulator_1_8;
 
 static void ts_power_enable(int en)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() >= 5) {
 		int ret;
 	
+		struct regulator *touch_regulator = NULL;
+	
 		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-		if(touch_regulator == NULL)
-		{
-			printk(" %s, %d \n", __func__, __LINE__ );			
-			touch_regulator = regulator_get(NULL, "vtsp_3v"); 
-			if(IS_ERR(touch_regulator)){
-				printk("can not get VTOUCH_3.3V\n");
+		if (touch_regulator == NULL) {
+			printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
+			touch_regulator = regulator_get(NULL, "vtsp_3v");
+			if (IS_ERR(touch_regulator)) {
+				printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
 				return;
 			}
 		}
 
-		if(en==1)
-		{
-			printk(" %s, %d Touch On\n", __func__, __LINE__ );	
+		if (en == 1) {
+			printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
 
-			//if(!regulator_is_enabled(touch_regulator))
-			{
-				printk(" %s, %d \n", __func__, __LINE__ );	
-				ret = regulator_set_voltage(touch_regulator,3000000,3000000); //3.0V
-				printk("regulator_set_voltage ret = %d \n", ret);       			
+			if (!regulator_is_enabled(touch_regulator)) {
+				printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
+				ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
+				printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
 				ret = regulator_enable(touch_regulator);
-				printk("regulator_enable ret = %d \n", ret);       			
+				printk(KERN_INFO "regulator_enable ret = %d\n", ret);
 			}
-		}
-		else
-		{
-			printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
+		} else {
+			printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
 
-			//if(regulator_is_enabled(touch_regulator))
-			{
+			if (regulator_is_enabled(touch_regulator)) {
 				ret = regulator_disable(touch_regulator);
-				printk("regulator_disable ret = %d \n", ret);			
+				printk(KERN_INFO "regulator_disable ret = %d\n", ret);
 			}
 		}
-	} else if (u2_get_board_rev() <= 4 ) {
+	} else if (u2_get_board_rev() <= 4) {
 		printk(KERN_EMERG"%s : en=%d\n", __func__, en);
-		gpio_set_value(GPIO_PORT30, en ? 1:0);
+		gpio_set_value(GPIO_PORT30, en ? 1 : 0);
 	}
-}
-
-#if 0
-#define VREG_ENABLE		1
-#define VREG_DISABLE	0
-#define TOUCH_ON  1
-#define TOUCH_OFF 0
-static struct regulator *touch_regulator;
-static struct regulator *touch_regulator_1_8;
-
-static void ts_power_enable(int en)
-{
+#endif
+#ifdef CONFIG_MACH_GARDALTE
 	int ret;
 	
-	printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-#if 1
-	if(touch_regulator == NULL)
-	{
-		printk(" %s, %d \n", __func__, __LINE__ );
-		touch_regulator = regulator_get(NULL, "ldo15"); 
-		printk(" %s, %d \n", __func__, __LINE__ );			
-		if(IS_ERR(touch_regulator)){
-			printk("can not get VTOUCH_3.3V\n");
+		struct regulator *touch_regulator = NULL;
+	
+		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
+		if (touch_regulator == NULL) {
+			printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
+			touch_regulator = regulator_get(NULL, "vtsp_3v");
+			if (IS_ERR(touch_regulator)) {
+				printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
+				return;
+			}
 		}
-		//ret = regulator_set_voltage(touch_regulator,3300000,3300000);	
-		//ret = regulator_enable(touch_regulator);			
-	}
 
-	if(en==1)
-	{
-		printk(" %s, %d Touch On\n", __func__, __LINE__ );	
+		if (en == 1) {
+			printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
 
-		//if(!regulator_is_enabled(touch_regulator))
-		{
-			printk(" %s, %d \n", __func__, __LINE__ );	
-			ret = regulator_set_voltage(touch_regulator,3300000,3300000);
-			printk("regulator_set_voltage ret = %d \n", ret);       			
-			ret = regulator_enable(touch_regulator);
-			printk("regulator_enable ret = %d \n", ret);       			
+			if (!regulator_is_enabled(touch_regulator)) {
+				printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
+				ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
+				printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
+				ret = regulator_enable(touch_regulator);
+				printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			}
+		} else {
+			printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
+
+			if (regulator_is_enabled(touch_regulator)) {
+				ret = regulator_disable(touch_regulator);
+				printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+			}
 		}
-	}
-else
-	{
-		printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
-
-		//if(regulator_is_enabled(touch_regulator))
-		{
-			ret = regulator_disable(touch_regulator);
-			printk("regulator_disable ret = %d \n", ret);			
-		}
-	}
-#endif /* 1 */
-
+#endif
 }
-
-static void ts_power_enable(int en)
-{
-#ifdef CONFIG_PMIC_INTERFACE
-	printk(KERN_EMERG"%s : en=%d\n", __func__, en);
-	gpio_set_value(GPIO_PORT30, en ? 1:0);
-#endif /* CONFIG_PMIC_INTERFACE */
-}
-#endif /* 0 */
 
 void ts_power_control(int en)
 {
@@ -864,14 +842,10 @@ static void melfas_ts_get_data(struct work_struct *work)
 		i, (g_Mtouch_info[i].strength > 0),
 		g_Mtouch_info[i].posX, g_Mtouch_info[i].posY,
 		g_Mtouch_info[i].strength, g_Mtouch_info[i].width);
+#endif
+		printk(KERN_EMERG "[TSP] x, y : %d, %d\n", g_Mtouch_info[i].posX, g_Mtouch_info[i].posY);
 
-#if defined(CONFIG_MACH_KYLE_I) 
-		printk(KERN_EMERG "[TSP] ID, S, x, y, z, w : %d, %d, %d, %d,  %d %d\n",
-		i, (g_Mtouch_info[i].strength > 0),
-		g_Mtouch_info[i].posX, g_Mtouch_info[i].posY,
-		g_Mtouch_info[i].strength, g_Mtouch_info[i].width);
-#endif
-#endif
+
 		if (g_Mtouch_info[i].strength == 0)
 			g_Mtouch_info[i].strength = -1;
 		if (g_Mtouch_info[i].strength > 0)
@@ -1724,6 +1698,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
+	#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			struct regulator *regulator;
 		
@@ -1735,11 +1710,26 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 			regulator_put(regulator);
 		} else {
+#ifndef CONFIG_MFD_D2153
 			pmic_set_power_on(E_POWER_VANA_MM);
+#endif
 		}
+		#endif
+		#ifdef CONFIG_MACH_GARDALTE
+		struct regulator *regulator;
+		
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
+
+			regulator_enable(regulator);
+
+			regulator_put(regulator);
+		#endif
 	}
 	else
 	{
+	#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			struct regulator *regulator;
 		
@@ -1751,8 +1741,22 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 			regulator_put(regulator);
 		} else {
+#ifndef CONFIG_MFD_D2153
 			pmic_set_power_off(E_POWER_VANA_MM);
+#endif
 		}
+		#endif
+		#ifdef CONFIG_MACH_GARDALTE
+		struct regulator *regulator;
+		
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
+
+			regulator_disable(regulator);
+
+			regulator_put(regulator);
+		#endif
 	}
 
 	return size;
@@ -3172,7 +3176,7 @@ static int factory_init_tk(struct melfas_ts_data *ts)
 {
 	struct i2c_client *client = ts->client;
 	int ret;
-	ts->dev_tk = device_create(sec_class, NULL, (dev_t)NULL, ts,
+	ts->dev_tk = device_create(sec_tsp_class, NULL, (dev_t)NULL, ts,
 								"sec_touchkey");
 	if (IS_ERR(ts->dev_tk)) {
 		dev_err(&client->dev, "Failed to create fac touchkey dev\n");
@@ -3231,12 +3235,6 @@ static int tsp_reboot_count;
 extern bool msm_fb_is_lcd_present(void);
 static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-#if 0
-	struct device *qt602240_noise_test;
-#ifdef TA_DETECTION
-	bool ta_status;
-#endif
-#endif
 #ifdef SEC_TSP_FACTORY_TEST
 	struct device *fac_dev_ts;
 #endif
@@ -3265,35 +3263,13 @@ init_again:
 		ret = -ENOMEM;
 		goto err_alloc_data_failed;
 	}
-#if 0
-	ts_data = ts;
-	data = client->dev.platform_data;
-	ts->power = data->power;
-	ts->gpio = data->gpio;
-	ts->version = data->version;
-#ifdef TA_DETECTION
-	ts->register_cb = data->register_cb;
-	ts->read_ta_status = data->read_ta_status;
-#endif
-    ts->client = client;
-    i2c_set_clientdata(client, ts);
-	ts->power(true);
-#endif
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
-#if 1
+
 	printk(KERN_EMERG "%s: i2c_master_send() [%d], Add[%d]\n", __func__,
 		ret, ts->client->addr);
-#endif
+
 #if SET_DOWNLOAD_BY_GPIO
-#if 0
-	buf[0] = TS_READ_VERSION_ADDR;
-	ret = i2c_master_send(ts->client, &buf, 1);
-	if (ret < 0) {
-		printk(KERN_EMERG "melfas_ts_work_func : i2c_master_send [%d]\n", ret);
-	}
-	ret = i2c_master_recv(ts->client, &buf, 3);
-#endif
 	if (0){//(msm_fb_is_lcd_present() == true) {
 		for (i = 0; i < DOWNLOAD_RETRY_CNT; i++) {
 			ret = MFS_ISC_update();
@@ -3346,7 +3322,6 @@ init_again:
 		ts->dvfs_lock_status = false;
 #endif
 
-	// don't care ts->client->irq = irqpin2irq(32);
 
     if (ts->client->irq) {
 #if DEBUG_PRINT
@@ -3354,14 +3329,9 @@ init_again:
 		ts->client->name, ts->client->irq);
 #endif
 
-#if 1
+
 	ret = request_threaded_irq(ts->client->irq, NULL, melfas_ts_irq_handler,
 						IRQF_TRIGGER_FALLING | IRQF_ONESHOT, ts->client->name, ts);
-#else
-	ret = request_threaded_irq(ts->client->irq, NULL, melfas_ts_irq_handler,
-						IRQF_TRIGGER_LOW | IRQF_ONESHOT, ts->client->name, ts);
-
-#endif
 	if (ret > 0) {
 		printk(KERN_EMERG "%s: Can't allocate irq %d, ret %d\n",
 			__func__, ts->client->irq, ret);
@@ -3372,34 +3342,10 @@ init_again:
 	for (i = 0; i < MELFAS_MAX_TOUCH ; i++)  /* _SUPPORT_MULTITOUCH_ */
 		g_Mtouch_info[i].strength = -1;
 
-#if 0
-	printk(KERN_EMERG "[TSP] tsp_enabled is %d", tsp_enabled);
-	data->register_cb(tsp_ta_probe);
-	if (data->read_ta_status) {
-		data->read_ta_status(&ta_status);
-		printk(KERN_EMERG "[TSP] ta_status is %d", ta_status);
-		tsp_ta_probe(ta_status);
-	}
-#endif
 #if DEBUG_PRINT
 	printk(KERN_EMERG "%s: succeed to register input device\n", __func__);
 #endif
-#if 0
-	sec_touchscreen = device_create(sec_class, NULL, 0, ts, "sec_touchscreen");
-	if (IS_ERR(sec_touchscreen))
-		pr_err("[TSP] Failed to create device for the sysfs\n");
-	ret = sysfs_create_group(&sec_touchscreen->kobj, &sec_touch_attr_group);
-	if (ret)
-		pr_err("[TSP] Failed to create sysfs group\n");
-#endif
-#if 0
-	qt602240_noise_test = device_create(sec_class, NULL, 0, ts, "qt602240_noise_test");
-	if (IS_ERR(qt602240_noise_test))
-		pr_err("[TSP] Failed to create device for the sysfs\n");
-	ret = sysfs_create_group(&qt602240_noise_test->kobj, &sec_touch_factory_attr_group);
-	if (ret)
-		pr_err("[TSP] Failed to create sysfs group\n");
-#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	printk(KERN_EMERG "%s: register earlysuspend.\n", __func__);
 	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -3424,7 +3370,7 @@ init_again:
 		#endif
 	}
 
-	fac_dev_ts = device_create(sec_class,
+	fac_dev_ts = device_create(sec_tsp_class,
 			NULL, 0, ts, "tsp");
 	if (IS_ERR(fac_dev_ts))
 		dev_err(&client->dev, "Failed to create device for the sysfs\n");
@@ -3457,7 +3403,7 @@ init_again:
 		printk(KERN_EMERG "Failed to create device file(%s)!\n",
 			dev_attr_raw_show.attr.name);
 #endif
-	sec_touchscreen_dev = device_create(sec_class,
+	sec_touchscreen_dev = device_create(sec_tsp_class,
 	NULL, 0, NULL, "sec_touchscreen");
 	if (IS_ERR(sec_touchscreen_dev))
 		pr_err("Failed to create device(sec_touchscreen)!\n");
@@ -3525,7 +3471,7 @@ init_again:
 			    &dev_attr_set_module_on) < 0)
 		pr_err("Failed to create device file(%s)!\n",
 				dev_attr_set_module_on.attr.name);
-	sec_touchkey_dev = device_create(sec_class,
+	sec_touchkey_dev = device_create(sec_touchkey_class,
 			NULL, 0, NULL, "sec_touchkey");
 	if (IS_ERR(sec_touchkey_dev))
 		pr_err("Failed to create device(sec_touchscreen)!\n");
@@ -3554,21 +3500,12 @@ init_again:
 				dev_attr_brightness.attr.name);
 	tsp_enabled = true;
 	return 0;
-#if 0
-	TSP_boost(ts, is_boost);
-#endif
 #if DEBUG_PRINT
 	printk(KERN_EMERG "%s: Start touchscreen. name: %s, irq: %d\n",
 		__func__, ts->client->name, ts->client->irq);
 #endif
 	return 0;
 
-#if 0
-err_detect_failed:
-	ts->power(false);
-	printk(KERN_EMERG "melfas-ts: err_detect failed\n");
-	kfree(ts);
-#endif	
 err_request_irq:
 	printk(KERN_EMERG "melfas-ts: err_request_irq failed\n");
 	free_irq(client->irq, ts);
@@ -3687,12 +3624,22 @@ extern unsigned int is_lpcharging_state(void);
 #endif
 static int __devinit melfas_ts_init(void)
 {
+	int ret;
+	
+	printk("melfas_ts_init");
 
-	sec_class = class_create(THIS_MODULE, "sec_touchscreen");
-	if (IS_ERR(sec_class))
+	sec_tsp_class = class_create(THIS_MODULE, "sec_touchscreen");
+	if (IS_ERR(sec_tsp_class))
 	{
 		printk("%s: sec_touch class creation failed.\n", __func__ );
-		return PTR_ERR(sec_class);
+		return PTR_ERR(sec_tsp_class);
+	}
+    
+	sec_touchkey_class = class_create(THIS_MODULE, "sec_touchkey");
+	if (IS_ERR(sec_touchkey_class))
+	{
+		printk("%s: sec_touchkey_class creation failed.\n", __func__ );
+		return PTR_ERR(sec_touchkey_class);
 	}
 #ifdef CONFIG_BATTERY_SEC
 	if (is_lpcharging_state()) {
@@ -3709,7 +3656,14 @@ static int __devinit melfas_ts_init(void)
 		FW_VERSION = 0xFF;
 #endif
 		FW_VERSION = 0x08;
+#if 0
 	return i2c_add_driver(&melfas_ts_driver);
+#else
+	ret = i2c_add_driver(&melfas_ts_driver);
+	printk("melfas_ts_init ret = %d", ret);
+	return ret;
+
+#endif	
 }
 static void __exit melfas_ts_exit(void)
 {
