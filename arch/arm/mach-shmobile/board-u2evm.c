@@ -1732,9 +1732,6 @@ i2c_board_info i2cm_devices_es2[] = {
 	        I2C_BOARD_INFO("flash", 0x30),
 	},
 #endif
-//	{
-//	        I2C_BOARD_INFO("av7100", 0x70),
-//	},
 };
 #endif
 
