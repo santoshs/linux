@@ -1758,6 +1758,7 @@ static void sndp_fsi_shutdown(
 		if (SNDP_PCM_OUT == substream->stream)
 			fsi_wm1811_deactivate_output(g_kcontrol);
 	#else
+		#if defined(CONFIG_MACH_U2EVM)
 		/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev)) {
@@ -1765,6 +1766,12 @@ static void sndp_fsi_shutdown(
 			if (SNDP_PCM_OUT == substream->stream)
 				fsi_d2153_deactivate_output(g_kcontrol);
 		}
+		#endif
+
+		#if defined(CONFIG_MACH_GARDALTE)
+			if (SNDP_PCM_OUT == substream->stream)
+				fsi_d2153_deactivate_output(g_kcontrol);
+		#endif
 	#endif
 
 	sndp_log_debug("val set\n");
@@ -2451,7 +2458,8 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 			goto start_err;
 		}
 	#else
-		/* get board rev */
+	#if defined(CONFIG_MACH_U2EVM)
+	/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev)) {
 			/* Standby restraint */
@@ -2461,6 +2469,14 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 				goto start_err;
 			}
 		}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
+			if (ERROR_NONE != iRet) {
+				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
+				goto start_err;
+			}
+	#endif
 	#endif
 
 	/* set device  */
@@ -2571,13 +2587,17 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 		/* Input device OFF */
 		fsi_wm1811_deactivate_input(g_kcontrol);
 	#else
-		/* get board rev */
+		#if defined(CONFIG_MACH_U2EVM)
+	/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev))
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
+		#endif
+		#if defined(CONFIG_MACH_GARDALTE)
+			fsi_d2153_deactivate_input(g_kcontrol);
+		#endif
 	#endif
-
 	/* stop SCUW */
 	scuw_stop();
 
@@ -3286,6 +3306,7 @@ static void sndp_work_incomm_start(const u_int new_value)
 			goto start_err;
 		}
 	#else
+	#if defined(CONFIG_MACH_U2EVM)
 		/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev)) {
@@ -3295,6 +3316,14 @@ static void sndp_work_incomm_start(const u_int new_value)
 				goto start_err;
 			}
 		}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+			ret = fsi_d2153_enable_ignore_suspend(card, 0);
+			if (ERROR_NONE != ret) {
+				sndp_log_err("ignore_suspend error(code=%d)\n", ret);
+				goto start_err;
+			}
+	#endif
 	#endif
 
 	/* FSI master for ES 2.0 over */
@@ -3377,11 +3406,16 @@ static void sndp_work_incomm_stop(const u_int old_value)
 		/* Input device OFF */
 		fsi_wm1811_deactivate_input(g_kcontrol);
 	#else
+	#if defined (CONFIG_MACH_U2EVM)
 		/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev))
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
+	#endif
+	#if defined (CONFIG_MACH_GARDALTE)
+			fsi_d2153_deactivate_input(g_kcontrol);
+	#endif
 	#endif
 
 	/* stop SCUW */
@@ -3582,11 +3616,16 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 		/* Input device OFF */
 		fsi_wm1811_deactivate_input(g_kcontrol);
 	#else
+	#if defined(CONFIG_MACH_U2EVM)
 		/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev))
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+			fsi_d2153_deactivate_input(g_kcontrol);
+	#endif
 	#endif
 
 		sndp_after_of_work_call_capture_stop(in_old_val, out_old_val);
@@ -3989,7 +4028,8 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			goto start_err;
 		}
 	#else
-		/* get board rev */
+	 #if defined(CONFIG_MACH_U2EVM)
+	/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev)) {
 			/* Standby restraint */
@@ -3999,6 +4039,14 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 				goto start_err;
 			}
 		}
+	#endif
+	 #if defined(CONFIG_MACH_GARDALTE)
+			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
+			if (ERROR_NONE != iRet) {
+				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
+				goto start_err;
+			}
+	 #endif
 	#endif
 
 	/* set device */
@@ -4160,6 +4208,7 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 		if (ERROR_NONE != iRet)
 			sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
 	#else
+	#if defined(CONFIG_MACH_U2EVM)
 		/* get board rev */
 		board_rev = u2_get_board_rev();
 		if (IS_DIALOG_BOARD_REV(board_rev)) {
@@ -4168,6 +4217,12 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 			if (ERROR_NONE != iRet)
 				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
 		}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+			iRet = fsi_d2153_disable_ignore_suspend(card, 0);
+			if (ERROR_NONE != iRet)
+				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
+	#endif
 	#endif
 
 	/* Wake Force Unlock */
@@ -4524,6 +4579,7 @@ static void sndp_work_stop(
 		fsi_wm1811_deactivate_input(g_kcontrol);
 	}
 #else
+	#if defined(CONFIG_MACH_U2EVM)
 	/* get board rev */
 	board_rev = u2_get_board_rev();
 	if (IS_DIALOG_BOARD_REV(board_rev)) {
@@ -4532,6 +4588,13 @@ static void sndp_work_stop(
 			fsi_d2153_deactivate_input(g_kcontrol);
 		}
 	}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+		if (SNDP_PCM_IN == direction) {
+			/* Input device OFF */
+			fsi_d2153_deactivate_input(g_kcontrol);
+		}
+	#endif
 #endif
 
 #ifdef WM1811_STANDARDIZATION

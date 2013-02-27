@@ -2562,10 +2562,10 @@ static int __init audio_test_init(void)
 {
 	int ret = 0;
 	struct audio_test_priv *dev_conf = NULL;
-
+#if defined(CONFIG_MACH_U2EVM)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return -ENODEV;
-
+#endif
 	audio_test_log_efunc("");
 
 	/* register misc */
@@ -2678,9 +2678,10 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
+#if defined(CONFIG_MACH_U2EVM)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return;
-
+#endif
 	audio_test_log_efunc("");
 
 	misc_deregister(&audio_test_misc_dev);

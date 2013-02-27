@@ -607,7 +607,7 @@ static int wm1811_setup_r8a73734(void)
 		wm1811_log_err("gpio_direction_output(34) ret[%d]", ret);
 		goto gpio_direction_output;
 	}
-
+#if defined(CONFIG_MACH_U2EVM)
 	if (4 == u2_get_board_rev()) {
 		/* SUB_MIC_LDO_EN */
 		ret = gpio_request(GPIO_PORT46, NULL);
@@ -625,7 +625,7 @@ static int wm1811_setup_r8a73734(void)
 			goto gpio_direction_output;
 		}
 	}
-
+#endif
 	wm1811_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1576,12 +1576,12 @@ static int wm1811_set_sub_mic_device(const u_int cur_dev,
 			mixin_r &= ~WM1811_MIXINR_MIC_ENA;
 			sub_mic_ldo = WM1811_DISABLE;
 		}
-
+#if defined(CONFIG_MACH_U2EVM)
 		if (4 == u2_get_board_rev()) {
 			wm1811_log_info("SUB_MIC_LDO_EN[%d]", sub_mic_ldo);
 			gpio_set_value(GPIO_PORT46, sub_mic_ldo);
 		}
-
+#endif
 		/* IN2R MUTE & VOL */
 		ret = wm1811_write(0x001B, mute_sub);
 		/* Enable IN2R Input */
@@ -3084,10 +3084,13 @@ int __init wm1811_init(void)
 {
 	int ret = 0;
 	wm1811_log_efunc("");
-
+#if defined(CONFIG_MACH_U2EVM)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return -ENODEV;
-
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+	return -ENODEV;
+#endif
 	ret = i2c_add_driver(&wm1811_i2c_driver);
 
 	wm1811_log_rfunc("ret[%d]", ret);
@@ -3097,10 +3100,13 @@ int __init wm1811_init(void)
 void __exit wm1811_exit(void)
 {
 	wm1811_log_efunc("");
-
+#if defined(CONFIG_MACH_U2EVM)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return;
-
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+	return -ENODEV;
+#endif
 	i2c_del_driver(&wm1811_i2c_driver);
 
 	wm1811_log_rfunc("");
