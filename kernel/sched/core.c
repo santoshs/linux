@@ -86,6 +86,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
+#include <memlog/memlog.h>
 
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
@@ -2081,6 +2082,11 @@ context_switch(struct rq *rq, struct task_struct *prev,
 #ifndef __ARCH_WANT_UNLOCKED_CTXSW
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 #endif
+
+	if (unlikely(!next->pid))
+		memory_log_proc("idle", next->pid);
+	else
+		memory_log_proc(next->comm, next->pid);
 
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);

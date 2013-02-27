@@ -23,6 +23,7 @@
 #endif /* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A7373 */
 #include <mach/pm.h>
+#include <memlog/memlog.h>
 static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
@@ -54,7 +55,9 @@ void platform_cpu_die(unsigned int cpu)
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
 /* #ifdef CONFIG_SUSPEND */
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 1);
 	jump_systemsuspend();
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);
 	return;
 /* #endif *//* CONFIG_SUSPEND */
 #endif /* CONFIG_ARCH_R8A7373 */

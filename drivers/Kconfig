@@ -154,4 +154,6 @@ source "drivers/motor/Kconfig"
 
 source "drivers/sec_hal/Kconfig"
 
+source "drivers/memlog/Kconfig"
+
 endmenu
