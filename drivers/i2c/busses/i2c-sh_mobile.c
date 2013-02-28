@@ -34,7 +34,7 @@
 #include <linux/slab.h>
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <mach/gpio.h>
-
+#include <mach/board-u2evm.h>
 #include <mach/common.h>
 
 /* Transmit operation:                                                      */
@@ -246,7 +246,9 @@ static u32 sh_mobile_i2c_iccl(unsigned long count, u32 tLOW, u32 tf, int offset)
 static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 {
 	unsigned long i2c_clk_khz;
-	u32 tHIGH, tLOW, tf;
+	u32 tHIGH = 0;
+	u32 tLOW = 0;
+	u32 tf = 0;
 	int offset;
 
 	/* Get clock rate after clock is enabled */
@@ -314,11 +316,16 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 
 	/* Mask all interrupts */
 	iic_wr(pd, ICIC, 0);
-
+#ifdef CONFIG_MACH_U2EVM
 	/*set the bus_data_delay*/
-	if (u2_get_board_rev() >= RLTE_SSG_REV_041)
+	if (u2_get_board_rev() >= SEC_RLTE_REV0_4_0)
 		iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
 				(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
+#endif
+#ifdef CONFIG_MACH_GARDALTE
+	iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
+			(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
+#endif
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
 	iic_wr(pd, ICCH, pd->icch & 0xff);
@@ -739,14 +746,22 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	pd->clks_per_count = 1;
 	if (pdata && pdata->clks_per_count)
 		pd->clks_per_count = pdata->clks_per_count;
-
+#ifdef CONFIG_MACH_U2EVM
 	if ((u2_get_board_rev() >= RLTE_SSG_REV_041) && pdata &&
 			(pdata->bus_data_delay <= MAX_SDA_DELAY
 			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
 		pd->bus_data_delay = pdata->bus_data_delay <<
 						SHIFT_3BITS_SDA_DELAY;
+		else
+		pd->bus_data_delay = MIN_SDA_DELAY;
+#endif
+#ifdef CONFIG_MACH_GARDALTE
+	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY
+			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
+		pd->bus_data_delay = pdata->bus_data_delay << 3;
 	else
 		pd->bus_data_delay = MIN_SDA_DELAY;
+#endif
 	/* The IIC blocks on SH-Mobile ARM processors
 	 * come with two new bits in ICIC.
 	 */

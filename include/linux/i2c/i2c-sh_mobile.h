@@ -3,6 +3,7 @@
 
 #include <linux/platform_device.h>
 
+#define I2C_SDA_NODELAY			0
 #define MAX_SDA_DELAY			31
 #define MIN_SDA_DELAY			0
 #define UNMASK_ICTC_BITS_0TO2		0x07
@@ -22,5 +23,4 @@ struct i2c_sh_mobile_platform_data {
 	unsigned int clks_per_count;
 };
 
-extern unsigned int u2_get_board_rev();
 #endif /* __I2C_SH_MOBILE_H__ */

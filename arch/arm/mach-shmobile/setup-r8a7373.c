@@ -668,22 +668,7 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	},
 };
 
-static struct resource i2c5_resources_es10[] = {
-	[0] = {
-		.name	= "IIC5",
-		.start	= 0xe682a000,
-		.end	= 0xe682a425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-	/* This was swapped in ES1 (189 is for I2CB interrupt!) */
-		.start	= gic_spi(190),
-		.end	= gic_spi(190),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct resource i2c5_resources_es20[] = {
+static struct resource i2c5_resources[] = {
 	[0] = {
 		.name	= "IIC5",
 		.start	= 0xe682a000,
@@ -698,21 +683,11 @@ static struct resource i2c5_resources_es20[] = {
 	},
 };
 
-static struct platform_device i2c5_device_es10 = {
+static struct platform_device i2c5_device = {
 	.name		= "i2c-sh_mobile",
 	.id		= 5,
-	.resource	= i2c5_resources_es10,
-	.num_resources	= ARRAY_SIZE(i2c5_resources_es10),
-	.dev		= {
-		.platform_data	= &i2c5_platform_data,
-	},
-};
-
-static struct platform_device i2c5_device_es20 = {
-	.name		= "i2c-sh_mobile",
-	.id		= 5,
-	.resource	= i2c5_resources_es20,
-	.num_resources	= ARRAY_SIZE(i2c5_resources_es20),
+	.resource	= i2c5_resources,
+	.num_resources	= ARRAY_SIZE(i2c5_resources),
 	.dev = {
 		.platform_data	= &i2c5_platform_data,
 	},
@@ -1452,7 +1427,6 @@ static struct platform_device *r8a7373_late_devices_es10[] __initdata = {
 	&i2c1_device,
 	&i2c2_device,
 	&i2c4_device,
-	&i2c5_device_es10,
 	&i2c8_device,
 	&dma0_device,
 #ifdef CONFIG_SMECO
@@ -1472,7 +1446,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c2_device, /* IIC2  */
 	&i2c3_device, /* IIC3  */
 	&i2c4_device, /* IIC0H */
-	&i2c5_device_es20, /* IIC1H*/
+	&i2c5_device, /* IIC1H*/
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
@@ -1498,7 +1472,7 @@ static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
 	&i2c2_device, /* IIC2  */
 	&i2c3_device, /* IIC3  */
 	&i2c4_device, /* IIC0H */
-	&i2c5_device_es20, /* IIC1H*/
+	&i2c5_device, /* IIC1H*/
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
