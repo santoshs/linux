@@ -66,6 +66,7 @@
 #endif
 
 static char dummy_access_for_sync;
+static char *bootflag_address;
 
 /*
  *  Stop peripheral devices
@@ -110,24 +111,23 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 	u8 reg = 0;
 	int hwlock;
 
-	char *bootflag_address = NULL;
 	unsigned char flag = 0xA5;
 
 	POWEROFF_PRINTK("%s\n", __func__);
 	if (cmd == NULL) {
 		/* Copy cmd = NULL to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(\
-			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
-		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, "",\
-				BOOTFLAG_SIZE - 0x01);
+		if (bootflag_address != NULL) {
+			strncpy((void *)bootflag_address, &flag, 0x01);
+			strncpy((void *)bootflag_address + 0x01, "",\
+					BOOTFLAG_SIZE - 0x01);
+		}
 	} else {
 		/* Copy cmd to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(\
-			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
-		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, cmd,\
-				BOOTFLAG_SIZE - 0x01);
+		if (bootflag_address != NULL) {
+			strncpy((void *)bootflag_address, &flag, 0x01);
+			strncpy((void *)bootflag_address + 0x01, cmd,\
+					BOOTFLAG_SIZE - 0x01);
+		}
 	}
 
 	/* Check to make sure that SYSC hwspinlock
@@ -249,12 +249,18 @@ static void shmobile_pm_poweroff(void)
  */
 static int __init shmobile_init_poweroff(void)
 {
+	bootflag_address = NULL;
+
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* Register globally exported PM poweroff and restart */
 	pm_power_off = shmobile_pm_poweroff;
 #ifdef SHMOBILE_PM_RESTART
 	arm_pm_restart = shmobile_pm_restart;
 #endif /* SHMOBILE_PM_RESTART */
+
+	bootflag_address = (char *)ioremap_nocache(
+			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+
 	return 0;
 }
 
