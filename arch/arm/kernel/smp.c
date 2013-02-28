@@ -59,19 +59,6 @@ enum ipi_msg_type {
 	IPI_CPU_BACKTRACE,
 };
 
-#ifdef CONFIG_ARM_TZ
-int flush_l2_cache_internal(void);
-static void flush_l2_cache(void)
-{
-  //#define L2_CLEAN_BY_WAY 0xF01007BC
-
-  //__raw_writel(0x0000FFFF, L2_CLEAN_BY_WAY);
-  //while ((__raw_readl(L2_CLEAN_BY_WAY) & 0x0000FFFF) != 0) {
-  //  ;
-  //}
-	flush_l2_cache_internal();
-}
-#endif
 static unsigned int skip_secondary_calibrate;
 
 static DECLARE_COMPLETION(cpu_running);
@@ -110,10 +97,6 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	secondary_data.swapper_pg_dir = virt_to_phys(swapper_pg_dir);
 	__cpuc_flush_dcache_area(&secondary_data, sizeof(secondary_data));
 	outer_clean_range(__pa(&secondary_data), __pa(&secondary_data + 1));
-
-#ifdef CONFIG_ARM_TZ
-        flush_l2_cache(); // W/A Flush all-cache data to DRAM for 2nd-CPU MMU tables.
-#endif
 	/*
 	 * Now bring the CPU into our world.
 	 */
