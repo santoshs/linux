@@ -112,6 +112,7 @@ unsigned int is_clock_updated;
 #define CLOCK_RESTORE		1
 #define ZB3_CLK_SUSPEND		0
 
+#define I2C_ICCRDVM_DUMMY_READ_LOOP	0x1000
 
 
 #ifdef CONFIG_PM_DEBUG
@@ -753,6 +754,74 @@ static void do_iicdvm_setting(void)
 }
 
 /*
+ *  setting for going to Low Power Mode without I2CDVM
+ */
+static void set_regs_for_LPM(void)
+{
+	unsigned int data;
+
+    /* DVFSCR1 [30:29:28] <= 100 */
+	data = __raw_readl(DVFSCR1);
+	data = data & 0xCFFFFFFF;
+	data = data | 0x40000000;
+	__raw_writel(data, DVFSCR1);
+
+	/* SYSC.SYCKENMSK LPMEN=1 */
+	__raw_writel(0x402F0000, SYCKENMSK);
+
+	/* SYSC.LPMWUCNT=0000007E */
+	__raw_writel(0xA550007E, LPMWUCNT);
+
+	/* EXMSKCNT1    =0000007E */
+	__raw_writel(0xA550007E, EXMSKCNT1);
+
+	/* LPMWUMSKCNT  =00000001 */
+	__raw_writel(0xA5500001, LPMWUMSKCNT);
+
+	/* LPMR to disable I2CDVM and CPG TIMEOUT ON */
+	__raw_writel(0x00800102, LPMR);
+
+	/* disable wakeup of I2CDVM timeout */
+	data = __raw_readl(WUPSMSK);
+	data = data | 0x01000000;
+	__raw_writel(data, WUPSMSK);
+
+	return;
+}
+
+/*
+ *  setting for leaving from Low Power Mode without I2CDVM
+ */
+static void reset_regs_for_LPM(void)
+{
+	unsigned char cdata;
+	int count;
+
+	/* SYSC.SYCKENMSK LPMEN=0 */
+	__raw_writel(0x002F0000, SYCKENMSK);
+
+	/* reset ICCRDVM */
+	cdata = __raw_readb(ICCRDVM);
+	cdata = cdata & 0x7F;
+	__raw_writeb(cdata, ICCRDVM);
+
+	for (count = 0; count < I2C_ICCRDVM_DUMMY_READ_LOOP; count++) {
+		cdata = __raw_readb(ICCRDVM);
+		if ((cdata & 0x80) == 0)
+			break;
+	}
+	if (count >= I2C_ICCRDVM_DUMMY_READ_LOOP)
+		pr_debug(PMDBG_PRFX "I2C DVM reset error\n");
+
+	cdata = __raw_readb(ICCRDVM);
+	cdata = cdata | 0x80;
+	__raw_writeb(cdata, ICCRDVM);
+
+	return;
+}
+
+
+/*
  * suspend_set_clock
  *
  * Arguments:
@@ -965,6 +1034,7 @@ static int shmobile_suspend(void)
 		is_clock_updated = 1;
 	}
 
+	set_regs_for_LPM();
 	/*
 	 * do cpu suspend ...
 	 */
@@ -989,6 +1059,7 @@ static int shmobile_suspend(void)
 #endif	/*CONFIG_PM_HAS_SECURE*/
 
 	wakeups_factor();
+	reset_regs_for_LPM();
 
 #ifdef CONFIG_PM_HAS_SECURE
 	sec_hal_ret_cpu0 = __raw_readl(ram0SecHalReturnCpu0);

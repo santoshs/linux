@@ -114,12 +114,21 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	cpu = cpu_logical_map(cpu);
 
 	/* enable cache coherency */
-	modify_scu_cpu_psr(0, 3 << (cpu * 8));
+	unsigned long status =
+		((__raw_readl(IOMEM(CPG_SCPUSTR)) >> (4 * cpu)) & 3);
 
-	if (((__raw_readl(IOMEM(SCPUSTR)) >> (4 * cpu)) & 3) == 3)
-		__raw_writel(1 << cpu, IOMEM(WUPCR));	/* wake up */
-	else
-		__raw_writel(1 << cpu, IOMEM(SRESCR));	/* reset */
+	if (status == 3)
+		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
+	else if (status == 0) {
+		printk(KERN_NOTICE "CPU%d is SRESETed\n", cpu);
+		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
+	} else {
+		printk(KERN_NOTICE "CPU%d has illegal status %08x\n",\
+				cpu, status);
+		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
+		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
+	}
+  	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 0;
 }

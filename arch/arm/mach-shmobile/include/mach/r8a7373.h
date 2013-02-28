@@ -534,6 +534,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define MSTPSR3	IO_ADDRESS(0xE6150048)
 #define MSTPSR4	IO_ADDRESS(0xE615004C)
 #define ASTAT		IO_ADDRESS(0xE6150054)
+#define DVFSCR1	IO_ADDRESS(0xE615005C)
 #define CPG_DSITCKCR	IO_ADDRESS(0xE6150060)
 #define CPG_DSI0PCKCR	IO_ADDRESS(0xE6150064)
 #define CPG_DSI1PCKCR	IO_ADDRESS(0xE6150068)
@@ -615,6 +616,8 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CPG_LPCKCRPhys	0xE6151024
 #define CPG_LPCKCR		IO_ADDRESS(CPG_LPCKCRPhys)
 
+#define LPMR			IO_ADDRESS(0xE6150200)
+
 /*System-CPU PERIPHCLK Control Register*/
 #define PCLKCR          IO_ADDRESS(0xE6151020)
 
@@ -684,10 +687,13 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /*Power Status Register (PSTR)*/
 #define SYSC_PSTR	0xE6180080
 #define PSTR            IO_ADDRESS(SYSC_PSTR)
+#define LPMWUCNT    IO_ADDRESS(0xE618020C)
 
 /* EXTAL1 Mask Count Register (EXMSKCNT1) */
 #define EXMSKCNT1Phys	0xE6180214
 #define EXMSKCNT1	IO_ADDRESS(0xE6180214)
+
+#define LPMWUMSKCNT IO_ADDRESS(0xE6180218)
 
 /* EXTAL1 Clock Stop Control Register (APSCSTP) */
 #define APSCSTPPhys	0xE6180234
