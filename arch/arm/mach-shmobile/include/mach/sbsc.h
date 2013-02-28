@@ -44,6 +44,7 @@ void shmobile_sbsc_update_param(struct sbsc_param *param);
 void shmobile_set_ape_req_freq(unsigned int freq);
 unsigned int shmobile_get_ape_req_freq(void);
 unsigned int shmobile_get_modem_req_freq(void);
+unsigned int shmobile_get_pll_reprogram(void);
 
 extern void cpg_init_bbfrqcrd(void);
 extern struct sbsc_param zb3_lut[];

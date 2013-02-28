@@ -32,6 +32,7 @@
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
+#include <memlog/memlog.h>
 
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
@@ -327,7 +328,9 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 		state_notify(PM_STATE_NOTIFY_SLEEP);
 
 	/* Transition to WFI setting	*/
+	memory_log_func(PM_FUNC_ID_START_WFI, 1);
 	start_wfi();
+	memory_log_func(PM_FUNC_ID_START_WFI, 0);
 
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
@@ -371,7 +374,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 		state_notify(PM_STATE_NOTIFY_SLEEP_LOWFREQ);
 
 	/* Transition to WFI standby with low-frequency setting	*/
+	memory_log_func(PM_FUNC_ID_START_WFI2, 1);
 	start_wfi2();
+	memory_log_func(PM_FUNC_ID_START_WFI2, 0);
 
 	/* WakeUp State Notify */
 	if (!state_notify_confirm())
@@ -419,7 +424,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
 
+		memory_log_func(PM_FUNC_ID_START_CORESTANDBY, 1);
 		start_corestandby(); /* CoreStandby(A1SL0 or A1SL1 Off) */
+		memory_log_func(PM_FUNC_ID_START_CORESTANDBY, 0);
 
 	} else {
 
@@ -553,7 +560,9 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 skip_clock_change:
 			/* end clock table */
 
+			memory_log_func(PM_FUNC_ID_START_CORESTANDBY2, 1);
 			start_corestandby_2(); /* CoreStandby(A2SL Off) */
+			memory_log_func(PM_FUNC_ID_START_CORESTANDBY2, 0);
 
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 			if ((chip_rev > ES_REV_2_1) && (freqD_save > 0)) {
@@ -579,7 +588,9 @@ skip_clock_change:
 		}
 
 
+		memory_log_func(PM_FUNC_ID_START_CORESTANDBY, 1);
 		start_corestandby();
+		memory_log_func(PM_FUNC_ID_START_CORESTANDBY, 0);
 
 	} else { /* idle wakelock is used */
 

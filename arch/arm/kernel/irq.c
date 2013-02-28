@@ -39,6 +39,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/irq.h>
 #include <asm/mach/time.h>
+#include <memlog/memlog.h>
 
 /*
  * No architecture-specific irq_finish function defined in arm/arch/irqs.h.
@@ -70,6 +71,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	memory_log_irq(irq, 1);
 
 	irq_enter();
 
@@ -90,6 +92,7 @@ void handle_IRQ(unsigned int irq, struct pt_regs *regs)
 
 	irq_exit();
 	set_irq_regs(old_regs);
+	memory_log_irq(irq, 0);
 }
 
 /*

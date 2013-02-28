@@ -48,6 +48,10 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -329,6 +333,9 @@ static int display_initialize(int lcd_num)
 	printk(KERN_INFO "enter display_initialize\n");
 
 	lcd_ext_param[lcd_num].aInfo = screen_display_new();
+
+	printk(KERN_INFO "%s, lcd_num=%d", __func__, lcd_num);
+
 	if (lcd_ext_param[lcd_num].aInfo == NULL)
 		return -2;
 
@@ -1146,22 +1153,6 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 				}
 			}
 #endif
-			if ((lcd_ext_param[lcd_num].draw_bpp == 16)
-			    || (lcd_ext_param[lcd_num].draw_bpp == 24)) {
-				memset((void *)lcd_ext_param[lcd_num].vir_addr
-				       , 0, lcd_ext_param[lcd_num].mem_size);
-			} else {
-				int i;
-				unsigned int *cpy_address;
-				cpy_address =
-					(unsigned int *)
-					lcd_ext_param[lcd_num].vir_addr;
-				for (i = 0;
-				     i < lcd_ext_param[lcd_num].mem_size / 4;
-				     i++) {
-					*cpy_address++ = 0xFF000000;
-				}
-			}
 
 			if (lcd_ext_param[lcd_num].panel_func.panel_suspend) {
 				lcd_ext_param[lcd_num].
@@ -1400,6 +1391,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 #else
 			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
 #endif
+
 			lcd_ext_param[i].rect_x = SH_MLCD_RECTX;
 			lcd_ext_param[i].rect_y = SH_MLCD_RECTY;
 			lcd_ext_param[i].rect_width = panel_info.pixel_width;
@@ -1550,21 +1542,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		info->device = &pdev->dev;
 		info->par = &priv->ch[i];
 
-		if ((cfg->bpp == 16) || (cfg->bpp == 24)) {
-			memset((void *)lcd_ext_param[i].vir_addr
-			       , 0, lcd_ext_param[i].mem_size);
-		} else {
-			int size;
-			unsigned int *cpy_address;
-			cpy_address =
-				(unsigned int *)
-				lcd_ext_param[i].vir_addr;
-			for (size = 0;
-			     size < lcd_ext_param[i].mem_size / 4;
-			     size++) {
-				*cpy_address++ = 0xFF000000;
-			}
-		}
 	}
 
 	if (error)
@@ -1636,6 +1613,12 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	priv->early_suspend.resume = sh_mobile_fb_late_resume;
 	register_early_suspend(&priv->early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
+
+#if defined(CONFIG_SEC_DEBUG)
+	/* Mark for GetLog */
+	sec_getlog_supply_fbinfo(info->screen_base, info->var.xres,
+				 info->var.yres, info->var.bits_per_pixel, 2);
+#endif
 
 	return 0;
 err1:

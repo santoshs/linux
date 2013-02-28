@@ -37,8 +37,9 @@
 #ifdef CONFIG_FB_R_MOBILE_HX8369_B
 #include "panel_hx8369_b.h"
 #endif
-#ifdef CONFIG_FB_R_MOBILE_NT35512
-#include "panel_nt35512.h"
+#if defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE) || \
+	defined(CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE)
+#include "panel_nt35510.h"
 #endif
 
 struct fb_panel_func r_mobile_panel_func(int panel)
@@ -57,7 +58,7 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifndef CONFIG_BOARD_VERSION_GARDA
+#ifndef CONFIG_MACH_GARDALTE
 #ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
 	case PANEL_SWITCH_HW_ID_REV_0_2_1:
 	case PANEL_SWITCH_HW_ID_REV_0_2_2:
@@ -73,16 +74,15 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 		panel_func = hx8369_b_func_list();
 		break;
 #endif
-#else /* CONFIG_BOARD_VERSION_GARDA */
-#ifdef CONFIG_FB_R_MOBILE_NT35512
-	case PANEL_SWITCH_HW_ID_REV_0_0_X:
-	case PANEL_SWITCH_HW_ID_REV_0_5_X:
+#else /* CONFIG_MACH_PORCO */
+#if defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE) || \
+	defined(CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE)
 	case PANEL_SWITCH_HW_ID_REV_0_6_X:
-		printk(KERN_INFO "Switch nt35512.(ID=%d)\n", hw_id);
-		panel_func = nt35512_func_list();
+		printk(KERN_INFO "Switch nt35510.(ID=%d)\n", hw_id);
+		panel_func = nt35510_func_list();
 		break;
 #endif /* CONFIG_FB_R_MOBILE_NT35512 */
-#endif /* CONFIG_BOARD_VERSION_GARDA */
+#endif /* CONFIG_MACH_GARDALTE */
 
 	default:
 		printk(KERN_INFO "Unknown HWID.(ID=%d)\n", hw_id);

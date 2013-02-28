@@ -1,5 +1,5 @@
 /*
- * drivers/video/r-mobile/panel/panel_nt35512.c
+ * drivers/video/r-mobile/panel/panel_nt35510.c
  *
  * Copyright (C) 2013 Renesas Electronics Corporation
  *
@@ -32,14 +32,20 @@
 #include <linux/fb.h>
 
 #include <linux/regulator/consumer.h>
+#include <linux/lcd.h>
 
-#include "panel_nt35512.h"
+#include "panel_nt35510.h"
 
-#define NT35512_POWAREA_MNG_ENABLE
+/* #define NT35510_DRAW_BLACK_KERNEL */
 
-#define NT35512_ENABLE_VIDEO_MODE
+#define NT35510_POWAREA_MNG_ENABLE
+/* #define NT35510_GED_ORG */
 
-#ifdef NT35512_POWAREA_MNG_ENABLE
+#ifdef CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE
+#define NT35510_ENABLE_VIDEO_MODE
+#endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
 #endif
 
@@ -116,10 +122,14 @@
 #define LCD_MASK_LDDCKR		0x0007007F
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
 #define LCD_MASK_MLDDCKPAT2R	0xFFFFFFFF
-#define LCD_MASK_PHYTEST       	0x000003CC
+#define LCD_MASK_PHYTEST	0x000003CC
 
-#define LCD_DSI0PCKCR_50HZ	0x00000031
-#define LCD_DSI0PHYCR_50HZ	0x2A800016
+#define LCD_DSI0PCKCR_40HZ	0x00000023
+#define LCD_DSI0PHYCR_40HZ	0x2A80000B
+
+#define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
+static int nt35510_panel_suspend(void);
+static int nt35510_panel_resume(void);
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -228,21 +238,21 @@ static unsigned char setavee[] = { 0xB1,
 static unsigned char bt2ctr[] = { 0xB7,
 		0x24, 0x24, 0x24 };
 
-static unsigned char bt3ctr[] = { 0xB3,
+static unsigned char setvgh[] = { 0xB3,
 		0x05, 0x05, 0x05 };
 
 static unsigned char bt4ctr[] = { 0xB9,
 		0x24, 0x24, 0x24 };
 
-static unsigned char dpftctr3[] = { 0xBF, 0x01 };
+static unsigned char vghctr[] = { 0xBF, 0x01 };
 
-static unsigned char set_u01[] = { 0xB5,
+static unsigned char setvglreg[] = { 0xB5,
 		0x0B, 0x0B, 0x0B };
 
 static unsigned char bt5ctr[] = { 0xBA,
 		0x24, 0x24, 0x24 };
 
-//static unsigned char btenctr[] = { 0xC2, 0x01 };
+/* static unsigned char btenctr[] = { 0xC2, 0x01 }; */
 
 static unsigned char setvgp[] = { 0xBC,
 		0x00, 0xA3, 0x00 };
@@ -254,7 +264,7 @@ static unsigned char setvgn[] = { 0xBD,
 static unsigned char maucctr0[] = { 0xF0,
 		0x55, 0xAA, 0x52, 0x08, 0x00 };
 
-#ifndef NT35512_ENABLE_VIDEO_MODE
+#ifndef NT35510_ENABLE_VIDEO_MODE
 static unsigned char dopctr[] = { 0xB1,
 		0x4C, 0x04 };
 
@@ -287,7 +297,7 @@ static unsigned char dpfrctr3[] = { 0xBF,
 
 static unsigned char teon[] = { 0x35, 0x00 };
 
-static unsigned char set_un02[] = { 0xCC,
+static unsigned char dptmctr12[] = { 0xCC,
 		0x03, 0x00, 0x00 };
 
 /* Gamma Setting Sequence */
@@ -374,6 +384,14 @@ static unsigned char raset[] = { 0x2B,
 /* Normal Display Mode On */
 static unsigned char noron[] = { 0x13 };
 
+static unsigned char dpfrctr1_40hz[] = { 0xBD,
+		0x02, 0x45, 0x07, 0x32, 0x00 };
+
+static struct specific_cmdset lcdfreq_cmd[] = {
+	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr1,  sizeof(dpfrctr1) },
+	{ MIPI_DSI_END,             NULL,      0                }
+};
+
 static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 
@@ -382,12 +400,12 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt1ctr,    sizeof(bt1ctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setavee,   sizeof(setavee)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt2ctr,    sizeof(bt2ctr)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  bt3ctr,    sizeof(bt3ctr)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setvgh,    sizeof(setvgh)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt4ctr,    sizeof(bt4ctr)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  dpftctr3,  sizeof(dpftctr3) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  set_u01,   sizeof(set_u01)  },
+	{ MIPI_DSI_DCS_LONG_WRITE,  vghctr,    sizeof(vghctr)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setvglreg, sizeof(setvglreg)},
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt5ctr,    sizeof(bt5ctr)   },
-//	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  },
+/*	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  }, */
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   },
 
@@ -408,9 +426,9 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr1,  sizeof(dpfrctr1) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr2,  sizeof(dpfrctr2) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr3,  sizeof(dpfrctr3) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  set_un02,  sizeof(set_un02) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  dptmctr12,  sizeof(dptmctr12) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  dopctr,    sizeof(dopctr)   },
-#ifndef NT35512_ENABLE_VIDEO_MODE
+#ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
 
@@ -419,23 +437,23 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
 	{ MIPI_DSI_DELAY,           NULL,      150              },
-
-#ifndef NT35512_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_BLACK,           NULL,      0                },
+
+#ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
-#endif // NT35512_ENABLE_VIDEO_MODE
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
+#ifdef NT35510_ENABLE_VIDEO_MODE
 static const struct specific_cmdset initialize_cmdset_phase2[] = {
-	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
 	{ MIPI_DSI_DELAY,           NULL,      150              },
+	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_END,             NULL,      0                }
 };
-#endif // NT35512_ENABLE_VIDEO_MODE
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispoff,   sizeof(dispoff)  },
@@ -448,20 +466,26 @@ static const struct specific_cmdset demise_cmdset[] = {
 static int is_dsi_read_enabled;
 
 static struct fb_info *common_fb_info;
-
+static int panel_specific_cmdset(void *lcd_handle,
+				   const struct specific_cmdset *cmdset);
 enum lcdfreq_level_idx {
 	LEVEL_NORMAL,		/* 60Hz */
-	LEVEL_LOW,		/* 50Hz */
+	LEVEL_LOW,		/* 40Hz */
 	LCDFREQ_LEVEL_END
 };
 
-struct lcdfreq_info {
+struct lcd_info {
 	enum lcdfreq_level_idx	level;	/* Current level */
 	struct mutex		lock;	/* Lock for change frequency */
 	struct device		*dev;	/* Hold device of LCD */
+	struct device_attribute	*attr;	/* Hold attribute info */
+	struct lcd_device	*ld;	/* LCD device info */
+
+	unsigned int			ldi_enable;
+	unsigned int			power;
 };
 
-static struct lcdfreq_info lcdfreq_info_data;
+static struct lcd_info lcd_info_data;
 
 static int lcdfreq_lock_free(struct device *dev)
 {
@@ -482,15 +506,23 @@ static int lcdfreq_lock_free(struct device *dev)
 	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
 		printk(KERN_ALERT "disp_set_lcd_if_parameters err!\n");
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
+		goto out;
 	}
 
+#ifndef NT35510_ENABLE_VIDEO_MODE
+	/* Transmit DSI command peculiar to a panel */
+	ret = panel_specific_cmdset(screen_handle, lcdfreq_cmd);
+	if (ret != 0) {
+		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+		goto out;
+	}
+#endif /* NT35510_ENABLE_VIDEO_MODE */
+
+out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
-	return 0;
+	return ret;
 }
 
 
@@ -498,7 +530,7 @@ static ssize_t level_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	printk(KERN_DEBUG "%s\n", __func__);
-	return sprintf(buf, "%d\n", lcdfreq_info_data.level);
+	return sprintf(buf, "%d\n", lcd_info_data.level);
 }
 
 static ssize_t level_store(struct device *dev,
@@ -509,9 +541,9 @@ static ssize_t level_store(struct device *dev,
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	mutex_lock(&lcdfreq_info_data.lock);
+	mutex_lock(&lcd_info_data.lock);
 
-	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
 
 	printk(KERN_DEBUG "\t%s :: value=%d\n", __func__, value);
 
@@ -521,17 +553,21 @@ static ssize_t level_store(struct device *dev,
 	}
 
 	if (value) {
-		/* set freq 50Hz */
-		printk(KERN_ALERT "set low freq(50Hz)\n");
+		/* set freq 40Hz */
+		printk(KERN_ALERT "set low freq(40Hz)\n");
 
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_50HZ;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_50HZ;
+		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_40HZ;
+		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_40HZ;
+
+		lcdfreq_cmd[0].data = dpfrctr1_40hz;
 	} else {
 		/* set freq 60Hz */
 		printk(KERN_ALERT "set normal freq(60Hz)\n");
 
 		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR;
 		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR;
+
+		lcdfreq_cmd[0].data = dpfrctr1;
 	}
 
 	ret = lcdfreq_lock_free(dev);
@@ -541,11 +577,29 @@ static ssize_t level_store(struct device *dev,
 		goto out;
 	}
 
-	lcdfreq_info_data.level = value;
+	lcd_info_data.level	= value;
+	lcd_info_data.dev	= dev;
+	lcd_info_data.attr	= attr;
 out:
-	mutex_unlock(&lcdfreq_info_data.lock);
+	mutex_unlock(&lcd_info_data.lock);
 
 	return count;
+}
+
+static int lcdfreq_resume(void)
+{
+#ifndef NT35510_ENABLE_VIDEO_MODE
+	char buf[10];
+
+	/* Resume when a frame rate is not 60Hz */
+	if (lcd_info_data.level != 0) {
+		sprintf(buf, "%d", lcd_info_data.level);
+		level_store(lcd_info_data.dev,
+			    lcd_info_data.attr, buf, 0);
+	}
+#endif /* NT35510_ENABLE_VIDEO_MODE */
+
+	return 0;
 }
 
 static DEVICE_ATTR(level, S_IRUGO|S_IWUSR, level_show, level_store);
@@ -560,16 +614,14 @@ static struct attribute_group lcdfreq_attr_group = {
 	.attrs = lcdfreq_attributes,
 };
 
-static int nt35512_lcd_frequency_register(struct device *dev)
+static int nt35510_lcd_frequency_register(struct device *dev)
 {
-	struct lcdfreq_info *lcdfreq = NULL;
+	struct lcd_info *lcdfreq = NULL;
 	int ret;
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	memset(&lcdfreq_info_data, 0, sizeof(lcdfreq_info_data));
-
-	lcdfreq = &lcdfreq_info_data;
+	lcdfreq = &lcd_info_data;
 	lcdfreq->dev = dev;
 	lcdfreq->level = LEVEL_NORMAL;
 
@@ -587,19 +639,105 @@ static int nt35512_lcd_frequency_register(struct device *dev)
 	return 0;
 }
 
-static void nt35512_lcd_frequency_unregister(void)
+static void nt35510_lcd_frequency_unregister(void)
 {
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	sysfs_remove_group(&lcdfreq_info_data.dev->kobj,
+	sysfs_remove_group(&lcd_info_data.dev->kobj,
 					&lcdfreq_attr_group);
-	mutex_destroy(&lcdfreq_info_data.lock);
+	mutex_destroy(&lcd_info_data.lock);
 
 	printk(KERN_DEBUG "%s is done\n", __func__);
 
 }
 
-int nt35512_dsi_read(int id, int reg, int len, char *buf)
+
+#ifdef NT35510_GED_ORG
+static int lcd_get_power(struct lcd_device *ld)
+{
+#if 0
+	struct lcd_info *lcd = lcd_get_data(ld);
+
+	return lcd->power;
+#endif
+	return true;
+}
+
+
+static struct lcd_ops nt35510_lcd_ops = {
+	.set_power = lcd_set_power,
+	.get_power = lcd_get_power,
+};
+
+#else /* NT35510_GED_ORG */
+static int nt35510_power_on(struct lcd_info *lcd)
+{
+	int ret = 0;
+
+	dev_info(&lcd->ld->dev, "%s\n", __func__);
+
+	ret = nt35510_panel_resume();
+
+	return ret;
+}
+
+static int nt35510_power_off(struct lcd_info *lcd)
+{
+	int ret = 0;
+
+	dev_info(&lcd->ld->dev, "%s\n", __func__);
+
+	ret = nt35510_panel_suspend();
+
+	msleep(135);
+
+	return ret;
+}
+
+static int nt35510_power(struct lcd_info *lcd, int power)
+{
+	int ret = 0;
+
+	if (POWER_IS_ON(power) && !POWER_IS_ON(lcd->power))
+		ret = nt35510_power_on(lcd);
+	else if (!POWER_IS_ON(power) && POWER_IS_ON(lcd->power))
+		ret = nt35510_power_off(lcd);
+
+	if (!ret)
+		lcd->power = power;
+
+	return ret;
+}
+
+static int nt35510_set_power(struct lcd_device *ld, int power)
+{
+	struct lcd_info *lcd = lcd_get_data(ld);
+
+	if (power != FB_BLANK_UNBLANK && power != FB_BLANK_POWERDOWN &&
+		power != FB_BLANK_NORMAL) {
+		dev_err(&lcd->ld->dev, "power value should be 0, 1 or 4.\n");
+		return -EINVAL;
+	}
+
+	return nt35510_power(lcd, power);
+}
+
+static int nt35510_get_power(struct lcd_device *ld)
+{
+	struct lcd_info *lcd = lcd_get_data(ld);
+
+	return lcd->power;
+}
+
+static struct lcd_ops nt35510_lcd_ops = {
+	.set_power = nt35510_set_power,
+	.get_power = nt35510_get_power,
+};
+
+#endif /* NT35510_GED_ORG */
+
+
+int nt35510_dsi_read(int id, int reg, int len, char *buf)
 {
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
@@ -724,6 +862,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 			u32 panel_height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
 			screen_disp_draw disp_draw;
 
+#ifdef NT35510_DRAW_BLACK_KERNEL
 			printk(KERN_ALERT
 				"num_registered_fb = %d\n", num_registered_fb);
 
@@ -745,33 +884,19 @@ static int panel_specific_cmdset(void *lcd_handle,
 			       (unsigned)(registered_fb[0]->fix.smem_start),
 			       (unsigned)(registered_fb[0]->screen_base),
 			       (unsigned)(registered_fb[0]->fix.smem_len));
-#if 1
-			memset(registered_fb[0]->screen_base, 0x00,
+			memset(registered_fb[0]->screen_base, 0x0,
 					registered_fb[0]->fix.smem_len);
-#else
-			{	//XXX MK
-				int i;
-				unsigned char *p = (unsigned char*)registered_fb[0]->screen_base;
-				int size = (int)registered_fb[0]->fix.smem_len;
-				for (i = 0; i < (size/2); i++){
-					if ((i & 3) == 0)
-						*p++ = 0xff;
-					else
-						*p++ = 0x00;
-				}
-				for (i = 0; i < (size/2); i++){
-					if ((i & 3) == 3)
-						*p++ = 0xff;
-					else
-						*p++ = 0x00;
-				}
-			}
 #endif
+
 			/* Memory clean */
 			disp_draw.handle = lcd_handle;
-//XXX MK			disp_draw.output_mode = RT_DISPLAY_LCD1;
-			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
+#ifdef NT35510_DRAW_BLACK_KERNEL
+			disp_draw.output_mode = RT_DISPLAY_LCD1;
 			disp_draw.buffer_id   = RT_DISPLAY_BUFFER_A;
+#else
+			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
+			disp_draw.buffer_id   = RT_DISPLAY_DRAW_BLACK;
+#endif
 			disp_draw.draw_rect.x = 0;
 			disp_draw.draw_rect.y = 0;
 			disp_draw.draw_rect.width  = panel_width;
@@ -809,29 +934,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 
 static void mipi_display_reset(void)
 {
-
-#ifdef NT35512_POWAREA_MNG_ENABLE
-	void *system_handle;
-	system_pmg_param powarea_start_notify;
-	system_pmg_delete pmg_delete;
-	int ret;
-#endif
-
 	printk(KERN_INFO "%s\n", __func__);
-
-#ifdef NT35512_POWAREA_MNG_ENABLE
-	printk(KERN_INFO "Start A4LC power area\n");
-	system_handle = system_pwmng_new();
-
-	/* Notifying the Beginning of Using Power Area */
-	powarea_start_notify.handle		= system_handle;
-	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
-	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
-	if (ret != SMAP_LIB_PWMNG_OK)
-		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
-	pmg_delete.handle = system_handle;
-	system_pwmng_delete(&pmg_delete);
-#endif
 
 	/* GPIO control */
 	gpio_request(reset_gpio, NULL);
@@ -849,22 +952,42 @@ static void mipi_display_reset(void)
 }
 
 
-static int nt35512_panel_init(unsigned int mem_size)
+static int nt35510_panel_init(unsigned int mem_size)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
+#ifdef NT35510_ENABLE_VIDEO_MODE
+	screen_disp_stop_lcd disp_stop_lcd;
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 	screen_disp_set_lcd_if_param set_lcd_if_param;
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
 	unsigned char read_data[60];
 	int ret = 0;
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	void __iomem *dsilb_base;
-#endif // NT35512_ENABLE_VIDEO_MODE
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+#endif
 
 	printk(KERN_INFO "%s\n", __func__);
 
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	printk(KERN_INFO "Start A4LC power area\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK)
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
+
+retry:
 	screen_handle =  screen_display_new();
 
 	/* LCD panel reset */
@@ -903,16 +1026,8 @@ static int nt35512_panel_init(unsigned int mem_size)
 	}
 	is_dsi_read_enabled = 1;
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	/* disable DTCTR.VMEN */
-	msleep(10);
-	dsilb_base = ioremap_nocache(0xFEAB4000, PAGE_SIZE);
-	__raw_writel(__raw_readl(dsilb_base + 0x00) & ~0x00000001, dsilb_base + 0x00); /* video mode off */
-	msleep(10);
-#endif // NT35512_ENABLE_VIDEO_MODE
-
 	/* Read display identification information */
-	ret = nt35512_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
+	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 	if (ret == 0) {
 		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
 		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
@@ -924,20 +1039,43 @@ static int nt35512_panel_init(unsigned int mem_size)
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
 	}
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	/* enable DTCTR.VMEN */
-	__raw_writel(__raw_readl(dsilb_base + 0x00) | 0x00000001, dsilb_base + 0x00); /* video mode on */
-	iounmap(dsilb_base);
+#ifdef NT35510_ENABLE_VIDEO_MODE
+	is_dsi_read_enabled = 0;
 
-	/* Transmit DSI command peculiar to a panel */
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "display_stop_lcd err!\n");
+		goto out;
+	}
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+		goto out;
+	}
+
+	is_dsi_read_enabled = 1;
+
+	/* Display ON */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset_phase2);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
 	}
-#endif // NT35512_ENABLE_VIDEO_MODE
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -946,14 +1084,15 @@ out:
 	return ret;
 }
 
-static int nt35512_panel_suspend(void)
+static int nt35510_panel_suspend(void)
 {
 	void *screen_handle;
 	screen_disp_stop_lcd disp_stop_lcd;
+	screen_disp_start_lcd start_lcd;
 	screen_disp_delete disp_delete;
 	int ret;
 
-#ifdef NT35512_POWAREA_MNG_ENABLE
+#ifdef NT35510_POWAREA_MNG_ENABLE
 	void *system_handle;
 	system_pmg_param powarea_end_notify;
 	system_pmg_delete pmg_delete;
@@ -962,6 +1101,21 @@ static int nt35512_panel_suspend(void)
 
 	screen_handle =  screen_display_new();
 
+	is_dsi_read_enabled = 0;
+
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "display_stop_lcd err!\n");
+
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, demise_cmdset);
 	if (ret != 0) {
@@ -969,12 +1123,12 @@ static int nt35512_panel_suspend(void)
 		/* continue */
 	}
 
-	is_dsi_read_enabled = 0;
-
 	/* Stop a display to LCD */
 	disp_stop_lcd.handle		= screen_handle;
 	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
-	screen_display_stop_lcd(&disp_stop_lcd);
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "display_stop_lcd err!\n");
 
 	/* GPIO control */
 	gpio_direction_output(reset_gpio, 0);
@@ -986,7 +1140,7 @@ static int nt35512_panel_suspend(void)
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
-#ifdef NT35512_POWAREA_MNG_ENABLE
+#ifdef NT35510_POWAREA_MNG_ENABLE
 	printk(KERN_INFO "End A4LC power area\n");
 	system_handle = system_pwmng_new();
 
@@ -1008,20 +1162,39 @@ static int nt35512_panel_suspend(void)
 	return 0;
 }
 
-static int nt35512_panel_resume(void)
+static int nt35510_panel_resume(void)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
+#ifdef NT35510_ENABLE_VIDEO_MODE
+	screen_disp_stop_lcd disp_stop_lcd;
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 	screen_disp_delete disp_delete;
 	int ret = 0;
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	void __iomem *dsilb_base;
-	void __iomem *dsitx_base;
-#endif // NT35512_ENABLE_VIDEO_MODE
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+#endif
 
 	printk(KERN_INFO "%s\n", __func__);
 
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	printk(KERN_INFO "Start A4LC power area\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK)
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
+
+retry:
 	screen_handle =  screen_display_new();
 
 	/* LCD panel reset */
@@ -1037,44 +1210,48 @@ static int nt35512_panel_resume(void)
 	}
 	is_dsi_read_enabled = 1;
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	/* disable DTCTR.VMEN */
-	msleep(10);
-	dsilb_base = ioremap_nocache(0xFEAB4000, PAGE_SIZE);
-	dsitx_base = ioremap_nocache(0xFEAB0000, PAGE_SIZE);
-	__raw_writel(__raw_readl(dsilb_base + 0x00) & ~0x00000001, dsilb_base + 0x00); /* video mode off */
-	__raw_writel(__raw_readl(dsitx_base + 0x30) & ~0x00000001, dsitx_base + 0x30); /* dsi clock stop */
-	msleep(30);
-	/* GPIO control */
-	gpio_direction_output(reset_gpio, 0);
-	msleep(20);
-	gpio_direction_output(reset_gpio, 1);
-	msleep(50);
-	__raw_writel(__raw_readl(dsitx_base + 0x30) | 0x00000001, dsitx_base + 0x30); /* dsi clock start */
-	msleep(10);
-	iounmap(dsitx_base);
-
-#endif // NT35512_ENABLE_VIDEO_MODE
-
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
 	}
 
-#ifdef NT35512_ENABLE_VIDEO_MODE
-	/* enable DTCTR.VMEN */
-	__raw_writel(__raw_readl(dsilb_base + 0x00) | 0x00000001, dsilb_base + 0x00); /* video mode on */
-	iounmap(dsilb_base);
+	/* Resume frame rate */
+	lcdfreq_resume();
 
-	/* Transmit DSI command peculiar to a panel */
+#ifdef NT35510_ENABLE_VIDEO_MODE
+	is_dsi_read_enabled = 0;
+
+	/* Stop a display to LCD */
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "display_stop_lcd err!\n");
+
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+
+	is_dsi_read_enabled = 1;
+
+	/* Display ON */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset_phase2);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		goto retry;
 	}
-#endif // NT35512_ENABLE_VIDEO_MODE
+#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1083,7 +1260,7 @@ out:
 	return ret;
 }
 
-static int nt35512_panel_probe(struct fb_info *info,
+static int nt35510_panel_probe(struct fb_info *info,
 			    struct fb_panel_hw_info hw_info)
 {
 	struct platform_device *pdev;
@@ -1120,25 +1297,47 @@ static int nt35512_panel_probe(struct fb_info *info,
 	common_fb_info = info;
 	is_dsi_read_enabled = 0;
 
+	/* clear internal info */
+	memset(&lcd_info_data, 0, sizeof(lcd_info_data));
+
+	/* register sysfs for LCD */
+	lcd_info_data.ld = lcd_device_register("panel",
+						&pdev->dev,
+						&lcd_info_data,
+						&nt35510_lcd_ops);
+	if (IS_ERR(lcd_info_data.ld))
+		return PTR_ERR(lcd_info_data.ld);
+
 	/* register sysfs for LCD frequency control */
-	ret = nt35512_lcd_frequency_register(info->device);
+	ret = nt35510_lcd_frequency_register(info->device);
 	if (ret < 0)
-		return ret;
+		goto out;
+
+	lcd_info_data.power = FB_BLANK_UNBLANK;
 
 	return 0;
+
+out:
+	/* unregister sysfs for LCD */
+	lcd_device_unregister(lcd_info_data.ld);
+
+	return ret;
 }
 
-static int nt35512_panel_remove(struct fb_info *info)
+static int nt35510_panel_remove(struct fb_info *info)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
 	/* unregister sysfs for LCD frequency control */
-	nt35512_lcd_frequency_unregister();
+	nt35510_lcd_frequency_unregister();
+
+	/* unregister sysfs for LCD */
+	lcd_device_unregister(lcd_info_data.ld);
 
 	return 0;
 }
 
-static struct fb_panel_info nt35512_panel_info(void)
+static struct fb_panel_info nt35510_panel_info(void)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1158,18 +1357,18 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 /* e.g. support (panel=RT_DISPLAY_LCD1) */
 
 	if (panel == RT_DISPLAY_LCD1) {
-		panel_func.panel_init    = nt35512_panel_init;
-		panel_func.panel_suspend = nt35512_panel_suspend;
-		panel_func.panel_resume  = nt35512_panel_resume;
-		panel_func.panel_probe   = nt35512_panel_probe;
-		panel_func.panel_remove  = nt35512_panel_remove;
-		panel_func.panel_info    = nt35512_panel_info;
+		panel_func.panel_init    = nt35510_panel_init;
+		panel_func.panel_suspend = nt35510_panel_suspend;
+		panel_func.panel_resume  = nt35510_panel_resume;
+		panel_func.panel_probe   = nt35510_panel_probe;
+		panel_func.panel_remove  = nt35510_panel_remove;
+		panel_func.panel_info    = nt35510_panel_info;
 	}
 
 	return panel_func;
 }
 #else
-struct fb_panel_func nt35512_func_list()
+struct fb_panel_func nt35510_func_list()
 {
 	struct fb_panel_func panel_func;
 
@@ -1177,12 +1376,12 @@ struct fb_panel_func nt35512_func_list()
 
 	memset(&panel_func, 0, sizeof(struct fb_panel_func));
 
-	panel_func.panel_init    = nt35512_panel_init;
-	panel_func.panel_suspend = nt35512_panel_suspend;
-	panel_func.panel_resume  = nt35512_panel_resume;
-	panel_func.panel_probe   = nt35512_panel_probe;
-	panel_func.panel_remove  = nt35512_panel_remove;
-	panel_func.panel_info    = nt35512_panel_info;
+	panel_func.panel_init    = nt35510_panel_init;
+	panel_func.panel_suspend = nt35510_panel_suspend;
+	panel_func.panel_resume  = nt35510_panel_resume;
+	panel_func.panel_probe   = nt35510_panel_probe;
+	panel_func.panel_remove  = nt35510_panel_remove;
+	panel_func.panel_info    = nt35510_panel_info;
 
 	return panel_func;
 }

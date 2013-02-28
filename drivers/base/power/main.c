@@ -33,6 +33,7 @@
 #ifdef CONFIG_ARCH_R8A7373
 #include <linux/wakelock.h>
 #endif /* CONFIG_ARCH_R8A7373 */
+#include <memlog/memlog.h>
 
 #include "../base.h"
 #include "power.h"
@@ -505,6 +506,7 @@ static void dpm_resume_noirq(pm_message_t state)
 {
 	ktime_t starttime = ktime_get();
 
+	memory_log_func(PM_FUNC_ID_DPM_RESUME_NOIRQ, 1);
 	mutex_lock(&dpm_list_mtx);
 	while (!list_empty(&dpm_noirq_list)) {
 		struct device *dev = to_device(dpm_noirq_list.next);
@@ -528,6 +530,7 @@ static void dpm_resume_noirq(pm_message_t state)
 	mutex_unlock(&dpm_list_mtx);
 	dpm_show_time(starttime, state, "noirq");
 	resume_device_irqs();
+	memory_log_func(PM_FUNC_ID_DPM_RESUME_NOIRQ, 0);
 }
 
 /**
@@ -738,6 +741,7 @@ void dpm_resume(pm_message_t state)
 	struct device *dev;
 	ktime_t starttime = ktime_get();
 
+	memory_log_func(PM_FUNC_ID_DPM_RESUME, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -777,6 +781,7 @@ void dpm_resume(pm_message_t state)
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
 	dpm_show_time(starttime, state, NULL);
+	memory_log_func(PM_FUNC_ID_DPM_RESUME, 0);
 }
 
 /**
@@ -829,6 +834,7 @@ void dpm_complete(pm_message_t state)
 {
 	struct list_head list;
 
+	memory_log_func(PM_FUNC_ID_DPM_COMPLETE, 1);
 	might_sleep();
 
 	INIT_LIST_HEAD(&list);
@@ -848,6 +854,7 @@ void dpm_complete(pm_message_t state)
 	}
 	list_splice(&list, &dpm_list);
 	mutex_unlock(&dpm_list_mtx);
+	memory_log_func(PM_FUNC_ID_DPM_COMPLETE, 0);
 }
 
 /**
@@ -935,6 +942,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 	ktime_t starttime = ktime_get();
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND_NOIRQ, 1);
 	suspend_device_irqs();
 	mutex_lock(&dpm_list_mtx);
 	while (!list_empty(&dpm_late_early_list)) {
@@ -963,6 +971,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 		dpm_resume_noirq(resume_event(state));
 	else
 		dpm_show_time(starttime, state, "noirq");
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND_NOIRQ, 0);
 	return error;
 }
 
@@ -1230,6 +1239,7 @@ int dpm_suspend(pm_message_t state)
 	ktime_t starttime = ktime_get();
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -1275,6 +1285,7 @@ int dpm_suspend(pm_message_t state)
 		dpm_save_failed_step(SUSPEND_SUSPEND);
 	} else
 		dpm_show_time(starttime, state, NULL);
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND, 0);
 	return error;
 }
 
@@ -1335,6 +1346,7 @@ int dpm_prepare(pm_message_t state)
 {
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_PREPARE, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -1365,6 +1377,7 @@ int dpm_prepare(pm_message_t state)
 		put_device(dev);
 	}
 	mutex_unlock(&dpm_list_mtx);
+	memory_log_func(PM_FUNC_ID_DPM_PREPARE, 0);
 	return error;
 }
 

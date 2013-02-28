@@ -41,6 +41,7 @@
 #include <linux/debug_locks.h>
 #include <linux/lockdep.h>
 #include <linux/idr.h>
+#include <memlog/memlog.h>
 
 #include "workqueue_sched.h"
 
@@ -1868,6 +1869,7 @@ __acquires(&gcwq->lock)
 	lock_map_acquire_read(&cwq->wq->lockdep_map);
 	lock_map_acquire(&lockdep_map);
 	trace_workqueue_execute_start(work);
+	memory_log_worker((unsigned long)f, task_pid_nr(current));
 	f(work);
 	/*
 	 * While we must be careful to not use "work" after this, the trace

@@ -2,7 +2,7 @@
  * rtds_memory_drv_sub.c
  *	 RT domain shared memory driver function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -54,6 +54,14 @@
 #include "rtds_memory_drv_private.h"
 #include "system_memory.h"
 #include "iccom_drv.h"
+
+#ifdef RTDS_SUPPORT_CMA
+#include "rtds_memory_drv_cma.h"
+#endif
+
+#if SUPPORT_MEDIA_ATTR
+#include <sec_hal_cmn.h>
+#endif
 
 /*** define ***/
 #if ((LINUX_VERSION_CODE) < 0x00030000)
@@ -119,8 +127,7 @@ int rtds_memory_drv_init_mpro(
 	ret = iccom_drv_send_command(&send_cmd);
 	if (SMAP_OK != ret) {
 		MSG_ERROR("[RTDSK]ERR| iccom_drv_send_command error[EVENT_MEMORYSUB_INITAPPSHAREDMEM]\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]ret = %d\n", __func__, ret);
-		return ret;
+		goto out;
 	}
 
 	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORYSUB_INITAPPSHAREDMEM]\n");
@@ -144,8 +151,7 @@ int rtds_memory_drv_init_mpro(
 	ret = iccom_drv_send_command(&send_cmd);
 	if (SMAP_OK != ret) {
 		MSG_ERROR("[RTDSK]ERR| iccom_drv_send_command error[EVENT_MEMORY_OPENAPPMEMORY]\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]ret = %d\n", __func__, ret);
-		return ret;
+		goto out;
 	}
 
 	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_OPENAPPMEMORY]\n");
@@ -165,10 +171,29 @@ int rtds_memory_drv_init_mpro(
 	ret = iccom_drv_send_command(&send_cmd);
 	if (SMAP_OK != ret) {
 		MSG_ERROR("[RTDSK]ERR| iccom_drv_send_command error[EVENT_MEMORY_CLOSEAPPMEMORY]\n");
-	} else {
-		MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_CLOSEAPPMEMORY]\n");
+		goto out;
 	}
-
+	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_CLOSEAPPMEMORY]\n");
+#ifdef RTDS_SUPPORT_CMA
+	/* send EVENT_MEMORY_OPERATECTGMEMORY
+	 * It does not change send_command parameter as follows.
+	 *  send_cmd.handle	     = g_rtds_memory_iccom_handle;
+	 *  send_cmd.task_id	 = TASK_MEMORY;
+	 *  send_cmd.send_mode   = ICCOM_DRV_ASYNC;
+	 *  send_cmd.send_size   = 0;
+	 *  send_cmd.send_data   = NULL;
+	 *  send_cmd.recv_size   = 0;
+	 *  send_cmd.recv_data   = NULL;
+	 */
+	send_cmd.function_id = EVENT_MEMORY_OPERATECTGMEMORY;
+	ret = iccom_drv_send_command(&send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR| iccom_drv_send_command error[EVENT_MEMORY_OPERATECTGMEMORY]\n");
+		goto out;
+	}
+	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_OPERATECTGMEMORY]\n");
+#endif
+out:
 	MSG_HIGH("[RTDSK]OUT|[%s]ret = %d\n", __func__, ret);
 
 	return ret;
@@ -577,13 +602,186 @@ void rtds_memory_check_shared_apmem(
 			mem_table->error_code = RTDS_MEM_ERR_MAPPING;
 			MSG_ERROR("[RTDSK]ERR| [%d]address range error\n", __LINE__);
 			rtds_memory_dump_mpro();
-
 		}
 
 		up(&(mem_table->semaphore));
 
 		break;
 
+#ifdef RTDS_SUPPORT_CMA
+	case RTDS_MEM_MAP_MA_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_MAP_MA_EVENT\n");
+
+		ret = rtds_memory_map_shared_apmem_ctg(fp, map_data, mem_table);
+		if (SMAP_OK == ret) {
+			ret = rtds_memory_send_open_shared_apmem(mem_table->rt_wb_addr,
+													mem_table->rt_nc_addr,
+													mem_table->memory_size,
+													0,
+													mem_table->error_code,
+													0,
+													&(mem_table->apmem_id));
+			if (SMAP_OK != ret) {
+				panic("Send error[%s][%d] err_code[%d]",
+						__func__, __LINE__, ret);
+			}
+		}
+
+		up(&(mem_table->semaphore));
+
+		break;
+
+	case RTDS_MEM_UNMAP_MA_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_UNMAP_MA_EVENT\n");
+		MSG_LOW("[RTDSK]   |rt_wb_addr[0x%08X]\n", (u32)mem_table->rt_wb_addr);
+		MSG_LOW("[RTDSK]   |rt_nc_addr[0x%08X]\n", (u32)mem_table->rt_nc_addr);
+		MSG_LOW("[RTDSK]   |apmem_id  [0x%08X]\n", (u32)mem_table->apmem_id);
+
+		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
+		switch (ret) {
+		case SMAP_OK:
+			break;
+		case SMAP_NG:
+			MSG_MED("[RTDSK]   |Free API is not called.\n");
+			break;
+		default:
+			MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+			mem_table->error_code = ret;
+			up(&(mem_table->semaphore));
+			return;
+		}
+
+		rtds_memory_flush_cache_all();
+		rtds_memory_unmap_shared_apmem(mem_table);
+		up(&(mem_table->semaphore));
+		break;
+
+	case RTDS_MEM_RT_OPEN_CMA_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_RT_OPEN_CMA_EVENT\n");
+
+		ret = rtds_memory_alloc_cma(mem_table->memory_size,
+									mem_table->mem_attr,
+									&mem_table->phys_addr,
+									HDMI_MDL_ID);
+		if (SMAP_OK != ret) {
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_alloc_cma failed[%d].\n", ret);
+			rtds_memory_send_error_msg(mem_table, ret);
+			return;
+		}
+
+		ret = rtds_memory_map_shared_apmem_ctg(fp, map_data, mem_table);
+		if (SMAP_OK == ret) {
+			ret = rtds_memory_send_open_shared_apmem(mem_table->rt_wb_addr,
+													mem_table->rt_nc_addr,
+													mem_table->memory_size,
+													mem_table->app_addr,
+													mem_table->error_code,
+													0,
+													&(mem_table->apmem_id));
+			if (SMAP_OK != ret) {
+				panic("Send error[%s][%d] err_code[%d]",
+						__func__, __LINE__, ret);
+			} else {
+				down(&g_rtds_memory_shared_mem);
+				list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
+				up(&g_rtds_memory_shared_mem);
+			}
+		} else {
+			MSG_ERROR("[RTDSK]ERR|rtds_memory_map_shared_apmem_ctg failed[%d]\n", ret);
+			rtds_memory_send_error_msg(mem_table, ret);
+		}
+
+		break;
+
+	case RTDS_MEM_RT_CLOSE_CMA_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_RT_CLOSE_CMA_EVENT\n");
+		MSG_LOW("[RTDSK]   |rt_wb_addr[0x%08X]\n", (u32)mem_table->rt_wb_addr);
+		MSG_LOW("[RTDSK]   |rt_nc_addr[0x%08X]\n", (u32)mem_table->rt_nc_addr);
+		MSG_LOW("[RTDSK]   |apmem_id  [0x%08X]\n", (u32)mem_table->apmem_id);
+
+		down(&g_rtds_memory_shared_mem);
+		list_del(&mem_table->list_head);
+		up(&g_rtds_memory_shared_mem);
+
+		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
+		switch (ret) {
+		case SMAP_OK:
+			break;
+		case SMAP_NG:
+			MSG_MED("[RTDSK]   |Free API is not called.\n");
+			break;
+		default:
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_send_close_shared_apmem ret[%d].\n", ret);
+			panic("Send close error[%s][%d] err_code[%d]",
+					__func__, __LINE__, ret);
+		}
+
+		rtds_memory_flush_cache_all();
+		rtds_memory_unmap_shared_apmem(mem_table);
+
+		ret = rtds_memory_free_cma(mem_table->phys_addr,
+									mem_table->memory_size,
+									HDMI_MDL_ID);
+		if (SMAP_OK != ret)
+			panic("cma free error[%s][%d] err_code[%d]",
+					__func__, __LINE__, ret);
+
+		kfree(mem_table);
+		break;
+
+	case RTDS_MEM_RT_MAP_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_RT_MAP_EVENT\n");
+
+		ret = rtds_memory_map_shared_apmem_ctg(fp, map_data, mem_table);
+		if (SMAP_OK == ret) {
+			ret = rtds_memory_send_open_shared_apmem(mem_table->rt_wb_addr,
+													mem_table->rt_nc_addr,
+													mem_table->memory_size,
+													mem_table->app_addr,
+													mem_table->error_code,
+													0,
+													&(mem_table->apmem_id));
+			if (SMAP_OK != ret) {
+				panic("Send error[%s][%d] err_code[%d]", __func__, __LINE__, ret);
+			} else {
+				down(&g_rtds_memory_shared_mem);
+				list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
+				up(&g_rtds_memory_shared_mem);
+			}
+		} else {
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_map_shared_apmem_ctg failed.[%d]\n", ret);
+			rtds_memory_send_error_msg(mem_table, ret);
+		}
+
+		break;
+
+	case RTDS_MEM_RT_UNMAP_EVENT:
+		MSG_MED("[RTDSK]   |RTDS_MEM_RT_UNMAP_EVENT\n");
+		MSG_LOW("[RTDSK]   |rt_wb_addr[0x%08X]\n", (u32)mem_table->rt_wb_addr);
+		MSG_LOW("[RTDSK]   |rt_nc_addr[0x%08X]\n", (u32)mem_table->rt_nc_addr);
+		MSG_LOW("[RTDSK]   |apmem_id  [0x%08X]\n", (u32)mem_table->apmem_id);
+
+		down(&g_rtds_memory_shared_mem);
+		list_del(&mem_table->list_head);
+		up(&g_rtds_memory_shared_mem);
+
+		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
+		switch (ret) {
+		case SMAP_OK:
+			break;
+		case SMAP_NG:
+			MSG_MED("[RTDSK]   |Free API is not called.\n");
+			break;
+		default:
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_send_close_shared_apmem ret[%d].\n", ret);
+			panic("Send close error[%s][%d] err_code[%d]", __func__, __LINE__, ret);
+		}
+
+		rtds_memory_unmap_shared_apmem(mem_table);
+
+		kfree(mem_table);
+		break;
+#endif
 	default:
 		break;
 	}
@@ -1865,12 +2063,12 @@ void rtds_memory_rcv_comp_notice(
 )
 {
 	int				ret;
-	unsigned int	event = RTDS_MEM_DRV_EVENT_APMEM;
 	rcv_open_data	open_data;
 	rcv_close_data	close_data;
 	rcv_open_data	*open_data_p = &open_data;
 	rcv_close_data	*close_data_p = &close_data;
 	bool			error_flag = false;
+	rtds_memory_rcv_data	rcv_data;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |user_data	[0x%08X]\n", (u32)user_data);
@@ -1888,17 +2086,19 @@ void rtds_memory_rcv_comp_notice(
 	}
 
 	/* initialise parameter */
-	memset(&open_data, 0, sizeof(rcv_open_data));
-	close_data.apmem_id = 0;
+	memset(&rcv_data, 0, sizeof(rtds_memory_rcv_data));
 
 	switch (function_id) {
 	case EVENT_MEMORY_OPENAPPMEMORY:
 		MSG_MED("[RTDSK]   |EVENT_MEMORY_OPENAPPMEMORY\n");
-		event = RTDS_MEM_DRV_EVENT_APMEM_OPEN;
 
 		if (sizeof(rcv_open_data) == data_len) {
 			/* Get mem_size, rt_cache, rt_trigger */
 			open_data_p = (rcv_open_data *)data_addr;
+			rcv_data.event		= RTDS_MEM_DRV_EVENT_APMEM_OPEN;
+			rcv_data.mem_size	= open_data_p->mem_size;
+			rcv_data.rt_cache	= open_data_p->rt_cache;
+			rcv_data.rt_trigger	= open_data_p->rt_trigger;
 		} else {
 			error_flag = true;
 		}
@@ -1907,11 +2107,12 @@ void rtds_memory_rcv_comp_notice(
 
 	case EVENT_MEMORY_CLOSEAPPMEMORY:
 		MSG_MED("[RTDSK]   |EVENT_MEMORY_CLOSEAPPMEMORY\n");
-		event = RTDS_MEM_DRV_EVENT_APMEM_CLOSE;
 
 		if (sizeof(rcv_close_data) == data_len) {
 			/* Get apmem_id */
 			close_data_p = (rcv_close_data *)data_addr;
+			rcv_data.event		= RTDS_MEM_DRV_EVENT_APMEM_CLOSE;
+			rcv_data.apmem_id	= close_data_p->apmem_id;
 		} else {
 			error_flag = true;
 		}
@@ -1920,6 +2121,17 @@ void rtds_memory_rcv_comp_notice(
 	case EVENT_MEMORYSUB_DELETEAPPSHAREDMEM:
 		MSG_MED("[RTDSK]   |EVENT_MEMORYSUB_DELETEAPPSHAREDMEM\n");
 		break;
+
+#ifdef RTDS_SUPPORT_CMA
+	case EVENT_MEMORY_OPERATECTGMEMORY:
+		MSG_MED("[RTDSK]   |EVENT_MEMORY_OPERATECTGMEMORY\n");
+
+		ret = rtds_memory_get_rcv_data(data_addr, data_len, &rcv_data);
+		if (SMAP_OK != ret)
+			error_flag = true;
+
+		break;
+#endif
 
 	default:
 		MSG_ERROR("[RTDSK]ERR| No function id[%d]\n", function_id);
@@ -1934,11 +2146,7 @@ void rtds_memory_rcv_comp_notice(
 	}
 
 	/* Entry received event */
-	ret = rtds_memory_put_recv_queue(event,
-									open_data_p->mem_size,
-									open_data_p->rt_cache,
-									open_data_p->rt_trigger,
-									close_data_p->apmem_id);
+	ret = rtds_memory_put_recv_queue(&rcv_data);
 	if (SMAP_OK == ret) {
 		/* Get semaphore to wakeup apmem thread */
 		down(&g_rtds_memory_apmem_rttrig_sem);
@@ -1957,20 +2165,12 @@ void rtds_memory_rcv_comp_notice(
  * Function   : rtds_memory_put_recv_queue
  * Description: This function entries received event to list queue.
  *				Entry received event to queue.
- * Parameters : event			- event
- *				mem_size		- memory size
- *				rt_cache		- cache type of RT domain
- *				rt_trigger		- RT trigger
- *				apmem_id		- App shared memory ID
+ * Parameters : rcv_data		- receive data
  * Returns	  : SMAP_OK		-   Success
  *				SMAP_MEMORY	-   No memory
  *******************************************************************************/
 int rtds_memory_put_recv_queue(
-	unsigned int		event,
-	unsigned int		mem_size,
-	unsigned int		rt_cache,
-	unsigned int		rt_trigger,
-	unsigned int		apmem_id
+	rtds_memory_rcv_data	*rcv_data
 )
 {
 	int							ret = SMAP_OK;
@@ -1978,11 +2178,13 @@ int rtds_memory_put_recv_queue(
 	rtds_memory_rcv_event_queue	*rcv_event_queue_p;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
-	MSG_MED("[RTDSK]   |event		[0x%08X]\n", event);
-	MSG_MED("[RTDSK]   |mem_size	[0x%08X]\n", mem_size);
-	MSG_MED("[RTDSK]   |rt_cache	[0x%08X]\n", rt_cache);
-	MSG_MED("[RTDSK]   |rt_trigger	[0x%08X]\n", rt_trigger);
-	MSG_MED("[RTDSK]   |apmem_id	[0x%08X]\n", apmem_id);
+	MSG_MED("[RTDSK]   |event		[0x%08X]\n", rcv_data->event);
+	MSG_MED("[RTDSK]   |mem_size	[0x%08X]\n", rcv_data->mem_size);
+	MSG_MED("[RTDSK]   |rt_cache	[0x%08X]\n", rcv_data->rt_cache);
+	MSG_MED("[RTDSK]   |rt_trigger	[0x%08X]\n", rcv_data->rt_trigger);
+	MSG_MED("[RTDSK]   |apmem_id	[0x%08X]\n", rcv_data->apmem_id);
+	MSG_MED("[RTDSK]   |phys_addr	[0x%08X]\n", rcv_data->phys_addr);
+	MSG_MED("[RTDSK]   |mem_attr	[0x%08X]\n", rcv_data->mem_attr);
 
 
 	/* Allocate memory(rtds_memory_rcv_event_queue) */
@@ -1992,11 +2194,13 @@ int rtds_memory_put_recv_queue(
 		ret = SMAP_MEMORY;
 	} else {
 		/* Set data */
-		rcv_event_queue_p->event		= event;
-		rcv_event_queue_p->mem_size	 = mem_size;
-		rcv_event_queue_p->rt_cache	 = rt_cache;
-		rcv_event_queue_p->rt_trigger   = rt_trigger;
-		rcv_event_queue_p->apmem_id	 = apmem_id;
+		rcv_event_queue_p->event		= rcv_data->event;
+		rcv_event_queue_p->mem_size		= rcv_data->mem_size;
+		rcv_event_queue_p->rt_cache		= rcv_data->rt_cache;
+		rcv_event_queue_p->rt_trigger	= rcv_data->rt_trigger;
+		rcv_event_queue_p->apmem_id		= rcv_data->apmem_id;
+		rcv_event_queue_p->phys_addr	= rcv_data->phys_addr;
+		rcv_event_queue_p->mem_attr		= rcv_data->mem_attr;
 
 		/* Spin lock*/
 		spin_lock_irqsave(&g_rtds_memory_lock_recv_queue, flag);
@@ -3163,7 +3367,7 @@ int rtds_memory_do_map(
 
 	up_write(&current->mm->mmap_sem);
 
-	MSG_MED("[RTDSK]   |do_mmap_addr [0x%08X]\n", (u32)addr);
+	MSG_MED("[RTDSK]   |do_mmap_addr [0x%08X]\n", (u32)*addr);
 
 	/* Address check(PAGE alignment) */
 	if ((0 != (*addr & RTDS_MEM_ADDR_ERR)) || (0 == *addr)) {
@@ -4510,6 +4714,14 @@ void rtds_memory_leak_check_mpro(
 					ret = rtds_memory_unmap_pnc_mpro(mem_table->app_addr, mem_table->apmem_id);
 					MSG_MED("[RTDSK]   |result rtds_memory_unmap_pnc_mpro [%d]\n", ret);
 					break;
+#ifdef RTDS_SUPPORT_CMA
+				case RTDS_MEM_MAP_MA_EVENT:
+				case RTDS_MEM_UNMAP_MA_EVENT:
+					ret = rtds_memory_unmap_mpro_ma(mem_table->rt_wb_addr, mem_table->memory_size,
+												mem_table->apmem_id);
+					MSG_MED("[RTDSK]   |result rtds_memory_unmap_mpro_m [%d]\n", ret);
+					break;
+#endif
 				default:
 					ret = rtds_memory_unmap_mpro(mem_table->rt_wb_addr, mem_table->memory_size);
 					MSG_MED("[RTDSK]   |result rtds_memory_unmap_mpro [%d]\n", ret);
@@ -4572,7 +4784,7 @@ void rtds_memory_dump_notify(
 
 	spin_lock_irqsave(&g_rtds_memory_lock_recv_queue, flag);
 	list_add_tail(&g_dump_que.queue_header, &g_rtds_memory_list_rcv_event);
-	spin_unlock_irqrestore(&g_rtds_memory_lock_recv_queue, flag) ;
+	spin_unlock_irqrestore(&g_rtds_memory_lock_recv_queue, flag);
 
 	down(&g_rtds_memory_apmem_rttrig_sem);
 	complete(&g_rtds_memory_completion);
@@ -4580,3 +4792,1008 @@ void rtds_memory_dump_notify(
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return;
 }
+
+#ifdef RTDS_SUPPORT_CMA
+/**************************************************************************
+ * Function   : rtds_memory_ioctl_alloc_cma
+ * Description: This function allocates contiguous memory from CMA.(ioctl)
+ * Parameters : buffer		-   user data
+ *				buf_size	-   user data size
+ * Returns	  : SMAP_OK					-   Success
+ *				SMAP_NG					-   Fatal error
+ *				SMAP_PARA_NG			-   Parameter error
+ **************************************************************************/
+int rtds_memory_ioctl_alloc_cma(
+	struct file				*fp,
+	char __user				*buffer,
+	size_t					buf_size
+)
+{
+	int							ret = SMAP_PARA_NG;
+	rtds_memory_drv_ioctl_cma	ioctl_cma;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |buffer[0x%08X]\n", (u32)buffer);
+	MSG_MED("[RTDSK]   |buf_size[0x%08X]\n", (u32)buf_size);
+
+	/* Parameter check */
+	if (buf_size != sizeof(rtds_memory_drv_ioctl_cma)) {
+		MSG_ERROR("[RTDSK]ERR| buf_size error [%d]\n", buf_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Copy user data into kernel space */
+	ret = copy_from_user(&ioctl_cma, buffer, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_from_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)ioctl_cma.mem_size);
+	MSG_MED("[RTDSK]   |mem_attr[0x%08X]\n", (u32)ioctl_cma.mem_attr);
+
+	ret = rtds_memory_alloc_cma(ioctl_cma.mem_size,
+								ioctl_cma.mem_attr,
+								&ioctl_cma.phys_addr,
+								OMX_MDL_ID);
+	if (SMAP_OK == ret) {
+		MSG_MED("[RTDSK]   |phy_addr[0x%08X]\n", (u32)ioctl_cma.phys_addr);
+		if (ioctl_cma.mapping) {
+			rtds_memory_drv_data *rtds_memory_data = fp->private_data;
+			rtds_memory_mapping_data *map_data = &(rtds_memory_data->mem_map);
+
+			map_data->cache_kind	= RTDS_MEMORY_DRV_NONCACHE;
+			map_data->data_ent		= false;
+			map_data->mapping_flag	= RTDS_MEM_MAPPING_RTDOMAIN;
+			map_data->mem_table		= NULL;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+			ret = rtds_memory_do_map(fp,
+									(unsigned long *)&(ioctl_cma.vir_addr),
+									ioctl_cma.mem_size,
+									ioctl_cma.phys_addr>> PAGE_SHIFT);
+#else
+			ret = rtds_memory_do_map(fp,
+									(unsigned long *)&(ioctl_cma.vir_addr),
+									ioctl_cma.mem_size,
+									ioctl_cma.phys_addr);
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
+			if (SMAP_OK != ret) {
+				MSG_ERROR("[RTDSK]ERR| rtds_memory_do_map failed[%d]\n", ret);
+			}
+			MSG_MED("[RTDSK]   |vir_addr[0x%08X]\n", (u32)ioctl_cma.vir_addr);
+		}
+	} else
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_alloc_cma failed[%d]\n", ret);
+
+	ioctl_cma.err_code = ret;
+
+	/* Copy into user space */
+	ret = copy_to_user(buffer, &ioctl_cma, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_to_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_ioctl_free_cma
+ * Description: This function release the allocated contiguous memory.(ioctl)
+ * Parameters : buffer		-   user data
+ *				buf_size	-   user data size
+ * Returns	  : SMAP_OK					-   Success
+ *				SMAP_NG					-   Fatal error
+ *				SMAP_PARA_NG			-   Parameter error
+ **************************************************************************/
+int rtds_memory_ioctl_free_cma(
+	char __user				*buffer,
+	size_t					buf_size
+)
+{
+	int							ret = SMAP_PARA_NG;
+	rtds_memory_drv_ioctl_cma	ioctl_cma;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |buffer[0x%08X]\n", (u32)buffer);
+	MSG_MED("[RTDSK]   |buf_size[0x%08X]\n", (u32)buf_size);
+
+	/* Parameter check */
+	if (buf_size != sizeof(rtds_memory_drv_ioctl_cma)) {
+		MSG_ERROR("[RTDSK]ERR| buf_size error [%d]\n", buf_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Copy user data into kernel space */
+	ret = copy_from_user(&ioctl_cma, buffer, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_from_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	MSG_MED("[RTDSK]   |physaddr[0x%08X]\n", (u32)ioctl_cma.phys_addr);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)ioctl_cma.mem_size);
+
+	ret = rtds_memory_free_cma(ioctl_cma.phys_addr,
+								ioctl_cma.mem_size,
+								OMX_MDL_ID);
+	if (SMAP_OK != ret)
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_free_cma failed[%d]\n", ret);
+
+	ioctl_cma.err_code = ret;
+
+	/* Copy into user space */
+	ret = copy_to_user(buffer, &ioctl_cma, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_to_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_ioctl_map_mpro_ma
+ * Description: This function maps contiguous memory into mpro.(ioctl)
+ * Parameters : buffer		-   user data
+ *				buf_size	-   user data size
+ * Returns	  : SMAP_OK					-   Success
+ *				SMAP_NG					-   Fatal error
+ *				SMAP_PARA_NG			-   Parameter error
+ **************************************************************************/
+int rtds_memory_ioctl_map_mpro_ma(
+	char __user				*buffer,
+	size_t					buf_size
+)
+{
+	int								ret = SMAP_PARA_NG;
+	rtds_memory_drv_ioctl_mem		ioctl_mem;
+	rtds_memory_drv_app_mem_info	mem_info;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |buffer[0x%08X]\n", (u32)buffer);
+	MSG_MED("[RTDSK]   |buf_size[0x%08X]\n", (u32)buf_size);
+
+	/* Parameter check */
+	if (buf_size != sizeof(rtds_memory_drv_ioctl_mem)) {
+		MSG_ERROR("[RTDSK]ERR| buf_size error [%d]\n", buf_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Copy user data into kernel space */
+	ret = copy_from_user(&ioctl_mem, buffer, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_from_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	MSG_MED("[RTDSK]   |physaddr[0x%08X]\n", (u32)ioctl_mem.app_addr);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)ioctl_mem.mem_size);
+	MSG_MED("[RTDSK]   |rt_cache[0x%08X]\n", (u32)ioctl_mem.rt_cache);
+
+	ret = rtds_memory_map_mpro_ma(ioctl_mem.app_addr, ioctl_mem.mem_size,
+									ioctl_mem.rt_cache, &mem_info);
+	if (SMAP_OK == ret) {
+		ioctl_mem.rt_addr		= mem_info.rt_write_back_addr;
+		ioctl_mem.rt_addr_nc	= mem_info.rt_non_cache_addr;
+		ioctl_mem.apmem_id		= mem_info.apmem_id;
+	} else {
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_map_mpro_ma failed[%d]\n", ret);
+	}
+
+	ioctl_mem.err_code = ret;
+
+	/* Copy into user space */
+	ret = copy_to_user(buffer, &ioctl_mem, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_to_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_ioctl_unmap_mpro_ma
+ * Description: This function unmaps contiguous memory from mpro.(ioctl)
+ * Parameters : buffer		-   user data
+ *				buf_size	-   user data size
+ * Returns	  : SMAP_OK					-   Success
+ *				SMAP_NG					-   Fatal error
+ *				SMAP_PARA_NG			-   Parameter error
+ **************************************************************************/
+int rtds_memory_ioctl_unmap_mpro_ma(
+	char __user				*buffer,
+	size_t					buf_size
+)
+{
+	int								ret = SMAP_PARA_NG;
+	rtds_memory_drv_ioctl_mem		ioctl_mem;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |buffer[0x%08X]\n", (u32)buffer);
+	MSG_MED("[RTDSK]   |buf_size[0x%08X]\n", (u32)buf_size);
+
+	/* Parameter check */
+	if (buf_size != sizeof(rtds_memory_drv_ioctl_mem)) {
+		MSG_ERROR("[RTDSK]ERR| buf_size error [%d]\n", buf_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Copy user data into kernel space */
+	ret = copy_from_user(&ioctl_mem, buffer, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_from_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	MSG_MED("[RTDSK]   |rt_addr [0x%08X]\n", (u32)ioctl_mem.rt_addr);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)ioctl_mem.mem_size);
+	MSG_MED("[RTDSK]   |apmem_id[0x%08X]\n", (u32)ioctl_mem.apmem_id);
+
+	ret = rtds_memory_unmap_mpro_ma(ioctl_mem.rt_addr, ioctl_mem.mem_size,
+									ioctl_mem.apmem_id);
+	if (SMAP_OK != ret)
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_unmap_mpro_ma failed[%d]\n", ret);
+
+	ioctl_mem.err_code = ret;
+
+	/* Copy into user space */
+	ret = copy_to_user(buffer, &ioctl_mem, buf_size);
+	if (0 != ret) {
+		MSG_ERROR("[RTDSK]ERR| copy_to_user failed[%d]\n", ret);
+		ret = SMAP_NG;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/*************************************************************************
+ * Function   : rtds_memory_alloc_cma
+ * Description: This function allocates memory from CMA.
+ * Parameters : mem_size		-	memory size
+ *				mem_attr		-	memory attribute
+ *				phys_addr		-	physical address
+ *				id				-	cma area id
+ * Returns	  : SMAP_OK			-	Success
+ *				SMAP_NG			-	Fatal error
+ *				SMAP_MEMROY		-	No memory
+ *************************************************************************/
+int rtds_memory_alloc_cma(
+	unsigned int	mem_size,
+	unsigned int	mem_attr,
+	unsigned int	*phys_addr,
+	int				id
+)
+{
+	int						ret = SMAP_OK;
+	struct page				*pages = NULL;
+	rtds_memory_cma_list	*cma_list;
+	unsigned long			flags;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)mem_size);
+	MSG_MED("[RTDSK]   |mem_attr[0x%08X]\n", (u32)mem_attr);
+	MSG_MED("[RTDSK]   |page_num[%d]\n", (u32)RTDS_MEM_GET_PAGE_NUM(mem_size));
+	MSG_MED("[RTDSK]   |order[%d]\n", (u32)get_order(mem_size));
+	MSG_MED("[RTDSK]   |id[%d]\n", id);
+
+	rtds_memory_leak_check_cma();
+
+	cma_list = kmalloc(sizeof(*cma_list), GFP_KERNEL);
+	if (NULL == cma_list) {
+		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		ret = SMAP_MEMORY;
+		goto out;
+	}
+
+	pages = rt_cma_drv_alloc(mem_size, id);
+	if (NULL == pages) {
+		MSG_ERROR("[RTDSK]ERR| dma_alloc_from_contiguous failed\n");
+		kfree(cma_list);
+		ret = SMAP_MEMORY;
+		goto out;
+	}
+	MSG_MED("[RTDSK]   |CMA pages [0x%08X]\n", (u32)pages);
+
+	*phys_addr = page_to_phys(pages);
+	MSG_MED("[RTDSK]   |phys_addr [0x%08X]\n", (u32)*phys_addr);
+
+	cma_list->pages		= pages;
+	cma_list->phy_addr	= *phys_addr;
+	cma_list->mem_size	= mem_size;
+	cma_list->mem_attr	= mem_attr;
+	cma_list->task_info	= current;
+	cma_list->id		= id;
+
+#if SUPPORT_MEDIA_ATTR
+	{
+		if (RTDS_MEM_ATTR_MEDIA == cma_list->mem_attr) {
+			unsigned int	sec_ret;
+			sec_ret = sec_hal_memfw_attr_reserve(
+								(id + 1),
+								cma_list->phy_addr,
+								(cma_list->phy_addr + cma_list->mem_size - 1)
+												);
+			if (SEC_HAL_CMN_RES_OK != sec_ret) {
+				MSG_ERROR("[RTDSK]ERR| sec_hal_memfw_attr_reserve failed\n");
+				ret = rt_cma_drv_free(cma_list->pages,
+										cma_list->mem_size,
+										cma_list->id);
+				kfree(cma_list);
+				ret = SMAP_NG;
+				goto out;
+			}
+		}
+	}
+#endif
+	spin_lock_irqsave(&g_rtds_memory_lock_cma, flags);
+	list_add_tail(&(cma_list->list_head), &g_rtds_memory_list_cma);
+	spin_unlock_irqrestore(&g_rtds_memory_lock_cma, flags);
+
+out:
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/*************************************************************************
+ * Function   : rtds_memory_free_cma
+ * Description: This function releases the allcated memory .
+ * Parameters : phys_addr		-	physical address
+ *				mem_size		-	memory size
+ * Returns	  : SMAP_OK			-	Success
+ *				SMAP_NG			-	Fatal error
+ *				SMAP_PARA_NG	-	Parameter error
+ *************************************************************************/
+int rtds_memory_free_cma(
+	unsigned int	phys_addr,
+	unsigned int	mem_size,
+	int				id
+)
+{
+	int						ret = SMAP_PARA_NG;
+	rtds_memory_cma_list	*cma_list;
+	unsigned long			flags;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |physaddr[0x%08X]\n", (u32)phys_addr);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)mem_size);
+	MSG_MED("[RTDSK]   |id[%d]\n", id);
+
+	spin_lock_irqsave(&g_rtds_memory_lock_cma, flags);
+	list_for_each_entry(cma_list, &g_rtds_memory_list_cma, list_head) {
+		if ((phys_addr	== cma_list->phy_addr) &&
+			(mem_size	== cma_list->mem_size) &&
+			(id			== cma_list->id)) {
+			ret = SMAP_OK;
+			list_del(&cma_list->list_head);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&g_rtds_memory_lock_cma, flags);
+
+	if (SMAP_OK == ret) {
+
+#if SUPPORT_MEDIA_ATTR
+	{
+		if (RTDS_MEM_ATTR_MEDIA == cma_list->mem_attr) {
+			unsigned int	sec_ret;
+			sec_ret = sec_hal_memfw_attr_free((cma_list->id + 1));
+			if (SEC_HAL_CMN_RES_OK != sec_ret) {
+				MSG_ERROR("[RTDSK]ERR| sec_hal_memfw_attr_free failed\n");
+				ret = SMAP_NG;
+				goto out;
+			}
+		}
+	}
+#endif
+
+		kfree(cma_list);
+	} else {
+		MSG_ERROR("[RTDSK]ERR| cma list is not found\n");
+		goto out;
+	}
+
+	ret = rt_cma_drv_free(phys_to_page(phys_addr), mem_size, id);
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR| dma_release_from_contiguous failed\n");
+		ret = SMAP_NG;
+	}
+
+out:
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/*************************************************************************
+ * Function   : rtds_memory_map_mpro_ma
+ * Description: This function gives a map demand to Mpro.
+ * Parameters : app_addr		-   physical address
+ *				map_size		-   Map size
+ *				rt_cache		-   RT cache type
+ *				mem_info		-   memory info
+ * Returns	  : SMAP_OK			-   Success
+ *				SMAP_MEMORY		-   No memory
+ *				Others			-   System error/RT result
+ *************************************************************************/
+int rtds_memory_map_mpro_ma(
+	unsigned int					app_addr,
+	unsigned int					map_size,
+	unsigned int					rt_cache,
+	rtds_memory_drv_app_mem_info	*mem_info
+)
+{
+	int								ret_code = SMAP_OK;
+	rtds_memory_app_memory_table	*mem_table = NULL;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |app_addr[0x%08X]\n", (u32)app_addr);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)map_size);
+	MSG_MED("[RTDSK]   |rt_cache[%d]\n", (u32)rt_cache);
+
+	/* leak check */
+	rtds_memory_leak_check_mpro();
+
+	/* Allocate memory */
+	mem_table = kmalloc(sizeof(*mem_table), GFP_KERNEL);
+	if (NULL == mem_table) {
+		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		return SMAP_MEMORY;
+	}
+
+	down(&g_rtds_memory_shared_mem);
+	memset(mem_table, 0, sizeof(*mem_table));
+	/* Set mem_table data */
+	mem_table->event		= RTDS_MEM_MAP_MA_EVENT;
+	mem_table->memory_size	= map_size;
+	mem_table->rt_cache		= rt_cache;
+	mem_table->app_addr		= app_addr;
+	mem_table->task_info	= current;
+	mem_table->phys_addr	= app_addr;
+	init_MUTEX_LOCKED(&(mem_table->semaphore));
+
+	/* Add list of shared_mem */
+	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
+	up(&g_rtds_memory_shared_mem);
+
+	/* Add mpro list */
+	rtds_memory_put_mpro_list(mem_table);
+	down(&(mem_table->semaphore));
+
+	if (0 != mem_table->error_code) {
+		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		ret_code = mem_table->error_code;
+		down(&g_rtds_memory_shared_mem);
+		list_del(&(mem_table->list_head));
+		kfree(mem_table);
+		up(&g_rtds_memory_shared_mem);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+		return ret_code;
+	}
+
+	/* mapped address  */
+	mem_info->rt_write_back_addr	= mem_table->rt_wb_addr;
+	mem_info->rt_non_cache_addr		= mem_table->rt_nc_addr;
+	mem_info->apmem_id				= mem_table->apmem_id;
+
+	MSG_MED("[RTDSK]   |rt_addr   [0x%08X]\n", (u32)mem_info->rt_write_back_addr);
+	MSG_MED("[RTDSK]   |rt_addr_nc[0x%08X]\n", (u32)mem_info->rt_non_cache_addr);
+	MSG_MED("[RTDSK]   |apmem_id  [0x%08X]\n", (u32)mem_info->apmem_id);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	return ret_code;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_unmap_mpro_ma
+ * Description: This function gives a unmap demand to Mpro.
+ * Parameters : rt_addr			-   logical address
+ *				map_size		-   Memory size
+ *				apmem_id		-   apmem id
+ * Returns	  : SMAP_OK			-   Success
+ *				SMAP_MEMORY		-   No memory
+ **************************************************************************/
+int rtds_memory_unmap_mpro_ma(
+	unsigned int	rt_addr,
+	unsigned int	map_size,
+	unsigned int	apmem_id
+)
+{
+	int								ret_code = SMAP_NG;
+	rtds_memory_app_memory_table	*mem_table = NULL;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |rt_addr [0x%08X]\n", (u32)rt_addr);
+	MSG_MED("[RTDSK]   |map_size[0x%08X]\n", (u32)map_size);
+	MSG_MED("[RTDSK]   |apmem_id[%d]\n", (u32)apmem_id);
+
+	down(&g_rtds_memory_shared_mem);
+	/* Search for shared memory list */
+	list_for_each_entry(mem_table, &g_rtds_memory_list_shared_mem, list_head) {
+		if ((apmem_id	== mem_table->apmem_id) &&
+			(rt_addr	== mem_table->rt_wb_addr) &&
+			(map_size	== mem_table->memory_size)) {
+			ret_code = SMAP_OK;
+			list_del(&(mem_table->list_head));
+			break;
+		}
+	}
+	up(&g_rtds_memory_shared_mem);
+
+	/* not found */
+	if (SMAP_OK != ret_code) {
+		MSG_ERROR("[RTDSK]ERR|[%s][%d]List is not found!!addr[0x%08X]\n",
+		__func__, __LINE__, (u32)rt_addr);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret_code);
+		return ret_code;
+	}
+
+	/* Set mem_table data */
+	mem_table->event	= RTDS_MEM_UNMAP_MA_EVENT;
+
+	/* Add mpro list */
+	rtds_memory_put_mpro_list(mem_table);
+	down(&(mem_table->semaphore));
+
+	ret_code = mem_table->error_code;
+	kfree(mem_table);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	return ret_code;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_map_shared_apmem_ctg
+ * Description: This function maps App shared memory(contiguous memory).
+ * Parameters : fp			-   file descrptor
+ *				map_data	-   map data
+ *				mem_table	-   memory table
+ * Returns	  : SMAP_OK					-   Success
+ *				SMAP_MEMORY				-   No memory
+ *				RTDS_MEM_ERR_MAPPING	-   Mapping error
+ **************************************************************************/
+int rtds_memory_map_shared_apmem_ctg(
+	struct file						*fp,
+	rtds_memory_mapping_data		*map_data,
+	rtds_memory_app_memory_table	*mem_table
+)
+{
+
+	int ret = SMAP_OK;
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	map_data->cache_kind	= RTDS_MEMORY_DRV_WRITEBACK;
+	map_data->data_ent		= false;
+	map_data->mapping_flag	= RTDS_MEM_MAPPING_RTDOMAIN;
+	map_data->mem_table		= NULL;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+	/* write back */
+	ret = rtds_memory_do_map(fp,
+							&(mem_table->rt_wb_addr),
+							mem_table->memory_size,
+							mem_table->phys_addr >> PAGE_SHIFT);
+#else
+	ret = rtds_memory_do_map(fp,
+							&(mem_table->rt_wb_addr),
+							mem_table->memory_size,
+							mem_table->phys_addr);
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_do_map failed[%d]\n", ret);
+		mem_table->error_code = RTDS_MEM_ERR_MAPPING;
+	} else if (RTDS_MEM_ADDR_NG <= (mem_table->rt_wb_addr + mem_table->memory_size)) {
+		MSG_ERROR("[RTDSK]ERR|[%d]address range error rt_wb_addr[0x%08X]\n",
+					__LINE__, (u32)mem_table->rt_wb_addr);
+		rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+		mem_table->rt_wb_addr = 0;
+		mem_table->error_code = SMAP_MEMORY;
+		ret = SMAP_MEMORY;
+		rtds_memory_dump_mpro();
+	}
+
+	/* non cache */
+	if ((0 != (mem_table->rt_cache & RT_MEMORY_RTMAP_WBNC)) &&
+		(SMAP_OK == mem_table->error_code)) {
+
+		map_data->cache_kind = RTDS_MEMORY_DRV_NONCACHE;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+
+		ret = rtds_memory_do_map(fp,
+								&(mem_table->rt_nc_addr),
+								mem_table->memory_size,
+								mem_table->phys_addr >> PAGE_SHIFT);
+#else
+		ret = rtds_memory_do_map(fp,
+								&(mem_table->rt_nc_addr),
+								mem_table->memory_size,
+								mem_table->phys_addr);
+#endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
+		if (SMAP_OK != ret) {
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_do_map failed[%d]\n", ret);
+			mem_table->error_code = RTDS_MEM_ERR_MAPPING;
+		} else if (RTDS_MEM_ADDR_NG <= (mem_table->rt_nc_addr + mem_table->memory_size)) {
+			MSG_ERROR("[RTDSK]ERR|[%d]address range error rt_nc_addr[0x%08X]\n",
+						__LINE__, (u32)mem_table->rt_nc_addr);
+			rtds_memory_do_unmap(mem_table->rt_nc_addr, mem_table->memory_size);
+			mem_table->rt_nc_addr = 0;
+			mem_table->error_code = SMAP_MEMORY;
+			ret = SMAP_MEMORY;
+			rtds_memory_dump_mpro();
+		}
+	}
+
+	MSG_MED("[RTDSK]   |rt_wb_addr[0x%08X]\n", (u32)mem_table->rt_wb_addr);
+	MSG_MED("[RTDSK]   |rt_nc_addr[0x%08X]\n", (u32)mem_table->rt_nc_addr);
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+
+/***************************************************************************
+ * Function   : rtds_memory_unmap_shared_apmem
+ * Description: This function unmaps App shared memory.
+ * Parameters : mem_table	-   memory table
+ * Returns	  : none
+ ***************************************************************************/
+void rtds_memory_unmap_shared_apmem(
+	rtds_memory_app_memory_table	*mem_table
+)
+{
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	/* Unmap write-back addr */
+	if (0 != mem_table->rt_wb_addr) {
+		rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+		mem_table->rt_wb_addr = 0;
+	}
+
+	/* Unmap non-cache addr */
+	if (0 != mem_table->rt_nc_addr) {
+		rtds_memory_do_unmap(mem_table->rt_nc_addr, mem_table->memory_size);
+		mem_table->rt_nc_addr = 0;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	return;
+}
+
+/***************************************************************************
+ * Function   : rtds_memory_open_rttrig_cma
+ * Description: This function open App shared memory(RT trigger).
+ * Parameters : mem_size	-   Memory size
+ *				rt_cache	-   cache type(RT domain)
+ *				mem_attr	-   Memory attribute
+ *				rt_trigger	-   RT trigger identifier
+ * Returns	  : SMAP_OK		-   Success
+ *				SMAP_MEMORY	-   No memory
+ ***************************************************************************/
+int rtds_memory_open_rttrig_cma(
+	unsigned int	mem_size,
+	unsigned int	rt_cache,
+	unsigned int	mem_attr,
+	unsigned int	rt_trigger
+)
+{
+	int								ret = SMAP_OK;
+	rtds_memory_app_memory_table	*mem_table;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)mem_size);
+	MSG_MED("[RTDSK]   |rt_cache[0x%08X]\n", (u32)rt_cache);
+	MSG_MED("[RTDSK]   |mem_attr[0x%08X]\n", (u32)mem_attr);
+	MSG_MED("[RTDSK]   |rt_trigger[0x%08X]\n", (u32)rt_trigger);
+
+	mem_table = kmalloc(sizeof(*mem_table), GFP_KERNEL);
+	if (NULL == mem_table) {
+		MSG_ERROR("[RTDSK]ERR| kmalloc failed\n");
+		ret = SMAP_MEMORY;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Initialise and set parameter */
+	memset(mem_table, 0, sizeof(*mem_table));
+	mem_table->event		= RTDS_MEM_RT_OPEN_CMA_EVENT;
+	mem_table->memory_size	= mem_size;
+	mem_table->rt_cache		= rt_cache;
+	mem_table->task_info	= current;
+	mem_table->trigger		= RTDS_MEM_TRIGGER_RT;
+	mem_table->mem_attr		= mem_attr;
+	mem_table->app_addr		= rt_trigger;
+
+	init_MUTEX_LOCKED(&(mem_table->semaphore));
+
+	rtds_memory_put_mpro_list(mem_table);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_close_rttrig_cma
+ * Description: This function close App shared memory(RT trigger).
+ * Parameters : apmem_id	-   apmem id
+ * Returns	  : SMAP_OK		-   Success
+ *				SMAP_NG		-   Fatal error
+ **************************************************************************/
+int rtds_memory_close_rttrig_cma(
+	unsigned int	apmem_id
+)
+{
+	int								ret = SMAP_NG;
+	rtds_memory_app_memory_table	*mem_table;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |apmem_id [0x%08X]\n", (u32)apmem_id);
+
+	down(&g_rtds_memory_shared_mem);
+	/* Search for shared memory list */
+	list_for_each_entry(mem_table, &g_rtds_memory_list_shared_mem, list_head) {
+		if (apmem_id == mem_table->apmem_id) {
+			ret = SMAP_OK;
+			break;
+		}
+	}
+	up(&g_rtds_memory_shared_mem);
+
+	if (SMAP_OK == ret) {
+		mem_table->event = RTDS_MEM_RT_CLOSE_CMA_EVENT;
+		rtds_memory_put_mpro_list(mem_table);
+	} else
+		MSG_ERROR("[RTDSK]ERR|[%d] list is not found\n", __LINE__);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/***************************************************************************
+ * Function   : rtds_memory_map_rttrig_shared_apmem
+ * Description: This function maps App shared memory(RT trigger).
+ * Parameters : phys_addr	-   physical memory
+ *				mem_size	-   Memory size
+ *				rt_cache	-   cache type(RT domain)
+ *				rt_trigger	-   RT trigger identifier
+ * Returns	  : SMAP_OK		-   Success
+ *				SMAP_MEMORY	-   No memory
+ ***************************************************************************/
+int rtds_memory_map_rttrig_shared_apmem(
+	unsigned int	phys_addr,
+	unsigned int	mem_size,
+	unsigned int	rt_cache,
+	unsigned int	rt_trigger
+)
+{
+	int								ret = SMAP_OK;
+	rtds_memory_app_memory_table	*mem_table;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |phys_addr [0x%08X]\n", (u32)phys_addr);
+	MSG_MED("[RTDSK]   |mem_size  [0x%08X]\n", (u32)mem_size);
+	MSG_MED("[RTDSK]   |rt_cache  [0x%08X]\n", (u32)rt_cache);
+	MSG_MED("[RTDSK]   |rt_trigger[0x%08X]\n", (u32)rt_trigger);
+
+	mem_table = kmalloc(sizeof(*mem_table), GFP_KERNEL);
+	if (NULL == mem_table) {
+		MSG_ERROR("[RTDSK]ERR| kmalloc failed\n");
+		ret = SMAP_MEMORY;
+		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Initialise and set parameter */
+	memset(mem_table, 0, sizeof(*mem_table));
+	mem_table->event		= RTDS_MEM_RT_MAP_EVENT;
+	mem_table->memory_size	= mem_size;
+	mem_table->rt_cache		= rt_cache;
+	mem_table->task_info	= current;
+	mem_table->trigger		= RTDS_MEM_TRIGGER_RT;
+	mem_table->phys_addr	= phys_addr;
+	mem_table->app_addr		= rt_trigger;
+
+	init_MUTEX_LOCKED(&(mem_table->semaphore));
+
+	rtds_memory_put_mpro_list(mem_table);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_unmap_rttrig_shared_apmem
+ * Description: This function unmaps App shared memory(RT trigger).
+ * Parameters : apmem_id	-   apmem id
+ * Returns	  : SMAP_OK		-   Success
+ *				SMAP_NG		-   Fatal error
+ **************************************************************************/
+int rtds_memory_unmap_rttrig_shared_apmem(
+	unsigned int	apmem_id
+)
+{
+	int								ret = SMAP_NG;
+	rtds_memory_app_memory_table	*mem_table;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]   |apmem_id [0x%08X]\n", (u32)apmem_id);
+
+	down(&g_rtds_memory_shared_mem);
+	/* Search for shared memory list */
+	list_for_each_entry(mem_table, &g_rtds_memory_list_shared_mem, list_head) {
+		if (apmem_id == mem_table->apmem_id) {
+			ret = SMAP_OK;
+			break;
+		}
+	}
+	up(&g_rtds_memory_shared_mem);
+
+	if (SMAP_OK == ret) {
+		mem_table->event = RTDS_MEM_RT_UNMAP_EVENT;
+		rtds_memory_put_mpro_list(mem_table);
+	} else
+		MSG_ERROR("[RTDSK]ERR|[%d] list is not found\n", __LINE__);
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/***************************************************************************
+ * Function   : rtds_memory_get_rcv_data
+ * Description: This function is callback to response asynchronous
+ *				receive event.Entry received event to queue.
+ * Parameters : data_addr		- receive data address
+ *				data_len		- receive data size
+ * Returns	  : None
+ ***************************************************************************/
+int rtds_memory_get_rcv_data(
+	unsigned char			*data_addr,
+	int						data_len,
+	rtds_memory_rcv_data	*rcv_data
+)
+{
+	int ret = SMAP_NG;
+
+	struct {
+		unsigned int	type;
+		union {
+			struct {
+				unsigned int	mem_size;
+				unsigned int	rt_cache;
+				unsigned int	mem_attr;
+				unsigned int	rt_trigger;
+			} cma;
+			struct {
+				unsigned int	phy_addr;
+				unsigned int	mem_size;
+				unsigned int	rt_cache;
+				unsigned int	rt_trigger;
+			} map;
+			struct {
+				unsigned int	apmem_id;
+			} close;
+		};
+	} rt_rcv_data;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	memcpy(&rt_rcv_data, (void *)data_addr, data_len);
+
+	switch (rt_rcv_data.type) {
+	case RTDS_MEM_RT_EVENT_CMA_OPEN:
+		MSG_MED("[RTDSK]   |RTDS_MEM_RT_EVENT_CMA_OPEN\n");
+		if (sizeof(rt_rcv_data.cma) == (data_len - sizeof(unsigned int))) {
+			rcv_data->event = RTDS_MEM_DRV_EVENT_CMA_OPEN;
+			rcv_data->mem_size = rt_rcv_data.cma.mem_size;
+			rcv_data->rt_cache = rt_rcv_data.cma.rt_cache;
+			rcv_data->mem_attr = rt_rcv_data.cma.mem_attr;
+			rcv_data->rt_trigger = rt_rcv_data.cma.rt_trigger;
+			ret = SMAP_OK;
+		}
+		break;
+
+	case RTDS_MEM_RT_EVENT_CMA_CLOSE:
+		MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_CMA_CLOSE\n");
+		if (sizeof(rt_rcv_data.close) == (data_len - sizeof(unsigned int))) {
+			rcv_data->event = RTDS_MEM_DRV_EVENT_CMA_CLOSE;
+			rcv_data->apmem_id = rt_rcv_data.close.apmem_id;
+			ret = SMAP_OK;
+		}
+		break;
+
+	case RTDS_MEM_RT_EVENT_MAP:
+		MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_APMEM_MAP\n");
+		if (sizeof(rt_rcv_data.map) == (data_len - sizeof(unsigned int))) {
+			rcv_data->event = RTDS_MEM_DRV_EVENT_APMEM_MAP;
+			rcv_data->mem_size = rt_rcv_data.map.mem_size;
+			rcv_data->rt_cache = rt_rcv_data.map.rt_cache;
+			rcv_data->phys_addr = rt_rcv_data.map.phy_addr;
+			rcv_data->rt_trigger = rt_rcv_data.map.rt_trigger;
+			ret = SMAP_OK;
+		}
+		break;
+
+	case RTDS_MEM_RT_EVENT_UNMAP:
+		MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_APMEM_UNMAP\n");
+		if (sizeof(rt_rcv_data.close) == (data_len - sizeof(unsigned int))) {
+			rcv_data->event = RTDS_MEM_DRV_EVENT_APMEM_UNMAP;
+			rcv_data->apmem_id = rt_rcv_data.close.apmem_id;
+			ret = SMAP_OK;
+		}
+		break;
+
+	default:
+		MSG_ERROR("[RTDSK]ERR|[%d] No type[%d]\n", __LINE__, rt_rcv_data.type);
+		break;
+	}
+
+	MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
+	return ret;
+}
+
+/**************************************************************************
+ * Function   : rtds_memory_leak_check_cma
+ * Description: This function check the memory leak.
+ * Parameters : None
+ * Returns	  : None
+ **************************************************************************/
+void rtds_memory_leak_check_cma(
+	void
+)
+{
+	rtds_memory_cma_list	*cma_list;
+	unsigned long			flags;
+	int						ret;
+	bool					end_flag;
+
+	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+
+	spin_lock_irqsave(&g_rtds_memory_lock_cma, flags);
+
+	if (0 != list_empty(&g_rtds_memory_list_cma)) {
+		MSG_LOW("[RTDSK]   | CMA List is empty.\n");
+		goto out;
+	}
+
+	do {
+		end_flag = true;
+		list_for_each_entry(cma_list, &g_rtds_memory_list_cma, list_head) {
+			MSG_MED("[RTDSK]   |state[0x%08X]\n", (u32)cma_list->task_info->state);
+			MSG_MED("[RTDSK]   |flags[0x%08X]\n", (u32)cma_list->task_info->flags);
+			if (cma_list->task_info->flags & PF_EXITPIDONE) {
+				MSG_MED("[RTDSK]   |CMA leak!!\n");
+				spin_unlock_irqrestore(&g_rtds_memory_lock_cma, flags);
+				ret = rtds_memory_free_cma(cma_list->phy_addr,
+											cma_list->mem_size,
+											cma_list->id);
+				MSG_MED("[RTDSK]   |rtds_memory_free_cma[%d]\n", ret);
+				spin_lock_irqsave(&g_rtds_memory_lock_cma, flags);
+				end_flag = false;
+				break;
+			}
+		}
+	} while (end_flag != true);
+
+out:
+	spin_unlock_irqrestore(&g_rtds_memory_lock_cma, flags);
+
+	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	return;
+
+}
+#endif

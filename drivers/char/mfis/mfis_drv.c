@@ -411,7 +411,7 @@ static int mfis_drv_probe(struct platform_device *pdev)
 #if EARLYSUSPEND_STANDBY
 	p_tbl = kzalloc(sizeof(*p_tbl), GFP_KERNEL);
 	if (p_tbl == NULL) {
-		pr_err("cannot alloc area \n");
+		pr_err("cannot alloc area\n");
 		return -1;
 	}
 	platform_set_drvdata(pdev, p_tbl);
@@ -584,9 +584,6 @@ int mfis_drv_use_a4rm(void)
 				if (0 > ret) {
 					return -1;
 				}
-
-/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id);*/
-/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name);*/
 		}
 	} else {
 		return -1;
@@ -616,10 +613,6 @@ int mfis_drv_rel_a4rm(void)
 				if (0 > ret) {
 					return -1;
 				}
-
-/*printk(KERN_INFO "[%s], dev_cnt=%d, i=%d, id=%d \n", __func__, dev_cnt, i, to_platform_device(dev_img[i])->id);*/
-/*printk(KERN_INFO "[%s], name=%s, \n", __func__, dev_name);*/
-
 		}
 	} else {
 		return -1;

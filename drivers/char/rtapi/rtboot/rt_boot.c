@@ -55,7 +55,7 @@ static int rtboot_init(void)
 {
 	int ret;
 	unsigned int bootaddr = 0;
-#ifdef CONFIG_ARM_SEC_HAL
+#ifdef SECURE_BOOT_ENABLE
 	uint32_t phys_cert_addr;
 	uint32_t cert_size;
 #endif
@@ -87,7 +87,7 @@ static int rtboot_init(void)
 		return 1;
 	}
 
-#ifdef CONFIG_ARM_SEC_HAL
+#ifdef SECURE_BOOT_ENABLE
 	phys_cert_addr = (PRIMARY_COPY_ADDR + g_rtboot_info.image_size + 0x00001000) & (0xFFFFF000);
 	cert_size = read_rt_cert(phys_cert_addr);
 	if (cert_size == 0) {
@@ -142,7 +142,7 @@ static int rtboot_init(void)
 			unsigned long *addr_status;
 			addr_status = ioremap(g_rtboot_info.command_area_address, 4);
 			if (addr_status) {
-				MSG_ERROR("[RTBOOTK]   |RT boot status [%d]\n", *addr_status);
+				MSG_ERROR("[RTBOOTK]   |RT boot status [%ld]\n", *addr_status);
 				iounmap(addr_status);
 			}
 		}

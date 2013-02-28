@@ -1,7 +1,7 @@
 /*
  * fsi-d2153.c - FSI ASoC driver for boards using d2153 codec.
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -285,6 +285,19 @@ int fsi_d2153_loopback_notify(int status)
 	return ret;
 }
 EXPORT_SYMBOL(fsi_d2153_loopback_notify);
+
+/* temp process */
+void fsi_d2153_soc_write(int dev)
+{
+	if (0 == dev) {
+		snd_soc_write(fsi_d2153_codec, 0xc6, 0x98);
+	} else {
+/*		snd_soc_write(fsi_d2153_codec, 0xcd, 0x5F); */
+/*		snd_soc_write(fsi_d2153_codec, 0xd0, 0x5F); */
+	}
+}
+EXPORT_SYMBOL(fsi_d2153_soc_write);
+/* temp process */
 
 int fsi_d2153_sndp_soc_info(
 	struct snd_kcontrol *kcontrol,
@@ -739,22 +752,24 @@ static struct platform_driver fsi_d2153_driver = {
 
 static int __init fsi_d2153_modinit(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev()) {
 		printk(KERN_INFO "%s unload the driver - board_revision:%d\n",
 			__func__, u2_get_board_rev());
 		return -ENODEV;
 	}
-
+#endif
 	g_boot_flag = 0;
-
 	return platform_driver_register(&fsi_d2153_driver);
 }
 module_init(fsi_d2153_modinit);
 
 static void __exit fsi_d2153_modexit(void)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
 		return;
+#endif
 	sndp_exit();
 	platform_driver_unregister(&fsi_d2153_driver);
 }
