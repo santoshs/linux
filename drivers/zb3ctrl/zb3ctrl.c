@@ -18,14 +18,6 @@ struct zb3ctrl_info {
 
 static struct zb3ctrl_info info_list[ZB3_COUNT_MAX];
 
-static void dump_zb3ctrl_info(void)
-{
-	int i;
-	for (i = 0; i < ZB3_COUNT_MAX ; i++)
-		printk(KERN_INFO "#### info_list[%d] file=0x%x state=%d\n", \
-		i, info_list[i].file, info_list[i].state);
-}
-
 static void add_zb3ctrl_info(struct file *file)
 {
 	int i;

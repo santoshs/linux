@@ -592,6 +592,16 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SMSTPCR4Phys	0xE6150140
 #define MSTPSR4Phys	0xE615004C
 
+#define UFCKCR		IO_ADDRESS(0xE615009C)
+#define SPU2ACKCR	IO_ADDRESS(0xE6150084)
+#define SPU2VCKCR	IO_ADDRESS(0xE6150094)
+#define MSTPSR6		IO_ADDRESS(0xE61501C0)
+#define MMSTPCR6	IO_ADDRESS(0xE6150168)
+#define SRCR6		IO_ADDRESS(0xE61581c8)
+#define SMSTPCR6	IO_ADDRESS(0xE6150148)
+#define PLL22STPCR	IO_ADDRESS(0xE61501F8)
+#define RMSTPCR6	IO_ADDRESS(0xE6150128)
+
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
