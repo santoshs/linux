@@ -54,9 +54,9 @@ static int is_vbus_powered(void)
 	printk(KERN_INFO "Value of Status register INTSTS0: %x\n",
 			__raw_readw(IO_ADDRESS(0xE6890040)));
 /*Chaitanya*/
-//#if defined(CONFIG_SAMSUNG_MHL)
-//	isvbus_powered_mhl(val1);
-//#endif
+#if defined(CONFIG_SAMSUNG_MHL)
+	isvbus_powered_mhl(val1);
+#endif
 /*Chaitanya*/
 	return val1>>7;
 }

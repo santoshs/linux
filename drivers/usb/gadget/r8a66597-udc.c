@@ -2636,8 +2636,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto err_add_udc;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
-	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
-	r8a66597_clk_disable(r8a66597);
+//	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
+//	r8a66597_clk_disable(r8a66597);
 	return 0;
 
 err_add_udc:
