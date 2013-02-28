@@ -42,11 +42,98 @@
  * images, it's up to the secure code whether the CMT is a FIQ or not. */
 #define CONFIG_RMU2_CMT_FIQ
 
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 #include <linux/proc_fs.h>
 
+#include <asm/cacheflush.h>
+#include <asm/traps.h>
+
 static struct proc_dir_entry *proc_watch_entry;
-static int start_stop_cmt_watchdog;
+static int test_mode;
+
+/* Various nasty things we can do to the system to test the watchdog and
+ * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
+ */
+enum crash_type {
+	TEST_NORMAL = 0,		/* Normal operation, watchdog kicked */
+	TEST_NO_KICK = 1,		/* Normal system, watchdog not kicked */
+	TEST_LOOP = 2,			/* Infinite loop (1 CPU) */
+	TEST_PREEMPT_LOOP = 3,		/* Infinite loop (1 CPU, preempt off) */
+	/* Infinite loop (all CPUs, preempt off)*/
+	TEST_LOOP_ALL = 4,
+	TEST_IRQOFF_LOOP = 5,		/* IRQ-off infinite loop (1 CPU) */
+	TEST_IRQOFF_LOOP_ALL = 6,	/* IRQ-off infinite loop (all CPUs) */
+	TEST_WORKQUEUE_LOOP = 7,	/* Infinite loop in 1 workqueue */
+	/* Infinite loop in IRQ handler (all CPUs) */
+	TEST_IRQHANDLER_LOOP = 8,
+	TEST_FIQOFF_LOOP = 9,		/* FIQ+IRQ-off infinite loop (1 CPU) */
+	/* FIQ+IRQ-off on 1 CPU, IRQ-off on others */
+	TEST_FIQOFF_1_LOOP_ALL = 10,
+	/* FIQ+IRQ-off infinite loop (all CPUs) */
+	TEST_FIQOFF_LOOP_ALL = 11,
+};
+
+static void loop(void *info)
+{
+	uint32_t psr = 0;
+
+	if ((unsigned)info & 1)
+		local_irq_disable();
+	if ((unsigned)info & 2)
+		local_fiq_disable();
+
+	asm volatile(
+		"	mrs	%0, cpsr"
+		: "=r" (psr) : : "memory");
+
+	printk(KERN_ALERT "RWDT test loop (CPU %d, preemption %s, IRQs %s, FIQs %s)\n",
+			raw_smp_processor_id(),
+			preempt_count() ? "off" : "on",
+			psr & PSR_I_BIT ? "off" : "on",
+			psr & PSR_F_BIT ? "off" : "on");
+
+	/* Try to avoid sucking power. Note that cpu_do_idle() etc all use
+	 * WFI, which won't do - it proceeds if there's a pending masked
+	 * interrupt. WFE only proceeds for unmasked interrupts, which is
+	 * what we want. */
+	while (1)
+		wfe();
+}
+
+static void loop_processor_vector(const char *name, unsigned long vector)
+{
+	printk(KERN_EMERG "Overwriting processor %s vector with loop\n", name);
+
+	/* Logic copied from arch/arm/kernel/fiq.c - not sure if
+	 * it's correct for all CONFIG variants, but works for ours. */
+#ifdef CONFIG_CPU_USE_DOMAINS
+	/* Write directly to execution address (why is this okay?)  */
+	vector += CONFIG_VECTORS_BASE;
+#else
+	/* Use address of page in kernel linear mapping (actual
+	 * vector page is read-only) */
+	vector += (unsigned long) vectors_page;
+#endif
+#ifdef CONFIG_THUMB2_KERNEL
+	*(uint16_t *)vector = 0xE7FE; /* Thumb branch to self */
+#else
+	*(uint32_t *)vector = 0xEAFFFFFE; /* ARM branch to self */
+#endif
+#if 0
+/* Don't bother cleaning - crashes inside the clean are ugly due to
+ *  lack of unwinding, and it will get through eventually anyway.
+ */
+
+	/* If we did it through vectors_page, it doesn't need to
+	 * actually clean any D-cache, as it's write-through, so the
+	 * wrong address for the data doesn't matter. Note that
+	 * flush_icache_range() is supposed to work work on all cores -
+	 * it does if they're all ARMv7 Inner Shareable, at least.
+	 */
+	flush_icache_range(CONFIG_VECTORS_BASE,
+				CONFIG_VECTORS_BASE+0x20);
+#endif
+}
 #endif
 
 #define ICD_ISR0 0xF0001080
@@ -629,10 +716,14 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 {
 	int ret;
 
-#ifdef CONFIG_RWDT_DEBUG
-	if (start_stop_cmt_watchdog == 1) {
-		printk(KERN_DEBUG "Skip to clear RWDT for debug!!\n");
+#ifdef CONFIG_RWDT_TEST
+	switch (test_mode) {
+	case TEST_NO_KICK:
+		printk(KERN_DEBUG "Skip clearing RWDT for debug!\n");
 		return;
+	case TEST_WORKQUEUE_LOOP:
+		loop((void *) 0);
+		break;
 	}
 #endif
 	RWDT_DEBUG("START < %s >\n", __func__);
@@ -1171,13 +1262,12 @@ static struct platform_driver rmu2_rwdt_driver = {
 
 };
 
-#ifdef CONFIG_RWDT_DEBUG
-
+#ifdef CONFIG_RWDT_TEST
 int read_proc(char *buf, char **start, off_t offset,
 						int count, int *eof, void *data)
 {
 	int len = 0;
-	len = sprintf(buf, "%x", start_stop_cmt_watchdog);
+	len = sprintf(buf, "%u", test_mode);
 
 	return len;
 }
@@ -1187,15 +1277,45 @@ int write_proc(struct file *file, const char __user *buf,
 {
 	char buffer[4];
 
-	if (count > sizeof(start_stop_cmt_watchdog))
+	if (count > sizeof buffer)
 		return -EFAULT;
 
 	if (copy_from_user(buffer, buf, count))
 		return -EFAULT;
 
-	sscanf(buffer, "%x", &start_stop_cmt_watchdog);
+	sscanf(buffer, "%u", &test_mode);
 
-	return start_stop_cmt_watchdog;
+	switch (test_mode) {
+		unsigned long flags, irq_vector;
+	case TEST_LOOP:
+		loop(0);
+		break;
+	case TEST_PREEMPT_LOOP:
+		preempt_disable();
+		loop(0);
+		break;
+	case TEST_IRQOFF_LOOP:
+		loop((void *)1);
+		break;
+	case TEST_IRQOFF_LOOP_ALL:
+		on_each_cpu(loop, (void *)1, false);
+		break;
+	case TEST_IRQHANDLER_LOOP:
+		loop_processor_vector("IRQ", 0x18);
+		break;
+	case TEST_FIQOFF_LOOP:
+		loop((void *)3);
+		break;
+	case TEST_FIQOFF_1_LOOP_ALL:
+		local_fiq_disable();
+		on_each_cpu(loop, (void *)1, false);
+		break;
+	case TEST_FIQOFF_LOOP_ALL:
+		on_each_cpu(loop, (void *)3, false);
+		break;
+	}
+
+	return test_mode;
 }
 
 void create_new_proc_entry(void)
@@ -1233,7 +1353,7 @@ static int __init rmu2_rwdt_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 	create_new_proc_entry();
 #endif
 
@@ -1249,7 +1369,7 @@ static void __exit rmu2_rwdt_exit(void)
 
 	platform_driver_unregister(&rmu2_rwdt_driver);
 	platform_device_unregister(&rmu2_rwdt_dev);
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 	remove_proc_entry("proc_watch_entry", NULL);
 #endif
 }
