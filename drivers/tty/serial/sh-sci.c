@@ -2458,8 +2458,6 @@ static int __devinit sci_probe(struct platform_device *dev)
 
 static int sci_suspend(struct device *dev)
 {
-#if 0
-	/*Temporary workaround to fix suspend/Resume panic have commented the suspend/resume of UART*/
 	struct sci_port *sport = dev_get_drvdata(dev);
 
 	/* GPIO settings review comments for PCP# NK12120730341 */
@@ -2471,15 +2469,11 @@ static int sci_suspend(struct device *dev)
 		gpio_set_portncr_value(sport->cfg->port_count,\
 			sport->cfg->scif_gpio_setting_info, 1);
 	}
-#endif
 	return 0;
 }
 
 static int sci_resume(struct device *dev)
 {
-
-#if 0
-	/*Temporary workaround to fix suspend/Resume panic have commented the suspend/resume of UART*/
 	struct sci_port *sport = dev_get_drvdata(dev);
 
 	/* GPIO settings review comments for PCP# NK12120730341 */
@@ -2489,7 +2483,6 @@ static int sci_resume(struct device *dev)
 			sport->cfg->scif_gpio_setting_info, 0);
 		uart_resume_port(&sci_uart_driver, &sport->port);
 	}
-#endif
 	return 0;
 }
 
@@ -2504,7 +2497,7 @@ static struct platform_driver sci_driver = {
 	.driver		= {
 		.name	= "sh-sci",
 		.owner	= THIS_MODULE,
-//		.pm	= &sci_dev_pm_ops,
+		.pm	= &sci_dev_pm_ops,
 	},
 };
 
