@@ -4488,8 +4488,8 @@ static void tps80032_chrg_ctrl_work(void)
 
 	if (data->vbus_det != (ret_stat1 & MSK_BIT_2)) {
 		/* interrupt source relate to external charger */
-//		handle_nested_irq(data->irq_base + TPS80032_INT_VBUSS_WKUP);
-//		handle_nested_irq(data->irq_base + TPS80032_INT_VBUS);
+		handle_nested_irq(data->irq_base + TPS80032_INT_VBUSS_WKUP);
+		handle_nested_irq(data->irq_base + TPS80032_INT_VBUS);
 		/* Update status of VBUS_DET */
 		data->vbus_det = ret_stat1 & MSK_BIT_2;
 	}
@@ -6192,7 +6192,16 @@ static int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 	if (0 > ret)
 		return ret;
 
-	data->irq_base = irq_base;
+	ret = irq_alloc_descs(irq_base, irq_base, TPS80032_INT_NR, -1);
+	if (ret < 1) {
+		PMIC_ERROR_MSG("%s: unable to allocate %u irqs: %d\n",
+					__func__, TPS80032_INT_NR, ret);
+		if (ret == 0)
+			ret = -EINVAL;
+		return ret;
+	}
+
+	data->irq_base = ret;
 
 	data->irq_chip.name = "tps80032-battery";
 	data->irq_chip.irq_enable = tps80032_irq_enable;
