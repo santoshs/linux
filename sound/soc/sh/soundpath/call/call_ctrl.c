@@ -1,6 +1,6 @@
 /* call_ctrl.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -165,7 +165,7 @@ int call_playback_start(struct snd_pcm_substream *substream)
 	g_vcd_ply_opt.beginning_buffer = call_playback_cb;
 
 	/* Play data set */
-	if (SNDP_OFF == g_pt_loopback_start)
+	if (SNDP_PT_NOT_STARTED == g_pt_start)
 		call_playback_data_set();
 	else
 		call_playback_data_set_for_pt();
@@ -1441,7 +1441,7 @@ static void call_playback_cb(void)
 	}
 #endif
 	/* Data set */
-	if (SNDP_OFF == g_pt_loopback_start)
+	if (SNDP_PT_NOT_STARTED == g_pt_start)
 		call_playback_data_set();
 	else
 		call_playback_data_set_for_pt();
@@ -1690,7 +1690,7 @@ static void call_work_before_start_fw(struct work_struct *work)
 		g_call_dummy_play = CALL_DUMMY_PLAY_YET;
 		g_status |= PLAY_STATUS;
 		/* Play data set */
-		if (SNDP_OFF == g_pt_loopback_start)
+		if (SNDP_PT_NOT_STARTED == g_pt_start)
 			call_playback_data_set();
 		else
 			call_playback_data_set_for_pt();

@@ -2,7 +2,7 @@
  * rtds_memory_drv_main.h
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -69,6 +69,17 @@ typedef struct {
 	unsigned int		app_addr;
 } rtds_memory_drv_ioctl_phymem;
 
+#ifdef RTDS_SUPPORT_CMA
+typedef struct {
+	unsigned int	phys_addr;
+	unsigned int	mem_size;
+	unsigned int	mem_attr;
+	int				err_code;
+	unsigned int	vir_addr;
+	unsigned int	mapping;
+} rtds_memory_drv_ioctl_cma;
+#endif
+
 /* IOCTL parameter info */
 typedef struct {
 	void				*handle;					/* RTDS MEMORY handle */
@@ -79,6 +90,9 @@ typedef struct {
 		rtds_memory_drv_ioctl_rtmap   rtmap;	/* IOCTL map info */
 		rtds_memory_drv_ioctl_rtunmap rtunmap;  /* IOCTL unmap info */
 		rtds_memory_drv_ioctl_phymem phymem;	/* IOCTL phymem info */
+#ifdef RTDS_SUPPORT_CMA
+		rtds_memory_drv_ioctl_cma		cma;
+#endif
 	};
 } rtds_memory_drv_ioctl_param;
 
@@ -107,6 +121,8 @@ typedef struct {
 	int					error_code;		/* Mpro result */
 	struct task_struct	*task_info;		/* Task info */
 	int					trigger;		/* Memory operation trigger */
+	unsigned int		phys_addr;
+	unsigned int		mem_attr;
 } rtds_memory_app_memory_table;
 
 /* RTDS memory section info */
@@ -211,5 +227,9 @@ extern struct list_head				g_rtds_memory_list_create_mem;
 extern spinlock_t					g_rtds_memory_lock_create_mem;
 extern struct list_head				g_rtds_memory_list_map_rtmem;
 extern spinlock_t					g_rtds_memory_lock_map_rtmem;
-extern struct semaphore	g_rtds_memory_leak_sem;
+extern struct semaphore				g_rtds_memory_leak_sem;
+#ifdef RTDS_SUPPORT_CMA
+extern spinlock_t					g_rtds_memory_lock_cma;
+extern struct list_head				g_rtds_memory_list_cma;
+#endif
 #endif /* __RTDS_MEMORY_DRV_MAIN_H__ */

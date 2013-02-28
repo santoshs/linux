@@ -146,3 +146,5 @@ obj-y				+= motor/
 obj-$(CONFIG_PM_DEBUG)		+= pmdbg/
 obj-$(CONFIG_ARM_SEC_HAL)	+= sec_hal/
 obj-y				+= zb3ctrl/
+
+obj-$(CONFIG_MEMLOG)	+= memlog/

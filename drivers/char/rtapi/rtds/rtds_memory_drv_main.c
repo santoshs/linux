@@ -2,7 +2,7 @@
  * rtds_memory_drv_main.c
  *	 RT domain shared memory driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -78,7 +78,10 @@ spinlock_t					g_rtds_memory_lock_map_rtmem;
 struct list_head			g_rtds_memory_list_reg_phymem;
 struct semaphore			g_rtds_memory_phy_mem;
 struct semaphore			g_rtds_memory_leak_sem;
-
+#ifdef RTDS_SUPPORT_CMA
+spinlock_t					g_rtds_memory_lock_cma;
+struct list_head			g_rtds_memory_list_cma;
+#endif
 /*******************************************************************************
  * Function   : rtds_memory_drv_open
  * Description: This function open RTDS MEMORY driver.
@@ -377,7 +380,36 @@ long rtds_memory_drv_ioctl(
 			}
 		}
 		break;
+#ifdef RTDS_SUPPORT_CMA
+	case IOCTL_MEM_CMD_WR_ALLOC_CMA:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_ALLOC_CMA\n");
 
+		ret = rtds_memory_ioctl_alloc_cma(fp,
+											(void __user *)ioctl_data.data,
+											ioctl_data.data_size);
+		break;
+
+	case IOCTL_MEM_CMD_WR_FREE_CMA:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_FREE_CMA\n");
+
+		ret = rtds_memory_ioctl_free_cma((void __user *)ioctl_data.data,
+											ioctl_data.data_size);
+		break;
+
+	case IOCTL_MEM_CMD_WR_RTMAP_MA:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_RTMAP_MA\n");
+
+		ret = rtds_memory_ioctl_map_mpro_ma((void __user *)ioctl_data.data,
+												ioctl_data.data_size);
+		break;
+
+	case IOCTL_MEM_CMD_WR_RTUNMAP_MA:
+		MSG_MED("[RTDSK]   |IOCTL_MEM_CMD_WR_RTUNMAP_MA\n");
+
+		ret = rtds_memory_ioctl_unmap_mpro_ma((void __user *)ioctl_data.data,
+												ioctl_data.data_size);
+		break;
+#endif
 	default:
 		MSG_ERROR("[RTDSK]ERR| No command\n");
 
@@ -449,11 +481,15 @@ int rtds_memory_thread_apmem_rttrig(
 			MSG_ERROR("[RTDSK]ERR| receive queue is NULL\n");
 			panic("[RTDSK]ERR|[%s][%d]receive queue is NULL\n", __func__, __LINE__);
 		} else {
-			MSG_LOW("[RTDSK]   |event	 [0x%08X]\n", recv_queue->event);
+			MSG_LOW("[RTDSK]   |event     [0x%08X]\n", recv_queue->event);
 			MSG_LOW("[RTDSK]   |mem_size  [0x%08X]\n", recv_queue->mem_size);
 			MSG_LOW("[RTDSK]   |rt_cache  [0x%08X]\n", recv_queue->rt_cache);
 			MSG_LOW("[RTDSK]   |rt_trigger[0x%08X]\n", recv_queue->rt_trigger);
 			MSG_LOW("[RTDSK]   |apmem_id  [0x%08X]\n", recv_queue->apmem_id);
+#ifdef RTDS_SUPPORT_CMA
+			MSG_LOW("[RTDSK]   |phys_addr [0x%08X]\n", recv_queue->phys_addr);
+			MSG_LOW("[RTDSK]   |mem_attr  [0x%08X]\n", recv_queue->mem_attr);
+#endif
 
 			switch (recv_queue->event) {
 			case RTDS_MEM_DRV_EVENT_APMEM_OPEN:
@@ -487,7 +523,50 @@ int rtds_memory_thread_apmem_rttrig(
 				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_FATAL\n");
 				rtds_memory_dump_mpro();
 				break;
+#ifdef RTDS_SUPPORT_CMA
+			case RTDS_MEM_DRV_EVENT_CMA_OPEN:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_CMA_OPEN\n");
+				ret = rtds_memory_open_rttrig_cma(recv_queue->mem_size,
+													recv_queue->rt_cache,
+													recv_queue->mem_attr,
+													recv_queue->rt_trigger);
+				if (SMAP_OK != ret) {
+					MSG_ERROR("[RTDSK]ERR| rtds_memory_open_rttrig_cma failed ret[%d]\n", ret);
+					panic("[RTDSK]ERR|[%s][%d]rtds_memory_open_rttrig_cma failed[%d]\n", __func__, __LINE__, ret);
+				}
 
+				break;
+
+			case RTDS_MEM_DRV_EVENT_CMA_CLOSE:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_CMA_CLOSE\n");
+				ret = rtds_memory_close_rttrig_cma(recv_queue->apmem_id);
+				if (SMAP_OK != ret) {
+					MSG_ERROR("[RTDSK]ERR| rtds_memory_close_rttrig_cma failed ret[%d]\n", ret);
+					panic("[RTDSK]ERR|[%s][%d]rtds_memory_close_rttrig_cma failed[%d]\n", __func__, __LINE__, ret);
+				}
+				break;
+
+			case RTDS_MEM_DRV_EVENT_APMEM_MAP:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_APMEM_MAP\n");
+				ret = rtds_memory_map_rttrig_shared_apmem(recv_queue->phys_addr,
+															recv_queue->mem_size,
+															recv_queue->rt_cache,
+															recv_queue->rt_trigger);
+				if (SMAP_OK != ret) {
+					MSG_ERROR("[RTDSK]ERR| rtds_memory_map_rttrig_shared_apmem failed ret[%d]\n", ret);
+					panic("[RTDSK]ERR|[%s][%d]rtds_memory_map_rttrig_shared_apmem failed[%d]\n", __func__, __LINE__, ret);
+				}
+				break;
+
+			case RTDS_MEM_DRV_EVENT_APMEM_UNMAP:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_APMEM_UNMAP\n");
+				ret = rtds_memory_unmap_rttrig_shared_apmem(recv_queue->apmem_id);
+				if (SMAP_OK != ret) {
+					MSG_ERROR("[RTDSK]ERR| rtds_memory_unmap_rttrig_shared_apmem failed ret[%d]\n", ret);
+					panic("[RTDSK]ERR|[%s][%d]rtds_memory_unmap_rttrig_shared_apmem failed[%d]\n", __func__, __LINE__, ret);
+				}
+				break;
+#endif
 			default:
 				MSG_ERROR("[RTDSK]ERR| No EVENT[0x%08X]\n", recv_queue->event);
 				panic("[RTDSK]ERR| thread_apmem illegal event\n");
@@ -567,6 +646,9 @@ int rtds_memory_init_module(
 	INIT_LIST_HEAD(&g_rtds_memory_list_shared_mem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_map_rtmem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_reg_phymem);
+#ifdef RTDS_SUPPORT_CMA
+	INIT_LIST_HEAD(&g_rtds_memory_list_cma);
+#endif
 
 	/* Initialise spin_lock */
 	spin_lock_init(&g_rtds_memory_lock_recv_queue);
@@ -574,6 +656,9 @@ int rtds_memory_init_module(
 	spin_lock_init(&g_rtds_memory_lock_create_mem);
 	spin_lock_init(&g_rtds_memory_lock_mpro);
 	spin_lock_init(&g_rtds_memory_lock_map_rtmem);
+#ifdef RTDS_SUPPORT_CMA
+	spin_lock_init(&g_rtds_memory_lock_cma);
+#endif
 
 	/* Initialise completion */
 	init_completion(&g_rtds_memory_completion);

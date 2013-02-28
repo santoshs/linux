@@ -139,6 +139,12 @@ static void shmobile_init_sharedarea(struct shared_area *sh)
 	/* init APE request at 520 MHz */
 	sh->ape_req_freq = 520000;
 
+	/* init PLL reprog field */
+	sh->pll_reprogram = 0;
+	
+	/* init revision */
+	sh->revision = SHARED_AREA_REV;
+
 	/* set the value of BBFRQCRD to minimum divider */
 	cpg_init_bbfrqcrd();
 }
@@ -188,6 +194,12 @@ unsigned int shmobile_get_modem_req_freq(void)
 	return sh_area->bb_req_freq;
 }
 
+
+unsigned int shmobile_get_pll_reprogram(void)
+{
+	return sh_area->pll_reprogram;
+
+}
 
 int shmobile_acquire_cpg_lock(unsigned long *flags)
 {

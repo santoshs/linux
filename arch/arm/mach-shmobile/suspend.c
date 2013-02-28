@@ -44,6 +44,7 @@
 #ifdef CONFIG_SHMOBILE_RAM_DEFRAG
 #include <mach/ram_defrag.h>
 #endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
+#include <memlog/memlog.h>
 
 #define pm_writeb(v, a)			__raw_writeb(v, (void *__iomem)a)
 #define pm_writew(v, a)			__raw_writew(v, (void *__iomem)a)
@@ -109,7 +110,7 @@ unsigned int frqcrD_save;
 unsigned int is_clock_updated;
 #define CLOCK_SUSPEND		0
 #define CLOCK_RESTORE		1
-#define ZB3_CLK_SUSPEND		130000
+#define ZB3_CLK_SUSPEND		0
 
 
 
@@ -684,6 +685,7 @@ static int core_shutdown_status(unsigned int cpu)
  */
 static int shmobile_suspend_begin(suspend_state_t state)
 {
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_BEGIN, 1);
 	shmobile_suspend_state = state;
 	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM)
 		is_suspend_request = 1;
@@ -697,11 +699,13 @@ static int shmobile_suspend_begin(suspend_state_t state)
 				__func__, ret);
 	}
 #endif
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_BEGIN, 0);
 	return 0;
 }
 
 static void shmobile_suspend_end(void)
 {
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_END, 1);
 	shmobile_suspend_state = PM_SUSPEND_ON;
 	is_suspend_request = 0;
 
@@ -719,6 +723,7 @@ static void shmobile_suspend_end(void)
 				__func__, ret);
 	}
 #endif
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_END, 0);
 }
 
 static void do_iicdvm_setting(void)
@@ -964,7 +969,9 @@ static int shmobile_suspend(void)
 	 * do cpu suspend ...
 	 */
 	pr_err("[%s]: do cpu suspend ...\n\n", __func__);
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 1);
 	jump_systemsuspend();
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);
 
 	/* Update clocks setting */
 	if (is_clock_updated == 1) {
@@ -1012,6 +1019,7 @@ static int shmobile_suspend_enter(suspend_state_t unused)
 {
 	int ret = 0;
 
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_ENTER, 1);
 	switch (shmobile_suspend_state) {
 	case PM_SUSPEND_STANDBY:
 	case PM_SUSPEND_MEM:
@@ -1020,6 +1028,7 @@ static int shmobile_suspend_enter(suspend_state_t unused)
 	default:
 		ret = -EINVAL;
 	}
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_ENTER, 0);
 	return ret;
 }
 
@@ -1030,6 +1039,7 @@ static int shmobile_suspend_valid(suspend_state_t state)
 
 static int shmobile_suspend_prepare(void)
 {
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE, 1);
 #ifdef CONFIG_SHMOBILE_RAM_DEFRAG
 	int ret;
 
@@ -1042,11 +1052,13 @@ static int shmobile_suspend_prepare(void)
 	}
 #endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
 
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE, 0);
 	return 0;
 }
 
 static int shmobile_suspend_prepare_late(void)
 {
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE_LATE, 1);
 	disable_hlt();
 
 	/* backup sys boot address */
@@ -1055,6 +1067,7 @@ static int shmobile_suspend_prepare_late(void)
 	/* set RAM1 vector */
 	__raw_writel(RAM_ARM_VECT, IOMEM(SBAR));
 
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE_LATE, 0);
 	return 0;
 }
 
@@ -1063,6 +1076,7 @@ static void shmobile_suspend_wake(void)
 #ifdef __EXTAL1_INFO__
 	unsigned int reg_val = 0;
 #endif
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_WAKE, 1);
 	enable_hlt();
 
 	/* restore sys boot address */
@@ -1115,6 +1129,7 @@ static void shmobile_suspend_wake(void)
 		xtal1_log_out = 0;
 	}
 #endif
+	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_WAKE, 0);
 }
 
 #ifdef CONFIG_PM_DEBUG

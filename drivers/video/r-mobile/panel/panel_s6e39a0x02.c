@@ -31,12 +31,14 @@
 
 #include <linux/platform_device.h>
 
-#define S6E39A0X02_DRAW_BLACK_KERNEL
+/* #define S6E39A0X02_DRAW_BLACK_KERNEL */
 
-/*#define S6E39A0X02_BRIGHTNESS_LINER */
+#define S6E39A0X02_BRIGHTNESS_LINER
 #define S6E39A0X02_POWAREA_MNG_ENABLE
 
+#ifndef S6E39A0X02_BRIGHTNESS_LINER
 #include "s6e39a0x02_gamma.h"
+#endif
 #include "panel_s6e39a0x02.h"
 
 /* framebuffer address and size */
@@ -238,11 +240,10 @@ static unsigned char data_25[] = { 0x2c, 0x00 };
 
 static unsigned char data_26[] = { 0x35, 0x00 };
 /* panel size is qHD 540x960 */
-static unsigned char data_27[] = { 0x2a, 0x00, 0x1e, 0x02, 0x3D };
+static unsigned char data_27[] = { 0x2a, 0x00, 0x1e, 0x02, 0x39 };
 /* panel size is qHD 540x960 */
 static unsigned char data_28[] = { 0x2b, 0x00, 0x00, 0x03, 0xbf };
 static unsigned char data_29[] = { 0xd1, 0x8a };
-static unsigned char data_30[] = { 0x2a, 0x00, 0x1F, 0x02, 0x3E };
 static unsigned char last_gamma_table[] = {
 	0xfa, 0x02, 0x58, 0x42, 0x56, 0xaa, 0xc8, 0xae, 0xb5,
 	0xc1, 0xbe, 0xb4, 0xc0, 0xb2, 0x93, 0x9f, 0x93, 0xa6,
@@ -285,7 +286,6 @@ static const struct _s6e39a0x02_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,        data_28, sizeof(data_28) },
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, data_29, sizeof(data_29) },
 	{ MIPI_DSI_BLACK,                 NULL,    0               },
-	{ MIPI_DSI_DCS_LONG_WRITE,        data_30, sizeof(data_30) },
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
 
@@ -324,11 +324,6 @@ static const struct _s6e39a0x02_cmdset resume_cmdset[] = {
 	{ MIPI_DSI_END,                   NULL,    0               }
 };
 
-static const struct _s6e39a0x02_cmdset resume_cmdset_2[] = {
-	{ MIPI_DSI_DCS_LONG_WRITE,        data_30, sizeof(data_30) },
-	{ MIPI_DSI_END,                   NULL,    0               }
-};
-
 static struct fb_info *common_fb_info;
 
 enum lcdfreq_level_idx {
@@ -347,7 +342,7 @@ static struct lcdfreq_info lcdfreq_info_data;
 
 static int lcdfreq_lock(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 	/* set freq 40Hz */
 	printk(KERN_ALERT "set freq NOT SUPPORTED(40Hz)\n");
 	return ret;
@@ -355,7 +350,7 @@ static int lcdfreq_lock(struct device *dev)
 
 static int lcdfreq_lock_free(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 	/* set freq 60Hz */
 	printk(KERN_ALERT "set freq NOT SUPPORTED(60Hz)\n");
 	return ret;
@@ -379,7 +374,7 @@ static ssize_t level_store(struct device *dev,
 
 	mutex_lock(&lcdfreq_info_data.lock);
 
-	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
 
 	printk(KERN_DEBUG "\t%s :: value=%d\n", __func__, value);
 
@@ -468,7 +463,6 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 	while (0 <= loop) {
 		switch (cmdset[loop].cmd) {
 		case MIPI_DSI_DCS_LONG_WRITE:
-			printk(KERN_INFO "panel_cmdset LONG Write\n");
 			write_dsi_l.handle         = lcd_handle;
 			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_l.data_id        = MIPI_DSI_DCS_LONG_WRITE;
@@ -488,8 +482,6 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 			}
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
-			printk(KERN_INFO
-			       "panel_cmdset SHORT Write with param\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_s.data_id
@@ -506,7 +498,6 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 			}
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE:
-			printk(KERN_INFO "panel_cmdset SHORT Write\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_s.data_id        = MIPI_DSI_DCS_SHORT_WRITE;
@@ -596,6 +587,325 @@ static int s6e39a0x02_panel_cmdset(void *lcd_handle,
 	return 0;
 }
 
+#ifdef SMART_DIMMING
+static int s6e39a0x02_read_panel_id(void)
+{
+	int ret = 0, i = 0;
+	unsigned char read_data[10];
+
+	/* Read ID 1 : OLED module's manufacturer */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDA, 1, &read_data[0]);
+	if (ret) {
+		printk(KERN_DEBUG "Error in dsi read with %d\n", ret);
+		return ret;
+	}
+
+	/* Read ID 2 : OLED module/driver version */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDB, 1, &read_data[1]);
+	if (ret) {
+		printk(KERN_DEBUG "Error in dsi read with %d\n", ret);
+		return ret;
+	}
+
+	/* Read ID 3 : OLED module/driver */
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, 0xDC, 1, &read_data[2]);
+	if (ret) {
+		printk(KERN_DEBUG "Error in dsi read with %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < 3; i++)
+		smart.panelid[i] = read_data[i];
+
+	printk(KERN_DEBUG
+		"read id = %02X, %02X, %02X\n",
+		read_data[0], read_data[1], read_data[2]);
+
+	if (read_data[0] == PANEL_A1_SM2) {
+		support_elvss = 1;
+		aid = read_data[2] & 0xe0 >> 5;
+		elvss.reference = read_data[2];
+
+		printk(KERN_DEBUG
+			"Dynamic ELVSS Information, "
+			"refrence : %02x , aid= %02x\n", elvss.reference, aid);
+	} else if ((read_data[0] == PANEL_A1_M3) ||
+		   (read_data[0] == PANEL_A2_M3)) {
+		support_elvss = 0;
+		printk(KERN_DEBUG
+			"Dynamic ELVSS is not supported in this panel.\n");
+	} else {
+		support_elvss = 0;
+		printk(KERN_DEBUG
+			"Panel ID is not proper for Smart Dimming.\n");
+	}
+
+	return 0;
+}
+
+static int s6e39a0x02_read_panel_mtp(u8 *mtp_data)
+{
+	int ret;
+	u8 retry_cnt = 3;
+
+read_retry:
+	ret = s6e39a0x02_dsi_read(MIPI_DSI_DCS_READ, LDI_MTP_ADDR,
+					LDI_MTP_LENGTH, mtp_data);
+	if (ret) {
+		if (retry_cnt) {
+			printk(KERN_WARNING
+				"[WARN:LCD] : %s : retry cnt : %d\n",
+				__func__, retry_cnt);
+			retry_cnt--;
+			goto read_retry;
+		} else
+			printk(KERN_ERR "ERROR:MTP read failed\n");
+	}
+
+	return ret;
+}
+
+static u32 transform_gamma(u32 brightness)
+{
+	u32 gamma;
+
+	switch (brightness) {
+	case 0:
+		gamma = 30;
+		break;
+	case 1 ... 29:
+		gamma = 30;
+		break;
+	case 30 ... 34:
+		gamma = 40;
+		break;
+	case 35 ... 44:
+		gamma = 70;
+		break;
+	case 45 ... 54:
+		gamma = 80;
+		break;
+	case 55 ... 64:
+		gamma = 90;
+		break;
+	case 65 ... 74:
+		gamma = 100;
+		break;
+	case 75 ... 83:
+		gamma = 110;
+		break;
+	case 84 ... 93:
+		gamma = 120;
+		break;
+	case 94 ... 103:
+		gamma = 130;
+		break;
+	case 104 ... 113:
+		gamma = 140;
+		break;
+	case 114 ... 122:
+		gamma = 150;
+		break;
+	case 123 ... 132:
+		gamma = 160;
+		break;
+	case 133 ... 142:
+		gamma = 170;
+		break;
+	case 143 ... 152:
+		gamma = 180;
+		break;
+	case 153 ... 162:
+		gamma = 190;
+		break;
+	case 163 ... 171:
+		gamma = 200;
+		break;
+	case 172 ... 181:
+		gamma = 210;
+		break;
+	case 182 ... 191:
+		gamma = 220;
+		break;
+	case 192 ... 201:
+		gamma = 230;
+		break;
+	case 202 ... 210:
+		gamma = 240;
+		break;
+	case 211 ... 220:
+		gamma = 250;
+		break;
+	case 221 ... 230:
+		gamma = 260;
+		break;
+	case 231 ... 240:
+		gamma = 270;
+		break;
+	case 241 ... 250:
+		gamma = 280;
+		break;
+	case 251 ... 255:
+		gamma = 290;
+		break;
+	default:
+		gamma = 150;
+		break;
+	}
+	return gamma - 1;
+}
+
+static u8 get_offset_brightness(u32 candela)
+{
+	u8 offset = 0;
+
+	switch (candela) {
+	case 0 ... 100:
+		offset = ELVSS_OFFSET_MIN;
+		break;
+	case 101 ... 160:
+		offset = ELVSS_OFFSET_1;
+		break;
+	case 161 ... 200:
+		offset = ELVSS_OFFSET_2;
+		break;
+	case 201 ...  300:
+		offset = ELVSS_OFFSET_MAX;
+		break;
+	default:
+		offset = ELVSS_OFFSET_MAX;
+		break;
+	}
+	return offset;
+}
+
+static u8 get_elvss_value(u32 candela)
+{
+	u8 ref = 0;
+	u8 offset;
+
+	ref = (elvss.reference | 0x80);
+	offset = get_offset_brightness(candela);
+	ref += offset;
+
+	printk(KERN_DEBUG "%s ref =0x%x , offset = 0x%x\n",
+					__func__, ref, offset);
+
+	if (ref < DYNAMIC_ELVSS_MIN_VALUE)
+		ref = DYNAMIC_ELVSS_MIN_VALUE;
+	else if (ref > DYNAMIC_ELVSS_MAX_VALUE)
+		ref = DYNAMIC_ELVSS_MAX_VALUE;
+
+	return ref;
+}
+
+static int s6e39a0x02_update_elvss(u32 candela)
+{
+	u8 elvss_cmd[3];
+	u8 elvss;
+#if 0
+	elvss = get_elvss_value(candela);
+	if (!elvss) {
+		printk(KERN_ERR
+			"[ERROR:LCD]: %s:get_elvss_value() failed\n", __func__);
+		return -EPERM;
+	}
+
+	elvss_cmd[0] = 0xb1;
+	elvss_cmd[1] = 0x04;
+	elvss_cmd[2] = elvss;
+
+	printk(KERN_DEBUG "elvss reg : %02x\n", elvss_cmd[2]);
+	s6e8ax0_write(lcd, elvss_cmd, sizeof(elvss_cmd));
+#endif
+
+	return 0;
+}
+
+static int s6e39a0x02_update_gamma(u32 brightness)
+{
+	screen_disp_delete disp_delete;
+	screen_disp_write_dsi_short write_dsi_s;
+	screen_disp_write_dsi_long  write_dsi_l;
+	void *screen_handle;
+	int ret = 0;
+
+	u8 gamma_regs[GAMMA_TABLE_COUNT] = {0,};
+	u32 gamma;
+
+	gamma_regs[0] = 0xFA;
+	gamma_regs[1] = 0x02;
+
+	gamma = brightness;
+
+	calc_gamma_table(&smart, gamma, gamma_regs+2);
+
+	screen_handle = screen_display_new();
+
+	/* set gamma table */
+	write_dsi_l.handle	= screen_handle;
+	write_dsi_l.output_mode = RT_DISPLAY_LCD1;
+	write_dsi_l.data_id = MIPI_DSI_DCS_LONG_WRITE;
+	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
+	write_dsi_l.send_mode = RT_DISPLAY_SEND_MODE_HS;
+	write_dsi_l.data_count = GAMMA_TABLE_COUNT;
+	write_dsi_l.write_data = gamma_regs;
+	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
+	}
+
+	/* update gamma */
+	write_dsi_s.handle	= screen_handle;
+	write_dsi_s.output_mode = RT_DISPLAY_LCD1;
+	write_dsi_s.data_id	= MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+	write_dsi_s.reg_address = 0xFA;
+	write_dsi_s.write_data	= 0x03;
+	write_dsi_s.reception_mode = RT_DISPLAY_RECEPTION_OFF;
+	ret = screen_display_write_dsi_short_packet(&write_dsi_s);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ERR "disp_write_dsi_short err: %d\n", ret);
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
+	}
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+	return 0;
+}
+
+static int update_brightness(u32 br)
+{
+	u32 gamma;
+	int ret = 0;
+
+	if (!is_backlight_enabled) {
+		printk(KERN_DEBUG "update_brightness rejected\n");
+		return 0;
+	}
+
+	gamma = transform_gamma(br);
+
+	printk(KERN_DEBUG
+		"update_brightness: brightness=%d, gamma=%d\n", br, gamma);
+
+	ret = s6e39a0x02_update_gamma(gamma);
+
+	/* ret = s6e8ax0_set_acl(lcd); */
+
+	if (support_elvss)
+		ret = s6e39a0x02_update_elvss(gamma);
+
+	return ret;
+}
+
+#endif	/* SMART_DIMMING */
+
+
 static int s6e39a0x02_update_gamma_ctl(int gamma)
 {
 	screen_disp_delete disp_delete;
@@ -604,12 +914,15 @@ static int s6e39a0x02_update_gamma_ctl(int gamma)
 	void *screen_handle;
 	int ret;
 
-	printk(KERN_DEBUG "s6e39a0x02_update_gamma_ctrl gamma:%d\n", gamma);
 	if (!is_backlight_enabled) {
-		printk(KERN_DEBUG "s6e39a0x02_update_gamma_ctrl rejected. ",
-					"just a warning, not a real error.\n");
+		printk(KERN_DEBUG
+			"s6e39a0x02_update_gamma_ctrl rejected. "
+			"just a warning, not a real error.\n");
 		return 0;
 	}
+
+	printk(KERN_DEBUG "s6e39a0x02_update_gamma_ctrl gamma:%d\n", gamma);
+
 	screen_handle = screen_display_new();
 
 	/* set gamma table */
@@ -686,8 +999,11 @@ static int set_brightness(struct backlight_device *bd)
 		MIN_BRIGHTNESS, MAX_BRIGHTNESS);
 		return -EINVAL;
 	}
-
+#ifdef SMART_DIMMING
+	ret = update_brightness(bd->props.brightness);
+#else
 	ret = s6e39a0x02_update_gamma_ctl(bd->props.brightness);
+#endif
 	if (ret) {
 		printk(KERN_ERR "lcd brightness setting failed.\n");
 		return -EIO;
@@ -808,6 +1124,9 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 	int ret;
 	unsigned int tmp;
 	unsigned char read_data[60];
+#ifdef SMART_DIMMING
+	u8 mtp_data[LDI_MTP_LENGTH] = {0,};
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle = screen_display_new();
@@ -934,6 +1253,20 @@ static int s6e39a0x02_panel_init(unsigned int mem_size)
 		screen_display_delete(&disp_delete);
 		return -1;
 	}
+#ifdef SMART_DIMMING
+	s6e39a0x02_read_panel_id();
+
+	init_table_info(&smart);
+
+	ret = s6e39a0x02_read_panel_mtp(mtp_data);
+	if (ret) {
+		printk(KERN_ERR "[LCD:ERROR] : %s read mtp failed\n", __func__);
+		/*return -EPERM;*/
+	}
+
+	calc_voltage_table(&smart, mtp_data);
+#endif
+
 	/* Display on */
 	write_dsi_s.handle		= screen_handle;
 	write_dsi_s.output_mode		= RT_DISPLAY_LCD1;
@@ -1127,14 +1460,6 @@ static int s6e39a0x02_panel_resume(void)
 	ret = screen_display_draw(&disp_draw);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
 		printk(KERN_ALERT "screen_display_draw err!\n");
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
-
-	ret = s6e39a0x02_panel_cmdset(screen_handle, resume_cmdset_2);
-	if (ret != 0) {
-		printk(KERN_ALERT "s6e39a0x02_panel_cmdset(2) err!\n");
 		disp_delete.handle = screen_handle;
 		screen_display_delete(&disp_delete);
 		return -1;

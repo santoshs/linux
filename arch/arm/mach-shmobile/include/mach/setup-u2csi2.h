@@ -14,7 +14,4 @@ extern struct sh_csi2_pdata csi21_info;
 extern struct resource csi20_resources[2];
 extern struct resource csi21_resources[2];
 
-extern struct resource csi21_resources_es1[];
-
-int csi21_resources_es1_size(void);
 #endif /* __ASM_ARCH_CSI2_H */

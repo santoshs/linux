@@ -2,7 +2,7 @@
  * system_standby.c
  *  RT domain standby function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,7 +18,7 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <asm/types.h>
+#include <linux/types.h>
 #include <asm/cacheflush.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -37,10 +37,7 @@
 
 static void *p_standby_handle;
 
-static void system_sub_rt_standby_delete
-(
-	system_standby_delete *standby_delete
-)
+static void system_sub_rt_standby_delete(system_standby_delete *standby_delete)
 {
 	iccom_drv_cleanup_param			iccom_cleanup;
 
@@ -59,10 +56,7 @@ static void system_sub_rt_standby_delete
 }
 
 
-static int system_sub_rt_standby_control
-(
-	system_standby_control	*standby_control
-)
+static int system_sub_rt_standby_control(system_standby_control *standby_control)
 {
 	int	ret_code;
 	iccom_drv_send_cmd_param	iccom_send_cmd;
@@ -110,10 +104,7 @@ static int system_sub_rt_standby_control
 	return ret_code;
 }
 
-static void *system_sub_rt_standby_new
-(
-	void
-)
+static void *system_sub_rt_standby_new(void)
 {
 	int						ret_code;
 	standby_handle			*standby_handle;
@@ -145,10 +136,7 @@ static void *system_sub_rt_standby_new
 	return  (void *)standby_handle;
 }
 
-static int system_rt_standby_standby
-(
-	void
-)
+static int system_rt_standby_standby(void)
 {
 	int	ret_code;
 	bool ret;
@@ -165,7 +153,7 @@ static int system_rt_standby_standby
 	/* Check Standby Counter */
 	ret = iccom_drv_check_standby_enable();
 	if (false == ret) {
-		MSG_ERROR("[RTAPIK] |[%s] SYS-Domain isn't ready \n" , __func__);
+		MSG_ERROR("[RTAPIK] |[%s] SYS-Domain isn't ready\n" , __func__);
 		return SMAP_LIB_STANDBY_NG;
 	}
 
@@ -193,10 +181,7 @@ static int system_rt_standby_standby
 	return SMAP_LIB_STANDBY_OK;
 }
 
-static int system_rt_standby_active
-(
-	void
-)
+static int system_rt_standby_active(void)
 {
 	int	ret_code;
 	system_standby_control	t_standby_cotrol;
@@ -232,9 +217,7 @@ static int system_rt_standby_active
 	return ret_code;
 }
 
-int system_rt_standby(
-	void
-)
+int system_rt_standby(void)
 {
 	int ret = -1;
 
@@ -246,9 +229,7 @@ int system_rt_standby(
 }
 EXPORT_SYMBOL(system_rt_standby);
 
-int system_rt_active(
-	void
-)
+int system_rt_active(void)
 {
 	int ret = -1;
 

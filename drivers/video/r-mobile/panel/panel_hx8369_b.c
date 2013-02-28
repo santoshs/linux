@@ -37,7 +37,7 @@
 
 #include "panel_hx8369_b.h"
 
-#define HX8369_B_DRAW_BLACK_KERNEL
+/* #define HX8369_B_DRAW_BLACK_KERNEL */
 
 #define HX8369_B_POWAREA_MNG_ENABLE
 
@@ -464,8 +464,8 @@ static const struct specific_cmdset dispon_cmdset[] = {
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
-struct specific_cmdset *init_cmd_set;
-struct specific_cmdset *dispon_cmd_set;
+static const struct specific_cmdset *init_cmd_set;
+static const struct specific_cmdset *dispon_cmd_set;
 
 static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  dispoff,   sizeof(dispoff)  },
@@ -546,7 +546,7 @@ static ssize_t level_store(struct device *dev,
 
 	mutex_lock(&lcdfreq_info_data.lock);
 
-	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
 
 	printk(KERN_DEBUG "\t%s :: value=%d\n", __func__, value);
 
@@ -866,6 +866,7 @@ static void mipi_display_reset(void)
 		gpio_direction_output(power_gpio, 1);
 	}
 
+
 	msleep(20);
 
 	gpio_direction_output(reset_gpio, 1);
@@ -1009,11 +1010,11 @@ retry:
 		}
 		is_dsi_read_enabled = 1;
 
-		init_cmd_set   = &initialize_cmdset_rev48;
-		dispon_cmd_set = &dispon_cmdset_rev48;
+		init_cmd_set   = initialize_cmdset_rev48;
+		dispon_cmd_set = dispon_cmdset_rev48;
 	} else {
-		init_cmd_set = &initialize_cmdset;
-		dispon_cmd_set = &dispon_cmdset;
+		init_cmd_set = initialize_cmdset;
+		dispon_cmd_set = dispon_cmdset;
 	}
 
 	/* Panel initialize */
@@ -1121,6 +1122,7 @@ static int hx8369_b_panel_suspend(void)
 	} else {
 		gpio_direction_output(power_gpio, 0);
 	}
+
 	msleep(25);
 
 	disp_delete.handle = screen_handle;
@@ -1266,6 +1268,7 @@ static int hx8369_b_panel_probe(struct fb_info *info,
 	} else {
 		power_gpio	= res_power_gpio->start;
 	}
+
 	if (u2_get_board_rev() <= 4)
 		printk(KERN_INFO "GPIO_PORT%d : for panel power\n", power_gpio);
 

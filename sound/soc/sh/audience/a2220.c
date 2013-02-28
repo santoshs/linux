@@ -2705,28 +2705,30 @@ static bool a2220_earpiece_incall_check
 
 static int __init a2220_init(void)
 {
+#if defined(CONFIG_MACH_U2EVM)
 	unsigned int board_rev = 0;
-
 	/* get board rev */
 	board_rev = u2_get_board_rev();
 	a2220_pr_info("u2_board_rev:%d\n", board_rev);
 	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
 		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
 		return -ENODEV;
+#endif
 	g_a2220_log_level = A2220_LOG_ERR;
 	return i2c_add_driver(&a2220_driver);
 }
 
 static void __exit a2220_exit(void)
 {
+#if defined(CONFIG_MACH_U2EVM)
 	unsigned int board_rev = 0;
-
 	/* get board rev */
 	board_rev = u2_get_board_rev();
 	a2220_pr_info("u2_board_rev:%d\n", board_rev);
 	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
 		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
 		return;
+#endif
 	i2c_del_driver(&a2220_driver);
 }
 
