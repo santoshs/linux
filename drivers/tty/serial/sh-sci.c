@@ -58,6 +58,7 @@
 
 #include "sh-sci.h"
 #include <mach/gpio.h>
+#define SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT	 100
 
 extern bool KERNEL_LOG; /* For kernel log supression */
 #ifdef CONFIG_SERIAL_CORE_CONSOLE
@@ -602,6 +603,11 @@ static void sci_transmit_chars(struct uart_port *port)
 /* On SH3, SCIF may read end-of-break as a space->mark char */
 #define STEPFN(c)  ({int __c = (c); (((__c-1)|(__c)) == -1); })
 
+/*	Propagation PCP# VA13022823537 - To avoid spinlock recursion due
+	to possible lock by serial_console_write() & sci_mpxed_interrupt()
+	Removed dev_dbg/dev_notice (printk) logs inside Interrupt context
+	CAUTION: Please DO NOT add printk within SCIF Interrupt context
+*/
 static void sci_receive_chars(struct uart_port *port)
 {
 	struct sci_port *sci_port = to_sci_port(port);
@@ -644,7 +650,6 @@ static void sci_receive_chars(struct uart_port *port)
 					}
 
 					/* Nonzero => end-of-break */
-					dev_dbg(port->dev, "debounce<%02x>\n", c);
 					sci_port->break_flag = 0;
 
 					if (STEPFN(c)) {
@@ -662,11 +667,9 @@ static void sci_receive_chars(struct uart_port *port)
 				if (status & SCxSR_FER(port)) {
 					flag = TTY_FRAME;
 					port->icount.frame++;
-					dev_notice(port->dev, "Warning:frame error, Retry again..\n");
 				} else if (status & SCxSR_PER(port)) {
 					flag = TTY_PARITY;
 					port->icount.parity++;
-					dev_notice(port->dev, "parity error\n");
 				} else
 					flag = TTY_NORMAL;
 
@@ -743,7 +746,6 @@ static int sci_handle_errors(struct uart_port *port)
 			if (tty_insert_flip_char(tty, 0, TTY_OVERRUN))
 				copied++;
 
-			dev_notice(port->dev, "overrun error");
 		}
 	}
 
@@ -762,7 +764,6 @@ static int sci_handle_errors(struct uart_port *port)
 				if (uart_handle_break(port))
 					return 0;
 
-				dev_dbg(port->dev, "BREAK detected\n");
 
 				if (tty_insert_flip_char(tty, 0, TTY_BREAK))
 					copied++;
@@ -775,7 +776,6 @@ static int sci_handle_errors(struct uart_port *port)
 			if (tty_insert_flip_char(tty, 0, TTY_FRAME))
 				copied++;
 
-			dev_notice(port->dev, "Warning:frame error, Retry again..\n");
 		}
 	}
 
@@ -786,7 +786,6 @@ static int sci_handle_errors(struct uart_port *port)
 		if (tty_insert_flip_char(tty, 0, TTY_PARITY))
 			copied++;
 
-		dev_notice(port->dev, "parity error");
 	}
 
 	if (copied)
@@ -814,7 +813,6 @@ static int sci_handle_fifo_overrun(struct uart_port *port)
 		tty_insert_flip_char(tty, 0, TTY_OVERRUN);
 		tty_flip_buffer_push(tty);
 
-		dev_notice(port->dev, "overrun error\n");
 		copied++;
 	}
 
@@ -843,7 +841,6 @@ static int sci_handle_breaks(struct uart_port *port)
 		if (tty_insert_flip_char(tty, 0, TTY_BREAK))
 			copied++;
 
-		dev_dbg(port->dev, "BREAK detected\n");
 	}
 
 	if (copied)
@@ -854,12 +851,17 @@ static int sci_handle_breaks(struct uart_port *port)
 	return copied;
 }
 
+/*	Propagation PCP# VA13022823537 -
+	To avoid multiple locking within interrupt context,
+	below check is introduced.
+*/
 static irqreturn_t sci_rx_interrupt(int irq, void *ptr)
 {
-#ifdef CONFIG_SERIAL_SH_SCI_DMA
+	unsigned long flags = 0 ;
 	struct uart_port *port = ptr;
 	struct sci_port *s = to_sci_port(port);
 
+#ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (s->chan_rx) {
 		u16 scr = serial_port_in(port, SCSCR);
 		u16 ssr = serial_port_in(port, SCxSR);
@@ -882,23 +884,30 @@ static irqreturn_t sci_rx_interrupt(int irq, void *ptr)
 	}
 #endif
 
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_lock_irqsave(&port->lock, flags);
 	/* I think sci_receive_chars has to be called irrespective
 	 * of whether the I_IXOFF is set, otherwise, how is the interrupt
 	 * to be disabled?
 	 */
 	sci_receive_chars(ptr);
 
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_unlock_irqrestore(&port->lock, flags);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t sci_tx_interrupt(int irq, void *ptr)
 {
 	struct uart_port *port = ptr;
-	unsigned long flags;
+	unsigned long flags = 0 ;
 
-	spin_lock_irqsave(&port->lock, flags);
+	struct sci_port *s = to_sci_port(port);
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_lock_irqsave(&port->lock, flags);
 	sci_transmit_chars(port);
-	spin_unlock_irqrestore(&port->lock, flags);
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_unlock_irqrestore(&port->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -950,13 +959,19 @@ static inline unsigned long port_rx_irq_mask(struct uart_port *port)
 	return SCSCR_RIE | (to_sci_port(port)->cfg->scscr & SCSCR_REIE);
 }
 
+/*	Propagation PCP# VA13022823537 -
+	To avoid possible race condition occurrence between
+	sci_mpxed_interrupt() & serial_console_write()/sci_set_termios
+*/
 static irqreturn_t sci_mpxed_interrupt(int irq, void *ptr)
 {
 	unsigned short ssr_status, scr_status, err_enabled;
 	struct uart_port *port = ptr;
 	struct sci_port *s = to_sci_port(port);
 	irqreturn_t ret = IRQ_NONE;
+	unsigned long flags = 0 ;
 
+	spin_lock_irqsave(&port->lock, flags);
 	ssr_status = serial_port_in(port, SCxSR);
 	scr_status = serial_port_in(port, SCSCR);
 	err_enabled = scr_status & port_rx_irq_mask(port);
@@ -982,6 +997,7 @@ static irqreturn_t sci_mpxed_interrupt(int irq, void *ptr)
 	if ((ssr_status & SCxSR_BRK(port)) && err_enabled)
 		ret = sci_br_interrupt(irq, ptr);
 
+	spin_unlock_irqrestore(&port->lock, flags) ;
 	return ret;
 }
 
@@ -1813,20 +1829,47 @@ static unsigned int sci_scbrr_calc(unsigned int algo_id, unsigned int bps,
 	return ((freq + 16 * bps) / (32 * bps) - 1);
 }
 
-static void sci_reset(struct uart_port *port)
+static int sci_reset(struct uart_port *port)
 {
 	struct plat_sci_reg *reg;
 	unsigned int status;
+	int idx = 0;
 
+	/* JIRA ID 1911 (PCP# JK12122071879).
+	Propagation PCP# VA13022823537
+	TEND bit in SCxSR register is a read only bit
+	set by hardware on transmission end.
+	At times, when there is no ACK from GPS chip for
+	previous transmission, infinite busy loop is observed for
+	SCIFB1 port as TEND bit is NOT read as 1 for long time.
+	Possible solution to avoid busy loop.
+	Note:
+	1. TEND bit is always read as 1 on first attempt and
+	so read attempt is limited to 100 attempts.
+	2. SCIFB port could be reset to read TEND bit as 1.
+	However, due to lack of reproduciblity, this cannot be verified.
+	3. TTY framework does not permit to return error code
+	on this failure case.
+	*/
 	do {
+		idx++;
 		status = serial_port_in(port, SCxSR);
+		if (idx > SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT)
+			break;
 	} while (!(status & SCxSR_TEND(port)));
 
+	if (idx > SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT) {
+		dev_dbg(port->dev, \
+			"%s(%d) Possible busy loop, exit gracefully\n", \
+					__func__, port->line) ;
+		return -EPERM ;
+	}
 	serial_port_out(port, SCSCR, 0x00);	/* TE=0, RE=0, CKE1=0 */
 
 	reg = sci_getreg(port, SCFCR);
 	if (reg->size)
 		serial_port_out(port, SCFCR, SCFCR_RFRST | SCFCR_TFRST);
+	return 0;
 }
 
 static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
@@ -1836,6 +1879,8 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct plat_sci_reg *reg;
 	unsigned int baud, smr_val, max_baud, cks;
 	int t = -1;
+	int ret = 0;
+	unsigned long flags = 0 ;
 
 	/* PCP# TT12102320062 - Save & retain termios->c_cflag value
 	for TTY close use case.	This change is applicable only for
@@ -1863,9 +1908,20 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		t = sci_scbrr_calc(s->cfg->scbrr_algo_id, baud, port->uartclk);
 
 	sci_port_enable(s);
+	/* Propagation PCP# VA13022823537 -
+	To avoid possible race condition occurrence between
+	sci_mpxed_interrupt() & serial_console_write()/sci_set_termios
+	*/
+	spin_lock_irqsave(&port->lock, flags);
 
-	sci_reset(port);
-
+	ret = sci_reset(port);
+	if (ret < 0) {
+		/* spin_unlock_* should be invoked here as spin_lock_*
+		is invoked before for PCP# JK13012548863 */
+		spin_unlock_irqrestore(&port->lock, flags);
+		sci_port_disable(s);
+		return ;
+	}
 	smr_val = serial_port_in(port, SCSMR) & 3;
 
 	if ((termios->c_cflag & CSIZE) == CS7)
@@ -1947,6 +2003,7 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	if ((termios->c_cflag & CREAD) != 0)
 		sci_start_rx(port);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	sci_port_disable(s);
 }
