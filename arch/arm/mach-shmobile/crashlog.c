@@ -65,6 +65,9 @@ void crashlog_reset_log_write()
 	void __iomem *adr = NULL;
 	u8 reg = 0;
 
+	crashlog_kmsg_init();
+	crashlog_logcat_init();
+
 	/* kmsg */
 	/* printk(KERN_ERR "log_buf_address=0x%08x\n", log_buf_address); */
 	adr = ioremap(CRASHLOG_KMSG_LOCATE, 16);

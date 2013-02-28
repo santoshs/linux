@@ -753,6 +753,30 @@ unsigned long log_system_size_address;
 unsigned long log_system_w_off_address;
 unsigned long log_system_head_address;
 
+void crashlog_logcat_init(void)
+{
+	log_main_buffer_address = __pa(&_buf_log_main[0]);
+	log_main_size_address = __pa(&log_main.size);
+	log_main_w_off_address = __pa(&log_main.w_off);
+	log_main_head_address = __pa(&log_main.head);
+
+	log_events_buffer_address = __pa(&_buf_log_events[0]);
+	log_events_size_address = __pa(&log_events.size);
+	log_events_w_off_address = __pa(&log_events.w_off);
+	log_events_head_address = __pa(&log_events.head);
+
+	log_radio_buffer_address = __pa(&_buf_log_radio[0]);
+	log_radio_size_address = __pa(&log_radio.size);
+	log_radio_w_off_address = __pa(&log_radio.w_off);
+	log_radio_head_address = __pa(&log_radio.head);
+
+	log_system_buffer_address = __pa(&_buf_log_system[0]);
+	log_system_size_address = __pa(&log_system.size);
+	log_system_w_off_address = __pa(&log_system.w_off);
+	log_system_head_address = __pa(&log_system.head);
+}
+EXPORT_SYMBOL(crashlog_logcat_init);
+
 void get_logcat_bufinfo(char* logname, unsigned char ** buffer, size_t * w_off, size_t * head, size_t * size)
 {
 	if (0 == strcmp(logname, log_main.misc.name))
