@@ -78,20 +78,24 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 	/* cpu = cpu_logical_map(cpu); */
 
 	/* disable cache coherency */
-	/* modify_scu_cpu_psr(3 << (cpu * 8), 0); */
-
+	unsigned long status;
+	
 	if (system_state == SYSTEM_RESTART ||
 		system_state == SYSTEM_HALT) {
 		cpu = cpu_logical_map(cpu);
 		modify_scu_cpu_psr(3 << (cpu * 8), 0);
 		goto abort_checking;
 	}
-	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
-	while ((((__raw_readl(scu_base_addr() + 8)) >> (8 * cpu)) & 3) != 3)
-		mdelay(1);
-abort_checking:
-	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
+	while (1) {
+		cpu = cpu_logical_map(cpu);
+		status = __raw_readl(IOMEM(CPG_SCPUSTR));
+		if (((status >> (4 * cpu)) & 2) == 2)
+			break;
+		mdelay(1);
+	}
+abort_checking:
+	pr_debug("CPG_SCPUSTR:0x%x\n", __raw_readl(IOMEM(CPG_SCPUSTR)));
 	return 1;
 }
 
@@ -124,7 +128,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	return 0;
 }
 
-void __init r8a7373_smp_prepare_cpus(void)
+void __init r8a7373_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int cpu = cpu_logical_map(0);
 
@@ -136,6 +140,7 @@ void __init r8a7373_smp_prepare_cpus(void)
 	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
 	__raw_writel(__pa(shmobile_secondary_vector), IOMEM(SBAR));
 
-	/* enable cache coherency on CPU0 */
-	modify_scu_cpu_psr(0, 3 << (cpu * 8));
+	/* enable cache coherency on all CPU */
+	for (cpu = 0; cpu < max_cpus; cpu++)
+		modify_scu_cpu_psr(0, 3 << (cpu_logical_map(cpu) * 8));
 }

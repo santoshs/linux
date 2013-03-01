@@ -39,7 +39,7 @@ static unsigned int __init shmobile_smp_get_core_count(void)
 	return 1;
 }
 
-static void __init shmobile_smp_prepare_cpus(void)
+static void __init shmobile_smp_prepare_cpus(unsigned int max_cpus)
 {
 	if (is_sh73a0())
 		sh73a0_smp_prepare_cpus();
@@ -48,7 +48,7 @@ static void __init shmobile_smp_prepare_cpus(void)
 		r8a7779_smp_prepare_cpus();
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
-		r8a7373_smp_prepare_cpus();
+		r8a7373_smp_prepare_cpus(max_cpus);
 #endif
 }
 
@@ -120,5 +120,5 @@ void __init smp_init_cpus(void)
 
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
-	shmobile_smp_prepare_cpus();
+	shmobile_smp_prepare_cpus(max_cpus);
 }

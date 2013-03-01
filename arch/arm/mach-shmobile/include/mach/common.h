@@ -116,7 +116,7 @@ extern int r8a7373_platform_cpu_kill(unsigned int cpu);
 extern int r8a7373_platform_cpu_die(unsigned int cpu);
 extern void r8a7373_secondary_init(unsigned int cpu);
 extern int r8a7373_boot_secondary(unsigned int cpu);
-extern void r8a7373_smp_prepare_cpus(void);
+extern void r8a7373_smp_prepare_cpus(unsigned int max_cpus);
 extern void r8a7373_register_twd(void);
 extern void r8a7373_secondary_vector(void);
 extern unsigned long r8a7373_secondary_vector_addr;
