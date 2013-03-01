@@ -55,7 +55,7 @@
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
 #ifndef CONFIG_PM_HAS_SECURE
-#define RAM_ARM_VECT                   ram1BasePhys
+#define RAM_ARM_VECT                   secramBasePhys
 #else /*CONFIG_PM_HAS_SECURE*/
 #define RAM_ARM_VECT                   ram0ArmVectorPhys
 #endif /*CONFIG_PM_HAS_SECURE*/
