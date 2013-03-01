@@ -1742,6 +1742,14 @@ static void __init gardalte_init(void)
 
 #ifndef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();
+#else
+/*
+	*In TZ-Mode of R-Mobile U2, it must notify the L2 cache
+	*related info to Secure World. However, SEC_HAL driver is not
+	*registered at the time of L2$ init because "r8a7373l2_cache_init()"
+	*function called more early.
+*/
+	l2x0_init_later();
 #endif
 
 	camera_init(u2_board_rev);

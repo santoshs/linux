@@ -146,14 +146,6 @@ static void sensor_power_on_vdd(int);
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
-
-#ifdef CONFIG_CACHE_L2X0
-#define BASE_Pl310_PHYS        0xf0100000
-#define CHIP_VERSION_ES1_0      0x3E00
-#define CHIP_VERSION_ES2_0      0x3E1
-#define OFFSET      0xFFFF
-#endif
-
 static DEFINE_SPINLOCK(io_lock);//for modify register
 
 #if defined(CONFIG_RENESAS_GPS)
@@ -1855,28 +1847,6 @@ static void SBSC_Init_520Mhz(void)
 	__raw_readl(sbsc_sdmracr1a);
 }
 
-static void l2_cache_init(void)
-{
-#ifdef CONFIG_CACHE_L2X0
-	/*
-	* [30] Early BRESP enable
-	* [27] Non-secure interrupt access control
-	* [26] Non-secure lockdown enable
-	* [22] Shared attribute override enable
-	* [19:17] Way-size: b010 = 32KB
-	* [16] Accosiativity: 0 = 8-way
-	*/
-	if ((system_rev & OFFSET) == CHIP_VERSION_ES1_0) {
-		l2x0_init(__io(IO_ADDRESS(BASE_Pl310_PHYS)),\
-				 0x4c440000, 0x820f0fff);
-	} else if (((system_rev & OFFSET)>>4) >= CHIP_VERSION_ES2_0) {
-		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(__io(IO_ADDRESS(BASE_Pl310_PHYS)),\
-				 0x4c460000, 0x820f0fff);
-	}
-#endif
-}
-
 static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
@@ -2634,12 +2604,12 @@ static void __init u2evm_init(void)
 	gpio_pull_down_port(GPIO_PORT24);
 
 #ifndef CONFIG_ARM_TZ
-	l2_cache_init();
+	r8a7373_l2cache_init();
 #else
 /*
 	*In TZ-Mode of R-Mobile U2, it must notify the L2 cache
 	*related info to Secure World. However, SEC_HAL driver is not
-	*registered at the time of L2$ init because "l2_cache_init()"
+	*registered at the time of L2$ init because "r8a7373_l2cache_init()"
 	*function called more early.
 */
 	l2x0_init_later();
@@ -2753,24 +2723,10 @@ static int check_sec_rlte_hw_rev(void)
 	return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
 }
 
-
-static void __init u2evm_init_early(void)
-{
-#ifdef CONFIG_ARM_TZ
-	/*
-	* In TZ Mode of R-MobileU2, L2 cache is already enable before
-	* jump to kernel. Therefore, it must initialize the L2 cache
-	* operations before another cores wakeup.
-	*/
-	l2_cache_init();
-#endif
-}
-
-
 MACHINE_START(U2EVM, "u2evm")
 	.reserve	= u2evm_reserve,
 	.map_io		= r8a7373_map_io,
-	.init_early	= u2evm_init_early,
+	.init_early	= r8a7373_init_early,
 	.nr_irqs	= NR_IRQS_LEGACY,
 	.init_irq	= r8a7373_init_irq,
 	.handle_irq	= gic_handle_irq,
