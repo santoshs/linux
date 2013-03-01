@@ -25,6 +25,7 @@
 
 #include <linux/io.h>
 #include <linux/spinlock_types.h>
+#include <linux/atomic.h>
 #include <linux/hwspinlock.h>
 
 #ifdef CONFIG_PM_HAS_SECURE
@@ -178,6 +179,9 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define ID_A4LC					6
 #define ID_D4					1
 
+extern atomic_t	pdwait_flag;
+void pdwait_judge(void);
+
 #ifdef CONFIG_PDC
 struct power_domain_info {
 	struct device *devs[POWER_DOMAIN_COUNT_MAX];
@@ -212,6 +216,7 @@ static inline void power_domains_put_noidle(const struct device *dev) {}
 static inline int control_pdc(int is_enable) { return 0; }
 static inline int is_pdc_enable(void) { return 0; }
 #endif
+inline void pdwait_judge(void) {}
 #endif  /*CONFIG_PDC*/
 
 #ifdef CONFIG_SUSPEND

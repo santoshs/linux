@@ -10,6 +10,10 @@
 #include "zb3ctrl.h"
 
 static int open_count;
+atomic_t	pdwait_flag; /* video playback highload condition */
+
+/* #define __DEBUG_PDWAIT */
+
 
 struct zb3ctrl_info {
 	struct file *file;
@@ -85,12 +89,24 @@ struct file *file, unsigned int cmd, unsigned long arg)
 		if (val == 0) {
 			set_zb3ctrl_info_state(file, ZB3_STATE_LOW);
 			if (open_count == 1) {
+				/* request change PDWAIT=0x08 */
+				atomic_set(&pdwait_flag, 0);
+				pdwait_judge();
+#ifdef __DEBUG_PDWAIT
+printk(KERN_INFO "[zb3ctrl]: %s (zb3_state_low) set pdwait_flag=0\n", __func__);
+#endif
 				/* set 720p mode */
 					movie_cpufreq(1);
 			}
 		/* High */
 		} else {
 			set_zb3ctrl_info_state(file, ZB3_STATE_HIGH);
+			/* request change PDWAIT=0xFF */
+			atomic_set(&pdwait_flag, 1);
+			pdwait_judge();
+#ifdef __DEBUG_PDWAIT
+printk(KERN_INFO "[zb3ctrl]: %s set pdwait_flag=1\n", __func__);
+#endif
 			/* set nomal mode */
 			movie_cpufreq(0);
 		}
@@ -106,6 +122,13 @@ static int zb3ctrl_open(struct inode *inode, struct file *file)
 {
 	add_zb3ctrl_info(file);
 	open_count++;
+	if (open_count >= 2) {
+		atomic_set(&pdwait_flag, 1); /* request change PDWAIT=0xFF */
+		pdwait_judge();
+#ifdef __DEBUG_PDWAIT
+printk(KERN_INFO "[zb3ctrl]: %s set pdwait_flag=1\n", __func__);
+#endif
+	}
 	/* set nomal mode */
 	movie_cpufreq(0);
 	return 0;
@@ -117,10 +140,27 @@ static int zb3ctrl_release(struct inode *inode, struct file *file)
 	open_count--;
 	if (open_count == 1) {
 		if (get_zb3ctrl_info_state() == ZB3_STATE_LOW) {
+
+			/*Have one 720p video playback */
+			/* request change PDWAIT=0x08 */
+			atomic_set(&pdwait_flag, 0);
+			pdwait_judge();
+#ifdef __DEBUG_PDWAIT
+printk(KERN_INFO"[zb3ctrl]: %s set pdwait_flag=0(open_count==1)\n", __func__);
+#endif
 			/* set 720p mode */
 			movie_cpufreq(1);
 		}
 	} else {
+		if (0 == open_count) {
+			/* No 720p video playback */
+			/* request change PDWAIT=0x08 */
+			atomic_set(&pdwait_flag, 0);
+			pdwait_judge();
+#ifdef __DEBUG_PDWAIT
+printk(KERN_INFO "[zb3ctrl]: %s set pdwait_flag=0 (open_count==0)\n", __func__);
+#endif
+		}
 		/* set nomal mode */
 		movie_cpufreq(0);
 	}
@@ -166,6 +206,7 @@ static int __init init_zb3ctrl(void)
 	}
 	device_create(zb3ctrl_class, NULL, MKDEV(major, 0), NULL, ZB3_DEV_NAME);
 	memset(info_list, 0, sizeof(info_list));
+	atomic_set(&pdwait_flag, 0);
 	return 0;
 }
 
