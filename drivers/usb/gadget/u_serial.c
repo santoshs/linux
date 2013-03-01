@@ -952,6 +952,11 @@ static int gs_write_room(struct tty_struct *tty)
 	unsigned long	flags;
 	int		room = 0;
 
+	if (NULL == port || NULL == &port->port_lock
+		|| NULL == &port->port_lock.rlock)
+		return room;
+
+
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb)
 		room = gs_buf_space_avail(&port->port_write_buf);
