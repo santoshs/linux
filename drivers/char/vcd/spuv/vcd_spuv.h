@@ -233,9 +233,11 @@ struct vcd_spuv_info {
 };
 
 struct vcd_spuv_set_binary_info {
-	unsigned int top_address;
+	unsigned int top_logical_address;
+	unsigned int top_physical_address;
 	unsigned int write_address;
 	unsigned int total_size;
+	unsigned int max_size;
 };
 
 
@@ -359,5 +361,6 @@ void vcd_spuv_dump_dspio_memory(void);
 void vcd_spuv_dump_sdram_static_area_memory(void);
 void vcd_spuv_dump_fw_static_buffer_memory(void);
 void vcd_spuv_dump_spuv_crashlog(void);
+void vcd_spuv_dump_diamond_memory(void);
 
 #endif /* __VCD_SPUV_H__ */

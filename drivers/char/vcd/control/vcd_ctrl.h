@@ -109,7 +109,7 @@ void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 void vcd_ctrl_rec_trigger(void);
 void vcd_ctrl_play_trigger(void);
 void vcd_ctrl_codec_type_ind(unsigned int codec_type);
-void vcd_ctrl_stop_fw(void);
+void vcd_ctrl_stop_fw(int result);
 void vcd_ctrl_udata_ind(void);
 void vcd_ctrl_start_clkgen(void);
 void vcd_ctrl_stop_clkgen(void);
@@ -144,6 +144,7 @@ void vcd_ctrl_dump_dspio_memory(void);
 void vcd_ctrl_dump_sdram_static_area_memory(void);
 void vcd_ctrl_dump_fw_static_buffer_memory(void);
 void vcd_ctrl_dump_spuv_crashlog(void);
+void vcd_ctrl_dump_diamond_memory(void);
 
 /* Internal functions */
 static int vcd_ctrl_error_stop_vcd(void);

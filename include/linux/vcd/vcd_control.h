@@ -74,7 +74,7 @@ extern void vcd_ctrl_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 extern void vcd_ctrl_rec_trigger(void);
 extern void vcd_ctrl_play_trigger(void);
 extern void vcd_ctrl_codec_type_ind(unsigned int codec_type);
-extern void vcd_ctrl_stop_fw(void);
+extern void vcd_ctrl_stop_fw(int result);
 extern void vcd_ctrl_udata_ind(void);
 extern void vcd_ctrl_start_clkgen(void);
 extern void vcd_ctrl_stop_clkgen(void);
@@ -107,5 +107,6 @@ extern void vcd_ctrl_dump_dspio_memory(void);
 extern void vcd_ctrl_dump_sdram_static_area_memory(void);
 extern void vcd_ctrl_dump_fw_static_buffer_memory(void);
 extern void vcd_ctrl_dump_spuv_crashlog(void);
+extern void vcd_ctrl_dump_diamond_memory(void);
 
 #endif /* __VCD_CONTROL_H__ */

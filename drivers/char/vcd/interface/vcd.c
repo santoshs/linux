@@ -238,22 +238,22 @@ void vcd_start_fw(void)
 /**
  * @brief	fw stop notification function.
  *
- * @param	none.
+ * @param	result	result.
  *
  * @retval	none.
  */
-void vcd_stop_fw(void)
+void vcd_stop_fw(int result)
 {
 	int ret = VCD_ERR_NONE;
 
-	vcd_pr_start_if_user();
+	vcd_pr_start_if_user("result[%d].\n", result);
 
 	ret = vcd_ctrl_check_semantics();
 
 	if (VCD_ERR_NONE == ret) {
 		vcd_ctrl_dump_spuv_crashlog();
 
-		vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR);
+		vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR, result);
 	}
 
 	if (NULL != g_vcd_stop_fw)
@@ -298,7 +298,7 @@ void vcd_udata_ind(void)
 {
 	vcd_pr_start_if_user();
 
-	vcd_async_notify(LIBVCD_CB_TYPE_UDATA);
+	vcd_async_notify(LIBVCD_CB_TYPE_UDATA, 0);
 
 	vcd_pr_end_if_user();
 	return;
@@ -309,14 +309,16 @@ void vcd_udata_ind(void)
  * @brief	async notification function.
  *
  * @param	cb_type	callback type.
+ * @param	result	result.
  *
  * @retval	none.
  */
-static void vcd_async_notify(unsigned int cb_type)
+static void vcd_async_notify(unsigned int cb_type, int result)
 {
 	struct libvcd_status_async_info *async_info = NULL;
 
-	vcd_pr_start_interface_function("cb_type[%d].\n", cb_type);
+	vcd_pr_start_interface_function("cb_type[%d], result[%d].\n",
+					cb_type, result);
 
 	if (NULL == g_vcd_status_async_map)
 		goto rtn;
@@ -325,7 +327,7 @@ static void vcd_async_notify(unsigned int cb_type)
 	(LIBVCD_CB_TYPE_UDATA == cb_type)		||
 	(LIBVCD_CB_TYPE_VCD_END == cb_type)) {
 		async_info = &g_vcd_status_async_map->status[cb_type];
-		async_info->result = abs(0);
+		async_info->result = abs(result);
 		async_info->pre_write = true;
 		atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_OK);
 		wake_up_interruptible(&g_vcd_async_wait.read_q);
@@ -1901,6 +1903,10 @@ debug:
 		/* execute control function */
 		vcd_ctrl_dump_spuv_crashlog();
 		break;
+	case VCD_DEBUG_DUMP_DIAMOND_MEMORY:
+		/* execute control function */
+		vcd_ctrl_dump_diamond_memory();
+		break;
 	case VCD_DEBUG_SET_CALL_MODE:
 		g_vcd_debug_call_kind = VCD_CALL_KIND_CALL;
 		break;
@@ -2456,7 +2462,7 @@ static long vcd_fops_ioctl
 		ret = vcd_stop_vcd();
 		if (VCD_ENABLE == g_vcd_is_start_vcd)
 			/* stop async thread */
-			vcd_async_notify(LIBVCD_CB_TYPE_VCD_END);
+			vcd_async_notify(LIBVCD_CB_TYPE_VCD_END, 0);
 		g_vcd_is_start_vcd = VCD_DISABLE;
 		break;
 	case VCD_IOCTL_SET_HW_PARAM:
