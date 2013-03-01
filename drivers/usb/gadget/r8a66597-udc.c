@@ -2771,6 +2771,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		if (!r8a66597->transceiver) {
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
+			powerup=1;
 		}
 	}
 
@@ -2849,6 +2850,7 @@ clean_up2:
 		if (!r8a66597->transceiver) {
 			r8a66597_clk_disable(r8a66597);
 			pm_runtime_put(r8a66597_to_dev(r8a66597));
+			powerup=0;
 		}
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
