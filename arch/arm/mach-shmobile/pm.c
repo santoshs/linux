@@ -56,7 +56,7 @@ unsigned int is_suspend_request;
  *		0: successful
  * -EBUSY: unsuccessful
  */
-int core_wait_kick(unsigned int time)
+int core_wait_kick(int time)
 {
 	int wait_time = time;
 
@@ -78,7 +78,7 @@ int core_wait_kick(unsigned int time)
  *		0: successful
  *		-EBUSY: operation fail
  */
-int core_set_kick(unsigned int time)
+int core_set_kick(int time)
 {
 	int wait_time = time;
 
