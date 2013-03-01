@@ -61,8 +61,6 @@ static void modify_scu_cpu_psr(unsigned long set, unsigned long clr)
 
 static void rewrite_boot_entry(unsigned long entry)
 {
-	void __iomem *boot_code;
-	static struct clk *ram_clk;
 
 	__raw_writel(0, __io(SBAR2));
 	/* map the reset vector (in headsmp.S) */
@@ -96,7 +94,6 @@ unsigned int __init r8a73734_get_core_count(void)
 
 void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 {
-	static struct clk *ram_clk;
 
 	gic_secondary_init(0);
 	secondary_skip_calibrate();

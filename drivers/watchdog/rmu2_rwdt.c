@@ -42,7 +42,7 @@
  * images, it's up to the secure code whether the CMT is a FIQ or not. */
 #define CONFIG_RMU2_CMT_FIQ
 
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 #include <linux/proc_fs.h>
 
 #include <asm/cacheflush.h>
@@ -53,6 +53,11 @@ static int start_stop_cmt_watchdog;
 /* Various nasty things we can do to the system to test the watchdog and
  *  * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
  *   */
+static int test_mode;
+
+/* Various nasty things we can do to the system to test the watchdog and
+ * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
+ */
 enum crash_type {
 	TEST_NORMAL = 0,		/* Normal operation, watchdog kicked */
 	TEST_NO_KICK = 1,		/* Normal system, watchdog not kicked */
@@ -719,8 +724,8 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 {
 	int ret;
 
-#ifdef CONFIG_RWDT_DEBUG
-	switch (start_stop_cmt_watchdog) {
+#ifdef CONFIG_RWDT_TEST
+	switch (test_mode) {
 	case TEST_NO_KICK:
 		printk(KERN_DEBUG "Skip clearing RWDT for debug!\n");
 		return;
@@ -1265,13 +1270,12 @@ static struct platform_driver rmu2_rwdt_driver = {
 
 };
 
-#ifdef CONFIG_RWDT_DEBUG
-
+#ifdef CONFIG_RWDT_TEST
 int read_proc(char *buf, char **start, off_t offset,
 						int count, int *eof, void *data)
 {
 	int len = 0;
-	len = sprintf(buf, "%x", start_stop_cmt_watchdog);
+	len = sprintf(buf, "%u", test_mode);
 
 	return len;
 }
@@ -1281,15 +1285,16 @@ int write_proc(struct file *file, const char __user *buf,
 {
 	char buffer[4];
 
-	if (count > sizeof(start_stop_cmt_watchdog))
+	if (count > sizeof buffer)
 		return -EFAULT;
 
 	if (copy_from_user(buffer, buf, count))
 		return -EFAULT;
 
-	sscanf(buffer, "%x", &start_stop_cmt_watchdog);
-	switch (start_stop_cmt_watchdog) {
-	unsigned long flags, irq_vector;
+	sscanf(buffer, "%u", &test_mode);
+
+	switch (test_mode) {
+		unsigned long flags, irq_vector;
 	case TEST_LOOP:
 		loop(0);
 		break;
@@ -1317,7 +1322,8 @@ int write_proc(struct file *file, const char __user *buf,
 		on_each_cpu(loop, (void *)3, false);
 		break;
 	}
-	return start_stop_cmt_watchdog;
+
+	return test_mode;
 }
 
 void create_new_proc_entry(void)
@@ -1355,7 +1361,7 @@ static int __init rmu2_rwdt_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 	create_new_proc_entry();
 #endif
 
@@ -1371,7 +1377,7 @@ static void __exit rmu2_rwdt_exit(void)
 
 	platform_driver_unregister(&rmu2_rwdt_driver);
 	platform_device_unregister(&rmu2_rwdt_dev);
-#ifdef CONFIG_RWDT_DEBUG
+#ifdef CONFIG_RWDT_TEST
 	remove_proc_entry("proc_watch_entry", NULL);
 #endif
 }

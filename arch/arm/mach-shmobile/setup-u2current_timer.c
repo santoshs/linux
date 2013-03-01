@@ -41,7 +41,7 @@ int __init setup_current_timer(void)
 	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 
 	__raw_writel(0, CMSTR3);
-	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
+	__raw_writel(0x103, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
 	__raw_writel(0xffffffff, CMCOR3);
 	__raw_writel(0, CMCNT3);
 	while (__raw_readl(CMCNT3) != 0)

@@ -598,6 +598,13 @@ config RWDT_DEBUG
 	help
 	  Say Y here to enable debugging messages for rwdt drivers.
 
+config RWDT_TEST
+	bool "RWDT Test"
+	default y
+	depends on RMU2_RWDT
+	help
+	  This enables /proc/proc_watch_entry to test various crash test cases.
+
 	  You can use the echo commmad to write value into /proc/proc_watch_entry
 	  to skip clearing RWDT for debugging. RWDT counter will be overflowed
 	  after overflow time.
