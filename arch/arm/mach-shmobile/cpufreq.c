@@ -1505,7 +1505,7 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	ret = __set_all_clocks(freq);
 
 	/* the_cpuinfo.freq == freq when frequency changed */
-	if ((the_cpuinfo.freq == freq) && debug)
+	if (the_cpuinfo.freq == freq)
 		pr_info("[%07uKHz->%07uKHz]%s\n", old_freq, freq,
 			(old_freq < freq) ? "^" : "v");
 done:
