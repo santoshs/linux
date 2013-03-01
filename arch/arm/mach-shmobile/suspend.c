@@ -62,9 +62,6 @@
 
 #define PMDBG_PRFX				"PM-DBG: "
 
-/* Enable/disable PASR for SDRAM */
-/* #define PASR_SUPPORT */
-
 enum {
 	IRQC_EVENTDETECTOR_BLK0 = 0,
 	IRQC_EVENTDETECTOR_BLK1,
@@ -883,7 +880,8 @@ static int shmobile_suspend(void)
 	/* irqx_eventdetectors_regs_save(); */
 	shwy_regs_save();
 
-#if ((defined PASR_SUPPORT) && (defined CONFIG_SHMOBILE_RAM_DEFRAG))
+#if ((defined CONFIG_SHMOBILE_PASR_SUPPORT) \
+		&& (defined CONFIG_SHMOBILE_RAM_DEFRAG))
 	/* Get ram bank status */
 	bankState = get_ram_banks_status();
 	if (bankState == -ENOTSUPP)		/* Ram Defrag is disabled */
