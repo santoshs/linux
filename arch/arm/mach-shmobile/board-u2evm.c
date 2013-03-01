@@ -1,8 +1,6 @@
-#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
@@ -10,7 +8,6 @@
 #include <linux/hwspinlock.h>
 #include <linux/i2c.h>
 #include <mach/common.h>
-#include <mach/hardware.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/gic.h>
@@ -28,21 +25,14 @@
 #include <mach/poweroff.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
+#include <mach/setup-u2tps80032.h>
 #endif
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/mfd/tps80031.h>
-#include <linux/pmic/pmic.h>
-#include <mach/setup-u2tps80032.h>
-#include <linux/regulator/tps80031-regulator.h>
-#endif
 #include <linux/spi/sh_msiof.h>
-#include <linux/i2c/atmel_mxt_ts.h>
-#include <linux/usb/r8a66597.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
 #include <sound/sh_fsi.h>
@@ -52,15 +42,12 @@
 #include <linux/pcm2pwm.h>
 #include <linux/vibrator.h>
 #include <linux/thermal_sensor/ths_kernel.h>
-#include <linux/sh_clk.h>
-#include <media/v4l2-subdev.h>
 #include "board-renesas_wifi.h"
 #include <linux/pmic/pmic-ncp6914.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2ion.h>
-#include <linux/sysfs.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #include <linux/tsu6712.h>
@@ -85,7 +72,6 @@
 
 
 #include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
-#include <asm/io.h>
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/board-u2evm-renesas-bt.h>
 #endif

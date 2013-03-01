@@ -21,19 +21,16 @@
 	Board file to support GARDA Products
 *******************************************************************************/
 #include <asm/hardware/gic.h>
-#include <linux/clk.h>
 #include <linux/mmcoops.h>
 #include <linux/dma-mapping.h>
 #include <mach/irqs.h>
 #include <linux/delay.h>
 #include <linux/init.h>
-#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
-#include <mach/hardware.h>
 #include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
@@ -44,7 +41,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_mmcif.h>
 #include <video/sh_mobile_lcdc.h>
-#include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-gardalte.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
@@ -53,29 +49,17 @@
 #include <linux/d2153/d2153_battery.h>
 #endif
 #include <linux/spi/sh_msiof.h>
-#include <linux/i2c/atmel_mxt_ts.h>
-#include <linux/usb/r8a66597.h>
-#include <linux/memblock.h>
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
-#include <linux/tpu_pwm.h>
 #include <linux/tpu_pwm_board.h>
-#include <linux/pcm2pwm.h>
-#include <linux/vibrator.h>
 #include <linux/thermal_sensor/ths_kernel.h>
-#include <linux/sh_clk.h>
-#include <media/v4l2-subdev.h>
 #include "board-renesas_wifi.h"
-#include <linux/pmic/pmic-ncp6914.h>
 #include <linux/ktd259b_bl.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2ion.h>
-#include <linux/sysfs.h>
 #include <linux/proc_fs.h>
-#include <linux/mmcoops.h>	
-#include <asm/io.h>
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/board-gardalte-renesas-bt.h>
 #endif
@@ -99,19 +83,12 @@
 #endif
 #include <mach/setup-u2sdhi.h>
 #include <mach/setup-u2gpio_key.h>
-#include <mach/setup-u2touchkey.h>
-#include <mach/setup-u2mxt224.h>
-#include <linux/pmic/pmic-ncp6914.h>
-#include <linux/i2c-gpio.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-#include <mach/board.h>
-#include <mach/crashlog.h>
 #if defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/board-gardalte-gps.h>
 #endif
-#include <linux/mmcoops.h>
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 #include <mach/sec_debug.h>
 #include <mach/sec_debug_inform.h>
@@ -148,8 +125,8 @@
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 
-#define STBCHRB3	0xE6180043
-#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
+#define STBCHRB3			0xE6180043
+#define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
 
 /* SBSC register address */
 #define SBSC_BASE			(0xFE000000U)
@@ -157,13 +134,13 @@
 #define SBSC_SDMRACR1A_ZQ		(0x0000560A)
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
 #define CPG_PLLECR_PLL3ST		(0x00000800)
-#define CPG_BASE                (0xE6150000U)
+#define CPG_BASE			(0xE6150000U)
 #define CPG_PLL3CR			IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR			IO_ADDRESS(CPG_BASE + 0x00D0)
-#define DBGREG1 IO_ADDRESS(0xE6100020)
-#define DBGREG9         IO_ADDRESS(0xE6100040)
+#define DBGREG1				IO_ADDRESS(0xE6100020)
+#define DBGREG9				IO_ADDRESS(0xE6100040)
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
-#define SYS_TPIU_STM_BASE	IO_ADDRESS(0xE6F8A000)
+#define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
 
 /* Lock used while modifying register */
 static DEFINE_SPINLOCK(io_lock);
@@ -249,27 +226,26 @@ void d2153_mmcif_pwr_control(int onoff)
 	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
 
 	if(emmc_regulator == NULL) {
-		printk(" %s, %d \n", __func__, __LINE__ );			
+		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__ );
 		emmc_regulator = regulator_get(NULL, "vmmc"); 
 		if(IS_ERR(emmc_regulator)){
-			printk("can not get vmmc regulator\n");
+			printk(KERN_ALERT "can not get vmmc regulator\n");
 			return;
 		}
 	}
 
 	if(onoff==1) {
-		printk(" %s, %d vmmc On\n", __func__, __LINE__ );	
-		printk(" %s, %d \n", __func__, __LINE__ );
+		printk(KERN_ALERT " %s,%d vmmc On\n", __func__, __LINE__ );
+		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__ );
 		ret = regulator_enable(emmc_regulator);
-		printk("regulator_enable ret = %d \n", ret);	
+		printk(KERN_ALERT "regulator_enable ret = %d\n", ret);
 	}else {
-		printk("%s, %d vmmc Off\n", __func__, __LINE__ );	
+		printk(KERN_ALERT "%s,%d vmmc Off\n", __func__, __LINE__ );
 		ret = regulator_disable(emmc_regulator);
-		printk("regulator_disable ret = %d \n", ret);			
+		printk(KERN_ALERT "regulator_disable ret = %d\n", ret);
 	}
 }
 #endif
-
 
 static void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
@@ -284,7 +260,6 @@ static void mmcif_down_pwr(struct platform_device *pdev)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
 }
-
 
 static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.sup_pclk	= 0,
@@ -419,8 +394,8 @@ static struct resource fsi_b_resources[] = {
 };
 
 static struct platform_device fsi_b_device = {
-	.name			= "sh_fsi2",
-	.id				= 1,
+	.name		= "sh_fsi2",
+	.id		= 1,
 	.num_resources	= ARRAY_SIZE(fsi_b_resources),
 	.resource	= fsi_b_resources,
 	.dev	= {
@@ -469,9 +444,9 @@ static struct resource lcdc_resources[] = {
 };
 
 static struct platform_device lcdc_device = {
-	.name			= "sh_mobile_lcdc_fb",
+	.name		= "sh_mobile_lcdc_fb",
 	.num_resources	= ARRAY_SIZE(lcdc_resources),
-	.resource		= lcdc_resources,
+	.resource	= lcdc_resources,
 	.dev	= {
 		.platform_data  	= &lcdc_info,
 		.coherent_dma_mask 	= DMA_BIT_MASK(32),
@@ -520,7 +495,8 @@ static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
 		.port = GPIO_PORT36,
 		/* GPIO settings to be retained at resume state */
 		.active = {
-			.port_fn	= GPIO_FN_PORT36_TPU0TO0,//GPIO_FN_TPUTO0,/*Func 3*/
+			/* GPIO_FN_TPUTO0 ,*//*Func 3*/
+			.port_fn	= GPIO_FN_PORT36_TPU0TO0,
 			.pull		= PORTn_CR_PULL_DOWN,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
@@ -539,7 +515,8 @@ static struct port_info
 tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
 	[TPU_MODULE_0] = {
 		[TPU_CHANNEL_0]	= {
-			.port_func	=  GPIO_FN_PORT36_TPU0TO0, //GPIO_FN_TPUTO0,
+			/* GPIO_FN_TPUTO0,*/
+			.port_func	=  GPIO_FN_PORT36_TPU0TO0,
 			.func_name	= "pwm-tpu0to0",
 			.port_count	= ARRAY_SIZE(tpu0_gpio_setting_info),
 			.tpu_gpio_setting_info	= tpu0_gpio_setting_info,
@@ -675,9 +652,9 @@ static struct thermal_sensor_data ths_platdata[] = {
 	/* THS0 */
 	{
 		/* Normal 1 operation */
-		.current_mode	= E_NORMAL_1,	
+		.current_mode	= E_NORMAL_1,
 		/* Normal 1 operation */
-		.last_mode		= E_NORMAL_1,	
+		.last_mode	= E_NORMAL_1,
 	},
 
 	/* THS1 */
@@ -685,7 +662,7 @@ static struct thermal_sensor_data ths_platdata[] = {
 		/* Normal 1 operation */
 		.current_mode	= E_NORMAL_1,
 		/* Normal 1 operation */
-		.last_mode		= E_NORMAL_1,
+		.last_mode	= E_NORMAL_1,
 	},
 };
 static struct resource ths_resources[] = {
@@ -702,8 +679,8 @@ static struct resource ths_resources[] = {
 };
 
 static struct platform_device thermal_sensor_device = {
-	.name			= "thermal_sensor",
-	.id				= 0,
+	.name		= "thermal_sensor",
+	.id		= 0,
 	.num_resources	= ARRAY_SIZE(ths_resources),
 	.resource	= ths_resources,
 	.dev		= {
@@ -996,11 +973,13 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	regulator_enable(touch_regulator);
 	msleep(20);
 
-	if ( (tsp_detector_i2c_client = 
-				i2c_new_probed_device(adap,&i2c4_devices_melfas[0], addr_list_melfas, NULL))){
+	if ((tsp_detector_i2c_client = i2c_new_probed_device(adap,
+						&i2c4_devices_melfas[0],
+						addr_list_melfas, NULL))){
 		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
 	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap, &i2c4_devices_imagis[0]);
+		tsp_detector_i2c_client = i2c_new_device(adap,
+						&i2c4_devices_imagis[0]);
 		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
 	}
 
@@ -1176,10 +1155,12 @@ static void __init gardalte_init(void)
         printk(KERN_ERR "boot command line is\n");
 	/* 	Shall tell how to route STM traces.
 		Taken from boot_command_line[] parameters.
-		stm=# will set parameter, if '0' or '1' then as number, otherwise -1.
+		stm=# will set parameter, if '0' or '1' then as number,
+		otherwise -1.
 		-1 = NONE, i.e. SDHI1 and SDHI0 are free for other functions.
 		0 = SDHI0 used for STM traces. SD-Card not enabled.
-		1 = SDHI1 used for STM traces. WLAN not enabled. [DEFAULT if stm boot para not defined]
+		1 = SDHI1 used for STM traces. WLAN not enabled.
+		[DEFAULT if stm boot para not defined]
 		*/	
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 
@@ -1230,8 +1211,8 @@ static void __init gardalte_init(void)
 	if (stm_select >= 0) { 
 		if (cp[0] && cp[1] && cp[2] && cp[3] && cp[4]) {
 			for (ci=4; cp[ci]; ci++) {
-				if (cp[ci-4] == 's' && cp[ci-3] == 't' && cp[ci-2] == 'm' && 
-						cp[ci-1] == '=') {
+				if (cp[ci-4] == 's' && cp[ci-3] == 't' &&
+					cp[ci-2] == 'm' && cp[ci-1] == '=') {
 
 					switch (cp[ci]) {
 						case '0': 
@@ -1301,7 +1282,8 @@ static void __init gardalte_init(void)
 			/* Override secure side by public side */
 			pub_stm_select = 1; 
 		} else {
-			/* Both secure and public agree.No need to change HW setup */
+			/* Both secure and public agree.No need to change
+			   HW setup */
 			pub_stm_select = 0; 
 		}
 	}
@@ -1396,7 +1378,8 @@ static void __init gardalte_init(void)
 	gpio_direction_none_port(GPIO_PORT309);
 
 	if (0 != stm_select) {
-		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used for SD-Card */
+		/* If STM Traces go to SDHI1 or NOWHERE, then SDHI0 can be used
+		   for SD-Card */
 
 		/* SDHI0 */
 		gpio_request(GPIO_FN_SDHID0_0, NULL);
@@ -1422,7 +1405,8 @@ static void __init gardalte_init(void)
 		gpio_request(GPIO_FN_STMDATA3_2, NULL);
 
 	} else if (0 == stm_select) {
-		/* FIRST, CONFIGURE STM CLK AND DATA PINMUX using SDHI0 as port */
+		/* FIRST, CONFIGURE STM CLK AND DATA PINMUX using SDHI0 as
+		   port */
 		/* SDHI0 used for STM Data, STM Clock */
 		gpio_request(GPIO_FN_STMCLK_1, NULL);
 		gpio_request(GPIO_FN_STMDATA0_1, NULL); 
@@ -1432,19 +1416,22 @@ static void __init gardalte_init(void)
 
 	}
 
-	/* 	Module function select register 3 (MSEL3CR/MSEL03CR)  at 0xE6058020 
+	/* 	Module function select register 3 (MSEL3CR/MSEL03CR)  at
+		0xE6058020 
 		Write bit 28 up to enable SDHIx STMSIDI power
 
 		bits [31:20] All 0, R, Reserved
-		bit  28		MSEL28, Initial value 0, R/W, IO power supply of 
+		bit  28		MSEL28, Initial value 0, R/W, IO power supply of
 		terminal SDHI when SD is transmitted.
 		0=IO power OFF, 1=IO power ON
 		bits [27:16] All 0, R, Reserved.
-		bit  15     MSEL15, Initial value 0, R/W, Debug monitor function Setting.
+		bit  15     MSEL15, Initial value 0, R/W, Debug monitor function 
+		Setting.
 		0 = Use KEYSC pins for debug monitor function
 		1 = Use BSC pins for debug monitor function.
 		bits [14:4]  All 0, R, Reserved
-		bit  3   	MSEL3, Initial value 0, R/W, IC_DP/IC_DM Output Enable Control.
+		bit  3   	MSEL3, Initial value 0, R/W, IC_DP/IC_DM Output
+		Enable Control.
 		0 = Output Disable, 1 = Depends on ICUSB Controller. 
 		Set 0 before "power down sequence".
 		bit  2		0, R, Reserved.
@@ -1455,7 +1442,8 @@ static void __init gardalte_init(void)
 		*/
 
 	/* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
-	__raw_writel(__raw_readl(MSEL3CR) | (1<<27), MSEL3CR); /* ES2.0: SIM powers */
+	/* ES2.0: SIM powers */
+	__raw_writel(__raw_readl(MSEL3CR) | (1<<27), MSEL3CR);
 
 	if (-1 != stm_select) {	
 		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
@@ -1485,24 +1473,28 @@ static void __init gardalte_init(void)
 		for(i=0; i<0x10; i++);
 
 		if ((1 == stm_select) && pub_stm_select) {
-			__raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
+			__raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) |
+						(1<<20), DBGREG1);
 		}
 
 		if ((0 == stm_select) && pub_stm_select) {
-			__raw_writel((__raw_readl(DBGREG1) & 0xFFCFFFFF), DBGREG1);
+			__raw_writel((__raw_readl(DBGREG1) & 0xFFCFFFFF),
+						DBGREG1);
 		}
 
 		for(i=0; i<0x10; i++);
 
 		/* Configure SYS-(Trace) Funnel-STM @ 0xE6F8B000 */
-		/* TODO: check if delays and double writing really needed or not? */
+		/* TODO: check if delays and double writing really needed or
+		   not? */
 		/* Lock Access */
 		__raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0);
 
 		for(i=0; i<0xF0; i++);
 
-		/* 	Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303
-			for APE also 
+		/*	Enable only Slave port 1, i.e. Modem top-level funnel
+			for STM, 0x303
+			for APE also
 			*/
 		__raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000);
 
@@ -1512,8 +1504,9 @@ static void __init gardalte_init(void)
 
 		for(i=0; i<0x10; i++);
 
-		/* 	Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303
-			for APE also 
+		/*	Enable only Slave port 1, i.e. Modem top-level funnel
+			for STM, 0x303
+			for APE also
 			*/
 		__raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); 
 
@@ -1522,10 +1515,11 @@ static void __init gardalte_init(void)
 		/* Configure SYS-TPIU-STM @ 0xE6F8A000 */
 
 		/* Lock Access */
-		__raw_writel(0xc5acce55, SYS_TPIU_STM_BASE + 0xFB0); 
+		__raw_writel(0xc5acce55, SYS_TPIU_STM_BASE + 0xFB0);
 
-		/* 0x8 means Current Port Size 4-bits wide (TRACEDATA0-3 all set) */
-		__raw_writel(0x8, SYS_TPIU_STM_BASE + 0x004); 
+		/* 0x8 means Current Port Size 4-bits wide 
+		   (TRACEDATA0-3 all set) */
+		__raw_writel(0x8, SYS_TPIU_STM_BASE + 0x004);
 
 		/* Formatter and Flush control */
 		__raw_writel(0x112, SYS_TPIU_STM_BASE + 0x304); 
@@ -1555,11 +1549,11 @@ static void __init gardalte_init(void)
 	   6) HostCPU CoreSight / ETR configuration 
 	   @ 0xE6F A5 000 - configure Circular buffer mode, SDRAM write buffer
 	   size and start address, etc.
-	   7) System  CoreSight / SYS-TPIU-STM      
+	   7) System  CoreSight / SYS-TPIU-STM 
 	   @ 0xE6F 8A 000 - set to 32-bit mode to avoid unnecessary stall
-	   8) HostCPU CoreSight / CPU-TPIU          
+	   8) HostCPU CoreSight / CPU-TPIU
 	   @ 0xE6F A3 000 - set to 32-bit mode to avoid unnecessary stall
-	   9) System  CoreSight / SYS-TPIU          
+	   9) System  CoreSight / SYS-TPIU
 	   @ 0xE6F 83 000 - set to 32-bit mode to avoid unnecessary stall
 
 	   DETAILED CONFIGURATION REGISTER WRITES:
@@ -1575,39 +1569,28 @@ static void __init gardalte_init(void)
 	/* 9 - System CoreSight/SYS-TPIU to 32-bit mode */
 
 	wait_for_coresight_access_lock(SYS_TPIU_BASE);
-#if 1
+	
 	/* Current Port Size 4-bits wide to avoid stall */
 	__raw_writel((1<<(16-1)), SYS_TPIU_BASE + 0x004);
-#else
-	/* Current Port Size 32-bits wide to avoid stall */
-	__raw_writel((1<<(32-1)), SYS_TPIU_BASE + 0x004);
-#endif
 
 	/* 8 - HostCPU CoreSight / CPU-TPIU  to 32-bit mode  */
 
 	wait_for_coresight_access_lock(CPU_TPIU_BASE);
-#if 1
+
 	/* Current Port Size 16-bits wide to avoid stall */
-	__raw_writel((1<<(16-1)), CPU_TPIU_BASE + 0x004); 
-#else
-	/* Current Port Size 32-bits wide to avoid stall */
-	__raw_writel((1<<(32-1)), CPU_TPIU_BASE + 0x004); 
-#endif
+	__raw_writel((1<<(16-1)), CPU_TPIU_BASE + 0x004);
 
 	/* 7 - System CoreSight  / SYS-TPIU-STM to 32-bit mode */
 
 	wait_for_coresight_access_lock(SYS_TPIU_STM_BASE);
-#if 1
-	/* Current Port Size 16-bits wide to avoid stall */
-	__raw_writel((1<<(4-1)), SYS_TPIU_STM_BASE + 0x004);   
-#else
-	/* Current Port Size 32-bits wide to avoid stall */
-	__raw_writel((1<<(32-1)), SYS_TPIU_STM_BASE + 0x004);
-#endif
 
-	/* 	6 HostCPU CoreSight / ETR configuration  For ARM Specification of 
-		this HW block, see CoreSight Trace Memory Controller Technical Reference
-		Manual SW Registers of ETR are same as ETF in different HW configuration
+	/* Current Port Size 16-bits wide to avoid stall */
+	__raw_writel((1<<(4-1)), SYS_TPIU_STM_BASE + 0x004);
+
+	/*	6 HostCPU CoreSight / ETR configuration  For ARM Specification 
+		of this HW block, see CoreSight Trace Memory Controller
+		Technical Reference Manual SW Registers of ETR are same as ETF
+		in different HW configuration
 		*/
 	wait_for_coresight_access_lock(CPU_ETR_BASE);
 	__raw_writel(0, CPU_ETR_BASE + 0x020);  /* CTL Control: 0 */
@@ -1626,7 +1609,7 @@ static void __init gardalte_init(void)
 	   (1 << 0)  ProtCtrlBit0  Normal / Privileged 
 	   */
 	i = 0x00;
-	i =	((3 << 8) | (0 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | (1 << 3) |
+	i = ((3 << 8) | (0 << 7) | (0 << 6) | (0 << 5) | (0 << 4) | (1 << 3) |
 			(1 << 2) | (1 << 1) | (1 << 0));
 	/* AXICTL: Set as commented above */  
 	__raw_writel(i,CPU_ETR_BASE + 0x110); 
@@ -1642,13 +1625,13 @@ static void __init gardalte_init(void)
 	/* DBAHI Data Buffer Address High: 0 */
 	__raw_writel(0, CPU_ETR_BASE + 0x11C); 
 	/* RSZ RAM Size Register: 39MB + 764 kB */
-	__raw_writel(((39*1024*1024  + 764*1024)/ 4), CPU_ETR_BASE + 0x004); 
+	__raw_writel(((39*1024*1024  + 764*1024)/ 4), CPU_ETR_BASE + 0x004);
 	/* CTL Control: 1 */
 	__raw_writel(1, CPU_ETR_BASE + 0x020);
 
-	/* 	5 - HostCPU CoreSight / ETF - configuration to FIFO mode  For ARM 
-		specification of this HW block, see CoreSight Trace Memory Controller 
-		Technical Reference Manual
+	/*	5 - HostCPU CoreSight / ETF - configuration to FIFO mode  For
+		ARM specification of this HW block, see CoreSight Trace Memory
+		Controller Technical Reference Manual
 		*/
 	wait_for_coresight_access_lock(CPU_ETF_BASE);
 	/* CTL Control: TraceCaptEn OFF ==> Disabled */
@@ -1667,24 +1650,24 @@ static void __init gardalte_init(void)
 
 	wait_for_coresight_access_lock(CPU_TRACE_FUNNEL_BASE);
 	/* Enable only Slave port 4, i.e. From Sys-Trace-Funnel */
-	__raw_writel((0x300 | (1<<4)), CPU_TRACE_FUNNEL_BASE + 0x000); 
+	__raw_writel((0x300 | (1<<4)), CPU_TRACE_FUNNEL_BASE + 0x000);
 
-	/* 	3 - System CoreSight / SYS Trace Funnel - Enable Port #2 
+	/*	3 - System CoreSight / SYS Trace Funnel - Enable Port #2 
 		"From Sys-Funnel-STM" 
 		*/
 	wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_BASE);
 	/* Enable only Slave port 2, i.e. From Sys-Funnel-STM */
 	__raw_writel((0x300 | (1<<2)), SYS_TRACE_FUNNEL_BASE + 0x000);  
 
-	/* 	2 - System CoreSight / SYS Funnel STM - Enable Port #1 
+	/*	2 - System CoreSight / SYS Funnel STM - Enable Port #1 
 		"From STM-ATB Modem" 
 		*/
 	wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_STM_BASE);
 	/* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
-	__raw_writel((0x300 | (1<<1)), SYS_TRACE_FUNNEL_STM_BASE + 0x000);      
+	__raw_writel((0x300 | (1<<1)), SYS_TRACE_FUNNEL_STM_BASE + 0x000); 
 
-	/* 	1 - Modem CoreSight / WGEM STM - Enable traces This happens inside WGEM 
-		L2 TCM vector boot code
+	/*	1 - Modem CoreSight / WGEM STM - Enable traces This happens
+		inside WGEM L2 TCM vector boot code
 		*/
 
 #endif /* CONFIG_U2_STM_ETR_TO_SDRAM */
@@ -1777,7 +1760,8 @@ static void __init gardalte_init(void)
 	board_edid_init();
 #endif
 
-	i2c_register_board_info(0, i2c0_devices_d2153, ARRAY_SIZE(i2c0_devices_d2153));
+	i2c_register_board_info(0, i2c0_devices_d2153,
+					ARRAY_SIZE(i2c0_devices_d2153));
 
 #if defined(CONFIG_SAMSUNG_SENSOR)
 	board_sensor_init();
@@ -1792,23 +1776,26 @@ static void __init gardalte_init(void)
 #ifdef CONFIG_BOARD_VERSION_GARDA
 	/* Touch Panel auto detection */
 	i2c_add_driver(&tsp_detector_driver);
-	i2c_register_board_info(4, i2c4_devices_tsp_detector, ARRAY_SIZE(i2c4_devices_tsp_detector));
+	i2c_register_board_info(4, i2c4_devices_tsp_detector,
+					ARRAY_SIZE(i2c4_devices_tsp_detector));
 	platform_device_register(&key_backlight_device);
 #else /* CONFIG_BOARD_VERSION_GARDA */
 
-	i2c_register_board_info(4, i2c4_devices_melfas, ARRAY_SIZE(i2c4_devices_melfas));
+	i2c_register_board_info(4, i2c4_devices_melfas,
+					ARRAY_SIZE(i2c4_devices_melfas));
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 
-	//i2c_register_board_info(6, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
-	i2c_register_board_info(8, i2cm_devices_d2153, ARRAY_SIZE(i2cm_devices_d2153));
+	i2c_register_board_info(8, i2cm_devices_d2153,
+					ARRAY_SIZE(i2cm_devices_d2153));
 
 #if defined(CONFIG_GPS_CSR_GSD5T)
 	/* GPS Init */
 	gps_gpio_init();
 #endif
 
-	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));	
-	platform_add_devices(guardian__plat_devices, ARRAY_SIZE(guardian__plat_devices));
+	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
+	platform_add_devices(guardian__plat_devices,
+					ARRAY_SIZE(guardian__plat_devices));
 
 	/* PA devices init */
 	PA_devices_init();
