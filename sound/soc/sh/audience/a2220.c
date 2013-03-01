@@ -981,6 +981,26 @@ wakeup_sync_err:
 	return rc;
 }
 
+static ssize_t a2220_wakeup_no_retry(struct a2220_data *a2220)
+{
+	int rc = 0;
+
+	if (a2220->suspended == 1) {
+		gpio_set_value(a2220->pdata->gpio_wakeup, 1);
+		mdelay(1);
+		gpio_set_value(a2220->pdata->gpio_wakeup, 0);
+		msleep(30);
+		rc = execute_cmdmsg(a2220, A100_msg_Sync);
+		if (rc < 0) {
+			pr_err("%s: failed (%d)\n", __func__, rc);
+			goto wakeup_sync_err;
+		}
+		a2220->suspended = 0;
+	}
+wakeup_sync_err:
+	return rc;
+}
+
 /* Filter commands according to noise suppression state forced by
  * A2220_SET_NS_STATE ioctl.
  *
@@ -2089,12 +2109,17 @@ static int a2220_wa_suspend(struct device *dev)
 
 			/* clock on */
 			rc = a2220_enable_vclk4();
-			if (0 != rc)
+			if (0 != rc) {
+				/* suspend state */
+				g_a2220_suspend_state = 1;
 				goto rtn;
+			}
 
 			/* wakeup */
-			rc = chk_wakeup_a2220(g_a2220_data);
+			rc = a2220_wakeup_no_retry(g_a2220_data);
 			if (rc < 0) {
+				/* suspend state */
+				g_a2220_suspend_state = 1;
 				/* clock off */
 				a2220_disable_vclk4();
 				goto rtn;
@@ -2139,7 +2164,7 @@ static int a2220_wa_resume(struct device *dev)
 					goto rtn;
 
 				/* wakeup */
-				rc = chk_wakeup_a2220(g_a2220_data);
+				rc = a2220_wakeup_no_retry(g_a2220_data);
 				if (rc < 0) {
 					/* clock off */
 					a2220_disable_vclk4();
@@ -2212,7 +2237,7 @@ static int a2220_i2c_cmd_execute(char *i2c_cmds, int size)
 {
 	int i = 0;
 	int ret = 0;
-	int retry = 4;
+	int retry = RETRY_CNT;
 	unsigned int msg;
 	unsigned char *pMsg;
 
@@ -2232,6 +2257,8 @@ static int a2220_i2c_cmd_execute(char *i2c_cmds, int size)
 		pMsg[1] = i2c_cmds[i+2];
 		pMsg[0] = i2c_cmds[i+3];
 
+		retry = RETRY_CNT;
+
 		do {
 			ret = execute_cmdmsg(g_a2220_data, msg);
 		} while ((ret < 0) && --retry);
@@ -2246,6 +2273,7 @@ static int a2220_i2c_cmd_execute(char *i2c_cmds, int size)
 					, ret);
 				return ret;
 			}
+			i = -4;
 		}
 	}
 
