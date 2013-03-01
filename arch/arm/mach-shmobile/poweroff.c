@@ -140,12 +140,7 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 		printk(KERN_ERR "Cannot take hwlock, but system must be reset now.\n");
 	/* Clear Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) & (~POFFFLAG), STBCHRB2);
-	/*
-	 * Tell the mm system that we are going to reboot -
-	 * we may need it to insert some 1:1 mappings so that
-	 * soft boot works.
-	 */
-	setup_mm_for_reboot();
+
 	/* Clean and invalidate caches */
 	flush_cache_all();
 

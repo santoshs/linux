@@ -414,7 +414,6 @@ enum {
 	HPCLK = BIT(2)
 };
 /* API use for Power Off module */
-extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
 #define ZB3_CLK_DFS_ENABLE
