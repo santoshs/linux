@@ -62,6 +62,9 @@ extern unsigned long log_system_size_address;
 extern unsigned long log_system_w_off_address;
 extern unsigned long log_system_head_address;
 
+extern void crashlog_kmsg_init(void);
+extern void crashlog_logcat_init(void);
+
 void crashlog_r_local_ver_write(char *soft_version);
 void crashlog_reset_log_write(void);
 void crashlog_init_tmplog(void);

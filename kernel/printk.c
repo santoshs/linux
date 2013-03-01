@@ -165,6 +165,15 @@ unsigned long log_buf_len_address;
 unsigned long log_end_address;
 unsigned long logged_chars_address;
 
+void crashlog_kmsg_init(void)
+{
+	log_buf_address =  __pa(&__log_buf[0]) ;
+	log_buf_len_address = __pa(&log_buf_len);
+	log_end_address = __pa(&log_end);
+	logged_chars_address = __pa(&logged_chars);
+}
+EXPORT_SYMBOL(crashlog_kmsg_init);
+
 #ifdef CONFIG_KEXEC
 /*
  * This appends the listed symbols to /proc/vmcoreinfo
