@@ -86,7 +86,7 @@ uint32_t sec_hal_reset_info_addr_register(void);
 #ifdef SEC_STORAGE_SELFTEST_ENABLE
 static uint32_t rpc_handler(uint32_t id, uint32_t p1, uint32_t p2, uint32_t p3, uint32_t p4);
 #endif
-int workaround_done = 0;
+
 
 
 
@@ -389,12 +389,6 @@ long sec_hal_usr_ioctl(struct file *filp, unsigned int cmd,
                 client->teec_context = kmalloc(sizeof(TEEC_Context), GFP_KERNEL);
 
                 copy_from_user(client->teec_context,context,sizeof(TEEC_Context));
-
-                if(workaround_done==0)
-                    {
-                    ret = sec_hal_tee_allocate_TA_memory_workaround();
-                    workaround_done = 1;
-                    }
 
                 ret = sec_hal_tee_initialize_context(name,client->teec_context);
                 copy_to_user(context, client->teec_context, sizeof(TEEC_Context) );
