@@ -1242,6 +1242,14 @@ int limit_max_cpufreq(int max)
 }
 EXPORT_SYMBOL(limit_max_cpufreq);
 
+void disable_hotplug_duringPanic(void)
+{
+#if defined(DYNAMIC_HOTPLUG_CPU) && !defined(HOTPLUG_IN_ACTIVE)
+                hlg_config.hlg_enabled = 0;
+#endif /* DYNAMIC_HOTPLUG_CPU && !HOTPLUG_IN_ACTIVE */
+}
+EXPORT_SYMBOL(disable_hotplug_duringPanic);
+
 #ifdef CONFIG_PM_DEBUG
 /*
  * control_cpufreq: runtime enable/disable cpufreq features

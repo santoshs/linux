@@ -145,3 +145,5 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
 
 # Ramdump
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
+
+include arch/arm/mach-shmobile/Makefile.sec

@@ -87,6 +87,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
+/* Added for Ramdump feature */
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
+
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
 	unsigned long delta;
@@ -3243,6 +3248,11 @@ need_resched:
 		rq = cpu_rq(cpu);
 	} else
 		raw_spin_unlock_irq(&rq->lock);
+
+/* Added for Ramdump feature */
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+	sec_debug_task_log(cpu, rq->curr);
+#endif
 
 	post_schedule(rq);
 
@@ -6890,6 +6900,11 @@ void __init sched_init(void)
 	int i, j;
 	unsigned long alloc_size = 0, ptr;
 
+/* Added for Ramdump feature*/
+#if defined(CONFIG_SEC_DEBUG)
+	sec_gaf_supply_rqinfo(offsetof(struct rq, curr),
+			      offsetof(struct cfs_rq, rq));
+#endif
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	alloc_size += 2 * nr_cpu_ids * sizeof(void **);
 #endif

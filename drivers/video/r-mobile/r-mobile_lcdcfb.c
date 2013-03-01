@@ -48,6 +48,10 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 
+#if defined (CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -1636,6 +1640,12 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	priv->early_suspend.resume = sh_mobile_fb_late_resume;
 	register_early_suspend(&priv->early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
+
+#if defined(CONFIG_SEC_DEBUG)
+	// Mark for GetLog
+	sec_getlog_supply_fbinfo(info->screen_base, info->var.xres, 
+			info->var.yres, info->var.bits_per_pixel,2);
+#endif
 
 	return 0;
 err1:

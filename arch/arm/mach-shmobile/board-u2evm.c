@@ -85,6 +85,9 @@
 
 
 #include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
 #include <asm/io.h>
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/board-u2evm-renesas-bt.h>
@@ -115,10 +118,6 @@
 #include <mach/board-u2evm.h>
 #include <mach/setup-u2gpio_key.h>
 static int check_sec_rlte_hw_rev(void);
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-#include <mach/sec_debug.h>
-#include <mach/sec_debug_inform.h>
-#endif
 
 #include <sound/a2220.h>
 #include <linux/leds-ktd253ehd.h>
@@ -1767,14 +1766,6 @@ static struct map_desc u2evm_io_desc[] __initdata = {
 		.length         = SZ_4M,
 		.type           = MT_DEVICE
 	},
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-	{
-		.virtual        = SEC_DEBUG_INFORM_VIRT,
-		.pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
-		.length         = SZ_4K,
-		.type           = MT_UNCACHED,
-	},
-#endif
 };
 
 #ifdef CONFIG_U2_STM_ETR_TO_SDRAM
@@ -2673,11 +2664,17 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
 #endif
 #endif
+
 }
 
 static void __init u2evm_reserve(void)
 {
 	u2evm_ion_adjust();
+
+#if defined(CONFIG_SEC_DEBUG)
+        sec_debug_magic_init();
+#endif
+
 }
 
 static int check_sec_rlte_hw_rev(void)

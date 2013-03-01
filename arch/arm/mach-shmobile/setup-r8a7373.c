@@ -30,12 +30,18 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 #include <mach/serial.h>
-#include <mach/sec_debug.h>
 #include <linux/sh_timer.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/ramdump.h>
+
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#if defined(CONFIG_SEC_DEBUG_INFORM)
+#include <mach/sec_debug_inform.h>
+#endif
+#endif
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
@@ -79,13 +85,23 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.type		= MT_DEVICE
 	},
 #endif
+
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+        {
+                .virtual        = SEC_DEBUG_INFORM_VIRT,
+                .pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
+                .length         = SZ_4K,
+                .type           = MT_UNCACHED,
+        },
+#endif
+
 };
 
 void __init r8a7373_map_io(void)
 {
 	iotable_init(r8a7373_io_desc, ARRAY_SIZE(r8a7373_io_desc));
 	init_consistent_dma_size(8 << 20);
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+#if defined(CONFIG_SEC_DEBUG)
 	sec_debug_init();
 #endif
 }

@@ -39,6 +39,9 @@ static DEFINE_SPINLOCK(pause_on_oops_lock);
 
 extern int rmu2_rwdt_cntclear(void);
 
+extern void disable_hotplug_duringPanic(void);
+
+
 #ifndef CONFIG_PANIC_TIMEOUT
 #define CONFIG_PANIC_TIMEOUT 0
 #endif
@@ -120,6 +123,7 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 	rmu2_rwdt_cntclear();
+	disable_hotplug_duringPanic();
 
 	smp_send_all_cpu_backtrace();
 
@@ -128,11 +132,12 @@ void panic(const char *fmt, ...)
 	 * unfortunately means it may not be hardened to work in a panic
 	 * situation.
 	 */
-	smp_send_stop();
+	smp_send_stop_only();
 
 	kmsg_dump(KMSG_DUMP_PANIC);
 
 	reg = __raw_readb(STBCHR2);
+
 	/* write STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_PANIC_END), STBCHR2);
 
