@@ -147,4 +147,8 @@ void __init r8a7373_smp_prepare_cpus(void)
 
 	/* enable cache coherency on CPU0 */
 	modify_scu_cpu_psr(0, 3 << (cpu * 8));
+
+#ifndef CONFIG_ARM_TZ
+	modify_scu_cpu_psr(0, 3 << (cpu_logical_map(1) * 8));
+#endif
 }
