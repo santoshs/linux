@@ -70,8 +70,9 @@
 #include <mach/setup-u2touchkey.h>
 #include <mach/setup-u2mxt224.h>
 
+#include <linux/mmcoops.h>
+#include <mach/crashlog.h>
 
-#include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/board-u2evm-renesas-bt.h>
 #endif
@@ -354,24 +355,29 @@ static struct platform_device mmcif_device = {
 };
 
 static struct mmcoops_platform_data mmcoops_info = {
+#ifdef CONFIG_CRASHLOG_EMMC
 	.pdev		= &mmcif_device,
+	.start		= MMCOOPS_START_OFFSET,
+	.size		= MMCOOPS_LOG_SIZE,
 	.record_size	= MMCOOPS_RECORD_SIZE,
 	.kmsg_size	= MMCOOPS_KMSG_SIZE,
 	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
 	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
 	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
 	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
-	.kmsg_size_ddr			= MMCOOPS_KMSG_SIZE_DDR,
-	.logcat_main_size_ddr	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
-	.logcat_system_size_ddr	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
-	.logcat_radio_size_ddr	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
-	.logcat_events_size_ddr	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
+#else
+	.start	= MMCOOPS_START_OFFSET_DDR,
+	.size		= MMCOOPS_LOG_SIZE_DDR,
+	.record_size	= MMCOOPS_RECORD_SIZE_DDR,
+	.kmsg_size			= MMCOOPS_KMSG_SIZE_DDR,
+	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
+	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
+	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
+	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
+#endif
 	.local_version	= MMCOOPS_LOCAL_VERSION,
 	.soft_version	= RMC_LOCAL_VERSION,
 	/*512 byte blocks */
-	.start		= MMCOOPS_START_OFFSET,
-	.start_ddr	= MMCOOPS_START_OFFSET_DDR,
-	.size		= MMCOOPS_LOG_SIZE
 };
 
 static struct platform_device mmcoops_device = {
