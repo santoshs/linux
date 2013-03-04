@@ -16,7 +16,7 @@
 #include <linux/i2c-gpio.h>
 #include <mach/common.h>
 #include <mach/gpio.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
