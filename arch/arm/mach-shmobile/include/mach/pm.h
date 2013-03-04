@@ -69,8 +69,8 @@ struct pm_state_notify_confirm {
 
 /* Need to be used by others of PM */
 
-extern int core_wait_kick(unsigned int time);
-extern int core_set_kick(unsigned int time);
+extern int core_wait_kick(int time);
+extern int core_set_kick(int time);
 extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
 				unsigned int freqB, unsigned int freqB_mask);
 extern unsigned int suspend_ZB3_backup(void);
