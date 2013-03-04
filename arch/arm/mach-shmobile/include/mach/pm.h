@@ -417,8 +417,6 @@ enum {
 extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
-/* #define DVFS_DEBUG_MODE		1 */
-/* #define DVFS_TEST_MODE		1 */
 #define ZB3_CLK_DFS_ENABLE
 #define ZB3_CLK_SUSPEND_ENABLE
 #define ZB3_CLK_IDLE_ENABLE
