@@ -261,9 +261,8 @@
 /* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8 */
 #define	POWERDOWN_FRQCRA_ES2	0x00324B34
 
-/* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/48, ZS:1/48, HP:1/48 */
-/* #define	POWERDOWN_FRQCRB_ES2	0x0023BBB0 *//* 0x10238880 */
-#define	POWERDOWN_FRQCRB_ES2    0x00038880 /* 0x10238880 */
+/* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/24, ZS:1/24, HP:1/24 */
+#define	POWERDOWN_FRQCRB_ES2    0x00238880
 
 /********************************************/
 /* RWDT Register			*/
