@@ -25,6 +25,8 @@
 #include "pmMacro.S"
 #include "pmCachemaintenance.S"
 
+#define SDRAM_NOCACHE_DUMMY_WRITE_ADDR				0x44000400
+
 	.align	5
 
 /*==========================================*/
@@ -241,7 +243,7 @@ ENTRY(start_corestandby)
 	/* Set SYS boot address Register values at this point are */
 	/*--------------------------------------------------------------*/
 	LDR		r4, =SBAR
-	LDR		r6, =ram1BasePhys /* Load RAM1 physical address */
+	LDR		r6, =secramBasePhys /* Load RAM1 physical address */
 	BIC	r7, r6, #0x3 /* Set RAM1 physical address & clear BTMD[1:0] */
 	STR		r7, [r4]
 
@@ -441,8 +443,8 @@ ENTRY(corestandby)
 	/* Disable MMU							*/
 	/*------------------------------------------*/
 	/* Jump point to corestandby_pa non-MMU */
-	LDR		r0, =ram1CoreStandbyPAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramCoreStandbyPAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
 
@@ -531,8 +533,8 @@ CPU0_SYSTEMSUSPEND:
 	/* Disable MMU							*/
 	/*--------------------------------------*/
 	/* Set jump point after disable MMU to systemsuspend_cpu0_pa */
-	LDR		r0, =ram1SystemSuspendCPU0PAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramSystemSuspendCPU0PAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4		/* Call disablemmu() */
 	NOP
 
@@ -594,8 +596,8 @@ CPU1_SYSTEMSUSPEND:
 	/* Disable MMU			*/
 	/*----------------------*/
 	/* Set jumpt point after disable MMU to systemsuspend_cpu1_pa */
-	LDR		r0, =ram1SystemSuspendCPU1PAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramSystemSuspendCPU1PAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4		/* Call disablemmu()	*/
 	NOP
 
@@ -1351,6 +1353,8 @@ ENTRY(restore_common_register)
 	/* Restore SCU registers			*/
 	/*----------------------------------*/
 	LDR		r1, =BaseSCUPhys
+	MOV		r4, #1
+	STR		r4, [r1, #SCU_DIAG]
 	LDMIA	r0!, {r4-r8}
 	STR		r4, [r1, #SCU_FILTER_START_ADDR]
 	STR		r5, [r1, #SCU_FILTER_END_ADDR]
@@ -1467,6 +1471,19 @@ ENTRY(sys_powerdown)
 	LDR		r4, =ram0WakeupCodeAddr0Phys
 	STR		lr, [r4]	/* Save wakeup code address	*/
 
+	/*------------------------------------------*/
+	/* L2 Cache sync */
+	/*------------------------------------------*/
+	LDR		r4, =BasePl310Phys
+	MOV 	r5, #0x0
+	DSB
+	STR 	r5, [r4, #L2_CHACH_SYNC]
+	DSB
+SYSPD_CACHESYNC_LOOP:
+	LDR		r5, [r4, #L2_CHACH_SYNC]
+	TST		r5, #0x1
+	BNE		SYSPD_CACHESYNC_LOOP
+
 	/*------------------------------*/
 	/* Disable L2 cache				*/
 	/*------------------------------*/
@@ -1498,7 +1515,14 @@ SYSPD_CLEANINVALIDATE_LOOP:
 	LDR		r6, [r4, #L2_CLEAN_AND_INVALIDATE]
 	ANDS	r6, r6, r5
 	BNE		SYSPD_CLEANINVALIDATE_LOOP
-#ifdef PASR_SUPPORT
+
+	/*------------------------------------------*/
+	/* Dummy Write */
+	/*------------------------------------------*/
+	LDR		r5, =SDRAM_NOCACHE_DUMMY_WRITE_ADDR
+	STR		r5, [r5]
+	DSB
+#ifdef CONFIG_SHMOBILE_PASR_SUPPORT
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
 	LDR	r6, =SDMRACR0A
@@ -1534,7 +1558,7 @@ SKIP_PASR_DRAM_AREA0:
 	MOV	r6, #0x0
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
-#endif /* PASR_SUPPORT */
+#endif /* CONFIG_SHMOBILE_PASR_SUPPORT */
 	/*--------------------------------------*/
 	/* Turn off Watchdog timer				*/
 	/*--------------------------------------*/
@@ -1615,22 +1639,20 @@ SKIP_TURN_OFF_RWDT:
     /* Power Down                            */
     /*--------------------------------------*/
 	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
-	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
-TRY_TURNOFF_A3SM:
 SPDCR_CHECK_LOOP_A3SM:
-	LDR		r6, [r4]
+	LDR		r5, [r4]
 	DSB
-	CMP		r6, #0x0
+	CMP		r5, #0x0
 	BNE		SPDCR_CHECK_LOOP_A3SM
- 	LDR		r6, =A3SM_PD
-	STR		r6, [r4]	/* Power Down    */
+
+	LDR		r6, =0x50000
+ 	LDR		r5, =A3SM_PD
+	STR		r5, [r4]
 	DSB
-	LDR		r6, =SYSC_PSTR
-	LDR		r6, [r6]
-	DSB
-	AND		r6, r6, r5
-	CMP		r6, #0
-	BNE		TRY_TURNOFF_A3SM
+A3SM_POWERDOWN_LOOP:
+	SUBS	r6, r6, #1
+	BPL		A3SM_POWERDOWN_LOOP
+	B		SPDCR_CHECK_LOOP_A3SM
 
 .pool
 
@@ -1728,7 +1750,7 @@ ENTRY(sys_powerup)
 	STR		r5, [r7]
 SKIP_TURN_ON_RWDT2:
 
-#ifdef PASR_SUPPORT
+#ifdef CONFIG_SHMOBILE_PASR_SUPPORT
 /* PASR Setting*/
 	/*Release PASR setting for DRAM area 0*/
 	LDR	r4, =ram0DramPasrSettingArea0Phys
@@ -1767,7 +1789,7 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 	BIC	r7, r7, r8			/* Clear SDMRACR0A.MA/OP*/
 	ORR	r7, r7, r5
 	STR	r7, [r6]			/* Restore SDMRACR0A	*/
-#endif /* PASR_SUPPORT */
+#endif /* CONFIG_SHMOBILE_PASR_SUPPORT */
 	/*----------------------------------*/
 	/* Invalidate L2 cache				*/
 	/* Disable L2 cache					*/
@@ -2006,7 +2028,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Sys power down	*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1SysPowerDownPhys
+	LDR		r4, =secramSysPowerDownPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call sys_powerdown */
 	NOP
@@ -2014,7 +2036,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Sys power up			*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1SysPowerUpPhys
+	LDR		r4, =secramSysPowerUpPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call sys_powerup */
 	NOP
@@ -2022,7 +2044,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1RestoreCommonRegisterPhys
+	LDR		r4, =secramRestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_common_register() */
 	NOP
@@ -2035,7 +2057,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting0Phys
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2052,13 +2074,13 @@ ENDPROC(systemsuspend_cpu0_pa)
 ENTRY(corestandby_pa)
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
 	LDR		r8, =CPUSTATUS_SHUTDOWN
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
@@ -2079,13 +2101,13 @@ ENTRY(corestandby_pa)
 /*	LDR		r7, =CPG_LPCKCR_PLLOFF */
 
 CORESTANDBY_PA_XTAL_THOUGH_SET:
-	LDR		r4, =ram1xtal_thoughPhys
+	LDR		r4, =secramxtal_thoughPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call xtal_though() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2118,7 +2140,7 @@ CORESTANDBY_WAKEUP:
 	NOP
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
@@ -2126,18 +2148,18 @@ CORESTANDBY_WAKEUP:
 	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCRPhys
 	LDR		r7, =CPG_LPCKCR_LEGACY
-	LDR		r4, =ram1xtal_thoughPhys
+	LDR		r4, =secramxtal_thoughPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call xtal_though() */
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2158,7 +2180,7 @@ CORESTANDBY_WAKEUP:
 	LDRNE	r1, =ram0CoreStandbyRestoreCPU1Phys
 	LDR		r1, [r1]
 
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2173,19 +2195,19 @@ ENDPROC(corestandby_pa)
 ENTRY(systemsuspend_cpu1_pa)
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
 	LDR		r8, =CPUSTATUS_HOTPLUG
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2196,30 +2218,27 @@ ENTRY(systemsuspend_cpu1_pa)
 	LDR		r7, =ram0WakeupCodeAddr1Phys
 	ADR		r4, CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND
 	STR		r4, [r7]
+	DSB
 	WFI
-	NOP
-	MOV	r6,#1000
-	LDR	r4, =PLLECRPhys
-1:	LDR	r5, [r4]
-	SUBS	r6, r6, #1
-	BNE	1b
-	NOP
+	LDR		r6, =0x50000
+1:	SUBS	r6, r6, #1
+	BNE		1b
 CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	NOP
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2234,7 +2253,7 @@ CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting1Phys
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2379,7 +2398,7 @@ ENTRY(start_corestandby_2)
 	/* Set SYS boot address Register values at this point are */
 	/*--------------------------------------------------------------*/
 	LDR		r4, =SBAR
-	LDR		r6, =ram1BasePhys /* Load RAM1 physical address */
+	LDR		r6, =secramBasePhys /* Load RAM1 physical address */
 	BIC	r7, r6, #0x3 /* Set RAM1 physical address & clear BTMD[1:0] */
 	STR		r7, [r4]
 
@@ -2457,8 +2476,8 @@ ENTRY(corestandby_2)
 	/* Disable MMU							*/
 	/*------------------------------------------*/
 	/* Jump point to corestandby_pa_2 non-MMU */
-	LDR		r0, =ram1CoreStandbyPA2Phys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramCoreStandbyPA2Phys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
 
@@ -2492,7 +2511,7 @@ ENDPROC(corestandby_2)
 ENTRY(corestandby_pa_2)
 
 	LDR		r8, =CPUSTATUS_SHUTDOWN2
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
@@ -2513,6 +2532,31 @@ CPUPD_CACHESYNC_LOOP:
 	BNE		CPUPD_CACHESYNC_LOOP
 
 	/*------------------------------------------*/
+	/* Disable L2 cache */
+	/*------------------------------------------*/
+	LDR		r4, =BasePl310Phys
+	MOV		r5, #0x0
+
+CSTBY_L2DISABLE_LOOP:
+	LDR		r6, [r4, #L2_CONTROL]
+	AND		r6, r6, #0x1
+	CMP		r6, r5
+	BEQ		CSTBY_L2DISABLE_SKIP
+
+	/* Write PL310 Control register (Disable L2 cache) */
+	STR		r5, [r4, #L2_CONTROL]
+	DSB
+	B		CSTBY_L2DISABLE_LOOP
+
+CSTBY_L2DISABLE_SKIP:
+	/*------------------------------------------*/
+	/* Dummy Write */
+	/*------------------------------------------*/
+	LDR		r5, =SDRAM_NOCACHE_DUMMY_WRITE_ADDR
+	STR		r5, [r5]
+	DSB
+
+	/*------------------------------------------*/
 	/* CPU power down */
 	/*------------------------------------------*/
 	ADR		r5, CORESTANDBY2_WAKEUP
@@ -2525,26 +2569,34 @@ CPUPD_CACHESYNC_LOOP:
 	/* CoreStandby A2SL power down	*/
 	/*------------------------------------------*/
 	LDR		r4, =SPDCRPhys /* Load SPDCR address */
-CORE_POWERDOWN_LOOP:
 SPDCR_CHECK_LOOP_A2SL:
 	LDR		r5, [r4]
 	DSB
 	CMP		r5, #0x0
 	BNE		SPDCR_CHECK_LOOP_A2SL
+
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY2_WAKEUP
+	DSB
+
+	LDR		r6, =0x50000
  	LDR		r5, =A2SLPD
 	STR		r5, [r4]
 	DSB
-	LDR		r6, =SYSC_PSTR /* Load PSTR address */
-	LDR		r6, [r6]
-	DSB
-	AND		r6, r6, #A2SLST
-	CMP		r6, #0x0
-	BNE		CORE_POWERDOWN_LOOP
+CORE_POWERDOWN_LOOP:
+	SUBS	r6, r6, #1
+	BPL		CORE_POWERDOWN_LOOP
+	B		SPDCR_CHECK_LOOP_A2SL
 
 CORESTANDBY2_WAKEUP:
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
@@ -2555,7 +2607,7 @@ CORESTANDBY2_WAKEUP:
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1RestoreCommonRegisterPhys
+	LDR		r4, =secramRestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_common_register() */
 	NOP
@@ -2568,7 +2620,7 @@ CORESTANDBY2_WAKEUP:
 	LDR	r1, =ram0CoreStandby2RestoreCPU0Phys
 	LDR		r1, [r1]
 
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP

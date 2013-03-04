@@ -56,6 +56,9 @@
 #define ram1BasePhys	0xE63C0000	/* RAM1 Base physical address */
 #define ram1Base		IO_ADDRESS(ram1BasePhys)
 
+#define secramBasePhys	0xE6300000	/* Secure RAM Base physical address */
+#define secramBase		IO_ADDRESS(secramBasePhys)
+
 /* Size of backup area	*/
 #define saveCommonSettingSize		0x90
 #define savePl30GlobalSettingSize	0x14
@@ -75,17 +78,17 @@
 #define	fsRestoreArmCommonRegister	0x0 /* Restore ARM common register */
 #define	fsSaveCommonRegister		0x0 /* Save common register */
 #define	fsRestoreCommonRegister		0x100 /* Restore common register */
-#define	fsSysPowerDown				0x1C0 /* power down */
+#define	fsSysPowerDown				0x140 /* power down */
 #define	fsSysPowerUp				0x200 /* power up */
 #define	fsSetClockSystemSuspend		0x120 /* Set clock */
 
 #define	fsSystemSuspendCPU0PA	0x80 /* CPU0: Suspend with MMU off */
 #define	fsCoreStandbyPA		0x1E0 /* CoreStandby function with MMU off */
-#define	fsCoreStandbyPA2	0x160 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA2	0x1A0 /* CoreStandby function with MMU off */
 #define	fsPM_Spin_Lock		0x1A0 /* PM_Spin_Lock */
 #define	fsPM_Spin_Unlock	0xA0 /* PM_Spin_Unlock */
 #define	fsDisableMMU		0x40 /* Disable MMU function */
-#define	fsSystemSuspendCPU1PA	0x140 /* CPU1: Suspend with MMU off */
+#define	fsSystemSuspendCPU1PA	0x120 /* CPU1: Suspend with MMU off */
 
 #define	fscorestandby_down_status	0x60 /* Status for corestandby down */
 #define	fscorestandby_up_status	0x60 /* Status for corestandby up */
@@ -164,160 +167,160 @@
 
 /* Address of function (Virt)	*/
 /* Address of ARM Vector function */
-#define		ram1ArmVector					\
-(ram1Base + hoArmVector)
+#define		secramArmVector					\
+(secramBase + hoArmVector)
 /* Address of Core Standby function */
-#define		ram1CoreStandby					\
-(ram1Base + hoCoreStandby)
+#define		secramCoreStandby					\
+(secramBase + hoCoreStandby)
 /* Address of System Suspend function */
-#define		ram1SystemSuspend				\
-(ram1Base + hoSystemSuspend)
+#define		secramSystemSuspend				\
+(secramBase + hoSystemSuspend)
 /* Address of Save ARM register function */
-#define		ram1SaveArmRegister				\
-(ram1Base + hoSaveArmRegister)
+#define		secramSaveArmRegister				\
+(secramBase + hoSaveArmRegister)
 /* Address of Restore ARM register function(PA) */
-#define		ram1RestoreArmRegisterPA		\
-(ram1Base + hoRestoreArmRegisterPA)
+#define		secramRestoreArmRegisterPA		\
+(secramBase + hoRestoreArmRegisterPA)
 /* Address of Restore ARM register function(VA) */
-#define		ram1RestoreArmRegisterVA		\
-(ram1Base + hoRestoreArmRegisterVA)
+#define		secramRestoreArmRegisterVA		\
+(secramBase + hoRestoreArmRegisterVA)
 /* Address of Save ARM common register function */
-#define		ram1SaveArmCommonRegister		\
-(ram1Base + hoSaveArmCommonRegister)
+#define		secramSaveArmCommonRegister		\
+(secramBase + hoSaveArmCommonRegister)
 /* Address of Restore ARM common register function */
-#define		ram1RestoreArmCommonRegister	\
-(ram1Base + hoRestoreArmCommonRegister)
+#define		secramRestoreArmCommonRegister	\
+(secramBase + hoRestoreArmCommonRegister)
 /* Address of Save common register function */
-#define		ram1SaveCommonRegister			\
-(ram1Base + hoSaveCommonRegister)
+#define		secramSaveCommonRegister			\
+(secramBase + hoSaveCommonRegister)
 /* Address of Restore common register function */
-#define		ram1RestoreCommonRegister		\
-(ram1Base + hoRestoreCommonRegister)
+#define		secramRestoreCommonRegister		\
+(secramBase + hoRestoreCommonRegister)
 /* Address of System power down function */
-#define		ram1SysPowerDown				\
-(ram1Base + hoSysPowerDown)
+#define		secramSysPowerDown				\
+(secramBase + hoSysPowerDown)
 /* Address of System power up function */
-#define		ram1SysPowerUp					\
-(ram1Base + hoSysPowerUp)
+#define		secramSysPowerUp					\
+(secramBase + hoSysPowerUp)
 /* Address of Set clock function */
-#define		ram1SetClockSystemSuspend		\
-(ram1Base + hoSetClockSystemSuspend)
+#define		secramSetClockSystemSuspend		\
+(secramBase + hoSetClockSystemSuspend)
 
 
 /* Address of System Suspend for CPU 0 function with MMU off */
-#define	ram1SystemSuspendCPU0PA				\
-(ram1Base + hoSystemSuspendCPU0PA)
+#define	secramSystemSuspendCPU0PA				\
+(secramBase + hoSystemSuspendCPU0PA)
 /* Address of Core Standby function with MMU off */
-#define	ram1CoreStandbyPA					\
-(ram1Base + hoCoreStandbyPA)
+#define	secramCoreStandbyPA					\
+(secramBase + hoCoreStandbyPA)
 /* Address of Core Standby function with MMU off */
-#define	ram1CoreStandbyPA2					\
-(ram1Base + hoCoreStandbyPA2)
+#define	secramCoreStandbyPA2					\
+(secramBase + hoCoreStandbyPA2)
 
 /* Address of PM spin lock */
-#define		ram1PM_Spin_Lock					\
-(ram1Base + hoPM_Spin_Lock)
+#define		secramPM_Spin_Lock					\
+(secramBase + hoPM_Spin_Lock)
 
 /* Addresss of PM spin unlock */
-#define		ram1PM_Spin_Unlock					\
-(ram1Base + hoPM_Spin_Unlock)
+#define		secramPM_Spin_Unlock					\
+(secramBase + hoPM_Spin_Unlock)
 
 /* Address of Disable MMU function */
-#define		ram1DisableMMU					\
-(ram1Base + hoDisableMMU)
+#define		secramDisableMMU					\
+(secramBase + hoDisableMMU)
 /* Address of System Suspend for CPU 1 function with MMU off */
-#define	ram1SystemSuspendCPU1PA				\
-(ram1Base + hoSystemSuspendCPU1PA)
+#define	secramSystemSuspendCPU1PA				\
+(secramBase + hoSystemSuspendCPU1PA)
 
-#define	ram1corestandby_down_status				\
-(ram1Base + hocorestandby_down_status)
-#define	ram1corestandby_up_status					\
-(ram1Base + hocorestandby_up_status)
-#define		ram1xtal_though					\
-(ram1Base + hoxtal_though)
-#define	ram1xtal_though_restore				\
-(ram1Base + hoxtal_though_restore)
+#define	secramcorestandby_down_status				\
+(secramBase + hocorestandby_down_status)
+#define	secramcorestandby_up_status					\
+(secramBase + hocorestandby_up_status)
+#define		secramxtal_though					\
+(secramBase + hoxtal_though)
+#define	secramxtal_though_restore				\
+(secramBase + hoxtal_though_restore)
 
 
 /* Address of function (Phys)	*/
 /* Address of ARM Vector function */
-#define		ram1ArmVectorPhys					\
-(ram1BasePhys + hoArmVector)
+#define		secramArmVectorPhys					\
+(secramBasePhys + hoArmVector)
 /* Address of Core Standby function */
-#define	ram1CoreStandbyPhys					\
-(ram1BasePhys + hoCoreStandby)
+#define	secramCoreStandbyPhys					\
+(secramBasePhys + hoCoreStandby)
 /* Address of System Suspend function */
-#define	ram1SystemSuspendPhys				\
-(ram1BasePhys + hoSystemSuspend)
+#define	secramSystemSuspendPhys				\
+(secramBasePhys + hoSystemSuspend)
 /* Address of Save ARM register function */
-#define	ram1SaveArmRegisterPhys				\
-(ram1BasePhys + hoSaveArmRegister)
+#define	secramSaveArmRegisterPhys				\
+(secramBasePhys + hoSaveArmRegister)
 /* Address of Restore ARM register function(PA) */
-#define	ram1RestoreArmRegisterPAPhys		\
-(ram1BasePhys + hoRestoreArmRegisterPA)
+#define	secramRestoreArmRegisterPAPhys		\
+(secramBasePhys + hoRestoreArmRegisterPA)
 /* Address of Restore ARM register function(VA) */
-#define	ram1RestoreArmRegisterVAPhys		\
-(ram1BasePhys + hoRestoreArmRegisterVA)
+#define	secramRestoreArmRegisterVAPhys		\
+(secramBasePhys + hoRestoreArmRegisterVA)
 /* Address of Save ARM common register function */
-#define	ram1SaveArmCommonRegisterPhys		\
-(ram1BasePhys + hoSaveArmCommonRegister)
+#define	secramSaveArmCommonRegisterPhys		\
+(secramBasePhys + hoSaveArmCommonRegister)
 /* Address of Restore ARM common register function */
-#define	ram1RestoreArmCommonRegisterPhys	\
-(ram1BasePhys + hoRestoreArmCommonRegister)
+#define	secramRestoreArmCommonRegisterPhys	\
+(secramBasePhys + hoRestoreArmCommonRegister)
 /* Address of Save common register function */
-#define	ram1SaveCommonRegisterPhys			\
-(ram1BasePhys + hoSaveCommonRegister)
+#define	secramSaveCommonRegisterPhys			\
+(secramBasePhys + hoSaveCommonRegister)
 /* Address of Restore common register function */
-#define	ram1RestoreCommonRegisterPhys		\
-(ram1BasePhys + hoRestoreCommonRegister)
+#define	secramRestoreCommonRegisterPhys		\
+(secramBasePhys + hoRestoreCommonRegister)
 /* Address of System power down function */
-#define	ram1SysPowerDownPhys				\
-(ram1BasePhys + hoSysPowerDown)
+#define	secramSysPowerDownPhys				\
+(secramBasePhys + hoSysPowerDown)
 /* Address of System power up function */
-#define	ram1SysPowerUpPhys					\
-(ram1BasePhys + hoSysPowerUp)
+#define	secramSysPowerUpPhys					\
+(secramBasePhys + hoSysPowerUp)
 /* Address of Set clock function */
-#define	ram1SetClockSystemSuspendPhys		\
-(ram1BasePhys + hoSetClockSystemSuspend)
+#define	secramSetClockSystemSuspendPhys		\
+(secramBasePhys + hoSetClockSystemSuspend)
 
 
 /* Address of System Suspend for CPU 0 function with MMU off */
-#define	ram1SystemSuspendCPU0PAPhys			\
-(ram1BasePhys + hoSystemSuspendCPU0PA)
+#define	secramSystemSuspendCPU0PAPhys			\
+(secramBasePhys + hoSystemSuspendCPU0PA)
 /* Address of Core Standby function with MMU off */
-#define	ram1CoreStandbyPAPhys				\
-(ram1BasePhys + hoCoreStandbyPA)
+#define	secramCoreStandbyPAPhys				\
+(secramBasePhys + hoCoreStandbyPA)
 /* Address of Core Standby function with MMU off */
-#define	ram1CoreStandbyPA2Phys				\
-(ram1BasePhys + hoCoreStandbyPA2)
+#define	secramCoreStandbyPA2Phys				\
+(secramBasePhys + hoCoreStandbyPA2)
 
 /* Address of PM spin lock */
-#define		ram1PM_Spin_LockPhys					\
-(ram1BasePhys + hoPM_Spin_Lock)
+#define		secramPM_Spin_LockPhys					\
+(secramBasePhys + hoPM_Spin_Lock)
 /* Address of PM spin unlock */
-#define		ram1PM_Spin_UnlockPhys					\
-(ram1BasePhys + hoPM_Spin_Unlock)
+#define		secramPM_Spin_UnlockPhys					\
+(secramBasePhys + hoPM_Spin_Unlock)
 
 
 /* Address of Disable MMU function			*/
-#define	ram1DisableMMUPhys					\
-(ram1BasePhys + hoDisableMMU)
+#define	secramDisableMMUPhys					\
+(secramBasePhys + hoDisableMMU)
 /* Address of System Suspend for CPU 1 function with MMU off */
-#define	ram1SystemSuspendCPU1PAPhys			\
-(ram1BasePhys + hoSystemSuspendCPU1PA)
+#define	secramSystemSuspendCPU1PAPhys			\
+(secramBasePhys + hoSystemSuspendCPU1PA)
 
 /* corestandby down status */
-#define	ram1corestandby_down_statusPhys				\
-(ram1BasePhys + hocorestandby_down_status)
+#define	secramcorestandby_down_statusPhys				\
+(secramBasePhys + hocorestandby_down_status)
 /* corestandby up status */
-#define	ram1corestandby_up_statusPhys					\
-(ram1BasePhys + hocorestandby_up_status)
+#define	secramcorestandby_up_statusPhys					\
+(secramBasePhys + hocorestandby_up_status)
 /* xtal though */
-#define		ram1xtal_thoughPhys					\
-(ram1BasePhys + hoxtal_though)
+#define		secramxtal_thoughPhys					\
+(secramBasePhys + hoxtal_though)
 /* xtal though restore */
-#define	ram1xtal_though_restorePhys				\
-(ram1BasePhys + hoxtal_though_restore)
+#define	secramxtal_though_restorePhys				\
+(secramBasePhys + hoxtal_though_restore)
 
 /*--------------------------------------------------*/
 /* Offset of RAM0 area */
