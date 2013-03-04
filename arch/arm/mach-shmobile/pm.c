@@ -360,67 +360,67 @@ int shmobile_init_pm(void)
 #endif
 #ifndef CONFIG_PM_HAS_SECURE
 	/* Copy the source code internal RAM1 */
-	(void)memcpy((void *)ram1ArmVector,
+	(void)memcpy((void *)secramArmVector,
 				(void *)&ArmVector,
 				fsArmVector);
 
-	(void)memcpy((void *)ram1PM_Spin_Lock,
+	(void)memcpy((void *)secramPM_Spin_Lock,
 		(void *)&PM_Spin_Lock,
 		fsPM_Spin_Lock);
 
-	(void)memcpy((void *)ram1PM_Spin_Unlock,
+	(void)memcpy((void *)secramPM_Spin_Unlock,
 		(void *)&PM_Spin_Unlock,
 		fsPM_Spin_Unlock);
 
-	(void)memcpy((void *)ram1DisableMMU,
+	(void)memcpy((void *)secramDisableMMU,
 				(void *)&disablemmu,
 				fsDisableMMU);
 
-	(void)memcpy((void *)ram1RestoreArmRegisterPA,
+	(void)memcpy((void *)secramRestoreArmRegisterPA,
 				(void *)&restore_arm_register_pa,
 				fsRestoreArmRegisterPA);
 
-	(void)memcpy((void *)ram1RestoreCommonRegister,
+	(void)memcpy((void *)secramRestoreCommonRegister,
 				(void *)&restore_common_register,
 				fsRestoreCommonRegister);
 
-	(void)memcpy((void *)ram1SysPowerDown,
+	(void)memcpy((void *)secramSysPowerDown,
 				(void *)&sys_powerdown,
 				fsSysPowerDown);
 
-	(void)memcpy((void *)ram1SysPowerUp,
+	(void)memcpy((void *)secramSysPowerUp,
 				(void *)&sys_powerup,
 				fsSysPowerUp);
 
-	(void)memcpy((void *)ram1SystemSuspendCPU0PA,
+	(void)memcpy((void *)secramSystemSuspendCPU0PA,
 				(void *)&systemsuspend_cpu0_pa,
 				fsSystemSuspendCPU0PA);
 
-	(void)memcpy((void *)ram1CoreStandbyPA,
+	(void)memcpy((void *)secramCoreStandbyPA,
 				(void *)&corestandby_pa,
 				fsCoreStandbyPA);
 
-	(void)memcpy((void *)ram1CoreStandbyPA2,
+	(void)memcpy((void *)secramCoreStandbyPA2,
 				(void *)&corestandby_pa_2,
 				fsCoreStandbyPA2);
 
-	(void)memcpy((void *)ram1SystemSuspendCPU1PA,
+	(void)memcpy((void *)secramSystemSuspendCPU1PA,
 				(void *)&systemsuspend_cpu1_pa,
 				fsSystemSuspendCPU1PA);
 
-	(void)memcpy((void *)ram1corestandby_down_status,
+	(void)memcpy((void *)secramcorestandby_down_status,
 				(void *)&corestandby_down_status,
 				fscorestandby_down_status);
 
-	(void)memcpy((void *)ram1corestandby_up_status,
+	(void)memcpy((void *)secramcorestandby_up_status,
 				(void *)&corestandby_up_status,
 				fscorestandby_up_status);
 
-	(void)memcpy((void *)ram1xtal_though,
+	(void)memcpy((void *)secramxtal_though,
 				(void *)&xtal_though,
 				fsxtal_though);
 #if 0
-	(void)memcpy((void *)ram1xtal_though_restore,
+	(void)memcpy((void *)secramxtal_though_restore,
 				(void *)&xtal_though_restore,
 				fsxtal_though_restore);
 #endif

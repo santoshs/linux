@@ -241,7 +241,7 @@ ENTRY(start_corestandby)
 	/* Set SYS boot address Register values at this point are */
 	/*--------------------------------------------------------------*/
 	LDR		r4, =SBAR
-	LDR		r6, =ram1BasePhys /* Load RAM1 physical address */
+	LDR		r6, =secramBasePhys /* Load RAM1 physical address */
 	BIC	r7, r6, #0x3 /* Set RAM1 physical address & clear BTMD[1:0] */
 	STR		r7, [r4]
 
@@ -441,8 +441,8 @@ ENTRY(corestandby)
 	/* Disable MMU							*/
 	/*------------------------------------------*/
 	/* Jump point to corestandby_pa non-MMU */
-	LDR		r0, =ram1CoreStandbyPAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramCoreStandbyPAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
 
@@ -531,8 +531,8 @@ CPU0_SYSTEMSUSPEND:
 	/* Disable MMU							*/
 	/*--------------------------------------*/
 	/* Set jump point after disable MMU to systemsuspend_cpu0_pa */
-	LDR		r0, =ram1SystemSuspendCPU0PAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramSystemSuspendCPU0PAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4		/* Call disablemmu() */
 	NOP
 
@@ -594,8 +594,8 @@ CPU1_SYSTEMSUSPEND:
 	/* Disable MMU			*/
 	/*----------------------*/
 	/* Set jumpt point after disable MMU to systemsuspend_cpu1_pa */
-	LDR		r0, =ram1SystemSuspendCPU1PAPhys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramSystemSuspendCPU1PAPhys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4		/* Call disablemmu()	*/
 	NOP
 
@@ -2006,7 +2006,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Sys power down	*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1SysPowerDownPhys
+	LDR		r4, =secramSysPowerDownPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call sys_powerdown */
 	NOP
@@ -2014,7 +2014,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Sys power up			*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1SysPowerUpPhys
+	LDR		r4, =secramSysPowerUpPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call sys_powerup */
 	NOP
@@ -2022,7 +2022,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1RestoreCommonRegisterPhys
+	LDR		r4, =secramRestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_common_register() */
 	NOP
@@ -2035,7 +2035,7 @@ ENTRY(systemsuspend_cpu0_pa)
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting0Phys
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2052,13 +2052,13 @@ ENDPROC(systemsuspend_cpu0_pa)
 ENTRY(corestandby_pa)
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
 	LDR		r8, =CPUSTATUS_SHUTDOWN
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
@@ -2079,13 +2079,13 @@ ENTRY(corestandby_pa)
 /*	LDR		r7, =CPG_LPCKCR_PLLOFF */
 
 CORESTANDBY_PA_XTAL_THOUGH_SET:
-	LDR		r4, =ram1xtal_thoughPhys
+	LDR		r4, =secramxtal_thoughPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call xtal_though() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2118,7 +2118,7 @@ CORESTANDBY_WAKEUP:
 	NOP
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
@@ -2126,18 +2126,18 @@ CORESTANDBY_WAKEUP:
 	/* r7=0x0: legacy mode */
 	LDR		r5, =CPG_LPCKCRPhys
 	LDR		r7, =CPG_LPCKCR_LEGACY
-	LDR		r4, =ram1xtal_thoughPhys
+	LDR		r4, =secramxtal_thoughPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call xtal_though() */
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2158,7 +2158,7 @@ CORESTANDBY_WAKEUP:
 	LDRNE	r1, =ram0CoreStandbyRestoreCPU1Phys
 	LDR		r1, [r1]
 
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2173,19 +2173,19 @@ ENDPROC(corestandby_pa)
 ENTRY(systemsuspend_cpu1_pa)
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
 	LDR		r8, =CPUSTATUS_HOTPLUG
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2208,18 +2208,18 @@ CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	NOP
 
 	/* Get PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_LockPhys
+	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
 
 	/* Release PM SpinLock				*/
-	LDR		r4, =ram1PM_Spin_UnlockPhys
+	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -2234,7 +2234,7 @@ CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	LDR		r1, [r1]
 
 	LDR		r0, =ram0MmuSetting1Phys
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc
 	MOV		pc, r4 /* Call restore_arm_register_pa() */
 	NOP
@@ -2379,7 +2379,7 @@ ENTRY(start_corestandby_2)
 	/* Set SYS boot address Register values at this point are */
 	/*--------------------------------------------------------------*/
 	LDR		r4, =SBAR
-	LDR		r6, =ram1BasePhys /* Load RAM1 physical address */
+	LDR		r6, =secramBasePhys /* Load RAM1 physical address */
 	BIC	r7, r6, #0x3 /* Set RAM1 physical address & clear BTMD[1:0] */
 	STR		r7, [r4]
 
@@ -2457,8 +2457,8 @@ ENTRY(corestandby_2)
 	/* Disable MMU							*/
 	/*------------------------------------------*/
 	/* Jump point to corestandby_pa_2 non-MMU */
-	LDR		r0, =ram1CoreStandbyPA2Phys
-	LDR		r4, =ram1DisableMMU
+	LDR		r0, =secramCoreStandbyPA2Phys
+	LDR		r4, =secramDisableMMU
 	MOV		pc, r4 /* Call disablemmu() */
 	NOP
 
@@ -2492,7 +2492,7 @@ ENDPROC(corestandby_2)
 ENTRY(corestandby_pa_2)
 
 	LDR		r8, =CPUSTATUS_SHUTDOWN2
-	LDR		r4, =ram1corestandby_down_statusPhys
+	LDR		r4, =secramcorestandby_down_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_down_status() */
 	NOP
@@ -2544,7 +2544,7 @@ SPDCR_CHECK_LOOP_A2SL:
 CORESTANDBY2_WAKEUP:
 	NOP
 
-	LDR		r4, =ram1corestandby_up_statusPhys
+	LDR		r4, =secramcorestandby_up_statusPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call corestandby_up_status() */
 	NOP
@@ -2555,7 +2555,7 @@ CORESTANDBY2_WAKEUP:
 	/*------------------------------------------*/
 	/* Restore Common registers					*/
 	/*------------------------------------------*/
-	LDR		r4, =ram1RestoreCommonRegisterPhys
+	LDR		r4, =secramRestoreCommonRegisterPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_common_register() */
 	NOP
@@ -2568,7 +2568,7 @@ CORESTANDBY2_WAKEUP:
 	LDR	r1, =ram0CoreStandby2RestoreCPU0Phys
 	LDR		r1, [r1]
 
-	LDR		r4, =ram1RestoreArmRegisterPAPhys
+	LDR		r4, =secramRestoreArmRegisterPAPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
