@@ -494,7 +494,9 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 
 	cookie = dma_cookie_assign(tx);
 	if (power_up) {
+		spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 		pm_runtime_get_sync(sh_chan->dev);
+		spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
 
@@ -1172,7 +1174,9 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan,
 
 			if (list_empty(&sh_chan->ld_queue)) {
 				dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
+				spin_unlock_irqrestore(&sh_chan->desc_lock, flags);	
 				pm_runtime_put_sync(sh_chan->dev);
+				spin_lock_irqsave(&sh_chan->desc_lock, flags);
 			}
 		}
 	}
