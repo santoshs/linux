@@ -25,6 +25,8 @@
 #include "pmMacro.S"
 #include "pmCachemaintenance.S"
 
+#define SDRAM_NOCACHE_DUMMY_WRITE_ADDR				0x44000400
+
 	.align	5
 
 /*==========================================*/
@@ -1351,6 +1353,8 @@ ENTRY(restore_common_register)
 	/* Restore SCU registers			*/
 	/*----------------------------------*/
 	LDR		r1, =BaseSCUPhys
+	MOV		r4, #1
+	STR		r4, [r1, #SCU_DIAG]
 	LDMIA	r0!, {r4-r8}
 	STR		r4, [r1, #SCU_FILTER_START_ADDR]
 	STR		r5, [r1, #SCU_FILTER_END_ADDR]
@@ -1467,6 +1471,19 @@ ENTRY(sys_powerdown)
 	LDR		r4, =ram0WakeupCodeAddr0Phys
 	STR		lr, [r4]	/* Save wakeup code address	*/
 
+	/*------------------------------------------*/
+	/* L2 Cache sync */
+	/*------------------------------------------*/
+	LDR		r4, =BasePl310Phys
+	MOV 	r5, #0x0
+	DSB
+	STR 	r5, [r4, #L2_CHACH_SYNC]
+	DSB
+SYSPD_CACHESYNC_LOOP:
+	LDR		r5, [r4, #L2_CHACH_SYNC]
+	TST		r5, #0x1
+	BNE		SYSPD_CACHESYNC_LOOP
+
 	/*------------------------------*/
 	/* Disable L2 cache				*/
 	/*------------------------------*/
@@ -1498,6 +1515,13 @@ SYSPD_CLEANINVALIDATE_LOOP:
 	LDR		r6, [r4, #L2_CLEAN_AND_INVALIDATE]
 	ANDS	r6, r6, r5
 	BNE		SYSPD_CLEANINVALIDATE_LOOP
+
+	/*------------------------------------------*/
+	/* Dummy Write */
+	/*------------------------------------------*/
+	LDR		r5, =SDRAM_NOCACHE_DUMMY_WRITE_ADDR
+	STR		r5, [r5]
+	DSB
 #ifdef CONFIG_SHMOBILE_PASR_SUPPORT
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
@@ -1615,22 +1639,20 @@ SKIP_TURN_OFF_RWDT:
     /* Power Down                            */
     /*--------------------------------------*/
 	LDR		r4, =SPDCRPhys	/* Load SPDCR address    */
-	LDR		r5, =A3SM_PD	/* A3SM Power Down Value */
-TRY_TURNOFF_A3SM:
 SPDCR_CHECK_LOOP_A3SM:
-	LDR		r6, [r4]
+	LDR		r5, [r4]
 	DSB
-	CMP		r6, #0x0
+	CMP		r5, #0x0
 	BNE		SPDCR_CHECK_LOOP_A3SM
- 	LDR		r6, =A3SM_PD
-	STR		r6, [r4]	/* Power Down    */
+
+	LDR		r6, =0x50000
+ 	LDR		r5, =A3SM_PD
+	STR		r5, [r4]
 	DSB
-	LDR		r6, =SYSC_PSTR
-	LDR		r6, [r6]
-	DSB
-	AND		r6, r6, r5
-	CMP		r6, #0
-	BNE		TRY_TURNOFF_A3SM
+A3SM_POWERDOWN_LOOP:
+	SUBS	r6, r6, #1
+	BPL		A3SM_POWERDOWN_LOOP
+	B		SPDCR_CHECK_LOOP_A3SM
 
 .pool
 
@@ -2196,14 +2218,11 @@ ENTRY(systemsuspend_cpu1_pa)
 	LDR		r7, =ram0WakeupCodeAddr1Phys
 	ADR		r4, CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND
 	STR		r4, [r7]
+	DSB
 	WFI
-	NOP
-	MOV	r6,#1000
-	LDR	r4, =PLLECRPhys
-1:	LDR	r5, [r4]
-	SUBS	r6, r6, #1
-	BNE	1b
-	NOP
+	LDR		r6, =0x50000
+1:	SUBS	r6, r6, #1
+	BNE		1b
 CPU1_SUSPEND_WAKEUP_VMALLOC_EXPAND:
 	NOP
 
@@ -2513,6 +2532,31 @@ CPUPD_CACHESYNC_LOOP:
 	BNE		CPUPD_CACHESYNC_LOOP
 
 	/*------------------------------------------*/
+	/* Disable L2 cache */
+	/*------------------------------------------*/
+	LDR		r4, =BasePl310Phys
+	MOV		r5, #0x0
+
+CSTBY_L2DISABLE_LOOP:
+	LDR		r6, [r4, #L2_CONTROL]
+	AND		r6, r6, #0x1
+	CMP		r6, r5
+	BEQ		CSTBY_L2DISABLE_SKIP
+
+	/* Write PL310 Control register (Disable L2 cache) */
+	STR		r5, [r4, #L2_CONTROL]
+	DSB
+	B		CSTBY_L2DISABLE_LOOP
+
+CSTBY_L2DISABLE_SKIP:
+	/*------------------------------------------*/
+	/* Dummy Write */
+	/*------------------------------------------*/
+	LDR		r5, =SDRAM_NOCACHE_DUMMY_WRITE_ADDR
+	STR		r5, [r5]
+	DSB
+
+	/*------------------------------------------*/
 	/* CPU power down */
 	/*------------------------------------------*/
 	ADR		r5, CORESTANDBY2_WAKEUP
@@ -2525,21 +2569,29 @@ CPUPD_CACHESYNC_LOOP:
 	/* CoreStandby A2SL power down	*/
 	/*------------------------------------------*/
 	LDR		r4, =SPDCRPhys /* Load SPDCR address */
-CORE_POWERDOWN_LOOP:
 SPDCR_CHECK_LOOP_A2SL:
 	LDR		r5, [r4]
 	DSB
 	CMP		r5, #0x0
 	BNE		SPDCR_CHECK_LOOP_A2SL
+
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY2_WAKEUP
+	DSB
+
+	LDR		r6, =0x50000
  	LDR		r5, =A2SLPD
 	STR		r5, [r4]
 	DSB
-	LDR		r6, =SYSC_PSTR /* Load PSTR address */
-	LDR		r6, [r6]
-	DSB
-	AND		r6, r6, #A2SLST
-	CMP		r6, #0x0
-	BNE		CORE_POWERDOWN_LOOP
+CORE_POWERDOWN_LOOP:
+	SUBS	r6, r6, #1
+	BPL		CORE_POWERDOWN_LOOP
+	B		SPDCR_CHECK_LOOP_A2SL
 
 CORESTANDBY2_WAKEUP:
 	NOP

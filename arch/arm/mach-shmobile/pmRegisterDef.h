@@ -73,6 +73,7 @@
 #define SCU_PWRST		0x08	/* SCU CPU Power Status Register(RW)*/
 /* SCU Invalidate All Register in Secure State Register(WO)*/
 #define SCU_INVALL	0x0C
+#define SCU_DIAG	0x30
 #define SCU_FILTER_START_ADDR 0x40 /* Filtering Start Address Register(RW)*/
 #define SCU_FILTER_END_ADDR	0x44 /* Filtering End Address Register(RW)*/
 #define SCU_SAC		0x50	/* SCU Access Control Register(RW)*/
