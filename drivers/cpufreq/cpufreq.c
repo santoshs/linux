@@ -29,6 +29,7 @@
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <linux/syscore_ops.h>
+#include <memlog/memlog.h>
 
 #include <trace/events/power.h>
 
@@ -1680,6 +1681,12 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_NOTIFY, policy);
 
+	if (data->min != policy->min) {
+		memory_log_dump_int(PM_DUMP_ID_DFS_MINMAX_FREQ, policy->min & 0xEFFFFFFF);
+	} 
+	if (data->max != policy->max) {
+		memory_log_dump_int(PM_DUMP_ID_DFS_MINMAX_FREQ, policy->max | 0x80000000);
+	}
 	data->min = policy->min;
 	data->max = policy->max;
 
