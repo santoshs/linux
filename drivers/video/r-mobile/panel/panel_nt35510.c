@@ -1075,6 +1075,9 @@ retry:
 		screen_display_delete(&disp_delete);
 		goto retry;
 	}
+	printk(KERN_DEBUG "Panel initialized with Video mode\n");
+#else /* NT35510_ENABLE_VIDEO_MODE */
+	printk(KERN_DEBUG "Panel initialized with Command mode\n");
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
 out:
