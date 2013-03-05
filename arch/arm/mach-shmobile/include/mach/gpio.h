@@ -13,7 +13,6 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 
-#define ARCH_NR_GPIOS 1024
 #include <linux/sh_pfc.h>
 #include <linux/io.h>
 
@@ -21,15 +20,13 @@
 
 #define GPIO_BASE      IO_ADDRESS(0xe6050000)
 /* gpio address calculation */
-#define GPIO_PORTCR(n) ({ \
+#define GPIO_PORTCR(n) ({		 \
 ((n) < 96) ? (GPIO_BASE + 0x0000 + (n)) : \
-((n) < 128) ? (GPIO_BASE + 0x0000 + (n) +  \
-       ((system_rev&(~0x3E00)) ? 0 : 0x1000)) : \
+((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :  \
 ((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) : \
 ((n) < 192) ? 0 : \
 ((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) : \
-((n) < 328) ? (GPIO_BASE + 0x2000 + (n) + \
-       ((system_rev&(~0x3E00)) ? 0 : 0x1000)) : 0; })
+((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
 
 /* GPIO Settings - PULMD (Pull OFF/Pull DOWN/Pull UP) */
 #define PORTn_CR_PULL_NOT_SET	-1

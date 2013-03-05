@@ -2046,7 +2046,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCD0_6, NULL);
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
-	
+	gpio_request(GPIO_FN_MMCRST, NULL);
 	/* Disable GPIO Enable at initialization */
 
 	// MHL enable
