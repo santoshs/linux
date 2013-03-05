@@ -41,6 +41,8 @@
 #include <net/phonet/pn_dev.h>
 #include <linux/switch.h> /* AT-ISI Separation */
 #include <linux/tsu6712.h>
+#include <linux/interrupt.h>
+
 
 MODULE_AUTHOR("david RMC");
 MODULE_DESCRIPTION("Phonet TTY line discipline");
@@ -85,6 +87,7 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_UART_AT_MODE           2
 #define LD_UART_INVALID_MODE      -1
 
+#define LD_WAKEUP_DATA_INIT       0
 #define ATPLIB_AT_CMD_MAX   1024
 extern struct switch_dev switch_dock;
 
@@ -125,7 +128,8 @@ struct switch_dev ld_pt_dev = {
 };
 
 int ld_buff_len; /* LD Phonet Tx Backlog buffer Len */
-
+unsigned long ld_write_wakeup_tty; /*This holds TTY info for tasklet */
+struct tasklet_struct ld_wakeup_tasklet;
 /* AT-ISI Separation ends */
 #define LD_PHONET_DEBUG 0
 #if LD_PHONET_DEBUG
@@ -479,6 +483,7 @@ static void ld_phonet_ldisc_close(struct tty_struct *tty)
 	tty->disc_data = NULL;
 	kfree(ld_pn->ld_atcmd_buffer);
 	ld_pn->tty = NULL;
+	ld_write_wakeup_tty = LD_WAKEUP_DATA_INIT;
 	unregister_netdev(ld_pn->dev);
 	/*free_netdev(ld_pn->dev); David a checker*/
 }
@@ -875,16 +880,35 @@ static void ld_phonet_ldisc_receive
 	spin_unlock_irqrestore(&ld_pn->lock, flags);
 }
 
-static void ld_phonet_ldisc_write_wakeup(struct tty_struct *tty)
+
+void ld_write_wakeup_tasklet(unsigned long data)
 {
-	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+	struct tty_struct *tty = (struct tty_struct *)data;
 	struct ld_phonet *ld_pn;
-	ld_pn = tty->disc_data;
-	if (ld_pn == NULL)
+
+	if (data == NULL) {
+		dbg("LD Tasklet DATA NULL\n");
 		return;
+	}
+
+	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+
+	ld_pn = tty->disc_data;
+	if (ld_pn == NULL) {
+		dbg("LD PN Tasklet DATA NULL\n");
+		return;
+	}
+
 	BUG_ON(ld_pn == NULL);
 	BUG_ON(ld_pn->tty != tty);
 	ld_pn_handle_tx(ld_pn);
+	return;
+}
+
+static void ld_phonet_ldisc_write_wakeup(struct tty_struct *tty)
+{
+	ld_write_wakeup_tty  = (unsigned long) tty;
+	tasklet_hi_schedule(&ld_wakeup_tasklet);
 }
 
 int ld_phonet_hangup_wait(void *data)
@@ -934,11 +958,15 @@ static int __init ld_phonet_init(void)
 	retval = tty_register_ldisc(N_PHONET, &ld_phonet_ldisc);
 	switch_dev_register(&ld_pt_dev);
 	ld_buff_len = LD_PHONET_INIT_LEN;
+	ld_write_wakeup_tty = LD_WAKEUP_DATA_INIT;
+	tasklet_init(&ld_wakeup_tasklet, ld_write_wakeup_tasklet,\
+		 (unsigned long) &ld_write_wakeup_tty);
 	return  retval;
 }
 
 static void __exit ld_phonet_exit(void)
 {
+	tasklet_kill(&ld_wakeup_tasklet);
 	tty_unregister_ldisc(N_PHONET);
 	/* AT-ISI Separation */
 	/* sysfs_remove_group(&client->dev.kobj, &ld_group); */
