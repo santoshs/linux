@@ -1303,9 +1303,9 @@ static void __init gardalte_init(void)
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 
-		*GPIO_DRVCR_SD0 = 0x0023;
-		*GPIO_DRVCR_SIM1 = 0x0023;
-		*GPIO_DRVCR_SIM2 = 0x0023;
+		*GPIO_DRVCR_SD0 = 0x0022;
+		*GPIO_DRVCR_SIM1 = 0x0022;
+		*GPIO_DRVCR_SIM2 = 0x0022;
 	}
 	shmobile_arch_reset = gardalte_restart;
 
@@ -1391,6 +1391,7 @@ static void __init gardalte_init(void)
 		gpio_request(GPIO_FN_SDHICLK0, NULL);
 		gpio_request(GPIO_PORT327, NULL);
 		gpio_direction_input(GPIO_PORT327);
+		gpio_pull_off_port(GPIO_PORT327);
 		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}

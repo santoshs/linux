@@ -176,6 +176,9 @@ struct renesas_sdhi_host {
 	unsigned int            sg_len;
 	unsigned int            sg_off;
 	struct sdhi_register_value *reg;
+#ifdef CONFIG_PM
+	int state;
+#endif
 };
 
 static u16 sdhi_read16(struct renesas_sdhi_host *host, u32 offset)
@@ -633,7 +636,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	/* PMIC End */
 
 
-	if (!IS_ERR_OR_NULL(host->mrq)) {
+	if (!IS_ERR_OR_NULL(host->mrq) || !IS_ERR_OR_NULL(host->cmd)) {
 		if (host->mrq->cmd)
 			host->mrq->cmd->error = -ENOMEDIUM;
 		if (host->mrq->data) {
@@ -1428,11 +1431,20 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+#define CHANNEL_SDHI1	1
+#define OFF		0
 int renesas_sdhi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
-	int ret = mmc_suspend_host(host->mmc);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	int ret = 0;
+
+	if (CHANNEL_SDHI1 == pdev->id) {
+		if (pdata->get_pwr)
+			host->state = pdata->get_pwr(host->pdev);
+	}
+	ret = mmc_suspend_host(host->mmc);
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
@@ -1455,7 +1467,9 @@ int renesas_sdhi_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 val;
+	u32 ret = 0;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
@@ -1470,8 +1484,15 @@ int renesas_sdhi_resume(struct device *dev)
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
  	sdhi_restore_register(host);
+	ret = mmc_resume_host(host->mmc);
 
-	return mmc_resume_host(host->mmc);
+	if (CHANNEL_SDHI1 == pdev->id) {
+		if (OFF == host->state) {
+			if (pdata->set_pwr)
+				pdata->set_pwr(host->pdev, 0);
+		}
+	}
+	return ret;
 }
 #else
 #define renesas_sdhi_suspend	NULL
