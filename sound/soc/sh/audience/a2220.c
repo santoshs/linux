@@ -1260,7 +1260,7 @@ int execute_cmdmsg(struct a2220_data *a2220, unsigned int msg)
 	if (msg == A100_msg_Sleep) {
 		a2220_pr_info("...go to suspend first\n");
 		a2220->suspended = 1;
-
+		msleep(20);
 		return rc;
 	}
 	a2220_pr_info("execute_cmdmsg + 2\n");
@@ -1832,6 +1832,9 @@ static int a2220_enable_vclk4(void)
 		}
 
 		clk_put(main_clk);
+
+		/* wait until vclk4 is stable */
+		usleep_range(1, 1);
 	} else {
 		a2220_pr_info("already enabled vclk.\n");
 	}
