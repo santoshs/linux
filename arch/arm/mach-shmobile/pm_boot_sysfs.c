@@ -49,7 +49,7 @@ static ssize_t pm_boot_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 static struct kobj_attribute foo_attribute =
-	__ATTR(boot_stop, 0666, pm_boot_show, pm_boot_store);
+	__ATTR(boot_stop, 0644, pm_boot_show, pm_boot_store);
 
 /*
  * Create a group of attributes so that we can create and destroy them all
