@@ -90,14 +90,17 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull_up_port(GPIO_PORT18);
 		gpio_pull_up_port(GPIO_PORT1);
 		gpio_pull_up_port(GPIO_PORT2);
+#ifdef CONFIG_MACH_U2EVM		
 	if(u2_get_board_rev() < 4) {
 		gpio_pull_up_port(GPIO_PORT45);
 		gpio_pull_up_port(GPIO_PORT46);
 		gpio_pull_up_port(GPIO_PORT47);
 	}
+#endif	
 	return 0;
 }
 
+#ifdef CONFIG_MACH_U2EVM
 static struct gpio_keys_platform_data gpio_key_polled_info = {
 	.buttons	= gpio_buttons_polled,
 	.nbuttons	= ARRAY_SIZE(gpio_buttons),
@@ -105,6 +108,7 @@ static struct gpio_keys_platform_data gpio_key_polled_info = {
 	.enable		= gpio_key_enable,
 	.poll_interval	= 50,
 };
+#endif
 
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
@@ -121,6 +125,7 @@ struct platform_device gpio_key_device = {
 	},
 };
 
+#ifdef CONFIG_MACH_U2EVM
 static struct platform_device gpio_key_polled_device = {
 	.name	= "gpio-keys-polled",
 	.id	= -1,
@@ -128,6 +133,8 @@ static struct platform_device gpio_key_polled_device = {
 		.platform_data	= &gpio_key_polled_info,
 	},
 };
+#endif
+
 int gpio_key_init(int stm_select,
 		unsigned int u2_board_rev,
 		int sec_rlte_hw_rev,
@@ -155,6 +162,7 @@ int gpio_key_init(int stm_select,
 			break;
 	}
 
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_board_rev < SEC_RLTE_REV0_3_1) {
 		int i;
 		for (i = 0; i < p_dev_cnt; i++) {
@@ -166,5 +174,8 @@ int gpio_key_init(int stm_select,
 			}
 		}
 	}
+#endif	
 	platform_add_devices(p_dev, p_dev_cnt);
+	
+	return 0;
 }
