@@ -32,6 +32,11 @@
 #include <asm/shmparam.h>
 
 /*** Page table manipulation functions ***/
+#ifdef CONFIG_COMPACTION
+gfp_t movable_gfp_mask = __GFP_MOVABLE;
+#else
+gfp_t movable_gfp_mask = 0;
+#endif
 
 static void vunmap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end)
 {
@@ -1582,7 +1587,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	area->nr_pages = nr_pages;
 	/* Please note that the recursion is strictly bounded. */
 	if (array_size > PAGE_SIZE) {
-		pages = __vmalloc_node(array_size, 1, nested_gfp|__GFP_HIGHMEM | __GFP_MOVABLE,
+		pages = __vmalloc_node(array_size, 1, nested_gfp|__GFP_HIGHMEM ,
 				PAGE_KERNEL, node, caller);
 		area->flags |= VM_VPAGES;
 	} else {
@@ -1729,7 +1734,7 @@ static inline void *__vmalloc_node_flags(unsigned long size,
  */
 void *vmalloc(unsigned long size)
 {
-	return __vmalloc_node_flags(size, -1, GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE);
+	return __vmalloc_node_flags(size, -1, GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask);
 }
 EXPORT_SYMBOL(vmalloc);
 
@@ -1746,7 +1751,7 @@ EXPORT_SYMBOL(vmalloc);
 void *vzalloc(unsigned long size)
 {
 	return __vmalloc_node_flags(size, -1,
-				GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE | __GFP_ZERO);
+				GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask | __GFP_ZERO);
 }
 EXPORT_SYMBOL(vzalloc);
 
@@ -1763,7 +1768,7 @@ void *vmalloc_user(unsigned long size)
 	void *ret;
 
 	ret = __vmalloc_node(size, SHMLBA,
-			     GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE | __GFP_ZERO,
+			     GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask | __GFP_ZERO,
 			     PAGE_KERNEL, -1, __builtin_return_address(0));
 	if (ret) {
 		area = find_vm_area(ret);
@@ -1786,7 +1791,7 @@ EXPORT_SYMBOL(vmalloc_user);
  */
 void *vmalloc_node(unsigned long size, int node)
 {
-	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE, PAGE_KERNEL,
+	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask , PAGE_KERNEL,
 					node, __builtin_return_address(0));
 }
 EXPORT_SYMBOL(vmalloc_node);
@@ -1806,7 +1811,7 @@ EXPORT_SYMBOL(vmalloc_node);
 void *vzalloc_node(unsigned long size, int node)
 {
 	return __vmalloc_node_flags(size, node,
-			 GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE | __GFP_ZERO);
+			 GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask | __GFP_ZERO);
 }
 EXPORT_SYMBOL(vzalloc_node);
 
@@ -1828,7 +1833,7 @@ EXPORT_SYMBOL(vzalloc_node);
 
 void *vmalloc_exec(unsigned long size)
 {
-	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM | __GFP_MOVABLE, PAGE_KERNEL_EXEC,
+	return __vmalloc_node(size, 1, GFP_KERNEL | __GFP_HIGHMEM | movable_gfp_mask, PAGE_KERNEL_EXEC,
 			      -1, __builtin_return_address(0));
 }
 
