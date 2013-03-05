@@ -94,6 +94,7 @@
 #include <mach/sec_debug_inform.h>
 #endif
 #include <sound/a2220.h>
+#include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
 #ifdef CONFIG_BOARD_VERSION_GARDA
 #include <linux/leds-regulator.h>
@@ -742,6 +743,14 @@ struct a2220_platform_data  gardalte_a2220_data = {
 	.gpio_wakeup = GPIO_PORT26,
 };
 
+struct fm34_platform_data  gardalte_fm34_data = {
+	.set_mclk = NULL,
+	.gpio_pwdn = GPIO_PORT26,
+	.gpio_rst = GPIO_PORT44,
+	.gpio_bp = GPIO_PORT46,
+	.gpio_avdd = 0,
+};
+
 /* THREE optional gardalte_devices pointer lists for initializing the platform
  * devices 
  */
@@ -1031,6 +1040,10 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
 		.platform_data = &gardalte_a2220_data,
+	},
+	{
+		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
+		.platform_data = &gardalte_fm34_data,
 	},
 };
 
