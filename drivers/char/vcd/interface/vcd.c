@@ -268,6 +268,28 @@ void vcd_stop_fw(int result)
 
 
 /**
+ * @brief	fw stop notification function for playback stored.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_stop_fw_stored_playback(void)
+{
+	vcd_pr_start_if_user();
+
+	if (NULL != g_vcd_stop_fw)
+		g_vcd_stop_fw();
+
+	g_vcd_complete_buffer = NULL;
+	g_vcd_beginning_buffer = NULL;
+
+	vcd_pr_end_if_user();
+	return;
+}
+
+
+/**
  * @brief	codec type ind notification function.
  *
  * @param	codec_type.	VCD_CODEC_WB(0)

@@ -400,8 +400,7 @@ int vcd_spuv_start_vcd(void)
 
 
 	/* set power supply */
-	ret = vcd_spuv_func_control_power_supply(
-					VCD_SPUV_FUNC_ENABLE);
+	ret = vcd_spuv_func_control_power_supply(VCD_ENABLE);
 
 	/* beginning on clkgen is notified */
 	/* regardless of the execution result. */
@@ -447,7 +446,7 @@ int vcd_spuv_start_vcd(void)
 	vcd_spuv_free_irq();
 
 err_rtn:
-	vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_DISABLE);
+	vcd_spuv_func_control_power_supply(VCD_DISABLE);
 	vcd_spuv_func_release_firmware();
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 rtn:
@@ -474,7 +473,7 @@ int vcd_spuv_stop_vcd(void)
 	vcd_spuv_free_irq();
 
 	/* power supply off */
-	ret = vcd_spuv_func_control_power_supply(VCD_SPUV_FUNC_DISABLE);
+	ret = vcd_spuv_func_control_power_supply(VCD_DISABLE);
 	if (VCD_ERR_NONE != ret)
 		vcd_pr_err("power supply error[%d].\n", ret);
 
@@ -1688,7 +1687,7 @@ static irqreturn_t vcd_spuv_irq_handler(int irq, void *dev_id)
 
 	/* interrupt masked */
 	vcd_spuv_func_set_register(
-		VCD_SPUV_FUNC_DISABLE,
+		VCD_DISABLE,
 		SPUV_FUNC_RW_32_AINTMASK);
 
 	/* entry queue */
@@ -1887,6 +1886,7 @@ static void vcd_spuv_workqueue_enqueue(
 	struct vcd_spuv_workqueue *wq, struct vcd_spuv_work *work)
 {
 	unsigned long flags;
+
 	vcd_pr_start_spuv_function("wq[%p]work[%p]", wq, work);
 
 	if (wq && work) {
@@ -2005,7 +2005,7 @@ static void vcd_spuv_interrupt_ack(void)
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
-	if (VCD_SPUV_FUNC_DISABLE == ret)
+	if (VCD_DISABLE == ret)
 		goto rtn;
 
 	/* unset status */
@@ -2034,7 +2034,7 @@ static void vcd_spuv_interrupt_req(void)
 {
 	int ret = VCD_ERR_NONE;
 	int i = 0;
-	int is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+	int is_ack_log_enable = VCD_ENABLE;
 	unsigned int *fw_req = (int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
 	unsigned int spuv_status = VCD_SPUV_STATUS_NONE;
 	unsigned int *latest_sys_info =
@@ -2049,7 +2049,7 @@ static void vcd_spuv_interrupt_req(void)
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
-	if (VCD_SPUV_FUNC_DISABLE == ret)
+	if (VCD_DISABLE == ret)
 		goto rtn;
 
 	/* check status */
@@ -2389,27 +2389,27 @@ rtn:
  */
 static int vcd_spuv_is_log_enable(unsigned int msg)
 {
-	int is_ack_log_enable = VCD_SPUV_FUNC_DISABLE;
+	int is_ack_log_enable = VCD_DISABLE;
 
 	switch (msg) {
 	case VCD_SPUV_SYSTEM_INFO_IND:
 		if (g_vcd_log_level & VCD_LOG_ON_SYSTEM_INFO_IND)
-			is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+			is_ack_log_enable = VCD_ENABLE;
 		break;
 	case VCD_SPUV_TRIGGER_PLAY_IND:
 		if (g_vcd_log_level & VCD_LOG_ON_TRIGGER_PLAY_IND)
-			is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+			is_ack_log_enable = VCD_ENABLE;
 		break;
 	case VCD_SPUV_TRIGGER_REC_IND:
 		if (g_vcd_log_level & VCD_LOG_ON_TRIGGER_REC_IND)
-			is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+			is_ack_log_enable = VCD_ENABLE;
 		break;
 	case VCD_SPUV_UDATA_IND:
 		if (g_vcd_log_level & VCD_LOG_ON_UDATA_IND)
-			is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+			is_ack_log_enable = VCD_ENABLE;
 		break;
 	default:
-		is_ack_log_enable = VCD_SPUV_FUNC_ENABLE;
+		is_ack_log_enable = VCD_ENABLE;
 		break;
 	}
 

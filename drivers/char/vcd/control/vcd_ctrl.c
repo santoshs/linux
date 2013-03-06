@@ -14,6 +14,7 @@
  *
  */
 #include <linux/semaphore.h>
+#include <linux/timer.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_interface.h"
@@ -30,6 +31,9 @@ unsigned int g_vcd_ctrl_record_mode;
 unsigned int g_vcd_ctrl_playback_mode;
 unsigned int g_vcd_ctrl_call_kind;
 int g_vcd_ctrl_is_stop_fw;
+struct vcd_playback_option g_vcd_ctrl_stored_playback_option;
+struct timer_list g_vcd_ctrl_timer_list;
+unsigned int g_vcd_ctrl_timer_status;
 DEFINE_SEMAPHORE(g_vcd_ctrl_semaphore);
 
 /* ========================================================================= */
@@ -236,6 +240,8 @@ rtn:
  */
 int vcd_ctrl_stop_vcd(void)
 {
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
 	vcd_pr_start_control_function();
 
 	/* update active status */
@@ -243,6 +249,18 @@ int vcd_ctrl_stop_vcd(void)
 
 	/* semaphore start */
 	down(&g_vcd_ctrl_semaphore);
+
+	/* operation state confirmation */
+	active_feature = vcd_ctrl_func_get_active_feature();
+	if (VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK & active_feature) {
+		/* update active status */
+		vcd_ctrl_func_unset_active_feature(
+				VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+		/* stop stored timer */
+		vcd_ctrl_stop_stored_playback_timer();
+		/* notification fw stop */
+		vcd_stop_fw_stored_playback();
+	}
 
 	/* check sequence */
 	g_vcd_ctrl_result =
@@ -291,6 +309,8 @@ rtn:
  */
 int vcd_ctrl_set_hw_param(void)
 {
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
 	vcd_pr_start_control_function();
 
 	/* check sequence */
@@ -313,6 +333,11 @@ int vcd_ctrl_set_hw_param(void)
 
 	/* update active status */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_HW_PARAM);
+
+	/* operation state confirmation */
+	active_feature = vcd_ctrl_func_get_active_feature();
+	if (VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK & active_feature)
+		vcd_ctrl_start_playback(&g_vcd_ctrl_stored_playback_option);
 
 rtn:
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
@@ -665,6 +690,8 @@ rtn:
 int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 {
 	int ret = VCD_ERR_NONE;
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
 
 	vcd_pr_start_control_function("option[%p].\n", option);
 	vcd_pr_control_info("option.mode[%d].\n", option->mode);
@@ -673,9 +700,37 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 	ret = vcd_ctrl_func_check_sequence(VCD_CTRL_FUNC_START_PLAYBACK);
 	if (VCD_ERR_NONE != ret) {
 		vcd_pr_control_info("check sequence[%d].\n", ret);
+
+		if (VCD_ERR_NOT_ACTIVE == ret) {
+			/* operation state confirmation */
+			active_feature = vcd_ctrl_func_get_active_feature();
+
+			if (VCD_CTRL_FUNC_FEATURE_VCD & active_feature) {
+				/* update active status */
+				vcd_ctrl_func_set_active_feature(
+					VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+				g_vcd_ctrl_stored_playback_option.
+					mode = option->mode;
+				g_vcd_ctrl_stored_playback_option.
+					beginning_buffer =
+					option->beginning_buffer;
+				/* start stored timer */
+				vcd_ctrl_start_stored_playback_timer();
+				ret = VCD_ERR_NONE;
+				goto rtn;
+			}
+		}
+
 		ret = vcd_ctrl_func_convert_result(ret);
 		goto rtn;
 	}
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(
+		VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+
+	/* stop stored timer */
+	vcd_ctrl_stop_stored_playback_timer();
 
 	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
 		/* execute spuv function */
@@ -710,6 +765,13 @@ int vcd_ctrl_stop_playback(void)
 	int ret = VCD_ERR_NONE;
 
 	vcd_pr_start_control_function();
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(
+		VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+
+	/* stop stored timer */
+	vcd_ctrl_stop_stored_playback_timer();
 
 	/* check sequence */
 	ret = vcd_ctrl_func_check_sequence(VCD_CTRL_FUNC_STOP_PLAYBACK);
@@ -974,6 +1036,13 @@ void vcd_ctrl_stop_fw(int result)
 
 	/* update feature */
 	vcd_ctrl_func_set_active_feature(VCD_CTRL_FUNC_FEATURE_ERROR);
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(
+		VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+
+	/* stop stored timer */
+	vcd_ctrl_stop_stored_playback_timer();
 
 	/* notification fw stop */
 	vcd_stop_fw(result);
@@ -1683,4 +1752,93 @@ static int vcd_ctrl_error_stop_vcd(void)
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
 	return g_vcd_ctrl_result;
+}
+
+
+/**
+ * @brief	start playback timer function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_ctrl_start_stored_playback_timer(void)
+{
+	vcd_pr_start_control_function();
+
+	/* check status */
+	if (VCD_ENABLE == g_vcd_ctrl_timer_status)
+		goto rtn;
+
+	/* set timer */
+	init_timer(&g_vcd_ctrl_timer_list);
+	g_vcd_ctrl_timer_list.function =
+			(void *)vcd_ctrl_stored_playback_timer_cb;
+	g_vcd_ctrl_timer_list.data = 0;
+	g_vcd_ctrl_timer_list.expires =
+			jiffies + VCD_CTRL_STORED_PLAYBACK_TIMER;
+	add_timer(&g_vcd_ctrl_timer_list);
+
+	/* set status */
+	g_vcd_ctrl_timer_status = VCD_ENABLE;
+rtn:
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	stop playback timer function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_ctrl_stop_stored_playback_timer(void)
+{
+	int ret = VCD_ERR_NONE;
+
+	vcd_pr_start_control_function();
+
+	if (VCD_DISABLE == g_vcd_ctrl_timer_status)
+		goto rtn;
+
+	ret = del_timer(&g_vcd_ctrl_timer_list);
+	if (0 == ret)
+		vcd_pr_control_info("timer not start.\n");
+
+	/* set status */
+	g_vcd_ctrl_timer_status = VCD_DISABLE;
+
+rtn:
+	vcd_pr_end_control_function();
+	return;
+}
+
+
+/**
+ * @brief	stored playback timeout function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_ctrl_stored_playback_timer_cb(void)
+{
+	vcd_pr_start_control_function();
+
+	vcd_pr_err("stored playback timeout.\n");
+
+	/* update active status */
+	vcd_ctrl_func_unset_active_feature(
+			VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
+
+	/* notification fw stop */
+	vcd_stop_fw_stored_playback();
+
+	/* set status */
+	g_vcd_ctrl_timer_status = VCD_DISABLE;
+
+	vcd_pr_end_control_function();
+	return;
 }
