@@ -45,6 +45,9 @@
 			VCD_CTRL_STATUS_ERROR_OCCURS
 
 
+/* stored playback timeout value */
+#define VCD_CTRL_STORED_PLAYBACK_TIMER	(1000 * HZ / 1000)
+
 /*
  * define macro declaration
  */
@@ -148,5 +151,8 @@ void vcd_ctrl_dump_diamond_memory(void);
 
 /* Internal functions */
 static int vcd_ctrl_error_stop_vcd(void);
+static void vcd_ctrl_start_stored_playback_timer(void);
+static void vcd_ctrl_stop_stored_playback_timer(void);
+static void vcd_ctrl_stored_playback_timer_cb(void);
 
 #endif /* __VCD_CTRL_H__ */
