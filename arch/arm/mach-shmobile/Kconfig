@@ -429,6 +429,14 @@ endif
 
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
+config SHMOBILE_PASR_SUPPORT
+	default n
+	bool "Support Partial Array Self Refresh"
+	depends on SHMOBILE_RAM_DEFRAG
+	help
+	  This enables PASR support
+	  It is called by Suspend module before entering suspend state
+
 # endif for ARCH_SHMOBILE
 
 menu "Kernel low-level debugging via SuperH SCI(F) port"

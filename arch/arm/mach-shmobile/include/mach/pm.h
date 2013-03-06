@@ -25,6 +25,7 @@
 
 #include <linux/io.h>
 #include <linux/spinlock_types.h>
+#include <linux/atomic.h>
 #include <linux/hwspinlock.h>
 
 #ifdef CONFIG_PM_HAS_SECURE
@@ -68,8 +69,8 @@ struct pm_state_notify_confirm {
 
 /* Need to be used by others of PM */
 
-extern int core_wait_kick(unsigned int time);
-extern int core_set_kick(unsigned int time);
+extern int core_wait_kick(int time);
+extern int core_set_kick(int time);
 extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
 				unsigned int freqB, unsigned int freqB_mask);
 extern unsigned int suspend_ZB3_backup(void);
@@ -178,6 +179,9 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define ID_A4LC					6
 #define ID_D4					1
 
+extern atomic_t	pdwait_flag;
+void pdwait_judge(void);
+
 #ifdef CONFIG_PDC
 struct power_domain_info {
 	struct device *devs[POWER_DOMAIN_COUNT_MAX];
@@ -212,6 +216,7 @@ static inline void power_domains_put_noidle(const struct device *dev) {}
 static inline int control_pdc(int is_enable) { return 0; }
 static inline int is_pdc_enable(void) { return 0; }
 #endif
+inline void pdwait_judge(void) {}
 #endif  /*CONFIG_PDC*/
 
 #ifdef CONFIG_SUSPEND
@@ -409,11 +414,8 @@ enum {
 	HPCLK = BIT(2)
 };
 /* API use for Power Off module */
-extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
-/* #define DVFS_DEBUG_MODE		1 */
-/* #define DVFS_TEST_MODE		1 */
 #define ZB3_CLK_DFS_ENABLE
 #define ZB3_CLK_SUSPEND_ENABLE
 #define ZB3_CLK_IDLE_ENABLE
@@ -469,7 +471,6 @@ extern void unsuppress_clocks_change(void);
 extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
-extern int is_cpufreq_clk_state_normal(void);
 /* Internal API for CPUFreq driver only */
 /* for corestandby */
 extern int cpg_get_freq(struct clk_rate *rates);
@@ -505,7 +506,6 @@ static inline void unsuppress_clocks_change(void) {}
 static inline int control_cpufreq(int is_enable) { return 0; }
 static inline int is_cpufreq_enable(void) { return 0; }
 #endif
-static inline int is_cpufreq_clk_state_normal(void) { return 0; }
 /* Internal API for CPUFreq driver only */
 static inline int cpg_set_sbsc_freq(unsigned int new_ape_freq) { return 0; }
 static inline int pm_set_clocks(const struct clk_rate clk_div) { return 0; }

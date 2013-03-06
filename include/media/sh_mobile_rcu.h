@@ -58,4 +58,7 @@ struct sh_mobile_rcu_info {
 
 void sh_mobile_rcu_flash(int led);
 
+void sh_mobile_rcu_event_time_func(unsigned short id);
+void sh_mobile_rcu_event_time_data(unsigned short id, unsigned int data);
+
 #endif /* __ASM_SH_MOBILE_RCU_H__ */
