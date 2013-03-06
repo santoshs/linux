@@ -631,6 +631,17 @@ config TTY_STM
 	help
 	  ARM STM is a device which exports traces other STPv2 link
 
+config TTY_LL_STM
+       bool "Low-Level printk_stm_xxx functions for ARM's System Trace Macrocell"
+       depends on TTY_STM
+       default n
+       help
+         ARM STM low-level lockless traces to be used in kernel debugging.
+         User is responsible for selecting unique channel number for potentially
+         overlapping traces. Master IDs are adding to uniqueness, so does not
+         need to have separate channel number for multiple CPUs. First low
+         numbered channel numbers are reserved for TTY_STM.
+
 config TILE_SROM
 	bool "Character-device access via hypervisor to the Tilera SPI ROM"
 	depends on TILE

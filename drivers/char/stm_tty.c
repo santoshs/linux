@@ -48,6 +48,7 @@ void __iomem *stm_ctrl;
 void __iomem *stm_prt_reg;
 static struct tty_driver *g_stm_tty_driver;
 static struct stm_port *stm_table[STM_TTY_MINORS];
+static uint32_t stm_channel_end;
 
 static int is_debug_enabled(void)
 {
@@ -67,6 +68,16 @@ static int is_debug_disabled(void)
 	return !(is_debug_enabled());
 }
 
+inline void __iomem *get_stm(uint32_t channel)
+{
+	void __iomem *stm = NULL;
+
+	if ((channel < 0) || (channel > stm_channel_end) || !stm_prt_reg)
+		return NULL;
+
+	stm = stm_prt_reg + STM_PORT_SIZE*channel;
+	return stm;
+}
 
 static int stm_write(const unsigned char *buf, int count, void __iomem *stm)
 {
@@ -134,7 +145,10 @@ static int stm_write(const unsigned char *buf, int count, void __iomem *stm)
 
 void stm_console_write(struct console *co, const char *b, unsigned count)
 {
-	void __iomem *stm = stm_prt_reg + STM_PORT_SIZE*STM_CONSOLE;
+	void __iomem *stm = get_stm(STM_CONSOLE);
+	if (stm == NULL)
+		return;
+
 	if (count) {
 		__raw_writeb(0x20, stm + STM_G_D);
 		stm_write(b, count, stm);
@@ -162,6 +176,77 @@ static struct console stm_console = {
 	.flags = CON_PRINTBUFFER,
 	.index = -1,
 };
+
+
+#ifdef CONFIG_TTY_LL_STM
+inline void stm_printk(const char *bptr, void __iomem* stm, const char stimulus)
+{
+	int rem_len;
+
+	rem_len = strlen(bptr);
+	__raw_writeb(0x20, stm + STM_G_D);
+
+	/* Leading unaligned bytes */
+	while ((unsigned)bptr & 3 && rem_len >= 1) {
+		__raw_writeb(*(uint8_t *)bptr, stm + STM_G_D);
+		bptr += 1;
+		rem_len -= 1;
+	};
+
+	/* Aligned words */
+	while (rem_len >= 4) {
+		__raw_writel(*(uint32_t *)bptr, stm + STM_G_D);
+		bptr += 4;
+		rem_len -= 4;
+	}
+
+	/* Trailing unaligned bytes */
+	while (rem_len > 0) {
+		__raw_writeb(*(uint8_t *)bptr, stm + STM_G_D);
+		bptr += 1;
+		rem_len -= 1;
+	}
+	__raw_writeb(0x00, stm + stimulus);
+}
+
+void stm_printk_str(uint32_t channel, const char *bptr)
+{
+	void __iomem *stm = get_stm(channel);
+	if (stm == NULL)
+		return;
+
+	stm_printk(bptr, stm, STM_G_DMTS);
+}
+EXPORT_SYMBOL(stm_printk_str);
+
+void stm_printk_fmt_1x(uint32_t channel, const char *bptr, unsigned arg1)
+{
+	void __iomem *stm = get_stm(channel);
+	if (stm == NULL)
+		return;
+
+	stm_printk(bptr, stm, STM_G_D);
+
+	__raw_writel(arg1, stm + STM_G_DMTS);
+}
+EXPORT_SYMBOL(stm_printk_fmt_1x);
+
+void stm_printk_fmt_2x(uint32_t channel, const char *bptr, unsigned arg1,
+		unsigned arg2)
+{
+	void __iomem *stm = get_stm(channel);
+	if (stm == NULL)
+		return;
+
+	stm_printk(bptr, stm, STM_G_D);
+	__raw_writel(arg1, stm + STM_G_D);
+	__raw_writel(arg2, stm + STM_G_DMTS);
+}
+EXPORT_SYMBOL(stm_printk_fmt_2x);
+#endif
+
+
+
 
 static int stm_tty_open(struct tty_struct *tty, struct file *filp)
 {
@@ -216,7 +301,9 @@ static int stm_tty_write(struct tty_struct *tty,
 {
 	int retval = -EINVAL;
 	struct stm_port *prt = tty->driver_data;
-	void __iomem *stm;
+	void __iomem *stm = get_stm(tty->index);
+	if (stm == NULL)
+		return -ENODEV;
 
 	if (!prt)
 		return -ENODEV;
@@ -231,7 +318,7 @@ static int stm_tty_write(struct tty_struct *tty,
 		retval = count;
 		goto exit;
 	}
-	stm = stm_prt_reg + STM_PORT_SIZE*tty->index;
+
 	retval = stm_write(buf, count, stm);
 exit:
 	up(&prt->sem);
@@ -260,16 +347,22 @@ static void __iomem *remap(struct platform_device *pd, int id)
 		dev_err(&pd->dev, "IO memory resource error\n");
 		return ret;
 	}
+
+	if (strcmp(io->name, "stm_ports") == 0)
+		stm_channel_end = resource_size(io)/STM_PORT_SIZE;
+
 	io = devm_request_mem_region(&pd->dev, io->start,
 					resource_size(io), dev_name(&pd->dev));
 
 	if (!io) {
 		dev_err(&pd->dev, "IO memory region request failed\n");
+		stm_channel_end = 0;
 		return ret;
 	}
 
 	ret = devm_ioremap(&pd->dev, io->start, resource_size(io));
 	if (!ret) {
+		stm_channel_end = 0;
 		dev_err(&pd->dev, "%s IO memory remap failed\n",
 								io->name);
 	}
@@ -282,6 +375,7 @@ static int __devinit stm_probe(struct platform_device *pd)
 	unsigned int tscr;
 	struct clk *clk;
 	unsigned long rate;
+	void __iomem *stm_prt_reg_tmp;
 
 	clk = clk_get(NULL, "cp_clk");
 	if (clk)
@@ -298,8 +392,8 @@ static int __devinit stm_probe(struct platform_device *pd)
 	if (!fun)
 		return -ENXIO;
 
-	stm_prt_reg = remap(pd, 1);
-	if (!stm_prt_reg)
+	stm_prt_reg_tmp = remap(pd, 1);
+	if (!stm_prt_reg_tmp)
 		return -ENXIO;
 
 	/* Unlock trace funnel */
@@ -344,6 +438,7 @@ static int __devinit stm_probe(struct platform_device *pd)
 			pr_warning("%s: no classdev for port %d, err %ld\n",
 						__func__, i, PTR_ERR(tty_dev));
 	}
+	stm_prt_reg = stm_prt_reg_tmp;
 	register_console(&stm_console);
 	dev_info(&pd->dev, "STM ready\n");
 	return 0;
@@ -391,7 +486,7 @@ static int __init stm_tty_init(void)
 
 	g_stm_tty_driver = alloc_tty_driver(STM_TTY_MINORS);
 	if (!g_stm_tty_driver) {
-		printk(KERN_ERR "stm_tty_probe: alloc_tty_driver failed\n");
+		printk(KERN_ERR "stm_tty_init: alloc_tty_driver failed\n");
 		ret = -ENOMEM;
 		goto err_alloc_tty_driver_failed;
 	}
@@ -407,12 +502,14 @@ static int __init stm_tty_init(void)
 	tty_set_operations(g_stm_tty_driver, &stm_tty_ops);
 	ret = tty_register_driver(g_stm_tty_driver);
 	if (ret) {
-		printk(KERN_ERR "stm_tty_probe: tty_register_driver failed, %d\n", ret);
+		printk(KERN_ERR "stm_tty_init: tty_register_driver" \
+				" failed, %d\n", ret);
 		goto err_tty_register_driver_failed;
 	}
 	ret = platform_driver_register(&stm_pdriver);
 	if (ret) {
-		printk(KERN_ERR "stm_tty_probe: platform_driver_register failed, %d\n", ret);
+		printk(KERN_ERR "stm_tty_init: platform_driver_register" \
+				" failed, %d\n", ret);
 		goto err_register_platform_failed;
 	}
 	return 0;
@@ -435,7 +532,8 @@ static void  __exit stm_tty_exit(void)
 
 	ret = tty_unregister_driver(g_stm_tty_driver);
 	if (ret < 0)
-		printk(KERN_ERR "stm_tty_remove: tty_unregister_driver failed, %d\n", ret);
+		printk(KERN_ERR "stm_tty_exit: tty_unregister_driver" \
+				" failed, %d\n", ret);
 	else
 		put_tty_driver(g_stm_tty_driver);
 
