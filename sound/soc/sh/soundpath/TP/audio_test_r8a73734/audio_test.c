@@ -1451,6 +1451,7 @@ error:
 static void audio_test_loopback_remove(void)
 {
 	int res = 0;
+	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
 
@@ -1485,6 +1486,10 @@ static void audio_test_loopback_remove(void)
 	res = pm_runtime_put_sync(g_audio_test_power_domain);
 	if (0 != res)
 		audio_test_log_err("pm_runtime_put_sync res[%d]\n", res);
+
+	params.intervals[SNDRV_PCM_HW_PARAM_RATE
+		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = 48000;
+	fsi_d2153_set_sampling_rate(&params);
 
 	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 

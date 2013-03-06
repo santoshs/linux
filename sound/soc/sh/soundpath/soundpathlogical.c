@@ -4991,6 +4991,9 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 		return iRet;
 	}
 
+	g_sndp_now_direction = (SNDP_A2220_START == dev_chg) ?
+		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
+
 	sndp_log_debug_func("end\n");
 
 	return iRet;
@@ -5034,6 +5037,9 @@ int sndp_pt_device_change(u_int dev, u_int onoff)
 	sndp_a2220_set_state(SNDP_MODE_NORMAL, dev, new_state);
 	g_pt_start = (SNDP_ON == onoff) ?
 		SNDP_PT_DEVCHG_START : SNDP_PT_NOT_STARTED;
+
+	g_sndp_now_direction = (SNDP_ON == onoff) ?
+		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
 	sndp_log_debug_func("end\n");
 
