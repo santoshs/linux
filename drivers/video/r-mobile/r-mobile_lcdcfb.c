@@ -48,7 +48,7 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 
-#if defined(CONFIG_SEC_DEBUG)
+#if defined (CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
 
@@ -1615,9 +1615,9 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 #if defined(CONFIG_SEC_DEBUG)
-	/* Mark for GetLog */
-	sec_getlog_supply_fbinfo(info->screen_base, info->var.xres,
-				 info->var.yres, info->var.bits_per_pixel, 2);
+	// Mark for GetLog
+	sec_getlog_supply_fbinfo(info->screen_base, info->var.xres, 
+			info->var.yres, info->var.bits_per_pixel,2);
 #endif
 
 	return 0;

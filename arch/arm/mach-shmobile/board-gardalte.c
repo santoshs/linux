@@ -89,9 +89,9 @@
 #if defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/board-gardalte-gps.h>
 #endif
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+//#include <linux/mmcoops.h>
+#if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
-#include <mach/sec_debug_inform.h>
 #endif
 #include <sound/a2220.h>
 #include <linux/leds-ktd253ehd.h>
@@ -1060,23 +1060,11 @@ static struct map_desc gardalte_io_desc[] __initdata = {
 		.length         = SZ_4M,
 		.type           = MT_DEVICE
 	},
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-	{
-		.virtual        = SEC_DEBUG_INFORM_VIRT,
-		.pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
-		.length         = SZ_4K,
-		.type           = MT_UNCACHED,
-	},
-#endif
 };
 
 static void __init gardalte_map_io(void)
 {
 	iotable_init(gardalte_io_desc, ARRAY_SIZE(gardalte_io_desc));
-
-#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-	sec_debug_init();
-#endif
 
 	//r8a7373_add_early_devices();
         r8a7373_init_early();
