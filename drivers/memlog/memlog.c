@@ -205,7 +205,7 @@ static ssize_t capture_store(
 }
 
 static struct kobj_attribute capture_attribute =
-	__ATTR(capture, 0666, capture_show, capture_store);
+	__ATTR(capture, 0644, capture_show, capture_store);
 
 static ssize_t read_log(
 	struct file *filp,
