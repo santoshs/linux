@@ -35,6 +35,7 @@
 #include <linux/stat.h>
 #include <linux/moduleparam.h>
 #include <linux/export.h>
+#include <memlog/memlog.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -644,6 +645,7 @@ int __set_rate(unsigned int freq)
 #ifdef DYNAMIC_HOTPLUG_CPU
 		hlg_config.freq_his_flg = 1;
 #endif /* DYNAMIC_HOTPLUG_CPU */
+		memory_log_dump_int(PM_DUMP_ID_DFS_FREQ, freq);
 	}
 #else /* ZFREQ_MODE */
 	ret = pm_set_syscpu_frequency(zdiv_table[level].waveform);
@@ -653,6 +655,7 @@ int __set_rate(unsigned int freq)
 #ifdef DYNAMIC_HOTPLUG_CPU
 		hlg_config.freq_his_flg = 1;
 #endif /* DYNAMIC_HOTPLUG_CPU */
+		memory_log_dump_int(PM_DUMP_ID_DFS_FREQ, freq);
 	}
 #endif /* ZFREQ_MODE */
 done:
@@ -1300,27 +1303,6 @@ int is_cpufreq_enable(void)
 EXPORT_SYMBOL(is_cpufreq_enable);
 #endif /* CONFIG_PM_DEBUG */
 
-/*
- * is_cpufreq_clk_state_normal:
- * get check clk_state value MODE_NORMAL(MODE_MOVIE720P)
- *
- * Argument:
- *		None
- *
- * Return:
- *		0 : MODE_NORMAL(MODE_MOVIE720P)
- *		1 : not MODE_NORMAL
- */
-int is_cpufreq_clk_state_normal(void)
-{
-	if ((MODE_NORMAL == the_cpuinfo.clk_state) ||
-		(MODE_MOVIE720P == the_cpuinfo.clk_state))	{
-		return 0;
-	}
-	return 1;
-}
-EXPORT_SYMBOL(is_cpufreq_clk_state_normal);
-
 #ifdef CONFIG_EARLYSUSPEND
 /*
  * function: change clock state and set clocks, support for early suspend state
@@ -1505,7 +1487,7 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 	ret = __set_all_clocks(freq);
 
 	/* the_cpuinfo.freq == freq when frequency changed */
-	if ((the_cpuinfo.freq == freq) && debug)
+	if (the_cpuinfo.freq == freq)
 		pr_info("[%07uKHz->%07uKHz]%s\n", old_freq, freq,
 			(old_freq < freq) ? "^" : "v");
 done:

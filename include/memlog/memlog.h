@@ -12,6 +12,7 @@ extern void memory_log_proc(const char *name, unsigned long pid);
 extern void memory_log_worker(unsigned long func_addr, unsigned long pid);
 extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
+extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
 #else
 static inline void memory_log_proc(const char *name, unsigned long pid)
 {
@@ -23,6 +24,9 @@ static inline void memory_log_irq(unsigned int irq, int in)
 {
 }
 static inline void memory_log_func(unsigned long func_id, int in)
+{
+}
+static inline void memory_log_dump_int(unsigned char dump_id, int dump_data)
 {
 }
 #endif
@@ -49,5 +53,10 @@ static inline void memory_log_func(unsigned long func_id, int in)
 #define PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE			0x000303
 #define PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE_LATE	0x000304
 #define PM_FUNC_ID_SHMOBILE_SUSPEND_WAKE			0x000305
+
+#define PM_DUMP_ID_DFS_FREQ					0x000001
+#define PM_DUMP_ID_DFS_MINMAX_FREQ				0x000002
+#define PM_DUMP_ID_ZB3DFS_FREQ_REQ				0x000003
+#define PM_DUMP_ID_ZB3DFS_FREQ					0x000004
 
 #endif

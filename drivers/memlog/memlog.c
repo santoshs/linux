@@ -21,6 +21,8 @@ static struct kobject *memlog_kobj;
 #define CPU1_IRQ_SIZE			0x00000400
 #define CPU0_FUNC_SIZE			0x00000400
 #define CPU1_FUNC_SIZE			0x00000400
+#define CPU0_DUMP_SIZE			0x00000400
+#define CPU1_DUMP_SIZE			0x00000400
 
 #define CMCNT0					0xE6130014
 
@@ -36,8 +38,12 @@ static struct kobject *memlog_kobj;
 (CPU1_IRQ_START_INDEX + CPU1_IRQ_SIZE)
 #define CPU1_FUNC_START_INDEX			\
 (CPU0_FUNC_START_INDEX + CPU0_FUNC_SIZE)
-#define MEMLOG_END						\
+#define CPU0_DUMP_START_INDEX			\
 (CPU1_FUNC_START_INDEX + CPU1_FUNC_SIZE)
+#define CPU1_DUMP_START_INDEX			\
+(CPU0_DUMP_START_INDEX + CPU0_DUMP_SIZE)
+#define MEMLOG_END				\
+(CPU1_DUMP_START_INDEX + CPU1_DUMP_SIZE)
 
 
 static char *logdata;
@@ -48,6 +54,8 @@ static unsigned long cpu0_irq_index;
 static unsigned long cpu1_irq_index;
 static unsigned long cpu0_func_index;
 static unsigned long cpu1_func_index;
+static unsigned long cpu0_dump_index;
+static unsigned long cpu1_dump_index;
 
 
 void memory_log_proc(const char *name, unsigned long pid)
@@ -155,7 +163,7 @@ void memory_log_func(unsigned long func_id, int in)
 		index = cpu0_func_index;
 		cpu0_func_index += len;
 	} else if (cpu == 1) {
-		if (cpu1_func_index + len > MEMLOG_END)
+		if (cpu1_func_index + len > CPU0_DUMP_START_INDEX)
 			cpu1_func_index = CPU1_FUNC_START_INDEX;
 
 		index = cpu1_func_index;
@@ -167,6 +175,43 @@ void memory_log_func(unsigned long func_id, int in)
 }
 EXPORT_SYMBOL_GPL(memory_log_func);
 
+void memory_log_dump_int(unsigned char dump_id, int dump_data)
+{
+	int len = 0;
+	int cpu = 0;
+	unsigned long index = 0;
+	unsigned long data[3] = {0, 0, 0};
+	unsigned long flags = 0;
+	if (!logdata || !capture)
+		return;
+
+	cpu = raw_smp_processor_id();
+	data[0] = __raw_readl(CMCNT0);
+	data[1] = dump_id;
+	data[2] = dump_data;
+	len = sizeof(data);
+
+	local_irq_save(flags);
+
+	if (cpu == 0) {
+		if (cpu0_dump_index + len > CPU1_DUMP_START_INDEX)
+			cpu0_dump_index = CPU0_DUMP_START_INDEX;
+
+		index = cpu0_dump_index;
+		cpu0_dump_index += len;
+	} else if (cpu == 1) {
+		if (cpu1_dump_index + len > MEMLOG_END)
+			cpu1_dump_index = CPU1_DUMP_START_INDEX;
+
+		index = cpu1_dump_index;
+		cpu1_dump_index += len;
+	}
+
+	local_irq_restore(flags);
+	memcpy(logdata + index, data, len);
+}
+EXPORT_SYMBOL_GPL(memory_log_dump_int);
+
 void memory_log_init(void)
 {
 	cpu0_proc_index = CPU0_PROC_START_INDEX;
@@ -175,6 +220,8 @@ void memory_log_init(void)
 	cpu1_irq_index = CPU1_IRQ_START_INDEX;
 	cpu0_func_index = CPU0_FUNC_START_INDEX;
 	cpu1_func_index = CPU1_FUNC_START_INDEX;
+	cpu0_dump_index = CPU0_DUMP_START_INDEX;
+	cpu1_dump_index = CPU1_DUMP_START_INDEX;
 	memset(logdata, 0, MEMLOG_SIZE);
 	capture = 1;
 }

@@ -59,9 +59,7 @@ struct workqueue_struct *pdwait_wq;
 static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
 static atomic_t	pdwait_judge_count;
 static bool a2ri_status_old ;
-static bool a2rv_status_old;
 static bool a2ri_status_new;
-static bool a2rv_status_new;
 static bool suspend_state;
 static void __iomem *sbsc_sdpdcr0a_reg;
 static DEFINE_SPINLOCK(pdwait_lock);
@@ -311,7 +309,6 @@ static int c4_power_domain_driver_probe(struct device *dev);
 static int power_domain_driver_init(void);
 static void set_c4_power_down_sel(unsigned int);
 static bool is_power_status_on(unsigned int);
-static void pdwait_judge(void);
 #ifdef __DEBUG_PDC
 static void power_areas_info(void);
 #endif /* __DEBUG_PDC */
@@ -868,7 +865,7 @@ static struct platform_device *pd[] = {
 	&a3sg_device	/* bit 18 (ID_A3SG)*/
 };
 
-static void pdwait_judge()
+void pdwait_judge()
 {
 
 	u32 reg_val = 0;
@@ -876,14 +873,18 @@ static void pdwait_judge()
 	u32 pdwait = 0x08000000;
 	unsigned long flags;
 
+	int current_pdwait_flag = 0;
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] pdwait_judge()\n");
 #endif
 
 	if (NULL != sbsc_sdpdcr0a_reg) {
 		spin_lock_irqsave(&pdwait_lock, flags);
+
+		current_pdwait_flag = atomic_read(&pdwait_flag);
 		reg_val = __raw_readl(sbsc_sdpdcr0a_reg);
-		if (atomic_read(&pdwait_judge_count) > 0)
+		if ((atomic_read(&pdwait_judge_count) > 0)
+				|| (current_pdwait_flag > 0))
 			pdwait = 0xFF000000;
 
 		if (pdwait != (reg_val & ~mask))
@@ -893,6 +894,8 @@ printk(KERN_INFO "[PDC] pdwait_judge()\n");
 		spin_unlock_irqrestore(&pdwait_lock, flags);
 	}
 #ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "[pdc] pdwait_flag = %d\n", current_pdwait_flag);
+
 	printk(KERN_INFO "[PDC] SDPDCR0A current pdwait = 0x%08x\n", \
 			reg_val);
 	if (pdwait != (reg_val & ~mask))
@@ -900,6 +903,7 @@ printk(KERN_INFO "[PDC] pdwait_judge()\n");
 	printk(KERN_INFO "\n");
 #endif
 }
+EXPORT_SYMBOL_GPL(pdwait_judge);
 
 int pdc_cpufreq_transition(struct notifier_block *block, unsigned long state,
 								void *data)
@@ -949,7 +953,6 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
 
 	a2ri_status_old = a2ri_status_new;
-	a2rv_status_old = a2rv_status_new;
 	pstr_val = __raw_readl(PSTR);
 
 	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);
@@ -975,28 +978,6 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
 	}
 
-	a2rv_status_new = ((pstr_val & POWER_A2RV) == POWER_A2RV);
-	if (a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
-		/* A2RV change OFF -> ON */
-		atomic_inc(&pdwait_judge_count);
-#ifdef __DEBUG_PDWAIT
-		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				atomic_read(&pdwait_judge_count));
-		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
-				a2rv_status_old ? "ON" : "OFF",
-				a2rv_status_new ? "ON" : "OFF");
-#endif
-	} else if (!a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
-		/* A2RV change ON -> OFF */
-		atomic_dec(&pdwait_judge_count);
-#ifdef __DEBUG_PDWAIT
-		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				atomic_read(&pdwait_judge_count));
-		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
-				a2rv_status_old ? "ON" : "OFF",
-				a2rv_status_new ? "ON" : "OFF");
-#endif
-	}
 #ifdef __DEBUG_PDWAIT
 	printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
 			atomic_read(&pdwait_judge_count));
@@ -1042,11 +1023,9 @@ power_a4rm_mask = POWER_A4RM;
 		return ret;
 
 	/* Z clock > 1GHz, A3SG, A2RI, A2RV ON at boot time */
-	atomic_set(&pdwait_judge_count, 4);
+	atomic_set(&pdwait_judge_count, 3);
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
-	a2rv_status_old = 1;
-	a2rv_status_new = 1;
 	suspend_state	= 0;
 	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0APhys, PAGE_SIZE);
 	if (NULL == sbsc_sdpdcr0a_reg)

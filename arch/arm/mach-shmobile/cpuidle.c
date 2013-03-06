@@ -521,8 +521,7 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY_2);
 
 		if ((cpuid == 0) &&
-		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG) &&
-		is_cpufreq_clk_state_normal() != 0) {
+		(__raw_readl(ram0Cpu1Status) == CPUSTATUS_HOTPLUG)) {
 
 			ret = check_peripheral_module_status();
 			if (ret == 0)	{

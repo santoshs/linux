@@ -24,6 +24,7 @@
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
 #include <linux/export.h>
+#include <memlog/memlog.h>
 
 #include <mach/r8a7373.h>
 #include <mach/pm.h>
@@ -1586,6 +1587,10 @@ static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 	unsigned int actual_pllmult = 0;
 	u8 zb3divider, pll3multiplier;
 
+	if (shmobile_get_ape_req_freq() != new_ape_freq){
+		memory_log_dump_int(PM_DUMP_ID_ZB3DFS_FREQ_REQ, (new_ape_freq / 1000) << 16 | (shmobile_get_modem_req_freq() / 1000));
+	}
+
 	/*first determine frequency*/
 	idx_newfreq = cpg_sbsc_decide_clock(new_ape_freq);
 	
@@ -1736,6 +1741,8 @@ static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 		}
 		if (zb3_lut[idx_newfreq].freq < old_freq)
 			shmobile_sbsc_update_param(&zb3_lut[idx_newfreq]);
+
+		memory_log_dump_int(PM_DUMP_ID_ZB3DFS_FREQ, (pll3multiplier << 26) | ((shmobile_get_pll_reprogram() & 1) << 25) | ((zb3_lut[idx_newfreq].freq / 1000) & 0x0000FFFF));
 	}
 
 exit:
