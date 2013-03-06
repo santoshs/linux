@@ -31,9 +31,12 @@
 #include <asm/hardware/gic.h>
 #include <mach/pm.h>
 #include <linux/delay.h>
+#include <linux/wakelock.h>
 
 #include "pm-r8a7373.h"
 
+static bool init_flag = false;
+static struct wake_lock smp_idle_wakelock;
 
 static void __iomem *scu_base_addr(void)
 {
@@ -107,6 +110,13 @@ int r8a7373_platform_cpu_die(unsigned int cpu)
 void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 {
 	gic_secondary_init(0);
+
+	if (init_flag) {
+		wake_unlock(&smp_idle_wakelock);
+	}
+	else {
+		init_flag = true;
+	}
 }
 
 int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
@@ -114,6 +124,13 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 	cpu = cpu_logical_map(cpu);
 
 	/* enable cache coherency */
+	if (!init_flag) {
+		wake_lock_init(&smp_idle_wakelock, WAKE_LOCK_IDLE, "smp Idle");
+	}
+	else {
+		wake_lock(&smp_idle_wakelock);
+	}
+
 	unsigned long status =
 		((__raw_readl(IOMEM(CPG_SCPUSTR)) >> (4 * cpu)) & 3);
 
@@ -128,7 +145,6 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
 		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
 	}
-  	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 0;
 }
