@@ -16,7 +16,9 @@
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() >= 5) {
+#endif
 		struct regulator *regulator;		
 
 		if(state) {
@@ -60,6 +62,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 			regulator_put(regulator);
 		}
+#ifdef CONFIG_MACH_U2EVM
 	} else {
 #ifdef CONFIG_PMIC_INTERFACE
 		if (state) {
@@ -75,6 +78,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		}
 #endif  /* CONFIG_PMIC_INTERFACE */
 	}
+#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)
@@ -119,13 +123,13 @@ static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 		.port = GPIO_PORT327,
 		.active = {
 			.port_fn	= GPIO_PORT327,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_NOT_SET,
 			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
 		.inactive = {
 			.port_fn	= GPIO_FN_SDHICD0,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_NOT_SET,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
@@ -145,7 +149,7 @@ struct renesas_sdhi_platdata sdhi0_info = {
 	.get_cd			= sdhi0_get_cd,
 	.set_dma		= sdhi0_set_dma,
 	.port_cnt		= ARRAY_SIZE(sdhi0_gpio_setting_info),
-	.gpio_setting_info	= &sdhi0_gpio_setting_info,
+	.gpio_setting_info	= sdhi0_gpio_setting_info,
 };
 
 static struct resource sdhi0_resources[] = {
@@ -170,6 +174,11 @@ struct platform_device sdhi0_device = {
 	.num_resources	= ARRAY_SIZE(sdhi0_resources),
 	.resource	= sdhi0_resources,
 };
+
+static int sdhi1_get_pwr(struct platform_device *pdev)
+{
+	return gpio_get_value(GPIO_PORT260);
+}
 
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
@@ -208,6 +217,7 @@ static struct renesas_sdhi_platdata sdhi1_info = {
 	.slave_id_tx	= SHDMA_SLAVE_SDHI1_TX,
 	.slave_id_rx	= SHDMA_SLAVE_SDHI1_RX,
 	.set_pwr	= sdhi1_set_pwr,
+	.get_pwr	= sdhi1_get_pwr,
 	.detect_irq	= 0,
 	.detect_msec	= 0,
 	.get_cd		= sdhi1_get_cd,

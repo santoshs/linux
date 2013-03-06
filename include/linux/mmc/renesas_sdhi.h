@@ -45,11 +45,12 @@ struct renesas_sdhi_platdata {
 
 	/* Gpio setting */
 	u32			port_cnt;
-	struct renesas_sdhi_gpio_setting_info	*gpio_setting_info;
+	struct portn_gpio_setting_info	*gpio_setting_info;
 
 	void (*detect_int)(struct platform_device *pdev);
 	int (*get_cd)(struct platform_device *pdev);
 
+	int (*get_pwr)(struct platform_device *pdev);
 	void (*set_pwr)(struct platform_device *pdev, int state);
 
 	void (*set_dma)(struct platform_device *pdev, int size);

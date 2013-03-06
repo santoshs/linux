@@ -1997,9 +1997,9 @@ static void __init u2evm_init(void)
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 
-		*GPIO_DRVCR_SD0 = 0x0023;
-		*GPIO_DRVCR_SIM1 = 0x0023;
-		*GPIO_DRVCR_SIM2 = 0x0023;
+		*GPIO_DRVCR_SD0 = 0x0022;
+		*GPIO_DRVCR_SIM1 = 0x0022;
+		*GPIO_DRVCR_SIM2 = 0x0022;
 	}
 	shmobile_arch_reset = u2evm_restart;
 	sec_rlte_hw_rev = check_sec_rlte_hw_rev();
@@ -2053,6 +2053,7 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCD0_7, NULL);
 	gpio_request(GPIO_FN_MMCCMD0, NULL);
 	gpio_request(GPIO_FN_MMCRST, NULL);
+
 	/* Disable GPIO Enable at initialization */
 
 	// MHL enable
@@ -2119,6 +2120,7 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_SDHICLK0, NULL);
 		gpio_request(GPIO_PORT327, NULL);
 		gpio_direction_input(GPIO_PORT327);
+		gpio_pull_off_port(GPIO_PORT327);
 		irq_set_irq_type(R8A7373_IRQC_IRQ(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}
