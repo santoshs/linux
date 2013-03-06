@@ -502,7 +502,7 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	int clocks_ret;
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 	unsigned int freqD_save = 0;
-	int chip_rev;
+	int chip_rev = shmobile_chip_rev();
 #endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
 	int ret;
 	int cpuid = smp_processor_id();
@@ -534,7 +534,6 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 			}
 
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
-			chip_rev = shmobile_chip_rev();
 			if (chip_rev > ES_REV_2_1) {
 				freqD_save = suspend_ZB3_backup();
 				if (freqD_save > 0) {
