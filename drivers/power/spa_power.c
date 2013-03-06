@@ -65,6 +65,8 @@
 		} \
 	} while(0)
 
+/* #define REPORT_0_WHEN_NOBATT */
+
 static char spa_log_buffer[SPA_DBG_LOG_SIZE];
 static unsigned int spa_log_offset=0;
 
@@ -1193,7 +1195,13 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 			}
 			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY && spa_power_iter->batt_info.vf_status == 0 )
 			{ // batterry removed
+#if defined(REPORT_0_WHEN_NOBATT)
 				value.intval = 0;
+#else
+		/* To avoid low battery warning when Power supply connected */
+				if (value.intval < 16)
+					value.intval = 16;
+#endif
 			}
 			pr_spa_dbg(LEVEL1, "%s : capacity = %d\n notified capacity=%d\n", __func__, spa_power_iter->batt_info.capacity, value.intval);
 			ps->set_property(ps, POWER_SUPPLY_PROP_CAPACITY, &value);
