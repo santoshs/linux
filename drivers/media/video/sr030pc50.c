@@ -29,6 +29,23 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
+static ssize_t subcamtype_SR030PC50_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "SR030PC50";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t subcamfw_SR030PC50_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "SR030PC50";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR030PC50_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR030PC50_show, NULL);
+
 struct SR030PC50_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
@@ -399,6 +416,37 @@ static int SR030PC50_probe(struct i2c_client *client,
 			printk(KERN_ALERT "%s :SR030PC50OK(%02x)\n",
 					__func__, rcv_buf[0]);
 			ret = 0;
+		}
+	}
+
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
+
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Sub camera device !\n");
+
+		sec_sub_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "front");
+		if (IS_ERR(sec_sub_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_sub_cam_dev)!\n");
+		}
+
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+		}
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camfw.attr.name);
 		}
 	}
 

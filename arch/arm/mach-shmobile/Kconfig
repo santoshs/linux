@@ -427,6 +427,18 @@ menuconfig SEC_DEBUG_INFORM_IOTABLE
 #endif for SEC_DEBUG
 endif
 
+config FLASH_AAT1274
+        bool "Enable AAT1274 driver"
+        default n
+        ---help---
+ 	    Adds AAT1274 LED Flash driver
+
+config FLASH_MIC2871
+        bool "Enable MIC2871 driver"
+        default n
+        ---help---
+ 	    Adds MIC2871 LED Flash driver
+
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
 # endif for ARCH_SHMOBILE
