@@ -31,8 +31,15 @@ struct mhdp_tunnel_parm {
 	int  pdn_id;
 };
 
-#define SIOCADDPDNID     (SIOCDEVPRIVATE + 1)
-#define SIOCDELPDNID     (SIOCDEVPRIVATE + 2)
-#define SIOCRESETMHDP    (SIOCDEVPRIVATE + 3)
+struct mhdp_udp_filter {
+
+	unsigned short port_id;
+	unsigned char active;
+};
+
+#define SIOCADDPDNID	(SIOCDEVPRIVATE + 1)
+#define SIOCDELPDNID	(SIOCDEVPRIVATE + 2)
+#define SIOCRESETMHDP	(SIOCDEVPRIVATE + 3)
+#define SIOSETUDPFILTER	(SIOCDEVPRIVATE + 4)
 
 #endif /* __NET_MHI_MHDP_H */
