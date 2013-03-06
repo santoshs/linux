@@ -41,6 +41,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/sched.h>
 #include <linux/sh_clk.h>
+#include <linux/spinlock.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-dev.h>
@@ -64,6 +65,27 @@ EXPORT_SYMBOL(sec_sub_cam_dev);
 
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
+static bool dump_addr_flg;
+
+#define SH_RCU_DUMP_LOG_ENABLE
+
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+static struct page *dumplog_page;
+static unsigned int *dumplog_addr;
+static unsigned int *dumplog_ktbl;
+static unsigned int *dumplog_max_idx;
+static unsigned int *dumplog_cnt_idx;
+spinlock_t lock_log;
+#define SH_RCU_DUMP_LOG_SIZE_ALL (1024*1024)
+#define SH_RCU_DUMP_LOG_SIZE_USER (800*1024)
+#define SH_RCU_DUMP_LOG_OFFSET (8)
+#define SH_RCU_GET_TIME() sh_mobile_rcu_get_timeval()
+#define SH_RCU_TIMEVAL2USEC(x) (x.tv_sec * 1000000 + x.tv_usec)
+
+#else  /* SH_RCU_DUMP_LOG_ENABLE */
+#define SH_RCU_DUMP_LOG_SIZE_ALL		(0)
+#define SH_RCU_DUMP_LOG_SIZE_USER		(0)
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
 
 #define RCU_MERAM_ACTST1 (0x50)
 #define RCU_MERAM_QSEL2	 (0x44)
@@ -725,7 +747,48 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 #endif
 		}
 		sh_mobile_rcu_soft_reset(pcdev);
-
+		if (status & RCU_RCETCR_ERR_MASK) {
+			dev_err(pcdev->icd->parent,
+				"MERAM Closing is moved after Soft Reset for "
+				"Error interrupt RCETCR=0x%08X\n", status);
+			if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
+				if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL,
+							regMECTRL | 0x20);
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL_C);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL_C,
+							regMECTRL | 0x20);
+				} else {
+					if (RCU_MERAM_FRAMEA ==
+						pcdev->meram_frame) {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL,
+								regMECTRL |
+								0x20);
+					} else {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL_C);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL_C
+								, regMECTRL |
+								0x20);
+					}
+				}
+				dev_geo(pcdev->icd->parent,
+					"%s:meram clear\n", __func__);
+			}
+		}
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 			if ((SH_RCU_MODE_IMAGE == pcdev->image_mode)
 				&& (!pcdev->output_ext)) {
@@ -1297,45 +1360,69 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP3))
 			|| (SH_RCU_OUTPUT_MEM == pcdev->output_mode && vb)) {
 
-			if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-				if ((SH_RCU_MODE_IMAGE == pcdev->image_mode)
-					&& (!pcdev->output_ext)) {
-					regMECTRL = meram_ch_read(pcdev,
-						RCU_MERAM_CTRL);
-					if (!(0x20 & regMECTRL))
-						meram_ch_write(pcdev,
-							RCU_MERAM_CTRL,
-							regMECTRL | 0x20);
-					regMECTRL = meram_ch_read(pcdev,
-						RCU_MERAM_CTRL_C);
-					if (!(0x20 & regMECTRL))
-						meram_ch_write(pcdev,
-							RCU_MERAM_CTRL_C,
-							regMECTRL | 0x20);
-				} else {
-					if (RCU_MERAM_FRAMEA ==
-						pcdev->meram_frame) {
-						regMECTRL = meram_ch_read(pcdev,
-							RCU_MERAM_CTRL);
+			if (regRCETCR & RCU_RCETCR_ERR_MASK) {
+				/* Skip MERAM clear in error case */
+				dev_err(pcdev->icd->parent,
+				"Error interrupt occurred! RCETCR=0x%08X\n: Skip MERAM clear routine!!",
+				regRCETCR);
+			} else {
+				if (SH_RCU_OUTPUT_SDRAM
+						!= pcdev->output_meram) {
+					if ((SH_RCU_MODE_IMAGE ==
+						pcdev->image_mode)
+						&& (!pcdev->output_ext)) {
+						regMECTRL = meram_ch_read(
+								pcdev,
+								RCU_MERAM_CTRL
+							);
 						if (!(0x20 & regMECTRL))
-							meram_ch_write(pcdev,
+							meram_ch_write(
+								pcdev,
 								RCU_MERAM_CTRL,
-								regMECTRL |
-								0x20);
-					} else {
-						regMECTRL = meram_ch_read(pcdev,
-							RCU_MERAM_CTRL_C);
-						if (!(0x20 & regMECTRL))
-							meram_ch_write(pcdev,
+								regMECTRL|0x20
+							);
+						regMECTRL = meram_ch_read(
+								pcdev,
 								RCU_MERAM_CTRL_C
-								, regMECTRL |
-								0x20);
+								);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(
+								pcdev,
+								RCU_MERAM_CTRL_C,
+								regMECTRL | 0x20
+							);
+					} else {
+						if (RCU_MERAM_FRAMEA ==
+							pcdev->meram_frame) {
+							regMECTRL =
+								meram_ch_read(
+									pcdev,
+									RCU_MERAM_CTRL
+								);
+							if (!(0x20 & regMECTRL))
+								meram_ch_write(
+									pcdev,
+									RCU_MERAM_CTRL,
+									regMECTRL | 0x20
+								);
+						} else {
+							regMECTRL =
+								meram_ch_read(
+									pcdev,
+									RCU_MERAM_CTRL_C
+								);
+							if (!(0x20 & regMECTRL))
+								meram_ch_write(
+									pcdev,
+									RCU_MERAM_CTRL_C,
+									regMECTRL | 0x20
+								);
+						}
 					}
+					dev_geo(pcdev->icd->parent,
+						"%s:meram clear\n", __func__);
 				}
-				dev_geo(pcdev->icd->parent,
-					"%s:meram clear\n", __func__);
 			}
-
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
@@ -1521,6 +1608,7 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		 icd->devnum);
 
 	kfree(pcdev->mmap_pages);
+	pcdev->mmap_pages = NULL;
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 	dev_info(icd->parent, "End A4LC power area(RCU)\n");
@@ -2618,6 +2706,20 @@ static int sh_mobile_rcu_mmap(void *buf_priv, struct vm_area_struct *vma)
 	page_num = ((vma->vm_end - vma->vm_start) + PAGE_SIZE - 1)
 		/ PAGE_SIZE;
 
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	if (dump_addr_flg) {
+		dump_addr_flg = false;
+		ret = remap_pfn_range(vma, vm_addr, page_to_pfn(dumplog_page),
+			(vma->vm_end - vma->vm_start), vma->vm_page_prot);
+		if (ret) {
+			dev_err(icd->parent,
+			"%s:remap_pfn_range err(%d)\n", __func__, ret);
+			return -1;
+		}
+		return 0;
+	}
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
+
 	if (pcdev->mmap_size <= page_num) {
 		dev_err(icd->parent,
 			"%s:size error(%d <= %d)\n", __func__,
@@ -2679,6 +2781,13 @@ static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 	switch (ctrl->id) {
 	case V4L2_CID_GET_TUNING:
 		return v4l2_subdev_call(sd, core, g_ctrl, ctrl);
+	case V4L2_CID_GET_DUMP_SIZE_ALL:
+		dump_addr_flg = true;
+		ctrl->value = SH_RCU_DUMP_LOG_SIZE_ALL;
+		return 0;
+	case V4L2_CID_GET_DUMP_SIZE_USER:
+		ctrl->value = SH_RCU_DUMP_LOG_SIZE_USER;
+		return 0;
 	}
 
 	return -ENOIOCTLCMD;
@@ -2701,6 +2810,87 @@ void sh_mobile_rcu_flash(int led)
 	}
 	if (rear_flash_set)
 		rear_flash_set(set_state, SH_RCU_LED_MODE_PRE);
+	return;
+}
+void sh_mobile_rcu_init_dumplog(void)
+{
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	unsigned int order;
+
+	order = get_order(SH_RCU_DUMP_LOG_SIZE_ALL);
+	if ((PAGE_SIZE << order) > SH_RCU_DUMP_LOG_SIZE_ALL) {
+		/* size is pressed down */
+		order--;
+	}
+	dumplog_page = alloc_pages(GFP_USER, order);
+	memset(page_address(dumplog_page), 0, order);
+
+	spin_lock_init(&lock_log);
+
+	dumplog_addr = page_address(dumplog_page);
+	dumplog_ktbl = dumplog_addr +
+		SH_RCU_DUMP_LOG_SIZE_USER / sizeof(unsigned int);
+	dumplog_max_idx = dumplog_addr +
+		(SH_RCU_DUMP_LOG_SIZE_ALL / sizeof(unsigned int) - 1);
+	dumplog_cnt_idx = dumplog_max_idx - 1;
+	*dumplog_addr = (unsigned int)dumplog_addr;
+	*dumplog_max_idx =
+		(SH_RCU_DUMP_LOG_SIZE_ALL - SH_RCU_DUMP_LOG_SIZE_USER) /
+		sizeof(unsigned int) - SH_RCU_DUMP_LOG_OFFSET - 1;
+	*dumplog_cnt_idx = 0;
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
+	return;
+}
+
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+static unsigned long sh_mobile_rcu_get_timeval(void)
+{
+	struct timeval tv;
+	unsigned long usec;
+
+	do_gettimeofday(&tv);
+	usec = SH_RCU_TIMEVAL2USEC(tv);
+	/* clock is 1MHz */
+	return 0xFFFFFFFF - usec;
+}
+static void sh_mobile_rcu_set_dumplog(unsigned int id, unsigned int time)
+{
+	unsigned int *data = &dumplog_ktbl[*dumplog_cnt_idx * 2];
+
+	*dumplog_cnt_idx = (*dumplog_cnt_idx + 1) % *dumplog_max_idx;
+
+	data[0]	= id;
+	data[1]	= time;
+	return;
+}
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
+
+void sh_mobile_rcu_event_time_func(unsigned short id)
+{
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	spin_lock(&lock_log);
+
+	sh_mobile_rcu_set_dumplog((0xE1000000 | id), SH_RCU_GET_TIME());
+
+	spin_unlock(&lock_log);
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
+	return;
+}
+
+void sh_mobile_rcu_event_time_data(unsigned short id, unsigned int data)
+{
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	unsigned int	tmu_cnt;
+
+	spin_lock(&lock_log);
+
+	tmu_cnt = SH_RCU_GET_TIME();
+
+	sh_mobile_rcu_set_dumplog((0xD1000000 | id), tmu_cnt);
+	sh_mobile_rcu_set_dumplog(data, tmu_cnt);
+
+	spin_unlock(&lock_log);
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
 	return;
 }
 
@@ -2868,6 +3058,10 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		err = -ENOMEM;
 		goto exit;
 	}
+
+	sh_mobile_rcu_init_dumplog();
+	dev_info(&pdev->dev, "%s():EOSCAMERA_RAMDUMP_ADDR=0x%X\n", __func__,
+		(unsigned int)dumplog_addr);
 
 	INIT_LIST_HEAD(&pcdev->capture);
 	spin_lock_init(&pcdev->lock);
@@ -3239,6 +3433,7 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
+	dump_addr_flg = false;
 
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
