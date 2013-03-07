@@ -330,6 +330,8 @@ enum {
 };
 
 extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
+extern unsigned int u2_board_rev;
+extern void __iomem *sbsc_sdmracr1a;
 
 /*
  * l2cache initialization

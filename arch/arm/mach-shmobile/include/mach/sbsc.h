@@ -54,5 +54,8 @@ extern int shmobile_release_cpg_lock(unsigned long *flags);
 #define SBSC_BASE		(0xFE400000U)
 #define SBSC_SIZE		0x1200
 
+#define SBSC_SDMRA_DONE     (0x00000000)
+#define SBSC_SDMRACR1A_ZQ   (0x0000560A)
+
 #endif /* __ASM_ARCH_SBSC_H */
 

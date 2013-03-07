@@ -1722,6 +1722,118 @@ static void __init r8a7373_timer_init(void)
 	setup_current_timer();
 }
 
+/* Lock used while modifying register */
+static DEFINE_SPINLOCK(io_lock);
+
+void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
+{
+	unsigned long flags;
+	u8 val;
+	spin_lock_irqsave(&io_lock, flags);
+	val = *(volatile u8 *)addr;
+	val &= ~clear;
+	val |= set;
+	*(volatile u8 *)addr = val;
+	spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register8);
+
+void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
+{
+	unsigned long flags;
+	u16 val;
+	spin_lock_irqsave(&io_lock, flags);
+	val = *(volatile u16 *)addr;
+	val &= ~clear;
+	val |= set;
+	*(volatile u16 *)addr = val;
+	spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register16);
+
+void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
+{
+	unsigned long flags;
+	u32 val;
+	spin_lock_irqsave(&io_lock, flags);
+	val = *(volatile u32 *)addr;
+	val &= ~clear;
+	val |= set;
+	*(volatile u32 *)addr = val;
+	spin_unlock_irqrestore(&io_lock, flags);
+}
+EXPORT_SYMBOL_GPL(sh_modify_register32);
+
+void __iomem *sbsc_sdmracr1a;
+
+#define CPG_PLLECR_PLL3ST		(0x00000800)
+#define CPG_PLL3CR_1040MHZ		(0x27000000)
+void SBSC_Init_520Mhz(void)
+{
+	unsigned long work;
+
+	printk(KERN_ALERT "START < %s >\n", __func__);
+
+	/* Check PLL3 status */
+	work = __raw_readl(PLLECR);
+	if (!(work & CPG_PLLECR_PLL3ST)) {
+		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
+		return;
+	}
+
+	/* Set PLL3 = 1040 Mhz*/
+	__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
+
+	/* Wait PLL3 status on */
+	while (1) {
+		work = __raw_readl(PLLECR);
+		work &= CPG_PLLECR_PLL3ST;
+		if (work == CPG_PLLECR_PLL3ST)
+			break;
+	}
+
+	/* Dummy read */
+	__raw_readl(sbsc_sdmracr1a);
+}
+EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
+
+unsigned int u2_board_rev;
+
+unsigned int u2_get_board_rev(void)
+{
+	return u2_board_rev;
+}
+EXPORT_SYMBOL_GPL(u2_get_board_rev);
+
+unsigned int read_board_rev(void)
+{
+	unsigned int rev0, rev1, rev2, rev3, ret;
+
+	gpio_request(GPIO_PORT72, "HW_REV0");
+	gpio_request(GPIO_PORT73, "HW_REV1");
+	gpio_request(GPIO_PORT74, "HW_REV2");
+	gpio_request(GPIO_PORT75, "HW_REV3");
+
+	gpio_direction_input(GPIO_PORT72);
+	gpio_direction_input(GPIO_PORT73);
+	gpio_direction_input(GPIO_PORT74);
+	gpio_direction_input(GPIO_PORT75);
+
+	rev0 = gpio_get_value(GPIO_PORT72);
+	rev1 = gpio_get_value(GPIO_PORT73);
+	rev2 = gpio_get_value(GPIO_PORT74);
+	rev3 = gpio_get_value(GPIO_PORT75);
+
+	gpio_free(GPIO_PORT72);
+	gpio_free(GPIO_PORT73);
+	gpio_free(GPIO_PORT74);
+	gpio_free(GPIO_PORT75);
+
+	ret =  rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0;
+	return ret;
+}
+EXPORT_SYMBOL_GPL(read_board_rev);
+
 void r8a7373_l2cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
