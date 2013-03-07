@@ -82,23 +82,28 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 
 	/* disable cache coherency */
 	unsigned long status;
+	/* modify_scu_cpu_psr(3 << (cpu * 8), 0); */
 	
+	printk("r8a7373_platform_cpu_kill : system_state : %d\n",system_state);
 	if (system_state == SYSTEM_RESTART ||
 		system_state == SYSTEM_HALT) {
 		cpu = cpu_logical_map(cpu);
 		modify_scu_cpu_psr(3 << (cpu * 8), 0);
 		goto abort_checking;
 	}
-
 	while (1) {
 		cpu = cpu_logical_map(cpu);
 		status = __raw_readl(IOMEM(CPG_SCPUSTR));
 		if (((status >> (4 * cpu)) & 2) == 2)
 			break;
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	printk("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	while ((((__raw_readl(scu_base_addr() + 8)) >> (8 * cpu)) & 3) != 3)
 		mdelay(1);
 	}
 abort_checking:
-	pr_debug("CPG_SCPUSTR:0x%x\n", __raw_readl(IOMEM(CPG_SCPUSTR)));
+	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
+	printk("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 	return 1;
 }
 

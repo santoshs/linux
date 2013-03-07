@@ -42,6 +42,9 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#include <mach/sec_debug.h>
+#endif
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -604,6 +607,10 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+	sec_debug_irq_log(ipinr, do_IPI, 1);
+#endif
+
 	switch (ipinr) {
 	case IPI_TIMER:
 		irq_enter();
@@ -642,6 +649,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+	sec_debug_irq_log(ipinr, do_IPI, 2);
+#endif
+
 	set_irq_regs(old_regs);
 }
 
@@ -679,6 +691,25 @@ void smp_send_stop(void)
 		pr_warning("SMP: failed to stop secondary CPUs\n");
 
 	smp_kill_cpus(&mask);
+}
+
+void smp_send_stop_only(void)
+{
+        unsigned long timeout;
+        struct cpumask mask;
+
+        cpumask_copy(&mask, cpu_online_mask);
+        cpumask_clear_cpu(smp_processor_id(), &mask);
+        smp_cross_call(&mask, IPI_CPU_STOP);
+
+        /* Wait up to one second for other CPUs to stop */
+        timeout = USEC_PER_SEC;
+        while (num_online_cpus() > 1 && timeout--)
+                udelay(1);
+
+        if (num_online_cpus() > 1)
+                pr_warning("SMP: failed to stop secondary CPUs\n");
+
 }
 
 /*

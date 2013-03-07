@@ -31,7 +31,7 @@
 #include <asm/irq.h>
 
 /* Added for Ramdump Feature*/
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
 #include <mach/sec_debug.h>
 #endif
 
@@ -241,7 +241,19 @@ restart:
 			kstat_incr_softirqs_this_cpu(vec_nr);
 
 			trace_softirq_entry(vec_nr);
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+			sec_debug_softirq_log(9999, h->action, 4);
+#endif
+
 			h->action(h);
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+			sec_debug_softirq_log(9999, h->action, 5);
+#endif
+
 			trace_softirq_exit(vec_nr);
 			if (unlikely(prev_count != preempt_count())) {
 				printk(KERN_ERR "huh, entered softirq %u %s %p"
@@ -463,14 +475,19 @@ static void tasklet_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 					&t->state))
 					BUG();
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-				/* Added for Ramdump Feature */
-				sec_debug_irq_sched_log(-1, t->func, 3);
-				t->func(t->data);
-				sec_debug_irq_sched_log(-1, t->func, 4);
-#else
-				t->func(t->data);
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+				sec_debug_softirq_log(9997, t->func, 4);
 #endif
+
+				t->func(t->data);
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+				sec_debug_softirq_log(9997, t->func, 5);
+#endif
+
 				tasklet_unlock(t);
 				continue;
 			}
@@ -505,7 +522,19 @@ static void tasklet_hi_action(struct softirq_action *a)
 			if (!atomic_read(&t->count)) {
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
 					BUG();
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+				sec_debug_softirq_log(9998, t->func, 4);
+#endif
+
 				t->func(t->data);
+
+/* Added for Ramdump Feature*/
+#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+				sec_debug_softirq_log(9998, t->func, 5);
+#endif
+
 				tasklet_unlock(t);
 				continue;
 			}

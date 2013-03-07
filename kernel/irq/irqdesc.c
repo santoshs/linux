@@ -17,11 +17,6 @@
 
 #include "internals.h"
 
-/* Added for Ramdump feature  */
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-#include <mach/sec_debug.h>
-#endif
-
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
@@ -316,17 +311,6 @@ int generic_handle_irq(unsigned int irq)
 
 	if (!desc)
 		return -EINVAL;
-
-/* added for Ramdump feature*/
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-	if (desc->action)
-		sec_debug_irq_sched_log(irq, (void *)desc->action->handler,
-			irqs_disabled());
-	else
-		sec_debug_irq_sched_log(irq, (void *)desc->handle_irq,
-			irqs_disabled());
-#endif
-
 	generic_handle_irq_desc(irq, desc);
 	return 0;
 }
