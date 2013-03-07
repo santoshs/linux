@@ -896,5 +896,6 @@ CONFIG_VIDEOBUF2_MEMOPS=y
 # Memlog
 CONFIG_MEMLOG=y
 
-
+#Sync driver
+CONFIG_SYNC=y
 
