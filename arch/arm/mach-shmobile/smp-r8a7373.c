@@ -130,9 +130,6 @@ void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 
 int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 {
-	int i;
-	unsigned long scu_psr;
-
 	cpu = cpu_logical_map(cpu);
 
 	/* enable cache coherency */
@@ -157,17 +154,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
 		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
 	}
-
-	/* Wait for CPU to boot up */
-	for (i = 0; i < 5000; i++){
-		scu_psr = __raw_readl(scu_base_addr() + 8);
-		if (((scu_psr >> (8 * cpu)) & 3) == 0)
-			break;
-		mdelay(1);
-	}
-	if (i >= 5000){
-		panic("CPU%d failed to boot up SCUPSR=%08x", cpu, scu_psr);
-	}
+  	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 0;
 }
