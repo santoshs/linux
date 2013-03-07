@@ -37,6 +37,11 @@
 #include <linux/l2mux.h>
 #include <linux/etherdevice.h>
 #include <linux/pkt_sched.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <net/ipv6.h>
+#include <linux/udp.h>
+#include <net/mhi/sock.h>
 
 #ifdef CONFIG_MHDP_BONDING_SUPPORT
 #define MHDP_BONDING_SUPPORT
@@ -63,6 +68,8 @@
 
 /* Print every MHDP SKB content */
 /* #define MHDP_DEBUG_SKB */
+
+#define UDP_PROT_TYPE	17
 
 
 #define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
@@ -108,6 +115,8 @@ struct mhdp_tunnel {
 struct mhdp_net {
 	struct mhdp_tunnel	*tunnels;
 	struct net_device	*ctl_dev;
+	struct mhdp_udp_filter	udp_filter;
+	spinlock_t udp_lock;
 #ifdef MHDP_USE_NAPI
 	struct net_device	*dev;
 	struct napi_struct	napi;
@@ -301,6 +310,149 @@ err_alloc_dev:
 	return NULL;
 }
 
+static void
+mhdp_set_udp_filter(struct mhdp_net *mhdpn,
+			struct mhdp_udp_filter *filter)
+{
+	spin_lock(&mhdpn->udp_lock);
+	mhdpn->udp_filter.port_id = filter->port_id;
+	mhdpn->udp_filter.active = 1;
+	spin_unlock(&mhdpn->udp_lock);
+}
+
+
+static void
+mhdp_reset_udp_filter(struct mhdp_net *mhdpn)
+{
+
+	spin_lock(&mhdpn->udp_lock);
+	mhdpn->udp_filter.port_id = 0;
+	mhdpn->udp_filter.active = 0;
+	spin_unlock(&mhdpn->udp_lock);
+
+}
+
+
+
+static int
+mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
+{
+	struct ipv6hdr *ipv6header;
+	struct iphdr *ipv4header;
+	struct udphdr *udphdr;
+	int ret = 0;
+	unsigned char *next_hdr;
+	unsigned char next_hdr_lgth;
+	unsigned int size_of_previous_hdr;
+	struct sk_buff *newskb;
+
+	spin_lock(&mhdpn->udp_lock);
+
+	if (mhdpn->udp_filter.active == 0) {
+		spin_unlock(&mhdpn->udp_lock);
+		return 0;
+	}
+	spin_unlock(&mhdpn->udp_lock);
+
+	/*if udp, check port number*/
+	if (skb->protocol == htons(ETH_P_IP)) {
+
+		ipv4header = ip_hdr(skb);
+
+		if (ipv4header->protocol == UDP_PROT_TYPE) {
+
+			udphdr = (struct udphdr *)(
+					(unsigned int *)ipv4header +
+					ipv4header->ihl);
+
+
+			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
+				size_of_previous_hdr = ipv4header->ihl *
+							sizeof(unsigned int);
+				ret = 1;
+			}
+		}
+
+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
+
+		ipv6header = ipv6_hdr(skb);
+		next_hdr = &ipv6header->nexthdr;
+
+		if (*next_hdr != UDP_PROT_TYPE) {
+
+			next_hdr += sizeof(struct ipv6hdr);
+
+			/*parse the supported next_hdr until UDP is found*/
+			while ((*next_hdr != NEXTHDR_UDP) ||
+				(*next_hdr != NEXTHDR_TCP) ||
+				(*next_hdr != NEXTHDR_NONE)) {
+
+				if (*next_hdr == NEXTHDR_FRAGMENT) {
+
+					next_hdr += 2*sizeof(unsigned int);
+
+				} else if (*next_hdr == NEXTHDR_IPV6) {
+
+					next_hdr += sizeof(struct ipv6hdr);
+
+				} else if ((*next_hdr == NEXTHDR_HOP) ||
+					(*next_hdr == NEXTHDR_ROUTING) ||
+					(*next_hdr == NEXTHDR_DEST)) {
+
+					next_hdr_lgth = *(next_hdr +
+								sizeof(char));
+					next_hdr += next_hdr_lgth;
+
+				} else {
+					/*Not supported, force to none
+					and leave*/
+					*next_hdr = NEXTHDR_NONE;
+				}
+			}
+		}
+
+		if (*next_hdr == UDP_PROT_TYPE) {
+
+			/*UDP header*/
+			udphdr = (struct udphdr *)((unsigned char *)ipv6header +
+				sizeof(struct ipv6hdr)+2*sizeof(unsigned int));
+
+			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
+				ret = 1;
+				size_of_previous_hdr =
+					(unsigned int)(
+						(unsigned char *)udphdr -
+						(unsigned char *)ipv6header);
+			}
+		}
+	}
+
+	if (ret == 1) {
+
+		newskb = skb_clone(skb, GFP_ATOMIC);
+
+		if (unlikely(!newskb)) {
+			ret = 0;
+			goto error;
+		}
+
+		skb_pull(newskb, (size_of_previous_hdr - sizeof(unsigned int)));
+
+		newskb->len = (unsigned int)htons(udphdr->len) +
+				sizeof(unsigned int);
+		newskb->protocol = UDP_PROT_TYPE;
+		skb_set_tail_pointer(newskb, newskb->len);
+
+		newskb->truesize = newskb->len + sizeof(struct sk_buff);
+
+		mhi_sock_rcv_multicast(newskb,
+				MHI_L3_MHDP_UDP_FILTER,
+				newskb->len);
+	}
+error:
+
+	return ret;
+}
 
 static int
 mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
@@ -310,6 +462,8 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	struct mhdp_tunnel *tunnel, *pre_dev;
 	struct mhdp_tunnel_parm __user *u_parms;
 	struct mhdp_tunnel_parm k_parms;
+	struct mhdp_udp_filter __user *u_filter;
+	struct mhdp_udp_filter k_filter;
 
 	int err = 0;
 
@@ -343,7 +497,8 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			tunnel->free_pdn = 0;
 
-			strcpy(&k_parms.name, tunnel->dev->name);
+			strcpy((char *)&k_parms.name,
+				(char *)tunnel->dev->name);
 
 			if (copy_to_user(u_parms, &k_parms,
 					sizeof(struct mhdp_tunnel_parm)))
@@ -374,6 +529,26 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	case SIOCRESETMHDP:
 		mhdp_destroy_tunnels(mhdpn);
+		break;
+
+	case SIOSETUDPFILTER:
+
+		u_filter = (struct mhdp_udp_filter *)ifr->ifr_data;
+
+		if (copy_from_user(&k_filter, u_filter,
+					sizeof(struct mhdp_udp_filter))) {
+			DPRINTK("Err: cannot cp filter data from user space\n");
+			return -EFAULT;
+		}
+		if (k_filter.active == 1) {
+			DPRINTK("mhdp SIOSETUDPFILTER active on port %d\n",
+				k_filter.port_id);
+			mhdp_set_udp_filter(mhdpn, &k_filter);
+		} else {
+			DPRINTK("mhdp SIOSETUDPFILTER filter reset\n");
+			mhdp_reset_udp_filter(mhdpn);
+		}
+
 		break;
 
 	default:
@@ -438,10 +613,11 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		dev_queue_xmit(skb);
 
 		for (i = 0; i < nb_frags; i++) {
-			if (tunnel->skb_to_free[i])
+			if (tunnel->skb_to_free[i]) {
 				dev_kfree_skb(tunnel->skb_to_free[i]);
-			else
-				EPRINTK("mhdp_submit_queued_skb: error no skb to free\n");
+			} else {
+				EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
+			}
 		}
 	}
 }
@@ -483,7 +659,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		DPRINTK("mhdp header length: %d, skb_headerlen: %d",
 				mhdp_header_len, skbheadlen);
 
-		mhdpHdr = kmalloc(mhdp_header_len,
+		mhdpHdr = (struct mhdp_hdr *) kmalloc(mhdp_header_len,
 				GFP_ATOMIC);
 
 		if (skbheadlen == 0) {
@@ -574,6 +750,9 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 		newskb->pkt_type = PACKET_HOST;
 
+		if (mhdp_is_filtered(mhdp_net_dev(dev), newskb))
+			goto end;
+
 		skb_tunnel_rx(newskb, dev);
 
 		tunnel = mhdp_locate_tunnel(mhdp_net_dev(dev), pdn_id);
@@ -590,7 +769,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 #endif /*#ifdef MHDP_USE_NAPI*/
 		}
 	}
-
+end:
 	rcu_read_unlock();
 
 	if (mhdp_header_len > skb_headlen(skb))
@@ -693,7 +872,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
-				printk(KERN_DEBUG "MHDP mhdp_netdev_xmit : TX [%04X] ", i);
+				printk("MHDP mhdp_netdev_xmit : TX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
 			if (i%8 == 7 || i == len-1)
 				printk("\n");
@@ -945,9 +1124,9 @@ static int __net_init mhdp_init_net(struct net *net)
 		free_netdev(mhdpn->ctl_dev);
 		return err;
 	}
+	spin_lock_init(&mhdpn->udp_lock);
 
-
-
+	mhdp_reset_udp_filter(mhdpn);
 #ifdef MHDP_USE_NAPI
 
 	netif_napi_add(mhdpn->ctl_dev, &mhdpn->napi, mhdp_poll, NAPI_WEIGHT);
@@ -976,7 +1155,6 @@ static struct pernet_operations mhdp_net_ops = {
 	.id   = &mhdp_net_id,
 	.size = sizeof(struct mhdp_net),
 };
-
 
 static int __init mhdp_init(void)
 {

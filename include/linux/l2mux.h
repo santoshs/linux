@@ -27,6 +27,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
+#ifdef __KERNEL__
 #include <net/sock.h>
 #define ACTIVATE_L2MUX_STAT
 
@@ -34,7 +35,7 @@
 #include <linux/list.h>
 #include <linux/time.h>
 #endif /* ACTIVATE_L2MUX_STAT */
-
+#endif /*__KERNEL__*/
 
 /* Official L3 protocol IDs */
 #define MHI_L3_PHONET		0x00
@@ -49,6 +50,7 @@
 #define MHI_L3_AUX_HOST		0x09
 #define MHI_L3_IMS		0x0D
 #define MHI_L3_THERMAL		0xC1
+#define MHI_L3_MHDP_UDP_FILTER	0xFC
 #define MHI_L3_HIGH_PRIO_TEST	0xFD
 #define MHI_L3_MED_PRIO_TEST	0xFE
 #define MHI_L3_LOW_PRIO_TEST	0xFF
@@ -59,6 +61,7 @@
 /* Special value for ANY */
 #define MHI_L3_ANY		0xFFFF
 
+#ifdef __KERNEL__
 typedef int (l2mux_skb_fn)(struct sk_buff *skb, struct net_device *dev);
 
 struct l2muxhdr {
@@ -144,6 +147,6 @@ extern int l2mux_netif_tx_unregister(int pt);
 
 extern int l2mux_skb_rx(struct sk_buff *skb, struct net_device *dev);
 extern int l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev);
-
+#endif /*__KERNEL__*/
 
 #endif /* LINUX_L2MUX_H */
