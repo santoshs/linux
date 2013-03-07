@@ -230,6 +230,10 @@ static int ld_pn_net_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	return 0;
 }
+static void ld_tx_overflow(void)
+{
+	printk(KERN_CRIT"##### ATTENTION : LD Phonet Transmit overflow : 1 MB #####\n");
+}
 
 static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 {
@@ -252,6 +256,8 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 
 		if (!room) {
 			if (ld_buff_len > LD_PHONET_BUFFER_LEN)  {
+				if (ld_pn->link_up == true)
+					ld_tx_overflow();
 				ld_pn->link_up = false;
 				/* Flush TX queue */
 				while ((skb = \
