@@ -157,6 +157,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -176,6 +178,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -194,6 +198,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= { 0x30, 16 },
+		[SCPDR]		= { 0x34, 16 },
 	},
 
 	/*
@@ -212,6 +218,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= { 0x3c, 16 },
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= { 0x30, 16 },
+		[SCPDR]		= { 0x34, 16 },
 	},
 
 	/*
@@ -231,6 +239,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= { 0x20, 16 },
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -249,6 +259,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -267,6 +279,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= { 0x20, 16 },
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -286,6 +300,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -305,6 +321,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= { 0x20, 16 },
 		[SCSPTR]	= { 0x24, 16 },
 		[SCLSR]		= { 0x28, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -324,6 +342,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 };
 
@@ -468,7 +488,10 @@ static void sci_init_pins(struct uart_port *port, unsigned int cflag)
 	 * Use port-specific handler if provided.
 	 */
 	if (s->cfg->ops && s->cfg->ops->init_pins) {
-		s->cfg->ops->init_pins(port, cflag);
+		if (!s->cfg->rts_ctrl) {
+			s->cfg->ops->init_pins(port, cflag);
+			s->cfg->rts_ctrl = 1 ;
+		}
 		return;
 	}
 
@@ -1239,11 +1262,9 @@ static void sci_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static unsigned int sci_get_mctrl(struct uart_port *port)
 {
-	/*
-	 * CTS/RTS is handled in hardware when supported, while nothing
-	 * else is wired up. Keep it simple and simply assert DSR/CAR.
-	 */
-	return TIOCM_DSR | TIOCM_CAR;
+	/* This routine is used for getting signals of: DTR, DCD, DSR, RI,
+	 * and CTS/RTS */
+	return  TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR | TIOCM_CAR;
 }
 
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
@@ -1527,6 +1548,9 @@ static void sci_start_tx(struct uart_port *port)
 	struct sci_port *s = to_sci_port(port);
 	unsigned short ctrl;
 
+	/* Wake BT chip before sending a frame */
+	if (s->cfg->exit_lpm_cb)
+		s->cfg->exit_lpm_cb(port);
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
 		u16 new, scr = serial_port_in(port, SCSCR);
@@ -1795,7 +1819,11 @@ static void sci_shutdown(struct uart_port *port)
 	unsigned long flags = 0 ;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
-
+	/* PCP# RK13011660043/RR13020740335
+	 Reset rts_ctrl flag before uart close
+	to set RTS pin low on next uart initialization */
+	if (s && s->cfg)
+		s->cfg->rts_ctrl = 0 ;
 	spin_lock_irqsave(&port->lock, flags);
 	sci_stop_rx(port);
 	sci_stop_tx(port);
@@ -2516,9 +2544,22 @@ static int __devinit sci_probe(struct platform_device *dev)
 static int sci_suspend(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data = 0 ;
 
 	/* GPIO settings review comments for PCP# NK12120730341 */
 	if (sport && sport->cfg) {
+		if (sport->cfg->rts_ctrl) {
+			sci_port_enable(sport);
+
+			/* Set RTS to high before going in deep sleep mode */
+			data = serial_port_in(port, SCPCR);
+			serial_port_out(port, SCPCR,  data | 0x0010);
+			data = serial_port_in(port, SCPDR);
+			serial_port_out(port, SCPDR,  data | 0x0010);
+
+			sci_port_disable(sport);
+		}
 		uart_suspend_port(&sci_uart_driver, &sport->port);
 		/* Set suspend state GPIO CR values here
 					to reduce power consumption */
@@ -2532,6 +2573,8 @@ static int sci_suspend(struct device *dev)
 static int sci_resume(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data = 0 ;
 
 	/* GPIO settings review comments for PCP# NK12120730341 */
 	if (sport && sport->cfg) {
@@ -2539,6 +2582,17 @@ static int sci_resume(struct device *dev)
 		gpio_set_portncr_value(sport->cfg->port_count, \
 			sport->cfg->scif_gpio_setting_info, 0);
 		uart_resume_port(&sci_uart_driver, &sport->port);
+		if (sport->cfg->rts_ctrl) {
+			sci_port_enable(sport);
+
+			/* Set RTS to low after the resume */
+			data = serial_port_in(port, SCPCR);
+			serial_port_out(port, SCPCR,  data & 0xFFEF);
+			data = serial_port_in(port, SCPDR);
+			serial_port_out(port, SCPDR,  data & 0xFFEF);
+
+			sci_port_disable(sport);
+		}
 	}
 	return 0;
 }
