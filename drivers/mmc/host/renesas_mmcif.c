@@ -1069,12 +1069,8 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 		sh_mmcif_writel(host->addr, MMCIF_CE_INT,
 				~(INT_CMD12RBE | INT_CMD12CRE));
 		sh_mmcif_bitclr(host, MMCIF_CE_INT_MASK, MASK_MCMD12RBE);
-	} else {
-		dev_dbg(&host->pd->dev, "Unsupported interrupt: 0x%x\n", state);
-		sh_mmcif_writel(host->addr, MMCIF_CE_INT, ~state);
-		sh_mmcif_bitclr(host, MMCIF_CE_INT_MASK, state);
-		err = 1;
 	}
+
 	if (err) {
 		host->sd_error = true;
 		dev_err(&host->pd->dev, "int err state = %08x\n", state);
