@@ -42,7 +42,12 @@ config SND_SOC_AUDIO_TEST_D2153
 config SND_SOC_AUDIENCE_A2220
 	tristate "AUDIENCE-A2220 sound support"
 	depends on I2C
-        default m
+
+config SND_SOC_FM34_WE395
+	tristate "Forte Media 2MIC driver"
+	depends on I2C
+	help
+	  This is Forte media voice solution devices.
 
 ##
 ## Boards
