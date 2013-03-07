@@ -116,7 +116,7 @@ enum {
 	SCSMR, SCBRR, SCSCR, SCxSR,
 	SCFCR, SCFDR, SCxTDR, SCxRDR,
 	SCLSR, SCTFDR, SCRFDR, SCSPTR,
-
+	SCPCR, SCPDR,
 	SCIx_NR_REGS,
 };
 
@@ -159,7 +159,11 @@ struct plat_sci_port {
 
 	unsigned int	dma_slave_tx;
 	unsigned int	dma_slave_rx;
-	
+	/* Call Back for Low Power Mode support */
+	void		(*exit_lpm_cb)(struct uart_port *uport);
+	/* Set to 0 = Set RTS to low
+	in UART port initialization */
+	bool		rts_ctrl;
 	/* GPIO setting */
 	u32				port_count ;
 	struct portn_gpio_setting_info	*scif_gpio_setting_info;

@@ -320,6 +320,11 @@ static struct plat_sci_port scif4_platform_data = {
 	.irqs		= { gic_spi(107), gic_spi(107),
 			gic_spi(107), gic_spi(107) },
 	.ops		= &shmobile_sci_port_ops,
+	.capabilities = SCIx_HAVE_RTSCTS,
+	.rts_ctrl	= 0,
+#if defined(CONFIG_RENESAS_BT)
+	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
+#endif
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif4_gpio_setting_info),
 	.scif_gpio_setting_info = &scif4_gpio_setting_info,
@@ -418,19 +423,16 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 };
 
 /* SCIFB1 */
-/* PCP# SS13020730732 - SCIFB1 configuration is changed as below
-based on UART baud rate settings in GPS module
-For baud rate 115 200 / 460 800 - SCBRR_ALGO_4 is set
-For baud rate 921 600 / 460 800 - SCBRR_ALGO_4_BIS */
 static struct plat_sci_port scif5_platform_data = {
 	.mapbase	= 0xe6c30000,
 	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
 	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
+	.scbrr_algo_id	= SCBRR_ALGO_4_BIS,
 	.type		= PORT_SCIFB,
 	.irqs		= { gic_spi(108), gic_spi(108),
 			gic_spi(108), gic_spi(108) },
 	.ops		= &shmobile_sci_port_ops,
+	.capabilities = SCIx_HAVE_RTSCTS,
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif5_gpio_setting_info),
 	.scif_gpio_setting_info = &scif5_gpio_setting_info,
