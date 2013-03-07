@@ -564,10 +564,6 @@ static void __init gardalte_init(void)
 	/* set board version */
 	u2_board_rev = read_board_rev();
 
-	/* Temporary workaround */
-	if (u2_board_rev == 1)
-		u2_board_rev = RLTE_BOARD_REV_0_1;
-
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
 

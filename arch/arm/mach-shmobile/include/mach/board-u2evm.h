@@ -25,13 +25,19 @@
 
 
 /**
- * SEC_RLTE_REV
+ * RLTE_BOARD_REV
  */
-#define SEC_RLTE_REV0_0_0		0
-#define SEC_RLTE_REV0_2_1		1
-#define SEC_RLTE_REV0_2_2		2
-#define SEC_RLTE_REV0_3_1		3
-#define SEC_RLTE_REV0_4_0		4
+#define RLTE_BOARD_REV_0_1_0		0
+#define RLTE_BOARD_REV_0_1_1		0
+#define RLTE_BOARD_REV_0_1_2		0
+#define RLTE_BOARD_REV_0_2_1		1
+#define RLTE_BOARD_REV_0_2_2		2
+#define RLTE_BOARD_REV_0_2_3		2
+#define RLTE_BOARD_REV_0_2_4		2
+#define RLTE_BOARD_REV_0_3_1		3
+#define RLTE_BOARD_REV_0_3_2		3
+#define RLTE_BOARD_REV_0_4_1		4
+#define RLTE_BOARD_REV_0_5_0		5
 
 /**
  * ION

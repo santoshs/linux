@@ -318,7 +318,7 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 	iic_wr(pd, ICIC, 0);
 #ifdef CONFIG_MACH_U2EVM
 	/*set the bus_data_delay*/
-	if (u2_get_board_rev() >= SEC_RLTE_REV0_4_0)
+	if (u2_get_board_rev() >= RLTE_BOARD_REV_0_4_1)
 		iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
 				(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 #endif
@@ -747,7 +747,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	if (pdata && pdata->clks_per_count)
 		pd->clks_per_count = pdata->clks_per_count;
 #ifdef CONFIG_MACH_U2EVM
-	if ((u2_get_board_rev() >= RLTE_SSG_REV_041) && pdata &&
+	if ((u2_get_board_rev() >= RLTE_BOARD_REV_0_4_1) && pdata &&
 			(pdata->bus_data_delay <= MAX_SDA_DELAY
 			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
 		pd->bus_data_delay = pdata->bus_data_delay <<
