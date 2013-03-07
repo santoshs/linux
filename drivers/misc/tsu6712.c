@@ -385,12 +385,20 @@ static void tsu6712_dock_cb(int attached)
 
 static void tsu6712_ovp_cb(bool attached)
 {
-	pr_info("%s:%s\n",__func__,(attached?"TRUE":"FALSE")); 
-	if (u2_get_board_rev() >= 5) {
+	pr_info("%s:%s\n", __func__, (attached ? "TRUE" : "FALSE"));
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() == 5) {
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		spa_event_handler(SPA_EVT_OVP, (int)attached);
 #endif
 	}
+#endif
+
+#if defined(CONFIG_MACH_GARDALTE)
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		spa_event_handler(SPA_EVT_OVP, (int)attached);
+#endif
+#endif
 }
 
 static void tsu6712_usb_cb(bool attached)
@@ -413,24 +421,43 @@ static void tsu6712_usb_cb(bool attached)
 
    printk("%s : %d", __func__,__LINE__);
 
-
-   if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() == 5) {
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-     switch (set_cable_status) {
-     case CABLE_TYPE_USB:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
-       pr_info("%s USB attached\n",__func__);
-       break;
+		switch (set_cable_status) {
+		case CABLE_TYPE_USB:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+			pr_info("%s USB attached\n", __func__);
+			break;
 
-     case CABLE_TYPE_NONE:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-       pr_info("%s USB removed\n",__func__);
-       break;
-     default:
-       break;
-     }
+		case CABLE_TYPE_NONE:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			pr_info("%s USB removed\n", __func__);
+			break;
+		default:
+			break;
+		}
 #endif
    }
+#endif
+
+#if defined(CONFIG_MACH_GARDALTE)
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		switch (set_cable_status) {
+		case CABLE_TYPE_USB:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+			pr_info("%s USB attached\n", __func__);
+			break;
+
+		case CABLE_TYPE_NONE:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			pr_info("%s USB removed\n", __func__);
+			break;
+		default:
+			break;
+		}
+#endif
+#endif
 }
 
 static void tsu6712_charger_cb(bool attached)
@@ -438,22 +465,41 @@ static void tsu6712_charger_cb(bool attached)
    pr_info("tsu6712_charger_cb attached %d\n", attached);
 
    set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
-   if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() == 5) {
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-     switch (set_cable_status) {
-     case CABLE_TYPE_AC:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
-       pr_info("%s TA attached\n",__func__);
-       break;
-     case CABLE_TYPE_NONE:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-       pr_info("%s TA removed\n",__func__);
-       break;
-     default:
-       break;       
-     }
+		switch (set_cable_status) {
+		case CABLE_TYPE_AC:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+			pr_info("%s TA attached\n", __func__);
+			break;
+		case CABLE_TYPE_NONE:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			pr_info("%s TA removed\n", __func__);
+			break;
+		default:
+			break;
+		}
 #endif
-   }
+	}
+#endif
+
+#if defined(CONFIG_MACH_GARDALTE)
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		switch (set_cable_status) {
+		case CABLE_TYPE_AC:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+			pr_info("%s TA attached\n", __func__);
+			break;
+		case CABLE_TYPE_NONE:
+			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			pr_info("%s TA removed\n", __func__);
+			break;
+		default:
+			break;
+		}
+#endif
+#endif
 }
 
 static void tsu6712_jig_cb(bool attached)
@@ -1513,8 +1559,8 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	/* read and clear interrupt status bits */
 	tsu6712_read_word_reg(client, TSU6712_REG_INT1,&intr);
 	intr2 = intr >> 8;
-
-if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() == 5) {
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
 		if (intr) {
 			handle_nested_irq(usbsw->irq_base
@@ -1522,6 +1568,16 @@ if (u2_get_board_rev() >= 5) {
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 		}
 	}
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+		dev_info(&client->dev, "%s intr: 0x%x\n", __func__, intr);
+		if (intr) {
+			handle_nested_irq(usbsw->irq_base
+						+ TPS80032_INT_VBUSS_WKUP);
+			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
+		}
+#endif
+
 	if (intr < 0) {
 		msleep(100);
 		dev_err(&client->dev, "%s: err %d\n", __func__, intr);
@@ -1726,9 +1782,14 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	/* initial cable detection */
 	INIT_DELAYED_WORK(&usbsw->init_work, tsu6712_init_detect);
 	schedule_delayed_work(&usbsw->init_work, msecs_to_jiffies(2700));
-	if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() == 5)
 		tsu6712_init_usb_irq(usbsw);
-	}
+
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+		tsu6712_init_usb_irq(usbsw);
+#endif
 	return 0;
 
 #if 0
