@@ -84,6 +84,7 @@
 #endif
 #if defined(CONFIG_SAMSUNG_MHL)
 #include "board_mhl_sii8332.c"
+#include "board_edid.c"
 #include <linux/sii8332_platform.h>
 #endif
 #ifdef CONFIG_USB_OTG
@@ -2659,6 +2660,7 @@ static void __init u2evm_init(void)
 
 #if defined (CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
+	board_edid_init();
 #endif
 	if(u2_get_board_rev() >= 5) {
 		i2c_register_board_info(0, i2c0_devices_d2153, ARRAY_SIZE(i2c0_devices_d2153));

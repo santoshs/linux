@@ -111,6 +111,8 @@ CONFIG_IP_PNP=y
 # CONFIG_INET_DIAG is not set
 CONFIG_RT_GROUP_SCHED=y
 
+# MHL
+CONFIG_SAMSUNG_MHL=y
 
 #
 # Network testing

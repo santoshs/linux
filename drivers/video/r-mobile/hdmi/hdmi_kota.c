@@ -24,6 +24,12 @@
 
 #include <rtapi/screen_display.h>
 
+/*edid*/
+#include "edid2.h"
+/*edid*/
+
+extern struct mutex format_update_lock;
+
 #define LCD_BG_BLACK 0x0
 
 static screen_disp_aspect aspect[10] = {
@@ -152,7 +158,8 @@ static int kota_hdmi_set(unsigned int format)
 	screen_disp_delete disp_delete;
 	screen_disp_set_hdmi_if_param hdmi_if_param;
 	int ret;
-
+	edid_read(); /*edid*/
+	format = edid_set_output_format();
 	hdmi_handle = screen_display_new();
 
 	switch (format) {
@@ -238,6 +245,7 @@ static int kota_hdmi_set(unsigned int format)
 				    "screen_display_set_hdmi_if_parameters");
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
+		mutex_unlock(&format_update_lock);
 		return -1;
 
 	}
@@ -249,11 +257,13 @@ static int kota_hdmi_set(unsigned int format)
 		r_mobile_fb_err_msg(ret, "screen_display_start_hdmi");
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
+		mutex_unlock(&format_update_lock);
 		return -1;
 	}
 
 	disp_delete.handle = hdmi_handle;
 	screen_display_delete(&disp_delete);
+	mutex_unlock(&format_update_lock);
 	return 0;
 
 }

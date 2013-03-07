@@ -91,8 +91,6 @@ struct mhl_platform_data {
 	struct i2c_client *simg92_tx_client;
 	struct i2c_client *simg9A_tx_client;    
 	struct i2c_client *simgC8_tx_client;
-	struct i2c_client *simgA0_tx_client;    
-	struct i2c_client *simg60_tx_client;  
 };
 #endif/*SFEATURE_SII8332_PLATFORM*/
 extern void sii9234_power_onoff(bool on);
