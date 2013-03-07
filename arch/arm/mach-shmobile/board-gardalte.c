@@ -720,7 +720,11 @@ static struct resource stm_res[] = {
 	[1] = {
 		.name	= "stm_ports",
 		.start	= 0xe9000000,
+#ifdef CONFIG_TTY_LL_STM
+		.end	= 0xe9ffffff,
+#else
 		.end	= 0xe9000fff,
+#endif
 		.flags	= IORESOURCE_MEM,
 	},
 	[2] = {
