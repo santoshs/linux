@@ -1500,7 +1500,7 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 {
 	struct tsu6712_usbsw *usbsw = data;
 	struct i2c_client *client = usbsw->client;
-	int intr,  intr2, detect,temp;
+	int intr,  intr2, detect,temp, device_type;
 
 	/* TSU6712 : Read interrupt -> Read Device
 	 TSU6712 : Read Device -> Read interrupt */
@@ -1512,16 +1512,20 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 
 	/* read and clear interrupt status bits */
 	tsu6712_read_word_reg(client, TSU6712_REG_INT1,&intr);
+        tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
 	intr2 = intr >> 8;
 
-if (u2_get_board_rev() >= 5) {
+        if (u2_get_board_rev() >= 5) {
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
-		if (intr) {
-			handle_nested_irq(usbsw->irq_base
-						+ TPS80032_INT_VBUSS_WKUP);
+
+		if ((intr & 0x01) && (device_type & 0x04)) {
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-		}
+	        }
+                else if (intr & 0x02){
+                        handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
+                }
 	}
+
 	if (intr < 0) {
 		msleep(100);
 		dev_err(&client->dev, "%s: err %d\n", __func__, intr);
