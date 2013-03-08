@@ -237,6 +237,32 @@ __acquires(r8a66597->lock)
 	disable_controller(r8a66597);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
+static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
+{
+	   static int usb_clk_status;
+	   if (clk_enable) {
+		if (!usb_clk_status) {
+			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
+			r8a66597_clk_enable(r8a66597);
+			udc_log("%s, After clock enable - USB usage count:%d\n",
+			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			usb_clk_status = 1;
+		   }
+		else
+			return;
+	  } else {
+		if (usb_clk_status) {
+		   	r8a66597_clk_disable(r8a66597);
+			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			udc_log("%s, After clock disable - USB usage count:%d\n",
+			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			usb_clk_status = 0;
+		   }
+		else
+			return;
+	  }
+}
+
 static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
@@ -246,8 +272,8 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	unsigned long flags;
 
 	if ((!r8a66597->old_vbus) && (!powerup)) {
-		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-		r8a66597_clk_enable(r8a66597);
+		udc_log("%s: USB clock enable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 1);
 
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
@@ -265,8 +291,8 @@ static void r8a66597_vbus_work(struct work_struct *work)
 			wake_unlock(&r8a66597->wake_lock);
 
 		if ((!r8a66597->old_vbus) && (!powerup)) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);
 		}
 
 		udc_log("%s: return\n", __func__);
@@ -320,8 +346,8 @@ vbus_disconnect:
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
 		if (powerup) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);
 			powerup = 0;
 			udc_log("%s: power %s\n",
 			__func__, powerup ? "up" : "down");
@@ -2439,8 +2465,8 @@ static int r8a66597_start(struct usb_gadget *gadget,
 			}
 			r8a66597->old_vbus = 0; /* start with disconnected */
 			if (powerup) {
-				pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-				r8a66597_clk_enable(r8a66597);
+				udc_log("%s: USB clock enable called by\n", __func__);
+				usb_core_clk_ctrl(r8a66597, 1);
 				bwait = r8a66597->pdata->buswait ?
 				r8a66597->pdata->buswait : 15;
 				if (r8a66597->pdata->module_start)
@@ -2463,9 +2489,8 @@ static int r8a66597_start(struct usb_gadget *gadget,
 								vbus_work, 0);
 				} else {
 					powerup = 0; /* added 0 for powerup */
-					r8a66597_clk_disable(r8a66597);
-					pm_runtime_put_sync(
-						r8a66597_to_dev(r8a66597));
+					udc_log("%s: USB clock disable called by\n", __func__);
+					usb_core_clk_ctrl(r8a66597, 0);
 				}
 			}
 		} else {
@@ -2511,8 +2536,8 @@ static int r8a66597_stop(struct usb_gadget *gadget,
 #ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus) {
 		if (powerup) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);   
 			powerup = 0;
 			udc_log("%s: power %s\n"
 			, __func__, powerup ? "up" : "down");
@@ -2564,10 +2589,11 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 
 static int r8a66597_vbus_session(struct usb_gadget *gadget , int is_active)
 {
+#if 0
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
 	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
 	unsigned long flags;
-
+	udc_log("%s: IN, is_active %d\n", __func__, is_active); 
 	dev_dbg(r8a66597_to_dev(r8a66597), "VBUS %s => %s\n",
 		r8a66597->vbus_active ? "on" : "off", is_active ? "on" : "off");
 
@@ -2575,8 +2601,8 @@ static int r8a66597_vbus_session(struct usb_gadget *gadget , int is_active)
 		return 0;
 
 	if (is_active) {
-		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-		r8a66597_clk_enable(r8a66597);
+		udc_log("%s: USB clock enable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 1);
 
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
@@ -2601,11 +2627,12 @@ static int r8a66597_vbus_session(struct usb_gadget *gadget , int is_active)
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
 
-		r8a66597_clk_disable(r8a66597);
-		pm_runtime_put(r8a66597_to_dev(r8a66597));
+		udc_log("%s: USB clock disable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 0);
 	}
 
 	r8a66597->vbus_active = is_active;
+#endif
 	return 0;
 }
 
@@ -2634,13 +2661,13 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 
 	if (r8a66597->pdata->on_chip) {
 		if (!r8a66597->transceiver) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put(r8a66597_to_dev(r8a66597));
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);
 		}
 		if (!r8a66597->pdata->vbus_irq) {
 			if (powerup) {
-				r8a66597_clk_disable(r8a66597);
-				pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+				udc_log("%s: USB clock disable called by\n", __func__);
+				usb_core_clk_ctrl(r8a66597, 0); 
 				powerup = 0;
 			}
 		}
@@ -2769,8 +2796,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto clean_up_dev;
 		if (!r8a66597->transceiver) {
-			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-			r8a66597_clk_enable(r8a66597);
+			udc_log("%s: USB clock enable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 1);
 			powerup=1;
 		}
 	}
@@ -2835,8 +2862,8 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto err_add_udc;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
-	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
-	r8a66597_clk_disable(r8a66597);
+	udc_log("%s: USB clock disable called by\n", __func__);
+	usb_core_clk_ctrl(r8a66597, 0);
 	return 0;
 
 err_add_udc:
@@ -2848,8 +2875,8 @@ clean_up3:
 clean_up2:
 	if (r8a66597->pdata->on_chip) {
 		if (!r8a66597->transceiver) {
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put(r8a66597_to_dev(r8a66597));
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);
 			powerup=0;
 		}
 		r8a66597_clk_put(r8a66597);
@@ -2953,33 +2980,14 @@ static int r8a66597_udc_suspend(struct device *dev)
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 0);
+
 	/*save the state of the phy before suspend*/
 
 	if (!powerup) {
-		udc_log("%s, USB device usage count: %d\n",
+		printk(KERN_INFO "%s, USB device usage count: %d\n",
 		__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
 		return 0;
 	}
-
-	if (r8a66597->vbus_active) {
-		spin_lock_irqsave(&r8a66597->lock, flags);
-		r8a66597_usb_disconnect(r8a66597);
-		spin_unlock_irqrestore(&r8a66597->lock, flags);
-		r8a66597->vbus_active = 0;
-		/* stop clock */
-		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
-		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
-		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
-
-		if (r8a66597->pdata->module_stop)
-			r8a66597->pdata->module_stop();
-	}
-	r8a66597_clk_disable(r8a66597);
-	pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-	powerup = 0;
-	udc_log("%s: power %s\n", __func__, powerup ? "up" : "down");
-	udc_log("%s, USB device usage count: %d\n",
-	 __func__, r8a66597_to_dev(r8a66597)->power.usage_count);
 
 	return 0;
 }
@@ -2990,8 +2998,8 @@ static int r8a66597_udc_resume(struct device *dev)
 	/*restore the state of the phy before resume*/
 	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
 	if (r8a66597->old_vbus) {
-		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-		r8a66597_clk_enable(r8a66597);
+                udc_log("%s: USB clock enable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 1);
 		schedule_delayed_work(&r8a66597->vbus_work, 0);
 	}
 
