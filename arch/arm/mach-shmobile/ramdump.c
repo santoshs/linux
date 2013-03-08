@@ -27,12 +27,11 @@
 #include <linux/slab.h>
 #include <asm/system_misc.h>
 #include <asm/cacheflush.h>
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 #include <mach/ramdump.h>
+#include <asm/mach/map.h>
 
-/* TODO: disable debug prints when k345 is in better shape
- */
-static int debug_enabled = 1;
+static int debug_enabled;
 module_param_named(debug_enabled, debug_enabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -41,6 +40,21 @@ module_param_named(debug_enabled, debug_enabled, int,
 		if (debug_enabled) \
 			printk(KERN_INFO fmt, ##arg); \
 	} while (0)
+
+
+struct hw_registers {
+	void __iomem *start;
+	void __iomem *end;
+	phys_addr_t p_start;
+	enum hw_register_width width;
+	/* Power area which needs to be on before reading registers
+	 * This is PTSR register bit mask */
+	unsigned int pa;
+	/* This one of the module stop registers */
+	unsigned int msr;
+	/* This is module stop register bit mask */
+	unsigned int msb;
+};
 
 struct ramdump {
 	/* base address & size for register dump area */
@@ -59,22 +73,17 @@ struct ramdump {
 	void *lsi_reg_dump_base;
 	size_t lsi_reg_dump_size;
 
-	/* ioremap variables for capturing Hardware-Register value */
-	void __iomem *sbsc_setting_00;
-	void __iomem *sbsc_setting_01;
-	void __iomem *sbsc_mon_setting;
-	void __iomem *sbsc_phy_setting_00;
-	void __iomem *sbsc_phy_setting_01;
-	void __iomem *sbsc_phy_setting_02;
-	void __iomem *ipmmu_setting;
+	struct hw_registers *hw_registers;
+	unsigned int num_hw_registers;
 
-	/* pointer to reg dump area for easy finding in ramdump analyzator */
 	struct hw_register_dump *hw_register_dump;
 	atomic_t hw_registers_saved;
 };
 
 static struct ramdump *ramdump;
 
+/* This is the magic marker used by trace32 to find the kernel base address */
+static const char *magic_marker = "k3rneL_*_p0hj4Os0it3";
 
 
 /**
@@ -84,7 +93,6 @@ static struct ramdump *ramdump;
  *  peripherals etc which should not happen in emergency restart (machine
  *  shutdown calls shmobile_pm_stop_peripheral_devices in ARCH_R8A73734).
  */
-
 static void my_emergency_restart(void)
 {
 	dprintk("%s\n", __func__);
@@ -93,7 +101,7 @@ static void my_emergency_restart(void)
 	arm_pm_restart('h', NULL);
 
 	/* reboot failed, let's wait watchdog */
-	while(1);
+	while (1);
 }
 
 /*
@@ -199,61 +207,81 @@ static void *save_core_registers(void *ptr)
 	return p;
 }
 
-
-/**
- * Read_32bit_HwRegisters - Read 32bit HW Register
- * @return : none
- */
-static void Read_32bit_HwRegisters(unsigned long *write_ptr,
-				   unsigned long *start_addr,
-				   unsigned long *end_addr)
+static unsigned int *read_register_range(unsigned int *write_ptr,
+		struct hw_registers *hwr)
 {
-	unsigned long *ulong_ptr;
-	unsigned long *read_addr;
+	/* todo: read address is increment by 4 byte steps.
+	 * if some range has width 8bit and the addresses needs to be
+	 * incremented by byte step then this needs to be fixes. */
+	unsigned int *start_addr = 0, *end_addr = 0, msr = 0;
+	start_addr = hwr->start;
+	end_addr = hwr->end;
+	if ((NULL != write_ptr) && (NULL != start_addr) && (NULL != end_addr)) {
 
-	ulong_ptr = write_ptr;
-	read_addr = start_addr;
+		/* Check if register have power area to be checked before
+		 * reading register */
+		if (hwr->pa &&
+			(ramdump->hw_register_dump->SYSCPSTR & hwr->pa) == 0) {
+			/* power are down -> skip registers */
+			dprintk("power area status 0x%08lx -> area 0x%08x " \
+					"down -> skip reading register range\n",
+					ramdump->hw_register_dump->SYSCPSTR,
+					hwr->pa);
+			write_ptr = write_ptr + (end_addr - start_addr);
+			write_ptr++; /* skip also end address */
+			return write_ptr;
+		}
 
-	if ((NULL != ulong_ptr) && (NULL != read_addr) && (NULL != end_addr)) {
-		while (read_addr <= end_addr) {
-			*ulong_ptr = __raw_readl(read_addr);
-			dprintk("%p, %p : %08lx\n", read_addr, ulong_ptr,
-					*ulong_ptr);
-			ulong_ptr++;
-			read_addr++;
+		/* Check if register have module stop condition be checked
+		 * before reading register */
+		if (hwr->msr && hwr->msb) {
+			msr = __raw_readl(hwr->msr);
+			if ((msr & hwr->msb) == hwr->msb) {
+				dprintk("msr 0x%08x:0x%08x -> msb %x stopped" \
+					"-> skip reading register range\n",
+					hwr->msr, msr, hwr->msb);
+				write_ptr = write_ptr + (end_addr - start_addr);
+				write_ptr++; /* skip also end address */
+				return write_ptr;
+			}
+		}
+
+		while (start_addr <= end_addr) {
+			switch (hwr->width) {
+			case HW_REG_8BIT:
+				*write_ptr = (unsigned int)__raw_readb(
+						(unsigned char *)start_addr);
+				break;
+			case HW_REG_16BIT:
+				*write_ptr = (unsigned int)__raw_readw(
+						(unsigned short *)start_addr);
+				break;
+			case HW_REG_32BIT:
+				*write_ptr = __raw_readl(start_addr);
+				break;
+			}
+
+
+			dprintk("%x:%d, %p : %08x\n", hwr->p_start +
+					((unsigned int)start_addr - (
+					unsigned int)hwr->start), hwr->width,
+					write_ptr, *write_ptr);
+			write_ptr++;
+			start_addr++;
 		}
 	}
+	return write_ptr;
 }
 
-static inline void Read_32bit_HwRegister(unsigned long *write_ptr,
-					 unsigned long *read_addr)
-{
-	*write_ptr = __raw_readl(read_addr);
-	dprintk("%p, %p : %08lx\n", read_addr, write_ptr, *write_ptr);
-}
-
-static inline void Read_16bit_HwRegister(unsigned long *write_ptr,
-					 unsigned long *read_addr)
-{
-	*write_ptr = (unsigned long)__raw_readw(read_addr);
-	dprintk("%p, %p : %08lx\n", read_addr, write_ptr, *write_ptr);
-}
-
-static inline void Read_8bit_HwRegister(unsigned long *write_ptr,
-					unsigned long *read_addr)
-{
-	*write_ptr = (unsigned long)__raw_readb(read_addr);
-	dprintk("%p, %p : %08lx\n", read_addr, write_ptr, *write_ptr);
-}
 /**
- * Save_HwRegister_To_RAM - Write logs to eMMC
+ * save_hw_registers_to_ram - Write logs to eMMC
  * @return : none
  */
-static void Save_HwRegister_To_RAM(void)
+static void save_hw_registers_to_ram(void)
 {
-	ulong len;
-	struct hw_register_dump	*reg_dump = ramdump->hw_register_dump;
-
+	int i = 0;
+	unsigned int *p = NULL;
+	struct hw_registers *hw_regs = NULL;
 	dprintk("--- Start of %s() ---\n", __func__);
 
 	/* Check if we already have dumped the LSI registers */
@@ -262,208 +290,12 @@ static void Save_HwRegister_To_RAM(void)
 		return;
 	}
 
+	p = ramdump->lsi_reg_dump_base;
 
-	/*  Transfer value of each registers to the struct variable  */
-
-	/* -----	SBSC1 ----- */
-	dprintk("   Exec %s() SBSC1\n", __func__);
-	if (ramdump->sbsc_setting_00) {
-		len = (SBSC_SETTING_00_E - SBSC_SETTING_00_S);
-		Read_32bit_HwRegisters(	reg_dump->SBSC_Setting_00,
-					ramdump->sbsc_setting_00,
-					ramdump->sbsc_setting_00 + len);
-
-		dprintk("     SDCR0A  = %08lx\n", reg_dump->SBSC_Setting_00[2]);
-		dprintk("     SDCR1A  = %08lx\n", reg_dump->SBSC_Setting_00[3]);
-		dprintk("     SDPCRA  = %08lx\n", reg_dump->SBSC_Setting_00[4]);
-		dprintk("     EBMCRA  = %08lx\n", reg_dump->SBSC_Setting_00[5]);
-		dprintk("   ioremap OK in %s() : SBSC1 #01\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #01\n", __func__);
+	for (i = 0; i < ramdump->num_hw_registers; i++) {
+		hw_regs = &ramdump->hw_registers[i];
+		p = read_register_range(p, hw_regs);
 	}
-
-	if (ramdump->sbsc_setting_01) {
-		len = (SBSC_SETTING_01_E - SBSC_SETTING_01_S);
-		Read_32bit_HwRegisters(	reg_dump->SBSC_Setting_01,
-					ramdump->sbsc_setting_01,
-					ramdump->sbsc_setting_01 + len);
-
-		dprintk("   ioremap OK in %s() : SBSC1 #02\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #02\n", __func__);
-	}
-
-	if (ramdump->sbsc_mon_setting) {
-		Read_32bit_HwRegister(	&reg_dump->SBSC_Mon_Setting,
-					ramdump->sbsc_mon_setting);
-		dprintk("   ioremap OK in %s() : SBSC1 #03\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #03\n", __func__);
-	}
-
-	if (ramdump->sbsc_phy_setting_00) {
-		len = (SBSC_PHY_SETTING_00_E - SBSC_PHY_SETTING_00_S);
-		Read_32bit_HwRegisters(	reg_dump->SBSC_PHY_Setting_00,
-					ramdump->sbsc_phy_setting_00,
-					ramdump->sbsc_phy_setting_00 + len);
-		dprintk("   ioremap OK in %s() : SBSC1 #04\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #04\n", __func__);
-	}
-
-	if (ramdump->sbsc_phy_setting_01) {
-		Read_32bit_HwRegister(	&reg_dump->SBSC_PHY_Setting_01,
-					ramdump->sbsc_phy_setting_01);
-
-		dprintk("   ioremap OK in %s() : SBSC1 #05\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #05\n", __func__);
-	}
-
-	if (ramdump->sbsc_phy_setting_02) {
-		len = (SBSC_PHY_SETTING_02_E - SBSC_PHY_SETTING_02_S);
-		Read_32bit_HwRegisters(	reg_dump->SBSC_PHY_Setting_02,
-					ramdump->sbsc_phy_setting_02,
-					ramdump->sbsc_phy_setting_02 + len);
-
-		dprintk("   ioremap OK in %s() : SBSC1 #06\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : SBSC1 #06\n", __func__);
-	}
-
-	/* -----	CPG ----- */
-	dprintk("   Exec %s() CPG\n", __func__);
-	Read_32bit_HwRegisters(	reg_dump->CPG_Setting_00,
-				(unsigned long *)CPG_SETTING_00_S,
-				(unsigned long *)CPG_SETTING_00_E);
-	Read_32bit_HwRegisters(	reg_dump->CPG_Setting_01,
-				(unsigned long *)CPG_SETTING_01_S,
-				(unsigned long *)CPG_SETTING_01_E);
-
-	/* -----	RWDT ----- */
-	dprintk("   Exec %s() RWDT\n", __func__);
-	Read_16bit_HwRegister(	&reg_dump->RWDT_Condition[0],
-				(unsigned long *)RWDT_CONDITION_00);
-	Read_8bit_HwRegister(	&reg_dump->RWDT_Condition[1],
-				(unsigned long *)RWDT_CONDITION_01);
-	Read_8bit_HwRegister(	&reg_dump->RWDT_Condition[2],
-				(unsigned long *)RWDT_CONDITION_02);
-
-	/* -----	SWDT ----- */
-	dprintk("   Exec %s() SWDT\n", __func__);
-	Read_16bit_HwRegister(	&reg_dump->SWDT_Condition[0],
-				(unsigned long *)SWDT_CONDITION_00);
-	Read_8bit_HwRegister(	&reg_dump->SWDT_Condition[1],
-				(unsigned long *)SWDT_CONDITION_02);
-	Read_8bit_HwRegister(	&reg_dump->SWDT_Condition[2],
-				(unsigned long *)SWDT_CONDITION_02);
-
-	/* -----	Secure Up-time Clock ----- */
-	dprintk("   Exec %s() Secure Up-time Clock\n", __func__);
-	Read_16bit_HwRegister(	&reg_dump->SUTC_Condition[0],
-				(unsigned long *)SUTC_CONDITION_00);
-	Read_16bit_HwRegister(	&reg_dump->SUTC_Condition[1],
-				(unsigned long *)SUTC_CONDITION_01);
-
-	Read_32bit_HwRegisters(	&(reg_dump->SUTC_Condition[2]),
-				(unsigned long *)SUTC_CONDITION_02,
-				(unsigned long *)SUTC_CONDITION_03);
-
-	/* -----	CMT15 ----- */
-	dprintk("   Exec %s() CMT15\n", __func__);
-	Read_32bit_HwRegister(	&reg_dump->CMT15_Condition[0],
-				(unsigned long *)CMT15_CONDITION_00);
-	Read_32bit_HwRegister(	&reg_dump->CMT15_Condition[1],
-				(unsigned long *)CMT15_CONDITION_01);
-	Read_32bit_HwRegister(	&reg_dump->CMT15_Condition[2],
-				(unsigned long *)CMT15_CONDITION_02);
-	Read_32bit_HwRegister(	&reg_dump->CMT15_Condition[3],
-				(unsigned long *)CMT15_CONDITION_03);
-
-	/* -----	SYSC ----- */
-
-	dprintk("   Exec %s() SYSC\n", __func__);
-	Read_32bit_HwRegisters(	reg_dump->SYSC_Setting_00,
-				(unsigned long *)SYSC_SETTING_00_S,
-				(unsigned long *)SYSC_SETTING_00_E);
-	Read_32bit_HwRegisters(	reg_dump->SYSC_Setting_01,
-				(unsigned long *)SYSC_SETTING_01_S,
-				(unsigned long *)SYSC_SETTING_01_E);
-	Read_32bit_HwRegisters(	reg_dump->SYSC_Rescnt,
-				(unsigned long *)SYSC_RESCNT_00,
-				(unsigned long *)SYSC_RESCNT_02);
-
-	/* -----	DBG ----- */
-	dprintk("   Exec %s() DBG\n", __func__);
-	Read_32bit_HwRegister(	&reg_dump->DBG_Setting[0],
-				(unsigned long *)DBG_SETTING_00);
-
-	Read_32bit_HwRegisters(	&(reg_dump->DBG_Setting[1]),
-				(unsigned long *)DBG_SETTING_01,
-				(unsigned long *)DBG_SETTING_02);
-
-	/* -----	GIC ----- */
-	dprintk("   Exec %s() GIC\n", __func__);
-	Read_32bit_HwRegister(	&reg_dump->GIC_Setting[0],
-				(unsigned long *)GIC_SETTING_00);
-	Read_32bit_HwRegister(	&reg_dump->GIC_Setting[1],
-				(unsigned long *)GIC_SETTING_01);
-
-	/* -----	L2C-310 ----- */
-	dprintk("   Exec %s() L2C-310\n", __func__);
-	Read_32bit_HwRegister(	&reg_dump->PL310_Setting[0],
-				(unsigned long *)PL310_SETTING_00);
-	Read_32bit_HwRegister(	&reg_dump->PL310_Setting[1],
-				(unsigned long *)PL310_SETTING_01);
-
-	/* -----	INTC-SYS ----- */
-	dprintk("   Exec %s() INTC-SYS\n", __func__);
-	Read_32bit_HwRegisters(	&(reg_dump->INTC_SYS_Info[0]),
-				(unsigned long *)INTC_SYS_INFO_00,
-				(unsigned long *)INTC_SYS_INFO_01);
-	Read_32bit_HwRegisters(	&(reg_dump->INTC_SYS_Info[2]),
-				(unsigned long *)INTC_SYS_INFO_02,
-				(unsigned long *)INTC_SYS_INFO_03);
-
-	/* ----- INTC-BB ----- */
-	dprintk("   Exec %s() INTC-BB\n", __func__);
-	Read_32bit_HwRegister(	&reg_dump->INTC_BB_Info[0],
-				(unsigned long *)INTC_BB_INFO_00);
-	Read_32bit_HwRegister(	&reg_dump->INTC_BB_Info[1],
-				(unsigned long *)INTC_BB_INFO_01);
-
-	/* -----	ICC0 ----- */
-	dprintk("   Exec %s() ICC0\n", __func__);
-	Read_8bit_HwRegister(	&reg_dump->IIC0_Setting[0],
-				(unsigned long *)IIC0_SETTING_00);
-	Read_8bit_HwRegister(	&reg_dump->IIC0_Setting[1],
-				(unsigned long *)IIC0_SETTING_01);
-	Read_8bit_HwRegister(	&reg_dump->IIC0_Setting[2],
-				(unsigned long *)IIC0_SETTING_02);
-
-	/* -----	ICCB ----- */
-	dprintk("   Exec %s() ICCB\n", __func__);
-	Read_8bit_HwRegister(	&reg_dump->IICB_Setting[0],
-				(unsigned long *)IICB_SETTING_00);
-	Read_8bit_HwRegister(	&reg_dump->IICB_Setting[1],
-				(unsigned long *)IICB_SETTING_01);
-	Read_8bit_HwRegister(	&reg_dump->IICB_Setting[1],
-				(unsigned long *)IICB_SETTING_02);
-
-	/* -----	IPMMU ----- */
-	dprintk("   Exec %s() IPMMU\n", __func__);
-	if (ramdump->ipmmu_setting) {
-		len = (IPMMU_SETTING_E - IPMMU_SETTING_S);
-		Read_32bit_HwRegisters(	reg_dump->IPMMU_Setting,
-					ramdump->ipmmu_setting,
-					ramdump->ipmmu_setting + len);
-
-		dprintk("   ioremap OK in %s() : IPMMU #01\n", __func__);
-	} else {
-		dprintk("   ioremap error in %s() : IPMMU #01\n", __func__);
-	}
-
-	dprintk("--- Finished %s() ---\n", __func__);
 }
 
 
@@ -481,8 +313,7 @@ static void ramdump_kmsg_dump_handler(struct kmsg_dumper *dumper,
 		/* No action on ordinary shutdown */
 		return;
 	case KMSG_DUMP_PANIC:
-		/* This is not ready for K34 yet. all the addresses needs to be ioremapped.
-		 * Save_HwRegister_To_RAM();*/
+		save_hw_registers_to_ram();
 	case KMSG_DUMP_EMERG:
 	case KMSG_DUMP_OOPS:
 	default: /* And anything else we don't recognise */
@@ -556,7 +387,7 @@ static int ramdump_panic_handler(struct notifier_block *this,
 
 	/* cache cleaning will happen in kmsg dump handler */
 	my_emergency_restart();
-	
+
 	return NOTIFY_DONE;
 }
 
@@ -565,35 +396,81 @@ static struct notifier_block rmc_panic_block = {
 	.priority = -INT_MAX /* we do restart so be last in list */
 };
 
-static void __iomem *remap(struct platform_device *pd, int id)
+/* ramdump_remap_resources does not return error because even it fails,
+ * the rest of the ramdum functionality needs to be initialized to get
+ * cache flushes and core registers dumps from crashes
+ *
+ * @return size of the register dump
+ * */
+static resource_size_t ramdump_remap_resources(struct ramdump_plat_data *pdata)
 {
-	struct resource *io;
-	void __iomem *ret = NULL;
+	int i = 0, j = 0;
+	struct hw_register_range *hwr = NULL;
+	struct map_desc *map = NULL;
 
-	dprintk("%s pd %p, id %d\n", __func__, pd, id);
+	phys_addr_t p_start = 0, p_end = 0, h_end = 0;
+	unsigned char *v_start = 0, *v_end = 0;
+	resource_size_t size = 0, total_size = 0;
+	dprintk("%s\n", __func__);
 
-	io = platform_get_resource(pd, IORESOURCE_MEM, id);
-	if (!io) {
-		dev_err(&pd->dev, "IO memory resource error\n");
-		return ret;
+	for (i = 0; i < pdata->num_resources; i++) {
+		v_start = NULL;
+		v_end = NULL;
+		hwr = &pdata->hw_register_range[i];
+		h_end = hwr->end + hwr->width - 1;
+		size = h_end - hwr->start + 1;
+		/* registers are saved as unsigned int each */
+		total_size += hwr->end - hwr->start + sizeof(unsigned int);
+		/* if the addresses are already mapped, no need to map again */
+		for (j = 0; j < pdata->io_desc_size; j++) {
+			map = &pdata->io_desc[j];
+
+			p_start = __pfn_to_phys(map->pfn);
+			p_end = p_start + map->length - 1;
+
+			if (hwr->start >= p_start && h_end <= p_end) {
+				/* physical address range found from permanent
+				 * mappings */
+				v_start = (unsigned char *)map->virtual +
+						(hwr->start - p_start);
+				v_end = (unsigned char *)map->virtual +
+						(h_end - p_start);
+				break;
+			}
+		}
+
+		/* address range not mapped permanently */
+		if (!v_start) {
+			v_start = ioremap_nocache(hwr->start, size);
+			if (!v_start) {
+				printk(KERN_ERR "%s ioremapping %x-%x failed!\n",
+						__func__, hwr->start, h_end);
+				/* even one mapping one register range fails,
+				 * continue */
+				continue;
+			}
+			v_end = v_start + size - 1;
+		}
+
+		ramdump->hw_registers[i].start = v_start;
+		ramdump->hw_registers[i].end = v_end;
+		ramdump->hw_registers[i].width = hwr->width;
+		ramdump->hw_registers[i].pa = hwr->pa;
+		ramdump->hw_registers[i].msr = hwr->msr;
+		ramdump->hw_registers[i].msb = hwr->msb;
+		ramdump->hw_registers[i].p_start = hwr->start;
+		dprintk("%x-%x -> %p-%p\n", hwr->start, h_end,
+				ramdump->hw_registers[i].start,
+				ramdump->hw_registers[i].end);
 	}
-
-	io = devm_request_mem_region(&pd->dev, io->start,
-					resource_size(io), dev_name(&pd->dev));
-	if (!io) {
-		dev_err(&pd->dev, "IO memory region request failed\n");
-		return ret;
-	}
-
-	ret = devm_ioremap(&pd->dev, io->start, resource_size(io));
-	if (!ret)
-		dev_err(&pd->dev, "%s IO memory remap failed\n", io->name);
-	return ret;
+	return total_size;
 }
 
-static int __devinit ramdump_probe(struct platform_device *pd)
+static int ramdump_probe(struct platform_device *pd)
 {
 	int ret = 0;
+	char *mm = 0;
+	resource_size_t hw_reg_dump_size = 0;
 	struct ramdump_plat_data *pdata = pd->dev.platform_data;
 
 	ramdump = kzalloc(sizeof(*ramdump), GFP_KERNEL);
@@ -601,21 +478,29 @@ static int __devinit ramdump_probe(struct platform_device *pd)
 		dev_err(&pd->dev, "%s kzalloc: failed", __func__);
 		return -ENOMEM;
 	}
-	atomic_set(&ramdump->hw_registers_saved, -1);
 
+	atomic_set(&ramdump->hw_registers_saved, -1);
 
 	dprintk("%s reg_dump_base phys 0x%lx, size %d\n", __func__,
 				pdata->reg_dump_base, pdata->reg_dump_size);
-	ramdump->reg_dump_base = ioremap_nocache(
-			pdata->reg_dump_base, pdata->reg_dump_size);
+	ramdump->reg_dump_base = ioremap_nocache( pdata->reg_dump_base,
+			pdata->reg_dump_size);
 	if (!ramdump->reg_dump_base) {
 		dev_err(&pd->dev, "%s ioremap_nocache: failed", __func__);
-		goto ioremap_failed;
+		goto ioremap_regdump_failed;
 	}
 	ramdump->reg_dump_size = pdata->reg_dump_size;
 	memset(ramdump->reg_dump_base, 0, ramdump->reg_dump_size);
 	dprintk("%s reg_dump_base virt 0x%p\n", __func__,
 			ramdump->reg_dump_base);
+
+	/* store kernel base address as a last address and store magic marker
+	 * before it so that trace32 scripts can find it */
+	mm = ramdump->reg_dump_base + ramdump->reg_dump_size -
+			sizeof(unsigned int);
+	*((unsigned int *)mm) = (unsigned int)CONFIG_MEMORY_START;
+	mm = mm - strlen(magic_marker);
+	strcpy(mm, magic_marker);
 
 	/* setup register dump area */
 	ramdump->core_reg_dump_base = ramdump->reg_dump_base;
@@ -623,39 +508,50 @@ static int __devinit ramdump_probe(struct platform_device *pd)
 	ramdump->excp_reg_offset =
 			ramdump->core_reg_dump_size - sizeof(struct pt_regs);
 
-	/* setup lsi register dump area. it starts after core reg dump areas */
+	/* setup hw register dump area. it starts after core reg dump areas
+	 * and stops just before magic marker */
 	ramdump->lsi_reg_dump_base = ramdump->reg_dump_base +
 			ramdump->core_reg_dump_size*CONFIG_NR_CPUS;
 	ramdump->lsi_reg_dump_size = pdata->reg_dump_size -
-			ramdump->core_reg_dump_size*CONFIG_NR_CPUS;
+			ramdump->core_reg_dump_size*CONFIG_NR_CPUS -
+			strlen(magic_marker) - sizeof(unsigned int);
 	dprintk("%s lsi_reg_dump_base virt 0x%p, size %d\n", __func__,
 			(unsigned long *)ramdump->lsi_reg_dump_base,
 			ramdump->lsi_reg_dump_size);
+
+	/* set the struct pointer to lsi reg dump base */
 	ramdump->hw_register_dump =
 			(struct hw_register_dump *)ramdump->lsi_reg_dump_base;
 
-	/* Map hw registers to be dumped
-	 * If some of these fails to map, then just continue and
-	 * dump only the ranges that we could map */
-	ramdump->sbsc_setting_00 = remap(pd, 0);
-	ramdump->sbsc_setting_01 = remap(pd, 1);
-	ramdump->sbsc_mon_setting = remap(pd, 2);
-	ramdump->sbsc_phy_setting_00 = remap(pd, 3);
-	ramdump->sbsc_phy_setting_01 = remap(pd, 4);
-	ramdump->sbsc_phy_setting_02 = remap(pd, 5);
-	ramdump->ipmmu_setting = remap(pd, 6);
+	/* allocate mem for register ranges */
+	ramdump->hw_registers = kzalloc(pdata->num_resources *
+			sizeof(struct hw_registers), GFP_KERNEL);
+	if (!ramdump->hw_registers) {
+		dev_err(&pd->dev, "%s kzalloc: failed", __func__);
+		goto alloc_registers_failed;
+	}
+	ramdump->num_hw_registers = pdata->num_resources;
 
-	/* register callbacks */
+	hw_reg_dump_size = ramdump_remap_resources(pdata);
+	dprintk("hw register dump takes %d bytes\n", hw_reg_dump_size);
+	if (hw_reg_dump_size > ramdump->lsi_reg_dump_size) {
+		dev_err(&pd->dev, "HW REGISTER DUMP TOO BIG, please check" \
+			"content of hw_register_range or reserve more space" \
+			"for register dump\n");
+		goto reg_dump_too_big;
+	}
+
+	/* register system callbacks */
 	ret = register_die_notifier(&ramdump_die_notifier_nb);
 	if (ret) {
-		dev_err(&pd->dev, "%s register_die_notifier: failed %d",
+		dev_err(&pd->dev, "%s register_die_notifier: failed %d\n",
 				__func__, ret);
 		goto die_notifier_register_failed;
 	}
 
 	ret = kmsg_dump_register(&kmsg_dump_block);
 	if (ret) {
-		dev_err(&pd->dev, "%s kmsg_dump_register: failed %d", __func__,
+		dev_err(&pd->dev, "%s kmsg_dump_register: failed %d\n", __func__,
 				ret);
 		goto kmsg_notifier_register_failed;
 	}
@@ -663,7 +559,7 @@ static int __devinit ramdump_probe(struct platform_device *pd)
 	ret = atomic_notifier_chain_register(&panic_notifier_list,
 			&rmc_panic_block);
 	if (ret) {
-		dev_err(&pd->dev, "%s atomic_notifier_chain_register: failed %d",
+		dev_err(&pd->dev, "%s atomic_notifier_chain_register: failed %d\n",
 				__func__, ret);
 		goto panic_notifier_register_failed;
 	}
@@ -679,16 +575,23 @@ kmsg_notifier_register_failed:
 		dev_err(&pd->dev, "%s: unregister_die_notifier failed\n",
 				__func__);
 die_notifier_register_failed:
+	kfree(ramdump->hw_registers);
+reg_dump_too_big:
+	/*todo: unmap registers*/
+alloc_registers_failed:
 	iounmap(ramdump->core_reg_dump_base);
-ioremap_failed:
+ioremap_regdump_failed:
 	kfree(ramdump);
 	return ret;
 }
 
 static int __exit ramdump_remove(struct platform_device *pd)
 {
+	/* Should not happen */
 	int ret = 0;
 	dev_err(&pd->dev, "%s ***RAMDUMP feature being removed***\n", __func__);
+
+	/*todo: unmap registers*/
 
 	ret = atomic_notifier_chain_unregister(&panic_notifier_list,
 			&rmc_panic_block);
@@ -705,7 +608,9 @@ static int __exit ramdump_remove(struct platform_device *pd)
 				__func__);
 
 	iounmap(ramdump->reg_dump_base);
+	kfree(ramdump->hw_registers);
 	kfree(ramdump);
+	ramdump = NULL;
 	return 0;
 }
 
@@ -735,6 +640,7 @@ static int __init init_ramdump(void)
 
 static void __exit exit_ramdump(void)
 {
+	/* Should not happen */
 	printk(KERN_ERR "%s ***RAMDUMP feature being removed***\n", __func__);
 	platform_driver_unregister(&ramdump_pdriver);
 }
