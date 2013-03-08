@@ -285,9 +285,10 @@ static struct regulator_init_data d2153_ldo10 = {
 __weak struct regulator_consumer_supply d2153_ldo11_supplies[] = {
 	REGULATOR_SUPPLY("key_led", NULL),	// key led
 #ifdef CONFIG_BOARD_VERSION_GARDA
-	REGULATOR_SUPPLY("vled", "leds-regulator.0"),/* key led*/
+	REGULATOR_SUPPLY("vled", "leds-regulator.0"),	// key led
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 };
+
 static struct regulator_init_data d2153_ldo11 = {
 	.constraints = {
 		.min_uV = D2153_LDO11_VOLT_LOWER,
@@ -336,7 +337,8 @@ static struct regulator_init_data d2153_ldo13 = {
 
 // LDO14
 __weak struct regulator_consumer_supply d2153_ldo14_supplies[] = {
-	REGULATOR_SUPPLY("vt_cam", NULL),	// vt_cam
+	REGULATOR_SUPPLY("vt_cam", NULL),	 /* vt_cam */
+	REGULATOR_SUPPLY("sensor_led_3v", NULL), /* sensor_led_3v */
 };
 
 static struct regulator_init_data d2153_ldo14 = {
@@ -606,7 +608,7 @@ struct d2153_platform_data d2153_pdata = {
 		D2153_MCTL_MODE_INIT(D2153_LDO_11, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// KEY_LED_3.3V
 		D2153_MCTL_MODE_INIT(D2153_LDO_12, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// CAM_SENSOR_A2.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_13, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// CAM_AF_2.8V
-		D2153_MCTL_MODE_INIT(D2153_LDO_14, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// VT_CAM_1.2V
+		D2153_MCTL_MODE_INIT(D2153_LDO_14, 0x00, D2153_REGULATOR_OFF_IN_DSM),	/* VT_CAM_1.2V/SENSOR_LED_3V */
 		D2153_MCTL_MODE_INIT(D2153_LDO_15, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// VSD_2.85V
 		D2153_MCTL_MODE_INIT(D2153_LDO_16, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// VTCXO_D_1V8
 		D2153_MCTL_MODE_INIT(D2153_LDO_17, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// CAM_SENSOR_IO_1.8V
