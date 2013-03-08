@@ -67,7 +67,11 @@
 #define COUNT_MFIS_SUSPEND 10
 #endif
 
+#ifdef CONFIG_SAMSUNG_MHL 
 #define FB_SH_MOBILE_HDMI 1
+#else
+#define FB_SH_MOBILE_HDMI 0
+#endif
 
 #define CHAN_NUM 2
 
@@ -1581,9 +1585,11 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 
 	sema_init(&sh_mobile_sem_hdmi, 1);
 
+#if FB_SH_MOBILE_HDMI
+
 	lcd_ext_param[0].hdmi_func = r_mobile_hdmi_func();
 	lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
-
+#endif
 	error = device_create_file(priv->ch[0].lcdc->dev, &dev_attr_vsync);
 
 	if (error) {

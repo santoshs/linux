@@ -210,16 +210,6 @@ static struct i2c_board_info __initdata i2c_devs_sii9234[] = {
 		.platform_data = &sii9234_pdata,
 		.irq = R8A7373_IRQC_IRQ(MHL_INT),
 	},
-	{
-		I2C_BOARD_INFO("SIMGA0", 0xA0>>1),
-		.platform_data = &sii9234_pdata,
-		.irq = R8A7373_IRQC_IRQ(MHL_INT),
-	},
-	{
-		I2C_BOARD_INFO("SIMG60", 0x60>>1),
-		.platform_data = &sii9234_pdata,
-		.irq = R8A7373_IRQC_IRQ(MHL_INT),
-	},
 };
 
 static struct i2c_board_info i2c_dev_hdmi_ddc __initdata = {

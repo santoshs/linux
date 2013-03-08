@@ -21,12 +21,11 @@ struct edid_platform_data {
 };
 #endif
 
-void edid_set_on(void)
+static void edid_set_on(void)
 {
 	printk(KERN_INFO "%s()\n", __func__);
 }
 
-EXPORT_SYMBOL(edid_set_on);
 
 static struct edid_platform_data edid_pdata = {
 };
@@ -44,7 +43,7 @@ static struct i2c_board_info __initdata i2c_devs_edid[] = {
 	},	
 };
 
-void __init board_edid_init(void)
+static void __init board_edid_init(void)
 {
 	int ret;
 	printk("%s : START", __func__);
