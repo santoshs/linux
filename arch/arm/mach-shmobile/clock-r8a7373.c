@@ -435,7 +435,7 @@ static struct clk cksel_clks[CKSEL_NR] = {
 				fsia_parent, ARRAY_SIZE(fsia_parent), 7, 1),
 	[CKSEL_FSIB] = SH_CLK_CKSEL(FSIBCKCR, 0, 0,
 				fsib_parent, ARRAY_SIZE(fsib_parent), 7, 1),
-	[CKSEL_MP] = SH_CLK_CKSEL(MPCKCR, 9, CLK_CKSEL_CKSTP,
+	[CKSEL_MP] = SH_CLK_CKSEL(MPCKCR, 9, 0,
 				mp_parent, ARRAY_SIZE(mp_parent), 7, 1),
 		/* Do not control CKSTP bit for MP_C Clock */
 	[CKSEL_MPC] = SH_CLK_CKSEL(MPCKCR, 10, 0,

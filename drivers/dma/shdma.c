@@ -1913,7 +1913,7 @@ static int sh_dmae_resume(struct device *dev)
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
 	int i, ret;
 
-	ret = sh_dmae_rst(shdev);
+	pm_runtime_get_sync(dev);
 	if (ret < 0)
 		dev_err(dev, "Failed to reset!\n");
 
@@ -1934,6 +1934,7 @@ static int sh_dmae_resume(struct device *dev)
 		}
 	}
 
+	pm_runtime_put_sync(dev);
 	return 0;
 }
 #else
