@@ -154,7 +154,6 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
 		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
 	}
-  	pr_debug("SCUSTAT:0x%x\n", __raw_readl(scu_base_addr() + 8));
 
 	return 0;
 }
