@@ -21,13 +21,11 @@
 	Board file to support GARDA Products
 *******************************************************************************/
 #include <asm/hardware/gic.h>
-#include <linux/mmcoops.h>
 #include <linux/dma-mapping.h>
 #include <mach/irqs.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/irq.h>
-#include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
@@ -39,30 +37,18 @@
 #include <asm/mach/map.h>
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
-#include <linux/mmc/renesas_mmcif.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board-gardalte.h>
+#include <mach/board-gardalte-config.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#include <linux/spi/sh_msiof.h>
-#include <sound/sh_fsi.h>
-#include <linux/platform_data/fsi_d2153_pdata.h>
-#include <linux/tpu_pwm_board.h>
-#include <linux/thermal_sensor/ths_kernel.h>
 #include "board-renesas_wifi.h"
 #include <linux/ktd259b_bl.h>
-#include <mach/setup-u2rcu.h>
-#include <mach/setup-u2csi2.h>
-#include <mach/setup-u2camera.h>
-#include <mach/setup-u2ion.h>
 #include <linux/proc_fs.h>
-#if defined(CONFIG_RENESAS_BT)
-#include <mach/board-gardalte-renesas-bt.h>
-#endif
 #if defined(CONFIG_RENESAS_GPS)
 #include <mach/board-gardalte-renesas-gps.h>
 #endif
@@ -72,7 +58,6 @@
 #endif
 #endif
 #if defined(CONFIG_SAMSUNG_MHL)
-#include <mach/board-gardalte-mhl.h>
 #include <mach/board_edid.h>
 #endif
 #ifdef CONFIG_USB_OTG
@@ -81,8 +66,6 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 #include <mach/setup-u2current_timer.h>
 #endif
-#include <mach/setup-u2sdhi.h>
-#include <mach/setup-u2gpio_key.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
@@ -143,79 +126,15 @@
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
 #define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
 
-/* Lock used while modifying register */
-static DEFINE_SPINLOCK(io_lock);
-
-static int check_sec_rlte_hw_rev(void);
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
-int sec_rlte_hw_rev;
-unsigned int u2_board_rev;
-static void __iomem *sbsc_sdmracr1a;
 
-//extern struct d2153_pdata d2153_pdata;
-
-void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
-{
-	unsigned long flags;
-	u8 val;
-	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u8 *)addr;
-	val &= ~clear;
-	val |= set;
-	*(volatile u8 *)addr = val;
-	spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register8);
-
-void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
-{
-	unsigned long flags;
-	u16 val;
-	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u16 *)addr;
-	val &= ~clear;
-	val |= set;
-	*(volatile u16 *)addr = val;
-	spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register16);
-
-void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
-{
-	unsigned long flags;
-	u32 val;
-	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u32 *)addr;
-	val &= ~clear;
-	val |= set;
-	*(volatile u32 *)addr = val;
-	spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register32);
-
-unsigned int u2_get_board_rev(void)
-{
-	return u2_board_rev;
-}
-EXPORT_SYMBOL_GPL(u2_get_board_rev);
-
-static int u2_read_board_rev(char *page, char **start, off_t off,
+static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
-
-/* MMCIF */
-/*static struct sh_mmcif_dma sh_mmcif_dma = {
-	.chan_priv_rx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_RX,
-	},
-	.chan_priv_tx	= {
-		.slave_id	= SHDMA_SLAVE_MMCIF0_TX,
-	},
-};*/
 
 #if defined(CONFIG_MFD_D2153)
 static struct regulator *emmc_regulator;
@@ -248,211 +167,19 @@ void d2153_mmcif_pwr_control(int onoff)
 }
 #endif
 
-static void mmcif_set_pwr(struct platform_device *pdev, int state)
+void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
 }
 
-static void mmcif_down_pwr(struct platform_device *pdev)
+void mmcif_down_pwr(struct platform_device *pdev)
 {
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
 }
-
-static struct sh_mmcif_plat_data renesas_mmcif_plat = {
-	.sup_pclk	= 0,
-	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
-	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
-		MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 | MMC_CAP_NONREMOVABLE,
-	.set_pwr	= mmcif_set_pwr,
-	.down_pwr	= mmcif_down_pwr,
-	.slave_id_tx	= SHDMA_SLAVE_MMCIF0_TX,
-	.slave_id_rx	= SHDMA_SLAVE_MMCIF0_RX,
-	.max_clk	= 52000000,
-};
-
-static struct resource renesas_mmcif_resources[] = {
-	[0] = {
-		.name	= "MMCIF",
-		.start	= 0xe6bd0000,
-		.end	= 0xe6bd00ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(122),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mmcif_device = {
-	.name		= "renesas_mmcif",
-	.id		= 0,
-	.dev		= {
-		.platform_data	= &renesas_mmcif_plat,
-	},
-	.resource		= renesas_mmcif_resources,
-	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
-};
-
-static struct mmcoops_platform_data mmcoops_info = {
-#ifdef CONFIG_CRASHLOG_EMMC
-	.pdev			= &mmcif_device,
-	.start			= MMCOOPS_START_OFFSET,
-	.size			= MMCOOPS_LOG_SIZE,
-	.record_size		= MMCOOPS_RECORD_SIZE,
-	.kmsg_size		= MMCOOPS_KMSG_SIZE,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
-#else
-	.start			= MMCOOPS_START_OFFSET_DDR,
-	.size			= MMCOOPS_LOG_SIZE_DDR,
-	.record_size		= MMCOOPS_RECORD_SIZE_DDR,
-	.kmsg_size		= MMCOOPS_KMSG_SIZE_DDR,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
-#endif
-	.local_version		= MMCOOPS_LOCAL_VERSION,
-	.soft_version		= RMC_LOCAL_VERSION,
-	/*512 byte blocks */
-};
-
-static struct platform_device mmcoops_device = {
-	.name   = "mmcoops",
-	.dev    = {
-		.platform_data  = &mmcoops_info,
-	},
-};
-
-static struct fsi_d2153_platform_data gardalte_audio_pdata = {
-	.gpio_spkr_en		= -1,
-	.gpio_hp_det		= GPIO_PORT24,
-	.gpio_hp_mute		= -1,
-	.gpio_int_mic_en	= -1,
-	.gpio_ext_mic_en	= -1,
-	.private_data		= NULL,
-};
-
-static struct platform_device gardalte_audio_device = {
-	.name	= "fsi-snd-d2153",
-	.id	= 0,
-	.dev	= {
-		.platform_data  = &gardalte_audio_pdata,
-	},
-};
-
-static struct sh_fsi_platform_info fsi_info = {
-	.port_flags = 	SH_FSI_OUT_SLAVE_MODE | SH_FSI_IN_SLAVE_MODE	|
-		SH_FSI_BRS_INV | SH_FSI_OFMT(I2S) |	SH_FSI_IFMT(I2S),
-};
-
-static struct resource fsi_resources[] = {
-	[0] = {
-		.name	= "FSI",
-		.start	= 0xec230000,
-		.end	= 0xec230500 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = gic_spi(146),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device fsi_device = {
-	.name		= "sh_fsi2",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(fsi_resources),
-	.resource	= fsi_resources,
-	.dev	= {
-		.platform_data	= &fsi_info,
-	},
-};
-
-static struct sh_fsi_platform_info fsi_b_info = {
-	.port_flags = SH_FSI_BRM_INV | SH_FSI_LRM_INV | SH_FSI_OFMT(I2S) | 
-		SH_FSI_IFMT(I2S),
-	.always_slave	= 1,
-};
-
-static struct resource fsi_b_resources[] = {
-	[0] = {
-		.name	= "FSI",
-		.start	= 0xec230000,
-		.end	= 0xec230500 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(146),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device fsi_b_device = {
-	.name		= "sh_fsi2",
-	.id		= 1,
-	.num_resources	= ARRAY_SIZE(fsi_b_resources),
-	.resource	= fsi_b_resources,
-	.dev	= {
-		.platform_data	= &fsi_b_info,
-	},
-};
-
-static struct sh_mobile_lcdc_info lcdc_info = {
-	.clock_source	= LCDC_CLK_PERIPHERAL,
-	/* LCDC0 */
-	.ch[0] = {
-		.chan = LCDC_CHAN_MAINLCD,
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-		.bpp = 24,
-#else
-		.bpp = 32,
-#endif
-		.panelreset_gpio = GPIO_PORT31,
-		.paneldsi_irq = 33,
-	},
-};
-
-static struct resource lcdc_resources[] = {
-	[0] = {
-		.name	= "LCDC",
-		.start	= 0xe61c0000,
-		.end	= 0xe61c2fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(64),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		.name	= "panel_power_port",
-		.start	= GPIO_PORT89,
-		.end	= GPIO_PORT89,
-		.flags	= IORESOURCE_MEM,
-	},
-	[3] = {
-		.name	= "panel_irq_port",
-		.start	= GPIO_PORT27,
-		.end	= GPIO_PORT27,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device lcdc_device = {
-	.name		= "sh_mobile_lcdc_fb",
-	.num_resources	= ARRAY_SIZE(lcdc_resources),
-	.resource	= lcdc_resources,
-	.dev	= {
-		.platform_data  	= &lcdc_info,
-		.coherent_dma_mask 	= DMA_BIT_MASK(32),
-	},
-};
 
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
 	.gpio_port = GPIO_PORT47,
@@ -464,126 +191,6 @@ static struct platform_device led_backlight_device = {
 		.platform_data  = &ktd253ehd_led_info,
 	},
 };
-
-static struct resource mfis_resources[] = {
-	[0] = {
-		.name   = "MFIS",
-		.start  = gic_spi(126),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mfis_device = {
-	.name           = "mfis",
-	.id             = 0,
-	.resource       = mfis_resources,
-	.num_resources  = ARRAY_SIZE(mfis_resources),
-};
-
-static struct resource	tpu_resources[] = {
-	[TPU_MODULE_0] = {
-		.name	= "tpu0_map",
-		.start	= 0xe6600000,
-		.end	= 0xe6600200,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-/* GPIO Settings */
-static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
-	[0] = { /* TPU CHANNEL */
-		.flag = 1,
-		.port = GPIO_PORT36,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* GPIO_FN_TPUTO0 ,*//*Func 3*/
-			.port_fn	= GPIO_FN_PORT36_TPU0TO0,
-			.pull		= PORTn_CR_PULL_DOWN,
-			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			.port_fn	= GPIO_PORT36, /*Func 0*/
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
-		}
-	},
-};
-
-static struct port_info
-tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
-	[TPU_MODULE_0] = {
-		[TPU_CHANNEL_0]	= {
-			/* GPIO_FN_TPUTO0,*/
-			.port_func	=  GPIO_FN_PORT36_TPU0TO0,
-			.func_name	= "pwm-tpu0to0",
-			.port_count	= ARRAY_SIZE(tpu0_gpio_setting_info),
-			.tpu_gpio_setting_info	= tpu0_gpio_setting_info,
-		},
-		[TPU_CHANNEL_1]	= {
-			.port_func	=  GPIO_FN_TPU0TO1,//GPIO_FN_TPUTO1,
-			.func_name	= "pwm-tpu0to1",
-			.port_count 	= 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-		[TPU_CHANNEL_2]	= {
-			.port_func	=  GPIO_FN_TPU0TO2,//GPIO_FN_TPUTO2,
-			.func_name	= "pwm-tpu0to2",
-			.port_count 	= 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-		[TPU_CHANNEL_3]	= {
-			.port_func	=  GPIO_FN_TPU0TO3,//GPIO_FN_TPUTO3,
-			.func_name	= "pwm-tpu0to3",
-			.port_count 	= 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-	},
-};
-
-static struct platform_device	tpu_devices[] = {
-	{
-		.name		= "tpu-renesas-sh_mobile",
-		.id		= TPU_MODULE_0,
-		.num_resources	= 1,
-		.resource	= &tpu_resources[TPU_MODULE_0],
-		.dev	= {
-			.platform_data = &tpu_pwm_pfc[TPU_MODULE_0],
-		},
-	},
-};
-
-#ifdef CONFIG_SPI_SH_MSIOF
-/* SPI */
-static struct sh_msiof_spi_info sh_msiof0_info = {
-	.rx_fifo_override = 256,
-	.num_chipselect = 1,
-};
-
-static struct resource sh_msiof0_resources[] = {
-	[0] = {
-		.start  = 0xe6e20000,
-		.end    = 0xe6e20064 - 1,
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = gic_spi(109),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device sh_msiof0_device = {
-	.name = "spi_sh_msiof",
-	.id   = 0,
-	.dev  = {
-		.platform_data  = &sh_msiof0_info,
-	},
-	.num_resources  = ARRAY_SIZE(sh_msiof0_resources),
-	.resource       = sh_msiof0_resources,
-};
-#endif
 
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
@@ -648,95 +255,6 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
-/*  Add for Thermal Sensor driver*/
-static struct thermal_sensor_data ths_platdata[] = {
-	/* THS0 */
-	{
-		/* Normal 1 operation */
-		.current_mode	= E_NORMAL_1,
-		/* Normal 1 operation */
-		.last_mode	= E_NORMAL_1,
-	},
-
-	/* THS1 */
-	{
-		/* Normal 1 operation */
-		.current_mode	= E_NORMAL_1,
-		/* Normal 1 operation */
-		.last_mode	= E_NORMAL_1,
-	},
-};
-static struct resource ths_resources[] = {
-	[0] = {
-		.name	= "THS",
-		.start	= 0xe61F0000,
-		.end	= 0xe61F0238 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(73), /* SPI# of THS is 73 */
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device thermal_sensor_device = {
-	.name		= "thermal_sensor",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(ths_resources),
-	.resource	= ths_resources,
-	.dev		= {
-		.platform_data	= &ths_platdata,
-	},
-};
-/* End Add for Thermal Sensor driver */
-
-static struct resource mdm_reset_resources[] = {
-	[0] = {
-		.name	= "MODEM_RESET",
-		.start	= 0xE6190000,
-		.end	= 0xE61900FF,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(219), /* EPMU_int1 */
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mdm_reset_device = {
-	.name		= "rmc_wgm_reset_int",
-	.id			= 0,
-	.resource	= mdm_reset_resources,
-	.num_resources	= ARRAY_SIZE(mdm_reset_resources),
-};
-
-static struct resource stm_res[] = {
-	[0] = {
-		.name	= "stm_ctrl",
-		.start	= 0xe6f89000,
-		.end	= 0xe6f89fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.name	= "stm_ports",
-		.start	= 0xe9000000,
-		.end	= 0xe9000fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[2] = {
-		.name	= "funnel",
-		.start	= 0xe6f8b000,
-		.end	= 0xe6f8bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device stm_device = {
-	.name = "stm",
-	.num_resources	= ARRAY_SIZE(stm_res),
-	.resource	= stm_res,
-};
-
 struct a2220_platform_data  gardalte_a2220_data = {
 	.a2220_hw_init = NULL,
 	.gpio_reset = GPIO_PORT44,
@@ -749,171 +267,6 @@ struct fm34_platform_data  gardalte_fm34_data = {
 	.gpio_rst = GPIO_PORT44,
 	.gpio_bp = GPIO_PORT46,
 	.gpio_avdd = 0,
-};
-
-/* THREE optional gardalte_devices pointer lists for initializing the platform
- * devices 
- */
-
-/* For different STM muxing options 0, 1, or None, as given by 
- * boot_command_line parameter stm=0/1/n 
- */
-static struct platform_device *gardalte_devices_stm_sdhi1_d2153[] __initdata = {
-
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gardalte_audio_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&mfis_device,
-	&mdm_reset_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
-	&board_bcmbt_rfkill_device,
-#endif
-
-#ifdef CONFIG_BCM_BZHW
-	&board_bcm_bzhw_device,
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-	&board_bcmbt_lpm_device,
-#endif
-	&thermal_sensor_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-	&pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
-static struct platform_device *gardalte_devices_stm_sdhi0_d2153[] __initdata = {
-
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gardalte_audio_device,
-	&gpio_key_device, 
-	&lcdc_device,
-	&mfis_device,
-	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
-	&board_bcmbt_rfkill_device,
-#endif
-#ifdef CONFIG_BCM_BZHW
-	&board_bcm_bzhw_device,
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-	&board_bcmbt_lpm_device,
-#endif
-	&thermal_sensor_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-	&pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
-static struct platform_device *gardalte_devices_stm_none_d2153[] __initdata = {
-
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gardalte_audio_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&mfis_device,
-	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
-	&board_bcmbt_rfkill_device,
-#endif
-#ifdef CONFIG_BCM_BZHW
-	&board_bcm_bzhw_device,
-#endif
-#ifdef CONFIG_BCM_BT_LPM
-	&board_bcmbt_lpm_device,
-#endif
-	&thermal_sensor_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-	&pn544_i2c_gpio_device,
-#endif
-#endif
-#if defined(CONFIG_SAMSUNG_MHL)
-	&mhl_i2c_gpio_device,
-#endif	
 };
 
 /* I2C */
@@ -1111,34 +464,6 @@ void gardalte_restart(char mode, const char *cmd)
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
-static void SBSC_Init_520Mhz(void)
-{
-	unsigned long work;
-
-	printk(KERN_ALERT "START < %s >\n", __func__);
-
-	/* Check PLL3 status */
-	work = __raw_readl(CPG_PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST)) {
-		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
-		return;
-	}
-
-	/* Set PLL3 = 1040 Mhz*/
-	__raw_writel(CPG_PLL3CR_1040MHZ, CPG_PLL3CR);
-
-	/* Wait PLL3 status on */
-	while (1) {
-		work = __raw_readl(CPG_PLLECR);
-		work &= CPG_PLLECR_PLL3ST;
-		if (work == CPG_PLLECR_PLL3ST)
-			break;
-	}
-
-	/* Dummy read */
-	__raw_readl(sbsc_sdmracr1a);
-}
-
 /* For PA devices */
 #include <setup-u2pa.c>
 
@@ -1241,26 +566,14 @@ static void __init gardalte_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = 0;
-	gpio_request(GPIO_PORT75, NULL);
-	gpio_direction_input(GPIO_PORT75);
-	u2_board_rev |= gpio_get_value(GPIO_PORT75) << 3;
-	gpio_request(GPIO_PORT74, NULL);
-	gpio_direction_input(GPIO_PORT74);
-	u2_board_rev |= gpio_get_value(GPIO_PORT74) << 2;
-	gpio_request(GPIO_PORT73, NULL);
-	gpio_direction_input(GPIO_PORT73);
-	u2_board_rev |= gpio_get_value(GPIO_PORT73) << 1;
-	gpio_request(GPIO_PORT72, NULL);
-	gpio_direction_input(GPIO_PORT72);
-	u2_board_rev |= gpio_get_value(GPIO_PORT72);
+	u2_board_rev = read_board_rev();
 
 	/* Temporary workaround */
 	if (u2_board_rev == 1)
 		u2_board_rev = RLTE_BOARD_REV_0_1;
 
-	create_proc_read_entry("board_revision", 0444, NULL,u2_read_board_rev,
-			NULL);
+	create_proc_read_entry("board_revision", 0444, NULL,
+				proc_read_board_rev, NULL);
 
 	r8a7373_add_standard_devices();
 
@@ -1310,8 +623,7 @@ static void __init gardalte_init(void)
 	}
 	shmobile_arch_reset = gardalte_restart;
 
-	sec_rlte_hw_rev = check_sec_rlte_hw_rev();
-	printk(KERN_INFO "%s hw rev : %d \n", __func__, sec_rlte_hw_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -1755,13 +1067,13 @@ static void __init gardalte_init(void)
 #endif
 
 	camera_init(u2_board_rev);
-	gpio_key_init(stm_select,u2_board_rev,sec_rlte_hw_rev,
-			gardalte_devices_stm_sdhi0_d2153,
-			ARRAY_SIZE(gardalte_devices_stm_sdhi0_d2153),
-			gardalte_devices_stm_sdhi1_d2153,
-			ARRAY_SIZE(gardalte_devices_stm_sdhi1_d2153),
-			gardalte_devices_stm_none_d2153,
-			ARRAY_SIZE(gardalte_devices_stm_none_d2153));
+	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+			gardalte_devices_stm_sdhi0,
+			ARRAY_SIZE(gardalte_devices_stm_sdhi0),
+			gardalte_devices_stm_sdhi1,
+			ARRAY_SIZE(gardalte_devices_stm_sdhi1),
+			gardalte_devices_stm_none,
+			ARRAY_SIZE(gardalte_devices_stm_none));
 
 	platform_device_register(&led_backlight_device);
 
@@ -1837,33 +1149,6 @@ static void __init gardalte_reserve(void)
 #if defined(CONFIG_SEC_DEBUG)
 	sec_debug_magic_init();
 #endif
-}
-
-static int check_sec_rlte_hw_rev(void)
-{
-	int rev0, rev1, rev2, rev3;
-	int tmp_board_rev;
-
-	gpio_request(GPIO_PORT72, "HW_REV0");
-	gpio_request(GPIO_PORT73, "HW_REV1");
-	gpio_request(GPIO_PORT74, "HW_REV2");
-	gpio_request(GPIO_PORT75, "HW_REV3");
-
-	gpio_direction_input(GPIO_PORT72);
-	gpio_direction_input(GPIO_PORT73);
-	gpio_direction_input(GPIO_PORT74);
-	gpio_direction_input(GPIO_PORT75);
-
-	rev0 = gpio_get_value(GPIO_PORT72);
-	rev1 = gpio_get_value(GPIO_PORT73);
-	rev2 = gpio_get_value(GPIO_PORT74);
-	rev3 = gpio_get_value(GPIO_PORT75);
-	/* This line is commented as Temporary as a workaround */
-	/*return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);*/
-	tmp_board_rev = (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
-	if (tmp_board_rev == 1)
-		return RLTE_BOARD_REV_0_1;
-	return tmp_board_rev;
 }
 
 MACHINE_START(U2EVM, "u2evm")

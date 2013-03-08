@@ -3,12 +3,9 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/io.h>
-#include <linux/platform_device.h>
-#include <linux/gpio.h>
 #include <linux/hwspinlock.h>
 #include <linux/i2c.h>
 #include <mach/common.h>
-#include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach-types.h>
@@ -16,12 +13,10 @@
 #include <asm/mach/map.h>
 #include <asm/mach/time.h>
 #include <linux/smsc911x.h>
-#include <linux/mmc/host.h>
-#include <linux/mmc/renesas_mmcif.h>
-#include <video/sh_mobile_lcdc.h>
 #include <linux/platform_data/leds-renesas-tpu.h>
 #include <mach/board-u2evm.h>
 #include <mach/irqs.h>
+#include <mach/board-u2evm-config.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
@@ -32,22 +27,12 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#include <linux/spi/sh_msiof.h>
 #include <linux/ion.h>
 #include <linux/memblock.h>
-#include <sound/sh_fsi.h>
-#include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/tpu_pwm.h>
-#include <linux/tpu_pwm_board.h>
 #include <linux/pcm2pwm.h>
-#include <linux/vibrator.h>
-#include <linux/thermal_sensor/ths_kernel.h>
 #include "board-renesas_wifi.h"
 #include <linux/pmic/pmic-ncp6914.h>
-#include <mach/setup-u2rcu.h>
-#include <mach/setup-u2csi2.h>
-#include <mach/setup-u2camera.h>
-#include <mach/setup-u2ion.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #include <linux/tsu6712.h>
@@ -70,7 +55,6 @@
 #include <mach/setup-u2touchkey.h>
 #include <mach/setup-u2mxt224.h>
 
-#include <linux/mmcoops.h>
 #include <mach/crashlog.h>
 
 #if defined(CONFIG_SEC_DEBUG)
@@ -102,13 +86,10 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 #include <mach/setup-u2current_timer.h>
 #endif
-#include <mach/setup-u2sdhi.h>
 #include <mach/board-u2evm.h>
-#include <mach/setup-u2gpio_key.h>
-static int check_sec_rlte_hw_rev(void);
 
 #include <sound/a2220.h>
-#include <linux/leds-ktd253ehd.h>
+#include <mach/sbsc.h>
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)
 static void mpu_power_on(int onoff);
@@ -147,103 +128,18 @@ static void sensor_power_on_vdd(int);
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
-static DEFINE_SPINLOCK(io_lock);//for modify register
-
 #if defined(CONFIG_RENESAS_GPS)
 struct class *gps_class;
 #endif
 
-/*===================*/
-/*  modify register  */
-/*===================*/
-void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
-{
-        unsigned long flags;
-        u8 val;
-        spin_lock_irqsave(&io_lock, flags);
-        val = *(volatile u8 *)addr;
-        val &= ~clear;
-        val |= set;
-        *(volatile u8 *)addr = val;
-        spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register8);
-
-void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
-{
-        unsigned long flags;
-        u16 val;
-        spin_lock_irqsave(&io_lock, flags);
-        val = *(volatile u16 *)addr;
-        val &= ~clear;
-        val |= set;
-        *(volatile u16 *)addr = val;
-        spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register16);
-
-void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
-{
-        unsigned long flags;
-        u32 val;
-        spin_lock_irqsave(&io_lock, flags);
-        val = *(volatile u32 *)addr;
-        val &= ~clear;
-        val |= set;
-        *(volatile u32 *)addr = val;
-        spin_unlock_irqrestore(&io_lock, flags);
-}
-EXPORT_SYMBOL_GPL(sh_modify_register32);
-
-/*===================*/
-/*  get board rev */
-/*===================*/
-unsigned int u2_board_rev;
-unsigned int u2_get_board_rev()
-{
-	return u2_board_rev;
-}
-EXPORT_SYMBOL_GPL(u2_get_board_rev);
-
-static int u2_read_board_rev(char *page, char **start, off_t off,
+static int proc_read_board_rev(char *page, char **start, off_t off,
 					int count, int *eof, void *data)
 {
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
 
-
-static struct resource smsc9220_resources[] = {
-	{
-		.start	= 0x00080000,
-		.end	= 0x00080000 + SZ_64K - 1,
-		.flags	= IORESOURCE_MEM,
-	}, {
-		.start	= R8A7373_IRQC_IRQ(41),
-		.flags	= IORESOURCE_IRQ | IRQ_TYPE_LEVEL_LOW,
-	},
-};
-
-static struct smsc911x_platform_config smsc9220_platdata = {
-	.flags		= SMSC911X_USE_32BIT,
-	.phy_interface	= PHY_INTERFACE_MODE_MII,
-	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
-	.irq_type	= SMSC911X_IRQ_TYPE_PUSH_PULL,
-};
-
-static struct platform_device eth_device = {
-	.name		= "smsc911x",
-	.id		= 0,
-	.dev	= {
-		.platform_data = &smsc9220_platdata,
-	},
-	.resource	= smsc9220_resources,
-	.num_resources	= ARRAY_SIZE(smsc9220_resources),
-};
-
-
 void (*shmobile_arch_reset)(char mode, const char *cmd);
-
 
 #if defined(CONFIG_MFD_D2153)
 static struct regulator *emmc_regulator;
@@ -262,36 +158,24 @@ void d2153_mmcif_pwr_control(int onoff)
 			return;
 		}
 	}
-
 	if(onoff==1)
 	{
 		printk(" %s, %d vmmc On\n", __func__, __LINE__ );	
-
-		//if(!regulator_is_enabled(touch_regulator))
-		{
-			printk(" %s, %d \n", __func__, __LINE__ );	
-			//ret = regulator_set_voltage(emmc_regulator,3300000,3300000);
-			//printk("regulator_set_voltage ret = %d \n", ret);       			
-			ret = regulator_enable(emmc_regulator);
-			printk("regulator_enable ret = %d \n", ret);       			
-		}
+		ret = regulator_enable(emmc_regulator);
+		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
 	}
 	else
 	{
 		printk("%s, %d vmmc Off\n", __func__, __LINE__ );	
-
-		//if(regulator_is_enabled(touch_regulator))
-		{
-			ret = regulator_disable(emmc_regulator);
-			printk("regulator_disable ret = %d \n", ret);			
-		}
+		ret = regulator_disable(emmc_regulator);
+		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
 	}
 
 }
 #endif
 
 
-static void mmcif_set_pwr(struct platform_device *pdev, int state)
+void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
 	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_MFD_D2153)
@@ -304,7 +188,7 @@ static void mmcif_set_pwr(struct platform_device *pdev, int state)
 	}
 }
 
-static void mmcif_down_pwr(struct platform_device *pdev)
+void mmcif_down_pwr(struct platform_device *pdev)
 {
 	if (u2_get_board_rev() >= 5) {
 #if defined(CONFIG_MFD_D2153)
@@ -318,396 +202,6 @@ static void mmcif_down_pwr(struct platform_device *pdev)
 }
 
 
-static struct sh_mmcif_plat_data renesas_mmcif_plat = {
-	.sup_pclk	= 0,
-	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
-	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
-			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
-			  MMC_CAP_NONREMOVABLE,
-	.set_pwr	= mmcif_set_pwr,
-	.down_pwr	= mmcif_down_pwr,
-	.slave_id_tx	= SHDMA_SLAVE_MMCIF0_TX,
-	.slave_id_rx	= SHDMA_SLAVE_MMCIF0_RX,
-	.max_clk	= 52000000,
-};
-
-static struct resource renesas_mmcif_resources[] = {
-	[0] = {
-		.name	= "MMCIF",
-		.start	= 0xe6bd0000,
-		.end	= 0xe6bd00ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(122),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mmcif_device = {
-	.name		= "renesas_mmcif",
-	.id		= 0,
-	.dev		= {
-		.platform_data	= &renesas_mmcif_plat,
-	},
-	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
-	.resource	= renesas_mmcif_resources,
-};
-
-static struct mmcoops_platform_data mmcoops_info = {
-#ifdef CONFIG_CRASHLOG_EMMC
-	.pdev		= &mmcif_device,
-	.start		= MMCOOPS_START_OFFSET,
-	.size		= MMCOOPS_LOG_SIZE,
-	.record_size	= MMCOOPS_RECORD_SIZE,
-	.kmsg_size	= MMCOOPS_KMSG_SIZE,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
-#else
-	.start	= MMCOOPS_START_OFFSET_DDR,
-	.size		= MMCOOPS_LOG_SIZE_DDR,
-	.record_size	= MMCOOPS_RECORD_SIZE_DDR,
-	.kmsg_size			= MMCOOPS_KMSG_SIZE_DDR,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
-#endif
-	.local_version	= MMCOOPS_LOCAL_VERSION,
-	.soft_version	= RMC_LOCAL_VERSION,
-	/*512 byte blocks */
-};
-
-static struct platform_device mmcoops_device = {
-	.name   = "mmcoops",
-	.dev    = {
-		.platform_data  = &mmcoops_info,
-	},
-};
-
-static struct fsi_d2153_platform_data u2evm_audio_pdata = {
-	.gpio_spkr_en		= -1,
-	.gpio_hp_det		= GPIO_PORT24,
-	.gpio_hp_mute		= -1,
-	.gpio_int_mic_en	= -1,
-	.gpio_ext_mic_en	= -1,
-	.private_data		= NULL,
-};
-
-static struct platform_device u2evm_audio_device = {
-	.name	= "fsi-snd-d2153",
-	.id	= 0,
-	.dev	= {
-		.platform_data  = &u2evm_audio_pdata,
-	},
-};
-
-static struct sh_fsi_platform_info fsi_info = {
-	.port_flags = SH_FSI_OUT_SLAVE_MODE |
-		SH_FSI_IN_SLAVE_MODE	|
-		SH_FSI_BRS_INV		|
-		SH_FSI_OFMT(I2S)	|
-		SH_FSI_IFMT(I2S),
-};
-
-static struct resource fsi_resources[] = {
-	[0] = {
-		.name	= "FSI",
-		.start	= 0xec230000,
-		.end	= 0xec230500 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = gic_spi(146),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device fsi_device = {
-	.name		= "sh_fsi2",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(fsi_resources),
-	.resource	= fsi_resources,
-	.dev	= {
-		.platform_data	= &fsi_info,
-	},
-};
-
-static struct sh_fsi_platform_info fsi_b_info = {
-	.port_flags = SH_FSI_BRM_INV		|
-		       SH_FSI_LRM_INV		|
-		       SH_FSI_OFMT(I2S)	|
-		       SH_FSI_IFMT(I2S),
-	.always_slave	= 1,
-};
-
-static struct resource fsi_b_resources[] = {
-	[0] = {
-		.name	= "FSI",
-		.start	= 0xec230000,
-		.end	= 0xec230500 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(146),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device fsi_b_device = {
-	.name		= "sh_fsi2",
-	.id		= 1,
-	.num_resources	= ARRAY_SIZE(fsi_b_resources),
-	.resource	= fsi_b_resources,
-	.dev	= {
-		.platform_data	= &fsi_b_info,
-	},
-};
-
-static struct sh_mobile_lcdc_info lcdc_info = {
-	.clock_source	= LCDC_CLK_PERIPHERAL,
-
-	/* LCDC0 */
-	.ch[0] = {
-		.chan = LCDC_CHAN_MAINLCD,
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-		.bpp = 24,
-#else
-		.bpp = 32,
-#endif
-		.panelreset_gpio = GPIO_PORT31,
-		.paneldsi_irq = 33,
-	},
-};
-
-static struct resource lcdc_resources[] = {
-	[0] = {
-		.name	= "LCDC",
-		.start	= 0xe61c0000,
-		.end	= 0xe61c2fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(64),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		.name	= "panel_power_port",
-		.start	= GPIO_PORT89,
-		.end	= GPIO_PORT89,
-		.flags	= IORESOURCE_MEM,
-	},
-	[3] = {
-		.name	= "panel_irq_port",
-		.start	= GPIO_PORT27,
-		.end	= GPIO_PORT27,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device lcdc_device = {
-	.name		= "sh_mobile_lcdc_fb",
-	.num_resources	= ARRAY_SIZE(lcdc_resources),
-	.resource	= lcdc_resources,
-	.dev	= {
-		.platform_data  = &lcdc_info,
-		.coherent_dma_mask = DMA_BIT_MASK(32),
-	},
-};
-
-static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
-	.gpio_port = GPIO_PORT47,
-};
-
-static struct platform_device led_backlight_device = {
-	.name		= "ktd253ehd_led",
-	.dev	= {
-		.platform_data  = &ktd253ehd_led_info,
-	},
-};
-
-static struct resource mfis_resources[] = {
-	[0] = {
-		.name   = "MFIS",
-		.start  = gic_spi(126),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mfis_device = {
-	.name           = "mfis",
-	.id                     = 0,
-	.resource       = mfis_resources,
-	.num_resources  = ARRAY_SIZE(mfis_resources),
-};
-
-static struct led_renesas_tpu_config tpu3_info = {
-	.name		= "lcd-backlight",
-	.pin_gpio_fn	= GPIO_FN_TPU0TO3,
-	.pin_gpio	= GPIO_PORT39,
-	.channel_offset	= 0x00d0,
-	.timer_bit	= 3,
-	.max_brightness = LED_FULL,
-	.init_brightness = LED_FULL,
-	.refresh_rate	= 2000,
-};
-
-static struct resource tpu3_resources[] = {
-	[0] = {
-		.start  = 0xe66000d0,
-		.end    = 0xe66000ff,
-		.flags  = IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device tpu3_device = {
-	.name		= "leds-renesas-tpu",
-	.num_resources  = ARRAY_SIZE(tpu3_resources),
-	.resource       = tpu3_resources,
-	.id		= 3,
-	.dev		= {
-		.platform_data	= &tpu3_info,
-	},
-};
-static struct resource	tpu_resources[] = {
-	[TPU_MODULE_0] = {
-		.name	= "tpu0_map",
-		.start	= 0xe6600000,
-		.end	= 0xe6600200,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-/* GPIO Settings */
-static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
-	[0] = { /* TPU CHANNEL */
-		.flag = 1,
-		.port = GPIO_PORT36,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			.port_fn		= GPIO_FN_PORT36_TPU0TO0,/*Func 3*/
-			.pull			= PORTn_CR_PULL_DOWN,
-			.direction		= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			.port_fn		= GPIO_PORT36, /*Func 0*/
-			.pull			= PORTn_CR_PULL_OFF,
-			.direction		= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
-		}
-	},
-};
-
-static struct port_info
-	tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
-	[TPU_MODULE_0] = {
-		[TPU_CHANNEL_0]	= {
-			.port_func	= GPIO_FN_PORT36_TPU0TO0,
-			.func_name	= "pwm-tpu0to0",
-			.port_count = ARRAY_SIZE(tpu0_gpio_setting_info),
-			.tpu_gpio_setting_info	= &tpu0_gpio_setting_info,
-		},
-		[TPU_CHANNEL_1]	= {
-			.port_func	= GPIO_FN_TPU0TO1,
-			.func_name	= "pwm-tpu0to1",
-			.port_count = 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-		[TPU_CHANNEL_2]	= {
-			.port_func	= GPIO_FN_TPU0TO2,
-			.func_name	= "pwm-tpu0to2",
-			.port_count = 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-		[TPU_CHANNEL_3]	= {
-			.port_func	= GPIO_FN_TPU0TO3,
-			.func_name	= "pwm-tpu0to3",
-			.port_count = 0,
-			.tpu_gpio_setting_info	= NULL,
-		},
-	},
-};
-
-static struct platform_device	tpu_devices[] = {
-	{
-		.name	= "tpu-renesas-sh_mobile",
-		.id		= TPU_MODULE_0,
-		.dev	= {
-			.platform_data = &tpu_pwm_pfc[TPU_MODULE_0],
-		},
-		.num_resources	= 1,
-		.resource		= &tpu_resources[TPU_MODULE_0],
-	},
-};
-
-static struct vibrator_port_info vibrator_platdata = {
-	.vibrator_port	= GPIO_PORT226 ,
-	.tpu_port	= GPIO_PORT36 ,
-};
-
-static struct platform_device vibrator_device = {
-        .name           = "vibrator-renesas-sh_mobile",
-        .id             = -1,
-        .dev            = {
-                .platform_data  = &vibrator_platdata,
-        },       
-};
-
-/* PCM2PWM */
-static struct pcm2pwm_port_info pcm2pwm_platdata = {
-	.port_func	= GPIO_FN_PWMO,
-	.func_name	= "PWMO",
-};
-
-static struct resource pcm2pwm_resource = {
-	.name	= "pcm2pwm_map",
-	.start	= 0xEC380000,
-	.end	= 0xEC380090,
-	.flags	= IORESOURCE_MEM,
-};
-static struct platform_device pcm2pwm_device = {
-	.name			= "pcm2pwm-renesas-sh_mobile",
-
-	.id				= 1,
-	.dev	= {
-		.platform_data = &pcm2pwm_platdata,
-	},
-	.num_resources 	= 1,
-	.resource		= &pcm2pwm_resource,
-};
-#ifdef CONFIG_SPI_SH_MSIOF
-/* SPI */
-static struct sh_msiof_spi_info sh_msiof0_info = {
-        .rx_fifo_override       = 256,
-        .num_chipselect         = 1,
-};
-
-static struct resource sh_msiof0_resources[] = {
-        [0] = {
-                .start  = 0xe6e20000,
-                .end    = 0xe6e20064 - 1,
-                .flags  = IORESOURCE_MEM,
-        },
-        [1] = {
-                .start  = gic_spi(109),
-                .flags  = IORESOURCE_IRQ,
-        },
-};
-
-static struct platform_device sh_msiof0_device = {
-        .name           = "spi_sh_msiof",
-        .id             = 0,
-        .dev            = {
-                .platform_data  = &sh_msiof0_info,
-        },
-        .num_resources  = ARRAY_SIZE(sh_msiof0_resources),
-        .resource       = sh_msiof0_resources,
-};
-#endif
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_INPUT_YAS_SENSORS) || \
 	defined(CONFIG_OPTICAL_TAOS_TRITON) || defined(CONFIG_OPTICAL_GP2AP020A00F)
@@ -1130,45 +624,6 @@ static void mpl_init(void)
 }
 #endif
 
-/* << Add for Thermal Sensor driver*/
-static struct thermal_sensor_data ths_platdata[] = {
-	/* THS0 */
-	{
-	.current_mode		= E_NORMAL_1,	/* Normal 1 operation */
-	.last_mode			= E_NORMAL_1,	/* Normal 1 operation */
-	},
-	
-	/* THS1 */
-	{
-	.current_mode		= E_NORMAL_1,	/* Normal 1 operation */
-	.last_mode			= E_NORMAL_1,	/* Normal 1 operation */
-	},
-};
-
-static struct resource ths_resources[] = {
-	[0] = {
-		.name	= "THS",
-		.start	= 0xe61F0000,
-		.end	= 0xe61F0238 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(73),		/* SPI# of THS is 73 */
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device thermal_sensor_device = {
-	.name			= "thermal_sensor",
-	.id				= 0,
-	.num_resources	= ARRAY_SIZE(ths_resources),
-	.resource	= ths_resources,
-	.dev		= {
-		.platform_data	= &ths_platdata,
-	},
-};
-/* >> End Add for Thermal Sensor driver*/
-
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC  
 
@@ -1210,55 +665,6 @@ static struct i2c_board_info pn544_info[] __initdata = {
 #endif
 #endif
 
-static struct resource mdm_reset_resources[] = {
-	[0] = {
-		.name	= "MODEM_RESET",
-		.start	= 0xE6190000,
-		.end	= 0xE61900FF,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(219),  // EPMU_int1
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device mdm_reset_device = {
-	.name		= "rmc_wgm_reset_int",
-	.id		= 0,
-	/*.dev		= {
-		.platform_data	= &sdhi0_info,
-	},*/
-	.num_resources	= ARRAY_SIZE(mdm_reset_resources),
-	.resource	= mdm_reset_resources,
-};
-
-static struct resource stm_res[] = {
-	[0] = {
-		.name	= "stm_ctrl",
-		.start	= 0xe6f89000,
-		.end	= 0xe6f89fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.name	= "stm_ports",
-		.start	= 0xe9000000,
-		.end	= 0xe9000fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[2] = {
-		.name	= "funnel",
-		.start	= 0xe6f8b000,
-		.end	= 0xe6f8bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device stm_device = {
-	.name = "stm",
-	.num_resources	= ARRAY_SIZE(stm_res),
-	.resource	= stm_res,
-};
 
 struct a2220_platform_data  u2evm_a2220_data = {
 	.a2220_hw_init = NULL,
@@ -1266,335 +672,6 @@ struct a2220_platform_data  u2evm_a2220_data = {
 	.gpio_wakeup = GPIO_PORT26,
 };
 
-/* THREE optional u2evm_devices pointer lists for initializing the platform devices */
-/* For different STM muxing options 0, 1, or None, as given by boot_command_line parameter stm=0/1/n */
-
-static struct platform_device *u2evm_devices_stm_sdhi1_d2153[] __initdata = {
-	
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-//	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&u2evm_audio_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-//	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-// #ifdef CONFIG_ION_R_MOBILE
-	&u2evm_ion_device,
-// #endif
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
-static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
-	
-	&usbhs_func_device,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-//	&sdhi1_device, // STM Trace muxed over SDHI1 WLAN interface, coming from 34-pint MIPI cable to FIDO
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-//	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-// #ifdef CONFIG_ION_R_MOBILE
-	&u2evm_ion_device,
-// #endif
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
-static struct platform_device *u2evm_devices_stm_sdhi0_d2153[] __initdata = {
-	
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&u2evm_audio_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-// #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
-	&u2evm_ion_device,
-// #endif
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-#if defined(CONFIG_OPTICAL_GP2A) ||	defined(CONFIG_OPTICAL_GP2AP020A00F)
-	&opt_gp2a,
-#endif
-#if defined(CONFIG_INPUT_YAS_SENSORS)
-	&yas532_orient_device,
-#endif
-};
-
-static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
-	
-	&usbhs_func_device,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-//	&sdhi0_device, // STM Trace muxed over SDHI0 SD-Card interface, coming by special SD-Card adapter to FIDO
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-	&tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-// #ifdef CONFIG_ION_R_MOBILE // BUG ? Testing -- Tommi
-	&u2evm_ion_device,
-// #endif
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-#if defined(CONFIG_OPTICAL_GP2A) ||	defined(CONFIG_OPTICAL_GP2AP020A00F)
-	&opt_gp2a,
-#endif
-#if defined(CONFIG_INPUT_YAS_SENSORS)
-	&yas532_orient_device,
-#endif
-};
-
-static struct platform_device *u2evm_devices_stm_none_d2153[] __initdata = {
-	
-	&usbhs_func_device_d2153,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&u2evm_audio_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-    &tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-	&u2evm_ion_device,
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
-static struct platform_device *u2evm_devices_stm_none[] __initdata = {
-	
-	&usbhs_func_device,
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-//	&eth_device,
-#ifdef CONFIG_KEYBOARD_SH_KEYSC
-	&keysc_device,
-#endif
-	&mmcif_device,
-	&mmcoops_device,
-	&sdhi0_device,
-	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&led_backlight_device,
-	&mfis_device,
-    &tpu_devices[TPU_MODULE_0],
-	&mdm_reset_device,
-	&vibrator_device,
-//	&pcm2pwm_device,
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-	&u2evm_ion_device,
-	&thermal_sensor_device,
-//	&csi20_device,
-//	&csi21_device,
-
-	&rcu0_device,
-	&rcu1_device,
-
-	&camera_devices[0],
-	&camera_devices[1],
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-        &pn544_i2c_gpio_device,
-#endif
-#endif
-};
 
 /* I2C */
 
@@ -1606,20 +683,6 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 		.platform_data = &d2153_pdata,
 		.irq = R8A7373_IRQC_IRQ(28),
 	},
-#if 0 // register below I2C at mfd
-	{
-		// for D2153 Audio Code driver
-		// TODO: DLG. eric. Have to check the codec address for I2C interface
-		I2C_BOARD_INFO("d2153-codec", D2153_CODEC_I2C_ADDR),
-		.platform_data = NULL,
-	},
-	{
-		// for D2153 AAD driver
-		// TODO: DLG. eric. Have to check.
-		I2C_BOARD_INFO("d2153-aad", D2153_AAD_I2C_ADDR),
-		.platform_data = NULL,
-	},
-#endif /* 0 */	
 #endif /* CONFIG_MFD_D2153 */
 };
 
@@ -1801,50 +864,6 @@ void u2evm_restart(char mode, const char *cmd)
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
-int sec_rlte_hw_rev;
-
- 
- 
-#define STBCHRB3		0xE6180043
-/* SBSC register address */
-#define SBSC_BASE		(0xFE000000U)
-#define SBSC_SDMRA_DONE		(0x00000000)
-#define SBSC_SDMRACR1A_ZQ	(0x0000560A)
-#define CPG_BASE		(0xE6150000U)
-#define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
-#define CPG_PLLECR		IO_ADDRESS(CPG_BASE + 0x00D0)
-#define CPG_PLL3CR_1040MHZ	(0x27000000)
-#define CPG_PLLECR_PLL3ST	(0x00000800)
-static void __iomem *sbsc_sdmracr1a;
-
-static void SBSC_Init_520Mhz(void)
-{
-	unsigned long work;
-
-	printk(KERN_ALERT "START < %s >\n", __func__);
-
-	/* Check PLL3 status */
-	work = __raw_readl(CPG_PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST)) {
-		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
-		return;
-	}
-
-	/* Set PLL3 = 1040 Mhz*/
-	__raw_writel(CPG_PLL3CR_1040MHZ, CPG_PLL3CR);
-
-	/* Wait PLL3 status on */
-	while (1) {
-		work = __raw_readl(CPG_PLLECR);
-		work &= CPG_PLLECR_PLL3ST;
-		if (work == CPG_PLLECR_PLL3ST)
-			break;
-	}
-
-	/* Dummy read */
-	__raw_readl(sbsc_sdmracr1a);
-}
-
 static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
@@ -1864,7 +883,7 @@ static void __init u2evm_init(void)
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
+				__func__, __raw_readl(PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
@@ -1877,7 +896,7 @@ static void __init u2evm_init(void)
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
 		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
+				__func__, __raw_readl(PLL3CR));
 		if(sbsc_sdmracr1a)
 			iounmap(sbsc_sdmracr1a);
 		if(sbsc_sdmra_28200)
@@ -1931,22 +950,10 @@ static void __init u2evm_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = 0;
-	gpio_request(GPIO_PORT75, NULL);
-	gpio_direction_input(GPIO_PORT75);
-	u2_board_rev |= gpio_get_value(GPIO_PORT75) << 3;
-	gpio_request(GPIO_PORT74, NULL);
-	gpio_direction_input(GPIO_PORT74);
-	u2_board_rev |= gpio_get_value(GPIO_PORT74) << 2;
-	gpio_request(GPIO_PORT73, NULL);
-	gpio_direction_input(GPIO_PORT73);
-	u2_board_rev |= gpio_get_value(GPIO_PORT73) << 1;
-	gpio_request(GPIO_PORT72, NULL);
-	gpio_direction_input(GPIO_PORT72);
-	u2_board_rev |= gpio_get_value(GPIO_PORT72);
+	u2_board_rev = read_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
-					u2_read_board_rev, NULL);
+					proc_read_board_rev, NULL);
 
 	r8a7373_add_standard_devices();
 
@@ -1985,7 +992,6 @@ static void __init u2evm_init(void)
 #endif
 		printk(KERN_DEBUG "final stm_select=%d\n", stm_select);
 
-
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 
@@ -1994,8 +1000,7 @@ static void __init u2evm_init(void)
 		*GPIO_DRVCR_SIM2 = 0x0022;
 	}
 	shmobile_arch_reset = u2evm_restart;
-	sec_rlte_hw_rev = check_sec_rlte_hw_rev();
-	printk(KERN_INFO "%s hw rev : %d\n", __func__, sec_rlte_hw_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -2016,14 +1021,6 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_KEYIN4, NULL);
 	gpio_request(GPIO_FN_KEYIN5, NULL);
 	gpio_request(GPIO_FN_KEYIN6, NULL);
-//	gpio_request(GPIO_FN_KEYOUT0, NULL);
-//	gpio_request(GPIO_FN_KEYOUT1, NULL);
-//	gpio_request(GPIO_FN_KEYOUT2, NULL);
-//	gpio_request(GPIO_FN_KEYOUT3, NULL);
-//	gpio_request(GPIO_FN_KEYOUT4, NULL);
-//	gpio_request(GPIO_FN_KEYOUT5, NULL);
-//	gpio_request(GPIO_FN_KEYOUT6, NULL);
-
 
 	gpio_pull_up_port(GPIO_PORT44);
 	gpio_pull_up_port(GPIO_PORT45);
@@ -2047,10 +1044,6 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_MMCRST, NULL);
 
 	/* Disable GPIO Enable at initialization */
-
-	// MHL enable
-	/*gpio_request(GPIO_PORT102, NULL);
-	gpio_direction_output(GPIO_PORT102, 0);*/
 	
 	// ===== CWS GPIO =====
 	
@@ -2062,40 +1055,20 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_PORT11, NULL);
 	gpio_direction_output(GPIO_PORT11, 0);
 
-	// NFC Enable
-	//gpio_request(GPIO_PORT12, NULL);
-	//gpio_direction_output(GPIO_PORT12, 0);
 #if defined(CONFIG_RENESAS_NFC)
 	// NFC Firmware
 	gpio_request(GPIO_PORT101, NULL);
 	gpio_direction_output(GPIO_PORT101, 0);
 #endif
-	// WLAN Enable
-	//gpio_request(GPIO_PORT260, NULL);
-	//gpio_direction_output(GPIO_PORT260, 0);
-	
-	// BT Enable
-	//gpio_request(GPIO_PORT268, NULL);
-	//gpio_direction_output(GPIO_PORT268, 0);
-	
-	// GPS Enable
-	/*gpio_request(GPIO_PORT11, NULL);
-	gpio_direction_output(GPIO_PORT11, 0);*/
-	
 	// ===== Misc GPIO =====
 
 	// Sensor LDO Enable
 	gpio_request(GPIO_PORT9, NULL);
-	if (u2_get_board_rev() >= 5) {
+	if (u2_board_rev >= 5) {
 		/* do nothing */
 	} else {
 		gpio_direction_output(GPIO_PORT9, 0);
 	}
-
-	// MHL enable
-	//gpio_request(GPIO_PORT102, NULL);  /* commented as suggested by  */
-	//gpio_direction_output(GPIO_PORT102, 0);
-
 	/* End */
 
 	gpio_direction_none_port(GPIO_PORT309);
@@ -2117,64 +1090,34 @@ static void __init u2evm_init(void)
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 	}
 
-#if 0
-	/* ONLY FOR HSI CROSS COUPLING */
-        /* TODO: Add HSI pinmux and direction etc control for X-coupling */
-        /* TODO: CHECK if any conflict arises, whether X-coupling can be used also wit SHM and EOS Android */
-	gpio_request(GPIO_FN_HSI_RX_FLAG, NULL);
- /* ... */
-	gpio_requset(GPIO_FN_HSI_TX_WAKE, NULL);
-#endif
-
 	if (1 == stm_select) {
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX */
 
         /* SDHI1 used for STM Data, STM Clock, and STM SIDI */
-//        gpio_request(GPIO_PORT288, NULL);
-//        gpio_direction_output(GPIO_PORT288, 0);
         gpio_request(GPIO_FN_STMCLK_2, NULL);
 
-//        gpio_request(GPIO_PORT289, NULL);
-//        gpio_direction_output(GPIO_PORT289, 0);
         gpio_request(GPIO_FN_STMDATA0_2, NULL); 
 
-//        gpio_request(GPIO_PORT290, NULL);
-//        gpio_direction_output(GPIO_PORT290, 0);
         gpio_request(GPIO_FN_STMDATA1_2, NULL);
 
-//        gpio_request(GPIO_PORT291, NULL);
-//        gpio_direction_output(GPIO_PORT291, 0);
         gpio_request(GPIO_FN_STMDATA2_2, NULL);
 
-//        gpio_request(GPIO_PORT292, NULL);
-//        gpio_direction_output(GPIO_PORT292, 0);
         gpio_request(GPIO_FN_STMDATA3_2, NULL);
 
 	} else if (0 == stm_select) {
 	/* FIRST, CONFIGURE STM CLK AND DATA PINMUX using SDHI0 as port */
 
         /* SDHI0 used for STM Data, STM Clock */
-//        gpio_request(GPIO_PORT326, NULL);
-//        gpio_direction_output(GPIO_PORT326, 0);
+
         gpio_request(GPIO_FN_STMCLK_1, NULL);
 
-//        gpio_request(GPIO_PORT320, NULL);
-//        gpio_direction_output(GPIO_PORT320, 0);
         gpio_request(GPIO_FN_STMDATA0_1, NULL); 
 
-//        gpio_request(GPIO_PORT321, NULL);
-//        gpio_direction_output(GPIO_PORT321, 0);
         gpio_request(GPIO_FN_STMDATA1_1, NULL);
 
-//        gpio_request(GPIO_PORT322, NULL);
-//        gpio_direction_output(GPIO_PORT322, 0);
         gpio_request(GPIO_FN_STMDATA2_1, NULL);
 
-//        gpio_request(GPIO_PORT323, NULL);
-//        gpio_direction_output(GPIO_PORT323, 0);
         gpio_request(GPIO_FN_STMDATA3_1, NULL);
-
-//        *PORTCR(324) = 0x03; //STMCMD0
 
 	}
 
@@ -2213,8 +1156,6 @@ static void __init u2evm_init(void)
 
 	if (1 == stm_select) {
 	/* SDHI1 used for STMSIDI */
-//        gpio_request(GPIO_PORT293, NULL);
-//        gpio_direction_input(GPIO_PORT293);
         gpio_request(GPIO_FN_STMSIDI_2, NULL);
 	gpio_pull_up_port(GPIO_PORT293);
 
@@ -2222,8 +1163,6 @@ static void __init u2evm_init(void)
 	
 	if (0 == stm_select) {
         /* SDHI0 used for STMSIDI */
-//        gpio_request(GPIO_PORT324, NULL);
-//        gpio_direction_input(GPIO_PORT324);
         gpio_request(GPIO_FN_STMSIDI_1, NULL);
 	gpio_pull_up_port(GPIO_PORT324);
 
@@ -2232,13 +1171,6 @@ static void __init u2evm_init(void)
         if (-1 != stm_select) {
           int i;
           volatile unsigned long dummy_read;
-#if 0 // NOT neede any more with new FIDO SW version Fido.1.9.5.36.edge_aligned_stpv2
-	/* Lower CPG Frequency Control Register B (FRQCRB) ZTRFC clock by divider*/
-	/*control because STM clock was 76.8MHZ, too high, now it is about 38.4MHz*/
-	__raw_writel((__raw_readl(FRQCRB) & 0x7F0FFFFF) | 0x80400000, FRQCRB);
-	/* Set KICK bit and set ZTRFC[3:0] to 0100, i.e. x 1/8 divider for System*/
-	/*CPU Debugging and Trace Clock Frequenct Division Ratio*/
-#endif
 
 #define DBGREG9		IO_ADDRESS(0xE6100040)
 	  if (pub_stm_select) {
@@ -2249,7 +1181,6 @@ static void __init u2evm_init(void)
 
           for(i=0; i<0x10; i++);
 
-/* #define DBGREG1		IO_ADDRESS(0xE6100020) */ /* Defined already above */
 	  if ((1 == stm_select) && pub_stm_select) {
           __raw_writel((__raw_readl(DBGREG1) & 0xFFDFFFFF) | (1<<20), DBGREG1);
 		// Clear STMSEL[1], i.e. select STMSIDI to BB side.
@@ -2284,9 +1215,6 @@ static void __init u2evm_init(void)
           dummy_read = __raw_readl(SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
 	  __raw_writel(     0x162, SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
           dummy_read = __raw_readl(SYS_TPIU_STM_BASE + 0x304); // Formatter and Flush control
-#if 0 // STM Walking ones test mode, only for testing timing, not for normal trace operation!
-	  __raw_writel(0x00020001, SYS_TPIU_STM_BASE + 0x204); // STM Walking ones test mode
-#endif
         }
 
 
@@ -2320,30 +1248,18 @@ static void __init u2evm_init(void)
 
 #define SYS_TPIU_BASE       IO_ADDRESS(0xE6F83000)
                 wait_for_coresight_access_lock(SYS_TPIU_BASE);
-#if 1
                 __raw_writel((1<<(16-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 4-bits wide to avoid stall */
-#else
-                __raw_writel((1<<(32-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
-#endif
        
                 /* <<<<<< - 8 - HostCPU CoreSight / CPU-TPIU     to 32-bit mode >>>>>> */
 
 #define CPU_TPIU_BASE       IO_ADDRESS(0xE6FA3000)
                 wait_for_coresight_access_lock(CPU_TPIU_BASE);
-#if 1
                 __raw_writel((1<<(16-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 16-bits wide to avoid stall */
-#else
-                __raw_writel((1<<(32-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
-#endif
                 /* <<<<<< - 7 - System CoreSight  / SYS-TPIU-STM to 32-bit mode >>>>>> */
 
 #define SYS_TPIU_STM_BASE       IO_ADDRESS(0xE6F8A000)
                 wait_for_coresight_access_lock(SYS_TPIU_STM_BASE);
-#if 1
                 __raw_writel((1<<(4-1)), SYS_TPIU_STM_BASE + 0x004);    /* Current Port Size 16-bits wide to avoid stall */
-#else
-                __raw_writel((1<<(32-1)), SYS_TPIU_STM_BASE + 0x004);   /* Current Port Size 32-bits wide to avoid stall */
-#endif
 
                 /* <<<<<< - 6 - HostCPU CoreSight / ETR configuration >>>>>>
                 For ARM Specification of this HW block, see CoreSight Trace Memory Controller Technical Reference Manual
@@ -2439,26 +1355,11 @@ static void __init u2evm_init(void)
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
 #endif
 #endif	
-		/* add the SDIO device */
-		//board_add_sdio_devices();
 	}
 
 	/* touch key Interupt */
 	gpio_request(GPIO_PORT104, NULL);
 	gpio_direction_input(GPIO_PORT104);
-
-#if 0
-	if (u2_get_board_rev() >= 5) {		// PORT227(CS0_N) pin is not connected.
-#ifndef CONFIG_MFD_D2153		// PORT227(CS0_N) pin is not connected.
-#endif
-		/* emmc ldo enable*/
-		gpio_request(GPIO_PORT227, NULL);
-		gpio_direction_output(GPIO_PORT227, 1);
-#if 0
-#endif
-	}
-#endif
-
 
 	gpio_pull_up_port(GPIO_PORT104);
 
@@ -2505,17 +1406,14 @@ static void __init u2evm_init(void)
 #endif
 
 #if defined(CONFIG_CHARGER_SMB328A)
-	if(SEC_RLTE_REV0_2_2 == sec_rlte_hw_rev)
-	{
-	   gpio_request(GPIO_PORT103, NULL);
-	   gpio_direction_input(GPIO_PORT103);
-	   gpio_pull_up_port(GPIO_PORT103);
-	}
-	else
-	{
-	   gpio_request(GPIO_PORT19, NULL);
-	   gpio_direction_input(GPIO_PORT19);
-	   gpio_pull_up_port(GPIO_PORT19);
+	if (SEC_RLTE_REV0_2_2 == u2_board_rev) {
+		gpio_request(GPIO_PORT103, NULL);
+		gpio_direction_input(GPIO_PORT103);
+		gpio_pull_up_port(GPIO_PORT103);
+	} else {
+		gpio_request(GPIO_PORT19, NULL);
+		gpio_direction_input(GPIO_PORT19);
+		gpio_pull_up_port(GPIO_PORT19);
 	}
 #endif
 
@@ -2529,13 +1427,6 @@ static void __init u2evm_init(void)
 	}
 #endif
 
-#if 0
-	/* Ethernet */
-	gpio_request(GPIO_PORT97, NULL);
-	gpio_direction_input(GPIO_PORT97); /* for IRQ */
-	gpio_request(GPIO_PORT105, NULL);
-	gpio_direction_output(GPIO_PORT105, 1); /* release NRESET */
-#endif	
 		/*TSP LDO Enable*/
 	gpio_request(GPIO_PORT30, NULL);
 	if (u2_board_rev >= 5) {
@@ -2559,33 +1450,6 @@ static void __init u2evm_init(void)
 		gpio_request(GPIO_FN_MSIOF0_SCK, NULL);
 		gpio_request(GPIO_FN_MSIOF0_RXD, NULL);
 	}
-#if 0
-	else {
-		switch (stm_select) {
-		case 0:
-				p_dev = u2evm_devices_stm_sdhi0;
-				p_dev_cnt = u2evm_devices_stm_sdhi0_size;
-				break;
-		case 1:
-				p_dev = u2evm_devices_stm_sdhi1;
-				p_dev_cnt = u2evm_devices_stm_sdhi1_size;
-				break;
-		default:
-				p_dev = u2evm_devices_stm_none;
-				p_dev_cnt = u2evm_devices_stm_none_size;
-				break;
-		}
-		int device_i;
-		for (device_i = 0; device_i < p_dev_cnt; i++) {
-			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
-				printk(KERN_INFO "%s u2_board_rev < 3 \
-					gpio_key_polled_device  \n", __func__);
-				p_dev[i] = &gpio_key_polled_device;
-			break;
-			}
-		}
-	}
-#endif
 #endif
 
 	/* enable sound */
@@ -2616,24 +1480,10 @@ static void __init u2evm_init(void)
 #endif
 	camera_init(u2_board_rev);
 
-#if 0
-	gpio_request(GPIO_PORT39, NULL);
-	gpio_direction_output(GPIO_PORT39, 0);
-#endif
 	if(u2_get_board_rev() >= 5) {
 		gpio_key_init(stm_select,
 			u2_board_rev,
-			sec_rlte_hw_rev,
-			u2evm_devices_stm_sdhi0_d2153,
-			ARRAY_SIZE(u2evm_devices_stm_sdhi0_d2153),
-			u2evm_devices_stm_sdhi1_d2153,
-			ARRAY_SIZE(u2evm_devices_stm_sdhi1_d2153),
-			u2evm_devices_stm_none_d2153,
-			ARRAY_SIZE(u2evm_devices_stm_none_d2153));
-	} else {
-		gpio_key_init(stm_select,
 			u2_board_rev,
-			sec_rlte_hw_rev,
 			u2evm_devices_stm_sdhi0,
 			ARRAY_SIZE(u2evm_devices_stm_sdhi0),
 			u2evm_devices_stm_sdhi1,
@@ -2709,25 +1559,6 @@ static void __init u2evm_reserve(void)
 
 }
 
-static int check_sec_rlte_hw_rev(void)
-{
-	int rev0, rev1, rev2, rev3;
-
-	gpio_request(GPIO_PORT72, "HW_REV0");
-	gpio_request(GPIO_PORT73, "HW_REV1");
-	gpio_request(GPIO_PORT74, "HW_REV2");
-	gpio_request(GPIO_PORT75, "HW_REV3");
-	gpio_direction_input(GPIO_PORT72);
-	gpio_direction_input(GPIO_PORT73);
-	gpio_direction_input(GPIO_PORT74);
-	gpio_direction_input(GPIO_PORT75);
-	rev0 = gpio_get_value(GPIO_PORT72);
-	rev1 = gpio_get_value(GPIO_PORT73);
-	rev2 = gpio_get_value(GPIO_PORT74);
-	rev3 = gpio_get_value(GPIO_PORT75);
-
-	return (rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0);
-}
 
 MACHINE_START(U2EVM, "u2evm")
 	.reserve	= u2evm_reserve,
