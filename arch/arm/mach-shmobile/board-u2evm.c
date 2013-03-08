@@ -1406,7 +1406,7 @@ static void __init u2evm_init(void)
 #endif
 
 #if defined(CONFIG_CHARGER_SMB328A)
-	if (SEC_RLTE_REV0_2_2 == u2_board_rev) {
+	if (RLTE_BOARD_REV_0_2_2 == u2_board_rev) {
 		gpio_request(GPIO_PORT103, NULL);
 		gpio_direction_input(GPIO_PORT103);
 		gpio_pull_up_port(GPIO_PORT103);

@@ -163,7 +163,7 @@ int gpio_key_init(int stm_select,
 	}
 
 #ifdef CONFIG_MACH_U2EVM
-	if (u2_board_rev < SEC_RLTE_REV0_3_1) {
+	if (u2_board_rev < RLTE_BOARD_REV_0_3_1) {
 		int i;
 		for (i = 0; i < p_dev_cnt; i++) {
 			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {

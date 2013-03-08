@@ -30,7 +30,7 @@
  * RLTE_BOARD_REV
  */
 #define RLTE_BOARD_REV_0_0	6
-#define RLTE_BOARD_REV_0_1	6
+#define RLTE_BOARD_REV_0_1	1
 /**
  * ION
  */

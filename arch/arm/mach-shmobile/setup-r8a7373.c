@@ -1523,6 +1523,7 @@ void __init r8a7373_add_standard_devices(void)
 				ARRAY_SIZE(r8a7373_late_devices_es10));
 
 	} else if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
+#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			platform_add_devices(r8a7373_late_devices_es20_d2153,
 				ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
@@ -1530,6 +1531,10 @@ void __init r8a7373_add_standard_devices(void)
 			platform_add_devices(r8a7373_late_devices_es20,
 				ARRAY_SIZE(r8a7373_late_devices_es20));
 		}
+#elif defined(CONFIG_MACH_GARDALTE)
+		platform_add_devices(r8a7373_late_devices_es20_d2153,
+			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
+#endif
 	}
 /* ES2.0 change end */
 }
