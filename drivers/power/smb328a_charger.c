@@ -551,6 +551,7 @@ union power_supply_propval *val)
 	case POWER_SUPPLY_PROP_CAPACITY    :
 		{
 			unsigned int bat_per = 1;
+#ifdef CONFIG_MACH_U2EVM
 			if (u2_get_board_rev() >= 5) {
 				bat_per= d2153_battery_read_status(D2153_BATTERY_SOC);
 			} else {
@@ -558,6 +559,9 @@ union power_supply_propval *val)
 				get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
 #endif
 			}
+#elif defined(CONFIG_MACH_GARDALTE)
+		bat_per= d2153_battery_read_status(D2153_BATTERY_SOC);
+#endif
 			val->intval = bat_per;
 		}
 		break;
@@ -595,24 +599,36 @@ union power_supply_propval *val)
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			val->intval = d2153_battery_read_status(D2153_BATTERY_CUR_VOLTAGE);
 		} else {
 			val->intval = pmic_read_battery_status(E_BATT_PROP_VOLTAGE);
 		}
+#elif defined(CONFIG_MACH_GARDALTE)
+		val->intval = d2153_battery_read_status(D2153_BATTERY_CUR_VOLTAGE);
+#endif
 		break;
 	case POWER_SUPPLY_PROP_BATT_TEMP_ADC:
+#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			val->intval = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
 		} else {
 			val->intval = pmic_get_temp_status();
 		}
+#elif defined(CONFIG_MACH_GARDALTE)
+		val->intval = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
+#endif
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_STATUS:
+#ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			val->intval=smb328a_check_charging_status(chip->client);
 			break;
 		}
+#elif defined(CONFIG_MACH_GARDALTE)
+		val->intval=smb328a_check_charging_status(chip->client);
+#endif
 		/* no need
 		case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		switch (smb328a_check_charging_status(chip->client)) {
@@ -1038,9 +1054,13 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
     smb328a_irq_init(client);
 
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() >= 5) {
 		d2153_battery_start();
 	}
+#elif defined(CONFIG_MACH_GARDALTE)
+	d2153_battery_start();
+#endif
 	return 0;
 
 err_kfree:
