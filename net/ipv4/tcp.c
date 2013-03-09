@@ -1494,7 +1494,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 				 "recvmsg bug: copied %X seq %X rcvnxt %X fl %X\n",
 				 *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt,
 				 flags))
-				break;
+				 goto selfdestruct;
 
 			offset = *seq - TCP_SKB_CB(skb)->seq;
 			if (tcp_hdr(skb)->syn)
@@ -1796,6 +1796,11 @@ recv_urg:
 	err = tcp_recv_urg(sk, msg, len, flags);
 	if (err > 0)
 		uid_stat_tcp_rcv(current_uid(), err);
+	goto out;
+
+selfdestruct:
+	err = -EBADFD;
+	tcp_done(sk);
 	goto out;
 }
 EXPORT_SYMBOL(tcp_recvmsg);
