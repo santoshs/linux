@@ -33,7 +33,7 @@
 #define SBSC_SDWCR01A		0x4C
 #define SBSC_SDWCR10A		0x50
 #define SBSC_SDWCR11A		0x54
-#define SBSC_SDMRACR1A		0x88
+#define SBSC_SDMRACR1A_OFFSET	0x88
 
 void __init shmobile_sbsc_init(void);
 u32 shmobile_sbsc_read_reg32(u32 offset);

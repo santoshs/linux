@@ -1560,7 +1560,7 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 	}
 
 	/* Dummy read */
-	shmobile_sbsc_read_reg32(SBSC_SDMRACR1A);
+	shmobile_sbsc_read_reg32(SBSC_SDMRACR1A_OFFSET);
 }
 
 /*

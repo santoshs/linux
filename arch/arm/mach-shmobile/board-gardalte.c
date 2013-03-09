@@ -108,23 +108,19 @@
 #endif
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
-
-#define STBCHRB3			0xE6180043
-#define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
-
 /* SBSC register address */
-#define SBSC_BASE			(0xFE000000U)
-#define SBSC_SDMRA_DONE			(0x00000000)
-#define SBSC_SDMRACR1A_ZQ		(0x0000560A)
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
 #define CPG_PLLECR_PLL3ST		(0x00000800)
-#define CPG_BASE			(0xE6150000U)
-#define CPG_PLL3CR			IO_ADDRESS(CPG_BASE + 0x00DC)
-#define CPG_PLLECR			IO_ADDRESS(CPG_BASE + 0x00D0)
-#define DBGREG1				IO_ADDRESS(0xE6100020)
-#define DBGREG9				IO_ADDRESS(0xE6100040)
-#define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
-#define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
+
+#if defined(CONFIG_BATTERY_BQ27425)
+#define BQ27425_ADDRESS (0xAA >> 1)
+#define GPIO_FG_INT 44
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+#define SMB328A_ADDRESS (0x69 >> 1)
+#define GPIO_CHG_INT 19
+#endif
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -300,6 +296,34 @@ static struct platform_device *guardian__plat_devices[] __initdata = {
 	&bcm_backlight_devices,
 };
 
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+#define TSU6712_ADDRESS (0x4A >> 1)
+#define GPIO_MUS_INT 41
+#endif
+
+static struct i2c_board_info __initdata i2c3_devices[] = {
+#if defined(CONFIG_BATTERY_BQ27425)
+	{
+		I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
+		.irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
+	},
+#endif
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+	{
+		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
+			.platform_data = NULL,
+			.irq            = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
+	},
+#endif
+#if defined(CONFIG_CHARGER_SMB328A)
+	{
+		I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
+/*			.platform_data = &tsu6712_pdata,*/
+/*			.irq            = irqpin2irq(GPIO_CHG_INT),*/
+	},
+#endif
+};
+
 static struct i2c_board_info i2c4_devices_melfas[] = {
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
@@ -464,8 +488,6 @@ void gardalte_restart(char mode, const char *cmd)
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
-/* For PA devices */
-#include <setup-u2pa.c>
 
 static void __init gardalte_init(void)
 {
@@ -496,14 +518,14 @@ static void __init gardalte_init(void)
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(CPG_PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		sbsc_sdmracr1a   = ioremap(SBSC_SDMRACR1A, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_SDMRA_28200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_SDMRA_38200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
@@ -1115,8 +1137,24 @@ static void __init gardalte_init(void)
 	platform_add_devices(guardian__plat_devices,
 					ARRAY_SIZE(guardian__plat_devices));
 
-	/* PA devices init */
-	PA_devices_init();
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
+	gpio_pull_up_port(GPIO_PORT97);
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+	gpio_request(GPIO_PORT19, NULL);
+	gpio_direction_input(GPIO_PORT19);
+	gpio_pull_up_port(GPIO_PORT19);
+#endif
+
+#if defined(CONFIG_BATTERY_BQ27425)
+	gpio_request(GPIO_PORT105, NULL);
+	gpio_direction_input(GPIO_PORT105);
+	if (u2_get_board_rev() < 5)
+		gpio_pull_up_port(GPIO_PORT105);
+#endif
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
