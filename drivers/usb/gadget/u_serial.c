@@ -948,11 +948,16 @@ static void gs_flush_chars(struct tty_struct *tty)
 
 static int gs_write_room(struct tty_struct *tty)
 {
-	struct gs_port	*port = tty->driver_data;
+	struct gs_port	*port;
 	unsigned long	flags;
 	int		room = 0;
 
-	if (NULL == port || NULL == &port->port_lock
+	if (tty == NULL)
+	return room;
+
+	port = tty->driver_data; 
+        
+        if (NULL == port || NULL == &port->port_lock
 		|| NULL == &port->port_lock.rlock)
 		return room;
 

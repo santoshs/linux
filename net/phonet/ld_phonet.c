@@ -474,6 +474,8 @@ static int ld_phonet_ldisc_open(struct tty_struct *tty)
 	if (err)
 LDISC_ERROR:
 		free_netdev(dev);
+	else
+		ld_write_wakeup_tty = (unsigned long) tty;
 
 	dbg("ld_phonet_ldisc_open exits err = %d\n", err);
 	return err;
@@ -898,12 +900,14 @@ static void ld_phonet_ldisc_receive
 
 void ld_write_wakeup_tasklet(unsigned long data)
 {
-	struct tty_struct *tty = (struct tty_struct *)data;
+        struct tty_struct *tty;
 	struct ld_phonet *ld_pn;
 
-	if (data == NULL) {
-		dbg("LD Tasklet DATA NULL\n");
-		return;
+	unsigned long *tmp = data;
+	tty = (struct tty_struct *)*tmp;
+	if (tty == NULL) {
+		dbg("LD Tasklet tty Data NULL\n");	
+                return;
 	}
 
 	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
@@ -914,7 +918,6 @@ void ld_write_wakeup_tasklet(unsigned long data)
 		return;
 	}
 
-	BUG_ON(ld_pn == NULL);
 	BUG_ON(ld_pn->tty != tty);
 	ld_pn_handle_tx(ld_pn);
 	return;
