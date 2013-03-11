@@ -448,9 +448,6 @@ int rev_cmd(char *para, int size)
 	FUNC_MSG_IN;
 
 	switch (ret) {
-	case CHIP_VERSION_ES1_0:
-		sprintf(bufres, "R-MobileU2 ES1.0");
-		break;
 	case CHIP_VERSION_ES2_0:
 		sprintf(bufres, "R-MobileU2 ES2.0");
 		break;

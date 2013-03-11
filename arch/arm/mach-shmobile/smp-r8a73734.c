@@ -65,19 +65,7 @@ static void rewrite_boot_entry(unsigned long entry)
 	__raw_writel(0, __io(SBAR2));
 	/* map the reset vector (in headsmp.S) */
 	__raw_writel(0, __io(APARMBAREA));	/* 4k */
-	if ((system_rev & 0xff) < 0x10) {
-		ram_clk = clk_get(NULL, "internal_ram0");
-		clk_enable(ram_clk);
-		boot_code = ioremap_nocache(BOOT_ADDR, SZ_4K);
-		r8a73734_secondary_vector_addr = entry;
-		memcpy(boot_code, r8a73734_secondary_vector,
-				r8a73734_secondary_vector_sz);
-		__raw_writel(BOOT_ADDR, __io(SBAR));
-		iounmap(boot_code);
-		clk_put(ram_clk);
-	} else {
-		__raw_writel(entry, __io(SBAR));
-	}
+	__raw_writel(entry, __io(SBAR));
 }
 
 unsigned int __init r8a73734_get_core_count(void)
@@ -97,12 +85,6 @@ void __cpuinit r8a73734_secondary_init(unsigned int cpu)
 
 	gic_secondary_init(0);
 	secondary_skip_calibrate();
-
-	if ((system_rev & 0xff) < 0x10) {
-		ram_clk = clk_get(NULL, "internal_ram0");
-		clk_disable(ram_clk);
-		clk_put(ram_clk);
-	}
 }
 
 int __cpuinit r8a73734_boot_secondary(unsigned int cpu)

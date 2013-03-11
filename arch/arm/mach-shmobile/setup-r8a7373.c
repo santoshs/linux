@@ -1440,24 +1440,6 @@ static struct platform_device *r8a7373_early_devices[] __initdata = {
 	&ramdump_device,
 };
 
-/* HS-- ES10 Specific late devices */
-static struct platform_device *r8a7373_late_devices_es10[] __initdata = {
-	&i2c0_device,
-	&i2c1_device,
-	&i2c2_device,
-	&i2c4_device,
-	&i2c8_device,
-	&dma0_device,
-#ifdef CONFIG_SMECO
-	&smc_netdevice0,
-	&smc_netdevice1,
-#endif
-	&hwsem0_device,
-	&hwsem1_device,
-	&hwsem2_device,
-	&sgx_device,
-};
-
 /* HS-- ES20 Specific late devices for Dialog */
 static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c0_device, /* IIC0  */
@@ -1518,12 +1500,7 @@ void __init r8a7373_add_standard_devices(void)
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 
-/* ES2.0 change start */
-	if ((system_rev & 0xFFFF) == 0x3E00) {
-		platform_add_devices(r8a7373_late_devices_es10,
-				ARRAY_SIZE(r8a7373_late_devices_es10));
-
-	} else if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
+	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
 #ifdef CONFIG_MACH_U2EVM
 		if (u2_get_board_rev() >= 5) {
 			platform_add_devices(r8a7373_late_devices_es20_d2153,
@@ -1869,11 +1846,7 @@ void r8a7373_l2cache_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if((system_rev & 0xFFFF) == 0x3E00)
-	{
-		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c440000, 0x820f0fff);
-	}
-	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
+	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
 		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);

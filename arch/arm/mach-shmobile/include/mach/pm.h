@@ -252,21 +252,17 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 #endif /*CONFIG_PM_HAS_SECURE*/
 
 /* HPB Phys:0xE6000000 + 0x101C */
-#define CHIP_VERSION_ES1_0	0x00003E00
 #define CHIP_VERSION_ES2_0	0x00003E10
 #define CHIP_VERSION_ES2_1	0x00003E11
 #define CHIP_VERSION_ES2_2	0x00003E12
 
 #define CHIP_VERSION_MASK	0x0000FFFF
-#define ES_REV_1_0	(1 << 0)
-#define ES_REV_1_1	(1 << 1)
-#define ES_REV_1X	(ES_REV_1_1 | ES_REV_1_0)
 #define ES_REV_2_0	(1 << 2)
 #define ES_REV_2_1	((1 << 2) | (1 << 0))
 #define ES_REV_2_2	((1 << 2) | (1 << 1))
 
 #define ES_REV_2X	(ES_REV_2_0 | ES_REV_2_1 | ES_REV_2_2)
-#define ES_REV_ALL	(ES_REV_2X | ES_REV_1X)
+#define ES_REV_ALL	(ES_REV_2X)
 extern unsigned int system_rev;
 
 /*
@@ -275,8 +271,6 @@ extern unsigned int system_rev;
 static inline int shmobile_chip_rev(void)
 {
 	switch (system_rev & CHIP_VERSION_MASK) {
-	case CHIP_VERSION_ES1_0:
-		return ES_REV_1_0;
 	case CHIP_VERSION_ES2_0:
 		return ES_REV_2_0;
 	case CHIP_VERSION_ES2_1:

@@ -672,10 +672,7 @@ void shwystatdm_regs_restore(void)
  */
 static int core_shutdown_status(unsigned int cpu)
 {
-	if (es == ES_REV_1_0)
-		return (__raw_readl(CPG_PSTR) >> (4 * cpu)) & 3;
-	else
-		return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
+	return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
 }
 
 /*
@@ -837,24 +834,14 @@ int suspend_set_clock(unsigned int is_restore)
 	unsigned int frqcrA_mask;
 	unsigned int frqcrB_mask;
 
-	if (es >= ES_REV_2_0) {
-		/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8*/
-		/* Z: Not change, ZTR: 1/4, ZT: 1/6 */
-		/* ZX:1/48, ZS:1/48, HP:1/48 */
-		frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES2;
-		frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES2;
-		zb3_clock = ZB3_CLK_SUSPEND;
-		frqcrA_mask = FRQCRA_MASK_ES2;
-		frqcrB_mask = FRQCRB_MASK_ES2;
-	} else {
-		/* I:1/6, ZG:1/4, M3:1/8, B:1/12, M1:1/6 */
-		/* Z:No change, ZTR:1/4, ZT:1/6, ZX:1/6 */
-		/* ZS:1/12, HP:1/12 */
-		frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES1;
-		frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES1;
-		frqcrA_mask = FRQCRA_MASK_ES1;
-		frqcrB_mask = FRQCRA_MASK_ES1;
-	}
+	/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8*/
+	/* Z: Not change, ZTR: 1/4, ZT: 1/6 */
+	/* ZX:1/48, ZS:1/48, HP:1/48 */
+	frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES2;
+	frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES2;
+	zb3_clock = ZB3_CLK_SUSPEND;
+	frqcrA_mask = FRQCRA_MASK_ES2;
+	frqcrB_mask = FRQCRB_MASK_ES2;
 
 	if (!is_restore) {
 		pr_info("[%s]: Suspend: Set clock for suspending\n",\

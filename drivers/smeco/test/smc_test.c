@@ -1354,26 +1354,11 @@ static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_
 
 #if(SMC_L2MUX_IF==TRUE)
 
-
     char*   config_user_name = SMC_CONFIG_USER_L2MUX;   /* Get a configuration for the L2MUX */
     smc_instance_conf_t* smc_instance_configuration = NULL;
 
     /* Select configuration "user name" based on platform */
-#ifdef SMECO_LINUX_ANDROID
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
-#elif defined SMECO_LINUX_KERNEL
-    /* TODO Detect using the version register */
-    char* smc_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
-
-#elif defined SMECO_MODEM
-
-#if defined EOS2_ASIC && (EOS2_ASIC == EOS2_ASIC_ES10)
-    char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10;
-#else
     char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20;
-#endif
-
-
 #else
     SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: NOT IMPLEMENTED FOR THIS PRODUCT");
 #endif

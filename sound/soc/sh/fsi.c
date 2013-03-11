@@ -1551,7 +1551,6 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 			fsi_reg_mask_set(fsi, ACK_MD, 0x00007701, 0x00004001);
 		else
 			fsi_reg_mask_set(fsi, ACK_MD, 0x00007710, 0x00004010);
-	/*for ES1.0 or CLKGEN Master*/
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
 		is_master = fsi_is_master_mode(fsi, is_play);
@@ -1677,7 +1676,6 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003101);
 		else
 			fsi_reg_mask_set(fsi, ACK_MD, 0x0000FFFF, 0x00003110);
-	/*for ES1.0 */
 	} else {
 		data = is_play ? (1 << 0) : (1 << 4);
 		is_master = fsi_is_master_mode(fsi, is_play);

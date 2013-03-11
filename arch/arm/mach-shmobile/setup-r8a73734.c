@@ -617,23 +617,6 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 		.port_func	= GPIO_FN_I2C_SDA1H,
 	},
 };
-//IIC1H
-static struct resource i2c5_resources_es10[] = {
-	[0] = {
-		.name	= "IIC5",
-		.start	= 0xe682a000,
-		.end	= 0xe682a425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-
-	// This was swapped in ES1 (189 is for I2CB interrupt!)
-		.start	= gic_spi(190),
-		.end	= gic_spi(190),
-
-		.flags	= IORESOURCE_IRQ,
-	},
-};
 
 static struct resource i2c5_resources_es20[] = {
 	[0] = {
@@ -782,16 +765,6 @@ static struct platform_device i2c4_device = {
 	.num_resources	= ARRAY_SIZE(i2c4_resources),
 	.dev		= {
 		.platform_data	= &i2c4_platform_data,
-	},
-};
-
-static struct platform_device i2c5_device_es10 = {
-	.name		= "i2c-sh_mobile",
-	.id		= 5,
-	.resource	= i2c5_resources_es10,
-	.num_resources	= ARRAY_SIZE(i2c5_resources_es10),
-	.dev		= {
-		.platform_data	= &i2c5_platform_data,
 	},
 };
 
@@ -1424,24 +1397,6 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 #endif
 };
 #endif
-// HS-- ES10 Specific late devices
-static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
-    &i2c0_device,
-    &i2c1_device,
-    &i2c2_device,
-    &i2c4_device,
-    &i2c5_device_es10,
-    &i2c6_device,
-    &dma0_device,
-#ifdef CONFIG_SMECO
-    &smc_netdevice0,
-    &smc_netdevice1,
-#endif
-    &hwsem0_device,
-    &hwsem1_device,
-    &hwsem2_device,
-    &sgx_device,
-};
 
 // HS-- ES20 Specific late devices for Dialog
 static struct platform_device *r8a73734_late_devices_es20_d2153[] __initdata = {
@@ -1610,21 +1565,12 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_early_devices));
 //ES2.0 change start
 
-	if((system_rev & 0xFFFF) == 0x3E00)
-	{
-		platform_add_devices(r8a73734_late_devices_es10,
-				ARRAY_SIZE(r8a73734_late_devices_es10));
-	
-	}
-	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
-		if(u2_get_board_rev() >= 5) {
-			platform_add_devices(r8a73734_late_devices_es20_d2153,
-					ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
-		} else {
-			platform_add_devices(r8a73734_late_devices_es20,
-					ARRAY_SIZE(r8a73734_late_devices_es20));
-		}
+	if(u2_get_board_rev() >= 5) {
+		platform_add_devices(r8a73734_late_devices_es20_d2153,
+				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
+	} else {
+		platform_add_devices(r8a73734_late_devices_es20,
+				ARRAY_SIZE(r8a73734_late_devices_es20));
 	}
 //ES2.0 change end
 
@@ -1643,13 +1589,8 @@ void __init r8a73734_add_standard_devices(void)
 			platform_add_devices(r8a73734_late_devices_es20,
 				ARRAY_SIZE(r8a73734_late_devices_es20));
 		}
-	}
-	else
-	{
-		printk("Loading ES10 late devices...\n");
-		platform_add_devices(r8a73734_late_devices_es10,
-			ARRAY_SIZE(r8a73734_late_devices_es10));
-	} */
+	 }
+	*/
 }
 
 #define CCCR	IO_ADDRESS(0xe600101c)
