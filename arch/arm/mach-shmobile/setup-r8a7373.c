@@ -35,6 +35,7 @@
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/ramdump.h>
+#include <mach/board-u2evm-renesas-bt.h>
 
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
