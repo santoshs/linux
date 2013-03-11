@@ -32,19 +32,22 @@
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
 
-#define SH_CSI2_DEBUG	0
+#define SH_CSI2_DEBUG		(0)
+#define SH_CSI2_ERROR_RESET	(0)
 
-#define SH_CSI2_TREF	0x00
-#define SH_CSI2_SRST	0x04
-#define SH_CSI2_PHYCNT	0x08
-#define SH_CSI2_CHKSUM	0x0C
-#define SH_CSI2_VCDT	0x10
-#define SH_CSI2_PHYCNT2	0x48
-#define SH_CSI2_PHYCNT3	0x20
-#define SH_CSI2_INTSTATE	0x38
-#define SH_CSI2_INTEN	0x30
-#define SH_CSI2_INTEN_ALL 0x5F53
-#define	SH_CSI2_OUT	0x24
+#define SH_CSI2_TREF		(0x00)
+#define SH_CSI2_SRST		(0x04)
+#define SH_CSI2_PHYCNT		(0x08)
+#define SH_CSI2_CHKSUM		(0x0C)
+#define SH_CSI2_VCDT		(0x10)
+#define SH_CSI2_PHYCNT2		(0x48)
+#define SH_CSI2_PHYCNT3		(0x20)
+#define SH_CSI2_INTSTATE	(0x38)
+#define SH_CSI2_INTEN		(0x30)
+#define SH_CSI2_INTEN_ALL	(0x5F5F)
+#define SH_CSI2_INT_ERROR	(SH_CSI2_INTEN_ALL)
+#define SH_CSI2_INT_RESET_ERROR	(0x25F)
+#define SH_CSI2_OUT		(0x24)
 
 struct sh_csi2 {
 	struct v4l2_subdev		subdev;
@@ -61,7 +64,7 @@ struct sh_csi2 {
 	int				vd_e_cnt;
 	int				shp_cnt;
 	int				lnp_cnt;
-#endif
+#endif /* SH_CSI2_DEBUG */
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv);
@@ -90,7 +93,7 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 		priv->vd_e_cnt = 0;
 		priv->shp_cnt = 0;
 		priv->lnp_cnt = 0;
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 		tmp = 0x10;
 		if (priv->client->lanes & 0xF)
@@ -169,17 +172,18 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 {
 	struct sh_csi2 *priv = data;
 	u32 intstate = ioread32(priv->base + SH_CSI2_INTSTATE);
-	u32 reg_vcdt = 0;
-	u32 reg_inten = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
 
 	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
-	if (intstate & 0x5F53)
+	if (intstate & SH_CSI2_INT_ERROR)
 		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
 
-	if (intstate & 0x253) {
+#if SH_CSI2_ERROR_RESET
+	if (intstate & SH_CSI2_INT_RESET_ERROR) {
+		u32 reg_vcdt = 0;
+		u32 reg_inten = 0;
 		printk(KERN_ALERT "CSI HW Error Reset3(0x%08X)\n", intstate);
 		reg_vcdt = ioread32(priv->base + SH_CSI2_VCDT);
 		reg_inten = ioread32(priv->base + SH_CSI2_INTEN);
@@ -188,6 +192,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 		sh_csi2_stream(priv, priv->strm_on);
 		iowrite32(reg_inten, priv->base + SH_CSI2_INTEN);
 	}
+#endif /* SH_CSI2_ERROR_RESET */
 
 #if SH_CSI2_DEBUG
 	if (intstate & (1 << 26)) {
@@ -210,7 +215,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 			printk(KERN_ALERT "LNP = %d\n", priv->lnp_cnt);
 		priv->lnp_cnt++;
 	}
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -544,7 +549,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	priv->vd_e_cnt = 0;
 	priv->shp_cnt = 0;
 	priv->lnp_cnt = 0;
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 	dev_dbg(&pdev->dev, "CSI2 probed.\n");
 
