@@ -89,6 +89,10 @@ MODULE_ALIAS_LDISC(N_PHONET);
 
 #define LD_WAKEUP_DATA_INIT       0
 #define ATPLIB_AT_CMD_MAX   1024
+
+#define LD_UART_EMPTY_CR          3
+#define LD_UART_EMPTY_CRLF        4
+
 extern struct switch_dev switch_dock;
 
 struct ld_phonet {
@@ -674,15 +678,20 @@ static void ld_phonet_ldisc_receive
 		{
 			int ret = 0;
 			dbg("case LD_PHONET_SWITCH\n");
+#ifndef ECHO_DISABLE
+			/* Refer comment - 03 above */
+			room = tty_write_room(tty);
+			if (room >= count)
+				tty->ops->write(tty, cp, count);
+#endif
 			ret = ld_set_switch_buf(NULL, NULL, cp, count);
 			if (LD_UART_AT_MODE == ret) {
 				dbg("MATCH FOR change mode \
 				LD_PHONET_SWITCH%c\n", *cp);
 				ld_atcmd_len = sprintf \
-						 (ld_pn->ld_atcmd_buffer, \
-						"\r\n%s:%s\r\n"  \
-						"\r\n" "%s\r\n", \
-						"+ATSTART", "OK", "OK");
+						(ld_pn->ld_atcmd_buffer, \
+						"\r\n+ATSTART:OK\r\n"  \
+						"\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
 					/* Refer Comment 01 above */
@@ -697,18 +706,34 @@ static void ld_phonet_ldisc_receive
 					ld_atcmd_len = \
 						sprintf(
 						ld_pn->ld_atcmd_buffer, \
-							 "\r\n""%s""\r\n" \
-							, "ERROR");
+						"\r\n""ERROR\r\n");
 					room = tty_write_room(tty);
 					if (room >= ld_atcmd_len)
 						tty->ops->write(tty, \
-							ld_pn->ld_atcmd_buffer \
-							, ld_atcmd_len);
+						ld_pn->ld_atcmd_buffer \
+						, ld_atcmd_len);
 					else
 						dbg \
 						("No Room for AT+ATSTART NG\n");
 					ld_pn->ld_phonet_state = \
 						LD_PHONET_NEW_ISI_MSG;
+					} else if (LD_UART_EMPTY_CRLF == ret) {
+						ld_atcmd_len = \
+						sprintf(
+						ld_pn->ld_atcmd_buffer, \
+						"\r\n");
+						room = tty_write_room(tty);
+						if (room >= ld_atcmd_len)
+							tty->ops->write(tty, \
+							ld_pn->ld_atcmd_buffer\
+							, ld_atcmd_len);
+						else
+							dbg \
+							("No Room \
+							for EMPTY CRLF\n");
+						ld_pn->ld_phonet_state = \
+						LD_PHONET_NEW_ISI_MSG;
+						dbg("EMPTY CR\n");
 			} else {
 				dbg("LD _ PARTIAL\n");
 			}
