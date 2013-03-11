@@ -362,12 +362,18 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 	int	iRet = ERROR_NONE;
 	u_long	ulTmpNextDev = g_sndp_codec_info.dev_none;
 	u_int	uiDev;
+
+#if defined(CONFIG_MACH_U2EVM)
 	/* get board rev */
 	u_int		board_rev = u2_get_board_rev();
 
 	/* revision check */
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		return ulTmpNextDev;
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+	return ulTmpNextDev;
+#endif
 
 	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
 
@@ -660,12 +666,17 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_stop,
 		  sndp_work_call_capture_incomm_stop);
 
+#if defined(CONFIG_MACH_U2EVM)
 	/* get board rev */
 	board_rev = u2_get_board_rev();
 
 	/* revision check */
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
+#endif
+#if defined(CONFIG_MACH_GARDALTE)
+	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
+#endif
 
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++) {
 		sndp_work_initialize(&g_sndp_work_hw_free[iCnt],
@@ -4465,6 +4476,7 @@ static void sndp_work_start(const int direction)
 
 #ifdef WM1811_STANDARDIZATION
 #else
+	#if defined(CONFIG_MACH_U2EVM)
 	/* get board rev */
 	board_rev = u2_get_board_rev();
 	if (IS_DIALOG_BOARD_REV(board_rev)) {
@@ -4472,6 +4484,12 @@ static void sndp_work_start(const int direction)
 		if (SNDP_PCM_OUT == direction)
 			fsi_d2153_set_dac_power(g_kcontrol, 1);
 	}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+		/* Output device ON */
+		if (SNDP_PCM_OUT == direction)
+			fsi_d2153_set_dac_power(g_kcontrol, 1);
+	#endif
 #endif
 
 	/* set device */
@@ -4667,6 +4685,7 @@ static void sndp_work_stop(
 
 #ifdef WM1811_STANDARDIZATION
 #else
+	#if defined(CONFIG_MACH_U2EVM)
 	/* Output device OFF */
 	/* get board rev */
 	board_rev = u2_get_board_rev();
@@ -4676,6 +4695,13 @@ static void sndp_work_stop(
 			fsi_d2153_set_dac_power(g_kcontrol, 0);
 		}
 	}
+	#endif
+	#if defined(CONFIG_MACH_GARDALTE)
+		if (SNDP_PCM_OUT == direction) {
+			/* Output device OFF */
+			fsi_d2153_set_dac_power(g_kcontrol, 0);
+		}
+	#endif
 #endif
 
 	uiValue = GET_OLD_VALUE(direction);
