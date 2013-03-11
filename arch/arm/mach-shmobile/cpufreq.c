@@ -35,6 +35,7 @@
 #include <linux/stat.h>
 #include <linux/moduleparam.h>
 #include <linux/export.h>
+#include <memlog/memlog.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -644,6 +645,7 @@ int __set_rate(unsigned int freq)
 #ifdef DYNAMIC_HOTPLUG_CPU
 		hlg_config.freq_his_flg = 1;
 #endif /* DYNAMIC_HOTPLUG_CPU */
+		memory_log_dump_int(PM_DUMP_ID_DFS_FREQ, freq);
 	}
 #else /* ZFREQ_MODE */
 	ret = pm_set_syscpu_frequency(zdiv_table[level].waveform);
@@ -653,6 +655,7 @@ int __set_rate(unsigned int freq)
 #ifdef DYNAMIC_HOTPLUG_CPU
 		hlg_config.freq_his_flg = 1;
 #endif /* DYNAMIC_HOTPLUG_CPU */
+		memory_log_dump_int(PM_DUMP_ID_DFS_FREQ, freq);
 	}
 #endif /* ZFREQ_MODE */
 done:

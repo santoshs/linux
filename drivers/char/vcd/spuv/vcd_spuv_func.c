@@ -235,7 +235,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 	if (g_spuv_func_power_supply == effective)
 		goto rtn;
 
-	if (VCD_SPUV_FUNC_ENABLE == effective) {
+	if (VCD_ENABLE == effective) {
 
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
@@ -358,7 +358,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 		vcd_spuv_func_ipc_semaphore(VCD_SEMAPHORE_RELEASE);
 
 		/* update status */
-		g_spuv_func_power_supply = VCD_SPUV_FUNC_ENABLE;
+		g_spuv_func_power_supply = VCD_ENABLE;
 
 	} else {
 
@@ -427,7 +427,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 		g_spuv_func_is_spuv_clk = false;
 		g_spuv_func_clkgen_clk = NULL;
 		g_spuv_func_is_clkgen_clk = false;
-		g_spuv_func_power_supply = VCD_SPUV_FUNC_DISABLE;
+		g_spuv_func_power_supply = VCD_DISABLE;
 
 	}
 
@@ -442,17 +442,17 @@ rtn:
  *
  * @param	none.
  *
- * @retval	VCD_SPUV_FUNC_DISABLE	spuv clock off.
- * @retval	VCD_SPUV_FUNC_ENABLE	spuv clock on.
+ * @retval	VCD_DISABLE	spuv clock off.
+ * @retval	VCD_ENABLE	spuv clock on.
  */
 int vcd_spuv_func_check_power_supply(void)
 {
-	int ret = VCD_SPUV_FUNC_DISABLE;
+	int ret = VCD_DISABLE;
 
 	vcd_pr_start_spuv_function();
 
 	if (g_spuv_func_is_spuv_clk)
-		ret = VCD_SPUV_FUNC_ENABLE;
+		ret = VCD_ENABLE;
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -716,7 +716,7 @@ void vcd_spuv_func_send_ack(int is_log_enable)
 {
 	vcd_pr_start_spuv_function();
 
-	if (VCD_SPUV_FUNC_ENABLE == is_log_enable)
+	if (VCD_ENABLE == is_log_enable)
 		vcd_pr_if_spuv("[VCD -> SPUV ] : ACK\n");
 
 	/* set arm_msg_it */

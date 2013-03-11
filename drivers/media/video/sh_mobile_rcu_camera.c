@@ -747,7 +747,48 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 #endif
 		}
 		sh_mobile_rcu_soft_reset(pcdev);
-
+		if (status & RCU_RCETCR_ERR_MASK) {
+			dev_err(pcdev->icd->parent,
+				"MERAM Closing is moved after Soft Reset for "
+				"Error interrupt RCETCR=0x%08X\n", status);
+			if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
+				if (SH_RCU_MODE_IMAGE == pcdev->image_mode) {
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL,
+							regMECTRL | 0x20);
+					regMECTRL = meram_ch_read(pcdev,
+						RCU_MERAM_CTRL_C);
+					if (!(0x20 & regMECTRL))
+						meram_ch_write(pcdev,
+							RCU_MERAM_CTRL_C,
+							regMECTRL | 0x20);
+				} else {
+					if (RCU_MERAM_FRAMEA ==
+						pcdev->meram_frame) {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL,
+								regMECTRL |
+								0x20);
+					} else {
+						regMECTRL = meram_ch_read(pcdev,
+							RCU_MERAM_CTRL_C);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(pcdev,
+								RCU_MERAM_CTRL_C
+								, regMECTRL |
+								0x20);
+					}
+				}
+				dev_geo(pcdev->icd->parent,
+					"%s:meram clear\n", __func__);
+			}
+		}
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 			if ((SH_RCU_MODE_IMAGE == pcdev->image_mode)
 				&& (!pcdev->output_ext)) {
@@ -1319,45 +1360,69 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 			&& (regRCETCR & RCU_RCETCR_MASK_MEM_ISP3))
 			|| (SH_RCU_OUTPUT_MEM == pcdev->output_mode && vb)) {
 
-			if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-				if ((SH_RCU_MODE_IMAGE == pcdev->image_mode)
-					&& (!pcdev->output_ext)) {
-					regMECTRL = meram_ch_read(pcdev,
-						RCU_MERAM_CTRL);
-					if (!(0x20 & regMECTRL))
-						meram_ch_write(pcdev,
-							RCU_MERAM_CTRL,
-							regMECTRL | 0x20);
-					regMECTRL = meram_ch_read(pcdev,
-						RCU_MERAM_CTRL_C);
-					if (!(0x20 & regMECTRL))
-						meram_ch_write(pcdev,
-							RCU_MERAM_CTRL_C,
-							regMECTRL | 0x20);
-				} else {
-					if (RCU_MERAM_FRAMEA ==
-						pcdev->meram_frame) {
-						regMECTRL = meram_ch_read(pcdev,
-							RCU_MERAM_CTRL);
+			if (regRCETCR & RCU_RCETCR_ERR_MASK) {
+				/* Skip MERAM clear in error case */
+				dev_err(pcdev->icd->parent,
+				"Error interrupt occurred! RCETCR=0x%08X\n: Skip MERAM clear routine!!",
+				regRCETCR);
+			} else {
+				if (SH_RCU_OUTPUT_SDRAM
+						!= pcdev->output_meram) {
+					if ((SH_RCU_MODE_IMAGE ==
+						pcdev->image_mode)
+						&& (!pcdev->output_ext)) {
+						regMECTRL = meram_ch_read(
+								pcdev,
+								RCU_MERAM_CTRL
+							);
 						if (!(0x20 & regMECTRL))
-							meram_ch_write(pcdev,
+							meram_ch_write(
+								pcdev,
 								RCU_MERAM_CTRL,
-								regMECTRL |
-								0x20);
-					} else {
-						regMECTRL = meram_ch_read(pcdev,
-							RCU_MERAM_CTRL_C);
-						if (!(0x20 & regMECTRL))
-							meram_ch_write(pcdev,
+								regMECTRL|0x20
+							);
+						regMECTRL = meram_ch_read(
+								pcdev,
 								RCU_MERAM_CTRL_C
-								, regMECTRL |
-								0x20);
+								);
+						if (!(0x20 & regMECTRL))
+							meram_ch_write(
+								pcdev,
+								RCU_MERAM_CTRL_C,
+								regMECTRL | 0x20
+							);
+					} else {
+						if (RCU_MERAM_FRAMEA ==
+							pcdev->meram_frame) {
+							regMECTRL =
+								meram_ch_read(
+									pcdev,
+									RCU_MERAM_CTRL
+								);
+							if (!(0x20 & regMECTRL))
+								meram_ch_write(
+									pcdev,
+									RCU_MERAM_CTRL,
+									regMECTRL | 0x20
+								);
+						} else {
+							regMECTRL =
+								meram_ch_read(
+									pcdev,
+									RCU_MERAM_CTRL_C
+								);
+							if (!(0x20 & regMECTRL))
+								meram_ch_write(
+									pcdev,
+									RCU_MERAM_CTRL_C,
+									regMECTRL | 0x20
+								);
+						}
 					}
+					dev_geo(pcdev->icd->parent,
+						"%s:meram clear\n", __func__);
 				}
-				dev_geo(pcdev->icd->parent,
-					"%s:meram clear\n", __func__);
 			}
-
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
@@ -1543,6 +1608,7 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		 icd->devnum);
 
 	kfree(pcdev->mmap_pages);
+	pcdev->mmap_pages = NULL;
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 	dev_info(icd->parent, "End A4LC power area(RCU)\n");

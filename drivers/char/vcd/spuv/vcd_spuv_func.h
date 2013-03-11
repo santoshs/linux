@@ -24,10 +24,6 @@
 #define VCD_SPUV_FUNC_MAX_LOCK_TIME		(62)
 #define VCD_SPUV_FUNC_IPC_MAX_LOCK_TIME		(15)
 
-/* spuv effective invalidity */
-#define VCD_SPUV_FUNC_DISABLE			0
-#define VCD_SPUV_FUNC_ENABLE			1
-
 /* spuv use power domain */
 #define VCD_SPUV_FUNC_POWER_DOMAIN_MAX		2
 
