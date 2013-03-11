@@ -1255,6 +1255,9 @@ void Chip_HwInit(void)
 	volatile u32 cc42Reset, *pSRCR2 = 0 ;
 	int ret_status = 0;
 	unsigned long flags;
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	int sec_hal_error = 0;
+	#endif
 
 	/* reset CC4.2 from system domain */
 	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
@@ -1321,6 +1324,18 @@ void Chip_HwInit(void)
 	CC42_DEBUG_PRINT(KERN_INFO "CC4.2 HW Version = 0x%08X\n",\
 			ioread32(sep_context.reg_addr+0x928));
 
+	/* RKEK Implementation*/
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	sec_hal_error = sec_hal_pm_public_cc42_key_init();
+	if (sec_hal_error) {
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init failed with "\
+			"error 0x%x\n", sec_hal_error);
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init succeeded\n");
+	}
+	#endif
 }
 
 
