@@ -771,9 +771,8 @@ static void ths_stop_cpu(int cpu_id)
 static irqreturn_t ths_isr(int irq, void *dev_id)
 {
 	int intr_status = -1;
-	int temp = 0;
-	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
+	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	disable_irq_nosync(irq);
 
 	intr_status = get_register_32(STR_RW_32B);

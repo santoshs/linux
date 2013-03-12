@@ -84,10 +84,11 @@ int spa_agent_register(unsigned int agent_id, void *fn, const char *agent_name)
 
 	if(spa_agent_fn[agent_id].fn.dummy == NULL)
 	{
-		spa_agent_fn[agent_id].fn.dummy= (int (*)())fn;
-		spa_agent_fn[agent_id].agent_name = agent_name;
+		spa_agent_fn[agent_id].fn.dummy = (int (*)(void))fn;
+		spa_agent_fn[agent_id].agent_name = (char *)agent_name;
 		pr_spa_agent_dbg(LEVEL1, "%s : agent id %d has been successfully registered!!\n", __func__, agent_id);
-		pr_spa_agent_dbg(LEVEL1, "%s : agent_name = %s \n", __func__, spa_agent_fn[agent_id].agent_name);
+		pr_spa_agent_dbg(LEVEL1, "%s : agent_name = %s\n",
+			__func__, spa_agent_fn[agent_id].agent_name);
 	}
 	else
 	{
@@ -162,49 +163,61 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 	return ret;
 }
 
-static int spa_agent_set_property(struct power_supply *ps, enum power_supply_property prop, union power_supply_propval *propval)
+static int spa_agent_set_property(struct power_supply *ps,
+		enum power_supply_property prop,
+		const union power_supply_propval *propval)
 {
-	int ret = 0;
+	int ret = 0, retval = 0;
 
-	pr_spa_agent_dbg(LEVEL3, "%s : agent set request = %d \n", __func__, prop);
+	pr_spa_agent_dbg(LEVEL3, "%s : agent set request = %d\n",
+						__func__, prop);
 
 	switch(prop)
 	{
 		case POWER_SUPPLY_PROP_STATUS:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_SET_CHARGE);
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_SET_CHARGE);
 			{
 				int en=0;
 				if (propval->intval == POWER_SUPPLY_STATUS_CHARGING)
 					en=1;
 
 				if(spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge)
-					propval->intval = spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge(en);
+					retval =
+			spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge(en);
 				else
 					ret = -ENODATA;
 			}
 			break;
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_SET_CHARGE_CURRENT);
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+				__func__, SPA_AGENT_SET_CHARGE_CURRENT);
 			{
 				int curr = propval->intval;
 				if(spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.set_charge_current)
-					propval->intval = spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.set_charge_current(curr);
+					retval =
+			spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.
+						set_charge_current(curr);
 				else
 					ret = -ENODATA;
 			}
 			break;
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_SET_FULL_CHARGE);
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_SET_FULL_CHARGE);
 			{
 				int eoc_current=propval->intval;
 				if(spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn.set_full_charge)
-					propval->intval = spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn.set_full_charge(eoc_current);
+					retval =
+				spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].
+					fn.set_full_charge(eoc_current);
 				else
 					ret = -ENODATA;
 			}
 			break;
 		case POWER_SUPPLY_PROP_CAPACITY:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_CTRL_FG);
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_CTRL_FG);
 			{
 				if(spa_agent_fn[SPA_AGENT_CTRL_FG].fn.ctrl_fg)
 				{
@@ -217,7 +230,8 @@ static int spa_agent_set_property(struct power_supply *ps, enum power_supply_pro
 			ret = -ENODATA;
 			break;
 	}
-	pr_spa_agent_dbg(LEVEL3, "%s : DONE !!  agent set request = %d \n", __func__, prop);
+	pr_spa_agent_dbg(LEVEL3, "%s : DONE !!  agent set request = %d\n",
+							__func__, prop);
 
 	return ret;
 }
@@ -275,13 +289,14 @@ SPA_AGENT_ERR:
 	return ret;
 }
 
-static void __devexit spa_agent_remove(struct platform_device *pdev)
+static int __devexit spa_agent_remove(struct platform_device *pdev)
 {
 	struct spa_agent *spa_agent = platform_get_drvdata(pdev);
 
 	pr_spa_agent_dbg(LEVEL4, "%s : enter\n", __func__);
 	power_supply_unregister(&spa_agent->agent_power);
 	kfree(spa_agent);
+	return 0;
 }
 
 static int spa_agent_suspend(struct platform_device *pdev, pm_message_t state)
@@ -289,7 +304,7 @@ static int spa_agent_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int spa_agent_resume(struct platform_device *pdev, pm_message_t state)
+static int spa_agent_resume(struct platform_device *pdev)
 {
 	return 0;
 }

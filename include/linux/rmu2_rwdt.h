@@ -104,7 +104,7 @@
 #define CMCSR15				IO_ADDRESS(0xE6130510U)
 #define CMCNT15				IO_ADDRESS(0xE6130514U)
 #define CMCOR15				IO_ADDRESS(0xE6130518U)
-#define CMCLKE				IO_ADDRESS(0xE6131000U)
+/*#define CMCLKE			IO_ADDRESS(0xE6131000U)*/
 #define CMT15_SPI			98U
 
 /* FIQ handle excecute panic before RWDT request CPU reset system */
@@ -116,26 +116,11 @@ static inline u32 dec2hex(u32 dec)
 }
 #endif	/* CONFIG_GIC_NS_CMT */
 
-static void cpg_check_init(void);
-static void cpg_check_check(void);
-static void rmu2_cmt_start(void);
 void rmu2_cmt_stop(void);
-static void rmu2_cmt_clear(void);
-static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id);
-static void rmu2_cmt_init_irq(void);
 int rmu2_rwdt_cntclear(void);
 int rmu2_rwdt_stop(void);
-static void rmu2_rwdt_workfn(struct work_struct *work);
-#ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
-static irqreturn_t rmu2_rwdt_irq(int irq, void *dev_id);
-#endif /* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
-static int rmu2_rwdt_start(void);
-static int __devinit rmu2_rwdt_probe(struct platform_device *pdev);
-static int __devexit rmu2_rwdt_remove(struct platform_device *pdev);
-static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state);
-static int rmu2_rwdt_resume(struct platform_device *pdev);
-static int __init rmu2_rwdt_init(void);
-static void __exit rmu2_rwdt_exit(void);
 void rmu2_rwdt_software_reset(void);
-
 #endif  /* _LINUX_RWDT_H */
+
+/* End of File */
+
