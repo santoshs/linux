@@ -58,7 +58,7 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifndef CONFIG_MACH_GARDALTE
+#ifdef CONFIG_MACH_U2EVM
 #ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
 	case PANEL_SWITCH_HW_ID_REV_0_2_1:
 	case PANEL_SWITCH_HW_ID_REV_0_2_2:

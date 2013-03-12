@@ -255,7 +255,7 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 				}
 			}
 		}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	if (data != 0xd4) {
 		data = 0xd4; /* 4.3V float voltage */
 		if (smb328a_write_reg(client, SMB328A_FLOAT_VOLTAGE, data) < 0)
@@ -559,7 +559,7 @@ union power_supply_propval *val)
 				get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
 #endif
 			}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		bat_per= d2153_battery_read_status(D2153_BATTERY_SOC);
 #endif
 			val->intval = bat_per;
@@ -605,7 +605,7 @@ union power_supply_propval *val)
 		} else {
 			val->intval = pmic_read_battery_status(E_BATT_PROP_VOLTAGE);
 		}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		val->intval = d2153_battery_read_status(D2153_BATTERY_CUR_VOLTAGE);
 #endif
 		break;
@@ -616,7 +616,7 @@ union power_supply_propval *val)
 		} else {
 			val->intval = pmic_get_temp_status();
 		}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		val->intval = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
 #endif
 		break;
@@ -626,7 +626,7 @@ union power_supply_propval *val)
 			val->intval=smb328a_check_charging_status(chip->client);
 			break;
 		}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		val->intval=smb328a_check_charging_status(chip->client);
 #endif
 		/* no need
@@ -1058,7 +1058,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	if (u2_get_board_rev() >= 5) {
 		d2153_battery_start();
 	}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	d2153_battery_start();
 #endif
 	return 0;
