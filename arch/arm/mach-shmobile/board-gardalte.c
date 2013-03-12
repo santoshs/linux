@@ -251,6 +251,7 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
+
 struct a2220_platform_data  gardalte_a2220_data = {
 	.a2220_hw_init = NULL,
 	.gpio_reset = GPIO_PORT44,
