@@ -4,6 +4,7 @@
 #include <linux/wakelock.h>
 #include <linux/platform_device.h>
 #include <linux/spa_power.h>
+#include <linux/module.h>
 
 #include <mach/common.h>
 

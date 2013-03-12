@@ -495,7 +495,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #endif /* __ASSEMBLY__*/
 
+#if !defined(IO_ADDRESS)
 #define IO_ADDRESS(x)	(x)
+#endif /* !defined(IO_ADDRESS) */
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
 #define SMGP001_DFS		SMGP001
@@ -528,6 +530,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define RTSTBCR	IO_ADDRESS(0xE6150020)
 #define PLL1CR		IO_ADDRESS(0xE6150028)
 #define CPG_PLL2CR	IO_ADDRESS(0xE615002C)
+#define CPG_PLL3CR	IO_ADDRESS(0xE61500DC)
 #define MSTPSR0	IO_ADDRESS(0xE6150030)
 #define VCLKCR5	IO_ADDRESS(0xE6150034)
 #define MSTPSR1	IO_ADDRESS(0xE6150038)
@@ -560,6 +563,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CKSCR		IO_ADDRESS(0xE61500C0)
 #define PLL1STPCR	IO_ADDRESS(0xE61500C8)
 #define MPMODE		IO_ADDRESS(0xE61500CC)
+/* PLL Enable Register */
 #define PLLECR		IO_ADDRESS(0xE61500D0)
 #define PLL0CR		IO_ADDRESS(0xE61500D8)
 #define RMSTPCR0	IO_ADDRESS(0xE6150110)
@@ -583,6 +587,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define PLL0STPCR	IO_ADDRESS(0xE61500F0)
 #define PLL2STPCR	IO_ADDRESS(0xE61500F8)
 #define PLL3STPCR	IO_ADDRESS(0xE61500FC)
+/* PLL3 control register */
 #define PLL3CR		IO_ADDRESS(0xE61500DC)
 #define FRQCRD		IO_ADDRESS(0xE61500E4)
 #define VREFCR		IO_ADDRESS(0xE61500EC)
@@ -755,7 +760,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SHBUF_BASE		0xE6240000
 
 /********************************************/
-/* SBSC Register							*/
+/* Bus State Controller for SDRAM (SBSC) */
 /********************************************/
 /* SDRAM Control Register 0A */
 #define SBSC_SDCR0APhys		0xFE400008
@@ -773,8 +778,33 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SBSC_SDWCR10APhys	0xFE400050
 /* SDRAM Wait Control Register 11A */
 #define SBSC_SDWCR11APhys	0xFE400054
-
+/* Power-down control register 0A */
 #define SBSC_SDPDCR0APhys	0xFE400058
+/* SDRAM Mode Register Address/Command Register 1A */
+#define SBSC_SDMRACR1A		(0xFE400088U)
+/* SDRAM mode register A */
+#define SBSC_SDMRA_28200	(0xFE528200U)
+#define SBSC_SDMRA_38200	(0xFE538200U)
+
+#define SDMRA_DONE		(0x00000000)
+#define SDMRACR1A_ZQ		(0x0000560A)
+
+
+#define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
+
+/********************************************/
+/********************************************/
+#define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
+#define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
+
+
+/********************************************/
+/* DEBUG Register			*/
+/********************************************/
+/*Debugging function selection register */
+#define DBGREG1				(0xE6100020)
+/* KEY register */
+#define DBGREG9				(0xE6100040)
 
 /********************************************/
 /* RWDT Register			*/
@@ -796,6 +826,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
  */
 #define	SdramZQCalib1Phys	0xFE528200
 #define	SdramZQCalib2Phys	0xFE538200
+/* Standby Flag Register B3 */
 #define STBCHRB3		0xE6180043
 
 #endif /* __ASM_R8A7373_H__ */

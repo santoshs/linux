@@ -589,6 +589,7 @@ static void gps_gpio_init(void)
 static struct tsu6712_platform_data tsu6712_pdata = {
 };
 #endif
+
 static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_BATTERY_BQ27425)
     {
@@ -611,6 +612,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
     },
 #endif
 };
+
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)
 static void mpl_init(void)
 {
@@ -865,6 +867,16 @@ void u2evm_restart(char mode, const char *cmd)
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
+int sec_rlte_hw_rev;
+
+ 
+ 
+#define STBCHRB3		0xE6180043
+/* SBSC register address */
+#define CPG_PLL3CR_1040MHZ	(0x27000000)
+#define CPG_PLLECR_PLL3ST	(0x00000800)
+static void __iomem *sbsc_sdmracr1a;
+
 static void __init u2evm_init(void)
 {
 	char *cp=&boot_command_line[0];
@@ -890,9 +902,9 @@ static void __init u2evm_init(void)
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
@@ -907,7 +919,6 @@ static void __init u2evm_init(void)
 	}
 
 	/* For case that Secure ISSW has selected debug mode already! */
-#define DBGREG1		IO_ADDRESS(0xE6100020)
 	{
 		volatile uint32_t val;
 		
@@ -1173,7 +1184,6 @@ static void __init u2evm_init(void)
           int i;
           volatile unsigned long dummy_read;
 
-#define DBGREG9		IO_ADDRESS(0xE6100040)
 	  if (pub_stm_select) {
 		  __raw_writel(0x0000a501, DBGREG9); /* Key register */
 		  __raw_writel(0x0000a501, DBGREG9); /* Key register, must write twice! */
@@ -1401,8 +1411,8 @@ static void __init u2evm_init(void)
 	}
 
 #if defined(CONFIG_USB_SWITCH_TSU6712)
-   gpio_request(GPIO_PORT97, NULL);
-   gpio_direction_input(GPIO_PORT97);
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
 	gpio_pull_up_port(GPIO_PORT97);
 #endif
 
