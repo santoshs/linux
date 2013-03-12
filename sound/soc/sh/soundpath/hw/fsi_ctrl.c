@@ -202,22 +202,6 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
-/* Table for Playback(PortA, FSI slave) */
-static struct common_reg_table fsi_reg_tbl_playA_S[] = {
-/*	  Reg		Value		D  C */
-	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
-	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ FSI_ACK_MD,	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ FSI_DO_FMT,	0x00000030,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0, 0 },
-	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0, 0 },
-};
 
 /* Table for Playback(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_playB_M[] = {
@@ -236,21 +220,6 @@ static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 	{ FSI_MUTE,				0x00001111,	0, 0 },
 	/* Clears the reset(PortB) */
 	{ FSI_ACK_RST,				0x00000010,	0, 0x00000010 },
-};
-
-/* Table for Playback(PortB, FSI slave) */
-static struct common_reg_table fsi_reg_tbl_playB_S[] = {
-/*	  Reg					Value		D  C */
-	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
-	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DO_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
-	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0, 0 },
 };
 
 /* Table for Capture(PortA, FSI master) */
@@ -272,21 +241,6 @@ static struct common_reg_table fsi_reg_tbl_captureA_M[] = {
 	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
-/* Table for Capture(PortA, FSI slave) */
-static struct common_reg_table fsi_reg_tbl_captureA_S[] = {
-/*	  Reg		Value		D  C */
-	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,	0x00000001,	0, 0 },
-	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ FSI_ACK_MD,	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ FSI_ACK_RV,	0x00000001,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ FSI_DI_FMT,	0x00000030,	0, 0 },
-	/* MUTE OFF */
-	{ FSI_MUTE,	0x00001111,	0, 0 },
-};
-
 /* Table for Capture(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
 /*	  Reg					Value		D  C */
@@ -305,22 +259,6 @@ static struct common_reg_table fsi_reg_tbl_captureB_M[] = {
 	/* Clears the reset(PortB) */
 	{ FSI_ACK_RST,				0x00000010,	0, 0x00000010 },
 };
-
-/* Table for Capture(PortB, FSI slave) */
-static struct common_reg_table fsi_reg_tbl_captureB_S[] = {
-/*	  Reg					Value		D  C */
-	/* Bus clock(MP clock) */
-	{ FSI_CLK_SEL,				0x00000001,	0, 0 },
-	/* 512 fs, 64bit/fs, DIIS:Slave, DOIS:Slave */
-	{ (FSI_ACK_MD + FSI_PORTB_OFFSET),	0x00000100,	0, 0 },
-	/* LRS:Clock not inverted, BRS:Clock inverted */
-	{ (FSI_ACK_RV + FSI_PORTB_OFFSET),	0x00000001,	0, 0 },
-	/* 24bits, PCM format, I2S */
-	{ (FSI_DI_FMT + FSI_PORTB_OFFSET),	0x00000030,	0, 0 },
-	/* MUTE OFF */
-	{ FSI_MUTE,				0x00001111,	0, 0 },
-};
-
 
 /*!
    @brief FSI start function
@@ -480,37 +418,19 @@ static void fsi_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_playA_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_playA_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
-		}
+		reg_tbl  = fsi_reg_tbl_playA_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_captureB_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_captureB_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
-		}
+		reg_tbl  = fsi_reg_tbl_captureB_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	/* FM_RADIO_TX */
 	} else {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_playB_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_playB_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_M);
-		}
+		reg_tbl  = fsi_reg_tbl_playB_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_M);
 	}
 
 	/* Register setting function call */
@@ -518,28 +438,21 @@ static void fsi_playback(const u_int uiValue)
 
 	/* Add setting for FM_RADIO_RX */
 	if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_playA_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_playA_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
+		reg_tbl  = fsi_reg_tbl_playA_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 
-			wait_cnt = FSI_DIFF_ST_WAIT_COUNT;
-			while (wait_cnt--) {
-				if (FSI_DIFF_ST_WAIT_SIZE <
-				((0x0000ff00 & ioread32(diff_st_reg)) >> 8))
-					break;
-
-				udelay(FSI_DIFF_ST_WAIT_TIME);
-			}
-
-			sndp_log_info("OUT FSI_DIFF_ST[0x%08x] wait_cnt[%d]\n",
-				ioread32(diff_st_reg), wait_cnt);
+		wait_cnt = FSI_DIFF_ST_WAIT_COUNT;
+		while (wait_cnt--) {
+			if (FSI_DIFF_ST_WAIT_SIZE <
+			((0x0000ff00 & ioread32(diff_st_reg)) >> 8))
+				break;
+			udelay(FSI_DIFF_ST_WAIT_TIME);
 		}
 
+		sndp_log_info("OUT FSI_DIFF_ST[0x%08x] wait_cnt[%d]\n",
+			ioread32(diff_st_reg), wait_cnt);
+	
 		/* Register setting function call */
 		common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
 	}
@@ -587,26 +500,14 @@ static void fsi_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_captureA_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_captureA_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_M);
-		}
+		reg_tbl  = fsi_reg_tbl_captureA_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_M);
 	/* FM_RADIO_RX */
 	} else {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = fsi_reg_tbl_captureB_S;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_S);
 		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = fsi_reg_tbl_captureB_M;
-			tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
-		}
+		reg_tbl  = fsi_reg_tbl_captureB_M;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	}
 
 	/* Register setting function call */

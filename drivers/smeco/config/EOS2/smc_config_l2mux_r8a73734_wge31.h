@@ -27,10 +27,9 @@ Description :  File created
 #ifndef SMC_INSTANCE_CONFIG_L2MUX_H
 #define SMC_INSTANCE_CONFIG_L2MUX_H
 
-#define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 #define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A7374-WGEModem 3.1 for L2MUX"
 
-#define SMC_CONF_COUNT_L2MUX                         2
+#define SMC_CONF_COUNT_L2MUX                         1
 #define SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2            3
 #define SMC_L2MUX_QUEUE_COUNT                        3
 
@@ -160,28 +159,6 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
      * SMC instance config for EOS2 L2MUX between APE5R SH-Mobile and WGEModem3.1
      *
      */
-    {
-        .name                         = SMC_CONFIG_NAME_EOS2_ES10,
-        .user_name                    = SMC_CONFIG_USER_L2MUX,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10,
-        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10,
-
-        .master_cpu_version_major     = 1,
-        .master_cpu_version_minor     = 0,
-        .slave_cpu_version_major      = 1,
-        .slave_cpu_version_minor      = 0,
-
-        .shm_start_address            = SMC_CONF_L2MUX_SHM_START_ES10,
-        .shm_size                     = SMC_CONF_L2MUX_SHM_SIZE_ES10,
-        .shm_use_cache_control_master = TRUE,
-        .shm_use_cache_control_slave  = TRUE,
-        .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,
-        .shm_cpu_memory_offset        = 0,
-
-        .channel_config_count         = SMC_CONF_CHANNEL_COUNT_L2MUX_EOS2,
-        .channel_config_array         = smc_instance_conf_l2mux_channels,
-    },
-
     {
         .name                         = SMC_CONFIG_NAME_EOS2_ES20,
         .user_name                    = SMC_CONFIG_USER_L2MUX,

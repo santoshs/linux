@@ -124,13 +124,6 @@ config MACH_U2USB
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
-config U2_ES1
-	bool "U2 ES1.0"
-	default y
-	depends on ARCH_R8A7373
-	help
-	  R-Mobile-U2 Engineering Sample 1.0.
-
 config U2_STM_ETR_TO_SDRAM
 	bool "U2 STM ETR to SDRAM"
 	depends on ARCH_R8A7373

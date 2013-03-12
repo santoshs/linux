@@ -128,13 +128,6 @@ static
 #endif /* CPUFREQ_TEST_MODE */
 struct shmobile_cpuinfo	the_cpuinfo;
 static struct cpufreq_frequency_table
-/* ES1.0 */
-main_freqtbl_es1_x[] = {
-	{.index = 0, .frequency = 988000}, /* max		*/
-	{.index = 1, .frequency = 494000}, /* mid		*/
-	{.index = 2, .frequency = 247000}, /* low		*/
-	{.index = 3, .frequency =  CPUFREQ_TABLE_END}
-},
 /* ES2.x */
 main_freqtbl_es2_x[11],
 *freq_table = NULL;
@@ -1540,9 +1533,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		return -EINVAL;
 
 	/* init frequency table */
-	if (shmobile_chip_rev() == ES_REV_1_0)
-		freq_table = main_freqtbl_es1_x;
-	else if (shmobile_chip_rev() >= ES_REV_2_0)
+	if (shmobile_chip_rev() >= ES_REV_2_0)
 		freq_table = main_freqtbl_es2_x;
 	else
 		return -ENOTSUPP;

@@ -258,27 +258,17 @@ int shmobile_init_pm(void)
 
 	spin_lock_irqsave(&clock_lock, flags);
 	/* Internal RAM0 Module Clock ON */
-	if (chip_rev < ES_REV_2_0) {
-		mstpsr5_val = __raw_readl(MSTPSR5);
-		if (0 != (mstpsr5_val & MSTPST527)) {
-			smstpcr5_val = __raw_readl(SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~MSTP527)), SMSTPCR5);
-			do {
-				mstpsr5_val = __raw_readl(MSTPSR5);
-			} while (mstpsr5_val & MSTPST527);
-		}
-	} else {
 	/* W/A of errata ES2 E0263 */
-		mstpsr5_val = __raw_readl(MSTPSR5);
-		if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
-			smstpcr5_val = __raw_readl(SMSTPCR5);
-			__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
-							, SMSTPCR5);
-			do {
-				mstpsr5_val = __raw_readl(MSTPSR5);
-			} while (mstpsr5_val & (MSTPST527 | MSTPST529));
-		}
+	mstpsr5_val = __raw_readl(MSTPSR5);
+	if (0 != (mstpsr5_val & (MSTPST527 | MSTPST529))) {
+		smstpcr5_val = __raw_readl(SMSTPCR5);
+		__raw_writel((smstpcr5_val & (~(MSTP527 | MSTP529)))
+						, SMSTPCR5);
+		do {
+			mstpsr5_val = __raw_readl(MSTPSR5);
+		} while (mstpsr5_val & (MSTPST527 | MSTPST529));
 	}
+
 #ifndef CONFIG_PM_HAS_SECURE
 	/* Internal RAM1 Module Clock ON */
 	mstpsr5_val = __raw_readl(MSTPSR5);
@@ -310,10 +300,7 @@ int shmobile_init_pm(void)
 						ram0Cpu1RegisterArea);
 
 	/* Initialize SpinLock setting */
-	if (chip_rev < ES_REV_2_0)
-		cpuidle_spinlock = 0x47BDF000;
-	else
-		cpuidle_spinlock = 0x44000000;
+	cpuidle_spinlock = 0x44000000;
 
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);

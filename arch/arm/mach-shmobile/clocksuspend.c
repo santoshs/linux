@@ -699,92 +699,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 static
 #endif
 struct clk_hw_info *__clk_hw_info;
-#ifndef SHM_CLK_TEST_MODE
-static
-#endif
-struct clk_rate __shmobile_freq_modes_es1_x[] = {
-	/* ES1.x */
-	{
-		/* suspend */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_24,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_2,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
-		.hp_clk	= DIV1_24,
-		.zs_clk = DIV1_24,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_16
-	},
-	{
-		/* Normal, CPU:MAX */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_1,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_6,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MAX */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_1,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_6,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MID */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_2,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_12,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MIN */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_24,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_4,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
-		.hp_clk	= DIV1_24,
-		.zs_clk = DIV1_24,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_16
-	}
-};
+
 #ifndef SHM_CLK_TEST_MODE
 static
 #endif
@@ -2182,10 +2097,8 @@ int pm_setup_clock(void)
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
-	} else {
-		__shmobile_freq_modes = __shmobile_freq_modes_es1_x;
-		__clk_hw_info = __clk_hw_info_es1_x;
-	}
+	} 
+	
 	shmobile_sbsc_init();
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;
@@ -2260,8 +2173,6 @@ int pm_set_clock_mode(int mode)
 
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
-	else
-		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
 
 	if ((mode >= size) || (mode < 0)) {
 		pr_err("invalid clock mode<%d>\n", mode);
@@ -2305,8 +2216,6 @@ int pm_get_clock_mode(int mode, struct clk_rate *rate)
 
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
-	else
-		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
 
 	/* invalid parameter? */
 	if ((!rate) || (mode >= size) || (mode < 0)) {

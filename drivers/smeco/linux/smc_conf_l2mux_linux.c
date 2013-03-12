@@ -150,14 +150,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     char* smc_cpu_name = NULL;
     uint8_t asic_version = smc_asic_version_get();
 
-    if( asic_version == SMC_EOS_ASIC_ES10 )
-    {
-        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
-    }
-    else
-    {
-        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
-    }
+    smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
 
     SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX configuration '%s' for ASIC version 0x%02X", device_name, smc_cpu_name, asic_version );
     SMC_TRACE_PRINTF_STARTUP("Device '%s': PM Host Access Req %s", device_name, SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");

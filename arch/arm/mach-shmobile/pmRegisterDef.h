@@ -232,7 +232,6 @@
 #define CPG_PLL1E	(1 << 1)	/* PLL0 Enable (0:off, 1:on) */
 #define CPG_PLL1ST	(1 << 9)	/* PLL0 status (0:off, 1:on)*/
 
-#define FRQCRA_ES1_MASK		0x00000F00 /* 0x00FFFFF0 */
 #define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
 #define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */
 #define FRQCRB_ZSEL_BIT		0x10000000
@@ -245,16 +244,6 @@
 #define FRQCRD_ZB3CHG		0x80000000 /* FRQCRD ZB3CHG bit */
 #define KICK_WAIT		1000
 #define FRRCRB_ZCLK_1_48	0x1B000000 /* Z clk div = 1/48 */
-
-/* For ES 1.0 */
-#define FRQCRA_MASK_ES1		0x00FFFFF0
-#define FRQCRB_MASK_ES1		0x00FFFFF0
-
-/* I:1/6, ZG:1/4, M3:1/8, B:1/12, M1:1/6 */
-#define	POWERDOWN_FRQCRA_ES1	0x00324530
-
-/* Z:No change, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/12, HP:1/12 */
-#define	POWERDOWN_FRQCRB_ES1	0x00233550
 
 /* For ES 2.0 and later*/
 #define FRQCRA_MASK_ES2		0x00FFFFFF
@@ -279,8 +268,6 @@
 /* HPBC Register							*/
 /********************************************/
 #define ESREVISION_MASK		0x0000FFFF
-#define ESREVISION_1_0		0x00003E00
-#define ESREVISION_1_1		0x00003E01
 
 #define SDCR0A_DUMMY_READ	0x80000000	/* SDCR0A dummy read bit */
 #define ZB3_HIGHSPEED		0x00000000	/* (1/2)		*/

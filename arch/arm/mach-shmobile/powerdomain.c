@@ -84,7 +84,7 @@ static unsigned int default_c4_pdsel;
 #ifdef CONFIG_PM_RUNTIME_A4RM
 static int power_a4rm_mask;
 #endif
-static int chip_rev = ES_REV_1_0;
+static int chip_rev = ES_REV_2_0;
 
 static DEFINE_SPINLOCK(pdc_lock);
 #ifdef CONFIG_PM_DEBUG
@@ -1062,10 +1062,7 @@ power_a4rm_mask = POWER_A4RM;
 		}
 	}
 
-	if (ES_REV_1_0 == chip_rev)
-		sort_mapping_table(tbl1, ARRAY_SIZE(tbl1));
-	else
-		sort_mapping_table(tbl2, ARRAY_SIZE(tbl2));
+	sort_mapping_table(tbl2, ARRAY_SIZE(tbl2));
 
 	return 0;
 }
@@ -1095,70 +1092,35 @@ int power_domain_devices(const char *drv_name,
 		return -EINVAL;
 
 	*dev_cnt = 0;
-	if (ES_REV_1_0 == chip_rev) {
-		index = get_power_area_index(tbl1,
-						ARRAY_SIZE(tbl1), drv_name);
 
-		if (0 <= index) {
-			*(dev++) = &(pd[tbl1[index].area]->dev);
-			(*dev_cnt)++;
+	index = get_power_area_index(tbl2,ARRAY_SIZE(tbl2), drv_name);
 
-			/* Check for upper successive elements
-			of 1st mapped element */
-			for (n = index + 1; n < ARRAY_SIZE(tbl1); n++) {
-				if (0 != strcmp(tbl1[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl1[n].area]->dev);
-					(*dev_cnt)++;
-				}
+	if (0 <= index) {
+		*(dev++) = &(pd[tbl2[index].area]->dev);
+		(*dev_cnt)++;
+
+		/* Check for upper successive elements
+		of 1st mapped element */
+		for (n = index + 1; n < ARRAY_SIZE(tbl2); n++) {
+			if (0 != strcmp(tbl2[n].name, drv_name)) {
+				break;
+			} else {
+				*(dev++) = &(pd[tbl2[n].area]->dev);
+				(*dev_cnt)++;
 			}
-			/* Check for lower successive elements
-			of 1st mapped element */
-			for (n = index - 1; n >= 0; n--) {
-				if (0 != strcmp(tbl1[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl1[n].area]->dev);
-					(*dev_cnt)++;
-				}
+		}
+		/* Check for lower successive elements
+		of 1st mapped element */
+		for (n = index - 1; n >= 0; n--) {
+		if (0 != strcmp(tbl2[n].name, drv_name)) {
+				break;
+			} else {
+				*(dev++) = &(pd[tbl2[n].area]->dev);
+				(*dev_cnt)++;
 			}
-
-		return 0;
 		}
 
-	} else {
-		index = get_power_area_index(tbl2,
-			ARRAY_SIZE(tbl2), drv_name);
-
-		if (0 <= index) {
-			*(dev++) = &(pd[tbl2[index].area]->dev);
-			(*dev_cnt)++;
-
-			/* Check for upper successive elements
-			of 1st mapped element */
-			for (n = index + 1; n < ARRAY_SIZE(tbl2); n++) {
-				if (0 != strcmp(tbl2[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl2[n].area]->dev);
-					(*dev_cnt)++;
-				}
-			}
-			/* Check for lower successive elements
-			of 1st mapped element */
-			for (n = index - 1; n >= 0; n--) {
-				if (0 != strcmp(tbl2[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl2[n].area]->dev);
-					(*dev_cnt)++;
-				}
-			}
-
-		return 0;
-		}
-
+	return 0;
 	}
 
 	return -EINVAL;

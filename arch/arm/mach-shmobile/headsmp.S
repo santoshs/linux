@@ -35,9 +35,6 @@ ENTRY(shmobile_secondary_vector)
 ENDPROC(shmobile_secondary_vector)
 
 #ifdef CONFIG_ARCH_R8A7373
-/*
- * R8A7373 ES1.0 SMP errata W/A
- */
 ENTRY(r8a7373_secondary_vector)
 	ldr	r0, r8a7373_secondary_vector_addr
 	mov	pc, r0
