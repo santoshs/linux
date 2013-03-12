@@ -360,7 +360,7 @@ int IMX175_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
 
@@ -426,7 +426,7 @@ int IMX175_power(struct device *dev, int power_on)
 			mdelay(1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		/* cam_sensor_core_1.2V */
 
@@ -585,7 +585,7 @@ int IMX175_power(struct device *dev, int power_on)
 			mdelay(1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 
 		regulator = regulator_get(NULL, "cam_sensor_io");
@@ -843,6 +843,7 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 #define CAM_FLASH_FLEN      (GPIO_PORT100)
 
 #if defined(CONFIG_FLASH_AAT1274)
+#if !defined(CONFIG_BOARD_VERSION_GARDA) || !defined(CONFIG_MACH_LOGANLTE)
 int main_cam_led(int light, int mode)
 {
 	int i = 0;
@@ -911,7 +912,7 @@ int main_cam_led(int light, int mode)
 	return 0;
 }
 #endif
-
+#endif
 #if defined(CONFIG_FLASH_MIC2871)
 static void MIC2871_write(char addr, char data)
 {
@@ -1025,7 +1026,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
 
@@ -1079,7 +1080,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 			mdelay(10);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 
 		/* cam_sensor_a2.8 */
@@ -1170,7 +1171,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 			subPMIC_PinOnOff(0x3, 1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
@@ -1246,7 +1247,7 @@ int S5K6AAFX13_power(struct device *dev, int power_on)
 			/* mdelay(1); */
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		regulator = regulator_get(NULL, "cam_sensor_io");
 
@@ -1322,7 +1323,7 @@ int ISX012_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
 
@@ -1460,8 +1461,8 @@ int ISX012_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
-		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+			gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
 #endif
 		mdelay(20);
 
@@ -1479,7 +1480,7 @@ int ISX012_power(struct device *dev, int power_on)
 			subPMIC_PinOnOff(0x3, 1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
@@ -1499,7 +1500,7 @@ int ISX012_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
 		mdelay(1);
@@ -1575,7 +1576,7 @@ int ISX012_power(struct device *dev, int power_on)
 			gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		/* CAM_VDDIO_1V8 Off */
 		regulator = regulator_get(NULL, "cam_sensor_io");
@@ -1658,7 +1659,7 @@ int DB8131_power(struct device *dev, int power_on)
 		if (u2_get_board_rev() >= 4)
 			gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 #endif
 
@@ -1709,7 +1710,7 @@ int DB8131_power(struct device *dev, int power_on)
 			mdelay(10);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		/* CAM_AVDD_2V8  On */
 		regulator = regulator_get(NULL, "cam_sensor_a");
@@ -1797,7 +1798,7 @@ int DB8131_power(struct device *dev, int power_on)
 			subPMIC_PinOnOff(0x3, 1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		/* 5M_AF_2V8 On */
 		regulator = regulator_get(NULL, "cam_af");
@@ -1878,7 +1879,7 @@ int DB8131_power(struct device *dev, int power_on)
 
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 		/* CAM_VDDIO_1V8 Off */
 		regulator = regulator_get(NULL, "cam_sensor_io");

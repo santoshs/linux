@@ -521,7 +521,7 @@ static void ts_power_enable(int en)
 		gpio_set_value(GPIO_PORT30, en ? 1 : 0);
 	}
 #endif
-#ifdef CONFIG_MACH_GARDALTE
+#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
 	int ret;
 	
 		struct regulator *touch_regulator = NULL;
@@ -1715,7 +1715,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 #endif
 		}
 		#endif
-		#ifdef CONFIG_MACH_GARDALTE
+		#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
 		struct regulator *regulator;
 		
 			regulator = regulator_get(NULL, "key_led");
@@ -1746,7 +1746,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 #endif
 		}
 		#endif
-		#ifdef CONFIG_MACH_GARDALTE
+		#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
 		struct regulator *regulator;
 		
 			regulator = regulator_get(NULL, "key_led");

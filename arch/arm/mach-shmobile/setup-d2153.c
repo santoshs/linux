@@ -284,7 +284,7 @@ static struct regulator_init_data d2153_ldo10 = {
 // LDO11
 __weak struct regulator_consumer_supply d2153_ldo11_supplies[] = {
 	REGULATOR_SUPPLY("key_led", NULL),	// key led
-#ifdef CONFIG_BOARD_VERSION_GARDA
+#ifdef CONFIG_BOARD_VERSION_GARDA || CONFIG_MACH_LOGANLTE
 	REGULATOR_SUPPLY("vled", "leds-regulator.0"),	// key led
 #endif /* CONFIG_BOARD_VERSION_GARDA */
 };

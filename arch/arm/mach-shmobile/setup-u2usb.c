@@ -561,7 +561,7 @@ void __init USBGpio_init(void)
 		}
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	if (u2_get_board_rev() >= 2 && u2_get_board_rev() != 6) {
 				ret = gpio_request(GPIO_PORT131, NULL);
 		if (ret < 0)

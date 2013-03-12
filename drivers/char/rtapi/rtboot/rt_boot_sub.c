@@ -366,7 +366,7 @@ static int set_screen_data(unsigned int disp_addr)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifndef CONFIG_MACH_GARDALTE
+#ifndef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
 	case RT_BOOT_HW_ID_REV_0_2_1:
 	case RT_BOOT_HW_ID_REV_0_2_2:
 	case RT_BOOT_HW_ID_REV_0_3_X:
@@ -388,7 +388,7 @@ static int set_screen_data(unsigned int disp_addr)
 		screen[0].mode   = 0; /* VIDEO MODE */
 
 		break;
-#else /* CONFIG_MACH_GARDALTE */
+#else /* CONFIG_MACH_GARDALTE and CONFIG_MACH_LOGANLTE */
 	case RT_BOOT_HW_ID_REV_0_0_X:
 	case RT_BOOT_HW_ID_REV_0_5_X:
 	case RT_BOOT_HW_ID_REV_0_6_X:

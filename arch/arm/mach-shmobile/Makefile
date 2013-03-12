@@ -72,6 +72,7 @@ obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 # BT object
 obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
@@ -102,15 +103,17 @@ obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
 # current timer
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o
-
+obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2current_timer.o
 # sdhi
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2sdhi.o
-
+obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
 # gpio_key and keysc
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board_mhl_sii8332.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= board_mhl_sii8332.o
 
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
@@ -122,6 +125,7 @@ obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
 #setup-d2153
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
 obj-$(CONFIG_SAMSUNG_MHL) += board-u2evm-mhl.o
 obj-$(CONFIG_SAMSUNG_MHL) += board_edid.o
 

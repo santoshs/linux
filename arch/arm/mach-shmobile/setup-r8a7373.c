@@ -1532,7 +1532,7 @@ void __init r8a7373_add_standard_devices(void)
 			platform_add_devices(r8a7373_late_devices_es20,
 				ARRAY_SIZE(r8a7373_late_devices_es20));
 		}
-#elif defined(CONFIG_MACH_GARDALTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
 #endif
