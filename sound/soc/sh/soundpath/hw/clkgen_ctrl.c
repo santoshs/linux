@@ -137,16 +137,6 @@ static struct common_reg_table clkgen_reg_tbl_playA_S[] = {
 	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
-/* Table for Playback(PortB, CLKGEN master, 44.1kHz) */
-static struct common_reg_table clkgen_reg_tbl_playB_M_44[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
-};
-
 /* Table for Playback(PortB, CLKGEN master, 16kHz) */
 static struct common_reg_table clkgen_reg_tbl_playB_M_16[] = {
 /*        Reg		 Val	     D  C */
@@ -162,20 +152,6 @@ static struct common_reg_table clkgen_reg_tbl_playB_S[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_FSISEL,	 0x00000002, 0, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
-};
-
-/* Table for Playback(from PortB to PortA(FM Playback), CLKGEN master) */
-static struct common_reg_table clkgen_reg_tbl_playBA_M[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIACOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000003, 0, 0 }, /* PortA, B Enable */
 };
 
 /* Table for Playback(from PortB to PortA(FM Playback), CLKGEN slave) */
@@ -204,17 +180,6 @@ static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
 	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
-};
-
-/* Table for Capture(PortB, CLKGEN master) */
-static struct common_reg_table clkgen_reg_tbl_captureB_M[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
 };
 
 /* Table for Capture(PortB, CLKGEN slave) */
@@ -465,69 +430,37 @@ static void clkgen_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			/* 48000 Hz */
-			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
+		/* CLKGEN master */
+		/* 48000 Hz */
+		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
+			if (false == (dev & SNDP_AUXDIGITAL)) {
 				reg_tbl  = clkgen_reg_tbl_playA_M_48;
 				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_48);
-			/* 16000 Hz */
 			} else {
-				reg_tbl  = clkgen_reg_tbl_playA_M_16;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_16);
+				reg_tbl  = clkgen_reg_tbl_playA_S;
+				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_S);
 			}
-		/* FSI master for ES 2.0 over */
+		/* 16000 Hz */
 		} else {
-			/* 48000 Hz */
-			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
-				if (false == (dev & SNDP_AUXDIGITAL)) {
-					reg_tbl  = clkgen_reg_tbl_playA_M_48;
-					tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_48);
-				} else {
-					reg_tbl  = clkgen_reg_tbl_playA_S;
-					tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_S);
-				}
-			/* 16000 Hz */
-			} else {
-				reg_tbl  = clkgen_reg_tbl_playA_M_16;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_16);
-			}
+			reg_tbl  = clkgen_reg_tbl_playA_M_16;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_16);
 		}
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl  = clkgen_reg_tbl_playBA_M;
-			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_M);
-		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl  = clkgen_reg_tbl_playBA_S;
-			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_S);
-		}
+		/* FSI master */
+		reg_tbl  = clkgen_reg_tbl_playBA_S;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_S);
 	/* BLUETOOTHSCO, FM_RADIO_TX */
 	} else {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			/* 44100 Hz */
-			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
-				reg_tbl  = clkgen_reg_tbl_playB_M_44;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_44);
-			/* 16000 Hz */
-			} else {
-				reg_tbl  = clkgen_reg_tbl_playB_M_16;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_16);
-			}
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
+		/* 44100 Hz */
+		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
+			reg_tbl  = clkgen_reg_tbl_playB_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
+		/* 16000 Hz */
 		} else {
-			/* 44100 Hz */
-			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
-				reg_tbl  = clkgen_reg_tbl_playB_S;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
-			/* 16000 Hz */
-			} else {
-				reg_tbl  = clkgen_reg_tbl_playB_M_16;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_16);
-			}
+			reg_tbl  = clkgen_reg_tbl_playB_M_16;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_16);
 		}
 	}
 
@@ -577,31 +510,19 @@ static void clkgen_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
+		/* FSI master */
+		if (false == (dev & SNDP_AUXDIGITAL)) {
 			reg_tbl  = clkgen_reg_tbl_captureA_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
-		/* FSI master for ES 2.0 over */
 		} else {
-			if (false == (dev & SNDP_AUXDIGITAL)) {
-				reg_tbl  = clkgen_reg_tbl_captureA_M;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
-			} else {
-				reg_tbl  = clkgen_reg_tbl_captureA_S;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_S);
-			}
+			reg_tbl  = clkgen_reg_tbl_captureA_S;
+			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_S);
 		}
 	/* FM_RADIO_RX */
 	} else {
-		/* CLKGEN master for ES 1.0 */
-		if ((system_rev & 0xffff) < 0x3E10) {
-			reg_tbl = clkgen_reg_tbl_captureB_M;
-			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_M);
-		/* FSI master for ES 2.0 over */
-		} else {
-			reg_tbl = clkgen_reg_tbl_captureB_S;
-			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_S);
-		}
+		/* FSI master */
+		reg_tbl = clkgen_reg_tbl_captureB_S;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_S);
 	}
 
 	/* Register setting function call */

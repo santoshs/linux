@@ -399,6 +399,8 @@ static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
 	{"RECCHR", NULL, "AIFOUTR"},
 	{"AIFINL", NULL, "VCLK4"},
 	{"AIFINR", NULL, "VCLK4"},
+	{"AIFOUTL", NULL, "VCLK4"},
+	{"AIFOUTR", NULL, "VCLK4"},
 };
 
 static int vclk4_supply_event(struct snd_soc_dapm_widget *w,

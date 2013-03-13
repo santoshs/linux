@@ -62,7 +62,6 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_UDA1380 if I2C
 	select SND_SOC_WL1273 if MFD_WL1273_CORE
 	select SND_SOC_WM1250_EV1 if I2C
-	select SND_SOC_WM1811 if I2C
 	select SND_SOC_D2153 if I2C
 	select SND_SOC_WM2000 if I2C
 	select SND_SOC_WM2200 if I2C
@@ -225,6 +224,17 @@ config SND_SOC_D2153
 config SND_SOC_D2153_AAD
 	tristate "D2153 AAD support"
 
+choice
+	prompt "MicBias1 level Configuration"
+	depends on SND_SOC_D2153_AAD
+config SND_SOC_D2153_AAD_MICBIAS1_2_1V
+	bool "using Microphone bias1 level 2.1V"
+config SND_SOC_D2153_AAD_MICBIAS1_2_5V
+	bool "using Microphone bias1 level 2.5V"
+config SND_SOC_D2153_AAD_MICBIAS1_2_6V
+	bool "using Microphone bias1 level 2.6V"
+endchoice
+
 config SND_SOC_MAX98088
        tristate
 
@@ -297,9 +307,6 @@ config SND_SOC_WL1273
 
 config SND_SOC_WM1250_EV1
 	tristate
-
-config SND_SOC_WM1811
-	tristate "WM1811 codec support"
 
 config SND_SOC_WM2000
 	tristate

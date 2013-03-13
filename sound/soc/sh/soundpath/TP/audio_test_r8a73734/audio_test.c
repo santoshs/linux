@@ -64,11 +64,7 @@
 /*!
   @brief	Flag for check board revision.
 */
-#ifdef AUDIO_TEST_CHECK_BOARD_REV
-static u_int audio_test_check_board_rev = 1;
-#else	/* AUDIO_TEST_CHECK_BOARD_REV */
-static u_int audio_test_check_board_rev;
-#endif	/* AUDIO_TEST_CHECK_BOARD_REV */
+/* none */
 
 /*!
   @brief	MAX wait time for wait queue for VCD.
@@ -2172,12 +2168,7 @@ static int __init audio_test_init(void)
 {
 	int ret = 0;
 	struct audio_test_priv *dev_conf = NULL;
-#if defined(CONFIG_MACH_U2EVM)
-	if (1 == audio_test_check_board_rev) {
-		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-			return -ENODEV;
-	}
-#endif
+
 	audio_test_log_efunc("");
 
 	/* register misc */
@@ -2290,12 +2281,6 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
-#if defined(CONFIG_MACH_U2EVM)
-	if (1 == audio_test_check_board_rev) {
-		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-			return;
-	}
-#endif
 	audio_test_log_efunc("");
 
 	misc_deregister(&audio_test_misc_dev);

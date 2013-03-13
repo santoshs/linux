@@ -745,29 +745,9 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 
 static struct i2c_board_info i2cm_devices[] = {
 	{
-                I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = R8A7373_IRQC_IRQ(34),
-    },
-    {
-                I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = R8A7373_IRQC_IRQ(34),
-    },
-    {
-                I2C_BOARD_INFO("wm1811", 0x1a),
-                .irq            = R8A7373_IRQC_IRQ(24),
-    },
-	{
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
 		.platform_data = &u2evm_a2220_data,
 	},
-#if 0
-#ifdef CONFIG_SND_FSI_WM1811_MODULE
-	{
-		I2C_BOARD_INFO("wm1811", 0x1a),
-		.irq	= irqpin2irq(24),
-	},
-#endif /* CONFIG_SND_FSI_WM1811_MODULE */
-#endif
 #if 0
 	{
 		I2C_BOARD_INFO("led", 0x74),
@@ -779,14 +759,6 @@ static struct i2c_board_info i2cm_devices[] = {
 };
 #if 0
 i2c_board_info i2cm_devices_es2[] = {
-        {
-                I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = irqpin2irq(34),
-        },
-        {
-                I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = irqpin2irq(34),
-        },
 #if 0
 	{
 	        I2C_BOARD_INFO("led", 0x74),
