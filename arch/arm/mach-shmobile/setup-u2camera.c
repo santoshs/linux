@@ -176,7 +176,7 @@ struct soc_camera_link camera_links[] = {
 #endif	/* Select by board Rev */
 #endif	/* Guardian */
 
-#if defined(CONFIG_MACH_GARDALTE)	/* Gardalte */
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50)	/* Select by board Rev */
 struct i2c_board_info i2c_cameras[] = {
@@ -269,7 +269,7 @@ struct soc_camera_link camera_links[] = {
 #endif
 };
 #endif	/* Select by board Rev */
-#endif	/* Gardalte */
+#endif	/* Gardalte, Logan */
 
 struct platform_device camera_devices[] = {
 	{
@@ -304,10 +304,10 @@ int camera_init(unsigned int u2_board_rev)
 		gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 	}
 #endif	/* Guardian */
-#if defined(CONFIG_MACH_GARDALTE)	/* Gardalte */
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 	gpio_request(GPIO_PORT45, NULL);
 	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
-#endif	/* Gardalte */
+#endif	/* Gardalte, Logan */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -360,7 +360,7 @@ int camera_init(unsigned int u2_board_rev)
 #endif	/* Select by board Rev */
 #endif	/* Guardian */
 
-#if defined(CONFIG_MACH_GARDALTE)	/* Gardalte */
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50)	/* Select by board Rev */
 	if ((RLTE_BOARD_REV_0_0 == u2_board_rev) ||
@@ -380,7 +380,7 @@ int camera_init(unsigned int u2_board_rev)
 	camera_links[0].priv = &csi20_info;
 	camera_links[1].priv = &csi21_info;
 #endif	/* Select by board Rev */
-#endif	/* Gardalte */
+#endif	/* Gardalte, Logan */
 
 	return 0;
 }
@@ -1448,7 +1448,7 @@ int ISX012_power(struct device *dev, int power_on)
 			mdelay(1);
 		}
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_MFD_D2153)
 		/* CAM_CORE_1V2  On */
 		gpio_set_value(GPIO_PORT3, 1);
@@ -1478,7 +1478,7 @@ int ISX012_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 #endif /* CONFIG_MFD_D2153 */
-#endif
+#endif /* Gardalte, Logan */
 		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
 		udelay(50);
 
