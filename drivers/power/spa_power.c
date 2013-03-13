@@ -1103,7 +1103,8 @@ static void spa_stop_charge_timer(SPA_CHARGING_STATUS_T endtype, void *data)
 
 static void spa_expire_charge_timer(struct work_struct *work)
 {
-	struct spa_power_desc *spa_power_iter = container_of(work, struct spa_power_desc, spa_expire_charge_work);
+	struct spa_power_desc *spa_power_iter = container_of(work,
+					struct spa_power_desc, spa_expire_charge_work.work);
 
 	volatile unsigned int times_expired=0;
 
@@ -1287,7 +1288,8 @@ static void spa_update_power_supply_charger(struct spa_power_desc *spa_power_ite
 
 static void spa_fast_charging_work(struct work_struct *work)
 {
-	struct spa_power_desc *spa_power_iter = container_of(work, struct spa_power_desc, fast_charging_work);
+	struct spa_power_desc *spa_power_iter = container_of(work,
+						struct spa_power_desc, fast_charging_work.work);
 	struct power_supply *ps;
 	union power_supply_propval value;
 
@@ -1319,7 +1321,8 @@ static void spa_fast_charging_work(struct work_struct *work)
 
 static void spa_batt_work(struct work_struct *work)
 {
-	struct spa_power_desc *spa_power_iter = container_of(work, struct spa_power_desc, battery_work);
+	struct spa_power_desc *spa_power_iter = container_of(work,
+							struct spa_power_desc, battery_work.work);
 #if !defined(SPA_TEMPERATURE_INT)
 	struct spa_power_data *pdata = spa_power_iter->pdata;
 #endif
@@ -1665,7 +1668,8 @@ static void spa_delayed_init_work(struct work_struct *work)
 {
 	int ret=0;
 	unsigned int init_progress;
-	struct spa_power_desc *spa_power_iter = container_of(work, struct spa_power_desc, delayed_init_work);
+	struct spa_power_desc *spa_power_iter = container_of(work,
+						struct spa_power_desc, delayed_init_work.work);
 
 	struct power_supply *ps;
 
