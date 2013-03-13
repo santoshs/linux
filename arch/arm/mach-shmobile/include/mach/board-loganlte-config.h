@@ -499,12 +499,14 @@ static struct platform_device *loganlte_devices_stm_sdhi1[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 	&stm_device,
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -551,12 +553,14 @@ static struct platform_device *loganlte_devices_stm_sdhi0[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 	&stm_device,
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -603,12 +607,14 @@ static struct platform_device *loganlte_devices_stm_none[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
 	&pn544_i2c_gpio_device,

@@ -124,6 +124,17 @@
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
 #define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
 
+#if defined(CONFIG_BATTERY_BQ27425)
+#define BQ27425_ADDRESS (0xAA >> 1)
+#define GPIO_FG_INT 44
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+#define SMB328A_ADDRESS (0x69 >> 1)
+#define GPIO_CHG_INT 19
+#endif
+
+
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 
@@ -293,6 +304,34 @@ static struct platform_device bcm_backlight_devices = {
 	},
 };
 
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+#define TSU6712_ADDRESS (0x4A >> 1)
+#define GPIO_MUS_INT 41
+#endif
+
+static struct i2c_board_info __initdata i2c3_devices[] = {
+#if defined(CONFIG_BATTERY_BQ27425)
+        {
+                I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
+                .irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
+        },
+#endif
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+        {
+                I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
+                        .platform_data = NULL,
+                        .irq            = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
+        },
+#endif
+#if defined(CONFIG_CHARGER_SMB328A)
+        {
+                I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
+/*                      .platform_data = &tsu6712_pdata,*/
+/*                      .irq            = irqpin2irq(GPIO_CHG_INT),*/
+        },
+#endif
+};
+
 /* Rhea Ray specific platform devices */
 static struct platform_device *guardian__plat_devices[] __initdata = {
 	&bcm_backlight_devices,
@@ -460,8 +499,6 @@ void loganlte_restart(char mode, const char *cmd)
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
-/* For PA devices */
-#include <setup-u2pa.c>
 
 static void __init loganlte_init(void)
 {
@@ -1061,7 +1098,9 @@ static void __init loganlte_init(void)
 	l2x0_init_later();
 #endif
 
+#ifdef CONFIG_SOC_CAMERA /* camera */
 	camera_init(u2_board_rev);
+#endif /* camera */
 	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
 			loganlte_devices_stm_sdhi0,
 			ARRAY_SIZE(loganlte_devices_stm_sdhi0),
@@ -1107,9 +1146,6 @@ static void __init loganlte_init(void)
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	platform_add_devices(guardian__plat_devices,
 					ARRAY_SIZE(guardian__plat_devices));
-
-	/* PA devices init */
-	PA_devices_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);

@@ -137,13 +137,13 @@ obj-$(CONFIG_NFC_PN547) += board-u2evm-nfc.o
 obj-$(CONFIG_SAMSUNG_SENSOR) += board-u2evm-sensor.o
 
 # rcu
-obj-y += setup-u2rcu.o
+obj-$(CONFIG_VIDEO_SH_MOBILE_RCU) += setup-u2rcu.o
 # csi2
-obj-y += setup-u2csi2.o
+obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2) += setup-u2csi2.o
 # ion
-obj-y += setup-u2ion.o
+obj-$(CONFIG_ION) += setup-u2ion.o
 # camera
-obj-y += setup-u2camera.o
+obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
 #setup-d2153
 obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
 
