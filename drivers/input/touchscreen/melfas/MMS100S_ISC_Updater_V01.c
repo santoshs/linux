@@ -48,7 +48,9 @@ bool exception_condition = false;
 static eMFSRet_t enter_ISC_mode(void);
 static eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data);
 static eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data);
+#if defined(CONFIG_MACH_KYLE_I)
 static eMFSRet_t check_module_type(void);
+#endif
 eMFSRet_t MFS_ISC_force_update(void);
 eMFSRet_t check_firmware_version_resume(void);
 
@@ -64,9 +66,10 @@ unsigned char TSP_PanelVersion, TSP_PhoneVersion;
 eMFSRet_t MFS_ISC_update(void)
 {
 	eMFSRet_t ret;
-	unsigned char moduleComp;
-	unsigned char read_buffer;
+/*	unsigned char read_buffer;*/
+#if defined(CONFIG_MACH_KYLE_I)
 	int i;
+#endif
 	MFS_I2C_set_slave_addr(mfs_i2c_slave_addr);
 
 #if defined(CONFIG_MACH_KYLE_I) 
@@ -244,6 +247,7 @@ MFS_ISC_force_update_FINISH:
 	return ret;
 }
 
+#if defined(CONFIG_MACH_KYLE_I)
 eMFSRet_t check_module_type(void)
 {
 	unsigned char read_buffer;
@@ -268,9 +272,10 @@ eMFSRet_t check_module_type(void)
 	} else
 		return MRET_CHECK_IC_TYPE_ERROR;
 }
+#endif
 eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 {
-	unsigned char write_buffer, read_buffer;
+	unsigned char read_buffer;
 	unsigned char moduleComp, setComp;
 	printk(KERN_ERR "<MELFAS> Check Module Compatibility\n");
 
@@ -298,7 +303,7 @@ eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 
 eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data)
 {
-	unsigned char write_buffer, read_buffer;
+	unsigned char read_buffer;
 	unsigned char moduleVersion, setVersion;
 	printk(KERN_ERR "<MELFAS> Check Firmware Version\n");
 	melfas_fw_i2c_read(FIRMWARE_VERSION_ADDR, &read_buffer, 1);
@@ -416,11 +421,11 @@ int mass_erase(void)
 	printk(KERN_ERR "<MELFAS> mass erase start\n\n");
 
 	MFS_ms_delay(5);
-	if (!melfas_fw_i2c_write(mass_erase_cmd, MFS_HEADER_))
+	if (!melfas_fw_i2c_write((char *)mass_erase_cmd, MFS_HEADER_))
 		printk(KERN_ERR "<MELFAS> mass erase start write fail\n\n");
 	MFS_ms_delay(5);
 	while (read_buffer[2] != ISC_STATUS_RET_MASS_ERASE_DONE) {
-		melfas_fw_i2c_write(mass_erase_cmd, MFS_HEADER_);
+		melfas_fw_i2c_write((char *)mass_erase_cmd, MFS_HEADER_);
 		MFS_ms_delay(1000);
 		if (!melfas_fw_i2c_read(ISC_CMD_ISC_STATUS_ADDR, read_buffer, 4))
 
