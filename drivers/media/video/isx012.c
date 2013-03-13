@@ -21,6 +21,7 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
 
@@ -29,7 +30,6 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 
-#include <mach/r8a7373.h>
 #include <linux/sh_clk.h>
 #include <linux/pmic/pmic-ncp6914.h>
 
