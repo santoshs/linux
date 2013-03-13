@@ -73,6 +73,7 @@ obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
+obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 # BT object
 obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
