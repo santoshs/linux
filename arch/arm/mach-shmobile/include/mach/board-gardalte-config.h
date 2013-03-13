@@ -27,7 +27,7 @@
 #include <mach/setup-u2sdhi.h>
 
 #if defined(CONFIG_RENESAS_BT)
-#include <mach/board-gardalte-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
 #endif
 
 #include <sound/sh_fsi.h>
@@ -40,7 +40,7 @@
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
 #if defined(CONFIG_SAMSUNG_MHL)
-#include <mach/board-gardalte-mhl.h>
+#include <mach/dev-mhl.h>
 #endif
 #include <linux/tpu_pwm_board.h>
 

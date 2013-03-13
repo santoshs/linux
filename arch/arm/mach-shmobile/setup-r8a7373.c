@@ -38,7 +38,7 @@
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
-#include <mach/board-u2evm-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
 
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>

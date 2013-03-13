@@ -35,7 +35,7 @@
 #include <mach/setup-u2sdhi.h>
 
 #if defined(CONFIG_RENESAS_BT)
-#include <mach/board-u2evm-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
 #endif
 
 #include <sound/sh_fsi.h>

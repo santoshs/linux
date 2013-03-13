@@ -1,8 +1,11 @@
-/*
- * ~/arch/arm/mach-shmobile/board-loganlte-wifi.h
+#ifndef __ASM_MACH_DEV_WIFI_H
+#define __ASM_MACH_DEV_WIFI_H
+/* 
+ * ~/arch/arm/mach-shmobile/dev-wifi.h
  */
 /*
- * Copyright (C) 2013 Renesas Mobile Corporation.
+ * Copyright (C) 2011 Renesas Mobile Corporation.
+ * Copyright (C) 2011 Renesas Design Vietnam Co., Ltd
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,9 +21,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __ASM_MACH_BOARD_LOGANLTE_RENESAS_WIFI_H
-#define __ASM_MACH_BOARD_LOGANLTE_RENESAS_WIFI_H
-
 /* Define GPIO aliases */
 #define GPIO_WLAN_REG_ON 260
 #define GPIO_WLAN_OOB_IRQ 98
@@ -33,7 +33,8 @@
 #define WIFI_DEBUG(...) printk(KERN_INFO __VA_ARGS__)
 #define WIFI_ERROR(...) printk(KERN_ERR __VA_ARGS__)
 #else
-#define WIFI_DEBUG(...) do { } while (0)
-#define WIFI_ERROR(...) do { } while (0)
+#define WIFI_DEBUG(...) while(0)
+#define WIFI_ERROR(...) while(0)
 #endif
-#endif /* __ASM_MACH_BOARD_LOGANLTE_RENESAS_WIFI_H */
+
+#endif   /* __ASM_MACH_DEV_WIFI_H */
