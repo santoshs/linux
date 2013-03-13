@@ -611,6 +611,7 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 		if (-ECONNRESET == req->status) {
 			/* Do not want transmission to start.
 			 Temp Fix for UE crash*/
+			gs_buf_clear(&port->port_write_buf);
 			break;
 		}
 	case 0:
