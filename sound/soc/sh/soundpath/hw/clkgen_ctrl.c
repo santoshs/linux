@@ -182,17 +182,6 @@ static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
 	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
-/* Table for Capture(PortB, CLKGEN master) */
-static struct common_reg_table clkgen_reg_tbl_captureB_M[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
-};
-
 /* Table for Capture(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 /*        Reg		 Val	     D  C */
@@ -441,7 +430,7 @@ static void clkgen_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
+		/* CLKGEN master */
 		/* 48000 Hz */
 		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
 			if (false == (dev & SNDP_AUXDIGITAL)) {
@@ -458,12 +447,12 @@ static void clkgen_playback(const u_int uiValue)
 		}
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = clkgen_reg_tbl_playBA_S;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_S);
 	/* BLUETOOTHSCO, FM_RADIO_TX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		/* 44100 Hz */
 		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
 			reg_tbl  = clkgen_reg_tbl_playB_S;
@@ -521,8 +510,7 @@ static void clkgen_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		if (false == (dev & SNDP_AUXDIGITAL)) {
 			reg_tbl  = clkgen_reg_tbl_captureA_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
@@ -532,7 +520,7 @@ static void clkgen_capture(const u_int uiValue)
 		}
 	/* FM_RADIO_RX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl = clkgen_reg_tbl_captureB_S;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_S);
 	}

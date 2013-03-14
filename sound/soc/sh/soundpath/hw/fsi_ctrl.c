@@ -202,7 +202,6 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
-
 /* Table for Playback(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 /*	  Reg					Value		D  C */
@@ -418,17 +417,17 @@ static void fsi_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	/* FM_RADIO_TX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_M);
 	}
@@ -438,7 +437,7 @@ static void fsi_playback(const u_int uiValue)
 
 	/* Add setting for FM_RADIO_RX */
 	if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 
@@ -447,12 +446,13 @@ static void fsi_playback(const u_int uiValue)
 			if (FSI_DIFF_ST_WAIT_SIZE <
 			((0x0000ff00 & ioread32(diff_st_reg)) >> 8))
 				break;
+
 			udelay(FSI_DIFF_ST_WAIT_TIME);
 		}
 
 		sndp_log_info("OUT FSI_DIFF_ST[0x%08x] wait_cnt[%d]\n",
-			ioread32(diff_st_reg), wait_cnt);
-	
+				ioread32(diff_st_reg), wait_cnt);
+
 		/* Register setting function call */
 		common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
 	}
@@ -500,12 +500,12 @@ static void fsi_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_M);
 	/* FM_RADIO_RX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	}

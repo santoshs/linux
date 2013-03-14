@@ -82,8 +82,10 @@ static int fm34_set_bypass_mode(void);
 static int fm34_set_hw_bypass_mode(void);
 
 static int fm34_suspend_process(void);
+#if 0
 static int fm34_create_event
 	(unsigned int mode, unsigned int device, unsigned int ch_dev);
+#endif
 
 /*
  * callback object
@@ -114,6 +116,7 @@ static struct platform_driver fm34_platform_driver = {
 	},
 };
 
+#if 0
 /*
  * misc device object
  */
@@ -121,6 +124,7 @@ static struct miscdevice fm34_device = {
 	.minor	= MISC_DYNAMIC_MINOR,
 	.name	= FM34_MODULE_NAME,
 };
+#endif
 
 enum fm34_event_type {
 	FM34_EVENT_BYPASS = 0,
@@ -254,6 +258,7 @@ void fm34_i2c_debug(unsigned char *i2c_cmds, int size)
 	}
 }
 
+#if 0
 static int fm34_i2c_read(char *rxData, int length)
 {
 	int rc;
@@ -281,6 +286,7 @@ static int fm34_i2c_read(char *rxData, int length)
 	fm34_pr_func_end();
 	return 0;
 }
+#endif
 
 static int fm34_i2c_write(char *txData, int length)
 {
@@ -380,6 +386,7 @@ static int fm34_set_hw_bypass_mode(void)
 	return 0;
 }
 
+#if 0
 static int fm34_set_loopback_mode(void)
 {
 	int rc = 0, size = 0;
@@ -429,6 +436,7 @@ static int fm34_set_HS_mode(void)
 	fm34_pr_func_end();
 	return rc;
 }
+
 
 static int fm34_set_SPK_mode(void)
 {
@@ -555,6 +563,7 @@ static int fm34_set_ExtraVol_NS_mode(void)
 	fm34_pr_func_end();
 	return rc;
 }
+#endif
 
 static int fm34_set_EP_mode(void)
 {
@@ -581,6 +590,7 @@ static int fm34_set_EP_mode(void)
 	return rc;
 }
 
+#if 0
 static int fm34_set_BTSCO_mode(void)
 {
 	int rc = 0, size = 0;
@@ -655,6 +665,7 @@ static int fm34_set_factory_spk_mode(void)
 	fm34_pr_func_end();
 	return rc;
 }
+#endif
 
 static int fm34_set_idle_mode(void)
 {
@@ -769,6 +780,7 @@ static int fm34_runtime_resume(struct device *dev)
 	return 0;
 }
 
+#if 0
 static bool fm34_is_bt_mhl(unsigned int device)
 {
 	bool bt_mhl = false;
@@ -817,6 +829,7 @@ static int fm34_create_event
 	}
 	return event;
 }
+#endif
 
 static int fm34_set_mode
 	(unsigned int mode, unsigned int device, unsigned int ch_dev)

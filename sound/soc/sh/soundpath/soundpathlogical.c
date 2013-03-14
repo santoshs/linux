@@ -15,7 +15,6 @@
  */
 
 #define __SOUNDPATHLOGICAL_NO_EXTERN__
-/*#define WM1811_STANDARDIZATION*/
 
 #include <linux/gpio.h>
 #include <linux/proc_fs.h>
@@ -35,11 +34,7 @@
 #include <sound/soundpath/clkgen_extern.h>
 #include <sound/soundpath/call_extern.h>
 #include <sound/sh_fsi.h>
-#ifdef WM1811_STANDARDIZATION
-#include <sound/fsi_wm1811.h>
-#else
 #include <sound/fsi_d2153.h>
-#endif
 #include "soundpathlogical.h"
 
 /*
@@ -266,7 +261,6 @@ static const struct sndp_pcm_name_suffix status_list[] = {
 #endif
 
 static int g_call_playback_stop;
-static int g_fm_playback_stop;
 
 static uint g_bluetooth_band_frequency;
 
@@ -363,17 +357,7 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 	u_long	ulTmpNextDev = g_sndp_codec_info.dev_none;
 	u_int	uiDev;
 
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	u_int		board_rev = u2_get_board_rev();
-
-	/* revision check */
-	if (IS_DIALOG_BOARD_REV(board_rev))
-		return ulTmpNextDev;
-#endif
-#if defined(CONFIG_MACH_GARDALTE)
 	return ulTmpNextDev;
-#endif
 
 	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
 
@@ -551,8 +535,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct proc_dir_entry	*entry = NULL;
 	struct proc_dir_entry	*reg_dump_entry = NULL;
 
-	unsigned int		board_rev = 0;
-
 	sndp_log_debug_func("start\n");
 
 	g_pt_start = SNDP_PT_NOT_STARTED;
@@ -666,17 +648,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_stop,
 		  sndp_work_call_capture_incomm_stop);
 
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-
-	/* revision check */
-	if (IS_DIALOG_BOARD_REV(board_rev))
-		memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
-#endif
-#if defined(CONFIG_MACH_GARDALTE)
 	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
-#endif
 
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++) {
 		sndp_work_initialize(&g_sndp_work_hw_free[iCnt],
@@ -727,9 +699,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	if (ERROR_NONE != iRet)
 		goto ioremap_err;
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
+	/* FSI master */
+	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
 
 	/* Replaced of function pointers. */
 	g_sndp_dai_func.fsi_startup = fsi_port_dai_driver->ops->startup;
@@ -1741,8 +1712,6 @@ static void sndp_fsi_shutdown(
 	struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-	u_int		board_rev = 0;
-
 	sndp_log_debug_func("start\n");
 
 	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
@@ -1756,27 +1725,9 @@ static void sndp_fsi_shutdown(
 		return;
 	}
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Output device OFF */
-		if (SNDP_PCM_OUT == substream->stream)
-			fsi_wm1811_deactivate_output(g_kcontrol);
-	#else
-		#if defined(CONFIG_MACH_U2EVM)
-		/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			/* Output device OFF */
-			if (SNDP_PCM_OUT == substream->stream)
-				fsi_d2153_deactivate_output(g_kcontrol);
-		}
-		#endif
-
-		#if defined(CONFIG_MACH_GARDALTE) || \
-			 defined(CONFIG_MACH_LOGANLTE)
-			if (SNDP_PCM_OUT == substream->stream)
-				fsi_d2153_deactivate_output(g_kcontrol);
-		#endif
-	#endif
+	/* Output device OFF */
+	if (SNDP_PCM_OUT == substream->stream)
+		fsi_d2153_deactivate_output(g_kcontrol);
 
 	sndp_log_debug("val set\n");
 
@@ -2541,7 +2492,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 	int			iRet = ERROR_NONE;
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 
-	u_int			board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
@@ -2551,38 +2501,15 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 	/* Initialization of the firmware starting notice receiving flag */
 	atomic_set(&g_call_watch_start_fw, 0);
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
+	/* CLKGEN master */
+	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Standby restraint */
-		iRet = fsi_wm1811_enable_ignore_suspend(card, 0);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-			goto start_err;
-		}
-	#else
-	#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			/* Standby restraint */
-			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-				goto start_err;
-			}
-		}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-				goto start_err;
-			}
-	#endif
-	#endif
+	/* Standby restraint */
+	iRet = fsi_d2153_enable_ignore_suspend(card, 0);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
+		goto start_err;
+	}
 
 	/* set device  */
 	ulSetDevice = sndp_get_next_devices(work->new_value);
@@ -2667,7 +2594,6 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 {
 	int			iRet = ERROR_NONE;
 
-	u_int			board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
@@ -2688,22 +2614,9 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 		}
 	}
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Input device OFF */
-		fsi_wm1811_deactivate_input(g_kcontrol);
-	#else
-		#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev))
-			/* Input device OFF */
-			fsi_d2153_deactivate_input(g_kcontrol);
-		#endif
-		#if defined(CONFIG_MACH_GARDALTE) || \
-				defined(CONFIG_MACH_LOGANLTE)
-			fsi_d2153_deactivate_input(g_kcontrol);
-		#endif
-	#endif
+	/* Input device OFF */
+	fsi_d2153_deactivate_input(g_kcontrol);
+
 	/* stop SCUW */
 	scuw_stop();
 
@@ -2733,24 +2646,13 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 	if (ERROR_NONE != iRet)
 		sndp_log_debug("modules power off iRet=%d\n", iRet);
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
+	/* FSI master */
+	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Release standby restraint */
-		iRet = fsi_wm1811_disable_ignore_suspend(card, 0);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-	#else
-		/* get board rev */
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			/* Release standby restraint */
-			iRet = fsi_d2153_disable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-		}
-	#endif
+	/* Release standby restraint */
+	iRet = fsi_d2153_disable_ignore_suspend(card, 0);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
@@ -3362,43 +3264,20 @@ static void sndp_work_incomm_start(const u_int new_value)
 {
 	int	ret = ERROR_NONE;
 
-	u_int	board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
 
 	sndp_log_debug_func("start\n");
 
-	#ifdef WM1811_STANDARDIZATION
-		ret = fsi_wm1811_enable_ignore_suspend(card, 0);
-		if (ERROR_NONE != ret) {
-			sndp_log_err("ignore_suspend error(code=%d)\n", ret);
-			goto start_err;
-		}
-	#else
-	#if defined(CONFIG_MACH_U2EVM)
-		/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			ret = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != ret) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", ret);
-				goto start_err;
-			}
-		}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			ret = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != ret) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", ret);
-				goto start_err;
-			}
-	#endif
-	#endif
+	ret = fsi_d2153_enable_ignore_suspend(card, 0);
+	if (ERROR_NONE != ret) {
+		sndp_log_err("ignore_suspend error(code=%d)\n", ret);
+		goto start_err;
+	}
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
+	/* CLKGEN master */
+	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 
 	sndp_a2220_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
@@ -3454,7 +3333,6 @@ static void sndp_work_incomm_stop(const u_int old_value)
 {
 	int	ret = ERROR_NONE;
 
-	u_int	board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
@@ -3472,21 +3350,8 @@ static void sndp_work_incomm_stop(const u_int old_value)
 
 	atomic_set(&g_sndp_watch_stop_clk, 0);
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Input device OFF */
-		fsi_wm1811_deactivate_input(g_kcontrol);
-	#else
-	#if defined (CONFIG_MACH_U2EVM)
-		/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev))
-			/* Input device OFF */
-			fsi_d2153_deactivate_input(g_kcontrol);
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			fsi_d2153_deactivate_input(g_kcontrol);
-	#endif
-	#endif
+	/* Input device OFF */
+	fsi_d2153_deactivate_input(g_kcontrol);
 
 	/* stop SCUW */
 	scuw_stop();
@@ -3506,23 +3371,13 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	if (ERROR_NONE != ret)
 		sndp_log_info("modules power off iRet=%d\n", ret);
 
-	/* FSI master for ES 2.0 over */
-	if ((system_rev & 0xffff) >= 0x3E10)
-		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
+	/* FSI master */
+	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_ON);
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Release standby restraint */
-		ret = fsi_wm1811_disable_ignore_suspend(card, 0);
-		if (ERROR_NONE != ret)
-			sndp_log_err("release ignore_suspend error(code=%d)\n", ret);
-	#else
-		/* Release standby restraint */
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			ret = fsi_d2153_disable_ignore_suspend(card, 0);
-			if (ERROR_NONE != ret)
-				sndp_log_err("release ignore_suspend error(code=%d)\n", ret);
-		}
-	#endif
+	/* Release standby restraint */
+	ret = fsi_d2153_disable_ignore_suspend(card, 0);
+	if (ERROR_NONE != ret)
+		sndp_log_err("release ignore_suspend error(code=%d)\n", ret);
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
@@ -3647,8 +3502,6 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
 	u_int out_old_val = GET_OLD_VALUE(SNDP_PCM_OUT);
 
-	u_int board_rev = 0;
-
 	sndp_log_debug_func("start\n");
 
 	if (SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route) {
@@ -3671,24 +3524,10 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 		 * (Post-processing of this function)
 		 */
 
-	#ifdef WM1811_STANDARDIZATION
 		/* Input device OFF */
-		fsi_wm1811_deactivate_input(g_kcontrol);
-	#else
-	#if defined(CONFIG_MACH_U2EVM)
-		/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev))
-			/* Input device OFF */
-			fsi_d2153_deactivate_input(g_kcontrol);
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			fsi_d2153_deactivate_input(g_kcontrol);
-	#endif
-	#endif
+		fsi_d2153_deactivate_input(g_kcontrol);
 
 		sndp_after_of_work_call_capture_stop(in_old_val, out_old_val);
-
 	}
 
 	sndp_log_debug_func("end\n");
@@ -4105,41 +3944,18 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 	int			iRet = ERROR_NONE;
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 
-	u_int			board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
 
 	sndp_log_debug_func("start\n");
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Standby restraint */
-		iRet = fsi_wm1811_enable_ignore_suspend(card, 0);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-			goto start_err;
-		}
-	#else
-	 #if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			/* Standby restraint */
-			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-				goto start_err;
-			}
-		}
-	#endif
-	 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
-				goto start_err;
-			}
-	 #endif
-	#endif
+	/* Standby restraint */
+	iRet = fsi_d2153_enable_ignore_suspend(card, 0);
+	if (ERROR_NONE != iRet) {
+		sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
+		goto start_err;
+	}
 
 	/* set device */
 	ulSetDevice = sndp_get_next_devices(work->new_value);
@@ -4164,11 +3980,10 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			fsi_soft_reset();
 		}
 
-		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10)
-			common_set_pll22(work->new_value,
-					 STAT_ON,
-					 g_bluetooth_band_frequency);
+		/* FSI master */
+		common_set_pll22(work->new_value,
+				 STAT_ON,
+				 g_bluetooth_band_frequency);
 	}
 
 	sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->new_value),
@@ -4233,7 +4048,6 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 	int			iRet = ERROR_NONE;
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 
-	u_int			board_rev = 0;
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
 	struct snd_soc_card *card = codec->card;
@@ -4282,11 +4096,10 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 		/* stop CLKGEN */
 		clkgen_stop();
 
-		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10)
-			common_set_pll22(GET_OLD_VALUE(SNDP_PCM_IN),
-					 STAT_OFF,
-					 g_bluetooth_band_frequency);
+		/* FSI master */
+		common_set_pll22(GET_OLD_VALUE(SNDP_PCM_IN),
+				 STAT_OFF,
+				 g_bluetooth_band_frequency);
 
 		sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->old_value),
 				     SNDP_GET_AUDIO_DEVICE(work->old_value),
@@ -4294,28 +4107,10 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
 
-	#ifdef WM1811_STANDARDIZATION
-		/* Release standby restraint */
-		iRet = fsi_wm1811_disable_ignore_suspend(card, 0);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-	#else
-	#if defined(CONFIG_MACH_U2EVM)
-		/* get board rev */
-		board_rev = u2_get_board_rev();
-		if (IS_DIALOG_BOARD_REV(board_rev)) {
-			/* Release standby restraint */
-			iRet = fsi_d2153_disable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-		}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-			iRet = fsi_d2153_disable_ignore_suspend(card, 0);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-	#endif
-	#endif
+	/* Release standby restraint */
+	iRet = fsi_d2153_disable_ignore_suspend(card, 0);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
 
 	/* Wake Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
@@ -4469,30 +4264,15 @@ static void sndp_work_start(const int direction)
 	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int	uiValue;
 	u_int	dev;
-	u_int	board_rev = 0;
 
 	sndp_log_debug_func("start\n");
 	sndp_log_info("direction[%d]\n", direction);
 
 	uiValue = GET_OLD_VALUE(direction);
 
-#ifdef WM1811_STANDARDIZATION
-#else
-	#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	if (IS_DIALOG_BOARD_REV(board_rev)) {
-		/* Output device ON */
-		if (SNDP_PCM_OUT == direction)
-			fsi_d2153_set_dac_power(g_kcontrol, 1);
-	}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE)
-		/* Output device ON */
-		if (SNDP_PCM_OUT == direction)
-			fsi_d2153_set_dac_power(g_kcontrol, 1);
-	#endif
-#endif
+	/* Output device ON */
+	if (SNDP_PCM_OUT == direction)
+		fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	/* set device */
 	/* (In the case of IN_CALL, the device has been set) */
@@ -4530,16 +4310,14 @@ static void sndp_work_start(const int direction)
 	if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue)) {
 		fsi_set_slave(true);
 	} else {
-		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10) {
-			if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
-				common_set_pll22(uiValue,
-						 STAT_ON,
-						 g_bluetooth_band_frequency);
-			} else {
-				fsi_set_slave(true);
-				common_set_fsi2cr(dev, STAT_OFF);
-			}
+		/* FSI master */
+		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+			common_set_pll22(uiValue,
+					 STAT_ON,
+					 g_bluetooth_band_frequency);
+		} else {
+			fsi_set_slave(true);
+			common_set_fsi2cr(dev, STAT_OFF);
 		}
 	}
 
@@ -4656,55 +4434,19 @@ static void sndp_work_stop(
 	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int			uiValue;
 	u_int			dev;
-	u_int			board_rev = 0;
 
 	sndp_log_debug_func("start\n");
 	sndp_log_info("direction[%d]\n", direction);
 
-#ifdef WM1811_STANDARDIZATION
 	if (SNDP_PCM_IN == direction) {
 		/* Input device OFF */
-		fsi_wm1811_deactivate_input(g_kcontrol);
+		fsi_d2153_deactivate_input(g_kcontrol);
 	}
-#else
-	#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	if (IS_DIALOG_BOARD_REV(board_rev)) {
-		if (SNDP_PCM_IN == direction) {
-			/* Input device OFF */
-			fsi_d2153_deactivate_input(g_kcontrol);
-		}
-	}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-		if (SNDP_PCM_IN == direction) {
-			/* Input device OFF */
-			fsi_d2153_deactivate_input(g_kcontrol);
-		}
-	#endif
-#endif
 
-#ifdef WM1811_STANDARDIZATION
-#else
-	#if defined(CONFIG_MACH_U2EVM)
-	/* Output device OFF */
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	if (IS_DIALOG_BOARD_REV(board_rev)) {
-		if (SNDP_PCM_OUT == direction) {
-			/* Output device OFF */
-			fsi_d2153_set_dac_power(g_kcontrol, 0);
-		}
+	if (SNDP_PCM_OUT == direction) {
+		/* Output device OFF */
+		fsi_d2153_set_dac_power(g_kcontrol, 0);
 	}
-	#endif
-	#if defined(CONFIG_MACH_GARDALTE)
-		if (SNDP_PCM_OUT == direction) {
-			/* Output device OFF */
-			fsi_d2153_set_dac_power(g_kcontrol, 0);
-		}
-	#endif
-#endif
 
 	uiValue = GET_OLD_VALUE(direction);
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
@@ -4776,17 +4518,15 @@ static void sndp_work_stop(
 		/* stop CLKGEN */
 		clkgen_stop();
 
-		/* FSI master for ES 2.0 over */
-		if ((system_rev & 0xffff) >= 0x3E10) {
-			if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
-				common_set_pll22(uiValue,
-						 STAT_OFF,
-						 g_bluetooth_band_frequency);
-			} else {
-				/* FSI slave setting OFF */
-				fsi_set_slave(false);
-				common_set_fsi2cr(dev, STAT_ON);
-			}
+		/* FSI master */
+		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+			common_set_pll22(uiValue,
+					 STAT_OFF,
+					 g_bluetooth_band_frequency);
+		} else {
+			/* FSI slave setting OFF */
+			fsi_set_slave(false);
+			common_set_fsi2cr(dev, STAT_ON);
 		}
 
 		if ((SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) &&
@@ -4820,16 +4560,13 @@ static void sndp_fm_work_start(const int direction)
 	sndp_log_debug_func("start\n");
 
 	/* FSI Trigger in FM radio start */
-	if (NULL != fsi_dai_trigger_in_fm) {
-		sndp_log_debug("fsi_dai_trigger_in_fm start\n");
-		iRet = fsi_dai_trigger_in_fm(
-				g_sndp_main[direction].arg.fsi_substream,
-				SNDRV_PCM_TRIGGER_START,
-				g_sndp_main[direction].arg.fsi_dai);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("fsi_trigger_in_fm error(code=%d)\n",
-				     iRet);
-	}
+	sndp_log_debug("fsi_dai_trigger_in_fm start\n");
+	iRet = fsi_dai_trigger_in_fm(
+			g_sndp_main[direction].arg.fsi_substream,
+			SNDRV_PCM_TRIGGER_START,
+			g_sndp_main[direction].arg.fsi_dai);
+	if (ERROR_NONE != iRet)
+		sndp_log_err("fsi_trigger_in_fm error(code=%d)\n", iRet);
 
 	sndp_log_debug_func("end\n");
 }
@@ -4855,12 +4592,10 @@ static void sndp_fm_work_stop(
 	uiValue = GET_OLD_VALUE(direction);
 
 	/* FSI Trigger stop */
-	if (NULL != fsi_dai_trigger_in_fm) {
-		sndp_log_debug("fsi_dai_trigger_in_fm stop\n");
-		fsi_dai_trigger_in_fm(&(work->stop.fsi_substream),
-					    SNDRV_PCM_TRIGGER_STOP,
-					    &(work->stop.fsi_dai));
-	}
+	sndp_log_debug("fsi_dai_trigger_in_fm stop\n");
+	fsi_dai_trigger_in_fm(&(work->stop.fsi_substream),
+				    SNDRV_PCM_TRIGGER_STOP,
+				    &(work->stop.fsi_dai));
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
