@@ -66,7 +66,6 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-//#include <linux/mmcoops.h>
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
@@ -119,60 +118,15 @@
 #define SMB328A_ADDRESS (0x69 >> 1)
 #define GPIO_CHG_INT 19
 #endif
+#include <mach/sbsc.h>
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
-
 
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
-}
-
-#if defined(CONFIG_MFD_D2153)
-static struct regulator *emmc_regulator;
-
-void d2153_mmcif_pwr_control(int onoff)
-{
-	int ret;
-
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-
-	if(emmc_regulator == NULL) {
-		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__ );
-		emmc_regulator = regulator_get(NULL, "vmmc"); 
-		if(IS_ERR(emmc_regulator)){
-			printk(KERN_ALERT "can not get vmmc regulator\n");
-			return;
-		}
-	}
-
-	if(onoff==1) {
-		printk(KERN_ALERT " %s,%d vmmc On\n", __func__, __LINE__ );
-		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__ );
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_ALERT "regulator_enable ret = %d\n", ret);
-	}else {
-		printk(KERN_ALERT "%s,%d vmmc Off\n", __func__, __LINE__ );
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_ALERT "regulator_disable ret = %d\n", ret);
-	}
-}
-#endif
-
-void mmcif_set_pwr(struct platform_device *pdev, int state)
-{
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-}
-
-void mmcif_down_pwr(struct platform_device *pdev)
-{
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
 }
 
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
@@ -451,20 +405,6 @@ static struct map_desc gardalte_io_desc[] __initdata = {
 	},
 };
 
-static void __init gardalte_map_io(void)
-{
-	iotable_init(gardalte_io_desc, ARRAY_SIZE(gardalte_io_desc));
-
-	//r8a7373_add_early_devices();
-        r8a7373_init_early();
-	shmobile_setup_console();
-}
-
-void __init gardalte_init_irq(void)
-{
-	r8a7373_init_irq();
-}
-
 #ifdef CONFIG_U2_STM_ETR_TO_SDRAM
 static int wait_for_coresight_access_lock(u32 base)
 {
@@ -501,10 +441,10 @@ static void __init gardalte_init(void)
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_SDMRACR1A, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_SDMRA_28200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_SDMRA_38200, 0x4);
+				__func__, __raw_readl(PLL3CR));
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x438200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
@@ -514,7 +454,7 @@ static void __init gardalte_init(void)
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
 		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
+				__func__, __raw_readl(PLL3CR));
 		if(sbsc_sdmracr1a)
 			iounmap(sbsc_sdmracr1a);
 		if(sbsc_sdmra_28200)
@@ -724,12 +664,12 @@ static void __init gardalte_init(void)
 
 	camera_init(u2_board_rev);
 	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
-			gardalte_devices_stm_sdhi0,
-			ARRAY_SIZE(gardalte_devices_stm_sdhi0),
-			gardalte_devices_stm_sdhi1,
-			ARRAY_SIZE(gardalte_devices_stm_sdhi1),
-			gardalte_devices_stm_none,
-			ARRAY_SIZE(gardalte_devices_stm_none));
+			devices_stm_sdhi0,
+			ARRAY_SIZE(devices_stm_sdhi0),
+			devices_stm_sdhi1,
+			ARRAY_SIZE(devices_stm_sdhi1),
+			devices_stm_none,
+			ARRAY_SIZE(devices_stm_none));
 
 	platform_device_register(&led_backlight_device);
 
@@ -804,10 +744,6 @@ static void __init gardalte_timer_init(void)
 		set_delay_fn(read_current_timer_delay_loop);
 #endif
 }
-
-struct sys_timer gardalte_timer = {
-	.init	= gardalte_timer_init,
-};
 
 static void __init gardalte_reserve(void)
 {

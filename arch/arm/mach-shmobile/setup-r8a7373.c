@@ -47,6 +47,10 @@
 #endif
 #endif
 
+#ifdef CONFIG_MFD_D2153
+#include <linux/d2153/core.h>
+#endif
+
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
 /*
@@ -1608,6 +1612,78 @@ static void __init cmt_clocksource_init(void)
 
 	setup_sched_clock(cmt_read_sched_clock, 32, rate);
 }
+
+#if defined(CONFIG_MFD_D2153)
+struct regulator *emmc_regulator;
+
+void d2153_mmcif_pwr_control(int onoff)
+{
+	int ret;
+
+	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
+	if (emmc_regulator == NULL) {
+		printk(KERN_INFO " %s, %d\n", __func__, __LINE__);
+		emmc_regulator = regulator_get(NULL, "vmmc");
+		if (IS_ERR(emmc_regulator)) {
+			printk(KERN_INFO "can not get vmmc regulator\n");
+			return;
+		}
+	}
+
+	if (onoff == 1) {
+		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
+		ret = regulator_enable(emmc_regulator);
+		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+	} else {
+		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
+		ret = regulator_disable(emmc_regulator);
+		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+	}
+}
+#endif
+
+void mmcif_set_pwr(struct platform_device *pdev, int state)
+{
+#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MFD_D2153)
+	d2153_mmcif_pwr_control(1);
+#endif /* CONFIG_MFD_D2153 */
+#endif
+
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MFD_D2153)
+		d2153_mmcif_pwr_control(1);
+#endif /* CONFIG_MFD_D2153 */
+	} else {
+#if defined(CONFIG_PMIC_INTERFACE)
+		gpio_set_value(GPIO_PORT227, 1);
+#endif /* CONFIG_PMIC_INTERFACE */
+	}
+#endif
+}
+
+void mmcif_down_pwr(struct platform_device *pdev)
+{
+#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MFD_D2153)
+	d2153_mmcif_pwr_control(0);
+#endif /* CONFIG_MFD_D2153 */
+#endif
+
+#if defined(CONFIG_MACH_U2EVM)
+	if (u2_get_board_rev() >= 5) {
+#if defined(CONFIG_MFD_D2153)
+		d2153_mmcif_pwr_control(0);
+#endif /* CONFIG_MFD_D2153 */
+	} else {
+#if defined(CONFIG_PMIC_INTERFACE)
+		gpio_set_value(GPIO_PORT227, 0);
+#endif /* CONFIG_PMIC_INTERFACE */
+	}
+#endif
+}
+
 
 static struct cmt_timer_clock cmt1_cks_table[] = {
 	[0] = CKS("cp_clk", 8, 512),

@@ -21,11 +21,6 @@
 #ifndef __ASM_ARCH_BOARD_CONFIG_H
 #define __ASM_ARCH_BOARD_CONFIG_H
 
-/**
- * CMT13
- */
-
-
 #include <linux/platform_device.h>
 #include <mach/setup-u2usb.h>
 #include <linux/mmcoops.h>	/*crashlog.h is also included with this*/
@@ -57,6 +52,7 @@
 #include <linux/tpu_pwm_board.h>
 
 #include <linux/gpio.h>
+#include <mach/r8a7373.h>
 
 static struct mmcoops_platform_data mmcoops_info = {
 #ifdef CONFIG_CRASHLOG_EMMC
@@ -103,9 +99,6 @@ static struct resource renesas_mmcif_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
-
-void mmcif_set_pwr(struct platform_device *, int);
-void mmcif_down_pwr(struct platform_device *);
 
 static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.sup_pclk	= 0,
@@ -193,7 +186,7 @@ static struct platform_device fsi_b_device = {
 	},
 };
 
-static struct fsi_d2153_platform_data u2evm_audio_pdata = {
+static struct fsi_d2153_platform_data audio_pdata = {
 	.gpio_spkr_en		= -1,
 	.gpio_hp_det		= GPIO_PORT24,
 	.gpio_hp_mute		= -1,
@@ -202,11 +195,11 @@ static struct fsi_d2153_platform_data u2evm_audio_pdata = {
 	.private_data		= NULL,
 };
 
-static struct platform_device u2evm_audio_device = {
+static struct platform_device audio_device = {
 	.name	= "fsi-snd-d2153",
 	.id	= 0,
 	.dev	= {
-		.platform_data  = &u2evm_audio_pdata,
+		.platform_data  = &audio_pdata,
 	},
 };
 
@@ -419,7 +412,7 @@ static struct platform_device stm_device = {
 	.resource	= stm_res,
 };
 
-static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
+static struct platform_device *devices_stm_sdhi1[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -439,7 +432,7 @@ static struct platform_device *u2evm_devices_stm_sdhi1[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&u2evm_audio_device,
+	&audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -538,11 +531,11 @@ static struct platform_device	tpu_devices[] = {
 	},
 };
 
-/* THREE optional u2evm_devices pointer lists for initializing
+/* THREE optional devices pointer lists for initializing
    the platform devices */
 /* For different STM muxing options 0, 1, or None, as given by
    boot_command_line parameter stm=0/1/n */
-static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
+static struct platform_device *devices_stm_sdhi0[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -562,7 +555,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&u2evm_audio_device,
+	&audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -593,7 +586,7 @@ static struct platform_device *u2evm_devices_stm_sdhi0[] __initdata = {
 #endif
 };
 
-static struct platform_device *u2evm_devices_stm_none[] __initdata = {
+static struct platform_device *devices_stm_none[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -614,7 +607,7 @@ static struct platform_device *u2evm_devices_stm_none[] __initdata = {
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&u2evm_audio_device,
+	&audio_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -700,8 +693,5 @@ static struct platform_device board_bcmbt_lpm_device = {
 		},
 };
 #endif
-
-extern int read_board_rev(void);
-extern void SBSC_Init_520Mhz(void);
 
 #endif

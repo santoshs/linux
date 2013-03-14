@@ -116,18 +116,12 @@ enum {
 };
 #endif
 
-
-
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
 	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
 	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
 	defined(CONFIG_INPUT_YAS_SENSORS)
 static void sensor_power_on_vdd(int);
 #endif
-
-
-
-
 
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -144,68 +138,6 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 }
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
-
-#if defined(CONFIG_MFD_D2153)
-static struct regulator *emmc_regulator;
-
-void d2153_mmcif_pwr_control(int onoff)
-{
-	int ret;
-
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-	if(emmc_regulator == NULL)
-	{
-		printk(" %s, %d \n", __func__, __LINE__ );			
-		emmc_regulator = regulator_get(NULL, "vmmc"); 
-		if(IS_ERR(emmc_regulator)){
-			printk("can not get vmmc regulator\n");
-			return;
-		}
-	}
-	if(onoff==1)
-	{
-		printk(" %s, %d vmmc On\n", __func__, __LINE__ );	
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
-	}
-	else
-	{
-		printk("%s, %d vmmc Off\n", __func__, __LINE__ );	
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-	}
-
-}
-#endif
-
-
-void mmcif_set_pwr(struct platform_device *pdev, int state)
-{
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-	}else{
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 1);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-}
-
-void mmcif_down_pwr(struct platform_device *pdev)
-{
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-	}else{
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 0);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-}
-
-
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_INPUT_YAS_SENSORS) || \
 	defined(CONFIG_OPTICAL_TAOS_TRITON) || defined(CONFIG_OPTICAL_GP2AP020A00F)
@@ -610,8 +542,6 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_CHARGER_SMB328A)
     {
 		I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
-/*			.platform_data = &tsu6712_pdata,*/
-/*            .irq            = irqpin2irq(GPIO_CHG_INT),*/
     },
 #endif
 };
@@ -765,44 +695,7 @@ static struct i2c_board_info i2cm_devices[] = {
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
 		.platform_data = &u2evm_a2220_data,
 	},
-#if 0
-#ifdef CONFIG_SND_FSI_WM1811_MODULE
-	{
-		I2C_BOARD_INFO("wm1811", 0x1a),
-		.irq	= irqpin2irq(24),
-	},
-#endif /* CONFIG_SND_FSI_WM1811_MODULE */
-#endif
-#if 0
-	{
-		I2C_BOARD_INFO("led", 0x74),
-	},
-	{
-		I2C_BOARD_INFO("flash", 0x30),
-	},
-#endif /* 0 */
 };
-#if 0
-i2c_board_info i2cm_devices_es2[] = {
-        {
-                I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = irqpin2irq(34),
-        },
-        {
-                I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = irqpin2irq(34),
-        },
-#if 0
-	{
-	        I2C_BOARD_INFO("led", 0x74),
-	},
-	{
-	        I2C_BOARD_INFO("flash", 0x30),
-	},
-#endif
-};
-#endif
-
 
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 #if defined(CONFIG_SAMSUNG_MHL)
@@ -892,9 +785,9 @@ static void __init u2evm_init(void)
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
@@ -1188,12 +1081,12 @@ static void __init u2evm_init(void)
 		gpio_key_init(stm_select,
 			u2_board_rev,
 			u2_board_rev,
-			u2evm_devices_stm_sdhi0,
-			ARRAY_SIZE(u2evm_devices_stm_sdhi0),
-			u2evm_devices_stm_sdhi1,
-			ARRAY_SIZE(u2evm_devices_stm_sdhi1),
-			u2evm_devices_stm_none,
-			ARRAY_SIZE(u2evm_devices_stm_none));
+			devices_stm_sdhi0,
+			ARRAY_SIZE(devices_stm_sdhi0),
+			devices_stm_sdhi1,
+			ARRAY_SIZE(devices_stm_sdhi1),
+			devices_stm_none,
+			ARRAY_SIZE(devices_stm_none));
 	}
 
 #if defined(CONFIG_MPU_SENSORS_MPU6050B1)

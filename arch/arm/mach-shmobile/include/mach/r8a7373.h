@@ -8,6 +8,12 @@
 #include <linux/pm_clock.h>
 #include <linux/types.h>
 
+void mmcif_set_pwr(struct platform_device *, int);
+void mmcif_down_pwr(struct platform_device *);
+
+unsigned int read_board_rev(void);
+void SBSC_Init_520Mhz(void);
+
 /* Pin Function Controller:
  * GPIO_FN_xx - GPIO used to select pin function and MSEL switch
  * GPIO_PORTxx - GPIO mapped to real I/O pin on CPU
@@ -829,5 +835,10 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define	SdramZQCalib2Phys	0xFE538200
 /* Standby Flag Register B3 */
 #define STBCHRB3		0xE6180043
+
+#define DBGREG1                 IO_ADDRESS(0xE6100020)
+#define DBGREG9                 IO_ADDRESS(0xE6100040)
+#define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
+#define SYS_TPIU_STM_BASE              IO_ADDRESS(0xE6F8A000)
 
 #endif /* __ASM_R8A7373_H__ */
