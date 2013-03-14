@@ -268,6 +268,9 @@ void __cpuinit calibrate_delay(void)
 	unsigned long lpj;
 	static bool printed;
 	int this_cpu = smp_processor_id();
+#ifdef EOS_PF_BOGO_MIPS_FIX_REQUIRED
+	struct clk *clk_z;
+#endif
 
 	if (per_cpu(cpu_loops_per_jiffy, this_cpu)) {
 		lpj = per_cpu(cpu_loops_per_jiffy, this_cpu);
@@ -289,7 +292,6 @@ void __cpuinit calibrate_delay(void)
 	 * correct bogoMIPS value. This lpj_zclk will
 	 * be used only to calculate BogoMIPS value
 	*/
-	struct clk *clk_z;
 
 	clk_z = clk_get(NULL, "z_clk");
 

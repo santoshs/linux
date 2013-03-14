@@ -788,16 +788,16 @@ static bool printk_time = 0;
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
 #if defined(CONFIG_PRINTK_CPU_ID)
-static int printk_cpu_id = 1;
+static bool printk_cpu_id = 1;
 #else
-static int printk_cpu_id = 0;
+static bool printk_cpu_id = 0;
 #endif
 module_param_named(cpu, printk_cpu_id, bool, S_IRUGO | S_IWUSR);
 
 #if defined(CONFIG_PRINTK_PID)
-static int printk_pid = 1;
+static bool printk_pid = 1;
 #else
-static int printk_pid;
+static bool printk_pid;
 #endif
 module_param_named(pid, printk_pid, bool, S_IRUGO | S_IWUSR);
 
@@ -1829,7 +1829,7 @@ bool printk_timed_ratelimit(unsigned long *caller_jiffies,
 }
 EXPORT_SYMBOL(printk_timed_ratelimit);
 
-static DEFINE_SPINLOCK(dump_list_lock);
+static DEFINE_RAW_SPINLOCK(dump_list_lock);
 static LIST_HEAD(dump_list);
 
 /**

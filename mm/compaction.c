@@ -943,7 +943,7 @@ static int move_freepages_block(struct zone *zone, struct page *page,
 	return move_freepages(zone, start_page, end_page, migratetype);
 }
 
-void move_pageblock()
+void move_pageblock(void)
 {
 	unsigned int i;
 	unsigned int j;
