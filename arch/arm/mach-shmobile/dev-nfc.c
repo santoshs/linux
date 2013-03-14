@@ -40,7 +40,7 @@ static int bcmi2cnfc_gpio_setup(void *this)
 	if (!p)
 		return -1;
 	pr_info("bcmi2cnfc_gpio_setup nfc en %d, wake %d, irq %d\n",
-		p->en_gpio, p->wake_gpio, p->irq_gpio);
+			p->en_gpio, p->wake_gpio, p->irq_gpio);
 
 	gpio_request(p->irq_gpio, "nfc_irq");
 	gpio_direction_input(p->irq_gpio);
@@ -61,7 +61,7 @@ static int bcmi2cnfc_gpio_clear(void *this)
 		return -1;
 
 	pr_info("bcmi2cnfc_gpio_clear nfc en %d, wake %d, irq %d\n",
-		p->en_gpio, p->wake_gpio, p->irq_gpio);
+			p->en_gpio, p->wake_gpio, p->irq_gpio);
 
 	gpio_direction_output(p->en_gpio, 0);
 	gpio_direction_output(p->wake_gpio, 1);
@@ -74,79 +74,62 @@ static int bcmi2cnfc_gpio_clear(void *this)
 
 static struct i2c_board_info __initdata bcmi2cnfc[] = {
 	{
-	 I2C_BOARD_INFO("bcmi2cnfc", 0x1FA),
-	 .flags = I2C_CLIENT_TEN,
-	 .platform_data = (void *)&bcmi2cnfc_pdata,
-	 .irq = gpio_to_irq(BCMBT_NFC_IRQ_GPIO),
-	 },
+		I2C_BOARD_INFO("bcmi2cnfc", 0x1FA),
+		.flags = I2C_CLIENT_TEN,
+		.platform_data = (void *)&bcmi2cnfc_pdata,
+		.irq = gpio_to_irq(BCMBT_NFC_IRQ_GPIO),
+	},
 
 };
 static struct i2c_gpio_platform_data rhea_nfc_i2c_gpio_platdata = {
-        .sda_pin                = BCMBT_NFC_I2C_SDA_GPIO,
-        .scl_pin                = BCMBT_NFC_I2C_SCL_GPIO,
-        .udelay                 = 1,
-        .sda_is_open_drain      = 0,
-        .scl_is_open_drain      = 0,
-        .scl_is_output_only     = 0,
+	.sda_pin                = BCMBT_NFC_I2C_SDA_GPIO,
+	.scl_pin                = BCMBT_NFC_I2C_SCL_GPIO,
+	.udelay                 = 1,
+	.sda_is_open_drain      = 0,
+	.scl_is_open_drain      = 0,
+	.scl_is_output_only     = 0,
 };
 
 static struct platform_device rhea_nfc_i2c_gpio_device = {
-        .name                   = "i2c-gpio",
-        .id                     = 0x5,
-        .dev.platform_data      = &rhea_nfc_i2c_gpio_platdata,
- };
+	.name                   = "i2c-gpio",
+	.id                     = 0x5,
+	.dev.platform_data      = &rhea_nfc_i2c_gpio_platdata,
+};
 #endif
 
 #ifdef CONFIG_NFC_PN547
 static struct i2c_gpio_platform_data PN547_i2c_gpio_data = {
 	.sda_pin = NFC_I2C_SDA_GPIO,
 	.scl_pin =  NFC_I2C_SCL_GPIO,
- 	//.udelay = 5,
- 	.udelay = 1, //### RMC ### Sample Code 
+	//.udelay = 5,
+	.udelay = 1, //### RMC ### Sample Code 
 };
 
 struct platform_device PN547_i2c_gpio_device = {
- 	.name = "i2c-gpio",
- 	.id = NFC_I2C_BUS_ID,
- 	.dev = {
-	.platform_data  = &PN547_i2c_gpio_data,
+	.name = "i2c-gpio",
+	.id = NFC_I2C_BUS_ID,
+	.dev = {
+		.platform_data  = &PN547_i2c_gpio_data,
 	},
 };
 
 static struct pn547_i2c_platform_data PN547_pdata = {
-//	.conf_gpio = bcmi2cnfc_gpio_setup,
- 	.irq_gpio 	= NFC_IRQ_GPIO,
- 	.ven_gpio = NFC_EN_GPIO,
- 	.firm_gpio = NFC_FIRM_GPIO,
+	//	.conf_gpio = bcmi2cnfc_gpio_setup,
+	.irq_gpio 	= NFC_IRQ_GPIO,
+	.ven_gpio = NFC_EN_GPIO,
+	.firm_gpio = NFC_FIRM_GPIO,
 };
- 
+
 struct i2c_board_info PN547_info[] __initdata = {
-{
-	I2C_BOARD_INFO("pn547", 0x2b),
-	.irq = irqpin2irq(NFC_IRQ_GPIO),
-	.platform_data = &PN547_pdata,
- 	},
+	{
+		I2C_BOARD_INFO("pn547", 0x2b),
+		.irq = irqpin2irq(NFC_IRQ_GPIO),
+		.platform_data = &PN547_pdata,
+	},
 };
 
 static int bcmi2cnfc_gpio_setup(void *this)
 {
-#if 0
-	struct PN547_i2c_platform_data *p;
-	p = (struct PN547_i2c_platform_data *) this;
-	if (!p)
-		return -1;
-	pr_info("bcmi2cnfc_gpio_setup nfc en %d, wake %d, irq %d\n",
-		p->en_gpio, p->wake_gpio, p->irq_gpio);
-
-	gpio_request(p->irq_gpio, "nfc_irq");
-	gpio_direction_input(p->irq_gpio);
-
-	gpio_request(p->en_gpio, "nfc_en");
-	gpio_direction_output(p->en_gpio, 1);
-
-	gpio_request(p->wake_gpio, "nfc_wake");
-	gpio_direction_output(p->wake_gpio, 0);
-#endif
 	return 0;
 }
 

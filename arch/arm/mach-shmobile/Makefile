@@ -66,7 +66,6 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
-obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
 obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
@@ -76,7 +75,7 @@ obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 # BT object
-obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
+obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
@@ -113,29 +112,36 @@ obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_GARDALTE)	+= board_mhl_sii8332.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= board_mhl_sii8332.o
 
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE) +=  board-renesas_wifi.o
-obj-$(CONFIG_RENESAS_WIFI) +=  board-renesas_wifi.o
+obj-$(CONFIG_ARCH_SHMOBILE) 	+= dev-renesas-wifi.o
+obj-$(CONFIG_RENESAS_WIFI) 	+= dev-renesas-wifi.o
+obj-$(CONFIG_RENESAS_WIFI)	+= dev-u2evm-renesas-wifi.o
+
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
 #setup-d2153
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
-obj-$(CONFIG_SAMSUNG_MHL) += board-u2evm-mhl.o
-obj-$(CONFIG_SAMSUNG_MHL) += board_edid.o
 
-obj-$(CONFIG_GPS_CSR_GSD5T) += board-u2evm-gps.o
+#GPS
+obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
 
-obj-$(CONFIG_BCMI2CNFC) += board-u2evm-nfc.o
-obj-$(CONFIG_NFC_PN547) += board-u2evm-nfc.o
+#NFC
+obj-$(CONFIG_BCMI2CNFC) 	+= dev-nfc.o
+obj-$(CONFIG_NFC_PN547) 	+= dev-nfc.o
 
-obj-$(CONFIG_SAMSUNG_SENSOR) += board-u2evm-sensor.o
+#MHL
+# obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-mhl.o
+obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-edid.o
+obj-$(CONFIG_SAMSUNG_MHL)	+= dev-mhl-sii8332.o
+
+
+#Sensor
+obj-$(CONFIG_SAMSUNG_SENSOR) 	+= dev-sensor.o
 
 # rcu
 obj-$(CONFIG_VIDEO_SH_MOBILE_RCU) += setup-u2rcu.o

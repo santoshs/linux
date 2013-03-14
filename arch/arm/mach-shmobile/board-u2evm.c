@@ -31,7 +31,7 @@
 #include <linux/memblock.h>
 #include <linux/tpu_pwm.h>
 #include <linux/pcm2pwm.h>
-#include "board-renesas_wifi.h"
+#include <mach/dev-renesas-wifi.h>
 #include <linux/pmic/pmic-ncp6914.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_USB_SWITCH_TSU6712)
@@ -62,7 +62,7 @@
 #endif
 
 #if defined(CONFIG_RENESAS_BT)
-#include <mach/board-u2evm-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
 #endif
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -71,8 +71,8 @@
 #endif
 #endif
 #if defined(CONFIG_SAMSUNG_MHL)
-#include "board_mhl_sii8332.c"
-#include "board_edid.c"
+#include <mach/dev-mhl.h>
+#include <mach/dev-edid.h>
 #include <linux/sii8332_platform.h>
 #endif
 #ifdef CONFIG_USB_OTG
@@ -87,7 +87,6 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 #include <mach/setup-u2current_timer.h>
 #endif
-#include <mach/board-u2evm.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -1205,8 +1204,8 @@ static void __init u2evm_init(void)
 		touchkey_init_hw();
 
 #if defined (CONFIG_SAMSUNG_MHL)
-	board_mhl_init();
-	board_edid_init();
+	mhl_init();
+	edid_init();
 #endif
 	if(u2_get_board_rev() >= 5) {
 		i2c_register_board_info(0, i2c0_devices_d2153, ARRAY_SIZE(i2c0_devices_d2153));

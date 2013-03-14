@@ -46,19 +46,16 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#include "board-renesas_wifi.h"
+#include <mach/dev-renesas-wifi.h>
 #include <linux/ktd259b_bl.h>
 #include <linux/proc_fs.h>
-#if defined(CONFIG_RENESAS_GPS)
-#include <mach/board-gardalte-renesas-gps.h>
+#if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
+#include <mach/dev-gps.h>
 #endif
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
-#include <mach/board-gardalte-renesas-nfc.h>
+#include <mach/dev-renesas-nfc.h>
 #endif
-#endif
-#if defined(CONFIG_SAMSUNG_MHL)
-#include <mach/board_edid.h>
 #endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
@@ -68,9 +65,6 @@
 #endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
-#endif
-#if defined(CONFIG_GPS_CSR_GSD5T)
-#include <mach/board-gardalte-gps.h>
 #endif
 //#include <linux/mmcoops.h>
 #if defined(CONFIG_SEC_DEBUG)
@@ -98,13 +92,10 @@
 #include <linux/nfc/pn547.h>
 #endif /* CONFIG_NFC_PN547	*/
 #if defined(CONFIG_SAMSUNG_SENSOR)
-#include <mach/board-gardalte-sensor.h>
-#endif
-#if defined(CONFIG_GPS_CSR_GSD5T)
-#include <mach/board-gardalte-gps.h>
+#include <mach/dev-sensor.h>
 #endif
 #if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_NFC_PN547)
-#include <mach/board-gardalte-nfc.h>
+#include <mach/dev-nfc.h>
 #endif
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
@@ -742,16 +733,11 @@ static void __init gardalte_init(void)
 
 	platform_device_register(&led_backlight_device);
 
-#if defined(CONFIG_SAMSUNG_MHL)
-	board_mhl_init();
-	board_edid_init();
-#endif
-
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
 
 #if defined(CONFIG_SAMSUNG_SENSOR)
-	board_sensor_init();
+	sensor_init();
 #endif
 
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));

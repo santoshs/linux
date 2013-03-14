@@ -60,29 +60,7 @@ void sensor_power_on_vdd(int onoff)
 	
 	if(u2_get_board_rev() >= 5)
 	{
-		/*if (!vsensor_1v8) {
-			vsensor_1v8 = regulator_get(NULL, "sensor_1v8");
-			pr_err("%s: regulator_get ",__func__);
-			if (IS_ERR(vsensor_1v8))
-				return ;
 
-			ret = regulator_set_voltage(vsensor_1v8, 1800000, 1800000);
-			if (ret)
-				pr_err("%s: error vsensor_3V setting voltage ret=%d\n",__func__, ret);
-		}
-
-		if (onoff == 1) {
-			ret = regulator_enable(vsensor_1v8);
-			pr_err("%s: regulator_enable ",__func__);
-			if (ret)
-				pr_err("%s: error enabling regulator\n", __func__);
-		} else if ((onoff == 0)) {
-			if (regulator_is_enabled(vsensor_1v8)) {
-				ret = regulator_disable(vsensor_1v8);
-				if (ret)
-					pr_err("%s: error vsensor_3V enabling regulator\n",__func__);
-			}
-		}*/
 	}
 	else
 	{	 
@@ -99,7 +77,6 @@ void sensor_power_on_vdd(int onoff)
 	            gpio_direction_output(GPIO_PORT9, 1);
 	            pr_err("%s: power on\n",__func__);
 		} else if (onoff == 0) {
-	            //gpio_direction_output(GPIO_PORT9,0); // TEMP  fix for "inv_i2c_read error"
 	            pr_err("%s: power off\n",__func__);
 		}
 	}
@@ -270,7 +247,7 @@ void mpl_init(void)
 }
 #endif
 
-void __init board_sensor_init(void)
+void __init sensor_init(void)
 {
 	printk("%s : START\n", __func__);
 

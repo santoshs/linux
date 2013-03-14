@@ -1,3 +1,5 @@
+#ifndef __ASM_MACH_DEV_RENESAS_WIFI_H
+#define __ASM_MACH_DEV_RENESAS_WIFI_H
 /*
  * Copyright (C) 2011 Google, Inc.
  *
@@ -58,4 +60,4 @@ int renesas_wlan_init(void);
 
 #define omap4_ctrl_wk_pad_writel(x, y)     0
 
-
+#endif /* __ASM_MACH_DEV_RENESAS_WIFI_H */

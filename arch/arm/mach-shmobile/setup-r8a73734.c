@@ -15,7 +15,7 @@
 #include <mach/r8a7373.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
-#include <mach/board-u2evm-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
 #include <mach/sh_cmt.h>
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
