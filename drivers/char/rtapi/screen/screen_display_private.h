@@ -2,7 +2,7 @@
  * screen_display_private.h
  *  screen display private header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -22,7 +22,7 @@
 
 #define RT_DISPLAY_LONGPACKETMEMSIZE	(65535)
 
-#define RT_DISPLAY_LONGPACKETSIZE		(1996)	/* #MU2DSP874 */
+#define RT_DISPLAY_LONGPACKETSIZE		(1996)
 
 #define RT_DISPLAY_SCRNDATAINFO_SIZE	(16)
 #define RT_DISPLAY_LCD1_OFFSET			(4)
@@ -32,14 +32,12 @@ typedef struct {
 	void *rtds_mem_handle;
 } screen_disp_handle;
 
-/* #MU2DISP1088 add -S- */
 typedef struct {
 	unsigned short    height;
 	unsigned short    width;
 	unsigned short    stride;
 	unsigned short    mode;
 } screen_display_screen_data_info;
-/* #MU2DISP1088 add -E- */
 
 struct iccom_wq_system_mem_rt_map {
 	struct semaphore	sem;
@@ -47,7 +45,7 @@ struct iccom_wq_system_mem_rt_map {
 	int					result;
 };
 
-int screen_display_get_screen_data_info(int, screen_display_screen_data_info *); /* #MU2DISP1088 add */
+int screen_display_get_screen_data_info(int, screen_display_screen_data_info *);
 
-#endif /* __SCREEN_OVERLAY_PRIVATE_H__ */
+#endif /* __SCREEN_DISPLAY_PRIVATE_H__ */
 

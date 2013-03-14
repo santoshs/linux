@@ -82,7 +82,7 @@ struct semaphore			g_rtds_memory_leak_sem;
 spinlock_t					g_rtds_memory_lock_cma;
 struct list_head			g_rtds_memory_list_cma;
 #endif
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_open
  * Description: This function open RTDS MEMORY driver.
  * Parameters : inode   -   inode information
@@ -90,7 +90,7 @@ struct list_head			g_rtds_memory_list_cma;
  * Returns	  : SMAP_OK		-   Success
  *				SMAP_MEMORY -   No memory
  *				SMAP_NG		-   FatalError
- *******************************************************************************/
+ *****************************************************************************/
 int rtds_memory_drv_open(
 		struct inode	*inode,
 		struct file		*fp
@@ -133,14 +133,14 @@ int rtds_memory_drv_open(
 	return SMAP_OK;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_close
  * Description: This function close RTDS MEMORY driver.
  * Parameters : inode   -   inode information
  *				fp		-   file descriptor
  * Returns	  : SMAP_OK		-   Success
  *
- *******************************************************************************/
+ *****************************************************************************/
 int rtds_memory_drv_close(
 		struct inode	*inode,
 		struct file		*fp
@@ -164,7 +164,7 @@ int rtds_memory_drv_close(
 	return SMAP_OK;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_ioctl
  * Description: This function controls I/O for RTDS MEMORY driver.
  * Parameters : inode   -   inode information
@@ -173,7 +173,7 @@ int rtds_memory_drv_close(
  *				SMAP_NG		-   Fatal error
  *				SMAP_MEMORY -   No memory
  *
- *******************************************************************************/
+ *****************************************************************************/
 long rtds_memory_drv_ioctl(
 		struct file		*fp,
 		unsigned int	cmd,
@@ -230,10 +230,8 @@ long rtds_memory_drv_ioctl(
 				rtds_memory_check_shared_apmem(fp, &(rtds_memory_data_p->mem_map));
 			}
 		} else {
-			/* #MU2SYS2264 add -S- */
 			MSG_ERROR("[RTDSK]ERR| rtds_memory_drv_init_mpro failed ret[%d]\n", ret);
 			panic("[RTDSK]ERR|[%s][%d]rtds_memory_drv_init_mpro failed[%d]\n", __func__, __LINE__, ret);
-			/* #MU2SYS2264 add -E- */
 		}
 
 		break;
@@ -425,14 +423,14 @@ long rtds_memory_drv_ioctl(
 	return ret;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_mapping
  * Description: This function does mapping.
  * Parameters : inode	-   inode information
  *				fp		-   file descriptor
  * Returns	: 0			-   Success(always)
  *
- *******************************************************************************/
+ *****************************************************************************/
 int rtds_memory_drv_mapping(
 		struct file				*fp,
 		struct vm_area_struct	*vm_area
@@ -453,12 +451,12 @@ int rtds_memory_drv_mapping(
 	return 0;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_thread_apmem_rttrig
  * Description: This function is asynchronous receive thread from RT domain.
  * Parameters : none
  * Returns	  : SMAP_OK -   Success
- *******************************************************************************/
+ *****************************************************************************/
 int rtds_memory_thread_apmem_rttrig(
 		void	*vp
 )
@@ -581,13 +579,13 @@ int rtds_memory_thread_apmem_rttrig(
 	return ret;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_init_module
  * Description: This function initialise RTDS MEMORY driver.
  * Parameters : none
  * Returns	  : SMAP_OK -   Success
  *				SMAP_NG -   Fatal error
- *******************************************************************************/
+ *****************************************************************************/
 int rtds_memory_init_module(
 		void
 )
@@ -597,6 +595,7 @@ int rtds_memory_init_module(
 	iccom_drv_cleanup_param		iccom_cleanup;
 	get_section_header_param	section;
 	system_rt_section_header	section_header;
+	iccom_drv_send_cmd_param	send_cmd;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
@@ -620,12 +619,10 @@ int rtds_memory_init_module(
 	if (NULL == g_rtds_memory_iccom_handle) {
 		MSG_ERROR("[RTDSK]ERR| iccom_drv_init failed\n");
 		ret = misc_deregister(&g_rtds_memory_device);
-		if (0 != ret) {
+		if (0 != ret)
 			MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
-		}
 
 		MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_NG\n", __func__);
-
 		return SMAP_NG;
 	}
 
@@ -675,14 +672,7 @@ int rtds_memory_init_module(
 	ret = sys_get_section_header(&section);
 	if (SMAP_OK != ret) {
 		MSG_ERROR("[RTDSK]ERR| sys_get_section_header failed[%d]\n", ret);
-		iccom_cleanup.handle = g_rtds_memory_iccom_handle;
-		iccom_drv_cleanup(&iccom_cleanup);
-		ret = misc_deregister(&g_rtds_memory_device);
-		if (0 != ret) {
-			MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
-		}
-		MSG_HIGH("[RTDSK]OUT|[%s] ret = SMAP_NG\n", __func__);
-		return SMAP_NG;
+		goto out;
 	}
 
 	g_rtds_memory_section_info.var_address	= section_header.memmpl_address;
@@ -692,60 +682,116 @@ int rtds_memory_init_module(
 	g_rtds_memory_section_info.mfi_pmb_offset	= section_header.mfi_pmb_offset;
 
 	/* I/O remap */
-	g_rtds_memory_section_info.kernel_var_addr = ioremap_nocache(g_rtds_memory_section_info.var_address, g_rtds_memory_section_info.var_length);
+	g_rtds_memory_section_info.kernel_var_addr = ioremap_nocache(
+										g_rtds_memory_section_info.var_address,
+										g_rtds_memory_section_info.var_length);
 	if (NULL == g_rtds_memory_section_info.kernel_var_addr) {
 		MSG_ERROR("[RTDSK]ERR| ioremap_nocache failed\n");
-		g_rtds_memory_section_info.var_address = 0;
-		g_rtds_memory_section_info.var_length  = 0;
-		iccom_cleanup.handle = g_rtds_memory_iccom_handle;
-		iccom_drv_cleanup(&iccom_cleanup);
-		ret = misc_deregister(&g_rtds_memory_device);
-		if (0 != ret) {
-			MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
-		}
-
-		MSG_HIGH("[RTDSK]OUT|[%s] ret = SMAP_NG\n", __func__);
-		return SMAP_NG;
+		goto out;
 	}
 
-	MSG_MED("[RTDSK]   |addr(section)[0x%08X]\n", (u32)g_rtds_memory_section_info.var_address);
-	MSG_MED("[RTDSK]   |length(section)[0x%08X]\n", (u32)g_rtds_memory_section_info.var_length);
-	MSG_MED("[RTDSK]   |addr(kernel)[0x%08X]\n", (u32)g_rtds_memory_section_info.kernel_var_addr);
+	MSG_MED("[RTDSK]   |addr(section)[0x%08X]\n",
+		(u32)g_rtds_memory_section_info.var_address);
+	MSG_MED("[RTDSK]   |length(section)[0x%08X]\n",
+		(u32)g_rtds_memory_section_info.var_length);
+	MSG_MED("[RTDSK]   |addr(kernel)[0x%08X]\n",
+		(u32)g_rtds_memory_section_info.kernel_var_addr);
+
+	/*
+	 *   Register asynchronous event to RT domain
+	 */
+
+	/* send EVENT_MEMORY_OPENAPPMEMORY */
+	send_cmd.handle			= g_rtds_memory_iccom_handle;
+	send_cmd.task_id		= TASK_MEMORY;
+	send_cmd.function_id	= EVENT_MEMORY_OPENAPPMEMORY;
+	send_cmd.send_mode		= ICCOM_DRV_ASYNC;
+	send_cmd.send_size		= 0;
+	send_cmd.send_data		= NULL;
+	send_cmd.recv_size		= 0;
+	send_cmd.recv_data		= NULL;
+
+	ret = iccom_drv_send_command(&send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR|send error[EVENT_MEMORY_OPENAPPMEMORY]\n");
+		goto out;
+	}
+
+	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_OPENAPPMEMORY]\n");
+
+
+	/* send EVENT_MEMORY_CLOSEAPPMEMORY
+	 * It does not change send_command parameter as follows.
+	 *  send_cmd.handle	     = g_rtds_memory_iccom_handle;
+	 *  send_cmd.task_id	 = TASK_MEMORY;
+	 *  send_cmd.send_mode   = ICCOM_DRV_ASYNC;
+	 *  send_cmd.send_size   = 0;
+	 *  send_cmd.send_data   = NULL;
+	 *  send_cmd.recv_size   = 0;
+	 *  send_cmd.recv_data   = NULL;
+	 */
+	send_cmd.function_id = EVENT_MEMORY_CLOSEAPPMEMORY;
+	ret = iccom_drv_send_command(&send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR|send error[EVENT_MEMORY_CLOSEAPPMEMORY]\n");
+		goto out;
+	}
+	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_CLOSEAPPMEMORY]\n");
+
+#ifdef RTDS_SUPPORT_CMA
+	/* send EVENT_MEMORY_OPERATECTGMEMORY
+	 * It does not change send_command parameter as follows.
+	 *  send_cmd.handle	     = g_rtds_memory_iccom_handle;
+	 *  send_cmd.task_id	 = TASK_MEMORY;
+	 *  send_cmd.send_mode   = ICCOM_DRV_ASYNC;
+	 *  send_cmd.send_size   = 0;
+	 *  send_cmd.send_data   = NULL;
+	 *  send_cmd.recv_size   = 0;
+	 *  send_cmd.recv_data   = NULL;
+	 */
+	send_cmd.function_id = EVENT_MEMORY_OPERATECTGMEMORY;
+	ret = iccom_drv_send_command(&send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR("[RTDSK]ERR|send error[EVENT_MEMORY_OPERATECTGMEMORY]\n");
+		goto out;
+	}
+	MSG_LOW("[RTDSK]   |Send [EVENT_MEMORY_OPERATECTGMEMORY]\n");
+#endif
 
 	/* Run asynchronous thread */
 	g_rtds_memory_thread_info = kthread_run(rtds_memory_thread_apmem_rttrig,
-											  NULL,
-											  "rtds_memory_th_async");
+											NULL,
+											"rtds_memory_th_async");
 	if (NULL == g_rtds_memory_thread_info) {
-		MSG_ERROR("[RTDSK]ERR| kthread_run failed g_rtds_memory_thread_info[NULL]\n");
-
-		g_rtds_memory_section_info.var_address = 0;
-		g_rtds_memory_section_info.var_length  = 0;
-		g_rtds_memory_section_info.kernel_var_addr = 0;
-		iccom_cleanup.handle = g_rtds_memory_iccom_handle;
-		iccom_drv_cleanup(&iccom_cleanup);
-		ret = misc_deregister(&g_rtds_memory_device);
-		if (0 != ret) {
-			MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
-		}
-
-		MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_NG\n", __func__);
-
-		return SMAP_NG;
+		MSG_ERROR("[RTDSK]ERR|kthread_run failed[NULL]\n");
+		goto out;
 	}
 
 	MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_OK\n", __func__);
 
 	return SMAP_OK;
+out:
+	g_rtds_memory_section_info.var_address = 0;
+	g_rtds_memory_section_info.var_length  = 0;
+	g_rtds_memory_section_info.kernel_var_addr = 0;
+	iccom_cleanup.handle = g_rtds_memory_iccom_handle;
+	iccom_drv_cleanup(&iccom_cleanup);
+	ret = misc_deregister(&g_rtds_memory_device);
+	if (0 != ret)
+		MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
+
+	MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_NG\n", __func__);
+
+	return SMAP_NG;
 }
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_exit_module
  * Description: This function exits RTDS MEMORY driver.
  * Parameters : none
  * Returns	  : none
  *
- *******************************************************************************/
+ *****************************************************************************/
 void rtds_memory_exit_module(
 		void
 )

@@ -2,7 +2,7 @@
  * mfis_drv.c
  *	 This file is MFIS driver function.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -86,9 +86,7 @@ static void mfis_standby_work_entry(int reset_flag)
 	}
 
 	if (!standby_work_stop_flag) {
-		while (down_interruptible(&mfis_sem)) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-		}
+		down(&mfis_sem);
 
 		standby_work_on = 1;
 
@@ -111,9 +109,7 @@ static void mfis_standby_work_cancel(void)
 	standby_work_stop_flag = 1;
 
 	if (standby_work_on) {
-		while (down_interruptible(&mfis_sem)) {
-			printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-		}
+		down(&mfis_sem);
 
 		cancel_delayed_work_sync(&standby_work);
 		standby_work_on = 0;
@@ -163,9 +159,7 @@ static int mfis_suspend_noirq(struct device *dev)
 	}
 #endif /* EARLYSUSPEND_STANDBY */
 
-	while (down_interruptible(&a3r_power_sem)) {
-		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
-	}
+	down(&a3r_power_sem);
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
@@ -248,9 +242,7 @@ static int mfis_resume_noirq(struct device *dev)
 	unsigned int i;					/* #MU2SYS921 */
 #endif
 
-	while (down_interruptible(&a3r_power_sem)) {
-		printk(KERN_ALERT "[%s] A3R Semaphore acquisition error!!\n", __func__);
-	}
+	down(&a3r_power_sem);
 
 #if EARLYSUSPEND_STANDBY
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
@@ -490,9 +482,7 @@ int mfis_drv_suspend(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	while (down_interruptible(&mfis_sem)) {
-		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-	}
+	down(&mfis_sem);
 
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
@@ -515,9 +505,7 @@ int mfis_drv_resume(void)
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
 
-	while (down_interruptible(&mfis_sem)) {
-		printk(KERN_ALERT "[%s] Semaphore acquisition error!!\n", __func__);
-	}
+	down(&mfis_sem);
 
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
@@ -632,8 +620,8 @@ static int mfis_runtime_nop(struct device *dev)
 
 
 static const struct dev_pm_ops mfis_dev_pm_ops = {
-//	.suspend_noirq   = mfis_suspend_noirq,
-//	.resume_noirq    = mfis_resume_noirq,
+	.suspend_noirq   = mfis_suspend_noirq,
+	.resume_noirq    = mfis_resume_noirq,
 	.runtime_suspend = mfis_runtime_nop,
 	.runtime_resume  = mfis_runtime_nop,
 };

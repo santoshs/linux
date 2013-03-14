@@ -48,6 +48,10 @@ static struct miscdevice g_iccom_device;					/* device driver information */
 static struct task_struct *g_iccom_async_resp_task;			/* task information */
 spinlock_t				g_iccom_lock_handle_list;
 struct list_head		g_iccom_list_handle;
+#ifdef ICCOM_ENABLE_STANDBYCONTROL
+struct semaphore		g_iccom_sem_fp_list;
+struct list_head		g_iccom_list_fp;
+#endif
 
 /**** prototype ****/
 static int  iccom_open(struct inode*, struct file*);
@@ -97,6 +101,28 @@ int iccom_close(
 
 	drv_handle = (iccom_drv_handle *)(fp->private_data);
 	iccom_leak_check(drv_handle);
+
+#ifdef ICCOM_ENABLE_STANDBYCONTROL
+	{
+		iccom_fp_list	*fp_list;
+		iccom_fp_list	*fp_list_next;
+		unsigned int	ng_cancel_cnt = 0;
+
+		down(&g_iccom_sem_fp_list);
+		list_for_each_entry_safe(fp_list, fp_list_next, &g_iccom_list_fp, list) {
+			if (fp == fp_list->fp) {
+				list_del(&fp_list->list);
+				kfree(fp_list);
+				ng_cancel_cnt++;
+			}
+		}
+		up(&g_iccom_sem_fp_list);
+		for (; 0 < ng_cancel_cnt; ng_cancel_cnt--) {
+			/* decrement internal standby control counter */
+			iccom_rtctl_ioctl_standby_ng_cancel();
+		}
+	}
+#endif
 
 	/* release a ICCOM handle */
 	iccom_destroy_handle(fp->private_data);
@@ -362,15 +388,44 @@ long iccom_ioctl(
 		/* change internal standby control state to disable standby */
 		case ICCOM_CMD_STANDBY_NG:
 			{
-				/* increment internal standby control counter */
-				ret = iccom_rtctl_ioctl_standby_ng();
+				iccom_fp_list *fp_list;
+
+				fp_list = kmalloc(sizeof(*fp_list), GFP_KERNEL);
+				if (NULL == fp_list) {
+					MSG_ERROR("[ICCOMK]ERR| fp list allocate error.\n");
+					ret = SMAP_MEMORY;
+				} else {
+					fp_list->fp = fp;
+					down(&g_iccom_sem_fp_list);
+					list_add_tail(&fp_list->list, &g_iccom_list_fp);
+					up(&g_iccom_sem_fp_list);
+
+					/* increment internal standby control counter */
+					ret = iccom_rtctl_ioctl_standby_ng();
+				}
 			}
 			break;
 		/* change internal standby control state to enable standby */
 		case ICCOM_CMD_STANDBY_NG_CANCEL:
 			{
-				/* decrement internal standby control counter */
-				ret = iccom_rtctl_ioctl_standby_ng_cancel();
+				iccom_fp_list	*fp_list;
+				iccom_fp_list	*fp_list_next;
+				unsigned int	ng_cancel_cnt = 0;
+
+				down(&g_iccom_sem_fp_list);
+				list_for_each_entry_safe(fp_list, fp_list_next, &g_iccom_list_fp, list) {
+					if (fp == fp_list->fp) {
+						list_del(&fp_list->list);
+						kfree(fp_list);
+						ng_cancel_cnt++;
+						break;
+					}
+				}
+				up(&g_iccom_sem_fp_list);
+				if (0 < ng_cancel_cnt) {
+					/* decrement internal standby control counter */
+					ret = iccom_rtctl_ioctl_standby_ng_cancel();
+				}
 			}
 			break;
 #endif
@@ -495,6 +550,10 @@ int iccom_init_module(
 	INIT_LIST_HEAD(&g_iccom_list_handle);
 
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
+	init_MUTEX(&g_iccom_sem_fp_list);
+	memset(&g_iccom_list_fp, 0, sizeof(g_iccom_list_fp));
+	INIT_LIST_HEAD(&g_iccom_list_fp);
+
 	/* initialize standby function */
 	ret = iccom_rtctl_initilize();
 	if (0 != ret) {
@@ -609,10 +668,9 @@ int iccom_init_module(
 		}
 		return SMAP_NG;
 	}
-/* MU2SYS1418 ---> */
+
 	/* start log */
 	iccom_log_start();
-/* MU2SYS1418 <--- */
 
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return SMAP_OK;
@@ -631,10 +689,8 @@ void iccom_cleanup_module(
 
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
-/* MU2SYS1418 ---> */
 	/* stop log */
 	iccom_log_stop();
-/* MU2SYS1418 <--- */
 
 	/* free IRQ handler */
 	free_irq(INT_ICCOM, (void *)ICCOM_DEVICE_ID);

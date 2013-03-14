@@ -2,7 +2,7 @@
  * screen_display.c
  *  screen display function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -41,7 +41,7 @@
 #define	REG_SYSC_PSTR	((unsigned long)0xE6180080)
 #define	POWER_A3R		((unsigned long)0x00002000)
 
-static int output_state = ICCOM_DRV_STATE_LCD_OFF;	/* MU2DSP1314 mod */
+static int output_state = ICCOM_DRV_STATE_LCD_OFF;
 
 static int  iccom_wq_system_mem_rt_map_thread(void *param)
 {
@@ -131,9 +131,7 @@ void *screen_display_new(void)
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
-/* MU2DSP1314 del -S- */
-/*	output_state = ICCOM_DRV_STATE_LCD_ON; */
-/* MU2DSP1314 del -E- */
+
 
 	MSG_MED("[RTAPIK]    |callback[0x%08X]\n", (unsigned int)NULL);
 
@@ -382,9 +380,9 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 	int result;
 	iccom_drv_send_cmd_param  iccom_send_cmd;
 	iccom_drv_lcd_state_param iccom_lcd_state;
-/* #MU2DISP1088 add -S- */
+
 	screen_display_screen_data_info	screen_info ;
-/* #MU2DISP1088 add -E- */
+
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
@@ -413,7 +411,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 		}
 	}
 
-/* #MU2DISP1088 add -S- */
+
 	result = screen_display_get_screen_data_info((int)set_lcd_refresh->output_mode, &screen_info);
 	if (SMAP_OK != result) {
 		MSG_ERROR(
@@ -423,7 +421,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 
 		return result ;
 	}
-/* #MU2DISP1088 add -E- */
+
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)set_lcd_refresh->handle)->handle;
 	iccom_send_cmd.task_id     = TASK_DISPLAY;
@@ -454,7 +452,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 	}
 
 	if (RT_DISPLAY_REFRESH_ON == set_lcd_refresh->refresh_mode) {
-		/* #MU2DISP1088 add -S- */
+
 		if (ICCOM_DRV_STATE_LCD_REFRESH != output_state) {
 			if (0 == screen_info.mode) {
 				result = mfis_drv_use_a4rm();
@@ -466,7 +464,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 				}
 			}
 		}
-		/* #MU2DISP1088 add -E- */
+
 
 		iccom_lcd_state.handle    = ((screen_disp_handle *)set_lcd_refresh->handle)->handle;
 		iccom_lcd_state.lcd_state = ICCOM_DRV_STATE_LCD_REFRESH;
@@ -474,7 +472,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 
 		output_state = ICCOM_DRV_STATE_LCD_REFRESH;
 	} else {
-/* #MU2DISP1088 add -S- */
+
 		if (ICCOM_DRV_STATE_LCD_REFRESH == output_state) {
 			if (0 == screen_info.mode) {
 				result = mfis_drv_rel_a4rm();
@@ -486,7 +484,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 				}
 			}
 		}
-/* #MU2DISP1088 add -E- */
+
 
 		output_state = ICCOM_DRV_STATE_LCD_ON;
 	}
@@ -519,29 +517,21 @@ int screen_display_start_hdmi(screen_disp_start_hdmi *start_hdmi)
 	if ((NULL == start_hdmi->handle) ||
 		((RT_DISPLAY_720_480P60	!= start_hdmi->format) &&
 		 (RT_DISPLAY_1280_720P60	!= start_hdmi->format) &&
-/* #MU2DSP582 mod -S- */
-/*		 (RT_DISPLAY_1920_1080I60	!= start_hdmi->format) &&	*/
-/*		 (RT_DISPLAY_1920_1080P24	!= start_hdmi->format))		*/
 		 (RT_DISPLAY_720_576P50		!= start_hdmi->format) &&
 		 (RT_DISPLAY_1280_720P50	!= start_hdmi->format) &&
 		 (RT_DISPLAY_1920_1080P60	!= start_hdmi->format) &&
 		 (RT_DISPLAY_1920_1080P50	!= start_hdmi->format) &&
 		 (RT_DISPLAY_720_480P60A43	!= start_hdmi->format) &&
 		 (RT_DISPLAY_720_576P50A43	!= start_hdmi->format) &&
-/* #MU2DSP582 mod -E- */
-/* #MU2DSP939 add -S- */
 		 (RT_DISPLAY_USE_IF_PARAM	!= start_hdmi->format))
-/* #MU2DSP939 add -E- */
+
 	   ) {
 		MSG_ERROR("[RTAPIK] ERR|[%d]", __LINE__);
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)start_hdmi->handle)->handle;
-/* #MU2DSP582 mod -S- */
-/*	iccom_send_cmd.task_id     = TASK_DISPLAY; */
 	iccom_send_cmd.task_id     = TASK_DISPLAY2;
-/* #MU2DSP582 mod -E- */
 	iccom_send_cmd.function_id = EVENT_DISPLAY_STARTHDMI;
 	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
 	iccom_send_cmd.send_size   = sizeof(screen_disp_start_hdmi);
@@ -635,12 +625,12 @@ int screen_display_stop_hdmi(screen_disp_stop_hdmi *stop_hdmi)
 }
 EXPORT_SYMBOL(screen_display_stop_hdmi);
 
-/* #MU2DSP222 add -S- */
+
 int screen_display_read_dsi_short_packet(screen_disp_read_dsi_short *read_dsi_s)
 {
 	int result;
 	iccom_drv_send_cmd_param  iccom_send_cmd;
-	int					 disptask_id;	/* #MU2DSP582 add */
+	int					 disptask_id;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 	if (NULL == read_dsi_s) {
@@ -654,13 +644,10 @@ int screen_display_read_dsi_short_packet(screen_disp_read_dsi_short *read_dsi_s)
 	MSG_MED("[RTAPIK]    |data_count[%d]\n", read_dsi_s->data_count);
 	MSG_MED("[RTAPIK]    |read_data [0x%08X]\n", (unsigned int)read_dsi_s->read_data);
 
-/* #MU2DSP582 mod -S- */
-/*	if ((NULL == read_dsi_s->handle) */
 	if ((NULL == read_dsi_s->handle) ||
 		((RT_DISPLAY_LCD1 != read_dsi_s->output_mode) &&
-		 (RT_DISPLAY_LCD2 != read_dsi_s->output_mode) &&	/* #MU2DSP852 add */
+		 (RT_DISPLAY_LCD2 != read_dsi_s->output_mode) &&
 		 (RT_DISPLAY_HDMI != read_dsi_s->output_mode))
-/* #MU2DSP582 mod -E- */
 		) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] aInfo NULL error\n",
@@ -682,18 +669,14 @@ int screen_display_read_dsi_short_packet(screen_disp_read_dsi_short *read_dsi_s)
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-/* #MU2DSP582 add -S- */
 	if (RT_DISPLAY_LCD1 == read_dsi_s->output_mode) {
 		disptask_id = TASK_DISPLAY;
 	} else {
 		disptask_id = TASK_DISPLAY2;
 	}
-/* #MU2DSP582 add -E- */
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)read_dsi_s->handle)->handle;
-/* #MU2DSP582 mod -S- */
 	iccom_send_cmd.task_id     = disptask_id;
-/* #MU2DSP582 add -E- */
 	iccom_send_cmd.function_id = EVENT_DISPLAY_READDSISHORTPACKET;
 	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
 	iccom_send_cmd.send_size   = sizeof(screen_disp_read_dsi_short);
@@ -715,7 +698,6 @@ int screen_display_read_dsi_short_packet(screen_disp_read_dsi_short *read_dsi_s)
 	result);
 	return SMAP_LIB_DISPLAY_OK;
 }
-/* #MU2DSP222 add -E- */
 EXPORT_SYMBOL(screen_display_read_dsi_short_packet);
 
 int screen_display_write_dsi_short_packet(screen_disp_write_dsi_short *write_dsi_s)
@@ -723,7 +705,7 @@ int screen_display_write_dsi_short_packet(screen_disp_write_dsi_short *write_dsi
 	int result;
 	int dsi_info;
 	iccom_drv_send_cmd_param  iccom_send_cmd;
-	int					 disptask_id;	/* #MU2DSP582 add */
+	int					 disptask_id;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 	if (NULL == write_dsi_s) {
@@ -734,15 +716,12 @@ int screen_display_write_dsi_short_packet(screen_disp_write_dsi_short *write_dsi
 	MSG_MED("[RTAPIK]    |aDataID   [%d]\n", write_dsi_s->data_id);
 	MSG_MED("[RTAPIK]    |aWriteAdr [%d]\n", write_dsi_s->reg_address);
 	MSG_MED("[RTAPIK]    |aWriteData[%d]\n", write_dsi_s->write_data);
-	MSG_MED("[RTAPIK]    |reception_mode[%d]\n", write_dsi_s->reception_mode);		/* #MU2DSP860 */
+	MSG_MED("[RTAPIK]    |reception_mode[%d]\n", write_dsi_s->reception_mode);
 
-/* #MU2DSP582 mod -S- */
-/*	if (NULL == write_dsi_s->handle) */
 	if ((NULL == write_dsi_s->handle) ||
 		((RT_DISPLAY_LCD1 != write_dsi_s->output_mode) &&
-		 (RT_DISPLAY_LCD2 != write_dsi_s->output_mode) &&	/* #MU2DSP852 add */
+		 (RT_DISPLAY_LCD2 != write_dsi_s->output_mode) &&
 		 (RT_DISPLAY_HDMI != write_dsi_s->output_mode))
-/* #MU2DSP582 mod -E- */
 		) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%d] aInfo NULL error\n",
@@ -750,18 +729,14 @@ int screen_display_write_dsi_short_packet(screen_disp_write_dsi_short *write_dsi
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-/* #MU2DSP582 add -S- */
 	if (RT_DISPLAY_LCD1 == write_dsi_s->output_mode) {
 		disptask_id = TASK_DISPLAY;
 	} else {
 		disptask_id = TASK_DISPLAY2;
 	}
-/* #MU2DSP582 add -E- */
 
 	iccom_send_cmd.handle      = ((screen_disp_handle *)write_dsi_s->handle)->handle;
-/* #MU2DSP582 mod -S- */
 	iccom_send_cmd.task_id     = disptask_id;
-/* #MU2DSP582 mod -E- */
 	iccom_send_cmd.function_id = EVENT_DISPLAY_WRITEDSISHORTPACKET;
 	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
 	iccom_send_cmd.send_size   = sizeof(screen_disp_write_dsi_short);
@@ -801,7 +776,7 @@ int screen_display_write_dsi_long_packet(screen_disp_write_dsi_long *write_dsi_l
 	system_mem_ap_close     ap_close;
 	system_mem_rt_map_pnc	rt_map_pnc;
 	system_mem_rt_unmap_pnc	rt_unmap_pnc;
-	int					 disptask_id;	/* #MU2DSP582 add */
+	int					 disptask_id;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 	if (NULL == write_dsi_l) {
@@ -816,11 +791,9 @@ int screen_display_write_dsi_long_packet(screen_disp_write_dsi_long *write_dsi_l
 	MSG_MED("[RTAPIK]    |send_mode[%d]\n", write_dsi_l->send_mode);
 
 	if ((NULL == write_dsi_l->handle) ||
-/* #MU2DSP582 add -S- */
 		((RT_DISPLAY_LCD1 != write_dsi_l->output_mode) &&
-		(RT_DISPLAY_LCD2  != write_dsi_l->output_mode) &&	/* #MU2DSP852 add */
+		(RT_DISPLAY_LCD2  != write_dsi_l->output_mode) &&
 		(RT_DISPLAY_HDMI  != write_dsi_l->output_mode)) ||
-/* #MU2DSP582 add -E- */
 		(0 == write_dsi_l->data_count) ||
 		(NULL == write_dsi_l->write_data)
 	   ) {
@@ -930,18 +903,14 @@ int screen_display_write_dsi_long_packet(screen_disp_write_dsi_long *write_dsi_l
 	MSG_MED("[RTAPIK]    |packet ptr [0x%08X]\n", (unsigned int)cmd_array[1].data);
 	write_num  = sizeof(cmd_array)/sizeof(cmd_array[0]);
 
-/* #MU2DSP582 add -S- */
 	if (RT_DISPLAY_LCD1 == write_dsi_l->output_mode) {
 		disptask_id = TASK_DISPLAY;
 	} else {
 		disptask_id = TASK_DISPLAY2;
 	}
-/* #MU2DSP582 add -E- */
 
 	iccom_send_cmd_array.handle          = ((screen_disp_handle *)write_dsi_l->handle)->handle;
-/* #MU2DSP582 mod -S- */
 	iccom_send_cmd_array.task_id         = disptask_id;
-/* #MU2DSP582 mod -E- */
 	iccom_send_cmd_array.function_id     = EVENT_DISPLAY_WRITEDSILONGPACKET;
 	iccom_send_cmd_array.send_mode       = ICCOM_DRV_SYNC;
 	iccom_send_cmd_array.send_num        = write_num;
@@ -1159,7 +1128,6 @@ int screen_display_set_address(screen_disp_set_address *address)
 }
 EXPORT_SYMBOL(screen_display_set_address);
 
-/* #MU2DSP939 add -S- */
 int screen_display_set_hdmi_if_parameters(screen_disp_set_hdmi_if_param *set_hdmi_if_param)
 {
 	int result;
@@ -1218,7 +1186,6 @@ int screen_display_set_hdmi_if_parameters(screen_disp_set_hdmi_if_param *set_hdm
 	return SMAP_LIB_DISPLAY_OK;
 }
 EXPORT_SYMBOL(screen_display_set_hdmi_if_parameters);
-/* #MU2DSP939 add -E- */
 
 int screen_display_set_lut(screen_disp_set_lut *disp_set_lut)
 {
@@ -1410,7 +1377,6 @@ void screen_display_delete(screen_disp_delete *disp_delete)
 }
 EXPORT_SYMBOL(screen_display_delete);
 
-/* #MU2DISP1088 add -S- */
 int screen_display_get_screen_data_info(int output_mode, screen_display_screen_data_info *info)
 {
 	int	result;
@@ -1441,4 +1407,3 @@ int screen_display_get_screen_data_info(int output_mode, screen_display_screen_d
 
 	return SMAP_LIB_DISPLAY_OK;
 }
-/* #MU2DISP1088 add -E- */
