@@ -206,8 +206,8 @@ static const uint16_t SCR_ABS_LOWER_SPEC[MAX_RX_][MAX_TX_] = {
 };
 
 #else	/* CONFIG_MACH_KYLE */
-#define MAX_RX_	10
-#define MAX_TX_	15
+#define MAX_RX_	30
+#define MAX_TX_	5
 static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
 	{3575,  3495,  3470,  3459,  3444},
 	{3438,  3426,  3424,  3419,  3419},
@@ -377,7 +377,7 @@ static void run_cm_abs_read(void *device_data);
 static void run_cm_delta_read(void *device_data);
 static void run_intensity_read(void *device_data);
 static void not_support_cmd(void *device_data);
-static int check_delta_value(struct melfas_ts_data *ts);
+static void check_delta_value(struct melfas_ts_data *ts);
 struct tsp_cmd tsp_cmds[] = {
 	{TSP_CMD("fw_update", fw_update),},
 	{TSP_CMD("get_fw_ver_bin", get_fw_ver_bin),},
@@ -464,13 +464,15 @@ static void set_dvfs_lock(struct melfas_ts_data *ts, uint32_t on)
 static int melfas_ts_suspend(struct i2c_client *client, pm_message_t mesg);
 static int melfas_ts_resume(struct i2c_client *client);
 static void release_all_fingers(struct melfas_ts_data *ts);
+#if defined(SET_TSP_CONFIG) && defined(TSP_BOOST)
 static int melfas_set_config(struct i2c_client *client, u8 reg, u8 value);
+#endif
 static int melfas_i2c_write(struct i2c_client *client, char *buf, int length);
 static void TSP_reboot(void);
 #endif
 int melfas_fw_i2c_read(u16 addr, u8 *value, u16 length);
 int melfas_fw_i2c_write(char *buf, int length);
-static ssize_t	check_init_lowleveldata( void );
+/*static ssize_t	check_init_lowleveldata( void );*/
 static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
 
@@ -478,7 +480,6 @@ static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 #define VREG_DISABLE	0
 #define TOUCH_ON  1
 #define TOUCH_OFF 0
-static struct regulator *touch_regulator_1_8;
 
 static void ts_power_enable(int en)
 {
@@ -562,7 +563,7 @@ void ts_power_control(int en)
 	ts_power_enable(en);
 }
 EXPORT_SYMBOL(ts_power_control);
-
+#if 0
 static int melfas_init_panel(struct melfas_ts_data *ts)
 {
 	int buf = 0x00;
@@ -575,6 +576,7 @@ static int melfas_init_panel(struct melfas_ts_data *ts)
 	}
 	return true;
 }
+#endif
 #ifdef TA_DETECTION
 static void tsp_ta_probe(int ta_status)
 {
@@ -967,12 +969,7 @@ int melfas_fw_i2c_busrt_write(u8 *value, u16 length)
 	else
 		return 0;
 }
-
-static ssize_t set_tsp_firm_version_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	//return snprintf (buf, sizeof(buf), "%#02x, %#02x, %#02x\n", ts->version->core, ts->version->private, ts->version->public);
-	return 0;
-}
+#if 0
 static ssize_t set_tsp_firm_version_read_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 fw_latest_version, privatecustom_version, publiccustom_version;
@@ -992,12 +989,14 @@ static ssize_t set_tsp_firm_version_read_show(struct device *dev, struct device_
 	publiccustom_version	= buff[5];
 	return snprintf (buf, sizeof(buf), "%#02x, %#02x, %#02x\n", fw_latest_version, privatecustom_version, publiccustom_version);
 }
+
 static ssize_t set_tsp_threshold_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 threshold;
 	melfas_i2c_read(ts->client, P5_THRESHOLD, 1, &threshold);
 	return snprintf (buf, sizeof(buf), "%d\n", threshold);
 }
+#endif
 ssize_t set_tsp_for_inputmethod_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	printk(KERN_EMERG "[TSP] %s is called.. is_inputmethod=%d\n", __func__, is_inputmethod);
@@ -1032,12 +1031,14 @@ static ssize_t tsp_call_release_touch(struct device *dev, struct device_attribut
 	TSP_reboot();
 	return snprintf (buf, sizeof(buf), "0\n");
 }
+#if 0
 static ssize_t tsp_touchtype_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char temp[15];
 	snprintf (temp, sizeof(temp), "TSP : MMS144\n");
 	return 1;
 }
+#endif
 #ifdef TSP_BOOST
 ssize_t set_tsp_for_boost_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1102,8 +1103,10 @@ static struct attribute_group sec_touch_attr_group = {
 #endif
 #endif
 #ifdef TSP_FACTORY_TEST
-static bool debug_print = true;
+/*static bool debug_print = true;*/
+#if 0
 static u16 inspection_data[180] = { 0, };
+#endif
 static u16 lntensity_data[180] = { 0, };
 static u16 CmDelta_data[228] = { 0, }; /* inspection */
 static u16 CmABS_data[228] = { 0, }; /* reference */
@@ -1135,7 +1138,7 @@ static int check_debug_data(struct melfas_ts_data *ts)
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j, status = 0;
 	int size;
 	tsp_testmode = 1;
 	printk(KERN_EMERG "[TSP] %s entered. line : %d\n", __func__, __LINE__);
@@ -1207,13 +1210,13 @@ static int check_debug_data(struct melfas_ts_data *ts)
 	return status;
 }
 /* inspection = CmDelta_data */
-static int check_delta_data(struct melfas_ts_data *ts)
+static void check_delta_data(struct melfas_ts_data *ts)
 {
 	u8 setLowLevelData[4];
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j;
 	int size;
 	printk(KERN_EMERG "[TSP] %s entered. line : %d,\n", __func__, __LINE__);
 
@@ -1273,7 +1276,7 @@ static int check_delta_data(struct melfas_ts_data *ts)
 	tsp_testmode = 0;
 	TSP_reboot();
 	printk(KERN_EMERG "%s : end\n", __func__);
-	return status;
+	return;
 }
 static int atoi(char *str)
 {
@@ -1310,7 +1313,7 @@ static ssize_t set_all_delta_mode_show(struct device *dev, struct device_attribu
 }
 static ssize_t set_all_refer_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int status = 0;
+	int status;
 /* ABS */
 	status = check_debug_data(ts);
 	set_tsp_module_off_show(dev, attr, buf);
@@ -1389,6 +1392,7 @@ static void check_intensity_data(struct melfas_ts_data *ts)
 	check_delta_data(ts);
 	printk(KERN_EMERG "%s : end\n", __func__);
 }
+#if 0
 static ssize_t set_refer0_mode_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -1470,6 +1474,7 @@ static ssize_t set_intensity4_mode_show(struct device *dev,
 	intensity = lntensity_data[309];
 	return snprintf (buf, sizeof(buf), "%u\n", intensity);
 }
+#endif
 /*
 static DEVICE_ATTR(set_refer0, S_IRUGO | S_IWUSR | S_IWGRP, set_refer0_mode_show, NULL);
 static DEVICE_ATTR(set_delta0, S_IRUGO | S_IWUSR | S_IWGRP, set_intensity0_mode_show, NULL);
@@ -1843,6 +1848,7 @@ static ssize_t touchkey_menu_show(struct device *dev,
 {
 	return snprintf(buf, 10, "%d\n", gMenuKey_Intensity);
 }
+#if 0
 static ssize_t	check_init_lowleveldata( void )
 {
 	u8 read_buf[1] = {0,};
@@ -1864,7 +1870,8 @@ static ssize_t	check_init_lowleveldata( void )
 
 	return ret;
 }
-static int start_rawcounter = 1;
+#endif
+/*static int start_rawcounter = 1;*/
 static ssize_t tkey_rawcounter_store(struct device *dev, \
 struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -1994,6 +2001,7 @@ static ssize_t touch_sensitivity_show(struct device *dev,
 {
 	return snprintf(buf, sizeof(int), "%x\n", 0);
 }
+#if 0
 static ssize_t touchkey_firm_store(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -2009,6 +2017,7 @@ static ssize_t touchkey_firm_store(struct device *dev,
 	}
 	return printk(KERN_EMERG "\n[Melfas]TSP firmware update by kyestring");
 }
+#endif
 static DEVICE_ATTR(tsp_firm_version_phone,
 			S_IRUGO | S_IWUSR | S_IWGRP, firmware_phone_show, NULL);
 static DEVICE_ATTR(tsp_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -2592,14 +2601,14 @@ static int check_debug_value(struct melfas_ts_data *ts)
 	printk(KERN_EMERG "%s : end\n", __func__);
 	return status;
 }
-static int check_delta_value(struct melfas_ts_data *ts)
+static void check_delta_value(struct melfas_ts_data *ts)
 {
 	u8 setLowLevelData[4];
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	char buff[TSP_CMD_STR_LEN] = {0};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j;
 	int size;
 	u32 max_value, min_value;
 	u32 raw_data;
@@ -2674,7 +2683,7 @@ static int check_delta_value(struct melfas_ts_data *ts)
 	tsp_testmode = 0;
 	TSP_reboot();
 	printk(KERN_EMERG "%s : end\n", __func__);
-	return status;
+	return;
 }
 static void get_intensity(void *device_data)
 {

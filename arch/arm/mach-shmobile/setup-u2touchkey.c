@@ -39,8 +39,8 @@ void touchkey_init_hw(void)
 
 static int touchkey_suspend(void)
 {
-	struct regulator *regulator;
 #if 0
+	struct regulator *regulator;
 	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
 	if (IS_ERR(regulator))
 		return 0;
@@ -54,8 +54,8 @@ static int touchkey_suspend(void)
 
 static int touchkey_resume(void)
 {
-	struct regulator *regulator;
 #if 0
+	struct regulator *regulator;
 	regulator = regulator_get(NULL, TK_REGULATOR_NAME);
 	if (IS_ERR(regulator))
 		return 0;
@@ -106,7 +106,7 @@ static int touchkey_led_power_on(bool on)
 static struct touchkey_platform_data touchkey_pdata = {
 	.gpio_sda = TCKEY_SDA,	/* To do to set gpio */
 	.gpio_scl = TCKEY_SCL,	/* To do to set gpio */
-	.gpio_int = NULL,	/* To do to set gpio */
+	.gpio_int = (int)NULL,	/* To do to set gpio */
 	.init_platform_hw = touchkey_init_hw,
 	.suspend = touchkey_suspend,
 	.resume = touchkey_resume,

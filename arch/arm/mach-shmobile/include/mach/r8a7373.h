@@ -495,9 +495,10 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #endif /* __ASSEMBLY__*/
 
-#if !defined(IO_ADDRESS)
-#define IO_ADDRESS(x)	(x)
-#endif /* !defined(IO_ADDRESS) */
+/* IO_ADDRESS */
+#ifndef IO_ADDRESS
+#define IO_ADDRESS(x)   x
+#endif
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
 #define SMGP001_DFS		SMGP001
