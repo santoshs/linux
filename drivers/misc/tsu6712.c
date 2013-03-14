@@ -58,6 +58,9 @@ int KERNEL_LOG;
 
 #define TSU6712_UART_AT_MODE           2
 #define TSU6712_UART_INVALID_MODE      -1
+#define TSU6712_UART_EMPTY_CR          3
+#define TSU6712_UART_EMPTY_CRLF        4
+#define TSU6712_UART_AT_MODE_MODECHAN  5
 
 /* TSU6712 I2C registers */
 #define TSU6712_REG_DEVID		0x01
@@ -866,30 +869,28 @@ ssize_t ld_set_switch_buf(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	int ret = 0;
-	int error = 0;
-	char *ptr = NULL;
-	int i = 0;
+	int i;
 	char temp[100];
-	char atbuf[100];
-
-	memset(atbuf, 0, 100);
-	strcpy(atbuf, "AT+ATSTART");
+	char *ptr = NULL;
+	char *ptr2 = NULL;
+	char atbuf[] = "AT+ATSTART\r";
+	char atmodechanbuf[] = "AT+MODECHAN=0,2\r";
+	char isi_cmd_buf[] = "switch isi";
+	int error = 0;
 
 	/* If UART is not connected ignore this sysfs access*/
 	if (200 != usb_uart_switch_state)
 		return 0;
-
-	strcat(atbuf, "\r");
 
 	memset(temp, 0, 100);
 	for (i = 0; i < count; i++)
 		temp[i] = toupper(buf[i]);
 
 	strncat((char *)at_isi_switch_buf, temp, count);
+
 	if ((strncmp((char *)at_isi_switch_buf, "\n", 1) == 0) || \
-		(strncmp((char *)at_isi_switch_buf, "\r", 1) == 0) || \
-		(strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
+	    (strncmp((char *)at_isi_switch_buf, "\r", 1) == 0) || \
+	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
 		memset(at_isi_switch_buf, 0, 400);
 		KERNEL_LOG = 0;
 		return TSU6712_UART_EMPTY_CRLF;
@@ -904,34 +905,36 @@ ssize_t ld_set_switch_buf(struct device *dev,
 			printk("###WIPRO### n\n");
 	}
 
-	ptr = strstr(atbuf , at_isi_switch_buf);
-	if ((NULL == ptr) || (ptr != atbuf)) {
-		ptr = strstr("AT+ISISTART", at_isi_switch_buf);
-		if (NULL == ptr)
+	ptr = strstr(atbuf, at_isi_switch_buf);
+	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
+	if ( ((NULL == ptr) || (ptr != atbuf)) &&
+	     ((NULL == ptr2) || (ptr2 != atmodechanbuf)) ) {
+		if (strstr("AT+ISISTART", at_isi_switch_buf) == NULL &&
+		    strstr("AT+MODECHAN=0,0", at_isi_switch_buf) == NULL)
 			error = 1;
 	}
 
-	ptr = strstr(at_isi_switch_buf, atbuf);
-	if (NULL != ptr) {
+	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
-		printk("ld_set_switch_buf : switch at");
 		memset(at_isi_switch_buf, 0, 400);
 		return TSU6712_UART_AT_MODE;
-	} else {
-		ptr = strstr(at_isi_switch_buf, "AT+ISISTART");
-		if (NULL != ptr) {
-			KERNEL_LOG = 0;
-			printk("ld_set_switch_buf : switch isi");
-			ld_set_manualsw(NULL, NULL, "switch isi", 10);
-			memset(at_isi_switch_buf, 0, 400);
-			return count;
-		}
+	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		return TSU6712_UART_AT_MODE_MODECHAN;
+	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
+		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
+		return count;
 	}
 
 	if (error != 0) {
 		count = TSU6712_UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
 	}
+
 	return count;
 }
 
