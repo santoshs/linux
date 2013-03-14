@@ -234,5 +234,5 @@ struct spa_power_desc
 // --- for header files
 
 extern int spa_event_handler(int evt, void *data);
-
+int init_spa_power(void);
 #endif
