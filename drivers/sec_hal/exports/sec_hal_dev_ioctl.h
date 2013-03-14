@@ -33,7 +33,7 @@ typedef struct {
 #define PARAM_SZ                sizeof(unsigned int)
 
 #define SEC_STORAGE_FILENAME_MAXLEN   128
-#define SEC_STORAGE_FILE_MAXLEN      3072
+#define SEC_STORAGE_FILE_MAXLEN       512
 typedef struct {
 	unsigned int param0;
 	unsigned int param1;

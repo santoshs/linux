@@ -252,7 +252,7 @@ unsigned long sec_hal_icram_phys_to_virt(unsigned long paddr)
 {
 	unsigned long vaddr;
 #ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
-	vaddr = phys_to_virt((phys_addr_t) paddr);
+	vaddr = (unsigned long) phys_to_virt((phys_addr_t) paddr);
 #else
 	vaddr = paddr + g_msg_area_smc0.offset;
 #endif
