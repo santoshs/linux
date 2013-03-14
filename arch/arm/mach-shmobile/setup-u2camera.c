@@ -1,6 +1,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/pmic/pmic-ncp6914.h>
@@ -23,7 +24,6 @@
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2ion.h>
-#include <mach/r8a7373.h>
 
 #if defined(CONFIG_MACH_U2EVM)	/* Guardian */
 #if defined(CONFIG_SOC_CAMERA_IMX175) && \
@@ -1009,7 +1009,6 @@ static void MIC2871_write(char addr, char data)
 
 int main_cam_led(int light, int mode)
 {
-	int i = 0;
 	unsigned long flags;
 	spinlock_t lock;
 	spin_lock_init(&lock);
