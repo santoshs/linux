@@ -45,7 +45,8 @@ void gps_gpio_init(void)
 	gps_class = class_create(THIS_MODULE, "gps");
 	if (IS_ERR(gps_class)) {
 		pr_err("Failed to create class(sec)!\n");
-		return PTR_ERR(gps_class);
+//		return PTR_ERR(gps_class);
+		return;
 	}
 	BUG_ON(!gps_class);
 	
