@@ -100,6 +100,7 @@ obj-y += setup-u2mxt224.o
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 # charging
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
+obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
 # current timer
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o

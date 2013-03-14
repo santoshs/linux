@@ -100,6 +100,9 @@
 #endif
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+#include <linux/spa_power.h>
+#endif
 
 #define STBCHRB3			0xE6180043
 #define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
@@ -1142,6 +1145,9 @@ static void __init loganlte_init(void)
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	platform_add_devices(guardian__plat_devices,
 					ARRAY_SIZE(guardian__plat_devices));
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+	init_spa_power();
+#endif
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
