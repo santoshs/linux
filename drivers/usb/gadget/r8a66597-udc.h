@@ -140,6 +140,9 @@ struct r8a66597 {
 	unsigned irq_sense_low:1;
 	unsigned vbus_active:1;
 	unsigned softconnect:1;
+	unsigned is_active:1;
+	unsigned phy_active:1;
+	unsigned phy_active_sav:1; /*save the state of the phy before resume*/
 
 	struct usb_phy		*transceiver;
 	struct delayed_work	vbus_work;

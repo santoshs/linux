@@ -36,6 +36,15 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_mtp.h>
 
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+/*#ifdef CONFIG_MACH_U2EVM*/
+#include <linux/clk.h>
+#include <linux/sh_clk.h>
+#include <mach/pm.h>
+
+static int dfs_started = -1;
+#endif
+
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
 
@@ -951,6 +960,7 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
+	int ret = 0;
 	printk(KERN_INFO "mtp_open\n");
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
@@ -960,6 +970,18 @@ static int mtp_open(struct inode *ip, struct file *fp)
 		_mtp_dev->state = STATE_READY;
 
 	fp->private_data = _mtp_dev;
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+/*#ifdef CONFIG_MACH_U2EVM*/
+	ret = stop_cpufreq();
+	DBG(_mtp_dev->cdev, "%s(): stop_cpufreq\n", __func__);
+	if (ret) {
+		dfs_started = 1;
+		ERROR(_mtp_dev->cdev, "%s(): error<%d>! stop_cpufreq\n",
+			__func__, ret);
+	} else
+		dfs_started = 0;
+#endif
+
 	return 0;
 }
 
@@ -968,6 +990,16 @@ static int mtp_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "mtp_release\n");
 
 	mtp_unlock(&_mtp_dev->open_excl);
+
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+/*#ifdef CONFIG_MACH_U2EVM*/
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(_mtp_dev->cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
+	}
+#endif
+
 	return 0;
 }
 

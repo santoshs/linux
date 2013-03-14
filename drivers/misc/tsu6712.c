@@ -1579,7 +1579,7 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
         tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
 	intr2 = intr >> 8;
 #if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() == 5) {
+	if (u2_get_board_rev() >= 5) {
 
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
 

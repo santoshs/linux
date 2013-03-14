@@ -28,32 +28,6 @@
 #define R8A66597_PLATDATA_XTAL_24MHZ	0x02
 #define R8A66597_PLATDATA_XTAL_48MHZ	0x03
 
-#define R8A66597_PULL_OFF	0
-#define R8A66597_PULL_DOWN	1
-#define R8A66597_PULL_UP	2
-
-#define R8A66597_DIRECTION_NOT_SET	(-1)
-#define R8A66597_DIRECTION_NONE		0
-#define R8A66597_DIRECTION_OUTPUT	1
-#define R8A66597_DIRECTION_INPUT	2
-
-#define R8A66597_OUT_LEVEL_NOT_SET	(-1)
-#define R8A66597_OUT_LEVEL_HI		1
-#define R8A66597_OUT_LEVEL_LOW		0
-
-struct r8a66597_gpio_setting {
-	u32	port_mux;	/* pin function */
-	s32	pull;
-	s32 direction;
-	s32 out_level;	/* It become enable only when direction is output. */
-};
-
-struct r8a66597_gpio_setting_info {
-	u32	flag;		/* 0:nochange 1:change */
-	u32	port;		/* gpio port num */
-	struct r8a66597_gpio_setting active;
-	struct r8a66597_gpio_setting deactive;
-};
 struct r8a66597_platdata {
 	/* This callback can control port power instead of DVSTCTR register. */
 	void (*port_power)(int port, int power);
@@ -100,7 +74,7 @@ struct r8a66597_platdata {
 
 	/* Gpio setting */
 	unsigned int	port_cnt;
-	struct r8a66597_gpio_setting_info	*gpio_setting_info;
+	struct portn_gpio_setting_info  *usb_gpio_setting_info;
 };
 
 /* Register definitions */
