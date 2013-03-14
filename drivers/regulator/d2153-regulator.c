@@ -271,8 +271,6 @@ EXPORT_SYMBOL(d2153_lcd_power_on);
  */
 void d2153_clk32k_enable(int onoff)
 {
-	u8 reg_val;
-
 #ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() <= 4) {
 		dlg_info("%s is called on old Board revision. error\n", __func__);

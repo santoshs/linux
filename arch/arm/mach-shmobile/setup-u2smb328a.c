@@ -61,7 +61,7 @@ struct spa_power_data spa_power_pdata_d2153 = {
 	.batt_temp_tb = &batt_temp_tb_d2153[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb_d2153),
 };
-EXPORT_SYMBOL(spa_power_pdata_d2153);
+/*EXPORT_SYMBOL(spa_power_pdata_d2153);*/
 
 struct spa_power_data spa_power_pdata = {
 	.charger_name = "smb328a-charger",
@@ -77,7 +77,7 @@ struct spa_power_data spa_power_pdata = {
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
 };
-EXPORT_SYMBOL(spa_power_pdata);
+/*EXPORT_SYMBOL(spa_power_pdata);*/
 
 static struct platform_device spa_power_device_d2153 = {
 	.name = "spa_power",
@@ -85,11 +85,13 @@ static struct platform_device spa_power_device_d2153 = {
 	.dev.platform_data = &spa_power_pdata_d2153,
 };
 
+#ifdef CONFIG_MACH_U2EVM
 static struct platform_device spa_power_device = {
 	.name = "spa_power",
 	.id = -1,
 	.dev.platform_data = &spa_power_pdata,
 };
+#endif
 
 int spa_power_init(void)
 {

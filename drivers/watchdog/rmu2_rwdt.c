@@ -48,8 +48,27 @@
 #include <asm/cacheflush.h>
 #include <asm/traps.h>
 
+/* Local functions */
+static void cpg_check_init(void);
+static void cpg_check_check(void);
+static void rmu2_cmt_start(void);
+static void rmu2_cmt_clear(void);
+static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id);
+static void rmu2_cmt_init_irq(void);
+static void rmu2_rwdt_workfn(struct work_struct *work);
+#ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
+static irqreturn_t rmu2_rwdt_irq(int irq, void *dev_id);
+#endif /* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
+static int rmu2_rwdt_start(void);
+static int __devinit rmu2_rwdt_probe(struct platform_device *pdev);
+static int __devexit rmu2_rwdt_remove(struct platform_device *pdev);
+static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state);
+static int rmu2_rwdt_resume(struct platform_device *pdev);
+static int __init rmu2_rwdt_init(void);
+static void __exit rmu2_rwdt_exit(void);
+
 static struct proc_dir_entry *proc_watch_entry;
-static int start_stop_cmt_watchdog;
+/*static int start_stop_cmt_watchdog;*/
 /* Various nasty things we can do to the system to test the watchdog and
  *  * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
  *   */
@@ -1294,7 +1313,6 @@ int write_proc(struct file *file, const char __user *buf,
 	sscanf(buffer, "%u", &test_mode);
 
 	switch (test_mode) {
-		unsigned long flags, irq_vector;
 	case TEST_LOOP:
 		loop(0);
 		break;

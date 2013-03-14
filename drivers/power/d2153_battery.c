@@ -92,7 +92,6 @@ static const char __initdata d2153_battery_banner[] = \
 //static void d2153_external_event_handler(int category, int event);
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
 static int  d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel channel);
-static void d2153_sleep_monitor(struct d2153_battery *pbat);
 
 //////////////////////////////////////////////////////////////////////////////
 //    Static Variable Declaration
@@ -221,8 +220,9 @@ static u16 adc_weight_section_charge_lt[]		= {7000, 1700, 1000,  225,	155,   60,
 static u16 adc_weight_section_charge_lmt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
 static u16 adc_weight_section_charge_llt[]		= {7000, 1700, 1000,  225,	155,   60,	 55,   45,	170,  170,	200,  230,	230,  LAST_CHARGING_WEIGHT};
 
-//Charging Offset                               //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_diff_charge[]                    = {  60,   60,  200,  210,  225,  225,  248,  240,  235,  220,  175,  165,  165,    0};
+/*Charging Offset 0, 1, 3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100*/
+/*static u16 adc_diff_charge[] = {60, 60, 200, 210, 225, 225, 248, 240, 235,
+	220, 175, 165, 165, 0}; */
 #else
 static struct adc2soc_lookuptbl adc2soc_lut = {
 	.adc_ht  = {1800, 1870, 2060, 2270, 2400, 2510, 2585, 2635, 2685, 2781, 2933, 3064, 3230, ADC_VAL_100_PERCENT,}, // ADC input @ high temp
@@ -779,6 +779,7 @@ int adc_to_soc(u16 adc, u8 is_charging) {
 /* 
  * Name : d2153_get_current_voltage
  */
+/*
 static int d2153_get_current_voltage(struct d2153_battery *pbat)
 {
 	int current_voltage;
@@ -794,11 +795,12 @@ static int d2153_get_current_voltage(struct d2153_battery *pbat)
 
 	return current_voltage;
 }
-
+*/
 
 /* 
  * Name : d2153_get_average_voltage
  */
+/*
 static int d2153_get_average_voltage(struct d2153_battery *pbat)
 {
 	int average_voltage;
@@ -814,11 +816,12 @@ static int d2153_get_average_voltage(struct d2153_battery *pbat)
 
 	return average_voltage;
 }
-
+*/
 
 /* 
  * Name : d2153_get_average_temperature
  */
+/*
 static int d2153_get_average_temperature(struct d2153_battery *pbat)
 {
 	int average_temperature;
@@ -834,11 +837,12 @@ static int d2153_get_average_temperature(struct d2153_battery *pbat)
 
 	return average_temperature;
 }
-
+*/
 
 /* 
  * Name : d2153_get_average_temperature_adc
  */
+/*
 static int d2153_get_average_temperature_adc(struct d2153_battery *pbat)
 {
 	int average_temperature_adc;
@@ -854,7 +858,7 @@ static int d2153_get_average_temperature_adc(struct d2153_battery *pbat)
 
 	return average_temperature_adc;
 }
-
+*/
 
 /* 
  * Name : d2153_get_soc
@@ -920,6 +924,7 @@ static int d2153_get_soc(struct d2153_battery *pbat)
  * Name : d2153_set_adc_mode
  * get resistance (ohm) of VF from ADC input, using 10uA current source
  */ 
+/*
 static u32 d2153_get_vf_ohm (u16 adc) {
 	u32 ohm;
 	ohm = (2500 * adc * 100000); // R = 2.5*adc/(10*10^-6)/2^D2153_ADC_RESOLUTION
@@ -927,6 +932,7 @@ static u32 d2153_get_vf_ohm (u16 adc) {
 	ohm /= 1000;
 	return (ohm);
 }
+
 
 static u16 d2153_get_target_adc_from_lookup_at_charging(u16 tempk, u16 average_adc, u8 is_charging)
 {
@@ -957,6 +963,7 @@ static u16 d2153_get_target_adc_from_lookup_at_charging(u16 tempk, u16 average_a
 	}
 	return (u16)diff;
 }
+*/
 
 static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_charging)
 {
@@ -1226,6 +1233,7 @@ out:
 /* 
  * Name : d2153_check_offset_limits
  */
+/*
 static void d2153_check_offset_limits(int *A, int *B)
 {
 	if(*A > D2153_CAL_MAX_OFFSET)
@@ -1240,7 +1248,7 @@ static void d2153_check_offset_limits(int *A, int *B)
 
 	return;
 }
-
+*/
 
 /* 
  * Name : d2153_get_calibration_offset
@@ -1481,8 +1489,7 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 		else {
 			u8 i = 0;
 			u8 res_msb, res_lsb, is_convert = 0;
-			u32 capacity, convert_vbat_adc;
-			int result=0,result_vol_adc=0,result_temp_adc=0;
+			u32 capacity = 0, convert_vbat_adc = 0;
 			int X1, X0;
 			int Y1, Y0 = FIRST_VOLTAGE_DROP_ADC;
 			int X = C2K(pbat_data->average_temperature);
@@ -1517,9 +1524,6 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 										pbat->pd2153->vbat_init_adc[2]) / 3;
 
 			if(pbat_data->is_charging) {
-				u8 i = 0;
-				u16 orign_average_voltage_adc = 0;
-				u32 orign_sum_voltage_adc = 0;
 				int Y;
 				union power_supply_propval is_cv_charging;	
 
@@ -1670,6 +1674,8 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 /* 
  * Name : d2153_battery_tbat2_handler
  */
+
+/*
 static irqreturn_t d2153_battery_tbat2_handler(int irq, void *data)
 {
 	struct d2153_battery *pbat = (struct d2153_battery *)data;
@@ -1683,11 +1689,12 @@ static irqreturn_t d2153_battery_tbat2_handler(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
+*/
 
 /* 
  * Name : d2153_battery_vdd_low_handler
  */
+/*
 static irqreturn_t d2153_battery_vdd_low_handler(int irq, void *data)
 {
 	struct d2153_battery *pbat = (struct d2153_battery *)data;
@@ -1702,11 +1709,12 @@ static irqreturn_t d2153_battery_vdd_low_handler(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
+*/
 
 /* 
  * Name : d2153_battery_vdd_mon_handler
  */
+/*
 static irqreturn_t d2153_battery_vdd_mon_handler(int irq, void *data)
 {
 	struct d2153_battery *pbat = (struct d2153_battery *)data;
@@ -1721,11 +1729,12 @@ static irqreturn_t d2153_battery_vdd_mon_handler(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
+*/
 
 /* 
  * Name : d2153_battery_adceom_handler
  */
+/*
 static irqreturn_t d2153_battery_adceom_handler(int irq, void *data)
 {
 	u8 read_msb, read_lsb, channel;
@@ -1740,7 +1749,6 @@ static irqreturn_t d2153_battery_adceom_handler(int irq, void *data)
 
 	d2153 = pbat->pd2153;
 	
-	/* A manual ADC has 12 bit resolution */
 	ret = d2153_reg_read(d2153, D2153_ADC_RES_H_REG, &read_msb);
 	ret |= d2153_reg_read(d2153, D2153_ADC_RES_L_REG, &read_lsb);
 	ret |= d2153_reg_read(d2153, D2153_ADC_MAN_REG, &channel);
@@ -1779,18 +1787,19 @@ out:
 
 	return IRQ_HANDLED;
 }
-
+*/
 
 /* 
  * Name : d2153_sleep_monitor
  */
+/*
 static void d2153_sleep_monitor(struct d2153_battery *pbat)
 {
 	schedule_delayed_work(&pbat->sleep_monitor_work, 0);
 
 	return;
 }
-
+*/
 
 /* 
  * Name : d2153_get_rf_temperature
@@ -2206,7 +2215,7 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 /*
  * Name : d2153_battery_resume
  */
-static int d2153_battery_resume(struct platform_device *pdev, pm_message_t state)
+static int d2153_battery_resume(struct platform_device *pdev)
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;

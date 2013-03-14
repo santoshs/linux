@@ -73,7 +73,7 @@ static unsigned int spa_log_offset=0;
 static void spa_log_internal(const char *log, ...)
 {
 	va_list args;
-	int t_size=0, l_size=0, r_size=0;;
+	int t_size = 0, l_size = 0, r_size = 0;
 
 	char tbuf[50], *tp;
 	unsigned tlen;
@@ -601,7 +601,6 @@ static int spa_get_charger_type(struct spa_power_desc *spa_power_iter)
 
 static int spa_get_batt_temp(struct spa_power_desc *spa_power_iter)
 {
-	struct power_supply *ps;
 	union power_supply_propval value;
 
 #if 0
@@ -782,23 +781,23 @@ static int spa_get_batt_voltage(struct spa_power_desc *spa_power_iter)
 static int spa_get_batt_volt_avg(struct spa_power_desc *spa_power_iter)
 {
 	int i=0;
-	volatile int pass_cond=1, retry_cnt=0;
 	int index = spa_power_iter->volt_reading.index;
 	int readed_volt=0;
-	int dummy[20];
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	readed_volt = spa_get_batt_voltage(spa_power_iter);
 
 	if( readed_volt < 0)
 	{
-		pr_err("%s : wrong voltage \n", __func__);
+		pr_err("%s : wrong voltage\n", __func__);
 	}
 
-	pr_spa_dbg(LEVEL4, "%s : avg_size = %d \n", __func__, ADC_RUNNING_AVG_SIZE);
+	pr_spa_dbg(LEVEL4, "%s : avg_size = %d\n", __func__,
+			ADC_RUNNING_AVG_SIZE);
 	if(spa_power_iter->new_gathering.voltage == 1)
 	{
-		pr_spa_dbg(LEVEL2, "%s : voltage is 0 and gather initial values\n", __func__);
+		pr_spa_dbg(LEVEL2, "%s : voltage is 0 and gather initial"\
+				"values\n", __func__);
 		spa_power_iter->volt_reading.sum=0;
 		for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
 		{
@@ -874,18 +873,18 @@ static int spa_get_batt_vf_status(struct spa_power_desc *spa_power_iter)
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
 	ps->get_property(ps, POWER_SUPPLY_PROP_PRESENT, &value);
 
-	pr_spa_dbg(LEVEL4, "%s : vf_status = %d \n", __func__, value.intval);
+	pr_spa_dbg(LEVEL4, "%s : vf_status = %d\n", __func__, value.intval);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return value.intval;
 }
-
+/*
 static int spa_do_transition(struct spa_power_desc *spa_power_iter, unsigned int status)
 {
 	switch(status)
@@ -908,8 +907,9 @@ static int spa_do_transition(struct spa_power_desc *spa_power_iter, unsigned int
 			break;
 
 	}
+	return 0;
 }
-
+*/
 static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char machine, unsigned int phase, unsigned int status)
 {
 	struct spa_power_data *pdata = spa_power_iter->pdata;
@@ -1104,7 +1104,7 @@ static void spa_stop_charge_timer(SPA_CHARGING_STATUS_T endtype, void *data)
 static void spa_expire_charge_timer(struct work_struct *work)
 {
 	struct spa_power_desc *spa_power_iter = container_of(work,
-					struct spa_power_desc, spa_expire_charge_work.work);
+			struct spa_power_desc, spa_expire_charge_work.work);
 
 	volatile unsigned int times_expired=0;
 
@@ -1576,10 +1576,10 @@ EXPORT_SYMBOL(spa_event_handler);
 
 static void spa_init_config(struct spa_power_desc *spa_power_iter)
 {
+	struct spa_power_data *pdata =
+		(struct spa_power_data *)spa_power_iter->pdata;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
-
-	struct spa_power_data *pdata = (struct spa_power_data *)spa_power_iter->pdata;
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	// charger init values
 	spa_power_iter->charger_info.charger_name=pdata->charger_name;
 	//spa_power_iter->charger_info.charger_name="bcm59039_charger";
@@ -1589,7 +1589,7 @@ static void spa_init_config(struct spa_power_desc *spa_power_iter)
 	spa_power_iter->charger_info.recharge_voltage = pdata->recharge_voltage;
 	spa_power_iter->charger_info.lowbatt_voltage=3400;
 	spa_power_iter->charger_info.top_voltage = 4200;
-	spa_power_iter->charger_info.charge_expire_time = 5*HOUR_BY_MSEC*HZ;
+	spa_power_iter->charger_info.charge_expire_time = (5 * HOUR_BY_MSEC);
 	spa_power_iter->charger_info.times_expired = 0;
 	spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_DISCHARGING;
 	spa_power_iter->charging_status.status = SPA_STATUS_NONE;
@@ -1800,11 +1800,11 @@ label_SPA_POWER_PROBE_SUCCESS:
 	return 0;
 }
 
-static void __devexit spa_power_remove(struct platform_device *pdev)
+static int __devexit spa_power_remove(struct platform_device *pdev)
 {
 	struct spa_power_desc *spa_power_iter = platform_get_drvdata(pdev);
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	cancel_delayed_work_sync(&spa_power_iter->battery_work);
 	cancel_delayed_work_sync(&spa_power_iter->spa_expire_charge_work);
 
@@ -1821,7 +1821,8 @@ static void __devexit spa_power_remove(struct platform_device *pdev)
 	}
 
 	kfree(spa_power_iter);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
+	return 0;
 }
 
 static int spa_power_suspend(struct platform_device *pdev, pm_message_t state)
@@ -1832,7 +1833,7 @@ static int spa_power_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int spa_power_resume(struct platform_device *pdev, pm_message_t state)
+static int spa_power_resume(struct platform_device *pdev)
 {
 	struct spa_power_desc *spa_power_iter = g_spa_power;
 

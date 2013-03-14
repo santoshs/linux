@@ -86,7 +86,7 @@ void pmic_force_power_off(int resource)
 
   if (!(pmic_dev && pmic_dev->ops && pmic_dev->ops->force_power_off)) {
 		printk(KERN_ERR "%s: error -ENODEV\n", __func__);
-		return -ENODEV;
+		return;
   }
 
 	pmic_dev->ops->force_power_off(pmic_dev->dev.parent, resource);
