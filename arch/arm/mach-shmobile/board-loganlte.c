@@ -141,7 +141,7 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 
 #if defined(CONFIG_MFD_D2153)
 static struct regulator *emmc_regulator;
-
+#if 0
 void d2153_mmcif_pwr_control(int onoff)
 {
 	int ret;
@@ -169,7 +169,8 @@ void d2153_mmcif_pwr_control(int onoff)
 	}
 }
 #endif
-
+#endif
+#if 0
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
 #if defined(CONFIG_MFD_D2153)
@@ -183,6 +184,7 @@ void mmcif_down_pwr(struct platform_device *pdev)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
 }
+#endif
 
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
 	.gpio_port = GPIO_PORT47,

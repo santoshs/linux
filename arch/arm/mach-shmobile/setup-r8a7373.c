@@ -1644,7 +1644,7 @@ void d2153_mmcif_pwr_control(int onoff)
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
@@ -1665,7 +1665,7 @@ void mmcif_set_pwr(struct platform_device *pdev, int state)
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
