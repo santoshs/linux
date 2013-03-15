@@ -1811,7 +1811,7 @@ static struct {
 static ssize_t show_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	int ret = -EINVAL;
+	ssize_t ret = -EINVAL;
 	struct cpufreq_policy cur_policy;
 	struct kobj_type *ktype = NULL;
 	struct attribute *att = NULL;
@@ -1854,7 +1854,7 @@ static ssize_t store_freq(struct kobject *kobj,
 	int freq = 0;
 	int index = -1;
 	int att_id = 0;
-	int ret = -EINVAL;
+	ssize_t ret = -EINVAL;
 
 	spin_lock(&the_cpuinfo.lock);
 	if (strcmp(attr->attr.name, "cpufreq_max_limit") == 0)
