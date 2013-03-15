@@ -73,7 +73,6 @@
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
-#include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
@@ -263,12 +262,6 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
-struct a2220_platform_data  loganlte_a2220_data = {
-	.a2220_hw_init = NULL,
-	.gpio_reset = GPIO_PORT44,
-	.gpio_wakeup = GPIO_PORT26,
-};
-
 struct fm34_platform_data  loganlte_fm34_data = {
 	.set_mclk = NULL,
 	.gpio_pwdn = GPIO_PORT26,
@@ -424,10 +417,6 @@ static struct platform_device key_backlight_device = {
 };
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
-	{
-		I2C_BOARD_INFO("audience_a2220", 0x3E),
-		.platform_data = &loganlte_a2220_data,
-	},
 	{
 		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
 		.platform_data = &loganlte_fm34_data,
