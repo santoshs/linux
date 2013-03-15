@@ -123,6 +123,8 @@ enum {
 static void sensor_power_on_vdd(int);
 #endif
 
+
+#define SBSC_BASE			(0xFE000000U)
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
