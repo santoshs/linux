@@ -162,7 +162,7 @@ static struct plat_sci_port scif0_platform_data = {
 	.ops		= &shmobile_sci_port_ops,
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif0_gpio_setting_info),
-	.scif_gpio_setting_info = &scif0_gpio_setting_info,
+	.scif_gpio_setting_info = scif0_gpio_setting_info,
 };
 
 static struct platform_device scif0_device = {
@@ -173,6 +173,7 @@ static struct platform_device scif0_device = {
 	},
 };
 
+#ifdef DISABLE_UNUSED_SCIF_1_2_3_4_6_7_PORTS_FOR_GARDA
 /* SCIFA1 */
 static struct plat_sci_port scif1_platform_data = {
 	.mapbase	= 0xe6c50000,
@@ -241,6 +242,7 @@ static struct platform_device scif3_device = {
 		.platform_data	= &scif3_platform_data,
 	},
 };
+#endif
 
 /*GPIO Settings for SCIFB0 port */
 static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
@@ -343,7 +345,7 @@ static struct plat_sci_port scif4_platform_data = {
 #endif
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif4_gpio_setting_info),
-	.scif_gpio_setting_info = &scif4_gpio_setting_info,
+	.scif_gpio_setting_info = scif4_gpio_setting_info,
 };
 
 static struct platform_device scif4_device = {
@@ -451,7 +453,7 @@ static struct plat_sci_port scif5_platform_data = {
 	.capabilities = SCIx_HAVE_RTSCTS,
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif5_gpio_setting_info),
-	.scif_gpio_setting_info = &scif5_gpio_setting_info,
+	.scif_gpio_setting_info = scif5_gpio_setting_info,
 };
 
 static struct platform_device scif5_device = {
@@ -462,6 +464,7 @@ static struct platform_device scif5_device = {
 	},
 };
 
+#ifdef DISABLE_UNUSED_SCIF_1_2_3_4_6_7_PORTS_FOR_GARDA
 /* SCIFB2 */
 static struct plat_sci_port scif6_platform_data = {
 	.mapbase	= 0xe6ce0000,
@@ -507,6 +510,7 @@ static struct platform_device scif7_device = {
 		.platform_data	= &scif7_platform_data,
 	},
 };
+#endif
 
 /* IIC0 */
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
@@ -825,7 +829,7 @@ static struct platform_device i2c8_device = {
 /* SYS-DMAC */
 /* GPIO Port number needs to be modified by the respective driver module
 Udealy=5 will set I2C bus speed to 100k HZ */
-
+#ifdef DISABLE_UNUSED_I2C_0_1_GPIO_DEVICE_FOR_GARDA
 static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
       .sda_pin        = GPIO_PORT5,
       .scl_pin        = GPIO_PORT4,
@@ -853,7 +857,7 @@ static struct platform_device i2c1gpio_device = {
          .platform_data  = &i2c1gpio_platform_data,
   },
 };
-
+#endif
 /* Transmit sizes and respective CHCR register values */
 enum {
 	XMIT_SZ_8BIT		= 0,
@@ -1482,7 +1486,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
-
+#ifdef DISABLE_UNUSED_R8A7373_ES20_LATE_DEVICES_FOR_GARDA
 /* HS-- ES20 Specific late devices */
 static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
 	&i2c0_device, /* IIC0  */
@@ -1510,6 +1514,7 @@ static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
+#endif
 
 void __init r8a7373_add_standard_devices(void)
 {
@@ -1543,7 +1548,6 @@ void __init r8a7373_add_standard_devices(void)
 extern spinlock_t sh_cmt_lock;
 
 static struct clk *cmt10_clk;
-static DEFINE_CLOCK_DATA(cd);
 
 static void cmt10_start(void)
 {
@@ -1593,18 +1597,6 @@ void clocksource_mmio_resume(struct clocksource *cs)
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 void __init __weak r8a7373_register_twd(void) { }
 
-/* CMT10 clocksource */
-#define CMCLKE  0xe6131000
-#define CMSTR0  0xe6130000
-#define CMCSR0  0xe6130010
-#define CMCNT0  0xe6130014
-#define CMCOR0  0xe6130018
-
-/* CMT14 sched_clock */
-#define CMSTR4  0xe6130400
-#define CMCSR4  0xe6130410
-#define CMCNT4  0xe6130414
-#define CMCOR4  0xe6130418
 
 static u32 notrace cmt_read_sched_clock(void)
 {
@@ -1880,7 +1872,6 @@ void r8a7373_l2cache_init(void)
 #endif
 }
 
-#define CCCR	IO_ADDRESS(0xe600101c)
 
 void __init r8a7373_init_early(void)
 {
