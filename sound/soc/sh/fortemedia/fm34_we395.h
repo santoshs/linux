@@ -28,6 +28,36 @@
 #include "./fm34_cmd/fm34_we395_default.h"
 #endif
 
+#define FM34_WAIT_TIME 0
+#define FM34_BYPASS_ONLY 0
+
+#if FM34_WAIT_TIME
+/* Detasheet wait time */
+#define FM34_TRST_US		120
+#define FM34_TSU_RST2PP		2000
+#define FM34_TSU_PP2PD		2000
+#else
+/* Sample code wait time */
+#define FM34_TRST_US		5000
+#define FM34_TSU_RST2PP		5000
+#define FM34_TSU_PP2PD		20000
+#endif
+
+/* vclk4 */
+#define FM34_VCLKCR4_ADDR	0xE615001C
+#define FM34_VCLKCR4_REGSIZE	0x4
+
+/* GPIO */
+#define FM34_PWDN_ENABLE	0
+#define FM34_PWDN_DISABLE	1
+#define FM34_BP_ENABLE		0
+#define FM34_BP_DISABLE		1
+#define FM34_RST_ENABLE		0
+#define FM34_RST_DISABLE	1
+#define FM34_AVDD_ENABLE	1
+#define FM34_AVDD_DISABLE	0
+
+
 #define __FM34_PRINT__	1
 extern unsigned int g_fm34_log_level;
 

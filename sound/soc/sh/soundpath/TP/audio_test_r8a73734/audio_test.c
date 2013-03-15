@@ -634,7 +634,7 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_START);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;
@@ -710,7 +710,7 @@ static int audio_test_proc_stop_scuw_loopback(void)
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_STOP);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;
@@ -749,7 +749,7 @@ static int audio_test_proc_start_tone(void)
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_START);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;
@@ -827,7 +827,7 @@ static int audio_test_proc_stop_tone(void)
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_STOP);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;
@@ -870,7 +870,7 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_START);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;
@@ -949,7 +949,7 @@ static int audio_test_proc_stop_spuv_loopback(void)
 
 	/* Notify to Sound driver */
 	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_STOP);
 	if (0 != ret) {
 		audio_test_log_err("audio_test_notify_loopback");
 		goto error;

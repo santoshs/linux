@@ -86,17 +86,17 @@ struct sndp_work_info {
  ** ************************************************** *
  */
 /* use Audience information */
-struct sndp_a2220_callback_func {
+struct sndp_extdev_callback_func {
 	int (*set_state)(unsigned int mode, unsigned int device, unsigned int dev_chg);
 	int (*set_nb_wb) (unsigned int nb_wb);
 };
 
 /* change device */
-enum sndp_a2220_ch_type {
-	SNDP_A2220_NONE,
-	SNDP_A2220_START,
-	SNDP_A2220_STOP,
-	SNDP_A2220_CH_DEV,
+enum sndp_extdev_ch_type {
+	SNDP_EXTDEV_NONE,
+	SNDP_EXTDEV_START,
+	SNDP_EXTDEV_STOP,
+	SNDP_EXTDEV_CH_DEV,
 };
 
 /* PT status */
@@ -149,8 +149,8 @@ SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
 SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
 
 /* audience Set Callback function */
-SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
-				struct sndp_a2220_callback_func *func);
+SOUNDPATH_NO_EXTERN void sndp_extdev_regist_callback(
+				struct sndp_extdev_callback_func *func);
 
 /* for Production Test (Loopback test) */
 SOUNDPATH_NO_EXTERN int sndp_pt_loopback(

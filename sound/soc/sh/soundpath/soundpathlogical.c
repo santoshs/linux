@@ -270,7 +270,7 @@ static int g_call_playback_stop;
 static uint g_bluetooth_band_frequency;
 
 /* Callback function for audience */
-static struct sndp_a2220_callback_func *g_sndp_a2220_callback;
+static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
 /*!
    @brief Print Log informs of data receiving
@@ -2593,9 +2593,9 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		}
 	}
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->new_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_A2220_START);
+			     SNDP_EXTDEV_START);
 
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
@@ -2709,9 +2709,9 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 				     iRet);
 	}
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->old_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->old_value),
 			     SNDP_GET_AUDIO_DEVICE(work->old_value),
-			     SNDP_A2220_STOP);
+			     SNDP_EXTDEV_STOP);
 
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
@@ -2784,9 +2784,9 @@ static void sndp_work_voice_dev_chg(struct sndp_work_info *work)
 		/* Without processing */
 	}
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->new_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_A2220_CH_DEV);
+			     SNDP_EXTDEV_CH_DEV);
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3357,9 +3357,9 @@ static void sndp_work_incomm_start(const u_int new_value)
 	/* CLKGEN master */
 	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(new_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
-			     SNDP_A2220_START);
+			     SNDP_EXTDEV_START);
 
 	/* start SCUW */
 	ret = scuw_start(new_value, g_bluetooth_band_frequency);
@@ -3440,9 +3440,9 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	/* stop CLKGEN */
 	clkgen_stop();
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(old_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(old_value),
 			     SNDP_GET_AUDIO_DEVICE(old_value),
-			     SNDP_A2220_STOP);
+			     SNDP_EXTDEV_STOP);
 
 	/* Disable the power domain */
 	ret = pm_runtime_put_sync(g_sndp_power_domain);
@@ -3792,7 +3792,7 @@ static void sndp_work_pt_playback_start(struct sndp_work_info *work)
 
 	/* set Audience state (start) */
 #if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_START);
+	sndp_extdev_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_EXTDEV_START);
 #endif
 
 	/* FSI Trigger start */
@@ -3837,7 +3837,7 @@ static void sndp_work_pt_playback_stop(struct sndp_work_info *work)
 
 	/* set Audience state (stop) */
 #if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_STOP);
+	sndp_extdev_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_EXTDEV_STOP);
 #endif
 
 	/* Wake Unlock or Force Unlock */
@@ -4013,14 +4013,14 @@ static void sndp_codec_type_cb(u_int codec_type)
 
 	sndp_log_debug_func("start\n");
 
-	if (!g_sndp_a2220_callback) {
+	if (!g_sndp_extdev_callback) {
 		sndp_log_info("struct address is NULL\n");
 		return;
 	}
 
-	if (g_sndp_a2220_callback->set_nb_wb) {
-		sndp_log_info("call a2220 set_nb_wb\n");
-		ret = g_sndp_a2220_callback->set_nb_wb(codec_type);
+	if (g_sndp_extdev_callback->set_nb_wb) {
+		sndp_log_info("call extdev set_nb_wb\n");
+		ret = g_sndp_extdev_callback->set_nb_wb(codec_type);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set_nb_wb error [%d]\n", ret);
 	} else {
@@ -4086,9 +4086,9 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 				 g_bluetooth_band_frequency);
 	}
 
-	sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->new_value),
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_A2220_START);
+			     SNDP_EXTDEV_START);
 
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
@@ -4204,9 +4204,9 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 				 STAT_OFF,
 				 g_bluetooth_band_frequency);
 
-		sndp_a2220_set_state(SNDP_GET_MODE_VAL(work->old_value),
+		sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->old_value),
 				     SNDP_GET_AUDIO_DEVICE(work->old_value),
-				     SNDP_A2220_STOP);
+				     SNDP_EXTDEV_STOP);
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
 
@@ -4428,9 +4428,9 @@ static void sndp_work_start(const int direction)
 	}
 
 	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
-		sndp_a2220_set_state(SNDP_GET_MODE_VAL(uiValue),
+		sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
 				     SNDP_GET_AUDIO_DEVICE(uiValue),
-				     SNDP_A2220_START);
+				     SNDP_EXTDEV_START);
 
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
@@ -4637,9 +4637,9 @@ static void sndp_work_stop(
 
 		if ((SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) &&
 		    (SNDP_PT_NOT_STARTED == g_pt_start)) {
-			sndp_a2220_set_state(SNDP_GET_MODE_VAL(uiValue),
+			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
 					     SNDP_GET_AUDIO_DEVICE(uiValue),
-					     SNDP_A2220_STOP);
+					     SNDP_EXTDEV_STOP);
 			pm_runtime_put_sync(g_sndp_power_domain);
 		}
 	}
@@ -4777,16 +4777,16 @@ static void sndp_after_of_work_call_capture_stop(
 
    @retval	none
  */
-void sndp_a2220_regist_callback(struct sndp_a2220_callback_func *func)
+void sndp_extdev_regist_callback(struct sndp_extdev_callback_func *func)
 {
 	sndp_log_debug_func("start\n");
 
-	g_sndp_a2220_callback = func;
-	sndp_log_info("callback address [%p]\n", g_sndp_a2220_callback);
+	g_sndp_extdev_callback = func;
+	sndp_log_info("callback address [%p]\n", g_sndp_extdev_callback);
 
 	sndp_log_debug_func("end\n");
 }
-EXPORT_SYMBOL(sndp_a2220_regist_callback);
+EXPORT_SYMBOL(sndp_extdev_regist_callback);
 
 /*!
    @brief audience set_state
@@ -4798,21 +4798,21 @@ EXPORT_SYMBOL(sndp_a2220_regist_callback);
 
    @retval	none
  */
-static void sndp_a2220_set_state(unsigned int mode, unsigned int device, unsigned int dev_chg)
+static void sndp_extdev_set_state(unsigned int mode, unsigned int device, unsigned int dev_chg)
 {
 	int			ret = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
 
-	if (!g_sndp_a2220_callback) {
+	if (!g_sndp_extdev_callback) {
 		sndp_log_debug("struct address is NULL\n");
 		return;
 	}
 
-	if (g_sndp_a2220_callback->set_state) {
-		sndp_log_info("call a2220 set_state mode[%d] dev[%d] chg[%d]\n",
+	if (g_sndp_extdev_callback->set_state) {
+		sndp_log_info("call extdev set_state mode[%d] dev[%d] chg[%d]\n",
 				mode, device, dev_chg);
-		ret = g_sndp_a2220_callback->set_state(mode, device, dev_chg);
+		ret = g_sndp_extdev_callback->set_state(mode, device, dev_chg);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set_state error [%d]\n", ret);
 	} else {
@@ -4842,25 +4842,25 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 	sndp_log_debug_func("start\n");
 
 	/* Change PT start status */
-	if (SNDP_A2220_START == dev_chg)
+	if (SNDP_EXTDEV_START == dev_chg)
 		g_pt_start = SNDP_PT_LOOPBACK_START;
-	else if (SNDP_A2220_STOP == dev_chg)
+	else if (SNDP_EXTDEV_STOP == dev_chg)
 		g_pt_start = SNDP_PT_NOT_STARTED;
 
-	if ((!g_sndp_a2220_callback) ||
-	    (!(g_sndp_a2220_callback->set_state))) {
+	if ((!g_sndp_extdev_callback) ||
+	    (!(g_sndp_extdev_callback->set_state))) {
 		sndp_log_debug("Callback function address is NULL\n");
 		return -ENODEV;
 	}
 
-	sndp_log_info("call a2220 set_state\n");
-	iRet = g_sndp_a2220_callback->set_state(mode, device, dev_chg);
+	sndp_log_info("call extdev set_state\n");
+	iRet = g_sndp_extdev_callback->set_state(mode, device, dev_chg);
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("set_state error [%d]\n", iRet);
 		return iRet;
 	}
 
-	g_sndp_now_direction = (SNDP_A2220_START == dev_chg) ?
+	g_sndp_now_direction = (SNDP_EXTDEV_START == dev_chg) ?
 		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
 	sndp_log_debug_func("end\n");
@@ -4882,7 +4882,7 @@ EXPORT_SYMBOL(sndp_pt_loopback);
  */
 int sndp_pt_device_change(u_int dev, u_int onoff)
 {
-	u_int new_state = SNDP_A2220_NONE;
+	u_int new_state = SNDP_EXTDEV_NONE;
 
 	sndp_log_debug_func("start\n");
 	sndp_log_debug("dev=%d, onoff=%d\n", dev, onoff);
@@ -4895,15 +4895,15 @@ int sndp_pt_device_change(u_int dev, u_int onoff)
 #endif
 	/* set Audience state */
 	if ((SNDP_PT_NOT_STARTED == g_pt_start) && (SNDP_ON == onoff))
-		new_state = SNDP_A2220_START;
+		new_state = SNDP_EXTDEV_START;
 	else if ((SNDP_PT_NOT_STARTED == g_pt_start) && (SNDP_OFF == onoff))
-		new_state = SNDP_A2220_STOP;
+		new_state = SNDP_EXTDEV_STOP;
 	else if ((SNDP_PT_DEVCHG_START == g_pt_start) && (SNDP_ON == onoff))
-		new_state = SNDP_A2220_CH_DEV;
+		new_state = SNDP_EXTDEV_CH_DEV;
 	else if ((SNDP_PT_DEVCHG_START == g_pt_start) && (SNDP_OFF == onoff))
-		new_state = SNDP_A2220_STOP;
+		new_state = SNDP_EXTDEV_STOP;
 
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, dev, new_state);
+	sndp_extdev_set_state(SNDP_MODE_NORMAL, dev, new_state);
 	g_pt_start = (SNDP_ON == onoff) ?
 		SNDP_PT_DEVCHG_START : SNDP_PT_NOT_STARTED;
 
