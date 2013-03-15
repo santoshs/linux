@@ -30,7 +30,7 @@ void sec_getlog_supply_fbinfo(void *p_fb, u32 xres, u32 yres, u32 bpp,
 	if (p_fb) {
 		pr_info("%s: 0x%p %d %d %d %d\n", __func__, p_fb, xres, yres,
 			bpp, frames);
-		frame_buf_mark.p_fb = 0xc0100000;  /* temp code for  screenbuffer(0x4bc00000)  */
+		frame_buf_mark.p_fb = (void*)0xc0100000;  /* temp code for  screenbuffer(0x4bc00000)  */
 		frame_buf_mark.xres = (((xres+0x7)>>3)<<3);
 		frame_buf_mark.yres = yres;
 		frame_buf_mark.bpp = bpp;
