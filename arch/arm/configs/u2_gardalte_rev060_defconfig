@@ -979,3 +979,6 @@ CONFIG_USB_R8A66597=y
 
 # Memlog
 CONFIG_MEMLOG=y
+
+#Sync driver
+CONFIG_SYNC=y
