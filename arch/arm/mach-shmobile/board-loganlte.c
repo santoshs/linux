@@ -100,6 +100,13 @@
 #endif
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+#include <linux/platform_data/rtmusc.h>
+#endif
+#if defined(CONFIG_RT9450AC) || defined(CONFIG_RT9450B)
+#include <linux/platform_data/rtsmc.h>
+#endif
+
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
 #include <linux/spa_power.h>
 #endif
@@ -120,6 +127,16 @@
 #define DBGREG9				IO_ADDRESS(0xE6100040)
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
 #define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
+
+#if defined(CONFIG_BATTERY_BQ27425)
+#define BQ27425_ADDRESS (0xAA >> 1)
+#define GPIO_FG_INT 44
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+#define SMB328A_ADDRESS (0x69 >> 1)
+#define GPIO_CHG_INT 19
+#endif
 
 #if defined(CONFIG_BATTERY_BQ27425)
 #define BQ27425_ADDRESS (0xAA >> 1)
@@ -303,31 +320,46 @@ static struct platform_device bcm_backlight_devices = {
 	},
 };
 
+#define GPIO_MUS_INT 41
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #define TSU6712_ADDRESS (0x4A >> 1)
-#define GPIO_MUS_INT 41
+
 #endif
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_BATTERY_BQ27425)
         {
-                I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
-                .irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
+		I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
+		.irq = R8A7373_IRQC_IRQ(GPIO_FG_INT),
         },
 #endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
         {
-                I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
-                        .platform_data = NULL,
-                        .irq            = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
+		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
+		.platform_data = NULL,
+		.irq = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
         },
 #endif
+#if defined(CONFIG_RT8973)
+	{
+		I2C_BOARD_INFO("rt8973", 0x28>>1),
+		.platform_data = NULL,
+		.irq = irqpin2irq(GPIO_MUS_INT),
+	},
+#endif
+#if defined(CONFIG_RT8969)
+	{
+		I2C_BOARD_INFO("rt8969", 0x28>>1),
+		.platform_data = NULL,
+		.irq = irqpin2irq(GPIO_MUS_INT),
+	},
+#endif
 #if defined(CONFIG_CHARGER_SMB328A)
-        {
+	{
                 I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
 /*                      .platform_data = &tsu6712_pdata,*/
 /*                      .irq            = irqpin2irq(GPIO_CHG_INT),*/
-        },
+	},
 #endif
 };
 

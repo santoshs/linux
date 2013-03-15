@@ -601,7 +601,7 @@ void __init USBGpio_init(void)
 		}
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE)
 	if (u2_get_board_rev() >= 2 && u2_get_board_rev() != 6) {
 				ret = gpio_request(GPIO_PORT131, NULL);
 		if (ret < 0)
@@ -616,6 +616,20 @@ void __init USBGpio_init(void)
 			error_log("PORT131 direction output(1) failed!\n");
 	}
 #endif
+
+#if defined(CONFIG_MACH_LOGANLTE)
+	ret = gpio_request(GPIO_PORT131, NULL);
+	if (ret < 0)
+		error_log("PORT131 failed!USB may not function\n");
+	ret = gpio_direction_output(GPIO_PORT131, 0);
+	if (ret < 0)
+		error_log("PORT131 direction output(0) failed!\n");
+	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
+	ret = gpio_direction_output(GPIO_PORT131, 1);
+	if (ret < 0)
+		error_log("PORT131 direction output(1) failed!\n");
+#endif
+
 	ret = gpio_request(GPIO_PORT130, NULL);
 	if (ret < 0)
 		error_log("ERROR : PORT130 failed ! USB may not function\n");
