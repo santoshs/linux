@@ -323,6 +323,20 @@ void fsi_stop(void)
 }
 
 
+/* Table for DownLink Mute ON */
+static struct common_reg_table fsi_reg_tbl_dl_mute_on[] = {
+/*	  Reg					Value		D  C */
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001313,	0, 0 },
+};
+
+/* Table for DownLink Mute OFF */
+static struct common_reg_table fsi_reg_tbl_dl_mute_off[] = {
+/*	  Reg					Value		D  C */
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001111,	0, 0 },
+};
+
 /*!
    @brief FSI registers setting (Voice call)
 
@@ -750,6 +764,38 @@ void fsi_soft_reset(void)
 	sndp_log_debug_func("end\n");
 }
 
+
+/*!
+   @brief All down link mute control
+
+   @param[in]	mute	true / false
+   @param[out]	none
+
+   @retval	none
+ */
+void fsi_all_dl_mute_ctrl(bool mute)
+{
+	struct common_reg_table	*reg_tbl	= NULL;
+	u_int			tbl_size	= 0;
+
+	sndp_log_debug_func("start\n");
+	sndp_log_info("mute=%s\n", (false == mute) ? "false" : "true");
+
+
+	if (false == mute) {
+		/* Mute Off */
+		reg_tbl  = fsi_reg_tbl_dl_mute_off;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_dl_mute_off);
+	} else {
+		/* Mute On */
+		reg_tbl  = fsi_reg_tbl_dl_mute_on;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_dl_mute_on);
+	}
+
+	common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
+
+	sndp_log_debug_func("end\n");
+}
 
 #ifdef SOUND_TEST
 

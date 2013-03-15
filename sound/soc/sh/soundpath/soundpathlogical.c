@@ -71,6 +71,7 @@ static struct snd_kcontrol_new g_sndpdrv_controls[] = {
 	SNDPDRV_SOC_SINGLE("Bluetooth Volume", 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_get_voice_out_volume, sndp_soc_put_voice_out_volume),
 	SNDPDRV_SOC_SINGLE("Capture Volume"  , 0, 0, SNDPDRV_VOICE_VOL_MAX, 0, sndp_soc_capture_volume, sndp_soc_capture_volume),
 	SNDPDRV_SOC_SINGLE("Capture Switch"  , 0, 0, 1, 0, sndp_soc_get_capture_mute, sndp_soc_put_capture_mute),
+	SNDPDRV_SOC_SINGLE("Earpiece Switch" , 0, 0, 1, 0, sndp_soc_get_playback_mute, sndp_soc_put_playback_mute),
 };
 
 /* Mode change table */
@@ -197,6 +198,10 @@ static struct sndp_work_info g_sndp_work_play_incomm_stop;
 static struct sndp_work_info g_sndp_work_capture_incomm_start;
 /* Capture incommunication stop */
 static struct sndp_work_info g_sndp_work_capture_incomm_stop;
+
+/* All down link mute control */
+static struct sndp_work_info g_sndp_work_all_dl_mute;
+static bool g_dl_mute_flg;
 
 /* hw free for wake up */
 static struct sndp_work_info g_sndp_work_hw_free[SNDP_PCM_DIRECTION_MAX];
@@ -647,6 +652,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		  sndp_work_call_playback_incomm_stop);
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_stop,
 		  sndp_work_call_capture_incomm_stop);
+	sndp_work_initialize(&g_sndp_work_all_dl_mute,
+		  sndp_work_all_dl_mute);
 
 	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
 
@@ -693,6 +700,9 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 			goto set_mute_err;
 		}
 	}
+
+	/* initialize all down link mute control flag */
+	g_dl_mute_flg = false;
 
 	/* ioremap */
 	iRet = common_ioremap();
@@ -1411,7 +1421,7 @@ int sndp_soc_put(
    @retval	0		Successful
    @retval	-EIO		kernel-side error
  */
-static int sndp_soc_get_voice_out_volume(
+int sndp_soc_get_voice_out_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -1446,7 +1456,7 @@ static int sndp_soc_get_voice_out_volume(
    @retval	0		Successful
    @retval	-EINVAL		Invalid argument
  */
-static int sndp_soc_put_voice_out_volume(
+int sndp_soc_put_voice_out_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -1487,7 +1497,7 @@ static int sndp_soc_capture_volume(
 
 
 /*!
-   @brief GET callback function for hooks control(Mute setting)
+   @brief GET callback function for hooks control(Capture Mute setting)
 
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
@@ -1519,7 +1529,7 @@ static int sndp_soc_get_capture_mute(
 
 
 /*!
-   @brief PUT callback function for hooks control(Mute setting)
+   @brief PUT callback function for hooks control(Capture Mute setting)
 
    @param[-]	kcontrol	Not use
    @param[in]	ucontrol	Element data
@@ -1542,6 +1552,65 @@ static int sndp_soc_put_capture_mute(
 			return iRet;
 		}
 	}
+
+	return iRet;
+}
+
+/*!
+   @brief GET callback function for hooks control(Playback Mute setting)
+
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+
+   @retval	0		Successful
+ */
+int sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	/* Return the current settings */
+	ucontrol->value.enumerated.item[0] = !(g_dl_mute_flg);
+
+	return ERROR_NONE;
+}
+
+/*!
+   @brief PUT callback function for hooks control(Playback Mute setting)
+
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+
+   @retval	0		Successful
+   @retval	-EINVAL		Invalid argument
+ */
+int sndp_soc_put_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int	iRet = ERROR_NONE;
+	u_int	iInDev = SNDP_NO_DEVICE;
+	u_int	iOutDev = SNDP_NO_DEVICE;
+
+
+	/* Device get from old_value */
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_IN))
+		iInDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_IN));
+	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_OUT))
+		iOutDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT));
+
+	/* update all down link mute control flag */
+	g_dl_mute_flg = !(ucontrol->value.enumerated.item[0]);
+
+	sndp_log_debug("MUTE=%s\n",
+		(false == g_dl_mute_flg) ? "false" : "true");
+
+	/* Control to output mute on/off,         */
+	/* when during a call or FM reproduction. */
+	if ((SNDP_MODE_INCALL ==
+		SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))) ||
+	    (SNDP_FM_RADIO_RX & iInDev) || (SNDP_FM_RADIO_RX & iOutDev))
+		sndp_workqueue_enqueue(g_sndp_queue_main,
+					&g_sndp_work_all_dl_mute);
 
 	return iRet;
 }
@@ -2537,7 +2606,10 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 	/* start FSI */
 	iRet = fsi_start(work->new_value);
-	if (ERROR_NONE != iRet) {
+	if (ERROR_NONE == iRet) {
+		/* all down link mute control */
+		fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+	} else {
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
@@ -2782,7 +2854,10 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 
 	/* start FSI */
 	iRet = fsi_start(new_value);
-	if (ERROR_NONE != iRet)
+	if (ERROR_NONE == iRet)
+		/* all down link mute control */
+		fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
 	/* start CLKGEN */
@@ -2833,7 +2908,10 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 
 	/* start FSI */
 	iRet = fsi_start(new_value);
-	if (ERROR_NONE != iRet)
+	if (ERROR_NONE == iRet)
+		/* all down link mute control */
+		fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
 	/* start CLKGEN */
@@ -3770,6 +3848,28 @@ static void sndp_work_pt_playback_stop(struct sndp_work_info *work)
 
 
 /*!
+   @brief Work queue processing for all down link mute control
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_all_dl_mute(struct sndp_work_info *work)
+{
+	sndp_log_debug_func("start\n");
+	sndp_log_info("all_dl_mute=%s\n",
+		(false == g_dl_mute_flg) ? "false" : "true");
+
+	/* Control to output mute on/off,         */
+	/* when during a call or FM reproduction. */
+	fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief VCD_COMMAND_WATCH_STOP_FW registration process
 
    @param[in]	none
@@ -3999,7 +4099,10 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 
 	/* start FSI */
 	iRet = fsi_start(work->new_value);
-	if (ERROR_NONE != iRet) {
+	if (ERROR_NONE == iRet) {
+		/* all down link mute control */
+		fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+	} else {
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
@@ -4238,7 +4341,10 @@ static void sndp_path_backout(const u_int uiValue)
 
 	/* start FSI */
 	iRet = fsi_start(uiValue);
-	if (ERROR_NONE != iRet)
+	if (ERROR_NONE == iRet)
+		/* all down link mute control */
+		fsi_all_dl_mute_ctrl(g_dl_mute_flg);
+	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
 	/* start CLKGEN */

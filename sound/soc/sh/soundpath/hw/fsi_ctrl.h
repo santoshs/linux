@@ -101,6 +101,9 @@
 #define FSI_DIFF_ST_WAIT_COUNT	(10)	/* loop	*/
 #define FSI_DIFF_ST_WAIT_SIZE	(64)	/* samples */
 
+/* DL all mute value */
+#define FSI_DL_ALL_MUTE_VALUE	(0x00000202)
+
 /*
  * STRUCTURE Definitions
  */

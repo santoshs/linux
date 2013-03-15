@@ -376,6 +376,34 @@ int fsi_d2153_snd_soc_put_adc(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int fsi_d2153_sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_get_voice_out_volume(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_put_voice_out_volume(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_get_playback_mute(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_put_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_put_playback_mute(kcontrol, ucontrol);
+}
+
 static struct snd_kcontrol_new fsi_d2153_controls[] = {
 	SOC_SINGLE_BOOL_EXT("ADC Activate", 0,
 		fsi_d2153_snd_soc_get_adc, fsi_d2153_snd_soc_put_adc),
@@ -383,6 +411,12 @@ static struct snd_kcontrol_new fsi_d2153_controls[] = {
 		fsi_d2153_sndp_soc_get, fsi_d2153_sndp_soc_put),
 	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
 		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
+	FSI_SOC_SINGLE("Earpiece Volume" , 0, 0, 25, 0,
+		fsi_d2153_sndp_soc_get_voice_out_volume,
+		fsi_d2153_sndp_soc_put_voice_out_volume),
+	FSI_SOC_SINGLE("Earpiece Switch" , 0, 0, 1,  0,
+		fsi_d2153_sndp_soc_get_playback_mute,
+		fsi_d2153_sndp_soc_put_playback_mute),
 };
 
 static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {

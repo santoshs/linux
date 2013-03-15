@@ -115,6 +115,19 @@ SOUNDPATH_NO_EXTERN int sndp_soc_put(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 
+SOUNDPATH_NO_EXTERN int sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+
 SOUNDPATH_NO_EXTERN void sndp_exit(void);
 SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
 
