@@ -61,6 +61,8 @@
 #define udc_log(fmt, ...) 
 #endif 
 
+int gIsConnected;
+
 static const char udc_name[] = "r8a66597_udc";
 static const char usbhs_dma_name[] = "USBHS-DMA1";
 static const char *r8a66597_ep_name[] = {
@@ -2377,6 +2379,7 @@ static int r8a66597_start(struct usb_gadget *gadget,
 
 		if (r8a66597->pdata->vbus_irq) {
 			int ret;
+#if !(defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
 			ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
 					NULL, r8a66597_vbus_irq,
 					IRQF_ONESHOT, "vbus_detect", r8a66597);
@@ -2386,6 +2389,7 @@ static int r8a66597_start(struct usb_gadget *gadget,
 					r8a66597->pdata->vbus_irq, ret);
 				return -EINVAL;
 			}
+#endif
 			if (r8a66597->is_active) {
 				udc_log("%s: IN, no powerup\n", __func__);
 				udc_log("%s: USB clock enable called by\n", __func__);
@@ -2406,6 +2410,7 @@ static int r8a66597_start(struct usb_gadget *gadget,
 				if (r8a66597->pdata->is_vbus_powered()) {
 					udc_log("%s: IN, vbuspowered\n",
 					__func__);
+					gIsConnected = 1;
 					if (!wake_lock_active(&r8a66597->
 								wake_lock))
 						wake_lock(&r8a66597->wake_lock);
@@ -2512,6 +2517,7 @@ static int r8a66597_vbus_session(struct usb_gadget *gadget , int is_active)
 {
 	return 0;
 }
+
 static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
@@ -2531,7 +2537,11 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
 	}
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+	vbus_state = gIsConnected;
+#else
 	vbus_state = r8a66597->pdata->is_vbus_powered();
+#endif
 	/* Clear VBUS Interrupt after reading */
 	if (r8a66597_read(r8a66597, INTSTS0) & VBINT)
 		r8a66597_bclr(r8a66597, VBINT, INTSTS0);
@@ -2842,6 +2852,21 @@ clean_up:
 		iounmap(dma_reg);
 	return ret;
 }
+
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+void send_usb_insert_event(int isConnected)
+{
+	struct r8a66597 *r8a66597 = the_controller;
+	if (!wake_lock_active(&r8a66597->wake_lock))
+		wake_lock(&r8a66597->wake_lock);
+
+	printk(KERN_INFO "USBD][send_usb_insert_event] isConnected=%d\n",\
+							isConnected);
+	gIsConnected = isConnected;
+	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(200));
+}
+EXPORT_SYMBOL_GPL(send_usb_insert_event);
+#endif
 
 #ifdef CONFIG_PM
 

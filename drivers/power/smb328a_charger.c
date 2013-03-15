@@ -112,8 +112,6 @@ static int smb328a_read_reg(struct i2c_client *client, int reg)
 
 	return ret;
 }
-
-/*
 static void smb328a_print_reg(struct i2c_client *client, int reg)
 {
 	u8 data = 0;
@@ -148,7 +146,7 @@ static void smb328a_print_all_regs(struct i2c_client *client)
 	smb328a_print_reg(client, 0x08);
 	smb328a_print_reg(client, 0x09);
 	smb328a_print_reg(client, 0x0a);
-}*/
+}
 
 static void smb328a_allow_volatile_writes(struct i2c_client *client)
 {
@@ -413,8 +411,6 @@ static int smb328a_check_charging_status(struct i2c_client *client)
 
 	return ret;
 }
-
-/*
 static bool smb328a_check_is_charging(struct i2c_client *client)
 {
 	int val;
@@ -429,12 +425,12 @@ static bool smb328a_check_is_charging(struct i2c_client *client)
 		printk("%s : reg (0x%x) = 0x%x\n", __func__, SMB328A_BATTERY_CHARGING_STATUS_C, data);
 
 		if (data&0x1)
-			ret = true; // charger enabled
+			ret = true; /* charger enabled */
 	}
 
 	return ret;
 }
-*/
+
 
 static bool smb328a_check_bat_full(struct i2c_client *client)
 {
@@ -570,7 +566,11 @@ union power_supply_propval *val)
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		{
+#if (defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
+			int type = 0;
+#else
 			int type = get_cable_type();
+#endif
 			printk("%s, %d\n", __func__, type);
 			switch(type)
 			{
@@ -708,8 +708,11 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 static int smb328a_set_charging_current(struct i2c_client *client, int chg_current)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
-    int cable_type = get_cable_type();
-
+#if (defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
+	int cable_type = 0;
+#else
+	int cable_type = get_cable_type();
+#endif
 	if (cable_type == CABLE_TYPE_USB)
 		chip->chg_mode = CHG_MODE_USB;
 	else if(cable_type == CABLE_TYPE_AC)

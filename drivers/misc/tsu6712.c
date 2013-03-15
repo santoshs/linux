@@ -1005,11 +1005,28 @@ static struct attribute *tsu6712_attributes[] = {
 	&dev_attr_uart_wakelock.attr,
 	NULL
 };
+#if !(defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
 
+static struct kobject *usb_kobj;
+#define USB_FS "usb_atparser"
+
+#endif
 static const struct attribute_group tsu6712_group = {
 	.attrs = tsu6712_attributes,
 };
-
+#if !(defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
+static int usb_sysfs_init(void)
+{
+	int ret;
+	usb_kobj = kobject_create_and_add(USB_FS, kernel_kobj);
+	if (!usb_kobj)
+		return;
+	ret = sysfs_create_group(usb_kobj, &tsu6712_group);
+	if (ret)
+		kobject_put(usb_kobj);
+	return ret;
+}
+#endif
 void tsu6712_otg_detach(void)
 {
 	unsigned int data = 0;
@@ -1693,6 +1710,7 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct tsu6712_usbsw *usbsw;
 	int ret = 0;
+	int err = 0;
 	struct input_dev *input;
 	struct device *switch_dock;
 
@@ -1757,7 +1775,8 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	deep sleep When UART JIG is disconnected */
 	wake_lock_init(&usbsw->uart_wakelock,
 			WAKE_LOCK_SUSPEND, "uart-wakelock");
-	ret = sysfs_create_group(&client->dev.kobj, &tsu6712_group);
+	err = usb_sysfs_init();
+
 	if (ret) {
 		dev_err(&client->dev,"failed to create tsu6712 attribute group\n");
  	}
@@ -1847,6 +1866,8 @@ static int __devexit tsu6712_remove(struct i2c_client *client)
 	i2c_set_clientdata(client, NULL);
 
 	sysfs_remove_group(&client->dev.kobj, &tsu6712_group);
+	kobject_put(usb_kobj);
+
 	kfree(usbsw);
 	return 0;
 }
