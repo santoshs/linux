@@ -571,51 +571,10 @@ static int fsi_hifi_d2153_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int fsi_hifi_d2153_hw_params_test(struct snd_pcm_substream *substream,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	unsigned int pll_out = 16000;
-
-	snd_soc_dai_set_sysclk(codec_dai, 0,
-		D2153_SNDP_MCLK_RATE, SND_SOC_CLOCK_IN);
-
-	switch (params_rate(params)) {
-	case 8000:
-	case 12000:
-	case 16000:
-	case 24000:
-	case 32000:
-	case 48000:
-	case 96000:
-		pll_out = D2153_PLL_FREQ_OUT_98304000;
-		break;
-	case 11025:
-	case 22050:
-	case 44100:
-	case 88100:
-		pll_out = D2153_PLL_FREQ_OUT_90316800;
-		break;
-	default:
-		pr_err("Invalid sampling rate for D2153 with PLL\n");
-		return -EINVAL;
-	}
-
-	snd_soc_dai_set_pll(codec_dai, 0, D2153_SYSCLK_PLL, 48000, pll_out);
-
-	return 0;
-}
-
 static struct snd_soc_ops fsi_hifi_d2153_ops = {
 	.hw_params = fsi_hifi_d2153_hw_params,
 	.prepare = fsi_hifi_d2153_pcm_prepare,
 };
-
-static struct snd_soc_ops fsi_hifi_d2153_ops_test = {
-	.hw_params = fsi_hifi_d2153_hw_params_test,
-};
-
 
 static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -644,11 +603,6 @@ static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static int fsi_hifi_d2153_init_test(struct snd_soc_pcm_runtime *rtd)
-{
-	return 0;
-}
-
 static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
 		.name = "fsia d2153",
@@ -661,14 +615,12 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 		.ops = &fsi_hifi_d2153_ops,
 	},
 	{
-		.name = "fsia d2153 dummy",
-		.stream_name = "Hifi",
-		.cpu_dai_name	= "fsia-dai",
-		.codec_name = "d2153-codec.0-0018",
-		.platform_name = "sh_fsi2.0",
-		.codec_dai_name = "d2153-aif2",
-		.init = fsi_hifi_d2153_init_test,
-		.ops = &fsi_hifi_d2153_ops_test,
+		.name = "fsib Wireless Transciever",
+		.stream_name = "Wireless Transciever",
+		.cpu_dai_name	= "fsib-dai",
+		.codec_name = "sh_fsi_wireless_transciever.0",
+		.platform_name = "sh_fsi2.1",
+		.codec_dai_name = "sh_fsi_wireless_transciever",
 	},
 };
 

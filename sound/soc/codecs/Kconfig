@@ -47,6 +47,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
 	select SND_SOC_SPDIF
+	select SND_SOC_SH_FSI_WIRELESS_TRANSCEIVER
 	select SND_SOC_SSM2602 if SND_SOC_I2C_AND_SPI
 	select SND_SOC_STA32X if I2C
 	select SND_SOC_STAC9766 if SND_SOC_AC97_BUS
@@ -257,6 +258,14 @@ config SND_SOC_SGTL5000
 config SND_SOC_SIGMADSP
 	tristate
 	select CRC32
+
+config SND_SOC_SH_FSI_WIRELESS_TRANSCEIVER
+	tristate "sh-fsi Bluetooth and Fm dummy codec driver support"
+	help
+	 For sh-fsi Platform
+	  Bluetooth and Fm dummy codec driver.
+		This driver registers snd_soc_dai_driver.
+		 And it is dummy.
 
 config SND_SOC_SN95031
 	tristate
