@@ -1849,14 +1849,14 @@ int kmsg_dump_register(struct kmsg_dumper *dumper)
 	if (!dumper->dump)
 		return -EINVAL;
 
-	raw_spin_lock_irqsave(&dump_list_lock, flags);
+	spin_lock_irqsave(&dump_list_lock, flags);
 	/* Don't allow registering multiple times */
 	if (!dumper->registered) {
 		dumper->registered = 1;
 		list_add_tail_rcu(&dumper->list, &dump_list);
 		err = 0;
 	}
-	raw_spin_unlock_irqrestore(&dump_list_lock, flags);
+	spin_unlock_irqrestore(&dump_list_lock, flags);
 
 	return err;
 }
@@ -1874,13 +1874,13 @@ int kmsg_dump_unregister(struct kmsg_dumper *dumper)
 	unsigned long flags;
 	int err = -EINVAL;
 
-	raw_spin_lock_irqsave(&dump_list_lock, flags);
+	spin_lock_irqsave(&dump_list_lock, flags);
 	if (dumper->registered) {
 		dumper->registered = 0;
 		list_del_rcu(&dumper->list);
 		err = 0;
 	}
-	raw_spin_unlock_irqrestore(&dump_list_lock, flags);
+	spin_unlock_irqrestore(&dump_list_lock, flags);
 	synchronize_rcu();
 
 	return err;
