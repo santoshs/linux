@@ -498,8 +498,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			tunnel->free_pdn = 0;
 
-			strcpy((char *)&k_parms.name,
-				(char *)tunnel->dev->name);
+			strcpy(k_parms.name, tunnel->dev->name);
 
 			if (copy_to_user(u_parms, &k_parms,
 					sizeof(struct mhdp_tunnel_parm)))
