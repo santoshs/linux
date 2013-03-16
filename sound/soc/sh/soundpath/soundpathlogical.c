@@ -371,7 +371,7 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		return ulTmpNextDev;
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	return ulTmpNextDev;
 #endif
 
@@ -674,7 +674,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
 #endif
 
@@ -4487,7 +4487,7 @@ static void sndp_work_start(const int direction)
 			fsi_d2153_set_dac_power(g_kcontrol, 1);
 	}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		/* Output device ON */
 		if (SNDP_PCM_OUT == direction)
 			fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -4698,7 +4698,7 @@ static void sndp_work_stop(
 		}
 	}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		if (SNDP_PCM_OUT == direction) {
 			/* Output device OFF */
 			fsi_d2153_set_dac_power(g_kcontrol, 0);

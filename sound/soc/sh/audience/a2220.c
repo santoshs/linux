@@ -2753,6 +2753,9 @@ static int __init a2220_init(void)
 	if (board_rev > 1)
 		return -ENODEV;
 #endif
+#if defined(CONFIG_MACH_LOGANLTE)
+	return -ENODEV;
+#endif
 	g_a2220_log_level = A2220_LOG_ERR;
 	return i2c_add_driver(&a2220_driver);
 }
@@ -2775,6 +2778,9 @@ static void __exit a2220_exit(void)
 		board_rev = 1;
 	if (board_rev > 1)
 		return;
+#endif
+#if defined(CONFIG_MACH_LOGANLTE)
+	return;
 #endif
 	i2c_del_driver(&a2220_driver);
 }
