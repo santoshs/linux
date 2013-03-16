@@ -428,21 +428,20 @@ static void jig_attach(uint8_t attached,uint8_t factory_mode)
     {
         case RTMUSC_FM_BOOT_OFF_UART:
         INFO("JIG BOOT OFF UART\n");
-        break;
+	uart_attach(attached);
+	break;
         case RTMUSC_FM_BOOT_OFF_USB:
         INFO("JIG BOOT OFF USB\n");
-		send_usb_insert_event(0);
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-
-        break;
+	usb_attach(attached);
+	break;
         case RTMUSC_FM_BOOT_ON_UART:
         INFO("JIG BOOT ON UART\n");
+	uart_attach(attached);
         break;
         case RTMUSC_FM_BOOT_ON_USB:
         INFO("JIG BOOT ON USB\n");
-		send_usb_insert_event(1);
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
-        break;
+	usb_attach(attached);
+	break;
         default:
         ;
     }
