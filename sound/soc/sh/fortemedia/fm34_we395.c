@@ -164,7 +164,7 @@ struct fm34_table *fm34_state_table[FM34_STATUS_MAX][FM34_EVENT_MAX] = {
 	{
 		&fm34_nop_table,		/* FM34_EVENT_IDLE */
 		&fm34_idle_to_bypass_table,	/* FM34_EVENT_BYPASS */
-		&fm34_voice_table,		/* FM34_EVENT_VOICE */
+		&fm34_nop_table,		/* FM34_EVENT_VOICE */
 		&fm34_suspend_table,		/* FM34_EVENT_SUSPEND */
 		&fm34_error_table,		/* FM34_EVENT_RESUME */
 	},
@@ -172,7 +172,7 @@ struct fm34_table *fm34_state_table[FM34_STATUS_MAX][FM34_EVENT_MAX] = {
 	{
 		&fm34_bypass_to_idle_table,	/* FM34_EVENT_IDLE */
 		&fm34_nop_table,		/* FM34_EVENT_BYPASS */
-		&fm34_voice_table,		/* FM34_EVENT_VOICE */
+		&fm34_nop_table,		/* FM34_EVENT_VOICE */
 		&fm34_error_table,		/* FM34_EVENT_SUSPEND */
 		&fm34_error_table,		/* FM34_EVENT_RESUME */
 	},
