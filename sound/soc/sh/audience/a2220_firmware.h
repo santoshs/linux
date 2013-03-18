@@ -15,7 +15,7 @@
  */
 
 #if defined(A2220_EOS2_FIRMWARE)
-#include "a2220_guardian_b17832.h"
+#include "a2220_b17832.h"
 #elif defined(CONFIG_MACH_GOGH)
 #include "a2220_firmware_gogh.h"
 #elif defined(CONFIG_MACH_COMANCHE)

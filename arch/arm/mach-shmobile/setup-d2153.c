@@ -445,8 +445,8 @@ __weak struct regulator_consumer_supply d2153_ldo20_supplies[] = {
 
 static struct regulator_init_data d2153_ldo20 = {
 	.constraints = {
-		.min_uV = D2153_LDO19_VOLT_LOWER,
-		.max_uV = D2153_LDO19_VOLT_UPPER,
+		.min_uV = D2153_LDO20_VOLT_LOWER,
+		.max_uV = D2153_LDO20_VOLT_UPPER,
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask = REGULATOR_MODE_NORMAL,
 	},
@@ -512,9 +512,9 @@ static struct d2153_regl_init_data d2153_regulators_init_data[D2153_NUMBER_OF_RE
 	[D2153_LDO_15] = { D2153_LDO_15, &d2153_ldo15 },
 	[D2153_LDO_16] = { D2153_LDO_16, &d2153_ldo16 },
 	[D2153_LDO_17] = { D2153_LDO_17, &d2153_ldo17 },
-	[D2153_LDO_18] = { D2153_LDO_15, &d2153_ldo18 },
-	[D2153_LDO_19] = { D2153_LDO_16, &d2153_ldo19 },
-	[D2153_LDO_20] = { D2153_LDO_17, &d2153_ldo20 },
+	[D2153_LDO_18] = { D2153_LDO_18, &d2153_ldo18 },
+	[D2153_LDO_19] = { D2153_LDO_19, &d2153_ldo19 },
+	[D2153_LDO_20] = { D2153_LDO_20, &d2153_ldo20 },
 	
 	[D2153_LDO_AUD1] = { D2153_LDO_AUD1, &d2153_ldoaud1 },
 	[D2153_LDO_AUD2] = { D2153_LDO_AUD2, &d2153_ldoaud2 },

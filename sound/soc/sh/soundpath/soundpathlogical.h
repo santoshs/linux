@@ -90,12 +90,6 @@ static int sndp_soc_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 /* SOC functions */
-static int sndp_soc_get_voice_out_volume(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-static int sndp_soc_put_voice_out_volume(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
 static int sndp_soc_capture_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
@@ -232,6 +226,8 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work);
 static void sndp_work_capture_incomm_start(struct sndp_work_info *work);
 /* Work queue processing for capture incommunication stop */
 static void sndp_work_capture_incomm_stop(struct sndp_work_info *work);
+/* Work queue processing for all down link mute control */
+static void sndp_work_all_dl_mute(struct sndp_work_info *work);
 
 /* SoundPath start / stop control functions */
 /* Normal */
@@ -454,7 +450,7 @@ static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_sndp_watch_stop_clk;
 
 /* audience Callback */
-static void sndp_a2220_set_state(
+static void sndp_extdev_set_state(
 		unsigned int mode, unsigned int device, unsigned int dev_chg);
 
 

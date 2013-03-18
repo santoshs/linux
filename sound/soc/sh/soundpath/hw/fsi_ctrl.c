@@ -202,7 +202,6 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	{ FSI_ACK_RST,	0x00000001,	0, 0x00000001 },
 };
 
-
 /* Table for Playback(PortB, FSI master) */
 static struct common_reg_table fsi_reg_tbl_playB_M[] = {
 /*	  Reg					Value		D  C */
@@ -324,6 +323,20 @@ void fsi_stop(void)
 }
 
 
+/* Table for DownLink Mute ON */
+static struct common_reg_table fsi_reg_tbl_dl_mute_on[] = {
+/*	  Reg					Value		D  C */
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001313,	0, 0 },
+};
+
+/* Table for DownLink Mute OFF */
+static struct common_reg_table fsi_reg_tbl_dl_mute_off[] = {
+/*	  Reg					Value		D  C */
+	/* MUTE OFF */
+	{ FSI_MUTE,				0x00001111,	0, 0 },
+};
+
 /*!
    @brief FSI registers setting (Voice call)
 
@@ -418,17 +431,17 @@ static void fsi_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	/* FM_RADIO_TX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playB_M);
 	}
@@ -438,7 +451,7 @@ static void fsi_playback(const u_int uiValue)
 
 	/* Add setting for FM_RADIO_RX */
 	if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_playA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_playA_M);
 
@@ -447,12 +460,13 @@ static void fsi_playback(const u_int uiValue)
 			if (FSI_DIFF_ST_WAIT_SIZE <
 			((0x0000ff00 & ioread32(diff_st_reg)) >> 8))
 				break;
+
 			udelay(FSI_DIFF_ST_WAIT_TIME);
 		}
 
 		sndp_log_info("OUT FSI_DIFF_ST[0x%08x] wait_cnt[%d]\n",
-			ioread32(diff_st_reg), wait_cnt);
-	
+				ioread32(diff_st_reg), wait_cnt);
+
 		/* Register setting function call */
 		common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
 	}
@@ -500,12 +514,12 @@ static void fsi_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureA_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureA_M);
 	/* FM_RADIO_RX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = fsi_reg_tbl_captureB_M;
 		tbl_size = ARRAY_SIZE(fsi_reg_tbl_captureB_M);
 	}
@@ -750,6 +764,38 @@ void fsi_soft_reset(void)
 	sndp_log_debug_func("end\n");
 }
 
+
+/*!
+   @brief All down link mute control
+
+   @param[in]	mute	true / false
+   @param[out]	none
+
+   @retval	none
+ */
+void fsi_all_dl_mute_ctrl(bool mute)
+{
+	struct common_reg_table	*reg_tbl	= NULL;
+	u_int			tbl_size	= 0;
+
+	sndp_log_debug_func("start\n");
+	sndp_log_info("mute=%s\n", (false == mute) ? "false" : "true");
+
+
+	if (false == mute) {
+		/* Mute Off */
+		reg_tbl  = fsi_reg_tbl_dl_mute_off;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_dl_mute_off);
+	} else {
+		/* Mute On */
+		reg_tbl  = fsi_reg_tbl_dl_mute_on;
+		tbl_size = ARRAY_SIZE(fsi_reg_tbl_dl_mute_on);
+	}
+
+	common_set_register(SNDP_HW_FSI, reg_tbl, tbl_size);
+
+	sndp_log_debug_func("end\n");
+}
 
 #ifdef SOUND_TEST
 
