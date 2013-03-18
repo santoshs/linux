@@ -73,14 +73,6 @@ module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int get_sem_fail_einval;
 module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
-static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
-
-static struct cpuidle_driver shmobile_idle_driver = {
-	.name =			"shmobile_idle",
-	.owner =		THIS_MODULE,
-};
-
-
 /*
  * ********************************************************************
  *     Drivers interface
@@ -207,8 +199,10 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
 static int shmobile_enter_wfi(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
+#if 0
 static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
+#endif
 static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
 static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
@@ -351,6 +345,7 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 
 }
 
+#if 0
 /*
  * shmobile_enter_wfi_lowfreq: executes idle PM for a CPU - WFI(low-freq) state
  * @dev: cpuidle device for this cpu
@@ -395,6 +390,7 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 
 	return index;
 }
+#endif
 
 /*
  * shmobile_enter_corestandby: executes idle PM for a CPU - Corestandby state

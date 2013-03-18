@@ -41,10 +41,6 @@ extern void mreg32(void __iomem *addr, u32 set, u32 clear);
 
 #define mreg(addr, set, clear) mreg32(addr, set, clear)
 
-#ifndef CCCR
-#define CCCR			IO_ADDRESS(0xe600101c)
-#endif /*CCCR*/
-
 #ifndef CHIP_VERSION_MASK
 #define CHIP_VERSION_MASK	0x0000FFFF
 #endif /*CHIP_VERSION_MASK*/

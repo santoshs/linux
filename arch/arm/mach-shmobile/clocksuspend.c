@@ -30,10 +30,6 @@
 #include <mach/pm.h>
 #include <mach/sbsc.h>
 
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)	IOMEM(x)
-#endif
-
 #ifdef pr_fmt
 #undef pr_fmt
 #define pr_fmt(fmt) "dvfs[clocksuspend.c<%4d>]:" fmt, __LINE__
@@ -2090,7 +2086,6 @@ static int cpg_set_zdiv(int mode)
 /******************************************************************************/
 int pm_setup_clock(void)
 {
-	unsigned long flags;
 	unsigned int zbckcr = 0;
 	unsigned int cnt_zb = 1000;/*Wait 1ms*/
 

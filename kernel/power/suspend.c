@@ -316,6 +316,7 @@ int enter_state(suspend_state_t state)
 	return error;
 }
 
+#if 0
 static void pm_suspend_marker(char *annotation)
 {
 	struct timespec ts;
@@ -327,6 +328,7 @@ static void pm_suspend_marker(char *annotation)
 		annotation, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 }
+#endif
 
 /**
  * pm_suspend - Externally visible function for suspending the system.

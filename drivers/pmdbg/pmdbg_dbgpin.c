@@ -21,9 +21,11 @@
 #include "pmdbg_dbgpin.h"
 
 #ifdef CONFIG_ARM_TZ
+/* Call the secure-API@SEC_HAL-Driver when TZ env.
 static uint32_t g_dbgreg1 = 0x20000000;
 static uint32_t g_dbgreg2 = 0x00;
 static uint32_t g_dbgreg3 = 0x00078077;
+*/
 #endif
 
 static u32 dbgreg1_backup;
@@ -81,22 +83,22 @@ static int monitor_cmd(char *para, int size)
 	ret = strncmp(item, "no", sizeof("no"));
 	if (0 == ret) {
 		if (mon_en) {
-			reg = rreg32(DBGREG9);
+			reg = rreg32(DBGREG9_PTR);
 			key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT))
 					| DBGREG9_KEY_MASK, 0);
-			wreg32(DBGREG1, dbgreg1_backup);
+			wreg32(DBGREG1_PTR, dbgreg1_backup);
 			mon_en = 0;
 			s += sprintf(s, "Monitor is disable\n");
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT))
 					| (key << DBGREG9_KEY_SHIFT), 0);
-			mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
 			goto end;
 		}
@@ -106,17 +108,17 @@ static int monitor_cmd(char *para, int size)
 	/*get*/
 	ret = strncmp(item, "get", sizeof("get"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG9);
+		reg = rreg32(DBGREG9_PTR);
 		key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| DBGREG9_KEY_MASK, 0);
-		reg = rreg32(DBGREG1);
+		reg = rreg32(DBGREG1_PTR);
 		trc = (reg & DBGREG1_TRC_MASK) >> DBGREG1_TRC_SHIFT;
 		if (trc == TRC_MON) {
-			reg = rreg32(DBGREG1);
+			reg = rreg32(DBGREG1_PTR);
 			mda = (reg & DBGREG1_MDA_MASK) >> DBGREG1_MDA_SHIFT;
 			if (mda >= MONITOR_NUM)
 				s += sprintf(s, "Monitor type: Unknown");
@@ -126,12 +128,12 @@ static int monitor_cmd(char *para, int size)
 		} else {
 			s += sprintf(s, "Monitor function is disable\n");
 		}
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| (key << DBGREG9_KEY_SHIFT), 0);
-		mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
 		goto end;
 	}
@@ -139,30 +141,30 @@ static int monitor_cmd(char *para, int size)
 	/*pa*/
 	ret = strncmp(item, "pa", sizeof("pa"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG9);
+		reg = rreg32(DBGREG9_PTR);
 		key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| DBGREG9_KEY_MASK, 0);
 		if (!mon_en) {
-			reg = rreg32(DBGREG1);
+			reg = rreg32(DBGREG1_PTR);
 			dbgreg1_backup = reg;
 		}
-		mreg32(DBGREG1, (DBGREG1_TRC_MASK &
+		mreg32(DBGREG1_PTR, (DBGREG1_TRC_MASK &
 				(TRC_MON << DBGREG1_TRC_SHIFT)) |
 				(DBGREG1_MDA_MASK &
 				(MDA_PA << DBGREG1_MDA_SHIFT)),
 				DBGREG1_TRC_MASK | DBGREG1_MDA_MASK);
 		s += sprintf(s, "Power area status monitor is enable\n");
 		mon_en = 1;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| (key << DBGREG9_KEY_SHIFT), 0);
-		mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
 		goto end;
 	}
@@ -170,30 +172,30 @@ static int monitor_cmd(char *para, int size)
 	/*cpu*/
 	ret = strncmp(item, "cpu", sizeof("cpu"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG9);
+		reg = rreg32(DBGREG9_PTR);
 		key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| DBGREG9_KEY_MASK, 0);
 		if (!mon_en) {
-			reg = rreg32(DBGREG1);
+			reg = rreg32(DBGREG1_PTR);
 			dbgreg1_backup = reg;
 		}
-		mreg32(DBGREG1, (DBGREG1_TRC_MASK &
+		mreg32(DBGREG1_PTR, (DBGREG1_TRC_MASK &
 				(TRC_MON << DBGREG1_TRC_SHIFT)) |
 				(DBGREG1_MDA_MASK &
 				(MDA_CPU << DBGREG1_MDA_SHIFT)) ,
 				DBGREG1_TRC_MASK | DBGREG1_MDA_MASK);
 		s += sprintf(s, "CPU Sleep mode monitor is enable\n");
 		mon_en = 1;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| (key << DBGREG9_KEY_SHIFT), 0);
-		mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
 		goto end;
 	}
@@ -201,29 +203,29 @@ static int monitor_cmd(char *para, int size)
 	/*clock*/
 	ret = strncmp(item, "clk", sizeof("clk"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG9);
+		reg = rreg32(DBGREG9_PTR);
 		key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| DBGREG9_KEY_MASK, 0);
 		if (!mon_en) {
-			reg = rreg32(DBGREG1);
+			reg = rreg32(DBGREG1_PTR);
 			dbgreg1_backup = reg;
 		}
-		mreg32(DBGREG1, (DBGREG1_TRC_MASK & (TRC_MON <<
+		mreg32(DBGREG1_PTR, (DBGREG1_TRC_MASK & (TRC_MON <<
 				DBGREG1_TRC_SHIFT)) | (DBGREG1_MDA_MASK &
 				(MDA_CLK << DBGREG1_MDA_SHIFT)),
 				DBGREG1_TRC_MASK | DBGREG1_MDA_MASK);
 		s += sprintf(s, "Clock monitor is enable\n");
 		mon_en = 1;
-		wreg32(DBGREG9, DBGREG9_AID_MASK &
+		wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
-		mreg32(DBGREG9, (DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 				| (key << DBGREG9_KEY_SHIFT), 0);
-		mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+		mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT));
 		goto end;
 	}
@@ -231,7 +233,7 @@ static int monitor_cmd(char *para, int size)
 	/*debugmode*/
 	ret = strncmp(item, "debugmode", sizeof("debugmode"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG1);
+		reg = rreg32(DBGREG1_PTR);
 		if (reg & 0x20000000) {
 			s += sprintf(s, "Already in debugmode\n");
 			goto end;
@@ -252,28 +254,28 @@ static int monitor_cmd(char *para, int size)
 			}
 			*/
 #else  /* !CONFIG_ARM_TZ */
-			reg = rreg32(DBGREG9);
+			reg = rreg32(DBGREG9_PTR);
 			key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 				(DBGREG9_AID << DBGREG9_AID_SHIFT)) |
 				DBGREG9_KEY_MASK, 0);
 
-			wreg32(DBGREG3, 0x000780ff);
-			wreg32(DBGREG1, 0x20300000);
-			wreg32(SWUCR,   0x00000002);
+			wreg32(DBGREG3_PTR, 0x000780ff);
+			wreg32(DBGREG1_PTR, 0x20300000);
+			wreg32(SWUCR_PTR,   0x00000002);
 			while
-			((rreg32(PSTR) & 0x00000002) == 0);
-			s += sprintf(s, "DBGREG3=%08x\n", rreg32(DBGREG3));
-			s += sprintf(s, "DBGREG1=%08x\n", rreg32(DBGREG1));
-			s += sprintf(s, "PSTR=%08x\n", rreg32(PSTR));
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			((rreg32(PSTR_PTR) & 0x00000002) == 0);
+			s += sprintf(s, "DBGREG3=%08x\n", rreg32(DBGREG3_PTR));
+			s += sprintf(s, "DBGREG1=%08x\n", rreg32(DBGREG1_PTR));
+			s += sprintf(s, "PSTR=%08x\n", rreg32(PSTR_PTR));
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT))
 					| (key << DBGREG9_KEY_SHIFT), 0);
-			mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
 #endif
 			goto end;
@@ -282,7 +284,7 @@ static int monitor_cmd(char *para, int size)
 	/*debugmode_init*/
 	ret = strncmp(item, "debugmode_init", sizeof("debugmode_init"));
 	if (0 == ret) {
-		reg = rreg32(DBGREG1);
+		reg = rreg32(DBGREG1_PTR);
 		if (reg&0x20000000) {
 			s += sprintf(s, "Already in debugmode\n");
 		} else {
@@ -302,28 +304,28 @@ static int monitor_cmd(char *para, int size)
 			}
 			*/
 #else  /* !CONFIG_ARM_TZ */
-			reg = rreg32(DBGREG9);
+			reg = rreg32(DBGREG9_PTR);
 			key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT))
 					| DBGREG9_KEY_MASK, 0);
 
-			wreg32(DBGREG3, 0x000780ff);
-			wreg32(DBGREG1, rreg32(DBGREG1) | 0x20000000);
-			wreg32(SWUCR,   0x00000002);
+			wreg32(DBGREG3_PTR, 0x000780ff);
+			wreg32(DBGREG1_PTR, rreg32(DBGREG1_PTR) | 0x20000000);
+			wreg32(SWUCR_PTR,   0x00000002);
 			while
-			((rreg32(PSTR) & 0x00000002) == 0);
-			s += sprintf(s, "DBGREG3=%08x\n", rreg32(DBGREG3));
-			s += sprintf(s, "DBGREG1=%08x\n", rreg32(DBGREG1));
-			s += sprintf(s, "PSTR=%08x\n", rreg32(PSTR));
-			wreg32(DBGREG9, DBGREG9_AID_MASK &
+			((rreg32(PSTR_PTR) & 0x00000002) == 0);
+			s += sprintf(s, "DBGREG3=%08x\n", rreg32(DBGREG3_PTR));
+			s += sprintf(s, "DBGREG1=%08x\n", rreg32(DBGREG1_PTR));
+			s += sprintf(s, "PSTR=%08x\n", rreg32(PSTR_PTR));
+			wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
-			mreg32(DBGREG9, (DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT))
 					| (key << DBGREG9_KEY_SHIFT), 0);
-			mreg32(DBGREG9, 0, DBGREG9_AID_MASK &
+			mreg32(DBGREG9_PTR, 0, DBGREG9_AID_MASK &
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
 #endif
 		}
@@ -352,26 +354,30 @@ void pmdbg_dbgpin_to_dbgmode()
 	u32 key = 0;
 
 	/* Clear the interrupt cause of TDBG */
-	wreg32(DBGREG9, 0x0000A500);
-	wreg32(DBGREG9, 0x0000A501);
-	wreg32(DBGREG11, 0x00010000);
+	wreg32(DBGREG9_PTR, 0x0000A500);
+	wreg32(DBGREG9_PTR, 0x0000A501);
+	wreg32(DBGREG11_PTR, 0x00010000);
 
 	/* Transition to DBGMODE */
-	reg = rreg32(DBGREG9);
+	reg = rreg32(DBGREG9_PTR);
 	key = (reg & DBGREG9_KEY_MASK) >> DBGREG9_KEY_SHIFT;
-	wreg32(DBGREG9, DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT));
-	mreg32(DBGREG9, (DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT))
+	wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
+				(DBGREG9_AID << DBGREG9_AID_SHIFT));
+	mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
+				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 		| DBGREG9_KEY_MASK, 0);
 
-	wreg32(DBGREG3, 0x000780ff);
-	wreg32(DBGREG1, rreg32(DBGREG1) | 0x20000000);
-	wreg32(SWUCR,   0x00000002);
+	wreg32(DBGREG3_PTR, 0x000780ff);
+	wreg32(DBGREG1_PTR, rreg32(DBGREG1_PTR) | 0x20000000);
+	wreg32(SWUCR_PTR,   0x00000002);
 	while
-	((rreg32(PSTR) & 0x00000002) == 0);
-	wreg32(DBGREG9, DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT));
-	mreg32(DBGREG9, (DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT))
+	((rreg32(PSTR_PTR) & 0x00000002) == 0);
+	wreg32(DBGREG9_PTR, DBGREG9_AID_MASK &
+				(DBGREG9_AID << DBGREG9_AID_SHIFT));
+	mreg32(DBGREG9_PTR, (DBGREG9_AID_MASK &
+				(DBGREG9_AID << DBGREG9_AID_SHIFT))
 		| (key << DBGREG9_KEY_SHIFT), 0);
-	mreg32(DBGREG9, 0,
+	mreg32(DBGREG9_PTR, 0,
 		DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT));
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	arch_hw_breakpoint_init_late();
@@ -410,7 +416,7 @@ static int monpin_cmd(char *para, int size)
 	/*get*/
 	ret = strncmp(item, "get", sizeof("get"));
 	if (0 == ret) {
-		reg = rreg32(GPIO_MSEL03CR);
+		reg = rreg32(GPIO_MSEL03CR_PTR);
 		msel15 = (reg & GPIO_MSEL03CR_MSEL15_MASK) >>
 				GPIO_MSEL03CR_MSEL15_SHIFT;
 		if (msel15 == GPIO_MSEL03CR_MSEL15_KEY)
@@ -424,7 +430,7 @@ static int monpin_cmd(char *para, int size)
 	/*pa*/
 	ret = strncmp(item, "key", sizeof("key"));
 	if (0 == ret) {
-		mreg32(GPIO_MSEL03CR, 0, 1 << GPIO_MSEL03CR_MSEL15_SHIFT);
+		mreg32(GPIO_MSEL03CR_PTR, 0, 1 << GPIO_MSEL03CR_MSEL15_SHIFT);
 		s += sprintf(s, "KEY is used for monitor pin\n");
 		goto end;
 	}
@@ -432,7 +438,7 @@ static int monpin_cmd(char *para, int size)
 	/*cpu*/
 	ret = strncmp(item, "bsc", sizeof("bsc"));
 	if (0 == ret) {
-		mreg32(GPIO_MSEL03CR, 1 << GPIO_MSEL03CR_MSEL15_SHIFT, 0);
+		mreg32(GPIO_MSEL03CR_PTR, 1 << GPIO_MSEL03CR_MSEL15_SHIFT, 0);
 		s += sprintf(s, "BSC is used for monitor pin\n");
 		goto end;
 	}
