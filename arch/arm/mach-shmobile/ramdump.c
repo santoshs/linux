@@ -57,6 +57,9 @@ struct hw_registers {
 };
 
 struct ramdump {
+	/* physical base address for trace32 scripts */
+	unsigned long reg_dump_base_phys;
+
 	/* base address & size for register dump area */
 	void *reg_dump_base;
 	size_t reg_dump_size;
@@ -466,12 +469,13 @@ static resource_size_t ramdump_remap_resources(struct ramdump_plat_data *pdata)
 	return total_size;
 }
 
-static int ramdump_probe(struct platform_device *pd)
+static int __devinit ramdump_probe(struct platform_device *pd)
 {
 	int ret = 0;
 	char *mm = 0;
 	resource_size_t hw_reg_dump_size = 0;
 	struct ramdump_plat_data *pdata = pd->dev.platform_data;
+	pd->dev.platform_data = NULL;
 
 	ramdump = kzalloc(sizeof(*ramdump), GFP_KERNEL);
 	if (!ramdump) {
@@ -481,9 +485,11 @@ static int ramdump_probe(struct platform_device *pd)
 
 	atomic_set(&ramdump->hw_registers_saved, -1);
 
+	ramdump->reg_dump_base_phys = pdata->reg_dump_base;
+
 	dprintk("%s reg_dump_base phys 0x%lx, size %d\n", __func__,
 				pdata->reg_dump_base, pdata->reg_dump_size);
-	ramdump->reg_dump_base = ioremap_nocache( pdata->reg_dump_base,
+	ramdump->reg_dump_base = ioremap_nocache(pdata->reg_dump_base,
 			pdata->reg_dump_size);
 	if (!ramdump->reg_dump_base) {
 		dev_err(&pd->dev, "%s ioremap_nocache: failed", __func__);

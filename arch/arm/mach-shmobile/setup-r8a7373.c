@@ -1379,18 +1379,224 @@ static struct platform_device sgx_device = {
 };
 
 #ifdef CONFIG_SH_RAMDUMP
-struct ramdump_plat_data ramdump_pdata = {
-   .reg_dump_base = 0x48800000,
-   .reg_dump_size = SZ_1K*32,
-   /* size of reg dump of each core */
-   .core_reg_dump_size = SZ_1K,
-   .num_resources = ARRAY_SIZE(ramdump_res),
-   .hw_register_range = ramdump_res,
-   .io_desc = r8a7373_io_desc,
-   .io_desc_size = ARRAY_SIZE(r8a7373_io_desc),
+static struct hw_register_range ramdump_res[] __initdata = {
+	{
+		.start	= 0xFE400000,	/*SBSC_SETTING_00_S*/
+		.end	= 0xFE40011C,	/*SBSC_SETTING_00_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xFE400200,	/*SBSC_SETTING_01_S*/
+		.end	= 0xFE400240,	/*SBSC_SETTING_01_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xFE400358,	/*SBSC_MON_SETTING*/
+		.end	= 0xFE400358,	/*SBSC_MON_SETTING*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xFE401000,	/*SBSC_PHY_SETTING_00_S*/
+		.end	= 0xFE401004,	/*SBSC_PHY_SETTING_00_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xFE4011F4,	/*SBSC_PHY_SETTING_01*/
+		.end	= 0xFE4011F4,	/*SBSC_PHY_SETTING_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xFE401050,	/*SBSC_PHY_SETTING_02_S*/
+		.end	= 0xFE4010BC,	/*SBSC_PHY_SETTING_02_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6150000,	/*CPG_SETTING_00_S*/
+		.end	= 0xE6150200,	/*CPG_SETTING_00_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6151000,	/*CPG_SETTING_01_S*/
+		.end	= 0xE6151180,	/*CPG_SETTING_01_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6020000,	/*RWDT_CONDITION_00*/
+		.end	= 0xE6020000,	/*RWDT_CONDITION_00*/
+		.width	= HW_REG_16BIT,
+	},
+	{
+		.start	= 0xE6020004,	/*RWDT_CONDITION_01*/
+		.end	= 0xE6020004,	/*RWDT_CONDITION_01*/
+		.width	= HW_REG_8BIT,
+	},
+	{
+		.start	= 0xE6020008,	/*RWDT_CONDITION_02*/
+		.end	= 0xE6020008,	/*RWDT_CONDITION_02*/
+		.width	= HW_REG_8BIT,
+	},
+	{
+		.start	= 0xE6030000,	/*SWDT_CONDITION_00*/
+		.end	= 0xE6030000,	/*SWDT_CONDITION_00*/
+		.width	= HW_REG_16BIT,
+	},
+	{
+		.start	= 0xE6030004,	/*SWDT_CONDITION_01*/
+		.end	= 0xE6030004,	/*SWDT_CONDITION_01*/
+		.width	= HW_REG_8BIT,
+	},
+	{
+		.start	= 0xE6030008,	/*SWDT_CONDITION_02*/
+		.end	= 0xE6030008,	/*SWDT_CONDITION_02*/
+		.width	= HW_REG_8BIT,
+	},
+	{
+		.start	= 0xE61D0000,	/*SUTC_CONDITION_00*/
+		.end	= 0xE61D0000,	/*SUTC_CONDITION_00*/
+		.width	= HW_REG_16BIT,
+	},
+	{
+		.start	= 0xE61D0040,	/*SUTC_CONDITION_01*/
+		.end	= 0xE61D0040,	/*SUTC_CONDITION_01*/
+		.width	= HW_REG_16BIT,
+	},
+	{
+		.start	= 0xE61D0044,	/*SUTC_CONDITION_02*/
+		.end	= 0xE61D0048,	/*SUTC_CONDITION_03*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6130500,	/*CMT15_CONDITION_00*/
+		.end	= 0xE6130500,	/*CMT15_CONDITION_00*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6130510,	/*CMT15_CONDITION_01*/
+		.end	= 0xE6130510,	/*CMT15_CONDITION_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6130514,	/*CMT15_CONDITION_02*/
+		.end	= 0xE6130514,	/*CMT15_CONDITION_02*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6130518,	/*CMT15_CONDITION_03*/
+		.end	= 0xE6130518,	/*CMT15_CONDITION_03*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6180000,	/*SYSC_SETTING_00_S*/
+		.end	= 0xE61800FC,	/*SYSC_SETTING_00_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6180200,	/*SYSC_SETTING_01_S*/
+		.end	= 0xE618027C,	/*SYSC_SETTING_01_E*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE618801C,	/*SYSC_RESCNT_00*/
+		.end	= 0xE6188024,	/*SYSC_RESCNT_02*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6100020,	/*DBG_SETTING_00*/
+		.end	= 0xE6100020,	/*DBG_SETTING_00*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE6100028,	/*DBG_SETTING_01*/
+		.end	= 0xE610002c,	/*DBG_SETTING_02*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xF000010C,	/*GIC_SETTING_00*/
+		.end	= 0xF0000110,	/*GIC_SETTING_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xF0100100,	/*PL310_SETTING_00*/
+		.end	= 0xF0100104,	/*PL310_SETTING_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE61C0100,	/*INTC_SYS_INFO_00*/
+		.end	= 0xE61C0104,	/*INTC_SYS_INFO_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE61C0300,	/*INTC_SYS_INFO_02*/
+		.end	= 0xE61C0304,	/*INTC_SYS_INFO_03*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE623000C,	/*INTC_BB_INFO_00*/
+		.end	= 0xE623000C,	/*INTC_BB_INFO_00*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		.start	= 0xE623200C,	/*INTC_BB_INFO_01*/
+		.end	= 0xE623200C,	/*INTC_BB_INFO_01*/
+		.width	= HW_REG_32BIT,
+	},
+	{
+		/*NOTE: at the moment address increment is done by 4 byte steps
+		 * so this will read one byte from 004 and one byte form 008 */
+		.start	= 0xE6820004,	/*IIC0_SETTING_00*/
+		.end	= 0xE6820008,	/*IIC0_SETTING_01*/
+		.width	= HW_REG_8BIT,
+		.pa		= POWER_A3SP,
+		.msr	= MSTPSR1,
+		.msb	= MSTPST116,
+	},
+	{
+		.start	= 0xE682002C,	/*IIC0_SETTING_02*/
+		.end	= 0xE682002C,	/*IIC0_SETTING_02*/
+		.width	= HW_REG_8BIT,
+		.pa	= POWER_A3SP,
+		.msr	= MSTPSR1,
+		.msb	= MSTPST116,
+	},
+	{
+		.start	= 0xE62A0004,	/*IICB_SETTING_00*/
+		.end	= 0xE62A0008,	/*IICB_SETTING_01*/
+		.width	= HW_REG_8BIT,
+		.msr	= MSTPSR5,
+		.msb	= MSTPST525,
+	},
+	{
+		.start	= 0xE62A002C,	/*IICB_SETTING_02*/
+		.end	= 0xE62A002C,	/*IICB_SETTING_02*/
+		.width	= HW_REG_8BIT,
+		.msr	= MSTPSR5,
+		.msb	= MSTPST525,
+	},
+	{
+		.start	= 0xFE951000,	/*IPMMU_SETTING_S*/
+		.end	= 0xFE9510FC,	/*IPMMU_SETTING_E*/
+		.width	= HW_REG_32BIT,
+		.pa	= POWER_A3R,
+		.msr	= SMSTPCR0,
+		.msb	= MSTO007,
+	},
 };
 
-static struct platform_device ramdump_device = {
+struct ramdump_plat_data ramdump_pdata __initdata = {
+	.reg_dump_base = 0x48800000,
+	.reg_dump_size = SZ_1K*32,
+	/* size of reg dump of each core */
+	.core_reg_dump_size = SZ_1K,
+	.num_resources = ARRAY_SIZE(ramdump_res),
+	.hw_register_range = ramdump_res,
+	.io_desc = r8a7373_io_desc,
+	.io_desc_size = ARRAY_SIZE(r8a7373_io_desc),
+};
+
+/* platform_device structure can not be marked as __initdata as
+ * it is used by platform_uevent etc. That is why __refdata needs
+ * to be used. platform_data pointer is nulled in probe */
+static struct platform_device ramdump_device __refdata = {
 	.name = "ramdump",
 	.dev.platform_data = &ramdump_pdata,
 };
