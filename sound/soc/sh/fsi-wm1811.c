@@ -73,7 +73,8 @@ static int __init fsi_wm1811_init(void)
 		return -ENODEV;
 	}
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || \
+		defined(CONFIG_MACH_LT02LTE)
 	return -ENODEV;
 #endif
 	g_sndp_codec_info.set_device =	wm1811_set_device;
@@ -131,7 +132,8 @@ static void __exit fsi_wm1811_exit(void)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return;
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || \
+		defined(CONFIG_MACH_LT02LTE)
 	return;
 #endif
 	sndp_exit();
