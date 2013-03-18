@@ -403,7 +403,8 @@ static void tsu6712_ovp_cb(bool attached)
 	}
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+	|| defined(CONFIG_MACH_LT02LTE)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		spa_event_handler(SPA_EVT_OVP, (int)attached);
 #endif
@@ -450,7 +451,8 @@ static void tsu6712_usb_cb(bool attached)
    }
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+	|| defined(CONFIG_MACH_LT02LTE)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_USB:
@@ -493,7 +495,8 @@ static void tsu6712_charger_cb(bool attached)
 	}
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+	|| defined(CONFIG_MACH_LT02LTE)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_AC:
@@ -1607,7 +1610,8 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 	}
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+	|| defined(CONFIG_MACH_LT02LTE)
 		dev_info(&client->dev, "%s intr: 0x%x\n", __func__, intr);
 
 		if ((intr & 0x01) && (device_type & 0x04))
@@ -1826,7 +1830,8 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 		tsu6712_init_usb_irq(usbsw);
 
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+	|| defined(CONFIG_MACH_LT02LTE)
 		tsu6712_init_usb_irq(usbsw);
 #endif
 	return 0;

@@ -5,7 +5,8 @@
 #include "MMS100S_ISC_Updater.h"
 #include <mach/r8a7373.h>
 
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) \
+	|| defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 #define GPIO_TOUCH_EN    	GPIO_PORT30
 #define TOUCH_EN       		GPIO_PORT30
 #define TSP_PWR_LDO_GPIO	GPIO_PORT30
