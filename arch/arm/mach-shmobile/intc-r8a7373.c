@@ -26,7 +26,6 @@
 #define IRQC0_WAKEN_STS0	(IRQC0_BASE + 0x084)	/* R/WC1 */
 #define IRQC0_WAKEN_SET0	(IRQC0_BASE + 0x088)	/* W */
 #define IRQC0_DETECT_STATUS	(IRQC0_BASE + 0x100)	/* R/WC1 */
-#define IRQC0_CONFIG_00		(IRQC0_BASE + 0x180)	/* R/W */
 
 #define IRQC1_INTREQ_STS0	(IRQC1_BASE + 0x000)	/* R */
 #define IRQC1_INTEN_STS0	(IRQC1_BASE + 0x004)	/* R/WC1 */
@@ -35,7 +34,6 @@
 #define IRQC1_WAKEN_STS0	(IRQC1_BASE + 0x084)	/* R/WC1 */
 #define IRQC1_WAKEN_SET0	(IRQC1_BASE + 0x088)	/* W */
 #define IRQC1_DETECT_STATUS	(IRQC1_BASE + 0x100)	/* R/WC1 */
-#define IRQC1_CONFIG_00		(IRQC1_BASE + 0x180)	/* R/W */
 
 static void irqc_irq_mask(struct irq_data *d)
 {
