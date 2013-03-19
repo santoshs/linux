@@ -301,7 +301,7 @@ int sh_dmae_set_rpt_mode(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	unsigned long flags;
-	u32 val = 0;
+
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	/* Check if dma is in progress, this mode is not allowed
 	 * once DMA transfer is initiated */
@@ -766,12 +766,8 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 {
 	struct scatterlist *sg;
 	struct sh_desc *first = NULL;
-	struct sh_dmae_regs hw;
-	void __iomem *desc_mem;
-	size_t copy_size;
-	int i, load_first_desc = 1, chunks = 0;
+	int i, chunks = 0;
 	unsigned long irq_flags;
-	u32 chcr, chcrb;
 
 	if (!sh_chan->desc_mode) {
 		dev_err(sh_chan->dev, "not in repeat mode\n");
@@ -1911,7 +1907,7 @@ static int sh_dmae_suspend(struct device *dev)
 static int sh_dmae_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-	int i, ret;
+	int i, ret = 0;
 
 	pm_runtime_get_sync(dev);
 	if (ret < 0)
