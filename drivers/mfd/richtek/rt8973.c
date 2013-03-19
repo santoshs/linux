@@ -377,55 +377,55 @@ static int rt8973_ex_init(void)
 #if defined(CONFIG_RT8969)||defined(CONFIG_RT8973)
 static void usb_attach(uint8_t attached)
 {
-  printk(attached?"USB attached\n":"USB attached\n");
+	printk(attached?"USB attached\n":"USB attached\n");
 	set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
 	if ( attached ) {
 		usb_uart_switch_state = 100;
-    send_usb_insert_event(1);
-    spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+		send_usb_insert_event(1);
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
 		switch_set_state(&switch_usb_uart,100);
-    }
+	}
 	else {
 		usb_uart_switch_state = 101;
-    send_usb_insert_event(0);
-    spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		send_usb_insert_event(0);
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
 		switch_set_state(&switch_usb_uart,101);
     }
 }
 static void uart_attach(uint8_t attached)
 {
-    printk(attached?"UART attached\n":"UART detached\n");
+	printk(attached?"UART attached\n":"UART detached\n");
 	set_cable_status = CABLE_TYPE_NONE;
 	if (attached) {	
 		usb_uart_switch_state = 200;
 		switch_set_state(&switch_usb_uart, 200);
 	}
-   else {
+	else {
 		usb_uart_switch_state = 201;
 		switch_set_state(&switch_usb_uart, 201);
-   }
+	}
 }
 
 static void charger_attach(uint8_t attached)
 {
-    printk(attached?"Charger attached\n":"Charger detached\n");
+	printk(attached?"Charger attached\n":"Charger detached\n");
+	set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-  if (attached)
-    {
-      spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
-    }
-  else
-    {
-      spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-    }
+	if (attached) {
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+	}
+	else {
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+	}
 #endif
 
 }
 
 static void jig_attach(uint8_t attached,uint8_t factory_mode)
 {
-    switch(factory_mode)
-    {
+	set_cable_status = CABLE_TYPE_NONE;
+	switch(factory_mode)
+	{
         case RTMUSC_FM_BOOT_OFF_UART:
         INFO("JIG BOOT OFF UART\n");
 	uart_attach(attached);
@@ -444,8 +444,8 @@ static void jig_attach(uint8_t attached,uint8_t factory_mode)
 	break;
         default:
         ;
-    }
-    printk(attached?"Jig attached\n":"Jig detached\n");
+	}
+	printk(attached?"Jig attached\n":"Jig detached\n");
 }
 
 static void over_temperature(uint8_t detected)
@@ -1063,6 +1063,7 @@ static int rt8973musc_probe(struct i2c_client *client,
     drv_data->client = client;
         memcpy(&platform_data,&rtmus_pdata,sizeof(struct rtmus_platform_data));
 
+    set_cable_status = CABLE_TYPE_NONE;
     pDrvData = drv_data;
     i2c_set_clientdata(client,drv_data);
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
