@@ -30,7 +30,11 @@ Description :  File created
 #ifndef SMC_TRACE_PLATFORM_H
 #define SMC_TRACE_PLATFORM_H
 
-/*#define SMC_APE_LINUX_KERNEL_STM*/    /* If defined, the SMC traces are routed to STM -> Ntrace */
+#if(SMC_STM_TRACES_ENABLED==TRUE)
+  #define SMC_APE_LINUX_KERNEL_STM    /* If defined, the SMC traces are routed to STM -> Ntrace (NOTE: Requires support from U2EVM module )*/
+#else
+  #undef  SMC_APE_LINUX_KERNEL_STM
+#endif
 
 
 #ifdef SMC_APE_RDTRACE_ENABLED
@@ -46,7 +50,6 @@ Description :  File created
     #define RD_TRACE_SEND4(...)
     #define RD_TRACE_SEND5(...)
 #endif
-
 
 #if( SMC_TRACES_PRINTF_KERN_ALERT == TRUE )
   #define KERNEL_DEBUG_LEVEL     KERN_ALERT
@@ -74,11 +77,6 @@ Description :  File created
 #define SMC_TRACE_DMA_ENABLED
 #define SMC_TRACE_TASKLET_ENABLED
 */
-
-
-
-
-
 
 #ifdef SMC_TRACE_TASKLET_ENABLED
   #define SMC_TRACE_PRINTF_TASKLET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"TASKLET: " __VA_ARGS__ )

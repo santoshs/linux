@@ -1,6 +1,6 @@
 /*
 *   Common SMC instance configuration for SMC control channel
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+*   Copyright © Renesas Mobile Corporation 2013. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -15,23 +15,23 @@
 /*
 Change history:
 
-Version:       1    25-Jan-2012     Heikki Siikaluoma
+Version:       1    12-Feb-2013     Heikki Siikaluoma
 Status:        draft
 Description :  File created
 -------------------------------------------------------------------------------
 */
 #endif
 
-#ifndef SMC_CONFIG_CONTROL_R8A73734_WGE31_H
-#define SMC_CONFIG_CONTROL_R8A73734_WGE31_H
+#ifndef SMC_CONFIG_CONTROL_EOS3_U3CA_H
+#define SMC_CONFIG_CONTROL_EOS3_U3CA_H
 
 
 /*
- * EOS2 Contains configurations for ES2.0
+ * EOS3 configurations for U3CA ES1
  * NOTE: The channel configuration are currently the same
  */
 
-#define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
+#define SMC_CONFIG_NAME_EOS3_U3CA_ES1                    "EOS3-U3CA-ES1-WGEModem50-SMC-control"
 
 #define SMC_CONF_COUNT_CONTROL          1
 
@@ -87,24 +87,24 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
 static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 {
     /**
-     * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1 ES2.0 configurations
+     * SMC instance config for EOS3 U3CA SMC control instance
      */
 
-    /* ES2.0 configuration */
+    /* ES1 configuration */
     {
-        .name                         = SMC_CONFIG_NAME_EOS2_ES20,
+        .name                         = SMC_CONFIG_NAME_EOS3_U3CA_ES1,
         .user_name                    = SMC_CONFIG_USER_CONTROL,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
-        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_APE_EOS3_U3CA_ES1,
+        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM50_EOS3_ES1,
 
-        .master_cpu_version_major     = 2,
+        .master_cpu_version_major     = 1,
         .master_cpu_version_minor     = 0,
-        .slave_cpu_version_major      = 2,
+        .slave_cpu_version_major      = 1,
         .slave_cpu_version_minor      = 0,
 
-        .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES20,
-        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES20,
-        .shm_use_cache_control_master = FALSE,
+        .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES1,
+        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES1,
+        .shm_use_cache_control_master = TRUE,
         .shm_use_cache_control_slave  = TRUE,
         .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,    /* Data location is transferred as an offset not as a pointer */
         .shm_cpu_memory_offset        = 0,

@@ -29,6 +29,7 @@ Description :  File created
 #include "smc.h"
 #include "smc_memory_mgmt.h"
 #include "smc_test.h"
+#include "smc_mdb.h"
 
 #if(SMC_L2MUX_IF==TRUE)
 #include "smc_config_l2mux.h"  /* For testing configuration management */
@@ -120,8 +121,12 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
 
 static uint8_t smc_test_case_function_loopback( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+static uint8_t smc_test_case_shm_variable( uint8_t* test_input_data, uint16_t test_input_data_len );
+
     /* DMA test case in smc_test_dma.c */
-extern uint8_t smc_test_case_dma( uint8_t* test_input_data, uint32_t test_input_data_len );
+extern uint8_t smc_test_case_dma( uint8_t* test_input_data, uint16_t test_input_data_len );
+
+
 
     /* ========================================================
      * SMC Test Case functions
@@ -144,6 +149,7 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_function_ping,                    /* 0x0B */
     smc_test_case_function_loopback,                /* 0x0C */
     smc_test_case_dma,                              /* 0x0D */
+    smc_test_case_shm_variable,                     /* 0x0E */
     0
 };
 
@@ -567,32 +573,42 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
 static uint8_t smc_test_case_function_loopback( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
     uint8_t  test_status             = SMC_ERROR;
-    uint16_t test_input_len_required = 9;
+    uint16_t test_input_len_required = 10;
 
     if( test_input_data_len >= test_input_len_required )
     {
         uint8_t        data_index      = 0;
+        uint8_t        smc_instance_id = test_input_data[data_index++];
         uint8_t        channel_id      = test_input_data[data_index++];
 
-        uint8_t        smc_instance_id = 0x00;                 /* TODO Take instance id into use */
+                         /* TODO Take instance id into use */
         smc_channel_t* smc_channel     = NULL;
         smc_t*         smc             = smc_test_get_instance_by_test_instance_id( smc_instance_id );
         uint32_t       lb_data_len     = 0;
         uint32_t       lb_rounds       = 0;
 
-        lb_data_len = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
-        data_index += 4;
 
-        lb_rounds   = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
-        data_index += 4;
+        if( smc != NULL )
+        {
+            lb_data_len = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
+            data_index += 4;
 
-        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Starting loopback in channel %d using SMC instance %d: Message len %d, rounds %d", channel_id, smc_instance_id, lb_data_len, lb_rounds);
+            lb_rounds   = SMC_BYTES_TO_32BIT( (test_input_data+data_index) );
+            data_index += 4;
 
-        smc_channel = smc_channel_get(smc, channel_id);
+            SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Starting loopback in channel %d using SMC instance %d: Message len %d, rounds %d", channel_id, smc_instance_id, lb_data_len, lb_rounds);
 
-        test_status = smc_send_loopback_data_message( smc_channel, lb_data_len, lb_rounds );
+            smc_channel = smc_channel_get(smc, channel_id);
 
-        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Loopback test in channel %d completed", smc_channel->id);
+            test_status = smc_send_loopback_data_message( smc_channel, lb_data_len, lb_rounds, FALSE );
+
+            SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Loopback test in channel %d completed", smc_channel->id);
+        }
+        else
+        {
+            SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_loopback: Unable to start loopback test, no SMC instance available");
+            test_status = SMC_ERROR;
+        }
     }
     else
     {
@@ -1348,63 +1364,69 @@ Warning: No constant is defined for this value
 
 #endif
 
+/*
+ * This function is deprecated
+ */
 static uint8_t smc_test_case_function_create_configuration( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
-    uint8_t test_status = SMC_OK;
+    uint8_t test_status      = SMC_OK;
+    char*   smc_config_name  = NULL;   /* TODO create function to get proper name */
+    char*   config_user_name = NULL;
+
+    smc_instance_conf_t* smc_instance_configuration = NULL;
+
+    if( smc_config_name == NULL )
+    {
+        SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_create_configuration: SMC configuration name invalid (NULL)");
+        return SMC_ERROR;
+    }
 
 #if(SMC_L2MUX_IF==TRUE)
 
-    char*   config_user_name = SMC_CONFIG_USER_L2MUX;   /* Get a configuration for the L2MUX */
-    smc_instance_conf_t* smc_instance_configuration = NULL;
+    config_user_name = SMC_CONFIG_USER_L2MUX;   /* Get a configuration for the L2MUX */
 
-    /* Select configuration "user name" based on platform */
-    char* smc_name = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20;
-#else
-    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: NOT IMPLEMENTED FOR THIS PRODUCT");
-#endif
-
-    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: starting, Test input data (len %d):", test_input_data_len);
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: starting, Test input data (len %d):", test_input_data_len);
     SMC_TEST_TRACE_PRINTF_DEBUG_DATA(test_input_data_len, test_input_data);
 
         /* Get the configuration by the name */
-    smc_instance_configuration = smc_instance_conf_get_l2mux( config_user_name, smc_name );
+    smc_instance_configuration = smc_instance_conf_get_l2mux( config_user_name, smc_config_name );
 
     if( smc_instance_configuration != NULL )
     {
         smc_conf_t* smc_conf     = NULL;
         smc_t*      smc_instance = NULL;
 
-        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: Configuration for config user %s by SMC name %s found",
-                config_user_name, smc_name);
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: Configuration for config user %s by SMC name %s found",
+                config_user_name, smc_config_name);
 
         /* Create SMC instance based on the configuration */
 
-        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: channel count is %d (array size %d)",
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: channel count is %d (array size %d)",
                 smc_instance_configuration->channel_config_count, sizeof( smc_instance_configuration->channel_config_array ));
 
-        smc_conf = smc_conf_create_from_instance_conf( smc_name, smc_instance_configuration );
+        smc_conf = smc_conf_create_from_instance_conf( smc_config_name, smc_instance_configuration );
 
-        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: SMC configuration 0x%08X created, creating instance...", (uint32_t)smc_conf );
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: SMC configuration 0x%08X created, creating instance...", (uint32_t)smc_conf );
 
         smc_instance = smc_instance_create(smc_conf);
 
         smc_instance = smc_instance;
 
-        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: SMC instance created");
+        SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: SMC instance created");
 
         test_status = SMC_OK;
     }
     else
     {
-        SMC_TEST_TRACE_PRINTF_ERROR("smc_test_handler_configuration: Configuration for config user %s by name %s not found", config_user_name, smc_name);
+        SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_create_configuration: Configuration for config user %s by name %s not found", config_user_name, smc_config_name);
         test_status = SMC_ERROR;
     }
 #else
-    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_handler_configuration: L2MUX is not built in");
+    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_function_create_configuration: L2MUX is not built in");
     test_status = SMC_ERROR;
 #endif
 
-    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_handler_configuration: completed with return value 0x%02X", test_status);
+    SMC_TEST_TRACE_PRINTF_DEBUG("smc_test_case_function_create_configuration: completed with return value 0x%02X", test_status);
     return test_status;
 }
 
@@ -1693,6 +1715,320 @@ static uint8_t smc_test_case_function_misc( uint8_t* test_input_data, uint16_t t
 
     return test_status;
 }
+
+
+void smc_shared_variable_address_cb( char* shared_variable_name, void* shared_variable_address )
+{
+    SMC_TEST_TRACE_PRINTF_INFO("smc_shared_variable_address_cb: variable's %s address == 0x%08X", shared_variable_name, (uint32_t)shared_variable_address);
+
+
+}
+
+static uint8_t smc_test_case_shm_variable( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 1;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t data_index   = 0;
+        uint8_t  test_case    = test_input_data[data_index++];
+
+        switch(test_case)
+        {
+            case 0x00:
+            {
+                void* shm_var_address = NULL;
+                char* shm_var_name    = "SMCTESTSHMVAR1";
+
+                shm_var_address = smc_shared_variable_address_get(shm_var_name);
+
+
+                if( shm_var_address != NULL )
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_shm_variable: SHM variable address 0x%08X received", (uint32_t)shm_var_address);
+                    test_status = SMC_OK;
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_shm_variable: shared variable address is NULL");
+                    test_status = SMC_ERROR;
+                }
+
+                break;
+            }
+            case 0x01:
+            {
+                //void* shm_var_address = NULL;
+                char* shm_var_name         = "SMCTESTSHMVAR1";
+                smc_t*  smc_instance       = NULL;
+                uint8_t smc_instance_id    = 0;                //test_input_data[1];
+                uint8_t smc_channel_id     = 0;
+                smc_channel_t* smc_channel = NULL;
+
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_shm_variable: send shared variable request using SMC instance %d and channel %d", smc_instance_id, smc_channel_id);
+
+                smc_instance = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+                smc_channel = SMC_CHANNEL_GET( smc_instance, smc_channel_id);
+
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_shm_variable: send shared variable request...");
+
+                test_status = smc_shared_variable_address_request_send(smc_channel, shm_var_name, smc_shared_variable_address_cb);
+
+                break;
+            }
+            default:
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_shm_variable: Invalid test case 0x%02X", test_case);
+                test_status = SMC_ERROR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_shm_variable: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+
+    return test_status;
+}
+
+
+/** ===========================================
+ *  Loopback test functions
+ *
+ *
+ */
+
+uint8_t smc_send_loopback_data_message( smc_channel_t* smc_channel, uint32_t loopback_data_len, uint32_t loopback_rounds, uint8_t from_irq )
+{
+    smc_user_data_t userdata;
+    uint8_t         ret_val = SMC_OK;
+    uint32_t        message_len = 0;
+    smc_loopback_data_t* loopback_data = NULL;
+
+    SMC_TRACE_PRINTF_LOOPBACK("smc_send_loopback_data_message: channel %d:", smc_channel->id);
+
+    loopback_data = smc_loopback_data_create( loopback_data_len, from_irq );
+
+    loopback_data->round_trip_counter   = 0;
+    loopback_data->loopback_rounds_left = loopback_rounds;
+
+    for(int i = 0; i < loopback_data->loopback_data_length; i++ )
+    {
+        loopback_data->loopback_data[i] = (uint8_t)(i&0xFF);
+    }
+
+    /* TODO Put the checksum in four last bytes */
+
+    userdata.flags     = SMC_MSG_FLAG_LOOPBACK_DATA_REQ;
+    userdata.userdata1 = 0x00000000;
+    userdata.userdata2 = 0x00000000;
+    userdata.userdata3 = 0x00000000;
+    userdata.userdata4 = 0x00000000;
+    userdata.userdata5 = 0x00000000;
+
+    message_len = sizeof( smc_loopback_data_t ) + loopback_data->loopback_data_length - 1;
+
+    RD_TRACE_SEND5(TRA_SMC_LOOPBACK_START, 1, &smc_channel->id,
+                                           4, &loopback_data->loopback_data,
+                                           4, &loopback_data->loopback_data_length,
+                                           4, &loopback_data->round_trip_counter,
+                                           4, &loopback_data->loopback_rounds_left);
+
+
+    SMC_TRACE_PRINTF_LOOPBACK("smc_send_loopback_data_message: channel %d: send loopback data 0x%08X (len %d)", smc_channel->id, (uint32_t)loopback_data, message_len );
+    SMC_TRACE_PRINTF_LOOPBACK("smc_send_loopback_data_message: channel %d: userdata: 0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X", smc_channel->id,
+            userdata.flags, userdata.userdata1, userdata.userdata2, userdata.userdata3, userdata.userdata4, userdata.userdata5);
+    SMC_TRACE_PRINTF_LOOPBACK("smc_send_loopback_data_message: channel %d: loopback data: round trips = %d, lb rounds left %d, payload = 0x%08X, len %d", smc_channel->id,
+            loopback_data->round_trip_counter, loopback_data->loopback_rounds_left, (uint32_t)loopback_data->loopback_data, loopback_data->loopback_data_length );
+
+    SMC_TRACE_PRINTF_LOOPBACK_DATA(loopback_data->loopback_data_length, loopback_data->loopback_data);
+
+    ret_val = smc_send_ext(smc_channel, (uint8_t*)loopback_data, message_len, &userdata);
+
+    if( ret_val != SMC_OK )
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_send_loopback_data_message: send failed");
+    }
+
+    SMC_TRACE_PRINTF_LOOPBACK("smc_send_loopback_data_message: channel %d completed", smc_channel->id);
+
+    return ret_val;
+}
+
+uint8_t smc_handle_loopback_data_message( smc_channel_t* smc_channel, smc_loopback_data_t* loopback_data, smc_user_data_t* userdata, uint8_t from_irq)
+{
+    uint8_t ret_val    = SMC_OK;
+    uint8_t is_request = SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_REQ( userdata->flags );
+    uint32_t  lb_data_len = 0;
+
+    SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback data 0x%08X", is_request?"Request":"Response", smc_channel->id, (uint32_t)loopback_data);
+
+    if( loopback_data != NULL )
+    {
+        lb_data_len = sizeof( smc_loopback_data_t ) + loopback_data->loopback_data_length - 1;
+
+        SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: send loopback data 0x%08X (len %d)", is_request?"Request":"Response", smc_channel->id, (uint32_t)loopback_data, lb_data_len);
+        SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: userdata: 0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X", is_request?"Request":"Response", smc_channel->id,
+                userdata->flags, userdata->userdata1, userdata->userdata2, userdata->userdata3, userdata->userdata4, userdata->userdata5);
+        SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback data: round_trip_counter = %d, lb rounds left %d, payload = 0x%08X, len %d", is_request?"Request":"Response", smc_channel->id,
+                loopback_data->round_trip_counter, loopback_data->loopback_rounds_left, (uint32_t)loopback_data->loopback_data, loopback_data->loopback_data_length );
+
+        SMC_TRACE_PRINTF_LOOPBACK_DATA(loopback_data->loopback_data_length, loopback_data->loopback_data);
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback is null", is_request?"Request":"Response", smc_channel->id);
+        ret_val = SMC_ERROR;
+    }
+
+    if( is_request || ( loopback_data!=NULL && loopback_data->loopback_rounds_left > 0) )
+    {
+        /* Send the same data back, put loopback roundtrip information to the userdata */
+        smc_user_data_t userdata_resp;
+        smc_loopback_data_t* loopback_data_send = NULL;
+
+        userdata_resp.userdata1 = userdata->userdata1;
+        userdata_resp.userdata2 = userdata->userdata2;
+        userdata_resp.userdata3 = userdata->userdata3;
+        userdata_resp.userdata4 = ret_val;
+        userdata_resp.userdata5 = userdata->userdata5;
+
+        if( is_request )
+        {
+            userdata_resp.flags     = SMC_MSG_FLAG_LOOPBACK_DATA_RESP;
+        }
+        else
+        {
+                /* Update the round trip information when response */
+            loopback_data->round_trip_counter++;
+            loopback_data->loopback_rounds_left--;
+
+                /* Send as a request */
+            userdata_resp.flags     = SMC_MSG_FLAG_LOOPBACK_DATA_REQ;
+        }
+
+        if( loopback_data != NULL )
+        {
+            if( SMC_MDB_ADDRESS_IN_POOL_IN( loopback_data, smc_channel->smc_mdb_info ) )
+            {
+                smc_user_data_t userdata_free;
+
+                SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback ptr 0x%08X, in MDB IN pool, create a copy", is_request?"Request":"Response", smc_channel->id, (uint32_t)loopback_data);
+
+                loopback_data_send = smc_loopback_data_create( lb_data_len, from_irq );
+
+                loopback_data_send->round_trip_counter   = loopback_data->round_trip_counter;
+                loopback_data_send->loopback_data_length = loopback_data->loopback_data_length;
+                loopback_data_send->timestamp            = loopback_data->timestamp;
+                loopback_data_send->loopback_rounds_left = loopback_data->loopback_rounds_left;
+
+                for(int i = 0; i < loopback_data->loopback_data_length; i++ )
+                {
+                    loopback_data_send->loopback_data[i] = loopback_data->loopback_data[i];
+                }
+
+                /* The original pointer in sender's MDB must be freed */
+
+                userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
+                userdata_free.userdata1 = userdata->userdata1;
+                userdata_free.userdata2 = userdata->userdata2;
+                userdata_free.userdata3 = userdata->userdata3;
+                userdata_free.userdata4 = userdata->userdata4;
+                userdata_free.userdata5 = userdata->userdata5;
+
+                SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message: channel %d, free the original data 0x%08X from SHM...", smc_channel->id, (uint32_t)loopback_data);
+
+                    /* Free the MDB SHM data PTR from remote */
+                if( smc_send_ext( smc_channel, (void*)loopback_data, 0, &userdata_free) != SMC_OK )
+                {
+                    SMC_TRACE_PRINTF_ERROR("smc_handle_loopback_data_message: channel %d: MDB memory 0x%08X free from remote failed",
+                            smc_channel->id, (uint32_t)loopback_data);
+                }
+            }
+            else
+            {
+                loopback_data_send = loopback_data;
+            }
+        }
+
+        SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: send loopback response data 0x%08X, data len %d", is_request?"Request":"Response", smc_channel->id, (uint32_t)loopback_data_send, lb_data_len);
+
+        if( userdata_resp.flags == SMC_MSG_FLAG_LOOPBACK_DATA_RESP )
+        {
+            RD_TRACE_SEND5(TRA_SMC_LOOPBACK_SEND_RESP, 1, &smc_channel->id,
+                                                       4, &loopback_data_send->loopback_data,
+                                                       4, &loopback_data_send->loopback_data_length,
+                                                       4, &loopback_data_send->round_trip_counter,
+                                                       4, &loopback_data_send->loopback_rounds_left);
+        }
+        else
+        {
+            RD_TRACE_SEND5(TRA_SMC_LOOPBACK_SEND_REQ, 1, &smc_channel->id,
+                                                      4, &loopback_data_send->loopback_data,
+                                                      4, &loopback_data_send->loopback_data_length,
+                                                      4, &loopback_data_send->round_trip_counter,
+                                                      4, &loopback_data_send->loopback_rounds_left);
+        }
+
+        if( smc_send_ext( smc_channel, (uint8_t*)loopback_data_send, lb_data_len, &userdata_resp) != SMC_OK )
+        {
+            SMC_TRACE_PRINTF_WARNING("smc_handle_loopback_data_message: SMC_MSG_FLAG_LOOPBACK_DATA_RESP send failed");
+        }
+    }
+    else
+    {
+        if( loopback_data != NULL )
+        {
+            SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback completed, result %s, loopback rounds %d", is_request?"Request":"Response", smc_channel->id, userdata->userdata4?"OK":"FAILED", loopback_data->round_trip_counter);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: loopback completed, result %s, loopback data was NULL (ERROR)", is_request?"Request":"Response", smc_channel->id, userdata->userdata4?"OK":"FAILED");
+        }
+    }
+
+    SMC_TRACE_PRINTF_LOOPBACK("smc_handle_loopback_data_message (%s): channel %d: completed with return value 0x%02X", is_request?"Request":"Response", smc_channel->id, ret_val);
+
+    return ret_val;
+}
+
+smc_loopback_data_t* smc_loopback_data_create( uint32_t size_of_message_payload, uint8_t from_irq )
+{
+    smc_loopback_data_t* data = NULL;
+
+    if( from_irq )
+    {
+        data = (smc_loopback_data_t*)SMC_MALLOC_IRQ( sizeof( smc_loopback_data_t ) + ((size_of_message_payload-1)*sizeof(uint8_t)) );
+    }
+    else
+    {
+        data = (smc_loopback_data_t*)SMC_MALLOC( sizeof( smc_loopback_data_t ) + ((size_of_message_payload-1)*sizeof(uint8_t)) );
+    }
+
+    data->round_trip_counter   = 0;
+    data->loopback_data_length = size_of_message_payload;
+    data->timestamp            = 0;
+    data->loopback_rounds_left = 0;
+
+    memset( data->loopback_data, 0, size_of_message_payload );
+
+    return data;
+}
+
+/*
+ * End of loopback test functions
+ *
+ **/
+
+
+
 
 /* EOF */
 

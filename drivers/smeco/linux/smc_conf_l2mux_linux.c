@@ -63,7 +63,9 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
 static void  smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data);
 
+/*
 static void  smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata);
+*/
 
 static smc_conf_t* smc_device_create_conf_l2mux(char* device_name);
 
@@ -149,14 +151,23 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
 
     char* smc_cpu_name = NULL;
     uint8_t asic_version = smc_asic_version_get();
+    uint8_t version_major = (( (asic_version&0xF0)>>4 )&0xFF);
+    uint8_t version_minor = (asic_version&0x0F);
 
-    smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+        /* Use EOS2 ES2.0 configuration */
+    //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+    smc_cpu_name = smc_instance_conf_name_get_from_list( smc_instance_conf_l2mux, SMC_CONF_COUNT_L2MUX, SMC_CONFIG_USER_L2MUX, TRUE, version_major, version_minor);
 
-    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX configuration '%s' for ASIC version 0x%02X", device_name, smc_cpu_name, asic_version );
+
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX configuration '%s' for ASIC version %d.%d (0x%02X)", device_name, smc_cpu_name, version_major, version_minor, asic_version );
     SMC_TRACE_PRINTF_STARTUP("Device '%s': PM Host Access Req %s", device_name, SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED?"enabled":"disabled");
     SMC_TRACE_PRINTF_STARTUP("Device '%s': APE Wakeup interrupt sense 0x%02X", device_name, SMC_APE_WAKEUP_EXTERNAL_IRQ_SENSE);
 
-
+#ifdef SMC_SUPPORT_SKB_FRAGMENT_UL
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': UL SKB fragments supported", device_name);
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': UL SKB fragments not supported", device_name);
+#endif
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
@@ -205,10 +216,12 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     return smc_conf;
 }
 
+/*
 static void smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata)
 {
 	SMC_TRACE_PRINTF_INFO("smc_deallocator_callback_l2mux: do not deallocate SKB data 0x%08X", (uint32_t)ptr);
 }
+*/
 
 static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                                      int32_t data_length,
@@ -244,7 +257,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
              */
             SMC_LOCK( channel->lock_read );
 
-            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE + SMC_L2MUX_HEADER_OVERHEAD );
+            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE /*+ SMC_L2MUX_HEADER_OVERHEAD*/ );
 
             if( unlikely(!skb) )
             {
@@ -262,17 +275,37 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 smc_device_driver_priv_t* smc_net_dev = NULL;
                 char* skb_data_buffer = NULL;
 
-                skb_reserve(skb, SMC_L2MUX_HEADER_OVERHEAD);
+                /*skb_reserve(skb, SMC_L2MUX_HEADER_OVERHEAD);*/
                 skb_data_buffer = skb_put(skb, data_length);
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
                 if( SMC_COPY_SCHEME_RECEIVE_USE_DMA( channel->copy_scheme ) )
                 {
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: DMA copy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
+#if 0   /* Not in use yet */
+                    SMC_TRACE_PRINTF_DMA("smc_receive_data_callback_channel_l2mux: DMA copy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
                                                                 (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
 
-                        /* Start the DMA transfer */
-                    memcpy( skb_data_buffer, data, data_length);
+                    if( channel->smc_dma != NULL )
+                    {
+                        /*
+                         * Start the DMA transfer
+                         * NOTE: Currently NO DMA copy implementation, just use memcpy
+                         */
+                        SMC_TRACE_PRINTF_DMA("smc_receive_data_callback_channel_l2mux: DMA copy by SMC DMA transfer API...");
+
+                        int dma_ret_val = smc_dma_transfer_mdb(channel->smc_dma, skb_data_buffer, SMC_MEMORY_VIRTUAL_TO_PHYSICAL( channel->smc_instance, data ), data_length, 0x01);
+
+                        if( dma_ret_val != SMC_DRIVER_OK )
+                        {
+                            SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: DMA copy from 0x%08X to SKB buffer 0x%08X (0x%08X) FAILED",
+                                                                                            (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+                        }
+                    }
+                    else
+#endif
+                    {
+                        memcpy( skb_data_buffer, data, data_length);
+                    }
                 }
                 else
 #endif
