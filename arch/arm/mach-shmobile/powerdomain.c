@@ -27,7 +27,6 @@
 #define POWER_DOMAIN_H
 
 #include <linux/init.h>
-#include <linux/io.h>
 #include <linux/compiler.h>
 #include <linux/string.h>
 #include <linux/delay.h>
@@ -35,6 +34,7 @@
 #include <linux/pm_runtime.h>
 #include <mach/pm.h>
 #include <mach/common.h>
+#include <linux/io.h>
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
 #include <linux/atomic.h>
