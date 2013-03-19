@@ -32,6 +32,10 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
+
+/* #define  __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+/* #define  __SNDP_INCALL_CLKGEN_MASTER      */
+
 /* PCM direction kind */
 enum sndp_direction {
 	SNDP_PCM_OUT,			/* out(playback) */
@@ -600,6 +604,26 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 
 #define SNDP_GET_VALUE(dev, mod)				\
 	(((u_int)(dev) << SNDP_DEVICE_BIT) | ((u_int)(mod) << SNDP_MODE_BIT))
+
+#ifdef __SNDP_NORMAL_PLAY_CLKGEN_MASTER
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_BLUETOOTHSCO) ||	\
+	 (device & SNDP_FM_RADIO_TX)  ||	\
+	 (device & SNDP_FM_RADIO_RX)  ||	\
+	 (device & SNDP_AUXDIGITAL))
+#else /* !__SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_SPEAKER)	||	\
+	 (device & SNDP_WIREDHEADSET)	||	\
+	 (device & SNDP_WIREDHEADPHONE)	||	\
+	 (device & SNDP_EARPIECE)	||	\
+	 (device & SNDP_BLUETOOTHSCO)	||	\
+	 (device & SNDP_AUXDIGITAL)	||	\
+	 (device & SNDP_FM_RADIO_TX)	||	\
+	 (device & SNDP_FM_RADIO_RX)	||	\
+	 (device & SNDP_BUILTIN_MIC))
+#endif /* __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+
 
 /* 0x00000010 */
 #define SNDP_PLAYBACK_EARPIECE_NORMAL			\

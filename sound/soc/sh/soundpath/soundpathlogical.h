@@ -147,13 +147,6 @@ static void sndp_fm_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
-/* Trigger process for PT */
-static void sndp_pt_trigger(
-	struct snd_pcm_substream *substream,
-	int cmd,
-	struct snd_soc_dai *dai,
-	u_int value);
-
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
 
@@ -202,11 +195,6 @@ static void sndp_work_fm_capture_start(struct sndp_work_info *work);
 static void sndp_work_fm_playback_stop(struct sndp_work_info *work);
 /* Work queue processing for Stop during a fm capture */
 static void sndp_work_fm_capture_stop(struct sndp_work_info *work);
-
-/* Work queue processing for Start during a PT playback */
-static void sndp_work_pt_playback_start(struct sndp_work_info *work);
-/* Work queue processing for Stop during a PT playback */
-static void sndp_work_pt_playback_stop(struct sndp_work_info *work);
 
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
@@ -323,11 +311,6 @@ static void sndp_work_hw_free(struct sndp_work_info *work);
 #define SET_OLD_VALUE(stream, value)	(g_sndp_main[stream].old_value = value)
 #define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
 
-#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
-	((device & SNDP_BLUETOOTHSCO) ||		\
-	 (device & SNDP_FM_RADIO_TX)  ||		\
-	 (device & SNDP_FM_RADIO_RX)  ||		\
-	 (device & SNDP_AUXDIGITAL))
 
 /*
  *

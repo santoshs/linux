@@ -1542,7 +1542,7 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 			fsi_master_write(master, FSIDIVB, 0x00490003);
 		} else {
 			dev_dbg(dai->dev, "rate=8000\n");
-			fsi_master_write(master, FSIDIVB, 0x00DB0003);
+			fsi_master_write(master, FSIDIVB, 0x007D0003);
 		}
 		fsi_reg_write(fsi, ACK_RV, 0x00001000);
 
