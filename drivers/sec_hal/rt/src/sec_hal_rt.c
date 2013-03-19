@@ -1555,19 +1555,20 @@ static long _sl_status_get(sd_ioctl_params_t *p)
 	max = (max_att & 0xFF);
 	fail = (fail_att & 0xFF);
 
-	if (rv == SEC_HAL_RES_FAIL) {
+	if (rv == SEC_HAL_RES_OK) {
 		if (put_user(sl_lvl, (uint32_t __user *)p->param0))
 			rv = SEC_HAL_RES_FAIL;
-		if (rv == SEC_HAL_RES_FAIL && p->param1
+		if (rv == SEC_HAL_RES_OK && p->param1
 			&& put_user(max,(uint8_t __user *)p->param1))
 			rv = SEC_HAL_RES_FAIL;
-		if (rv == SEC_HAL_RES_FAIL && p->param2
+		if (rv == SEC_HAL_RES_OK && p->param2
 			&& put_user(fail, (uint8_t __user *)p->param2))
 			rv = SEC_HAL_RES_FAIL;
 	}
 
 	return rv;
 }
+
 
 /* **************************************************************************
 ** Function name      : sec_hal_rt_ioctl
