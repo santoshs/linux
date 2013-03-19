@@ -23,7 +23,9 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
+#include <linux/hardirq.h>
 #include <linux/errno.h>
+
 #include <asm/io.h>
 
 
@@ -55,8 +57,7 @@ static struct mem_msg_area g_msg_area_smc0;
 static DEFINE_SPINLOCK(g_msg_area_spinlock_smc0);
 
 
-static inline
-void mem_msg_area_clear(struct mem_msg_area *ptr)
+static void mem_msg_area_clear(struct mem_msg_area *ptr)
 {
 	int i = 0;
 	if (ptr) {
@@ -71,8 +72,11 @@ void mem_msg_area_clear(struct mem_msg_area *ptr)
 	}
 }
 
-unsigned long sec_hal_mem_msg_area_memcpy(void *dst, const void *src,
-		unsigned long sz)
+
+unsigned long sec_hal_mem_msg_area_memcpy(
+	void *dst,
+	const void *src,
+	unsigned long sz)
 {
 	__u8* dst8 = (__u8*)dst;
 	__u8* src8 = (__u8*)src;
@@ -84,8 +88,11 @@ unsigned long sec_hal_mem_msg_area_memcpy(void *dst, const void *src,
 	return (unsigned long)dst;
 }
 
-unsigned long sec_hal_mem_msg_area_write(void *dst, const void *src,
-		unsigned long sz)
+
+unsigned long sec_hal_mem_msg_area_write(
+	void *dst,
+	const void *src,
+	unsigned long sz)
 {
 	__u8* dst8 = (__u8*)dst;
 	__u8* src8 = (__u8*)src;
@@ -97,8 +104,11 @@ unsigned long sec_hal_mem_msg_area_write(void *dst, const void *src,
 	return (unsigned long)dst;
 }
 
-unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,
-		unsigned long sz)
+
+unsigned long sec_hal_mem_msg_area_read(
+	void *dst,
+	const void *src,
+	unsigned long sz)
 {
 	__u8* dst8 = (__u8*)dst;
 	__u8* src8 = (__u8*)src;
@@ -110,9 +120,11 @@ unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,
 	return (unsigned long)dst;
 }
 
-static inline
-void sec_hal_mem_msg_area_memset(void *buff, unsigned char data,
-		unsigned int cnt)
+
+static void sec_hal_mem_msg_area_memset(
+	void *buff,
+	unsigned char data,
+	unsigned int cnt)
 {
 	__u8* ptr = (__u8*)buff;
 
@@ -122,16 +134,18 @@ void sec_hal_mem_msg_area_memset(void *buff, unsigned char data,
 	}
 }
 
+
 #if (!defined(BLOCKCOUNT) && !BLOCKCOUNT)
 #error !!local macro not defined, can cause div by zero exception!!
 #endif
 /* **********************************************************************
-** Function name      : sec_hal_mem_msg_area_calloc
-** Description        :
-** Return             : virtual address if success, NULL otherwise.
-** *********************************************************************/
+ * Function name      : sec_hal_mem_msg_area_calloc
+ * Description        :
+ * Return             : virtual address if success, NULL otherwise.
+ * *********************************************************************/
 void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz)
 {
+	unsigned long flags = 0;
 	unsigned int block_sz, block_cnt, block_ind, index = 0;
 	int found = FALSE;
 	void* vaddr = NULL;
@@ -145,7 +159,7 @@ void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz)
 	if (block_cnt > BLOCKCOUNT)
 		return NULL;
 
-	spin_lock(&g_msg_area_spinlock_smc0);
+	spin_lock_irqsave(&g_msg_area_spinlock_smc0, flags);
 	/* critical section starting, do not 'call' anything that may sleep.*/
 
 	/* seek big enough unallocated mem area */
@@ -178,30 +192,32 @@ void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz)
 	while (TRUE == found && block_cnt > 0 && (index+block_cnt) < BLOCKCOUNT) {
 		g_msg_area_smc0.msg_blocks[index+block_cnt].allocated = TRUE;
 		sec_hal_mem_msg_area_memset(
-				g_msg_area_smc0.msg_blocks[index+block_cnt].virt_addr,
-				0, block_sz);
+			g_msg_area_smc0.msg_blocks[index+block_cnt].virt_addr,
+			0, block_sz);
 		block_cnt--;
 	}
 
 	/* critical section ending. */
-	spin_unlock(&g_msg_area_spinlock_smc0);
+	spin_unlock_irqrestore(&g_msg_area_spinlock_smc0, flags);
 
 	return vaddr; /* return allocated(or not) memory address */
 }
 
+
 /* **********************************************************************
-** Function name      : sec_hal_mem_msg_area_free
-** Description        :
-** Return             :
-** *********************************************************************/
+ * Function name      : sec_hal_mem_msg_area_free
+ * Description        :
+ * Return             :
+ * *********************************************************************/
 void sec_hal_mem_msg_area_free(void *vaddr)
 {
+	unsigned long flags = 0;
 	unsigned int block_ind, index = 0;
 
 	if (NULL == vaddr)
 		return;
 
-	spin_lock(&g_msg_area_spinlock_smc0);
+	spin_lock_irqsave(&g_msg_area_spinlock_smc0, flags);
 	/* critical section starting, do not 'call' anything that may sleep.*/
 
 	while (index < BLOCKCOUNT) {
@@ -224,14 +240,15 @@ void sec_hal_mem_msg_area_free(void *vaddr)
 	}
 
 	/* critical section ending. */
-	spin_unlock(&g_msg_area_spinlock_smc0);
+	spin_unlock_irqrestore(&g_msg_area_spinlock_smc0, flags);
 }
 
+
 /* **********************************************************************
-** Function name      : sec_hal_virt_to_icram_phys
-** Description        :
-** Return             :
-** *********************************************************************/
+ * Function name      : sec_hal_virt_to_icram_phys
+ * Description        :
+ * Return             :
+ * *********************************************************************/
 unsigned long sec_hal_virt_to_icram_phys(unsigned long vaddr)
 {
 	unsigned long paddr;
@@ -243,11 +260,12 @@ unsigned long sec_hal_virt_to_icram_phys(unsigned long vaddr)
 	return paddr;
 }
 
+
 /* **********************************************************************
-** Function name      : sec_hal_icram_phys_to_virt
-** Description        :
-** Return             :
-** *********************************************************************/
+ * Function name      : sec_hal_icram_phys_to_virt
+ * Description        :
+ * Return             :
+ * *********************************************************************/
 unsigned long sec_hal_icram_phys_to_virt(unsigned long paddr)
 {
 	unsigned long vaddr;
@@ -261,21 +279,14 @@ unsigned long sec_hal_icram_phys_to_virt(unsigned long paddr)
 
 
 /* **********************************************************************
-** Function name      : sec_hal_icram0_init
-** Description        :
-** Return             :
-** *********************************************************************/
+ * Function name      : sec_hal_icram0_init
+ * Description        :
+ * Return             :
+ * *********************************************************************/
 int sec_hal_icram0_init(void)
 {
 	int ret = 0;
 	unsigned int block_sz, index = 0;
-
-#if 0
-    if (!request_mem_region(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE), "msg area")) {
-        ret = -ENODEV;
-        goto e1;
-    }
-#endif
 
 	if (g_msg_area_smc0.virt_baseptr != NULL) {
 		ret = -EINVAL;
@@ -289,7 +300,7 @@ int sec_hal_icram0_init(void)
 #endif /* CONFIG_ARM_SEC_HAL_TEST_DISPATCHER */
 	g_msg_area_smc0.phys_start = UL(ICRAM1_ADDRESS);
 	g_msg_area_smc0.phys_size = UL(ICRAM1_SIZE);
-    g_msg_area_smc0.offset = (unsigned long)(g_msg_area_smc0.virt_baseptr - g_msg_area_smc0.phys_start);
+	g_msg_area_smc0.offset = (unsigned long)(g_msg_area_smc0.virt_baseptr - g_msg_area_smc0.phys_start);
 
 	if (g_msg_area_smc0.virt_baseptr == NULL) {
 		ret = -EINVAL;

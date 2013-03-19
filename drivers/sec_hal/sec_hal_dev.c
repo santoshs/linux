@@ -48,10 +48,11 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/errno.h>
+#include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/mman.h>
-#include <linux/dma-mapping.h>
+#include <linux/timer.h>
 
 #include <asm/io.h>
 
@@ -210,6 +211,7 @@ static struct device_data g_device_data = {
 	.wdt_upd = DEFAULT_WDT_VALUE,
 	.icram0 = {.virt_baseptr = NULL},
 };
+
 /* initial DBGREG values, for Rnd.
  * Eventually should be read from general purpose register
  * which are accessible by hw debuggers. */
@@ -222,7 +224,9 @@ DATA_TOC_ENTRY *public_toc_root;
 uint8_t *public_id;
 uint8_t *prcf;
 uint32_t public_id_size;
-
+#define INIT_TIMER_MSECS 90000
+static struct timer_list g_integ_timer;
+static uint32_t g_banked_timeout;
 
 
 /* **********************************************************************
@@ -893,40 +897,29 @@ static void sec_hal_cdev_exit(struct device_data *device_data)
 
 
 /* **********************************************************************
-** Function name      : sec_hal_dbg_irq_hdr
-** Description        : IRQ handler for JTAG/hw debugger attach event.
-**                      SJTAG not supported by this function.
-** Return             : IRQ_HANDLED
-** *********************************************************************/
-static
-irqreturn_t sec_hal_dbg_irq_hdr(int irq, void *dev_id)
+ * Function name      : sec_hal_dbg_irq_hdr
+ * Description        : IRQ handler for JTAG/hw debugger attach event.
+ *                      Secure JTAG is not supported by this function.
+ * Return             : IRQ_HANDLED
+ * *********************************************************************/
+static irqreturn_t sec_hal_dbg_irq_hdr(int irq, void *dev_id)
 {
-	uint32_t ret;
-	uint32_t reg1 = g_dbgreg1, reg2 = g_dbgreg2, reg3 = g_dbgreg3;
-
-	ret = sec_hal_dbg_reg_set(&reg1, &reg2, &reg3);
-	if (SEC_HAL_RES_OK == ret) {
-		if (reg1 == g_dbgreg1)
-			g_dbgreg1 = reg1;
-		if (reg2 == g_dbgreg2)
-			g_dbgreg2 = reg2;
-		if (reg3 == g_dbgreg3)
-			g_dbgreg3 = reg3;
-	}
+	(void) dev_id;
+	(void) sec_hal_dbg_reg_set(&g_dbgreg1, &g_dbgreg2, &g_dbgreg3);
 
 	/* Disable interrupt of TDBG because it requires only ONCE. */
 	disable_irq_nosync(irq);
 	return IRQ_HANDLED;
 }
 
+
 /* **********************************************************************
-** Function name      : sec_hal_dbg_irq_init
-** Description        : initializes IRQ handler for TDBG, IRQ should be
-**                      triggered by JTAG/hw debugger attach event.
-**                      SJTAG not supported by this function.
-** *********************************************************************/
-static
-void sec_hal_dbg_irq_init(void)
+ * Function name      : sec_hal_dbg_irq_init
+ * Description        : initializes IRQ handler for TDBG, IRQ should be
+ *                      triggered by JTAG/hw debugger attach event.
+ *                      Secure JTAG is not supported by this function.
+ * *********************************************************************/
+static void sec_hal_dbg_irq_init(void)
 {
 	int rv;
 	uint32_t irq, flags = IRQF_DISABLED;
@@ -946,14 +939,34 @@ void sec_hal_dbg_irq_init(void)
 }
 
 
+/* **********************************************************************
+ * Function name      : sec_hal_timeout
+ * Description        : handler for timeout IRQ, used for per. icheck.
+ *                      new period is only set if per. check succeeds.
+ * *********************************************************************/
+static void sec_hal_timeout(unsigned long arg)
+{
+	uint32_t rv, next = 0;
+	struct timer_list *timer = (struct timer_list *) arg;
+
+	rv = sec_hal_rt_periodic_integrity_check(&next);
+	if (rv == SEC_HAL_RES_OK && next) {
+		timer->expires = jiffies + msecs_to_jiffies(next);
+		add_timer(timer);
+	}
+}
+
 
 int sec_hal_icram0_init(void);
 int sec_hal_rpc_init(void);
 /* **********************************************************************
  * PLATFORM DEVICE FRAMEWORK RELATED FUNCTIONS.
  * *********************************************************************/
-static
-int sec_hal_pdev_probe(struct platform_device *pdev)
+/* **********************************************************************
+ * Function name      : sec_hal_pdev_probe
+ * Description        :
+ * *********************************************************************/
+static int sec_hal_pdev_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource* mem;
@@ -998,6 +1011,12 @@ int sec_hal_pdev_probe(struct platform_device *pdev)
 	ret = sec_hal_reset_info_addr_register();
 	if (ret)
 		goto e2;
+
+	init_timer(&g_integ_timer);
+	g_integ_timer.data = &g_integ_timer;
+	g_integ_timer.function = sec_hal_timeout;
+	g_integ_timer.expires = jiffies + msecs_to_jiffies(INIT_TIMER_MSECS);
+	add_timer(&g_integ_timer);
 
 #ifdef CONFIG_ARM_SEC_HAL_SDTOC
 	/* sdtoc_init */
@@ -1061,6 +1080,58 @@ e0:
 }
 
 
+/* **********************************************************************
+ * Function name      : sec_hal_pdev_suspend
+ * Description        :
+ * *********************************************************************/
+static int sec_hal_pdev_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	int rv = 0;
+
+	(void)pdev;
+
+	SEC_HAL_TRACE_ENTRY();
+	SEC_HAL_TRACE("state.event: 0x%X", state.event);
+
+	if ((PM_EVENT_SUSPEND & state.event)
+		&& timer_pending(&g_integ_timer)) {
+		rv = del_timer_sync(&g_integ_timer);
+		(void)sec_hal_rt_periodic_integrity_check(&g_banked_timeout);
+	}
+
+	SEC_HAL_TRACE_EXIT_INFO("rv: %d", rv);
+	return (rv > 0 ? 0 : rv);
+}
+
+
+/* **********************************************************************
+ * Function name      : sec_hal_pdev_resume
+ * Description        :
+ * *********************************************************************/
+static int sec_hal_pdev_resume(struct platform_device *pdev)
+{
+	int rv = 0;
+
+	(void)pdev;
+
+	SEC_HAL_TRACE_ENTRY();
+
+	if (g_banked_timeout) {
+		g_integ_timer.expires = jiffies
+			+ msecs_to_jiffies(g_banked_timeout);
+		add_timer(&g_integ_timer);
+		g_banked_timeout = 0;
+	}
+
+	SEC_HAL_TRACE_EXIT();
+	return rv;
+}
+
+
+/* **********************************************************************
+ * Function name      : sec_hal_pdev_remove
+ * Description        :
+ * *********************************************************************/
 static int sec_hal_pdev_remove(struct platform_device *pdev)
 {
 	(void) pdev;
@@ -1077,6 +1148,8 @@ static int sec_hal_pdev_remove(struct platform_device *pdev)
 static struct platform_driver k_sec_hal_platform_device_driver =
 {
 	.probe = sec_hal_pdev_probe,
+	.suspend = sec_hal_pdev_suspend,
+	.resume = sec_hal_pdev_resume,
 	.remove = sec_hal_pdev_remove,
 	.driver = {.name  = DEVNAME, .owner = THIS_MODULE},
 };

@@ -1291,10 +1291,10 @@ uint32_t sec_hal_rt_auth_data_get(
 ** *************************************************************************/
 uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 {
-	uint32_t sec_hal_status = SEC_HAL_RES_OK;
-	uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
-	uint32_t ssa_disp_status = 0x00;
-	uint32_t sec_serv_status = 0x00;
+	uint32_t ret = SEC_HAL_RES_OK;
+	uint32_t msg_st = SEC_MSG_STATUS_OK;
+	uint32_t disp_st = 0x00;
+	uint32_t serv_st = 0x00;
 	uint16_t msg_data_size;
 	sec_msg_t *in_msg = NULL;
 	sec_msg_t *out_msg = NULL;
@@ -1303,83 +1303,70 @@ uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 
 	SEC_HAL_TRACE_ENTRY();
 
-	if (NULL == sec_exp_time)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!null sec_exp_time, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t));
-	in_msg = sec_msg_alloc(
-				&in_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
-	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
-				sec_msg_param_size(sizeof(uint32_t));
-	out_msg = sec_msg_alloc(
-				&out_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
+	in_msg = sec_msg_alloc(&in_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+		+ sec_msg_param_size(sizeof(uint32_t));
+	out_msg = sec_msg_alloc(&out_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
 
-	if (NULL == in_msg || NULL == out_msg)
-	{
-		SEC_HAL_TRACE("alloc failure, msgs not sent!");
-		sec_hal_status = SEC_HAL_RES_FAIL;
-	}
-	else
-	{
+	do {
+		if (NULL == in_msg || NULL == out_msg) {
+			SEC_HAL_TRACE("alloc failure, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+
 		/* write content to the input msg */
-		sec_msg_param_write32(
-				&in_handle,
+		if (sec_msg_param_write32(&in_handle,
 				sizeof(uint32_t),
-				SEC_MSG_PARAM_ID_NONE);
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("dummy write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		LOCAL_WMB();
 
 		/* call dispatcher */
-		ssa_disp_status = LOCAL_DISP(
-							SEC_SERV_INTEGRITY_CHECK,
-							LOCAL_DEFAULT_DISP_FLAGS,
-							LOCAL_DEFAULT_DISP_SPARE_PARAM,
-							SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
-							SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
+		disp_st = LOCAL_DISP(SEC_SERV_INTEGRITY_CHECK,
+			LOCAL_DEFAULT_DISP_FLAGS,
+			LOCAL_DEFAULT_DISP_SPARE_PARAM,
+			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+			SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
 
 		/* interpret the response */
-		sec_msg_status = sec_msg_param_read32(&out_handle, &sec_serv_status);
-		if (SEC_ROM_RET_OK != ssa_disp_status ||
-			SEC_MSG_STATUS_OK != sec_msg_status ||
-			SEC_SERV_STATUS_OK != sec_serv_status)
-		{
-			SEC_HAL_TRACE("op failed, INTEGRITY not confirmed!");
-			SEC_HAL_TRACE_INT("ssa_disp_status", ssa_disp_status);
-			SEC_HAL_TRACE_INT("sec_msg_status ", sec_msg_status);
-			SEC_HAL_TRACE_INT("sec_serv_status", sec_serv_status);
-			sec_hal_status = SEC_HAL_RES_FAIL;
+		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != disp_st
+				|| SEC_MSG_STATUS_OK != msg_st
+				|| SEC_SERV_STATUS_OK != serv_st) {
+			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+				disp_st, msg_st, serv_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
 		}
-		else
-		{
-			sec_msg_status = _sec_msg_param_read(
-								LOCAL_CPY_TO_CLIENT_FUNCPTR,
-								&out_handle,
-								sec_exp_time,
-								sizeof(uint32_t));
-			if (SEC_MSG_STATUS_OK != sec_msg_status)
-			{
-				SEC_HAL_TRACE_INT("read failed! sec_msg_status", sec_msg_status);
-				sec_hal_status = SEC_HAL_RES_FAIL;
-			}
+
+		if (sec_exp_time == NULL)
+			break; /* can exit now, no more output wanted. */
+		msg_st = sec_msg_param_read32(&out_handle, sec_exp_time);
+		if (SEC_MSG_STATUS_OK != msg_st) {
+			SEC_HAL_TRACE("time read failed! msg == %d", msg_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
 		}
-	}
+	} while (0);
+	LOCAL_RMB(); /* to ensure that out - param reads have completed */
 
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
 	sec_msg_free(in_msg);
 
 	SEC_HAL_TRACE_EXIT();
-	return sec_hal_status;
+	return ret;
 }
 
 /* **************************************************************************
