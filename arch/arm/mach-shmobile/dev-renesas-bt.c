@@ -210,6 +210,8 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	}
 
 	printk(KERN_ALERT "%s: RFKILL Alloc Done\n", __func__);
+	
+	rfkill_init_sw_state(bt_rfkill, 0);//Set BT_EN default to low after init
 
 	rc = rfkill_register(bt_rfkill);
 
