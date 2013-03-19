@@ -809,9 +809,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /* DEBUG Register			*/
 /********************************************/
 /*Debugging function selection register */
-#define DBGREG1				(0xE6100020)
 /* KEY register */
-#define DBGREG9				(0xE6100040)
 
 /********************************************/
 /* RWDT Register			*/
