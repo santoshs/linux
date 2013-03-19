@@ -884,3 +884,6 @@ CONFIG_SH_RAMDUMP=y
 
 # Memlog
 CONFIG_MEMLOG=y
+
+#Sync driver
+CONFIG_SYNC=y
