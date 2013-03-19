@@ -1598,21 +1598,19 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 
 		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
 
-		if ((intr & 0x01) && (device_type & 0x04)) {
+		if ((intr & 0x01) && (device_type & 0x04))
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-	        }
-                else if (intr & 0x02){
-                        handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-                }
+		else if (intr & 0x02)
+			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 	}
 #endif
 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		dev_info(&client->dev, "%s intr: 0x%x\n", __func__, intr);
-		if (intr) {
-			handle_nested_irq(usbsw->irq_base
-						+ TPS80032_INT_VBUSS_WKUP);
+
+		if ((intr & 0x01) && (device_type & 0x04))
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-		}
+		else if (intr & 0x02)
+			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 #endif
 
 	if (intr < 0) {
