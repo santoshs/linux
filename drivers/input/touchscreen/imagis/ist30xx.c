@@ -271,7 +271,6 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 
 	if (!data->irq_enabled)
 		return IRQ_HANDLED;
-
 	memset(msg, 0, IST30XX_MAX_MT_FINGERS);
 	ret = ist30xx_get_position(data->client, msg, 1);
 	if (ret)
