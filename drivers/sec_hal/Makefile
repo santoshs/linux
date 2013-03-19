@@ -16,7 +16,7 @@
 NAME                      := sec_hal
 INCLUDES                   = -I$(src) -I$(src)/exports -I$(src)/rt/inc -I$(src)/toc/inc
 obj-$(CONFIG_ARM_SEC_HAL)  = $(NAME).o
-ccflags-y                 += $(INCLUDES) -DPUBLIC_ENVIRONMENT  # -Werror
+ccflags-y                 += $(INCLUDES) -DPUBLIC_ENVIRONMENT -Werror
 ifneq ($(CONFIG_ARM_SEC_HAL_TRACE),)
 ccflags-y                 += -DSEC_HAL_TRACE_TO_KERNEL
 endif

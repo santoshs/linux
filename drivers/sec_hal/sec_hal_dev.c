@@ -15,14 +15,11 @@
 
 #include "sec_hal_rt.h"
 #include "sec_hal_rt_cmn.h"
-#include "sec_hal_drm.h"
-#include "sec_msg.h"
 #include "sec_hal_rt_trace.h"
 #include "sec_hal_dev_ioctl.h"
 #include "sec_hal_dev_info.h"
 #include "sec_hal_cmn.h"
 #include "sec_hal_mdm.h"
-#include "sec_hal_pm.h"
 #include "sec_hal_toc.h"
 #include "sec_hal_tee.h"
 
@@ -53,62 +50,27 @@
 #include <linux/vmalloc.h>
 #include <linux/mman.h>
 #include <linux/timer.h>
-
-#include <asm/io.h>
-
+#include <linux/io.h>
 
 
 /* ********************************************************************
-** MACRO(s)
-** *******************************************************************/
-
+ * COMMON MACRO(s)
+ * *******************************************************************/
+#define ICRAM0_ADDRESS    0xE63A0000
+#define ICRAM0_SIZE       4096
 #define DEFAULT_WDT_VALUE 60000
-#define ICRAM1_SIZE 4096
-#define ICRAM1_ADDRESS 0xE63A0000
-
-#define SDTOC_SIZE 0x4000
-#if 0
-#define SDTOC_ADDRESS 0x46500000
-#else
-#define SDTOC_ADDRESS 0x47FE0000
-#endif
-
-#define PUBLIC_TOC_SIZE 4096
-/*#define PUBLIC_TOC_ADDRESS 0x47FE0000*/
-
+#define SDTOC_SIZE        0x4000
+#define SDTOC_ADDRESS     0x47FE0000
+#define PUBLIC_TOC_SIZE   4096
 
 #ifndef gic_spi
-#define gic_spi(param) 32 + param
+#define gic_spi(param)    (32 + param)
 #endif
-
-void* sec_hal_mem_msg_area_calloc(unsigned int n, unsigned int sz);
-uint32_t sec_hal_reset_info_addr_register(void);
-#ifdef SEC_STORAGE_SELFTEST_ENABLE
-static uint32_t rpc_handler(uint32_t id, uint32_t p1, uint32_t p2, uint32_t p3, uint32_t p4);
-#endif
-
-
 
 
 /* **********************************************************************
-** STRUCT(s)
-** *********************************************************************/
-struct mem_alloc_info {
-	void* virt_addr; /* the start address of the message area */
-	uint8_t size;/* the size of allocation */
-	uint8_t allocated; /* status of the block */
-};
-
-#define BLOCKCOUNT 128
-struct mem_msg_area {
-	void* virt_baseptr; /* stores ioremap output */
-	unsigned long phys_start; /* phys start addr */
-	unsigned long phys_size; /* phys size */
-	unsigned long offset; /* offset between physical and virtual addresses */
-	/* blocks to-be-allocated for out & in msgs */
-	struct mem_alloc_info msg_blocks[BLOCKCOUNT];
-};
-
+ * STRUCT(s)
+ * *********************************************************************/
 typedef struct {
 	struct list_head list;
 	void *virt_addr; /* virtual address */
@@ -123,8 +85,6 @@ struct device_data {
 	struct class* class;
 	struct cdev cdev;
 	struct semaphore sem;
-	unsigned int wdt_upd; /* initial wdt value */
-	struct mem_msg_area icram0; /* memory (icram0) allocation information */
 	struct platform_device *pdev;
 };
 
@@ -139,7 +99,7 @@ struct client_data {
 };
 
 
-/* RunTime functions decl to higher level.(legacy stuff) */
+/* RunTime functions decl to higher level.(legacy funcs) */
 long sec_hal_rt_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param);
 
 
@@ -167,9 +127,10 @@ void sec_hal_tee_usr_exit(void **tee_data);
 long sec_hal_tee_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param,
 		struct platform_device *pdev);
 
+
 /* **********************************************************************
-** W/A(s)
-** *********************************************************************/
+ * W/A(s)
+ * *********************************************************************/
 static inline int is_recovery(void)
 {
 	int i;
@@ -187,31 +148,11 @@ static inline int is_recovery(void)
 	return 1;
 }
 
-static inline void mem_msg_area_clear(struct mem_msg_area *ptr)
-{
-	int i = 0;
-	if (ptr) {
-		ptr->virt_baseptr = NULL;
-		ptr->phys_start = 0;
-		ptr->phys_size = 0;
-		for (; i < BLOCKCOUNT; i++) {
-			ptr->msg_blocks[i].virt_addr = NULL;
-			ptr->msg_blocks[i].size = 0;
-			ptr->msg_blocks[i].allocated = FALSE;
-		}
-	}
-}
-#define MEM_MSG_AREA_CLEAR(ptr) mem_msg_area_clear(ptr)
-
 
 /* **********************************************************************
-** STATIC writable data
-** *********************************************************************/
-static struct device_data g_device_data = {
-	.wdt_upd = DEFAULT_WDT_VALUE,
-	.icram0 = {.virt_baseptr = NULL},
-};
-
+ * STATIC writable data
+ * *********************************************************************/
+static struct device_data g_device_data;
 /* initial DBGREG values, for Rnd.
  * Eventually should be read from general purpose register
  * which are accessible by hw debuggers. */
@@ -251,15 +192,8 @@ static int sec_hal_usr_open(struct inode *inode, struct file *filp)
 		return -ENODEV;
 
 	client->device = device;
-#if 0
 	client->drm_data = NULL;
 	client->tee_data = NULL;
-
-	client->teec_context = NULL;
-	client->next_teec_shmem = NULL;
-	client->next_teec_shmem_buffer = NULL;
-	INIT_LIST_HEAD(&(client->shmem_list.head));
-#endif
 	filp->private_data = client;
 
 	SEC_HAL_TRACE_EXIT();
@@ -512,7 +446,7 @@ static int search_mem_node(struct list_head *lst, void *virt_addr)
 
 /*******************************************************************************
  * Function   : sec_hal_memory_tablewalk
- * Description: This function translates the virtual address into the physical address.
+ * Description: This function translates the virt address into the phys address.
  * Parameters : virt_addr	   - virtual address
  * Returns	  : phys_addr	   - physical address
  *******************************************************************************/
@@ -957,6 +891,7 @@ static void sec_hal_timeout(unsigned long arg)
 }
 
 
+uint32_t sec_hal_reset_info_addr_register(void);
 int sec_hal_icram0_init(void);
 int sec_hal_rpc_init(void);
 /* **********************************************************************
@@ -1013,7 +948,7 @@ static int sec_hal_pdev_probe(struct platform_device *pdev)
 		goto e2;
 
 	init_timer(&g_integ_timer);
-	g_integ_timer.data = &g_integ_timer;
+	g_integ_timer.data = (unsigned long)&g_integ_timer;
 	g_integ_timer.function = sec_hal_timeout;
 	g_integ_timer.expires = jiffies + msecs_to_jiffies(INIT_TIMER_MSECS);
 	add_timer(&g_integ_timer);
@@ -1187,8 +1122,8 @@ static struct resource k_sec_hal_resources[] =
 {
 	[0] =
 	{ /* ICRAM0 */
-		.start = UL(ICRAM1_ADDRESS),
-		.end = UL(ICRAM1_ADDRESS) + UL(ICRAM1_SIZE) - 1,/* 4kb from start addr */
+		.start = UL(ICRAM0_ADDRESS),
+		.end = UL(ICRAM0_ADDRESS) + UL(ICRAM0_SIZE) - 1,/* 4kb from start addr */
 		.flags = IORESOURCE_MEM,
 	}
 };

@@ -22,7 +22,7 @@
 #include "sec_hal_res.h"
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_dev_ioctl.h"
-//#define SEC_HAL_TRACE_LOCAL_DISABLE
+/* #define SEC_HAL_TRACE_LOCAL_DISABLE */
 #include "sec_hal_rt_trace.h"
 #include "sec_serv_api.h"
 #include "sec_msg.h"
@@ -342,8 +342,8 @@ static uint32_t sec_hal_cnf_siml_verify_data_get(uint32_t req_hash_len,
 			ret = SEC_HAL_RES_FAIL;
 			break;
 		}
-		LOCAL_RMB(); /* ensure that read ops completed */
 	} while (0);
+	LOCAL_RMB(); /* ensure that read ops completed */
 
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
@@ -568,25 +568,29 @@ static uint32_t _write_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
 		goto out;
 	}
 
-	if (copy_from_user(&mcode, (const void __user *)p->param2, CNF_CODE_MAX_LEN)) {
+	if (copy_from_user(&mcode, (const void __user *)p->param2,
+			CNF_CODE_MAX_LEN)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
-	if (copy_from_user(&cds, (const void __user *)p->param3, SIML_UNLOCK_CODES_SZ)) {
+	if (copy_from_user(&cds, (const void __user *)p->param3,
+			SIML_UNLOCK_CODES_SZ)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
-	if (copy_from_user(&rcode, (const void __user *)p->param5, CNF_CODE_MAX_LEN)) {
+	if (copy_from_user(&rcode, (const void __user *)p->param5,
+			CNF_CODE_MAX_LEN)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
 	for (i = 0; i < SIML_LVL_CNT; i++)
-		emask |= (cds.codes[i].code[0]?0x01:0x00) << i;
+		emask |= (cds.codes[i].code[0] ? 0x01 : 0x00) << i;
 
-	rv = sec_hal_cnf_siml(paddr, sz, &cds, emask, p->param4, &mcode, &rcode);
+	rv = sec_hal_cnf_siml(paddr, sz, &cds, emask, p->param4,
+		&mcode, &rcode);
 dmaout:
 	dma_unmap_single(&pdev->dev, paddr, sz, DMA_TO_DEVICE);
 out:
@@ -602,7 +606,9 @@ out:
  *                      ==0 operation successful
  *                      failure otherwise.
  * *************************************************************************/
-static uint32_t _validate_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
+static uint32_t _validate_siml(
+	sd_ioctl_params_t *p,
+	struct platform_device *pdev)
 {
 	uint32_t rv, sz, paddr = 0x00;
 	void *cnfd = NULL;
