@@ -80,7 +80,6 @@ static l2mux_skb_fn *l2mux_pt2tx_tab[ETH_NON_DIX_NPROTO] __read_mostly;
 static void l2mux_write_stat(unsigned l3pid, unsigned l3len,
 				enum l2mux_direction dir,
 				struct net_device *dev);
-
 static ssize_t store_l2mux_traces_state(struct device *dev,
 					struct device_attribute *attr,
 						const char *buf,
