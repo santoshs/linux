@@ -568,11 +568,8 @@ union power_supply_propval *val)
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		{
-#if (defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
-			int type = 0;
-#else
 			int type = get_cable_type();
-#endif
+
 			printk("%s, %d\n", __func__, type);
 			switch(type)
 			{
@@ -713,11 +710,8 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 static int smb328a_set_charging_current(struct i2c_client *client, int chg_current)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
-#if (defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
-	int cable_type = 0;
-#else
 	int cable_type = get_cable_type();
-#endif
+
 	if (cable_type == CABLE_TYPE_USB)
 		chip->chg_mode = CHG_MODE_USB;
 	else if(cable_type == CABLE_TYPE_AC)
