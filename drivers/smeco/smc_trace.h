@@ -77,12 +77,19 @@ Description :  File created
 #define SMC_TRACE_HISTORY_ENABLED
 #define SMC_TRACE_FIFO_BUFFER_ENABLED
 #define SMC_TRACE_DMA_ENABLED
+#define SMC_TRACE_SHM_VARIABLE_ENABLED
 */
-
 
 /**
  * ----------- R&D Trace macros begin ---------------
  */
+
+
+#ifdef SMC_TRACE_SHM_VARIABLE_ENABLED
+  #define SMC_TRACE_PRINTF_SHM_VAR(...)             SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SHMVAR: " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_SHM_VAR(...)
+#endif
 
 #ifdef SMC_TRACE_DMA_ENABLED
   #define SMC_TRACE_PRINTF_DMA(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"DMA: " __VA_ARGS__ )
@@ -102,7 +109,6 @@ Description :  File created
   #define SMC_TRACE_PRINTF_LOOPBACK(...)
   #define SMC_TRACE_PRINTF_LOOPBACK_DATA(length, data)
 #endif
-
 
 #ifdef SMC_TRACE_VERSION_INFO_ENABLED
   #define SMC_TRACE_PRINTF_VERSION(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX" " __VA_ARGS__ )

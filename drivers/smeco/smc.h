@@ -14,6 +14,22 @@
 /*
 Change history:
 
+Version:       46   15-Mar-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.46
+
+Version:       45   20-Feb-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.45
+
+Version:       44   21-Jan-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.44
+
+Version:       43   03-Jan-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.43
+
 Version:       42   12-Dec-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.42
@@ -163,7 +179,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.42"
+#define SMC_SW_VERSION  "0.0.46"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -220,6 +236,10 @@ Description :  File created
 #define SMC_MSG_FLAG_LOOPBACK_DATA_RESP         0x80010000      /* Response to the loopback data req, the data is received in remote side */
 #define SMC_MSG_FLAG_TRACE_ACTIVATE_REQ         0x80020000      /* Trace activation/deactivation message */
 #define SMC_MSG_FLAG_REMOTE_CPU_CRASH           0x80040000      /* Remote CPU has crashed */
+#define SMC_MSG_FLAG_SHM_VAR_ADDRESS_REQ        0x80080000      /* Shared variable address request */
+#define SMC_MSG_FLAG_SHM_VAR_ADDRESS_RESP       0x80100000      /* Shared variable address response */
+
+
 #define SMC_MSG_FLAG_MASK_FIFO_PACKET_BUFFERED  0x20000000      /* If bit set the fifo packet is buffered */
 #define SMC_MSG_FLAG_MASK_LOCAL_DATA_PTR        0x40000000      /* If bit set the data pointer was local */
 
@@ -235,7 +255,7 @@ Description :  File created
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_SYNC_REQ( flag )             (((flag)&SMC_MSG_FLAG_SYNC_INFO_REQ)==SMC_MSG_FLAG_SYNC_INFO_REQ)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_SYNC_RESP( flag )            (((flag)&SMC_MSG_FLAG_SYNC_INFO_RESP)==SMC_MSG_FLAG_SYNC_INFO_RESP)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB( flag )         (((flag)&SMC_MSG_FLAG_FREE_MEM_MDB)==SMC_MSG_FLAG_FREE_MEM_MDB)
-#define SMC_FIFO_IS_INTERNAL_MESSAGE_CREATE_CHANNEL( flag )       (((flag)&SMC_MSG_FLAG_FREE_MEM_MDB)==SMC_MSG_FLAG_FREE_MEM_MDB)
+#define SMC_FIFO_IS_INTERNAL_MESSAGE_CREATE_CHANNEL( flag )       (((flag)&SMC_MSG_FLAG_CREATE_CHANNEL)==SMC_MSG_FLAG_CREATE_CHANNEL)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_CHANNEL_EVENT_USER( flag )   (((flag)&SMC_MSG_FLAG_CHANNEL_EVENT_USER)==SMC_MSG_FLAG_CHANNEL_EVENT_USER)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_REQ( flag )          (((flag)&SMC_MSG_FLAG_VERSION_INFO_REQ)==SMC_MSG_FLAG_VERSION_INFO_REQ)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_RESP( flag )         (((flag)&SMC_MSG_FLAG_VERSION_INFO_RESP)==SMC_MSG_FLAG_VERSION_INFO_RESP)
@@ -250,17 +270,21 @@ Description :  File created
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_RESP( flag )   (((flag)&SMC_MSG_FLAG_LOOPBACK_DATA_RESP)==SMC_MSG_FLAG_LOOPBACK_DATA_RESP)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_TRACE_ACTIVATE_REQ( flag )   (((flag)&SMC_MSG_FLAG_TRACE_ACTIVATE_REQ)==SMC_MSG_FLAG_TRACE_ACTIVATE_REQ)
 #define SMC_FIFO_IS_INTERNAL_MESSAGE_REMOTE_CPU_CRASH( flag )     (((flag)&SMC_MSG_FLAG_REMOTE_CPU_CRASH)==SMC_MSG_FLAG_REMOTE_CPU_CRASH)
-
+#define SMC_FIFO_IS_INTERNAL_MESSAGE_SHM_VAR_ADDRESS_REQ( flag )   (((flag)&SMC_MSG_FLAG_SHM_VAR_ADDRESS_REQ)==SMC_MSG_FLAG_SHM_VAR_ADDRESS_REQ)
+#define SMC_FIFO_IS_INTERNAL_MESSAGE_SHM_VAR_ADDRESS_RESP( flag )  (((flag)&SMC_MSG_FLAG_SHM_VAR_ADDRESS_RESP)==SMC_MSG_FLAG_SHM_VAR_ADDRESS_RESP)
 
 #define SMC_IS_LOOPBACK_MSG( flag ) ( SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_REQ(flag) || SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_RESP(flag) )
 
-    /* This macro defines internal messages which data pointer must be translated */
+    /* ======= NOTE
+     * This macro defines internal messages which data pointer must be translated */
 #define SMC_INTERNAL_MESSAGE_DATA_ADDRESS_TRANSLATE( flag )    (!SMC_FIFO_IS_INTERNAL_MESSAGE(flag) || \
                                                                  SMC_FIFO_IS_INTERNAL_MESSAGE_FREE_MEM_MDB(flag) || \
                                                                  SMC_FIFO_IS_INTERNAL_MESSAGE_CONFIG_SHM_REQ( flag ) || \
                                                                  SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_REQ( flag ) || \
                                                                  SMC_FIFO_IS_INTERNAL_MESSAGE_LOOPBACK_DATA_RESP( flag ) || \
-                                                                 SMC_FIFO_IS_INTERNAL_MESSAGE_REMOTE_CPU_CRASH( flag ) )
+                                                                 SMC_FIFO_IS_INTERNAL_MESSAGE_REMOTE_CPU_CRASH( flag ) || \
+                                                                 SMC_FIFO_IS_INTERNAL_MESSAGE_SHM_VAR_ADDRESS_REQ( flag ) || \
+                                                                 SMC_FIFO_IS_INTERNAL_MESSAGE_SHM_VAR_ADDRESS_RESP( flag ) )
 
     /*
      * SMC instance status flags
@@ -275,6 +299,8 @@ Description :  File created
 #define SMC_INSTANCE_STATUS_INIT_SET_REMOTE( status )         ((status) |= SMC_INSTANCE_STATUS_INIT_CHANNELS_REMOTE)
 #define SMC_INSTANCE_STATUS_SET_FIXED_CONFIG_SENT( status )   ((status) |= SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT)
 
+
+#define SMC_INSTANCE_FIXED_CONFIG_SENT(status)                ((status&SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT)==SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT)
 #define SMC_INSTANCE_CAN_SEND_FIXED_CONFIG(status)            (((status&SMC_INSTANCE_STATUS_INIT_CHANNELS_LOCAL)==SMC_INSTANCE_STATUS_INIT_CHANNELS_LOCAL) && ((status&SMC_INSTANCE_STATUS_INIT_CHANNELS_REMOTE)==SMC_INSTANCE_STATUS_INIT_CHANNELS_REMOTE) && ((status&SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT)!=SMC_INSTANCE_STATUS_FIXED_CONFIG_SENT))
 
 
@@ -473,6 +499,11 @@ typedef void ( *smc_event_callback )( const struct _smc_channel_t* channel, SMC_
 
 
     /*
+     * Prototype of the callback function to receive shared variable address from the remote server.
+     */
+typedef void ( *smc_shared_variable_address_callback )( char* shared_variable_name, void* shared_variable_address );
+
+    /*
      * SMC Channel structure
      */
 typedef struct _smc_channel_t
@@ -532,6 +563,10 @@ typedef struct _smc_channel_t
     uint32_t                            send_packets_fifo_buffer;
     uint32_t                            fifo_buffer_copied_total;
 
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    struct _smc_dma_t*                  smc_dma;
+#endif
+
 #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
 
     struct _smc_message_history_data_t* smc_history_data_sent;
@@ -567,6 +602,8 @@ typedef struct _smc_t
     uint8_t           init_status;                  /* Initialization statuses of local and remote instance */
     uint8_t           fill2;
     uint8_t           fill1;
+
+    char*             instance_name;                /* Name of the instance, get from configuration used */
 
 } smc_t;
 
@@ -633,21 +670,6 @@ typedef struct _smc_version_check_t
 } smc_version_check_t;
 
     /*
-     * SMC Data structure for loopback messaging.
-     */
-typedef struct _smc_loopback_data_t
-{
-    uint32_t round_trip_counter;
-    uint32_t loopback_data_length;
-    uint32_t timestamp;
-    uint32_t loopback_rounds_left;
-
-    uint8_t  loopback_data[1];
-
-} smc_loopback_data_t;
-
-
-    /*
      * Common SMC API function declarations.
      */
 
@@ -677,12 +699,11 @@ void                  smc_channel_free_ptr_local(const smc_channel_t* smc_channe
 void                  smc_fifo_poll( const smc_channel_t* smc_channel );
 
 uint8_t               smc_is_all_channels_synchronized(smc_t* smc_instance);
-uint8_t               smc_send_loopback_data_message( smc_channel_t* smc_channel, uint32_t loopback_data_len, uint32_t loopback_rounds );
-smc_loopback_data_t*  smc_loopback_data_create( uint32_t size_of_message_payload );
 uint8_t               smc_send_negotiable_configurations( smc_t* smc_instance );
 uint8_t               smc_send_channels_initialized_message(smc_t* smc_instance);
 
 uint8_t               smc_instance_uses_dma( smc_conf_t* smc_instance_conf );
+uint8_t               smc_init_core(void);
 
     /*
      * Structure holding signal handler information.
@@ -738,7 +759,7 @@ void                  smc_signal_dump                  ( char* indent, smc_signa
      * SMC Local Locking function prototypes.
      * Implementations are in the platform specific modules.
      */
-smc_lock_t* smc_lock_create ( void );
+/* TODO clean-up: smc_lock_t* smc_lock_create ( void ); Moved to platform level header file */
 void        smc_lock_destroy( smc_lock_t* lock );
 
     /*
@@ -770,7 +791,6 @@ uint8_t      smc_timer_destroy( smc_timer_t* timer );
 smc_t*   smc_instance_get_control    ( void );
 smc_t**  smc_instance_array_get      ( void );
 uint8_t  smc_instance_array_count_get( void );
-
     /*
      * Misc functions
      */
@@ -787,6 +807,33 @@ uint8_t  smc_channel_send_config_shm      ( smc_channel_t* smc_channel, uint8_t 
 uint8_t  smc_channel_send_fixed_config    ( smc_channel_t* smc_channel, smc_channel_t* smc_channel_target );
 void     smc_channel_fixed_config_response( smc_channel_t* smc_channel, smc_channel_t* smc_channel_target, smc_user_data_t* userdata_resp );
 
+    /*
+     * Shared variable functions
+     */
+typedef struct _smc_shared_variable_address_info
+{
+    char* variable_name;
+    void* variable_address;
+
+} smc_shared_variable_address_info;
+
+void*    smc_shared_variable_address_get  ( char* shared_variable_name );
+uint8_t  smc_shared_variable_address_request_send(smc_channel_t* smc_channel, char* shared_variable_name, smc_shared_variable_address_callback shm_var_cb );
+    /* This is implemented in platform specific file */
+void*    smc_shared_variable_address_get_local( char* shared_variable_name );
+uint8_t  smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info );
+smc_shared_variable_address_info* smc_shared_variable_info_get( char* shared_variable_name );
+
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    /*
+     * Common DMA functions
+     */
+
+smc_dma_t* smc_dma_create    ( void );
+void       smc_dma_destroy   ( smc_dma_t* dma );
+void       smc_dma_set_device(smc_dma_t* dma, void* parent_object);
+#endif  /* SMC_DMA_TRANSFER_ENABLED */
 
 /*
  * Version history functions

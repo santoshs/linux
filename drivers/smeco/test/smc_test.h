@@ -139,6 +139,23 @@ Description :  File created
 #define SMC_TEST_TRACE_PRINTF_DEBUG_DATA( length, data ) SMC_TEST_TRACE_PRINTF_DATA(length, data)
 
 
+  /*
+   * SMC Data structure for loopback messaging.
+   */
+typedef struct _smc_loopback_data_t
+{
+  uint32_t round_trip_counter;
+  uint32_t loopback_data_length;
+  uint32_t timestamp;
+  uint32_t loopback_rounds_left;
+
+  uint8_t  loopback_data[1];
+
+} smc_loopback_data_t;
+
+
+
+
     /* SMC test case execution function prototype */
 typedef uint8_t ( *smc_test_case_function )( uint8_t* test_input_data, uint16_t test_input_data_len );
 
@@ -151,6 +168,14 @@ uint8_t       smc_os_task_start (const char* task_name, os_prior task_priority, 
                                  uint8_t* test_input_data, uint16_t test_input_data_len, os_task_token* new_task_id);
 
 smc_t* smc_test_get_instance_by_test_instance_id( uint8_t smc_instance_id);
+
+
+/*
+ * Loopback test functions
+ */
+smc_loopback_data_t*  smc_loopback_data_create( uint32_t size_of_message_payload, uint8_t from_irq );
+uint8_t               smc_send_loopback_data_message( smc_channel_t* smc_channel, uint32_t loopback_data_len, uint32_t loopback_rounds, uint8_t from_irq );
+uint8_t               smc_handle_loopback_data_message( smc_channel_t* smc_channel, smc_loopback_data_t* loopback_data, smc_user_data_t* userdata, uint8_t from_irq);
 
 #endif /* EOF */
 

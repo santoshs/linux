@@ -1,6 +1,6 @@
 /*
-*   Common SMC instance configuration for Renesas R8A73734 / WGEM31
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+*   Common SMC instance configuration for Renesas U3CA
+*   Copyright © Renesas Mobile Corporation 2013. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -15,86 +15,58 @@
 /*
 Change history:
 
-Version:       10   06-Jun-2012     Heikki Siikaluoma
-Status:        draft
-Description :  New SHM SDRAM memory mapping for the EOS2 ES2.0
-
-Version:       1    03-Feb-2012     Heikki Siikaluoma
+Version:       1    12-Feb-2013     Heikki Siikaluoma
 Status:        draft
 Description :  File created
 -------------------------------------------------------------------------------
 */
 #endif
 
-#ifndef SMC_INSTANCE_CONFIG_R8A73734_WGE31_H
-#define SMC_INSTANCE_CONFIG_R8A73734_WGE31_H
-
+#ifndef SMC_INSTANCE_CONFIG_U3CA_H
+#define SMC_INSTANCE_CONFIG_U3CA_H
 
 #ifdef SMECO_MODEM
 
   #define SMC_CPU_NAME          "Modem"
 
-        /* EOS2 ES20: TODO Set modem side include file for common memory mapping */
-  #define SDRAM_SMC_START_ADDR  0x44001000
-  #define SDRAM_SMC_END_ADDR    0x44800FFF
-
+  #define SDRAM_SMC_START_ADDR  0x47800000
+  #define SDRAM_SMC_END_ADDR    0x47FFFFFF
 
 #elif( defined(SMECO_LINUX_KERNEL) )
 
-  #ifdef SMC_CONFIG_ARCH_R8A7373
-      /*#include <mach/memory-r8a7373.h>*/
-      /*#include <mach/r8a7373.h>*/
-
-      /* SSG build is missing the memory header -> using hard coded values */
-      #define SDRAM_SMC_START_ADDR  0x44001000
-      #define SDRAM_SMC_END_ADDR    0x44800FFF
-
-  #elif (defined ( SMC_CONFIG_ARCH_R8A73734 ) )
-      /*#include <mach/memory-r8a73734.h>*/
-      /*#include <mach/r8a73734.h>*/
-
-      /* SSG build is missing the memory header -> using hard coded values */
-      #define SDRAM_SMC_START_ADDR  0x44001000
-      #define SDRAM_SMC_END_ADDR    0x44800FFF
-
-      #define SMC_LINUX_USE_KMAP_OLD
-  #else
-      #warning "No target product defined, using default memory configuration"
-      #define SDRAM_SMC_START_ADDR  0x44001000
-      #define SDRAM_SMC_END_ADDR    0x44800FFF
-  #endif
-
-  /*
-   * Other common Linux Kernel configurations
-   */
+  /*#include <mach/memory-XXXXX.h>*/          /* Common header file containing shared memory addresses */
+    /* TODO Add proper memory mapping header file */
+  #define SDRAM_SMC_START_ADDR  0x47800000
+  #define SDRAM_SMC_END_ADDR    0x47FFFFFF
 
   #define SMC_CPU_NAME    "APE"
 
 #else
-  #error "Error in EOS2 configuration: no valid compile option"
+  #error "Error in EOS3 configuration"
 #endif
 
-#define SMC_EOS_ASIC_ES20   0x20
 
     /* =============================================================================
-     * SMC specific configurations for EOS2
+     * SMC specific configurations for EOS3 U3CA
      */
 
-#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
-#define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
-#define SMC_CONF_GLOBAL_SHM_START_ES20                       SDRAM_SMC_START_ADDR
-#define SMC_CONF_GLOBAL_SHM_END_ES20                         SDRAM_SMC_END_ADDR      /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
+    /* ---- EOS3 U3CA ES1 ---- */
+#define SMC_CONFIG_MASTER_NAME_APE_EOS3_U3CA_ES1            "EOS3-U3CA-APE"
+#define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM50_EOS3_ES1         "WGEModem50-EOS3-U3CA"
+
+#define SMC_CONF_GLOBAL_SHM_START_ES1                       SDRAM_SMC_START_ADDR
+#define SMC_CONF_GLOBAL_SHM_END_ES1                         SDRAM_SMC_END_ADDR      /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
 
     /* SHM area for SMC Control Instance */
-#define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
-#define SMC_CONF_CONTROL_SHM_START_ES20                      (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_CONTROL_SHM_START_OFFSET_ES20)
-#define SMC_CONF_CONTROL_SHM_SIZE_ES20                       (1024*200)                  /* 200kB */
+#define SMC_CONF_CONTROL_SHM_START_OFFSET_ES1               (0)
+#define SMC_CONF_CONTROL_SHM_START_ES1                      (SMC_CONF_GLOBAL_SHM_START_ES1 + SMC_CONF_CONTROL_SHM_START_OFFSET_ES1)
+#define SMC_CONF_CONTROL_SHM_SIZE_ES1                       (1024*200)                  /* 200kB */
 
     /* SHM Area for L2MUX */
-#define SMC_CONF_L2MUX_SHM_START_OFFSET_ES20                 (SMC_CONF_CONTROL_SHM_SIZE_ES20 + 64)
-#define SMC_CONF_L2MUX_SHM_START_ES20                        (SMC_CONF_GLOBAL_SHM_START_ES20 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES20)
-#define SMC_CONF_L2MUX_SHM_SIZE_ES20                         (1024*1856*2 + 1024*256*4 + 1024*30)    /* 4.5MB */
+#define SMC_CONF_L2MUX_SHM_START_OFFSET_ES1                 (SMC_CONF_CONTROL_SHM_SIZE_ES1 + 64)
+#define SMC_CONF_L2MUX_SHM_START_ES1                        (SMC_CONF_GLOBAL_SHM_START_ES1 + SMC_CONF_L2MUX_SHM_START_OFFSET_ES1)
+#define SMC_CONF_L2MUX_SHM_SIZE_ES1                         (1024*1856*2 + 1024*256*4 + 1024*30)    /* 4.5MB */
 
 
 #define SMC_CHANNEL_ID_FOR_CONFIGURATION                     0   /* Channel to used for configure others (FIFO, SHM), if not defined, no config.
@@ -104,12 +76,12 @@ Description :  File created
                                                                   */
 
     /* =============================================================================
-     * COMMON Configuration for EOS2 ES1.0/ES2.0
+     * COMMON Configuration for EOS3 U3CA ES1
      */
 
 #define SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED     TRUE
 
-    /* Modem side offset for the shared memory */
+    /* Modem side offset */
 #define SMC_CONF_SHM_OFFSET_TO_MODEM                (-1*0x38000000)
 
 
@@ -170,9 +142,7 @@ Description :  File created
     #define SMC_APE_WAKEUP_EXTERNAL_IRQ_ID_FROM_MODEM     0                                 /* Modem side interrupt genio to wakeup APE */
     #define SMC_APE_WAKEUP_EXTERNAL_IRQ_REGISTER_HANDLER  FALSE
 
-
     #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  { SMC_VERSION_TO_INT(0,0,36), SMC_VERSION_REQUIREMENT_LEVEL_WARNING, "Modem->APE wakeup signal polarity change" }
-
 #else
     #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  {0,0,""}
 
@@ -199,7 +169,7 @@ Description :  File created
      */
 
   /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */            /* If defined, the message is buffered when FIFO is full */
-  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
+  #define SMC_HISTORY_DATA_COLLECTION_ENABLED                   /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
 
     /* Definition for Modem to wakeup APE when the channel interrupt does not do that */
   #define SYSC_PSTR_REG (*(volatile uint32_t *)0x20180080)
@@ -218,13 +188,17 @@ Description :  File created
                                             }
 
 
-  #define SMC_MODEM_GENIO_GOP001_REG    &a_genio_gop001
-  #define SMC_MODEM_INTGEN_IN_USE                           /* If defined, the intgen interrupts are enabled */
+
+
+    #define SMC_MODEM_GENIO_GOP001_REG    &a_genio
+    /*#define SMC_MODEM_INTGEN_IN_USE */                        /* If defined, the intgen interrupts are enabled -> No need in single processor platform wgemodem50 */
 
 #elif( defined(SMECO_LINUX_KERNEL) )
     /*
      * APE Linux Kernel specific configuration
      */
+
+  #define SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS       0 /* 5 */      /* Timeout in milliseconds to wait the modem to wake up. If 0, waits forever, if not defined no wakeup request from APE */
 
   #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS                  /* If defined, the message is buffered when FIFO is full */
 
@@ -232,11 +206,9 @@ Description :  File created
   #define SMC_DMA_ENABLED                                       /* If defined, the DMA initialization is enabled, this is required by the SKB fragment handling */
   /*#define SMC_DMA_TRANSFER_ENABLED*/                          /* If defined, the DMA transfer feature is enabled for channel configuration, requires SMC_DMA_ENABLED to be defined */
 
-  #define SMC_DMA_TRANSFER_TIMEOUT_MS            500            /* TODO Optimize */
+  #define SMC_DMA_TRANSFER_TIMEOUT_MS   500                     /* TODO Optimize */
 
-  #define SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS       0 /* 5 */      /* Timeout in milliseconds to wait the modem to wake up. If 0, waits forever, if not defined no wakeup request from APE */
-
-  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
+  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the kernel side. This has some impact to throughput performance */
 
 
       /*
@@ -262,7 +234,6 @@ Description :  File created
                                                                                 __raw_writel(0x00000000, 0xe61c1980); /* CONFIG_02 - Disable Interrupt */               \
                                                                                 __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
                                                                             }
-
 
 
 #endif  /* End of target specific configuration */
