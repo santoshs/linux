@@ -385,30 +385,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
-static struct map_desc gardalte_io_desc[] __initdata = {
-	{
-		.virtual	= 0xe6000000,
-		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_256M,
-		.type		= MT_DEVICE
-	},
-	{
-		/*
-		 * Create 4 MiB of virtual address hole within a big 1:1 map
-		 * requested above, which is dedicated for the RT-CPU driver.
-		 *
-		 * According to the hardware manuals, physical 0xefc00000
-		 * space is reserved for Router and a data abort error will
-		 * be generated if access is made there.  So this partial
-		 * mapping change won't be a problem.
-		 */
-		.virtual        = 0xefc00000,
-		.pfn            = __phys_to_pfn(0xffc00000),
-		.length         = SZ_4M,
-		.type           = MT_DEVICE
-	},
-};
-
 #ifdef CONFIG_U2_STM_ETR_TO_SDRAM
 static int wait_for_coresight_access_lock(u32 base)
 {
@@ -743,15 +719,6 @@ static void __init gardalte_init(void)
 	crashlog_init_tmplog();
 }
 
-static void __init gardalte_timer_init(void)
-{
-	r8a7373_clock_init();
-	shmobile_timer.init();
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-	if (!setup_current_timer())
-		set_delay_fn(read_current_timer_delay_loop);
-#endif
-}
 
 static void __init gardalte_reserve(void)
 {
