@@ -2553,6 +2553,11 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	if ((r8a66597->vbus_active ^ vbus_state) == 0) {
 		udc_log("%s: IN xor,r8a-isactive=%d\n",
 			__func__, r8a66597->is_active);
+		if (!vbus_state) {
+			usb_core_clk_ctrl(r8a66597, 0);
+			if (wake_lock_active(&r8a66597->wake_lock))
+				wake_unlock(&r8a66597->wake_lock);
+		}
 		return;
 	}
 
