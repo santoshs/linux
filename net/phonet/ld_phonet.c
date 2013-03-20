@@ -86,6 +86,7 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_ATCMD_BUFFER_LEN       1024
 #define LD_UART_AT_MODE           2
 #define LD_UART_INVALID_MODE      -1
+#define LD_UART_AT_MODE_MODECHAN  5
 
 #define LD_WAKEUP_DATA_INIT       0
 #define ATPLIB_AT_CMD_MAX   1024
@@ -692,6 +693,23 @@ static void ld_phonet_ldisc_receive
 						(ld_pn->ld_atcmd_buffer, \
 						"\r\n+ATSTART:OK\r\n"  \
 						"\r\n" "OK\r\n");
+				room = tty_write_room(tty);
+				if (room >= ld_atcmd_len) {
+					/* Refer Comment 01 above */
+					tty->ops->write(tty, \
+						ld_pn->ld_atcmd_buffer, \
+						ld_atcmd_len);
+				}
+				/* Refer Comment 02 above */
+				ld_set_manualsw(NULL, NULL, "switch at", 9);
+				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
+			} else if (LD_UART_AT_MODE_MODECHAN == ret) {
+				dbg("MATCH FOR change mode \
+					LD_PHONET_SWITCH%c\n", *cp);
+				ld_atcmd_len = sprintf \
+						 (ld_pn->ld_atcmd_buffer, \
+						"\r\n+MODECHAN:OK\r\n"  \
+						  "\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
 					/* Refer Comment 01 above */
