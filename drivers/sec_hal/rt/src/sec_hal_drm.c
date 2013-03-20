@@ -1746,15 +1746,16 @@ long sec_hal_drm_usr_init(void **drm_data)
 **                      abnormal exit can cause mem leaks.
 ** Return value       :
 ** *************************************************************************/
-void sec_hal_drm_usr_exit(void *drm_data)
+void sec_hal_drm_usr_exit(void **drm_data)
 {
 	SEC_HAL_TRACE_ENTRY();
 
 	if (drm_data) {
-		struct _drm_data *ptr = (struct _drm_data *) drm_data;
-		if (ptr->session_id)
+		struct _drm_data *ptr = (struct _drm_data *) *drm_data;
+		if (ptr && ptr->session_id)
 			sec_hal_drm_exit(1, &ptr->session_id);
-		kfree(drm_data);
+		kfree(ptr);
+		*drm_data = NULL;
 	}
 
 	SEC_HAL_TRACE_EXIT();
@@ -1783,7 +1784,7 @@ long sec_hal_drm_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param,
 		break;
 	case SD_DRM_EXIT_PLAY:
 		rv = _drm_exit((struct _drm_data *) *data, param);
-		sec_hal_drm_usr_exit((struct _drm_data *) *data);
+		sec_hal_drm_usr_exit(data);
 		*data = NULL;
 		break;
 	case SD_DRM_SET_ENTIT_KEY:
