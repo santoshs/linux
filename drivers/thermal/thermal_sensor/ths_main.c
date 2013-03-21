@@ -551,15 +551,6 @@ static int ths_suspend(struct device *dev)
 		return 0;
 	}
 
-	/* Check power domain status SGX / RealTime */
-	reg = ioread32(SYSC_PSTR);
-	if (reg & (POWER_A3SG | POWER_A3R)) {
-		THS_ERROR_MSG(
-					"%s: Some Power domains remains. Keep THS ON !\n",
-					__func__);
-		return 0;
-	}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	/* Cancel potential early suspend Work Queue */
 	cancel_delayed_work_sync(&ths_work);
