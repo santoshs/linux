@@ -82,8 +82,7 @@ static struct spa_power_data spa_power_pdata = {
 #if defined(CONFIG_MACH_U2EVM)
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	.batt_temp_tb = &batt_temp_tb_d2153[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb_d2153),
 #else

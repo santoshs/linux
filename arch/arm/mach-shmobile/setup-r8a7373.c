@@ -1688,8 +1688,7 @@ void __init r8a7373_add_standard_devices(void)
 			platform_add_devices(r8a7373_late_devices_es20,
 				ARRAY_SIZE(r8a7373_late_devices_es20));
 		}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)\
-	|| defined(CONFIG_MACH_LT02LTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
 #endif
@@ -1843,9 +1842,7 @@ void d2153_mmcif_pwr_control(int onoff)
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
@@ -1866,9 +1863,7 @@ void mmcif_set_pwr(struct platform_device *pdev, int state)
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */

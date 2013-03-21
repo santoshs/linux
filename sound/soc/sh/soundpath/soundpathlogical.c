@@ -371,8 +371,7 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		return ulTmpNextDev;
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		 || defined(CONFIG_MACH_LT02LTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	return ulTmpNextDev;
 #endif
 
@@ -675,8 +674,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	if (IS_DIALOG_BOARD_REV(board_rev))
 		memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
 #endif
 
@@ -1774,7 +1772,7 @@ static void sndp_fsi_shutdown(
 		#endif
 
 		#if defined(CONFIG_MACH_GARDALTE) || \
-		 defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+			 defined(CONFIG_MACH_LOGANLTE)
 			if (SNDP_PCM_OUT == substream->stream)
 				fsi_d2153_deactivate_output(g_kcontrol);
 		#endif
@@ -2577,8 +2575,7 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 			}
 		}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
 			if (ERROR_NONE != iRet) {
 				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
@@ -2703,7 +2700,7 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 			fsi_d2153_deactivate_input(g_kcontrol);
 		#endif
 		#if defined(CONFIG_MACH_GARDALTE) || \
-		defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+				defined(CONFIG_MACH_LOGANLTE)
 			fsi_d2153_deactivate_input(g_kcontrol);
 		#endif
 	#endif
@@ -3198,7 +3195,7 @@ static void sndp_work_play_incomm_start(struct sndp_work_info *work)
 	if (!(E_CAP & g_sndp_incomm_playrec_flg)) {
 		/* To register a work queue to start processing Playback */
 		sndp_work_incomm_start(work->new_value);
-	}
+	} 
 
 	/* Set to ENABLE the speaker amp */
 	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) {
@@ -3248,7 +3245,7 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 		if (ERROR_NONE != ret)
 			sndp_log_err("get_device error(code=%d)\n", ret);
 	}
-
+	
 	/* Init to Playback side */
 	set_device &= ~g_sndp_codec_info.out_dev_all;
 
@@ -3335,7 +3332,7 @@ static void sndp_work_capture_incomm_stop(struct sndp_work_info *work)
 		if (ERROR_NONE != ret)
 			sndp_log_err("get_device error(code=%d)\n", ret);
 	}
-
+	
 	/* Init to Capture side */
 	set_device &= ~g_sndp_codec_info.in_dev_all;
 
@@ -3390,8 +3387,7 @@ static void sndp_work_incomm_start(const u_int new_value)
 			}
 		}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			ret = fsi_d2153_enable_ignore_suspend(card, 0);
 			if (ERROR_NONE != ret) {
 				sndp_log_err("ignore_suspend error(code=%d)\n", ret);
@@ -3487,8 +3483,7 @@ static void sndp_work_incomm_stop(const u_int old_value)
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			fsi_d2153_deactivate_input(g_kcontrol);
 	#endif
 	#endif
@@ -3687,8 +3682,7 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			fsi_d2153_deactivate_input(g_kcontrol);
 	#endif
 	#endif
@@ -4138,8 +4132,7 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			}
 		}
 	#endif
-	 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			iRet = fsi_d2153_enable_ignore_suspend(card, 0);
 			if (ERROR_NONE != iRet) {
 				sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
@@ -4317,8 +4310,7 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
 		}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 			iRet = fsi_d2153_disable_ignore_suspend(card, 0);
 			if (ERROR_NONE != iRet)
 				sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
@@ -4495,8 +4487,7 @@ static void sndp_work_start(const int direction)
 			fsi_d2153_set_dac_power(g_kcontrol, 1);
 	}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		/* Output device ON */
 		if (SNDP_PCM_OUT == direction)
 			fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -4686,8 +4677,7 @@ static void sndp_work_stop(
 		}
 	}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-			|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		if (SNDP_PCM_IN == direction) {
 			/* Input device OFF */
 			fsi_d2153_deactivate_input(g_kcontrol);
@@ -4708,8 +4698,7 @@ static void sndp_work_stop(
 		}
 	}
 	#endif
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-			|| defined(CONFIG_MACH_LT02LTE)
+	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 		if (SNDP_PCM_OUT == direction) {
 			/* Output device OFF */
 			fsi_d2153_set_dac_power(g_kcontrol, 0);

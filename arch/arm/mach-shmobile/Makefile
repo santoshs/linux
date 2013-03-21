@@ -72,7 +72,6 @@ obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
-obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 # BT object
@@ -106,17 +105,14 @@ obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2current_timer.o
 # sdhi
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2sdhi.o
 # gpio_key and keysc
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2gpio_key.o
 
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
@@ -131,7 +127,6 @@ obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 #setup-d2153
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-d2153.o
 
 #GPS
 obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o

@@ -3088,8 +3088,7 @@ int __init wm1811_init(void)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return -ENODEV;
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	return -ENODEV;
 #endif
 	ret = i2c_add_driver(&wm1811_i2c_driver);
@@ -3105,8 +3104,7 @@ void __exit wm1811_exit(void)
 	if (D2153_INTRODUCE_BOARD_REV <= u2_get_board_rev())
 		return;
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
 	return -ENODEV;
 #endif
 	i2c_del_driver(&wm1811_i2c_driver);
