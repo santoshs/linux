@@ -30,6 +30,7 @@ iccom-objs	+= ./iccom_drv_recv.o
 iccom-objs	+= ./iccom_drv_send.o
 iccom-objs	+= ./iccom_drv_standby.o
 iccom-objs	+= ./iccom_drv_standby_main.o
+iccom-objs	+= ./iccom_drv_fatal.o
 
 obj-y		+= iccom.o
 

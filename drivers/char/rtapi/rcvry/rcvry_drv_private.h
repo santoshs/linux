@@ -51,22 +51,21 @@
 
 #define	RECOVERY_DRIVER_INFO_MAX	(32)
 
-typedef struct {
+struct rcvry_delete {
 	void	*handle;
-} rcvry_delete;
+} ;
 
-
-typedef struct {
+struct rcvry_handle {
 	void	*handle;
-} rcvry_handle;
+} ;
 
-typedef struct {
+struct rcvry_info {
 	pid_t				pid;
 	long				standby_counter;
 	unsigned long		killable_flag;
 	struct completion	rcvry_completion;
 	struct file			*rcvry_fp;
-} rcvry_info;
+} ;
 
 #endif /* __RCVRY_DRV_PRIVATE_H__ */
 

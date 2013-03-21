@@ -144,6 +144,11 @@ typedef struct {
 	void				*handle;
 } iccom_handle_list;
 
+typedef struct {
+	struct list_head	list;	/* queue header */
+	struct file			*fp;
+} iccom_fp_list;
+
 /**** prototype ****/
 iccom_drv_handle *iccom_create_handle(int type);
 void iccom_destroy_handle(iccom_drv_handle *handle);
@@ -159,7 +164,7 @@ int iccom_comm_func_init(void);
 void iccom_comm_func_quit(void);
 int iccom_send_command(void *handle, int type, iccom_cmd_send_param *send_param);
 int iccom_recv_command_sync(void *handle, iccom_cmd_recv_param *recv_param);
-int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param*recv_param);
+int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param *recv_param);
 int iccom_recv_complete(unsigned char *recv_data);
 int iccom_recv_cancel(void *handle);
 irqreturn_t iccom_iccomeicr_int(int irq_number, void *device_id);
@@ -173,11 +178,10 @@ int iccom_copy_to_command_area(void *cmd_area, void *from_addr,
 	unsigned long size, int type);
 void iccom_leak_check(iccom_drv_handle *handle);
 
-/* MU2SYS1418 ---> */
 void iccom_log_start(void);
 void iccom_log_stop(void);
-/* MU2SYS1418 <--- */
 
+void iccom_debug_output_fatal_info(unsigned char *data_addr, int data_len);
 
 extern struct completion    g_iccom_async_completion;
 extern unsigned long        g_iccom_async_recv_status;
