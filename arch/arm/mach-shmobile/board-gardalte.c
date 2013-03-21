@@ -112,11 +112,6 @@
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
 #define CPG_PLLECR_PLL3ST		(0x00000800)
 
-#if defined(CONFIG_BATTERY_BQ27425)
-#define BQ27425_ADDRESS (0xAA >> 1)
-#define GPIO_FG_INT 44
-#endif
-
 #if defined(CONFIG_CHARGER_SMB328A)
 #define SMB328A_ADDRESS (0x69 >> 1)
 #define GPIO_CHG_INT 19
@@ -259,12 +254,6 @@ static struct platform_device *guardian__plat_devices[] __initdata = {
 #endif
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
-#if defined(CONFIG_BATTERY_BQ27425)
-	{
-		I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
-		.irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
-	},
-#endif
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 	{
 		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
@@ -706,13 +695,6 @@ static void __init gardalte_init(void)
 	gpio_request(GPIO_PORT19, NULL);
 	gpio_direction_input(GPIO_PORT19);
 	gpio_pull_up_port(GPIO_PORT19);
-#endif
-
-#if defined(CONFIG_BATTERY_BQ27425)
-	gpio_request(GPIO_PORT105, NULL);
-	gpio_direction_input(GPIO_PORT105);
-	if (u2_get_board_rev() < 5)
-		gpio_pull_up_port(GPIO_PORT105);
 #endif
 
 	printk(KERN_DEBUG "%s\n", __func__);
