@@ -483,46 +483,7 @@ static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
 static void ts_power_enable(int en)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev() >= 5) {
-		int ret;
-	
-		struct regulator *touch_regulator = NULL;
-	
-		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-		if (touch_regulator == NULL) {
-			printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
-			touch_regulator = regulator_get(NULL, "vtsp_3v");
-			if (IS_ERR(touch_regulator)) {
-				printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
-				return;
-			}
-		}
-
-		if (en == 1) {
-			printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
-
-			if (!regulator_is_enabled(touch_regulator)) {
-				printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
-				ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
-				printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
-				ret = regulator_enable(touch_regulator);
-				printk(KERN_INFO "regulator_enable ret = %d\n", ret);
-			}
-		} else {
-			printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
-
-			if (regulator_is_enabled(touch_regulator)) {
-				ret = regulator_disable(touch_regulator);
-				printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-			}
-		}
-	} else if (u2_get_board_rev() <= 4) {
-		printk(KERN_EMERG"%s : en=%d\n", __func__, en);
-		gpio_set_value(GPIO_PORT30, en ? 1 : 0);
-	}
-#endif
-#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+#ifdef CONFIG_MACH_GARDALTE
 	int ret;
 	
 		struct regulator *touch_regulator = NULL;
@@ -1703,24 +1664,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
-	#ifdef CONFIG_MACH_U2EVM
-		if (u2_get_board_rev() >= 5) {
-			struct regulator *regulator;
-		
-			regulator = regulator_get(NULL, "key_led");
-			if (IS_ERR(regulator))
-				return -1;
-
-			regulator_enable(regulator);
-
-			regulator_put(regulator);
-		} else {
-#ifndef CONFIG_MFD_D2153
-			pmic_set_power_on(E_POWER_VANA_MM);
-#endif
-		}
-		#endif
-		#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+		#ifdef CONFIG_MACH_GARDALTE
 		struct regulator *regulator;
 		
 			regulator = regulator_get(NULL, "key_led");
@@ -1734,24 +1678,7 @@ static ssize_t touchkey_led_control(struct device *dev,
 	}
 	else
 	{
-	#ifdef CONFIG_MACH_U2EVM
-		if (u2_get_board_rev() >= 5) {
-			struct regulator *regulator;
-		
-			regulator = regulator_get(NULL, "key_led");
-			if (IS_ERR(regulator))
-				return -1;
-
-			regulator_disable(regulator);
-
-			regulator_put(regulator);
-		} else {
-#ifndef CONFIG_MFD_D2153
-			pmic_set_power_off(E_POWER_VANA_MM);
-#endif
-		}
-		#endif
-		#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+		#ifdef CONFIG_MACH_GARDALTE
 		struct regulator *regulator;
 		
 			regulator = regulator_get(NULL, "key_led");

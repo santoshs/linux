@@ -384,7 +384,6 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	int ret = 0;
 	struct i2c_adapter *adap = client->adapter;
 	struct regulator *touch_regulator;
-	unsigned short addr_list_melfas[] = { 0x48, I2C_CLIENT_END };
 
 	touch_regulator = regulator_get(NULL, "vtsp_3v");
 	if (IS_ERR(touch_regulator)) {
@@ -394,16 +393,10 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
 	regulator_enable(touch_regulator);
 	msleep(20);
-	tsp_detector_i2c_client = i2c_new_probed_device(adap,
-						&i2c4_devices_melfas[0],
-						addr_list_melfas, NULL);
-	if (tsp_detector_i2c_client != NULL) {
-		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
-	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap,
+	/***** Only Imagis Touch panel is used for Logan ******/
+	tsp_detector_i2c_client = i2c_new_device(adap,
 						&i2c4_devices_imagis[0]);
 		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
-	}
 
 	regulator_disable(touch_regulator);
 	regulator_put(touch_regulator);
