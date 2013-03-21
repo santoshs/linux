@@ -46,7 +46,6 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#include <mach/dev-renesas-wifi.h>
 #include <linux/ktd259b_bl.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
@@ -125,6 +124,7 @@
 #include <mach/sbsc.h>
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
+int renesas_wlan_init(void);
 
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
@@ -604,11 +604,13 @@ static void __init gardalte_init(void)
 		/* move gpio request to board-renesas_wifi.c */
 
 		/* WLAN Init API call */
+#ifdef CONFIG_RENESAS_WIFI		
 #ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
 		renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
 #endif	
+#endif
 		/* add the SDIO device */
 	}
 

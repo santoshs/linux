@@ -121,9 +121,8 @@ obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2gpio_key.o
 #setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE) 	+= dev-renesas-wifi.o
-obj-$(CONFIG_RENESAS_WIFI) 	+= dev-renesas-wifi.o
-#obj-$(CONFIG_RENESAS_WIFI)	+= dev-u2evm-renesas-wifi.o
+obj-$(CONFIG_RENESAS_WIFI) 	+= dev-wifi.o
+#obj-$(CONFIG_RENESAS_WIFI)	+= dev-renesas-wifi.o
 
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
