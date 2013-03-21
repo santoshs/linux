@@ -22,6 +22,7 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
+//#define D2153_JACK_DETECT
 
 /*
  * D2153 AAD register space
@@ -106,6 +107,8 @@
 #define D2153_HEADSET		0x1
 #define D2153_HEADPHONE		0x2
 
+#define D2153_AA_Silicon		0x00
+#define D2153_AB_Silicon		0x10
 
 /* Structure to encapsulate button press ADC value ranges */
 struct button_resistance {
@@ -139,6 +142,7 @@ struct d2153_aad_priv {
 	struct delayed_work	jack_monitor_work;
 	struct delayed_work	button_monitor_work;
 	unsigned int first_check_done;
+	int chip_rev;
 };
 
 /* HACK to deal with issue of ADC 1/8 bit reads for button detect */

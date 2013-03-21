@@ -32,6 +32,10 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
+
+/* #define  __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+/* #define  __SNDP_INCALL_CLKGEN_MASTER      */
+
 /* PCM direction kind */
 enum sndp_direction {
 	SNDP_PCM_OUT,			/* out(playback) */
@@ -86,17 +90,17 @@ struct sndp_work_info {
  ** ************************************************** *
  */
 /* use Audience information */
-struct sndp_a2220_callback_func {
+struct sndp_extdev_callback_func {
 	int (*set_state)(unsigned int mode, unsigned int device, unsigned int dev_chg);
 	int (*set_nb_wb) (unsigned int nb_wb);
 };
 
 /* change device */
-enum sndp_a2220_ch_type {
-	SNDP_A2220_NONE,
-	SNDP_A2220_START,
-	SNDP_A2220_STOP,
-	SNDP_A2220_CH_DEV,
+enum sndp_extdev_ch_type {
+	SNDP_EXTDEV_NONE,
+	SNDP_EXTDEV_START,
+	SNDP_EXTDEV_STOP,
+	SNDP_EXTDEV_CH_DEV,
 };
 
 /* PT status */
@@ -112,6 +116,19 @@ SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_card *fsi_soc_card);
 
 SOUNDPATH_NO_EXTERN int sndp_soc_put(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+
+SOUNDPATH_NO_EXTERN int sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_playback_mute(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 
@@ -136,8 +153,8 @@ SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
 SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
 
 /* audience Set Callback function */
-SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
-				struct sndp_a2220_callback_func *func);
+SOUNDPATH_NO_EXTERN void sndp_extdev_regist_callback(
+				struct sndp_extdev_callback_func *func);
 
 /* for Production Test (Loopback test) */
 SOUNDPATH_NO_EXTERN int sndp_pt_loopback(
@@ -587,6 +604,26 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 
 #define SNDP_GET_VALUE(dev, mod)				\
 	(((u_int)(dev) << SNDP_DEVICE_BIT) | ((u_int)(mod) << SNDP_MODE_BIT))
+
+#ifdef __SNDP_NORMAL_PLAY_CLKGEN_MASTER
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_BLUETOOTHSCO) ||	\
+	 (device & SNDP_FM_RADIO_TX)  ||	\
+	 (device & SNDP_FM_RADIO_RX)  ||	\
+	 (device & SNDP_AUXDIGITAL))
+#else /* !__SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_SPEAKER)	||	\
+	 (device & SNDP_WIREDHEADSET)	||	\
+	 (device & SNDP_WIREDHEADPHONE)	||	\
+	 (device & SNDP_EARPIECE)	||	\
+	 (device & SNDP_BLUETOOTHSCO)	||	\
+	 (device & SNDP_AUXDIGITAL)	||	\
+	 (device & SNDP_FM_RADIO_TX)	||	\
+	 (device & SNDP_FM_RADIO_RX)	||	\
+	 (device & SNDP_BUILTIN_MIC))
+#endif /* __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+
 
 /* 0x00000010 */
 #define SNDP_PLAYBACK_EARPIECE_NORMAL			\

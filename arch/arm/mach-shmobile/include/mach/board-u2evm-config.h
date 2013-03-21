@@ -203,6 +203,11 @@ static struct platform_device audio_device = {
 	},
 };
 
+static struct platform_device sh_fsi_wireless_transciever_device = {
+		.name = "sh_fsi_wireless_transciever",
+		.id = 0,
+};
+
 static struct sh_mobile_lcdc_info lcdc_info = {
 	.clock_source	= LCDC_CLK_PERIPHERAL,
 
@@ -433,6 +438,7 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -556,6 +562,7 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -608,6 +615,7 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,

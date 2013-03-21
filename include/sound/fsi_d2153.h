@@ -31,6 +31,15 @@
 	.private_value = xdata \
 }
 
+#define FSI_SOC_SINGLE(xname, reg, shift, max, invert, xget, xput)	\
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,				\
+	.name = xname,							\
+	.info = snd_soc_info_volsw,					\
+	.get = xget,							\
+	.put = xput,							\
+	.private_value = SOC_SINGLE_VALUE(reg, shift, max, invert)	\
+}
+
 /* Loopback state */
 enum fsi_d2153_loopback_state {
 	FSI_D2153_LOOPBACK_START,	/* Loopback start */

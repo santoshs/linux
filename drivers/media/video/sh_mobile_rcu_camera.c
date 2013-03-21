@@ -146,10 +146,7 @@ spinlock_t lock_log;
 
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
-#define PRINT_FOURCC(fourcc)	((fourcc) & 0xff, \
-				((fourcc) >> 8) & 0xff, \
-				((fourcc) >> 16) & 0xff, \
-				((fourcc) >> 24) & 0xff)
+#define PRINT_FOURCC(fourcc)	(fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
 
 /* register offsets for r8a73734 */
 
@@ -1074,7 +1071,7 @@ static int sh_mobile_rcu_videobuf_init(struct vb2_buffer *vb)
 	return 0;
 }
 
-static int sh_mobile_rcu_start_streaming(struct vb2_queue *q)
+static int sh_mobile_rcu_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct soc_camera_device *icd =
 			container_of(q, struct soc_camera_device, vb2_vidq);
@@ -2116,18 +2113,21 @@ static const struct soc_mbus_pixelfmt sh_mobile_rcu_formats[] = {
 
 static int client_g_rect(struct v4l2_subdev *sd, struct v4l2_rect *rect);
 
+#if 0
 static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct soc_camera_device,
 							ctrl_handler);
 }
+#endif
 
 static int sh_mobile_rcu_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+#if 0
 	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
-#if 0
+
 	switch (ctrl->id) {
 	case V4L2_CID_SHARPNESS:
 		switch (icd->current_fmt->host_fmt->fourcc) {
@@ -2685,7 +2685,7 @@ static void *sh_mobile_rcu_contig_get_userptr(
 	unsigned long size, int write)
 {
 /*	return NULL;*/
-	return 1;
+	return (void *)1;
 }
 
 static void sh_mobile_rcu_contig_put_userptr(void *mem_priv)

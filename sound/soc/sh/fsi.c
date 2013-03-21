@@ -311,6 +311,7 @@ static void fsi_reg_write(struct fsi_priv *fsi, u32 reg, u32 data)
 	__fsi_reg_write((u32)(fsi->base + reg), data);
 }
 
+#ifndef USE_DMA
 static u32 fsi_reg_read(struct fsi_priv *fsi, u32 reg)
 {
 	if (reg > REG_END)
@@ -318,6 +319,7 @@ static u32 fsi_reg_read(struct fsi_priv *fsi, u32 reg)
 
 	return __fsi_reg_read((u32)(fsi->base + reg));
 }
+#endif
 
 static void fsi_reg_mask_set(struct fsi_priv *fsi, u32 reg, u32 mask, u32 data)
 {
@@ -1014,122 +1016,6 @@ static int fsi_dma_process(struct fsi_priv *fsi, int startup, int is_play)
 
 	return 0;
 }
-#if 0
-static int fsi_dma_process_in_fm(
-	struct fsi_priv *fsi,
-	int startup,
-	int is_play)
-{
-	struct snd_pcm_substream *substream = NULL;
-	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-	struct snd_pcm_runtime *runtime;
-	struct fsi_master *master = fsi_get_master(fsi);
-
-	if (!io				||
-	    !io->substream		||
-	    !io->substream->runtime)
-		return -EINVAL;
-
-	substream = io->substream;
-	fsi_dma_data_write(fsi, substream, is_play);
-
-	if (startup) {
-		runtime = substream->runtime;
-		g_old_addr = runtime->dma_addr;
-		fsi_dma_start(fsi, is_play);
-		fsi_fifo_init(fsi, is_play, NULL);
-	} else {
-		fsi_dma_start(fsi, is_play);
-	}
-
-	return 0;
-}
-#endif
-#if 0
-static int fsi_dma_process_cap(struct fsi_priv *fsi, int startup)
-{
-	struct snd_pcm_runtime *runtime;
-	struct snd_pcm_substream *substream = NULL;
-	struct fsi_stream *io = fsi_get_stream(fsi, 0);
-	u32 status;
-	int free;
-	int fifo_fill;
-	int width;
-	u8 *start;
-	int i, over_period;
-
-	if (!io			||
-	    !io->substream		||
-	    !io->substream->runtime)
-		return -EINVAL;
-
-	over_period	= 0;
-	substream	= io->substream;
-	runtime		= substream->runtime;
-
-	/* FSI FIFO has limit.
-	 * So, this driver can not send periods data at a time
-	 */
-	if (io->byte_offset >=
-	    io->period_len * (io->periods + 1)) {
-
-		over_period = 1;
-		io->periods = (io->periods + 1) % runtime->periods;
-
-		if (0 == io->periods)
-			io->byte_offset = 0;
-	}
-
-	/* get 1 channel data width */
-	width = frames_to_bytes(runtime, 1) / io->chan;
-
-	/* get free space for alsa */
-	free = (io->buffer_len - io->byte_offset) / width;
-
-	/* get recv size */
-	fifo_fill = fsi_get_fifo_residue(fsi, 0);
-
-	if (free < fifo_fill)
-		fifo_fill = free;
-
-	start = runtime->dma_area;
-	start += io->byte_offset;
-
-	switch (width) {
-	case 2:
-		for (i = 0; i < fifo_fill; i++)
-			*((u16 *)start + i) =
-				(u16)(fsi_reg_read(fsi, DIDT) >> 8);
-		break;
-	case 4:
-		for (i = 0; i < fifo_fill; i++)
-			*((u32 *)start + i) = fsi_reg_read(fsi, DIDT);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	io->byte_offset += fifo_fill * width;
-
-	status = fsi_reg_read(fsi, DIFF_ST);
-	if (!startup) {
-		struct snd_soc_dai *dai = fsi_get_dai(substream);
-
-		if (status & ERR_OVER)
-			dev_err(dai->dev, "over run\n");
-		if (status & ERR_UNDER)
-			dev_err(dai->dev, "under run\n");
-	}
-	fsi_reg_write(fsi, DIFF_ST, 0);
-
-	fsi_irq_enable(fsi, 0);
-
-	if (over_period)
-		snd_pcm_period_elapsed(substream);
-
-	return 0;
-}
-#endif
 
 #ifndef USE_DMA
 static int fsi_dma_fsi_int(struct fsi_priv *fsi, int startup)
@@ -1463,20 +1349,12 @@ static irqreturn_t fsi_interrupt(int irq, void *data)
 		fsi_master_mask_set(master, SOFT_RST, IR, 0);
 		fsi_master_mask_set(master, SOFT_RST, IR, IR);
 
-/*		if (int_st & INT_A_OUT) { */
 		if (pio_is_play == 1)
 			fsi_data_push(&master->fsia, 0);
-/*
- *		if (int_st & INT_B_OUT)
- *			fsi_data_push(&master->fsib, 0);
- *		if (int_st & INT_A_IN)
- */
+
 		if (pio_is_play == 0)
 			fsi_data_pop(&master->fsia, 0);
-/*
- *		if (int_st & INT_B_IN)
- *			fsi_data_pop(&master->fsib, 0);
- */
+
 		fsi_irq_clear_status(&master->fsia, 0);
 		fsi_irq_clear_status(&master->fsia, 1);
 		fsi_irq_clear_status(&master->fsib, 0);
@@ -1539,9 +1417,7 @@ static int fsi_dai_startup(struct snd_pcm_substream *substream,
 		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
 #endif /* USE_DMA */
 
-	/* chip revision check */
-	/* for ES2.0 or FSI Master*/
-	if ((0x3E10 <= (system_rev & 0xffff)) && (false == g_slave)) {
+	if (false == g_slave) {
 		if (fsi_is_port_a(fsi))
 			fsi_master_write(master, FSIDIVA, 0x00490003);
 		else
@@ -1660,16 +1536,14 @@ int fsi_dai_startup_bt(struct snd_pcm_substream *substream,
 		fsi_reg_write(fsi, IN_DMAC, (0x1 << 4));
 #endif /* USE_DMA */
 
-	/* chip revision check */
-	/* for ES2.0 */
-	if ((0x10 <= (system_rev & 0xff)) && (false == g_slave)) {
+	if (false == g_slave) {
 		if (rate == 16000) {
 			dev_dbg(dai->dev, "rate=16000\n");
 			fsi_master_write(master, FSIDIVB, 0x00490003);
 		} else {
 			dev_dbg(dai->dev, "rate=8000\n");
-			fsi_master_write(master, FSIDIVB, 0x00DB0003);
-       }
+			fsi_master_write(master, FSIDIVB, 0x007D0003);
+		}
 		fsi_reg_write(fsi, ACK_RV, 0x00001000);
 
 		if (0 != is_play)
