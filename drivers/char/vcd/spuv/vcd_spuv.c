@@ -24,6 +24,7 @@
 #include <linux/timer.h>
 #include <mach/pm.h>
 #include <mach/irqs.h>
+#include <mach/memory-r8a7373.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"
@@ -244,7 +245,7 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 	addr = vcd_spuv_func_get_diamond_sdram_buffer();
 	g_vcd_spuv_binary_info.top_logical_address = addr;
 	g_vcd_spuv_binary_info.top_physical_address =
-			SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY;
+			SDRAM_DIAMOND_START_ADDR;
 	g_vcd_spuv_binary_info.write_address = addr;
 	g_vcd_spuv_binary_info.max_size = SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE;
 
@@ -397,7 +398,7 @@ int vcd_spuv_start_vcd(void)
 	vcd_pr_start_spuv_function();
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
-
+	spin_lock_init(&g_vcd_spuv_info.status_lock);
 
 	/* set power supply */
 	ret = vcd_spuv_func_control_power_supply(VCD_ENABLE);
@@ -2013,7 +2014,7 @@ static void vcd_spuv_interrupt_ack(void)
 
 	/* check status */
 	ret = vcd_spuv_get_status();
-	if (VCD_SPUV_STATUS_NONE == ret)
+	if (VCD_SPUV_STATUS_NONE == (ret & ~VCD_SPUV_STATUS_NEED_ACK))
 		/* end wait */
 		vcd_spuv_func_end_wait();
 
@@ -2041,6 +2042,7 @@ static void vcd_spuv_interrupt_req(void)
 		(unsigned int *)SPUV_FUNC_SDRAM_SYSTEM_INFO_BUFFER;
 	unsigned int *rcv_msg_buf =
 		(unsigned int *)(SPUV_FUNC_SDRAM_PROC_MSG_BUFFER + PAGE_SIZE);
+	unsigned int is_check_end_wait = VCD_DISABLE;
 
 	vcd_pr_start_spuv_function();
 
@@ -2069,6 +2071,7 @@ static void vcd_spuv_interrupt_req(void)
 	case VCD_SPUV_SYSTEM_ERROR_IND:
 		/* status update */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+		is_check_end_wait = VCD_ENABLE;
 		/* copy SYSTEM_INFO_IND data length */
 		rcv_msg_buf[0] = latest_sys_info[0];
 		/* copy latest SYSTEM_INFO_IND data to MSG_BUFFER */
@@ -2139,6 +2142,7 @@ static void vcd_spuv_interrupt_req(void)
 
 		/* status update */
 		vcd_spuv_unset_status(VCD_SPUV_STATUS_WAIT_REQ);
+		is_check_end_wait = VCD_ENABLE;
 		/* check result */
 		vcd_spuv_check_wait_fw_info(fw_req[0], fw_req[1], fw_req[2]);
 		if (VCD_SPUV_BOOT_COMPLETE_IND == fw_req[1]) {
@@ -2155,11 +2159,13 @@ static void vcd_spuv_interrupt_req(void)
 	vcd_spuv_unset_status(VCD_SPUV_STATUS_NEED_ACK);
 
 	/* check status */
-	ret = vcd_spuv_get_status();
-	if ((VCD_SPUV_STATUS_NONE == ret) ||
+	if (is_check_end_wait) {
+		ret = vcd_spuv_get_status();
+		if ((VCD_SPUV_STATUS_NONE == ret) ||
 			(VCD_SPUV_STATUS_SYSTEM_ERROR & ret))
-		/* end wait */
-		vcd_spuv_func_end_wait();
+			/* end wait */
+			vcd_spuv_func_end_wait();
+	}
 
 rtn:
 	vcd_pr_end_if_spuv();
@@ -2626,10 +2632,19 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
  */
 static unsigned int vcd_spuv_get_status(void)
 {
+	unsigned int status = VCD_SPUV_STATUS_NONE;
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function();
-	vcd_pr_end_spuv_function("g_vcd_spuv_info.status[0x%08x].\n",
-		g_vcd_spuv_info.status);
-	return g_vcd_spuv_info.status;
+
+	spin_lock_irqsave(&g_vcd_spuv_info.status_lock, flags);
+
+	status = g_vcd_spuv_info.status;
+
+	spin_unlock_irqrestore(&g_vcd_spuv_info.status_lock, flags);
+
+	vcd_pr_end_spuv_function("status[0x%08x].\n", status);
+	return status;
 }
 
 
@@ -2642,11 +2657,17 @@ static unsigned int vcd_spuv_get_status(void)
  */
 static void vcd_spuv_set_status(unsigned int status)
 {
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function("status[0x%08x].\n", status);
+
+	spin_lock_irqsave(&g_vcd_spuv_info.status_lock, flags);
 
 	vcd_pr_status_change("g_vcd_spuv_info.status[0x%08x] -> [0x%08x].\n",
 		g_vcd_spuv_info.status, (g_vcd_spuv_info.status | status));
 	g_vcd_spuv_info.status = g_vcd_spuv_info.status | status;
+
+	spin_unlock_irqrestore(&g_vcd_spuv_info.status_lock, flags);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -2662,11 +2683,17 @@ static void vcd_spuv_set_status(unsigned int status)
  */
 static void vcd_spuv_unset_status(unsigned int status)
 {
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function("status[0x%08x].\n", status);
+
+	spin_lock_irqsave(&g_vcd_spuv_info.status_lock, flags);
 
 	vcd_pr_status_change("g_vcd_spuv_info.status[0x%08x] -> [0x%08x].\n",
 		g_vcd_spuv_info.status, (g_vcd_spuv_info.status & ~status));
 	g_vcd_spuv_info.status = g_vcd_spuv_info.status & ~status;
+
+	spin_unlock_irqrestore(&g_vcd_spuv_info.status_lock, flags);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -2693,6 +2720,8 @@ static int vcd_spuv_check_result(void)
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
 		vcd_pr_if_spuv("[VCD <- SPUV ] : TIME OUT\n");
 		vcd_pr_err("firmware time out occured.\n");
+		vcd_pr_err("g_vcd_spuv_info.status[0x%08x].\n",
+					g_vcd_spuv_info.status);
 		/* update status */
 		vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
 		/* update result */
