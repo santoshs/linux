@@ -24,6 +24,7 @@
 #include <linux/timer.h>
 #include <mach/pm.h>
 #include <mach/irqs.h>
+#include <mach/memory-r8a7373.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "linux/vcd/vcd_control.h"
@@ -244,7 +245,7 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 	addr = vcd_spuv_func_get_diamond_sdram_buffer();
 	g_vcd_spuv_binary_info.top_logical_address = addr;
 	g_vcd_spuv_binary_info.top_physical_address =
-			SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY;
+			SDRAM_DIAMOND_START_ADDR;
 	g_vcd_spuv_binary_info.write_address = addr;
 	g_vcd_spuv_binary_info.max_size = SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE;
 
