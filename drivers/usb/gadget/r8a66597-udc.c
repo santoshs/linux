@@ -282,7 +282,7 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 			usb_clk_status = 1;
 		   }
 		else
-			return;
+			return 0;
 	  } else {
 		if (usb_clk_status) {
 		   	r8a66597_clk_disable(r8a66597);
@@ -292,8 +292,9 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 			usb_clk_status = 0;
 		   }
 		else
-			return;
+			return 0;
 	  }
+	return 0;
 }
 
 static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
@@ -1020,9 +1021,7 @@ static void start_packet_write(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
-	u16 tmp, intenb0, nrdyenb, fifosel, mask, loop;
-	u16 pipenum = ep->pipenum;
-	int i = 0;
+	u16 tmp;
 
 	if (!req->req.buf)
 		dev_warn(r8a66597_to_dev(r8a66597),
@@ -1310,7 +1309,6 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 	unsigned bufsize;
 	size_t size;
 	void *buf;
-	int time = 0;
 	u16 pipenum = ep->pipenum;
 	struct r8a66597 *r8a66597 = ep->r8a66597;
 
@@ -1353,82 +1351,6 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 		pipe_irq_enable(r8a66597, pipenum);
 	}
 }
-
-static void usb_dma_free_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_dma *dma)
-{
-	r8a66597_bclr(r8a66597, DREQE, dma->ep->fifosel);
-	r8a66597_change_curpipe(r8a66597, 0, 0, dma->ep->fifosel);
-
-	dma->used = 0;
-	dma->ep->use_dma = 0;
-	dma->ep->fifoaddr = CFIFO;
-	dma->ep->fifosel = CFIFOSEL;
-	dma->ep->fifoctr = CFIFOCTR;
-}
-
-static void start_dma(struct r8a66597 *r8a66597,
-			struct r8a66597_ep *ep, struct r8a66597_request *req)
-{
-	int ch = ep->dma->channel;
-
-	if (req->req.length == 0)
-		return;
-
-
-	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
-
-	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_SAR(ch));
-	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_DAR(ch));
-
-	r8a66597_dma_write(r8a66597,
-			DIV_ROUND_UP(req->req.length, ep->dma->tx_size),
-			USBHS_DMAC_TCR(ch));
-	r8a66597_dma_write(r8a66597, 0, USBHS_DMAC_CHCR(ch));
-	r8a66597_dma_write(r8a66597, 0x0027AC40, USBHS_DMAC_TOCSTR(ch));
-
-	if (ep->dma->dir) {
-		if ((req->req.length % ep->dma->tx_size) == 0)
-			r8a66597_dma_write(r8a66597, 0xFFFFFFFF,
-						USBHS_DMAC_TEND(ch));
-		else
-			r8a66597_dma_write(r8a66597,
-					~(0xFFFFFFFF >>
-					(req->req.length &
-					 (ep->dma->tx_size - 1))),
-					USBHS_DMAC_TEND(ch));
-	} else {
-		r8a66597_dma_write(r8a66597, 0,  USBHS_DMAC_TEND(ch));
-	}
-
-	r8a66597_dma_bset(r8a66597, DME, DMAOR);
-
-	if (!ep->dma->dir)
-		r8a66597_dma_bset(r8a66597, NULLE, USBHS_DMAC_CHCR(ch));
-
-	r8a66597_dma_bset(r8a66597, IE | ep->dma->chcr_ts, USBHS_DMAC_CHCR(ch));
-	r8a66597_dma_bset(r8a66597, DE, USBHS_DMAC_CHCR(ch));
-}
-
-static void cancel_dma(struct r8a66597_ep *ep,
-				struct r8a66597_request *req)
-{
-	struct r8a66597 *r8a66597 = ep->r8a66597;
-	u32 chcr0, chcr1;
-
-	if (!ep->use_dma)
-		return;
-
-	r8a66597_dma_bclr(r8a66597, DE | IE, USBHS_DMAC_CHCR(ep->dma->channel));
-	if (!ep->dma->dir)
-		r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
-
-	chcr0 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(0));
-	chcr1 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(1));
-	if (!(chcr0 & DE) && !(chcr1 & DE))
-		r8a66597_dma_reset(r8a66597);
-}
-
 static void irq_packet_read(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
@@ -1881,8 +1803,8 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 	struct r8a66597 *r8a66597 = _r8a66597;
 	u16 intsts0;
 	u16 intenb0;
-	u16 brdysts, nrdysts, bempsts;
-	u16 brdyenb, nrdyenb, bempenb;
+	u16 brdysts, bempsts;
+	u16 brdyenb, bempenb;
 	u16 mask0;
 #ifdef CONFIG_USB_OTG
 	u16 syscfg;
@@ -2878,7 +2800,6 @@ EXPORT_SYMBOL_GPL(send_usb_insert_event);
 static int r8a66597_udc_suspend(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	unsigned long flags = 0;
 	udc_log("%s: IN\n", __func__);
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
@@ -2889,12 +2810,14 @@ static int r8a66597_udc_suspend(struct device *dev)
 	r8a66597->phy_active_sav = r8a66597->phy_active;
 	if (!r8a66597->is_active) {
 		udc_log("%s, USB device usage count: %d\n",
-		__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+		__func__, atomic_read(&r8a66597_to_dev
+		(r8a66597)->power.usage_count));
 		return 0;
 	}
 	r8a66597->is_active = 0;
 	printk(KERN_INFO "%s, USB device usage count: %d\n",
-	 __func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+	 __func__, atomic_read(&r8a66597_to_dev
+		(r8a66597)->power.usage_count));
 
 	return 0;
 }
