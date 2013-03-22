@@ -248,6 +248,8 @@ static struct base_map map[] = {
 	},
 #endif
 };
+
+#if 0
 static struct reg_info irqx_eventdetectors_regs[] = {
 /* IRQC Event Detector Block_0  */
 	PM_SAVE_REG(IRQC_EVENTDETECTOR_BLK0, CONFIG_00,   32, ES_REV_ALL),
@@ -415,6 +417,7 @@ static struct reg_info irqx_eventdetectors_regs[] = {
 	PM_SAVE_REG(IRQC_EVENTDETECTOR_BLK12, CONFIG_30,   32, ES_REV_ALL),
 	PM_SAVE_REG(IRQC_EVENTDETECTOR_BLK12, CONFIG_31,   32, ES_REV_ALL),
 };
+#endif
 
 static struct reg_info shwy_regs[] = {
 /* SHBUF */
@@ -578,7 +581,7 @@ static void do_save_regs(struct reg_info *regs, int count)
 	struct reg_info *info = regs;
 	int i;
 
-	for (i = 0; i < count; i++, *info++) {
+	for (i = 0; i < count; i++, info++) {
 		if (!*info->vbase)
 			continue;
 		if ((info->esrev & es) == es) {
@@ -613,7 +616,7 @@ static void do_restore_regs(struct reg_info *regs, int count)
 	info = regs + count;
 
 	for (i = count; i > 0; i--) {
-		*info--;
+		info--;
 		if (!*info->vbase)
 			continue;
 		if ((info->esrev & es) == es) {
@@ -637,10 +640,12 @@ static void do_restore_regs(struct reg_info *regs, int count)
 	}
 }
 
+#if 0
 static void irqx_eventdetectors_regs_save(void)
 {
 	DO_SAVE_REGS(irqx_eventdetectors_regs);
 }
+#endif
 
 static void shwy_regs_save(void)
 {
@@ -652,10 +657,12 @@ void shwystatdm_regs_save(void)
 	DO_SAVE_REGS(shwystatdm_regs);
 }
 
+#if 0
 static void irqx_eventdetectors_regs_restore(void)
 {
 	DO_RESTORE_REGS(irqx_eventdetectors_regs);
 }
+#endif
 
 static void shwy_regs_restore(void)
 {
@@ -680,26 +687,28 @@ static int core_shutdown_status(unsigned int cpu)
  */
 static int shmobile_suspend_begin(suspend_state_t state)
 {
+	int ret;
+
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_BEGIN, 1);
 	shmobile_suspend_state = state;
 	if (get_shmobile_suspend_state() & PM_SUSPEND_MEM)
 		is_suspend_request = 1;
 
-#if 1
-	int ret;
 	/* set DFS mode */
 	ret = suspend_cpufreq();
 	if (ret != 0) {
 		pr_debug(PMDBG_PRFX "%s: suspend_cpufreq() returns %d.\n", \
 				__func__, ret);
 	}
-#endif
+
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_BEGIN, 0);
 	return 0;
 }
 
 static void shmobile_suspend_end(void)
 {
+	int ret;
+
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_END, 1);
 	shmobile_suspend_state = PM_SUSPEND_ON;
 	is_suspend_request = 0;
@@ -710,14 +719,12 @@ static void shmobile_suspend_end(void)
 		not_core_shutdown = 0;
 	}
 
-#if 1
-	int ret;
 	ret = resume_cpufreq();
 	if (ret != 0) {
 		pr_debug(PMDBG_PRFX "%s: resume_cpufreq() returns %d.\n", \
 				__func__, ret);
 	}
-#endif
+
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_END, 0);
 }
 
@@ -918,10 +925,6 @@ static int shmobile_suspend(void)
 	unsigned int workBankState2Area;
 	unsigned int dramPasrSettingsArea0;
 	unsigned int dramPasrSettingsArea1;
-
-	/*Change clocks using DFS function*/
-	int clocks_ret;
-	/*Change clocks using DFS function*/
 
 	/* check wakelock */
 	locked = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
@@ -1246,7 +1249,7 @@ static int __init shmobile_suspend_init(void)
 	/* create address table */
 	for (i = 0; i < ARRAY_SIZE(map); i++) {
 		if (tbl->base) {
-			*tbl++;
+			tbl++;
 			continue;
 		}
 		virt = ioremap_nocache(tbl->phys, tbl->size);
@@ -1254,14 +1257,14 @@ static int __init shmobile_suspend_init(void)
 			pr_emerg(PMDBG_PRFX \
 					"%s: ioremap failed. base 0x%lx\n", \
 					__func__, tbl->phys);
-			*tbl++;
+			tbl++;
 			continue;
 		}
 		tbl->base = (unsigned long)virt;
 		pr_debug(PMDBG_PRFX \
 			"%s: ioremap phys 0x%lx, virt 0x%lx, size %d\n", \
 			__func__, tbl->phys, tbl->base, tbl->size);
-		*tbl++;
+		tbl++;
 	}
 
 	wakeups_factor();

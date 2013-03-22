@@ -1275,7 +1275,7 @@ void pm_runtime_enable(struct device *dev)
 #ifdef CONFIG_PDC
 	struct power_domain_info *pdi = NULL;
 	if (dev && dev_name(dev))
-		pdi = get_pdi(dev_name(dev));
+		pdi = get_pdi((char *)dev_name(dev));
 	if (NULL != pdi)
 		(void)power_domain_devices(dev_name(dev), \
 			pdi->devs, &pdi->cnt);
@@ -1293,7 +1293,7 @@ void pm_runtime_enable(struct device *dev)
 				return;
 			}
 			if (pdi->cnt != 0)
-				dev->power.subsys_data = pdi;
+				dev->power.subsys_data = (void *)pdi;
 			else
 				dev->power.subsys_data = NULL;
 	}

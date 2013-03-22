@@ -428,7 +428,7 @@ static bool is_power_status_on(unsigned int area)
  */
 struct power_domain_info *__to_pdi(const struct device *dev)
 {
-	return dev ? dev->power.subsys_data : NULL;
+	return dev ? (void *)dev->power.subsys_data : NULL;
 }
 
 /*
