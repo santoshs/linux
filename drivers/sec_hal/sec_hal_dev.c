@@ -511,7 +511,7 @@ unsigned long sec_hal_memory_tablewalk(void * virt_addr)
 	} else {
 		pgd = pgd_offset(current->mm, (unsigned long)virt_addr);
 		SEC_HAL_TRACE("pgd: 0x%08x",pgd);
-		pmd = pmd_offset(pgd, virt_addr);
+		pmd = pmd_offset((pud_t *)pgd, (unsigned long)virt_addr);
 		SEC_HAL_TRACE("pmd: 0x%08x",pmd);
 		pte = pte_offset_map(pmd, (unsigned long)virt_addr);
 	    SEC_HAL_TRACE("pte: 0x%08x",pte);
@@ -621,11 +621,9 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 
     int i;
     unsigned long virt_addr;
-    unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
     unsigned long vsize = vma->vm_end - vma->vm_start;
 
     SEC_HAL_TRACE_ENTRY();
-
     new_mem_node = kmalloc(sizeof(shared_memory_node),GFP_KERNEL);
 
     /* assign the file private data to the vm private data */
@@ -633,7 +631,6 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 
 	SEC_HAL_TRACE("client->next_teec_shmem 0x%x", client->next_teec_shmem);
     SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
-    SEC_HAL_TRACE("off: 0x%08x",off);
     SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
     SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
     SEC_HAL_TRACE("PAGE_SHIFT: 0x%08x",PAGE_SHIFT);
