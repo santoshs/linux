@@ -50,6 +50,7 @@
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #endif
+#include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
@@ -1297,8 +1298,9 @@ static struct resource r8a7373_hwsem1_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start	= 0x464FFC00, /* software extension base */
-		.end	= 0x464FFC7F,
+		/* software extension base */
+		.start	= SDRAM_SOFT_SEMAPHORE_TVRF_START_ADDR,
+		.end	= SDRAM_SOFT_SEMAPHORE_TVRF_END_ADDR,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -1346,8 +1348,9 @@ static struct resource r8a7373_hwsem2_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start	= 0x464ffe00,	/* software bit extension */
-		.end	= 0x464ffe7f,
+		/* software bit extension */
+		.start	= SDRAM_SOFT_SEMAPHORE_E20_START_ADDR,
+		.end	= SDRAM_SOFT_SEMAPHORE_E20_END_ADDR,
 		.flags	= IORESOURCE_MEM,
 	},
 };
