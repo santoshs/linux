@@ -363,22 +363,15 @@ int camera_init(unsigned int u2_board_rev)
 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50)	/* Select by board Rev */
-	if ((RLTE_BOARD_REV_0_0 == u2_board_rev) ||
-		(RLTE_BOARD_REV_0_1 <= u2_board_rev)) {
-		csi20_info.clients[0].lanes = 0x3;
-		camera_devices[0].dev.platform_data = &camera_links_rev6[0];
-		camera_devices[1].dev.platform_data = &camera_links_rev6[1];
-		camera_links_rev6[0].priv = &csi20_info;
-		camera_links_rev6[1].priv = &csi21_info;
-	}
+	csi20_info.clients[0].lanes = 0x3;
+	camera_devices[0].dev.platform_data = &camera_links_rev6[0];
+	camera_devices[1].dev.platform_data = &camera_links_rev6[1];
+	camera_links_rev6[0].priv = &csi20_info;
+	camera_links_rev6[1].priv = &csi21_info;
 #else	/* Select by board Rev */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
 	csi20_info.clients[0].lanes = 0x3;
 #endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
 #endif	/* Select by board Rev */
 #endif	/* Gardalte, Logan */
 
@@ -732,6 +725,7 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 			return -1;
 		regulator_enable(regulator);
 		regulator_put(regulator);
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
 		/* VT_DVDD_1V5   On */
 		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
 			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
@@ -741,6 +735,7 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 			regulator_enable(regulator);
 			regulator_put(regulator);
 		}
+#endif
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
@@ -852,6 +847,7 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
 		/* VT_DVDD_1V5   Off */
 		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
 			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
@@ -862,6 +858,7 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 			regulator_put(regulator);
 			mdelay(1);
 		}
+#endif
 
 		/* CAM_AVDD_2V8  Off */
 		regulator = regulator_get(NULL, "cam_sensor_a");
@@ -2043,6 +2040,7 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
 		/* VT_DVDD_1V5   On */
 		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
 			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
@@ -2053,6 +2051,7 @@ int SR030PC50_power(struct device *dev, int power_on)
 			regulator_put(regulator);
 			mdelay(1);
 		}
+#endif
 
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
@@ -2167,6 +2166,7 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
 		/* VT_DVDD_1V5   Off */
 		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
 			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
@@ -2177,6 +2177,7 @@ int SR030PC50_power(struct device *dev, int power_on)
 			regulator_put(regulator);
 			mdelay(1);
 		}
+#endif
 
 		/* CAM_AVDD_2V8  Off */
 		/* cam_sensor_a2.8 */
