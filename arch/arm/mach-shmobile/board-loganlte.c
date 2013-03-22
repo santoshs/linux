@@ -339,7 +339,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 	{
                 I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
 /*                      .platform_data = &tsu6712_pdata,*/
-/*                      .irq            = irqpin2irq(GPIO_CHG_INT),*/
+				.irq	= irqpin2irq(GPIO_CHG_INT),
 	},
 #endif
 };
