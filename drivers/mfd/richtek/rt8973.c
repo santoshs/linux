@@ -810,8 +810,10 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
-                if (platform_data.jig_callback)
-                    platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_UART);
+                if (platform_data.jig_callback) {
+			wake_lock(&pDrvData->uart_wakelock);
+			platform_data.jig_callback(1, RTMUSC_FM_BOOT_OFF_UART);
+		}
                 break;
                 case 0x19: //Factory Mode : JIG USB ON = 1
                 // auto switch -- ignore
@@ -880,12 +882,14 @@ inline void do_detach_work(int32_t regIntFlag)
         if (platform_data.uart_callback) {
             platform_data.uart_callback(RT8973_DETACHED);
 			uart_connecting = 0;
-			wake_unlock(&pDrvData->uart_wakelock);			
-		}
+			wake_unlock(&pDrvData->uart_wakelock);	
+	}
         break;
         case ID_JIG:
-        if (platform_data.jig_callback)
+        if (platform_data.jig_callback) {
             platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
+	    wake_unlock(&pDrvData->uart_wakelock);
+	}
         break;
         case ID_CHARGER:
         if (platform_data.charger_callback)
@@ -925,20 +929,34 @@ static void rt8973musc_work(struct work_struct *work)
         if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK))
         {
             INFO("There is un-handled event!!\n");
-            if (regDev1==0 && regDev2==0)
-                do_detach_work(regIntFlag);
-            else
-                do_attach_work(regIntFlag,regDev1,regDev2);
-        }
+            if (regDev1==0 && regDev2==0) {
+		do_detach_work(regIntFlag);
+		pDrvData->attach_status = 0;
+		}
+	    else {
+		if (pDrvData->attach_status == 0)
+		{
+			/* do attach only if not attached */
+			do_attach_work(regIntFlag, regDev1, regDev2);
+			pDrvData->attach_status = 1;
+		}
+	}
+	}
         else
-        {
-                do_attach_work(regIntFlag,regDev1,regDev2);
-        }
-    }
-    else if (regIntFlag&RT8973_INT_DETACH_MASK)
-    {
-        do_detach_work(regIntFlag);
-    }
+	{
+	if(pDrvData->attach_status == 0)
+		{
+			/* do attach only if not attached */
+			do_attach_work(regIntFlag, regDev1, regDev2);
+			pDrvData->attach_status = 1;
+		}
+	}
+	}
+	else if (regIntFlag&RT8973_INT_DETACH_MASK)
+    	{
+ 		do_detach_work(regIntFlag);
+		pDrvData->attach_status = 0;
+    	}
     else
     {
         if (regIntFlag&0x80) // OTP
@@ -1034,13 +1052,27 @@ static bool init_reg_setting(void)
 
     INFO("prev_int_flag = 0x%x\n",
          pDrvData->prev_int_flag);
-    enable_interrupt(1);
-    msleep(RT8973_WAIT_DELAY);
+    //enable_interrupt(0); We will enable later
+    //msleep(RT8973_WAIT_DELAY);
     INFO("Set initial value OK\n");
     /*
     INFO("GPIO %d Value = %d\n",CONFIG_RTMUSC_INT_GPIO_NUMBER,
          gpio_get_value(CONFIG_RTMUSC_INT_GPIO_NUMBER));*/
     return true;
+}
+static void rt8973_init_func(struct work_struct *work)
+{
+    int err;
+    INFO("rt8973_init_func request IRQ OK...\n");
+    err = enable_irq_wake(pDrvData->irq);
+    if (err < 0)
+    {
+        WARNING("enable_irq_wake(%d) failed for (%d)\n",pDrvData->irq, err);
+    }
+    enable_interrupt(1);
+    msleep(RT8973_WAIT_DELAY);
+    INFO("Set initial value OK\n");
+
 }
 
 
@@ -1068,10 +1100,13 @@ static int rt8973musc_probe(struct i2c_client *client,
     i2c_set_clientdata(client,drv_data);
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
     INIT_WORK(&drv_data->work, rt8973musc_work);
+    INIT_DELAYED_WORK(&drv_data->delayed_work, rt8973_init_func);
+    pDrvData->attach_status = 0;
 
 	uart_connecting = 0;
     if(platform_data.ex_init)
 		platform_data.ex_init();
+    schedule_delayed_work(&drv_data->delayed_work, msecs_to_jiffies(2700));
 
 #if CONFIG_RTMUSC_IRQ_NUMBER<0
     client->irq = gpio_to_irq(CONFIG_RTMUSC_INT_GPIO_NUMBER);
@@ -1124,11 +1159,11 @@ static int rt8973musc_probe(struct i2c_client *client,
         goto request_irq_fail;
     }
     INFO("request IRQ OK...\n");
-    err = enable_irq_wake(client->irq);
+    /*err = enable_irq_wake(client->irq);
     if (err < 0)
     {
         WARNING("enable_irq_wake(%d) failed for (%d)\n",client->irq, err);
-    }
+	}*/
     if (!init_reg_setting())
     {
         disable_irq(client->irq);

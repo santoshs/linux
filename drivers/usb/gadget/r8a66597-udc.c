@@ -2862,6 +2862,10 @@ clean_up:
 void send_usb_insert_event(int isConnected)
 {
 	struct r8a66597 *r8a66597 = the_controller;
+	if (r8a66597 == NULL) {
+		printk(KERN_ERR"r8a66597 is Null\n");
+		return;
+	}
 	if (!wake_lock_active(&r8a66597->wake_lock))
 		wake_lock(&r8a66597->wake_lock);
 
