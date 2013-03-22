@@ -127,6 +127,8 @@
 #define LCD_DSI0PCKCR_40HZ	0x00000023
 #define LCD_DSI0PHYCR_40HZ	0x2A80000B
 
+#define NT35510_INIT_RETRY_COUNT 3
+
 #define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
 static int nt35510_panel_suspend(void);
 static int nt35510_panel_resume(void);
@@ -791,6 +793,70 @@ out:
 	return ret;
 }
 
+static int nt35510_panel_draw_black(void *screen_handle)
+{
+	u32 panel_width  = R_MOBILE_M_PANEL_PIXEL_WIDTH;
+	u32 panel_height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+	screen_disp_draw disp_draw;
+	int ret;
+
+	printk(KERN_INFO "%s\n", __func__);
+
+#ifdef NT35510_DRAW_BLACK_KERNEL
+	printk(KERN_ALERT
+		"num_registered_fb = %d\n", num_registered_fb);
+
+	if (!num_registered_fb) {
+		printk(KERN_ALERT
+			"num_registered_fb err!\n");
+		return -1;
+	}
+	if (!registered_fb[0]->fix.smem_start) {
+		printk(KERN_ALERT
+			"registered_fb[0]->fix.smem_start"
+			" is NULL err!\n");
+		return -1;
+	}
+	printk(KERN_INFO
+	       "registerd_fb[0]-> fix.smem_start: %08x\n"
+	       "screen_base :%08x\n"
+	       "fix.smem_len :%08x\n",
+	       (unsigned)(registered_fb[0]->fix.smem_start),
+	       (unsigned)(registered_fb[0]->screen_base),
+	       (unsigned)(registered_fb[0]->fix.smem_len));
+	memset(registered_fb[0]->screen_base, 0x0,
+			registered_fb[0]->fix.smem_len);
+#endif
+
+	/* Memory clean */
+	disp_draw.handle = screen_handle;
+#ifdef NT35510_DRAW_BLACK_KERNEL
+	disp_draw.output_mode = RT_DISPLAY_LCD1;
+	disp_draw.buffer_id   = RT_DISPLAY_BUFFER_A;
+#else
+	disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
+	disp_draw.buffer_id   = RT_DISPLAY_DRAW_BLACK;
+#endif
+	disp_draw.draw_rect.x = 0;
+	disp_draw.draw_rect.y = 0;
+	disp_draw.draw_rect.width  = panel_width;
+	disp_draw.draw_rect.height = panel_height;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
+#else
+	disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+#endif
+	disp_draw.buffer_offset = 0;
+	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
+	ret = screen_display_draw(&disp_draw);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "screen_display_draw err!\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 static int panel_specific_cmdset(void *lcd_handle,
 				   const struct specific_cmdset *cmdset)
 {
@@ -858,61 +924,10 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_BLACK:
 		{
-			u32 panel_width  = R_MOBILE_M_PANEL_PIXEL_WIDTH;
-			u32 panel_height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
-			screen_disp_draw disp_draw;
-
-#ifdef NT35510_DRAW_BLACK_KERNEL
-			printk(KERN_ALERT
-				"num_registered_fb = %d\n", num_registered_fb);
-
-			if (!num_registered_fb) {
-				printk(KERN_ALERT
-					"num_registered_fb err!\n");
+			ret = nt35510_panel_draw_black(lcd_handle);
+			if (ret != 0)
 				return -1;
-			}
-			if (!registered_fb[0]->fix.smem_start) {
-				printk(KERN_ALERT
-					"registered_fb[0]->fix.smem_start"
-					" is NULL err!\n");
-				return -1;
-			}
-			printk(KERN_INFO
-			       "registerd_fb[0]-> fix.smem_start: %08x\n"
-			       "screen_base :%08x\n"
-			       "fix.smem_len :%08x\n",
-			       (unsigned)(registered_fb[0]->fix.smem_start),
-			       (unsigned)(registered_fb[0]->screen_base),
-			       (unsigned)(registered_fb[0]->fix.smem_len));
-			memset(registered_fb[0]->screen_base, 0x0,
-					registered_fb[0]->fix.smem_len);
-#endif
 
-			/* Memory clean */
-			disp_draw.handle = lcd_handle;
-#ifdef NT35510_DRAW_BLACK_KERNEL
-			disp_draw.output_mode = RT_DISPLAY_LCD1;
-			disp_draw.buffer_id   = RT_DISPLAY_BUFFER_A;
-#else
-			disp_draw.output_mode = RT_DISPLAY_LCD1_ASYNC;
-			disp_draw.buffer_id   = RT_DISPLAY_DRAW_BLACK;
-#endif
-			disp_draw.draw_rect.x = 0;
-			disp_draw.draw_rect.y = 0;
-			disp_draw.draw_rect.width  = panel_width;
-			disp_draw.draw_rect.height = panel_height;
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-			disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
-#else
-			disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
-#endif
-			disp_draw.buffer_offset = 0;
-			disp_draw.rotate = RT_DISPLAY_ROTATE_270;
-			ret = screen_display_draw(&disp_draw);
-			if (ret != SMAP_LIB_DISPLAY_OK) {
-				printk(KERN_ALERT "screen_display_draw err!\n");
-				return -1;
-			}
 			break;
 		}
 		case MIPI_DSI_DELAY:
@@ -964,6 +979,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 	screen_disp_delete disp_delete;
 	unsigned char read_data[60];
 	int ret = 0;
+	int retry_count = NT35510_INIT_RETRY_COUNT;
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 	void *system_handle;
@@ -1039,9 +1055,18 @@ retry:
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		goto retry;
+
+		if (retry_count == 0) {
+			printk(KERN_ALERT "retry count 0!!!!\n");
+			nt35510_panel_draw_black(screen_handle);
+			ret = -ENODEV;
+			goto out;
+		} else {
+			retry_count--;
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			goto retry;
+		}
 	}
 
 #ifdef NT35510_ENABLE_VIDEO_MODE
@@ -1071,9 +1096,17 @@ retry:
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		goto retry;
+		if (retry_count == 0) {
+			printk(KERN_ALERT "retry count 0!!!!\n");
+			nt35510_panel_draw_black(screen_handle);
+			ret = -ENODEV;
+			goto out;
+		} else {
+			retry_count--;
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			goto retry;
+		}
 	}
 	printk(KERN_DEBUG "Panel initialized with Video mode\n");
 #else /* NT35510_ENABLE_VIDEO_MODE */
@@ -1174,6 +1207,7 @@ static int nt35510_panel_resume(void)
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 	screen_disp_delete disp_delete;
 	int ret = 0;
+	int retry_count = NT35510_INIT_RETRY_COUNT;
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 	void *system_handle;
@@ -1218,9 +1252,17 @@ retry:
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		goto retry;
+		if (retry_count == 0) {
+			printk(KERN_ALERT "retry count 0!!!!\n");
+			nt35510_panel_draw_black(screen_handle);
+			ret = -ENODEV;
+			goto out;
+		} else {
+			retry_count--;
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			goto retry;
+		}
 	}
 
 	/* Resume frame rate */
@@ -1250,9 +1292,16 @@ retry:
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		goto retry;
+		if (retry_count == 0) {
+			printk(KERN_ALERT "retry count 0!!!!\n");
+			nt35510_panel_draw_black(screen_handle);
+			goto out;
+		} else {
+			retry_count--;
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+			goto retry;
+		}
 	}
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
