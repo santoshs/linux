@@ -49,6 +49,12 @@ config SND_SOC_FM34_WE395
 	help
 	  This is Forte media voice solution devices.
 
+config SND_SOC_TI_TPA2026
+	tristate "TI-TPA2026 sound support"
+	depends on I2C
+	help
+	  This is TPA2026 amp driver.
+
 ##
 ## Boards
 ##
