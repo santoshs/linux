@@ -70,8 +70,7 @@
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
-#include <sound/a2220.h>
-#include <linux/i2c/fm34_we395.h>
+#include <sound/tpa2026-i2c.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
@@ -214,18 +213,8 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
-struct a2220_platform_data  lt02lte_a2220_data = {
-	.a2220_hw_init = NULL,
-	.gpio_reset = GPIO_PORT44,
-	.gpio_wakeup = GPIO_PORT26,
-};
-
-struct fm34_platform_data  lt02lte_fm34_data = {
-	.set_mclk = NULL,
-	.gpio_pwdn = GPIO_PORT26,
-	.gpio_rst = GPIO_PORT44,
-	.gpio_bp = GPIO_PORT46,
-	.gpio_avdd = 0,
+struct tpa2026_i2c_platform_data lt02lte_tpa2026_i2c_data = {
+	.gpio_shdn = GPIO_PORT17,
 };
 
 /* I2C */
@@ -376,12 +365,8 @@ static struct platform_device key_backlight_device = {
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
-		I2C_BOARD_INFO("audience_a2220", 0x3E),
-		.platform_data = &lt02lte_a2220_data,
-	},
-	{
-		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
-		.platform_data = &lt02lte_fm34_data,
+		I2C_BOARD_INFO(TPA2026_I2C_DRIVER_NAME, 0x58),
+		.platform_data = &lt02lte_tpa2026_i2c_data,
 	},
 };
 
