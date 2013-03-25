@@ -62,7 +62,7 @@ static void usbhs_module_reset(void)
 	unsigned long flags = 0;
 	int ret = 0;
 
-	static ctr;
+	static int ctr;
 
 	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,
 		LOCK_TIME_OUT_MS, &flags);
@@ -394,7 +394,7 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.max_bufnum	= 0xff,
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = &r8a66597_gpio_setting_info,
+	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
 };
 
@@ -411,7 +411,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 #endif /* CONFIG_PMIC_INTERFACE */
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = &r8a66597_gpio_setting_info,
+	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
 };
 
