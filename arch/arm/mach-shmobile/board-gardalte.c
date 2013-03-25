@@ -148,17 +148,17 @@ static struct platform_device led_backlight_device = {
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
 #define BCMBT_N_RESET_GPIO    (-1)
 /* clk32 */
-#define BCMBT_AUX0_GPIO       (-1)  
+#define BCMBT_AUX0_GPIO       (-1)
 /* UARTB_SEL */
-#define BCMBT_AUX1_GPIO       (-1)    
+#define BCMBT_AUX1_GPIO       (-1)
 
 static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
 	.vreg_gpio 		= BCMBT_VREG_GPIO,
 	.n_reset_gpio 	= BCMBT_N_RESET_GPIO,
 	/* CLK32 */
-	.aux0_gpio 		= BCMBT_AUX0_GPIO,  
+	.aux0_gpio 		= BCMBT_AUX0_GPIO,
 	/* UARTB_SEL, probably not required */
-	.aux1_gpio 		= BCMBT_AUX1_GPIO,  
+	.aux1_gpio 		= BCMBT_AUX1_GPIO,
 };
 
 static struct platform_device board_bcmbt_rfkill_device = {
@@ -190,7 +190,7 @@ static struct platform_device board_bcm_bzhw_device = {
 #endif
 
 #ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE   6 
+#define GPIO_BT_WAKE   6
 #define GPIO_HOST_WAKE 14
 
 static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
@@ -416,7 +416,7 @@ static int wait_for_coresight_access_lock(u32 base)
 	int retval = -1;
 	int timeout = 512;
 	/* Lock Access */
-	__raw_writel(0xc5acce55, base + 0xFB0); 
+	__raw_writel(0xc5acce55, base + 0xFB0);
 	for (i = 0; i < timeout && retval; i++) {
 		if ((__raw_readl(base + 0xFB4) & 2) == 0)
 			retval = 0;
@@ -541,8 +541,8 @@ static void __init gardalte_init(void)
 	/* ===== CWS GPIO ===== */
 
 	/* GPS Reset */
-	gpio_request(GPIO_PORT10, NULL);
-	gpio_direction_output(GPIO_PORT10, 0);
+	//gpio_request(GPIO_PORT10, NULL);
+	//gpio_direction_output(GPIO_PORT10, 0);
 
 	/* GPS Enable */
 	gpio_request(GPIO_PORT11, NULL);
@@ -608,7 +608,7 @@ static void __init gardalte_init(void)
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
 		renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
-#endif	
+#endif
 		/* add the SDIO device */
 	}
 
@@ -679,6 +679,10 @@ static void __init gardalte_init(void)
 
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
+/* GPS Init */
+#if defined(CONFIG_RENESAS_GPS)
+	gps_gpio_init();
+#endif
 
 #if defined(CONFIG_SAMSUNG_SENSOR)
 	sensor_init();
@@ -687,7 +691,7 @@ static void __init gardalte_init(void)
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 #ifdef CONFIG_NFC_PN547
-	i2c_register_board_info(8, PN547_info, pn547_info_size()); 
+	i2c_register_board_info(8, PN547_info, pn547_info_size());
 #endif
 
 #ifdef CONFIG_BOARD_VERSION_GARDA

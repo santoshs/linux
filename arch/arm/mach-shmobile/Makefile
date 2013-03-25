@@ -130,6 +130,7 @@ obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
 
 #GPS
 obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
+obj-$(CONFIG_RENESAS_GPS) 	+= board-gardalte-gps.o
 
 #NFC
 obj-$(CONFIG_BCMI2CNFC) 	+= dev-nfc.o
