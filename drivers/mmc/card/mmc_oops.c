@@ -368,7 +368,7 @@ static void mmc_panic_mmc_reset(struct mmcoops_context *cxt)
 
         /* In data transfer mode: Set clock to Bus clock/4 (about 20Mhz) */
         sh_mmcif_writel(host->addr, MMCIF_CE_CLK_CTRL,
-                        CLK_ENABLE | CLKDIV_4 | SRSPTO_256 |
+					CLK_ENABLE | CLKDIV_2 | SRSPTO_256 |
                         SRBSYTO_29 | SRWDTO_29 | SCCSTO_29);
 
         /* CMD9 - Get CSD */
