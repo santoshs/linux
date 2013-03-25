@@ -2911,6 +2911,7 @@ static int r8a66597_udc_resume(struct device *dev)
 	r8a66597->phy_active = r8a66597->phy_active_sav;
 	gpio_set_portncr_value(r8a66597->pdata->port_cnt,
 	r8a66597->pdata->usb_gpio_setting_info, 0);
+	gpio_set_value(r8a66597->pdata->usb_gpio_setting_info[IDX_PORT130].port, 0);
 
 	return 0;
 }
