@@ -1443,7 +1443,7 @@ static inline uint32_t get_phys_addr(void *vaddr)
 		rv = (uint32_t)virt_to_phys(vaddr);
 	else {
 		pgd_t *pgd = pgd_offset(current->mm, (uint32_t)vaddr);
-		pmd_t *pmd = pmd_offset(pgd, (uint32_t)vaddr);
+		pmd_t *pmd = pmd_offset((pud_t *)pgd, (uint32_t)vaddr);
 		pte_t *pte = pte_offset_map(pmd, (uint32_t)vaddr);
 		rv = (0xFFFFF000 & (*pte)) | (0x00000FFF & (uint32_t)vaddr);
 	}
