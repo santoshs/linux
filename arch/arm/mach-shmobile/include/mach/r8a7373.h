@@ -7,6 +7,7 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_clock.h>
 #include <linux/types.h>
+#include <mach/memory-r8a7373.h>
 
 void mmcif_set_pwr(struct platform_device *, int);
 void mmcif_down_pwr(struct platform_device *);
@@ -438,10 +439,11 @@ struct sbsc_param {
 };
 
 /*Shared area memory mapping*/
-#define SHARED_AREA_SBSC_START_PHY	0x464FFC80
-#define SHARED_AREA_SBSC_SIZE		384
-#define SHARED_AREA_SBSC_END_PHY	(SHARED_AREA_SBSC_START_PHY + \
-				SHARED_AREA_SBSC_SIZE - 1)
+#define SHARED_AREA_SBSC_START_PHY	SDRAM_SOFT_SEMAPHORE_FREQ_START_ADDR
+#define SHARED_AREA_SBSC_END_PHY	SDRAM_SOFT_SEMAPHORE_FREQ_END_ADDR
+#define SHARED_AREA_SBSC_SIZE		(SHARED_AREA_SBSC_END_PHY - \
+					SHARED_AREA_SBSC_START_PHY + 1)
+
 #define SHARED_AREA_REV 	1
 
 struct shared_area {

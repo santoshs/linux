@@ -25,6 +25,7 @@
 #include <linux/string.h>
 #include <linux/parser.h>
 #include <linux/io.h>
+#include <mach/memory-r8a7373.h>
 
 #ifdef CONFIG_SHMOBILE_RAM_DEFRAG
 #include <mach/ram_defrag.h>
@@ -65,26 +66,35 @@ static int page_check(struct page *page);
 #define SDRAM_END			0x7FFFFFFF
 #define BANK_SIZE			0x04000000
 
-#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
-#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0) \
+#define INUSED_RANGE		(SDRAM_KERNEL_START_ADDR - SDRAM_START)
+#define USED_BANKS_ABOVE	(((INUSED_RANGE % BANK_SIZE) != 0) \
 				? ((INUSED_RANGE / BANK_SIZE) + 1) \
 				: (INUSED_RANGE / BANK_SIZE))
 
-#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
+#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS_ABOVE * BANK_SIZE))
 #define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
-		? (UNUSED_BANKS_START - CONFIG_MEMORY_START) : 0)
+		? (UNUSED_BANKS_START - SDRAM_KERNEL_START_ADDR) : 0)
 
 #define SDRAM_SIZE			((SDRAM_END - SDRAM_START) + 1)
 #define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
-#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS_ABOVE)
 #define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
 
-#define USED_BANKS_MASK(nr) (~(0xFFFF0000 | (0xFFFF << (nr))))
+#define USED_RANGE_BELOW	(SDRAM_END - SDRAM_KERNEL_END_ADDR)
+
+#define USED_BANKS_BELOW	(((USED_RANGE_BELOW % BANK_SIZE) != 0) \
+				? ((USED_RANGE_BELOW / BANK_SIZE) + 1) : \
+					(USED_RANGE_BELOW / BANK_SIZE))
+
+#define USED_BANKS_MASK(nr_above, nr_below)	\
+		(~(0xFFFF0000 | ((0xFFFF << (nr_above)) \
+				& (0xFFFF >> (nr_below)))))
 
 const unsigned int max_unused_banks = MAX_UNUSED_BANKS;
 const unsigned int max_pages_in_bank = MAX_PAGES_IN_BANK;
 const unsigned int number_pages_skip = NUMBER_PAGES_SKIP;
-const unsigned int used_banks = USED_BANKS;
+const unsigned int used_banks_above = USED_BANKS_ABOVE;
+const unsigned int used_banks_below = USED_BANKS_BELOW;
 
 /*
  * get_ram_banks_status: Get status of RAM banks
@@ -125,7 +135,8 @@ static unsigned int get_ram_banks_status(void)
 			status &= ~(1 << i);
 	}
 
-	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
+	status = (status << used_banks_above) | \
+		USED_BANKS_MASK(used_banks_above, used_banks_below);
 	return status;
 }
 
