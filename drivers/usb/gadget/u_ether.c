@@ -54,12 +54,12 @@ static inline void *kmap_frag(const skb_frag_t *frag)
 
 	local_bh_disable();
 #endif
-	return kmap_atomic(frag->page.p, KM_SKB_DATA_SOFTIRQ);
+	return kmap_atomic(frag->page.p);
 }
 
 static inline void kunmap_frag(void *vaddr)
 {
-	kunmap_atomic(vaddr, KM_SKB_DATA_SOFTIRQ);
+	kunmap_atomic(vaddr);
 #ifdef CONFIG_HIGHMEM
 	local_bh_enable();
 #endif
@@ -686,7 +686,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			del_timer(&multiframe->multiframe_timer);
 		eth_start_xmit_usb(multiframe);
 	}
-out:
 	spin_unlock(&multiframe->timer_lock);
 	return NETDEV_TX_OK;
 drop:

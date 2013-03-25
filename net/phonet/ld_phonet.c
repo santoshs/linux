@@ -173,9 +173,6 @@ static ssize_t ld_set_at_closed(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	unsigned int value;
-
 	if (0 == strncmp(buf, "at closed", 9))
 		switch_set_state(&switch_dock, AT_CLOSED);
 
@@ -192,9 +189,6 @@ static ssize_t ld_set_isi_closed(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	unsigned int value;
-
 	if (0 == strncmp(buf, "isi closed", 10))
 		switch_set_state(&switch_dock, ISI_CLOSED);
 
@@ -393,7 +387,6 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 static int
 ld_pn_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
-	int ret = 0;
 	switch (cmd) {
 	case SIOCPNGAUTOCONF:
 		phonet_route_add(dev, PN_DEV_PC);
@@ -509,7 +502,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 	unsigned int msglen = 0;
 
 	struct phonethdr *ph = NULL;
-	int x, i;
+	int i;
 
 	dbg("ld_phonet: initiate transfer Data Sent = %d ", \
 	ld_pn->n_Data_Sent);
@@ -946,7 +939,7 @@ void ld_write_wakeup_tasklet(unsigned long data)
         struct tty_struct *tty;
 	struct ld_phonet *ld_pn;
 
-	unsigned long *tmp = data;
+	unsigned long *tmp = (unsigned long *) data;
 	tty = (struct tty_struct *)*tmp;
 	if (tty == NULL) {
 		dbg("LD Tasklet tty Data NULL\n");	
@@ -981,7 +974,6 @@ static int ld_phonet_ldisc_hangup(struct tty_struct *tty)
 {
 	struct ld_phonet *ld_pn;
 	struct sk_buff *skb;
-	struct net_device *dev;
 	/* Flush TX queue */
 	ld_pn = tty->disc_data;
 
