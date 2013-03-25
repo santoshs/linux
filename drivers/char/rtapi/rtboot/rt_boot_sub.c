@@ -449,6 +449,14 @@ static int set_screen_data(unsigned int disp_addr)
 	screen[0].mode   = 0; /* VIDEO MODE */
 #endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
 
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
+	MSG_LOW("WSVGA(VX5B3D) video mode setting.\n");
+	screen[0].height = 600;
+	screen[0].width  = 1024;
+	screen[0].stride = 1024;
+	screen[0].mode   = 0; /* VIDEO MODE */
+#endif /* CONFIG_FB_R_MOBILE_VX5B3D */
+
 #endif /* CONFIG_FB_R_MOBILE_PANEL_SWITCH */
 
 	screen[1].height = SCREEN1_HEIGHT;
