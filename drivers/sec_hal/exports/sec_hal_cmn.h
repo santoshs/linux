@@ -30,7 +30,7 @@
 
 #define AREA_ID_FRAMEBUFFER  0
 #define AREA_ID_OMX          1
-#define AREA_ID_HDMI         2
+#define AREA_ID_DISPLAY      2
 
 
 typedef struct {
