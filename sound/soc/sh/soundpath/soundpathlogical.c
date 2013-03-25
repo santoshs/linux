@@ -359,8 +359,6 @@ static u_long sndp_get_next_devices(const u_int uiValue)
 	u_long	ulTmpNextDev = g_sndp_codec_info.dev_none;
 	u_int	uiDev;
 
-	return ulTmpNextDev;
-
 	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
 
 	/* OUTPUT side */
@@ -3154,7 +3152,7 @@ static void sndp_work_play_incomm_start(struct sndp_work_info *work)
 	if (!(E_CAP & g_sndp_incomm_playrec_flg)) {
 		/* To register a work queue to start processing Playback */
 		sndp_work_incomm_start(work->new_value);
-	} 
+	}
 
 	/* Set to ENABLE the speaker amp */
 	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) {
@@ -3204,7 +3202,7 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 		if (ERROR_NONE != ret)
 			sndp_log_err("get_device error(code=%d)\n", ret);
 	}
-	
+
 	/* Init to Playback side */
 	set_device &= ~g_sndp_codec_info.out_dev_all;
 
@@ -3291,7 +3289,7 @@ static void sndp_work_capture_incomm_stop(struct sndp_work_info *work)
 		if (ERROR_NONE != ret)
 			sndp_log_err("get_device error(code=%d)\n", ret);
 	}
-	
+
 	/* Init to Capture side */
 	set_device &= ~g_sndp_codec_info.in_dev_all;
 
@@ -3332,7 +3330,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 		sndp_log_err("ignore_suspend error(code=%d)\n", ret);
 		goto start_err;
 	}
-
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 	/* CLKGEN master setting */
 	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
@@ -3621,7 +3618,6 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 
 		/* Input device OFF */
 		fsi_d2153_deactivate_input(g_kcontrol);
-
 		sndp_after_of_work_call_capture_stop(in_old_val, out_old_val);
 	}
 
@@ -4168,7 +4164,6 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 	iRet = fsi_d2153_disable_ignore_suspend(card, 0);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("release ignore_suspend error(code=%d)\n", iRet);
-
 	/* Wake Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
 
@@ -4521,7 +4516,6 @@ static void sndp_work_stop(
 		/* Output device OFF */
 		fsi_d2153_set_dac_power(g_kcontrol, 0);
 	}
-
 	uiValue = GET_OLD_VALUE(direction);
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 

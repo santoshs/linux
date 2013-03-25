@@ -353,7 +353,7 @@ config IMX2_WDT
 config RMU2_RWDT
 	tristate "rmu2_rwdt"
 	default y
-	depends on MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE
+	depends on MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	select FIQ
 	select FIQ_GLUE
 	help
