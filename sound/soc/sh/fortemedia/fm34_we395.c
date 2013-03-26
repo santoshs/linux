@@ -1460,7 +1460,7 @@ static int __init fm34_init(void)
 	unsigned int board_rev = 0;
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev > 0)
+	if (board_rev >= 1)
 		return -ENODEV;
 #endif
 	return i2c_add_driver(&fm34_driver);
@@ -1481,7 +1481,7 @@ static void __exit fm34_exit(void)
 	unsigned int board_rev = 0;
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev > 0)
+	if (board_rev >= 1)
 		return;
 #endif
 	i2c_del_driver(&fm34_driver);
