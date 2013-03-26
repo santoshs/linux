@@ -9,11 +9,13 @@
 #include <linux/io.h>
 #include <linux/time.h>
 #include <memlog/memlog.h>
+#include <mach/memory-r8a7373.h>
 
 static struct kobject *memlog_kobj;
 
 /* Use SDRAM */
-#define MEMLOG_ADDRESS			0x448F1C00
+#define MEMLOG_CRASHLOG_OFFSET	0x000F0C00
+#define MEMLOG_ADDRESS			(SDRAM_CRASHLOG_START_ADDR + MEMLOG_CRASHLOG_OFFSET)
 #define MEMLOG_SIZE				0x00002000
 #define CPU0_PROC_SIZE			0x00000400
 #define CPU1_PROC_SIZE			0x00000400
