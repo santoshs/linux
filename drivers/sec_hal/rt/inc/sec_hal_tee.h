@@ -49,7 +49,7 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* session,
 
 uint32_t sec_hal_tee_get_param_type(uint32_t index, uint32_t types);
 
-uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
+void  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
                                        TEEC_Operation* operation,
                                        uint32_t direction );
 
@@ -57,7 +57,6 @@ uint32_t sec_hal_tee_register_shared_memory_area( TEEC_Context* kernel_context, 
 
 uint32_t sec_hal_tee_release_shared_memory_area(TEEC_SharedMemory* kernel_shmem);
 
-uint32_t sec_hal_tee_allocate_TA_memory_workaround(void);
 
 /* ******************************** END ********************************** */
 
