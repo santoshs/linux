@@ -1815,28 +1815,33 @@ int d2153_get_rf_temperature(void)
 		pr_err("%s. battery_data is NULL\n", __func__);
 		return -EINVAL;
 	}
-	
-	// To read a temperature ADC of RF
+
+	/* To read a temperature ADC of RF*/
 	sum_temp_adc = 0;
-	for(i = 3, j = 0; i; i--) {
+	for (i = 10, j = 0; i; i--) {
 		ret = pbat->d2153_read_adc(pbat, D2153_ADC_TEMPERATURE_2);
-		if(ret == 0)
-			j++;
-		sum_temp_adc += pbat_data->adc_res[D2153_ADC_TEMPERATURE_2].read_adc;
+		if (ret == 0) {
+			sum_temp_adc += pbat_data->\
+			adc_res[D2153_ADC_TEMPERATURE_2].read_adc;
+			if (++j == 3)
+				break;
+		} else
+			msleep(20);
 	}
-
-	pbat_data->current_rf_temp_adc = (sum_temp_adc / j);
-	pbat_data->current_rf_temperature = 
-					degree_k2c(adc_to_degree_k(pbat_data->current_rf_temp_adc));
-
-	pr_info("%s. RF_TEMP_ADC = %d, RF_TEMPERATURE = %3d.%d\n",
+	if (j) {
+		pbat_data->current_rf_temp_adc = (sum_temp_adc / j);
+		pbat_data->current_rf_temperature =
+		degree_k2c(adc_to_degree_k(pbat_data->current_rf_temp_adc));
+		pr_info("%s. RF_TEMP_ADC = %d, RF_TEMPERATURE = %3d.%d\n",
 				__func__,
 				pbat_data->current_rf_temp_adc,
 				(pbat_data->current_rf_temperature/10),
 				(pbat_data->current_rf_temperature%10));
-
-	return pbat_data->current_rf_temperature;
-
+		return pbat_data->current_rf_temperature;
+	} else {
+		printk(KERN_ERR"%s:ERROR in reading RF temperature.\n");
+		return -EIO;
+	}
  }
 EXPORT_SYMBOL(d2153_get_rf_temperature);
 
