@@ -30,7 +30,7 @@
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
 #include <mach/pm.h>
-
+static int dfs_start = -1;
 #endif
 
 
@@ -111,6 +111,8 @@ static unsigned int bitrate(struct usb_gadget *g)
 
 #define LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
 #define STATUS_BYTECOUNT		8	/* 8 bytes data */
+#define HSUSBDMA_IRQ           117
+#define R8A66597_UDC_IRQ       119
 
 
 /* interface descriptor: */
@@ -792,11 +794,15 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	ret = stop_cpufreq();
 	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
 	if (ret) {
-		dfs_started = 1;
+		dfs_start = 1;
 		ERROR(cdev, "%s(): error<%d>! stop_cpufreq\n",
 			__func__, ret);
-	} else
-		dfs_started = 0;
+	} else {
+
+		dfs_start = 0;
+		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
+		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
+		}
 #endif
 
 	DBG(cdev, "RNDIS: %s speed IN/%s OUT/%s NOTIFY/%s\n",
@@ -851,10 +857,10 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
 /*#ifdef CONFIG_MACH_U2EVM*/
-	if (!dfs_started) {
+	if (!dfs_start) {
 		start_cpufreq();
 		DBG(c->cdev, "%s(): start_cpufreq\n", __func__);
-		dfs_started = 1;
+		dfs_start = 1;
 	}
 #endif
 	kfree(rndis);
