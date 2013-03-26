@@ -399,7 +399,13 @@ static int SR030PC50_probe(struct i2c_client *client,
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &SR030PC50_colour_fmts[0];
-
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev,
+			"SR030PC50: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		return ret;
+	}
+	ret = 0;
 
 	{
 		/* check i2c device */
@@ -450,7 +456,7 @@ static int SR030PC50_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int SR030PC50_remove(struct i2c_client *client)
