@@ -2,7 +2,7 @@
 #include <linux/ion.h>
 #include <linux/platform_device.h>
 #include <linux/memblock.h>
-#include <mach/board-u2evm.h>
+#include <mach/board.h>
 #include <mach/setup-u2ion.h>
 
 struct ion_platform_data u2evm_ion_data = {

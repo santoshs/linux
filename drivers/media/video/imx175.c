@@ -341,6 +341,13 @@ static int IMX175_probe(struct i2c_client *client,
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &IMX175_colour_fmts[0];
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev,
+			"IMX175: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		return ret;
+	}
+	ret = 0;
 
 	{
 		/* check i2c device */
@@ -414,7 +421,7 @@ static int IMX175_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int IMX175_remove(struct i2c_client *client)
