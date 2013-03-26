@@ -23,7 +23,6 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <mach/common.h>
-#undef CONFIG_ARM_SEC_HAL
 #include <linux/io.h>
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
