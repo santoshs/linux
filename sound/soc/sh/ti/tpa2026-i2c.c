@@ -240,7 +240,7 @@ static int tpa2026_i2c_set_state
 	} else if (!(device & SNDP_OUT_SPEAKER)) {
 			tpa2026_i2c_amp_shutdown();
 	} else {
-		if (ch_dev == SNDP_A2220_START)
+		if (ch_dev == SNDP_EXTDEV_START)
 			tpa2026_i2c_amp_on();
 		else
 			tpa2026_i2c_amp_shutdown();
@@ -544,7 +544,7 @@ static int tpa2026_i2c_probe(struct i2c_client *i2c,
 	int rc = 0;
 	struct tpa2026_i2c_data *tpa2026;
 	static struct tpa2026_i2c_platform_data *pdata;
-	static struct sndp_a2220_callback_func callback_func;
+	static struct sndp_extdev_callback_func callback_func;
 
 	tpa2026_i2c_pr_func_start();
 
@@ -627,7 +627,7 @@ static int tpa2026_i2c_probe(struct i2c_client *i2c,
 	/* set callback function */
 	callback_func.set_state = tpa2026_i2c_set_state;
 	callback_func.set_nb_wb = NULL;
-	sndp_a2220_regist_callback(&callback_func);
+	sndp_extdev_regist_callback(&callback_func);
 
 #ifdef CONFIG_TPA2026_I2C_DBG
 	rc = sysfs_create_group(&g_tpa2026_i2c_data->i2c_client->dev.kobj,
