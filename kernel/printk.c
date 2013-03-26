@@ -1829,7 +1829,7 @@ bool printk_timed_ratelimit(unsigned long *caller_jiffies,
 }
 EXPORT_SYMBOL(printk_timed_ratelimit);
 
-static DEFINE_RAW_SPINLOCK(dump_list_lock);
+static DEFINE_SPINLOCK(dump_list_lock);
 static LIST_HEAD(dump_list);
 
 /**
