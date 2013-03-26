@@ -2731,18 +2731,8 @@ static struct i2c_driver d2153_i2c_driver = {
 static int __init d2153_modinit(void)
 {
 	int ret;
-#if defined(CONFIG_MACH_U2EVM)
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
 
 	ret = i2c_add_driver(&d2153_i2c_driver);
-#endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-	|| defined(CONFIG_MACH_LT02LTE)
-	ret = i2c_add_driver(&d2153_i2c_driver);
-#endif
 	if (ret)
 		pr_err("D2153 I2C registration failed %d\n", ret);
 
@@ -2752,17 +2742,7 @@ module_init(d2153_modinit);
 
 static void __exit d2153_exit(void)
 {
-#if defined(CONFIG_MACH_U2EVM)
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
 	i2c_del_driver(&d2153_i2c_driver);
-#endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-	|| defined(CONFIG_MACH_LT02LTE)
-	i2c_del_driver(&d2153_i2c_driver);
-#endif
 }
 module_exit(d2153_exit);
 

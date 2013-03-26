@@ -647,10 +647,6 @@ static void __init lt02lte_init(void)
 	nfc_gpio_init();
 #endif
 
-	/* MAIN MIC LDO Enable */
-	gpio_request(GPIO_PORT8, NULL);
-	gpio_direction_output(GPIO_PORT8, 0);
-
 	gpio_direction_none_port(GPIO_PORT309);
 
 	if (0 != stm_select) {
