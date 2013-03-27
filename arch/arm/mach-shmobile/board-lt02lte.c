@@ -70,7 +70,6 @@
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
-#include <linux/i2c/fm34_we395.h>
 #include <sound/tpa2026-i2c.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
