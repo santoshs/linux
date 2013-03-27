@@ -283,71 +283,17 @@ static struct i2c_board_info i2c4_devices_melfas[] = {
 	},
 };
 
-static struct i2c_board_info i2c4_devices_imagis[] = {
+static struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
-		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
+		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
 		.irq = irqpin2irq(32),
 	},
 };
 
-/* Touch Panel auto detection (Melfas and Imagis) */
-static struct i2c_client *tsp_detector_i2c_client;
-
-static int __devinit tsp_detector_probe(struct i2c_client *client,
-		const struct i2c_device_id *id)
-{
-	int ret = 0;
-	struct i2c_adapter *adap = client->adapter;
-	struct regulator *touch_regulator;
-	unsigned short addr_list_melfas[] = { 0x48, I2C_CLIENT_END };
-
-	touch_regulator = regulator_get(NULL, "vtsp_3v");
-	if (IS_ERR(touch_regulator)) {
-		printk(KERN_ERR "failed to get regulator for Touch Panel");
-		return -ENODEV;
-	}
-	regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
-	regulator_enable(touch_regulator);
-	msleep(20);
-	tsp_detector_i2c_client = i2c_new_probed_device(adap,
-						&i2c4_devices_melfas[0],
-						addr_list_melfas, NULL);
-	if (tsp_detector_i2c_client != NULL) {
-		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
-	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap,
-						&i2c4_devices_imagis[0]);
-		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
-	}
-
-	regulator_disable(touch_regulator);
-	regulator_put(touch_regulator);
-	return ret;
-}
-
-static int tsp_detector_remove(struct i2c_client *client)
-{
-	i2c_unregister_device(tsp_detector_i2c_client);
-	tsp_detector_i2c_client = NULL;
-	return 0;
-}
-
-static struct i2c_device_id tsp_detector_idtable[] = {
-	{ "tsp_detector", 0 },
-	{},
-};
-static struct i2c_driver tsp_detector_driver = {
-	.driver = {
-		.name = "tsp_detector",
-	},
-	.probe		= tsp_detector_probe,
-	.remove		= tsp_detector_remove,
-	.id_table	= tsp_detector_idtable,
-};
-
-static struct i2c_board_info i2c4_devices_tsp_detector[] = {
+static struct i2c_board_info i2c4_devices_imagis[] = {
 	{
-		I2C_BOARD_INFO("tsp_detector", 0x7f),
+		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
+		.irq = irqpin2irq(32),
 	},
 };
 
@@ -1057,12 +1003,17 @@ static void __init lt02lte_init(void)
 #ifdef CONFIG_NFC_PN547
 	i2c_register_board_info(8, PN547_info, pn547_info_size());
 #endif
-
+#if 0
 	/* Touch Panel auto detection */
 	i2c_add_driver(&tsp_detector_driver);
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 					ARRAY_SIZE(i2c4_devices_tsp_detector));
 	platform_device_register(&key_backlight_device);
+#else
+	printk(KERN_WARNING "Register zinitix touch driver!\n");
+	i2c_register_board_info(4, i2c4_devices_zinitix,
+					ARRAY_SIZE(i2c4_devices_zinitix));
+#endif
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
