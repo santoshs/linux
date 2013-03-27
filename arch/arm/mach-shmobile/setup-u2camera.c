@@ -18,8 +18,7 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
 #endif
-#include <mach/board-u2evm.h>
-#include <mach/board-gardalte.h>
+#include <mach/board.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>

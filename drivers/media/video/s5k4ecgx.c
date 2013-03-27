@@ -345,6 +345,17 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 		return err;
 	}
 
+	priv->width	= 640;
+	priv->height	= 480;
+	priv->fmt	= &S5K4ECGX_colour_fmts[0];
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev,
+			"S5K4ECGX: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		return ret;
+	}
+	ret = 0;
+
 	{
 		/* check i2c device */
 		struct i2c_msg msg[2];
@@ -376,10 +387,6 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 		else
 			ret = 0;
 	}
-
-	priv->width	= 640;
-	priv->height	= 480;
-	priv->fmt	= &S5K4ECGX_colour_fmts[0];
 
 	if (cam_class_init == false) {
 		dev_dbg(&client->dev,
@@ -422,7 +429,7 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int S5K4ECGX_remove(struct i2c_client *client)
