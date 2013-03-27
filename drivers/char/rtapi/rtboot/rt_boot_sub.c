@@ -408,7 +408,7 @@ static int set_screen_data(unsigned int disp_addr)
 		break;
 #endif /* CONFIG_MACH_U2EVM */
 	default:
-		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n"
+		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
 					"Unknown HWID(=%d)\n", hw_id);
 		screen[0].height = 0;
 		screen[0].width  = 0;
