@@ -1,5 +1,5 @@
 /*
- * Driver for Samsung SR030PC50 VGA Camera
+ * Driver for Samsung SR130PC20 VGA Camera
  *
  * Copyright (C) 2012 Renesas Mobile Corp.
  * All rights reserved.
@@ -29,37 +29,36 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
-static ssize_t subcamtype_SR030PC50_show(struct device *dev,
+static ssize_t subcamtype_SR130PC20_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorname = "SR030PC50";
+	char *sensorname = "SR130PC20";
 	return sprintf(buf, "%s\n", sensorname);
 }
 
-static ssize_t subcamfw_SR030PC50_show(struct device *dev,
+static ssize_t subcamfw_SR130PC20_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "SR030PC50";
+	char *sensorfw = "SR130PC20";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
-static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR030PC50_show, NULL);
-static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR030PC50_show, NULL);
-
-struct SR030PC50_datafmt {
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
+struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
 };
 
-struct SR030PC50 {
+struct SR130PC20 {
 	struct v4l2_subdev		subdev;
 	struct v4l2_ctrl_handler hdl;
-	const struct SR030PC50_datafmt	*fmt;
+	const struct SR130PC20_datafmt	*fmt;
 	unsigned int			width;
 	unsigned int			height;
 };
 
-static const struct SR030PC50_datafmt SR030PC50_colour_fmts[] = {
+static const struct SR130PC20_datafmt SR130PC20_colour_fmts[] = {
 	{V4L2_MBUS_FMT_SBGGR10_1X10,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_SGBRG10_1X10,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_SGRBG10_1X10,	V4L2_COLORSPACE_SRGB},
@@ -70,7 +69,7 @@ static const struct SR030PC50_datafmt SR030PC50_colour_fmts[] = {
 	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
 };
 
-static inline int sr030pc50_read(struct i2c_client *client,
+static inline int sr130pc20_read(struct i2c_client *client,
 	unsigned char subaddr, unsigned char *data)
 {
 	unsigned char buf[2];
@@ -99,7 +98,7 @@ static inline int sr030pc50_read(struct i2c_client *client,
 	return err;
 }
 
-static inline int sr030pc50_write(struct i2c_client *client,
+static inline int sr130pc20_write(struct i2c_client *client,
 						unsigned short packet)
 {
 	unsigned char buf[2];
@@ -137,31 +136,31 @@ static inline int sr030pc50_write(struct i2c_client *client,
 	return (err != 1) ? -1 : 0;
 }
 
-static struct SR030PC50 *to_SR030PC50(const struct i2c_client *client)
+static struct SR130PC20 *to_SR130PC20(const struct i2c_client *client)
 {
 	return container_of(i2c_get_clientdata(client),
-				struct SR030PC50, subdev);
+				struct SR130PC20, subdev);
 }
 
 /* Find a data format by a pixel code in an array */
-static const struct SR030PC50_datafmt *SR030PC50_find_datafmt(
+static const struct SR130PC20_datafmt *SR130PC20_find_datafmt(
 					enum v4l2_mbus_pixelcode code)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(SR030PC50_colour_fmts); i++)
-		if (SR030PC50_colour_fmts[i].code == code)
-			return SR030PC50_colour_fmts + i;
+	for (i = 0; i < ARRAY_SIZE(SR130PC20_colour_fmts); i++)
+		if (SR130PC20_colour_fmts[i].code == code)
+			return SR130PC20_colour_fmts + i;
 
 	return NULL;
 }
 
 /* select nearest higher resolution for capture */
-static void SR030PC50_res_roundup(u32 *width, u32 *height)
+static void SR130PC20_res_roundup(u32 *width, u32 *height)
 {
 	int i;
-	int res_x[] = { 320, 640};
-	int res_y[] = { 240, 480};
+	int res_x[] = {640, 1280};
+	int res_y[] = {480, 960};
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
@@ -171,25 +170,25 @@ static void SR030PC50_res_roundup(u32 *width, u32 *height)
 		}
 	}
 
-	*width = res_x[1];
-	*height = res_y[1];
+	*width = res_x[0];
+	*height = res_y[0];
 }
 
-static int SR030PC50_try_fmt(struct v4l2_subdev *sd,
+static int SR130PC20_try_fmt(struct v4l2_subdev *sd,
 	       struct v4l2_mbus_framefmt *mf)
 {
-	const struct SR030PC50_datafmt *fmt = SR030PC50_find_datafmt(mf->code);
+	const struct SR130PC20_datafmt *fmt = SR130PC20_find_datafmt(mf->code);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
 
 	if (!fmt) {
-		mf->code	= SR030PC50_colour_fmts[0].code;
-		mf->colorspace	= SR030PC50_colour_fmts[0].colorspace;
+		mf->code	= SR130PC20_colour_fmts[0].code;
+		mf->colorspace	= SR130PC20_colour_fmts[0].colorspace;
 	}
 
 	dev_dbg(sd->v4l2_dev->dev, "in: mf->width = %d, height = %d\n",
 		mf->width, mf->height);
-	SR030PC50_res_roundup(&mf->width, &mf->height);
+	SR130PC20_res_roundup(&mf->width, &mf->height);
 	dev_dbg(sd->v4l2_dev->dev, "out: mf->width = %d, height = %d\n",
 		mf->width, mf->height);
 	mf->field	= V4L2_FIELD_NONE;
@@ -197,36 +196,36 @@ static int SR030PC50_try_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int SR030PC50_s_fmt(struct v4l2_subdev *sd,
+static int SR130PC20_s_fmt(struct v4l2_subdev *sd,
 	     struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct SR030PC50 *priv = to_SR030PC50(client);
+	struct SR130PC20 *priv = to_SR130PC20(client);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
 
 	/* MIPI CSI could have changed the format, double-check */
-	if (!SR030PC50_find_datafmt(mf->code)) {
+	if (!SR130PC20_find_datafmt(mf->code)) {
 		dev_err(sd->v4l2_dev->dev, "%s -EINVAL\n", __func__);
 		return -EINVAL;
 	}
 
-	SR030PC50_try_fmt(sd, mf);
+	SR130PC20_try_fmt(sd, mf);
 
-	priv->fmt	= SR030PC50_find_datafmt(mf->code);
+	priv->fmt	= SR130PC20_find_datafmt(mf->code);
 	priv->width	= mf->width;
 	priv->height	= mf->height;
 
 	return 0;
 }
 
-static int SR030PC50_g_fmt(struct v4l2_subdev *sd,
+static int SR130PC20_g_fmt(struct v4l2_subdev *sd,
 	     struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct SR030PC50 *priv = to_SR030PC50(client);
+	struct SR130PC20 *priv = to_SR130PC20(client);
 
-	const struct SR030PC50_datafmt *fmt = priv->fmt;
+	const struct SR130PC20_datafmt *fmt = priv->fmt;
 
 	mf->code	= fmt->code;
 	mf->colorspace	= fmt->colorspace;
@@ -237,10 +236,10 @@ static int SR030PC50_g_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int SR030PC50_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
+static int SR130PC20_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct SR030PC50 *priv = to_SR030PC50(client);
+	struct SR130PC20 *priv = to_SR130PC20(client);
 	struct v4l2_rect *rect = &a->c;
 
 	a->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -252,10 +251,10 @@ static int SR030PC50_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 	return 0;
 }
 
-static int SR030PC50_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
+static int SR130PC20_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct SR030PC50 *priv = to_SR030PC50(client);
+	struct SR130PC20 *priv = to_SR130PC20(client);
 
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
@@ -271,30 +270,30 @@ static int SR030PC50_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 	return 0;
 }
 
-static int SR030PC50_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
+static int SR130PC20_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 		enum v4l2_mbus_pixelcode *code)
 {
-	if ((unsigned int)index >= ARRAY_SIZE(SR030PC50_colour_fmts))
+	if ((unsigned int)index >= ARRAY_SIZE(SR130PC20_colour_fmts))
 		return -EINVAL;
 
-	*code = SR030PC50_colour_fmts[index].code;
+	*code = SR130PC20_colour_fmts[index].code;
 	return 0;
 }
 
-static int SR030PC50_g_chip_ident(struct v4l2_subdev *sd,
+static int SR130PC20_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_SR030PC50;
+	id->ident	= V4L2_IDENT_SR130PC20;
 	id->revision	= 0;
 
 	return 0;
 }
 
-static int SR030PC50_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+static int SR130PC20_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 {
 	switch (ctrl->id) {
 	case V4L2_CID_GET_TUNING:
-#ifdef CONFIG_SOC_CAMERA_SR030PC50_TUNING
+#ifdef CONFIG_SOC_CAMERA_SR130PC20_TUNING
 		ctrl->value = 1;
 #else
 		ctrl->value = 0;
@@ -306,7 +305,7 @@ static int SR030PC50_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 }
 
 /* Request bus settings on camera side */
-static int SR030PC50_g_mbus_config(struct v4l2_subdev *sd,
+static int SR130PC20_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
 /*	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -321,72 +320,72 @@ static int SR030PC50_g_mbus_config(struct v4l2_subdev *sd,
 }
 
 /* Alter bus settings on camera side */
-static int SR030PC50_s_mbus_config(struct v4l2_subdev *sd,
+static int SR130PC20_s_mbus_config(struct v4l2_subdev *sd,
 				const struct v4l2_mbus_config *cfg)
 {
 	return 0;
 }
 
-static struct v4l2_subdev_video_ops SR030PC50_subdev_video_ops = {
-	.s_mbus_fmt	= SR030PC50_s_fmt,
-	.g_mbus_fmt	= SR030PC50_g_fmt,
-	.try_mbus_fmt	= SR030PC50_try_fmt,
-	.enum_mbus_fmt	= SR030PC50_enum_fmt,
-	.g_crop		= SR030PC50_g_crop,
-	.cropcap	= SR030PC50_cropcap,
-	.g_mbus_config	= SR030PC50_g_mbus_config,
-	.s_mbus_config	= SR030PC50_s_mbus_config,
+static struct v4l2_subdev_video_ops SR130PC20_subdev_video_ops = {
+	.s_mbus_fmt	= SR130PC20_s_fmt,
+	.g_mbus_fmt	= SR130PC20_g_fmt,
+	.try_mbus_fmt	= SR130PC20_try_fmt,
+	.enum_mbus_fmt	= SR130PC20_enum_fmt,
+	.g_crop		= SR130PC20_g_crop,
+	.cropcap	= SR130PC20_cropcap,
+	.g_mbus_config	= SR130PC20_g_mbus_config,
+	.s_mbus_config	= SR130PC20_s_mbus_config,
 };
 
-static struct v4l2_subdev_core_ops SR030PC50_subdev_core_ops = {
-	.g_chip_ident	= SR030PC50_g_chip_ident,
-	.g_ctrl		= SR030PC50_g_ctrl,
+static struct v4l2_subdev_core_ops SR130PC20_subdev_core_ops = {
+	.g_chip_ident	= SR130PC20_g_chip_ident,
+	.g_ctrl		= SR130PC20_g_ctrl,
 };
 
-static struct v4l2_subdev_ops SR030PC50_subdev_ops = {
-	.core	= &SR030PC50_subdev_core_ops,
-	.video	= &SR030PC50_subdev_video_ops,
+static struct v4l2_subdev_ops SR130PC20_subdev_ops = {
+	.core	= &SR130PC20_subdev_core_ops,
+	.video	= &SR130PC20_subdev_video_ops,
 };
 
-static int SR030PC50_s_ctrl(struct v4l2_ctrl *ctrl)
+static int SR130PC20_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	return 0;
 }
 
-struct v4l2_ctrl_ops SR030PC50_ctrl_ops = {
-	.s_ctrl = SR030PC50_s_ctrl,
+struct v4l2_ctrl_ops SR130PC20_ctrl_ops = {
+	.s_ctrl = SR130PC20_s_ctrl,
 };
 
-static int SR030PC50_probe(struct i2c_client *client,
+static int SR130PC20_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
-	struct SR030PC50 *priv;
+	struct SR130PC20 *priv;
 	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
 	if (!icl) {
-		dev_err(&client->dev, "SR030PC50: missing platform data!\n");
+		dev_err(&client->dev, "SR130PC20: missing platform data!\n");
 		return -EINVAL;
 	}
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		dev_err(&client->dev,
-			"SR030PC50: Failed to allocate memory for private data!\n");
+			"SR130PC20: Failed to allocate memory for private data!\n");
 		return -ENOMEM;
 	}
 
-	v4l2_i2c_subdev_init(&priv->subdev, client, &SR030PC50_subdev_ops);
+	v4l2_i2c_subdev_init(&priv->subdev, client, &SR130PC20_subdev_ops);
 	v4l2_ctrl_handler_init(&priv->hdl, 4);
-	v4l2_ctrl_new_std(&priv->hdl, &SR030PC50_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &SR130PC20_ctrl_ops,
 			V4L2_CID_VFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(&priv->hdl, &SR030PC50_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &SR130PC20_ctrl_ops,
 			V4L2_CID_HFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(&priv->hdl, &SR030PC50_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &SR130PC20_ctrl_ops,
 			V4L2_CID_GAIN, 0, 127, 1, 66);
-	v4l2_ctrl_new_std(&priv->hdl, &SR030PC50_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &SR130PC20_ctrl_ops,
 			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error) {
@@ -398,70 +397,33 @@ static int SR030PC50_probe(struct i2c_client *client,
 
 	priv->width	= 640;
 	priv->height	= 480;
-	priv->fmt	= &SR030PC50_colour_fmts[0];
-	ret = v4l2_ctrl_handler_setup(&priv->hdl);
-	if (0 > ret) {
-		dev_err(&client->dev,
-			"SR030PC50: v4l2_ctrl_handler_setup Error(%d)\n", ret);
-		return ret;
-	}
-	ret = 0;
+	priv->fmt	= &SR130PC20_colour_fmts[0];
+
 
 	{
 		/* check i2c device */
 		unsigned char rcv_buf[1];
 
-		sr030pc50_write(client, 0x0300); /* Page 0 */
-		ret = sr030pc50_read(client, 0x04, rcv_buf);
-			/* device id = P0(0x00) address 0x04 = 0xB8 */
+		sr130pc20_write(client, 0x0300); /* Page 0 */
+		ret = sr130pc20_read(client, 0x04, rcv_buf);
+			/* device id = P0(0x00) address 0x04 = 0xC0 */
 
 		if (0 > ret) {
 			printk(KERN_ALERT "%s :Read Error(%d)\n",
 					__func__, ret);
 		} else {
-			printk(KERN_ALERT "%s :SR030PC50OK(%02x)\n",
+			printk(KERN_ALERT "%s :SR130PC20OK(%02x)\n",
 					__func__, rcv_buf[0]);
 			ret = 0;
 		}
 	}
 
-	if (cam_class_init == false) {
-		dev_dbg(&client->dev,
-			"Start create class for factory test mode !\n");
-		camera_class = class_create(THIS_MODULE, "camera");
-		cam_class_init = true;
-	}
-
-	if (camera_class) {
-		dev_dbg(&client->dev, "Create Sub camera device !\n");
-
-		sec_sub_cam_dev = device_create(camera_class,
-						NULL, 0, NULL, "front");
-		if (IS_ERR(sec_sub_cam_dev)) {
-			dev_err(&client->dev,
-				"Failed to create device(sec_sub_cam_dev)!\n");
-		}
-
-		if (device_create_file(sec_sub_cam_dev,
-					&dev_attr_front_camtype) < 0) {
-			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camtype.attr.name);
-		}
-		if (device_create_file(sec_sub_cam_dev,
-					&dev_attr_front_camfw) < 0) {
-			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camfw.attr.name);
-		}
-	}
-
-	return ret;
+	return v4l2_ctrl_handler_setup(&priv->hdl);
 }
 
-static int SR030PC50_remove(struct i2c_client *client)
+static int SR130PC20_remove(struct i2c_client *client)
 {
-	struct SR030PC50 *priv = to_SR030PC50(client);
+	struct SR130PC20 *priv = to_SR130PC20(client);
 	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 
 	v4l2_device_unregister_subdev(&priv->subdev);
@@ -473,24 +435,24 @@ static int SR030PC50_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id SR030PC50_id[] = {
-	{ "SR030PC50", 0 },
+static const struct i2c_device_id SR130PC20_id[] = {
+	{ "SR130PC20", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, SR030PC50_id);
+MODULE_DEVICE_TABLE(i2c, SR130PC20_id);
 
-static struct i2c_driver SR030PC50_i2c_driver = {
+static struct i2c_driver SR130PC20_i2c_driver = {
 	.driver = {
-		.name = "SR030PC50",
+		.name = "SR130PC20",
 	},
-	.probe		= SR030PC50_probe,
-	.remove		= SR030PC50_remove,
-	.id_table	= SR030PC50_id,
+	.probe		= SR130PC20_probe,
+	.remove		= SR130PC20_remove,
+	.id_table	= SR130PC20_id,
 };
 
-module_i2c_driver(SR030PC50_i2c_driver);
+module_i2c_driver(SR130PC20_i2c_driver);
 
-MODULE_DESCRIPTION("Samsung SR030PC50 Camera driver");
+MODULE_DESCRIPTION("Samsung SR130PC20 Camera driver");
 MODULE_AUTHOR("Renesas Mobile Corp.");
 MODULE_LICENSE("GPL v2");
 

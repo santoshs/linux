@@ -33,8 +33,6 @@
 #include "iccom_drv_standby_private.h"
 #endif
 
-/*#define FATAL_REPORT */
-
 static iccom_recv_data_err  g_iccom_recv_data_err;  /* receive data (memory allocate error) */
 
 /* MACRO */
@@ -263,59 +261,8 @@ void iccom_read_fatal(
 		p_recv_head->msg_header.handle   = p_fatal_info->handle;
 		p_recv_head->msg_header.ret_code = SMAP_ERROR_DIED;
 		memcpy_fromio((p_recv_head + 1), p_cmd_addr, data_size);
-#ifdef FATAL_REPORT
-			{   unsigned int* data = (unsigned int *)(p_recv_head + 1);
-
-				MSG_ERROR("[ICCOMK]INF| Fatal report start.\n");
-				MSG_ERROR("[ICCOMK]INF|   log type	: type = 0x%08x.\n", *data);
-				switch (*data) {
-				case 0x00000001:
-					MSG_ERROR("[ICCOMK]INF|   sysdwn info : type = 0x%08x,ercd = 0x%08x,inf1 = 0x%08x,inf2 = 0x%08x.\n",
-							  *(data+1), *(data+2), *(data+3), *(data+4));
-					MSG_ERROR("[ICCOMK]INF|   extend info : Arg1 = 0x%08x,Arg2 = 0x%08x,Arg3 = 0x%08x,Arg4 = 0x%08x,ctx = 0x%08x.\n",
-							  *(data+8), *(data+9), *(data+10), *(data+11), *(data+12));
-					break;
-				case 0x00000002:
-					MSG_ERROR("[ICCOMK]INF|   sysdwn info : type = 0x%08x,ercd = 0x%08x,inf1 = 0x%08x,inf2 = 0x%08x.\n",
-							  *(data+1), *(data+2), *(data+3), *(data+4));
-					MSG_ERROR("[ICCOMK]INF|   Fw info	 : tid = 0x%08x,mbxid,mpl_id = 0x%08x,msg_id,func_id = 0x%08x.\n",
-							  *(data+5), *(data+6), *(data+7));
-					break;
-				case 0x00000003:
-					MSG_ERROR("[ICCOMK]INF|   info		: task_id = 0x%04x,kind = 0x%02x,lifpoint = 0x%02x.\n",
-							  (*(data+1) & 0x0000FFFF), ((*(data+1) >> 16) & 0x000000FF), ((*(data+1) >> 24) & 0x000000FF));
-					break;
-				case 0x00000004:
-					MSG_ERROR("[ICCOMK]INF|   sysdwn info : type = 0x%08x,ercd = 0x%08x,inf1 = 0x%08x,inf2 = 0x%08x.\n",
-							  *(data+1), *(data+2), *(data+3), *(data+4));
-					MSG_ERROR("[ICCOMK]INF|   reg info1   : TEA = 0x%08x,PR  = 0x%08x.\n", *(data+5), *(data+6));
-					MSG_ERROR("[ICCOMK]INF|   reg info2   : R0  = 0x%08x,R1  = 0x%08x,R2  = 0x%08x,R3  = 0x%08x.\n",
-							  *(data+7), *(data+8), *(data+9), *(data+10));
-					MSG_ERROR("[ICCOMK]INF|   reg info2   : R4  = 0x%08x,R5  = 0x%08x,R6  = 0x%08x,R7  = 0x%08x.\n",
-							  *(data+11), *(data+12), *(data+13), *(data+14));
-					MSG_ERROR("[ICCOMK]INF|   reg info2   : R8  = 0x%08x,R9  = 0x%08x,R10 = 0x%08x,R11 = 0x%08x.\n",
-							  *(data+15), *(data+16), *(data+17), *(data+18));
-					MSG_ERROR("[ICCOMK]INF|   reg info2   : R12 = 0x%08x,R13 = 0x%08x,R14 = 0x%08x,R15 = 0x%08x.\n",
-							  *(data+19), *(data+20), *(data+21), *(data+22));
-					break;
-				case 0x00000005:
-					MSG_ERROR("[ICCOMK]INF|   sysdwn info : type = 0x%08x,ercd = 0x%08x,inf1 = 0x%08x,inf2 = 0x%08x.\n",
-							  *(data+1), *(data+2), *(data+3), *(data+4));
-					break;
-				case 0x88888888:
-					MSG_ERROR("[ICCOMK]INF|   sysdwn info : type = 0x%08x,ercd = 0x%08x,inf1 = 0x%08x,inf2 = 0x%08x.\n",
-							  *(data+1), *(data+2), *(data+3), *(data+4));
-					MSG_ERROR("[ICCOMK]INF|   extend info : Arg1 = 0x%08x,Arg2 = 0x%08x,Arg3 = 0x%08x,Arg4 = 0x%08x,ctx = 0x%08x.\n",
-							  *(data+8), *(data+9), *(data+10), *(data+11), *(data+12));
-					break;
-				case 0x00000006:
-				case 0x00000007:
-				default:
-					break;
-				}
-				MSG_ERROR("[ICCOMK]INF| Fatal report end.\n");
-			}
-#endif
+		iccom_debug_output_fatal_info(
+			(unsigned char *)(p_recv_head + 1), data_size);
 		p_completion = ((iccom_drv_handle *)p_recv_head->msg_header.handle)->async_completion;
 		if (NULL == p_completion) {
 			MSG_ERROR("[ICCOMK]ERR| ICCOM handle does not exist.\n");
