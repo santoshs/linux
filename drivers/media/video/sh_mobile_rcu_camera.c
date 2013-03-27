@@ -71,6 +71,8 @@ static bool dump_addr_flg;
 
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 static struct page *dumplog_page;
+static unsigned int dumplog_order;
+static unsigned int dumplog_init_cnt;
 static unsigned int *dumplog_addr;
 static unsigned int *dumplog_ktbl;
 static unsigned int *dumplog_max_idx;
@@ -81,7 +83,6 @@ spinlock_t lock_log;
 #define SH_RCU_DUMP_LOG_OFFSET (8)
 #define SH_RCU_GET_TIME() sh_mobile_rcu_get_timeval()
 #define SH_RCU_TIMEVAL2USEC(x) (x.tv_sec * 1000000 + x.tv_usec)
-
 #else  /* SH_RCU_DUMP_LOG_ENABLE */
 #define SH_RCU_DUMP_LOG_SIZE_ALL		(0)
 #define SH_RCU_DUMP_LOG_SIZE_USER		(0)
@@ -2815,15 +2816,19 @@ void sh_mobile_rcu_flash(int led)
 void sh_mobile_rcu_init_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
-	unsigned int order;
-
-	order = get_order(SH_RCU_DUMP_LOG_SIZE_ALL);
-	if ((PAGE_SIZE << order) > SH_RCU_DUMP_LOG_SIZE_ALL) {
-		/* size is pressed down */
-		order--;
+	dumplog_init_cnt++;
+	if (1 < dumplog_init_cnt) {
+		/* initialized */
+		return;
 	}
-	dumplog_page = alloc_pages(GFP_USER, order);
-	memset(page_address(dumplog_page), 0, order);
+
+	dumplog_order = get_order(SH_RCU_DUMP_LOG_SIZE_ALL);
+	if ((PAGE_SIZE << dumplog_order) > SH_RCU_DUMP_LOG_SIZE_ALL) {
+		/* size is pressed down */
+		dumplog_order--;
+	}
+	dumplog_page = alloc_pages(GFP_USER, dumplog_order);
+	memset(page_address(dumplog_page), 0, dumplog_order);
 
 	spin_lock_init(&lock_log);
 
@@ -2838,6 +2843,23 @@ void sh_mobile_rcu_init_dumplog(void)
 		(SH_RCU_DUMP_LOG_SIZE_ALL - SH_RCU_DUMP_LOG_SIZE_USER) /
 		sizeof(unsigned int) - SH_RCU_DUMP_LOG_OFFSET - 1;
 	*dumplog_cnt_idx = 0;
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
+	return;
+}
+
+void sh_mobile_rcu_deinit_dumplog(void)
+{
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	dumplog_init_cnt--;
+	if (0 < dumplog_init_cnt) {
+		/* Don't free */
+		return;
+	}
+
+	free_pages((unsigned long)dumplog_addr, dumplog_order);
+
+	dumplog_addr = NULL;
+	dumplog_order = 0;
 #endif /* SH_RCU_DUMP_LOG_ENABLE */
 	return;
 }
@@ -3060,8 +3082,12 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	}
 
 	sh_mobile_rcu_init_dumplog();
-	dev_info(&pdev->dev, "%s():EOSCAMERA_RAMDUMP_ADDR=0x%X\n", __func__,
-		(unsigned int)dumplog_addr);
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	dev_info(&pdev->dev, "%s():EOSCAMERA_RAMDUMP_VIRT_ADDR=0x%X\n",
+		__func__, (unsigned int)dumplog_addr);
+	dev_info(&pdev->dev, "%s():EOSCAMERA_RAMDUMP_PHYS_ADDR=0x%X\n",
+		__func__, (unsigned int)virt_to_phys((void *)dumplog_addr));
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
 
 	INIT_LIST_HEAD(&pcdev->capture);
 	spin_lock_init(&pcdev->lock);
@@ -3310,6 +3336,7 @@ static int __devexit sh_mobile_rcu_remove(struct platform_device *pdev)
 		platform_device_put(csi2_pdev);
 		module_put(csi2_drv);
 	}
+	sh_mobile_rcu_deinit_dumplog();
 	kfree(pcdev);
 
 	return 0;
@@ -3434,6 +3461,14 @@ static int __init sh_mobile_rcu_init(void)
 	rear_flash_state = true;
 	rear_flash_set = NULL;
 	dump_addr_flg = false;
+#ifdef SH_RCU_DUMP_LOG_ENABLE
+	dumplog_order = 0;
+	dumplog_init_cnt = 0;
+	dumplog_addr = NULL;
+	dumplog_ktbl = NULL;
+	dumplog_max_idx = NULL;
+	dumplog_cnt_idx = NULL;
+#endif /* SH_RCU_DUMP_LOG_ENABLE */
 
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
