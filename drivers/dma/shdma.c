@@ -398,7 +398,8 @@ static void dmae_rpt_halt(struct sh_dmae_chan *sh_chan)
 
 }
 
-static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave *param)
+static int dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan,
+	struct sh_dmae_slave *param)
 {
 	int i, load_first_desc = 1;
 	u32 val = 0;
@@ -410,9 +411,11 @@ static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave
 	struct sh_dmae_regs hw;
 
 	if (param) {
-		dmae_set_dmars(sh_chan, cfg->mid_rid);
+		if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid))
+			goto error;
 		sh_chan->chcr |= cfg->chcr;
-		dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
+		if (0 != dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr))
+			goto error;
 	} else {
 		dmae_init(sh_chan);
 	}
@@ -473,6 +476,10 @@ static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave
 	/* Updating the channel control register */
 	sh_chan->chcr |= chcr;
 
+	return 0;
+
+error:
+	return -1;
 }
 
 static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
@@ -481,9 +488,9 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(tx->chan);
 	struct sh_dmae_slave *param = tx->chan->private;
 	dma_async_tx_callback callback = tx->callback;
-	dma_cookie_t cookie;
-	unsigned long flags;
-	bool power_up;
+	dma_cookie_t cookie = -EINVAL;
+	unsigned long flags = 0;
+	bool power_up = false;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
@@ -500,14 +507,25 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 
 		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
 
-		if ((param) && (sh_chan->desc_mode))
-			dmae_rpt_init_reg(sh_chan, param);
+		if ((param) && (sh_chan->desc_mode)) {
+			if (0 != dmae_rpt_init_reg(sh_chan, param)) {
+				cookie = -EINVAL;
+				goto error;
+			}
+		}
 
 		if (param) {
 			const struct sh_dmae_slave_config *cfg = param->config;
 
-			dmae_set_dmars(sh_chan, cfg->mid_rid);
-			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
+			if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid)) {
+				cookie = -EINVAL;
+				goto error;
+			}
+			if (0 != dmae_set_chcr(sh_chan,
+						sh_chan->chcr ? : cfg->chcr)) {
+				cookie = -EINVAL;
+				goto error;
+			}
 		} else {
 			dmae_init(sh_chan);
 		}
@@ -543,12 +561,12 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 	last->async_tx.callback = callback;
 	last->async_tx.callback_param = tx->callback_param;
 
+error:
 	dev_dbg(sh_chan->dev, "submit #%d@%p on %d: %x[%d] -> %x\n",
 		tx->cookie, &last->async_tx, sh_chan->id,
 		desc->hw.sar, desc->hw.tcr, desc->hw.dar);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
 
 	return cookie;
 }
