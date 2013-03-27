@@ -2736,20 +2736,11 @@ static bool a2220_earpiece_incall_check
 
 static int __init a2220_init(void)
 {
-	unsigned int board_rev = 0;
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n", board_rev);
-	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
-		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
-		return -ENODEV;
-#endif
 #if defined(CONFIG_MACH_GARDALTE)
+	unsigned int board_rev = 0;
+
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev > 1)
 		return -ENODEV;
 #endif
@@ -2762,20 +2753,11 @@ static int __init a2220_init(void)
 
 static void __exit a2220_exit(void)
 {
-	unsigned int board_rev = 0;
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n", board_rev);
-	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
-		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
-		return;
-#endif
 #if defined(CONFIG_MACH_GARDALTE)
+	unsigned int board_rev = 0;
+
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev > 1)
 		return;
 #endif

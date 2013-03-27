@@ -1451,8 +1451,6 @@ static int __init fm34_init(void)
 	unsigned int board_rev = 0;
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev <= 1)
 		return -ENODEV;
 #endif
@@ -1472,8 +1470,6 @@ static void __exit fm34_exit(void)
 	unsigned int board_rev = 0;
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev <= 1)
 		return;
 #endif
