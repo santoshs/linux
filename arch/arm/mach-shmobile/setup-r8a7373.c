@@ -33,6 +33,7 @@
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
+#include <mach/setup-u2current_timer.h>
 
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
@@ -1527,40 +1528,12 @@ static struct cmt_timer_config cmt1_timers[2] = {
 	},
 };
 
-/* Current timer */
-int cmt_read_current_timer(unsigned long *timer_val)
-{
-	*timer_val = __raw_readl(CMCNT0);
-	return 0;
-}
-
-struct delay_timer cmt_delay_timer __read_mostly;
-
-static int __init setup_current_timer(void)
-{
-	struct clk *clk;
-
-	/* sharing CMT10 with clocksource */
-	clk = clk_get_sys("sh_cmt.10", NULL);
-	if (IS_ERR(clk)) {
-		pr_err("Error, cannot get clock for current timer\n");
-		return PTR_ERR(clk);
-	}
-	clk_enable(clk);
-
-	cmt_delay_timer.read_current_timer = cmt_read_current_timer;
-	cmt_delay_timer.freq = clk_get_rate(clk);
-	register_current_timer_delay(&cmt_delay_timer);
-	return 0;
-}
-
 static void __init r8a7373_timer_init(void)
 {
 	r8a7373_clock_init();
 	shmobile_calibrate_delay_early();
 	cmt_clocksource_init();
 	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE);
-
 	setup_current_timer();
 }
 

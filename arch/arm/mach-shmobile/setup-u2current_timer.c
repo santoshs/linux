@@ -14,13 +14,21 @@
 #include <linux/rmu2_rwdt.h>
 #include <asm/io.h>
 
+struct delay_timer cmt_delay_timer __read_mostly;
+
+int cmt_read_current_timer(unsigned long *timer_val)
+{
+		*timer_val = __raw_readl(CMCNT3);
+		return 0;
+}
+
 int __init setup_current_timer(void)
 {
 	struct clk *clk = NULL;
 	unsigned long lpj = 0, flags = 0;
 	int ret = 0;
 
-	clk = clk_get(NULL, "currtimer");
+	clk = clk_get_sys("currtimer", NULL);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 	ret = clk_enable(clk);
@@ -72,6 +80,9 @@ int __init setup_current_timer(void)
 	 *
 	 * and disable CMT1 MSTP clock here not to increment CMT1 usecount.
 	 */
+	cmt_delay_timer.read_current_timer = cmt_read_current_timer;
+	cmt_delay_timer.freq = clk_get_rate(clk);
+	register_current_timer_delay(&cmt_delay_timer);
 	clk_disable(clk);
 	clk_put(clk);
 	return 0;
