@@ -34,6 +34,16 @@
 #include <sound/sh_fsi.h>
 #include <sound/soundpath/soundpath.h>
 
+#if 1 /*** Analog audio dock support ***/
+
+#include <mach/pm.h>
+#include <linux/gpio.h>
+#include <linux/proc_fs.h>
+
+/* DEFINE Definitions */
+#define GPIO_DOCK_EN	GPIO_PORT33
+
+#endif
 
 /*
  * Marco Definition
@@ -299,6 +309,42 @@ void fsi_d2153_soc_write(int dev)
 EXPORT_SYMBOL(fsi_d2153_soc_write);
 /* temp process */
 
+#if 1 /*** Analog audio dock support ***/
+/*!
+   @brief PUT callback function for hooks control(Playback gpio setting)
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+   @retval	0		Successful
+ */
+int fsi_d2153_get_playback_gpio(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return ERROR_NONE;
+}
+
+/*!
+   @brief PUT callback function for hooks control(Playback gpio setting)
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+   @retval	0		Successful
+ */
+int fsi_d2153_put_playback_gpio(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int state_gpio = 0;
+
+	gpio_set_value(GPIO_DOCK_EN, ucontrol->value.enumerated.item[0]);
+	/*** test code start ***/
+	state_gpio = gpio_get_value(GPIO_DOCK_EN);
+	printk(KERN_INFO "%s gpio_get_value(GPIO_DOCK_EN):%d\n",
+		__func__, state_gpio);
+	/*** test code end ***/
+	return ERROR_NONE;
+}
+#endif
+
 int fsi_d2153_sndp_soc_info(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *uinfo)
@@ -404,19 +450,24 @@ static int fsi_d2153_sndp_soc_put_playback_mute(
 	return sndp_soc_put_playback_mute(kcontrol, ucontrol);
 }
 
+
 static struct snd_kcontrol_new fsi_d2153_controls[] = {
 	SOC_SINGLE_BOOL_EXT("ADC Activate", 0,
 		fsi_d2153_snd_soc_get_adc, fsi_d2153_snd_soc_put_adc),
 	FSI_SOC_SINGLE_EXT("Path", 0, fsi_d2153_sndp_soc_info,
 		fsi_d2153_sndp_soc_get, fsi_d2153_sndp_soc_put),
-	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
-		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
 	FSI_SOC_SINGLE("Earpiece Volume" , 0, 0, 25, 0,
 		fsi_d2153_sndp_soc_get_voice_out_volume,
 		fsi_d2153_sndp_soc_put_voice_out_volume),
 	FSI_SOC_SINGLE("Earpiece Switch" , 0, 0, 1,  0,
 		fsi_d2153_sndp_soc_get_playback_mute,
 		fsi_d2153_sndp_soc_put_playback_mute),
+	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
+		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
+#if 1 /*** Analog audio dock support ***/
+	SOC_SINGLE_BOOL_EXT("Dock Switch" , 0,
+		fsi_d2153_get_playback_gpio, fsi_d2153_put_playback_gpio),
+#endif
 };
 
 static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
