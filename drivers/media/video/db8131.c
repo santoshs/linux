@@ -377,7 +377,13 @@ static int DB8131_probe(struct i2c_client *client,
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &DB8131_colour_fmts[0];
-
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev,
+			"DB8131: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		return ret;
+	}
+	ret = 0;
 
 	{
 		/* check i2c device */
@@ -423,7 +429,7 @@ static int DB8131_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int DB8131_remove(struct i2c_client *client)
