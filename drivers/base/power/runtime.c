@@ -1275,7 +1275,7 @@ void pm_runtime_enable(struct device *dev)
 #ifdef CONFIG_PDC
 	struct power_domain_info *pdi = NULL;
 	if (dev && dev_name(dev))
-		pdi = get_pdi((char *)dev_name(dev));
+		pdi = get_pdi(dev_name(dev));
 	if (NULL != pdi)
 		(void)power_domain_devices(dev_name(dev), \
 			pdi->devs, &pdi->cnt);
@@ -1286,16 +1286,16 @@ void pm_runtime_enable(struct device *dev)
 	if (dev->power.disable_depth > 0) {
 		dev->power.disable_depth--;
 			if (!pdi) {
-				dev->power.subsys_data = NULL;
+				dev->power.pdi = NULL;
 				dev_err(dev, "%s is't supported by PDC\n", \
 					dev_name(dev));
 				spin_unlock_irqrestore(&dev->power.lock, flags);
 				return;
 			}
 			if (pdi->cnt != 0)
-				dev->power.subsys_data = (void *)pdi;
+				dev->power.pdi = pdi;
 			else
-				dev->power.subsys_data = NULL;
+				dev->power.pdi = NULL;
 	}
 #else
 	if (dev->power.disable_depth > 0)
