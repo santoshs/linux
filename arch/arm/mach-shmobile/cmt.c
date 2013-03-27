@@ -522,10 +522,8 @@ int __init cmt_clockevent_init(struct cmt_timer_config *cfg, int num,
 		return -EINVAL;
 
 	percpu_evt = alloc_percpu(struct cmt_clock_event_device);
-	if (!percpu_evt) {
-		ret = -ENOMEM;
-		goto out_free;
-	}
+	if (!percpu_evt)
+		return -ENOMEM;
 
 	/* remap I/O memory for a shared register, CMSTR or CMCLKE */
 	if (cmclke_base) {
