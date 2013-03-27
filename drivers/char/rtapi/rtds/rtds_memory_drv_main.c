@@ -2,7 +2,7 @@
  * rtds_memory_drv_main.c
  *	 RT domain shared memory driver API function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -41,11 +41,11 @@
 
 /* file operation */
 static const struct file_operations	g_rtds_memory_fops = {
-								.owner			= THIS_MODULE,
-								.open			= rtds_memory_drv_open,
-								.release		= rtds_memory_drv_close,
-								.mmap			= rtds_memory_drv_mapping,
-								.unlocked_ioctl = rtds_memory_drv_ioctl
+	.owner			= THIS_MODULE,
+	.open			= rtds_memory_drv_open,
+	.release		= rtds_memory_drv_close,
+	.mmap			= rtds_memory_drv_mapping,
+	.unlocked_ioctl = rtds_memory_drv_ioctl
 };
 
 /* miscdevice info */
@@ -65,19 +65,20 @@ struct semaphore			g_rtds_memory_apmem_rttrig_sem;
 spinlock_t					g_rtds_memory_lock_recv_queue;
 spinlock_t					g_rtds_memory_lock_cache_all;
 struct list_head			g_rtds_memory_list_rcv_event;
-static unsigned int			g_rtds_memory_mpro_startup_flag = RTDS_MEM_MPRO_INACTIVE;
+static unsigned int			g_rtds_memory_mpro_startup_flag;
 spinlock_t					g_rtds_memory_lock_create_mem;
 struct list_head			g_rtds_memory_list_create_mem;
 struct list_head			g_rtds_memory_list_mpro;
 struct semaphore			g_rtds_memory_mpro_sem;
 spinlock_t					g_rtds_memory_lock_mpro;
 struct list_head			g_rtds_memory_list_shared_mem;
+struct list_head			g_rtds_memory_list_leak_mpro;
 struct semaphore			g_rtds_memory_shared_mem;
 struct list_head			g_rtds_memory_list_map_rtmem;
 spinlock_t					g_rtds_memory_lock_map_rtmem;
 struct list_head			g_rtds_memory_list_reg_phymem;
 struct semaphore			g_rtds_memory_phy_mem;
-struct semaphore			g_rtds_memory_leak_sem;
+struct semaphore			g_rtds_memory_send_sem;
 #ifdef RTDS_SUPPORT_CMA
 spinlock_t					g_rtds_memory_lock_cma;
 struct list_head			g_rtds_memory_list_cma;
@@ -484,6 +485,9 @@ int rtds_memory_thread_apmem_rttrig(
 			MSG_LOW("[RTDSK]   |rt_cache  [0x%08X]\n", recv_queue->rt_cache);
 			MSG_LOW("[RTDSK]   |rt_trigger[0x%08X]\n", recv_queue->rt_trigger);
 			MSG_LOW("[RTDSK]   |apmem_id  [0x%08X]\n", recv_queue->apmem_id);
+			MSG_LOW("[RTDSK]   |leak_data [0x%08X]\n",
+				(u32)recv_queue->leak_data);
+			MSG_LOW("[RTDSK]   |leak_size [0x%08X]\n", recv_queue->leak_size);
 #ifdef RTDS_SUPPORT_CMA
 			MSG_LOW("[RTDSK]   |phys_addr [0x%08X]\n", recv_queue->phys_addr);
 			MSG_LOW("[RTDSK]   |mem_attr  [0x%08X]\n", recv_queue->mem_attr);
@@ -521,6 +525,15 @@ int rtds_memory_thread_apmem_rttrig(
 				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_FATAL\n");
 				rtds_memory_dump_mpro();
 				break;
+
+			case RTDS_MEM_DRV_EVENT_DELETE_LEAK_MEM:
+				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_DELETE_LEAK_MEM\n");
+				/* Delete leak memory */
+				(void)rtds_memory_delete_rttrig_leak_memory(
+					recv_queue->leak_data, recv_queue->leak_size);
+				break;
+
+
 #ifdef RTDS_SUPPORT_CMA
 			case RTDS_MEM_DRV_EVENT_CMA_OPEN:
 				MSG_MED("[RTDSK]   |RTDS_MEM_DRV_EVENT_CMA_OPEN\n");
@@ -613,6 +626,7 @@ int rtds_memory_init_module(
 	memset(&iccom_init, 0, sizeof(iccom_init));
 	/* Set callback for asynchronous response */
 	iccom_init.comp_notice = rtds_memory_rcv_comp_notice;
+	g_rtds_memory_mpro_startup_flag = RTDS_MEM_MPRO_INACTIVE;
 
 	/* Create ICCOM driver handle */
 	g_rtds_memory_iccom_handle = iccom_drv_init(&iccom_init);
@@ -634,6 +648,7 @@ int rtds_memory_init_module(
 	memset(&g_rtds_memory_list_create_mem, 0, sizeof(g_rtds_memory_list_create_mem));
 	memset(&g_rtds_memory_list_mpro, 0, sizeof(g_rtds_memory_list_mpro));
 	memset(&g_rtds_memory_list_shared_mem, 0, sizeof(g_rtds_memory_list_shared_mem));
+	memset(&g_rtds_memory_list_leak_mpro, 0, sizeof(g_rtds_memory_list_leak_mpro));
 	memset(&g_rtds_memory_list_map_rtmem, 0, sizeof(g_rtds_memory_list_map_rtmem));
 	memset(&g_rtds_memory_list_reg_phymem, 0, sizeof(g_rtds_memory_list_reg_phymem));
 
@@ -641,6 +656,7 @@ int rtds_memory_init_module(
 	INIT_LIST_HEAD(&g_rtds_memory_list_create_mem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_mpro);
 	INIT_LIST_HEAD(&g_rtds_memory_list_shared_mem);
+	INIT_LIST_HEAD(&g_rtds_memory_list_leak_mpro);
 	INIT_LIST_HEAD(&g_rtds_memory_list_map_rtmem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_reg_phymem);
 #ifdef RTDS_SUPPORT_CMA
@@ -665,7 +681,7 @@ int rtds_memory_init_module(
 	init_MUTEX_LOCKED(&g_rtds_memory_mpro_sem);
 	init_MUTEX(&g_rtds_memory_shared_mem);
 	init_MUTEX(&g_rtds_memory_phy_mem);
-	init_MUTEX(&g_rtds_memory_leak_sem);
+	init_MUTEX(&g_rtds_memory_send_sem);
 
 	/* Get section info */
 	section.section_header = &section_header;

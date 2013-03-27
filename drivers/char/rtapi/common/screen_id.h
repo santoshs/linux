@@ -2,7 +2,7 @@
  * screen_id.h
  *     function id definition header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -34,14 +34,12 @@
 /* Function ID Base */
 #define FUNCTIONID_DISPLAY_BASE (TASK_DISPLAY*256+3)
 
-/* #MU2DSP582 add -S- */
 /* Display2 */
 /* Display2 Task */
 /* Task ID */
 #define TASK_DISPLAY2 (21)
 /* SMB ID */
 #define SMB_DISPLAY2 (TASK_DISPLAY2*2)
-/* #MU2DSP582 add -E- */
 
 /* Graphics */
 /* Graphics Task */
@@ -66,12 +64,10 @@
 #define EVENT_DISPLAY_WRITEDSISHORTPACKET (FUNCTIONID_DISPLAY_BASE+8)
 #define EVENT_DISPLAY_WRITEDSILONGPACKET (FUNCTIONID_DISPLAY_BASE+9)
 #define EVENT_DISPLAY_SETLCDIFPARAMETERS (FUNCTIONID_DISPLAY_BASE+10)
-#define EVENT_DISPLAY_SETHDMIIFPARAMETERS (FUNCTIONID_DISPLAY_BASE+11)	/* #MU2DSP939 */
+#define EVENT_DISPLAY_SETHDMIIFPARAMETERS (FUNCTIONID_DISPLAY_BASE+11)
 #define EVENT_DISPLAY_SETADDRESS (FUNCTIONID_DISPLAY_BASE+12)
-/* #MU2DSP582 mod -S- #MU2DSP222 add -S- */
 /* #define EVENT_DISPLAY_READDSISHORTPACKET (FUNCTIONID_DISPLAY_BASE+38) */
 #define EVENT_DISPLAY_READDSISHORTPACKET (FUNCTIONID_DISPLAY_BASE+14)
-/* #MU2DSP582 mod -E- #MU2DSP222 add -E- */
 #define EVENT_DISPLAY_SETLUT (FUNCTIONID_DISPLAY_BASE+15)
 #define EVENT_DISPLAY_COLORPALETTE (FUNCTIONID_DISPLAY_BASE+17)
 

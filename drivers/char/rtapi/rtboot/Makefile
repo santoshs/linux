@@ -17,7 +17,7 @@ RTAPI_PATH := drivers/char/rtapi
 U_INCLUDE := -I$(RTAPI_PATH)/common
 U_INCLUDE += -I$(INC_PATH)/include/rtapi
 U_INCLUDE += -I$(INC_PATH)/drivers/sec_hal/exports
-EXTRA_CFLAGS += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
+ccflags-y += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system

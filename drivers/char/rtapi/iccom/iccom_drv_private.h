@@ -181,6 +181,7 @@ void iccom_leak_check(iccom_drv_handle *handle);
 void iccom_log_start(void);
 void iccom_log_stop(void);
 
+void iccom_debug_output_fatal_info(unsigned char *data_addr, int data_len);
 
 extern struct completion    g_iccom_async_completion;
 extern unsigned long        g_iccom_async_recv_status;
