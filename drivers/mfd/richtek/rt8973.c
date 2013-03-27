@@ -83,6 +83,9 @@ static int32_t DCDT_retry = 0;
 #define I2C_RW_RETRY_MAX 5
 #define I2C_RW_RETRY_DELAY 60
 
+#define RT8973_ADC_CHG_INT_MASK 0x41
+#define RT8973_REG_INT_CLEAR    0x00
+
 #if 1
 #define I2CRByte(x) i2c_smbus_read_byte_data(pClient,x)
 #define I2CWByte(x,y) i2c_smbus_write_byte_data(pClient,x,y)
@@ -377,7 +380,7 @@ static int rt8973_ex_init(void)
 #if defined(CONFIG_RT8969)||defined(CONFIG_RT8973)
 static void usb_attach(uint8_t attached)
 {
-	printk(attached?"USB attached\n":"USB attached\n");
+	printk(attached ? "USB attached\n" : "USB detached\n");
 	set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
 	if ( attached ) {
 		usb_uart_switch_state = 100;
@@ -810,10 +813,12 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
-                if (platform_data.jig_callback) {
+		if (platform_data.jig_callback) {
 			wake_lock(&pDrvData->uart_wakelock);
 			platform_data.jig_callback(1, RTMUSC_FM_BOOT_OFF_UART);
 		}
+		I2CWByte(RT8973_REG_INTERRUPT_MASK , RT8973_ADC_CHG_INT_MASK);
+		I2CWByte(RT8973_REG_INT_FLAG , RT8973_REG_INT_CLEAR);
                 break;
                 case 0x19: //Factory Mode : JIG USB ON = 1
                 // auto switch -- ignore
@@ -922,43 +927,36 @@ static void rt8973musc_work(struct work_struct *work)
 
     regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
     INFO("Interrupt Flag = 0x%x\n",regIntFlag);
-    if (regIntFlag&RT8973_INT_ATTACH_MASK)
-    {
+    if (regIntFlag&RT8973_INT_ATTACH_MASK) {
         regDev1 = I2CRByte(RT8973_REG_DEVICE_1);
         regDev2 = I2CRByte(RT8973_REG_DEVICE_2);
-        if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK))
-        {
+	if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK)) {
             INFO("There is un-handled event!!\n");
             if (regDev1==0 && regDev2==0) {
 		do_detach_work(regIntFlag);
 		pDrvData->attach_status = 0;
 		}
 	    else {
-		if (pDrvData->attach_status == 0)
-		{
+		if (pDrvData->attach_status == 0) {
+			/* do attach only if not attached */
+			do_attach_work(regIntFlag, regDev1, regDev2);
+			pDrvData->attach_status = 1;
+		}
+	    }
+	}
+		else {
+			if(pDrvData->attach_status == 0) {
 			/* do attach only if not attached */
 			do_attach_work(regIntFlag, regDev1, regDev2);
 			pDrvData->attach_status = 1;
 		}
 	}
 	}
-        else
-	{
-	if(pDrvData->attach_status == 0)
-		{
-			/* do attach only if not attached */
-			do_attach_work(regIntFlag, regDev1, regDev2);
-			pDrvData->attach_status = 1;
-		}
-	}
-	}
-	else if (regIntFlag&RT8973_INT_DETACH_MASK)
-    	{
+	else if (regIntFlag&RT8973_INT_DETACH_MASK) {
  		do_detach_work(regIntFlag);
 		pDrvData->attach_status = 0;
     	}
-    else
-    {
+    else {
         if (regIntFlag&0x80) // OTP
         {
             INFO("Warning : over temperature voltage\n");
@@ -1052,8 +1050,9 @@ static bool init_reg_setting(void)
 
     INFO("prev_int_flag = 0x%x\n",
          pDrvData->prev_int_flag);
-    //enable_interrupt(0); We will enable later
-    //msleep(RT8973_WAIT_DELAY);
+    /* We will enable later
+    enable_interrupt(0);
+    msleep(RT8973_WAIT_DELAY);*/
     INFO("Set initial value OK\n");
     /*
     INFO("GPIO %d Value = %d\n",CONFIG_RTMUSC_INT_GPIO_NUMBER,

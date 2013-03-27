@@ -1060,6 +1060,12 @@ static void __init loganlte_init(void)
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull_up_port(GPIO_PORT32);
 
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
+	gpio_pull_up_port(GPIO_PORT97);
+#endif
+
 	USBGpio_init();
 
 	/* enable sound */
