@@ -114,6 +114,7 @@
 
 #if defined(CONFIG_CHARGER_SMB328A)
 #define SMB328A_ADDRESS (0x69 >> 1)
+#define SMB327A_ADDRESS (0xA9 >> 1)
 #define GPIO_CHG_INT 19
 #endif
 #include <mach/sbsc.h>
@@ -265,7 +266,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 	{
 		I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
 /*			.platform_data = &tsu6712_pdata,*/
-/*			.irq            = irqpin2irq(GPIO_CHG_INT),*/
+		.irq            = irqpin2irq(GPIO_CHG_INT),
 	},
 #endif
 };
@@ -406,6 +407,7 @@ static void __init gardalte_init(void)
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 
 	u8 reg8 = __raw_readb(STBCHRB3);
+	u8 i = 0;
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
@@ -647,6 +649,18 @@ static void __init gardalte_init(void)
 	sensor_init();
 #endif
 
+#if defined(CONFIG_MACH_GARDALTE)
+	if (u2_get_board_rev() == 2) {
+		for (i = 0;
+			i < (sizeof(i2c3_devices)/sizeof(struct i2c_board_info));
+			i++) {
+			if (!strcmp(i2c3_devices[i].type, "smb328a")) {
+				i2c3_devices[i].addr = SMB327A_ADDRESS;
+				break;
+			}
+		}
+	}
+#endif
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 #ifdef CONFIG_NFC_PN547
