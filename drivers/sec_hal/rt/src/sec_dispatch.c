@@ -15,6 +15,7 @@
 
 #include "sec_dispatch.h"
 #include "sec_hal_rt_cmn.h"
+#include "sec_serv_api.h"
 
 #include <stdarg.h>
 #include <linux/cdev.h>
@@ -55,6 +56,8 @@
 #define FIQ_MASK                                0x40
 #define IRQ_MASK                                0x80
 
+
+
 extern struct mutex g_disp_mutex;
 
 uint32_t hw_sec_rom_pub_bridge(uint32_t appl_id, uint32_t flags, va_list *);
@@ -71,8 +74,10 @@ uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 	uint32_t return_value, pub_cpsr;
 	va_list ap;
 
-
-	mutex_lock(&g_disp_mutex);
+	if(appl_id!=SEC_SERV_COMA_ENTRY)
+		{
+		mutex_lock(&g_disp_mutex);
+		}
 
 	/* Read current CPSR */
 	__asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
@@ -90,7 +95,11 @@ uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 	return_value = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
 	va_end(ap);
 
-	mutex_unlock(&g_disp_mutex);
+	if(appl_id!=SEC_SERV_COMA_ENTRY)
+		{
+		mutex_unlock(&g_disp_mutex);
+		}
+
 
 	return return_value;
 }
