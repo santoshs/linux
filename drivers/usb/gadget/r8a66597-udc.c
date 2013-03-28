@@ -61,6 +61,10 @@
 #define udc_log(fmt, ...) 
 #endif 
 
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973) || defined(CONFIG_MACH_LT02LTE)
+#define VBUS_HANDLE_IRQ_BASED
+#endif
+
 int gIsConnected;
 
 static const char udc_name[] = "r8a66597_udc";
@@ -2301,7 +2305,7 @@ static int r8a66597_start(struct usb_gadget *gadget,
 
 		if (r8a66597->pdata->vbus_irq) {
 			int ret;
-#if !(defined(CONFIG_RT8969) || defined(CONFIG_RT8973))
+#if !(defined VBUS_HANDLE_IRQ_BASED)
 			ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
 					NULL, r8a66597_vbus_irq,
 					IRQF_ONESHOT, "vbus_detect", r8a66597);
@@ -2459,7 +2463,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
 	}
-#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+#if defined VBUS_HANDLE_IRQ_BASED
 	vbus_state = gIsConnected;
 #else
 	vbus_state = r8a66597->pdata->is_vbus_powered();
@@ -2780,7 +2784,7 @@ clean_up:
 	return ret;
 }
 
-#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+#if defined VBUS_HANDLE_IRQ_BASED
 void send_usb_insert_event(int isConnected)
 {
 	struct r8a66597 *r8a66597 = the_controller;
