@@ -62,6 +62,8 @@
 void __iomem *dummy_write_mem;
 #endif
 
+static unsigned int shmobile_revision;
+
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #ifdef PM_FUNCTION_START
 /* We arrange for some of ICRAM 0 to be MT_MEMORY_NONCACHED, so
@@ -1277,10 +1279,10 @@ void __init r8a7373_add_standard_devices(void)
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 
-	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
+	/* ES2 and onwards */
+	if (!shmobile_is_older(U2_VERSION_2_0))
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-	}
 /* ES2.0 change end */
 }
 /*Do Dummy write in L2 cache to avoid A2SL turned-off
@@ -1511,6 +1513,19 @@ unsigned int u2_get_board_rev(void)
 }
 EXPORT_SYMBOL_GPL(u2_get_board_rev);
 
+static void shmobile_check_rev(void)
+{
+	shmobile_revision = __raw_readl(IOMEM(CCCR));
+}
+
+inline unsigned int shmobile_rev(void)
+{
+	unsigned int chiprev;
+	chiprev = (shmobile_revision & CCCR_VERSION_MASK);
+	return chiprev;
+}
+EXPORT_SYMBOL(shmobile_rev);
+
 void r8a7373_l2cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
@@ -1522,8 +1537,8 @@ void r8a7373_l2cache_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	 /* */
+	if (!shmobile_is_older(U2_VERSION_2_1)) {
 		/*The L2Cache is resized to 512 KB*/
 		l2x0_init(IO_ADDRESS(0xf0100000), 0x4c460000, 0x820f0fff);
 	}
@@ -1533,7 +1548,7 @@ void r8a7373_l2cache_init(void)
 
 void __init r8a7373_init_early(void)
 {
-	system_rev = __raw_readl(CCCR);
+	shmobile_check_rev();
 
 #ifdef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();

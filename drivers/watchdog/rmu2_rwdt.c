@@ -562,7 +562,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	wa_zq_flg = 0;
 	reg8 = __raw_readb(STBCHRB3);
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);

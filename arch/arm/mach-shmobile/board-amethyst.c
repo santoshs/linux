@@ -327,7 +327,7 @@ static void __init board_init(void)
 	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
@@ -369,8 +369,7 @@ static void __init board_init(void)
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	pinmux_hwspinlock_init(r8a7373_hwlock_gpio);
 
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (!shmobile_is_older(U2_VERSION_2_0)) {
 		__raw_writew(0x0022, GPIO_DRVCR_SD0);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM2);

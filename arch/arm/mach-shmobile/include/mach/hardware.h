@@ -60,4 +60,7 @@ extern char *tmplog_nocache_address;
 #endif
 #endif  /* CONFIG_IRQ_TRACE */
 
+#define CCCR_VERSION_MASK      0x0000FFFF
+#define CCCR_PRODUCT_MASK      0x0000FF00
+
 #endif /* __ASM_MACH_HARDWARE_H */

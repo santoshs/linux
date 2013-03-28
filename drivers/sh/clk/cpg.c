@@ -32,7 +32,7 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 {
 	volatile unsigned long value;
 /*Disabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
-	if ((system_rev & 0xFFFF) < 0x3E11)
+	if (shmobile_is_older(U2_VERSION_2_1))
 		if ((__raw_readl(HPB_HPBCTRL2) & (1 << 11))) {
 			__raw_writel((__raw_readl(HPB_HPBCTRL2) & ~(1 << 11)),
 						HPB_HPBCTRL2);
@@ -489,8 +489,8 @@ static void sh_clk_cksel_disable(struct clk *clk)
 		value |= 1 << clk->enable_bit; /* stop clock */
 		__raw_writel(value, clk->enable_reg);
 	}
-/*Enabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
-	if ((system_rev & 0xFFFF) < 0x3E11)
+	/*Enabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
+	if (shmobile_is_older(U2_VERSION_2_1))
 		if (1 == dms_MP_SHwy) {
 			__raw_writel((__raw_readl(HPB_HPBCTRL2) | (1 << 11)),
 						HPB_HPBCTRL2);

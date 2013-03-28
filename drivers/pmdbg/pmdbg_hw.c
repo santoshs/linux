@@ -24,6 +24,7 @@
 #include <linux/errno.h>
 #include <linux/io.h>
 #include "pmdbg_hw.h"
+#include <mach/common.h>
 #include <mach/pm.h>
 
 static int rreg_cmd(char *, int);
@@ -444,24 +445,25 @@ end:
 
 int rev_cmd(char *para, int size)
 {
-	unsigned int ret = system_rev;
+	unsigned int ret;
 	FUNC_MSG_IN;
+	ret = shmobile_rev();
 
 	switch (ret) {
-	case CHIP_VERSION_ES2_0:
+	case U2_VERSION_2_0:
 		sprintf(bufres, "R-MobileU2 ES2.0");
 		break;
-	case CHIP_VERSION_ES2_1:
+	case U2_VERSION_2_1:
 		sprintf(bufres, "R-MobileU2 ES2.1");
 		break;
-	case CHIP_VERSION_ES2_2:
+	case U2_VERSION_2_2:
 		sprintf(bufres, "R-MobileU2 ES2.2");
 		break;
-	case CHIP_VERSION_ES2_3:
+	case U2_VERSION_2_3:
 		sprintf(bufres, "R-MobileU2 ES2.3");
 		break;
 	default:
-		sprintf(bufres, "R-MobileU2 ES2.x");
+		sprintf(bufres, "R-Mobile ???");
 		break;
 	}
 	ret = 0;
