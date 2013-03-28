@@ -194,6 +194,11 @@ static struct platform_device lt02lte_audio_device = {
 	},
 };
 
+static struct platform_device sh_fsi_wireless_transciever_device = {
+		.name = "sh_fsi_wireless_transciever",
+		.id = 0,
+};
+
 static struct resource lcdc_resources[] = {
 	[0] = {
 		.name	= "LCDC",
@@ -479,6 +484,7 @@ static struct platform_device *lt02lte_devices_stm_sdhi1[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&lt02lte_audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
@@ -533,6 +539,7 @@ static struct platform_device *lt02lte_devices_stm_sdhi0[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&lt02lte_audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
@@ -588,6 +595,7 @@ static struct platform_device *lt02lte_devices_stm_none[] __initdata = {
 	&fsi_device,
 	&fsi_b_device,
 	&lt02lte_audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
