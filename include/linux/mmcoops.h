@@ -52,6 +52,11 @@
 
 #define MAX_LOG_SIZE_ON_DDR			(0xBFE00)
 
+/* Predefined value for hw_reset_type in RESET_INFO_STR */
+#define POWER_UP_RESET          1
+#define SOFT_RESET          2
+#define SEC_RESET_CMT1_5_EXPIRED                0x00000300
+
 struct mmcoops_platform_data {
 #ifdef CONFIG_CRASHLOG_EMMC
 	struct platform_device	*pdev;
