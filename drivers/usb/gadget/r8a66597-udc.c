@@ -61,9 +61,7 @@
 #define udc_log(fmt, ...) 
 #endif 
 
-#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973) || defined(CONFIG_MACH_LT02LTE)
 #define VBUS_HANDLE_IRQ_BASED
-#endif
 
 int gIsConnected;
 

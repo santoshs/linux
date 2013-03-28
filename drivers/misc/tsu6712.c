@@ -42,9 +42,7 @@
 
 #include <mach/common.h>
 
-#if defined(CONFIG_MACH_LT02LTE)
 void send_usb_insert_event(int);
-#endif
 
 static struct switch_dev switch_dock = {
 	.name = "dock",
@@ -455,26 +453,6 @@ static void tsu6712_usb_cb(bool attached)
    }
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-
-#ifdef CONFIG_SEC_CHARGING_FEATURE
-		switch (set_cable_status) {
-		case CABLE_TYPE_USB:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
-			pr_info("%s USB attached\n", __func__);
-			break;
-
-		case CABLE_TYPE_NONE:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-			pr_info("%s USB removed\n", __func__);
-			break;
-		default:
-			break;
-		}
-#endif
-#endif
-
-#if defined(CONFIG_MACH_LT02LTE)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_USB:
@@ -491,7 +469,6 @@ static void tsu6712_usb_cb(bool attached)
 		default:
 			break;
 		}
-#endif
 #endif
 
 }
@@ -1634,15 +1611,6 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 		else if (intr & 0x02)
 			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 	}
-#endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-
-		dev_info(&client->dev, "%s intr: 0x%x\n", __func__, intr);
-
-		if ((intr & 0x01) && (device_type & 0x04))
-			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-		else if (intr & 0x02)
-			handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
 #endif
 
 	if (intr < 0) {
