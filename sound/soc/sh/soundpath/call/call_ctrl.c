@@ -1543,6 +1543,7 @@ static void call_work_dummy_rec(struct work_struct *work)
 	long wait_ret;
 	struct call_pcm_info	*pcm_info = &g_call_pcm_info[SNDP_PCM_IN];
 	struct snd_pcm_runtime	*runtime;
+	int			ret;
 
 	/* sndp_log_debug_func("start\n"); */
 
@@ -1560,6 +1561,10 @@ static void call_work_dummy_rec(struct work_struct *work)
 			return;
 		}
 	}
+
+	ret = down_interruptible(&g_sndp_wait_free[SNDP_PCM_IN]);
+	if (0 != ret)
+		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
 	if (NULL == g_call_substream[SNDP_PCM_IN]->runtime) {
@@ -1637,6 +1642,8 @@ static void call_work_dummy_rec(struct work_struct *work)
 	/* Work queue, Queuing again */
 	if (g_call_dummy_rec)
 		queue_work(g_call_queue_in, &g_call_work_in);
+
+	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 
 	/* sndp_log_debug_func("end\n"); */
 }
@@ -1736,11 +1743,16 @@ static void call_work_dummy_play(struct work_struct *work)
 	long call_playback_len = 0;
 	struct call_pcm_info	*pcm_info = &g_call_pcm_info[SNDP_PCM_OUT];
 	struct snd_pcm_runtime	*runtime;
+	int			ret;
 
 	/* sndp_log_debug_func("start\n"); */
 
 	if (call_work_play_wait_event(work))
 		return;
+
+	ret = down_interruptible(&g_sndp_wait_free[SNDP_PCM_OUT]);
+	if (0 != ret)
+		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	if (NULL == g_call_substream[SNDP_PCM_OUT]->runtime) {
 		sndp_log_info("runtime is NULL\n");
@@ -1793,6 +1805,8 @@ static void call_work_dummy_play(struct work_struct *work)
 	if (CALL_DUMMY_PLAY == g_call_dummy_play) {
 		queue_work(g_call_queue_out, &g_call_work_out);
 	}
+
+	up(&g_sndp_wait_free[SNDP_PCM_OUT]);
 	/* sndp_log_debug_func("end\n"); */
 }
 

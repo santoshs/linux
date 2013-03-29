@@ -152,6 +152,8 @@ SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
 SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
 SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
 
+SOUNDPATH_NO_EXTERN struct semaphore g_sndp_wait_free[SNDP_PCM_DIRECTION_MAX];
+
 /* audience Set Callback function */
 SOUNDPATH_NO_EXTERN void sndp_extdev_regist_callback(
 				struct sndp_extdev_callback_func *func);

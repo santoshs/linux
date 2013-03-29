@@ -653,6 +653,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 						sndp_work_hw_free);
 		init_waitqueue_head(&g_sndp_hw_free_wait[iCnt]);
 		g_sndp_hw_free_condition[iCnt] = false;
+
+		sema_init(&g_sndp_wait_free[iCnt], 1);
 	}
 
 	atomic_set(&g_sndp_watch_start_clk, 0);
@@ -2075,11 +2077,20 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
  */
 static void sndp_work_hw_free(struct sndp_work_info *work)
 {
+	int ret;
+	int direction = work->save_substream->stream;
+
 	sndp_log_debug_func("start\n");
 
-	g_sndp_hw_free_condition[work->save_substream->stream] = true;
+	ret = down_interruptible(&g_sndp_wait_free[direction]);
+	if (0 != ret)
+		sndp_log_err("down_interruptible ret[%d]\n", ret);
+
+	g_sndp_hw_free_condition[direction] = true;
 	wake_up_interruptible(
-		&g_sndp_hw_free_wait[work->save_substream->stream]);
+		&g_sndp_hw_free_wait[direction]);
+
+	up(&g_sndp_wait_free[direction]);
 
 	sndp_log_debug_func("end\n");
 }
