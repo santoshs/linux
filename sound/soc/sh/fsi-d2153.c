@@ -286,7 +286,6 @@ int fsi_d2153_loopback_notify(int status)
 }
 EXPORT_SYMBOL(fsi_d2153_loopback_notify);
 
-/* temp process */
 void fsi_d2153_soc_write(int dev)
 {
 	if (0 == dev) {
@@ -297,7 +296,6 @@ void fsi_d2153_soc_write(int dev)
 	}
 }
 EXPORT_SYMBOL(fsi_d2153_soc_write);
-/* temp process */
 
 int fsi_d2153_sndp_soc_info(
 	struct snd_kcontrol *kcontrol,
