@@ -419,15 +419,12 @@ int vcd_ctrl_stop_call(int call_kind)
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
 		vcd_pr_control_info("check sequence[%d].\n",
 			g_vcd_ctrl_result);
-		g_vcd_ctrl_result =
-			vcd_ctrl_func_convert_result(g_vcd_ctrl_result);
 		goto rtn;
 	}
 
 	/* execute spuv function */
 	if (VCD_CALL_KIND_CALL == call_kind) {
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
-
 		/* init call type */
 		g_vcd_ctrl_call_type = 0;
 	} else if (VCD_CALL_KIND_1KHZ == call_kind)
