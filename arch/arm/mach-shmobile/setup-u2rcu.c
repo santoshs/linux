@@ -43,7 +43,7 @@ struct platform_device rcu0_device = {
 	.name			= "sh_mobile_rcu",
 	.id				= 0, /* "rcu0" clock */
 	.num_resources	= ARRAY_SIZE(rcu0_resources),
-	.resource		= rcu0_resources, /* ES2.0 is RCU0 connect */
+	.resource		= rcu0_resources,
 	.dev = {
 		.platform_data	= &sh_mobile_rcu0_info,
 	},
@@ -82,7 +82,7 @@ struct platform_device rcu1_device = {
 	.name			= "sh_mobile_rcu",
 	.id				= 1, /* "rcu1" clock */
 	.num_resources	= ARRAY_SIZE(rcu1_resources),
-	.resource		= rcu1_resources, /* ES2.0 is RCU0 connect */
+	.resource		= rcu1_resources,
 	.dev	= {
 		.platform_data	= &sh_mobile_rcu1_info,
 	},
