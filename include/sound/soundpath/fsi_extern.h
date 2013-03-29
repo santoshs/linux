@@ -41,6 +41,8 @@ FSI_CTRL_NO_EXTERN void fsi_soft_reset(void);
 /* for all down link mute control */
 FSI_CTRL_NO_EXTERN void fsi_all_dl_mute_ctrl(bool mute);
 
+FSI_CTRL_NO_EXTERN void fsi_fifo_reset(int port);
+
 #ifdef SOUND_TEST
 FSI_CTRL_NO_EXTERN int fsi_play_test_start_a(char *buf, u_int size);
 FSI_CTRL_NO_EXTERN void fsi_play_test_stop_a(void);

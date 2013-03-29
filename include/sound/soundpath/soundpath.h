@@ -50,6 +50,12 @@ enum sndp_wake_lock_kind {
 	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
 };
 
+/* Port kind */
+enum sndp_port_kind {
+	SNDP_PCM_PORTA,
+	SNDP_PCM_PORTB,
+};
+
 #ifndef __RC5T7316_CTRL_NO_EXTERN__
 
 /* Work queue processing table */

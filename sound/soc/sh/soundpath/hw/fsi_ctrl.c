@@ -782,6 +782,20 @@ void fsi_all_dl_mute_ctrl(bool mute)
 	sndp_log_debug_func("end\n");
 }
 
+void fsi_fifo_reset(int port)
+{
+	u_long porta_base = g_fsi_Base;
+	u_long portb_base = g_fsi_Base + FSI_PORTB_OFFSET;
+
+	if (SNDP_PCM_PORTA == port) {
+		sh_modify_register32((porta_base + FSI_DOFF_CTL), 0, 0x00000001);
+		sh_modify_register32((porta_base + FSI_DIFF_CTL), 0, 0x00000001);
+	} else {
+		sh_modify_register32((portb_base + FSI_DOFF_CTL), 0, 0x00000001);
+		sh_modify_register32((portb_base + FSI_DIFF_CTL), 0, 0x00000001);
+	}
+}
+
 #ifdef SOUND_TEST
 
 static int fsi_test_status_a = TEST_NONE;

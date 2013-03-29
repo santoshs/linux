@@ -372,12 +372,6 @@ enum sndp_play_rec_state {
 	E_CAP,			/* Running Capture process  */
 };
 
-/* Port kind */
-enum sndp_port_kind {
-	SNDP_PCM_PORTA,
-	SNDP_PCM_PORTB,
-};
-
 /* Function pointer typedef declarations */
 typedef int (*sndp_dai_startup)(struct snd_pcm_substream *,
 				struct snd_soc_dai *);
