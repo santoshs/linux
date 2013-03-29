@@ -50,6 +50,12 @@ enum sndp_wake_lock_kind {
 	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
 };
 
+/* Port kind */
+enum sndp_port_kind {
+	SNDP_PCM_PORTA,
+	SNDP_PCM_PORTB,
+};
+
 #ifndef __RC5T7316_CTRL_NO_EXTERN__
 
 /* Work queue processing table */
@@ -151,6 +157,8 @@ SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
 /* for Production test Variable */
 SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
 SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
+
+SOUNDPATH_NO_EXTERN struct semaphore g_sndp_wait_free[SNDP_PCM_DIRECTION_MAX];
 
 /* audience Set Callback function */
 SOUNDPATH_NO_EXTERN void sndp_extdev_regist_callback(
