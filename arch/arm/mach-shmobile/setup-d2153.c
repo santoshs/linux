@@ -372,14 +372,9 @@ static struct regulator_init_data d2153_ldo15 = {
 	.consumer_supplies = d2153_ldo15_supplies,
 };
 
-// LDO16
+/* LDO16 */
 __weak struct regulator_consumer_supply d2153_ldo16_supplies[] = {
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
-
 	REGULATOR_SUPPLY("vdd_motor_3v", NULL), /* VDD_MOTOR_3V */
-#else
-	REGULATOR_SUPPLY("none", NULL),	// none
-#endif
 };
 
 static struct regulator_init_data d2153_ldo16 = {
@@ -626,11 +621,7 @@ struct d2153_platform_data d2153_pdata = {
 #endif
 		D2153_MCTL_MODE_INIT(D2153_LDO_14, 0x00, D2153_REGULATOR_OFF_IN_DSM),	/* VT_CAM_1.2V/SENSOR_LED_3V */
 		D2153_MCTL_MODE_INIT(D2153_LDO_15, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// VSD_2.85V
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		D2153_MCTL_MODE_INIT(D2153_LDO_16, 0x00, D2153_REGULATOR_OFF_IN_DSM),    /* VDD_MOTOR_3V */
-#else
-		D2153_MCTL_MODE_INIT(D2153_LDO_16, 0x54, D2153_REGULATOR_OFF_IN_DSM),   // VTCXO_D_1V8
-#endif
 		D2153_MCTL_MODE_INIT(D2153_LDO_17, 0x54, D2153_REGULATOR_OFF_IN_DSM),	// CAM_SENSOR_IO_1.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_18, 0x00, D2153_REGULATOR_MAX), // VRF_ANA_HIGH_2.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_19, 0x00, D2153_REGULATOR_OFF_IN_DSM), // VTSP_A3.0V
