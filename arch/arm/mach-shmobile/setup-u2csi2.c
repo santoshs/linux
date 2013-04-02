@@ -47,7 +47,7 @@ struct platform_device csi20_device = {
 	.name   = "sh-mobile-csi2",
 	.id     = 0,
 	.num_resources	= ARRAY_SIZE(csi20_resources),
-	.resource	= csi20_resources, /* ES1 is CSI21 connect */
+	.resource	= csi20_resources,
 	.dev    = {
 		.platform_data = &csi20_info,
 	},
@@ -88,19 +88,6 @@ struct resource csi21_resources[] = {
 	},
 };
 
-struct resource csi21_resources_es1[] = {
-	[0] = {
-		.name	= "CSI21",
-		.start	= 0xfeaa0000,
-		.end	= 0xfeaa0fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= intcs_evt2irq(0x17a0),
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
 struct platform_device csi21_device = {
 	.name   = "sh-mobile-csi2",
 	.id     = 1,
@@ -111,7 +98,3 @@ struct platform_device csi21_device = {
 	},
 };
 
-int csi21_resources_es1_size(void)
-{
-	return ARRAY_SIZE(csi21_resources_es1);
-}

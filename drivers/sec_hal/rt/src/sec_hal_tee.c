@@ -55,45 +55,9 @@
 #endif /* LOCAL_DEFAULT_DISP_SPARE_PARAM */
 
 
-#if (defined LOCAL_CPY_TO_CLIENT_FUNC || defined LOCAL_CPY_TO_CLIENT_FUNCPTR)
-#error !!copy to client already defined, aborting!!
-#else /* LOCAL_CPY_TO_CLIENT_FUNC */
-#ifndef SEC_HAL_TEST_ISOLATION
-/* **************************************************************************
-** Function name      : copy_to_userspace
-** Description        : copy content to userspace, to user page.
-** Parameters         :
-** Return value       : number of bytes left uncopied.
-** *************************************************************************/
-static unsigned long copy_to_userspace(
-		void* dst,
-		const void* src,
-		unsigned long sz)
-{
-	return copy_to_user((void __user *)dst, src, sz);
-}
-#define LOCAL_CPY_TO_CLIENT_FUNC    copy_to_userspace
-#define LOCAL_CPY_TO_CLIENT_FUNCPTR &copy_to_userspace
-#else /* SEC_HAL_TEST_ISOLATION */
-#define LOCAL_CPY_TO_CLIENT_FUNC    !memcpy
-#define LOCAL_CPY_TO_CLIENT_FUNCPTR &memcpy
-#endif /* SEC_HAL_TEST_ISOLATION */
-#endif /* LOCAL_CPY_TO_CLIENT_FUNC */
-
-#if (defined LOCAL_CPY_TO_HW_FUNC || defined LOCAL_CPY_TO_HW_FUNCPTR)
-#error !!copy to hw already defined, aborting!!
-#else /* LOCAL_CPY_TO_IO_FUNC */
-#ifndef SEC_HAL_TEST_ISOLATION
-#define LOCAL_CPY_TO_HW_FUNC    memcpy_toio
-#define LOCAL_CPY_TO_HW_FUNCPTR &memcpy_toio
-#else
-#define LOCAL_CPY_TO_HW_FUNC    memcpy
-#define LOCAL_CPY_TO_HW_FUNCPTR &memcpy
-#endif /* SEC_HAL_TEST_ISOLATION */
-#endif /* LOCAL_CPY_TO_HW_FUNC */
 
 /* From sec_hal_dev.c*/
-unsigned long sec_hal_memory_tablewalk(unsigned long virt_addr);
+unsigned long sec_hal_memory_tablewalk(void * virt_addr);
 
 uint32_t sec_hal_tee_initialize_context( const char* name, TEEC_Context* kernel_context)
     {
@@ -108,7 +72,7 @@ uint32_t sec_hal_tee_initialize_context( const char* name, TEEC_Context* kernel_
 	sec_msg_handle_t in_handle;
 	sec_msg_handle_t out_handle;
     uint32_t* kernel_name = NULL;
-    uint32_t name_length;
+    uint32_t name_length = 0;
 
 	SEC_HAL_TRACE_ENTRY();
 
@@ -116,7 +80,12 @@ uint32_t sec_hal_tee_initialize_context( const char* name, TEEC_Context* kernel_
         {
         name_length = strlen(name) + 1;
         kernel_name = kmalloc(name_length, GFP_KERNEL);
-        copy_from_user( kernel_name, name, name_length );
+        
+        if(copy_from_user( kernel_name, name, name_length ))
+            {
+            SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+            }
+
         SEC_HAL_TRACE("kernel_name: %s", kernel_name);
         }
 
@@ -158,12 +127,12 @@ uint32_t sec_hal_tee_initialize_context( const char* name, TEEC_Context* kernel_
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_name != NULL ? (uint32_t)virt_to_phys(kernel_name) : NULL,
+				(uint32_t)kernel_name != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_name) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_context != NULL ? (uint32_t)virt_to_phys(kernel_context) : NULL,
+				(uint32_t)kernel_context != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_context) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -250,7 +219,7 @@ uint32_t sec_hal_tee_finalize_context( TEEC_Context* kernel_context)
         /* 1 ) context */
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_context != NULL ? (uint32_t)virt_to_phys(kernel_context) : NULL,
+				(uint32_t)kernel_context != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_context) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -318,7 +287,11 @@ uint32_t sec_hal_tee_open_session( TEEC_Context* kernel_context,
 	SEC_HAL_TRACE("kernel_context: 0x%x", kernel_context);
 
     kernel_destination = kmalloc(sizeof(TEEC_UUID), GFP_KERNEL);
-    copy_from_user( kernel_destination, destination, sizeof(TEEC_UUID) );
+    if(copy_from_user( kernel_destination, destination, sizeof(TEEC_UUID) ))
+        {
+        SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+        }
+
 	SEC_HAL_TRACE("kernel_destination: 0x%x", kernel_destination);
 
     if(connectionMethod != TEEC_LOGIN_USER)
@@ -326,16 +299,24 @@ uint32_t sec_hal_tee_open_session( TEEC_Context* kernel_context,
         if(connectionData !=NULL)
             {
             kernel_connectionData = kmalloc(sizeof(uint32_t), GFP_KERNEL);
-            copy_from_user( kernel_connectionData, connectionData, sizeof(uint32_t) );
+
+            if(copy_from_user( kernel_connectionData, connectionData, sizeof(uint32_t) ))
+                {
+                SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+                }
             SEC_HAL_TRACE("kernel_connectionData: 0x%x", kernel_connectionData);
-            SEC_HAL_MEM_CACHE_CLEAN_FUNC(connectionData, sizeof(uint32_t));
+
             }
         }
 
     if(operation !=NULL)
         {
         kernel_operation = kmalloc(sizeof(TEEC_Operation), GFP_KERNEL);
-        copy_from_user( kernel_operation, operation, sizeof(TEEC_Operation) );
+        if(copy_from_user( kernel_operation, operation, sizeof(TEEC_Operation) ))
+            {
+            SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+            }
+
         SEC_HAL_TRACE("kernel_operation: 0x%x", kernel_operation);
         sec_hal_tee_convert_memrefs(NULL,kernel_operation,1);
         SEC_HAL_MEM_CACHE_CLEAN_FUNC(operation, sizeof(TEEC_Operation));
@@ -345,7 +326,11 @@ uint32_t sec_hal_tee_open_session( TEEC_Context* kernel_context,
     if(returnOrigin !=NULL)
         {
         kernel_returnOrigin = kmalloc(sizeof(uint32_t), GFP_KERNEL);
-        copy_from_user( kernel_returnOrigin, returnOrigin, sizeof(uint32_t));
+        if(copy_from_user( kernel_returnOrigin, returnOrigin, sizeof(uint32_t)))
+            {
+            SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+            }
+
         SEC_HAL_TRACE("kernel_returnOrigin: 0x%x", kernel_returnOrigin);
         SEC_HAL_MEM_CACHE_CLEAN_FUNC(returnOrigin, sizeof(uint32_t));
         }
@@ -395,17 +380,17 @@ uint32_t sec_hal_tee_open_session( TEEC_Context* kernel_context,
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_context != NULL ? (uint32_t)virt_to_phys(kernel_context) : NULL,
+				(uint32_t)kernel_context != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_context) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_session != NULL ? (uint32_t)virt_to_phys(kernel_session) : NULL,
+				(uint32_t)kernel_session != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_session) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_destination != NULL ? (uint32_t)virt_to_phys(kernel_destination) : NULL,
+				(uint32_t)kernel_destination != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_destination) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
@@ -415,17 +400,17 @@ uint32_t sec_hal_tee_open_session( TEEC_Context* kernel_context,
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_connectionData != NULL ? (uint32_t)virt_to_phys(kernel_connectionData) : NULL,
+				(uint32_t)kernel_connectionData != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_connectionData) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_operation != NULL ? (uint32_t)virt_to_phys(kernel_operation) : NULL,
+				(uint32_t)kernel_operation != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_operation) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_returnOrigin != NULL ? (uint32_t)virt_to_phys(kernel_returnOrigin) : NULL,
+				(uint32_t)kernel_returnOrigin != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_returnOrigin) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -524,7 +509,7 @@ uint32_t  sec_hal_tee_close_session( TEEC_Session* kernel_session )
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_session != NULL ? (uint32_t)virt_to_phys(kernel_session) : NULL,
+				(uint32_t)kernel_session != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_session) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -578,7 +563,10 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
     if(operation !=NULL)
         {
         kernel_operation = kmalloc(sizeof(TEEC_Operation), GFP_KERNEL);
-        copy_from_user( kernel_operation, operation, sizeof(TEEC_Operation) );
+        if(copy_from_user( kernel_operation, operation, sizeof(TEEC_Operation)))
+            {
+            SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+            }
         SEC_HAL_TRACE("kernel_operation: 0x%x", kernel_operation);
         sec_hal_tee_convert_memrefs(NULL,kernel_operation,1);
         SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_operation, sizeof(TEEC_Operation));
@@ -587,7 +575,10 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
     if(returnOrigin !=NULL)
         {
         kernel_returnOrigin = kmalloc(sizeof(uint32_t), GFP_KERNEL);
-        copy_from_user( kernel_returnOrigin, returnOrigin, sizeof(uint32_t));
+        if(copy_from_user( kernel_returnOrigin, returnOrigin, sizeof(uint32_t)))
+            {
+            SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+            }
         SEC_HAL_TRACE("kernel_returnOrigin: 0x%x", kernel_returnOrigin);
         SEC_HAL_MEM_CACHE_CLEAN_FUNC(returnOrigin, sizeof(uint32_t));
         }
@@ -629,7 +620,7 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_session != NULL ? (uint32_t)virt_to_phys(kernel_session) : NULL,
+				(uint32_t)kernel_session != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_session) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
@@ -639,12 +630,12 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_operation != NULL ? (uint32_t)virt_to_phys(kernel_operation) : NULL,
+				(uint32_t)kernel_operation != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_operation) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_returnOrigin != NULL ? (uint32_t)virt_to_phys(kernel_returnOrigin) : NULL,
+				(uint32_t)kernel_returnOrigin != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_returnOrigin) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -673,14 +664,6 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
 	sec_msg_free(out_msg);
 	sec_msg_free(in_msg);
 
-#if 0
-    copy_to_user( session, kernel_session, sizeof(TEEC_Session) );
-#endif
-
-    /* TBD needs change, update only the value parameters */
-#if 0
-    copy_to_user( operation, kernel_operation, sizeof(TEEC_Operation) );
-#endif
 
     if(kernel_operation !=NULL)
         {
@@ -691,7 +674,11 @@ uint32_t sec_hal_tee_invoke_command( TEEC_Session* kernel_session,
     if(kernel_returnOrigin !=NULL)
         {
         kfree(kernel_returnOrigin);
-        copy_to_user( returnOrigin, kernel_returnOrigin, sizeof(uint32_t) );
+        if(copy_to_user( returnOrigin, kernel_returnOrigin, sizeof(uint32_t) ))
+            {
+            SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
+            }
+
         }
 
 	SEC_HAL_TRACE_EXIT();
@@ -762,12 +749,12 @@ uint32_t sec_hal_tee_register_shared_memory_area( TEEC_Context* kernel_context, 
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_context != NULL ? (uint32_t)virt_to_phys(kernel_context) : NULL,
+				(uint32_t)kernel_context != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_context) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_shmem != NULL ? (uint32_t)virt_to_phys(kernel_shmem) : NULL,
+				(uint32_t)kernel_shmem != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_shmem) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -848,7 +835,7 @@ uint32_t sec_hal_tee_release_shared_memory_area(TEEC_SharedMemory* kernel_shmem)
 
 		sec_msg_param_write32(
 				&in_handle,
-				kernel_shmem != NULL ? (uint32_t)virt_to_phys(kernel_shmem) : NULL,
+				(uint32_t)kernel_shmem != (uint32_t)NULL ? (uint32_t)virt_to_phys(kernel_shmem) : (uint32_t)NULL,
 				SEC_MSG_PARAM_ID_NONE);
 
 		/* call dispatcher */
@@ -910,7 +897,7 @@ uint32_t sec_hal_tee_get_param_type(uint32_t index, uint32_t types)
     }
 #endif
 
-uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
+void  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
                                        TEEC_Operation* operation,
                                        uint32_t direction )
     {
@@ -940,7 +927,12 @@ uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
                 {
                 TEEC_SharedMemory *kernelSM;
                 kernelSM = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
-                copy_from_user( kernelSM, operation->params[i].memref.parent, sizeof(TEEC_SharedMemory) );
+
+                if(copy_from_user( kernelSM, operation->params[i].memref.parent, sizeof(TEEC_SharedMemory) ))
+                    {
+                    SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+                    }
+
         		SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernelSM, sizeof(TEEC_SharedMemory));
         		SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernelSM->buffer, kernelSM->size);
                 SEC_HAL_TRACE("operation->params[%d].memref.parent.buffer: 0x%x",  i, operation->params[i].memref.parent->buffer);
@@ -948,9 +940,9 @@ uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
 
                 operation->params[i].memref.parent = kernelSM;
                 SEC_HAL_TRACE("after copy: operation->params[%d].memref.parent: 0x%x",  i, operation->params[i].memref.parent);
-                operation->params[i].memref.parent->buffer = sec_hal_memory_tablewalk(operation->params[i].memref.parent->buffer);
+                operation->params[i].memref.parent->buffer = (void *)sec_hal_memory_tablewalk(operation->params[i].memref.parent->buffer);
                 SEC_HAL_TRACE("after conversion: operation->params[%d].memref.parent->buffer: 0x%x", i,  operation->params[i].memref.parent->buffer);
-                operation->params[i].memref.parent =  sec_hal_memory_tablewalk(operation->params[i].memref.parent);
+                operation->params[i].memref.parent = (void *)sec_hal_memory_tablewalk(operation->params[i].memref.parent);
                 SEC_HAL_TRACE("after conversion: operation->params[%d].memref.parent: 0x%x",  i, operation->params[i].memref.parent);
 
                 }
@@ -964,7 +956,7 @@ uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
                 operation->params[i].memref.parent->buffer = phys_to_virt(operation->params[i].memref.parent->buffer);
                 SEC_HAL_TRACE("VIRT:operation->params[%d].memref.parent.buffer: 0x%x",  i, operation->params[i].memref.parent->buffer);
 #endif
-                operation->params[i].memref.parent =  phys_to_virt(operation->params[i].memref.parent);
+                operation->params[i].memref.parent = (void *)phys_to_virt((phys_addr_t)operation->params[i].memref.parent);
                 SEC_HAL_TRACE("kfree for 0x%x",  i, operation->params[i].memref.parent);
                 kfree(operation->params[i].memref.parent);
                 }
@@ -976,13 +968,13 @@ uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
             if(direction == 1)
                 {
                 SEC_HAL_TRACE("operation->params[%d].tmpref.buffer: 0x%x",  i, operation->params[i].tmpref.buffer);
-                operation->params[i].tmpref.buffer = virt_to_phys(operation->params[i].tmpref.buffer);
+                operation->params[i].tmpref.buffer = (void *)virt_to_phys(operation->params[i].tmpref.buffer);
                 SEC_HAL_TRACE("after conversion: operation->params[%d].tmpref.buffer: 0x%x",  i, operation->params[i].tmpref.buffer);
                 }
             else
                 {
                 SEC_HAL_TRACE("PHYS:operation->params[%d].tmpref.buffer: 0x%x",  i, operation->params[i].tmpref.buffer);
-                operation->params[i].tmpref.buffer = phys_to_virt(operation->params[i].tmpref.buffer);
+                operation->params[i].tmpref.buffer = (void *)phys_to_virt((phys_addr_t)operation->params[i].tmpref.buffer);
                 SEC_HAL_TRACE("VIRT:operation->params[%d].tmpref.buffer: 0x%x",  i, operation->params[i].tmpref.buffer);
                 }
             }
@@ -1001,6 +993,7 @@ uint32_t  sec_hal_tee_convert_memrefs( TEEC_Operation* user_operation,
             }
         }
 	SEC_HAL_TRACE_EXIT();
+    return;
     }
 
 

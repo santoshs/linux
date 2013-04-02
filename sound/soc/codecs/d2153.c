@@ -39,25 +39,11 @@
 #include <linux/d2153/d2153_aad.h>
 #endif /* CONFIG_SND_SOC_D2153_AAD */
 
-#ifdef D2153_FSI_SOUNDPATH
-#include <sound/soundpath/d2153_extern.h>
-#include <sound/soundpath/soundpath.h>
-
-#include "d2153_sndp_wrapper.h"
-#endif
-
-#ifdef D2153_FSI_SOUNDPATH
-/*---------------------------------------------------------------------------*/
-/* prototype declaration (private)                                           */
-/*---------------------------------------------------------------------------*/
-struct d2153_codec_priv *d2153_conf;
-#endif
-struct clk *vclk4_clk;
-struct clk *main_clk;
-
 /*
  * Controls section
  */
+
+static char *mixout_r_select_widget;
 
 /*
  * Gain and Volume
@@ -308,6 +294,44 @@ static const struct soc_enum d2153_sp_hld_time =
  * Control functions
  */
 
+static int d2153_snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int shift = mc->shift;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int connect;
+
+	val = (ucontrol->value.integer.value[0] & mask);
+
+	if (invert)
+		val = max - val;
+	val = val << shift;
+
+	if (val)
+		/* new connection */
+		connect = invert ? 0 : 1;
+	else
+		/* old connection must be powered down */
+		connect = invert ? 1 : 0;
+
+	if (connect)
+		mixout_r_select_widget = widget->name;
+	else {
+		if (mixout_r_select_widget == NULL
+		    || strcmp(mixout_r_select_widget, widget->name) != 0)
+			return 0;
+		mixout_r_select_widget = NULL;
+	}
+	return snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+}
+
 static int d2153_get_alc_data(struct snd_soc_codec *codec, u8 reg_val)
 {
 	int mid_data, top_data;
@@ -522,11 +546,6 @@ static int d2153_put_alc_ext_mic_enum(struct snd_kcontrol *kcontrol,
 
 	return ret;
 }
-
-#ifdef D2153_FSI_SOUNDPATH
-static struct snd_kcontrol_new *d2153_sndp_controls;
-static u_int d2153_sndp_array_size;
-#endif /* D2153_FSI_SOUNDPATH */
 
 /*
  * Control list
@@ -903,6 +922,13 @@ static const struct snd_kcontrol_new d2153_mic_ext_amp_in_sel_mux =
  * Mixer controls
  */
 
+#define SOC_DAPM_SINGLE_D(xname, reg, shift, max, invert) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_volsw, \
+	.get = snd_soc_dapm_get_volsw, \
+	.put = d2153_snd_soc_dapm_put_volsw, \
+	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 /* In Mixer Left */
 static const struct snd_kcontrol_new d2153_dapm_mixinl_controls[] = {
 	SOC_DAPM_SINGLE("Aux Left Switch", D2153_MIXIN_L_SELECT,
@@ -974,7 +1000,7 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutr_controls[] = {
 	SOC_DAPM_SINGLE("Mixin Left Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
-	SOC_DAPM_SINGLE("DAC Right Switch", D2153_MIXOUT_R_SELECT,
+	SOC_DAPM_SINGLE_D("DAC Right Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_DAC_R_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
 	SOC_DAPM_SINGLE("Aux Right Invert Switch", D2153_MIXOUT_R_SELECT,
@@ -999,7 +1025,7 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutep_controls[] = {
 	SOC_DAPM_SINGLE("Mixin Left Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
-	SOC_DAPM_SINGLE("DAC Right Switch", D2153_MIXOUT_R_SELECT,
+	SOC_DAPM_SINGLE_D("DAC Right Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_DAC_R_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
 	SOC_DAPM_SINGLE("Aux Right Invert Switch", D2153_MIXOUT_R_SELECT,
@@ -1053,21 +1079,31 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	
 	dlg_info("%s() event = %d  \n",__FUNCTION__,event);
-	
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		d2153_aad->button.status = D2153_BUTTON_PRESS;
-		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
-					  D2153_ACCDET_BTN_EN,
-					  0);
+		if (D2153_AB_Silicon == d2153_aad->chip_rev) {
+			d2153_aad_write(d2153_codec->aad_i2c_client,D2153_ACCDET_CFG2,0xBB);
+		}
+		else {
+			d2153_aad->button.status = D2153_BUTTON_PRESS;
+			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+						  D2153_ACCDET_BTN_EN,
+						  0);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		if(d2153_aad->switch_data.state ==D2153_HEADSET)
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
-		d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
-					  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
+		if (D2153_AB_Silicon == d2153_aad->chip_rev) {
+			d2153_aad_write(d2153_codec->aad_i2c_client,D2153_ACCDET_CFG2,0x00);
+		}
+		else {
+			d2153_aad->button.status = D2153_BUTTON_PRESS;
+			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+						  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -1414,54 +1450,6 @@ static const u8 d2153_reg_defaults[] = {
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 #define D2153_SNDP_MCLK_RATE	13000000
 
-static int d2153_enable_mclk(void)
-{
-	unsigned int mclk;
-	int ret;
-	
-	vclk4_clk = clk_get(NULL, "vclk4_clk");
-	if (IS_ERR(vclk4_clk)) {
-		ret = IS_ERR(vclk4_clk);
-		dlg_err("cannot get vclk4 clock\n");
-		goto err_vclk4_clk;
-	}
-	main_clk = clk_get(NULL, "main_clk");
-	if (IS_ERR(main_clk)) {
-		ret = IS_ERR(main_clk);
-		dlg_err("cannot get main clock\n");
-		goto err_main_clk;
-	}
-	ret = clk_set_parent(vclk4_clk, main_clk);
-	if (0 != ret) {
-		dlg_err("clk_set_parent failed (%d)\n", ret);
-		goto err_clk_set_parent;
-	}
-
-	mclk = D2153_SNDP_MCLK_RATE;
-
-	ret = clk_set_rate(vclk4_clk, mclk);
-	if (ret < 0) {
-		dlg_err("cannot set vclk4 rate\n");
-		goto err_clk_set_rate;
-	}
-
-	ret = clk_enable(vclk4_clk);
-	if (ret < 0) {
-		dlg_err("cannot stop vclk4\n");
-		goto err_clk_enable;
-	}
-
-	return 0;
-	
-err_clk_enable:
-err_clk_set_rate:
-err_clk_set_parent:
-	clk_put(main_clk);
-err_main_clk:
-	clk_put(vclk4_clk);
-err_vclk4_clk:
-	return 0;
-}
 static int d2153_volatile_register(struct snd_soc_codec *codec,
 				     unsigned int reg)
 {
@@ -1514,10 +1502,7 @@ static int d2153_volatile_register(struct snd_soc_codec *codec,
  * assign it then the method is automatically called from ALSA framework and
  * this could interfere with Soundpath functionality.
  */
-#ifndef D2153_FSI_SOUNDPATH
-static
-#endif
- int d2153_hw_params(struct snd_pcm_substream *substream,
+static int d2153_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai)
 {
@@ -1534,7 +1519,7 @@ static
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S20_LE;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
-		aif_ctrl |= D2153_AIF_WORD_LENGTH_S16_LE;
+		aif_ctrl |= D2153_AIF_WORD_LENGTH_S16_LE;  // keep S16_LE for FM Sound
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S32_LE;
@@ -1774,6 +1759,7 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	snd_soc_write(codec, D2153_PLL_FRAC_BOT, pll_frac_bot);
 	snd_soc_write(codec, D2153_PLL_INTEGER, pll_integer);
 	snd_soc_write(codec, 0x52, 0x03);
+/*	snd_soc_update_bits(codec, D2153_PC_COUNT, 0x02, 0x02); */
 	
 	/* Enable PLL */
 	pll_ctrl |= D2153_PLL_EN;
@@ -1790,10 +1776,8 @@ pll_err:
 #define D2153_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 		       SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
-static const struct snd_soc_dai_ops d2153_dai_ops = {
-#ifndef D2153_FSI_SOUNDPATH
+static struct snd_soc_dai_ops d2153_dai_ops = {
 	.hw_params	= d2153_hw_params,
-#endif	/* D2153_FSI_SOUNDPATH */
 	.set_fmt	= d2153_set_dai_fmt,
 	.set_sysclk	= d2153_set_dai_sysclk,
 	.set_pll	= d2153_set_dai_pll,
@@ -1922,13 +1906,13 @@ static void d2153_setup(struct snd_soc_codec *codec)
 #else
 	snd_soc_update_bits(codec, D2153_MICBIAS1_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
+			    D2153_MICBIAS1_LVL);
 	snd_soc_update_bits(codec, D2153_MICBIAS2_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
+			    D2153_MICBIAS_LEVEL_2_1V);
 	snd_soc_update_bits(codec, D2153_MICBIAS3_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
+			    D2153_MICBIAS_LEVEL_2_1V);
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 	
 	/*
@@ -2013,10 +1997,10 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
 
 	/* Set charge pump mode */
-	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
-			    //D2153_CP_MCHANGE_SM_SIZE);
 	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
-			    D2153_CP_MCHANGE_LARGEST_VOL);
+			    D2153_CP_MCHANGE_SM_SIZE);
+	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
+			    //D2153_CP_MCHANGE_LARGEST_VOL);
 
 	snd_soc_write(codec, D2153_CP_VOL_THRESHOLD1 ,0x34);
 	
@@ -2034,12 +2018,21 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    D2153_EP_AMP_OE, D2153_EP_AMP_OE);
 }
 
+static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int value);
 #ifdef CONFIG_PM
-static int d2153_suspend(struct snd_soc_codec *codec)
+static int d2153_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {	
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	u8 val;
-	struct regulator *regulator;
+	//u8 val;
+	//struct regulator *regulator;
+
+#if 1
+	if(d2153_codec->switch_state == D2153_HEADSET){
+		return 0;
+	}
+	d2153_codec_power(codec,0);
+#else
+	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_EN, 0);
 
 	d2153_codec->spk_mixer_out= snd_soc_read(codec, D2153_MIXOUT_SP_CTRL);
 	d2153_codec->spk_amp= snd_soc_read(codec, D2153_SP_CTRL);
@@ -2049,23 +2042,52 @@ static int d2153_suspend(struct snd_soc_codec *codec)
 	
 	d2153_set_bias_level(codec,SND_SOC_BIAS_OFF);
 
+	snd_soc_update_bits(codec, D2153_PLL_CTRL,
+			    D2153_PLL_EN, 0);
+	
 	regulator = regulator_get(NULL, "aud2");
 	if (IS_ERR(regulator))
 		return -1;
 	regulator_disable(regulator);
 	regulator_put(regulator);
-
+#endif
 	return 0;
 }
 
 static int d2153_resume(struct snd_soc_codec *codec)
 {
-
-	int ret,i;
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	struct regulator *regulator;
+	//struct regulator *regulator;
+	u8 *cache = codec->reg_cache;
+	int i;
+#if 1
+		//snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+		//	    D2153_HP_AMP_EN, D2153_HP_AMP_EN);
+		//snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+		//	    D2153_HP_AMP_EN, D2153_HP_AMP_EN);
+
+	if(d2153_codec->switch_state == D2153_HEADSET)
+		return 0;
+	
+
+
+	d2153_codec_power(codec,1);
+	cache[D2153_SYSTEM_MODES_CFG3] = 0;
+	for(i =0 ; i<ARRAY_SIZE(d2153_reg_defaults) ; i++) {
+		if((d2153_volatile_register(codec,i) == 0) && (cache[i] != d2153_reg_defaults[i]))
+		{
+			d2153_codec_write(codec,i,cache[i]);
+		}
+	}
+	d2153_aad_resume(codec);
+	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(100));
+#else
+	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_EN, D2153_AIF_EN);
+
+	snd_soc_update_bits(codec, D2153_PLL_CTRL,
+			    D2153_PLL_EN, D2153_PLL_EN);
 
 	d2153_set_bias_level(codec,SND_SOC_BIAS_STANDBY);
 
@@ -2077,7 +2099,7 @@ static int d2153_resume(struct snd_soc_codec *codec)
 		return -1;
 	regulator_enable(regulator);
 	regulator_put(regulator);
-
+#endif
 	return 0;
 }
 #else
@@ -2088,7 +2110,7 @@ static int d2153_resume(struct snd_soc_codec *codec)
 int d2153_codec_power(struct snd_soc_codec *codec, int on)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	u8 *cache = codec->reg_cache,i;
+	//u8 *cache = codec->reg_cache, i;
 	struct regulator *regulator;
 	u8 status=0;
 	
@@ -2103,13 +2125,6 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		regulator_enable(regulator);
 		regulator_put(regulator);
 
-		//snd_soc_write(codec, D2153_CIF_CTRL,0x80);
-		
-		/* Sync reg_cache with the hardware */
-		for (i = 0; i < ARRAY_SIZE(d2153_reg_defaults); i++) {
-			cache[i] = d2153_reg_defaults[i];
-		}	
-		
 		regulator = regulator_get(NULL, "aud2");
 		if (IS_ERR(regulator))
 			return -1;
@@ -2123,7 +2138,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 	else if(on ==0 && d2153_codec->power_mode==1){
 
 		dlg_info("%s() Start power = %d \n",__FUNCTION__,on);
-		
+
 		if(d2153_codec->switch_state == D2153_HEADSET)
 			return 0;
 
@@ -2155,100 +2170,6 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 }
 EXPORT_SYMBOL(d2153_codec_power);
 
-#ifdef D2153_FSI_SOUNDPATH
-int d2153_set_device(const u_long device, const u_int pcm_value, u_int power)
-{
-	return d2153_sndp_set_device(d2153_conf->codec, device, pcm_value, power);
-}
-EXPORT_SYMBOL(d2153_set_device);
-
-int d2153_get_device(u_long *device)
-{
-	if (NULL == device)
-		return -EINVAL;
-	
-	/* get value */
-	*device = d2153_conf->info.raw_device;
-	
-	return 0;
-}
-EXPORT_SYMBOL(d2153_get_device);
-
-int d2153_set_volume(const u_long device, const u_int volume)
-{
-	int ret = 0;
-	//not support yet
-	return ret;
-}
-EXPORT_SYMBOL(d2153_set_volume);
-
-int d2153_get_volume(const u_long device, u_int *volume)
-{
-	int ret = 0;
-	//not support yet
-	return ret;
-}
-EXPORT_SYMBOL(d2153_get_volume);
-
-int d2153_set_mute(const u_int mute)
-{
-	int ret = 0;
-	//not support yet
-	return ret;
-}
-EXPORT_SYMBOL(d2153_set_mute);
-
-int d2153_get_mute(u_int *mute)
-{
-	int ret = 0;
-	if (NULL == mute) {
-		ret = -EINVAL;		
-		return ret;
-	}
-	return ret;
-}
-EXPORT_SYMBOL(d2153_get_mute);
-
-int d2153_set_speaker_amp(const u_int value)
-{
-	int ret = 0;
-	// not support yet
-	return ret;
-}
-EXPORT_SYMBOL(d2153_set_speaker_amp);
-
-int d2153_get_speaker_amp(u_int *value)
-{
-	int ret = 0;
-	/* check param */
-	if (NULL == value) {
-		ret = -EINVAL;
-		return ret;
-	}
-	return ret;
-}
-EXPORT_SYMBOL(d2153_get_speaker_amp);
-
-int d2153_get_status(u_long *irq_status)
-{
-	int ret = 0;
-	/* check param */
-	if (NULL == irq_status) {
-		ret = -EINVAL;		
-		return ret;
-	}
-	return ret;
-}
-EXPORT_SYMBOL(d2153_get_status);
-
-void d2153_set_soc_controls(struct snd_kcontrol_new *controls,
-				u_int array_size)
-{
-	d2153_sndp_controls = controls;
-	d2153_sndp_array_size = array_size;
-}
-EXPORT_SYMBOL(d2153_set_soc_controls);
-#endif
 
 #ifdef CONFIG_SND_SOC_D2153_AAD
 extern int d2153_aad_write_ex(u8 reg, u8 value);
@@ -2271,27 +2192,70 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 	snd_soc_write(codec,D2153_REFERENCES,0x88);
 	
 	d2153_aad_write(client,D2153_ACCDET_CFG1,0x5f);
+//	d2153_aad_write(client,D2153_ACCDET_CFG2,0xBB);
 	d2153_aad_write(client,D2153_ACCDET_CFG2,0x00);
 	d2153_aad_write(client,D2153_ACCDET_CFG3,0x03);
-	d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
+		d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
 //	d2153_aad_write(client,D2153_ACCDET_CFG5,0x2b);
 	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
+	d2153_aad->first_check_done = 0;	
 
 	snd_soc_write(codec,D2153_UNLOCK,0x8b);
 
-	snd_soc_write(codec,D2153_MICBIAS1_CTRL,0x01);	
+	snd_soc_write(codec,D2153_MICBIAS1_CTRL,D2153_MICBIAS1_LVL);	
+
+#ifdef D2153_JACK_DETECT	
+	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
+#else	
+	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
+#endif	
+	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
+	
+	return 0;
+}
+
+int d2153_aad_resume(struct snd_soc_codec *codec)
+{
+	struct d2153_codec_priv *d2153_codec =
+		snd_soc_codec_get_drvdata(codec);
+	struct i2c_client *client = d2153_codec->aad_i2c_client;
+	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+
+	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
+	
+	d2153_aad_write(client,D2153_ACCDET_TST2,0x10);
+	d2153_aad_write(client,D2153_ACCDET_THRESH1,0x1a); //james 0x0f);
+	d2153_aad_write(client,D2153_ACCDET_THRESH2,0x56);
+	d2153_aad_write(client,D2153_ACCDET_THRESH3,0x0e);
+	d2153_aad_write(client,D2153_ACCDET_THRESH4,0x44);
+
+	d2153_aad_write(client,D2153_ACCDET_CFG1,0x5f);
+	d2153_aad_write(client,D2153_ACCDET_CFG2,0x00);
+	d2153_aad_write(client,D2153_ACCDET_CFG3,0x03);
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
+	d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
+//	d2153_aad_write(client,D2153_ACCDET_CFG5,0x2b);
+
+	d2153_aad->first_check_done = 0;
+
+#ifdef D2153_JACK_DETECT	
+	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
+#else	
+	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
+#endif	
 	
 	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
 	
 	return 0;
 }
+
 #endif
 
 static int d2153_probe(struct snd_soc_codec *codec)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	//struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int ret;
 
 	d2153_codec->codec = codec;
@@ -2316,11 +2280,6 @@ static int d2153_probe(struct snd_soc_codec *codec)
 #ifdef CONFIG_SND_SOC_D2153_AAD		
 		d2153_aad_enable(codec);	
 		d2153_codec->codec_init =1;
-#endif	
-#ifdef D2153_FSI_SOUNDPATH
-	ret = snd_soc_add_codec_controls(codec, d2153_sndp_controls,
-				   d2153_sndp_array_size);
-
 #endif
 
 	return 0;
@@ -2330,39 +2289,6 @@ static int d2153_remove(struct snd_soc_codec *codec)
 {
 	d2153_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	return 0;
-}
-
-static unsigned int d2153_codec_read(struct snd_soc_codec *codec, unsigned int reg)
-{
-	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);	
-	struct i2c_msg xfer[2];
-	u8 data;
-	int ret;
-
-//	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	/* Write register */
-	xfer[0].addr = d2153_codec->i2c_client->addr;
-	xfer[0].flags = 0;
-	xfer[0].len = 1;
-	xfer[0].buf = &reg;
-
-	/* Read data */
-	xfer[1].addr = d2153_codec->i2c_client->addr;
-	xfer[1].flags = I2C_M_RD;
-	xfer[1].len = 1;
-	xfer[1].buf = &data;
-
-	ret = i2c_transfer(d2153_codec->i2c_client->adapter, xfer, 2);
-
-//	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
-	if (ret == 2)
-		return data;
-	else if (ret < 0)
-		return ret;
-	else
-		return -EIO;
-
 }
 
 static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int value)
@@ -2390,33 +2316,6 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 		return -EIO;
 
 }
-
-#ifdef D2153_FSI_SOUNDPATH
-int d2153_codec_read_ex(unsigned short reg, unsigned short *value)
-{
-	int ret=0;
-	
-	ret=d2153_codec_read(d2153_conf->codec,reg);
-
-	if(ret < 0)
-		return ret;
-
-	*value=ret;
-
-	return 0;
-}
-EXPORT_SYMBOL(d2153_codec_read_ex);
-
-int d2153_codec_write_ex(unsigned short reg, unsigned short value)
-{
-	int ret=0;
-	
-	ret=d2153_codec_write(d2153_conf->codec,reg,value);
-
-	return ret;
-}
-EXPORT_SYMBOL(d2153_codec_write_ex);
-#endif
 
 static struct snd_soc_codec_driver soc_codec_dev_d2153 = {
 	.probe			= d2153_probe,
@@ -2540,7 +2439,7 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 		struct d2153_codec_priv *d2153_codec =  file->private_data;
 		pmu_reg reg;
 		int ret = 0;
-		u8 reg_val, event_reg[4];
+		u8 reg_val;
 	
 		if (!d2153_codec)
 			return -ENOTTY; 		
@@ -2566,7 +2465,7 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 				if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 					return -EFAULT;
 				if(reg.reg > 0x6b && reg.reg < 0x80) {
-					d2153codec_i2c_write_device(d2153_codec,(u8)reg.reg,1, (u8)(&reg.val));
+					d2153codec_i2c_write_device(d2153_codec,(u8)reg.reg,1, (u8 *)(&reg.val));
 				}
 				else {
 					snd_soc_write(d2153_codec->codec, reg.reg, reg.val);
@@ -2799,10 +2698,6 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 	if (!d2153_codec)
 		return -ENOMEM;
 		
-#ifdef D2153_FSI_SOUNDPATH	
-	d2153_conf = d2153_codec;
-#endif	
-	
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	d2153_codec->d2153_pmic = client->dev.platform_data;
 #endif /* CONFIG_SND_SOC_D2153_AAD */
@@ -2828,20 +2723,6 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 			D2153_AAD_I2C_ADDR);
 #endif /* CONFIG_SND_SOC_D2153_AAD */
 
-#ifdef D2153_FSI_SOUNDPATH	
-	d2153_codec->power_mode=0;
-	/***********************************/
-	/* setup r8a73734                  */
-	/***********************************/
-	//ret = d2153_sndp_enable_vclk4();
-	
-	if (0 != ret)
-		return ret;		
-	
-	/* set default pcm mode */
-	d2153_codec->pcm_mode = SNDP_MODE_INIT;
-#endif
-
 	#ifdef CONFIG_PROC_FS
 		d2153_codec_debug_proc_init(d2153_codec);
 	#endif
@@ -2851,16 +2732,18 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 
 static int __devexit d2153_i2c_remove(struct i2c_client *client)
 {
-#ifdef CONFIG_PROC_FS
-		d2153_codec_debug_proc_exit();
-#endif
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	struct d2153_codec_priv *d2153_codec = i2c_get_clientdata(client);
-
+#endif /* CONFIG_SND_SOC_D2153_AAD */
+#ifdef CONFIG_PROC_FS
+	d2153_codec_debug_proc_exit();
+#endif
+#ifdef CONFIG_SND_SOC_D2153_AAD
 	/* Unregister AAD I2C client */
 	if (d2153_codec->aad_i2c_client)
 		i2c_unregister_device(d2153_codec->aad_i2c_client);
 #endif /* CONFIG_SND_SOC_D2153_AAD */
+
 	snd_soc_unregister_codec(&client->dev);
 	return 0;
 }
@@ -2893,24 +2776,11 @@ static struct i2c_driver d2153_i2c_driver = {
 	.id_table	= d2153_i2c_id,
 };
 
-#ifdef D2153_FSI_SOUNDPATH	
-int __init d2153_modinit(void)
-#else
 static int __init d2153_modinit(void)
-#endif
 {
 	int ret;
-#if defined(CONFIG_MACH_U2EVM)
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
 
 	ret = i2c_add_driver(&d2153_i2c_driver);
-#endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-	ret = i2c_add_driver(&d2153_i2c_driver);
-#endif
 	if (ret)
 		pr_err("D2153 I2C registration failed %d\n", ret);
 
@@ -2918,22 +2788,9 @@ static int __init d2153_modinit(void)
 }
 module_init(d2153_modinit);
 
-#ifdef D2153_FSI_SOUNDPATH	
-void __exit d2153_exit(void)
-#else
 static void __exit d2153_exit(void)
-#endif
 {
-#if defined(CONFIG_MACH_U2EVM)
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
 	i2c_del_driver(&d2153_i2c_driver);
-#endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-	i2c_del_driver(&d2153_i2c_driver);
-#endif
 }
 module_exit(d2153_exit);
 

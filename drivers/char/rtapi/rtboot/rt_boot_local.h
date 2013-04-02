@@ -21,7 +21,7 @@
 #ifndef __RTBOOT_LOCAL_H__
 #define __RTBOOT_LOCAL_H__
 
-#define SDRAM_CAMERA_START_ADDR	0x46600000
+#include <mach/memory-r8a7373.h>
 #include "rt_boot_drv.h"
 
 #define DEBUG (0)

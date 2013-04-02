@@ -4,7 +4,7 @@
 *
 * drivers/power/spa_power.c
 *
-* Drivers for samsung battery and charger. 
+* Drivers for samsung battery and charger.
 * (based on spa.c and linear-power.c)
 *
 * Copyright (C) 2012, Samsung Electronics.
@@ -77,6 +77,10 @@ enum
 	SPA_STATUS_SUSPEND_OVP,
 	SPA_STATUS_FULL_RECHARGE,
 	SPA_STATUS_FULL_FORCE,
+#if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
+	SPA_STATUS_BACKCHARGING,
+	SPA_STATUS_FULL_RECHARGE_BACK_CHARGING,
+#endif
 	SPA_STATUS_VF_INVALID,
 	SPA_STATUS_MAX,
 };
@@ -99,6 +103,15 @@ enum
 	SPA_FAKE_CAP_NONE,
 	SPA_FAKE_CAP_DEC,
 	SPA_FAKE_CAP_INC,
+};
+
+enum
+{
+	SPA_CMD_DISCHARGE,
+	SPA_CMD_CHARGE,
+#if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
+	SPA_CMD_DELAYED_DISCHARGE,
+#endif
 };
 
 /*
@@ -130,11 +143,25 @@ struct spa_power_data
 	int suspend_temp_cold;
 	int recovery_temp_cold;
 
+	int event_suspend_temp_hot;
+	int event_recovery_temp_hot;
+	int event_suspend_temp_cold;
+	int event_recovery_temp_cold;
+
+	int lpm_suspend_temp_hot;
+	int lpm_recovery_temp_hot;
+	int lpm_suspend_temp_cold;
+	int lpm_recovery_temp_cold;
+
 	unsigned int eoc_current;
 	unsigned int recharge_voltage;
 	unsigned int charging_cur_usb;
 	unsigned int charging_cur_wall;
-
+	unsigned int regulated_vol;
+#if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
+	unsigned int backcharging_time;
+	unsigned int recharging_eoc;
+#endif
 	charge_timer_t charge_timer_limit;
 
 	struct spa_temp_tb *batt_temp_tb;
@@ -152,6 +179,11 @@ struct spa_charger_info
 	unsigned int lowbatt_voltage;
 	unsigned int charge_expire_time;
 	unsigned int times_expired;
+
+	int suspend_temp_hot;
+	int recovery_temp_hot;
+	int suspend_temp_cold;
+	int recovery_temp_cold;
 };
 
 struct spa_batt_info
@@ -208,6 +240,9 @@ struct spa_power_desc
 
 	// full charge timer
 	struct delayed_work spa_expire_charge_work;
+#if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
+	struct delayed_work back_charging_work;
+#endif
 
 	struct workqueue_struct *spa_workqueue;
 	struct wake_lock spa_wakelock;
@@ -228,6 +263,8 @@ struct spa_power_desc
 	unsigned char dbg_simul;
 #endif
 	unsigned char dbg_lvl;
+	/*for CTIA test*/
+	unsigned int batt_use;
 };
 
 

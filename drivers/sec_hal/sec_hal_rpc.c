@@ -27,6 +27,7 @@
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_rt_trace.h"
 #include "sec_hal_dev_ioctl.h"
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <asm/system.h>
@@ -163,8 +164,7 @@ void  sec_hal_mem_msg_area_free(void *virt_addr);
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-static
-uint32_t sec_hal_rpc_ins_hdr(sec_hal_rt_rpc_handler fptr)
+static uint32_t sec_hal_rpc_ins_hdr(sec_hal_rt_rpc_handler fptr)
 {
 	uint32_t sec_hal_st = SEC_HAL_RES_OK;
 	uint32_t sec_msg_st = SEC_MSG_STATUS_OK;
@@ -188,7 +188,7 @@ uint32_t sec_hal_rpc_ins_hdr(sec_hal_rt_rpc_handler fptr)
 		SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
 
 	do {
-		if (!in_msg || !out_msg) {
+		if (in_msg == NULL || out_msg == NULL) {
 			SEC_HAL_TRACE("alloc failure, msgs not sent!");
 			sec_hal_st = SEC_HAL_RES_FAIL;
 			break;
@@ -243,12 +243,14 @@ uint32_t sec_hal_rpc_ins_hdr(sec_hal_rt_rpc_handler fptr)
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-static
-uint32_t sec_hal_rpc_cb(uint32_t id, uint32_t p1, uint32_t p2,
-		uint32_t p3, uint32_t p4)
+static uint32_t sec_hal_rpc_cb(
+	uint32_t id,
+	uint32_t p1,
+	uint32_t p2,
+	uint32_t p3,
+	uint32_t p4)
 {
     uint32_t ret = 0x00, size = 0x00;
-    void *kernel_data_ptr = NULL;
     sd_rpc_params_t params = {id, p1, p2, p3, p4, 0, (uint32_t)(current->tgid), (uint32_t)(current->tgid)};
     sec_msg_handle_t in_handle, out_handle;
     uint64_t offset, filesize;
@@ -431,36 +433,35 @@ uint32_t sec_hal_rpc_cb(uint32_t id, uint32_t p1, uint32_t p2,
         {
             sec_msg_handle_t ret_handle;
             sec_msg_t *ret_msg;
+            void *data_ptr = NULL;
+
             SEC_HAL_TRACE("case SEC_HAL_RPC_PROT_DATA_ALLOC:");
             SEC_HAL_TRACE("params.param4 (size): %d", params.param4);
             SEC_HAL_TRACE("params.param3 (user_data_prt): 0x%x", params.param3);
+
             ret_msg = sec_msg_alloc(&ret_handle,
                     3*sec_msg_param_size(sizeof(uint32_t)),
                     SEC_MSG_OBJECT_ID_NONE,
                     0,
                     SEC_HAL_MSG_BYTE_ORDER); /* dealloc by secenv */
-            if (ret_msg && SEC_HAL_RES_OK == params.reserved1) {
+            if (ret_msg && SEC_HAL_RES_OK == params.reserved1 &&
+                0x00 != params.param3 && 0x00 != params.param4) {
                 /* ensure that the prot_data is in SDRAM memory */
-                if (0x00 != params.param3 && 0x00 != params.param4) {
-                    size = params.param4;
-                    /* ensure that the prot_data is in SDRAM memory */
-                    kernel_data_ptr = kmalloc(size, GFP_KERNEL);
-                    copy_from_user(kernel_data_ptr, (const void *)params.param3, size);
-                    SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_data_ptr, size);
-                    SEC_HAL_TRACE("kernel_data_ptr: 0x%x", kernel_data_ptr);
-                }
-                else {
-                    SEC_HAL_TRACE("Allocated data is null!");
-                    size = 0;
+                size = params.param4;
+                /* ensure that the prot_data is in SDRAM memory */
+                data_ptr = kmalloc(size, GFP_KERNEL);
+                if (data_ptr && copy_from_user(data_ptr,
+                                (const void *)params.param3, size)) {
                 }
             }
-            SEC_HAL_TRACE("kernel_data_ptr: 0x%x", kernel_data_ptr);
+
+            SEC_HAL_TRACE("data_ptr: 0x%x", data_ptr);
             SEC_HAL_TRACE("params.reserved1: 0x%x", params.reserved1);
 
             sec_msg_param_write32(&ret_handle, params.reserved1,
                     SEC_MSG_PARAM_ID_NONE);
             sec_msg_param_write32(&ret_handle, size, SEC_MSG_PARAM_ID_NONE);
-            sec_msg_param_write32(&ret_handle, virt_to_phys(kernel_data_ptr),
+            sec_msg_param_write32(&ret_handle, virt_to_phys(data_ptr),
                     SEC_MSG_PARAM_ID_NONE);
             SEC_HAL_TRACE_EXIT_INFO("data_size == %u", size);
             return (uint32_t) SEC_HAL_MEM_VIR2PHY_FUNC(ret_msg);

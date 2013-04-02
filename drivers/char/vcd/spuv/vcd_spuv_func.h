@@ -165,9 +165,6 @@
 #define SPUV_FUNC_SDRAM_CACHE_AREA_SIZE		0x080000
 #define SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE	0x040000
 
-#define SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2	0x47800000
-#define SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY	0x43FC0000
-
 #define SPUV_FUNC_SDRAM_AREA_TOP_PHY		\
 		g_spuv_func_sdram_static_area_top_phy
 #define SPUV_FUNC_SDRAM_NON_CACHE_AREA_TOP	\
@@ -546,14 +543,16 @@
 		{ \
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
-			ret = ioread32(reg); \
+			if (g_spuv_func_is_spuv_clk) \
+				ret = ioread32(reg); \
 			pm_release_spinlock(flags); \
 		}
 #define vcd_spuv_func_set_register(set_bit, reg) \
 		{ \
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
-			iowrite32(set_bit, reg); \
+			if (g_spuv_func_is_spuv_clk) \
+				iowrite32(set_bit, reg); \
 			pm_release_spinlock(flags); \
 		}
 #include <mach/common.h>
@@ -561,7 +560,9 @@
 		{ \
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
-			sh_modify_register32(reg, clear_bit, set_bit); \
+			if (g_spuv_func_is_spuv_clk) \
+				sh_modify_register32( \
+					reg, clear_bit, set_bit); \
 			pm_release_spinlock(flags); \
 		}
 
@@ -633,6 +634,7 @@ struct vcd_spuv_func_fw_info {
 /*
  * extern declaration
  */
+extern bool g_spuv_func_is_spuv_clk;
 
 extern unsigned int g_spuv_func_sdram_static_area_top_phy;
 extern unsigned int g_spuv_func_sdram_static_non_cache_area_top;

@@ -1526,13 +1526,13 @@ static struct proc_dir_entry *sec_cp_crash_proc;
 /* Please reserve 64bytes for EOS_CPCRASH_REASON area */
 static struct sec_debug_inform sec_cp_crash_reason_inform = {
 	.phys = SEC_DEBUG_INFORM_PHYS+EOS_CPCRASH_REASON_OFFSET,
-	.virt = SEC_DEBUG_INFORM_VIRT+EOS_CPCRASH_REASON_OFFSET,
+	.virt = (void __iomem*)SEC_DEBUG_INFORM_VIRT+EOS_CPCRASH_REASON_OFFSET,
 	.size = 128,
 };
 
 static ssize_t sec_read_cp_crash_reason(char *buffer, char **start, off_t offset, int count, int *peor, void *dat)
 {
-	unsigned int i;
+
 
 	char *nv_p = (unsigned char*)(sec_cp_crash_reason_inform.virt);
 
@@ -1542,11 +1542,10 @@ static ssize_t sec_read_cp_crash_reason(char *buffer, char **start, off_t offset
 }
 static ssize_t sec_write_cp_crash_reason(struct file *file, const char __user *buf, unsigned long count, void *data)
 {
-	unsigned int i;
-	char __user *p = buf;
+
+
 	char *nv_p = (unsigned char*)(sec_cp_crash_reason_inform.virt);
 
-//	printk(KERN_INFO"%s buf[0x%08x] count[0x%08x]\n",__func__,(u32)buf,count);
 
 	if(!access_ok(VERIFY_READ, buf, count))
 		return -EFAULT;
@@ -1562,7 +1561,7 @@ static __init int sec_debug_cp_crash_reason_init(void)
 {
 
 	sec_cp_crash_reason_inform.virt = ioremap_nocache(sec_cp_crash_reason_inform.phys, sec_cp_crash_reason_inform.size);
-	printk(KERN_INFO"%s VIRT[0x%08x] PHYS[0x%08x]",__func__,sec_cp_crash_reason_inform.virt,sec_cp_crash_reason_inform.phys);
+	printk(KERN_INFO"%s VIRT[0x%08x] PHYS[0x%08x]",__func__,(u32)sec_cp_crash_reason_inform.virt,(u32)sec_cp_crash_reason_inform.phys);
 
 	sec_cp_crash_proc = create_proc_entry("sec_cp_crash",S_IFREG|S_IRUGO,NULL);
 	if(!sec_cp_crash_proc)
@@ -1581,4 +1580,3 @@ static __exit void sec_debug_cp_crash_reason_exit(void)
 }
 subsys_initcall(sec_debug_cp_crash_reason_init);
 module_exit(sec_debug_cp_crash_reason_exit);
-

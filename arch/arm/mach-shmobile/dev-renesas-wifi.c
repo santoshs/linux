@@ -1,281 +1,41 @@
+/* 
+ * ~/arch/arm/mach-shmobile/dev-u2evm-renesas-wifi.c
+ */
 /*
+ * Copyright (C) 2011 Renesas Mobile Corporation.
+ * Copyright (C) 2011 Renesas Design Vietnam Co., Ltd
  * Copyright (C) 2011 Google, Inc.
  *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
-
+ 
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <asm/mach-types.h>
-#include <asm/gpio.h>
-#include <linux/gpio.h>
-#include <asm/io.h>
-#include <asm/setup.h>
-#include <linux/if.h>
-#include <linux/skbuff.h>
 #include <linux/wlan_plat.h>
-#include <linux/pm_runtime.h>
-#include <linux/regulator/machine.h>
-#include <linux/regulator/driver.h>
-#include <linux/regulator/fixed.h>
-#include <asm/mach/mmc.h>
+#include <linux/gpio.h>
 #include <linux/irq.h>
+#include <linux/if.h>
 #include <linux/random.h>
-#include <linux/jiffies.h>
-#include <mach/dev-renesas-wifi.h>
+#include <asm/io.h>
+#include <mach/dev-wifi.h>
 
-/* WLAN GPIO */
-#define GPIO_WLAN_PMENA 260
-#define GPIO_WLAN_IRQ 98
-	
-#ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
+static unsigned char u2_mac_addr[IFHWADDRLEN] = { 0,0x90,0x4c,0,0,0 };
 
-#define ATAG_RHEA_MAC	0x57464d41
-/* #define ATAG_RHEA_MAC_DEBUG */
-
-#ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
-
-#define WLAN_STATIC_SCAN_BUF0		5
-#define WLAN_STATIC_SCAN_BUF1		6
-#define PREALLOC_WLAN_SEC_NUM		4
-#define PREALLOC_WLAN_BUF_NUM		160
-#define PREALLOC_WLAN_SECTION_HEADER	24
-
-#define WLAN_SECTION_SIZE_0	(PREALLOC_WLAN_BUF_NUM * 128)
-#define WLAN_SECTION_SIZE_1	(PREALLOC_WLAN_BUF_NUM * 128)
-#define WLAN_SECTION_SIZE_2	(PREALLOC_WLAN_BUF_NUM * 512)
-#define WLAN_SECTION_SIZE_3	(PREALLOC_WLAN_BUF_NUM * 1024)
-
-#define DHD_SKB_HDRSIZE			336
-#define DHD_SKB_1PAGE_BUFSIZE	((PAGE_SIZE*1)-DHD_SKB_HDRSIZE)
-#define DHD_SKB_2PAGE_BUFSIZE	((PAGE_SIZE*2)-DHD_SKB_HDRSIZE)
-#define DHD_SKB_4PAGE_BUFSIZE	((PAGE_SIZE*4)-DHD_SKB_HDRSIZE)
-
-#define WLAN_SKB_BUF_NUM	17
-
-static struct sk_buff *wlan_static_skb[WLAN_SKB_BUF_NUM];
-
-struct wlan_mem_prealloc {
-	void *mem_ptr;
-	unsigned long size;
-};
-
-static struct wlan_mem_prealloc wlan_mem_array[PREALLOC_WLAN_SEC_NUM] = {
-	{NULL, (WLAN_SECTION_SIZE_0 + PREALLOC_WLAN_SECTION_HEADER)},
-	{NULL, (WLAN_SECTION_SIZE_1 + PREALLOC_WLAN_SECTION_HEADER)},
-	{NULL, (WLAN_SECTION_SIZE_2 + PREALLOC_WLAN_SECTION_HEADER)},
-	{NULL, (WLAN_SECTION_SIZE_3 + PREALLOC_WLAN_SECTION_HEADER)}
-};
-
-void *wlan_static_scan_buf0;
-void *wlan_static_scan_buf1;
-
-static void *rhea_wifi_mem_prealloc(int section, unsigned long size)
-{
-	if (section == PREALLOC_WLAN_SEC_NUM)
-		return wlan_static_skb;
-	if (section == WLAN_STATIC_SCAN_BUF0)
-		return wlan_static_scan_buf0;	
-	if (section == WLAN_STATIC_SCAN_BUF1)
-		return wlan_static_scan_buf1;	
-	if ((section < 0) || (section > PREALLOC_WLAN_SEC_NUM))
-		return NULL;
-
-	if (wlan_mem_array[section].size < size)
-		return NULL;
-
-	return wlan_mem_array[section].mem_ptr;
-}
-
-int __init rhea_init_wifi_mem(void)
-{
-	int i;
-	int j;
-
-	for (i = 0; i < 8; i++) {
-		wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_1PAGE_BUFSIZE);
-		if (!wlan_static_skb[i])
-			goto err_skb_alloc;
-	}
-
-	for (; i < 16; i++) {
-		wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_2PAGE_BUFSIZE);
-		if (!wlan_static_skb[i])
-			goto err_skb_alloc;
-	}
-
-	wlan_static_skb[i] = dev_alloc_skb(DHD_SKB_4PAGE_BUFSIZE);
-	if (!wlan_static_skb[i])
-		goto err_skb_alloc;
-
-	for (i = 0 ; i < PREALLOC_WLAN_SEC_NUM ; i++) {
-		wlan_mem_array[i].mem_ptr =
-				kmalloc(wlan_mem_array[i].size, GFP_KERNEL);
-
-		if (!wlan_mem_array[i].mem_ptr)
-			goto err_mem_alloc;
-	}
-	wlan_static_scan_buf0 = kmalloc (65536, GFP_KERNEL);
-	if(!wlan_static_scan_buf0)		
-		goto err_mem_alloc;
-	wlan_static_scan_buf1 = kmalloc (65536, GFP_KERNEL);
-	if(!wlan_static_scan_buf1)		
-		goto err_mem_alloc;
-
-	printk("%s: WIFI MEM Allocated\n", __FUNCTION__);
-	return 0;
-
- err_mem_alloc:
-	pr_err("Failed to mem_alloc for WLAN\n");
-	for (j = 0 ; j < i ; j++)
-		kfree(wlan_mem_array[j].mem_ptr);
-
-	i = WLAN_SKB_BUF_NUM;
-
- err_skb_alloc:
-	pr_err("Failed to skb_alloc for WLAN\n");
-	for (j = 0 ; j < i ; j++)
-		dev_kfree_skb(wlan_static_skb[j]);
-
-	return -ENOMEM;
-}
-#endif /* CONFIG_BROADCOM_WIFI_RESERVED_MEM */
-
-
-extern int bcm_sdiowl_init(int onoff);
-extern int bcm_sdiowl_term(void);
-
-
-int renesas_wifi_status_register(
-		void (*callback)(int card_present, void *dev_id),
-		void *dev_id);
-
-
-EXPORT_SYMBOL(renesas_wifi_status_register);
-
-
-int omap4_renesas_get_type(void);
-
-/**
- * omap_mux_init_signal - initialize a signal based on the signal name
- * @muxname:		Mux name in mode0_name.signal_name format
- * @val:		Options for the mux register value
- */
-int omap_mux_init_signal(const char *muxname, int val);
-
-
-int omap4_renesas_get_type(void)
-{
-//	return tuna_hw_rev & TUNA_TYPE_MASK;
-	return 0;
-}
-
-int __init omap_mux_init_signal(const char *muxname, int val)
-{
-
-
-	return 0;
-}
-
-
-
-static int renesas_wifi_cd = 0; /* WIFI virtual 'card detect' status */
-static void (*wifi_status_cb)(int card_present, void *dev_id);
-static void *wifi_status_cb_devid;
-static struct regulator *clk32kaudio_reg;
-
-int renesas_wifi_status_register(
-		void (*callback)(int card_present, void *dev_id),
-		void *dev_id)
-{
-	printk(KERN_ERR " %s ENTRY\n",__FUNCTION__);
-
-	if (wifi_status_cb)
-		return -EAGAIN;
-	wifi_status_cb = callback;
-	wifi_status_cb_devid = dev_id;
-	return 0;
-}
-
-static unsigned int renesas_wifi_status(struct device *dev)
-{
-	return renesas_wifi_cd;
-}
-
-struct mmc_platform_data renesas_wifi_data = {
-	.ocr_mask		= MMC_VDD_165_195 | MMC_VDD_20_21,
-	.built_in		= 1,
-	.status			= renesas_wifi_status,
-	.card_present		= 0,
-	.register_status_notify	= renesas_wifi_status_register,
-};
-
-static int renesas_wifi_set_carddetect(int val)
-{
-
-	pr_debug("%s: %d\n", __func__, val);
-	printk(KERN_ERR " %s INSIDE renesas_wifi_set_carddetect\n",__FUNCTION__);	
-	renesas_wifi_cd = val;
-	if (wifi_status_cb) {
-		printk(KERN_ERR " %s CALLBACK NOT NULL\n",__FUNCTION__);	
-		wifi_status_cb(val, wifi_status_cb_devid);
-		printk(KERN_ERR " %s CALLBACK COMPLETE\n",__FUNCTION__);	
-	} else
-		pr_warning("%s: Nobody to notify\n", __func__);
-	
-	return 0;
-}
-
-static int renesas_wifi_power_state;
-
-struct fixed_voltage_data {
-	struct regulator_desc desc;
-	struct regulator_dev *dev;
-	int microvolts;
-	int gpio;
-	unsigned startup_delay;
-	bool enable_high;
-	bool is_enabled;
-};
-
-
-static int renesas_wifi_power(int on)
-{
-	printk(KERN_ERR " %s INSIDE renesas_wifi_power\n",__FUNCTION__);
-
-	pr_debug("%s: %d\n", __func__, on);
-	mdelay(100);
-	gpio_set_value(GPIO_WLAN_PMENA, on);
-	mdelay(200);
-
-	renesas_wifi_power_state = on;
-	
-	return 0;
-}
-
-static int renesas_wifi_reset_state;
-
-static int renesas_wifi_reset(int on)
-{
-	pr_debug("%s: do nothing\n", __func__);
-		printk(KERN_ERR " %s INSIDE renesas_wifi_reset\n",__FUNCTION__);
-	renesas_wifi_reset_state = on;
-	return 0;
-}
-
-static unsigned char renesas_mac_addr[IFHWADDRLEN] = { 0,0x90,0x4c,0,0,0 };
-
-static int __init renesas_mac_addr_setup(char *str)
+static int __init u2_mac_addr_setup(char *str)
 {
 	char macstr[IFHWADDRLEN*3];
 	char *macptr = macstr;
@@ -284,7 +44,9 @@ static int __init renesas_mac_addr_setup(char *str)
 
 	if (!str)
 		return 0;
-	pr_debug("wlan MAC = %s\n", str);
+		
+	WIFI_DEBUG("%s: Enter\n", __func__);
+	
 	if (strlen(str) >= sizeof(macstr))
 		return 0;
 	strcpy(macstr, str);
@@ -298,27 +60,32 @@ static int __init renesas_mac_addr_setup(char *str)
 		res = strict_strtoul(token, 0x10, &val);
 		if (res < 0)
 			return 0;
-		renesas_mac_addr[i++] = (u8)val;
+		u2_mac_addr[i++] = (u8)val;
 	}
 
 	return 1;
 }
 
-__setup("androidboot.macaddr=", renesas_mac_addr_setup);
+__setup("androidboot.macaddr=", u2_mac_addr_setup);
 
 
-static int renesas_wifi_get_mac_addr(unsigned char *buf)
+static int u2_wifi_get_mac_addr(unsigned char *buf)
 {
 	uint rand_mac;
 
-	if ((renesas_mac_addr[4] == 0) && (renesas_mac_addr[5] == 0)) {
+	WIFI_DEBUG("%s: Enter\n", __func__);
+
+	if ((u2_mac_addr[4] == 0) && (u2_mac_addr[5] == 0)) {
 		srandom32((uint)jiffies);
 		rand_mac = random32();
-		renesas_mac_addr[3] = (unsigned char)rand_mac;
-		renesas_mac_addr[4] = (unsigned char)(rand_mac >> 8);
-		renesas_mac_addr[5] = (unsigned char)(rand_mac >> 16);
+		u2_mac_addr[3] = (unsigned char)rand_mac;
+		u2_mac_addr[4] = (unsigned char)(rand_mac >> 8);
+		u2_mac_addr[5] = (unsigned char)(rand_mac >> 16);
 	}
-	memcpy(buf, renesas_mac_addr, IFHWADDRLEN);
+	memcpy(buf, u2_mac_addr, IFHWADDRLEN);
+	
+	WIFI_DEBUG("%s: Done: MAC address = %s\n", __func__, buf);
+	
 	return 0;
 }
 
@@ -330,7 +97,7 @@ typedef struct cntry_locales_custom {
 	int  custom_locale_rev;
 } cntry_locales_custom_t;
 
-static cntry_locales_custom_t renesas_wifi_translate_custom_table[] = {
+static cntry_locales_custom_t u2_wifi_translate_custom_table[] = {
 /* Table should be filled out based on custom platform regulatory requirement */
 	{"",   "XY", 4},  /* universal */
 	{"US", "US", 69}, /* input ISO "US" to : US regrev 69 */
@@ -376,91 +143,141 @@ static cntry_locales_custom_t renesas_wifi_translate_custom_table[] = {
 	{"MX", "XY", 3}
 };
 
-static void *renesas_wifi_get_country_code(char *ccode)
+static void *u2_wifi_get_country_code(char *ccode)
 {
-	int size = ARRAY_SIZE(renesas_wifi_translate_custom_table);
+	int size = ARRAY_SIZE(u2_wifi_translate_custom_table);
 	int i;
+
+	WIFI_DEBUG("%s: Enter\n", __func__);
 
 	if (!ccode)
 		return NULL;
 
 	for (i = 0; i < size; i++)
-		if (strcmp(ccode, renesas_wifi_translate_custom_table[i].iso_abbrev) == 0)
-			return &renesas_wifi_translate_custom_table[i];
-	return &renesas_wifi_translate_custom_table[0];
+		if (strcmp(ccode, u2_wifi_translate_custom_table[i].iso_abbrev) == 0)
+			return &u2_wifi_translate_custom_table[i];
+	return &u2_wifi_translate_custom_table[0];
 }
 
+static int u2_wifi_power(int on)
+{	
+	static int state;
+	
+	WIFI_DEBUG("%s: %s\n", __func__, (on ? "on" : "off"));
+	
+	if (state == on)
+		return 0;
+	
+	/* Turn on/off WLAN chipset */
+	if (on) {
+		/* enable WL_REG_ON */
+		gpio_set_value(GPIO_WLAN_REG_ON, 1);
+		
+	} else {
+		/* disable WL_REG_ON */
+		gpio_set_value(GPIO_WLAN_REG_ON, 0);
+	}
+	
+	state = on;
+	
+	return 0;
+}
 
-static struct resource renesas_wifi_resources[] = {
-	[0] = {
-		.name		= "bcmdhd_wlan_irq",
-		.flags          = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE | IORESOURCE_IRQ_SHAREABLE,
-	},
+static struct resource bcmdhd_res[] = {
+	{
+	.name = "bcmdhd_wlan_irq",
+	.start = irqpin2irq(42),
+	.end = irqpin2irq(42),
+	.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+	}
 };
 
-
-
-static struct wifi_platform_data renesas_wifi_control = {
-	.set_power      = renesas_wifi_power,
-	.set_reset      = renesas_wifi_reset,
-	.set_carddetect = renesas_wifi_set_carddetect,
-#ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
-	.mem_prealloc	= renesas_wifi_mem_prealloc,
-#endif
-	.get_mac_addr	= renesas_wifi_get_mac_addr,
-	.get_country_code = renesas_wifi_get_country_code,
+static struct wifi_platform_data u2_wifi_control = {
+	.set_power      = u2_wifi_power,
+	.get_mac_addr	= u2_wifi_get_mac_addr,
+	.get_country_code = u2_wifi_get_country_code,
 };
 
-
-
-
-static struct platform_device renesas_wifi_device = {
-	.name = "bcmdhd_wlan",
-	.id = 2,
-	.resource = renesas_wifi_resources,
-	.num_resources   = ARRAY_SIZE(renesas_wifi_resources),
-	.dev      = {
-		.platform_data = &renesas_wifi_control,
-	},
+static struct platform_device u2_wifi_device = {
+        .name           = "bcmdhd_wlan",
+        .id             = 1,
+        .dev            = {
+                .platform_data = &u2_wifi_control,
+        },
+        .num_resources = ARRAY_SIZE(bcmdhd_res),
+        .resource = bcmdhd_res,
 };
 
-
-
-static void __init renesas_wlan_gpio(void)
+static int u2_gpio_init(void) 
 {
-	pr_debug("%s: start\n", __func__);
+	int ret;
+	
+	WIFI_DEBUG("%s: Enter\n", __func__);
 
-	/* GPIO requests for EN and IRQ*/
-	gpio_request(GPIO_WLAN_PMENA, "wl_reset");
-	gpio_direction_output(GPIO_WLAN_PMENA, 0);
-
-	gpio_request(GPIO_WLAN_IRQ, "wl_host_wake");
-	gpio_direction_input(GPIO_WLAN_IRQ);
-
-	/* PD configuration */
-	#define GPIO_WLAN_IRQ_CR 	0xE6051062
-	*((volatile u8 *)GPIO_WLAN_IRQ_CR) = 0xA0;
+	/* WLAN IRQ */
+	ret = gpio_request(GPIO_WLAN_OOB_IRQ, NULL);
+	if (ret) {
+		WIFI_ERROR("%s: Fail to request IRQ GPIO\n", __func__);
+		return -EIO;
+	}
+		
+	gpio_direction_input(GPIO_WLAN_OOB_IRQ);
+	gpio_set_debounce(GPIO_WLAN_OOB_IRQ, 1000); /* Set debounce to 1msec */
+	
+	__raw_writeb(0xA0, WLAN_OOB_IRQ_CR); /* Config WLAN IRQ with PD */
+	
+	/* WLAN REG ON */
+	ret = gpio_request(GPIO_WLAN_REG_ON, NULL);
+	if (ret) {
+		WIFI_ERROR("%s: Fail to request EN GPIO\n", __func__);
+		return -EIO;
+	}
+	gpio_direction_output(GPIO_WLAN_REG_ON, 0);
+	
+	WIFI_DEBUG("%s: Done\n", __func__);
+	
+	return 0;
 }
 
-int __init renesas_wlan_init(void)
+static void u2_gpio_free(void) 
 {
-	pr_debug("%s: start\n", __func__);
-	printk(KERN_ERR " %s Calling GPIO INIT!\n",__FUNCTION__);
+	WIFI_DEBUG("%s: Enter\n", __func__);
 
-	/* Init gpio */
-	renesas_wlan_gpio();
-	printk(KERN_ERR " %s Calling GPIO INIT DONE !\n",__FUNCTION__);
+	/* WLAN IRQ */
+	gpio_free(GPIO_WLAN_OOB_IRQ);
 
-	/* Init irq number*/
-	renesas_wifi_resources[0].start=gpio_to_irq(GPIO_WLAN_IRQ);
-	renesas_wifi_resources[0].end=gpio_to_irq(GPIO_WLAN_IRQ);
-
-#ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
-	renesas_init_wifi_mem();
-	printk(KERN_ERR " %s Calling MEM INIT DONE !\n",__FUNCTION__);	
-#endif
-
-	return platform_device_register(&renesas_wifi_device);
+	/* WLAN REG ON */
+	gpio_free(GPIO_WLAN_REG_ON);
+	
+	WIFI_DEBUG("%s: Done\n", __func__);
 }
 
-#endif
+int __init u2_wifi_init(void)
+{
+	int ret;
+	
+	WIFI_DEBUG("%s: start\n", __func__);
+	
+	ret = u2_gpio_init();
+	if (ret) {
+		WIFI_ERROR("%s: Initialization fail - exiting\n", __func__);
+		return ret;
+	}
+	
+	ret = platform_device_register(&u2_wifi_device);
+	if (ret) {
+		WIFI_ERROR("%s: Initialization fail - exiting\n", __func__);
+		return ret;
+	}
+	
+	WIFI_DEBUG("%s: Done\n", __func__);
+	
+	return 0;
+}
+
+static void __exit u2_wifi_exit(void) {
+	u2_gpio_free();
+}
+
+module_init(u2_wifi_init);
+module_exit(u2_wifi_exit);

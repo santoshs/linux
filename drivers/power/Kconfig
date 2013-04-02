@@ -77,7 +77,7 @@ config TEST_POWER
 
 config PMIC_BAT_INTERFACE
 	bool "PowerManagement IC battery interface support"
-	default y
+	default n
 	help
 	  This enables support for the PowerManagement IC battery interface.
 	  This feature support all battery info for Android framework.
@@ -306,6 +306,11 @@ config CHARGER_SMB328A
 	help
 	  Say Y here to enable support for SMB328A Battery Charge Interface.
 
+config CHARGER_SMB358
+	tristate "SMB358 charger driver"
+	help
+	  Say Y here to enable support for SMB358 Battery Charge Interface.
+
 config CHARGER_LP8727
 	tristate "TI/National Semiconductor LP8727 charger driver"
 	depends on I2C
@@ -327,9 +332,15 @@ config BATTERY_BQ27425
 	help
 	  Say Y here to enable support for BQ27425 fuelgauge Interface.
 
+config SEC_MAKE_LCD_TEST
+	tristate "For LCD TEST Binary"
+	default n
+
 config SEC_CHARGING_FEATURE
 	tristate "SPA charger driver"
+	default n
 	help
+	default n
 	  Say Y here to enable support for SPA Interface.
 
 config CHARGER_MANAGER
@@ -376,7 +387,22 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
 
-#config BATTERY_DUMMY
-#	bool "Dummy battery driver"
+config SPA_SUPPLEMENTARY_CHARGING
+	tristate "Samsung Charging driver, SPA supplementary charging"
+	depends on SEC_CHARGING_FEATURE
+	default n
+	help
+		Say Y to add SPA supplementary charging feature.
+
+config STC3115_FUELGAUGE
+        tristate "STC3115_FUELGAUGE"
+	default n
+        help
+         STC3115_FUELGAUGE
+
+config TARGET_LOCALE_USA
+	tristate "Samsung Charging driver, SPA supplementary charging"
+	help
+	  Say Y here to enable support for CTIA test.
 
 endif # POWER_SUPPLY

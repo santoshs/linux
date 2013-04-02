@@ -31,7 +31,6 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/clk.h>
-#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/vcd/vcd.h>
@@ -64,11 +63,7 @@
 /*!
   @brief	Flag for check board revision.
 */
-#ifdef AUDIO_TEST_CHECK_BOARD_REV
-static u_int audio_test_check_board_rev = 1;
-#else	/* AUDIO_TEST_CHECK_BOARD_REV */
-static u_int audio_test_check_board_rev;
-#endif	/* AUDIO_TEST_CHECK_BOARD_REV */
+/* none */
 
 /*!
   @brief	MAX wait time for wait queue for VCD.
@@ -270,27 +265,7 @@ static size_t g_audio_test_power_domain_count;
   @brief	Wake lock count.
 */
 struct wake_lock g_audio_test_wake_lock;
-/***********************************/
-/* Table for playback              */
-/***********************************/
-static struct audio_test_common_reg_table audio_test_tbl_fsi_playback[] = {
-	/* Register			Value		Delay	Clear */
-	{AUDIO_TEST_FSI_CLK_SEL,	0x00000001,	0,	0},
-	{AUDIO_TEST_FSI_ACK_MD,		0x00000100,	0,	0},
-	{AUDIO_TEST_FSI_ACK_RV,		0x00000001,	0,	0},
-	{AUDIO_TEST_FSI_DO_FMT,		0x00100030,	0,	0},
-	{AUDIO_TEST_FSI_MUTE,		0x00001111,	0,	0},
-	{AUDIO_TEST_FSI_DOFF_CTL,	0x00100001,	0,	0},
-	{AUDIO_TEST_FSI_OUT_DMAC,	0x00000021,	0,	0},
-	{AUDIO_TEST_FSI_SWAP_SEL,	0x00000002,	0,	0},
-};
-static struct audio_test_common_reg_table
-				audio_test_tbl_clkgen_playback[] = {
-	/* Register			Value		Delay	Clear */
-	{AUDIO_TEST_CLKG_SYSCTL,	0x00000000,	0,	0},
-	{AUDIO_TEST_CLKG_FSIACOM,	0x00212901,	0,	0},
-	{AUDIO_TEST_CLKG_PULSECTL,	0x00000001,	0,	0},
-};
+
 /***********************************/
 /* Table for loopback              */
 /***********************************/
@@ -398,94 +373,6 @@ static struct audio_test_common_reg_table
 	   CF1EN (3) : 0 (Disable.), CF0EN (2) : 0 (Disable.),
 	   PBEN (1) : 0 (Disable.), PAEN (0) : 1 (Enable.) */
 	{AUDIO_TEST_CLKG_PULSECTL,	0x00000001,	0,	0},
-};
-static struct audio_test_common_reg_table
-				audio_test_tbl_scuw_spuv_loopback[] = {
-	/* Register			Value		Delay	Clear */
-	/* Selector Control Register 21 (SELCR_SEL21) */
-	/* SEL (0) : 1 (SPU2V output data) */
-	{AUDIO_TEST_SCUW_SEL_SELCR21,	0x00000001,	0,	0},
-	/* Selector Control Register 15 (SELCR_SEL15) */
-	/* SEL (0) : 1 (Voice data (from VOIP)) */
-	{AUDIO_TEST_SCUW_SEL_SELCR15,	0x00000001,	0,	0},
-	/* Selector Control Register 12 (SELCR_SEL12) */
-	/* SEL (2to0) : 011 (FSI-IF read port 1 data (from FSI2)) */
-	{AUDIO_TEST_SCUW_SEL_SELCR12,	0x00000003,	0,	0},
-	/* Module stop register 1 (MSTP1_N) */
-	/* MSTP0_N (0) : 1 (FSI-IF operates.) */
-	{AUDIO_TEST_SCUW_MSTP1,		0x00000001,	0,	0},
-	/* FSI IF Software Reset Register (SWRSR_FSIF) */
-	/* SWRST (0) : 0 (Reset the FSI IF.) */
-	{AUDIO_TEST_SCUW_FSIIF_SWRSR,	0x00000000,	0,	0},
-	/* FSI IF Software Reset Register (SWRSR_FSIF) */
-	/* SWRST (0) : 1 (FSI IF enters the operating state.) */
-	{AUDIO_TEST_SCUW_FSIIF_SWRSR,	0x00000001,	0,	0},
-	/* FSI IF Initialization Register (FSIIR) */
-	/* INIT (0) : 1 (Initialization) */
-	{AUDIO_TEST_SCUW_FSIIF_FSIIR,	0x00000001,	0,	0},
-	/* FSI IF Audio Information Register (ADINR_FSIF0_W0) */
-	/* CHNUM (3to0) : 0010 (2 channel) */
-	{AUDIO_TEST_SCUW_FSIIF_ADINRW0,	0x00000002,	0,	0},
-	/* FSI IF Audio Information Register (ADINR_FSIF0_R1) */
-	/* CHNUM (3to0) : 0010 (2 channel) */
-	{AUDIO_TEST_SCUW_FSIIF_ADINRR1,	0x00000002,	0,	0},
-	/* FSI Write Address Control Register for Port 0 (WADCR_FSIF_0) */
-	/* WAD (7to0) : 0x09 (FSI2 port A) */
-	{AUDIO_TEST_SCUW_FSIIF_WADCR0,	0x00000009,	0,	0},
-	/* FSI Read Address Control Register for Port 1 (RADCR_FSIF_1) */
-	/* RAD (7to0) : 0x08 (FSI2 port A) */
-	{AUDIO_TEST_SCUW_FSIIF_RADCR1,	0x00000008,	0,	0},
-	/* FSI IF Initialization Register (FSIIR) */
-	/* INIT (0) : 0 (Processing State) */
-	{AUDIO_TEST_SCUW_FSIIF_FSIIR,	0x00000000,	0,	0},
-	/* Voice Data Setting Register (VDSET) */
-	/* VDEXPD (1) : 1 (Channel 1 to 7 are copied Channel 0) */
-	{AUDIO_TEST_SCUW_VD_VDSET,	0x00000002,	0,	0},
-};
-static struct audio_test_common_reg_table
-				audio_test_tbl_clkgen_spuv_loopback[] = {
-	/* Register			Value		Delay	Clear */
-	/* CLKG System control register (CLKGSYSCTL) */
-	/* CKSEL (3) : 0 (Supplies EXTAL1 for core clock.),
-	   CKSTP2 (2) : 0 (Supplies EXTAL2.),
-	   CKSTP1 (1) : 0 (Supplies EXTAL1.), CSR (0) : 0 (Clears the reset.) */
-	{AUDIO_TEST_CLKG_SYSCTL,	0x00000000,	0,	0},
-	/* CLKG common register (CLKGSPUVCOM) */
-	/* TDIV (27to24) : 0000 (Setting TDM-Adopter repeat time),
-	   MODE (21to20) : 10 (Non-continuos clock mode),
-	   FORM (17to16) : 01 (2ch(LR) format),
-	   FS (14to12) : 011 (128fs), RATE (11to8) : 0100 (16kHz),
-	   INV (5) : 0 (non-invert BCLK),
-	   CLKGM (0) : 1 (Select CLKGEN master) */
-	{AUDIO_TEST_CLKG_SPUVCOM,	0x00213401,	0,	0},
-	/* CLKG TIM select register0 (CLKGTIMSEL0) */
-	/* CF1TIM (27to24) : 0000 (Select CPU-FIFO1 TIM),
-	   CF0TIM (19to16) : 0000 (Select CPU-FIFO0 TIM),
-	   AURTIM (11to8) : 0000 (Select AURAM TIM),
-	   VOTIM (3to0) : 0010 (Select Port A TIM) */
-	{AUDIO_TEST_CLKG_TIMSEL0,	0x00000002,	0,	0},
-	/* CLKG TIM select register1 (CLKGTIMSEL1) */
-	/* PWMTIM (31to28) : 0000 (Select Port A TIM),
-	   FFDTIM (27to24) : 0000 (Select CPU-FIFO1 TIM),
-	   RECTIM2 (19to16) : 0000 (Select Port A TIM),
-	   RECTIM1 (11to8) : 0010 (Select Port A TIM),
-	   RECTIM0 (3to0) : 0000 (Select Port A TIM) */
-	{AUDIO_TEST_CLKG_TIMSEL1,	0x00000200,	0,	0},
-	/* CLKG common register (CLKGFSIACOM) */
-	/* TDIV (27to24) : 0000 (Setting TDM-Adopter repeat time),
-	   MODE (21to20) : 10 (Non-continuos clock mode),
-	   FORM (17to16) : 01 (2ch(LR) format),
-	   FS (14to12) : 011 (128fs), RATE (11to8) : 0100 (16kHz),
-	   INV (5) : 0 (non-invert BCLK),
-	   CLKGM (0) : 1 (Select CLKGEN master) */
-	{AUDIO_TEST_CLKG_FSIACOM,	0x00213401,	0,	0},
-	/* CLKG PULSE control register (CLKGPULSECTL) */
-	/* VINTREV (9) : 0 (normal), VINTSEL (8) : 0 (HW VINT (from PAD).),
-	   SLIMEN (7) : 0 (Disable.), FFDEN (6) : 0 (Disable.),
-	   AUEN (5) : 0 (Disable.), SVEN (4) : 1 (Enable.),
-	   CF1EN (3) : 0 (Disable.), CF0EN (2) : 0 (Disable.),
-	   PBEN (1) : 0 (Disable.), PAEN (0) : 1 (Enable.) */
-	{AUDIO_TEST_CLKG_PULSECTL,	0x00000011,	0,	0},
 };
 
 /*---------------------------------------------------------------------------*/
@@ -636,14 +523,6 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 	/* Add not to be suspend in loopback */
 	wake_lock(&g_audio_test_wake_lock);
 
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
-
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
@@ -652,6 +531,24 @@ static int audio_test_proc_start_scuw_loopback(u_int fsi_port)
 		audio_test_log_err("audio_test_loopback_setup");
 		goto error;
 	}
+
+	/***********************************/
+	/* Enable SCUW clock               */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_SCUW,
+				AUDIO_TEST_DRV_STATE_ON);
+
+	/***********************************/
+	/* Enable FSI clock                */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
+				AUDIO_TEST_DRV_STATE_ON);
+
+	/***********************************/
+	/* Enable CLKGEN clock             */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
+				AUDIO_TEST_DRV_STATE_ON);
 
 	/***********************************/
 	/* Set SCUW register               */
@@ -708,17 +605,38 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	audio_test_log_efunc("");
 
 	/***********************************/
-	/* Remove                          */
+	/* Wait VCD                        */
 	/***********************************/
-	audio_test_loopback_remove();
+	wait_event_interruptible_timeout(
+		g_watch_stop_clk_queue,
+		atomic_read(&g_audio_test_watch_stop_clk),
+		msecs_to_jiffies(AUDIO_TEST_WATCH_CLK_TIME_OUT));
+	atomic_set(&g_audio_test_watch_stop_clk, 0);
 
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
+	/***********************************/
+	/* Stop SCUW                       */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_SCUW,
+				AUDIO_TEST_DRV_STATE_OFF);
+
+	/***********************************/
+	/* Stop FSI                        */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
+				AUDIO_TEST_DRV_STATE_OFF);
+
+	/***********************************/
+	/* Stop CLKGEN                     */
+	/***********************************/
+	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
+				AUDIO_TEST_DRV_STATE_OFF);
+
+	/* Disable the power domain */
+	ret = pm_runtime_put_sync(g_audio_test_power_domain);
+	if (0 != ret)
+		audio_test_log_err("pm_runtime_put_sync res[%d]\n", ret);
+
+	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -726,10 +644,6 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
 	return ret;
 }
 
@@ -751,14 +665,6 @@ static int audio_test_proc_start_tone(void)
 	/* Add not to be suspend in loopback */
 	wake_lock(&g_audio_test_wake_lock);
 
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
-
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
@@ -768,33 +674,13 @@ static int audio_test_proc_start_tone(void)
 		goto error;
 	}
 
-	/***********************************/
-	/* Set SCUW register               */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_SCUW,
-				audio_test_tbl_scuw_spuv_loopback,
-				ARRAY_SIZE(audio_test_tbl_scuw_spuv_loopback));
-
-	/***********************************/
-	/* Set FSI register                */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_FSI,
-				audio_test_tbl_fsi_loopback,
-				ARRAY_SIZE(audio_test_tbl_fsi_loopback));
-
-	/***********************************/
-	/* Set CLKGEN register             */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_CLKGEN,
-			audio_test_tbl_clkgen_spuv_loopback,
-			ARRAY_SIZE(audio_test_tbl_clkgen_spuv_loopback));
-
-	/***********************************/
-	/* Clock reset                     */
-	/***********************************/
-	sh_modify_register32(
-		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
-		0, 0x00000001);
+	/* Notify to Sound driver */
+	/* for KeyTone Mix and Audience */
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_START);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_notify_loopback");
+		goto error;
+	}
 
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_ON;
 
@@ -824,18 +710,16 @@ static int audio_test_proc_stop_tone(void)
 
 	audio_test_log_efunc("");
 
+	/* Notify to Sound driver */
+	/* for KeyTone Mix and Audience */
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_STOP);
+	if (0 != ret)
+		audio_test_log_err("audio_test_notify_loopback");
+
 	/***********************************/
 	/* Remove                          */
 	/***********************************/
 	audio_test_loopback_remove();
-
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -843,10 +727,6 @@ static int audio_test_proc_stop_tone(void)
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
 	return ret;
 }
 
@@ -872,14 +752,6 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 	/* Add not to be suspend in loopback */
 	wake_lock(&g_audio_test_wake_lock);
 
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_START);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
-
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
@@ -889,33 +761,13 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 		goto error;
 	}
 
-	/***********************************/
-	/* Set SCUW register               */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_SCUW,
-				audio_test_tbl_scuw_spuv_loopback,
-				ARRAY_SIZE(audio_test_tbl_scuw_spuv_loopback));
-
-	/***********************************/
-	/* Set FSI register                */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_FSI,
-				audio_test_tbl_fsi_loopback,
-				ARRAY_SIZE(audio_test_tbl_fsi_loopback));
-
-	/***********************************/
-	/* Set CLKGEN register             */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_CLKGEN,
-			audio_test_tbl_clkgen_spuv_loopback,
-			ARRAY_SIZE(audio_test_tbl_clkgen_spuv_loopback));
-
-	/***********************************/
-	/* Clock reset                     */
-	/***********************************/
-	sh_modify_register32(
-		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
-		0, 0x00000001);
+	/* Notify to Sound driver */
+	/* for KeyTone Mix and Audience */
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_START);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_notify_loopback");
+		goto error;
+	}
 
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_ON;
 
@@ -946,18 +798,16 @@ static int audio_test_proc_stop_spuv_loopback(void)
 
 	audio_test_log_efunc("");
 
+	/* Notify to Sound driver */
+	/* for KeyTone Mix and Audience */
+	ret = audio_test_notify_loopback(SNDP_EXTDEV_STOP);
+	if (0 != ret)
+		audio_test_log_err("audio_test_notify_loopback");
+
 	/***********************************/
 	/* Remove                          */
 	/***********************************/
 	audio_test_loopback_remove();
-
-	/* Notify to Sound driver */
-	/* for KeyTone Mix and Audience */
-	ret = audio_test_notify_loopback(SNDP_A2220_STOP);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_loopback");
-		goto error;
-	}
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -965,10 +815,6 @@ static int audio_test_proc_stop_spuv_loopback(void)
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
-	return ret;
-
-error:
-	audio_test_log_err("ret[%d]", ret);
 	return ret;
 }
 
@@ -991,21 +837,6 @@ static int audio_test_proc_start_sound_play(void)
 	/* Add not to be suspend in playback */
 	wake_lock(&g_audio_test_wake_lock);
 
-	/* Notify to Sound driver */
-	ret = audio_test_notify_playback(SNDP_ON);
-	if (0 != ret) {
-		audio_test_log_err("audio_test_notify_playback");
-		goto error;
-	}
-
-	if (AUDIO_TEST_DRV_STATE_ON == audio_test_pt_state) {
-		audio_test_log_info("already setting");
-		if ((AUDIO_TEST_DRV_OUT_EARPIECE == audio_test_drv_out_device_type) ||
-		    (AUDIO_TEST_DRV_OUT_HEADPHONE == audio_test_drv_out_device_type))
-			fsi_d2153_soc_write(0);
-		return 0;
-	}
-
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
@@ -1015,42 +846,19 @@ static int audio_test_proc_start_sound_play(void)
 		goto error;
 	}
 
-	/***********************************/
-	/* Set FSI register                */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_FSI,
-				audio_test_tbl_fsi_playback,
-				ARRAY_SIZE(audio_test_tbl_fsi_playback));
+	/* Notify to Sound driver */
+	ret = audio_test_notify_playback(SNDP_ON);
+	if (0 != ret) {
+		audio_test_log_err("audio_test_notify_playback");
+		goto error;
+	}
 
-	/***********************************/
-	/* Set CLKGEN register             */
-	/***********************************/
-	audio_test_common_set_register(AUDIO_TEST_HW_CLKGEN,
-			audio_test_tbl_clkgen_playback,
-			ARRAY_SIZE(audio_test_tbl_clkgen_playback));
-
-	/***********************************/
-	/* Clock reset                     */
-	/***********************************/
-	sh_modify_register32(
-		(g_audio_test_fsi_Base + AUDIO_TEST_FSI_ACK_RST),
-		0, 0x00000001);
+	if (AUDIO_TEST_DRV_STATE_ON == audio_test_pt_state) {
+		audio_test_log_info("already setting");
+		return 0;
+	}
 
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_ON;
-
-#if 0
-/* temp process */
-	if (AUDIO_TEST_DRV_OUT_EARPIECE == audio_test_drv_out_device_type)
-		fsi_d2153_soc_write(0);
-	else if (AUDIO_TEST_DRV_OUT_HEADPHONE == audio_test_drv_out_device_type)
-		fsi_d2153_soc_write(1);
-
-/* temp process */
-#else
-	if ((AUDIO_TEST_DRV_OUT_EARPIECE == audio_test_drv_out_device_type) ||
-	    (AUDIO_TEST_DRV_OUT_HEADPHONE == audio_test_drv_out_device_type))
-		fsi_d2153_soc_write(0);
-#endif
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -1078,15 +886,15 @@ static int audio_test_proc_stop_sound_play(void)
 
 	audio_test_log_efunc("");
 
-	/***********************************/
-	/* Remove                          */
-	/***********************************/
-	audio_test_playback_remove();
-
 	/* Notify to Sound driver */
 	ret = audio_test_notify_playback(SNDP_OFF);
 	if (0 != ret)
 		audio_test_log_err("audio_test_notify_playback");
+
+	/***********************************/
+	/* Remove                          */
+	/***********************************/
+	audio_test_playback_remove();
 
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
@@ -1308,7 +1116,6 @@ static int audio_test_loopback_setup(void)
 {
 	int ret = 0;
 	int res = 0;
-	int reg = 0;
 	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
@@ -1332,18 +1139,6 @@ static int audio_test_loopback_setup(void)
 	}
 
 	/***********************************/
-	/* Enable SCUW clock               */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_SCUW,
-				AUDIO_TEST_DRV_STATE_ON);
-
-	/***********************************/
-	/* Enable FSI clock                */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
-				AUDIO_TEST_DRV_STATE_ON);
-
-	/***********************************/
 	/* Wait VCD                        */
 	/***********************************/
 	wait_event_interruptible_timeout(
@@ -1351,23 +1146,6 @@ static int audio_test_loopback_setup(void)
 		atomic_read(&g_audio_test_watch_start_clk),
 		msecs_to_jiffies(AUDIO_TEST_WATCH_CLK_TIME_OUT));
 	atomic_set(&g_audio_test_watch_start_clk, 0);
-
-	/***********************************/
-	/* Enable CLKGEN clock             */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
-				AUDIO_TEST_DRV_STATE_ON);
-
-	/***********************************/
-	/* Set GPIO                        */
-	/***********************************/
-	reg = ioread16(AUDIO_TEST_FSI2CR);
-	audio_test_log_info("FSI2CR[%#06x]", reg);
-	if (reg & (1 << 8)) {
-		sh_modify_register16(AUDIO_TEST_FSI2CR, 0x0300, 0);
-		reg = ioread16(AUDIO_TEST_FSI2CR);
-		audio_test_log_info("FSI2CR[%#06x]", reg);
-	}
 
 error:
 	audio_test_log_rfunc("ret[%d]", ret);
@@ -1387,7 +1165,6 @@ static int audio_test_playback_setup(void)
 {
 	int ret = 0;
 	int res = 0;
-	int reg = 0;
 
 	audio_test_log_efunc("");
 
@@ -1404,29 +1181,6 @@ static int audio_test_playback_setup(void)
 		audio_test_log_err("pm_runtime_get_sync res[%d]\n", res);
 		ret = -1;
 		goto runtime_error;
-	}
-
-	/***********************************/
-	/* Enable FSI clock                */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
-				AUDIO_TEST_DRV_STATE_ON);
-
-	/***********************************/
-	/* Enable CLKGEN clock             */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
-				AUDIO_TEST_DRV_STATE_ON);
-
-	/***********************************/
-	/* Set GPIO                        */
-	/***********************************/
-	reg = ioread16(AUDIO_TEST_FSI2CR);
-	audio_test_log_info("FSI2CR[%#06x]", reg);
-	if (reg & (1 << 8)) {
-		sh_modify_register16(AUDIO_TEST_FSI2CR, 0x0300, 0);
-		reg = ioread16(AUDIO_TEST_FSI2CR);
-		audio_test_log_info("FSI2CR[%#06x]", reg);
 	}
 
 	audio_test_log_rfunc("ret[%d]", ret);
@@ -1464,24 +1218,6 @@ static void audio_test_loopback_remove(void)
 		msecs_to_jiffies(AUDIO_TEST_WATCH_CLK_TIME_OUT));
 	atomic_set(&g_audio_test_watch_stop_clk, 0);
 
-	/***********************************/
-	/* Stop SCUW                       */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_SCUW,
-				AUDIO_TEST_DRV_STATE_OFF);
-
-	/***********************************/
-	/* Stop FSI                        */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
-				AUDIO_TEST_DRV_STATE_OFF);
-
-	/***********************************/
-	/* Stop CLKGEN                     */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
-				AUDIO_TEST_DRV_STATE_OFF);
-
 	/* Disable the power domain */
 	res = pm_runtime_put_sync(g_audio_test_power_domain);
 	if (0 != res)
@@ -1510,18 +1246,6 @@ static void audio_test_playback_remove(void)
 	int res = 0;
 
 	audio_test_log_efunc("");
-
-	/***********************************/
-	/* Stop FSI                        */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_FSI,
-				AUDIO_TEST_DRV_STATE_OFF);
-
-	/***********************************/
-	/* Stop CLKGEN                     */
-	/***********************************/
-	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
-				AUDIO_TEST_DRV_STATE_OFF);
 
 	/* Disable the power domain */
 	res = pm_runtime_put_sync(g_audio_test_power_domain);
@@ -2172,12 +1896,7 @@ static int __init audio_test_init(void)
 {
 	int ret = 0;
 	struct audio_test_priv *dev_conf = NULL;
-#if defined(CONFIG_MACH_U2EVM)
-	if (1 == audio_test_check_board_rev) {
-		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-			return -ENODEV;
-	}
-#endif
+
 	audio_test_log_efunc("");
 
 	/* register misc */
@@ -2290,12 +2009,6 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
-#if defined(CONFIG_MACH_U2EVM)
-	if (1 == audio_test_check_board_rev) {
-		if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-			return;
-	}
-#endif
 	audio_test_log_efunc("");
 
 	misc_deregister(&audio_test_misc_dev);

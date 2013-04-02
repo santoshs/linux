@@ -105,6 +105,7 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 	int ret = 0;
 
 	pr_spa_agent_dbg(LEVEL3, "%s : agent get request = %d \n", __func__, prop);
+	propval->intval = 0;
 
 	switch(prop) {
 		case POWER_SUPPLY_PROP_STATUS:
@@ -115,7 +116,10 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 			if(spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type)
 				propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type();
 			else
+			{
+				propval->intval = POWER_SUPPLY_TYPE_BATTERY;
 				ret = -ENODATA;
+			}
 			break;
 		case POWER_SUPPLY_PROP_TEMP:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_TEMP);
@@ -150,9 +154,18 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 			if(spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence)
 				propval->intval = spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence(0);
 			else
+			{
+				propval->intval = 1;
 				ret = -ENODATA;
+			}
 			break;
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_CURRENT);
+			if(spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current)
+				propval->intval = spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current(1); // eoc check
+			else
+				ret = -ENODATA;
+			break;
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		default:
 			ret = -ENODATA;

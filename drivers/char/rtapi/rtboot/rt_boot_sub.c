@@ -23,7 +23,6 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <mach/common.h>
-#undef CONFIG_ARM_SEC_HAL
 #include <linux/io.h>
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
@@ -331,6 +330,8 @@ void write_req_comp(void)
 
 #ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 #define RT_BOOT_HW_ID_REV_0_0_X 0
+#define RT_BOOT_HW_ID_REV_0_1_0 1
+#define RT_BOOT_HW_ID_REV_0_2_0 2
 #define RT_BOOT_HW_ID_REV_0_2_1 1
 #define RT_BOOT_HW_ID_REV_0_2_2 2
 #define RT_BOOT_HW_ID_REV_0_3_X 3
@@ -366,7 +367,7 @@ static int set_screen_data(unsigned int disp_addr)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifndef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+#if !defined(CONFIG_MACH_GARDALTE) && !defined(CONFIG_MACH_LOGANLTE) && !defined(CONFIG_MACH_LT02LTE)
 	case RT_BOOT_HW_ID_REV_0_2_1:
 	case RT_BOOT_HW_ID_REV_0_2_2:
 	case RT_BOOT_HW_ID_REV_0_3_X:
@@ -388,8 +389,10 @@ static int set_screen_data(unsigned int disp_addr)
 		screen[0].mode   = 0; /* VIDEO MODE */
 
 		break;
-#else /* CONFIG_MACH_GARDALTE and CONFIG_MACH_LOGANLTE */
+#else /* !CONFIG_MACH_GARDALTE && !CONFIG_MACH_LOGANLTE && !CONFIG_MACH_LT02LTE */
 	case RT_BOOT_HW_ID_REV_0_0_X:
+	case RT_BOOT_HW_ID_REV_0_1_0:
+	case RT_BOOT_HW_ID_REV_0_2_0:
 	case RT_BOOT_HW_ID_REV_0_5_X:
 	case RT_BOOT_HW_ID_REV_0_6_X:
 		/* WVGA */
@@ -407,9 +410,9 @@ static int set_screen_data(unsigned int disp_addr)
 			  "CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE");
 #endif
 		break;
-#endif /* CONFIG_MACH_GARDALTE */
+#endif /* !CONFIG_MACH_GARDALTE && !CONFIG_MACH_LOGANLTE && !CONFIG_MACH_LT02LTE */
 	default:
-		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n"
+		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
 					"Unknown HWID(=%d)\n", hw_id);
 		screen[0].height = 0;
 		screen[0].width  = 0;
@@ -448,6 +451,14 @@ static int set_screen_data(unsigned int disp_addr)
 	screen[0].stride = 480;
 	screen[0].mode   = 0; /* VIDEO MODE */
 #endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
+
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
+	MSG_LOW("WSVGA(VX5B3D) video mode setting.\n");
+	screen[0].height = 600;
+	screen[0].width  = 1024;
+	screen[0].stride = 1024;
+	screen[0].mode   = 0; /* VIDEO MODE */
+#endif /* CONFIG_FB_R_MOBILE_VX5B3D */
 
 #endif /* CONFIG_FB_R_MOBILE_PANEL_SWITCH */
 

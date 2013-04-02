@@ -412,18 +412,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 
 static struct i2c_board_info i2cm_devices[] = {
 	{
-                I2C_BOARD_INFO("max98090", 0x10),
-                .irq            = R8A7373_IRQC_IRQ(34),
-    },
-    {
-                I2C_BOARD_INFO("max97236", 0x40),
-                .irq            = R8A7373_IRQC_IRQ(34),
-    },
-    {
-                I2C_BOARD_INFO("wm1811", 0x1a),
-                .irq            = R8A7373_IRQC_IRQ(24),
-    },
-	{
 		I2C_BOARD_INFO("audience_a2220", 0x3E),
 		.platform_data = &u2evm_a2220_data,
 	},

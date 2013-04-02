@@ -15,6 +15,17 @@ config USB_SWITCH_TSU6712
 	help
 	  MUIC TSU6712
 
+config USB_SWITCH_RT8973
+	bool "MUIC RT8973"
+	help
+	  MUIC RT8973
+
+config USE_MUIC
+	bool "MUIC USE"
+	depends on USB_SWITCH_RT8973||USB_SWITCH_TSU6712
+	help
+	 MUIC setting
+
 config AD525X_DPOT
 	tristate "Analog Devices Digital Potentiometers"
 	depends on (I2C || SPI) && SYSFS
@@ -395,6 +406,69 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
+config SENSORS_K3DH
+	tristate "K3DH acceleration sensor support"
+	depends on I2C
+	default n
+	help
+	  Driver for STMicroelectronic K3DH accelerometer.
+
+config SENSORS_ACC_12BIT
+	tristate "12bit acceleration sensor support"
+	depends on I2C
+	default n
+	help
+	  Driver for 12bit accelerometer.
+
+config SENSORS_ACC_FILTER
+	tristate "acceleration sensor filter support"
+	depends on I2C
+	default n
+	help
+	  Driver for 12bit accelerometer.
+
+config SENSORS_GP2AP002
+	tristate "GP2AP002 sensor support"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you get support for Sharp's sensor GP2A.
+
+config SENSORS_GP2A030
+	depends on I2C
+	tristate "GP2AP030 driver"
+	default n
+	help
+	  This option enables proximity & light sensors using gp2ap030 driver.
+
+config SENSORS_HSCD
+	tristate "ALPS Magnetic Sensor HSCD Driver Support"
+         depends on I2C
+	default n
+         help
+	  If you say yes here you get support for the ALPS magnateic sensor
+
+config SENSORS_HSCDTD006A
+	tristate "ALPS Magnetic Sensor HSCDTD006A Driver Support"
+         depends on I2C
+	default n
+         help
+	  If you say yes here you get support for the ALPS magnateic sensor
+
+config SENSORS_HSCDTD008A
+	tristate "ALPS Magnetic Sensor HSCDTD008A Driver Support"
+         depends on I2C
+	default n
+         help
+	  If you say yes here you get support for the ALPS magnateic sensor
+
+config SENSORS_MAG_15BIT
+	tristate "15bit Magnetic Sensor Driver Support"
+         depends on I2C
+	default n
+         help
+	  If you say yes here you get support for the ALPS magnateic sensor
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -537,35 +611,6 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
-config MPU_ENABLE
-	bool "mpu gyro sensor"
-	depends on I2C
-	default n
-
-config MPU_411_ENABLE
-	bool "mpu gyro sensor MPL 4.1.1"
-	depends on I2C
-	default n
-
-config YAS_532_ENABLE
-	bool "yas 532 sensor YAS 4.2.602"
-	depends on I2C
-	default n
-
-config OPTICAL_GP2A
-	depends on I2C
-	tristate "GP2A driver"
-	default n
-	help
-	  This option enables proximity & light sensors using gp2a driver.
-
-config OPTICAL_GP2AP020A00F
-	depends on I2C
-	tristate "GP2AP020A00F driver"
-	default n
-	help
-	  This option enables proximity & light sensors using gp2ap020a00f driver.
-
 config OPTICAL_TAOS_TRITON
 	depends on I2C
 	tristate "TAOS ambient light and proximity input device"
@@ -592,6 +637,10 @@ config WL127X_RFKILL
 	 Creates an rfkill entry in sysfs for power control of Bluetooth
 	 TI wl127x chips.
 
+config SEC_MAKE_LCD_TEST
+	tristate "For LCD TEST Binary"
+	default n   
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -602,7 +651,5 @@ source "drivers/misc/carma/Kconfig"
 source "drivers/misc/pwm/Kconfig"
 source "drivers/misc/vibrator/Kconfig"
 source "drivers/misc/pcm2pwm/Kconfig"
-source "drivers/misc/inv_mpu/Kconfig"
-source "drivers/misc/yas532/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 endmenu

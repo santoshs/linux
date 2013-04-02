@@ -55,10 +55,12 @@ struct sh_csi2 {
 	unsigned int			irq;
 	unsigned long			mipi_flags;
 	void __iomem			*base;
+	void __iomem			*intcs_base;
 	struct platform_device		*pdev;
 	struct sh_csi2_client_config	*client;
 	int				strm_on;
 	spinlock_t			lock;
+	unsigned int			err_cnt;
 #if SH_CSI2_DEBUG
 	int				vd_s_cnt;
 	int				vd_e_cnt;
@@ -177,9 +179,10 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 	spin_lock_irqsave(&priv->lock, flags);
 
 	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
-	if (intstate & SH_CSI2_INT_ERROR)
+	if (intstate & SH_CSI2_INT_ERROR) {
+		priv->err_cnt++;
 		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
-
+	}
 #if SH_CSI2_ERROR_RESET
 	if (intstate & SH_CSI2_INT_RESET_ERROR) {
 		u32 reg_vcdt = 0;
@@ -306,7 +309,6 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
 	unsigned long flags;
-	void __iomem *intcs_base;
 
 	spin_lock_irqsave(&priv->lock, flags);
 	if (0 != enable) {
@@ -314,35 +316,24 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 1);
 
-		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
-			dev_name(&priv->pdev->dev), priv)) {
-			dev_err(&priv->pdev->dev,
-				"Unable to register CSI interrupt.\n");
-		}
-
 		/* stream ON */
 		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
-
-		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite16(ioread16(intcs_base + pdata->ipr) | (pdata->ipr_set),
-			intcs_base + pdata->ipr);
-		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr);
+		iowrite16(ioread16(priv->intcs_base + pdata->ipr) |
+			(pdata->ipr_set), priv->intcs_base + pdata->ipr);
+		iowrite8(pdata->imcr_set, priv->intcs_base + pdata->imcr);
 		dev_dbg(&priv->pdev->dev,
 			"> IPR(0x%x)=0x04%x, IMCR(0x%x)=0x02%x\n",
-			pdata->ipr, ioread16(intcs_base + pdata->ipr),
-			pdata->imcr, ioread8(intcs_base + pdata->imcr));
-		iounmap(intcs_base);
+			pdata->ipr, ioread16(priv->intcs_base + pdata->ipr),
+			pdata->imcr, ioread8(priv->intcs_base + pdata->imcr));
 
 		priv->strm_on = 1;
+		priv->err_cnt = 0;
 	} else {
 		/* stream OFF */
 		printk(KERN_ALERT "%s stream off\n", __func__);
-		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr - 0x40);
-		iounmap(intcs_base);
+		iowrite8(pdata->imcr_set, priv->intcs_base +
+			pdata->imcr - 0x40);
 		priv->strm_on = 0;
-
-		free_irq(priv->irq, priv);
 
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 0);
@@ -351,6 +342,22 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int sh_csi2_g_input_status(struct v4l2_subdev *sd, u32 *status)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	unsigned long flags;
+
+	if (!status) {
+		dev_err(&priv->pdev->dev, "status is NULL.\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&priv->lock, flags);
+	*status = priv->err_cnt;
+	priv->err_cnt = 0;
+	spin_unlock_irqrestore(&priv->lock, flags);
+	return 0;
+}
 
 static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
@@ -358,6 +365,7 @@ static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_stream	= sh_csi2_s_stream,
 	.g_mbus_config	= sh_csi2_g_mbus_config,
 	.s_mbus_config	= sh_csi2_s_mbus_config,
+	.g_input_status	= sh_csi2_g_input_status,
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv)
@@ -544,6 +552,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->lock);
 
 	priv->strm_on = 0;
+	priv->err_cnt = 0;
 #if SH_CSI2_DEBUG
 	priv->vd_s_cnt = 0;
 	priv->vd_e_cnt = 0;
@@ -596,6 +605,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 	struct clk *icb_clk;
 	struct soc_camera_link *icl;
 	struct sh_csi2_pdata *csi_info;
+	struct sh_csi2 *priv;
 	int ret;
 	if (!dev) {
 		printk(KERN_ALERT "%s :not device\n", __func__);
@@ -603,6 +613,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 	}
 	icl = (struct soc_camera_link *) dev->platform_data;
 	csi_info = (struct sh_csi2_pdata *) icl->priv;
+	priv = (struct sh_csi2 *)csi_info->priv;
 
 	csi_clk = clk_get(NULL, csi_info->cmod_name);
 	if (IS_ERR(csi_clk)) {
@@ -641,10 +652,21 @@ void sh_csi2_power(struct device *dev, int power_on)
 				KERN_ALERT "%s :clk_enable(%s) error(%d)",
 				__func__, csi_info->cmod_name, ret);
 			}
+
+			if (request_irq(priv->irq, sh_mobile_csi2_irq,
+				IRQF_DISABLED, dev_name(&priv->pdev->dev),
+				priv)) {
+				dev_err(&priv->pdev->dev,
+					"Unable to register CSI interrupt.\n");
+			}
+			priv->intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+
 			sh_csi2_hwinit(csi_info->priv);
 			sh_csi2_stream(csi_info->priv, 1);
 		} else {
 			sh_csi2_stream(csi_info->priv, 0);
+			iounmap(priv->intcs_base);
+			free_irq(priv->irq, priv);
 			clk_disable(csi_clk);
 			clk_disable(meram_clk);
 			clk_disable(icb_clk);

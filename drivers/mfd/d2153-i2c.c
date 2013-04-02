@@ -170,7 +170,7 @@ static int __init d2153_i2c_init(void)
 	}
 	return i2c_add_driver(&d2153_i2c_driver);
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 	return i2c_add_driver(&d2153_i2c_driver);
 #endif
 }
@@ -188,7 +188,7 @@ static void __exit d2153_i2c_exit(void)
 	}
 	i2c_del_driver(&d2153_i2c_driver);
 #endif
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 	i2c_del_driver(&d2153_i2c_driver);
 #endif
 }

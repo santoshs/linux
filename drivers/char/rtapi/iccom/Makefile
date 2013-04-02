@@ -16,8 +16,8 @@ INC_PATH := $(srctree)
 RTAPI_PATH := drivers/char/rtapi
 U_INCLUDE := -I$(RTAPI_PATH)/common
 U_INCLUDE += -I$(INC_PATH)/include/rtapi
-EXTRA_CFLAGS += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
-EXTRA_CFLAGS += -DRMU2
+ccflags-y += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
+ccflags-y += -DRMU2
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system
@@ -30,6 +30,7 @@ iccom-objs	+= ./iccom_drv_recv.o
 iccom-objs	+= ./iccom_drv_send.o
 iccom-objs	+= ./iccom_drv_standby.o
 iccom-objs	+= ./iccom_drv_standby_main.o
+iccom-objs	+= ./iccom_drv_fatal.o
 
 obj-y		+= iccom.o
 

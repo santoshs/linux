@@ -108,7 +108,9 @@ enum audio_test_state_type {
 */
 enum audio_test_in_device_type {
 	AUDIO_TEST_DRV_IN_MIC,		/**< 0x00: Mic. */
-	AUDIO_TEST_DRV_IN_HEADSETMIC,	/**< 0x01: Headset mic. */
+	AUDIO_TEST_DRV_IN_MAINMIC,	/**< 0x01: Main mic. */
+	AUDIO_TEST_DRV_IN_SUBMIC,	/**< 0x02: Sub mic. */
+	AUDIO_TEST_DRV_IN_HEADSETMIC,	/**< 0x03: Headset mic. */
 	AUDIO_TEST_DRV_IN_MAX,
 	AUDIO_TEST_DRV_IN_DEV_NONE = 0xFFFFFFFF
 };

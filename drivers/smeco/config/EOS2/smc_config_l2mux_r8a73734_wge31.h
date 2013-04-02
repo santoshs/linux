@@ -1,5 +1,5 @@
 /*
-*   Common SMC configuration for L2MUX:
+*   Common SMC configuration for L2MUX channel:
 *   This configuration file is for SMC between EOS2 devices APE R8A73734 and Modem WGE3.1
 *
 *   Copyright © Renesas Mobile Corporation 2012. All rights reserved
@@ -156,7 +156,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
 {
     /**
-     * SMC instance config for EOS2 L2MUX between APE5R SH-Mobile and WGEModem3.1
+     * SMC instance config for EOS2 L2MUX between APE5R SH-Mobile and WGEModem3.1 EOS2 ES2.0
      *
      */
     {
@@ -181,5 +181,6 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
         .channel_config_array         = smc_instance_conf_l2mux_channels,
     }
 };
+
 
 #endif

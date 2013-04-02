@@ -104,18 +104,20 @@ obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 
 # touchkey
-obj-y += setup-u2touchkey.o
-
+obj-y += setup-u2touchkey.o dev-touchpanel.o
 # touchscreen
 obj-y += setup-u2mxt224.o
 
 # vibrator
-obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
+obj-y +=  setup-u2vibrator.o
 
 # charging
-# @todo setup-u2smb328a.c and setup-u2spa.c are almost same.
-# obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
-obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
+ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
+obj-$(CONFIG_MACH_U2EVM)	+= setup-u2spa.o
+obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte-spa.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
+obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
+endif
 
 # current timer
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
@@ -140,8 +142,6 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
 
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
-obj-$(CONFIG_RENESAS_WIFI)	+= dev-renesas-wifi.o
-obj-$(CONFIG_RENESAS_WIFI)	+= dev-u2evm-renesas-wifi.o
 
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o

@@ -25,11 +25,9 @@ Description :  File created
 #ifndef SMC_CONF_PLATFORM_H
 #define SMC_CONF_PLATFORM_H
 
-/*#define SMC_HISTORY_DATA_COLLECTION_ENABLED*/
-
 #define SMC_SEND_USE_SEMAPHORE
 
-/*#define SMC_XMIT_BUFFER_FAIL_SEND*/
+/* #define SMC_XMIT_BUFFER_FAIL_SEND */
 #define SMC_XMIT_BUFFER_SIZE                  15
 
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
@@ -83,6 +81,7 @@ Description :  File created
   #error "SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED --- NOT DEFINED"
 #endif
 
+#define SMC_SIGNAL_TYPE_IRQ_NONE       (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x00)  /* 0x03000000 */
 #define SMC_SIGNAL_TYPE_INTGEN         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x01)  /* 0x03000001 */
 #define SMC_SIGNAL_TYPE_INTCBB         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x02)  /* 0x03000002 */
 #define SMC_SIGNAL_TYPE_INT_WGM_GENOUT (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x04)  /* 0x03000004 */
@@ -156,6 +155,17 @@ typedef struct _smc_lock_t
 
 } smc_lock_t;
 
+    /* Lockdep friendly macro for spinlock */
+#define smc_lock_create()                                           \
+    ({                                                              \
+        smc_lock_t *lock = SMC_MALLOC_IRQ( sizeof(smc_lock_t) );    \
+        spin_lock_init(&lock->mr_lock);                             \
+        lock->flags = 0x00000000;                                   \
+        lock;                                                       \
+    })
+
+
+
     /*
      * Data type for SMC semaphore
      */
@@ -179,6 +189,36 @@ typedef struct _smc_timer_t
 
 } smc_timer_t;
 
+
+
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    /*
+     * DMA structures
+     */
+
+typedef void ( *dma_transfer_cb )( void* );
+
+
+typedef struct _smc_dma_t
+{
+    /*struct device*      device;*/
+
+    dma_cap_mask_t      dma_cap_mask;
+    struct dma_chan*    dma_channel;
+    enum dma_ctrl_flags dma_ctrl_flags;
+
+    int                 dma_transfer_timeout_ms;
+
+    struct completion   completion_conf;
+
+    dma_transfer_cb     completion_func;
+
+} smc_dma_t;
+
+int smc_dma_transfer_mdb(smc_dma_t* dma, void* target_address, void* source_address, uint32_t length, uint8_t from_mdb);
+
+#endif
 
 uint16_t smc_asic_version_get(void);
 

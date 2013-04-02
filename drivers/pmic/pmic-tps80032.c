@@ -7000,11 +7000,16 @@ static int __init tps80032_power_init(void)
 	int ret;
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
-
+#if defined(CONFIG_MACH_U2EVM)
 	if(u2_get_board_rev() >= 5) {
 		PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n", __func__);
 		return 0;
 	}
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+	PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n"\
+					, __func__);
+	return 0;
+#endif
 	/*Initialize hw spinlock*/
 	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000_PMIC);
 	if (r8a73734_hwlock_pmic == NULL) {
@@ -7071,10 +7076,16 @@ err_power_ctrl_class:
  */
 static void __exit tps80032_power_exit(void)
 {
+#if defined(CONFIG_MACH_U2EVM)
 	if(u2_get_board_rev() >= 5) {
 		PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n", __func__);
 		return;
 	}
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+	PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n",\
+			__func__);
+	return;
+#endif
 	i2c_del_driver(&tps80032_power_driver);
 	i2c_del_driver(&tps80032_battery_driver);
 	i2c_del_driver(&tps80032_dvs_driver);

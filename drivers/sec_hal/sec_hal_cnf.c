@@ -22,7 +22,7 @@
 #include "sec_hal_res.h"
 #include "sec_hal_rt_cmn.h"
 #include "sec_hal_dev_ioctl.h"
-//#define SEC_HAL_TRACE_LOCAL_DISABLE
+/* #define SEC_HAL_TRACE_LOCAL_DISABLE */
 #include "sec_hal_rt_trace.h"
 #include "sec_serv_api.h"
 #include "sec_msg.h"
@@ -45,17 +45,19 @@
 
 
 /* **************************************************************************
-** Function name      : sec_hal_cnf_siml
-** Description        :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-static
-uint32_t sec_hal_cnf_siml(uint32_t cnfd_paddr, uint32_t cnfd_size,
-		siml_unlock_codes_t *ul_codes,
-		uint32_t emask, uint32_t max_attempts,
-		cnf_code_t *master_code, cnf_code_t *reprog_code)
+ * Function name      : sec_hal_cnf_siml
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t sec_hal_cnf_siml(uint32_t cnfd_paddr,
+	uint32_t cnfd_size,
+	siml_unlock_codes_t *ul_codes,
+	uint32_t emask,
+	uint32_t max_attempts,
+	cnf_code_t *master_code,
+	cnf_code_t *reprog_code)
 {
 	int i = 0;
 	uint32_t ret = SEC_HAL_RES_OK;
@@ -155,8 +157,8 @@ uint32_t sec_hal_cnf_siml(uint32_t cnfd_paddr, uint32_t cnfd_size,
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
 		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
-				|| SEC_MSG_STATUS_OK != msg_st
-				|| SEC_SERV_STATUS_OK != serv_st) {
+			|| SEC_MSG_STATUS_OK != msg_st
+			|| SEC_SERV_STATUS_OK != serv_st) {
 			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
@@ -174,14 +176,14 @@ uint32_t sec_hal_cnf_siml(uint32_t cnfd_paddr, uint32_t cnfd_size,
 
 
 /* **************************************************************************
-** Function name      : sec_hal_cnf_siml_validate
-** Description        :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-static
-uint32_t sec_hal_cnf_siml_validate(uint32_t cnfd_paddr, uint32_t cnfd_size)
+ * Function name      : sec_hal_cnf_siml_validate
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t sec_hal_cnf_siml_validate(uint32_t cnfd_paddr,
+	uint32_t cnfd_size)
 {
 	uint32_t ret = SEC_HAL_RES_OK;
 	uint32_t msg_st = SEC_MSG_STATUS_OK;
@@ -238,8 +240,8 @@ uint32_t sec_hal_cnf_siml_validate(uint32_t cnfd_paddr, uint32_t cnfd_size)
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
 		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
-				|| SEC_MSG_STATUS_OK != msg_st
-				|| SEC_SERV_STATUS_OK != serv_st) {
+			|| SEC_MSG_STATUS_OK != msg_st
+			|| SEC_SERV_STATUS_OK != serv_st) {
 			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
@@ -257,15 +259,14 @@ uint32_t sec_hal_cnf_siml_validate(uint32_t cnfd_paddr, uint32_t cnfd_size)
 
 
 /* **************************************************************************
-** Function name      : sec_hal_cnf_siml_verify_data_get
-** Description        :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-static
-uint32_t sec_hal_cnf_siml_verify_data_get(uint32_t req_hash_len,
-		uint8_t hash[SIML_LVL_CNT+1][CNF_HASH_MAX_LEN])
+ * Function name      : sec_hal_cnf_siml_verify_data_get
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t sec_hal_cnf_siml_verify_data_get(uint32_t req_hash_len,
+	uint8_t hash[SIML_LVL_CNT+1][CNF_HASH_MAX_LEN])
 {
 	uint32_t i, len = 0;
 	uint32_t ret = SEC_HAL_RES_OK;
@@ -318,31 +319,31 @@ uint32_t sec_hal_cnf_siml_verify_data_get(uint32_t req_hash_len,
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
 		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
-				|| SEC_MSG_STATUS_OK != msg_st
-				|| SEC_SERV_STATUS_OK != serv_st) {
+			|| SEC_MSG_STATUS_OK != msg_st
+			|| SEC_SERV_STATUS_OK != serv_st) {
 			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
 			break;
 		}
 		for (i = 0, len = req_hash_len; i < SIML_LVL_CNT+1
-				&& msg_st == SEC_MSG_STATUS_OK
-				&& serv_st == SEC_MSG_STATUS_OK
-				&& (!len || req_hash_len == len); i++) {
+			&& msg_st == SEC_MSG_STATUS_OK
+			&& serv_st == SEC_MSG_STATUS_OK
+			&& (!len || req_hash_len == len); i++) {
 			msg_st = sec_msg_param_read32(&out_handle, &len);
 			serv_st = sec_msg_param_read(&out_handle,
 				hash[i], req_hash_len);
 		}
 		if (SEC_MSG_STATUS_OK != msg_st
-				|| SEC_MSG_STATUS_OK != serv_st
-				|| (len && req_hash_len != len)) {
+			|| SEC_MSG_STATUS_OK != serv_st
+			|| (len && req_hash_len != len)) {
 			SEC_HAL_TRACE("failed! msg==%d, serv==%d, len==%d",
 				msg_st, serv_st, len);
 			ret = SEC_HAL_RES_FAIL;
 			break;
 		}
-		LOCAL_RMB(); /* ensure that read ops completed */
 	} while (0);
+	LOCAL_RMB(); /* ensure that read ops completed */
 
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
@@ -354,14 +355,13 @@ uint32_t sec_hal_cnf_siml_verify_data_get(uint32_t req_hash_len,
 
 
 /* **************************************************************************
-** Function name      : sec_hal_cnf_imei
-** Description        :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-static
-uint32_t sec_hal_cnf_imei(imei_t *imei, cnf_code_t *reprog_code)
+ * Function name      : sec_hal_cnf_imei
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t sec_hal_cnf_imei(imei_t *imei, cnf_code_t *reprog_code)
 {
 	uint32_t ret = SEC_HAL_RES_OK;
 	uint32_t msg_st = SEC_MSG_STATUS_OK;
@@ -421,8 +421,8 @@ uint32_t sec_hal_cnf_imei(imei_t *imei, cnf_code_t *reprog_code)
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
 		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
-				|| SEC_MSG_STATUS_OK != msg_st
-				|| SEC_SERV_STATUS_OK != serv_st) {
+			|| SEC_MSG_STATUS_OK != msg_st
+			|| SEC_SERV_STATUS_OK != serv_st) {
 			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
@@ -440,14 +440,15 @@ uint32_t sec_hal_cnf_imei(imei_t *imei, cnf_code_t *reprog_code)
 
 
 /* **************************************************************************
-** Function name      : sec_hal_cnf_mac
-** Description        :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-static
-uint32_t sec_hal_cnf_mac(mac_t *mac, uint32_t idx, cnf_code_t *reprog_code)
+ * Function name      : sec_hal_cnf_mac
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t sec_hal_cnf_mac(mac_t *mac,
+	uint32_t idx,
+	cnf_code_t *reprog_code)
 {
 	uint32_t ret = SEC_HAL_RES_OK;
 	uint32_t msg_st = SEC_MSG_STATUS_OK;
@@ -515,8 +516,8 @@ uint32_t sec_hal_cnf_mac(mac_t *mac, uint32_t idx, cnf_code_t *reprog_code)
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
 		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
-				|| SEC_MSG_STATUS_OK != msg_st
-				|| SEC_SERV_STATUS_OK != serv_st) {
+			|| SEC_MSG_STATUS_OK != msg_st
+			|| SEC_SERV_STATUS_OK != serv_st) {
 			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
@@ -533,8 +534,14 @@ uint32_t sec_hal_cnf_mac(mac_t *mac, uint32_t idx, cnf_code_t *reprog_code)
 }
 
 
-static inline
-uint32_t _write_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
+/* **************************************************************************
+ * Function name      :
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t _write_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
 {
 	int i;
 	uint32_t rv, sz, emask = 0x00, paddr = 0x00;
@@ -561,25 +568,29 @@ uint32_t _write_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
 		goto out;
 	}
 
-	if (copy_from_user(&mcode, (const void __user *)p->param2, CNF_CODE_MAX_LEN)) {
+	if (copy_from_user(&mcode, (const void __user *)p->param2,
+			CNF_CODE_MAX_LEN)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
-	if (copy_from_user(&cds, (const void __user *)p->param3, SIML_UNLOCK_CODES_SZ)) {
+	if (copy_from_user(&cds, (const void __user *)p->param3,
+			SIML_UNLOCK_CODES_SZ)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
-	if (copy_from_user(&rcode, (const void __user *)p->param5, CNF_CODE_MAX_LEN)) {
+	if (copy_from_user(&rcode, (const void __user *)p->param5,
+			CNF_CODE_MAX_LEN)) {
 		rv = -EIO;
 		goto dmaout;
 	}
 
 	for (i = 0; i < SIML_LVL_CNT; i++)
-		emask |= (cds.codes[i].code[0]?0x01:0x00) << i;
+		emask |= (cds.codes[i].code[0] ? 0x01 : 0x00) << i;
 
-	rv = sec_hal_cnf_siml(paddr, sz, &cds, emask, p->param4, &mcode, &rcode);
+	rv = sec_hal_cnf_siml(paddr, sz, &cds, emask, p->param4,
+		&mcode, &rcode);
 dmaout:
 	dma_unmap_single(&pdev->dev, paddr, sz, DMA_TO_DEVICE);
 out:
@@ -588,8 +599,16 @@ out:
 }
 
 
-static inline
-uint32_t _validate_siml(sd_ioctl_params_t *p, struct platform_device *pdev)
+/* **************************************************************************
+ * Function name      :
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t _validate_siml(
+	sd_ioctl_params_t *p,
+	struct platform_device *pdev)
 {
 	uint32_t rv, sz, paddr = 0x00;
 	void *cnfd = NULL;
@@ -621,8 +640,14 @@ out:
 }
 
 
-static inline
-uint32_t _siml_verify_data_get(sd_ioctl_params_t *p)
+/* **************************************************************************
+ * Function name      :
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t _siml_verify_data_get(sd_ioctl_params_t *p)
 {
 	uint32_t rv, len;
 	uint8_t hashes[SIML_LVL_CNT+1][CNF_HASH_MAX_LEN];
@@ -656,8 +681,14 @@ uint32_t _siml_verify_data_get(sd_ioctl_params_t *p)
 }
 
 
-static inline
-uint32_t _write_imei(sd_ioctl_params_t *p)
+/* **************************************************************************
+ * Function name      :
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t _write_imei(sd_ioctl_params_t *p)
 {
 	imei_t imei = IMEI_ZI;
 	cnf_code_t rcode = CNF_CODE_ZI;
@@ -672,8 +703,14 @@ uint32_t _write_imei(sd_ioctl_params_t *p)
 }
 
 
-static inline
-uint32_t _write_mac(sd_ioctl_params_t *p)
+/* **************************************************************************
+ * Function name      :
+ * Description        :
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+static uint32_t _write_mac(sd_ioctl_params_t *p)
 {
 	mac_t mac = MAC_ZI;
 	cnf_code_t rcode = CNF_CODE_ZI;
@@ -688,15 +725,19 @@ uint32_t _write_mac(sd_ioctl_params_t *p)
 }
 
 
+
+
 /* **************************************************************************
-** Function name      : sec_hal_cnf_ioctl
-** Description        : entry from USR mode.
-** Return value       : long
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-long sec_hal_cnf_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param,
-		struct platform_device *pdev)
+ * Function name      : sec_hal_cnf_ioctl
+ * Description        : entry from USR mode.
+ * Return value       : long
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * *************************************************************************/
+long sec_hal_cnf_ioctl(unsigned int cmd,
+	void **data,
+	sd_ioctl_params_t *param,
+	struct platform_device *pdev)
 {
 	long rv;
 

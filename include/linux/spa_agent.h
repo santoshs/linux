@@ -24,6 +24,7 @@ enum
 	SPA_AGENT_GET_CAPACITY,
 	SPA_AGENT_GET_BATT_PRESENCE,
 	SPA_AGENT_GET_CHARGER_TYPE,
+	SPA_AGENT_GET_CURRENT,
 	SPA_AGENT_CTRL_FG,
 	SPA_AGENT_MAX,
 };
@@ -38,6 +39,7 @@ typedef union
 	int (*get_capacity)(void);
 	int (*get_batt_presence)(unsigned int opt);
 	int (*get_charger_type)(void);
+	int (*get_current)(unsigned int opt);
 	int (*ctrl_fg)(void *data);
 	int (*dummy)(void);
 } SPA_AGENT_FN_T;

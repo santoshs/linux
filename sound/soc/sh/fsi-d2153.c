@@ -34,6 +34,16 @@
 #include <sound/sh_fsi.h>
 #include <sound/soundpath/soundpath.h>
 
+#if 1 /*** Analog audio dock support ***/
+
+#include <mach/pm.h>
+#include <linux/gpio.h>
+#include <linux/proc_fs.h>
+
+/* DEFINE Definitions */
+#define GPIO_DOCK_EN GPIO_PORT33
+
+#endif
 
 /*
  * Marco Definition
@@ -85,36 +95,6 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	}
 }
 
-void fsi_d2153_deactivate_input(struct snd_kcontrol *kcontrol)
-{
-	struct snd_soc_codec *codec;
-	struct snd_card *card;
-
-	if (!kcontrol) {
-		sndp_log_err("kcontrol is NULL\n");
-		return;
-	}
-	codec = (struct snd_soc_codec *)kcontrol->private_data;
-	card = codec->card->snd_card;
-
-	sndp_log_info("start\n");
-
-	snd_soc_dapm_disable_pin(&codec->dapm, "RECCHL");
-	snd_soc_dapm_disable_pin(&codec->dapm, "RECCHR");
-
-	fsi_d2153_set_active(codec, D2153_CAPTURE_STREAM_NAME, 0);
-
-	sndp_log_info("end\n");
-	return;
-}
-EXPORT_SYMBOL(fsi_d2153_deactivate_input);
-
-void fsi_d2153_deactivate_output(struct snd_kcontrol *kcontrol)
-{
-	/* Nothing to do.*/
-	return;
-}
-
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	int status)
 {
@@ -136,6 +116,36 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	return;
 }
 EXPORT_SYMBOL(fsi_d2153_set_dac_power);
+
+void fsi_d2153_set_adc_power(struct snd_kcontrol *kcontrol,
+	int status)
+{
+	struct snd_soc_codec *codec;
+	struct snd_card *card;
+
+	if (!kcontrol) {
+		sndp_log_err("kcontrol is NULL\n");
+		return;
+	}
+	codec = (struct snd_soc_codec *)kcontrol->private_data;
+	card = codec->card->snd_card;
+
+	sndp_log_info("start\n");
+
+	if (!status) {
+		snd_soc_dapm_disable_pin(&codec->dapm, "RECCHL");
+		snd_soc_dapm_disable_pin(&codec->dapm, "RECCHR");
+	} else {
+		snd_soc_dapm_enable_pin(&codec->dapm, "RECCHL");
+		snd_soc_dapm_enable_pin(&codec->dapm, "RECCHR");
+	}
+
+	fsi_d2153_set_active(codec, D2153_CAPTURE_STREAM_NAME, status);
+
+	sndp_log_info("end\n");
+	return;
+}
+EXPORT_SYMBOL(fsi_d2153_set_adc_power);
 
 int fsi_d2153_set_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id, unsigned int status)
@@ -286,7 +296,6 @@ int fsi_d2153_loopback_notify(int status)
 }
 EXPORT_SYMBOL(fsi_d2153_loopback_notify);
 
-/* temp process */
 void fsi_d2153_soc_write(int dev)
 {
 	if (0 == dev) {
@@ -297,7 +306,43 @@ void fsi_d2153_soc_write(int dev)
 	}
 }
 EXPORT_SYMBOL(fsi_d2153_soc_write);
-/* temp process */
+
+#if 1 /*** Analog audio dock support ***/
+/*!
+   @brief PUT callback function for hooks control(Playback gpio setting)
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+   @retval	0		Successful
+ */
+int fsi_d2153_get_playback_gpio(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	//gpio_get_value(GPIO_DOCK_EN);
+	return ERROR_NONE;
+}
+
+/*!
+   @brief PUT callback function for hooks control(Playback gpio setting)
+   @param[-]	kcontrol	Not use
+   @param[in]	ucontrol	Element data
+   @retval	0		Successful
+ */
+int fsi_d2153_put_playback_gpio(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int state_gpio = 0;
+
+	gpio_set_value(GPIO_DOCK_EN,ucontrol->value.enumerated.item[0]);
+	/*** test code start ***/
+	state_gpio = gpio_get_value(GPIO_DOCK_EN);
+	printk(KERN_INFO "%s gpio_get_value(GPIO_DOCK_EN):%d\n",
+		__func__, state_gpio);
+	/*** test code end ***/
+	return ERROR_NONE;
+}
+#endif
 
 int fsi_d2153_sndp_soc_info(
 	struct snd_kcontrol *kcontrol,
@@ -376,13 +421,52 @@ int fsi_d2153_snd_soc_put_adc(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int fsi_d2153_sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_get_voice_out_volume(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_put_voice_out_volume(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_get_playback_mute(kcontrol, ucontrol);
+}
+
+static int fsi_d2153_sndp_soc_put_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return sndp_soc_put_playback_mute(kcontrol, ucontrol);
+}
+
+
 static struct snd_kcontrol_new fsi_d2153_controls[] = {
 	SOC_SINGLE_BOOL_EXT("ADC Activate", 0,
 		fsi_d2153_snd_soc_get_adc, fsi_d2153_snd_soc_put_adc),
 	FSI_SOC_SINGLE_EXT("Path", 0, fsi_d2153_sndp_soc_info,
 		fsi_d2153_sndp_soc_get, fsi_d2153_sndp_soc_put),
+	FSI_SOC_SINGLE("Earpiece Volume" , 0, 0, 25, 0,
+		fsi_d2153_sndp_soc_get_voice_out_volume,
+		fsi_d2153_sndp_soc_put_voice_out_volume),
+	FSI_SOC_SINGLE("Earpiece Switch" , 0, 0, 1,  0,
+		fsi_d2153_sndp_soc_get_playback_mute,
+		fsi_d2153_sndp_soc_put_playback_mute),
 	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
 		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
+#if 1 /*** Analog audio dock support ***/
+	SOC_SINGLE_BOOL_EXT("Dock Switch" , 0,
+		fsi_d2153_get_playback_gpio, fsi_d2153_put_playback_gpio),
+#endif
 };
 
 static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
@@ -399,6 +483,8 @@ static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
 	{"RECCHR", NULL, "AIFOUTR"},
 	{"AIFINL", NULL, "VCLK4"},
 	{"AIFINR", NULL, "VCLK4"},
+	{"AIFOUTL", NULL, "VCLK4"},
+	{"AIFOUTR", NULL, "VCLK4"},
 };
 
 static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
@@ -535,51 +621,10 @@ static int fsi_hifi_d2153_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
-static int fsi_hifi_d2153_hw_params_test(struct snd_pcm_substream *substream,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	unsigned int pll_out = 16000;
-
-	snd_soc_dai_set_sysclk(codec_dai, 0,
-		D2153_SNDP_MCLK_RATE, SND_SOC_CLOCK_IN);
-
-	switch (params_rate(params)) {
-	case 8000:
-	case 12000:
-	case 16000:
-	case 24000:
-	case 32000:
-	case 48000:
-	case 96000:
-		pll_out = D2153_PLL_FREQ_OUT_98304000;
-		break;
-	case 11025:
-	case 22050:
-	case 44100:
-	case 88100:
-		pll_out = D2153_PLL_FREQ_OUT_90316800;
-		break;
-	default:
-		pr_err("Invalid sampling rate for D2153 with PLL\n");
-		return -EINVAL;
-	}
-
-	snd_soc_dai_set_pll(codec_dai, 0, D2153_SYSCLK_PLL, 48000, pll_out);
-
-	return 0;
-}
-
 static struct snd_soc_ops fsi_hifi_d2153_ops = {
 	.hw_params = fsi_hifi_d2153_hw_params,
 	.prepare = fsi_hifi_d2153_pcm_prepare,
 };
-
-static struct snd_soc_ops fsi_hifi_d2153_ops_test = {
-	.hw_params = fsi_hifi_d2153_hw_params_test,
-};
-
 
 static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -608,11 +653,6 @@ static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-static int fsi_hifi_d2153_init_test(struct snd_soc_pcm_runtime *rtd)
-{
-	return 0;
-}
-
 static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
 		.name = "fsia d2153",
@@ -625,14 +665,12 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 		.ops = &fsi_hifi_d2153_ops,
 	},
 	{
-		.name = "fsia d2153 dummy",
-		.stream_name = "Hifi",
-		.cpu_dai_name	= "fsia-dai",
-		.codec_name = "d2153-codec.0-0018",
-		.platform_name = "sh_fsi2.0",
-		.codec_dai_name = "d2153-aif2",
-		.init = fsi_hifi_d2153_init_test,
-		.ops = &fsi_hifi_d2153_ops_test,
+		.name = "fsib Wireless Transciever",
+		.stream_name = "Wireless Transciever",
+		.cpu_dai_name	= "fsib-dai",
+		.codec_name = "sh_fsi_wireless_transciever.0",
+		.platform_name = "sh_fsi2.1",
+		.codec_dai_name = "sh_fsi_wireless_transciever",
 	},
 };
 
@@ -752,13 +790,6 @@ static struct platform_driver fsi_d2153_driver = {
 
 static int __init fsi_d2153_modinit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev()) {
-		printk(KERN_INFO "%s unload the driver - board_revision:%d\n",
-			__func__, u2_get_board_rev());
-		return -ENODEV;
-	}
-#endif
 	g_boot_flag = 0;
 	return platform_driver_register(&fsi_d2153_driver);
 }
@@ -766,10 +797,6 @@ module_init(fsi_d2153_modinit);
 
 static void __exit fsi_d2153_modexit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return;
-#endif
 	sndp_exit();
 	platform_driver_unregister(&fsi_d2153_driver);
 }

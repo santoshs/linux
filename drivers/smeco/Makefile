@@ -7,6 +7,7 @@ U_INCLUDE  := -I$(SMECO_PATH)
 U_INCLUDE  += -I$(SMECO_PATH)/linux
 U_INCLUDE  += -I$(SMECO_PATH)/config
 U_INCLUDE  += -I$(SMECO_PATH)/config/EOS2
+U_INCLUDE  += -I$(SMECO_PATH)/config/EOS3
 E_CFLAGS   := -DSMECO_LINUX_KERNEL
 
   # Check if test modules included
@@ -18,7 +19,9 @@ U_INCLUDE  += -I$(SMECO_PATH)/test
 E_CFLAGS   += -DSMCTEST=TRUE
 endif
 
+  #
   # Set tracing policy
+  #
 ifeq ($(CONFIG_SMECO_TRACES_ENABLED),y)
 E_CFLAGS   += -DSMC_TRACES_PRINTF=TRUE
 ifeq ($(CONFIG_SMECO_TRACES_KERN_ALERT),y)
@@ -36,6 +39,15 @@ E_CFLAGS   += -DSMC_RUNTIME_TRACES_ENABLED=TRUE
 else
 E_CFLAGS   += -DSMC_RUNTIME_TRACES_ENABLED=FALSE
 endif
+
+
+ifeq ($(CONFIG_SMECO_STM_TRACES_ENABLED),y)
+E_CFLAGS   += -DSMC_STM_TRACES_ENABLED=TRUE
+else
+E_CFLAGS   += -DSMC_STM_TRACES_ENABLED=FALSE
+endif
+
+
 
   #
   # SMC control configuration
@@ -62,9 +74,75 @@ E_CFLAGS   += -DSMC_L2MUX_IF=FALSE
 endif
 
 
-ifeq ($(CONFIG_SMECO_EOS2_ES10),y)
-E_CFLAGS   += -DSMC_CONFIG_USE_EOS2_ES10=TRUE
+  #
+  # Target product selection
+  # Add new products here
+  
+ifeq ($(CONFIG_ARCH_R8A73734),y)
+E_CFLAGS   += -DSMC_CONFIG_ARCH_R8A73734=TRUE
 endif
+
+ifeq ($(CONFIG_ARCH_R8A7373),y)
+E_CFLAGS   += -DSMC_CONFIG_ARCH_R8A7373=TRUE
+endif
+
+ifeq ($(CONFIG_ARCH_R8A73724),y)
+E_CFLAGS   += -DSMC_CONFIG_ARCH_R8A73724=TRUE
+endif
+
+  #
+  # U3/U3CA target 
+  # TODO: Cleanup when U3 CA CPU is known
+  #
+  
+ifeq ($(CONFIG_SMECO_EOS3_U3),y)
+E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3=TRUE
+endif
+
+ifeq ($(CONFIG_SMECO_EOS3_U3CA),y)
+E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3CA=TRUE
+endif
+
+#ifeq ($(CONFIG_SMECO_EOS3),y)
+#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3=TRUE
+#else
+#ifeq ($(CONFIG_SMECO_EOS3_U3),y)
+#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3=TRUE
+#else
+#ifeq ($(CONFIG_SMECO_EOS3_U3CA),y)
+#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3CA=TRUE
+#endif
+#endif
+#else
+#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS2=TRUE
+#endif
+
+
+
+
+  #
+  # SMC Instantiation selection
+  # These are for testing purposes only
+  #
+
+ifeq ($(CONFIG_SMECO_INITIALIZE_DRIVER_SELF),y)
+E_CFLAGS   += -DSMCTEST_OWN_INIT=TRUE
+else
+E_CFLAGS   += -DSMCTEST_OWN_INIT=FALSE
+endif
+  
+ifeq ($(CONFIG_SMECO_INSTANTIATE_DRIVER_SELF),y)
+E_CFLAGS   += -DSMC_LINUX_INSTANTIATE_SELF=TRUE
+else
+E_CFLAGS   += -DSMC_LINUX_INSTANTIATE_SELF=FALSE
+endif
+
+ifeq ($(CONFIG_SMECO_ENABLE_DRIVER_SELF),y)
+E_CFLAGS   += -DSMC_LINUX_ENABLE_SELF=TRUE
+else
+E_CFLAGS   += -DSMC_LINUX_ENABLE_SELF=FALSE
+endif
+
 
 EXTRA_CFLAGS += -std=gnu99 $(U_INCLUDE) $(E_CFLAGS)
 

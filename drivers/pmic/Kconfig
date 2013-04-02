@@ -8,7 +8,7 @@ menuconfig PMIC_INTERFACE
 if PMIC_INTERFACE
 config USB_OTG_INTERFACE
 	bool "USB-OTG IC interface support"
-	default m
+	default n
 	help
 	  This enables support for the USB-OTG interface.
 	  This feature control power supply for USB OTG.
@@ -17,6 +17,14 @@ config USB_OTG_INTERFACE
 
 config PMIC_TPS80032_POW
 	bool "TPS80032 Power Department Support"
+	default n
+	help
+	  This enables support for the Power Department interface.
+	  This feature is not belong to PMIC driver.
+	  It's dependecy driver.
+
+config PMIC_NCP6914_POW
+	bool "NCP6914 Power Department Support"
 	default m
 	help
 	  This enables support for the Power Department interface.

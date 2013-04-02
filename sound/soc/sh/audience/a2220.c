@@ -92,7 +92,7 @@ static unsigned int g_a2220_suspend_state;
 static unsigned int g_a2220_start;
 static unsigned int g_a2220_vclk_adr;
 static struct a2220_data *g_a2220_data;
-static struct sndp_a2220_callback_func g_a2220_callback_func;
+static struct sndp_extdev_callback_func g_a2220_callback_func;
 static struct clk *g_a2220_vclk4_clk;
 static struct proc_dir_entry *g_a2220_parent;
 unsigned int g_a2220_log_level;
@@ -1430,182 +1430,182 @@ static long a2220_ioctl(struct file *file, unsigned int cmd,
 	case A2220_BT_MHL_NORMAL_START:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_BLUETOOTH_SCO,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_BT_MHL_RING_START:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_BLUETOOTH_SCO_HEADSET,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_BT_MHL_INCOMM_START:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_BLUETOOTH_SCO_CARKIT,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_BT_MHL_INCALL_START:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_BLUETOOTH_A2DP_HEADPHONES,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_BT_MHL_NORMAL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_BLUETOOTH_A2DP_SPEAKER,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_BT_MHL_RING_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_AUX_DIGITAL,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_BT_MHL_INCOMM_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_IN_BLUETOOTH_SCO_HEADSET,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_BT_MHL_INCALL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_IN_AUX_DIGITAL,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_BT_MHL_NORMAL_STOP:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_BLUETOOTH_SCO,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_BT_MHL_RING_STOP:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_BLUETOOTH_SCO_HEADSET,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_BT_MHL_INCOMM_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_BLUETOOTH_SCO_CARKIT,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_BT_MHL_INCALL_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_BLUETOOTH_A2DP_HEADPHONES,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_EARPIECE_NORMAL_START:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_EARPIECE_RING_START:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_EARPIECE_INCOMM_START:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_EARPIECE_INCALL_START:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_EARPIECE_NORMAL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_EARPIECE_RING_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_EARPIECE_INCOMM_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_EARPIECE_INCALL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_EARPIECE_NORMAL_STOP:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_EARPIECE_RING_STOP:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_EARPIECE_INCOMM_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_EARPIECE_INCALL_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_EARPIECE,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_OTHER_NORMAL_START:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_SPEAKER,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_OTHER_RING_START:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_WIRED_HEADSET,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_OTHER_INCOMM_START:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_WIRED_HEADPHONE,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_OTHER_INCALL_START:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_OUT_ANLG_DOCK_HEADSET,
-			SNDP_A2220_START);
+			SNDP_EXTDEV_START);
 		break;
 	case A2220_OTHER_NORMAL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_OUT_DGTL_DOCK_HEADSET,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_OTHER_RING_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_OUT_FM_RADIO_TX,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_OTHER_INCOMM_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_OUT_FM_RADIO_RX,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_OTHER_INCALL_CHANGE:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_IN_BUILTIN_MIC,
-			SNDP_A2220_CH_DEV);
+			SNDP_EXTDEV_CH_DEV);
 		break;
 	case A2220_OTHER_NORMAL_STOP:
 		rc = a2220_set_state(SNDP_MODE_NORMAL,
 			SNDP_IN_VOICE_CALL,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_OTHER_RING_STOP:
 		rc = a2220_set_state(SNDP_MODE_RING,
 			SNDP_IN_BACK_MIC,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_OTHER_INCOMM_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCOMM,
 			SNDP_IN_USB_HEADSET,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 	case A2220_OTHER_INCALL_STOP:
 		rc = a2220_set_state(SNDP_MODE_INCALL,
 			SNDP_IN_FM_RADIO_RX,
-			SNDP_A2220_STOP);
+			SNDP_EXTDEV_STOP);
 		break;
 
 #if ENABLE_DIAG_IOCTLS
@@ -2022,7 +2022,7 @@ static int a2220_probe(
 	/* set callback function */
 	g_a2220_callback_func.set_state = a2220_set_state;
 	g_a2220_callback_func.set_nb_wb = a2220_set_nb_wb;
-	sndp_a2220_regist_callback(&g_a2220_callback_func);
+	sndp_extdev_regist_callback(&g_a2220_callback_func);
 
 	rc = platform_device_register(&a2220_platform_device);
 	if (0 != rc) {
@@ -2297,7 +2297,7 @@ static int a2220_idle_suspend
 	if (a2220_bt_mhl_check(device)) {
 		/* nop */
 		goto rtn;
-	} else if (ch_dev == SNDP_A2220_STOP) {
+	} else if (ch_dev == SNDP_EXTDEV_STOP) {
 		/* nop */
 		goto rtn;
 	} else if (a2220_earpiece_incall_check(mode, device, ch_dev)) {
@@ -2402,7 +2402,7 @@ static int a2220_idle
 		/* clock off */
 		a2220_disable_vclk4();
 
-	} else if (ch_dev == SNDP_A2220_STOP) {
+	} else if (ch_dev == SNDP_EXTDEV_STOP) {
 		/* nop */
 		goto rtn;
 	} else if (a2220_earpiece_incall_check(mode, device, ch_dev)) {
@@ -2484,7 +2484,7 @@ static int a2220_pass_through
 
 		/* clock off */
 		a2220_disable_vclk4();
-	} else if (ch_dev == SNDP_A2220_STOP) {
+	} else if (ch_dev == SNDP_EXTDEV_STOP) {
 		/* state update */
 		g_a2220_current_state = A2220_STATE_IDLE;
 	} else if (a2220_earpiece_incall_check(mode, device, ch_dev)) {
@@ -2554,7 +2554,7 @@ static int a2220_voice_process
 
 		/* state update */
 		g_a2220_current_state = A2220_STATE_IDLE;
-	} else if (ch_dev == SNDP_A2220_STOP) {
+	} else if (ch_dev == SNDP_EXTDEV_STOP) {
 		/* set command */
 		i2c_cmds = voice_to_pass_through;
 		size = sizeof(voice_to_pass_through);
@@ -2722,8 +2722,8 @@ static bool a2220_earpiece_incall_check
 	a2220_pr_func_start("mode[0x%x] device[0x%x] ch_dev[0x%x]\n"
 		, mode, device, ch_dev);
 
-	if (((ch_dev == SNDP_A2220_START) ||
-		(ch_dev == SNDP_A2220_CH_DEV)) &&
+	if (((ch_dev == SNDP_EXTDEV_START) ||
+		(ch_dev == SNDP_EXTDEV_CH_DEV)) &&
 		(device == SNDP_OUT_EARPIECE) &&
 		(mode == SNDP_MODE_INCALL)) {
 		earpiece_incall = true;
@@ -2736,20 +2736,11 @@ static bool a2220_earpiece_incall_check
 
 static int __init a2220_init(void)
 {
-	unsigned int board_rev = 0;
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n", board_rev);
-	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
-		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
-		return -ENODEV;
-#endif
 #if defined(CONFIG_MACH_GARDALTE)
+	unsigned int board_rev = 0;
+
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev > 1)
 		return -ENODEV;
 #endif
@@ -2762,20 +2753,11 @@ static int __init a2220_init(void)
 
 static void __exit a2220_exit(void)
 {
-	unsigned int board_rev = 0;
-#if defined(CONFIG_MACH_U2EVM)
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	a2220_pr_info("u2_board_rev:%d\n", board_rev);
-	if ((A2220_BOARD_REV_OUTSIDE_RANGE_2 == board_rev) ||
-		(A2220_BOARD_REV_OUTSIDE_RANGE_3 == board_rev))
-		return;
-#endif
 #if defined(CONFIG_MACH_GARDALTE)
+	unsigned int board_rev = 0;
+
 	/* get board rev */
 	board_rev = u2_get_board_rev();
-	if (board_rev == 6)
-		board_rev = 1;
 	if (board_rev > 1)
 		return;
 #endif

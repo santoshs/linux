@@ -34,6 +34,12 @@
 #include <linux/power_supply.h>
 #include "rt8973.h"
 
+#define TSU6712_UART_AT_MODE           2
+#define TSU6712_UART_INVALID_MODE      -1
+#define TSU6712_UART_EMPTY_CR          3
+#define TSU6712_UART_EMPTY_CRLF        4
+#define TSU6712_UART_AT_MODE_MODECHAN  5
+
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 #include <linux/spa_power.h>
 #endif
@@ -43,6 +49,12 @@
 #if defined(CONFIG_RT9450AC) || defined(CONFIG_RT9450B)
 #include <linux/platform_data/rtsmc.h>
 #endif
+
+#define MUSB_IC_UART_AT_MODE           2
+#define MUSB_IC_UART_INVALID_MODE      -1
+#define MUSB_IC_UART_EMPTY_CR          3
+#define MUSB_IC_UART_EMPTY_CRLF        4
+#define MUSB_IC_UART_AT_MODE_MODECHAN  5
 
 void send_usb_insert_event(int);
 
@@ -55,7 +67,7 @@ static struct rtmus_platform_data platform_data;
 static struct workqueue_struct *rtmus_work_queue = NULL; /* self-own work queue */
 static enum cable_type_t set_cable_status;
 static int usb_uart_switch_state;
-char at_isi_switch_buf[1000] = {0};
+char at_isi_switch_buf[400] = {0};
 static struct switch_dev switch_usb_uart = {
         .name = "tsu6712",
 };
@@ -82,6 +94,9 @@ static int32_t DCDT_retry = 0;
 
 #define I2C_RW_RETRY_MAX 5
 #define I2C_RW_RETRY_DELAY 60
+
+#define RT8973_ADC_CHG_INT_MASK 0x41
+#define RT8973_REG_INT_CLEAR    0x00
 
 #if 1
 #define I2CRByte(x) i2c_smbus_read_byte_data(pClient,x)
@@ -151,64 +166,76 @@ ssize_t ld_set_manualsw(struct device *dev,
         return count;
 }
 ssize_t ld_set_switch_buf(struct device *dev,
-                                    struct device_attribute *attr,
-                                    const char *buf, size_t count)
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
 {
-        int ret = 0;
-        int error = 0;
-        char *ptr = NULL;
-        int i = 0;
-        char temp[100];
+	int i;
+	char temp[100];
+	char *ptr = NULL;
+	char *ptr2 = NULL;
+	char atbuf[] = "AT+ATSTART\r";
+	char atmodechanbuf[] = "AT+MODECHAN=0,2\r";
+	char isi_cmd_buf[] = "switch isi";
+	int error = 0;
 
-        /* If UART is not connected ignore this sysfs access*/
-        if (200 != usb_uart_switch_state)
-                return 0;
+	/* If UART is not connected ignore this sysfs access*/
+	if (200 != usb_uart_switch_state)
+		return 0;
 
-        memset(temp, 0, 100);
-        for (i = 0; i < count; i++)
-            temp[i] = toupper(buf[i]);
+	memset(temp, 0, 100);
+	for (i = 0; i < count; i++)
+		temp[i] = toupper(buf[i]);
 
-        strncat((char *)at_isi_switch_buf, temp, count);
+	strncat((char *)at_isi_switch_buf, temp, count);
 
-        if (at_isi_switch_buf) {
-                if (strstr(at_isi_switch_buf, "\r\n"))
-                        printk("###TEST0### r n\n");
-                else if (strstr(at_isi_switch_buf, "\t\n"))
-                        printk("###TEST1### t n\n");
-                else if (strstr(at_isi_switch_buf, "\n"))
-                        printk("###TEST2### n\n");
-        }
+	if ((strncmp((char *)at_isi_switch_buf, "\n", 1) == 0) || \
+	    (strncmp((char *)at_isi_switch_buf, "\r", 1) == 0) || \
+	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
+		memset(at_isi_switch_buf, 0, 400);
+		KERNEL_LOG = 0;
+		return MUSB_IC_UART_EMPTY_CRLF;
+	}
 
-        ptr = strstr("AT+ATSTART" , at_isi_switch_buf);
-        if (NULL == ptr) {
-                ptr = strstr("AT+ISISTART", at_isi_switch_buf);
-                if (NULL == ptr)
-                        error = 1;
-        }
+	if (at_isi_switch_buf) {
+		if (strstr(at_isi_switch_buf, "\r\n"))
+			printk(KERN_DEBUG"###TEST0### r n\n");
+		else if (strstr(at_isi_switch_buf, "\t\n"))
+			printk(KERN_DEBUG"###TEST1### t n\n");
+		else if (strstr(at_isi_switch_buf, "\n"))
+			printk(KERN_DEBUG"###TEST2### n\n");
+	}
 
-        ptr = strstr(at_isi_switch_buf, "AT+ATSTART");
-        if (NULL != ptr) {
-                printk("ld_set_switch_buf : switch at");
-                KERNEL_LOG = 0;
-                ld_set_manualsw(NULL, NULL, "switch at", 9);
-                memset(at_isi_switch_buf, 0, 1000);
-                error = 0;
-        } else {
-                ptr = strstr(at_isi_switch_buf, "AT+ISISTART");
-                if (NULL != ptr) {
-                        printk("ld_set_switch_buf : switch isi");
-                        KERNEL_LOG = 0;
-                        ld_set_manualsw(NULL, NULL, "switch isi", 10);
-                        memset(at_isi_switch_buf, 0, 1000);
-                        error = 0;
-                }
-        }
+	ptr = strstr(atbuf, at_isi_switch_buf);
+	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
+	if (((NULL == ptr) || (ptr != atbuf)) &&
+	     ((NULL == ptr2) || (ptr2 != atmodechanbuf))) {
+		if (strstr("AT+ISISTART", at_isi_switch_buf) == NULL &&
+		    strstr("AT+MODECHAN=0,0", at_isi_switch_buf) == NULL)
+			error = 1;
+	}
 
-        if (error != 0) {
-                count = -1;
-                memset(at_isi_switch_buf, 0, 1000);
-        }
-        return count;
+	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		return MUSB_IC_UART_AT_MODE;
+	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		return MUSB_IC_UART_AT_MODE_MODECHAN;
+	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
+		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
+		return count;
+	}
+
+	if (error != 0) {
+		count = MUSB_IC_UART_INVALID_MODE;
+		memset(at_isi_switch_buf, 0, 400);
+	}
+
+	return count;
 }
 
 static ssize_t ld_show_switch_buf(struct device *dev,
@@ -377,55 +404,55 @@ static int rt8973_ex_init(void)
 #if defined(CONFIG_RT8969)||defined(CONFIG_RT8973)
 static void usb_attach(uint8_t attached)
 {
-  printk(attached?"USB attached\n":"USB attached\n");
+	printk(attached ? "USB attached\n" : "USB detached\n");
 	set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
 	if ( attached ) {
 		usb_uart_switch_state = 100;
-    send_usb_insert_event(1);
-    spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+		send_usb_insert_event(1);
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
 		switch_set_state(&switch_usb_uart,100);
-    }
+	}
 	else {
 		usb_uart_switch_state = 101;
-    send_usb_insert_event(0);
-    spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		send_usb_insert_event(0);
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
 		switch_set_state(&switch_usb_uart,101);
     }
 }
 static void uart_attach(uint8_t attached)
 {
-    printk(attached?"UART attached\n":"UART detached\n");
+	printk(attached?"UART attached\n":"UART detached\n");
 	set_cable_status = CABLE_TYPE_NONE;
 	if (attached) {	
 		usb_uart_switch_state = 200;
 		switch_set_state(&switch_usb_uart, 200);
 	}
-   else {
+	else {
 		usb_uart_switch_state = 201;
 		switch_set_state(&switch_usb_uart, 201);
-   }
+	}
 }
 
 static void charger_attach(uint8_t attached)
 {
-    printk(attached?"Charger attached\n":"Charger detached\n");
+	printk(attached?"Charger attached\n":"Charger detached\n");
+	set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-  if (attached)
-    {
-      spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
-    }
-  else
-    {
-      spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-    }
+	if (attached) {
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+	}
+	else {
+		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+	}
 #endif
 
 }
 
 static void jig_attach(uint8_t attached,uint8_t factory_mode)
 {
-    switch(factory_mode)
-    {
+	set_cable_status = CABLE_TYPE_NONE;
+	switch(factory_mode)
+	{
         case RTMUSC_FM_BOOT_OFF_UART:
         INFO("JIG BOOT OFF UART\n");
 	uart_attach(attached);
@@ -444,8 +471,8 @@ static void jig_attach(uint8_t attached,uint8_t factory_mode)
 	break;
         default:
         ;
-    }
-    printk(attached?"Jig attached\n":"Jig detached\n");
+	}
+	printk(attached?"Jig attached\n":"Jig detached\n");
 }
 
 static void over_temperature(uint8_t detected)
@@ -810,8 +837,12 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
-                if (platform_data.jig_callback)
-                    platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_UART);
+		if (platform_data.jig_callback) {
+			wake_lock(&pDrvData->uart_wakelock);
+			platform_data.jig_callback(1, RTMUSC_FM_BOOT_OFF_UART);
+		}
+		I2CWByte(RT8973_REG_INTERRUPT_MASK , RT8973_ADC_CHG_INT_MASK);
+		I2CWByte(RT8973_REG_INT_FLAG , RT8973_REG_INT_CLEAR);
                 break;
                 case 0x19: //Factory Mode : JIG USB ON = 1
                 // auto switch -- ignore
@@ -880,12 +911,14 @@ inline void do_detach_work(int32_t regIntFlag)
         if (platform_data.uart_callback) {
             platform_data.uart_callback(RT8973_DETACHED);
 			uart_connecting = 0;
-			wake_unlock(&pDrvData->uart_wakelock);			
-		}
+			wake_unlock(&pDrvData->uart_wakelock);	
+	}
         break;
         case ID_JIG:
-        if (platform_data.jig_callback)
+        if (platform_data.jig_callback) {
             platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
+	    wake_unlock(&pDrvData->uart_wakelock);
+	}
         break;
         case ID_CHARGER:
         if (platform_data.charger_callback)
@@ -918,29 +951,36 @@ static void rt8973musc_work(struct work_struct *work)
 
     regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
     INFO("Interrupt Flag = 0x%x\n",regIntFlag);
-    if (regIntFlag&RT8973_INT_ATTACH_MASK)
-    {
+    if (regIntFlag&RT8973_INT_ATTACH_MASK) {
         regDev1 = I2CRByte(RT8973_REG_DEVICE_1);
         regDev2 = I2CRByte(RT8973_REG_DEVICE_2);
-        if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK))
-        {
+	if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK)) {
             INFO("There is un-handled event!!\n");
-            if (regDev1==0 && regDev2==0)
-                do_detach_work(regIntFlag);
-            else
-                do_attach_work(regIntFlag,regDev1,regDev2);
-        }
-        else
-        {
-                do_attach_work(regIntFlag,regDev1,regDev2);
-        }
-    }
-    else if (regIntFlag&RT8973_INT_DETACH_MASK)
-    {
-        do_detach_work(regIntFlag);
-    }
-    else
-    {
+            if (regDev1==0 && regDev2==0) {
+		do_detach_work(regIntFlag);
+		pDrvData->attach_status = 0;
+		}
+	    else {
+		if (pDrvData->attach_status == 0) {
+			/* do attach only if not attached */
+			do_attach_work(regIntFlag, regDev1, regDev2);
+			pDrvData->attach_status = 1;
+		}
+	    }
+	}
+		else {
+			if(pDrvData->attach_status == 0) {
+			/* do attach only if not attached */
+			do_attach_work(regIntFlag, regDev1, regDev2);
+			pDrvData->attach_status = 1;
+		}
+	}
+	}
+	else if (regIntFlag&RT8973_INT_DETACH_MASK) {
+ 		do_detach_work(regIntFlag);
+		pDrvData->attach_status = 0;
+    	}
+    else {
         if (regIntFlag&0x80) // OTP
         {
             INFO("Warning : over temperature voltage\n");
@@ -1034,13 +1074,28 @@ static bool init_reg_setting(void)
 
     INFO("prev_int_flag = 0x%x\n",
          pDrvData->prev_int_flag);
-    enable_interrupt(1);
-    msleep(RT8973_WAIT_DELAY);
+    /* We will enable later
+    enable_interrupt(0);
+    msleep(RT8973_WAIT_DELAY);*/
     INFO("Set initial value OK\n");
     /*
     INFO("GPIO %d Value = %d\n",CONFIG_RTMUSC_INT_GPIO_NUMBER,
          gpio_get_value(CONFIG_RTMUSC_INT_GPIO_NUMBER));*/
     return true;
+}
+static void rt8973_init_func(struct work_struct *work)
+{
+    int err;
+    INFO("rt8973_init_func request IRQ OK...\n");
+    err = enable_irq_wake(pDrvData->irq);
+    if (err < 0)
+    {
+        WARNING("enable_irq_wake(%d) failed for (%d)\n",pDrvData->irq, err);
+    }
+    enable_interrupt(1);
+    msleep(RT8973_WAIT_DELAY);
+    INFO("Set initial value OK\n");
+
 }
 
 
@@ -1059,18 +1114,24 @@ static int rt8973musc_probe(struct i2c_client *client,
         goto i2c_check_functionality_fail;
     }
 
+    set_cable_status = CABLE_TYPE_NONE;
+
     drv_data = kzalloc(sizeof(struct rt8973_data),GFP_KERNEL);
     drv_data->client = client;
         memcpy(&platform_data,&rtmus_pdata,sizeof(struct rtmus_platform_data));
 
+    set_cable_status = CABLE_TYPE_NONE;
     pDrvData = drv_data;
     i2c_set_clientdata(client,drv_data);
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
     INIT_WORK(&drv_data->work, rt8973musc_work);
+    INIT_DELAYED_WORK(&drv_data->delayed_work, rt8973_init_func);
+    pDrvData->attach_status = 0;
 
 	uart_connecting = 0;
     if(platform_data.ex_init)
 		platform_data.ex_init();
+    schedule_delayed_work(&drv_data->delayed_work, msecs_to_jiffies(2700));
 
 #if CONFIG_RTMUSC_IRQ_NUMBER<0
     client->irq = gpio_to_irq(CONFIG_RTMUSC_INT_GPIO_NUMBER);
@@ -1123,11 +1184,11 @@ static int rt8973musc_probe(struct i2c_client *client,
         goto request_irq_fail;
     }
     INFO("request IRQ OK...\n");
-    err = enable_irq_wake(client->irq);
+    /*err = enable_irq_wake(client->irq);
     if (err < 0)
     {
         WARNING("enable_irq_wake(%d) failed for (%d)\n",client->irq, err);
-    }
+	}*/
     if (!init_reg_setting())
     {
         disable_irq(client->irq);
@@ -1183,9 +1244,23 @@ static void rt8973musc_shutdown(struct i2c_client *client)
 
 static int rt8973musc_resume(struct i2c_client *client)
 {
+	int32_t regADC, regIntFlag;
+	struct i2c_client *pClient = client;
 	struct rtmus_platform_data *pdata = &platform_data;
+
 	/*if (device_may_wakeup(&client->dev) && client->irq)
 		disable_irq_wake(client->irq);*/
+
+	regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
+	if (regIntFlag&RT8973_INT_ATTACH_MASK) {
+		regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
+
+	if ((0x1c == regADC) || (0x16 == regADC)) {
+		if (!wake_lock_active(&pDrvData->uart_wakelock))
+			wake_lock(&pDrvData->uart_wakelock);
+		}
+	}
+
     if (pdata->usb_power)
         pdata->usb_power(1);
 	return 0;

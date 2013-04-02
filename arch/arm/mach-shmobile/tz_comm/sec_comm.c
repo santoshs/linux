@@ -123,6 +123,7 @@ uint32_t  sec_service_integrity_check()
       printk("sec_service_integrity_check ++ \n");
       sec_hal_rt_periodic_integrity_check(&retval);
       printk("sec_hal_rt_periodic_integrity_check returned %d \n",retval);
+	return retval;
 }
 
 #if 0

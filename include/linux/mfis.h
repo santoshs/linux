@@ -2,7 +2,7 @@
  * mfis.h
  *	 This file is MFIS driver function.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -24,9 +24,7 @@ int mfis_drv_suspend(void);
 int mfis_drv_resume(void);
 void mfis_drv_eco_suspend(void);
 
-/* #MU2DISP1088 add -S- */
 int mfis_drv_rel_a4rm(void);
 int mfis_drv_use_a4rm(void);
-/* #MU2DISP1088 add -E- */
 
 #endif /* __MFIS_H__ */

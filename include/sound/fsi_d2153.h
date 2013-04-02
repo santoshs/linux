@@ -31,6 +31,15 @@
 	.private_value = xdata \
 }
 
+#define FSI_SOC_SINGLE(xname, reg, shift, max, invert, xget, xput)	\
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER,				\
+	.name = xname,							\
+	.info = snd_soc_info_volsw,					\
+	.get = xget,							\
+	.put = xput,							\
+	.private_value = SOC_SINGLE_VALUE(reg, shift, max, invert)	\
+}
+
 /* Loopback state */
 enum fsi_d2153_loopback_state {
 	FSI_D2153_LOOPBACK_START,	/* Loopback start */
@@ -40,12 +49,12 @@ enum fsi_d2153_loopback_state {
 
 extern void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	int status);
+extern void fsi_d2153_set_adc_power(struct snd_kcontrol *kcontrol,
+	int status);
 extern int fsi_d2153_enable_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id);
 extern int fsi_d2153_disable_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id);
-extern void fsi_d2153_deactivate_input(struct snd_kcontrol *kcontrol);
-extern void fsi_d2153_deactivate_output(struct snd_kcontrol *kcontrol);
 
 extern int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params);
 

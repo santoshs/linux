@@ -1286,16 +1286,16 @@ void pm_runtime_enable(struct device *dev)
 	if (dev->power.disable_depth > 0) {
 		dev->power.disable_depth--;
 			if (!pdi) {
-				dev->power.subsys_data = NULL;
+				dev->power.pdi = NULL;
 				dev_err(dev, "%s is't supported by PDC\n", \
 					dev_name(dev));
 				spin_unlock_irqrestore(&dev->power.lock, flags);
 				return;
 			}
 			if (pdi->cnt != 0)
-				dev->power.subsys_data = pdi;
+				dev->power.pdi = pdi;
 			else
-				dev->power.subsys_data = NULL;
+				dev->power.pdi = NULL;
 	}
 #else
 	if (dev->power.disable_depth > 0)

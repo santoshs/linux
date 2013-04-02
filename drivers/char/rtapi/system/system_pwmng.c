@@ -44,9 +44,7 @@ void *system_pwmng_new
 
 	MSG_HIGH("[RTAPIK] IN  |[%s]\n", __func__);
 
-	pwmng_handle = (system_pwmng_handle *)kmalloc(
-					sizeof(system_pwmng_handle),
-					GFP_KERNEL);
+	pwmng_handle = kmalloc(sizeof(system_pwmng_handle), GFP_KERNEL);
 	if (NULL == pwmng_handle) {
 		MSG_ERROR(
 		"[RTAPIK] ERR|[%s][%d] kmalloc() Handle NULL error\n",

@@ -784,6 +784,7 @@ static int sep_resume(struct device *dev)
 		sep_power_down_counter = count;
 		/* RKEK Implementation*/
 		#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+#if 0 //XXX tp2
 		sec_hal_error = sec_hal_pm_public_cc42_key_init();
 		if (sec_hal_error) {
 			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
@@ -794,6 +795,7 @@ static int sep_resume(struct device *dev)
 			"sec_hal_pm_public_cc42_key_init succeeded\n");
 		}
 		#endif
+#endif //XXX tp2
 	}
 
 end_function:
@@ -1326,6 +1328,7 @@ void Chip_HwInit(void)
 
 	/* RKEK Implementation*/
 	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+#if 0 //XXX tp2
 	sec_hal_error = sec_hal_pm_public_cc42_key_init();
 	if (sec_hal_error) {
 		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
@@ -1336,6 +1339,7 @@ void Chip_HwInit(void)
 		"sec_hal_pm_public_cc42_key_init succeeded\n");
 	}
 	#endif
+#endif //XXX tp2
 }
 
 

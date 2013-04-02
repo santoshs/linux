@@ -207,6 +207,9 @@ static void init_TDBG_interrupt(void)
 static irqreturn_t TDBG_request_irq(int irq, void *dev_id)
 {
 	pmdbg_dbgpin_to_dbgmode();
+	/* Disable interrupt of TDBG because it requires only ONCE. */
+	disable_irq_nosync(irq);
+	return IRQ_HANDLED;
 }
 #endif
 

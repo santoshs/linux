@@ -25,12 +25,11 @@
 #include "u_ether.h"
 #include "rndis.h"
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
 /*#ifdef CONFIG_MACH_U2EVM*/
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
 #include <mach/pm.h>
-
 #endif
 
 
@@ -111,6 +110,8 @@ static unsigned int bitrate(struct usb_gadget *g)
 
 #define LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
 #define STATUS_BYTECOUNT		8	/* 8 bytes data */
+#define HSUSBDMA_IRQ           117
+#define R8A66597_UDC_IRQ       119
 
 
 /* interface descriptor: */
@@ -182,7 +183,7 @@ rndis_iad_descriptor = {
 	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
 
 	.bFirstInterface =	0, /* XXX, hardcoded */
-	.bInterfaceCount = 	2,	// control + data
+	.bInterfaceCount =	2,/* control + data*/
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ETHERNET,
 	.bFunctionProtocol =	USB_CDC_PROTO_NONE,
@@ -787,7 +788,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	 * the network link ... which is unavailable to this code
 	 * until we're activated via set_alt().
 	 */
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
 /*#ifdef CONFIG_MACH_U2EVM*/
 	ret = stop_cpufreq();
 	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
@@ -795,8 +796,12 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 		dfs_started = 1;
 		ERROR(cdev, "%s(): error<%d>! stop_cpufreq\n",
 			__func__, ret);
-	} else
+	} else {
+
 		dfs_started = 0;
+		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
+		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
+		}
 #endif
 
 	DBG(cdev, "RNDIS: %s speed IN/%s OUT/%s NOTIFY/%s\n",
@@ -849,7 +854,7 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
 /*#ifdef CONFIG_MACH_U2EVM*/
 	if (!dfs_started) {
 		start_cpufreq();

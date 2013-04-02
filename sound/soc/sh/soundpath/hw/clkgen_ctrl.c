@@ -129,24 +129,6 @@ static struct common_reg_table clkgen_reg_tbl_playA_M_16[] = {
 	{ CLKG_PULSECTL, 0x00000001, 0, 0 }, /* PortA Enable */
 };
 
-/* Table for Playback(PortA, CLKGEN slave) */
-static struct common_reg_table clkgen_reg_tbl_playA_S[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
-	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
-};
-
-/* Table for Playback(PortB, CLKGEN master, 16kHz) */
-static struct common_reg_table clkgen_reg_tbl_playB_M_16[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_FSIBCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
-};
-
 /* Table for Playback(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_playB_S[] = {
 /*        Reg		 Val	     D  C */
@@ -182,17 +164,6 @@ static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
 	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
-/* Table for Capture(PortB, CLKGEN master) */
-static struct common_reg_table clkgen_reg_tbl_captureB_M[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00212801, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
-};
-
 /* Table for Capture(PortB, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 /*        Reg		 Val	     D  C */
@@ -201,6 +172,7 @@ static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 	{ CLKG_FSISEL,	 0x00000002, 0, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
 };
 
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 /* Table for Voicecall(PortA, CLKGEN master) */
 static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
 /*        Reg		 Val	     D  C */
@@ -216,7 +188,17 @@ static struct common_reg_table clkgen_reg_tbl_voicecallA_M[] = {
 	{ CLKG_PULSECTL, 0x00000011, 0, 0 }, /* SPUV / PortA Enable */
 };
 
-#if 0
+/* Table for Playback(PortB, CLKGEN master, 16kHz) */
+static struct common_reg_table clkgen_reg_tbl_playB_M_16[] = {
+/*        Reg		 Val	     D  C */
+	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
+	{ CLKG_FSIBCOM,	 0x00212401, 0, 0 }, /* 2ch, 64fs, 44.1kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000002, 0, 0 }, /* PortB Enable */
+};
+
+#else /* !__SNDP_INCALL_CLKGEN_MASTER */
 /* Table for Voicecall(PortA, CLKGEN slave) */
 static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
 /*        Reg		 Val	     D  C */
@@ -226,22 +208,7 @@ static struct common_reg_table clkgen_reg_tbl_voicecallA_S[] = {
 	{ CLKG_FSISEL,	 0x00000011, 0, 0 }, /* CSELSPV 01:Sel FSIAOBT/FSIAOLR
 					      * CSELA 1:Sel FSIAOBT/FSIAOLR */
 };
-#endif
-
-/* Table for Voicecall(PortB, CLKGEN master, 8kHz) */
-static struct common_reg_table clkgen_reg_tbl_voicecallB_M_8000[] = {
-/*        Reg		 Val	     D  C */
-	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_TIMSEL0,	 0x00000000, 0, 0 }, /* VOTIM(PortB) */
-	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSIBCOM,	 0x00202101, 0, 0 }, /* 1ch, 64fs, 8kHz,
-					      * CLKGEN master,
-					      * Non - continuos mode */
-	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
-};
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 /* Table for Voicecall(PortB, CLKGEN master, 16kHz) */
 static struct common_reg_table clkgen_reg_tbl_voicecallB_M_16000[] = {
@@ -258,17 +225,20 @@ static struct common_reg_table clkgen_reg_tbl_voicecallB_M_16000[] = {
 	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
 };
 
-#if 0
-/* Table for Voicecall(PortB, CLKGEN slave) */
-static struct common_reg_table clkgen_reg_tbl_voicecallB_S[] = {
+/* Table for Voicecall(PortB, CLKGEN master, 8kHz) */
+static struct common_reg_table clkgen_reg_tbl_voicecallB_M_8000[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
-	{ CLKG_TIMSEL0,	 0x00000004, 0, 0 }, /* VOTIM(PortB) */
+	{ CLKG_SPUVCOM,	 0x00202401, 0, 0 }, /* 1ch, 64fs, 16kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_TIMSEL0,	 0x00000000, 0, 0 }, /* VOTIM(PortB) */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000012, 0, 0 }, /* CSELSPV 01:Sel FSIAOBT/FSIAOLR
-					      * CSELB 1:Sel FSIAOBT/FSIAOLR */
+	{ CLKG_FSIBCOM,	 0x00202101, 0, 0 }, /* 1ch, 64fs, 8kHz,
+					      * CLKGEN master,
+					      * Non - continuos mode */
+	{ CLKG_PULSECTL, 0x00000012, 0, 0 }, /* SPUV / PortB Enable */
 };
-#endif
 
 
 /*!
@@ -379,12 +349,18 @@ static void clkgen_voicecall(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* CLKGEN master */
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
+		/* PortA, CLKGEN master, 16kHz */
 		reg_tbl  = clkgen_reg_tbl_voicecallA_M;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallA_M);
+#else /* !SNDP_INCALL_CLKGEN_MASTER */
+		/* PortA, FSI master */
+		reg_tbl  = clkgen_reg_tbl_voicecallA_S;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_voicecallA_S);
+#endif /* SNDP_INCALL_CLKGEN_MASTER */
 	/* BLUETOOTHSCO */
 	} else {
-		/* CLKGEN master */
+		/* PortB, CLKGEN master */
 		if (g_clkgen_btscorate == 16000) {
 			sndp_log_info("rate=16000..\n");
 			reg_tbl  = clkgen_reg_tbl_voicecallB_M_16000;
@@ -441,38 +417,44 @@ static void clkgen_playback(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-		/* FSI master for ES 2.0 over */
-		/* 48000 Hz */
-		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
-			if (false == (dev & SNDP_AUXDIGITAL)) {
+		if (!SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+			/* CLKGEN master */
+			if (SNDP_NORMAL_RATE == g_clkgen_rate) {
+				/* PortA, CLKGEN master, 48kHz */
 				reg_tbl  = clkgen_reg_tbl_playA_M_48;
 				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_48);
 			} else {
-				reg_tbl  = clkgen_reg_tbl_playA_S;
-				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_S);
+				/* PortA, CLKGEN master, 16kHz */
+				reg_tbl  = clkgen_reg_tbl_playA_M_16;
+				tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_16);
 			}
-		/* 16000 Hz */
 		} else {
-			reg_tbl  = clkgen_reg_tbl_playA_M_16;
-			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playA_M_16);
+			/* FSI master */
+			/* nothing process */
+			return;
 		}
 	/* FM_RADIO_RX */
 	} else if (false != (dev & SNDP_FM_RADIO_RX)) {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl  = clkgen_reg_tbl_playBA_S;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playBA_S);
 	/* BLUETOOTHSCO, FM_RADIO_TX */
 	} else {
-		/* FSI master for ES 2.0 over */
-		/* 44100 Hz */
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		if (SNDP_NORMAL_RATE == g_clkgen_rate) {
+			/* PortB, FSI master */
 			reg_tbl  = clkgen_reg_tbl_playB_S;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
-		/* 16000 Hz */
 		} else {
+			/* PortB, CLKGEN master, 16kHz */
 			reg_tbl  = clkgen_reg_tbl_playB_M_16;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_M_16);
 		}
+#else /* !__SNDP_INCALL_CLKGEN_MASTER */
+		/* FSI master */
+		reg_tbl  = clkgen_reg_tbl_playB_S;
+		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_playB_S);
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	}
 
 	/* Register setting function call */
@@ -521,18 +503,18 @@ static void clkgen_capture(const u_int uiValue)
 	if ((false == (dev & SNDP_BLUETOOTHSCO)) &&
 	    (false == (dev & SNDP_FM_RADIO_TX)) &&
 	    (false == (dev & SNDP_FM_RADIO_RX))) {
-
-		/* FSI master for ES 2.0 over */
-		if (false == (dev & SNDP_AUXDIGITAL)) {
+		if (!SNDP_IS_FSI_MASTER_DEVICE(dev)) {
+			/* PortA, CLKGEN master, 48kHz */
 			reg_tbl  = clkgen_reg_tbl_captureA_M;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_M);
 		} else {
+			/* PortA, FSI master */
 			reg_tbl  = clkgen_reg_tbl_captureA_S;
 			tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureA_S);
 		}
 	/* FM_RADIO_RX */
 	} else {
-		/* FSI master for ES 2.0 over */
+		/* FSI master */
 		reg_tbl = clkgen_reg_tbl_captureB_S;
 		tbl_size = ARRAY_SIZE(clkgen_reg_tbl_captureB_S);
 	}

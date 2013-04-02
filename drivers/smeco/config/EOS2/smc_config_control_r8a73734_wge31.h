@@ -26,8 +26,12 @@ Description :  File created
 #define SMC_CONFIG_CONTROL_R8A73734_WGE31_H
 
 
-#define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
+/*
+ * EOS2 Contains configurations for ES2.0
+ * NOTE: The channel configuration are currently the same
+ */
 
+#define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 
 #define SMC_CONF_COUNT_CONTROL          1
 
@@ -83,8 +87,7 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
 static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 {
     /**
-     * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1
-     * ES2.0 configurations
+     * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1 ES2.0 configurations
      */
 
     /* ES2.0 configuration */

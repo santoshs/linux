@@ -301,7 +301,7 @@ int sh_dmae_set_rpt_mode(struct dma_chan *chan)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(chan);
 	struct sh_dmae_device *shdev = to_sh_dev(sh_chan);
 	unsigned long flags;
-	u32 val = 0;
+
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	/* Check if dma is in progress, this mode is not allowed
 	 * once DMA transfer is initiated */
@@ -398,7 +398,8 @@ static void dmae_rpt_halt(struct sh_dmae_chan *sh_chan)
 
 }
 
-static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave *param)
+static int dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan,
+	struct sh_dmae_slave *param)
 {
 	int i, load_first_desc = 1;
 	u32 val = 0;
@@ -410,9 +411,11 @@ static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave
 	struct sh_dmae_regs hw;
 
 	if (param) {
-		dmae_set_dmars(sh_chan, cfg->mid_rid);
+		if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid))
+			goto error;
 		sh_chan->chcr |= cfg->chcr;
-		dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
+		if (0 != dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr))
+			goto error;
 	} else {
 		dmae_init(sh_chan);
 	}
@@ -473,6 +476,10 @@ static void dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan, struct sh_dmae_slave
 	/* Updating the channel control register */
 	sh_chan->chcr |= chcr;
 
+	return 0;
+
+error:
+	return -1;
 }
 
 static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
@@ -481,9 +488,9 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 	struct sh_dmae_chan *sh_chan = to_sh_chan(tx->chan);
 	struct sh_dmae_slave *param = tx->chan->private;
 	dma_async_tx_callback callback = tx->callback;
-	dma_cookie_t cookie;
-	unsigned long flags;
-	bool power_up;
+	dma_cookie_t cookie = -EINVAL;
+	unsigned long flags = 0;
+	bool power_up = false;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
@@ -500,14 +507,25 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 
 		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
 
-		if ((param) && (sh_chan->desc_mode))
-			dmae_rpt_init_reg(sh_chan, param);
+		if ((param) && (sh_chan->desc_mode)) {
+			if (0 != dmae_rpt_init_reg(sh_chan, param)) {
+				cookie = -EINVAL;
+				goto error;
+			}
+		}
 
 		if (param) {
 			const struct sh_dmae_slave_config *cfg = param->config;
 
-			dmae_set_dmars(sh_chan, cfg->mid_rid);
-			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
+			if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid)) {
+				cookie = -EINVAL;
+				goto error;
+			}
+			if (0 != dmae_set_chcr(sh_chan,
+						sh_chan->chcr ? : cfg->chcr)) {
+				cookie = -EINVAL;
+				goto error;
+			}
 		} else {
 			dmae_init(sh_chan);
 		}
@@ -543,12 +561,12 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 	last->async_tx.callback = callback;
 	last->async_tx.callback_param = tx->callback_param;
 
+error:
 	dev_dbg(sh_chan->dev, "submit #%d@%p on %d: %x[%d] -> %x\n",
 		tx->cookie, &last->async_tx, sh_chan->id,
 		desc->hw.sar, desc->hw.tcr, desc->hw.dar);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
 
 	return cookie;
 }
@@ -766,12 +784,8 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 {
 	struct scatterlist *sg;
 	struct sh_desc *first = NULL;
-	struct sh_dmae_regs hw;
-	void __iomem *desc_mem;
-	size_t copy_size;
-	int i, load_first_desc = 1, chunks = 0;
+	int i, chunks = 0;
 	unsigned long irq_flags;
-	u32 chcr, chcrb;
 
 	if (!sh_chan->desc_mode) {
 		dev_err(sh_chan->dev, "not in repeat mode\n");
@@ -1911,7 +1925,7 @@ static int sh_dmae_suspend(struct device *dev)
 static int sh_dmae_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-	int i, ret;
+	int i, ret = 0;
 
 	pm_runtime_get_sync(dev);
 	if (ret < 0)
@@ -1935,6 +1949,7 @@ static int sh_dmae_resume(struct device *dev)
 	}
 
 	pm_runtime_put_sync(dev);
+
 	return 0;
 }
 #else

@@ -133,7 +133,13 @@ static smc_conf_t* smc_device_create_conf_control(char* device_name)
     char* smc_cpu_name = NULL;
     uint16_t asic_version = smc_asic_version_get();
 
+        /* Use EOS2 ES2.0 configuration */
+        /* TODO Cleanup
     smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+
+    */
+
+    smc_cpu_name = smc_instance_conf_name_get_from_list( smc_instance_conf_control, SMC_CONF_COUNT_CONTROL, SMC_CONFIG_USER_CONTROL, TRUE, 2, 0);
 
     SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
 

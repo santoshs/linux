@@ -29,7 +29,6 @@ struct fm34_platform_data {
 	int gpio_pwdn;
 	int gpio_rst;
 	int gpio_bp;
-	int gpio_avdd;
 };
 
 #define FM34_MODULE_NAME	"fm34_we395"

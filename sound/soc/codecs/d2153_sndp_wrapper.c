@@ -884,7 +884,7 @@ static void d2153_sndp_setup(struct snd_soc_codec *codec)
 #else
 	snd_soc_update_bits(codec, D2153_MICBIAS1_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_5V);
+			    D2153_MICBIAS1_LVL);
 	snd_soc_update_bits(codec, D2153_MICBIAS2_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
 			    D2153_MICBIAS_LEVEL_2_5V);
@@ -1046,7 +1046,7 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 	struct clk *vclk4_clk = NULL;
 	int i;
 
-	dlg_info("%s() device=%d pcm_value=%d power=%d \n",__FUNCTION__,device,pcm_value,power);
+	dlg_info("%s() device=%d pcm_value=0x%x power=%d \n",__FUNCTION__,device,pcm_value,power);
 	
 	if (D2153_DEV_NONE != device) {
 		//clk enable

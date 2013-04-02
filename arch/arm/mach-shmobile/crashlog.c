@@ -147,9 +147,10 @@ void crashlog_reset_log_write()
 void crashlog_init_tmplog(void)
 {
 #ifndef CONFIG_IRQ_TRACE
-	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_SIZE, "tmplog-nocache")) {
+	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE,
+					"tmplog-nocache")) {
 		tmplog_nocache_address = (char *)ioremap_nocache(TMPLOG_ADDRESS,
-								TMPLOG_SIZE);
+						TMPLOG_TOTAL_SIZE);
 		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
 	}
 

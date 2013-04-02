@@ -88,7 +88,6 @@ static const char *k_correct_siml_unlock_code[] = {
     "code4",
     "code5"
 };
-static const char *k_master_code = "masterblaster";
 /* These are SHA256 values from above codes. Convert to bin still needed. */
 static const char *k_siml_verify_hash[] = {
     "9583a5e3de1040c177c921abe53d4b28845129d8b11c8a83a59900045325de65",
@@ -276,8 +275,8 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
     /*uint32_t spare_param = */ va_arg(list, uint32_t); /* spare not used. */
     sec_msg_out_msg = va_arg(list, sec_msg_t*);
     sec_msg_in_msg = va_arg(list, sec_msg_t*);
-    sec_msg_open(&out_handle, SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_out_msg));
-    sec_msg_open(&in_handle, SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_in_msg));
+    sec_msg_open(&out_handle, (sec_msg_t *)SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_out_msg));
+    sec_msg_open(&in_handle, (sec_msg_t *)SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_in_msg));
 
     switch(service_id)
     {
@@ -923,16 +922,16 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             SEC_HAL_TRACE("name_size 0x%x", name_size);
 
             st = sec_msg_param_read32(&in_handle, &phys_name_ptr);
-            name_ptr = phys_to_virt(phys_name_ptr);
+            name_ptr = (uint32_t) phys_to_virt(phys_name_ptr);
             SEC_HAL_TRACE("name %s", (char *)name_ptr);
 
             st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
             SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
-            context_ptr = phys_to_virt(phys_context_ptr);
+            context_ptr = (uint32_t) phys_to_virt(phys_context_ptr);
             SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
-            context=(uint32_t*) context_ptr;
+            context = (TEEC_Context *) context_ptr;
 
-            context->imp.tag = 0x2020;
+            context->imp.tag = (void *)0x2020;
             sec_msg_param_write32(&out_handle,
                     SEC_MSG_STATUS_OK == st ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
         }break;
@@ -948,7 +947,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
             SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
-            context_ptr = phys_to_virt(phys_context_ptr);
+            context_ptr = (uint32_t) phys_to_virt(phys_context_ptr);
             SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
             context=(uint32_t*) context_ptr;
 
@@ -987,7 +986,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
             SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
-            context_ptr = phys_to_virt(phys_context_ptr);
+            context_ptr = (uint32_t) phys_to_virt(phys_context_ptr);
             SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
             context=(uint32_t*) context_ptr;
 
@@ -997,15 +996,15 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
             SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
 
-            session_ptr = phys_to_virt(phys_session_ptr);
+            session_ptr = (uint32_t) phys_to_virt(phys_session_ptr);
             SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
-            session=(uint32_t*) session_ptr;
+            session = (TEEC_Session *) session_ptr;
 
-            session->imp.tag = 0x3030;
+            session->imp.tag = (void *)0x3030;
 
             st = sec_msg_param_read32(&in_handle, &phys_destination_ptr);
             SEC_HAL_TRACE("phys_destination_ptr 0x%x", phys_destination_ptr);
-            destination_ptr = phys_to_virt(phys_destination_ptr);
+            destination_ptr = (uint32_t) phys_to_virt(phys_destination_ptr);
             SEC_HAL_TRACE("destination_ptr 0x%x", destination_ptr);
             destination=(uint32_t*) destination_ptr;
 
@@ -1029,7 +1028,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
             SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
-            session_ptr = phys_to_virt(phys_session_ptr);
+            session_ptr = (uint32_t) phys_to_virt(phys_session_ptr);
             SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
             session=(uint32_t*) session_ptr;
 
@@ -1069,7 +1068,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_session_ptr);
             SEC_HAL_TRACE("phys_session_ptr 0x%x", phys_session_ptr);
-            session_ptr = phys_to_virt(phys_session_ptr);
+            session_ptr = (uint32_t) phys_to_virt(phys_session_ptr);
             SEC_HAL_TRACE("session_ptr 0x%x", session_ptr);
             session=(uint32_t*) session_ptr;
             st = sec_msg_param_read32(&in_handle, &commandID);
@@ -1081,9 +1080,9 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             SEC_HAL_TRACE("phys_operation_ptr 0x%x", phys_operation_ptr);
             if(phys_operation_ptr != 0)
                 {
-                operation_ptr = phys_to_virt(phys_operation_ptr);
+                operation_ptr = (uint32_t) phys_to_virt(phys_operation_ptr);
                 SEC_HAL_TRACE("operation_ptr 0x%x", operation_ptr);
-                operation=(uint32_t*) operation_ptr;
+                operation = (TEEC_Operation *) operation_ptr;
 
                 for(i=0;i<4;i++)
                     {
@@ -1105,36 +1104,36 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
                     if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) ==  TEEC_MEMREF_WHOLE &&
                        TEEC_PARAM_TYPE_GET(operation->paramTypes, 1) ==  TEEC_MEMREF_WHOLE )
                         {
-                        inputSM = phys_to_virt(operation->params[0].memref.parent);
-                        outputSM = phys_to_virt(operation->params[1].memref.parent);
+                        inputSM = (TEEC_SharedMemory *) phys_to_virt((phys_addr_t) operation->params[0].memref.parent);
+                        outputSM = (TEEC_SharedMemory *) phys_to_virt((phys_addr_t) operation->params[1].memref.parent);
                         SEC_HAL_TRACE("outputSM 0x%x",outputSM);
                         SEC_HAL_TRACE("inputSM 0x%x",inputSM);
-                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt(outputSM->buffer));
-                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt(inputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt((phys_addr_t)outputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt((phys_addr_t)inputSM->buffer));
 
-                        memcpy(phys_to_virt(outputSM->buffer),phys_to_virt(inputSM->buffer),inputSM->size);
+                        memcpy(phys_to_virt((phys_addr_t)outputSM->buffer),phys_to_virt((phys_addr_t)inputSM->buffer),inputSM->size);
                         }
                     else if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) == TEEC_MEMREF_PARTIAL_INPUT &&
                             TEEC_PARAM_TYPE_GET(operation->paramTypes, 1) == TEEC_MEMREF_PARTIAL_OUTPUT )
                         {
-                        inputSM = phys_to_virt(operation->params[0].memref.parent);
-                        outputSM = phys_to_virt(operation->params[1].memref.parent);
+                        inputSM = phys_to_virt((phys_addr_t)operation->params[0].memref.parent);
+                        outputSM = phys_to_virt((phys_addr_t)operation->params[1].memref.parent);
                         SEC_HAL_TRACE("outputSM 0x%x",outputSM);
                         SEC_HAL_TRACE("inputSM 0x%x",inputSM);
-                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt(outputSM->buffer));
-                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt(inputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(outputSM->buffer) 0x%x",phys_to_virt((phys_addr_t)outputSM->buffer));
+                        SEC_HAL_TRACE("phys_to_virt(inputSM->buffer) 0x%x",phys_to_virt((phys_addr_t)inputSM->buffer));
 
-                        memcpy(phys_to_virt(outputSM->buffer) + operation->params[1].memref.offset,
-                        phys_to_virt(inputSM->buffer) + operation->params[0].memref.offset,
+                        memcpy(phys_to_virt((phys_addr_t)outputSM->buffer) + operation->params[1].memref.offset,
+                        phys_to_virt((phys_addr_t)inputSM->buffer) + operation->params[0].memref.offset,
                         inputSM->size);
                         }
                     else if(TEEC_PARAM_TYPE_GET(operation->paramTypes, 0) == TEEC_MEMREF_PARTIAL_INOUT )
                         {
                         TEEC_SharedMemory *inoutSM;
-                        inoutSM = phys_to_virt(operation->params[0].memref.parent);
+                        inoutSM = phys_to_virt((phys_addr_t) operation->params[0].memref.parent);
                         SEC_HAL_TRACE("inoutSM 0x%x",inoutSM);
-                        memcpy(phys_to_virt(inoutSM->buffer),
-                        phys_to_virt(inoutSM->buffer) + (inoutSM->size/2),
+                        memcpy(phys_to_virt((phys_addr_t)inoutSM->buffer),
+                        phys_to_virt((phys_addr_t)inoutSM->buffer) + (inoutSM->size/2),
                         (inoutSM->size/2));
                         }
                     }
@@ -1166,7 +1165,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             SEC_HAL_TRACE("phys_returnOrigin_ptr 0x%x", phys_returnOrigin_ptr);
             if(phys_returnOrigin_ptr != 0)
                 {
-                returnOrigin_ptr = phys_to_virt(phys_returnOrigin_ptr);
+                returnOrigin_ptr = (uint32_t) phys_to_virt(phys_returnOrigin_ptr);
                 SEC_HAL_TRACE("returnOrigin_ptr 0x%x", returnOrigin_ptr);
                 returnOrigin=(uint32_t*) returnOrigin_ptr;
                 }
@@ -1191,7 +1190,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_context_ptr);
             SEC_HAL_TRACE("phys_context_ptr 0x%x", phys_context_ptr);
-            context_ptr = phys_to_virt(phys_context_ptr);
+            context_ptr = (uint32_t) phys_to_virt(phys_context_ptr);
             SEC_HAL_TRACE("context_ptr 0x%x", context_ptr);
             context=(uint32_t*) context_ptr;
 
@@ -1199,11 +1198,11 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_shmem_ptr);
             SEC_HAL_TRACE("phys_shmem_ptr 0x%x", phys_shmem_ptr);
-            shmem_ptr = phys_to_virt(phys_shmem_ptr);
+            shmem_ptr = (uint32_t) phys_to_virt(phys_shmem_ptr);
             SEC_HAL_TRACE("shmem_ptr 0x%x", shmem_ptr);
-            shmem=(uint32_t*) shmem_ptr;
+            shmem = (TEEC_SharedMemory *) shmem_ptr;
 
-            shmem->imp.tag = 0x12345678;
+            shmem->imp.tag = (void *)0x12345678;
 
             SEC_HAL_TRACE("shmem->size: 0x%x", shmem->size);
             SEC_HAL_TRACE("shmem->flags: 0x%x", shmem->flags);
@@ -1228,9 +1227,9 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 
             st = sec_msg_param_read32(&in_handle, &phys_shmem_ptr);
             SEC_HAL_TRACE("phys_shmem_ptr 0x%x", phys_shmem_ptr);
-            shmem_ptr = phys_to_virt(phys_shmem_ptr);
+            shmem_ptr = (uint32_t) phys_to_virt(phys_shmem_ptr);
             SEC_HAL_TRACE("shmem_ptr 0x%x", shmem_ptr);
-            shmem=(uint32_t*) shmem_ptr;
+            shmem = (TEEC_SharedMemory *) shmem_ptr;
 
             SEC_HAL_TRACE("shmem->size: 0x%x", shmem->size);
             SEC_HAL_TRACE("shmem->flags: 0x%x", shmem->flags);

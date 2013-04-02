@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/screen_display.h
  *     This file is screen display function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -28,13 +28,14 @@
 #define RT_DISPLAY_LCD1 (1)
 #define RT_DISPLAY_LCD2 (2)
 #define RT_DISPLAY_HDMI (3)
-#define RT_DISPLAY_LCDHDMI (7)	/* #MU2DSP582 add */
+#define RT_DISPLAY_LCDHDMI (7)
 #define RT_DISPLAY_LCD1_ASYNC (257)
 
 /** Image format */
 #define RT_DISPLAY_FORMAT_RGB565		(1)
 #define RT_DISPLAY_FORMAT_ARGB8888		(2)
 #define RT_DISPLAY_FORMAT_RGB888		(3)
+#define RT_DISPLAY_FORMAT_ABGR8888		(8)
 
 /** Buffer ID */
 #define RT_DISPLAY_DRAW_BLACK			(99)
@@ -52,27 +53,31 @@
 #define	RT_DISPLAY_1280_720P60			(2)
 #define	RT_DISPLAY_1920_1080I60			(3)
 #define	RT_DISPLAY_1920_1080P24			(4)
-/* #MU2DSP582 mod -S- */
 #define	RT_DISPLAY_720_576P50			(5)
 #define	RT_DISPLAY_1280_720P50			(6)
+#define	RT_DISPLAY_1920_1080I50			(7)
+#define	RT_DISPLAY_720_480I60A43		(9)
+#define	RT_DISPLAY_720_576I50A43		(10)
 #define	RT_DISPLAY_1920_1080P60			(11)
 #define	RT_DISPLAY_1920_1080P50			(12)
 #define	RT_DISPLAY_720_480P60A43		(13)
 #define	RT_DISPLAY_720_576P50A43		(14)
-/* #MU2DSP582 mod -E- */
-/* #MU2DSP939 mod -S- */
+#define	RT_DISPLAY_720_480P60FULL		(33)
+#define	RT_DISPLAY_1280_720P60FULL		(34)
+#define	RT_DISPLAY_1920_1080I60FULL		(35)
+#define	RT_DISPLAY_720_576P50FULL		(37)
+#define	RT_DISPLAY_1280_720P50FULL		(38)
+#define	RT_DISPLAY_1920_1080I50FULL		(39)
+#define	RT_DISPLAY_720_480I60			(41)
+#define	RT_DISPLAY_720_576I50			(42)
 #define RT_DISPLAY_USE_IF_PARAM			(99)
-/* #MU2DSP939 mod -E- */
 
-/* #MU2DSP582 mod -S- */
 /* Rotation type */
 #define RT_DISPLAY_ROTATE_0				(1)
 #define RT_DISPLAY_ROTATE_90			(2)
 #define RT_DISPLAY_ROTATE_180			(3)
 #define RT_DISPLAY_ROTATE_270			(4)
-/* #MU2DSP582 mod -E- */
 
-/* #MU2DSP860 -S- */
 /* Reseption mode */
 #define RT_DISPLAY_RECEPTION_OFF		(1)
 #define RT_DISPLAY_RECEPTION_ON			(2)
@@ -80,12 +85,10 @@
 /* DSI mode */
 #define RT_DISPLAY_SEND_MODE_LP			(1)
 #define RT_DISPLAY_SEND_MODE_HS			(2)
-/* #MU2DSP860 -E- */
 
-/* #MU2DSP939 add -S- */
+
 #define RT_DISPLAY_PROGRESSIVE			(1)
 #define RT_DISPLAY_INTERLACE			(2)
-/* #MU2DSP939 add -E- */
 
 /** RT I/F Return code */
 #define SMAP_LIB_DISPLAY_OK				(0)
@@ -105,13 +108,12 @@
 /* Structure				*/
 /****************************************/
 typedef struct {
-	/* unsigned int VCLKCR3		#MU2DSP860 */;
 	unsigned int DSITCKCR;
 	unsigned int DSI0PCKCR;
 	unsigned int DSI0PHYCR;
 	unsigned int SYSCONF;
 	unsigned int TIMSET0;
-	unsigned int TIMSET1;		/* #MU2DSP860 */
+	unsigned int TIMSET1;
 	unsigned int DSICTRL;
 	unsigned int VMCTR1;
 	unsigned int VMCTR2;
@@ -125,11 +127,11 @@ typedef struct {
 	unsigned int MLDHAJR;
 	unsigned int MLDVLNR;
 	unsigned int MLDVSYNR;
-	unsigned int MLDMT1R;		/* #MU2DSP381 */
-	unsigned int LDDCKR;		/* #MU2DSP533 */
-	unsigned int MLDDCKPAT1R;	/* #MU2DSP533 */
-	unsigned int MLDDCKPAT2R;	/* #MU2DSP533 */
-	unsigned int PHYTEST;		/* #MU2DSP1329 */
+	unsigned int MLDMT1R;
+	unsigned int LDDCKR;
+	unsigned int MLDDCKPAT1R;
+	unsigned int MLDDCKPAT2R;
+	unsigned int PHYTEST;
 } screen_disp_lcd_if;
 
 #ifndef _SCREEN_RECT_TYPE_
@@ -149,9 +151,7 @@ typedef struct {
 	screen_rect      draw_rect;
 	unsigned int     buffer_offset;
 	unsigned short   buffer_id;
-/* #MU2DSP582 mod -S- */
 	unsigned short   rotate;
-/* #MU2DSP582 mod -E- */
 } screen_disp_draw;
 
 typedef struct {
@@ -180,7 +180,6 @@ typedef struct {
 	void *handle;
 } screen_disp_stop_hdmi;
 
-/* #MU2DSP222 add -S- */
 typedef struct {
 	void         *handle;
 	unsigned short output_mode;
@@ -191,32 +190,31 @@ typedef struct {
 	unsigned char	data_count;
 	unsigned char	*read_data;
 } screen_disp_read_dsi_short;
-/* #MU2DSP222 add -E- */
 
 typedef struct {
 	void         *handle;
-	unsigned short output_mode;	/* #MU2DSP188 */
+	unsigned short output_mode;
 	unsigned char data_id;
 	unsigned char reg_address;
 	unsigned char write_data;
-	unsigned char reception_mode;	/* #MU2DSP860 */
+	unsigned char reception_mode;
 } screen_disp_write_dsi_short;
 
 typedef struct {
 	void          *handle;
-	unsigned short output_mode;	/* #MU2DSP188 */
+	unsigned short output_mode;
 	unsigned char  data_id;
 	unsigned char  dummy;
 	unsigned short data_count;
-	unsigned short dummy2;		/* #MU2DSP188 */
+	unsigned short dummy2;
 	unsigned char *write_data;
-	unsigned char reception_mode;	/* #MU2DSP860 */
-	unsigned char send_mode;		/* #MU2DSP860 */
+	unsigned char reception_mode;
+	unsigned char send_mode;
 } screen_disp_write_dsi_long;
 
 typedef struct {
 	void               *handle;
-	unsigned int		port_no;	/* #MU2DSP949 */
+	unsigned int		port_no;
 	screen_disp_lcd_if *lcd_if_param;
 	screen_disp_lcd_if *lcd_if_param_mask;
 } screen_disp_set_lcd_if_param;
@@ -229,7 +227,6 @@ typedef struct {
 	unsigned int   size;
 } screen_disp_set_address;
 
-/* #MU2DSP939 add -S- */
 typedef struct {
 	unsigned short videoH;
 	unsigned short videoV;
@@ -265,7 +262,7 @@ typedef struct {
 	unsigned int PLL2CR;
 	unsigned int DSI1PCKCR;
 	unsigned int DSI1PHYCR;
-	unsigned int PHYTEST;		/* #MU2DSP1329 */
+	unsigned int PHYTEST;
 } screen_disp_hdmi_if;
 
 typedef struct {
@@ -274,7 +271,6 @@ typedef struct {
 	screen_disp_aspect		*aspect;
 	screen_disp_hdmi_if		*hdmi_if_param;
 } screen_disp_set_hdmi_if_param;
-/* #MU2DSP939 add -E- */
 
 typedef struct {
 	void					*handle;
@@ -283,7 +279,7 @@ typedef struct {
 	unsigned long			*lut;
 } screen_disp_set_lut;
 
-typedef struct{
+typedef struct {
 	void			*handle;
 	unsigned short	output_mode;
 	unsigned short	palette_mode;
@@ -298,102 +294,67 @@ typedef struct {
 /* function								*/
 /****************************************/
 /* Create handle */
-extern void *screen_display_new
-(
-void
-);
+extern void *screen_display_new(
+void);
 
 /* Draw */
-extern int screen_display_draw
-(
-screen_disp_draw *disp_draw
-);
+extern int screen_display_draw(
+screen_disp_draw *disp_draw);
 
 /* Start LCD */
-extern int screen_display_start_lcd
-(
-screen_disp_start_lcd *start_lcd
-);
+extern int screen_display_start_lcd(
+screen_disp_start_lcd *start_lcd);
 
 /* Stop LCD */
-extern int screen_display_stop_lcd
-(
-screen_disp_stop_lcd *stop_lcd
-);
+extern int screen_display_stop_lcd(
+screen_disp_stop_lcd *stop_lcd);
 
 /* Set LCD refresh mode */
-extern int screen_display_set_lcd_refresh
-(
-screen_disp_set_lcd_refresh *set_lcd_refresh
-);
+extern int screen_display_set_lcd_refresh(
+screen_disp_set_lcd_refresh *set_lcd_refresh);
 
 /* Start HDMI */
-extern int screen_display_start_hdmi
-(
-screen_disp_start_hdmi *start_hdmi
-);
+extern int screen_display_start_hdmi(
+screen_disp_start_hdmi *start_hdmi);
 
 /* Stop HDMI */
-extern int screen_display_stop_hdmi
-(
-screen_disp_stop_hdmi *stop_hdmi
-);
+extern int screen_display_stop_hdmi(
+screen_disp_stop_hdmi *stop_hdmi);
 
-/* #MU2DSP222 add -S- */
 /* Read LCD packet data */
-extern int screen_display_read_dsi_short_packet
-(
-screen_disp_read_dsi_short *read_dsi_s
-);
-/* #MU2DSP222 add -E- */
-
+extern int screen_display_read_dsi_short_packet(
+screen_disp_read_dsi_short *read_dsi_s);
 
 /* Write LCD packet data */
-extern int screen_display_write_dsi_short_packet
-(
-screen_disp_write_dsi_short *write_dsi_s
-);
+extern int screen_display_write_dsi_short_packet(
+screen_disp_write_dsi_short *write_dsi_s);
 
 /* Write LCD packet data */
-extern int screen_display_write_dsi_long_packet
-(
-screen_disp_write_dsi_long *write_dsi_l
-);
+extern int screen_display_write_dsi_long_packet(
+screen_disp_write_dsi_long *write_dsi_l);
 
 /* Set LCD parameters */
-extern int screen_display_set_lcd_if_parameters
-(
-screen_disp_set_lcd_if_param *set_lcd_if_param
-);
+extern int screen_display_set_lcd_if_parameters(
+screen_disp_set_lcd_if_param *set_lcd_if_param);
 
 /* Set address  */
-extern int screen_display_set_address
-(
-screen_disp_set_address *address
-);
+extern int screen_display_set_address(
+screen_disp_set_address *address);
 
 /* Set HDMI parameters */
-extern int screen_display_set_hdmi_if_parameters
-(
-screen_disp_set_hdmi_if_param *set_hdmi_if_param
-);
+extern int screen_display_set_hdmi_if_parameters(
+screen_disp_set_hdmi_if_param *set_hdmi_if_param);
 
 /* Set Lut parameters */
-extern int screen_display_set_lut
-(
-screen_disp_set_lut *disp_set_lut
-);
+extern int screen_display_set_lut(
+screen_disp_set_lut *disp_set_lut);
 
 /* Set LCD color palette data */
-extern int screen_display_set_lcd_color_palette
-(
-screen_disp_lcd_color_palette *disp_lcd_color_plt
-);
+extern int screen_display_set_lcd_color_palette(
+screen_disp_lcd_color_palette *disp_lcd_color_plt);
 
 /* Delete handle */
-extern void screen_display_delete
-(
-screen_disp_delete *disp_delete
-);
+extern void screen_display_delete(
+screen_disp_delete *disp_delete);
 
 #endif	/* __SCREEN_DISPLAY_H__ */

@@ -34,6 +34,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <mach/common.h>
+#include <mach/memory-r8a7373.h>
 
 #include "panel_hx8369_b.h"
 
@@ -51,8 +52,9 @@
 #define PANEL_ID_REV48_RDID3	0x90
 
 /* framebuffer address and size */
-#define R_MOBILE_M_BUFF_ADDR		0x48C00000
-#define R_MOBILE_M_BUFF_SIZE		(4 * 1024 * 1024)
+#define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
+#define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
+					 SDRAM_FRAME_BUFFER_START_ADDR + 1)
 
 /* panel pixel */
 #define R_MOBILE_M_PANEL_PIXEL_WIDTH	 480

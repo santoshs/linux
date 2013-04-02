@@ -59,7 +59,7 @@ static void smc_instance_add( smc_t* smc_instance );
 /*
  * Extern functions
  */
-extern uint8_t  smc_module_initialize( smc_conf_t* smc_instance_conf );
+extern uint8_t smc_module_initialize( smc_conf_t* smc_instance_conf );
 
 
 char* smc_get_version( void )
@@ -130,6 +130,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->smc_instance_conf      = smc_instance_conf;
     smc->smc_parent_ptr         = parent_object;
     smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
+    smc->instance_name          = smc_instance_conf->name;
 
     smc_instance_add( smc );
 
@@ -193,6 +194,14 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
         {
             smc_channel_t* channel = smc_channel_create( smc_instance_conf->smc_channel_conf_ptr_array[i] );
 
+/*
+#ifdef SMC_DMA_TRANSFER_ENABLED
+            if( channel->smc_dma != NULL )
+            {
+                smc_dma_set_device( channel->smc_dma, parent_object);
+            }
+#endif
+*/
             SMC_TRACE_PRINTF_INFO("smc_instance_create_ext: new SMC channel in index %d created (0x%08X), add to channel array...",
                         i, (uint32_t)channel);
 
@@ -273,8 +282,8 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
         /*
          * FIFOs are created when channel is added to SMC instance and SHM is ready
          */
-    channel->fifo_out   = NULL;
-    channel->fifo_in    = NULL;
+    channel->fifo_out    = NULL;
+    channel->fifo_in     = NULL;
 
     if( smc_channel_conf->fifo_full_check_timeout_usec > 0 )
     {
@@ -334,35 +343,27 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
     channel->dropped_packets_fifo_buffer = 0;
     channel->send_packets_fifo_buffer    = 0;
     channel->fifo_buffer_copied_total    = 0;
+
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    channel->smc_dma = NULL;
+
+    if( SMC_COPY_SCHEME_RECEIVE_USE_DMA(smc_channel_conf->copy_scheme) ||
+        SMC_COPY_SCHEME_SEND_USE_DMA(smc_channel_conf->copy_scheme) )
+    {
+        channel->smc_dma = smc_dma_create();
+    }
+#endif
+
     SMC_TRACE_PRINTF_DEBUG("smc_channel_create: channel %d: 0x%08X created", channel->id, (uint32_t)channel);
 
     return channel;
 }
 
-smc_loopback_data_t* smc_loopback_data_create( uint32_t size_of_message_payload )
-{
-    smc_loopback_data_t* data = NULL;
-
-    data = (smc_loopback_data_t*)SMC_MALLOC( sizeof( smc_loopback_data_t ) + ((size_of_message_payload-1)*sizeof(uint8_t)) );
-
-    data->round_trip_counter   = 0;
-    data->loopback_data_length = size_of_message_payload;
-    data->timestamp            = 0;
-    data->loopback_rounds_left = 0;
-
-    memset( data->loopback_data, 0, size_of_message_payload );
-
-    return data;
-}
-
 static void smc_instance_add( smc_t* smc_instance )
 {
     smc_t**     old_array  = NULL;
-    //smc_lock_t* local_lock = NULL;
     smc_semaphore_t* local_mutex = NULL;
-
-    //local_lock = get_local_lock_smc_channel_ext();  /* use the same lock as the channel */
-    //SMC_LOCK_IRQ( local_lock );
 
     local_mutex = get_local_mutex_smc_instance();
     SMC_LOCK_MUTEX( local_mutex );
@@ -399,18 +400,12 @@ static void smc_instance_add( smc_t* smc_instance )
 
     SMC_TRACE_PRINTF_DEBUG("smc_instance_add: instance 0x%08X added, count %d", (uint32_t)smc_instance, g_smc_instance_array_count);
 
-    //SMC_UNLOCK_IRQ( local_lock );
     SMC_UNLOCK_MUTEX( local_mutex );
 }
 
 static void smc_instance_remove( smc_t* smc_instance )
 {
-    //smc_lock_t* local_lock = NULL;
     smc_semaphore_t* local_mutex = NULL;
-
-
-    //local_lock = get_local_lock_smc_channel_ext();  /* Use the same lock as the channel */
-    //SMC_LOCK_IRQ( local_lock );
 
     local_mutex = get_local_mutex_smc_instance();
     SMC_LOCK_MUTEX( local_mutex );
@@ -471,7 +466,6 @@ static void smc_instance_remove( smc_t* smc_instance )
 
     SMC_TRACE_PRINTF_DEBUG("smc_instance_remove: instance 0x%08X removed, count %d", (uint32_t)smc_instance, g_smc_instance_array_count);
 
-    //SMC_UNLOCK_IRQ( local_lock );
     SMC_UNLOCK_MUTEX( local_mutex );
 }
 
@@ -582,7 +576,6 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
         {
                 /* Local interrupt has IRQ handler registered */
             smc_signal_handler_unregister( smc_channel->smc_instance, smc_channel->signal_local, smc_channel );
-
             smc_signal_destroy(smc_channel->signal_local);
         }
 
@@ -604,6 +597,15 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             SMC_FREE( smc_channel->send_semaphore );
             smc_channel->send_semaphore = NULL;
         }
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+        if( smc_channel->smc_dma != NULL )
+        {
+            SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: channel 0x%08X: destroy dma 0x%08X...", (uint32_t)smc_channel, (uint32_t)smc_channel->smc_dma);
+            smc_dma_destroy( smc_channel->smc_dma );
+        }
+#endif
+
 
 #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
         if( smc_channel->smc_history_data_sent != NULL )
@@ -889,12 +891,21 @@ uint8_t smc_initialize( smc_conf_t* smc_instance_conf )
         smc_test_handler_register();
 #endif
 
+        /* Instance configuration not required currently
         if( smc_instance_conf == NULL )
         {
             SMC_TRACE_PRINTF_WARNING("smc_initialize: SMC initialization is NULL");
         }
+        */
 
-            /* Call the module specific SMC initialization */
+
+        SMC_TRACE_PRINTF_DEBUG("smc_initialize: initializing locks...");
+        get_local_mutex_smc_instance();
+
+            /* Initialize SMC core features */
+        smc_init_core();
+
+        SMC_TRACE_PRINTF_DEBUG("smc_initialize: initializing plaform specific module...");
         return_value = smc_module_initialize( smc_instance_conf );
 
         smc_initialized = TRUE;

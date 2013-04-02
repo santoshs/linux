@@ -1,5 +1,5 @@
 /*
-*   Common SMC instance configuration for L2MUX
+*   Common SMC instance configuration for Renesas R8A73734 / WGEM31
 *   Copyright © Renesas Mobile Corporation 2012. All rights reserved
 *
 *   This material, including documentation and any related source code
@@ -29,30 +29,62 @@ Description :  File created
 #ifndef SMC_INSTANCE_CONFIG_R8A73734_WGE31_H
 #define SMC_INSTANCE_CONFIG_R8A73734_WGE31_H
 
+
 #ifdef SMECO_MODEM
-  #define SMC_CPU_NAME    "Modem"
+
+  #define SMC_CPU_NAME          "Modem"
+
+        /* EOS2 ES20: TODO Set modem side include file for common memory mapping */
+  #define SDRAM_SMC_START_ADDR  0x44001000
+  #define SDRAM_SMC_END_ADDR    0x44800FFF
+
+
 #elif( defined(SMECO_LINUX_KERNEL) )
+
+  #ifdef SMC_CONFIG_ARCH_R8A7373
+      /*#include <mach/memory-r8a7373.h>*/
+      /*#include <mach/r8a7373.h>*/
+
+      /* SSG build is missing the memory header -> using hard coded values */
+      #define SDRAM_SMC_START_ADDR  0x44001000
+      #define SDRAM_SMC_END_ADDR    0x44800FFF
+
+  #elif (defined ( SMC_CONFIG_ARCH_R8A73734 ) )
+      /*#include <mach/memory-r8a73734.h>*/
+      /*#include <mach/r8a73734.h>*/
+
+      /* SSG build is missing the memory header -> using hard coded values */
+      #define SDRAM_SMC_START_ADDR  0x44001000
+      #define SDRAM_SMC_END_ADDR    0x44800FFF
+
+      #define SMC_LINUX_USE_KMAP_OLD
+  #else
+      #warning "No target product defined, using default memory configuration"
+      #define SDRAM_SMC_START_ADDR  0x44001000
+      #define SDRAM_SMC_END_ADDR    0x44800FFF
+  #endif
+
+  /*
+   * Other common Linux Kernel configurations
+   */
+
   #define SMC_CPU_NAME    "APE"
+
 #else
-  #error "Error in EOS2 configuration"
+  #error "Error in EOS2 configuration: no valid compile option"
 #endif
 
 #define SMC_EOS_ASIC_ES20   0x20
 
-
     /* =============================================================================
-     * SMC specific configurations for EOS2 ES2.0
+     * SMC specific configurations for EOS2
      */
 
-    /* ---- ES2.0 ---- */
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
-//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
-//#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x43FFFFFF
-
-#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44001000
-#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x44800FFF     /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       SDRAM_SMC_START_ADDR
+#define SMC_CONF_GLOBAL_SHM_END_ES20                         SDRAM_SMC_END_ADDR      /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
@@ -71,48 +103,20 @@ Description :  File created
                                                                     The master (APE) only initiate the runtime configuration and its config is used
                                                                   */
 
-     /*
-      *	 SMC configuration names
-      */
-
-    /* ===========================================================================
-     * SHM Configuration is based on memory mapping for ES20
-     *
-     *
-     * SHM Address    Modem Address   Owner
-     * -------------------------------------------------------------------------
-     * 0x4000_0000    0x0800_0000     L23 Code
-     * 0x4100_0000    0x0900_0000     L1  Code
-     * 0x4200_0000    0x0A00_0000     L23 Data/L1 Data
-     * 0x43FF_0000                    Stack space       to 0x4400_0000 size 64 kB
-     * 0x4400_0000    0x0C00_0000     Reserved          to 0x477F_FFFF size 56 MB
-     *    0x4400_0000                 Malloc space      to 0x4500_0000 size 16 MB
-     *
-     * 0x4800_0000    -----           Modem is not able to the area starting from this address
-     * 0x4C00_0000    0x1400_0000     Non-Secure Spinlock
-     * 0x4C00_1000    0x1400_1000     Shared Memory 0x4C80_0FFF
-     * 0x4C80_1000    0x1480_1000     Crash log
-     * 0x4C90_1000    0x1490_1000     STM Trace buffer
-     *
-     * In Linux side the SHM is ioremapped from physical address (no static value possible)
-     */
-
-    //#define SMC_CONF_GLOBAL_SHM_START       0x4C001000
-
     /* =============================================================================
-     * COMMON Configuration for EOS2 ES2.0
+     * COMMON Configuration for EOS2 ES1.0/ES2.0
      */
 
 #define SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED     TRUE
 
-    /* Modem side offset */
+    /* Modem side offset for the shared memory */
 #define SMC_CONF_SHM_OFFSET_TO_MODEM                (-1*0x38000000)
+
 
 /* =================================================
  * Peripheral addresses and configurations
  *
  */
-
 
     /*
      * Modem side peripherals
@@ -120,7 +124,6 @@ Description :  File created
 #define SMC_MODEM_INTGEN_L2_OFFSET                   16
 #define SMC_MODEM_INTGEN_L2_FIRST                    35          /* C2_L2_CPU_Int_Gen_Ch0 */
 #define SMC_PERIPHERAL_ADDRESS_MODEM_GOP_INTGEN_1    0x07C00040
-
 
     /*
      * APE side peripherals
@@ -169,14 +172,14 @@ Description :  File created
 
 
     #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  { SMC_VERSION_TO_INT(0,0,36), SMC_VERSION_REQUIREMENT_LEVEL_WARNING, "Modem->APE wakeup signal polarity change" }
-    #define SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37 { SMC_VERSION_TO_INT(0,0,37), SMC_VERSION_REQUIREMENT_LEVEL_ASSERT, "MHDP Channel Shared Memory size change" }
 
 #else
     #define SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY  {0,0,""}
 
 #endif /* #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) ) */
 
-
+    /* Version requirements */
+#define SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37 { SMC_VERSION_TO_INT(0,0,37), SMC_VERSION_REQUIREMENT_LEVEL_ASSERT, "MHDP Channel Shared Memory size change" }
 
     /*
      * SMC Version requirements
@@ -195,17 +198,72 @@ Description :  File created
      * MODEM specific configuration
      */
 
-  /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */       /* If defined, the message is buffered when FIFO is full */
+  /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */            /* If defined, the message is buffered when FIFO is full */
+  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
+
+    /* Definition for Modem to wakeup APE when the channel interrupt does not do that */
+  #define SYSC_PSTR_REG (*(volatile uint32_t *)0x20180080)
+  #define SYSC_PSTR_C4_A3SM_A2SL ((1 << 16) | (1 << 20) | (1 << 19))
+
+  #define SMC_MODEM_WAKEUP_APE()           {                                                                            \
+                                                volatile uint32_t sysc_pstr_data;                                       \
+                                                volatile uint32_t sysc_poll_delay;                                      \
+                                                                                                                        \
+                                                while (SYSC_PSTR_C4_A3SM_A2SL != ((sysc_pstr_data = SYSC_PSTR_REG) & SYSC_PSTR_C4_A3SM_A2SL))           \
+                                                {                                                                                                       \
+                                                    SMC_TRACE_PRINTF_INFO("smc_signal_raise: SYSC.PSTR C4/A3SM/A2SL is off (0x%08X)", sysc_pstr_data);  \
+                                                    for (sysc_poll_delay = 0xFFF; sysc_poll_delay; sysc_poll_delay--);                                  \
+                                                }                                                                                                       \
+                                                SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SYSC.PSTR C4ST C4+A3SM+A2SL is ON (0x%08X)", sysc_pstr_data);\
+                                            }
+
+
+  #define SMC_MODEM_GENIO_GOP001_REG    &a_genio_gop001
+  #define SMC_MODEM_INTGEN_IN_USE                           /* If defined, the intgen interrupts are enabled */
 
 #elif( defined(SMECO_LINUX_KERNEL) )
     /*
      * APE Linux Kernel specific configuration
      */
 
-  #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS        /* If defined, the message is buffered when FIFO is full */
+  #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS                  /* If defined, the message is buffered when FIFO is full */
 
-  #define SMC_SUPPORT_SKB_FRAGMENT_UL                 /* If defined, the SKB fragments are supported in uplink. NOTE: enable also the SMC_DMA_TRANSFER_ENABLED with this for highmem config */
-  #define SMC_DMA_TRANSFER_ENABLED                    /* If defined, the DMA transfer feature is enabled for channel configuration  */
+  #define SMC_SUPPORT_SKB_FRAGMENT_UL                           /* If defined, the SKB fragments are supported in uplink. NOTE: enable also the SMC_DMA_ENABLED with this for highmem config */
+  #define SMC_DMA_ENABLED                                       /* If defined, the DMA initialization is enabled, this is required by the SKB fragment handling */
+  /*#define SMC_DMA_TRANSFER_ENABLED*/                          /* If defined, the DMA transfer feature is enabled for channel configuration, requires SMC_DMA_ENABLED to be defined */
+
+  #define SMC_DMA_TRANSFER_TIMEOUT_MS            500            /* TODO Optimize */
+
+  #define SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS       0 /* 5 */      /* Timeout in milliseconds to wait the modem to wake up. If 0, waits forever, if not defined no wakeup request from APE */
+
+  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
+
+
+      /*
+       * Device driver suspend and resume macros
+       */
+  #define SMC_PLATFORM_DEVICE_DRIVER_SUSPEND( device, wakeup_irq_sense )    {                                                                               \
+                                                                                uint32_t signal_event_sense = 0x00000002;                                   \
+                                                                                if( wakeup_irq_sense == SMC_SIGNAL_SENSE_RISING_EDGE ) {                    \
+                                                                                    signal_event_sense = 0x00000002; }                                      \
+                                                                                else if( wakeup_irq_sense == SMC_SIGNAL_SENSE_FALLING_EDGE ) {              \
+                                                                                    signal_event_sense = 0x00000001; }                                      \
+                                                                                else {                                                                      \
+                                                                                    SMC_TRACE_PRINTF_ASSERT("SMC_PLATFORM_DEVICE_DRIVER_SUSPEND: invalid wakeup IRQ sense value"); \
+                                                                                    assert(0);                                                              \
+                                                                                }                                                                           \
+                                                                                __raw_writel(0x00000001, 0xe61c2414);           /* PORT_SET */              \
+                                                                                __raw_writel(signal_event_sense, 0xe61c1980);   /* CONFIG_0 - 1 = low level detect, 2 = high level detect */ \
+                                                                                __raw_writel(0x00000001, 0xe61c1888);           /* WAKEN_SET0 */            \
+                                                                            }
+
+      /* Called from the smc_platform_device_driver_resume() */
+  #define SMC_PLATFORM_DEVICE_DRIVER_RESUME( device )                       {                                                                               \
+                                                                                __raw_writel(0x00000000, 0xe61c1980); /* CONFIG_02 - Disable Interrupt */               \
+                                                                                __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
+                                                                            }
+
+
 
 #endif  /* End of target specific configuration */
 

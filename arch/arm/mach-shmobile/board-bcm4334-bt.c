@@ -73,6 +73,7 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 		}
 	} else {
 		gpio_set_value(BT_REG_GPIO, 0);
+		gpio_set_value(BT_RESET_GPIO, 0);
 	}
 
 	bt_enabled = !blocked;

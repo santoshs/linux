@@ -83,6 +83,7 @@ struct sh_mmcif_plat_data {
 #define CLK_ENABLE		(1 << 24) /* 1: output mmc clock */
 #define CLK_CLEAR		(0xf << 16)
 #define CLK_SUP_PCLK		(0xf << 16)
+#define CLKDIV_2        (0<<16) /* mmc clock frequency */
 #define CLKDIV_4		(1 << 16) /* mmc clock frequency.
 					   * n: bus clock/(2^(n+1)) */
 #define CLKDIV_256		(7 << 16) /* mmc clock frequency. (see above) */

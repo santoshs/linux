@@ -22,8 +22,8 @@
 #include <linux/string.h>
 #include <linux/parser.h>
 #include <linux/errno.h>
-#include <linux/io.h>
 #include <mach/pm.h>
+#include <linux/io.h>
 
 static int lst_cmd(char *, int);
 static int set_cmd(char *, int);
@@ -42,7 +42,7 @@ static int power_areas_info(char *buf)
 	char *s = buf;
 	FUNC_MSG_IN;
 
-	reg_val = __raw_readl(__io(SYSC_PSTR));
+	reg_val = __raw_readl(PSTR);
 	s += sprintf(s, "Power Areas Info:\n");
 	s += sprintf(s, "PSTR(0x%08x) = 0x%08x\n",
 		SYSC_PSTR, reg_val);

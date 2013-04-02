@@ -258,13 +258,18 @@ static void sh_mmcif_start_dma_rx(struct sh_mmcif_host *host)
 		desc->callback = mmcif_dma_complete;
 		desc->callback_param = host;
 		cookie = dmaengine_submit(desc);
-		sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAREN);
-		dma_async_issue_pending(chan);
+		if (cookie < 0) {
+			dev_err(&host->pd->dev,
+			"%s(): dmaengine_submit error\n", __func__);
+		} else {
+			sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAREN);
+			dma_async_issue_pending(chan);
+		}
 	}
 	dev_dbg(&host->pd->dev, "%s(): mapped %d -> %d, cookie %d\n",
 		__func__, host->data->sg_len, ret, cookie);
 
-	if (!desc) {
+	if (!desc || cookie < 0) {
 		/* DMA failed, fall back to PIO */
 		if (ret >= 0)
 			ret = -EIO;
@@ -319,13 +324,18 @@ static void sh_mmcif_start_dma_tx(struct sh_mmcif_host *host)
 		desc->callback = mmcif_dma_complete;
 		desc->callback_param = host;
 		cookie = dmaengine_submit(desc);
-		sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAWEN);
-		dma_async_issue_pending(chan);
+		if (cookie < 0) {
+			dev_err(&host->pd->dev,
+			"%s(): dmaengine_submit error\n", __func__);
+		} else {
+			sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_DMAWEN);
+			dma_async_issue_pending(chan);
+		}
 	}
 	dev_dbg(&host->pd->dev, "%s(): mapped %d -> %d, cookie %d\n",
 		__func__, host->data->sg_len, ret, cookie);
 
-	if (!desc) {
+	if (!desc || cookie < 0) {
 		/* DMA failed, fall back to PIO */
 		if (ret >= 0)
 			ret = -EIO;

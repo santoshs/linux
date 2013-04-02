@@ -34,12 +34,17 @@
 #include <linux/rmu2_rwdt.h>
 
 #include "../../staging/android/logger.h"
+#include <sec_hal_cmn.h>
 
 #define BLOCK_SIZE		512UL
 #define RECORD_SIZE		8
 
 #ifdef CONFIG_CRASHLOG_DDR
 static void *adr;
+#endif
+
+#ifdef CONFIG_ARM_TZ
+static sec_reset_info *reset_info;
 #endif
 
 static DEFINE_SPINLOCK(mmc_oops_lock);
@@ -368,7 +373,7 @@ static void mmc_panic_mmc_reset(struct mmcoops_context *cxt)
 
         /* In data transfer mode: Set clock to Bus clock/4 (about 20Mhz) */
         sh_mmcif_writel(host->addr, MMCIF_CE_CLK_CTRL,
-                        CLK_ENABLE | CLKDIV_4 | SRSPTO_256 |
+					CLK_ENABLE | CLKDIV_2 | SRSPTO_256 |
                         SRBSYTO_29 | SRWDTO_29 | SCCSTO_29);
 
         /* CMD9 - Get CSD */
@@ -590,6 +595,9 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	struct mmc_card *card = cxt->card;
 	bool clock_enabled;
 #endif
+#ifdef CONFIG_ARM_TZ
+	bool status = SEC_HAL_CMN_RES_FAIL;
+#endif
 	int count = 0, loop_cnt = 0;
 	size_t		head = 0;	
 	size_t		w_off = 0;	
@@ -698,6 +706,45 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		add_to_buf(cxt->virt_addr, count, &sec, sizeof(sec));
 		add_to_buf(cxt->virt_addr, count, &nsec, sizeof(nsec));
 	}
+
+
+#ifdef CONFIG_ARM_TZ
+	/*secure reset reason*/
+	if (reset_info != NULL)
+		status = sec_hal_reset_info_get(reset_info);
+	if (SEC_HAL_CMN_RES_OK == status) {
+		if (reset_info->interrupt_addr != 0x00) {
+			add_to_buf(cxt->virt_addr, count,
+				&reset_info->hw_reset_type,
+				sizeof(reset_info->hw_reset_type));
+			add_to_buf(cxt->virt_addr, count, &reset_info->reason,
+						sizeof(reset_info->reason));
+			add_to_buf(cxt->virt_addr, count,
+				&reset_info->interrupt_addr,
+				sizeof(reset_info->interrupt_addr));
+
+			if (reset_info->hw_reset_type == POWER_UP_RESET)
+				printk(KERN_INFO
+					"Hw_Reset_Type:Power up Reset\n");
+			else if (reset_info->hw_reset_type == SOFT_RESET)
+				printk(KERN_INFO "Hw_Reset_Type:Soft Reset\n");
+
+			if (reset_info->reason == SEC_RESET_CMT1_5_EXPIRED ||
+					reset_info->reason == 0x00) {
+				printk(KERN_INFO
+					"Reset_Reason:CMT1_5 Expired\n");
+			}
+
+			printk(KERN_INFO
+				"FIQ_return_addr:%x\n",
+				reset_info->interrupt_addr);
+		}
+	} else {
+			printk(KERN_ERR "%s[%d]: Failed to read reset reason\n",
+							__func__, __LINE__);
+	}
+#endif /*CONFIG_ARM_TZ*/
+
 
 #ifdef CONFIG_CRASHLOG_EMMC
 	mmc_panic_write(cxt, cxt->virt_addr, cxt->start +
@@ -905,6 +952,15 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 		goto ioremap_failed;
 	}
 #endif
+
+#ifdef CONFIG_ARM_TZ
+	reset_info = kmalloc(sizeof(sec_reset_info), GFP_KERNEL);
+	if (NULL == reset_info) {
+		printk(KERN_ERR "kmalloc failed in function %s at line %d\n",
+						__func__, __LINE__);
+	}
+#endif
+
 	return err;
 
 ioremap_failed:

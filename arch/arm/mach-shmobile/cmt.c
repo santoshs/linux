@@ -48,7 +48,7 @@ struct cmt_clock_event_device {
 	struct irqaction irqaction;
 	unsigned int irq;
 	unsigned long rate;
-
+	bool irq_setup;
 	bool clk_enabled;
 
 	struct cmt_timer_config *cfg;
@@ -370,6 +370,7 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 	struct cmt_clock_event_device *cmt = __this_cpu_ptr(percpu_evt);
 	unsigned int cpu = smp_processor_id();
 	unsigned long min_delta;
+	int ret = 0;
 
 	evt->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
 	evt->set_mode = cmt_timer_set_mode;
@@ -395,8 +396,14 @@ static void __cpuinit __cmt_timer_setup(struct clock_event_device *evt)
 	cmt->irqaction.handler = cmt_timer_interrupt;
 	cmt->irqaction.dev_id = cmt;
 	cmt->irqaction.flags = IRQF_TIMER | IRQF_NOBALANCING;
-
-	setup_irq(evt->irq, &cmt->irqaction);
+	if (!cmt->irq_setup) {
+		ret = setup_irq(evt->irq, &cmt->irqaction);
+		if (ret)
+			pr_err("Error, irq setup failed with ret %d\n", ret);
+		else
+			cmt->irq_setup = 1;
+	} else
+		enable_irq(evt->irq);
 	irq_set_affinity(evt->irq, cpumask_of(cpu));
 
 	pr_info("%s used for clock events\n", cmt->cfg->name);
@@ -417,7 +424,8 @@ static void cmt_timer_stop(struct clock_event_device *evt)
 	struct cmt_clock_event_device *cmt = __this_cpu_ptr(percpu_evt);
 
 	cmt_stop(cmt);
-	remove_irq(cmt->evt->irq, &cmt->irqaction);
+	if (cmt->irq_setup)
+		disable_irq(evt->irq);
 }
 
 static struct local_timer_ops cmt_timer_ops __cpuinitdata = {
@@ -514,10 +522,8 @@ int __init cmt_clockevent_init(struct cmt_timer_config *cfg, int num,
 		return -EINVAL;
 
 	percpu_evt = alloc_percpu(struct cmt_clock_event_device);
-	if (!percpu_evt) {
-		ret = -ENOMEM;
-		goto out_free;
-	}
+	if (!percpu_evt)
+		return -ENOMEM;
 
 	/* remap I/O memory for a shared register, CMSTR or CMCLKE */
 	if (cmclke_base) {

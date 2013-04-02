@@ -345,7 +345,7 @@ config RTC_DRV_TPS80031
 
  config RTC_DRV_TPS80032
 	tristate "TPS80032 RTC driver"
-	default y
+	default n
 	help
 	  This is a driver for TPS80032 chip to be used as a RTC.
           This driver can also be built as a module. If so, the module

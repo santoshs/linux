@@ -197,7 +197,7 @@ void for_each_power_device(const struct device *dev,
 void power_domains_get_sync(const struct device *dev);
 void power_domains_put_noidle(const struct device *dev);
 struct power_domain_info *__to_pdi(const struct device *dev);
-struct power_domain_info *get_pdi(char *name);
+struct power_domain_info *get_pdi(const char *name);
 #ifdef CONFIG_PM_DEBUG
 int control_pdc(int is_enable);
 int is_pdc_enable(void);

@@ -40,6 +40,7 @@
 static struct clk *mfis_clk_data;
 static struct clk *clk_data;
 static struct semaphore a3r_power_sem;
+#define	MFIS_SEM_WAIT_TIMEOUT 40000
 
 #if EARLYSUSPEND_STANDBY
 #include <linux/earlysuspend.h>
@@ -81,12 +82,16 @@ static unsigned long			standby_work_stop_flag;
 static void mfis_standby_work_entry(int reset_flag)
 {
 #if CYCLE_STANDBY
+	long jiffies;
+
 	if (reset_flag) {
 		standby_work_stop_flag = 0;
 	}
 
 	if (!standby_work_stop_flag) {
-		down(&mfis_sem);
+		jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+		if (0 != down_timeout(&mfis_sem, jiffies))
+			panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 		standby_work_on = 1;
 
@@ -109,12 +114,8 @@ static void mfis_standby_work_cancel(void)
 	standby_work_stop_flag = 1;
 
 	if (standby_work_on) {
-		down(&mfis_sem);
-
 		cancel_delayed_work_sync(&standby_work);
 		standby_work_on = 0;
-
-		up(&mfis_sem);
 	}
 #endif /* CYCLE_STANDBY */
 
@@ -143,12 +144,13 @@ static int mfis_suspend_noirq(struct device *dev)
 {
 
 	int ret = -1;
+	long jiffies;
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];
 	size_t dev_cnt;
-	unsigned int i;					/* #MU2SYS921 */
+	unsigned int i;
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -159,13 +161,14 @@ static int mfis_suspend_noirq(struct device *dev)
 	}
 #endif /* EARLYSUSPEND_STANDBY */
 
-	down(&a3r_power_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&a3r_power_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		dev_name = domain_name;
 
-		/* #MU2SYS921 Start */
 		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
 		if (!ret) {
 		} else {
@@ -183,7 +186,6 @@ static int mfis_suspend_noirq(struct device *dev)
 			up(&a3r_power_sem);
 			return -1;
 		}
-		/* #MU2SYS921 End */
 
 		if (((early_suspend_phase_flag) && (1 == atomic_read(&dev_img[i]->power.usage_count))) || (!early_suspend_phase_flag)) {
 #endif /* EARLYSUSPEND_STANDBY */
@@ -195,16 +197,16 @@ static int mfis_suspend_noirq(struct device *dev)
 			}
 #if RTPM_PF_CUSTOM
 			dev_name = domain_name;
-			ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
+			ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
 			if (!ret) {
-				for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
-					ret = pm_runtime_put_sync(dev_img[i]);		/* #MU2SYS921 */
+				for (i = 0; i < dev_cnt; i++) {
+					ret = pm_runtime_put_sync(dev_img[i]);
 					if (!ret) {
 					} else {
 						up(&a3r_power_sem);
 						return -1;
 					}
-				}							/* #MU2SYS921 */
+				}
 			} else {
 				up(&a3r_power_sem);
 				return -1;
@@ -233,16 +235,19 @@ static int mfis_resume_noirq(struct device *dev)
 {
 
 	int ret = -1;
+	long jiffies;
 #if RTPM_PF_CUSTOM
 
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];
 	size_t dev_cnt;
-	unsigned int i;					/* #MU2SYS921 */
+	unsigned int i;
 #endif
 
-	down(&a3r_power_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&a3r_power_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if EARLYSUSPEND_STANDBY
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
@@ -258,15 +263,15 @@ static int mfis_resume_noirq(struct device *dev)
 
 #if RTPM_PF_CUSTOM
 		dev_name = domain_name;
-		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
+		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
 		if (!ret) {
-			for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
-				ret = pm_runtime_get_sync(dev_img[i]);		/* #MU2SYS921 */
+			for (i = 0; i < dev_cnt; i++) {
+				ret = pm_runtime_get_sync(dev_img[i]);
 				if (0 > ret) {
 					up(&a3r_power_sem);
 					return -1;
 				}
-			}							/* #MU2SYS921 */
+			}
 		} else {
 			up(&a3r_power_sem);
 			return -1;
@@ -340,9 +345,9 @@ static int mfis_drv_probe(struct platform_device *pdev)
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];
 	size_t dev_cnt;
-	unsigned int i;					/* #MU2SYS921 */
+	unsigned int i;
 #endif
 #if EARLYSUSPEND_STANDBY
 	struct mfis_early_suspend_tbl *p_tbl;
@@ -370,14 +375,14 @@ static int mfis_drv_probe(struct platform_device *pdev)
 
 #if RTPM_PF_CUSTOM
 	dev_name = domain_name;
-	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
+	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
 	if (!ret) {
-		for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
-			ret = pm_runtime_get_sync(dev_img[i]);		/* #MU2SYS921 */
+		for (i = 0; i < dev_cnt; i++) {
+			ret = pm_runtime_get_sync(dev_img[i]);
 			if (0 > ret) {
 				return -1;
 			}
-		}							/* #MU2SYS921 */
+		}
 	} else {
 		return -1;
 	}
@@ -430,9 +435,9 @@ static int mfis_drv_remove(struct platform_device *pdev)
 	int ret = -1;
 	char domain_name[] = "av-domain";
 	char *dev_name;
-	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];	/* #MU2SYS921 */
+	struct device *dev_img[POWER_DOMAIN_COUNT_MAX];
 	size_t dev_cnt;
-	unsigned int i;					/* #MU2SYS921 */
+	unsigned int i;
 #endif
 
 #if EARLYSUSPEND_STANDBY
@@ -443,17 +448,16 @@ static int mfis_drv_remove(struct platform_device *pdev)
 
 #if RTPM_PF_CUSTOM
 	dev_name = domain_name;
-	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);	/* #MU2SYS921 */
+	ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
 	if (!ret) {
-		for (i = 0; i < dev_cnt; i++) {				/* #MU2SYS921 */
-			ret = pm_runtime_put_sync(dev_img[i]);		/* #MU2SYS921 */
+		for (i = 0; i < dev_cnt; i++) {
+			ret = pm_runtime_put_sync(dev_img[i]);
 			if (!ret) {
 			} else {
 				return -1;
 			}
-		}							/* #MU2SYS921 */
+		}
 	}
-
 #endif
 
 	pm_runtime_disable(&pdev->dev);
@@ -481,8 +485,11 @@ int mfis_drv_suspend(void)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
+	long jiffies;
 
-	down(&mfis_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&mfis_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
@@ -504,8 +511,11 @@ int mfis_drv_resume(void)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
+	long jiffies;
 
-	down(&mfis_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&mfis_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
@@ -553,7 +563,6 @@ void mfis_drv_eco_suspend(void)
 EXPORT_SYMBOL(mfis_drv_eco_suspend);
 
 
-/* #MU2DISP1088 add -S-*/
 int mfis_drv_use_a4rm(void)
 {
 #if RTPM_PF_CUSTOM
@@ -610,7 +619,6 @@ int mfis_drv_rel_a4rm(void)
 	return 0 ;
 }
 EXPORT_SYMBOL(mfis_drv_rel_a4rm);
-/* #MU2DISP1088 add -E- */
 
 static int mfis_runtime_nop(struct device *dev)
 {

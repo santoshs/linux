@@ -2,7 +2,7 @@
  * rtds_memory_drv_common.h
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -105,11 +105,19 @@ enum {
 
 /* Memory Manager Sub Task */
 /* Task ID */
-#define TASK_MEMORY_SUB (13) /* value is temporary */
+#define TASK_MEMORY_SUB (13)
 /* SMB ID */
 #define SMB_MEMORY_SUB (TASK_MEMORY_SUB*2)
 /* Function ID Base */
 #define FUNCTIONID_MEMORY_SUB_BASE (TASK_MEMORY_SUB*256+3)
+
+/* Memory Callback Task */
+/* Task ID */
+#define TASK_MEMORY_CB (14)
+/* SMB ID */
+#define SMB_MEMORY_CB (TASK_MEMORY_CB*2)
+/* Function ID Base */
+#define FUNCTIONID_MEMORY_CB_BASE (TASK_MEMORY_CB*256+3)
 
 
 /* Function ID */
@@ -124,7 +132,7 @@ enum {
 #define EVENT_MEMORY_ALLOCATEMERAM		(FUNCTIONID_MEMORY_BASE+10)
 #define EVENT_MEMORY_FREEMERAM			(FUNCTIONID_MEMORY_BASE+11)
 #ifdef RTDS_SUPPORT_CMA
-#define EVENT_MEMORY_OPERATECTGMEMORY   (FUNCTIONID_MEMORY_BASE+12)
+#define EVENT_MEMORY_OPERATECTGMEMORY	(FUNCTIONID_MEMORY_BASE+12)
 #endif
 
 /* Memory Manager Sub */
@@ -133,6 +141,9 @@ enum {
 #define EVENT_MEMORYSUB_GLOBALALLOCATEAPP	(FUNCTIONID_MEMORY_SUB_BASE+3)
 #define EVENT_MEMORYSUB_GLOBALFREEAPP		(FUNCTIONID_MEMORY_SUB_BASE+4)
 #define EVENT_MEMORYSUB_GETMEMINFOAPP		(FUNCTIONID_MEMORY_SUB_BASE+5)
+
+/* Memory Callback */
+#define EVENT_MEMORYCB_CHECKUNMAP		(FUNCTIONID_MEMORY_CB_BASE+1)
 
 /* ******************************* PROTOTYPE ******************************** */
 

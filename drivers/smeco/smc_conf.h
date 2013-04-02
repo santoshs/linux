@@ -94,6 +94,7 @@ typedef struct
     smc_channel_conf_t** smc_channel_conf_ptr_array;
 
     smc_shm_config_t*    smc_shm_conf;                  /* Global shared memory configuration (in SMC instance level) */
+    char*                name;
 
 } smc_conf_t;
 
@@ -218,6 +219,7 @@ smc_conf_t*          smc_conf_create_from_instance_conf( char* smc_cpu_name, smc
 smc_channel_conf_t*  smc_channel_conf_create_from_instance_conf( smc_instance_conf_channel_t* smc_instance_conf_channel, uint8_t is_master );
 
 smc_instance_conf_t* smc_instance_conf_get_from_list(smc_instance_conf_t* smc_instance_conf_array, int config_count, char* smc_user_name, char* smc_name);
+char*                smc_instance_conf_name_get_from_list(smc_instance_conf_t* smc_instance_conf_array, int config_count, char* smc_user_name, uint8_t is_master, uint8_t version_major, uint8_t version_minor);
 
 smc_channel_runtime_fixed_conf_t*  smc_channel_runtime_fixes_conf_create( void );
 

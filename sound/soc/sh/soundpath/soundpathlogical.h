@@ -90,12 +90,6 @@ static int sndp_soc_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
 /* SOC functions */
-static int sndp_soc_get_voice_out_volume(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
-static int sndp_soc_put_voice_out_volume(
-	struct snd_kcontrol *kcontrol,
-	struct snd_ctl_elem_value *ucontrol);
 static int sndp_soc_capture_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
@@ -153,13 +147,6 @@ static void sndp_fm_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
-/* Trigger process for PT */
-static void sndp_pt_trigger(
-	struct snd_pcm_substream *substream,
-	int cmd,
-	struct snd_soc_dai *dai,
-	u_int value);
-
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
 
@@ -209,11 +196,6 @@ static void sndp_work_fm_playback_stop(struct sndp_work_info *work);
 /* Work queue processing for Stop during a fm capture */
 static void sndp_work_fm_capture_stop(struct sndp_work_info *work);
 
-/* Work queue processing for Start during a PT playback */
-static void sndp_work_pt_playback_start(struct sndp_work_info *work);
-/* Work queue processing for Stop during a PT playback */
-static void sndp_work_pt_playback_stop(struct sndp_work_info *work);
-
 /* VCD_COMMAND_WATCH_STOP_FW registration process */
 static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
@@ -232,6 +214,8 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work);
 static void sndp_work_capture_incomm_start(struct sndp_work_info *work);
 /* Work queue processing for capture incommunication stop */
 static void sndp_work_capture_incomm_stop(struct sndp_work_info *work);
+/* Work queue processing for all down link mute control */
+static void sndp_work_all_dl_mute(struct sndp_work_info *work);
 
 /* SoundPath start / stop control functions */
 /* Normal */
@@ -327,11 +311,6 @@ static void sndp_work_hw_free(struct sndp_work_info *work);
 #define SET_OLD_VALUE(stream, value)	(g_sndp_main[stream].old_value = value)
 #define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
 
-#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
-	((device & SNDP_BLUETOOTHSCO) ||		\
-	 (device & SNDP_FM_RADIO_TX)  ||		\
-	 (device & SNDP_FM_RADIO_RX)  ||		\
-	 (device & SNDP_AUXDIGITAL))
 
 /*
  *
@@ -393,12 +372,6 @@ enum sndp_play_rec_state {
 	E_CAP,			/* Running Capture process  */
 };
 
-/* Port kind */
-enum sndp_port_kind {
-	SNDP_PCM_PORTA,
-	SNDP_PCM_PORTB,
-};
-
 /* Function pointer typedef declarations */
 typedef int (*sndp_dai_startup)(struct snd_pcm_substream *,
 				struct snd_soc_dai *);
@@ -454,7 +427,7 @@ static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_sndp_watch_stop_clk;
 
 /* audience Callback */
-static void sndp_a2220_set_state(
+static void sndp_extdev_set_state(
 		unsigned int mode, unsigned int device, unsigned int dev_chg);
 
 

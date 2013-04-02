@@ -167,10 +167,22 @@ static void lcd_device_release(struct device *dev)
 	kfree(ld);
 }
 
+
+static ssize_t show_lcd_info(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    //return sprintf(buf, "%s","BOE_BF040WVMG003-G101\n" );
+#ifdef CONFIG_MACH_LT02LTE
+    return sprintf(buf, "%s","BOE_BP070WS1-500\n" );
+#else
+    return sprintf(buf, "%s","BOE_GH07-01610A\n" );
+#endif                                  
+}
+
 static struct device_attribute lcd_device_attributes[] = {
 	__ATTR(lcd_power, 0644, lcd_show_power, lcd_store_power),
 	__ATTR(contrast, 0644, lcd_show_contrast, lcd_store_contrast),
 	__ATTR(max_contrast, 0444, lcd_show_max_contrast, NULL),
+	__ATTR(lcd_type, S_IRUGO, show_lcd_info, NULL),	
 	__ATTR_NULL,
 };
 

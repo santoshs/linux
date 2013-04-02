@@ -64,6 +64,7 @@ struct platform_device keysc_device = {
 	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
 	 .debounce_interval = 20}
 
+#ifdef CONFIG_MACH_U2EVM
 static struct gpio_keys_button gpio_buttons_polled[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
@@ -72,6 +73,7 @@ static struct gpio_keys_button gpio_buttons_polled[] = {
 	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT46, "+",     0),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-",     0),
 };
+#endif
 
 static struct gpio_keys_button gpio_buttons[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)

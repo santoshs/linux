@@ -2,7 +2,7 @@
  * rtds_memory_drv_main.h
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -21,14 +21,14 @@
 #ifndef __RTDS_MEMORY_DRV_MAIN_H__
 #define __RTDS_MEMORY_DRV_MAIN_H__
 
-/* ******************************* CONSTANTS ******************************** */
+/* ****************************** CONSTANTS ******************************* */
 
 #define RTDS_MEMORY_DRIVER_NAME "rtds_mem"
 
 #define RTDS_MEM_MPRO_ACTIVE	(1)
 #define RTDS_MEM_MPRO_INACTIVE	(0)
 
-/* ******************************* STRUCTURE ******************************** */
+/* ****************************** STRUCTURE ******************************* */
 
 /* IOCTL memory info */
 typedef struct {
@@ -108,6 +108,7 @@ typedef struct {
 typedef struct {
 	struct list_head	list_head;		/* Manager list info */
 	struct list_head	list_head_mpro;	/* Manager list info */
+	struct list_head	list_head_leak;	/* Manager list info */
 	unsigned long		event;			/* Request event to Mpro*/
 	unsigned long		memory_size;	/* Memory size */
 	unsigned long		app_cache;		/* Cache type of App domain side */
@@ -174,7 +175,7 @@ typedef struct {
 	unsigned long		open_count;		/* rtmem open count */
 } rtds_memory_rtmem_table;
 
-/* ******************************* PROTOTYPE ******************************** */
+/* ****************************** PROTOTYPE ******************************* */
 
 int rtds_memory_drv_open(
 		struct inode	*inode,
@@ -220,6 +221,7 @@ extern spinlock_t					g_rtds_memory_lock_mpro;
 extern struct list_head				g_rtds_memory_list_mpro;
 extern struct semaphore				g_rtds_memory_mpro_sem;
 extern struct list_head				g_rtds_memory_list_shared_mem;
+extern struct list_head				g_rtds_memory_list_leak_mpro;
 extern struct semaphore				g_rtds_memory_shared_mem;
 extern struct list_head				g_rtds_memory_list_reg_phymem;
 extern struct semaphore				g_rtds_memory_phy_mem;
@@ -227,7 +229,8 @@ extern struct list_head				g_rtds_memory_list_create_mem;
 extern spinlock_t					g_rtds_memory_lock_create_mem;
 extern struct list_head				g_rtds_memory_list_map_rtmem;
 extern spinlock_t					g_rtds_memory_lock_map_rtmem;
-extern struct semaphore				g_rtds_memory_leak_sem;
+extern struct semaphore				g_rtds_memory_send_sem;
+
 #ifdef RTDS_SUPPORT_CMA
 extern spinlock_t					g_rtds_memory_lock_cma;
 extern struct list_head				g_rtds_memory_list_cma;

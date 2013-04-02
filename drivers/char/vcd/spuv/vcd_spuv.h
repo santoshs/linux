@@ -226,6 +226,7 @@ struct vcd_spuv_info {
 	unsigned int timer_status;
 	unsigned int watchdog_status;
 	unsigned int status;
+	spinlock_t status_lock;
 	unsigned int irq_status;
 	unsigned int wait_fw_if_id;
 	unsigned int wait_fw_msg_id;
@@ -320,6 +321,7 @@ void vcd_spuv_destroy_queue(void);
 static void vcd_spuv_set_schedule(void);
 static void vcd_spuv_interrupt_ack(void);
 static void vcd_spuv_interrupt_req(void);
+static void vcd_spuv_watchdog_timeout(void);
 static void vcd_spuv_rec_trigger(void);
 static void vcd_spuv_play_trigger(void);
 static void vcd_spuv_codec_type_ind(unsigned int codec_type);

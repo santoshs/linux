@@ -2973,10 +2973,9 @@ static inline void hci_sync_conn_changed_evt(struct hci_dev *hdev, struct sk_buf
 
 static inline void hci_sniff_subrate_evt(struct hci_dev *hdev, struct sk_buff *skb)
 {
-//	struct hci_ev_sniff_subrate *ev = (void *) skb->data;
+	struct hci_ev_sniff_subrate *ev = (void *) skb->data;
 
-//	BT_DBG("%s status %d", hdev->name, ev->status);
-	BT_DBG("%s status %d", hdev->name, ((struct hci_ev_sniff_subrate *)skb->data)->status);
+	BT_DBG("%s status %d", hdev->name, ev->status);
 }
 
 static inline void hci_extended_inquiry_result_evt(struct hci_dev *hdev, struct sk_buff *skb)

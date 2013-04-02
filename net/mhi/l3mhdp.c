@@ -71,7 +71,6 @@
 
 #define UDP_PROT_TYPE	17
 
-
 #define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
 
 #ifdef CONFIG_MHI_DEBUG
@@ -370,6 +369,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 				size_of_previous_hdr = ipv4header->ihl *
 							sizeof(unsigned int);
 				ret = 1;
+				DPRINTK("MHDP_FILTER: IPv4 packet filtered out");
 			}
 		}
 
@@ -423,6 +423,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(unsigned int)(
 						(unsigned char *)udphdr -
 						(unsigned char *)ipv6header);
+				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
 			}
 		}
 	}
@@ -436,9 +437,9 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 			goto error;
 		}
 
-		skb_pull(newskb, (size_of_previous_hdr - sizeof(unsigned int)));
+		skb_pull(newskb, (size_of_previous_hdr + sizeof(unsigned int)));
 
-		newskb->len = (unsigned int)htons(udphdr->len) +
+		newskb->len = (unsigned int)htons(udphdr->len) -
 				sizeof(unsigned int);
 		newskb->protocol = UDP_PROT_TYPE;
 		skb_set_tail_pointer(newskb, newskb->len);
@@ -497,8 +498,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			tunnel->free_pdn = 0;
 
-			strcpy((char *)&k_parms.name,
-				(char *)tunnel->dev->name);
+			strcpy(k_parms.name, tunnel->dev->name);
 
 			if (copy_to_user(u_parms, &k_parms,
 					sizeof(struct mhdp_tunnel_parm)))

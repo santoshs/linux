@@ -27,7 +27,6 @@
 #define POWER_DOMAIN_H
 
 #include <linux/init.h>
-#include <linux/io.h>
 #include <linux/compiler.h>
 #include <linux/string.h>
 #include <linux/delay.h>
@@ -35,6 +34,7 @@
 #include <linux/pm_runtime.h>
 #include <mach/pm.h>
 #include <mach/common.h>
+#include <linux/io.h>
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
 #include <linux/atomic.h>
@@ -263,7 +263,7 @@ static struct pdi_mapping_table pdi_tb2[] = {
 
 };
 
-struct power_domain_info *get_pdi(char *name)
+struct power_domain_info *get_pdi(const char *name)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(pdi_tb2); i++) {
@@ -279,7 +279,7 @@ EXPORT_SYMBOL_GPL(get_pdi);
 		.name = "power-domain", \
 		.id = _pwr_id, \
 		.dev.parent = _parent_dev, \
-		.dev.power.subsys_data = NULL, \
+		.dev.power.pdi = NULL, \
 	}
 
 /* Define power domain(area) devices (pointer) */
@@ -424,11 +424,11 @@ static bool is_power_status_on(unsigned int area)
 /*
  * __to_pdi: get the power domain information of a certain device
  * @dev: certain device
- * return: address of power.subsys_data
+ * return: address of power.pdi
  */
 struct power_domain_info *__to_pdi(const struct device *dev)
 {
-	return dev ? dev->power.subsys_data : NULL;
+	return dev ? dev->power.pdi : NULL;
 }
 
 /*

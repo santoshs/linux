@@ -32,6 +32,7 @@
 #include <linux/irq.h>
 #include <linux/random.h>
 #include <linux/jiffies.h>
+#include <linux/export.h>
 
 #include <mach/dev-wifi.h>
 
@@ -190,7 +191,6 @@ int __init omap_mux_init_signal(const char *muxname, int val)
 static int renesas_wifi_cd = 0; /* WIFI virtual 'card detect' status */
 static void (*wifi_status_cb)(int card_present, void *dev_id);
 static void *wifi_status_cb_devid;
-static struct regulator *clk32kaudio_reg;
 
 int renesas_wifi_status_register(
 		void (*callback)(int card_present, void *dev_id),

@@ -13,7 +13,6 @@
 #include <linux/irq.h>
 #include <linux/platform_data/rmobile_hwsem.h>
 #include <linux/platform_device.h>
-#include <linux/serial_sci.h>
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <linux/i2c-gpio.h>
 #include <linux/clocksource.h>
@@ -30,10 +29,12 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 #include <mach/serial.h>
+#include <mach/memory-r8a7373.h>
 #include <linux/sh_timer.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
+#include <mach/setup-u2current_timer.h>
 
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
@@ -53,6 +54,8 @@
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #endif
+#include <mach/setup-u2sci.h>
+#include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #if 1
@@ -115,408 +118,6 @@ void __init r8a7373_map_io(void)
 #endif
 }
 
-/*GPIO Settings for SCIFA0 port */
-static struct portn_gpio_setting_info scif0_gpio_setting_info[] = {
-	[0] = { /* SCIFA0_TXD */
-		.flag	= 1,
-		.port	= GPIO_PORT128,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFA0_TXD,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_HIGH,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT128,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[1] = { /* SCIFA0_RXD */
-		.flag = 1,
-		.port = GPIO_PORT129,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFA0_RXD,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT129,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-};
-
-/* SCIFA0 */
-static struct plat_sci_port scif0_platform_data = {
-	.mapbase	= 0xe6450000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFA,
-	.irqs		= { gic_spi(102), gic_spi(102),
-			gic_spi(102), gic_spi(102) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = ARRAY_SIZE(scif0_gpio_setting_info),
-	.scif_gpio_setting_info = &scif0_gpio_setting_info,
-};
-
-static struct platform_device scif0_device = {
-	.name		= "sh-sci",
-	.id		= 0,
-	.dev		= {
-		.platform_data	= &scif0_platform_data,
-	},
-};
-
-/* SCIFA1 */
-static struct plat_sci_port scif1_platform_data = {
-	.mapbase	= 0xe6c50000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFA,
-	.irqs		= { gic_spi(103), gic_spi(103),
-			gic_spi(103), gic_spi(103) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = 0,
-	.scif_gpio_setting_info = NULL,
-};
-
-static struct platform_device scif1_device = {
-	.name		= "sh-sci",
-	.id		= 1,
-	.dev		= {
-		.platform_data	= &scif1_platform_data,
-	},
-};
-
-/* SCIFA2 */
-static struct plat_sci_port scif2_platform_data = {
-	.mapbase	= 0xe6c60000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFA,
-	.irqs		= { gic_spi(104), gic_spi(104),
-			gic_spi(104), gic_spi(104) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = 0,
-	.scif_gpio_setting_info = NULL,
-};
-
-static struct platform_device scif2_device = {
-	.name		= "sh-sci",
-	.id		= 2,
-	.dev		= {
-		.platform_data	= &scif2_platform_data,
-	},
-};
-
-/* SCIFA3 */
-static struct plat_sci_port scif3_platform_data = {
-	.mapbase	= 0xe6c70000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFA,
-	.irqs		= { gic_spi(105), gic_spi(105),
-			gic_spi(105), gic_spi(105) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = 0,
-	.scif_gpio_setting_info = NULL,
-};
-
-static struct platform_device scif3_device = {
-	.name		= "sh-sci",
-	.id		= 3,
-	.dev		= {
-		.platform_data	= &scif3_platform_data,
-	},
-};
-
-/*GPIO Settings for SCIFB0 port */
-static struct portn_gpio_setting_info scif4_gpio_setting_info[] = {
-	[0] = { /* SCIFB0_TXD */
-		.flag	= 1,
-		.port	= GPIO_PORT137,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_TXD,
-			.pull		= PORTn_CR_PULL_DOWN,
-			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_TXD,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[1] = { /* SCIFB0_RXD */
-		.flag = 0,
-		.port = GPIO_PORT138,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_RXD,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_RXD,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[2] = { /* SCIFB0_CTS_ */
-		.flag = 0,
-		.port = GPIO_PORT38,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_CTS_,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-	},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_CTS_,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[3] = { /* SCIFB0_RTS_ */
-		.flag = 1,
-		.port = GPIO_PORT37,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_RTS_,
-			.pull		= PORTn_CR_PULL_DOWN,
-			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 1 */
-			.port_fn	= GPIO_FN_SCIFB0_RTS_,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NOT_SET,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-};
-
-/* SCIFB0 */
-static struct plat_sci_port scif4_platform_data = {
-	.mapbase	= 0xe6c20000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFB,
-	.irqs		= { gic_spi(107), gic_spi(107),
-			gic_spi(107), gic_spi(107) },
-	.ops		= &shmobile_sci_port_ops,
-	.capabilities = SCIx_HAVE_RTSCTS,
-	.rts_ctrl	= 0,
-#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
-	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
-#endif
-	/* GPIO settings */
-	.port_count = ARRAY_SIZE(scif4_gpio_setting_info),
-	.scif_gpio_setting_info = &scif4_gpio_setting_info,
-};
-
-static struct platform_device scif4_device = {
-	.name		= "sh-sci",
-	.id		= 4,
-	.dev		= {
-		.platform_data	= &scif4_platform_data,
-	},
-};
-
-/*GPIO Settings for SCIFB1 port */
-static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
-	[0] = { /* SCIFB1_RTS */
-		.flag = 1,
-		.port = GPIO_PORT76,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 2 */
-			.port_fn	= GPIO_FN_SCIFB1_RTS,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT76,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[1] = { /* SCIFB1_CTS */
-		.flag = 1,
-		.port = GPIO_PORT77,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 2 */
-			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT77,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[2] = { /* SCIFB1_TXD */
-		.flag = 1,
-		.port = GPIO_PORT78,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 2 */
-			.port_fn	= GPIO_FN_SCIFB1_TXD,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT78,
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-	[3] = { /* SCIFB1_RXD */
-		.flag = 1,
-		.port = GPIO_PORT79,
-		/* GPIO settings to be retained at resume state */
-		.active = {
-			/* Function 2 */
-			.port_fn	= GPIO_FN_SCIFB1_RXD,
-			.pull		= PORTn_CR_PULL_UP,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		},
-		/* GPIO settings to be set at suspend state */
-		.inactive = {
-			/* Function 0 */
-			.port_fn	= GPIO_PORT79,
-			.pull		= PORTn_CR_PULL_DOWN,
-			.direction	= PORTn_CR_DIRECTION_NONE,
-			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}
-	},
-};
-
-/* SCIFB1 */
-static struct plat_sci_port scif5_platform_data = {
-	.mapbase	= 0xe6c30000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4_BIS,
-	.type		= PORT_SCIFB,
-	.irqs		= { gic_spi(108), gic_spi(108),
-			gic_spi(108), gic_spi(108) },
-	.ops		= &shmobile_sci_port_ops,
-	.capabilities = SCIx_HAVE_RTSCTS,
-	/* GPIO settings */
-	.port_count = ARRAY_SIZE(scif5_gpio_setting_info),
-	.scif_gpio_setting_info = &scif5_gpio_setting_info,
-	.rts_ctrl	= 0,
-};
-
-static struct platform_device scif5_device = {
-	.name		= "sh-sci",
-	.id		= 5,
-	.dev		= {
-		.platform_data	= &scif5_platform_data,
-	},
-};
-
-/* SCIFB2 */
-static struct plat_sci_port scif6_platform_data = {
-	.mapbase	= 0xe6ce0000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFB,
-	.irqs		= { gic_spi(116), gic_spi(116),
-			gic_spi(116), gic_spi(116) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = 0,
-	.scif_gpio_setting_info = NULL,
-};
-
-static struct platform_device scif6_device = {
-	.name		= "sh-sci",
-	.id		= 6,
-	.dev		= {
-		.platform_data	= &scif6_platform_data,
-	},
-};
-
-/* SCIFB3 */
-static struct plat_sci_port scif7_platform_data = {
-	.mapbase	= 0xe6470000,
-	.flags		= UPF_BOOT_AUTOCONF | UPF_IOREMAP,
-	.scscr		= SCSCR_RE | SCSCR_TE,
-	.scbrr_algo_id	= SCBRR_ALGO_4,
-	.type		= PORT_SCIFB,
-	.irqs		= { gic_spi(117), gic_spi(117),
-			gic_spi(117), gic_spi(117) },
-	.ops		= &shmobile_sci_port_ops,
-	/* GPIO settings */
-	.port_count = 0,
-	.scif_gpio_setting_info = NULL,
-};
-
-static struct platform_device scif7_device = {
-	.name		= "sh-sci",
-	.id		= 7,
-	.dev		= {
-		.platform_data	= &scif7_platform_data,
-	},
-};
 
 /* IIC0 */
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
@@ -835,7 +436,7 @@ static struct platform_device i2c8_device = {
 /* SYS-DMAC */
 /* GPIO Port number needs to be modified by the respective driver module
 Udealy=5 will set I2C bus speed to 100k HZ */
-
+#ifdef DISABLE_UNUSED_I2C_0_1_GPIO_DEVICE_FOR_GARDA
 static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
       .sda_pin        = GPIO_PORT5,
       .scl_pin        = GPIO_PORT4,
@@ -863,7 +464,7 @@ static struct platform_device i2c1gpio_device = {
          .platform_data  = &i2c1gpio_platform_data,
   },
 };
-
+#endif
 /* Transmit sizes and respective CHCR register values */
 enum {
 	XMIT_SZ_8BIT		= 0,
@@ -1295,8 +896,9 @@ static struct resource r8a7373_hwsem1_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start	= 0x464FFC00, /* software extension base */
-		.end	= 0x464FFC7F,
+		/* software extension base */
+		.start	= SDRAM_SOFT_SEMAPHORE_TVRF_START_ADDR,
+		.end	= SDRAM_SOFT_SEMAPHORE_TVRF_END_ADDR,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -1344,8 +946,9 @@ static struct resource r8a7373_hwsem2_resources[] = {
 		.flags	= IORESOURCE_MEM,
 	},
 	{
-		.start	= 0x464ffe00,	/* software bit extension */
-		.end	= 0x464ffe7f,
+		/* software bit extension */
+		.start	= SDRAM_SOFT_SEMAPHORE_E20_START_ADDR,
+		.end	= SDRAM_SOFT_SEMAPHORE_E20_END_ADDR,
 		.flags	= IORESOURCE_MEM,
 	},
 };
@@ -1585,8 +1188,9 @@ static struct hw_register_range ramdump_res[] __initdata = {
 };
 
 struct ramdump_plat_data ramdump_pdata __initdata = {
-	.reg_dump_base = 0x48800000,
-	.reg_dump_size = SZ_1K*32,
+	.reg_dump_base = SDRAM_REGISTER_DUMP_AREA_START_ADDR,
+	.reg_dump_size = SDRAM_REGISTER_DUMP_AREA_END_ADDR -
+			SDRAM_REGISTER_DUMP_AREA_START_ADDR + 1,
 	/* size of reg dump of each core */
 	.core_reg_dump_size = SZ_1K,
 	.num_resources = ARRAY_SIZE(ramdump_res),
@@ -1641,7 +1245,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
-
+#ifdef DISABLE_UNUSED_R8A7373_ES20_LATE_DEVICES_FOR_GARDA
 /* HS-- ES20 Specific late devices */
 static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
 	&i2c0_device, /* IIC0  */
@@ -1669,6 +1273,7 @@ static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
+#endif
 
 void __init r8a7373_add_standard_devices(void)
 {
@@ -1697,7 +1302,6 @@ void __init r8a7373_add_standard_devices(void)
 extern spinlock_t sh_cmt_lock;
 
 static struct clk *cmt10_clk;
-static DEFINE_CLOCK_DATA(cd);
 
 static void cmt10_start(void)
 {
@@ -1747,18 +1351,6 @@ void clocksource_mmio_resume(struct clocksource *cs)
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 void __init __weak r8a7373_register_twd(void) { }
 
-/* CMT10 clocksource */
-#define CMCLKE  0xe6131000
-#define CMSTR0  0xe6130000
-#define CMCSR0  0xe6130010
-#define CMCNT0  0xe6130014
-#define CMCOR0  0xe6130018
-
-/* CMT14 sched_clock */
-#define CMSTR4  0xe6130400
-#define CMCSR4  0xe6130410
-#define CMCNT4  0xe6130414
-#define CMCOR4  0xe6130418
 
 static u32 notrace cmt_read_sched_clock(void)
 {
@@ -1839,20 +1431,33 @@ void d2153_mmcif_pwr_control(int onoff)
 	}
 
 	if (onoff == 1) {
+#if 1 /* always enabling the vmmc */
+		if (!regulator_is_enabled(emmc_regulator)) {
+			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
+				__LINE__);
+			ret = regulator_enable(emmc_regulator);
+			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+		}
+#else
 		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
 		ret = regulator_enable(emmc_regulator);
 		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+#endif
 	} else {
+#if 0 /* always enabling the vmmc */
 		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
 		ret = regulator_disable(emmc_regulator);
 		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+#endif
 	}
 }
 #endif
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+		|| defined(CONFIG_MACH_LT02LTE)
+
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
@@ -1873,7 +1478,9 @@ void mmcif_set_pwr(struct platform_device *pdev, int state)
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
+		|| defined(CONFIG_MACH_LT02LTE)
+
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
@@ -1934,40 +1541,12 @@ static struct cmt_timer_config cmt1_timers[2] = {
 	},
 };
 
-/* Current timer */
-int cmt_read_current_timer(unsigned long *timer_val)
-{
-	*timer_val = __raw_readl(CMCNT0);
-	return 0;
-}
-
-struct delay_timer cmt_delay_timer __read_mostly;
-
-static int __init setup_current_timer(void)
-{
-	struct clk *clk;
-
-	/* sharing CMT10 with clocksource */
-	clk = clk_get_sys("sh_cmt.10", NULL);
-	if (IS_ERR(clk)) {
-		pr_err("Error, cannot get clock for current timer\n");
-		return PTR_ERR(clk);
-	}
-	clk_enable(clk);
-
-	cmt_delay_timer.read_current_timer = cmt_read_current_timer;
-	cmt_delay_timer.freq = clk_get_rate(clk);
-	register_current_timer_delay(&cmt_delay_timer);
-	return 0;
-}
-
 static void __init r8a7373_timer_init(void)
 {
 	r8a7373_clock_init();
 	shmobile_calibrate_delay_early();
 	cmt_clocksource_init();
 	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE);
-
 	setup_current_timer();
 }
 
@@ -2102,7 +1681,6 @@ void r8a7373_l2cache_init(void)
 #endif
 }
 
-#define CCCR	IO_ADDRESS(0xe600101c)
 
 void __init r8a7373_init_early(void)
 {

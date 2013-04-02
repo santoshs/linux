@@ -308,15 +308,18 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
 
-#ifndef CONFIG_BOARD_VERSION_GARDA || CONFIG_MACH_LOGANLTE
+#if !defined(CONFIG_BOARD_VERSION_GARDA) && !defined(CONFIG_BOARD_VERSION_LOGANLTE) && !defined(CONFIG_BOARD_VERSION_LT02LTE)
 	if (u2_get_board_rev() >= 5) {
-#endif /* CONFIG_BOARD_VERSION_GARDA */
+#endif /* !CONFIG_BOARD_VERSION_GARDA && !CONFIG_BOARD_VERSION_LOGANLTE && !CONFIG_BOARD_VERSION_LT02LTE */
 		d2153_handle_modem_reset();
-#ifndef CONFIG_BOARD_VERSION_GARDA || CONGIG_MACH_LOGANLTE
+#if !defined(CONFIG_BOARD_VERSION_GARDA) && !defined(CONFIG_BOARD_VERSION_LOGANLTE) && !defined(CONFIG_BOARD_VERSION_LT02LTE)
 	} else {
 		tps80032_handle_modem_reset();
 	}
-#endif /* CONFIG_BOARD_VERSION_GARDA */
+#else
+	d2153_handle_modem_reset();
+#endif
+
 
 	/* Clear Event factor by setting corresponding bit */
 	/* in INT_FACCLR register*/

@@ -27,22 +27,32 @@
 #define GPIO_CHG_INT 19
 
 #if defined(CONFIG_CHARGER_SMB328A)
-#define SMB328A_ADDRESS (0xA9 >> 1)     //for smb 327
+#define SMB327B_ADDRESS (0xA9 >> 1)     // SMB327B
+#define SMB328A_ADDRESS (0x69 >> 1)     // SMB328A
 #endif
 
 #if defined(CONFIG_CHARGER_SMB358)
 #define CHARGER_I2C_SLAVE_ADDRESS (0xD4 >> 1)		//for smb 358
 #endif
 
-#if defined(CONFIG_USB_SWITCH_TSU6712)
-#define TSU6712_ADDRESS (0x4A >> 1)     // mUSB_temp_20130308
+#ifdef CONFIG_USE_MUIC
+#ifdef CONFIG_USB_SWITCH_TSU6712
+#define MUIC_I2C_ADDRESS (0x4A >> 1)
+#define MUIC_NAME	"tsu6712"
 #endif
-
-#if defined(CONFIG_USB_SWITCH_TSU6712) || \
-    defined(CONFIG_RT8973) || defined(CONFIG_RT8969)
+#ifdef CONFIG_USB_SWITCH_RT8973
+#define MUIC_I2C_ADDRESS (0x28 >> 1) //Only RT8973 is different with another MUIC
+#define MUIC_NAME	"rt8973"
+#endif
 #define GPIO_MUS_INT 41
 #endif
 
+
+/**
+ * RLTE_BOARD_REV
+ */
+#define RLTE_BOARD_REV_0_0	6
+#define RLTE_BOARD_REV_0_1	1
 /**
  * ION
  */

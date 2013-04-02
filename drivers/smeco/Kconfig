@@ -10,60 +10,102 @@ menuconfig SMECO
 
 if SMECO
 
+config SMECO_L2MUX
+	boolean "Use L2MUX in SMeCo / SMC"
+	default y
+
 config SMECO_CONTROL
 	boolean "Use SMeCo / SMC Control Instance"
-	default y
+	default n
 	---help---
 	If this is selected the SMC control channels between CPUs are taken in use
 
 if SMECO_CONTROL
-config SMECO_CONTROL_USE_PHONET
-    boolean "Use Phonet protocol in SMC Control"
-    default y
-     ---help---
-	If this is selected the SMC control uses phonet protocol for communication
-	
+	config SMECO_CONTROL_USE_PHONET
+	    boolean "Use Phonet protocol in SMC Control"
+	    default y
+	     ---help---
+		If this is selected the SMC control uses phonet protocol for communication
 endif
-
-config SMECO_L2MUX
-	boolean "Use L2MUX in SMeCo / SMC"
-	default y
 	
-	
-config SMECO_TRACES_ENABLED
-	boolean "Activate SMeCo / SMC traces"
-	default n
-
-if SMECO_TRACES_ENABLED
-	config SMECO_TRACES_KERN_ALERT
-		boolean "Print SMeCo/SMC traces in KERN_ALERT mode"
-		default n
-		 ---help---
-		If this is selected the SMC traces are printed in KERN_ALERT mode
-endif
-
-config SMECO_RUNTIME_TRACES_ENABLED
-	boolean "Activate SMeCo / SMC runtime R&D traces"
-	default n
-	---help---
-	If this is selected the SMC runtime traces are enabled and can be activated using IOCTL
-
 config SMECO_TEST
-	tristate "SMeCo SMC Test Features"
+	boolean "SMeCo SMC Test Features"
 	default n
 	---help---
 	If this option is selected the SMeCo test cases are built in the package.
-	
-config SMECO_TEST_MODULE
-	tristate "SMeCo SMC Test Module"
-	default n
-	---help---
-	If this option is selected the SMeCo test application module is built in the package.
 
-config SMECO_EOS2_ES10
-	boolean "SMeCo / SMC is used in EOS2 ES10"
-	default y
-	---help---
-	Select SMC EOS2 definition
+if SMECO_TEST
+
+	config SMECO_TRACES_ENABLED
+	boolean "Activate SMeCo / SMC traces"
+	default n
+
+	if SMECO_TRACES_ENABLED
+		config SMECO_TRACES_KERN_ALERT
+			boolean "Print SMeCo/SMC traces in KERN_ALERT mode"
+			default n
+			 ---help---
+			If this is selected the SMC traces are printed in KERN_ALERT mode
+				
+		config SMECO_RUNTIME_TRACES_ENABLED
+			boolean "Activate SMeCo / SMC runtime R&D traces"
+			default n
+			---help---
+			If this is selected the SMC runtime traces are enabled and can be activated using IOCTL
+		
+		config SMECO_STM_TRACES_ENABLED
+			boolean "Activate SMeCo / SMC STM traces"
+			default n
+			---help---
+			If this is selected the SMC STM traces are enabled
+	endif
+
+	config SMECO_ENABLE_DRIVER_SELF
+			boolean "Enable SMeCo / SMC driver by itself (NOTE: Only for early test phase use!)"
+			default n
+			---help---
+			Enables SMC device by initializing channels and SHM area. NOTE: Use this only for early phase testing purposes.
+
+
+	config SMECO_INITIALIZE_DRIVER_SELF
+			boolean "Initialize SMeCo / SMC driver by itself"
+			default n
 	
+	if SMECO_INITIALIZE_DRIVER_SELF
+	
+		config SMECO_INSTANTIATE_DRIVER_SELF
+			boolean "Instantiate SMeCo / SMC driver by itself (Only for EOS2)"
+			default n
+			---help---
+			Instantiates the SMC driver resources. NOTE: Works only with EOS2!		
+		
+	endif
+
+	config SMECO_TEST_MODULE
+		boolean "SMeCo SMC Test Module"
+		default n
+		---help---
+		If this option is selected the SMeCo test application module is built in the package.
 endif
+
+  #
+  # Select U3 target (U3/U3CA)
+  #
+if ARCH_R8A73724
+
+choice
+	prompt "U3 target"
+	default SMECO_EOS3_U3
+	
+	config SMECO_EOS3_U3
+		boolean "EOS3 U3"
+		
+	config SMECO_EOS3_U3CA
+		boolean "EOS3 U3CA"	
+endchoice
+
+endif
+
+
+endif
+

@@ -104,6 +104,7 @@ static irqreturn_t ths_isr(int irq, void *dev_id);
 static void ths_work_tj0(struct work_struct *work);
 static void ths_work_tj1(struct work_struct *work);
 static void ths_work_tj2(struct work_struct *work);
+static void ths_work_tj3(struct work_struct *work);
 static int ths_start_module(struct platform_device *pdev);
 static void ths_stop_module(struct platform_device *pdev);
 static int __devinit ths_probe(struct platform_device *pdev);
@@ -361,7 +362,7 @@ static void ths_initialize_hardware(void)
 	/* Get current temp to judge which Tj will be monitored */
 	__ths_get_cur_temp(0, &ret);
 
-	THS_DEBUG_MSG("Current temp:%d\n", ret);
+	THS_DEBUG_MSG("%s Current temp:%d\n", __func__, ret);
 
 	if (ret <= CTEMP0_DEC) {
 		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
@@ -489,6 +490,10 @@ static int ths_early_suspend(struct early_suspend *h)
 {
 	THS_DEBUG_MSG("%s: Enter - Add ths_early_suspend to the work queue\n",
 						__func__);
+	cancel_work_sync(&ths->tj3_work);
+	cancel_work_sync(&ths->tj2_work);
+	cancel_work_sync(&ths->tj1_work);
+	cancel_work_sync(&ths->tj0_work);
 
 	queue_delayed_work_on(0, ths_wait_wq, &ths_work,
 						usecs_to_jiffies(500*1000));
@@ -507,6 +512,7 @@ static int ths_early_suspend(struct early_suspend *h)
  */
 static int ths_late_resume(struct early_suspend *h)
 {
+	int ret = 0;
 	THS_DEBUG_MSG("%s: Enter\n", __func__);
 
 	mutex_lock(&ths->sensor_mutex);
@@ -528,6 +534,31 @@ static int ths_late_resume(struct early_suspend *h)
 
 	__ths_set_op_mode((enum mode)ths->pdata[0].last_mode, 0);
 	__ths_set_op_mode((enum mode)ths->pdata[1].last_mode, 1);
+	/* Wait for THS operating */
+	udelay(300);    /* 300us */
+
+	/* Get current temp to judge which Tj will be monitored */
+	__ths_get_cur_temp(0, &ret);
+
+	THS_DEBUG_MSG("%s Current temp:%d\n", __func__, ret);
+
+	if (ret <= CTEMP0_DEC) {
+		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
+						TJ00INT_MSK, TJ01INT_MSK);
+	} else if ((CTEMP0_DEC < ret) && (ret <= CTEMP1_DEC)) {
+		/* Mask Tj3, Tj2; Un-mask Tj1, Tj0 to monitor Tj1, Tj0 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK,
+						TJ00INT_MSK | TJ01INT_MSK);
+	} else if ((ret > CTEMP1_DEC) && (ret <= CTEMP2_DEC)) {
+		/* Mask Tj3; Un-mask Tj2, Tj1, Tj0 to monitor Tj2, Tj1, Tj0 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK, TJ00INT_MSK |
+						TJ01INT_MSK | TJ02INT_MSK);
+	} else if (ret > CTEMP2_DEC) {
+		/* Mask Tj1; Un-mask Tj0, Tj2, Tj3 to monitor Tj0, Tj2, Tj3*/
+		modify_register_32(INT_MASK_RW_32B, TJ01INT_MSK, TJ00INT_MSK |
+						TJ02INT_MSK | TJ03INT_MSK);
+	}
 
 	THS_DEBUG_MSG("%s : Thermal sensors resumed.\n", __func__);
 
@@ -551,20 +582,15 @@ static int ths_suspend(struct device *dev)
 		return 0;
 	}
 
-	/* Check power domain status SGX / RealTime */
-	reg = ioread32(SYSC_PSTR);
-	if (reg & (POWER_A3SG | POWER_A3R)) {
-		THS_ERROR_MSG(
-					"%s: Some Power domains remains. Keep THS ON !\n",
-					__func__);
-		return 0;
-	}
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	/* Cancel potential early suspend Work Queue */
 	cancel_delayed_work_sync(&ths_work);
 	early_suspend_try = EARLY_SUSPEND_MAX_TRY;
 #endif /* End CONFIG_HAS_EARLYSUSPEND */
+	cancel_work_sync(&ths->tj3_work);
+	cancel_work_sync(&ths->tj2_work);
+	cancel_work_sync(&ths->tj1_work);
+	cancel_work_sync(&ths->tj0_work);
 
 	if (ioread32(MMSTPCR5) & THS_CLK_SUPPLY_BIT) {
 		/* Update the last mode only if Modem CPG clk is OFF */
@@ -602,6 +628,7 @@ static int ths_suspend(struct device *dev)
  */
 static int ths_resume(struct device *dev)
 {
+	int ret = 0;
 	THS_DEBUG_MSG("%s: Enter\n", __func__);
 
 	if (!suspend_state) {
@@ -622,6 +649,32 @@ static int ths_resume(struct device *dev)
 
 	__ths_set_op_mode((enum mode)ths->pdata[0].last_mode, 0);
 	__ths_set_op_mode((enum mode)ths->pdata[1].last_mode, 1);
+
+	/* Wait for THS operating */
+	udelay(300);    /* 300us */
+
+	/* Get current temp to judge which Tj will be monitored */
+	__ths_get_cur_temp(0, &ret);
+
+	THS_DEBUG_MSG("%s Current temp:%d\n", __func__, ret);
+
+	if (ret <= CTEMP0_DEC) {
+		/* Mask Tj3, Tj2, Tj0; Un-mask Tj1 to monitor Tj1 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
+						TJ00INT_MSK, TJ01INT_MSK);
+	} else if ((CTEMP0_DEC < ret) && (ret <= CTEMP1_DEC)) {
+		/* Mask Tj3, Tj2; Un-mask Tj1, Tj0 to monitor Tj1, Tj0 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK,
+						TJ00INT_MSK | TJ01INT_MSK);
+	} else if ((ret > CTEMP1_DEC) && (ret <= CTEMP2_DEC)) {
+		/* Mask Tj3; Un-mask Tj2, Tj1, Tj0 to monitor Tj2, Tj1, Tj0 */
+		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK, TJ00INT_MSK |
+						TJ01INT_MSK | TJ02INT_MSK);
+	} else if (ret > CTEMP2_DEC) {
+		/* Mask Tj1; Un-mask Tj0, Tj2, Tj3 to monitor Tj0, Tj2, Tj3*/
+		modify_register_32(INT_MASK_RW_32B, TJ01INT_MSK, TJ00INT_MSK |
+						TJ02INT_MSK | TJ03INT_MSK);
+	}
 
 	THS_DEBUG_MSG("%s : Thermal sensors resumed.\n", __func__);
 
@@ -656,6 +709,7 @@ static int ths_initialize_platform_data(struct platform_device *pdev)
 	ths->pdev = pdev;
 	memcpy(ths->pdata, pdev->dev.platform_data,
 			2 * sizeof(struct thermal_sensor_data));
+
 
 	THS_DEBUG_MSG("%s end <<<\n", __func__);
 
@@ -785,19 +839,10 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 	if ((TJ03ST == (intr_status & TJ03ST)) ||
 		(TJ13ST == (intr_status & TJ13ST))) {
 		/* INTDT3 interrupt occurs */
-#ifdef CONFIG_THS_CPU_HOTPLUG
-		if (E_HOTPLUG != hotplug_ctrl) {
-			ths_stop_cpu(1); /* Control CPU1 */
-			hotplug_ctrl = E_HOTPLUG;
-		} else {
-			THS_DEBUG_MSG("%s: CPU1 was already stopped!\n",
-							__func__);
-		}
-#endif /* CONFIG_THS_CPU_HOTPLUG */
 		/* Un-mask INTDT0 interrupt to output to INTC(THS0) */
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
 						TJ01INT_MSK, TJ00INT_MSK);
-		enable_irq(irq);
+		queue_work(ths->queue, &ths->tj3_work);
 	} else if (TJ02ST == (intr_status & TJ02ST)) {
 		/* INTDT2 interrupt occurs */
 		/* Un-mask INTDT0/3 interrupt to output to INTC(THS0) */
@@ -936,6 +981,35 @@ static void ths_work_tj2(struct work_struct *work)
 }
 
 /*
+ * ths_work_tj3:
+ *	1/ Stop CPU1
+ *
+ *  @work: a struct work_struct
+ * return:
+ *		None
+ */
+static void ths_work_tj3(struct work_struct *work)
+{
+	THS_DEBUG_MSG(">>> %s start\n", __func__);
+
+#ifdef CONFIG_THS_CPU_HOTPLUG
+	if (E_HOTPLUG != hotplug_ctrl) {
+		ths_stop_cpu(1); /* Control CPU1 */
+		hotplug_ctrl = E_HOTPLUG;
+	} else {
+		THS_DEBUG_MSG("CPU1 was already stopped in tj2_work!\n",
+		__func__);
+	}
+#endif /* CONFIG_THS_CPU_HOTPLUG */
+
+	enable_irq(ths->ths_irq);
+
+	THS_DEBUG_MSG("%s end <<<\n", __func__);
+
+}
+
+
+/*
  * ths_start_module: Activate Thermal sensor module
  * return:
  *		-EINVAL (-22)	: Invalid clock
@@ -1041,6 +1115,7 @@ static int __devinit ths_probe(struct platform_device *pdev)
 	INIT_WORK(&ths->tj0_work, ths_work_tj0);
 	INIT_WORK(&ths->tj1_work, ths_work_tj1);
 	INIT_WORK(&ths->tj2_work, ths_work_tj2);
+	INIT_WORK(&ths->tj3_work, ths_work_tj3);
 
 	/* Create a new queue for bottom-half processing */
 	ths->queue = create_singlethread_workqueue("ths_queue");

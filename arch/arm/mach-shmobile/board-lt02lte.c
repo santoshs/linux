@@ -35,6 +35,7 @@
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board-lt02lte.h>
 #include <mach/board-lt02lte-config.h>
+#include <mach/board-lt02lte-spa.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
@@ -43,7 +44,6 @@
 #endif
 #include <mach/dev-wifi.h>
 #include <linux/ktd259b_bl.h>
-#include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
@@ -70,8 +70,7 @@
 #include <mach/sec_debug.h>
 #include <mach/sec_debug_inform.h>
 #endif
-#include <sound/a2220.h>
-#include <linux/i2c/fm34_we395.h>
+#include <sound/tpa2026-i2c.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
@@ -108,14 +107,12 @@
 #include <linux/spa_power.h>
 #endif
 
-#define STBCHRB3  0xE6180043
-#define PHYFUNCTR IO_ADDRESS(0xe6890104) /* 16-bit */
-
-/* SBSC register address */
-#define CPG_PLL3CR_1040MHZ (0x27000000)
-#define CPG_PLLECR_PLL3ST  (0x00000800)
-
 #include <mach/sbsc.h>
+
+#ifdef CONFIG_CHARGER_SMB358
+#define CHARGER_I2C_SLAVE_ADDRESS (0xD4 >> 1)
+#define GPIO_CHG_INT 19
+#endif
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -200,18 +197,8 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
-struct a2220_platform_data a2220_data = {
-	.a2220_hw_init = NULL,
-	.gpio_reset = GPIO_PORT44,
-	.gpio_wakeup = GPIO_PORT26,
-};
-
-struct fm34_platform_data fm34_data = {
-	.set_mclk = NULL,
-	.gpio_pwdn = GPIO_PORT26,
-	.gpio_rst = GPIO_PORT44,
-	.gpio_bp = GPIO_PORT46,
-	.gpio_avdd = 0,
+struct tpa2026_i2c_platform_data lt02lte_tpa2026_i2c_data = {
+	.gpio_shdn = GPIO_PORT17,
 };
 
 /* I2C */
@@ -240,23 +227,21 @@ static struct platform_device bcm_backlight_devices = {
 	},
 };
 
-static struct i2c_board_info __initdata i2c3_devices[] = {
-#if defined(CONFIG_BATTERY_BQ27425)
-	{
-		I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
-		.irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
-	},
+#if defined(CONFIG_STC3115_FUELGAUGE)
+extern struct stc311x_platform_data stc3115_data;
 #endif
-#if defined(CONFIG_USB_SWITCH_TSU6712)
+
+static struct i2c_board_info __initdata i2c3_devices[] = {
+#if defined(CONFIG_USE_MUIC)
 	{
-		I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
+		I2C_BOARD_INFO(MUIC_NAME, MUIC_I2C_ADDRESS),
 			.platform_data = NULL,
-			.irq           = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
+			.irq		   = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
 	},
 #endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	{
-		I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
+		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
 		.irq            = irqpin2irq(GPIO_CHG_INT),
 	},
 #endif
@@ -267,11 +252,16 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 		.irq = irqpin2irq(GPIO_MUS_INT),
 	},
 #endif
-#if defined(CONFIG_RT8969)
+#if defined(CONFIG_STC3115_FUELGAUGE)
 	{
-		I2C_BOARD_INFO("rt8969", 0x28>>1),
-		.platform_data = NULL,
-		.irq = irqpin2irq(GPIO_MUS_INT),
+		I2C_BOARD_INFO("stc3115", STC3115_ADDRESS),
+		.platform_data = &stc3115_data,
+	},
+#endif
+#if defined(CONFIG_CHARGER_SMB358)
+	{
+		I2C_BOARD_INFO("smb358", CHARGER_I2C_SLAVE_ADDRESS),
+		.irq            = irqpin2irq(GPIO_CHG_INT),
 	},
 #endif
 };
@@ -281,90 +271,10 @@ static struct platform_device *plat_devices[] __initdata = {
 	&bcm_backlight_devices,
 };
 
-static struct i2c_board_info i2c4_devices_melfas[] = {
-	{
-		I2C_BOARD_INFO("sec_touch", 0x48),
-		.irq = irqpin2irq(32),
-	},
-};
-
 static struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
 		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
 		.irq = irqpin2irq(32),
-	},
-};
-
-#ifdef CONFIG_BOARD_VERSION_LT02LTE
-static struct i2c_board_info i2c4_devices_imagis[] = {
-	{
-#if 1
-		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
-#else
-		I2C_BOARD_INFO("sec_touch", 0xA0>>1),
-#endif
-		.irq = irqpin2irq(32),
-	},
-};
-
-/* Touch Panel auto detection (Melfas and Imagis) */
-static struct i2c_client *tsp_detector_i2c_client;
-
-static int __devinit tsp_detector_probe(struct i2c_client *client,
-		const struct i2c_device_id * id)
-{
-	int ret=0;
-	struct i2c_adapter *adap = client->adapter;
-	struct regulator *touch_regulator;
-	unsigned short addr_list_melfas[] = { 0x48, I2C_CLIENT_END };
-
-	touch_regulator = regulator_get(NULL, "vtsp_3v");
-	if(IS_ERR(touch_regulator)){
-		printk(KERN_ERR "failed to get regulator for Touch Panel");
-		return -ENODEV;
-	}
-	regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
-	regulator_enable(touch_regulator);
-	msleep(20);
-
-	if ((tsp_detector_i2c_client = i2c_new_probed_device(adap,
-						&i2c4_devices_melfas[0],
-						addr_list_melfas, NULL))){
-		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
-	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap,
-						&i2c4_devices_imagis[0]);
-		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
-	}
-
-	regulator_disable(touch_regulator);
-	regulator_put(touch_regulator);
-	return ret;
-}
-
-static int tsp_detector_remove(struct i2c_client *client)
-{
-	i2c_unregister_device(tsp_detector_i2c_client);
-	tsp_detector_i2c_client = NULL;
-	return 0;
-}
-
-static struct i2c_device_id tsp_detector_idtable[] = {
-	{ "tsp_detector", 0 },
-	{},
-};
-static struct i2c_driver tsp_detector_driver = {
-	.driver = {
-		.name = "tsp_detector",
-	},
-	.probe      = tsp_detector_probe,
-	.remove     = tsp_detector_remove,
-	.id_table   = tsp_detector_idtable,
-};
-
-static struct i2c_board_info i2c4_devices_tsp_detector[] = {
-	{
-		I2C_BOARD_INFO("tsp_detector", 0x7f),
 	},
 };
 
@@ -382,12 +292,8 @@ static struct platform_device key_backlight_device = {
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
-		I2C_BOARD_INFO("audience_a2220", 0x3E),
-		.platform_data = &a2220_data,
-	},
-	{
-		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
-		.platform_data = &fm34_data,
+		I2C_BOARD_INFO(TPA2026_I2C_DRIVER_NAME, 0x58),
+		.platform_data = &lt02lte_tpa2026_i2c_data,
 	},
 };
 
@@ -536,10 +442,6 @@ static void __init board_init(void)
 	nfc_gpio_init();
 #endif
 
-	/* MAIN MIC LDO Enable */
-	gpio_request(GPIO_PORT8, NULL);
-	gpio_direction_output(GPIO_PORT8, 0);
-
 	gpio_direction_none_port(GPIO_PORT309);
 
 #ifdef CONFIG_ARCH_R8A7373
@@ -588,7 +490,7 @@ static void __init board_init(void)
 		/* move gpio request to board-renesas_wifi.c */
 
 		/* WLAN Init API call */
-#ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
+#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
 		renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
@@ -676,7 +578,7 @@ static void __init board_init(void)
 
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
-#if defined(CONFIG_TOUCHSCREEN_ZINITIX)
+#if defined(CONFIG_TOUCHSCREEN_BT532)
 	i2c_register_board_info(4, i2c4_devices_zinitix,
 					ARRAY_SIZE(i2c4_devices_zinitix));
 #else
@@ -684,11 +586,7 @@ static void __init board_init(void)
 	i2c_add_driver(&tsp_detector_driver);
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 					ARRAY_SIZE(i2c4_devices_tsp_detector));
-	platform_device_register(&key_backlight_device);
-
-	i2c_register_board_info(4, i2c4_devices_melfas,
-					ARRAY_SIZE(i2c4_devices_melfas));
-#endif /* CONFIG_BOARD_VERSION_LT02LTE */
+//	platform_device_register(&key_backlight_device);
 #endif
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
@@ -705,14 +603,7 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-
-#if 0
-	/**
-	 * @brief it was separated from PA_devices_init() in w11 v1.1
-	 * @todo it was duplicated with tpu_devices in board-<name>-config.h.
-	 */
 	vibrator_init(u2_board_rev);
-#endif
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);

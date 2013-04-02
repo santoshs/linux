@@ -86,6 +86,7 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_ATCMD_BUFFER_LEN       1024
 #define LD_UART_AT_MODE           2
 #define LD_UART_INVALID_MODE      -1
+#define LD_UART_AT_MODE_MODECHAN  5
 
 #define LD_WAKEUP_DATA_INIT       0
 #define ATPLIB_AT_CMD_MAX   1024
@@ -172,9 +173,6 @@ static ssize_t ld_set_at_closed(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	unsigned int value;
-
 	if (0 == strncmp(buf, "at closed", 9))
 		switch_set_state(&switch_dock, AT_CLOSED);
 
@@ -191,9 +189,6 @@ static ssize_t ld_set_isi_closed(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	unsigned int value;
-
 	if (0 == strncmp(buf, "isi closed", 10))
 		switch_set_state(&switch_dock, ISI_CLOSED);
 
@@ -392,7 +387,6 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 static int
 ld_pn_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
-	int ret = 0;
 	switch (cmd) {
 	case SIOCPNGAUTOCONF:
 		phonet_route_add(dev, PN_DEV_PC);
@@ -508,7 +502,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 	unsigned int msglen = 0;
 
 	struct phonethdr *ph = NULL;
-	int x, i;
+	int i;
 
 	dbg("ld_phonet: initiate transfer Data Sent = %d ", \
 	ld_pn->n_Data_Sent);
@@ -692,6 +686,23 @@ static void ld_phonet_ldisc_receive
 						(ld_pn->ld_atcmd_buffer, \
 						"\r\n+ATSTART:OK\r\n"  \
 						"\r\n" "OK\r\n");
+				room = tty_write_room(tty);
+				if (room >= ld_atcmd_len) {
+					/* Refer Comment 01 above */
+					tty->ops->write(tty, \
+						ld_pn->ld_atcmd_buffer, \
+						ld_atcmd_len);
+				}
+				/* Refer Comment 02 above */
+				ld_set_manualsw(NULL, NULL, "switch at", 9);
+				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
+			} else if (LD_UART_AT_MODE_MODECHAN == ret) {
+				dbg("MATCH FOR change mode \
+					LD_PHONET_SWITCH%c\n", *cp);
+				ld_atcmd_len = sprintf \
+						 (ld_pn->ld_atcmd_buffer, \
+						"\r\n+MODECHAN:OK\r\n"  \
+						  "\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
 					/* Refer Comment 01 above */
@@ -928,7 +939,7 @@ void ld_write_wakeup_tasklet(unsigned long data)
         struct tty_struct *tty;
 	struct ld_phonet *ld_pn;
 
-	unsigned long *tmp = data;
+	unsigned long *tmp = (unsigned long *) data;
 	tty = (struct tty_struct *)*tmp;
 	if (tty == NULL) {
 		dbg("LD Tasklet tty Data NULL\n");	
@@ -963,7 +974,6 @@ static int ld_phonet_ldisc_hangup(struct tty_struct *tty)
 {
 	struct ld_phonet *ld_pn;
 	struct sk_buff *skb;
-	struct net_device *dev;
 	/* Flush TX queue */
 	ld_pn = tty->disc_data;
 

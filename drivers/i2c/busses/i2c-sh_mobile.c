@@ -322,7 +322,7 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 		iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
 				(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 #endif
-#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 	iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
 			(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 #endif
@@ -755,7 +755,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 		else
 		pd->bus_data_delay = MIN_SDA_DELAY;
 #endif
-#ifdef CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY
 			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
 		pd->bus_data_delay = pdata->bus_data_delay << 3;

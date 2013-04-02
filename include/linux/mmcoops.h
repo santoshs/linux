@@ -9,6 +9,7 @@
 
 #include <linux/platform_device.h>
 #include <mach/crashlog.h>
+#include <mach/memory-r8a7373.h>
 
 #define MMCOOPS_RECORD_CNT			3
 #define MMCOOPS_HEADER_SIZE			1
@@ -38,7 +39,7 @@
 /*0x01ddmmyy (release time)*/
 #define MMCOOPS_LOCAL_VERSION			0x01150612
 #define MMCOOPS_START_OFFSET			2654208	/* mmcblk0p10 */
-#define MMCOOPS_START_OFFSET_DDR		0x44841200 /* DDR Address */
+#define MMCOOPS_START_OFFSET_DDR	(SDRAM_CRASHLOG_START_ADDR + 0x40200)
 #define MMCOOPS_LOG_SIZE_DDR			(MMCOOPS_RECORD_SIZE * \
 						MMCOOPS_RECORD_CNT_DDR)
 
@@ -50,7 +51,13 @@
 						+MMCOOPS_LOGCAT_EVENTS_SIZE_DDR \
 						+MMCOOPS_FOOTER_SIZE)
 
-#define MAX_LOG_SIZE_ON_DDR			(0xBFE00)
+#define MAX_LOG_SIZE_ON_DDR			\
+		(SDRAM_CRASHLOG_END_ADDR - MMCOOPS_START_OFFSET_DDR + 0x01)
+
+/* Predefined value for hw_reset_type in RESET_INFO_STR */
+#define POWER_UP_RESET          1
+#define SOFT_RESET          2
+#define SEC_RESET_CMT1_5_EXPIRED                0x00000300
 
 struct mmcoops_platform_data {
 #ifdef CONFIG_CRASHLOG_EMMC

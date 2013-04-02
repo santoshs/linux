@@ -14,6 +14,13 @@ config ARM_SEC_HAL_DRM_WVN
 	---help---
 	Enable sec_hal widevine drm implementation.
 
+config ARM_SEC_HAL_TEE
+	bool "Enable sec_hal trusted execution environment support"
+	default n
+#	depends ARM_SEC_HAL
+	---help---
+	Enable sec_hal widevine drm implementation.
+
 
 if ARM_SEC_HAL
 # RND conf flags to enable early integration. Consider removing asap.

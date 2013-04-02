@@ -253,11 +253,6 @@
 /* Max delay               */
 /***************************/
 #define AUDIO_TEST_COMMON_UDELAY_MAX	(1000)
-/***************************/
-/* GPIO                    */
-/***************************/
-#define AUDIO_TEST_GPIO_BASE		IO_ADDRESS(0xE6050000)
-#define AUDIO_TEST_FSI2CR		(AUDIO_TEST_GPIO_BASE + 0x8144)
 
 /*---------------------------------------------------------------------------*/
 /* define function macro declaration                                         */

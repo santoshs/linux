@@ -19,8 +19,14 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
-//#define D2153_FSI_SOUNDPATH
-
+#ifdef CONFIG_SND_SOC_D2153_AAD_MICBIAS1_2_6V
+#define D2153_SET_MICBIAS_2_6V
+#endif
+#ifdef D2153_SET_MICBIAS_2_6V
+#define D2153_MICBIAS1_LVL	D2153_MICBIAS_LEVEL_2_6V
+#else
+#define D2153_MICBIAS1_LVL	D2153_MICBIAS_LEVEL_2_5V
+#endif
 /*
  * D2153 register space
  */
@@ -447,9 +453,19 @@
 #define D2153_DAC_NG_THRESHOLD_MAX			0x7
 
 /* D2153_CP_CTRL = 0x5C */
-#define D2153_CP_MCHANGE_SM_SIZE				(3 << 4)
+
+#define D2153_CP_MODE_STANDBY		(0 << 2)
+#define D2153_CP_MODE_CPVDD_2		(2 << 2)
+#define D2153_CP_MODE_CPVDD_1		(3 << 2)
+#define D2153_CP_MODE_MASK		(3 << 2)
+#define D2153_CP_MCHANGE_CP_MODE		(0 << 4)
 #define D2153_CP_MCHANGE_LARGEST_VOL			(1 << 4)
+#define D2153_CP_MCHANGE_DAC_VOL_SIZE	(2 << 4)
+#define D2153_CP_MCHANGE_DAC_VOL_SIZE	(2 << 4)
+#define D2153_CP_MCHANGE_SM_SIZE		(3 << 4)
 #define D2153_CP_MCHANGE_MASK			(3 << 4)
+#define D2153_CP_SM_SWITCH				(1 << 6)
+#define D2153_CP_SM_SWITCH_SHIFT		6
 #define D2153_CP_EN						(1 << 7)
 #define D2153_CP_EN_SHIFT				7
 
@@ -527,6 +543,7 @@
 #define D2153_MIC_AMP_GAIN_MAX				0x7
 
 /* D2153_MICBIAS1/2/3_CTRL = 0xA1/0xA2/0xA3 */
+#define D2153_MICBIAS_LEVEL_2_1V			(0 << 0)
 #define D2153_MICBIAS_LEVEL_2_5V			(1 << 0)
 #define D2153_MICBIAS_LEVEL_2_6V			(2 << 0)
 #define D2153_MICBIAS_LEVEL_MASK			(3 << 0)
@@ -741,38 +758,8 @@ enum clk_src {
 	D2153_CLKSRC_MCLK
 };
 
-#ifdef D2153_FSI_SOUNDPATH
-enum {
-	/* Playback */
-	E_VOL_SPEAKER_L = 0,	/**< Speaker Left. */
-	E_VOL_SPEAKER_R,	/**< Speaker Right. */
-	E_VOL_EARPIECE_L,	/**< Earpiece Left. */
-	E_VOL_EARPIECE_R,	/**< Earpiece Right. */
-	E_VOL_HEADPHONE_L,	/**< Headphone Left. */
-	E_VOL_HEADPHONE_R,	/**< Headphone Right. */
-	/* Capture */
-	E_VOL_MAIN_MIC,		/**< Main Mic. */
-	E_VOL_SUB_MIC,		/**< Sub Mic. */
-	E_VOL_HEADSET_MIC,	/**< Sub Mic. */
-	E_VOL_MAX
-};
-
-struct d2153_info {
-	u_long raw_device;  /**< device ID. */
-	u_int speaker;      /**< playback speaker. */
-	u_int earpiece;     /**< playback earpiece. */
-	u_int headphone;    /**< playback headphones or headset.*/
-	u_int mic;          /**< capture mic. */
-	u_int headset_mic;  /**< capture headset mic. */
-};
-#endif /* D2153_FSI_SOUNDPATH */
-
 /* Codec private data */
 struct d2153_codec_priv {
-#ifdef D2153_FSI_SOUNDPATH
-	struct d2153_info info;   /**< user setting info. */	
-	int sndp_power_mode;
-#endif	/* D2153_FSI_SOUNDPATH */
 	struct i2c_client *i2c_client;
 	int power_mode;
 #ifdef CONFIG_SND_SOC_D2153_AAD
@@ -786,25 +773,12 @@ struct d2153_codec_priv {
 	bool srm_en;
 	bool alc_calib_auto;
 	bool alc_en;
-#ifdef D2153_FSI_SOUNDPATH
-	u_short volume[E_VOL_MAX];          /**< volume. */
-	int volume_saved[E_VOL_MAX];        /**< volume save flag. */
-	/* pcm */
-	u_int pcm_mode;                     /**< pcm mode. */
-	bool earpiece_enable;
-	bool headset_enable;
-#endif
 	u8 spk_mixer_out;
 	u8 spk_amp;
 
 };
 
-#ifdef D2153_FSI_SOUNDPATH
-int d2153_hw_params(struct snd_pcm_substream *substream,
-			   struct snd_pcm_hw_params *params,
-			   struct snd_soc_dai *dai);
-#endif
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
 int d2153_aad_enable(struct snd_soc_codec *codec);
-
+int d2153_aad_resume(struct snd_soc_codec *codec);
 #endif /* _D2153_H */

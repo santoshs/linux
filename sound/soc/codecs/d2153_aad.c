@@ -23,30 +23,35 @@
 #include <mach/r8a7373.h>
 
 //#define D2153_READ_PMIC_BUTTON_REG
-//#define D2153_JACK_DETECT
 
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_reg.h>
- 
+
 #include <linux/d2153/d2153_codec.h>
 #include <linux/d2153/d2153_aad.h>
- 
-#define D2153_AAD_JACK_DEBOUNCE_MS 100
-#define D2153_AAD_BUTTON_DEBOUNCE_MS 50
 
+//#define D2153_AAD_JACK_DEBOUNCE_MS 100
+#define D2153_AAD_JACK_DEBOUNCE_MS 400
+#define D2153_AAD_BUTTON_DEBOUNCE_MS 50
+#define D2153_AAD_DETECT_JAC_ADC 91
+#define D2153_GPIO_DEBOUNCE_TIME (4000)  /*4ms*/
+// debounce: debounce time is microseconds
 struct d2153_aad_priv *d2153_aad_ex;
 EXPORT_SYMBOL(d2153_aad_ex);
+
+static int d2153_aad_read(struct i2c_client *client, u8 reg);
+struct i2c_client *add_client = NULL;
 
 
 /*
  * Samsung defined resistances for 4-pole key presses:
- * 
+ *
  * 0 - 108 Ohms:	Send Button
  * 139 - 270 Ohms:	Vol+ Button
  * 330 - 680 Ohms:	Vol- Button
  */
- 
+
 /* Button resistance lookup table */
 /* DLG - ADC values need to be correctly set as they're currently not known */
 static const struct button_resistance button_res_tbl[MAX_BUTTONS] = {
@@ -64,26 +69,90 @@ static const struct button_resistance button_res_tbl[MAX_BUTTONS] = {
 		.max_val = 60,
 	},
 #else
+#ifdef D2153_SET_MICBIAS_2_6V
 	[SEND_BUTTON] = {
 		.min_val = 0,
-		.max_val = 11,
+		.max_val = 15,
 	},
 	[VOL_UP_BUTTON] = {
-		.min_val = 17,
-		.max_val = 34,
+		.min_val = 16,
+		.max_val = 31,
 	},
 	[VOL_DN_BUTTON] = {
-		.min_val = 39,
-		.max_val = 85,
+		.min_val = 32,
+		.max_val = 86,
+	},
+#else
+	[SEND_BUTTON] = {
+		.min_val = 0,
+		.max_val = 14,
+	},
+	[VOL_UP_BUTTON] = {
+		.min_val = 15,
+		.max_val = 31,
+	},
+	[VOL_DN_BUTTON] = {
+		.min_val = 32,
+		.max_val = 95,
 	},
 #endif
+#endif
 };
+
+static ssize_t show_headset(struct device *dev, struct device_attribute *attr, char *buf);
+
+#define HEADSET_ATTR(_name)													\
+{																				\
+	.attr = { .name = #_name, .mode = 0644, },					\
+	.show = show_headset,														\
+}
+
+enum {
+	STATE = 0,
+	KEY_STATE,
+	ADC,
+};
+
+static struct device_attribute headset_Attrs[] = {
+	HEADSET_ATTR(state),
+	HEADSET_ATTR(key_state),
+	HEADSET_ATTR(adc),
+};
+
+static ssize_t show_headset(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	const ptrdiff_t off = attr - headset_Attrs;
+	u8 adc_det_status = 0;
+	struct i2c_client *client = add_client;
+
+	switch (off)
+	{
+	case STATE:
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n", (((d2153_aad_ex->switch_data.state == D2153_HEADPHONE) || (d2153_aad_ex->switch_data.state == D2153_HEADSET)) ? 1 : 0));
+		printk("[%s]:kwanjin : state : %d\n", __func__, d2153_aad_ex->switch_data.state);
+		break;
+	case KEY_STATE:
+		printk("[%s]:kwanjin : button_status : %d\n", __func__, d2153_aad_ex->button.status);
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n", d2153_aad_ex->button.status);
+		break;
+	case ADC:
+		adc_det_status = d2153_aad_read(client, D2153_ACCDET_STATUS);
+		printk("[%s]:kwanjin : earjack adc : %d\n", __func__, adc_det_status);
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n", adc_det_status);
+		break;
+	default :
+		break;
+	}
+
+	return ret;
+}
 
 
 /* Following register access methods based on soc-cache code */
 static int d2153_aad_read(struct i2c_client *client, u8 reg)
 {
-	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+//	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	
 	struct i2c_msg xfer[2];
 	u8 data;
@@ -117,7 +186,7 @@ static int d2153_aad_read(struct i2c_client *client, u8 reg)
 
 int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 {
-	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+//	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	u8 data[2];
 	int ret;
 
@@ -139,64 +208,6 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 		return -EIO;
 }
 EXPORT_SYMBOL(d2153_aad_write);
-
-#ifdef D2153_FSI_SOUNDPATH	
-int d2153_aad_read_ex(u8 reg)
-{
-	struct i2c_msg xfer[2];
-	u8 data;
-	int ret;
-
-	/* Write register */
-	xfer[0].addr = d2153_aad_ex->i2c_client->addr;
-	xfer[0].flags = 0;
-	xfer[0].len = 1;
-	xfer[0].buf = &reg;
-
-	/* Read data */
-	xfer[1].addr = d2153_aad_ex->i2c_client->addr;
-	xfer[1].flags = I2C_M_RD;
-	xfer[1].len = 1;
-	xfer[1].buf = &data;
-
-	ret = i2c_transfer(d2153_aad_ex->i2c_client->adapter, xfer, 2);
-	if (ret == 2)
-		return data;
-	else if (ret < 0)
-		return ret;
-	else
-		return -EIO;
-}
-EXPORT_SYMBOL(d2153_aad_read_ex);
-
-int d2153_aad_write_ex(u8 reg, u8 value)
-{
-	u8 data[2];
-	int ret;
-
-        reg &= 0xff;
-        data[0] = reg;
-        data[1] = value & 0xff;
-
-	ret = i2c_master_send(d2153_aad_ex->i2c_client, data, 2);
-	
-	if (ret == 2)
-		return 0;
-	else if (ret < 0)
-		return ret;
-	else
-		return -EIO;
-}
-EXPORT_SYMBOL(d2153_aad_write_ex);
-
-int d2153_pmic_read_ex(u8 reg, u8 regval)
-{
-	struct d2153 *d2153_pmic = d2153_aad_ex->d2153_codec->d2153_pmic;
-
-	return d2153_reg_read(d2153_pmic, reg, &regval);
-}
-EXPORT_SYMBOL(d2153_pmic_read_ex);
-#endif
 
 int d2153_aad_update_bits(struct i2c_client *client, u8 reg, u8 mask,
 				 u8 value)
@@ -226,10 +237,11 @@ EXPORT_SYMBOL(d2153_aad_update_bits);
 static irqreturn_t d2153_jack_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
-	
+
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 	cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
-	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
+ 	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
+	d2153_aad->switch_data.state = D2153_NO_JACK;
 	
 	return IRQ_HANDLED;
 }
@@ -239,19 +251,24 @@ static irqreturn_t d2153_button_handler(int irq, void *data)
 	struct d2153_aad_priv *d2153_aad = data;
 
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
-#if 1
-	if(d2153_aad->button.status == D2153_BUTTON_IGNORE)
-	{
-		d2153_aad->button.status = D2153_BUTTON_PRESS;
-		return IRQ_HANDLED;
-	}
 
-	if(d2153_aad->button.status == D2153_BUTTON_PRESS)
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
 	{
-		d2153_aad->button.status = D2153_BUTTON_RELEASE;
-		return IRQ_HANDLED;
+	{
+		if(d2153_aad->button.status == D2153_BUTTON_IGNORE)
+		{
+			d2153_aad->button.status = D2153_BUTTON_PRESS;
+			return IRQ_HANDLED;
+		}
+
+		if(d2153_aad->button.status == D2153_BUTTON_PRESS)
+		{
+			d2153_aad->button.status = D2153_BUTTON_RELEASE;
+			return IRQ_HANDLED;
+		}
 	}
-#endif	
+	}
+	
 	cancel_delayed_work_sync(&d2153_aad->button_monitor_work);
 	schedule_delayed_work(&d2153_aad->button_monitor_work, msecs_to_jiffies(D2153_AAD_BUTTON_DEBOUNCE_MS));
 	
@@ -261,6 +278,7 @@ static irqreturn_t d2153_button_handler(int irq, void *data)
 static int d2153_switch_dev_register(struct d2153_aad_priv *d2153_aad)
 {
 	int ret = 0;
+	dlg_info("[%s] start!\n",__func__);
 
 	d2153_aad->switch_data.sdev.name = "h2w";
 	d2153_aad->switch_data.sdev.state = 0;
@@ -275,7 +293,7 @@ static int d2153_hooksw_dev_register(struct i2c_client *client,
 				struct d2153_aad_priv *d2153_aad)
 {
 	int ret = 0;
-
+	dlg_info("[%s] start!\n",__func__);
 	d2153_aad->input_dev = input_allocate_device();
 	d2153_aad->input_dev->name = "d2153-aad";
 	d2153_aad->input_dev->id.bustype = BUS_I2C;
@@ -305,79 +323,81 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state;
 
-dlg_info("%s enable D2153_JACK_DETECT\n",__func__);
-
+	dlg_info("%s \n",__func__);
+	
 	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
 	{
 		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
 		return;
 	}
-	
+
 	jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
 	
 	if (jack_mode & D2153_ACCDET_JACK_MODE_JACK) {
 
 		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
-			dlg_info("%s 4 Pole Heaset set \n",__func__);
+			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+			
+			dlg_info("%s JACK MODE! 4 Pole Heaset set \n",__func__);
 			state=D2153_HEADSET;	
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
 			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
 		}	
 		else {
-			if(d2153_aad->first_check_done == 0) {
+			
 				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-
+	
 				snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 					D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-				
-				d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
+					
+				if (D2153_AA_Silicon == d2153_aad->chip_rev)
+					d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
 
 				msleep(d2153_aad->button_detect_rate);
 				
 				btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);	
 				dlg_info("%s Heaset set ADC= %d  \n",__func__,btn_status);
 
-				d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
+				if (D2153_AA_Silicon == d2153_aad->chip_rev) 
+					d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
 						  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
 
-				snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
+				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+					//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
 
 				if(btn_status == 0)	{
-					dlg_info("%s First 3 Pole Heaset set2 \n",__func__);
+					dlg_info("%s ADC CHECK!! 3 Pole Heaset set2 \n",__func__);
 					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
 					state=D2153_HEADPHONE;
+					snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
 				}
 				else {
-					dlg_info("%s First 4 Pole Heaset set2 \n",__func__);
+					d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+					dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+					dlg_info("%s ADC CHECK!! 4 Pole Heaset set2 \n",__func__);
 					state=D2153_HEADSET;	
-					snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);			
+					//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+						//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+ 					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);	
 				}
-			}
-			else
-			{
-				dlg_info("%s 3 Pole Heaset set \n",__func__);
-				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
-				state=D2153_HEADPHONE;		
-			}
-		}
 	}
 	else {		
+		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
 		dlg_info("%s Jack Pull Out ! \n",__func__);
-		d2153_aad->first_check_done=1;
 		state=D2153_NO_JACK;
 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
+		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);		
 	}
 
 	d2153_aad->button.status = D2153_BUTTON_RELEASE;
 	
-	if (d2153_aad->switch_data.state != state) {
-		dlg_info("%s Jack state = %d ! \n",__func__, state);
+	if (d2153_aad->switch_data.state != state || d2153_aad->switch_data.state == D2153_NO_JACK) {	
+		dlg_info("%s Jack state = %d\n",__func__, state);
 		d2153_aad->d2153_codec->switch_state=state;
 		d2153_aad->switch_data.state = state;
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
@@ -394,8 +414,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
-
-	dlg_info("%s disable D2153_JACK_DETECT\n",__func__);
+	dlg_info("[%s] start!\n",__func__);
 
 	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
 	{
@@ -404,54 +423,67 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	}
 	
 	state_gpio = gpio_get_value(GPIO_PORT7);
-	
-	if (state_gpio == 0) {
+	if(state_gpio == 0 && state != D2153_NO_JACK)
+		return;                 
 
-		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
+	if (state_gpio == 0) {
 		
+		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
+
 		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
-			dlg_info("%s 4 Pole Heaset set \n",__func__);
+			dlg_info("[%s] 4 Pole Heaset set \n",__func__);
 			state=D2153_HEADSET;	
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
+			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
+
+			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+			
 		}	
 		else {
+			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
 
-				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-
-				snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);
 				
+			if (D2153_AA_Silicon == d2153_aad->chip_rev)
 				d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
 
-				msleep(d2153_aad->button_detect_rate);
-				
-				btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);	
-				dlg_info("%s Heaset set ADC= %d  \n",__func__,btn_status);
+			msleep(d2153_aad->button_detect_rate);
 
+			btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);	
+			dlg_info("%s Heaset set ADC= %d  \n",__func__,btn_status);
+
+			if (D2153_AA_Silicon == d2153_aad->chip_rev) 
 				d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
-						  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
+					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
 
-				snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
+			if(btn_status < D2153_AAD_DETECT_JAC_ADC)	{
+				dlg_info("[%s] First 3 Pole Heaset set2 \n",__func__);
 
-				if(btn_status == 0)	{
-					dlg_info("%s First 3 Pole Heaset set2 \n",__func__);
-					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x00);
-					state=D2153_HEADPHONE;
-				}
-				else {
-					dlg_info("%s First 4 Pole Heaset set2 \n",__func__);
-					state=D2153_HEADSET;	
-					snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);			
-				}	
-
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
+				
+				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x00);
+				state=D2153_HEADPHONE;
+			}
+			else {
+				d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+				dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+			
+				dlg_info("[%s] First 4 Pole Heaset set2 \n",__func__);
+				state=D2153_HEADSET;	
+				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				//	D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);			
+			}	
 		}
 	}
-	else {		
+	else {	
+		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+		
 		dlg_info("%s Jack Pull Out ! \n",__func__);
 		state=D2153_NO_JACK;
 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
@@ -461,7 +493,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 
 	d2153_aad->button.status = D2153_BUTTON_RELEASE;
 	
-	if (d2153_aad->switch_data.state != state) {	
+	if (d2153_aad->switch_data.state != state || d2153_aad->switch_data.state == D2153_NO_JACK) {	
 		d2153_aad->d2153_codec->switch_state=state;
 		d2153_aad->switch_data.state = state;
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
@@ -478,9 +510,11 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 									button_monitor_work.work);
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 btn_status;
+#ifdef D2153_JACK_DETECT
 	u8 jack_mode;
-	int state;
-
+#endif
+	int state_gpio;
+	dlg_info("[%s] start!\n",__func__);
 	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
 	{
 		schedule_delayed_work(&d2153_aad->button_monitor_work, msecs_to_jiffies(300));
@@ -493,17 +527,18 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 	}
 	//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 	//			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
-	d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
-
-	d2153_aad->button.status = D2153_BUTTON_IGNORE;
-
+	if (D2153_AA_Silicon == d2153_aad->chip_rev)
+	{
+		d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
+		d2153_aad->button.status = D2153_BUTTON_IGNORE;
+	}
 	msleep(d2153_aad->button_detect_rate);
-	
 	btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);			
 	
-	//dlg_info("%s btn_status = %d !!!!!!!!!!!!!!!!!!!!!! \n",__func__,btn_status);
+	dlg_info("%s btn = %d ! \n",__func__,btn_status);
 
-	d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
+		d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
 					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
 
 	//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
@@ -549,20 +584,25 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 			input_event(d2153_aad->input_dev, EV_KEY,
 					d2153_aad->button.key, 0);
 			input_sync(d2153_aad->input_dev);
-			//d2153_aad->button.status = D2153_BUTTON_RELEASE;
-			//dlg_info("%s event Release key=%d ! \n",__func__,d2153_aad->button.key);
+			d2153_aad->button.status = D2153_BUTTON_RELEASE;
+			dlg_info("%s event Rel key=%d!\n",__func__,d2153_aad->button.key);
 		}
-		
-		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
 
+#ifdef D2153_JACK_DETECT
+		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
 		if((jack_mode & D2153_ACCDET_JACK_MODE_JACK) ==0)
+#else
+		state_gpio = gpio_get_value(GPIO_PORT7);
+		if (state_gpio == 1) 
+#endif
 		{
 			d2153_aad->switch_data.state = D2153_NO_JACK;
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-			switch_set_state(&d2153_aad->switch_data.sdev, state);
+			switch_set_state(&d2153_aad->switch_data.sdev, d2153_aad->switch_data.state);
 			dlg_info("%s Jack Pull Out ! \n",__func__);
 		}
+
 	}
 
 }
@@ -574,21 +614,26 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 #ifndef D2153_JACK_DETECT
 	int ret,irq;
 #endif
+	u8 regval;
+	int status;
+	int ret_createfile = 0; /* Function return value */
+	dlg_info("[%s] start!\n",__func__);
 
 	d2153_aad = devm_kzalloc(&client->dev, sizeof(struct d2153_aad_priv),
 				 GFP_KERNEL);
 	if (!d2153_aad)
 		return -ENOMEM;
-	
+
 	d2153_aad->i2c_client = client;
 	d2153_aad->d2153_codec = client->dev.platform_data;
+	add_client = client;
 
 	wake_lock_init(&d2153_aad->wakeup, WAKE_LOCK_SUSPEND, "jack_monitor");
-	
+
 	i2c_set_clientdata(client, d2153_aad);
 
 	d2153_switch_dev_register(d2153_aad);
-	
+
 	d2153_hooksw_dev_register(client, d2153_aad);
 
 	d2153_aad_ex = d2153_aad;
@@ -596,7 +641,7 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&d2153_aad->jack_monitor_work, d2153_aad_jack_monitor_timer_work);
 	INIT_DELAYED_WORK(&d2153_aad->button_monitor_work, d2153_aad_button_monitor_timer_work);
 
-	d2153_aad->button_detect_rate = 10;
+	d2153_aad->button_detect_rate = 20;
 
 	/* Ensure jack & button detection is disabled, default to auto power */
 	d2153_aad_write(client, D2153_ACCDET_CONFIG,0x00); 	
@@ -610,17 +655,41 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	gpio_request(GPIO_PORT7, NULL);
 	gpio_direction_input(GPIO_PORT7);
 	gpio_pull_up_port(GPIO_PORT7);
+	gpio_set_debounce(GPIO_PORT7, 1000);	/* 1msec */
 	irq=gpio_to_irq(GPIO_PORT7);
+	status = gpio_set_debounce(GPIO_PORT7, D2153_GPIO_DEBOUNCE_TIME);
+	if (status < 0) {
+ 		dlg_info("%s: gpio request failed \r\n", __func__);
+ 		return -ENOMEM;
+ 	}
+	
+	dlg_info("[%s] : qpio_to_irq= %d  \n",__func__, irq);
 	ret=request_threaded_irq(irq, NULL, d2153_jack_handler,
 						IRQF_TRIGGER_FALLING |IRQF_TRIGGER_RISING| IRQF_DISABLED, "Jack detect", d2153_aad);
-
+	dlg_info("[%s] : request_threaded_irq= %d  \n",__func__, ret);
 	enable_irq_wake(irq);
 #endif
+	/* Generate node for DFMS  */
+printk("--------------------------------------------\n");
+	d2153_aad_ex->audio_class = class_create(THIS_MODULE, "audio");
+	d2153_aad_ex->headset_dev = device_create(d2153_aad_ex->audio_class, NULL, client->dev.devt, NULL, "earjack");
+	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[STATE]);
+	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[KEY_STATE]);
+	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[ADC]);
+printk("--------------------------------------------+++++++\n");
+
 	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
 			   D2153_IRQ_EACCDET, d2153_button_handler, 0,
 			   "Button detect", d2153_aad);
-	
+
+
+	d2153_reg_read(d2153_aad->d2153_codec->d2153_pmic, 0x96, &regval);
+	d2153_aad->chip_rev = regval;
+
+	dlg_info("%s chip_rev [0x%x] \n",__func__, d2153_aad->chip_rev);
+
 	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
+	dlg_info("[%s] END!\n",__func__);
 
 	return 0;
 }
@@ -660,10 +729,7 @@ static struct i2c_driver d2153_aad_i2c_driver = {
 static int __init d2153_aad_init(void)
 {
 	int ret;
-#if defined(CONFIG_MACH_U2EVM)
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return 0;
-#endif
+
 	ret = i2c_add_driver(&d2153_aad_i2c_driver);
 	if (ret)
 		pr_err("D2153 AAD I2C registration failed %d\n", ret);
@@ -681,82 +747,3 @@ module_exit(d2153_aad_exit);
 MODULE_DESCRIPTION("ASoC D2153 AAD Driver");
 MODULE_AUTHOR("Adam Thomson <Adam.Thomson.Opensource@diasemi.com>");
 MODULE_LICENSE("GPL");
-
-/* 
- * DLG - example code for machine driver which should reside in
- * sound/soc/<MACH> directory in relevant file.
- */
-#if 0 //ndef D2153_FSI_SOUNDPATH	
-static const struct snd_soc_dapm_widget d2153_aad_widgets[] = {
-	SND_SOC_DAPM_MIC("Mic Jack", NULL),
-	SND_SOC_DAPM_HP("Headphone Jack", NULL),
-};
-
-static const struct snd_soc_dapm_route d2153_aad_map[] = {
-	/* Dest  |  Connecting Widget  |  Source */
-	
-	/* Mic Jack */
-	{ "MICL", NULL, "Mic Jack" },
-
-	/* Headphone Jack */
-	{ "Headphone Jack", NULL, "HPL" },
-	{ "Headphone Jack", NULL, "HPR" },
-};
-
-static struct snd_soc_jack jack;
-
-static struct snd_soc_jack_pin jack_pins[] = {
-	{ .pin = "Headphone Jack", .mask = SND_JACK_HEADPHONE },
-	{ .pin = "Mic Jack", .mask = SND_JACK_MICROPHONE },
-};
-
-static struct snd_soc_jack button;
-
-static int d2153_fsi_aad_init(struct snd_soc_codec *codec)
-{
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	int ret;
-
-	/* Add AAD specific DAPM items */
-	ret = snd_soc_dapm_new_controls(dapm, d2153_aad_widgets,
-					ARRAY_SIZE(d2153_aad_widgets));
-	if (ret < 0)
-		return ret;
-		
-	ret = snd_soc_dapm_add_routes(dapm, d2153_aad_map,
-				      ARRAY_SIZE(d2153_aad_map));
-	if (ret < 0)
-		return ret;
-
-	/* Jack detection */
-	snd_soc_jack_new(codec, "Jack", D2153_JACK_REPORT_TYPE, &jack);
-	snd_soc_jack_add_pins(&jack, ARRAY_SIZE(jack_pins), jack_pins);
-	d2153_jack_detect(&jack, 1);
-
-	/* Button detection */
-	snd_soc_jack_new(codec, "Button", D2153_BUTTON_REPORT_TYPE, &button);
-	d2153_button_detect(&button, 1);
-
-	return 0;
-}
-
-static int fsi_d2153_init(struct snd_soc_pcm_runtime *rtd)
-{
-#ifdef CONFIG_SND_SOC_D2153_AAD
-	struct snd_soc_codec *codec = rtd->codec;
-	static bool initialised = false;
-	int ret;
-
-	/* Only want to initialise the once */
-	if (initialised)
-		return 0;
-
-	ret = d2153_fsi_aad_init(codec);
-	if (ret < 0)
-		return ret;
-	initialised = true;
-#endif
-
-	return 0;
-}
-#endif

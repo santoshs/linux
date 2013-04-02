@@ -20,9 +20,9 @@ RTAPI_PATH := drivers/char/rtapi
 U_INCLUDE := -I$(RTAPI_PATH)/common
 U_INCLUDE += -I$(INC_PATH)/include/rtapi
 U_INCLUDE += -I$(INC_PATH)/drivers/sec_hal/exports
-EXTRA_CFLAGS += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
+ccflags-y += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
 ifeq ($(CMA_ENABLE),y)
-EXTRA_CFLAGS += -DRTDS_SUPPORT_CMA
+ccflags-y += -DRTDS_SUPPORT_CMA
 endif
 
 ifneq ($(KERNELRELEASE),)

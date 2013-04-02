@@ -17,6 +17,7 @@
  * MA  02110-1301, USA.
  */
 
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/i2c.h>
@@ -35,7 +36,7 @@
 #include <linux/uaccess.h>
 #include <linux/i2c/taos.h>
 #include <linux/sensors_core.h>
-#include <linux/module.h>
+#include <linux/regulator/consumer.h>
 
 /* Note about power vs enable/disable:
  *  The chip has two functions, proximity and ambient light sensing.
@@ -55,7 +56,7 @@
 /*#define DEBUG 1*/
 /*#define TAOS_DEBUG*/
 
-#define taos_dbgmsg(str, args...) pr_info("%s: " str, __func__, ##args)
+#define taos_dbgmsg(str, args...) pr_info("[TAOS] %s: " str, __func__, ##args)
 #define TAOS_DEBUG
 #ifdef TAOS_DEBUG
 #define gprintk(fmt, x...) \
@@ -202,6 +203,8 @@ static int lightsensor_get_adcvalue(struct taos_data *taos);
 #ifdef CONFIG_OPTICAL_TAOS_TMD2672X
 static int proximity_get_channelvalue(struct taos_data *taos);
 #endif
+
+static int lightval_logcount = 250;
 
 static int opt_i2c_write(struct taos_data *taos, u8 reg, u8 *val)
 {
@@ -558,13 +561,15 @@ static ssize_t proximity_enable_store(struct device *dev,
 			taos->pdata->power(true);
 		taos->power_state |= PROXIMITY_ENABLED;
 
+		taos_chip_on(taos);
+		taos->pdata->led_on(true);
+            
 		/* interrupt clearing */
 		temp = (CMD_REG|CMD_SPL_FN|CMD_PROXALS_INTCLR);
 		ret = opt_i2c_write_command(taos, temp);
 		if (ret < 0)
 			gprintk("opt_i2c_write failed, err = %d\n", ret);
-		taos_chip_on(taos);
-		taos->pdata->led_on(true);
+
 		input_report_abs(taos->proximity_input_dev, ABS_DISTANCE, 1);
 		input_sync(taos->proximity_input_dev);
 
@@ -575,13 +580,13 @@ static ssize_t proximity_enable_store(struct device *dev,
 		disable_irq_wake(taos->irq);
 		disable_irq(taos->irq);
 
-		taos->pdata->led_on(false);
-
 		taos->power_state &= ~PROXIMITY_ENABLED;
 		if (!taos->power_state) {
 			taos_chip_off(taos);
 			taos->pdata->power(false); /*taos_chip_off(taos);*/
 		}
+        
+    		taos->pdata->led_on(false);
 	}
 	mutex_unlock(&taos->power_lock);
 	return size;
@@ -824,6 +829,11 @@ static void taos_work_func_light(struct work_struct *work)
 
 	input_report_abs(taos->light_input_dev, ABS_MISC, adc);
 	input_sync(taos->light_input_dev);
+
+	if (lightval_logcount++ > 250) {
+		printk(KERN_INFO "[TAOS] light value = %d \n", adc);
+		lightval_logcount = 0;
+	}
 }
 #endif
 
@@ -1048,6 +1058,8 @@ static int taos_setup_irq(struct taos_data *taos)
 			__func__, irq,
 			pdata->als_int, rc);
 		goto err_request_irq;
+	} else {
+                printk(KERN_INFO "[TAOS] request_threaded_irq success IRQ_NO:%d", irq);
 	}
 
 	/* start with interrupts disabled */
@@ -1348,6 +1360,41 @@ static struct i2c_driver taos_i2c_driver = {
 
 static int __init taos_init(void)
 {
+	/* Power On */
+	int ret=0;
+	struct regulator *sensor3v0_regulator = NULL;    
+	struct regulator *sensor1v8_regulator = NULL;        
+    
+	printk(KERN_INFO "[TAOS] %s called",__func__); 
+
+	/* regulator init */
+    	sensor3v0_regulator = regulator_get(NULL, "sensor_3v");
+    	if (IS_ERR(sensor3v0_regulator)){
+    	    printk(KERN_ERR "[TAOS] can not get prox_regulator (SENSOR_3.0V) \n");
+    	} else {
+            ret = regulator_set_voltage(sensor3v0_regulator,3000000,3000000);
+            printk(KERN_INFO "[TAOS] regulator_set_voltage : %d\n", ret);
+            ret = regulator_enable(sensor3v0_regulator);
+            printk(KERN_INFO "[TAOS] regulator_enable : %d\n", ret);
+            regulator_put(sensor3v0_regulator);
+            /*After Power Supply is supplied, about 1ms delay is required before issuing read/write commands */
+            mdelay(10);      
+    	}   
+	
+	/* regulator init */
+    	sensor1v8_regulator = regulator_get(NULL, "sensor_1v8");
+    	if (IS_ERR(sensor1v8_regulator)){
+    	    printk(KERN_ERR "[TAOS] can not get prox_regulator (SENSOR_1.8V) \n");
+    	} else {
+            ret = regulator_set_voltage(sensor1v8_regulator,1800000,1800000);
+            printk(KERN_INFO "[TAOS] regulator_set_voltage : %d\n", ret);
+            ret = regulator_enable(sensor1v8_regulator);
+            printk(KERN_INFO "[TAOS] regulator_enable : %d\n", ret);
+            regulator_put(sensor1v8_regulator);
+            /*After Power Supply is supplied, about 1ms delay is required before issuing read/write commands */
+            mdelay(10);      
+    	}           
+
 	return i2c_add_driver(&taos_i2c_driver);
 }
 
@@ -1362,3 +1409,4 @@ module_exit(taos_exit);
 MODULE_AUTHOR("SAMSUNG");
 MODULE_DESCRIPTION("Optical Sensor driver for taos");
 MODULE_LICENSE("GPL");
+

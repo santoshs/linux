@@ -855,6 +855,7 @@ config TOUCHSCREEN_TPS6507X
 
 source "drivers/input/touchscreen/imagis/Kconfig"
 source "drivers/input/touchscreen/melfas/Kconfig"
+source "drivers/input/touchscreen/zinitix/Kconfig"
 
 config TOUCHSCREEN_IST30XX
 	tristate "Imagis IST30XX i2c touchscreen"

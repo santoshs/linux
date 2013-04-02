@@ -31,7 +31,7 @@
 #include <asm/irq.h>
 
 /* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 #include <mach/sec_debug.h>
 #endif
 
@@ -242,15 +242,12 @@ restart:
 
 			trace_softirq_entry(vec_nr);
 
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 			sec_debug_softirq_log(9999, h->action, 4);
 #endif
-
 			h->action(h);
 
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 			sec_debug_softirq_log(9999, h->action, 5);
 #endif
 
@@ -475,19 +472,13 @@ static void tasklet_action(struct softirq_action *a)
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 					&t->state))
 					BUG();
-
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9997, t->func, 4);
 #endif
-
 				t->func(t->data);
-
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9997, t->func, 5);
 #endif
-
 				tasklet_unlock(t);
 				continue;
 			}
@@ -522,19 +513,13 @@ static void tasklet_hi_action(struct softirq_action *a)
 			if (!atomic_read(&t->count)) {
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
 					BUG();
-
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9998, t->func, 4);
 #endif
-
 				t->func(t->data);
-
-/* Added for Ramdump Feature*/
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9998, t->func, 5);
 #endif
-
 				tasklet_unlock(t);
 				continue;
 			}

@@ -39,27 +39,11 @@ struct resource rcu0_resources[] = {
 	},
 };
 
-struct resource rcu0_resources_es1[] = {
-	[0] = {
-		.name	= "RCU0",
-		.start	= 0xfe910000,
-		.end	= 0xfe91022b,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= intcs_evt2irq(0x1de0),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		/* place holder for contiguous memory */
-	},
-};
-
 struct platform_device rcu0_device = {
 	.name			= "sh_mobile_rcu",
 	.id				= 0, /* "rcu0" clock */
 	.num_resources	= ARRAY_SIZE(rcu0_resources),
-	.resource		= rcu0_resources, /* ES1 is RCU0 connect */
+	.resource		= rcu0_resources,
 	.dev = {
 		.platform_data	= &sh_mobile_rcu0_info,
 	},
@@ -94,33 +78,13 @@ struct resource rcu1_resources[] = {
 	},
 };
 
-struct resource rcu1_resources_es1[] = {
-	[0] = {
-		.name	= "RCU1",
-		.start	= 0xfe910000,
-		.end	= 0xfe91022b,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= intcs_evt2irq(0x1de0),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		/* place holder for contiguous memory */
-	},
-};
-
 struct platform_device rcu1_device = {
 	.name			= "sh_mobile_rcu",
 	.id				= 1, /* "rcu1" clock */
 	.num_resources	= ARRAY_SIZE(rcu1_resources),
-	.resource		= rcu1_resources, /* ES1 is RCU0 connect */
+	.resource		= rcu1_resources,
 	.dev	= {
 		.platform_data	= &sh_mobile_rcu1_info,
 	},
 };
 
-int rcu1_resources_es1_size(void)
-{
-	return ARRAY_SIZE(rcu1_resources_es1);
-}

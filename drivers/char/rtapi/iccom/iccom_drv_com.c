@@ -26,9 +26,7 @@
 #include "iccom_drv.h"
 #include "iccom_drv_common.h"
 #include "iccom_drv_private.h"
-/* MU2SYS1418 ---> */
 #include "iccom_drv_id.h"
-/* MU2SYS1418 <--- */
 
 
 static iccom_fatal_info g_iccom_fatal;			  /* fatal information */
@@ -36,9 +34,7 @@ static struct list_head g_iccom_list_recv;		  /* queue header */
 static spinlock_t g_iccom_lock_recv_list;		  /* spinlock for receive */
 static spinlock_t g_iccom_lock_fatal;			  /* spinlock for fatal */
 
-/* MU2SYS1418 ---> */
 static void				*iccom_handle;			/* iccomhandle for log */
-/* MU2SYS1418 <--- */
 
 /******************************************************************************/
 /* Function   : iccom_create_handle											  */
@@ -361,7 +357,6 @@ void iccom_leak_check(
 	return;
 }
 
-/* MU2SYS1418 ---> */
 /******************************************************************************/
 /* Function   : iccom_log_request											  */
 /* Description: log output													  */
@@ -453,4 +448,4 @@ void iccom_log_stop(void)
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return;
 }
-/* MU2SYS1418 <--- */
+

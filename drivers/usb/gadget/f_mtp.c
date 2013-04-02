@@ -125,7 +125,8 @@ static struct usb_interface_descriptor mtp_interface_desc = {
 	.bNumEndpoints          = 3,
 	.bInterfaceClass        = USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass     = USB_SUBCLASS_VENDOR_SPEC,
-	.bInterfaceProtocol     = 0,
+	.bInterfaceProtocol 	= 1,	/* To support Deviceprotocol in IAD \
+										as per USB2.0 */
 };
 
 static struct usb_interface_descriptor ptp_interface_desc = {

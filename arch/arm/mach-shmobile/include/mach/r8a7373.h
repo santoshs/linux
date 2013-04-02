@@ -500,11 +500,11 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #endif /* CONFIG_PM */
 
 #endif /* __ASSEMBLY__*/
-
-/* IO_ADDRESS */
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)   x
+/* IO_ADDRESS */ 
+#ifndef IO_ADDRESS 
+#define IO_ADDRESS(x) (x) 
 #endif
+
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
 #define SMGP001_DFS		SMGP001
@@ -809,9 +809,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /* DEBUG Register			*/
 /********************************************/
 /*Debugging function selection register */
-#define DBGREG1				(0xE6100020)
 /* KEY register */
-#define DBGREG9				(0xE6100040)
 
 /********************************************/
 /* RWDT Register			*/

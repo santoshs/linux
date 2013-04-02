@@ -43,15 +43,6 @@
 
 #define ZB3_CLK_CORESTANDBY2	(130000)
 
-#define DISPLAY_LOG 0
-
-#if DISPLAY_LOG
-#define idle_log(fmt, ...) printk(KERN_INFO "[%s] line[%d] cpu[%d] " fmt,\
-		__func__, __LINE__, smp_processor_id(), ##__VA_ARGS__)
-#else
-#define idle_log(fmt, ...)
-#endif
-
 #ifndef CONFIG_PM_HAS_SECURE
 #define FIQ_ENABLE()	local_fiq_enable()
 #define FIQ_DISABLE()	local_fiq_disable()
@@ -72,14 +63,6 @@ static int get_sem_fail_ebusy;
 module_param(get_sem_fail_ebusy, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int get_sem_fail_einval;
 module_param(get_sem_fail_einval, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_device);
-
-static struct cpuidle_driver shmobile_idle_driver = {
-	.name =			"shmobile_idle",
-	.owner =		THIS_MODULE,
-};
-
 
 /*
  * ********************************************************************
@@ -207,8 +190,10 @@ static int shmobile_enter_wfi_debug(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
 static int shmobile_enter_wfi(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
+#if 0
 static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
+#endif
 static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
 static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
@@ -351,6 +336,7 @@ static int shmobile_enter_wfi(struct cpuidle_device *dev,
 
 }
 
+#if 0
 /*
  * shmobile_enter_wfi_lowfreq: executes idle PM for a CPU - WFI(low-freq) state
  * @dev: cpuidle device for this cpu
@@ -395,6 +381,7 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 
 	return index;
 }
+#endif
 
 /*
  * shmobile_enter_corestandby: executes idle PM for a CPU - Corestandby state
@@ -408,13 +395,8 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
 {
 	ktime_t time_start, time_end;
-#if DISPLAY_LOG
-	int idle_time;
-#endif
 	s64 diff;
 	long wakelock;
-
-	idle_log(">>>IN\n");
 
 	FIQ_DISABLE();
 
@@ -432,8 +414,6 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		memory_log_func(PM_FUNC_ID_START_CORESTANDBY, 0);
 
 	} else {
-
-		idle_log(">>>IN (WAKELOCK)\n");
 
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
@@ -455,8 +435,6 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 		diff = INT_MAX;
 
 	dev->last_residency = (int) diff;
-
-	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return index;
 }
@@ -499,9 +477,6 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
 {
 	ktime_t time_start, time_end;
-#if DISPLAY_LOG
-	int idle_time;
-#endif
 	s64 diff;
 	long wakelock;
 	unsigned int dr_WUPSFAC;
@@ -512,8 +487,6 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 #endif /*(defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)*/
 	int ret;
 	int cpuid = smp_processor_id();
-
-	idle_log(">>>IN\n");
 
 	FIQ_DISABLE();
 
@@ -598,8 +571,6 @@ skip_clock_change:
 
 	} else { /* idle wakelock is used */
 
-		idle_log(">>>IN (WAKELOCK)\n");
-
 		/* Sleep State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_SLEEP);
@@ -622,8 +593,6 @@ finished_wakeup:
 		diff = INT_MAX;
 
 	dev->last_residency = (int) diff;
-
-	idle_log("<<<OUT idle_time[0x%x]\n", idle_time);
 
 	return index;
 }

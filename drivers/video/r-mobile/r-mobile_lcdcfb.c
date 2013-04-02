@@ -48,6 +48,13 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 
+
+#include <linux/workqueue.h>
+#include <linux/interrupt.h>
+#include <linux/gpio.h>
+#include <linux/semaphore.h>
+
+
 #if defined (CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
@@ -119,6 +126,10 @@ struct sh_mobile_lcdc_priv {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend    early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
+
+#if defined(CONFIG_FB_LCD_ESD)
+   	struct work_struct  work;
+#endif   	
 	int irq;
 };
 
@@ -175,6 +186,16 @@ static u32 fb_debug;
 
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
+
+
+#if defined(CONFIG_FB_LCD_ESD)
+static struct workqueue_struct *lcd_wq;
+int lcd_esd;
+static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id);
+#define GPIO_LCD_ESD_DET 6
+#endif
+
+
 
 static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y);
 static unsigned long GCD(unsigned long x, unsigned long y);
@@ -338,14 +359,19 @@ static int display_initialize(int lcd_num)
 
 	lcd_ext_param[lcd_num].aInfo = screen_display_new();
 
-	printk(KERN_INFO "%s, lcd_num=%d", __func__, lcd_num);
+	printk("%s, lcd_num=%d", __func__, lcd_num);
 
 	if (lcd_ext_param[lcd_num].aInfo == NULL)
 		return -2;
 
 	if (lcd_ext_param[lcd_num].panel_func.panel_init) {
-		ret = lcd_ext_param[lcd_num].panel_func.panel_init(
-			lcd_ext_param[lcd_num].mem_size);
+#if defined(CONFIG_FB_LCD_ESD)
+		disable_irq(lcd_esd);
+#endif
+		ret = lcd_ext_param[lcd_num].panel_func.panel_init(lcd_ext_param[lcd_num].mem_size);
+#if defined(CONFIG_FB_LCD_ESD)
+		enable_irq(lcd_esd);
+#endif
 		if (ret != 0) {
 			printk(KERN_ALERT "r_mobile_panel_init error\n");
 			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
@@ -367,47 +393,6 @@ int sh_mobile_lcdc_keyclr_set(unsigned short s_key_clr,
 			      unsigned short output_mode)
 {
 
-#if 0
-	int i, ret;
-	screen_disp_param disp_param;
-	screen_disp_delete disp_delete;
-	void *screen_handle;
-
-	for (i = 0 ; i < CHAN_NUM ; i++) {
-		if (output_mode == lcd_ext_param[i].o_mode)
-			break;
-	}
-	if (i >= CHAN_NUM) {
-		printk(KERN_ALERT "lcdc_key_clr_set param ERR\n");
-		return -1;
-	}
-	if (down_interruptible(&lcd_ext_param[i].sem_lcd)) {
-		printk(KERN_ALERT "down_interruptible failed\n");
-		return -1;
-	}
-
-	lcd_ext_param[i].key_clr = s_key_clr;
-
-	if (lcd_ext_param[i].aInfo != NULL) {
-		screen_handle = screen_display_new();
-		disp_param.handle = screen_handle;
-		disp_param.output_mode = lcd_ext_param[i].o_mode;
-		disp_param.key_color = lcd_ext_param[i].key_clr;
-		disp_param.alpha = lcd_ext_param[i].alpha;
-		ret = screen_display_set_parameters(&disp_param);
-		if (ret != SMAP_LIB_DISPLAY_OK) {
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			up(&lcd_ext_param[i].sem_lcd);
-			return -1;
-		}
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-	}
-
-	up(&lcd_ext_param[i].sem_lcd);
-
-#endif
 	return 0;
 
 }
@@ -417,47 +402,6 @@ int sh_mobile_lcdc_alpha_set(unsigned short s_alpha,
 			      unsigned short output_mode)
 {
 
-#if 0
-	int i, ret;
-	screen_disp_param disp_param;
-	screen_disp_delete disp_delete;
-	void *screen_handle;
-
-	for (i = 0 ; i < CHAN_NUM ; i++) {
-		if (output_mode == lcd_ext_param[i].o_mode)
-			break;
-	}
-	if (i >= CHAN_NUM) {
-		printk(KERN_ALERT "lcdc_key_clr_set param ERR\n");
-		return -1;
-	}
-	if (down_interruptible(&lcd_ext_param[i].sem_lcd)) {
-		printk(KERN_ALERT "down_interruptible failed\n");
-		return -1;
-	}
-
-	lcd_ext_param[i].alpha = s_alpha;
-
-	if (lcd_ext_param[i].aInfo != NULL) {
-		screen_handle = screen_display_new();
-		disp_param.handle = screen_handle;
-		disp_param.output_mode = lcd_ext_param[i].o_mode;
-		disp_param.key_color = lcd_ext_param[i].key_clr;
-		disp_param.alpha = lcd_ext_param[i].alpha;
-		ret = screen_display_set_parameters(&disp_param);
-		if (ret != SMAP_LIB_DISPLAY_OK) {
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			up(&lcd_ext_param[i].sem_lcd);
-			return -1;
-		}
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-	}
-
-	up(&lcd_ext_param[i].sem_lcd);
-
-#endif
 	return 0;
 
 }
@@ -1159,8 +1103,12 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 #endif
 
 			if (lcd_ext_param[lcd_num].panel_func.panel_suspend) {
-				lcd_ext_param[lcd_num].
-					panel_func.panel_suspend();
+#if defined(CONFIG_FB_LCD_ESD)
+				struct platform_device *pdev = to_platform_device(dev);
+				struct sh_mobile_lcdc_priv *priv = platform_get_drvdata(pdev);
+				free_irq(lcd_esd, priv);
+#endif
+				lcd_ext_param[lcd_num].panel_func.panel_suspend();
 			}
 
 			up(&lcd_ext_param[lcd_num].sem_lcd);
@@ -1190,8 +1138,14 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 	for (lcd_num = 0; lcd_num < CHAN_NUM; lcd_num++) {
 		if (lcd_ext_param[lcd_num].aInfo != NULL) {
 			if (lcd_ext_param[lcd_num].panel_func.panel_resume) {
-				lcd_ext_param[lcd_num].
-					panel_func.panel_resume();
+#if defined(CONFIG_FB_LCD_ESD)
+				struct platform_device *pdev = to_platform_device(dev);
+				struct sh_mobile_lcdc_priv *priv = platform_get_drvdata(pdev);
+#endif
+				lcd_ext_param[lcd_num].panel_func.panel_resume();
+#if defined(CONFIG_FB_LCD_ESD)
+				request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(dev), priv ); /*ME.*/
+#endif
 			}
 
 		}
@@ -1209,62 +1163,6 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 	return 0;
 }
 
-#if 0 /* this function is implemented in future. */
-static int sh_mobile_lcdc_runtime_suspend(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sh_mobile_lcdc_priv *p = platform_get_drvdata(pdev);
-	struct sh_mobile_lcdc_chan *ch;
-	int k, n;
-
-	/* save per-channel registers */
-	for (k = 0; k < ARRAY_SIZE(p->ch); k++) {
-		ch = &p->ch[k];
-		if (!ch->enabled)
-			continue;
-		for (n = 0; n < NR_CH_REGS; n++)
-			ch->saved_ch_regs[n] = lcdc_read_chan(ch, n);
-	}
-
-	/* save shared registers */
-	for (n = 0; n < NR_SHARED_REGS; n++)
-		p->saved_shared_regs[n] = lcdc_read(p, lcdc_shared_regs[n]);
-
-	/* turn off LCDC hardware */
-	lcdc_write(p, _LDCNT1R, 0);
-	return 0;
-}
-
-static int sh_mobile_lcdc_runtime_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sh_mobile_lcdc_priv *p = platform_get_drvdata(pdev);
-	struct sh_mobile_lcdc_chan *ch;
-	int k, n;
-
-	/* restore per-channel registers */
-	for (k = 0; k < ARRAY_SIZE(p->ch); k++) {
-		ch = &p->ch[k];
-		if (!ch->enabled)
-			continue;
-		for (n = 0; n < NR_CH_REGS; n++)
-			lcdc_write_chan(ch, n, ch->saved_ch_regs[n]);
-	}
-
-	/* restore shared registers */
-	for (n = 0; n < NR_SHARED_REGS; n++)
-		lcdc_write(p, lcdc_shared_regs[n], p->saved_shared_regs[n]);
-
-	return 0;
-}
-
-static const struct dev_pm_ops sh_mobile_lcdc_dev_pm_ops = {
-	.suspend = sh_mobile_lcdc_suspend,
-	.resume = sh_mobile_lcdc_resume,
-	.runtime_suspend = sh_mobile_lcdc_runtime_suspend,
-	.runtime_resume = sh_mobile_lcdc_runtime_resume,
-};
-#endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void sh_mobile_fb_early_suspend(struct early_suspend *h)
@@ -1272,7 +1170,6 @@ static void sh_mobile_fb_early_suspend(struct early_suspend *h)
 	struct sh_mobile_lcdc_priv *priv;
 
 	priv = container_of(h, struct sh_mobile_lcdc_priv, early_suspend);
-
 	sh_mobile_lcdc_suspend(priv->dev);
 
 }
@@ -1282,7 +1179,6 @@ static void sh_mobile_fb_late_resume(struct early_suspend *h)
 	struct sh_mobile_lcdc_priv *priv;
 
 	priv = container_of(h, struct sh_mobile_lcdc_priv, early_suspend);
-
 	sh_mobile_lcdc_resume(priv->dev);
 
 }
@@ -1315,6 +1211,37 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 	return (gcd == 0) ? 0 : ((x / gcd) * y);
 }
 
+#if defined(CONFIG_FB_LCD_ESD)
+static void lcd_esd_detect(struct work_struct *work)
+{
+	struct sh_mobile_lcdc_priv *priv = 
+			container_of(work, struct sh_mobile_lcdc_priv, work);
+
+
+	printk("[LCD] lcd_esd_detect_enter\n");
+
+	sh_mobile_lcdc_suspend(priv->dev);
+	sh_mobile_lcdc_resume(priv->dev);
+
+	/* draw previous */
+	sh_mobile_fb_pan_display(&registered_fb[0]->var, registered_fb[0]);
+}
+
+
+static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
+{
+	struct sh_mobile_lcdc_priv *priv = (struct sh_mobile_lcdc_priv *)dev_id;
+	
+	printk("[LCD] %s, %d\n", __func__, __LINE__ );
+	
+	disable_irq_nosync(lcd_esd);
+
+	queue_work(lcd_wq, &priv->work);
+
+	return IRQ_HANDLED;
+}
+#endif
+
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
 	struct fb_info *info;
@@ -1323,7 +1250,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct sh_mobile_lcdc_chan_cfg *cfg;
 	struct resource *res;
 	int error = 0;
-	int i, j;
+	int i, j, ret;
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 
@@ -1356,14 +1283,31 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	pdata = pdev->dev.platform_data;
 
-	error = request_irq(i, sh_mobile_lcdc_irq, 0,
-			    dev_name(&pdev->dev), priv);
+
+	error = request_irq(i, sh_mobile_lcdc_irq, 0, dev_name(&pdev->dev), priv);
 	if (error) {
 		dev_err(&pdev->dev, "unable to request irq\n");
 		goto err0;
 	}
 
 	priv->irq = i;
+
+
+#if defined(CONFIG_FB_LCD_ESD)
+	lcd_wq = create_workqueue("lcd_esd_irq_wq");
+	
+	INIT_WORK(&priv->work, lcd_esd_detect);
+
+	printk("INIT_WORK !!!\n");
+	
+	lcd_esd = gpio_to_irq(GPIO_LCD_ESD_DET);
+
+	printk("lcd_esd=%d\n", lcd_esd);
+
+
+	ret = request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(&pdev->dev), priv ); 
+#endif
+
 
 	/* irq base address */
 	irqc_baseaddr =  res->start;

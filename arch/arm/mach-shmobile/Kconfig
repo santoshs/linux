@@ -125,9 +125,11 @@ config MACH_LOGANLTE
 	depends on ARCH_R8A7373
 
 config MACH_LT02LTE
-	bool "LT02LTE board"
+	bool "LT02LTE board support"
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
+	help
+	  Select this to support lt02lte board.
 
 config MACH_U2USB
 	bool "U2USB board"
@@ -400,10 +402,6 @@ config GPS_CSR_GSD5T
 
 config GPS_BCM4752
 	bool "BROADCOM_BCM4752_CHIPSET"
-	default n
-
-config RENESAS
-	bool "Renesas reference implementations"
 	default n
 
 if BT

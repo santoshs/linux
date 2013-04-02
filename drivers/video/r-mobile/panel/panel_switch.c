@@ -24,6 +24,8 @@
 #include <rtapi/screen_display.h>
 
 #define PANEL_SWITCH_HW_ID_REV_0_0_X 0
+#define PANEL_SWITCH_HW_ID_REV_0_1_0 1
+#define PANEL_SWITCH_HW_ID_REV_0_2_0 2
 #define PANEL_SWITCH_HW_ID_REV_0_2_1 1
 #define PANEL_SWITCH_HW_ID_REV_0_2_2 2
 #define PANEL_SWITCH_HW_ID_REV_0_3_X 3
@@ -58,7 +60,7 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifdef CONFIG_MACH_U2EVM
+#if !defined(CONFIG_MACH_GARDALTE) && !defined(CONFIG_MACH_LOGANLTE) && !defined(CONFIG_MACH_LT02LTE)
 #ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
 	case PANEL_SWITCH_HW_ID_REV_0_2_1:
 	case PANEL_SWITCH_HW_ID_REV_0_2_2:
@@ -77,12 +79,15 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 #else /* CONFIG_MACH_PORCO */
 #if defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE) || \
 	defined(CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE)
+	case PANEL_SWITCH_HW_ID_REV_0_0_X:
+	case PANEL_SWITCH_HW_ID_REV_0_1_0:
+	case PANEL_SWITCH_HW_ID_REV_0_2_0:
 	case PANEL_SWITCH_HW_ID_REV_0_6_X:
 		printk(KERN_INFO "Switch nt35510.(ID=%d)\n", hw_id);
 		panel_func = nt35510_func_list();
 		break;
 #endif /* CONFIG_FB_R_MOBILE_NT35512 */
-#endif /* CONFIG_MACH_GARDALTE */
+#endif /* !CONFIG_MACH_GARDALTE && !CONFIG_MACH_LOGANLTE && !CONFIG_MACH_LT02LTE */
 
 	default:
 		printk(KERN_INFO "Unknown HWID.(ID=%d)\n", hw_id);

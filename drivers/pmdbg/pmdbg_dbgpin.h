@@ -28,13 +28,13 @@
 #include <sec_hal_cmn.h>
 #endif /*CONFIG_ARM_TZ*/
 
-#define DBGREG1	((void __iomem *)IO_ADDRESS(0xE6100020))
-#define DBGREG3	((void __iomem *)IO_ADDRESS(0xE6100028))
-#define DBGREG9	((void __iomem *)IO_ADDRESS(0xE6100040))
-#define DBGREG11 ((void __iomem *)IO_ADDRESS(0xE6100048))
-#define SWUCR	((void __iomem *)IO_ADDRESS(0xE6180014))
-#define PSTR	((void __iomem *)IO_ADDRESS(0xE6180080))
-#define GPIO_MSEL03CR ((void __iomem *)IO_ADDRESS(0xE6058020))
+#define DBGREG1_PTR			((void __iomem *)IO_ADDRESS(0xE6100020))
+#define DBGREG3_PTR			((void __iomem *)IO_ADDRESS(0xE6100028))
+#define DBGREG9_PTR			((void __iomem *)IO_ADDRESS(0xE6100040))
+#define DBGREG11_PTR		((void __iomem *)IO_ADDRESS(0xE6100048))
+#define SWUCR_PTR			((void __iomem *)SWUCR)
+#define PSTR_PTR			((void __iomem *)PSTR)
+#define GPIO_MSEL03CR_PTR	((void __iomem *)MSEL3CR)
 
 #define DBGREG9_AID		0xA5
 #define DBGREG9_AID_SHIFT	8

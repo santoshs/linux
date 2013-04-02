@@ -5,7 +5,8 @@
 obj-$(CONFIG_MACH_U2EVM)	+= renesas_soc_modem_loader.o
 obj-$(CONFIG_MACH_GARDALTE)	+= renesas_soc_modem_loader.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= renesas_soc_modem_loader.o
+obj-$(CONFIG_MACH_LT02LTE)	+= renesas_soc_modem_loader.o
 obj-$(CONFIG_MACH_U2EVM)	+= renesas_soc_modem_reset.o
 obj-$(CONFIG_MACH_GARDALTE)	+= renesas_soc_modem_reset.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= renesas_soc_modem_reset.o
-
+obj-$(CONFIG_MACH_LT02LTE)	+= renesas_soc_modem_reset.o

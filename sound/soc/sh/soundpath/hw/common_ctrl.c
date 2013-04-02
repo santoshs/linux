@@ -637,7 +637,8 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 	/* Status ON */
 	if (STAT_ON == stat) {
 		/* mode check */
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+		if ((SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) &&
+		    (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(uiValue))) {
 			if (false == (dev & SNDP_BLUETOOTHSCO)) {
 				pll22val = 0x44000000;
 				fsival = 0x00001047;
@@ -648,11 +649,28 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 					fsival = 0x0000104B;
 				} else {
 					sndp_log_info("rate=8000..]\n");
-					pll22val = 0x44000000;
-					fsival = 0x00001047;
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
 				}
 			}
-
+#ifndef __SNDP_INCALL_CLKGEN_MASTER
+		} else {
+			if (false == (dev & SNDP_BLUETOOTHSCO)) {
+				pll22val = 0x3F000000;
+				fsival = 0x0000104C;
+			} else {
+				if (rate == 16000) {
+					sndp_log_debug("rate=16000..\n");
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
+				} else {
+					sndp_log_info("rate=8000..]\n");
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
+				}
+			}
+		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
@@ -682,12 +700,15 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 
 			if (0 <= ret)
 				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	/* Status OFF */
 	} else {
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
@@ -707,7 +728,9 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 
 			if (0 <= ret)
 				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	}
 
 	sndp_log_info("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));

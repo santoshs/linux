@@ -13,22 +13,31 @@
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
 #define VSD_VDCORE_DELAY 50
+#define E3_3_V 3300000
+#define E1_8_V 1800000
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
 #ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() >= 5) {
 #endif
-		struct regulator *regulator;		
+		struct regulator *regulator;
+		int ret = 0;
 
-		if(state) {
-			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
+		switch (state) {
+		case RENESAS_SDHI_POWER_ON:
+			printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
 				return;
 
-			regulator_enable(regulator);
+			if (!(regulator_is_enabled(regulator))) {
+				ret = regulator_enable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+								__func__ , ret);
+			}
 
 			regulator_put(regulator);
 
@@ -36,21 +45,32 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			if (IS_ERR(regulator))
 				return;
 
-			regulator_enable(regulator);
+			if (!(regulator_is_enabled(regulator))) {
+				ret = regulator_enable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+								__func__ , ret);
+			}
 
 			regulator_put(regulator);
 
 			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+		break;
 
-		} else {
-			printk("\n EOS2_BSP_SDHI : %s\n",__func__);
-			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
+		case RENESAS_SDHI_POWER_OFF:
+			printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
+			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
 				return;
 
-			regulator_disable(regulator);
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
 
 			regulator_put(regulator);
 
@@ -58,9 +78,119 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			if (IS_ERR(regulator))
 				return;
 
-			regulator_disable(regulator);
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
 
 			regulator_put(regulator);
+		break;
+
+		case RENESAS_SDHI_SIGNAL_V330:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
+
+			regulator = regulator_get(NULL, "vio_sd");
+			if (IS_ERR(regulator))
+				return;
+
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
+
+			ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+			if (ret)
+				printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
+								__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+
+			regulator_put(regulator);
+
+			regulator = regulator_get(NULL, "vsd");
+			if (IS_ERR(regulator))
+				return;
+
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
+
+			ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+			if (ret)
+				printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+								__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+
+			regulator_put(regulator);
+		break;
+		case RENESAS_SDHI_SIGNAL_V180:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
+
+			regulator = regulator_get(NULL, "vio_sd");
+
+			if (IS_ERR(regulator))
+				return;
+
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
+
+			ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+			if (ret)
+				printk(KERN_INFO "%s: err vio_sd set voltage ret=%d\n",
+								__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+
+			regulator_put(regulator);
+
+			regulator = regulator_get(NULL, "vsd");
+
+			if (IS_ERR(regulator))
+				return;
+
+			if (regulator_is_enabled(regulator)) {
+				ret = regulator_disable(regulator);
+				if (ret)
+					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+								__func__ , ret);
+			}
+
+			ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+			if (ret)
+				printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+								__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+
+			regulator_put(regulator);
+		break;
+			default:
+			printk(KERN_INFO"default:%s\n", __func__);
+			break;
 		}
 #ifdef CONFIG_MACH_U2EVM
 	} else {

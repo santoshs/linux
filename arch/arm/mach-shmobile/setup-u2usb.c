@@ -62,7 +62,7 @@ static void usbhs_module_reset(void)
 	unsigned long flags = 0;
 	int ret = 0;
 
-	static ctr;
+	static int ctr;
 
 	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,
 		LOCK_TIME_OUT_MS, &flags);
@@ -158,7 +158,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[1] = {
 		.flag = 1,
@@ -174,7 +174,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[2] = {
 		.flag = 1,
@@ -190,7 +190,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[3] = {
 		.flag = 1,
@@ -206,7 +206,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[4] = {
 		.flag = 1,
@@ -222,7 +222,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[5] = {
 		.flag = 1,
@@ -238,7 +238,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NONE,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[6] = {
 		.flag = 1,
@@ -254,7 +254,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[7] = {
 		.flag = 1,
@@ -270,7 +270,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[8] = {
 		.flag = 1,
@@ -286,7 +286,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[9] = {
 		.flag = 1,
@@ -302,7 +302,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[10] = {
 		.flag = 1,
@@ -318,7 +318,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[11] = {
 		.flag = 1,
@@ -334,7 +334,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[12] = {
 		.flag = 1,
@@ -350,7 +350,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_NONE,
 			.output_level   = PORTn_OUTPUT_LEVEL_NOT_SET,
-		}                                   
+		}
 	},
 	[13] = {
 		.flag = 1,
@@ -394,7 +394,7 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.max_bufnum	= 0xff,
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = &r8a66597_gpio_setting_info,
+	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
 };
 
@@ -411,7 +411,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
 #endif /* CONFIG_PMIC_INTERFACE */
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = &r8a66597_gpio_setting_info,
+	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
 };
 
@@ -618,6 +618,18 @@ void __init USBGpio_init(void)
 #endif
 
 #if defined(CONFIG_MACH_LOGANLTE)
+	ret = gpio_request(GPIO_PORT131, NULL);
+	if (ret < 0)
+		error_log("PORT131 failed!USB may not function\n");
+	ret = gpio_direction_output(GPIO_PORT131, 0);
+	if (ret < 0)
+		error_log("PORT131 direction output(0) failed!\n");
+	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
+	ret = gpio_direction_output(GPIO_PORT131, 1);
+	if (ret < 0)
+		error_log("PORT131 direction output(1) failed!\n");
+#endif
+#if defined(CONFIG_MACH_LT02LTE)
 	ret = gpio_request(GPIO_PORT131, NULL);
 	if (ret < 0)
 		error_log("PORT131 failed!USB may not function\n");

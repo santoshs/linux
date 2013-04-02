@@ -1174,6 +1174,27 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
+	//Add sdcard detection value to sysfs
+extern struct class *sec_class;
+static struct device *sd_detection_cmd_dev;
+
+static ssize_t sd_detection_cmd_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if(sdcard1_detect_state==1)
+	{
+		printk("sdhci: card inserted.\n");
+		return sprintf(buf, "Insert\n");
+	}
+	else
+	{
+		printk("sdhci: card removed.\n");
+		return sprintf(buf, "Remove\n");
+	}
+}
+	
+static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
+
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -1327,6 +1348,15 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		sysfs_ret = sdhi_sysfs_init(host);
 		if (sysfs_ret)
 			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
+	}
+	//Create sdcard detection value to sysfs
+	if (sd_detection_cmd_dev == NULL){
+		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
+		if (IS_ERR(sd_detection_cmd_dev))
+			printk("Fail to create sysfs dev\n");
+
+		if (device_create_file(sd_detection_cmd_dev, &dev_attr_status) < 0)
+			printk("Fail to create sysfs file\n");
 	}
 
 	/* irq */

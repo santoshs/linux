@@ -122,8 +122,6 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 	/* check if freqB change */
 	current_value = __raw_readl(FRQCRB);
 	if ((freqB & ZSFC_MASK) != (current_value & ZSFC_MASK)) {
-		/* skip changing A4S clk*/
-		goto skip_A4S;
                 zs_change = 1;
 		ret = hwspin_trylock_nospin(gen_sem1); /* ZS_CLK_SEM */
 		if (ret) {
@@ -133,7 +131,7 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 		}
 	} else if (freqB != (current_value & freqB_mask))
 		freqB_change = 1;
-        skip_A4S:
+
 	/* wait for KICK bit change if any */
 	ret = core_wait_kick(KICK_WAIT_INTERVAL_US);
 	if (ret) {

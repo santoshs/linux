@@ -21,6 +21,7 @@
 #include <linux/v4l2-mediabus.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
 
@@ -29,7 +30,6 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 
-#include <mach/r8a7373.h>
 #include <linux/sh_clk.h>
 #include <linux/pmic/pmic-ncp6914.h>
 
@@ -721,6 +721,17 @@ static int ISX012_probe(struct i2c_client *client,
 		return err;
 	}
 
+	priv->width	= 640;
+	priv->height	= 480;
+	priv->fmt	= &ISX012_colour_fmts[0];
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev,
+			"ISX012: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		return ret;
+	}
+	ret = 0;
+
 	{
 		/* check i2c device */
 		struct i2c_msg msg[2];
@@ -752,10 +763,6 @@ static int ISX012_probe(struct i2c_client *client,
 		else
 			ret = 0;
 	}
-
-	priv->width	= 640;
-	priv->height	= 480;
-	priv->fmt	= &ISX012_colour_fmts[0];
 
 	if (cam_class_init == false) {
 		dev_dbg(&client->dev,
@@ -798,7 +805,7 @@ static int ISX012_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int ISX012_remove(struct i2c_client *client)

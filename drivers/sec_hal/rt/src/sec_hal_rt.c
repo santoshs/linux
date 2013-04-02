@@ -64,9 +64,7 @@ const char* k_sec_hal_simlock_empty_code = "EMPTY";
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-uint32_t
-sec_hal_rt_init(
-    sec_hal_init_info_t *runtime_init)
+uint32_t sec_hal_rt_init(sec_hal_init_info_t *runtime_init)
 {
     uint32_t sec_hal_st = SEC_HAL_RES_OK;
     uint32_t sec_msg_st = SEC_MSG_STATUS_OK;
@@ -184,9 +182,8 @@ sec_hal_rt_init(
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-uint32_t
-sec_hal_rt_key_info_get(sec_hal_key_info_t *user_key_info_out) {
-
+uint32_t sec_hal_rt_key_info_get(sec_hal_key_info_t *user_key_info_out)
+{
     uint32_t sec_hal_status = SEC_HAL_RES_OK;
     uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
     uint32_t ssa_disp_status = 0x00;
@@ -271,91 +268,90 @@ sec_hal_rt_key_info_get(sec_hal_key_info_t *user_key_info_out) {
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-uint32_t
-sec_hal_rt_cert_register(void *user_cert_in,
-                         uint32_t user_cert_size_in,
-                         uint32_t *user_obj_id_out) {
+uint32_t sec_hal_rt_cert_register(
+	void *cert,
+	uint32_t cert_size,
+	uint32_t *obj_id)
+{
+	uint32_t ret = SEC_HAL_RES_OK;
+	uint32_t msg_st = SEC_MSG_STATUS_OK;
+	uint32_t disp_st = 0x00;
+	uint32_t serv_st = 0x00;
+	uint16_t msg_data_size;
+	sec_msg_t *in_msg = NULL;
+	sec_msg_t *out_msg = NULL;
+	sec_msg_handle_t in_handle;
+	sec_msg_handle_t out_handle;
+	void *kcert = NULL;
 
-    uint32_t sec_hal_status = SEC_HAL_RES_OK;
-    uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
-    uint32_t ssa_disp_status = 0x00;
-    uint32_t sec_serv_status = 0x00;
-    uint16_t msg_data_size;
-    sec_msg_t *in_msg = NULL;
-    sec_msg_t *out_msg = NULL;
-    sec_msg_handle_t in_handle;
-    sec_msg_handle_t out_handle;
-    void *kernel_cert_in;
+	SEC_HAL_TRACE_ENTRY();
 
-    SEC_HAL_TRACE_ENTRY();
+	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
+	msg_data_size = sec_msg_param_size(sizeof(uint32_t));
+	in_msg = sec_msg_alloc(&in_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+		+ sec_msg_param_size(sizeof(uint32_t));
+	out_msg = sec_msg_alloc(&out_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
 
-    if (NULL == user_cert_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!null user_cert_in ptr, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
-    if (0 == user_cert_size_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!zero user_cert_size_in, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
+	do {
+		if (NULL == in_msg || NULL == out_msg) {
+			SEC_HAL_TRACE("alloc failure, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    SEC_HAL_TRACE("user_cert_in: 0x%x", user_cert_in);
-    SEC_HAL_TRACE("user_cert_size_in: %d", user_cert_size_in);
+		kcert = kmalloc(cert_size, GFP_KERNEL);
+		if (kcert == NULL) {
+			SEC_HAL_TRACE("kmalloc failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (copy_from_user(kcert, cert, cert_size)) {
+			SEC_HAL_TRACE("copy failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    kernel_cert_in = kmalloc(user_cert_size_in, GFP_KERNEL);
-    copy_from_user(kernel_cert_in, user_cert_in, user_cert_size_in);
-    SEC_HAL_TRACE("kernel_cert_in: 0x%x", kernel_cert_in);
+		/* write content to the input msg */
+		if (sec_msg_param_write32(&in_handle,
+				(uint32_t)virt_to_phys(kcert),
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("cert write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    /* allocate memory, from ICRAM, for msgs to be sent to TZ */
-    msg_data_size = sec_msg_param_size(sizeof(uint32_t));
-    in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-            SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
-    msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
-            sec_msg_param_size(sizeof(uint32_t));
-    out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-            SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
+		/* call dispatcher */
+		disp_st = LOCAL_DISP(SEC_SERV_CERTIFICATE_REGISTER,
+			LOCAL_DEFAULT_DISP_FLAGS,
+			LOCAL_DEFAULT_DISP_SPARE_PARAM,
+			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+			SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
 
-    if (NULL == in_msg || NULL == out_msg) {
-        SEC_HAL_TRACE("alloc failure, msgs not sent!");
-        sec_hal_status = SEC_HAL_RES_FAIL;
-    }
-    else {
-        /* ensure that certificate is fully in work RAM memory */
-        SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_cert_in, user_cert_size_in);
+		/* interpret the response */
+		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != disp_st
+				|| SEC_MSG_STATUS_OK != msg_st
+				|| SEC_SERV_STATUS_OK != serv_st) {
+			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+				disp_st, msg_st, serv_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+	} while (0);
 
-        /* write content to the input msg */
-        sec_msg_param_write32(
-                &in_handle,
-                (uint32_t)virt_to_phys(kernel_cert_in),
-                SEC_MSG_PARAM_ID_NONE);
+	kfree(kcert);
+	/* de-allocate msgs */
+	sec_msg_free(out_msg);
+	sec_msg_free(in_msg);
 
-        /* call dispatcher */
-        ssa_disp_status = LOCAL_DISP(
-                SEC_SERV_CERTIFICATE_REGISTER,
-                LOCAL_DEFAULT_DISP_FLAGS,
-                LOCAL_DEFAULT_DISP_SPARE_PARAM,
-                SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
-                SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
-
-        /* interpret the response */
-        sec_msg_status = sec_msg_param_read32(&out_handle, &sec_serv_status);
-        if (SEC_ROM_RET_OK != ssa_disp_status ||
-            SEC_MSG_STATUS_OK != sec_msg_status ||
-            SEC_SERV_STATUS_OK != sec_serv_status) {
-            SEC_HAL_TRACE("op failed, CERT register failed!");
-            SEC_HAL_TRACE_INT("ssa_disp_status", ssa_disp_status);
-            SEC_HAL_TRACE_INT("sec_msg_status ", sec_msg_status);
-            SEC_HAL_TRACE_INT("sec_serv_status", sec_serv_status);
-            sec_hal_status = SEC_HAL_RES_FAIL;
-        }
-    }
-
-    /* de-allocate msgs */
-    sec_msg_free(out_msg);
-    sec_msg_free(in_msg);
-    kfree(kernel_cert_in);
-
-    SEC_HAL_TRACE_EXIT();
-    return sec_hal_status;
+	SEC_HAL_TRACE_EXIT();
+	return ret;
 }
 
 /* **************************************************************************
@@ -371,126 +367,129 @@ sec_hal_rt_cert_register(void *user_cert_in,
 **                      ==0 operation successful
 **                      failure otherwise.
 ** *************************************************************************/
-uint32_t
-sec_hal_rt_data_cert_register(void *user_cert_in,
-                              uint32_t user_cert_size_in,
-                              void *user_data_in,
-                              uint32_t user_data_size_in,
-                              uint32_t *user_id_ptr_out) {
+uint32_t sec_hal_rt_data_cert_register(
+	void *cert,
+	uint32_t cert_size,
+	void *data,
+	uint32_t data_size,
+	uint32_t *id_ptr)
+{
+	uint32_t ret = SEC_HAL_RES_OK;
+	uint32_t msg_st = SEC_MSG_STATUS_OK;
+	uint32_t disp_st = 0x00;
+	uint32_t serv_st = 0x00;
+	uint16_t msg_data_size;
+	sec_msg_t *in_msg = NULL;
+	sec_msg_t *out_msg = NULL;
+	sec_msg_handle_t in_handle;
+	sec_msg_handle_t out_handle;
+	void *kcert = NULL;
+	void *kdata = NULL;
 
-    uint32_t sec_hal_status = SEC_HAL_RES_OK;
-    uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
-    uint32_t ssa_disp_status = 0x00;
-    uint32_t sec_serv_status = 0x00;
-    uint32_t obj_id = 0x00;
-    uint16_t msg_data_size;
-    sec_msg_t *in_msg = NULL;
-    sec_msg_t *out_msg = NULL;
-    sec_msg_handle_t in_handle;
-    sec_msg_handle_t out_handle;
-    void *kernel_cert_in;
-    void *kernel_data_in;
+	SEC_HAL_TRACE_ENTRY();
 
-    SEC_HAL_TRACE_ENTRY();
+	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
+	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*3;
+	in_msg = sec_msg_alloc(&in_handle, msg_data_size,
+		SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+		+ sec_msg_param_size(sizeof(uint32_t));
+	out_msg = sec_msg_alloc(&out_handle, msg_data_size,
+		SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
 
-    if (NULL == user_cert_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!null user_cert_in ptr, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
-    if (0 == user_cert_size_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!zero user_cert_size_in, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
-    if (NULL == user_data_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!null user_data_in ptr, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
-    if (0 == user_data_size_in) {
-        SEC_HAL_TRACE_EXIT_INFO("!!zero user_data_size_in, aborting!!");
-        return SEC_HAL_RES_PARAM_ERROR;
-    }
+	do {
+		if (NULL == in_msg || NULL == out_msg) {
+			SEC_HAL_TRACE("alloc failure, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    SEC_HAL_TRACE("user_cert_in: 0x%x", user_cert_in);
-    SEC_HAL_TRACE("user_cert_size_in: %d", user_cert_size_in);
-    SEC_HAL_TRACE("user_data_in: 0x%x", user_data_in);
-    SEC_HAL_TRACE("user_data_size_in: %d", user_data_size_in);
+		kcert = kmalloc(cert_size, GFP_KERNEL);
+		if (kcert == NULL) {
+			SEC_HAL_TRACE("kmalloc failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (copy_from_user(kcert, cert, cert_size)) {
+			SEC_HAL_TRACE("copy failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    kernel_cert_in = kmalloc(user_cert_size_in, GFP_KERNEL);
-    copy_from_user( kernel_cert_in, user_cert_in, user_cert_size_in );
-    kernel_data_in = kmalloc(user_data_size_in, GFP_KERNEL);
-    copy_from_user( kernel_data_in, user_data_in, user_data_size_in );
+		kdata = kmalloc(data_size, GFP_KERNEL);
+		if (kdata == NULL) {
+			SEC_HAL_TRACE("kmalloc(2) failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (copy_from_user(kdata, data, data_size)) {
+			SEC_HAL_TRACE("copy(2) failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-    SEC_HAL_TRACE("kernel_cert_in: 0x%x", kernel_cert_in);
-    SEC_HAL_TRACE("kernel_data_in: 0x%x", kernel_data_in);
+		/* write content to the input msg */
+		if (sec_msg_param_write32(&in_handle,
+				(uint32_t)virt_to_phys(kcert),
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("cert write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (sec_msg_param_write32(&in_handle,
+				(uint32_t)virt_to_phys(kdata),
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("data write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (sec_msg_param_write32(&in_handle,
+				data_size,
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("dsize write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		LOCAL_WMB();
 
-    /* allocate memory, from ICRAM, for msgs to be sent to TZ */
-    msg_data_size = sec_msg_param_size(sizeof(uint32_t))*3;
-    in_msg = sec_msg_alloc(&in_handle, msg_data_size,
-            SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
-    msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
-            sec_msg_param_size(sizeof(uint32_t));
-    out_msg = sec_msg_alloc(&out_handle, msg_data_size,
-            SEC_MSG_OBJECT_ID_NONE, 0, SEC_HAL_MSG_BYTE_ORDER);
+		/* call dispatcher */
+		disp_st = LOCAL_DISP(SEC_SERV_PROT_DATA_REGISTER,
+			LOCAL_DEFAULT_DISP_FLAGS,
+			LOCAL_DEFAULT_DISP_SPARE_PARAM,
+			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+			SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
 
-    if (NULL == in_msg || NULL == out_msg) {
-        SEC_HAL_TRACE("alloc failure, msgs not sent!");
-        sec_hal_status = SEC_HAL_RES_FAIL;
-    }
-    else {
-        /* ensure that certificate and data are fully in RAM memory */
-        SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_cert_in, user_cert_size_in);
-        SEC_HAL_MEM_CACHE_CLEAN_FUNC(kernel_data_in, user_data_size_in);
+		/* interpret the response */
+		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != disp_st
+				|| SEC_MSG_STATUS_OK != msg_st
+				|| SEC_SERV_STATUS_OK != serv_st) {
+			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+				disp_st, msg_st, serv_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-        /* write content to the input msg */
-        sec_msg_param_write32(
-                &in_handle,
-                (uint32_t)virt_to_phys(kernel_cert_in),
-                SEC_MSG_PARAM_ID_NONE);
-        sec_msg_param_write32(
-                &in_handle,
-                (uint32_t)virt_to_phys(kernel_data_in),
-                SEC_MSG_PARAM_ID_NONE);
-        sec_msg_param_write32(&in_handle,
-                user_data_size_in,
-                SEC_MSG_PARAM_ID_NONE);
+		if (id_ptr == NULL)
+			break; /* can exit now, no more output wanted. */
+		msg_st = sec_msg_param_read32(&out_handle, id_ptr);
+		if (msg_st != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("read failed! msg == %d", msg_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+	} while (0);
+	LOCAL_RMB();
 
-        /* call dispatcher */
-        ssa_disp_status = LOCAL_DISP(
-                SEC_SERV_PROT_DATA_REGISTER,
-                LOCAL_DEFAULT_DISP_FLAGS,
-                LOCAL_DEFAULT_DISP_SPARE_PARAM,
-                SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
-                SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
+	kfree(kdata);
+	kfree(kcert);
+	/* de-allocate msgs */
+	sec_msg_free(out_msg);
+	sec_msg_free(in_msg);
 
-        /* interpret the response */
-        sec_msg_status = sec_msg_param_read32(&out_handle, &sec_serv_status);
-        if (SEC_ROM_RET_OK != ssa_disp_status ||
-            SEC_MSG_STATUS_OK != sec_msg_status ||
-            SEC_SERV_STATUS_OK != sec_serv_status) {
-            SEC_HAL_TRACE("op failed, data CERT register failed!");
-            SEC_HAL_TRACE_INT("ssa_disp_status", ssa_disp_status);
-            SEC_HAL_TRACE_INT("sec_msg_status ", sec_msg_status);
-            SEC_HAL_TRACE_INT("sec_serv_status", sec_serv_status);
-            sec_hal_status = SEC_HAL_RES_FAIL;
-        }
-        else if (NULL != user_id_ptr_out) {
-            sec_msg_status = sec_msg_param_read32(&out_handle, &obj_id);
-            if (SEC_MSG_STATUS_OK != sec_msg_status ||
-                LOCAL_CPY_TO_CLIENT_FUNC(user_id_ptr_out, (void*)&obj_id, sizeof(uint32_t))) {
-                SEC_HAL_TRACE_INT("read&copy failed! sec_msg_status", sec_msg_status);
-                sec_hal_status = SEC_HAL_RES_FAIL;
-            }
-        }
-    }
-
-    /* de-allocate msgs */
-    sec_msg_free(out_msg);
-    sec_msg_free(in_msg);
-    kfree(kernel_cert_in);
-    kfree(kernel_data_in);
-
-    SEC_HAL_TRACE_EXIT();
-    return sec_hal_status;
+	SEC_HAL_TRACE_EXIT();
+	return ret;
 }
 
 /* **************************************************************************
@@ -990,6 +989,7 @@ uint32_t sec_hal_rt_simlock_level_status_get(
 
 		/* interpret the response */
 		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
 		if (SEC_ROM_RET_OK != disp_st
 				|| SEC_MSG_STATUS_OK != msg_st
 				|| SEC_SERV_STATUS_OK != serv_st) {
@@ -1020,8 +1020,8 @@ uint32_t sec_hal_rt_simlock_level_status_get(
 			ret = SEC_HAL_RES_FAIL;
 			break;
 		}
-		LOCAL_RMB();
 	} while (0);
+	LOCAL_RMB();
 
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
@@ -1165,137 +1165,119 @@ uint32_t sec_hal_rt_auth_data_size_get(
 **                      failure otherwise.
 ** *************************************************************************/
 uint32_t sec_hal_rt_auth_data_get(
-		void *user_input_data_in,
-		uint32_t user_input_data_size_in,
-		void *user_auth_data_out,
-		uint32_t user_auth_data_size_in)
+	void *user_input_data_in,
+	uint32_t user_input_data_size_in,
+	void *user_auth_data_out,
+	uint32_t user_auth_data_size_in)
 {
-	uint32_t sec_hal_status = SEC_HAL_RES_OK;
-	uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
-	uint32_t ssa_disp_status = 0x00;
-	uint32_t sec_serv_status = 0x00;
+	uint32_t ret = SEC_HAL_RES_OK;
+	uint32_t msg_st = SEC_MSG_STATUS_OK;
+	uint32_t disp_st = 0x00;
+	uint32_t serv_st = 0x00;
 	uint16_t msg_data_size;
 	sec_msg_t *in_msg = NULL;
 	sec_msg_t *out_msg = NULL;
 	sec_msg_handle_t in_handle;
 	sec_msg_handle_t out_handle;
-	void *kernel_input_data_in;
+	void *kdata = NULL;
 
 	SEC_HAL_TRACE_ENTRY();
 
-	if (NULL == user_input_data_in)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!zero user_input_data_in, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-	if (0 == user_input_data_size_in)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!zero user_input_data_size_in, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-	if (NULL == user_auth_data_out)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!null user_auth_data_out, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-	if (0 == user_auth_data_size_in)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!zero user_auth_data_size_in, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-	SEC_HAL_TRACE("user_input_data_in: 0x%x", user_input_data_in);
-	SEC_HAL_TRACE("user_input_data_size_in: %d", user_input_data_size_in);
-
-    kernel_input_data_in = kmalloc(user_input_data_size_in, GFP_KERNEL);
-    copy_from_user( kernel_input_data_in, user_input_data_in,
-                    user_input_data_size_in );
-	SEC_HAL_TRACE("kernel_input_data_in: 0x%x", kernel_input_data_in);
-
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
-	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*2 +
-				sec_msg_param_size(user_input_data_size_in);
-	SEC_HAL_TRACE("msg_data_size: %d", msg_data_size);
-	in_msg = sec_msg_alloc(
-				&in_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
-	SEC_HAL_TRACE("in_msg: %d", in_msg);
+	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*2
+		+ sec_msg_param_size(user_input_data_size_in);
+	in_msg = sec_msg_alloc(&in_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+		+ sec_msg_param_size(user_auth_data_size_in);
+	out_msg = sec_msg_alloc(&out_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
 
-	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
-				sec_msg_param_size(user_auth_data_size_in);
-	out_msg = sec_msg_alloc(
-				&out_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
+	do {
+		if (NULL == in_msg || NULL == out_msg) {
+			SEC_HAL_TRACE("alloc failure, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
 
-	if (NULL == in_msg || NULL == out_msg)
-	{
-		SEC_HAL_TRACE("alloc failure, msgs not sent!");
-		sec_hal_status = SEC_HAL_RES_FAIL;
-	}
-	else
-	{
+		kdata = kmalloc(user_input_data_size_in, GFP_KERNEL);
+		if (kdata == NULL) {
+			SEC_HAL_TRACE("kmalloc failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (copy_from_user(kdata, user_input_data_in, user_input_data_size_in)) {
+			SEC_HAL_TRACE("kmalloc failed, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+
 		/* write content to the input msg */
-		sec_msg_param_write32(
+		if (sec_msg_param_write32(
 				&in_handle,
 				user_input_data_size_in,
-				SEC_MSG_PARAM_ID_NONE);
-		sec_msg_param_write(
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("size write failed, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (sec_msg_param_write(
 				&in_handle,
-				kernel_input_data_in,
+				kdata,
 				user_input_data_size_in,
-				SEC_MSG_PARAM_ID_NONE);
-		sec_msg_param_write32(
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("data write failed, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		if (sec_msg_param_write32(
 				&in_handle,
 				user_auth_data_size_in,
-				SEC_MSG_PARAM_ID_NONE);
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("authd size write failed, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		LOCAL_WMB();
 
 		/* call dispatcher */
-		ssa_disp_status = LOCAL_DISP(
-							SEC_SERV_DEVICE_AUTH_DATA_REQUEST,
-							LOCAL_DEFAULT_DISP_FLAGS,
-							LOCAL_DEFAULT_DISP_SPARE_PARAM,
-							SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
-							SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
+		disp_st = LOCAL_DISP(SEC_SERV_DEVICE_AUTH_DATA_REQUEST,
+			LOCAL_DEFAULT_DISP_FLAGS,
+			LOCAL_DEFAULT_DISP_SPARE_PARAM,
+			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+			SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
 
 		/* interpret the response */
-		sec_msg_status = sec_msg_param_read32(&out_handle, &sec_serv_status);
-		if (SEC_ROM_RET_OK != ssa_disp_status ||
-			SEC_MSG_STATUS_OK != sec_msg_status ||
-			SEC_SERV_STATUS_OK != sec_serv_status)
-		{
-			SEC_HAL_TRACE("op failed, AUTH DATA not available!");
-			SEC_HAL_TRACE_INT("ssa_disp_status", ssa_disp_status);
-			SEC_HAL_TRACE_INT("sec_msg_status ", sec_msg_status);
-			SEC_HAL_TRACE_INT("sec_serv_status", sec_serv_status);
-			sec_hal_status = SEC_HAL_RES_FAIL;
+		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != disp_st
+				|| SEC_MSG_STATUS_OK != msg_st
+				|| SEC_SERV_STATUS_OK != serv_st) {
+			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+				disp_st, msg_st, serv_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
 		}
-		else
-		{
-			sec_msg_status = _sec_msg_param_read(
-								LOCAL_CPY_TO_CLIENT_FUNCPTR,
-								&out_handle,
-								user_auth_data_out,
-								user_auth_data_size_in);
-			if (SEC_MSG_STATUS_OK != sec_msg_status)
-			{
-				SEC_HAL_TRACE_INT("read failed! sec_msg_status", sec_msg_status);
-				sec_hal_status = SEC_HAL_RES_FAIL;
-			}
-		}
-	}
 
+		msg_st = sec_msg_param_read(&out_handle,
+			user_auth_data_out,
+			user_auth_data_size_in);
+		if (SEC_MSG_STATUS_OK != msg_st) {
+			SEC_HAL_TRACE("read failed!msg == %d", msg_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+	} while (0);
+
+	kfree(kdata);
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
 	sec_msg_free(in_msg);
-    kfree(kernel_input_data_in);
 
 	SEC_HAL_TRACE_EXIT();
-	return sec_hal_status;
+	return ret;
 }
 
 /* **************************************************************************
@@ -1309,10 +1291,10 @@ uint32_t sec_hal_rt_auth_data_get(
 ** *************************************************************************/
 uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 {
-	uint32_t sec_hal_status = SEC_HAL_RES_OK;
-	uint32_t sec_msg_status = SEC_MSG_STATUS_OK;
-	uint32_t ssa_disp_status = 0x00;
-	uint32_t sec_serv_status = 0x00;
+	uint32_t ret = SEC_HAL_RES_OK;
+	uint32_t msg_st = SEC_MSG_STATUS_OK;
+	uint32_t disp_st = 0x00;
+	uint32_t serv_st = 0x00;
 	uint16_t msg_data_size;
 	sec_msg_t *in_msg = NULL;
 	sec_msg_t *out_msg = NULL;
@@ -1321,83 +1303,70 @@ uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 
 	SEC_HAL_TRACE_ENTRY();
 
-	if (NULL == sec_exp_time)
-	{
-		SEC_HAL_TRACE_EXIT_INFO("!!null sec_exp_time, aborting!!");
-		return SEC_HAL_RES_PARAM_ERROR;
-	}
-
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
 	msg_data_size = sec_msg_param_size(sizeof(uint32_t));
-	in_msg = sec_msg_alloc(
-				&in_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
-	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t)) +
-				sec_msg_param_size(sizeof(uint32_t));
-	out_msg = sec_msg_alloc(
-				&out_handle,
-				msg_data_size,
-				SEC_MSG_OBJECT_ID_NONE,
-				0,
-				SEC_HAL_MSG_BYTE_ORDER);
+	in_msg = sec_msg_alloc(&in_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
+	msg_data_size = sec_msg_param_size(sizeof(sec_serv_status_t))
+		+ sec_msg_param_size(sizeof(uint32_t));
+	out_msg = sec_msg_alloc(&out_handle,
+		msg_data_size, SEC_MSG_OBJECT_ID_NONE,
+		0, SEC_HAL_MSG_BYTE_ORDER);
 
-	if (NULL == in_msg || NULL == out_msg)
-	{
-		SEC_HAL_TRACE("alloc failure, msgs not sent!");
-		sec_hal_status = SEC_HAL_RES_FAIL;
-	}
-	else
-	{
+	do {
+		if (NULL == in_msg || NULL == out_msg) {
+			SEC_HAL_TRACE("alloc failure, msgs not sent!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+
 		/* write content to the input msg */
-		sec_msg_param_write32(
-				&in_handle,
+		if (sec_msg_param_write32(&in_handle,
 				sizeof(uint32_t),
-				SEC_MSG_PARAM_ID_NONE);
+				SEC_MSG_PARAM_ID_NONE) != SEC_MSG_STATUS_OK) {
+			SEC_HAL_TRACE("dummy write error, aborting!");
+			ret = SEC_HAL_RES_FAIL;
+			break;
+		}
+		LOCAL_WMB();
 
 		/* call dispatcher */
-		ssa_disp_status = LOCAL_DISP(
-							SEC_SERV_INTEGRITY_CHECK,
-							LOCAL_DEFAULT_DISP_FLAGS,
-							LOCAL_DEFAULT_DISP_SPARE_PARAM,
-							SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
-							SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
+		disp_st = LOCAL_DISP(SEC_SERV_INTEGRITY_CHECK,
+			LOCAL_DEFAULT_DISP_FLAGS,
+			LOCAL_DEFAULT_DISP_SPARE_PARAM,
+			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),
+			SEC_HAL_MEM_VIR2PHY_FUNC(in_msg));
 
 		/* interpret the response */
-		sec_msg_status = sec_msg_param_read32(&out_handle, &sec_serv_status);
-		if (SEC_ROM_RET_OK != ssa_disp_status ||
-			SEC_MSG_STATUS_OK != sec_msg_status ||
-			SEC_SERV_STATUS_OK != sec_serv_status)
-		{
-			SEC_HAL_TRACE("op failed, INTEGRITY not confirmed!");
-			SEC_HAL_TRACE_INT("ssa_disp_status", ssa_disp_status);
-			SEC_HAL_TRACE_INT("sec_msg_status ", sec_msg_status);
-			SEC_HAL_TRACE_INT("sec_serv_status", sec_serv_status);
-			sec_hal_status = SEC_HAL_RES_FAIL;
+		msg_st = sec_msg_param_read32(&out_handle, &serv_st);
+		LOCAL_RMB();
+		if (SEC_ROM_RET_OK != disp_st
+				|| SEC_MSG_STATUS_OK != msg_st
+				|| SEC_SERV_STATUS_OK != serv_st) {
+			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+				disp_st, msg_st, serv_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
 		}
-		else
-		{
-			sec_msg_status = _sec_msg_param_read(
-								LOCAL_CPY_TO_CLIENT_FUNCPTR,
-								&out_handle,
-								sec_exp_time,
-								sizeof(uint32_t));
-			if (SEC_MSG_STATUS_OK != sec_msg_status)
-			{
-				SEC_HAL_TRACE_INT("read failed! sec_msg_status", sec_msg_status);
-				sec_hal_status = SEC_HAL_RES_FAIL;
-			}
+
+		if (sec_exp_time == NULL)
+			break; /* can exit now, no more output wanted. */
+		msg_st = sec_msg_param_read32(&out_handle, sec_exp_time);
+		if (SEC_MSG_STATUS_OK != msg_st) {
+			SEC_HAL_TRACE("time read failed! msg == %d", msg_st);
+			ret = SEC_HAL_RES_FAIL;
+			break;
 		}
-	}
+	} while (0);
+	LOCAL_RMB(); /* to ensure that out - param reads have completed */
 
 	/* de-allocate msgs */
 	sec_msg_free(out_msg);
 	sec_msg_free(in_msg);
 
 	SEC_HAL_TRACE_EXIT();
-	return sec_hal_status;
+	return ret;
 }
 
 /* **************************************************************************
@@ -1562,8 +1531,7 @@ uint32_t sec_hal_rt_public_cc42_key_init(void)
 }
 
 
-static inline
-long _sl_status_get(sd_ioctl_params_t *p)
+static long _sl_status_get(sd_ioctl_params_t *p)
 {
 	uint8_t max, fail;
 	uint32_t rv, sl_lvl = 0x00, max_att = 0x00, fail_att = 0x00;
@@ -1574,19 +1542,20 @@ long _sl_status_get(sd_ioctl_params_t *p)
 	max = (max_att & 0xFF);
 	fail = (fail_att & 0xFF);
 
-	if (rv == SEC_HAL_RES_FAIL) {
+	if (rv == SEC_HAL_RES_OK) {
 		if (put_user(sl_lvl, (uint32_t __user *)p->param0))
 			rv = SEC_HAL_RES_FAIL;
-		if (rv == SEC_HAL_RES_FAIL && p->param1
+		if (rv == SEC_HAL_RES_OK && p->param1
 			&& put_user(max,(uint8_t __user *)p->param1))
 			rv = SEC_HAL_RES_FAIL;
-		if (rv == SEC_HAL_RES_FAIL && p->param2
+		if (rv == SEC_HAL_RES_OK && p->param2
 			&& put_user(fail, (uint8_t __user *)p->param2))
 			rv = SEC_HAL_RES_FAIL;
 	}
 
 	return rv;
 }
+
 
 /* **************************************************************************
 ** Function name      : sec_hal_rt_ioctl
@@ -1645,10 +1614,7 @@ long sec_hal_rt_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param)
 			(uint8_t)param->param2 /*IN*/);
 		break;
 	case SD_SL_LEVEL_STATUS_GET:
-		rv = sec_hal_rt_simlock_level_status_get(
-			(uint32_t *)param->param0 /*OUT*/,
-			(uint32_t *)param->param1 /*OUT*/,
-			(uint32_t *)param->param2 /*OUT*/);
+		rv = _sl_status_get(param);
 		break;
 	case SD_AUTH_DATA_SIZE_GET:
 		rv = sec_hal_rt_auth_data_size_get((void *)param->param0 /*IN*/,

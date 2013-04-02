@@ -41,11 +41,6 @@ static void __iomem *sbsc_reg;
 static void shmobile_init_cpg_lock(void);
 
 /* SBSC register address for ZQ calibration */
-#define SBSC_BASE_		(0xFE000000U)
-static void __iomem *sdmra_28200;
-static void __iomem *sdmra_38200;
-#define SBSC_SDMRA_DONE		(0x00000000)
-#define SBSC_SDMRACR1A_ZQ	(0x0000560A)
 static struct shared_area *sh_area;
 
 /* Modem/APE parameter sharing */
