@@ -722,27 +722,39 @@ ssize_t tunes_adb_show(struct device *dev, struct device_attribute *attr,
 
 
 /* sysfs  */
-static DEVICE_ATTR(mem, S_IRWXUGO, ist30xx_mem_show, ist30xx_mem_store);
-static DEVICE_ATTR(refresh, S_IRWXUGO, ist30xx_frame_refresh, NULL);
-static DEVICE_ATTR(filter, S_IRWXUGO, ist30xx_filter_show, NULL);
-static DEVICE_ATTR(raw, S_IRWXUGO, ist30xx_raw_show, NULL);
-static DEVICE_ATTR(base, S_IRWXUGO, ist30xx_base_show, NULL);
-static DEVICE_ATTR(diff, S_IRWXUGO, ist30xx_diff_show, NULL);
-static DEVICE_ATTR(clb, S_IRWXUGO, ist30xx_calib_show, NULL);
-static DEVICE_ATTR(debug, S_IRWXUGO, NULL, ist30xx_debug_store);
+static DEVICE_ATTR(mem,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_mem_show, ist30xx_mem_store);
+static DEVICE_ATTR(refresh,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_frame_refresh, NULL);
+static DEVICE_ATTR(filter,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_filter_show, NULL);
+static DEVICE_ATTR(raw,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_raw_show, NULL);
+static DEVICE_ATTR(base,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_base_show, NULL);
+static DEVICE_ATTR(diff,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_diff_show, NULL);
+static DEVICE_ATTR(clb,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_calib_show, NULL);
+static DEVICE_ATTR(debug,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					NULL, ist30xx_debug_store);
 
 #if IST30XX_TUNES
-static DEVICE_ATTR(regcmd, S_IRWXUGO, tunes_regcmd_show, tunes_regcmd_store);
-static DEVICE_ATTR(reg, S_IRWXUGO, tunes_reg_show, tunes_reg_store);
-static DEVICE_ATTR(tunes_fw, S_IRWXUGO, NULL, tunes_fw_store);
-static DEVICE_ATTR(tunes_param, S_IRWXUGO, NULL, tunes_param_store);
-static DEVICE_ATTR(adb, S_IRWXUGO, tunes_adb_show, tunes_adb_store);
+static DEVICE_ATTR(regcmd,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					tunes_regcmd_show, tunes_regcmd_store);
+static DEVICE_ATTR(reg,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					tunes_reg_show, tunes_reg_store);
+static DEVICE_ATTR(tunes_fw,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					NULL, tunes_fw_store);
+static DEVICE_ATTR(tunes_param,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					NULL, tunes_param_store);
+static DEVICE_ATTR(adb,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					tunes_adb_show, tunes_adb_store);
 #endif
 
 
 extern struct class *ist30xx_class;
 struct device *ist30xx_internal_dev;
-
 
 int ist30xx_init_misc_sysfs(void)
 {

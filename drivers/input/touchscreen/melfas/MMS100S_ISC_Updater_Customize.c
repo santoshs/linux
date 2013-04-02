@@ -10,7 +10,6 @@
 #include <asm/gpio.h>
 #include <asm/io.h>
 
-
 const unsigned char mfs_i2c_slave_addr = 0x48;
 uint8_t mfs_slave_addr;
 
@@ -68,17 +67,9 @@ void MFS_reboot(void)
 
 void MFS_TSP_reboot(void)
 {
-#if defined(CONFIG_MACH_KYLE_I) 
-	MFS_ms_delay(50);
-	ts_power_control(0);
-	MFS_ms_delay(500);
-	ts_power_control(1);
-	MFS_ms_delay(300);
-#else
 	MFS_ms_delay(50);
 	gpio_direction_output(TSP_PWR_LDO_GPIO, 0);
 	MFS_ms_delay(1000);
 	gpio_direction_output(TSP_PWR_LDO_GPIO, 1);
 	MFS_ms_delay(300);
-#endif
 }
