@@ -11,6 +11,7 @@ obj-$(CONFIG_MACH_LOGANLTE)	+= mdmloader/
 obj-$(CONFIG_MACH_LT02LTE)	+= mdmloader/
 obj-$(CONFIG_MACH_U2EVM)	+= dummy-netdev/
 obj-$(CONFIG_MACH_GARDALTE)	+= dummy-netdev/
+obj-$(CONFIG_MACH_LOGANLTE)   	+= dummy-netdev/
 obj-$(CONFIG_MACH_LT02LTE)	+= dummy-netdev/
 obj-$(CONFIG_SUPERHYWAY)	+= superhyway/
 obj-$(CONFIG_GENERIC_GPIO)	+= pfc.o
