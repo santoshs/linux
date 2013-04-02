@@ -30,6 +30,7 @@
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 #include <mach/r8a7373.h>
+#include <mach/memory-r8a7373.h>
 
 #include "linux/vcd/vcd_common.h"
 #include "vcd_spuv_func.h"
@@ -945,7 +946,7 @@ int vcd_spuv_func_ioremap(void)
 	vcd_pr_start_spuv_function();
 
 	g_spuv_func_sdram_static_area_top_phy =
-			SPUV_FUNC_SDRAM_AREA_TOP_PHY_ES2;
+			SDRAM_VOCODER_START_ADDR;
 
 	/* ioremap sdram (non cache) */
 	g_spuv_func_sdram_static_non_cache_area_top =
@@ -973,7 +974,7 @@ int vcd_spuv_func_ioremap(void)
 	/* ioremap sdram (diamond) */
 	g_spuv_func_sdram_diamond_area_top =
 		(unsigned int)ioremap_nocache(
-			SPUV_FUNC_SDRAM_DIAMOND_AREA_TOP_PHY,
+			SDRAM_DIAMOND_START_ADDR,
 			SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE);
 	if (g_spuv_func_sdram_diamond_area_top == 0) {
 		vcd_pr_err("error ioremap sdram (diamond).\n");

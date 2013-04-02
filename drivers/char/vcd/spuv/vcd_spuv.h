@@ -226,6 +226,7 @@ struct vcd_spuv_info {
 	unsigned int timer_status;
 	unsigned int watchdog_status;
 	unsigned int status;
+	spinlock_t status_lock;
 	unsigned int irq_status;
 	unsigned int wait_fw_if_id;
 	unsigned int wait_fw_msg_id;
