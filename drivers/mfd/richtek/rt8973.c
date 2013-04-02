@@ -1218,9 +1218,23 @@ static void rt8973musc_shutdown(struct i2c_client *client)
 
 static int rt8973musc_resume(struct i2c_client *client)
 {
+	int32_t regADC, regIntFlag;
+	struct i2c_client *pClient = client;
 	struct rtmus_platform_data *pdata = &platform_data;
+
 	/*if (device_may_wakeup(&client->dev) && client->irq)
 		disable_irq_wake(client->irq);*/
+
+	regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
+	if (regIntFlag&RT8973_INT_ATTACH_MASK) {
+		regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
+
+	if ((0x1c == regADC) || (0x16 == regADC)) {
+		if (!wake_lock_active(&pDrvData->uart_wakelock))
+			wake_lock(&pDrvData->uart_wakelock);
+		}
+	}
+
     if (pdata->usb_power)
         pdata->usb_power(1);
 	return 0;
