@@ -29,6 +29,7 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 #include <mach/serial.h>
+#include <mach/memory-r8a7373.h>
 #include <linux/sh_timer.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
@@ -1186,8 +1187,9 @@ static struct hw_register_range ramdump_res[] __initdata = {
 };
 
 struct ramdump_plat_data ramdump_pdata __initdata = {
-	.reg_dump_base = 0x48800000,
-	.reg_dump_size = SZ_1K*32,
+	.reg_dump_base = SDRAM_REGISTER_DUMP_AREA_START_ADDR,
+	.reg_dump_size = SDRAM_REGISTER_DUMP_AREA_END_ADDR -
+			SDRAM_REGISTER_DUMP_AREA_START_ADDR + 1,
 	/* size of reg dump of each core */
 	.core_reg_dump_size = SZ_1K,
 	.num_resources = ARRAY_SIZE(ramdump_res),
