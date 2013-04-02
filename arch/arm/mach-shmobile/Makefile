@@ -72,10 +72,19 @@ obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
+obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
+
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
-# BT object
+
+# BT object for renesas reference implementation
 obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
+
+# BT object
+obj-$(CONFIG_BT_BCM4330)		+= board-bluetooth-bcm4330.o
+obj-$(CONFIG_BT_BCM4334)		+= board-bluetooth-bcm4334.o
+obj-$(CONFIG_BT_BCM43241)		+= board-bluetooth-bcm43241.o
+obj-$(CONFIG_BCM4334_BT)		+= board-bcm4334-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
@@ -87,75 +96,97 @@ obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
 
 # RAM Defragmentation
 obj-$(CONFIG_ARCH_R8A7373)	+= ramdefrag/
+
 # crashlog
 obj-y += crashlog.o
 
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
+
 # touchkey
 obj-y += setup-u2touchkey.o
+
 # touchscreen
 obj-y += setup-u2mxt224.o
+
 # vibrator
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
+
 # charging
-obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
+# @todo setup-u2smb328a.c and setup-u2spa.c are almost same.
+# obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
+
 # current timer
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2current_timer.o
+obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2current_timer.o
+
 # sdhi
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2sdhi.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
+obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2sdhi.o
+
 # gpio_key and keysc
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
+obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2gpio_key.o
 
-#setup-u2tps80032
+# setup-u2tps80032
 obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
+
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE) 	+= dev-renesas-wifi.o
-obj-$(CONFIG_RENESAS_WIFI) 	+= dev-renesas-wifi.o
+obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
+obj-$(CONFIG_RENESAS_WIFI)	+= dev-renesas-wifi.o
 obj-$(CONFIG_RENESAS_WIFI)	+= dev-u2evm-renesas-wifi.o
 
 # gpio
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
-#setup-d2153
+# setup-d2153
 obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
+obj-$(CONFIG_MACH_LT02LTE)	+= setup-d2153.o
 
-#GPS
-obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
+# GPS
+obj-$(CONFIG_GPS_CSR_GSD5T) += dev-gps.o
+obj-$(CONFIG_GPS_BCM4752) += dev-gps.o
 
-#NFC
-obj-$(CONFIG_BCMI2CNFC) 	+= dev-nfc.o
-obj-$(CONFIG_NFC_PN547) 	+= dev-nfc.o
+# NFC
+obj-$(CONFIG_BCMI2CNFC)+= dev-nfc.o
+obj-$(CONFIG_PN547_NFC)+= dev-nfc.o
 
-#MHL
-# obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-mhl.o
-obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-edid.o
+# NFC for renesas reference implementation
+obj-$(CONFIG_NFC_PN547)+= dev-nfc.o
+
+# MHL
+# obj-$(CONFIG_SAMSUNG_MHL)	+= dev-mhl.o
+obj-$(CONFIG_SAMSUNG_MHL)	+= dev-edid.o
 obj-$(CONFIG_SAMSUNG_MHL)	+= dev-mhl-sii8332.o
 
-
-#Sensor
-obj-$(CONFIG_SAMSUNG_SENSOR) 	+= dev-sensor.o
+# Sensor
+obj-$(CONFIG_SAMSUNG_SENSOR)	+= dev-sensor.o
 
 # rcu
 obj-$(CONFIG_VIDEO_SH_MOBILE_RCU) += setup-u2rcu.o
+
 # csi2
 obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2) += setup-u2csi2.o
+
 # ion
 obj-$(CONFIG_ION) += setup-u2ion.o
+
 # camera
 obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
-#setup-d2153
+
+# setup-d2153
 obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
 
 # Ramdump
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
 
+# Samsung features
 include arch/arm/mach-shmobile/Makefile.sec

@@ -77,9 +77,9 @@ static struct gpio_keys_button gpio_buttons[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
 #endif
-	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
-	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+	GPIO_KEY(KEY_HOME,       GPIO_PORT18, "Home",  1),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     0),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     0),
 };
 
 static int gpio_key_enable(struct device *dev)
@@ -90,13 +90,13 @@ static int gpio_key_enable(struct device *dev)
 		gpio_pull_up_port(GPIO_PORT18);
 		gpio_pull_up_port(GPIO_PORT1);
 		gpio_pull_up_port(GPIO_PORT2);
-#ifdef CONFIG_MACH_U2EVM		
+#ifdef CONFIG_MACH_U2EVM
 	if(u2_get_board_rev() < 4) {
 		gpio_pull_up_port(GPIO_PORT45);
 		gpio_pull_up_port(GPIO_PORT46);
 		gpio_pull_up_port(GPIO_PORT47);
 	}
-#endif	
+#endif
 	return 0;
 }
 
@@ -161,7 +161,6 @@ int gpio_key_init(int stm_select,
 			p_dev_cnt = u2evm_devices_stm_none_size;
 			break;
 	}
-
 #ifdef CONFIG_MACH_U2EVM
 	if (u2_board_rev < RLTE_BOARD_REV_0_3_1) {
 		int i;
@@ -174,7 +173,7 @@ int gpio_key_init(int stm_select,
 			}
 		}
 	}
-#endif	
+#endif
 	platform_add_devices(p_dev, p_dev_cnt);
 	
 	return 0;

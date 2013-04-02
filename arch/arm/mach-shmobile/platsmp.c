@@ -32,8 +32,7 @@ static unsigned int __init shmobile_smp_get_core_count(void)
 	if (is_r8a7779())
 		return r8a7779_get_core_count();
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) \
-		|| defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		return r8a7373_get_core_count();
 #endif
 
@@ -48,8 +47,7 @@ static void __init shmobile_smp_prepare_cpus(unsigned int max_cpus)
 	if (is_r8a7779())
 		r8a7779_smp_prepare_cpus();
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) \
-		|| defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		r8a7373_smp_prepare_cpus(max_cpus);
 #endif
 }
@@ -83,8 +81,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	if (is_r8a7779())
 		r8a7779_secondary_init(cpu);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) \
-		 || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		r8a7373_secondary_init(cpu);
 #endif
 }
@@ -97,8 +94,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	if (is_r8a7779())
 		return r8a7779_boot_secondary(cpu);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) \
-		 || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		return r8a7373_boot_secondary(cpu);
 #endif
 

@@ -19,10 +19,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#include <linux/delay.h>
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+#include <mach/setup-u2spa.h>
 #include <linux/wakelock.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
@@ -30,67 +30,75 @@
 
 /* Samsung charging feature
  +++ for board files, it may contain changeable values */
-static struct spa_temp_tb batt_temp_tb_d2153[] = {
-	{2300, -300},            /* -30 */
-	{2144, -200},            /* -20 */
-	{1341, -100},            /* -10 */
-	{1072,  -50},            /* -5 */
-	{865,     0},            /* 0   */
-	{577,   100},            /* 10  */
-	{400,   200},            /* 20  */
-	{334,   250},            /* 25  */
-	{285,   300},            /* 30  */
-	{199,   400},            /* 40  */
-	{143,   500},            /* 50  */
-	{106,   600},            /* 60  */
-	{ 93,   650},            /* 65  */
-	{ 83,   700},            /* 70  */
-	{ 75 ,  800},            /* 80  */
+struct spa_temp_tb batt_temp_tb[] = {
+	{3000, -250},		/* -25 */
+	{2350, -200},		/* -20 */
+	{1850, -150},		/* -15 */
+	{1480, -100},		/* -10 */
+	{1180, -50},		/* -5  */
+	{945,  0},			/* 0    */
+	{765,  50},			/* 5    */
+	{620,  100},		/* 10  */
+	{510,  150},		/* 15  */
+	{420,  200},		/* 20  */
+	{345,  250},		/* 25  */
+	{285,  300},		/* 30  */
+	{240,  350},		/* 35  */
+	{200,  400},		/* 40  */
+	{170,  450},		/* 45  */
+	{143,  500},		/* 50  */
+	{122,  550},		/* 55  */
+	{104,  600},		/* 60  */
+	{89,  650},			/* 65  */
+	{77,  700},			/* 70  */
 };
-
-static struct spa_temp_tb batt_temp_tb[] = {
-	{869, -300},		/* -30 */
-	{769, -200},		/* -20 */
-	{643, -100},            /* -10 */
-	{568, -50},		/* -5  */
-	{509,   0},             /* 0   */
-	{382,  100},            /* 10  */
-	{275,  200},            /* 20  */
-	{231,  250},            /* 25  */
-	{196,  300},            /* 30  */
-	{138,  400},            /* 40  */
-	{95 ,  500},            /* 50  */
-	{68 ,  600},            /* 60  */
-	{54 ,  650},            /* 65  */
-	{46 ,  700},		/* 70  */
-	{34 ,  800},		/* 80  */
-};
-
-static struct spa_power_data spa_power_pdata = {
-	/* GED changes are not yet pulled in charger driver.
-	 * Hence we aree using smb328a */
-	.charger_name = "smb328a-charger",/*"spa_agent_chrg",*/
-	.eoc_current = 100,
-	.recharge_voltage = 4150,
+#if CONFIG_BOARD_VERSION_GARDA
+struct spa_power_data spa_power_pdata = {
+	.charger_name = "spa_agent_chrg",
+	.eoc_current = 180,
+	.recharge_voltage = 4280,
 	.charging_cur_usb = 500,
-	.charging_cur_wall = 800,
+	.charging_cur_wall = 1200,
+
+	.suspend_temp_hot = 450,
+	.recovery_temp_hot = 400,
+	.suspend_temp_cold = -40,
+	.recovery_temp_cold = 0,
+
+	.event_suspend_temp_hot = 590,
+	.event_recovery_temp_hot = 400,
+	.event_suspend_temp_cold = -40,
+	.event_recovery_temp_cold = 0,
+
+	.lpm_suspend_temp_hot = 440,
+	.lpm_recovery_temp_hot = 410,
+	.lpm_suspend_temp_cold = -40,
+	.lpm_recovery_temp_cold = -10,
+
+	.charge_timer_limit = CHARGE_TIMER_6HOUR,
+	.regulated_vol = 4350,
+	.batt_temp_tb = &batt_temp_tb[0],
+	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
+};
+#else
+struct spa_power_data spa_power_pdata = {
+	.charger_name = "spa_agent_chrg",
+	.eoc_current = 180,
+	.recharge_voltage = 4280,
+	.charging_cur_usb = 500,
+	.charging_cur_wall = 1200,
 	.suspend_temp_hot = 600,
 	.recovery_temp_hot = 400,
 	.suspend_temp_cold = -50,
 	.recovery_temp_cold = 0,
 	.charge_timer_limit = CHARGE_TIMER_6HOUR,
-#if defined(CONFIG_MACH_U2EVM)
+	.regulated_vol = 4350,
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
-	.batt_temp_tb = &batt_temp_tb_d2153[0],
-	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb_d2153),
-#else
-#error "ERROR: None of the boards are selected.!!!."
-#endif
 };
+#endif
 
-static struct platform_device spa_power_device = {
+struct platform_device spa_power_device = {
 	.name = "spa_power",
 	.id = -1,
 	.dev.platform_data = &spa_power_pdata,
@@ -101,7 +109,7 @@ static struct platform_device spa_agent_device = {
 	.id = -1,
 };
 
-int init_spa_power(void)
+int spa_power_init(void)
 {
 	int ret = 0;
 
@@ -114,5 +122,30 @@ int init_spa_power(void)
 
 	return 0;
 }
-/* End of FIle */
+#endif
 
+void spa_init(void)
+{
+
+#if defined(CONFIG_USB_SWITCH_TSU6712)
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
+	gpio_pull_up_port(GPIO_PORT97);
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+	gpio_request(GPIO_PORT19, NULL);
+	gpio_direction_input(GPIO_PORT19);
+	gpio_pull_up_port(GPIO_PORT19);
+#endif
+
+#if defined(CONFIG_BATTERY_BQ27425)
+	gpio_request(GPIO_PORT105, NULL);
+	gpio_direction_input(GPIO_PORT105);
+	gpio_pull_up_port(GPIO_PORT105);
+#endif
+
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+	spa_power_init();
+#endif
+}

@@ -31,6 +31,7 @@
 
 static void mxt224_set_power(int on)
 {
+#ifdef CONFIG_MACH_U2EVM
 	if (u2_get_board_rev() <= 4) {
 //	pmic_set_power_on(E_POWER_VANA_MM);
 		if(on)
@@ -54,6 +55,18 @@ static void mxt224_set_power(int on)
 				regulator_disable(mxt224_regulator);
 		}
 	}
+#endif
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+		if (!mxt224_regulator)
+			mxt224_regulator = regulator_get(NULL, "vdd_touch");
+
+		if (mxt224_regulator) {
+			if (on)
+				regulator_enable(mxt224_regulator);
+			else
+				regulator_disable(mxt224_regulator);
+		}
+#endif
 }
 
 static int mxt224_read_chg(void)

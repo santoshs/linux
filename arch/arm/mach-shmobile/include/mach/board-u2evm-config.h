@@ -29,6 +29,10 @@
 #include <mach/r8a7373.h>
 #include <mach/setup-u2sdhi.h>
 
+#if defined(CONFIG_BCM4334_BT)
+#include <mach/board-bcm4334-bt.h>
+#endif
+
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/dev-renesas-bt.h>
 #endif
@@ -201,6 +205,11 @@ static struct platform_device audio_device = {
 	.dev	= {
 		.platform_data  = &audio_pdata,
 	},
+};
+
+static struct platform_device sh_fsi_wireless_transciever_device = {
+		.name = "sh_fsi_wireless_transciever",
+		.id = 0,
 };
 
 static struct sh_mobile_lcdc_info lcdc_info = {
@@ -427,12 +436,13 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -550,12 +560,13 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,
@@ -602,12 +613,13 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&led_backlight_device,

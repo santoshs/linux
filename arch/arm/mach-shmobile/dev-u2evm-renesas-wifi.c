@@ -1,5 +1,5 @@
 /* 
- * ~/arch/arm/mach-shmobile/dev-u2evm-renesas-wifi.c
+ * ~/arch/arm/mach-shmobile/board-u2evm-wifi.c
  */
 /*
  * Copyright (C) 2011 Renesas Mobile Corporation.
@@ -31,7 +31,7 @@
 #include <linux/if.h>
 #include <linux/random.h>
 #include <asm/io.h>
-#include <mach/dev-wifi.h>
+#include <mach/board-u2evm-renesas-wifi.h>
 
 static unsigned char u2_mac_addr[IFHWADDRLEN] = { 0,0x90,0x4c,0,0,0 };
 

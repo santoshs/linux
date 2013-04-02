@@ -1,6 +1,4 @@
 /*
- * arch/arm/mach-shmobile/include/mach/board-loganlte-config.h
- *
  * Copyright (C) 2013 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or
@@ -18,13 +16,17 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef __ASM_ARCH_BOARD_LOGANLTE_CONFIG_H
-#define __ASM_ARCH_BOARD_LOGANLTE_CONFIG_H
+#ifndef __ASM_ARCH_BOARD_CONFIG_H
+#define __ASM_ARCH_BOARD_CONFIG_H
 
 #include <linux/platform_device.h>
 #include <linux/mmcoops.h>
 #include <linux/mmc/renesas_mmcif.h>
 #include <mach/setup-u2sdhi.h>
+
+#if defined(CONFIG_BCM4334_BT)
+#include <mach/board-bcm4334-bt.h>
+#endif
 
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/dev-renesas-bt.h>
@@ -39,11 +41,14 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
+
 #if defined(CONFIG_SAMSUNG_MHL)
 #include <mach/dev-mhl.h>
 #endif
 #include <linux/tpu_pwm_board.h>
+#include <linux/vibrator.h>
 
+#include <mach/r8a7373.h>
 
 static struct resource renesas_mmcif_resources[] = {
 	[0] = {
@@ -61,9 +66,6 @@ static struct resource renesas_mmcif_resources[] = {
 /* For different STM muxing options 0, 1, or None, as given by
  * boot_command_line parameter stm=0/1/n
  */
-
-void mmcif_set_pwr(struct platform_device *, int);
-void mmcif_down_pwr(struct platform_device *);
 
 static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.sup_pclk	= 0,
@@ -177,7 +179,7 @@ static struct platform_device fsi_b_device = {
 	},
 };
 
-static struct fsi_d2153_platform_data loganlte_audio_pdata = {
+static struct fsi_d2153_platform_data audio_pdata = {
 	.gpio_spkr_en		= -1,
 	.gpio_hp_det		= GPIO_PORT24,
 	.gpio_hp_mute		= -1,
@@ -186,12 +188,17 @@ static struct fsi_d2153_platform_data loganlte_audio_pdata = {
 	.private_data		= NULL,
 };
 
-static struct platform_device loganlte_audio_device = {
+static struct platform_device audio_device = {
 	.name	= "fsi-snd-d2153",
 	.id	= 0,
 	.dev	= {
-		.platform_data  = &loganlte_audio_pdata,
+		.platform_data  = &audio_pdata,
 	},
+};
+
+static struct platform_device sh_fsi_wireless_transciever_device = {
+		.name = "sh_fsi_wireless_transciever",
+		.id = 0,
 };
 
 static struct resource lcdc_resources[] = {
@@ -454,14 +461,28 @@ static struct platform_device	tpu_devices[] = {
 	},
 };
 
-/* THREE optional loganlte_devices pointer lists for initializing the platform
+static struct vibrator_port_info vibrator_platdata = {
+	.vibrator_port = GPIO_PORT226 ,
+	.tpu_port      = GPIO_PORT36 ,
+};
+
+static struct platform_device vibrator_device = {
+	.name               = "vibrator-renesas-sh_mobile",
+	.id                 = -1,
+	.dev                = {
+		.platform_data  = &vibrator_platdata,
+	},
+};
+
+/**
+ * THREE optional devices pointer lists for initializing the platform
  * devices
  */
 
 /* For different STM muxing options 0, 1, or None, as given by
  * boot_command_line parameter stm=0/1/n
  */
-static struct platform_device *loganlte_devices_stm_sdhi1[] __initdata = {
+static struct platform_device *devices_stm_sdhi1[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -473,16 +494,18 @@ static struct platform_device *loganlte_devices_stm_sdhi1[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&loganlte_audio_device,
+	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -515,7 +538,7 @@ static struct platform_device *loganlte_devices_stm_sdhi1[] __initdata = {
 #endif
 };
 
-static struct platform_device *loganlte_devices_stm_sdhi0[] __initdata = {
+static struct platform_device *devices_stm_sdhi0[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -527,17 +550,19 @@ static struct platform_device *loganlte_devices_stm_sdhi0[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&loganlte_audio_device,
+	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -569,7 +594,7 @@ static struct platform_device *loganlte_devices_stm_sdhi0[] __initdata = {
 #endif
 };
 
-static struct platform_device *loganlte_devices_stm_none[] __initdata = {
+static struct platform_device *devices_stm_none[] __initdata = {
 
 	&usbhs_func_device_d2153,
 #ifdef CONFIG_USB_R8A66597_HCD
@@ -582,17 +607,19 @@ static struct platform_device *loganlte_devices_stm_none[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
-	&loganlte_audio_device,
+	&audio_device,
+	&sh_fsi_wireless_transciever_device,
 	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -624,9 +651,5 @@ static struct platform_device *loganlte_devices_stm_none[] __initdata = {
 	&mhl_i2c_gpio_device,
 #endif
 };
-
-
-extern unsigned int read_board_rev(void);
-extern void SBSC_Init_520Mhz(void);
 
 #endif

@@ -27,7 +27,7 @@
 #define GPIO_CHG_INT 19
 
 #if defined(CONFIG_CHARGER_SMB328A)
-#define SMB328A_ADDRESS (0x69 >> 1)     // SMB823A
+#define SMB328A_ADDRESS (0xA9 >> 1)		//for smb 327
 #endif
 
 #if defined(CONFIG_CHARGER_SMB358)
@@ -35,7 +35,7 @@
 #endif
 
 #if defined(CONFIG_USB_SWITCH_TSU6712)
-#define TSU6712_ADDRESS (0x28 >> 1)     // RT8973
+#define TSU6712_ADDRESS (0x4A >> 1)  // mUSB_temp_20130308
 #endif
 
 #if defined(CONFIG_USB_SWITCH_TSU6712) || \
@@ -49,7 +49,7 @@
 #define ION_HEAP_CAMERA_SIZE (SZ_16M + SZ_2M)
 #define ION_HEAP_CAMERA_ADDR 0x46600000
 
-#define ION_HEAP_GPU_SIZE SZ_4M
+#define ION_HEAP_GPU_SIZE (SZ_4M + SZ_2M)
 #define ION_HEAP_GPU_ADDR 0x48400000
 
 #ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
@@ -57,4 +57,4 @@
 #define ION_HEAP_VIDEO_ADDR 0x4AE00000
 #endif
 
-#endif // __ASM_ARCH_BOARD_H
+#endif // __ASM_ARCH_BOARD_LT02LTE_H

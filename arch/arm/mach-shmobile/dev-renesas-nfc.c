@@ -8,7 +8,7 @@
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h>
-#include <mach/dev-renesas-nfc.h>
+#include <mach/board-u2evm-renesas-nfc.h>
 #endif
 
 
@@ -22,7 +22,7 @@ struct platform_device pn544_i2c_gpio_device = {
 	.name = "i2c-gpio",
 	.id = NFC_I2C_BUS_ID,
 	.dev = {
-		.platform_data  = &pn544_i2c_gpio_data,
+	.platform_data  = &pn544_i2c_gpio_data,
 	},
 };
 

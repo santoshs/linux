@@ -27,9 +27,9 @@ static void sec_debug_inform_dump(const char* prefix) {
 }
 
 void sec_debug_inform_write(unsigned magic, unsigned index) {
-	iowrite32(magic,
-			sec_debug_inform.virt
-			+ SEC_DEBUG_INFORM_OFFSET
+	iowrite32(magic, 
+			sec_debug_inform.virt 
+			+ SEC_DEBUG_INFORM_OFFSET 
 			+ (0x00000004 * index));
 }
 

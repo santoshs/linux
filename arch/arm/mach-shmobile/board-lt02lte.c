@@ -33,8 +33,8 @@
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board-gardalte.h>
-#include <mach/board-gardalte-config.h>
+#include <mach/board-lt02lte.h>
+#include <mach/board-lt02lte-config.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
@@ -288,9 +288,17 @@ static struct i2c_board_info i2c4_devices_melfas[] = {
 	},
 };
 
+static struct i2c_board_info i2c4_devices_zinitix[] = {
+	{
+		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
+		.irq = irqpin2irq(32),
+	},
+};
+
+#ifdef CONFIG_BOARD_VERSION_LT02LTE
 static struct i2c_board_info i2c4_devices_imagis[] = {
 	{
-#if 0
+#if 1
 		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
 #else
 		I2C_BOARD_INFO("sec_touch", 0xA0>>1),
@@ -360,7 +368,6 @@ static struct i2c_board_info i2c4_devices_tsp_detector[] = {
 	},
 };
 
-#if 0
 static struct led_regulator_platform_data key_backlight_data = {
 	.name   = "button-backlight",
 };
@@ -372,8 +379,6 @@ static struct platform_device key_backlight_device = {
 		.platform_data = &key_backlight_data,
 	},
 };
-#endif
-
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
@@ -525,11 +530,6 @@ static void __init board_init(void)
 
 	/* Disable GPIO Enable at initialization */
 
-	/* ESD Detect for LCD */
-	gpio_request(GPIO_PORT6, NULL);
-	gpio_direction_input(GPIO_PORT6);
-	gpio_pull_off_port(GPIO_PORT6);
-
 	/* ===== CWS GPIO ===== */
 
 #if defined(CONFIG_RENESAS_NFC)
@@ -615,6 +615,7 @@ static void __init board_init(void)
 	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
 
+
 	/* Touch */
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
@@ -683,7 +684,11 @@ static void __init board_init(void)
 	i2c_add_driver(&tsp_detector_driver);
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 					ARRAY_SIZE(i2c4_devices_tsp_detector));
-//	platform_device_register(&key_backlight_device);
+	platform_device_register(&key_backlight_device);
+
+	i2c_register_board_info(4, i2c4_devices_melfas,
+					ARRAY_SIZE(i2c4_devices_melfas));
+#endif /* CONFIG_BOARD_VERSION_LT02LTE */
 #endif
 
 	i2c_register_board_info(8, i2cm_devices_d2153,

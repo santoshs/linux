@@ -14,20 +14,32 @@
 #include <linux/gpio.h>
 #include <linux/i2c.h>
 #include <linux/i2c-gpio.h>
+#include <linux/err.h>
+#include <linux/delay.h>
 #include <mach/common.h>
 #include <mach/gpio.h>
 #include <mach/r8a7373.h>
+#include <mach/irqs.h>
+
+#include <linux/pm.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic-tps80032.h>
+#include <linux/mfd/tps80031.h>
+#include <linux/pmic/pmic.h>
+#include <mach/setup-u2tps80032.h>
+#include <linux/regulator/tps80031-regulator.h>
 #endif
 
-#if defined (CONFIG_MPU_SENSORS_MPU6050B1)
-#include <linux/mpu.h>
+#ifdef CONFIG_MFD_D2153
+#include <linux/d2153/core.h>
+#include <linux/d2153/pmic.h>
+#include <linux/d2153/d2153_battery.h>
 #endif
 
-#if defined (CONFIG_MPU_SENSORS_MPU6500)
-#include <linux/mpu_511.h>
+#if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
+#include <linux/mpu6k_input.h>
 #endif
 
 #if defined  (CONFIG_SENSORS_K3DH)
@@ -46,55 +58,11 @@
 #include <linux/i2c/taos.h>
 #endif
 
-
 #define I2C_BUS_ID_SENSOR	  2
-
-
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_MPU_SENSORS_MPU6500) || defined(CONFIG_OPTICAL_TAOS_TRITON)
-//static struct regulator *vsensor_1v8;
-void sensor_power_on_vdd(int onoff)
-{
-	int ret = 0;
-
-	pr_err("%s: start\n",__func__);
-	
-	if(u2_get_board_rev() >= 5)
-	{
-
-	}
-	else
-	{	 
-		ret = gpio_request(GPIO_PORT9, "SENSOR_LDO");
-		
-		if (ret < 0)
-		{
-			pr_err("SENSOR_LDO_EN gpio_request was failed\n");
-			return;
-		}
-		gpio_pull_off_port(GPIO_PORT9);
-
-		if (onoff == 1) {
-	            gpio_direction_output(GPIO_PORT9, 1);
-	            pr_err("%s: power on\n",__func__);
-		} else if (onoff == 0) {
-	            pr_err("%s: power off\n",__func__);
-		}
-	}
-}
-#endif
-
-
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_MPU_SENSORS_MPU6500)
-void mpu_power_on(int onoff)
-{
-	sensor_power_on_vdd(onoff);
-}
-#endif
 
 #if defined(CONFIG_OPTICAL_TAOS_TRITON)
 int taos_power_on(bool onoff)
 {
-	//sensor_power_on_vdd(onoff);
 	return 0;
 }
 #endif
@@ -102,63 +70,114 @@ int taos_power_on(bool onoff)
 #if defined(CONFIG_OPTICAL_TAOS_TRITON)
 int taos_led_onoff(bool onoff)
 {
-        return 0;
+	return 0;
 }
 #endif
 
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
-struct mpu_platform_data mpu6050_data = {
-	.int_config = 0x10,
-	.orientation = {
-        0, 1, 0,
-        -1, 0, 0,
-        0, 0, 1},
-	.poweron = mpu_power_on,
-	};
-#endif
-	
-#if defined(CONFIG_MPU_SENSORS_MPU6500)
-static struct mpu_platform_data mpu6500_data =
+#if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
+static void sensors_regulator_on(bool onoff)
 {
-	.int_config  = 0x10,
-	.level_shifter = 0,
+
+}
+
+static struct mpu6k_input_platform_data mpu6k_pdata = {
+	.power_on = sensors_regulator_on,
 	.orientation = {
-        0, 1, 0,
-        -1, 0, 0,
-        0, 0, 1},
-        .sec_slave_type = SECONDARY_SLAVE_TYPE_NONE,
-        .key = {0xdd, 0x16, 0xcd, 0x7, 0xd9, 0xba, 0x97, 0x37, 
-        0xce, 0xfe, 0x23, 0x90, 0xe1, 0x66, 0x2f, 0x32},
-        .poweron = mpu_power_on,
-	};
+		0, 1, 0,
+		-1, 0, 0,
+		0, 0, 1},
+	.acc_cal_path = "/efs/calibration_data",
+	.gyro_cal_path = "/efs/gyro_cal_data",
+};
 #endif
+
 
 #if defined  (CONFIG_SENSORS_K3DH)
 static struct k3dh_platform_data k3dh_platform_data = {
 	.orientation = {
+#if defined (CONFIG_MACH_LOGANLTE)
+	1, 0, 0,
+	0, 1, 0,
+	0, 0, 1},
+#else
 	-1, 0, 0,
 	0, -1, 0,
-	0, 0, 1},	      
+	0, 0, 1},
+#endif
 };
 #endif
 
 #if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
 static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 	.orientation = {
+#if defined (CONFIG_MACH_LOGANLTE)
+	1, 0, 0,
+	0, 1, 0,
+	0, 0, 1},
+#else
 	0, -1, 0,
 	1, 0, 0,
 	0, 0, 1},
+#endif	
 };
 #endif
 
 #if defined  (CONFIG_SENSORS_GP2AP002)
-#define PROXI_INT_GPIO_PIN      (108)
+static void gp2ap002_power_onoff(bool onoff)
+{
+	if (onoff) {
+#if defined (CONFIG_MACH_GARDALTE)
+		if (u2_get_board_rev() == 1) {  //REV0.1
+			if (gpio_request(21, "PROXY_LED_EN"))
+				printk(KERN_ERR "[GP2A] Proximity Request GPIO_21 failed!\n");
+			else
+				printk(KERN_ERR "[GP2A] Proximity Request GPIO_21 Sucess!\n");
+			gpio_direction_output(21 , 1);
+			printk(KERN_INFO "[GP2A] gpio_get_value of GPIO(21) is %d\n", gpio_get_value(21));
+		}
+#endif
+	}
+}
+
+static void gp2ap002_led_onoff(bool onoff)
+{
+#if defined (CONFIG_MACH_GARDALTE)
+	if (u2_get_board_rev() == 2) {  //REV0.2
+#endif	    
+		struct regulator *led_regulator = NULL;
+		int ret=0;
+
+		if (onoff) {
+			led_regulator = regulator_get(NULL, "sensor_led_3v");
+			if (IS_ERR(led_regulator)){
+				printk(KERN_ERR "[GP2A] can not get prox_regulator (SENSOR_LED_3.0V) \n");
+			} else {
+				ret = regulator_set_voltage(led_regulator,3000000,3000000);
+				printk(KERN_INFO "[GP2A] regulator_set_voltage : %d\n", ret);
+				ret = regulator_enable(led_regulator);
+				printk(KERN_INFO "[GP2A] regulator_enable : %d\n", ret);
+				regulator_put(led_regulator);
+				mdelay(5);
+			}
+		} else {
+			led_regulator = regulator_get(NULL, "sensor_led_3v");
+			ret = regulator_disable(led_regulator); 
+			printk(KERN_INFO "[GP2A] regulator_disable : %d\n", ret);
+			regulator_put(led_regulator);
+		}
+#if defined (CONFIG_MACH_GARDALTE) 
+	}
+#endif
+}
+
+#define PROXI_INT_GPIO_PIN 108
 static struct gp2ap002_platform_data gp2ap002_platform_data = {
+	.power_on = gp2ap002_power_onoff,
+	.led_on = gp2ap002_led_onoff,
 	.irq_gpio = PROXI_INT_GPIO_PIN,
-	.irq = irqpin2irq(PROXI_INT_GPIO_PIN),        
+	.irq = irqpin2irq(46),
 };
 #endif
-
 
 #if defined(CONFIG_OPTICAL_TAOS_TRITON)
 #define GPIO_ALS_INT	 108
@@ -182,20 +201,21 @@ static struct taos_platform_data taos_pdata = {
 #endif
 
 static struct i2c_board_info __initdata i2c2_devices[] = {
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
+
+#if defined(CONFIG_INPUT_MPU6050)
 	{
-		I2C_BOARD_INFO("mpu6050", 0x68),
-		.irq = irqpin2irq(46),
-		.platform_data = &mpu6050_data,
-	 },
+		I2C_BOARD_INFO("mpu6050_input", 0x68),
+		.platform_data = &mpu6k_pdata,
+		.irq =  irqpin2irq(46),
+	},
 #endif
 
-#if defined (CONFIG_MPU_SENSORS_MPU6500)
+#if defined(CONFIG_INPUT_MPU6500)
 	{
-		I2C_BOARD_INFO("mpu6500", 0x68),
-		.irq = irqpin2irq(46),
-		.platform_data = &mpu6500_data,
-	 },
+		I2C_BOARD_INFO("mpu6500_input", 0x62), /*dummy address*/
+		.platform_data = &mpu6k_pdata,
+		.irq =  irqpin2irq(46),
+	},
 #endif
 
 #if defined (CONFIG_INPUT_YAS_SENSORS)
@@ -233,7 +253,7 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #endif
 };
 
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_MPU_SENSORS_MPU6500)
+#if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
 void mpl_init(void)
 {
 	int rc = 0;
@@ -242,21 +262,17 @@ void mpl_init(void)
 		pr_err("GPIO_MPU3050_INT gpio_request was failed\n");
 	gpio_direction_input(GPIO_PORT107);
 	gpio_pull_up_port(GPIO_PORT107);
-
-	mpu_power_on(1);
 }
 #endif
 
-void __init sensor_init(void)
+void __init board_sensor_init(void)
 {
 	printk("%s : START\n", __func__);
 
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_MPU_SENSORS_MPU6500)
+#if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
 	mpl_init();
 #endif
 
 	i2c_register_board_info(I2C_BUS_ID_SENSOR, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 	return;
 }
-
-

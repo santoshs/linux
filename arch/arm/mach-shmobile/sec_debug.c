@@ -3,8 +3,6 @@
  *
  */
 
-#include <linux/init.h>
-#include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/ctype.h>
 #include <linux/notifier.h>
@@ -28,10 +26,10 @@
 #include <linux/ptrace.h>
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
+#include <linux/moduleparam.h>
+#include <asm/system_misc.h>
 
-#if defined(CONFIG_ARCH_EXYNOS)
-#include <plat/system-reset.h>
-#elif defined(CONFIG_ARCH_SHMOBILE)
+#if defined(CONFIG_ARCH_SHMOBILE)
 #include <mach/system.h>
 #endif
 
@@ -55,9 +53,6 @@
 #if defined(CONFIG_SEC_MODEM_P8LTE)
 #include <linux/miscdevice.h>
 #endif
-#ifdef CONFIG_PROC_SEC_MEMINFO
-#include "linux/sec_meminfo.h"
-#endif
 /* klaatu - schedule log */
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 #define SCHED_LOG_MAX 2048
@@ -67,31 +62,28 @@ struct sched_log {
 		unsigned long long time;
 		char comm[TASK_COMM_LEN];
 		pid_t pid;
-	} task[NR_CPUS][SCHED_LOG_MAX];
+	} task[CONFIG_NR_CPUS][SCHED_LOG_MAX];
 	struct irq_log {
 		unsigned long long time;
 		int irq;
 		void *fn;
 		int en;
-	} irq[NR_CPUS][SCHED_LOG_MAX];
+	} irq[CONFIG_NR_CPUS][SCHED_LOG_MAX];
 	struct work_log {
 		unsigned long long time;
 		struct worker *worker;
 		struct work_struct *work;
 		work_func_t f;
-	} work[NR_CPUS][SCHED_LOG_MAX];
-	struct hrtimer_log {
-		unsigned long long time;
-		struct hrtimer *timer;
-		enum hrtimer_restart (*fn)(struct hrtimer *);
 		int en;
-	} hrtimers[NR_CPUS][8];
+	} work[CONFIG_NR_CPUS][SCHED_LOG_MAX];
 };
 #endif				/* CONFIG_SEC_DEBUG_SCHED_LOG */
 
 #ifdef CONFIG_SEC_DEBUG_AUXILIARY_LOG
-#define AUX_LOG_CPU_CLOCK_MAX 64
-#define AUX_LOG_CMA_RBTREE_MAX 64
+#define AUX_LOG_CPU_CLOCK_SWITCH_MAX 128
+#define AUX_LOG_RUNTIME_PM_MAX 128
+#define AUX_LOG_PM_MAX 1024
+#define AUX_LOG_NOTIFY_FAIL_MAX 64
 #define AUX_LOG_LENGTH 128
 
 struct auxiliary_info {
@@ -102,8 +94,10 @@ struct auxiliary_info {
 
 /* This structure will be modified if some other items added for log */
 struct auxiliary_log {
-	struct auxiliary_info CpuClockLog[AUX_LOG_CPU_CLOCK_MAX];
-	struct auxiliary_info CmaRbtreeLog[AUX_LOG_CMA_RBTREE_MAX];
+	struct auxiliary_info CpuClockSwitchLog[AUX_LOG_CPU_CLOCK_SWITCH_MAX];
+	struct auxiliary_info RuntimePmLog[AUX_LOG_RUNTIME_PM_MAX];
+	struct auxiliary_info PmLog[AUX_LOG_PM_MAX];
+	struct auxiliary_info NotifyFailLog[AUX_LOG_NOTIFY_FAIL_MAX];
 };
 
 #else
@@ -148,7 +142,7 @@ struct rwsem_debug {
 /**
  * @warning original magic isn't on inform area.
  */
-#define SEC_DEBUG_MAGIC_PA SEC_DEBUG_INFORM_PHYS
+#define SEC_DEBUG_MAGIC_PA SEC_DEBUG_INFORM_PHYS 
 #define SEC_DEBUG_MAGIC_VA SEC_DEBUG_INFORM_VIRT
 
 #define S5P_INFORM0 (SEC_DEBUG_MAGIC_VA + 0x00000004)
@@ -162,6 +156,20 @@ struct rwsem_debug {
 #else
 #define SEC_DEBUG_MAGIC_PA S5P_PA_SDRAM
 #define SEC_DEBUG_MAGIC_VA phys_to_virt(SEC_DEBUG_MAGIC_PA)
+#endif
+
+#ifdef CONFIG_KOR_B10_DEBUG
+enum sec_debug_reset_reason_t {
+	RR_S = 1,
+	RR_W = 2,
+	RR_D = 3,
+	RR_K = 4,
+	RR_M = 5,
+	RR_P = 6,
+	RR_R = 7,
+	RR_B = 8,
+	RR_N = 9,
+};
 #endif
 
 enum sec_debug_upload_cause_t {
@@ -263,6 +271,12 @@ struct sec_debug_core_t {
  * The other cases are not considered
  */
 union sec_debug_level_t sec_debug_level = { .en.kernel_fault = 1, };
+
+#ifdef CONFIG_KOR_B10_DEBUG
+static unsigned reset_reason = RR_N;
+module_param_named(reset_reason, reset_reason, uint, 0644);
+#endif
+
 module_param_named(enable, sec_debug_level.en.kernel_fault, ushort, 0644);
 module_param_named(enable_user, sec_debug_level.en.user_fault, ushort, 0644);
 module_param_named(level, sec_debug_level.uint_val, uint, 0644);
@@ -274,10 +288,9 @@ static struct sched_log sec_debug_log __cacheline_aligned;
 static struct sched_log sec_debug_log[NR_CPUS][SCHED_LOG_MAX]
 	__cacheline_aligned;
 */
-static atomic_t task_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static atomic_t irq_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static atomic_t work_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static atomic_t hrtimer_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+static atomic_t task_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+static atomic_t irq_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+static atomic_t work_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static struct sched_log (*psec_debug_log) = (&sec_debug_log);
 /*
 static struct sched_log (*psec_debug_log)[NR_CPUS][SCHED_LOG_MAX]
@@ -290,9 +303,13 @@ static unsigned long long gExcpIrqExitTime[NR_CPUS];
 #ifdef CONFIG_SEC_DEBUG_AUXILIARY_LOG
 static struct auxiliary_log gExcpAuxLog	__cacheline_aligned;
 static struct auxiliary_log *gExcpAuxLogPtr;
-static atomic_t gExcpAuxCpuClockLogIdx = ATOMIC_INIT(-1);
-static atomic_t gExcpAuxCmaRbtreeLogIdx = ATOMIC_INIT(-1);
+static atomic_t gExcpAuxCpuClockSwitchLogIdx = ATOMIC_INIT(-1);
+static atomic_t gExcpAuxRuntimePmLogIdx = ATOMIC_INIT(-1);
+static atomic_t gExcpAuxPmLogIdx = ATOMIC_INIT(-1);
+static atomic_t gExcpAuxNotifyFailLogIdx = ATOMIC_INIT(-1);
 #endif
+
+static int bStopLogging;
 
 static int checksum_sched_log(void)
 {
@@ -354,7 +371,7 @@ struct sem_debug sem_debug_free_head;
 struct sem_debug sem_debug_done_head;
 int sem_debug_free_head_cnt;
 int sem_debug_done_head_cnt;
-int sem_debug_init = 0;
+int sem_debug_init;
 spinlock_t sem_debug_lock;
 
 /* rwsemaphore logging */
@@ -362,7 +379,7 @@ struct rwsem_debug rwsem_debug_free_head;
 struct rwsem_debug rwsem_debug_done_head;
 int rwsem_debug_free_head_cnt;
 int rwsem_debug_done_head_cnt;
-int rwsem_debug_init = 0;
+int rwsem_debug_init;
 spinlock_t rwsem_debug_lock;
 
 #endif /* CONFIG_SEC_DEBUG_SEMAPHORE_LOG */
@@ -509,7 +526,7 @@ static inline void sec_debug_save_mmu_reg(struct sec_debug_mmu_reg_t *mmu_reg)
 	);
 }
 
-static inline void sec_debug_save_context(void)
+inline void sec_debug_save_context(void)
 {
 	unsigned long flags;
 	local_irq_save(flags);
@@ -589,7 +606,10 @@ static inline void sec_debug_hw_reset(void)
 
 	arch_reset(0, 0);
 
-	while (1) ;
+	while (1) {
+		pr_err("should not be happend\n");
+		pr_err("should not be happend\n");
+	}
 }
 
 #ifdef CONFIG_SEC_WATCHDOG_RESET
@@ -600,62 +620,11 @@ static inline void sec_debug_disable_watchdog(void)
 }
 #endif
 
-#if defined(CONFIG_SEC_MODEM_P8LTE)
-static void __iomem *idpram_base;
-void sec_set_cp_upload(void)
-{
-	unsigned int send_mail, wait_count;
-	volatile u16 *cp_dpram_mbx_BA;/*send mail box*/
-	volatile u16 *cp_dpram_mbx_AB;/*receive mail box*/
-
-	cp_dpram_mbx_BA = (volatile u16 *)(idpram_base + 0x3FFC);
-	cp_dpram_mbx_AB = (volatile u16 *)(idpram_base + 0x3FFE);
-
-	send_mail = 0xc9; /*KERNEL_SEC_DUMP_AP_DEAD_INDICATOR_DPRAM*/
-
-	*cp_dpram_mbx_BA = send_mail;
-
-	pr_err("%s : set cp upload mode, MailboxBA 0x%x\n",
-		__func__, send_mail);
-
-	wait_count = 0;
-	while (1) {
-		if (*cp_dpram_mbx_AB == 0xc6) {
-			pr_err("%s  - Done.\n", __func__);
-			break;
-		}
-		mdelay(10);
-		if (++wait_count > 2500) {
-			pr_err("%s - Fail to set CP uploadmode.\n", __func__);
-			break;
-		}
-	}
-	pr_err("%s : modem_wait_count : %d\n", __func__, wait_count);
-}
-
-static struct miscdevice sec_cp_upload_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "cp_upload",
-};
-static __init int sec_cp_upload_init(void)
-{
-	/*DPRAM_START_ADDRESS_PHYS + DPRAM_SHARED_BANK_SIZE*/
-	idpram_base = ioremap_nocache(0x13A00000, 0x4000);
-
-	if (idpram_base == NULL)
-		printk(KERN_ERR "%s : failed ioremap\n", __func__);
-
-	return misc_register(&sec_cp_upload_dev);
-}
-
-static __exit void sec_cp_upload_exit(void)
-{
-	misc_deregister(&sec_cp_upload_dev);
-}
-
-module_init(sec_cp_upload_init);
-module_exit(sec_cp_upload_exit);
+#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
+static void dump_all_task_info(void);
+static void dump_cpu_stat(void);
 #endif
+
 static int sec_debug_panic_handler(struct notifier_block *nb,
 				   unsigned long l, void *buf)
 {
@@ -663,6 +632,16 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 		return -1;
 
 	local_irq_disable();
+
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+	bStopLogging = 1;
+
+#if defined(CONFIG_ARCH_EXYNOS)
+	pr_info("APLL_CON :%x \n", __raw_readl(EXYNOS5_APLL_CON0) );	
+	pr_info("BPLL_CON :%x \n", __raw_readl(EXYNOS5_BPLL_CON0) );	
+	pr_info("KPLL_CON :%x \n", __raw_readl(EXYNOS5_KPLL_CON0) );	
+#endif
+#endif
 
 	sec_debug_set_upload_magic(0x66262564, buf);
 
@@ -687,17 +666,24 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	/**
 	 * remove unhelpful debug log
 	 */
+#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
+	dump_all_task_info();
+	dump_cpu_stat();
+
+	show_state_filter(TASK_STATE_MAX);	/* no backtrace */
+#endif
+#else
+#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
+	dump_all_task_info();
+	dump_cpu_stat();
+
+	show_state_filter(TASK_STATE_MAX);	/* no backtrace */
 #else
 	show_state();
 #endif
+#endif
 
 	sec_debug_dump_stack();
-#if defined(CONFIG_SEC_MODEM_P8LTE)
-	sec_set_cp_upload();
-#endif
-#ifdef CONFIG_PROC_SEC_MEMINFO
-	sec_meminfo_print();
-#endif
 	sec_debug_hw_reset();
 
 	return 0;
@@ -735,31 +721,11 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 	static bool voldown_p;
 	static int loopcount;
 
-	/* In Case of GC1,
-	 * use Tele key as Volume up,
-	 * use Wide key as volume down.
-	 */
-#ifdef CONFIG_MACH_GC1
-	static unsigned int VOLUME_UP = 0x221;
-	static unsigned int VOLUME_DOWN = 0x222;
-
-	if (system_rev < 2) {
-		VOLUME_UP = KEY_CAMERA_ZOOMIN;
-		VOLUME_DOWN = KEY_CAMERA_ZOOMOUT;
-	}
-#else
 	static const unsigned int VOLUME_UP = KEY_VOLUMEUP;
 	static const unsigned int VOLUME_DOWN = KEY_VOLUMEDOWN;
-#endif
 
 	if (!sec_debug_level.en.kernel_fault)
 		return;
-
-	/* Must be deleted later */
-#if defined(CONFIG_MACH_MIDAS) || defined(CONFIG_SLP)
-	pr_info("%s:key code(%d) value(%d)\n",
-		__func__, code, value);
-#endif
 
 	/* Enter Force Upload
 	 *  Hold volume down key first
@@ -780,11 +746,7 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 #ifdef CONFIG_FB_S5P
 					read_lcd_register();
 #endif
-#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
-					dump_state_and_upload();
-#else
 					panic("Crash Key");
-#endif
 				}
 			}
 		}
@@ -797,6 +759,7 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 		}
 	}
 }
+
 #else
 static struct hrtimer upload_start_timer;
 
@@ -854,7 +817,6 @@ static int __init upload_timer_init(void)
 
 /* this should be initialized prior to keypad driver */
 early_initcall(upload_timer_init);
-
 #endif
 
 static struct notifier_block nb_reboot_block = {
@@ -876,7 +838,8 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 	char *ptr = (char *)SEC_DEBUG_MAGIC_VA + SZ_1K;
 	int total_chars = SZ_4K - SZ_1K;
 	int total_lines = 50;
-	int last_chars; /* no of chars which fits in total_chars *and* in total_lines */
+	/* no of chars which fits in total_chars *and* in total_lines */
+	int last_chars;
 
 	for (last_chars = 0;
 	     l2 && l2 > last_chars && total_lines > 0
@@ -911,7 +874,6 @@ __init int sec_debug_init(void)
 	if (!sec_debug_level.en.kernel_fault)
 		return -1;
 
-#if 1
 #if defined(SEC_DEBUG_INFORM)
 	if (sec_debug_inform_init() == NULL)
 		return -2;
@@ -919,7 +881,6 @@ __init int sec_debug_init(void)
 
 	sec_debug_set_upload_magic(0x66262564, NULL);
 	sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
-#endif
 
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG_NONCACHED
 	map_noncached_sched_log_buf();
@@ -949,8 +910,10 @@ void __sec_debug_task_log(int cpu, struct task_struct *task)
 {
 	unsigned i;
 
-	i = atomic_inc_return(&task_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->task[0]) - 1);
+	if (bStopLogging)
+		return;
+
+	i = atomic_inc_return(&task_log_idx[cpu]) & (SCHED_LOG_MAX - 1);
 	psec_debug_log->task[cpu][i].time = cpu_clock(cpu);
 	strcpy(psec_debug_log->task[cpu][i].comm, task->comm);
 	psec_debug_log->task[cpu][i].pid = task->pid;
@@ -961,8 +924,10 @@ void __sec_debug_irq_log(unsigned int irq, void *fn, int en)
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
-	i = atomic_inc_return(&irq_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->irq[0]) - 1);
+	if (bStopLogging)
+		return;
+
+	i = atomic_inc_return(&irq_log_idx[cpu]) & (SCHED_LOG_MAX - 1);
 	psec_debug_log->irq[cpu][i].time = cpu_clock(cpu);
 	psec_debug_log->irq[cpu][i].irq = irq;
 	psec_debug_log->irq[cpu][i].fn = (void *)fn;
@@ -970,31 +935,20 @@ void __sec_debug_irq_log(unsigned int irq, void *fn, int en)
 }
 
 void __sec_debug_work_log(struct worker *worker,
-			  struct work_struct *work, work_func_t f)
+			  struct work_struct *work, work_func_t f, int en)
 {
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
-	i = atomic_inc_return(&work_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->work[0]) - 1);
+	if (bStopLogging)
+		return;
+
+	i = atomic_inc_return(&work_log_idx[cpu]) & (SCHED_LOG_MAX - 1);
 	psec_debug_log->work[cpu][i].time = cpu_clock(cpu);
 	psec_debug_log->work[cpu][i].worker = worker;
 	psec_debug_log->work[cpu][i].work = work;
 	psec_debug_log->work[cpu][i].f = f;
-}
-
-void __sec_debug_hrtimer_log(struct hrtimer *timer,
-		     enum hrtimer_restart (*fn) (struct hrtimer *), int en)
-{
-	int cpu = raw_smp_processor_id();
-	unsigned i;
-
-	i = atomic_inc_return(&hrtimer_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->hrtimers[0]) - 1);
-	psec_debug_log->hrtimers[cpu][i].time = cpu_clock(cpu);
-	psec_debug_log->hrtimers[cpu][i].timer = timer;
-	psec_debug_log->hrtimers[cpu][i].fn = fn;
-	psec_debug_log->hrtimers[cpu][i].en = en;
+	psec_debug_log->work[cpu][i].en = en;
 }
 
 #ifdef CONFIG_SEC_DEBUG_IRQ_EXIT_LOG
@@ -1022,20 +976,36 @@ void sec_debug_aux_log(int idx, char *fmt, ...)
 	va_end(args);
 
 	switch (idx) {
-	case SEC_DEBUG_AUXLOG_CPU_BUS_CLOCK_CHANGE:
-		i = atomic_inc_return(&gExcpAuxCpuClockLogIdx)
-			& (AUX_LOG_CPU_CLOCK_MAX - 1);
-		(*gExcpAuxLogPtr).CpuClockLog[i].time = cpu_clock(cpu);
-		(*gExcpAuxLogPtr).CpuClockLog[i].cpu = cpu;
-		strncpy((*gExcpAuxLogPtr).CpuClockLog[i].log,
+	case SEC_DEBUG_AUXLOG_CPU_CLOCK_SWITCH_CHANGE:
+		i = atomic_inc_return(&gExcpAuxCpuClockSwitchLogIdx)
+			& (AUX_LOG_CPU_CLOCK_SWITCH_MAX - 1);
+		(*gExcpAuxLogPtr).CpuClockSwitchLog[i].time = cpu_clock(cpu);
+		(*gExcpAuxLogPtr).CpuClockSwitchLog[i].cpu = cpu;
+		strncpy((*gExcpAuxLogPtr).CpuClockSwitchLog[i].log,
 			buf, AUX_LOG_LENGTH);
 		break;
-	case SEC_DEBUG_AUXLOG_CMA_RBTREE_CHANGE:
-		i = atomic_inc_return(&gExcpAuxCmaRbtreeLogIdx)
-			& (AUX_LOG_CMA_RBTREE_MAX - 1);
-		(*gExcpAuxLogPtr).CmaRbtreeLog[i].time = cpu_clock(cpu);
-		(*gExcpAuxLogPtr).CmaRbtreeLog[i].cpu = cpu;
-		strncpy((*gExcpAuxLogPtr).CmaRbtreeLog[i].log,
+	case SEC_DEBUG_AUXLOG_RUNTIME_PM_CHANGE:
+		i = atomic_inc_return(&gExcpAuxRuntimePmLogIdx)
+			& (AUX_LOG_RUNTIME_PM_MAX - 1);
+		(*gExcpAuxLogPtr).RuntimePmLog[i].time = cpu_clock(cpu);
+		(*gExcpAuxLogPtr).RuntimePmLog[i].cpu = cpu;
+		strncpy((*gExcpAuxLogPtr).RuntimePmLog[i].log,
+			buf, AUX_LOG_LENGTH);
+		break;
+	case SEC_DEBUG_AUXLOG_PM_CHANGE:
+		i = atomic_inc_return(&gExcpAuxPmLogIdx)
+			& (AUX_LOG_PM_MAX - 1);
+		(*gExcpAuxLogPtr).PmLog[i].time = cpu_clock(cpu);
+		(*gExcpAuxLogPtr).PmLog[i].cpu = cpu;
+		strncpy((*gExcpAuxLogPtr).PmLog[i].log,
+			buf, AUX_LOG_LENGTH);
+		break;
+	case SEC_DEBUG_AUXLOG_NOTIFY_FAIL:
+		i = atomic_inc_return(&gExcpAuxNotifyFailLogIdx)
+			& (AUX_LOG_NOTIFY_FAIL_MAX - 1);
+		(*gExcpAuxLogPtr).NotifyFailLog[i].time = cpu_clock(cpu);
+		(*gExcpAuxLogPtr).NotifyFailLog[i].cpu = cpu;
+		strncpy((*gExcpAuxLogPtr).NotifyFailLog[i].log,
 			buf, AUX_LOG_LENGTH);
 		break;
 	default:
@@ -1244,6 +1214,59 @@ static int __init sec_debug_user_fault_init(void)
 device_initcall(sec_debug_user_fault_init);
 #endif
 
+#ifdef CONFIG_KOR_B10_DEBUG
+static int set_reset_reason_proc_show(struct seq_file *m, void *v)
+{
+	if (reset_reason == RR_S)
+		seq_printf(m, "SPON\n");
+	else if (reset_reason == RR_W)
+		seq_printf(m, "WPON\n");
+	else if (reset_reason == RR_D)
+		seq_printf(m, "DPON\n");
+	else if (reset_reason == RR_K)
+		seq_printf(m, "KPON\n");
+	else if (reset_reason == RR_M)
+		seq_printf(m, "MPON\n");
+	else if (reset_reason == RR_P)
+		seq_printf(m, "PPON\n");
+	else if (reset_reason == RR_R)
+		seq_printf(m, "RPON\n");
+	else if (reset_reason == RR_B)
+		seq_printf(m, "BPON\n");
+	else
+		seq_printf(m, "NPON\n");
+
+	return 0;
+}
+
+static int sec_reset_reason_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, set_reset_reason_proc_show, NULL);
+}
+
+static const struct file_operations sec_reset_reason_proc_fops = {
+	.open = sec_reset_reason_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int __init sec_debug_reset_reason_init(void)
+{
+	struct proc_dir_entry *entry;
+
+	entry = proc_create("reset_reason", S_IWUGO, NULL,
+		&sec_reset_reason_proc_fops);
+
+	if (!entry)
+		return -ENOMEM;
+
+	return 0;
+}
+
+device_initcall(sec_debug_reset_reason_init);
+#endif
+
 int sec_debug_magic_init(void)
 {
 #if defined(CONFIG_ARCH_SHMOBILE) && defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
@@ -1255,7 +1278,6 @@ int sec_debug_magic_init(void)
 #endif
 
 	pr_info("%s: success reserving magic code area\n", __func__);
-
 	return 0;
 }
 
@@ -1378,21 +1400,21 @@ static void dump_cpu_stat(void)
 	     "TASKLET", "SCHED", "HRTIMER",  "RCU"
 	};
 
-	user = nice = system = idle = iowait = cputime64_zero;
-	irq = softirq = steal = cputime64_zero;
-	guest = guest_nice = cputime64_zero;
+	user = nice = system = idle = iowait = 0UL;
+	irq = softirq = steal = 0UL;
+	guest = guest_nice = 0UL;
 
 	getboottime(&boottime);
 	jif = boottime.tv_sec;
 	for_each_possible_cpu(i) {
-		user = cputime64_add(user, kstat_cpu(i).cpustat.user);
-		nice = cputime64_add(nice, kstat_cpu(i).cpustat.nice);
-		system = cputime64_add(system, kstat_cpu(i).cpustat.system);
-		idle = cputime64_add(idle, kstat_cpu(i).cpustat.idle);
-		idle = cputime64_add(idle, arch_idle_time(i));
-		iowait = cputime64_add(iowait, kstat_cpu(i).cpustat.iowait);
-		irq = cputime64_add(irq, kstat_cpu(i).cpustat.irq);
-		softirq = cputime64_add(softirq, kstat_cpu(i).cpustat.softirq);
+		user = user + kcpustat_cpu(i).cpustat[CPUTIME_USER];
+		nice = nice + kcpustat_cpu(i).cpustat[CPUTIME_NICE];
+		system = system + kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
+		idle = idle + kcpustat_cpu(i).cpustat[CPUTIME_IDLE];
+		idle = idle + arch_idle_time(i);
+		iowait = iowait + kcpustat_cpu(i).cpustat[CPUTIME_IOWAIT];
+		irq = irq + kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
+		softirq = softirq + kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
 
 		for_each_irq_nr(j) {
 			sum += kstat_irqs_cpu(j, i);
@@ -1406,7 +1428,7 @@ static void dump_cpu_stat(void)
 	}
 	sum += arch_irq_stat();
 	pr_info("\n");
-	pr_info(" cpu     user:%llu  nice:%llu  system:%llu  idle:%llu  "
+	pr_info(" cpu     user:%llu  nice:%llu  system:%llu  idle:%llu  " \
 		"iowait:%llu  irq:%llu  softirq:%llu %llu %llu " "%llu\n",
 			(unsigned long long)cputime64_to_clock_t(user),
 			(unsigned long long)cputime64_to_clock_t(nice),
@@ -1421,18 +1443,18 @@ static void dump_cpu_stat(void)
 	pr_info(" -----------------------------------------------------------------------------------\n");
 	for_each_online_cpu(i) {
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
-		user = kstat_cpu(i).cpustat.user;
-		nice = kstat_cpu(i).cpustat.nice;
-		system = kstat_cpu(i).cpustat.system;
-		idle = kstat_cpu(i).cpustat.idle;
-		idle = cputime64_add(idle, arch_idle_time(i));
-		iowait = kstat_cpu(i).cpustat.iowait;
-		irq = kstat_cpu(i).cpustat.irq;
-		softirq = kstat_cpu(i).cpustat.softirq;
+		user = kcpustat_cpu(i).cpustat[CPUTIME_USER];
+		nice = kcpustat_cpu(i).cpustat[CPUTIME_NICE];
+		system = kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
+		idle = kcpustat_cpu(i).cpustat[CPUTIME_IDLE];
+		idle = idle + arch_idle_time(i);
+		iowait = kcpustat_cpu(i).cpustat[CPUTIME_IOWAIT];
+		irq = kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
+		softirq = kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
 		/* steal = kstat_cpu(i).cpustat.steal; */
 		/* guest = kstat_cpu(i).cpustat.guest; */
 		/* guest_nice = kstat_cpu(i).cpustat.guest_nice; */
-		pr_info(" cpu %d   user:%llu  nice:%llu  system:%llu  "
+		pr_info(" cpu %d   user:%llu  nice:%llu  system:%llu  " \
 			"idle:%llu  iowait:%llu  irq:%llu  softirq:%llu "
 			"%llu %llu " "%llu\n",
 			i,
@@ -1500,7 +1522,7 @@ static void dump_state_and_upload(void)
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 static struct proc_dir_entry *sec_cp_crash_proc;
-#define EOS_CPCRASH_REASON_OFFSET (0x00001000)
+#define EOS_CPCRASH_REASON_OFFSET (0x00001000)  
 /* Please reserve 64bytes for EOS_CPCRASH_REASON area */
 static struct sec_debug_inform sec_cp_crash_reason_inform = {
 	.phys = SEC_DEBUG_INFORM_PHYS+EOS_CPCRASH_REASON_OFFSET,

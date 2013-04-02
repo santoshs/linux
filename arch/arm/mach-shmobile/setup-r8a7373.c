@@ -38,13 +38,16 @@
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
-#include <mach/dev-renesas-bt.h>
 
-#if defined(CONFIG_SEC_DEBUG)
-#include <mach/sec_debug.h>
-#if defined(CONFIG_SEC_DEBUG_INFORM)
-#include <mach/sec_debug_inform.h>
+#ifdef CONFIG_RENESAS_BT
+#include <mach/dev-renesas-bt.h>
 #endif
+
+#include <mach/board-bcm4334-bt.h>
+
+#include <mach/sec_debug.h>
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+#include <mach/sec_debug_inform.h>
 #endif
 
 #ifdef CONFIG_MFD_D2153
@@ -93,16 +96,14 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.type		= MT_DEVICE
 	},
 #endif
-
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-        {
-                .virtual        = SEC_DEBUG_INFORM_VIRT,
-                .pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
-                .length         = SZ_4K,
-                .type           = MT_UNCACHED,
-        },
+	{
+		.virtual	= SEC_DEBUG_INFORM_VIRT,
+		.pfn		= __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
+		.length		= SZ_4K,
+		.type		= MT_UNCACHED,
+	},
 #endif
-
 };
 
 void __init r8a7373_map_io(void)
@@ -346,7 +347,7 @@ static struct plat_sci_port scif4_platform_data = {
 	.ops		= &shmobile_sci_port_ops,
 	.capabilities = SCIx_HAVE_RTSCTS,
 	.rts_ctrl	= 0,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
 #endif
 	/* GPIO settings */
@@ -391,7 +392,7 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 		.active = {
 			/* Function 2 */
 			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_INPUT,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
@@ -460,6 +461,7 @@ static struct plat_sci_port scif5_platform_data = {
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif5_gpio_setting_info),
 	.scif_gpio_setting_info = &scif5_gpio_setting_info,
+	.rts_ctrl	= 0,
 };
 
 static struct platform_device scif5_device = {
@@ -1683,7 +1685,7 @@ void __init r8a7373_add_standard_devices(void)
 			platform_add_devices(r8a7373_late_devices_es20,
 				ARRAY_SIZE(r8a7373_late_devices_es20));
 		}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
 #endif

@@ -37,21 +37,6 @@
 #if defined(CONFIG_USB_SWITCH_TSU6712)
 #include <linux/tsu6712.h>
 #endif
-#ifdef CONFIG_MPU_SENSORS_MPU6050B1
-#include <linux/mpu.h>
-#endif
-#ifdef CONFIG_INPUT_YAS_SENSORS
-#include <linux/yas.h>
-#endif
-#ifdef CONFIG_YAS_ACC_MULTI_SUPPORT
-#include <linux/yas_accel.h>
-#endif
-#ifdef CONFIG_OPTICAL_GP2AP020A00F
-#include <linux/i2c/gp2ap020.h>
-#endif
-#ifdef CONFIG_OPTICAL_TAOS_TRITON
-#include <linux/i2c/taos.h>
-#endif
 #include <mach/setup-u2touchkey.h>
 #include <mach/setup-u2mxt224.h>
 
@@ -63,6 +48,9 @@
 
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/dev-renesas-bt.h>
+#endif
+#if defined(CONFIG_RENESAS_GPS)
+#include <mach/board-u2evm-renesas-gps.h>
 #endif
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -92,45 +80,17 @@
 #include <mach/setup-u2stm.h>
 #endif
 
-#include <sound/a2220.h>
-#include <mach/sbsc.h>
-
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
-static void mpu_power_on(int onoff);
 #endif
 
-#ifdef CONFIG_INPUT_YAS_SENSORS
-static void yas_power_on(int onoff);
-#endif
-#if defined(CONFIG_OPTICAL_GP2AP020A00F)
-static void gp2a_power_on(int onoff);
-#endif
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
-	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
-	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
-	defined(CONFIG_INPUT_YAS_SENSORS)
-enum {
-	SNS_PWR_OFF,
-	SNS_PWR_ON,
-	SNS_PWR_KEEP
-};
-#endif
 
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || \
-	defined(CONFIG_OPTICAL_TAOS_TRITON) || \
-	defined(CONFIG_OPTICAL_GP2AP020A00F) || \
-	defined(CONFIG_INPUT_YAS_SENSORS)
-static void sensor_power_on_vdd(int);
+#if defined(CONFIG_SAMSUNG_SENSOR)
+#include <mach/board-u2evm-sensor.h>
 #endif
 
 
 #define SBSC_BASE			(0xFE000000U)
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
-
-#if defined(CONFIG_RENESAS_GPS)
-struct class *gps_class;
-#endif
 
 static int proc_read_board_rev(char *page, char **start, off_t off,
 					int count, int *eof, void *data)
@@ -140,232 +100,6 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 }
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
-
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1) || defined(CONFIG_INPUT_YAS_SENSORS) || \
-	defined(CONFIG_OPTICAL_TAOS_TRITON) || defined(CONFIG_OPTICAL_GP2AP020A00F)
-
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-static int gpiosensor = -1;
-#else
-static struct regulator *vsensor_3V;
-#endif
-
-static void sensor_power_on_vdd(int onoff)
-{
-       pr_err("%s: start ",__func__);
-
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-
-      if(gpiosensor < 0) {
-          gpiosensor = gpio_request(GPIO_PORT9, "SENSOR_LDO");
-	    if (gpiosensor < 0)
-          {
-		pr_err("SENSOR_LDO_EN gpio_request was failed\n");
-             return;
-           }
-	gpio_pull_off_port(GPIO_PORT9);
-      }
-
-	if (onoff == SNS_PWR_ON) {
-            gpio_direction_output(GPIO_PORT9,1);
-            pr_err("%s: power on ",__func__);
-	} else if ((onoff == SNS_PWR_OFF)) {
-            //gpio_direction_output(GPIO_PORT9,0); // TEMP  fix for "inv_i2c_read error"
-            pr_err("%s: power off ",__func__);
-	}
-#else
-	int ret;
-
-       pr_err("%s: start ",__func__);
-
-	if (!vsensor_3V) {
-		if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-			vsensor_3V = regulator_get(NULL, "sensor_3v");
-#endif /* CONFIG_MFD_D2153 */
-		} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-			vsensor_3V = regulator_get(NULL, "vdd_touch");
-#endif /* CONFIG_PMIC_INTERFACE */
-		}
-		pr_err("%s: regulator_get ",__func__);
-		if (IS_ERR(vsensor_3V))
-			return ;
-
-		ret = regulator_set_voltage(vsensor_3V, 3000000, 3000000);
-		if (ret)
-			pr_err("%s: error vsensor_3V setting voltage ret=%d\n",__func__, ret);
-	}
-
-	if (onoff == SNS_PWR_ON) {
-		ret = regulator_enable(vsensor_3V);
-		pr_err("%s: regulator_enable ",__func__);
-		if (ret)
-			pr_err("%s: error enabling regulator\n", __func__);
-	} else if ((onoff == SNS_PWR_OFF)) {
-		if (regulator_is_enabled(vsensor_3V)) {
-			ret = regulator_disable(vsensor_3V);
-			if (ret)
-				pr_err("%s: error vsensor_3V enabling regulator\n",__func__);
-		}
-	}
-#endif
-}
-#endif
-
-
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
-static void mpu_power_on(int onoff)
-{
-	sensor_power_on_vdd(onoff);
-}
-#endif
-
-#ifdef CONFIG_INPUT_YAS_SENSORS
-static void yas_power_on(int onoff)
-{
-	sensor_power_on_vdd(onoff);
-}
-#endif
-
-#if defined(CONFIG_OPTICAL_GP2AP020A00F)
-static void gp2a_power_on(int onoff)
-{
-	sensor_power_on_vdd(onoff);
-}
-#endif
-
-#if defined(CONFIG_OPTICAL_TAOS_TRITON)
-static void taos_power_on(int onoff)
-{
-	sensor_power_on_vdd(onoff);
-}
-#endif
-
-#if defined(CONFIG_OPTICAL_GP2A) || defined(CONFIG_OPTICAL_GP2AP020A00F)
-static void gp2a_led_onoff(int onoff)
-{
-
-}
-#endif
-
-#if defined(CONFIG_OPTICAL_TAOS_TRITON)
-static void taos_led_onoff(int onoff)
-{
-
-}
-#endif
-
-#ifdef CONFIG_MPU_SENSORS_MPU6050B1
-struct mpu_platform_data mpu6050_data = {
-	.int_config = 0x10,
-	.orientation = {-1, 0, 0,
-			0, -1, 0,
-			0, 0, 1},
-	.poweron = mpu_power_on,
-	};
-	/* compass */
-static struct ext_slave_platform_data inv_mpu_yas530_data = {
-	.bus            = EXT_SLAVE_BUS_PRIMARY,
-	.orientation = {1, 0, 0,
-			0, 1, 0,
-			0, 0, 1},
-	};
-#endif
-
-
-#if defined(CONFIG_OPTICAL_GP2AP020A00F)
-#define GPIO_ALS_INT	 108
-static struct gp2a_platform_data opt_gp2a_data = {
-	.gp2a_led_on	= gp2a_led_onoff,
-	.power_on = gp2a_power_on,
-	.p_out = GPIO_ALS_INT,
-	.addr = 0x72>>1,
-	.version = 0,
-};
-
-static struct platform_device opt_gp2a = {
-	.name = "gp2a-opt",
-	.id = -1,
-	.dev        = {
-		.platform_data  = &opt_gp2a_data,
-	},
-};
-#endif
-
-#if defined(CONFIG_OPTICAL_TAOS_TRITON)
-#define GPIO_ALS_INT	 108
-static void taos_power_on(int onoff);
-static void taos_led_onoff(int onoff);
-
-static struct taos_platform_data taos_pdata = {
-	.power	= taos_power_on,
-	.led_on	=	taos_led_onoff,
-	.als_int = GPIO_ALS_INT,
-	.prox_thresh_hi = 650,
-	.prox_thresh_low = 510,
-	.als_time = 0xED,
-	.intr_filter = 0x33,
-	.prox_pulsecnt = 0x08,
-	.prox_gain = 0x28,
-	.coef_atime = 50,
-	.ga = 117,
-	.coef_a = 1000,
-	.coef_b = 1600,
-	.coef_c = 660,
-	.coef_d = 1250,
-};
-#endif
-
-#if defined(CONFIG_INPUT_YAS_SENSORS)
-static struct platform_device yas532_orient_device = {
-	.name			= "orientation",
-};
-#endif
-
-
-static struct i2c_board_info __initdata i2c2_devices[] = {
-#ifdef CONFIG_MPU_SENSORS_MPU6050B1
-	{
-		I2C_BOARD_INFO("mpu6050", 0x68),
-		.irq = R8A7373_IRQC_IRQ(46),
-		.platform_data = &mpu6050_data,
-	 },
-#endif
-#ifdef CONFIG_INPUT_YAS_SENSORS
-	{
-#ifdef CONFIG_YAS_ACC_MULTI_SUPPORT
-		I2C_BOARD_INFO("accelerometer", 0x18),
-		.platform_data = &accel_pdata,
-#else
-		I2C_BOARD_INFO("accelerometer", 0x19),
-#endif
-	},
-	{
-		I2C_BOARD_INFO("geomagnetic", 0x2e),
-	},
-#endif
-#if defined(CONFIG_OPTICAL_GP2AP020A00F)
-	{
-		I2C_BOARD_INFO("gp2a", 0x72>>1),
-	},
-#elif defined(CONFIG_OPTICAL_TAOS_TRITON)
-	{
-		I2C_BOARD_INFO("taos", 0x39),
-		.platform_data = &taos_pdata,
-	},
-#endif
-};
-
-#if defined(CONFIG_BATTERY_BQ27425)
-#define BQ27425_ADDRESS (0xAA >> 1)
-#define GPIO_FG_INT 44
-#endif
-
-#if defined(CONFIG_CHARGER_SMB328A)
-#define SMB328A_ADDRESS (0x69 >> 1)
-#define GPIO_CHG_INT 19
-#endif
 
 #if defined(CONFIG_RENESAS_GPS)
 
@@ -518,10 +252,6 @@ static void gps_gpio_init(void)
 	printk("gps_gpio_init done!!\n");
 }
 #endif
-
-#if defined(CONFIG_USB_SWITCH_TSU6712)
-#define TSU6712_ADDRESS (0x4A >> 1)
-#define GPIO_MUS_INT 41
 
 static struct tsu6712_platform_data tsu6712_pdata = {
 };
@@ -843,6 +573,13 @@ static void __init u2evm_init(void)
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
+	/* GPS UART settings (ttySC5) */
+	/* SCIFB1 */
+	gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
+	gpio_request(GPIO_FN_SCIFB1_RXD, NULL);
+	gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
+	gpio_request(GPIO_FN_SCIFB1_RTS, NULL);
+
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
 	gpio_request(GPIO_FN_KEYIN0, NULL);
@@ -879,8 +616,8 @@ static void __init u2evm_init(void)
 	// ===== CWS GPIO =====
 	
 	// GPS Reset
-	gpio_request(GPIO_PORT10, NULL);
-	gpio_direction_output(GPIO_PORT10, 0);
+	// gpio_request(GPIO_PORT10, NULL);
+	// gpio_direction_output(GPIO_PORT10, 0);
 	
 	// GPS Enable
 	gpio_request(GPIO_PORT11, NULL);
@@ -1091,10 +828,6 @@ static void __init u2evm_init(void)
 			ARRAY_SIZE(devices_stm_none));
 	}
 
-#if defined(CONFIG_MPU_SENSORS_MPU6050B1)
-	mpl_init();
-#endif
-
 	if(u2_get_board_rev() < 4)
 		touchkey_init_hw();
 
@@ -1107,7 +840,11 @@ static void __init u2evm_init(void)
 	} else {
 		i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 	}
-	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
+
+#if defined(CONFIG_SAMSUNG_SENSOR)
+	board_sensor_init();
+#endif
+
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 	i2c_register_board_info(4, i2c4_devices, ARRAY_SIZE(i2c4_devices));
 	if(u2_get_board_rev() >= 5) {
@@ -1116,8 +853,8 @@ static void __init u2evm_init(void)
 		i2c_register_board_info(8, i2cm_devices, ARRAY_SIZE(i2cm_devices));
 	}
 
+#if defined(CONFIG_GPS_BCM4752)
 	/* GPS Init */
-#if defined(CONFIG_RENESAS_GPS)
 	gps_gpio_init();
 #endif
 	if(u2_get_board_rev() < 4)
@@ -1146,7 +883,9 @@ platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	i2c_register_board_info(8, pn544_info, ARRAY_SIZE(pn544_info)); 
 #endif
 #endif
-
+#ifdef CONFIG_PN547_NFC
+	pn547_device_i2c_register();
+#endif
 }
 
 static void __init u2evm_reserve(void)

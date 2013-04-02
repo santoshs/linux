@@ -408,6 +408,9 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
 {
 	ktime_t time_start, time_end;
+#if DISPLAY_LOG
+	int idle_time;
+#endif
 	s64 diff;
 	long wakelock;
 
@@ -496,6 +499,9 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
 {
 	ktime_t time_start, time_end;
+#if DISPLAY_LOG
+	int idle_time;
+#endif
 	s64 diff;
 	long wakelock;
 	unsigned int dr_WUPSFAC;

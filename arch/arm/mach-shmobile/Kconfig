@@ -120,11 +120,14 @@ config MACH_GARDALTE
 	depends on ARCH_R8A7373
 
 config MACH_LOGANLTE
-	bool "Loganlte board support"
+	bool "LoganLTE board"
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
-	help
-	  Select this to support loganlte board.
+
+config MACH_LT02LTE
+	bool "LT02LTE board"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A7373
 
 config MACH_U2USB
 	bool "U2USB board"
@@ -151,7 +154,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x4C000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE
+	default "0x4C000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -162,7 +165,7 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE
+	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -193,10 +196,10 @@ config SH_TIMER_CMT
 	  This enables build of the CMT timer driver.
 
 config SH_TIMER_CMT_ARM
-        bool "CMT timer driver dedicated for ARM CPU timer"
-        default y
-        help
-          This enables build of the CMT timer driver.
+	bool "CMT timer driver dedicated for ARM CPU timer"
+	default y
+	help
+	  This enables build of the CMT timer driver.
 
 endmenu
 
@@ -208,13 +211,13 @@ config CPUFREQ_SUPPORT
 	bool "Enable support for CPU srequency scaling"
 	select ARCH_HAS_CPUFREQ
 	help
-	   This enables support for CPU frequency scaling
-	   with R-Mobile U2 HW
-	   DFS is developed basing on CPUFreq framework of Linux kernel of Android OS.
-	   DFS is a feature offered to reduce power consumption
-	   by changing system clock dynamically (based on system load).
-	   When system load meets a specific condition,
-	   system clocks frequencies will be changed automatically.
+	  This enables support for CPU frequency scaling
+	  with R-Mobile U2 HW
+	  DFS is developed basing on CPUFreq framework of Linux kernel of Android OS.
+	  DFS is a feature offered to reduce power consumption
+	  by changing system clock dynamically (based on system load).
+	  When system load meets a specific condition,
+	  system clocks frequencies will be changed automatically.
 
 endmenu
 
@@ -224,20 +227,20 @@ config SH_CLK_CPG
 menu "Modem STM trace and debug configuration"
 
 config MUX_STM_TO_SDHI1
-        bool "Mux STM to SDHI1"
-        default y
-        help
-          Mux STM CLK, DATA0-3, and SIDI to SDHI1 interface.
+	bool "Mux STM to SDHI1"
+	default y
+	help
+	  Mux STM CLK, DATA0-3, and SIDI to SDHI1 interface.
 
 endmenu
 
 menu "SH-Mobile TrustZone Configuration"
 config ARM_TZ
 	bool "ARM trustzone (TZ) Configuration."
-        default n
-#       depends ARM
-        ---help---
-        ARM trustzone (TZ) Configuration.
+	default n
+# 	depends ARM
+	---help---
+	  ARM trustzone (TZ) Configuration.
 endmenu
 
 menu "SH-Mobile CPUFreq Setting"
@@ -296,7 +299,7 @@ config PDC
 	depends on PM_RUNTIME
 	help
 	  This enables build of PDC driver.
-	  
+
 config PM_HAS_SECURE
 	default y
 	bool "Support Secure OS by Power Management"
@@ -383,18 +386,86 @@ config BOARD_VERSION_LOGANLTE
 	help
 	  Board revision number
 
+config BOARD_VERSION_LT02LTE
+	bool "board_revision"
+	help
+	  Board revision number
+
+#
+# GPS devices
+#
+config GPS_CSR_GSD5T
+	bool "CSR_GSD5T_CHIPSET"
+	default n
+
+config GPS_BCM4752
+	bool "BROADCOM_BCM4752_CHIPSET"
+	default n
+
+config RENESAS
+	bool "Renesas reference implementations"
+	default n
+
+if BT
+config BT_CSR8811
+	bool "Enable CSR8811 driver"
+	default n
+
+config BT_BCM4330
+	bool "Enable BCM4330 driver"
+	default n
+
+config BT_BCM4334
+	bool "Enable BCM4334 driver"
+	default n
+	help
+	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
+
+config BCM4334_BT
+	bool "Enable BCM4334 driver on Renesas Baseband"
+	default y
+	help
+	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
+
+config BT_BCM43241
+	bool "Enable BCM43241 driver"
+	default n
+	help
+	  Adds BCM43241 RFKILL driver for Broadcom BCM4334 chipset
+ 
+config BT_MGMT
+	bool "Bluetooth Mgmt"
+	default n
+	help
+	  This is for bluetooth mgmt
+endif
+
+config SAMSUNG_SENSOR
+	bool "Enable Samsung Sensor Driver"
+	default n
+	---help---
+	  support Samsung Sensor Driver
 
 config FLASH_AAT1274
-        bool "Enable AAT1274 driver"
-        default n
-        ---help---
- 	    Adds AAT1274 LED Flash driver
+	bool "Enable AAT1274 driver"
+	default n
+	---help---
+	  support AAT1274 LED Flash driver.
+	  The AAT1274 a high-efficiency, 1.5A high-current
+	  boost converter for LED photo flash applications.
+	  AAT1274 can be controlled throuth the single wire serial interface
+	  and/or external control pins.
 
 config FLASH_MIC2871
-        bool "Enable MIC2871 driver"
-        default n
-        ---help---
- 	    Adds MIC2871 LED Flash driver
+	bool "Enable MIC2871 driver"
+	default n
+	---help---
+	  support MIC2871 LED Flash driver.
+	  The MIC2871 is a high current, efficiency Flash LED driver.
+	  MIC2871 can be controlled throuth the single wire serial interface
+	  and/or external control pins.
+
+source arch/arm/mach-shmobile/Kconfig.sec
 
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
@@ -405,8 +476,6 @@ config SHMOBILE_PASR_SUPPORT
 	help
 	  This enables PASR support
 	  It is called by Suspend module before entering suspend state
-
-# endif for ARCH_SHMOBILE
 
 menu "Kernel low-level debugging via SuperH SCI(F) port"
 
@@ -426,6 +495,8 @@ config SH_RAMDUMP
 	  and emerg kmsg callback. It will also save exceptio, core&mmu and
 	  some hw registers to ram.
 
+# Samsung debugging features
 source arch/arm/mach-shmobile/Kconfig.sec
 
+# endif for ARCH_SHMOBILE
 endif
