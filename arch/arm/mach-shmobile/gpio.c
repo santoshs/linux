@@ -11,7 +11,6 @@
  */
 
 #include <mach/gpio.h>
-#include <mach/board-u2evm.h>
 #include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -55,6 +54,21 @@ void gpio_bidirection_port(int gpio)
 }
 EXPORT_SYMBOL_GPL(gpio_bidirection_port);
 
+/* Initialize gpio unused ports to 0xA0 */
+void unused_gpio_port_init(int gpio)
+{
+	int ret = 0;
+	ret = gpio_request(gpio, NULL);
+	if (ret < 0)
+		printk(KERN_ERR, "%s: request failed %d\n", __func__, gpio);
+	ret = gpio_direction_input(gpio);
+	if (ret < 0)
+		printk(KERN_ERR, "%s: dir input failed %d\n", __func__, gpio);
+	gpio_pull_down_port(gpio);
+	if (ret < 0)
+		printk(KERN_ERR, "%s: pull down failed %d\n", __func__, gpio);
+}
+EXPORT_SYMBOL_GPL(unused_gpio_port_init);
 
 /* Function to set GPIO CR in suspend/resume from driver code */
 void gpio_set_portncr_value(unsigned int port_count,

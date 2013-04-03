@@ -404,6 +404,7 @@ static void __init gardalte_init(void)
 	void __iomem *sbsc_sdmra_28200 = 0;
 	void __iomem *sbsc_sdmra_38200 = 0;
 
+	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 
 	u8 reg8 = __raw_readb(STBCHRB3);
@@ -471,6 +472,14 @@ static void __init gardalte_init(void)
 	gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
+	if (u2_get_board_rev() == 1) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev1); inx++)
+			unused_gpio_port_init(unused_gpios_garda_rev1[inx]);
+	} else if (u2_get_board_rev() == 2) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev2); inx++)
+			unused_gpio_port_init(unused_gpios_garda_rev2[inx]);
+	}
+
 
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 	/* enable KEYSC */
