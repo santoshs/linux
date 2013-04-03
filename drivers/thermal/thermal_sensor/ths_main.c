@@ -573,7 +573,6 @@ static int ths_late_resume(struct early_suspend *h)
  */
 static int ths_suspend(struct device *dev)
 {
-	u_int reg;
 
 	THS_DEBUG_MSG("%s: Enter\n", __func__);
 

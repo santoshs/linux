@@ -80,6 +80,7 @@
 #endif
 
 static int kernel_init(void *);
+int iSTrustZoneEnvironmetEnabled(void);
 
 extern void init_IRQ(void);
 extern void fork_init(unsigned long);

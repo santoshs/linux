@@ -1070,7 +1070,7 @@ NextFrame:
 	if (cpu_to_le32(REMOTE_NDIS_PACKET_MSG)
 			== get_unaligned_le32(tmp++)) {
 		skb_queue_tail(list, newskb);
-		skb->data = (unsigned int *)(((u8 *)tmp) - 4);
+		skb->data = (unsigned char *)(((u8 *)tmp) - 4);
 		goto NextFrame;
 	}
 
@@ -1078,7 +1078,6 @@ NextFrame:
 	dev_kfree_skb_any(skb);
 	return 0;
 }
-
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 
 static int rndis_proc_show(struct seq_file *m, void *v)

@@ -1317,7 +1317,7 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
-	struct fb_info *info;
+	struct fb_info *info = NULL;
 	struct sh_mobile_lcdc_priv *priv;
 	struct sh_mobile_lcdc_info *pdata;
 	struct sh_mobile_lcdc_chan_cfg *cfg;
