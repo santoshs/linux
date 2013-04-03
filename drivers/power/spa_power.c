@@ -565,16 +565,25 @@ static int spa_get_charger_type(struct spa_power_desc *spa_power_iter)
 {
 	struct power_supply *ps;
 	union power_supply_propval value;
+	int ret = 0;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
+	pr_spa_dbg(LEVEL1, "%s : charger name = %s\n", __func__,
+					spa_power_iter->charger_info.charger_name);
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	if (ps == NULL) {
+		pr_spa_dbg(LEVEL1, "%s : ps is NULL\n", __func__);
+		return -ENODATA;
+	}
 
-	ps->get_property(ps, POWER_SUPPLY_PROP_TYPE, &value);
+	ret = ps->get_property(ps, POWER_SUPPLY_PROP_TYPE, &value);
+	if (ret < 0)
+		return ret;
 
 	pr_spa_dbg(LEVEL2, "%s : charger type = %d\n", __func__, value.intval);
-
 	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
+
 	return value.intval;
 }
 
@@ -1551,27 +1560,31 @@ static void spa_delayed_init_work(struct work_struct *work)
 
 	struct power_supply *ps;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	ps = power_supply_get_by_name("battery");
 
-	if(ps == NULL)
+	if (ps == NULL)
 	{
-		pr_spa_dbg(LEVEL2, "%s : waiting spa_ps \n", __func__);
+		pr_spa_dbg(LEVEL2, "%s : waiting spa_ps\n", __func__);
 		schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
 		return;
 	}
 
 	init_progress = spa_init_progress(spa_power_iter);
 
-	if(SPA_INIT_PROGRESS_START == init_progress)
+	if (SPA_INIT_PROGRESS_START == init_progress)
 	{
-		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n",__func__);
-	spa_power_iter->charger_info.charger_type = spa_get_charger_type(spa_power_iter);
+		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n", __func__);
+		if (spa_power_iter == NULL)
+			pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
 
-	if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-	{
-		ret=spa_event_handler(SPA_EVT_CHARGER, (void *)(spa_power_iter->charger_info.charger_type));
-	}
+		ret = spa_get_charger_type(spa_power_iter);
+		if (ret > 0) {
+			spa_power_iter->charger_info.charger_type = ret;
+			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
+				ret = spa_event_handler(SPA_EVT_CHARGER,
+										(void *)(spa_power_iter->charger_info.charger_type));
+		}
 
 		// dummy, temporary before actual charger detection in case of power off charging
 		if(spa_power_iter->lp_charging == 1)
@@ -1739,19 +1752,13 @@ static struct platform_driver spa_power_driver = {
 static int __init spa_power_init(void)
 {
 	int ret = 0;
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev >= 3)
-#endif
-		ret = platform_driver_register(&spa_power_driver);
+	ret = platform_driver_register(&spa_power_driver);
 	return ret;
 }
 
 static void __exit spa_power_exit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev >= 3)
-#endif
-		platform_driver_unregister(&spa_power_driver);
+	platform_driver_unregister(&spa_power_driver);
 }
 
 module_init(spa_power_init);

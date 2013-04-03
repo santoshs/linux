@@ -72,9 +72,6 @@ void vibtonz_en(bool en)
 			vib_iter->pwm_handle = NULL;
 			return ;
         }
-		if (u2_get_board_rev() <= 4 ) {
-			pmic_set_power_on(E_POWER_VANA_MM);
-		}
 		vib_iter->gpio_en(en);
 	}
 	else
@@ -98,9 +95,6 @@ void vibtonz_en(bool en)
         vib_iter->pwm_handle = NULL;
 
 		vib_iter->gpio_en(en);
-		if (u2_get_board_rev() <= 4 ) {
-			pmic_set_power_off(E_POWER_VANA_MM);
-		}
 	}
 }
 EXPORT_SYMBOL(vibtonz_en);
@@ -157,11 +151,6 @@ static int isa1000a_haptic_probe(struct platform_device *pdev)
 
 	printk("%s\n", __func__);
 	vib_iter = &vib_desc;
-
-	if (u2_get_board_rev() <= 4 ) {
-		pmic_set_voltage(E_POWER_VANA_MM, E_LDO_VOLTAGE_3_0000V);
-		pmic_set_power_off(E_POWER_VANA_MM);
-	}
 
 	vib_iter->gpio_en = pdata->gpio_en;
 	vib_iter->pwm_name = (const char *)pdata->pwm_name;

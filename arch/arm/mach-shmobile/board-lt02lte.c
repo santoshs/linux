@@ -114,19 +114,18 @@
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
 #define SYS_TPIU_STM_BASE		IO_ADDRESS(0xE6F8A000)
 
-#if defined(CONFIG_BATTERY_BQ27425)
-#define BQ27425_ADDRESS (0xAA >> 1)
-#define GPIO_FG_INT 44
-#endif
-
 #if defined(CONFIG_CHARGER_SMB328A)
 #define SMB328A_ADDRESS (0x69 >> 1)
 #define GPIO_CHG_INT 19
 #endif
 
+#ifdef CONFIG_CHARGER_SMB358
+#define CHARGER_I2C_SLAVE_ADDRESS (0xD4 >> 1)
+#define GPIO_CHG_INT 19
+#endif
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
-
+void init_spa_power(void);
 
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
@@ -248,13 +247,11 @@ static struct platform_device bcm_backlight_devices = {
 #define GPIO_MUS_INT 41
 #endif
 
-static struct i2c_board_info __initdata i2c3_devices[] = {
-#if defined(CONFIG_BATTERY_BQ27425)
-        {
-                I2C_BOARD_INFO("bq27425", BQ27425_ADDRESS),
-                .irq            = R8A7373_IRQC_IRQ(GPIO_FG_INT),
-        },
+#if defined(CONFIG_STC3115_FUELGAUGE)
+extern struct stc311x_platform_data stc3115_data;
 #endif
+
+static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_USB_SWITCH_TSU6712)
         {
                 I2C_BOARD_INFO("tsu6712", TSU6712_ADDRESS),
@@ -262,12 +259,17 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
                         .irq            = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
         },
 #endif
-#if defined(CONFIG_CHARGER_SMB328A)
-        {
-                I2C_BOARD_INFO("smb328a", SMB328A_ADDRESS),
-/*                      .platform_data = &tsu6712_pdata,*/
-/*                      .irq            = irqpin2irq(GPIO_CHG_INT),*/
-        },
+#if defined(CONFIG_STC3115_FUELGAUGE)
+		{
+				I2C_BOARD_INFO("stc3115", STC3115_ADDRESS),
+				.platform_data = &stc3115_data,
+		},
+#endif
+#if defined(CONFIG_CHARGER_SMB358)
+		{
+				I2C_BOARD_INFO("smb358", CHARGER_I2C_SLAVE_ADDRESS),
+				.irq            = irqpin2irq(GPIO_CHG_INT),
+		},
 #endif
 };
 
@@ -1026,6 +1028,10 @@ static void __init lt02lte_init(void)
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	platform_add_devices(guardian__plat_devices,
 					ARRAY_SIZE(guardian__plat_devices));
+
+#if defined(CONFIG_SEC_CHARGING_FEATURE)
+	init_spa_power();
+#endif
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);

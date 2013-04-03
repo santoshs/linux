@@ -21,6 +21,9 @@
 #ifndef __ASM_ARCH_BOARD_LT02LTE_H
 #define __ASM_ARCH_BOARD_LT02LTE_H
 
+#if defined(CONFIG_STC3115_FUELGAUGE)
+#define STC3115_ADDRESS (0x70)
+#endif
 
 /**
  * Camera
