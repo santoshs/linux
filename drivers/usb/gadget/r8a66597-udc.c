@@ -2302,7 +2302,6 @@ static int r8a66597_start(struct usb_gadget *gadget,
 	wake_lock_init(&r8a66597->wake_lock, WAKE_LOCK_SUSPEND, udc_name);
 
 		if (r8a66597->pdata->vbus_irq) {
-			int ret;
 #if !(defined VBUS_HANDLE_IRQ_BASED)
 			ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
 					NULL, r8a66597_vbus_irq,

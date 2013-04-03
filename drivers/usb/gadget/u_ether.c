@@ -686,9 +686,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			del_timer(&multiframe->multiframe_timer);
 		eth_start_xmit_usb(multiframe);
 	}
-out:
-	spin_unlock(&multiframe->timer_lock);
-	return NETDEV_TX_OK;
 drop:
 	spin_unlock(&multiframe->timer_lock);
 	dev->net->stats.tx_dropped++;
