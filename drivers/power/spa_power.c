@@ -1017,7 +1017,7 @@ static void spa_stop_charge_timer(SPA_CHARGING_STATUS_T endtype, void *data)
 {
 	struct spa_power_desc *spa_power_iter = (struct spa_power_desc *)data;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	cancel_delayed_work_sync(&spa_power_iter->spa_expire_charge_work);
 
@@ -1083,8 +1083,7 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 {
 	struct power_supply *ps;
 	union power_supply_propval value;
-
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(POWER_SUPPLY_BATTERY);
 
@@ -1133,13 +1132,15 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 			ps->set_property(ps, POWER_SUPPLY_PROP_HEALTH, &value);
 			break;
 		case POWER_SUPPLY_PROP_PRESENT:
-			value.intval = 1;
+			if (spa_power_iter->charging_status.status ==
+							SPA_STATUS_VF_INVALID)
+				value.intval = 0;
+			else
+				value.intval = 1;
+
 			ps->set_property(ps, POWER_SUPPLY_PROP_PRESENT, &value);
 			break;
 	}
-
-	value.intval = 1;
-	ps->set_property(ps, POWER_SUPPLY_PROP_PRESENT, &value);
 
 }
 
@@ -1263,6 +1264,8 @@ static void spa_batt_work(struct work_struct *work)
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_CAPACITY);
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_VOLTAGE_NOW);
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_HEALTH);
+	spa_update_power_supply_battery(spa_power_iter,
+						POWER_SUPPLY_PROP_PRESENT);
 
 	// check recharge condition
 	if( spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
