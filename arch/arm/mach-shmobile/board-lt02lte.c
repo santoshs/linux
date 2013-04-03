@@ -278,23 +278,9 @@ static struct platform_device *guardian__plat_devices[] __initdata = {
 	&bcm_backlight_devices,
 };
 
-static struct i2c_board_info i2c4_devices_melfas[] = {
-	{
-		I2C_BOARD_INFO("sec_touch", 0x48),
-		.irq = irqpin2irq(32),
-	},
-};
-
 static struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
 		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
-		.irq = irqpin2irq(32),
-	},
-};
-
-static struct i2c_board_info i2c4_devices_imagis[] = {
-	{
-		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
 		.irq = irqpin2irq(32),
 	},
 };

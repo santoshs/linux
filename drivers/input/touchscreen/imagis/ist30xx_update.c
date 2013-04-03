@@ -840,9 +840,12 @@ ssize_t ist30xx_param_store(struct device *dev, struct device_attribute *attr,
 }
 
 /* sysfs  */
-static DEVICE_ATTR(firmware, S_IRWXUGO, ist30xx_fw_status, ist30xx_fw_store);
-static DEVICE_ATTR(version, S_IRWXUGO, ist30xx_fw_version, NULL);
-static DEVICE_ATTR(param, S_IRWXUGO, NULL, ist30xx_param_store);
+static DEVICE_ATTR(firmware,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_fw_status, ist30xx_fw_store);
+static DEVICE_ATTR(version,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					ist30xx_fw_version, NULL);
+static DEVICE_ATTR(param,  S_IRUGO | S_IXUGO | S_IWUSR | S_IWGRP,
+					NULL, ist30xx_param_store);
 
 struct class *ist30xx_class;
 struct device *ist30xx_fw_dev;

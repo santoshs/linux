@@ -22,19 +22,13 @@
 #include <linux/kernel.h>
 #include <linux/i2c/touchkey_i2c.h>
 
-#include <mach/board-u2evm.h>
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
 static struct i2c_board_info i2c_touchkey[];
 
 void touchkey_init_hw(void)
 {
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
 
-	gpio_request(GPIO_PORT29, "TCKEY_LDO");
-	gpio_pull_off_port(29);
-    gpio_direction_output(GPIO_PORT29,0);
-#endif
 }
 
 static int touchkey_suspend(void)
@@ -68,20 +62,6 @@ static int touchkey_resume(void)
 static int touchkey_power_on(bool on)
 {
 	int ret;
-
-	if (on) {
-		/* To do to power on */		
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-	gpio_direction_output(GPIO_PORT29,1);
-#endif
-	}
-	else {
-		/* To do to power off */		
-#if defined (CONFIG_MACH_U2EVM_SR_REV021) || defined (CONFIG_MACH_U2EVM_SR_REV022)
-	gpio_direction_output(GPIO_PORT29,0);
-#endif
-	}
-
 	if (on)
 		ret = touchkey_resume();
 	else
@@ -92,13 +72,6 @@ static int touchkey_power_on(bool on)
 
 static int touchkey_led_power_on(bool on)
 {
-	if (on) {
-		/* To do to led power on */		
-	}
-	else {
-		/* To do to led power off */		
-	}
-	
 	return 1;
 }
 #define TCKEY_SDA 27

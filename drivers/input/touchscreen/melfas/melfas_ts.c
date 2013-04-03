@@ -172,40 +172,6 @@ static int gMenuKey_Intensity, gBackKey_Intensity;
 //extern unsigned int board_hw_revision;
 extern unsigned char IC_type;
 
-#if defined(CONFIG_MACH_KYLE_I)
-#define MAX_RX_	12
-#define MAX_TX_	19
-static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
-	{3171,3304,3323,3339,3352,3362,3365,3369,3371,3371,3381,3383,3385,3387,3388,3389,3390,3390,3377},
-	{3187,3308,3320,3339,3349,3360,3362,3367,3368,3370,3377,3379,3381,3383,3384,3385,3385,3386,3372},
-	{3199,3315,3334,3351,3367,3377,3383,3388,3393,3397,3403,3406,3409,3410,3411,3411,3411,3411,3380},
-	{3212,3325,3337,3355,3365,3377,3379,3383,3384,3387,3392,3394,3396,3398,3399,3400,3400,3400,3387},
-	{3218,3324,3340,3355,3368,3377,3381,3383,3386,3388,3391,3394,3396,3398,3399,3400,3400,3400,3386},
-	{3220,3326,3339,3356,3367,3377,3380,3383,3385,3388,3391,3394,3396,3398,3399,3399,3400,3400,3386},
-	{3214,3320,3334,3350,3362,3370,3374,3377,3379,3382,3384,3387,3389,3391,3392,3393,3394,3394,3379},
-	{3210,3320,3334,3350,3362,3370,3373,3376,3379,3382,3384,3387,3389,3391,3392,3392,3393,3393,3379},
-	{3208,3320,3335,3350,3363,3370,3373,3376,3379,3381,3382,3386,3388,3390,3391,3392,3393,3393,3379},
-	{3204,3321,3338,3358,3372,3381,3385,3391,3396,3402,3404,3408,3410,3412,3412,3412,3413,3412,3379},
-	{3198,3314,3329,3345,3357,3365,3368,3370,3373,3376,3373,3378,3380,3382,3383,3384,3385,3385,3373},
-	{3208,3324,3338,3354,3365,3373,3375,3378,3380,3383,3350,3376,3382,3384,3385,3384,3387,3388,3375},
-};
-
-static const uint16_t SCR_ABS_LOWER_SPEC[MAX_RX_][MAX_TX_] = {
-	{1903,1983,1994,2003,2011,2017,2019,2021,2022,2023,2028,2030,2031,2032,2033,2033,2034,2034,2026},
-	{1912,1985,1992,2003,2009,2016,2017,2020,2021,2022,2026,2027,2029,2030,2030,2031,2031,2032,2023},
-	{1919,1989,2000,2011,2020,2026,2030,2033,2036,2038,2042,2044,2045,2046,2046,2047,2047,2046,2028},
-	{1927,1995,2002,2013,2019,2026,2027,2030,2031,2032,2035,2036,2038,2039,2039,2040,2040,2040,2032},
-	{1931,1995,2004,2013,2021,2026,2028,2030,2031,2033,2035,2036,2037,2039,2039,2040,2040,2040,2032},
-	{1932,1995,2003,2013,2020,2026,2028,2030,2031,2033,2035,2036,2038,2039,2039,2040,2040,2040,2032},
-	{1929,1992,2001,2010,2017,2022,2024,2026,2028,2029,2030,2032,2034,2035,2035,2036,2036,2036,2028},
-	{1926,1992,2000,2010,2017,2022,2024,2026,2027,2029,2030,2032,2033,2034,2035,2035,2036,2036,2027},
-	{1925,1992,2001,2010,2018,2022,2024,2026,2027,2029,2029,2031,2033,2034,2034,2035,2036,2036,2027},
-	{1922,1993,2003,2015,2023,2028,2031,2035,2038,2041,2042,2045,2046,2047,2047,2047,2048,2047,2027},
-	{1919,1988,1997,2007,2014,2019,2021,2022,2024,2026,2024,2027,2028,2029,2030,2030,2031,2031,2024},
-	{1925,1994,2003,2012,2019,2024,2025,2027,2028,2030,2010,2026,2029,2030,2031,2031,2032,2033,2025},
-};
-
-#else	/* CONFIG_MACH_KYLE */
 #define MAX_RX_	30
 #define MAX_TX_	5
 static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
@@ -272,7 +238,6 @@ static const uint16_t SCR_ABS_LOWER_SPEC[MAX_RX_][MAX_TX_] = {
 	{2060, 2057, 2070, 2057, 2054},
 	{2054, 2053, 2053, 2052, 2028},
 };
-#endif
 
 static int g_exciting_ch, g_sensing_ch;
 static unsigned char is_inputmethod;
@@ -483,41 +448,37 @@ static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
 static void ts_power_enable(int en)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-	|| defined(CONFIG_MACH_LT02LTE)
 	int ret;
 	
-	struct regulator *touch_regulator = NULL;
-
-	printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-	if (touch_regulator == NULL) {
-		printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
-		touch_regulator = regulator_get(NULL, "vtsp_3v");
-		if (IS_ERR(touch_regulator)) {
-			printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
-			return;
+		struct regulator *touch_regulator = NULL;
+		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
+		if (touch_regulator == NULL) {
+			printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
+			touch_regulator = regulator_get(NULL, "vtsp_3v");
+			if (IS_ERR(touch_regulator)) {
+				printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
+				return;
+			}
 		}
-	}
 
-	if (en == 1) {
-		printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
+		if (en == 1) {
+			printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
 
-		if (!regulator_is_enabled(touch_regulator)) {
-			printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
-			ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
-			printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
-			ret = regulator_enable(touch_regulator);
-			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			if (!regulator_is_enabled(touch_regulator)) {
+				printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
+				ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
+				printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
+				ret = regulator_enable(touch_regulator);
+				printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			}
+		} else {
+			printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
+
+			if (regulator_is_enabled(touch_regulator)) {
+				ret = regulator_disable(touch_regulator);
+				printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+			}
 		}
-	} else {
-		printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
-
-		if (regulator_is_enabled(touch_regulator)) {
-			ret = regulator_disable(touch_regulator);
-			printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-		}
-	}
-#endif
 }
 
 void ts_power_control(int en)
@@ -1665,8 +1626,6 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
 		struct regulator *regulator;
 		
 			regulator = regulator_get(NULL, "key_led");
@@ -1676,22 +1635,18 @@ static ssize_t touchkey_led_control(struct device *dev,
 			regulator_enable(regulator);
 
 			regulator_put(regulator);
-		#endif
 	}
 	else
 	{
-	#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-			|| defined(CONFIG_MACH_LT02LTE)
 		struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "key_led");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_disable(regulator);
+			regulator_disable(regulator);
 
-		regulator_put(regulator);
-		#endif
+			regulator_put(regulator);
 	}
 
 	return size;
@@ -2376,11 +2331,8 @@ static void get_chip_name(void *device_data)
 	struct melfas_ts_data *ts = (struct melfas_ts_data *)device_data;
 	char buff[16] = {0};
 	set_default_result(ts);
-#if defined(CONFIG_MACH_KYLE_I)
-	snprintf(buff, sizeof(buff), "%s", "MMS134S");
-#else
 	snprintf(buff, sizeof(buff), "%s", "MMS133s");
-#endif
+
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 	ts->cmd_state = 2;
 	dev_info(&ts->client->dev, "%s: %s(%d)\n", __func__,
@@ -3304,9 +3256,6 @@ init_again:
 		ts->config_fw_version = "S7562_0526_G1F";
 	else{
 		ts->config_fw_version = "S7562_0526_G1M";
-		#if defined(CONFIG_MACH_KYLE_I) 		
-		ts->config_fw_version = "S7562i_0526_GFF";
-		#endif
 	}
 
 	fac_dev_ts = device_create(sec_tsp_class,
