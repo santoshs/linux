@@ -278,7 +278,6 @@ struct fm34_platform_data  loganlte_fm34_data = {
 	.gpio_pwdn = GPIO_PORT26,
 	.gpio_rst = GPIO_PORT44,
 	.gpio_bp = GPIO_PORT46,
-	.gpio_avdd = 0,
 };
 
 /* I2C */

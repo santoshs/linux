@@ -16,17 +16,11 @@
  */
 
 #ifndef __FEM34_WE395_H__
-#define __FM34_WE395_H__
+#define __FEM34_WE395_H__
 
 #include <linux/i2c/fm34_we395.h>
 
-#if 1/*defined(CONFIG_MACH_C1_KOR_LGT)*/
-#include "./fm34_cmd/fm34_we395_c1_lgt.h"
-#elif defined(CONFIG_MACH_BAFFIN_KOR_LGT)
-#include "./fm34_cmd/fm34_we395_baffinlte_lgt.h"
-#else
-#include "./fm34_cmd/fm34_we395_default.h"
-#endif
+#include "./fm34_cmd/fm34_we395_cmd.h"
 
 #define FM34_WAIT_TIME 0
 #define FM34_BYPASS_ONLY 0
