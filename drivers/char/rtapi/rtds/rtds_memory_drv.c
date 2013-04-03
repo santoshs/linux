@@ -2,7 +2,7 @@
  * rtds_memory_drv.c
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -25,6 +25,7 @@
 #include <linux/semaphore.h>
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
+#include <linux/mm.h>
 
 #include "log_kernel.h"
 #include "system_memory.h"
@@ -38,13 +39,13 @@
 #define RTDS_MEMORY_DRV_CACHE_MASK	(0xFFFFFFF8)
 
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_init
  * Description: This function creates RTDS MEMORY driver handle.
  * Parameters : rtds_memory_drv_init	- handle informaion
  * Returns	  : RTDS MEMORY driver handle address
  *
- *******************************************************************************/
+ *****************************************************************************/
 void *rtds_memory_drv_init(
 		void
 )
@@ -69,13 +70,13 @@ void *rtds_memory_drv_init(
 }
 EXPORT_SYMBOL(rtds_memory_drv_init);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_cleanup
  * Description: This function cleanups RTDS MEMORY driver handle.
  * Parameters : rtds_memory_cleanup - handle informaion
  * Returns	  : none
  *
- *******************************************************************************/
+ ****************************************************************************/
 void rtds_memory_drv_cleanup(
 		rtds_memory_drv_cleanup_param	*rtds_memory_cleanup
 )
@@ -101,7 +102,7 @@ void rtds_memory_drv_cleanup(
 }
 EXPORT_SYMBOL(rtds_memory_drv_cleanup);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_open_apmem
  * Description: This function creates App shared memory.
  * Parameters : rtds_memory_open_mem - App shared memory create info
@@ -109,7 +110,7 @@ EXPORT_SYMBOL(rtds_memory_drv_cleanup);
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
  *
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_open_apmem(
 	rtds_memory_drv_open_mem_param	 *rtds_memory_open_mem
 )
@@ -154,7 +155,7 @@ int rtds_memory_drv_open_apmem(
 }
 EXPORT_SYMBOL(rtds_memory_drv_open_apmem);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_close_apmem
  * Description: This function destroys App shared memory.
  * Parameters : rtds_memory_close_mem - App shared memory destroy info
@@ -162,7 +163,7 @@ EXPORT_SYMBOL(rtds_memory_drv_open_apmem);
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
  *
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_close_apmem(
 	rtds_memory_drv_close_mem_param	*rtds_memory_close_mem
 )
@@ -203,13 +204,13 @@ int rtds_memory_drv_close_apmem(
 }
 EXPORT_SYMBOL(rtds_memory_drv_close_apmem);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_flush_cache
  * Description: This function flushes the cache.
  * Parameters : addr			- Flush address
  *				size			- Flush size
  * Returns	  : None
- *******************************************************************************/
+ ****************************************************************************/
 void rtds_memory_drv_flush_cache(
 	 unsigned int	addr,
 	 unsigned int	size
@@ -237,7 +238,7 @@ void rtds_memory_drv_flush_cache(
 		rtds_memory_flush_cache_all();
 	} else {
 		/* Flushing a L1 cache in the specified range. */
-		dmac_flush_range((const void *)addr, (const void*)(addr + size));
+		dmac_flush_range((const void *)addr, (const void *)(addr + size));
 		/* Flushing a L2 cache in the specified range. */
 		rtds_memory_flush_l2cache(addr, addr + size);
 	}
@@ -247,13 +248,13 @@ void rtds_memory_drv_flush_cache(
 }
 EXPORT_SYMBOL(rtds_memory_drv_flush_cache);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_inv_cache
  * Description: This function clears the cache.
  * Parameters : addr			- Clear address
  *				size			- Clear size
  * Returns	  : None
- *******************************************************************************/
+ ****************************************************************************/
 void rtds_memory_drv_inv_cache(
 	 unsigned int	addr,
 	 unsigned int	size
@@ -291,14 +292,15 @@ void rtds_memory_drv_inv_cache(
 }
 EXPORT_SYMBOL(rtds_memory_drv_inv_cache);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_change_address
- * Description: This function changes logical address between App doamin and RT domain.
+ * Description: This function changes logical address
+ *				between App doamin and RT domain.
  * Parameters : rtds_memory_drv_change_addr - logical address change informaion
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_change_address(
 	rtds_memory_drv_change_addr_param	*rtds_memory_drv_change_addr
 )
@@ -383,7 +385,7 @@ int rtds_memory_drv_change_address(
 }
 EXPORT_SYMBOL(rtds_memory_drv_change_address);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_share_apmem
  * Description: This function shares App shared memory.
  * Parameters : rtds_memory_share_mem - App shared memory share info
@@ -391,7 +393,7 @@ EXPORT_SYMBOL(rtds_memory_drv_change_address);
  *			  SMAP_PARA_NG	- Parameter Error
  *			  SMAP_MEMORY	- No memory
  *
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_share_apmem(
 	rtds_memory_drv_share_mem_param	 *rtds_memory_share_mem
 )
@@ -425,13 +427,13 @@ int rtds_memory_drv_share_apmem(
 }
 EXPORT_SYMBOL(rtds_memory_drv_share_apmem);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_create_handle
  * Description: This function allocates RTDS MEMORY driver handle region.
  * Parameters : None
  * Returns	  : RTDS MEMORY driver handle address
  *
- *******************************************************************************/
+ ****************************************************************************/
 rtds_memory_drv_handle *rtds_memory_create_handle(
 		void
 )
@@ -453,13 +455,13 @@ rtds_memory_drv_handle *rtds_memory_create_handle(
 }
 EXPORT_SYMBOL(rtds_memory_create_handle);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_destroy_handle
  * Description: This function releases RTDS MEMORY driver handle region.
  * Parameters : handle  - RTDS MEMORY driver handle informaion
  * Returns	  : none
  *
- *******************************************************************************/
+ ****************************************************************************/
 void rtds_memory_destroy_handle(
 		rtds_memory_drv_handle	 *handle
 )
@@ -480,14 +482,14 @@ EXPORT_SYMBOL(rtds_memory_destroy_handle);
 
 
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_map
  * Description: This function gives a map demand to Mpro.
  * Parameters : rtds_memory_map  - Physical continuation domain map information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_map(
 	rtds_memory_drv_map_param	*rtds_memory_map
 )
@@ -520,14 +522,15 @@ EXPORT_SYMBOL(rtds_memory_drv_map);
 
 
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_unmap
  * Description: This function gives a unmap demand to Mpro.
- * Parameters : rtds_memory_unmap  - Physical continuation domain unmap information
+ * Parameters : rtds_memory_unmap  - Physical continuation domain unmap
+ *				information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_unmap(
 	rtds_memory_drv_unmap_param	*rtds_memory_unmap
 )
@@ -559,15 +562,16 @@ EXPORT_SYMBOL(rtds_memory_drv_unmap);
 
 
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_map_pnc
  * Description: This function gives a map demand to Mpro.
- * Parameters : rtds_memory_map_pnc  - Physical non-continuation domain map info
+ * Parameters : rtds_memory_map_pnc  - Physical non-continuation
+ *				domain map info
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
  *				Others			- System error/RT result
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_map_pnc(
 	 rtds_memory_drv_map_pnc_param	*rtds_memory_map_pnc
 )
@@ -606,15 +610,16 @@ EXPORT_SYMBOL(rtds_memory_drv_map_pnc);
 
 
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_unmap_pnc
  * Description: This function gives a unmap demand to Mpro.
- * Parameters : rtds_memory_unmap_pnc  - Physical non-continuation domain unmap info
+ * Parameters : rtds_memory_unmap_pnc  - Physical non-continuation
+ *				domain unmap info
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
  *				Others			- System error/RT result
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_unmap_pnc(
 	 rtds_memory_drv_unmap_pnc_param	*rtds_memory_unmap_pnc
 )
@@ -645,13 +650,14 @@ int rtds_memory_drv_unmap_pnc(
 }
 EXPORT_SYMBOL(rtds_memory_drv_unmap_pnc);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_reg_phymem
  * Description: This function give a translation information.
- * Parameters : rtds_memory_map   -   Physical continuation domain map information
+ * Parameters : rtds_memory_map   -   Physical continuation
+ *				domain map information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_reg_phymem(
 	rtds_memory_drv_map_param *rtds_memory_map
 )
@@ -684,13 +690,14 @@ int rtds_memory_drv_reg_phymem(
 }
 EXPORT_SYMBOL(rtds_memory_drv_reg_phymem);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_unreg_phymem
  * Description: This function clear translation information.
- * Parameters : rtds_memory_map   -   Physical continuation domain map information
+ * Parameters : rtds_memory_map   -   Physical continuation
+ *				domain map information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_unreg_phymem(
 	rtds_memory_drv_map_param *rtds_memory_map
 )
@@ -723,13 +730,13 @@ int rtds_memory_drv_unreg_phymem(
 }
 EXPORT_SYMBOL(rtds_memory_drv_unreg_phymem);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_phy_change_address
  * Description: This function give logical address
  * Parameters : phy_change_rtaddr   -   Address change information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_phy_change_address(
 	rtds_memory_drv_change_addr_param *phy_change_rtaddr
 )
@@ -759,13 +766,13 @@ int rtds_memory_drv_phy_change_address(
 }
 EXPORT_SYMBOL(rtds_memory_drv_phy_change_address);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_rtpmb_to_phy_address
  * Description: This function give physical address
  * Parameters : phy_change_rtaddr   -   Address change information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_rtpmb_to_phy_address(
 	rtds_memory_drv_change_addr_param *phy_change_rtaddr
 )
@@ -793,13 +800,13 @@ int rtds_memory_drv_rtpmb_to_phy_address(
 }
 EXPORT_SYMBOL(rtds_memory_drv_rtpmb_to_phy_address);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_phy_to_rtpmb_address
  * Description: This function give RT-logical(PMB) address
  * Parameters : phy_change_rtaddr   -   Address change information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_phy_to_rtpmb_address(
 	rtds_memory_drv_change_addr_param *phy_change_rtaddr
 )
@@ -827,13 +834,13 @@ int rtds_memory_drv_phy_to_rtpmb_address(
 }
 EXPORT_SYMBOL(rtds_memory_drv_phy_to_rtpmb_address);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_rtpmb_cache_address
  * Description: This function give rtpmb cache address
  * Parameters : phy_change_rtaddr   -   Address change information
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_rtpmb_cache_address(
 	rtds_memory_drv_change_addr_param *phy_change_rtaddr
 )
@@ -861,19 +868,22 @@ int rtds_memory_drv_rtpmb_cache_address(
 }
 EXPORT_SYMBOL(rtds_memory_drv_rtpmb_cache_address);
 
-/*******************************************************************************
+/*****************************************************************************
  * Function   : rtds_memory_drv_map_pnc_nma
  * Description: This function gives a map demand to Mpro.
- * Parameters : rtds_memory_map_pnc_nma  - Physical non-continuation domain map info
+ * Parameters : rtds_memory_map_pnc_nma  - Physical non-continuation
+ *				domain map info
  * Returns	  : SMAP_OK			- Success
  *				SMAP_PARA_NG	- Parameter Error
  *				SMAP_MEMORY		- No memory
- *******************************************************************************/
+ ****************************************************************************/
 int rtds_memory_drv_map_pnc_nma(
 	 rtds_memory_drv_map_pnc_nma_param	*rtds_memory_map_pnc_nma
 )
 {
 	int				ret_code = SMAP_PARA_NG;
+	struct page		**k_pages;
+	unsigned int	size;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
@@ -891,10 +901,21 @@ int rtds_memory_drv_map_pnc_nma(
 		return ret_code;
 	}
 
+	size = sizeof(struct page *)
+		* (rtds_memory_map_pnc_nma->map_size / PAGE_SIZE);
+	k_pages = kmalloc(size, GFP_KERNEL);
+	if (NULL == k_pages) {
+		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		ret_code = SMAP_MEMORY;
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+		return ret_code;
+	}
+
+	memcpy(k_pages, rtds_memory_map_pnc_nma->pages, size);
+
 	/* Map to RTDomain logic space */
 	ret_code = rtds_memory_map_pnc_nma_mpro(rtds_memory_map_pnc_nma->map_size,
-										rtds_memory_map_pnc_nma->pages,
-										(unsigned int *)&rtds_memory_map_pnc_nma->rt_addr_wb);
+		k_pages, (unsigned int *)&rtds_memory_map_pnc_nma->rt_addr_wb);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;

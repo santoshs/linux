@@ -47,7 +47,7 @@ struct platform_device csi20_device = {
 	.name   = "sh-mobile-csi2",
 	.id     = 0,
 	.num_resources	= ARRAY_SIZE(csi20_resources),
-	.resource	= csi20_resources, /* ES2.0 is CSI21 connect */
+	.resource	= csi20_resources,
 	.dev    = {
 		.platform_data = &csi20_info,
 	},

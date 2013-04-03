@@ -635,10 +635,7 @@ static struct i2c_driver d2153_aad_i2c_driver = {
 static int __init d2153_aad_init(void)
 {
 	int ret;
-#if defined(CONFIG_MACH_U2EVM)
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return 0;
-#endif
+
 	ret = i2c_add_driver(&d2153_aad_i2c_driver);
 	if (ret)
 		pr_err("D2153 AAD I2C registration failed %d\n", ret);

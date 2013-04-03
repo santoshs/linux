@@ -745,6 +745,7 @@ void vcd_spuv_func_get_fw_request(void)
 	unsigned long flags;
 	unsigned int read_addr = 0;
 	unsigned int *addr = 0;
+	unsigned int *addr_phy = 0;
 	int length = 0;
 	unsigned int *fw_req =
 		(unsigned int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
@@ -761,10 +762,12 @@ void vcd_spuv_func_get_fw_request(void)
 	if ((0 != read_addr) && (0 != length)) {
 		addr = (unsigned int *)(g_spuv_func_xram_base_top +
 			(read_addr * VCD_SPUV_FUNC_WORD_TO_BYTE));
+		addr_phy = (unsigned int *)(SPUV_FUNC_XRAM0_PHY +
+			(read_addr * VCD_SPUV_FUNC_WORD_TO_BYTE));
 
 		/* cache flush */
 		vcd_spuv_func_cacheflush(
-					(unsigned int)SPUV_FUNC_XRAM0_PHY,
+					(unsigned int)addr_phy,
 					(unsigned int)addr,
 					(length * sizeof(int)));
 

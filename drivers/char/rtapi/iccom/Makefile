@@ -16,8 +16,8 @@ INC_PATH := $(srctree)
 RTAPI_PATH := drivers/char/rtapi
 U_INCLUDE := -I$(RTAPI_PATH)/common
 U_INCLUDE += -I$(INC_PATH)/include/rtapi
-EXTRA_CFLAGS += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
-EXTRA_CFLAGS += -DRMU2
+ccflags-y += $(DEBFLAGS) $(U_INCLUDE) -DMSG_LEVEL=$(LEVEL)
+ccflags-y += -DRMU2
 
 ifneq ($(KERNELRELEASE),)
 # call from kernel build system

@@ -2,7 +2,7 @@
  * rtds_memory_drv_sub.h
  *	 RT domain shared memory device driver API function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -69,6 +69,7 @@ enum {
 	RTDS_MEM_DRV_EVENT_APMEM_CLOSE,
 	RTDS_MEM_DRV_EVENT_APMEM_DELETE,
 	RTDS_MEM_DRV_EVENT_FATAL,
+	RTDS_MEM_DRV_EVENT_DELETE_LEAK_MEM,
 #ifdef RTDS_SUPPORT_CMA
 	RTDS_MEM_DRV_EVENT_CMA_OPEN,
 	RTDS_MEM_DRV_EVENT_CMA_CLOSE,
@@ -96,13 +97,17 @@ enum {
 	RTDS_MEM_MAP_PNC_EVENT,
 	RTDS_MEM_UNMAP_PNC_EVENT,
 	RTDS_MEM_MAP_PNC_NMA_EVENT,
+	RTDS_MEM_LEAK_EVENT,
+	RTDS_MEM_LEAK_PNC_EVENT,
+	RTDS_MEM_LEAK_PNC_NMA_EVENT,
 #ifdef RTDS_SUPPORT_CMA
 	RTDS_MEM_MAP_MA_EVENT,
 	RTDS_MEM_UNMAP_MA_EVENT,
 	RTDS_MEM_RT_OPEN_CMA_EVENT,
 	RTDS_MEM_RT_CLOSE_CMA_EVENT,
 	RTDS_MEM_RT_MAP_EVENT,
-	RTDS_MEM_RT_UNMAP_EVENT
+	RTDS_MEM_RT_UNMAP_EVENT,
+	RTDS_MEM_LEAK_UNMAP_MA_EVENT
 #endif
 };
 
@@ -115,7 +120,7 @@ enum {
 };
 #endif
 
-/* ******************************* STRUCTURE ******************************** */
+/* ****************************** STRUCTURE ******************************* */
 typedef struct {
 	struct list_head	queue_header;	/* queue head */
 	unsigned int		event;			/* Receive event */
@@ -125,6 +130,8 @@ typedef struct {
 	unsigned int		apmem_id;		/* App shared memory ID */
 	unsigned int		phys_addr;
 	unsigned int		mem_attr;
+	unsigned char		*leak_data;		/* Memory leak data */
+	unsigned int		leak_size;		/* Memory leak data size */
 } rtds_memory_rcv_event_queue;
 
 
@@ -159,6 +166,8 @@ typedef struct {
 	unsigned int	apmem_id;
 	unsigned int	phys_addr;
 	unsigned int	mem_attr;
+	unsigned char	*leak_data;
+	unsigned int	leak_size;
 } rtds_memory_rcv_data;
 
 #ifdef RTDS_SUPPORT_CMA
@@ -173,7 +182,7 @@ typedef struct {
 } rtds_memory_cma_list;
 #endif
 
-/* ******************************* PROTOTYPE ******************************** */
+/* ****************************** PROTOTYPE ******************************* */
 
 int rtds_memory_drv_init_mpro(
 	struct file			*fp
@@ -500,11 +509,11 @@ void rtds_memory_close_apmem(
 );
 
 void rtds_memory_leak_check_page_frame(
-		void
+	void
 );
 
 void rtds_memory_leak_check_mpro(
-		void
+	void
 );
 
 void rtds_memory_dump_mpro(
@@ -514,6 +523,16 @@ void rtds_memory_dump_mpro(
 void rtds_memory_dump_notify(
 	void
 );
+
+int rtds_memory_send_check_unmap(
+	void
+);
+
+int rtds_memory_delete_rttrig_leak_memory(
+	unsigned char	*leak_data,
+	unsigned int	leak_size
+);
+
 #ifdef RTDS_SUPPORT_CMA
 int rtds_memory_ioctl_alloc_cma(
 	struct file				*fp,
@@ -604,4 +623,5 @@ void rtds_memory_leak_check_cma(
 	void
 );
 #endif
+
 #endif /* __RTDS_MEMORY_DRV_SUB_H__ */

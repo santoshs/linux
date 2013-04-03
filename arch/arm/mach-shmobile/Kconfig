@@ -208,24 +208,6 @@ config SH_TIMER_CMT_ARM
 
 endmenu
 
-menu "CPU Frequency configuration"
-config ARCH_HAS_CPUFREQ
-	bool
-
-config CPUFREQ_SUPPORT
-	bool "Enable support for CPU srequency scaling"
-	select ARCH_HAS_CPUFREQ
-	help
-	   This enables support for CPU frequency scaling
-	   with R-Mobile U2 HW
-	   DFS is developed basing on CPUFreq framework of Linux kernel of Android OS.
-	   DFS is a feature offered to reduce power consumption
-	   by changing system clock dynamically (based on system load).
-	   When system load meets a specific condition,
-	   system clocks frequencies will be changed automatically.
-
-endmenu
-
 config SH_CLK_CPG
 	bool
 

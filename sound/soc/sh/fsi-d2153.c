@@ -791,13 +791,6 @@ static struct platform_driver fsi_d2153_driver = {
 
 static int __init fsi_d2153_modinit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev()) {
-		printk(KERN_INFO "%s unload the driver - board_revision:%d\n",
-			__func__, u2_get_board_rev());
-		return -ENODEV;
-	}
-#endif
 	g_boot_flag = 0;
 	return platform_driver_register(&fsi_d2153_driver);
 }
@@ -805,10 +798,6 @@ module_init(fsi_d2153_modinit);
 
 static void __exit fsi_d2153_modexit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (D2153_INTRODUCE_BOARD_REV > u2_get_board_rev())
-		return;
-#endif
 	sndp_exit();
 	platform_driver_unregister(&fsi_d2153_driver);
 }

@@ -871,6 +871,10 @@ static int dmac_alloc_channel(struct r8a66597 *r8a66597,
 	if (!r8a66597_has_dmac(r8a66597))
 		 return -ENODEV;
 
+	/* Check transfer length */
+	if (!req->req.length)
+		return -EINVAL;
+
 	/* Check transfer type */
 	if (!usb_endpoint_xfer_bulk(ep->ep.desc))
 		 return -EIO;
@@ -1029,28 +1033,24 @@ static void start_packet_write(struct r8a66597_ep *ep,
 		dev_warn(r8a66597_to_dev(r8a66597),
 			 "%s: buffer pointer is NULL\n", __func__);
 
-	if (req->req.length == 0) {
-		transfer_complete(ep, req, 0);
+	r8a66597_write(r8a66597, ~(1 << ep->pipenum), BRDYSTS);
+	if (dmac_alloc_channel(r8a66597, ep, req) < 0) {
+		/* PIO mode */
+		pipe_change(r8a66597, ep->pipenum);
+		disable_irq_empty(r8a66597, ep->pipenum);
+		pipe_start(r8a66597, ep->pipenum);
+		tmp = r8a66597_read(r8a66597, ep->fifoctr);
+		if (unlikely((tmp & FRDY) == 0))
+			pipe_irq_enable(r8a66597, ep->pipenum);
+		else
+			irq_packet_write(ep, req);
 	} else {
-		r8a66597_write(r8a66597, ~(1 << ep->pipenum), BRDYSTS);
-		if (dmac_alloc_channel(r8a66597, ep, req) < 0) {
-			/* PIO mode */
-			pipe_change(r8a66597, ep->pipenum);
-			disable_irq_empty(r8a66597, ep->pipenum);
-			pipe_start(r8a66597, ep->pipenum);
-			tmp = r8a66597_read(r8a66597, ep->fifoctr);
-			if (unlikely((tmp & FRDY) == 0))
-				pipe_irq_enable(r8a66597, ep->pipenum);
-			else
-				irq_packet_write(ep, req);
-		} else {
-			/* DMA mode */
-			pipe_change(r8a66597, ep->pipenum);
-			disable_irq_nrdy(r8a66597, ep->pipenum);
-			pipe_start(r8a66597, ep->pipenum);
-			enable_irq_nrdy(r8a66597, ep->pipenum);
-			dmac_start(r8a66597, ep, req);
-		}
+		/* DMA mode */
+		pipe_change(r8a66597, ep->pipenum);
+		disable_irq_nrdy(r8a66597, ep->pipenum);
+		pipe_start(r8a66597, ep->pipenum);
+		enable_irq_nrdy(r8a66597, ep->pipenum);
+		dmac_start(r8a66597, ep, req);
 	}
 }
 
@@ -1938,19 +1938,26 @@ static unsigned long usb_dma_calc_received_size(struct r8a66597 *r8a66597,
 	/*
 	 * DAR will increment the value every transfer-unit-size,
 	 * but the "size" (DTLN) will be set within MaxPacketSize.
-	 * So the calucuation is "(DAR - SAR) & ~MaxPacketSize" + DTLN".
+	 *
+	 * The calucuation would be:
+	 *   (((DAR-SAR) - TransferUnitSize) & ~MaxPacketSize) + DTLN.
+	 *
+	 * Be careful that if the "size" is zero, no correction is needed.
+	 * Just return (DAR-SAR) as-is.
 	 */
 	received_size = r8a66597_dma_read(r8a66597, USBHS_DMAC_DAR(ch)) -
 			r8a66597_dma_read(r8a66597, USBHS_DMAC_SAR(ch));
-	received_size &= ~(ep->ep.maxpacket - 1);
-	received_size += size;
+	if (size) {
+		received_size -= dma->tx_size;
+		received_size &= ~(ep->ep.maxpacket - 1);
+		received_size += size; /* DTLN */
+	}
 
 	return received_size;
 }
 
 static void dma_read_complete(struct r8a66597 *r8a66597,
-			      struct r8a66597_dma *dma,
-			      int short_packet)
+			      struct r8a66597_dma *dma)
 {
 	struct r8a66597_ep *ep = dma->ep;
 	struct r8a66597_request *req = get_request_from_ep(ep);
@@ -1965,11 +1972,7 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
 	req = get_request_from_ep(ep);
 
-	if (!short_packet)
-		req->req.actual += req->req.length;
-	else
-		req->req.actual += usb_dma_calc_received_size(r8a66597, dma,
-							      size);
+	req->req.actual += usb_dma_calc_received_size(r8a66597, dma, size);
 
 	if (r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(ch)) & NULLF) {
 		/*
@@ -1995,27 +1998,12 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	transfer_complete(ep, req, 0);
 }
 
-static int dmac_is_received_short_packet(struct r8a66597 *r8a66597, int ch,
-					 unsigned long dmicrsts)
-{
-	unsigned long expect_dmicr = r8a66597->dma[ch].expect_dmicr;
-
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_TE(ch))
-		return 0;
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_SP(ch))
-		return 1;
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_NULL(ch))
-		return 1;
-	return 0;
-}
-
 static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 	u32 dmicrsts;
 	int ch;
 	irqreturn_t ret = IRQ_NONE;
-	int short_packet;
 
 	spin_lock(&r8a66597->lock);
 
@@ -2028,15 +2016,8 @@ static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 
 		if (r8a66597->dma[ch].dir)
 			dma_write_complete(r8a66597, &r8a66597->dma[ch]);
-		else {
-			if (dmac_is_received_short_packet(r8a66597, ch,
-							  dmicrsts))
-				short_packet = 1;
-			else
-				short_packet = 0;
-			dma_read_complete(r8a66597, &r8a66597->dma[ch],
-					  short_packet);
-		}
+		else
+			dma_read_complete(r8a66597, &r8a66597->dma[ch]);
 	}
 
 	spin_unlock(&r8a66597->lock);
