@@ -1333,6 +1333,9 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 	int ret;
 	unsigned long flags;
 	u32 regRCETCR, regRCDAYR, regMECTRL;
+	int sub_ret = 0;
+	u32 sub_status = 0;
+	struct v4l2_subdev *sd;
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
@@ -1432,6 +1435,23 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 
 			ret = sh_mobile_rcu_capture(pcdev, regRCETCR);
 			do_gettimeofday(&vb->v4l2_buf.timestamp);
+
+			sd = soc_camera_to_subdev(pcdev->icd);
+			sub_ret = v4l2_device_call_until_err(sd->v4l2_dev, 0,
+				video, g_input_status, &sub_status);
+			if (sub_ret) {
+				dev_err(pcdev->icd->parent,
+					"%s :Error "
+					"v4l2_device_call_until_err(%d)\n",
+					__func__, ret);
+				ret = -1;
+			} else {
+				if (sub_status) {
+					/* sub device error */
+					ret = -1;
+				}
+			}
+
 			if (!ret) {
 				vb->v4l2_buf.field = V4L2_FIELD_NONE;
 				vb->v4l2_buf.sequence = pcdev->sequence++;
@@ -2828,7 +2848,7 @@ void sh_mobile_rcu_init_dumplog(void)
 		dumplog_order--;
 	}
 	dumplog_page = alloc_pages(GFP_USER, dumplog_order);
-	memset(page_address(dumplog_page), 0, dumplog_order);
+	memset(page_address(dumplog_page), 0, SH_RCU_DUMP_LOG_SIZE_ALL);
 
 	spin_lock_init(&lock_log);
 
@@ -2838,7 +2858,7 @@ void sh_mobile_rcu_init_dumplog(void)
 	dumplog_max_idx = dumplog_addr +
 		(SH_RCU_DUMP_LOG_SIZE_ALL / sizeof(unsigned int) - 1);
 	dumplog_cnt_idx = dumplog_max_idx - 1;
-	*dumplog_addr = (unsigned int)dumplog_addr;
+	*dumplog_addr = (unsigned int)virt_to_phys((void *)dumplog_addr);
 	*dumplog_max_idx =
 		(SH_RCU_DUMP_LOG_SIZE_ALL - SH_RCU_DUMP_LOG_SIZE_USER) /
 		sizeof(unsigned int) - SH_RCU_DUMP_LOG_OFFSET - 1;

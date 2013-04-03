@@ -60,6 +60,7 @@ struct sh_csi2 {
 	struct sh_csi2_client_config	*client;
 	int				strm_on;
 	spinlock_t			lock;
+	unsigned int			err_cnt;
 #if SH_CSI2_DEBUG
 	int				vd_s_cnt;
 	int				vd_e_cnt;
@@ -178,9 +179,10 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 	spin_lock_irqsave(&priv->lock, flags);
 
 	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
-	if (intstate & SH_CSI2_INT_ERROR)
+	if (intstate & SH_CSI2_INT_ERROR) {
+		priv->err_cnt++;
 		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
-
+	}
 #if SH_CSI2_ERROR_RESET
 	if (intstate & SH_CSI2_INT_RESET_ERROR) {
 		u32 reg_vcdt = 0;
@@ -339,6 +341,22 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int sh_csi2_g_input_status(struct v4l2_subdev *sd, u32 *status)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	unsigned long flags;
+
+	if (!status) {
+		dev_err(&priv->pdev->dev, "status is NULL.\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&priv->lock, flags);
+	*status = priv->err_cnt;
+	priv->err_cnt = 0;
+	spin_unlock_irqrestore(&priv->lock, flags);
+	return 0;
+}
 
 static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
@@ -346,6 +364,7 @@ static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_stream	= sh_csi2_s_stream,
 	.g_mbus_config	= sh_csi2_g_mbus_config,
 	.s_mbus_config	= sh_csi2_s_mbus_config,
+	.g_input_status	= sh_csi2_g_input_status,
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv)
@@ -532,6 +551,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->lock);
 
 	priv->strm_on = 0;
+	priv->err_cnt = 0;
 #if SH_CSI2_DEBUG
 	priv->vd_s_cnt = 0;
 	priv->vd_e_cnt = 0;

@@ -296,7 +296,6 @@ int fsi_d2153_loopback_notify(int status)
 }
 EXPORT_SYMBOL(fsi_d2153_loopback_notify);
 
-/* temp process */
 void fsi_d2153_soc_write(int dev)
 {
 	if (0 == dev) {
@@ -307,7 +306,6 @@ void fsi_d2153_soc_write(int dev)
 	}
 }
 EXPORT_SYMBOL(fsi_d2153_soc_write);
-/* temp process */
 
 #if 1 /*** Analog audio dock support ***/
 /*!

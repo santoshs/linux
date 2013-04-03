@@ -855,17 +855,10 @@ static int audio_test_proc_start_sound_play(void)
 
 	if (AUDIO_TEST_DRV_STATE_ON == audio_test_pt_state) {
 		audio_test_log_info("already setting");
-		if ((AUDIO_TEST_DRV_OUT_EARPIECE == audio_test_drv_out_device_type) ||
-		    (AUDIO_TEST_DRV_OUT_HEADPHONE == audio_test_drv_out_device_type))
-			fsi_d2153_soc_write(0);
 		return 0;
 	}
 
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_ON;
-
-	if ((AUDIO_TEST_DRV_OUT_EARPIECE == audio_test_drv_out_device_type) ||
-	    (AUDIO_TEST_DRV_OUT_HEADPHONE == audio_test_drv_out_device_type))
-		fsi_d2153_soc_write(0);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;

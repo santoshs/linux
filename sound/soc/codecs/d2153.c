@@ -43,6 +43,8 @@
  * Controls section
  */
 
+static char *mixout_r_select_widget;
+
 /*
  * Gain and Volume
  */
@@ -291,6 +293,44 @@ static const struct soc_enum d2153_sp_hld_time =
 /*
  * Control functions
  */
+
+static int d2153_snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	unsigned int shift = mc->shift;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int connect;
+
+	val = (ucontrol->value.integer.value[0] & mask);
+
+	if (invert)
+		val = max - val;
+	val = val << shift;
+
+	if (val)
+		/* new connection */
+		connect = invert ? 0 : 1;
+	else
+		/* old connection must be powered down */
+		connect = invert ? 1 : 0;
+
+	if (connect)
+		mixout_r_select_widget = widget->name;
+	else {
+		if (mixout_r_select_widget == NULL
+		    || strcmp(mixout_r_select_widget, widget->name) != 0)
+			return 0;
+		mixout_r_select_widget = NULL;
+	}
+	return snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+}
 
 static int d2153_get_alc_data(struct snd_soc_codec *codec, u8 reg_val)
 {
@@ -882,6 +922,13 @@ static const struct snd_kcontrol_new d2153_mic_ext_amp_in_sel_mux =
  * Mixer controls
  */
 
+#define SOC_DAPM_SINGLE_D(xname, reg, shift, max, invert) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_volsw, \
+	.get = snd_soc_dapm_get_volsw, \
+	.put = d2153_snd_soc_dapm_put_volsw, \
+	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
 /* In Mixer Left */
 static const struct snd_kcontrol_new d2153_dapm_mixinl_controls[] = {
 	SOC_DAPM_SINGLE("Aux Left Switch", D2153_MIXIN_L_SELECT,
@@ -953,7 +1000,7 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutr_controls[] = {
 	SOC_DAPM_SINGLE("Mixin Left Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
-	SOC_DAPM_SINGLE("DAC Right Switch", D2153_MIXOUT_R_SELECT,
+	SOC_DAPM_SINGLE_D("DAC Right Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_DAC_R_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
 	SOC_DAPM_SINGLE("Aux Right Invert Switch", D2153_MIXOUT_R_SELECT,
@@ -978,7 +1025,7 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutep_controls[] = {
 	SOC_DAPM_SINGLE("Mixin Left Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_MIXIN_L_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
-	SOC_DAPM_SINGLE("DAC Right Switch", D2153_MIXOUT_R_SELECT,
+	SOC_DAPM_SINGLE_D("DAC Right Switch", D2153_MIXOUT_R_SELECT,
 			D2153_MIXOUT_R_MIX_SELECT_DAC_R_SHIFT,
 			D2153_MIXOUT_R_MIX_SELECT_MAX, D2153_NO_INVERT),
 	SOC_DAPM_SINGLE("Aux Right Invert Switch", D2153_MIXOUT_R_SELECT,
