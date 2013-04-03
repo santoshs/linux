@@ -1431,13 +1431,24 @@ void d2153_mmcif_pwr_control(int onoff)
 	}
 
 	if (onoff == 1) {
+#ifdef CONFIG_MACH_LT02LTE
+		if (!regulator_is_enabled(emmc_regulator)) {
+			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
+				__LINE__);
+			ret = regulator_enable(emmc_regulator);
+			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+		}
+#else
 		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
 		ret = regulator_enable(emmc_regulator);
 		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+#endif
 	} else {
+#ifndef CONFIG_MACH_LT02LTE
 		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
 		ret = regulator_disable(emmc_regulator);
 		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+#endif
 	}
 }
 #endif
