@@ -409,17 +409,6 @@ ENTRY(corestandby)
 	MOV		pc, r4 /* Call save_arm_register() */
 	NOP
 
-	/* Disable D-Cache */
-	DSB
-	MRC		p15, 0, r4, c1, c0, 0
-	BIC		r4, r4, #0x4 /* Clear C bit	*/
-	MCR		p15, 0, r4, c1, c0, 0 /* Disable D-Cache */
-	ISB
-
-	/* Clean and invalidate D-Cache	*/
-
-	L1_DataCacheCleanInvalidateSW
-
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
 	MOV		lr, pc /* lr: Return address */
@@ -737,17 +726,6 @@ CPU1_SYSTEMSUSPEND:
 	ADR		r4, SYSTEMSUSPEND_RESTORE_CPU1
 	LDR		r0, =ram0SystemSuspendRestoreCPU1
 	STR		r4, [r0]
-
-	/* Disable D-Cache */
-	DSB
-	MRC		p15, 0, r4, c1, c0, 0
-	BIC		r4, r4, #0x4 /* Clear C bit	*/
-	MCR		p15, 0, r4, c1, c0, 0 /* Disable D-Cache */
-	ISB
-
-	/* Clean and invalidate D-Cache	*/
-
-	L1_DataCacheCleanInvalidateSW
 
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
@@ -1366,16 +1344,6 @@ SKIP_TURN_OFF_RWDT:
 	/*--------------------------------------*/
 	/* Power Down							*/
 	/*--------------------------------------*/
-	/* Disable D-Cache */
-	DSB
-	MRC		p15, 0, r4, c1, c0, 0
-	BIC		r4, r4, #0x4 /* Clear C bit	*/
-	MCR		p15, 0, r4, c1, c0, 0 /* Disable D-Cache */
-	ISB
-
-	/* Clean and invalidate D-Cache	*/
-
-	L1_DataCacheCleanInvalidateSW
 
 	/*------------------------------------------*/
 	/* Call sec_hal_pm_coma_entry				*/
@@ -1814,17 +1782,6 @@ ENTRY(corestandby_2)
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call save_arm_register() */
 	NOP
-
-	/* Disable D-Cache */
-	DSB
-	MRC		p15, 0, r4, c1, c0, 0
-	BIC		r4, r4, #0x4 /* Clear C bit	*/
-	MCR		p15, 0, r4, c1, c0, 0 /* Disable D-Cache */
-	ISB
-
-	/* Clean and invalidate D-Cache	*/
-
-	L1_DataCacheCleanInvalidateSW
 
 #ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
