@@ -51,8 +51,8 @@ Description :  File created
 //#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
 //#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x43FFFFFF
 
-#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x44001000
-#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x44800FFF     /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x45001000
+#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x457FFBFF     /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
