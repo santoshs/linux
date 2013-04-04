@@ -61,9 +61,9 @@
 
 /* Size of code	*/
 #define	fsArmVector			0x080 /* ARM Vector */
-#define	fsCoreStandby		0x2E0 /* Core Standby */
-#define	fsCoreStandby_2		0x1A0 /* Core Standby 2 */
-#define	fsSystemSuspend		0x2C0 /* System Suspend */
+#define	fsCoreStandby		0x300 /* Core Standby */
+#define	fsCoreStandby_2		0x1E0 /* Core Standby 2 */
+#define	fsSystemSuspend		0x320 /* System Suspend */
 #define	fsSaveArmRegister	0x160 /* Save ARM register */
 #define	fsRestoreArmRegisterPA	0x60  /* Restore ARM register PA */
 #define	fsRestoreArmRegisterVA	0x0E0 /* Restore ARM register VA */
@@ -75,6 +75,7 @@
 #define	fsSysPowerDown		0x240	/* power down function size*/
 #define	fsSysPowerUp		0x140	/* power up function size*/
 #define	fsSetClockSystemSuspend		0x120 /* Set clock function size*/
+#define fsMemoryLogPm				0x060 /* memory log for PM  */
 
 /*-----------------------------------------------*/
 /* Offset of RAM0 area							*/
@@ -129,6 +130,10 @@
 /* Offset to the Set clock function */
 #define		hoSetClockSystemSuspend			\
 (hoSysPowerUp				+ fsSysPowerUp)
+
+/* Offset to the memory log pm function */
+#define		hoMemoryLogPm					\
+(hoSetClockSystemSuspend + fsSetClockSystemSuspend)
 
 /* backup area */
 #define	hoBackup		0x1A00 /* Offset to the Area for backup */
@@ -188,6 +193,10 @@
 #define		ram0SetClockSystemSuspend			\
 (ram0Base + hoSetClockSystemSuspend)
 
+/* Address of memory log pm function */
+#define	 ram0MemoryLogPm						\
+(ram0Base + hoMemoryLogPm)
+
 /* Address of function (Phys)	*/
 /* Address of ARM Vector function */
 #define	ram0ArmVectorPhys					\
@@ -234,6 +243,10 @@
 /* Address of Set clock function */
 #define	ram0SetClockSystemSuspendPhys		\
 (ram0BasePhys + hoSetClockSystemSuspend)
+
+/* Address of memory log pm function */
+#define	 ram0MemoryLogPmPhys				\
+(ram0BasePhys + hoMemoryLogPm)
 
 /* Address of backup area top */
 /* Address of backup(L) */
@@ -388,6 +401,11 @@
 #define	ram0SavePSTR_resume			\
 (ram0SavePDNSEL_resume + 0x4)
 
+/* memlog for PM */
+#define	ram0MemlogPmAddressPA				\
+(ram0SavePSTR_resume + 0x4)
+#define	ram0MemlogPmAddressVA				\
+(ram0MemlogPmAddressPAPhys + 0x4)
 
 
 /* Backup area Phys			*/
@@ -536,6 +554,11 @@
 #define	ram0SavePSTRPhys_resume		\
 (ram0SavePDNSELPhys_resume + 0x4)
 
+/* memlog for PM */
+#define	ram0MemlogPmAddressPAPhys			\
+(ram0SavePSTRPhys_resume + 0x4)
+#define	ram0MemlogPmAddressVAPhys			\
+(ram0MemlogPmAddressPAPhys + 0x4)
 
 /*------------------------------------------------*/
 /* Offset of CPU register buckup area */
