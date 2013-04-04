@@ -31,7 +31,10 @@
 #include <linux/scatterlist.h>
 #include <linux/platform_device.h>
 #include <linux/mmcoops.h>
-#include <linux/rmu2_rwdt.h>
+
+#ifdef CONFIG_GIC_NS_CMT
+#include <linux/rmu2_cmt15.h>
+#endif
 
 #include "../../staging/android/logger.h"
 #include <sec_hal_cmn.h>
@@ -617,7 +620,9 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	if ((reason != KMSG_DUMP_PANIC) && !dump_oops)
 		return;
 
+#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_stop();
+#endif
 
 	if (cxt->size < cxt->record_size)
 		return;
