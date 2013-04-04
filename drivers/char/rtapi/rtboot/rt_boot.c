@@ -2,7 +2,7 @@
  * rt_boot.c
  *		booting rt_cpu.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -22,6 +22,7 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/io.h>
+#include <linux/sched.h>
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
@@ -121,6 +122,15 @@ static int rtboot_init(void)
 	MSG_LOW("[RTBOOTK]   |write_rt_imageaddr start\n");
 	write_rt_imageaddr(bootaddr);
 #endif
+	{
+		unsigned long long tim;
+		unsigned long *addr_status;
+		tim = local_clock();
+		addr_status = ioremap(g_rtboot_info.command_area_address, 4);
+		addr_status[1] = (unsigned long)(tim>>32);
+		addr_status[2] = (unsigned long)(tim & 0xFFFFFFFF);
+		iounmap(addr_status);
+	}
 	MSG_LOW("[RTBOOTK]   |stop_rt_interrupt start\n");
 	stop_rt_interrupt();
 	MSG_LOW("[RTBOOTK]   |init_rt_register start\n");
