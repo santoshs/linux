@@ -7,9 +7,9 @@
 
 struct ion_platform_data u2evm_ion_data = {
 #ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
-	.nr = 5,
-#else
 	.nr = 4,
+#else
+	.nr = 3,
 #endif
 	.heaps = {
 		{
@@ -21,13 +21,6 @@ struct ion_platform_data u2evm_ion_data = {
 			.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
 			.id = ION_HEAP_SYSTEM_CONTIG_ID,
 			.name = "system-contig",
-		},
-		{
-			.type = ION_HEAP_TYPE_CARVEOUT,
-			.id = ION_HEAP_CAMERA_ID,
-			.name = "camera",
-			.base = ION_HEAP_CAMERA_ADDR,
-			.size = ION_HEAP_CAMERA_SIZE,
 		},
 		{
 			.type = ION_HEAP_TYPE_CARVEOUT,

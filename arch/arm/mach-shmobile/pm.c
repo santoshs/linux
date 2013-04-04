@@ -26,6 +26,7 @@
 #include <linux/slab.h>
 #include <mach/system.h>
 #include <mach/pm.h>
+#include <mach/memory-r8a7373.h>
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
@@ -298,7 +299,7 @@ int shmobile_init_pm(void)
 						ram0Cpu1RegisterArea);
 
 	/* Initialize SpinLock setting */
-	cpuidle_spinlock = 0x44000000;
+	cpuidle_spinlock = SDRAM_NON_SECURE_SPINLOCK_START_ADDR;
 
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);
