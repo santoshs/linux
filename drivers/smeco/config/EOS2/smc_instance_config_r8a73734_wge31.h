@@ -83,8 +83,16 @@ Description :  File created
 #define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
+<<<<<<< HEAD
 #define SMC_CONF_GLOBAL_SHM_START_ES20                       SDRAM_SMC_START_ADDR
 #define SMC_CONF_GLOBAL_SHM_END_ES20                         SDRAM_SMC_END_ADDR      /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
+=======
+//#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x43B00000
+//#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x43FFFFFF
+
+#define SMC_CONF_GLOBAL_SHM_START_ES20                       0x45001000
+#define SMC_CONF_GLOBAL_SHM_END_ES20                         0x457FFBFF     /* 7FFFFF -> 8192 kB -> 8 MB, NOTE: Use always the last address */
+>>>>>>> origin/eos2/ssg/SMC_memory_map_change_w14
 
     /* SHM area for SMC Control Instance */
 #define SMC_CONF_CONTROL_SHM_START_OFFSET_ES20               (0)
