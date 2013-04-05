@@ -36,16 +36,14 @@
 
 #include <mach/memory-r8a7373.h>
 
-#include "panel_nt35510.h"
+#include "panel_common.h"
 
 /* #define NT35510_DRAW_BLACK_KERNEL */
 
 #define NT35510_POWAREA_MNG_ENABLE
 /* #define NT35510_GED_ORG */
 
-#ifdef CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE
-#define NT35510_ENABLE_VIDEO_MODE
-#endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
+/* #define NT35510_ENABLE_VIDEO_MODE */
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -742,7 +740,7 @@ static struct lcd_ops nt35510_lcd_ops = {
 #endif /* NT35510_GED_ORG */
 
 
-int nt35510_dsi_read(int id, int reg, int len, char *buf)
+int panel_dsi_read(int id, int reg, int len, char *buf)
 {
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
@@ -1046,7 +1044,7 @@ retry:
 	is_dsi_read_enabled = 1;
 
 	/* Read display identification information */
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 	if (ret == 0) {
 		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
 		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
@@ -1399,7 +1397,6 @@ static struct fb_panel_info nt35510_panel_info(void)
 	return r_mobile_info;
 }
 
-#ifndef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -1422,22 +1419,3 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
-#else
-struct fb_panel_func nt35510_func_list()
-{
-	struct fb_panel_func panel_func;
-
-	printk(KERN_INFO "%s\n", __func__);
-
-	memset(&panel_func, 0, sizeof(struct fb_panel_func));
-
-	panel_func.panel_init    = nt35510_panel_init;
-	panel_func.panel_suspend = nt35510_panel_suspend;
-	panel_func.panel_resume  = nt35510_panel_resume;
-	panel_func.panel_probe   = nt35510_panel_probe;
-	panel_func.panel_remove  = nt35510_panel_remove;
-	panel_func.panel_info    = nt35510_panel_info;
-
-	return panel_func;
-}
-#endif
