@@ -931,31 +931,18 @@ static void rt8973musc_work(struct work_struct *work)
         regDev1 = I2CRByte(RT8973_REG_DEVICE_1);
         regDev2 = I2CRByte(RT8973_REG_DEVICE_2);
 	if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK)) {
-            INFO("There is un-handled event!!\n");
-            if (regDev1==0 && regDev2==0) {
-		do_detach_work(regIntFlag);
-		pDrvData->attach_status = 0;
-		}
-	    else {
-		if (pDrvData->attach_status == 0) {
-			/* do attach only if not attached */
+		INFO("There is un-handled event!!\n");
+		if (regDev1 == 0 && regDev2 == 0)
+			do_detach_work(regIntFlag);
+		else
 			do_attach_work(regIntFlag, regDev1, regDev2);
-			pDrvData->attach_status = 1;
-		}
-	    }
-	}
-		else {
-			if(pDrvData->attach_status == 0) {
-			/* do attach only if not attached */
-			do_attach_work(regIntFlag, regDev1, regDev2);
-			pDrvData->attach_status = 1;
-		}
-	}
+	 }
+	else
+		do_attach_work(regIntFlag, regDev1, regDev2);
 	}
 	else if (regIntFlag&RT8973_INT_DETACH_MASK) {
- 		do_detach_work(regIntFlag);
-		pDrvData->attach_status = 0;
-    	}
+		do_detach_work(regIntFlag);
+	}
     else {
         if (regIntFlag&0x80) // OTP
         {
@@ -1100,7 +1087,6 @@ static int rt8973musc_probe(struct i2c_client *client,
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
     INIT_WORK(&drv_data->work, rt8973musc_work);
     INIT_DELAYED_WORK(&drv_data->delayed_work, rt8973_init_func);
-    pDrvData->attach_status = 0;
 
 	uart_connecting = 0;
     if(platform_data.ex_init)

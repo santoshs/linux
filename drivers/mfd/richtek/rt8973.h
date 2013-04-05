@@ -60,7 +60,6 @@ struct rt8973_data
     struct delayed_work delayed_work;
     int32_t irq;
     uint8_t prev_int_flag;
-    uint8_t attach_status;
     struct wake_lock muic_wake_lock;
     struct wake_lock uart_wakelock;		
 };
