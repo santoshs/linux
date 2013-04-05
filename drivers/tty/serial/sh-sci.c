@@ -483,15 +483,20 @@ static void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
 	struct sci_port *s = to_sci_port(port);
 	struct plat_sci_reg *reg = sci_regmap[s->cfg->regtype] + SCSPTR;
+	struct uart_state *state = port->state;
+	struct tty_port *tty_port = &state->port;
 
 	/*
 	 * Use port-specific handler if provided.
 	 */
 	if (s->cfg->ops && s->cfg->ops->init_pins) {
-		if (!s->cfg->rts_ctrl) {
+		/* PCP# VA13022646818 -
+		Check to achieve device wakeup functionality
+		in BT keyboard use case avoiding frame loss due
+		to RTS pin set to low before SCIF ports get resumed
+		after deep sleep */
+		if (!(tty_port->flags & ASYNC_SUSPENDED))
 			s->cfg->ops->init_pins(port, cflag);
-			s->cfg->rts_ctrl = 1 ;
-		}
 		return;
 	}
 
@@ -1819,11 +1824,6 @@ static void sci_shutdown(struct uart_port *port)
 	unsigned long flags = 0 ;
 
 	dev_dbg(port->dev, "%s(%d)\n", __func__, port->line);
-	/* PCP# RK13011660043/RR13020740335
-	 Reset rts_ctrl flag before uart close
-	to set RTS pin low on next uart initialization */
-	if (s && s->cfg)
-		s->cfg->rts_ctrl = 0 ;
 	spin_lock_irqsave(&port->lock, flags);
 	sci_stop_rx(port);
 	sci_stop_tx(port);
@@ -1989,8 +1989,12 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		unsigned short ctrl = serial_port_in(port, SCFCR);
 
 		if (s->cfg->capabilities & SCIx_HAVE_RTSCTS) {
-			if (termios->c_cflag & CRTSCTS)
+			/* Set rts_ctrl to control RTS pin in
+			suspend & resume only when CRTSCTS is set */
+			if (termios->c_cflag & CRTSCTS) {
 				ctrl |= SCFCR_MCE;
+				s->cfg->rts_ctrl = 1 ;
+			}
 			else
 				ctrl &= ~SCFCR_MCE;
 		}
