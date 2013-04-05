@@ -49,12 +49,12 @@ enum fsi_d2153_loopback_state {
 
 extern void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	int status);
+extern void fsi_d2153_set_adc_power(struct snd_kcontrol *kcontrol,
+	int status);
 extern int fsi_d2153_enable_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id);
 extern int fsi_d2153_disable_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id);
-extern void fsi_d2153_deactivate_input(struct snd_kcontrol *kcontrol);
-extern void fsi_d2153_deactivate_output(struct snd_kcontrol *kcontrol);
 
 extern int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params);
 
