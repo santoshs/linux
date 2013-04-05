@@ -764,9 +764,10 @@ static struct dma_async_tx_descriptor *sh_dmae_rpt_prep_sg(
 	struct scatterlist *sgl, unsigned int sg_len, dma_addr_t *addr,
 	enum dma_transfer_direction direction, unsigned long flags)
 {
-	struct scatterlist *sg;
+	struct scatterlist *sg = NULL;
 	struct sh_desc *first = NULL;
-	int i, chunks = 0;
+	int i = 0;
+	int chunks = 0;
 	unsigned long irq_flags;
 
 	if (!sh_chan->desc_mode) {
@@ -1612,7 +1613,7 @@ static int __init sh_dmae_probe(struct platform_device *pdev)
 	if (!request_mem_region(chan->start,
 				resource_size(chan), pdev->name)) {
 		dev_err(&pdev->dev, "DMAC register region already claimed\n");
-		return -EBUSY;
+		err = -EBUSY;
 		goto ermrchan;
 	}
 
@@ -1907,11 +1908,9 @@ static int sh_dmae_suspend(struct device *dev)
 static int sh_dmae_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-	int i, ret = 0;
+	int i;
 
 	pm_runtime_get_sync(dev);
-	if (ret < 0)
-		dev_err(dev, "Failed to reset!\n");
 
 	for (i = 0; i < shdev->pdata->channel_num; i++) {
 		struct sh_dmae_chan *sh_chan = shdev->chan[i];
@@ -1930,7 +1929,7 @@ static int sh_dmae_resume(struct device *dev)
 		}
 	}
 
-	pm_runtime_put_sync(dev);
+	pm_runtime_put(dev);
 	return 0;
 }
 #else
