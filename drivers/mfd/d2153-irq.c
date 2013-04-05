@@ -23,7 +23,6 @@
 #include <linux/irq.h>
 #include <linux/kthread.h>
 
-//#include <asm/mach/irq.h>
 #include <asm/gpio.h>
 
 #include <linux/d2153/pmic.h>
@@ -161,12 +160,6 @@ void d2153_irq_worker(struct work_struct *work)
 
 	memset(&read_done, 0, sizeof(read_done));
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	for (i = 0; i < ARRAY_SIZE(d2153_irqs); i++) {
 		data = &d2153_irqs[i];
 
@@ -216,7 +209,6 @@ static irqreturn_t d2153_irq(int irq, void *data)
 			d2153_irq_call_handler(d2153, i);
 			/* Now clear EVENT registers */
 			d2153_set_bits(d2153, D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
-			//dev_info(d2153->dev, "\nIRQ Register [%d] MASK [%d]\n",D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
 		}
 	}
 	return IRQ_HANDLED;
@@ -227,12 +219,6 @@ int d2153_register_irq(struct d2153 * const d2153, int const irq,
 			irq_handler_t handler, unsigned long flags,
 			const char * const name, void * const data)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	if (irq < 0 || irq >= D2153_NUM_IRQ || !handler)
 		return -EINVAL;
 
@@ -252,12 +238,6 @@ EXPORT_SYMBOL_GPL(d2153_register_irq);
 
 int d2153_free_irq(struct d2153 *d2153, int irq)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	if (irq < 0 || irq >= D2153_NUM_IRQ)
 		return -EINVAL;
 
@@ -272,12 +252,6 @@ EXPORT_SYMBOL_GPL(d2153_free_irq);
 
 int d2153_mask_irq(struct d2153 *d2153, int irq)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	return d2153_set_bits(d2153, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg,
 			       d2153_irqs[irq].mask);
 }
@@ -285,12 +259,6 @@ EXPORT_SYMBOL_GPL(d2153_mask_irq);
 
 int d2153_unmask_irq(struct d2153 *d2153, int irq)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	dev_info(d2153->dev, "\nIRQ[%d] Register [%d] MASK [%d]\n",irq, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg, d2153_irqs[irq].mask);
 	return d2153_clear_bits(d2153, D2153_IRQ_MASK_A_REG + d2153_irqs[irq].reg,
 				 d2153_irqs[irq].mask);
@@ -303,15 +271,9 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	int ret = -EINVAL;
 	int reg_data, maskbit;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	if (!irq) {
-	    dev_err(d2153->dev, "No IRQ configured \n");
-	    return -EINVAL;
+		dev_err(d2153->dev, "No IRQ configured\n");
+		return -EINVAL;
 	}
 	reg_data = 0xFFFFFF;
 	d2153_block_write(d2153, D2153_EVENT_A_REG, D2153_NUM_IRQ_EVT_REGS, (u8 *)&reg_data);
@@ -325,34 +287,28 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	mutex_init(&d2153->irq_mutex);
 
 	if (irq) {
-		ret = request_threaded_irq(irq, NULL, d2153_irq, 
+		ret = request_threaded_irq(irq, NULL, d2153_irq,
 									IRQF_TRIGGER_LOW|IRQF_ONESHOT,
 				  					"d2153", d2153);
 		if (ret != 0) {
 			dev_err(d2153->dev, "Failed to request IRQ: %d\n", irq);
 			return ret;
 		}
- 		dev_info(d2153->dev, "# IRQ configured [%d] \n", irq);
+		dev_info(d2153->dev, "# IRQ configured [%d]\n", irq);
 	} else {
 		dev_err(d2153->dev, "No IRQ configured\n");
 		return ret;
 	}
-	
+
 	enable_irq_wake(irq);
-	
-	d2153->chip_irq = irq;	
-	
+
+	d2153->chip_irq = irq;
+
 	return ret;
 }
 
 int d2153_irq_exit(struct d2153 *d2153)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	free_irq(d2153->chip_irq, d2153);
 	return 0;
 }

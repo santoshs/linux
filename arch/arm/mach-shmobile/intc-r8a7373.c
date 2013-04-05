@@ -18,7 +18,7 @@
 #include <asm/mach/irq.h>
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
-
+#include <linux/sh_intc.h>
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */
 #define IRQC0_INTEN_SET0	(IRQC0_BASE + 0x008)	/* W */

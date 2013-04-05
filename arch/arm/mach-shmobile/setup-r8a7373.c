@@ -55,7 +55,6 @@
 #include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
-#if 1
 /*
  * TODO: Porting  parameter.
  *   original parameter is error by vmalloc.
@@ -73,29 +72,6 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
 	},
-#else
-	{
-		.virtual	= 0xe6000000,
-		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_256M,
-		.type		= MT_DEVICE
-	},
-	{
-		/*
-		 * Create 4 MiB of virtual address hole within a big 1:1 map
-		 * requested above, which is dedicated for the RT-CPU driver.
-		 *
-		 * According to the hardware manuals, physical 0xefc00000
-		 * space is reserved for Router and a data abort error will
-		 * be generated if access is made there.  So this partial
-		 * mapping change won't be a problem.
-		 */
-		.virtual	= 0xefc00000,
-		.pfn		= __phys_to_pfn(0xffc00000),
-		.length		= SZ_4M,
-		.type		= MT_DEVICE
-	},
-#endif
 
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
         {
@@ -1281,19 +1257,8 @@ void __init r8a7373_add_standard_devices(void)
 			ARRAY_SIZE(r8a7373_early_devices));
 
 	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
-#ifdef CONFIG_MACH_U2EVM
-		if (u2_get_board_rev() >= 5) {
-			platform_add_devices(r8a7373_late_devices_es20_d2153,
-				ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-		} else {
-			platform_add_devices(r8a7373_late_devices_es20,
-				ARRAY_SIZE(r8a7373_late_devices_es20));
-		}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)\
-	|| defined(CONFIG_MACH_LT02LTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-#endif
 	}
 /* ES2.0 change end */
 }
@@ -1455,48 +1420,16 @@ void d2153_mmcif_pwr_control(int onoff)
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 1);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
 }
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 0);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
 }
 
 

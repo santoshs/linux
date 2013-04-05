@@ -1,4 +1,3 @@
-#include <mach/board-u2evm.h>
 #include <mach/dev-gps.h>
 #include <mach/r8a73734.h>
 #include <mach/gpio.h>

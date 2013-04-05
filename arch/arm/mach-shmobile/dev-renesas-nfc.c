@@ -4,7 +4,6 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/i2c.h>
-#include <mach/board-u2evm.h>
 #ifdef CONFIG_PN544_NFC
 #include <linux/i2c-gpio.h>
 #include <linux/nfc/pn544.h>

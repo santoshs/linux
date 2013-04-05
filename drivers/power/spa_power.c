@@ -28,7 +28,6 @@
 #include <mach/common.h>
 
 #define SPA_DEBUG_FEATURE 1
-//#define SPA_TEMPERATURE_INT 1
 #define BATT_TYPE "SDI_SDI"
 #define CONFIG_SEC_BATT_EXT_ATTRS
 #define SPA_FAKE_FULL_CAPACITY
@@ -36,23 +35,22 @@
 
 #define FIRST_CHG_CURR_ABSORBING_SHOCK 100
 
-// For full charge time
 #define MSEC    1
 #define SECOND_BY_MSEC  1000*MSEC
 #define MINUTE_BY_MSEC  60*SECOND_BY_MSEC
 #define HOUR_BY_MSEC    60*MINUTE_BY_MSEC
 
-// debugging
-#define SPA_DBG_LEVEL0 0U // no log
-#define SPA_DBG_LEVEL1 1U // minimum log
+/* Debugging */
+#define SPA_DBG_LEVEL0 0U /* no log */
+#define SPA_DBG_LEVEL1 1U /* minimum log */
 #define SPA_DBG_LEVEL2 2U
 #define SPA_DBG_LEVEL3 3U
-#define SPA_DBG_LEVEL4 4U // maximum log
+#define SPA_DBG_LEVEL4 4U /* maximum log */
 #define SPA_DBG_LEVEL_INTERNAL SPA_DBG_LEVEL3
 #define SPA_DBG_LEVEL_OUT SPA_DBG_LEVEL1
 #define SPA_DBG_LOG_SIZE	4096*100
 
-// Dual logging.
+/* Dual logging. */
 #define pr_spa_dbg(lvl, args...) \
 	do { \
 		if ( SPA_DBG_LEVEL_OUT >= SPA_DBG_##lvl ) \
@@ -64,8 +62,6 @@
 				spa_log_internal(args); \
 		} \
 	} while(0)
-
-/* #define REPORT_0_WHEN_NOBATT */
 
 static char spa_log_buffer[SPA_DBG_LOG_SIZE];
 static unsigned int spa_log_offset=0;
@@ -83,7 +79,7 @@ static void spa_log_internal(const char *log, ...)
 
 	preempt_disable();
 	raw_local_irq_save(flags);
-	// time stamp : make time stamp string
+	/* time stamp : make time stamp string */
 	{
 		int this_cpu = smp_processor_id();
 
@@ -98,25 +94,24 @@ static void spa_log_internal(const char *log, ...)
 	l_size = 300;
 	r_size = t_size - spa_log_offset;
 
-	if(r_size <= 0)
+	if (r_size <= 0)
 		spa_log_offset =0;
-	if(r_size < l_size)
+	if (r_size < l_size)
 		spa_log_offset =0;
 
-	// Put time stamp
+	/* Put time stamp */
 	{
 		unsigned int temp_offset=0;
 		char *temp_pos=0;
-		for(tp = tbuf; tp < tbuf+tlen; tp++)
-		{
+		for (tp = tbuf; tp < tbuf+tlen; tp++) {
 			temp_offset = tp - tbuf;
 			temp_pos = spa_log_buffer + spa_log_offset + temp_offset;
 			*temp_pos =*tp;
 		}
-		spa_log_offset+=tlen;
+		spa_log_offset += tlen;
 	}
 	va_start(args, log);
-	spa_log_offset+=vsnprintf(spa_log_buffer+spa_log_offset, INT_MAX, log, args);
+	spa_log_offset += vsnprintf(spa_log_buffer+spa_log_offset, INT_MAX, log, args);
 	va_end(args);
 }
 
@@ -184,7 +179,7 @@ static struct device_attribute spa_power_attrs[]=
 };
 #endif
 
-// Power supply class name
+/* Power supply class name */
 #define POWER_SUPPLY_BATTERY "battery"
 #define POWER_SUPPLY_WALL "ac"
 #define POWER_SUPPLY_USB "usb"
@@ -209,7 +204,6 @@ static int spa_start_charge_timer(charge_timer_t duration, void *data);
 static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char machine, unsigned int phase, unsigned status);
 
 #if defined(SPA_DEBUG_FEATURE)
-// ++ device attribute
 static ssize_t spa_power_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	ssize_t count=0;
@@ -225,109 +219,124 @@ static ssize_t spa_power_attrs_show(struct device *pdev, struct device_attribute
 			view_all=1;
 		case SPA_POWER_PROP_CHARGER_TYPE:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "charger_type = %d\n", spa_power_iter->charger_info.charger_type);
+				count  +=  scnprintf(buf+count, PAGE_SIZE-count, "charger_type = %d\n", spa_power_iter->charger_info.charger_type);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_CHARGING_CURRENT:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "charging_current = %d\n", spa_power_iter->charger_info.charging_current);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "charging_current = %d\n", spa_power_iter->charger_info.charging_current);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_CHARGING_STATUS:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "charging_status = %d, %d\n", spa_power_iter->charging_status.phase, spa_power_iter->charging_status.status);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "charging_status = %d, %d\n", spa_power_iter->charging_status.phase, spa_power_iter->charging_status.status);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_EOC_CURRENT:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "eoc_current = %d\n", spa_power_iter->charger_info.eoc_current);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "eoc_current = %d\n", spa_power_iter->charger_info.eoc_current);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_TOP_VOLTAGE:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "top_voltage = %d\n", spa_power_iter->charger_info.top_voltage);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "top_voltage = %d\n", spa_power_iter->charger_info.top_voltage);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_LOWBATT_VOLTAGE:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "low_batt_voltage = %d\n", spa_power_iter->charger_info.lowbatt_voltage);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "low_batt_voltage = %d\n", spa_power_iter->charger_info.lowbatt_voltage);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_CHARGE_EXP_TIME:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "charge_exp_time = %d\n", spa_power_iter->charger_info.charge_expire_time);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "charge_exp_time = %d\n", spa_power_iter->charger_info.charge_expire_time);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_TIMES_EXPIRED:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "times_expired = %d\n", spa_power_iter->charger_info.times_expired);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "times_expired = %d\n", spa_power_iter->charger_info.times_expired);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_TYPE:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_type = %s\n", spa_power_iter->batt_info.type);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_type = %s\n", spa_power_iter->batt_info.type);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_HEALTH:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_health = %d\n", spa_power_iter->batt_info.health);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_health = %d\n", spa_power_iter->batt_info.health);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_TEMP:
 			{
-				int i=0;
-				for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-				{
-					count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_temp[i] = %d\n", spa_power_iter->temp_reading.container[i]);
+				int i = 0;
+				for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
+					count += scnprintf(buf+count, PAGE_SIZE-count, "batt_temp[i] = %d\n", spa_power_iter->temp_reading.container[i]);
 				}
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_TEMP_AVG:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_temp_avg = %d\n", spa_power_iter->batt_info.temp);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_temp_avg = %d\n", spa_power_iter->batt_info.temp);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_TEMP_ADC:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_temp_adc = %d\n", spa_power_iter->batt_info.temp_adc);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_temp_adc = %d\n", spa_power_iter->batt_info.temp_adc);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_VOLTAGE:
 			{
-				int i=0;
-				for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-				{
-					count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_voltage[i] = %d\n", spa_power_iter->volt_reading.container[i]);
+				int i = 0;
+				for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
+					count += scnprintf(buf+count, PAGE_SIZE-count, "batt_voltage[i] = %d\n", spa_power_iter->volt_reading.container[i]);
 				}
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_VOLTAGE_AVG:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_voltage_avg = %d\n", spa_power_iter->batt_info.voltage);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_voltage_avg = %d\n", spa_power_iter->batt_info.voltage);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_CAPACITY:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_capacity = %d\n", spa_power_iter->batt_info.capacity);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_capacity = %d\n", spa_power_iter->batt_info.capacity);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_VF:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_vf = %d\n", spa_power_iter->batt_info.vf_status);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_vf = %d\n", spa_power_iter->batt_info.vf_status);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_BATT_UPDATE_INTERVAL:
 			{
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "batt_update_interval = %d\n", spa_power_iter->batt_info.update_interval);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "batt_update_interval = %d\n", spa_power_iter->batt_info.update_interval);
 			}
-			if(!view_all)break;
+			if (!view_all)
+				break;
 		case SPA_POWER_PROP_EVT_LOG:
 			{
-				int i=0;
-				count+=sprintf(buf+count, "evt_index=%d\n", spa_evt_idx);
-				for(i=0 ; i < 255 ; i++)
-				{
-					count+=sprintf(buf+count, "evt_log[%d]=%d,%d\n",i, spa_evt_log[i].evt, spa_evt_log[i].data);
+				int i = 0;
+				count += sprintf(buf+count, "evt_index=%d\n", spa_evt_idx);
+				for (i = 0 ; i < 255 ; i++) {
+					count += sprintf(buf+count, "evt_log[%d]=%d,%d\n", i, spa_evt_log[i].evt, spa_evt_log[i].data);
 				}
 			}
 			break;
@@ -344,15 +353,13 @@ static ssize_t spa_power_attrs_store(struct device *pdev, struct device_attribut
 
 	const ptrdiff_t off = attr-spa_power_attrs;
 
-	if(off == SPA_POWER_PROP_DBG_SIMUL)
-	{
+	if (off == SPA_POWER_PROP_DBG_SIMUL) {
 		sscanf(buf, "%d", &intval);
 		spa_power_iter->dbg_simul=intval;
 		return count;
 	}
 
-	if( spa_power_iter->dbg_simul != 1)
-	{
+	if (spa_power_iter->dbg_simul != 1) {
 		return 0;
 	}
 
@@ -368,12 +375,9 @@ static ssize_t spa_power_attrs_store(struct device *pdev, struct device_attribut
 			break;
 		case SPA_POWER_PROP_FULL_CHARGED:
 			sscanf(buf, "%d", &intval);
-			if(intval == 1)
-			{
-				spa_event_handler(SPA_EVT_EOC,NULL);
-			}
-			else if(intval == 2)
-			{
+			if (intval == 1) {
+				spa_event_handler(SPA_EVT_EOC, NULL);
+			} else if (intval == 2) {
 				SPA_CHARGING_STATUS_T status;
 				spa_stop_charge_timer(status, spa_power_iter);
 				spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_FULL, SPA_STATUS_FULL_FORCE);
@@ -399,7 +403,6 @@ static ssize_t spa_power_attrs_store(struct device *pdev, struct device_attribut
 	schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(5000));
 	return count;
 }
-// -- device attribute
 #endif
 
 #if defined(CONFIG_SEC_BATT_EXT_ATTRS)
@@ -434,7 +437,7 @@ static int get_boot_mode(char *str)
 
 	return 1;
 }
-__setup("lpcharge=",get_boot_mode);
+__setup("lpcharge=", get_boot_mode);
 static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	ssize_t count=0;
@@ -448,22 +451,22 @@ static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribu
 	{
 		case SS_BATT_LP_CHARGING:
 			lp_charging = spa_power_iter->lp_charging;
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", lp_charging);
+			count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", lp_charging);
 			break;
 		case SS_BATT_CHARGING_SOURCE:
-				count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->charger_info.charger_type);
+				count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->charger_info.charger_type);
 			break;
 		case SS_BATT_TEMP_AVER:
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.temp);
+			count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.temp);
 			break;
 		case SS_BATT_TEMP_ADC_AVER:
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.temp_adc);
+			count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.temp_adc);
 			break;
 		case SS_BATT_TYPE:
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%s\n",spa_power_iter->batt_info.type);
+			count += scnprintf(buf+count, PAGE_SIZE-count, "%s\n", spa_power_iter->batt_info.type);
 			break;
 		case SS_BATT_READ_ADJ_SOC:
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.capacity);
+			count += scnprintf(buf+count, PAGE_SIZE-count, "%d\n", spa_power_iter->batt_info.capacity);
 			break;
 		default:
 			break;
@@ -485,12 +488,11 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 				sscanf(buf, "%d", &val);
 				spa_set_fg_reset(spa_power_iter, val);
 				msleep(1000);
-				if(spa_power_iter)
-				{
-				spa_power_iter->new_gathering.temperature = 1;
-				spa_power_iter->new_gathering.voltage = 1;
-				cancel_delayed_work_sync(&spa_power_iter->battery_work);
-				schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
+				if (spa_power_iter) {
+					spa_power_iter->new_gathering.temperature = 1;
+					spa_power_iter->new_gathering.voltage = 1;
+					cancel_delayed_work_sync(&spa_power_iter->battery_work);
+					schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
 				}
 			}
 			break;
@@ -508,56 +510,47 @@ static int spa_set_charge(struct spa_power_desc *spa_power_iter, unsigned int ac
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4, "%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
-	if(act == 1)
-	{
-		// 1. Charging current
-		if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_MAINS ||
-				spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_DCP)
-		{
+	if (act == 1) {
+		/* 1. Charging current */
+		if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_MAINS ||
+				spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_DCP) {
 			spa_power_iter->charger_info.charging_current=pdata->charging_cur_wall;
-		}
-		else if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB ||
-				spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_CDP)
-		{
+		} else if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB ||
+				spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_CDP) {
 			spa_power_iter->charger_info.charging_current=pdata->charging_cur_usb;
-		}
-		else
-		{
+		} else {
 			pr_spa_dbg(LEVEL3, "%s : charger type error\n", __func__);
 		}
-		// 4. Queue work for Setting Fast Charging current
+		/* 4. Queue work for Setting Fast Charging current */
 		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
 		queue_delayed_work(spa_power_iter->spa_workqueue, &spa_power_iter->fast_charging_work, msecs_to_jiffies(1200));
 
 
-		pr_spa_dbg(LEVEL2, "%s : Charging!! current=%d, eoc_cur=%d \n", __func__,
+		pr_spa_dbg(LEVEL2, "%s : Charging!! current=%d, eoc_cur=%d\n", __func__,
 				spa_power_iter->charger_info.charging_current,
 				spa_power_iter->charger_info.eoc_current);
-	}
-	else if(act == 0) // discharging
+	} else if (act == 0) /* discharging */
 	{
-		// 1. stop charging
+		/* 1. stop charging */
 		spa_power_iter->charger_info.charging_current=0;
 		value.intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
-		pr_spa_dbg(LEVEL2, "%s : Discharging!! ", __func__ );
-	}
-	else
-	{
-		// 1. stop charging
+		pr_spa_dbg(LEVEL2, "%s : Discharging!! ", __func__);
+	} else {
+		/* 1. stop charging */
 		spa_power_iter->charger_info.charging_current=0;
 		value.intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
-		pr_spa_dbg(LEVEL2, "%s : Not charging!! ", __func__ );
+		pr_spa_dbg(LEVEL2, "%s : Not charging!! ", __func__);
 	}
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 
@@ -596,19 +589,16 @@ static int spa_get_batt_temp(struct spa_power_desc *spa_power_iter)
 	unsigned int batt_temp_tb_len = spa_power_iter->pdata->batt_temp_tb_len;
 	temp_adc = spa_get_batt_temp_adc(spa_power_iter);
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-		for( i =0 ; i < batt_temp_tb_len-1 ; i++)
-	{
-		if(batt_temp_tb[i].adc >= temp_adc
-				&& batt_temp_tb[i+1].adc <= temp_adc)
-		{
+	for (i = 0 ; i < batt_temp_tb_len - 1 ; i++) {
+		if (batt_temp_tb[i].adc >= temp_adc
+			&& batt_temp_tb[i+1].adc <= temp_adc) {
 			int temp_diff, adc_diff, inc_comp;
-
 			temp_diff = (batt_temp_tb[i+1].temp - batt_temp_tb[i].temp);
 			adc_diff = (batt_temp_tb[i+1].adc - batt_temp_tb[i].adc);
-			inc_comp = batt_temp_tb[i].temp - ( ( temp_diff * batt_temp_tb[i].adc ) / adc_diff );
-			temp = ( (temp_adc * temp_diff ) / adc_diff ) + inc_comp;
+			inc_comp = batt_temp_tb[i].temp - ((temp_diff * batt_temp_tb[i].adc) / adc_diff);
+			temp = ((temp_adc * temp_diff) / adc_diff) + inc_comp;
 
 			return temp;
 		}
@@ -626,50 +616,44 @@ static int spa_get_batt_temp_avg(struct spa_power_desc *spa_power_iter)
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 #if (SPA_DBG_LEVEL_OUT >= 3)
-	if( spa_get_batt_temp(spa_power_iter) < 0)
-	{
+	if (spa_get_batt_temp(spa_power_iter) < 0) {
 		pr_err("%s : under 0 temperature\n", __func__);
 	}
 #endif
 
 	pr_spa_dbg(LEVEL4, "%s : avg_size = %d\n", __func__,\
 					ADC_RUNNING_AVG_SIZE);
-	if(spa_power_iter->new_gathering.temperature == 1)
-	{
+	if (spa_power_iter->new_gathering.temperature == 1) {
 		pr_spa_dbg(LEVEL2, "%s : temperature =>  gather initial values\n", __func__);
-		spa_power_iter->temp_reading.sum=0;
-		for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-		{
+		spa_power_iter->temp_reading.sum = 0;
+		for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
 			spa_power_iter->temp_reading.container[i]=spa_get_batt_temp(spa_power_iter);
-			spa_power_iter->temp_reading.sum+=spa_power_iter->temp_reading.container[i];
+			spa_power_iter->temp_reading.sum += spa_power_iter->temp_reading.container[i];
 		}
 		spa_power_iter->temp_reading.index=0;
 		spa_power_iter->new_gathering.temperature=0;
-	}
-	else
-	{
+	} else {
 		spa_power_iter->temp_reading.sum -= spa_power_iter->temp_reading.container[index];
 		spa_power_iter->temp_reading.container[index] = spa_get_batt_temp(spa_power_iter);
-		spa_power_iter->temp_reading.sum += spa_power_iter->temp_reading.container[index];
-		spa_power_iter->temp_reading.index = (index+1) % ADC_RUNNING_AVG_SIZE;
+		spa_power_iter->temp_reading.sum  +=  spa_power_iter->temp_reading.container[index];
+		spa_power_iter->temp_reading.index = (index + 1) % ADC_RUNNING_AVG_SIZE;
 	}
 
 	spa_power_iter->temp_reading.avg = spa_power_iter->temp_reading.sum >> ADC_RUNNING_AVG_SHIFT;
 
 #if (SPA_DBG_LEVEL_OUT >= SPA_DBG_LEVEL3)
 	{
-		printk("%s : temperature(idx=%d)", __func__, spa_power_iter->temp_reading.index);
-		for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-		{
-			printk("[%d]=%d,", i,spa_power_iter->temp_reading.container[i]);
+		printk(KERN_INFO "%s : temperature(idx=%d)", __func__, spa_power_iter->temp_reading.index);
+		for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
+			printk(KERN_INFO "[%d]=%d,", i, spa_power_iter->temp_reading.container[i]);
 		}
-		printk("\n");
+		printk(KERN_INFO "\n");
 	}
 #endif
-	pr_spa_dbg(LEVEL3, "%s : temp_sum = %d, temp_avg = %d \n", __func__,
+	pr_spa_dbg(LEVEL3, "%s : temp_sum = %d, temp_avg = %d\n", __func__,
 				spa_power_iter->temp_reading.sum, spa_power_iter->temp_reading.avg);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return spa_power_iter->temp_reading.avg;
 }
 
@@ -678,7 +662,7 @@ static int spa_get_batt_temp_adc(struct spa_power_desc *spa_power_iter)
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
@@ -686,7 +670,7 @@ static int spa_get_batt_temp_adc(struct spa_power_desc *spa_power_iter)
 
 	pr_spa_dbg(LEVEL4, "%s : temp_adc = %d\n", __func__, value.intval);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return value.intval;
 }
 
@@ -695,7 +679,7 @@ static int spa_get_batt_capacity(struct spa_power_desc *spa_power_iter)
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
@@ -703,7 +687,7 @@ static int spa_get_batt_capacity(struct spa_power_desc *spa_power_iter)
 
 	pr_spa_dbg(LEVEL3, "%s : capacity = %d\n", __func__, value.intval);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return value.intval;
 }
 
@@ -712,7 +696,7 @@ static int spa_set_fg_reset(struct spa_power_desc *spa_power_iter, int dval)
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 	value.intval=dval;
@@ -720,75 +704,70 @@ static int spa_set_fg_reset(struct spa_power_desc *spa_power_iter, int dval)
 
 	pr_spa_dbg(LEVEL2, "%s : reset soc, %d\n", __func__, value.intval);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 
 
 static int spa_get_batt_voltage(struct spa_power_desc *spa_power_iter)
 {
-	unsigned int retry_cnt=0;
-	int pass_cond=1;
+	unsigned int retry_cnt = 0;
+	int pass_cond = 1;
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
 	do
 	{
 		ps->get_property(ps, POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
-		if(value.intval < 2800 || value.intval > 4200)
-		{
-			pass_cond=0;
+		if (value.intval < 2800 || value.intval > 4200) {
+			pass_cond = 0;
 		}
 
-		if(retry_cnt++ >= 3 )break;
+		if (retry_cnt++ >= 3)
+			break;
 	}
 	while(!pass_cond);
 
-	pr_spa_dbg(LEVEL4, "%s : voltage = %d \n", __func__, value.intval);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : voltage = %d\n", __func__, value.intval);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return value.intval;
 }
 
 static int spa_get_batt_volt_avg(struct spa_power_desc *spa_power_iter)
 {
-	int i=0;
+	int i = 0;
 	int index = spa_power_iter->volt_reading.index;
-	int readed_volt=0;
+	int readed_volt = 0;
 
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	readed_volt = spa_get_batt_voltage(spa_power_iter);
 
-	if( readed_volt < 0)
-	{
+	if (readed_volt < 0) {
 		pr_err("%s : wrong voltage\n", __func__);
 	}
 
 	pr_spa_dbg(LEVEL4, "%s : avg_size = %d\n", __func__,
 			ADC_RUNNING_AVG_SIZE);
-	if(spa_power_iter->new_gathering.voltage == 1)
-	{
+	if (spa_power_iter->new_gathering.voltage == 1) {
 		pr_spa_dbg(LEVEL2, "%s : voltage is 0 and gather initial"\
 				"values\n", __func__);
-		spa_power_iter->volt_reading.sum=0;
-		for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-		{
+		spa_power_iter->volt_reading.sum = 0;
+		for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
 			spa_power_iter->volt_reading.container[i]=spa_get_batt_voltage(spa_power_iter);
-			spa_power_iter->volt_reading.sum+=spa_power_iter->volt_reading.container[i];
+			spa_power_iter->volt_reading.sum += spa_power_iter->volt_reading.container[i];
 		}
-		spa_power_iter->volt_reading.index=0;
-		spa_power_iter->new_gathering.voltage=0;
-	}
-	else
-	{
-		// handling exceptional voltage.
+		spa_power_iter->volt_reading.index = 0;
+		spa_power_iter->new_gathering.voltage = 0;
+	} else {
+		/* handling exceptional voltage. */
 		spa_power_iter->volt_reading.sum -= spa_power_iter->volt_reading.container[index];
 		spa_power_iter->volt_reading.container[index] = readed_volt;
 		spa_power_iter->volt_reading.sum += spa_power_iter->volt_reading.container[index];
-		spa_power_iter->volt_reading.index = (index+1) % ADC_RUNNING_AVG_SIZE;
+		spa_power_iter->volt_reading.index = (index + 1) % ADC_RUNNING_AVG_SIZE;
 	}
 	spa_power_iter->volt_reading.prev_val = readed_volt;
 
@@ -796,26 +775,25 @@ static int spa_get_batt_volt_avg(struct spa_power_desc *spa_power_iter)
 
 #if (SPA_DBG_LEVEL_OUT >= SPA_DBG_LEVEL3)
 	{
-		printk("%s : voltage ", __func__);
-		for(i=0; i < ADC_RUNNING_AVG_SIZE ; i++)
-		{
-			printk("[%d]=%d,", i,spa_power_iter->volt_reading.container[i]);
+		printk(KERN_INFO "%s : voltage ", __func__);
+		for (i = 0; i < ADC_RUNNING_AVG_SIZE ; i++) {
+			printk(KERN_INFO "[%d]=%d,", i, spa_power_iter->volt_reading.container[i]);
 		}
-		printk("\n");
+		printk(KERN_INFO "\n");
 	}
 #endif
-	pr_spa_dbg(LEVEL3, "%s : voltage_avg = %d \n", __func__, spa_power_iter->volt_reading.avg);
+	pr_spa_dbg(LEVEL3, "%s : voltage_avg = %d\n", __func__, spa_power_iter->volt_reading.avg);
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return spa_power_iter->volt_reading.avg;
 }
 
 int spa_get_batt_voltage_extern(void)
 {
-   if(g_spa_power == NULL)
-      return -1;
+	if (g_spa_power == NULL)
+		return -1;
 
-   return g_spa_power->batt_info.voltage;
+	return g_spa_power->batt_info.voltage;
 }
 EXPORT_SYMBOL(spa_get_batt_voltage_extern);
 
@@ -839,11 +817,10 @@ static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char ma
 {
 	struct spa_power_data *pdata = spa_power_iter->pdata;
 	charge_timer_t charge_timer_duration = pdata->charge_timer_limit;
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-	if(machine == SPA_MACHINE_NORMAL)
-	{
-		if(phase == POWER_SUPPLY_STATUS_DISCHARGING)  //----------------------------------- DISCHARGING
+	if (machine == SPA_MACHINE_NORMAL) {
+		if (phase == POWER_SUPPLY_STATUS_DISCHARGING)  /* DISCHARGING */
 		{
 			spa_set_charge(spa_power_iter, 0);
 			spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -851,8 +828,7 @@ static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char ma
 			spa_power_iter->batt_info.update_interval = SPA_BATT_UPDATE_INTERVAL;
 			spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 
-			if(status == SPA_STATUS_SUSPEND_OVP)
-			{
+			if (status == SPA_STATUS_SUSPEND_OVP) {
 				spa_power_iter->charging_status.status = SPA_STATUS_SUSPEND_OVP;
 				spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 				spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_HEALTH);
@@ -860,13 +836,11 @@ static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char ma
 
 			spa_stop_charge_timer(spa_power_iter->charging_status, spa_power_iter);
 
-			pr_spa_dbg(LEVEL1, "%s : Do discharging \n", __func__);
-		}
-		else if(phase == POWER_SUPPLY_STATUS_CHARGING) //------------------------------------ CHARGING
+			pr_spa_dbg(LEVEL1, "%s : Do discharging\n", __func__);
+		} else if (phase == POWER_SUPPLY_STATUS_CHARGING) /* CHARGING */
 		{
-			if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_BATTERY)
-			{
-				pr_spa_dbg(LEVEL2, "%s : Wrong type of charger \n", __func__);
+			if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_BATTERY) {
+				pr_spa_dbg(LEVEL2, "%s : Wrong type of charger\n", __func__);
 				return -1;
 			}
 			spa_set_charge(spa_power_iter, 1);
@@ -875,66 +849,48 @@ static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char ma
 
 			spa_power_iter->batt_info.update_interval = SPA_BATT_UPDATE_INTERVAL_WHILE_CHARGING;
 			spa_start_charge_timer(charge_timer_duration, spa_power_iter);
-			pr_spa_dbg(LEVEL1, "%s : Do charging \n", __func__);
+			pr_spa_dbg(LEVEL1, "%s : Do charging\n", __func__);
 
-		}
-		else if(phase == POWER_SUPPLY_STATUS_FULL) //----------------------------------------- FULL
+		} else if (phase == POWER_SUPPLY_STATUS_FULL) /* FULL */
 		{
-			if(spa_power_iter->charging_status.phase != POWER_SUPPLY_STATUS_FULL)
-			{ // just now full-charged after normal charging.
+			if (spa_power_iter->charging_status.phase != POWER_SUPPLY_STATUS_FULL) { /* just now full-charged after normal charging. */
 				spa_set_charge(spa_power_iter, 0);
 				spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_FULL;
 				spa_power_iter->charging_status.status = SPA_STATUS_NONE;
 				spa_stop_charge_timer(spa_power_iter->charging_status, spa_power_iter);
-				pr_spa_dbg(LEVEL1, "%s : Do full charged - normal full \n", __func__);
-			}
-			else if(spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
-			{
-				if(status == SPA_STATUS_FULL_RECHARGE)
-				{ // recharging after full-charged
+				pr_spa_dbg(LEVEL1, "%s : Do full charged - normal full\n", __func__);
+			} else if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL) {
+				if (status == SPA_STATUS_FULL_RECHARGE) { /* recharging after full-charged */
 					spa_set_charge(spa_power_iter, 1);
 					spa_power_iter->charging_status.status = SPA_STATUS_FULL_RECHARGE;
 					spa_start_charge_timer(charge_timer_duration, spa_power_iter);
-					pr_spa_dbg(LEVEL1, "%s : Do recharging after full charged \n", __func__);
-				}
-				else
-				{ // full-charged after recharging.
+					pr_spa_dbg(LEVEL1, "%s : Do recharging after full charged\n", __func__);
+				} else { /* full-charged after recharging. */
 					spa_set_charge(spa_power_iter, 0);
 					spa_power_iter->charging_status.status = SPA_STATUS_NONE;
 					spa_stop_charge_timer(spa_power_iter->charging_status, spa_power_iter);
-					pr_spa_dbg(LEVEL1, "%s : Do full charged - recharge full \n", __func__);
+					pr_spa_dbg(LEVEL1, "%s : Do full charged - recharge full\n", __func__);
 				}
 			}
-		}
-		else if(phase == POWER_SUPPLY_STATUS_NOT_CHARGING) //--------------------------------- NOT CHARGING
+		} else if (phase == POWER_SUPPLY_STATUS_NOT_CHARGING) /* NOT CHARGING */
 		{
-			pr_spa_dbg(LEVEL1, "%s : Do not charging \n", __func__);
+			pr_spa_dbg(LEVEL1, "%s : Do not charging\n", __func__);
 			spa_set_charge(spa_power_iter, 0);
 			spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			if(status == SPA_STATUS_SUSPEND_OVP)
-			{
+			if (status == SPA_STATUS_SUSPEND_OVP) {
 				spa_power_iter->charging_status.status = SPA_STATUS_SUSPEND_OVP;
 				spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-			}
-			else if(status == SPA_STATUS_SUSPEND_TEMP_HOT)
-			{
+			} else if (status == SPA_STATUS_SUSPEND_TEMP_HOT) {
 				spa_power_iter->charging_status.status = SPA_STATUS_SUSPEND_TEMP_HOT;
 				spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_OVERHEAT;
-			}
-			else if(status == SPA_STATUS_SUSPEND_TEMP_COLD)
-			{
+			} else if (status == SPA_STATUS_SUSPEND_TEMP_COLD) {
 				spa_power_iter->charging_status.status = SPA_STATUS_SUSPEND_TEMP_COLD;
 				spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_COLD;
-			}
-			else if(status == SPA_STATUS_VF_INVALID)
-			{
+			} else if (status == SPA_STATUS_VF_INVALID) {
 				spa_power_iter->charging_status.status = SPA_STATUS_VF_INVALID;
-				if(spa_power_iter->lp_charging)
-				{
+				if (spa_power_iter->lp_charging) {
 					spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
-				}
-				else
-				{
+				} else {
 				spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_DEAD;
 			}
 			}
@@ -943,33 +899,27 @@ static int spa_do_status(struct spa_power_desc *spa_power_iter, unsigned char ma
 
 			spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_HEALTH);
 
-			pr_spa_dbg(LEVEL1, "%s : Do suspend, reason = %d \n", __func__, status);
+			pr_spa_dbg(LEVEL1, "%s : Do suspend, reason = %d\n", __func__, status);
 		}
-	}
-	else if(machine == SPA_MACHINE_FULL_CHARGE_TIMER)
-	{
-		if(phase == POWER_SUPPLY_STATUS_FULL)
-		{
-			if(status == SPA_STATUS_FULL_FORCE) // FORCE FULL
+	} else if (machine == SPA_MACHINE_FULL_CHARGE_TIMER) {
+		if (phase == POWER_SUPPLY_STATUS_FULL) {
+			if (status == SPA_STATUS_FULL_FORCE) /* FORCE FULL */
 			{
 				spa_set_charge(spa_power_iter, 0);
 				spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_FULL;
 				spa_power_iter->charging_status.status = SPA_STATUS_FULL_FORCE;
-				pr_spa_dbg(LEVEL1, "%s : Do full charged - force full \n", __func__);
-			}
-			else if(status == SPA_STATUS_FULL_RECHARGE) // RECHARGE AFTER FORCE FULL
+				pr_spa_dbg(LEVEL1, "%s : Do full charged - force full\n", __func__);
+			} else if (status == SPA_STATUS_FULL_RECHARGE) /* RECHARGE AFTER FORCE FULL */
 			{
 				spa_set_charge(spa_power_iter, 1);
 				spa_power_iter->charging_status.status = SPA_STATUS_FULL_RECHARGE;
-				pr_spa_dbg(LEVEL1, "%s : Do recharging after full charged \n", __func__);
+				pr_spa_dbg(LEVEL1, "%s : Do recharging after full charged\n", __func__);
 			}
 		}
-	}
-	else
-	{ // wrong case
+	} else { /* wrong case */
 	}
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_STATUS);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 
 	return 0;
 }
@@ -979,7 +929,7 @@ static int spa_start_charge_timer(charge_timer_t duration, void *data)
 	struct spa_power_desc *spa_power_iter = (struct spa_power_desc *)data;
 	unsigned char is_start_timer = 1;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	switch(duration)
 	{
@@ -997,19 +947,17 @@ static int spa_start_charge_timer(charge_timer_t duration, void *data)
 			break;
 	}
 
-	if(is_start_timer == 1)
+	if (is_start_timer == 1)
 	{
 		cancel_delayed_work_sync(&spa_power_iter->spa_expire_charge_work);
 		schedule_delayed_work(&spa_power_iter->spa_expire_charge_work,
 				msecs_to_jiffies(spa_power_iter->charger_info.charge_expire_time));
 		pr_spa_dbg(LEVEL2, "%s : start full charge timer\n", __func__);
-	}
-	else
-	{
+	} else {
 		return -1;
 	}
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 
@@ -1022,7 +970,7 @@ static void spa_stop_charge_timer(SPA_CHARGING_STATUS_T endtype, void *data)
 	cancel_delayed_work_sync(&spa_power_iter->spa_expire_charge_work);
 
 	pr_spa_dbg(LEVEL2, "%s : stop full charge timer\n", __func__);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 static void spa_expire_charge_timer(struct work_struct *work)
@@ -1032,24 +980,23 @@ static void spa_expire_charge_timer(struct work_struct *work)
 
 	volatile unsigned int times_expired=0;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	spa_power_iter->charger_info.times_expired++;
 	times_expired = spa_power_iter->charger_info.times_expired % 2;
 
-	if(times_expired == 0) // after first expired, duration is 90 mins
+	if (times_expired == 0) /* after first expired, duration is 90 mins */
 	{
 		spa_power_iter->charger_info.charge_expire_time = 90 * MINUTE_BY_MSEC;
 		spa_do_status(spa_power_iter, SPA_MACHINE_FULL_CHARGE_TIMER, POWER_SUPPLY_STATUS_FULL, SPA_STATUS_FULL_RECHARGE);
-	}
-	else if(times_expired == 1) // preparing next timer, 30 secs delay
+	} else if (times_expired == 1) /* preparing next timer, 30 secs delay */
 	{
 		spa_power_iter->charger_info.charge_expire_time = 30 * SECOND_BY_MSEC;
 		spa_do_status(spa_power_iter, SPA_MACHINE_FULL_CHARGE_TIMER,  POWER_SUPPLY_STATUS_FULL, SPA_STATUS_FULL_FORCE);
 	}
 	schedule_delayed_work(&spa_power_iter->spa_expire_charge_work,
 			msecs_to_jiffies(spa_power_iter->charger_info.charge_expire_time));
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 #if defined(SPA_FAKE_FULL_CAPACITY)
@@ -1063,16 +1010,16 @@ static int spa_fake_capacity(struct spa_power_desc *spa_power_iter)
 		case SPA_FAKE_CAP_DEC:
 			fake_capacity = spa_power_iter->batt_info.fake_capacity--;
 			pr_spa_dbg(LEVEL2, "%s : local f_cap = %d, f_cap=%d\n", __func__, fake_capacity, spa_power_iter->batt_info.fake_capacity);
-			if(spa_power_iter->batt_info.capacity >= fake_capacity)
+			if (spa_power_iter->batt_info.capacity >= fake_capacity)
 				spa_power_iter->batt_info.fakemode=SPA_FAKE_CAP_NONE;
 			break;
 		case SPA_FAKE_CAP_INC:
-			if(spa_power_iter->batt_info.capacity >= spa_power_iter->batt_info.fake_capacity)
+			if (spa_power_iter->batt_info.capacity >= spa_power_iter->batt_info.fake_capacity)
 				spa_power_iter->batt_info.fakemode=SPA_FAKE_CAP_NONE;
 			break;
 	}
 
-	if(spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_NONE)
+	if (spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_NONE)
 		return spa_power_iter->batt_info.capacity;
 	else
 		return fake_capacity;
@@ -1104,10 +1051,9 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 #else
 			value.intval = spa_power_iter->batt_info.capacity;
 #endif
-			if(spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL )
+			if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
 				value.intval = 100;
-			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY && spa_power_iter->batt_info.vf_status == 0 )
-			{ // batterry removed
+			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY && spa_power_iter->batt_info.vf_status == 0) { /* batterry removed */
 #if defined(REPORT_0_WHEN_NOBATT)
 				value.intval = 0;
 #else
@@ -1148,14 +1094,14 @@ static void spa_update_power_supply_battery(struct spa_power_desc *spa_power_ite
 {
 	struct power_supply *ps;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(POWER_SUPPLY_BATTERY);
 
 	spa_update_batt_info(spa_power_iter, prop);
 
 	power_supply_changed(ps);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 static void spa_update_power_supply_charger(struct spa_power_desc *spa_power_iter, unsigned int prop)
@@ -1163,26 +1109,21 @@ static void spa_update_power_supply_charger(struct spa_power_desc *spa_power_ite
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-	if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_MAINS ||
-			spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_DCP)
-	{
+	if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_MAINS ||
+			spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_DCP) {
 		ps = power_supply_get_by_name(POWER_SUPPLY_WALL);
 		value.intval = 1;
 		ps->set_property(ps, POWER_SUPPLY_PROP_ONLINE, &value);
 		pr_spa_dbg(LEVEL1, "%s : Charger Online : WALL TYPE\n", __func__);
-	}
-	else if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB ||
-			spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_CDP)
-	{
+	} else if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB ||
+			spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_USB_CDP) {
 		ps = power_supply_get_by_name(POWER_SUPPLY_USB);
 		value.intval = 1;
 		ps->set_property(ps, POWER_SUPPLY_PROP_ONLINE, &value);
 		pr_spa_dbg(LEVEL1, "%s : Charger Online : USB TYPE\n", __func__);
-	}
-	else
-	{
+	} else {
 		ps = power_supply_get_by_name(POWER_SUPPLY_WALL);
 		value.intval = 0;
 		ps->set_property(ps, POWER_SUPPLY_PROP_ONLINE, &value);
@@ -1197,7 +1138,7 @@ static void spa_update_power_supply_charger(struct spa_power_desc *spa_power_ite
 
 
 	power_supply_changed(ps);
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 static void spa_fast_charging_work(struct work_struct *work)
@@ -1207,7 +1148,7 @@ static void spa_fast_charging_work(struct work_struct *work)
 	struct power_supply *ps;
 	union power_supply_propval value;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
@@ -1239,8 +1180,7 @@ static void spa_batt_work(struct work_struct *work)
 
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-	if(spa_power_iter->dbg_simul != 1)
-	{
+	if (spa_power_iter->dbg_simul != 1) {
 		spa_power_iter->batt_info.temp = spa_get_batt_temp_avg(spa_power_iter);
 		spa_power_iter->batt_info.temp_adc = spa_get_batt_temp_adc(spa_power_iter);
 		spa_power_iter->batt_info.capacity = spa_get_batt_capacity(spa_power_iter);
@@ -1258,7 +1198,7 @@ static void spa_batt_work(struct work_struct *work)
 			spa_power_iter->charger_info.charger_type,
 			spa_power_iter->charging_status.phase, spa_power_iter->charging_status.status);
 
-	// update power supply battery,
+	/* update power supply battery, */
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_TEMP);
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_BATT_TEMP_ADC);
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_CAPACITY);
@@ -1267,71 +1207,59 @@ static void spa_batt_work(struct work_struct *work)
 	spa_update_power_supply_battery(spa_power_iter,
 						POWER_SUPPLY_PROP_PRESENT);
 
-	// check recharge condition
-	if( spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
-	{
-		if(spa_power_iter->charging_status.status != SPA_STATUS_FULL_RECHARGE
-				&& spa_power_iter->charging_status.status != SPA_STATUS_FULL_FORCE)
-		{
-				if( spa_power_iter->batt_info.voltage < spa_power_iter->charger_info.recharge_voltage)
-				{
-						// recharge condition has met.
+	/* check recharge condition */
+	if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL) {
+		if (spa_power_iter->charging_status.status != SPA_STATUS_FULL_RECHARGE
+				&& spa_power_iter->charging_status.status != SPA_STATUS_FULL_FORCE) {
+				if (spa_power_iter->batt_info.voltage < spa_power_iter->charger_info.recharge_voltage) {
+						/* recharge condition has met. */
 						spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, spa_power_iter->charging_status.phase, SPA_STATUS_FULL_RECHARGE);
 				}
 		}
 	}
 
-	// check temperature----------------------------------------------------------------
+	/* check temperature */
 #if !defined(SPA_TEMPERATURE_INT)
-	if( spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
+	if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
 		spa_power_iter->charging_status.status != SPA_STATUS_SUSPEND_TEMP_HOT &&
-			spa_power_iter->batt_info.temp > pdata->suspend_temp_hot)
-	{ // hot temperature
+			spa_power_iter->batt_info.temp > pdata->suspend_temp_hot) { /* hot temperature */
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_HOT);
-	}
-	else if( spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
+	} else if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
 		spa_power_iter->charging_status.status != SPA_STATUS_SUSPEND_TEMP_HOT &&
-			spa_power_iter->batt_info.temp < pdata->suspend_temp_cold)
-	{ // cold temperature
+			spa_power_iter->batt_info.temp < pdata->suspend_temp_cold) { /* cold temperature */
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_COLD);
-	}
-	else if( spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_HOT &&
-			spa_power_iter->batt_info.temp < pdata->recovery_temp_hot)
-	{ // recovery from hot temperature
+	} else if (spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_HOT &&
+			spa_power_iter->batt_info.temp < pdata->recovery_temp_hot) { /* recovery from hot temperature */
 		spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
-	}
-	else if( spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_COLD &&
-			spa_power_iter->batt_info.temp > pdata->recovery_temp_cold)
-	{ // recovery from hot temperature
+	} else if (spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_COLD &&
+			spa_power_iter->batt_info.temp > pdata->recovery_temp_cold) { /* recovery from hot temperature */
 		spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
 	}
 #endif
 
-	// check vf-------------------------------------------------------------------------
-	if( spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY
-		&& spa_power_iter->batt_info.vf_status == 0)
-	{
-		// vf is not valid
+	/* check vf */
+	if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY
+		&& spa_power_iter->batt_info.vf_status == 0) {
+		/* vf is not valid */
 		pr_spa_dbg(LEVEL1, "%s : vf=%d, battery removed\n", __func__, spa_power_iter->batt_info.vf_status);
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_VF_INVALID);
 	}
 
 	schedule_delayed_work(&spa_power_iter->battery_work,
 			msecs_to_jiffies(spa_power_iter->batt_info.update_interval));
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 int spa_event_handler(int evt, void *data)
 {
 	struct spa_power_desc *spa_power_iter = g_spa_power;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-	if(spa_power_iter == NULL)
-	{ // not initialised yet. queue the event to be handled surely.
-		pr_spa_dbg(LEVEL2, "%s : event has come before init.\n",__func__);
+	if (spa_power_iter == NULL) { /* not initialised yet. queue the event to be handled surely. */
+		pr_spa_dbg(LEVEL2, "%s : event has come before init.\n", __func__);
 		return -1;
 	}
 
@@ -1341,45 +1269,38 @@ int spa_event_handler(int evt, void *data)
 	switch(evt)
 	{
 		case SPA_EVT_CHARGER:
-			// Insert
-			// get charter type
-			// start charging (set eoc current, charging current by charger type)
-			// run full charge timer
-			// change update interval for battery and reschedule.
-			// set status.
-			// set wakelock to avoid to enter sleep
+			/* Insert
+			 * get charter type
+			 * start charging (set eoc current, charging current by charger type)
+			 * run full charge timer
+			 * change update interval for battery and reschedule.
+			 * set status.
+			 * set wakelock to avoid to enter sleep
+			 */
 			spa_power_iter->charger_info.charger_type = (int)data;
-			pr_spa_dbg(LEVEL1, "%s : SPV_EVT_CHARGER - %d \n", __func__, spa_power_iter->charger_info.charger_type);
+			pr_spa_dbg(LEVEL1, "%s : SPV_EVT_CHARGER - %d\n", __func__, spa_power_iter->charger_info.charger_type);
 
-			if(spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_BATTERY )
-			{ // remove case
+			if (spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_BATTERY) { /* remove case */
 				spa_update_power_supply_charger(spa_power_iter, POWER_SUPPLY_PROP_ONLINE);
 #if defined(SPA_FAKE_FULL_CAPACITY)
-				if(spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
-				{
-					if(spa_power_iter->batt_info.capacity < 100)
-					{
+				if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL) {
+					if (spa_power_iter->batt_info.capacity < 100) {
 						spa_power_iter->batt_info.fakemode=SPA_FAKE_CAP_DEC;
 						spa_power_iter->batt_info.fake_capacity=100;
 					}
-				}
-				else if(spa_power_iter->batt_info.fakemode != SPA_FAKE_CAP_NONE)
+				} else if (spa_power_iter->batt_info.fakemode != SPA_FAKE_CAP_NONE)
 					spa_power_iter->batt_info.fakemode = (spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_DEC) ? SPA_FAKE_CAP_INC : SPA_FAKE_CAP_DEC;
 #endif
 				wake_lock_timeout(&spa_power_iter->spa_wakelock, 3*HZ);
 
 				spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_DISCHARGING, SPA_STATUS_NONE);
-			}
-			else
-			{ // insert case
+			} else { /* insert case */
 				spa_update_power_supply_charger(spa_power_iter, POWER_SUPPLY_PROP_ONLINE);
 #if defined(SPA_FAKE_FULL_CAPACITY)
-				if(spa_power_iter->batt_info.fakemode != SPA_FAKE_CAP_NONE)
-				{
+				if (spa_power_iter->batt_info.fakemode != SPA_FAKE_CAP_NONE) {
 					spa_power_iter->batt_info.fakemode = (spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_DEC) ? SPA_FAKE_CAP_INC : SPA_FAKE_CAP_DEC;
-					if(spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_INC && spa_power_iter->batt_info.fake_capacity < 100)
-					{
-					spa_power_iter->batt_info.fake_capacity++;
+					if (spa_power_iter->batt_info.fakemode == SPA_FAKE_CAP_INC && spa_power_iter->batt_info.fake_capacity < 100) {
+						spa_power_iter->batt_info.fake_capacity++;
 					}
 				}
 #endif
@@ -1387,60 +1308,47 @@ int spa_event_handler(int evt, void *data)
 				wake_lock(&spa_power_iter->spa_wakelock);
 			}
 
-			// Remove
-			// stop charging
-			// stop full charge timer
-			// change update interval for battery and reschedule.
-			//spa_power_iter->charger_info.charger_type =
 			break;
 		case SPA_EVT_EOC:
-			// stop charging
-			// stop full charge timer
-			// start watching recharge voltage.
-			// set status as full charged with capacity.
-			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-			{
-			pr_spa_dbg(LEVEL1, "%s : SPV_EVT_EOC \n", __func__);
+			/* stop charging
+			 * stop full charge timer
+			 * start watching recharge voltage.
+			 * set status as full charged with capacity.
+			 */
+			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY) {
+				pr_spa_dbg(LEVEL1, "%s : SPV_EVT_EOC\n", __func__);
 
-			// ugly patch for recharge feature due to capacity wrong action.
-			if(spa_power_iter->batt_info.capacity >= 98)
+			/* ugly patch for recharge feature due to capacity wrong action. */
+			if (spa_power_iter->batt_info.capacity >= 98)
 				spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_FULL, SPA_STATUS_NONE);
-			}
-			else
-			{
+			} else {
 				pr_spa_dbg(LEVEL1, "%s : wrong eoc, charger is not connected!!\n", __func__);
 			}
 			break;
 		case SPA_EVT_TEMP:
-			// stop charging
-			// set status as suspend
-			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-			{
+			/* stop charging */
+			/* set status as suspend */
+			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY) {
 				int temp_status = (int)data;
 				pr_spa_dbg(LEVEL1, "%s : SPV_EVT_TEMP - %d\n", __func__, temp_status);
-				if(temp_status == POWER_SUPPLY_HEALTH_OVERHEAT)
+				if (temp_status == POWER_SUPPLY_HEALTH_OVERHEAT)
 					spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_HOT);
-				if(temp_status == POWER_SUPPLY_HEALTH_COLD)
+				if (temp_status == POWER_SUPPLY_HEALTH_COLD)
 					spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_COLD);
-				if(temp_status == POWER_SUPPLY_HEALTH_GOOD)
-				{
+				if (temp_status == POWER_SUPPLY_HEALTH_GOOD) {
 					spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 					spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
 				}
 			}
 			break;
 		case SPA_EVT_OVP:
-			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-			{
+			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY) {
 				int ovp_status = (int)data;
-				pr_spa_dbg(LEVEL1, "%s : SPV_EVT_OVP - %d \n", __func__, ovp_status);
+				pr_spa_dbg(LEVEL1, "%s : SPV_EVT_OVP - %d\n", __func__, ovp_status);
 
-				if(ovp_status == 1)
-				{
+				if (ovp_status == 1) {
 					spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_DISCHARGING, SPA_STATUS_SUSPEND_OVP);
-				}
-				else
-				{
+				} else {
 					spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 					spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
 				}
@@ -1450,17 +1358,16 @@ int spa_event_handler(int evt, void *data)
 			break;
 		case SPA_EVT_CAPACITY:
 			{
-            if(spa_power_iter->dbg_simul != 1)
-		{
-				if(spa_power_iter->init_progress==SPA_INIT_PROGRESS_DONE)
-				spa_power_iter->batt_info.capacity = (int)data;
+			if (spa_power_iter->dbg_simul != 1) {
+				if (spa_power_iter->init_progress == SPA_INIT_PROGRESS_DONE)
+					spa_power_iter->batt_info.capacity = (int)data;
             }
 			}
 			break;
 	}
 	cancel_delayed_work_sync(&spa_power_iter->battery_work);
 	schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(500));
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 EXPORT_SYMBOL(spa_event_handler);
@@ -1471,7 +1378,7 @@ static void spa_init_config(struct spa_power_desc *spa_power_iter)
 		(struct spa_power_data *)spa_power_iter->pdata;
 
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
-	// charger init values
+	/* charger init values */
 	spa_power_iter->charger_info.charger_name=pdata->charger_name;
 	spa_power_iter->charger_info.charger_type = POWER_SUPPLY_TYPE_BATTERY;
 	spa_power_iter->charger_info.charging_current=0;
@@ -1484,10 +1391,10 @@ static void spa_init_config(struct spa_power_desc *spa_power_iter)
 	spa_power_iter->charging_status.phase = POWER_SUPPLY_STATUS_DISCHARGING;
 	spa_power_iter->charging_status.status = SPA_STATUS_NONE;
 
-	// battery init values
-	// should not call function, some function are still not assigned at this time in bcmpmu.
-	// filling values would be done in work.
-
+	/* battery init values
+	 * should not call function, some function are still not assigned at this time in bcmpmu.
+	 * filling values would be done in work.
+	*/
 	spa_power_iter->batt_info.temp=0;
 	spa_power_iter->batt_info.temp_adc=0;
 	spa_power_iter->batt_info.type = "SDI_SDI";
@@ -1505,11 +1412,11 @@ static void spa_init_config(struct spa_power_desc *spa_power_iter)
 	spa_power_iter->batt_info.fake_capacity=100;
 #endif
 
-	// lp charging
+	/* lp charging */
 	spa_power_iter->lp_charging = lp_boot_mode;
 	pr_spa_dbg(LEVEL1, "%s : lpcharging=%d, lp_boot_mode=%d\n", __func__, spa_power_iter->lp_charging, lp_boot_mode);
 
-	// init containers
+	/* init containers */
 	spa_power_iter->volt_reading.prev_val=0;
 
 	spa_power_iter->new_gathering.temperature=1;
@@ -1519,7 +1426,7 @@ static void spa_init_config(struct spa_power_desc *spa_power_iter)
 	spa_power_iter->dbg_simul=0;
 
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 }
 
 static int spa_init_progress(struct spa_power_desc *spa_power_iter)
@@ -1549,7 +1456,7 @@ static int spa_init_progress(struct spa_power_desc *spa_power_iter)
 			break;
 	}
 
-	if(spa_power_iter->init_progress <= SPA_INIT_PROGRESS_DONE)
+	if (spa_power_iter->init_progress <= SPA_INIT_PROGRESS_DONE)
 		return SPA_INIT_PROGRESS_DONE;
 		return spa_power_iter->init_progress--;
 	}
@@ -1566,8 +1473,7 @@ static void spa_delayed_init_work(struct work_struct *work)
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	ps = power_supply_get_by_name("battery");
 
-	if (ps == NULL)
-	{
+	if (ps == NULL) {
 		pr_spa_dbg(LEVEL2, "%s : waiting spa_ps\n", __func__);
 		schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
 		return;
@@ -1575,8 +1481,7 @@ static void spa_delayed_init_work(struct work_struct *work)
 
 	init_progress = spa_init_progress(spa_power_iter);
 
-	if (SPA_INIT_PROGRESS_START == init_progress)
-	{
+	if (SPA_INIT_PROGRESS_START == init_progress) {
 		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n", __func__);
 		if (spa_power_iter == NULL)
 			pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
@@ -1588,18 +1493,15 @@ static void spa_delayed_init_work(struct work_struct *work)
 				ret = spa_event_handler(SPA_EVT_CHARGER,
 										(void *)(spa_power_iter->charger_info.charger_type));
 		}
-
-		// dummy, temporary before actual charger detection in case of power off charging
-		if(spa_power_iter->lp_charging == 1)
-		{
+		/* dummy, temporary before actual charger detection in case of power off charging */
+		if (spa_power_iter->lp_charging == 1) {
 			spa_power_iter->charger_info.charger_type = 1;
 		}
 
 #if defined(CONFIG_SEC_BATT_EXT_ATTRS)
 	{
-		int i=0;
-		for(i=0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++)
-		{
+		int i = 0;
+		for (i = 0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++) {
 			device_create_file(ps->dev, &ss_batt_ext_attrs[i]);
 		}
 	}
@@ -1607,18 +1509,14 @@ static void spa_delayed_init_work(struct work_struct *work)
 	 schedule_delayed_work(&spa_power_iter->battery_work,
 			msecs_to_jiffies(0));
 		schedule_delayed_work(&spa_power_iter->delayed_init_work,
-				msecs_to_jiffies( (unsigned int)(SPA_INIT_PROGRESS_DURATION / SPA_INIT_PROGRESS_START)) );
-	}
-	else if(SPA_INIT_PROGRESS_DONE == init_progress)
-	{
-		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_DONE\n",__func__);
-	}
-	else
-	{
+				msecs_to_jiffies((unsigned int)(SPA_INIT_PROGRESS_DURATION / SPA_INIT_PROGRESS_START)));
+	} else if (SPA_INIT_PROGRESS_DONE == init_progress) {
+		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_DONE\n", __func__);
+	} else {
 		schedule_delayed_work(&spa_power_iter->delayed_init_work,
-				msecs_to_jiffies( (unsigned int)(SPA_INIT_PROGRESS_DURATION / SPA_INIT_PROGRESS_START)) );
+				msecs_to_jiffies((unsigned int)(SPA_INIT_PROGRESS_DURATION / SPA_INIT_PROGRESS_START)));
 	}
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 
 }
 
@@ -1628,32 +1526,30 @@ static int spa_power_probe(struct platform_device *pdev)
 	int ret=0;
 	struct spa_power_desc *spa_power_iter;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
 	spa_power_iter = kzalloc(sizeof(struct spa_power_desc), GFP_KERNEL);
-	if(spa_power_iter == NULL)
-	{
-		pr_err("%s : memory allocation failure \n", __func__);
+	if (spa_power_iter == NULL) {
+		pr_err("%s : memory allocation failure\n", __func__);
 		return -ENOMEM;
 	}
 
 	g_spa_power=spa_power_iter;
 	spa_power_iter->pdata=(struct spa_power_data *)pdev->dev.platform_data;
 
-	// Initialsing wakelock
+	/* Initialsing wakelock */
 	wake_lock_init(&spa_power_iter->spa_wakelock, WAKE_LOCK_SUSPEND, "spa_charge");
 	wake_lock_init(&spa_power_iter->acc_wakelock, WAKE_LOCK_SUSPEND, "acc_wakelock");
 
-	// Create workqueue
+	/* Create workqueue */
 	spa_power_iter->spa_workqueue = create_singlethread_workqueue("spa_power_wq");
-	if( spa_power_iter->spa_workqueue == NULL)
-	{
+	if (spa_power_iter->spa_workqueue == NULL) {
 		pr_err("%s : Failed to create workqueue\n", __func__);
 		ret = -ENOMEM;
 		goto label_SPA_POWER_PROBE_ERROR;
 	}
 
-	// Init work
+	/* Init work */
 	INIT_DELAYED_WORK(&spa_power_iter->battery_work, spa_batt_work);
 	INIT_DELAYED_WORK(&spa_power_iter->delayed_init_work, spa_delayed_init_work);
 	INIT_DELAYED_WORK(&spa_power_iter->fast_charging_work, spa_fast_charging_work);
@@ -1664,16 +1560,14 @@ static int spa_power_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, spa_power_iter);
 
 	{
-		int i=0;
-		for(i=0; i < ARRAY_SIZE(spa_power_attrs) ; i++)
-		{
+		int i = 0;
+		for (i = 0; i < ARRAY_SIZE(spa_power_attrs) ; i++) {
 			device_create_file(&pdev->dev, &spa_power_attrs[i]);
 		}
 	}
 
 	ret = spa_ps_init(pdev);
-	if(ret < 0)
-	{
+	if (ret < 0) {
 		pr_spa_dbg(LEVEL1, "%s: faile to init spa_ps\n", __func__);
 	}
 
@@ -1685,7 +1579,7 @@ label_SPA_POWER_PROBE_ERROR:
 	kfree(spa_power_iter);
 	return ret;
 label_SPA_POWER_PROBE_SUCCESS:
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 
 	return 0;
 }
@@ -1703,9 +1597,8 @@ static int __devexit spa_power_remove(struct platform_device *pdev)
 	wake_lock_destroy(&spa_power_iter->spa_wakelock);
 
 	{
-		int i=0;
-		for(i=0; i < ARRAY_SIZE(spa_power_attrs) ; i++)
-		{
+		int i = 0;
+		for (i = 0; i < ARRAY_SIZE(spa_power_attrs) ; i++) {
 			device_remove_file(&pdev->dev, &spa_power_attrs[i]);
 		}
 	}
@@ -1717,9 +1610,8 @@ static int __devexit spa_power_remove(struct platform_device *pdev)
 
 static int spa_power_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
-	// To Do :
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 
@@ -1727,17 +1619,16 @@ static int spa_power_resume(struct platform_device *pdev)
 {
 	struct spa_power_desc *spa_power_iter = g_spa_power;
 
-	pr_spa_dbg(LEVEL4,"%s : enter \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
-	if(spa_power_iter)
-	{
+	if (spa_power_iter) {
 		spa_power_iter->new_gathering.temperature=1;
 		spa_power_iter->new_gathering.voltage=1;
 		cancel_delayed_work_sync(&spa_power_iter->battery_work);
 		schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
 	}
 
-	pr_spa_dbg(LEVEL4, "%s : leave \n", __func__);
+	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
 	return 0;
 }
 
