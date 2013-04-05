@@ -2036,6 +2036,7 @@ static void vcd_spuv_interrupt_req(void)
 	int ret = VCD_ERR_NONE;
 	int i = 0;
 	int is_ack_log_enable = VCD_ENABLE;
+	int power_supply = VCD_ENABLE;
 	unsigned int *fw_req = (int *)SPUV_FUNC_SDRAM_FW_RESULT_BUFFER;
 	unsigned int spuv_status = VCD_SPUV_STATUS_NONE;
 	unsigned int *latest_sys_info =
@@ -2084,6 +2085,12 @@ static void vcd_spuv_interrupt_req(void)
 
 		/* notify SYSTEM_ERROR_IND */
 		vcd_spuv_system_error();
+		power_supply = vcd_spuv_func_check_power_supply();
+		if (VCD_DISABLE == power_supply) {
+			/* end wait */
+			vcd_spuv_func_end_wait();
+			goto rtn;
+		}
 		break;
 	case VCD_SPUV_SYSTEM_INFO_IND:
 		/* copy SYSTEM_INFO_IND data length */
@@ -2137,6 +2144,12 @@ static void vcd_spuv_interrupt_req(void)
 			vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
 			/* notification fw stop */
 			vcd_ctrl_stop_fw(VCD_INVALID_REQ);
+			power_supply = vcd_spuv_func_check_power_supply();
+			if (VCD_DISABLE == power_supply) {
+				/* end wait */
+				vcd_spuv_func_end_wait();
+				goto rtn;
+			}
 			break;
 		}
 
