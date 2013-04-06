@@ -185,7 +185,6 @@ static irqreturn_t d2153_jack_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
 
-	dlg_info("%s \n",__func__);
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 	cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
  	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
@@ -198,7 +197,6 @@ static irqreturn_t d2153_button_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
 
-	dlg_info("%s \n",__func__);
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 
 	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
@@ -581,6 +579,7 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	gpio_request(GPIO_PORT7, NULL);
 	gpio_direction_input(GPIO_PORT7);
 	gpio_pull_up_port(GPIO_PORT7);
+	gpio_set_debounce(GPIO_PORT7, 1000);	/* 1msec */
 	irq=gpio_to_irq(GPIO_PORT7);
 	ret=request_threaded_irq(irq, NULL, d2153_jack_handler,
 						IRQF_TRIGGER_FALLING |IRQF_TRIGGER_RISING| IRQF_DISABLED, "Jack detect", d2153_aad);

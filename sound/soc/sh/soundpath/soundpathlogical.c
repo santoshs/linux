@@ -1787,10 +1787,6 @@ static void sndp_fsi_shutdown(
 		return;
 	}
 
-	/* Output device OFF */
-	if (SNDP_PCM_OUT == substream->stream)
-		fsi_d2153_deactivate_output(g_kcontrol);
-
 	sndp_log_debug("val set\n");
 
 	/* To store information about Substream and DAI */
@@ -2652,7 +2648,7 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 	}
 
 	/* Input device OFF */
-	fsi_d2153_deactivate_input(g_kcontrol);
+	fsi_d2153_set_adc_power(g_kcontrol, 0);
 
 	/* stop SCUW */
 	scuw_stop();
@@ -3447,7 +3443,7 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	/* Input device OFF */
-	fsi_d2153_deactivate_input(g_kcontrol);
+	fsi_d2153_set_adc_power(g_kcontrol, 0);
 
 	/* stop SCUW */
 	scuw_stop();
@@ -3631,8 +3627,8 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 		 * (Post-processing of this function)
 		 */
 
-		/* Input device OFF */
-		fsi_d2153_deactivate_input(g_kcontrol);
+	    /* Input device OFF */
+	    fsi_d2153_set_adc_power(g_kcontrol, 0);
 		sndp_after_of_work_call_capture_stop(in_old_val, out_old_val);
 	}
 
@@ -4358,6 +4354,9 @@ static void sndp_work_start(const int direction)
 	/* Output device ON */
 	if (SNDP_PCM_OUT == direction)
 		fsi_d2153_set_dac_power(g_kcontrol, 1);
+	/* Input device ON */
+	if (SNDP_PCM_IN == direction)
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	/* set device */
 	/* (In the case of IN_CALL, the device has been set) */
@@ -4539,7 +4538,7 @@ static void sndp_work_stop(
 
 	if (SNDP_PCM_IN == direction) {
 		/* Input device OFF */
-		fsi_d2153_deactivate_input(g_kcontrol);
+		fsi_d2153_set_adc_power(g_kcontrol, 0);
 	}
 
 	if (SNDP_PCM_OUT == direction) {

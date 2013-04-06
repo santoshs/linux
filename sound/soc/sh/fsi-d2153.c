@@ -95,36 +95,6 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	}
 }
 
-void fsi_d2153_deactivate_input(struct snd_kcontrol *kcontrol)
-{
-	struct snd_soc_codec *codec;
-	struct snd_card *card;
-
-	if (!kcontrol) {
-		sndp_log_err("kcontrol is NULL\n");
-		return;
-	}
-	codec = (struct snd_soc_codec *)kcontrol->private_data;
-	card = codec->card->snd_card;
-
-	sndp_log_info("start\n");
-
-	snd_soc_dapm_disable_pin(&codec->dapm, "RECCHL");
-	snd_soc_dapm_disable_pin(&codec->dapm, "RECCHR");
-
-	fsi_d2153_set_active(codec, D2153_CAPTURE_STREAM_NAME, 0);
-
-	sndp_log_info("end\n");
-	return;
-}
-EXPORT_SYMBOL(fsi_d2153_deactivate_input);
-
-void fsi_d2153_deactivate_output(struct snd_kcontrol *kcontrol)
-{
-	/* Nothing to do.*/
-	return;
-}
-
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	int status)
 {
@@ -146,6 +116,36 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	return;
 }
 EXPORT_SYMBOL(fsi_d2153_set_dac_power);
+
+void fsi_d2153_set_adc_power(struct snd_kcontrol *kcontrol,
+	int status)
+{
+	struct snd_soc_codec *codec;
+	struct snd_card *card;
+
+	if (!kcontrol) {
+		sndp_log_err("kcontrol is NULL\n");
+		return;
+	}
+	codec = (struct snd_soc_codec *)kcontrol->private_data;
+	card = codec->card->snd_card;
+
+	sndp_log_info("start\n");
+
+	if (!status) {
+		snd_soc_dapm_disable_pin(&codec->dapm, "RECCHL");
+		snd_soc_dapm_disable_pin(&codec->dapm, "RECCHR");
+	} else {
+		snd_soc_dapm_enable_pin(&codec->dapm, "RECCHL");
+		snd_soc_dapm_enable_pin(&codec->dapm, "RECCHR");
+	}
+
+	fsi_d2153_set_active(codec, D2153_CAPTURE_STREAM_NAME, status);
+
+	sndp_log_info("end\n");
+	return;
+}
+EXPORT_SYMBOL(fsi_d2153_set_adc_power);
 
 int fsi_d2153_set_ignore_suspend(struct snd_soc_card *card,
 	unsigned int dev_id, unsigned int status)
