@@ -1,5 +1,4 @@
 #include <asm/system.h>
-#include <mach/board-u2evm.h>
 #include <mach/r8a7373.h>
 #include <mach/gpio.h>
 #include <mach/irqs.h>
@@ -64,17 +63,6 @@ struct platform_device keysc_device = {
 	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
 	 .debounce_interval = 20}
 
-#ifdef CONFIG_MACH_U2EVM
-static struct gpio_keys_button gpio_buttons_polled[] = {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
-#endif
-	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT45, "Home",  0),
-	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT46, "+",     0),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-",     0),
-};
-#endif
-
 static struct gpio_keys_button gpio_buttons[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
@@ -87,30 +75,13 @@ static struct gpio_keys_button gpio_buttons[] = {
 static int gpio_key_enable(struct device *dev)
 {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull_up_port(GPIO_PORT24);
+	gpio_pull_up_port(GPIO_PORT24);
 #endif
-		gpio_pull_up_port(GPIO_PORT18);
-		gpio_pull_up_port(GPIO_PORT1);
-		gpio_pull_up_port(GPIO_PORT2);
-#ifdef CONFIG_MACH_U2EVM		
-	if(u2_get_board_rev() < 4) {
-		gpio_pull_up_port(GPIO_PORT45);
-		gpio_pull_up_port(GPIO_PORT46);
-		gpio_pull_up_port(GPIO_PORT47);
-	}
-#endif	
+	gpio_pull_up_port(GPIO_PORT18);
+	gpio_pull_up_port(GPIO_PORT1);
+	gpio_pull_up_port(GPIO_PORT2);
 	return 0;
 }
-
-#ifdef CONFIG_MACH_U2EVM
-static struct gpio_keys_platform_data gpio_key_polled_info = {
-	.buttons	= gpio_buttons_polled,
-	.nbuttons	= ARRAY_SIZE(gpio_buttons),
-	.rep		= 0,
-	.enable		= gpio_key_enable,
-	.poll_interval	= 50,
-};
-#endif
 
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
@@ -126,16 +97,6 @@ struct platform_device gpio_key_device = {
 		.platform_data	= &gpio_key_info,
 	},
 };
-
-#ifdef CONFIG_MACH_U2EVM
-static struct platform_device gpio_key_polled_device = {
-	.name	= "gpio-keys-polled",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &gpio_key_polled_info,
-	},
-};
-#endif
 
 int gpio_key_init(int stm_select,
 		unsigned int u2_board_rev,
@@ -164,20 +125,7 @@ int gpio_key_init(int stm_select,
 			break;
 	}
 
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_board_rev < RLTE_BOARD_REV_0_3_1) {
-		int i;
-		for (i = 0; i < p_dev_cnt; i++) {
-			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
-				printk(KERN_INFO "%s u2_board_rev < 3 \
-					gpio_key_polled_device  \n", __func__);
-				p_dev[i] = &gpio_key_polled_device;
-			break;
-			}
-		}
-	}
-#endif	
 	platform_add_devices(p_dev, p_dev_cnt);
-	
+
 	return 0;
 }

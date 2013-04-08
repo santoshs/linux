@@ -22,15 +22,8 @@
 #define FSR_TEND	(1 << 6)
 
 #define DEBUG_UART_BASE		CONFIG_DEBUG_LL_SH_SCI_BASE
-
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) \
-	|| defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
-
 #define DEBUG_UART_BASE_PHY	0xe6450000
 #define DEBUG_UART_BASE_VIRT	0xe6450000
-#else
-#error "Set DEBUG_UART_BASE"
-#endif
 
 	.macro	addruart, rp, rv, tmp
 	ldr	\rp, =DEBUG_UART_BASE_PHY

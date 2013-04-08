@@ -58,31 +58,26 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifdef CONFIG_MACH_U2EVM
-#ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
+#if defined(CONFIG_FB_R_MOBILE_S6E39A0X02)
 	case PANEL_SWITCH_HW_ID_REV_0_2_1:
 	case PANEL_SWITCH_HW_ID_REV_0_2_2:
 	case PANEL_SWITCH_HW_ID_REV_0_3_X:
 		printk(KERN_INFO "Switch s6e39a0x02.(ID=%d)\n", hw_id);
 		panel_func = s6e39a0x02_func_list();
 		break;
-#endif
-#ifdef CONFIG_FB_R_MOBILE_HX8369_B
+#elif defined(CONFIG_FB_R_MOBILE_HX8369_B)
 	case PANEL_SWITCH_HW_ID_REV_0_4_1:
 	case PANEL_SWITCH_HW_ID_REV_0_5_X:
 		printk(KERN_INFO "Switch hx8369_b.(ID=%d)\n", hw_id);
 		panel_func = hx8369_b_func_list();
 		break;
-#endif
-#else /* CONFIG_MACH_PORCO */
-#if defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE) || \
+#elif defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE) || \
 	defined(CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE)
 	case PANEL_SWITCH_HW_ID_REV_0_6_X:
 		printk(KERN_INFO "Switch nt35510.(ID=%d)\n", hw_id);
 		panel_func = nt35510_func_list();
 		break;
-#endif /* CONFIG_FB_R_MOBILE_NT35512 */
-#endif /* CONFIG_MACH_GARDALTE */
+#endif /*CONFIG_FB_R_MOBILE_S6E39A0X02 */
 
 	default:
 		printk(KERN_INFO "Unknown HWID.(ID=%d)\n", hw_id);

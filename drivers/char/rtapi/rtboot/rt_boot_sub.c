@@ -365,29 +365,6 @@ static int set_screen_data(unsigned int disp_addr)
 	hw_id = u2_get_board_rev();
 
 	switch (hw_id) {
-#ifdef  (CONFIG_MACH_U2EVM)
-	case RT_BOOT_HW_ID_REV_0_2_1:
-	case RT_BOOT_HW_ID_REV_0_2_2:
-	case RT_BOOT_HW_ID_REV_0_3_X:
-		/* qHD */
-		MSG_LOW("qHD setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 960;
-		screen[0].width  = 540;
-		screen[0].stride = 544;
-		screen[0].mode   = 1; /* COMMAND MODE */
-
-		break;
-	case RT_BOOT_HW_ID_REV_0_4_1:
-	case RT_BOOT_HW_ID_REV_0_5_X:
-		/* WVGA */
-		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 800;
-		screen[0].width  = 480;
-		screen[0].stride = 480;
-		screen[0].mode   = 0; /* VIDEO MODE */
-
-		break;
-#else /* CONFIG_MACH_GARDALTE, CONFIG_MACH_LOGANLTE,CONFIG_MACH_LT02LTE  */
 	case RT_BOOT_HW_ID_REV_0_0_X:
 	case RT_BOOT_HW_ID_REV_0_5_X:
 	case RT_BOOT_HW_ID_REV_0_6_X:
@@ -406,7 +383,6 @@ static int set_screen_data(unsigned int disp_addr)
 			  "CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE");
 #endif
 		break;
-#endif /* CONFIG_MACH_U2EVM */
 	default:
 		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
 					"Unknown HWID(=%d)\n", hw_id);

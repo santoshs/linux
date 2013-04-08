@@ -8,7 +8,6 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
-#include <mach/board-u2evm.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
@@ -18,47 +17,42 @@
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev() >= 5) {
-#endif
-		struct regulator *regulator;		
-		int ret = 0;
+	struct regulator *regulator;
+	int ret = 0;
 
-		switch (state) {
-		case RENESAS_SDHI_POWER_ON:
+	switch (state) {
+	case RENESAS_SDHI_POWER_ON:
 		printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
 
-			regulator = regulator_get(NULL, "vio_sd");
-			if (IS_ERR(regulator))
+		if (!(regulator_is_enabled(regulator))) {
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+							__func__ , ret);
+		}
+
+		regulator_put(regulator);
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
 				return;
 
-			if (!(regulator_is_enabled(regulator))) {
-				ret = regulator_enable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-								__func__ , ret);
-			}
+		if (!(regulator_is_enabled(regulator))) {
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		regulator_put(regulator);
 
-			regulator = regulator_get(NULL, "vsd");
-			if (IS_ERR(regulator))
-				return;
-
-			if (!(regulator_is_enabled(regulator))) {
-				ret = regulator_enable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-								__func__ , ret);
-			}
-
-			regulator_put(regulator);
-
-			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 		break;
 
 		case RENESAS_SDHI_POWER_OFF:
-		printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
+			printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
 			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 
 			regulator = regulator_get(NULL, "vio_sd");
@@ -89,7 +83,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		break;
 
 		case RENESAS_SDHI_SIGNAL_V330:
-		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
@@ -138,7 +132,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			regulator_put(regulator);
 		break;
 		case RENESAS_SDHI_SIGNAL_V180:
-		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
 
 			regulator = regulator_get(NULL, "vio_sd");
 			if (IS_ERR(regulator))
@@ -190,23 +184,6 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			printk(KERN_INFO"default:%s\n", __func__);
 			break;
 		}
-#ifdef CONFIG_MACH_U2EVM
-	} else {
-#ifdef CONFIG_PMIC_INTERFACE
-		if (state) {
-			pmic_set_power_on(E_POWER_VIO_SD);
-			pmic_set_power_on(E_POWER_VMMC);
-			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
-
-		} else {
-			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
-			pmic_set_power_off(E_POWER_VIO_SD);
-			mdelay(VSD_VDCORE_DELAY);
-			pmic_set_power_off(E_POWER_VMMC);
-		}
-#endif  /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)

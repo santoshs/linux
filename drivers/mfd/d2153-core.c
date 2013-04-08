@@ -1,10 +1,10 @@
 /*
  * d2153-core.c  --  Device access for Dialog D2153
- *   
+ *
  * Copyright(c) 2012 Dialog Semiconductor Ltd.
- *  
+ *
  * Author: Dialog Semiconductor Ltd. D. Chen
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -32,7 +32,7 @@
 
 #include <linux/d2153/d2153_version.h>
 #include <linux/d2153/pmic.h>
-#include <linux/d2153/d2153_reg.h> 
+#include <linux/d2153/d2153_reg.h>
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
@@ -40,7 +40,7 @@
 #include <mach/common.h>
 
 #define D2153_REG_DEBUG
-//#define D2153_SUPPORT_I2C_HIGH_SPEED
+/* #define D2153_SUPPORT_I2C_HIGH_SPEED */
 
 
 #ifdef D2153_REG_DEBUG
@@ -52,7 +52,7 @@
 
 struct d2153_reg_history{
 	u8 mode;
-	u8 regnum; 
+	u8 regnum;
 	u8 value;
 	long long time;
 };
@@ -72,17 +72,16 @@ static struct d2153 *d2153_dev_info;
  */
 
 #ifdef D2153_REG_DEBUG
-void d2153_write_reg_history(u8 opmode,u8 reg,u8 data) { 
-	//int cpu = smp_processor_id(); 
+void d2153_write_reg_history(u8 opmode, u8 reg, u8 data)
+{
 
-	if(gD2153CurHistory == D2153_MAX_HISTORY) 
-		gD2153CurHistory=0;
-		
-	gD2153RegHistory[gD2153CurHistory].mode=opmode; 
-	gD2153RegHistory[gD2153CurHistory].regnum=reg; 
-	gD2153RegHistory[gD2153CurHistory].value=data;         
-	//gD2153RegHistory[gD2153CurHistory].time= cpu_clock(cpu)/1000; 
-	gD2153CurHistory++; 
+	if (gD2153CurHistory == D2153_MAX_HISTORY)
+		gD2153CurHistory = 0;
+
+	gD2153RegHistory[gD2153CurHistory].mode = opmode;
+	gD2153RegHistory[gD2153CurHistory].regnum = reg;
+	gD2153RegHistory[gD2153CurHistory].value = data;
+	gD2153CurHistory++;
 }
 #endif /* D2153_REG_DEBUG */
 
@@ -124,7 +123,7 @@ static int d2153_write(struct d2153 *d2153, u8 reg, int num_regs, u8 * src)
 }
 
 /*
- * d2153_clear_bits - 
+ * d2153_clear_bits -
  * @ d2153 :
  * @ reg :
  * @ mask :
@@ -135,19 +134,13 @@ int d2153_clear_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
 		dev_err(d2153->dev, "read from reg R%d failed\n", reg);
 		goto out;
 	}
-#ifdef D2153_REG_DEBUG   
+#ifdef D2153_REG_DEBUG
 	else
 		d2153_write_reg_history(D2153_HISTORY_READ_OP,reg,data);
 #endif
@@ -155,12 +148,12 @@ int d2153_clear_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	err = d2153_write(d2153, reg, 1, &data);
 	if (err != 0)
 		dlg_err("write to reg R%d failed\n", reg);
-#ifdef D2153_REG_DEBUG    
-	else  {   
+#ifdef D2153_REG_DEBUG
+	else  {
 		d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,reg,data);
 		d2153_write_reg_cache(reg,data);
 	}
-#endif    
+#endif
 out:
 	mutex_unlock(&d2153->d2153_io_mutex);
 
@@ -170,7 +163,7 @@ EXPORT_SYMBOL_GPL(d2153_clear_bits);
 
 
 /*
- * d2153_set_bits - 
+ * d2153_set_bits -
  * @ d2153 :
  * @ reg :
  * @ mask :
@@ -181,33 +174,27 @@ int d2153_set_bits(struct d2153 * const d2153, u8 const reg, u8 const mask)
 	u8 data;
 	int err;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0) {
 		dev_err(d2153->dev, "read from reg R%d failed\n", reg);
 		goto out;
 	}
-#ifdef D2153_REG_DEBUG    
+#ifdef D2153_REG_DEBUG
 	else {
 		d2153_write_reg_history(D2153_HISTORY_READ_OP,reg,data);
 	}
-#endif      
+#endif
 	data |= mask;
 	err = d2153_write(d2153, reg, 1, &data);
 	if (err != 0)
 		dlg_err("write to reg R%d failed\n", reg);
-#ifdef D2153_REG_DEBUG    
-	else  {   
+#ifdef D2153_REG_DEBUG
+	else  {
 		d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,reg,data);
 		d2153_write_reg_cache(reg,data);
 	}
-#endif    
+#endif
 out:
 	mutex_unlock(&d2153->d2153_io_mutex);
 
@@ -217,7 +204,7 @@ EXPORT_SYMBOL_GPL(d2153_set_bits);
 
 
 /*
- * d2153_reg_read - 
+ * d2153_reg_read -
  * @ d2153 :
  * @ reg :
  * @ *dest :
@@ -228,20 +215,14 @@ int d2153_reg_read(struct d2153 * const d2153, u8 const reg, u8 *dest)
 	u8 data;
 	int err;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, reg, 1, &data);
 	if (err != 0)
 		dlg_err("read from reg R%d failed\n", reg);
-#ifdef D2153_REG_DEBUG    
+#ifdef D2153_REG_DEBUG
 	else
 		d2153_write_reg_history(D2153_HISTORY_READ_OP,reg,data);
-#endif       
+#endif
 	*dest = data;
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
@@ -250,7 +231,7 @@ EXPORT_SYMBOL_GPL(d2153_reg_read);
 
 
 /*
- * d2153_reg_write - 
+ * d2153_reg_write -
  * @ d2153 :
  * @ reg :
  * @ val :
@@ -261,22 +242,16 @@ int d2153_reg_write(struct d2153 * const d2153, u8 const reg, u8 const val)
 	int ret;
 	u8 data = val;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, reg, 1, &data);
 	if (ret != 0)
 		dlg_err("write to reg R%d failed\n", reg);
-#ifdef D2153_REG_DEBUG    
-	else  {   
+#ifdef D2153_REG_DEBUG
+	else  {
 		d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,reg,data);
 		d2153_write_reg_cache(reg,data);
 	}
-#endif    
+#endif
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
@@ -284,7 +259,7 @@ EXPORT_SYMBOL_GPL(d2153_reg_write);
 
 
 /*
- * d2153_block_read - 
+ * d2153_block_read -
  * @ d2153 :
  * @ start_reg :
  * @ regs :
@@ -295,26 +270,20 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 		      u8 * const dest)
 {
 	int err = 0;
-#ifdef D2153_REG_DEBUG   
+#ifdef D2153_REG_DEBUG
 	int i;
-#endif	   
-
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
 #endif
+
 	mutex_lock(&d2153->d2153_io_mutex);
 	err = d2153_read(d2153, start_reg, regs, dest);
 	if (err != 0)
 		dlg_err("block read starting from R%d failed\n", start_reg);
-#ifdef D2153_REG_DEBUG    
+#ifdef D2153_REG_DEBUG
 	else {
 		for(i=0; i<regs; i++)
 			d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
 	}
-#endif       
+#endif
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
 }
@@ -322,7 +291,7 @@ EXPORT_SYMBOL_GPL(d2153_block_read);
 
 
 /*
- * d2153_block_write - 
+ * d2153_block_write -
  * @ d2153 :
  * @ start_reg :
  * @ regs :
@@ -333,26 +302,20 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 		       u8 * const src)
 {
 	int ret = 0;
-#ifdef D2153_REG_DEBUG   
+#ifdef D2153_REG_DEBUG
 	int i;
 #endif
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, start_reg, regs, src);
 	if (ret != 0)
 		dlg_err("block write starting at R%d failed\n", start_reg);
-#ifdef D2153_REG_DEBUG    
+#ifdef D2153_REG_DEBUG
 	else {
 		for(i=0; i<regs; i++)
 			d2153_write_reg_cache(start_reg+i,*(src+i));
 	}
-#endif    
+#endif
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
@@ -421,9 +384,8 @@ static void d2153_codec_dev_unregister(struct i2c_client *codec_i2c_client)
  */
 static irqreturn_t d2153_system_event_handler(int irq, void *data)
 {
-	//todo DLG export the event??
-	//struct d2153 *d2153 = data;
-	return IRQ_HANDLED;	
+	/* todo DLG export the event?? */
+	return IRQ_HANDLED;
 }
 
 /*
@@ -431,8 +393,8 @@ static irqreturn_t d2153_system_event_handler(int irq, void *data)
  */
 static void d2153_system_event_init(struct d2153 *d2153)
 {
-	d2153_register_irq(d2153, D2153_IRQ_EVDD_MON, d2153_system_event_handler, 
-                            0, "VDD MON", d2153);
+	d2153_register_irq(d2153, D2153_IRQ_EVDD_MON,
+				d2153_system_event_handler, 0, "VDD MON", d2153);
 }
 
 /*****************************************/
@@ -448,12 +410,6 @@ static int d2153_ioctl_open(struct inode *inode, struct file *file)
 
 int d2153_ioctl_release(struct inode *inode, struct file *file)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	file->private_data = NULL;
 	return 0;
 }
@@ -467,12 +423,12 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pmu_reg reg;
 		int ret = 0;
 		u8 reg_val = 0;
-	
+
 		if (!d2153)
-			return -ENOTTY;			
+			return -ENOTTY;
 
 		switch (cmd) {
-			
+
 			case D2153_IOCTL_READ_REG:
 			if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 				return -EFAULT;
@@ -482,18 +438,18 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (copy_to_user((pmu_reg *)arg, &reg, sizeof(pmu_reg)) != 0)
 				return -EFAULT;
 			break;
-	
+
 		case D2153_IOCTL_WRITE_REG:
 			if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 				return -EFAULT;
 			d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
-			break;	
-	
+			break;
+
 		default:
 			dlg_err("%s: unsupported cmd\n", __func__);
 			ret = -ENOTTY;
 		}
-	
+
 		return ret;
 }
 
@@ -603,7 +559,7 @@ static int d2153_dbg_parse_args(char *cmd, struct pmu_debug *dbg)
 	return 0;
 }
 
-/* 
+/*
  * d2153_ioctl_write
  */
 static ssize_t d2153_ioctl_write(struct file *file, const char __user *buffer,
@@ -681,12 +637,6 @@ void d2153_debug_proc_init(struct d2153 *d2153)
 {
 	struct proc_dir_entry *entry;
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
-#endif
 	disable_irq(d2153->chip_irq);
 	entry = proc_create_data("pmu0", S_IRWXUGO, NULL, &d2153_pmu_ops, d2153);
 	enable_irq(d2153->chip_irq);
@@ -698,15 +648,7 @@ void d2153_debug_proc_init(struct d2153 *d2153)
  */
 void d2153_debug_proc_exit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
-#endif
-	//disable_irq(client->irq);
 	remove_proc_entry("pmu0", NULL);
-	//enable_irq(client->irq);
 }
 #endif /* CONFIG_PROC_FS */
 
@@ -722,37 +664,27 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 {
 	u8 res_msb, res_lsb;
 	u16 read_adc;
-	int ret = 0;//, tmp;
-	//struct regulator *regulator;
-#ifdef D2153_REG_DEBUG 
+	int ret = 0;
+#ifdef D2153_REG_DEBUG
 	int i;
 	u8 data;
 #endif
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
-	if(d2153 != NULL)
+	if (d2153 != NULL)
 		d2153_regl_info = d2153;
 	else
 		goto err;
 
 	dlg_info("D2153 Driver : built at %s on %s\n", __TIME__, __DATE__);
-	//DLG eric. d2153->pmic.max_dcdc = 25; //
 	d2153->pdata = pdata;
 	mutex_init(&d2153->d2153_io_mutex);
-	
+
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
 	msleep(1);
 
-	///////////////////////////////////
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
 												| D2153_ADC_MODE_MASK
 												| D2153_AUTO_VBAT_EN_MASK));
-	//msleep(1);
 	udelay(100);
 	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
 	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
@@ -760,7 +692,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153->vbat_init_adc[0] = read_adc;
 	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n", __LINE__, __func__, d2153->vbat_init_adc[0]);
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
-	///////////////////////////////////
 
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);
@@ -773,23 +704,20 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 #endif
 
 	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0x0);
-	//d2153_reg_write(d2153, D2153_PULLDOWN_D_REG, 0x0C);
 	d2153_reg_write(d2153, D2153_BBAT_CONT_REG, 0x1F);
 	d2153_set_bits(d2153,  D2153_SUPPLY_REG, D2153_BBCHG_EN_MASK);
 
 	d2153_reg_write(d2153, D2153_AUDIO_REG_DFLT_6_REG,0x20);
 
-	//d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
 
 	d2153_set_bits(d2153,  D2153_OUT2_32K_ONKEY_CONT_REG, D2153_OUT2_32K_EN_MASK);
-	
+
 	d2153_dev_info = d2153;
-	//pm_power_off = d2153_system_poweroff;
 
 	ret = d2153_irq_init(d2153, irq, pdata);
 	if (ret < 0)
 		goto err;
-    
+
 	if (pdata && pdata->init) {
 		ret = pdata->init(d2153);
 		if (ret != 0) {
@@ -797,12 +725,10 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 			goto err_irq;
 		}
 	}
-	
-	///////////////////////////////////
+
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
 												| D2153_ADC_MODE_MASK
 												| D2153_AUTO_VBAT_EN_MASK));
-	//msleep(1);
 	udelay(100);
 	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
 	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
@@ -810,20 +736,17 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153->vbat_init_adc[1] = read_adc;
 	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n", __LINE__, __func__, d2153->vbat_init_adc[1]);
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
-	///////////////////////////////////
 
-	// Regulator Specific Init
+	/* Regulator Specific Init */
 	ret = d2153_platform_regulator_init(d2153);
 	if (ret != 0) {
 		dev_err(d2153->dev, "Platform Regulator init() failed: %d\n", ret);
 		goto err_irq;
 	}
 
-	///////////////////////////////////
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
 												| D2153_ADC_MODE_MASK
 												| D2153_AUTO_VBAT_EN_MASK));
-	//msleep(1);
 	udelay(100);
 	d2153_reg_read(d2153, D2153_VDD_RES_VBAT_RES_REG, &res_msb);
 	d2153_reg_read(d2153, D2153_ADC_RES_AUTO1_REG, &res_lsb);
@@ -831,7 +754,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153->vbat_init_adc[2] = read_adc;
 	pr_info(">>>>>>>>>>>> [L%04d] %s. READ VBAT ADC is %d\n", __LINE__, __func__, d2153->vbat_init_adc[2]);
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
-	///////////////////////////////////
 
 	d2153_client_dev_register(d2153, "d2153-battery", &(d2153->batt.pdev));
 	d2153_client_dev_register(d2153, "d2153-rtc", &(d2153->rtc.pdev));
@@ -843,15 +765,15 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153_debug_proc_init(d2153);
 #endif
 
-#ifdef D2153_REG_DEBUG    
+#ifdef D2153_REG_DEBUG
 	  for(i = 0; i < D2153_MAX_REGISTER_CNT; i++)
 	  {
 	  	d2153_reg_read(d2153, i, &data);
 		d2153_write_reg_cache(i,data);
 	  }
-#endif   
+#endif
 
-	// set MCTRL_EN enabled
+	/* set MCTRL_EN enabled */
 	d2153_set_mctl_enable();
 
 	return 0;
@@ -872,12 +794,6 @@ EXPORT_SYMBOL_GPL(d2153_device_init);
  */
 void d2153_device_exit(struct d2153 *d2153)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 #ifdef CONFIG_PROC_FS
 	d2153_debug_proc_exit();
 #endif
@@ -893,10 +809,6 @@ void d2153_device_exit(struct d2153 *d2153)
 }
 EXPORT_SYMBOL_GPL(d2153_device_exit);
 
-//AFO extern int d2153_get_last_vbat_adc(void);
-//AFO extern int d2153_get_last_temp_adc(void);
-
-
 /*
  * d2153_system_poweroff
  */
@@ -907,25 +819,19 @@ void d2153_system_poweroff(void)
 
 	dlg_info("%s\n", __func__);
 
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
-#endif
-	if(d2153 == NULL || d2153->read_dev == NULL) {
+	if (d2153 == NULL || d2153->read_dev == NULL) {
 		dlg_err("%s. Platform or Device data is NULL\n", __func__);
 		return;
 	}
-	
-	// Disable OTP reloading and MCTL
-	d2153_clear_bits(d2153, D2153_CONTROL_B_REG, 		D2153_OTPREAD_EN_MASK);
-	d2153_clear_bits(d2153, D2153_POWER_CONT_REG, 		D2153_MCTRL_EN_MASK);
 
-	// Disable nOnkey interrupt
-	d2153_reg_write(d2153, D2153_IRQ_MASK_B_REG, 0x0);	//onkey mask clear
+	/* Disable OTP reloading and MCTL */
+	d2153_clear_bits(d2153, D2153_CONTROL_B_REG, D2153_OTPREAD_EN_MASK);
+	d2153_clear_bits(d2153, D2153_POWER_CONT_REG, D2153_MCTRL_EN_MASK);
 
-	// Disable LDOs(LDO2, LDO6 ~ LDO20, LDOAUD1 and LDOAUD2)
+	/* Disable nOnkey interrupt */
+	d2153_reg_write(d2153, D2153_IRQ_MASK_B_REG, 0x0);	/* onkey mask clear */
+
+	/* Disable LDOs(LDO2, LDO6 ~ LDO20, LDOAUD1 and LDOAUD2) */
 	d2153_clear_bits(d2153, D2153_LDO2_REG, 			(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO6_REG, 			(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO7_REG, 			(0x1<<6));
@@ -944,17 +850,17 @@ void d2153_system_poweroff(void)
 	d2153_clear_bits(d2153, D2153_LDO21_LDO_AUD1_REG, 	(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO22_LDO_AUD2_REG, 	(0x1<<6));
 
-	//Do BUCK5 and LDO18 are turned off even if these are controlled by HOST's GPIO ???
-	//d2153_clear_bits(d2153, D2153_LDO18_LDO_VRFANA_REG, (0x1<<6));
-	//d2153_clear_bits(d2153, D2153_BUCKPERI_BUCK5_REG,   (0x1<<6));
+	/* Do BUCK5 and LDO18 are turned off even if
+	 *these are controlled by HOST's GPIO ???
+	 */
 
-	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0E);   // Have to check.
+	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0E);
 	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0xCF);
 
 	d2153_reg_read(d2153, D2153_CONTROL_B_REG, &dst);
 	dst |= D2153_DEEP_SLEEP_MASK;
 	d2153_reg_write(d2153, D2153_CONTROL_B_REG, dst);
-	
+
 	return;
 }
 EXPORT_SYMBOL(d2153_system_poweroff);

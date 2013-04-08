@@ -95,7 +95,6 @@
 #if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_NFC_PN547)
 #include <mach/dev-nfc.h>
 #endif
-#include <mach/dev-touchpanel.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 #ifdef CONFIG_ARCH_R8A7373
@@ -145,17 +144,17 @@ static struct platform_device led_backlight_device = {
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
 #define BCMBT_N_RESET_GPIO    (-1)
 /* clk32 */
-#define BCMBT_AUX0_GPIO       (-1)  
+#define BCMBT_AUX0_GPIO       (-1)
 /* UARTB_SEL */
-#define BCMBT_AUX1_GPIO       (-1)    
+#define BCMBT_AUX1_GPIO       (-1)
 
 static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
 	.vreg_gpio 		= BCMBT_VREG_GPIO,
 	.n_reset_gpio 	= BCMBT_N_RESET_GPIO,
 	/* CLK32 */
-	.aux0_gpio 		= BCMBT_AUX0_GPIO,  
+	.aux0_gpio 		= BCMBT_AUX0_GPIO,
 	/* UARTB_SEL, probably not required */
-	.aux1_gpio 		= BCMBT_AUX1_GPIO,  
+	.aux1_gpio 		= BCMBT_AUX1_GPIO,
 };
 
 static struct platform_device board_bcmbt_rfkill_device = {
@@ -187,7 +186,7 @@ static struct platform_device board_bcm_bzhw_device = {
 #endif
 
 #ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE   6 
+#define GPIO_BT_WAKE   6
 #define GPIO_HOST_WAKE 14
 
 static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
@@ -271,6 +270,15 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #endif
 };
 
+#ifdef CONFIG_TOUCHSCREEN_IST30XX
+static struct i2c_board_info i2c4_devices_imagis[] = {
+	{
+		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
+		.irq = irqpin2irq(32),
+	},
+};
+#endif
+
 #ifdef CONFIG_BOARD_VERSION_GARDA
 static struct led_regulator_platform_data key_backlight_data = {
 	.name   = "button-backlight",
@@ -307,7 +315,7 @@ static int wait_for_coresight_access_lock(u32 base)
 	int retval = -1;
 	int timeout = 512;
 	/* Lock Access */
-	__raw_writel(0xc5acce55, base + 0xFB0); 
+	__raw_writel(0xc5acce55, base + 0xFB0);
 	for (i = 0; i < timeout && retval; i++) {
 		if ((__raw_readl(base + 0xFB4) & 2) == 0)
 			retval = 0;
@@ -501,12 +509,12 @@ static void __init gardalte_init(void)
 		/* move gpio request to board-renesas_wifi.c */
 
 		/* WLAN Init API call */
-#ifdef CONFIG_RENESAS_WIFI		
+#ifdef CONFIG_RENESAS_WIFI
 #ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
 		renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
-#endif	
+#endif
 #endif
 		/* add the SDIO device */
 	}
@@ -598,20 +606,14 @@ static void __init gardalte_init(void)
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 #ifdef CONFIG_NFC_PN547
-	i2c_register_board_info(8, PN547_info, pn547_info_size()); 
+	i2c_register_board_info(8, PN547_info, pn547_info_size());
 #endif
 
-#ifdef CONFIG_BOARD_VERSION_GARDA
-	/* Touch Panel auto detection */
-	i2c_add_driver(&tsp_detector_driver);
-	i2c_register_board_info(4, i2c4_devices_tsp_detector,
-					ARRAY_SIZE(i2c4_devices_tsp_detector));
-	platform_device_register(&key_backlight_device);
-#else /* CONFIG_BOARD_VERSION_GARDA */
-
-	i2c_register_board_info(4, i2c4_devices_melfas,
-					ARRAY_SIZE(i2c4_devices_melfas));
-#endif /* CONFIG_BOARD_VERSION_GARDA */
+#ifdef CONFIG_TOUCHSCREEN_IST30XX
+	printk(KERN_WARNING "Register Imagis touch driver!\n");
+	i2c_register_board_info(4, i2c4_devices_imagis,
+					ARRAY_SIZE(i2c4_devices_imagis));
+#endif
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
