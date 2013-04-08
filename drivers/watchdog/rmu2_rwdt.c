@@ -174,7 +174,7 @@ int rmu2_rwdt_cntclear(void)
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
 		RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");
-		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT);
+		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
 		return 0;
 	} else {
 		return -EAGAIN; /* try again */
@@ -239,8 +239,8 @@ static void rmu2_rwdt_workfn_zq_wa(struct work_struct *work)
 {
 	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
 	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
-	RWDT_DEBUG("< %s > CPG_PLL3CR 0x%8x\n",
-			__func__, __raw_readl(CPG_PLL3CR));
+	RWDT_DEBUG("< %s > CPG_PLL3CR_WDT 0x%8x\n",
+			__func__, __raw_readl(CPG_PLL3CR_WDT));
 
 	if (0 == stop_func_flg)	/* do not execute while stop()*/
 		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);

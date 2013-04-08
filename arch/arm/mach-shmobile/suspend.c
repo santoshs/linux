@@ -1215,7 +1215,7 @@ int is_systemsuspend_enable(void)
 EXPORT_SYMBOL(is_systemsuspend_enable);
 #endif /* CONFIG_PM_DEBUG */
 
-const struct platform_suspend_ops shmobile_suspend_ops = {
+struct platform_suspend_ops shmobile_suspend_ops = {
 	.begin			= shmobile_suspend_begin,
 	.end			= shmobile_suspend_end,
 	.enter			= shmobile_suspend_enter,

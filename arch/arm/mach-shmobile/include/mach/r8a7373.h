@@ -817,7 +817,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 /* RCLK watchdog timer counter	*/
 #define RWTCNTPhys	0xE6020000
-#define RWTCNT		IO_ADDRESS(0xE6020000)
+#define RWTCNT IO_ADDRESS(0xE6020000)
 /* RCLK watchdog timer control/status Register	*/
 #define RWDTCSRAPhys	0xE6020004
 #define RWDTCSRA	IO_ADDRESS(0xE6020004)

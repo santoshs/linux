@@ -156,14 +156,6 @@ extern int bcm_sdiowl_init(int onoff);
 extern int bcm_sdiowl_term(void);
 
 
-int renesas_wifi_status_register(
-		void (*callback)(int card_present, void *dev_id),
-		void *dev_id);
-
-
-EXPORT_SYMBOL(renesas_wifi_status_register);
-
-
 int omap4_renesas_get_type(void);
 
 /**

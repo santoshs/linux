@@ -1462,7 +1462,7 @@ int d2153_get_rf_temperature(void)
 				(pbat_data->current_rf_temperature%10));
 		return pbat_data->current_rf_temperature;
 	} else {
-		printk(KERN_ERR"%s:ERROR in reading RF temperature.\n");
+		printk(KERN_ERR"ERROR in reading RF temperature.\n");
 		return -EIO;
 	}
  }
