@@ -114,7 +114,7 @@ char devname[] = "rmc_mdm_reset";
 
 
 
-static ssize_t rmc_reset_read(struct file *file, char *buf, size_t len, 
+static ssize_t rmc_reset_read(struct file *file, char *buf, size_t len,
 				loff_t *ppos)
 {
 	printk(KERN_ALERT "rmc_reset_read()\n");
@@ -196,8 +196,8 @@ static unsigned int rmc_reset_poll(struct file *file, poll_table *wait)
 	printk(KERN_ALERT " %s :poll end: %d\n", __func__,
 			atomic_read(&dev->counter));
 	atomic_set(&dev->counter, 0);
-	return mask;	
-		
+	return mask;
+
 }
 
 
@@ -206,9 +206,9 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 	struct rmc_device_node *dev = &rmc_dev_node;
 	int retval = 0;
 	unsigned long curent_value = 0;
-  
+
 	pr_info("rmc_reset_open");
-	
+
 	/* lock the device to allow correctly handling errors
 	 * in resumption */
 	spin_lock(&dev->io_lock);
@@ -220,25 +220,25 @@ static int rmc_reset_open(struct inode *inode, struct file *file)
 		goto exit;
 	}
 	dev->open_count = 1;
-	
+
 	/*1. Clear Desired event bit in INT_FACMSK register.*/
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_FACMSK);
 	__raw_writel(curent_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK,
 			WPMCIF_EPMU_INT_FACMSK);
-	
+
 	/* 2. Set INT_FACCLR = 0xFFFFFFFF*/
 	/* (Clear all Interrupt Events before enabling the desired event)*/
 	__raw_writel(0xFFFFFFFF, WPMCIF_EPMU_INT_FACCLR);
-	
+
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
 	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK,
 			WPMCIF_EPMU_INT_FACCLR); /* rpc tst */
-	
+
 	/* 3. Set INT_CR = 0x00000001 (Enable EPMU_Int1)*/
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_CR);
 	__raw_writel(curent_value | INT_CR_ENABLE_EPMU_INT1_MASK,
 			WPMCIF_EPMU_INT_CR);
-		
+
 	/* save our object in the file's private structure */
 	file->private_data = dev;
 	atomic_set(&dev->counter, 0);
@@ -254,7 +254,7 @@ static int rmc_reset_release(struct inode *inode, struct file *file)
 	struct rmc_device_node *dev = file->private_data;
 
 	pr_info("rmc_loader_release :  \n");
-	
+
 	if (dev == NULL)
 		return -ENODEV;
 
@@ -282,18 +282,18 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 {
 	struct rmc_device_node *dev = &rmc_dev_node;
 	unsigned long curent_value, int_fac_event,  int_facmsk_value;
-	
+
 
 	spin_lock(&dev->irq_lock);
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FAC); /* tmp */
-	
-	
+
+
 	/* Mask all event factors by setting INT_FACMSK register*/
 	int_facmsk_value = __raw_readl(WPMCIF_EPMU_INT_FACMSK);
-	
+
 	pr_info("rmc_interrupt_handler :INT_FAC =0x%08lx, int_facmsk_value =0x%08lx\n",
 			curent_value, int_facmsk_value);
-	
+
 	__raw_writel(0xFFFFFFFF, WPMCIF_EPMU_INT_FACMSK);
 
 	/* Read INT_FAC to know the Event factor*/
@@ -305,31 +305,28 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 		spin_unlock(&dev->irq_lock);
 		return IRQ_HANDLED;
 	}
-	
+
 	/*Release HPB semaphore (HW sem + SW sem) if modem side doesn't release it*/
 
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev() >= 5) {
-		d2153_handle_modem_reset();
-	} else {
-		tps80032_handle_modem_reset();
-	}
-#else
+#if defined(CONFIG_PMIC_TPS80032_POW)
+	tps80032_handle_modem_reset();
+#elif defined(CONFIG_BATTERY_D2153)
 	d2153_handle_modem_reset();
+#else
+#error PMIC modem reset not defined!!!
 #endif
-
 
 	/* Clear Event factor by setting corresponding bit */
 	/* in INT_FACCLR register*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
 	__raw_writel(curent_value | INT_FACCLR_MODEM_RESET_SET_MASK,
 			WPMCIF_EPMU_INT_FACCLR);
-	
+
 	/* Clear the bit which is set in the above step.*/
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_FACCLR);
 	__raw_writel(curent_value & INT_FACCLR_MODEM_RESET_CLEAR_MASK,
 			WPMCIF_EPMU_INT_FACCLR);
-	
+
 	/* Clear Interrupt by setting INT_CR[8] */
 	curent_value =  __raw_readl(WPMCIF_EPMU_INT_CR);
 	__raw_writel(curent_value | INT_CR_CLEAR_EPMU_INT1_MASK,
@@ -338,7 +335,7 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	curent_value = __raw_readl(WPMCIF_EPMU_INT_CR);
 	__raw_writel(curent_value & INT_CR_CLEAR_EPMU_INT1_MASK_RESET,
 			WPMCIF_EPMU_INT_CR);
-	
+
 	/* Release the desired even factor */
 	/* by clearing corresponding bit in INT_FACMSK*/
 	__raw_writel(int_facmsk_value & INT_FACMSK_MODEM_RESET_CLEAR_MASK,
@@ -347,8 +344,8 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	atomic_inc(&dev->counter);
 	wake_up_interruptible(&dev->wait);
 	spin_unlock(&dev->irq_lock);
-	
-	return IRQ_HANDLED;	
+
+	return IRQ_HANDLED;
 }
 
 static int __devinit rmc_reset_probe(struct platform_device *pdev)
@@ -359,7 +356,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 	int  irq, ret;
 
 	pr_info("rmc_reset_probe ENTER()\n");
-	
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		printk(KERN_ERR "%s -platform_get_resource error.\n", __func__);
@@ -372,7 +369,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	dev->reg = (unsigned long)reg;
-	
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		printk(KERN_ERR "%s -platform_get_irq error.\n", __func__);
@@ -380,7 +377,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 	}
 
 	dev->irq = irq;
-	
+
 	init_waitqueue_head(&dev->wait);
 
 	ret = request_irq(dev->irq, rmc_interrupt_handler,
@@ -396,7 +393,7 @@ static int __devinit rmc_reset_probe(struct platform_device *pdev)
 
 	return 0;
 
-clean_up : 
+clean_up:
 	iounmap(&dev->reg);
 	return ret;
 }
@@ -409,15 +406,15 @@ static int __devexit rmc_reset_remove(struct platform_device *pdev)
 
 	printk(KERN_DEBUG "rmc_reset_remove ENTER()\n");
 	iounmap(&dev->reg);
-	
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq >= 0)
 		free_irq(irq, pdev);
-	
-	
+
+
 	platform_set_drvdata(pdev, NULL);
-	
-	
+
+
 	return 0;
 }
 static struct platform_driver rmc_reset_driver = {
@@ -425,18 +422,18 @@ static struct platform_driver rmc_reset_driver = {
 	.remove		= __devexit_p(rmc_reset_remove),
 	.driver		= {
 		.name	= "rmc_wgm_reset_int",
-		.owner	= THIS_MODULE,		
+		.owner	= THIS_MODULE,
 	},
 };
 
 static int __init rmc_reset_init(void)
-{	
+{
 	struct device *dev;
 	int ret = -ENOMEM;
-	
+
 
 	printk(KERN_DEBUG "rmc_reset_init ENTER()\n");
-	
+
 	/* create Char driver */
 	ret = alloc_chrdev_region(&rmc_reset_dev, 0, 1, devname);
 	if (ret < 0) {
@@ -445,13 +442,13 @@ static int __init rmc_reset_init(void)
 	}
 
 	cdev_init(&rmc_reset_cdev, &rmc_reset_fops);
-	
+
 	ret = cdev_add(&rmc_reset_cdev, rmc_reset_dev, 1);
 	if (ret< 0) {
 		printk(KERN_ALERT "rmc_reset_init() cdev_init/cdev_add failed!\n");
 		return ret;
 	}
-	
+
 	/* Export the _char device to user space*/
 	rmc_mdm_reset_char_major = MAJOR(rmc_reset_dev);
 	rmc_mdm_reset_char_class = class_create(THIS_MODULE, devname);
@@ -470,19 +467,19 @@ static int __init rmc_reset_init(void)
 		pr_err("Error in device_create rmc_mdm_reset \n");
 		goto out_device_destroy;
 	}
-	
+
 	rmc_dev_node.cdev = &rmc_reset_cdev;
-	
+
 	/* Create Platform driver*/
 	ret = platform_driver_register(&rmc_reset_driver);
 	return ret;
-	
+
 out_device_destroy:
 	class_destroy(rmc_mdm_reset_char_class);
 out_cdev_del:
 	cdev_del(&rmc_reset_cdev);
 	return ret;
-	
+
 }
 module_init(rmc_reset_init);
 

@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/d2153/pmic.h>
-#include <linux/d2153/d2153_reg.h> 
+#include <linux/d2153/d2153_reg.h>
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
 #include <linux/d2153/rtc.h>
@@ -56,22 +56,22 @@ static unsigned int history_rtc_time_index = 0;
 
 static int d2153_rtc_check_param(struct rtc_time *rtc_tm)
 {
-	if((rtc_tm->tm_sec > D2153_RTC_SECONDS_LIMIT) || (rtc_tm->tm_sec < 0))
+	if ((rtc_tm->tm_sec > D2153_RTC_SECONDS_LIMIT) || (rtc_tm->tm_sec < 0))
 		return -D2153_RTC_INVALID_SECONDS;
 
-	if((rtc_tm->tm_min > D2153_RTC_MINUTES_LIMIT) || (rtc_tm->tm_min < 0))
+	if ((rtc_tm->tm_min > D2153_RTC_MINUTES_LIMIT) || (rtc_tm->tm_min < 0))
 		return -D2153_RTC_INVALID_MINUTES;
 
-	if((rtc_tm->tm_hour > D2153_RTC_HOURS_LIMIT) || (rtc_tm->tm_hour < 0))
+	if ((rtc_tm->tm_hour > D2153_RTC_HOURS_LIMIT) || (rtc_tm->tm_hour < 0))
 		return -D2153_RTC_INVALID_HOURS;
 
-	if(rtc_tm->tm_mday == 0)
+	if (rtc_tm->tm_mday == 0)
 		return -D2153_RTC_INVALID_DAYS;
 
-	if((rtc_tm->tm_mon > D2153_RTC_MONTHS_LIMIT) || (rtc_tm->tm_mon <= 0))
+	if ((rtc_tm->tm_mon > D2153_RTC_MONTHS_LIMIT) || (rtc_tm->tm_mon <= 0))
 		return -D2153_RTC_INVALID_MONTHS;
 
-	if((rtc_tm->tm_year > D2153_RTC_YEARS_LIMIT) || (rtc_tm->tm_year < 0))
+	if ((rtc_tm->tm_year > D2153_RTC_YEARS_LIMIT) || (rtc_tm->tm_year < 0))
 		return -D2153_RTC_INVALID_YEARS;
 
 	return 0;
@@ -87,7 +87,7 @@ static int d2153_rtc_readtime(struct device *dev, struct rtc_time *tm)
 	int ret = 0;
 
 	ret = d2153_block_read(d2153, D2153_COUNT_S_REG, 6, rtc_time1);
-	
+
 	if (ret < 0)
 	{
 		dlg_err("%s: read error %d\n", __func__, ret);
@@ -101,9 +101,9 @@ static int d2153_rtc_readtime(struct device *dev, struct rtc_time *tm)
 	tm->tm_mon  = rtc_time1[4] & D2153_RTC_MTH_MASK;
 	tm->tm_year = rtc_time1[5] & D2153_RTC_YRS_MASK;
 
-	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__, 
+	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__,
 		rtc_time1[5], rtc_time1[4], rtc_time1[3], rtc_time1[2], rtc_time1[1], rtc_time1[0]);
-	
+
 	 /* sanity checking */
 	ret = d2153_rtc_check_param(tm);
 	if (ret)
@@ -127,7 +127,7 @@ static int d2153_rtc_settime(struct device *dev, struct rtc_time *tm)
 	struct d2153 *d2153 = dev_get_drvdata(dev);
 	u8 rtc_time[6];
 	int ret = 0;
-	
+
 	rtc_time[0] = tm->tm_sec;
 	rtc_time[1] = tm->tm_min;
 	rtc_time[2] = tm->tm_hour;
@@ -136,7 +136,7 @@ static int d2153_rtc_settime(struct device *dev, struct rtc_time *tm)
 	rtc_time[5] = tm->tm_year - D2153_YEAR_BASE;
 	rtc_time[5] |= D2153_MONITOR_MASK;
 
-	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__, 
+	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__,
 		rtc_time[0], rtc_time[1], rtc_time[2], rtc_time[3], rtc_time[4], rtc_time[5]);
 
 	/* Write time to RTC */
@@ -145,8 +145,8 @@ static int d2153_rtc_settime(struct device *dev, struct rtc_time *tm)
 		dlg_err("%s: write error %d\n", __func__, ret);
 
 	memcpy(&history_rtc_time[history_rtc_time_index++], tm, sizeof(struct rtc_time));
-	if(history_rtc_time_index >= 1024)
-		history_rtc_time_index = 0;      
+	if (history_rtc_time_index >= 1024)
+		history_rtc_time_index = 0;
 
 	return 0;
 }
@@ -168,7 +168,7 @@ static int d2153_rtc_stop_alarm(struct d2153 *d2153)
 	if (ret < 0)
 		return ret;
 
-	return 0;      
+	return 0;
 }
 
 
@@ -208,11 +208,11 @@ static int d2153_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 		return ret;
 	}
 
-	tm->tm_sec = time[0] & D2153_RTC_ALMSECS_MASK;	
+	tm->tm_sec = time[0] & D2153_RTC_ALMSECS_MASK;
 	tm->tm_min = time[1] & D2153_RTC_ALMMINS_MASK;
-	tm->tm_hour = time[2] & D2153_RTC_ALMHRS_MASK;	
+	tm->tm_hour = time[2] & D2153_RTC_ALMHRS_MASK;
 	tm->tm_mday = time[3] & D2153_RTC_ALMDAY_MASK;
-	tm->tm_mon = time[4] & D2153_RTC_ALMMTH_MASK;	
+	tm->tm_mon = time[4] & D2153_RTC_ALMMTH_MASK;
 	tm->tm_year = time[5] & D2153_RTC_ALMYRS_MASK;
 
 	ret = d2153_rtc_check_param(tm);
@@ -221,20 +221,19 @@ static int d2153_rtc_readalarm(struct device *dev, struct rtc_wkalrm *alrm)
 		dlg_err("%s : check error %d\n", __func__, ret);
 		return ret;
 	}
-    
+
 	tm->tm_year += D2153_YEAR_BASE;
 	tm->tm_mon -= 1;
 
-	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__, 
+	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__,
 			time[5], time[4], time[3], time[2], time[1], time[0]);
-	
+
 	return 0;
 }
 
 static int d2153_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	struct d2153 *d2153 = dev_get_drvdata(dev);
-	//struct rtc_time *tm = &alrm->time;
 	struct rtc_time alarm_tm;
 	u8 time[6], rtc_ctrl, reg_val;
 	int ret;
@@ -258,7 +257,7 @@ static int d2153_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 		dlg_err("%s : check error %d\n", __func__, ret);
 		return ret;
 	}
-	
+
 	memset(time, 0, sizeof(time));
 
 	time[0] = alarm_tm.tm_sec;
@@ -283,7 +282,7 @@ static int d2153_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
 	if (alrm->enabled)
 		ret = d2153_rtc_start_alarm(d2153);
 
-	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__, 
+	dlg_info("%s : RTC register %02x-%02x-%02x %02x:%02x:%02x\n", __func__,
 				time[5], time[4], time[3], time[2], time[1], time[0]);
 
     return ret;
@@ -302,34 +301,6 @@ static int d2153_rtc_alarm_irq_enable(struct device *dev,
 		return d2153_rtc_stop_alarm(d2153);
 }
 
-#if 0	// block
-static int d2153_rtc_update_irq_enable(struct device *dev,
-					unsigned int enabled)
-{
-	int ret;
-	struct d2153 *d2153 = dev_get_drvdata(dev);
-	u8 time[6];
-
-	dlg_info("%s \n", __func__);
-	
-	/* For latching the data before RMW */
-	ret = d2153_block_read(d2153, LEOPARD_ALARMS_REG, 6, time);
-	if (ret < 0)
-		return ret;
-
-	if (enabled) {
-		ret = d2153_set_bits(d2153, LEOPARD_ALARMY_REG, LEOPARD_ALARMY_TICKON);
-		if (ret < 0)
-			return ret;
-	} else {
-		ret = d2153_clear_bits(d2153, LEOPARD_ALARMY_REG, LEOPARD_ALARMY_TICKON);
-		if (ret < 0)
-			return ret;
-	}
-	return 0;
-}
-#endif
-
 static irqreturn_t d2153_rtc_timer_alarm_handler(int irq, void *data)
 {
 	struct d2153 *d2153 = data;
@@ -339,18 +310,6 @@ static irqreturn_t d2153_rtc_timer_alarm_handler(int irq, void *data)
     	dlg_info("\nRTC: TIMER ALARM\n");
 	return IRQ_HANDLED;
 }
-
-#if 0
-static irqreturn_t d2153_rtc_tick_alarm_handler(int irq, void *data)
-{
-	struct d2153 *d2153 = data;
-	struct rtc_device *rtc = d2153->rtc.rtc;
-	
-	rtc_update_irq(rtc, 1, RTC_PF | RTC_IRQF);
-	dlg_info("RTC: TICK ALARM\n");
-	return IRQ_HANDLED;
-}
-#endif
 
 static const struct rtc_class_ops d2153_rtc_ops = {
 	.read_time = d2153_rtc_readtime,
@@ -385,7 +344,7 @@ static int d2153_rtc_resume(struct device *dev)
 	 */
 	d2153_rtc_alarm_irq_enable(dev, 0);
 #endif
-	return 0; 
+	return 0;
 }
 #else
 #define d2153_rtc_suspend NULL
@@ -422,8 +381,8 @@ static int d2153_rtc_probe(struct platform_device *pdev)
 	}
 
 	ret = d2153_reg_read(d2153, D2153_COUNT_Y_REG,&reg_val);
-	if(ret < 0)
-		reg_val = 0;	
+	if (ret < 0)
+		reg_val = 0;
 
 	if (!(reg_val & D2153_MONITOR_MASK))
 	{
@@ -431,13 +390,9 @@ static int d2153_rtc_probe(struct platform_device *pdev)
 		d2153_set_bits(d2153, D2153_COUNT_Y_REG, D2153_MONITOR_MASK);
 		d2153_rtc_time_fixup(&pdev->dev);
 	}
-        
-	d2153_register_irq(d2153, D2153_IRQ_EALARM, d2153_rtc_timer_alarm_handler, 
+
+	d2153_register_irq(d2153, D2153_IRQ_EALARM, d2153_rtc_timer_alarm_handler,
                             0, "RTC Timer Alarm", d2153);
-#if 0
-	d2153_register_irq(d2153, LEOPARD_IRQ_ETICK, d2153_rtc_tick_alarm_handler, 
-                            0, "RTC Tick Alarm", d2153);
-#endif
 	dev_info(d2153->dev, "\nRTC registered\n");
 
 	return 0;
@@ -448,7 +403,6 @@ static int __devexit d2153_rtc_remove(struct platform_device *pdev)
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_rtc *dlg_rtc = &d2153->rtc;
 	d2153_free_irq(d2153, D2153_IRQ_EALARM);
-	//d2153_free_irq(d2153, LEOPARD_IRQ_ETICK);
 	rtc_device_unregister(dlg_rtc->rtc);
 
 	return 0;
@@ -474,24 +428,12 @@ static struct platform_driver d2153_rtc_driver = {
 
 static int __init d2153_rtc_init(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return 0;
-	}
-#endif
 	return platform_driver_register(&d2153_rtc_driver);
 }
 module_init(d2153_rtc_init);
 
 static void __exit d2153_rtc_exit(void)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if(u2_get_board_rev() <= 4) {
-		dlg_info("%s is called on old Board revision. error\n", __func__);
-		return;
-	}
-#endif
 	platform_driver_unregister(&d2153_rtc_driver);
 }
 module_exit(d2153_rtc_exit);

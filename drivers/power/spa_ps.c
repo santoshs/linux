@@ -82,7 +82,7 @@ static enum power_supply_property spa_charger_props[] = {
 extern int d2153_get_rf_temperature(void);
 #endif
 
-static int spa_batt_get_property( struct power_supply *batt, enum power_supply_property property, union power_supply_propval *propval)
+static int spa_batt_get_property(struct power_supply *batt, enum power_supply_property property, union power_supply_propval *propval)
 {
 		int ret = 0;
 		struct spa_ps *spa_ps_iter =
@@ -109,7 +109,7 @@ static int spa_batt_get_property( struct power_supply *batt, enum power_supply_p
 						propval->intval = spa_ps_iter->state.voltage * 1000;
 						break;
 
-				case POWER_SUPPLY_PROP_TEMP: // Kelvin unit to Celsius (C = K - 273.15). x10ed unit
+				case POWER_SUPPLY_PROP_TEMP: /* Kelvin unit to Celsius (C = K - 273.15). x10ed unit */
 						propval->intval = spa_ps_iter->state.temp;
 						break;
 
@@ -118,7 +118,7 @@ static int spa_batt_get_property( struct power_supply *batt, enum power_supply_p
 						propval->intval = d2153_get_rf_temperature();
 						break;
 #endif /* CONFIG_BATTERY_D2153 */
-				
+
 				case POWER_SUPPLY_PROP_HEALTH:
 						propval->intval = spa_ps_iter->state.health;
 						break;
@@ -166,7 +166,7 @@ static int spa_batt_set_property(struct power_supply *batt,
 						spa_ps_iter->state.voltage = propval->intval;
 						break;
 
-				case POWER_SUPPLY_PROP_TEMP: // Celsius to Kelvin ( K = C + 273.15). x10ed unit
+				case POWER_SUPPLY_PROP_TEMP: /* Celsius to Kelvin (K = C + 273.15). x10ed unit */
 						spa_ps_iter->state.temp = propval->intval;
 						break;
 
@@ -193,7 +193,7 @@ static int spa_batt_set_property(struct power_supply *batt,
 		return ret;
 }
 
-static int spa_ac_get_property( struct power_supply *ac, enum power_supply_property property, union power_supply_propval *propval)
+static int spa_ac_get_property(struct power_supply *ac, enum power_supply_property property, union power_supply_propval *propval)
 {
 		int ret = 0;
 		struct spa_ps *spa_ps_iter = container_of(ac,struct spa_ps, ac);
@@ -267,73 +267,7 @@ static int spa_usb_set_property(struct power_supply *usb,
 		return ret;
 }
 
-#if 0 // defined(CONFIG_SEC_BATT_EXT_ATTRS)
-enum
-{
-        SS_BATT_LP_CHARGING,
-        SS_BATT_CHARGING_SOURCE,
-        SS_BATT_TEMP_AVER,
-        SS_BATT_TEMP_ADC_AVER,
-        SS_BATT_TYPE,
-        SS_BATT_READ_ADJ_SOC,
-        SS_BATT_RESET_SOC,
-};
 
-static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf);
-static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attribute *attr, const char *buf, size_t count);
-
-static struct device_attribute ss_batt_ext_attrs[]=
-{
-        __ATTR(batt_lp_charging, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-        __ATTR(batt_charging_source, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-        __ATTR(batt_temp_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-        __ATTR(batt_temp_adc_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-        __ATTR(batt_type, 0644, ss_batt_ext_attrs_show, NULL),
-        __ATTR(batt_read_adj_soc, 0644, ss_batt_ext_attrs_show , NULL),
-        __ATTR(batt_reset_soc, 0664, NULL, ss_batt_ext_attrs_store),
-};
-
-static ssize_t ss_batt_ext_attrs_show(struct device *pdev, struct device_attribute *attr, char *buf)
-{
-	ssize_t count=0;
-	int lp_charging=0;
-
-	const ptrdiff_t off = attr-ss_batt_ext_attrs;
-
-	struct power_supply *ps;
-	union power_supply_propval propval;
-	propval.intval=0;
-	propval.strval=0;
-
-	switch(off)
-	{
-		case SS_BATT_LP_CHARGING:
-			lp_charging = spa_ps_iter->state.lp_charging;
-			count+=scnprintf(buf+count, PAGE_SIZE-count, "%d\n", lp_charging);
-			break;
-
-	}
-
-	return 0;
-}
-
-static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attribute *attr, const char *buf, size_t count)
-{
-	return 0;
-}
-
-unsigned int lp_boot_mode;
-static int get_boot_mode(char *str)
-{
-        get_option(&str, &lp_boot_mode);
-
-        return 1;
-}
-__setup("lpcharge=",get_boot_mode);
-
-#endif
-
-//static int spa_ps_probe(struct platform_device *pdev)
 int spa_ps_init(struct platform_device *pdev)
 {
 	int ret=0;
@@ -341,9 +275,9 @@ int spa_ps_init(struct platform_device *pdev)
 	struct spa_ps *spa_ps;
 
 	spa_ps = kzalloc(sizeof(struct spa_ps), GFP_KERNEL);
-	if(spa_ps == NULL)
+	if (spa_ps == NULL)
 	{
-		printk("%s: Failed to allocate memory\n", __func__);
+		printk(KERN_ERR "%s: Failed to allocate memory\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -354,9 +288,9 @@ int spa_ps_init(struct platform_device *pdev)
 	spa_ps->batt.name = "battery";
 	spa_ps->batt.type = POWER_SUPPLY_TYPE_BATTERY;
 	ret = power_supply_register(&pdev->dev, &spa_ps->batt);
-	if( ret )
+	if (ret)
 	{
-		printk("%s : Failed to register ps battery\n", __func__);
+		printk(KERN_ERR "%s : Failed to register ps battery\n", __func__);
 		goto LB_SPA_PS_PROBE_ERR_S3;
 	}
 
@@ -367,9 +301,9 @@ int spa_ps_init(struct platform_device *pdev)
 	spa_ps->ac.name = "ac";
 	spa_ps->ac.type = POWER_SUPPLY_TYPE_MAINS;
 	ret = power_supply_register(&pdev->dev, &spa_ps->ac);
-	if( ret )
+	if (ret)
 	{
-		printk("%s : Failed to register ps ac\n", __func__);
+		printk(KERN_ERR "%s : Failed to register ps ac\n", __func__);
 		goto LB_SPA_PS_PROBE_ERR_S2;
 	}
 
@@ -380,9 +314,9 @@ int spa_ps_init(struct platform_device *pdev)
 	spa_ps->usb.name = "usb";
 	spa_ps->usb.type = POWER_SUPPLY_TYPE_USB;
 	ret = power_supply_register(&pdev->dev, &spa_ps->usb);
-	if( ret )
+	if (ret)
 	{
-		printk("%s : Failed to register ps usb\n", __func__);
+		printk(KERN_ERR "%s : Failed to register ps usb\n", __func__);
 		goto LB_SPA_PS_PROBE_ERR_S1;
 	}
 
@@ -412,34 +346,6 @@ LB_SPA_PS_PROBE_SUCCESS:
 	return 0;
 }
 EXPORT_SYMBOL(spa_ps_init);
-
-#if 0
-static int __devexit spa_ps_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static struct platform_driver spa_ps_driver = {
-		.driver = {
-				.name = "spa_ps",
-		},
-		.probe = spa_ps_probe,
-		.remove = spa_ps_remove,
-};
-
-static int __init spa_ps_init(void)
-{
-		return platform_driver_register(&spa_ps_driver);
-}
-
-static void __exit spa_ps_exit(void)
-{
-		platform_driver_unregister(&spa_ps_driver);
-}
-
-module_init(spa_ps_init);
-module_exit(spa_ps_exit);
-#endif
 
 MODULE_DESCRIPTION("SPA PS");
 MODULE_LICENSE("GPL");

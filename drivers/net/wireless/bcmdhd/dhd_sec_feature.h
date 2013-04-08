@@ -77,17 +77,12 @@
 #undef USE_CID_CHECK
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE)
+#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LT02LTE)
 #define READ_MACADDR
 #undef HW_OOB
 #undef USE_CID_CHECK
 #endif
 
-#if defined(CONFIG_MACH_LT02LTE)
-#define READ_MACADDR
-#undef HW_OOB
-#undef USE_CID_CHECK
-#endif
 
 /* REGION CODE */
 

@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-shmobile/include/mach/board-u2evm.h
+ * arch/arm/mach-shmobile/include/mach/board-gardalte.h
  *
  * Copyright (C) 2012 Renesas Mobile Corporation
  *

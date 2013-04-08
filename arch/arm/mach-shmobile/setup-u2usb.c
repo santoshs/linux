@@ -19,15 +19,8 @@
 #include <mach/setup-u2usb.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/dma-mapping.h>
-#if defined(CONFIG_SAMSUNG_MHL)
-#include <linux/sii8332_platform.h>
-#endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
-#endif
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic.h>
-#include <linux/pmic/pmic-tps80032.h>
 #endif
 #include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -583,23 +576,6 @@ void __init USBGpio_init(void)
 	ret = gpio_request(GPIO_FN_ULPI_NXT, NULL);
 	if (ret < 0)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
-
-	/* TUSB1211 */
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() < 4) {
-				ret = gpio_request(GPIO_PORT131, NULL);
-		if (ret < 0)
-			error_log("PORT131 failed!USB may not function\n");
-
-		ret = gpio_direction_output(GPIO_PORT131, 0);
-		if (ret < 0)
-			error_log("PORT131 direction output(0) failed!\n");
-		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-		ret = gpio_direction_output(GPIO_PORT131, 1);
-		if (ret < 0)
-			error_log("PORT131 direction output(1) failed!\n");
-		}
-#endif
 
 #if defined(CONFIG_MACH_GARDALTE)
 	if (u2_get_board_rev() >= 2 && u2_get_board_rev() != 6) {

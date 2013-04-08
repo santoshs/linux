@@ -23,7 +23,6 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 	switch (state) {
 	case RENESAS_SDHI_POWER_ON:
 		printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
-
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
 			return;
@@ -84,8 +83,8 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		regulator_put(regulator);
 		break;
 
-	case RENESAS_SDHI_SIGNAL_V330:
-		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
+		case RENESAS_SDHI_SIGNAL_V330:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
 
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
@@ -133,8 +132,8 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 		regulator_put(regulator);
 		break;
-	case RENESAS_SDHI_SIGNAL_V180:
-		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
+		case RENESAS_SDHI_SIGNAL_V180:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
 
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))

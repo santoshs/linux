@@ -25,12 +25,9 @@
 #include "u_ether.h"
 #include "rndis.h"
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
-/*#ifdef CONFIG_MACH_U2EVM*/
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
 #include <mach/pm.h>
-#endif
 
 
 /*
@@ -788,8 +785,6 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	 * the network link ... which is unavailable to this code
 	 * until we're activated via set_alt().
 	 */
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
-/*#ifdef CONFIG_MACH_U2EVM*/
 	ret = stop_cpufreq();
 	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
 	if (ret) {
@@ -802,7 +797,6 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
 		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
 		}
-#endif
 
 	DBG(cdev, "RNDIS: %s speed IN/%s OUT/%s NOTIFY/%s\n",
 			gadget_is_superspeed(c->cdev->gadget) ? "super" :
@@ -854,14 +848,11 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE)
-/*#ifdef CONFIG_MACH_U2EVM*/
 	if (!dfs_started) {
 		start_cpufreq();
 		DBG(c->cdev, "%s(): start_cpufreq\n", __func__);
 		dfs_started = 1;
 	}
-#endif
 	kfree(rndis);
 }
 

@@ -94,7 +94,7 @@ obj-y += crashlog.o
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 # touchkey
-obj-y += setup-u2touchkey.o dev-touchpanel.o
+obj-y += setup-u2touchkey.o
 # touchscreen
 obj-y += setup-u2mxt224.o
 # vibrator
@@ -103,23 +103,14 @@ obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
 # current timer
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2current_timer.o
+obj-$(CONFIG_U2_CURRENTTIMER)	+= setup-u2current_timer.o
 # sdhi
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2sdhi.o
-# gpio_key and keysc
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2gpio_key.o
+obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 
+# gpio_key and keysc
+obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
 #setup-u2tps80032
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
+obj-$(CONFIG_PMIC_INTERFACE)	+= setup-u2tps80032.o
 # WiFi objects
 obj-$(CONFIG_RENESAS_WIFI) 	+= dev-wifi.o
 #obj-$(CONFIG_RENESAS_WIFI)	+= dev-renesas-wifi.o
@@ -128,10 +119,7 @@ obj-$(CONFIG_RENESAS_WIFI) 	+= dev-wifi.o
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
 #setup-d2153
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-d2153.o
-
+obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
 #GPS
 obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
 
@@ -156,9 +144,6 @@ obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2) += setup-u2csi2.o
 obj-$(CONFIG_ION) += setup-u2ion.o
 # camera
 obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
-#setup-d2153
-obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
-
 # Ramdump
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
 

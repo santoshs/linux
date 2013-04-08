@@ -75,12 +75,12 @@ static struct gpio_keys_button gpio_buttons[] = {
 static int gpio_key_enable(struct device *dev)
 {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull_up_port(GPIO_PORT24);
+	gpio_pull_up_port(GPIO_PORT24);
 #endif
-		gpio_pull_up_port(GPIO_PORT18);
-		gpio_pull_up_port(GPIO_PORT1);
-		gpio_pull_up_port(GPIO_PORT2);
-		return 0;
+	gpio_pull_up_port(GPIO_PORT18);
+	gpio_pull_up_port(GPIO_PORT1);
+	gpio_pull_up_port(GPIO_PORT2);
+	return 0;
 }
 
 static struct gpio_keys_platform_data gpio_key_info = {
@@ -125,6 +125,6 @@ int gpio_key_init(int stm_select,
 	}
 
 	platform_add_devices(p_dev, p_dev_cnt);
-	
+
 	return 0;
 }

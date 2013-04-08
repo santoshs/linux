@@ -138,6 +138,24 @@ config MACH_U2USB
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
+config U2_CURRENTTIMER
+	bool "U2 current timer setup implementation "
+	default n
+	help
+	 selects the current timer setup implementation for u2 chipsets.
+
+config U2_SDHI
+	bool "U2 sdhi setup implementation "
+	default n
+	help
+	 selects the sdhi setup implementation for u2 chipsets.
+
+config U2_GPIOKEY
+	bool "U2 gpio key setup implementation "
+	default n
+	help
+	 selects the gpio setup implemtation for u2 chipsets.
+
 config U2_STM_ETR_TO_SDRAM
 	bool "U2 STM ETR to SDRAM"
 	depends on ARCH_R8A7373
@@ -286,7 +304,7 @@ config PDC
 	depends on PM_RUNTIME
 	help
 	  This enables build of PDC driver.
-	  
+
 config PM_HAS_SECURE
 	default y
 	bool "Support Secure OS by Power Management"
@@ -326,10 +344,6 @@ config PM_BOOT_SYSFS
 
 source "drivers/sh/Kconfig"
 
-config MACH_U2EVM_SR_REV031
-	bool "New borad version V0.3.1"
-	default n
-
 config RENESAS
 	bool "Renesas reference implementations"
 	default n
@@ -360,7 +374,7 @@ config BOARD_VERSION_V050
 	#default y
 	bool "board_revision"
 	help
-	  Board revision 
+	  Board revision
 comment "Debugging Feature"
 
 config BOARD_VERSION_GARDA
