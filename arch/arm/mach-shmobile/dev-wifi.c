@@ -33,6 +33,7 @@
 #include <linux/random.h>
 #include <linux/jiffies.h>
 #include <linux/export.h>
+#include <mach/dev-wifi.h>
 
 /* WLAN GPIO */
 #define GPIO_WLAN_PMENA 260
