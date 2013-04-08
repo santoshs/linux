@@ -2565,11 +2565,14 @@ static int sci_suspend(struct device *dev)
 			sci_port_disable(sport);
 		}
 		uart_suspend_port(&sci_uart_driver, &sport->port);
-		/* Set suspend state GPIO CR values here
-					to reduce power consumption */
-		/* Second parameter is suspend_mode */
-		gpio_set_portncr_value(sport->cfg->port_count,\
-			sport->cfg->scif_gpio_setting_info, 1);
+		/* PCP# RM13040153846 - Avoiding GPIO settings for SCIFA0
+		 * when console_suspend_enabled is zero for PM debug purpose.*/
+		if (port->suspended)
+			/* Set suspend state GPIO CR values here
+						to reduce power consumption */
+			/* Second parameter is suspend_mode */
+			gpio_set_portncr_value(sport->cfg->port_count,\
+				sport->cfg->scif_gpio_setting_info, 1);
 	}
 	return 0;
 }
@@ -2582,9 +2585,12 @@ static int sci_resume(struct device *dev)
 
 	/* GPIO settings review comments for PCP# NK12120730341 */
 	if (sport && sport->cfg) {
-		/* Resume back initial GPIO settings here */
-		gpio_set_portncr_value(sport->cfg->port_count, \
-			sport->cfg->scif_gpio_setting_info, 0);
+		/* PCP# RM13040153846 - Avoiding GPIO settings for SCIFA0
+		 * when console_suspend_enabled is zero for PM debug purpose.*/
+		if (port->suspended)
+			/* Resume back initial GPIO settings here */
+			gpio_set_portncr_value(sport->cfg->port_count, \
+				sport->cfg->scif_gpio_setting_info, 0);
 		uart_resume_port(&sci_uart_driver, &sport->port);
 		if (sport->cfg->rts_ctrl) {
 			sci_port_enable(sport);
