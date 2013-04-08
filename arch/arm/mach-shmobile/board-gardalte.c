@@ -608,7 +608,7 @@ static void __init gardalte_init(void)
 #ifdef CONFIG_NFC_PN547
 	i2c_register_board_info(8, PN547_info, pn547_info_size());
 #endif
-
+	platform_device_register(&key_backlight_device);
 #ifdef CONFIG_TOUCHSCREEN_IST30XX
 	printk(KERN_WARNING "Register Imagis touch driver!\n");
 	i2c_register_board_info(4, i2c4_devices_imagis,
