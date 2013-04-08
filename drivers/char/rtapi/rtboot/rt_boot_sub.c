@@ -328,23 +328,10 @@ void write_req_comp(void)
 	writel(GSR_REQ_COMP, REG_GSR);
 }
 
-#ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
-#define RT_BOOT_HW_ID_REV_0_0_X 0
-#define RT_BOOT_HW_ID_REV_0_2_1 1
-#define RT_BOOT_HW_ID_REV_0_2_2 2
-#define RT_BOOT_HW_ID_REV_0_3_X 3
-#define RT_BOOT_HW_ID_REV_0_4_1 4
-#define RT_BOOT_HW_ID_REV_0_5_X 5
-#define RT_BOOT_HW_ID_REV_0_6_X 6
-#endif /* CONFIG_FB_R_MOBILE_PANEL_SWITCH */
-
 static int set_screen_data(unsigned int disp_addr)
 {
 	void *addr = NULL;
 	struct screen_info screen[2];
-#ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
-	unsigned int hw_id;
-#endif /* CONFIG_FB_R_MOBILE_PANEL_SWITCH */
 
 	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
 
@@ -361,92 +348,13 @@ static int set_screen_data(unsigned int disp_addr)
 	screen[0].stride = SCREEN0_STRIDE;
 	screen[0].mode   = SCREEN0_MODE;
 
-#ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
-	hw_id = u2_get_board_rev();
-
-	switch (hw_id) {
-#ifdef  (CONFIG_MACH_U2EVM)
-	case RT_BOOT_HW_ID_REV_0_2_1:
-	case RT_BOOT_HW_ID_REV_0_2_2:
-	case RT_BOOT_HW_ID_REV_0_3_X:
-		/* qHD */
-		MSG_LOW("qHD setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 960;
-		screen[0].width  = 540;
-		screen[0].stride = 544;
-		screen[0].mode   = 1; /* COMMAND MODE */
-
-		break;
-	case RT_BOOT_HW_ID_REV_0_4_1:
-	case RT_BOOT_HW_ID_REV_0_5_X:
-		/* WVGA */
-		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 800;
-		screen[0].width  = 480;
-		screen[0].stride = 480;
-		screen[0].mode   = 0; /* VIDEO MODE */
-
-		break;
-#else /* CONFIG_MACH_GARDALTE, CONFIG_MACH_LOGANLTE,CONFIG_MACH_LT02LTE  */
-	case RT_BOOT_HW_ID_REV_0_0_X:
-	case RT_BOOT_HW_ID_REV_0_5_X:
-	case RT_BOOT_HW_ID_REV_0_6_X:
-		/* WVGA */
-		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 800;
-		screen[0].width  = 480;
-		screen[0].stride = 480;
-#if defined(CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE)
-		screen[0].mode   = 1; /* COMMAND MODE */
-#elif defined(CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE)
-		screen[0].mode   = 0; /* VIDEO MODE */
-#else
-		MSG_ERROR("[RTBOOTK]   |defconfig error!! Please select\n"
-			  "CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE or"
-			  "CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE");
-#endif
-		break;
-#endif /* CONFIG_MACH_U2EVM */
-	default:
-		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
-					"Unknown HWID(=%d)\n", hw_id);
-		screen[0].height = 0;
-		screen[0].width  = 0;
-		screen[0].stride = 0;
-		screen[0].mode   = 0;
-	}
-#else
-#ifdef CONFIG_FB_R_MOBILE_S6E39A0X02
-	MSG_LOW("qHD(S6E39A0X02) setting.\n");
-	screen[0].height = 960;
-	screen[0].width  = 540;
-	screen[0].stride = 544;
-	screen[0].mode   = 1; /* COMMAND MODE */
-#endif /* CONFIG_FB_R_MOBILE_S6E39A0X02 */
-
-#ifdef CONFIG_FB_R_MOBILE_HX8369_B
-	MSG_LOW("WVGA(HX8369_B) setting.\n");
-	screen[0].height = 800;
-	screen[0].width  = 480;
-	screen[0].stride = 480;
-	screen[0].mode   = 0; /* VIDEO MODE */
-#endif /* CONFIG_FB_R_MOBILE_HX8369_B */
-
-#ifdef CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE
+#ifdef CONFIG_FB_R_MOBILE_NT35510
 	MSG_LOW("WVGA(NT35510) command mode setting.\n");
 	screen[0].height = 800;
 	screen[0].width  = 480;
 	screen[0].stride = 480;
 	screen[0].mode   = 1; /* COMMAND MODE */
-#endif /* CONFIG_FB_R_MOBILE_NT35510_COMMAND_MODE */
-
-#ifdef CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE
-	MSG_LOW("WVGA(NT35510) video mode setting.\n");
-	screen[0].height = 800;
-	screen[0].width  = 480;
-	screen[0].stride = 480;
-	screen[0].mode   = 0; /* VIDEO MODE */
-#endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
+#endif /* CONFIG_FB_R_MOBILE_NT35510 */
 
 #ifdef CONFIG_FB_R_MOBILE_VX5B3D
 	MSG_LOW("WSVGA(VX5B3D) video mode setting.\n");
@@ -455,8 +363,6 @@ static int set_screen_data(unsigned int disp_addr)
 	screen[0].stride = 1024;
 	screen[0].mode   = 0; /* VIDEO MODE */
 #endif /* CONFIG_FB_R_MOBILE_VX5B3D */
-
-#endif /* CONFIG_FB_R_MOBILE_PANEL_SWITCH */
 
 	screen[1].height = SCREEN1_HEIGHT;
 	screen[1].width  = SCREEN1_WIDTH;
