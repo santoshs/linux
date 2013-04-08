@@ -8,7 +8,6 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
-#include <mach/board-u2evm.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
@@ -18,195 +17,175 @@
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
-#ifdef CONFIG_MACH_U2EVM
-	if (u2_get_board_rev() >= 5) {
-#endif
-		struct regulator *regulator;		
-		int ret = 0;
+	struct regulator *regulator;
+	int ret = 0;
 
-		switch (state) {
-		case RENESAS_SDHI_POWER_ON:
+	switch (state) {
+	case RENESAS_SDHI_POWER_ON:
 		printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
 
-			regulator = regulator_get(NULL, "vio_sd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (!(regulator_is_enabled(regulator))) {
-				ret = regulator_enable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-								__func__ , ret);
-			}
+		if (!(regulator_is_enabled(regulator))) {
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		regulator_put(regulator);
 
-			regulator = regulator_get(NULL, "vsd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (!(regulator_is_enabled(regulator))) {
-				ret = regulator_enable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-								__func__ , ret);
-			}
+		if (!(regulator_is_enabled(regulator))) {
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		regulator_put(regulator);
 
-			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
 		break;
 
-		case RENESAS_SDHI_POWER_OFF:
+	case RENESAS_SDHI_POWER_OFF:
 		printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
-			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
+		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 
-			regulator = regulator_get(NULL, "vio_sd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		regulator_put(regulator);
 
-			regulator = regulator_get(NULL, "vsd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		regulator_put(regulator);
 		break;
 
-		case RENESAS_SDHI_SIGNAL_V330:
+	case RENESAS_SDHI_SIGNAL_V330:
 		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
 
-			regulator = regulator_get(NULL, "vio_sd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
-
-			ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
 			if (ret)
-				printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
-								__func__, ret);
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			ret = regulator_enable(regulator);
+		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
 			if (ret)
-				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-								__func__, ret);
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+							__func__, ret);
 
-			regulator = regulator_get(NULL, "vsd");
-			if (IS_ERR(regulator))
-				return;
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
-
-			ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
-			if (ret)
-				printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
-								__func__, ret);
-
-			ret = regulator_enable(regulator);
-			if (ret)
-				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-								__func__, ret);
-
-			regulator_put(regulator);
+		regulator_put(regulator);
 		break;
-		case RENESAS_SDHI_SIGNAL_V180:
+	case RENESAS_SDHI_SIGNAL_V180:
 		printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
 
-			regulator = regulator_get(NULL, "vio_sd");
-			if (IS_ERR(regulator))
-				return;
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
-
-			ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s: err vio_sd set voltage ret=%d\n",
-								__func__, ret);
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			ret = regulator_enable(regulator);
+		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+		if (ret)
+			printk(KERN_INFO "%s: err vio_sd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
 			if (ret)
-				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-								__func__, ret);
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
 
-			regulator_put(regulator);
+		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+							__func__, ret);
 
-			regulator = regulator_get(NULL, "vsd");
-			if (IS_ERR(regulator))
-				return;
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
 
-			if (regulator_is_enabled(regulator)) {
-				ret = regulator_disable(regulator);
-				if (ret)
-					printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-								__func__ , ret);
-			}
-
-			ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
-			if (ret)
-				printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
-								__func__, ret);
-
-			ret = regulator_enable(regulator);
-			if (ret)
-				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-								__func__, ret);
-
-			regulator_put(regulator);
+		regulator_put(regulator);
 		break;
-			default:
+		default:
 			printk(KERN_INFO"default:%s\n", __func__);
 			break;
-		}
-#ifdef CONFIG_MACH_U2EVM
-	} else {
-#ifdef CONFIG_PMIC_INTERFACE
-		if (state) {
-			pmic_set_power_on(E_POWER_VIO_SD);
-			pmic_set_power_on(E_POWER_VMMC);
-			__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
-
-		} else {
-			__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
-			pmic_set_power_off(E_POWER_VIO_SD);
-			mdelay(VSD_VDCORE_DELAY);
-			pmic_set_power_off(E_POWER_VMMC);
-		}
-#endif  /* CONFIG_PMIC_INTERFACE */
 	}
-#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)
@@ -374,59 +353,3 @@ struct platform_device sdhi1_device = {
 	.num_resources	= ARRAY_SIZE(sdhi1_resources),
 	.resource	= sdhi1_resources,
 };
-
-#if 0
-static void sdhi2_set_pwr(struct platform_device *pdev, int state)
-{
-	;/* TODO*/
-}
-
-static int sdhi2_get_cd(struct platform_device *pdev)
-{
-	return 1;
-}
-
-static struct renesas_sdhi_dma sdhi2_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
-	}
-};
-
-static struct renesas_sdhi_platdata sdhi2_info = {
-	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
-	.dma		= &sdhi2_dma,
-	.set_pwr	= sdhi2_set_pwr,
-	.detect_irq	= 0,
-	.detect_msec	= 0,
-	.get_cd		= sdhi2_get_cd,
-	.ocr		= MMC_VDD_165_195, /*SDHI2_VOLTAGE,In SSG we are using only SDHI0 and SDHI1 channel.As there is no external interface on Kota/SSG w.r.t SDHI2.
-									The present value is the default setting made this will alter according to the external interface mapped for the SDHI Bus.*/
-};
-
-static struct resource sdhi2_resources[] = {
-	[0] = {
-		.name	= "SDHI2",
-		.start	= 0xee140000,
-		.end	= 0xee1400ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(120),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device sdhi2_device = {
-	.name		= "renesas_sdhi",
-	.id		= 2,
-	.dev		= {
-		.platform_data	= &sdhi2_info,
-	},
-	.num_resources	= ARRAY_SIZE(sdhi2_resources),
-	.resource	= sdhi2_resources,
-};
-#endif

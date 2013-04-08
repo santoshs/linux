@@ -1031,7 +1031,7 @@ static void __init loganlte_init(void)
 #ifdef CONFIG_SOC_CAMERA /* camera */
 	camera_init(u2_board_rev);
 #endif /* camera */
-	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+	gpio_key_init(stm_select, u2_board_rev,
 			loganlte_devices_stm_sdhi0,
 			ARRAY_SIZE(loganlte_devices_stm_sdhi0),
 			loganlte_devices_stm_sdhi1,
