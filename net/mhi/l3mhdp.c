@@ -313,24 +313,24 @@ static void
 mhdp_set_udp_filter(struct mhdp_net *mhdpn,
 			struct mhdp_udp_filter *filter)
 {
-	spin_lock(&mhdpn->udp_lock);
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 	mhdpn->udp_filter.port_id = filter->port_id;
 	mhdpn->udp_filter.active = 1;
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 }
 
 
 static void
 mhdp_reset_udp_filter(struct mhdp_net *mhdpn)
 {
-
-	spin_lock(&mhdpn->udp_lock);
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 	mhdpn->udp_filter.port_id = 0;
 	mhdpn->udp_filter.active = 0;
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 
 }
-
 
 
 static int
@@ -344,14 +344,15 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 	unsigned char next_hdr_lgth;
 	unsigned int size_of_previous_hdr;
 	struct sk_buff *newskb;
+	unsigned long flags;
 
-	spin_lock(&mhdpn->udp_lock);
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 
 	if (mhdpn->udp_filter.active == 0) {
-		spin_unlock(&mhdpn->udp_lock);
+		spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 		return 0;
 	}
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 
 	/*if udp, check port number*/
 	if (skb->protocol == htons(ETH_P_IP)) {
