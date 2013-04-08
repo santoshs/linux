@@ -965,7 +965,7 @@ static void __init lt02lte_init(void)
 #ifdef CONFIG_SOC_CAMERA /* camera */
 	camera_init(u2_board_rev);
 #endif /* camera */
-	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+	gpio_key_init(stm_select, u2_board_rev,
 			lt02lte_devices_stm_sdhi0,
 			ARRAY_SIZE(lt02lte_devices_stm_sdhi0),
 			lt02lte_devices_stm_sdhi1,
