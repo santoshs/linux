@@ -566,7 +566,7 @@ static void __init gardalte_init(void)
 #endif
 
 	camera_init(u2_board_rev);
-	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,

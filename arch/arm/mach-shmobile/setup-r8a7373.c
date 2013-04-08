@@ -1244,35 +1244,6 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
-#ifdef DISABLE_UNUSED_R8A7373_ES20_LATE_DEVICES_FOR_GARDA
-/* HS-- ES20 Specific late devices */
-static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
-	&i2c0_device, /* IIC0  */
-	&i2c1_device, /* IIC1  */
-	&i2c2_device, /* IIC2  */
-	&i2c3_device, /* IIC3  */
-	&i2c4_device, /* IIC0H */
-	&i2c5_device, /* IIC1H*/
-#ifndef CONFIG_SPI_SH_MSIOF
-	&i2c6_device, /* IIC2H */
-#endif
-#ifndef CONFIG_PN544_NFC
-	&i2c7_device, /* IIC3H */
-#endif
-	&i2c8_device, /* IICM  */
-	&i2c0gpio_device,
-	&i2c1gpio_device,
-	&dma0_device,
-#ifdef CONFIG_SMECO
-	&smc_netdevice0,
-	&smc_netdevice1,
-#endif
-	&hwsem0_device,
-	&hwsem1_device,
-	&hwsem2_device,
-	&sgx_device,
-};
-#endif
 
 void __init r8a7373_add_standard_devices(void)
 {
@@ -1281,19 +1252,8 @@ void __init r8a7373_add_standard_devices(void)
 			ARRAY_SIZE(r8a7373_early_devices));
 
 	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
-#ifdef CONFIG_MACH_U2EVM
-		if (u2_get_board_rev() >= 5) {
-			platform_add_devices(r8a7373_late_devices_es20_d2153,
-				ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-		} else {
-			platform_add_devices(r8a7373_late_devices_es20,
-				ARRAY_SIZE(r8a7373_late_devices_es20));
-		}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)\
-	|| defined(CONFIG_MACH_LT02LTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-#endif
 	}
 /* ES2.0 change end */
 }
@@ -1455,48 +1415,16 @@ void d2153_mmcif_pwr_control(int onoff)
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
+	#if defined(CONFIG_MFD_D2153)
 		d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 1);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
+	#endif /* CONFIG_MFD_D2153 */
 }
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
+	#if defined(CONFIG_MFD_D2153)
 		d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 0);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
+	#endif /* CONFIG_MFD_D2153 */
 }
 
 
