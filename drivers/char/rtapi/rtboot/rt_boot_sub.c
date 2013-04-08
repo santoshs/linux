@@ -2,7 +2,7 @@
  * rt_boot_sub.c
  *		booting rt_cpu.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -131,6 +131,8 @@ int read_rt_image(unsigned int *addr)
 	struct file *fp = NULL;
 
 	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+
+	memset(&info, 0, sizeof(info));
 
 	if (addr == NULL) {
 		MSG_ERROR("[RTBOOTK]   |addr is NULL\n");

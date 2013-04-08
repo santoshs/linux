@@ -523,6 +523,15 @@ int rtctl_change_rt_state_active(void)
 		rtctl_change_active_timeout_error();
 	}
 
+	{
+		unsigned long long tim;
+		unsigned long *addr_status;
+		tim = local_clock();
+		addr_status = (unsigned long *)g_iccom_command_area;
+		addr_status[1] = (unsigned long)(tim>>32);
+		addr_status[2] = (unsigned long)(tim & 0xFFFFFFFF);
+	}
+
 	writel(MFISGSR_REQ_COMP, MFIS_GSR);
 	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__, readl(MFIS_GSR));
 	writel(MFISIICR_RTACTIVE, MFIS_IICR);
