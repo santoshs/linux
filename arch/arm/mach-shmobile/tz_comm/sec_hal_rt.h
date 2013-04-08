@@ -600,7 +600,7 @@ uint32_t sec_hal_rt_memcpy(
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
  */
-uint32_t sec_hal_rt_multicore_enable();
+uint32_t sec_hal_rt_multicore_enable(void);
 
 
 /*!

@@ -12,13 +12,8 @@
 /* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
 extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
 
-#define DBGREG1			0xE6100020
 #define DBGREG3			0xE6100028
-#define DBGREG9			0xE6100040
 #define DBGREG11		0xE6100048
-#define SWUCR			0xE6180014
-#define PSTR			0xE6180080
-#define MSEL3CR		        0xE6058020
 
 #define DBGREG9_AID 		0xA5
 #define DBGREG9_AID_SHIFT	8
@@ -26,8 +21,6 @@ extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32
 #define DBGREG9_KEY_SHIFT	0x0
 #define DBGREG9_KEY_MASK	0x1
 
-#define SYS_TRACE_FUNNEL_STM_BASE  0xE6F8B000
-#define SYS_TPIU_STM_BASE	   0xE6F8A000
 #define SYS_TPIU_BASE              0xE6F83000
 #define CPU_TPIU_BASE              0xE6FA3000
 #define SYS_TPIU_STM_BASE          0xE6F8A000

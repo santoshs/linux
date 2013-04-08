@@ -124,29 +124,6 @@ static void smb328a_print_reg(struct i2c_client *client, int reg)
 		printk(KERN_INFO "%s : reg (0x%x) = 0x%x\n", __func__, reg, data);
 }
 
-static void smb328a_print_all_regs(struct i2c_client *client)
-{
-	smb328a_print_reg(client, 0x31);
-	smb328a_print_reg(client, 0x32);
-	smb328a_print_reg(client, 0x33);
-	smb328a_print_reg(client, 0x34);
-	smb328a_print_reg(client, 0x35);
-	smb328a_print_reg(client, 0x36);
-	smb328a_print_reg(client, 0x37);
-	smb328a_print_reg(client, 0x38);
-	smb328a_print_reg(client, 0x39);
-	smb328a_print_reg(client, 0x00);
-	smb328a_print_reg(client, 0x01);
-	smb328a_print_reg(client, 0x02);
-	smb328a_print_reg(client, 0x03);
-	smb328a_print_reg(client, 0x04);
-	smb328a_print_reg(client, 0x05);
-	smb328a_print_reg(client, 0x06);
-	smb328a_print_reg(client, 0x07);
-	smb328a_print_reg(client, 0x08);
-	smb328a_print_reg(client, 0x09);
-	smb328a_print_reg(client, 0x0a);
-}
 
 static void smb328a_allow_volatile_writes(struct i2c_client *client)
 {
@@ -385,23 +362,6 @@ static int smb328a_check_charging_status(struct i2c_client *client)
 
 		ret = (data&(0x3<<1))>>1;
 		printk(KERN_INFO "%s : status = 0x%x\n", __func__, data);
-	}
-
-	return ret;
-}
-static bool smb328a_check_is_charging(struct i2c_client *client)
-{
-	int val;
-	u8 data = 0;
-	bool ret = false;
-
-	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
-	if (val >= 0) {
-		data = (u8)val;
-		printk(KERN_INFO "%s : reg (0x%x) = 0x%x\n", __func__, SMB328A_BATTERY_CHARGING_STATUS_C, data);
-
-		if (data&0x1)
-			ret = true; /* charger enabled */
 	}
 
 	return ret;

@@ -299,19 +299,6 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 	return 0;
 }
 
-static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
-{
-	struct r8a66597 *r8a66597 = _r8a66597;
-	udc_log("%s: IN\n", __func__);
-
-	if (!wake_lock_active(&r8a66597->wake_lock))
-		wake_lock(&r8a66597->wake_lock);
-
-	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
-
-	return IRQ_HANDLED;
-}
-
 static inline u16 control_reg_get_pid(struct r8a66597 *r8a66597, u16 pipenum)
 {
 	u16 pid = 0;

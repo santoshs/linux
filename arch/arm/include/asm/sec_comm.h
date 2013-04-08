@@ -17,8 +17,8 @@
 //uint32_t set_rpc_handler(void);
 //uint32_t sec_l2_cache_enable(void);
 
-extern uint32_t sec_l2_cache_enable();
-extern int sec_hal_mem_msg_area_init();
-uint32_t  sec_service_integrity_check();
-extern void sec_service_rt_multicore_enable();
+extern uint32_t sec_l2_cache_enable(void);
+extern int sec_hal_mem_msg_area_init(void);
+uint32_t  sec_service_integrity_check(void);
+extern void sec_service_rt_multicore_enable(void);
 /// EOF

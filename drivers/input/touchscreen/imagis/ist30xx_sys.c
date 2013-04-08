@@ -212,7 +212,6 @@ int ist30xx_power_on(void)
 
 int ist30xx_power_off(void)
 {
-	int ret;
 
 	if (ts_data->status.power != 0) {
 		ts_power_enable(0);

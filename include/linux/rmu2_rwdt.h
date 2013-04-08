@@ -69,11 +69,11 @@
 /* register address define */
 #define STBCHRB1		IO_ADDRESS(0xE6180041U)
 #define SYSC_RESCNT2		IO_ADDRESS(0xE6188020U)
-#define RWDT_BASE		IO_ADDRESS(0xE6020000U)
-#define REG_SIZE		0xCU
-#define RWTCNT			0x0U
-#define RWTCSRA			0x4U
-#define RWTCSRB			0x8U
+#define RWDT_BASE			IO_ADDRESS(0xE6020000U)
+#define REG_SIZE			0xCU
+#define RWTCNT_OFFSET			0x0U
+#define RWTCSRA				0x4U
+#define RWTCSRB				0x8U
 
 /* register mask define */
 #define RESCSR_HEADER		0xA5A5A500U
