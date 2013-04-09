@@ -153,11 +153,12 @@ __weak struct regulator_consumer_supply d2153_ldo3_supplies[] = {
 
 static struct regulator_init_data d2153_ldo3 = {
 	.constraints = {
-		.min_uV = D2153_LDO3_VOLT_LOWER,
+		.min_uV = D2153_LDO3_VOLT_UPPER,
 		.max_uV = D2153_LDO3_VOLT_UPPER,
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask = REGULATOR_MODE_NORMAL,
-//		.always_on = 1,
+		.always_on = 1,
+		.apply_uV = true,
 	},
 	.num_consumer_supplies = ARRAY_SIZE(d2153_ldo3_supplies),
 	.consumer_supplies = d2153_ldo3_supplies,
@@ -603,7 +604,11 @@ struct d2153_platform_data d2153_pdata = {
 #else
 		D2153_MCTL_MODE_INIT(D2153_LDO_2,  0x00, D2153_REGULATOR_OFF_IN_DSM),	/* VDD_MHL_1.2V */
 #endif
-		D2153_MCTL_MODE_INIT(D2153_LDO_3,  0x54/*0x56*/, D2153_REGULATOR_OFF_IN_DSM),	// VMMC_2.85V
+#if defined(CONFIG_MACH_LT02LTE)
+		D2153_MCTL_MODE_INIT(D2153_LDO_3, 0x55, D2153_REGULATOR_ON_IN_DSM),/* VMMC */
+#else
+		D2153_MCTL_MODE_INIT(D2153_LDO_3, 0x54, D2153_REGULATOR_OFF_IN_DSM),/* VMMC */
+#endif
 		D2153_MCTL_MODE_INIT(D2153_LDO_4,  0x54, D2153_REGULATOR_OFF_IN_DSM),	// VREG_TCXO_1.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_5,  0x56, D2153_REGULATOR_LPM_IN_DSM),	// VMIPI_1.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_6,  0x56, D2153_REGULATOR_LPM_IN_DSM),	// VUSIM1_1.8V
