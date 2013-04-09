@@ -27,6 +27,7 @@
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
+#include <mach/memory-r8a7373.h>
 
 /* CPG_PLL2CR */
 #define PLL2CE_XOE	0x1
@@ -36,8 +37,8 @@
 
 /* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
 /* SDRAM address for NVM */
-#define NVM_BOOTFLAG_ADDRESS		0x464FFF80
-#define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
+#define NVM_BOOTFLAG_SIZE    ((SDRAM_NON_VOLATILE_FLAG_AREA_END_ADDR \
+	- SDRAM_NON_VOLATILE_FLAG_AREA_START_ADDR) + 1)    /* 128Bytes */
 #define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
 /* END: CR1040: Clean up source code which accesses the eMMC directly */
 
@@ -242,7 +243,7 @@ static int __init shmobile_init_poweroff(void)
 #endif /* SHMOBILE_PM_RESTART */
 
 	bootflag_address = (char *)ioremap_nocache(
-			NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
+		SDRAM_NON_VOLATILE_FLAG_AREA_START_ADDR, NVM_BOOTFLAG_SIZE);
 
 	return 0;
 }
