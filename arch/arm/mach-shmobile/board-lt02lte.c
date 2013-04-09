@@ -902,7 +902,7 @@ static void __init lt02lte_init(void)
 		/* WLAN Init API call */
 #ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
 		printk(KERN_ERR "Calling WLAN_INIT!\n");
-		/*renesas_wlan_init();*/
+		renesas_wlan_init();
 		printk(KERN_ERR "DONE WLAN_INIT!\n");
 #endif
 		/* add the SDIO device */

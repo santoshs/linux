@@ -1,7 +1,5 @@
-#ifndef __ASM_MACH_DEV_WIFI_H
-#define __ASM_MACH_DEV_WIFI_H
 /* 
- * ~/arch/arm/mach-shmobile/dev-wifi.h
+ * ~/arch/arm/mach-shmobile/board-u2evm-wifi.h
  */
 /*
  * Copyright (C) 2011 Renesas Mobile Corporation.
@@ -37,4 +35,4 @@
 #define WIFI_ERROR(...) while(0)
 #endif
 
-#endif   /* __ASM_MACH_DEV_WIFI_H */
+int __init renesas_wlan_init(void);
