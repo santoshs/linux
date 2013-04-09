@@ -33,7 +33,7 @@
 #include <linux/lcd.h>
 #include <mach/r8a7373.h>
 
-#include "panel_vx5b3d.h"
+#include "panel_common.h"
 
 /* #define VX5B3D_DRAW_BLACK_KERNEL */
 
@@ -42,6 +42,9 @@
 #ifdef VX5B3D_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
 #endif
+
+#define VX5B3D_VEE_ENABLE
+/* #define VX5B3D_STANDBY_CMD_ENABLE */
 
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		0x4B400000
@@ -246,9 +249,6 @@ static unsigned char snd_data_203[] = { 0x05, 0x01, 0x40, 0x38, 0x01,
 static unsigned char snd_data_204[] = { 0x05, 0x01, 0x40, 0x5C, 0x01,
 		0x05, 0x00, 0x00, 0x00 };
 
-static unsigned char snd_data_300[] = { 0x05, 0x01, 0x40, 0x5C, 0x01,
-		0x01, 0x00, 0x00, 0x00 };
-
 /* initialize sequence */
 static unsigned char snd_data_001[] = { 0x05, 0x01, 0x40, 0x00, 0x07,
 		0x40, 0x00, 0x90, 0x6C };
@@ -256,8 +256,13 @@ static unsigned char snd_data_002[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
 		0xDB, 0x02, 0x03, 0x00 };
 static unsigned char snd_data_003[] = { 0x05, 0x01, 0x40, 0x0C, 0x07,
 		0x04, 0x46, 0x00, 0x00 };
+#ifdef VX5B3D_VEE_ENABLE
 static unsigned char snd_data_004[] = { 0x05, 0x01, 0x40, 0x10, 0x07,
 		0x4B, 0x00, 0x4D, 0x05 };
+#else
+static unsigned char snd_data_004[] = { 0x05, 0x01, 0x40, 0x10, 0x07,
+		0x0B, 0x00, 0x4D, 0x05 };
+#endif /* VX5B3D_VEE_ENABLE */
 static unsigned char snd_data_005[] = { 0x05, 0x01, 0x40, 0x14, 0x07,
 		0x20, 0x00, 0x00, 0x00 };
 static unsigned char snd_data_006[] = { 0x05, 0x01, 0x40, 0x18, 0x07,
@@ -298,8 +303,11 @@ static unsigned char snd_data_023[] = { 0x05, 0x01, 0x40, 0x3C, 0x01,
 		0x00, 0x00, 0x00, 0x00 };
 static unsigned char snd_data_024[] = { 0x05, 0x01, 0x40, 0x40, 0x01,
 		0x00, 0x00, 0x01, 0x00 };
+#ifdef VX5B3D_VEE_ENABLE
 static unsigned char snd_data_025[] = { 0x05, 0x01, 0x40, 0x74, 0x01,
 		0xFF, 0x00, 0x00, 0x00 };
+#endif /* VX5B3D_VEE_ENABLE */
+
 static unsigned char snd_data_026[] = { 0x05, 0x01, 0x40, 0x0C, 0x02,
 		0x34, 0x01, 0x00, 0x00 };
 static unsigned char snd_data_027[] = { 0x05, 0x01, 0x40, 0x1C, 0x02,
@@ -373,7 +381,9 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_022, sizeof(snd_data_022) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_023, sizeof(snd_data_023) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_024, sizeof(snd_data_024) },
+#ifdef VX5B3D_VEE_ENABLE
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_025, sizeof(snd_data_025) },
+#endif /* VX5B3D_VEE_ENABLE */
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_026, sizeof(snd_data_026) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_027, sizeof(snd_data_027) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_028, sizeof(snd_data_028) },
@@ -420,6 +430,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_END,             NULL,          0                    }
 };
 
+#ifdef VX5B3D_STANDBY_CMD_ENABLE
 /* for standby register setting */
 static unsigned char snd_stby_001[] = { 0x05, 0x01, 0x40, 0x00, 0x07,
 		0x40, 0x00, 0x00, 0x24 };
@@ -450,6 +461,9 @@ static unsigned char snd_stby_013[] = { 0x05, 0x01, 0x40, 0x8C, 0x03,
 static unsigned char snd_stby_014[] = { 0x05, 0x01, 0x40, 0x08, 0x06,
 		0x0F, 0x05, 0x00, 0x00 };
 
+static unsigned char snd_data_300[] = { 0x05, 0x01, 0x40, 0x5C, 0x01,
+		0x01, 0x00, 0x00, 0x00 };
+
 static const struct specific_cmdset standby_cmdset[] = {
 /* for backlight */
 	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_300,  sizeof(snd_data_300) },
@@ -472,7 +486,7 @@ static const struct specific_cmdset standby_cmdset[] = {
 	{ MIPI_DSI_GEN_LONG_WRITE,  snd_stby_014,  sizeof(snd_stby_014) },
 	{ MIPI_DSI_END,             NULL,          0                    }
 };
-
+#endif /* VX5B3D_STANDBY_CMD_ENABLE */
 
 static int is_dsi_read_enabled;
 static struct backlight_device *registed_bd;
@@ -810,7 +824,7 @@ static void vx5b3d_backlight_device_unregister(void)
 }
 
 
-int vx5b3d_dsi_read(int id, int reg, int len, char *buf)
+int panel_dsi_read(int id, int reg, int len, char *buf)
 {
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
@@ -1100,9 +1114,6 @@ static int vx5b3d_panel_init(unsigned int mem_size)
 retry:
 	screen_handle =  screen_display_new();
 
-	/* LCD panel reset */
-	mipi_display_reset();
-
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
 	set_lcd_if_param.port_no		= irq_portno;
@@ -1134,6 +1145,10 @@ retry:
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
+	/* LCD panel reset */
+	mipi_display_reset();
+
 	is_dsi_read_enabled = 1;
 
 	/* Transmit DSI command peculiar to a panel */
@@ -1154,8 +1169,10 @@ retry:
 			disp_stop_lcd.handle		= screen_handle;
 			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
 			ret = screen_display_stop_lcd(&disp_stop_lcd);
-			if (ret != SMAP_LIB_DISPLAY_OK)
+			if (ret != SMAP_LIB_DISPLAY_OK) {
 				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
 
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -1196,12 +1213,14 @@ static int vx5b3d_panel_suspend(void)
 
 	screen_handle =  screen_display_new();
 
+#ifdef VX5B3D_STANDBY_CMD_ENABLE
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, standby_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		/* continue */
 	}
+#endif /* VX5B3D_STANDBY_CMD_ENABLE */
 
 	is_dsi_read_enabled = 0;
 
@@ -1253,6 +1272,7 @@ static int vx5b3d_panel_resume(void)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
+	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
 	int ret = 0;
 	int retry_count = 10;
@@ -1282,9 +1302,6 @@ static int vx5b3d_panel_resume(void)
 retry:
 	screen_handle =  screen_display_new();
 
-	/* LCD panel reset */
-	mipi_display_reset();
-
 	/* Start a display to LCD */
 	start_lcd.handle	= screen_handle;
 	start_lcd.output_mode	= RT_DISPLAY_LCD1;
@@ -1294,6 +1311,9 @@ retry:
 		goto out;
 	}
 	is_dsi_read_enabled = 1;
+
+	/* LCD panel reset */
+	mipi_display_reset();
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
@@ -1306,6 +1326,15 @@ retry:
 			ret = -ENODEV;
 			goto out;
 		} else {
+			/* Stop a display to LCD */
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK) {
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
+
 			retry_count--;
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -1428,7 +1457,6 @@ static struct fb_panel_info vx5b3d_panel_info(void)
 	return r_mobile_info;
 }
 
-#ifndef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -1451,22 +1479,3 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
-#else
-struct fb_panel_func vx5b3d_func_list()
-{
-	struct fb_panel_func panel_func;
-
-	printk(KERN_INFO "%s\n", __func__);
-
-	memset(&panel_func, 0, sizeof(struct fb_panel_func));
-
-	panel_func.panel_init    = vx5b3d_panel_init;
-	panel_func.panel_suspend = vx5b3d_panel_suspend;
-	panel_func.panel_resume  = vx5b3d_panel_resume;
-	panel_func.panel_probe   = vx5b3d_panel_probe;
-	panel_func.panel_remove  = vx5b3d_panel_remove;
-	panel_func.panel_info    = vx5b3d_panel_info;
-
-	return panel_func;
-}
-#endif
