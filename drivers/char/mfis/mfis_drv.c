@@ -40,6 +40,7 @@
 static struct clk *mfis_clk_data;
 static struct clk *clk_data;
 static struct semaphore a3r_power_sem;
+#define	MFIS_SEM_WAIT_TIMEOUT 40000
 
 #if EARLYSUSPEND_STANDBY
 #include <linux/earlysuspend.h>
@@ -81,12 +82,16 @@ static unsigned long			standby_work_stop_flag;
 static void mfis_standby_work_entry(int reset_flag)
 {
 #if CYCLE_STANDBY
+	long jiffies;
+
 	if (reset_flag) {
 		standby_work_stop_flag = 0;
 	}
 
 	if (!standby_work_stop_flag) {
-		down(&mfis_sem);
+		jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+		if (0 != down_timeout(&mfis_sem, jiffies))
+			panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 		standby_work_on = 1;
 
@@ -109,12 +114,8 @@ static void mfis_standby_work_cancel(void)
 	standby_work_stop_flag = 1;
 
 	if (standby_work_on) {
-		down(&mfis_sem);
-
 		cancel_delayed_work_sync(&standby_work);
 		standby_work_on = 0;
-
-		up(&mfis_sem);
 	}
 #endif /* CYCLE_STANDBY */
 
@@ -143,6 +144,7 @@ static int mfis_suspend_noirq(struct device *dev)
 {
 
 	int ret = -1;
+	long jiffies;
 #if RTPM_PF_CUSTOM
 	char domain_name[] = "av-domain";
 	char *dev_name;
@@ -159,7 +161,9 @@ static int mfis_suspend_noirq(struct device *dev)
 	}
 #endif /* EARLYSUSPEND_STANDBY */
 
-	down(&a3r_power_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&a3r_power_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
@@ -231,6 +235,7 @@ static int mfis_resume_noirq(struct device *dev)
 {
 
 	int ret = -1;
+	long jiffies;
 #if RTPM_PF_CUSTOM
 
 	char domain_name[] = "av-domain";
@@ -240,7 +245,9 @@ static int mfis_resume_noirq(struct device *dev)
 	unsigned int i;
 #endif
 
-	down(&a3r_power_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&a3r_power_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if EARLYSUSPEND_STANDBY
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
@@ -478,8 +485,11 @@ int mfis_drv_suspend(void)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
+	long jiffies;
 
-	down(&mfis_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&mfis_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
@@ -501,8 +511,11 @@ int mfis_drv_resume(void)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 	int ret = 0;
+	long jiffies;
 
-	down(&mfis_sem);
+	jiffies = msecs_to_jiffies(MFIS_SEM_WAIT_TIMEOUT);
+	if (0 != down_timeout(&mfis_sem, jiffies))
+		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
