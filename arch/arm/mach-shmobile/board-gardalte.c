@@ -308,23 +308,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
-#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
-static int wait_for_coresight_access_lock(u32 base)
-{
-	int i = 0x00;
-	int retval = -1;
-	int timeout = 512;
-	/* Lock Access */
-	__raw_writel(0xc5acce55, base + 0xFB0);
-	for (i = 0; i < timeout && retval; i++) {
-		if ((__raw_readl(base + 0xFB4) & 2) == 0)
-			retval = 0;
-	}
-	printk("wait_for_coresight_access_lock %d\n", retval);
-	return retval;
-}
-#endif
-
 void gardalte_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
