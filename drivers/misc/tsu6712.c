@@ -38,7 +38,6 @@
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 #include <linux/spa_power.h>
 #endif
-#include <linux/pmic/pmic-tps80032.h>
 
 #include <mach/common.h>
 
@@ -158,6 +157,11 @@ int KERNEL_LOG;
 
 #define TSU6712_UART_EMPTY_CR          3
 #define TSU6712_UART_EMPTY_CRLF        4
+
+#define TSU6712_INT_VBUSS_WKUP 17
+#define TSU6712_INT_VBUS 19
+#define TSU6712_INT_NR 30
+#define IRQPIN_IRQ_BASE		512
 
 int uart_connecting;
 EXPORT_SYMBOL(uart_connecting);
@@ -1550,11 +1554,12 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1, &device_type);
 	intr2 = intr >> 8;
 
-	dev_info(&client->dev, "%s intr: 0x%x\n", __func__, intr);
-	if ((intr & 0x01) && (device_type & 0x04))
-		handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
-	else if (intr & 0x02)
-		handle_nested_irq(usbsw->irq_base + TPS80032_INT_VBUS);
+		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
+
+		if ((intr & 0x01) && (device_type & 0x04))
+			handle_nested_irq(usbsw->irq_base + TSU6712_INT_VBUS);
+		else if (intr & 0x02)
+			handle_nested_irq(usbsw->irq_base + TSU6712_INT_VBUS);
 
 	if (intr < 0) {
 		msleep(100);
@@ -1866,15 +1871,15 @@ static void tsu6712_irq_sync_unlock(struct irq_data *data)
 
 static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 {
-	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP,
-					 IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS };
+	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUSS_WKUP,
+					 IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUS };
 	int i, ret;
 	int irq_base = IRQPIN_IRQ_BASE + 64;
 
-	ret = irq_alloc_descs(irq_base, irq_base, TPS80032_INT_NR, -1);
+	ret = irq_alloc_descs(irq_base, irq_base, TSU6712_INT_NR, -1);
 	if (ret < 1) {
 		dev_err("%s: unable to allocate %u irqs: %d\n",
-					__func__, TPS80032_INT_NR, ret);
+					__func__, TSU6712_INT_NR, ret);
 		if (ret == 0)
 			ret = -EINVAL;
 		return ret;
