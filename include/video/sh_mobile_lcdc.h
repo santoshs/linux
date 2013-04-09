@@ -134,9 +134,9 @@ struct lcdrt_sectioninfo {
 	u32 onscrnsize;		/* Size of OnScreen Buffer */
 };
 
-enum { LCDC_CHAN_DISABLED = 0,
-       LCDC_CHAN_MAINLCD,
-       LCDC_CHAN_SUBLCD };
+enum {	LCDC_CHAN_DISABLED = 0,
+	LCDC_CHAN_MAINLCD,
+	LCDC_CHAN_SUBLCD };
 
 enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 
