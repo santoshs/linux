@@ -23,6 +23,7 @@
 #include <mach/dev-gps.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -173,7 +174,6 @@ void gps_gpio_init(void)
 	gpio_request(GPIO_PORT48, "GPS_ECLK_26M");
 	gpio_pull_off_port(GPIO_PORT48);
 	gpio_direction_output(GPIO_PORT48, 0);
-
 
 	gpio_export(GPIO_PORT11, 1);
 	gpio_export(GPIO_PORT48, 1);
