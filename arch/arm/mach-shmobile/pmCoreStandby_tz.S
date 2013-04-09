@@ -508,6 +508,14 @@ CORESTANDBY_PA_XTAL_THOUGH_SET:
 	STR		r4, [r0]
 	DSB
 
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY_WAKEUP
+
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
 	/*----------------------------------*/
@@ -1880,6 +1888,14 @@ ENTRY(corestandby_2)
 	ADR		r4, CORESTANDBY2_RESTORE
 	STR		r4, [r0]
 	DSB
+
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY2_WAKEUP
 
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
