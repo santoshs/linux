@@ -578,8 +578,8 @@ static void __init lt02lte_init(void)
 	/* ===== CWS GPIO ===== */
 
 	/* GPS Reset */
-	gpio_request(GPIO_PORT10, NULL);
-	gpio_direction_output(GPIO_PORT10, 0);
+	//gpio_request(GPIO_PORT10, NULL);
+	//gpio_direction_output(GPIO_PORT10, 0);
 
 	/* GPS Enable */
 	gpio_request(GPIO_PORT11, NULL);
@@ -993,6 +993,10 @@ static void __init lt02lte_init(void)
 
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
+/* GPS Init */
+#if defined(CONFIG_RENESAS_GPS)
+	gps_gpio_init();
+#endif
 
 #if defined(CONFIG_SAMSUNG_SENSOR)
 	sensor_init();
