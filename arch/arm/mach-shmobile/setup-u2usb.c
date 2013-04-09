@@ -26,6 +26,17 @@
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+
+#define U2_USB_BASE_REG                            0xE6890000 
+#define TUSB_VENDOR_SPECIFIC1                           0x80
+#define USB_SPWDAT                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013A)) /*H'E689 013A*/
+#define USB_SPCTRL                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013C)) /*H'E689 013C*/
+#define USB_SPRDAT                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013E)) /*H'E689 013E*/
+#define USB_SPEXADDR                            ((volatile ushort *)(U2_USB_BASE_REG + 0x0140)) /*H'E689 0140*/
+#define USB_SPWR                                        0x0001
+#define USB_SPRD                                        0x0002
+#define USB_SPADDR                       ((volatile ushort *)(U2_USB_BASE_REG + 0x0138)) /*H'E689 0138*/
+
 static int is_vbus_powered(void)
 {
 	int val = 0;
@@ -107,6 +118,13 @@ static void usbhs_module_reset(void)
 		(1 << 8), PHYOTGCTR); /* IDPULLUP */
 	msleep(50);
 #endif
+//Eye Diagram		
+		__raw_writew(0x0000, USB_SPADDR);       /* set HSUSB.SPADDR*/
+                __raw_writew(0x0020, USB_SPEXADDR);     /* set HSUSB.SPEXADDR*/
+                __raw_writew(0x004F, USB_SPWDAT);       /* set HSUSB.SPWDAT*/
+                __raw_writew(USB_SPWR, USB_SPCTRL);     /* set HSUSB.SPCTRL*/
+		mdelay(1);
+//Eye Diagram
 }
 
 static void usb_sw_reset(void)
