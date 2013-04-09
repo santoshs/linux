@@ -61,7 +61,7 @@
 #define saveCpuRegisterAreaSize		0x660
 
 /* Size of code	*/
-#define	fsArmVector					0xC0 /* ARM Vector */
+#define	fsArmVector					0xE0 /* ARM Vector */
 #define	fsCoreStandby				0x0 /* Core Standby */
 #define	fsSystemSuspend				0x0 /* System Suspend */
 #define	fsSaveArmRegister			0x0 /* Save ARM register */
@@ -87,6 +87,7 @@
 #define	fscorestandby_up_status	0x60 /* Status for corestandby up */
 #define	fsxtal_though			0x20 /* XTAL though mode setting */
 #define	fsxtal_though_restore	0x0 /* XTAL though mode restore setting  */
+#define fsMemoryLogPm				0x060 /* memory log for PM  */
 
 /*------------------------------*/
 /* Offset of RAM1 area */
@@ -149,6 +150,10 @@
 /* Offset to the Set clock function */
 #define		hoSetClockSystemSuspend			\
 (hoSysPowerUp + fsSysPowerUp)
+
+/* Offset to the memory log pm function */
+#define		hoMemoryLogPm					\
+(hoSetClockSystemSuspend + fsSetClockSystemSuspend)
 
 /*--------------------------------------------------------------------------*/
 /* Address of RAM0 area */
@@ -234,6 +239,9 @@
 #define	secramxtal_though_restore				\
 (secramBase + hoxtal_though_restore)
 
+/* Address of memory log pm function */
+#define		secramMemoryLogPm					\
+(secramBase + hoMemoryLogPm)
 
 /* Address of function (Phys)	*/
 /* Address of ARM Vector function */
@@ -314,6 +322,10 @@
 /* xtal though restore */
 #define	secramxtal_though_restorePhys				\
 (secramBasePhys + hoxtal_though_restore)
+
+/* Address of memory log pm function */
+#define		secramMemoryLogPmPhys				\
+(secramBasePhys + hoMemoryLogPm)
 
 /*--------------------------------------------------*/
 /* Offset of RAM0 area */
@@ -448,6 +460,12 @@
 #define	ram0ZQCalib		\
 (ram0CoreStandby2RestoreCPU1 + 0x4)
 
+/* memlog for PM */
+#define	ram0MemlogPmAddressPA				\
+(ram0ZQCalib + 0x4)
+#define	ram0MemlogPmAddressVA				\
+(ram0MemlogPmAddressPA + 0x4)
+
 /* Backup area Phys */
 #define ram0CommonSettingPhys		ram0BackupPhys
 #define ram0Pl310GlobalSettingPhys			\
@@ -567,6 +585,12 @@
 /* Do ZQ Calibration or not */
 #define	ram0ZQCalibPhys		\
 (ram0CoreStandby2RestoreCPU1Phys + 0x4)
+
+/* memlog for PM */
+#define	ram0MemlogPmAddressPAPhys			\
+(ram0ZQCalibPhys + 0x4)
+#define	ram0MemlogPmAddressVAPhys			\
+(ram0MemlogPmAddressPAPhys + 0x4)
 
 /*-----------------------------------------------*/
 /* Offset of CPU register buckup area */

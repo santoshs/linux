@@ -30,6 +30,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
+#include <memlog/memlog.h>
 
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
@@ -250,6 +251,9 @@ int shmobile_init_pm(void)
 	unsigned long flags;
 	void __iomem *map = NULL;
 	unsigned long cpuidle_spinlock;
+#ifdef CONFIG_MEMLOG
+	int i;
+#endif
 	is_suspend_request = 0;
 		/* Chip revision */
 	chip_rev = shmobile_chip_rev();
@@ -326,6 +330,25 @@ int shmobile_init_pm(void)
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu1Status));
 
+#ifdef CONFIG_MEMLOG
+	/* Initialize memlog pm setting (ioremap 2k)*/
+	map = ioremap_nocache((unsigned long)(
+		MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
+		CPU0_PM_SIZE + CPU1_PM_SIZE);
+	if (map != NULL) {
+		__raw_writel((unsigned long)map, IOMEM(ram0MemlogPmAddressVA));
+		__raw_writel((unsigned long)(
+			MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
+			IOMEM(ram0MemlogPmAddressPAPhys));
+		for (i = 0 ; i <  ((CPU0_PM_SIZE + CPU1_PM_SIZE) >> 2); i++) {
+			__raw_writel((unsigned long)0x0, IOMEM(map));
+			map++;
+		}
+	} else {
+		printk(KERN_ERR "shmobile_init_pm: Failed ioremap\n");
+		return -EIO;
+	}
+#endif
 #ifdef CONFIG_PM_HAS_SECURE
 
 	/* Initialize sec_hal allocation */
@@ -411,6 +434,9 @@ int shmobile_init_pm(void)
 				(void *)&xtal_though_restore,
 				fsxtal_though_restore);
 #endif
+	(void)memcpy((void *)secramMemoryLogPm,
+				(void *)&memory_log_pm,
+				fsMemoryLogPm);
 #else /*CONFIG_PM_HAS_SECURE*/
 	/* Copy the source code internal RAM0 */
 	(void)memcpy((void *)ram0ArmVector,
@@ -468,7 +494,9 @@ int shmobile_init_pm(void)
 	(void)memcpy((void *)ram0SysPowerUp,
 				(void *)&sys_powerup,
 				fsSysPowerUp);
-
+	(void)memcpy((void *)ram0MemoryLogPm,
+				(void *)&memory_log_pm,
+				fsMemoryLogPm);
 #endif /* CONFIG_PM_HAS_SECURE */
 
 	/* - set PLL1 stop conditon to A2SL, A3R, C4 state by CPG.PLL1STPCR */
