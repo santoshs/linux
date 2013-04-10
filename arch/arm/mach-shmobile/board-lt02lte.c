@@ -38,7 +38,7 @@
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board-lt02lte.h>
+#include <mach/board.h>
 #include <mach/board-lt02lte-config.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
