@@ -19,11 +19,47 @@
  */
 #include <linux/linkage.h>
 #include <asm/assembler.h>
+#include <memlog/memlog.h>
 
 #include "pm_ram0_tz.h"
 #include "pmRegisterDef.h"
 #include "pmMacro.S"
 #include "pmCachemaintenance.S"
+
+/********************************************************/
+/*	memory log for PM */
+/* This function is running on icram0 */
+/* Enter with: */
+/* 	r0 = identifier */
+/* 	lr = Address of return point */
+/********************************************************/
+	.align	5
+ENTRY(memory_log_pm)
+#ifdef CONFIG_MEMLOG
+	MRC		p15, 0, r1, c1, c0, 0	/* System Control Register */
+	TST		r1, #0x1
+	LDRNE	r1, =ram0MemlogPmAddressVA
+	LDREQ	r1, =ram0MemlogPmAddressPAPhys
+	LDR		r1, [r1]
+
+	MRC	p15, 0, r2, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r2, r2, #0, #2 /* Extract the CPUID Field */
+	CMP		r2, #0x0
+	ADDNE	r1, r1, #CPU0_PM_SIZE
+
+	/* store time stamp */
+	LDR		r2, =CMCNT0
+	LDR		r2, [r2]
+	STR		r2, [r1]
+
+	/* store identifier */
+	STR		r0, [r1, #0x4]
+	DSB
+
+#endif
+	MOV		pc, lr
+.pool
+ENDPROC(memory_log_pm)
 
 	.align	5
 
@@ -356,6 +392,12 @@ WAKEUP_EXCEPTLOOP:
 	B		WAKEUP_EXCEPTLOOP
 WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 
+	LDR		r0, =PM_PM_ID_ARMVECTOR
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
+
 	/* Enable the I-Cache and branch prediction */
 	MCR		p15, 0, r0, c7, c5, 0 /* Invalidate I-Cache to PoC */
 	MCR		p15, 0, r0, c7, c5, 6 /* Invalidate branch predictor */
@@ -388,6 +430,12 @@ ENDPROC(ArmVector)
 	.align	5
 ENTRY(corestandby)
 	STMFD	sp!, {r4-r11, lr}
+
+	LDR		r0, =PM_PM_ID_CORESTANDBY_IN
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
 
 	/*-----------------------------------*/
 	/* Clear WUPSFAC */
@@ -459,6 +507,14 @@ CORESTANDBY_PA_XTAL_THOUGH_SET:
 	ADR		r4, CORESTANDBY_RESTORE
 	STR		r4, [r0]
 	DSB
+
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY_WAKEUP
 
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
@@ -590,6 +646,12 @@ CORESTANDBY_RESTORE:
 CORESTANDBY_FINISH:
 	NOP
 
+	LDR		r0, =PM_PM_ID_CORESTANDBY_OUT
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
+
 	LDMFD	sp!, {r4-r11,pc}
 .pool
 ENDPROC(corestandby)
@@ -615,6 +677,12 @@ ENTRY(systemsuspend)
 	/* CPU 0 System Suspend				*/
 	/*==================================*/
 CPU0_SYSTEMSUSPEND:
+
+	LDR		r0, =PM_PM_ID_SUSPEND_IN
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
 
 	/*--------------------------------------*/
 	/* Clear WUPSFAC						*/
@@ -706,12 +774,24 @@ CPU0_SEC_HAL_NOT_OK:
 	MOV		pc, r4	/* Call restore_arm_common_register	*/
 	NOP
 
+	LDR		r0, =PM_PM_ID_SUSPEND_OUT
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
+
 	B		SYSTEMSUSPEND_EXIT
 
 	/*======================*/
 	/* CPU 1 System Suspend	*/
 	/*======================*/
 CPU1_SYSTEMSUSPEND:
+
+	LDR		r0, =PM_PM_ID_HOTPLUG_IN
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
 
 	/*----------------------*/
 	/* Save ARM registers	*/
@@ -828,6 +908,12 @@ CPU1_SEC_HAL_NOT_OK:
 	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc		/* lr: Return address */
 	MOV		pc, r4		/* Call restore_arm_register_va */
+	NOP
+
+	LDR		r0, =PM_PM_ID_HOTPLUG_OUT
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
 
 SYSTEMSUSPEND_EXIT:
@@ -1767,6 +1853,12 @@ ENDPROC(start_corestandby_2)
 ENTRY(corestandby_2)
 	STMFD	sp!, {r4-r11, lr}
 
+	LDR		r0, =PM_PM_ID_CORESTANDBY2_IN
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
+	NOP
+
 	/*------------------------------------------*/
 	/* Clear WUPSFAC */
 	/*------------------------------------------*/
@@ -1796,6 +1888,14 @@ ENTRY(corestandby_2)
 	ADR		r4, CORESTANDBY2_RESTORE
 	STR		r4, [r0]
 	DSB
+
+	/* Check IRQ */
+	LDR		r6, =1023
+	LDR		r5, =BaseInterruptIFPhys
+	LDR		r3, [r5, #ICC_HPIR]
+	AND		r3, r3, r6
+	CMP		r3, r6
+	BNE		CORESTANDBY2_WAKEUP
 
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
@@ -1885,6 +1985,12 @@ CORESTANDBY2_RESTORE:
 	NOP
 
 CORESTANDBY2_FINISH:
+	NOP
+
+	LDR		r0, =PM_PM_ID_CORESTANDBY2_OUT
+	LDR		r4,	=ram0MemoryLogPm
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
 
 	LDMFD	sp!, {r4-r11,pc}
