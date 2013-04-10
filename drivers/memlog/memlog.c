@@ -9,8 +9,21 @@
 #include <linux/io.h>
 #include <linux/time.h>
 #include <memlog/memlog.h>
+#include <mach/memory-r8a7373.h>
 
 static struct kobject *memlog_kobj;
+
+/* Use SDRAM */
+#define MEMLOG_ADDRESS			SDRAM_MEMLOG_START_ADDRESS
+#define MEMLOG_SIZE				0x00002000
+#define CPU0_PROC_SIZE			0x00000400
+#define CPU1_PROC_SIZE			0x00000400
+#define CPU0_IRQ_SIZE			0x00000400
+#define CPU1_IRQ_SIZE			0x00000400
+#define CPU0_FUNC_SIZE			0x00000400
+#define CPU1_FUNC_SIZE			0x00000400
+#define CPU0_DUMP_SIZE			0x00000400
+#define CPU1_DUMP_SIZE			0x00000400
 
 #define CMCNT0					0xE6130014
 

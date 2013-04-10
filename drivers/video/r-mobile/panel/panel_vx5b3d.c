@@ -32,6 +32,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/lcd.h>
 #include <mach/r8a7373.h>
+#include <mach/memory-r8a7373.h>
 
 #include "panel_common.h"
 
@@ -47,8 +48,9 @@
 /* #define VX5B3D_STANDBY_CMD_ENABLE */
 
 /* framebuffer address and size */
-#define R_MOBILE_M_BUFF_ADDR		0x4B400000
-#define R_MOBILE_M_BUFF_SIZE		(6 * 1024 * 1024)
+#define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
+#define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
+					 SDRAM_FRAME_BUFFER_START_ADDR + 1)
 
 /* panel size (mm) */
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	154
