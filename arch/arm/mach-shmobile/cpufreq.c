@@ -716,6 +716,27 @@ static inline int __set_all_clocks(unsigned int z_freq)
 
 	return ret;
 }
+
+/*
+ * is_cpufreq_clk_state_earlysuspend:
+ * get check clk_state value MODE_EARLY_SUSPEND
+ *
+ * Argument:
+ *		None
+ *
+ * Return:
+ *		1 : MODE_EARLY_SUSPEND
+ *		0 : not MODE_EARLY_SUSPEND
+ */
+int is_cpufreq_clk_state_earlysuspend(void)
+{
+	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state)
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(is_cpufreq_clk_state_earlysuspend);
+
 /*
  * start_cpufreq: start dynamic frequency scaling, the SYS-CPU frequency
  * is changed automatically based on the system load.
