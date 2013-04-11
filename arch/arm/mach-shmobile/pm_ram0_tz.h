@@ -61,19 +61,18 @@
 
 /* Size of code	*/
 #define	fsArmVector			0x080 /* ARM Vector */
-#define	fsCoreStandby		0x300 /* Core Standby */
-#define	fsCoreStandby_2		0x1E0 /* Core Standby 2 */
-#define	fsSystemSuspend		0x320 /* System Suspend */
-#define	fsSaveArmRegister	0x160 /* Save ARM register */
+#define	fsCoreStandby		0x220 /* Core Standby */
+#define	fsCoreStandby_2		0x140 /* Core Standby 2 */
+#define	fsSystemSuspend		0x2A0 /* System Suspend */
+#define	fsSaveArmRegister	0x140 /* Save ARM register */
 #define	fsRestoreArmRegisterPA	0x60  /* Restore ARM register PA */
 #define	fsRestoreArmRegisterVA	0x0E0 /* Restore ARM register VA */
 #define	fsSaveArmCommonRegister	0x060 /* Save ARM common register */
 #define	fsRestoreArmCommonRegister	0x040 /* Restore ARM common register */
 #define	fsPM_Spin_Lock		0x1A0	/* PM_Spin_Lock */
 #define	fsPM_Spin_Unlock	0xA0	/* PM_Spin_Unlock */
-#define	fsxtal_though		0x20	/* XTAL though mode setting */
-#define	fsSysPowerDown		0x240	/* power down function size*/
-#define	fsSysPowerUp		0x140	/* power up function size*/
+#define	fsSysPowerDown		0x1A0	/* power down function size*/
+#define	fsSysPowerUp		0x100	/* power up function size*/
 #define	fsSetClockSystemSuspend		0x120 /* Set clock function size*/
 #define fsMemoryLogPm				0x060 /* memory log for PM  */
 
@@ -118,12 +117,9 @@
 /* Offset to PM spin unlock */
 #define		hoPM_Spin_Unlock					\
 (hoPM_Spin_Lock + fsPM_Spin_Lock)
-
-#define		hoxtal_though					\
-(hoPM_Spin_Unlock + fsPM_Spin_Unlock)
 /* Offset to the power down function */
 #define		hoSysPowerDown					\
-(hoxtal_though	+ fsxtal_though)
+(hoPM_Spin_Unlock	+ fsPM_Spin_Unlock)
 /* Offset to the power up function */
 #define		hoSysPowerUp					\
 (hoSysPowerDown				+ fsSysPowerDown)
@@ -180,9 +176,6 @@
 /* Addresss of PM spin unlock */
 #define		ram0PM_Spin_Unlock					\
 (ram0Base + hoPM_Spin_Unlock)
-/* Addresss of Xtal though */
-#define	ram0xtal_though				\
-(ram0Base + hoxtal_though)
 /* Address of System power down function */
 #define		ram0SysPowerDown					\
 (ram0Base + hoSysPowerDown)
@@ -231,9 +224,6 @@
 /* Address of PM spin unlock */
 #define		ram0PM_Spin_UnlockPhys					\
 (ram0BasePhys + hoPM_Spin_Unlock)
-/* xtal though */
-#define		ram0xtal_thoughPhys					\
-(ram0BasePhys + hoxtal_though)
 /* Address of System power down function */
 #define	ram0SysPowerDownPhys				\
 (ram0BasePhys + hoSysPowerDown)
@@ -631,6 +621,8 @@ M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 #define WAKEUP_ADDRESS				ram0ArmVectorPhys
 #define WAKEUP_ADDRESS_DUMMY		0x00000000
 #define WAKEUP_ADDRESS_CORESTANDBY	ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_HOTPLUG		ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_SYSTEMSUSPEND	ram0ArmVectorPhys
 
 /* Context save address */
 #define CONTEXT_SAVE_ADDRESS		0x00000000

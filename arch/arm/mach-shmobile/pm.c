@@ -384,14 +384,6 @@ int shmobile_init_pm(void)
 				(void *)&corestandby_up_status,
 				fscorestandby_up_status);
 
-	(void)memcpy((void *)secramxtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-#if 0
-	(void)memcpy((void *)secramxtal_though_restore,
-				(void *)&xtal_though_restore,
-				fsxtal_though_restore);
-#endif
 	(void)memcpy((void *)secramMemoryLogPm,
 				(void *)&memory_log_pm,
 				fsMemoryLogPm);
@@ -440,10 +432,6 @@ int shmobile_init_pm(void)
 	(void)memcpy((void *)ram0PM_Spin_Unlock,
 		(void *)&PM_Spin_Unlock,
 		fsPM_Spin_Unlock);
-
-	(void)memcpy((void *)ram0xtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
 
 	(void)memcpy((void *)ram0SysPowerDown,
 				(void *)&sys_powerdown,
