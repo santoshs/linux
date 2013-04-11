@@ -1010,10 +1010,6 @@ done:
 
 	spin_unlock(&the_cpuinfo.lock);
 
-#if defined(DYNAMIC_HOTPLUG_CPU) && !defined(HOTPLUG_IN_ACTIVE)
-	schedule_hlg_work(0);
-#endif /* DYNAMIC_HOTPLUG_CPU && !HOTPLUG_IN_ACTIVE */
-
 	return ret;
 }
 EXPORT_SYMBOL(suspend_cpufreq);
