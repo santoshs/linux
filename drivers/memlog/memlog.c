@@ -12,39 +12,7 @@
 
 static struct kobject *memlog_kobj;
 
-/* Use SDRAM */
-#define MEMLOG_ADDRESS			0x448F1C00
-#define MEMLOG_SIZE				0x00002000
-#define CPU0_PROC_SIZE			0x00000400
-#define CPU1_PROC_SIZE			0x00000400
-#define CPU0_IRQ_SIZE			0x00000400
-#define CPU1_IRQ_SIZE			0x00000400
-#define CPU0_FUNC_SIZE			0x00000400
-#define CPU1_FUNC_SIZE			0x00000400
-#define CPU0_DUMP_SIZE			0x00000400
-#define CPU1_DUMP_SIZE			0x00000400
-
 #define CMCNT0					0xE6130014
-
-#define CPU0_PROC_START_INDEX			\
-0x00000000
-#define CPU1_PROC_START_INDEX			\
-(CPU0_PROC_START_INDEX + CPU0_PROC_SIZE)
-#define CPU0_IRQ_START_INDEX			\
-(CPU1_PROC_START_INDEX + CPU1_PROC_SIZE)
-#define CPU1_IRQ_START_INDEX			\
-(CPU0_IRQ_START_INDEX + CPU0_IRQ_SIZE)
-#define CPU0_FUNC_START_INDEX			\
-(CPU1_IRQ_START_INDEX + CPU1_IRQ_SIZE)
-#define CPU1_FUNC_START_INDEX			\
-(CPU0_FUNC_START_INDEX + CPU0_FUNC_SIZE)
-#define CPU0_DUMP_START_INDEX			\
-(CPU1_FUNC_START_INDEX + CPU1_FUNC_SIZE)
-#define CPU1_DUMP_START_INDEX			\
-(CPU0_DUMP_START_INDEX + CPU0_DUMP_SIZE)
-#define MEMLOG_END				\
-(CPU1_DUMP_START_INDEX + CPU1_DUMP_SIZE)
-
 
 static char *logdata;
 static unsigned long capture;
@@ -200,7 +168,7 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 		index = cpu0_dump_index;
 		cpu0_dump_index += len;
 	} else if (cpu == 1) {
-		if (cpu1_dump_index + len > MEMLOG_END)
+		if (cpu1_dump_index + len > CPU0_PM_START_INDEX)
 			cpu1_dump_index = CPU1_DUMP_START_INDEX;
 
 		index = cpu1_dump_index;
