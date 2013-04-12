@@ -27,8 +27,8 @@
 #define LOCAL_DISP                     raw_pub2sec_dispatcher
 #define LOCAL_DEFAULT_DISP_FLAGS       0
 #define LOCAL_DEFAULT_DISP_SPARE_PARAM 0
-#define LOCAL_WMB()                    wmb()
-#define LOCAL_RMB()                    rmb()
+#define LOCAL_WMB()
+#define LOCAL_RMB()
 
 
 static uint16_t msg_data_size[CONFIG_NR_CPUS] ;
