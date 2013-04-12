@@ -39,6 +39,8 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
+#include <mach/sbsc.h>
+
 DEFINE_SPINLOCK(clock_lock);
 
 unsigned int *cpu0BackupArea;
@@ -65,7 +67,7 @@ int core_wait_kick(int time)
 	while (0 < wait_time--) {
 		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
-		shmobile_suspend_udelay(1);
+		udelay(1);
 	}
 
 	return (wait_time <= 0) ? -EBUSY : 0;
@@ -189,52 +191,8 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 
 unsigned int suspend_ZB3_backup(void)
 {
-	unsigned int pll3cr = 0;
-	unsigned int pll3cr_mul = 0;
-	unsigned int zb3_div = 0;
 	unsigned int zb3_clk = 0;
-	pll3cr = __raw_readl(PLL3CR);
-	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
-
-	zb3_div = __raw_readl(FRQCRD);
-	zb3_clk = (26 * pll3cr_mul);
-
-	switch (zb3_div & (0x1F)) {
-	case 0x00:
-	case 0x04:
-		zb3_clk /= 2;
-		break;
-	case 0x10:
-		zb3_clk /= 4;
-		break;
-	case 0x11:
-		zb3_clk /= 6;
-		break;
-	case 0x12:
-		zb3_clk /= 8;
-		break;
-	case 0x13:
-		zb3_clk /= 12;
-		break;
-	case 0x14:
-		zb3_clk /= 16;
-		break;
-	case 0x15:
-		zb3_clk /= 24;
-		break;
-	case 0x16:
-		zb3_clk /= 32;
-		break;
-	case 0x18:
-		zb3_clk /= 48;
-		break;
-	case 0x1B:
-		zb3_clk /= 96;
-		break;
-	default:
-		zb3_clk = -EINVAL;
-	}
-	zb3_clk *= 1000;
+	zb3_clk = shmobile_get_ape_req_freq();
 	return zb3_clk;
 }
 
@@ -427,14 +385,6 @@ int shmobile_init_pm(void)
 				(void *)&corestandby_up_status,
 				fscorestandby_up_status);
 
-	(void)memcpy((void *)secramxtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-#if 0
-	(void)memcpy((void *)secramxtal_though_restore,
-				(void *)&xtal_though_restore,
-				fsxtal_though_restore);
-#endif
 	(void)memcpy((void *)secramMemoryLogPm,
 				(void *)&memory_log_pm,
 				fsMemoryLogPm);
@@ -484,10 +434,6 @@ int shmobile_init_pm(void)
 		(void *)&PM_Spin_Unlock,
 		fsPM_Spin_Unlock);
 
-	(void)memcpy((void *)ram0xtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-
 	(void)memcpy((void *)ram0SysPowerDown,
 				(void *)&sys_powerdown,
 				fsSysPowerDown);
@@ -506,39 +452,3 @@ int shmobile_init_pm(void)
 	return 0;
 }
 
-static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
-24, 1, 1, 48, 1, 1, 1, 1};
-
-/* PLL Circuit 0 Multiplication Ratio mask */
-#define PLL0CR_STC_MASK	0x3F000000
-
-void shmobile_suspend_udelay(unsigned int delay_time)
-{
-	unsigned int i;
-	unsigned int mul_ratio = 1;
-	unsigned int div_ratio = 1;
-	unsigned int zfc_val = 1;
-
-	if (__raw_readl(PLLECR) & CPG_PLL0ST)
-		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
-					>> 24) + 1;
-
-	if (__raw_readl(FRQCRB) & FRQCRB_ZSEL_BIT) {
-		zfc_val = (__raw_readl(FRQCRB) & FRQCRB_ZFC_MASK) \
-					>> 24;
-		div_ratio = division_ratio[zfc_val];
-
-		if (div_ratio == 1) {
-			printk(KERN_ALERT "Abnormal Zclk div_rate, as 1/%d. ", \
-					zfc_val);
-			printk(KERN_ALERT "Skip delay processing\n");
-			return;
-		}
-	}
-
-	/* get loop time for delay */
-	i = delay_time * (26 * mul_ratio) / 8 / div_ratio;
-
-	while (i > 0)
-		i--;
-}

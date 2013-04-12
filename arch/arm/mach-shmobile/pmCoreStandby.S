@@ -1930,11 +1930,11 @@ ENDPROC(sys_powerup)
 ENTRY(start_wfi)
 	STMFD	sp!, {r4-r11, lr}
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock	*/
 	BL PM_Spin_Lock
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status	*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
@@ -1944,25 +1944,19 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_WFI
 	STR		r6, [r5]
 	DSB
-#endif
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
+#endif
 
 	WFI		/* Transition to the WFI standby state */
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock						*/
 	BL PM_Spin_Lock
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	/* r0: CPU number						*/
 	CMP		r0, #0x0
@@ -1971,103 +1965,15 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
-#endif
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
+#endif
 
 	LDMFD	sp!, {r4-r11, pc}
 .pool
 ENDPROC(start_wfi)
-
-
-
-
-/****************************************/
-/* Transition to WFI standby.			*/
-/* This function is running on SDRAM	*/
-/* Enter with: 							*/
-/* 	lr = Address of return point 		*/
-/****************************************/
-.align	5
-ENTRY(start_wfi2)
-	STMFD	sp!, {r4-r11, lr}
-
-	/* Get PM SpinLock						*/
-	BL PM_Spin_Lock
-	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Update current cpu status			*/
-	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
-	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu0Status
-	LDRNE	r5, =ram0Cpu1Status
-	LDR		r6, =CPUSTATUS_WFI2
-	STR		r6, [r5]
-	DSB
-
-	/* r7=0x0: legacy mode */
-	/* r7=0x4: Xtal though (PLL0 Stop) */
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu1Status
-	LDRNE	r5, =ram0Cpu0Status
-	LDR		r4, [r5]
-
-	CMP		r4, #CPUSTATUS_WFI
-	BLE		START_WFI2_XTAL_THOUGH_SET
-
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-#else
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-	LDR		r7, =CPG_LPCKCR_LEGACY
-#endif
-START_WFI2_XTAL_THOUGH_SET:
-	LDR		r5, =CPG_LPCKCR
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
-
-	/* Release PM SpinLock					*/
-	BL PM_Spin_Unlock
-	NOP
-
-	WFI		/* Transition to the WFI standby state */
-
-	/* Get PM SpinLock						*/
-	BL PM_Spin_Lock
-	NOP
-
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Update current cpu status			*/
-	/* r0: CPU number						*/
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu0Status
-	LDRNE	r5, =ram0Cpu1Status
-	LDR		r6, =CPUSTATUS_RUN
-	STR		r6, [r5]
-	DSB
-#endif
-
-	/* Release PM SpinLock					*/
-	BL PM_Spin_Unlock
-	NOP
-
-	LDMFD	sp!, {r4-r11, pc}
-.pool
-ENDPROC(start_wfi2)
-
-
 
 /************************************************************/
 /* Disable MMU */
@@ -2170,20 +2076,6 @@ ENTRY(corestandby_pa)
 	LDRNE	r5, =ram0Cpu0StatusPhys
 	LDR		r4, [r5]
 
-	/* r7=0x0: legacy mode */
-	/* r7=0x4: Xtal though (PLL0 Stop) */
-	LDR		r5, =CPG_LPCKCRPhys
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	CMP		r4, #CPUSTATUS_WFI
-	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-
-CORESTANDBY_PA_XTAL_THOUGH_SET:
-	LDR		r4, =secramxtal_thoughPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call xtal_though() */
-	NOP
-
 	/* Release PM SpinLock				*/
 	LDR		r4, =secramPM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
@@ -2221,14 +2113,6 @@ CORESTANDBY_WAKEUP:
 	LDR		r4, =secramPM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCRPhys
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	LDR		r4, =secramxtal_thoughPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call xtal_though() */
 	NOP
 
 	LDR		r4, =secramcorestandby_up_statusPhys
@@ -2404,46 +2288,6 @@ ENTRY(corestandby_up_status)
 	MOV		pc, lr /* return */
 .pool
 ENDPROC(corestandby_up_status)
-
-/*********************************************/
-/* r5: Address of XTAL though mode register */
-/* r7: */
-/*		0x2: Xtal though (PLL0 Oscillated)  */
-/*		0x4: Xtal though (PLL0 Stop)  */
-/**********************************************/
-.align	5
-ENTRY(xtal_though)
-	LDR		r6, [r5]
-#ifdef CONFIG_PM_SMP
-	CMP		r6, r7
-	BEQ		1f /* Race condition */
-#endif
-	MOV		r6, r7
-	STR		r6, [r5]
-	DSB
-1:
-	MOV		pc, lr /* return */
-
-.pool
-ENDPROC(xtal_though)
-
-/*********************************************/
-/* r5: Address of XTAL though mode register */
-/*********************************************/
-.align	5
-ENTRY(xtal_though_restore)
-	LDR		r6, [r5]
-	CMP		r6, #0x0
-	BEQ		1f
-	MOV		r6, #0x0
-	STR		r6, [r5]
-	DSB
-1:
-	MOV		pc, lr /* return */
-
-.pool
-ENDPROC(xtal_though_restore)
-
 
 /********************************************************/
 /*	Transition to corestandby(A1SL0 or A1Sl1 Power Off) */
