@@ -1113,11 +1113,10 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	 * again after initialisation, even though it shouldn't be needed, we
 	 * don't do any IO here.
 	 */
-#if 0
 	ret = soc_camera_power_on(icd, icl);
 	if (ret < 0)
 		goto epower;
-#endif
+
 	/* Must have icd->vdev before registering the device */
 	ret = video_dev_create(icd);
 	if (ret < 0)
@@ -1176,11 +1175,11 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	ret = soc_camera_video_start(icd);
 	if (ret < 0)
 		goto evidstart;
-#if 0
+
 	ret = v4l2_subdev_call(sd, core, s_power, 1);
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		goto esdpwr;
-#endif
+
 	/* Try to improve our guess of a reasonable window format */
 	if (!v4l2_subdev_call(sd, video, g_mbus_fmt, &mf)) {
 		icd->user_width		= mf.width;
@@ -1190,16 +1189,15 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	}
 
 	ici->ops->remove(icd);
-#if 0
+
 	soc_camera_power_off(icd, icl);
-#endif
+
 	mutex_unlock(&icd->video_lock);
 
 	return 0;
-#if 0
+
 esdpwr:
 	video_unregister_device(icd->vdev);
-#endif
 evidstart:
 	mutex_unlock(&icd->video_lock);
 	soc_camera_free_user_formats(icd);
@@ -1216,10 +1214,8 @@ eadddev:
 	video_device_release(icd->vdev);
 	icd->vdev = NULL;
 evdc:
-#if 0
 	soc_camera_power_off(icd, icl);
 epower:
-#endif
 	ici->ops->remove(icd);
 eadd:
 	regulator_bulk_free(icl->num_regulators, icl->regulators);

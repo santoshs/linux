@@ -388,6 +388,12 @@ config BOARD_VERSION_LT02TE
 	  Board revision number
 
 
+config FLASH_AAT1274
+        bool "Enable AAT1274 driver"
+        default n
+        ---help---
+ 	    Adds AAT1274 LED Flash driver
+
 config FLASH_MIC2871
         bool "Enable MIC2871 driver"
         default n

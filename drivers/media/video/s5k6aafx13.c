@@ -1,5 +1,5 @@
 /*
- * Driver for Samsung S5K4ECGX  Camera
+ * Driver for Samsung S5K6AAFX13 1.3M VT Camera
  *
  * Copyright (C) 2012 Renesas Mobile Corp.
  * All rights reserved.
@@ -10,7 +10,7 @@
  */
 
 /* for debug */
-/* #undef DEBUG */
+/*#undef DEBUG*/
 #define DEBUG 1
 /* #define DEBUG */
 
@@ -29,53 +29,37 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
-#include <media/sh_mobile_rcu.h>
-
-static ssize_t subcamtype_S5K4ECGX_show(struct device *dev,
+static ssize_t subcamtype_S5K6AAFX13_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorname = "S5K4ECGX";
+	char *sensorname = "S5K6AAFX13";
 	return sprintf(buf, "%s\n", sensorname);
 }
 
-static ssize_t subcamfw_S5K4ECGX_show(struct device *dev,
+static ssize_t subcamfw_S5K6AAFX13_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "S5K4ECGX";
+	char *sensorfw = "S5K6AAFX13";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
-static ssize_t maincamflash_S5K4ECGX_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	if ((0 >= count) || !buf)
-		return 0;
-	if (buf[0] == '0')
-		sh_mobile_rcu_flash(0);
-	else
-		sh_mobile_rcu_flash(1);
-	return count;
-}
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_S5K6AAFX13_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_S5K6AAFX13_show, NULL);
 
-static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_S5K4ECGX_store);
-
-struct S5K4ECGX_datafmt {
+struct S5K6AAFX13_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
 };
 
-struct S5K4ECGX {
+struct S5K6AAFX13 {
 	struct v4l2_subdev		subdev;
 	struct v4l2_ctrl_handler hdl;
-	const struct S5K4ECGX_datafmt	*fmt;
+	const struct S5K6AAFX13_datafmt	*fmt;
 	unsigned int			width;
 	unsigned int			height;
 };
 
-static const struct S5K4ECGX_datafmt S5K4ECGX_colour_fmts[] = {
+static const struct S5K6AAFX13_datafmt S5K6AAFX13_colour_fmts[] = {
 	{V4L2_MBUS_FMT_SBGGR10_1X10,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_SGBRG10_1X10,	V4L2_COLORSPACE_SRGB},
 	{V4L2_MBUS_FMT_SGRBG10_1X10,	V4L2_COLORSPACE_SRGB},
@@ -86,31 +70,31 @@ static const struct S5K4ECGX_datafmt S5K4ECGX_colour_fmts[] = {
 	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
 };
 
-static struct S5K4ECGX *to_S5K4ECGX(const struct i2c_client *client)
+static struct S5K6AAFX13 *to_S5K6AAFX13(const struct i2c_client *client)
 {
-	return container_of(i2c_get_clientdata(client),
-					struct S5K4ECGX, subdev);
+	return container_of(
+		i2c_get_clientdata(client), struct S5K6AAFX13, subdev);
 }
 
 /* Find a data format by a pixel code in an array */
-static const struct S5K4ECGX_datafmt *S5K4ECGX_find_datafmt(
-					enum v4l2_mbus_pixelcode code)
+static const struct S5K6AAFX13_datafmt *S5K6AAFX13_find_datafmt(
+				enum v4l2_mbus_pixelcode code)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(S5K4ECGX_colour_fmts); i++)
-		if (S5K4ECGX_colour_fmts[i].code == code)
-			return S5K4ECGX_colour_fmts + i;
+	for (i = 0; i < ARRAY_SIZE(S5K6AAFX13_colour_fmts); i++)
+		if (S5K6AAFX13_colour_fmts[i].code == code)
+			return S5K6AAFX13_colour_fmts + i;
 
 	return NULL;
 }
 
 /* select nearest higher resolution for capture */
-static void S5K4ECGX_res_roundup(u32 *width, u32 *height)
+static void S5K6AAFX13_res_roundup(u32 *width, u32 *height)
 {
 	int i;
-	int res_x[] = { 640, 1280, 1280, 2560 };
-	int res_y[] = { 480, 720, 960, 1920 };
+	int res_x[] = { 640, 1280, 1280, 1280 };
+	int res_y[] = { 480, 720, 960, 1024 };
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
@@ -124,21 +108,22 @@ static void S5K4ECGX_res_roundup(u32 *width, u32 *height)
 	*height = res_y[3];
 }
 
-static int S5K4ECGX_try_fmt(struct v4l2_subdev *sd,
+static int S5K6AAFX13_try_fmt(struct v4l2_subdev *sd,
 	       struct v4l2_mbus_framefmt *mf)
 {
-	const struct S5K4ECGX_datafmt *fmt = S5K4ECGX_find_datafmt(mf->code);
+	const struct S5K6AAFX13_datafmt *fmt =
+			S5K6AAFX13_find_datafmt(mf->code);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
 
 	if (!fmt) {
-		mf->code	= S5K4ECGX_colour_fmts[0].code;
-		mf->colorspace	= S5K4ECGX_colour_fmts[0].colorspace;
+		mf->code	= S5K6AAFX13_colour_fmts[0].code;
+		mf->colorspace	= S5K6AAFX13_colour_fmts[0].colorspace;
 	}
 
 	dev_dbg(sd->v4l2_dev->dev, "in: mf->width = %d, height = %d\n",
 		mf->width, mf->height);
-	S5K4ECGX_res_roundup(&mf->width, &mf->height);
+	S5K6AAFX13_res_roundup(&mf->width, &mf->height);
 	dev_dbg(sd->v4l2_dev->dev, "out: mf->width = %d, height = %d\n",
 		mf->width, mf->height);
 	mf->field	= V4L2_FIELD_NONE;
@@ -146,36 +131,36 @@ static int S5K4ECGX_try_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int S5K4ECGX_s_fmt(struct v4l2_subdev *sd,
+static int S5K6AAFX13_s_fmt(struct v4l2_subdev *sd,
 	     struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct S5K4ECGX *priv = to_S5K4ECGX(client);
+	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
 
 	dev_dbg(sd->v4l2_dev->dev, "%s(%u)\n", __func__, mf->code);
 
 	/* MIPI CSI could have changed the format, double-check */
-	if (!S5K4ECGX_find_datafmt(mf->code)) {
+	if (!S5K6AAFX13_find_datafmt(mf->code)) {
 		dev_err(sd->v4l2_dev->dev, "%s -EINVAL\n", __func__);
 		return -EINVAL;
 	}
 
-	S5K4ECGX_try_fmt(sd, mf);
+	S5K6AAFX13_try_fmt(sd, mf);
 
-	priv->fmt	= S5K4ECGX_find_datafmt(mf->code);
+	priv->fmt	= S5K6AAFX13_find_datafmt(mf->code);
 	priv->width	= mf->width;
 	priv->height	= mf->height;
 
 	return 0;
 }
 
-static int S5K4ECGX_g_fmt(struct v4l2_subdev *sd,
+static int S5K6AAFX13_g_fmt(struct v4l2_subdev *sd,
 	     struct v4l2_mbus_framefmt *mf)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct S5K4ECGX *priv = to_S5K4ECGX(client);
+	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
 
-	const struct S5K4ECGX_datafmt *fmt = priv->fmt;
+	const struct S5K6AAFX13_datafmt *fmt = priv->fmt;
 
 	mf->code	= fmt->code;
 	mf->colorspace	= fmt->colorspace;
@@ -186,10 +171,10 @@ static int S5K4ECGX_g_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int S5K4ECGX_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
+static int S5K6AAFX13_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct S5K4ECGX *priv = to_S5K4ECGX(client);
+	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
 	struct v4l2_rect *rect = &a->c;
 
 	a->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -201,10 +186,10 @@ static int S5K4ECGX_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
 	return 0;
 }
 
-static int S5K4ECGX_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
+static int S5K6AAFX13_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct S5K4ECGX *priv = to_S5K4ECGX(client);
+	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
 
 	a->bounds.left			= 0;
 	a->bounds.top			= 0;
@@ -220,34 +205,34 @@ static int S5K4ECGX_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
 	return 0;
 }
 
-static int S5K4ECGX_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
+static int S5K6AAFX13_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 		enum v4l2_mbus_pixelcode *code)
 {
-	if ((unsigned int)index >= ARRAY_SIZE(S5K4ECGX_colour_fmts))
+	if ((unsigned int)index >= ARRAY_SIZE(S5K6AAFX13_colour_fmts))
 		return -EINVAL;
 
-	*code = S5K4ECGX_colour_fmts[index].code;
+	*code = S5K6AAFX13_colour_fmts[index].code;
 	return 0;
 }
 
-static int S5K4ECGX_g_chip_ident(struct v4l2_subdev *sd,
+static int S5K6AAFX13_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_S5K4ECGX;
+	id->ident	= V4L2_IDENT_S5K6AAFX13;
 	id->revision	= 0;
 
 	return 0;
 }
 
 /* Request bus settings on camera side */
-static int S5K4ECGX_g_mbus_config(struct v4l2_subdev *sd,
+static int S5K6AAFX13_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
 /*	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
 
 	cfg->type = V4L2_MBUS_CSI2;
-	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
+	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
 		V4L2_MBUS_CSI2_CHANNEL_0 |
 		V4L2_MBUS_CSI2_CONTINUOUS_CLOCK;
 
@@ -255,87 +240,71 @@ static int S5K4ECGX_g_mbus_config(struct v4l2_subdev *sd,
 }
 
 /* Alter bus settings on camera side */
-static int S5K4ECGX_s_mbus_config(struct v4l2_subdev *sd,
+static int S5K6AAFX13_s_mbus_config(struct v4l2_subdev *sd,
 				const struct v4l2_mbus_config *cfg)
 {
 	return 0;
 }
 
-static int S5K4ECGX_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
-{
-	switch (ctrl->id) {
-	case V4L2_CID_GET_TUNING:
-#ifdef CONFIG_SOC_CAMERA_S5K4ECGX_TUNING
-		ctrl->value = 1;
-#else
-		ctrl->value = 0;
-#endif
-	default:
-		return 0;
-	}
-	return -ENOIOCTLCMD;
-}
-
-static struct v4l2_subdev_video_ops S5K4ECGX_subdev_video_ops = {
-	.s_mbus_fmt	= S5K4ECGX_s_fmt,
-	.g_mbus_fmt	= S5K4ECGX_g_fmt,
-	.try_mbus_fmt	= S5K4ECGX_try_fmt,
-	.enum_mbus_fmt	= S5K4ECGX_enum_fmt,
-	.g_crop		= S5K4ECGX_g_crop,
-	.cropcap	= S5K4ECGX_cropcap,
-	.g_mbus_config	= S5K4ECGX_g_mbus_config,
-	.s_mbus_config	= S5K4ECGX_s_mbus_config,
+static struct v4l2_subdev_video_ops S5K6AAFX13_subdev_video_ops = {
+	.s_mbus_fmt	= S5K6AAFX13_s_fmt,
+	.g_mbus_fmt	= S5K6AAFX13_g_fmt,
+	.try_mbus_fmt	= S5K6AAFX13_try_fmt,
+	.enum_mbus_fmt	= S5K6AAFX13_enum_fmt,
+	.g_crop		= S5K6AAFX13_g_crop,
+	.cropcap	= S5K6AAFX13_cropcap,
+	.g_mbus_config	= S5K6AAFX13_g_mbus_config,
+	.s_mbus_config	= S5K6AAFX13_s_mbus_config,
 };
 
-static struct v4l2_subdev_core_ops S5K4ECGX_subdev_core_ops = {
-	.g_chip_ident	= S5K4ECGX_g_chip_ident,
-	.g_ctrl		= S5K4ECGX_g_ctrl,
+static struct v4l2_subdev_core_ops S5K6AAFX13_subdev_core_ops = {
+	.g_chip_ident	= S5K6AAFX13_g_chip_ident,
 };
 
-static struct v4l2_subdev_ops S5K4ECGX_subdev_ops = {
-	.core	= &S5K4ECGX_subdev_core_ops,
-	.video	= &S5K4ECGX_subdev_video_ops,
+static struct v4l2_subdev_ops S5K6AAFX13_subdev_ops = {
+	.core	= &S5K6AAFX13_subdev_core_ops,
+	.video	= &S5K6AAFX13_subdev_video_ops,
 };
 
-static int S5K4ECGX_s_ctrl(struct v4l2_ctrl *ctrl)
+static int S5K6AAFX13_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	return 0;
 }
 
-struct v4l2_ctrl_ops S5K4ECGX_ctrl_ops = {
-	.s_ctrl = S5K4ECGX_s_ctrl,
+static const struct v4l2_ctrl_ops S5K6AAFX13_ctrl_ops = {
+	.s_ctrl = S5K6AAFX13_s_ctrl,
 };
 
-static int S5K4ECGX_probe(struct i2c_client *client,
+static int S5K6AAFX13_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
-	struct S5K4ECGX *priv;
+	struct S5K6AAFX13 *priv;
 	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
 	if (!icl) {
-		dev_err(&client->dev, "S5K4ECGX: missing platform data!\n");
+		dev_err(&client->dev, "S5K6AAFX13: missing platform data!\n");
 		return -EINVAL;
 	}
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
 		dev_err(&client->dev,
-			"S5K4ECGX: Failed to allocate memory for private data!\n");
+			"S5K6AAFX13: Failed to allocate memory for private data!\n");
 		return -ENOMEM;
 	}
 
-	v4l2_i2c_subdev_init(&priv->subdev, client, &S5K4ECGX_subdev_ops);
+	v4l2_i2c_subdev_init(&priv->subdev, client, &S5K6AAFX13_subdev_ops);
 	v4l2_ctrl_handler_init(&priv->hdl, 4);
-	v4l2_ctrl_new_std(&priv->hdl, &S5K4ECGX_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
 			V4L2_CID_VFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(&priv->hdl, &S5K4ECGX_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
 			V4L2_CID_HFLIP, 0, 1, 1, 0);
-	v4l2_ctrl_new_std(&priv->hdl, &S5K4ECGX_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
 			V4L2_CID_GAIN, 0, 127, 1, 66);
-	v4l2_ctrl_new_std(&priv->hdl, &S5K4ECGX_ctrl_ops,
+	v4l2_ctrl_new_std(&priv->hdl, &S5K6AAFX13_ctrl_ops,
 			V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 1);
 	priv->subdev.ctrl_handler = &priv->hdl;
 	if (priv->hdl.error) {
@@ -347,11 +316,11 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 
 	priv->width	= 640;
 	priv->height	= 480;
-	priv->fmt	= &S5K4ECGX_colour_fmts[0];
+	priv->fmt	= &S5K6AAFX13_colour_fmts[0];
 	ret = v4l2_ctrl_handler_setup(&priv->hdl);
 	if (0 > ret) {
 		dev_err(&client->dev,
-			"S5K4ECGX: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+			"S5K6AAFX13: v4l2_ctrl_handler_setup Error(%d)\n", ret);
 		return ret;
 	}
 	ret = 0;
@@ -385,7 +354,9 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 		if (0 > ret)
 			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
 		else
-			ret = 0;
+			printk(KERN_ALERT "%s :S5K6AAFX13 OK(%d)\n",
+						__func__, rcv_buf[0]);
+		ret = 0;
 	}
 
 	if (cam_class_init == false) {
@@ -396,45 +367,35 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 	}
 
 	if (camera_class) {
-		dev_dbg(&client->dev, "Create main camera device !\n");
+		dev_dbg(&client->dev, "Create Sub camera device !\n");
 
-		sec_main_cam_dev = device_create(camera_class,
-						NULL, 0, NULL, "rear");
-		if (IS_ERR(sec_main_cam_dev)) {
+		sec_sub_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "front");
+		if (IS_ERR(sec_sub_cam_dev)) {
 			dev_err(&client->dev,
-				"Failed to create device"
-				"(sec_main_cam_dev)!\n");
+				"Failed to create device(sec_sub_cam_dev)!\n");
 		}
 
-		if (device_create_file(sec_main_cam_dev,
-					&dev_attr_rear_camtype) < 0) {
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camtype) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera "
-				"device file, %s\n",
-				dev_attr_rear_camtype.attr.name);
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camtype.attr.name);
 		}
-		if (device_create_file(sec_main_cam_dev,
-					&dev_attr_rear_camfw) < 0) {
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camfw) < 0) {
 			dev_err(&client->dev,
-				"failed to create main camera "
-				"device file, %s\n",
-				dev_attr_rear_camfw.attr.name);
-		}
-		if (device_create_file(sec_main_cam_dev,
-					&dev_attr_rear_flash) < 0) {
-			dev_err(&client->dev,
-				"failed to create main camera "
-				"device file, %s\n",
-				dev_attr_rear_flash.attr.name);
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camfw.attr.name);
 		}
 	}
 
 	return ret;
 }
 
-static int S5K4ECGX_remove(struct i2c_client *client)
+static int S5K6AAFX13_remove(struct i2c_client *client)
 {
-	struct S5K4ECGX *priv = to_S5K4ECGX(client);
+	struct S5K6AAFX13 *priv = to_S5K6AAFX13(client);
 	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
 
 	v4l2_device_unregister_subdev(&priv->subdev);
@@ -446,23 +407,23 @@ static int S5K4ECGX_remove(struct i2c_client *client)
 	return 0;
 }
 
-static const struct i2c_device_id S5K4ECGX_id[] = {
-	{ "S5K4ECGX", 0 },
+static const struct i2c_device_id S5K6AAFX13_id[] = {
+	{ "S5K6AAFX13", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, S5K4ECGX_id);
+MODULE_DEVICE_TABLE(i2c, S5K6AAFX13_id);
 
-static struct i2c_driver S5K4ECGX_i2c_driver = {
+static struct i2c_driver S5K6AAFX13_i2c_driver = {
 	.driver = {
-		.name = "S5K4ECGX",
+		.name = "S5K6AAFX13",
 	},
-	.probe		= S5K4ECGX_probe,
-	.remove		= S5K4ECGX_remove,
-	.id_table	= S5K4ECGX_id,
+	.probe		= S5K6AAFX13_probe,
+	.remove		= S5K6AAFX13_remove,
+	.id_table	= S5K6AAFX13_id,
 };
 
-module_i2c_driver(S5K4ECGX_i2c_driver);
+module_i2c_driver(S5K6AAFX13_i2c_driver);
 
-MODULE_DESCRIPTION("Samsung S5K4ECGX Camera driver");
+MODULE_DESCRIPTION("Samsung S5K6AAFX13 Camera driver");
 MODULE_AUTHOR("Renesas Mobile Corp.");
 MODULE_LICENSE("GPL v2");

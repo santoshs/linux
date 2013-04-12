@@ -10,6 +10,9 @@
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
+#ifdef CONFIG_SOC_CAMERA_ISX012
+#include <media/isx012.h>
+#endif
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
@@ -21,98 +24,82 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2ion.h>
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
-	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("S5K4ECGX", 0x56),
-	},
-	{
-		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
-	},
-};
-
-struct soc_camera_link camera_links[] = {
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id	= 1,
-		.module_name	= "S5K4ECGX",
-		.power			= S5K4ECGX_power,
-	},
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR030PC50",
-		.power			= SR030PC50_power,
-	},
-};
-#else	/* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
-	{
-		I2C_BOARD_INFO("S5K4ECGX", 0x56),
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR030PC50)
-	{
-		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
-	},
-#endif
-};
-
-struct soc_camera_link camera_links[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id	= 1,
-		.module_name	= "S5K4ECGX",
-		.power			= S5K4ECGX_power,
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR030PC50)
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR030PC50",
-		.power			= SR030PC50_power,
-	},
-#endif
-};
-#endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
-
-#if defined(CONFIG_MACH_LT02LTE) /* LT02LTE */
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
+	defined(CONFIG_SOC_CAMERA_SR030PC50) && \
+	defined(CONFIG_SOC_CAMERA_SR200PC20M) && \
 	defined(CONFIG_SOC_CAMERA_SR130PC20)	/* Select by board Rev */
-static struct i2c_board_info i2c_cameras[] = {
+struct i2c_board_info i2c_cameras[] = {
 	{
-		I2C_BOARD_INFO("SR352", 0x20),
+		I2C_BOARD_INFO("S5K4ECGX", 0x1A),
 	},
 	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
+		I2C_BOARD_INFO("SR030PC50", 0x3C), /* 0x78, 0x5A, 0x45 */
 	},
 };
-static struct soc_camera_link camera_links[] = {
+
+static struct i2c_board_info i2c_cameras_rev6[] = {
+	{
+		I2C_BOARD_INFO("S5K4ECGX", 0x56),
+	},
+	{
+		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+	},
+};
+
+static struct i2c_board_info i2c_cameras_rev7[] = {
+	{
+		I2C_BOARD_INFO("SR200PC20M", 0x20),
+	},
+	{
+		I2C_BOARD_INFO("SR130PC20", 0x20), /* TODO::HYCHO (0x41>>1) */
+	},
+};
+
+struct soc_camera_link camera_links[] = {
 	{
 		.bus_id			= 0,
 		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
+		.i2c_adapter_id	= 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
 	},
 	{
 		.bus_id			= 1,
 		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id	= 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+};
+
+static struct soc_camera_link camera_links_rev6[] = {
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras_rev6[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras_rev6[1],
+		.i2c_adapter_id	= 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+};
+
+static struct soc_camera_link camera_links_rev7[] = {
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras_rev7[0],
+		.i2c_adapter_id		= 1,
+		.module_name		= "SR200PC20M",
+		.power			= SR200PC20M_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras_rev7[1],
 		.i2c_adapter_id		= 1,
 		.module_name		= "SR130PC20",
 		.power			= SR130PC20_power,
@@ -121,31 +108,59 @@ static struct soc_camera_link camera_links[] = {
 #else	/* Select by board Rev */
 struct i2c_board_info i2c_cameras[] = {
 	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
 	{
-		I2C_BOARD_INFO("SR352", 0x20),
+		I2C_BOARD_INFO("S5K4ECGX", 0x56),
+	},
+#endif
+#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
+	{
+		I2C_BOARD_INFO("SR200PC20M", 0x20),
 	},
 #endif
 	/* Front Camera */
+#if defined(CONFIG_SOC_CAMERA_SR030PC50)
+	{
+		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+	},
+#endif
 #if defined(CONFIG_SOC_CAMERA_SR130PC20)
 	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
+		I2C_BOARD_INFO("SR130PC20", 0x20), /* TODO::HYCHO (0x41>>1) */
 	},
 #endif
 };
 
 struct soc_camera_link camera_links[] = {
 	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
+	},
+#endif
+#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
 	{
 		.bus_id			= 0,
 		.board_info		= &i2c_cameras[0],
 		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
+		.module_name		= "SR200PC20M",
+		.power			= SR200PC20M_power,
 	},
 #endif
 	/* Front Camera */
+#if defined(CONFIG_SOC_CAMERA_SR030PC50)
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id	= 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+#endif
 #if defined(CONFIG_SOC_CAMERA_SR130PC20)
 	{
 		.bus_id			= 1,
@@ -157,7 +172,6 @@ struct soc_camera_link camera_links[] = {
 #endif
 };
 #endif	/* Select by board Rev */
-#endif	/* LT02LTE */
 
 struct platform_device camera_devices[] = {
 	{
@@ -186,7 +200,7 @@ int camera_init(unsigned int u2_board_rev)
 	gpio_direction_output(GPIO_PORT3, 0);	/* CAM_PWR_EN */
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
-	/* Gardalte, Logan, lt02lte */
+ /* Gardalte, Logan */
 	gpio_request(GPIO_PORT45, NULL);
 	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
@@ -212,58 +226,211 @@ int camera_init(unsigned int u2_board_rev)
 	camera_links[1].priv = &csi21_info;
 	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
-	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
+	defined(CONFIG_SOC_CAMERA_SR030PC50) && \
+	defined(CONFIG_SOC_CAMERA_SR130PC20) && \
+	defined(CONFIG_SOC_CAMERA_SR200PC20M)	/* Select by board Rev */
 	csi20_info.clients[0].lanes = 0x3;
+	camera_devices[0].dev.platform_data = &camera_links_rev6[0];
+	camera_devices[1].dev.platform_data = &camera_links_rev6[1];
+	camera_links_rev6[0].priv = &csi20_info;
+	camera_links_rev6[1].priv = &csi21_info;
 #else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX) || \
+	defined(CONFIG_SOC_CAMERA_SR200PC20M)
 	csi20_info.clients[0].lanes = 0x3;
 #endif
-#endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
-
-#if defined(CONFIG_MACH_LT02LTE) /* lt02lte */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links_rev7[0];
-	camera_devices[1].dev.platform_data = &camera_links_rev7[1];
-	camera_links_rev7[0].priv = &csi20_info;
-	camera_links_rev7[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
-	csi20_info.clients[0].lanes = 0x1;
 #endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	csi20_info.clients[0].lanes = 0x1;
-#endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-#endif	/* lr02lte */
-
 	return 0;
 }
 
 /* CAM0 Power function */
+#if defined(CONFIG_SOC_CAMERA_IMX175)
+int IMX175_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+#if defined(CONFIG_MFD_D2153)
+	struct regulator *regulator;
+#endif /* CONFIG_MFD_D2153 */
+
+	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
+
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+#if defined(CONFIG_MFD_D2153)
+		/* cam_sensor_core_1.2V */
+
+		mdelay(1);
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+#endif /* CONFIG_MFD_D2153 */
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		udelay(50);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 12000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(150);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		clk_disable(vclk2_clk);
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		mdelay(20);
+		/* 20ms */
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
+		clk_disable(vclk1_clk);
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(1);
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+		clk_disable(vclk2_clk);
+		mdelay(1);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+#if defined(CONFIG_MFD_D2153)
+
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+
+		mdelay(1);
+
+		/* off cam core 1.2 */
+#endif /* CONFIG_MFD_D2153 */
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+#endif
+
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
 int S5K4ECGX_power(struct device *dev, int power_on)
 {
@@ -296,15 +463,25 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 
 #if defined(CONFIG_MFD_D2153)
+		/* CAM_CORE_1V2  On */
+		gpio_set_value(GPIO_PORT3, 1);
 		/* CAM_AVDD_2V8  On */
 		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
 		regulator_enable(regulator);
 		regulator_put(regulator);
-
-		mdelay(2);
-
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
+		/* VT_DVDD_1V5   On */
+		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
+			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
+			regulator = regulator_get(NULL, "vt_cam");
+			if (IS_ERR(regulator))
+				return -1;
+			regulator_enable(regulator);
+			regulator_put(regulator);
+		}
+#endif
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
@@ -313,10 +490,29 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 #endif
 
-		mdelay(2);
-
 		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(2);
+		udelay(50);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 12000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(10);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		clk_disable(vclk2_clk);
 
 		iRet = clk_set_rate(vclk1_clk,
 			clk_round_rate(vclk1_clk, 24000000));
@@ -331,20 +527,9 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
 				iRet);
 		}
-		mdelay(3);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(2);
-
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		mdelay(2);
-
-		/* CAM_CORE_1V2  On */
-		gpio_set_value(GPIO_PORT3, 1);
-		mdelay(1);
 
 		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
-		mdelay(1);
+		udelay(20);
 
 		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
 		udelay(70);
@@ -357,6 +542,8 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 			return -1;
 		regulator_enable(regulator);
 		regulator_put(regulator);
+#else
+		subPMIC_PinOnOff(0x3, 1);
 #endif
 
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
@@ -370,16 +557,23 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 		mdelay(1);
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
 		mdelay(1);
 
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(1);
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		mdelay(1);
+		clk_disable(vclk2_clk);
+		mdelay(1);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 
 #if defined(CONFIG_MFD_D2153)
-		/* CAM_CORE_1V2  Off */
-		gpio_set_value(GPIO_PORT3, 0);
-		mdelay(1);
-
 		/* CAM_VDDIO_1V8 Off */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
@@ -387,6 +581,19 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator_disable(regulator);
 		regulator_put(regulator);
 		mdelay(1);
+
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
+		/* VT_DVDD_1V5   Off */
+		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
+			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
+			regulator = regulator_get(NULL, "vt_cam");
+			if (IS_ERR(regulator))
+				return -1;
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			mdelay(1);
+		}
+#endif
 
 		/* CAM_AVDD_2V8  Off */
 		regulator = regulator_get(NULL, "cam_sensor_a");
@@ -396,12 +603,31 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(1);
+
 		/* 5M_AF_2V8 Off */
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
 			return -1;
 		regulator_disable(regulator);
 		regulator_put(regulator);
+#else
+		/* CAM_VDDIO_1V8 Off */
+		subPMIC_PinOnOff(0x2, 0);
+		mdelay(1);
+		/* VT_DVDD_1V5   Off */
+		subPMIC_PinOnOff(0x1, 0);
+		mdelay(1);
+		/* CAM_AVDD_2V8  Off */
+		subPMIC_PinOnOff(0x4, 0);
+		mdelay(1);
+		/* CAM_CORE_1V2  Off */
+		subPMIC_PinOnOff(0x0, 0);
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 #endif
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
@@ -417,6 +643,75 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 #define CAM_FLASH_ENSET     (GPIO_PORT99)
 #define CAM_FLASH_FLEN      (GPIO_PORT100)
 
+#if defined(CONFIG_FLASH_AAT1274)
+int main_cam_led(int light, int mode)
+{
+	int i = 0;
+
+	switch (light) {
+	case SH_RCU_LED_ON:
+		gpio_request(CAM_FLASH_ENSET, "camacq");
+		gpio_request(CAM_FLASH_FLEN, "camacq");
+
+		/* spin_lock(&bl_ctrl_lock); */
+		if (mode == SH_RCU_LED_MODE_PRE) { /* temp, torch mode */
+			/* initailize flash IC */
+			gpio_direction_output(CAM_FLASH_ENSET, 0);
+			gpio_direction_output(CAM_FLASH_FLEN, 0);
+			mdelay(1);
+			/* to enter a shutdown mode */
+			/* set to movie mode */
+			for (i = 0; i < 3; i++) {
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 1);
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 0);
+			}
+			gpio_direction_output(CAM_FLASH_ENSET, 1);
+		} else {
+			/* CamacqTraceErr("WINGI AAAAAAAAAAAAAAAAAAA"); */
+			/* initailize flash IC */
+			gpio_direction_output(CAM_FLASH_ENSET, 0);
+			gpio_direction_output(CAM_FLASH_FLEN, 0);
+			mdelay(1);
+			/* to enter a shutdown mode */
+			/* FLEN high */
+			gpio_direction_output(CAM_FLASH_FLEN, 1);
+			udelay(100);
+			/* set to movie mode */
+			for (i = 0; i < 4; i++) {
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 1);
+				udelay(1);
+				gpio_direction_output(CAM_FLASH_ENSET, 0);
+			}
+			gpio_direction_output(CAM_FLASH_ENSET, 1);
+			mdelay(1);
+		}
+		gpio_free(CAM_FLASH_ENSET);
+		gpio_free(CAM_FLASH_FLEN);
+		/* spin_unlock(&bl_ctrl_lock); */
+		break;
+	case SH_RCU_LED_OFF: {
+		gpio_request(CAM_FLASH_ENSET, "ledflash");
+		gpio_request(CAM_FLASH_FLEN, "ledflash");
+		/* initailize falsh IC */
+		gpio_direction_output(CAM_FLASH_ENSET, 0);
+		gpio_direction_output(CAM_FLASH_FLEN, 0);
+		mdelay(1);
+		/* to enter a shutdown mode */
+		gpio_free(CAM_FLASH_ENSET);
+		gpio_free(CAM_FLASH_FLEN);
+	}
+		break;
+	default:
+		printk(KERN_ALERT "%s:not case %d", __func__, light);
+		return -1;
+		break;
+	}
+	return 0;
+}
+#endif
 #if defined(CONFIG_FLASH_MIC2871)
 static void MIC2871_write(char addr, char data)
 {
@@ -496,6 +791,557 @@ int main_cam_led(int light, int mode)
 #endif
 
 /* CAM1 Power function */
+#if defined(CONFIG_SOC_CAMERA_S5K6AAFX13)
+int S5K6AAFX13_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+#if defined(CONFIG_MFD_D2153)
+	struct regulator *regulator;
+#endif /* CONFIG_MFD_D2153 */
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+#if defined(CONFIG_MFD_D2153)
+
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+#endif /* CONFIG_MFD_D2153 */
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(10);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		/* mdelay(150); */
+		/* gpio_set_value(GPIO_PORT91, 0); *//* CAM1_STBY */
+		/* clk_disable(vclk2_clk); */
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		mdelay(20);
+		/* 20ms */
+#if defined(CONFIG_MFD_D2153)
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_enable(regulator);
+		regulator_put(regulator);
+#endif /* CONFIG_MFD_D2153 */
+		mdelay(20);
+		clk_disable(vclk1_clk);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
+		clk_disable(vclk2_clk);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+#if defined(CONFIG_MFD_D2153)
+		regulator = regulator_get(NULL, "cam_sensor_io");
+
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+
+		regulator_disable(regulator);
+		regulator_put(regulator);
+
+		mdelay(1);
+#endif /* CONFIG_MFD_D2153 */
+
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+#endif
+
+#if defined(CONFIG_SOC_CAMERA_ISX012)
+int ISX012_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+#if defined(CONFIG_MFD_D2153)
+	struct regulator *regulator;
+#endif /* CONFIG_MFD_D2153 */
+	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+#if defined(CONFIG_MFD_D2153)
+		/* CAM_CORE_1V2  On */
+		gpio_set_value(GPIO_PORT3, 1);
+		mdelay(1);
+
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   On */
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+#endif /* CONFIG_MFD_D2153 */
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		udelay(50);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 12000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(150);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		clk_disable(vclk2_clk);
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		mdelay(20);
+		/* 20ms */
+
+		ISX012_pll_init();
+
+		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
+		mdelay(20);
+
+		/* 5M_AF_2V8 On */
+#if defined(CONFIG_MFD_D2153)
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+#endif /* CONFIG_MFD_D2153 */
+		mdelay(20);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+		mdelay(1);
+
+		clk_disable(vclk1_clk);
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(1);
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+		clk_disable(vclk2_clk);
+		mdelay(1);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+#if defined(CONFIG_MFD_D2153)
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   Off */
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_AVDD_2V8  Off */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(1);
+
+		/* 5M_AF_2V8 Off */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+#endif /* CONFIG_MFD_D2153 */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+#endif
+
+/* CAM1 Power function */
+#if defined(CONFIG_SOC_CAMERA_DB8131)
+int DB8131_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+#if defined(CONFIG_MFD_D2153)
+	struct regulator *regulator;
+#endif /* CONFIG_MFD_D2153 */
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* TODO::HYCHO CAM1_CEN */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+#if defined(CONFIG_MFD_D2153)
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   On */
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+#endif /* CONFIG_MFD_D2153 */
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_CEN */
+		mdelay(10);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		/* mdelay(150); */
+		/* gpio_set_value(GPIO_PORT91, 0); *//* CAM1_STBY */
+		/* clk_disable(vclk2_clk); */
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		/* gpio_set_value(GPIO_PORT20, 1); *//* CAM0_RST_N Hi */
+		/* mdelay(20); */
+		/* 20ms */
+#if defined(CONFIG_MFD_D2153)
+		/* 5M_AF_2V8 On */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+#endif /* CONFIG_MFD_D2153 */
+		mdelay(20);
+		clk_disable(vclk1_clk);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_CEN */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
+		clk_disable(vclk2_clk);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+#if defined(CONFIG_MFD_D2153)
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   Off */
+		regulator = regulator_get(NULL, "vt_cam");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_AVDD_2V8  Off */
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* 5M_AF_2V8 Off */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+#endif /* CONFIG_MFD_D2153 */
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+#endif
+/* CAM1 Power function */
 #if defined(CONFIG_SOC_CAMERA_SR030PC50)
 int SR030PC50_power(struct device *dev, int power_on)
 {
@@ -521,7 +1367,7 @@ int SR030PC50_power(struct device *dev, int power_on)
 		printk(KERN_ALERT "%s PowerON\n", __func__);
 
 		sh_csi2_power(dev, power_on);
-		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* TODO::HYCHO CAM1_CEN */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
@@ -539,6 +1385,19 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator_put(regulator);
 		mdelay(1);
 
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
+		/* VT_DVDD_1V5   On */
+		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
+			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
+			regulator = regulator_get(NULL, "vt_cam");
+			if (IS_ERR(regulator))
+				return -1;
+			regulator_enable(regulator);
+			regulator_put(regulator);
+			mdelay(1);
+		}
+#endif
+
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
@@ -548,13 +1407,8 @@ int SR030PC50_power(struct device *dev, int power_on)
 		mdelay(1);
 #endif
 
-		/* CAM_CORE_1V2  On */
-		gpio_set_value(GPIO_PORT3, 1);
-		mdelay(2);
-
-		/* CAM_CORE_1V2  Off */
-		gpio_set_value(GPIO_PORT3, 0);
-		mdelay(4);
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_CEN */
+		mdelay(10);
 
 		/* MCLK Sub-Camera */
 		iRet = clk_set_rate(vclk2_clk,
@@ -572,23 +1426,61 @@ int SR030PC50_power(struct device *dev, int power_on)
 		}
 		mdelay(10);
 
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(4);
-
 		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(100);
+		/* mdelay(150); */
+		/* gpio_set_value(GPIO_PORT91, 0); *//* CAM1_STBY */
+		/* clk_disable(vclk2_clk); */
+
+		mdelay(10);
+
+		iRet = clk_set_rate(vclk1_clk,
+			clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		mdelay(1);
+		/* 1ms */
+
+		/* gpio_set_value(GPIO_PORT20, 1); *//* CAM0_RST_N Hi */
+		/* mdelay(20); */
+		/* 20ms */
+
+#if defined(CONFIG_MFD_D2153)
+		/* 5M_AF_2V8 On */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+#endif
+		mdelay(20);
+		clk_disable(vclk1_clk);
 
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
 	} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
 
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_CEN */
+		mdelay(1);
+
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		mdelay(1);
 
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		mdelay(2);
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
 
 		clk_disable(vclk2_clk);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
 		mdelay(1);
 
 #if defined(CONFIG_MFD_D2153)
@@ -599,6 +1491,19 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator_disable(regulator);
 		regulator_put(regulator);
 		mdelay(1);
+
+#if defined(CONFIG_MACH_GARDALTE)	// Gardalte Only
+		/* VT_DVDD_1V5   Off */
+		if ((RLTE_BOARD_REV_0_0 == u2_get_board_rev()) ||
+			(RLTE_BOARD_REV_0_1 == u2_get_board_rev())) {
+			regulator = regulator_get(NULL, "vt_cam");
+			if (IS_ERR(regulator))
+				return -1;
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			mdelay(1);
+		}
+#endif
 
 		/* CAM_AVDD_2V8  Off */
 		/* cam_sensor_a2.8 */
@@ -612,6 +1517,13 @@ int SR030PC50_power(struct device *dev, int power_on)
 		/* CAM_CORE_1V2  Off */
 		gpio_set_value(GPIO_PORT3, 0);
 		mdelay(1);
+
+		/* 5M_AF_2V8 Off */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
 #endif
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
@@ -623,18 +1535,14 @@ int SR030PC50_power(struct device *dev, int power_on)
 
 	return 0;
 }
-
 #endif
-
 #if defined(CONFIG_SOC_CAMERA_SR200PC20M)
 int SR200PC20M_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk, *vclk2_clk;
 	int iRet;
 #if defined(CONFIG_MFD_D2153)
-	struct regulator *regulator_io;
-	struct regulator *regulator_a;
-	struct regulator *regulator_core;
+	struct regulator *regulator;
 #endif
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
 
@@ -668,52 +1576,47 @@ int SR200PC20M_power(struct device *dev, int power_on)
 		mdelay(1);
 #endif
 
-		/* CAM_VDDIO_1V8 Get */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_io) failed\n");
-			return -1;
-		}
-		regulator_set_voltage(regulator_io, 1800000, 1800000);
-		/* CAM_AVDD_2V8  Get */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a)) {
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator)) {
 			dev_err(dev,
 				"regulator_get(cam_sensor_a) failed\n");
 			return -1;
 		}
-		regulator_set_voltage(regulator_a, 2800000, 2800000);
-		/* VT_DVDD_1V5   Get */
-		regulator_core = regulator_get(NULL, "cam_core");
-		if (IS_ERR(regulator_core)) {
+		regulator_set_voltage(regulator,2800000,2800000);
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   On */
+		regulator = regulator_get(NULL, "cam_core");
+		if (IS_ERR(regulator)) {
 			dev_err(dev,
 				"regulator_get(cam_core) failed\n");
 			return -1;
 		}
-		regulator_set_voltage(regulator_core, 1800000, 1800000);
+		regulator_set_voltage(regulator,1800000,1800000);
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 
-		dev_err(dev, "regulator_enable s\n");
-		/* CAM_VDDIO_1V8 enable */
-		regulator_enable(regulator_io);
-		/* CAM_AVDD_2V8  enable */
-		regulator_enable(regulator_a);
-		/* VT_DVDD_1V5   enable */
-		regulator_enable(regulator_core);
-		dev_err(dev, "regulator_enable e\n");
-
-		/* Regulator free */
-		regulator_put(regulator_io);
-		regulator_put(regulator_a);
-		regulator_put(regulator_core);
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator)) {
+			dev_err(dev,
+				"regulator_get(cam_sensor_io) failed\n");
+			return -1;
+		}
+		regulator_set_voltage(regulator,1800000,1800000);
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 #endif
-
 		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
 		udelay(50);
-
 		/* MCLK Sub-Camera */
 		iRet = clk_set_rate(vclk2_clk,
-			clk_round_rate(vclk2_clk, 24000000));
+			clk_round_rate(vclk2_clk, 12000000));
 		if (0 != iRet) {
 			dev_err(dev,
 				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
@@ -748,11 +1651,15 @@ int SR200PC20M_power(struct device *dev, int power_on)
 				iRet);
 		}
 
+		mdelay(1);
+		/* 1ms */
+
 		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
 		mdelay(30);
 
 		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
-		mdelay(660);
+		mdelay(1);
+		/* 1ms */
 
 		/* 5M_AF_2V8 On */
 #if defined(CONFIG_MFD_D2153)
@@ -770,10 +1677,8 @@ int SR200PC20M_power(struct device *dev, int power_on)
 	} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
 
-		mdelay(660);
-
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		mdelay(10);
+		mdelay(1);
 
 		clk_disable(vclk1_clk);
 
@@ -796,44 +1701,38 @@ int SR200PC20M_power(struct device *dev, int power_on)
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 
 #if defined(CONFIG_MFD_D2153)
-		/* VT_DVDD_1V5   Off */
-		regulator_core = regulator_get(NULL, "cam_core");
-		if (IS_ERR(regulator_core)) {
-			dev_err(dev,
-				"regulator_get(cam_core) failed\n");
-			return -1;
-		}
-
-		/* CAM_AVDD_2V8  Off */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_a) failed\n");
-			return -1;
-		}
-
 		/* CAM_VDDIO_1V8 Off */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io)) {
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator)) {
 			dev_err(dev,
 				"regulator_get(cam_sensor_io) failed\n");
 			return -1;
 		}
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 
-		dev_err(dev, "regulator_disable s\n");
-		/* VT_DVDD_1V5   disable */
-		regulator_disable(regulator_core);
-		/* CAM_AVDD_2V8  disable */
-		regulator_disable(regulator_a);
-		/* CAM_VDDIO_1V8 disable */
-		regulator_disable(regulator_io);
-		dev_err(dev, "regulator_disable e\n");
+		/* VT_DVDD_1V5   Off */
+		regulator = regulator_get(NULL, "cam_core");
+		if (IS_ERR(regulator)) {
+			dev_err(dev,
+				"regulator_get(cam_core) failed\n");
+			return -1;
+		}
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 
-		/* Regulator free */
-		regulator_put(regulator_core);
-		regulator_put(regulator_a);
-		regulator_put(regulator_io);
-
+		/* CAM_AVDD_2V8  Off */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator)) {
+			dev_err(dev,
+				"regulator_get(cam_sensor_a) failed\n");
+			return -1;
+		}
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 #if 0
 		gpio_set_value(GPIO_PORT3, 0);
 		mdelay(1);
@@ -856,18 +1755,14 @@ int SR200PC20M_power(struct device *dev, int power_on)
 	return 0;
 }
 #endif
-
-#if defined(CONFIG_SOC_CAMERA_SR352)
-int SR352_power(struct device *dev, int power_on)
+#if defined(CONFIG_SOC_CAMERA_SR130PC20)
+int SR130PC20_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk, *vclk2_clk;
 	int iRet;
 #if defined(CONFIG_MFD_D2153)
-	struct regulator *regulator_io;
-	struct regulator *regulator_a;
-	struct regulator *regulator_af;
+	struct regulator *regulator;
 #endif
-	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
 
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
 	if (IS_ERR(vclk1_clk)) {
@@ -883,65 +1778,52 @@ int SR352_power(struct device *dev, int power_on)
 
 	if (power_on) {
 		printk(KERN_ALERT "%s PowerON\n", __func__);
+
+        /*
+        [SXGA ON]
+        CAM ENB/RESET Low -> SXGA ENB Low(OFF) -> CAM Power High -> SXGA_ENB HIGH(ON) ->
+        MCLK 24MHz On -> Delay 10ms -> SXGA RESET High -> Delay 100 cycle -> SXGA_ENB LOW(OFF) ->
+        Main CAM Hi-Z Sequence -> SXGA_ENB_HIGH(ON) -> Delay 30ms -> SXGA RESET Toggle -> SXGA INIT CODE
+        */
+
 		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 1); /* CAM_PWR_EN */
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
 		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
 		mdelay(10);
 		/* 10ms */
 
 #if defined(CONFIG_MFD_D2153)
-		/* CAM_IO_1.8V Get */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_io) failed\n");
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
 			return -1;
-		}
-		regulator_set_voltage(regulator_io, 1800000, 1800000);
-		/* CAM_A2.8V  Get */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_a) failed\n");
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* VT_DVDD_1V5   On */
+		regulator = regulator_get(NULL, "cam_core");
+		if (IS_ERR(regulator))
 			return -1;
-		}
-		regulator_set_voltage(regulator_a, 2800000, 2800000);
-		if (RLTE_BOARD_REV_0_0 == u2_get_board_rev()) {
-			/* CAM_CORE_1.8V Get */
-			regulator_af = regulator_get(NULL, "vt_cam");
-			if (IS_ERR(regulator_af)) {
-				dev_err(dev,
-					"regulator_get(vt_cam) failed\n");
-				return -1;
-			}
-		} else {
-			/* CAM_CORE_1.2V Get */
-			regulator_af = regulator_get(NULL, "cam_af");
-			if (IS_ERR(regulator_af)) {
-				dev_err(dev,
-					"regulator_get(cam_af) failed\n");
-				return -1;
-			}
-		}
-		regulator_set_voltage(regulator_af, 1200000, 1200000);
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 
-		/* CAM_VDDIO_1V8 enable */
-		regulator_enable(regulator_io);
-		/* CAM_AVDD_2V8  enable */
-		regulator_enable(regulator_a);
-		/* VT_DVDD_1V5   enable */
-		regulator_enable(regulator_af);
-
-		/* Regulator free */
-		regulator_put(regulator_io);
-		regulator_put(regulator_a);
-		regulator_put(regulator_af);
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
 #endif
 
 		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		udelay(50);
+		mdelay(10);
 
 		/* MCLK Sub-Camera */
 		iRet = clk_set_rate(vclk2_clk,
@@ -960,9 +1842,9 @@ int SR352_power(struct device *dev, int power_on)
 		mdelay(10);
 
 		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(150);
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		clk_disable(vclk2_clk);
+		 /* mdelay(150); */
+		 /* gpio_set_value(GPIO_PORT91, 0); *//* CAM1_STBY */
+		 /* clk_disable(vclk2_clk); */
 
 		mdelay(10);
 
@@ -979,267 +1861,83 @@ int SR352_power(struct device *dev, int power_on)
 			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
 				iRet);
 		}
-		mdelay(2);
 
-		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
-		mdelay(20);
+		mdelay(1);
+		/* 1ms */
 
-		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
-		mdelay(660);
+		/* gpio_set_value(GPIO_PORT20, 1); *//* CAM0_RST_N Hi */
+		/* mdelay(20); */
+		/* 20ms */
 
-		/* 5M_AF_2V8 On */
 #if defined(CONFIG_MFD_D2153)
 #if 0
+		/* 5M_AF_2V8 On */
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
 			return -1;
 		regulator_enable(regulator);
 		regulator_put(regulator);
 #endif
-#else
-		subPMIC_PinOnOff(0x3, 1);
 #endif
 		mdelay(20);
-
-		printk(KERN_ALERT "%s PowerON fin\n", __func__);
-	} else {
-		printk(KERN_ALERT "%s PowerOFF\n", __func__);
-
-		mdelay(660);
-
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		mdelay(10);
-
 		clk_disable(vclk1_clk);
 
-		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
-		mdelay(1);
-
-		iRet = clk_enable(vclk2_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(1);
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		mdelay(1);
-		clk_disable(vclk2_clk);
-		mdelay(1);
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-
-#if defined(CONFIG_MFD_D2153)
-		if (RLTE_BOARD_REV_0_0 == u2_get_board_rev()) {
-			/* CAM_CORE_1.8V Get */
-			regulator_af = regulator_get(NULL, "vt_cam");
-			if (IS_ERR(regulator_af)) {
-				dev_err(dev,
-					"regulator_get(vt_cam) failed\n");
-				return -1;
-			}
-		} else {
-			/* CAM_CORE_1.2V Get */
-			regulator_af = regulator_get(NULL, "cam_af");
-			if (IS_ERR(regulator_af)) {
-				dev_err(dev,
-					"regulator_get(cam_af) failed\n");
-				return -1;
-			}
-		}
-
-		/* CAM_A2.8V  Get */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_a) failed\n");
-			return -1;
-		}
-
-		/* CAM_IO_1.8V Get */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io)) {
-			dev_err(dev,
-				"regulator_get(cam_sensor_io) failed\n");
-			return -1;
-		}
-
-		/* VT_DVDD_1V5   disable */
-		regulator_disable(regulator_af);
-		/* CAM_AVDD_2V8  disable */
-		regulator_disable(regulator_a);
-		/* CAM_VDDIO_1V8 disable */
-		regulator_disable(regulator_io);
-
-		/* Regulator free */
-		regulator_put(regulator_af);
-		regulator_put(regulator_a);
-		regulator_put(regulator_io);
-#endif
-		sh_csi2_power(dev, power_on);
-		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
-	}
-
-	clk_put(vclk1_clk);
-	clk_put(vclk2_clk);
-
-	return 0;
-}
-#endif
-
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-int SR130PC20_power(struct device *dev, int power_on)
-{
-	struct clk *vclk1_clk, *vclk2_clk;
-	int iRet;
-	struct regulator *regulator_io;
-	struct regulator *regulator_a;
-	struct regulator *regulator_vt;
-
-	vclk1_clk = clk_get(NULL, "vclk1_clk");
-	if (IS_ERR(vclk1_clk)) {
-		dev_err(dev, "clk_get(vclk1_clk) failed\n");
-		return -1;
-	}
-
-	vclk2_clk = clk_get(NULL, "vclk2_clk");
-	if (IS_ERR(vclk2_clk)) {
-		dev_err(dev, "clk_get(vclk2_clk) failed\n");
-		return -1;
-	}
-
-	if (power_on) {
-		printk(KERN_ALERT "%s PowerON\n", __func__);
-
-	/*
-	[SXGA ON] CAM_A2.8V(LDO12) / CAM_IO_1.8V(LDO17) / CAM_CORE_1.8V(LDO14)
-	VDD:I(1.8v) -> VDD:A(2.8v) -> VDD:D(1.8v)
-	CAM ENB/RESET Low -> SXGA ENB Low(OFF) -> CAM Power High ->
-	SXGA_ENB HIGH(ON) -> MCLK 24MHz On -> Delay 10ms -> SXGA RESET High ->
-	Delay 100 cycle -> SXGA_ENB LOW(OFF) -> Main CAM Hi-Z Sequence ->
-	SXGA_ENB_HIGH(ON) -> Delay 30ms -> SXGA RESET Toggle -> SXGA INIT CODE
-	*/
-
-		sh_csi2_power(dev, power_on);
-		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN */
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_ENB */
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
-
-		mdelay(10);
-
-		/* CAM_VDDIO_1V8 On */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io))
-			return -1;
-		regulator_enable(regulator_io);
-		regulator_put(regulator_io);
-		mdelay(1);
-
-		/* CAM_AVDD_2V8  On */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a))
-			return -1;
-		regulator_enable(regulator_a);
-		regulator_put(regulator_a);
-		mdelay(1);
-
-		/* CAM_CORE_1V8   On */
-		regulator_vt = regulator_get(NULL, "vt_cam");
-		if (IS_ERR(regulator_vt))
-			return -1;
-		if (!(RLTE_BOARD_REV_0_0 == u2_get_board_rev()))
-			regulator_set_voltage(regulator_vt, 1800000, 1800000);
-
-		regulator_enable(regulator_vt);
-		regulator_put(regulator_vt);
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_ENB */
-
-		/* MCLK Sub-Camera */
-		iRet = clk_set_rate(vclk2_clk,
-			clk_round_rate(vclk2_clk, 24000000));
-		if (0 != iRet) {
-			dev_err(dev,
-				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-
-		iRet = clk_enable(vclk2_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
-				iRet);
-		}
-		mdelay(10);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-
-		/* Delay 100cyle */
-		mdelay(20);
-
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_ENB */
-
-		/* Main CAM Hi-z need */
-
-		mdelay(30);
-
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_ENB */
-		/* 1ms */
-
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
 	} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
 
-	/*
-	[Main CAM OFF]
-	Main CAM Power OFF Sequence -> Sleep command->SXGA RESET LOW(OFF) ->
-	MCLK OFF -> SXGA_STDBY LOW(OFF) -> VDD:C Low(OFF) ->
-	VDD:A Low(OFF) -> VDD:I Low(OFF)
-	*/
+        /*
+        [Main CAM OFF]
+        Main CAM Power OFF Sequence -> Sleep command->SXGA RESET LOW(OFF) -> MCLK OFF ->
+        SXGA_STDBY LOW(OFF) -> VDD:C Low(OFF) -> VDD:A Low(OFF) -> VDD:I Low(OFF)
+        */
 
-	/* Main CAM Power-off sequence */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
 
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		mdelay(1);
 
 		clk_disable(vclk2_clk);
 
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_ENB */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(1);
+#if defined(CONFIG_MFD_D2153)
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
 		mdelay(1);
 
-		/* CAM_CORE_1V8 Off */
-		regulator_vt = regulator_get(NULL, "vt_cam");
-		if (IS_ERR(regulator_vt))
+		/* VT_DVDD_1V5   Off */
+		regulator = regulator_get(NULL, "cam_core");
+		if (IS_ERR(regulator))
 			return -1;
-		regulator_disable(regulator_vt);
-		regulator_put(regulator_vt);
+		regulator_disable(regulator);
+		regulator_put(regulator);
 		mdelay(1);
 
 		/* CAM_AVDD_2V8  Off */
-		regulator_a = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator_a))
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
 			return -1;
-		regulator_disable(regulator_a);
-		regulator_put(regulator_a);
+		regulator_disable(regulator);
+		regulator_put(regulator);
 		mdelay(1);
 
-		/* CAM_VDDIO_1V8  Off */
-		/* cam_sensor_a2.8 */
-		regulator_io = regulator_get(NULL, "cam_sensor_io");
-		if (IS_ERR(regulator_io))
+		/* 5M_AF_2V8 Off */
+#if 0
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
 			return -1;
-		regulator_disable(regulator_io);
-		regulator_put(regulator_io);
-		mdelay(1);
+		regulator_disable(regulator);
+		regulator_put(regulator);
+#endif
+#endif
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
 
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);

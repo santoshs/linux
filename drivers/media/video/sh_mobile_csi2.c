@@ -327,7 +327,6 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 			pdata->imcr, ioread8(priv->intcs_base + pdata->imcr));
 
 		priv->strm_on = 1;
-		priv->err_cnt = 0;
 	} else {
 		/* stream OFF */
 		printk(KERN_ALERT "%s stream off\n", __func__);
