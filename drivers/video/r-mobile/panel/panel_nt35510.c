@@ -49,6 +49,8 @@
 #include <rtapi/system_pwmng.h>
 #endif
 
+#define NT35510_ESD_RECOVERY_ENABLE
+
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
 #define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
@@ -63,34 +65,34 @@
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	86
 
 /* pixclock = 1000000 / DCF */
-#define R_MOBILE_M_PANEL_PIXCLOCK	 25641
+#define R_MOBILE_M_PANEL_PIXCLOCK	 23199
 
 /* timing */
 #define R_MOBILE_M_PANEL_LEFT_MARGIN	 24
-#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 304
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 376
 #define R_MOBILE_M_PANEL_HSYNC_LEN	 8
 #define R_MOBILE_M_PANEL_UPPER_MARGIN	 4
 #define R_MOBILE_M_PANEL_LOWER_MARGIN	 4
 #define R_MOBILE_M_PANEL_VSYNC_LEN	 1
-#define R_MOBILE_M_PANEL_H_TOTAL	 808
+#define R_MOBILE_M_PANEL_H_TOTAL	 888
 #define R_MOBILE_M_PANEL_V_TOTAL	 809
 
 #define LCD_DSITCKCR		0x00000007
-#define LCD_DSI0PCKCR		0x00000017
-#define LCD_DSI0PHYCR		0x2A80000B
-#define LCD_SYSCONF		0x00000F03
-#define LCD_TIMSET0		0x4C2C3332
-#define LCD_TIMSET1		0x00070132
+#define LCD_DSI0PCKCR		0x00000025
+#define LCD_DSI0PHYCR		0x2A800014
+#define LCD_SYSCONF		0x00000703
+#define LCD_TIMSET0		0x4C2C4332
+#define LCD_TIMSET1		0x00080132
 #define LCD_DSICTRL		0x00000001
 #define LCD_VMCTR1		0x0001003E
-#define LCD_VMCTR2		0x00020710
+#define LCD_VMCTR2		0x00000710
 #define LCD_VMLEN1		0x05A00000
 #define LCD_VMLEN2		0x00360000
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
-#define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x003C0066
-#define LCD_MLDHSYNR		0x00010062
+#define LCD_DTCTR		0x00000006
+#define LCD_MLDHCNR		0x003C006F
+#define LCD_MLDHSYNR		0x0001006B
 #define LCD_MLDHAJR		0x00000000
 #define LCD_MLDVLNR		0x03200329
 #define LCD_MLDVSYNR		0x00010325
@@ -133,6 +135,7 @@
 #define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
 static int nt35510_panel_suspend(void);
 static int nt35510_panel_resume(void);
+static void mipi_display_reset(void);
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -466,6 +469,16 @@ static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
+static struct specific_cmdset mauc0_cmd[] = {
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },
+	{ MIPI_DSI_END,             NULL,      0                }
+};
+
+static struct specific_cmdset mauc1_cmd[] = {
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },
+	{ MIPI_DSI_END,             NULL,      0                }
+};
+
 static int is_dsi_read_enabled;
 
 static struct fb_info *common_fb_info;
@@ -489,6 +502,17 @@ struct lcd_info {
 };
 
 static struct lcd_info lcd_info_data;
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#define DURATION_TIME 3000 /* 3000ms */
+#define ESD_CHECK_DISABLE 0
+#define ESD_CHECK_ENABLE 1
+
+static struct delayed_work esd_check_work;
+static struct mutex esd_check_mutex;
+static int esd_check_flag;
+
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 static int lcdfreq_lock_free(struct device *dev)
 {
@@ -528,6 +552,200 @@ out:
 	return ret;
 }
 
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+static int nt35510_panel_simple_reset(void)
+{
+	void *screen_handle;
+	screen_disp_stop_lcd disp_stop_lcd;
+	screen_disp_start_lcd start_lcd;
+	screen_disp_draw disp_draw;
+	screen_disp_delete disp_delete;
+	int ret;
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_end_notify;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+
+	system_handle = system_pwmng_new();
+#endif
+
+	printk(KERN_DEBUG "%s\n", __func__);
+
+	is_dsi_read_enabled = 0;
+	screen_handle =  screen_display_new();
+
+	/* Start suspend sequence */
+	/* GPIO control */
+	gpio_direction_output(reset_gpio, 0);
+	msleep(20);
+	gpio_direction_output(reset_gpio, 1);
+	regulator_disable(power_ldo_3v);
+	regulator_disable(power_ldo_1v8);
+	msleep(25);
+	gpio_direction_output(reset_gpio, 0);
+
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "display_stop_lcd err!\n");
+	/* End suspend sequence */
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	/* Notifying the Beginning of Using Power Area */
+	printk(KERN_INFO "End A4LC power area\n");
+	powarea_end_notify.handle		= system_handle;
+	powarea_end_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_end_notify(&powarea_end_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_end_notify err!\n");
+		goto out;
+	}
+
+	msleep(20);
+
+	/* Notifying the Beginning of Using Power Area */
+	printk(KERN_INFO "Start A4LC power area\n");
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+		goto out;
+	}
+#endif /* NT35510_POWAREA_MNG_ENABLE */
+
+	msleep(20);
+
+	/* Start resume sequence */
+	/* LCD panel reset */
+	mipi_display_reset();
+
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "disp_start_lcd err!\n");
+		goto out;
+	}
+
+	/* Transmit DSI command peculiar to a panel */
+	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	if (ret != 0) {
+		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+		goto out;
+	}
+	/* End resume sequence */
+
+	is_dsi_read_enabled = 1;
+
+	disp_draw.handle = screen_handle;
+	disp_draw.output_mode = RT_DISPLAY_LCD1;
+	disp_draw.draw_rect.x = 0;
+	disp_draw.draw_rect.y = 0;
+	disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
+	disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
+#else
+	disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+#endif
+	disp_draw.buffer_id = RT_DISPLAY_BUFFER_A;
+	disp_draw.buffer_offset = 0;
+	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
+	ret = screen_display_draw(&disp_draw);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		r_mobile_fb_err_msg(ret, "screen_display_draw err!");
+		goto out;
+	}
+
+	printk(KERN_ALERT "nt35510_panel simple initialized\n");
+
+out:
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif /* NT35510_POWAREA_MNG_ENABLE */
+
+	return ret;
+}
+
+
+static int nt35510_panel_check(void)
+{
+	unsigned char rdnumed;
+	unsigned char wonder[3];
+	unsigned char rdidic[3];
+	unsigned char exp_rdidic[3] = {0x55, 0x10, 0x05};
+	void *screen_handle;
+	screen_disp_delete disp_delete;
+	int ret;
+
+	screen_handle =  screen_display_new();
+
+	/*Read Number of Errors on DSI*/
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x05, 1, &rdnumed);
+	printk(KERN_DEBUG "read_data(0x05) = %02X : ret(%d)\n", rdnumed, ret);
+	if (rdnumed != 0x00)
+		ret = -1;
+	if (ret != 0)
+		goto out;
+
+	/*Read ID for IC Vender Code*/
+	ret = panel_specific_cmdset(screen_handle, mauc1_cmd);
+	if (ret != 0)
+		goto out;
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, rdidic);
+	printk(KERN_DEBUG "read_data(0xC5) = %02X : ret(%d) page 1\n",
+							rdidic[0], ret);
+	if (exp_rdidic[0] != rdidic[0])
+		ret = -1;
+	if (ret != 0)
+		goto out;
+
+	/*for check switching page*/
+	ret = panel_specific_cmdset(screen_handle, mauc0_cmd);
+	if (ret != 0)
+		goto out;
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, wonder);
+	printk(KERN_DEBUG "read_data(0xC5) = %02X : ret(%d) page 0\n",
+							wonder[0], ret);
+	if (wonder[0] == rdidic[0])
+		ret = -1;
+	if (ret != 0)
+		goto out;
+
+out:
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+	return ret;
+}
+
+static void nt35510_panel_esd_check_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+
+	/* For the disable entering suspend */
+	mutex_lock(&esd_check_mutex);
+
+	while (nt35510_panel_check())
+		while (nt35510_panel_simple_reset())
+			msleep(20);
+
+	if (esd_check_flag == ESD_CHECK_ENABLE)
+		schedule_delayed_work(dwork, msecs_to_jiffies(DURATION_TIME));
+
+	/* Enable suspend */
+	mutex_unlock(&esd_check_mutex);
+}
+#endif
 
 static ssize_t level_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -748,7 +966,7 @@ int panel_dsi_read(int id, int reg, int len, char *buf)
 	screen_disp_delete disp_delete;
 	int ret = 0;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 	if (!is_dsi_read_enabled) {
 		printk(KERN_ALERT "sequence error!!\n");
@@ -801,10 +1019,10 @@ static int nt35510_panel_draw_black(void *screen_handle)
 	screen_disp_draw disp_draw;
 	int ret;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 #ifdef NT35510_DRAW_BLACK_KERNEL
-	printk(KERN_ALERT
+	printk(KERN_DEBUG
 		"num_registered_fb = %d\n", num_registered_fb);
 
 	if (!num_registered_fb) {
@@ -818,7 +1036,7 @@ static int nt35510_panel_draw_black(void *screen_handle)
 			" is NULL err!\n");
 		return -1;
 	}
-	printk(KERN_INFO
+	printk(KERN_DEBUG
 	       "registerd_fb[0]-> fix.smem_start: %08x\n"
 	       "screen_base :%08x\n"
 	       "fix.smem_len :%08x\n",
@@ -866,13 +1084,13 @@ static int panel_specific_cmdset(void *lcd_handle,
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_write_dsi_long  write_dsi_l;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 	while (0 <= loop) {
 		switch (cmdset[loop].cmd) {
 		case MIPI_DSI_DCS_LONG_WRITE:
 		case MIPI_DSI_GEN_LONG_WRITE:
-			printk(KERN_INFO "panel_cmdset LONG Write\n");
+			printk(KERN_DEBUG "panel_cmdset LONG Write\n");
 			write_dsi_l.handle         = lcd_handle;
 			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_l.data_id        = cmdset[loop].cmd;
@@ -890,7 +1108,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 		case MIPI_DSI_GEN_SHORT_WRITE_PARAM:
-			printk(KERN_INFO
+			printk(KERN_DEBUG
 			       "panel_cmdset SHORT Write with param\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
@@ -908,7 +1126,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE:
 		case MIPI_DSI_GEN_SHORT_WRITE:
-			printk(KERN_INFO "panel_cmdset SHORT Write\n");
+			printk(KERN_DEBUG "panel_cmdset SHORT Write\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_s.data_id        = cmdset[loop].cmd;
@@ -972,9 +1190,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
-#ifdef NT35510_ENABLE_VIDEO_MODE
 	screen_disp_stop_lcd disp_stop_lcd;
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 	screen_disp_set_lcd_if_param set_lcd_if_param;
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
@@ -1064,6 +1280,16 @@ retry:
 			goto out;
 		} else {
 			retry_count--;
+
+			/* Stop a display to LCD */
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK) {
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
+
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
 			goto retry;
@@ -1104,6 +1330,16 @@ retry:
 			goto out;
 		} else {
 			retry_count--;
+
+			/* Stop a display to LCD */
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK) {
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
+
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
 			goto retry;
@@ -1113,6 +1349,11 @@ retry:
 #else /* NT35510_ENABLE_VIDEO_MODE */
 	printk(KERN_DEBUG "Panel initialized with Command mode\n");
 #endif /* NT35510_ENABLE_VIDEO_MODE */
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	esd_check_flag = ESD_CHECK_ENABLE;
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1134,6 +1375,14 @@ static int nt35510_panel_suspend(void)
 	system_pmg_param powarea_end_notify;
 	system_pmg_delete pmg_delete;
 #endif
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	esd_check_flag = ESD_CHECK_DISABLE;
+	mutex_lock(&esd_check_mutex);
+	/* Cancel scheduled work queue for check ESD. */
+	cancel_delayed_work_sync(&esd_check_work);
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
+
 	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
@@ -1196,6 +1445,11 @@ static int nt35510_panel_suspend(void)
 	system_pwmng_delete(&pmg_delete);
 #endif
 
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	mutex_unlock(&esd_check_mutex);
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
+
+
 	return 0;
 }
 
@@ -1203,9 +1457,7 @@ static int nt35510_panel_resume(void)
 {
 	void *screen_handle;
 	screen_disp_start_lcd start_lcd;
-#ifdef NT35510_ENABLE_VIDEO_MODE
 	screen_disp_stop_lcd disp_stop_lcd;
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 	screen_disp_delete disp_delete;
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
@@ -1215,6 +1467,11 @@ static int nt35510_panel_resume(void)
 	system_pmg_param powarea_start_notify;
 	system_pmg_delete pmg_delete;
 #endif
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	/* Wait for end of check ESD */
+	mutex_lock(&esd_check_mutex);
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1260,6 +1517,14 @@ retry:
 			goto out;
 		} else {
 			retry_count--;
+
+			/* Stop a display to LCD */
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK)
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
 			goto retry;
@@ -1299,12 +1564,27 @@ retry:
 			goto out;
 		} else {
 			retry_count--;
+
+			/* Stop a display to LCD */
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK)
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
 			goto retry;
 		}
 	}
 #endif /* NT35510_ENABLE_VIDEO_MODE */
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	/* Schedule check ESD */
+	esd_check_flag = ESD_CHECK_ENABLE;
+	mutex_unlock(&esd_check_mutex);
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
+#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1368,6 +1648,13 @@ static int nt35510_panel_probe(struct fb_info *info,
 
 	lcd_info_data.power = FB_BLANK_UNBLANK;
 
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	esd_check_flag = ESD_CHECK_DISABLE;
+	mutex_init(&esd_check_mutex);
+	INIT_DELAYED_WORK(&esd_check_work,
+		nt35510_panel_esd_check_work);
+#endif
+
 	return 0;
 
 out:
@@ -1380,6 +1667,16 @@ out:
 static int nt35510_panel_remove(struct fb_info *info)
 {
 	printk(KERN_INFO "%s\n", __func__);
+
+#if defined(NT35510_ESD_RECOVERY_ENABLE)
+	/* Wait for end of check to power mode state */
+	mutex_lock(&esd_check_mutex);
+
+	/* Cancel  scheduled work queue for check to power mode state. */
+	cancel_delayed_work_sync(&esd_check_work);
+
+	mutex_unlock(&esd_check_mutex);
+#endif
 
 	/* unregister sysfs for LCD frequency control */
 	nt35510_lcd_frequency_unregister();
