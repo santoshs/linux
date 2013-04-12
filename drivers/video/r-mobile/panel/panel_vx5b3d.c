@@ -36,7 +36,8 @@
 #include "panel_common.h"
 
 /* #define VX5B3D_DRAW_BLACK_KERNEL */
-
+#define CABC_FUNCTION_ENABLE
+#define BL_TUNE_WITH_TABLE
 #define VX5B3D_POWAREA_MNG_ENABLE
 
 #ifdef VX5B3D_POWAREA_MNG_ENABLE
@@ -212,6 +213,119 @@ struct specific_cmdset {
 	unsigned char *data;
 	int size;
 };
+
+#ifdef BL_TUNE_WITH_TABLE
+struct brt_value {
+	int level;		/* Platform setting values */
+	int tune_level;		/* Chip Setting values */
+};
+
+/* TOTAL 95 STEPS */
+struct brt_value bl_table[] = {
+	{ 20,  1},	/* MIN 20 */
+	{ 23,  5 },
+	{ 25,  8 },
+	{ 27, 10 },
+	{ 30, 12 },
+	{ 32, 13 },
+	{ 35, 15 },
+	{ 38, 17 },
+	{ 40, 19 },
+	{ 42, 21 },
+	{ 45, 23 },
+	{ 48, 25 },
+	{ 50, 27 },
+	{ 52, 28 },
+	{ 55, 30 },
+	{ 57, 32 },
+	{ 60, 34 },
+	{ 63, 36 },
+	{ 65, 37 },
+	{ 67, 39 },
+	{ 70, 41 },
+	{ 72, 43 },
+	{ 75, 45 },
+	{ 77, 47 },
+	{ 80, 49 },
+	{ 82, 51 },
+	{ 85, 53 },
+	{ 87, 55 },
+	{ 90, 56 },
+	{ 93, 57 },
+	{ 95, 58 },
+	{ 97, 60 },
+	{ 100, 61 },
+	{ 102, 62 },
+	{ 105, 64 },
+	{ 107, 66 },
+	{ 110, 67 },
+	{ 112, 68 },
+	{ 115, 70 },
+	{ 117, 71 },
+	{ 120, 73 },
+	{ 122, 74 },
+	{ 125, 76 },
+	{ 127, 78 },
+	{ 130, 79 },
+	{ 133, 82 },
+	{ 135, 84 },
+	{ 137, 88 },
+	{ 140, 91 },
+	{ 143, 94 },
+	{ 145, 97 },
+	{ 147, 100 },
+	{ 150, 103 },
+	{ 152, 106 },
+	{ 155, 109 },
+	{ 157, 112 },
+	{ 160, 115 },
+	{ 162, 118 },
+	{ 165, 121 },
+	{ 167, 124 },
+	{ 170, 127 },
+	{ 173, 130 },
+	{ 175, 133 },	/* DEFAULT 175 */
+	{ 177, 136 },
+	{ 180, 139 },
+	{ 182, 142 },
+	{ 185, 145 },
+	{ 187, 148 },
+	{ 190, 151 },
+	{ 192, 154 },
+	{ 195, 157 },
+	{ 197, 160 },
+	{ 200, 163 },
+	{ 203, 166 },
+	{ 205, 169 },
+	{ 207, 172 },
+	{ 210, 175 },
+	{ 213, 178 },
+	{ 215, 180 },
+	{ 217, 183 },
+	{ 220, 186 },
+	{ 223, 189 },
+	{ 225, 192 },
+	{ 227, 195 },
+	{ 230, 197 },
+	{ 233, 200 },
+	{ 235, 203 },
+	{ 237, 206 },
+	{ 240, 209 },
+	{ 242, 211 },
+	{ 245, 214 },
+	{ 247, 217 },
+	{ 250, 219 },
+	{ 252, 222 },
+	{ 255, 225 }, /* MAX 255 */
+};
+
+#define MAX_BRT_STAGE (int)(sizeof(bl_table)/sizeof(struct brt_value))
+
+int current_tune_level;
+
+#endif
+
+
 #define MIPI_DSI_DCS_LONG_WRITE		(0x39)
 #define MIPI_DSI_GEN_LONG_WRITE		(0x29)
 #define MIPI_DSI_DCS_SHORT_WRITE_PARAM	(0x15)
@@ -515,6 +629,165 @@ struct lcd_info {
 
 static struct lcd_info lcd_info_data;
 
+#ifdef CABC_FUNCTION_ENABLE
+enum OUTDOOR {
+	OUTDOOR_OFF,
+	OUTDOOR_ON,
+	OUTDOOR_MAX,
+};
+
+enum CABC {
+	CABC_OFF,
+	CABC_ON,
+	CABC_MAX,
+};
+
+enum POWER_LUT_LEVEL {
+	LUT_LEVEL_MANUAL_AND_INDOOR,
+	LUT_LEVEL_OUTDOOR_1,
+	LUT_LEVEL_OUTDOOR_2,
+	LUT_LEVEL_MAX,
+};
+
+struct Vx5b3d_backlight_value {
+	const unsigned int max;
+	const unsigned int mid;
+	const unsigned char low;
+	const unsigned char dim;
+};
+
+struct Vx5d3b_cabc_info {
+	enum OUTDOOR			outdoor;
+	enum CABC			cabc;
+	enum POWER_LUT_LEVEL		powerLut;
+
+	struct backlight_device		*bd;
+	struct lcd_device		*lcd;
+	struct Vx5b3d_backlight_value	*vee_lightValue;
+	struct device			*dev;
+	struct mutex			lock;
+
+	unsigned int			auto_brightness;
+	unsigned int			power_lut_idx;
+	unsigned int			vee_strenght;
+};
+
+/** Unused currently.
+static struct Vx5b3d_backlight_value backlight_table[1] = {
+	{
+		.max = 236,
+		.mid = 140,
+		.low = 10,
+		.dim = 10,
+	}
+};
+
+struct Vx5b3d_backlight_value *pwm;
+**/
+struct class *mdnie_class;
+struct Vx5d3b_cabc_info *g_vx5d3b;
+
+#define V5D3BX_VEESTRENGHT		0x00001f07
+#define V5D3BX_VEEDEFAULTVAL		7		/* 0x38 */
+#define V5D3BX_DEFAULT_STRENGHT		10		/* 0x50 */
+#define V5D3BX_DEFAULT_LOW_STRENGHT	11		/* 0x58 */
+#define V5D3BX_DEFAULT_HIGH_STRENGHT	12		/* 0x60 */
+#define V5D3BX_MAX_STRENGHT		15		/* 0x78 */
+
+#define V5D3BX_CABCBRIGHTNESSRATIO	815
+
+static unsigned char snd_cabc_on[] = { 0x05, 0x01, 0x40, 0x00, 0x04,
+		0x07, 0x1f, 0x00, 0x60 };
+
+static unsigned char snd_cabc_off[] = { 0x05, 0x01, 0x40, 0x00, 0x04,
+		0x07, 0x1f, 0x00, 0x00 };
+
+static int vx5b3d_update_cabc_ctrl(int onoff)
+{
+	screen_disp_delete disp_delete;
+	screen_disp_write_dsi_long  write_dsi_l;
+	void *screen_handle;
+	int ret;
+
+	if (!is_panel_initialized) {
+		printk(KERN_DEBUG
+			"vx5b3d_update_cabc_ctrl rejected. "
+			"just a warning, not a real error.\n");
+		return 0;
+	}
+
+	printk("%s on_off:%d\n", __func__, onoff);
+
+	screen_handle = screen_display_new();
+
+	/* set brightness */
+	write_dsi_l.handle	= screen_handle;
+	write_dsi_l.output_mode = RT_DISPLAY_LCD1;
+	write_dsi_l.data_id     = MIPI_DSI_GEN_LONG_WRITE;
+
+	if (onoff) {
+		write_dsi_l.data_count = sizeof(snd_cabc_on);
+		write_dsi_l.write_data = snd_cabc_on;
+	} else {
+		write_dsi_l.data_count = sizeof(snd_cabc_off);
+		write_dsi_l.write_data = snd_cabc_off;
+	}
+
+	write_dsi_l.send_mode   = RT_DISPLAY_SEND_MODE_HS;
+	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
+	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
+		disp_delete.handle = screen_handle;
+		screen_display_delete(&disp_delete);
+		return -1;
+	}
+
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+	return 0;
+}
+
+static ssize_t cabc_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+
+	return sprintf(buf, "%d\n", Vee_cabc->cabc);
+}
+
+static ssize_t cabc_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+	unsigned int value = 0;
+	int ret = 0;
+
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
+
+	dev_info(dev, "%s :: value=%d\n", __func__, value);
+
+	if (value >= CABC_MAX)
+		value = CABC_OFF;
+
+	value = (value) ? CABC_ON : CABC_OFF;
+
+	mutex_lock(&Vee_cabc->lock);
+	Vee_cabc->cabc = value;
+	vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
+	mutex_unlock(&Vee_cabc->lock);
+
+	return count;
+}
+
+static struct device_attribute mdnie_attributes[] = {
+	__ATTR(cabc, 0664, cabc_show, cabc_store),
+	__ATTR_NULL,
+};
+#endif
+
+
 static int lcdfreq_lock_free(struct device *dev)
 {
 	void *screen_handle;
@@ -723,6 +996,10 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 	void *screen_handle;
 	int ret;
 
+	#ifdef BL_TUNE_WITH_TABLE
+	int tune_level = 0, i;
+	#endif
+
 	unsigned char brightness_cmd[] = { 0x05, 0x01, 0x40, 0x64, 0x01,
 		0x00, 0x00, 0x00, 0x00 };
 
@@ -738,7 +1015,30 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 
 	screen_handle = screen_display_new();
 
+#ifdef BL_TUNE_WITH_TABLE
+	for (i = 0; i < MAX_BRT_STAGE; i++) {
+		if (brightness <= bl_table[i].level) {
+			tune_level = bl_table[i].tune_level;
+			break;
+		}
+	}
+	/**
+	printk(KERN_DEBUG "bl = %d , tune_level = %d\n", bl, tune_level);
+
+	if (current_tune_level == tune_level && tune_level != 3)
+		return 0;
+	**/
+
+	printk(KERN_INFO "brightness = %d , tune_level = %d\n",
+					brightness, tune_level);
+
+	brightness_cmd[5] = (char)tune_level;
+
+	current_tune_level = tune_level;
+#else
+
 	brightness_cmd[5] = brightness;
+#endif
 
 	/* set brightness */
 	write_dsi_l.handle	= screen_handle;
@@ -794,9 +1094,61 @@ static const struct backlight_ops vx5b3d_backlight_ops  = {
 	.update_status = set_brightness,
 };
 
+#ifdef CABC_FUNCTION_ENABLE
+static ssize_t auto_brightness_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+
+	return sprintf(buf, "%d\n", Vee_cabc->auto_brightness);
+}
+
+static ssize_t auto_brightness_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+	unsigned int value = 0;
+	int ret = 0;
+
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
+
+	if (ret < 0)
+		return ret;
+	else {
+
+		if (Vee_cabc->auto_brightness != value) {
+			dev_info(dev, "%s - %d, %d\n", __func__,
+				Vee_cabc->auto_brightness, value);
+			Vee_cabc->auto_brightness = value;
+			if (Vee_cabc->auto_brightness == 0) {
+				Vee_cabc->cabc = 0;
+				vx5b3d_update_cabc_ctrl(0);
+			} else if ((Vee_cabc->auto_brightness >= 1) &&
+					(Vee_cabc->auto_brightness < 5)) {
+				Vee_cabc->cabc = 1;
+				vx5b3d_update_cabc_ctrl(1);
+			} else if (Vee_cabc->auto_brightness >= 5) {
+				Vee_cabc->cabc = 0;
+				vx5b3d_update_cabc_ctrl(0);
+			}
+		}
+	}
+
+	return size;
+
+}
+
+static DEVICE_ATTR(auto_brightness, 0644, auto_brightness_show,
+						auto_brightness_store);
+
+#endif
+
 static int vx5b3d_backlight_device_register(struct device *dev)
 {
 	struct backlight_device *bd;
+#ifdef CABC_FUNCTION_ENABLE
+	int ret;
+#endif
 
 	is_backlight_called = 0;
 
@@ -806,6 +1158,13 @@ static int vx5b3d_backlight_device_register(struct device *dev)
 		printk(KERN_ERR "backlight_device_register err\n");
 		return PTR_ERR(bd);
 	}
+
+#ifdef CABC_FUNCTION_ENABLE
+	ret = device_create_file(&bd->dev, &dev_attr_auto_brightness);
+
+	if (ret < 0)
+		dev_err(dev, "failed to add sysfs entries\n");
+#endif
 
 	bd->props.max_brightness = MAX_BRIGHTNESS;
 	bd->props.brightness = INIT_BRIGHTNESS;
@@ -1094,6 +1453,9 @@ static int vx5b3d_panel_init(unsigned int mem_size)
 	system_pmg_param powarea_start_notify;
 	system_pmg_delete pmg_delete;
 #endif
+#ifdef CABC_FUNCTION_ENABLE
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+#endif
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1187,6 +1549,10 @@ retry:
 	is_panel_initialized = 1;
 	if (registed_bd && is_backlight_called)
 		registed_bd->ops->update_status(registed_bd);
+
+#ifdef CABC_FUNCTION_ENABLE
+	vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
+#endif
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1282,7 +1648,9 @@ static int vx5b3d_panel_resume(void)
 	system_pmg_param powarea_start_notify;
 	system_pmg_delete pmg_delete;
 #endif
-
+#ifdef CABC_FUNCTION_ENABLE
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 #ifdef VX5B3D_POWAREA_MNG_ENABLE
@@ -1347,6 +1715,9 @@ retry:
 	if (registed_bd)
 		registed_bd->ops->update_status(registed_bd);
 
+#ifdef CABC_FUNCTION_ENABLE
+	vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
+#endif
 out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
@@ -1359,7 +1730,9 @@ static int vx5b3d_panel_probe(struct fb_info *info,
 {
 	struct platform_device *pdev;
 	int ret;
-
+#ifdef CABC_FUNCTION_ENABLE
+	struct Vx5d3b_cabc_info *vx5d3bInfo;
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 	reset_gpio = hw_info.gpio_reg;
@@ -1422,8 +1795,44 @@ static int vx5b3d_panel_probe(struct fb_info *info,
 	/* register device for backlight control */
 	ret = vx5b3d_backlight_device_register(info->dev);
 
-
 	lcd_info_data.power = FB_BLANK_UNBLANK;
+
+#ifdef CABC_FUNCTION_ENABLE
+	vx5d3bInfo = kzalloc(sizeof(struct Vx5d3b_cabc_info), GFP_KERNEL);
+
+	if (!vx5d3bInfo)
+		pr_err("failed to allocate vx5d3bInfo\n");
+
+	mutex_init(&vx5d3bInfo->lock);
+	vx5d3bInfo->cabc = CABC_OFF;
+	vx5d3bInfo->auto_brightness = false;
+
+	g_vx5d3b = vx5d3bInfo;
+
+	mdnie_class = class_create(THIS_MODULE, "mdnie");
+
+	if (IS_ERR_OR_NULL(mdnie_class))
+		pr_err("failed to create mdnie class\n");
+
+	mdnie_class->dev_attrs = mdnie_attributes;
+
+	vx5d3bInfo = kzalloc(sizeof(struct Vx5d3b_cabc_info), GFP_KERNEL);
+
+	if (!vx5d3bInfo) {
+		pr_err("failed to allocate vx5d3bInfo\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	vx5d3bInfo->dev = device_create(mdnie_class, NULL, 0,
+						&vx5d3bInfo, "mdnie");
+
+	if (IS_ERR_OR_NULL(vx5d3bInfo->dev)) {
+		pr_err("failed to create mdnie device\n");
+		ret = -EINVAL;
+		goto out;
+	}
+#endif
 
 	return 0;
 
