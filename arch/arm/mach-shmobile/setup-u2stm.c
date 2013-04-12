@@ -201,12 +201,14 @@ int u2evm_init_stm_select(void)
 #ifdef CONFIG_ARM_TZ
   // Try to set debug mode according to boot argument, if secure side allows for it.
   val = __raw_readl(DBGREG1);
+  g_dbgreg1 = (g_dbgreg1 & 0xFFFF0000) | (val & 0x0000FFFF); /* Keep TRC[2:0] and MDA[7:0] but check-modify MD... and STMSEL[:] */
   if ((stm_boot_arg >= 0) && (val != g_dbgreg1)) {
     ret = sec_hal_dbg_reg_set(&g_dbgreg1, &g_dbgreg2, &g_dbgreg3);
     printk(KERN_ALERT "TZ: ret=%x,g_dbgreg1/2/3=0x%08x, 0x%08x, 0x%08x\n", ret, g_dbgreg1, g_dbgreg2, g_dbgreg3);
   }
 #else
   val = __raw_readl(DBGREG1);
+  g_dbgreg1 = (g_dbgreg1 & 0xFFFF0000) | (val & 0x0000FFFF); /* Keep TRC[2:0] and MDA[7:0] but check-modify MD... and STMSEL[:] */
   if (stm_boot_arg >= 0) {
       if (val == (g_dbgreg1^(1<<20))) {
 	// Try to mux stm output mode according to boot argument
@@ -301,11 +303,12 @@ int u2evm_init_stm_select(void)
     /* Configure SYS-(Trace) Funnel-STM @ 0xE6F8B000 */
     __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
     for(i=0; i<0xF0; i++);
-    __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
+    val = __raw_readl(SYS_TRACE_FUNNEL_STM_BASE + 0x000);
+    val = 0x302 | (val & 0x0FF); // Open Modem port. Keep other ports open if previously opened.
     for(i=0; i<0xF0; i++);
-    __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
+    __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0);
     for(i=0; i<0x10; i++);
-    __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
+    __raw_writel(       val, SYS_TRACE_FUNNEL_STM_BASE + 0x000);
     for(i=0; i<0xF0; i++);
 
     /* Configure SYS-TPIU-STM @ 0xE6F8A000 */
