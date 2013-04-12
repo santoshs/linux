@@ -18,6 +18,8 @@
 #include <linux/types.h>
 
 
+uint32_t raw_pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...);
+
 uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...);
 
 

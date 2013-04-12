@@ -18,21 +18,10 @@
 #include "sec_serv_api.h"
 
 #include <stdarg.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
 #include <linux/mutex.h>
-#include <linux/spinlock.h>
-#include <linux/spinlock_types.h>
-#include <linux/completion.h>
-#include <linux/ioport.h>
-#include <linux/fs.h>
 #include <linux/types.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
 #include <linux/sched.h>
-#include <linux/platform_device.h>
-#include <linux/uaccess.h>
-#include <linux/percpu.h>
+#include <linux/hardirq.h>
 #include <asm/cacheflush.h>
 
 
@@ -57,27 +46,25 @@
 #define IRQ_MASK                                0x80
 
 
+/* only one process allowed simultaneously. secside has failsafe spinlock. */
+static DEFINE_MUTEX(disp_mutex);
 
-extern struct mutex g_disp_mutex;
-
+/* bridge function decl */
 uint32_t hw_sec_rom_pub_bridge(uint32_t appl_id, uint32_t flags, va_list *);
-/* ****************************************************************************
-** Function name      : pub2sec_dispatcher
-** Description        :
-** Parameters         :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** ***************************************************************************/
-uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
-{
-	uint32_t return_value, pub_cpsr;
-	va_list ap;
 
-	if(appl_id!=SEC_SERV_COMA_ENTRY)
-		{
-		mutex_lock(&g_disp_mutex);
-		}
+
+/* ****************************************************************************
+ * Function name      : raw_pub2sec_dispatcher
+ * Description        : raw dispatcher, can be used from IRQ context.
+ *                      service calls should short, to reduce possible IRQ lat.
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * ***************************************************************************/
+uint32_t raw_pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
+{
+	uint32_t pub_cpsr, rv = 0;
+	va_list ap;
 
 	/* Read current CPSR */
 	__asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
@@ -92,16 +79,46 @@ uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 
 	va_start(ap, flags);
 	/* 'Address of va_list' convention is inherited from prev. projects */
-	return_value = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
+	rv = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
 	va_end(ap);
 
-	if(appl_id!=SEC_SERV_COMA_ENTRY)
-		{
-		mutex_unlock(&g_disp_mutex);
-		}
+	return rv;
+}
 
 
-	return return_value;
+/* ****************************************************************************
+ * Function name      : pub2sec_dispatcher
+ * Description        : common dispatcher, for process context only.
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * ***************************************************************************/
+uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
+{
+	uint32_t pub_cpsr, rv = 0;
+	va_list ap;
+
+	BUG_ON(in_atomic()); /* escalate wrong context. */
+	mutex_lock(&disp_mutex);
+
+	/* Read current CPSR */
+	__asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
+
+	/* FIQ won't be enabled in secure mode if FIQ is currently disabled */
+	if (pub_cpsr & FIQ_MASK)
+		flags &= ~SEC_ROM_FIQ_ENABLE_MASK;
+
+	/* IRQ won't be enabled in secure mode if IRQ is currently disabled */
+	if (pub_cpsr & IRQ_MASK)
+		flags &= ~SEC_ROM_IRQ_ENABLE_MASK;
+
+	va_start(ap, flags);
+	/* 'Address of va_list' convention is inherited from prev. projects */
+	rv = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
+	va_end(ap);
+
+	mutex_unlock(&disp_mutex);
+	return rv;
 }
 
 

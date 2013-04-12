@@ -100,10 +100,15 @@ typedef uint32_t sec_serv_status_t;
 #define SEC_SERV_MAC_WRITE                      0x10000033
 #define SEC_SERV_SIMLOCK_VERIFICATION_DATA_READ 0x10000034
 
+#define SEC_SERV_RAMDUMP_ACTIVATE                               0x10000035
+#define SEC_SERV_RAMDUMP_DEACTIVATE                             0x10000036
 #define SEC_SERV_SIMU_DS0_TEST                  0x10000050
 #define SEC_SERV_SIMU_DS1_TEST                  0x10000051
 #define SEC_SERV_SIMU_DSBUILD0_TEST             0x10000052
 #define SEC_SERV_SIMU_DSBUILD1_TEST             0x10000053
+// Fast call services (services run with core specific context)
+#define SEC_SERV_FAST_CALL_SIG15_SUBMIT                         0x10000080
+#define SEC_SERV_FAST_CALL_A3SP_STATE_REQUEST                   0x10000081
 
 #define SEC_SERV_TEEC_InitializeContext         0x100000F0
 #define SEC_SERV_TEEC_FinalizeContext           0x100000F1
@@ -139,7 +144,6 @@ typedef uint32_t sec_serv_status_t;
 
 
 #ifndef SECURE_ENVIRONMENT
-
 /* These are return values from the dispatcher. */
 #define SEC_ROM_RET_OK                          0x0001
 #define SEC_ROM_RET_NON_SUPPORTED_SERV          0x0002
