@@ -541,12 +541,6 @@ config VIDEO_SR030PC30
 	---help---
 	  This driver supports SR030PC30 VGA camera from Siliconfile
 
-config SOC_CAMERA_SR130PC20
-	tristate "sr130pc20 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports SR130PC20 cameras from siliconfile
-
 config VIDEO_NOON010PC30
 	tristate "Siliconfile NOON010PC30 sensor support"
 	depends on I2C && VIDEO_V4L2 && EXPERIMENTAL && VIDEO_V4L2_SUBDEV_API
@@ -975,36 +969,6 @@ config SOC_CAMERA_IMX074
 	help
 	  This driver supports IMX074 cameras from Sony
 
-config SOC_CAMERA_ISX012
-	tristate "ISX012 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports ISX012 cameras from SONY
-
-config SOC_CAMERA_ISX012_TUNING
-	tristate "ISX012_TUNING support"
-	depends on SOC_CAMERA_ISX012 && I2C
-	help
-	  This driver supports ISX012_TUNING cameras from SONY
-
-config SOC_CAMERA_IMX081
-	tristate "IMX081 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports IMX081 cameras from Sony
-
-config SOC_CAMERA_IMX175
-	tristate "imx175 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports IMX175 cameras from Sony
-
-config SOC_CAMERA_S5K6AAFX13
-	tristate "s5k6aafx13 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports S5K6AAFX13 cameras from Samsung
-
 config SOC_CAMERA_S5K4ECGX
 	tristate "s5k4ecgx support"
 	depends on SOC_CAMERA && I2C
@@ -1016,12 +980,6 @@ config SOC_CAMERA_S5K4ECGX_TUNING
 	depends on SOC_CAMERA_S5K4ECGX && I2C
 	help
 	  This driver supports S5K4ECGX tuning cameras from Samsung
-
-config SOC_CAMERA_DB8131
-	tristate "db8131 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports DB8131 cameras from Dongbu Hitek
 
 config SOC_CAMERA_SR030PC50
 	tristate "sr030pc50 support"
@@ -1040,6 +998,33 @@ config SOC_CAMERA_SR200PC20M_TUNING
 	depends on SOC_CAMERA_SR200PC20M && I2C
 	help
 	  This driver supports SR200PC20M tuning cameras from Samsung
+
+config SOC_CAMERA_SR352
+	tristate "sr352 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports SR352 cameras from Samsung
+	  SR-352 is a 3M pixcel single chip CMOS image sensor
+	  for mobile phone camera applications and digital still
+	  camera products.
+
+config SOC_CAMERA_SR352_TUNING
+	tristate "sr352 tuning support"
+	depends on SOC_CAMERA_SR352 && I2C
+	help
+	  This driver supports SR352 tuning cameras from Samsung
+	  SR-352 is a 3M pixcel single chip CMOS image sensor
+	  for mobile phone camera applications and digital still
+	  camera products.
+
+config SOC_CAMERA_SR130PC20
+	tristate "sr130pc20 support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports SR130PC20 cameras from siliconfile.
+	  SR130PC20 is a 1.3M pixcel single chip CMOS image sensor
+	  for mobile phone camera applications and digital still
+	  camera products.
 
 config SOC_CAMERA_MT9M001
 	tristate "mt9m001 support"
@@ -1086,18 +1071,6 @@ config SOC_CAMERA_TW9910
 	depends on SOC_CAMERA && I2C
 	help
 	  This is a tw9910 video driver
-
-config SOC_CAMERA_OV8820
-	tristate "OV8820 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports OV8820 cameras from Omnivision
-
-config SOC_CAMERA_OV5640
-	tristate "OV5640 support"
-	depends on SOC_CAMERA && I2C
-	help
-	  This driver supports OV5640 cameras from Omnivision
 
 config SOC_CAMERA_PLATFORM
 	tristate "platform camera support"
