@@ -607,7 +607,4 @@ static struct platform_device *loganlte_devices_stm_none[] __initdata = {
 #endif
 };
 
-extern unsigned int read_board_rev(void);
-extern void SBSC_Init_520Mhz(void);
-
 #endif
