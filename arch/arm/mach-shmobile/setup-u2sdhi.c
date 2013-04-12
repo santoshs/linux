@@ -81,6 +81,10 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		}
 
 		regulator_put(regulator);
+
+		/* Delay of 50ms added between VSD off and VCORE
+		off as per SSG specification */
+		mdelay(VSD_VDCORE_DELAY);
 		break;
 
 		case RENESAS_SDHI_SIGNAL_V330:
