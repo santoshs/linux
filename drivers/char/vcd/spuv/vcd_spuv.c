@@ -196,15 +196,16 @@ int vcd_spuv_get_binary_buffer(void)
  *
  * @param	file_path	binary file path.
  *
- * @retval	ret	result.
+ * @retval	ret	binary kind.
  */
 int vcd_spuv_set_binary_preprocessing(char *file_path)
 {
-	int ret = 0;
 	unsigned int addr = 0;
 	char *comp_result = NULL;
 
 	vcd_pr_start_spuv_function("file_path[%s].\n", file_path);
+
+	memset(&g_vcd_spuv_binary_info, 0, sizeof(g_vcd_spuv_binary_info));
 
 	/* spuv.bin */
 	comp_result = strstr(file_path,
@@ -213,8 +214,9 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 		vcd_pr_spuv_info("set binary : [%s].\n",
 				VCD_SPUV_FUNC_SPUV_FILE_NAME);
 
-		/* set base address */
+		/* set information */
 		addr = vcd_spuv_func_get_spuv_static_buffer();
+		g_vcd_spuv_binary_info.binary_kind = VCD_BINARY_SPUV;
 		g_vcd_spuv_binary_info.top_logical_address = addr;
 		g_vcd_spuv_binary_info.top_physical_address = __pa(addr);
 		g_vcd_spuv_binary_info.write_address = addr;
@@ -229,8 +231,9 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 		vcd_pr_spuv_info("set binary : [%s].\n",
 				VCD_SPUV_FUNC_PCM_PROC_FILE_NAME);
 
-		/* set base address */
+		/* set information */
 		addr = vcd_spuv_func_get_pcm_static_buffer();
+		g_vcd_spuv_binary_info.binary_kind = VCD_BINARY_PCM;
 		g_vcd_spuv_binary_info.top_logical_address = addr;
 		g_vcd_spuv_binary_info.top_physical_address = __pa(addr);
 		g_vcd_spuv_binary_info.write_address = addr;
@@ -241,8 +244,9 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 	/* diamond.bin */
 	vcd_pr_spuv_info("set binary : [%s].\n",
 			VCD_SPUV_FUNC_DIAMOND_FILE_NAME);
-	/* set base address */
+	/* set information */
 	addr = vcd_spuv_func_get_diamond_sdram_buffer();
+	g_vcd_spuv_binary_info.binary_kind = VCD_BINARY_DIAMOND;
 	g_vcd_spuv_binary_info.top_logical_address = addr;
 	g_vcd_spuv_binary_info.top_physical_address =
 			SDRAM_DIAMOND_START_ADDR;
@@ -250,8 +254,10 @@ int vcd_spuv_set_binary_preprocessing(char *file_path)
 	g_vcd_spuv_binary_info.max_size = SPUV_FUNC_SDRAM_DIAMOND_AREA_SIZE;
 
 rtn:
-	vcd_pr_end_spuv_function("ret[%d].\n", ret);
-	return ret;
+	vcd_pr_end_spuv_function("binary_kind[%d].\n"
+		, g_vcd_spuv_binary_info.binary_kind);
+
+	return g_vcd_spuv_binary_info.binary_kind;
 }
 
 
@@ -296,7 +302,7 @@ rtn:
  *
  * @param	none.
  *
- * @retval	ret	result.
+ * @retval	ret	binary kind.
  */
 int vcd_spuv_set_binary_postprocessing(void)
 {
@@ -308,6 +314,8 @@ int vcd_spuv_set_binary_postprocessing(void)
 		g_vcd_spuv_binary_info.top_physical_address
 		, g_vcd_spuv_binary_info.top_logical_address
 		, g_vcd_spuv_binary_info.total_size);
+
+	ret = g_vcd_spuv_binary_info.binary_kind;
 
 	memset(&g_vcd_spuv_binary_info, 0, sizeof(g_vcd_spuv_binary_info));
 
