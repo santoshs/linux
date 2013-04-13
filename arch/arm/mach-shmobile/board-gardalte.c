@@ -68,6 +68,9 @@
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+#include <mach/setup-u2audio.h>
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
@@ -546,16 +549,9 @@ static void __init gardalte_init(void)
 
 	USBGpio_init();
 
-	/* enable sound */
-	gpio_request(GPIO_FN_FSIAISLD, "sound");
-	gpio_request(GPIO_FN_FSIAOBT, "sound");
-	gpio_request(GPIO_FN_FSIAOLR, "sound");
-	gpio_request(GPIO_FN_FSIAOSLD, "sound");
-
-	gpio_request(GPIO_FN_FSIBISLD, "sound");
-	gpio_request(GPIO_FN_FSIBOBT, "sound");
-	gpio_request(GPIO_FN_FSIBOLR, "sound");
-	gpio_request(GPIO_FN_FSIBOSLD, "sound");
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+	u2audio_init(u2_board_rev);
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 
 	gpio_request(GPIO_PORT24, NULL);
 	gpio_direction_input(GPIO_PORT24);
@@ -619,8 +615,13 @@ static void __init gardalte_init(void)
 					ARRAY_SIZE(i2c4_devices_imagis));
 #endif
 
-	i2c_register_board_info(8, i2cm_devices_d2153,
-					ARRAY_SIZE(i2cm_devices_d2153));
+	if (u2_board_rev > 1) {
+		/* fm34 */
+		i2c_register_board_info(8, &i2cm_devices_d2153[1], 1);
+	} else {
+		/* audience */
+		i2c_register_board_info(8, &i2cm_devices_d2153[0], 1);
+	}
 
 #if defined(CONFIG_GPS_CSR_GSD5T)
 	/* GPS Init */

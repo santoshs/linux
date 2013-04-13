@@ -70,6 +70,9 @@
 #if defined(CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+#include <mach/setup-u2audio.h>
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <sound/tpa2026-i2c.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
@@ -935,16 +938,9 @@ static void __init lt02lte_init(void)
 
 	USBGpio_init();
 
-	/* enable sound */
-	gpio_request(GPIO_FN_FSIAISLD, "sound");
-	gpio_request(GPIO_FN_FSIAOBT, "sound");
-	gpio_request(GPIO_FN_FSIAOLR, "sound");
-	gpio_request(GPIO_FN_FSIAOSLD, "sound");
-
-	gpio_request(GPIO_FN_FSIBISLD, "sound");
-	gpio_request(GPIO_FN_FSIBOBT, "sound");
-	gpio_request(GPIO_FN_FSIBOLR, "sound");
-	gpio_request(GPIO_FN_FSIBOSLD, "sound");
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+	u2audio_init(u2_board_rev);
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 
 	gpio_request(GPIO_PORT24, NULL);
 	gpio_direction_input(GPIO_PORT24);

@@ -120,6 +120,10 @@ obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
 #setup-d2153
 obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
+
+#setup-audio
+obj-$(CONFIG_SND_SOC_SH4_FSI)	+= setup-u2audio.o
+
 #GPS
 obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
 obj-$(CONFIG_RENESAS_GPS) 	+= board-gardalte-gps.o
