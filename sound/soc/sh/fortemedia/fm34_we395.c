@@ -117,8 +117,6 @@ enum fm34_event_type {
 	FM34_EVENT_IDLE = 0,
 	FM34_EVENT_BYPASS,
 	FM34_EVENT_VOICE,
-	FM34_EVENT_SUSPEND,
-	FM34_EVENT_RESUME,
 	FM34_EVENT_MAX
 };
 
@@ -129,7 +127,6 @@ enum fm34_status_type {
 	FM34_STATUS_IDLE = 0,
 	FM34_STATUS_BYPASS,
 	FM34_STATUS_VOICE,
-	FM34_STATUS_SUSPEND,
 	FM34_STATUS_MAX,
 	FM34_STATUS_NOP
 };
@@ -163,9 +160,7 @@ struct fm34_table fm34_voice_table = {
 struct fm34_table fm34_error_table = {
 	fm34_error, FM34_STATUS_NOP
 };
-struct fm34_table fm34_suspend_table = {
-	fm34_nop, FM34_STATUS_SUSPEND
-};
+
 
 struct fm34_table *fm34_state_table[FM34_STATUS_MAX][FM34_EVENT_MAX] = {
 	/* FM34_STATUS_IDLE */
@@ -173,32 +168,18 @@ struct fm34_table *fm34_state_table[FM34_STATUS_MAX][FM34_EVENT_MAX] = {
 		&fm34_nop_table,		/* FM34_EVENT_IDLE */
 		&fm34_idle_to_bypass_table,	/* FM34_EVENT_BYPASS */
 		&fm34_voice_table,		/* FM34_EVENT_VOICE */
-		&fm34_suspend_table,		/* FM34_EVENT_SUSPEND */
-		&fm34_error_table,		/* FM34_EVENT_RESUME */
 	},
 	/* FM34_STATUS_BYPASS */
 	{
 		&fm34_bypass_to_idle_table,	/* FM34_EVENT_IDLE */
 		&fm34_nop_table,		/* FM34_EVENT_BYPASS */
 		&fm34_voice_table,		/* FM34_EVENT_VOICE */
-		&fm34_error_table,		/* FM34_EVENT_SUSPEND */
-		&fm34_error_table,		/* FM34_EVENT_RESUME */
 	},
 	/* FM34_STATUS_VOICE */
 	{
 		&fm34_idle_table,	/* FM34_EVENT_IDLE */
 		&fm34_bypass_table,	/* FM34_EVENT_BYPASS */
 		&fm34_nop_table,	/* FM34_EVENT_VOICE */
-		&fm34_error_table,	/* FM34_EVENT_SUSPEND */
-		&fm34_error_table,	/* FM34_EVENT_RESUME */
-	},
-	/* FM34_STATUS_SUSPEND */
-	{
-		&fm34_error_table,	/* FM34_EVENT_IDLE */
-		&fm34_error_table,	/* FM34_EVENT_BYPASS */
-		&fm34_error_table,	/* FM34_EVENT_VOICE */
-		&fm34_nop_table,	/* FM34_EVENT_SUSPEND */
-		&fm34_idle_table,	/* FM34_EVENT_RESUME */
 	},
 };
 
@@ -495,88 +476,21 @@ static int fm34_error(void)
 
 static int fm34_suspend(struct device *dev)
 {
-	int ret = 0;
-#if FM34_BYPASS_ONLY
-#else
-	struct fm34_table *table;
-#endif
-
-	fm34_pr_func_start();
-
-	mutex_lock(&g_fm34_lock);
-
-#if FM34_BYPASS_ONLY
-#else
-	/* Get state table. */
-	table = fm34_state_table[g_fm34_curt_status][FM34_EVENT_SUSPEND];
-
-	/* Call function of state table. */
-	ret = table->exec_func();
-	if ((0 == ret) && (FM34_STATUS_NOP != table->next_state))
-		g_fm34_curt_status = table->next_state;
-
-#endif
-
-	mutex_unlock(&g_fm34_lock);
-
-	fm34_pr_func_end();
-	return ret;
+	return 0;
 }
 
 static int fm34_resume(struct device *dev)
 {
-	int ret = 0;
-#if FM34_BYPASS_ONLY
-#else
-	struct fm34_table *table;
-#endif
-
-	fm34_pr_func_start();
-
-	mutex_lock(&g_fm34_lock);
-
-#if FM34_BYPASS_ONLY
-#else
-	/* Get state table. */
-	table = fm34_state_table[g_fm34_curt_status][FM34_EVENT_RESUME];
-
-	/* Call function of state table. */
-	ret = table->exec_func();
-	if ((0 == ret) && (FM34_STATUS_NOP != table->next_state))
-		g_fm34_curt_status = table->next_state;
-#endif
-
-	mutex_unlock(&g_fm34_lock);
-
-	fm34_pr_func_end();
-	return ret;
+	return 0;
 }
 
 static int fm34_runtime_suspend(struct device *dev)
 {
-	int ret = 0;
-
-	fm34_pr_func_start();
-
-	mutex_lock(&g_fm34_lock);
-
-#if FM34_BYPASS_ONLY
-#else
-	/* Status except IDLE doesn't change to Suspend. */
-	if (FM34_STATUS_IDLE != g_fm34_curt_status)
-		ret = -1;
-#endif
-
-	mutex_unlock(&g_fm34_lock);
-	fm34_pr_func_end();
-	return ret;
+	return 0;
 }
 
 static int fm34_runtime_resume(struct device *dev)
 {
-	fm34_pr_func_start();
-	/* nop */
-	fm34_pr_func_end();
 	return 0;
 }
 
