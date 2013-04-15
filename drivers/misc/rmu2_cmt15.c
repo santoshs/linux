@@ -579,7 +579,6 @@ int write_proc(struct file *file, const char __user *buf,
 	sscanf(buffer, "%u", &test_mode);
 
 	switch (test_mode) {
-		unsigned long flags, irq_vector;
 	case TEST_LOOP:
 		loop(0);
 		break;

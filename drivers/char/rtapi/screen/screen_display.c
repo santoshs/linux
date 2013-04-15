@@ -1190,20 +1190,15 @@ int screen_display_set_address(screen_disp_set_address *address)
 	if (NULL == address) {
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
-	MSG_MED("
-		[RTAPIK]    |handle       [0x%08X]\n",
+	MSG_MED("[RTAPIK]    |handle       [0x%08X]\n",
 		(unsigned int)address->handle);
-	MSG_MED("
-		[RTAPIK]    |output_mode  [%d]\n",
+	MSG_MED("[RTAPIK]    |output_mode  [%d]\n",
 		address->output_mode);
-	MSG_MED("
-		[RTAPIK]    |buffer_id    [%d]\n",
+	MSG_MED("[RTAPIK]    |buffer_id    [%d]\n",
 		address->buffer_id);
-	MSG_MED("
-		[RTAPIK]    |address      [0x%08X]\n",
+	MSG_MED("[RTAPIK]    |address      [0x%08X]\n",
 		(unsigned int)address->address);
-	MSG_MED("
-		[RTAPIK]    |size         [%d]\n",
+	MSG_MED("[RTAPIK]    |size         [%d]\n",
 		address->size);
 
 	if  ((NULL == address->handle) ||
@@ -1211,8 +1206,8 @@ int screen_display_set_address(screen_disp_set_address *address)
 		 (0 == address->address) ||
 		 (0 == address->size)
 		) {
-		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] param error\n", __LINE__);
+		MSG_ERROR("[RTAPIK] ERR|[%d] param error\n",
+				__LINE__);
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
