@@ -6,6 +6,7 @@
  */
 #ifndef __MEMLOG_H__
 #define __MEMLOG_H__
+#include <mach/memory-r8a7373.h>
 
 #ifdef CONFIG_MEMLOG
 #ifndef __ASSEMBLY__
@@ -18,7 +19,7 @@ extern void memory_log_pm(unsigned long pm_id);
 #endif
 
 /* Use SDRAM */
-#define MEMLOG_ADDRESS			0x448F1C00
+#define MEMLOG_ADDRESS			SDRAM_MEMLOG_START_ADDRESS
 #define MEMLOG_SIZE				0x00002010
 #define CPU0_PROC_SIZE			0x00000400
 #define CPU1_PROC_SIZE			0x00000400
