@@ -958,7 +958,7 @@ int cpg_wait_kick(unsigned int time)
 			udelay(1);
 #if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
-			udelay(1);
+			shmobile_suspend_udelay(1);
 #endif
 	}
 
@@ -1166,7 +1166,7 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 			udelay(1);
 #if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
-			udelay(1);
+			shmobile_suspend_udelay(1);
 #endif
 	}
 

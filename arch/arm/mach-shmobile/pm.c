@@ -67,7 +67,7 @@ int core_wait_kick(int time)
 	while (0 < wait_time--) {
 		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
-		udelay(1);
+		shmobile_suspend_udelay(1);
 	}
 
 	return (wait_time <= 0) ? -EBUSY : 0;
@@ -452,3 +452,39 @@ int shmobile_init_pm(void)
 	return 0;
 }
 
+static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
+24, 1, 1, 48, 1, 1, 1, 1};
+
+/* PLL Circuit 0 Multiplication Ratio mask */
+#define PLL0CR_STC_MASK	0x3F000000
+
+void shmobile_suspend_udelay(unsigned int delay_time)
+{
+	unsigned int i;
+	unsigned int mul_ratio = 1;
+	unsigned int div_ratio = 1;
+	unsigned int zfc_val = 1;
+
+	if (__raw_readl(PLLECR) & CPG_PLL0ST)
+		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
+					>> 24) + 1;
+
+	if (__raw_readl(FRQCRB) & FRQCRB_ZSEL_BIT) {
+		zfc_val = (__raw_readl(FRQCRB) & FRQCRB_ZFC_MASK) \
+					>> 24;
+		div_ratio = division_ratio[zfc_val];
+
+		if (div_ratio == 1) {
+			printk(KERN_ALERT "Abnormal Zclk div_rate, as 1/%d. ", \
+					zfc_val);
+			printk(KERN_ALERT "Skip delay processing\n");
+			return;
+		}
+	}
+
+	/* get loop time for delay */
+	i = delay_time * (26 * mul_ratio) / 8 / div_ratio;
+
+	while (i > 0)
+		i--;
+}

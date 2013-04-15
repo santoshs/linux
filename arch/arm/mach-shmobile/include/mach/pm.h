@@ -111,6 +111,7 @@ extern void PM_Spin_Unlock(void);
 
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
+extern void shmobile_suspend_udelay(unsigned int delay_time);
 extern void request_suspend_state(suspend_state_t state);
 extern suspend_state_t get_suspend_state(void);
 
