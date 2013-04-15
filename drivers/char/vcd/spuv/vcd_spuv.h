@@ -193,7 +193,7 @@
 #define VCD_SPUV_FW_RESULT_ERROR		1
 
 /* voip watchdog timer */
-#define VCD_SPUV_FW_WATCHDOG_TIMER		(100 * HZ / 1000)
+#define VCD_SPUV_FW_WATCHDOG_TIMER		1000
 
 /*
  * define macro declaration
@@ -225,6 +225,7 @@ struct vcd_spuv_info {
 	struct timer_list timer_list;
 	unsigned int timer_status;
 	unsigned int watchdog_status;
+	spinlock_t watchdog_lock;
 	unsigned int status;
 	spinlock_t status_lock;
 	unsigned int irq_status;
@@ -321,6 +322,7 @@ void vcd_spuv_destroy_queue(void);
 static void vcd_spuv_set_schedule(void);
 static void vcd_spuv_interrupt_ack(void);
 static void vcd_spuv_interrupt_req(void);
+static void vcd_spuv_watchdog_timeout(void);
 static void vcd_spuv_rec_trigger(void);
 static void vcd_spuv_play_trigger(void);
 static void vcd_spuv_codec_type_ind(unsigned int codec_type);

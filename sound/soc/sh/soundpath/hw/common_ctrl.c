@@ -637,7 +637,8 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 	/* Status ON */
 	if (STAT_ON == stat) {
 		/* mode check */
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+		if ((SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) &&
+		    (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(uiValue))) {
 			if (false == (dev & SNDP_BLUETOOTHSCO)) {
 				pll22val = 0x44000000;
 				fsival = 0x00001047;
