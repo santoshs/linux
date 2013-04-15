@@ -39,6 +39,7 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
+#include <mach/board-loganlte.h>
 #include <mach/board-loganlte-config.h>
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
@@ -96,6 +97,7 @@
 #if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_NFC_PN547)
 #include <mach/dev-nfc.h>
 #endif
+#include <mach/dev-touchpanel.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 
 #if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
@@ -351,15 +353,6 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 static struct platform_device *guardian__plat_devices[] __initdata = {
 	&bcm_backlight_devices,
 };
-
-#ifdef CONFIG_TOUCHSCREEN_IST30XX
-static struct i2c_board_info i2c4_devices_imagis[] = {
-	{
-		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
-		.irq = irqpin2irq(32),
-	},
-};
-#endif
 
 static struct led_regulator_platform_data key_backlight_data = {
 	.name   = "button-backlight",
@@ -691,13 +684,12 @@ static void __init loganlte_init(void)
 	i2c_register_board_info(8, PN547_info, pn547_info_size());
 #endif
 
-	platform_device_register(&key_backlight_device);
-#ifdef CONFIG_TOUCHSCREEN_IST30XX
-	printk(KERN_WARNING "Register Imagis touch driver!\n");
-	i2c_register_board_info(4, i2c4_devices_imagis,
-					ARRAY_SIZE(i2c4_devices_imagis));
-#endif
+	/* Touch Panel auto detection */
+        i2c_add_driver(&tsp_detector_driver);
+        i2c_register_board_info(4, i2c4_devices_tsp_detector,
+                                        ARRAY_SIZE(i2c4_devices_tsp_detector));
 
+	platform_device_register(&key_backlight_device);
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
 

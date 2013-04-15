@@ -18,13 +18,21 @@
 #ifndef ZINITIX_HEADER
 #define ZINITIX_HEADER
 
+#if defined(CONFIG_MACH_LOGANLTE)
+#define TS_DRVIER_VERSION	"1.0.20"
+#elif defined(CONFIG_MACH_LT02LTE)
 #define TS_DRVIER_VERSION	"1.0.18"
+#endif
 
 #define	MULTI_PROTOCOL_TYPE_B	1
 
 #define USE_THREADED_IRQ	1
 
-#define TOUCH_POINT_MODE	2
+#if defined(CONFIG_MACH_LOGANLTE)
+#define TOUCH_POINT_MODE	0
+#elif defined(CONFIG_MACH_LT02LTE)
+#define TOUCH_POINT_MODE	0
+#endif
 
 #define TOUCH_I2C_REGISTER_HERE	0
 
@@ -33,8 +41,11 @@
 
 
 /* max 8 */
-//#define MAX_SUPPORTED_BUTTON_NUM	8
+#if defined(CONFIG_MACH_LOGANLTE)
+#define MAX_SUPPORTED_BUTTON_NUM	8
+#elif defined(CONFIG_MACH_LT02LTE)
 #define MAX_SUPPORTED_BUTTON_NUM    2
+#endif
 #define SUPPORTED_BUTTON_NUM		2
 
 /* Upgrade Method*/
@@ -45,13 +56,23 @@ name = "zinitix_isp" , addr 0x50*/
 /* resolution offset */
 #define ABS_PT_OFFSET			(-1)
 
+#if defined(CONFIG_MACH_LOGANLTE)
+#define TOUCH_FORCE_UPGRADE		0
+#define USE_CHECKSUM			0
+#define CHECK_HWID				1
+#elif defined(CONFIG_MACH_LT02LTE)
 #define TOUCH_FORCE_UPGRADE		1
 #define USE_CHECKSUM			1
 #define CHECK_HWID				0
+#endif
 
 #define CHIP_OFF_DELAY			50	/*ms*/
 #define CHIP_ON_DELAY			15	/*ms*/
+#if defined(CONFIG_MACH_LOGANLTE)
+#define FIRMWARE_ON_DELAY		30	/*ms*/
+#elif defined(CONFIG_MACH_LT02LTE)
 #define FIRMWARE_ON_DELAY		20	/*ms*/
+#endif
 
 #define DELAY_FOR_SIGNAL_DELAY		30	/*us*/
 #define DELAY_FOR_TRANSCATION		50
@@ -85,6 +106,8 @@ enum _zinitix_button_event {
 #define	SEC_DND_N_COUNT		10
 #define	SEC_DND_FREQUENCY	110		//300khz
 
+#define MAX_FW_PATH 255
+#define TSP_FW_FILENAME "zinitix_fw.bin"
 #define MAX_RAW_DATA_SZ		576	/*32x18*/
 #define MAX_TRAW_DATA_SZ	\
 	(MAX_RAW_DATA_SZ + 4*MAX_SUPPORTED_FINGER_NUM + 2)
@@ -102,7 +125,7 @@ struct _reg_ioctl{
 	int	*val;
 } ;
 
-#define TOUCH_SEC_MODE	48
+#define TOUCH_SEC_NORMAL_MODE	48
 #define TOUCH_REF_MODE		10
 #define TOUCH_NORMAL_MODE	5
 #define TOUCH_DELTA_MODE	3

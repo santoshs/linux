@@ -36,18 +36,24 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <mach/gpio.h>
+#include <linux/gpio.h>
 #include <linux/uaccess.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 
 #include "zinitix_touch.h"
+#include <linux/leds.h>
 #if MULTI_PROTOCOL_TYPE_B
 #include <linux/input/mt.h>
 #endif
 
 //#include "zinitix_touch_zxt_firmware.h"
 //#include "zinitix_touch_zxt_firmware(ZI001A02).h"
+#if defined(CONFIG_MACH_LOGANLTE)
+#include "zinitix_touch_zxt_firmware(ZI03220B).h"
+#elif defined(CONFIG_MACH_LT02LTE)
 #include "zinitix_touch_zxt_firmware_20130317.h"
+#endif
 
 #define	ZINITIX_DEBUG		0
 
@@ -58,32 +64,18 @@
 #define	TSP_NORMAL_EVENT_MSG	1
 static int m_ts_debug_mode = ZINITIX_DEBUG;
 
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - in LT02 : WSVGA (1024 * 600)
-#if 0
-#define	SYSTEM_MAX_X_RESOLUTION	539
-#define	SYSTEM_MAX_Y_RESOLUTION	959
-#else
+#if defined(CONFIG_MACH_LOGANLTE)
+#define	SYSTEM_MAX_X_RESOLUTION	480
+#define	SYSTEM_MAX_Y_RESOLUTION	800
+#elif defined(CONFIG_MACH_LT02LTE)
 #define	SYSTEM_MAX_X_RESOLUTION	599
 #define	SYSTEM_MAX_Y_RESOLUTION	1023
 #endif
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - in LT02 : WSVGA (1024 * 600)
+
 
 
 /* interrupt pin number*/
-#if defined(CONFIG_MACH_CAPRI_SS_CRATER_CMCC)
- #define GPIO_TOUCH_PIN_NUM	183
-#else
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - in LT02 : irq = GPIO32
-#if 0
- #define GPIO_TOUCH_PIN_NUM	8
-#else
  #define GPIO_TOUCH_PIN_NUM	32
-#endif
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - in LT02 : irq = GPIO32
-#endif
-/* interrupt pin IRQ number */
-//#define GPIO_TOUCH_IRQ		IRQ_EINT3
-//#define GPIO_LDO_EN_NUM		S5PV210_GPH0(4)
 
 
 #if !USE_THREADED_IRQ
@@ -91,6 +83,8 @@ static struct workqueue_struct *zinitix_workqueue;
 #endif
 
 static struct workqueue_struct *zinitix_tmr_workqueue;
+
+static struct regulator *keyled_regulator;
 
 #define zinitix_debug_msg(fmt, args...)	\
 	if (m_ts_debug_mode)	\
@@ -291,6 +285,10 @@ struct zinitix_touch_dev {
 	u16 touch_mode;
 	s16 cur_data[MAX_TRAW_DATA_SZ];
 	u8 update;
+
+	struct led_classdev		led;
+	u8				led_brightness;
+	
 #if SEC_TSP_FACTORY_TEST
 	s16 ref_data[MAX_RAW_DATA_SZ];
 	s16 normal_data[MAX_RAW_DATA_SZ];
@@ -708,11 +706,7 @@ static bool ts_power_control(struct zinitix_touch_dev *touch_dev, u8 ctl)
 
 	if (tsp_regulator_3_3 == NULL){
 //--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator tsp_avdd -> vtsp_3v
-#if 0
-		tsp_regulator_3_3 = regulator_get(NULL, "tsp_avdd");
-#else
 		tsp_regulator_3_3 = regulator_get(NULL, "vtsp_3v");
-#endif
 //--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator tsp_avdd -> vtsp_3v
 
 		if (IS_ERR(tsp_regulator_3_3)) {
@@ -723,13 +717,8 @@ static bool ts_power_control(struct zinitix_touch_dev *touch_dev, u8 ctl)
 		}
 
 //--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator 3.3v -> 3.0v
-#if 0
-		ret = regulator_set_voltage(tsp_regulator_3_3,3300000,3300000);
-		printk("--> regulator_set_voltage ret = %d \n", ret);
-#else
 		ret = regulator_set_voltage(tsp_regulator_3_3,3000000,3000000);
-		printk("[SHYUN] regulator_set_voltage ret = %d \n", ret);
-#endif
+		printk("--> regulator_set_voltage ret = %d \n", ret);
 //--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator 3.3v -> 3.0v
 		if (ret) {
 			pr_err("can not set voltage TSP AVDD 3.3V, ret=%d\n", ret);
@@ -1014,7 +1003,9 @@ static bool ts_check_need_upgrade(struct zinitix_touch_dev *touch_dev,
 	u16	newRegVersion;
 	u16	newChipCode;
 	u16	newHWID;
+	curVersion = curVersion&0xff;
 	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
+	newVersion = newVersion&0xff;
 	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
 	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
 	newChipCode = (u16) (m_firmware_data[64] | (m_firmware_data[65]<<8));
@@ -1075,7 +1066,7 @@ static u8 ts_upgrade_firmware(struct zinitix_touch_dev *touch_dev,
 retry_upgrade:
 	ts_power_control(touch_dev, POWER_OFF);
 	ts_power_control(touch_dev, POWER_ON);
-	mdelay(100);
+	mdelay(10);
 
 	if (ts_write_reg(touch_dev->client, 0xc000, 0x0001) != I2C_SUCCESS){
 		zinitix_printk("power sequence error (vendor cmd enable)\n");
@@ -1354,8 +1345,8 @@ retry_init:
 	zinitix_bit_set(reg_val, BIT_DOWN);
 	zinitix_bit_set(reg_val, BIT_MOVE);
 	zinitix_bit_set(reg_val, BIT_UP);
-	zinitix_bit_set(reg_val, BIT_PALM);
-	zinitix_bit_set(reg_val, BIT_PALM_REJECT);
+//	zinitix_bit_set(reg_val, BIT_PALM);
+//	zinitix_bit_set(reg_val, BIT_PALM_REJECT);
 	if (touch_dev->cap_info.button_num > 0)
 		zinitix_bit_set(reg_val, BIT_ICON_EVENT);
 	touch_dev->cap_info.ic_int_mask = reg_val;
@@ -1688,8 +1679,10 @@ static void zinitix_clear_report_data(struct zinitix_touch_dev *touch_dev)
 
 }
 
+#if (TOUCH_POINT_MODE == 2)
 #define	PALM_REPORT_WIDTH	200
 #define	PALM_REJECT_WIDTH	255
+#endif
 
 static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 {
@@ -1701,7 +1694,9 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 	u32 x, y;
 	u32 w;
 	u32 tmp;
+#if (TOUCH_POINT_MODE == 2)
 	u8 palm = 0;
+#endif
 	
 	if(touch_dev == NULL) {
 		printk(KERN_INFO "zinitix_parsing_data : touch_dev == NULL?\n");
@@ -1828,6 +1823,7 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 		goto continue_parsing_data;
 	}
 
+#if (TOUCH_POINT_MODE == 2)
 	if(zinitix_bit_test(touch_dev->touch_info.status, BIT_PALM)){
 		zinitix_debug_msg("palm report\r\n");
 		palm = 1;
@@ -1836,7 +1832,7 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 		zinitix_debug_msg("palm reject\r\n");
 		palm = 2;		
 	}
-
+#endif
 		
 	for (i = 0; i < touch_dev->cap_info.multi_fingers; i++) {
 		sub_status = touch_dev->touch_info.coord[i].sub_status;
@@ -1885,9 +1881,10 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 			input_mt_report_slot_state(touch_dev->input_dev,
 				MT_TOOL_FINGER, 1);
 			if (!zinitix_bit_test(prev_sub_status, SUB_BIT_EXIST))
-#endif				
+#else
 			input_report_abs(touch_dev->input_dev,
 					ABS_MT_TRACKING_ID, i);
+#endif
 
 #if (TOUCH_POINT_MODE == 2)
 			if(palm == 0) {
@@ -1895,11 +1892,11 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 					w = PALM_REPORT_WIDTH - 10;
 			}else if(palm == 1) {	//palm report
 				w = PALM_REPORT_WIDTH;
-//				touch_dev->touch_info.coord[i].minor_width = PALM_REPORT_WIDTH;
-			} else if(palm == 2){	// palm reject
-//				x = y = 0;
+				touch_dev->touch_info.coord[i].minor_width = PALM_REPORT_WIDTH;
+			} else {	// palm reject
+				x = y = 0;
 				w = PALM_REJECT_WIDTH;
-//				touch_dev->touch_info.coord[i].minor_width = PALM_REJECT_WIDTH;
+				touch_dev->touch_info.coord[i].minor_width = PALM_REJECT_WIDTH;
 			}
 #endif			
 
@@ -1907,21 +1904,13 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 			input_report_abs(touch_dev->input_dev,
 				ABS_MT_TOUCH_MAJOR, (u32)w);
 			input_report_abs(touch_dev->input_dev,
-				ABS_MT_WIDTH_MAJOR, (u32)((palm==1)?w-40:w));
+				ABS_MT_WIDTH_MAJOR, (u32)w);
 #if (TOUCH_POINT_MODE == 2)
 			input_report_abs(touch_dev->input_dev,
 				ABS_MT_TOUCH_MINOR, (u32)touch_dev->touch_info.coord[i].minor_width);
-//			input_report_abs(touch_dev->input_dev,
-//				ABS_MT_WIDTH_MINOR, (u32)touch_dev->touch_info.coord[i].minor_width);
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - Build error - TBD
-#if 0
 			input_report_abs(touch_dev->input_dev,
-				ABS_MT_ANGLE, (palm>1)?70:(touch_dev->touch_info.coord[i].angle - 90));
-			zinitix_debug_msg("finger [%02d] angle = %03d\r\n", i, touch_dev->touch_info.coord[i].angle);
-			input_report_abs(touch_dev->input_dev, ABS_MT_PALM, (palm>1)?1:0);
-#endif
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - Build error - TBD
-//			input_report_abs(touch_dev->input_dev, ABS_MT_PALM, 1);
+				ABS_MT_ANGLE, touch_dev->touch_info.coord[i].angle - 90);
+			input_report_abs(touch_dev->input_dev, ABS_MT_PALM, (palm>0)?1:0);
 #endif
 
 			
@@ -2014,8 +2003,6 @@ static void zinitix_touch_work(struct work_struct *work)
 }
 #endif
 
-static unsigned int vir_addr;
-static unsigned int vir_addr_gpio;
 
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -2028,14 +2015,6 @@ static void zinitix_late_resume(struct early_suspend *h)
 	if (touch_dev == NULL)
 		return;
 	zinitix_printk("late resume++\r\n");
-
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - At first, this feature is not support.
-#if 0
-	/*change bsc2 pin to pullup disabled*/
-	writel(0x18, vir_addr+0x10);
-	writel(0x18, vir_addr+0x14);
-#endif	
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - At first, this feature is not support.
 
 	
 	down(&touch_dev->work_proceedure_lock);
@@ -2119,15 +2098,6 @@ static void zinitix_early_suspend(struct early_suspend *h)
 #endif	
 	zinitix_printk("early suspend--\n");
 	up(&touch_dev->work_proceedure_lock);
-
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - At first, this feature is not support.
-#if 0
-	/*change bsc2 pin to pullup disabled*/
-	writel(0x8, vir_addr+0x10);
-	writel(0x8, vir_addr+0x14);
-#endif	
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - At first, this feature is not support.
-
 	
 	return;
 }
@@ -2255,7 +2225,7 @@ static bool ts_set_touchmode(u16 value){
 	}
 		
 
-	if(value == TOUCH_SEC_MODE)
+	if(value == TOUCH_SEC_NORMAL_MODE)
 		misc_touch_dev->touch_mode = TOUCH_POINT_MODE;
 	else
 		misc_touch_dev->touch_mode = value;
@@ -2588,9 +2558,9 @@ static void run_reference_read(void *device_data)
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
 
-	for(i=0; i<30; i++)
+	for(i=0; i<info->cap_info.x_node_num; i++)
 	{
-		for(j=0; j<18; j++)
+		for(j=0; j<info->cap_info.y_node_num; j++)
 		{
 			printk("[TSP] info->dnd_data : %d ", info->dnd_data[j+i]);
 
@@ -3567,6 +3537,64 @@ fail_hw_cal:
 	return 0;
 }
 
+static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
+{
+	int ret;
+	printk("touchkey_led_on = %d\n", on);
+
+	if(keyled_regulator == NULL)
+	{
+		printk(" %s, %d \n", __func__, __LINE__ );			
+		keyled_regulator = regulator_get(NULL, "key_led"); 
+		if(IS_ERR(keyled_regulator)){
+			printk("can not get KEY_LED_3.3V\n");
+			return;
+		}
+		ret = regulator_set_voltage(keyled_regulator,3300000,3300000);
+		printk("regulator_set_voltage ret = %d \n", ret);
+		
+	}
+
+	if(on)
+	{
+		printk(" %s, %d Touchkey On\n", __func__, __LINE__ );	
+
+		ret = regulator_enable(keyled_regulator);
+		printk("regulator_enable ret = %d \n", ret);
+	}
+	else
+	{
+		printk("%s, %d Touchkey Off\n", __func__, __LINE__ );	
+
+		ret = regulator_disable(keyled_regulator);
+		printk("regulator_disable ret = %d \n", ret);	
+
+	}
+
+}
+
+static void key_led_set(struct led_classdev *led_cdev,
+			      enum led_brightness value)
+{
+	struct zinitix_touch_dev *data = container_of(led_cdev, struct zinitix_touch_dev, led);
+	struct i2c_client *client = data->client;
+
+
+	data->led_brightness = value;
+
+	printk("%s, data->led_brightness=%d\n",__func__, data->led_brightness);
+
+	if( value >= 1)
+	{
+		touchkey_led_on(data, 1);
+	}
+	else
+	{
+		touchkey_led_on(data, 0);
+	}
+
+		
+}
 
 
 static int zinitix_touch_probe(struct i2c_client *client,
@@ -3582,11 +3610,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	printk(KERN_INFO "[zinitix touch] driver version = %s\r\n",
 		TS_DRVIER_VERSION);
 
-#if 0
-	/*i2c pin for pullup disable during suspend */
-	vir_addr = (unsigned int)ioremap(0x35004800, 4096);
-	vir_addr_gpio = (unsigned int)ioremap(0x35003000, 4096);
-#endif
 
 	if (strcmp(client->name, ZINITIX_DRIVER_NAME) != 0) {
 		printk(KERN_INFO "not zinitix driver. \r\n");
@@ -3626,16 +3649,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	}
 
 	/* initialize zinitix touch ic */
-	
-#if 0
-	/* configure touchscreen interrupt gpio */
-	ret = gpio_request(GPIO_TOUCH_PIN_NUM, "zinitix_irq_gpio");
-	if (ret) {
-		zinitix_printk("unable to request gpio.\r\n");
-		goto err_power_sequence;
-	}
-	ret = gpio_direction_input(GPIO_TOUCH_PIN_NUM);
-#endif
+
 	touch_dev->int_gpio_num = GPIO_TOUCH_PIN_NUM;
 #ifdef GPIO_LDO_EN_NUM
 	/* configure touchscreen ldo gpio */
@@ -3700,8 +3714,10 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	set_bit(LED_MISC, touch_dev->input_dev->ledbit);
 	set_bit(EV_ABS, touch_dev->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, touch_dev->input_dev->propbit);
-    
+
+#if defined(CONFIG_MACH_LT02LTE)  
 	touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
+#endif
 
 	for (i = 0; i < MAX_SUPPORTED_BUTTON_NUM; i++)
 		set_bit(BUTTON_MAPPING_KEY[i], touch_dev->input_dev->keybit);
@@ -3734,18 +3750,10 @@ static int zinitix_touch_probe(struct i2c_client *client,
 #if (TOUCH_POINT_MODE == 2)	
 	input_set_abs_params(touch_dev->input_dev, ABS_MT_TOUCH_MINOR,
 			0, 255, 0, 0);	
-//	input_set_abs_params(touch_dev->input_dev, ABS_MT_WIDTH_MINOR,
-//		0, 255, 0, 0);	
-	input_set_abs_params(touch_dev->input_dev, ABS_MT_ORIENTATION,
-		-128, 127, 0, 0);		
-//--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - Build Error - TBD
-#if 0
 	input_set_abs_params(touch_dev->input_dev, ABS_MT_ANGLE,
 		-90, 90, 0, 0);		
 	input_set_abs_params(touch_dev->input_dev, ABS_MT_PALM,
 				0, 1, 0, 0);
-#endif	
-//--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.14] - Build Error - TBD
 #endif	
 	
 #if MULTI_PROTOCOL_TYPE_B
@@ -3814,6 +3822,17 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	ret = misc_register(&touch_misc_device);
 	if (ret)
 		zinitix_debug_msg("Fail to register touch misc device.\n");
+
+	/*key led ++*/
+	touch_dev->led.name = "button-backlight";
+	touch_dev->led.brightness = LED_OFF;
+	touch_dev->led.max_brightness = LED_FULL;
+	touch_dev->led.brightness_set = key_led_set;
+
+	ret = led_classdev_register(&client->dev, &touch_dev->led);
+	if (ret)
+		dev_err(&client->dev, "fail to register led_classdev (%d).\n", ret);
+	/*key led --*/	
 
 #if SEC_TSP_FACTORY_TEST	
 	INIT_LIST_HEAD(&touch_dev->cmd_list_head);
@@ -3907,6 +3926,44 @@ static int zinitix_touch_remove(struct i2c_client *client)
 	kfree(touch_dev);
 
 	return 0;
+}
+
+static ssize_t get_tsp_firm_version_phone(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
+	u32 version;
+	char buff[16] = {0};
+    
+	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
+	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
+	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
+	if(misc_touch_dev->cap_info.is_zmt200 == 0)
+            newHWID = (u16) (m_firmware_data[0x6b12] | (m_firmware_data[0x6b13]<<8));
+	else	
+            newHWID = (u16) (m_firmware_data[0x57d2] | (m_firmware_data[0x57d3]<<8));
+	
+	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
+
+	snprintf(buff, sizeof(buff), "ZI%06X", version);
+
+	return sprintf(buf, "%s\n", buff);
+}
+
+static ssize_t get_tsp_firm_version_panel(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
+	u32 version;
+	char buff[16] = {0};
+
+	newVersion = misc_touch_dev->cap_info.firmware_version;
+	newMinorVersion = misc_touch_dev->cap_info.firmware_minor_version;
+	newRegVersion = misc_touch_dev->cap_info.reg_data_version;
+	newHWID = misc_touch_dev->cap_info.hw_id;
+	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
+
+	snprintf(buff, sizeof(buff), "ZI%06X", version);	
+
+	return sprintf(buf, "%s", buff); /* it's connected to at_sec_handler */
 }
 
 
