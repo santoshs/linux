@@ -43,7 +43,7 @@
 
 
 /* Module parameters - with defaults */
-static int l2chs[MAX_CHANNELS] = {
+static int l2chs[] = {
 	MHI_L3_FILE,
 	MHI_L3_XFILE,
 	MHI_L3_SECURITY,
@@ -56,7 +56,7 @@ static int l2chs[MAX_CHANNELS] = {
 	MHI_L3_MED_PRIO_TEST,
 	MHI_L3_LOW_PRIO_TEST,
 };
-static int l2cnt = 11;
+static int l2cnt = sizeof(l2chs)/sizeof(int);
 
 
 /* Functions */
@@ -77,6 +77,7 @@ int __init l3mhi_init(void)
 	int ch, i;
 	int err;
 
+	printk(KERN_INFO"MHI: %d Channels\n", l2cnt);
 	for (i = 0; i < l2cnt; i++) {
 		ch = l2chs[i];
 		if (ch >= 0 && ch < MHI_L3_NPROTO) {
