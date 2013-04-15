@@ -61,132 +61,6 @@ static struct wake_lock deleted_wake_locks;
 static ktime_t last_sleep_time_update;
 static int wait_for_wakeup;
 
-#ifdef CONFIG_ARCH_R8A7373
-static LIST_HEAD(ignore_active_locks);		/* restore to wake_lock */
-static LIST_HEAD(ignore_inactive_locks);	/* restore to wake_unlock */
-
-struct ignore_locks_list {
-	char *name;
-	struct list_head *list;
-	struct list_head *next_list;
-	int next_condition;	/* 0:wake_unlock, 1:wake_lock */
-};
-static struct ignore_locks_list ignore_list[] = {
-	{"ignore active",   &ignore_active_locks,   &ignore_inactive_locks, 0},
-	{"ignore inactive", &ignore_inactive_locks, &ignore_active_locks,   1},
-};
-
-static int check_ignore_locks(struct wake_lock *lock, int wakelock)
-{
-	int i;
-	struct wake_lock *target;
-
-	for (i = 0; i < ARRAY_SIZE(ignore_list); i++) {
-		list_for_each_entry(target, ignore_list[i].list, link) {
-			if (lock == target) {
-				if (wakelock == ignore_list[i].next_condition)
-					list_move_tail(&lock->link,
-						ignore_list[i].next_list);
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
-static int find_lock(
-	struct list_head *head, char *name, struct wake_lock **lock)
-{
-	struct wake_lock *target;
-
-	list_for_each_entry(target, head, link) {
-		if (!strcmp(target->name, name)) {
-			*lock = target;
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static ssize_t ignore_wakelock_show(
-	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-	int i;
-	char *cur = buf;
-	struct wake_lock *lock;
-	ssize_t n;
-
-	for (i = 0; i < ARRAY_SIZE(ignore_list); i++) {
-		cur += sprintf(cur, "<%s>\n", ignore_list[i].name);
-		list_for_each_entry(lock, ignore_list[i].list, link)
-			cur += sprintf(cur, " %s\n", lock->name);
-	}
-
-	n = (cur - buf);
-
-	return n;
-}
-
-static ssize_t ignore_wakelock_store(
-	struct kobject *kobj,
-	struct kobj_attribute *attr,
-	const char *buf,
-	size_t n
-) {
-	int ignore;
-	char name[64];
-	struct wake_lock *lock;
-
-	if (sscanf(buf, "%s %d", name, &ignore) != 2)
-		return -EINVAL;
-
-	if (2 <= ignore)
-		return -EINVAL;
-
-	if (ignore) {
-		if (find_lock(&active_wake_locks[WAKE_LOCK_SUSPEND],
-						name, &lock)) {
-			wake_unlock(lock);
-			list_move_tail(&lock->link, &ignore_active_locks);
-		} else {
-			if (find_lock(&inactive_locks, name, &lock))
-				list_move_tail(&lock->link,
-						&ignore_inactive_locks);
-			else
-				return -EINVAL;
-		}
-	} else {
-		if (find_lock(&ignore_active_locks, name, &lock)) {
-			list_move(&lock->link, &inactive_locks);
-			wake_lock(lock);
-		} else {
-			if (find_lock(&ignore_inactive_locks, name, &lock))
-				list_move(&lock->link, &inactive_locks);
-			else
-				return -EINVAL;
-		}
-	}
-
-	return n;
-}
-
-static struct kobj_attribute wakelock_attribute =
-	__ATTR(ignore_wakelock, 0644,
-			ignore_wakelock_show, ignore_wakelock_store);
-
-static struct attribute *attrs[] = {
-	&wakelock_attribute.attr,
-	NULL,	/* need to NULL terminate the list of attributes */
-};
-
-static struct attribute_group attr_group = {
-	.attrs = attrs,
-};
-
-static struct kobject *wakelock_kobj;
-
-#endif /* CONFIG_ARCH_R8A7373 */
-
 int get_expired_time(struct wake_lock *lock, ktime_t *expire_time)
 {
 	struct timespec ts;
@@ -569,10 +443,6 @@ static void wake_lock_internal(
 	long expire_in;
 
 	spin_lock_irqsave(&list_lock, irqflags);
-#ifdef CONFIG_ARCH_R8A7373
-	if (check_ignore_locks(lock, !has_timeout))
-		goto check_ignore_wake_lock_out;
-#endif /* CONFIG_ARCH_R8A7373 */
 	type = lock->flags & WAKE_LOCK_TYPE_MASK;
 	BUG_ON(type >= WAKE_LOCK_TYPE_COUNT);
 	BUG_ON(!(lock->flags & WAKE_LOCK_INITIALIZED));
@@ -637,9 +507,6 @@ static void wake_lock_internal(
 				queue_work(suspend_work_queue, &suspend_work);
 		}
 	}
-#ifdef CONFIG_ARCH_R8A7373
-check_ignore_wake_lock_out:
-#endif /* CONFIG_ARCH_R8A7373 */
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
 
@@ -660,10 +527,6 @@ void wake_unlock(struct wake_lock *lock)
 	int type;
 	unsigned long irqflags;
 	spin_lock_irqsave(&list_lock, irqflags);
-#ifdef CONFIG_ARCH_R8A7373
-	if (check_ignore_locks(lock, 0))
-		goto check_ignore_wake_unlock_out;
-#endif /* CONFIG_ARCH_R8A7373 */
 	type = lock->flags & WAKE_LOCK_TYPE_MASK;
 #ifdef CONFIG_WAKELOCK_STAT
 	wake_unlock_stat_locked(lock, 0);
@@ -696,9 +559,6 @@ void wake_unlock(struct wake_lock *lock)
 #endif
 		}
 	}
-#ifdef CONFIG_ARCH_R8A7373
-check_ignore_wake_unlock_out:
-#endif /* CONFIG_ARCH_R8A7373 */
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
 EXPORT_SYMBOL(wake_unlock);
@@ -761,25 +621,8 @@ static int __init wakelocks_init(void)
 	proc_create("wakelocks", S_IRUGO, NULL, &wakelock_stats_fops);
 #endif
 
-#ifdef CONFIG_ARCH_R8A7373
-	wakelock_kobj = kobject_create_and_add("wakelock", kernel_kobj);
-	if (!wakelock_kobj) {
-		ret = -ENOMEM;
-		goto err_kobject_create_and_add;
-	}
-	ret = sysfs_create_group(wakelock_kobj, &attr_group);
-	if (ret)
-		goto err_sysfs_create_group;
-#endif /* CONFIG_ARCH_R8A7373 */
-
 	return 0;
 
-#ifdef CONFIG_ARCH_R8A7373
-err_sysfs_create_group:
-	kobject_put(wakelock_kobj);
-err_kobject_create_and_add:
-	destroy_workqueue(suspend_work_queue);
-#endif /* CONFIG_ARCH_R8A7373 */
 err_suspend_work_queue:
 	platform_driver_unregister(&power_driver);
 err_platform_driver_register:
@@ -808,9 +651,6 @@ static void  __exit wakelocks_exit(void)
 #ifdef CONFIG_WAKELOCK_STAT
 	wake_lock_destroy(&deleted_wake_locks);
 #endif
-#ifdef CONFIG_ARCH_R8A7373
-	kobject_put(wakelock_kobj);
-#endif /* CONFIG_ARCH_R8A7373 */
 }
 
 core_initcall(wakelocks_init);
