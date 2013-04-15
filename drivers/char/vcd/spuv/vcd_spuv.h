@@ -234,6 +234,7 @@ struct vcd_spuv_info {
 };
 
 struct vcd_spuv_set_binary_info {
+	unsigned int binary_kind;
 	unsigned int top_logical_address;
 	unsigned int top_physical_address;
 	unsigned int write_address;

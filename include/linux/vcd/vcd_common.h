@@ -937,6 +937,14 @@ enum VCD_SYSTEM_ERROR_TYPE {
 	VCD_WD_TIMEOUT,
 };
 
+enum VCD_BINARY_KIND {
+	VCD_BINARY_SPUV = 0,
+	VCD_BINARY_PCM,
+	VCD_BINARY_DIAMOND,
+
+};
+
+
 /*
  * structure declaration
  */

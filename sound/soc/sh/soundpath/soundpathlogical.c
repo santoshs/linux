@@ -4843,12 +4843,6 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 	else if (SNDP_EXTDEV_STOP == dev_chg)
 		g_pt_start = SNDP_PT_NOT_STARTED;
 
-	if ((!g_sndp_extdev_callback) ||
-	    (!(g_sndp_extdev_callback->set_state))) {
-		sndp_log_debug("Callback function address is NULL\n");
-		return -ENODEV;
-	}
-
 	if (SNDP_EXTDEV_START == dev_chg) {
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* CLKGEN master setting */
@@ -4861,14 +4855,8 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 		sndp_log_info("call extdev set_state\n");
-		iRet = g_sndp_extdev_callback->set_state(
-						mode,
-						device,
-						dev_chg);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set_state error [%d]\n", iRet);
-			return iRet;
-		}
+
+		sndp_extdev_set_state(mode, device, dev_chg);
 
 		/* start SCUW */
 		iRet = scuw_start(SNDP_PLAYBACK_EARPIECE_INCALL,
@@ -4906,12 +4894,8 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 		clkgen_stop();
 
 		sndp_log_info("call extdev set_state\n");
-		iRet = g_sndp_extdev_callback->set_state(
-						mode,
-						device,
-						dev_chg);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set_state error [%d]\n", iRet);
+
+		sndp_extdev_set_state(mode, device, dev_chg);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* CLKGEN master process */

@@ -100,6 +100,10 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec;
 	struct snd_card *card;
+	u8 ep_ctrl;
+	u8 sp_ctrl;
+	u8 hp_r_ctrl;
+	u8 hp_l_ctrl;
 
 	if (!kcontrol) {
 		sndp_log_err("kcontrol is NULL\n");
@@ -110,7 +114,41 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 
 	sndp_log_info("start\n");
 
+	/* Backup register */
+	sp_ctrl = snd_soc_read(codec, D2153_SP_CTRL);
+	ep_ctrl = snd_soc_read(codec, D2153_EP_CTRL);
+	hp_l_ctrl = snd_soc_read(codec, D2153_HP_L_CTRL);
+	hp_r_ctrl = snd_soc_read(codec, D2153_HP_R_CTRL);
+
+	/* Mute AMP*/
+	if (!(sp_ctrl & D2153_SP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
+	if (!(ep_ctrl & D2153_EP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
+	if (!(hp_l_ctrl & D2153_HP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+	if (!(hp_r_ctrl & D2153_HP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+
 	fsi_d2153_set_active(codec, D2153_PLAYBACK_STREAM_NAME, status);
+
+	/* Un-mute AMP */
+	if (!(sp_ctrl & D2153_SP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, 0);
+	if (!(ep_ctrl & D2153_EP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, 0);
+	if (!(hp_l_ctrl & D2153_HP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
+	if (!(hp_r_ctrl & D2153_HP_AMP_MUTE_EN))
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
 
 	sndp_log_info("end\n");
 	return;
