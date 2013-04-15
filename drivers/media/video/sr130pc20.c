@@ -120,7 +120,9 @@ static inline int sr130pc20_write(struct i2c_client *client,
 	}
 
 	while (retry_count--) {
-		*(unsigned long *)buf = cpu_to_be16(packet);
+		/**(unsigned short *)buf = cpu_to_be16(packet);*/
+		buf[0] = (unsigned char)(packet >> 8) & 0xFF;
+		buf[1] = (unsigned char)(packet >> 0);
 		err = i2c_transfer(client->adapter, &msg, 1);
 		if (likely(err == 1))
 			break;
@@ -283,8 +285,24 @@ static int SR130PC20_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int SR130PC20_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_SR130PC20;
-	id->revision	= 0;
+	/* check i2c device */
+	unsigned char rcv_buf[1];
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+
+	sr130pc20_write(client, 0x0300); /* Page 0 */
+	ret = sr130pc20_read(client, 0x04, rcv_buf);
+	/* device id = P0(0x00) address 0x04 = 0xC0 */
+
+	if (0 > ret) {
+		dev_err(&client->dev, "%s :Read Error(%d)\n", __func__, ret);
+		id->ident = V4L2_IDENT_NONE;
+	} else {
+		dev_dbg(&client->dev, "%s :SR130PC20OK(%02x)\n", __func__,
+			rcv_buf[0]);
+		id->ident = V4L2_IDENT_SR130PC20;
+	}
+	id->revision = 0;
 
 	return 0;
 }
@@ -298,6 +316,7 @@ static int SR130PC20_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 #else
 		ctrl->value = 0;
 #endif
+		/* no break */
 	default:
 		return 0;
 	}
@@ -399,26 +418,15 @@ static int SR130PC20_probe(struct i2c_client *client,
 	priv->height	= 480;
 	priv->fmt	= &SR130PC20_colour_fmts[0];
 
-
-	{
-		/* check i2c device */
-		unsigned char rcv_buf[1];
-
-		sr130pc20_write(client, 0x0300); /* Page 0 */
-		ret = sr130pc20_read(client, 0x04, rcv_buf);
-			/* device id = P0(0x00) address 0x04 = 0xC0 */
-
-		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n",
-					__func__, ret);
-		} else {
-			printk(KERN_ALERT "%s :SR130PC20OK(%02x)\n",
-					__func__, rcv_buf[0]);
-			ret = 0;
-		}
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev, "v4l2_ctrl_handler_setup Error(%d)\n",
+			ret);
+		kfree(priv);
+		return ret;
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int SR130PC20_remove(struct i2c_client *client)

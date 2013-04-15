@@ -72,11 +72,11 @@
 #define	fsSaveCommonRegister		0x0 /* Save common register */
 #define	fsRestoreCommonRegister		0x100 /* Restore common register */
 #define	fsSysPowerDown				0x140 /* power down */
-#define	fsSysPowerUp				0x200 /* power up */
+#define	fsSysPowerUp				0x140 /* power up */
 #define	fsSetClockSystemSuspend		0x120 /* Set clock */
 
 #define	fsSystemSuspendCPU0PA	0x80 /* CPU0: Suspend with MMU off */
-#define	fsCoreStandbyPA		0x1E0 /* CoreStandby function with MMU off */
+#define	fsCoreStandbyPA		0x1A0 /* CoreStandby function with MMU off */
 #define	fsCoreStandbyPA2	0x1A0 /* CoreStandby function with MMU off */
 #define	fsPM_Spin_Lock		0x1A0 /* PM_Spin_Lock */
 #define	fsPM_Spin_Unlock	0xA0 /* PM_Spin_Unlock */
@@ -85,8 +85,6 @@
 
 #define	fscorestandby_down_status	0x60 /* Status for corestandby down */
 #define	fscorestandby_up_status	0x60 /* Status for corestandby up */
-#define	fsxtal_though			0x20 /* XTAL though mode setting */
-#define	fsxtal_though_restore	0x0 /* XTAL though mode restore setting  */
 #define fsMemoryLogPm				0x060 /* memory log for PM  */
 
 /*------------------------------*/
@@ -131,17 +129,11 @@
 #define		hocorestandby_up_status					\
 (hocorestandby_down_status + fscorestandby_down_status)
 
-#define		hoxtal_though					\
-(hocorestandby_up_status + fscorestandby_up_status)
-
-#define		hoxtal_though_restore			\
-(hoxtal_though + fsxtal_though)
-
 /* For Suspend*/
 /* Offset to the power down function */
 /* Offset to the System Suspend for CPU 0 function with MMU off */
 #define		hoSystemSuspendCPU0PA			\
-(hoxtal_though_restore + fsxtal_though_restore)
+(hocorestandby_up_status + fscorestandby_up_status)
 #define		hoSysPowerDown					\
 (hoSystemSuspendCPU0PA + fsSystemSuspendCPU0PA)
 /* Offset to the power up function */
@@ -234,10 +226,6 @@
 (secramBase + hocorestandby_down_status)
 #define	secramcorestandby_up_status					\
 (secramBase + hocorestandby_up_status)
-#define		secramxtal_though					\
-(secramBase + hoxtal_though)
-#define	secramxtal_though_restore				\
-(secramBase + hoxtal_though_restore)
 
 /* Address of memory log pm function */
 #define		secramMemoryLogPm					\
@@ -316,12 +304,6 @@
 /* corestandby up status */
 #define	secramcorestandby_up_statusPhys					\
 (secramBasePhys + hocorestandby_up_status)
-/* xtal though */
-#define		secramxtal_thoughPhys					\
-(secramBasePhys + hoxtal_though)
-/* xtal though restore */
-#define	secramxtal_though_restorePhys				\
-(secramBasePhys + hoxtal_though_restore)
 
 /* Address of memory log pm function */
 #define		secramMemoryLogPmPhys				\
