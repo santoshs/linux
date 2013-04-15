@@ -42,7 +42,6 @@
 #include "pmRegisterDef.h"
 
 #define ZB3_CLK_CORESTANDBY2	(130000)
-#define ZB3_CLK_EARLY_SUSPEND	(97500)
 
 #ifndef CONFIG_PM_HAS_SECURE
 #define FIQ_ENABLE()	local_fiq_enable()
@@ -516,24 +515,18 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 			if (chip_rev > ES_REV_2_1) {
 				freqD_save = suspend_ZB3_backup();
 				if (freqD_save > 0) {
-					if (is_cpufreq_clk_state_earlysuspend()) {
-						clocks_ret =
-						cpg_set_sbsc_freq(
-							ZB3_CLK_EARLY_SUSPEND);
-					} else {
-						clocks_ret =
-						cpg_set_sbsc_freq(
-							ZB3_CLK_CORESTANDBY2);
-					}
-
+					clocks_ret =
+					cpg_set_sbsc_freq(ZB3_CLK_CORESTANDBY2);
 					if (clocks_ret < 0) {
-						printk(KERN_INFO
-							"[%s]: set ZB3 clocks FAILED\n",
+						printk
+						(KERN_INFO
+						"[%s]: set ZB3 clocks FAILED\n",
 							__func__);
 					}
 				} else {
-					printk(KERN_INFO
-						"[%s]: Backup ZB3 clocks FAILED\n",
+					printk
+					(KERN_INFO
+					"[%s]: Backup ZB3 clocks FAILED\n",
 						__func__);
 					clocks_ret = freqD_save;
 				}

@@ -446,7 +446,6 @@ static inline void samplrate_downfact_get(unsigned int *sampl_rate,
 
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
-extern int is_cpufreq_clk_state_earlysuspend(void);
 extern void start_cpufreq(void);
 extern int stop_cpufreq(void);
 extern bool cpufreq_compulsive_exec_get(void);
