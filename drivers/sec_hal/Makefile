@@ -46,3 +46,4 @@ ifeq ($(CONFIG_ARM_SEC_HAL_TOC),y) # toc read feature
 $(NAME)-y                 += toc/src/sec_hal_toc.o
 endif
 $(NAME)-y                 += toc/src/sec_hal_toc.o
+subdir-ccflags-y += -Werror

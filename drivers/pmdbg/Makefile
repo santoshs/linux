@@ -10,3 +10,4 @@ obj-$(CONFIG_ARCH_R8A7373)		+= pmdbg_idle.o
 obj-$(CONFIG_ARCH_R8A7373)		+= pmdbg_suspend.o
 obj-$(CONFIG_ARCH_R8A7373)		+= pmdbg_mem.o
 obj-$(CONFIG_ARCH_R8A7373)		+= pmdbg_dbgpin.o
+subdir-ccflags-y += -Werror

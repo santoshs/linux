@@ -12,3 +12,4 @@ ifeq ($(CONFIG_VIBRATOR_ISA1000A),y)
 obj-y			+= vibrator.o
 endif
 vibrator-objs				+= tspdrv.o
+subdir-ccflags-y += -Werror

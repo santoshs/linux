@@ -63,4 +63,4 @@ obj-$(CONFIG_MAX8997_MUIC)	+= max8997-muic.o
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-$(CONFIG_RMU2_CMT15)	+= rmu2_cmt15.o
-
+subdir-ccflags-y += -Werror
