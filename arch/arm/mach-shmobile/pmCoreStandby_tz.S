@@ -457,13 +457,13 @@ ENTRY(corestandby)
 	MOV		pc, r4 /* Call save_arm_register() */
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
+#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
@@ -473,13 +473,30 @@ ENTRY(corestandby)
 	LDR		r6, =CPUSTATUS_SHUTDOWN
 	STR		r6, [r5]
 	DSB
+#endif
+
+	CMP		r0, #0x0
+	LDREQ	r5, =ram0Cpu1Status
+	LDRNE	r5, =ram0Cpu0Status
+	LDR		r4, [r5]
+	/* r7=0x0: legacy mode */
+	/* r7=0x4: Xtal though (PLL0 Stop) */
+	LDR		r5, =CPG_LPCKCR
+	LDR		r7, =CPG_LPCKCR_LEGACY
+	CMP		r4, #CPUSTATUS_WFI
+	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
+CORESTANDBY_PA_XTAL_THOUGH_SET:
+	LDR		r4, =ram0xtal_though
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc,r4 /* Call xtal_though() */
+	NOP
 
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Unlock
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
-#endif
 
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
@@ -531,16 +548,27 @@ ENTRY(corestandby)
 	STR		r0, [r5] /* Save return value */
 	DSB
 
+	CMP		r0, #SEC_HAL_RES_FAIL
+	BEQ		CORESTANDBY_RESUME_ERROR
+
 CORESTANDBY_WAKEUP:
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_LockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
+	/* r7=0x0: legacy mode */
+	LDR		r5, =CPG_LPCKCRPhys
+	LDR		r7, =CPG_LPCKCR_LEGACY
+	LDR		r4, =ram0xtal_thoughPhys
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc,r4 /* Call xtal_though() */
+	NOP
+
+#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
@@ -550,13 +578,17 @@ CORESTANDBY_WAKEUP:
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
+#endif
 
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_UnlockPhys
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
-#endif
+
+	/* Invalidate L1 D-cache */
+
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -576,6 +608,24 @@ CORESTANDBY_WAKEUP:
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
 
+CORESTANDBY_RESUME_ERROR:
+	NOP
+
+	WFI /* For power consumption reduction */
+	NOP
+
+	/*------------------------------*/
+	/* Enable D-Cache					*/
+	/*------------------------------*/
+	MRC		p15, 0, r4, c1, c0, 0 /* Read Control register */
+	ORR		r4, r4, #0x4 /* Set C bit	*/
+	/* Write Control register (Enable D-Cache) */
+	MCR	p15, 0, r4, c1, c0, 0
+	ISB
+
+	B	CORESTANDBY_FINISH
+
+
 CORESTANDBY_RESTORE:
 	NOP
 
@@ -591,6 +641,9 @@ CORESTANDBY_RESTORE:
 	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_va */
+	NOP
+
+CORESTANDBY_FINISH:
 	NOP
 
 	LDR		r0, =PM_PM_ID_CORESTANDBY_OUT
@@ -697,6 +750,10 @@ SYSTEMSUSPEND_RESTORE_CPU0:
 	LDR		r9, =ram0SecHalReturnCpu0
 	LDR		r0, [r9]
 
+	CMP 	r0, #SEC_HAL_RES_OK
+	BNE		CPU0_SEC_HAL_NOT_OK
+
+CPU0_SEC_HAL_NOT_OK:
 	/*----------------------------------*/
 	/* Restore ARM registers			*/
 	/*----------------------------------*/
@@ -778,7 +835,7 @@ CPU1_SYSTEMSUSPEND:
 	CMP		r5, #0x1
 	LDREQ	r0, =COMA_MODE_SUSPEND
 	LDRNE	r0, =COMA_MODE_HOTPLUG
-	LDR		r1, =WAKEUP_ADDRESS_HOTPLUG
+	LDR		r1, =0xE63A2000
 	LDR 	r2, =0x0
 	LDR 	r3, =0x0
 
@@ -796,6 +853,9 @@ CPU1_SYSTEMSUSPEND:
 	 */
 	LDR		r9, =ram0SecHalReturnCpu1
 	STR		r0, [r9]
+
+	CMP 	r0, #SEC_HAL_RES_OK
+	BNE		CPU1_SEC_HAL_NOT_OK
 
 SECURE_SUSPEND_WAKEUP_CPU1:
 
@@ -816,6 +876,12 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call PM_Spin_UnLock() */
 	NOP
+
+	/*------------------------------------------*/
+	/* Invalidate L1 D-cache					*/
+	/*------------------------------------------*/
+
+	/* L1_DataCacheInvalidateSW	*/ /* L1 D-Cache Invalidate	*/
 
 	/*--------------------------------------------------------------*/
 	/* Restore ARM registers (enable MMU) */
@@ -1369,8 +1435,10 @@ SKIP_TURN_OFF_RWDT:
 	/* Call sec_hal_pm_coma_entry				*/
 	/*------------------------------------------*/
 	LDR		r0, =COMA_MODE_SUSPEND
-	LDR		r1, =WAKEUP_ADDRESS_SYSTEMSUSPEND
+	LDR		r1, =0xE63A2000
+	/*LDR 	r2, =0x1*/
 	LDR 	r2, =0x0
+	/*LDR 	r3, =0x1B000000*/
 	LDR 	r3, =0x0
 
 	LDR		r5, =ram0SecHalCommaEntry
@@ -1479,6 +1547,12 @@ ENTRY(sys_powerup)
 #endif /*__EXTAL1_INFO__*/
 
 	/*----------------------------------*/
+	/* Invalidate L1 D-cache			*/
+	/*----------------------------------*/
+
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
+
+	/*----------------------------------*/
 	/* Turn on Watchdog timer			*/
 	/*----------------------------------*/
 	LDR		r6, =ram0RwdtStatusPhys
@@ -1556,10 +1630,11 @@ ENDPROC(sys_powerup)
 ENTRY(start_wfi)
 	STMFD	sp!, {r4-r11, lr}
 
-#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock */
 	BL PM_Spin_Lock
 	NOP
+
+#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
@@ -1569,19 +1644,25 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_WFI
 	STR		r6, [r5]
 	DSB
+#endif
+	/* r7=0x0: legacy mode */
+	LDR		r5, =CPG_LPCKCR
+	LDR		r7, =CPG_LPCKCR_LEGACY
+	MOV		lr, pc /* lr: Return address */
+	B	xtal_though
+	NOP
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
-#endif
 
 	WFI		/* Transition to the WFI standby state */
 
-#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock						*/
 	BL PM_Spin_Lock
 	NOP
 
+#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	/* r0: CPU number						*/
 	CMP		r0, #0x0
@@ -1590,15 +1671,120 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
+#endif
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
-#endif
 
 	LDMFD	sp!, {r4-r11, pc}
 .pool
 ENDPROC(start_wfi)
+
+/**********************************************************/
+/* Transition to WFI2. */
+/* This function is running on SDRAM */
+/* Enter with: */
+/* 	lr = Address of return point */
+/********************************************************/
+.align	5
+ENTRY(start_wfi2)
+	STMFD	sp!, {r4-r11, lr}
+
+	/* Get PM SpinLock						*/
+	BL PM_Spin_Lock
+	NOP
+
+#ifdef CONFIG_PM_SMP
+	/* Update current cpu status			*/
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
+	CMP		r0, #0x0
+	LDREQ	r5, =ram0Cpu0Status
+	LDRNE	r5, =ram0Cpu1Status
+	LDR		r6, =CPUSTATUS_WFI2
+	STR		r6, [r5]
+	DSB
+
+	/* r7=0x0: legacy mode */
+	/* r7=0x4: Xtal though (PLL0 Stop) */
+	LDR		r7, =CPG_LPCKCR_LEGACY
+	CMP		r0, #0x0
+	LDREQ	r5, =ram0Cpu1Status
+	LDRNE	r5, =ram0Cpu0Status
+	LDR		r4, [r5]
+
+	CMP		r4, #CPUSTATUS_WFI
+	BLE		START_WFI2_XTAL_THOUGH_SET
+
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
+#else
+/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
+	LDR		r7, =CPG_LPCKCR_LEGACY
+#endif
+START_WFI2_XTAL_THOUGH_SET:
+	LDR		r5, =CPG_LPCKCR
+	MOV		lr, pc /* lr: Return address */
+	B	xtal_though
+	NOP
+
+	/* Release PM SpinLock					*/
+	BL PM_Spin_Unlock
+	NOP
+
+	WFI		/* Transition to the WFI standby state */
+
+	/* Get PM SpinLock						*/
+	BL PM_Spin_Lock
+	NOP
+
+	/* r7=0x0: legacy mode */
+	LDR		r5, =CPG_LPCKCR
+	LDR		r7, =CPG_LPCKCR_LEGACY
+	MOV		lr, pc /* lr: Return address */
+	B	xtal_though
+	NOP
+
+#ifdef CONFIG_PM_SMP
+	/* Update current cpu status			*/
+	/* r0: CPU number						*/
+	CMP		r0, #0x0
+	LDREQ	r5, =ram0Cpu0Status
+	LDRNE	r5, =ram0Cpu1Status
+	LDR		r6, =CPUSTATUS_RUN
+	STR		r6, [r5]
+	DSB
+#endif
+
+	/* Release PM SpinLock					*/
+	BL PM_Spin_Unlock
+	NOP
+
+	LDMFD	sp!, {r4-r11, pc}
+.pool
+ENDPROC(start_wfi2)
+
+/*********************************************/
+/* r5: Address of XTAL though mode register */
+/* r7: */
+/*		0x2: Xtal though (PLL0 Oscillated)  */
+/*		0x4: Xtal though (PLL0 Stop)  */
+/**********************************************/
+.align	5
+ENTRY(xtal_though)
+	LDR		r6, [r5]
+#ifdef CONFIG_PM_SMP
+	CMP		r6, r7
+	BEQ		1f /* Race condition */
+#endif
+	MOV		r6, r7
+	STR		r6, [r5]
+	DSB
+1:
+	MOV		pc, lr /* return */
+
+.pool
+ENDPROC(xtal_though)
 
 /********************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -1720,6 +1906,7 @@ ENTRY(corestandby_2)
 	DSB
 
 	LDR		r0, =COMA_MODE_CORE_STANDBY_2 /* mode */
+	/* LDR		r0, =COMA_MODE_CORE_STANDBY /* mode temp., fix after */
 	LDR		r1, =WAKEUP_ADDRESS_CORESTANDBY
 	LDR		r2, =0x0
 	LDR		r3, =0x0
@@ -1735,6 +1922,9 @@ ENTRY(corestandby_2)
 	STR		r0, [r5] /* Save return value */
 	DSB
 
+	CMP		r0, #SEC_HAL_RES_FAIL
+	BEQ		CORESTANDBY2_RESUME_ERROR
+
 CORESTANDBY2_WAKEUP:
 	NOP
 
@@ -1745,6 +1935,10 @@ CORESTANDBY2_WAKEUP:
 	STR		r6, [r5]
 	DSB
 #endif
+
+	/* Invalidate L1 D-cache */
+
+	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -1759,6 +1953,24 @@ CORESTANDBY2_WAKEUP:
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
 
+CORESTANDBY2_RESUME_ERROR:
+	NOP
+
+	WFI /* For power consumption reduction */
+	NOP
+
+	/*------------------------------*/
+	/* Enable D-Cache					*/
+	/*------------------------------*/
+	MRC		p15, 0, r4, c1, c0, 0 /* Read Control register */
+	ORR		r4, r4, #0x4 /* Set C bit	*/
+	/* Write Control register (Enable D-Cache) */
+	MCR	p15, 0, r4, c1, c0, 0
+	ISB
+
+	B	CORESTANDBY2_FINISH
+
+
 CORESTANDBY2_RESTORE:
 	NOP
 
@@ -1770,6 +1982,9 @@ CORESTANDBY2_RESTORE:
 	LDR		r4, =ram0RestoreArmRegisterVA
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_va */
+	NOP
+
+CORESTANDBY2_FINISH:
 	NOP
 
 	LDR		r0, =PM_PM_ID_CORESTANDBY2_OUT
