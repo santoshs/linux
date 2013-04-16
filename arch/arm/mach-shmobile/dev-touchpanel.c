@@ -15,21 +15,21 @@
 /* Touch Panel auto detection for Garda_Kyle (Melfas and Imagis) */
 static struct i2c_client *tsp_detector_i2c_client;
 
-extern struct i2c_board_info i2c4_devices_melfas[] = {
+struct i2c_board_info i2c4_devices_melfas[] = {
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
 		.irq = irqpin2irq(32),
 	},
 };
 
-extern struct i2c_board_info i2c4_devices_imagis[] = {
+struct i2c_board_info i2c4_devices_imagis[] = {
 	{
 		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
 		.irq = irqpin2irq(32),
 	},
 };
 
-extern struct i2c_board_info i2c4_devices_zinitix[] = {
+struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
 		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
 		.irq = irqpin2irq(32),
@@ -37,16 +37,16 @@ extern struct i2c_board_info i2c4_devices_zinitix[] = {
 };
 
 static int __devinit tsp_detector_probe(struct i2c_client *client,
-		const struct i2c_device_id * id)
+		const struct i2c_device_id *id)
 {
-	int ret=0;
+	int ret = 0;
 	struct i2c_adapter *adap = client->adapter;
 	struct regulator *touch_regulator;
 	unsigned short addr_list_melfas[] = { 0x48, I2C_CLIENT_END };
 	unsigned short addr_list_zinitix[] = { 0x40>>1, I2C_CLIENT_END };
 
 	touch_regulator = regulator_get(NULL, "vtsp_3v");
-	if(IS_ERR(touch_regulator)){
+	if (IS_ERR(touch_regulator)) {
 		printk(KERN_ERR "failed to get regulator for Touch Panel");
 		return -ENODEV;
 	}
@@ -54,18 +54,22 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	regulator_enable(touch_regulator);
 	msleep(20);
 
-	if ((tsp_detector_i2c_client = i2c_new_probed_device(adap,
+	tsp_detector_i2c_client = i2c_new_probed_device(adap,
 						&i2c4_devices_melfas[0],
-						addr_list_melfas, NULL))){
+						addr_list_melfas, NULL);
+	if (tsp_detector_i2c_client) {
 		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
-	} else if((tsp_detector_i2c_client = i2c_new_probed_device(adap,
-						&i2c4_devices_zinitix[0],
-						addr_list_zinitix, NULL))){
-		printk(KERN_INFO "Touch Panel: Zinitix BT432\n");
 	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap,
+		tsp_detector_i2c_client = i2c_new_probed_device(adap,
+						&i2c4_devices_zinitix[0],
+						addr_list_zinitix, NULL) ;
+		if (tsp_detector_i2c_client) {
+			printk(KERN_INFO "Touch Panel: Zinitix BT432\n");
+		} else {
+			tsp_detector_i2c_client = i2c_new_device(adap,
 						&i2c4_devices_imagis[0]);
-		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
+			printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
+		}
 	}
 
 	regulator_disable(touch_regulator);
@@ -85,11 +89,11 @@ static struct i2c_device_id tsp_detector_idtable[] = {
 	{},
 };
 
-extern struct i2c_driver tsp_detector_driver = {
+struct i2c_driver tsp_detector_driver = {
 	.driver = {
 		.name = "tsp_detector",
 	},
-	.probe 		= tsp_detector_probe,
-	.remove 	= tsp_detector_remove,
-	.id_table 	= tsp_detector_idtable,
+	.probe	= tsp_detector_probe,
+	.remove	= tsp_detector_remove,
+	.id_table	= tsp_detector_idtable,
 };
