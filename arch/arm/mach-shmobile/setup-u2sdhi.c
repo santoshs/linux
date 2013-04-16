@@ -27,12 +27,10 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		if (IS_ERR(regulator))
 			return;
 
-		if (!(regulator_is_enabled(regulator))) {
-			ret = regulator_enable(regulator);
-			if (ret)
-				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-							__func__ , ret);
-		}
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+						__func__ , ret);
 
 		regulator_put(regulator);
 
@@ -40,12 +38,10 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		if (IS_ERR(regulator))
 			return;
 
-		if (!(regulator_is_enabled(regulator))) {
-			ret = regulator_enable(regulator);
-			if (ret)
-				printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
-							__func__ , ret);
-		}
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+						__func__ , ret);
 
 		regulator_put(regulator);
 
