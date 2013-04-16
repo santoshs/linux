@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <linux/device.h>
 #include <linux/mfis.h>
+#include <linux/jiffies.h>
 
 #include <screen_display.h>
 
@@ -87,7 +88,7 @@ void iccom_rtctl_standby_ng(void)
 {
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
-	down(&semaphore_count_standby_ng);
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	count_standby_ng++;
 	MSG_MED("[ICCOMK]   |[%s] : count_standby_ng = %d\n",
 			__func__, count_standby_ng);
@@ -104,7 +105,7 @@ void iccom_rtctl_standby_ng_cancel(void)
 {
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
-	down(&semaphore_count_standby_ng);
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	count_standby_ng--;
 	MSG_MED("[ICCOMK]   |[%s] : count_standby_ng = %d\n",
 			 __func__, count_standby_ng);
@@ -128,7 +129,7 @@ int iccom_rtctl_set_lcd_status(
 ){
 	MSG_HIGH("[ICCOMK]IN |[%s] : lcd_status = (%d)\n", __func__, lcd_status);
 
-	down(&semaphore_count_standby_ng);
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	if (status_lcd_now == lcd_status) {
 		up(&semaphore_count_standby_ng);
 		MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__, SMAP_OK);
@@ -151,7 +152,8 @@ int iccom_rtctl_watch_rt_state(void)
 	int ret_code = 0;
 
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
-	down(&semaphore_standby_flag);
+
+	ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 	if (standby_flag == 1) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__,
 				SMAP_LIB_STCON_BUSY);
@@ -165,7 +167,7 @@ int iccom_rtctl_watch_rt_state(void)
 	up(&semaphore_standby_flag);
 
 	if (RTCTL_STS_STANDBY  == status_rt_now) {
-		down(&semaphore_standby_flag);
+		ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 		standby_flag = 0;
 		MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 				(u32)standby_flag);
@@ -177,7 +179,8 @@ int iccom_rtctl_watch_rt_state(void)
 	ret_code = rtctl_change_rt_state_standby();
 	MSG_MED("[ICCOMK]   |[%s] : rtctl_change_rt_state_standby = %d\n",
 		 __func__, ret_code);
-	down(&semaphore_standby_flag);
+
+	ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 	standby_flag = 0;
 	MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 				(u32)standby_flag);
@@ -200,7 +203,7 @@ int iccom_rtctl_change_rt_state_active(
 
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 
-	down(&semaphore_count_standby_ng);
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	if (RTCTL_STS_RTBOOT == status_rt_now) {
 		up(&semaphore_count_standby_ng);
 		MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__,
@@ -220,7 +223,7 @@ int iccom_rtctl_change_rt_state_active(
 	}
 	up(&semaphore_count_standby_ng);
 
-	down(&semaphore_standby_flag);
+	ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 	if (standby_flag == 1) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] ret = (%d)\n",
 			 __func__, SMAP_LIB_STCON_BUSY);
@@ -234,7 +237,7 @@ int iccom_rtctl_change_rt_state_active(
 	up(&semaphore_standby_flag);
 
 	if (RTCTL_STS_ACTIVE == status_rt_now) {
-		down(&semaphore_standby_flag);
+		ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 		standby_flag = 0;
 		MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 					(u32)standby_flag);
@@ -245,7 +248,7 @@ int iccom_rtctl_change_rt_state_active(
 
 	ret_code = rtctl_change_rt_state_active();
 
-	down(&semaphore_count_standby_ng);
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	MSG_MED("[ICCOMK]   |[%s] : status_lcd_now = %d\n",
 			__func__, status_lcd_now);
 	if (status_lcd_now == ICCOM_DRV_STATE_LCD_REFRESH) {
@@ -262,7 +265,7 @@ int iccom_rtctl_change_rt_state_active(
 		up(&semaphore_count_standby_ng);
 	}
 
-	down(&semaphore_standby_flag);
+	ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 	standby_flag = 0;
 	MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 					(u32)standby_flag);
@@ -779,7 +782,8 @@ void iccom_rtctl_set_rt_state(void)
 {
 	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
-	down(&semaphore_count_standby_ng);
+
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 
 	switch (status_rt_now) {
 	case RTCTL_STS_CHANGING_ACTIVE:
@@ -911,7 +915,8 @@ bool rtctl_check_standby_enable(void)
 	ret = false;
 
 	MSG_MED("[ICCOMK]   |[%s] : count_standby_ng = %d\n", __func__, ret);
-	down(&semaphore_count_standby_ng);
+
+	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	if (0 == count_standby_ng) {
 		ret = true;
 	} else {

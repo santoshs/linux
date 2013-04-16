@@ -2,7 +2,7 @@
  * iccom_drv_private.h
  *     Inter Core Communication driver private header file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -59,6 +59,13 @@
 #define ICCOM_ASYNC_RECV_CANCEL     1           /* asynchronous receive status */
 
 #define ICCOM_SYNC_TIMEOUT          40000       /* timeout for sync(msec) */
+
+#define	ICCOM_DOWN_TIMEOUT(sem)						  \
+{									  \
+	if (0 != down_timeout(sem, msecs_to_jiffies(ICCOM_SYNC_TIMEOUT))) \
+		panic("[%s][%d] : down_timeout TIMEOUT Error!\n",	  \
+		__func__, __LINE__);					  \
+}
 
 /*** struct ***/
 /* callback information */
