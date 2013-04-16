@@ -48,7 +48,7 @@
 #define SCREEN1_STRIDE		(0)
 #define SCREEN1_MODE		(0)
 
-#define PRIMARY_COPY_ADDR	(SDRAM_SGX_COMPOSITION_BUFFER_START_ADDR)
+#define PRIMARY_COPY_ADDR	(SDRAM_TUNE_UP_VALUE_START_ADDR)
 
 struct screen_info {
 	unsigned short	height;
