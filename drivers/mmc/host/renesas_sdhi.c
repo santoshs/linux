@@ -362,19 +362,24 @@ static void renesas_sdhi_set_clock(
 static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
-
+	int ret = 0;
 	switch (power) {
 	case 1:
 		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_ON);
 		if (host->dynamic_clock) {
-			pm_runtime_get_sync(&host->pdev->dev);
+			ret = pm_runtime_get_sync(&host->pdev->dev);
+			if (0 > ret)
+				return -1;
 			sdhi_reset(host);
 		}
 		break;
 	default:
-		if (host->dynamic_clock)
-			pm_runtime_put_sync(&host->pdev->dev);
+		if (host->dynamic_clock) {
+			ret = pm_runtime_put_sync(&host->pdev->dev);
+			if (0 > ret)
+				return -1;
+		}
 		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_OFF);
 		break;
@@ -1398,7 +1403,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	int i, irq;
-
+	int ret = 0;
 	mmc_remove_host(host->mmc);
 
 	cancel_delayed_work_sync(&host->detect_wq);
@@ -1420,7 +1425,9 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		pm_runtime_put_sync(&pdev->dev);
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (0 > ret)
+		return -1;
 	}
 
 	mmc_free_host(host->mmc);
@@ -1450,7 +1457,9 @@ int renesas_sdhi_suspend(struct device *dev)
 		clk_disable(host->clk);
 		
 	}
-	pm_runtime_put_sync(dev);
+	ret = pm_runtime_put_sync(dev);
+	if (0 > ret)
+		return -1;
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
