@@ -107,6 +107,7 @@ static const DECLARE_TLV_DB_SCALE(eq_gain_tlv, -1050, 150, 0);
 static const DECLARE_TLV_DB_SCALE(adc_eq_overall_gain_tlv, -1200, 600, 0);
 static const DECLARE_TLV_DB_SCALE(alc_threshold_tlv, -9450, 150, 0);
 static const DECLARE_TLV_DB_SCALE(alc_gain_tlv, 0, 600, 0);
+static const DECLARE_TLV_DB_SCALE(sp_thd_lim_tlv, 0, 10, 0);
 
 /*
  * Enums
@@ -808,12 +809,12 @@ static const struct snd_kcontrol_new d2153_snd_controls[] = {
 	 * there's no easy way to make this obvious in user space. Could use
 	 * an enum but that would require 64 text entries.
 	 */
-	SOC_SINGLE("Limiter Power Limit", D2153_LIMITER_PWR_LIM,
+	SOC_SINGLE_TLV("Limiter Power Limit", D2153_LIMITER_PWR_LIM,
 		   D2153_SP_PWR_LIM_SHIFT, D2153_SP_PWR_LIM_MAX,
-		   D2153_NO_INVERT),
-	SOC_SINGLE("Limiter THD Limit", D2153_LIMITER_THD_LIM,
+		   D2153_NO_INVERT, sp_thd_lim_tlv),
+	SOC_SINGLE_TLV("Limiter THD Limit", D2153_LIMITER_THD_LIM,
 		   D2153_SP_THD_LIM_SHIFT, D2153_SP_THD_LIM_MAX,
-		   D2153_NO_INVERT),
+		   D2153_NO_INVERT, sp_thd_lim_tlv),
 	SOC_SINGLE_TLV("Limiter NG Attenuation", D2153_NG_CTRL1,
 		       D2153_SP_NG_ATT_SHIFT, D2153_SP_NG_ATT_MAX,
 		       D2153_NO_INVERT, sp_ng_att_tlv),
