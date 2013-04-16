@@ -435,6 +435,33 @@ int fsi_d2153_snd_soc_get_dac(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+int fsi_d2153_snd_soc_get_sr(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+int fsi_d2153_snd_soc_put_sr(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =
+		(struct snd_soc_codec *)kcontrol->private_data;
+	unsigned int val;
+	struct snd_pcm_hw_params params;
+	int retVal = 0;
+
+	val = ucontrol->value.integer.value[0];
+	params.intervals[SNDRV_PCM_HW_PARAM_RATE
+		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = val;
+
+	retVal = fsi_d2153_set_sampling_rate(&params);
+	if (retVal != 0)
+		sndp_log_err("Invalid Sampling Rate\n");
+	else
+		sndp_log_info("[Sampling Rate]:%d\n", val);
+	return retVal;
+}
+
 int fsi_d2153_snd_soc_put_adc(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -500,6 +527,8 @@ static struct snd_kcontrol_new fsi_d2153_controls[] = {
 		fsi_d2153_sndp_soc_put_playback_mute),
 	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
 		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
+	FSI_SOC_SINGLE("Sampling Rate", 0, 0, 96000, 0,
+		fsi_d2153_snd_soc_get_sr, fsi_d2153_snd_soc_put_sr),
 #if 1 /*** Analog audio dock support ***/
 	SOC_SINGLE_BOOL_EXT("Dock Switch" , 0,
 		fsi_d2153_get_playback_gpio, fsi_d2153_put_playback_gpio),

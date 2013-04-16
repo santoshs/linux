@@ -55,6 +55,7 @@ struct call_pcm_info {
 	long		byte_offset;
 	int		period_len;
 	int		period;
+	u_int		save_buf_size;
 };
 
 
@@ -112,19 +113,20 @@ static void call_playback_incomm_cb(unsigned int buf_size);
 static void call_record_incomm_cb(unsigned int buf_size);
 
 /* Work queue process function */
-static void call_work_dummy_rec(struct work_struct *work);
-static bool call_work_play_wait_event(struct work_struct *work);
-static void call_work_before_start_fw(struct work_struct *work);
-static void call_work_dummy_play(struct work_struct *work);
+static void call_work_dummy_rec(struct sndp_work_info *work);
+static bool call_work_play_wait_event(struct sndp_work_info *work);
+static void call_work_before_start_fw(struct sndp_work_info *work);
+static void call_work_dummy_play(struct sndp_work_info *work);
 
 /* Dummy playback incommunication data setting function */
 static void call_playback_incomm_dummy(unsigned int buf_size);
 /* Dummy record incommunication data setting function */
 static void call_record_incomm_dummy(unsigned int buf_size);
 
-/* Work queue initialization function */
-static DECLARE_WORK(g_call_work_in, call_work_dummy_rec);
-static DECLARE_WORK(g_call_work_out, call_work_dummy_play);
+/* Dummy playing for incommunication */
+static void call_work_playback_incomm_dummy_set(struct sndp_work_info *work);
+/* Dummy recording for incommunication */
+static void call_work_record_incomm_dummy_set(struct sndp_work_info *work);
 
 /* Wait queue initialization function */
 static DECLARE_WAIT_QUEUE_HEAD(g_call_wait_in);
