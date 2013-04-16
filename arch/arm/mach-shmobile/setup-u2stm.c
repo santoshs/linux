@@ -23,12 +23,10 @@ extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32
 
 #define SYS_TPIU_BASE              0xE6F83000
 #define CPU_TPIU_BASE              0xE6FA3000
-#define SYS_TPIU_STM_BASE          0xE6F8A000
 #define CPU_ETR_BASE               0xE6FA5000
 #define CPU_ETF_BASE               0xE6FA1000
 #define CPU_TRACE_FUNNEL_BASE      0xE6FA4000
 #define SYS_TRACE_FUNNEL_BASE      0xE6F84000
-#define SYS_TRACE_FUNNEL_STM_BASE  0xE6F8B000
 
 static int stm_select=-1;
 

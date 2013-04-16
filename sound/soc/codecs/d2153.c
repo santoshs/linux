@@ -43,7 +43,7 @@
  * Controls section
  */
 
-static char *mixout_r_select_widget;
+static const char *mixout_r_select_widget;
 
 /*
  * Gain and Volume

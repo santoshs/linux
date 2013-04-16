@@ -80,7 +80,7 @@ static ssize_t GNSS_NRST_value_store(struct device *dev,
 #endif /* CONFIG_PMIC_INTERFACE */
         }
 
-        printk(KERN_ALERT "%s: %d\n", __func__, value);
+        printk(KERN_ALERT "%s: %ld\n", __func__, value);
 
         gpio_set_value(GPIO_PORT10, value);
 
@@ -108,7 +108,7 @@ static ssize_t GNSS_EN_value_store(struct device *dev,
         if (ret < 0)
                 return ret;
 
-        printk(KERN_ALERT "%s: %d\n", __func__, value);
+        printk(KERN_ALERT "%s: %ld\n", __func__, value);
 
         gpio_set_value(GPIO_PORT11, value);
 

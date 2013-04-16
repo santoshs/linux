@@ -46,7 +46,6 @@ static void __iomem *sbsc_sdmra_38200;
 
 /* CPG register address */
 #define CPG_BASE			(0xE6150000U)
-#define CPG_PLL3CR			IO_ADDRESS(CPG_BASE + 0x00DC)
 
 #define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
 

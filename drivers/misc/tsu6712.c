@@ -53,7 +53,6 @@ static struct switch_dev switch_usb_uart = {
 
 
 static int usb_uart_switch_state;
-static int state;
 char at_isi_switch_buf[400] = {0};
 int KERNEL_LOG;
 
@@ -402,7 +401,7 @@ static void tsu6712_ovp_cb(bool attached)
 {
 	pr_info("%s:%s\n", __func__, (attached ? "TRUE" : "FALSE"));
 #ifdef CONFIG_SEC_CHARGING_FEATURE
-		spa_event_handler(SPA_EVT_OVP, (int)attached);
+		spa_event_handler(SPA_EVT_OVP, (void *)attached);
 #endif
 }
 
@@ -430,13 +429,13 @@ static void tsu6712_usb_cb(bool attached)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_USB:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
 			send_usb_insert_event(1);
 			pr_info("%s USB attached\n", __func__);
 			break;
 
 		case CABLE_TYPE_NONE:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 			send_usb_insert_event(0);
 			pr_info("%s USB removed\n", __func__);
 			break;
@@ -455,11 +454,11 @@ static void tsu6712_charger_cb(bool attached)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_AC:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_DCP);
 			pr_info("%s TA attached\n", __func__);
 			break;
 		case CABLE_TYPE_NONE:
-			spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 			pr_info("%s TA removed\n", __func__);
 			break;
 		default:
@@ -508,11 +507,12 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 	.smartdock_cb = tsu6712_smartdock_cb,
 };
 
+#if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 static void DisableTSU6712Interrupts(void)
 {
 	struct i2c_client *client = local_usbsw->client;
-	int value, ret;
-
+	int ret;
+	u8 value = 0;
 	tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
 	value |= 0x01;
 
@@ -526,8 +526,8 @@ static void DisableTSU6712Interrupts(void)
 static void EnableTSU6712Interrupts(void)
 {
 	struct i2c_client *client = local_usbsw->client;
-	int value, ret;
-
+	int ret;
+	u8 value = 0;
 	tsu6712_read_reg(client, TSU6712_REG_INT1,&value);
     tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 	value &= 0xFE;
@@ -537,13 +537,14 @@ static void EnableTSU6712Interrupts(void)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 }
+#endif
 
 void TSU6712_CheckAndHookAudioDock(int value)
 {
 	struct i2c_client *client = local_usbsw->client;
 	struct tsu6712_platform_data *pdata = local_usbsw->pdata;
 	int ret = 0;
-
+	u8 regvalue = 0;
 	if (value) {
 		pr_info("TSU6712_CheckAndHookAudioDock ON\n");
 			if (pdata->dock_cb)
@@ -555,12 +556,12 @@ void TSU6712_CheckAndHookAudioDock(int value)
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
 
 			ret = tsu6712_write_reg(client,	TSU6712_REG_CTRL,
-					ret & ~CON_MANUAL_SW & ~CON_RAW_DATA);
+					regvalue & ~CON_MANUAL_SW & ~CON_RAW_DATA);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 		} else {
@@ -569,13 +570,13 @@ void TSU6712_CheckAndHookAudioDock(int value)
 			if (pdata->dock_cb)
 				pdata->dock_cb(TSU6712_DETACHED_DOCK);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
 
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
 			ret = tsu6712_write_reg(client,	TSU6712_REG_CTRL,
-					ret | CON_MANUAL_SW | CON_RAW_DATA);
+					regvalue | CON_MANUAL_SW | CON_RAW_DATA);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 	}
@@ -587,12 +588,13 @@ static ssize_t tsu6712_show_control(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	int value;
+	int ret;
+	u8 value = 0;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
 
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return snprintf(buf, 13, "CONTROL: %02x\n", value);
 }
@@ -603,11 +605,12 @@ static ssize_t tsu6712_show_device_type(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	int value;
+	int ret;
+	u8 value = 0;
 
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return snprintf(buf, 11, "DEVICE_TYPE: %02x\n", value);
 }
@@ -617,11 +620,11 @@ static ssize_t tsu6712_show_manualsw(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	unsigned int value;
-
-	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	int ret;
+	u8 value = 0;
+	ret = tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if (value == SW_VAUDIO)
 		return snprintf(buf, 7, "VAUDIO\n");
@@ -643,13 +646,13 @@ static ssize_t tsu6712_set_manualsw(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	unsigned int value;
-	unsigned int path = 0;
+	u8 value = 0;
+	u8 path = 0;
 	int ret;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return 0;
@@ -686,7 +689,7 @@ static ssize_t tsu6712_set_manualsw(struct device *dev,
 
 	return count;
 }
-
+#if 0
 static ssize_t tsu6712_show_usb_state(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
@@ -694,9 +697,14 @@ static ssize_t tsu6712_show_usb_state(struct device *dev,
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
 	unsigned char device_type1, device_type2;
+	int ret = 0;
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&device_type1);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&device_type1);
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T2,&device_type2);
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T2,&device_type2);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if (device_type1 & DEV_T1_USB_MASK || device_type2 & DEV_T2_USB_MASK)
 		return snprintf(buf, 22, "USB_STATE_CONFIGURED\n");
@@ -710,8 +718,7 @@ static ssize_t tsu6712_show_adc(struct device *dev,
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	int adc;
-
+	u8 adc = 0;
 	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
 	if (adc < 0) {
 		dev_err(&client->dev,"%s: err at read adc %d\n", __func__, adc);
@@ -746,6 +753,7 @@ static ssize_t tsu6712_reset(struct device *dev,
 
 	return count;
 }
+#endif
 
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
 				   struct device_attribute *attr,
@@ -757,6 +765,7 @@ static ssize_t tsu6712_show_UUS_state(struct device *dev,
 #define	SWITCH_AT	103
 #define	SWITCH_ISI	104
 
+#if 0
 static ssize_t set_manualsw(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
@@ -769,7 +778,7 @@ static ssize_t set_manualsw(struct device *dev,
 
 	return count;
 }
-
+#endif 
 
 /* AT-ISI Separation starts */
 extern int stop_isi;
@@ -853,14 +862,12 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return TSU6712_UART_EMPTY_CRLF;
 	}
 
-	if (at_isi_switch_buf) {
-		if (strstr(at_isi_switch_buf, "\r\n"))
-			printk("###WIPRO### r n\n");
-		else if (strstr(at_isi_switch_buf, "\t\n"))
-			printk("###WIPRO### t n\n");
-		else if (strstr(at_isi_switch_buf, "\n"))
-			printk("###WIPRO### n\n");
-	}
+	if (strstr(at_isi_switch_buf, "\r\n"))
+		printk("###WIPRO### r n\n");
+	else if (strstr(at_isi_switch_buf, "\t\n"))
+		printk("###WIPRO### t n\n");
+	else if (strstr(at_isi_switch_buf, "\n"))
+		printk("###WIPRO### n\n");
 
 	ptr = strstr(atbuf, at_isi_switch_buf);
 	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
@@ -933,9 +940,12 @@ static DEVICE_ATTR(control, S_IRUGO, tsu6712_show_control, NULL);
 static DEVICE_ATTR(device_type, S_IRUGO, tsu6712_show_device_type, NULL);
 static DEVICE_ATTR(switch, S_IRUGO | S_IWUSR,
 		tsu6712_show_manualsw, tsu6712_set_manualsw);
+#if 0
 static DEVICE_ATTR(usb_state, S_IRUGO, tsu6712_show_usb_state, NULL);
 static DEVICE_ATTR(adc, S_IRUGO, tsu6712_show_adc, NULL);
 static DEVICE_ATTR(reset_switch, S_IWUSR | S_IWGRP, NULL, tsu6712_reset);
+#endif
+
 /* AT-ISI Separation starts */
 static DEVICE_ATTR(at_isi_switch, S_IRUGO | S_IWUSR,
 		ld_show_manualsw, ld_set_manualsw);
@@ -956,9 +966,9 @@ static struct attribute *tsu6712_attributes[] = {
 	&dev_attr_control.attr,
 	&dev_attr_device_type.attr,
 	&dev_attr_switch.attr,
-	&dev_attr_at_isi_switch.attr,	/* AT-ISI Separation */
-	&dev_attr_at_isi_mode,		/* AT-ISI Separation */
-	&dev_attr_at_isi_switch_buf,	/* AT-ISI Separation */
+	&dev_attr_at_isi_switch.attr,		/* AT-ISI Separation */
+	&dev_attr_at_isi_mode.attr,		/* AT-ISI Separation */
+	&dev_attr_at_isi_switch_buf.attr,	/* AT-ISI Separation */
 	&dev_attr_UUS_state.attr,
 	/* JIRA ID 1362/1396
 	uart-wakelock release */
@@ -1032,13 +1042,13 @@ EXPORT_SYMBOL(tsu6712_otg_vbus_en);
 void tsu6712_manual_switching(int path)
 {
 	struct i2c_client *client = local_usbsw->client;
-	unsigned int value;
-	unsigned int data = 0;
+	u8 value = 0;
+	u8 data = 0;
 	int ret;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return;
@@ -1123,7 +1133,7 @@ EXPORT_SYMBOL(tsu6712_vbus_check);
 static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 {
 	int device_type, ret;
-	unsigned char val1, val2, adc;
+	unsigned char val1, val2, adc, val3 = 0;
 	struct tsu6712_platform_data *pdata = usbsw->pdata;
 	struct i2c_client *client = usbsw->client;
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
@@ -1134,7 +1144,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 
 	if (device_type < 0) {
 		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
-		return;
+		return device_type;
 	}
 	val1 = device_type & 0xff;
 	val2 = device_type >> 8;
@@ -1257,11 +1267,14 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, ret & ~CON_MANUAL_SW);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, val3 & ~CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+			
 			usbsw->dock_attached = TSU6712_ATTACHED;
 		/* SmartDock */
 		} else if (val2 & DEV_SMARTDOCK) {
@@ -1274,10 +1287,12 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, ret & ~CON_MANUAL_SW);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, val3 & ~CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
 			if (pdata->smartdock_cb)
 				pdata->smartdock_cb(TSU6712_ATTACHED);
@@ -1321,7 +1336,10 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (pdata->otg_cb)
 				pdata->otg_cb(TSU6712_DETACHED);
 #endif
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 		/* JIG */
 		} else if (usbsw->dev2 & DEV_T2_JIG_MASK) {
 			if (pdata->jig_cb)
@@ -1329,7 +1347,10 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 		/* Desk Dock */
 		} else if (usbsw->dev2 & DEV_AV) {
 			pr_info("FSA MHL Detach\n");
-			tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x04);
+			ret = tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x04);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 			if (isDeskdockconnected)
 				TSU6712_CheckAndHookAudioDock(0);
@@ -1350,15 +1371,25 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 		}else if (usbsw->dev2 & DEV_JIG_UART_ON) {
 			if (pdata->dock_cb)
 				pdata->dock_cb(TSU6712_DETACHED_DOCK);
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL,ret | CON_MANUAL_SW);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL,val3 | CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 			usbsw->dock_attached = TSU6712_DETACHED;
 
 		} else if (usbsw->adc == 0x10) {
 			dev_info(&client->dev, "smart dock disconnect\n");
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL,ret | CON_MANUAL_SW);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL,val3 | CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
 			if (pdata->smartdock_cb)
 				pdata->smartdock_cb(TSU6712_DETACHED);
@@ -1378,20 +1409,30 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 {
 	struct i2c_client *client = usbsw->client;
-	unsigned int ctrl = CON_MASK;
+	u8 ctrl = CON_MASK;
+	u8 value = 0;
 	int ret;
 	pr_info("tsu6712_reg_init is called\n");
 
-	tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5c);
-	tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0x18);
+	ret = tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5c);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	ret  = tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0x18);
+	if (ret < 0)
+               dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	/* ADC Detect Time: 500ms */
 	ret = tsu6712_write_reg(client, TSU6712_REG_TIMING1, 0x0);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&ret);
-	usbsw->mansw = ret;
+	ret = tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	usbsw->mansw = value;
+ 
 
 	if (usbsw->mansw < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, usbsw->mansw);
@@ -1405,25 +1446,12 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client,TSU6712_REG_DEVID,&ret);
-
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEVID,&value);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	dev_info(&client->dev, " tsu6712_reg_init dev ID: 0x%x\n", ret);
-}
-
-static int tsu6712_check_dev(struct tsu6712_usbsw *usbsw)
-{
-	struct i2c_client *client = usbsw->client;
-	int device_type;
-	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
-	if (device_type < 0) {
-		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
-		return 0;
-	}
-	return device_type;
-}
+	dev_info(&client->dev, " tsu6712_reg_init dev ID: 0x%x\n", value);
+} 
 
 static int tsu6712_handle_dock_vol_key(struct tsu6712_usbsw *info, int adc)
 {
@@ -1655,7 +1683,6 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	struct tsu6712_usbsw *usbsw;
 	int ret = 0;
 	struct input_dev *input;
-	struct device *switch_dock;
 
 	pr_info("tsu6712_probe\n");
 
@@ -1817,11 +1844,14 @@ static int tsu6712_suspend(struct i2c_client *client,
 
 static int tsu6712_resume(struct i2c_client *client)
 {
-	int value;
+	u8 value = 0;
 	struct tsu6712_usbsw *usbsw = i2c_get_clientdata(client);
-
+	int ret = 0;
 /* add for tsu6712_irq_thread i2c error during wakeup */
-	tsu6712_read_reg(client,TSU6712_REG_INT1,&value);
+	
+	ret = tsu6712_read_reg(client,TSU6712_REG_INT1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	/* device detection */
 	mutex_lock(&usbsw->mutex);
@@ -1871,6 +1901,7 @@ static void tsu6712_irq_sync_unlock(struct irq_data *data)
 
 static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 {
+	struct i2c_client *client = data->client;
 	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUSS_WKUP,
 					 IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUS };
 	int i, ret;
@@ -1878,11 +1909,10 @@ static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 
 	ret = irq_alloc_descs(irq_base, irq_base, TSU6712_INT_NR, -1);
 	if (ret < 1) {
-		dev_err("%s: unable to allocate %u irqs: %d\n",
+		dev_err(&client->dev, "%s: unable to allocate %u irqs: %d\n",
 					__func__, TSU6712_INT_NR, ret);
 		if (ret == 0)
 			ret = -EINVAL;
-		return ret;
 	}
 
 	data->irq_base = ret;
