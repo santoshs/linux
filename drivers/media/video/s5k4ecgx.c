@@ -233,8 +233,41 @@ static int S5K4ECGX_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int S5K4ECGX_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_S5K4ECGX;
-	id->revision	= 0;
+	/* check i2c device */
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct i2c_msg msg[2];
+	unsigned char send_buf[2];
+	unsigned char rcv_buf[2];
+	int loop = 0;
+	int ret = 0;
+
+	msg[0].addr = client->addr;
+	msg[0].flags = client->flags & I2C_M_TEN;
+	msg[0].len = 2;
+	msg[0].buf = (char *) send_buf;
+	/* FW Sensor ID Support */
+	send_buf[0] = 0x01;
+	send_buf[1] = 0x5A;
+
+	msg[1].addr = client->addr;
+	msg[1].flags = client->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = 2;
+	msg[1].buf = rcv_buf;
+
+	for (loop = 0; loop < 5; loop++) {
+		ret = i2c_transfer(client->adapter, msg, 2);
+		if (0 <= ret)
+			break;
+	}
+	if (0 > ret) {
+		dev_err(&client->dev, "%s :Read Error(%d)\n", __func__, ret);
+		id->ident = V4L2_IDENT_NONE;
+	} else {
+		dev_dbg(&client->dev, "%s :Read OK\n", __func__);
+		id->ident = V4L2_IDENT_S5K4ECGX;
+	}
+	id->revision = 0;
 
 	return 0;
 }
@@ -270,6 +303,7 @@ static int S5K4ECGX_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 #else
 		ctrl->value = 0;
 #endif
+		/* no break */
 	default:
 		return 0;
 	}
@@ -352,40 +386,8 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 	if (0 > ret) {
 		dev_err(&client->dev,
 			"S5K4ECGX: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		kfree(priv);
 		return ret;
-	}
-	ret = 0;
-
-	{
-		/* check i2c device */
-		struct i2c_msg msg[2];
-		unsigned char send_buf[2];
-		unsigned char rcv_buf[2];
-		int loop = 0;
-
-		msg[0].addr = client->addr;
-		msg[0].flags = client->flags & I2C_M_TEN;
-		msg[0].len = 2;
-		msg[0].buf = (char *)send_buf;
-		/* FW Sensor ID Support */
-		send_buf[0] = 0x01;
-		send_buf[1] = 0x5A;
-
-		msg[1].addr = client->addr;
-		msg[1].flags = client->flags & I2C_M_TEN;
-		msg[1].flags = I2C_M_RD;
-		msg[1].len = 2;
-		msg[1].buf = rcv_buf;
-
-		for (loop = 0; loop < 5; loop++) {
-			ret = i2c_transfer(client->adapter, msg, 2);
-			if (0 <= ret)
-				break;
-		}
-		if (0 > ret)
-			printk(KERN_ERR "%s :Read Error(%d)\n", __func__, ret);
-		else
-			ret = 0;
 	}
 
 	if (cam_class_init == false) {

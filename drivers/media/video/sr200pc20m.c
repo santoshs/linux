@@ -284,8 +284,26 @@ static int SR200PC20M_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int SR200PC20M_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_SR200PC20M;
-	id->revision	= 0;
+	/* check i2c device */
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	unsigned char rcv_buf[1];
+	int ret = 0;
+
+	ret = sr200pc20m_write(client, 0x0300); /* Page 0 */
+	if (0 > ret)
+		dev_err(&client->dev, "%s :Write Error(%d)\n", __func__, ret);
+	ret = sr200pc20m_read(client, 0x04, rcv_buf);
+	/* device id = P0(0x00) address 0x04 = 0xB8 */
+
+	if (0 > ret) {
+		dev_err(&client->dev, "%s :Read Error(%d)\n", __func__, ret);
+		id->ident = V4L2_IDENT_NONE;
+	} else {
+		dev_dbg(&client->dev, "%s :SR200PC20M OK(%02x)\n", __func__,
+			rcv_buf[0]);
+		id->ident = V4L2_IDENT_SR200PC20M;
+	}
+	id->revision = 0;
 
 	return 0;
 }
@@ -299,6 +317,7 @@ static int SR200PC20M_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 #else
 		ctrl->value = 0;
 #endif
+		/* no break */
 	default:
 		return 0;
 	}
@@ -399,27 +418,12 @@ static int SR200PC20M_probe(struct i2c_client *client,
 	priv->width	= 640;
 	priv->height	= 480;
 	priv->fmt	= &SR200PC20M_colour_fmts[0];
-
-
-	{
-		/* check i2c device */
-		unsigned char rcv_buf[1];
-		ret = sr200pc20m_write(client, 0x0300); /* Page 0 */
-		if (0 > ret) {
-			printk(KERN_ALERT "%s :Write Error(%d)\n",
-					__func__, ret);
-		}
-		ret = sr200pc20m_read(client, 0x04, rcv_buf);
-		/* device id = P0(0x00) address 0x04 = 0xB8 */
-
-		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n",
-					__func__, ret);
-		} else {
-			printk(KERN_ALERT "%s :SR200PC20M OK(%02x)\n",
-					__func__, rcv_buf[0]);
-			ret = 0;
-		}
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev, "v4l2_ctrl_handler_setup Error(%d)\n",
+			ret);
+		kfree(priv);
+		return ret;
 	}
 
 	if (cam_class_init == false) {
@@ -453,7 +457,7 @@ static int SR200PC20M_probe(struct i2c_client *client,
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int SR200PC20M_remove(struct i2c_client *client)
