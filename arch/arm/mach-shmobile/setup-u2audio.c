@@ -49,7 +49,7 @@ static int proc_read_u2audio_device_exist(char *page, char **start, off_t off,
 	return count;
 }
 
-void u2audio_gpio_init()
+void u2audio_gpio_init(void)
 {
 #if defined(CONFIG_ARCH_R8A7373)
 	gpio_request(GPIO_FN_FSIAISLD, "sound");

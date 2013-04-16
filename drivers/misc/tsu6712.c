@@ -513,11 +513,13 @@ static void DisableTSU6712Interrupts(void)
 	struct i2c_client *client = local_usbsw->client;
 	int ret;
 	u8 value = 0;
-	tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
+	ret = tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
 	value |= 0x01;
 
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
-
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
@@ -528,8 +530,14 @@ static void EnableTSU6712Interrupts(void)
 	struct i2c_client *client = local_usbsw->client;
 	int ret;
 	u8 value = 0;
-	tsu6712_read_reg(client, TSU6712_REG_INT1,&value);
-    tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
+	ret = tsu6712_read_reg(client, TSU6712_REG_INT1,&value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	ret = tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
 	value &= 0xFE;
 
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
@@ -556,7 +564,7 @@ void TSU6712_CheckAndHookAudioDock(int value)
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
 
@@ -689,71 +697,6 @@ static ssize_t tsu6712_set_manualsw(struct device *dev,
 
 	return count;
 }
-#if 0
-static ssize_t tsu6712_show_usb_state(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct tsu6712_usbsw *usbsw = local_usbsw;
-	struct i2c_client *client = usbsw->client;
-	unsigned char device_type1, device_type2;
-	int ret = 0;
-	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&device_type1);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T2,&device_type2);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	if (device_type1 & DEV_T1_USB_MASK || device_type2 & DEV_T2_USB_MASK)
-		return snprintf(buf, 22, "USB_STATE_CONFIGURED\n");
-
-	return snprintf(buf, 25, "USB_STATE_NOTCONFIGURED\n");
-}
-
-static ssize_t tsu6712_show_adc(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct tsu6712_usbsw *usbsw = local_usbsw;
-	struct i2c_client *client = usbsw->client;
-	u8 adc = 0;
-	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
-	if (adc < 0) {
-		dev_err(&client->dev,"%s: err at read adc %d\n", __func__, adc);
-		return snprintf(buf, 9, "UNKNOWN\n");
-	}
-
-	return snprintf(buf, 4, "%x\n", adc);
-}
-
-static ssize_t tsu6712_reset(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	struct tsu6712_usbsw *usbsw = local_usbsw;
-	struct i2c_client *client = usbsw->client;
-	int ret;
-
-	if (!strncmp(buf, "1", 1)) {
-		dev_info(&client->dev, "fsa9480 reset after delay 1000 msec.\n");
-		mdelay(1000);
-		ret = tsu6712_write_reg(client,TSU6712_REG_MANUAL_OVERRIDES1, 0x01);
-		if (ret < 0)
-			dev_err(&client->dev,"cannot soft reset, err %d\n", ret);
-
-		dev_info(&client->dev, "fsa9480_reset_control done!\n");
-	}
-	else {
-		dev_info(&client->dev,"fsa9480_reset_control, but not reset_value!\n");
-	}
-
-	tsu6712_reg_init(usbsw);
-
-	return count;
-}
-#endif
 
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
 				   struct device_attribute *attr,
@@ -764,21 +707,6 @@ static ssize_t tsu6712_show_UUS_state(struct device *dev,
 
 #define	SWITCH_AT	103
 #define	SWITCH_ISI	104
-
-#if 0
-static ssize_t set_manualsw(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	if (0 == strncmp(buf, "switch at", 9))
-		switch_set_state(&switch_dock, SWITCH_AT);
-
-	if (0 == strncmp(buf, "switch isi", 9))
-		switch_set_state(&switch_dock, SWITCH_ISI);
-
-	return count;
-}
-#endif 
 
 /* AT-ISI Separation starts */
 extern int stop_isi;
@@ -940,11 +868,6 @@ static DEVICE_ATTR(control, S_IRUGO, tsu6712_show_control, NULL);
 static DEVICE_ATTR(device_type, S_IRUGO, tsu6712_show_device_type, NULL);
 static DEVICE_ATTR(switch, S_IRUGO | S_IWUSR,
 		tsu6712_show_manualsw, tsu6712_set_manualsw);
-#if 0
-static DEVICE_ATTR(usb_state, S_IRUGO, tsu6712_show_usb_state, NULL);
-static DEVICE_ATTR(adc, S_IRUGO, tsu6712_show_adc, NULL);
-static DEVICE_ATTR(reset_switch, S_IWUSR | S_IWGRP, NULL, tsu6712_reset);
-#endif
 
 /* AT-ISI Separation starts */
 static DEVICE_ATTR(at_isi_switch, S_IRUGO | S_IWUSR,
@@ -1140,8 +1063,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 	u8 mhl_ret = 0;
 #endif
 	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
-	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
-
+	device_type = tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
 	if (device_type < 0) {
 		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
 		return device_type;
@@ -1354,10 +1276,6 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 			if (isDeskdockconnected)
 				TSU6712_CheckAndHookAudioDock(0);
-#if 0//defined CONFIG_MHL_D3_SUPPORT
-			mhl_onoff_ex(false);
-			detached_status = 1;
-#endif
 			isDeskdockconnected = 0;
 #else
 			if (usbsw->deskdock) {
@@ -1751,34 +1669,6 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 		dev_err(&client->dev,"failed to create tsu6712 attribute group\n");
  	}
 
-#if 0
-	/* make sysfs node /sys/class/sec/switch/usb_state */
-	switch_dock = device_create(sec_class, NULL, 0, NULL, "tsu6712");
-	if (IS_ERR(switch_dock)) {
-		pr_err("[TSU6712] Failed to create device (switch_dock)!\n");
-		ret = PTR_ERR(switch_dock);
-		goto fail2;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_usb_state);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (usb_state)!\n");
-		goto err_create_file_state;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_adc);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (adc)!\n");
-		goto err_create_file_adc;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_reset_switch);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (reset_switch)!\n");
-		goto err_create_file_reset_switch;
-	}
-#endif
-
     if(usbsw->pdata->ex_init)
 		usbsw->pdata->ex_init();
 
@@ -1796,15 +1686,6 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 
 		tsu6712_init_usb_irq(usbsw);
 	return 0;
-
-#if 0
-err_create_file_reset_switch:
-	device_remove_file(switch_dock, &dev_attr_reset_switch);
-err_create_file_adc:
-	device_remove_file(switch_dock, &dev_attr_adc);
-err_create_file_state:
-	device_remove_file(switch_dock, &dev_attr_usb_state);
-#endif
 
 fail1:
 	mutex_destroy(&usbsw->mutex);
