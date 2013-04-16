@@ -614,6 +614,8 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
 
+	flush_delayed_work_sync(&host->mmc->detect);
+
 	clk_enable(host->clk);
 
 	if (pdata->detect_irq) {
