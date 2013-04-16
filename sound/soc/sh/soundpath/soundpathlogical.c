@@ -1122,31 +1122,19 @@ int sndp_soc_put(
 	/* Get Old Value */
 	uiOldValue = GET_OLD_VALUE(uiDirection);
 	old_mode   = SNDP_GET_MODE_VAL(uiOldValue);
-#if 0
-	/* Uplink only/Downlink only/Both Uplink and Downlink */
-	if (SNDP_PLAYBACK_UPLINK_INCALL == uiValue) {
-		/* Uplink only */
-		call_set_play_link(true, false);
-		maxim_voice_link_mute(MUTE_ON, MUTE_OFF);
-		return ERROR_NONE;
-	} else if (SNDP_PLAYBACK_DOWNLINK_INCALL == uiValue) {
-		/* Downlink only */
-		call_set_play_link(false, true);
-		maxim_voice_link_mute(MUTE_OFF, MUTE_ON);
-		return ERROR_NONE;
-	} else {
-		/* Both Uplink and Downlink */
-		call_set_play_link(false, false);
-		maxim_voice_link_mute(MUTE_OFF, MUTE_OFF);
-		if (uiValue == uiOldValue)
-			return ERROR_NONE;
-	}
-#endif
+
 	/* Gets the mode (NORMAL/RINGTONE/INCALL/INCOMMUNICATION) */
 	uiMode = SNDP_GET_MODE_VAL(uiValue);
 
-	if ((SNDP_MODE_INCALL != uiMode) && (SNDP_MODE_INCOMM != uiMode))
+	if ((SNDP_MODE_INCALL != uiMode) && (SNDP_MODE_INCOMM != uiMode)) {
 		g_sndp_start_call_wait = 0;
+
+		g_call_incomm_cb[SNDP_PCM_OUT] = true;
+		g_call_incomm_cb[SNDP_PCM_IN] = true;
+
+		/* Initialization of the firmware status flag */
+		atomic_set(&g_call_watch_start_fw, 0);
+	}
 	sndp_log_debug("g_sndp_start_call_wait = %d\n", g_sndp_start_call_wait);
 
 	/* Identify the process for changing modes (Old mode -> New mode) */
@@ -1774,6 +1762,8 @@ static void sndp_fsi_shutdown(
 	struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
+	u_int		in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
+
 	sndp_log_debug_func("start\n");
 
 	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
@@ -1785,6 +1775,18 @@ static void sndp_fsi_shutdown(
 	if ((SNDP_PCM_OUT != substream->stream) &&
 	    (SNDP_PCM_IN != substream->stream)) {
 		return;
+	}
+
+	if ((SNDP_PCM_IN == substream->stream) && (SNDP_MODE_INCOMM ==
+			SNDP_GET_MODE_VAL(in_old_val))) {
+		g_sndp_incomm_playrec_flg &= ~E_CAP;
+		if (!g_sndp_incomm_playrec_flg) {
+			/* To register a work queue */
+			/* to stop processing Playback */
+			sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(in_old_val));
+		}
+		SET_OLD_VALUE(SNDP_PCM_IN, SNDP_VALUE_INIT);
+		SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_NORMAL);
 	}
 
 	sndp_log_debug("val set\n");
@@ -2406,6 +2408,8 @@ static void sndp_incomm_trigger(
 			 */
 			g_sndp_work_call_playback_incomm_start.save_substream =
 								substream;
+			g_call_sampling_rate[SNDP_PCM_OUT] = params_rate(
+				&g_sndp_main[SNDP_PCM_OUT].arg.fsi_params);
 
 			sndp_workqueue_enqueue(g_sndp_queue_main,
 				&g_sndp_work_call_playback_incomm_start);
@@ -2418,6 +2422,8 @@ static void sndp_incomm_trigger(
 			 */
 			g_sndp_work_call_capture_incomm_start.save_substream =
 								substream;
+			g_call_sampling_rate[SNDP_PCM_IN] = params_rate(
+				&g_sndp_main[SNDP_PCM_IN].arg.fsi_params);
 
 			sndp_workqueue_enqueue(g_sndp_queue_main,
 				&g_sndp_work_call_capture_incomm_start);
@@ -2479,9 +2485,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 	struct snd_soc_card *card = codec->card;
 
 	sndp_log_debug_func("start\n");
-
-	/* Initialization of the firmware starting notice receiving flag */
-	atomic_set(&g_call_watch_start_fw, 0);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 	/* CLKGEN master setting */
@@ -3160,10 +3163,7 @@ static void sndp_work_play_incomm_start(struct sndp_work_info *work)
 			sndp_log_err("set device error (code=%d)\n", ret);
 	}
 
-	if (!(E_CAP & g_sndp_incomm_playrec_flg)) {
-		/* To register a work queue to start processing Playback */
-		sndp_work_incomm_start(work->new_value);
-	}
+	sndp_work_incomm_start(work->new_value);
 
 	/* Set to ENABLE the speaker amp */
 	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) {
@@ -3258,11 +3258,6 @@ static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
 				g_sndp_codec_info.power_on);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set device error (code=%d)\n", ret);
-	}
-
-	if (!(E_PLAY & g_sndp_incomm_playrec_flg)) {
-		/* To register a work queue to start processing Capture */
-		sndp_work_incomm_start(work->new_value);
 	}
 
 	/* Wake Unlock */
@@ -3432,15 +3427,6 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	sndp_log_debug_func("start\n");
 
 	g_sndp_start_call_wait = 0;
-
-	wait_event_interruptible_timeout(
-		g_watch_stop_clk_queue, atomic_read(&g_sndp_watch_stop_clk),
-		msecs_to_jiffies(SNDP_WATCH_CLK_TIME_OUT));
-
-	if (0 == atomic_read(&g_sndp_watch_stop_clk))
-		sndp_log_err("watch clk timeout\n");
-
-	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	/* Input device OFF */
 	fsi_d2153_set_adc_power(g_kcontrol, 0);
@@ -3773,6 +3759,9 @@ static void sndp_work_call_playback_incomm_stop(struct sndp_work_info *work)
 	/* Playback incommunication stop request */
 	call_playback_incomm_stop();
 
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
+
 	sndp_log_debug_func("end\n");
 }
 
@@ -3792,6 +3781,9 @@ static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work)
 
 	/* Capture incommunication stop request */
 	call_record_incomm_stop();
+
+	/* Wake Unlock */
+	sndp_wake_lock(E_UNLOCK);
 
 	sndp_log_debug_func("end\n");
 }
@@ -3878,6 +3870,20 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
 		if (!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) {
 			call_change_dummy_play();
 		}
+	}
+
+	/* During a VoIP */
+	if ((SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_OUT)) ||
+		(SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_IN))) {
+		/* Initialization of the firmware status flag */
+		atomic_set(&g_call_watch_stop_fw, 1);
+		/* Dummy play start (VoIP) */
+		if (!(SNDP_ROUTE_PLAY_DUMMY & g_sndp_stream_route))
+			call_change_incomm_play();
+
+		/* Dummy record start (VoIP) */
+		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
+			call_change_incomm_rec();
 	}
 
 	sndp_log_debug_func("end\n");
