@@ -88,6 +88,7 @@ static enum power_supply_property smb328a_battery_props[] = {
 
 extern int pmic_get_temp_status(void);
 extern int pmic_read_battery_status(int property);
+extern int d2153_battery_set_status(int type, int status);
 
 static int smb328a_write_reg(struct i2c_client *client, int reg, u8 value)
 {
@@ -741,7 +742,7 @@ static int smb328a_enable_charging(struct i2c_client *client)
 		data = smb328a_read_reg(client, SMB328A_COMMAND);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
 	}
-
+	d2153_battery_set_status(D2153_STATUS_CHARGING, 1);
 	return 0;
 }
 
@@ -762,7 +763,7 @@ static int smb328a_disable_charging(struct i2c_client *client)
 		data = smb328a_read_reg(client, SMB328A_COMMAND);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
 	}
-
+	d2153_battery_set_status(D2153_STATUS_CHARGING, 0);
 	return 0;
 }
 
@@ -826,14 +827,16 @@ static void smb328a_work_func(struct work_struct *work)
 	}
 
 error:
-	smb328a_write_reg(p->client, SMB328A_CLEAR_IRQ, 1)  ;
+	return;
 }
 
 static irqreturn_t smb328a_irq_handler(int irq, void *data)
 {
 	struct smb328a_chip *p = (struct smb328a_chip *)data;
+	printk(KERN_DEBUG "%s:\n", __func__);
 
 	schedule_work(&(p->work));
+	smb328a_write_reg(p->client, SMB328A_CLEAR_IRQ, 1);
 
 	return IRQ_HANDLED;
 }
@@ -842,10 +845,12 @@ static int smb328a_irq_init(struct i2c_client *client)
 {
 	int ret = 0;
 
+	smb328a_irq_handler(client->irq, smb_charger);
+
 	if (client->irq) {
-		ret = request_irq(client->irq, smb328a_irq_handler,
-				(IRQF_TRIGGER_FALLING | IRQF_DISABLED | IRQF_NO_SUSPEND),
-										"smb328a_charger", smb_charger);
+		ret = request_threaded_irq(client->irq, NULL, smb328a_irq_handler,
+				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_NO_SUSPEND),
+				"smb328a_charger", smb_charger);
 
 		if (ret) {
 			pr_err("%s: failed to reqeust IRQ\n", __func__);
