@@ -41,6 +41,10 @@ struct vcd_spuv_set_binary_info g_vcd_spuv_binary_info;
 static struct vcd_spuv_workqueue  *g_vcd_spuv_work_queue;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_ack;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_req;
+static struct vcd_spuv_work       g_vcd_spuv_watchdog_timeout;
+
+struct timeval g_vcd_spuv_tv_start;
+struct timeval g_vcd_spuv_tv_timeout;
 
 
 /* ========================================================================= */
@@ -624,6 +628,8 @@ int vcd_spuv_start_call(void)
 		goto rtn;
 	}
 
+	/* initialize lock for watchdog  */
+	spin_lock_init(&g_vcd_spuv_info.watchdog_lock);
 	/* start watchdog */
 	vcd_spuv_start_watchdog_timer();
 rtn:
@@ -1948,6 +1954,8 @@ int vcd_spuv_create_queue(void)
 						vcd_spuv_interrupt_ack);
 		vcd_spuv_work_initialize(&g_vcd_spuv_interrupt_req,
 						vcd_spuv_interrupt_req);
+		vcd_spuv_work_initialize(&g_vcd_spuv_watchdog_timeout,
+						vcd_spuv_watchdog_timeout);
 	}
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
@@ -2193,6 +2201,29 @@ rtn:
 	return;
 }
 
+/**
+ * @brief	queue out watchdog_timeout function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+static void vcd_spuv_watchdog_timeout(void)
+{
+	vcd_pr_start_spuv_function();
+
+	/* set schedule */
+	vcd_spuv_set_schedule();
+
+	vcd_pr_err("spuv crash occured.\n");
+
+	/* notification fw stop */
+	vcd_ctrl_stop_fw(VCD_WD_TIMEOUT);
+
+	vcd_pr_end_if_spuv();
+	return;
+}
+
 
 /**
  * @brief	rec_trigger function.
@@ -2331,12 +2362,26 @@ static void vcd_spuv_udata_ind(void)
  */
 static void vcd_spuv_watchdog_timer_cb(void)
 {
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function();
 
-	vcd_pr_err("spuv crash occured.\n");
+	spin_lock_irqsave(&g_vcd_spuv_info.watchdog_lock, flags);
 
-	/* notification fw stop */
-	vcd_ctrl_stop_fw(VCD_WD_TIMEOUT);
+	do_gettimeofday(&g_vcd_spuv_tv_timeout);
+	vcd_pr_spuv_debug("start   [%5ld.%06ld]\n",
+		g_vcd_spuv_tv_start.tv_sec, g_vcd_spuv_tv_start.tv_usec);
+	vcd_pr_spuv_debug("timeout [%5ld.%06ld]\n",
+		g_vcd_spuv_tv_timeout.tv_sec, g_vcd_spuv_tv_timeout.tv_usec);
+
+	/* status update */
+	vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
+
+	/* entry queue */
+	vcd_spuv_workqueue_enqueue(g_vcd_spuv_work_queue,
+				&g_vcd_spuv_watchdog_timeout);
+
+	spin_unlock_irqrestore(&g_vcd_spuv_info.watchdog_lock, flags);
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -2352,7 +2397,11 @@ static void vcd_spuv_watchdog_timer_cb(void)
  */
 static void vcd_spuv_start_watchdog_timer(void)
 {
+	unsigned long flags;
+
 	vcd_pr_start_spuv_function();
+
+	spin_lock_irqsave(&g_vcd_spuv_info.watchdog_lock, flags);
 
 	/* check status */
 	if (VCD_DISABLE == g_vcd_spuv_info.watchdog_status)
@@ -2364,15 +2413,19 @@ static void vcd_spuv_start_watchdog_timer(void)
 	/* set timer */
 	init_timer(&g_vcd_spuv_info.timer_list);
 	g_vcd_spuv_info.timer_list.function =
-			(void *)vcd_spuv_watchdog_timer_cb;
+		(void *)vcd_spuv_watchdog_timer_cb;
 	g_vcd_spuv_info.timer_list.data = 0;
 	g_vcd_spuv_info.timer_list.expires =
-			jiffies + VCD_SPUV_FW_WATCHDOG_TIMER;
+		jiffies + msecs_to_jiffies(VCD_SPUV_FW_WATCHDOG_TIMER);
 	add_timer(&g_vcd_spuv_info.timer_list);
+
+	do_gettimeofday(&g_vcd_spuv_tv_start);
 
 	/* set status */
 	g_vcd_spuv_info.timer_status = VCD_ENABLE;
 rtn:
+	spin_unlock_irqrestore(&g_vcd_spuv_info.watchdog_lock, flags);
+
 	vcd_pr_end_spuv_function();
 	return;
 }
@@ -2388,13 +2441,16 @@ rtn:
 static void vcd_spuv_stop_watchdog_timer(void)
 {
 	int ret = VCD_ERR_NONE;
+	unsigned long flags;
 
 	vcd_pr_start_spuv_function();
+
+	spin_lock_irqsave(&g_vcd_spuv_info.watchdog_lock, flags);
 
 	if (VCD_DISABLE == g_vcd_spuv_info.timer_status)
 		goto rtn;
 
-	ret = del_timer(&g_vcd_spuv_info.timer_list);
+	ret = del_timer_sync(&g_vcd_spuv_info.timer_list);
 	if (0 == ret)
 		vcd_pr_spuv_info("timer not start.\n");
 
@@ -2402,6 +2458,8 @@ static void vcd_spuv_stop_watchdog_timer(void)
 	g_vcd_spuv_info.timer_status = VCD_DISABLE;
 
 rtn:
+	spin_unlock_irqrestore(&g_vcd_spuv_info.watchdog_lock, flags);
+
 	vcd_pr_end_spuv_function();
 	return;
 }
