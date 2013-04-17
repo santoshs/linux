@@ -370,18 +370,23 @@ static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 		if (host->dynamic_clock) {
 			ret = pm_runtime_get_sync(&host->pdev->dev);
 			if (0 > ret)
-				return -1;
-			sdhi_reset(host);
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+				sdhi_reset(host);
 		}
 		break;
 	default:
 		if (host->dynamic_clock) {
 			ret = pm_runtime_put_sync(&host->pdev->dev);
 			if (0 > ret)
-				return -1;
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+			{
+				if (pdata->set_pwr)
+					pdata->set_pwr(host->pdev,
+						 RENESAS_SDHI_POWER_OFF);
+			}
 		}
-		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_OFF);
 		break;
 	}
 }
