@@ -57,3 +57,4 @@ obj-$(CONFIG_USB_GADGET)	+= gadget/
 obj-$(CONFIG_USB_MTP_SAMSUNG)	+= gadget/
 
 obj-$(CONFIG_USB_COMMON)	+= usb-common.o
+subdir-ccflags-y += -Werror

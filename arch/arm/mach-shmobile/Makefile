@@ -153,3 +153,6 @@ obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
 
 include arch/arm/mach-shmobile/Makefile.sec
+
+subdir-ccflags-y += -Werror
+

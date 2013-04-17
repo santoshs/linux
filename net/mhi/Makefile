@@ -7,4 +7,5 @@ obj-$(CONFIG_MHI_L2MUX)      += l2mux.o
 obj-$(CONFIG_MHI_L3MHI)      += l3mhi.o
 obj-$(CONFIG_MHI_L3MHDP)     += l3mhdp.o
 obj-$(CONFIG_MHI_L3PHONET)   += l3phonet.o
+subdir-ccflags-y	     += -Werror
 

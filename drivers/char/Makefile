@@ -76,3 +76,4 @@ obj-$(CONFIG_CRYPTO_HW_DX_CC42)	+= cc4.2/
 obj-$(CONFIG_TTY_STM)		+= stm_tty.o
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
+subdir-ccflags-y += -Werror

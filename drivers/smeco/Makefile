@@ -195,3 +195,4 @@ endif
 
 clean:
 	rm -rf *.o *.ko
+subdir-ccflags-y += -Werror
