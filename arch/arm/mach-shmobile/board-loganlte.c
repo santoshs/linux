@@ -136,6 +136,7 @@
 
 #if defined(CONFIG_CHARGER_SMB328A)
 #define SMB328A_ADDRESS (0x69 >> 1)
+#define SMB327A_ADDRESS (0xA9 >> 1)
 #define GPIO_CHG_INT 19
 #endif
 
@@ -143,12 +144,6 @@
 #define BQ27425_ADDRESS (0xAA >> 1)
 #define GPIO_FG_INT 44
 #endif
-
-#if defined(CONFIG_CHARGER_SMB328A)
-#define SMB328A_ADDRESS (0x69 >> 1)
-#define GPIO_CHG_INT 19
-#endif
-
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -420,6 +415,7 @@ static void __init loganlte_init(void)
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 
 	u8 reg8 = __raw_readb(STBCHRB3);
+	u8 j = 0;
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
@@ -661,6 +657,21 @@ static void __init loganlte_init(void)
 	sensor_init();
 #endif
 
+#if defined(CONFIG_MACH_LOGANLTE)
+	/* Logan 0.1 and 0.2 uses SMB327B
+	 * Its slave address is different than SMB328 */
+	if ((u2_get_board_rev() == 1) || (u2_get_board_rev() == 2)) {
+		for (j = 0;
+			j < sizeof(i2c3_devices)/sizeof(struct i2c_board_info);
+			j++) {
+			if (!strcmp(i2c3_devices[j].type, "smb328a")) {
+				i2c3_devices[j].addr = SMB327A_ADDRESS;
+				break;
+			}
+		}
+	}
+#endif
+
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 #ifdef CONFIG_NFC_PN547
@@ -687,6 +698,12 @@ static void __init loganlte_init(void)
 					ARRAY_SIZE(guardian__plat_devices));
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
 	init_spa_power();
+#endif
+
+#if defined(CONFIG_CHARGER_SMB328A)
+	gpio_request(GPIO_PORT19, NULL);
+	gpio_direction_input(GPIO_PORT19);
+	gpio_pull_up_port(GPIO_PORT19);
 #endif
 
 	printk(KERN_DEBUG "%s\n", __func__);

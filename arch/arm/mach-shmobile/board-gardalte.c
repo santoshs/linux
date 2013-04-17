@@ -631,8 +631,10 @@ static void __init gardalte_init(void)
 	sensor_init();
 #endif
 
-#if defined(CONFIG_MACH_GARDALTE)
-	if (u2_get_board_rev() == 2) {
+#if defined(CONFIG_BOARD_VERSION_GARDA)
+	/* Garda 0.2 and 0.3 uses SMB327B.
+	 * Its slave address is different than SMB328 */
+	if ((u2_get_board_rev() == 2) || (u2_get_board_rev() == 3)) {
 		for (i = 0;
 			i < (sizeof(i2c3_devices)/sizeof(struct i2c_board_info));
 			i++) {
