@@ -613,7 +613,4 @@ struct i2c_board_info i2c4_devices_tsp_detector[] = {
  	},
 };
 
-extern unsigned int read_board_rev(void);
-extern void SBSC_Init_520Mhz(void);
-
 #endif
