@@ -115,7 +115,6 @@
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
 #define CPG_PLLECR_PLL3ST		(0x00000800)
 #define CPG_BASE			(0xE6150000U)
-#define CPG_PLL3CR			IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR			IO_ADDRESS(CPG_BASE + 0x00D0)
 #define DBGREG1				IO_ADDRESS(0xE6100020)
 #define DBGREG9				IO_ADDRESS(0xE6100040)
@@ -141,10 +140,6 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
-
-#if defined(CONFIG_MFD_D2153)
-static struct regulator *emmc_regulator;
-#endif
 
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
 	.gpio_port = GPIO_PORT47,
@@ -292,7 +287,7 @@ static struct i2c_board_info i2c4_devices_zinitix[] = {
 		.irq = irqpin2irq(32),
 	},
 };
-
+#if 0
 static struct led_regulator_platform_data key_backlight_data = {
 	.name   = "button-backlight",
 };
@@ -304,7 +299,7 @@ static struct platform_device key_backlight_device = {
 		.platform_data = &key_backlight_data,
 	},
 };
-
+#endif
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO(TPA2026_I2C_DRIVER_NAME, 0x58),
@@ -315,7 +310,7 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
-
+#if 0
 static struct map_desc lt02lte_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -339,7 +334,6 @@ static struct map_desc lt02lte_io_desc[] __initdata = {
 		.type           = MT_DEVICE
 	},
 };
-
 static void __init lt02lte_map_io(void)
 {
 	iotable_init(lt02lte_io_desc, ARRAY_SIZE(lt02lte_io_desc));
@@ -347,7 +341,7 @@ static void __init lt02lte_map_io(void)
 	r8a7373_init_early();
 	shmobile_setup_console();
 }
-
+#endif
 void __init lt02lte_init_irq(void)
 {
 	r8a7373_init_irq();

@@ -128,7 +128,6 @@
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
 #define CPG_PLLECR_PLL3ST		(0x00000800)
 #define CPG_BASE			(0xE6150000U)
-#define CPG_PLL3CR			IO_ADDRESS(CPG_BASE + 0x00DC)
 #define CPG_PLLECR			IO_ADDRESS(CPG_BASE + 0x00D0)
 #define DBGREG1				IO_ADDRESS(0xE6100020)
 #define DBGREG9				IO_ADDRESS(0xE6100040)
@@ -162,8 +161,8 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 }
 
 #if defined(CONFIG_MFD_D2153)
-static struct regulator *emmc_regulator;
 #if 0
+static struct regulator *emmc_regulator;
 void d2153_mmcif_pwr_control(int onoff)
 {
 	int ret;
@@ -380,6 +379,7 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
+#if 0
 static struct map_desc loganlte_io_desc[] __initdata = {
 	{
 		.virtual	= 0xe6000000,
@@ -403,20 +403,7 @@ static struct map_desc loganlte_io_desc[] __initdata = {
 		.type           = MT_DEVICE
 	},
 };
-
-static void __init loganlte_map_io(void)
-{
-	iotable_init(loganlte_io_desc, ARRAY_SIZE(loganlte_io_desc));
-
-	/*r8a7373_add_early_devices();*/
-	r8a7373_init_early();
-	shmobile_setup_console();
-}
-
-void __init loganlte_init_irq(void)
-{
-	r8a7373_init_irq();
-}
+#endif
 
 void loganlte_restart(char mode, const char *cmd)
 {

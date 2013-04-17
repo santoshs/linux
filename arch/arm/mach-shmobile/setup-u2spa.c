@@ -45,16 +45,12 @@ struct platform_device smb358_charger =  {
 #endif
 
 #if defined(CONFIG_STC3115_FUELGAUGE)
+#include <linux/power_supply.h>
 #include <linux/stc3115_battery.h>
 
 #ifdef CONFIG_CHARGER_RT9532
 extern int rt9532_get_charger_online(void);
 #endif
-
-static int null_fn(void)
-{
-	return 0;	/* for discharging status */
-}
 
 static int Temperature_fn(void)
 {

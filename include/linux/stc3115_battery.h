@@ -9,6 +9,8 @@
 #ifndef __STC3115_BATTERY_H_
 #define __STC3115_BATTERY_H_
 
+struct power_supply;
+
 struct stc311x_platform_data {
 	int (*battery_online)(void);
 	int (*charger_online)(void);
