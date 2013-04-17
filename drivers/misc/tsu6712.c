@@ -1063,7 +1063,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 	u8 mhl_ret = 0;
 #endif
 	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
-	device_type = tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
+	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
 	if (device_type < 0) {
 		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
 		return device_type;

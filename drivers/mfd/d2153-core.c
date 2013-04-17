@@ -665,9 +665,9 @@ static void init_vdd_fault_work(struct work_struct *work)
 	if (unlikely(!d2153)) {
 		pr_err("%s. Invalid platform data\n", __func__);
 	}
-
-	/* set VDD_FAULT level. LOWER = 3.0V, UPPER = 3.15V */
-	d2153_reg_write(d2153, D2153_VDDFAULT_REG, 0x30);
+	else
+		/* set VDD_FAULT level. LOWER = 3.0V, UPPER = 3.15V */
+		d2153_reg_write(d2153, D2153_VDDFAULT_REG, 0x30);
 
 }
 
