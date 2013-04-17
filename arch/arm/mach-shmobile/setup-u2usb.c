@@ -481,6 +481,7 @@ static void usb_host_port_power(int port, int power)
 	else
 		pmic_set_vbus(0);
 #endif
+	return;
 }
 static struct r8a66597_platdata usb_host_data = {
 	.module_start	= usbhs_module_reset,

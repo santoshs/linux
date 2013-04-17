@@ -39,6 +39,7 @@
 #include <linux/usb/hcd.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/otg.h>
+#include <linux/usb/tusb1211.h>
 #endif
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -46,7 +47,7 @@
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <asm/cacheflush.h>
-
+#include <linux/usb/r8a66597.h>
 #include "r8a66597.h"
 
 MODULE_DESCRIPTION("R8A66597 USB Host Controller Driver");
@@ -55,6 +56,14 @@ MODULE_AUTHOR("Yoshihiro Shimoda");
 MODULE_ALIAS("platform:r8a66597_hcd");
 
 #define DRIVER_VERSION	"2009-05-26"
+
+/* #define HCD_LOG */
+
+#ifdef HCD_LOG
+#define hcd_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define hcd_log(fmt, ...)
+#endif
 
 static const char hcd_name[] = "r8a66597_hcd";
 
@@ -143,6 +152,7 @@ static int r8a66597_clock_enable(struct r8a66597 *r8a66597)
 	return 0;
 }
 
+#ifndef CONFIG_USB_OTG
 static void r8a66597_clock_disable(struct r8a66597 *r8a66597)
 {
 	r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
@@ -178,20 +188,21 @@ static void r8a66597_disable_port(struct r8a66597 *r8a66597, int port)
 
 	r8a66597_write(r8a66597, 0, get_intenb_reg(port));
 	r8a66597_write(r8a66597, 0, get_intsts_reg(port));
-#if 0
-	r8a66597_port_power(r8a66597, port, 0);
-#endif
 	r8a66597->power = 0;
-	schedule_delayed_work(&r8a66597->vbus_work, 0);
-
+#if 1
 	do {
 		tmp = r8a66597_read(r8a66597, SOFCFG) & EDGESTS;
 		udelay(640);
 	} while (tmp == EDGESTS);
-
+#endif
 	val = port ? DRPD : DCFM | DRPD;
 	r8a66597_bclr(r8a66597, val, get_syscfg_reg(port));
 	r8a66597_bclr(r8a66597, HSE, get_syscfg_reg(port));
+#ifdef CONFIG_USB_OTG
+	r8a66597_port_power(r8a66597, port, 0);
+#else
+	schedule_delayed_work(&r8a66597->vbus_work, 0);
+#endif
 }
 
 static int enable_controller(struct r8a66597 *r8a66597)
@@ -205,6 +216,7 @@ static int enable_controller(struct r8a66597 *r8a66597)
 	if (ret < 0)
 		return ret;
 
+	r8a66597_port_power(r8a66597, port, 0);
 	r8a66597_bset(r8a66597, vif & LDRV, PINCFG);
 	r8a66597_bset(r8a66597, USBE, SYSCFG0);
 
@@ -247,6 +259,7 @@ static void disable_controller(struct r8a66597 *r8a66597)
 
 	r8a66597_clock_disable(r8a66597);
 }
+#endif
 
 static int get_parent_r8a66597_address(struct r8a66597 *r8a66597,
 				       struct usb_device *udev)
@@ -1048,6 +1061,8 @@ __acquires(r8a66597->lock)
 #endif
 	if (syssts == SE0) {
 		r8a66597_write(r8a66597, ~ATTCH, get_intsts_reg(port));
+		hcd_log("\n>>> HSUSB:HCD: %s(%d): ATTACHE <<<<<<\n",\
+						__func__, __LINE__);
 		r8a66597_bset(r8a66597, ATTCHE, get_intenb_reg(port));
 	} else {
 		if (syssts == FS_JSTS)
@@ -1694,10 +1709,15 @@ static void irq_vbus_state(struct r8a66597 *r8a66597)
 	vbussts = syssts & 0xC000;
 	switch (vbussts) {
 		case VB_SESS_END:
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m = %s -> "\
+			"%s<<<<<<\n", __func__, __LINE__, otg_state_string(x->state), \
+			otg_state_string(OTG_STATE_A_IDLE));
 			x->state = OTG_STATE_A_IDLE;
 			printk("%s\n", otg_state_string(x->state));
 			break;
 		case VSESS_VLD:
+			 hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE == %s <<<<<<\n", \
+				__func__, __LINE__, otg_state_string(x->state));
 			if (x->state == OTG_STATE_A_IDLE) {
 				r8a66597_bclr(r8a66597, VBCOMPE, INTENB1);
 				r8a66597_bset(r8a66597, DISCHRGVBUS, USBHS_PHYOTGCTR);
@@ -1706,6 +1726,10 @@ static void irq_vbus_state(struct r8a66597 *r8a66597)
 			}
 			break;
 		case VA_VBUS_VLD:
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m =" \
+			"%s -> %s <<<<<<\n", __func__, __LINE__,\
+			otg_state_string(x->state),\
+			otg_state_string(OTG_STATE_A_WAIT_BCON));
 			if (x->state == OTG_STATE_A_WAIT_VRISE) {
 				x->state = OTG_STATE_A_WAIT_BCON;
 				printk("%s\n", otg_state_string(x->state));
@@ -1726,14 +1750,13 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 	int status;
 #ifdef CONFIG_USB_OTG
 	u16 syscfg;
-	u16 role;
 	struct otg_transceiver *x;
 	x = otg_get_transceiver();
 #endif
 	spin_lock(&r8a66597->lock);
 #ifdef CONFIG_USB_OTG
 	syscfg = r8a66597_read(r8a66597, SYSCFG0);
-	role = syscfg & DCFM;
+	r8a66597->role = syscfg & DCFM;
 #endif
 	intsts0 = r8a66597_read(r8a66597, INTSTS0);
 	intsts1 = r8a66597_read(r8a66597, INTSTS1);
@@ -1771,6 +1794,9 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 			r8a66597_bclr(r8a66597, ATTCHE, INTENB1);
 #ifdef CONFIG_USB_OTG
 			r8a66597->dttch = 0;
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE == %s"\
+			"<<<<<<\n", __func__, __LINE__,\
+			otg_state_string(x->state));
 			if ((x->state == OTG_STATE_B_WAIT_ACON ||
 				x->state == OTG_STATE_A_WAIT_BCON) &&
 				(x->port_status & USB_PORT_STAT_CONNECTION)) {
@@ -1781,6 +1807,10 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 			} else {
 				/* start usb bus sampling */
 				start_root_hub_sampling(r8a66597, 0, 1);
+				hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE"\
+				"\x1b[0m = %s -> %s <<<<<<\n",\
+				__func__, __LINE__, otg_state_string(x->state),\
+				otg_state_string(OTG_STATE_A_HOST));
 				x->state = OTG_STATE_A_HOST;
 				printk("%s\n", otg_state_string(x->state));
 			}
@@ -1794,13 +1824,24 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
 			r8a66597_usb_disconnect(r8a66597, 0);
 #ifdef CONFIG_USB_OTG
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE == %s" \
+			"<<<<<<\n", __func__, __LINE__,\
+			otg_state_string(x->state));
 			if (x->state == OTG_STATE_A_SUSPEND
 			|| x->state == OTG_STATE_B_PERIPHERAL) {
 			schedule_delayed_work(&r8a66597->hnp_work, 0);
 			} else if (x->state == OTG_STATE_A_HOST) {
+				hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE"\
+				"\x1b[0m = %s -> %s <<<<<<\n", __func__, __LINE__,\
+				otg_state_string(x->state),\
+				otg_state_string(OTG_STATE_A_WAIT_BCON));
 				x->state = OTG_STATE_A_WAIT_BCON;
 				printk("%s\n", otg_state_string(x->state));
 			} else if (x->state == OTG_STATE_B_HOST) {
+				hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE"\
+				"\x1b[0m = %s -> %s <<<<<<\n",\
+				__func__, __LINE__, otg_state_string(x->state),\
+				otg_state_string(OTG_STATE_B_PERIPHERAL));
 				r8a66597_set_function_controller(r8a66597);
 				x->state = OTG_STATE_B_PERIPHERAL;
 			}
@@ -1827,7 +1868,7 @@ static irqreturn_t r8a66597_irq(struct usb_hcd *hcd)
 		if ((mask1 & VBCOMP)) {
 			irq_vbus_state(r8a66597);
 		}
-		if (mask0 && role) {
+		if (mask0 && r8a66597->role) {
 			if (mask0 & BRDY)
 				irq_pipe_ready(r8a66597);
 			if (mask0 & BEMP)
@@ -1873,6 +1914,8 @@ static void r8a66597_root_hub_control(struct r8a66597 *r8a66597, int port)
 
 	if (!(rh->port & USB_PORT_STAT_CONNECTION)) {
 		r8a66597_write(r8a66597, ~ATTCH, get_intsts_reg(port));
+		hcd_log("\n>>> HSUSB:HCD: %s(%d): ATTACHE <<<<<<\n",\
+				__func__, __LINE__);
 		r8a66597_bset(r8a66597, ATTCHE, get_intenb_reg(port));
 	}
 
@@ -1996,6 +2039,7 @@ static int r8a66597_start(struct usb_hcd *hcd)
 #ifndef CONFIG_USB_OTG
 	struct r8a66597 *r8a66597 = hcd_to_r8a66597(hcd);
 #endif
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START<<<<<<\n", __func__, __LINE__);
 	hcd->state = HC_STATE_RUNNING;
 #ifdef CONFIG_USB_OTG
 	return 0;
@@ -2006,9 +2050,13 @@ static int r8a66597_start(struct usb_hcd *hcd)
 
 static void r8a66597_stop(struct usb_hcd *hcd)
 {
+#ifndef CONFIG_USB_OTG
 	struct r8a66597 *r8a66597 = hcd_to_r8a66597(hcd);
-
+#endif
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): STOP <<<<<<\n", __func__, __LINE__);
+#ifndef CONFIG_USB_OTG
 	disable_controller(r8a66597);
+#endif
 }
 
 static void set_address_zero(struct r8a66597 *r8a66597, struct urb *urb)
@@ -2065,6 +2113,7 @@ static int r8a66597_urb_enqueue(struct usb_hcd *hcd,
 	int ret, request = 0;
 	unsigned long flags;
 
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	spin_lock_irqsave(&r8a66597->lock, flags);
 	if (!get_urb_to_r8a66597_dev(r8a66597, urb)) {
 		ret = -ENODEV;
@@ -2133,6 +2182,7 @@ static int r8a66597_urb_dequeue(struct usb_hcd *hcd, struct urb *urb,
 	unsigned long flags;
 	int rc;
 
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	spin_lock_irqsave(&r8a66597->lock, flags);
 	rc = usb_hcd_check_unlink_urb(hcd, urb, status);
 	if (rc)
@@ -2160,6 +2210,7 @@ static void r8a66597_endpoint_disable(struct usb_hcd *hcd,
 	u16 pipenum;
 	unsigned long flags;
 
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	if (pipe == NULL)
 		return;
 	pipenum = pipe->info.pipenum;
@@ -2292,10 +2343,16 @@ static void r8a66597_srp_work(struct work_struct *work)
 	struct otg_transceiver *x;
 	x = otg_get_transceiver();
 	r8a66597_bclr(r8a66597, DISCHRGVBUS, USBHS_PHYOTGCTR);
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m = %s -> %s<<<<<<\n",\
+	__func__, __LINE__, otg_state_string(x->state), \
+	otg_state_string(OTG_STATE_A_WAIT_VRISE));
 	x->state = OTG_STATE_A_WAIT_VRISE;
 	printk("%s\n", otg_state_string(x->state));
 	r8a66597_bset(r8a66597, VBCOMPE, INTENB1);
 	r8a66597_port_power(r8a66597, 0, 1);
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m = %s -> %s<<<<<<\n",\
+	__func__, __LINE__, otg_state_string(x->state), \
+	otg_state_string(OTG_STATE_A_HOST));
 	x->state = OTG_STATE_A_HOST;
 	printk("%s\n", otg_state_string(x->state));
 	otg_put_transceiver(x);
@@ -2318,6 +2375,8 @@ static void r8a66597_hnp_work(struct work_struct *work)
 	unsigned long dvstctr_reg = get_dvstctr_reg(0);
 	struct otg_transceiver *otg = otg_get_transceiver();
 	u16 tmp;
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE == %s <<<<<<\n",\
+			__func__, __LINE__, otg_state_string(otg->state));
 	if (otg->state == OTG_STATE_A_SUSPEND
 		|| otg->state == OTG_STATE_B_PERIPHERAL) {
 			r8a66597_set_b_hnp_enable(r8a66597);
@@ -2333,10 +2392,18 @@ static void r8a66597_hnp_work(struct work_struct *work)
 	r8a66597_bclr(r8a66597, HNPBTOA, DVSTCTR0);
 	/* start usb bus sampling */
 	start_root_hub_sampling(r8a66597, 0, 1);
-	if (otg->state == OTG_STATE_B_WAIT_ACON)
+	if (otg->state == OTG_STATE_B_WAIT_ACON) {
+		hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m = %s -> %s"\
+		"<<<<<<\n", __func__, __LINE__, otg_state_string(otg->state), \
+		otg_state_string(OTG_STATE_B_HOST));
 		otg->state = OTG_STATE_B_HOST;
-	if (otg->state == OTG_STATE_A_WAIT_BCON)
+	}
+	if (otg->state == OTG_STATE_A_WAIT_BCON) {
+		hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE\x1b[0m = %s -> %s"\
+		"<<<<<<\n", __func__, __LINE__, otg_state_string(otg->state), \
+		otg_state_string(OTG_STATE_A_HOST));
 		otg->state = OTG_STATE_A_HOST;
+	}
 
 	otg->flags = 0;
 
@@ -2389,7 +2456,8 @@ static int r8a66597_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	int port = (wIndex & 0x00FF) - 1;
 	struct r8a66597_root_hub *rh = &r8a66597->root_hub[port];
 	unsigned long flags;
-
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START typeReq=0x%08X <<<<<<\n",\
+		__func__, __LINE__, typeReq);
 	ret = 0;
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
@@ -2503,7 +2571,7 @@ static int r8a66597_bus_suspend(struct usb_hcd *hcd)
 	struct otg_transceiver *otg = otg_get_transceiver();
 #endif
 	dbg("%s", __func__);
-
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	for (port = 0; port < r8a66597->max_root_hub; port++) {
 		struct r8a66597_root_hub *rh = &r8a66597->root_hub[port];
 		unsigned long dvstctr_reg = get_dvstctr_reg(port);
@@ -2515,10 +2583,20 @@ static int r8a66597_bus_suspend(struct usb_hcd *hcd)
 		r8a66597_bclr(r8a66597, UACT, dvstctr_reg);	/* suspend */
 		rh->port |= USB_PORT_STAT_SUSPEND;
 #ifdef CONFIG_USB_OTG
-		if (otg->state == OTG_STATE_A_HOST)
+		if (otg->state == OTG_STATE_A_HOST) {
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE= "\
+			"%s -> %s <<<<<<\n", __func__, __LINE__, \
+			otg_state_string(otg->state), \
+			otg_state_string(OTG_STATE_A_SUSPEND));
 			otg->state = OTG_STATE_A_SUSPEND;
-		if (otg->state == OTG_STATE_B_HOST)
+		}
+		if (otg->state == OTG_STATE_B_HOST) {
+			hcd_log("\n>>> HSUSB:HCD: %s(%d): OTG_STATE= "\
+			"%s -> %s <<<<<<\n", __func__, __LINE__,\
+			otg_state_string(otg->state), \
+			otg_state_string(OTG_STATE_B_PERIPHERAL));
 			otg->state = OTG_STATE_B_PERIPHERAL;
+		}
 		printk("%s\n", otg_state_string(otg->state));
 		otg_put_transceiver(otg);
 #endif
@@ -2541,7 +2619,7 @@ static int r8a66597_bus_resume(struct usb_hcd *hcd)
 	int port;
 
 	dbg("%s", __func__);
-
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	for (port = 0; port < r8a66597->max_root_hub; port++) {
 		struct r8a66597_root_hub *rh = &r8a66597->root_hub[port];
 		unsigned long dvstctr_reg = get_dvstctr_reg(port);
@@ -2606,8 +2684,7 @@ static int r8a66597_suspend(struct device *dev)
 	int port;
 
 	dbg("%s", __func__);
-
-	disable_controller(r8a66597);
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 
 	for (port = 0; port < r8a66597->max_root_hub; port++) {
 		struct r8a66597_root_hub *rh = &r8a66597->root_hub[port];
@@ -2624,8 +2701,7 @@ static int r8a66597_resume(struct device *dev)
 	struct usb_hcd		*hcd = r8a66597_to_hcd(r8a66597);
 
 	dbg("%s", __func__);
-
-	enable_controller(r8a66597);
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	usb_root_hub_lost_power(hcd->self.root_hub);
 
 	return 0;
@@ -2676,6 +2752,7 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 	int i;
 	unsigned long irq_trigger;
 
+	hcd_log("\n>>> HSUSB:HCD: %s(%d): START <<<<<<\n", __func__, __LINE__);
 	if (usb_disabled())
 		return -ENODEV;
 
@@ -2761,9 +2838,8 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 	ret = r8a66597_clock_enable(r8a66597);
 	if (ret < 0)
 		goto clean_up3;
+#ifndef CONFIG_USB_OTG
 	r8a66597->pdata->module_start();
-#if 0
-	disable_controller(r8a66597);
 #endif
 	for (i = 0; i < R8A66597_MAX_NUM_PIPE; i++) {
 		INIT_LIST_HEAD(&r8a66597->pipe_queue[i]);
@@ -2784,7 +2860,7 @@ static int __devinit r8a66597_probe(struct platform_device *pdev)
 	bus->otg_port = 1;
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED | irq_trigger);
 #else
-	ret = usb_add_hcd(hcd, irq, irq_trigger);
+	ret = usb_add_hcd(hcd, irq, IRQF_DISABLED | irq_trigger);
 #endif
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Failed to add hcd\n");

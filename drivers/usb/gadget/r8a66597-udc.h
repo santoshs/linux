@@ -147,6 +147,12 @@ struct r8a66597 {
 	struct usb_phy		*transceiver;
 	struct delayed_work	vbus_work;
 	struct wake_lock	wake_lock;
+#ifdef CONFIG_USB_OTG
+	struct delayed_work hnp_work;
+	struct timer_list   hnp_timer_fail;
+	unsigned host_request_flag:1;
+	unsigned role;
+#endif
 };
 
 #define gadget_to_r8a66597(_gadget)	\

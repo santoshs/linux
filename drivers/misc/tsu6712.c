@@ -30,6 +30,7 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/usb/tusb1211.h>
 #include <linux/regulator/consumer.h>
 #include <linux/input.h>
 #include <linux/switch.h>
@@ -195,6 +196,9 @@ struct tsu6712_usbsw {
 	Wakelock introduced to avoid device getting
 	into deep sleep when UART JIG connected.*/
 	struct wake_lock uart_wakelock;
+#ifdef CONFIG_USB_OTG
+	struct wake_lock otg_wakelock;
+#endif
 	struct irq_chip irq_chip;
 	int             irq_base;
 };
@@ -375,18 +379,24 @@ static int tsu6712_ex_init(void)
        return 0;
 }
 
+#ifdef CONFIG_USB_OTG
 static void tsu6712_otg_cb(bool attached)
 {
 	set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
 	switch (set_cable_status) {
 	case CABLE_TYPE_USB:
+		tsu_log("\n%s: USB Device Attached\n", __func__);
+		set_otg_mode(1);/*set the system to host mode*/
 		break;
 	case CABLE_TYPE_NONE:
+		tsu_log("\n%s: USB Device Dettached\n", __func__);
+		set_otg_mode(0);/*set the system to device mode*/
 		break;
-        default:
-            break;
+	default:
+		break;
 	}
 }
+#endif
 
 static void tsu6712_usb_cdp_cb(bool attached)
 {
@@ -436,12 +446,18 @@ static void tsu6712_usb_cb(bool attached)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 		switch (set_cable_status) {
 		case CABLE_TYPE_USB:
+#ifdef CONFIG_USB_OTG
+			set_otg_mode(0); /*set the system to device mode*/
+#endif
 			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
 			send_usb_insert_event(1);
 			pr_info("%s USB attached\n", __func__);
 			break;
 
 		case CABLE_TYPE_NONE:
+#ifdef CONFIG_USB_OTG
+			set_otg_mode(0); /*set the system to device mode*/
+#endif
 			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 			send_usb_insert_event(0);
 			pr_info("%s USB removed\n", __func__);
@@ -506,7 +522,9 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 	.charger_cb = tsu6712_charger_cb,
 	.jig_cb = tsu6712_jig_cb,
 	.uart_cb = tsu6712_uart_cb,
+#ifdef CONFIG_USB_OTG
 	.otg_cb = tsu6712_otg_cb,
+#endif
 	.ovp_cb = tsu6712_ovp_cb,
 	.dock_cb = tsu6712_dock_cb,
 	.ex_init = tsu6712_ex_init,
@@ -1135,16 +1153,14 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_ATTACHED);
-
+#ifdef CONFIG_USB_OTG
 		/* for SAMSUNG OTG */
 		} else if (val1 & DEV_USB_OTG) {
 			dev_info(&client->dev, "otg connect\n");
-//ENABLE_OTG
-			tsu6712_write_reg(client,TSU6712_REG_MANSW1, 0x27);
-			msleep(50);
-			tsu6712_write_reg(client,TSU6712_REG_MANSW1, 0x27);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1a);
-#if defined(CONFIG_MACH_CAPRI_SS_S2VE) //Enable OTG only if the model is S2VE
+/* ENABLE_OTG */
+/* OTG->device attached */
+			if (!wake_lock_active(&usbsw->otg_wakelock))
+				wake_lock(&usbsw->otg_wakelock);
 			otg_status = 1;
 			if (pdata->otg_cb)
 				pdata->otg_cb(TSU6712_ATTACHED);
@@ -1257,17 +1273,18 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_DETACHED);
 		/* for SAMSUNG OTG */
+#ifdef CONFIG_USB_OTG
 		} else if (usbsw->dev1 & DEV_USB_OTG) {
-#if defined(CONFIG_MACH_CAPRI_SS_S2VE) //Enable OTG only if the model is S2VE
-//ENABLE_OTG
+			/*OTG->device detached*/
+			if (wake_lock_active(&usbsw->otg_wakelock))
+				wake_unlock(&usbsw->otg_wakelock);
 			otg_status = 0;
 			if (pdata->otg_cb)
 				pdata->otg_cb(TSU6712_DETACHED);
-#endif
 			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
-
+#endif
 		/* JIG */
 		} else if (usbsw->dev2 & DEV_T2_JIG_MASK) {
 			if (pdata->jig_cb)
@@ -1664,6 +1681,10 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	tsu6712_reg_init(usbsw);
 
 
+#ifdef CONFIG_USB_OTG
+	wake_lock_init(&usbsw->otg_wakelock,
+			WAKE_LOCK_SUSPEND, "otg-wakelock");
+#endif
 	/* JIRA ID 1362/1396
 	Init wakelock to prevent device getting into deep sleep
 	when UART JIG is connected and allow device to get into
@@ -1715,6 +1736,9 @@ static int __devexit tsu6712_remove(struct i2c_client *client)
 	/* JIRA ID 1362/1396
 	Destroy wakelock */
 	wake_lock_destroy(&usbsw->uart_wakelock);
+#ifdef CONFIG_USB_OTG
+	wake_lock_destroy(&usbsw->otg_wakelock);
+#endif
 	i2c_set_clientdata(client, NULL);
 
 	sysfs_remove_group(usb_kobj, &tsu6712_group);
