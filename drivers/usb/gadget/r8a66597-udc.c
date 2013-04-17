@@ -42,6 +42,8 @@
 #define USB_OTG_HOST_REQ_FLAG  0x0000
 #endif
 
+#define USB_DRVSTR_DBG 1
+
 #include "r8a66597-udc.h"
 
 #define DRIVER_VERSION	"2011-09-26"
@@ -77,6 +79,37 @@ static const char *r8a66597_ep_name[] = {
 	"ep9-int",
 #endif
 };
+
+#if USB_DRVSTR_DBG
+#define U2_USB_BASE_REG				0xE6890000 
+#define TUSB_VENDOR_SPECIFIC1		0x80
+#define USB_SPWDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013A)) /* H'E689 013A */
+#define USB_SPCTRL					((volatile ushort *)(U2_USB_BASE_REG + 0x013C)) /* H'E689 013C */
+#define USB_SPRDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013E)) /* H'E689 013E */
+#define USB_SPEXADDR				((volatile ushort *)(U2_USB_BASE_REG + 0x0140)) /* H'E689 0140 */
+#define USB_SPWR					0x0001
+#define USB_SPRD					0x0002
+#define USB_SPADDR					((volatile ushort *)(U2_USB_BASE_REG + 0x0138)) /*H'E689 0138*/
+
+void usb_drv_str_read(unsigned char *val)
+{
+	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
+	__raw_writew(0x0020, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
+	__raw_writew(USB_SPRD, USB_SPCTRL);		/* set HSUSB.SPCTRL */
+	mdelay(1);
+	*val=__raw_readw(IO_ADDRESS(USB_SPRDAT));               
+}
+
+void usb_drv_str_write(unsigned char *val)
+{
+	u8 value= *val;
+	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
+	__raw_writew(0x0020, USB_SPEXADDR);		/* set HSUSB.SPEXADDR */
+	__raw_writew(value, USB_SPWDAT);       /* set HSUSB.SPWDAT */
+	__raw_writew(USB_SPWR, USB_SPCTRL);		/* set HSUSB.SPCTRL */
+	mdelay(1);
+}
+#endif //USB_DRVSTR_DBG
 
 static void disable_controller(struct r8a66597 *r8a66597);
 static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req);
@@ -2767,6 +2800,19 @@ void send_usb_insert_event(int isConnected)
 }
 EXPORT_SYMBOL_GPL(send_usb_insert_event);
 #endif
+
+#if USB_DRVSTR_DBG
+void tusb_drive_event(int event, unsigned char *val)
+{
+      printk(KERN_INFO "USBD][tusb_drive_event] event=%d\n",\
+                                                        event);
+if (event)	 //read event
+usb_drv_str_read(val);
+else		//write event
+usb_drv_str_write(val); 
+}
+EXPORT_SYMBOL_GPL(tusb_drive_event);
+#endif	//USB_DRVSTR_DBG 
 
 #ifdef CONFIG_PM
 

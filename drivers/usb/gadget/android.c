@@ -71,6 +71,7 @@ static const char longname[] = "Gadget Android";
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
+#define USB_DRVSTR_DBG 1
 
 struct android_usb_function {
 	char *name;
@@ -124,6 +125,9 @@ static struct class *android_class;
 static struct android_dev *_android_dev;
 static int android_bind_config(struct usb_configuration *c);
 static void android_unbind_config(struct usb_configuration *c);
+#if USB_DRVSTR_DBG 
+void tusb_drive_event(int event, unsigned char *val);
+#endif //USB_DRVSTR_DBG
 
 /* string IDs are assigned dynamically */
 #define STRING_MANUFACTURER_IDX		0
@@ -1398,6 +1402,34 @@ field ## _store(struct device *dev, struct device_attribute *attr,	\
 static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 
 
+#if USB_DRVSTR_DBG
+#define READ_OP		1
+#define WRITE_OP	0
+static ssize_t usb_drvstr_show(struct device *pdev, struct device_attribute *attr, char *buf)
+{
+	unsigned char value= 0x00; 
+	tusb_drive_event(READ_OP, &value);
+	printk(KERN_ALERT "USB Drive Strength READ: %x-\n", value);
+	return sprintf(buf, "%x\n", value); //returns 1
+	//return -ENODEV;
+}
+
+static ssize_t usb_drvstr_store(struct device *pdev, struct device_attribute *attr, const char *buff, size_t size)
+{
+	unsigned char value= 0x00;  
+	sscanf(buff, "%x", (unsigned int*)&value);
+	
+	if((value >= 0x40) || (value <= 0x4F))
+		tusb_drive_event(WRITE_OP, &value);	
+	else
+		return -ENODEV;
+	
+	printk(KERN_ALERT "USB Drive Strength WRITE: %x-\n", value);
+	//return sprintf(buff, "%x\n", value); // returns 1
+	return -ENODEV;
+}
+#endif //USB_DRVSTR_DBG
+
 DESCRIPTOR_ATTR(idVendor, "%04x\n")
 DESCRIPTOR_ATTR(idProduct, "%04x\n")
 DESCRIPTOR_ATTR(bcdDevice, "%04x\n")
@@ -1412,6 +1444,9 @@ static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, enable_show, enable_store);
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+#if USB_DRVSTR_DBG
+static DEVICE_ATTR(usbDrvStr, S_IRUGO | S_IWUSR, usb_drvstr_show, usb_drvstr_store);
+#endif //USB_DRVSTR_DBG
 
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
@@ -1426,6 +1461,9 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_state,
+	#if USB_DRVSTR_DBG
+	&dev_attr_usbDrvStr,
+	#endif //USB_DRVSTR_DBG
 	NULL
 };
 
