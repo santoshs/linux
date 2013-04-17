@@ -488,9 +488,10 @@ struct ctrl_func_tbl {
 
 /* Routing type of the stream, in during a call */
 enum sndp_stream_route_type {
-	SNDP_ROUTE_NORMAL = 0,     /* Normal route */
-	SNDP_ROUTE_PLAY_CHANGED,   /* Playback path, switched to the FSI */
-	SNDP_ROUTE_CAP_DUMMY,      /* Started the dummy recording */
+	SNDP_ROUTE_NORMAL = 0,          /* Normal route */
+	SNDP_ROUTE_PLAY_CHANGED = 0x1,  /* Playback path, switched to the FSI */
+	SNDP_ROUTE_PLAY_DUMMY = 0x2,    /* Started the dummy playing */
+	SNDP_ROUTE_CAP_DUMMY = 0x4,     /* Started the dummy recording */
 };
 
 /* Device type */

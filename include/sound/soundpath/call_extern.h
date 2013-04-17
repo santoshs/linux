@@ -19,6 +19,7 @@
 #define __CALL_EXTERN_H__
 
 #include <linux/kernel.h>
+#include <sound/soundpath/soundpath.h>
 
 #ifdef __CALL_CTRL_NO_EXTERN__
 #define CALL_CTRL_NO_EXTERN
@@ -38,6 +39,7 @@ enum call_status {
 
 CALL_CTRL_NO_EXTERN enum call_status g_status;
 CALL_CTRL_NO_EXTERN atomic_t g_call_watch_start_fw;
+CALL_CTRL_NO_EXTERN atomic_t g_call_watch_stop_fw;
 
 typedef void (*callback_func)(void);
 typedef void (*callback_func_arg1)(u_int);
@@ -50,6 +52,9 @@ struct call_vcd_callback {
 	callback_func	 	callback_wait_path;
 	callback_func_arg1	callback_codec_type;
 };
+
+CALL_CTRL_NO_EXTERN bool g_call_incomm_cb[SNDP_PCM_DIRECTION_MAX];
+CALL_CTRL_NO_EXTERN u_int g_call_sampling_rate[SNDP_PCM_DIRECTION_MAX];
 
 /* Call initialization function */
 CALL_CTRL_NO_EXTERN void call_init(
@@ -91,10 +96,6 @@ CALL_CTRL_NO_EXTERN int call_regist_watch(struct call_vcd_callback *func);
 /* Record dummy change function */
 CALL_CTRL_NO_EXTERN void call_change_dummy_rec(void);
 CALL_CTRL_NO_EXTERN void call_change_dummy_play(void);
-/* Speech UpLink status set function */
-CALL_CTRL_NO_EXTERN void call_set_play_uplink(bool flag);
-/* Speech UpLink status get function */
-CALL_CTRL_NO_EXTERN int call_read_play_uplink_state(void);
 /* Create work queue function */
 CALL_CTRL_NO_EXTERN int call_create_workque(void);
 /* Destroy work queue function */
@@ -103,6 +104,11 @@ CALL_CTRL_NO_EXTERN void call_destroy_workque(void);
 CALL_CTRL_NO_EXTERN void call_get_incomm_buffer(void);
 /* VoIP buffer offset return function */
 CALL_CTRL_NO_EXTERN snd_pcm_uframes_t call_incomm_pcmdata_pointer(struct snd_pcm_substream *substream);
+
+/* Change dummy playing for incommunication */
+CALL_CTRL_NO_EXTERN void call_change_incomm_play(void);
+/* Change dummy recording for incommunication */
+CALL_CTRL_NO_EXTERN void call_change_incomm_rec(void);
 
 #endif /* __CALL_EXTERN_H__ */
 

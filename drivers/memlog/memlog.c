@@ -9,7 +9,6 @@
 #include <linux/io.h>
 #include <linux/time.h>
 #include <memlog/memlog.h>
-#include <mach/memory-r8a7373.h>
 
 static struct kobject *memlog_kobj;
 
