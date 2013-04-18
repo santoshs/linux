@@ -976,7 +976,7 @@ static int audio_test_proc_get_loopback_state(u_int *state)
 
 	*state = audio_test_pt_state;
 
-	audio_test_log_rfunc("ret[%d]", ret);
+	audio_test_log_rfunc("state[%d]", audio_test_pt_state);
 	return ret;
 }
 

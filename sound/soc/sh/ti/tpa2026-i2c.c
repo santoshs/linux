@@ -235,18 +235,13 @@ static int tpa2026_i2c_set_state
 	tpa2026_i2c_pr_func_start("mode[%d] device[%d] ch_dev[%d].\n",
 						mode, device, ch_dev);
 
-	if (SNDP_MODE_INCALL == mode) {
-		if (device & SNDP_OUT_SPEAKER)
-			tpa2026_i2c_amp_on();
+	if (device & SNDP_OUT_SPEAKER) {
+		if (ch_dev == SNDP_EXTDEV_STOP)
+			tpa2026_i2c_amp_shutdown();
 		else
-			tpa2026_i2c_amp_shutdown();
-	} else if (!(device & SNDP_OUT_SPEAKER)) {
-			tpa2026_i2c_amp_shutdown();
+			tpa2026_i2c_amp_on();
 	} else {
-		if (ch_dev == SNDP_EXTDEV_START)
-			tpa2026_i2c_amp_on();
-		else
-			tpa2026_i2c_amp_shutdown();
+		tpa2026_i2c_amp_shutdown();
 	}
 
 	tpa2026_i2c_pr_func_end("rc[%d].\n", rc);

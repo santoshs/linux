@@ -4412,11 +4412,6 @@ static void sndp_work_start(const int direction)
 		}
 	}
 
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
-		sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
-				     SNDP_GET_AUDIO_DEVICE(uiValue),
-				     SNDP_EXTDEV_START);
-
 	if (SNDP_PT_NOT_STARTED == g_pt_start) {
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
 			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
