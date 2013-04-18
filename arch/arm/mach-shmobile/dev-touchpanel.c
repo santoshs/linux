@@ -54,18 +54,22 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	regulator_enable(touch_regulator);
 	msleep(20);
 
-	if ((tsp_detector_i2c_client = i2c_new_probed_device(adap,
+	tsp_detector_i2c_client = i2c_new_probed_device(adap,
 						&i2c4_devices_melfas[0],
-						addr_list_melfas, NULL))){
+						addr_list_melfas, NULL);
+	if (tsp_detector_i2c_client) {
 		printk(KERN_INFO "Touch Panel: Melfas MMS-13X\n");
-	} else if ((tsp_detector_i2c_client = i2c_new_probed_device(adap,
-						&i2c4_devices_zinitix[0],
-						addr_list_zinitix, NULL))){
-		printk(KERN_INFO "Touch Panel: Zinitix BT432\n");
 	} else {
-		tsp_detector_i2c_client = i2c_new_device(adap,
+		tsp_detector_i2c_client = i2c_new_probed_device(adap,
+						&i2c4_devices_zinitix[0],
+						addr_list_zinitix, NULL) ;
+		if (tsp_detector_i2c_client) {
+			printk(KERN_INFO "Touch Panel: Zinitix BT432\n");
+		} else {
+			tsp_detector_i2c_client = i2c_new_device(adap,
 						&i2c4_devices_imagis[0]);
-		printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
+			printk(KERN_INFO "Touch Panel: Imagis IST30XX\n");
+		}
 	}
 
 	regulator_disable(touch_regulator);
