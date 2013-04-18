@@ -26,7 +26,7 @@
 #include <linux/tsu6712.h>
 #include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
-
+#include <linux/usb/tusb1211.h>
 #include <mach/common.h>
 
 /* Register define */
@@ -52,6 +52,8 @@
 #define SMB328A_INTERRUPT_STATUS_C			0x37
 #define SMB328A_BATTERY_CHARGING_STATUS_D	0x38
 #define SMB328A_AUTOMATIC_INPUT_CURRENT_LIMMIT_STATUS	0x39
+
+/* #define SMB328A_DEBUG_REG */
 
 enum {
 	BAT_NOT_DETECTED,
@@ -113,6 +115,19 @@ static int smb328a_read_reg(struct i2c_client *client, int reg)
 
 	return ret;
 }
+#ifdef SMB328A_DEBUG_REG
+static void smb328a_print_reg(struct i2c_client *client, int reg)
+{
+	u8 data = 0;
+
+	data = i2c_smbus_read_byte_data(client, reg);
+
+	if (data < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, data);
+	else
+		printk(KERN_INFO "%s : reg (0x%x) = 0x%x\n", __func__, reg, data);
+}
+#endif
 
 static void smb328a_allow_volatile_writes(struct i2c_client *client)
 {
@@ -592,7 +607,7 @@ static int smb328a_enable_otg(struct i2c_client *client)
 			printk(KERN_ERR "%s : error!\n", __func__);
 			return -1;
 		}
-		msleep(100);
+		msleep(20);
 
 		data = smb328a_read_reg(client, SMB328A_COMMAND);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
@@ -608,7 +623,7 @@ static int smb328a_enable_otg(struct i2c_client *client)
 			printk(KERN_ERR "%s : error!\n", __func__);
 			return -1;
 		}
-		msleep(100);
+		msleep(20);
 		data = smb328a_read_reg(client, SMB328A_FUNCTION_CONTROL_B);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_FUNCTION_CONTROL_B, data);
 
@@ -625,7 +640,7 @@ static int smb328a_enable_otg(struct i2c_client *client)
 				printk(KERN_ERR "%s : error!\n", __func__);
 				return -1;
 			}
-			msleep(100);
+			msleep(20);
 
 			data = smb328a_read_reg(client, SMB328A_COMMAND);
 			printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
@@ -655,7 +670,7 @@ static int smb328a_disable_otg(struct i2c_client *client)
 			return -1;
 		}
 
-		msleep(100);
+		msleep(20);
 
 		data = smb328a_read_reg(client, SMB328A_FUNCTION_CONTROL_B);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_FUNCTION_CONTROL_B, data);
@@ -670,7 +685,7 @@ static int smb328a_disable_otg(struct i2c_client *client)
 			printk(KERN_ERR "%s : error!\n", __func__);
 			return -1;
 		}
-		msleep(100);
+		msleep(20);
 		data = smb328a_read_reg(client, SMB328A_COMMAND);
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
 	}

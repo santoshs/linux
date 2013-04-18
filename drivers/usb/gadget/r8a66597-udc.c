@@ -38,6 +38,7 @@
 
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/otg.h>
+#include <linux/usb/tusb1211.h>
 #define USB_OTG_STATUS_SELECTOR  0xF000
 #define USB_OTG_HOST_REQ_FLAG  0x0000
 #endif
@@ -55,7 +56,7 @@
 
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-/*#define UDC_LOG*/
+/* #define UDC_LOG */
 
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
@@ -304,6 +305,89 @@ __acquires(r8a66597->lock)
 	disable_controller(r8a66597);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
+
+#ifdef CONFIG_USB_OTG
+#define USB_PORT_STAT_CONNECTION 0x0001
+static void r8a66597_hnp_work(struct work_struct *work)
+{
+	struct r8a66597 *r8a66597 =
+			container_of(work, struct r8a66597, hnp_work.work);
+	struct otg_transceiver *otg = otg_get_transceiver();
+	udc_log("%s (%d): IN\n", __func__, __LINE__);
+	if (otg->state == OTG_STATE_B_PERIPHERAL ||
+		otg->state == OTG_STATE_A_PERIPHERAL) {
+		r8a66597_bset(r8a66597, HNPBTOA, DVSTCTR0);
+		/* disable interrupts */
+		r8a66597_write(r8a66597, 0, INTENB0);
+		r8a66597_write(r8a66597, 0, INTENB1);
+		r8a66597_write(r8a66597, 0, BRDYENB);
+		r8a66597_write(r8a66597, 0, BEMPENB);
+		r8a66597_write(r8a66597, 0, NRDYENB);
+		/* clear status */
+		r8a66597_write(r8a66597, 0, BRDYSTS);
+		r8a66597_write(r8a66597, 0, NRDYSTS);
+		r8a66597_write(r8a66597, 0, BEMPSTS);
+
+		r8a66597_bset(r8a66597, BEMPE | NRDYE | BRDYE, INTENB0);
+		r8a66597_bset(r8a66597, BRDY0, BRDYENB);
+		r8a66597_bset(r8a66597, BEMP0, BEMPENB);
+		r8a66597_bset(r8a66597, TRNENSEL, SOFCFG);
+		r8a66597_bset(r8a66597, SIGNE | SACKE, INTENB1);
+		r8a66597_bset(r8a66597, OVRCRE, INTENB1);
+
+		r8a66597_bset(r8a66597, DCFM, SYSCFG0);
+		r8a66597_bset(r8a66597, DRPD, SYSCFG0);
+		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+		r8a66597_bset(r8a66597, HSE, SYSCFG0);
+
+		if (otg->state == OTG_STATE_B_PERIPHERAL) {
+			otg->state = OTG_STATE_B_WAIT_ACON;
+			mod_timer(&r8a66597->hnp_timer_fail,
+						jiffies + msecs_to_jiffies(155));
+		} else if (otg->state == OTG_STATE_A_PERIPHERAL) {
+			otg->state = OTG_STATE_A_WAIT_BCON;
+		}
+		otg->port_status |= USB_PORT_STAT_CONNECTION;
+		r8a66597_bclr(r8a66597, DTCHE, INTENB1);
+		r8a66597_bset(r8a66597, ATTCHE, INTENB1);
+		udc_log("%s\n", otg_state_string(otg->state));
+
+	}
+	otg_put_transceiver(otg);
+}
+
+static void r8a66597_hnp_timer_fail(unsigned long _r8a66597)
+{
+	struct r8a66597 *r8a66597 = (struct r8a66597 *)_r8a66597;
+	struct otg_transceiver *otg = otg_get_transceiver();
+	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
+
+	if (otg->state == OTG_STATE_B_WAIT_ACON) {
+
+		/* disable interrupts */
+		r8a66597_write(r8a66597, 0, INTENB0);
+		r8a66597_write(r8a66597, 0, INTENB1);
+		r8a66597_write(r8a66597, 0, BRDYENB);
+		r8a66597_write(r8a66597, 0, BEMPENB);
+		r8a66597_write(r8a66597, 0, NRDYENB);
+
+		/* clear status */
+		r8a66597_write(r8a66597, 0, BRDYSTS);
+		r8a66597_write(r8a66597, 0, NRDYSTS);
+		r8a66597_write(r8a66597, 0, BEMPSTS);
+
+		/* start clock */
+		r8a66597_write(r8a66597, bwait, SYSCFG1);
+		r8a66597_bset(r8a66597, HSE, SYSCFG0);
+		r8a66597_bset(r8a66597, USBE, SYSCFG0);
+		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+
+		r8a66597_usb_connect(r8a66597);
+		otg->state = OTG_STATE_B_PERIPHERAL;
+	}
+	otg_put_transceiver(otg);
+}
+#endif
 
 static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 {
@@ -1663,6 +1747,13 @@ static void set_feature(struct r8a66597 *r8a66597, struct usb_ctrlrequest *ctrl)
 						le16_to_cpu(ctrl->wIndex >> 8),
 						TESTMODE);
 			break;
+#ifdef CONFIG_USB_OTG
+		case USB_DEVICE_B_HNP_ENABLE: {
+			r8a66597->gadget.b_hnp_enable = 1;
+			control_end(r8a66597, 1);
+			break;
+		}
+#endif
 		default:
 			pipe_stall(r8a66597, 0);
 			break;
@@ -1758,6 +1849,10 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 {
 
 	u16 dvsq;
+#ifdef CONFIG_USB_OTG
+	struct otg_transceiver *otg;
+	otg = otg_get_transceiver();
+#endif
 	dvsq = r8a66597_read(r8a66597, INTSTS0) & DVSQ;
 	r8a66597_write(r8a66597, ~DVST, INTSTS0);
 
@@ -1768,12 +1863,26 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		spin_lock(&r8a66597->lock);
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
+#ifdef CONFIG_USB_OTG
+	if (otg->state == OTG_STATE_A_SUSPEND)
+		otg->state = OTG_STATE_A_PERIPHERAL;
+	udc_log("%s\n", otg_state_string(otg->state));
+#endif
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
 		r8a66597_update_usb_speed(r8a66597);
 	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)
 			&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
 		r8a66597_update_usb_speed(r8a66597);
+#ifdef CONFIG_USB_OTG
+	if ((r8a66597->old_dvsq == DS_CNFG) && (dvsq & DS_SPD_CNFG)
+							&& r8a66597->gadget.b_hnp_enable
+							&& r8a66597->host_request_flag) {
+		schedule_delayed_work(&r8a66597->hnp_work, 0);
+		r8a66597->host_request_flag = 0;
+	}
+	otg_put_transceiver(otg);
+#endif
 
 	r8a66597->old_dvsq = dvsq;
 }
@@ -1830,12 +1939,11 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 	u16 mask0;
 #ifdef CONFIG_USB_OTG
 	u16 syscfg;
-	u16 role;
 #endif
 	spin_lock(&r8a66597->lock);
 #ifdef CONFIG_USB_OTG
 	syscfg = r8a66597_read(r8a66597, SYSCFG0);
-	role = syscfg & DCFM;
+	r8a66597->role = syscfg & DCFM;
 #endif
 	intsts0 = r8a66597_read(r8a66597, INTSTS0);
 	intenb0 = r8a66597_read(r8a66597, INTENB0);
@@ -1884,12 +1992,12 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 #endif
 
 #ifdef CONFIG_USB_OTG
-		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!role)) {
+		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!r8a66597->role)) {
 			brdysts = r8a66597_read(r8a66597, BRDYSTS);
 			brdyenb = r8a66597_read(r8a66597, BRDYENB);
 			irq_pipe_ready(r8a66597, brdysts, brdyenb);
 		}
-		if ((intsts0 & BEMP) && (intenb0 & BEMPE) && (!role)) {
+		if ((intsts0 & BEMP) && (intenb0 & BEMPE) && (!r8a66597->role)) {
 			bempenb = r8a66597_read(r8a66597, BEMPENB);
 			bempsts = r8a66597_read(r8a66597, BEMPSTS);
 			irq_pipe_empty(r8a66597, bempsts, bempenb, intenb0);
@@ -2446,6 +2554,10 @@ static void r8a66597_vbus_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, vbus_work.work);
+#ifdef CONFIG_USB_OTG
+	struct otg_transceiver *otg = otg_get_transceiver();
+	u16 syscfg = 0;
+#endif
 	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
 	unsigned long flags;
 	int vbus_state = 0;
@@ -2461,6 +2573,35 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
 	}
+
+	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
+					__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
+#ifdef CONFIG_USB_OTG
+	syscfg = r8a66597_read(r8a66597, SYSCFG0);
+	r8a66597->role = syscfg & DCFM;
+	if (r8a66597->role) { /*If the controller is in Host mode, return without
+				  doing anything */
+		wake_unlock(&r8a66597->wake_lock);
+		return;
+	}
+	otg = otg_get_transceiver();
+	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
+				__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
+	if ((r8a66597_read(r8a66597, INTSTS0) & VBSTS) && (!r8a66597->role)) {
+		udc_log("\n>>> HSUSB:UDC: %s(%d): OTG_STATE= %s -> %s <<<<<<\n"\
+					, __func__, __LINE__, otg_state_string(otg->state),\
+					otg_state_string(OTG_STATE_B_PERIPHERAL));
+		otg->state = OTG_STATE_B_PERIPHERAL;
+	} else if (otg->state ==  OTG_STATE_B_PERIPHERAL) {
+			udc_log("\n>>> HSUSB:UDC: %s(%d): OTG_STATE= %s -> %s<<<<<<\n",\
+						__func__, __LINE__, otg_state_string(otg->state),\
+						otg_state_string(OTG_STATE_B_IDLE));
+			otg->state = OTG_STATE_B_IDLE;
+			r8a66597->gadget.b_hnp_enable = 0;
+		}
+	udc_log("%s\n", otg_state_string(otg->state));
+	otg_put_transceiver(otg);
+#endif
 #if defined VBUS_HANDLE_IRQ_BASED
 	vbus_state = gIsConnected;
 #else
@@ -2648,6 +2789,9 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, r8a66597);
 	r8a66597->pdata = pdev->dev.platform_data;
 	r8a66597->irq_sense_low = irq_trigger == IRQF_TRIGGER_LOW;
+#ifdef CONFIG_USB_OTG
+	r8a66597->gadget.is_otg = 1;
+#endif
 
 	r8a66597->gadget.ops = &r8a66597_gadget_ops;
 	dev_set_name(&r8a66597->gadget.dev, "gadget");
@@ -2663,6 +2807,12 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	}
 
 	INIT_DELAYED_WORK(&r8a66597->vbus_work, r8a66597_vbus_work);
+#ifdef CONFIG_USB_OTG
+	INIT_DELAYED_WORK(&r8a66597->hnp_work, r8a66597_hnp_work);
+	init_timer(&r8a66597->hnp_timer_fail);
+	r8a66597->hnp_timer_fail.function = r8a66597_hnp_timer_fail;
+	r8a66597->hnp_timer_fail.data = (unsigned long)r8a66597;
+#endif
 
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
@@ -2689,8 +2839,11 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto clean_up2;
 	}
-
+#ifdef CONFIG_USB_OTG
+	ret = request_irq(irq, r8a66597_irq, IRQF_SHARED, udc_name, r8a66597);
+#else
 	ret = request_irq(irq, r8a66597_irq, 0, udc_name, r8a66597);
+#endif
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq error (%d)\n", ret);
 		goto clean_up2;
@@ -2827,7 +2980,11 @@ static int r8a66597_udc_suspend(struct device *dev)
 	r8a66597->pdata->usb_gpio_setting_info, 1);
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
+#ifdef CONFIG_USB_OTG
+	if (!r8a66597->is_active || r8a66597->role) {
+#else
 	if (!r8a66597->is_active) {
+#endif
 		udc_log("%s, USB device usage count: %d\n",
 		__func__, atomic_read(&r8a66597_to_dev
 		(r8a66597)->power.usage_count));
