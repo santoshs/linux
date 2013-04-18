@@ -39,6 +39,8 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
+#include <mach/sbsc.h>
+
 DEFINE_SPINLOCK(clock_lock);
 
 unsigned int *cpu0BackupArea;
@@ -189,52 +191,8 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 
 unsigned int suspend_ZB3_backup(void)
 {
-	unsigned int pll3cr = 0;
-	unsigned int pll3cr_mul = 0;
-	unsigned int zb3_div = 0;
 	unsigned int zb3_clk = 0;
-	pll3cr = __raw_readl(PLL3CR);
-	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
-
-	zb3_div = __raw_readl(FRQCRD);
-	zb3_clk = (26 * pll3cr_mul);
-
-	switch (zb3_div & (0x1F)) {
-	case 0x00:
-	case 0x04:
-		zb3_clk /= 2;
-		break;
-	case 0x10:
-		zb3_clk /= 4;
-		break;
-	case 0x11:
-		zb3_clk /= 6;
-		break;
-	case 0x12:
-		zb3_clk /= 8;
-		break;
-	case 0x13:
-		zb3_clk /= 12;
-		break;
-	case 0x14:
-		zb3_clk /= 16;
-		break;
-	case 0x15:
-		zb3_clk /= 24;
-		break;
-	case 0x16:
-		zb3_clk /= 32;
-		break;
-	case 0x18:
-		zb3_clk /= 48;
-		break;
-	case 0x1B:
-		zb3_clk /= 96;
-		break;
-	default:
-		zb3_clk = -EINVAL;
-	}
-	zb3_clk *= 1000;
+	zb3_clk = shmobile_get_ape_req_freq();
 	return zb3_clk;
 }
 
