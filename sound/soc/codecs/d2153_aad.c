@@ -31,10 +31,24 @@
 #include <linux/d2153/d2153_codec.h>
 #include <linux/d2153/d2153_aad.h>
  
-//#define D2153_AAD_JACK_DEBOUNCE_MS 100
+#define D2153_AAD_MICBIAS_SETUP_TIME 50
+#ifdef D2153_JACK_DETECT
+ #ifdef D2153_AAD_MICBIAS_SETUP_TIME
+ #define D2153_AAD_JACK_DEBOUNCE_MS (400 - D2153_AAD_MICBIAS_SETUP_TIME)
+ #else
+ #define D2153_AAD_JACK_DEBOUNCE_MS 400
+ #endif
+#else
 #define D2153_AAD_JACK_DEBOUNCE_MS 400
+#endif
+
+#define D2153_AAD_JACKOUT_DEBOUNCE_MS 100
+
 #define D2153_AAD_BUTTON_DEBOUNCE_MS 50
-#define D2153_AAD_DETECT_JAC_ADC 71
+#define D2153_AAD_DETECT_JACK_ADC 90
+#define D2153_AAD_CONNER_CASE_ADC 239
+
+#define D2153_AAD_WATERDROP
 
 struct d2153_aad_priv *d2153_aad_ex;
 EXPORT_SYMBOL(d2153_aad_ex);
@@ -187,7 +201,13 @@ static irqreturn_t d2153_jack_handler(int irq, void *data)
 
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 	cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
+
+	if ( d2153_aad->switch_data.state == D2153_NO_JACK)
  	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
+ 	else
+	 	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS)); 	
+ 	
+ 	
 	d2153_aad->switch_data.state = D2153_NO_JACK;
 	
 	return IRQ_HANDLED;
@@ -266,6 +286,9 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state;
+#ifdef D2153_AAD_WATERDROP	
+	int state_gpio;
+#endif
 
 	dlg_info("%s \n",__func__);
 	
@@ -275,23 +298,42 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 		return;
 	}
 
+	snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+	msleep(D2153_AAD_MICBIAS_SETUP_TIME);
+	
 	jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
+	dlg_info(" %s, JACK MODE = 0x%x \n",__func__,jack_mode);
 	
 	if (jack_mode & D2153_ACCDET_JACK_MODE_JACK) {
 
+#ifdef D2153_AAD_WATERDROP
+		state_gpio = gpio_get_value(GPIO_PORT7);
+		if (state_gpio == 1) 
+		{
+			dlg_info(" %s, state_gpio = 0x%x \n",__func__,state_gpio);
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
+			schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(500));
+			return;
+		}
+#endif	 
 		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
+			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
+			
 			dlg_info("%s JACK MODE! 4 Pole Heaset set \n",__func__);
 			state=D2153_HEADSET;	
-			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+			//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
 			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
 		}	
 		else {
 			
 				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
 	
-				snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
+				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+					//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
 					
 				if (D2153_AA_Silicon == d2153_aad->chip_rev)
 					d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
@@ -307,8 +349,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 
 				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 					//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-
-				if(btn_status == 0)	{
+				if(btn_status < D2153_AAD_DETECT_JACK_ADC)	{
 					dlg_info("%s ADC CHECK!! 3 Pole Heaset set2 \n",__func__);
 					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
 					state=D2153_HEADPHONE;
@@ -316,6 +357,8 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
 				}
 				else {
+					d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+					dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
 					dlg_info("%s ADC CHECK!! 4 Pole Heaset set2 \n",__func__);
 					state=D2153_HEADSET;	
 					//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
@@ -325,6 +368,8 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 		}
 	}
 	else {		
+		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
+		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
 		dlg_info("%s Jack Pull Out ! \n",__func__);
 		state=D2153_NO_JACK;
 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
@@ -353,6 +398,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
 
+	dlg_info("%s disable D2153_JACK_DETECT\n",__func__);
 	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
 	{
 		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
@@ -392,7 +438,7 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 				d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
 					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
 
-			if(btn_status < D2153_AAD_DETECT_JAC_ADC)	{
+			if(btn_status < D2153_AAD_DETECT_JACK_ADC)	{
 				dlg_info("[%s] First 3 Pole Heaset set2 \n",__func__);
 
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
