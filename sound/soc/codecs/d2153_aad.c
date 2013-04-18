@@ -64,22 +64,7 @@ EXPORT_SYMBOL(d2153_aad_ex);
  
 /* Button resistance lookup table */
 /* DLG - ADC values need to be correctly set as they're currently not known */
-static const struct button_resistance button_res_tbl[MAX_BUTTONS] = {
-#if 0
-	[SEND_BUTTON] = {
-		.min_val = 2,
-		.max_val = 10,
-	},
-	[VOL_UP_BUTTON] = {
-		.min_val = 11,
-		.max_val = 27,
-	},
-	[VOL_DN_BUTTON] = {
-		.min_val = 28,
-		.max_val = 60,
-	},
-#else
-#ifdef D2153_SET_MICBIAS_2_6V
+static const struct button_resistance button_res_2V6_tbl[MAX_BUTTONS] = {
 	[SEND_BUTTON] = {
 		.min_val = 0,
 		.max_val = 12,
@@ -92,7 +77,9 @@ static const struct button_resistance button_res_tbl[MAX_BUTTONS] = {
 		.min_val = 39,
 		.max_val = 86,
 	},
-#else
+};
+
+static const struct button_resistance button_res_2V5_tbl[MAX_BUTTONS] = {
 	[SEND_BUTTON] = {
 		.min_val = 0,
 		.max_val = 11,
@@ -105,10 +92,9 @@ static const struct button_resistance button_res_tbl[MAX_BUTTONS] = {
 		.min_val = 39,
 		.max_val = 85,
 	},
-#endif
-#endif
 };
 
+static const struct button_resistance *button_res_tbl;
 
 /* Following register access methods based on soc-cache code */
 static int d2153_aad_read(struct i2c_client *client, u8 reg)
@@ -526,10 +512,9 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 		input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event Send Press ! \n",__func__);
+		dlg_info("%s event Send Press !\n", __func__);
 
-	}
-	else if ((btn_status >= button_res_tbl[VOL_UP_BUTTON].min_val) &&
+	} else if ((btn_status >= button_res_tbl[VOL_UP_BUTTON].min_val) &&
 		 (btn_status <= button_res_tbl[VOL_UP_BUTTON].max_val)) {
 	
 		d2153_aad->button.key=KEY_VOLUMEUP;
@@ -537,10 +522,9 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 		input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event VOL UP Press ! \n",__func__);
+		dlg_info("%s event VOL UP Press !\n", __func__);
 	
-	}
-	else if ((btn_status >= button_res_tbl[VOL_DN_BUTTON].min_val) &&
+	} else if ((btn_status >= button_res_tbl[VOL_DN_BUTTON].min_val) &&
 		 (btn_status <= button_res_tbl[VOL_DN_BUTTON].max_val)) {
 
 		d2153_aad->button.key=KEY_VOLUMEDOWN;
@@ -589,6 +573,7 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	int ret,irq;
 #endif
 	u8 regval;
+	struct d2153 *pmic;
 
 	d2153_aad = devm_kzalloc(&client->dev, sizeof(struct d2153_aad_priv),
 				 GFP_KERNEL);
@@ -605,6 +590,12 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	d2153_switch_dev_register(d2153_aad);
 	
 	d2153_hooksw_dev_register(client, d2153_aad);
+
+	pmic = d2153_aad->d2153_codec->d2153_pmic;
+	if (D2153_MICBIAS_LEVEL_2_6V == pmic->pdata->audio.micbias1_level)
+		button_res_tbl = button_res_2V6_tbl;
+	else
+		button_res_tbl = button_res_2V5_tbl;
 
 	d2153_aad_ex = d2153_aad;
 
