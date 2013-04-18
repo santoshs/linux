@@ -53,6 +53,9 @@
 #define D2153_PLAYBACK_STREAM_NAME	"Playback"
 #define D2153_CAPTURE_STREAM_NAME	"Capture"
 
+struct snd_soc_dapm_widget *playback_widget;
+struct snd_soc_dapm_widget *capture_widget;
+
 struct clk *vclk4_clk;
 struct clk *main_clk;
 static int g_boot_flag;
@@ -98,10 +101,6 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec;
 	struct snd_card *card;
-	u8 ep_ctrl;
-	u8 sp_ctrl;
-	u8 hp_r_ctrl;
-	u8 hp_l_ctrl;
 
 	if (!kcontrol) {
 		sndp_log_err("kcontrol is NULL\n");
@@ -112,41 +111,7 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 
 	sndp_log_info("start\n");
 
-	/* Backup register */
-	sp_ctrl = snd_soc_read(codec, D2153_SP_CTRL);
-	ep_ctrl = snd_soc_read(codec, D2153_EP_CTRL);
-	hp_l_ctrl = snd_soc_read(codec, D2153_HP_L_CTRL);
-	hp_r_ctrl = snd_soc_read(codec, D2153_HP_R_CTRL);
-
-	/* Mute AMP*/
-	if (!(sp_ctrl & D2153_SP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_SP_CTRL,
-			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
-	if (!(ep_ctrl & D2153_EP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_EP_CTRL,
-			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
-	if (!(hp_l_ctrl & D2153_HP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
-	if (!(hp_r_ctrl & D2153_HP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
-
 	fsi_d2153_set_active(codec, D2153_PLAYBACK_STREAM_NAME, status);
-
-	/* Un-mute AMP */
-	if (!(sp_ctrl & D2153_SP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_SP_CTRL,
-			D2153_SP_AMP_MUTE_EN, 0);
-	if (!(ep_ctrl & D2153_EP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_EP_CTRL,
-			D2153_EP_AMP_MUTE_EN, 0);
-	if (!(hp_l_ctrl & D2153_HP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-			D2153_HP_AMP_MUTE_EN, 0);
-	if (!(hp_r_ctrl & D2153_HP_AMP_MUTE_EN))
-		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-			D2153_HP_AMP_MUTE_EN, 0);
 
 	sndp_log_info("end\n");
 	return;
@@ -442,8 +407,6 @@ int fsi_d2153_snd_soc_get_sr(struct snd_kcontrol *kcontrol,
 int fsi_d2153_snd_soc_put_sr(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec =
-		(struct snd_soc_codec *)kcontrol->private_data;
 	unsigned int val;
 	struct snd_pcm_hw_params params;
 	int retVal = 0;
@@ -511,6 +474,68 @@ static int fsi_d2153_sndp_soc_put_playback_mute(
 	return sndp_soc_put_playback_mute(kcontrol, ucontrol);
 }
 
+static int fsi_d2153_sndp_spk_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, 0);
+		sndp_log_info("spk unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
+		sndp_log_info("spk mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
+
+static int fsi_d2153_sndp_hp_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
+		sndp_log_info("hp unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+		if (playback_widget && (playback_widget->active == 0))
+			msleep(50);
+		sndp_log_info("hp mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
+
+static int fsi_d2153_sndp_ep_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, 0);
+		sndp_log_info("ep unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
+		sndp_log_info("ep mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
 
 static struct snd_kcontrol_new fsi_d2153_controls[] = {
 	SOC_SINGLE_BOOL_EXT("ADC Activate", 0,
@@ -539,7 +564,10 @@ static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_POST("Post Playback", post_playback_event),
 	SND_SOC_DAPM_SUPPLY("VCLK4", SND_SOC_NOPM, 0, 0, vclk4_supply_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
+	SND_SOC_DAPM_SPK("Speaker", fsi_d2153_sndp_spk_event),
+	SND_SOC_DAPM_HP("Headphone Jack Left", fsi_d2153_sndp_hp_event),
+	SND_SOC_DAPM_HP("Headphone Jack Right", fsi_d2153_sndp_hp_event),
+	SND_SOC_DAPM_LINE("Earpiece", fsi_d2153_sndp_ep_event),
 };
 
 static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
@@ -549,6 +577,10 @@ static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
 	{"AIFINR", NULL, "VCLK4"},
 	{"AIFOUTL", NULL, "VCLK4"},
 	{"AIFOUTR", NULL, "VCLK4"},
+	{"Headphone Jack Left", NULL, "HPL"},
+	{"Headphone Jack Right", NULL, "HPR"},
+	{"Speaker", NULL, "SP"},
+	{"Earpiece", NULL, "EP"},
 };
 
 static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
@@ -713,6 +745,9 @@ static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_disable_pin(dapm, "RECCHL");
 	snd_soc_dapm_disable_pin(dapm, "RECCHR");
+
+	playback_widget = rtd->codec_dai->playback_widget;
+	capture_widget = rtd->codec_dai->capture_widget;
 
 	return 0;
 }
