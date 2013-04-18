@@ -718,7 +718,7 @@ void vcd_spuv_func_send_ack(int is_log_enable)
 	vcd_pr_start_spuv_function();
 
 	if (VCD_ENABLE == is_log_enable)
-		vcd_pr_if_spuv("[VCD -> SPUV ] : ACK\n");
+		vcd_pr_if_spuv("[ -> SPUV ] ACK\n");
 
 	/* set arm_msg_it */
 	vcd_spuv_func_modify_register(0,
@@ -895,14 +895,20 @@ unsigned int vcd_spuv_func_get_diamond_sdram_buffer(void)
  */
 void vcd_spuv_func_start_wait(void)
 {
+	long timer_cancel;
+
 	vcd_pr_start_spuv_function();
 
 	init_waitqueue_head(&g_vcd_spuv_wait);
 
-	wait_event_interruptible_timeout(
+	timer_cancel = wait_event_interruptible_timeout(
 		g_vcd_spuv_wait,
 		g_spuv_func_is_completion,
 		msecs_to_jiffies(VCD_SPUV_FUNC_MAX_WAIT_TIME));
+
+	if (VCD_SPUV_FUNC_TIMEOUT == timer_cancel)
+		vcd_pr_err("no interrupt. is_completion[%d].\n",
+				g_spuv_func_is_completion);
 
 	vcd_pr_end_spuv_function();
 	return;
