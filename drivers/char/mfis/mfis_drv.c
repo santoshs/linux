@@ -628,8 +628,6 @@ static int mfis_runtime_nop(struct device *dev)
 
 
 static const struct dev_pm_ops mfis_dev_pm_ops = {
-	.suspend_noirq   = mfis_suspend_noirq,
-	.resume_noirq    = mfis_resume_noirq,
 	.runtime_suspend = mfis_runtime_nop,
 	.runtime_resume  = mfis_runtime_nop,
 };
