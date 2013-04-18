@@ -109,6 +109,8 @@ extern void xtal_though(void);
 extern void PM_Spin_Lock(void);
 extern void PM_Spin_Unlock(void);
 
+extern void copy_functions(void);
+
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
 extern void request_suspend_state(suspend_state_t state);

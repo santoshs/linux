@@ -45,7 +45,7 @@
  */
 
 /****************************************************************************/
-/* RAM0 MAPPING															*/
+/* RAM0 MAPPING */
 /****************************************************************************/
 #define ram0BasePhys	0xE63A2000	/* RAM0 Base physical address */
 #define ram0Base		IO_ADDRESS(ram0BasePhys)
@@ -59,194 +59,22 @@
 /* Size of CPU Register backup area	*/
 #define	saveCpuRegisterAreaSize				0x660
 
-/* Size of code	*/
-#define	fsArmVector			0x080 /* ARM Vector */
-#define	fsCoreStandby		0x300 /* Core Standby */
-#define	fsCoreStandby_2		0x1E0 /* Core Standby 2 */
-#define	fsSystemSuspend		0x320 /* System Suspend */
-#define	fsSaveArmRegister	0x160 /* Save ARM register */
-#define	fsRestoreArmRegisterPA	0x60  /* Restore ARM register PA */
-#define	fsRestoreArmRegisterVA	0x0E0 /* Restore ARM register VA */
-#define	fsSaveArmCommonRegister	0x060 /* Save ARM common register */
-#define	fsRestoreArmCommonRegister	0x040 /* Restore ARM common register */
-#define	fsPM_Spin_Lock		0x1A0	/* PM_Spin_Lock */
-#define	fsPM_Spin_Unlock	0xA0	/* PM_Spin_Unlock */
-#define	fsxtal_though		0x20	/* XTAL though mode setting */
-#define	fsSysPowerDown		0x240	/* power down function size*/
-#define	fsSysPowerUp		0x140	/* power up function size*/
-#define	fsSetClockSystemSuspend		0x120 /* Set clock function size*/
-#define fsMemoryLogPm				0x060 /* memory log for PM  */
 
-/*-----------------------------------------------*/
-/* Offset of RAM0 area							*/
-/*	function area			(RAM0:0x2000-0x54FF) */
-/*	backup area				(RAM0:0x5500-0x56FF) */
-/*	SBSC clock change area	(RAM0:0x5700-0x5AFF) */
-/*-----------------------------------------------*/
-/* function area */
+/*--------------------------------------------------------------------------*/
+/* Address of RAM0 area */
+/* function area (RAM0  :0xE63A2000-0xE63A39FF) */
+/* backup area   (RAM0  :0xE63A3A00-0xE63A3FFF) */
+/*--------------------------------------------------------------------------*/
+/* Address of function (Virt)	*/
+/* Start address of function area */
+#define	 ram0StartAddressOfFunctionArea	ram0Base
 
-/* Offset to the ARM Vector	*/
-#define		hoArmVector						\
-0x0
-/* Offset to the Core Standby function */
-#define		hoCoreStandby					\
-(hoArmVector				+ fsArmVector)
-/* Offset to the Core Standby 2 function */
-#define		hoCoreStandby_2					\
-(hoCoreStandby				+ fsCoreStandby)
-/* Offset to the System Suspend function */
-#define		hoSystemSuspend					\
-(hoCoreStandby_2				+ fsCoreStandby_2)
-/* Offset to the Save ARM register function */
-#define		hoSaveArmRegister				\
-(hoSystemSuspend			+ fsSystemSuspend)
-/* Offset to the Restore ARM register function(PA) */
-#define		hoRestoreArmRegisterPA			\
-(hoSaveArmRegister			+ fsSaveArmRegister)
-/* Offset to the Restore ARM register function(VA) */
-#define		hoRestoreArmRegisterVA			\
-(hoRestoreArmRegisterPA		+ fsRestoreArmRegisterPA)
-/* Offset to the Save ARM common register function */
-#define		hoSaveArmCommonRegister			\
-(hoRestoreArmRegisterVA		+ fsRestoreArmRegisterVA)
-/* Offset to the Restore ARM common register function */
-#define		hoRestoreArmCommonRegister		\
-(hoSaveArmCommonRegister	+ fsSaveArmCommonRegister)
-/* Offset to PM spin lock */
-#define		hoPM_Spin_Lock					\
-(hoRestoreArmCommonRegister + fsRestoreArmCommonRegister)
-/* Offset to PM spin unlock */
-#define		hoPM_Spin_Unlock					\
-(hoPM_Spin_Lock + fsPM_Spin_Lock)
-
-#define		hoxtal_though					\
-(hoPM_Spin_Unlock + fsPM_Spin_Unlock)
-/* Offset to the power down function */
-#define		hoSysPowerDown					\
-(hoxtal_though	+ fsxtal_though)
-/* Offset to the power up function */
-#define		hoSysPowerUp					\
-(hoSysPowerDown				+ fsSysPowerDown)
-/* Offset to the Set clock function */
-#define		hoSetClockSystemSuspend			\
-(hoSysPowerUp				+ fsSysPowerUp)
-
-/* Offset to the memory log pm function */
-#define		hoMemoryLogPm					\
-(hoSetClockSystemSuspend + fsSetClockSystemSuspend)
+/* Address of function (Phys)	*/
+/* Start address of function area */
+#define	 ram0StartAddressOfFunctionAreaPhys	ram0BasePhys
 
 /* backup area */
 #define	hoBackup		0x1A00 /* Offset to the Area for backup */
-
-/*-------------------------------------------------------*/
-/* Address of RAM0 area */
-/*	function area			(RAM0:0xE63A2000-0xE63A3DFF) */
-/*  backup area				(RAM0:0xE63A3E00-0xE63A3FFF) */
-/*	SBSC clock change		(T.B.D)                      */
-/*-------------------------------------------------------*/
-/* Address of function			*/
-
-/* Address of function (Virt)	*/
-/* Address of ARM Vector function */
-#define		ram0ArmVector						\
-(ram0Base + hoArmVector)
-/* Address of Core Standby function */
-#define		ram0CoreStandby						\
-(ram0Base + hoCoreStandby)
-/* Address of Core Standby 2 function */
-#define		ram0CoreStandby_2					\
-(ram0Base + hoCoreStandby_2)
-/* Address of System Suspend function */
-#define		ram0SystemSuspend					\
-(ram0Base + hoSystemSuspend)
-/* Address of Save ARM register function */
-#define		ram0SaveArmRegister					\
-(ram0Base + hoSaveArmRegister)
-/* Address of Restore ARM register function(PA) */
-#define		ram0RestoreArmRegisterPA			\
-(ram0Base + hoRestoreArmRegisterPA)
-/* Address of Restore ARM register function(VA) */
-#define		ram0RestoreArmRegisterVA			\
-(ram0Base + hoRestoreArmRegisterVA)
-/* Address of Save ARM common register function */
-#define		ram0SaveArmCommonRegister			\
-(ram0Base + hoSaveArmCommonRegister)
-/* Address of Restore ARM common register function */
-#define		ram0RestoreArmCommonRegister		\
-(ram0Base + hoRestoreArmCommonRegister)
-/* Address of PM spin lock */
-#define		ram0PM_Spin_Lock					\
-(ram0Base + hoPM_Spin_Lock)
-/* Addresss of PM spin unlock */
-#define		ram0PM_Spin_Unlock					\
-(ram0Base + hoPM_Spin_Unlock)
-/* Addresss of Xtal though */
-#define	ram0xtal_though				\
-(ram0Base + hoxtal_though)
-/* Address of System power down function */
-#define		ram0SysPowerDown					\
-(ram0Base + hoSysPowerDown)
-/* Address of System power up function */
-#define		ram0SysPowerUp						\
-(ram0Base + hoSysPowerUp)
-/* Address of Set clock function */
-#define		ram0SetClockSystemSuspend			\
-(ram0Base + hoSetClockSystemSuspend)
-
-/* Address of memory log pm function */
-#define	 ram0MemoryLogPm						\
-(ram0Base + hoMemoryLogPm)
-
-/* Address of function (Phys)	*/
-/* Address of ARM Vector function */
-#define	ram0ArmVectorPhys					\
-(ram0BasePhys + hoArmVector)
-/* Address of Core Standby function */
-#define	ram0CoreStandbyPhys					\
-(ram0BasePhys + hoCoreStandby)
-/* Address of Core Standby2 function */
-#define	ram0CoreStandby_2Phys					\
-(ram0BasePhys + hoCoreStandby_2)
-/* Address of System Suspend function */
-#define	ram0SystemSuspendPhys				\
-(ram0BasePhys + hoSystemSuspend)
-/* Address of Save ARM register function */
-#define	ram0SaveArmRegisterPhys				\
-(ram0BasePhys + hoSaveArmRegister)
-/* Address of Restore ARM register function(PA) */
-#define	ram0RestoreArmRegisterPAPhys		\
-(ram0BasePhys + hoRestoreArmRegisterPA)
-/* Address of Restore ARM register function(VA) */
-#define	ram0RestoreArmRegisterVAPhys		\
-(ram0BasePhys + hoRestoreArmRegisterVA)
-/* Address of Save ARM common register function */
-#define	ram0SaveArmCommonRegisterPhys		\
-(ram0BasePhys + hoSaveArmCommonRegister)
-/* Address of Restore ARM common register function */
-#define	ram0RestoreArmCommonRegisterPhys	\
-(ram0BasePhys + hoRestoreArmCommonRegister)
-/* Address of PM spin lock */
-#define		ram0PM_Spin_LockPhys					\
-(ram0BasePhys + hoPM_Spin_Lock)
-/* Address of PM spin unlock */
-#define		ram0PM_Spin_UnlockPhys					\
-(ram0BasePhys + hoPM_Spin_Unlock)
-/* xtal though */
-#define		ram0xtal_thoughPhys					\
-(ram0BasePhys + hoxtal_though)
-/* Address of System power down function */
-#define	ram0SysPowerDownPhys				\
-(ram0BasePhys + hoSysPowerDown)
-/* Address of System power up function */
-#define	ram0SysPowerUpPhys					\
-(ram0BasePhys + hoSysPowerUp)
-/* Address of Set clock function */
-#define	ram0SetClockSystemSuspendPhys		\
-(ram0BasePhys + hoSetClockSystemSuspend)
-
-/* Address of memory log pm function */
-#define	 ram0MemoryLogPmPhys				\
-(ram0BasePhys + hoMemoryLogPm)
 
 /* Address of backup area top */
 /* Address of backup(L) */
@@ -405,8 +233,50 @@
 #define	ram0MemlogPmAddressPA				\
 (ram0SavePSTR_resume + 0x4)
 #define	ram0MemlogPmAddressVA				\
-(ram0MemlogPmAddressPAPhys + 0x4)
+(ram0MemlogPmAddressPA + 0x4)
 
+/* Address of ARM Vector function */
+#define	ram0ArmVector					\
+(ram0MemlogPmAddressVA + 0x4)
+/* Address of Core Standby function */
+#define	ram0CoreStandby					\
+(ram0ArmVector + 0x4)
+/* Address of Core Standby2 function */
+#define	ram0CoreStandby_2				\
+(ram0CoreStandby + 0x4)
+/* Address of System Suspend function */
+#define	ram0SystemSuspend				\
+(ram0CoreStandby_2 + 0x4)
+/* Address of Save ARM register function */
+#define	ram0SaveArmRegister				\
+(ram0SystemSuspend + 0x4)
+/* Address of Restore ARM register function(PA) */
+#define	ram0RestoreArmRegisterPA		\
+(ram0SaveArmRegister + 0x4)
+/* Address of Restore ARM register function(VA) */
+#define	ram0RestoreArmRegisterVA		\
+(ram0RestoreArmRegisterPA + 0x4)
+/* Address of Save ARM common register function */
+#define	ram0SaveArmCommonRegister		\
+(ram0RestoreArmRegisterVA + 0x4)
+/* Address of Restore ARM common register function */
+#define	ram0RestoreArmCommonRegister	\
+(ram0SaveArmCommonRegister + 0x4)
+/* Address of PM spin lock */
+#define	ram0PM_Spin_Lock				\
+(ram0RestoreArmCommonRegister + 0x4)
+/* Address of PM spin unlock */
+#define	ram0PM_Spin_Unlock				\
+(ram0PM_Spin_Lock + 0x4)
+/* Address of System power down function */
+#define	ram0SysPowerDown				\
+(ram0PM_Spin_Unlock + 0x4)
+/* Address of System power up function */
+#define	ram0SysPowerUp					\
+(ram0SysPowerDown + 0x4)
+/* Address of memory log pm function */
+#define	 ram0MemoryLogPm				\
+(ram0SysPowerUp + 0x4)
 
 /* Backup area Phys			*/
 #define	ram0CommonSettingPhys				ram0BackupPhys
@@ -560,6 +430,52 @@
 #define	ram0MemlogPmAddressVAPhys			\
 (ram0MemlogPmAddressPAPhys + 0x4)
 
+/* Address of ARM Vector function */
+#define	ram0ArmVectorPhys					\
+(ram0MemlogPmAddressVAPhys + 0x4)
+/* Address of Core Standby function */
+#define	ram0CoreStandbyPhys					\
+(ram0ArmVectorPhys + 0x4)
+/* Address of Core Standby2 function */
+#define	ram0CoreStandby_2Phys				\
+(ram0CoreStandby + 0x4)
+/* Address of System Suspend function */
+#define	ram0SystemSuspendPhys				\
+(ram0CoreStandby_2Phys + 0x4)
+/* Address of Save ARM register function */
+#define	ram0SaveArmRegisterPhys				\
+(ram0SystemSuspendPhys + 0x4)
+/* Address of Restore ARM register function(PA) */
+#define	ram0RestoreArmRegisterPAPhys		\
+(ram0SaveArmRegisterPhys + 0x4)
+/* Address of Restore ARM register function(VA) */
+#define	ram0RestoreArmRegisterVAPhys		\
+(ram0RestoreArmRegisterPAPhys + 0x4)
+/* Address of Save ARM common register function */
+#define	ram0SaveArmCommonRegisterPhys		\
+(ram0RestoreArmRegisterVAPhys + 0x4)
+/* Address of Restore ARM common register function */
+#define	ram0RestoreArmCommonRegisterPhys	\
+(ram0SaveArmCommonRegisterPhys + 0x4)
+/* Address of PM spin lock */
+#define	ram0PM_Spin_LockPhys				\
+(ram0RestoreArmCommonRegisterPhys + 0x4)
+/* Address of PM spin unlock */
+#define	ram0PM_Spin_UnlockPhys				\
+(ram0PM_Spin_LockPhys + 0x4)
+/* Address of System power down function */
+#define	ram0SysPowerDownPhys				\
+(ram0PM_Spin_Unlock + 0x4)
+/* Address of System power up function */
+#define	ram0SysPowerUpPhys					\
+(ram0SysPowerDownPhys + 0x4)
+/* Address of Set clock function */
+#define	ram0SetClockSystemSuspendPhys		\
+(ram0SysPowerUpPhys + 0x4)
+/* Address of memory log pm function */
+#define	 ram0MemoryLogPmPhys				\
+(ram0SetClockSystemSuspendPhys + 0x4)
+
 /*------------------------------------------------*/
 /* Offset of CPU register buckup area */
 /*	Defining the offset of allocated memory area. */
@@ -628,9 +544,11 @@ M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 /*#define SUSPEND_CLK_CHANGED					0x03FFB */
 
 /* wake-up address */
-#define WAKEUP_ADDRESS				ram0ArmVectorPhys
-#define WAKEUP_ADDRESS_DUMMY		0x00000000
-#define WAKEUP_ADDRESS_CORESTANDBY	ram0ArmVectorPhys
+#define WAKEUP_ADDRESS					ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_DUMMY			0x00000000
+#define WAKEUP_ADDRESS_CORESTANDBY		ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_HOTPLUG			ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_SYSTEMSUSPEND	ram0ArmVectorPhys
 
 /* Context save address */
 #define CONTEXT_SAVE_ADDRESS		0x00000000
