@@ -55,6 +55,12 @@ static struct switch_dev switch_usb_uart = {
 static int usb_uart_switch_state;
 char at_isi_switch_buf[400] = {0};
 int KERNEL_LOG;
+/*#define TSU_LOG*/
+#ifdef TSU_LOG
+#define tsu_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define tsu_log(fmt, ...)
+#endif
 
 #define TSU6712_UART_AT_MODE           2
 #define TSU6712_UART_INVALID_MODE      -1
@@ -243,11 +249,12 @@ static int tsu6712_write_reg(struct i2c_client *client,        u8 reg, u8 data)
        msg[0].len = 2;
        msg[0].buf = buf;
 
-	   printk("[tsu6712] tsu8111_write_reg   reg[0x%2x] data[0x%2x]\n",buf[0],buf[1]);
+	tsu_log("[tsu6712] tsu8111_write_reg   reg[0x%2x] data[0x%2x]\n",
+		buf[0], buf[1]);
 
        ret = i2c_transfer(client->adapter, msg, 1);
        if (ret != 1) {
-               printk("\n [tsu6712] i2c Write Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Write Failed (ret=%d)\n", ret);
                return -1;
        }
 
@@ -272,16 +279,16 @@ static int tsu6712_read_reg(struct i2c_client *client, u8 reg, u8 *data)
         msg[1].len = 1;
         msg[1].buf = buf;
 
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
        *data = buf[0];
 
-      printk(" data [0x%2x]   i2c Read success\n",buf[0]);
+	tsu_log("data [0x%2x]   i2c Read success\n", buf[0]);
        return 0;
 }
 
@@ -304,11 +311,11 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
         msg[1].len = 1;
         msg[1].buf = buf;
 
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x]\n", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
 
@@ -326,18 +333,18 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
         msg[1].len = 1;
         msg[1].buf = buf;
 
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x]\n", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
 
 	data2 = buf[0];
 	*data = (int)((data2<<8) | data1);
 
-      printk(" data [%d]   i2c Read success\n",*data);
+	tsu_log("data [%d]   i2c Read success\n", *data);
        return 0;
 }
 
@@ -412,18 +419,18 @@ static void tsu6712_usb_cb(bool attached)
    set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
    if(attached)
    {
-      printk("USB attached : MUIC send switch state 100");
+	tsu_log("USB attached : MUIC send switch state 100\n");
       usb_uart_switch_state = 100;
       switch_set_state(&switch_usb_uart,100);
    }
    else
    {
-      printk("USB detached : MUIC send switch state 101");
+	tsu_log("USB detached : MUIC send switch state 101\n");
       usb_uart_switch_state = 101;
       switch_set_state(&switch_usb_uart,101);
    }
 
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
 
 
 #ifdef CONFIG_SEC_CHARGING_FEATURE
@@ -477,20 +484,20 @@ static void tsu6712_uart_cb(bool attached)
 {
    pr_info("tsu6712_uart_cb attached %d\n", attached);
    set_cable_status = CABLE_TYPE_NONE;
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
    if(attached)
    {
-      printk("UART attached : send switch state 200");
+	tsu_log("UART attached : send switch state 200\n");
       usb_uart_switch_state = 200;
       switch_set_state(&switch_usb_uart,200);
    }
    else
    {
-      printk("UART detached : send switch state 201");
+	tsu_log("UART detached : send switch state 201\n");
       usb_uart_switch_state = 201;
       switch_set_state(&switch_usb_uart,201);
    }
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
 
 }
 
@@ -717,7 +724,7 @@ static ssize_t ld_show_mode(struct device *dev,
 				   char *buf)
 {
 	strcpy(buf, at_isi_mode);
-	printk("LD MODE from TSU %s\n", at_isi_mode);
+	tsu_log("LD MODE from TSU %s\n", at_isi_mode);
 	return 3;
 }
 
@@ -731,9 +738,9 @@ ssize_t ld_set_manualsw(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	printk(" ld_set_manualsw invoked\n");
+	pr_info(" ld_set_manualsw invoked\n");
 	if (0 == strncmp(buf, "switch at", 9)) {
-		printk(" ld_set_manualsw switch at\n");
+		pr_info(" ld_set_manualsw switch at\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "at");
 		switch_set_state(&switch_usb_uart, SWITCH_AT);
@@ -741,7 +748,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		stop_isi = 1;
 	}
 	if (0 == strncmp(buf, "switch isi", 10)) {
-		printk(" ld_set_manualsw switch isi\n");
+		pr_info(" ld_set_manualsw switch isi\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "isi");
 		switch_set_state(&switch_usb_uart, SWITCH_ISI);
@@ -754,7 +761,7 @@ static ssize_t ld_show_switch_buf(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	strcpy(buf, at_isi_switch_buf);
-	printk("BUF from TSU %s\n", at_isi_switch_buf);
+	tsu_log("BUF from TSU %s\n", at_isi_switch_buf);
 	return strlen(at_isi_switch_buf);
 }
 
@@ -790,12 +797,12 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return TSU6712_UART_EMPTY_CRLF;
 	}
 
-	if (strstr(at_isi_switch_buf, "\r\n"))
-		printk("###WIPRO### r n\n");
-	else if (strstr(at_isi_switch_buf, "\t\n"))
-		printk("###WIPRO### t n\n");
-	else if (strstr(at_isi_switch_buf, "\n"))
-		printk("###WIPRO### n\n");
+		if (strstr(at_isi_switch_buf, "\r\n"))
+			pr_info("###TEST0### r n\n");
+		else if (strstr(at_isi_switch_buf, "\t\n"))
+			pr_info("###TEST1### t n\n");
+		else if (strstr(at_isi_switch_buf, "\n"))
+			pr_info("###TEST2### n\n");
 
 	ptr = strstr(atbuf, at_isi_switch_buf);
 	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
@@ -844,8 +851,7 @@ ssize_t ld_uart_wakelock(struct device *dev,
 	if (usbsw != NULL) {
 		ret = sscanf(buf, "%d", &buf_val);
 		if (1 != ret) {
-			printk(KERN_ERR \
-				"ld_uart_wakelock - Failed to read value\n");
+			pr_err("ld_uart_wakelock - Failed to read value\n");
 			return -EINVAL;
 		}
 		if (buf_val == 1) {
@@ -1490,7 +1496,7 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	/* TSU6712 : Read interrupt -> Read Device
 	 TSU6712 : Read Device -> Read interrupt */
 
-	pr_info("tsu6712_irq_thread is called\n");
+	tsu_log("tsu6712_irq_thread is called\n");
 	mutex_lock(&usbsw->mutex);
 	detect = tsu6712_detect_dev(usbsw);
 	mutex_unlock(&usbsw->mutex);
@@ -1500,7 +1506,8 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1, &device_type);
 	intr2 = intr >> 8;
 
-		dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
+	dev_info(&client->dev, "%s intr: 0x%x intr2: 0x%x\n",
+		__func__, intr, intr2);
 
 		if ((intr & 0x01) && (device_type & 0x04))
 			handle_nested_irq(usbsw->irq_base + TSU6712_INT_VBUS);
