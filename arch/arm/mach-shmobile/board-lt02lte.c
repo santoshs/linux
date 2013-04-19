@@ -293,6 +293,13 @@ static struct i2c_board_info i2c4_devices_zinitix[] = {
 	},
 };
 
+/* LVDS driver */
+static struct i2c_board_info i2c_quickvx_board_info[] __initdata = {
+	{
+	I2C_BOARD_INFO("panel_vx5b3d", 0x64),
+	},
+};
+
 static struct led_regulator_platform_data key_backlight_data = {
 	.name   = "button-backlight",
 };
@@ -621,6 +628,9 @@ static void __init lt02lte_init(void)
 	i2c_register_board_info(4, i2c4_devices_zinitix,
 					ARRAY_SIZE(i2c4_devices_zinitix));
 #endif
+
+	i2c_register_board_info(5, i2c_quickvx_board_info,
+					ARRAY_SIZE(i2c_quickvx_board_info));
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
