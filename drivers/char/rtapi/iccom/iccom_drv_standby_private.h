@@ -2,7 +2,7 @@
  * iccom_drv_standby_private.h
  *     Inter Core Communication standby private header file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -49,7 +49,7 @@
 #define MFISIICR_INIT						(0x00000010)
 #define MFISIICR_RTACTIVE					(0x00000020)
 
-#define MAX_POLLING_CNT						(6000)
+#define MAX_POLLING_CNT						(60000)
 
 #define MSLEEP_TIM_VALUE					(1)
 #define UDELAY_TIM_VALUE					(100)
