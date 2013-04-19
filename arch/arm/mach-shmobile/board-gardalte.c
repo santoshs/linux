@@ -392,7 +392,7 @@ static void __init gardalte_init(void)
 				__func__, __raw_readl(PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x438200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);

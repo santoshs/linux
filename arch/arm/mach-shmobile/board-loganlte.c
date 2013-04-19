@@ -42,6 +42,7 @@
 #include <mach/board-loganlte.h>
 #include <mach/board-loganlte-config.h>
 #include <mach/poweroff.h>
+#include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
@@ -122,7 +123,6 @@
 #define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
 
 /* SBSC register address */
-#define SBSC_BASE			(0xFE000000U)
 #define SBSC_SDMRA_DONE			(0x00000000)
 #define SBSC_SDMRACR1A_ZQ		(0x0000560A)
 #define CPG_PLL3CR_1040MHZ		(0x27000000)
@@ -438,9 +438,9 @@ static void __init loganlte_init(void)
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(CPG_PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
