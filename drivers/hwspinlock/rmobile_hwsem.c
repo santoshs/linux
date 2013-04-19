@@ -17,7 +17,7 @@
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/rmobile_hwsem.h>
-
+#include <linux/lockdep.h>
 #include "hwspinlock_internal.h"
 
 /*
@@ -317,6 +317,11 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, bank);
 
+	/* set lockdep class */
+	for (i = 0; i < num_locks; i++) {
+		hwlock = &bank->lock[i];
+		lockdep_set_class(&hwlock->lock, pdata->key);
+	}
 	return 0;
 
 reg_fail:

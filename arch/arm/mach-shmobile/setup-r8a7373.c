@@ -814,10 +814,12 @@ static struct hwsem_desc r8a7373_hwsem0_descs[] = {
 	HWSEM(SMSYSC, 0x70),
 };
 
+static struct lock_class_key sem0;
 static struct hwsem_pdata r8a7373_hwsem0_platform_data = {
 	.base_id	= SMGPIO,
 	.descs		= r8a7373_hwsem0_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem0_descs),
+	.key		= &sem0,
 };
 
 static struct resource r8a7373_hwsem0_resources[] = {
@@ -858,10 +860,12 @@ static struct hwsem_desc r8a7373_hwsem1_descs[] = {
 	HWSEM(SMGP030, 0x30), HWSEM(SMGP031, 0x30),
 };
 
+static struct lock_class_key sem1;
 static struct hwsem_pdata r8a7373_hwsem1_platform_data = {
 	.base_id	= SMGP000,
 	.descs		= r8a7373_hwsem1_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem1_descs),
+	.key		= &sem1,
 };
 
 static struct resource r8a7373_hwsem1_resources[] = {
@@ -908,10 +912,12 @@ static struct hwsem_desc r8a7373_hwsem2_descs[] = {
 	HWSEM(SMGP130, 0x40), HWSEM(SMGP131, 0x40),
 };
 
+static struct lock_class_key sem2;
 static struct hwsem_pdata r8a7373_hwsem2_platform_data = {
 	.base_id	= SMGP100,
 	.descs		= r8a7373_hwsem2_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem2_descs),
+	.key		= &sem2,
 };
 
 static struct resource r8a7373_hwsem2_resources[] = {
