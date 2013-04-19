@@ -609,8 +609,8 @@ static struct platform_device *loganlte_devices_stm_none[] __initdata = {
 
 struct i2c_board_info i2c4_devices_tsp_detector[] = {
 	{
- 		I2C_BOARD_INFO("tsp_detector", 0x7f),
- 	},
+	I2C_BOARD_INFO("tsp_detector", 0x7f),
+	},
 };
 
 #endif

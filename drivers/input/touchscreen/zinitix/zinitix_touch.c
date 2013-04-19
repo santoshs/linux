@@ -288,7 +288,6 @@ struct zinitix_touch_dev {
 
 	struct led_classdev		led;
 	u8				led_brightness;
-	
 #if SEC_TSP_FACTORY_TEST
 	s16 ref_data[MAX_RAW_DATA_SZ];
 	s16 normal_data[MAX_RAW_DATA_SZ];
@@ -718,7 +717,7 @@ static bool ts_power_control(struct zinitix_touch_dev *touch_dev, u8 ctl)
 
 //--[[ RMC_MODIFIED_START : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator 3.3v -> 3.0v
 		ret = regulator_set_voltage(tsp_regulator_3_3,3000000,3000000);
-		printk("--> regulator_set_voltage ret = %d \n", ret);
+		printk(KERN_INFO"--> regulator_set_voltage ret = %d\n", ret);
 //--]] RMC_MODIFIED_END   : ext-Soonhwan.Yun@renesasmobile.com [2013.03.12] - Regulator 3.3v -> 3.0v
 		if (ret) {
 			pr_err("can not set voltage TSP AVDD 3.3V, ret=%d\n", ret);
@@ -1345,8 +1344,8 @@ retry_init:
 	zinitix_bit_set(reg_val, BIT_DOWN);
 	zinitix_bit_set(reg_val, BIT_MOVE);
 	zinitix_bit_set(reg_val, BIT_UP);
-//	zinitix_bit_set(reg_val, BIT_PALM);
-//	zinitix_bit_set(reg_val, BIT_PALM_REJECT);
+/*	zinitix_bit_set(reg_val, BIT_PALM);
+*	zinitix_bit_set(reg_val, BIT_PALM_REJECT);*/
 	if (touch_dev->cap_info.button_num > 0)
 		zinitix_bit_set(reg_val, BIT_ICON_EVENT);
 	touch_dev->cap_info.ic_int_mask = reg_val;
@@ -1890,13 +1889,15 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 			if(palm == 0) {
 				if(w >= PALM_REPORT_WIDTH)
 					w = PALM_REPORT_WIDTH - 10;
-			}else if(palm == 1) {	//palm report
+			} else if (palm == 1) {	/* palm report*/
 				w = PALM_REPORT_WIDTH;
-				touch_dev->touch_info.coord[i].minor_width = PALM_REPORT_WIDTH;
-			} else {	// palm reject
+				touch_dev->touch_info.coord[i].minor_width
+							= PALM_REPORT_WIDTH;
+			} else {	/* palm reject*/
 				x = y = 0;
 				w = PALM_REJECT_WIDTH;
-				touch_dev->touch_info.coord[i].minor_width = PALM_REJECT_WIDTH;
+				touch_dev->touch_info.coord[i].minor_width
+							= PALM_REJECT_WIDTH;
 			}
 #endif			
 
@@ -1907,13 +1908,13 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 				ABS_MT_WIDTH_MAJOR, (u32)w);
 #if (TOUCH_POINT_MODE == 2)
 			input_report_abs(touch_dev->input_dev,
-				ABS_MT_TOUCH_MINOR, (u32)touch_dev->touch_info.coord[i].minor_width);
-			input_report_abs(touch_dev->input_dev,
-				ABS_MT_ANGLE, touch_dev->touch_info.coord[i].angle - 90);
-			input_report_abs(touch_dev->input_dev, ABS_MT_PALM, (palm>0)?1:0);
+				ABS_MT_TOUCH_MINOR,
+			(u32)touch_dev->touch_info.coord[i].minor_width);
+			input_report_abs(touch_dev->input_dev, ABS_MT_ANGLE,
+				touch_dev->touch_info.coord[i].angle - 90);
+			input_report_abs(touch_dev->input_dev, ABS_MT_PALM,
+				(palm > 0) ? 1 : 0);
 #endif
-
-			
 			input_report_abs(touch_dev->input_dev,
 				ABS_MT_POSITION_X, x);
 			input_report_abs(touch_dev->input_dev,
@@ -2217,7 +2218,7 @@ static bool ts_set_touchmode(u16 value){
 			printk(KERN_INFO "[zinitix_touch] TEST Mode : Fail to set ZINITIX_DND_N_COUNT %d.\r\n", SEC_DND_N_COUNT);
 		if (ts_write_reg(misc_touch_dev->client, ZINITIX_AFE_FREQUENCY, SEC_DND_FREQUENCY)!=I2C_SUCCESS)
 			printk(KERN_INFO "[zinitix_touch] TEST Mode : Fail to set ZINITIX_AFE_FREQUENCY %d.\r\n", SEC_DND_FREQUENCY);
-	} else if(misc_touch_dev->touch_mode == TOUCH_DND_MODE)
+	} else if (misc_touch_dev->touch_mode == TOUCH_DND_MODE)
 	{
 		if (ts_write_reg(misc_touch_dev->client, ZINITIX_AFE_FREQUENCY, 
 			misc_touch_dev->cap_info.afe_frequency)!=I2C_SUCCESS)
@@ -2225,7 +2226,7 @@ static bool ts_set_touchmode(u16 value){
 	}
 		
 
-	if(value == TOUCH_SEC_NORMAL_MODE)
+	if (value == TOUCH_SEC_NORMAL_MODE)
 		misc_touch_dev->touch_mode = TOUCH_POINT_MODE;
 	else
 		misc_touch_dev->touch_mode = value;
@@ -2245,7 +2246,7 @@ static bool ts_set_touchmode(u16 value){
 
 
 	// clear garbage data
-	for(i=0; i < 10; i++) {
+	for (i = 0; i < 10; i++) {
 		mdelay(20);
 		ts_write_cmd(misc_touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
 	}
@@ -2558,21 +2559,17 @@ static void run_reference_read(void *device_data)
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
 
-	for(i=0; i<info->cap_info.x_node_num; i++)
+	for (i = 0; i < info->cap_info.x_node_num; i++)
 	{
-		for(j=0; j<info->cap_info.y_node_num; j++)
+		for (j = 0; j < info->cap_info.y_node_num; j++)
 		{
 			printk("[TSP] info->dnd_data : %d ", info->dnd_data[j+i]);
 
-			if(info->dnd_data[j+i] < min)
-			{
+			if (info->dnd_data[j+i] < min)
 				min = info->dnd_data[j+i];
-			}
 
-			if(info->dnd_data[j+i] > max)
-			{
+			if (info->dnd_data[j+i] > max)
 				max = info->dnd_data[j+i];
-			}
 
 		}
 	printk("\n");
@@ -3540,62 +3537,49 @@ fail_hw_cal:
 static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 {
 	int ret;
-	printk("touchkey_led_on = %d\n", on);
+	printk(KERN_INFO"touchkey_led_oN_INFO", on);
 
-	if(keyled_regulator == NULL)
-	{
-		printk(" %s, %d \n", __func__, __LINE__ );			
-		keyled_regulator = regulator_get(NULL, "key_led"); 
-		if(IS_ERR(keyled_regulator)){
-			printk("can not get KEY_LED_3.3V\n");
+	if (keyled_regulator == NULL) {
+		printk(KERN_INFO" %s, %d\n", __func__, __LINE__);
+		keyled_regulator = regulator_get(NULL, "key_led");
+		if (IS_ERR(keyled_regulator)) {
+			printk(KERN_ERR"can not get KEY_LED_3.3V\n");
 			return;
 		}
-		ret = regulator_set_voltage(keyled_regulator,3300000,3300000);
-		printk("regulator_set_voltage ret = %d \n", ret);
-		
+		ret = regulator_set_voltage(keyled_regulator, 3300000, 3300000);
+		printk(KERN_INFO"regulator_set_voltage ret = %d\n", ret);
 	}
 
-	if(on)
-	{
-		printk(" %s, %d Touchkey On\n", __func__, __LINE__ );	
-
+	if (on) {
+		printk(KERN_INFO" %s, %d Touchkey On\n", __func__, __LINE__);
 		ret = regulator_enable(keyled_regulator);
-		printk("regulator_enable ret = %d \n", ret);
-	}
-	else
-	{
-		printk("%s, %d Touchkey Off\n", __func__, __LINE__ );	
-
+		printk(KERN_INFO"regulator_enable ret = %d\n", ret);
+	} else {
+		printk(KERN_INFO"%s, %d Touchkey Off\n", __func__, __LINE__);
 		ret = regulator_disable(keyled_regulator);
-		printk("regulator_disable ret = %d \n", ret);	
-
+		printk(KERN_INFO"regulator_disable ret = %d\n", ret);
 	}
-
 }
 
 static void key_led_set(struct led_classdev *led_cdev,
 			      enum led_brightness value)
 {
-	struct zinitix_touch_dev *data = container_of(led_cdev, struct zinitix_touch_dev, led);
+	struct zinitix_touch_dev *data =
+		container_of(led_cdev, struct zinitix_touch_dev, led);
 	struct i2c_client *client = data->client;
 
 
 	data->led_brightness = value;
 
-	printk("%s, data->led_brightness=%d\n",__func__, data->led_brightness);
+	printk(KERN_INFO"%s, data->led_brightness=%d\n",
+				__func__, data->led_brightness);
 
-	if( value >= 1)
-	{
+	if (value >= 1)
 		touchkey_led_on(data, 1);
-	}
 	else
-	{
 		touchkey_led_on(data, 0);
-	}
 
-		
 }
-
 
 static int zinitix_touch_probe(struct i2c_client *client,
 		const struct i2c_device_id *i2c_id)
@@ -3604,9 +3588,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	struct zinitix_touch_dev *touch_dev;
 	int i;
 
-
 	zinitix_debug_msg("zinitix_touch_probe+\r\n");
-
 	printk(KERN_INFO "[zinitix touch] driver version = %s\r\n",
 		TS_DRVIER_VERSION);
 
@@ -3715,7 +3697,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	set_bit(EV_ABS, touch_dev->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, touch_dev->input_dev->propbit);
 
-#if defined(CONFIG_MACH_LT02LTE)  
+#if defined(CONFIG_MACH_LT02LTE)
 	touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
 #endif
 
@@ -3831,10 +3813,11 @@ static int zinitix_touch_probe(struct i2c_client *client,
 
 	ret = led_classdev_register(&client->dev, &touch_dev->led);
 	if (ret)
-		dev_err(&client->dev, "fail to register led_classdev (%d).\n", ret);
-	/*key led --*/	
+		dev_err(&client->dev,
+			"fail to register led_classdev (%d)\n", ret);
+	/*key led --*/
 
-#if SEC_TSP_FACTORY_TEST	
+#if SEC_TSP_FACTORY_TEST
 	INIT_LIST_HEAD(&touch_dev->cmd_list_head);
 	for (i = 0; i < ARRAY_SIZE(tsp_cmds); i++)
 		list_add_tail(&tsp_cmds[i].list, &touch_dev->cmd_list_head);
@@ -3928,28 +3911,33 @@ static int zinitix_touch_remove(struct i2c_client *client)
 	return 0;
 }
 
-static ssize_t get_tsp_firm_version_phone(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t get_tsp_firm_version_phone(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
 	char buff[16] = {0};
-    
-	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
-	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
-	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
-	if(misc_touch_dev->cap_info.is_zmt200 == 0)
-            newHWID = (u16) (m_firmware_data[0x6b12] | (m_firmware_data[0x6b13]<<8));
-	else	
-            newHWID = (u16) (m_firmware_data[0x57d2] | (m_firmware_data[0x57d3]<<8));
-	
-	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
+	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53] << 8));
+	newMinorVersion = (u16) (m_firmware_data[56] |
+					(m_firmware_data[57] << 8));
+	newRegVersion = (u16) (m_firmware_data[60] |
+					(m_firmware_data[61] << 8));
+	if (misc_touch_dev->cap_info.is_zmt200 == 0)
+		newHWID = (u16) (m_firmware_data[0x6b12] |
+					(m_firmware_data[0x6b13] << 8));
+	else
+		newHWID = (u16) (m_firmware_data[0x57d2] |
+					(m_firmware_data[0x57d3] << 8));
+
+	version = (u32)((u32)(newHWID&0xff) << 16) | ((newVersion&0xf) << 12) |
+			((newMinorVersion & 0xf) << 8) | (newRegVersion & 0xff);
 
 	snprintf(buff, sizeof(buff), "ZI%06X", version);
-
 	return sprintf(buf, "%s\n", buff);
 }
 
-static ssize_t get_tsp_firm_version_panel(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t get_tsp_firm_version_panel(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
@@ -3959,9 +3947,10 @@ static ssize_t get_tsp_firm_version_panel(struct device *dev, struct device_attr
 	newMinorVersion = misc_touch_dev->cap_info.firmware_minor_version;
 	newRegVersion = misc_touch_dev->cap_info.reg_data_version;
 	newHWID = misc_touch_dev->cap_info.hw_id;
-	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
+	version = (u32)((u32)(newHWID & 0xff) << 16)|((newVersion & 0xf) << 12)|
+			((newMinorVersion & 0xf) << 8)|(newRegVersion & 0xff);
 
-	snprintf(buff, sizeof(buff), "ZI%06X", version);	
+	snprintf(buff, sizeof(buff), "ZI%06X", version);
 
 	return sprintf(buf, "%s", buff); /* it's connected to at_sec_handler */
 }
