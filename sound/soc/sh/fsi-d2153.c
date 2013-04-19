@@ -444,8 +444,6 @@ int fsi_d2153_snd_soc_get_sr(struct snd_kcontrol *kcontrol,
 int fsi_d2153_snd_soc_put_sr(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec =
-		(struct snd_soc_codec *)kcontrol->private_data;
 	unsigned int val;
 	struct snd_pcm_hw_params params;
 	int retVal = 0;

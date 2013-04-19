@@ -114,19 +114,6 @@ static int smb358_read_reg(struct i2c_client *client, u8 reg, u8 *data)
        return 0;
 }
 
-static void smb358_test_read(struct i2c_client *client)
-{
-	u8 data = 0,reg;
-
-	pr_info("%s\n",__func__);
-	for (reg = 0; reg <= 0x0E; reg++) {
-		smb358_read_reg(client, reg, &data);
-	}
-
-	for (reg = 0x30; reg <= 0x3F; reg++) {
-		smb358_read_reg(client, reg, &data);
-	}
-}
 void smb358_stop_chg(void)
 {
 	struct i2c_client * client;
@@ -174,10 +161,10 @@ void smb358_start_chg(void)
 
 int smb358_set_chg_current(int chg_current)
 {
+	u8 ret = -1;
 	struct i2c_client * client;
 	u8 data=0,set_current=0;
 	client = global_client;
-	u8 ret = -1;
 
 	if( !client) return ret;
 
@@ -201,16 +188,17 @@ int smb358_set_chg_current(int chg_current)
 	data &= FAST_CHG_MASK;
 	data |= set_current;
 	smb358_write_reg(client,SMB358_CHARGE_CURRENT,data);
+	return 0;
 
 }
 //EXPORT_SYMBOL(smb358_set_chg_current);
 
 int smb358_set_eoc(int eoc_value)
 {
+	u8 ret = -1;
 	struct i2c_client * client;
 	u8 data=0,set_eoc=0;
 	client = global_client;
-	u8 ret = -1;
 
 	if( !client) return ret;
 
@@ -243,8 +231,8 @@ EXPORT_SYMBOL(smb358_set_eoc);
 
 bool smb358_chg_init(struct i2c_client *client)
 {
-	pr_info("%s\n",__func__);
 	u8 data;
+	pr_info("%s\n",__func__);
 
 	data = ALLOW_VOLATILE_WRITE|FAST_CHARGE;
 	smb358_write_reg(client, SMB358_COMMAND_A, data);

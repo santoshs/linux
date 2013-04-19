@@ -151,7 +151,7 @@ void PreWriteNVN(unsigned char ErasedSector)
 	}
 }
 
-void ReadRAM()
+void ReadRAM(void)
 {
 	unsigned char RxBuffer[10];
 	unsigned char IDCode;
@@ -179,7 +179,7 @@ void ReadRAM()
 	}
 }
 
-void ExitTest()
+void ExitTest(void)
 {
 	unsigned char RxBuffer[10];
 	unsigned char IDCode;
