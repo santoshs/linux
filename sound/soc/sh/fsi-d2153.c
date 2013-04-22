@@ -84,16 +84,18 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 {
 	struct snd_soc_dapm_widget *w;
 
-	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
-		w = playback_widget;
-	else
-		w = capture_widget;
-	dapm_mark_dirty(w, "fsi_d2153_set_active");
-	w->active = active;
-	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
-		w->name, w->active);
-	snd_soc_dapm_sync(&codec->dapm);
-
+	list_for_each_entry(w, &codec->card->widgets, list) {
+		if (!w->sname)
+			continue;
+		if (strstr(w->sname, stream)) {
+			w->active = active;
+			dapm_mark_dirty(w, "fsi_d2153_set_active");
+			sndp_log_info("w->name[%s] w->active[%d]\n",
+				w->name, w->active);
+			snd_soc_dapm_sync(&codec->dapm);
+			continue;
+		}
+	}
 }
 
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,

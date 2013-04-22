@@ -906,7 +906,7 @@ static int vcd_set_call_mode(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_pt(VCD_IF_SET_CALL_MODE_LOG);
+	vcd_pr_if_audio("[VCD <- AUDIO] : VCD_COMMAND_SET_CALL_MODE\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -964,7 +964,7 @@ static int vcd_start_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_START_RECORD_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_START_RECORD\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1018,7 +1018,7 @@ static int vcd_stop_record(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_STOP_RECORD_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_STOP_RECORD\n");
 
 	/* initialize variable */
 	g_vcd_complete_buffer	= NULL;
@@ -1047,7 +1047,7 @@ static int vcd_start_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_START_PLAYBACK_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_START_PLAYBACK\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1101,7 +1101,7 @@ static int vcd_stop_playback(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_STOP_PLAYBACK_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_STOP_PLAYBACK\n");
 
 	/* initialize variable */
 	g_vcd_beginning_buffer	= NULL;
@@ -1129,7 +1129,7 @@ static int vcd_get_record_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_GET_RECORD_BUFFER_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_RECORD_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1162,7 +1162,7 @@ static int vcd_get_playback_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_GET_PLAYBACK_BUFFER_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_PLAYBACK_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1195,7 +1195,7 @@ static int vcd_get_voip_ul_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_GET_VOIP_UL_BUFFER_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_VOIP_UL_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1228,7 +1228,7 @@ static int vcd_get_voip_dl_buffer(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_GET_VOIP_DL_BUFFER_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_GET_VOIP_DL_BUFFER\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1295,7 +1295,7 @@ static int vcd_watch_fw(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_WATCH_STOP_FW_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_STOP_FW\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1331,7 +1331,7 @@ static int vcd_watch_clkgen(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_WATCH_CLKGEN_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_CLKGEN\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1367,7 +1367,7 @@ static int vcd_watch_clkgen_pt(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_pt(VCD_IF_WATCH_CLKGEN_PT_LOG);
+	vcd_pr_if_sound("[VCD <- PT] : VCD_COMMAND_WATCH_CLKGEN\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1403,7 +1403,7 @@ static int vcd_watch_codec_type(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_WATCH_CODEC_TYPE_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WATCH_CODEC_TYPE\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1438,7 +1438,7 @@ static int vcd_set_wait_path(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_WAIT_PATH_LOG);
+	vcd_pr_if_sound("[VCD <- SOUND] : VCD_COMMAND_WAIT_PATH\n");
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1497,7 +1497,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 
 	len = snprintf(page, count, "%d\n", result);
 
-	vcd_pr_if_amhal("[ -> AMHAL] [%d]\n", result);
+	vcd_pr_if_amhal("[VCD -> AMHAL] : [%d]\n", result);
 
 	vcd_pr_end_if_user("result[%d].\n", result);
 
@@ -1952,12 +1952,6 @@ debug:
 		break;
 	case VCD_DEBUG_SET_MODE_3:
 		g_vcd_debug_mode = 3;
-		break;
-	case VCD_DEBUG_CALC_TRIGGER_START:
-		vcd_ctrl_calc_trigger_start();
-		break;
-	case VCD_DEBUG_CALC_TRIGGER_STOP:
-		vcd_ctrl_calc_trigger_stop();
 		break;
 	default:
 		vcd_pr_err("parameter error. command[%d].\n", command);

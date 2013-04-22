@@ -457,9 +457,6 @@ int vcd_ctrl_stop_call(int call_kind)
 	/* execute spuv function */
 	if (VCD_CALL_KIND_CALL == call_kind) {
 		g_vcd_ctrl_result = vcd_spuv_stop_call();
-		if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)
-			vcd_spuv_trigger_count_log(
-				(VCD_LOG_TRIGGER_REC | VCD_LOG_TRIGGER_PLAY));
 		/* init call type */
 		g_vcd_ctrl_call_type = 0;
 	} else if (VCD_CALL_KIND_1KHZ == call_kind)
@@ -1743,48 +1740,6 @@ void vcd_ctrl_dump_diamond_memory(void)
 
 	/* execute spuv function */
 	vcd_spuv_dump_diamond_memory();
-
-	vcd_pr_end_control_function();
-	return;
-}
-
-
-/* ========================================================================= */
-/* Debug functions                                                           */
-/* ========================================================================= */
-
-/**
- * @brief	start calc trigger function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-void vcd_ctrl_calc_trigger_start(void)
-{
-	vcd_pr_start_control_function();
-
-	/* execute spuv function */
-	vcd_spuv_calc_trigger_start();
-
-	vcd_pr_end_control_function();
-	return;
-}
-
-
-/**
- * @brief	stop calc trigger function.
- *
- * @param	none.
- *
- * @retval	none.
- */
-void vcd_ctrl_calc_trigger_stop(void)
-{
-	vcd_pr_start_control_function();
-
-	/* execute spuv function */
-	vcd_spuv_calc_trigger_stop();
 
 	vcd_pr_end_control_function();
 	return;

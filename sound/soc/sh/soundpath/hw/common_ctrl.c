@@ -733,9 +733,9 @@ void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	}
 
-	sndp_log_debug("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));
-	sndp_log_debug("CPG_FSIACKCR[0x%08x]\n", ioread32(CPG_FSIACKCR));
-	sndp_log_debug("CPG_FSIBCKCR[0x%08x]\n", ioread32(CPG_FSIBCKCR));
+	sndp_log_info("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));
+	sndp_log_info("CPG_FSIACKCR[0x%08x]\n", ioread32(CPG_FSIACKCR));
+	sndp_log_info("CPG_FSIBCKCR[0x%08x]\n", ioread32(CPG_FSIBCKCR));
 
 	sndp_log_debug_func("end\n");
 }
@@ -784,7 +784,7 @@ void common_set_fsi2cr(u_int dev, int stat)
 	if (0 <= ret)
 		hwspin_unlock_irqrestore(r8a7373_hwlock_gpio, &flags);
 
-	sndp_log_debug("FSI2CR[0x%04x]\n", ioread16(GPIO_FSI2CR));
+	sndp_log_info("FSI2CR[0x%04x]\n", ioread16(GPIO_FSI2CR));
 
 	sndp_log_debug_func("end\n");
 }
