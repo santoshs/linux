@@ -20,17 +20,18 @@
  * constant definition
  */
 
-/* hwspin_lock time out value*/
+/* hwspin_lock time out value */
 #define VCD_SPUV_FUNC_MAX_LOCK_TIME		(62)
 #define VCD_SPUV_FUNC_IPC_MAX_LOCK_TIME		(15)
 
 /* spuv use power domain */
 #define VCD_SPUV_FUNC_POWER_DOMAIN_MAX		2
 
-/* spuv if time out value*/
+/* spuv if time out value */
 #define VCD_SPUV_FUNC_MAX_WAIT_TIME		(3000)
+#define VCD_SPUV_FUNC_TIMEOUT			0
 
-/* spuv max retry value*/
+/* spuv max retry value */
 #define VCD_SPUV_FUNC_MAX_RETRY			3
 
 /* word to byte */

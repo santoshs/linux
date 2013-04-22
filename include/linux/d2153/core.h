@@ -19,6 +19,7 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/hwmon.h>
+#include <linux/d2153/audio.h>
 #include <linux/power_supply.h>
 #include <linux/d2153/d2153_battery.h>
 
@@ -186,6 +187,8 @@ struct d2153_platform_data {
 	
 	//unsigned char regl_mapping[LEOPARD_IOCTL_REGL_MAPPING_NUM];	/* Regulator mapping for IOCTL */
 	struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+
+	struct d2153_audio audio;
 };
 
 struct d2153 {

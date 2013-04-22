@@ -1907,13 +1907,13 @@ static void d2153_setup(struct snd_soc_codec *codec)
 #else
 	snd_soc_update_bits(codec, D2153_MICBIAS1_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS1_LVL);
+			    d2153_codec->micbias1_level);
 	snd_soc_update_bits(codec, D2153_MICBIAS2_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_1V);
+			    d2153_codec->micbias2_level);
 	snd_soc_update_bits(codec, D2153_MICBIAS3_CTRL,
 			    D2153_MICBIAS_LEVEL_MASK,
-			    D2153_MICBIAS_LEVEL_2_1V);
+			    d2153_codec->micbias3_level);
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 	
 	/*
@@ -2204,7 +2204,7 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 
 	snd_soc_write(codec,D2153_UNLOCK,0x8b);
 
-	snd_soc_write(codec,D2153_MICBIAS1_CTRL,D2153_MICBIAS1_LVL);	
+	snd_soc_write(codec, D2153_MICBIAS1_CTRL, d2153_codec->micbias1_level);
 
 #ifdef D2153_JACK_DETECT	
 	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
@@ -2702,6 +2702,14 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	d2153_codec->d2153_pmic = client->dev.platform_data;
 #endif /* CONFIG_SND_SOC_D2153_AAD */
+
+	d2153_codec->micbias1_level =
+			d2153_codec->d2153_pmic->pdata->audio.micbias1_level;
+	d2153_codec->micbias2_level =
+			d2153_codec->d2153_pmic->pdata->audio.micbias2_level;
+	d2153_codec->micbias3_level =
+			d2153_codec->d2153_pmic->pdata->audio.micbias3_level;
+
 	i2c_set_clientdata(client, d2153_codec);
 
 	d2153_codec->i2c_client=client;

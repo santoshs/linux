@@ -72,6 +72,7 @@ extern unsigned int g_vcd_log_level;
 #define VCD_LOG_CONTROL_FUNCTION	0x00002000
 #define VCD_LOG_SPUV_FUNCTION		0x00004000
 #define VCD_LOG_IRQ_FUNCTION		0x00008000
+#define VCD_LOG_TRIGGER_COUNT		0x00010000
 #define VCD_LOG_ON_SYSTEM_INFO_IND	0x00100000
 #define VCD_LOG_ON_UDATA_IND		0x00200000
 #define VCD_LOG_ON_TRIGGER_REC_IND	0x00400000
@@ -80,6 +81,9 @@ extern unsigned int g_vcd_log_level;
 #define VCD_LOG_LEVEL_CONDITION_LOCK	0x40000000
 #define VCD_LOG_LEVEL_LOCK		0x80000000
 
+/* trigger log type */
+#define VCD_LOG_TRIGGER_REC		0x00000001
+#define VCD_LOG_TRIGGER_PLAY		0x00000002
 
 /*
  * define macro declaration
@@ -161,7 +165,7 @@ extern unsigned int g_vcd_log_level;
 		} \
 	}
 
-	#define vcd_pr_if_audio(fmt, ...) { \
+	#define vcd_pr_if_pt(fmt, ...) { \
 		if (g_vcd_log_level & VCD_LOG_IF) { \
 			if (g_vcd_log_level & VCD_LOG_LEVEL_TIMESTAMP) { \
 				struct timeval tv; \
@@ -873,11 +877,36 @@ extern unsigned int g_vcd_log_level;
 			} \
 		} \
 	}
+
+	#define vcd_pr_trigger_count(fmt, ...) { \
+		if ((g_vcd_log_level & VCD_LOG_IF) && \
+		(g_vcd_log_level & VCD_LOG_TRIGGER_COUNT)) { \
+			if (g_vcd_log_level & VCD_LOG_LEVEL_TIMESTAMP) { \
+				struct timeval tv; \
+				do_gettimeofday(&tv); \
+				pr_alert( \
+					"[%5ld.%06ld] " \
+					VCD_DRIVER_NAME \
+					" : " \
+					fmt, \
+					tv.tv_sec, \
+					tv.tv_usec, \
+					##__VA_ARGS__); \
+			} else { \
+				pr_alert( \
+					VCD_DRIVER_NAME \
+					" : " \
+					fmt, \
+					##__VA_ARGS__); \
+			} \
+		} \
+	}
+
 #else
 	#define vcd_pr_always(fmt, ...)				{}
 	#define vcd_pr_always_err(fmt, ...)			{}
 	#define vcd_pr_err(fmt, ...)				{}
-	#define vcd_pr_if_audio(fmt, ...)			{}
+	#define vcd_pr_if_pt(fmt, ...)				{}
 	#define vcd_pr_if_sound(fmt, ...)			{}
 	#define vcd_pr_if_amhal(fmt, ...)			{}
 	#define vcd_pr_if_spuv(fmt, ...)			{}
@@ -906,6 +935,7 @@ extern unsigned int g_vcd_log_level;
 	#define vcd_pr_end_spuv_function(fmt, ...)		{}
 	#define vcd_pr_start_irq_function(fmt, ...)		{}
 	#define vcd_pr_end_irq_function(fmt, ...)		{}
+	#define vcd_pr_trigger_count(fmt, ...)			{}
 #endif  /* __PRINT_VCD__ */
 
 
