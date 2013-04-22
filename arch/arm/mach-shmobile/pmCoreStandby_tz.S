@@ -26,6 +26,7 @@
 #include "pmMacro.S"
 #include "pmCachemaintenance.S"
 
+	.align	5
 /********************************************************/
 /*	memory log for PM */
 /* This function is running on icram0 */
@@ -33,7 +34,6 @@
 /* 	r0 = identifier */
 /* 	lr = Address of return point */
 /********************************************************/
-	.align	5
 ENTRY(memory_log_pm)
 #ifdef CONFIG_MEMLOG
 	MRC		p15, 0, r1, c1, c0, 0	/* System Control Register */
@@ -58,10 +58,11 @@ ENTRY(memory_log_pm)
 
 #endif
 	MOV		pc, lr
+
 .pool
 ENDPROC(memory_log_pm)
-
 	.align	5
+MEMORY_LOG_PM_END:
 
 /*==========================================*/
 /*	Name: PM_Spin_Lock						*/
@@ -191,12 +192,13 @@ SPIN_LOCK_ES_2_2_AFTER_GET1_SKIP:
 
 SPIN_LOCK_GET1_END:
 	mov pc, lr
-
 #endif
+
 .pool
 ENDPROC(PM_Spin_Lock)
-
 	.align	5
+PM_SPIN_LOCK_END:
+
 /*==========================================*/
 /*	Name: PM_Spin_Unlock					*/
 /*	Overview: Release PM SpinLock 			*/
@@ -238,8 +240,11 @@ SPIN_UNLOCK_ES_2_2_AFTER_GET1_SKIP:
 SPIN_UNLOCK_GET1_END:
 	MOV		pc, lr
 #endif
+
 .pool
 ENDPROC(PM_Spin_Unlock)
+	.align	5
+PM_SPIN_UNLOCK_END:
 
 /********************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -248,7 +253,6 @@ ENDPROC(PM_Spin_Unlock)
 /* 	r0 = this pointer */
 /* 	lr = Address of return point */
 /********************************************************/
-.align	5
 ENTRY(start_corestandby)
 	STMFD	sp!, {r4-r11, lr}
 
@@ -258,7 +262,7 @@ ENTRY(start_corestandby)
 	/*--------------------------------------------------------------*/
 	/* Initialize the management information of backup area */
 	/*--------------------------------------------------------------*/
-	CMP		r11, #0			/* if(CPUID == 0) */
+	CMP		r11, #0 /* if(CPUID == 0) */
 	LDREQ	r4, =ram0Cpu0RegisterArea
 	LDRNE	r4, =ram0Cpu1RegisterArea
 
@@ -276,7 +280,7 @@ ENTRY(start_corestandby)
 	/* Change domain access settings			*/
 	/*------------------------------------------*/
 	MRC 	p15, 0, r4, c3, c0, 0
-	STMFD	sp!, {r4}		/* Save original domain settings */
+	STMFD	sp!, {r4} /* Save original domain settings */
 	LDR 	r5, =0x00FC
 	ORR		r4, r4, r5
 	MCR 	p15, 0, r4, c3, c0, 0
@@ -286,14 +290,15 @@ ENTRY(start_corestandby)
 	/* Jump to CoreStandby() on RAM0		*/
 	/*--------------------------------------*/
 	LDR		r4, =ram0CoreStandby
+	LDR		r4, [r4]
 	MOV		lr, pc			/* lr: Return address */
-	MOV		pc, r4			/* Call CoreStandby() */
+	MOV		pc, r4			/* Call corestandby() */
 	NOP
 
 	/*------------------------------------------*/
 	/* Restore domain access settings			*/
 	/*------------------------------------------*/
-	LDMFD	sp!, {r4}	/* Load original domain access settings	*/
+	LDMFD	sp!, {r4} /* Load original domain access settings */
 	MCR		p15, 0, r4, c3, c0, 0
 	ISB
 
@@ -301,8 +306,8 @@ ENTRY(start_corestandby)
 
 .pool
 ENDPROC(start_corestandby)
-
 	.align	5
+
 /************************************************************/
 /*	Transition to System Suspend(A3SM Power Off)			*/
 /* This function is running on SDRAM */
@@ -357,6 +362,7 @@ ENTRY(jump_systemsuspend)
 	/* r4: systemsuspend() address on RAM0		*/
 	/*------------------------------------------*/
 	LDR		r4, =ram0SystemSuspend
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call systemsuspend()	*/
 	NOP
@@ -364,21 +370,21 @@ ENTRY(jump_systemsuspend)
 	/*------------------------------------------*/
 	/* Restore domain access settings			*/
 	/*------------------------------------------*/
-	LDMFD	sp!, {r4}	/* Load original domain access settings */
+	LDMFD	sp!, {r4} /* Load original domain access settings */
 	MCR		p15, 0, r4, c3, c0, 0
 
 	LDMFD	sp!, {r4-r11, pc}
-.pool
 
+.pool
 ENDPROC(jump_systemsuspend)
+	.align	5
 
 /********************************************************************/
 /* Vector table */
-/* This function is running on RAM0	 (Inter connect RAM0) */
+/* This function is running on RAM0 (Inter connect RAM0) */
 /* After modification of this function, please check the offset. */
 /* Enter with: */
 /********************************************************************/
-	.align	5
 ENTRY(ArmVector)
 	B		WAKEUP_ENTRY	/* RESET */
 	NOP						/* UNDEF */
@@ -393,7 +399,8 @@ WAKEUP_EXCEPTLOOP:
 WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 
 	LDR		r0, =PM_PM_ID_ARMVECTOR
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -418,6 +425,8 @@ WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 
 .pool
 ENDPROC(ArmVector)
+	.align	5
+ARM_VECTOR_END:
 
 /*****************************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -427,12 +436,12 @@ ENDPROC(ArmVector)
 /* 	r0 = this pointer */
 /* 	lr = Address of return point */
 /****************************************************************/
-	.align	5
 ENTRY(corestandby)
 	STMFD	sp!, {r4-r11, lr}
 
 	LDR		r0, =PM_PM_ID_CORESTANDBY_IN
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -453,17 +462,19 @@ ENTRY(corestandby)
 	LDRNE	r0, =ram0Cpu1RegisterArea /* r0: Backup area for CPU1 */
 	LDR		r0, [r0]
 	LDR		r4, =ram0SaveArmRegister
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call save_arm_register() */
 	NOP
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
@@ -473,36 +484,20 @@ ENTRY(corestandby)
 	LDR		r6, =CPUSTATUS_SHUTDOWN
 	STR		r6, [r5]
 	DSB
-#endif
-
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu1Status
-	LDRNE	r5, =ram0Cpu0Status
-	LDR		r4, [r5]
-	/* r7=0x0: legacy mode */
-	/* r7=0x4: Xtal though (PLL0 Stop) */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	CMP		r4, #CPUSTATUS_WFI
-	BLE		CORESTANDBY_PA_XTAL_THOUGH_SET
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-CORESTANDBY_PA_XTAL_THOUGH_SET:
-	LDR		r4, =ram0xtal_though
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call xtal_though() */
-	NOP
 
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Unlock
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
+#endif
 
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
 	CMP		r4, #0x0
 	LDREQ	r0, =ram0CoreStandbyRestoreCPU0
-	LDRNE r0, =ram0CoreStandbyRestoreCPU1
+	LDRNE	r0, =ram0CoreStandbyRestoreCPU1
 		/* r0: Backup area of resume point after MMU is enable */
 	ADR		r4, CORESTANDBY_RESTORE
 	STR		r4, [r0]
@@ -530,6 +525,7 @@ CORESTANDBY_PA_XTAL_THOUGH_SET:
 
 	LDR		r0, =COMA_MODE_CORE_STANDBY /* mode */
 	LDR		r1, =WAKEUP_ADDRESS_CORESTANDBY
+	LDR		r1, [r1]
 	LDR		r2, =0x0
 	LDR		r3, =0x0
 
@@ -548,27 +544,17 @@ CORESTANDBY_PA_XTAL_THOUGH_SET:
 	STR		r0, [r5] /* Save return value */
 	DSB
 
-	CMP		r0, #SEC_HAL_RES_FAIL
-	BEQ		CORESTANDBY_RESUME_ERROR
-
 CORESTANDBY_WAKEUP:
 	NOP
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_LockPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_Lock() */
 	NOP
 
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCRPhys
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	LDR		r4, =ram0xtal_thoughPhys
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call xtal_though() */
-	NOP
-
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
@@ -578,17 +564,14 @@ CORESTANDBY_WAKEUP:
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
-#endif
 
 	/* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_UnlockPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
-
-	/* Invalidate L1 D-cache */
-
-	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
+#endif
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -604,27 +587,10 @@ CORESTANDBY_WAKEUP:
 	LDR		r1, [r1]
 
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
-
-CORESTANDBY_RESUME_ERROR:
-	NOP
-
-	WFI /* For power consumption reduction */
-	NOP
-
-	/*------------------------------*/
-	/* Enable D-Cache					*/
-	/*------------------------------*/
-	MRC		p15, 0, r4, c1, c0, 0 /* Read Control register */
-	ORR		r4, r4, #0x4 /* Set C bit	*/
-	/* Write Control register (Enable D-Cache) */
-	MCR	p15, 0, r4, c1, c0, 0
-	ISB
-
-	B	CORESTANDBY_FINISH
-
 
 CORESTANDBY_RESTORE:
 	NOP
@@ -639,22 +605,24 @@ CORESTANDBY_RESTORE:
 	LDRNE	r0, =ram0Cpu1RegisterArea
 	LDR		r0, [r0]
 	LDR		r4, =ram0RestoreArmRegisterVA
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_va */
 	NOP
 
-CORESTANDBY_FINISH:
-	NOP
-
 	LDR		r0, =PM_PM_ID_CORESTANDBY_OUT
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
 
 	LDMFD	sp!, {r4-r11,pc}
+
 .pool
 ENDPROC(corestandby)
+	.align	5
+CORESTANDBY_END:
 
 /************************************************/
 /* Transition to System Suspend(A3SM Power Off) */
@@ -663,7 +631,6 @@ ENDPROC(corestandby)
 /* 	r0 = this pointer */
 /* 	lr = Address of return point */
 /***********************************************/
-	.align	5
 ENTRY(systemsuspend)
 	STMFD	sp!, {r4-r11, lr}
 
@@ -679,7 +646,8 @@ ENTRY(systemsuspend)
 CPU0_SYSTEMSUSPEND:
 
 	LDR		r0, =PM_PM_ID_SUSPEND_IN
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -695,6 +663,7 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r0, =ram0Cpu0RegisterArea /* r0: backup area */
 	LDR		r0, [r0]
 	LDR		r4, =ram0SaveArmCommonRegister
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call save_arm_common_register()	*/
 	NOP
@@ -705,6 +674,7 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r0, =ram0Cpu0RegisterArea /* r0: backup area */
 	LDR		r0, [r0]
 	LDR		r4, =ram0SaveArmRegister
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call save_arm_register()	*/
 	NOP
@@ -717,6 +687,7 @@ CPU0_SYSTEMSUSPEND:
 	/* Sys power down	*/
 	/*------------------*/
 	LDR		r4, =ram0SysPowerDown
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4		/* Call sys_powerdown	*/
 	NOP
@@ -725,6 +696,7 @@ CPU0_SYSTEMSUSPEND:
 	/* Sys power up		*/
 	/*------------------*/
 	LDR		r4, =ram0SysPowerUpPhys
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4		/* Call sys_powerup		*/
 	NOP
@@ -738,6 +710,7 @@ CPU0_SYSTEMSUSPEND:
 
 	LDR		r0, =ram0MmuSetting0Phys
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
+	LDR		r4, [r4]
 	MOV		lr, pc	/* lr: Return address */
 	MOV		pc, r4	/* Call restore_arm_register_pa()	*/
 	NOP
@@ -750,16 +723,13 @@ SYSTEMSUSPEND_RESTORE_CPU0:
 	LDR		r9, =ram0SecHalReturnCpu0
 	LDR		r0, [r9]
 
-	CMP 	r0, #SEC_HAL_RES_OK
-	BNE		CPU0_SEC_HAL_NOT_OK
-
-CPU0_SEC_HAL_NOT_OK:
 	/*----------------------------------*/
 	/* Restore ARM registers			*/
 	/*----------------------------------*/
 	LDR		r0, =ram0Cpu0RegisterArea
 	LDR		r0, [r0]
 	LDR		r4, =ram0RestoreArmRegisterVA
+	LDR		r4, [r4]
 	MOV		lr, pc		/* lr: Return address */
 	MOV		pc, r4		/* Call restore_arm_register_va */
 	NOP
@@ -770,12 +740,14 @@ CPU0_SEC_HAL_NOT_OK:
 	LDR		r0, =ram0Cpu0RegisterArea
 	LDR		r0, [r0]
 	LDR		r4, =ram0RestoreArmCommonRegister
+	LDR		r4, [r4]
 	MOV		lr, pc	/* lr: Return address	*/
 	MOV		pc, r4	/* Call restore_arm_common_register	*/
 	NOP
 
 	LDR		r0, =PM_PM_ID_SUSPEND_OUT
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -788,7 +760,8 @@ CPU0_SEC_HAL_NOT_OK:
 CPU1_SYSTEMSUSPEND:
 
 	LDR		r0, =PM_PM_ID_HOTPLUG_IN
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -799,6 +772,7 @@ CPU1_SYSTEMSUSPEND:
 	LDR		r0, =ram0Cpu1RegisterArea	/* r0: backup area */
 	LDR		r0, [r0]
 	LDR		r4, =ram0SaveArmRegister
+	LDR		r4, [r4]
 	MOV		lr, pc		/* lr: Return address */
 	MOV		pc, r4		/* Call save_arm_register()	*/
 	NOP
@@ -809,6 +783,7 @@ CPU1_SYSTEMSUSPEND:
 
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Lock
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call PM_Spin_Lock() */
 	NOP
@@ -822,6 +797,7 @@ CPU1_SYSTEMSUSPEND:
 
 /* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_Unlock
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
@@ -835,7 +811,8 @@ CPU1_SYSTEMSUSPEND:
 	CMP		r5, #0x1
 	LDREQ	r0, =COMA_MODE_SUSPEND
 	LDRNE	r0, =COMA_MODE_HOTPLUG
-	LDR		r1, =0xE63A2000
+	LDR		r1, =WAKEUP_ADDRESS_HOTPLUG
+	LDR		r1, [r1]
 	LDR 	r2, =0x0
 	LDR 	r3, =0x0
 
@@ -854,13 +831,11 @@ CPU1_SYSTEMSUSPEND:
 	LDR		r9, =ram0SecHalReturnCpu1
 	STR		r0, [r9]
 
-	CMP 	r0, #SEC_HAL_RES_OK
-	BNE		CPU1_SEC_HAL_NOT_OK
-
 SECURE_SUSPEND_WAKEUP_CPU1:
 
 	/* Get PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_LockPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call PM_Spin_Lock() */
 	NOP
@@ -873,15 +848,10 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 
 /* Release PM SpinLock				*/
 	LDR		r4, =ram0PM_Spin_UnlockPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call PM_Spin_UnLock() */
 	NOP
-
-	/*------------------------------------------*/
-	/* Invalidate L1 D-cache					*/
-	/*------------------------------------------*/
-
-	/* L1_DataCacheInvalidateSW	*/ /* L1 D-Cache Invalidate	*/
 
 	/*--------------------------------------------------------------*/
 	/* Restore ARM registers (enable MMU) */
@@ -892,6 +862,7 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 
 	LDR		r0, =ram0MmuSetting1Phys
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
+	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call restore_arm_register_pa()	*/
 	NOP
@@ -899,19 +870,20 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 SYSTEMSUSPEND_RESTORE_CPU1:
 	NOP
 
-CPU1_SEC_HAL_NOT_OK:
 	/*------------------------------------------*/
 	/* Restore ARM registers */
 	/*------------------------------------------*/
 	LDR		r0, =ram0Cpu1RegisterArea
 	LDR		r0, [r0]
 	LDR		r4, =ram0RestoreArmRegisterVA
+	LDR		r4, [r4]
 	MOV		lr, pc		/* lr: Return address */
 	MOV		pc, r4		/* Call restore_arm_register_va */
 	NOP
 
 	LDR		r0, =PM_PM_ID_HOTPLUG_OUT
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -919,10 +891,11 @@ CPU1_SEC_HAL_NOT_OK:
 SYSTEMSUSPEND_EXIT:
 
 	LDMFD	sp!, {r4-r11,pc}
+
 .pool
-
 ENDPROC(systemsuspend)
-
+	.align	5
+SYSTEMSUSPEND_END:
 
 /****************************************/
 /* Save ARM register					*/
@@ -931,8 +904,6 @@ ENDPROC(systemsuspend)
 /* 	r0:backup area						*/
 /* 	lr:return address					*/
 /****************************************/
-
-	.align	5
 ENTRY(save_arm_register)
 
 	/*------------------------------*/
@@ -985,17 +956,17 @@ ENTRY(save_arm_register)
 	LDR		r4, =hoSaveArmVfp
 	STR		r0, [r12, r4]
 	MRC	p15, 0, r3, c1, c0, 2
-		/* Read Coprocessor Access Control register */
+	/* Read Coprocessor Access Control register */
 	ORR		r4, r3, #0xF00000 /* Allows CP10 and CP11 access */
 	MCR	p15, 0, r4, c1, c0, 2
-		/* Write Coprocessor Access Control register */
-	ISB			/* Insrtuction Synchronization Barrier */
+	/* Write Coprocessor Access Control register */
+	ISB		/* Insrtuction Synchronization Barrier */
 	MRS		r4, FPEXC /* Read FPEXC register(VMRS -> MRS) */
 	STR		r4, [r0], #0x4 /* Save FPEXC register */
 	MOV		r5, #0x1
 	MOV		r6, r5, LSL #0x1E /* Set EN bit to 1. */
 	MSR		FPEXC, r6
-	/* Write FPEXC register (Set global enable bit to 1) (VMSR -> MSR)*/
+	/* Write FPEXC (Set global enable bit to 1) (VMSR -> MSR)*/
 	MRS		r7, FPSCR /* Read FPSCR register(VMRS -> MRS) */
 	STR		r7, [r0], #0x4 /* Save FPSCR register */
 	VSTM	r0!, {D0-D15} /* Save VFP-D16 register */
@@ -1010,30 +981,29 @@ ENTRY(save_arm_register)
 SAVE_VFP_SKIP:
 	NOP
 
-	/*-----------------------------------*/
-	/* Save System(MMU)	*/
-	/*---------------------------------*/
+	/*----------------------------------------------*/
+	/* Save System(MMU) */
+	/*----------------------------------------------*/
 	LDR		r1, =ram0MmuSetting0
 	MRC		p15, 0, r4, c0, c0, 5
 	UBFX	r5, r4, #0x0, #0x2
 	LDR		r6, =saveArmMmuSettingSize
 	MUL		r7, r5, r6
 	ADD		r1, r1, r7
-	MRC	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register	*/
+	MRC	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register */
 	MRC	p15, 0, r4, c10, c2, 1 /* Normal Memory Remap Register */
 	MRC	p15, 0, r5, c2, c0, 0 /* Translation Table Base 0 Register */
 	MRC	p15, 0, r6, c2, c0, 1 /* Translation Table Base 1 Register */
 	/* Translation Table Base Control Register */
 	MRC	p15, 0, r7, c2, c0, 2
-	MRC	p15, 0, r8, c3, c0, 0 /* Domain Access Control Register	*/
+	MRC	p15, 0, r8, c3, c0, 0 /* Domain Access Control Register */
 	MRC	p15, 0, r9, c13, c0, 1 /* Context ID Register */
 	MRC	p15, 0, r10, c1, c0, 0 /* System Control Register */
 	STMIA	r1!, {r3-r10}
 
-
-	/*-----------------------------------*/
+	/*----------------------------------------------*/
 	/* Save System */
-	/*---------------------------------*/
+	/*----------------------------------------------*/
 	LDR		r4,  =hoSaveArmSystem
 	STR		r0, [r12, r4]
 	MRC	p15, 0, r4, c12, c0, 0 /* Vector Base Address Register */
@@ -1054,34 +1024,34 @@ SAVE_VFP_SKIP:
 	STR		r0, [r12, r4]
 
 	MOV		pc, lr
+
 .pool
-
 ENDPROC(save_arm_register)
+	.align	5
+SAVE_ARM_REGISTER_END:
 
-/**************************************************/
-/* Restore ARM register(running in MMU disable)	*/
+/*****************************************************************/
+/* Restore ARM register(running in MMU disable) */
 /* This function is running on RAM0	*/
 /* After modification of this function, please check the offset. */
 /* Enter with: */
 /*	r0:backup area */
 /*	lr:return address */
-/**********************************************/
-	.align	5
+/*****************************************************************/
 ENTRY(restore_arm_register_pa)
-	/*---------------------------------------*/
+	/*----------------------------------------------*/
 	/* System(MMU) */
-	/*-------------------------------------*/
-
+	/*----------------------------------------------*/
 	LDMIA	r0!, {r3-r10}
 	MCR		p15, 0, r9, c13, c0, 1 /* Context ID Register */
 	ISB
-	MCR	p15, 0, r8, c3, c0, 0 /* Domain Access Control Register	*/
+	MCR	p15, 0, r8, c3, c0, 0 /* Domain Access Control Register */
 	/* Translation Table Base Control Register */
 	MCR	p15, 0, r7, c2, c0, 2
 	MCR	p15, 0, r6, c2, c0, 1 /* Translation Table Base 1 Register */
 	MCR	p15, 0, r5, c2, c0, 0 /* Translation Table Base 0 Register */
 	MCR	p15, 0, r4, c10, c2, 1 /* Normal Memory Remap Register */
-	MCR	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register	*/
+	MCR	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register */
 	DSB
 
 	/* Enable MMU */
@@ -1101,8 +1071,9 @@ ENTRY(restore_arm_register_pa)
 	MOV		pc, r1
 
 .pool
-
 ENDPROC(restore_arm_register_pa)
+	.align	5
+RESTORE_ARM_REGISTER_PA_END:
 
 /****************************************************************/
 /* Restore ARM register(running in MMU enable) */
@@ -1112,12 +1083,11 @@ ENDPROC(restore_arm_register_pa)
 /*	r0:backup area  */
 /*	lr:return address  */
 /****************************************************************/
-	.align	5
 ENTRY(restore_arm_register_va)
-	/*-----------------------------------*/
+	/*----------------------------------------------*/
 	/* Copy backup area address */
-	/*---------------------------------*/
-	MOV		r12, r0		/* r12 = r0(backup area) */
+	/*----------------------------------------------*/
+	MOV		r12, r0 /* r12 = r0(backup area) */
 
 	/*-----------------------------------*/
 	/* System */
@@ -1129,15 +1099,13 @@ ENTRY(restore_arm_register_va)
 	MCR	p15, 0, r4, c12, c0, 0 /* Vector Base Address Register */
 	MCR	p15, 0, r5, c7, c4, 0 /* Physical Address Register */
 	MCR	p15, 0, r6, c13, c0, 2 /* User Read/Write Thread ID Register */
-	MCR	p15, 0, r7, c13, c0, 3/* User Read-only Thread ID Register */
+	MCR	p15, 0, r7, c13, c0, 3 /* User Read-only Thread ID Register */
 	MCR	p15, 0, r8, c13, c0, 4 /* Privileged Only ThreadID Register */
 	MCR	p15, 2, r9, c0, c0, 0 /* Cache Size Selection Register */
 
-
-	/*-------------------------------*/
+	/*----------------------------------------------*/
 	/* VFP */
-	/*-----------------------------*/
-
+	/*----------------------------------------------*/
 	MRC	p15, 0, r4, c1, c1, 2
 	/* Read Non-secure Access Control Register */
 	UBFX r5, r4, #0xA, #0x2 /* Extract the CP10 and CP11 Fields */
@@ -1201,9 +1169,11 @@ RESTORE_VFP_SKIP:
 	MSR		CPSR_fsxc, r4 /* Restore CPSR (so back to SVC mode) */
 
 	MOV		pc, lr /* return */
-.pool
 
+.pool
 ENDPROC(restore_arm_register_va)
+	.align	5
+RESTORE_ARM_REGISTER_VA_END:
 
 /********************************************************************/
 /* Save arm common register											*/
@@ -1212,7 +1182,6 @@ ENDPROC(restore_arm_register_va)
 /* Enter with: */
 /*	lr:return address */
 /********************************************************************/
-	.align	5
 ENTRY(save_arm_common_register)
 
 	/*--------------------------------------*/
@@ -1249,8 +1218,9 @@ ENTRY(save_arm_common_register)
 	MOV		pc, lr	/* return	*/
 
 .pool
-
 ENDPROC(save_arm_common_register)
+	.align	5
+SAVE_ARM_COMMON_REGISTER_END:
 
 /********************************************************************/
 /* Restore ARM common register	*/
@@ -1260,7 +1230,6 @@ ENDPROC(save_arm_common_register)
 /*	r0:backup area					*/
 /*	lr:return address				*/
 /********************************************************************/
-	.align	5
 ENTRY(restore_arm_common_register)
 
 	/*--------------------------------------*/
@@ -1289,8 +1258,9 @@ ENTRY(restore_arm_common_register)
 	MOV		pc, lr	/* Return	*/
 
 .pool
-
 ENDPROC(restore_arm_common_register)
+	.align	5
+RESTORE_ARM_COMMON_REGISTER_END:
 
 /************************************************************************/
 /* system(A3SM) power down	*/
@@ -1299,7 +1269,6 @@ ENDPROC(restore_arm_common_register)
 /* Enter with: 						*/
 /* 	lr = Address of return point 	*/
 /************************************************************************/
-	.align	5
 ENTRY(sys_powerdown)
 
 	/*------------------------------*/
@@ -1435,10 +1404,9 @@ SKIP_TURN_OFF_RWDT:
 	/* Call sec_hal_pm_coma_entry				*/
 	/*------------------------------------------*/
 	LDR		r0, =COMA_MODE_SUSPEND
-	LDR		r1, =0xE63A2000
-	/*LDR 	r2, =0x1*/
+	LDR		r1, =WAKEUP_ADDRESS_SYSTEMSUSPEND
+	LDR		r1, [r1]
 	LDR 	r2, =0x0
-	/*LDR 	r3, =0x1B000000*/
 	LDR 	r3, =0x0
 
 	LDR		r5, =ram0SecHalCommaEntry
@@ -1472,9 +1440,11 @@ SKIP_TURN_ON_RWDT3:
 	LDR		r4, [r0]
 
 	MOV		pc, r4
-.pool
 
+.pool
 ENDPROC(sys_powerdown)
+	.align	5
+SYS_POWERDOWN_END:
 
 /********************************************/
 /*	system(A3SM) power up					*/
@@ -1482,7 +1452,6 @@ ENDPROC(sys_powerdown)
 /* Enter with: 								*/
 /* 	lr = Address of return point 			*/
 /********************************************/
-.align	5
 ENTRY(sys_powerup)
 
 
@@ -1545,12 +1514,6 @@ ENTRY(sys_powerup)
 	LDR		r6, =ram0SavePSTRPhys_resume
 	STR		r5, [r6]
 #endif /*__EXTAL1_INFO__*/
-
-	/*----------------------------------*/
-	/* Invalidate L1 D-cache			*/
-	/*----------------------------------*/
-
-	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
 
 	/*----------------------------------*/
 	/* Turn on Watchdog timer			*/
@@ -1616,25 +1579,26 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 #endif /* CONFIG_SHMOBILE_PASR_SUPPORT */
 
 	MOV		pc, lr		/* return	*/
+
 .pool
-
 ENDPROC(sys_powerup)
+	.align	5
+SYS_POWERUP_END:
 
-/**********************************************************/
-/* Transition to WFI standby. */
-/* This function is running on SDRAM */
-/* Enter with: */
-/* 	lr = Address of return point */
-/********************************************************/
-.align	5
+/****************************************/
+/* Transition to WFI standby.			*/
+/* This function is running on SDRAM	*/
+/* Enter with: 							*/
+/* 	lr = Address of return point 		*/
+/****************************************/
 ENTRY(start_wfi)
 	STMFD	sp!, {r4-r11, lr}
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock */
 	BL PM_Spin_Lock
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
@@ -1644,25 +1608,19 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_WFI
 	STR		r6, [r5]
 	DSB
-#endif
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
+#endif
 
 	WFI		/* Transition to the WFI standby state */
 
+#ifdef CONFIG_PM_SMP
 	/* Get PM SpinLock						*/
 	BL PM_Spin_Lock
 	NOP
 
-#ifdef CONFIG_PM_SMP
 	/* Update current cpu status			*/
 	/* r0: CPU number						*/
 	CMP		r0, #0x0
@@ -1671,120 +1629,17 @@ ENTRY(start_wfi)
 	LDR		r6, =CPUSTATUS_RUN
 	STR		r6, [r5]
 	DSB
-#endif
 
 	/* Release PM SpinLock					*/
 	BL PM_Spin_Unlock
 	NOP
+#endif
 
 	LDMFD	sp!, {r4-r11, pc}
+
 .pool
 ENDPROC(start_wfi)
-
-/**********************************************************/
-/* Transition to WFI2. */
-/* This function is running on SDRAM */
-/* Enter with: */
-/* 	lr = Address of return point */
-/********************************************************/
-.align	5
-ENTRY(start_wfi2)
-	STMFD	sp!, {r4-r11, lr}
-
-	/* Get PM SpinLock						*/
-	BL PM_Spin_Lock
-	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Update current cpu status			*/
-	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
-	UBFX	r0, r4, #0x0, #0x2 /* Extract the CPUID Field */
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu0Status
-	LDRNE	r5, =ram0Cpu1Status
-	LDR		r6, =CPUSTATUS_WFI2
-	STR		r6, [r5]
-	DSB
-
-	/* r7=0x0: legacy mode */
-	/* r7=0x4: Xtal though (PLL0 Stop) */
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu1Status
-	LDRNE	r5, =ram0Cpu0Status
-	LDR		r4, [r5]
-
-	CMP		r4, #CPUSTATUS_WFI
-	BLE		START_WFI2_XTAL_THOUGH_SET
-
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-#else
-/*	LDR		r7, =CPG_LPCKCR_PLLOFF */
-	LDR		r7, =CPG_LPCKCR_LEGACY
-#endif
-START_WFI2_XTAL_THOUGH_SET:
-	LDR		r5, =CPG_LPCKCR
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
-
-	/* Release PM SpinLock					*/
-	BL PM_Spin_Unlock
-	NOP
-
-	WFI		/* Transition to the WFI standby state */
-
-	/* Get PM SpinLock						*/
-	BL PM_Spin_Lock
-	NOP
-
-	/* r7=0x0: legacy mode */
-	LDR		r5, =CPG_LPCKCR
-	LDR		r7, =CPG_LPCKCR_LEGACY
-	MOV		lr, pc /* lr: Return address */
-	B	xtal_though
-	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Update current cpu status			*/
-	/* r0: CPU number						*/
-	CMP		r0, #0x0
-	LDREQ	r5, =ram0Cpu0Status
-	LDRNE	r5, =ram0Cpu1Status
-	LDR		r6, =CPUSTATUS_RUN
-	STR		r6, [r5]
-	DSB
-#endif
-
-	/* Release PM SpinLock					*/
-	BL PM_Spin_Unlock
-	NOP
-
-	LDMFD	sp!, {r4-r11, pc}
-.pool
-ENDPROC(start_wfi2)
-
-/*********************************************/
-/* r5: Address of XTAL though mode register */
-/* r7: */
-/*		0x2: Xtal though (PLL0 Oscillated)  */
-/*		0x4: Xtal though (PLL0 Stop)  */
-/**********************************************/
-.align	5
-ENTRY(xtal_though)
-	LDR		r6, [r5]
-#ifdef CONFIG_PM_SMP
-	CMP		r6, r7
-	BEQ		1f /* Race condition */
-#endif
-	MOV		r6, r7
-	STR		r6, [r5]
-	DSB
-1:
-	MOV		pc, lr /* return */
-
-.pool
-ENDPROC(xtal_though)
+	.align	5
 
 /********************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -1793,7 +1648,6 @@ ENDPROC(xtal_though)
 /* 	r0 = this pointer */
 /* 	lr = Address of return point */
 /********************************************************/
-.align	5
 ENTRY(start_corestandby_2)
 	STMFD	sp!, {r4-r11, lr}
 
@@ -1826,8 +1680,9 @@ ENTRY(start_corestandby_2)
 	/*--------------------------------------*/
 
 	LDR		r4, =ram0CoreStandby_2
+	LDR		r4, [r4]
 	MOV		lr, pc			/* lr: Return address */
-	MOV		pc, r4			/* Call CoreStandby() */
+	MOV		pc, r4			/* Call corestandby_2() */
 	NOP
 
 	/*------------------------------------------*/
@@ -1838,8 +1693,10 @@ ENTRY(start_corestandby_2)
 	ISB
 
 	LDMFD	sp!, {r4-r11, pc}
+
 .pool
 ENDPROC(start_corestandby_2)
+	.align	5
 
 /*****************************************************************/
 /*	Transition to coreStandby(A1SL0 or A1Sl1 Power Off) */
@@ -1849,12 +1706,12 @@ ENDPROC(start_corestandby_2)
 /* 	r0 = this pointer */
 /* 	lr = Address of return point */
 /******************************************************************/
-	.align	5
 ENTRY(corestandby_2)
 	STMFD	sp!, {r4-r11, lr}
 
 	LDR		r0, =PM_PM_ID_CORESTANDBY2_IN
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
@@ -1871,6 +1728,7 @@ ENTRY(corestandby_2)
 	LDR	r0, =ram0Cpu0RegisterArea /* r0: Backup area for CPU0 */
 	LDR		r0, [r0]
 	LDR		r4, =ram0SaveArmRegister
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call save_arm_register() */
 	NOP
@@ -1906,8 +1764,8 @@ ENTRY(corestandby_2)
 	DSB
 
 	LDR		r0, =COMA_MODE_CORE_STANDBY_2 /* mode */
-	/* LDR		r0, =COMA_MODE_CORE_STANDBY /* mode temp., fix after */
 	LDR		r1, =WAKEUP_ADDRESS_CORESTANDBY
+	LDR		r1, [r1]
 	LDR		r2, =0x0
 	LDR		r3, =0x0
 
@@ -1922,9 +1780,6 @@ ENTRY(corestandby_2)
 	STR		r0, [r5] /* Save return value */
 	DSB
 
-	CMP		r0, #SEC_HAL_RES_FAIL
-	BEQ		CORESTANDBY2_RESUME_ERROR
-
 CORESTANDBY2_WAKEUP:
 	NOP
 
@@ -1936,10 +1791,6 @@ CORESTANDBY2_WAKEUP:
 	DSB
 #endif
 
-	/* Invalidate L1 D-cache */
-
-	/* L1_DataCacheInvalidateSW */ /* L1 D-Cache Invalidate */
-
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
 	/*------------------------------------------*/
@@ -1949,27 +1800,10 @@ CORESTANDBY2_WAKEUP:
 	LDR		r1, [r1]
 
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
 	NOP
-
-CORESTANDBY2_RESUME_ERROR:
-	NOP
-
-	WFI /* For power consumption reduction */
-	NOP
-
-	/*------------------------------*/
-	/* Enable D-Cache					*/
-	/*------------------------------*/
-	MRC		p15, 0, r4, c1, c0, 0 /* Read Control register */
-	ORR		r4, r4, #0x4 /* Set C bit	*/
-	/* Write Control register (Enable D-Cache) */
-	MCR	p15, 0, r4, c1, c0, 0
-	ISB
-
-	B	CORESTANDBY2_FINISH
-
 
 CORESTANDBY2_RESTORE:
 	NOP
@@ -1980,20 +1814,175 @@ CORESTANDBY2_RESTORE:
 	LDR	r0, =ram0Cpu0RegisterArea
 	LDR		r0, [r0]
 	LDR		r4, =ram0RestoreArmRegisterVA
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call restore_arm_register_va */
 	NOP
 
-CORESTANDBY2_FINISH:
-	NOP
-
 	LDR		r0, =PM_PM_ID_CORESTANDBY2_OUT
-	LDR		r4,	=ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
 	MOV		pc, r4 /* Call memory_log_pm */
 	NOP
 
 	LDMFD	sp!, {r4-r11,pc}
+
 .pool
 ENDPROC(corestandby_2)
+	.align	5
+CORESTANDBY_2_END:
 
+/********************************************************/
+/*copy_functions */
+/* This function is running on SDRAM */
+/* Enter with: */
+/* lr = Address of return point */
+/********************************************************/
+ENTRY(copy_functions)
+	STMFD	sp!, {r4-r11, lr}
+
+	LDR		r4, =ram0StartAddressOfFunctionArea
+	LDR		r1, =ram0ArmVector
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =ArmVector
+	LDR		r5, =ARM_VECTOR_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0CoreStandby
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =corestandby
+	LDR		r5, =CORESTANDBY_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0CoreStandby_2
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =corestandby_2
+	LDR		r5, =CORESTANDBY_2_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0SystemSuspend
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =systemsuspend
+	LDR		r5, =SYSTEMSUSPEND_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0SaveArmRegister
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =save_arm_register
+	LDR		r5, =SAVE_ARM_REGISTER_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0RestoreArmRegisterPA
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =restore_arm_register_pa
+	LDR		r5, =RESTORE_ARM_REGISTER_PA_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0RestoreArmRegisterVA
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =restore_arm_register_va
+	LDR		r5, =RESTORE_ARM_REGISTER_VA_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0SaveArmCommonRegister
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =save_arm_common_register
+	LDR		r5, =SAVE_ARM_COMMON_REGISTER_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0RestoreArmCommonRegister
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =restore_arm_common_register
+	LDR		r5, =RESTORE_ARM_COMMON_REGISTER_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0PM_Spin_Lock
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =PM_Spin_Lock
+	LDR		r5, =PM_SPIN_LOCK_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0PM_Spin_Unlock
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =PM_Spin_Unlock
+	LDR		r5, =PM_SPIN_UNLOCK_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0SysPowerDown
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =sys_powerdown
+	LDR		r5, =SYS_POWERDOWN_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0SysPowerUp
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =sys_powerup
+	LDR		r5, =SYS_POWERUP_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0MemoryLogPm
+	STR		r4, [r1]
+	MOV		r0, r4
+	LDR		r1, =memory_log_pm
+	LDR		r5, =MEMORY_LOG_PM_END
+	SUB		r5, r5, r1
+	MOV		r2, r5
+	BL		memcpy
+
+	LDMFD	sp!, {r4-r11, pc}
+
+.pool
+ENDPROC(copy_functions)

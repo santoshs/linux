@@ -109,9 +109,10 @@ extern void xtal_though(void);
 extern void PM_Spin_Lock(void);
 extern void PM_Spin_Unlock(void);
 
+extern void copy_functions(void);
+
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
-extern void shmobile_suspend_udelay(unsigned int delay_time);
 extern void request_suspend_state(suspend_state_t state);
 extern suspend_state_t get_suspend_state(void);
 
@@ -446,6 +447,7 @@ static inline void samplrate_downfact_get(unsigned int *sampl_rate,
 
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
+extern int is_cpufreq_clk_state_earlysuspend(void);
 extern void start_cpufreq(void);
 extern int stop_cpufreq(void);
 extern bool cpufreq_compulsive_exec_get(void);
