@@ -1455,23 +1455,11 @@ static void mipi_display_reset(void)
 	regulator_enable(power_ldo_1v8);
 	regulator_enable(power_ldo_3v);
 	regulator_enable(power_ldo_1v2);
-	regulator_disable(power_ldo_1v8);
-	regulator_disable(power_ldo_3v);
-	regulator_disable(power_ldo_1v2);
 
-
-	gpio_direction_output(reset_gpio, 1);
-	msleep(50);
 	gpio_direction_output(reset_gpio, 0);
-	msleep(50);
+	msleep(100);
 	gpio_direction_output(reset_gpio, 1);
-	msleep(50);
-
-	regulator_enable(power_ldo_1v8);
-	regulator_enable(power_ldo_3v);
-	regulator_enable(power_ldo_1v2);
-
-	msleep(50);
+	msleep(100);
 }
 
 
