@@ -33,6 +33,8 @@
 #include <linux/lcd.h>
 #include <mach/r8a7373.h>
 #include <mach/memory-r8a7373.h>
+#include <linux/module.h>
+#include <linux/i2c.h>
 
 #include "panel_common.h"
 
@@ -47,6 +49,8 @@
 
 #define VX5B3D_VEE_ENABLE
 /* #define VX5B3D_STANDBY_CMD_ENABLE */
+
+#define VX5B3D_USE_I2C
 
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
@@ -130,6 +134,12 @@
 #define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
 static int vx5b3d_panel_suspend(void);
 static int vx5b3d_panel_resume(void);
+/* i2c */
+#if 0
+static int ql_i2c_read(u32 addr, u32 *val, u32 data_size);
+#endif
+static int ql_i2c_write_wrapper(u8 cmd, int size, const u8 *data);
+
 
 #define MIN_BRIGHTNESS	(0)
 #define MAX_BRIGHTNESS	(255)
@@ -706,9 +716,14 @@ static unsigned char snd_cabc_off[] = { 0x05, 0x01, 0x40, 0x00, 0x04,
 
 static int vx5b3d_update_cabc_ctrl(int onoff)
 {
+#ifndef VX5B3D_USE_I2C
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_long  write_dsi_l;
 	void *screen_handle;
+#endif
+	unsigned short data_count;
+	unsigned char *write_data;
+
 	int ret;
 
 	if (!is_panel_initialized) {
@@ -720,35 +735,42 @@ static int vx5b3d_update_cabc_ctrl(int onoff)
 
 	printk("%s on_off:%d\n", __func__, onoff);
 
+	if (onoff) {
+		data_count = sizeof(snd_cabc_on);
+		write_data = snd_cabc_on;
+	} else {
+		data_count = sizeof(snd_cabc_off);
+		write_data = snd_cabc_off;
+	}
+
+#ifdef VX5B3D_USE_I2C
+	ret = ql_i2c_write_wrapper(
+		MIPI_DSI_GEN_LONG_WRITE,
+		data_count,
+		write_data);
+	if (ret)
+		printk(KERN_ERR "ql_i2c_write_wrapper err:%d\n", ret);
+
+#else
 	screen_handle = screen_display_new();
 
 	/* set brightness */
 	write_dsi_l.handle	= screen_handle;
 	write_dsi_l.output_mode = RT_DISPLAY_LCD1;
 	write_dsi_l.data_id     = MIPI_DSI_GEN_LONG_WRITE;
-
-	if (onoff) {
-		write_dsi_l.data_count = sizeof(snd_cabc_on);
-		write_dsi_l.write_data = snd_cabc_on;
-	} else {
-		write_dsi_l.data_count = sizeof(snd_cabc_off);
-		write_dsi_l.write_data = snd_cabc_off;
-	}
-
+	write_dsi_l.data_count  = data_count;
+	write_dsi_l.write_data  = write_data;
 	write_dsi_l.send_mode   = RT_DISPLAY_SEND_MODE_HS;
 	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
+	if (ret != SMAP_LIB_DISPLAY_OK)
 		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+#endif
 
-	return 0;
+	return ret;
 }
 
 static ssize_t cabc_show(struct device *dev,
@@ -993,9 +1015,11 @@ static struct lcd_ops vx5b3d_lcd_ops = {
 
 static int vx5b3d_update_brightness_ctrl(int brightness)
 {
+#ifndef VX5B3D_USE_I2C
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_long  write_dsi_l;
 	void *screen_handle;
+#endif
 	int ret;
 
 	#ifdef BL_TUNE_WITH_TABLE
@@ -1013,9 +1037,12 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 		return 0;
 	}
 
-	printk(KERN_DEBUG "%s brightness:%d\n", __func__, brightness);
+#ifdef VX5B3D_USE_I2C
+	printk(KERN_DEBUG "%s brightness(i2c):%d\n", __func__, brightness);
+#else
+	printk(KERN_DEBUG "%s brightness(dsi):%d\n", __func__, brightness);
+#endif
 
-	screen_handle = screen_display_new();
 
 #ifdef BL_TUNE_WITH_TABLE
 	for (i = 0; i < MAX_BRT_STAGE; i++) {
@@ -1042,6 +1069,17 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 	brightness_cmd[5] = brightness;
 #endif
 
+
+#ifdef VX5B3D_USE_I2C
+	ret = ql_i2c_write_wrapper(
+		MIPI_DSI_GEN_LONG_WRITE,
+		sizeof(brightness_cmd),
+		brightness_cmd);
+	if (ret)
+		printk(KERN_ERR "ql_i2c_write_wrapper err:%d\n", ret);
+#else
+	screen_handle = screen_display_new();
+
 	/* set brightness */
 	write_dsi_l.handle	= screen_handle;
 	write_dsi_l.output_mode = RT_DISPLAY_LCD1;
@@ -1051,17 +1089,14 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 	write_dsi_l.send_mode   = RT_DISPLAY_SEND_MODE_HS;
 	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
+	if (ret != SMAP_LIB_DISPLAY_OK)
 		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+#endif
 
-	return 0;
+	return ret;
 }
 
 static int get_brightness(struct backlight_device *bd)
@@ -1436,7 +1471,7 @@ static void mipi_display_reset(void)
 	regulator_enable(power_ldo_3v);
 	regulator_enable(power_ldo_1v2);
 
-msleep(50);
+	msleep(50);
 }
 
 
@@ -1890,3 +1925,177 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
+
+/* For I2C */
+
+/* defs */
+#define QL_ID 0x2300
+
+#define CONTROL_BYTE_DCS       (0x08u)
+#define CONTROL_BYTE_GEN       (0x09u)
+
+#define GEN_QL_CSR_OFFSET_LENGTH  {\
+		CONTROL_BYTE_GEN, \
+	0x29,  /* Data ID */\
+	0x05,  /* Vendor Id 1 */\
+	0x01,  /* Vendor Id 2 */\
+	0x41,  /* Vendor Unique Command */\
+	0x00,  /* Address LS */\
+	0x00,  /* Address MS */\
+	0x00,  /* Length LS */\
+	0x00,  /* Length MS */\
+	}
+
+#define GEN_QL_CSR_WRITE  {\
+		CONTROL_BYTE_GEN, \
+	0x29,  /* Data ID */\
+	0x05,  /* Vendor Id 1 */\
+	0x01,  /* Vendor Id 2 */\
+	0x40,  /* Vendor Unique Command */\
+	0x00,  /* Address LS */\
+	0x00,  /* Address MS */\
+	0x00,  /* data LS */\
+	0x00, \
+	0x00, \
+	0x00,  /* data MS */\
+	}
+
+static struct i2c_client *i2c_quick_client;
+
+static int i2c_quickvx_probe(struct i2c_client *client,
+				const struct i2c_device_id *idp)
+{
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		printk(KERN_ERR "error : not compatible i2c function \r\n");
+		return -ENODEV;
+	}
+	i2c_quick_client = client;
+	return 0;
+}
+
+static int __devexit i2c_quickvx_remove(struct i2c_client *client)
+{
+	i2c_set_clientdata(client, NULL);
+	return 0;
+}
+
+static struct i2c_device_id i2c_quickvx_idtable[] = {
+	{ "panel_vx5b3d", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, i2c_quickvx_idtable);
+static struct i2c_driver i2c_quickvx_driver = {
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "panel_vx5b3d",
+	},
+	.id_table = i2c_quickvx_idtable,
+	.probe = i2c_quickvx_probe,
+	.remove		= __devexit_p(i2c_quickvx_remove),
+};
+
+
+static int __init mipi_quickvx_lcd_init(void)
+{
+	return i2c_add_driver(&i2c_quickvx_driver);
+}
+static void mipi_quickvx_lcd_exit(void)
+{
+	i2c_del_driver(&i2c_quickvx_driver);
+}
+
+#if 0
+static int ql_i2c_read(u32 addr, u32 *val, u32 data_size)
+{
+	u32 data;
+	char buf[] = GEN_QL_CSR_OFFSET_LENGTH;
+	char rx[10];
+	int ret = -1;
+	int write_size;
+
+	buf[5] = addr & 0xff;
+	buf[6] = (addr >> 8) & 0xff;
+	buf[7] = data_size & 0xff;
+	buf[8] = (data_size >> 8) & 0xff;
+
+	write_size = 9;
+
+	ret = i2c_master_send(i2c_quick_client, &buf[0], write_size);
+	if (ret != write_size) {
+		printk(KERN_ERR "%s: i2c_master_send failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+
+	/* generic read request 0x24 to send generic read command */
+	write_size = 4;
+
+	buf[0] = CONTROL_BYTE_GEN;
+	buf[1] =    0x24;  /* Data ID */
+	buf[2] =    0x05;  /* Vendor Id 1 */
+	buf[3] =    0x01;  /* Vendor Id 2 */
+
+	ret = i2c_master_send(i2c_quick_client, &buf[0], write_size);
+	if (ret != write_size) {
+		printk(KERN_ERR "%s: i2c_master_send failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+	/* return number of bytes or error */
+	ret = i2c_master_recv(i2c_quick_client, &rx[0], data_size);
+	if (ret != data_size) {
+		printk(KERN_ERR "%s: i2c_master_recv failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+
+	data = rx[0];
+	if (data_size > 1)
+		data |= (rx[1] << 8);
+	if (data_size > 2)
+		data |= (rx[2] << 16) | (rx[3] << 24);
+
+	*val = data;
+
+	printk(KERN_DEBUG "r0x%x=0x%x\n", addr, data);
+
+	return 0;
+
+}
+#endif
+
+/* i2c header + data type */
+#define I2C_DATA_HEADER_SIZE 2
+
+static int ql_i2c_write_wrapper(u8 cmd, int size, const u8 *data)
+{
+	int ret;
+	char buf[] = GEN_QL_CSR_WRITE;
+
+	buf[1] = cmd;
+	if (size > sizeof(buf) - I2C_DATA_HEADER_SIZE)
+		printk(KERN_ERR "size over %d > %d\n",
+				size, sizeof(buf) - I2C_DATA_HEADER_SIZE);
+	memcpy(&buf[2], data, size);
+
+	ret = i2c_master_send(i2c_quick_client, buf,
+						size + I2C_DATA_HEADER_SIZE);
+
+	if (ret != size + I2C_DATA_HEADER_SIZE) {
+		printk(KERN_ERR
+			"%s: i2c_master_send failed (%d)!\n", __func__, ret);
+		return -1;
+	}
+#if 0 /* for debug */
+	printk(KERN_DEBUG
+		"send %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+				buf[0], buf[1], buf[2], buf[3], buf[4], buf[5],
+				buf[6], buf[7], buf[8], buf[9], buf[10]);
+#endif
+	return 0;
+}
+
+module_init(mipi_quickvx_lcd_init);
+module_exit(mipi_quickvx_lcd_exit);
+
+MODULE_LICENSE("GPL");
