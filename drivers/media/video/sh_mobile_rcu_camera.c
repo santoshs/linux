@@ -1,7 +1,7 @@
 /*
  * V4L2 Driver for SuperH Mobile RCU interface
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * Copyright (C) 2008 Magnus Damm
@@ -42,6 +42,7 @@
 #include <linux/sched.h>
 #include <linux/sh_clk.h>
 #include <linux/spinlock.h>
+#include <linux/earlysuspend.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-dev.h>
@@ -65,6 +66,9 @@ EXPORT_SYMBOL(sec_sub_cam_dev);
 
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
+static bool is_suspend_status;
+static bool is_rcu_add_device;
+static bool is_early_suspend;
 static bool dump_addr_flg;
 
 #define SH_RCU_DUMP_LOG_ENABLE
@@ -1608,6 +1612,20 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 		return ret;
 	}
 
+	if (is_early_suspend) {
+		int cnt = 0;
+		while (!is_suspend_status) {
+			usleep_range(100000, 100000);
+			cnt++;
+			if (cnt > 30) {
+				printk(KERN_ALERT"%s wait timeout\n",
+					__func__);
+				break;
+			}
+		}
+	}
+	is_rcu_add_device = true;
+
 	dev_info(icd->parent,
 		 "SuperH Mobile RCU driver attached to camera %d\n",
 		 icd->devnum);
@@ -1687,6 +1705,9 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	dev_info(icd->parent,
 		 "SuperH Mobile RCU driver detached from camera %d\n",
 		 icd->devnum);
+
+	is_rcu_add_device = false;
+	is_suspend_status = false;
 
 	kfree(pcdev->mmap_pages);
 	pcdev->mmap_pages = NULL;
@@ -3526,6 +3547,39 @@ static const struct dev_pm_ops sh_mobile_rcu_dev_pm_ops = {
 	.runtime_resume = sh_mobile_rcu_runtime_resume,
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void sh_mobile_rcu_early_suspend(struct early_suspend *h)
+{
+	if (is_rcu_add_device) {
+		int cnt = 0;
+		while (is_suspend_status) {
+			usleep_range(100000, 100000);
+			cnt++;
+			if (cnt > 30) {
+				printk(KERN_ALERT"%s wait timeout\n",
+					__func__);
+				break;
+			}
+		}
+	}
+	is_early_suspend = true;
+	return;
+}
+
+static void sh_mobile_rcu_late_resume(struct early_suspend *h)
+{
+	is_early_suspend = false;
+	is_suspend_status = true;
+	return;
+}
+
+static  struct early_suspend    early_suspend = {
+	.level		= EARLY_SUSPEND_LEVEL_STOP_DRAWING + 1,
+	.suspend	= sh_mobile_rcu_early_suspend,
+	.resume		= sh_mobile_rcu_late_resume,
+};
+#endif /* CONFIG_HAS_EARLYSUSPEND */
+
 static struct platform_driver sh_mobile_rcu_driver = {
 	.driver		= {
 		.name	= "sh_mobile_rcu",
@@ -3543,6 +3597,9 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
+	is_suspend_status = false;
+	is_rcu_add_device = false;
+	is_early_suspend = false;
 	dump_addr_flg = false;
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_order = 0;
@@ -3553,6 +3610,9 @@ static int __init sh_mobile_rcu_init(void)
 	dumplog_cnt_idx = NULL;
 #endif /* SH_RCU_DUMP_LOG_ENABLE */
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	register_early_suspend(&early_suspend);
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
 	return platform_driver_register(&sh_mobile_rcu_driver);
@@ -3560,6 +3620,9 @@ static int __init sh_mobile_rcu_init(void)
 
 static void __exit sh_mobile_rcu_exit(void)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&early_suspend);
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 	platform_driver_unregister(&sh_mobile_rcu_driver);
 }
 
