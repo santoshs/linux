@@ -19,6 +19,74 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 
+#ifdef CONFIG_ARM_TZ
+/* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
+extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
+#endif
+
+#define APE_BASE_MDM_L2_TCM    0xE1800000
+#define APE_SIZE_MDM_L2_TCM    0x00000100
+
+#define APE_BASE_MDM_SCU_CD    0xE3C40000
+#define APE_SIZE_MDM_SCU_CD    0x000000C4
+#define APE_VIEW_MDM_SCU_CD_CSCGCR_SET    0x00000044
+#define SCU_TraceX2ClkEn       (1<<8)
+#define SCU_XTIclkEn           (1<<6)
+#define SCU_CoredivRFClkEn     (1<<5)
+#define SCU_CoreRFClkEn        (1<<4)
+#define SCU_TraceConfigClkEn   (1<<2)
+#define SCU_TraceclkEn         (1<<1)
+
+#define APE_BASE_MDM_SCU_AD    0xE3D40000
+#define APE_SIZE_MDM_SCU_AD    0x00000450
+#define APE_VIEW_MDM_SCU_AD_CCR_OUTPUT    0x00000410
+#define APE_VIEW_MDM_SCU_AD_CCR_CLEAR     0x00000418
+#define SCU_SlowClk_force_onHFClk (1<<4)
+#define SCU_WGM_PSSClk_Req_Mask   (1<<3)
+
+#define APE_BASE_MDM_ETF_STM   0xE3A05000
+#define APE_SIZE_MDM_ETF_STM   0x00001000
+#define APE_VIEW_MDM_ETF_STM_LOCK         0x00000FB0
+#define APE_VIEW_MDM_ETF_STM_CTL          0x00000020
+#define APE_VIEW_MDM_ETF_STM_MODE         0x00000028
+#define APE_VIEW_MDM_ETF_STM_FFCR         0x00000304
+#define APE_VIEW_MDM_ETF_STM_BUFWM        0x00000034
+
+#define APE_BASE_MDM_CXSTM     0xE3A04000
+#define APE_SIZE_MDM_CXSTM     0x00001000
+#define APE_VIEW_MDM_CXSTM_LOCK           0x00000FB0
+#define APE_VIEW_MDM_CXSTM_SPER           0x00000E00
+#define APE_VIEW_MDM_CXSTM_SPTER          0x00000E20
+#define APE_VIEW_MDM_CXSTM_FREQ           0x00000E8C
+#define APE_VIEW_MDM_CXSTM_AUXCR          0x00000E94
+#define APE_VIEW_MDM_CXSTM_TCSR           0x00000E80
+#define APE_VIEW_MDM_CXSTM_SYNCR          0x00000E90
+#define FREQ_13MHz             (13*1000*1000)
+
+/* #define DBGREG1                0xE6100020 */
+#define DBGREG3                0xE6100028
+#define DBGREG4                0xE610002C
+/* #define DBGREG9                0xE6100040 */
+
+#define DBGREG3_BB_DBGENMSK       (1<<18)
+#define DBGREG3_BB_NIDEN          (1<<6)
+#define DBGREG3_BB_DBGEN          (1<<2)
+
+#define DBGREG4_BB_NIDEN          (1<<5)
+#define DBGREG4_BB_DBGEN          (1<<4)
+
+#define SYSC_SPDCR        0xE6180008
+#define SYSC_SPDCR_D4     (1<<1)
+
+#define SYSC_PSTR         0xE6180080
+#define SYSC_PSTR_D4      (1<<1)
+
+#define SYSC_DBGPOWCR     0xE61800C0
+#define SYSC_DBGPOWCR_D4  (1<<1)
+#define SYSC_DBGPOWCR_A3R (1<<13)
+
+#define SYSC_RESCNT       0xE618801C
+
 static dev_t rmc_loader_dev;
 
 struct toc_str {
@@ -372,34 +440,58 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	volatile unsigned int data;
+	unsigned int g_dbgreg3;
+	int sec_ret;
 	
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
 
 		/* Opened for WRITING, i.e. for Loading modem firware image */
-
-		{
-#define DBGREG1		IO_ADDRESS(0xE6100020)
-
-			/* data = __raw_readl(DBGREG1); */
-
-			if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
-			{
-				/* printk("ES2.02 on later\n"); */
-				/* if ((data & (1 << 29))) */
-				{
-					printk("EPMU DBGMD_CR 1\n");
-					__raw_writel(0x00008001, 0xE61900C0);
-				}
-
-			} else {
-				/* printk("ES2.01 on earlier\n"); */
-				printk("EPMU DBGMD_CR B\n");
-				__raw_writel(0x0000800B, 0xE61900C0);
-			}
-		
-		}
-
 		printk(KERN_ALERT "rmc_loader_open(), O_WRONLY Initialize modem to receive boot data >>\n");
+
+	        printk("EPMU DBGMD_CR 1\n");
+	        __raw_writel(0x00008001, 0xE61900C0);
+
+
+		printk(KERN_ALERT "4ETB: DBGREG1: 0x%08x\n", __raw_readl(DBGREG1));
+		printk(KERN_ALERT "4ETB: PSTR:    0x%08x\n", __raw_readl(SYSC_PSTR));
+		printk(KERN_ALERT "4ETB: DBGPOWCR:0x%08x\n", __raw_readl(SYSC_DBGPOWCR));
+		printk(KERN_ALERT "4ETB: RESCNT:  0x%08x\n", __raw_readl(SYSC_RESCNT));
+		data = __raw_readl(DBGREG4);
+		printk(KERN_ALERT "4ETB: DBGREG4 was 0x%08x\n", data);
+		g_dbgreg3 = __raw_readl(DBGREG3);
+		printk(KERN_ALERT "4ETB: DBGREG3 was 0x%08x\n", g_dbgreg3);
+		if ((data & (DBGREG4_BB_NIDEN | DBGREG4_BB_DBGEN)) != (DBGREG4_BB_NIDEN | DBGREG4_BB_DBGEN)) {
+		  g_dbgreg3 |= DBGREG3_BB_DBGENMSK | DBGREG3_BB_NIDEN | DBGREG3_BB_DBGEN;
+#ifdef CONFIG_ARM_TZ
+		  printk(KERN_ALERT "4ETB trying to set g_dbgreg=0x%08x\n", g_dbgreg3);
+		  sec_ret = sec_hal_dbg_reg_set(0, 0, &g_dbgreg3);
+		  /* Allow and do power down D4 since sec hal powers it up unnecessarily. */
+		  /* Also allow power down of AR3 since sec hal disallows that unnecessarily. */
+		  data = __raw_readl(SYSC_DBGPOWCR);
+		  data = data | SYSC_DBGPOWCR_D4 | SYSC_DBGPOWCR_A3R;
+		  __raw_writel(data, SYSC_DBGPOWCR);
+		  __raw_writel(SYSC_SPDCR_D4, SYSC_SPDCR);
+		  while (1) {
+		    data = __raw_readl(SYSC_SPDCR);
+		    if (data == 0)
+		      break;
+		  }
+		  printk(KERN_ALERT "4ETB_TZ: ret=%x, DBGREG3=0x%08x\n", sec_ret, __raw_readl(DBGREG3));
+#else
+		  printk(KERN_ALERT "4ETB_Non-TZ >>\n");
+		  __raw_writel(0xA501, DBGREG9);
+		  __raw_writel(0xA501, DBGREG9);
+		  __raw_writel(g_dbgreg3, DBGREG3);
+		  printk(KERN_ALERT "4ETB_Non-TZ <<\n");
+#endif
+		  data = __raw_readl(DBGREG4);
+		  printk(KERN_ALERT "4ETB: DBGREG4 is 0x%08x\n", data);
+		  printk(KERN_ALERT "4ETB: DBGREG1= 0x%08x\n", __raw_readl(DBGREG1));
+		  printk(KERN_ALERT "4ETB: PSTR=    0x%08x\n", __raw_readl(SYSC_PSTR));
+		  printk(KERN_ALERT "4ETB: DBGPOWCR=0x%08x\n", __raw_readl(SYSC_DBGPOWCR));
+		  printk(KERN_ALERT "4ETB: RESCNT=  0x%08x\n", __raw_readl(SYSC_RESCNT));
+		}
+		
 		ape5r_modify_register32(C4POWCR, 0, (1<<7)); /* read-modify clear C4POWCR.MDMSEL to allow modem requests */
 		printk(KERN_ALERT "T001 HPSSCLK\n");
 	    	__raw_writel(0x03000000, WPMCIF_EPMU_HPSSCLK_CR); /* PLL lock count for PLL5 */
@@ -484,7 +576,12 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 
 static int rmc_loader_flush(struct file *file, fl_owner_t id)
 {
-        void __iomem * remapped_mdm_io=0;
+	void __iomem * remapped_mdm_tcm=0;
+        void __iomem * remapped_mdm_scu_cd=0;
+	void __iomem * remapped_mdm_scu_ad=0;
+	void __iomem * remapped_mdm_etf_stm=0;
+	void __iomem * remapped_mdm_cxstm=0;
+	volatile unsigned int data_pstr, data_dbgreg4, data_val;
 	int retval=0;
 
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
@@ -492,33 +589,132 @@ static int rmc_loader_flush(struct file *file, fl_owner_t id)
 		/* Opened for WRITING, i.e. for Loading modem firware image */
 
 		if (all_toc_entries_loaded) {
-			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
-	                remapped_mdm_io = ioremap(0xE3D40410,4); 
-	                __raw_writel(2, ((void __iomem *)((uint32_t)remapped_mdm_io)));
-                                               /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
-                                               /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
-                                               /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
-                                               /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
-                                               /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
-                                               /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */ 
-	                iounmap(remapped_mdm_io);
-		  	toc_ptr = toc_buffer;
-			data_ptr = 0;
-			toc_index = 0;
-			load_ptr = 0;
-			all_toc_entries_loaded = 0;
-			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold <<\n");
+		  printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
+
+		  remapped_mdm_tcm = ioremap(APE_BASE_MDM_L2_TCM, APE_SIZE_MDM_L2_TCM);
+		  if (!remapped_mdm_tcm) goto fail_exit;
+		  remapped_mdm_scu_cd = ioremap(APE_BASE_MDM_SCU_CD, APE_SIZE_MDM_SCU_CD);
+		  if (!remapped_mdm_scu_cd) goto fail_exit;
+		  remapped_mdm_scu_ad = ioremap(APE_BASE_MDM_SCU_AD, APE_SIZE_MDM_SCU_AD);
+		  if (!remapped_mdm_scu_ad) goto fail_exit;
+		  remapped_mdm_etf_stm = ioremap(APE_BASE_MDM_ETF_STM, APE_SIZE_MDM_ETF_STM);
+		  if (!remapped_mdm_etf_stm) goto fail_exit;
+		  remapped_mdm_cxstm = ioremap(APE_BASE_MDM_CXSTM, APE_SIZE_MDM_CXSTM);
+		  if (!remapped_mdm_cxstm) goto fail_exit;
+
+		  printk(KERN_ALERT "F001\n");
+
+		  data_val = __raw_readl(remapped_mdm_tcm + 0x00000000);
+		  if (data_val != 0xE51FF004) {
+		    /* If beginning of modem L2 TCM is not op-code "jump to address pointed by next word",
+		       assume that it is not up-to-date, and patch proper jump instructions.
+		       NOTE1: Modem L2 SDRAM address is fixed here, usually it comes from modem build!
+		       NOTE2: Address to jump is in MODEM VIEW, i.e. 0x08000000 is in APE 0x40000000! */
+		    __raw_writel(0xE51FF004, remapped_mdm_tcm + 0x00000000);
+		    __raw_writel(0x08000000, remapped_mdm_tcm + 0x00000004);
+		    data_val =   __raw_readl(remapped_mdm_tcm + 0x00000004);
+		    /* Dummy read to ensure write buffer flush */
+		  }
+
+		  printk(KERN_ALERT "F002\n");
+
+		  __raw_writel(SCU_TraceX2ClkEn     |
+			       SCU_XTIclkEn         |
+			       SCU_CoredivRFClkEn   |
+			       SCU_CoreRFClkEn      |
+			       SCU_TraceConfigClkEn |
+			       SCU_TraceclkEn,
+			       remapped_mdm_scu_cd + APE_VIEW_MDM_SCU_CD_CSCGCR_SET);
+
+		  __raw_writel(SCU_SlowClk_force_onHFClk |
+			       SCU_WGM_PSSClk_Req_Mask,
+			       remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_CLEAR);
+
+		  printk(KERN_ALERT "F003\n");
+
+		  data_pstr = __raw_readl(SYSC_PSTR);
+		  data_dbgreg4 = __raw_readl(DBGREG4);
+		  if ((SYSC_PSTR_D4 == (data_pstr & SYSC_PSTR_D4)) && (0x3F == (data_dbgreg4 & 0x3F))) {
+		    /* Only if both D4 power domain is on, and also all coresight debug enables are on */
+		    /* enable modem ETF_STM and CXSTM */
+
+		    printk(KERN_ALERT "F004\n");
+
+		    __raw_writel(0xc5acce55, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_LOCK);
+		    __raw_writel(0x00000000, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_CTL);
+		    /* TraceCaptEn OFF */
+		    __raw_writel(0x00000002, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_MODE);
+		    /* FIFO */
+		    __raw_writel(0x00000013, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_FFCR);
+		    /* Formatting enabled, FOnFlIn=1 Flush-on-FLUSHIN feature is enabled. */
+		    __raw_writel(0x00000000, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_BUFWM);
+		    __raw_writel(0x00000001, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_CTL);
+		    /* TraceCaptEn ON */
+
+		    printk(KERN_ALERT "F005\n");
+		    
+		    __raw_writel(0xc5acce55, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_LOCK);
+		    __raw_writel(0xFFFFFFFF, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SPER);
+		    /* Enable all 32 stimulus ports */
+		    __raw_writel(0x00000000, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SPTER);
+		    /* Enable */
+		    __raw_writel(FREQ_13MHz, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_FREQ);
+		    __raw_writel(0x00000002, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_AUXCR);
+		    /* ASYNCPE */
+		    __raw_writel(0x0041000F, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_TCSR);
+		    /* Trace ID is 0x41 */
+		    __raw_writel(0x00000400, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SYNCR);
+		    data_val = __raw_readl(remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SYNCR);
+		    /* Dummy read to ensure write buffer flush */
+
+		    printk(KERN_ALERT "F006\n");
+
+		  }
+
+		  printk(KERN_ALERT "F007\n");
+
+		  __raw_writel(2, remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_OUTPUT);
+		  /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
+		  /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
+		  /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
+		  /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
+		  /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
+		  /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */ 
+
+		  printk(KERN_ALERT "F008\n");
+
+		  iounmap(remapped_mdm_tcm);
+		  iounmap(remapped_mdm_scu_cd);
+		  iounmap(remapped_mdm_scu_ad);
+		  iounmap(remapped_mdm_etf_stm);
+		  iounmap(remapped_mdm_cxstm);
+
+		  printk(KERN_ALERT "F009\n");
+
+		  toc_ptr = toc_buffer;
+		  data_ptr = 0;
+		  toc_index = 0;
+		  load_ptr = 0;
+		  all_toc_entries_loaded = 0;
+		  printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold <<\n");
 		} else {
-			printk(KERN_ALERT "rmc_loader_flush(), Not all TOC entries loaded, yet >><<.\n");
-			/* retval = -EFAULT; */
+		  printk(KERN_ALERT "rmc_loader_flush(), Not all TOC entries loaded, yet >><<.\n");
 		}
 	} else {
-
-		/* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
-		printk(KERN_ALERT "rmc_loader_flush(), O_RDONLY Dump STM >><<\n");
+	  
+	  /* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
+	  printk(KERN_ALERT "rmc_loader_flush(), O_RDONLY Dump STM >><<\n");
 	}
 
 	return retval;
+fail_exit:
+	printk(KERN_ALERT "rmc_loader_flush() ioremap failed!\n");
+	if (remapped_mdm_tcm) iounmap(remapped_mdm_tcm);
+	if (remapped_mdm_scu_cd) iounmap(remapped_mdm_scu_cd);
+	if (remapped_mdm_scu_ad) iounmap(remapped_mdm_scu_ad);
+	if (remapped_mdm_etf_stm) iounmap(remapped_mdm_etf_stm);
+	if (remapped_mdm_cxstm) iounmap(remapped_mdm_cxstm);
+	return -ENOMEM;
 }
 
 
