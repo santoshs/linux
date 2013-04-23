@@ -28,6 +28,7 @@
 #include "log_kernel.h"
 #include "iccom_drv.h"
 #include "rtds_memory_drv_cma.h"
+#include <mach/memory-r8a7373.h>
 
 struct device	*rt_cma_dev[CMA_DEV_CNT];
 
@@ -48,14 +49,42 @@ static struct platform_driver rt_cma_driver = {
 struct page *rt_cma_drv_alloc(unsigned int size, int id)
 {
 	struct page *pages = NULL;
+	int	i;
+	bool	flag;
+	int	page_num = size / PAGE_SIZE;
 	MSG_HIGH("[CMA DRV]IN |%s\n", __func__);
 	MSG_MED("[CMA DRV]   |size:%dMiB\n", size / SZ_1M);
 	MSG_MED("[CMA DRV]   |id:%d\n", id);
 
-	pages = dma_alloc_from_contiguous(rt_cma_dev[id], (size / PAGE_SIZE), 0);
-	MSG_MED("[CMA DRV]   | pages:0x%08x\n", (u32)pages);
-	if (pages)
-		MSG_MED("[CMA DRV]   | phys_addr:0x%08x\n", (u32)page_to_phys(pages));
+	for (i = 0; i < DRM_ALLOC_COUNT; i++) {
+		pages = dma_alloc_from_contiguous(rt_cma_dev[id], page_num, 0);
+		MSG_MED("[CMA DRV]   | pages:0x%08x\n", (u32)pages);
+		if (pages) {
+			MSG_MED("[CMA DRV]   | phys_addr:0x%08x\n",
+				(u32)page_to_phys(pages));
+			if (page_to_phys(pages) == SDRAM_DISPLAY_START_ADDR ||
+			    page_to_phys(pages) ==
+					SDRAM_OMX_RT_SHARED_START_ADDR) {
+				break;
+			} else {
+				/* start addr not collect */
+				/* free allocate & retry allocate */
+				flag = dma_release_from_contiguous(
+								rt_cma_dev[id],
+								pages,
+								page_num);
+				if (!flag) {
+					MSG_ERROR("[CMA DRV]ERR|" \
+						  "[%s] L.%d\n",
+						  __func__, __LINE__);
+					panic("Memory release error[%s][%d]" \
+						"err_code[%d]",
+						__func__, __LINE__, flag);
+					break;
+				}
+			}
+		}
+	}
 
 	MSG_HIGH("[CMA DRV]OUT|%s\n", __func__);
 	return pages;
@@ -71,8 +100,8 @@ int rt_cma_drv_free(struct page *pages, unsigned int size, int id)
 	MSG_MED("[CMA DRV]   |id:%d\n", id);
 
 	flag = dma_release_from_contiguous(rt_cma_dev[id],
-										pages,
-										(size / PAGE_SIZE));
+					   pages,
+					   (size / PAGE_SIZE));
 	if (!flag)
 		ret = SMAP_NG;
 
@@ -91,9 +120,9 @@ static int __devinit rt_cma_drv_probe(struct platform_device *pdev)
 	case HDMI_MDL_ID:
 		rt_cma_dev[pdev->id] = &pdev->dev;
 		MSG_LOW("[CMA DRV]   | id:%d dev:0x%08x\n",
-			pdev->id, (u32)rt_cma_dev[OMX_MDL_ID]);
+			pdev->id, (u32)rt_cma_dev[pdev->id]);
 		MSG_LOW("[CMA DRV]   | id:%d cma_area:0x%08x\n",
-			pdev->id, (u32)rt_cma_dev[OMX_MDL_ID]->cma_area);
+			pdev->id, (u32)rt_cma_dev[pdev->id]->cma_area);
 		break;
 	default:
 		MSG_ERROR("[CMA DRV]ERR|id illeagal[%d]\n", pdev->id);

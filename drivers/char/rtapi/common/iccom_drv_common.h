@@ -2,7 +2,7 @@
  * iccom_drv_common.h
  *     Inter Core Communication common definition header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -64,7 +64,7 @@ typedef struct {
 } iccom_cmd_set_fatal_param;
 
 typedef struct {
-	unsigned int		async_priority; /* priority */
+	int			async_priority; /* priority */
 } iccom_cmd_set_thread_param;
 
 /*** union ***/
