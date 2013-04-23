@@ -63,21 +63,18 @@ static ssize_t GNSS_NRST_value_store(struct device *dev,
         if (ret < 0)
                 return ret;
 
-        if (u2_get_board_rev() >= 5) {
 #ifdef CONFIG_MFD_D2153
                 if (1 == value)
                         d2153_clk32k_enable(1);         /* on */
                 else
                         d2153_clk32k_enable(0);         /* off */
 #endif /* CONFIG_MFD_D2153 */
-        } else {
 #if defined(CONFIG_PMIC_INTERFACE)
                 if (1 == value)
                         pmic_clk32k_enable(CLK32KG, TPS80032_STATE_ON);
                 else
                         pmic_clk32k_enable(CLK32KG, TPS80032_STATE_OFF);
 #endif /* CONFIG_PMIC_INTERFACE */
-        }
 
         printk(KERN_ALERT "%s: %ld\n", __func__, value);
 
