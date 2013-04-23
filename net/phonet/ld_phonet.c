@@ -94,8 +94,6 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_UART_EMPTY_CR          3
 #define LD_UART_EMPTY_CRLF        4
 
-extern struct switch_dev switch_dock;
-
 struct ld_phonet {
 	struct tty_struct *tty;
 	wait_queue_head_t wait;
@@ -119,22 +117,31 @@ struct ld_phonet {
 	unsigned char *ld_atcmd_buffer;
 };
 
-/* AT-ISI Separation starts */
+static int ld_buff_len; /* LD Phonet Tx Backlog buffer Len */
+static struct workqueue_struct *ld_phonet_wq;
 
-#define ISI_CLOSED	101
-#define AT_CLOSED	102
-#define	SWITCH_AT	103
-#define	SWITCH_ISI	104
-
-
-struct switch_dev ld_pt_dev = {
-	.name = "ldatisi",
-	.state = 0
+/* Work to hanlde TTY wake up */
+struct ld_tty_wakeup_work_t {
+	struct work_struct ld_work;
+	/*This holds TTY info for TTY wakeup */
+	struct tty_struct *ld_work_write_wakeup_tty;
 };
+static struct ld_tty_wakeup_work_t *ld_tty_wakeup_work;
 
-int ld_buff_len; /* LD Phonet Tx Backlog buffer Len */
-unsigned long ld_write_wakeup_tty; /*This holds TTY info for tasklet */
-struct tasklet_struct ld_wakeup_tasklet;
+/* Wotk to Handle AT+ATSTART Switch */
+struct ld_uart_switch_work_t {
+	struct work_struct ld_work;
+};
+static struct ld_uart_switch_work_t *ld_uart_switch_work;
+
+/* Ld phonet statistics */
+static unsigned long ld_phonet_tx_request_count;
+static unsigned long ld_phonet_rx_request_count;
+static unsigned long ld_phonet_tx_bytes;
+static unsigned long ld_phonet_rx_bytes;
+static unsigned long ld_phonet_hangup_events;
+static unsigned long ld_phonet_drop_events;
+
 /* AT-ISI Separation ends */
 #define LD_PHONET_DEBUG 0
 #if LD_PHONET_DEBUG
@@ -142,81 +149,6 @@ struct tasklet_struct ld_wakeup_tasklet;
 #else
 	#define dbg(fmt, ...)
 #endif
-
-
-static ssize_t ld_show_manualsw(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return 0;
-}
-
-static ssize_t ld_set_manualsw1(struct device *dev,
-			       struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	if (0 == strncmp(buf, "switch at", 9)) {
-		dbg("SWITCH FOR ATATATATATATATATATATA\n");
-		switch_set_state(&switch_dock, SWITCH_AT);
-  	}
-	if (0 == strncmp(buf, "switch isi", 10))
-		switch_set_state(&switch_dock, SWITCH_ISI);
-	return count;
-}
-
-static ssize_t ld_show_at_closed(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return 0;
-}
-
-static ssize_t ld_set_at_closed(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	if (0 == strncmp(buf, "at closed", 9))
-		switch_set_state(&switch_dock, AT_CLOSED);
-
-	return count;
-}
-
-static ssize_t ld_show_isi_closed(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return 0;
-}
-
-static ssize_t ld_set_isi_closed(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	if (0 == strncmp(buf, "isi closed", 10))
-		switch_set_state(&switch_dock, ISI_CLOSED);
-
-	return count;
-}
-
-static DEVICE_ATTR(at_isi_switch, S_IRUGO | S_IWUSR,
-		ld_show_manualsw, ld_set_manualsw1);
-
-static DEVICE_ATTR(at_closed_ind, S_IRUGO | S_IWUSR,
-		ld_show_at_closed, ld_set_at_closed);
-
-static DEVICE_ATTR(isi_closed_ind, S_IRUGO | S_IWUSR,
-		ld_show_isi_closed, ld_set_isi_closed);
-
-static struct attribute *ld_attributes[] = {
-	&dev_attr_at_isi_switch.attr,
-	&dev_attr_at_closed_ind.attr,
-	&dev_attr_isi_closed_ind.attr,
-	NULL
-};
-
-static const struct attribute_group ld_group = {
-	.attrs = ld_attributes,
-};
-
-
-/* AT-ISI Separation ends */
 
 static int ld_pn_net_open(struct net_device *dev)
 {
@@ -229,9 +161,13 @@ static int ld_pn_net_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	return 0;
 }
+
 static void ld_tx_overflow(void)
 {
-	printk(KERN_CRIT"##### ATTENTION : LD Phonet Transmit overflow : 1 MB #####\n");
+	ld_phonet_drop_events++;
+	printk(KERN_CRIT\
+	"##### ATTENTION : LD Phonet Transmit overflow events %lu : 1 MB #####"
+						, ld_phonet_drop_events);
 }
 
 static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
@@ -299,6 +235,8 @@ static int ld_pn_handle_tx(struct ld_phonet *ld_pn)
 
 		tty_wr = tty->ops->write(tty, skb->data, len);
 		ld_buff_len -= tty_wr;
+		if (tty_wr > 0)
+			ld_phonet_tx_bytes += tty_wr;
 		if (ld_buff_len < LD_PHONET_INIT_LEN)
 			ld_buff_len = LD_PHONET_INIT_LEN;
 		ld_pn->dev->stats.tx_packets++;
@@ -341,9 +279,7 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	u8 *ptr;
 
 	BUG_ON(dev == NULL);
-
 	ld_pn = netdev_priv(dev);
-
 	if ((ld_pn == NULL) || (ld_pn->tty == NULL)) {
 		if (in_interrupt())
 			dev_kfree_skb_irq(skb);
@@ -351,7 +287,7 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 			kfree_skb(skb);
 	return NETDEV_TX_OK;
 	}
-
+	ld_phonet_tx_request_count++;
 	ptr = skb_push(skb, 6);
 	ptr[0] = 0xdd;
 	ptr[1] = 0x7f;
@@ -473,7 +409,7 @@ static int ld_phonet_ldisc_open(struct tty_struct *tty)
 LDISC_ERROR:
 		free_netdev(dev);
 	else
-		ld_write_wakeup_tty = (unsigned long) tty;
+		ld_tty_wakeup_work->ld_work_write_wakeup_tty = tty;
 
 	dbg("ld_phonet_ldisc_open exits err = %d\n", err);
 	return err;
@@ -489,9 +425,8 @@ static void ld_phonet_ldisc_close(struct tty_struct *tty)
 	tty->disc_data = NULL;
 	kfree(ld_pn->ld_atcmd_buffer);
 	ld_pn->tty = NULL;
-	ld_write_wakeup_tty = LD_WAKEUP_DATA_INIT;
+	ld_tty_wakeup_work->ld_work_write_wakeup_tty = NULL;
 	unregister_netdev(ld_pn->dev);
-	/*free_netdev(ld_pn->dev); David a checker*/
 }
 
 static void ld_phonet_ldisc_initiate_transfer \
@@ -567,6 +502,7 @@ static void ld_phonet_ldisc_initiate_transfer \
 				ld_pn->len);
 				netif_rx(skb);
 				ld_pn->n_Data_Sent += ld_pn->len;
+				ld_phonet_rx_bytes += skb->len;
 
 				/* TBD : Reset pointers */
 				ld_pn->len = LD_PHONET_INIT_LEN;
@@ -648,6 +584,7 @@ static void ld_phonet_ldisc_receive
 	int room = 0;
 	struct phonethdr *ph = NULL;
 
+	ld_phonet_rx_request_count++;
 	if (ld_pn->link_up == false) {
 		/* data received from PC => can TX */
 		ld_pn->link_up = true;
@@ -694,7 +631,8 @@ static void ld_phonet_ldisc_receive
 						ld_atcmd_len);
 				}
 				/* Refer Comment 02 above */
-				ld_set_manualsw(NULL, NULL, "switch at", 9);
+				queue_work(ld_phonet_wq, \
+				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
 			} else if (LD_UART_AT_MODE_MODECHAN == ret) {
 				dbg("MATCH FOR change mode \
@@ -711,7 +649,8 @@ static void ld_phonet_ldisc_receive
 						ld_atcmd_len);
 				}
 				/* Refer Comment 02 above */
-				ld_set_manualsw(NULL, NULL, "switch at", 9);
+				queue_work(ld_phonet_wq, \
+				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
 			} else if (LD_UART_INVALID_MODE == ret) {
 					ld_atcmd_len = \
@@ -803,6 +742,7 @@ static void ld_phonet_ldisc_receive
 				first ld_pn->len=%d\n", ld_pn->len);
 				netif_rx(skb);
 				ld_pn->n_Data_Sent += ld_pn->len;
+				ld_phonet_rx_bytes += skb->len;
 
 				/* TBD : Update pointers */
 				ld_pn->n_Data_Sent += ld_pn->n_Remaining_Data;
@@ -881,6 +821,7 @@ static void ld_phonet_ldisc_receive
 					ldisc_receive second ld_pn->len= \
 					%d\n", ld_pn->len);
 					netif_rx(skb);
+					ld_phonet_rx_bytes += skb->len;
 
 					ld_pn->n_Data_Sent += (msglen + \
 					ISI_MSG_HEADER_SIZE) - (ld_pn->len + \
@@ -933,16 +874,28 @@ static void ld_phonet_ldisc_receive
 	spin_unlock_irqrestore(&ld_pn->lock, flags);
 }
 
+static void ld_uart_switch_function(struct work_struct *work)
+{
+	set_current_state(TASK_INTERRUPTIBLE);
+	ld_set_manualsw(NULL, NULL, "switch at", 9);
+	return;
+}
 
-void ld_write_wakeup_tasklet(unsigned long data)
+static void ld_tty_wakeup_workfunction(struct work_struct *work)
 {
         struct tty_struct *tty;
 	struct ld_phonet *ld_pn;
+	struct ld_tty_wakeup_work_t *ld_work_tty_wk = \
+			(struct ld_tty_wakeup_work_t *)work;
 
-	unsigned long *tmp = (unsigned long *) data;
-	tty = (struct tty_struct *)*tmp;
+	if (ld_work_tty_wk == NULL) {
+		dbg("TTY work NULL\n");
+		return;
+	}
+
+	tty = ld_work_tty_wk->ld_work_write_wakeup_tty;
 	if (tty == NULL) {
-		dbg("LD Tasklet tty Data NULL\n");	
+		dbg("LD Work Queue tty Data NULL\n");
                 return;
 	}
 
@@ -950,7 +903,7 @@ void ld_write_wakeup_tasklet(unsigned long data)
 
 	ld_pn = tty->disc_data;
 	if (ld_pn == NULL) {
-		dbg("LD PN Tasklet DATA NULL\n");
+		dbg("LD PN Work Queue DATA NULL\n");
 		return;
 	}
 
@@ -961,8 +914,8 @@ void ld_write_wakeup_tasklet(unsigned long data)
 
 static void ld_phonet_ldisc_write_wakeup(struct tty_struct *tty)
 {
-	ld_write_wakeup_tty  = (unsigned long) tty;
-	tasklet_hi_schedule(&ld_wakeup_tasklet);
+	ld_tty_wakeup_work->ld_work_write_wakeup_tty = tty;
+	queue_work(ld_phonet_wq, (struct work_struct *)ld_tty_wakeup_work);
 }
 
 int ld_phonet_hangup_wait(void *data)
@@ -974,9 +927,10 @@ static int ld_phonet_ldisc_hangup(struct tty_struct *tty)
 {
 	struct ld_phonet *ld_pn;
 	struct sk_buff *skb;
+
 	/* Flush TX queue */
 	ld_pn = tty->disc_data;
-
+	ld_phonet_hangup_events++;
 	wait_on_bit_lock(&ld_pn->state, PHONET_SENDING, \
 			ld_phonet_hangup_wait, TASK_KILLABLE);
 
@@ -1001,29 +955,109 @@ static struct tty_ldisc_ops ld_phonet_ldisc = {
 	.hangup =       ld_phonet_ldisc_hangup
 };
 
-/*
- * The functions for insering/removing us as a module.
- */
+static ssize_t ld_phonet_show_stats(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	printk(KERN_CRIT"LD Phonet Tx request %lu\n", \
+		 ld_phonet_tx_request_count);
+	printk(KERN_CRIT"LD Phonet Rx request %lu\n", \
+		 ld_phonet_rx_request_count);
+	printk(KERN_CRIT"LD Phonet Tx Bytes %lu\n", ld_phonet_tx_bytes);
+	printk(KERN_CRIT"LD Phonet Rx Bytes %lu\n", ld_phonet_rx_bytes);
+	printk(KERN_CRIT"LD Phonet TTY hangup events %lu\n", \
+		ld_phonet_hangup_events);
+	printk(KERN_CRIT"LD Phonet Tx overflow events %lu\n", \
+		ld_phonet_drop_events);
+	return 0;
+}
+
+static ssize_t ld_phonet_reset_stats(struct device *dev,
+		struct device_attribute *attr, const char *buf, \
+		size_t count)
+{
+	ld_phonet_tx_request_count = ld_phonet_rx_request_count \
+		 = ld_phonet_tx_bytes \
+		 = ld_phonet_rx_bytes = ld_phonet_hangup_events = 0;
+		return 0;
+}
+
+static DEVICE_ATTR(ld_phonet_stats, S_IRUGO | S_IWUSR,
+		ld_phonet_show_stats, ld_phonet_reset_stats);
+
+static struct attribute *ld_phonet_attributes[] = {
+	&dev_attr_ld_phonet_stats.attr,
+	NULL
+};
+
+static struct kobject *ld_phonet_kobj;
+#define LD_PHONET_FS "ld_phonet_isi"
+
+static const struct attribute_group ld_phonet_group = {
+	.attrs = ld_phonet_attributes,
+};
+
+static int ld_phonet_sysfs_init(void)
+{
+	int ret = 1;
+	ld_phonet_kobj = kobject_create_and_add(LD_PHONET_FS, kernel_kobj);
+	if (!ld_phonet_kobj) {
+		printk(KERN_ERR"LD Sysfs Kojb failed");
+		return -ENOMEM;
+	}
+	ret = sysfs_create_group(ld_phonet_kobj, &ld_phonet_group);
+	if (ret)
+		kobject_put(kernel_kobj);
+	return ret;
+}
 
 static int __init ld_phonet_init(void)
 {
 	int retval;
 	retval = tty_register_ldisc(N_PHONET, &ld_phonet_ldisc);
-	switch_dev_register(&ld_pt_dev);
 	ld_buff_len = LD_PHONET_INIT_LEN;
-	ld_write_wakeup_tty = LD_WAKEUP_DATA_INIT;
-	tasklet_init(&ld_wakeup_tasklet, ld_write_wakeup_tasklet,\
-		 (unsigned long) &ld_write_wakeup_tty);
+
+	ld_phonet_wq = create_workqueue("ld_queue");
+	if (NULL == ld_phonet_wq) {
+		printk(KERN_ERR"Create Workqueue failed\n");
+		tty_unregister_ldisc(N_PHONET);
+		return -ENOMEM;
+	}
+
+	/* Work for handling TTY wakr up */
+	ld_tty_wakeup_work = kmalloc(sizeof(struct ld_tty_wakeup_work_t), \
+							GFP_KERNEL);
+	if (ld_tty_wakeup_work) {
+		INIT_WORK((struct work_struct *)ld_tty_wakeup_work,\
+			 ld_tty_wakeup_workfunction);
+		ld_tty_wakeup_work->ld_work_write_wakeup_tty = NULL;
+	} else {
+		printk(KERN_ERR"TTY Wake up work Error\n");
+		tty_unregister_ldisc(N_PHONET);
+		return false;
+	}
+	/* Work for handling AT+ATSTART switch */
+	ld_uart_switch_work = kmalloc(sizeof(struct ld_uart_switch_work_t), \
+								GFP_KERNEL);
+	if (ld_uart_switch_work) {
+		INIT_WORK((struct work_struct *)ld_uart_switch_work,\
+					 ld_uart_switch_function);
+	} else {
+		printk(KERN_CRIT"UART Switch Work Failed");
+	}
+
+	retval = ld_phonet_sysfs_init();
 	return  retval;
 }
 
 static void __exit ld_phonet_exit(void)
 {
-	tasklet_kill(&ld_wakeup_tasklet);
+	flush_workqueue(ld_phonet_wq);
+	destroy_workqueue(ld_phonet_wq);
+	kfree(ld_tty_wakeup_work);
+	kfree(ld_uart_switch_work);
 	tty_unregister_ldisc(N_PHONET);
-	/* AT-ISI Separation */
-	/* sysfs_remove_group(&client->dev.kobj, &ld_group); */
-	switch_dev_unregister(&ld_pt_dev);
+	sysfs_remove_group(ld_phonet_kobj, &ld_phonet_group);
+	kobject_put(ld_phonet_kobj);
 }
 
 module_init(ld_phonet_init);
