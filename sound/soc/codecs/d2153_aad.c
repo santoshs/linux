@@ -458,6 +458,12 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
 	}
 
+	if (state == D2153_NO_JACK)
+		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
+			"Headphone Enable");
+	else
+		snd_soc_dapm_enable_pin(&d2153_aad->d2153_codec->codec->dapm,
+			"Headphone Enable");
 }
 
 #endif

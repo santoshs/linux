@@ -488,6 +488,7 @@ static int fsi_d2153_sndp_spk_event(struct snd_soc_dapm_widget *w,
 	} else if (event & SND_SOC_DAPM_PRE_PMD) {
 		snd_soc_update_bits(codec, D2153_SP_CTRL,
 			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
+		msleep(50);
 		sndp_log_info("spk mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -511,8 +512,9 @@ static int fsi_d2153_sndp_hp_event(struct snd_soc_dapm_widget *w,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
 		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
-		if (playback_widget && (playback_widget->active == 0))
-			msleep(50);
+		if (snd_soc_dapm_get_pin_status(&codec->dapm,
+			"Headphone Enable"))
+			msleep(25);
 		sndp_log_info("hp mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -532,6 +534,7 @@ static int fsi_d2153_sndp_ep_event(struct snd_soc_dapm_widget *w,
 	} else if (event & SND_SOC_DAPM_PRE_PMD) {
 		snd_soc_update_bits(codec, D2153_EP_CTRL,
 			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
+		msleep(50);
 		sndp_log_info("ep mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -570,6 +573,7 @@ static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack Left", fsi_d2153_sndp_hp_event),
 	SND_SOC_DAPM_HP("Headphone Jack Right", fsi_d2153_sndp_hp_event),
 	SND_SOC_DAPM_LINE("Earpiece", fsi_d2153_sndp_ep_event),
+	SND_SOC_DAPM_SWITCH("Headphone Enable", SND_SOC_NOPM, 0, 0, NULL),
 };
 
 static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
