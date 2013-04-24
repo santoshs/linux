@@ -46,6 +46,11 @@ static struct vcd_spuv_work       g_vcd_spuv_watchdog_timeout;
 struct timeval g_vcd_spuv_tv_start;
 struct timeval g_vcd_spuv_tv_timeout;
 
+/* for debug */
+unsigned int g_vcd_spuv_is_trigger_cnt;
+unsigned int g_vcd_spuv_play_trigger_cnt;
+unsigned int g_vcd_spuv_rec_trigger_cnt;
+
 
 /* ========================================================================= */
 /* Internal public functions                                                 */
@@ -412,6 +417,8 @@ int vcd_spuv_start_vcd(void)
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 	spin_lock_init(&g_vcd_spuv_info.status_lock);
 
+	vcd_spuv_calc_trigger_start();
+
 	/* set power supply */
 	ret = vcd_spuv_func_control_power_supply(VCD_ENABLE);
 
@@ -496,6 +503,8 @@ int vcd_spuv_stop_vcd(void)
 	vcd_spuv_func_release_firmware();
 
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
+
+	vcd_spuv_calc_trigger_stop();
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -835,6 +844,8 @@ int vcd_spuv_stop_record(void)
 	/* check result */
 	ret = vcd_spuv_check_result();
 
+	vcd_spuv_trigger_count_log(VCD_LOG_TRIGGER_REC);
+
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
@@ -956,6 +967,8 @@ int vcd_spuv_stop_playback(void)
 
 	/* check result */
 	ret = vcd_spuv_check_result();
+
+	vcd_spuv_trigger_count_log(VCD_LOG_TRIGGER_PLAY);
 
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
@@ -2018,7 +2031,7 @@ static void vcd_spuv_interrupt_ack(void)
 	/* set schedule */
 	vcd_spuv_set_schedule();
 
-	vcd_pr_if_spuv("[VCD <- SPUV ] : ACK\n");
+	vcd_pr_if_spuv(VCD_SPUV_ACK_LOG);
 
 	/* check power supply */
 	ret = vcd_spuv_func_check_power_supply();
@@ -2099,6 +2112,9 @@ static void vcd_spuv_interrupt_req(void)
 				(sizeof(unsigned int) * rcv_msg_buf[0])
 			);
 
+		vcd_spuv_trigger_count_log(
+			(VCD_LOG_TRIGGER_REC | VCD_LOG_TRIGGER_PLAY));
+
 		/* notify SYSTEM_ERROR_IND */
 		vcd_spuv_system_error();
 		power_supply = vcd_spuv_func_check_power_supply();
@@ -2145,9 +2161,11 @@ static void vcd_spuv_interrupt_req(void)
 		break;
 	case VCD_SPUV_TRIGGER_REC_IND:
 		vcd_spuv_rec_trigger();
+		g_vcd_spuv_rec_trigger_cnt++;
 		break;
 	case VCD_SPUV_TRIGGER_PLAY_IND:
 		vcd_spuv_play_trigger();
+		g_vcd_spuv_play_trigger_cnt++;
 		break;
 	case VCD_SPUV_CODEC_TYPE_IND:
 		vcd_spuv_codec_type_ind(fw_req[2]);
@@ -2624,7 +2642,7 @@ static void vcd_spuv_interface_log(unsigned int msg)
 		vcd_pr_if_spuv_udata_ind(VCD_SPUV_UDATA_IND_LOG);
 		break;
 	default:
-		vcd_pr_err("[VCD <- SPUV ] : Unkown msg[%x].\n", msg);
+		vcd_pr_err("[ <- SPUV ] Unknown msg[%x].\n", msg);
 		break;
 	}
 
@@ -2676,6 +2694,9 @@ static void vcd_spuv_check_wait_fw_info(unsigned int fw_id, unsigned int msg_id,
 		if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
 				(g_vcd_spuv_info.wait_fw_msg_id != msg_id)) {
 			g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
+
+			vcd_spuv_trigger_count_log(
+				(VCD_LOG_TRIGGER_REC | VCD_LOG_TRIGGER_PLAY));
 		}
 	} else if ((g_vcd_spuv_info.wait_fw_if_id != fw_id) ||
 			(g_vcd_spuv_info.wait_fw_msg_id != msg_id) ||
@@ -2797,7 +2818,7 @@ static int vcd_spuv_check_result(void)
 		g_vcd_spuv_info.fw_result = VCD_ERR_SYSTEM;
 	} else if ((VCD_SPUV_STATUS_WAIT_ACK & g_vcd_spuv_info.status) ||
 		(VCD_SPUV_STATUS_WAIT_REQ & g_vcd_spuv_info.status)) {
-		vcd_pr_if_spuv("[VCD <- SPUV ] : TIME OUT\n");
+		vcd_pr_if_spuv(VCD_SPUV_TIMEOUT_LOG);
 		vcd_pr_err("firmware time out occured.\n");
 		vcd_pr_err("g_vcd_spuv_info.status[0x%08x].\n",
 					g_vcd_spuv_info.status);
@@ -3161,7 +3182,6 @@ void vcd_spuv_dump_spuv_crashlog(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* execute spuv function */
 	vcd_spuv_func_dump_spuv_crashlog();
 
 	vcd_pr_end_spuv_function();
@@ -3180,8 +3200,82 @@ void vcd_spuv_dump_diamond_memory(void)
 {
 	vcd_pr_start_spuv_function();
 
-	/* execute spuv function */
 	vcd_spuv_func_dump_diamond_memory();
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/* ========================================================================= */
+/* Debug functions                                                           */
+/* ========================================================================= */
+
+/**
+ * @brief	calc spuv trigger count function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_calc_trigger_start(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_vcd_spuv_is_trigger_cnt = VCD_ENABLE;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	calc spuv trigger count function.
+ *
+ * @param	none.
+ *
+ * @retval	none.
+ */
+void vcd_spuv_calc_trigger_stop(void)
+{
+	vcd_pr_start_spuv_function();
+
+	g_vcd_spuv_is_trigger_cnt = VCD_DISABLE;
+	g_vcd_spuv_play_trigger_cnt = 0;
+	g_vcd_spuv_rec_trigger_cnt = 0;
+
+	vcd_pr_end_spuv_function();
+	return;
+}
+
+
+/**
+ * @brief	calc spuv trigger count function.
+ *
+ * @param	type	playback/record
+ *
+ * @retval	none.
+ */
+void vcd_spuv_trigger_count_log(unsigned int type)
+{
+	vcd_pr_start_spuv_function("type[%d].\n", type);
+
+	if (g_vcd_spuv_is_trigger_cnt) {
+		if (type & VCD_LOG_TRIGGER_REC) {
+			vcd_pr_trigger_count(
+				"[ <- SPUV ] TRIGGER_REC_IND[%d].\n",
+				g_vcd_spuv_rec_trigger_cnt);
+
+			g_vcd_spuv_rec_trigger_cnt = 0;
+		}
+		if (type & VCD_LOG_TRIGGER_PLAY) {
+			vcd_pr_trigger_count(
+				"[ <- SPUV ] TRIGGER_PLAY_IND[%d].\n",
+				g_vcd_spuv_play_trigger_cnt);
+
+			g_vcd_spuv_play_trigger_cnt = 0;
+		}
+	}
 
 	vcd_pr_end_spuv_function();
 	return;

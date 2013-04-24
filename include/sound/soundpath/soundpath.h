@@ -208,6 +208,7 @@ SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
 #define LOG_FUNC_PRINT		(0x04)
 
 #define LOG_BIT_REG_DUMP	(0x10)
+#define LOG_BIT_TIME_ADD	(0x20)
 #define LOG_BIT_DMESG		(0x80)
 
 #define LOG_LEVEL_MAX		(0xffffffff)
@@ -275,13 +276,25 @@ do {									\
 do {									\
 	struct timeval tv;						\
 	if (LOG_PROC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
+		if (g_sndp_log_level & LOG_BIT_TIME_ADD) {		\
+			GET_PROCESS_TIME(tv);				\
+			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
+				pr_err("[%5ld.%06ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__, ##__VA_ARGS__);\
+			} else {					\
+				pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__, ##__VA_ARGS__);\
+			}						\
 		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
+			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+				fmt, __func__, ##__VA_ARGS__);		\
+			} else {					\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+				fmt, __func__, ##__VA_ARGS__);		\
+			}						\
 		}							\
 	}								\
 } while (0)
