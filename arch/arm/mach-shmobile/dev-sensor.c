@@ -54,32 +54,7 @@
 //static struct regulator *vsensor_1v8;
 void sensor_power_on_vdd(int onoff)
 {
-	int ret = 0;
-
-	pr_err("%s: start\n",__func__);
 	
-	if(u2_get_board_rev() >= 5)
-	{
-
-	}
-	else
-	{	 
-		ret = gpio_request(GPIO_PORT9, "SENSOR_LDO");
-		
-		if (ret < 0)
-		{
-			pr_err("SENSOR_LDO_EN gpio_request was failed\n");
-			return;
-		}
-		gpio_pull_off_port(GPIO_PORT9);
-
-		if (onoff == 1) {
-	            gpio_direction_output(GPIO_PORT9, 1);
-	            pr_err("%s: power on\n",__func__);
-		} else if (onoff == 0) {
-	            pr_err("%s: power off\n",__func__);
-		}
-	}
 }
 #endif
 
