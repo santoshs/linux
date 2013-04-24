@@ -573,7 +573,9 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	int ret,irq;
 #endif
 	u8 regval;
+#ifndef D2153_DEFAULT_SET_MICBIAS
 	struct d2153 *pmic;
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
 
 	d2153_aad = devm_kzalloc(&client->dev, sizeof(struct d2153_aad_priv),
 				 GFP_KERNEL);
@@ -591,11 +593,13 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	
 	d2153_hooksw_dev_register(client, d2153_aad);
 
+#ifndef D2153_DEFAULT_SET_MICBIAS
 	pmic = d2153_aad->d2153_codec->d2153_pmic;
-	if (D2153_MICBIAS_LEVEL_2_6V == pmic->pdata->audio.micbias1_level)
-		button_res_tbl = button_res_2V6_tbl;
-	else
+	if (D2153_MICBIAS_LEVEL_2_5V == pmic->pdata->audio.micbias1_level)
 		button_res_tbl = button_res_2V5_tbl;
+	else
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
+		button_res_tbl = button_res_2V6_tbl;
 
 	d2153_aad_ex = d2153_aad;
 

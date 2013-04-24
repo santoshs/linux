@@ -68,24 +68,17 @@ void u2audio_gpio_init(void)
 #endif /* CONFIG_ARCH_R8A7373 */
 }
 
-void u2audio_codec_micbias_level_init(unsigned int u2_board_rev)
+#ifndef D2153_DEFAULT_SET_MICBIAS
+void u2audio_codec_micbias_level_init(void)
 {
-	u8 micbias1 = D2153_MICBIAS_LEVEL_2_6V;
-
-#if defined(CONFIG_MACH_LOGANLTE)
-	if (0 == u2_board_rev)
-#elif defined(CONFIG_MACH_LT02LTE)
-	if (0 == u2_board_rev)
-#endif
-		micbias1 = D2153_MICBIAS_LEVEL_2_5V;
-
 	/* set headset mic bias */
-	d2153_pdata.audio.micbias1_level = micbias1;
+	d2153_pdata.audio.micbias1_level = D2153_MICBIAS_LEVEL_2_6V;
 	/* set sub mic bias */
 	d2153_pdata.audio.micbias2_level = D2153_MICBIAS_LEVEL_2_1V;
 	/* set main mic bias */
 	d2153_pdata.audio.micbias3_level = D2153_MICBIAS_LEVEL_2_1V;
 }
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
 
 void u2audio_init(unsigned int u2_board_rev)
 {
@@ -200,7 +193,9 @@ void u2audio_init(unsigned int u2_board_rev)
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
 
-	u2audio_codec_micbias_level_init(u2_board_rev);
+#ifndef D2153_DEFAULT_SET_MICBIAS
+	u2audio_codec_micbias_level_init();
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
 
 	return;
 }

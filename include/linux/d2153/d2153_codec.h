@@ -19,6 +19,8 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
+/* #define D2153_DEFAULT_SET_MICBIAS */
+
 /*
  * D2153 register space
  */
@@ -766,9 +768,11 @@ struct d2153_codec_priv {
 	bool alc_en;
 	u8 spk_mixer_out;
 	u8 spk_amp;
+#ifndef D2153_DEFAULT_SET_MICBIAS
 	u8 micbias1_level;
 	u8 micbias2_level;
 	u8 micbias3_level;
+#endif
 };
 
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
