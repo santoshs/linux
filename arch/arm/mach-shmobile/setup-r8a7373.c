@@ -258,6 +258,7 @@ static struct platform_device i2c4_device = {
 };
 
 /* IIC1H */
+#ifdef CONFIG_MACH_LT02LTE
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -296,6 +297,7 @@ static struct platform_device i2c5_device = {
 		.platform_data	= &i2c5_platform_data,
 	},
 };
+#endif
 
 /* IIC2H */
 #ifndef CONFIG_SPI_SH_MSIOF
@@ -1202,7 +1204,9 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c2_device, /* IIC2  */
 	&i2c3_device, /* IIC3  */
 	&i2c4_device, /* IIC0H */
+#if defined(CONFIG_MACH_LT02LTE)
 	&i2c5_device, /* IIC1H*/
+#endif
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
