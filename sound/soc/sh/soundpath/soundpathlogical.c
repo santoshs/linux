@@ -1850,6 +1850,9 @@ static int sndp_fsi_trigger(
 	/* Initialize the cycle counter */
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
+	g_sndp_main[substream->stream].arg.fsi_substream = substream;
+	g_sndp_main[substream->stream].arg.fsi_dai = dai;
+
 	/* for Production Test (Loopback) */
 	if (SNDP_PT_LOOPBACK_START == g_pt_start) {
 		/* Same Call process route */
@@ -2096,6 +2099,7 @@ static void sndp_work_hw_free(struct sndp_work_info *work)
 static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 {
 	int			ret;
+	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
 
 	sndp_log_debug_func("start\n");
 
@@ -2113,6 +2117,12 @@ static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 	sndp_log_info("TRIGGER_STOP had been waiting to complete.\n");
 
 	ret = g_sndp_dai_func.fsi_hw_free(substream);
+
+	if ((SNDP_PCM_IN == substream->stream) &&
+	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(in_old_val))) {
+		SET_OLD_VALUE(SNDP_PCM_IN, SNDP_VALUE_INIT);
+		SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_NORMAL);
+	}
 
 	sndp_log_debug_func("end\n");
 
