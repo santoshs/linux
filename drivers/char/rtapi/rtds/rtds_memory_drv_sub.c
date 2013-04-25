@@ -4371,6 +4371,7 @@ int rtds_memory_ioctl_get_memsize(
 
 	if (0 != list_empty(&g_rtds_memory_list_create_mem)) {
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
+		kfree(k_pages);
 		MSG_ERROR("[RTDSK]ERR| List is empty.\n");
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return SMAP_NG;
