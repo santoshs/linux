@@ -408,7 +408,7 @@ static uint32_t sec_hal_rpc_cb(
 		/* Write out_msg to ICRAM: status, length read, file */
 		sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
 		sec_msg_param_write32(&out_handle, params.reserved1, SEC_MSG_PARAM_ID_NONE); /* status */
-		sec_msg_param_write32(&out_handle, params.param4, SEC_MSG_PARAM_ID_NONE); /* length read */
+		sec_msg_param_write32(&out_handle, params.param5, SEC_MSG_PARAM_ID_NONE); /* length read */
 		/* Copy data only if length read > 0 */
 		if (params.param5) {
 			/* Write file to ICRAM from params.data */
