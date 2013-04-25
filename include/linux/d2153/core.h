@@ -220,6 +220,7 @@ struct d2153 {
 
 	struct d2153_platform_data *pdata;
 	struct mutex d2153_io_mutex;
+	struct mutex d2153_audio_ldo_mutex;
 
 	struct delayed_work     vdd_fault_work;
 };
@@ -250,6 +251,9 @@ int 	d2153_mask_irq(struct d2153 *d2153, int irq);
 int 	d2153_unmask_irq(struct d2153 *d2153, int irq);
 int 	d2153_irq_init(struct d2153 *d2153, int irq, struct d2153_platform_data *pdata);
 int 	d2153_irq_exit(struct d2153 *d2153);
+
+void	d2153_set_irq_disable(void);
+void	d2153_set_irq_enable(void);
 
 #if defined(CONFIG_MACH_RHEA_SS_IVORY) || defined(CONFIG_MACH_RHEA_SS_NEVIS)
 /* DLG IOCTL interface */

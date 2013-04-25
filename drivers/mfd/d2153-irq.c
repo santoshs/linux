@@ -49,6 +49,8 @@ struct d2153_irq_data {
 	int mask;
 };
 
+int d2153_chip_irq;
+
 static struct d2153_irq_data d2153_irqs[] = {
 	/* EVENT Register A start */
 	[D2153_IRQ_EVF] = {
@@ -127,7 +129,15 @@ static struct d2153_irq_data d2153_irqs[] = {
 	},
 };
 
+void d2153_set_irq_disable(void)
+{
+	disable_irq(d2153_chip_irq);
+}
 
+void d2153_set_irq_enable(void)
+{
+	enable_irq(d2153_chip_irq);
+}
 
 static void d2153_irq_call_handler(struct d2153 *d2153, int irq)
 {
@@ -192,6 +202,7 @@ static irqreturn_t d2153_irq(int irq, void *data)
 	struct d2153_irq_data *pIrq;
 	int i;
 
+	mutex_lock(&d2153->d2153_audio_ldo_mutex);
 	memset(&read_done, 0, sizeof(read_done));
 
 	for (i = 0; i < ARRAY_SIZE(d2153_irqs); i++) {
@@ -211,6 +222,7 @@ static irqreturn_t d2153_irq(int irq, void *data)
 			d2153_set_bits(d2153, D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
 		}
 	}
+	mutex_unlock(&d2153->d2153_audio_ldo_mutex);
 	return IRQ_HANDLED;
 }
 
@@ -303,6 +315,7 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	enable_irq_wake(irq);
 
 	d2153->chip_irq = irq;
+	d2153_chip_irq = irq;
 
 	return ret;
 }
