@@ -1344,7 +1344,7 @@ uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 		if (SEC_ROM_RET_OK != disp_st
 				|| SEC_MSG_STATUS_OK != msg_st
 				|| SEC_SERV_STATUS_OK != serv_st) {
-			SEC_HAL_TRACE("failed! disp==%d, msg==%d, serv==%d",
+			SEC_HAL_TRACE("warn! disp==%d, msg==%d, serv==%d",
 				disp_st, msg_st, serv_st);
 			ret = SEC_HAL_RES_FAIL;
 			break;
