@@ -18,6 +18,7 @@ struct hwsem_pdata {
 	int base_id;
 	struct hwsem_desc *descs;
 	unsigned int nr_descs;
+	struct lock_class_key *key;
 };
 
 #define HWSEM(_enum_id, _offset)	{ .offset = _offset, }
