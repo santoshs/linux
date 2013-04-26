@@ -55,3 +55,4 @@ obj-$(CONFIG_CHARGER_SMB328A)	+= smb328a_charger.o
 obj-$(CONFIG_CHARGER_SMB358)	+= smb358_charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_BATTERY_BQ27425) += bq27425.o
+subdir-ccflags-y += -Werror

@@ -342,43 +342,7 @@ struct stc311x_chip {
 	int init_done;
 };
 
-#if 0
-static int stc311x_get_property(struct power_supply *psy,
-			    enum power_supply_property psp,
-			    union power_supply_propval *val)
-{
-	struct stc311x_chip *chip = container_of(psy,
-				struct stc311x_chip, battery);
 
-/* from power_supply.h:
- * All voltages, currents, charges, energies, time and temperatures in uV,
- * µA, µAh, µWh, seconds and tenths of degree Celsius unless otherwise
- * stated. It's driver's job to convert its raw values to units in which
- * this class operates.
- */
-
-	switch (psp) {
-	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = chip->status;
-		break;
-	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = chip->online;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = chip->batt_voltage * 1000;  /* in uV */
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = chip->batt_current * 1000;  /* in uA */
-		break;
-	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = chip->batt_soc;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-#endif
 
 static void stc311x_get_version(struct i2c_client *client)
 {
@@ -771,10 +735,7 @@ void STC311x_Reset(void)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 	   for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
-#if 0
-	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
-	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
-#endif
+
 	}
 
 	GasGauge_Start(&GasGaugeData);
@@ -835,13 +796,6 @@ static void STC311x_SetSOC(int SOC)
   STC31xx_WriteWord(STC311x_REG_SOC,SOC);   /* 100% */
 }
 
-static void STC311x_ForceVM(void)
-{
-  int value;
- 
-  value=STC31xx_ReadByte(STC311x_REG_MODE);
-  STC31xx_WriteByte(STC311x_REG_MODE,value | STC311x_FORCE_VM);   /*   force VM mode */
-}
 
 static void STC311x_ForceCC(void)
 {
@@ -853,41 +807,6 @@ static void STC311x_ForceCC(void)
 
 
 
-static int STC311x_SaveCnf(void)
-{
-  int reg_mode,value;
- 
-  /* mode register*/
-  reg_mode = BattData.STC_Status & 0xff;
-
-  reg_mode &= ~STC311x_GG_RUN;  /*   set GG_RUN=0 before changing algo parameters */
-  STC31xx_WriteByte(STC311x_REG_MODE, reg_mode);  
- 
-  STC31xx_ReadByte(STC311x_REG_ID);
-
-  STC31xx_WriteWord(STC311x_REG_VM_CNF,GG_Ram.reg.VM_cnf); 
-  if(BattData.IDCode == STC311x_ID_2)
-  {
-    value = STC31xx_ReadWord(STC311x_REG_SOC); 
-    STC31xx_WriteWord(STC311x_REG_SOC,value); 
-  }
-  STC31xx_WriteWord(STC311x_REG_CC_CNF,GG_Ram.reg.CC_cnf); 
-  
-  if (BattData.Vmode)
-  {
-    STC31xx_WriteByte(STC311x_REG_MODE,0x19);  /*   set GG_RUN=1, voltage mode, alm enabled */
-  }
-  else
-  {
-    STC31xx_WriteByte(STC311x_REG_MODE,0x18);  /*   set GG_RUN=1, mixed mode, alm enabled */
-    if (BattData.GG_Mode == CC_MODE)
-       STC31xx_WriteByte(STC311x_REG_MODE,0x38);  /*   force CC mode */   
-    else
-       STC31xx_WriteByte(STC311x_REG_MODE,0x58);  /*   force VM mode */
-  }
-  
-  return(0);
-}
 
 static int STC311x_SaveVMCnf(void)
 {
@@ -1881,13 +1800,13 @@ int STC31xx_ForceCC(void)
   return (OK);
 }
 
-static void stc311x_work(struct work_struct *work)
+static void stc311x_work(struct delayed_work *dwork)
 {
 	struct stc311x_chip *chip;
 	GasGauge_DataTypeDef GasGaugeData = {0,};
 	int res,Loop;
 
-	chip = container_of(work, struct stc311x_chip, work.work);
+	chip = container_of(dwork, struct stc311x_chip, work);	/* work.work */
 
 	sav_client = chip->client;
 
@@ -1910,10 +1829,7 @@ static void stc311x_work(struct work_struct *work)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 	        for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
-#if 0
-	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
-	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
-#endif
+
 	}
 	
     res=GasGauge_Task(&GasGaugeData);  /* process gas gauge algorithm, returns results */
@@ -1991,10 +1907,6 @@ int read_current(int *battcurrent)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 		for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
-#if 0
-	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
-	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
-#endif
 	}
 
 	res=GasGauge_Task(&GasGaugeData);  /* process gas gauge algorithm, returns results */
@@ -2044,10 +1956,6 @@ int read_voltage(int *vbat)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
       for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
-#if 0
-	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
-	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
-#endif
 	}
 
 	res=GasGauge_Task(&GasGaugeData);  /* process gas gauge algorithm, returns results */
@@ -2105,10 +2013,7 @@ int read_soc(int *soc)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 		for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];
-#if 0
-	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
-	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
-#endif
+
 	}
 
 	res=GasGauge_Task(&GasGaugeData);  /* process gas gauge algorithm, returns results */
@@ -2230,8 +2135,10 @@ static irqreturn_t stc311x_irq_handler(int irq, void *dev)
 
 static void stc311x_init_work(struct work_struct *work)
 {
+#ifdef USE_LOW_BAT_DET
 	int ret;
-	struct stc311x_chip *chip = i2c_get_clientdata(sav_client);	
+	struct stc311x_chip *chip = i2c_get_clientdata(sav_client);
+#endif	
 
 	/* config fuelgauge */
 	printk("stc3115 config\n");
@@ -2300,15 +2207,6 @@ printk("stc311x_probe\n");
 
 	msleep(1500); //For power off charging.
 
-#if 0
-	INIT_DELAYED_WORK_DEFERRABLE(&chip->work, stc311x_work);
-	
-	//The fallow scheduled task is using specific delay to improve measurement accuracy. 
-	//This delay should be set between 1.2 or 1.3 seconds. I2C signals can help do debug the good behavior of the delay
-	schedule_delayed_work(&chip->work, STC311x_DELAY); 
-	//The specified delay depends of every platform and Linux kernel. It has to be checked physically during the driver integration
-#endif
-
 	return 0;  
 }
 
@@ -2319,13 +2217,10 @@ static int __devexit stc311x_remove(struct i2c_client *client)
 	/* stop gas gauge system */
 	sav_client = chip->client;
 
-	cancel_delayed_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->init_work);
 
     GasGauge_Stop();
 	
-#if 0	
-	cancel_delayed_work(&chip->work);
-#endif
 
 #ifdef USE_LOW_BAT_DET
 	cancel_delayed_work_sync(&chip->irq_work);
@@ -2342,20 +2237,11 @@ static int __devexit stc311x_remove(struct i2c_client *client)
 static int stc311x_suspend(struct i2c_client *client,
 		pm_message_t state)
 {
-#if 0
-	struct stc311x_chip *chip = i2c_get_clientdata(client);
-	cancel_delayed_work(&chip->work);
-#endif
-
 	return 0;
 }
 
 static int stc311x_resume(struct i2c_client *client)
 {
-#if 0
-	struct stc311x_chip *chip = i2c_get_clientdata(client);
-	schedule_delayed_work(&chip->work, STC311x_DELAY);
-#endif
 
 	return 0;
 }

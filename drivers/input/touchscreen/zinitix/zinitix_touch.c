@@ -49,6 +49,7 @@
 
 //#include "zinitix_touch_zxt_firmware.h"
 //#include "zinitix_touch_zxt_firmware(ZI001A02).h"
+
 #if defined(CONFIG_MACH_LOGANLTE)
 #include "zinitix_touch_zxt_firmware(ZI03220B).h"
 #elif defined(CONFIG_MACH_LT02LTE)
@@ -624,7 +625,7 @@ continue_check_point_data:
 
 }
 
-
+#if !USE_THREADED_IRQ
 static irqreturn_t ts_int_handler(int irq, void *dev)
 {
 
@@ -644,7 +645,7 @@ static irqreturn_t ts_int_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 #endif	
 }
-
+#endif
 
 static bool ts_power_sequence(struct zinitix_touch_dev *touch_dev)
 {
@@ -2544,6 +2545,8 @@ static void run_reference_read(void *device_data)
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
 	char buff[16] = {0};
+	unsigned int min, max;
+	int i,j;
 
 	set_default_result(info);
 
@@ -2552,9 +2555,6 @@ static void run_reference_read(void *device_data)
 	ts_set_touchmode(TOUCH_POINT_MODE);	
 
 	//////test////////////////////////////////////////////////////
-
-	unsigned int min, max;
-	int i,j;
 
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
@@ -2612,7 +2612,7 @@ static void run_delta_read(void *device_data)
 static void run_intensity_read(void *device_data)
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
-
+	int i,j;
 	set_default_result(info);
 		
 	ts_set_touchmode(TOUCH_DND_MODE);
@@ -2620,7 +2620,6 @@ static void run_intensity_read(void *device_data)
 	ts_set_touchmode(TOUCH_POINT_MODE);		
 
     //////test////////////////////////////////////////////////////
-    int i,j;
 
     for(i=0; i<30; i++)
     {
@@ -3069,9 +3068,8 @@ static struct attribute_group sec_touch_attributes_group = {
 
 static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char buff[16] = {0};
 	u16 val;
-	int ret;
+	int ret = 0;
 	
 	disable_irq(misc_touch_dev->irq);
 	down(&misc_touch_dev->work_proceedure_lock);
@@ -3099,18 +3097,18 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 	
 	sprintf(buf, "%d\n", val);
 	
-	return;
+	return 0;
 
 err_out:	
 	sprintf(buf, "%s", "abnormal");
+	return -1;
 }
 
 static ssize_t back_sensitivity_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	char buff[16] = {0};
 	u16 val;
-	int ret;
+	int ret = 0;
 	
 	disable_irq(misc_touch_dev->irq);
 	down(&misc_touch_dev->work_proceedure_lock);
@@ -3138,10 +3136,11 @@ static ssize_t back_sensitivity_show(struct device *dev,
 	
 	sprintf(buf, "%d\n", val);
     
-	return;
+	return 0;
 
 err_out:	
 	sprintf(buf, "%s", "abnormal");
+	return -1;
 }
 
 static ssize_t touchkey_threshold_show(struct device *dev,
@@ -3151,19 +3150,18 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 
 	int ret = 0;
 	u16 threshold;	
-	char buff[16] = {0};
 
 	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BUTTON_SENSITIVITY, (u8*)&threshold, 2);
 
 	if (ret < 0) {
 		sprintf(buf, "%s", "fail");
         
-		return;
+		return ret;
 	}
 	
 	sprintf(buf, "%d\n", threshold);
 
-	return;
+	return 0;
 
 }
 #endif
@@ -3566,7 +3564,6 @@ static void key_led_set(struct led_classdev *led_cdev,
 {
 	struct zinitix_touch_dev *data =
 		container_of(led_cdev, struct zinitix_touch_dev, led);
-	struct i2c_client *client = data->client;
 
 
 	data->led_brightness = value;
@@ -3910,51 +3907,6 @@ static int zinitix_touch_remove(struct i2c_client *client)
 
 	return 0;
 }
-
-static ssize_t get_tsp_firm_version_phone(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
-	u32 version;
-	char buff[16] = {0};
-	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53] << 8));
-	newMinorVersion = (u16) (m_firmware_data[56] |
-					(m_firmware_data[57] << 8));
-	newRegVersion = (u16) (m_firmware_data[60] |
-					(m_firmware_data[61] << 8));
-	if (misc_touch_dev->cap_info.is_zmt200 == 0)
-		newHWID = (u16) (m_firmware_data[0x6b12] |
-					(m_firmware_data[0x6b13] << 8));
-	else
-		newHWID = (u16) (m_firmware_data[0x57d2] |
-					(m_firmware_data[0x57d3] << 8));
-
-	version = (u32)((u32)(newHWID&0xff) << 16) | ((newVersion&0xf) << 12) |
-			((newMinorVersion & 0xf) << 8) | (newRegVersion & 0xff);
-
-	snprintf(buff, sizeof(buff), "ZI%06X", version);
-	return sprintf(buf, "%s\n", buff);
-}
-
-static ssize_t get_tsp_firm_version_panel(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
-	u32 version;
-	char buff[16] = {0};
-
-	newVersion = misc_touch_dev->cap_info.firmware_version;
-	newMinorVersion = misc_touch_dev->cap_info.firmware_minor_version;
-	newRegVersion = misc_touch_dev->cap_info.reg_data_version;
-	newHWID = misc_touch_dev->cap_info.hw_id;
-	version = (u32)((u32)(newHWID & 0xff) << 16)|((newVersion & 0xf) << 12)|
-			((newMinorVersion & 0xf) << 8)|(newRegVersion & 0xff);
-
-	snprintf(buff, sizeof(buff), "ZI%06X", version);
-
-	return sprintf(buf, "%s", buff); /* it's connected to at_sec_handler */
-}
-
 
 static struct i2c_driver zinitix_touch_driver = {
 	.probe	= zinitix_touch_probe,
