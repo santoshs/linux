@@ -25,6 +25,7 @@
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/rmu2_cmt15.h>
+#include <mach/sbsc.h>
 
 static struct delayed_work *dwork;
 static struct delayed_work *dwork_wa_zq;
@@ -37,7 +38,6 @@ static int stop_func_flg;
 static int wa_zq_flg;
 
 /* SBSC register address */
-#define SBSC_BASE			(0xFE000000U)
 static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
 
