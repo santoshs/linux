@@ -254,34 +254,35 @@ int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params)
 }
 EXPORT_SYMBOL(fsi_d2153_set_sampling_rate);
 
+#define exchange_callback(from, to)	\
+do {					\
+	if ((to) == NULL) {		\
+		(to) = (from);		\
+		(from) = NULL;		\
+	}				\
+} while (0)
+
 int fsi_d2153_loopback_notify(int status)
 {
 	int ret = 0;
+	struct snd_soc_dai_ops *cpu_dai_ops
+		= fsi_d2153_rtd->cpu_dai->driver->ops;
+	struct snd_soc_dai_ops *codec_dai_ops
+		= fsi_d2153_rtd->codec_dai->driver->ops;
+	struct snd_soc_dai_ops *save = &fsi_d2153_ops_save;
 
 	if (FSI_D2153_LOOPBACK_START == status) {
-		fsi_d2153_ops_save.startup =
-			fsi_d2153_rtd->cpu_dai->driver->ops->startup;
-
-		fsi_d2153_ops_save.shutdown =
-			fsi_d2153_rtd->cpu_dai->driver->ops->shutdown;
-
-		fsi_d2153_ops_save.hw_params =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_params;
-
-		fsi_d2153_ops_save.hw_free =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_free;
+		sndp_log_info("FSI_D2153_LOOPBACK_START\n");
+		exchange_callback(cpu_dai_ops->startup, save->startup);
+		exchange_callback(cpu_dai_ops->shutdown, save->shutdown);
+		exchange_callback(codec_dai_ops->hw_params, save->hw_params);
+		exchange_callback(codec_dai_ops->hw_free, save->hw_free);
 	} else if (FSI_D2153_LOOPBACK_STOP == status) {
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup =
-					fsi_d2153_ops_save.startup;
-
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown =
-					fsi_d2153_ops_save.shutdown;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params =
-					fsi_d2153_ops_save.hw_params;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free =
-					fsi_d2153_ops_save.hw_free;
+		sndp_log_info("FSI_D2153_LOOPBACK_STOP\n");
+		exchange_callback(save->startup, cpu_dai_ops->startup);
+		exchange_callback(save->shutdown, cpu_dai_ops->shutdown);
+		exchange_callback(save->hw_params, codec_dai_ops->hw_params);
+		exchange_callback(save->hw_free, codec_dai_ops->hw_free);
 	} else
 		ret = -EINVAL;
 
