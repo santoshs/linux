@@ -130,7 +130,7 @@ int read_rt_image(unsigned int *addr)
 	unsigned char *data_addr = 0;
 	struct file *fp = NULL;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	memset(&info, 0, sizeof(info));
 
@@ -228,7 +228,7 @@ int read_rt_image(unsigned int *addr)
 		g_rtboot_info = info;
 	}
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret);
 	return ret;
 }
 
@@ -335,7 +335,7 @@ static int set_screen_data(unsigned int disp_addr)
 	void *addr = NULL;
 	struct screen_info screen[2];
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	addr = ioremap(disp_addr, sizeof(screen));
 	if (!addr) {
@@ -375,7 +375,7 @@ static int set_screen_data(unsigned int disp_addr)
 
 	iounmap(addr);
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
 }
@@ -388,7 +388,7 @@ int read_rt_cert(unsigned int addr)
 	int ret;
 	int ret_size;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	do {
 		ret = vfs_stat(kernel_rt_cert_path, &stbuf);
@@ -429,7 +429,7 @@ int read_rt_cert(unsigned int addr)
 			(void)filp_close(fp, NULL);
 	}
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
 
 	return ret_size;
 }
