@@ -374,7 +374,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 		},
 		.inactive = {
 			.port_fn        = GPIO_PORT130,
-			.pull           = PORTn_CR_PULL_DOWN,
+			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_OUTPUT,
 			.output_level   = PORTn_OUTPUT_LEVEL_LOW,
 		}
@@ -390,7 +390,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 		},
 		.inactive = {
 			.port_fn        = GPIO_PORT131,
-			.pull           = PORTn_CR_PULL_DOWN,
+			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_OUTPUT,
 			.output_level   = PORTn_OUTPUT_LEVEL_LOW,
 		}
