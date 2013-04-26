@@ -217,4 +217,7 @@ do { \
 #define SEP_HW_INIT      \
 	_IO(SEP_IOC_MAGIC_NUMBER , 70)
 
+#define SEP_CHECK_RKEK_VALUE	\
+	_IOR(SEP_IOC_MAGIC_NUMBER , 90, int)
+
 #endif
