@@ -88,6 +88,9 @@ MODULE_PARM_DESC(sep_fatal, \
 	"Flag which indicates that fatal error has occured");
 
 
+/* Store the RKEK return value */
+static int sep_rkek_return_value;
+
 /* platform device object */
 static struct platform_device sep_device;
 
@@ -739,6 +742,9 @@ static int sep_resume(struct device *dev)
 {
 	int error = 0;
 	unsigned long long count = 0;
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	int sec_hal_error = 0;
+	#endif
 
 	/*----------------------------
 	    CODE
@@ -780,6 +786,19 @@ static int sep_resume(struct device *dev)
 		/* to update the sep power down counter */
 		sep_power_down_counter = count;
 		/* RKEK Implementation*/
+		#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+		sec_hal_error = sec_hal_pm_public_cc42_key_init();
+		if (sec_hal_error) {
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+			"sec_hal_pm_public_cc42_key_init failed with "\
+				"error 0x%x\n", sec_hal_error);
+			sep_rkek_return_value = sec_hal_error;
+		} else {
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"sec_hal_pm_public_cc42_key_init succeeded\n");
+		}
+		#endif
+
 	}
 
 end_function:
@@ -1241,6 +1260,9 @@ void Chip_HwInit(void)
 	volatile u32 cc42Reset, *pSRCR2 = 0 ;
 	int ret_status = 0;
 	unsigned long flags;
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	int sec_hal_error = 0;
+	#endif
 
 	/* reset CC4.2 from system domain */
 	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
@@ -1307,6 +1329,19 @@ void Chip_HwInit(void)
 	CC42_DEBUG_PRINT(KERN_INFO "CC4.2 HW Version = 0x%08X\n",\
 			ioread32(sep_context.reg_addr+0x928));
 
+	/* RKEK Implementation*/
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	sec_hal_error = sec_hal_pm_public_cc42_key_init();
+	if (sec_hal_error) {
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init failed with "\
+			"error 0x%x\n", sec_hal_error);
+		sep_rkek_return_value = sec_hal_error;
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init succeeded\n");
+	}
+	#endif
 }
 
 
@@ -1343,6 +1378,20 @@ static long sep_ioctl(
 		Chip_HwInit();
 		break ;
 
+	case SEP_CHECK_RKEK_VALUE:
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_CHECK_RKEK_VALUE\n");
+		if (copy_to_user((void __user *)arg, \
+			(void *)&sep_rkek_return_value, sizeof(int))) {
+			error = -EFAULT;
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: Failed "\
+			"to copy RKEK return value to user space\n", error);
+		} else {
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"Successfully copied RKEK value to user space\n");
+		}
+		break ;
+
 	default:
 		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: ** NO COMMAND **\n");
 		error = -ENOTTY;
@@ -1368,6 +1417,7 @@ static void sep_init_context(void)
 	sep_context.out_num_pages = 0;
 	sep_context.in_map_array = 0;
 	sep_context.out_map_array = 0;
+	sep_rkek_return_value = 0;
 
 	/* init transaction mutex */
 	mutex_init(&sep_context.transaction_mutex);
