@@ -331,29 +331,6 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 			}
 		}
 	}
-	val = smb328a_read_reg(client, SMB328A_I2C_BUS_SLAVE_ADDRESS);
-	if (val >= 0) {
-		data = (u8)val;
-		printk(KERN_INFO "%s : reg (0x%x) = 0x%x\n", __func__, SMB328A_I2C_BUS_SLAVE_ADDRESS, data);
-		val = 0x69;
-#if defined(CONFIG_BOARD_VERSION_GARDA)
-		if ((u2_get_board_rev() == 2) || (u2_get_board_rev() == 3))
-			val = 0xa8;
-#elif defined(CONFIG_MACH_LOGANLTE)
-		if ((u2_get_board_rev() == 1) || (u2_get_board_rev() == 2))
-			val = 0xa8;
-#endif
-		if (data != val) {
-			data = val;
-			if (smb328a_write_reg(client, SMB328A_I2C_BUS_SLAVE_ADDRESS, data) < 0)
-				printk(KERN_ERR "%s : error!\n", __func__);
-			val = smb328a_read_reg(client, SMB328A_I2C_BUS_SLAVE_ADDRESS);
-			if (val >= 0) {
-				data = (u8)val;
-				printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_I2C_BUS_SLAVE_ADDRESS, data);
-			}
-		}
-	}
 }
 
 static int smb328a_check_charging_status(struct i2c_client *client)

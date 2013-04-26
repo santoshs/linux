@@ -5802,9 +5802,9 @@ static int tps80032_init_power_hw(struct tps80032_data *data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Check board revision and setting for LDO5 voltage */
-	if (4 <= data->board_rev)
+	if (RLTE_BOARD_REV_0_4 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_3000V;
-	else if (3 <= data->board_rev)
+	else if (RLTE_BOARD_REV_0_3 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_0000V;
 	else
 		val = E_LDO_VOLTAGE_2_5000V;
@@ -6462,8 +6462,6 @@ static int tps80032_power_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	/* Get board revision */
-	data->board_rev = u2_get_board_rev();
 	/* init initial value */
 	mutex_init(&data->smps1_lock);
 	mutex_init(&data->smps2_lock);
@@ -7001,10 +6999,6 @@ static int __init tps80032_power_init(void)
 
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
-	if(u2_get_board_rev() >= 5) {
-		PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n", __func__);
-		return 0;
-	}
 	/*Initialize hw spinlock*/
 	r8a73734_hwlock_pmic = hwspin_lock_request_specific(SMGP000_PMIC);
 	if (r8a73734_hwlock_pmic == NULL) {
@@ -7071,10 +7065,6 @@ err_power_ctrl_class:
  */
 static void __exit tps80032_power_exit(void)
 {
-	if(u2_get_board_rev() >= 5) {
-		PMIC_DEBUG_MSG(">>> %s is called on new Board revision. error\n", __func__);
-		return;
-	}
 	i2c_del_driver(&tps80032_power_driver);
 	i2c_del_driver(&tps80032_battery_driver);
 	i2c_del_driver(&tps80032_dvs_driver);
