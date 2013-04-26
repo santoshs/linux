@@ -49,7 +49,8 @@
 #define VCD_IF_GET_PLAYBACK_BUFFER_LOG	"[ <- SOUND] GET_PLAYBACK_BUFFER\n"
 #define VCD_IF_GET_VOIP_UL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_UL_BUFFER\n"
 #define VCD_IF_GET_VOIP_DL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_DL_BUFFER\n"
-#define VCD_IF_WATCH_STOP_FW_LOG	"[ <- SOUND] WATCH_STOP_FW\n"
+#define VCD_IF_WATCH_FW_LOG		"[ <- SOUND] WATCH_FW\n"
+#define VCD_IF_WATCH_FW_PT_LOG		"[ <-  PT  ] WATCH_FW_PT\n"
 #define VCD_IF_WATCH_CLKGEN_LOG		"[ <- SOUND] WATCH_CLKGEN\n"
 #define VCD_IF_WATCH_CLKGEN_PT_LOG	"[ <-  PT  ] WATCH_CLKGEN\n"
 #define VCD_IF_WATCH_CODEC_TYPE_LOG	"[ <- SOUND] WATCH_CODEC_TYPE\n"
@@ -173,6 +174,7 @@ static int vcd_stop_playback(void *arg);
 static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_fw(void *arg);
+static int vcd_watch_fw_pt(void *arg);
 static int vcd_watch_clkgen(void *arg);
 static int vcd_watch_clkgen_pt(void *arg);
 static int vcd_watch_codec_type(void *arg);

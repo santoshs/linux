@@ -261,35 +261,27 @@ int fsi_d2153_loopback_notify(int status)
 	if (FSI_D2153_LOOPBACK_START == status) {
 		fsi_d2153_ops_save.startup =
 			fsi_d2153_rtd->cpu_dai->driver->ops->startup;
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup = NULL;
 
 		fsi_d2153_ops_save.shutdown =
 			fsi_d2153_rtd->cpu_dai->driver->ops->shutdown;
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown = NULL;
 
 		fsi_d2153_ops_save.hw_params =
 			fsi_d2153_rtd->codec_dai->driver->ops->hw_params;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params = NULL;
 
 		fsi_d2153_ops_save.hw_free =
 			fsi_d2153_rtd->codec_dai->driver->ops->hw_free;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free = NULL;
 	} else if (FSI_D2153_LOOPBACK_STOP == status) {
 		fsi_d2153_rtd->cpu_dai->driver->ops->startup =
 					fsi_d2153_ops_save.startup;
-		fsi_d2153_ops_save.startup = NULL;
 
 		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown =
 					fsi_d2153_ops_save.shutdown;
-		fsi_d2153_ops_save.shutdown = NULL;
 
 		fsi_d2153_rtd->codec_dai->driver->ops->hw_params =
 					fsi_d2153_ops_save.hw_params;
-		fsi_d2153_ops_save.hw_params = NULL;
 
 		fsi_d2153_rtd->codec_dai->driver->ops->hw_free =
 					fsi_d2153_ops_save.hw_free;
-		fsi_d2153_ops_save.hw_free = NULL;
 	} else
 		ret = -EINVAL;
 

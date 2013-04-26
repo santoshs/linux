@@ -40,6 +40,8 @@ void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
 void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
 void (*g_vcd_start_fw)(void);
 void (*g_vcd_stop_fw)(void);
+void (*g_vcd_start_fw_pt)(void);
+void (*g_vcd_stop_fw_pt)(void);
 void (*g_vcd_codec_type_ind)(unsigned int codec_type);
 void (*g_vcd_start_clkgen)(void);
 void (*g_vcd_stop_clkgen)(void);
@@ -80,7 +82,8 @@ static struct vcd_execute_func vcd_func_table[] = {
 
 static struct vcd_execute_func vcd_loopback_func_table[] = {
 	{ VCD_COMMAND_SET_CALL_MODE,		vcd_set_call_mode	},
-	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen_pt	}
+	{ VCD_COMMAND_WATCH_CLKGEN,		vcd_watch_clkgen_pt	},
+	{ VCD_COMMAND_WATCH_FW,			vcd_watch_fw_pt		}
 };
 
 /*
@@ -227,8 +230,13 @@ void vcd_start_fw(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_start_fw)
-		g_vcd_start_fw();
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_start_fw)
+			g_vcd_start_fw();
+	} else {
+		if (NULL != g_vcd_start_fw_pt)
+			g_vcd_start_fw_pt();
+	}
 
 	vcd_pr_end_if_user();
 	return;
@@ -256,8 +264,13 @@ void vcd_stop_fw(int result)
 		vcd_async_notify(LIBVCD_CB_TYPE_SYSTEM_ERROR, result);
 	}
 
-	if (NULL != g_vcd_stop_fw)
-		g_vcd_stop_fw();
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_stop_fw)
+			g_vcd_stop_fw();
+	} else {
+		if (NULL != g_vcd_stop_fw_pt)
+			g_vcd_stop_fw_pt();
+	}
 
 	g_vcd_complete_buffer = NULL;
 	g_vcd_beginning_buffer = NULL;
@@ -278,8 +291,13 @@ void vcd_stop_fw_stored_playback(void)
 {
 	vcd_pr_start_if_user();
 
-	if (NULL != g_vcd_stop_fw)
-		g_vcd_stop_fw();
+	if (VCD_CALL_KIND_CALL == g_vcd_debug_call_kind) {
+		if (NULL != g_vcd_stop_fw)
+			g_vcd_stop_fw();
+	} else {
+		if (NULL != g_vcd_stop_fw_pt)
+			g_vcd_stop_fw_pt();
+	}
 
 	g_vcd_complete_buffer = NULL;
 	g_vcd_beginning_buffer = NULL;
@@ -1295,7 +1313,7 @@ static int vcd_watch_fw(void *arg)
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
-	vcd_pr_if_sound(VCD_IF_WATCH_STOP_FW_LOG);
+	vcd_pr_if_sound(VCD_IF_WATCH_FW_LOG);
 
 	/* check parameter */
 	if (NULL == arg) {
@@ -1309,6 +1327,42 @@ static int vcd_watch_fw(void *arg)
 	/* register notify function */
 	g_vcd_start_fw = info.start_fw;
 	g_vcd_stop_fw = info.stop_fw;
+
+rtn:
+	vcd_pr_end_interface_function("ret[%d].\n", ret);
+	return ret;
+}
+
+
+/**
+ * @brief	watch fw for pt function.
+ *
+ * @param[in]	arg	pointer of notify info structure.
+ *
+ * @retval	VCD_ERR_NONE	successful.
+ * @retval	VCD_ERR_PARAM	parameter error.
+ */
+static int vcd_watch_fw_pt(void *arg)
+{
+	int ret = VCD_ERR_NONE;
+	struct vcd_watch_fw_info info = {0};
+
+	vcd_pr_start_interface_function("arg[%p].\n", arg);
+
+	vcd_pr_if_sound(VCD_IF_WATCH_FW_PT_LOG);
+
+	/* check parameter */
+	if (NULL == arg) {
+		vcd_pr_err("parameter error. arg[%p].\n", arg);
+		ret = VCD_ERR_PARAM;
+		goto rtn;
+	}
+
+	memcpy(&info, arg, sizeof(info));
+
+	/* register notify function */
+	g_vcd_start_fw_pt = info.start_fw;
+	g_vcd_stop_fw_pt = info.stop_fw;
 
 rtn:
 	vcd_pr_end_interface_function("ret[%d].\n", ret);
