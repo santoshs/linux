@@ -186,21 +186,21 @@ int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 		return -ENOSYS;
 
 	debounce = (debounce + 999) / 1000;
-	if (debounce <= 0x3ff) {
+	if (debounce <= 0x3f) {
 		interval = IRQC_INTERVAL_1MS;
 		count = debounce;
-	} else if (debounce <= 0x3ff * 2) {
+	} else if (debounce <= 0x3f * 2) {
 		interval = IRQC_INTERVAL_2MS;
 		count = (debounce + 1) / 2;
-	} else if (debounce <= 0x3ff * 4) {
+	} else if (debounce <= 0x3f * 4) {
 		interval = IRQC_INTERVAL_4MS;
 		count = (debounce + 3) / 4;
-	} else if (debounce <= 0x3ff * 8) {
+	} else if (debounce <= 0x3f * 8) {
 		interval = IRQC_INTERVAL_8MS;
 		count = (debounce + 7) / 8;
 	} else {
 		interval = IRQC_INTERVAL_8MS;
-		count = 0x3ff;
+		count = 0x3f;
 	}
 
 	reg = (irq >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
