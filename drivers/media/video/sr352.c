@@ -162,8 +162,8 @@ static const struct SR352_datafmt *SR352_find_datafmt(
 static void SR352_res_roundup(u32 *width, u32 *height)
 {
 	int i;
-	int res_x[] = { 640, 2048};
-	int res_y[] = { 480, 1536};
+	int res_x[] = { 1024, 1280, 2048};
+	int res_y[] = { 768, 720, 1536};
 
 	for (i = 0; i < ARRAY_SIZE(res_x); i++) {
 		if (res_x[i] >= *width && res_y[i] >= *height) {
