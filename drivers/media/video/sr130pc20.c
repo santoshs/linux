@@ -29,22 +29,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
-static ssize_t subcamtype_SR130PC20_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorname = "SR130PC20";
-	return sprintf(buf, "%s\n", sensorname);
-}
 
-static ssize_t subcamfw_SR130PC20_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorfw = "SR130PC20";
-	return sprintf(buf, "%s\n", sensorfw);
-}
-
-static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
-static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
 struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
