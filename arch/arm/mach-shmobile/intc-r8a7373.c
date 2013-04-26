@@ -207,7 +207,13 @@ int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 	reg += (irq & 0x1f);
 
 	val = __raw_readl(reg) & ~0x80ff0000;
-	__raw_writel(val | (1 << 31) | (interval << 22) | (count << 16), reg);
+	if (count) {
+		__raw_writel(val | (1 << 31) | (interval << 22) | (count << 16)
+					, reg);
+	} else {
+		__raw_writel(val | (0 << 31) | (interval << 22) | (count << 16)
+					, reg);
+	}
 	return 0;
 }
 
