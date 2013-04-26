@@ -509,8 +509,8 @@ static struct lcd_info lcd_info_data;
 #define ESD_CHECK_ENABLE 1
 
 static struct delayed_work esd_check_work;
-static struct mutex esd_check_mutex;
 static int esd_check_flag;
+static int esd_check_now;
 
 #endif /* NT35510_ESD_RECOVERY_ENABLE */
 
@@ -733,17 +733,18 @@ static void nt35510_panel_esd_check_work(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 
 	/* For the disable entering suspend */
-	mutex_lock(&esd_check_mutex);
+	esd_check_now = 1;
 
-	while (nt35510_panel_check())
-		while (nt35510_panel_simple_reset())
+	while ((esd_check_flag == ESD_CHECK_ENABLE) && (nt35510_panel_check()))
+		while ((esd_check_flag == ESD_CHECK_ENABLE) &&
+						(nt35510_panel_simple_reset()))
 			msleep(20);
 
 	if (esd_check_flag == ESD_CHECK_ENABLE)
 		schedule_delayed_work(dwork, msecs_to_jiffies(DURATION_TIME));
 
 	/* Enable suspend */
-	mutex_unlock(&esd_check_mutex);
+	esd_check_now = 0;
 }
 #endif
 
@@ -1378,7 +1379,8 @@ static int nt35510_panel_suspend(void)
 
 #if defined(NT35510_ESD_RECOVERY_ENABLE)
 	esd_check_flag = ESD_CHECK_DISABLE;
-	mutex_lock(&esd_check_mutex);
+	while (esd_check_now)
+		msleep(20);
 	/* Cancel scheduled work queue for check ESD. */
 	cancel_delayed_work_sync(&esd_check_work);
 #endif /* NT35510_ESD_RECOVERY_ENABLE */
@@ -1445,11 +1447,6 @@ static int nt35510_panel_suspend(void)
 	system_pwmng_delete(&pmg_delete);
 #endif
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
-	mutex_unlock(&esd_check_mutex);
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
-
-
 	return 0;
 }
 
@@ -1467,11 +1464,6 @@ static int nt35510_panel_resume(void)
 	system_pmg_param powarea_start_notify;
 	system_pmg_delete pmg_delete;
 #endif
-
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
-	/* Wait for end of check ESD */
-	mutex_lock(&esd_check_mutex);
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1582,7 +1574,6 @@ retry:
 #if defined(NT35510_ESD_RECOVERY_ENABLE)
 	/* Schedule check ESD */
 	esd_check_flag = ESD_CHECK_ENABLE;
-	mutex_unlock(&esd_check_mutex);
 	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
 #endif /* NT35510_ESD_RECOVERY_ENABLE */
 
@@ -1650,9 +1641,7 @@ static int nt35510_panel_probe(struct fb_info *info,
 
 #if defined(NT35510_ESD_RECOVERY_ENABLE)
 	esd_check_flag = ESD_CHECK_DISABLE;
-	mutex_init(&esd_check_mutex);
-	INIT_DELAYED_WORK(&esd_check_work,
-		nt35510_panel_esd_check_work);
+	INIT_DELAYED_WORK(&esd_check_work, nt35510_panel_esd_check_work);
 #endif
 
 	return 0;
@@ -1669,13 +1658,8 @@ static int nt35510_panel_remove(struct fb_info *info)
 	printk(KERN_INFO "%s\n", __func__);
 
 #if defined(NT35510_ESD_RECOVERY_ENABLE)
-	/* Wait for end of check to power mode state */
-	mutex_lock(&esd_check_mutex);
-
-	/* Cancel  scheduled work queue for check to power mode state. */
+	/* Cancel scheduled work queue for check esd. */
 	cancel_delayed_work_sync(&esd_check_work);
-
-	mutex_unlock(&esd_check_mutex);
 #endif
 
 	/* unregister sysfs for LCD frequency control */

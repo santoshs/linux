@@ -20,6 +20,10 @@
 #include <mach/r8a7373.h>
 #endif
 #include <mach/setup-u2audio.h>
+#ifdef CONFIG_MFD_D2153
+#include <linux/d2153/core.h>
+#include <linux/d2153/d2153_codec.h>
+#endif
 
 /* Proc root entries */
 struct proc_dir_entry *root_audio;
@@ -62,6 +66,25 @@ void u2audio_gpio_init(void)
 	gpio_request(GPIO_FN_FSIBOLR, "sound");
 	gpio_request(GPIO_FN_FSIBOSLD, "sound");
 #endif /* CONFIG_ARCH_R8A7373 */
+}
+
+void u2audio_codec_micbias_level_init(unsigned int u2_board_rev)
+{
+	u8 micbias1 = D2153_MICBIAS_LEVEL_2_6V;
+
+#if defined(CONFIG_MACH_LOGANLTE)
+	if (0 == u2_board_rev)
+#elif defined(CONFIG_MACH_LT02LTE)
+	if (0 == u2_board_rev)
+#endif
+		micbias1 = D2153_MICBIAS_LEVEL_2_5V;
+
+	/* set headset mic bias */
+	d2153_pdata.audio.micbias1_level = micbias1;
+	/* set sub mic bias */
+	d2153_pdata.audio.micbias2_level = D2153_MICBIAS_LEVEL_2_1V;
+	/* set main mic bias */
+	d2153_pdata.audio.micbias3_level = D2153_MICBIAS_LEVEL_2_1V;
 }
 
 void u2audio_init(unsigned int u2_board_rev)
@@ -176,5 +199,8 @@ void u2audio_init(unsigned int u2_board_rev)
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
+
+	u2audio_codec_micbias_level_init(u2_board_rev);
+
 	return;
 }
