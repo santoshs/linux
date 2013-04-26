@@ -2322,8 +2322,8 @@ int rtds_memory_put_recv_queue(
 	MSG_MED("[RTDSK]   |rt_cache	[0x%08X]\n", rcv_data->rt_cache);
 	MSG_MED("[RTDSK]   |rt_trigger	[0x%08X]\n", rcv_data->rt_trigger);
 	MSG_MED("[RTDSK]   |apmem_id	[0x%08X]\n", rcv_data->apmem_id);
-	MSG_MED("[RTDSK]   |leak_data	[0x%08X]\n", (u32)leak_data);
-	MSG_MED("[RTDSK]   |leak_size	[0x%08X]\n", leak_size);
+	MSG_MED("[RTDSK]   |leak_data	[0x%08X]\n", (u32)rcv_data->leak_data);
+	MSG_MED("[RTDSK]   |leak_size	[0x%08X]\n", rcv_data->leak_size);
 	MSG_MED("[RTDSK]   |phys_addr	[0x%08X]\n", rcv_data->phys_addr);
 	MSG_MED("[RTDSK]   |mem_attr	[0x%08X]\n", rcv_data->mem_attr);
 

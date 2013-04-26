@@ -110,7 +110,7 @@ static int iccom_wq_system_mem_rt_map(system_mem_rt_map *sys_rt_map)
 	}
 
 	/* wait completion */
-	down(&rtmap.sem);
+	DISPLAY_DOWN_TIMEOUT(&rtmap.sem);
 
 	MSG_HIGH("[RTAPIK] OUT|[%s][%d] result=%d, 0x%08x -> 0x%08x\n",
 		__func__, __LINE__,
@@ -1206,8 +1206,8 @@ int screen_display_set_address(screen_disp_set_address *address)
 		 (0 == address->address) ||
 		 (0 == address->size)
 		) {
-		MSG_ERROR("[RTAPIK] ERR|[%d] param error\n",
-				__LINE__);
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d] param error\n", __LINE__);
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 

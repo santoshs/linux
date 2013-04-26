@@ -2,7 +2,7 @@
  * screen_graphics.c
  *  screen graphics function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -64,7 +64,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -90,7 +91,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -116,7 +118,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -143,7 +146,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -342,6 +346,52 @@ void *screen_graphics_new(screen_grap_new *grap_new)
 	return (void *)grap_handle;
 }
 EXPORT_SYMBOL(screen_graphics_new);
+
+
+int screen_graphics_set_blend_size(
+		screen_grap_set_blend_size *grap_set_blend_size)
+{
+	int result;
+	iccom_drv_send_cmd_param        iccom_send_cmd;
+
+	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+
+	if (NULL == grap_set_blend_size) {
+		return SMAP_LIB_GRAPHICS_PARAERR;
+	}
+
+	MSG_MED("[RTAPIK]    |handle       [0x%08X]\n",
+	(unsigned int)grap_set_blend_size->handle);
+
+	if (NULL == grap_set_blend_size->handle) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
+		return SMAP_LIB_GRAPHICS_PARAERR;
+	}
+
+	iccom_send_cmd.handle      =
+		((screen_grap_handle *)grap_set_blend_size->handle)->handle;
+	iccom_send_cmd.task_id     = TASK_GRAPHICS;
+	iccom_send_cmd.function_id = EVENT_GRAPHICS_SETBLENDSIZE;
+	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size   = sizeof(screen_grap_set_blend_size);
+	iccom_send_cmd.send_data   = (unsigned char *)grap_set_blend_size;
+	iccom_send_cmd.recv_size   = 0;
+	iccom_send_cmd.recv_data   = NULL;
+
+	result = iccom_drv_send_command(&iccom_send_cmd);
+	if (result != SMAP_LIB_GRAPHICS_OK) {
+		MSG_ERROR("[RTAPIK] OUT|%s ret = %d(line = %d)\n",
+		__func__, result, __LINE__);
+		return result;
+	}
+
+	MSG_HIGH("[RTAPIK] OUT|[%s][%d] ret = [%d]\n",
+	__func__, __LINE__, SMAP_LIB_GRAPHICS_OK);
+	return SMAP_LIB_GRAPHICS_OK;
+}
+EXPORT_SYMBOL(screen_graphics_set_blend_size);
+
 
 int screen_graphics_initialize(screen_grap_initialize *grap_initialize)
 {
