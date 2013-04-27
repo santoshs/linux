@@ -139,6 +139,7 @@ static void audio_test_common_set_register(enum audio_test_hw_val drv,
 static int audio_test_call_regist_watch(void);
 static void audio_test_watch_start_clk_cb(void);
 static void audio_test_watch_stop_clk_cb(void);
+static void audio_test_watch_start_vcd_cb(void);
 /***********************************/
 /* log level                       */
 /***********************************/
@@ -247,6 +248,11 @@ static atomic_t g_audio_test_watch_start_clk;
 */
 static DECLARE_WAIT_QUEUE_HEAD(g_watch_stop_clk_queue);
 static atomic_t g_audio_test_watch_stop_clk;
+/*!
+  @brief	Wait queue for start voice process wake up.
+*/
+static DECLARE_WAIT_QUEUE_HEAD(g_watch_start_vcd_queue);
+static atomic_t g_audio_test_watch_start_vcd;
 /***********************************/
 /* PM setting                      */
 /***********************************/
@@ -771,6 +777,14 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_ON;
 
+	/***********************************/
+	/* Wait VCD                        */
+	/***********************************/
+	wait_event_interruptible(
+		g_watch_start_vcd_queue,
+		atomic_read(&g_audio_test_watch_start_vcd));
+	atomic_set(&g_audio_test_watch_start_vcd, 0);
+
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -834,9 +848,6 @@ static int audio_test_proc_start_sound_play(void)
 
 	audio_test_log_efunc("");
 
-	/* Add not to be suspend in playback */
-	wake_lock(&g_audio_test_wake_lock);
-
 	/***********************************/
 	/* Setup                           */
 	/***********************************/
@@ -896,9 +907,6 @@ static int audio_test_proc_stop_sound_play(void)
 	/***********************************/
 	audio_test_playback_remove();
 
-	/* Add not to be suspend in loopback */
-	wake_unlock(&g_audio_test_wake_lock);
-
 	audio_test_pt_state = AUDIO_TEST_DRV_STATE_OFF;
 
 	audio_test_log_rfunc("ret[%d]", ret);
@@ -920,11 +928,24 @@ static int audio_test_proc_set_call_mode(u_int call_kind, u_int vqa_val,
 	int ret = 0;
 	struct vcd_execute_command cmd;
 	struct vcd_call_option option;
+	struct vcd_watch_fw_info info;
 
 	audio_test_log_efunc("");
 
 	memset(&cmd, 0, sizeof(cmd));
 	memset(&option, 0, sizeof(option));
+	memset(&info, 0, sizeof(info));
+
+	cmd.command = VCD_COMMAND_WATCH_FW;
+	info.start_fw = audio_test_watch_start_vcd_cb;
+	cmd.arg = &info;
+	ret = vcd_execute_test_call(&cmd);
+	if (0 != ret) {
+		audio_test_log_err("vcd_execute_test_call VCD_COMMAND_WATCH_FW err [%d] ");
+		goto error;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.command = VCD_COMMAND_SET_CALL_MODE;
 	switch (call_kind) {
@@ -1175,14 +1196,6 @@ static int audio_test_playback_setup(void)
 		goto error;
 	}
 
-	/* Enable the power domain */
-	res = pm_runtime_get_sync(g_audio_test_power_domain);
-	if (!(0 == res || 1 == res)) {  /* 0:success 1:active */
-		audio_test_log_err("pm_runtime_get_sync res[%d]\n", res);
-		ret = -1;
-		goto runtime_error;
-	}
-
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
@@ -1246,11 +1259,6 @@ static void audio_test_playback_remove(void)
 	int res = 0;
 
 	audio_test_log_efunc("");
-
-	/* Disable the power domain */
-	res = pm_runtime_put_sync(g_audio_test_power_domain);
-	if (0 != res)
-		audio_test_log_err("pm_runtime_put_sync res[%d]\n", res);
 
 	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 
@@ -1634,6 +1642,25 @@ static void audio_test_watch_stop_clk_cb(void)
 
 	atomic_set(&g_audio_test_watch_stop_clk, 1);
 	wake_up_interruptible(&g_watch_stop_clk_queue);
+
+	audio_test_log_rfunc("");
+}
+
+/*!
+  @brief	Wake up start vocoder callback function
+
+  @param	.
+
+  @return	.
+
+  @note		.
+ */
+static void audio_test_watch_start_vcd_cb(void)
+{
+	audio_test_log_efunc("");
+
+	atomic_set(&g_audio_test_watch_start_vcd, 1);
+	wake_up_interruptible(&g_watch_start_vcd_queue);
 
 	audio_test_log_rfunc("");
 }

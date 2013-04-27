@@ -84,18 +84,16 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 {
 	struct snd_soc_dapm_widget *w;
 
-	list_for_each_entry(w, &codec->card->widgets, list) {
-		if (!w->sname)
-			continue;
-		if (strstr(w->sname, stream)) {
-			w->active = active;
-			dapm_mark_dirty(w, "fsi_d2153_set_active");
-			sndp_log_info("w->name[%s] w->active[%d]\n",
-				w->name, w->active);
-			snd_soc_dapm_sync(&codec->dapm);
-			continue;
-		}
-	}
+	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
+		w = playback_widget;
+	else
+		w = capture_widget;
+	dapm_mark_dirty(w, "fsi_d2153_set_active");
+	w->active = active;
+	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
+		w->name, w->active);
+	snd_soc_dapm_sync(&codec->dapm);
+
 }
 
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
@@ -256,42 +254,35 @@ int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params)
 }
 EXPORT_SYMBOL(fsi_d2153_set_sampling_rate);
 
+#define exchange_callback(from, to)	\
+do {					\
+	if ((to) == NULL) {		\
+		(to) = (from);		\
+		(from) = NULL;		\
+	}				\
+} while (0)
+
 int fsi_d2153_loopback_notify(int status)
 {
 	int ret = 0;
+	struct snd_soc_dai_ops *cpu_dai_ops
+		= fsi_d2153_rtd->cpu_dai->driver->ops;
+	struct snd_soc_dai_ops *codec_dai_ops
+		= fsi_d2153_rtd->codec_dai->driver->ops;
+	struct snd_soc_dai_ops *save = &fsi_d2153_ops_save;
 
 	if (FSI_D2153_LOOPBACK_START == status) {
-		fsi_d2153_ops_save.startup =
-			fsi_d2153_rtd->cpu_dai->driver->ops->startup;
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup = NULL;
-
-		fsi_d2153_ops_save.shutdown =
-			fsi_d2153_rtd->cpu_dai->driver->ops->shutdown;
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown = NULL;
-
-		fsi_d2153_ops_save.hw_params =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_params;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params = NULL;
-
-		fsi_d2153_ops_save.hw_free =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_free;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free = NULL;
+		sndp_log_info("FSI_D2153_LOOPBACK_START\n");
+		exchange_callback(cpu_dai_ops->startup, save->startup);
+		exchange_callback(cpu_dai_ops->shutdown, save->shutdown);
+		exchange_callback(codec_dai_ops->hw_params, save->hw_params);
+		exchange_callback(codec_dai_ops->hw_free, save->hw_free);
 	} else if (FSI_D2153_LOOPBACK_STOP == status) {
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup =
-					fsi_d2153_ops_save.startup;
-		fsi_d2153_ops_save.startup = NULL;
-
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown =
-					fsi_d2153_ops_save.shutdown;
-		fsi_d2153_ops_save.shutdown = NULL;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params =
-					fsi_d2153_ops_save.hw_params;
-		fsi_d2153_ops_save.hw_params = NULL;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free =
-					fsi_d2153_ops_save.hw_free;
-		fsi_d2153_ops_save.hw_free = NULL;
+		sndp_log_info("FSI_D2153_LOOPBACK_STOP\n");
+		exchange_callback(save->startup, cpu_dai_ops->startup);
+		exchange_callback(save->shutdown, cpu_dai_ops->shutdown);
+		exchange_callback(save->hw_params, codec_dai_ops->hw_params);
+		exchange_callback(save->hw_free, codec_dai_ops->hw_free);
 	} else
 		ret = -EINVAL;
 
@@ -488,6 +479,10 @@ static int fsi_d2153_sndp_spk_event(struct snd_soc_dapm_widget *w,
 	} else if (event & SND_SOC_DAPM_PRE_PMD) {
 		snd_soc_update_bits(codec, D2153_SP_CTRL,
 			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
+<<<<<<< HEAD
+=======
+		msleep(50);
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 		sndp_log_info("spk mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -511,8 +506,14 @@ static int fsi_d2153_sndp_hp_event(struct snd_soc_dapm_widget *w,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
 		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+<<<<<<< HEAD
 		if (playback_widget && (playback_widget->active == 0))
 			msleep(50);
+=======
+		if (snd_soc_dapm_get_pin_status(&codec->dapm,
+			"Headphone Enable"))
+			msleep(25);
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 		sndp_log_info("hp mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -532,6 +533,10 @@ static int fsi_d2153_sndp_ep_event(struct snd_soc_dapm_widget *w,
 	} else if (event & SND_SOC_DAPM_PRE_PMD) {
 		snd_soc_update_bits(codec, D2153_EP_CTRL,
 			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
+<<<<<<< HEAD
+=======
+		msleep(50);
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 		sndp_log_info("ep mute\n");
 	} else {
 		/* Nothing to do.*/
@@ -570,6 +575,10 @@ static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack Left", fsi_d2153_sndp_hp_event),
 	SND_SOC_DAPM_HP("Headphone Jack Right", fsi_d2153_sndp_hp_event),
 	SND_SOC_DAPM_LINE("Earpiece", fsi_d2153_sndp_ep_event),
+<<<<<<< HEAD
+=======
+	SND_SOC_DAPM_SWITCH("Headphone Enable", SND_SOC_NOPM, 0, 0, NULL),
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 };
 
 static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {

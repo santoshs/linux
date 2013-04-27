@@ -68,6 +68,7 @@ void u2audio_gpio_init(void)
 #endif /* CONFIG_ARCH_R8A7373 */
 }
 
+<<<<<<< HEAD
 void u2audio_codec_micbias_level_init(unsigned int u2_board_rev)
 {
 	u8 micbias1 = D2153_MICBIAS_LEVEL_2_6V;
@@ -81,11 +82,22 @@ void u2audio_codec_micbias_level_init(unsigned int u2_board_rev)
 
 	/* set headset mic bias */
 	d2153_pdata.audio.micbias1_level = micbias1;
+=======
+#ifndef D2153_DEFAULT_SET_MICBIAS
+void u2audio_codec_micbias_level_init(void)
+{
+	/* set headset mic bias */
+	d2153_pdata.audio.micbias1_level = D2153_MICBIAS_LEVEL_2_6V;
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 	/* set sub mic bias */
 	d2153_pdata.audio.micbias2_level = D2153_MICBIAS_LEVEL_2_1V;
 	/* set main mic bias */
 	d2153_pdata.audio.micbias3_level = D2153_MICBIAS_LEVEL_2_1V;
 }
+<<<<<<< HEAD
+=======
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 
 void u2audio_init(unsigned int u2_board_rev)
 {
@@ -200,7 +212,13 @@ void u2audio_init(unsigned int u2_board_rev)
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
 
+<<<<<<< HEAD
 	u2audio_codec_micbias_level_init(u2_board_rev);
+=======
+#ifndef D2153_DEFAULT_SET_MICBIAS
+	u2audio_codec_micbias_level_init();
+#endif	/* D2153_DEFAULT_SET_MICBIAS */
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 
 	return;
 }

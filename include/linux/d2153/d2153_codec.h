@@ -19,6 +19,11 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
+<<<<<<< HEAD
+=======
+/* #define D2153_DEFAULT_SET_MICBIAS */
+
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 /*
  * D2153 register space
  */
@@ -766,9 +771,17 @@ struct d2153_codec_priv {
 	bool alc_en;
 	u8 spk_mixer_out;
 	u8 spk_amp;
+<<<<<<< HEAD
 	u8 micbias1_level;
 	u8 micbias2_level;
 	u8 micbias3_level;
+=======
+#ifndef D2153_DEFAULT_SET_MICBIAS
+	u8 micbias1_level;
+	u8 micbias2_level;
+	u8 micbias3_level;
+#endif
+>>>>>>> EOS2_SSG_AUDIO_ALL_JB42_K34_13w14_V01.2_SSG
 };
 
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
