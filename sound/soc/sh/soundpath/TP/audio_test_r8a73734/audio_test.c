@@ -941,7 +941,7 @@ static int audio_test_proc_set_call_mode(u_int call_kind, u_int vqa_val,
 	cmd.arg = &info;
 	ret = vcd_execute_test_call(&cmd);
 	if (0 != ret) {
-		audio_test_log_err("vcd_execute_test_call VCD_COMMAND_WATCH_FW err [%d] ");
+		audio_test_log_err("vcd_execute_test_call VCD_COMMAND_WATCH_FW err [%d]", ret);
 		goto error;
 	}
 
@@ -1185,7 +1185,6 @@ error:
 static int audio_test_playback_setup(void)
 {
 	int ret = 0;
-	int res = 0;
 
 	audio_test_log_efunc("");
 
@@ -1199,7 +1198,6 @@ static int audio_test_playback_setup(void)
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
-runtime_error:
 	(void)fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 error:
 	audio_test_log_rfunc("ret[%d]", ret);
@@ -1256,8 +1254,6 @@ static void audio_test_loopback_remove(void)
 */
 static void audio_test_playback_remove(void)
 {
-	int res = 0;
-
 	audio_test_log_efunc("");
 
 	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
