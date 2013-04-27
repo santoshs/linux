@@ -59,7 +59,12 @@ enum {
 
 #define RTDS_MEM_ALLOC_FROM_HIGHMEM
 
+#ifdef CONFIG_ARM_SEC_HAL
+#define SUPPORT_MEDIA_ATTR		(1)
+#else
 #define SUPPORT_MEDIA_ATTR		(0)
+#endif
+
 #define RTDS_MEM_ATTR_PUBLIC	0x00000000
 #define RTDS_MEM_ATTR_MEDIA		0x00000001
 

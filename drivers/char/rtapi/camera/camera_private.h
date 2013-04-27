@@ -1,6 +1,6 @@
 /*
- * rtds_memory_drv_cma.h
- *	 RT CMA driver function file.
+ * camera_private.h
+ *  camera private header file
  *
  * Copyright (C) 2013 Renesas Electronics Corporation
  *
@@ -18,20 +18,12 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef __RTDS_MEMORY_DRV_CMA_H__
-#define __RTDS_MEMORY_DRV_CMA_H__
+#ifndef __CAMERA_PRIVATE_H__
+#define __CAMERA_PRIVATE_H__
 
-/* The maximum number of retryed to allocate buffer. */
-#define DRM_ALLOC_COUNT		(100)
-
-enum {
-	OMX_MDL_ID = 0,
-	HDMI_MDL_ID,
-	CMA_DEV_CNT
+struct camera_handle {
+	void	*handle;
 };
 
-struct page *rt_cma_drv_alloc(unsigned int size, int id);
-int rt_cma_drv_free(struct page *pages, unsigned int size, int id);
-
-#endif /* __RTDS_MEMORY_DRV_CMA_H__ */
+#endif /* __CAMERA_PRIVATE_H__ */
 
