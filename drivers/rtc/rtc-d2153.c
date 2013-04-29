@@ -325,10 +325,12 @@ static const struct rtc_class_ops d2153_rtc_ops = {
 #ifdef CONFIG_PM
 static int d2153_rtc_suspend(struct device *dev)
 {
+	d2153_set_irq_disable();
 	return 0;
 }
 static int d2153_rtc_resume(struct device *dev)
 {
+	d2153_set_irq_enable();
 #if defined(CONFIG_RTC_ANDROID_ALARM_WORKAROUND)
 	/* This option selects temporary fix for alarm handling in 'Android'
 	 * environment. This option enables code to disable alarm in the

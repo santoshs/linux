@@ -1589,8 +1589,10 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_START);
 		return;
 	}
-	
+
+	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_voltage(pbat,ps);
+	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0)
 	{
 		pr_err("%s. Read voltage ADC failure\n", __func__);
@@ -1625,7 +1627,9 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_temp_work.work);
 	int ret = 0;
 
+	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_temperature(pbat);
+	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0) {
 		pr_err("%s. Failed to read_temperature\n", __func__);
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
@@ -1765,8 +1769,8 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 		return -EINVAL;
 	}
 
-	cancel_delayed_work(&pbat->monitor_temp_work);
-	cancel_delayed_work(&pbat->monitor_volt_work);
+	cancel_delayed_work_sync(&pbat->monitor_temp_work);
+	cancel_delayed_work_sync(&pbat->monitor_volt_work);
 
 	pr_info("%s. Leave\n", __func__);
 	
