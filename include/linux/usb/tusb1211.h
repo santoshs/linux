@@ -51,6 +51,7 @@
 
 #define	OTG_PHYFUNCTR	0x0104
 extern void smb328a_otg_enable_disable(int onoff, int cable);
+extern void smb358a_otg_enable_disable(int en);
 
 #ifdef CONFIG_USB_OTG
 int set_otg_mode(int is_host);

@@ -1355,11 +1355,11 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("tsu6712_reg_init is called\n");
 
-	ret = tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5c);
+	ret = tsu6712_write_reg(client, TSU6712_REG_INT1_MASK, 0x5c);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	ret  = tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0x18);
+	ret  = tsu6712_write_reg(client, TSU6712_REG_INT2_MASK, 0x98);
 	if (ret < 0)
                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 

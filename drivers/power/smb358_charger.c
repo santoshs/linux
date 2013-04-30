@@ -64,54 +64,54 @@ static struct sec_charger_info *smb_charger = NULL;
 
 static int smb358_write_reg(struct i2c_client *client, u8 reg, u8 data)
 {
-       int ret;
-       u8 buf[2];
-       struct i2c_msg msg[1];
+	int ret;
+	u8 buf[2];
+	struct i2c_msg msg[1];
 
-       buf[0] = reg;
-       buf[1] = data;
+	buf[0] = reg;
+	buf[1] = data;
 
-       msg[0].addr = client->addr;
-       msg[0].flags = 0;
-       msg[0].len = 2;
-       msg[0].buf = buf;
+	msg[0].addr = client->addr;
+	msg[0].flags = 0;
+	msg[0].len = 2;
+	msg[0].buf = buf;
 
-       ret = i2c_transfer(client->adapter, msg, 1);
-       if (ret != 1) {
-               printk("\n [smb358] i2c Write Failed (ret=%d) \n", ret);
-               return -1;
-       }
-		pr_info("%s:reg[0x%x]= 0x%x\n", __func__, reg, data);
-       return ret;
+	ret = i2c_transfer(client->adapter, msg, 1);
+	if (ret != 1) {
+		pr_err("\n [smb358] i2c Write Failed (ret=%d)\n", ret);
+		return -1;
+	}
+	pr_info("%s:reg[0x%x]= 0x%x\n", __func__, reg, data);
+	return ret;
 }
 static int smb358_read_reg(struct i2c_client *client, u8 reg, u8 *data)
 {
-       int ret;
-       u8 buf[1];
-       struct i2c_msg msg[2];
+	int ret;
+	u8 buf[1];
+	struct i2c_msg msg[2];
 
-       buf[0] = reg;
+	buf[0] = reg;
 
-        msg[0].addr = client->addr;
-        msg[0].flags = 0;
-        msg[0].len = 1;
-        msg[0].buf = buf;
+	msg[0].addr = client->addr;
+	msg[0].flags = 0;
+	msg[0].len = 1;
+	msg[0].buf = buf;
 
-        msg[1].addr = client->addr;
-        msg[1].flags = I2C_M_RD;
-        msg[1].len = 1;
-        msg[1].buf = buf;
+	msg[1].addr = client->addr;
+	msg[1].flags = I2C_M_RD;
+	msg[1].len = 1;
+	msg[1].buf = buf;
 
-       ret = i2c_transfer(client->adapter, msg, 2);
-       if (ret != 2) {
-               printk("\n [smb358] i2c Read Failed (ret=%d) \n", ret);
-               return -1;
-       }
-       *data = buf[0];
+	ret = i2c_transfer(client->adapter, msg, 2);
+	if (ret != 2) {
+		pr_err("\n [smb358] i2c Read Failed (ret=%d)\n", ret);
+		return -1;
+	}
+	*data = buf[0];
 
-	   pr_info("%s:reg[0x%x]= 0x%x\n", __func__, reg, *data);
+	pr_info("%s:reg[0x%x]= 0x%x\n", __func__, reg, *data);
 
-       return 0;
+	return 0;
 }
 
 void smb358_stop_chg(void)
@@ -419,6 +419,104 @@ static int smb358_get_charger_type (void)
 		return POWER_SUPPLY_TYPE_BATTERY;
 	}
 }
+
+static int smb358a_enable_otg(struct i2c_client *client)
+{
+	u8 val = 0;
+	u8 data = 0;
+	int ret = 0;
+
+	pr_info("%s:\n", __func__);
+
+	/* Allow Volatile writes */
+	ret = smb358_read_reg(client, SMB358_COMMAND_A, &val);
+	if (ret >= 0) {
+		data = (u8)val;
+
+		pr_info("%s : reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+		data |= ALLOW_VOLATILE_WRITE;
+		if (smb358_write_reg(client, SMB358_COMMAND_A, data) < 0) {
+			pr_err("%s : error!\n", __func__);
+			return -1;
+		}
+		msleep(20);
+
+		smb358_read_reg(client, SMB358_COMMAND_A, &data);
+		pr_info("%s : => reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+
+	}
+
+	/* Disable Charger */
+	smb358_set_charge(0);
+
+	/* Enable OTG Mode */
+	ret = smb358_read_reg(client, SMB358_COMMAND_A, &val);
+	if (ret >= 0) {
+		data = (u8)val;
+		pr_info("%s : reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+		data |= OTG_EN;
+		if (smb358_write_reg(client, SMB358_COMMAND_A, data) < 0) {
+			pr_err("%s : error!\n", __func__);
+			return -1;
+		}
+		msleep(20);
+
+		smb358_read_reg(client, SMB358_COMMAND_A, &data);
+		pr_info("%s : => reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+	}
+
+	return 0;
+}
+
+
+static int smb358a_disable_otg(struct i2c_client *client)
+{
+	u8 val = 0;
+	u8 data = 0;
+	int ret = 0;
+
+	pr_info("%s :\n", __func__);
+
+	/*Disable OTG Mode */
+	ret = smb358_read_reg(client, SMB358_COMMAND_A, &val);
+	if (ret >= 0) {
+		data = (u8)val;
+		pr_info("%s : reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+		data &= ~OTG_EN;
+		if (smb358_write_reg(client, SMB358_COMMAND_A, data) < 0) {
+			pr_err("%s : error!\n", __func__);
+			return -1;
+		}
+		msleep(20);
+		smb358_read_reg(client, SMB358_COMMAND_A, &data);
+		pr_info("%s : => reg (0x%x) = 0x%x\n",
+			__func__, SMB358_COMMAND_A, data);
+	}
+	/* Enable Charger */
+	smb358_set_charge(1);
+	return 0;
+}
+
+void smb358a_otg_enable_disable(int en)
+{
+	struct i2c_client *client;
+	pr_info("%s\n", __func__);
+	client = global_client;
+	if (!client)
+		return;
+
+	if (en)
+		smb358a_enable_otg(client);
+	else
+		smb358a_disable_otg(client);
+
+}
+EXPORT_SYMBOL(smb358a_otg_enable_disable);
 
 static bool smb358_check_vdcin(struct i2c_client *client)
 {
