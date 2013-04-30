@@ -273,6 +273,7 @@ rtn:
 int vcd_ctrl_stop_vcd(void)
 {
 	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+	unsigned int init_feature = VCD_CTRL_FUNC_FEATURE_NONE;
 
 	vcd_pr_start_control_function();
 
@@ -320,7 +321,12 @@ int vcd_ctrl_stop_vcd(void)
 #endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+	init_feature = ~(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND);
+
+	vcd_ctrl_func_unset_active_feature(init_feature);
 
 rtn:
 	/* semaphore end */
@@ -1792,6 +1798,8 @@ void vcd_ctrl_calc_trigger_stop(void)
  */
 static int vcd_ctrl_error_stop_vcd(void)
 {
+	unsigned int init_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
 	vcd_pr_start_control_function();
 
 	/* execute spuv function */
@@ -1809,7 +1817,12 @@ static int vcd_ctrl_error_stop_vcd(void)
 #endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+	init_feature = ~(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND);
+
+	vcd_ctrl_func_unset_active_feature(init_feature);
 
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);
