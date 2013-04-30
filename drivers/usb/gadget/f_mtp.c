@@ -645,7 +645,7 @@ static void send_file_work(struct work_struct *data)
 	loff_t offset;
 	int64_t count;
 	int xfer, ret, hdr_size;
-	int r = 0;
+	int r = 0, status = 0;
 	int sendZLP = 0;
 
 	/* read our parameters */
@@ -655,6 +655,15 @@ static void send_file_work(struct work_struct *data)
 	count = dev->xfer_file_length;
 
 	DBG(cdev, "send_file_work(%lld %lld)\n", offset, count);
+
+	status = stop_cpufreq();
+	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
+	if (status) {
+		dfs_started = 1;
+		ERROR(cdev, "%s(): error<%d>! stop_cpufreq\n",
+			__func__, status);
+	} else
+		dfs_started = 0;
 
 	if (dev->xfer_send_header) {
 		hdr_size = sizeof(struct mtp_data_header);
@@ -731,6 +740,12 @@ static void send_file_work(struct work_struct *data)
 	if (req)
 		mtp_req_put(dev, &dev->tx_idle, req);
 
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
+	}
+
 	DBG(cdev, "send_file_work returning %d\n", r);
 	/* write the result */
 	dev->xfer_result = r;
@@ -748,7 +763,7 @@ static void receive_file_work(struct work_struct *data)
 	loff_t offset;
 	int64_t count;
 	int ret, cur_buf = 0;
-	int r = 0;
+	int r = 0, status = 0;
 
 	/* read our parameters */
 	smp_rmb();
@@ -757,6 +772,15 @@ static void receive_file_work(struct work_struct *data)
 	count = dev->xfer_file_length;
 
 	DBG(cdev, "receive_file_work(%lld)\n", count);
+
+	status = stop_cpufreq();
+	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
+	if (status) {
+		dfs_started = 1;
+		ERROR(cdev, "%s(): error<%d>! stop_cpufreq\n",
+			__func__, status);
+	} else
+		dfs_started = 0;
 
 	while (count > 0 || write_req) {
 		if (count > 0) {
@@ -817,6 +841,12 @@ static void receive_file_work(struct work_struct *data)
 			write_req = read_req;
 			read_req = NULL;
 		}
+	}
+
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
 	}
 
 	DBG(cdev, "receive_file_work returning %d\n", r);
@@ -961,7 +991,6 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
-	int ret = 0;
 	printk(KERN_INFO "mtp_open\n");
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
@@ -971,15 +1000,6 @@ static int mtp_open(struct inode *ip, struct file *fp)
 		_mtp_dev->state = STATE_READY;
 
 	fp->private_data = _mtp_dev;
-	ret = stop_cpufreq();
-	DBG(_mtp_dev->cdev, "%s(): stop_cpufreq\n", __func__);
-	if (ret) {
-		dfs_started = 1;
-		ERROR(_mtp_dev->cdev, "%s(): error<%d>! stop_cpufreq\n",
-			__func__, ret);
-	} else
-		dfs_started = 0;
-
 	return 0;
 }
 
@@ -988,12 +1008,6 @@ static int mtp_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "mtp_release\n");
 
 	mtp_unlock(&_mtp_dev->open_excl);
-
-	if (!dfs_started) {
-		start_cpufreq();
-		DBG(_mtp_dev->cdev, "%s(): start_cpufreq\n", __func__);
-		dfs_started = 1;
-	}
 
 	return 0;
 }
