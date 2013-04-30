@@ -1463,7 +1463,6 @@ static int spa_init_progress(struct spa_power_desc *spa_power_iter)
 
 static void spa_delayed_init_work(struct work_struct *work)
 {
-	int ret=0;
 	unsigned int init_progress;
 	struct spa_power_desc *spa_power_iter = container_of(work,
 						struct spa_power_desc, delayed_init_work.work);
@@ -1483,31 +1482,21 @@ static void spa_delayed_init_work(struct work_struct *work)
 
 	if (SPA_INIT_PROGRESS_START == init_progress) {
 		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n", __func__);
-		if (spa_power_iter == NULL)
-			pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
 
-		ret = spa_get_charger_type(spa_power_iter);
-		if (ret > 0) {
-			spa_power_iter->charger_info.charger_type = ret;
-			if (spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-				ret = spa_event_handler(SPA_EVT_CHARGER,
-										(void *)(spa_power_iter->charger_info.charger_type));
-		}
 		/* dummy, temporary before actual charger detection in case of power off charging */
 		if (spa_power_iter->lp_charging == 1) {
 			spa_power_iter->charger_info.charger_type = 1;
 		}
 
 #if defined(CONFIG_SEC_BATT_EXT_ATTRS)
-	{
-		int i = 0;
-		for (i = 0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++) {
-			device_create_file(ps->dev, &ss_batt_ext_attrs[i]);
+		{
+			int i = 0;
+			for (i = 0; i < ARRAY_SIZE(ss_batt_ext_attrs) ; i++)
+				device_create_file(ps->dev, &ss_batt_ext_attrs[i]);
 		}
-	}
 #endif
-	 schedule_delayed_work(&spa_power_iter->battery_work,
-			msecs_to_jiffies(0));
+		schedule_delayed_work(&spa_power_iter->battery_work,
+							msecs_to_jiffies(0));
 		schedule_delayed_work(&spa_power_iter->delayed_init_work,
 				msecs_to_jiffies((unsigned int)(SPA_INIT_PROGRESS_DURATION / SPA_INIT_PROGRESS_START)));
 	} else if (SPA_INIT_PROGRESS_DONE == init_progress) {
