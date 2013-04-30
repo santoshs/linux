@@ -639,15 +639,15 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
+		ret = VCD_ERR_BUSY;
+	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_record(option);
 		if (VCD_ERR_NONE != ret) {
 			vcd_pr_err("start record error[%d].\n", ret);
 			goto rtn;
 		}
-	} else {
-		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -681,17 +681,11 @@ int vcd_ctrl_stop_record(void)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
-		/* execute spuv function */
-		ret = vcd_spuv_stop_record();
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("stop record error[%d].\n", ret);
-			/* update result */
-			ret = VCD_ERR_NONE;
-		}
-	} else {
-		/* clear record mode */
-		g_vcd_ctrl_record_mode = 0;
+	/* execute spuv function */
+	ret = vcd_spuv_stop_record();
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("stop record error[%d].\n", ret);
+		/* update result */
 		ret = VCD_ERR_NONE;
 	}
 
@@ -764,15 +758,15 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 	/* stop stored timer */
 	vcd_ctrl_stop_stored_playback_timer();
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
+		ret = VCD_ERR_BUSY;
+	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_playback(option, g_vcd_ctrl_call_kind);
 		if (VCD_ERR_NONE != ret) {
 			vcd_pr_err("start playback error[%d].\n", ret);
 			goto rtn;
 		}
-	} else {
-		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -813,17 +807,11 @@ int vcd_ctrl_stop_playback(void)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
-		/* execute spuv function */
-		ret = vcd_spuv_stop_playback();
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("stop playback error[%d].\n", ret);
-			/* update result */
-			ret = VCD_ERR_NONE;
-		}
-	} else {
-		/* clear playback mode */
-		g_vcd_ctrl_playback_mode = 0;
+	/* execute spuv function */
+	ret = vcd_spuv_stop_playback();
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("stop playback error[%d].\n", ret);
+		/* update result */
 		ret = VCD_ERR_NONE;
 	}
 
