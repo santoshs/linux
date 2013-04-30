@@ -22,6 +22,9 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
+#if defined(CONFIG_MACH_GARDALTE)
+#include <mach/board-gardalte.h>
+#endif
 #include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -597,7 +600,7 @@ void __init USBGpio_init(void)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
 #if defined(CONFIG_MACH_GARDALTE)
-	if (u2_get_board_rev() >= 2 && u2_get_board_rev() != 6) {
+	if (u2_get_board_rev() >= RLTE_BOARD_REV_0_2) {
 				ret = gpio_request(GPIO_PORT131, NULL);
 		if (ret < 0)
 			error_log("PORT131 failed!USB may not function\n");

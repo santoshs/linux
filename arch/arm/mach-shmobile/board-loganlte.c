@@ -151,6 +151,8 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
+	unsigned int u2_board_rev = 0;
+	u2_board_rev = u2_get_board_rev();
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
@@ -413,7 +415,7 @@ static void __init loganlte_init(void)
 	void __iomem *sbsc_sdmra_38200 = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-
+	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 	u8 j = 0;
 
@@ -445,7 +447,9 @@ static void __init loganlte_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = read_board_rev();
+	if (read_board_rev() < 0)
+		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
+	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
@@ -660,7 +664,8 @@ static void __init loganlte_init(void)
 #if defined(CONFIG_MACH_LOGANLTE)
 	/* Logan 0.1 and 0.2 uses SMB327B
 	 * Its slave address is different than SMB328 */
-	if ((u2_get_board_rev() == 1) || (u2_get_board_rev() == 2)) {
+	if ((u2_get_board_rev() == RLTE_BOARD_REV_0_1) ||
+				(u2_get_board_rev() == RLTE_BOARD_REV_0_2)) {
 		for (j = 0;
 			j < sizeof(i2c3_devices)/sizeof(struct i2c_board_info);
 			j++) {
@@ -683,7 +688,7 @@ static void __init loganlte_init(void)
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 				ARRAY_SIZE(i2c4_devices_tsp_detector));
 	platform_device_register(&key_backlight_device);
-	if (u2_board_rev < 1)
+	if (u2_board_rev < RLTE_BOARD_REV_0_1)
 		i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
 
