@@ -600,19 +600,16 @@ void __init USBGpio_init(void)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
 #if defined(CONFIG_MACH_GARDALTE)
-	if (u2_get_board_rev() >= RLTE_BOARD_REV_0_2) {
-				ret = gpio_request(GPIO_PORT131, NULL);
-		if (ret < 0)
-			error_log("PORT131 failed!USB may not function\n");
-
-		ret = gpio_direction_output(GPIO_PORT131, 0);
-		if (ret < 0)
-			error_log("PORT131 direction output(0) failed!\n");
-		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-		ret = gpio_direction_output(GPIO_PORT131, 1);
-		if (ret < 0)
-			error_log("PORT131 direction output(1) failed!\n");
-	}
+	ret = gpio_request(GPIO_PORT131, NULL);
+	if (ret < 0)
+		error_log("PORT131 failed!USB may not function\n");
+	ret = gpio_direction_output(GPIO_PORT131, 0);
+	if (ret < 0)
+		error_log("PORT131 direction output(0) failed!\n");
+	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
+	ret = gpio_direction_output(GPIO_PORT131, 1);
+	if (ret < 0)
+		error_log("PORT131 direction output(1) failed!\n");
 #endif
 
 #if defined(CONFIG_MACH_LOGANLTE)
