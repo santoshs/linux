@@ -1078,6 +1078,7 @@ static int clk_get_cmd(char *para, int size)
 
 	FUNC_MSG_IN;
 
+	memset(&curr_rates, 0, sizeof(struct clk_rate));
 	para = strim(para);
 
 	ret = get_word(para, size, 0, item, &para_sz);
@@ -1122,8 +1123,6 @@ static int clk_get_cmd(char *para, int size)
 			__div(curr_rates.zb_clk));
 		s += sprintf(s, "ZB3_CLK: 1:%d\n",
 			__div(curr_rates.zb3_clk));
-		if (shmobile_chip_rev() >= ES_REV_2_0)
-			s += sprintf(s, "PLL0: %d\n", curr_rates.pll0);
 
 		goto end;
 	}
