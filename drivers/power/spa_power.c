@@ -530,24 +530,25 @@ static int spa_set_charge(struct spa_power_desc *spa_power_iter, unsigned int ac
 		queue_delayed_work(spa_power_iter->spa_workqueue, &spa_power_iter->fast_charging_work, msecs_to_jiffies(1200));
 
 
-		pr_spa_dbg(LEVEL2, "%s : Charging!! current=%d, eoc_cur=%d\n", __func__,
+		pr_spa_dbg(LEVEL1, "%s : Charging!! current=%d, eoc_cur=%d\n",
+				__func__,
 				spa_power_iter->charger_info.charging_current,
 				spa_power_iter->charger_info.eoc_current);
 	} else if (act == 0) /* discharging */
 	{
 		/* 1. stop charging */
 		spa_power_iter->charger_info.charging_current=0;
+		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
 		value.intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
-		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
-		pr_spa_dbg(LEVEL2, "%s : Discharging!! ", __func__);
+		pr_spa_dbg(LEVEL1, "%s : Discharging!! ", __func__);
 	} else {
 		/* 1. stop charging */
 		spa_power_iter->charger_info.charging_current=0;
+		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
 		value.intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 		ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
-		cancel_delayed_work_sync(&spa_power_iter->fast_charging_work);
-		pr_spa_dbg(LEVEL2, "%s : Not charging!! ", __func__);
+		pr_spa_dbg(LEVEL1, "%s : Not charging!! ", __func__);
 	}
 
 	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
@@ -929,7 +930,8 @@ static int spa_start_charge_timer(charge_timer_t duration, void *data)
 	struct spa_power_desc *spa_power_iter = (struct spa_power_desc *)data;
 	unsigned char is_start_timer = 1;
 
-	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
+	pr_spa_dbg(LEVEL1, "%s : enter. Duration: %d, is_start_timer = %d\n",
+					__func__, duration, is_start_timer);
 
 	switch(duration)
 	{
@@ -965,7 +967,7 @@ static void spa_stop_charge_timer(SPA_CHARGING_STATUS_T endtype, void *data)
 {
 	struct spa_power_desc *spa_power_iter = (struct spa_power_desc *)data;
 
-	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
+	pr_spa_dbg(LEVEL1, "%s : enter\n", __func__);
 
 	cancel_delayed_work_sync(&spa_power_iter->spa_expire_charge_work);
 
@@ -980,7 +982,7 @@ static void spa_expire_charge_timer(struct work_struct *work)
 
 	volatile unsigned int times_expired=0;
 
-	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
+	pr_spa_dbg(LEVEL1, "%s : enter\n", __func__);
 
 	spa_power_iter->charger_info.times_expired++;
 	times_expired = spa_power_iter->charger_info.times_expired % 2;
@@ -996,7 +998,8 @@ static void spa_expire_charge_timer(struct work_struct *work)
 	}
 	schedule_delayed_work(&spa_power_iter->spa_expire_charge_work,
 			msecs_to_jiffies(spa_power_iter->charger_info.charge_expire_time));
-	pr_spa_dbg(LEVEL4, "%s : leave\n", __func__);
+	pr_spa_dbg(LEVEL1, "%s : leave. charge_expire_time = %d\n", __func__,
+			spa_power_iter->charger_info.charge_expire_time);
 }
 
 #if defined(SPA_FAKE_FULL_CAPACITY)
