@@ -354,7 +354,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 			.port_fn        = GPIO_FN_VIO_CKO3,
 			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_OUTPUT,
-			.output_level   = PORTn_OUTPUT_LEVEL_HIGH,
+			.output_level   = PORTn_OUTPUT_LEVEL_LOW,
 		},
 		.inactive = {
 			.port_fn        = GPIO_PORT217,
