@@ -1539,22 +1539,31 @@ void SBSC_Init_520Mhz(void)
 }
 EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
 
-unsigned int u2_board_rev;
+static unsigned int board_rev_val;
 
 unsigned int u2_get_board_rev(void)
 {
-	return u2_board_rev;
+	return board_rev_val;
 }
 EXPORT_SYMBOL_GPL(u2_get_board_rev);
 
-unsigned int read_board_rev(void)
+int read_board_rev(void)
 {
 	unsigned int rev0, rev1, rev2, rev3, ret;
 
-	gpio_request(GPIO_PORT72, "HW_REV0");
-	gpio_request(GPIO_PORT73, "HW_REV1");
-	gpio_request(GPIO_PORT74, "HW_REV2");
-	gpio_request(GPIO_PORT75, "HW_REV3");
+	int error;
+	error = gpio_request(GPIO_PORT72, "HW_REV0");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT73, "HW_REV1");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT74, "HW_REV2");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT75, "HW_REV3");
+	if (error < 0)
+		return error;
 
 	gpio_direction_input(GPIO_PORT72);
 	gpio_direction_input(GPIO_PORT73);
@@ -1572,7 +1581,8 @@ unsigned int read_board_rev(void)
 	gpio_free(GPIO_PORT75);
 
 	ret =  rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0;
-	return ret;
+	board_rev_val = ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(read_board_rev);
 

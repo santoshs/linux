@@ -185,6 +185,8 @@ int renesas_wlan_init(void);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
+	unsigned int u2_board_rev = 0;
+	u2_board_rev = u2_get_board_rev();
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
@@ -382,7 +384,7 @@ static void __init gardalte_init(void)
 
 	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-
+	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 	u8 i = 0;
 
@@ -414,7 +416,9 @@ static void __init gardalte_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = read_board_rev();
+	if (read_board_rev() < 0)
+		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
+	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
@@ -448,10 +452,10 @@ static void __init gardalte_init(void)
 	gpio_request(GPIO_FN_SCIFB0_RXD, NULL);
 	gpio_request(GPIO_FN_SCIFB0_CTS_, NULL);
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
-	if (u2_get_board_rev() == 1) {
+	if (u2_get_board_rev() == RLTE_BOARD_REV_0_1) {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev1); inx++)
 			unused_gpio_port_init(unused_gpios_garda_rev1[inx]);
-	} else if (u2_get_board_rev() == 2) {
+	} else if (u2_get_board_rev() == RLTE_BOARD_REV_0_2) {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_garda_rev2[inx]);
 	}
@@ -634,7 +638,6 @@ static void __init gardalte_init(void)
 #if defined(CONFIG_BOARD_VERSION_GARDA)
 	/* Garda 0.2 and 0.3 uses SMB327B.
 	 * Its slave address is different than SMB328 */
-	if ((u2_get_board_rev() == 2) || (u2_get_board_rev() == 3)) {
 		for (i = 0;
 			i < (sizeof(i2c3_devices)/sizeof(struct i2c_board_info));
 			i++) {
@@ -643,7 +646,6 @@ static void __init gardalte_init(void)
 				break;
 			}
 		}
-	}
 #endif
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
@@ -657,7 +659,7 @@ static void __init gardalte_init(void)
 					ARRAY_SIZE(i2c4_devices_imagis));
 #endif
 
-	if (u2_board_rev > 1) {
+	if (u2_board_rev > RLTE_BOARD_REV_0_1) {
 		/* fm34 */
 		i2c_register_board_info(8, &i2cm_devices_d2153[1], 1);
 	} else {

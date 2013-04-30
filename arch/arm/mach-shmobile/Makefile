@@ -96,7 +96,7 @@ obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 # touchkey
 obj-y += setup-u2touchkey.o dev-touchpanel.o
 # touchscreen
-obj-y += setup-u2mxt224.o
+obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
 # vibrator
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 # charging
