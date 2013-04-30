@@ -12,7 +12,7 @@
 void mmcif_set_pwr(struct platform_device *, int);
 void mmcif_down_pwr(struct platform_device *);
 
-unsigned int read_board_rev(void);
+int read_board_rev(void);
 void SBSC_Init_520Mhz(void);
 
 /* Pin Function Controller:
@@ -337,7 +337,6 @@ enum {
 };
 
 extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
-extern unsigned int u2_board_rev;
 extern void __iomem *sbsc_sdmracr1a;
 
 /*

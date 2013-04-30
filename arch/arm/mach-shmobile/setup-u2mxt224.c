@@ -31,8 +31,8 @@
 
 static void mxt224_set_power(int on)
 {
-	if (u2_get_board_rev() <= 4) {
-//	pmic_set_power_on(E_POWER_VANA_MM);
+	if (u2_get_board_rev() <= RLTE_BOARD_REV_0_4) {
+		/*	pmic_set_power_on(E_POWER_VANA_MM);*/
 		if(on)
 		{
 			gpio_set_value(GPIO_PORT29, 1);
@@ -43,7 +43,7 @@ static void mxt224_set_power(int on)
 			gpio_set_value(GPIO_PORT29, 0 );
 			gpio_set_value(GPIO_PORT30, 0 );		
 		}
-	} else if (u2_get_board_rev() >= 5) {
+	} else if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
 		if (!mxt224_regulator)
 			mxt224_regulator = regulator_get(NULL, "vdd_touch");
 
