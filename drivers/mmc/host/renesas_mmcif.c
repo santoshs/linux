@@ -171,6 +171,9 @@
 #define CLKDEV_MMC_DATA		20000000 /* 20MHz */
 #define CLKDEV_INIT		400000   /* 400 KHz */
 
+#define EMMC_CLK_CMD_DELAY 362
+unsigned int wakeup_from_suspend_emmc;
+
 enum mmcif_state {
 	STATE_IDLE,
 	STATE_REQUEST,
@@ -928,6 +931,11 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	clk_enable(host->hclk);
 
+	if (wakeup_from_suspend_emmc == 1) {
+		udelay(EMMC_CLK_CMD_DELAY);
+		wakeup_from_suspend_emmc = 0;
+	}
+
 	host->data = mrq->data;
 	if (mrq->data) {
 		pdata = host->pd->dev.platform_data;
@@ -1141,6 +1149,8 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	host->addr	= reg;
 	host->timeout	= msecs_to_jiffies(10000);
 
+	wakeup_from_suspend_emmc = 0;
+
 	snprintf(clk_name, sizeof(clk_name), "mmc%d", pdev->id);
 	host->hclk = clk_get(&pdev->dev, clk_name);
 	if (IS_ERR(host->hclk)) {
@@ -1288,6 +1298,7 @@ static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
+	wakeup_from_suspend_emmc = 1;
 	shmmcif_log("%s: In\n", __func__);
 	return mmc_resume_host(host->mmc);
 }
