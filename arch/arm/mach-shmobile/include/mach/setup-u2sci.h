@@ -25,7 +25,10 @@ static struct portn_gpio_setting_info scif0_gpio_setting_info[] = {
 			.port_fn	= GPIO_FN_SCIFA0_TXD,
 			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_HIGH,
+			/* PCP# VR13042588231. Set output level to low
+			to retain initial Data Register value.
+			This will maintain the current after deep sleep */
+			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
 		},
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
