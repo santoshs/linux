@@ -256,7 +256,7 @@ unsigned long sec_hal_virt_to_icram_phys(unsigned long vaddr)
 #ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
 	paddr = virt_to_phys((void *)vaddr);
 #else
-	paddr = vaddr - g_smc0.offset;
+	paddr = vaddr + g_smc0.offset;
 #endif
 	return paddr;
 }
@@ -273,7 +273,7 @@ unsigned long sec_hal_icram_phys_to_virt(unsigned long paddr)
 #ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
 	vaddr = (unsigned long) phys_to_virt((phys_addr_t) paddr);
 #else
-	vaddr = paddr + g_smc0.offset;
+	vaddr = paddr - g_smc0.offset;
 #endif
 	return vaddr;
 }
@@ -297,13 +297,12 @@ int sec_hal_icram0_init(void)
 #ifdef CONFIG_ARM_SEC_HAL_TEST_DISPATCHER
 	g_smc0.virt_baseptr = kmalloc(UL(ICRAM1_SIZE), GFP_KERNEL);
 #else
-	g_smc0.virt_baseptr =
-		ioremap_nocache(UL(ICRAM1_ADDRESS), UL(ICRAM1_SIZE));
+	g_smc0.virt_baseptr = ioremap_nocache(UL(ICRAM1_ADDRESS),
+		UL(ICRAM1_SIZE));
 #endif /* CONFIG_ARM_SEC_HAL_TEST_DISPATCHER */
 	g_smc0.phys_start = UL(ICRAM1_ADDRESS);
 	g_smc0.phys_size = UL(ICRAM1_SIZE);
-	g_smc0.offset =
-		(unsigned long)(g_smc0.virt_baseptr - g_smc0.phys_start);
+	g_smc0.offset = g_smc0.phys_start - (unsigned long)g_smc0.virt_baseptr;
 
 	if (g_smc0.virt_baseptr == NULL) {
 		ret = -EINVAL;

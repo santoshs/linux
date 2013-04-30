@@ -173,6 +173,12 @@ static uint32_t g_banked_timeout;
 /* **********************************************************************
  * USR space access
  * *********************************************************************/
+/* **********************************************************************
+ * Function name : sec_hal_usr_open
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static int sec_hal_usr_open(struct inode *inode, struct file *filp)
 {
 	struct device_data *device;
@@ -180,22 +186,19 @@ static int sec_hal_usr_open(struct inode *inode, struct file *filp)
 
 	SEC_HAL_TRACE_ENTRY();
 
-	device = container_of(inode->i_cdev, struct device_data, cdev);
-	if (!device)
-		return -ENODEV;
-
 	if (nonseekable_open(inode, filp))
 		return -ENODEV;
 
+	device = container_of(inode->i_cdev, struct device_data, cdev);
 	client = kmalloc(sizeof(struct client_data), GFP_KERNEL);
 	if (!client)
-		return -ENODEV;
+		return -ENOMEM;
 
 	client->device = device;
 	client->drm_data = NULL;
 	client->tee_data = NULL;
 
-    /* Can not be removed until tee_data is fully in use */
+	/* Can not be removed until tee_data is fully in use */
 	client->teec_context = NULL;
 	client->next_teec_shmem = NULL;
 	client->next_teec_shmem_buffer = NULL;
@@ -208,6 +211,12 @@ static int sec_hal_usr_open(struct inode *inode, struct file *filp)
 }
 
 
+/* **********************************************************************
+ * Function name : sec_hal_usr_release
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static int sec_hal_usr_release(struct inode *inode, struct file *filp)
 {
 	struct client_data *client = filp->private_data;
@@ -230,8 +239,16 @@ static int sec_hal_usr_release(struct inode *inode, struct file *filp)
 }
 
 
-static long sec_hal_usr_ioctl(struct file *filp, unsigned int cmd,
-		unsigned long arg)
+/* **********************************************************************
+ * Function name : sec_hal_usr_ioctl
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
+static long sec_hal_usr_ioctl(
+	struct file *filp,
+	unsigned int cmd,
+	unsigned long arg)
 {
 	long ret = (long) -EPERM;
 	struct client_data *client = filp->private_data;
@@ -298,164 +315,123 @@ static long sec_hal_usr_ioctl(struct file *filp, unsigned int cmd,
 		ret = sec_hal_cnf_ioctl(cmd, NULL, &input, device->pdev);
 		break;
 #ifdef CONFIG_ARM_SEC_HAL_TEE
-	case SD_TEE_INIT_CONTEXT:
-		{
-			uint32_t* name = (uint32_t *)input.param0;
-			uint32_t* context = (uint32_t *)input.param1;
+	case SD_TEE_INIT_CONTEXT: {
+		uint32_t* name = (uint32_t *)input.param0;
+		uint32_t* context = (uint32_t *)input.param1;
 
-            if(client->teec_context !=NULL)
-                {
-                SEC_HAL_TRACE("Context already open");
-                ret = TEEC_ERROR_GENERIC;
+		if (client->teec_context) {
+			SEC_HAL_TRACE("Context already open");
+			ret = TEEC_ERROR_GENERIC;
+		} else {
+			client->teec_context = kmalloc(sizeof(TEEC_Context), GFP_KERNEL);
+			if (copy_from_user(client->teec_context, context, sizeof(TEEC_Context)))
+				SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
+
+			ret = sec_hal_tee_initialize_context((const char*)name, client->teec_context);
+			if(copy_to_user(context, client->teec_context, sizeof(TEEC_Context)))
+				SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
+
+			SEC_HAL_TRACE("client->teec_context->imp.tag 0x%x",client->teec_context->imp.tag);
+			SEC_HAL_TRACE("client->teec_context->imp.hal_connection 0x%x",client->teec_context->imp.hal_connection);
                 }
-            else
-                {
-                client->teec_context = kmalloc(sizeof(TEEC_Context), GFP_KERNEL);
+	} break;
+	case SD_TEE_FINALIZE_CONTEXT:
+		ret = sec_hal_tee_finalize_context(client->teec_context);
+		client->teec_context = NULL;
+		break;
+	case SD_TEE_OPEN_SESSION: {
+		uint32_t *session = (uint32_t *)input.param1;
+		uint32_t *destination = (uint32_t *)input.param2;
+		uint32_t connectionMethod = (uint32_t)input.param3;
+		uint32_t *connectionData = (uint32_t *)input.param4;
+		uint32_t *operation = (uint32_t *)input.param5;
+		uint32_t *returnOrigin = (uint32_t *)input.reserved1;
+		TEEC_Session *kernel_session;
 
+		kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
+		if (copy_from_user(kernel_session,session,sizeof(TEEC_Session)))
+			SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
 
-                if(copy_from_user(client->teec_context,context,sizeof(TEEC_Context)))
-                    {
-                    SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
-                    }
+		ret = sec_hal_tee_open_session(client->teec_context,
+			kernel_session,
+			(const TEEC_UUID *)destination,
+			connectionMethod,
+			(const void *)connectionData,
+			(TEEC_Operation *)operation,
+			returnOrigin);
 
+		SEC_HAL_TRACE("client->teec_context->imp.tag 0x%x",client->teec_context->imp.tag);
+		SEC_HAL_TRACE("client->teec_context->imp.hal_connection 0x%x",client->teec_context->imp.hal_connection);
+		SEC_HAL_TRACE("kernel_session->imp.tag 0x%x",kernel_session->imp.tag);
 
-                ret = sec_hal_tee_initialize_context((const char*)name,client->teec_context);
+		if (copy_to_user(session, kernel_session, sizeof(TEEC_Session)))
+			SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
 
-                if(copy_to_user(context, client->teec_context, sizeof(TEEC_Context) ))
-                    {
-                    SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
-                    }
+		kfree(kernel_session);
+	} break;
+	case SD_TEE_CLOSE_SESSION: {
+		uint32_t *session = (uint32_t *)input.param0;
+		TEEC_Session *kernel_session;
 
-                SEC_HAL_TRACE("client->teec_context->imp.tag 0x%x",client->teec_context->imp.tag);
-                SEC_HAL_TRACE("client->teec_context->imp.hal_connection 0x%x",client->teec_context->imp.hal_connection);
-                }
-		}break;
-		case SD_TEE_FINALIZE_CONTEXT:
-		{
-			ret = sec_hal_tee_finalize_context(client->teec_context);
-            client->teec_context=NULL;
+		kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
+		if (copy_from_user(kernel_session, session, sizeof(TEEC_Session)))
+			SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
 
-		}break;
+		ret = sec_hal_tee_close_session(kernel_session);
+		kfree(kernel_session);
+	} break;
+	case SD_TEE_INVOKE_COMMAND: {
+		uint32_t* session = (uint32_t *)input.param0;
+		uint32_t commandID = (uint32_t)input.param1;
+		uint32_t* operation = (uint32_t *)input.param2;
+		uint32_t* returnOrigin = (uint32_t *)input.param3;
+		TEEC_Session *kernel_session;
 
-		case SD_TEE_OPEN_SESSION:
-		{
-			uint32_t* session = (uint32_t *)input.param1;
-			uint32_t* destination = (uint32_t *)input.param2;
-			uint32_t connectionMethod = (uint32_t)input.param3;
-			uint32_t* connectionData = (uint32_t *)input.param4;
-			uint32_t* operation = (uint32_t *)input.param5;
-			uint32_t* returnOrigin = (uint32_t *)input.reserved1;
-            TEEC_Session *kernel_session;
+		kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
+		if (copy_from_user(kernel_session,session,sizeof(TEEC_Session)))
+			SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
 
+		ret = sec_hal_tee_invoke_command(
+			kernel_session,
+			commandID,
+			(TEEC_Operation *)operation,
+			returnOrigin);
+		kfree(kernel_session);
+	} break;
+	case SD_TEE_PRE_MMAP: {
+		uint32_t* shmem = (uint32_t *)input.param0;
+		uint32_t size_rounded_to_pages;
+		client->next_teec_shmem = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
 
-            kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
+		if (copy_from_user(client->next_teec_shmem,shmem,sizeof(TEEC_SharedMemory)))
+			SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
 
-            if(copy_from_user(kernel_session,session,sizeof(TEEC_Session)))
-                {
-                SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
-                }
+		SEC_HAL_TRACE("client->next_teec_shmem 0x%x", client->next_teec_shmem);
+		SEC_HAL_TRACE("client->next_teec_shmem->size %d", client->next_teec_shmem->size);
+		SEC_HAL_TRACE("client->next_teec_shmem->flags 0x%x", client->next_teec_shmem->flags);
 
+		size_rounded_to_pages = ((client->next_teec_shmem->size / 4096) + 1) * 4096;
+		client->next_teec_shmem_buffer = kmalloc(size_rounded_to_pages, GFP_KERNEL);
+		client->next_teec_shmem->buffer = (void *)virt_to_phys(client->next_teec_shmem_buffer);
 
-		    ret = sec_hal_tee_open_session(client->teec_context,
-                                           kernel_session,
-                                           (const TEEC_UUID*)destination,
-                                           connectionMethod,
-                                           (const void*)connectionData,
-                                           (TEEC_Operation*)operation,
-                                           returnOrigin);
+		SEC_HAL_TRACE("size_rounded_to_pages 0x%x", size_rounded_to_pages);
+		SEC_HAL_TRACE("client->next_teec_shmem->buffer 0x%x", client->next_teec_shmem->buffer);
 
-            SEC_HAL_TRACE("client->teec_context->imp.tag 0x%x",client->teec_context->imp.tag);
-            SEC_HAL_TRACE("client->teec_context->imp.hal_connection 0x%x",client->teec_context->imp.hal_connection);
-            SEC_HAL_TRACE("kernel_session->imp.tag 0x%x",kernel_session->imp.tag);
+		if (TEEC_SUCCESS != sec_hal_tee_register_shared_memory_area(client->teec_context,client->next_teec_shmem)) {
+			SEC_HAL_TRACE("registering shared memory failed\n");
+			kfree(client->next_teec_shmem->buffer);
+		}
 
-            if(copy_to_user(session, kernel_session, sizeof(TEEC_Session)))
-                {
-                SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
-                }
+		if (copy_to_user(shmem, client->next_teec_shmem, sizeof(TEEC_SharedMemory)))
+			SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
 
-            kfree(kernel_session);
-		}break;
-
-		case SD_TEE_CLOSE_SESSION:
-		{
-			uint32_t* session = (uint32_t *)input.param0;
-            TEEC_Session *kernel_session;
-
-            kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
-
-            if(copy_from_user(kernel_session,session,sizeof(TEEC_Session)))
-                {
-                SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
-                }
-
-
-			ret = sec_hal_tee_close_session(kernel_session);
-            kfree(kernel_session);
-		}break;
-
-		case SD_TEE_INVOKE_COMMAND:
-		{
-			uint32_t* session = (uint32_t *)input.param0;
-			uint32_t commandID = (uint32_t)input.param1;
-			uint32_t* operation = (uint32_t *)input.param2;
-			uint32_t* returnOrigin = (uint32_t *)input.param3;
-            TEEC_Session *kernel_session;
-
-            kernel_session = kmalloc(sizeof(TEEC_Session),GFP_KERNEL);
-
-            if(copy_from_user(kernel_session,session,sizeof(TEEC_Session)))
-                {
-                SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
-                }
-
-
-			ret = sec_hal_tee_invoke_command(kernel_session, commandID, (TEEC_Operation*)operation, returnOrigin);
-            kfree(kernel_session);
-		}break;
-
-		case SD_TEE_PRE_MMAP:
-		{
-			uint32_t* shmem = (uint32_t *)input.param0;
-            uint32_t size_rounded_to_pages;
-
-
-            client->next_teec_shmem = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
-
-            if(copy_from_user(client->next_teec_shmem,shmem,sizeof(TEEC_SharedMemory)))
-                {
-                SEC_HAL_TRACE("copy_from_user failed in line: %d", __LINE__);
-                }
-
-
-			SEC_HAL_TRACE("client->next_teec_shmem 0x%x", client->next_teec_shmem);
-			SEC_HAL_TRACE("client->next_teec_shmem->size %d", client->next_teec_shmem->size);
-			SEC_HAL_TRACE("client->next_teec_shmem->flags 0x%x", client->next_teec_shmem->flags);
-
-            size_rounded_to_pages = ((client->next_teec_shmem->size / 4096) + 1) * 4096;
-			SEC_HAL_TRACE("size_rounded_to_pages 0x%x", size_rounded_to_pages);
-
-            client->next_teec_shmem_buffer = kmalloc(size_rounded_to_pages, GFP_KERNEL);
-            client->next_teec_shmem->buffer = (void *)virt_to_phys(client->next_teec_shmem_buffer);
-
-			SEC_HAL_TRACE("client->next_teec_shmem->buffer 0x%x", client->next_teec_shmem->buffer);
-
-            if(TEEC_SUCCESS!=sec_hal_tee_register_shared_memory_area(client->teec_context,client->next_teec_shmem))
-                {
-                SEC_HAL_TRACE("registering shared memory failed\n");
-                kfree(client->next_teec_shmem->buffer);
-                }
-
-            if(copy_to_user(shmem, client->next_teec_shmem, sizeof(TEEC_SharedMemory)))
-                {
-                SEC_HAL_TRACE("copy_to_user failed in line: %d", __LINE__);
-                }
-
-
-			ret = TEEC_SUCCESS;
-		}break;
+		ret = TEEC_SUCCESS;
+	} break;
 #endif /* CONFIG_ARM_SEC_HAL_TEE */
-        default:{SEC_HAL_TRACE("DEFAULT!");}break;
-    }
+        default:
+		SEC_HAL_TRACE("DEFAULT!");
+		break;
+	}
 
 	up(&device->sem);
 
@@ -465,76 +441,65 @@ static long sec_hal_usr_ioctl(struct file *filp, unsigned int cmd,
 
 
 #ifdef CONFIG_ARM_SEC_HAL_TEE
+/* **********************************************************************
+ * Function name : search_mem_node
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static int search_mem_node(struct list_head *lst, void *virt_addr)
 {
 	struct list_head *pos;
 	shared_memory_node *item;
 	shared_memory_node *node_to_return = NULL;
 
-	SEC_HAL_TRACE_ENTRY();
-	SEC_HAL_TRACE("virt_addr: 0x%08x",virt_addr);
-
 	list_for_each(pos, lst) {
 		item = list_entry(pos, shared_memory_node, list);
-		SEC_HAL_TRACE("item: 0x%08x",item);
-		SEC_HAL_TRACE("item->virt_addr: 0x%08x",item->virt_addr);
 		if (item->virt_addr == virt_addr) {
-			SEC_HAL_TRACE("found node");
 			node_to_return = item;
 			break;
 		}
 	}
 
-	SEC_HAL_TRACE_EXIT();
 	return (int) node_to_return;
 }
 
-/*******************************************************************************
- * Function   : sec_hal_memory_tablewalk
- * Description: This function translates the virt address into the phys address.
- * Parameters : virt_addr	   - virtual address
- * Returns	  : phys_addr	   - physical address
- *******************************************************************************/
-unsigned long sec_hal_memory_tablewalk(void * virt_addr)
+
+/* **********************************************************************
+ * Function    : sec_hal_memory_tablewalk
+ * Description : translates virt addr into phys addr.
+ * Parameters  : vaddr - virtual address
+ * Returns     : paddr - physical address
+ * *********************************************************************/
+unsigned long sec_hal_memory_tablewalk(void *vaddr)
 {
+	unsigned long paddr = 0x00;
 	pgd_t *pgd;
 	pmd_t *pmd;
 	pte_t *pte;
-	unsigned long phys_addr;
 
 	SEC_HAL_TRACE_ENTRY();
-	SEC_HAL_TRACE("virt_addr: 0x%08x",(uint32_t)virt_addr);
-	SEC_HAL_TRACE("PAGE_OFFSET: 0x%08x",PAGE_OFFSET);
 
-	if (PAGE_OFFSET <= (unsigned long)virt_addr) {
-		phys_addr = virt_to_phys((void *)virt_addr);
+	if (PAGE_OFFSET <= (unsigned long)vaddr) {
+		paddr = virt_to_phys((void *)vaddr);
 	} else {
-		pgd = pgd_offset(current->mm, (unsigned long)virt_addr);
-		SEC_HAL_TRACE("pgd: 0x%08x",pgd);
-		pmd = pmd_offset((pud_t *)pgd, (unsigned long)virt_addr);
-		SEC_HAL_TRACE("pmd: 0x%08x",pmd);
-		pte = pte_offset_map(pmd, (unsigned long)virt_addr);
-	    SEC_HAL_TRACE("pte: 0x%08x",pte);
-		SEC_HAL_TRACE("*pte: 0x%08x",*pte);
-		phys_addr = (0xFFFFF000 & (*pte)) | (0x00000FFF & (unsigned long)virt_addr);
+		pgd = pgd_offset(current->mm, (unsigned long)vaddr);
+		pmd = pmd_offset((pud_t *)pgd, (unsigned long)vaddr);
+		pte = pte_offset_map(pmd, (unsigned long)vaddr);
+		paddr = (0xFFFFF000 & (*pte)) | (0x00000FFF & (unsigned long)vaddr);
 	}
 
-	SEC_HAL_TRACE("phys_addr: 0x%08x",phys_addr);
-	SEC_HAL_TRACE_EXIT();
-	return phys_addr;
+	SEC_HAL_TRACE_EXIT_INFO("paddr: 0x%08x", paddr);
+	return paddr;
 }
 
 
-/* load the module */
-int init_mmap_memory_area(void)
-{
-	SEC_HAL_TRACE_ENTRY();
-	SEC_HAL_TRACE("Not used at the moment");
-	SEC_HAL_TRACE_EXIT();
-	return(0);
-}
-
-
+/* **********************************************************************
+ * Function name : sec_hal_vma_open
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 void sec_hal_vma_open(struct vm_area_struct *vma)
 {
 	SEC_HAL_TRACE("Simple VMA open, virt %lx, phys %lx\n",
@@ -542,191 +507,124 @@ void sec_hal_vma_open(struct vm_area_struct *vma)
 }
 
 
+/* **********************************************************************
+ * Function name : sec_hal_vma_close
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 void sec_hal_vma_close(struct vm_area_struct *vma)
 {
-    shared_memory_node *mem_node_to_remove;
-    unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
-    unsigned long phys_addr;
-    unsigned long vsize = vma->vm_end - vma->vm_start;
-    TEEC_SharedMemory *shmem_to_release;
-    int *kmalloc_area = NULL;
-    struct client_data *client = vma->vm_private_data;
-    unsigned long virt_addr;
+	shared_memory_node *mem_node_to_remove;
+	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
+	unsigned long vaddr;
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	TEEC_SharedMemory *shmem_to_release;
+	int *kmalloc_area = NULL;
+	struct client_data *client = vma->vm_private_data;
 
-/*    shmem_to_release = kmalloc(sizeof(TEEC_SharedMemory),GFP_KERNEL);*/
-    shmem_to_release = kmalloc(sizeof(TEEC_SharedMemory),GFP_KERNEL);
+	shmem_to_release = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
+	kmalloc_area = phys_to_virt(off);
 
-    /* pointer to page aligned area */
+	SEC_HAL_TRACE("Simple VMA close.\n");
+	SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
+	SEC_HAL_TRACE("off: 0x%08x",off);
+	SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
+	SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
+	SEC_HAL_TRACE("phys_to_virt(off): 0x%08x",phys_to_virt(off));
 
-    /*Tablewalk does not work because at this point virtual memory has been removed
-    from page tables*/
-/*    phys_addr = sec_hal_memory_tablewalk(vma->vm_start);*/
+	/* Free the allocated memory */
+	for (vaddr = (unsigned long)kmalloc_area;
+		vaddr < (unsigned long)kmalloc_area + vsize;
+		vaddr += PAGE_SIZE) {
+		/* clear all pages to make them usable */
+		ClearPageReserved(virt_to_page(vaddr));
+	}
+	mem_node_to_remove = (shared_memory_node *) search_mem_node(
+		&(client->shmem_list.head), (void *)vma->vm_start);
+	shmem_to_release = mem_node_to_remove->shmem;
+	sec_hal_tee_release_shared_memory_area(shmem_to_release);
+	kfree(shmem_to_release);
 
-    phys_addr = off;
+	list_del(&(mem_node_to_remove->list));
+	kfree(mem_node_to_remove);
 
-    kmalloc_area=phys_to_virt(phys_addr);
-
-    SEC_HAL_TRACE("Simple VMA close.\n");
-    SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
-    SEC_HAL_TRACE("off: 0x%08x",off);
-    SEC_HAL_TRACE("phys_addr: 0x%08x",phys_addr);
-    SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
-    SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
-    SEC_HAL_TRACE("phys_to_virt(off): 0x%08x",phys_to_virt(off));
-
-    /*TBD implement the counter so that memory is freed when all threads are
-    closed*/
-
-
-    /* Free the allocated memory */
-    kfree(kmalloc_area);
-
-    for (virt_addr=(unsigned long)kmalloc_area; virt_addr<(unsigned long)kmalloc_area+vsize; virt_addr+=PAGE_SIZE)
-        {
-        /* clear all pages to make them usable */
-        ClearPageReserved(virt_to_page(virt_addr));
-        }
-
-    mem_node_to_remove = (shared_memory_node*)search_mem_node(&(client->shmem_list.head), (void*)vma->vm_start);
-
-    SEC_HAL_TRACE("mem_node_to_remove 0x%x",mem_node_to_remove);
-    shmem_to_release = mem_node_to_remove->shmem;
-    SEC_HAL_TRACE("shmem_to_release 0x%x",shmem_to_release);
-
-    sec_hal_tee_release_shared_memory_area(shmem_to_release);
-    kfree(shmem_to_release);
-
-    list_del(&(mem_node_to_remove->list));
-    kfree(mem_node_to_remove);
-
+	kfree(kmalloc_area);
 }
+
 
 static struct vm_operations_struct sec_hal_remap_vm_ops = {
-.open = sec_hal_vma_open,
-.close = sec_hal_vma_close,
+	.open = sec_hal_vma_open,
+	.close = sec_hal_vma_close,
 };
 
-#define MMAP_USES_KMALLOC_AREA
-#ifdef MMAP_USES_KMALLOC_AREA
+
+/* **********************************************************************
+ * Function name : sec_hal_mmap
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	unsigned long vaddr;
+	unsigned long vsize = vma->vm_end - vma->vm_start;
+	int *kmalloc_area = NULL;
+	shared_memory_node *new_mem_node;
+	struct client_data *client = file->private_data;
+	int i;
 
-    /* pointer to page aligned area */
-    int *kmalloc_area = NULL;
+	SEC_HAL_TRACE_ENTRY();
 
-    /* for internal memory bookkeeping */
-    shared_memory_node *new_mem_node;
-
-    struct client_data *client = file->private_data;
-
-    int i;
-    unsigned long virt_addr;
-    unsigned long vsize = vma->vm_end - vma->vm_start;
-
-    SEC_HAL_TRACE_ENTRY();
-    new_mem_node = kmalloc(sizeof(shared_memory_node),GFP_KERNEL);
-
-    /* assign the file private data to the vm private data */
+	new_mem_node = kmalloc(sizeof(shared_memory_node), GFP_KERNEL);
 	vma->vm_private_data = file->private_data;
+	kmalloc_area = phys_to_virt((phys_addr_t)client->next_teec_shmem->buffer);
 
 	SEC_HAL_TRACE("client->next_teec_shmem 0x%x", client->next_teec_shmem);
-    SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
-    SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
-    SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
-    SEC_HAL_TRACE("PAGE_SHIFT: 0x%08x",PAGE_SHIFT);
-    SEC_HAL_TRACE("vsize: %d",vsize);
-    SEC_HAL_TRACE("vma->vm_flags: 0x%08x",vma->vm_flags);
+	SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
+	SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
+	SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
+	SEC_HAL_TRACE("PAGE_SHIFT: 0x%08x",PAGE_SHIFT);
+	SEC_HAL_TRACE("vsize: %d",vsize);
+	SEC_HAL_TRACE("vma->vm_flags: 0x%08x",vma->vm_flags);
+	SEC_HAL_TRACE("kmalloc_area: 0x%08x",kmalloc_area);
 
-    kmalloc_area = phys_to_virt((phys_addr_t)client->next_teec_shmem->buffer);
-    SEC_HAL_TRACE("kmalloc_area: 0x%08x",kmalloc_area);
+	for (vaddr = (unsigned long)kmalloc_area;
+		vaddr < (unsigned long)kmalloc_area + vsize;
+		vaddr += PAGE_SIZE) {
+		SetPageReserved(virt_to_page(vaddr));
+	}
+	SEC_HAL_TRACE("setpagereserved done");
 
-    for (virt_addr=(unsigned long)kmalloc_area; virt_addr<(unsigned long)kmalloc_area+vsize; virt_addr+=PAGE_SIZE)
-        {
-        /* reserve all pages to make them remapable */
-        SetPageReserved(virt_to_page(virt_addr));
-        }
+	for (i = 0; i < (vsize/sizeof(int)); i += 2) {
+		kmalloc_area[i]=(0xdead<<16) +i;
+		kmalloc_area[i+1]=(0xbeef<<16) + i;
+	}
+	SEC_HAL_TRACE("deadbeef done");
 
-    SEC_HAL_TRACE("setpagereserved done");
+	client->next_teec_shmem->size = vsize;
+	if (remap_pfn_range(vma, vma->vm_start,
+			(uint32_t)(client->next_teec_shmem->buffer) >> PAGE_SHIFT,
+			vsize, vma->vm_page_prot)) {
+		SEC_HAL_TRACE("remap page range failed\n");
+		return -ENXIO;
+	}
 
-#if 1
-    for (i=0; i<(vsize/sizeof(int)); i+=2)
-        {
-        kmalloc_area[i]=(0xdead<<16) +i;
-        kmalloc_area[i+1]=(0xbeef<<16) + i;
-        }
-#endif
+	vma->vm_ops = &sec_hal_remap_vm_ops;
+	new_mem_node->shmem = client->next_teec_shmem;
+	new_mem_node->virt_addr = (void *)vma->vm_start;
+	list_add(&new_mem_node->list, &(client->shmem_list.head));
+	client->next_teec_shmem = NULL;
 
-    SEC_HAL_TRACE("deadbeef done");
+	SEC_HAL_TRACE("new_mem_node 0x%x", new_mem_node);
+	SEC_HAL_TRACE("new_mem_node->shmem 0x%x", new_mem_node->shmem);
+	SEC_HAL_TRACE("new_mem_node->virt_addr 0x%x", new_mem_node->virt_addr);
 
-#if 0
-    for (i=0; i<vsize/sizeof(int); i+=1)
-        {
-        SEC_HAL_TRACE("0x%08x", kmalloc_area[i]);
-        }
-#endif
-    
-
-    /* Sets the size as size allocated in kernel not real size asked in user
-    space */
-    client->next_teec_shmem->size = vsize;
-
-
-    if (remap_pfn_range(vma, vma->vm_start, (uint32_t)(client->next_teec_shmem->buffer) >> PAGE_SHIFT, vsize, vma->vm_page_prot))
-        {
-        SEC_HAL_TRACE("remap page range failed\n");
-        return -ENXIO;
-        }
-
-
-    vma->vm_ops = &sec_hal_remap_vm_ops;
-
-    new_mem_node->shmem = client->next_teec_shmem;
-    new_mem_node->virt_addr = (void *)vma->vm_start;
-
-    list_add(&new_mem_node->list, &(client->shmem_list.head));
-
-    SEC_HAL_TRACE("new_mem_node 0x%x",new_mem_node);
-    SEC_HAL_TRACE("new_mem_node->shmem 0x%x",new_mem_node->shmem);
-    SEC_HAL_TRACE("new_mem_node->virt_addr 0x%x",new_mem_node->virt_addr);
-
-/*    kfree(client->next_teec_shmem);*/
-    client->next_teec_shmem=NULL;
-
-	/* return the pointer */
 	SEC_HAL_TRACE_EXIT();
-	return(0);
+	return 0;
 }
-#else
-/* This is working in some ways */
-int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
-{
-    unsigned long size = vma->vm_end - vma->vm_start;
-
-    SEC_HAL_TRACE_ENTRY();
-    SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
-    SEC_HAL_TRACE("vma->vm_start: 0x%08x",vma->vm_start);
-    SEC_HAL_TRACE("vma->vm_end: 0x%08x",vma->vm_end);
-    SEC_HAL_TRACE("PAGE_SHIFT: 0x%08x",PAGE_SHIFT);
-    SEC_HAL_TRACE("size: %d",size);
-
-    if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-        size,
-        vma->vm_page_prot))
-        {
-        return -EAGAIN;
-        }
-
-    vma->vm_ops = &sec_hal_remap_vm_ops;
-    sec_hal_vma_open(vma);
-
-
-
-	/* return the pointer */
-	SEC_HAL_TRACE_EXIT();
-	return(0);
-}
-#endif
 #endif /* CONFIG_ARM_SEC_HAL_TEE */
+
 
 static struct file_operations k_sec_hal_fops = {
     .owner = THIS_MODULE,
@@ -742,9 +640,12 @@ static struct file_operations k_sec_hal_fops = {
 };
 
 
-/* ----------------------------------------------------------------------
- * add_attach_cdev :
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : add_attach_cdev
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static int add_attach_cdev(
 	struct cdev* dev,
 	struct file_operations* fops,
@@ -766,9 +667,12 @@ static int add_attach_cdev(
 }
 
 
-/* ----------------------------------------------------------------------
- * detach_del_cdev :
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : detach_del_cdev
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static void detach_del_cdev(struct cdev* dev, struct class* cls)
 {
 	SEC_HAL_TRACE_ENTRY();
@@ -780,9 +684,12 @@ static void detach_del_cdev(struct cdev* dev, struct class* cls)
 }
 
 
-/* ----------------------------------------------------------------------
- * sec_hal_setup_cdev_init : allocate & initialize cdev node
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : sec_hal_cdev_init
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static int sec_hal_cdev_init(struct device_data *device_data)
 {
 	int ret = 0;
@@ -826,9 +733,12 @@ e1:	unregister_chrdev_region(MAJOR(devno), 1);
 }
 
 
-/* ----------------------------------------------------------------------
- * sec_hal_cdev_exit : release cdevs related resources
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : sec_hal_cdev_exit
+ * Description   :
+ * Parameters    :
+ * Returns       :
+ * *********************************************************************/
 static void sec_hal_cdev_exit(struct device_data *device_data)
 {
 	dev_t devno = device_data->cdev.dev;
@@ -844,10 +754,10 @@ static void sec_hal_cdev_exit(struct device_data *device_data)
 
 
 /* **********************************************************************
- * Function name      : sec_hal_dbg_irq_hdr
- * Description        : IRQ handler for JTAG/hw debugger attach event.
- *                      Secure JTAG is not supported by this function.
- * Return             : IRQ_HANDLED
+ * Function name : sec_hal_dbg_irq_hdr
+ * Description   : IRQ handler for JTAG/hw debugger attach event.
+ *                 Secure JTAG is not supported by this function.
+ * Return        : IRQ_HANDLED
  * *********************************************************************/
 static irqreturn_t sec_hal_dbg_irq_hdr(int irq, void *dev_id)
 {
@@ -861,10 +771,10 @@ static irqreturn_t sec_hal_dbg_irq_hdr(int irq, void *dev_id)
 
 
 /* **********************************************************************
- * Function name      : sec_hal_dbg_irq_init
- * Description        : initializes IRQ handler for TDBG, IRQ should be
- *                      triggered by JTAG/hw debugger attach event.
- *                      Secure JTAG is not supported by this function.
+ * Function name : sec_hal_dbg_irq_init
+ * Description   : initializes IRQ handler for TDBG, IRQ should be
+ *                 triggered by JTAG/hw debugger attach event.
+ *                 Secure JTAG is not supported by this function.
  * *********************************************************************/
 static void sec_hal_dbg_irq_init(void)
 {
@@ -887,9 +797,9 @@ static void sec_hal_dbg_irq_init(void)
 
 
 /* **********************************************************************
- * Function name      : sec_hal_timeout
- * Description        : handler for timeout IRQ, used for per. icheck.
- *                      new period is only set if per. check succeeds.
+ * Function name : sec_hal_timeout
+ * Description   : handler for timeout IRQ, used for per. icheck.
+ *                 new period is only set if per. check succeeds.
  * *********************************************************************/
 static void sec_hal_timeout(unsigned long arg)
 {
@@ -911,8 +821,8 @@ int sec_hal_rpc_init(void);
  * PLATFORM DEVICE FRAMEWORK RELATED FUNCTIONS.
  * *********************************************************************/
 /* **********************************************************************
- * Function name      : sec_hal_pdev_probe
- * Description        :
+ * Function name : sec_hal_pdev_probe
+ * Description   :
  * *********************************************************************/
 static int sec_hal_pdev_probe(struct platform_device *pdev)
 {
@@ -1029,8 +939,8 @@ e0:
 
 
 /* **********************************************************************
- * Function name      : sec_hal_pdev_suspend
- * Description        :
+ * Function name : sec_hal_pdev_suspend
+ * Description   :
  * *********************************************************************/
 static int sec_hal_pdev_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -1053,8 +963,8 @@ static int sec_hal_pdev_suspend(struct platform_device *pdev, pm_message_t state
 
 
 /* **********************************************************************
- * Function name      : sec_hal_pdev_resume
- * Description        :
+ * Function name : sec_hal_pdev_resume
+ * Description   :
  * *********************************************************************/
 static int sec_hal_pdev_resume(struct platform_device *pdev)
 {
@@ -1077,8 +987,8 @@ static int sec_hal_pdev_resume(struct platform_device *pdev)
 
 
 /* **********************************************************************
- * Function name      : sec_hal_pdev_remove
- * Description        :
+ * Function name : sec_hal_pdev_remove
+ * Description   :
  * *********************************************************************/
 static int sec_hal_pdev_remove(struct platform_device *pdev)
 {
@@ -1104,32 +1014,33 @@ static struct platform_driver k_sec_hal_platform_device_driver =
 
 
 /* **********************************************************************
- * EXPORTs, Modem Boot
+ * MDM Boot
  * *********************************************************************/
-/* ----------------------------------------------------------------------
- * sec_hal_mdm_memcpy : copy data to a certain kind of protected memory.
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : sec_hal_mdm_memcpy
+ * Description   : copy data to a certain kind of protected memory.
+ * *********************************************************************/
 uint32_t sec_hal_mdm_memcpy(uint32_t pdst, uint32_t psrc, uint32_t sz)
 {
 	return sec_hal_memcpy(pdst, psrc, sz);
 }
-/* made available for other kernel entities */
-EXPORT_SYMBOL(sec_hal_mdm_memcpy);
-
-/* ----------------------------------------------------------------------
- * sec_hal_mdm_authenticate : authenticate memory content with SW cert.
- * --------------------------------------------------------------------*/
-uint32_t sec_hal_mdm_authenticate(uint32_t c_paddr, uint32_t c_sz,
-		uint32_t *objid)
-{
-	return sec_hal_authenticate(c_paddr, c_sz, objid);
-}
-/* made available for other kernel entities */
-EXPORT_SYMBOL(sec_hal_mdm_authenticate);
 
 
 /* **********************************************************************
- * MODULE init & exit
+ * Function name : sec_hal_mdm_authenticate
+ * Description   : authenticate memory content with SW cert.
+ * *********************************************************************/
+uint32_t sec_hal_mdm_authenticate(
+	uint32_t c_paddr,
+	uint32_t c_sz,
+	uint32_t *objid)
+{
+	return sec_hal_authenticate(c_paddr, c_sz, objid);
+}
+
+
+/* **********************************************************************
+ * MODULE init/exit routines
  * *********************************************************************/
 static struct resource k_sec_hal_resources[] =
 {
@@ -1157,9 +1068,10 @@ static struct platform_device *k_sec_hal_local_devs[] __initdata =
 	&k_sec_hal_chardevice,
 };
 
-/* ----------------------------------------------------------------------
- * sec_hal_driver_init :
- * --------------------------------------------------------------------*/
+/* **********************************************************************
+ * Function name : sec_hal_driver_init
+ * Description   :
+ * *********************************************************************/
 static int __init sec_hal_driver_init(void)
 {
 	int ret;
@@ -1175,9 +1087,11 @@ static int __init sec_hal_driver_init(void)
 	return ret;
 }
 
-/* ----------------------------------------------------------------------
- * sec_hal_driver_exit :
- * --------------------------------------------------------------------*/
+
+/* **********************************************************************
+ * Function name : sec_hal_driver_exit
+ * Description   :
+ * *********************************************************************/
 static void __exit sec_hal_driver_exit(void)
 {
 	SEC_HAL_TRACE_ENTRY();
@@ -1186,10 +1100,11 @@ static void __exit sec_hal_driver_exit(void)
 
 	SEC_HAL_TRACE_EXIT();
 }
+
+
 /* module_init(sec_hal_driver_init); */
 module_exit(sec_hal_driver_exit);
 pure_initcall(sec_hal_driver_init);
-
 MODULE_AUTHOR("Renesas Mobile Corporation");
 MODULE_DESCRIPTION("Device driver for ARM TRUSTZONE access");
 MODULE_LICENSE("Proprietary");
