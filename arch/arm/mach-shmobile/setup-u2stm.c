@@ -1,10 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
-
-#include <linux/pmic/pmic.h>
-#include <linux/regulator/consumer.h>
-
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -12,9 +8,6 @@
 #include <asm/mach/map.h>
 #include <mach/r8a7373.h>
 #include <asm/io.h>
-
-/* #define E3_3_V 3300000 */
-#define E1_8_V 1800000
 
 /* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
 extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
@@ -337,101 +330,3 @@ int u2evm_init_stm_select(void)
   return stm_select;
 }
 // EXPORT_SYMBOL(u2evm_get_stm_select);
-
-static int __init stm_sdhi0_regulator_late_init(void)
-{
-        int ret = 0;
-	struct regulator *regulator;
-
-	if (0 != u2evm_get_stm_select()) {
-	  /* STM traces not enabled on SDHI0 interface, */
-	  /* SD-Card driver takes care of SDHI0 regualtor. */
-	  return ret;
-	}
-
-	printk(KERN_ALERT "%s 1.8V >>", __func__);
-
-	/* POWER ON */
-
-	regulator = regulator_get(NULL, "vio_sd");
-	if (IS_ERR(regulator)) {
-	  printk(KERN_ALERT "%s:err reg_get1 vio_sd\n", __func__);
-	  return ret;
-	}
-	
-	ret = regulator_enable(regulator);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_ena1 vio_sd %d\n",
-		 __func__ , ret);
-	
-	regulator_put(regulator);
-	
-	regulator = regulator_get(NULL, "vsd");
-	if (IS_ERR(regulator)) {
-	  printk(KERN_ALERT "%s:err reg_get1 vsd\n", __func__);
-	  return ret;
-	}
-	
-	ret = regulator_enable(regulator);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_ena1 vsd %d\n",
-		 __func__ , ret);
-	
-	regulator_put(regulator);
-
-	/* SET 1.8V */
-
-	regulator = regulator_get(NULL, "vio_sd");
-	if (IS_ERR(regulator)) {
-	  printk(KERN_ALERT "%s:err reg_get2 vio_sd\n", __func__);
-	  return ret;
-	}
-	
-	if (regulator_is_enabled(regulator)) {
-	  ret = regulator_disable(regulator);
-	  if (ret)
-	    printk(KERN_ALERT "%s:err reg_dis vio_sd %d\n",
-		   __func__ , ret);
-	}
-	
-	ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_set_v vio_sd %d\n",
-		 __func__, ret);
-	
-	ret = regulator_enable(regulator);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_ena2 vio_sd %d\n",
-		 __func__, ret);
-	
-	regulator_put(regulator);
-	
-	regulator = regulator_get(NULL, "vsd");
-	if (IS_ERR(regulator)) {
-	  printk(KERN_ALERT "%s:err reg_get2 vsd\n", __func__);
-	  return ret;
-	}
-	
-	if (regulator_is_enabled(regulator)) {
-	  ret = regulator_disable(regulator);
-	  if (ret)
-	    printk(KERN_ALERT "%s:err reg_dis vsd %d\n",
-		   __func__ , ret);
-	}
-	
-	ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_set_v vsd %d\n",
-		 __func__, ret);
-	
-	ret = regulator_enable(regulator);
-	if (ret)
-	  printk(KERN_ALERT "%s:err reg_ena2 vsd %d\n",
-		 __func__, ret);
-	
-	regulator_put(regulator);
-	
-	printk(KERN_ALERT "%s <<", __func__);
-	return ret;
-}
-late_initcall(stm_sdhi0_regulator_late_init);
