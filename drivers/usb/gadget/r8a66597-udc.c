@@ -2402,8 +2402,6 @@ static int r8a66597_start(struct usb_gadget *gadget,
 			|| driver->max_speed < USB_SPEED_HIGH
 			|| !driver->setup)
 		return -EINVAL;
-	if (!r8a66597)
-		return -ENODEV;
 
 	/* hook up the driver */
 	r8a66597->driver = driver;
@@ -2561,10 +2559,6 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
 	unsigned long flags;
 	int vbus_state = 0;
-	if (r8a66597 == NULL) {
-		printk(KERN_ERR"r8a66597 is Null\n");
-		return;
-	}
 	udc_log("%s: IN\n", __func__);
 	if (!r8a66597->is_active && !r8a66597->vbus_active) {
 		udc_log("%s: IN,powering up and phyreset\n", __func__);
