@@ -57,7 +57,7 @@ static int rtboot_init(void)
 	uint32_t cert_size;
 #endif
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	memset(&g_rtboot_info, 0, sizeof(g_rtboot_info));
 
@@ -163,7 +163,7 @@ static int rtboot_init(void)
 	MSG_LOW("[RTBOOTK]   |write_req_comp start\n");
 	write_req_comp();
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
 }
@@ -172,7 +172,7 @@ static void rtboot_exit(void)
 {
 	int ret;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	do_iounmap_register();
 
@@ -180,7 +180,7 @@ static void rtboot_exit(void)
 	if (0 != ret)
 		MSG_ERROR("[RTBOOTK]   |misc_deregister failed ret[%d]\n", ret);
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s]\n", __func__);
 }
 
 
@@ -188,14 +188,14 @@ int rtboot_get_section_header(struct rt_boot_info *info)
 {
 	int ret = 1;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	if (info) {
 		*info = g_rtboot_info;
 		ret = 0;
 	}
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s]\n", __func__);
 
 	return ret;
 }

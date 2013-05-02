@@ -86,7 +86,7 @@ static unsigned long rtctl_intcrt_base5;
 /******************************************************************************/
 void iccom_rtctl_standby_ng(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	count_standby_ng++;
@@ -94,7 +94,7 @@ void iccom_rtctl_standby_ng(void)
 			__func__, count_standby_ng);
 	up(&semaphore_count_standby_ng);
 
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -103,7 +103,7 @@ void iccom_rtctl_standby_ng(void)
 /******************************************************************************/
 void iccom_rtctl_standby_ng_cancel(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	count_standby_ng--;
@@ -116,7 +116,7 @@ void iccom_rtctl_standby_ng_cancel(void)
 	}
 
 	up(&semaphore_count_standby_ng);
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -127,7 +127,7 @@ int iccom_rtctl_set_lcd_status(
 	void	*handle,
 	int		lcd_status
 ){
-	MSG_HIGH("[ICCOMK]IN |[%s] : lcd_status = (%d)\n", __func__, lcd_status);
+	MSG_MED("[ICCOMK]IN |[%s] : lcd_status = (%d)\n", __func__, lcd_status);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	if (status_lcd_now == lcd_status) {
@@ -139,7 +139,7 @@ int iccom_rtctl_set_lcd_status(
 	MSG_MED("[ICCOMK]   |[%s] : status_lcd_now = %d\n", __func__,
 				status_lcd_now);
 	up(&semaphore_count_standby_ng);
-	MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__, SMAP_OK);
+	MSG_MED("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__, SMAP_OK);
 	return SMAP_OK;
 }
 
@@ -151,7 +151,7 @@ int iccom_rtctl_watch_rt_state(void)
 {
 	int ret_code = 0;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_standby_flag);
 	if (standby_flag == 1) {
@@ -172,7 +172,7 @@ int iccom_rtctl_watch_rt_state(void)
 		MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 				(u32)standby_flag);
 		up(&semaphore_standby_flag);
-		MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__, SMAP_OK);
+		MSG_MED("[ICCOMK]OUT|[%s] : ret = (%d)\n", __func__, SMAP_OK);
 		return SMAP_OK;
 	}
 
@@ -185,7 +185,7 @@ int iccom_rtctl_watch_rt_state(void)
 	MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 				(u32)standby_flag);
 	up(&semaphore_standby_flag);
-	MSG_HIGH("[ICCOMK]OUT|[%s] : ret_code = (%d)\n", __func__, ret_code);
+	MSG_MED("[ICCOMK]OUT|[%s] : ret_code = (%d)\n", __func__, ret_code);
 	return ret_code;
 }
 
@@ -201,7 +201,7 @@ int iccom_rtctl_change_rt_state_active(
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_set_lcd_refresh lcd_refresh;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
 	if (RTCTL_STS_RTBOOT == status_rt_now) {
@@ -242,7 +242,7 @@ int iccom_rtctl_change_rt_state_active(
 		MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 					(u32)standby_flag);
 		up(&semaphore_standby_flag);
-		MSG_HIGH("[ICCOMK]OUT|[%s] ret = (%d)\n", __func__, SMAP_OK);
+		MSG_MED("[ICCOMK]OUT|[%s] ret = (%d)\n", __func__, SMAP_OK);
 		return SMAP_OK;
 	}
 
@@ -270,7 +270,7 @@ int iccom_rtctl_change_rt_state_active(
 	MSG_MED("[ICCOMK]   |[%s] : standby_flag = %d\n", __func__,
 					(u32)standby_flag);
 	up(&semaphore_standby_flag);
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = (%d)\n", __func__, ret_code);
+	MSG_MED("[ICCOMK]OUT|[%s] ret_code = (%d)\n", __func__, ret_code);
 	return ret_code;
 }
 
@@ -287,7 +287,7 @@ int rtctl_change_rt_state_standby(void)
 	unsigned long  reg_mstpsr = 0;
 	unsigned long hpb_lock_flags;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	status_rt_now = RTCTL_STS_CHANGING_STANDBY;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
@@ -398,7 +398,7 @@ int rtctl_change_rt_state_standby(void)
 
 	status_rt_now = RTCTL_STS_STANDBY ;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret = (%d)\n", __func__, SMAP_OK);
+	MSG_MED("[ICCOMK]OUT|[%s] ret = (%d)\n", __func__, SMAP_OK);
 	return SMAP_OK;
 }
 
@@ -410,17 +410,17 @@ static bool rtctl_check_rt_recognize_standby()
 {
 	unsigned long reg_mfis = 0;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	reg_mfis = readl(MFIS_GSR);
 	MSG_MED("[ICCOMK]   |[%s] : MFIS_GSR = 0x%08x\n", __func__,
 			readl(MFIS_GSR));
 	reg_mfis = (reg_mfis & MFISGSR_STANDBY_RECONITION_FLAG);
 	if (0 != reg_mfis) {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;
 	} else {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
 		return false;
 	}
 }
@@ -434,13 +434,13 @@ static bool rtctl_check_rt_confirm_standby()
 	unsigned long reg_pstr = 0;
 	unsigned long reg_mfis = 0;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	reg_pstr = readl(SYSC_PSTR);
 	MSG_MED("[ICCOMK]   |[%s] : SYSC_PSTR = 0x%08x\n", __func__, readl(SYSC_PSTR));
 	reg_pstr = (reg_pstr & RTCTL_A3R_STATE);
 	if (0 == reg_pstr) {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;
 	}
 
@@ -450,14 +450,14 @@ static bool rtctl_check_rt_confirm_standby()
 	if (0 != reg_mfis) {
 		reg_modify32(MFISGSR_STANDBY_NG, 0 , MFIS_GSR);
 		if (RTCTL_STS_CHANGING_STANDBY == status_rt_now) {
-			MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
+			MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 			status_rt_now = RTCTL_STS_ACTIVE;
 			MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__,
 					status_rt_now);
 			return true;
 		}
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
+	MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
 	return false;
 }
 
@@ -474,7 +474,7 @@ int rtctl_change_rt_state_active(void)
 	unsigned long hpb_lock_flags;
 	unsigned long mfis_eicr;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	status_rt_now = RTCTL_STS_CHANGING_ACTIVE;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 
@@ -557,7 +557,7 @@ int rtctl_change_rt_state_active(void)
 	if (false == active_ret) {
 		rtctl_change_active_timeout_error();
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return SMAP_OK;
 }
 
@@ -569,7 +569,7 @@ void rtctl_intcs_mask_in_active(void)
 {
 	unsigned long reg;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	for (reg = RTCTL_INTCRT_IMR0SA; reg <= RTCTL_INTCRT_IMR12SA; reg += 4) {
 		writeb(0xFF, reg);
@@ -587,7 +587,7 @@ void rtctl_intcs_mask_in_active(void)
 		writeb(0xFF, reg);
 	}
 
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -596,12 +596,12 @@ void rtctl_intcs_mask_in_active(void)
 /******************************************************************************/
 void rtctl_mfis_initialize(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_EICR);
 	readl(MFIS_EICR);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_IICR);
 	reg_modify32(MFIS_INIT_REG, 0, MFIS_GSR);
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -612,14 +612,14 @@ static bool rtctl_check_rt_start(void)
 {
 	unsigned long reg_iicr = 0;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	reg_iicr = readl(MFIS_IICR);
 	MSG_MED("[ICCOMK]   |[%s] : MFIS_IICR = 0x%08x\n", __func__, readl(MFIS_IICR));
 	if (0 == reg_iicr) {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;
 	} else {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
 		return false;
 	}
 }
@@ -631,12 +631,12 @@ static bool rtctl_check_rt_start(void)
 static bool rtctl_check_rt_active(void)
 {
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	if (RTCTL_STS_ACTIVE == status_rt_now) {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
 		return true;
 	} else {
-		MSG_HIGH("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
+		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 0);
 		return false;
 	}
 }
@@ -648,9 +648,9 @@ static bool rtctl_check_rt_active(void)
 int iccom_rtctl_ioctl_standby_ng_cancel(void)
 {
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	iccom_rtctl_standby_ng_cancel();
-	MSG_HIGH("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
 
 	mfis_drv_eco_suspend();
 
@@ -663,9 +663,9 @@ int iccom_rtctl_ioctl_standby_ng_cancel(void)
 /******************************************************************************/
 int iccom_rtctl_ioctl_standby_ng(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	iccom_rtctl_standby_ng();
-	MSG_HIGH("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
 	return SMAP_OK;
 }
 
@@ -678,12 +678,12 @@ int iccom_rtctl_wait_rt_state_active(void)
 	bool ret_code = false;
 	unsigned long loop = MAX_POLLING_CNT;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	while (1) {
 		MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 		switch (status_rt_now) {
 		case RTCTL_STS_ACTIVE:
-			MSG_HIGH("[ICCOMK]OUT|[%s] : ret = (%d)\n",
+			MSG_MED("[ICCOMK]OUT|[%s] : ret = (%d)\n",
 					__func__, SMAP_OK);
 			return SMAP_OK;
 		case RTCTL_STS_RTBOOT:
@@ -728,7 +728,7 @@ int iccom_rtctl_wait_rt_state_active(void)
 /******************************************************************************/
 int iccom_rtctl_initilize(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	status_rt_now = RTCTL_STS_RTBOOT;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
@@ -757,7 +757,7 @@ int iccom_rtctl_initilize(void)
 		MSG_HIGH("[ICCOMK]OUT|[%s] ret = %d\n", __func__, -1);
 		return SMAP_NG;
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret = %d\n", __func__, 0);
+	MSG_MED("[ICCOMK]OUT|[%s] ret = %d\n", __func__, 0);
 
 	return SMAP_OK;
 }
@@ -780,7 +780,7 @@ void iccom_rtctl_finalize(void)
 /******************************************************************************/
 void iccom_rtctl_set_rt_state(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 
 	ICCOM_DOWN_TIMEOUT(&semaphore_count_standby_ng);
@@ -801,7 +801,7 @@ void iccom_rtctl_set_rt_state(void)
 		panic("[%s] : RTDomain State ERROR : State : %d\n", __func__, status_rt_now);
 		break;
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -810,9 +810,9 @@ void iccom_rtctl_set_rt_state(void)
 /******************************************************************************/
 void iccom_rtctl_set_rt_fatal_error(void)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	status_rt_now = RTCTL_STS_FATAL_ERROR;
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -823,7 +823,7 @@ int iccom_rtctl_before_send_cmd_check_standby(
 	int function_id
 ){
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	MSG_MED("[ICCOMK]   |[%s] : function_id = %d\n", __func__, function_id);
 	if (EVENT_STATUS_STANDBYCONTROL == function_id) {
 		if (RTCTL_STS_STANDBY  == status_rt_now) {
@@ -840,7 +840,7 @@ int iccom_rtctl_before_send_cmd_check_standby(
 
 		MSG_MED("[ICCOMK]   |[%s] : iccom_rtctl_standby_ng() end\n", __func__);
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] : ret = SMAP_OK\n", __func__);
 	return SMAP_OK;
 }
 
@@ -852,7 +852,7 @@ void iccom_rtctl_after_send_cmd_check_standby(
 	int function_id
 ){
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	if (EVENT_STATUS_STANDBYCONTROL != function_id) {
 		MSG_MED("[ICCOMK]   |[%s] : iccom_rtctl_standby_ng_cancel() start\n",
 				__func__);
@@ -860,7 +860,7 @@ void iccom_rtctl_after_send_cmd_check_standby(
 		MSG_MED("[ICCOMK]   |[%s] : iccom_rtctl_standby_ng_cancel() end\n",
 				__func__);
 	}
-	MSG_HIGH("[ICCOMK]OUT|[%s]\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 }
 
 /******************************************************************************/
@@ -910,7 +910,7 @@ bool rtctl_check_standby_enable(void)
 {
 	bool ret;
 
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	ret = false;
 
@@ -924,7 +924,7 @@ bool rtctl_check_standby_enable(void)
 	}
 	up(&semaphore_count_standby_ng);
 
-	MSG_HIGH("[ICCOMK]OUT |[%s] ret = %d\n", __func__, ret);
+	MSG_MED("[ICCOMK]OUT |[%s] ret = %d\n", __func__, ret);
 	return ret;
 }
 

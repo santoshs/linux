@@ -838,6 +838,33 @@ static void sh_mobile_rcu_dump_reg(struct sh_mobile_rcu_dev *pcdev)
 	}
 }
 
+static bool sh_mobile_rcu_intr_log(struct sh_mobile_rcu_dev *pcdev, u32 err,
+	char *log)
+{
+	bool is_log = false;
+	bool is_cdtof = false;
+	bool is_dfo = false;
+	bool is_vbp = false;
+	if (err & RCU_RCETCR_CDTOF) {
+		is_cdtof = true;
+		is_log = true;
+	}
+	if (err & RCU_RCETCR_DFO) {
+		is_dfo = true;
+		is_log = true;
+	}
+	if (err & RCU_RCETCR_VBP)
+		is_vbp = true;
+
+	dev_err(pcdev->icd->parent, "%s Interrupt[%08x]%s%s%s\n",
+		log, err,
+		is_cdtof ? " CDTOF(error)" : "",
+		is_dfo ? " DFO(error)" : "",
+		is_vbp ? " VBP" : "");
+
+	return is_log;
+}
+
 /*
  * return value doesn't reflex the success/failure to queue the new buffer,
  * but rather the status of the previous buffer.
@@ -848,6 +875,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	u32 status, rcamcr, rceier;
 	int ret = 0;
 	struct soc_camera_device *icd = pcdev->icd;
+	bool is_log = false;
 	/*
 	 * The hardware is _very_ picky about this sequence. Especially
 	 * the RCU_RCETCR_MAGIC value. It seems like we need to acknowledge
@@ -883,17 +911,15 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	 * this interrupt is generated.
 	 */
 	if (status & RCU_RCETCR_ERR_MASK) {
-		dev_err(pcdev->icd->parent,
-			"Error interrupt occurred! RCETCR=0x%08X\n", status);
+		is_log = sh_mobile_rcu_intr_log(pcdev, status, "capture");
 
-		sh_mobile_rcu_dump_reg(pcdev);
+		if (is_log)
+			sh_mobile_rcu_dump_reg(pcdev);
 
 		sh_mobile_rcu_soft_reset(pcdev);
 
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-			dev_err(pcdev->icd->parent,
-				"MERAM Closing is moved after Soft Reset for "
-				"Error interrupt RCETCR=0x%08X\n", status);
+			sh_mobile_rcu_intr_log(pcdev, status, "capture MERAM");
 			dev_err(pcdev->icd->parent,
 				"MERAM stop %s-MODE,FRAME-%s\n",
 				pcdev->image_mode ? "DATA" : "IMAGE",
@@ -902,7 +928,8 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 			dev_geo(pcdev->icd->parent, "%s:meram clear\n",
 				__func__);
 		}
-		sh_mobile_rcu_dump_reg(pcdev);
+		if (is_log)
+			sh_mobile_rcu_dump_reg(pcdev);
 		ret = -EIO;
 	}
 
@@ -1491,10 +1518,8 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 
 			if (regRCETCR & RCU_RCETCR_ERR_MASK) {
 				/* Skip MERAM clear in error case */
-				dev_err(pcdev->icd->parent,
-				"Error interrupt occurred! RCETCR=0x%08X :"
-				" Skip MERAM clear routine!!\n",
-				regRCETCR);
+				sh_mobile_rcu_intr_log(pcdev, regRCETCR,
+					"Skip MERAM clear routine!!");
 			} else {
 				if (SH_RCU_OUTPUT_SDRAM
 						!= pcdev->output_meram) {
@@ -1547,9 +1572,7 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				RCU_RCETCR_MASK_MEM_ISP2;
 			rcu_write(pcdev, RCETCR,
 				~(regRCETCR & RCU_RCETCR_MASK_MEM_ISP2));
-			dev_err(pcdev->icd->parent,
-				"pre Error interrupt occurred! RCETCR=0x%08X\n",
-				regRCETCR);
+			sh_mobile_rcu_intr_log(pcdev, regRCETCR, "pre Error");
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
 			dev_err(pcdev->icd->parent,

@@ -163,8 +163,8 @@
 
 #define D4STP			(1 << 1)
 #define D4STP_MASK		(~D4STP)
-#define A4MP			(1 << 8)
-#define A4MP_MASK		(~A4MP)
+#define A4MPSTP			(1 << 8)
+#define A4MPSTP_MASK		(~A4MPSTP)
 
 #define A3RSTP			(1 << 13)
 #define A3RSTP_MASK		(~A3RSTP)
@@ -172,7 +172,7 @@
 #define C4STP			(1 << 16)
 #define C4STP_MASK		(~C4STP)
 
-#define PLL1STPCR_DEFALT	(A2SLSTP | A3RSTP | C4STP)
+#define PLL1STPCR_DEFALT	(A2SLSTP | A3RSTP | C4STP | A4MPSTP)
 #define PLL1STPCR_DEFALT_MASK	(~PLL1STPCR_DEFALT)
 
 /* IIC0(MSTPST116) halted */
