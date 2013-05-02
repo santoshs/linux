@@ -1843,7 +1843,7 @@ static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 #endif
 	}
 }
-module_init(tsu6712_init);
+late_initcall(tsu6712_init);
 module_exit(tsu6712_exit);
 
 MODULE_AUTHOR("SAMSUNG");
