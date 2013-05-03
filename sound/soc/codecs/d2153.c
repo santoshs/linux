@@ -2036,9 +2036,13 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 static int d2153_suspend(struct snd_soc_codec *codec)
 {	
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	struct i2c_client *client = d2153_codec->aad_i2c_client;
+	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	//u8 val;
 	//struct regulator *regulator;
 
+	flush_delayed_work_sync(&d2153_aad->jack_monitor_work);
+	flush_delayed_work_sync(&d2153_aad->button_monitor_work);
 #if 1
 	if(d2153_codec->switch_state == D2153_HEADSET){
 		return 0;
@@ -2155,12 +2159,16 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		if(d2153_codec->switch_state == D2153_HEADSET)
 			return 0;
 
+		mutex_lock(&d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
 		snd_soc_write(codec, D2153_SYSTEM_MODES_CFG3,0x01);
 		snd_soc_write(codec, D2153_CIF_CTRL,0x80);	
 	
 		regulator = regulator_get(NULL, "aud1");
-		if (IS_ERR(regulator))
+		if (IS_ERR(regulator)) {
+			mutex_unlock(&d2153_codec->\
+					d2153_pmic->d2153_audio_ldo_mutex);
 			return -1;
+		}
 
 		regulator_disable(regulator);
 		regulator_put(regulator);
@@ -2170,13 +2178,17 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		d2153_reg_read(d2153_codec->d2153_pmic, 0x9c, &status);
 
 		regulator = regulator_get(NULL, "aud2");
-		if (IS_ERR(regulator))
+		if (IS_ERR(regulator)) {
+			mutex_unlock(&d2153_codec->\
+					d2153_pmic->d2153_audio_ldo_mutex);
 			return -1;
+		}
 
 		regulator_disable(regulator);
 		regulator_put(regulator);
 		
 		d2153_codec->power_mode=0;
+		mutex_unlock(&d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
 	}
 
 	return 0;

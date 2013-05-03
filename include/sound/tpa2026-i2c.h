@@ -24,6 +24,18 @@ extern unsigned int g_tpa2026_i2c_log_level;
 #define TPA2026_I2C_DISABLE		0
 #define TPA2026_I2C_ENABLE		1
 
+/* output device */
+#define TPA2026_I2C_INPUT_DEVICE	(SNDP_IN_COMMUNICATION | \
+					SNDP_IN_AMBIENT | \
+					SNDP_IN_BUILTIN_MIC | \
+					SNDP_IN_BLUETOOTH_SCO_HEADSET | \
+					SNDP_IN_WIRED_HEADSET | \
+					SNDP_IN_AUX_DIGITAL | \
+					SNDP_IN_VOICE_CALL | \
+					SNDP_IN_BACK_MIC | \
+					SNDP_IN_USB_HEADSET | \
+					SNDP_IN_FM_RADIO_RX)
+
 /* driver name */
 #define TPA2026_I2C_DRIVER_NAME		"tpa2026"
 

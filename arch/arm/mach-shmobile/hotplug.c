@@ -60,7 +60,7 @@ void platform_cpu_die(unsigned int cpu)
 	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);
 	return;
 /* #endif *//* CONFIG_SUSPEND */
-#endif /* CONFIG_ARCH_R8A7373 */
+#else  /* CONFIG_ARCH_R8A7373 */
 	while (1) {
 		/*
 		 * here's the WFI
@@ -70,6 +70,7 @@ void platform_cpu_die(unsigned int cpu)
 		    :
 		    : "memory", "cc");
 	}
+#endif /* CONFIG_ARCH_R8A7373 */
 }
 
 int platform_cpu_disable(unsigned int cpu)

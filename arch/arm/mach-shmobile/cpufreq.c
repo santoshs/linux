@@ -792,6 +792,11 @@ int stop_cpufreq(void)
 
 	spin_lock(&the_cpuinfo.lock);
 	cur_policy = cpufreq_cpu_get(0);
+	if (NULL == cur_policy) {
+		spin_unlock(&the_cpuinfo.lock);
+		return -EINVAL;
+	}
+
 	if (!atomic_read(&the_cpuinfo.highspeed.usage_count)) {
 		the_cpuinfo.highspeed.used = true;
 		/*
@@ -1240,6 +1245,11 @@ int limit_max_cpufreq(int max)
 	}
 
 	cur_policy = cpufreq_cpu_get(0);
+	if (NULL == cur_policy) {
+		spin_unlock(&the_cpuinfo.lock);
+		return -EINVAL;
+	}
+
 	/* stop_cpufreq() may be called before, we need to update frequency */
 	if (the_cpuinfo.highspeed.used ||
 		(the_cpuinfo.limit_maxfrq < the_cpuinfo.freq))
