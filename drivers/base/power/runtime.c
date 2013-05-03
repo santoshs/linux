@@ -1274,6 +1274,15 @@ void pm_runtime_enable(struct device *dev)
 	unsigned long flags;
 #ifdef CONFIG_PDC
 	struct power_domain_info *pdi = NULL;
+#endif /* CONFIG_PDC */
+
+	if (NULL == dev) {
+		printk(KERN_ERR "LINE %d, %s() : pointer is NULL.",
+			__LINE__, __func__);
+		return;
+	}
+
+#ifdef CONFIG_PDC
 	if (dev && dev_name(dev))
 		pdi = get_pdi(dev_name(dev));
 	if (NULL != pdi)
