@@ -738,11 +738,14 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 		pbat_data->soc = 0;
 		if(pbat_data->current_voltage >= BAT_POWER_OFF_VOLTAGE
 			|| (pbat_data->is_charging == TRUE)) {
+			pr_info("%s: calculated soc = %d, delimited soc = 10\n",
+						__func__, soc);
 			soc = 10;
 		}
 	}
 	else if(soc >= FULL_CAPACITY) {
 		soc = FULL_CAPACITY;
+		pr_info("%s: full capacity\n", __func__);
 		if(pbat_data->virtual_battery_full == 1) {
 			pbat_data->virtual_battery_full = 0;
 			pbat_data->soc = FULL_CAPACITY;
@@ -753,10 +756,15 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 	 and also don't allow soc goes down when battey is charged. */
 	if(pbat_data->is_charging != TRUE 
 		&& (soc > pbat_data->prev_soc && pbat_data->prev_soc )) {
+		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
+					__func__, pbat_data->is_charging,
+					soc, pbat_data->prev_soc);
 		soc = pbat_data->prev_soc;
-	}
-	else if(pbat_data->is_charging
-		&& (soc < pbat_data->prev_soc) && pbat_data->prev_soc) {
+	} else if (pbat_data->is_charging && (soc < pbat_data->prev_soc) &&
+			pbat_data->prev_soc) {
+		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
+					__func__, pbat_data->is_charging,
+					soc, pbat_data->prev_soc);
 		soc = pbat_data->prev_soc;
 	}
 	pbat_data->soc = soc;
