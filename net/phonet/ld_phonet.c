@@ -621,7 +621,7 @@ static void ld_phonet_ldisc_receive
 				LD_PHONET_SWITCH%c\n", *cp);
 				ld_atcmd_len = sprintf \
 						(ld_pn->ld_atcmd_buffer, \
-						"\r\n+ATSTART:OK\r\n"  \
+						"\r\n\r\n+ATSTART:OK\r\n"  \
 						"\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
@@ -639,7 +639,7 @@ static void ld_phonet_ldisc_receive
 					LD_PHONET_SWITCH%c\n", *cp);
 				ld_atcmd_len = sprintf \
 						 (ld_pn->ld_atcmd_buffer, \
-						"\r\n+MODECHAN:OK\r\n"  \
+						"\r\n\r\n+MODECHAN:OK\r\n"  \
 						  "\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
