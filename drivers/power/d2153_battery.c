@@ -1076,7 +1076,9 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 	int charging_index = 0;
 
 	// >>> 2013/02/26. To set current status.
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
 	pr_info("%s. is_charging = %d\n", __func__, pbat_data->is_charging);
+#endif
 	if (pbat_data->is_charging == D2153_BATTERY_STATUS_MAX) {
 		pr_warn("%s. Need to be set charging status (charging or discharging)\n",
 				__func__);
