@@ -1118,6 +1118,11 @@ static int __devinit ths_probe(struct platform_device *pdev)
 
 	/* Create a new queue for bottom-half processing */
 	ths->queue = create_singlethread_workqueue("ths_queue");
+	if (ths->queue == NULL) {
+		ret = -ENOMEM;
+		dev_err(&pdev->dev, "Error! Failed to Create Work Queue\n");
+		goto error_4;
+	}
 
 	/* Activate Thermal Sensor module */
 	ret = ths_start_module(pdev);
