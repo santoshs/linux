@@ -698,6 +698,10 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
 
+#ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_clear();
+#endif	/* CONFIG_GIC_NS_CMT */
+
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
 
@@ -741,6 +745,10 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 {
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
+
+#ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_clear();
+#endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
