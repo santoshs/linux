@@ -542,9 +542,9 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			wa_zq_flg = 1;
 			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
