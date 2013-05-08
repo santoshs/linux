@@ -60,6 +60,8 @@ struct clk *vclk4_clk;
 struct clk *main_clk;
 static int g_boot_flag;
 
+static unsigned int path_value[SNDRV_PCM_STREAM_LAST + 1];
+
 static DEFINE_SPINLOCK(fsi_d2153_lock); /* Guards the ignore suspend */
 
 static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
@@ -353,16 +355,25 @@ int fsi_d2153_sndp_soc_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	ucontrol->value.integer.value[0]
+		= path_value[SNDRV_PCM_STREAM_CAPTURE] |
+		  path_value[SNDRV_PCM_STREAM_PLAYBACK];
 	return 0;
 }
 
+#define CAPTURE_DEVICE_MASK	0xfff00000
 int fsi_d2153_sndp_soc_put(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
+	unsigned int val = ucontrol->value.integer.value[0];
 	struct snd_soc_codec *codec;
 	codec = (struct snd_soc_codec *)kcontrol->private_data;
 
+	if (CAPTURE_DEVICE_MASK & val)
+		path_value[SNDRV_PCM_STREAM_CAPTURE] = val;
+	else
+		path_value[SNDRV_PCM_STREAM_PLAYBACK] = val;
 	return sndp_soc_put(kcontrol, ucontrol);
 }
 
@@ -639,6 +650,11 @@ static int post_playback_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void fsi_hifi_d2153_shutdown(struct snd_pcm_substream *substream)
+{
+	path_value[substream->stream] = 0;
+}
+
 static int fsi_hifi_d2153_pcm_prepare(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -715,6 +731,7 @@ static int fsi_hifi_d2153_hw_params(struct snd_pcm_substream *substream,
 }
 
 static struct snd_soc_ops fsi_hifi_d2153_ops = {
+	.shutdown = fsi_hifi_d2153_shutdown,
 	.hw_params = fsi_hifi_d2153_hw_params,
 	.prepare = fsi_hifi_d2153_pcm_prepare,
 };
