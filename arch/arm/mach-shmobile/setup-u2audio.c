@@ -24,6 +24,12 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_codec.h>
 #endif
+#if defined(CONFIG_MACH_GARDALTE)
+#include <mach/board-gardalte.h>
+#endif
+#if defined(CONFIG_MACH_LOGANLTE)
+#include <mach/board-loganlte.h>
+#endif
 
 /* Proc root entries */
 struct proc_dir_entry *root_audio;
@@ -90,7 +96,7 @@ void u2audio_init(unsigned int u2_board_rev)
 	u2audio_gpio_init();
 
 #if defined(CONFIG_MACH_GARDALTE)
-	if (u2_board_rev < 2) {
+	if (u2_board_rev < RLTE_BOARD_REV_0_2) {
 		a2220_device = DEVICE_EXIST;
 		fm34_device = DEVICE_NONE;
 	} else {
@@ -100,7 +106,7 @@ void u2audio_init(unsigned int u2_board_rev)
 	tpa2026_device = DEVICE_NONE;
 	sub_mic = DEVICE_EXIST;
 #elif defined(CONFIG_MACH_LOGANLTE)
-	if (u2_board_rev < 1) {
+	if (u2_board_rev < RLTE_BOARD_REV_0_1) {
 		fm34_device = DEVICE_EXIST;
 		sub_mic = DEVICE_EXIST;
 	} else {

@@ -82,11 +82,6 @@ unsigned long sec_hal_mem_msg_area_read(void *dst, const void *src,
 
 #endif
 
-/* PM start */
-#undef printk
-#define printk(fmt, ...) 0
-/* PM end */
-
 /*!
  * Secure message element header type
  */
@@ -324,7 +319,6 @@ static sec_msg_status_t _sec_msg_elem_data_read(cb_memcpy f_ptr,
 
   switch (read_length)
     {
-#ifdef SECURE_ENVIRONMENT
     case 0:
       if (!data_length)
         {
@@ -333,6 +327,7 @@ static sec_msg_status_t _sec_msg_elem_data_read(cb_memcpy f_ptr,
       *(void **)data = dptr;
       *data_length = elem->size;
       break;
+#ifdef SECURE_ENVIRONMENT
     case 1:
       *(uint8_t *)data = *(uint8_t *)dptr;
       break;
@@ -347,9 +342,6 @@ static sec_msg_status_t _sec_msg_elem_data_read(cb_memcpy f_ptr,
       break;
 #endif /* SECURE_ENVIRONMENT */
     default:
-#if 0
-        printk("read data to ICRAM  \n");
-#endif
       (*f_ptr)(data, dptr, bytes);
       break;
    }
@@ -526,7 +518,7 @@ sec_msg_status_t _sec_msg_param_write(cb_memcpy f_ptr,
                                       const uint16_t data_length,
                                       const uint8_t param_id)
 {
-	return _sec_msg_elem_data_write(f_ptr, handle, data, data_length, param_id);
+  return _sec_msg_elem_data_write(f_ptr, handle, data, data_length, param_id);
 }
 
 sec_msg_status_t sec_msg_param_write8(sec_msg_handle_t *handle,

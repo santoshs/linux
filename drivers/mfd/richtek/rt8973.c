@@ -1344,5 +1344,5 @@ static void __exit rt8973_exit(void)
 MODULE_AUTHOR("Patrick Chang <weichung.chang@gmail.com>");
 MODULE_DESCRIPTION("Richtek micro USB switch device diver");
 MODULE_LICENSE("GPL");
-module_init(rt8973_init);
+late_initcall(rt8973_init);
 module_exit(rt8973_exit);

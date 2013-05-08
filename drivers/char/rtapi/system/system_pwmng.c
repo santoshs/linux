@@ -2,7 +2,7 @@
  * system_pwmng.c
  *  Power Management function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -42,7 +42,7 @@ void *system_pwmng_new
 	pwmng_handle = NULL;
 	memset(&iccom_init, 0, sizeof(iccom_init));
 
-	MSG_HIGH("[RTAPIK] IN  |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN  |[%s]\n", __func__);
 
 	pwmng_handle = kmalloc(sizeof(system_pwmng_handle), GFP_KERNEL);
 	if (NULL == pwmng_handle) {
@@ -65,7 +65,7 @@ void *system_pwmng_new
 		return NULL;
 	}
 
-	MSG_HIGH("[RTAPIK] OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] OUT |[%s]\n", __func__);
 	return (void *)pwmng_handle;
 
 }
@@ -79,7 +79,7 @@ int system_pwmng_powerarea_start_notify(system_pmg_param *pwmng_param)
 	ret_code = SMAP_LIB_PWMNG_NG;
 	memset(&iccom_send_cmd , 0 , sizeof(iccom_drv_send_cmd_param));
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	if (NULL == pwmng_param) {
 		MSG_ERROR(
@@ -126,7 +126,7 @@ int system_pwmng_powerarea_start_notify(system_pmg_param *pwmng_param)
 		return SMAP_LIB_PWMNG_NG;
 	}
 
-	MSG_HIGH("[RTAPIK] OUT|[%s]\n", __func__);
+	MSG_MED("[RTAPIK] OUT|[%s]\n", __func__);
 
 	return SMAP_LIB_PWMNG_OK;
 }
@@ -140,7 +140,7 @@ int system_pwmng_powerarea_end_notify(system_pmg_param *pwmng_param)
 	ret_code = SMAP_LIB_PWMNG_NG;
 	memset(&iccom_send_cmd , 0 , sizeof(iccom_drv_send_cmd_param));
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	if (NULL == pwmng_param) {
 		MSG_ERROR(
@@ -187,7 +187,7 @@ int system_pwmng_powerarea_end_notify(system_pmg_param *pwmng_param)
 		return SMAP_LIB_PWMNG_NG;
 	}
 
-	MSG_HIGH("[RTAPIK] OUT|[%s]\n", __func__);
+	MSG_MED("[RTAPIK] OUT|[%s]\n", __func__);
 
 	return SMAP_LIB_PWMNG_OK;
 }
@@ -197,7 +197,7 @@ void system_pwmng_delete(system_pmg_delete *pwmng_delete)
 {
 	iccom_drv_cleanup_param			iccom_cleanup;
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	memset(&iccom_cleanup, 0, sizeof(iccom_drv_cleanup_param));
 
@@ -221,7 +221,7 @@ void system_pwmng_delete(system_pmg_delete *pwmng_delete)
 		kfree(pwmng_delete->handle);
 	}
 
-	MSG_HIGH("[RTAPIK] OUT|[%s]\n", __func__);
+	MSG_MED("[RTAPIK] OUT|[%s]\n", __func__);
 
 	return;
 }

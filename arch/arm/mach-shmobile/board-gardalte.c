@@ -124,34 +124,6 @@
 
 #include <mach/sbsc.h>
 
-static int unused_gpios_garda_rev1[] = {
-                GPIO_PORT0, GPIO_PORT4, GPIO_PORT5, GPIO_PORT8,
-                GPIO_PORT9, GPIO_PORT10, GPIO_PORT14, GPIO_PORT15,
-                GPIO_PORT17, GPIO_PORT22, GPIO_PORT23, GPIO_PORT24,
-                GPIO_PORT25, GPIO_PORT30, GPIO_PORT34, GPIO_PORT35,
-                GPIO_PORT39, GPIO_PORT40, GPIO_PORT41, GPIO_PORT42,
-                GPIO_PORT43, GPIO_PORT46, GPIO_PORT64, GPIO_PORT65,
-                GPIO_PORT66, GPIO_PORT70, GPIO_PORT71, GPIO_PORT80,
-                GPIO_PORT81, GPIO_PORT82, GPIO_PORT83, GPIO_PORT86,
-                GPIO_PORT87, GPIO_PORT88, GPIO_PORT89, GPIO_PORT90,
-                GPIO_PORT96, GPIO_PORT102, GPIO_PORT103, GPIO_PORT104,
-                GPIO_PORT105, GPIO_PORT107, GPIO_PORT109, GPIO_PORT131,
-                GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
-                GPIO_PORT199, GPIO_PORT200, GPIO_PORT201, GPIO_PORT202,
-                GPIO_PORT219, GPIO_PORT224, GPIO_PORT225, GPIO_PORT227,
-                GPIO_PORT228, GPIO_PORT229, GPIO_PORT230, GPIO_PORT231,
-                GPIO_PORT232, GPIO_PORT233, GPIO_PORT234, GPIO_PORT235,
-                GPIO_PORT236, GPIO_PORT237, GPIO_PORT238, GPIO_PORT239,
-                GPIO_PORT240, GPIO_PORT241, GPIO_PORT242, GPIO_PORT243,
-                GPIO_PORT244, GPIO_PORT245, GPIO_PORT246, GPIO_PORT247,
-                GPIO_PORT248, GPIO_PORT249, GPIO_PORT250, GPIO_PORT251,
-                GPIO_PORT252, GPIO_PORT253, GPIO_PORT254, GPIO_PORT255,
-                GPIO_PORT256, GPIO_PORT257, GPIO_PORT258, GPIO_PORT259,
-                GPIO_PORT271, GPIO_PORT275, GPIO_PORT276, GPIO_PORT277,
-                GPIO_PORT294, GPIO_PORT295, GPIO_PORT296, GPIO_PORT297,
-                GPIO_PORT298, GPIO_PORT299, GPIO_PORT311, GPIO_PORT312,
-                GPIO_PORT325,
-};
 static int unused_gpios_garda_rev2[] = {
                 GPIO_PORT0, GPIO_PORT4, GPIO_PORT5, GPIO_PORT8,
                 GPIO_PORT9, GPIO_PORT10, GPIO_PORT14, GPIO_PORT15,
@@ -186,6 +158,8 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
+	unsigned int u2_board_rev = 0;
+	u2_board_rev = u2_get_board_rev();
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
@@ -375,7 +349,7 @@ static void __init board_init(void)
 
 	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-
+	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 	u8 i = 0;
 
@@ -407,7 +381,9 @@ static void __init board_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = read_board_rev();
+	if (read_board_rev() < 0)
+		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
+	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
@@ -442,10 +418,7 @@ static void __init board_init(void)
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
 #if 0
-	if (u2_get_board_rev() == 1) {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev1); inx++)
-			unused_gpio_port_init(unused_gpios_garda_rev1[inx]);
-	} else if (u2_get_board_rev() == 2) {
+	if (u2_get_board_rev() == RLTE_BOARD_REV_0_2) {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_garda_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_garda_rev2[inx]);
 	}
@@ -641,13 +614,8 @@ static void __init board_init(void)
 //	platform_device_register(&key_backlight_device);
 #endif
 
-	if (u2_board_rev > 1) {
-		/* fm34 */
-		i2c_register_board_info(8, &i2cm_devices_d2153[1], 1);
-	} else {
-		/* audience */
-		i2c_register_board_info(8, &i2cm_devices_d2153[0], 1);
-	}
+	/* fm34 */
+	i2c_register_board_info(8, &i2cm_devices_d2153[1], 1);
 
 #if defined(CONFIG_GPS_BCM4752) || defined(CONFIG_RENESAS_GPS)
 	/* GPS Init */

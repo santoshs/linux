@@ -181,6 +181,8 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
+	unsigned int u2_board_rev = 0;
+	u2_board_rev = u2_get_board_rev();
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
@@ -384,7 +386,7 @@ static void __init board_init(void)
 
 	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-
+	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
@@ -415,7 +417,9 @@ static void __init board_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = read_board_rev();
+	if (read_board_rev() < 0)
+		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
+	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);

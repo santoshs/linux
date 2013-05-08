@@ -1831,7 +1831,6 @@ static int spa_init_progress(struct spa_power_desc *spa_power_iter)
 
 static void spa_delayed_init_work(struct work_struct *work)
 {
-
 	unsigned int init_progress;
 	struct spa_power_desc *spa_power_iter = container_of(work,
 						struct spa_power_desc, delayed_init_work.work);
@@ -1850,28 +1849,9 @@ static void spa_delayed_init_work(struct work_struct *work)
 	init_progress = spa_init_progress(spa_power_iter);
 
 	if (SPA_INIT_PROGRESS_START == init_progress) {
-		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n",__func__);
+		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_START\n", __func__);
 		/*MUIC init time is after spa_power init(sub initcall)*/
-#if 0
-		spa_power_iter->charger_info.charger_type = spa_get_charger_type(spa_power_iter);
 
-		if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
-		{
-			spa_event_handler(SPA_EVT_CHARGER, (void *)(spa_power_iter->charger_info.charger_type));
-#ifdef CONFIG_BATTERY_D2153
-			d2153_battery_set_status(D2153_STATUS_CHARGING, 1);
-#endif
-		}
-#ifdef CONFIG_BATTERY_D2153
-		else
-			d2153_battery_set_status(D2153_STATUS_CHARGING, 0);
-#endif
-		// dummy, temporary before actual charger detection in case of power off charging
-		if(spa_power_iter->lp_charging == 1 && spa_power_iter->charger_info.charger_type == POWER_SUPPLY_TYPE_BATTERY)
-		{
-			spa_power_iter->charger_info.charger_type = POWER_SUPPLY_TYPE_USB;
-		}
-#endif
 #ifdef CONFIG_BATTERY_D2153
 		if(spa_power_iter->lp_charging)
 			d2153_battery_set_status(D2153_STATUS_CHARGING, 1);

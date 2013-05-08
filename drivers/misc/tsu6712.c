@@ -1914,7 +1914,7 @@ static void __exit tsu6712_exit(void)
 	i2c_del_driver(&tsu6712_i2c_driver);
 }
 
-module_init(tsu6712_init);
+late_initcall(tsu6712_init);
 module_exit(tsu6712_exit);
 
 MODULE_AUTHOR("SAMSUNG");

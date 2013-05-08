@@ -2,7 +2,7 @@
  * system_standby.c
  *  RT domain standby function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -41,7 +41,7 @@ static void system_sub_rt_standby_delete(system_standby_delete *standby_delete)
 {
 	iccom_drv_cleanup_param			iccom_cleanup;
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	memset(&iccom_cleanup, 0, sizeof(iccom_cleanup));
 
@@ -50,7 +50,7 @@ static void system_sub_rt_standby_delete(system_standby_delete *standby_delete)
 	kfree(standby_delete->handle);
 	p_standby_handle = NULL;
 
-	MSG_HIGH("[RTAPIK]OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]OUT |[%s]\n", __func__);
 
 	return;
 }
@@ -64,7 +64,7 @@ static int system_sub_rt_standby_control(system_standby_control *standby_control
 	ret_code = SMAP_LIB_STANDBY_NG;
 	memset(&iccom_send_cmd , 0 , sizeof(iccom_send_cmd));
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	/* Standby Transition Process */
 	if (RT_STATUS_STANDBY == standby_control->status) {
@@ -100,7 +100,7 @@ static int system_sub_rt_standby_control(system_standby_control *standby_control
 		break;
 	}
 
-	MSG_HIGH("[RTAPIK]OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]OUT |[%s]\n", __func__);
 	return ret_code;
 }
 
@@ -114,7 +114,7 @@ static void *system_sub_rt_standby_new(void)
 	standby_handle	= NULL;
 	memset(&iccom_init, 0, sizeof(iccom_init));
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	standby_handle = kmalloc(sizeof(*standby_handle), GFP_KERNEL);
 	if (NULL == standby_handle) {
@@ -132,7 +132,7 @@ static void *system_sub_rt_standby_new(void)
 		return NULL;
 	}
 
-	MSG_HIGH("[RTAPIK]OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]OUT |[%s]\n", __func__);
 	return  (void *)standby_handle;
 }
 
@@ -148,7 +148,7 @@ static int system_rt_standby_standby(void)
 	memset(&t_standby_cotrol, 0, sizeof(t_standby_cotrol));
 	memset(&t_standby_delete, 0, sizeof(t_standby_delete));
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	/* Check Standby Counter */
 	ret = iccom_drv_check_standby_enable();
@@ -176,7 +176,7 @@ static int system_rt_standby_standby(void)
 		return SMAP_LIB_STANDBY_NG;
 	}
 
-	MSG_HIGH("[RTAPIK]OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]OUT |[%s]\n", __func__);
 
 	return SMAP_LIB_STANDBY_OK;
 }
@@ -187,7 +187,7 @@ static int system_rt_standby_active(void)
 	system_standby_control	t_standby_cotrol;
 	system_standby_delete	t_standby_delete;
 
-	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK] IN |[%s]\n", __func__);
 
 	ret_code = SMAP_LIB_STANDBY_NG;
 	memset(&t_standby_cotrol, 0, sizeof(t_standby_cotrol));
@@ -212,7 +212,7 @@ static int system_rt_standby_active(void)
 	t_standby_delete.handle = p_standby_handle;
 	system_sub_rt_standby_delete(&t_standby_delete);
 
-	MSG_HIGH("[RTAPIK]OUT |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]OUT |[%s]\n", __func__);
 
 	return ret_code;
 }

@@ -220,9 +220,9 @@ struct d2153 {
 
 	struct d2153_platform_data *pdata;
 	struct mutex d2153_io_mutex;
+	struct mutex d2153_audio_ldo_mutex;
 
 	struct delayed_work     vdd_fault_work;
-	struct mutex d2153_audio_ldo_mutex;
 };
 
 /*
