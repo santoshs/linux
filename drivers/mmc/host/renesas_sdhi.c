@@ -1501,7 +1501,7 @@ int renesas_sdhi_suspend(struct device *dev)
 				host->pdata->gpio_setting_info, 1);
 	}
 
-	if (device_may_wakeup(dev))
+	if (host->pdata  && device_may_wakeup(dev))
 		enable_irq_wake(host->pdata->detect_irq);
 
 	return ret;
@@ -1523,7 +1523,8 @@ int renesas_sdhi_resume(struct device *dev)
 	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
 		clk_enable(host->clk);
-		sdhi_reset(host);
+		if (host->pdata != NULL)
+			sdhi_reset(host);
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}

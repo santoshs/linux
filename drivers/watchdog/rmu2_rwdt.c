@@ -178,7 +178,6 @@ int rmu2_rwdt_cntclear(void)
 	} else {
 		return -EAGAIN; /* try again */
 	}
-	printk(KERN_ALERT "START < %s >\n", __func__);
 }
 
 /*

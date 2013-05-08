@@ -57,7 +57,7 @@ Description :  File created
                                                          __raw_writel(SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_REQ, SMC_WPMCIF_EPMU_ACC_CR);           \
                                                          (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
                                                          while (SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {  \
-                                                             if(timeout > 0 && ++timer >= timeout ) {                 \
+                                                             if(timeout != 0 && ++timer >= timeout ) {                 \
                                                                  SMC_TRACE_PRINTF_ERROR("SMC_HOST_ACCESS_WAKEUP: modem not woken up in %d ms", timeout); \
                                                                  break;                                               \
                                                              }                                                        \
